@@ -21,6 +21,20 @@ class BlockSolverExeinfo(FortranType):
     ]
     del c_int, c_double
 
+class BlockAnchor(object):
+    def prebind(self):
+        pass
+    def postbind(self):
+        pass
+    def preinit(self):
+        pass
+    def postinit(self):
+        pass
+    def prestep(self):
+        pass
+    def poststep(self):
+        pass
+
 class BlockSolver(BaseSolver):
     """
     Generic class for multi-dimensional (implemented with Block)
@@ -161,6 +175,16 @@ class BlockSolver(BaseSolver):
         self.dsolnptr = None
         self._calc_soln_args = None
         self._calc_dsoln_args = None
+
+    def _runanchors(self, method):
+        """
+        Invoke the specified method for each anchor.
+        
+        @param method: name of the method to run.
+        @type method: str
+        """
+        for anchor in self.runanchors:
+            getattr(anchor, method)()
 
     @property
     def args_struct(self):
