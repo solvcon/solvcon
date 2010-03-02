@@ -22,17 +22,21 @@ class BlockSolverExeinfo(FortranType):
     del c_int, c_double
 
 class BlockAnchor(object):
-    def prebind(self):
-        pass
-    def postbind(self):
-        pass
     def preinit(self):
         pass
     def postinit(self):
         pass
-    def prestep(self):
+    def prefull(self):
         pass
-    def poststep(self):
+    def postfull(self):
+        pass
+    def prehalf(self):
+        pass
+    def posthalf(self):
+        pass
+    def prefinal(self):
+        pass
+    def postfinal(self):
         pass
 
 class BlockSolver(BaseSolver):
@@ -131,6 +135,8 @@ class BlockSolver(BaseSolver):
         neq = self.exnkw['neq']
         super(BlockSolver, self).__init__(*args, **kw)
         assert self.fpdtype == blk.fpdtype
+        # anchor list.
+        self.runanchors = list()
         # list of tuples for interfaces.
         self.ibclist = list()
         # take geometric information from block.
@@ -183,7 +189,10 @@ class BlockSolver(BaseSolver):
         @param method: name of the method to run.
         @type method: str
         """
-        for anchor in self.runanchors:
+        runanchors = self.runanchors
+        if 'final' in method:
+            runanchors = reversed(runanchors)
+        for anchor in runanchors:
             getattr(anchor, method)()
 
     @property
@@ -286,9 +295,20 @@ class BlockSolver(BaseSolver):
 
         @note: BC must be initialized AFTER solver itself.
         """
+        self._runanchors('preinit')
         for bc in self.bclist:
             bc.init(**kw)
         super(BlockSolver, self).init(**kw)
+        self._runanchors('postinit')
+
+    def final(self):
+        """
+        Check and initialize BCs.
+
+        @note: BC must be initialized AFTER solver itself.
+        """
+        self._runanchors('prefinal')
+        self._runanchors('postfinal')
 
     ##################################################
     # CESE solving algorithm.
@@ -343,20 +363,27 @@ class BlockSolver(BaseSolver):
 
     def march(self, time, time_increment, steps_run, worker=None):
         maxCFL = -2.0
-        for iistep in range(2*steps_run):
-            self.update()
-            # solutions.
-            self.marchsol(time, time_increment)
-            if worker: self.exchangeibc('soln', worker=worker)
-            for bc in self.bclist: bc.sol()
-            cCFL = self.estimatecfl()
-            maxCFL = cCFL if cCFL > maxCFL else maxCFL
-            # solution gradients.
-            self.marchdsol(time, time_increment)
-            if worker: self.exchangeibc('dsoln', worker=worker)
-            for bc in self.bclist: bc.dsol()
-            # increment time.
-            time += time_increment/2
+        istep = 0
+        while istep < steps_run:
+            self._runanchors('prefull')
+            for ihalf in range(2):
+                self._runanchors('prehalf')
+                self.update()
+                # solutions.
+                self.marchsol(time, time_increment)
+                if worker: self.exchangeibc('soln', worker=worker)
+                for bc in self.bclist: bc.sol()
+                cCFL = self.estimatecfl()
+                maxCFL = cCFL if cCFL > maxCFL else maxCFL
+                # solution gradients.
+                self.marchdsol(time, time_increment)
+                if worker: self.exchangeibc('dsoln', worker=worker)
+                for bc in self.bclist: bc.dsol()
+                # increment time.
+                time += time_increment/2
+                self._runanchors('posthalf')
+            istep += 1
+            self._runanchors('postfull')
         if worker:
             worker.conn.send(maxCFL)
         return maxCFL
