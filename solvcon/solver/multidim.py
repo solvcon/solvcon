@@ -22,6 +22,10 @@ class BlockSolverExeinfo(FortranType):
     del c_int, c_double
 
 class BlockAnchor(object):
+    """
+    Anchor that called by solver objects at various stages.
+    """
+
     def preinit(self):
         pass
     def postinit(self):
