@@ -1,0 +1,444 @@
+# -*- coding: UTF-8 -*-
+# Copyright (C) 2008-2009 by Yung-Yu Chen.  See LICENSE.txt for terms of usage.
+
+"""
+Multi-dimensional solvers using block and parallized via domain decomposition.
+"""
+
+from ..dependency import FortranType
+from .core import BaseSolver
+
+class BlockSolverExeinfo(FortranType):
+    """
+    Execution information for BlockSolver.
+
+    """
+    _fortran_name_ = 'execution'
+    from ctypes import c_int, c_double
+    _fields_ = [
+        ('neq', c_int),
+        ('time', c_double), ('time_increment', c_double),
+    ]
+    del c_int, c_double
+
+class BlockSolver(BaseSolver):
+    """
+    Generic class for multi-dimensional (implemented with Block)
+    sequential/parallel solvers.
+
+    Before the invocation of init() method, bind() method must be called.
+
+    @note: When subclass BlockSolver, in the init() method in the subclass must
+    be initilized first, and the super().init() can then be called.  Otherwise
+    the BCs can't set correct information to the solver.
+
+    @cvar _clib_solve: the external dll (accessible through ctypes) which do
+        the cell loop.  Subclass should override it.
+    @ctype _clib_solve: ctypes.CDLL
+    @cvar _exeinfotype_: the type of Exeinfo (solvcon.dependency.FortranType) 
+        for the solver.
+    @ctype _exeinfotype_: type
+    @cvar _interface_init_: list of attributes (arrays) to be exchanged on
+        interface when initialized.
+    @ctype _interface_init_: list
+
+    @ivar mesg: message printer attached to a certain solver object; designed
+        and mainly used for parallel solver.
+    @itype mesg: solvcon.helper.Printer
+
+    @ivar svrn: serial number of block.
+    @itype svrn: int
+    @ivar msh: shape information of the Block.
+    @itype msh: solvecon.block.BlockShape
+    @ivar exn: execution information for the solver.  This should be redefined
+        in child classes.
+    @itype exn: BlockSolverExeinfo
+
+    @ivar cecnd: coordinates of center of CCE/BCEs.
+    @itype cecnd: numpy.ndarray
+    @ivar cevol: volumes of CCE/BCEs.
+    @itype cevol: numpy.ndarray
+
+    @ivar sol: solution variables (for last time-step).
+    @itype sol: numpy.ndarray
+    @ivar soln: solution variables (to be updated for the marching time-step).
+    @itype soln: numpy.ndarray
+    @ivar dsol: gradient of solution variables (for last time-step).
+    @itype dsol: numpy.ndarray
+    @ivar dsoln: gradient of solution variables (to be updated for the marching
+        time-step).
+    @itype dsoln: numpy.ndarray
+
+    @ivar _marchsol: solution marcher.
+    @itype _marchsol: callable
+    @ivar _marchsol_args: a list of ctypes entities for marchsol() method.
+    @itype _marchsol_args: list
+    @ivar _marchdsol: gradient marcher.
+    @itype _marchdsol: callable
+    @ivar _marchdsol_args: a list of ctypes entities for dmarchsol() method.
+    @itype _marchdsol_args: list
+    """
+
+    _pointers_ = ['exn', 'msh', 'solptr', 'solnptr', 'dsolptr', 'dsolnptr',
+        '_calc_soln_args', '_calc_dsoln_args']
+    _clib_solve = None  # subclass should override.
+    _exeinfotype_ = BlockSolverExeinfo
+    _interface_init_ = ['cecnd', 'cevol']
+
+    from ..block import Block
+    FCMND = Block.FCMND
+    CLMND = Block.CLMND
+    CLMFC = Block.CLMFC
+    del Block
+
+    DEBUG_FILENAME_TEMPLATE = 'ssolver%d.log'
+    DEBUG_FILENAME_DEFAULT = 'ssolver.log'
+
+    def pop_exnkw(self, blk, kw):
+        exnkw = dict()
+        exnkw['neq'] = kw.pop('neq')
+        # just placeholder for marchers.
+        exnkw['time'] = 0.0
+        exnkw['time_increment'] = 0.0
+        return exnkw
+
+    def __init__(self, blk, *args, **kw):
+        """
+        @keyword neq: number of equations (variables).
+        @type neq: int
+        @keyword nval: number of attached static values.
+        @type nval: int
+        @keyword npam: number of attached parameters.
+        @type npam: int
+        """
+        from numpy import empty
+        self.enable_mesg = kw.pop('enable_mesg', False)
+        self.exnkw = self.pop_exnkw(blk, kw)
+        neq = self.exnkw['neq']
+        super(BlockSolver, self).__init__(*args, **kw)
+        assert self.fpdtype == blk.fpdtype
+        # list of tuples for interfaces.
+        self.ibclist = list()
+        # take geometric information from block.
+        self.svrn = blk.blkn
+        self.ndim = blk.ndim
+        self.nnode = blk.nnode
+        self.nface = blk.nface
+        self.ncell = blk.ncell
+        self.nbound = blk.nbound
+        self.ngstnode = blk.ngstnode
+        self.ngstface = blk.ngstface
+        self.ngstcell = blk.ngstcell
+        self.bclist = blk.bclist
+        # take data from block.
+        self.clvol = blk.shclvol
+        self.clcnd = blk.shclcncrd
+        # data structure for C/FORTRAN.
+        self.msh = None
+        self.exn = None
+        # attach self to each BC and cancel its relation to blk.
+        for bc in self.bclist:
+            bc.blk = None
+            bc.solver = self
+        # create arrays.
+        ndim = self.ndim
+        ncell = self.ncell
+        ngstcell = self.ngstcell
+        ## metrics.
+        self.cecnd = empty(
+            (ngstcell+ncell, blk.CLMFC+1, ndim), dtype=self.fpdtype)
+        self.cevol = empty((ngstcell+ncell, blk.CLMFC+1), dtype=self.fpdtype)
+        ## solutions.
+        self.sol = empty((ngstcell+ncell, neq), dtype=self.fpdtype)
+        self.soln = empty((ngstcell+ncell, neq), dtype=self.fpdtype)
+        self.dsol = empty((ngstcell+ncell, neq, ndim), dtype=self.fpdtype)
+        self.dsoln = empty((ngstcell+ncell, neq, ndim), dtype=self.fpdtype)
+        # placeholders.
+        self.mesg = None
+        self.solptr = None
+        self.solnptr = None
+        self.dsolptr = None
+        self.dsolnptr = None
+        self._calc_soln_args = None
+        self._calc_dsoln_args = None
+
+    @property
+    def args_struct(self):
+        from ctypes import byref
+        assert self.msh != None and self.exn != None
+        return [byref(self.msh), byref(self.exn)]
+
+    def bind(self):
+        """
+        Bind all the boundary condition objects.
+
+        @note: BC must be bound AFTER solver "pointers".  Overridders to the
+            method should firstly bind all pointers, secondly super binder, and 
+            then methods/subroutines.
+        """
+        import os
+        from ..helper import Printer
+        from ..block import BlockShape
+        # create debug printer.
+        if self.enable_mesg:
+            if self.svrn != None:
+                dfn = self.DEBUG_FILENAME_TEMPLATE % self.svrn
+                dprefix = 'SOLVER%d: '%self.svrn
+            else:
+                dfn = self.DEBUG_FILENAME_DEFAULT
+                dprefix = ''
+        else:
+            dfn = os.devnull
+            dprefix = ''
+        self.mesg = Printer(dfn, prefix=dprefix, override=True)
+        # structures.
+        self.msh = BlockShape(
+            ndim=self.ndim,
+            fcmnd=self.FCMND, clmnd=self.CLMND, clmfc=self.CLMFC,
+            nnode=self.nnode, nface=self.nface, ncell=self.ncell,
+            nbound=self.nbound,
+            ngstnode=self.ngstnode, ngstface=self.ngstface,
+            ngstcell=self.ngstcell,
+        )
+        self.exn = self._exeinfotype_(**self.exnkw)
+        # pointers.
+        fpptr = self.fpptr
+        self.solptr = self.sol.ctypes.data_as(fpptr)
+        self.solnptr = self.soln.ctypes.data_as(fpptr)
+        self.dsolptr = self.dsol.ctypes.data_as(fpptr)
+        self.dsolnptr = self.dsoln.ctypes.data_as(fpptr)
+        self._calc_soln_args = self.args_struct + [
+            self.clvol.ctypes.data_as(fpptr),
+            self.solptr,
+            self.solnptr,
+        ]
+        self._calc_dsoln_args = self.args_struct + [
+            self.clcnd.ctypes.data_as(fpptr),
+            self.dsolptr,
+            self.dsolnptr,
+        ]
+        # boundary conditions.
+        for bc in self.bclist:
+            bc.bind()
+        super(BlockSolver, self).bind()
+
+    def unbind(self):
+        """
+        Unbind all the boundary condition objects.
+        """
+        super(BlockSolver, self).unbind()
+        for bc in self.bclist:
+            bc.unbind()
+
+    @property
+    def is_bound(self):
+        """
+        Check boundness for solver as well as BC objects.
+        """
+        if not super(BlockSolver, self).is_bound:
+            return False
+        else:
+            for bc in self.bclist:
+                if not bc.is_bound:
+                    return False
+            return True
+
+    @property
+    def is_unbound(self):
+        """
+        Check unboundness for solver as well as BC objects.
+        """
+        if not super(BlockSolver, self).is_unbound:
+            return False
+        else:
+            for bc in self.bclist:
+                if not bc.is_unbound:
+                    return False
+                return True
+
+    def init(self, **kw):
+        """
+        Check and initialize BCs.
+
+        @note: BC must be initialized AFTER solver itself.
+        """
+        for bc in self.bclist:
+            bc.init(**kw)
+        super(BlockSolver, self).init(**kw)
+
+    ##################################################
+    # CESE solving algorithm.
+    ##################################################
+    def calc_soln(self):
+        self._clib_solvcon.calc_soln_(*self._calc_soln_args)
+    def calc_dsoln(self):
+        self._clib_solvcon.calc_dsoln_(*self._calc_dsoln_args)
+
+    def boundcond(self):
+        """
+        Update the boundary conditions.
+
+        @return: nothing.
+        """
+        for bc in self.bclist: bc.sol()
+        for bc in self.bclist: bc.dsol() 
+    def update(self):
+        """
+        Copy from old solution arrays to new solution arrays.
+
+        @return: nothing.
+        """
+        self.sol[:,:] = self.soln[:,:]
+        self.dsol[:,:,:] = self.dsoln[:,:,:]
+
+    def marchsol(self, time, time_increment):
+        """
+        March the solution U vector in the solver and BCs.
+
+        @return: nothing.
+        """
+        self.exn.time = time
+        self.exn.time_increment = time_increment
+        self.calc_soln()
+    def estimatecfl(self):
+        return -2.0
+    def marchdsol(self, time, time_increment):
+        """
+        March the gradient of solution dU vector in the solver and BCs.
+
+        @return: nothing.
+        """
+        self.exn.time = time
+        self.exn.time_increment = time_increment
+        self.calc_dsoln()
+
+    def boundsol(self):
+        for bc in self.bclist: bc.sol()
+    def bounddsol(self):
+        for bc in self.bclist: bc.dsol()
+
+    def march(self, time, time_increment, steps_run, worker=None):
+        maxCFL = -2.0
+        for iistep in range(2*steps_run):
+            self.update()
+            # solutions.
+            self.marchsol(time, time_increment)
+            if worker: self.exchangeibc('soln', worker=worker)
+            for bc in self.bclist: bc.sol()
+            cCFL = self.estimatecfl()
+            maxCFL = cCFL if cCFL > maxCFL else maxCFL
+            # solution gradients.
+            self.marchdsol(time, time_increment)
+            if worker: self.exchangeibc('dsoln', worker=worker)
+            for bc in self.bclist: bc.dsol()
+            # increment time.
+            time += time_increment/2
+        if worker:
+            worker.conn.send(maxCFL)
+        return maxCFL
+
+    ##################################################
+    # below are for parallelization.
+    ##################################################
+    def pull(self, arrname, worker=None):
+        """
+        Pull data array to dealer (rpc) through worker object.
+
+        @param arrname: the array to pull to master.
+        @type arrname: str
+        @keyword worker: the worker object for communication.
+        @type worker: solvcon.rpc.Worker
+        @return: nothing.
+        """
+        conn = worker.conn
+        arr = getattr(self, arrname)
+        conn.send(arr)
+
+    def push(self, marr, arrname, start=0):
+        """
+        Push data array received from dealer (rpc) into self.
+
+        @param marr: the array passed in.
+        @type marr: numpy.ndarray
+        @param arrname: the array to pull to master.
+        @type arrname: str
+        @return: nothing.
+        """
+        arr = getattr(self, arrname)
+        arr[start:] = marr[start:]
+
+    def init_exchange(self, ifacelist):
+        from ..boundcond import interface
+        # grab peer index.
+        ibclist = list()
+        for pair in ifacelist:
+            assert len(pair) == 2
+            assert self.svrn in pair
+            ibclist.append(sum(pair)-self.svrn)
+        # replace with bc plus peer indices.
+        for bc in self.bclist:
+            if not isinstance(bc, interface):
+                continue
+            it = ibclist.index(bc.rblkn)
+            ibclist[it] = (bc, ifacelist[it][0], ifacelist[it][1])
+        self.ibclist = ibclist
+
+    def exchangeibc(self, arrname, worker=None):
+        ibclist = self.ibclist
+        for bc, sendn, recvn in ibclist:
+            if self.svrn == sendn:
+                self.pushibc(arrname, bc, recvn, worker=worker)
+            elif self.svrn == recvn:
+                self.pullibc(arrname, bc, sendn, worker=worker)
+            else:
+                raise ValueError, 'bc.rblkn = %d != %d or %d' % (
+                    bc.rblkn, sendn, recvn)
+
+    def pushibc(self, arrname, bc, recvn, worker=None):
+        """
+        Push data toward selected interface which connect to blocks with larger
+        serial number than myself.
+
+        @param arrname: name of the array in the object to exchange.
+        @type arrname: str
+        @param bc: the interface BC to push.
+        @type bc: solvcon.boundcond.interface
+        @param recvn: serial number of the peer to exchange data with.
+        @type recvn: int
+        @keyword worker: the wrapping worker object for parallel processing.
+        @type worker: solvcon.rpc.Worker
+        """
+        ngstcell = self.ngstcell
+        conn = worker.pconns[bc.rblkn]
+        arr = getattr(self, arrname)
+        # ask the receiver for data.
+        rarr = conn.recv()  # comm.
+        slct = bc.rclp[:,0] + ngstcell
+        arr[slct] = rarr[:]
+        # provide the receiver with data.
+        slct = bc.rclp[:,2] + ngstcell
+        conn.send(arr[slct])    # comm.
+
+    def pullibc(self, arrname, bc, sendn, worker=None):
+        """
+        Pull data from the interface determined by the serial of peer.
+
+        @param arrname: name of the array in the object to exchange.
+        @type arrname: str
+        @param bc: the interface BC to pull.
+        @type bc: solvcon.boundcond.interface
+        @param sendn: serial number of the peer to exchange data with.
+        @type sendn: int
+        @keyword worker: the wrapping worker object for parallel processing.
+        @type worker: solvcon.rpc.Worker
+        """
+        ngstcell = self.ngstcell
+        conn = worker.pconns[bc.rblkn]
+        arr = getattr(self, arrname)
+        # provide sender the data.
+        slct = bc.rclp[:,2] + ngstcell
+        conn.send(arr[slct])    # comm.
+        # ask data from sender.
+        rarr = conn.recv()  # comm.
+        slct = bc.rclp[:,0] + ngstcell
+        arr[slct] = rarr[:]

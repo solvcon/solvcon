@@ -1,0 +1,19 @@
+syntax: glob
+setup.cfg
+build
+.sconsign.dblite
+.coverage
+doc/api/
+tmp/
+dep/
+dist/
+MANIFEST
+*.pyc
+*.o
+*.so
+*.os
+*.?os
+*.pyd
+*.dll
+*.def
+*.a

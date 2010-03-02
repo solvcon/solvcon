@@ -1,0 +1,593 @@
+# -*- coding: UTF-8 -*-
+# Copyright (C) 2008-2009 by Yung-Yu Chen.  See LICENSE.txt for terms of usage.
+
+"""
+Gambit Neutral file.
+"""
+
+class ElementGroup(object):
+    """
+    One single element group information in Gambit Neutral file.
+
+    @ivar ngp: element group index (1-based).
+    @type ngp: int
+    @ivar nelgp: number elements in this group.
+    @type nelgp: int
+    @ivar mtyp: material type (0: undefined, 1: conjugate, 2: fluid, 3: porous,
+        4: solid, 5: deformable).
+    @type mtyp: int
+    @ivar nflags: number of solver dependent flags.
+    @type nflags: int
+    @ivar solver: array of solver dependent flags of shape of (nflags).
+    @type solver: numpy.ndarray
+    @ivar elems: elements array of shape of (nelgp).
+    @type elems: numpy.ndarray
+    """
+    def __init__(self, data):
+        from numpy import empty
+        self.ngp = None # retained as 1-based.
+        self.nelgp = None
+        self.mtyp = None
+        self.nflags = None
+        self.elmmat = ''
+        self.solver = empty(0)
+        self.elems = empty(0)
+        # run parser.
+        self._parse(data)
+
+    def __str__(self):
+        return '[Group #%d(%s): %d elements]' % (
+            self.ngp, self.elmmat, self.nelgp)
+
+    def _parse(self, data):
+        """
+        Parse given string data for element group.  Set all instance variables.
+
+        @param data: string data for element group.
+        @type data: string
+        @return: nothing
+        """
+        from numpy import fromstring
+        # parse header.
+        control, enttype, solver, data = data.split('\n', 3)
+        # parse control.
+        self.ngp, self.nelgp, self.mtyp, self.nflags = [
+                int(val) for val in control.split()[1::2]]
+        # get name.
+        self.elmmat = enttype.strip()
+        # get solver flags.
+        self.solver = fromstring(solver, dtype='int32', sep=' ')
+        # parse into array and renumber.
+        self.elems = fromstring(data, dtype='int32', sep=' ')-1
+
+class BoundaryCondition(object):
+    """
+    Hold boundary condition values.
+
+    @cvar CLFCS_RMAP: map clfcs definition back from block object to neutral 
+        object.
+    @type CLFCS_RMAP: dict
+
+    @ivar name: name of boundary condition.
+    @type name: str
+    @ivar itype: type of data (0: nodal, 1: elemental).
+    @type itype: int
+    @ivar nentry: number of entry (nodes or elements/cells).
+    @type nentry: int
+    @ivar nvalues: number of values for each data record.
+    @type nvalues: int
+    @ivar ibcode: 1D array of boundary condition code.
+    @type ibcode: numpy.ndarray
+    @ivar values: array of values attached to each record.
+    @type values: numpy.ndarray
+    """
+    def __init__(self, data):
+        from numpy import empty
+        self.name = ''
+        self.itype = None
+        self.nentry = None
+        self.nvalues = None
+        self.ibcode = empty(0)
+        self.elems = empty(0)
+        self.values = empty(0)
+        # run parser.
+        self._parse(data)
+
+    def __str__(self):
+        return '[BC "%s": %d entries with %d values]' % (
+            self.name, self.nentry, self.nvalues)
+
+    def _parse(self, data):
+        """
+        Parse given data string to boundary condition set.  Set all instance
+        variables.
+
+        @param data: string data for boundary condition set.
+        @type data: str
+        @return: nothing
+        """
+        from numpy import fromstring
+        # parse header.
+        header, data = data.split('\n', 1)
+        self.name = header[:32].strip()
+        tokens = fromstring(header[32:], dtype='int32', sep=' ')
+        self.itype, self.nentry, self.nvalues = tokens[:3]
+        self.ibcode = tokens[3:].copy()
+        # parse entries.
+        if self.itype == 0: # for nodes.
+            arr = fromstring(data, dtype='int32', sep=' ').reshape(
+                (self.nentry, self.nvalues+1))
+            self.elems = (arr[:,0]-1).copy()
+            arr = fromstring(data, dtype='float64', sep=' ').reshape(
+                (self.nentry, self.nvalues+1))
+            self.values = (arr[:,1:]).copy()
+        elif self.itype == 1: # for elements/cells.
+            arr = fromstring(data, dtype='int32', sep=' ').reshape(
+                (self.nentry, self.nvalues+3))
+            self.elems = arr[:,:3].copy()
+            self.elems[:,0] -= 1
+            arr = fromstring(data, dtype='float64', sep=' ').reshape(
+                (self.nentry, self.nvalues+3))
+            self.values = (arr[:,3:]).copy()
+        else:
+            raise ValueError, \
+                "itype has to be either 0/1, but get %d"%self.itype
+
+    # define map for clfcs (from block to neu).
+    CLFCS_RMAP = {}
+    # tpn=1: edge.
+    CLFCS_RMAP[1] = [1,2]
+    # tpn=2: quadrilateral.
+    CLFCS_RMAP[2] = [1,2,3,4]
+    # tpn=3: triangle.
+    CLFCS_RMAP[3] = [1,2,3]
+    # tpn=4: hexahedron.
+    CLFCS_RMAP[4] = [5,2,6,4,1,3]
+    # tpn=5: tetrahedron.
+    CLFCS_RMAP[5] = [1,2,4,3]
+    # tpn=6: prism.
+    CLFCS_RMAP[6] = [4,5,3,1,2]
+    # tpn=6: pyramid.
+    CLFCS_RMAP[7] = [5,2,3,4,1]
+
+    def tobc(self, blk):
+        """
+        Extract gambit boundary condition information from self into BC object.  
+        Only process element/cell type of (gambit) boundary condition, and 
+        return None while nodal BCs encountered.
+
+        @param blk: Block object for reference, nothing will be altered.
+        @type blk: solvcon.io.block.Block
+        @return: generic BC object.
+        @rtype: solvcon.boundcond.BC
+        """
+        from numpy import empty
+        from ..boundcond import BC
+        clfcs_rmap = self.CLFCS_RMAP
+        # process only element/cell type of bc.
+        if self.itype != 1:
+            return None
+        # extrace boundary face list.
+        facn = empty((self.nentry,3), dtype='int32')
+        facn.fill(-1)
+        ibnd = 0
+        for entry in self.elems:
+            icl, nouse, it = entry[:3]
+            tpn = blk.cltpn[icl]
+            facn[ibnd,0] = blk.clfcs[icl, clfcs_rmap[tpn][it-1]]
+            ibnd += 1
+        # craft BC object.
+        bc = BC(fpdtype=blk.fpdtype)
+        bc.name = self.name
+        slct = facn[:,0].argsort()   # sort face list for bc object.
+        bc.facn = facn[slct]
+        bc.value = self.values[slct]
+        # finish.
+        return bc
+
+class GambitNeutralParser(object):
+    """
+    Parse and store information of a Gambit Neutral file.
+
+    @ivar data: data to be parsed.
+    @type data: str
+    @ivar neu: GambitNeutral object to be saved.
+    @type neu: solvcon.io.gambit.neutral.GambitNeutral
+    """
+    def __init__(self, data, neu):
+        """
+        @param data: data to be parsed.
+        @type data: str
+        @param neu: GambitNeutral object to be saved.
+        @type neu: solvcon.io.gambit.neutral.GambitNeutral
+        """
+        self.data = data
+        self.neu = neu
+
+    def parse(self):
+        data = self.data
+        neu = self.neu
+        sections = data.split('ENDOFSECTION\n')
+        for section in sections:
+            header = section.split('\n', 1)[0]
+            processor = None
+            for mark in self.processors:
+                if mark in header:
+                    processor = self.processors[mark]
+                    break
+            if processor:
+                processor(section, neu)
+
+    processors = {}
+
+    def _control_info(data, neu):
+        """
+        Take string data for "CONTROL INFO" and parse it to GambitNeutral
+        object.  Set:
+            - header
+            - title
+            - data_source
+            - numnp
+            - nelem
+            - ngrps
+            - nbsets
+            - ndfcd
+            - ndfvl
+
+        @param data: sectional data.
+        @type data: str
+        @param neu: object to be saved.
+        @type neu: solvcon.io.gambit.neutral.GambitNetral
+        @return: nothing
+        """
+        from numpy import fromstring
+        data = data.rstrip()
+        records = data.splitlines()
+        neu.header = records[1].strip()
+        neu.title = records[2].strip()
+        neu.data_source = records[3].strip()
+        values = fromstring(records[6], dtype='int32', sep=' ')
+        neu.numnp, neu.nelem, neu.ngrps, \
+            neu.nbsets, neu.ndfcd, neu.ndfvl = values
+    processors['CONTROL INFO'] = _control_info
+
+    def _nodal_coordinate(data, neu):
+        """
+        Take string data for "NODAL COORDINATES" and parse it to GambitNuetral
+        object. Set:
+            - nodes
+
+        @param data: sectional data.
+        @type data: str
+        @param neu: object to be saved.
+        @type neu: solvcon.io.gambit.neutral.GambitNetral
+        @return: nothing
+        """
+        from numpy import fromstring, empty
+        # discard header.
+        data = data.split('\n', 1)[-1]
+        # parse into array and reshape to 2D array.
+        nodes = fromstring(data, dtype='float64', sep=' ')
+        nodes = nodes.reshape((neu.numnp, (neu.ndfcd+1)))
+        # renumber according to first value of each line.
+        # NOTE: unused number contains garbage.
+        number = nodes[:,0].astype(int) - 1
+        newnodes = empty((number.max()+1,neu.ndfcd))
+        newnodes[number] = nodes[number,1:]
+        # set result to neu.
+        neu.nodes = newnodes
+    processors['NODAL COORDINATE'] = _nodal_coordinate
+
+    def _elements_cells(data, neu):
+        """
+        Take string data for "ELEMENTS/CELLS" and parse it to GambitNeutral
+        object. Set:
+            - elems
+
+        @param data: sectional data.
+        @type data: str
+        @param neu: object to be saved.
+        @type neu: solvcon.io.gambit.neutral.GambitNetral
+        @return: nothing
+        """
+        from numpy import fromstring, empty
+        # discard header.
+        data = data.split('\n', 1)[-1]
+        # parse into array.
+        serial = fromstring(data, dtype='int32', sep=' ')
+        # parse element data -- 1st pass:
+        # element index, shape, and number of nodes.
+        meta = empty((neu.nelem, 3), dtype='int32')
+        ielem = 0
+        ival = 0
+        while ielem < neu.nelem:
+            meta[ielem,:] = serial[ival:ival+3]
+            ival += 3+meta[ielem,2]
+            ielem += 1
+        # parse element data -- 2nd pass:
+        # node definition.
+        maxnnode = meta[:,2].max()
+        elems = empty((neu.nelem, maxnnode+2), dtype='int32')
+        ielem = 0
+        ival = 0
+        while ielem < neu.nelem:
+            elems[ielem,2:2+meta[ielem,2]] = serial[ival+3:ival+3+meta[ielem,2]]
+            ival += 3+meta[ielem,2]
+            ielem += 1
+        elems[:,:2] = meta[:,1:]    # copy the first two columns from meta.
+        elems[:,2:] -= 1    # renumber node indices in elements.
+        # set result to neu.
+        neu.elems = elems
+    processors['ELEMENTS/CELLS'] = _elements_cells
+
+    def _element_group(data, neu):
+        """
+        Take string data for "ELEMENTS GROUP" and parse it to GambitNeutral
+        object. Set:
+            - grps
+
+        @param data: sectional data.
+        @type data: str
+        @param neu: object to be saved.
+        @type neu: solvcon.io.gambit.neutral.GambitNetral
+        @return: nothing
+        """
+        from numpy import fromstring, empty
+        # discard header.
+        data = data.split('\n', 1)[-1]
+        # build group.
+        neu.grps.append(ElementGroup(data))
+    processors['ELEMENT GROUP'] = _element_group
+
+    def _boundary_conditions(data, neu):
+        """
+        Take string data for "BOUNDARY CONDITIONS" and parse it to
+        GambitNeutral object. Set:
+            - bcs
+
+        @param data: sectional data.
+        @type data: str
+        @param neu: object to be saved.
+        @type neu: solvcon.io.gambit.neutral.GambitNetral
+        @return: nothing
+        """
+        from numpy import fromstring, empty
+        # discard header.
+        data = data.split('\n', 1)[-1]
+        # build group.
+        neu.bcs.append(BoundaryCondition(data))
+    processors['BOUNDARY CONDITIONS'] = _boundary_conditions
+
+class GambitNeutral(object):
+    """
+    Represent information in a Gambit Neutral file.
+
+    @cvar CLTPN_MAP: map cltpn from self to block.
+    @type CLTPN_MAP: numpy.ndarray
+    @cvar CLNDS_MAP: map clnds definition from self to block.
+    @type CLNDS_MAP: dict
+    @cvar CLFCS_RMAP: map clfcs definition back from block to self.
+    @type CLFCS_RMAP: dict
+
+    @ivar header: file header string.
+    @type header: str
+    @ivar title: title for this file.
+    @type title: str
+    @ivar data_source: identify the generation of the file from which program 
+        and version.
+    @type data_source: str
+    @ivar numnp: number of nodes.
+    @type numnp: int
+    @ivar nelem: number of elements.
+    @type nelem: int
+    @ivar ngrps: number of element groups.
+    @type ngrps: int
+    @ivar nbsets: number of boundary condition sets.
+    @type nbsets: int
+    @ivar ndfcd: number of coordinate directions (2/3).
+    @type ndfcd: int
+    @ivar ndfvl: number of velocity components (2/3).
+    @type ndfvl: int
+    @ivar nodes: nodes array of shape of (numnp, ndfcd).
+    @type nodes: numpy.ndarray
+    @ivar elems: elements array of shape of (nelem, :).
+    @type elems: numpy.ndarray
+    @ivar grps: list of ElementGroup objects.
+    @type grps: list
+    @ivar bcs: list of BoundaryCondition objects.
+    @type bcs: list
+    """
+    def __init__(self, data):
+        from numpy import empty
+        # control info.
+        self.header = ''
+        self.title = ''
+        self.data_source = ''
+        self.numnp = None
+        self.nelem = None
+        self.ngrps = None
+        self.nbsets = None
+        self.ndfcd = None
+        self.ndfvl = None
+        # node info.
+        self.nodes = empty(0)
+        # element/cell info.
+        self.elems = empty(0)
+        # element group info.
+        self.grps = []
+        # boundary conditions info.
+        self.bcs = []
+        # run parser.
+        GambitNeutralParser(data, self).parse()
+
+    def __str__(self):
+        return '[Neutral (%s): %d nodes, %d elements, %d groups, %d bcs]' % (
+            self.title, self.numnp, self.nelem, len(self.grps), len(self.bcs))
+
+    @property
+    def ndim(self):
+        return self.ndfcd
+    @property
+    def nnode(self):
+        return self.nodes.shape[0]
+    @property
+    def ncell(self):
+        return self.elems.shape[0]
+
+    def toblock(self, onlybcnames=None, bcname_mapper=None, fpdtype=None):
+        """
+        Convert GambitNeutral object to Block object.
+
+        @keyword onlybcnames: positively list wanted names of BCs.
+        @type onlybcnames: list
+        @keyword bcname_mapper: map name to bc type number.
+        @type bcname_mapper: dict
+        @return: Block object.
+        @rtype: solvcon.block.Block
+        """
+        from ..block import Block
+        # create corresponding block according to GambitNeutral object.
+        blk = Block(ndim=self.ndim, nnode=self.nnode, ncell=self.ncell,
+            fpdtype=fpdtype)
+        self._convert_interior_to(blk)
+        blk.build_interior()
+        self._convert_bc_to(blk,
+            onlynames=onlybcnames, name_mapper=bcname_mapper)
+        blk.build_boundary()
+        blk.build_ghost()
+        return blk
+
+    from numpy import array
+    # define map for cltpn (from self to block).
+    CLTPN_MAP = array([0, 1, 2, 3, 4, 6, 5, 7], dtype='int32')
+    # define map for clnds (from self to block).
+    CLNDS_MAP = {}
+    # tpn=1: edge.
+    CLNDS_MAP[1] = {}
+    CLNDS_MAP[1][2] = [2,3] # 2 nodes.
+    CLNDS_MAP[1][3] = [2,4] # 3 nodes.
+    # tpn=2: quadrilateral.
+    CLNDS_MAP[2] = {}
+    CLNDS_MAP[2][4] = [2,3,4,5] # 4 nodes.
+    CLNDS_MAP[2][8] = [2,4,6,8] # 8 nodes.
+    CLNDS_MAP[2][9] = [2,4,6,8] # 9 nodes.
+    # tpn=3: triangle.
+    CLNDS_MAP[3] = {}
+    CLNDS_MAP[3][3] = [2,3,4]   # 3 nodes.
+    CLNDS_MAP[3][6] = [2,4,6]   # 6 nodes.
+    CLNDS_MAP[3][7] = [2,4,6]   # 7 nodes.
+    # tpn=4: brick.
+    CLNDS_MAP[4] = {}
+    CLNDS_MAP[4][8] = [2,3,5,4,6,7,9,8] # 8 nodes.
+    CLNDS_MAP[4][20] = [2,4,9,7,14,16,21,19]    # 20 nodes.
+    CLNDS_MAP[4][27] = [2,4,10,8,20,22,28,26]   # 27 nodes.
+    # tpn=5: tetrahedron.
+    CLNDS_MAP[5] = {}
+    CLNDS_MAP[5][4] = [2,3,4,5] # 4 nodes.
+    CLNDS_MAP[5][10] = [2,4,7,11]   # 10 nodes.
+    # tpn=6: wedge.
+    CLNDS_MAP[6] = {}
+    CLNDS_MAP[6][6] = [2,4,3,5,7,6] # 6 nodes.
+    CLNDS_MAP[6][15] = [2,7,4,11,16,13] # 15 nodes.
+    CLNDS_MAP[6][18] = [2,7,4,14,19,16] # 18 nodes.
+    # tpn=7: pyramid.
+    CLNDS_MAP[7] = {}
+    CLNDS_MAP[7][5] = [2,3,5,4,6]   # 5 nodes.
+    CLNDS_MAP[7][13] = [2,4,9,7,14] # 13 nodes.
+    CLNDS_MAP[7][14] = [2,4,10,8,15]    # 14 nodes.
+    CLNDS_MAP[7][18] = [2,4,10,8,19]    # 18 nodes.
+    CLNDS_MAP[7][19] = [2,4,10,8,20]    # 19 nodes.
+
+    def _convert_interior_to(self, blk):
+        """
+        Convert interior information, i.e., connectivities, from GambitNeutral 
+        to Block object.
+
+        @param blk: to-be-written Block object.
+        @type blk: solvcon.block.Block
+        @return: nothing.
+        """
+        from numpy import array
+        from ..block import elemtype
+
+        cltpn_map = self.CLTPN_MAP
+        clnds_map = self.CLNDS_MAP
+
+        # copy nodal coordinate data.
+        blk.ndcrd[:,:] = self.nodes[:,:]
+        # copy node difinition in cells.
+        cltpn = blk.cltpn
+        clnds = blk.clnds
+        ncell = self.ncell
+        icell = 0
+        while icell < ncell:
+            # translate tpn from GambitNeutral to Block.
+            tpn = cltpn_map[self.elems[icell,0]]
+            cltpn[icell] = tpn
+            # translate clnds from GambitNeutral to Block.
+            nnd = elemtype[tpn,2]
+            nnd_self = self.elems[icell,1]
+            clnds[icell,0] = nnd
+            clnds[icell,1:nnd+1] = self.elems[icell,clnds_map[tpn][nnd_self]]
+            # advance cell.
+            icell += 1
+
+        # create cell groups for the block.
+        clgrp = blk.clgrp
+        for grp in self.grps:
+            igrp = len(blk.grpnames)
+            assert grp.ngp == igrp+1
+            clgrp[grp.elems] = igrp
+            blk.grpnames.append(grp.elmmat)
+
+    def _convert_bc_to(self, blk, onlynames=None, name_mapper=None):
+        """
+        Convert boundary condition information from GambitNeutral object into 
+        Block object.
+        
+        @param blk: to-be-written Block object.
+        @type blk: solvcon.block.Block
+        @keyword onlynames: positively list wanted names of BCs.
+        @type onlynames: list
+        @keyword name_mapper: map name to bc type and value dictionary; the two
+            objects are organized in a tuple.
+        @type name_mapper: dict
+        @return: nothing.
+        """
+        # process all neutral bc objects.
+        for neubc in self.bcs:
+            # extract boundary faces from neutral bc object.
+            bc = neubc.tobc(blk)
+            if bc is None:   # skip if got nothing.
+                continue
+            # skip unwanted BCs.
+            if onlynames:
+                if bc.name not in onlynames:
+                    continue
+            # recreate BC according to name mapping.
+            if name_mapper is not None:
+                bct, vdict = name_mapper.get(bc.name, None)
+                if bct is not None:
+                    bc = bct(bc)
+                    bc.feedValue(vdict)
+            # save to block object.
+            bc.sern = len(blk.bclist)
+            bc.blk = blk
+            blk.bclist.append(bc)
+
+if __name__ == '__main__':
+    import sys
+    if len(sys.argv) > 1:
+        fname = sys.argv[1]
+        neu = GambitNeutral(open(fname).read())
+        sys.stdout.write("Gambit Neutral object: %s" % neu)
+        if neu.grps or neu.bcs:
+            sys.stdout.write(", with:\n")
+        for lst in neu.grps, neu.bcs:
+            if len(lst) > 0:
+                for obj in lst:
+                    sys.stdout.write("  %s\n" % obj)
+            else:
+                sys.stdout.write("\n")
+    else:
+        sys.stdout.write("usage: %s <file name>\n" % sys.argv[0])
