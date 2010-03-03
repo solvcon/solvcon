@@ -161,8 +161,8 @@ class BlockIO(object):
         @return: nothing.
         """
         for key in (
-            'shndcrd', 'shfccncrd', 'shfcnormal', 'shfcarea',
-            'shclcncrd', 'shclvol',
+            'shndcrd', 'shfccnd', 'shfcnml', 'shfcara',
+            'shclcnd', 'shclvol',
         ):
             self._write_array(self.flag_compress, getattr(blk, key), stream)
 
@@ -389,13 +389,13 @@ class BlockIO(object):
         fpdtype = blk.fpdtype
         blk.shndcrd = self._read_array(meta.flag_compress,
             (meta.ngstnode+meta.nnode, meta.ndim), fpdtype, stream)
-        blk.shfccncrd = self._read_array(meta.flag_compress,
+        blk.shfccnd = self._read_array(meta.flag_compress,
             (meta.ngstface+meta.nface, meta.ndim), fpdtype, stream)
-        blk.shfcnormal = self._read_array(meta.flag_compress,
+        blk.shfcnml = self._read_array(meta.flag_compress,
             (meta.ngstface+meta.nface, meta.ndim), fpdtype, stream)
-        blk.shfcarea = self._read_array(meta.flag_compress,
+        blk.shfcara = self._read_array(meta.flag_compress,
             (meta.ngstface+meta.nface,), fpdtype, stream)
-        blk.shclcncrd = self._read_array(meta.flag_compress,
+        blk.shclcnd = self._read_array(meta.flag_compress,
             (meta.ngstcell+meta.ncell, meta.ndim), fpdtype, stream)
         blk.shclvol = self._read_array(meta.flag_compress,
             (meta.ngstcell+meta.ncell,), fpdtype, stream)
@@ -472,10 +472,10 @@ class BlockIO(object):
         """
         # metrics.
         blk.ndcrd = blk.shndcrd[meta.ngstnode:,:]
-        blk.fccncrd = blk.shfccncrd[meta.ngstface:,:]
-        blk.fcnormal = blk.shfcnormal[meta.ngstface:,:]
-        blk.fcarea = blk.shfcarea[meta.ngstface:]
-        blk.clcncrd = blk.shclcncrd[meta.ngstcell:,:]
+        blk.fccnd = blk.shfccnd[meta.ngstface:,:]
+        blk.fcnml = blk.shfcnml[meta.ngstface:,:]
+        blk.fcara = blk.shfcara[meta.ngstface:]
+        blk.clcnd = blk.shclcnd[meta.ngstcell:,:]
         blk.clvol = blk.shclvol[meta.ngstcell:]
         # type data.
         blk.fctpn = blk.shfctpn[meta.ngstface:]
@@ -490,10 +490,10 @@ class BlockIO(object):
 
         # ghost metrics.
         blk.gstndcrd = blk.shndcrd[meta.ngstnode-1::-1,:]
-        blk.gstfccncrd = blk.shfccncrd[meta.ngstface-1::-1,:]
-        blk.gstfcnormal = blk.shfcnormal[meta.ngstface-1::-1,:]
-        blk.gstfcarea = blk.shfcarea[meta.ngstface-1::-1]
-        blk.gstclcncrd = blk.shclcncrd[meta.ngstcell-1::-1,:]
+        blk.gstfccnd = blk.shfccnd[meta.ngstface-1::-1,:]
+        blk.gstfcnml = blk.shfcnml[meta.ngstface-1::-1,:]
+        blk.gstfcara = blk.shfcara[meta.ngstface-1::-1]
+        blk.gstclcnd = blk.shclcnd[meta.ngstcell-1::-1,:]
         blk.gstclvol = blk.shclvol[meta.ngstcell-1::-1]
         # ghost type data.
         blk.gstfctpn = blk.shfctpn[meta.ngstface-1::-1]

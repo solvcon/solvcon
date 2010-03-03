@@ -45,10 +45,10 @@ class CheckBlockIO(TestCase):
     def check_array(self, newblk, blk):
         # metrics.
         self.assertTrue((newblk.ndcrd == blk.ndcrd).all())
-        self.assertTrue((newblk.fccncrd == blk.fccncrd).all())
-        self.assertTrue((newblk.fcnormal == blk.fcnormal).all())
-        self.assertTrue((newblk.fcarea == blk.fcarea).all())
-        self.assertTrue((newblk.clcncrd == blk.clcncrd).all())
+        self.assertTrue((newblk.fccnd == blk.fccnd).all())
+        self.assertTrue((newblk.fcnml == blk.fcnml).all())
+        self.assertTrue((newblk.fcara == blk.fcara).all())
+        self.assertTrue((newblk.clcnd == blk.clcnd).all())
         self.assertTrue((newblk.clvol == blk.clvol).all())
         # type.
         self.assertTrue((newblk.fctpn == blk.fctpn).all())
@@ -61,10 +61,10 @@ class CheckBlockIO(TestCase):
         self.assertTrue((newblk.clfcs == blk.clfcs).all())
         # ghost metrics.
         self.assertTrue((newblk.gstndcrd == blk.gstndcrd).all())
-        self.assertTrue((newblk.gstfccncrd == blk.gstfccncrd).all())
-        self.assertTrue((newblk.gstfcnormal == blk.gstfcnormal).all())
-        self.assertTrue((newblk.gstfcarea == blk.gstfcarea).all())
-        self.assertTrue((newblk.gstclcncrd == blk.gstclcncrd).all())
+        self.assertTrue((newblk.gstfccnd == blk.gstfccnd).all())
+        self.assertTrue((newblk.gstfcnml == blk.gstfcnml).all())
+        self.assertTrue((newblk.gstfcara == blk.gstfcara).all())
+        self.assertTrue((newblk.gstclcnd == blk.gstclcnd).all())
         self.assertTrue((newblk.gstclvol == blk.gstclvol).all())
         # ghost type.
         self.assertTrue((newblk.gstfctpn == blk.gstfctpn).all())
@@ -77,10 +77,10 @@ class CheckBlockIO(TestCase):
         self.assertTrue((newblk.gstclfcs == blk.gstclfcs).all())
         # shared metrics.
         self.assertTrue((newblk.shndcrd == blk.shndcrd).all())
-        self.assertTrue((newblk.shfccncrd == blk.shfccncrd).all())
-        self.assertTrue((newblk.shfcnormal == blk.shfcnormal).all())
-        self.assertTrue((newblk.shfcarea == blk.shfcarea).all())
-        self.assertTrue((newblk.shclcncrd == blk.shclcncrd).all())
+        self.assertTrue((newblk.shfccnd == blk.shfccnd).all())
+        self.assertTrue((newblk.shfcnml == blk.shfcnml).all())
+        self.assertTrue((newblk.shfcara == blk.shfcara).all())
+        self.assertTrue((newblk.shclcnd == blk.shclcnd).all())
         self.assertTrue((newblk.shclvol == blk.shclvol).all())
         # shared type.
         self.assertTrue((newblk.shfctpn == blk.shfctpn).all())

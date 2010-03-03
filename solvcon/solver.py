@@ -220,7 +220,7 @@ class BlockSolver(BaseSolver):
         self.bclist = blk.bclist
         # take data from block.
         self.clvol = blk.shclvol
-        self.clcnd = blk.shclcncrd
+        self.clcnd = blk.shclcnd
         # data structure for C/FORTRAN.
         self.msh = None
         self.exn = None

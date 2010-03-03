@@ -86,9 +86,9 @@ class MetricTest(TestCase):
     __test__ = False
     testblock = None
 
-    def test_fcnormal(self):
+    def test_fcnml(self):
         """
-        Test if fcnormal does point outward on boundary.
+        Test if fcnml does point outward on boundary.
         """
         blk = self.testblock
         ndim = blk.ndim
@@ -98,16 +98,16 @@ class MetricTest(TestCase):
         while igcl < blk.ngstcell:
             ibfc = bfcs[igcl]   # current boundary face.
             iicl = bcls[igcl]   # current interior cell.
-            dvec = blk.fccncrd[ibfc,:] - blk.clcncrd[iicl,:]
-            leng = (dvec[:]*blk.fcnormal[ibfc,:]).sum()
+            dvec = blk.fccnd[ibfc,:] - blk.clcnd[iicl,:]
+            leng = (dvec[:]*blk.fcnml[ibfc,:]).sum()
             self.assertTrue(leng > 0)
             # check for nodes not belong to boundary face.
             clnnd = blk.clnds[iicl,0]
             for ind in blk.clnds[iicl,1:clnnd+1]:
                 fcnnd = blk.fcnds[ibfc,0]
                 if ind not in blk.fcnds[ibfc,1:fcnnd+1]:
-                    dvec = blk.fccncrd[ibfc,:] - blk.ndcrd[ind,:]
-                    leng = (dvec[:]*blk.fcnormal[ibfc,:]).sum()
+                    dvec = blk.fccnd[ibfc,:] - blk.ndcrd[ind,:]
+                    leng = (dvec[:]*blk.fcnml[ibfc,:]).sum()
                     self.assertTrue(leng > 0)
             igcl += 1
 
@@ -180,11 +180,11 @@ class GhostTest(TestCase):
                     self.assertEqual(ignd, iind)
                 else:
                     ignd = -ignd - 1    # flip index for ghost node.
-                    v1 = blk.gstndcrd[ignd,:] - blk.fccncrd[ibfc,:]
-                    v2 = blk.ndcrd[iind,:] - blk.fccncrd[ibfc,:]
+                    v1 = blk.gstndcrd[ignd,:] - blk.fccnd[ibfc,:]
+                    v2 = blk.ndcrd[iind,:] - blk.fccnd[ibfc,:]
                     # normal component.
-                    v1n = (v1[:]*blk.fcnormal[ibfc,:]).sum()*blk.fcnormal[ibfc,:]
-                    v2n = (v2[:]*blk.fcnormal[ibfc,:]).sum()*blk.fcnormal[ibfc,:]
+                    v1n = (v1[:]*blk.fcnml[ibfc,:]).sum()*blk.fcnml[ibfc,:]
+                    v2n = (v2[:]*blk.fcnml[ibfc,:]).sum()*blk.fcnml[ibfc,:]
                     for idim in range(ndim):
                         # opposite direction.
                         self.assertAlmostEqual(v1n[idim], -v2n[idim],
@@ -198,7 +198,7 @@ class GhostTest(TestCase):
                             self.rounding_to)
             igcl += 1
 
-    def test_fccncrd(self):
+    def test_fccnd(self):
         """
         Test calculated center of faces for ghost cells are properly mirrored 
         against boundary faces.
@@ -218,11 +218,11 @@ class GhostTest(TestCase):
                     self.assertEqual(igfc, iifc)
                 else:
                     igfc = -igfc - 1
-                    v1 = blk.gstfccncrd[igfc,:] - blk.fccncrd[ibfc,:]
-                    v2 = blk.fccncrd[iifc,:] - blk.fccncrd[ibfc,:]
+                    v1 = blk.gstfccnd[igfc,:] - blk.fccnd[ibfc,:]
+                    v2 = blk.fccnd[iifc,:] - blk.fccnd[ibfc,:]
                     # normal components.
-                    v1n = (v1*blk.fcnormal[ibfc,:]).sum()*blk.fcnormal[ibfc,:]
-                    v2n = (v2*blk.fcnormal[ibfc,:]).sum()*blk.fcnormal[ibfc,:]
+                    v1n = (v1*blk.fcnml[ibfc,:]).sum()*blk.fcnml[ibfc,:]
+                    v2n = (v2*blk.fcnml[ibfc,:]).sum()*blk.fcnml[ibfc,:]
                     for idim in range(ndim):
                         # opposite direction.
                         self.assertAlmostEqual(v1n[idim], -v2n[idim],
@@ -236,7 +236,7 @@ class GhostTest(TestCase):
                             self.rounding_to)
             igcl += 1
 
-    def test_fcnormal(self):
+    def test_fcnml(self):
         """
         Test calculated normal vector of faces for ghost cells are properly 
         mirrored against boundary faces.
@@ -256,14 +256,14 @@ class GhostTest(TestCase):
                     self.assertEqual(igfc, iifc)
                 else:
                     igfc = -igfc - 1
-                    v1 = blk.gstfcnormal[igfc,:]
-                    v2 = blk.fcnormal[iifc,:]
+                    v1 = blk.gstfcnml[igfc,:]
+                    v2 = blk.fcnml[iifc,:]
                     # flip interior face normal vector to have proper direction.
                     if blk.fccls[iifc,0] != iicl:
                         v2 = -v2
                     # normal components.
-                    v1n = (v1*blk.fcnormal[ibfc,:]).sum()*blk.fcnormal[ibfc,:]
-                    v2n = (v2*blk.fcnormal[ibfc,:]).sum()*blk.fcnormal[ibfc,:]
+                    v1n = (v1*blk.fcnml[ibfc,:]).sum()*blk.fcnml[ibfc,:]
+                    v2n = (v2*blk.fcnml[ibfc,:]).sum()*blk.fcnml[ibfc,:]
                     for idim in range(ndim):
                         # opposite direction.
                         self.assertAlmostEqual(v1n[idim], -v2n[idim],
@@ -277,7 +277,7 @@ class GhostTest(TestCase):
                             self.rounding_to)
             igcl += 1
 
-    def test_fcarea(self):
+    def test_fcara(self):
         """
         Test for the equivelence of area of ghost faces and mirrored interior
         faces.
@@ -297,7 +297,7 @@ class GhostTest(TestCase):
                 else:
                     igfc = -igfc - 1
                     self.assertAlmostEqual(
-                        blk.gstfcarea[igfc], blk.fcarea[iifc], self.rounding_to)
+                        blk.gstfcara[igfc], blk.fcara[iifc], self.rounding_to)
             igcl += 1
 
     def test_clvol(self):
@@ -377,13 +377,13 @@ class TestShared(TestCase):
             self.assertSharedGhost(blk.nnode, blk.ngstnode,
                 blk.shndcrd[:,idim], blk.gstndcrd[:,idim])
             self.assertSharedGhost(blk.nface, blk.ngstface,
-                blk.shfccncrd[:,idim], blk.gstfccncrd[:,idim])
+                blk.shfccnd[:,idim], blk.gstfccnd[:,idim])
             self.assertSharedGhost(blk.nface, blk.ngstface,
-                blk.shfcnormal[:,idim], blk.gstfcnormal[:,idim])
+                blk.shfcnml[:,idim], blk.gstfcnml[:,idim])
             self.assertSharedGhost(blk.ncell, blk.ngstcell,
-                blk.shclcncrd[:,idim], blk.gstclcncrd[:,idim])
+                blk.shclcnd[:,idim], blk.gstclcnd[:,idim])
         self.assertSharedGhost(blk.nface, blk.ngstface,
-            blk.shfcarea, blk.gstfcarea)
+            blk.shfcara, blk.gstfcara)
         self.assertSharedGhost(blk.ncell, blk.ngstcell,
             blk.shclvol, blk.gstclvol)
 

@@ -213,7 +213,7 @@ class TestParallel(TestBlockCaseRun):
         blk = case.solver.domainobj.blk
         clcnd = zeros(dsoln.shape, dtype=dsoln.dtype)
         for iistep in range(self.nsteps*2):
-            clcnd += blk.clcncrd*self.time_increment/2
+            clcnd += blk.clcnd*self.time_increment/2
         # compare.
         self.assertTrue((dsoln==clcnd).all())
 
@@ -250,6 +250,6 @@ class TestParallel(TestBlockCaseRun):
         blk = case.solver.domainobj.blk
         clcnd = zeros(dsoln.shape, dtype=dsoln.dtype)
         for iistep in range(self.nsteps*2):
-            clcnd += blk.clcncrd*self.time_increment/2
+            clcnd += blk.clcnd*self.time_increment/2
         # compare.
         self.assertTrue((dsoln==clcnd).all())

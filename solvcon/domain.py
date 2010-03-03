@@ -566,7 +566,7 @@ class Collective(Domain, list):
                 slctr = bc.rclp[:,1] + rblk.ngstcell
                 blk.shcltpn[slctm] = rblk.shcltpn[slctr]
                 blk.shclgrp[slctm] = rblk.shclgrp[slctr]
-                blk.shclcncrd[slctm,:] = rblk.shclcncrd[slctr,:]
+                blk.shclcnd[slctm,:] = rblk.shclcnd[slctr,:]
                 blk.shclvol[slctm,:] = rblk.shclvol[slctr,:]
 
     def merge(self):

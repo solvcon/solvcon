@@ -78,10 +78,10 @@ class Block(object):
         code.
     @ivar grpnames: list of names of cell groups.
     @ivar ndcrd: Node croodinate data.
-    @ivar fccncrd: Central coordinates of face.
-    @ivar fcnormal: Unit-normal vector of face.
-    @ivar fcarea: Area of face.
-    @ivar clcncrd: Central coordinates of cell.
+    @ivar fccnd: Central coordinates of face.
+    @ivar fcnml: Unit-normal vector of face.
+    @ivar fcara: Area of face.
+    @ivar clcnd: Central coordinates of cell.
     @ivar clvol: Volume of cell.
     @ivar fctpn: Type of face.
     @ivar cltpn: Type of cell.
@@ -130,10 +130,10 @@ class Block(object):
         # interior data.
         ## metrics.
         self.ndcrd = empty((nnode, ndim), dtype=self.fpdtype)
-        self.fccncrd = empty((nface, ndim), dtype=self.fpdtype)
-        self.fcnormal = empty((nface, ndim), dtype=self.fpdtype)
-        self.fcarea = empty(nface, dtype=self.fpdtype)
-        self.clcncrd = empty((ncell, ndim), dtype=self.fpdtype)
+        self.fccnd = empty((nface, ndim), dtype=self.fpdtype)
+        self.fcnml = empty((nface, ndim), dtype=self.fpdtype)
+        self.fcara = empty(nface, dtype=self.fpdtype)
+        self.clcnd = empty((ncell, ndim), dtype=self.fpdtype)
         self.clvol = empty(ncell, dtype=self.fpdtype)
         ## type data.
         self.fctpn = empty(nface, dtype='int32')
@@ -150,10 +150,10 @@ class Block(object):
         # ghost data.
         ## metrics. (placeholder)
         self.gstndcrd = empty((0, ndim), dtype=self.fpdtype)
-        self.gstfccncrd = empty((0, ndim), dtype=self.fpdtype)
-        self.gstfcnormal = empty((0, ndim), dtype=self.fpdtype)
-        self.gstfcarea = empty(0, dtype=self.fpdtype)
-        self.gstclcncrd = empty((0, ndim), dtype=self.fpdtype)
+        self.gstfccnd = empty((0, ndim), dtype=self.fpdtype)
+        self.gstfcnml = empty((0, ndim), dtype=self.fpdtype)
+        self.gstfcara = empty(0, dtype=self.fpdtype)
+        self.gstclcnd = empty((0, ndim), dtype=self.fpdtype)
         self.gstclvol = empty(0, dtype=self.fpdtype)
         ## type data. (placeholder)
         self.gstfctpn = empty(0, dtype='int32')
@@ -167,10 +167,10 @@ class Block(object):
         # shared (by interior/real and ghost).
         ## metrics. (placeholder)
         self.shndcrd = empty((0, ndim), dtype=self.fpdtype)
-        self.shfccncrd = empty((0, ndim), dtype=self.fpdtype)
-        self.shfcnormal = empty((0, ndim), dtype=self.fpdtype)
-        self.shfcarea = empty(0, dtype=self.fpdtype)
-        self.shclcncrd = empty((0, ndim), dtype=self.fpdtype)
+        self.shfccnd = empty((0, ndim), dtype=self.fpdtype)
+        self.shfcnml = empty((0, ndim), dtype=self.fpdtype)
+        self.shfcara = empty(0, dtype=self.fpdtype)
+        self.shclcnd = empty((0, ndim), dtype=self.fpdtype)
         self.shclvol = empty(0, dtype=self.fpdtype)
         ## type data. (placeholder)
         self.shfctpn = empty(0, dtype='int32')
@@ -265,10 +265,10 @@ class Block(object):
             self.clfcs.ctypes.data_as(intptr),
             # output/input.
             self.fcnds.ctypes.data_as(intptr),
-            self.fccncrd.ctypes.data_as(fpptr),
-            self.fcnormal.ctypes.data_as(fpptr),
-            self.fcarea.ctypes.data_as(fpptr),
-            self.clcncrd.ctypes.data_as(fpptr),
+            self.fccnd.ctypes.data_as(fpptr),
+            self.fcnml.ctypes.data_as(fpptr),
+            self.fcara.ctypes.data_as(fpptr),
+            self.clcnd.ctypes.data_as(fpptr),
             self.clvol.ctypes.data_as(fpptr),
         )
 
@@ -331,9 +331,9 @@ class Block(object):
             self.fctpn = empty(nface, dtype='int32')
             self.fcnds = empty((nface, self.FCMND+1), dtype='int32')
             self.fccls = empty((nface, 4), dtype='int32')
-            self.fccncrd = empty((nface, self.ndim), dtype=self.fpdtype)
-            self.fcnormal = empty((nface, self.ndim), dtype=self.fpdtype)
-            self.fcarea = empty(nface, dtype=self.fpdtype)
+            self.fccnd = empty((nface, self.ndim), dtype=self.fpdtype)
+            self.fcnml = empty((nface, self.ndim), dtype=self.fpdtype)
+            self.fcara = empty(nface, dtype=self.fpdtype)
         # assign extracted data to block.
         self.clfcs[:,:] = clfcs[:,:]
         self.fctpn[:] = fctpn[:]
@@ -432,10 +432,10 @@ class Block(object):
             self.shclfcs.ctypes.data_as(intptr),
             # geometry.
             self.shndcrd.ctypes.data_as(fpptr),
-            self.shfccncrd.ctypes.data_as(fpptr),
-            self.shfcnormal.ctypes.data_as(fpptr),
-            self.shfcarea.ctypes.data_as(fpptr),
-            self.shclcncrd.ctypes.data_as(fpptr),
+            self.shfccnd.ctypes.data_as(fpptr),
+            self.shfcnml.ctypes.data_as(fpptr),
+            self.shfcara.ctypes.data_as(fpptr),
+            self.shclcnd.ctypes.data_as(fpptr),
             self.shclvol.ctypes.data_as(fpptr),
         )
 
@@ -494,10 +494,10 @@ class Block(object):
         ncell = self.ncell
         # shared metrics.
         self.shndcrd = empty((ngstnode+nnode, ndim), dtype=self.fpdtype)
-        self.shfccncrd = empty((ngstface+nface, ndim), dtype=self.fpdtype)
-        self.shfcnormal = empty((ngstface+nface,ndim), dtype=self.fpdtype)
-        self.shfcarea = empty(ngstface+nface, dtype=self.fpdtype)
-        self.shclcncrd = empty((ngstcell+ncell, ndim), dtype=self.fpdtype)
+        self.shfccnd = empty((ngstface+nface, ndim), dtype=self.fpdtype)
+        self.shfcnml = empty((ngstface+nface,ndim), dtype=self.fpdtype)
+        self.shfcara = empty(ngstface+nface, dtype=self.fpdtype)
+        self.shclcnd = empty((ngstcell+ncell, ndim), dtype=self.fpdtype)
         self.shclvol = empty(ngstcell+ncell, dtype=self.fpdtype)
         # shared type data.
         self.shfctpn = empty(ngstface+nface, dtype='int32')
@@ -528,10 +528,10 @@ class Block(object):
         """
         # ghost metrics.
         self.gstndcrd = self.shndcrd[ngstnode-1::-1,:]
-        self.gstfccncrd = self.shfccncrd[ngstface-1::-1,:]
-        self.gstfcnormal = self.shfcnormal[ngstface-1::-1,:]
-        self.gstfcarea = self.shfcarea[ngstface-1::-1]
-        self.gstclcncrd = self.shclcncrd[ngstcell-1::-1,:]
+        self.gstfccnd = self.shfccnd[ngstface-1::-1,:]
+        self.gstfcnml = self.shfcnml[ngstface-1::-1,:]
+        self.gstfcara = self.shfcara[ngstface-1::-1]
+        self.gstclcnd = self.shclcnd[ngstcell-1::-1,:]
         self.gstclvol = self.shclvol[ngstcell-1::-1]
         # ghost type data.
         self.gstfctpn = self.shfctpn[ngstface-1::-1]
@@ -569,21 +569,21 @@ class Block(object):
         ndcrd[:,:] = self.ndcrd[:,:]
         self.ndcrd = ndcrd
         ## face center coordinate.
-        fccncrd = self.shfccncrd[ngstface:,:]
-        fccncrd[:,:] = self.fccncrd[:,:]
-        self.fccncrd = fccncrd
+        fccnd = self.shfccnd[ngstface:,:]
+        fccnd[:,:] = self.fccnd[:,:]
+        self.fccnd = fccnd
         ## face unit normal vector.
-        fcnormal = self.shfcnormal[ngstface:,:]
-        fcnormal[:,:] = self.fcnormal[:,:]
-        self.fcnormal = fcnormal
+        fcnml = self.shfcnml[ngstface:,:]
+        fcnml[:,:] = self.fcnml[:,:]
+        self.fcnml = fcnml
         ## face area.
-        fcarea = self.shfcarea[ngstface:]
-        fcarea[:] = self.fcarea[:]
-        self.fcarea = fcarea
+        fcara = self.shfcara[ngstface:]
+        fcara[:] = self.fcara[:]
+        self.fcara = fcara
         ## cell center coordinate.
-        clcncrd = self.shclcncrd[ngstcell:,:]
-        clcncrd[:,:] = self.clcncrd[:,:]
-        self.clcncrd = clcncrd
+        clcnd = self.shclcnd[ngstcell:,:]
+        clcnd[:,:] = self.clcnd[:,:]
+        self.clcnd = clcnd
         ## cell volume.
         clvol = self.shclvol[ngstcell:]
         clvol[:] = self.clvol[:]
