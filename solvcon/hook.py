@@ -288,10 +288,6 @@ class BlockHook(Hook):
             getattr(case.solver.solverobj, key)[start:] = arrg[:]
 
 class BlockInfoHook(BlockHook):
-    def __init__(self, case, **kw):
-        assert isinstance(case, BlockCase)
-        super(BlockInfoHook, self).__init__(case, **kw)
-
     def preloop(self):
         blk = self.blk
         self.info("Block information:\n  %s\n" % str(blk))

@@ -192,7 +192,7 @@ class run(ArrangementCommand):
         from .helper import info
         from .conf import use_application
         from . import batch, domain
-        from .case.core import arrangements
+        from .case import arrangements
         ops, args = self.opargs
         if len(args) > 0:
             name = args[0]
