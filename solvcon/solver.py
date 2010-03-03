@@ -2,11 +2,103 @@
 # Copyright (C) 2008-2009 by Yung-Yu Chen.  See LICENSE.txt for terms of usage.
 
 """
-Multi-dimensional solvers using block and parallized via domain decomposition.
+Definition of the structure of solvers.
 """
 
-from ..dependency import FortranType
-from .core import BaseSolver
+from .gendata import TypeWithBinder
+from .dependency import FortranType
+
+class BaseSolver(object):
+    """
+    Generic solver definition.  It is an abstract class and should not be used
+    to any concrete simulation case.  The concrete solver sub-classes should
+    override the empty init and final methods for initialization and 
+    finalization, respectively.
+
+    @ivar _fpdtype: dtype for the floating point data in the block instance.
+    @ivar runanchors: the list for the anchor objects to be run.
+    @itype runanchors: list
+    """
+
+    __metaclass__ = TypeWithBinder
+
+    _pointers_ = [] # for binder.
+
+    def __init__(self, **kw):
+        """
+        @keyword fpdtype: dtype for the floating point data.
+        """
+        from .conf import env
+        self._fpdtype = kw.pop('fpdtype', env.fpdtype)
+        self._fpdtype = env.fpdtype if self._fpdtype==None else self._fpdtype
+        # anchor list.
+        self.runanchors = list()
+
+    @property
+    def fpdtype(self):
+        import numpy
+        _fpdtype = self._fpdtype
+        if isinstance(_fpdtype, str):
+            return getattr(numpy, _fpdtype)
+        else:
+            return self._fpdtype
+    @property
+    def fpdtypestr(self):
+        from .dependency import str_of
+        return str_of(self.fpdtype)
+    @property
+    def fpptr(self):
+        from .dependency import pointer_of
+        return pointer_of(self.fpdtype)
+    @property
+    def _clib_solvcon(self):
+        from .dependency import _clib_solvcon_of
+        return _clib_solvcon_of(self.fpdtype)
+
+    def _runanchors(self, method):
+        """
+        Invoke the specified method for each anchor.
+        
+        @param method: name of the method to run.
+        @type method: str
+        @return: nothing
+        """
+        runanchors = self.runanchors
+        if 'final' in method:
+            runanchors = reversed(runanchors)
+        for anchor in runanchors:
+            getattr(anchor, method)()
+
+    def init(self, **kw):
+        """
+        An empty initializer for the solver object.
+
+        @return: nothing.
+        """
+        self._runanchors('premarch')
+
+    def march(self, time, time_increment, steps_run):
+        """
+        An empty marcher for the solver object.
+
+        @param time: starting time of marching.
+        @type time: float
+        @param time_increment: temporal interval for the time step.
+        @type time_increment: float
+        @param steps_run: the count of time steps to run.
+        @type steps_run: int
+        @return: maximum CFL number.
+        @rtype: float
+        """
+        return -2.0
+
+    def final(self):
+        """
+        An empty finalizer for the solver object.
+
+        @return: nothing.
+        """
+        self._runanchors('postmarch')
 
 class BlockSolverExeinfo(FortranType):
     """
@@ -69,14 +161,10 @@ class BlockSolver(BaseSolver):
         time-step).
     @itype dsoln: numpy.ndarray
 
-    @ivar _marchsol: solution marcher.
-    @itype _marchsol: callable
-    @ivar _marchsol_args: a list of ctypes entities for marchsol() method.
-    @itype _marchsol_args: list
-    @ivar _marchdsol: gradient marcher.
-    @itype _marchdsol: callable
-    @ivar _marchdsol_args: a list of ctypes entities for dmarchsol() method.
-    @itype _marchdsol_args: list
+    @ivar _calc_soln_args: a list of ctypes entities for marchsol() method.
+    @itype _calc_soln_args: list
+    @ivar _calc_dsoln_args: a list of ctypes entities for dmarchsol() method.
+    @itype _calc_dsoln_args: list
     """
 
     _pointers_ = ['exn', 'msh', 'solptr', 'solnptr', 'dsolptr', 'dsolnptr',
@@ -85,7 +173,7 @@ class BlockSolver(BaseSolver):
     _exeinfotype_ = BlockSolverExeinfo
     _interface_init_ = ['cecnd', 'cevol']
 
-    from ..block import Block
+    from .block import Block
     FCMND = Block.FCMND
     CLMND = Block.CLMND
     CLMFC = Block.CLMFC
@@ -117,8 +205,6 @@ class BlockSolver(BaseSolver):
         neq = self.exnkw['neq']
         super(BlockSolver, self).__init__(*args, **kw)
         assert self.fpdtype == blk.fpdtype
-        # anchor list.
-        self.runanchors = list()
         # list of tuples for interfaces.
         self.ibclist = list()
         # take geometric information from block.
@@ -164,19 +250,6 @@ class BlockSolver(BaseSolver):
         self._calc_soln_args = None
         self._calc_dsoln_args = None
 
-    def _runanchors(self, method):
-        """
-        Invoke the specified method for each anchor.
-        
-        @param method: name of the method to run.
-        @type method: str
-        """
-        runanchors = self.runanchors
-        if 'final' in method:
-            runanchors = reversed(runanchors)
-        for anchor in runanchors:
-            getattr(anchor, method)()
-
     @property
     def args_struct(self):
         from ctypes import byref
@@ -192,8 +265,8 @@ class BlockSolver(BaseSolver):
             then methods/subroutines.
         """
         import os
-        from ..helper import Printer
-        from ..block import BlockShape
+        from .helper import Printer
+        from .block import BlockShape
         # create debug printer.
         if self.enable_mesg:
             if self.svrn != None:
@@ -280,15 +353,6 @@ class BlockSolver(BaseSolver):
         for bc in self.bclist:
             bc.init(**kw)
         super(BlockSolver, self).init(**kw)
-        self._runanchors('premarch')
-
-    def final(self):
-        """
-        Check and initialize BCs.
-
-        @note: BC must be initialized AFTER solver itself.
-        """
-        self._runanchors('postmarch')
 
     ##################################################
     # CESE solving algorithm.
@@ -399,7 +463,7 @@ class BlockSolver(BaseSolver):
         arr[start:] = marr[start:]
 
     def init_exchange(self, ifacelist):
-        from ..boundcond import interface
+        from .boundcond import interface
         # grab peer index.
         ibclist = list()
         for pair in ifacelist:
@@ -473,24 +537,3 @@ class BlockSolver(BaseSolver):
         rarr = conn.recv()  # comm.
         slct = bc.rclp[:,0] + ngstcell
         arr[slct] = rarr[:]
-
-class BlockAnchor(object):
-    """
-    Anchor that called by solver objects at various stages.
-    """
-
-    def __init__(self, svr, **kw):
-        assert isinstance(svr, BlockSolver)
-
-    def premarch(self):
-        pass
-    def prefull(self):
-        pass
-    def postfull(self):
-        pass
-    def prehalf(self):
-        pass
-    def posthalf(self):
-        pass
-    def postmarch(self):
-        pass

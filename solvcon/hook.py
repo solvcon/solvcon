@@ -2,289 +2,196 @@
 # Copyright (C) 2008-2009 by Yung-Yu Chen.  See LICENSE.txt for terms of usage.
 
 """
-Multi-dimensional simulation cases which use block.
+Hooks for simulation cases.
 """
 
-from .core import BaseCase, Hook
-
-class BlockCase(BaseCase):
+class Hook(object):
     """
-    Base class for multi-dimensional cases using block.
+    Container class for various hooking subroutines for BaseCase.
 
-    Subclass must implement _load_block_for_init() private method for init()
-    method to load the needed block.
+    @ivar case: case object.
+    @itype case: BaseCase
+    @ivar info: information output function.
+    @itype info: callable
+    @ivar psteps: the interval number of steps between printing.
+    @itype psteps: int
+    @ivar kws: excessive keywords.
+    @itype kws: dict
     """
-    defdict = {
-        # execution related.
-        'execution.npart': None,    # number of decomposed blocks.
-        # IO.
-        'io.meshfn': None,
-        # conditions.
-        'condition.bcmap': dict,
-        # solver.
-        'solver.domaintype': None,
-        'solver.domainobj': None,
-        'solver.dealer': None,
-        'solver.outposts': list,
-    }
-
-    @property
-    def is_parallel(self):
+    def __init__(self, case, **kw):
         """
-        Determine if self should do parallel or not.
-
-        @return: 0 means sequential; 1 means local parallel.
-        @rtype: int
+        @param case: case object.
+        @type case: BaseCase
         """
-        from solvcon import domain
-        domaintype = self.solver.domaintype
-        if domaintype == domain.Domain:
-            flag_parallel = 0 # means sequential.
-        elif domaintype == domain.Collective:
-            flag_parallel = 1 # means local parallel.
-        elif domaintype == domain.Distributed:
-            flag_parallel = 2 # means network parallel.
-        else:
-            raise TypeError, 'domaintype shouldn\'t be %s' % domaintype
-        return flag_parallel
+        from .case import BaseCase
+        assert isinstance(case, BaseCase)
+        self.case = case
+        self.info = case.info
+        self.psteps = kw.pop('psteps', None)
+        # save excessive keywords.
+        self.kws = dict(kw)
+        super(Hook, self).__init__()
 
-    def load_block(self):
+    def _makedir(self, dirname, verbose=False):
         """
-        Return a block for init.
+        Make new directory if it does not exist in prior.
 
-        @return: a block object.
-        @rtype: solvcon.block.Block
+        @param dirname: name of directory to be created.
+        @type dirname: str
+        @keyword verbose: flag if print out creation message.
+        @type verbose: bool
         """
-        import gzip
-        from solvcon.io.gambit import GambitNeutral
-        from solvcon.io.block import BlockIO
-        meshfn = self.io.meshfn
-        bcmapper = self.condition.bcmap
-        if '.neu' in meshfn:
-            self._log_start('read_neu_data', msg=' from %s'%meshfn)
-            if meshfn.endswith('.gz'):
-                stream = gzip.open(meshfn)
-            else:
-                stream = open(meshfn)
-            data = stream.read()
-            stream.close()
-            self._log_end('read_neu_data')
-            self._log_start('create_neu_object')
-            neu = GambitNeutral(data)
-            self._log_end('create_neu_object')
-            self._log_start('convert_neu_to_block')
-            blk = neu.toblock(bcname_mapper=bcmapper)
-            self._log_end('convert_neu_to_block')
-        elif '.blk' in meshfn:
-            self._log_start('load_block')
-            blk = BlockIO().load(stream=meshfn, bcmapper=bcmapper)
-            self._log_end('load_block')
-        else:
-            raise ValueError
-        return blk
-
-    def init(self, force=False):
-        """
-        Load block and initialize solver from the geometry information in the
-        block and conditions in the self case.  If parallel run is specified
-        (throught domaintype), split the domain and perform corresponding tasks.
-        """
-        from solvcon import domain
-        from solvcon.rpc import Dealer
-        from solvcon.boundcond import interface
-        preres = super(BlockCase, self).init(force=force)
-        solvertype = self.solver.solvertype
-        domaintype = self.solver.domaintype
-
-        # load block.
-        blk = self.load_block()
-        # initilize the whole solver and domain.
-        dom = domaintype(blk)
-        self.solver.domainobj = dom
-
-        flag_parallel = self.is_parallel
-        # for serial execution.
-        if flag_parallel == 0:
-            assert self.execution.npart == None
-            # create and initialize solver.
-            solver = solvertype(blk,
-                neq=self.execution.neq, fpdtype=self.execution.fpdtype)
-            solver.bind()
-            solver.init()
-            self.solver.solverobj = solver
-        # for parallel execution.
-        elif flag_parallel > 0:
-            assert isinstance(self.execution.npart, int)
-            # split the domain.
-            dom.split(nblk=self.execution.npart, interface_type=interface)
-            nblk = len(dom)
-            # make dealer and create workers for the dealer.
-            if flag_parallel == 1:
-                family = None
-                create_workers = self._create_workers_local
-            elif flag_parallel == 2:
-                family = 'AF_INET'
-                create_workers = self._create_workers_remote
-            dealer = self.solver.dealer = Dealer(family=family)
-            create_workers(dealer, nblk)
-            # spread out decomposed solvers.
-            for iblk in range(nblk):
-                sbk = dom[iblk]
-                svr = solvertype(sbk,
-                    neq=self.execution.neq, fpdtype=self.execution.fpdtype)
-                svr.blkn = iblk
-                svr.nblk = nblk
-                svr.unbind()    # ensure no pointers (unpicklable) in solver.
-                dealer[iblk].remote_setattr('muscle', svr)
-            # initialize solvers.
-            for sdw in dealer: sdw.cmd.bind()
-            for sdw in dealer: sdw.cmd.init()
-            dealer.barrier()
-            # make interconnections for rpc.
-            for iblk in range(nblk):
-                for jblk in range(nblk):
-                    if iblk >= jblk:
-                        continue
-                    if dom.interfaces[iblk][jblk] != None:
-                        dealer.bridge((iblk, jblk))
-            dealer.barrier()
-            # exchange solver metrics.
-            ifacelists = dom.ifacelists
-            for iblk in range(nblk):
-                ifacelist = ifacelists[iblk]
-                sdw = dealer[iblk]
-                sdw.cmd.init_exchange(ifacelist)
-            for arrname in solvertype._interface_init_:
-                for sdw in dealer: sdw.cmd.exchangeibc(arrname,
-                    with_worker=True)
-
-        self._have_init = preres and True
-        return self._have_init
-
-    def _get_profiler_data(self, iblk):
-        from ..conf import env
-        if env.command != None:
-            ops, args = env.command.opargs
-            if getattr(ops, 'use_profiler'):
-                return (
-                    ops.profiler_dat+'%d'%iblk,
-                    ops.profiler_log+'%d'%iblk,
-                    ops.profiler_sort,
-                )
-        return None
-
-    def _create_workers_local(self, dealer, nblk):
-        from solvcon.rpc import Worker
-        for iblk in range(nblk):
-            dealer.hire(Worker(None,
-                profiler_data=self._get_profiler_data(iblk)))
-
-    def _create_workers_remote(self, dealer, nblk):
         import os
-        try:
-            from multiprocessing.connection import Client
-        except ImportError:
-            from processing.connection import Client
-        from ..rpc import DEFAULT_AUTHKEY, Footway, Shadow
-        authkey = DEFAULT_AUTHKEY
-        paths = dict([(key, os.environ.get(key, '').split(':')) for key in
-            'LD_LIBRARY_PATH',
-            'PYTHONPATH',
-        ])
-        paths['PYTHONPATH'].insert(0, self.io.rootdir)
-        sch = self.execution.scheduler(self)
-        iworker = 0
-        for node in sch:
-            inetaddr = node.address
-            port = Footway.build_outpost(address=inetaddr, authkey=authkey,
-                paths=paths)
-            ftw = Footway(address=(inetaddr, port), authkey=authkey)
-            ftw.chdir(os.getcwd())
-            self.solver.outposts.append(ftw)
-            for iblk in range(node.ncore):
-                pport = ftw.create(
-                    profiler_data=self._get_profiler_data(iworker))
-                dealer.appoint(inetaddr, pport, authkey)
-                iworker += 1
-        assert len(dealer) == nblk
+        if not os.path.exists(dirname):
+            os.makedirs(dirname)
+            if verbose:
+                self.info('Created %s' % dirname)
 
-    def run(self):
+    def _depend(self, deplst, verbose=False, stop_on_false=True):
         """
-        Run the simulation case; time marching.
+        Check for dependency to another hook.
 
-        @return: nothing.
+        @param deplst: list of depended hook classes.
+        @type deplst: list
+        @keyword verbose: flag print message.
+        @type verbose: bool
+        @keyword stop_on_false: flag stop on false.
+        @type stop_on_false: bool
+        @return: dependency met or not.
+        @rtype: bool
         """
-        assert self._have_init
-        import sys
-        solvertype = self.solver.solvertype
-        dealer = self.solver.dealer
-        flag_parallel = self.is_parallel
-        # start log.
-        self._log_start('run', msg=' '+self.io.basefn, postmsg=' ... \n')
-        # prepare for time marching.
-        aCFL = 0.0
-        self.execution.step_current = self.execution.step_init
-        # hook: init.
-        self._runhooks('preloop')
-        if flag_parallel:
-            for sdw in dealer: sdw.cmd.exchangeibc('soln', with_worker=True)
-            for sdw in dealer: sdw.cmd.exchangeibc('dsoln', with_worker=True)
-            for sdw in dealer: sdw.cmd.boundcond()
-            for sdw in dealer: sdw.cmd.update()
+        hooks = self.case.execution.runhooks
+        info = self.info
+        # check.
+        metlst = []
+        msglst = []
+        for ahook in deplst:
+            metlst.append(False)
+            for obj in hooks:
+                if isinstance(obj, ahook):
+                    metlst[-1] = True
+                    break
+            if not metlst[-1]:
+                msglst.append("%s should be enabled for %s." % (
+                    ahook.__name__, self.__class__.__name__))
+        if verbose and msglst:
+            info('\n'.join(msglst)+'\n')
+        if stop_on_false and msglst:
+            raise RuntimeError, '\n'.join(msglst)
+        # return.
+        for met in metlst:
+            if not met:
+                return False
+        return True
+
+    def preloop(self):
+        """
+        Things to do before the time-marching loop.
+        """
+        pass
+
+    def premarch(self):
+        """
+        Things to do before the time march for a specific time step.
+        """
+        pass
+
+    def postmarch(self):
+        """
+        Things to do after the time march for a specific time step.
+        """
+        pass
+
+    def postloop(self):
+        """
+        Things to do after the time-marching loop.
+        """
+        pass
+
+class ProgressHook(Hook):
+    """
+    Print progess.
+
+    @ivar linewidth: the maximal width for progress symbol.  50 is upper limit.
+    @itype linewidth: int
+    """
+
+    def __init__(self, case, **kw):
+        self.linewidth = kw.pop('linewidth', 50)
+        assert self.linewidth <= 50
+        super(ProgressHook, self).__init__(case, **kw)
+
+    def preloop(self):
+        istep = self.case.execution.step_current
+        nsteps = self.case.execution.steps_run
+        info = self.info
+        info("Steps to run: %d, current step: %d\n" % (nsteps, istep))
+
+    def postmarch(self):
+        from time import time
+        istep = self.case.execution.step_current
+        nsteps = self.case.execution.steps_run
+        tstart = self.case.log.time['loop_march'][0]
+        psteps = self.psteps
+        linewidth = self.linewidth
+        cCFL = self.case.execution.cCFL
+        info = self.info
+        # calculate estimated remaining time.
+        tcurr = time()
+        tleft = (tcurr-tstart) * ((float(nsteps)-float(istep))/float(istep))
+        # output information.
+        if istep%psteps == 0:
+            info("#")
+        if istep > 0 and istep%(psteps*linewidth) == 0:
+            info(" %d/%d (%.1fs left) %.2f\n" % (istep, nsteps, tleft, cCFL))
+        elif istep == nsteps:
+            info(" %d/%d done\n" % (istep, nsteps))
+
+class CflHook(Hook):
+    """
+    Make sure is CFL number is bounded and print averaged CFL number over time.
+
+    @ivar cflmin: CFL number should be greater than or equal to the value.
+    @itype cflmin: float
+    @ivar cflmax: CFL number should be less than the value.
+    @itype cflmax: float
+    @ivar fullstop: flag to stop when CFL is out of bound.  Default True.
+    @itype fullstop: bool
+    """
+
+    def __init__(self, case, **kw):
+        self.cflmin = kw.pop('cflmin', 0.0)
+        self.cflmax = kw.pop('cflmax', 1.0)
+        self.fullstop = kw.pop('fullstop', True)
+        super(CflHook, self).__init__(case, **kw)
+
+    def _notify(self, msg):
+        from warnings import warn
+        if self.fullstop:
+            raise RuntimeError, msg
         else:
-            self.solver.solverobj.boundcond()
-            self.solver.solverobj.update()
-        # start log.
-        self._log_start('loop_march', postmsg='\n')
-        while self.execution.step_current < self.execution.steps_run:
-            # hook: premarch.
-            self._runhooks('premarch')
-            # march.
-            cCFL = -1.0
-            steps_stride = self.execution.steps_stride
-            time_increment = self.execution.time_increment
-            time = self.execution.step_current*time_increment
-            if flag_parallel:
-                for sdw in dealer: sdw.cmd.march(time, time_increment,
-                    steps_stride, with_worker=True)
-                cCFL = max([sdw.recv() for sdw in dealer])
-            else:
-                cCFL = self.solver.solverobj.march(time, time_increment,
-                    steps_stride)
-            self.execution.time += time_increment*steps_stride
-            # process CFL.
-            istep = self.execution.step_current
-            aCFL += cCFL*steps_stride
-            mCFL = aCFL/(istep+steps_stride)
-            self.execution.cCFL = cCFL
-            self.execution.aCFL = aCFL
-            self.execution.mCFL = mCFL
-            # increment to next time step.
-            self.execution.step_current += steps_stride
-            # hook: postmarch.
-            self._runhooks('postmarch')
-            # flush standard output/error.
-            sys.stdout.flush()
-            sys.stderr.flush()
-        # start log.
-        self._log_end('loop_march')
-        # hook: final.
-        self._runhooks('postloop')
-        # finalize.
-        if flag_parallel:
-            for sdw in dealer: sdw.cmd.final()
-            self.solver.dealer.terminate()
-            for ftw in self.solver.outposts: ftw.terminate()
-        else:
-            self.solver.solverobj.final()
-        # end log.
-        self._log_end('run')
+            warn(msg)
+
+    def postmarch(self):
+        cCFL = self.case.execution.cCFL
+        istep = self.case.execution.step_current
+        if self.cflmin != None and cCFL < self.cflmin:
+            self._notify("CFL = %g < %g after step: %d" % (
+                cCFL, self.cflmin, istep))
+        if self.cflmax != None and cCFL >= self.cflmax:
+            self._notify("CFL = %g >= %g after step: %d" % (
+                cCFL, self.cflmax, istep))
+
+    def postloop(self):
+        info = self.info
+        info("Averaged maximum CFL = %g.\n" % self.case.execution.mCFL)
 
 class BlockHook(Hook):
     """
     Base type for hooks needing a BlockCase.
     """
     def __init__(self, case, **kw):
+        from .case import BlockCase
         assert isinstance(case, BlockCase)
         super(BlockHook, self).__init__(case, **kw)
 
@@ -645,7 +552,7 @@ class SplitSave(VtkSave):
 
     def preloop(self):
         from math import log10, ceil
-        from solvcon.io.vtk import VtkLegacyUstGridWriter
+        from .io.vtk import VtkLegacyUstGridWriter
         case = self.case
         if case.is_parallel == 0:
             return  # do nothing if not in parallel.
@@ -732,7 +639,7 @@ class MarchSave(VtkSave):
         self.writer.write(self.vtkfn_tmpl % istep)
 
     def preloop(self):
-        from solvcon.io.vtk import VtkLegacyUstGridWriter
+        from .io.vtk import VtkLegacyUstGridWriter
         psteps = self.psteps
         case = self.case
         blk = self.blk

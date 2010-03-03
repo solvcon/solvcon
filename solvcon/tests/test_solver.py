@@ -1,12 +1,39 @@
 import os
 from unittest import TestCase
-from ...testing import get_blk_from_sample_neu
-from ..multidim import BlockSolver
+from ..testing import get_blk_from_sample_neu
+from ..solver import BaseSolver, BlockSolver
 
-class TSolver(BlockSolver):
+class CustomBaseSolver(BaseSolver):
+    def bind(self):
+        super(CustomBaseSolver, self).bind()
+        self.val = 'bind'
+
+class CustomBlockSolver(BlockSolver):
     DEBUG_FILENAME_DEFAULT = os.devnull
 
-class TestMultidim(TestCase):
+class TestCore(TestCase):
+    def test_base(self):
+        bsvr = BaseSolver()
+        self.assertEqual(getattr(bsvr, 'val', None), None)
+        bsvr.bind()
+        self.assertEqual(getattr(bsvr, 'val', None), None)
+
+    def test_inheritance(self):
+        svr = CustomBaseSolver()
+        self.assertEqual(getattr(svr, 'val', None), None)
+        svr.bind()
+        self.assertEqual(svr.val, 'bind')
+
+class TestFpdtype(TestCase):
+    def test_fp(self):
+        from ..dependency import pointer_of, str_of
+        from ..conf import env
+        bsvr = BaseSolver()
+        self.assertEqual(bsvr.fpdtype, env.fpdtype)
+        self.assertEqual(bsvr.fpdtypestr, str_of(env.fpdtype))
+        self.assertEqual(bsvr.fpptr, pointer_of(env.fpdtype))
+
+class TestBlockSolver(TestCase):
     neq = 1
 
     @staticmethod
@@ -16,7 +43,7 @@ class TestMultidim(TestCase):
     @classmethod
     def _get_solver(cls, init=True):
         import warnings
-        svr = TSolver(cls._get_block(), neq=cls.neq, enable_mesg=True)
+        svr = CustomBlockSolver(cls._get_block(), neq=cls.neq, enable_mesg=True)
         if init:
             warnings.simplefilter("ignore")
             svr.bind()
@@ -24,22 +51,20 @@ class TestMultidim(TestCase):
             warnings.resetwarnings()
         return svr
 
-class TestDebug(TestMultidim):
     def test_debug(self):
         import sys
         from cStringIO import StringIO
-        TSolver.DEBUG_FILENAME_DEFAULT = 'sys.stdout'
+        CustomBlockSolver.DEBUG_FILENAME_DEFAULT = 'sys.stdout'
         stdout = sys.stdout
         sys.stdout = StringIO()
         svr = self._get_solver(init=True)
         svr.mesg('test message')
         self.assertEqual(sys.stdout.getvalue(), 'test message')
         sys.stdout = stdout
-        TSolver.DEBUG_FILENAME_DEFAULT = os.devnull
+        CustomBlockSolver.DEBUG_FILENAME_DEFAULT = os.devnull
 
-class TestExeinfo(TestMultidim):
     def test_exeinfo(self):
-        from ..multidim import BlockSolverExeinfo
+        from ..solver import BlockSolverExeinfo
         einfo = BlockSolverExeinfo()
         self.assertEqual(str(einfo), '''type execution
     integer*4 :: neq = 0
@@ -48,7 +73,6 @@ class TestExeinfo(TestMultidim):
 end type execution'''
         )
 
-class TestContent(TestMultidim):
     def test_create(self):
         svr = self._get_solver()
         self.assertTrue(svr)
@@ -98,7 +122,6 @@ class TestContent(TestMultidim):
         self.assertEqual(svr.dsol.shape[1], svr.exn.neq)
         self.assertEqual(svr.dsol.shape[2], svr.ndim)
 
-class TestPointer(TestMultidim):
     def test_struct(self):
         from ctypes import byref
         svr = self._get_solver()
@@ -106,7 +129,6 @@ class TestPointer(TestMultidim):
         self.assertEqual(args_struct[0]._obj, svr.msh)
         self.assertEqual(args_struct[1]._obj, svr.exn)
 
-class TestRun(TestMultidim):
     time = 0.0
     time_increment = 1.0
     nsteps = 10
@@ -147,23 +169,3 @@ class TestRun(TestMultidim):
             clcnd += svr.clcnd[ngstcell:]*self.time_increment/2
         # compare.
         self.assertTrue((dsoln==clcnd).all())
-
-class TestAnchor(TestMultidim):
-    time = 0.0
-    time_increment = 1.0
-    nsteps = 10
-
-    def test_runwithanchor(self):
-        import warnings
-        from ..multidim import BlockAnchor
-        svr = TSolver(self._get_block(), neq=self.neq, enable_mesg=True)
-        svr.runanchors.append(BlockAnchor(svr))
-        warnings.simplefilter("ignore")
-        svr.bind()
-        svr.init()
-        warnings.resetwarnings()
-        svr.soln.fill(0.0)
-        svr.dsoln.fill(0.0)
-        # run.
-        svr.march(self.time, self.time_increment, self.nsteps)
-        svr.final()

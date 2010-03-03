@@ -4,12 +4,12 @@ from unittest import TestCase
 
 class TestScheduler(TestCase):
     def test_init(self):
-        from ..case.multidim import BlockCase
+        from ..case import BlockCase
         from ..batch import Scheduler
         case = BlockCase()
 
     def test_script(self):
-        from ..case.multidim import BlockCase
+        from ..case import BlockCase
         from ..batch import Scheduler
         case = BlockCase(rootdir='/tmp')
         sbm = Scheduler(case, arnname='arn')
@@ -37,7 +37,7 @@ echo "Finish @`date`."'''
         import sys
         from nose.plugins.skip import SkipTest
         if sys.platform.startswith('win'): raise SkipTest
-        from ..case.multidim import BlockCase
+        from ..case import BlockCase
         from ..batch import Torque
         case = BlockCase(rootdir='/tmp')
         sbm = Torque(case, arnname='arn')
@@ -48,7 +48,7 @@ echo "Finish @`date`."'''
         from nose.plugins.skip import SkipTest
         if sys.platform.startswith('win'): raise SkipTest
         import os, shutil
-        from ..case.multidim import BlockCase
+        from ..case import BlockCase
         from ..batch import Torque
         case = BlockCase(rootdir='/tmp')
         msg = []
@@ -67,7 +67,7 @@ echo "Finish @`date`."'''
         from nose.plugins.skip import SkipTest
         if sys.platform.startswith('win'): raise SkipTest
         import os, shutil
-        from ..case.multidim import BlockCase
+        from ..case import BlockCase
         from ..batch import Torque
         case = BlockCase(rootdir='/tmp')
         msg = []
@@ -87,7 +87,7 @@ echo "Finish @`date`."'''
         from nose.plugins.skip import SkipTest
         if sys.platform.startswith('win'): raise SkipTest
         import os, shutil
-        from ..case.multidim import BlockCase
+        from ..case import BlockCase
         from ..batch import Torque
         case = BlockCase(rootdir='/tmp')
         msg = []
@@ -106,7 +106,7 @@ echo "Finish @`date`."'''
         from nose.plugins.skip import SkipTest
         if sys.platform.startswith('win'): raise SkipTest
         import os, shutil
-        from ..case.multidim import BlockCase
+        from ..case import BlockCase
         from ..batch import Torque
         case = BlockCase(rootdir='/tmp', empty_jobdir=True)
         msg = []

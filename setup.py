@@ -46,12 +46,8 @@ def main():
         version=solvcon.__version__,
         packages=[
             'solvcon',
-            'solvcon.case',
-            'solvcon.case.tests',
             'solvcon.io',
             'solvcon.io.tests',
-            'solvcon.solver',
-            'solvcon.solver.tests',
             'solvcon.tests',
         ],
     )
