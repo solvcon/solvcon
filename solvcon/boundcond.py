@@ -57,8 +57,8 @@ class BC(object):
     @type blk: solvcon.block.Block
     @ivar blkn: serial number of self block.
     @type blkn: int
-    @ivar solver: solver object.
-    @type solver: solvcon.solver.core.Solver
+    @ivar svr: solver object.
+    @type svr: solvcon.solver.BaseSolver
     @ivar facn: list of faces.  First column is the face index in block.  The
         second column is the face index in bndfcs.  The third column is the
         face index of the related block (if exists).
@@ -101,7 +101,7 @@ class BC(object):
             self.name = None
             self.blk  = None
             self.blkn = None
-            self.solver = None
+            self.svr  = None
             # face list.
             self.facn = empty((0,3), dtype='int32')
             # attached (specified) value.
@@ -144,7 +144,7 @@ class BC(object):
         another.name = self.name
         another.blk  = self.blk
         another.blkn = self.blkn
-        another.solver = self.solver
+        another.svr  = self.svr
         another.facn = self.facn.copy()
         another.value = self.value.copy()
 

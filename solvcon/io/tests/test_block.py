@@ -34,7 +34,7 @@ class CheckBlockIO(TestCase):
             self.assertEqual(newbc.name, bc.name)
             self.assertNotEqual(newbc.blk, bc.blk)
             self.assertEqual(newbc.blkn, bc.blkn)
-            self.assertTrue(newbc.solver == None)
+            self.assertTrue(newbc.svr == None)
             # faces.
             self.assertTrue((newbc.facn == bc.facn).all())
             # values.

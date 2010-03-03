@@ -207,7 +207,9 @@ class BlockSolver(BaseSolver):
         assert self.fpdtype == blk.fpdtype
         # list of tuples for interfaces.
         self.ibclist = list()
-        # take geometric information from block.
+        # absorb block.
+        ## meta-data.
+        ### shape.
         self.svrn = blk.blkn
         self.ndim = blk.ndim
         self.nnode = blk.nnode
@@ -217,17 +219,26 @@ class BlockSolver(BaseSolver):
         self.ngstnode = blk.ngstnode
         self.ngstface = blk.ngstface
         self.ngstcell = blk.ngstcell
+        ### cell grouping and BCs.
+        self.clgrp = blk.shclgrp
         self.bclist = blk.bclist
-        # take data from block.
-        self.clvol = blk.shclvol
+        for bc in self.bclist:
+            bc.blk = None
+            bc.svr = self
+        ## connectivity.
+        self.clnds = blk.shclnds
+        self.clfcs = blk.shclfcs
+        self.fcnds = blk.shfcnds
+        self.fccls = blk.shfccls
+        ## metrics.
+        self.ndcrd = blk.shndcrd
+        self.fccnd = blk.shfccnd
+        self.fcnml = blk.shfcnml
         self.clcnd = blk.shclcnd
+        self.clvol = blk.shclvol
         # data structure for C/FORTRAN.
         self.msh = None
         self.exn = None
-        # attach self to each BC and cancel its relation to blk.
-        for bc in self.bclist:
-            bc.blk = None
-            bc.solver = self
         # create arrays.
         ndim = self.ndim
         ncell = self.ncell
