@@ -21,28 +21,6 @@ class BlockSolverExeinfo(FortranType):
     ]
     del c_int, c_double
 
-class BlockAnchor(object):
-    """
-    Anchor that called by solver objects at various stages.
-    """
-
-    def preinit(self):
-        pass
-    def postinit(self):
-        pass
-    def prefull(self):
-        pass
-    def postfull(self):
-        pass
-    def prehalf(self):
-        pass
-    def posthalf(self):
-        pass
-    def prefinal(self):
-        pass
-    def postfinal(self):
-        pass
-
 class BlockSolver(BaseSolver):
     """
     Generic class for multi-dimensional (implemented with Block)
@@ -299,11 +277,10 @@ class BlockSolver(BaseSolver):
 
         @note: BC must be initialized AFTER solver itself.
         """
-        self._runanchors('preinit')
         for bc in self.bclist:
             bc.init(**kw)
         super(BlockSolver, self).init(**kw)
-        self._runanchors('postinit')
+        self._runanchors('premarch')
 
     def final(self):
         """
@@ -311,8 +288,7 @@ class BlockSolver(BaseSolver):
 
         @note: BC must be initialized AFTER solver itself.
         """
-        self._runanchors('prefinal')
-        self._runanchors('postfinal')
+        self._runanchors('postmarch')
 
     ##################################################
     # CESE solving algorithm.
@@ -497,3 +473,24 @@ class BlockSolver(BaseSolver):
         rarr = conn.recv()  # comm.
         slct = bc.rclp[:,0] + ngstcell
         arr[slct] = rarr[:]
+
+class BlockAnchor(object):
+    """
+    Anchor that called by solver objects at various stages.
+    """
+
+    def __init__(self, svr, **kw):
+        assert isinstance(svr, BlockSolver)
+
+    def premarch(self):
+        pass
+    def prefull(self):
+        pass
+    def postfull(self):
+        pass
+    def prehalf(self):
+        pass
+    def posthalf(self):
+        pass
+    def postmarch(self):
+        pass

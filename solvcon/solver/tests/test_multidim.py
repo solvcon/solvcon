@@ -147,3 +147,23 @@ class TestRun(TestMultidim):
             clcnd += svr.clcnd[ngstcell:]*self.time_increment/2
         # compare.
         self.assertTrue((dsoln==clcnd).all())
+
+class TestAnchor(TestMultidim):
+    time = 0.0
+    time_increment = 1.0
+    nsteps = 10
+
+    def test_runwithanchor(self):
+        import warnings
+        from ..multidim import BlockAnchor
+        svr = TSolver(self._get_block(), neq=self.neq, enable_mesg=True)
+        svr.runanchors.append(BlockAnchor(svr))
+        warnings.simplefilter("ignore")
+        svr.bind()
+        svr.init()
+        warnings.resetwarnings()
+        svr.soln.fill(0.0)
+        svr.dsoln.fill(0.0)
+        # run.
+        svr.march(self.time, self.time_increment, self.nsteps)
+        svr.final()
