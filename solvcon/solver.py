@@ -64,7 +64,7 @@ class BaseSolver(object):
         @return: nothing
         """
         runanchors = self.runanchors
-        if 'final' in method:
+        if 'postloop' in method:
             runanchors = reversed(runanchors)
         for anchor in runanchors:
             getattr(anchor, method)()
@@ -75,7 +75,7 @@ class BaseSolver(object):
 
         @return: nothing.
         """
-        self._runanchors('premarch')
+        pass
 
     def march(self, time, time_increment, steps_run):
         """
@@ -98,7 +98,7 @@ class BaseSolver(object):
 
         @return: nothing.
         """
-        self._runanchors('postmarch')
+        pass
 
 class BlockSolverExeinfo(FortranType):
     """
