@@ -232,7 +232,7 @@ class BaseCase(CaseInfo):
         for hook in self.execution.runhooks:
             getattr(hook, method)()
 
-    def _run(self):
+    def run(self):
         """
         Run the simulation case; time marching.
 
