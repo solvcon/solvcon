@@ -64,7 +64,7 @@ class BaseSolver(object):
         @return: nothing
         """
         runanchors = self.runanchors
-        if 'postloop' in method:
+        if method == 'postloop':
             runanchors = reversed(runanchors)
         for anchor in runanchors:
             getattr(anchor, method)()
