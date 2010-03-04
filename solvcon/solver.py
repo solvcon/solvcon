@@ -226,6 +226,7 @@ class BlockSolver(BaseSolver):
         self.ngstface = blk.ngstface
         self.ngstcell = blk.ngstcell
         ### cell grouping and BCs.
+        self.grpnames = blk.grpnames
         self.clgrp = blk.shclgrp
         self.bclist = blk.bclist
         for bc in self.bclist:
