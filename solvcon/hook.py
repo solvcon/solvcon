@@ -84,6 +84,16 @@ class Hook(object):
                 return False
         return True
 
+    def drop_anchor(self, svr):
+        """
+        Drop the anchor(s) to the solver object.
+
+        @param svr: the solver object on which the anchor(s) is dropped.
+        @type svr: solvon.solver.BaseSolver
+        @return: nothing
+        """
+        pass
+
     def preloop(self):
         """
         Things to do before the time-marching loop.

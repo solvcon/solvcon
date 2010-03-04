@@ -77,6 +77,9 @@ class BaseSolver(object):
         """
         pass
 
+    def preloop(self):
+        self._runanchors('preloop')
+
     def march(self, time, time_increment, steps_run):
         """
         An empty marcher for the solver object.
@@ -91,6 +94,9 @@ class BaseSolver(object):
         @rtype: float
         """
         return -2.0
+
+    def postloop(self):
+        self._runanchors('postloop')
 
     def final(self):
         """

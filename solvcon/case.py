@@ -398,11 +398,12 @@ class BlockCase(BaseCase):
         if flag_parallel == 0:
             assert self.execution.npart == None
             # create and initialize solver.
-            solver = solvertype(blk,
+            svr = solvertype(blk,
                 neq=self.execution.neq, fpdtype=self.execution.fpdtype)
-            solver.bind()
-            solver.init()
-            self.solver.solverobj = solver
+            for hok in self.execution.runhooks: hok.drop_anchor(svr)
+            svr.bind()
+            svr.init()
+            self.solver.solverobj = svr
         # for parallel execution.
         elif flag_parallel > 0:
             assert isinstance(self.execution.npart, int)
@@ -425,6 +426,7 @@ class BlockCase(BaseCase):
                     neq=self.execution.neq, fpdtype=self.execution.fpdtype)
                 svr.blkn = iblk
                 svr.nblk = nblk
+                for hok in self.execution.runhooks: hok.drop_anchor(svr)
                 svr.unbind()    # ensure no pointers (unpicklable) in solver.
                 dealer[iblk].remote_setattr('muscle', svr)
             # initialize solvers.
@@ -515,14 +517,16 @@ class BlockCase(BaseCase):
         # prepare for time marching.
         aCFL = 0.0
         self.execution.step_current = self.execution.step_init
-        # hook: init.
+        # hook: preloop.
         self._runhooks('preloop')
         if flag_parallel:
+            for sdw in dealer: sdw.cmd.preloop()
             for sdw in dealer: sdw.cmd.exchangeibc('soln', with_worker=True)
             for sdw in dealer: sdw.cmd.exchangeibc('dsoln', with_worker=True)
             for sdw in dealer: sdw.cmd.boundcond()
             for sdw in dealer: sdw.cmd.update()
         else:
+            self.solver.solverobj.preloop()
             self.solver.solverobj.boundcond()
             self.solver.solverobj.update()
         # start log.
@@ -559,7 +563,11 @@ class BlockCase(BaseCase):
             sys.stderr.flush()
         # start log.
         self._log_end('loop_march')
-        # hook: final.
+        # hook: postloop.
+        if flag_parallel:
+            for sdw in dealer: sdw.cmd.postloop()
+        else:
+            self.solver.solverobj.postloop()
         self._runhooks('postloop')
         # finalize.
         if flag_parallel:
