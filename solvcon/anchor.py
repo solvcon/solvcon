@@ -18,6 +18,8 @@ class Anchor(object):
         assert isinstance(svr, BaseSolver)
         self.svr = svr
 
+    def provide(self):
+        pass
     def preloop(self):
         pass
     def prefull(self):
@@ -29,4 +31,6 @@ class Anchor(object):
     def posthalf(self):
         pass
     def postloop(self):
+        pass
+    def exhaust(self):
         pass

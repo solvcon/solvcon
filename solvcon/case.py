@@ -517,6 +517,10 @@ class BlockCase(BaseCase):
         # prepare for time marching.
         aCFL = 0.0
         self.execution.step_current = self.execution.step_init
+        if flag_parallel:
+            for sdw in dealer: sdw.cmd.provide()
+        else:
+            self.solver.solverobj.provide()
         # hook: preloop.
         self._runhooks('preloop')
         if flag_parallel:
@@ -570,6 +574,10 @@ class BlockCase(BaseCase):
             self.solver.solverobj.postloop()
         self._runhooks('postloop')
         # finalize.
+        if flag_parallel:
+            for sdw in dealer: sdw.cmd.exhaust()
+        else:
+            self.solver.solverobj.exhaust()
         if flag_parallel:
             for sdw in dealer: sdw.cmd.final()
             self.solver.dealer.terminate()

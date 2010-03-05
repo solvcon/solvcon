@@ -64,7 +64,7 @@ class BaseSolver(object):
         @return: nothing
         """
         runanchors = self.runanchors
-        if method == 'postloop':
+        if method == 'postloop' or method == 'exhaust':
             runanchors = reversed(runanchors)
         for anchor in runanchors:
             getattr(anchor, method)()
@@ -77,6 +77,8 @@ class BaseSolver(object):
         """
         pass
 
+    def provide(self):
+        self._runanchors('provide')
     def preloop(self):
         self._runanchors('preloop')
 
@@ -97,6 +99,8 @@ class BaseSolver(object):
 
     def postloop(self):
         self._runanchors('postloop')
+    def exhaust(self):
+        self._runanchors('exhaust')
 
     def final(self):
         """
