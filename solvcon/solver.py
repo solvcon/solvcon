@@ -16,8 +16,12 @@ class BaseSolver(object):
     finalization, respectively.
 
     @ivar _fpdtype: dtype for the floating point data in the block instance.
+    @itype _fpdtype: numpy.dtype
     @ivar runanchors: the list for the anchor objects to be run.
     @itype runanchors: list
+    @ivar ankdict: the container of anchor object for communication with hook
+        objects.
+    @itype ankdict: dict
     """
 
     __metaclass__ = TypeWithBinder
@@ -33,6 +37,7 @@ class BaseSolver(object):
         self._fpdtype = env.fpdtype if self._fpdtype==None else self._fpdtype
         # anchor list.
         self.runanchors = list()
+        self.ankdict = dict()
 
     @property
     def fpdtype(self):
@@ -501,6 +506,22 @@ class BlockSolver(BaseSolver):
         else:
             arr = getattr(self, arrname)
         arr[start:] = marr[start:]
+
+    def pullank(self, ankname, objname, worker=None):
+        """
+        Pull data array to dealer (rpc) through worker object.
+
+        @param ankname: the name of related anchor.
+        @type ankname: str
+        @param objname: the object to pull to master.
+        @type objname: str
+        @keyword worker: the worker object for communication.
+        @type worker: solvcon.rpc.Worker
+        @return: nothing.
+        """
+        conn = worker.conn
+        obj = getattr(self.ankdict[ankname], objname)
+        conn.send(obj)
 
     def init_exchange(self, ifacelist):
         from .boundcond import interface
