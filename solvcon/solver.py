@@ -228,8 +228,9 @@ class BlockSolver(BaseSolver):
         self.ibclist = list()
         # absorb block.
         ## meta-data.
-        ### shape.
         self.svrn = blk.blkn
+        self.nsvr = None
+        ### shape.
         self.ndim = blk.ndim
         self.nnode = blk.nnode
         self.nface = blk.nface

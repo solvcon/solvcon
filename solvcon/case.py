@@ -424,8 +424,8 @@ class BlockCase(BaseCase):
                 sbk = dom[iblk]
                 svr = solvertype(sbk,
                     neq=self.execution.neq, fpdtype=self.execution.fpdtype)
-                svr.blkn = iblk
-                svr.nblk = nblk
+                svr.svrn = iblk
+                svr.nsvr = nblk
                 for hok in self.execution.runhooks: hok.drop_anchor(svr)
                 svr.unbind()    # ensure no pointers (unpicklable) in solver.
                 dealer[iblk].remote_setattr('muscle', svr)
@@ -528,11 +528,9 @@ class BlockCase(BaseCase):
             for sdw in dealer: sdw.cmd.exchangeibc('soln', with_worker=True)
             for sdw in dealer: sdw.cmd.exchangeibc('dsoln', with_worker=True)
             for sdw in dealer: sdw.cmd.boundcond()
-            for sdw in dealer: sdw.cmd.update()
         else:
             self.solver.solverobj.preloop()
             self.solver.solverobj.boundcond()
-            self.solver.solverobj.update()
         # start log.
         self._log_start('loop_march', postmsg='\n')
         while self.execution.step_current < self.execution.steps_run:
