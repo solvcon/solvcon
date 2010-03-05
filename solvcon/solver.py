@@ -171,6 +171,10 @@ class BlockSolver(BaseSolver):
         time-step).
     @itype dsoln: numpy.ndarray
 
+    @ivar der: the dictionary to put derived data arrays.  Mostly used by
+        Anchors.
+    @itype der: dict
+
     @ivar _calc_soln_args: a list of ctypes entities for marchsol() method.
     @itype _calc_soln_args: list
     @ivar _calc_dsoln_args: a list of ctypes entities for dmarchsol() method.
@@ -263,6 +267,8 @@ class BlockSolver(BaseSolver):
         self.soln = empty((ngstcell+ncell, neq), dtype=self.fpdtype)
         self.dsol = empty((ngstcell+ncell, neq, ndim), dtype=self.fpdtype)
         self.dsoln = empty((ngstcell+ncell, neq, ndim), dtype=self.fpdtype)
+        ## derived data.
+        self.der = dict()
         # placeholders.
         self.mesg = None
         self.solptr = None
@@ -457,21 +463,26 @@ class BlockSolver(BaseSolver):
     ##################################################
     # below are for parallelization.
     ##################################################
-    def pull(self, arrname, worker=None):
+    def pull(self, arrname, inder=False, worker=None):
         """
         Pull data array to dealer (rpc) through worker object.
 
         @param arrname: the array to pull to master.
         @type arrname: str
+        @param inder: the data array is derived data array.
+        @type inder: bool
         @keyword worker: the worker object for communication.
         @type worker: solvcon.rpc.Worker
         @return: nothing.
         """
         conn = worker.conn
-        arr = getattr(self, arrname)
+        if inder:
+            arr = self.der[arrname]
+        else:
+            arr = getattr(self, arrname)
         conn.send(arr)
 
-    def push(self, marr, arrname, start=0):
+    def push(self, marr, arrname, start=0, inder=False):
         """
         Push data array received from dealer (rpc) into self.
 
@@ -479,9 +490,16 @@ class BlockSolver(BaseSolver):
         @type marr: numpy.ndarray
         @param arrname: the array to pull to master.
         @type arrname: str
+        @param start: the starting index of pushing.
+        @type start: int
+        @param inder: the data array is derived data array.
+        @type inder: bool
         @return: nothing.
         """
-        arr = getattr(self, arrname)
+        if inder:
+            arr = self.der[arrname]
+        else:
+            arr = getattr(self, arrname)
         arr[start:] = marr[start:]
 
     def init_exchange(self, ifacelist):
