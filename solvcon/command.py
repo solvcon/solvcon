@@ -257,7 +257,7 @@ class submit(ArrangementCommand):
         import os
         from .conf import use_application
         from . import batch
-        from .case.core import arrangements
+        from .case import arrangements
         ops, args = self.opargs
         if len(args) > 0:
             name = args[0]
