@@ -209,11 +209,13 @@ class BlockHook(Hook):
     def blk(self):
         return self.case.solver.domainobj.blk
 
-    def _collect_interior(self, key, consider_ghost=True):
+    def _collect_interior(self, key, inder=False, consider_ghost=True):
         """
         @param key: the name of the array to collect in a solver object.
         @type key: str
-        @keyword consider_ghost: treat the arrays with the consideration of
+        @keyword inder: the array is for derived data.
+        @type inder: bool
+        @keyword consider_ghost: treat the array with the consideration of
             ghost cells.  Default is True.
         @type consider_ghost: bool
         @return: the interior array hold by the solver.
@@ -229,7 +231,7 @@ class BlockHook(Hook):
             dealer = self.case.solver.dealer
             arrs = list()
             for iblk in range(len(dom)):
-                dealer[iblk].cmd.pull(key, with_worker=True)
+                dealer[iblk].cmd.pull(key, inder=inder, with_worker=True)
                 arr = dealer[iblk].recv()
                 arrs.append(arr)
             # create global array.
@@ -250,7 +252,10 @@ class BlockHook(Hook):
                 start = ngstcell
             else:
                 start = 0
-            arrg = getattr(case.solver.solverobj, key)[start:].copy()
+            if inder:
+                arrg = case.solver.solverobj.der[key][start:].copy()
+            else:
+                arrg = getattr(case.solver.solverobj, key)[start:].copy()
         return arrg
 
     def _spread_interior(self, arrg, key, consider_ghost=True):
