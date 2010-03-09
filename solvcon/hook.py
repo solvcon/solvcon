@@ -28,6 +28,7 @@ class Hook(object):
         self.case = case
         self.info = case.info
         self.psteps = kw.pop('psteps', None)
+        self.ankcls = kw.pop('ankcls', None)
         # save excessive keywords.
         self.kws = dict(kw)
         super(Hook, self).__init__()
@@ -92,7 +93,8 @@ class Hook(object):
         @type svr: solvon.solver.BaseSolver
         @return: nothing
         """
-        pass
+        if self.ankcls:
+            svr.runanchors.append(self.ankcls(svr, **self.kws))
 
     def preloop(self):
         """
