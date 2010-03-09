@@ -28,6 +28,20 @@ class Anchor(object):
         pass
     def prehalf(self):
         pass
+    def premarchsoln(self):
+        pass
+    def preexsoln(self):
+        pass
+    def prebcsoln(self):
+        pass
+    def precfl(self):
+        pass
+    def premarchdsoln(self):
+        pass
+    def preexdsoln(self):
+        pass
+    def prebcdsoln(self):
+        pass
     def posthalf(self):
         pass
     def postloop(self):

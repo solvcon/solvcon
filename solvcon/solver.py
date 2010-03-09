@@ -448,14 +448,21 @@ class BlockSolver(BaseSolver):
                 self._runanchors('prehalf')
                 self.update()
                 # solutions.
+                self._runanchors('premarchsoln')
                 self.marchsol(time, time_increment)
+                self._runanchors('preexsoln')
                 if worker: self.exchangeibc('soln', worker=worker)
+                self._runanchors('prebcsoln')
                 for bc in self.bclist: bc.sol()
+                self._runanchors('precfl')
                 cCFL = self.estimatecfl()
                 maxCFL = cCFL if cCFL > maxCFL else maxCFL
                 # solution gradients.
+                self._runanchors('premarchdsoln')
                 self.marchdsol(time, time_increment)
+                self._runanchors('preexdsoln')
                 if worker: self.exchangeibc('dsoln', worker=worker)
+                self._runanchors('prebcdsoln')
                 for bc in self.bclist: bc.dsol()
                 # increment time.
                 time += time_increment/2
