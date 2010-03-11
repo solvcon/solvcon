@@ -28,7 +28,6 @@ class TestBaseCase(TestCase):
         case = BaseCase()
         # execution related.
         self.assertTrue(isinstance(case.execution.runhooks, list))
-        self.assertEqual(case.execution.run_inner, False)
         self.assertEqual(case.execution.time, 0.0)
         self.assertEqual(case.execution.time_increment, 0.0)
         self.assertEqual(case.execution.step_init, 0)

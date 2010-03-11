@@ -118,7 +118,6 @@ class BaseCase(CaseInfo):
         # execution related.
         'execution.fpdtype': conf.env.fpdtypestr,
         'execution.runhooks': list,
-        'execution.run_inner': False,
         'execution.scheduler': batch.Scheduler,
         'execution.resources': dict,    # for scheduler.
         'execution.time': 0.0,
