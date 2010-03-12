@@ -27,7 +27,7 @@ class TestBaseCase(TestCase):
         from ..case import BaseCase
         case = BaseCase()
         # execution related.
-        self.assertTrue(isinstance(case.execution.runhooks, list))
+        self.assertTrue(isinstance(case.runhooks, list))
         self.assertEqual(case.execution.time, 0.0)
         self.assertEqual(case.execution.time_increment, 0.0)
         self.assertEqual(case.execution.step_init, 0)
@@ -108,8 +108,8 @@ class TestBlockCaseRun(TestCase):
         )
         case.info = lambda *a: None
         case.load_block = get_blk_from_sample_neu
-        case.execution.runhooks.append(CaseInit(case))
-        case.execution.runhooks.append(CaseCalc(case))
+        case.runhooks.append(CaseInit(case))
+        case.runhooks.append(CaseCalc(case))
         case.init()
         return case
 

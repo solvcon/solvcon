@@ -426,7 +426,7 @@ class BlockCase(BaseCase):
                     neq=self.execution.neq, fpdtype=self.execution.fpdtype)
                 svr.svrn = iblk
                 svr.nsvr = nblk
-                for hok in self.execution.runhooks: hok.drop_anchor(svr)
+                for hok in self.runhooks: hok.drop_anchor(svr)
                 svr.unbind()    # ensure no pointers (unpicklable) in solver.
                 dealer[iblk].remote_setattr('muscle', svr)
             # initialize solvers.
