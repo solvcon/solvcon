@@ -65,32 +65,11 @@ class TestBaseCase(TestCase):
         case.init()
         self.assertTrue(case._have_init)
 
-from ..hook import Initializer, Calculator
-class CaseInitSet(Initializer):
-    _varnames_ = (
-        # key, putback.
-        ('soln', True,),
-        ('dsoln', True,),
-    )
-    def _set_data(self, **kw):
-        soln = kw['soln']
-        dsoln = kw['dsoln']
-        # solutions.
-        soln.fill(0.0)
-        dsoln.fill(0.0)
-class CaseInitCollect(Initializer):
-    def preloop(self):
-        # super preloop.
-        soln = self._collect_interior('soln')
-        dsoln = self._collect_interior('dsoln')
-        soln.fill(0.0)
-        dsoln.fill(0.0)
-        self._spread_interior(soln, 'soln')
-        self._spread_interior(dsoln, 'dsoln')
+from ..hook import BlockHook, Calculator
 class CaseCalc(Calculator):
     def postloop(self):
         self._collect_solutions()
-del Initializer, Calculator
+del Calculator
 
 class TestBlockCaseRun(TestCase):
     time = 0.0
@@ -108,16 +87,17 @@ class TestBlockCaseRun(TestCase):
         )
         case.info = lambda *a: None
         case.load_block = get_blk_from_sample_neu
-        case.runhooks.append(CaseInit(case))
+        case.runhooks.append(CaseInit)
         case.runhooks.append(CaseCalc(case))
         case.init()
         return case
 
 class TestSequential(TestBlockCaseRun):
-    def test_soln_set(self):
+    def test_soln(self):
         from numpy import zeros
         from ..domain import Domain
-        case = self._get_case(CaseInitSet, domaintype=Domain)
+        from .. import anchor
+        case = self._get_case(anchor.ZeroIAnchor, domaintype=Domain)
         svr = case.solver.solverobj
         case.run()
         ngstcell = svr.ngstcell
@@ -129,41 +109,12 @@ class TestSequential(TestBlockCaseRun):
             clvol += svr.clvol[ngstcell:]*self.time_increment/2
         # compare.
         self.assertTrue((soln==clvol).all())
-    def test_dsoln_set(self):
-        from numpy import zeros
-        from ..domain import Domain
-        case = self._get_case(CaseInitSet, domaintype=Domain)
-        svr = case.solver.solverobj
-        case.run()
-        ngstcell = svr.ngstcell
-        # get result.
-        dsoln = svr.dsoln[ngstcell:,0,:]
-        # calculate reference
-        clcnd = zeros(dsoln.shape, dtype=dsoln.dtype)
-        for iistep in range(self.nsteps*2):
-            clcnd += svr.clcnd[ngstcell:]*self.time_increment/2
-        # compare.
-        self.assertTrue((dsoln==clcnd).all())
 
-    def test_soln_collect(self):
+    def test_dsoln(self):
         from numpy import zeros
         from ..domain import Domain
-        case = self._get_case(CaseInitCollect, domaintype=Domain)
-        svr = case.solver.solverobj
-        case.run()
-        ngstcell = svr.ngstcell
-        # get result.
-        soln = svr.soln[ngstcell:,0]
-        # calculate reference
-        clvol = zeros(soln.shape, dtype=soln.dtype)
-        for iistep in range(self.nsteps*2):
-            clvol += svr.clvol[ngstcell:]*self.time_increment/2
-        # compare.
-        self.assertTrue((soln==clvol).all())
-    def test_dsoln_collect(self):
-        from numpy import zeros
-        from ..domain import Domain
-        case = self._get_case(CaseInitCollect, domaintype=Domain)
+        from .. import anchor
+        case = self._get_case(anchor.ZeroIAnchor, domaintype=Domain)
         svr = case.solver.solverobj
         case.run()
         ngstcell = svr.ngstcell
@@ -179,13 +130,14 @@ class TestSequential(TestBlockCaseRun):
 class TestParallel(TestBlockCaseRun):
     npart = 3
 
-    def test_soln_set(self):
+    def test_soln(self):
         import sys
         from nose.plugins.skip import SkipTest
         if sys.platform.startswith('win'): raise SkipTest
         from numpy import zeros
         from ..domain import Collective
-        case = self._get_case(CaseInitSet,
+        from .. import anchor
+        case = self._get_case(anchor.ZeroIAnchor,
             npart=self.npart, domaintype=Collective)
         case.run()
         # get result.
@@ -197,50 +149,15 @@ class TestParallel(TestBlockCaseRun):
             clvol += blk.clvol*self.time_increment/2
         # compare.
         self.assertTrue((soln==clvol).all())
-    def test_dsoln_set(self):
-        import sys
-        from nose.plugins.skip import SkipTest
-        if sys.platform.startswith('win'): raise SkipTest
-        from numpy import zeros
-        from ..domain import Collective
-        case = self._get_case(CaseInitSet,
-            npart=self.npart, domaintype=Collective)
-        case.run()
-        # get result.
-        dsoln = case.execution.var['dsoln'][:,0,:]
-        # calculate reference
-        blk = case.solver.domainobj.blk
-        clcnd = zeros(dsoln.shape, dtype=dsoln.dtype)
-        for iistep in range(self.nsteps*2):
-            clcnd += blk.clcnd*self.time_increment/2
-        # compare.
-        self.assertTrue((dsoln==clcnd).all())
 
-    def test_soln_collect(self):
+    def test_dsoln(self):
         import sys
         from nose.plugins.skip import SkipTest
         if sys.platform.startswith('win'): raise SkipTest
         from numpy import zeros
         from ..domain import Collective
-        case = self._get_case(CaseInitCollect,
-            npart=self.npart, domaintype=Collective)
-        case.run()
-        # get result.
-        soln = case.execution.var['soln'][:,0]
-        # calculate reference
-        blk = case.solver.domainobj.blk
-        clvol = zeros(soln.shape, dtype=soln.dtype)
-        for iistep in range(self.nsteps*2):
-            clvol += blk.clvol*self.time_increment/2
-        # compare.
-        self.assertTrue((soln==clvol).all())
-    def test_dsoln_collect(self):
-        import sys
-        from nose.plugins.skip import SkipTest
-        if sys.platform.startswith('win'): raise SkipTest
-        from numpy import zeros
-        from ..domain import Collective
-        case = self._get_case(CaseInitCollect,
+        from .. import anchor
+        case = self._get_case(anchor.ZeroIAnchor,
             npart=self.npart, domaintype=Collective)
         case.run()
         # get result.

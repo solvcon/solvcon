@@ -37,7 +37,6 @@ class TestBlockHook(TestCase):
         from .. import hook
         self.assertTrue(hook.BlockHook)
         self.assertTrue(hook.BlockInfoHook)
-        self.assertTrue(hook.Initializer)
         self.assertTrue(hook.Calculator)
         self.assertTrue(hook.VtkSave)
         self.assertTrue(hook.SplitSave)
@@ -89,35 +88,6 @@ class BlockHookTest(TestCase):
 
     def assertInfo(self, msg):
         self.assertEqual(self._msg, msg)
-
-class TestInitializer(BlockHookTest):
-    def test_property(self):
-        from ..hook import Initializer
-        self.assertEqual(Initializer._varnames_, tuple())
-
-    def test_methods(self):
-        from ..hook import Hook, Initializer
-        self.assertTrue(callable(Initializer._take_data))
-        self.assertTrue(callable(Initializer._set_data))
-        self.assertTrue(callable(Initializer._put_data))
-        self.assertNotEqual(Initializer.preloop, Hook.preloop)
-        self.assertEqual(Initializer.premarch, Hook.premarch)
-        self.assertEqual(Initializer.postmarch, Hook.postmarch)
-        self.assertEqual(Initializer.postloop, Hook.postloop)
-
-    def test_set_data(self):
-        from ..case import BlockCase
-        from ..hook import Initializer
-        cse = BlockCase()
-        hok = Initializer(cse)
-        self.assertRaises(NotImplementedError, hok._set_data)
-
-    def test_preloop(self):
-        from ..case import BlockCase
-        from ..hook import Initializer
-        cse = BlockCase()
-        hok = Initializer(cse)
-        self.assertRaises(TypeError, hok.preloop)
 
 class TestCalculator(BlockHookTest):
     def test_methods(self):
