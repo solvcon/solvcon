@@ -319,7 +319,7 @@ class BlockInfoHook(BlockHook):
 
 class Initializer(BlockHook):
     """
-    Base type for initializer for case with a block.
+    OBSELETE.  Base type for initializer for case with a block.
 
     @cvar _varnames_: variables to be set, it takes the format of:
         (
@@ -398,7 +398,7 @@ class Initializer(BlockHook):
 
 class Calculator(BlockHook):
     """
-    Base type for calculator.
+    OBSELETE.  Base type for calculator.
     """
 
     def _collect_solutions(self):
