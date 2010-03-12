@@ -65,11 +65,14 @@ class TestBaseCase(TestCase):
         case.init()
         self.assertTrue(case._have_init)
 
-from ..hook import BlockHook, Calculator
-class CaseCalc(Calculator):
-    def postloop(self):
-        self._collect_solutions()
-del Calculator
+from ..hook import BlockHook
+class CaseCollect(BlockHook):
+    def postmarch(self):
+        self._collect_interior('soln', tovar=True)
+        self._collect_interior('dsoln', tovar=True)
+    def preloop(self):
+        self.postmarch()
+del BlockHook
 
 class TestBlockCaseRun(TestCase):
     time = 0.0
@@ -88,7 +91,7 @@ class TestBlockCaseRun(TestCase):
         case.info = lambda *a: None
         case.load_block = get_blk_from_sample_neu
         case.runhooks.append(CaseInit)
-        case.runhooks.append(CaseCalc(case))
+        case.runhooks.append(CaseCollect)
         case.init()
         return case
 

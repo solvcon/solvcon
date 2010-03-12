@@ -33,15 +33,6 @@ class TestHook(TestCase):
         self.assertNotEqual(CflHook.postloop, Hook.postloop)
 
 class TestBlockHook(TestCase):
-    def test_existence(self):
-        from .. import hook
-        self.assertTrue(hook.BlockHook)
-        self.assertTrue(hook.BlockInfoHook)
-        self.assertTrue(hook.Calculator)
-        self.assertTrue(hook.VtkSave)
-        self.assertTrue(hook.SplitSave)
-        self.assertTrue(hook.MarchSave)
-
     def test_type(self):
         from .. import hook
         self.assertRaises(AssertionError, hook.BlockHook, None)
@@ -88,23 +79,6 @@ class BlockHookTest(TestCase):
 
     def assertInfo(self, msg):
         self.assertEqual(self._msg, msg)
-
-class TestCalculator(BlockHookTest):
-    def test_methods(self):
-        from ..hook import Hook, Calculator
-        self.assertTrue(callable(Calculator._collect_solutions))
-        self.assertTrue(callable(Calculator._calculate))
-        self.assertEqual(Calculator.preloop, Hook.preloop)
-        self.assertEqual(Calculator.premarch, Hook.premarch)
-        self.assertEqual(Calculator.postmarch, Hook.postmarch)
-        self.assertEqual(Calculator.postloop, Hook.postloop)
-
-    def test_calculate(self):
-        from ..case import BlockCase
-        from ..hook import Calculator
-        cse = BlockCase()
-        hok = Calculator(cse)
-        self.assertRaises(NotImplementedError, hok._calculate)
 
 class TestMarchSave(BlockHookTest):
     def test_methods(self):

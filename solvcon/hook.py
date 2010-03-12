@@ -258,10 +258,13 @@ class BlockHook(Hook):
     def blk(self):
         return self.cse.solver.domainobj.blk
 
-    def _collect_interior(self, key, inder=False, consider_ghost=True):
+    def _collect_interior(self, key, tovar=False, inder=False,
+        consider_ghost=True):
         """
         @param key: the name of the array to collect in a solver object.
         @type key: str
+        @keyword tovar: flag to store collect data to case var dict.
+        @type tovar: bool
         @keyword inder: the array is for derived data.
         @type inder: bool
         @keyword consider_ghost: treat the array with the consideration of
@@ -305,6 +308,8 @@ class BlockHook(Hook):
                 arrg = cse.solver.solverobj.der[key][start:].copy()
             else:
                 arrg = getattr(cse.solver.solverobj, key)[start:].copy()
+        if tovar:
+            self.cse.execution.var[key] = arrg
         return arrg
 
     def _spread_interior(self, arrg, key, consider_ghost=True):
@@ -363,51 +368,6 @@ class BlockInfoHook(BlockHook):
         step_current = self.cse.execution.step_current
         perf = time/(step_current-step_init)/ncell * 1.e6
         self.info('Performance: %g microseconds/iteration/cell.\n' % perf)
-
-class Calculator(BlockHook):
-    """
-    OBSELETE.  Base type for calculator.
-    """
-
-    def _collect_solutions(self):
-        """
-        Collect solution variables from solver(s) to case.  This method can be
-        overridden for a series of collecting.
-
-        @return: the collected soln and dsoln.
-        @rtype: tuple
-        """
-        from numpy import empty, isnan
-        cse = self.cse
-        exe = cse.execution
-        istep = exe.step_current
-        vstep = exe.varstep
-        # collect original variables.
-        if istep == vstep:
-            soln = exe.var['soln']
-            dsoln = exe.var['dsoln']
-        else:
-            soln = exe.var['soln'] = self._collect_interior('soln')
-            dsoln = exe.var['dsoln'] = self._collect_interior('dsoln')
-        # check for nan.
-        nans = isnan(soln)
-        if nans.any():
-            raise ValueError, 'nan occurs'
-        nans = isnan(dsoln)
-        if nans.any():
-            raise ValueError, 'nan occurs'
-        # update valid step.
-        exe.varstep = istep
-        # return
-        return soln, dsoln
-
-    def _calculate(self):
-        """
-        Calculate values and save them into the case.
-
-        @return: nothing.
-        """
-        raise NotImplementedError
 
 class NpySave(BlockHook):
     """
