@@ -144,6 +144,9 @@ class HookList(list):
             runhooks = reversed(runhooks)
         for hook in runhooks:
             getattr(hook, method)()
+    def drop_anchor(self, svr):
+        for hok in self:
+            hok.drop_anchor(svr)
 
 class ProgressHook(Hook):
     """

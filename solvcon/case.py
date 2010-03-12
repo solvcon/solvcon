@@ -387,7 +387,7 @@ class BlockCase(BaseCase):
             # create and initialize solver.
             svr = solvertype(blk,
                 neq=self.execution.neq, fpdtype=self.execution.fpdtype)
-            for hok in self.runhooks: hok.drop_anchor(svr)
+            self.runhooks.drop_anchor(svr)
             svr.bind()
             svr.init()
             self.solver.solverobj = svr
@@ -413,7 +413,7 @@ class BlockCase(BaseCase):
                     neq=self.execution.neq, fpdtype=self.execution.fpdtype)
                 svr.svrn = iblk
                 svr.nsvr = nblk
-                for hok in self.runhooks: hok.drop_anchor(svr)
+                self.runhooks.drop_anchor(svr)
                 svr.unbind()    # ensure no pointers (unpicklable) in solver.
                 dealer[iblk].remote_setattr('muscle', svr)
             # initialize solvers.
