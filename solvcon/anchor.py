@@ -74,3 +74,11 @@ class AnchorList(list):
             runanchors = reversed(runanchors)
         for anchor in runanchors:
             getattr(anchor, method)()
+
+class ZeroIAnchor(Anchor):
+    """
+    Fill the solutions with zero.
+    """
+    def preloop(self):
+        self.svr.soln.fill(0.0)
+        self.svr.dsoln.fill(0.0)

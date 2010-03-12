@@ -129,8 +129,27 @@ class HookList(list):
         self.cse = cse
         super(HookList, self).__init__(*args, **kw)
     def append(self, obj, **kw):
+        """
+        The object to be appended (the first and only argument) should be a 
+        Hook object, but this method actually accept either a Hook type or an
+        Anchor type.  The method will automatically create the necessary Hook
+        object when detect acceptable type object passed as the first argument.
+
+        All the keywords go to the creation of the Hook object if the first
+        argument is a type.  If the first argument is an instantiated Hook
+        object, the method accepts no keywords.
+
+        @param obj: the hook object to be appended.
+        @type obj: solvcon.hook.Hook
+        """
+        from .anchor import Anchor
         if isinstance(obj, type):
+            if issubclass(obj, Anchor):
+                kw['ankcls'] = obj
+                obj = Hook
             obj = obj(self.cse, **kw)
+        else:
+            assert len(kw) == 0
         super(HookList, self).append(obj)
     def __call__(self, method):
         """
