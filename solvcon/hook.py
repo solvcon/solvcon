@@ -9,8 +9,8 @@ class Hook(object):
     """
     Container class for various hooking subroutines for BaseCase.
 
-    @ivar case: case object.
-    @itype case: BaseCase
+    @ivar cse: Case object.
+    @itype cse: BaseCase
     @ivar info: information output function.
     @itype info: callable
     @ivar psteps: the interval number of steps between printing.
@@ -18,15 +18,15 @@ class Hook(object):
     @ivar kws: excessive keywords.
     @itype kws: dict
     """
-    def __init__(self, case, **kw):
+    def __init__(self, cse, **kw):
         """
-        @param case: case object.
-        @type case: BaseCase
+        @param cse: Case object.
+        @type cse: BaseCase
         """
         from .case import BaseCase
-        assert isinstance(case, BaseCase)
-        self.case = case
-        self.info = case.info
+        assert isinstance(cse, BaseCase)
+        self.cse = cse
+        self.info = cse.info
         self.psteps = kw.pop('psteps', None)
         self.ankcls = kw.pop('ankcls', None)
         # save excessive keywords.
@@ -128,25 +128,25 @@ class ProgressHook(Hook):
     @itype linewidth: int
     """
 
-    def __init__(self, case, **kw):
+    def __init__(self, cse, **kw):
         self.linewidth = kw.pop('linewidth', 50)
         assert self.linewidth <= 50
-        super(ProgressHook, self).__init__(case, **kw)
+        super(ProgressHook, self).__init__(cse, **kw)
 
     def preloop(self):
-        istep = self.case.execution.step_current
-        nsteps = self.case.execution.steps_run
+        istep = self.cse.execution.step_current
+        nsteps = self.cse.execution.steps_run
         info = self.info
         info("Steps to run: %d, current step: %d\n" % (nsteps, istep))
 
     def postmarch(self):
         from time import time
-        istep = self.case.execution.step_current
-        nsteps = self.case.execution.steps_run
-        tstart = self.case.log.time['loop_march'][0]
+        istep = self.cse.execution.step_current
+        nsteps = self.cse.execution.steps_run
+        tstart = self.cse.log.time['loop_march'][0]
         psteps = self.psteps
         linewidth = self.linewidth
-        cCFL = self.case.execution.cCFL
+        cCFL = self.cse.execution.cCFL
         info = self.info
         # calculate estimated remaining time.
         tcurr = time()
@@ -171,11 +171,11 @@ class CflHook(Hook):
     @itype fullstop: bool
     """
 
-    def __init__(self, case, **kw):
+    def __init__(self, cse, **kw):
         self.cflmin = kw.pop('cflmin', 0.0)
         self.cflmax = kw.pop('cflmax', 1.0)
         self.fullstop = kw.pop('fullstop', True)
-        super(CflHook, self).__init__(case, **kw)
+        super(CflHook, self).__init__(cse, **kw)
 
     def _notify(self, msg):
         from warnings import warn
@@ -185,8 +185,8 @@ class CflHook(Hook):
             warn(msg)
 
     def postmarch(self):
-        cCFL = self.case.execution.cCFL
-        istep = self.case.execution.step_current
+        cCFL = self.cse.execution.cCFL
+        istep = self.cse.execution.step_current
         if self.cflmin != None and cCFL < self.cflmin:
             self._notify("CFL = %g < %g after step: %d" % (
                 cCFL, self.cflmin, istep))
@@ -196,20 +196,20 @@ class CflHook(Hook):
 
     def postloop(self):
         info = self.info
-        info("Averaged maximum CFL = %g.\n" % self.case.execution.mCFL)
+        info("Averaged maximum CFL = %g.\n" % self.cse.execution.mCFL)
 
 class BlockHook(Hook):
     """
     Base type for hooks needing a BlockCase.
     """
-    def __init__(self, case, **kw):
+    def __init__(self, cse, **kw):
         from .case import BlockCase
-        assert isinstance(case, BlockCase)
-        super(BlockHook, self).__init__(case, **kw)
+        assert isinstance(cse, BlockCase)
+        super(BlockHook, self).__init__(cse, **kw)
 
     @property
     def blk(self):
-        return self.case.solver.domainobj.blk
+        return self.cse.solver.domainobj.blk
 
     def _collect_interior(self, key, inder=False, consider_ghost=True):
         """
@@ -224,13 +224,13 @@ class BlockHook(Hook):
         @rtype: numpy.ndarray
         """
         from numpy import empty
-        case = self.case
+        cse = self.cse
         ncell = self.blk.ncell
         ngstcell = self.blk.ngstcell
-        if case.is_parallel:
-            dom = self.case.solver.domainobj
+        if cse.is_parallel:
+            dom = self.cse.solver.domainobj
             # collect arrays from solvers.
-            dealer = self.case.solver.dealer
+            dealer = self.cse.solver.dealer
             arrs = list()
             for iblk in range(len(dom)):
                 dealer[iblk].cmd.pull(key, inder=inder, with_worker=True)
@@ -255,9 +255,9 @@ class BlockHook(Hook):
             else:
                 start = 0
             if inder:
-                arrg = case.solver.solverobj.der[key][start:].copy()
+                arrg = cse.solver.solverobj.der[key][start:].copy()
             else:
-                arrg = getattr(case.solver.solverobj, key)[start:].copy()
+                arrg = getattr(cse.solver.solverobj, key)[start:].copy()
         return arrg
 
     def _spread_interior(self, arrg, key, consider_ghost=True):
@@ -273,12 +273,12 @@ class BlockHook(Hook):
         @rtype: numpy.ndarray
         """
         from numpy import empty
-        case = self.case
+        cse = self.cse
         ncell = self.blk.ncell
         ngstcell = self.blk.ngstcell
-        if case.is_parallel:
-            dom = self.case.solver.domainobj
-            dealer = self.case.solver.dealer
+        if cse.is_parallel:
+            dom = self.cse.solver.domainobj
+            dealer = self.cse.solver.dealer
             clmaps = dom.mappers[2]
             for iblk in range(len(dom)):
                 blk = dom[iblk]
@@ -302,7 +302,7 @@ class BlockHook(Hook):
                 start = ngstcell
             else:
                 start = 0
-            getattr(case.solver.solverobj, key)[start:] = arrg[:]
+            getattr(cse.solver.solverobj, key)[start:] = arrg[:]
 
 class BlockInfoHook(BlockHook):
     def preloop(self):
@@ -311,9 +311,9 @@ class BlockInfoHook(BlockHook):
 
     def postloop(self):
         ncell = self.blk.ncell
-        time = self.case.log.time['loop_march'][2]
-        step_init = self.case.execution.step_init
-        step_current = self.case.execution.step_current
+        time = self.cse.log.time['loop_march'][2]
+        step_init = self.cse.execution.step_init
+        step_current = self.cse.execution.step_current
         perf = time/(step_current-step_init)/ncell * 1.e6
         self.info('Performance: %g microseconds/iteration/cell.\n' % perf)
 
@@ -338,9 +338,9 @@ class Initializer(BlockHook):
         @return: dict (sequential) or list of dicts (parallel) for taken data.
         @rtype: dict/list
         """
-        case = self.case
-        if case.is_parallel > 0:
-            dealer = case.solver.dealer
+        cse = self.cse
+        if cse.is_parallel > 0:
+            dealer = cse.solver.dealer
             datas = list()
             for sdw in dealer:
                 data = dict()
@@ -350,7 +350,7 @@ class Initializer(BlockHook):
                 datas.append(data)
             return datas
         else:
-            solver = case.solver.solverobj
+            solver = cse.solver.solverobj
             data = dict()
             for key, putback in self._varnames_:
                 arr = getattr(solver, key)
@@ -374,9 +374,9 @@ class Initializer(BlockHook):
         @type datas: dict/list
         @return: nothing.
         """
-        case = self.case
-        if case.is_parallel > 0:
-            dealer = case.solver.dealer
+        cse = self.cse
+        if cse.is_parallel > 0:
+            dealer = cse.solver.dealer
             for isvr in range(len(dealer)):
                 sdw = dealer[isvr]
                 data = datas[isvr]
@@ -388,9 +388,9 @@ class Initializer(BlockHook):
 
     def preloop(self):
         from numpy import empty
-        case = self.case
+        cse = self.cse
         datas = self._take_data()
-        if case.is_parallel > 0:
+        if cse.is_parallel > 0:
             for data in datas: self._set_data(**data)
         else:
             self._set_data(**datas)
@@ -410,8 +410,8 @@ class Calculator(BlockHook):
         @rtype: tuple
         """
         from numpy import empty, isnan
-        case = self.case
-        exe = case.execution
+        cse = self.cse
+        exe = cse.execution
         istep = exe.step_current
         vstep = exe.varstep
         # collect original variables.
@@ -453,15 +453,15 @@ class NpySave(BlockHook):
     @itype fntmpl: str
     """
 
-    def __init__(self, case, **kw):
+    def __init__(self, cse, **kw):
         from math import log10, ceil
         self.name = kw.pop('name', None)
         self.compress = kw.pop('compress', False)
         fntmpl = kw.pop('fntmpl', None)
-        super(NpySave, self).__init__(case, **kw)
+        super(NpySave, self).__init__(cse, **kw)
         if fntmpl == None:
-            nsteps = case.execution.steps_run
-            basefn = case.io.basefn
+            nsteps = cse.execution.steps_run
+            basefn = cse.io.basefn
             fntmpl = basefn
             if self.name:
                 fntmpl += '_%s'%self.name
@@ -492,21 +492,21 @@ class VarSave(NpySave):
     Save soln to npy file.
     """
 
-    def __init__(self, case, **kw):
+    def __init__(self, cse, **kw):
         assert 'name' in kw
         assert 'fntmpl' not in kw
-        super(VarSave, self).__init__(case, **kw)
+        super(VarSave, self).__init__(cse, **kw)
 
     def preloop(self):
-        istep = self.case.execution.step_current
-        soln = self.case.execution.var[self.name]
+        istep = self.cse.execution.step_current
+        soln = self.cse.execution.var[self.name]
         self._save(soln, istep)
 
     def postmarch(self):
         psteps = self.psteps
-        istep = self.case.execution.step_current
+        istep = self.cse.execution.step_current
         if istep%psteps == 0:
-            soln = self.case.execution.var[self.name]
+            soln = self.cse.execution.var[self.name]
             self._save(soln, istep)
 
 class FinalCompare(BlockHook):
@@ -521,10 +521,10 @@ class FinalCompare(BlockHook):
         None) only after the loop is finished.
     @itype absdiff: int
     """
-    def __init__(self, case, **kw):
+    def __init__(self, cse, **kw):
         self.goldfn = kw.pop('goldfn')
         self.varname = kw.pop('varname')
-        super(FinalCompare, self).__init__(case, **kw)
+        super(FinalCompare, self).__init__(cse, **kw)
         self.absdiff = None
 
     def postloop(self):
@@ -535,7 +535,7 @@ class FinalCompare(BlockHook):
         except:
             info('Error in loading gold file %s.\n' % self.goldfn)
             return
-        arr = self.case.execution.var[self.varname]
+        arr = self.cse.execution.var[self.varname]
         absdiff = abs(arr - gold).sum()
         info('Absolute summation of difference in %s (compared against\n'
              '  %s\n'
@@ -546,17 +546,17 @@ class FinalCompare(BlockHook):
 
 class VtkSave(BlockHook):
     """
-    Base type for writer for case with a block.
+    Base type for writer for cse with a block.
 
     @ivar binary: True for BINARY format; False for ASCII.
     @itype binary: bool
     @ivar cache_grid: True to cache grid; False to forget grid every time.
     @itype cache_grid: bool
     """
-    def __init__(self, case, **kw):
+    def __init__(self, cse, **kw):
         self.binary = kw.pop('binary', False)
         self.cache_grid = kw.pop('cache_grid', True)
-        super(VtkSave, self).__init__(case, **kw)
+        super(VtkSave, self).__init__(cse, **kw)
 
 class SplitSave(VtkSave):
     """
@@ -566,11 +566,11 @@ class SplitSave(VtkSave):
     def preloop(self):
         from math import log10, ceil
         from .io.vtk import VtkLegacyUstGridWriter
-        case = self.case
-        if case.is_parallel == 0:
+        cse = self.cse
+        if cse.is_parallel == 0:
             return  # do nothing if not in parallel.
-        basefn = case.io.basefn
-        dom = case.solver.domainobj
+        basefn = cse.io.basefn
+        dom = cse.solver.domainobj
         nblk = len(dom)
         # build filename templates.
         vtkfn = basefn + '_decomp'
@@ -602,11 +602,11 @@ class MarchSave(VtkSave):
     @ivar vtkfn_tmpl: template for output file name(s).
     @itype vtkfn_tmpl: str
     """
-    def __init__(self, case, **kw):
+    def __init__(self, cse, **kw):
         from math import log10, ceil
-        super(MarchSave, self).__init__(case, **kw)
-        nsteps = case.execution.steps_run
-        basefn = case.io.basefn
+        super(MarchSave, self).__init__(cse, **kw)
+        nsteps = cse.execution.steps_run
+        basefn = cse.io.basefn
         vtkfn_tmpl = basefn + "_%%0%dd"%int(ceil(log10(nsteps))+1)
         if self.binary:
             vtkfn_tmpl += ".bin.vtk"
@@ -622,8 +622,8 @@ class MarchSave(VtkSave):
         @return: dictionaries for scalar and vector.
         @rtype: tuple
         """
-        case = self.case
-        exe = case.execution
+        cse = self.cse
+        exe = cse.execution
         var = exe.var
         # create dictionaries for scalars and vectors.
         sarrs = dict()
@@ -654,7 +654,7 @@ class MarchSave(VtkSave):
     def preloop(self):
         from .io.vtk import VtkLegacyUstGridWriter
         psteps = self.psteps
-        case = self.case
+        cse = self.cse
         blk = self.blk
         # initialize writer.
         self.writer = VtkLegacyUstGridWriter(blk,
@@ -664,7 +664,7 @@ class MarchSave(VtkSave):
 
     def postmarch(self):
         psteps = self.psteps
-        exe = self.case.execution
+        exe = self.cse.execution
         istep = exe.step_current
         vstep = exe.varstep
         if istep%psteps == 0:
