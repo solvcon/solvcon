@@ -120,6 +120,19 @@ class Hook(object):
         """
         pass
 
+class HookList(list):
+    """
+    @ivar cse: case object.
+    @itype cse: solvcon.case.BaseCase
+    """
+    def __init__(self, cse, *args, **kw):
+        self.cse = cse
+        super(HookList, self).__init__(*args, **kw)
+    def append(self, obj, **kw):
+        if isinstance(obj, type):
+            obj = obj(self.cse, **kw)
+        super(HookList, self).append(obj)
+
 class ProgressHook(Hook):
     """
     Print progess.

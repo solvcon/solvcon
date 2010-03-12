@@ -117,7 +117,6 @@ class BaseCase(CaseInfo):
     defdict = {
         # execution related.
         'execution.fpdtype': conf.env.fpdtypestr,
-        'execution.runhooks': list,
         'execution.scheduler': batch.Scheduler,
         'execution.resources': dict,    # for scheduler.
         'execution.time': 0.0,
@@ -187,7 +186,9 @@ class BaseCase(CaseInfo):
         Initiailize the basic case.  Set through keyword parameters.
         """
         import os
+        from .hook import HookList
         super(BaseCase, self).__init__(**kw)
+        self.runhooks = HookList(self)
         # populate value from keywords.
         for cinfok in self.defdict.keys():
             lkey = cinfok.split('.')[-1]
@@ -225,10 +226,10 @@ class BaseCase(CaseInfo):
         @param method: name of the method to run.
         @type method: str
         """
-        runhooks = self.execution.runhooks
+        runhooks = self.runhooks
         if method == 'postloop':
             runhooks = reversed(runhooks)
-        for hook in self.execution.runhooks:
+        for hook in self.runhooks:
             getattr(hook, method)()
 
     def run(self):
@@ -399,7 +400,7 @@ class BlockCase(BaseCase):
             # create and initialize solver.
             svr = solvertype(blk,
                 neq=self.execution.neq, fpdtype=self.execution.fpdtype)
-            for hok in self.execution.runhooks: hok.drop_anchor(svr)
+            for hok in self.runhooks: hok.drop_anchor(svr)
             svr.bind()
             svr.init()
             self.solver.solverobj = svr
