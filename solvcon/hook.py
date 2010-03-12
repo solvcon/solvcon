@@ -94,7 +94,7 @@ class Hook(object):
         @return: nothing
         """
         if self.ankcls:
-            svr.runanchors.append(self.ankcls(svr, **self.kws))
+            svr.runanchors.append(self.ankcls, **self.kws)
 
     def preloop(self):
         """
