@@ -109,6 +109,8 @@ class BaseCase(CaseInfo):
     """
     Base class for simulation cases.
 
+    @ivar runhooks: a special list containing all the hook objects to be run.
+    @itype runhooks: solvcon.hook.HookList
     @ivar _have_init: flag that self was initialized or not.
     @itype _have_init: bool
     """

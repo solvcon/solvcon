@@ -135,8 +135,6 @@ class HookList(list):
     def __call__(self, method):
         """
         Invoke the specified method for each hook object.
-        
-        Note: the order of execution of final hooks is reversed.
 
         @param method: name of the method to run.
         @type method: str

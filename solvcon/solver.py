@@ -18,7 +18,7 @@ class BaseSolver(object):
     @ivar _fpdtype: dtype for the floating point data in the block instance.
     @itype _fpdtype: numpy.dtype
     @ivar runanchors: the list for the anchor objects to be run.
-    @itype runanchors: list
+    @itype runanchors: solvcon.anchor.AnchorList
     @ivar ankdict: the container of anchor object for communication with hook
         objects.
     @itype ankdict: dict
@@ -33,10 +33,11 @@ class BaseSolver(object):
         @keyword fpdtype: dtype for the floating point data.
         """
         from .conf import env
+        from .anchor import AnchorList
         self._fpdtype = kw.pop('fpdtype', env.fpdtype)
         self._fpdtype = env.fpdtype if self._fpdtype==None else self._fpdtype
         # anchor list.
-        self.runanchors = list()
+        self.runanchors = AnchorList(self)
         self.ankdict = dict()
 
     @property
@@ -60,20 +61,6 @@ class BaseSolver(object):
         from .dependency import _clib_solvcon_of
         return _clib_solvcon_of(self.fpdtype)
 
-    def _runanchors(self, method):
-        """
-        Invoke the specified method for each anchor.
-        
-        @param method: name of the method to run.
-        @type method: str
-        @return: nothing
-        """
-        runanchors = self.runanchors
-        if method == 'postloop' or method == 'exhaust':
-            runanchors = reversed(runanchors)
-        for anchor in runanchors:
-            getattr(anchor, method)()
-
     def init(self, **kw):
         """
         An empty initializer for the solver object.
@@ -83,9 +70,9 @@ class BaseSolver(object):
         pass
 
     def provide(self):
-        self._runanchors('provide')
+        self.runanchors('provide')
     def preloop(self):
-        self._runanchors('preloop')
+        self.runanchors('preloop')
 
     def march(self, time, time_increment, steps_run):
         """
@@ -103,9 +90,9 @@ class BaseSolver(object):
         return -2.0
 
     def postloop(self):
-        self._runanchors('postloop')
+        self.runanchors('postloop')
     def exhaust(self):
-        self._runanchors('exhaust')
+        self.runanchors('exhaust')
 
     def final(self):
         """
@@ -443,32 +430,32 @@ class BlockSolver(BaseSolver):
         maxCFL = -2.0
         istep = 0
         while istep < steps_run:
-            self._runanchors('prefull')
+            self.runanchors('prefull')
             for ihalf in range(2):
-                self._runanchors('prehalf')
+                self.runanchors('prehalf')
                 self.update()
                 # solutions.
-                self._runanchors('premarchsoln')
+                self.runanchors('premarchsoln')
                 self.marchsol(time, time_increment)
-                self._runanchors('preexsoln')
+                self.runanchors('preexsoln')
                 if worker: self.exchangeibc('soln', worker=worker)
-                self._runanchors('prebcsoln')
+                self.runanchors('prebcsoln')
                 for bc in self.bclist: bc.sol()
-                self._runanchors('precfl')
+                self.runanchors('precfl')
                 cCFL = self.estimatecfl()
                 maxCFL = cCFL if cCFL > maxCFL else maxCFL
                 # solution gradients.
-                self._runanchors('premarchdsoln')
+                self.runanchors('premarchdsoln')
                 self.marchdsol(time, time_increment)
-                self._runanchors('preexdsoln')
+                self.runanchors('preexdsoln')
                 if worker: self.exchangeibc('dsoln', worker=worker)
-                self._runanchors('prebcdsoln')
+                self.runanchors('prebcdsoln')
                 for bc in self.bclist: bc.dsol()
                 # increment time.
                 time += time_increment/2
-                self._runanchors('posthalf')
+                self.runanchors('posthalf')
             istep += 1
-            self._runanchors('postfull')
+            self.runanchors('postfull')
         if worker:
             worker.conn.send(maxCFL)
         return maxCFL

@@ -48,3 +48,29 @@ class Anchor(object):
         pass
     def exhaust(self):
         pass
+
+class AnchorList(list):
+    """
+    @ivar svr: solver object.
+    @itype svr: solvcon.solver.BaseSolver
+    """
+    def __init__(self, svr, *args, **kw):
+        self.svr = svr
+        super(AnchorList, self).__init__(*args, **kw)
+    def append(self, obj, **kw):
+        if isinstance(obj, type):
+            obj = obj(self.svr, **kw)
+        super(AnchorList, self).append(obj)
+    def __call__(self, method):
+        """
+        Invoke the specified method for each anchor.
+        
+        @param method: name of the method to run.
+        @type method: str
+        @return: nothing
+        """
+        runanchors = self.svr.runanchors
+        if method == 'postloop' or method == 'exhaust':
+            runanchors = reversed(runanchors)
+        for anchor in runanchors:
+            getattr(anchor, method)()
