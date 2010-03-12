@@ -61,7 +61,7 @@ class Hook(object):
         @return: dependency met or not.
         @rtype: bool
         """
-        hooks = self.case.execution.runhooks
+        hooks = self.cse.runhooks
         info = self.info
         # check.
         metlst = []
@@ -132,6 +132,20 @@ class HookList(list):
         if isinstance(obj, type):
             obj = obj(self.cse, **kw)
         super(HookList, self).append(obj)
+    def __call__(self, method):
+        """
+        Invoke the specified method for each hook object.
+        
+        Note: the order of execution of final hooks is reversed.
+
+        @param method: name of the method to run.
+        @type method: str
+        """
+        runhooks = self
+        if method == 'postloop':
+            runhooks = reversed(runhooks)
+        for hook in runhooks:
+            getattr(hook, method)()
 
 class ProgressHook(Hook):
     """

@@ -217,21 +217,6 @@ class BaseCase(CaseInfo):
         self._have_init = True
         return self._have_init
 
-    def _runhooks(self, method):
-        """
-        Invoke the specified method for each runhook.
-        
-        Note: the order of execution of final hooks is reversed.
-
-        @param method: name of the method to run.
-        @type method: str
-        """
-        runhooks = self.runhooks
-        if method == 'postloop':
-            runhooks = reversed(runhooks)
-        for hook in self.runhooks:
-            getattr(hook, method)()
-
     def run(self):
         """
         Run the simulation case; time marching.
@@ -245,10 +230,10 @@ class BaseCase(CaseInfo):
         # prepare for time marching.
         aCFL = 0.0
         self.execution.step_current = 0
-        self._runhooks('preloop')
+        self.runhooks('preloop')
         self._log_start('loop_march', postmsg='\n')
         while self.execution.step_current < self.execution.steps_run:
-            self._runhooks('premarch')
+            self.runhooks('premarch')
             cCFL = self.solver.solverobj.march(
                 self.execution.step_current*self.execution.time_increment,
                 self.execution.time_increment)
@@ -261,10 +246,10 @@ class BaseCase(CaseInfo):
             self.execution.mCFL = mCFL
             # increment to next time step.
             self.execution.step_current += 1
-            self._runhooks('postmarch')
+            self.runhooks('postmarch')
             sys.stdout.flush()
         self._log_start('loop_march')
-        self._runhooks('postloop')
+        self.runhooks('postloop')
         # end log.
         self._log_end('run')
 
@@ -522,7 +507,7 @@ class BlockCase(BaseCase):
         else:
             self.solver.solverobj.provide()
         # hook: preloop.
-        self._runhooks('preloop')
+        self.runhooks('preloop')
         if flag_parallel:
             for sdw in dealer: sdw.cmd.preloop()
             for sdw in dealer: sdw.cmd.exchangeibc('soln', with_worker=True)
@@ -535,7 +520,7 @@ class BlockCase(BaseCase):
         self._log_start('loop_march', postmsg='\n')
         while self.execution.step_current < self.execution.steps_run:
             # hook: premarch.
-            self._runhooks('premarch')
+            self.runhooks('premarch')
             # march.
             cCFL = -1.0
             steps_stride = self.execution.steps_stride
@@ -559,7 +544,7 @@ class BlockCase(BaseCase):
             # increment to next time step.
             self.execution.step_current += steps_stride
             # hook: postmarch.
-            self._runhooks('postmarch')
+            self.runhooks('postmarch')
             # flush standard output/error.
             sys.stdout.flush()
             sys.stderr.flush()
@@ -570,7 +555,7 @@ class BlockCase(BaseCase):
             for sdw in dealer: sdw.cmd.postloop()
         else:
             self.solver.solverobj.postloop()
-        self._runhooks('postloop')
+        self.runhooks('postloop')
         # finalize.
         if flag_parallel:
             for sdw in dealer: sdw.cmd.exhaust()
