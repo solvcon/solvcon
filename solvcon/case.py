@@ -494,21 +494,11 @@ class BlockCase(BaseCase):
                 iworker += 1
         assert len(dealer) == nblk
 
-    def run(self):
-        """
-        Run the simulation case; time marching.
-
-        @return: nothing.
-        """
-        assert self._have_init
-        import sys
+    def _run_first(self):
         solvertype = self.solver.solvertype
         dealer = self.solver.dealer
         flag_parallel = self.is_parallel
-        # start log.
-        self._log_start('run', msg=' '+self.io.basefn, postmsg=' ... \n')
         # prepare for time marching.
-        aCFL = 0.0
         self.execution.step_current = self.execution.step_init
         if flag_parallel:
             for sdw in dealer: sdw.cmd.provide()
@@ -524,7 +514,13 @@ class BlockCase(BaseCase):
         else:
             self.solver.solverobj.preloop()
             self.solver.solverobj.boundcond()
-        # start log.
+
+    def _run_loop(self):
+        import sys
+        solvertype = self.solver.solvertype
+        dealer = self.solver.dealer
+        flag_parallel = self.is_parallel
+        aCFL = 0.0
         self._log_start('loop_march', postmsg='\n')
         while self.execution.step_current < self.execution.steps_run:
             # dump before anything.
@@ -561,8 +557,13 @@ class BlockCase(BaseCase):
             # flush standard output/error.
             sys.stdout.flush()
             sys.stderr.flush()
-        # start log.
+        # end log.
         self._log_end('loop_march')
+
+    def _run_last(self):
+        solvertype = self.solver.solvertype
+        dealer = self.solver.dealer
+        flag_parallel = self.is_parallel
         # hook: postloop.
         if flag_parallel:
             for sdw in dealer: sdw.cmd.postloop()
@@ -580,7 +581,18 @@ class BlockCase(BaseCase):
             for ftw in self.solver.outposts: ftw.terminate()
         else:
             self.solver.solverobj.final()
-        # end log.
+
+    def run(self):
+        """
+        Run the simulation case; time marching.
+
+        @return: nothing.
+        """
+        assert self._have_init
+        self._log_start('run', msg=' '+self.io.basefn, postmsg=' ... \n')
+        self._run_first()
+        self._run_loop()
+        self._run_last()
         self._log_end('run')
 
     def dump(self):
