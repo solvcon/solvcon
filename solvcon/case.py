@@ -267,10 +267,10 @@ class BaseCase(CaseInfo):
     @classmethod
     def register_arrangement(cls, func):
         """
-        Decorate simulation functions.  This function assert required signature
-        which is necessary for a function to be a valid simulation function.
-        Moreover, all the simulation function should be decorated by this
-        decorator.
+        Decorate simulation functions.  This function asserts required
+        signature which is necessary for a function to be a valid simulation
+        function.  Moreover, all the simulation function should be decorated by
+        this decorator.
 
         @return: simulation function.
         @rtype: callable
@@ -311,6 +311,7 @@ class BlockCase(BaseCase):
     defdict = {
         # execution related.
         'execution.npart': None,    # number of decomposed blocks.
+        'execution.step_restart': None,
         'execution.steps_dump': None,
         # IO.
         'io.meshfn': None,
@@ -462,6 +463,7 @@ class BlockCase(BaseCase):
 
     def reinit(self):
         from .rpc import Dealer
+        self._log_start('reinit', msg=' '+self.io.basefn, postmsg=' ... \n')
         dom = self.solver.domainobj
         flag_parallel = self.is_parallel
 
@@ -494,6 +496,7 @@ class BlockCase(BaseCase):
                         dealer.bridge((iblk, jblk))
             dealer.barrier()
 
+        self._log_end('reinit')
         self._have_init = True
         return self._have_init
 
@@ -595,7 +598,9 @@ class BlockCase(BaseCase):
         while self.execution.step_current < self.execution.steps_run:
             # dump before anything.
             if self.execution.steps_dump != None and \
+               self.execution.step_current != self.execution.step_restart and \
                self.execution.step_current%self.execution.steps_dump == 0:
+                self.execution.step_restart = self.execution.step_current
                 self.dump()
             # hook: premarch.
             self.runhooks('premarch')
