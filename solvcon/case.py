@@ -275,6 +275,7 @@ class BaseCase(CaseInfo):
         def simu(*args, **kw):
             kw.pop('casename', None)
             submit = kw.pop('submit', None)
+            restart = kw.pop('restart', None)
             resources = kw.pop('resources', dict())
             scheduler = kw.get('scheduler', Scheduler)
             casename = func.__name__
@@ -282,6 +283,9 @@ class BaseCase(CaseInfo):
             if submit:
                 sbm = scheduler(case, arnname=casename, **resources)
                 sbm()
+            elif restart:
+                case.reinit()
+                case.rerun()
             else:
                 case.init()
                 case.run()
@@ -447,6 +451,41 @@ class BlockCase(BaseCase):
         self._have_init = preres and True
         return self._have_init
 
+    def reinit(self):
+        dom = self.solver.domainobj
+        flag_parallel = self.is_parallel
+
+        if flag_parallel == 0:
+            self.solver.solverobj.bind()
+        else:
+            nblk = len(dom)
+            # make dealer and create workers for the dealer.
+            if flag_parallel == 1:
+                family = None
+                create_workers = self._create_workers_local
+            elif flag_parallel == 2:
+                family = 'AF_INET'
+                create_workers = self._create_workers_remote
+            dealer = self.solver.dealer = Dealer(family=family)
+            create_workers(dealer, nblk)
+            # ask remote workers to load solver objects.
+            for iblk in range(nblk):
+                dealer[iblk].load_object('muscle', 'solver.obj')
+            for sdw in dealer: sdw.cmd.bind()
+            dealer.barrier()
+            # make interconnections for rpc.
+            for iblk in range(nblk):
+                for jblk in range(nblk):
+                    if iblk >= jblk:
+                        continue
+                    if dom.interfaces[iblk][jblk] != None:
+                        dealer.bridge((iblk, jblk))
+            dealer.barrier()
+        self.solver.domainobj.bind()
+
+        self._have_init = True
+        return self._have_init
+
     def _get_profiler_data(self, iblk):
         from .conf import env
         if env.command != None:
@@ -493,6 +532,26 @@ class BlockCase(BaseCase):
                 dealer.appoint(inetaddr, pport, authkey)
                 iworker += 1
         assert len(dealer) == nblk
+
+    def run(self):
+        """
+        Run the simulation case; time marching.
+
+        @return: nothing.
+        """
+        assert self._have_init
+        self._log_start('run', msg=' '+self.io.basefn, postmsg=' ... \n')
+        self._run_first()
+        self._run_loop()
+        self._run_last()
+        self._log_end('run')
+
+    def rerun(self):
+        assert self._have_init
+        self._log_start('run', msg=' '+self.io.basefn, postmsg=' ... \n')
+        self._run_loop()
+        self._run_last()
+        self._log_end('run')
 
     def _run_first(self):
         solvertype = self.solver.solvertype
@@ -582,19 +641,6 @@ class BlockCase(BaseCase):
         else:
             self.solver.solverobj.final()
 
-    def run(self):
-        """
-        Run the simulation case; time marching.
-
-        @return: nothing.
-        """
-        assert self._have_init
-        self._log_start('run', msg=' '+self.io.basefn, postmsg=' ... \n')
-        self._run_first()
-        self._run_loop()
-        self._run_last()
-        self._log_end('run')
-
     def dump(self):
         import cPickle as pickle
         csefn = 'solvcon.dump.case.obj'
@@ -602,15 +648,15 @@ class BlockCase(BaseCase):
         dealer = self.solver.dealer
         flag_parallel = self.is_parallel
         # unbind.
+        self.solver.domainobj.unbind()
         if flag_parallel:
             for sdw in dealer: sdw.cmd.dump(svrfntmpl)
             outposts = self.solver.outposts
         else:
-            self.solver.domainobj.unbind()
             self.solver.solverobj.unbind()
         # pickle.
-        self.solver.dealer = None
-        self.solver.outposts = None
+        self.solver.dealer = self.defdict['solver.dealer']
+        self.solver.outposts = self.defdict['solver.outposts']
         pickle.dump(self, open(csefn, 'w'), pickle.HIGHEST_PROTOCOL)
         # bind.
         if flag_parallel:
@@ -618,4 +664,4 @@ class BlockCase(BaseCase):
             self.solver.dealer = dealer
         else:
             self.solver.solverobj.bind()
-            self.solver.domainobj.bind()
+        self.solver.domainobj.bind()
