@@ -83,12 +83,14 @@ class TestBlockCaseRun(TestCase):
         from ..testing import get_blk_from_sample_neu
         from ..solver import BlockSolver
         from ..case import BlockCase
+        from ..helper import Information
         case = BlockCase(basedir='.', basefn='blockcase',
             solvertype=BlockSolver, neq=1,
             steps_run=self.nsteps, time_increment=self.time_increment,
             **kw
         )
-        case.info = lambda *a: None
+        case.info = Information()
+        #case.info = lambda *a: None
         case.load_block = get_blk_from_sample_neu
         case.runhooks.append(CaseInit)
         case.runhooks.append(CaseCollect)

@@ -184,7 +184,7 @@ class ProgressHook(Hook):
         istep = self.cse.execution.step_current
         nsteps = self.cse.execution.steps_run
         info = self.info
-        info("Steps to run: %d, current step: %d\n" % (nsteps, istep))
+        info("Steps %d/%d\n" % (istep, nsteps))
 
     def postmarch(self):
         from time import time
@@ -202,9 +202,11 @@ class ProgressHook(Hook):
         if istep%psteps == 0:
             info("#")
         if istep > 0 and istep%(psteps*linewidth) == 0:
-            info(" %d/%d (%.1fs left) %.2f\n" % (istep, nsteps, tleft, cCFL))
+            info("\nStep %d/%d, %.1fs elapsed, %.1fs left\n" % (
+                istep, nsteps, tcurr-tstart, tleft,
+            ))
         elif istep == nsteps:
-            info(" %d/%d done\n" % (istep, nsteps))
+            info("\nStep %d/%d done\n" % (istep, nsteps))
 
 class CflHook(Hook):
     """
@@ -232,6 +234,8 @@ class CflHook(Hook):
             warn(msg)
 
     def postmarch(self):
+        psteps = self.psteps
+        info = self.info
         cCFL = self.cse.execution.cCFL
         istep = self.cse.execution.step_current
         if self.cflmin != None and cCFL < self.cflmin:
@@ -240,6 +244,9 @@ class CflHook(Hook):
         if self.cflmax != None and cCFL >= self.cflmax:
             self._notify("CFL = %g >= %g after step: %d" % (
                 cCFL, self.cflmax, istep))
+        # output information.
+        if istep > 0 and istep%psteps == 0:
+            info("CFL = %.2f\n" % cCFL)
 
     def postloop(self):
         info = self.info

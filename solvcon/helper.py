@@ -47,19 +47,33 @@ class Printer(object):
 
 class Information(object):
     def __init__(self, **kw):
-        import sys
-        from .conf import env
         self.prefix = kw.pop('prefix', '*')
-        self.nchar = kw.pop('nchar', 2)
+        self.nchar = kw.pop('nchar', 4)
         self.width = kw.pop('width', 80)
+        self.level = kw.pop('level', 0)
+        self.muted = kw.pop('muted', False)
     @property
     def streams(self):
         import sys
         from .conf import env
+        if self.muted: return []
         streams = [sys.stdout]
         if env.logfile != None: streams.append(env.logfile)
         return streams
-    def __call__(self, data):
+    def __call__(self, data, travel=0, level=None, has_gap=True):
+        self.level += travel
+        if level == None:
+            level = self.level
+        width = self.nchar*level
+        lines = data.split('\n')
+        prefix = self.prefix*(self.nchar-1)
+        if width > 0:
+            if has_gap:
+                prefix += ' '
+            else:
+                prefix += '*'
+        prefix = '\n' + prefix*self.level
+        data = prefix.join(lines)
         for stream in self.streams:
             stream.write(data)
             stream.flush()

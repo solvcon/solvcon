@@ -153,7 +153,6 @@ class BaseCase(CaseInfo):
     }
     del conf, batch
     from .helper import info
-    info = staticmethod(info)
 
     def _log_start(self, action, msg='', postmsg=' ... '):
         """
@@ -166,12 +165,20 @@ class BaseCase(CaseInfo):
         @return: nothing.
         """
         from time import time
+        info = self.info
         tarr = [0,0,0]
         tarr[0] = time()
         self.log.time[action] = tarr
-        self.info('Start %s%s%s' % (action, msg, postmsg))
+        info(
+            info.prefix * (info.width-info.level*info.nchar),
+            travel=1
+        )
+        info('\nStart %s%s%s' % (action, msg, postmsg))
+        info(
+            '\n' + info.prefix * (info.width-info.level*info.nchar) + '\n',
+        )
 
-    def _log_end(self, action, msg=''):
+    def _log_end(self, action, msg='', postmsg=' . '):
         """
         Print to user and record end time for certain action.
 
@@ -182,10 +189,20 @@ class BaseCase(CaseInfo):
         @return: nothing
         """
         from time import time
+        info = self.info
         tarr = self.log.time.setdefault(action, [0,0,0])
         tarr[1] = time()
         tarr[2] = tarr[1] - tarr[0]
-        self.info('done.%s time (sec) = %g\n' % (msg, tarr[2]))
+        info(
+            '\n' + info.prefix * (info.width-info.level*info.nchar) + \
+            '\nEnd %s%s%sElapsed time (sec) = %g' % (
+                action, msg, postmsg, tarr[2]
+            )
+        )
+        info(
+            '\n' + info.prefix * (info.width-(info.level-1)*info.nchar) + '\n',
+            travel=-1
+        )
 
     def __init__(self, **kw):
         """
@@ -241,7 +258,7 @@ class BaseCase(CaseInfo):
         aCFL = 0.0
         self.execution.step_current = 0
         self.runhooks('preloop')
-        self._log_start('loop_march', postmsg='\n')
+        self._log_start('loop_march')
         while self.execution.step_current < self.execution.steps_run:
             self.runhooks('premarch')
             cCFL = self.solver.solverobj.march(
@@ -284,6 +301,7 @@ class BaseCase(CaseInfo):
             if restart:
                 case = pickle.load(open(cls.CSEFN_DEFAULT))
                 case.reinit()
+                case.info('\n')
                 case.rerun()
             else:
                 casename = func.__name__
@@ -293,6 +311,7 @@ class BaseCase(CaseInfo):
                     sbm()
                 else:
                     case.init()
+                    case.info('\n')
                     case.run()
         # register self to simulation registries.
         cls.arrangements[func.__name__] = simu
@@ -388,6 +407,7 @@ class BlockCase(BaseCase):
         from . import domain
         from .rpc import Dealer
         from .boundcond import interface
+        self._log_start('init', msg=' '+self.io.basefn)
         preres = super(BlockCase, self).init(force=force)
         solvertype = self.solver.solvertype
         domaintype = self.solver.domaintype
@@ -456,12 +476,13 @@ class BlockCase(BaseCase):
                 for sdw in dealer: sdw.cmd.exchangeibc(arrname,
                     with_worker=True)
 
+        self._log_end('init', msg=' '+self.io.basefn)
         self._have_init = preres and True
         return self._have_init
 
     def reinit(self):
         from .rpc import Dealer
-        self._log_start('reinit', msg=' '+self.io.basefn, postmsg=' ... \n')
+        self._log_start('reinit', msg=' '+self.io.basefn)
         dom = self.solver.domainobj
         flag_parallel = self.is_parallel
 
@@ -495,6 +516,7 @@ class BlockCase(BaseCase):
             dealer.barrier()
 
         self._log_end('reinit')
+        self.info('\n')
         self._have_init = True
         return self._have_init
 
@@ -552,18 +574,18 @@ class BlockCase(BaseCase):
         @return: nothing.
         """
         assert self._have_init
-        self._log_start('run', msg=' '+self.io.basefn, postmsg=' ... \n')
+        self._log_start('run', msg=' '+self.io.basefn)
         self._run_first()
         self._run_loop()
         self._run_last()
-        self._log_end('run')
+        self._log_end('run', msg=' '+self.io.basefn)
 
     def rerun(self):
         assert self._have_init
-        self._log_start('run', msg=' '+self.io.basefn, postmsg=' ... \n')
+        self._log_start('run', msg=' '+self.io.basefn)
         self._run_loop()
         self._run_last()
-        self._log_end('run')
+        self._log_end('run', msg=' '+self.io.basefn)
 
     def _run_first(self):
         solvertype = self.solver.solvertype
@@ -592,7 +614,8 @@ class BlockCase(BaseCase):
         dealer = self.solver.dealer
         flag_parallel = self.is_parallel
         aCFL = 0.0
-        self._log_start('loop_march', postmsg='\n')
+        self.info('\n')
+        self._log_start('loop_march')
         while self.execution.step_current < self.execution.steps_run:
             # dump before anything.
             if self.execution.steps_dump != None and \
@@ -631,6 +654,7 @@ class BlockCase(BaseCase):
             sys.stderr.flush()
         # end log.
         self._log_end('loop_march')
+        self.info('\n')
 
     def _run_last(self):
         solvertype = self.solver.solvertype
