@@ -289,17 +289,18 @@ class BlockSolver(BaseSolver):
         from .helper import Printer
         from .block import BlockShape
         # create debug printer.
-        if self.enable_mesg:
-            if self.svrn != None:
-                dfn = self.DEBUG_FILENAME_TEMPLATE % self.svrn
-                dprefix = 'SOLVER%d: '%self.svrn
+        if self.mesg == None:
+            if self.enable_mesg:
+                if self.svrn != None:
+                    dfn = self.DEBUG_FILENAME_TEMPLATE % self.svrn
+                    dprefix = 'SOLVER%d: '%self.svrn
+                else:
+                    dfn = self.DEBUG_FILENAME_DEFAULT
+                    dprefix = ''
             else:
-                dfn = self.DEBUG_FILENAME_DEFAULT
+                dfn = os.devnull
                 dprefix = ''
-        else:
-            dfn = os.devnull
-            dprefix = ''
-        self.mesg = Printer(dfn, prefix=dprefix, override=True)
+            self.mesg = Printer(dfn, prefix=dprefix, override=True)
         # structures.
         self.msh = BlockShape(
             ndim=self.ndim,
@@ -374,6 +375,23 @@ class BlockSolver(BaseSolver):
         for bc in self.bclist:
             bc.init(**kw)
         super(BlockSolver, self).init(**kw)
+
+    def dump(self, objfntmpl):
+        import cPickle as pickle
+        self.unbind()
+        mesg = self.mesg
+        self.mesg = None
+        dumpfn = objfntmpl % (str(self.svrn) if self.svrn != None else '')
+        pickle.dump(self, open(dumpfn, 'w'), pickle.HIGHEST_PROTOCOL)
+        self.mesg = mesg
+        self.bind()
+
+    @staticmethod
+    def load(objfn):
+        import cPickle as pickle
+        svr = pickle.load(objfn)
+        svr.bind()
+        return svr
 
     ##################################################
     # CESE solving algorithm.

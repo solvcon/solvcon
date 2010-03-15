@@ -11,12 +11,15 @@ class Anchor(object):
 
     @ivar svr: the solver object to be attached to.
     @itype svr: solvcon.solver.Solver
+    @ivar kws: excessive keywords.
+    @itype kws: dict
     """
 
     def __init__(self, svr, **kw):
         from .solver import BaseSolver
         assert isinstance(svr, BaseSolver)
         self.svr = svr
+        self.kws = dict(kw)
 
     def provide(self):
         pass

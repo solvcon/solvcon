@@ -189,14 +189,19 @@ class BaseCase(CaseInfo):
         """
         import os
         from .hook import HookList
-        super(BaseCase, self).__init__(**kw)
-        self.runhooks = HookList(self)
         # populate value from keywords.
+        initpairs = list()
         for cinfok in self.defdict.keys():
             lkey = cinfok.split('.')[-1]
-            val = kw.get(lkey, None)
+            initpairs.append((cinfok, kw.pop(lkey, None)))
+        # initialize with the left keywords.
+        super(BaseCase, self).__init__(**kw)
+        # populate value from keywords.
+        for cinfok, val in initpairs:
             if val is not None:
                 self._set_through(cinfok, val)
+        # create runhooks.
+        self.runhooks = HookList(self)
         # expand basedir.
         if self.io.abspath:
             self.io.basedir = os.path.abspath(self.io.basedir)
@@ -295,6 +300,7 @@ class BlockCase(BaseCase):
     defdict = {
         # execution related.
         'execution.npart': None,    # number of decomposed blocks.
+        'execution.steps_dump': None,
         # IO.
         'io.meshfn': None,
         # conditions.
@@ -521,6 +527,11 @@ class BlockCase(BaseCase):
         # start log.
         self._log_start('loop_march', postmsg='\n')
         while self.execution.step_current < self.execution.steps_run:
+            # dump before anything.
+            if self.execution.steps_dump != None and \
+               self.execution.step_current != self.execution.step_init and \
+               self.execution.step_current%self.execution.steps_dump == 0:
+                self.dump()
             # hook: premarch.
             self.runhooks('premarch')
             # march.
@@ -571,3 +582,20 @@ class BlockCase(BaseCase):
             self.solver.solverobj.final()
         # end log.
         self._log_end('run')
+
+    def dump(self):
+        import cPickle as pickle
+        csefn = 'solvcon.dump.case.obj'
+        svrfntmpl = 'solvcon.dump.solver.%s.obj'
+        dealer = self.solver.dealer
+        flag_parallel = self.is_parallel
+        # finalize.
+        if flag_parallel:
+            for sdw in dealer: sdw.cmd.dump(svrfntmpl)
+        else:
+            self.solver.solverobj.dump(svrfntmpl)
+        self.bcmap = None
+        self.solver.solverobj = None
+        self.solver.domainobj = None
+        print 'dump', self.__dict__.keys(), self
+        pickle.dump(self, open(csefn, 'w'), pickle.HIGHEST_PROTOCOL)
