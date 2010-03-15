@@ -22,6 +22,11 @@ class Domain(object):
         self.blk = blk
         super(Domain, self).__init__(*args, **kw)
 
+    def bind(self):
+        self.blk.bind()
+    def unbind(self):
+        self.blk.unbind()
+
 class Partitioner(object):
     """
     Interface to METIS library for domain partition.
@@ -164,6 +169,15 @@ class Collective(Domain, list):
         self.idxinfo = list()
         self.mappers = list()
         self.interfaces = list()
+
+    def bind(self):
+        super(Collective, self).bind()
+        for blk in self:
+            blk.bind()
+    def unbind(self):
+        super(Collective, self).unbind()
+        for blk in self:
+            blk.unbind()
 
     @property
     def ifacelists(self):

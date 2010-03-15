@@ -586,16 +586,24 @@ class BlockCase(BaseCase):
     def dump(self):
         import cPickle as pickle
         csefn = 'solvcon.dump.case.obj'
-        svrfntmpl = 'solvcon.dump.solver.%s.obj'
+        svrfntmpl = 'solvcon.dump.solver%s.obj'
         dealer = self.solver.dealer
         flag_parallel = self.is_parallel
-        # finalize.
+        # unbind.
         if flag_parallel:
             for sdw in dealer: sdw.cmd.dump(svrfntmpl)
+            outposts = self.solver.outposts
         else:
-            self.solver.solverobj.dump(svrfntmpl)
-        self.bcmap = None
-        self.solver.solverobj = None
-        self.solver.domainobj = None
-        print 'dump', self.__dict__.keys(), self
+            self.solver.domainobj.unbind()
+            self.solver.solverobj.unbind()
+        # pickle.
+        self.solver.dealer = None
+        self.solver.outposts = None
         pickle.dump(self, open(csefn, 'w'), pickle.HIGHEST_PROTOCOL)
+        # bind.
+        if flag_parallel:
+            self.solver.outposts = outposts
+            self.solver.dealer = dealer
+        else:
+            self.solver.solverobj.bind()
+            self.solver.domainobj.bind()

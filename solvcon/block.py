@@ -237,6 +237,13 @@ class Block(object):
     def ngstcell(self):
         return self.gstclnds.shape[0]
 
+    def bind(self):
+        for bc in self.bclist:
+            bc.bind()
+    def unbind(self):
+        for bc in self.bclist:
+            bc.unbind()
+
     def create_shape(self):
         """
         @return: the shape of this block.
