@@ -13,12 +13,12 @@ class Printer(object):
     @itype _streams: list
     """
 
-    def __init__(self, streams, prefix='', postfix='', override=False):
+    def __init__(self, streams, **kw):
         import sys, os
         import warnings
-        self.prefix = prefix
-        self.postfix = postfix
-        self.override = override
+        self.prefix = kw.pop('prefix', '')
+        self.postfix = kw.pop('postfix', '')
+        self.override = kw.pop('override', False)
         # build (stream, filename) tuples.
         if not isinstance(streams, list) and not isinstance(streams, tuple):
             streams = [streams]
@@ -45,17 +45,25 @@ class Printer(object):
             stream.write(msg)
             stream.flush()
 
-def info(data):
-    """
-    Helper for command modules/functions to output information.
-    """
-    import sys
-    from .conf import env
-    sys.stdout.write(data)
-    sys.stdout.flush()
-    if env.logfile != None:
-        env.logfile.write(data)
-        env.logfile.flush()
+class Information(object):
+    def __init__(self, **kw):
+        import sys
+        from .conf import env
+        self.prefix = kw.pop('prefix', '*')
+        self.nchar = kw.pop('nchar', 2)
+        self.width = kw.pop('width', 80)
+    @property
+    def streams(self):
+        import sys
+        from .conf import env
+        streams = [sys.stdout]
+        if env.logfile != None: streams.append(env.logfile)
+        return streams
+    def __call__(self, data):
+        for stream in self.streams:
+            stream.write(data)
+            stream.flush()
+info = Information()
 
 def generate_apidoc(outputdir='doc/api'):
     """

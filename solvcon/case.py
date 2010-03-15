@@ -234,7 +234,6 @@ class BaseCase(CaseInfo):
 
         @return: nothing.
         """
-        import sys
         # start log.
         self._log_start('run', msg=' '+self.io.basefn)
         self.info("\n")
@@ -258,7 +257,6 @@ class BaseCase(CaseInfo):
             # increment to next time step.
             self.execution.step_current += 1
             self.runhooks('postmarch')
-            sys.stdout.flush()
         self._log_start('loop_march')
         self.runhooks('postloop')
         # end log.
