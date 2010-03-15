@@ -197,6 +197,13 @@ class Worker(object):
         """
         return setattr(self, name, var)
 
+    def remote_loadobj(self, name, objfn):
+        """
+        Remotely unpickle a file and set it to self with the specified name.
+        """
+        import cPickle as pickle
+        setattr(self, name, pickle.load(open(objfn)))
+
     def barrier(self):
         """
         Send barrier signal for synchronization.

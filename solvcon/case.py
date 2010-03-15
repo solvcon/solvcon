@@ -44,6 +44,8 @@ class CaseInfo(dict):
         """
         Consult self dictionary for attribute.  It's a shorthand.
         """
+        if name == '__setstate__':
+            raise AttributeError
         return self[name]
     def __setattr__(self, name, value):
         """
@@ -114,6 +116,8 @@ class BaseCase(CaseInfo):
     @ivar _have_init: flag that self was initialized or not.
     @itype _have_init: bool
     """
+
+    CSEFN_DEFAULT = 'solvcon.dump.case.obj'
 
     from . import conf, batch
     defdict = {
@@ -271,6 +275,7 @@ class BaseCase(CaseInfo):
         @return: simulation function.
         @rtype: callable
         """
+        import cPickle as pickle
         from .batch import Scheduler
         def simu(*args, **kw):
             kw.pop('casename', None)
@@ -278,17 +283,19 @@ class BaseCase(CaseInfo):
             restart = kw.pop('restart', None)
             resources = kw.pop('resources', dict())
             scheduler = kw.get('scheduler', Scheduler)
-            casename = func.__name__
-            case = func(casename=casename, *args, **kw)
-            if submit:
-                sbm = scheduler(case, arnname=casename, **resources)
-                sbm()
-            elif restart:
+            if restart:
+                case = pickle.load(open(cls.CSEFN_DEFAULT))
                 case.reinit()
                 case.rerun()
             else:
-                case.init()
-                case.run()
+                casename = func.__name__
+                case = func(casename=casename, *args, **kw)
+                if submit:
+                    sbm = scheduler(case, arnname=casename, **resources)
+                    sbm()
+                else:
+                    case.init()
+                    case.run()
         # register self to simulation registries.
         cls.arrangements[func.__name__] = simu
         arrangements[func.__name__] = simu
@@ -307,6 +314,8 @@ class BlockCase(BaseCase):
         'execution.steps_dump': None,
         # IO.
         'io.meshfn': None,
+        'io.dump.csefn': 'solvcon.dump.case.obj',
+        'io.dump.svrfntmpl': 'solvcon.dump.solver%s.obj',
         # conditions.
         'condition.bcmap': dict,
         # solver.
@@ -452,11 +461,13 @@ class BlockCase(BaseCase):
         return self._have_init
 
     def reinit(self):
+        from .rpc import Dealer
         dom = self.solver.domainobj
         flag_parallel = self.is_parallel
 
         if flag_parallel == 0:
             self.solver.solverobj.bind()
+            self.solver.domainobj.bind()
         else:
             nblk = len(dom)
             # make dealer and create workers for the dealer.
@@ -470,7 +481,8 @@ class BlockCase(BaseCase):
             create_workers(dealer, nblk)
             # ask remote workers to load solver objects.
             for iblk in range(nblk):
-                dealer[iblk].load_object('muscle', 'solver.obj')
+                dealer[iblk].remote_loadobj('muscle',
+                    self.io.dump.svrfntmpl % str(iblk))
             for sdw in dealer: sdw.cmd.bind()
             dealer.barrier()
             # make interconnections for rpc.
@@ -481,7 +493,6 @@ class BlockCase(BaseCase):
                     if dom.interfaces[iblk][jblk] != None:
                         dealer.bridge((iblk, jblk))
             dealer.barrier()
-        self.solver.domainobj.bind()
 
         self._have_init = True
         return self._have_init
@@ -584,7 +595,6 @@ class BlockCase(BaseCase):
         while self.execution.step_current < self.execution.steps_run:
             # dump before anything.
             if self.execution.steps_dump != None and \
-               self.execution.step_current != self.execution.step_init and \
                self.execution.step_current%self.execution.steps_dump == 0:
                 self.dump()
             # hook: premarch.
@@ -643,25 +653,25 @@ class BlockCase(BaseCase):
 
     def dump(self):
         import cPickle as pickle
-        csefn = 'solvcon.dump.case.obj'
-        svrfntmpl = 'solvcon.dump.solver%s.obj'
         dealer = self.solver.dealer
         flag_parallel = self.is_parallel
         # unbind.
-        self.solver.domainobj.unbind()
         if flag_parallel:
-            for sdw in dealer: sdw.cmd.dump(svrfntmpl)
+            for iblk in range(len(self.solver.domainobj)):
+                dealer[iblk].cmd.dump(self.io.dump.svrfntmpl % str(iblk))
             outposts = self.solver.outposts
         else:
+            self.solver.domainobj.unbind()
             self.solver.solverobj.unbind()
         # pickle.
-        self.solver.dealer = self.defdict['solver.dealer']
-        self.solver.outposts = self.defdict['solver.outposts']
-        pickle.dump(self, open(csefn, 'w'), pickle.HIGHEST_PROTOCOL)
+        self.solver.dealer = None
+        self.solver.outposts = list()
+        pickle.dump(self, open(self.io.dump.csefn, 'w'),
+            pickle.HIGHEST_PROTOCOL)
         # bind.
         if flag_parallel:
             self.solver.outposts = outposts
             self.solver.dealer = dealer
         else:
             self.solver.solverobj.bind()
-        self.solver.domainobj.bind()
+            self.solver.domainobj.bind()

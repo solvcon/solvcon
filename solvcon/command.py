@@ -139,6 +139,10 @@ class ArrangementCommand(Command):
         op = self.op
 
         opg = OptionGroup(op, 'Arrangement')
+        opg.add_option('--restart', action='store_true',
+            dest='restart', default=False,
+            help='Restart the arrangement.',
+        )
         opg.add_option('--npart', action='store', type=int,
             dest='npart', default=None,
             help='The number of partitions.',
@@ -214,6 +218,7 @@ class run(ArrangementCommand):
             domaintype = domain.Domain
         # run.
         funckw = {
+            'restart': ops.restart,
             'scheduler': scheduler,
             'npart': npart, 'domaintype': domaintype,
         }

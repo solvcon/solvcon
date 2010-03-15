@@ -376,22 +376,14 @@ class BlockSolver(BaseSolver):
             bc.init(**kw)
         super(BlockSolver, self).init(**kw)
 
-    def dump(self, objfntmpl):
+    def dump(self, objfn):
         import cPickle as pickle
         self.unbind()
         mesg = self.mesg
         self.mesg = None
-        dumpfn = objfntmpl % (str(self.svrn) if self.svrn != None else '')
-        pickle.dump(self, open(dumpfn, 'w'), pickle.HIGHEST_PROTOCOL)
+        pickle.dump(self, open(objfn, 'w'), pickle.HIGHEST_PROTOCOL)
         self.mesg = mesg
         self.bind()
-
-    @staticmethod
-    def load(objfn):
-        import cPickle as pickle
-        svr = pickle.load(objfn)
-        svr.bind()
-        return svr
 
     ##################################################
     # CESE solving algorithm.
