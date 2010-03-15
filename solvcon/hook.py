@@ -374,7 +374,24 @@ class BlockInfoHook(BlockHook):
         step_init = self.cse.execution.step_init
         step_current = self.cse.execution.step_current
         perf = time/(step_current-step_init)/ncell * 1.e6
-        self.info('Performance: %g microseconds/iteration/cell.\n' % perf)
+        self.info('Performance:\n')
+        self.info('  %g microseconds/(iteration*cell).\n' % perf)
+        self.info('  %g M(iteration*cell)/seconds.\n' % (1./perf))
+
+class SplitMarker(BlockHook):
+    """
+    Save the splitted geometry.
+    """
+
+    def preloop(self):
+        from numpy import zeros
+        from .domain import Collective
+        cse = self.cse
+        dom = cse.solver.domainobj
+        if isinstance(dom, Collective):
+            cse.execution.var['domain'] = dom.part
+        else:
+            cse.execution.var['domain'] = zeros(dom.blk.ncell, dtype='int32')
 
 class NpySave(BlockHook):
     """

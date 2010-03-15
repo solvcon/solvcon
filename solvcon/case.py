@@ -516,7 +516,6 @@ class BlockCase(BaseCase):
             dealer.barrier()
 
         self._log_end('reinit')
-        self.info('\n')
         self._have_init = True
         return self._have_init
 
