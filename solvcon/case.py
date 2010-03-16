@@ -352,7 +352,7 @@ class BaseCase(CaseInfo):
                 case = pickle.load(open(cls.CSEFN_DEFAULT))
                 case.init(level=1)
                 case.info('\n')
-                case.rerun()
+                case.run(level=1)
             else:
                 casename = func.__name__
                 case = func(casename=casename, *args, **kw)
@@ -670,7 +670,7 @@ class BlockCase(BaseCase):
     ###
     ############################################################################
 
-    def run(self):
+    def run(self, level=0):
         """
         Run the simulation case; time marching.
 
@@ -678,14 +678,8 @@ class BlockCase(BaseCase):
         """
         assert self._have_init
         self._log_start('run', msg=' '+self.io.basefn)
-        self._run_first()
-        self._run_loop()
-        self._run_last()
-        self._log_end('run', msg=' '+self.io.basefn)
-
-    def rerun(self):
-        assert self._have_init
-        self._log_start('run', msg=' '+self.io.basefn)
+        if level < 1:
+            self._run_first()
         self._run_loop()
         self._run_last()
         self._log_end('run', msg=' '+self.io.basefn)
