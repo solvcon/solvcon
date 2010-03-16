@@ -187,8 +187,8 @@ class BlockSolver(BaseSolver):
     CLMFC = Block.CLMFC
     del Block
 
-    DEBUG_FILENAME_TEMPLATE = 'ssolver%d.log'
-    DEBUG_FILENAME_DEFAULT = 'ssolver.log'
+    DEBUG_FILENAME_TEMPLATE = 'solvcon.solver%d.log'
+    DEBUG_FILENAME_DEFAULT = 'solvcon.solver.log'
 
     def pop_exnkw(self, blk, kw):
         exnkw = dict()
