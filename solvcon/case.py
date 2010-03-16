@@ -125,6 +125,7 @@ class BaseCase(CaseInfo):
         'execution.fpdtype': conf.env.fpdtypestr,
         'execution.scheduler': batch.Scheduler,
         'execution.resources': dict,    # for scheduler.
+        'execution.stop': False,
         'execution.time': 0.0,
         'execution.time_increment': 0.0,
         'execution.step_init': 0,
@@ -667,6 +668,7 @@ class BlockCase(BaseCase):
         while self.execution.step_current < self.execution.steps_run:
             # the first thing is detecting for dynamic codes.
             self._dynamic_execute()
+            if self.execution.stop: break
             # dump before hooks.
             if self.execution.steps_dump != None and \
                self.execution.step_current != self.execution.step_restart and \
