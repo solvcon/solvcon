@@ -137,6 +137,10 @@ class BaseCase(CaseInfo):
         'execution.neq': 0, # number of unknowns.
         'execution.var': dict,  # for Calculator hooks.
         'execution.varstep': None,  # the step for which var and dvar are valid.
+        # dynamic related.
+        'dynamic.inputfn': 'solvcon.input',
+        'dynamic.bakfn': 'solvcon.input.bak',
+        'dynamic.preserve': False,
         # io related.
         'io.abspath': False,    # flag to use abspath or not.
         'io.rootdir': None,
@@ -228,6 +232,51 @@ class BaseCase(CaseInfo):
             self.io.basedir = os.path.abspath(self.io.basedir)
         # second-phase initilization flag.
         self._have_init = False
+
+    def _dynamic_execute(self):
+        """
+        Dynamically execute the codes stored in the input file specified by
+        the case.
+
+        @return: nothing
+        """
+        import os
+        import traceback
+        from cStringIO import StringIO
+        if not self.dynamic.inputfn: return
+        try:
+            # load codes.
+            if os.path.exists(self.dynamic.inputfn):
+                f = open(self.dynamic.inputfn, 'r')
+                codes = f.read()
+                f.close()
+            else:
+                codes = ''
+            if codes.strip():
+                # clear/preserve code file.
+                f = open(self.dynamic.inputfn, 'w')
+                if self.dynamic.preserve:
+                    f.write(codes)
+                f.close()
+                # backup codes.
+                f = open(self.dynamic.bakfn, 'a')
+                f.write('\n### %s step %d/%d\n' % (self.io.basefn,
+                    self.execution.step_current, self.execution.steps_run,
+                ))
+                f.write(codes)
+                f.close()
+                # run codes.
+                exec(codes)
+        except Exception, e:
+            f = StringIO()
+            f.write('\n@@@ dynamic execution at step %d @@@' %
+                self.execution.step_current)
+            f.write('\nCode:\n %s\n' % codes)
+            traceback.print_exc(file=f)
+            self.info(f.getvalue())
+            f.close()
+        # reset preservation flag.
+        self.dynamic.preserve = False
 
     def init(self, force=False):
         """
@@ -616,11 +665,12 @@ class BlockCase(BaseCase):
         self.info('\n')
         self._log_start('loop_march')
         while self.execution.step_current < self.execution.steps_run:
-            # dump before anything.
+            # the first thing is detecting for dynamic codes.
+            self._dynamic_execute()
+            # dump before hooks.
             if self.execution.steps_dump != None and \
                self.execution.step_current != self.execution.step_restart and \
                self.execution.step_current%self.execution.steps_dump == 0:
-                self.execution.step_restart = self.execution.step_current
                 self.dump()
             # hook: premarch.
             self.runhooks('premarch')
@@ -701,3 +751,5 @@ class BlockCase(BaseCase):
         else:
             self.solver.solverobj.bind()
             self.solver.domainobj.bind()
+        # record the step can be restarted from.
+        self.execution.step_restart = self.execution.step_current
