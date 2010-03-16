@@ -457,7 +457,7 @@ class BlockCase(BaseCase):
             self._interconnect(self.solver.domainobj, self.solver.dealer)
             # exchange solver metrics.
             if level < 1:
-                self._exchange_solver_metric(
+                self._init_solver_exchange(
                     self.solver.domainobj,
                     self.solver.dealer,
                     self.solver.solvertype,
@@ -635,7 +635,7 @@ class BlockCase(BaseCase):
                     dealer.bridge((iblk, jblk))
         dealer.barrier()
     @staticmethod
-    def _exchange_solver_metric(dom, dealer, solvertype):
+    def _init_solver_exchange(dom, dealer, solvertype):
         """
         Exchange metric data for solver.
 
