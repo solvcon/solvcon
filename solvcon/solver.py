@@ -277,9 +277,10 @@ class BlockSolver(BaseSolver):
         assert self.msh != None and self.exn != None
         return [byref(self.msh), byref(self.exn)]
 
-    def create_mesg(self):
+    def create_mesg(self, force=False):
         import os
         from .helper import Printer
+        if force: self.enable_mesg = True
         if self.enable_mesg:
             if self.svrn != None:
                 dfn = self.DEBUG_FILENAME_TEMPLATE % self.svrn
