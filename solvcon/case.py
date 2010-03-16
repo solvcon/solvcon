@@ -600,14 +600,15 @@ class BlockCase(BaseCase):
         ])
         paths['PYTHONPATH'].insert(0, self.io.rootdir)
         # prepare nodelist.
-        info('\n********\n Nodelist')
+        info('\n********\nNodelist')
         nodelist = self.execution.scheduler(self).nodelist
         if env.command != None and env.command.opargs[0].compress_nodelist:
             info(' (compressed)')
         info(':\n')
         for node in nodelist:
-            info('  %s\n' % node)
+            info('  %s\n' % node.name)
         # print out content of node file.
+        iworker = 0 
         for node in nodelist:
             inetaddr = node.address
             port = Footway.build_outpost(address=inetaddr, authkey=authkey,
@@ -627,9 +628,11 @@ class BlockCase(BaseCase):
 nodes = "
 %s
 "
-
 for node in $nodes; do ssh node killall %s; done
-""" % ('\n'.join(nodelist), os.path.split(sys.executable)[-1]))
+""" % (
+            '\n'.join([node.name for node in nodelist]),
+            os.path.split(sys.executable)[-1],
+        ))
 
     # interconnection.
     @staticmethod

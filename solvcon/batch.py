@@ -284,4 +284,4 @@ class Torque(Scheduler):
                     if nodeitem not in cnodelist:
                         cnodelist.append(nodeitem)
                 nodelist = cnodelist
-        return nodelist
+        return [Node(nodeitem, ncore=1) for nodeitem in nodelist]
