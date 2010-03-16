@@ -383,6 +383,7 @@ class BlockCase(BaseCase):
         'execution.steps_dump': None,
         # IO.
         'io.meshfn': None,
+        'io.rkillfn': 'solvcon.kill.sh',
         'io.dump.csefn': 'solvcon.dump.case.obj',
         'io.dump.svrfntmpl': 'solvcon.dump.solver%s.obj',
         # conditions.
@@ -584,21 +585,30 @@ class BlockCase(BaseCase):
             dealer.hire(Worker(None,
                 profiler_data=self._get_profiler_data(iblk)))
     def _create_workers_remote(self, dealer, nblk):
-        import os
+        import os, sys
         try:
             from multiprocessing.connection import Client
         except ImportError:
             from processing.connection import Client
         from .rpc import DEFAULT_AUTHKEY, Footway, Shadow
+        from .conf import env
+        info = self.info
         authkey = DEFAULT_AUTHKEY
         paths = dict([(key, os.environ.get(key, '').split(':')) for key in
             'LD_LIBRARY_PATH',
             'PYTHONPATH',
         ])
         paths['PYTHONPATH'].insert(0, self.io.rootdir)
-        sch = self.execution.scheduler(self)
-        iworker = 0
-        for node in sch:
+        # prepare nodelist.
+        info('\n********\n Nodelist')
+        nodelist = self.execution.scheduler(self).nodelist
+        if env.command != None and env.command.opargs[0].compress_nodelist:
+            info(' (compressed)')
+        info(':\n')
+        for node in nodelist:
+            info('  %s\n' % node)
+        # print out content of node file.
+        for node in nodelist:
             inetaddr = node.address
             port = Footway.build_outpost(address=inetaddr, authkey=authkey,
                 paths=paths)
@@ -611,6 +621,15 @@ class BlockCase(BaseCase):
                 dealer.appoint(inetaddr, pport, authkey)
                 iworker += 1
         assert len(dealer) == nblk
+        # create remote killer script.
+        f = open(self.io.rkillfn, 'w')
+        f.write("""#!/bin/sh
+nodes = "
+%s
+"
+
+for node in $nodes; do ssh node killall %s; done
+""" % ('\n'.join(nodelist), os.path.split(sys.executable)[-1]))
 
     # interconnection.
     @staticmethod

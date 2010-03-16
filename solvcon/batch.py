@@ -267,10 +267,10 @@ class Torque(Scheduler):
     def str_shell(self):
         return '#PBS -S %s' % self.shell
 
-    def __iter__(self):
+    @property
+    def nodelist(self):
         import os
         from .conf import env
-        info = self.case.info
         # read node file.
         f = open(os.environ['PBS_NODEFILE'])
         nodelist = [item.strip() for item in f.readlines()]
@@ -280,15 +280,8 @@ class Torque(Scheduler):
             ops, args = env.command.opargs
             if ops.compress_nodelist:
                 cnodelist = list()
-                info('NOTE: the following nodelist are compressed.\n')
                 for nodeitem in nodelist:
                     if nodeitem not in cnodelist:
                         cnodelist.append(nodeitem)
                 nodelist = cnodelist
-        # print out content of node file.
-        info('nodelist:\n')
-        for nodeitem in nodelist:
-            info('  %s\n' % nodeitem)
-        # yeild node items.
-        for nodeitem in nodelist:
-            yield Node(nodeitem, ncore=1)
+        return nodelist
