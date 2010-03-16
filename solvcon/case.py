@@ -488,7 +488,7 @@ class BlockCase(BaseCase):
             # make dealer and create workers for the dealer.
             dealer = self.solver.dealer = self._create_workers(
                 flag_parallel, nblk)
-            # spread out decomposed solvers.
+            # spread out and initialize decomposed solvers.
             for iblk in range(nblk):
                 sbk = dom[iblk]
                 svr = solvertype(sbk,
@@ -498,21 +498,13 @@ class BlockCase(BaseCase):
                 self.runhooks.drop_anchor(svr)
                 svr.unbind()    # ensure no pointers (unpicklable) in solver.
                 dealer[iblk].remote_setattr('muscle', svr)
-            # initialize solvers.
             for sdw in dealer: sdw.cmd.bind()
             for sdw in dealer: sdw.cmd.init()
             dealer.barrier()
             # make interconnections for rpc.
             self._interconnect(dom, dealer)
             # exchange solver metrics.
-            ifacelists = dom.ifacelists
-            for iblk in range(nblk):
-                ifacelist = ifacelists[iblk]
-                sdw = dealer[iblk]
-                sdw.cmd.init_exchange(ifacelist)
-            for arrname in solvertype._interface_init_:
-                for sdw in dealer: sdw.cmd.exchangeibc(arrname,
-                    with_worker=True)
+            self._exchange_solver_metric(dom, dealer, solvertype)
 
         self._log_end('init', msg=' '+self.io.basefn)
         self._have_init = preres and True
@@ -528,11 +520,14 @@ class BlockCase(BaseCase):
             self.solver.solverobj.bind()
             self.solver.domainobj.bind()
         else:
+            assert isinstance(self.execution.npart, int)
+            # domain is already split.
             nblk = len(dom)
             # make dealer and create workers for the dealer.
             dealer = self.solver.dealer = self._create_workers(
                 flag_parallel, nblk)
-            # ask remote workers to load solver objects.
+            # ask remote workers to load solver objects which were already
+            # initialized.
             for iblk in range(nblk):
                 dealer[iblk].remote_loadobj('muscle',
                     self.io.dump.svrfntmpl % str(iblk))
@@ -565,6 +560,7 @@ class BlockCase(BaseCase):
         @type flag_parallel: int
         @param nblk: number of distributed block/solvers.
         @type nblk: int
+
         @return: worker manager.
         @rtype: solvcon.rpc.Dealer
         """
@@ -623,6 +619,7 @@ class BlockCase(BaseCase):
         @type dom: solvcon.domain.Collective
         @param dealer: distributed worker manager.
         @type solvcon.rpc.Dealer
+
         @return: nothing
         """
         nblk = len(dom)
@@ -633,6 +630,30 @@ class BlockCase(BaseCase):
                 if dom.interfaces[iblk][jblk] != None:
                     dealer.bridge((iblk, jblk))
         dealer.barrier()
+
+    @staticmethod
+    def _exchange_solver_metric(dom, dealer, solvertype):
+        """
+        Exchange metric data for solver.
+
+        @param dom: decomposed domain.
+        @type dom: solvcon.domain.Collective
+        @param dealer: distributed worker manager.
+        @type dealer: solvcon.rpc.Dealer
+        @param solvertype: type of associated solver objects.
+        @type solvertype: type
+
+        @return: nothing
+        """
+        nblk = len(dom)
+        ifacelists = dom.ifacelists
+        for iblk in range(nblk):
+            ifacelist = ifacelists[iblk]
+            sdw = dealer[iblk]
+            sdw.cmd.init_exchange(ifacelist)
+        for arrname in solvertype._interface_init_:
+            for sdw in dealer: sdw.cmd.exchangeibc(arrname,
+                with_worker=True)
 
     def run(self):
         """
