@@ -142,6 +142,7 @@ class Scheduler(object):
             scgops = ' '.join(scgops)
         else:
             scgops = ''
+        scgops = '--runlevel %%d %s' % scgops
         cmdstr = ' '.join([scgpath, scgargs, scgops]).strip()
         return '\n'.join([
             'cd %s' % self.jobdir,
@@ -181,20 +182,28 @@ class Scheduler(object):
         else:
             os.makedirs(self.jobdir)
         fn = os.path.abspath(os.path.join(self.jobdir, basename))
-        f = open(fn, 'w')
-        f.write(str(self))
-        f.close()
-        return fn
+        fnlist = list()
+        for ilevel in range(3):
+            fnlist.append(fn+str(ilevel))
+            f = open(fnlist[-1], 'w')
+            f.write(str(self) % ilevel)
+            f.close()
+        return fnlist
 
-    def __call__(self, basename=None):
+    def __call__(self, runlevel=0, basename=None, postpone=False):
         """
         Make submitting script and invoke the batch system.
         """
         import os
         from subprocess import call
-        fn = self.tofile(basename=basename)
+        info = self.case.info
+        fnlist = self.tofile(basename=basename)
         os.chdir(self.jobdir)
-        return call('%s %s'%(self._subcmd_, fn), shell=True)
+        if postpone:
+            return
+        else:
+            info('submit runlevel %d\n' % runlevel)
+            return call('%s %s'%(self._subcmd_, fnlist[runlevel]), shell=True)
 
     def __iter__(self):
         raise NotImplementedError

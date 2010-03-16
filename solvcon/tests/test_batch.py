@@ -30,7 +30,7 @@ echo "Customized paths for job:"
 export PYTHONPATH=/tmp:$PYTHONPATH
 echo "Run @`date`:"
 cd /tmp/arn
-time /tmp/scg run arn
+time /tmp/scg run arn --runlevel %d
 echo "Finish @`date`."'''
 
     def test_script(self):
@@ -54,11 +54,13 @@ echo "Finish @`date`."'''
         msg = []
         case.info = lambda m: msg.append(m)
         sbm = Torque(case, arnname='arn')
-        fn = sbm.tofile()
-        self.assertEqual(fn, '/tmp/arn/arn.pbs')
-        f = open(fn)
-        self.assertEqual(f.read(), self.SCRIPT)
-        f.close()
+        fnlist = sbm.tofile()
+        for it in range(len(fnlist)):
+            self.assertEqual(fnlist[it], '/tmp/arn/arn.pbs%d'%it)
+            fn = fnlist[it]
+            f = open(fn)
+            self.assertEqual(f.read(), self.SCRIPT%it)
+            f.close()
         shutil.rmtree('/tmp/arn')
         self.assertFalse(os.path.exists('/tmp/arn'))
 
@@ -75,8 +77,9 @@ echo "Finish @`date`."'''
         sbm = Torque(case, arnname='arn')
         if not os.path.exists('/tmp/arn'):
             os.makedirs('/tmp/arn')
-        fn = sbm.tofile()
-        self.assertEqual(fn, '/tmp/arn/arn.pbs')
+        fnlist = sbm.tofile()
+        for it in range(len(fnlist)):
+            self.assertEqual(fnlist[it], '/tmp/arn/arn.pbs%d'%it)
         self.assertEqual(len(msg), 1)
         self.assertEqual(msg[0], 'Job directory was there: /tmp/arn\n')
         shutil.rmtree('/tmp/arn')
@@ -95,8 +98,9 @@ echo "Finish @`date`."'''
         sbm = Torque(case, arnname='arn')
         if os.path.exists('/tmp/arn'):
             shutil.rmtree('/tmp/arn')
-        fn = sbm.tofile()
-        self.assertEqual(fn, '/tmp/arn/arn.pbs')
+        fnlist = sbm.tofile()
+        for it in range(len(fnlist)):
+            self.assertEqual(fnlist[it], '/tmp/arn/arn.pbs%d'%it)
         self.assertEqual(len(msg), 0)
         shutil.rmtree('/tmp/arn')
         self.assertFalse(os.path.exists('/tmp/arn'))
@@ -114,8 +118,9 @@ echo "Finish @`date`."'''
         sbm = Torque(case, arnname='arn')
         if not os.path.exists('/tmp/arn'):
             os.makedirs('/tmp/arn')
-        fn = sbm.tofile()
-        self.assertEqual(fn, '/tmp/arn/arn.pbs')
+        fnlist = sbm.tofile()
+        for it in range(len(fnlist)):
+            self.assertEqual(fnlist[it], '/tmp/arn/arn.pbs%d'%it)
         self.assertEqual(len(msg), 2)
         self.assertEqual(msg[0], 'Job directory was there: /tmp/arn\n')
         self.assertEqual(msg[1], 'Delete all file in job directory.\n')

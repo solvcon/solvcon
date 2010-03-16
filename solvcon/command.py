@@ -141,7 +141,7 @@ class ArrangementCommand(Command):
         opg = OptionGroup(op, 'Arrangement')
         opg.add_option('--runlevel', action='store', type=int,
             dest='runlevel', default=0,
-            help='0: fresh run, 1: restart, 2: init only, 3: submit only.',
+            help='0: fresh run, 1: restart, 2: init only.',
         )
         opg.add_option('--npart', action='store', type=int,
             dest='npart', default=None,
@@ -224,7 +224,7 @@ class run(ArrangementCommand):
         }
         func = arrangements[name]
         if ops.use_profiler:
-            cProfile.runctx('func(**funckw)', globals(), locals(),
+            cProfile.runctx('func(submit=False, **funckw)', globals(), locals(),
                 ops.profiler_dat)
             plog = open(ops.profiler_log, 'w')
             p = pstats.Stats(ops.profiler_dat, stream=plog)
@@ -236,7 +236,7 @@ class run(ArrangementCommand):
                 '%s (raw) and %s (text).\n' % (
                 ops.profiler_dat, ops.profiler_log))
         else:
-            func(**funckw)
+            func(submit=False, **funckw)
 
 class submit(ArrangementCommand):
     """
@@ -254,6 +254,10 @@ class submit(ArrangementCommand):
         opg.add_option('-l', '--resources', action='store',
             dest='resources', default='',
             help='Resource list with "," as delimiter.',
+        )
+        opg.add_option('--postpone', action='store_true',
+            dest='postpone', default=False,
+            help='Postpone feeding into scheduler.',
         )
         op.add_option_group(opg)
         self.opg_batch = opg
@@ -276,8 +280,9 @@ class submit(ArrangementCommand):
         # get scheduler class.
         scheduler = getattr(batch, ops.scheduler)
         # submit to arrangement.
-        arrangements[name](runlevel=3, resources=resources,
-            scheduler=scheduler, npart=ops.npart,
+        arrangements[name](submit=True, postpone=ops.postpone,
+            runlevel=ops.runlevel,
+            resources=resources, scheduler=scheduler, npart=ops.npart,
         )
 
 class help(Command):

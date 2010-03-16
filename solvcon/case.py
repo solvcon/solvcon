@@ -117,7 +117,6 @@ class BaseCase(CaseInfo):
       - run level 0: fresh run (default),
       - run level 1: restart run,
       - run level 2: initialization only.
-      - run level 3: submit only.
 
     @ivar runhooks: a special list containing all the hook objects to be run.
     @itype runhooks: solvcon.hook.HookList
@@ -348,7 +347,9 @@ class BaseCase(CaseInfo):
             kw.pop('casename', None)
             resources = kw.pop('resources', dict())
             scheduler = kw.get('scheduler', Scheduler)
-            runlevel = kw.pop('runlevel', None)
+            submit = kw.pop('submit')
+            postpone = kw.pop('postpone', False)
+            runlevel = kw.pop('runlevel')
             # obtain the case object.
             if runlevel == 1:
                 case = pickle.load(open(cls.CSEFN_DEFAULT))
@@ -356,9 +357,9 @@ class BaseCase(CaseInfo):
                 casename = func.__name__
                 case = func(casename=casename, *args, **kw)
             # submit/run.
-            if runlevel == 3:
+            if submit:
                 sbm = scheduler(case, arnname=casename, **resources)
-                sbm()
+                sbm(runlevel=runlevel, postpone=postpone)
             else:
                 case.init(level=runlevel)
                 case.info('\n')
