@@ -82,6 +82,6 @@ class ZeroIAnchor(Anchor):
     """
     Fill the solutions with zero.
     """
-    def preloop(self):
+    def provide(self):
         self.svr.soln.fill(0.0)
         self.svr.dsoln.fill(0.0)
