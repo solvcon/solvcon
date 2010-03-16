@@ -685,7 +685,6 @@ class BlockCase(BaseCase):
         self._log_end('run', msg=' '+self.io.basefn)
 
     def _run_first(self):
-        solvertype = self.solver.solvertype
         dealer = self.solver.dealer
         flag_parallel = self.is_parallel
         # prepare for time marching.
@@ -706,8 +705,6 @@ class BlockCase(BaseCase):
             self.solver.solverobj.boundcond()
 
     def _run_loop(self):
-        import sys
-        solvertype = self.solver.solvertype
         dealer = self.solver.dealer
         flag_parallel = self.is_parallel
         aCFL = 0.0
@@ -748,15 +745,11 @@ class BlockCase(BaseCase):
             self.execution.step_current += steps_stride
             # hook: postmarch.
             self.runhooks('postmarch')
-            # flush standard output/error.
-            sys.stdout.flush()
-            sys.stderr.flush()
         # end log.
         self._log_end('loop_march')
         self.info('\n')
 
     def _run_last(self):
-        solvertype = self.solver.solvertype
         dealer = self.solver.dealer
         flag_parallel = self.is_parallel
         # hook: postloop.
