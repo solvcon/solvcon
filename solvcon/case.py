@@ -486,14 +486,8 @@ class BlockCase(BaseCase):
             dom.split(nblk=self.execution.npart, interface_type=interface)
             nblk = len(dom)
             # make dealer and create workers for the dealer.
-            if flag_parallel == 1:
-                family = None
-                create_workers = self._create_workers_local
-            elif flag_parallel == 2:
-                family = 'AF_INET'
-                create_workers = self._create_workers_remote
-            dealer = self.solver.dealer = Dealer(family=family)
-            create_workers(dealer, nblk)
+            dealer = self.solver.dealer = self._create_workers(
+                flag_parallel, nblk)
             # spread out decomposed solvers.
             for iblk in range(nblk):
                 sbk = dom[iblk]
@@ -536,14 +530,8 @@ class BlockCase(BaseCase):
         else:
             nblk = len(dom)
             # make dealer and create workers for the dealer.
-            if flag_parallel == 1:
-                family = None
-                create_workers = self._create_workers_local
-            elif flag_parallel == 2:
-                family = 'AF_INET'
-                create_workers = self._create_workers_remote
-            dealer = self.solver.dealer = Dealer(family=family)
-            create_workers(dealer, nblk)
+            dealer = self.solver.dealer = self._create_workers(
+                flag_parallel, nblk)
             # ask remote workers to load solver objects.
             for iblk in range(nblk):
                 dealer[iblk].remote_loadobj('muscle',
@@ -568,6 +556,28 @@ class BlockCase(BaseCase):
                     ops.profiler_sort,
                 )
         return None
+
+    def _create_workers(self, flag_parallel, nblk):
+        """
+        Make dealer and create workers for the dealer.
+
+        @param flag_parallel: the integer flag for the type of parallelism.
+        @type flag_parallel: int
+        @param nblk: number of distributed block/solvers.
+        @type nblk: int
+        @return: worker manager.
+        @rtype: solvcon.rpc.Dealer
+        """
+        from .rpc import Dealer
+        if flag_parallel == 1:
+            family = None
+            create_workers = self._create_workers_local
+        elif flag_parallel == 2:
+            family = 'AF_INET'
+            create_workers = self._create_workers_remote
+        dealer = Dealer(family=family)
+        create_workers(dealer, nblk)
+        return dealer
 
     def _create_workers_local(self, dealer, nblk):
         from .rpc import Worker
