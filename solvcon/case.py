@@ -678,21 +678,27 @@ class BlockCase(BaseCase):
         """
         assert self._have_init
         self._log_start('run', msg=' '+self.io.basefn)
+        self.execution.step_current = self.execution.step_init
         if level < 1:
-            self._run_first()
-        self._run_loop()
-        self._run_last()
+            self._run_provide()
+            self._run_preloop()
+        self._run_march()
+        self._run_postloop()
+        self._run_exhaust()
+        self._run_final()
         self._log_end('run', msg=' '+self.io.basefn)
 
-    def _run_first(self):
+    def _run_provide(self):
         dealer = self.solver.dealer
         flag_parallel = self.is_parallel
-        # prepare for time marching.
-        self.execution.step_current = self.execution.step_init
+        # anchor: provide.
         if flag_parallel:
             for sdw in dealer: sdw.cmd.provide()
         else:
             self.solver.solverobj.provide()
+    def _run_preloop(self):
+        dealer = self.solver.dealer
+        flag_parallel = self.is_parallel
         # hook: preloop.
         self.runhooks('preloop')
         if flag_parallel:
@@ -704,7 +710,7 @@ class BlockCase(BaseCase):
             self.solver.solverobj.preloop()
             self.solver.solverobj.boundcond()
 
-    def _run_loop(self):
+    def _run_march(self):
         dealer = self.solver.dealer
         flag_parallel = self.is_parallel
         aCFL = 0.0
@@ -749,7 +755,7 @@ class BlockCase(BaseCase):
         self._log_end('loop_march')
         self.info('\n')
 
-    def _run_last(self):
+    def _run_postloop(self):
         dealer = self.solver.dealer
         flag_parallel = self.is_parallel
         # hook: postloop.
@@ -758,11 +764,18 @@ class BlockCase(BaseCase):
         else:
             self.solver.solverobj.postloop()
         self.runhooks('postloop')
-        # finalize.
+    def _run_exhaust(self):
+        dealer = self.solver.dealer
+        flag_parallel = self.is_parallel
+        # anchor: exhaust.
         if flag_parallel:
             for sdw in dealer: sdw.cmd.exhaust()
         else:
             self.solver.solverobj.exhaust()
+    def _run_final(self):
+        dealer = self.solver.dealer
+        flag_parallel = self.is_parallel
+        # finalize.
         if flag_parallel:
             for sdw in dealer: sdw.cmd.final()
             self.solver.dealer.terminate()
