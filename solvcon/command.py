@@ -143,6 +143,10 @@ class ArrangementCommand(Command):
             dest='restart', default=False,
             help='Restart the arrangement.',
         )
+        opg.add_option('--init-only', action='store_true',
+            dest='init_only', default=False,
+            help='Only initialize the case.',
+        )
         opg.add_option('--npart', action='store', type=int,
             dest='npart', default=None,
             help='The number of partitions.',
