@@ -413,40 +413,11 @@ class BlockCase(BaseCase):
             raise TypeError, 'domaintype shouldn\'t be %s' % domaintype
         return flag_parallel
 
-    def load_block(self):
-        """
-        Return a block for init.
-
-        @return: a block object.
-        @rtype: solvcon.block.Block
-        """
-        import gzip
-        from .io.gambit import GambitNeutral
-        from .io.block import BlockIO
-        meshfn = self.io.meshfn
-        bcmapper = self.condition.bcmap
-        if '.neu' in meshfn:
-            self._log_start('read_neu_data', msg=' from %s'%meshfn)
-            if meshfn.endswith('.gz'):
-                stream = gzip.open(meshfn)
-            else:
-                stream = open(meshfn)
-            data = stream.read()
-            stream.close()
-            self._log_end('read_neu_data')
-            self._log_start('create_neu_object')
-            neu = GambitNeutral(data)
-            self._log_end('create_neu_object')
-            self._log_start('convert_neu_to_block')
-            blk = neu.toblock(bcname_mapper=bcmapper)
-            self._log_end('convert_neu_to_block')
-        elif '.blk' in meshfn:
-            self._log_start('load_block')
-            blk = BlockIO().load(stream=meshfn, bcmapper=bcmapper)
-            self._log_end('load_block')
-        else:
-            raise ValueError
-        return blk
+    ############################################################################
+    ###
+    ### Begin of block of case initialization logics.
+    ###
+    ############################################################################
 
     def init(self, level=0, force=False):
         """
@@ -495,10 +466,44 @@ class BlockCase(BaseCase):
         self._have_init = preres and True
         return self._have_init
 
+    def load_block(self):
+        """
+        Return a block for init.
+
+        @return: a block object.
+        @rtype: solvcon.block.Block
+        """
+        import gzip
+        from .io.gambit import GambitNeutral
+        from .io.block import BlockIO
+        meshfn = self.io.meshfn
+        bcmapper = self.condition.bcmap
+        if '.neu' in meshfn:
+            self._log_start('read_neu_data', msg=' from %s'%meshfn)
+            if meshfn.endswith('.gz'):
+                stream = gzip.open(meshfn)
+            else:
+                stream = open(meshfn)
+            data = stream.read()
+            stream.close()
+            self._log_end('read_neu_data')
+            self._log_start('create_neu_object')
+            neu = GambitNeutral(data)
+            self._log_end('create_neu_object')
+            self._log_start('convert_neu_to_block')
+            blk = neu.toblock(bcname_mapper=bcmapper)
+            self._log_end('convert_neu_to_block')
+        elif '.blk' in meshfn:
+            self._log_start('load_block')
+            blk = BlockIO().load(stream=meshfn, bcmapper=bcmapper)
+            self._log_end('load_block')
+        else:
+            raise ValueError
+        return blk
+
+    # solver object initialization/binding/loading.
     def _local_init_solver(self):
         """
-        Create and initialize solver.
-
         @return: nothing
         """
         svr = self.solver.solvertype(self.solver.domainobj.blk,
@@ -507,15 +512,14 @@ class BlockCase(BaseCase):
         svr.bind()
         svr.init()
         self.solver.solverobj = svr
-
     def _local_bind_solver(self):
+        """
+        @return: nothing
+        """
         self.solver.solverobj.bind()
         self.solver.domainobj.bind()
-
     def _remote_init_solver(self):
         """
-        Create, distribute, and initialize solvers.
-
         @return: nothing
         """
         dealer = self.solver.dealer
@@ -532,12 +536,8 @@ class BlockCase(BaseCase):
         for sdw in dealer: sdw.cmd.bind()
         for sdw in dealer: sdw.cmd.init()
         dealer.barrier()
-
     def _remote_load_solver(self):
         """
-        Ask remote workers to load solver objects which were already
-        initialized.
-
         @return: nothing
         """
         dealer = self.solver.dealer
@@ -548,18 +548,7 @@ class BlockCase(BaseCase):
         for sdw in dealer: sdw.cmd.bind()
         dealer.barrier()
 
-    def _get_profiler_data(self, iblk):
-        from .conf import env
-        if env.command != None:
-            ops, args = env.command.opargs
-            if getattr(ops, 'use_profiler'):
-                return (
-                    ops.profiler_dat+'%d'%iblk,
-                    ops.profiler_log+'%d'%iblk,
-                    ops.profiler_sort,
-                )
-        return None
-
+    # workers and worker manager (dealer) creation.
     def _create_workers(self):
         """
         Make dealer and create workers for the dealer.
@@ -579,13 +568,22 @@ class BlockCase(BaseCase):
         dealer = Dealer(family=family)
         create_workers(dealer, nblk)
         return dealer
-
+    def _get_profiler_data(self, iblk):
+        from .conf import env
+        if env.command != None:
+            ops, args = env.command.opargs
+            if getattr(ops, 'use_profiler'):
+                return (
+                    ops.profiler_dat+'%d'%iblk,
+                    ops.profiler_log+'%d'%iblk,
+                    ops.profiler_sort,
+                )
+        return None
     def _create_workers_local(self, dealer, nblk):
         from .rpc import Worker
         for iblk in range(nblk):
             dealer.hire(Worker(None,
                 profiler_data=self._get_profiler_data(iblk)))
-
     def _create_workers_remote(self, dealer, nblk):
         import os
         try:
@@ -615,6 +613,7 @@ class BlockCase(BaseCase):
                 iworker += 1
         assert len(dealer) == nblk
 
+    # interconnection.
     @staticmethod
     def _interconnect(dom, dealer):
         """
@@ -635,7 +634,6 @@ class BlockCase(BaseCase):
                 if dom.interfaces[iblk][jblk] != None:
                     dealer.bridge((iblk, jblk))
         dealer.barrier()
-
     @staticmethod
     def _exchange_solver_metric(dom, dealer, solvertype):
         """
@@ -659,6 +657,18 @@ class BlockCase(BaseCase):
         for arrname in solvertype._interface_init_:
             for sdw in dealer: sdw.cmd.exchangeibc(arrname,
                 with_worker=True)
+
+    ############################################################################
+    ###
+    ### End of block of case initialization logics.
+    ###
+    ############################################################################
+
+    ############################################################################
+    ###
+    ### Begin of block of case execution.
+    ###
+    ############################################################################
 
     def run(self):
         """
@@ -773,7 +783,18 @@ class BlockCase(BaseCase):
         else:
             self.solver.solverobj.final()
 
+    ############################################################################
+    ###
+    ### End of block of case execution.
+    ###
+    ############################################################################
+
     def dump(self):
+        """
+        Dump case and remote solver objects for later restart.
+
+        @return: nothing
+        """
         import cPickle as pickle
         dealer = self.solver.dealer
         flag_parallel = self.is_parallel
