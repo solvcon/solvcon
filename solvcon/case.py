@@ -509,13 +509,7 @@ class BlockCase(BaseCase):
             for sdw in dealer: sdw.cmd.init()
             dealer.barrier()
             # make interconnections for rpc.
-            for iblk in range(nblk):
-                for jblk in range(nblk):
-                    if iblk >= jblk:
-                        continue
-                    if dom.interfaces[iblk][jblk] != None:
-                        dealer.bridge((iblk, jblk))
-            dealer.barrier()
+            self._interconnect(dom, dealer)
             # exchange solver metrics.
             ifacelists = dom.ifacelists
             for iblk in range(nblk):
@@ -557,13 +551,7 @@ class BlockCase(BaseCase):
             for sdw in dealer: sdw.cmd.bind()
             dealer.barrier()
             # make interconnections for rpc.
-            for iblk in range(nblk):
-                for jblk in range(nblk):
-                    if iblk >= jblk:
-                        continue
-                    if dom.interfaces[iblk][jblk] != None:
-                        dealer.bridge((iblk, jblk))
-            dealer.barrier()
+            self._interconnect(dom, dealer)
 
         self._log_end('reinit')
         self._have_init = True
@@ -615,6 +603,26 @@ class BlockCase(BaseCase):
                 dealer.appoint(inetaddr, pport, authkey)
                 iworker += 1
         assert len(dealer) == nblk
+
+    @staticmethod
+    def _interconnect(dom, dealer):
+        """
+        Make interconnections for distributed solver objects.
+
+        @param dom: decomposed domain object.
+        @type dom: solvcon.domain.Collective
+        @param dealer: distributed worker manager.
+        @type solvcon.rpc.Dealer
+        @return: nothing
+        """
+        nblk = len(dom)
+        for iblk in range(nblk):
+            for jblk in range(nblk):
+                if iblk >= jblk:
+                    continue
+                if dom.interfaces[iblk][jblk] != None:
+                    dealer.bridge((iblk, jblk))
+        dealer.barrier()
 
     def run(self):
         """
