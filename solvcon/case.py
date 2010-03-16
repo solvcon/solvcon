@@ -625,10 +625,10 @@ class BlockCase(BaseCase):
         # create remote killer script.
         f = open(self.io.rkillfn, 'w')
         f.write("""#!/bin/sh
-nodes = "
+nodes="
 %s
 "
-for node in $nodes; do ssh node killall %s; done
+for node in $nodes; do ssh $node killall %s; done
 """ % (
             '\n'.join([node.name for node in nodelist]),
             os.path.split(sys.executable)[-1],
