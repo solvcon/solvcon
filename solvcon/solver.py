@@ -136,6 +136,8 @@ class BlockSolver(BaseSolver):
         interface when initialized.
     @ctype _interface_init_: list
 
+    @ivar enable_mesg: flag if mesg device should be enabled.
+    @itype enable_mesg: bool
     @ivar mesg: message printer attached to a certain solver object; designed
         and mainly used for parallel solver.
     @itype mesg: solvcon.helper.Printer
@@ -200,10 +202,8 @@ class BlockSolver(BaseSolver):
         """
         @keyword neq: number of equations (variables).
         @type neq: int
-        @keyword nval: number of attached static values.
-        @type nval: int
-        @keyword npam: number of attached parameters.
-        @type npam: int
+        @keyword enable_mesg: flag if mesg device should be enabled.
+        @type enable_mesg: bool
         """
         from numpy import empty
         self.enable_mesg = kw.pop('enable_mesg', False)
@@ -277,6 +277,21 @@ class BlockSolver(BaseSolver):
         assert self.msh != None and self.exn != None
         return [byref(self.msh), byref(self.exn)]
 
+    def create_mesg(self):
+        import os
+        from .helper import Printer
+        if self.enable_mesg:
+            if self.svrn != None:
+                dfn = self.DEBUG_FILENAME_TEMPLATE % self.svrn
+                dprefix = 'SOLVER%d: '%self.svrn
+            else:
+                dfn = self.DEBUG_FILENAME_DEFAULT
+                dprefix = ''
+        else:
+            dfn = os.devnull
+            dprefix = ''
+        self.mesg = Printer(dfn, prefix=dprefix, override=True)
+
     def bind(self):
         """
         Bind all the boundary condition objects.
@@ -285,22 +300,9 @@ class BlockSolver(BaseSolver):
             method should firstly bind all pointers, secondly super binder, and 
             then methods/subroutines.
         """
-        import os
-        from .helper import Printer
         from .block import BlockShape
         # create debug printer.
-        if self.mesg == None:
-            if self.enable_mesg:
-                if self.svrn != None:
-                    dfn = self.DEBUG_FILENAME_TEMPLATE % self.svrn
-                    dprefix = 'SOLVER%d: '%self.svrn
-                else:
-                    dfn = self.DEBUG_FILENAME_DEFAULT
-                    dprefix = ''
-            else:
-                dfn = os.devnull
-                dprefix = ''
-            self.mesg = Printer(dfn, prefix=dprefix, override=True)
+        if self.mesg == None: self.create_mesg()
         # structures.
         self.msh = BlockShape(
             ndim=self.ndim,
