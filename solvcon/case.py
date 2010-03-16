@@ -350,7 +350,7 @@ class BaseCase(CaseInfo):
             scheduler = kw.get('scheduler', Scheduler)
             if restart:
                 case = pickle.load(open(cls.CSEFN_DEFAULT))
-                case.reinit()
+                case.init(level=1)
                 case.info('\n')
                 case.rerun()
             else:
@@ -448,97 +448,105 @@ class BlockCase(BaseCase):
             raise ValueError
         return blk
 
-    def init(self, force=False):
+    def init(self, level=0, force=False):
         """
         Load block and initialize solver from the geometry information in the
         block and conditions in the self case.  If parallel run is specified
-        (throught domaintype), split the domain and perform corresponding tasks.
+        (through domaintype), split the domain and perform corresponding tasks.
         """
-        from . import domain
-        from .rpc import Dealer
         from .boundcond import interface
         self._log_start('init', msg=' '+self.io.basefn)
         preres = super(BlockCase, self).init(force=force)
-        solvertype = self.solver.solvertype
-        domaintype = self.solver.domaintype
-
-        # load block.
-        blk = self.load_block()
         # initilize the whole solver and domain.
-        dom = domaintype(blk)
-        self.solver.domainobj = dom
-
-        flag_parallel = self.is_parallel
+        if level < 1:
+            self.solver.domainobj = self.solver.domaintype(self.load_block())
         # for serial execution.
-        if flag_parallel == 0:
+        if not self.is_parallel:
             assert self.execution.npart == None
             # create and initialize solver.
-            svr = solvertype(blk,
-                neq=self.execution.neq, fpdtype=self.execution.fpdtype)
-            self.runhooks.drop_anchor(svr)
-            svr.bind()
-            svr.init()
-            self.solver.solverobj = svr
+            if level < 1:
+                self._local_init_solver()
+            else:
+                self._local_bind_solver()
         # for parallel execution.
-        elif flag_parallel > 0:
+        else:
             assert isinstance(self.execution.npart, int)
             # split the domain.
-            dom.split(nblk=self.execution.npart, interface_type=interface)
-            nblk = len(dom)
+            if level < 1:
+                self.solver.domainobj.split(
+                    nblk=self.execution.npart, interface_type=interface)
             # make dealer and create workers for the dealer.
-            dealer = self.solver.dealer = self._create_workers(
-                flag_parallel, nblk)
+            self.solver.dealer = self._create_workers()
             # spread out and initialize decomposed solvers.
-            for iblk in range(nblk):
-                sbk = dom[iblk]
-                svr = solvertype(sbk,
-                    neq=self.execution.neq, fpdtype=self.execution.fpdtype)
-                svr.svrn = iblk
-                svr.nsvr = nblk
-                self.runhooks.drop_anchor(svr)
-                svr.unbind()    # ensure no pointers (unpicklable) in solver.
-                dealer[iblk].remote_setattr('muscle', svr)
-            for sdw in dealer: sdw.cmd.bind()
-            for sdw in dealer: sdw.cmd.init()
-            dealer.barrier()
+            if level < 1:
+                self._remote_init_solver()
+            else:
+                self._remote_load_solver()
             # make interconnections for rpc.
-            self._interconnect(dom, dealer)
+            self._interconnect(self.solver.domainobj, self.solver.dealer)
             # exchange solver metrics.
-            self._exchange_solver_metric(dom, dealer, solvertype)
-
+            if level < 1:
+                self._exchange_solver_metric(
+                    self.solver.domainobj,
+                    self.solver.dealer,
+                    self.solver.solvertype,
+                )
         self._log_end('init', msg=' '+self.io.basefn)
         self._have_init = preres and True
         return self._have_init
 
-    def reinit(self):
-        from .rpc import Dealer
-        self._log_start('reinit', msg=' '+self.io.basefn)
-        dom = self.solver.domainobj
-        flag_parallel = self.is_parallel
+    def _local_init_solver(self):
+        """
+        Create and initialize solver.
 
-        if flag_parallel == 0:
-            self.solver.solverobj.bind()
-            self.solver.domainobj.bind()
-        else:
-            assert isinstance(self.execution.npart, int)
-            # domain is already split.
-            nblk = len(dom)
-            # make dealer and create workers for the dealer.
-            dealer = self.solver.dealer = self._create_workers(
-                flag_parallel, nblk)
-            # ask remote workers to load solver objects which were already
-            # initialized.
-            for iblk in range(nblk):
-                dealer[iblk].remote_loadobj('muscle',
-                    self.io.dump.svrfntmpl % str(iblk))
-            for sdw in dealer: sdw.cmd.bind()
-            dealer.barrier()
-            # make interconnections for rpc.
-            self._interconnect(dom, dealer)
+        @return: nothing
+        """
+        svr = self.solver.solvertype(self.solver.domainobj.blk,
+            neq=self.execution.neq, fpdtype=self.execution.fpdtype)
+        self.runhooks.drop_anchor(svr)
+        svr.bind()
+        svr.init()
+        self.solver.solverobj = svr
 
-        self._log_end('reinit')
-        self._have_init = True
-        return self._have_init
+    def _local_bind_solver(self):
+        self.solver.solverobj.bind()
+        self.solver.domainobj.bind()
+
+    def _remote_init_solver(self):
+        """
+        Create, distribute, and initialize solvers.
+
+        @return: nothing
+        """
+        dealer = self.solver.dealer
+        nblk = len(self.solver.domainobj)
+        for iblk in range(nblk):
+            sbk = self.solver.domainobj[iblk]
+            svr = self.solver.solvertype(sbk,
+                neq=self.execution.neq, fpdtype=self.execution.fpdtype)
+            svr.svrn = iblk
+            svr.nsvr = nblk
+            self.runhooks.drop_anchor(svr)
+            svr.unbind()    # ensure no pointers (unpicklable) in solver.
+            dealer[iblk].remote_setattr('muscle', svr)
+        for sdw in dealer: sdw.cmd.bind()
+        for sdw in dealer: sdw.cmd.init()
+        dealer.barrier()
+
+    def _remote_load_solver(self):
+        """
+        Ask remote workers to load solver objects which were already
+        initialized.
+
+        @return: nothing
+        """
+        dealer = self.solver.dealer
+        nblk = len(self.solver.domainobj)
+        for iblk in range(nblk):
+            dealer[iblk].remote_loadobj('muscle',
+                self.io.dump.svrfntmpl % str(iblk))
+        for sdw in dealer: sdw.cmd.bind()
+        dealer.barrier()
 
     def _get_profiler_data(self, iblk):
         from .conf import env
@@ -552,19 +560,16 @@ class BlockCase(BaseCase):
                 )
         return None
 
-    def _create_workers(self, flag_parallel, nblk):
+    def _create_workers(self):
         """
         Make dealer and create workers for the dealer.
-
-        @param flag_parallel: the integer flag for the type of parallelism.
-        @type flag_parallel: int
-        @param nblk: number of distributed block/solvers.
-        @type nblk: int
 
         @return: worker manager.
         @rtype: solvcon.rpc.Dealer
         """
         from .rpc import Dealer
+        nblk = len(self.solver.domainobj)
+        flag_parallel = self.is_parallel
         if flag_parallel == 1:
             family = None
             create_workers = self._create_workers_local
