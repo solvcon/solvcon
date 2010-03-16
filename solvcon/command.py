@@ -139,13 +139,9 @@ class ArrangementCommand(Command):
         op = self.op
 
         opg = OptionGroup(op, 'Arrangement')
-        opg.add_option('--restart', action='store_true',
-            dest='restart', default=False,
-            help='Restart the arrangement.',
-        )
-        opg.add_option('--init-only', action='store_true',
-            dest='init_only', default=False,
-            help='Only initialize the case.',
+        opg.add_option('--runlevel', action='store', type=int,
+            dest='runlevel', default=0,
+            help='0: fresh run, 1: restart, 2: init only, 3: submit only.',
         )
         opg.add_option('--npart', action='store', type=int,
             dest='npart', default=None,
@@ -222,13 +218,13 @@ class run(ArrangementCommand):
             domaintype = domain.Domain
         # run.
         funckw = {
-            'restart': ops.restart,
+            'runlevel': ops.runlevel,
             'scheduler': scheduler,
             'npart': npart, 'domaintype': domaintype,
         }
         func = arrangements[name]
         if ops.use_profiler:
-            cProfile.runctx('func(submit=False, **funckw)', globals(), locals(),
+            cProfile.runctx('func(**funckw)', globals(), locals(),
                 ops.profiler_dat)
             plog = open(ops.profiler_log, 'w')
             p = pstats.Stats(ops.profiler_dat, stream=plog)
@@ -240,14 +236,14 @@ class run(ArrangementCommand):
                 '%s (raw) and %s (text).\n' % (
                 ops.profiler_dat, ops.profiler_log))
         else:
-            func(submit=False, **funckw)
+            func(**funckw)
 
 class submit(ArrangementCommand):
     """
     Submit arrangement to batch scheduler.
     """
 
-    min_args = 0
+    min_args = 1
 
     def __init__(self, env):
         from optparse import OptionGroup
@@ -280,7 +276,7 @@ class submit(ArrangementCommand):
         # get scheduler class.
         scheduler = getattr(batch, ops.scheduler)
         # submit to arrangement.
-        arrangements[name](submit=True, resources=resources,
+        arrangements[name](runlevel=3, resources=resources,
             scheduler=scheduler, npart=ops.npart,
         )
 

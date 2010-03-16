@@ -111,10 +111,16 @@ class BaseCase(CaseInfo):
     """
     Base class for simulation cases.
 
+    init() and run() are the two primary methods responsible for the
+    execution of the simulation case object.  Both methods accept a keyword
+    parameter ``level'' which indicates the run level of the run:
+      - run level 0: fresh run (default),
+      - run level 1: restart run,
+      - run level 2: initialization only.
+      - run level 3: submit only.
+
     @ivar runhooks: a special list containing all the hook objects to be run.
     @itype runhooks: solvcon.hook.HookList
-    @ivar _have_init: flag that self was initialized or not.
-    @itype _have_init: bool
     """
 
     CSEFN_DEFAULT = 'solvcon.dump.case.obj'
@@ -231,8 +237,6 @@ class BaseCase(CaseInfo):
         # expand basedir.
         if self.io.abspath:
             self.io.basedir = os.path.abspath(self.io.basedir)
-        # second-phase initilization flag.
-        self._have_init = False
 
     def _dynamic_execute(self):
         """
@@ -279,25 +283,23 @@ class BaseCase(CaseInfo):
         # reset preservation flag.
         self.dynamic.preserve = False
 
-    def init(self, force=False):
+    def init(self, level=0):
         """
-        Second-phase initialization.  This initilization should be performed 
-        right before the running of the case.  Subclass should set _have_init
-        attribute on the end of this method.
+        Initialize solver.
 
-        @keyword force: flag to force initialization no matter self was
-            initialized or not.
-        @type force: bool
-        @return: flag initialized or not.
-        @rtype: bool
+        @keyword level: run level; higher level does less work.
+        @type level: int
+
+        @return: nothing.
         """
-        assert not self._have_init or force
-        self._have_init = True
-        return self._have_init
+        pass
 
-    def run(self):
+    def run(self, level=0):
         """
         Run the simulation case; time marching.
+
+        @keyword level: run level; higher level does less work.
+        @type level: int
 
         @return: nothing.
         """
@@ -344,25 +346,23 @@ class BaseCase(CaseInfo):
         from .batch import Scheduler
         def simu(*args, **kw):
             kw.pop('casename', None)
-            submit = kw.pop('submit', None)
-            restart = kw.pop('restart', None)
             resources = kw.pop('resources', dict())
             scheduler = kw.get('scheduler', Scheduler)
-            if restart:
+            runlevel = kw.pop('runlevel', None)
+            # obtain the case object.
+            if runlevel == 1:
                 case = pickle.load(open(cls.CSEFN_DEFAULT))
-                case.init(level=1)
-                case.info('\n')
-                case.run(level=1)
             else:
                 casename = func.__name__
                 case = func(casename=casename, *args, **kw)
-                if submit:
-                    sbm = scheduler(case, arnname=casename, **resources)
-                    sbm()
-                else:
-                    case.init()
-                    case.info('\n')
-                    case.run()
+            # submit/run.
+            if runlevel == 3:
+                sbm = scheduler(case, arnname=casename, **resources)
+                sbm()
+            else:
+                case.init(level=runlevel)
+                case.info('\n')
+                case.run(level=runlevel)
         # register self to simulation registries.
         cls.arrangements[func.__name__] = simu
         arrangements[func.__name__] = simu
@@ -419,23 +419,23 @@ class BlockCase(BaseCase):
     ###
     ############################################################################
 
-    def init(self, level=0, force=False):
+    def init(self, level=0):
         """
         Load block and initialize solver from the geometry information in the
         block and conditions in the self case.  If parallel run is specified
         (through domaintype), split the domain and perform corresponding tasks.
         """
         from .boundcond import interface
-        self._log_start('init', msg=' '+self.io.basefn)
-        preres = super(BlockCase, self).init(force=force)
+        self._log_start('init', msg=' (level %d) %s' % (level, self.io.basefn))
+        super(BlockCase, self).init(level=0)
         # initilize the whole solver and domain.
-        if level < 1:
+        if level != 1:
             self.solver.domainobj = self.solver.domaintype(self.load_block())
         # for serial execution.
         if not self.is_parallel:
             assert self.execution.npart == None
             # create and initialize solver.
-            if level < 1:
+            if level != 1:
                 self._local_init_solver()
             else:
                 self._local_bind_solver()
@@ -443,28 +443,26 @@ class BlockCase(BaseCase):
         else:
             assert isinstance(self.execution.npart, int)
             # split the domain.
-            if level < 1:
+            if level != 1:
                 self.solver.domainobj.split(
                     nblk=self.execution.npart, interface_type=interface)
             # make dealer and create workers for the dealer.
             self.solver.dealer = self._create_workers()
             # spread out and initialize decomposed solvers.
-            if level < 1:
+            if level != 1:
                 self._remote_init_solver()
             else:
                 self._remote_load_solver()
             # make interconnections for rpc.
             self._interconnect(self.solver.domainobj, self.solver.dealer)
             # exchange solver metrics.
-            if level < 1:
+            if level != 1:
                 self._init_solver_exchange(
                     self.solver.domainobj,
                     self.solver.dealer,
                     self.solver.solvertype,
                 )
         self._log_end('init', msg=' '+self.io.basefn)
-        self._have_init = preres and True
-        return self._have_init
 
     def load_block(self):
         """
@@ -674,20 +672,26 @@ class BlockCase(BaseCase):
         """
         Run the simulation case; time marching.
 
+        @keyword level: run level; higher level does less work.
+        @type level: int
+
         @return: nothing.
         """
-        assert self._have_init
-        self._log_start('run', msg=' '+self.io.basefn)
+        self._log_start('run', msg=' (level %d) %s' % (level, self.io.basefn))
         self.execution.step_current = self.execution.step_init
         if level < 1:
             self._run_provide()
             self._run_preloop()
-        self._run_march()
-        self._run_postloop()
-        self._run_exhaust()
+        if level < 2:
+            self._run_march()
+            self._run_postloop()
+            self._run_exhaust()
+        else:   # level == 2.
+            self.dump()
         self._run_final()
         self._log_end('run', msg=' '+self.io.basefn)
 
+    # logics before entering main loop (march).
     def _run_provide(self):
         dealer = self.solver.dealer
         flag_parallel = self.is_parallel
@@ -755,6 +759,7 @@ class BlockCase(BaseCase):
         self._log_end('loop_march')
         self.info('\n')
 
+    # logics after exiting main loop (march).
     def _run_postloop(self):
         dealer = self.solver.dealer
         flag_parallel = self.is_parallel
@@ -798,6 +803,8 @@ class BlockCase(BaseCase):
         import cPickle as pickle
         dealer = self.solver.dealer
         flag_parallel = self.is_parallel
+        # record the step can be restarted from.
+        self.execution.step_restart = self.execution.step_current
         # unbind.
         if flag_parallel:
             for iblk in range(len(self.solver.domainobj)):
@@ -818,5 +825,3 @@ class BlockCase(BaseCase):
         else:
             self.solver.solverobj.bind()
             self.solver.domainobj.bind()
-        # record the step can be restarted from.
-        self.execution.step_restart = self.execution.step_current

@@ -61,9 +61,7 @@ class TestBaseCase(TestCase):
     def test_init(self):
         from ..case import BaseCase
         case = BaseCase()
-        self.assertFalse(case._have_init)
         case.init()
-        self.assertTrue(case._have_init)
 
 from ..hook import BlockHook
 class CaseCollect(BlockHook):
