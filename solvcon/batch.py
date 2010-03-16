@@ -137,6 +137,8 @@ class Scheduler(object):
                     '--profiler-dat=%s' % ops.profiler_dat,
                     '--profiler-log=%s' % ops.profiler_log,
                 ])
+            if ops.solver_output:
+                scgops.append('--solver-output')
             if ops.basedir:
                 scgops.append('--basedir=%s' % os.path.abspath(ops.basedir))
             scgops = ' '.join(scgops)

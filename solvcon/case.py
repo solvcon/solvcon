@@ -153,6 +153,7 @@ class BaseCase(CaseInfo):
         'io.basedir': None,
         'io.basefn': None,
         'io.empty_jobdir': False,
+        'io.solver_output': False,
         # conditions.
         'condition.mtrllist': list,
         # solver.
@@ -507,7 +508,9 @@ class BlockCase(BaseCase):
         @return: nothing
         """
         svr = self.solver.solvertype(self.solver.domainobj.blk,
-            neq=self.execution.neq, fpdtype=self.execution.fpdtype)
+            neq=self.execution.neq, fpdtype=self.execution.fpdtype,
+            enable_mesg=self.io.solver_output,
+        )
         self.runhooks.drop_anchor(svr)
         svr.bind()
         svr.init()
@@ -527,7 +530,9 @@ class BlockCase(BaseCase):
         for iblk in range(nblk):
             sbk = self.solver.domainobj[iblk]
             svr = self.solver.solvertype(sbk,
-                neq=self.execution.neq, fpdtype=self.execution.fpdtype)
+                neq=self.execution.neq, fpdtype=self.execution.fpdtype,
+                enable_mesg=self.io.solver_output,
+            )
             svr.svrn = iblk
             svr.nsvr = nblk
             self.runhooks.drop_anchor(svr)

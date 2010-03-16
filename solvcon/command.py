@@ -143,6 +143,10 @@ class ArrangementCommand(Command):
             dest='runlevel', default=0,
             help='0: fresh run, 1: restart, 2: init only.',
         )
+        opg.add_option('--solver-output', action='store_true',
+            dest='solver_output', default=False,
+            help='Turn on the output device in the solver object(s).',
+        )
         opg.add_option('--npart', action='store', type=int,
             dest='npart', default=None,
             help='The number of partitions.',
@@ -219,6 +223,7 @@ class run(ArrangementCommand):
         # run.
         funckw = {
             'runlevel': ops.runlevel,
+            'solver_output': ops.solver_output,
             'scheduler': scheduler,
             'npart': npart, 'domaintype': domaintype,
         }
