@@ -449,6 +449,7 @@ class BlockCase(BaseCase):
             assert isinstance(self.execution.npart, int)
             # split the domain.
             if level != 1:
+                self.info('\n')
                 self._log_start('split_domain')
                 self.solver.domainobj.split(
                     nblk=self.execution.npart, interface_type=interface)
