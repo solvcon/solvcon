@@ -688,10 +688,10 @@ for node in $nodes; do ssh $node killall %s; done
             ifacelist = ifacelists[iblk]
             sdw = dealer[iblk]
             sdw.cmd.init_exchange(ifacelist)
-            self.info('%d:')
+            self.info(('%%0%dd ->' % len(str(nblk-1))) % iblk)
             for low, high in ifacelist:
-                low = ('%%%dd' % len(str(iblk))) % low
-                high = ('%%%dd' % len(str(iblk))) % high
+                low = ('%%0%dd' % len(str(nblk-1))) % low
+                high = ('%%0%dd' % len(str(nblk-1))) % high
                 self.info(' %s-%s' % (low, high))
             self.info('\n')
         # exchange metrics.
