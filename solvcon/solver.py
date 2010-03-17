@@ -536,9 +536,12 @@ class BlockSolver(BaseSolver):
         # grab peer index.
         ibclist = list()
         for pair in ifacelist:
-            assert len(pair) == 2
-            assert self.svrn in pair
-            ibclist.append(sum(pair)-self.svrn)
+            if pair < 0:
+                ibclist.append(pair)
+            else:
+                assert len(pair) == 2
+                assert self.svrn in pair
+                ibclist.append(sum(pair)-self.svrn)
         # replace with bc plus peer indices.
         for bc in self.bclist:
             if not isinstance(bc, interface):
@@ -549,7 +552,9 @@ class BlockSolver(BaseSolver):
 
     def exchangeibc(self, arrname, worker=None):
         ibclist = self.ibclist
-        for bc, sendn, recvn in ibclist:
+        for ibc in ibclist:
+            if ibc < 0: continue
+            bc, sendn, recvn = ibc
             if self.svrn == sendn:
                 self.pushibc(arrname, bc, recvn, worker=worker)
             elif self.svrn == recvn:

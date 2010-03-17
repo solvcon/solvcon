@@ -222,17 +222,23 @@ class Collective(Domain, list):
             stages.append(stage)
         # create ifacelists.
         iflists = [list() for iblk in range(nblk)]
+        istage = 0
         for stage in stages:
             for pair in stage:
                 iflists[pair[0]].append(pair)
                 iflists[pair[1]].append(pair)
+            for iflist in iflists:
+                if len(iflist) <= istage:
+                    iflist.append(-1)   # negative value indicating skip.
+            istage += 1
         ## checking.
         hasmax = False
         for iblk in range(nblk):
             iflist = iflists[iblk]
             # assert the pair is for the blk.
             for pair in iflist:
-                assert iblk in pair
+                if not pair < 0:
+                    assert iblk in pair
         return iflists
 
     @classmethod

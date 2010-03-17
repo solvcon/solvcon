@@ -683,16 +683,19 @@ for node in $nodes; do ssh $node killall %s; done
         nblk = len(dom)
         # initialize exchanging.
         self.info('Interface exchanging pairs:\n')
+        dwidth = len(str(nblk-1))
         ifacelists = dom.ifacelists
         for iblk in range(nblk):
             ifacelist = ifacelists[iblk]
             sdw = dealer[iblk]
             sdw.cmd.init_exchange(ifacelist)
-            self.info(('%%0%dd ->' % len(str(nblk-1))) % iblk)
-            for low, high in ifacelist:
-                low = ('%%0%dd' % len(str(nblk-1))) % low
-                high = ('%%0%dd' % len(str(nblk-1))) % high
-                self.info(' %s-%s' % (low, high))
+            self.info(('%%0%dd ->' % dwidth) % iblk)
+            for pair in ifacelist:
+                if pair < 0:
+                    stab = '-' * (2*dwidth+1)
+                else:
+                    stab = '-'.join([('%%0%dd'%dwidth)%item for item in pair])
+                self.info(' %s' % stab)
             self.info('\n')
         # exchange metrics.
         for arrname in self.solver.solvertype._interface_init_:
