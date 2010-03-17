@@ -162,6 +162,8 @@ class Collective(Domain, list):
     @itype interfaces: list
     """
 
+    IFSLEEP = 1.e-10    # in seconds.
+
     def __init__(self, *args, **kw):
         super(Collective, self).__init__(*args, **kw)
         self.edgecut = 0
@@ -229,7 +231,7 @@ class Collective(Domain, list):
                 iflists[pair[1]].append(pair)
             for iflist in iflists:
                 if len(iflist) <= istage:
-                    iflist.append(-1.e-3)   # negative value indicating skip.
+                    iflist.append(-self.IFSLEEP)    # negative for skip.
             istage += 1
         ## checking.
         hasmax = False

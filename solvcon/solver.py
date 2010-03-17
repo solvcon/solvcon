@@ -556,7 +556,8 @@ class BlockSolver(BaseSolver):
         ibclist = self.ibclist
         for ibc in ibclist:
             if ibc < 0:
-                sleep(abs(self.IBCSLEEP if self.IBCSLEEP != None else ibc))
+                tosleep = abs(self.IBCSLEEP if self.IBCSLEEP != None else ibc)
+                sleep(tosleep)
                 continue
             bc, sendn, recvn = ibc
             if self.svrn == sendn:

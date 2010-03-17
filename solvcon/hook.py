@@ -377,6 +377,11 @@ class BlockInfoHook(BlockHook):
         self.info('Performance:\n')
         self.info('  %g microseconds/(iteration*cell).\n' % perf)
         self.info('  %g M(iteration*cell)/seconds.\n' % (1./perf))
+        if isinstance(self.cse.execution.npart, int):
+            self.info('  %g M(iteration*cell)/seconds/computer.\n' % (
+                1./perf/self.cse.execution.npart
+            ))
+            
 
 class SplitMarker(BlockHook):
     """
