@@ -454,24 +454,29 @@ class BlockCase(BaseCase):
                     nblk=self.execution.npart, interface_type=interface)
                 self._log_end('split_domain')
             # make dealer and create workers for the dealer.
+            self.info('\n')
             self._log_start('build_dealer')
             self.solver.dealer = self._create_workers()
             self._log_end('build_dealer')
             # spread out and initialize decomposed solvers.
             if level != 1:
+                self.info('\n')
                 self._log_start('remote_init_solver')
                 self._remote_init_solver()
                 self._log_end('remote_init_solver')
             else:
+                self.info('\n')
                 self._log_start('remote_load_solver')
                 self._remote_load_solver()
                 self._log_end('remote_load_solver')
             # make interconnections for rpc.
+            self.info('\n')
             self._log_start('interconnect')
             self._interconnect(self.solver.domainobj, self.solver.dealer)
             self._log_end('interconnect')
             # initialize exchange for remote solver objects.
             if level != 1:
+                self.info('\n')
                 self._log_start('init_exchange')
                 self._init_solver_exchange(
                     self.solver.domainobj,
