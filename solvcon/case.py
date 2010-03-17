@@ -473,17 +473,13 @@ class BlockCase(BaseCase):
             # make interconnections for rpc.
             self.info('\n')
             self._log_start('interconnect')
-            self._interconnect(self.solver.domainobj, self.solver.dealer)
+            self._interconnect()
             self._log_end('interconnect')
             # initialize exchange for remote solver objects.
             if level != 1:
                 self.info('\n')
                 self._log_start('init_exchange')
-                self._init_solver_exchange(
-                    self.solver.domainobj,
-                    self.solver.dealer,
-                    self.solver.solvertype,
-                )
+                self._init_solver_exchange()
                 self._log_end('init_exchange')
         self._log_end('init', msg=' '+self.io.basefn)
 
@@ -660,18 +656,14 @@ for node in $nodes; do ssh $node killall %s; done
         ))
 
     # interconnection.
-    @staticmethod
-    def _interconnect(dom, dealer):
+    def _interconnect(self):
         """
         Make interconnections for distributed solver objects.
 
-        @param dom: decomposed domain object.
-        @type dom: solvcon.domain.Collective
-        @param dealer: distributed worker manager.
-        @type solvcon.rpc.Dealer
-
         @return: nothing
         """
+        dom = self.solver.domainobj
+        dealer = self.solver.dealer
         nblk = len(dom)
         for iblk in range(nblk):
             for jblk in range(nblk):
@@ -680,27 +672,30 @@ for node in $nodes; do ssh $node killall %s; done
                 if dom.interfaces[iblk][jblk] != None:
                     dealer.bridge((iblk, jblk))
         dealer.barrier()
-    @staticmethod
-    def _init_solver_exchange(dom, dealer, solvertype):
+    def _init_solver_exchange(self):
         """
-        Exchange metric data for solver.
-
-        @param dom: decomposed domain.
-        @type dom: solvcon.domain.Collective
-        @param dealer: distributed worker manager.
-        @type dealer: solvcon.rpc.Dealer
-        @param solvertype: type of associated solver objects.
-        @type solvertype: type
+        Initialize exchanging and exchange metric data for solver.
 
         @return: nothing
         """
+        dom = self.solver.domainobj
+        dealer = self.solver.dealer
         nblk = len(dom)
+        # initialize exchanging.
+        self.info('Interface exchanging pairs:\n')
         ifacelists = dom.ifacelists
         for iblk in range(nblk):
             ifacelist = ifacelists[iblk]
             sdw = dealer[iblk]
             sdw.cmd.init_exchange(ifacelist)
-        for arrname in solvertype._interface_init_:
+            self.info('%d:')
+            for low, high in ifacelist:
+                low = ('%%%dd' % len(str(iblk))) % low
+                high = ('%%%dd' % len(str(iblk))) % high
+                self.info(' %s-%s' % (low, high))
+            self.info('\n')
+        # exchange metrics.
+        for arrname in self.solver.solvertype._interface_init_:
             for sdw in dealer: sdw.cmd.exchangeibc(arrname,
                 with_worker=True)
 
