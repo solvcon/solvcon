@@ -229,7 +229,7 @@ class Collective(Domain, list):
                 iflists[pair[1]].append(pair)
             for iflist in iflists:
                 if len(iflist) <= istage:
-                    iflist.append(-1)   # negative value indicating skip.
+                    iflist.append(-1.e-3)   # negative value indicating skip.
             istage += 1
         ## checking.
         hasmax = False

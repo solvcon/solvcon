@@ -189,6 +189,7 @@ class BlockSolver(BaseSolver):
 
     DEBUG_FILENAME_TEMPLATE = 'solvcon.solver%d.log'
     DEBUG_FILENAME_DEFAULT = 'solvcon.solver.log'
+    IBCSLEEP = None
 
     def pop_exnkw(self, blk, kw):
         exnkw = dict()
@@ -551,9 +552,12 @@ class BlockSolver(BaseSolver):
         self.ibclist = ibclist
 
     def exchangeibc(self, arrname, worker=None):
+        from time import sleep
         ibclist = self.ibclist
         for ibc in ibclist:
-            if ibc < 0: continue
+            if ibc < 0:
+                sleep(abs(self.IBCSLEEP if self.IBCSLEEP != None else ibc))
+                continue
             bc, sendn, recvn = ibc
             if self.svrn == sendn:
                 self.pushibc(arrname, bc, recvn, worker=worker)
