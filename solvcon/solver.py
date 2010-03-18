@@ -102,6 +102,17 @@ class BaseSolver(object):
         """
         pass
 
+from threading import Thread
+class ExThread(Thread):
+    def __init__(self, *args, **kw):
+        self._target = kw.get('target')
+        self._args = kw.get('args')
+        self._kwargs = kw.get('kwargs')
+        super(ExThread, self).__init__(*args, **kw)
+    def run(self, arrname):
+        args = [arrname] + self._args
+        self._target(*args, **self._kwargs)
+
 class BlockSolverExeinfo(FortranType):
     """
     Execution information for BlockSolver.
@@ -212,8 +223,6 @@ class BlockSolver(BaseSolver):
         neq = self.exnkw['neq']
         super(BlockSolver, self).__init__(*args, **kw)
         assert self.fpdtype == blk.fpdtype
-        # list of tuples for interfaces.
-        self.ibclist = list()
         # absorb block.
         ## meta-data.
         self.svrn = blk.blkn
@@ -264,6 +273,8 @@ class BlockSolver(BaseSolver):
         ## derived data.
         self.der = dict()
         # placeholders.
+        self.ibcthreads = None
+        self.ibclocks = None
         self.mesg = None
         self.solptr = None
         self.solnptr = None
@@ -382,11 +393,14 @@ class BlockSolver(BaseSolver):
 
     def dump(self, objfn):
         import cPickle as pickle
+        holds = dict()
         self.unbind()
-        mesg = self.mesg
-        self.mesg = None
+        for key in ['mesg', 'ibcthreads', 'ibclocks']:
+            holds[key] = getattr(self, key)
+            setattr(self, key, None)
         pickle.dump(self, open(objfn, 'w'), pickle.HIGHEST_PROTOCOL)
-        self.mesg = mesg
+        for key in holds:
+            setattr(self, key, holds[key])
         self.bind()
 
     ##################################################
@@ -532,8 +546,9 @@ class BlockSolver(BaseSolver):
         obj = getattr(self.ankdict[ankname], objname)
         conn.send(obj)
 
-    def init_exchange(self, ifacelist):
+    def init_exchange(self, ifacelist, worker=None):
         from .boundcond import interface
+        from threading import Thread, Lock
         # grab peer index.
         ibclist = list()
         for pair in ifacelist:
@@ -543,32 +558,38 @@ class BlockSolver(BaseSolver):
                 assert len(pair) == 2
                 assert self.svrn in pair
                 ibclist.append(sum(pair)-self.svrn)
-        # replace with bc plus peer indices.
+        # replace with thread and lock.
+        ibcthreads = list()
+        ibclocks = list()
         for bc in self.bclist:
             if not isinstance(bc, interface):
                 continue
             it = ibclist.index(bc.rblkn)
-            ibclist[it] = (bc, ifacelist[it][0], ifacelist[it][1])
-        self.ibclist = ibclist
+            sendn, recvn = ifacelist[it]
+            if self.svrn == sendn:
+                target = self.pushibc
+                args = [bc, recvn]
+            elif self.svrn == recvn:
+                target = self.pullibc
+                args = [bc, sendn]
+            lock = Lock()
+            kwargs = {'lock': lock, 'worker': worker}
+            thread = ExThread(target=target, args=args, kwargs=kwargs)
+            ibcthreads.append(thread)
+            ibclocks.append(lock)
+        self.ibcthreads = ibcthreads
+        self.ibclocks = ibclocks
 
     def exchangeibc(self, arrname, worker=None):
         from time import sleep
-        ibclist = self.ibclist
-        for ibc in ibclist:
-            if ibc < 0:
-                tosleep = abs(self.IBCSLEEP if self.IBCSLEEP != None else ibc)
-                sleep(tosleep)
-                continue
-            bc, sendn, recvn = ibc
-            if self.svrn == sendn:
-                self.pushibc(arrname, bc, recvn, worker=worker)
-            elif self.svrn == recvn:
-                self.pullibc(arrname, bc, sendn, worker=worker)
-            else:
-                raise ValueError, 'bc.rblkn = %d != %d or %d' % (
-                    bc.rblkn, sendn, recvn)
+        from threading import Lock
+        for thread in self.ibcthreads:
+            thread.run(arrname)
+        for lock in self.ibclocks:
+            lock.acquire()
+            lock.release()
 
-    def pushibc(self, arrname, bc, recvn, worker=None):
+    def pushibc(self, arrname, bc, recvn, lock=None, worker=None):
         """
         Push data toward selected interface which connect to blocks with larger
         serial number than myself.
@@ -582,6 +603,7 @@ class BlockSolver(BaseSolver):
         @keyword worker: the wrapping worker object for parallel processing.
         @type worker: solvcon.rpc.Worker
         """
+        if lock: lock.acquire()
         ngstcell = self.ngstcell
         conn = worker.pconns[bc.rblkn]
         arr = getattr(self, arrname)
@@ -592,8 +614,9 @@ class BlockSolver(BaseSolver):
         # provide the receiver with data.
         slct = bc.rclp[:,2] + ngstcell
         conn.send(arr[slct])    # comm.
+        if lock: lock.release()
 
-    def pullibc(self, arrname, bc, sendn, worker=None):
+    def pullibc(self, arrname, bc, sendn, lock=None, worker=None):
         """
         Pull data from the interface determined by the serial of peer.
 
@@ -606,6 +629,7 @@ class BlockSolver(BaseSolver):
         @keyword worker: the wrapping worker object for parallel processing.
         @type worker: solvcon.rpc.Worker
         """
+        if lock: lock.acquire()
         ngstcell = self.ngstcell
         conn = worker.pconns[bc.rblkn]
         arr = getattr(self, arrname)
@@ -616,3 +640,4 @@ class BlockSolver(BaseSolver):
         rarr = conn.recv()  # comm.
         slct = bc.rclp[:,0] + ngstcell
         arr[slct] = rarr[:]
+        if lock: lock.release()

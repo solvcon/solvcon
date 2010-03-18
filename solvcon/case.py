@@ -478,9 +478,9 @@ class BlockCase(BaseCase):
             # initialize exchange for remote solver objects.
             if level != 1:
                 self.info('\n')
-                self._log_start('init_exchange')
-                self._init_solver_exchange()
-                self._log_end('init_exchange')
+                self._log_start('exchange_metric')
+                self._exchange_metric()
+                self._log_end('exchange_metric')
         self._log_end('init', msg=' '+self.io.basefn)
 
     def load_block(self):
@@ -668,15 +668,6 @@ for node in $nodes; do ssh $node killall %s; done
                 if dom.interfaces[iblk][jblk] != None:
                     dealer.bridge((iblk, jblk))
         dealer.barrier()
-    def _init_solver_exchange(self):
-        """
-        Initialize exchanging and exchange metric data for solver.
-
-        @return: nothing
-        """
-        dom = self.solver.domainobj
-        dealer = self.solver.dealer
-        nblk = len(dom)
         # initialize exchanging.
         self.info('Interface exchanging pairs:\n')
         dwidth = len(str(nblk-1))
@@ -684,7 +675,8 @@ for node in $nodes; do ssh $node killall %s; done
         for iblk in range(nblk):
             ifacelist = ifacelists[iblk]
             sdw = dealer[iblk]
-            sdw.cmd.init_exchange(ifacelist)
+            sdw.cmd.init_exchange(ifacelist, with_worker=True)
+            # print.
             self.info(('%%0%dd ->' % dwidth) % iblk)
             for pair in ifacelist:
                 if pair < 0:
@@ -693,7 +685,13 @@ for node in $nodes; do ssh $node killall %s; done
                     stab = '-'.join([('%%0%dd'%dwidth)%item for item in pair])
                 self.info(' %s' % stab)
             self.info('\n')
-        # exchange metrics.
+    def _exchange_metric(self):
+        """
+        Exchange metric data for solver.
+
+        @return: nothing
+        """
+        dealer = self.solver.dealer
         for arrname in self.solver.solvertype._interface_init_:
             for sdw in dealer: sdw.cmd.exchangeibc(arrname,
                 with_worker=True)
