@@ -675,7 +675,7 @@ for node in $nodes; do ssh $node killall %s; done
         for iblk in range(nblk):
             ifacelist = ifacelists[iblk]
             sdw = dealer[iblk]
-            sdw.cmd.init_exchange(ifacelist, with_worker=True)
+            sdw.cmd.init_exchange(ifacelist)
             # print.
             self.info(('%%0%dd ->' % dwidth) % iblk)
             for pair in ifacelist:
