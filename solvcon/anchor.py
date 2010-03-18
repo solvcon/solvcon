@@ -87,10 +87,33 @@ class RuntimeStatAnchor(Anchor):
     @itype reports: list
     """
     def __init__(self, svr, **kw):
-        self.reports = kw.pop('reports', ['loadavg'])
+        self.reports = kw.pop('reports', ['time', 'mem', 'loadavg'])
         super(RuntimeStatAnchor, self).__init__(svr, **kw)
 
-    def _cpu(self):
+    def _RT_time(self):
+        from time import time
+        return 'time: %30.20e' % time()
+
+    def _RT_mem(self):
+        import os
+        # read information.
+        f = open('/proc/%d/status' % os.getpid())
+        status = f.read().strip()
+        f.close()
+        # format.
+        status = dict([line.split(':') for line in status.split('\n')])
+        newstatus = dict()
+        for want in ['VmPeak', 'VmSize', 'VmRSS']:
+            newstatus[want] = int(status[want].strip().split()[0])
+        status = newstatus
+        # return.
+        return 'mem: %d%s %d%s %d%s' % (
+            status['VmPeak'], 'VmPeak',
+            status['VmSize'], 'VmSize',
+            status['VmRSS'], 'VmRSS',
+        )
+
+    def _RT_cpu(self):
         """
         Usually useless since while the method is executing, CPUs are mostly
         idling.
@@ -106,7 +129,7 @@ class RuntimeStatAnchor(Anchor):
             msg += ' %s%s' % ('%.2f%%'%scale[it], names[it])
         return msg
 
-    def _loadavg(self):
+    def _RT_loadavg(self):
         f = open('/proc/loadavg')
         loadavg = f.read()
         f.close()
@@ -116,7 +139,7 @@ class RuntimeStatAnchor(Anchor):
         import sys
         if not sys.platform.startswith('linux'): return
         for rep in self.reports:
-            self.svr.mesg(getattr(self, '_'+rep)()+'\n')
+            self.svr.mesg('RT_'+getattr(self, '_RT_'+rep)()+'\n')
 
 class ZeroIAnchor(Anchor):
     """
