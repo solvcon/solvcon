@@ -1,5 +1,5 @@
 # -*- coding: UTF-8 -*-
-# Copyright (C) 2008-2009 by Yung-Yu Chen.  See LICENSE.txt for terms of usage.
+# Copyright (C) 2008-2010 by Yung-Yu Chen.  See LICENSE.txt for terms of usage.
 
 """
 Simulation cases.
@@ -757,8 +757,10 @@ for node in $nodes; do ssh $node killall %s; done
             self.solver.solverobj.boundcond()
 
     def _run_march(self):
+        from time import time as timer
         dealer = self.solver.dealer
         flag_parallel = self.is_parallel
+        self.log.time['solver_march'] = 0.0
         aCFL = 0.0
         self.info('\n')
         self._log_start('loop_march')
@@ -774,6 +776,7 @@ for node in $nodes; do ssh $node killall %s; done
             # hook: premarch.
             self.runhooks('premarch')
             # march.
+            solver_march_marker = timer()
             cCFL = -1.0
             steps_stride = self.execution.steps_stride
             time_increment = self.execution.time_increment
@@ -786,6 +789,7 @@ for node in $nodes; do ssh $node killall %s; done
                 cCFL = self.solver.solverobj.march(time, time_increment,
                     steps_stride)
             self.execution.time += time_increment*steps_stride
+            self.log.time['solver_march'] += timer() - solver_march_marker
             # process CFL.
             istep = self.execution.step_current
             aCFL += cCFL*steps_stride

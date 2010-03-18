@@ -370,18 +370,18 @@ class BlockInfoHook(BlockHook):
 
     def postloop(self):
         ncell = self.blk.ncell
-        time = self.cse.log.time['loop_march'][2]
+        time = self.cse.log.time['solver_march']
         step_init = self.cse.execution.step_init
         step_current = self.cse.execution.step_current
         perf = time/(step_current-step_init)/ncell * 1.e6
         self.info('Performance:\n')
+        self.info('  %g seconds while marching solver.\n' % time)
         self.info('  %g microseconds/(iteration*cell).\n' % perf)
         self.info('  %g M(iteration*cell)/seconds.\n' % (1./perf))
         if isinstance(self.cse.execution.npart, int):
             self.info('  %g M(iteration*cell)/seconds/computer.\n' % (
                 1./perf/self.cse.execution.npart
             ))
-            
 
 class SplitMarker(BlockHook):
     """
