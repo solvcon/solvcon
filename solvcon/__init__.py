@@ -1,5 +1,5 @@
 # -*- coding: UTF-8 -*-
-# Copyright (C) 2008-2009 by Yung-Yu Chen.  See LICENSE.txt for terms of usage.
+# Copyright (C) 2008-2010 by Yung-Yu Chen.  See LICENSE.txt for terms of usage.
 
 """
 Solvcon is a framework to write explicit and time-accurate simulation codes for
@@ -30,7 +30,7 @@ All you need to do is to code your numerical algorithm in the pre-defined
 skeletons for one- and multi-dimensional time-marching solvers (`solver`) and 
 simulation cases (`case`).
 
-Copyright (C) 2008-2009 by Yung-Yu Chen.
+Copyright (C) 2008-2010 by Yung-Yu Chen.
 """
 
 __docformat__ = 'restructuredtext en'
@@ -40,7 +40,8 @@ __version__ = '0.0.0+'
 __description__ = "Solver Constructor: a framework to solve hyperbolic PDEs"
 
 __all__ = ['batch', 'block', 'boundcond', 'case', 'cmdutil', 'command', 'conf',
-    'dependency', 'domain', 'gendata', 'helper', 'io', 'rpc', 'solver']
+    'connection', 'dependency', 'domain', 'gendata', 'helper', 'io', 'rpc',
+    'solver']
 
 from .cmdutil import go
 

@@ -607,10 +607,6 @@ class BlockCase(BaseCase):
                 profiler_data=self._get_profiler_data(iblk)))
     def _create_workers_remote(self, dealer, nblk):
         import os, sys
-        try:
-            from multiprocessing.connection import Client
-        except ImportError:
-            from processing.connection import Client
         from .rpc import DEFAULT_AUTHKEY, Footway, Shadow
         from .conf import env
         info = self.info
