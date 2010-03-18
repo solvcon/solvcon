@@ -375,7 +375,7 @@ class BlockInfoHook(BlockHook):
         step_current = self.cse.execution.step_current
         perf = time/(step_current-step_init)/ncell * 1.e6
         self.info('Performance:\n')
-        self.info('  %g seconds while marching solver.\n' % time)
+        self.info('  %g seconds in marching solver.\n' % time)
         self.info('  %g microseconds/(iteration*cell).\n' % perf)
         self.info('  %g M(iteration*cell)/seconds.\n' % (1./perf))
         if isinstance(self.cse.execution.npart, int):
