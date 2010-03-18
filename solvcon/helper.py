@@ -19,6 +19,7 @@ class Printer(object):
         self.prefix = kw.pop('prefix', '')
         self.postfix = kw.pop('postfix', '')
         self.override = kw.pop('override', False)
+        self.force_flush = kw.pop('force_flush', False)
         # build (stream, filename) tuples.
         if not isinstance(streams, list) and not isinstance(streams, tuple):
             streams = [streams]
@@ -43,7 +44,8 @@ class Printer(object):
         msg = ''.join([self.prefix, msg, self.postfix])
         for stream in self.streams:
             stream.write(msg)
-            stream.flush()
+            if self.force_flush:
+                stream.flush()
 
 class Information(object):
     def __init__(self, **kw):
