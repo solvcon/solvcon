@@ -87,9 +87,9 @@ class Worker(object):
     @ivar serial: serial number of the worker process.
     @itype serial: int
     @ivar lsnr: the listener object for master.
-    @itype lsnr: multiprocessing.connection.Listener
+    @itype lsnr: solvcon.connection.Listener
     @ivar conn: the connection object to master.
-    @itype conn: multiprocessing.connection.Connection
+    @itype conn: solvcon.connection.Client
     @ivar plsnrs: dictionary of listener objects for peers.
     @itype plsnrs: dict
     @ivar pconns: dictionary of connection objects to peers.
@@ -151,7 +151,7 @@ class Worker(object):
         @type authkey: str
         """
         from time import sleep
-        from .conn import Client
+        from .connection import Client
         # connect to the public address to the dealer.
         conn = Client(address=address, authkey=authkey)
         # get the actual/random/private address from dealer.
@@ -174,7 +174,7 @@ class Worker(object):
         @param authkey: authentication key for connection.
         @type authkey: str
         """
-        from .conn import Listener
+        from .connection import Listener
         # listen on the given address and accept connection.
         self.lsnr = Listener(address=address, authkey=authkey)
         self.conn = self.lsnr.accept()
@@ -215,7 +215,7 @@ class Worker(object):
         @param authkey: authentication key for connection.
         @type authkey: str
         """
-        from .conn import Listener
+        from .connection import Listener
         # get port and report it to master.
         address = guess_address(family, localhost=False)
         self.conn.send(address)
@@ -238,7 +238,7 @@ class Worker(object):
         @param authkey: authentication key for connection.
         @type authkey: str
         """
-        from .conn import Client
+        from .connection import Client
         conn = Client(address=address, authkey=authkey)
         self.pconns[peern] = conn
 
@@ -250,9 +250,9 @@ class Agent(object):
     Remote agent to worker.
 
     @ivar connection: connection to the worker.
-    @itype connection: multiprocessing.connection.Connection
+    @itype connection: solvcon.connection.Client
     @ivar process: process object; can be None.
-    @itype process: multiprocessing.Process
+    @itype process: solvcon.connection.Process
     @ivar noticetype: type of notice object to send.
     @itype noticetype: Notice
     """
@@ -274,11 +274,11 @@ class Shadow(object):
     muscle.  The default agent is to the worker (ctl).
 
     @ivar listener: listener to worker.
-    @itype listener: multiprocessing.connection.Listener
+    @itype listener: solvcon.connection.Listener
     @ivar connection: connection to the worker.
-    @itype connection: multiprocessing.connection.Connection
+    @itype connection: solvcon.connection.Client
     @ivar process: process object; can be None.
-    @itype process: multiprocessing.Process
+    @itype process: solvcon.connection.Process
     @ivar cmd: agent to muscle.
     @itype cmd: Agent
     @ivar ctl: agent to worker.
@@ -350,7 +350,7 @@ class Dealer(list):
         @type wait_for_accept: float
         """
         from time import sleep
-        from .conn import Process, Client
+        from .connection import Process, Client
         # create and start the process.
         address = guess_address(self.family)
         proc = Process(
@@ -376,7 +376,7 @@ class Dealer(list):
         @param authkey: remote authkey.
         @type authkey: str
         """
-        from .conn import Client
+        from .connection import Client
         # connect to the remotely created process and make its shadow.
         conn = Client(address=(inetaddr, port), authkey=authkey)
         shadow = Shadow(connection=conn)
@@ -402,7 +402,7 @@ class Dealer(list):
             DEFAULT.
         @type wait_for_accept: float
         """
-        from .conn import Listener
+        from .connection import Listener
         # start a listener at here, the dealer's side.
         publiclsnr = Listener(address=self.publicaddress, authkey=self.authkey)
         publicconn = publiclsnr.accept()
@@ -499,7 +499,7 @@ class Outpost(object):
 
         @return: nothing.
         """
-        from .conn import Listener
+        from .connection import Listener
         lsnr = Listener(address=self.publicaddress, authkey=self.authkey)
         while True:
             # accept the connection, get the control notice, and close
@@ -526,7 +526,7 @@ class Outpost(object):
         Create another process for an empty worker, and register the worker to
         given address and authentication key.
         """
-        from .conn import Process
+        from .connection import Process
         port = pick_unused_port()
         address = (self.publicaddress[0], port)
         proc = Process(
@@ -654,7 +654,7 @@ class Footway(object):
 
     def __getattr__(self, key):
         from time import sleep
-        from .conn import Client
+        from .connection import Client
         from solvcon.rpc import Control
         def func(*arg, **kw):
             conn = Client(address=self.address, authkey=self.authkey)
@@ -666,7 +666,7 @@ class Footway(object):
 
     def ready(self):
         from time import sleep
-        from .conn import Client
+        from .connection import Client
         try:
             conn = Client(address=self.address, authkey=self.authkey)
         except:

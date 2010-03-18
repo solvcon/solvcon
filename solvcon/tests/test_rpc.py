@@ -95,7 +95,7 @@ class TestOutpost(TestCase):
         from nose.plugins.skip import SkipTest
         if sys.platform.startswith('win'): raise SkipTest
         from time import sleep
-        from ..conn import Process
+        from ..connection import Process
         from ..rpc import (DEFAULT_AUTHKEY, DEFAULT_SLEEP,
             pick_unused_port, Outpost, Footway)
         port = pick_unused_port()
@@ -113,7 +113,7 @@ class TestOutpost(TestCase):
         from nose.plugins.skip import SkipTest
         if sys.platform.startswith('win'): raise SkipTest
         from time import sleep
-        from ..conn import Process, Client
+        from ..connection import Process, Client
         from ..rpc import (DEFAULT_AUTHKEY, DEFAULT_SLEEP,
             pick_unused_port, Outpost, Footway, Shadow)
         port = pick_unused_port()
@@ -150,7 +150,7 @@ class TestFootway(TestCase):
         import sys
         from nose.plugins.skip import SkipTest
         if sys.platform.startswith('win'): raise SkipTest
-        from ..conn import Client
+        from ..connection import Client
         from ..rpc import DEFAULT_AUTHKEY, Footway, Shadow
         authkey = DEFAULT_AUTHKEY
         port = Footway.build_outpost(address='localhost', authkey=authkey)
