@@ -207,7 +207,7 @@ class Scheduler(object):
             info('submit runlevel %d\n' % runlevel)
             return call('%s %s'%(self._subcmd_, fnlist[runlevel]), shell=True)
 
-    def __iter__(self):
+    def nodelist(self):
         raise NotImplementedError
 
 class Localhost(Scheduler):
@@ -269,7 +269,6 @@ class Torque(Scheduler):
     def str_shell(self):
         return '#PBS -S %s' % self.shell
 
-    @property
     def nodelist(self):
         import os
         from .conf import env
@@ -287,3 +286,10 @@ class Torque(Scheduler):
                         cnodelist.append(nodeitem)
                 nodelist = cnodelist
         return [Node(nodeitem, ncore=1) for nodeitem in nodelist]
+
+class OscGlenn(Torque):
+    def nodelist(self):
+        ndlst = super(OscGlenn, self).nodelist()
+        for node in ndlst:
+            node.name = node.name[:3] + '-ib-' + node.name[3:]
+        return ndlst

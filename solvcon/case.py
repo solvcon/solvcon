@@ -622,7 +622,7 @@ class BlockCase(BaseCase):
         paths['PYTHONPATH'].insert(0, self.io.rootdir)
         # prepare nodelist.
         info('\n********\nNodelist')
-        nodelist = self.execution.scheduler(self).nodelist
+        nodelist = self.execution.scheduler(self).nodelist()
         if env.command != None and env.command.opargs[0].compress_nodelist:
             info(' (compressed)')
         info(':\n')
