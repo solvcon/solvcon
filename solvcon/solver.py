@@ -17,11 +17,21 @@ class BaseSolver(object):
 
     @ivar _fpdtype: dtype for the floating point data in the block instance.
     @itype _fpdtype: numpy.dtype
+
     @ivar runanchors: the list for the anchor objects to be run.
     @itype runanchors: solvcon.anchor.AnchorList
     @ivar ankdict: the container of anchor object for communication with hook
         objects.
     @itype ankdict: dict
+
+    @ivar enable_thread: flag if using threads.
+    @itype enable_thread: bool
+
+    @ivar enable_mesg: flag if mesg device should be enabled.
+    @itype enable_mesg: bool
+    @ivar mesg: message printer attached to a certain solver object; designed
+        and mainly used for parallel solver.
+    @itype mesg: solvcon.helper.Printer
     """
 
     __metaclass__ = TypeWithBinder
@@ -39,6 +49,12 @@ class BaseSolver(object):
         # anchor list.
         self.runanchors = AnchorList(self)
         self.ankdict = dict()
+        # other properties.
+        self.enable_thread = kw.pop('enable_thread', False)
+        self.enable_mesg = kw.pop('enable_mesg', False)
+        self.mesg = None
+        # remaining keywords.
+        self.kws = kw
 
     @property
     def fpdtype(self):
@@ -60,6 +76,42 @@ class BaseSolver(object):
     def _clib_solvcon(self):
         from .dependency import _clib_solvcon_of
         return _clib_solvcon_of(self.fpdtype)
+
+    def __create_mesg(self, force=False):
+        """
+        Create the message outputing device, which is intended for debugging
+        and outputing messages related to the solver.  The outputing device is
+        most useful when running distributed solvers.  The created device will
+        be attach to self.
+
+        @keyword force: flag to force the creation.  Default False,
+        @type force: bool
+
+        @return: nothing
+        """
+        import os
+        from .helper import Printer
+        if force: self.enable_mesg = True
+        if self.enable_mesg:
+            if self.svrn != None:
+                dfn = self.DEBUG_FILENAME_TEMPLATE % self.svrn
+                dprefix = 'SOLVER%d: '%self.svrn
+            else:
+                dfn = self.DEBUG_FILENAME_DEFAULT
+                dprefix = ''
+        else:
+            dfn = os.devnull
+            dprefix = ''
+        self.mesg = Printer(dfn, prefix=dprefix, override=True)
+
+    def bind(self):
+        """
+        Put everything that cannot be pickled, such as file objects, ctypes
+        pointers, etc., into self.
+
+        @return: nothing
+        """
+        if self.mesg == None: self.__create_mesg()
 
     def init(self, **kw):
         """
@@ -102,6 +154,24 @@ class BaseSolver(object):
         """
         pass
 
+    def dump(self, objfn):
+        """
+        Pickle self into the given filename.
+
+        @parameter objfn: the output filename.
+        @type objfn: str
+        """
+        import cPickle as pickle
+        holds = dict()
+        self.unbind()
+        for key in ['mesg',]:
+            holds[key] = getattr(self, key)
+            setattr(self, key, None)
+        pickle.dump(self, open(objfn, 'w'), pickle.HIGHEST_PROTOCOL)
+        for key in holds:
+            setattr(self, key, holds[key])
+        self.bind()
+
 class BlockSolverExeinfo(FortranType):
     """
     Execution information for BlockSolver.
@@ -135,14 +205,6 @@ class BlockSolver(BaseSolver):
     @cvar _interface_init_: list of attributes (arrays) to be exchanged on
         interface when initialized.
     @ctype _interface_init_: list
-
-    @ivar enable_thread: flag if using threads.
-    @itype enable_thread: bool
-    @ivar enable_mesg: flag if mesg device should be enabled.
-    @itype enable_mesg: bool
-    @ivar mesg: message printer attached to a certain solver object; designed
-        and mainly used for parallel solver.
-    @itype mesg: solvcon.helper.Printer
 
     @ivar svrn: serial number of block.
     @itype svrn: int
@@ -211,8 +273,6 @@ class BlockSolver(BaseSolver):
         @type enable_mesg: bool
         """
         from numpy import empty
-        self.enable_thread = kw.pop('enable_thread', False)
-        self.enable_mesg = kw.pop('enable_mesg', False)
         self.exnkw = self.pop_exnkw(blk, kw)
         neq = self.exnkw['neq']
         super(BlockSolver, self).__init__(*args, **kw)
@@ -282,22 +342,6 @@ class BlockSolver(BaseSolver):
         assert self.msh != None and self.exn != None
         return [byref(self.msh), byref(self.exn)]
 
-    def create_mesg(self, force=False):
-        import os
-        from .helper import Printer
-        if force: self.enable_mesg = True
-        if self.enable_mesg:
-            if self.svrn != None:
-                dfn = self.DEBUG_FILENAME_TEMPLATE % self.svrn
-                dprefix = 'SOLVER%d: '%self.svrn
-            else:
-                dfn = self.DEBUG_FILENAME_DEFAULT
-                dprefix = ''
-        else:
-            dfn = os.devnull
-            dprefix = ''
-        self.mesg = Printer(dfn, prefix=dprefix, override=True)
-
     def bind(self):
         """
         Bind all the boundary condition objects.
@@ -307,8 +351,7 @@ class BlockSolver(BaseSolver):
             then methods/subroutines.
         """
         from .block import BlockShape
-        # create debug printer.
-        if self.mesg == None: self.create_mesg()
+        super(BlockSolver, self).bind()
         # structures.
         self.msh = BlockShape(
             ndim=self.ndim,
@@ -338,7 +381,6 @@ class BlockSolver(BaseSolver):
         # boundary conditions.
         for bc in self.bclist:
             bc.bind()
-        super(BlockSolver, self).bind()
 
     def unbind(self):
         """
@@ -377,24 +419,10 @@ class BlockSolver(BaseSolver):
     def init(self, **kw):
         """
         Check and initialize BCs.
-
-        @note: BC must be initialized AFTER solver itself.
         """
         for bc in self.bclist:
             bc.init(**kw)
         super(BlockSolver, self).init(**kw)
-
-    def dump(self, objfn):
-        import cPickle as pickle
-        holds = dict()
-        self.unbind()
-        for key in ['mesg',]:
-            holds[key] = getattr(self, key)
-            setattr(self, key, None)
-        pickle.dump(self, open(objfn, 'w'), pickle.HIGHEST_PROTOCOL)
-        for key in holds:
-            setattr(self, key, holds[key])
-        self.bind()
 
     ##################################################
     # CESE solving algorithm.
