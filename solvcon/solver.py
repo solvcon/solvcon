@@ -484,7 +484,7 @@ class BlockSolver(BaseSolver):
                 self.runanchors('prehalf')
                 self.update()
                 # solutions.
-                self.runanchors('premarchsoln')
+                self.runanchors('premarchsol')
                 self.marchsol(time, time_increment)
                 self.runanchors('preexsoln')
                 if worker: self.exchangeibc('soln', worker=worker)
@@ -494,7 +494,7 @@ class BlockSolver(BaseSolver):
                 cCFL = self.estimatecfl()
                 maxCFL = cCFL if cCFL > maxCFL else maxCFL
                 # solution gradients.
-                self.runanchors('premarchdsoln')
+                self.runanchors('premarchdsol')
                 self.marchdsol(time, time_increment)
                 self.runanchors('preexdsoln')
                 if worker: self.exchangeibc('dsoln', worker=worker)

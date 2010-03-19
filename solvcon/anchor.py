@@ -29,7 +29,7 @@ class Anchor(object):
         pass
     def prehalf(self):
         pass
-    def premarchsoln(self):
+    def premarchsol(self):
         pass
     def preexsoln(self):
         pass
@@ -37,7 +37,7 @@ class Anchor(object):
         pass
     def precfl(self):
         pass
-    def premarchdsoln(self):
+    def premarchdsol(self):
         pass
     def preexdsoln(self):
         pass
