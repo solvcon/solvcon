@@ -260,6 +260,9 @@ class BlockSolver(BaseSolver):
     @cvar _interface_init_: list of attributes (arrays) to be exchanged on
         interface when initialized.
     @ctype _interface_init_: list
+    @cvar IBCSLEEP: the sleep time in seconds while not using thread for
+        exchange interfaces.
+    @ctype IBCSLEEP: float
 
     @ivar svrn: serial number of block.
     @itype svrn: int
