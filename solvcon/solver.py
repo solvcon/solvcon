@@ -8,6 +8,17 @@ Definition of the structure of solvers.
 from .gendata import TypeWithBinder
 from .dependency import FortranType
 
+class BaseSolverExeinfo(FortranType):
+    """
+    Execution information for BaseSolver.
+    """
+    _fortran_name_ = 'execution'
+    from ctypes import c_int
+    _fields_ = [
+        ('ncore', c_int),
+    ]
+    del c_int,
+
 class BaseSolver(object):
     """
     Generic solver definition.  It is an abstract class and should not be used
@@ -36,7 +47,21 @@ class BaseSolver(object):
 
     __metaclass__ = TypeWithBinder
 
-    _pointers_ = [] # for binder.
+    _pointers_ = ['exn']
+
+    def pop_exnkw(self, kw):
+        """
+        Executional keywords poper.
+
+        @parameter kw: the keywords.
+        @type kw: dict
+
+        @return: executional keywords.
+        @rtype: dict
+        """
+        exnkw = dict()
+        exnkw['ncore'] = kw.pop('ncore', -1)
+        return exnkw
 
     def __init__(self, **kw):
         """
@@ -46,15 +71,16 @@ class BaseSolver(object):
         from .anchor import AnchorList
         self._fpdtype = kw.pop('fpdtype', env.fpdtype)
         self._fpdtype = env.fpdtype if self._fpdtype==None else self._fpdtype
-        # anchor list.
-        self.runanchors = AnchorList(self)
-        self.ankdict = dict()
-        # other properties.
         self.enable_thread = kw.pop('enable_thread', False)
         self.enable_mesg = kw.pop('enable_mesg', False)
         self.mesg = None
-        # remaining keywords.
-        self.kws = kw
+        # for compatibility to the constructor of BlockSolver, only pop
+        # executional keywords while the dictionary doesn't exist.
+        if not getattr(self, 'exnkw', False):
+            self.exnkw = self.pop_exnkw(kw)
+        # anchor list.
+        self.runanchors = AnchorList(self)
+        self.ankdict = dict()
 
     @property
     def fpdtype(self):
@@ -175,11 +201,13 @@ class BaseSolver(object):
 class BlockSolverExeinfo(FortranType):
     """
     Execution information for BlockSolver.
-
     """
     _fortran_name_ = 'execution'
     from ctypes import c_int, c_double
     _fields_ = [
+        # inherited.
+        ('ncore', c_int),
+        # customed.
         ('neq', c_int),
         ('time', c_double), ('time_increment', c_double),
     ]
@@ -239,7 +267,7 @@ class BlockSolver(BaseSolver):
     @itype _calc_dsoln_args: list
     """
 
-    _pointers_ = ['exn', 'msh', 'solptr', 'solnptr', 'dsolptr', 'dsolnptr',
+    _pointers_ = ['msh', 'solptr', 'solnptr', 'dsolptr', 'dsolnptr',
         '_calc_soln_args', '_calc_dsoln_args']
     _clib_solve = None  # subclass should override.
     _exeinfotype_ = BlockSolverExeinfo
@@ -256,7 +284,18 @@ class BlockSolver(BaseSolver):
     IBCSLEEP = None
 
     def pop_exnkw(self, blk, kw):
-        exnkw = dict()
+        """
+        Executional keywords poper with block.
+
+        @parameter blk: the block object.
+        @type blk: solvcon.block.Block
+        @parameter kw: the keywords.
+        @type kw: dict
+
+        @return: executional keywords.
+        @rtype: dict
+        """
+        exnkw = super(BlockSolver, self).pop_exnkw(kw)
         exnkw['neq'] = kw.pop('neq')
         # just placeholder for marchers.
         exnkw['time'] = 0.0
@@ -267,10 +306,6 @@ class BlockSolver(BaseSolver):
         """
         @keyword neq: number of equations (variables).
         @type neq: int
-        @keyword enable_thread: flag if using threads.
-        @type enable_thread: bool
-        @keyword enable_mesg: flag if mesg device should be enabled.
-        @type enable_mesg: bool
         """
         from numpy import empty
         self.exnkw = self.pop_exnkw(blk, kw)

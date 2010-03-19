@@ -17,6 +17,7 @@ type mesh
 end type mesh
 ! executional informations.
 type execution
+    integer*4 :: ncore
     integer*4 :: neq
     real*8 :: time, time_increment  ! time, time increment.
 end type execution

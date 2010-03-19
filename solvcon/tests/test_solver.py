@@ -67,6 +67,7 @@ class TestBlockSolver(TestCase):
         from ..solver import BlockSolverExeinfo
         einfo = BlockSolverExeinfo()
         self.assertEqual(str(einfo), '''type execution
+    integer*4 :: ncore = 0
     integer*4 :: neq = 0
     real*8 :: time = 0.0
     real*8 :: time_increment = 0.0
