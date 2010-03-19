@@ -39,9 +39,6 @@ class BaseSolver(object):
     @ivar _fpdtype: dtype for the floating point data in the block instance.
     @itype _fpdtype: numpy.dtype
 
-    @ivar enable_thread: flag if using threads.
-    @itype enable_thread: bool
-
     @ivar enable_mesg: flag if mesg device should be enabled.
     @itype enable_mesg: bool
     @ivar mesg: message printer attached to a certain solver object; designed
@@ -86,7 +83,6 @@ class BaseSolver(object):
         from .anchor import AnchorList
         self._fpdtype = kw.pop('fpdtype', env.fpdtype)
         self._fpdtype = env.fpdtype if self._fpdtype==None else self._fpdtype
-        self.enable_thread = kw.pop('enable_thread', False)
         self.enable_mesg = kw.pop('enable_mesg', False)
         self.mesg = None
         # for compatibility to the constructor of BlockSolver, only pop
@@ -264,6 +260,9 @@ class BlockSolver(BaseSolver):
         exchange interfaces.
     @ctype IBCSLEEP: float
 
+    @ivar ibcthead: flag if using threads.
+    @itype ibcthead: bool
+
     @ivar svrn: serial number of block.
     @itype svrn: int
     @ivar msh: shape information of the Block.
@@ -337,6 +336,7 @@ class BlockSolver(BaseSolver):
         neq = self.exnkw['neq']
         super(BlockSolver, self).__init__(*args, **kw)
         assert self.fpdtype == blk.fpdtype
+        self.ibcthead = kw.pop('ibcthead', False)
         # absorb block.
         ## meta-data.
         self.svrn = blk.blkn
@@ -653,7 +653,7 @@ class BlockSolver(BaseSolver):
         for ibc in self.ibclist:
             # check if sleep or not.
             if ibc < 0:
-                if not self.enable_thread:
+                if not self.ibcthead:
                     tosleep = abs(
                         self.IBCSLEEP if self.IBCSLEEP != None else ibc
                     )
@@ -672,7 +672,7 @@ class BlockSolver(BaseSolver):
                     bc.rblkn, sendn, recvn) 
             kwargs = {'worker': worker}
             # call to data transfer.
-            if self.enable_thread:
+            if self.ibcthead:
                 threads.append(Thread(
                     target=target,
                     args=args,
@@ -681,7 +681,7 @@ class BlockSolver(BaseSolver):
                 threads[-1].start()
             else:
                 target(*args, **kwargs)
-        if self.enable_thread:
+        if self.ibcthead:
             for thread in threads:
                 thread.join()
 
