@@ -384,13 +384,14 @@ class BlockSolver(BaseSolver):
         self.dsoln = empty((ngstcell+ncell, neq, ndim), dtype=self.fpdtype)
         ## derived data.
         self.der = dict()
-        # placeholders.
+        # interface BC information list.
         self.ibclist = None
-        self.mesg = None
+        # pointers for solutions.
         self.solptr = None
         self.solnptr = None
         self.dsolptr = None
         self.dsolnptr = None
+        # calculator arguments.
         self._calc_soln_args = None
         self._calc_dsoln_args = None
 
