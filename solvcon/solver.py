@@ -39,12 +39,6 @@ class BaseSolver(object):
     @ivar _fpdtype: dtype for the floating point data in the block instance.
     @itype _fpdtype: numpy.dtype
 
-    @ivar runanchors: the list for the anchor objects to be run.
-    @itype runanchors: solvcon.anchor.AnchorList
-    @ivar ankdict: the container of anchor object for communication with hook
-        objects.
-    @itype ankdict: dict
-
     @ivar enable_thread: flag if using threads.
     @itype enable_thread: bool
 
@@ -53,6 +47,13 @@ class BaseSolver(object):
     @ivar mesg: message printer attached to a certain solver object; designed
         and mainly used for parallel solver.
     @itype mesg: solvcon.helper.Printer
+
+    @ivar runanchors: the list for the anchor objects to be run.
+    @itype runanchors: solvcon.anchor.AnchorList
+
+    @ivar exn: execution information for the solver.  This should be redefined
+        in child classes.
+    @itype exn: BlockSolverExeinfo
     """
 
     __metaclass__ = TypeWithBinder
@@ -94,7 +95,8 @@ class BaseSolver(object):
             self.exnkw = self.pop_exnkw(kw)
         # anchor list.
         self.runanchors = AnchorList(self)
-        self.ankdict = dict()
+        # data structure for C/FORTRAN.
+        self.exn = None
 
     @property
     def fpdtype(self):
@@ -263,9 +265,6 @@ class BlockSolver(BaseSolver):
     @itype svrn: int
     @ivar msh: shape information of the Block.
     @itype msh: solvecon.block.BlockShape
-    @ivar exn: execution information for the solver.  This should be redefined
-        in child classes.
-    @itype exn: BlockSolverExeinfo
 
     @ivar cecnd: coordinates of center of CCE/BCEs.
     @itype cecnd: numpy.ndarray
@@ -368,7 +367,6 @@ class BlockSolver(BaseSolver):
         self.clvol = blk.shclvol
         # data structure for C/FORTRAN.
         self.msh = None
-        self.exn = None
         # create arrays.
         ndim = self.ndim
         ncell = self.ncell
@@ -622,7 +620,7 @@ class BlockSolver(BaseSolver):
         @return: nothing.
         """
         conn = worker.conn
-        obj = getattr(self.ankdict[ankname], objname)
+        obj = getattr(self.runanchors[ankname], objname)
         conn.send(obj)
 
     def init_exchange(self, ifacelist):

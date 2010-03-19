@@ -59,11 +59,22 @@ class AnchorList(list):
     """
     def __init__(self, svr, *args, **kw):
         self.svr = svr
+        self.names = dict()
         super(AnchorList, self).__init__(*args, **kw)
     def append(self, obj, **kw):
+        name = kw.pop('name', None)
+        if isinstance(name, int):
+            raise ValueError('name can\'t be integer')
         if isinstance(obj, type):
             obj = obj(self.svr, **kw)
         super(AnchorList, self).append(obj)
+        if name != None:
+            self.names[name] = obj
+    def __getitem__(self, key):
+        if key in self.names:
+            return self.names[key]
+        else:
+            return super(AnchorList, self).__getitem__(key)
     def __call__(self, method):
         """
         Invoke the specified method for each anchor.

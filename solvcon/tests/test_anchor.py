@@ -33,6 +33,39 @@ class TestAnchor(TestCase):
         svr.march(self.time, self.time_increment, self.nsteps)
         svr.final()
 
+    def test_assign_type(self):
+        import warnings
+        from .. import anchor
+        svr = CustomBlockSolver(self._get_block(), neq=self.neq)
+        svr.runanchors.append(anchor.Anchor)
+        warnings.simplefilter("ignore")
+        svr.bind()
+        svr.init()
+        warnings.resetwarnings()
+        svr.soln.fill(0.0)
+        svr.dsoln.fill(0.0)
+        # run.
+        svr.march(self.time, self.time_increment, self.nsteps)
+        svr.final()
+
+    def test_assign_name(self):
+        import warnings
+        from .. import anchor
+        svr = CustomBlockSolver(self._get_block(), neq=self.neq)
+        self.assertRaises(ValueError,
+            svr.runanchors.append, anchor.Anchor, name=1,
+        )
+        svr.runanchors.append(anchor.Anchor, name='name')
+        warnings.simplefilter("ignore")
+        svr.bind()
+        svr.init()
+        warnings.resetwarnings()
+        svr.soln.fill(0.0)
+        svr.dsoln.fill(0.0)
+        # run.
+        svr.march(self.time, self.time_increment, self.nsteps)
+        svr.final()
+
     def test_zeroi(self):
         import warnings
         from .. import anchor
