@@ -9,7 +9,7 @@ class CustomBaseSolver(BaseSolver):
         self.val = 'bind'
 
 class CustomBlockSolver(BlockSolver):
-    DEBUG_FILENAME_DEFAULT = os.devnull
+    MESG_FILENAME_DEFAULT = os.devnull
 
 class TestCore(TestCase):
     def test_base(self):
@@ -54,14 +54,14 @@ class TestBlockSolver(TestCase):
     def test_debug(self):
         import sys
         from cStringIO import StringIO
-        CustomBlockSolver.DEBUG_FILENAME_DEFAULT = 'sys.stdout'
+        CustomBlockSolver.MESG_FILENAME_DEFAULT = 'sys.stdout'
         stdout = sys.stdout
         sys.stdout = StringIO()
         svr = self._get_solver(init=True)
         svr.mesg('test message')
         self.assertEqual(sys.stdout.getvalue(), 'test message')
         sys.stdout = stdout
-        CustomBlockSolver.DEBUG_FILENAME_DEFAULT = os.devnull
+        CustomBlockSolver.MESG_FILENAME_DEFAULT = os.devnull
 
     def test_exeinfo(self):
         from ..solver import BlockSolverExeinfo

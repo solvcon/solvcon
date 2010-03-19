@@ -26,6 +26,16 @@ class BaseSolver(object):
     override the empty init and final methods for initialization and 
     finalization, respectively.
 
+    @cvar _clib_solve: the external dll (accessible through ctypes) which do
+        the cell loop.  Subclass should override it.
+    @ctype _clib_solve: ctypes.CDLL
+    @cvar _exeinfotype_: the type of Exeinfo (solvcon.dependency.FortranType) 
+        for the solver.
+    @ctype _exeinfotype_: type
+
+    @cvar MESG_FILENAME_DEFAULT = the default file name for serial solver
+        object.
+
     @ivar _fpdtype: dtype for the floating point data in the block instance.
     @itype _fpdtype: numpy.dtype
 
@@ -46,8 +56,12 @@ class BaseSolver(object):
     """
 
     __metaclass__ = TypeWithBinder
-
     _pointers_ = ['exn']
+
+    _exeinfotype_ = BaseSolverExeinfo
+    _clib_solve = None  # subclass should override.
+
+    MESG_FILENAME_DEFAULT = 'solvcon.solver.log'
 
     def pop_exnkw(self, kw):
         """
@@ -120,10 +134,12 @@ class BaseSolver(object):
         if force: self.enable_mesg = True
         if self.enable_mesg:
             if self.svrn != None:
-                dfn = self.DEBUG_FILENAME_TEMPLATE % self.svrn
-                dprefix = 'SOLVER%d: '%self.svrn
+                main, ext = os.path.splitext(self.MESG_FILENAME_DEFAULT)
+                tmpl = main + '%d' + ext
+                dfn = tmpl % self.svrn
+                dprefix = 'SOLVER%d: ' % self.svrn
             else:
-                dfn = self.DEBUG_FILENAME_DEFAULT
+                dfn = self.MESG_FILENAME_DEFAULT
                 dprefix = ''
         else:
             dfn = os.devnull
@@ -137,7 +153,22 @@ class BaseSolver(object):
 
         @return: nothing
         """
+        import sys
+        # create message device.
         if self.mesg == None: self.__create_mesg()
+        # create executional data.
+        self.exn = self._exeinfotype_(**self.exnkw)
+        # detect number of cores.
+        if sys.platform.startswith('linux2'):
+            f = open('/proc/stat')
+            data = f.read()
+            f.close()
+            cpulist = [line for line in data.split('\n') if
+                line.startswith('cpu')]
+            cpulist = [line for line in cpulist if line.split()[0] != 'cpu']
+            self.exn.ncore = len(cpulist)
+        else:
+            self.exn.ncore = -1
 
     def init(self, **kw):
         """
@@ -224,12 +255,6 @@ class BlockSolver(BaseSolver):
     be initilized first, and the super().init() can then be called.  Otherwise
     the BCs can't set correct information to the solver.
 
-    @cvar _clib_solve: the external dll (accessible through ctypes) which do
-        the cell loop.  Subclass should override it.
-    @ctype _clib_solve: ctypes.CDLL
-    @cvar _exeinfotype_: the type of Exeinfo (solvcon.dependency.FortranType) 
-        for the solver.
-    @ctype _exeinfotype_: type
     @cvar _interface_init_: list of attributes (arrays) to be exchanged on
         interface when initialized.
     @ctype _interface_init_: list
@@ -269,8 +294,8 @@ class BlockSolver(BaseSolver):
 
     _pointers_ = ['msh', 'solptr', 'solnptr', 'dsolptr', 'dsolnptr',
         '_calc_soln_args', '_calc_dsoln_args']
-    _clib_solve = None  # subclass should override.
     _exeinfotype_ = BlockSolverExeinfo
+
     _interface_init_ = ['cecnd', 'cevol']
 
     from .block import Block
@@ -279,8 +304,6 @@ class BlockSolver(BaseSolver):
     CLMFC = Block.CLMFC
     del Block
 
-    DEBUG_FILENAME_TEMPLATE = 'solvcon.solver%d.log'
-    DEBUG_FILENAME_DEFAULT = 'solvcon.solver.log'
     IBCSLEEP = None
 
     def pop_exnkw(self, blk, kw):
@@ -396,7 +419,6 @@ class BlockSolver(BaseSolver):
             ngstnode=self.ngstnode, ngstface=self.ngstface,
             ngstcell=self.ngstcell,
         )
-        self.exn = self._exeinfotype_(**self.exnkw)
         # pointers.
         fpptr = self.fpptr
         self.solptr = self.sol.ctypes.data_as(fpptr)

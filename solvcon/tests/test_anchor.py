@@ -18,23 +18,41 @@ class TestAnchor(TestCase):
         from ..testing import get_blk_from_sample_neu
         return get_blk_from_sample_neu()
 
-    @classmethod
-    def _get_solver(cls, init=True):
-        import warnings
-        svr = CustomBlockSolver(cls._get_block(), neq=cls.neq, enable_mesg=True)
-        if init:
-            warnings.simplefilter("ignore")
-            svr.bind()
-            svr.init()
-            warnings.resetwarnings()
-        return svr
-
     def test_runwithanchor(self):
         import warnings
-        from ..anchor import Anchor
-        svr = CustomBlockSolver(self._get_block(),
-            neq=self.neq, enable_mesg=True)
-        svr.runanchors.append(Anchor(svr))
+        from .. import anchor
+        svr = CustomBlockSolver(self._get_block(), neq=self.neq)
+        svr.runanchors.append(anchor.Anchor(svr))
+        warnings.simplefilter("ignore")
+        svr.bind()
+        svr.init()
+        warnings.resetwarnings()
+        svr.soln.fill(0.0)
+        svr.dsoln.fill(0.0)
+        # run.
+        svr.march(self.time, self.time_increment, self.nsteps)
+        svr.final()
+
+    def test_zeroi(self):
+        import warnings
+        from .. import anchor
+        svr = CustomBlockSolver(self._get_block(), neq=self.neq)
+        svr.runanchors.append(anchor.ZeroIAnchor(svr))
+        warnings.simplefilter("ignore")
+        svr.bind()
+        svr.init()
+        warnings.resetwarnings()
+        # run.
+        svr.march(self.time, self.time_increment, self.nsteps)
+        svr.final()
+
+    def test_runtimestat(self):
+        import warnings
+        from .. import anchor
+        svr = CustomBlockSolver(self._get_block(), neq=self.neq)
+        svr.runanchors.append(anchor.RuntimeStatAnchor(svr,
+            reports=['time', 'mem', 'loadavg', 'cpu']
+        ))
         warnings.simplefilter("ignore")
         svr.bind()
         svr.init()
