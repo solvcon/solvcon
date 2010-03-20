@@ -96,9 +96,20 @@ class RuntimeStatAnchor(Anchor):
 
     @ivar reports: list what should be reported.  Default is ['loadavg'] only.
     @itype reports: list
+    @ivar cputotal: flag to use total jiffy for cpu usage percentage.
+    @itype cputotal: bool
+    @ivar cputime: marker for timing cpu usage.
+    @itype cputime: float
+    @ivar jiffytime: the time a jiffy is.  Default is 0.01 second.
+    @itype jiffytime: float
     """
     def __init__(self, svr, **kw):
-        self.reports = kw.pop('reports', ['time', 'mem', 'loadavg', 'envar'])
+        self.reports = kw.pop('reports',
+            ['time', 'mem', 'loadavg', 'cpu', 'envar'])
+        self.cputotal = kw.pop('cputotal', True)
+        self.cputime = 0.0
+        self.cpuframe = None
+        self.jiffytime = 0.01
         super(RuntimeStatAnchor, self).__init__(svr, **kw)
 
     def _RT_envar(self):
@@ -110,7 +121,7 @@ class RuntimeStatAnchor(Anchor):
 
     def _RT_time(self):
         from time import time
-        return 'time: %30.20e' % time()
+        return 'time: %.20e' % time()
 
     def _RT_mem(self):
         import os
@@ -131,21 +142,45 @@ class RuntimeStatAnchor(Anchor):
             status['VmRSS'], 'VmRSS',
         )
 
-    def _RT_cpu(self):
-        """
-        Usually useless since while the method is executing, CPUs are mostly
-        idling.
-        """
-        names = ['us', 'sy', 'ni', 'id', 'wa', 'hi', 'si', 'st']
+    @staticmethod
+    def get_cpu_frame():
         f = open('/proc/stat')
         totcpu = f.readlines()[0]
         f.close()
-        frame = [float(it) for it in totcpu.split()[1:]]
-        scale = [it/sum(frame)*100 for it in frame]
-        msg = 'cpu:'
+        return [float(it) for it in totcpu.split()[1:]]
+
+    @staticmethod
+    def calc_cpu_difference(frame0, frame1):
+        frame = list()
+        for it in range(len(frame0)):
+            frame.append(frame1[it]-frame0[it])
+        return frame
+
+    def _RT_cpu(self):
+        import time
+        names = ['us', 'sy', 'ni', 'id', 'wa', 'hi', 'si', 'st']
+        # get the difference to the frame since last run of this method.
+        currtime = time.time()
+        if self.cpuframe:
+            currframe = self.get_cpu_frame()
+            framediff = self.calc_cpu_difference(self.cpuframe, currframe)
+        else:
+            framediff = currframe = self.get_cpu_frame()
+        # calculate the percentage.
+        if self.cputotal:
+            jiffy = sum(framediff)
+        else:
+            jiffy = (currtime-self.cputime)/self.jiffytime
+        if jiffy == 0.0: jiffy = 1.e100
+        scale = [it/jiffy*100 for it in framediff]
+        # build message.
+        msgs = list()
         for it in range(len(names)):
-            msg += ' %s%s' % ('%.2f%%'%scale[it], names[it])
-        return msg
+            msgs.append('%s%s' % ('%.2f%%'%scale[it], names[it]))
+        # housekeeping.
+        self.cputime = currtime
+        self.cpuframe = currframe
+        return 'cpu: ' + ' '.join(msgs)
 
     def _RT_loadavg(self):
         f = open('/proc/loadavg')

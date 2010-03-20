@@ -117,38 +117,3 @@ def get_username():
     if not username:
         username = os.environ['LOGNAME']
     return username
-
-def calc_cpu_difference(oldframe=None):
-    # get current data.
-    f = open('/proc/stat')
-    totcpu = f.readlines()[0]
-    f.close()
-    frame = [float(it) for it in totcpu.split()[1:]]
-    # calculate the difference between old data.
-    if oldframe == None:
-        oldframe = [0.0] * len(frame)
-    scale = list()
-    for it in range(len(frame)):
-        scale.append(frame[it]-oldframe[it])
-    return scale
-
-def get_cpu_percentage(total=True, jiffy=0.01):
-    import time
-    names = ['us', 'sy', 'ni', 'id', 'wa', 'hi', 'si', 'st']
-    # get usage at two time.
-    time0 = time.time()
-    frame0 = calc_cpu_difference()
-    time.sleep(0.5)
-    time1 = time.time()
-    frame = calc_cpu_difference(frame0)
-    # calculate the percentage.
-    if total:
-        alljiffy = sum(frame)
-    else:
-        alljiffy = (time1-time0)/jiffy
-    scale = [it/alljiffy*100 for it in frame]
-    # build message.
-    msgs = list()
-    for it in range(len(names)):
-        msgs.append('%s%s' % ('%.2f%%'%scale[it], names[it]))
-    return ' '.join(msgs)
