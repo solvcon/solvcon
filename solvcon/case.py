@@ -662,7 +662,7 @@ class BlockCase(BaseCase):
         for node in nodelist:
             inetaddr = node.address
             port = Footway.build_outpost(inetaddr,
-                authkey=authkey, envar=self.solver.envvar, paths=paths)
+                authkey=authkey, envar=self.solver.envar, paths=paths)
             ftw = Footway(address=(inetaddr, port), authkey=authkey)
             ftw.chdir(os.getcwd())
             self.solver.outposts.append(ftw)
