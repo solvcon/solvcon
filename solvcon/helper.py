@@ -19,7 +19,7 @@ class Printer(object):
         self.prefix = kw.pop('prefix', '')
         self.postfix = kw.pop('postfix', '')
         self.override = kw.pop('override', False)
-        self.force_flush = kw.pop('force_flush', False)
+        self.force_flush = kw.pop('force_flush', True)
         # build (stream, filename) tuples.
         if not isinstance(streams, list) and not isinstance(streams, tuple):
             streams = [streams]
