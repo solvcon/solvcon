@@ -665,7 +665,6 @@ class Footway(object):
         return func
 
     def ready(self):
-        from time import sleep
         from .connection import Client
         try:
             conn = Client(address=self.address, authkey=self.authkey)
@@ -673,7 +672,6 @@ class Footway(object):
             return False
         conn.send(Control('get_publicaddress'))
         assert conn.recv() == self.address
-        sleep(self.wait_for_react)
         return True
 
     @staticmethod
