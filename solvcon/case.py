@@ -430,7 +430,7 @@ class BlockCase(BaseCase):
         """
         from .boundcond import interface
         self._log_start('init', msg=' (level %d) %s' % (level, self.io.basefn))
-        super(BlockCase, self).init(level=0)
+        super(BlockCase, self).init(level=level)
         # initilize the whole solver and domain.
         if level != 1:
             self._log_start('build_domain')
