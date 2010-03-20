@@ -407,10 +407,13 @@ class BlockCase(BaseCase):
         from . import domain
         domaintype = self.solver.domaintype
         if domaintype == domain.Domain:
+            assert self.execution.npart == None
             flag_parallel = 0 # means sequential.
         elif domaintype == domain.Collective:
+            assert isinstance(self.execution.npart, int)
             flag_parallel = 1 # means local parallel.
         elif domaintype == domain.Distributed:
+            assert isinstance(self.execution.npart, int)
             flag_parallel = 2 # means network parallel.
         else:
             raise TypeError, 'domaintype shouldn\'t be %s' % domaintype
@@ -438,7 +441,6 @@ class BlockCase(BaseCase):
             self._log_end('build_domain')
         # for serial execution.
         if not self.is_parallel:
-            assert self.execution.npart == None
             # create and initialize solver.
             if level != 1:
                 self._local_init_solver()
@@ -446,7 +448,6 @@ class BlockCase(BaseCase):
                 self._local_bind_solver()
         # for parallel execution.
         else:
-            assert isinstance(self.execution.npart, int)
             # split the domain.
             if level != 1:
                 self.info('\n')
