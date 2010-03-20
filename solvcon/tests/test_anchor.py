@@ -83,9 +83,7 @@ class TestAnchor(TestCase):
         import warnings
         from .. import anchor
         svr = CustomBlockSolver(self._get_block(), neq=self.neq)
-        svr.runanchors.append(anchor.RuntimeStatAnchor(svr,
-            reports=['time', 'mem', 'loadavg', 'cpu', 'envar']
-        ))
+        svr.runanchors.append(anchor.RuntimeStatAnchor(svr))
         warnings.simplefilter("ignore")
         svr.bind()
         svr.init()
@@ -101,7 +99,6 @@ class TestAnchor(TestCase):
         from .. import anchor
         svr = CustomBlockSolver(self._get_block(), neq=self.neq)
         svr.runanchors.append(anchor.RuntimeStatAnchor(svr,
-            reports=['time', 'mem', 'loadavg', 'cpu', 'envar'],
             cputotal=False,
         ))
         warnings.simplefilter("ignore")

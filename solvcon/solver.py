@@ -380,6 +380,11 @@ class BlockSolver(BaseSolver):
         # calculator arguments.
         self._calc_soln_args = None
         self._calc_dsoln_args = None
+        # timer.
+        self.timer = {
+            'march': 0.0,
+            'calc': 0.0,
+        }
 
     @property
     def args_struct(self):
@@ -520,16 +525,20 @@ class BlockSolver(BaseSolver):
         for bc in self.bclist: bc.dsol()
 
     def march(self, time, time_increment, steps_run, worker=None):
+        from time import time as _time
         maxCFL = -2.0
         istep = 0
         while istep < steps_run:
             self.runanchors('prefull')
+            t0 = _time()
             for ihalf in range(2):
                 self.runanchors('prehalf')
                 self.update()
                 # solutions.
                 self.runanchors('premarchsol')
+                t1 = _time()
                 self.marchsol(time, time_increment)
+                self.timer['calc'] += _time() - t1
                 self.runanchors('preexsoln')
                 if worker: self.exchangeibc('soln', worker=worker)
                 self.runanchors('prebcsoln')
@@ -539,7 +548,9 @@ class BlockSolver(BaseSolver):
                 maxCFL = cCFL if cCFL > maxCFL else maxCFL
                 # solution gradients.
                 self.runanchors('premarchdsol')
+                t1 = _time()
                 self.marchdsol(time, time_increment)
+                self.timer['calc'] += _time() - t1
                 self.runanchors('preexdsoln')
                 if worker: self.exchangeibc('dsoln', worker=worker)
                 self.runanchors('prebcdsoln')
@@ -547,6 +558,7 @@ class BlockSolver(BaseSolver):
                 # increment time.
                 time += time_increment/2
                 self.runanchors('posthalf')
+            self.timer['march'] += _time() - t0
             istep += 1
             self.runanchors('postfull')
         if worker:

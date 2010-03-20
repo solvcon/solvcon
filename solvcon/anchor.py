@@ -105,12 +105,16 @@ class RuntimeStatAnchor(Anchor):
     """
     def __init__(self, svr, **kw):
         self.reports = kw.pop('reports',
-            ['time', 'mem', 'loadavg', 'cpu', 'envar'])
+            ['time', 'mem', 'loadavg', 'cpu', 'envar', 'march'])
         self.cputotal = kw.pop('cputotal', True)
         self.cputime = 0.0
         self.cpuframe = None
         self.jiffytime = 0.01
         super(RuntimeStatAnchor, self).__init__(svr, **kw)
+
+    def _RT_march(self):
+        svr = self.svr
+        return 'march,calc: %g %g' % (svr.timer['march'], svr.timer['calc'])
 
     def _RT_envar(self):
         import os
