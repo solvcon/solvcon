@@ -13,11 +13,13 @@ class BaseSolverExeinfo(FortranType):
     Execution information for BaseSolver.
     """
     _fortran_name_ = 'execution'
-    from ctypes import c_int
+    from ctypes import c_int, c_double
     _fields_ = [
         ('ncore', c_int),
+        ('neq', c_int),
+        ('time', c_double), ('time_increment', c_double),
     ]
-    del c_int,
+    del c_int, c_double
 
 class BaseSolver(object):
     """
@@ -73,6 +75,9 @@ class BaseSolver(object):
         """
         exnkw = dict()
         exnkw['ncore'] = kw.pop('ncore', -1)
+        exnkw['neq'] = kw.pop('neq')
+        exnkw['time'] = 0.0
+        exnkw['time_increment'] = 0.0
         return exnkw
 
     def __init__(self, **kw):
@@ -227,21 +232,6 @@ class BaseSolver(object):
             setattr(self, key, holds[key])
         self.bind()
 
-class BlockSolverExeinfo(FortranType):
-    """
-    Execution information for BlockSolver.
-    """
-    _fortran_name_ = 'execution'
-    from ctypes import c_int, c_double
-    _fields_ = [
-        # inherited.
-        ('ncore', c_int),
-        # customed.
-        ('neq', c_int),
-        ('time', c_double), ('time_increment', c_double),
-    ]
-    del c_int, c_double
-
 class BlockSolver(BaseSolver):
     """
     Generic class for multi-dimensional (implemented with Block)
@@ -295,7 +285,6 @@ class BlockSolver(BaseSolver):
 
     _pointers_ = ['msh', 'solptr', 'solnptr', 'dsolptr', 'dsolnptr',
         '_calc_soln_args', '_calc_dsoln_args']
-    _exeinfotype_ = BlockSolverExeinfo
 
     _interface_init_ = ['cecnd', 'cevol']
 
@@ -320,10 +309,6 @@ class BlockSolver(BaseSolver):
         @rtype: dict
         """
         exnkw = super(BlockSolver, self).pop_exnkw(kw)
-        exnkw['neq'] = kw.pop('neq')
-        # just placeholder for marchers.
-        exnkw['time'] = 0.0
-        exnkw['time_increment'] = 0.0
         return exnkw
 
     def __init__(self, blk, *args, **kw):
@@ -333,7 +318,6 @@ class BlockSolver(BaseSolver):
         """
         from numpy import empty
         self.exnkw = self.pop_exnkw(blk, kw)
-        neq = self.exnkw['neq']
         super(BlockSolver, self).__init__(*args, **kw)
         assert self.fpdtype == blk.fpdtype
         self.ibcthead = kw.pop('ibcthead', False)
@@ -379,6 +363,7 @@ class BlockSolver(BaseSolver):
             (ngstcell+ncell, blk.CLMFC+1, ndim), dtype=self.fpdtype)
         self.cevol = empty((ngstcell+ncell, blk.CLMFC+1), dtype=self.fpdtype)
         ## solutions.
+        neq = self.exnkw['neq']
         self.sol = empty((ngstcell+ncell, neq), dtype=self.fpdtype)
         self.soln = empty((ngstcell+ncell, neq), dtype=self.fpdtype)
         self.dsol = empty((ngstcell+ncell, neq, ndim), dtype=self.fpdtype)

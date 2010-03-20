@@ -4,6 +4,9 @@ from ..testing import get_blk_from_sample_neu
 from ..solver import BaseSolver, BlockSolver
 
 class CustomBaseSolver(BaseSolver):
+    def __init__(self, **kw):
+        kw['neq'] = 1
+        super(CustomBaseSolver, self).__init__(**kw)
     def bind(self):
         super(CustomBaseSolver, self).bind()
         self.val = 'bind'
@@ -11,9 +14,10 @@ class CustomBaseSolver(BaseSolver):
 class CustomBlockSolver(BlockSolver):
     MESG_FILENAME_DEFAULT = os.devnull
 
-class TestCore(TestCase):
+class TestBase(TestCase):
     def test_base(self):
-        bsvr = BaseSolver()
+        self.assertRaises(KeyError, BaseSolver)
+        bsvr = BaseSolver(neq=1)
         self.assertEqual(getattr(bsvr, 'val', None), None)
         bsvr.bind()
         self.assertEqual(getattr(bsvr, 'val', None), None)
@@ -24,16 +28,27 @@ class TestCore(TestCase):
         svr.bind()
         self.assertEqual(svr.val, 'bind')
 
+    def test_exeinfo(self):
+        from ..solver import BaseSolverExeinfo
+        einfo = BaseSolverExeinfo()
+        self.assertEqual(str(einfo), '''type execution
+    integer*4 :: ncore = 0
+    integer*4 :: neq = 0
+    real*8 :: time = 0.0
+    real*8 :: time_increment = 0.0
+end type execution'''
+        )
+
 class TestFpdtype(TestCase):
     def test_fp(self):
         from ..dependency import pointer_of, str_of
         from ..conf import env
-        bsvr = BaseSolver()
+        bsvr = BaseSolver(neq=1)
         self.assertEqual(bsvr.fpdtype, env.fpdtype)
         self.assertEqual(bsvr.fpdtypestr, str_of(env.fpdtype))
         self.assertEqual(bsvr.fpptr, pointer_of(env.fpdtype))
 
-class TestBlockSolver(TestCase):
+class TestBlock(TestCase):
     neq = 1
 
     @staticmethod
@@ -62,17 +77,6 @@ class TestBlockSolver(TestCase):
         self.assertEqual(sys.stdout.getvalue(), 'test message')
         sys.stdout = stdout
         CustomBlockSolver.MESG_FILENAME_DEFAULT = os.devnull
-
-    def test_exeinfo(self):
-        from ..solver import BlockSolverExeinfo
-        einfo = BlockSolverExeinfo()
-        self.assertEqual(str(einfo), '''type execution
-    integer*4 :: ncore = 0
-    integer*4 :: neq = 0
-    real*8 :: time = 0.0
-    real*8 :: time_increment = 0.0
-end type execution'''
-        )
 
     def test_create(self):
         svr = self._get_solver()
