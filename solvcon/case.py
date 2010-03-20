@@ -285,7 +285,7 @@ class BaseCase(CaseInfo):
 
     def init(self, level=0):
         """
-        Initialize solver.
+        Initialize solver.  Nothing inside now.
 
         @keyword level: run level; higher level does less work.
         @type level: int
@@ -433,7 +433,6 @@ class BlockCase(BaseCase):
         """
         from .boundcond import interface
         self._log_start('init', msg=' (level %d) %s' % (level, self.io.basefn))
-        super(BlockCase, self).init(level=level)
         # initilize the whole solver and domain.
         if level != 1:
             self._log_start('build_domain')
