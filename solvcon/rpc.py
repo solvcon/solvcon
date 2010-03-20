@@ -606,7 +606,7 @@ class Remote(object):
         pathstr = sep.join([path for path in pathlist if path])
         return 'export %s=%s:$%s' % (key, pathstr, key)
 
-    def __call__(self, script, stdout=None):
+    def __call__(self, script, envar=None, stdout=None):
         """
         @param script: the script to be send to remote machine to execute.
         @type script: list
@@ -616,6 +616,10 @@ class Remote(object):
         script = self.prescript + script
         # build the commands to be run remotely.
         remote_cmds = [self._pathmunge(k, self.paths[k]) for k in self.paths]
+        if envar:
+            remote_cmds.extend([
+                'export %s=%s' % (key, envar[key]) for key in envar
+            ])
         remote_cmds.append('%s -c \'%s\''%(sys.executable, '; '.join(script)))
         # build the commands for ssh.
         ssh_cmds = ['ssh', '-n']
@@ -675,7 +679,7 @@ class Footway(object):
         return True
 
     @staticmethod
-    def build_outpost(address, authkey=DEFAULT_AUTHKEY, paths=None):
+    def build_outpost(address, envar=None, authkey=DEFAULT_AUTHKEY, paths=None):
         """
         @param address: the IP/DN of the machine to build an outpost.
         @type address: str
@@ -696,7 +700,7 @@ class Footway(object):
             'outpost = Outpost(publicaddress=("%s", %d), authkey="%s")' % (
                 address, port, authkey),
             'outpost.run()',
-        ])
+        ], envar=envar)
         return port
 
 def run_server(dealer, nworker):
