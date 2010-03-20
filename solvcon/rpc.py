@@ -610,6 +610,8 @@ class Remote(object):
         """
         @param script: the script to be send to remote machine to execute.
         @type script: list
+        @keywork envar: additional environment variables to remote.
+        @type envar: dict
         """
         import sys
         from subprocess import Popen
