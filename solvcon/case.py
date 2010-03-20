@@ -394,6 +394,7 @@ class BlockCase(BaseCase):
         'solver.domainobj': None,
         'solver.dealer': None,
         'solver.outposts': list,
+        'solver.envar': dict,
     }
 
     @property
@@ -660,8 +661,8 @@ class BlockCase(BaseCase):
         iworker = 0 
         for node in nodelist:
             inetaddr = node.address
-            port = Footway.build_outpost(address=inetaddr, authkey=authkey,
-                paths=paths)
+            port = Footway.build_outpost(inetaddr,
+                authkey=authkey, envar=self.solver.envvar, paths=paths)
             ftw = Footway(address=(inetaddr, port), authkey=authkey)
             ftw.chdir(os.getcwd())
             self.solver.outposts.append(ftw)

@@ -679,12 +679,14 @@ class Footway(object):
         return True
 
     @staticmethod
-    def build_outpost(address, envar=None, authkey=DEFAULT_AUTHKEY, paths=None):
+    def build_outpost(address, authkey=DEFAULT_AUTHKEY, envar=None, paths=None):
         """
         @param address: the IP/DN of the machine to build an outpost.
         @type address: str
         @keyword authkey: the authkey for the outpost.
         @type authkey: str
+        @keywork envar: additional environment variables to remote.
+        @type envar: dict
         @return: the port that the remote outpost listen on.
         @rtype: int
         """
