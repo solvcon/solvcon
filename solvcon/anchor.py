@@ -98,8 +98,15 @@ class RuntimeStatAnchor(Anchor):
     @itype reports: list
     """
     def __init__(self, svr, **kw):
-        self.reports = kw.pop('reports', ['time', 'mem', 'loadavg'])
+        self.reports = kw.pop('reports', ['time', 'mem', 'loadavg', 'envar'])
         super(RuntimeStatAnchor, self).__init__(svr, **kw)
+
+    def _RT_envar(self):
+        import os
+        msgs = list()
+        for key in ['KMP_AFFINITY']:
+            msgs.append('%s=%s' % (key, str(os.environ.get(key, None))))
+        return 'envar: %s' % ' '.join(msgs)
 
     def _RT_time(self):
         from time import time

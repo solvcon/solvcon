@@ -111,7 +111,7 @@ class Scheduler(object):
         envar = self.case.solver.envar
         if envar != None:
             for key in envar:
-                msgs.append('%s=%s' % (key, envar[key]))
+                msgs.append('export %s=%s' % (key, envar[key]))
         msgs.append('echo "Run @`date`:"')
         return '\n'.join(msgs)
 
