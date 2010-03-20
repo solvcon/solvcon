@@ -419,6 +419,38 @@ class BlockCase(BaseCase):
             raise TypeError, 'domaintype shouldn\'t be %s' % domaintype
         return flag_parallel
 
+    def dump(self):
+        """
+        Dump case and remote solver objects for later restart.
+
+        @return: nothing
+        """
+        import cPickle as pickle
+        dealer = self.solver.dealer
+        flag_parallel = self.is_parallel
+        # record the step can be restarted from.
+        self.execution.step_restart = self.execution.step_current
+        # unbind.
+        if flag_parallel:
+            for iblk in range(len(self.solver.domainobj)):
+                dealer[iblk].cmd.dump(self.io.dump.svrfntmpl % str(iblk))
+            outposts = self.solver.outposts
+        else:
+            self.solver.domainobj.unbind()
+            self.solver.solverobj.unbind()
+        # pickle.
+        self.solver.dealer = None
+        self.solver.outposts = list()
+        pickle.dump(self, open(self.io.dump.csefn, 'w'),
+            pickle.HIGHEST_PROTOCOL)
+        # bind.
+        if flag_parallel:
+            self.solver.outposts = outposts
+            self.solver.dealer = dealer
+        else:
+            self.solver.solverobj.bind()
+            self.solver.domainobj.bind()
+
     ############################################################################
     ###
     ### Begin of block of case initialization logics.
@@ -837,35 +869,3 @@ for node in $nodes; do ssh $node killall %s; done
     ### End of block of case execution.
     ###
     ############################################################################
-
-    def dump(self):
-        """
-        Dump case and remote solver objects for later restart.
-
-        @return: nothing
-        """
-        import cPickle as pickle
-        dealer = self.solver.dealer
-        flag_parallel = self.is_parallel
-        # record the step can be restarted from.
-        self.execution.step_restart = self.execution.step_current
-        # unbind.
-        if flag_parallel:
-            for iblk in range(len(self.solver.domainobj)):
-                dealer[iblk].cmd.dump(self.io.dump.svrfntmpl % str(iblk))
-            outposts = self.solver.outposts
-        else:
-            self.solver.domainobj.unbind()
-            self.solver.solverobj.unbind()
-        # pickle.
-        self.solver.dealer = None
-        self.solver.outposts = list()
-        pickle.dump(self, open(self.io.dump.csefn, 'w'),
-            pickle.HIGHEST_PROTOCOL)
-        # bind.
-        if flag_parallel:
-            self.solver.outposts = outposts
-            self.solver.dealer = dealer
-        else:
-            self.solver.solverobj.bind()
-            self.solver.domainobj.bind()
