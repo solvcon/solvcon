@@ -155,6 +155,10 @@ class ArrangementCommand(Command):
             dest='compress_nodelist', default=False,
             help='To compress nodelist on the head node.',
         )
+        opg.add_option('-e', '--envar', action='store',
+            dest='envar', default=None,
+            help='Additional environmental variable to remote solvers.',
+        )
         opg.add_option('-s', '--scheduler', action='store',
             dest='scheduler', default='Scheduler',
             help='The name of scheduler.',
@@ -185,6 +189,16 @@ class ArrangementCommand(Command):
         )
         op.add_option_group(opg)
         self.opg_arrangement = opg
+
+    @property
+    def envar(self):
+        ops, args = self.opargs
+        dct = dict()
+        if ops.envar:
+            for ent in ops.envar.split(':'):
+                key, val = [it.strip() for it in ent.split('=')]
+                dct[key] = val
+        return dct
 
 class run(ArrangementCommand):
     """
@@ -222,6 +236,7 @@ class run(ArrangementCommand):
             domaintype = domain.Domain
         # run.
         funckw = {
+            'envar': self.envar,
             'runlevel': ops.runlevel,
             'solver_output': ops.solver_output,
             'scheduler': scheduler,
@@ -286,6 +301,7 @@ class submit(ArrangementCommand):
         scheduler = getattr(batch, ops.scheduler)
         # submit to arrangement.
         arrangements[name](submit=True, postpone=ops.postpone,
+            envar=self.envar,
             runlevel=ops.runlevel,
             resources=resources, scheduler=scheduler, npart=ops.npart,
         )

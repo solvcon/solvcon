@@ -107,7 +107,13 @@ class Scheduler(object):
 
     @property
     def str_prerun(self):
-        return 'echo "Run @`date`:"'
+        msgs = list()
+        envar = self.case.solver.envar
+        if envar != None:
+            for key in envar:
+                msgs.append('%s=%s' % (key, envar[key]))
+        msgs.append('echo "Run @`date`:"')
+        return '\n'.join(msgs)
 
     @property
     def str_postrun(self):
@@ -128,6 +134,11 @@ class Scheduler(object):
             if ops.npart != None:
                 scgops.append('--npart=%d' % ops.npart)
                 scgops.append('--scheduler=%s' % ops.scheduler)
+            if ops.envar:
+                envar = env.command.envar
+                scgops.append('--envar %s' % ':'.join([
+                    '%s=%s' % (key, envar[key]) for key in envar
+                ]))
             if ops.compress_nodelist:
                 scgops.append('--compress-nodelist')
             if ops.use_profiler:
