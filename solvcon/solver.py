@@ -384,6 +384,8 @@ class BlockSolver(BaseSolver):
         self.timer = {
             'march': 0.0,
             'calc': 0.0,
+            'ibc': 0.0,
+            'bc': 0.0,
         }
 
     @property
@@ -540,9 +542,13 @@ class BlockSolver(BaseSolver):
                 self.marchsol(time, time_increment)
                 self.timer['calc'] += _time() - t1
                 self.runanchors('preexsoln')
+                t2 = _time()
                 if worker: self.exchangeibc('soln', worker=worker)
+                self.timer['ibc'] += _time() - t2
                 self.runanchors('prebcsoln')
+                t3 = _time()
                 for bc in self.bclist: bc.sol()
+                self.timer['bc'] += _time() - t3
                 self.runanchors('precfl')
                 cCFL = self.estimatecfl()
                 maxCFL = cCFL if cCFL > maxCFL else maxCFL
@@ -552,9 +558,13 @@ class BlockSolver(BaseSolver):
                 self.marchdsol(time, time_increment)
                 self.timer['calc'] += _time() - t1
                 self.runanchors('preexdsoln')
+                t2 = _time()
                 if worker: self.exchangeibc('dsoln', worker=worker)
+                self.timer['ibc'] += _time() - t2
                 self.runanchors('prebcdsoln')
+                t3 = _time()
                 for bc in self.bclist: bc.dsol()
+                self.timer['bc'] += _time() - t3
                 # increment time.
                 time += time_increment/2
                 self.runanchors('posthalf')

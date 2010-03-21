@@ -103,48 +103,48 @@ class RuntimeStatAnchor(Anchor):
     @ivar jiffytime: the time a jiffy is.  Default is 0.01 second.
     @itype jiffytime: float
     """
-    def __init__(self, svr, **kw):
-        self.reports = kw.pop('reports',
-            ['time', 'mem', 'loadavg', 'cpu', 'envar', 'march'])
-        self.cputotal = kw.pop('cputotal', True)
-        self.cputime = 0.0
-        self.cpuframe = None
-        self.jiffytime = 0.01
-        super(RuntimeStatAnchor, self).__init__(svr, **kw)
 
-    def _RT_march(self):
-        svr = self.svr
-        return 'march,calc: %g %g' % (svr.timer['march'], svr.timer['calc'])
+    PSTAT_KEYS = [
+        ('pid', int), ('comm', str), ('state', str),
+        ('ppid', int), ('pgrp', int), ('session', int),
+        ('tty_nr', int), ('tpgid', int), ('flags', int),
+        ('minflt', int), ('cminflt', int), ('majflt', int), ('cmajflt', int),
+        ('utime', int), ('stime', int), ('cutime', int), ('cstime', int),
+        ('priority', int), ('nice', int), ('num_threads', int),
+        ('itrealvalue', int), ('starttime', int),
+        ('vsize', int), ('rss', int), ('rsslim', int), 
+        ('startcode', int), ('endcode', int), ('startstack', int),
+        ('kstkesp', int), ('kstkeip', int),
+        # obselete, use /proc/[pid]/status.
+        ('signal', int), ('blocked', int), ('sigignore', int),
+        ('sigcatch', int),
+        # process waiting channel.
+        ('wchan', int),
+        # not maintained.
+        ('nswap', int), ('cnswap', int),
+        # signal to parent process when die.
+        ('exit_signal', int),
+        ('processor', int), ('rt_priority', int),
+        ('policy', int), ('delayacct_blkio_ticks', int),
+        ('guest_time', int), ('cguest_time', int),
+    ]
 
-    def _RT_envar(self):
+    ENVAR_KEYS = ['KMP_AFFINITY']
+
+    CPU_NAMES = ['us', 'sy', 'ni', 'id', 'wa', 'hi', 'si', 'st']
+
+    @classmethod
+    def get_pstat(cls):
         import os
-        msgs = list()
-        for key in ['KMP_AFFINITY']:
-            msgs.append('%s=%s' % (key, str(os.environ.get(key, None))))
-        return 'envar: %s' % ' '.join(msgs)
-
-    def _RT_time(self):
-        from time import time
-        return 'time: %.20e' % time()
-
-    def _RT_mem(self):
-        import os
-        # read information.
-        f = open('/proc/%d/status' % os.getpid())
-        status = f.read().strip()
+        pid = os.getpid()
+        f = open('/proc/%d/stat'%pid)
+        sinfo = f.read().split()
         f.close()
-        # format.
-        status = dict([line.split(':') for line in status.split('\n')])
-        newstatus = dict()
-        for want in ['VmPeak', 'VmSize', 'VmRSS']:
-            newstatus[want] = int(status[want].strip().split()[0])
-        status = newstatus
-        # return.
-        return 'mem: %d%s %d%s %d%s' % (
-            status['VmPeak'], 'VmPeak',
-            status['VmSize'], 'VmSize',
-            status['VmRSS'], 'VmRSS',
-        )
+        pstat = dict()
+        for it in range(len(cls.PSTAT_KEYS)):
+            key, typ = cls.PSTAT_KEYS[it]
+            pstat[key] = typ(sinfo[it])
+        return pstat
 
     @staticmethod
     def get_cpu_frame():
@@ -160,43 +160,104 @@ class RuntimeStatAnchor(Anchor):
             frame.append(frame1[it]-frame0[it])
         return frame
 
-    def _RT_cpu(self):
-        import time
-        names = ['us', 'sy', 'ni', 'id', 'wa', 'hi', 'si', 'st']
+    @classmethod
+    def get_envar(cls):
+        import os
+        envar = dict()
+        for key in cls.ENVAR_KEYS:
+            envar[key] = os.environ.get(key, None)
+        return envar
+
+    @staticmethod
+    def get_loadavg():
+        f = open('/proc/loadavg')
+        loadavg = f.read()
+        f.close()
+        return [float(val) for val in loadavg.split()[:3]]
+
+    def __init__(self, svr, **kw):
+        self.cputotal = kw.pop('cputotal', True)
+        self.jiffytime = kw.pop('jiffytime', 0.01)
+        self.records = list()
+        super(RuntimeStatAnchor, self).__init__(svr, **kw)
+
+    def _get_record(self):
+        from time import time
+        record = dict()
+        record['time'] = time()
+        pstat = self.get_pstat()
+        cpu = self.get_cpu_frame()
+        loadavg = self.get_loadavg()
+        # pstat.
+        for key in ['utime', 'stime', 'priority', 'nice', 'num_threads',
+                'vsize', 'rss', 'rt_priority']:
+            record[key] = pstat[key]
+        # cpu usage.
+        record['cpu'] = cpu
+        # loadavg.
+        record['loadavg'] = loadavg
+        # envar.
+        record.update(self.get_envar())
+        # timer.
+        record.update(self.svr.timer)
+        return record
+
+    def _msg_cpu(self, record):
         # get the difference to the frame since last run of this method.
-        currtime = time.time()
-        if self.cpuframe:
-            currframe = self.get_cpu_frame()
-            framediff = self.calc_cpu_difference(self.cpuframe, currframe)
+        if len(self.records):
+            oldtime = self.records[-1]['time']
+            framediff = self.calc_cpu_difference(
+                self.records[-1]['cpu'], record['cpu'])
+            pcpudiff = [
+                record['utime'] - self.records[-1]['utime'],
+                record['stime'] - self.records[-1]['stime'],
+            ]
         else:
-            framediff = currframe = self.get_cpu_frame()
+            oldtime = record['time']
+            framediff = record['cpu']
+            pcpudiff = [record['utime'], record['stime']]
         # calculate the percentage.
         if self.cputotal:
             jiffy = sum(framediff)
         else:
-            jiffy = (currtime-self.cputime)/self.jiffytime
+            jiffy = (record['time']-oldtime)/self.jiffytime
         if jiffy == 0.0: jiffy = 1.e100
-        scale = [it/jiffy*100 for it in framediff]
+        pscale = [it/jiffy*100 for it in pcpudiff]
+        oscale = [it/jiffy*100 for it in framediff]
         # build message.
-        msgs = list()
-        for it in range(len(names)):
-            msgs.append('%s%s' % ('%.2f%%'%scale[it], names[it]))
-        # housekeeping.
-        self.cputime = currtime
-        self.cpuframe = currframe
-        return 'cpu: ' + ' '.join(msgs)
+        process = '%.2f%%utime %.2f%%stime' % (pscale[0], pscale[1])
+        overall = ' '.join(['%s%s' % ('%.2f%%'%oscale[it], self.CPU_NAMES[it])
+            for it in range(len(self.CPU_NAMES))
+        ])
+        return ' '.join(['cputotal=%s'%self.cputotal, process, overall])
 
-    def _RT_loadavg(self):
-        f = open('/proc/loadavg')
-        loadavg = f.read()
-        f.close()
-        return 'loadavg: %s' % ' '.join(loadavg.split()[:3])
+    def _msg_march(self, record):
+        return '%g %g %g %g' % (
+            record['march'], record['calc'], record['ibc'], record['bc'],
+        )
+
+    def _msg_envar(self, record):
+        return ' '.join([
+            '%s=%s' % (key, str(record[key])) for key in self.ENVAR_KEYS
+        ])
+
+    def _msg_mem(self, record):
+        return '%d' % record['vsize']
+
+    def _msg_loadavg(self, record):
+        return '%.2f %.2f %.2f' % tuple(record['loadavg'])
 
     def postfull(self):
         import sys
         if not sys.platform.startswith('linux'): return
-        for rep in self.reports:
-            self.svr.mesg('RT_'+getattr(self, '_RT_'+rep)()+'\n')
+        rec = self._get_record()
+        # output the messages.
+        time = rec['time']
+        for mkey in ['march', 'cpu', 'loadavg', 'mem', 'envar']:
+            method = getattr(self, '_msg_%s'%mkey)
+            self.svr.mesg('RT_%s: %.20e %s\n' % (mkey, time, method(rec)))
+        # save.
+        self.records.append(rec)
 
 class ZeroIAnchor(Anchor):
     """
