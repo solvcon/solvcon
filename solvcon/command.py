@@ -169,6 +169,10 @@ class log(Command):
             dest='xtime', default=False,
             help='Use time as x-axis.',
         )
+        opg.add_option('-f', action='store',
+            dest='filename', default=None,
+            help='Save plot to a file with specified name.',
+        )
         opg.add_option('--backend', action='store',
             dest='backend', default='Agg',
             help='The backend for matplotlib.',
@@ -227,7 +231,10 @@ class log(Command):
                 iplot += 1
         # show.
         if nplot:
-            plt.show()
+            if ops.filename == None:
+                plt.show()
+            else:
+                plt.savefig(ops.filename)
 
 class ArrangementCommand(Command):
     """
