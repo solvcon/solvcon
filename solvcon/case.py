@@ -439,6 +439,10 @@ class BlockCase(BaseCase):
         else:
             self.solver.domainobj.unbind()
             self.solver.solverobj.unbind()
+            svrholds = dict()
+            for key in ['mesg',]:
+                svrholds[key] = getattr(self.solver.solverobj, key)
+                setattr(self.solver.solverobj, key, None)
         # pickle.
         self.solver.dealer = None
         self.solver.outposts = list()
@@ -449,6 +453,8 @@ class BlockCase(BaseCase):
             self.solver.outposts = outposts
             self.solver.dealer = dealer
         else:
+            for key in svrholds:
+                setattr(self.solver.solverobj, key, svrholds[key])
             self.solver.solverobj.bind()
             self.solver.domainobj.bind()
 
