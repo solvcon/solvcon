@@ -382,10 +382,14 @@ class BlockSolver(BaseSolver):
         self._calc_dsoln_args = None
         # timer.
         self.timer = {
+            'update': 0.0,
             'march': 0.0,
-            'calc': 0.0,
-            'ibc': 0.0,
-            'bc': 0.0,
+            'msol': 0.0,
+            'ibcsol': 0.0,
+            'bcsol': 0.0,
+            'mdsol': 0.0,
+            'ibcdsol': 0.0,
+            'bcdsol': 0.0,
         }
 
     @property
@@ -535,20 +539,22 @@ class BlockSolver(BaseSolver):
             t0 = _time()
             for ihalf in range(2):
                 self.runanchors('prehalf')
+                t1 = _time()
                 self.update()
+                self.timer['update'] += _time() - t1
                 # solutions.
                 self.runanchors('premarchsol')
                 t1 = _time()
                 self.marchsol(time, time_increment)
-                self.timer['calc'] += _time() - t1
+                self.timer['msol'] += _time() - t1
                 self.runanchors('preexsoln')
-                t2 = _time()
+                t1 = _time()
                 if worker: self.exchangeibc('soln', worker=worker)
-                self.timer['ibc'] += _time() - t2
+                self.timer['ibcsol'] += _time() - t1
                 self.runanchors('prebcsoln')
-                t3 = _time()
+                t1 = _time()
                 for bc in self.bclist: bc.sol()
-                self.timer['bc'] += _time() - t3
+                self.timer['bcsol'] += _time() - t1
                 self.runanchors('precfl')
                 cCFL = self.estimatecfl()
                 maxCFL = cCFL if cCFL > maxCFL else maxCFL
@@ -556,15 +562,15 @@ class BlockSolver(BaseSolver):
                 self.runanchors('premarchdsol')
                 t1 = _time()
                 self.marchdsol(time, time_increment)
-                self.timer['calc'] += _time() - t1
+                self.timer['mdsol'] += _time() - t1
                 self.runanchors('preexdsoln')
-                t2 = _time()
+                t1 = _time()
                 if worker: self.exchangeibc('dsoln', worker=worker)
-                self.timer['ibc'] += _time() - t2
+                self.timer['ibcdsol'] += _time() - t1
                 self.runanchors('prebcdsoln')
-                t3 = _time()
+                t1 = _time()
                 for bc in self.bclist: bc.dsol()
-                self.timer['bc'] += _time() - t3
+                self.timer['bcdsol'] += _time() - t1
                 # increment time.
                 time += time_increment/2
                 self.runanchors('posthalf')

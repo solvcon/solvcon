@@ -251,32 +251,42 @@ class RuntimeStatAnchor(Anchor):
         ax.legend(loc='right')
 
     def _msg_march(self, record):
-        return '%g %g %g %g' % (
-            record['march'], record['calc'], record['ibc'], record['bc'],
+        return '%g %g %g %g %g %g %g %g' % (
+            record['march'], record['update'],
+            record['msol'], record['ibcsol'], record['bcsol'],
+            record['mdsol'], record['ibcdsol'], record['bcdsol'],
         )
     @staticmethod
     def _parse_march(line):
         return [float(tok) for tok in line.split()]
     @classmethod
-    def plot_marchtime(cls, lines, ax, xtime=False, showx=True):
-        arr, xval, xlabel = cls._parse(lines, 'march', xtime)
-        arr[1:,:] = arr[1:,:] - arr[:-1,:]
-        ax.plot(xval, arr[:,0], '-', label='march')
-        ax.plot(xval, arr[:,1], '--', label='calc')
-        ax.plot(xval, arr[:,2], '+', label='ibc')
-        ax.plot(xval, arr[:,3], 'x', label='bc')
-        if showx: ax.set_xlabel(xlabel)
-        ax.set_ylabel('Time in march (s)')
-        ax.legend(loc='right')
-    @classmethod
     def plot_march(cls, lines, ax, xtime=False, showx=True):
         arr, xval, xlabel = cls._parse(lines, 'march', xtime)
         arr[1:,:] = arr[1:,:] - arr[:-1,:]
-        ax.plot(xval, arr[:,1]/arr[:,0]*100, '-', label='calc')
-        ax.plot(xval, arr[:,2]/arr[:,0]*100, ':', label='ibc')
-        ax.plot(xval, arr[:,3]/arr[:,0]*100, '--', label='bc')
+        ax.plot(xval, arr[:,0], '-', label='march')
+        ax.plot(xval, arr[:,1], '--', label='update')
         if showx: ax.set_xlabel(xlabel)
-        ax.set_ylabel('Percentage in march')
+        ax.set_ylabel('March (s)')
+        ax.legend(loc='right')
+    @classmethod
+    def plot_marchsol(cls, lines, ax, xtime=False, showx=True):
+        arr, xval, xlabel = cls._parse(lines, 'march', xtime)
+        arr[1:,:] = arr[1:,:] - arr[:-1,:]
+        ax.plot(xval, arr[:,2], '-', label='msol')
+        ax.plot(xval, arr[:,3], '--', label='ibcsol')
+        ax.plot(xval, arr[:,4], ':', label='bcsol')
+        if showx: ax.set_xlabel(xlabel)
+        ax.set_ylabel('sol (s)')
+        ax.legend(loc='right')
+    @classmethod
+    def plot_marchdsol(cls, lines, ax, xtime=False, showx=True):
+        arr, xval, xlabel = cls._parse(lines, 'march', xtime)
+        arr[1:,:] = arr[1:,:] - arr[:-1,:]
+        ax.plot(xval, arr[:,5], '-', label='mdsol')
+        ax.plot(xval, arr[:,6], '--', label='ibcdsol')
+        ax.plot(xval, arr[:,7], ':', label='bcdsol')
+        if showx: ax.set_xlabel(xlabel)
+        ax.set_ylabel('dsol (s)')
         ax.legend(loc='right')
     @classmethod
     def plot_perf(cls, lines, ax, xtime=False, showx=True):
