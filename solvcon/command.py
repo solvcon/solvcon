@@ -133,7 +133,7 @@ class log(Command):
     """
 
     min_args = 1
-    PLOTS = ['cpu', 'perf', 'march', 'marchsol', 'marchdsol', 'loadavg', 'mem']
+    PLOTS = ['cpu', 'perf', 'march', 'marchother', 'loadavg', 'mem']
 
     def __init__(self, env):
         from optparse import OptionGroup
@@ -149,17 +149,13 @@ class log(Command):
             dest='perf', default=False,
             help='Plot performance (inverse of marching time).',
         )
-        opg.add_option('-a', action='store_true',
+        opg.add_option('-r', action='store_true',
             dest='march', default=False,
             help='Plot time spent in march for update.',
         )
         opg.add_option('-s', action='store_true',
-            dest='marchsol', default=False,
+            dest='marchother', default=False,
             help='Plot time spent in march for sol.',
-        )
-        opg.add_option('-d', action='store_true',
-            dest='marchdsol', default=False,
-            help='Plot time spent in march for dsol.',
         )
         opg.add_option('-l', action='store_true',
             dest='loadavg', default=False,

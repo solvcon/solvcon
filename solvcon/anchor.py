@@ -264,29 +264,22 @@ class RuntimeStatAnchor(Anchor):
         arr, xval, xlabel = cls._parse(lines, 'march', xtime)
         arr[1:,:] = arr[1:,:] - arr[:-1,:]
         ax.plot(xval, arr[:,0], '-', label='march')
-        ax.plot(xval, arr[:,1], '--', label='update')
+        ax.plot(xval, arr[:,2], '--', label='msol')
+        ax.plot(xval, arr[:,5], ':', label='mdsol')
         if showx: ax.set_xlabel(xlabel)
         ax.set_ylabel('March (s)')
         ax.legend(loc='right')
     @classmethod
-    def plot_marchsol(cls, lines, ax, xtime=False, showx=True):
+    def plot_marchother(cls, lines, ax, xtime=False, showx=True):
         arr, xval, xlabel = cls._parse(lines, 'march', xtime)
         arr[1:,:] = arr[1:,:] - arr[:-1,:]
-        ax.plot(xval, arr[:,2], '-', label='msol')
-        ax.plot(xval, arr[:,3], '--', label='ibcsol')
-        ax.plot(xval, arr[:,4], ':', label='bcsol')
-        if showx: ax.set_xlabel(xlabel)
-        ax.set_ylabel('sol (s)')
-        ax.legend(loc='right')
-    @classmethod
-    def plot_marchdsol(cls, lines, ax, xtime=False, showx=True):
-        arr, xval, xlabel = cls._parse(lines, 'march', xtime)
-        arr[1:,:] = arr[1:,:] - arr[:-1,:]
-        ax.plot(xval, arr[:,5], '-', label='mdsol')
-        ax.plot(xval, arr[:,6], '--', label='ibcdsol')
+        ax.plot(xval, arr[:,1], '-', label='update')
+        ax.plot(xval, arr[:,3], '+', label='ibcsol')
+        ax.plot(xval, arr[:,6], 'x', label='ibcdsol')
+        ax.plot(xval, arr[:,4], '--', label='bcsol')
         ax.plot(xval, arr[:,7], ':', label='bcdsol')
         if showx: ax.set_xlabel(xlabel)
-        ax.set_ylabel('dsol (s)')
+        ax.set_ylabel('March other (s)')
         ax.legend(loc='right')
     @classmethod
     def plot_perf(cls, lines, ax, xtime=False, showx=True):
