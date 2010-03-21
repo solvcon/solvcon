@@ -268,7 +268,7 @@ class RuntimeStatAnchor(Anchor):
         ax.plot(xval, arr[:,5], ':', label='mdsol')
         if showx: ax.set_xlabel(xlabel)
         ax.set_ylabel('March (s)')
-        ax.legend(loc='right')
+        ax.legend(loc='upper left')
     @classmethod
     def plot_marchother(cls, lines, ax, xtime=False, showx=True):
         arr, xval, xlabel = cls._parse(lines, 'march', xtime)
@@ -280,7 +280,7 @@ class RuntimeStatAnchor(Anchor):
         ax.plot(xval, arr[:,7], ':', label='bcdsol')
         if showx: ax.set_xlabel(xlabel)
         ax.set_ylabel('March other (s)')
-        ax.legend(loc='right')
+        ax.legend(loc='upper left')
     @classmethod
     def plot_perf(cls, lines, ax, xtime=False, showx=True):
         arr, xval, xlabel = cls._parse(lines, 'march', xtime)
