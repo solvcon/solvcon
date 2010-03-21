@@ -260,6 +260,7 @@ class RuntimeStatAnchor(Anchor):
     @classmethod
     def plot_march(cls, lines, ax, xtime=False, showx=True):
         arr, xval, xlabel = cls._parse(lines, 'march', xtime)
+        arr[1:,:] = arr[1:,:] - arr[:-1,:]
         ax.plot(xval, arr[:,1]/arr[:,0]*100, '-', label='calc')
         ax.plot(xval, arr[:,2]/arr[:,0]*100, ':', label='ibc')
         ax.plot(xval, arr[:,3]/arr[:,0]*100, '--', label='bc')
@@ -303,7 +304,7 @@ class RuntimeStatAnchor(Anchor):
         arr = array([mymethod(line.split(' ', 1)[1]) for line in
             lines if line.startswith(myhead)
         ], dtype='float64')
-        xval = arr[:,0]-arr[0,0] if xtime else arange(arr.shape[0])
+        xval = arr[:,0]-arr[0,0] if xtime else arange(arr.shape[0])+1
         xlabel = 'Time (s)' if xtime else 'Steps'
         return arr[:,1:].copy(), xval.copy(), xlabel
 
