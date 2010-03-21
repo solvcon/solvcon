@@ -241,8 +241,8 @@ class RuntimeStatAnchor(Anchor):
         time = float(every[0])
         return [time] + [float(tok.split('%')[0]) for tok in every[2:]]
     @classmethod
-    def plot_cpu(cls, lines, ax, xtime=False, showx=True):
-        arr, xval, xlabel = cls._parse(lines, 'cpu', xtime)
+    def plot_cpu(cls, lines, ax, tocut, xtime=False, showx=True):
+        arr, xval, xlabel = cls._parse(lines, 'cpu', xtime, tocut)
         ax.plot(xval, arr[:,2:5].sum(axis=1), '-', label='us+st+ni')
         ax.plot(xval, arr[:,5:7].sum(axis=1), ':', label='id+wa')
         ax.plot(xval, arr[:,0:2].sum(axis=1), '--', label='utime+stime')
@@ -260,8 +260,8 @@ class RuntimeStatAnchor(Anchor):
     def _parse_march(line):
         return [float(tok) for tok in line.split()]
     @classmethod
-    def plot_march(cls, lines, ax, xtime=False, showx=True):
-        arr, xval, xlabel = cls._parse(lines, 'march', xtime)
+    def plot_march(cls, lines, ax, tocut, xtime=False, showx=True):
+        arr, xval, xlabel = cls._parse(lines, 'march', xtime, tocut)
         arr[1:,:] = arr[1:,:] - arr[:-1,:]
         ax.plot(xval, arr[:,0], '-', label='march')
         ax.plot(xval, arr[:,2], '--', label='msol')
@@ -270,8 +270,8 @@ class RuntimeStatAnchor(Anchor):
         ax.set_ylabel('March (s)')
         ax.legend(loc='upper left')
     @classmethod
-    def plot_marchother(cls, lines, ax, xtime=False, showx=True):
-        arr, xval, xlabel = cls._parse(lines, 'march', xtime)
+    def plot_marchother(cls, lines, ax, tocut, xtime=False, showx=True):
+        arr, xval, xlabel = cls._parse(lines, 'march', xtime, tocut)
         arr[1:,:] = arr[1:,:] - arr[:-1,:]
         ax.plot(xval, arr[:,1], '-', label='update')
         ax.plot(xval, arr[:,3], '+', label='ibcsol')
@@ -282,8 +282,8 @@ class RuntimeStatAnchor(Anchor):
         ax.set_ylabel('March other (s)')
         ax.legend(loc='upper left')
     @classmethod
-    def plot_perf(cls, lines, ax, xtime=False, showx=True):
-        arr, xval, xlabel = cls._parse(lines, 'march', xtime)
+    def plot_perf(cls, lines, ax, tocut, xtime=False, showx=True):
+        arr, xval, xlabel = cls._parse(lines, 'march', xtime, tocut)
         arr[1:,:] = arr[1:,:] - arr[:-1,:]
         time = arr[:,0]
         ax.plot(xval, 1./time, '-')
@@ -297,8 +297,8 @@ class RuntimeStatAnchor(Anchor):
         time, vsize = line.split()
         return [float(time), int(vsize)]
     @classmethod
-    def plot_mem(cls, lines, ax, xtime=False, showx=True):
-        arr, xval, xlabel = cls._parse(lines, 'mem', xtime)
+    def plot_mem(cls, lines, ax, tocut, xtime=False, showx=True):
+        arr, xval, xlabel = cls._parse(lines, 'mem', xtime, tocut)
         ax.plot(xval, arr[:,0]/1024**2, '-')
         if showx: ax.set_xlabel(xlabel)
         ax.set_ylabel('Memory usage (MB)')
@@ -309,8 +309,8 @@ class RuntimeStatAnchor(Anchor):
     def _parse_loadavg(line):
         return [float(val) for val in line.split()]
     @classmethod
-    def plot_loadavg(cls, lines, ax, xtime=False, showx=True):
-        arr, xval, xlabel = cls._parse(lines, 'loadavg', xtime)
+    def plot_loadavg(cls, lines, ax, tocut, xtime=False, showx=True):
+        arr, xval, xlabel = cls._parse(lines, 'loadavg', xtime, tocut)
         ax.plot(xval, arr[:,0], '-', label='1 min')
         ax.plot(xval, arr[:,1], ':', label='5 min')
         ax.plot(xval, arr[:,2], '--', label='15 min')
@@ -319,12 +319,12 @@ class RuntimeStatAnchor(Anchor):
         ax.legend(loc='right')
 
     @classmethod
-    def _parse(cls, lines, key, xtime):
+    def _parse(cls, lines, key, xtime, tocut):
         from numpy import array, arange
         myhead = 'RT_%s' % key
         mymethod = getattr(cls, '_parse_%s' % key)
-        arr = array([mymethod(line.split(' ', 1)[1]) for line in
-            lines if line.startswith(myhead)
+        arr = array([mymethod(line.split(' ', tocut)[-1]) for line in
+            lines if myhead in line
         ], dtype='float64')
         xval = arr[:,0]-arr[0,0] if xtime else arange(arr.shape[0])+1
         xlabel = 'Time (s)' if xtime else 'Steps'

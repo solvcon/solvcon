@@ -169,6 +169,11 @@ class log(Command):
             dest='xtime', default=False,
             help='Use time as x-axis.',
         )
+        opg.add_option('-e', action='store', type=int,
+            dest='tocut', default=1,
+            help='Number of leading tokens. Default is 1. For parallel it '
+                 'should be two',
+        )
         opg.add_option('--backend', action='store',
             dest='backend', default='Agg',
             help='The backend for matplotlib.',
@@ -200,6 +205,7 @@ class log(Command):
         })
 
     def __call__(self):
+        import os
         from matplotlib import pyplot as plt
         from .anchor import RuntimeStatAnchor
         ops, args = self.opargs
@@ -210,7 +216,8 @@ class log(Command):
                 nplot += 1
         self._init_mpl(nplot)
         # load log data.
-        lines = open(args[0]).readlines()
+        fn = args[0]
+        lines = open(fn).readlines()
         # plot.
         iplot = 1
         if nplot:
@@ -220,7 +227,7 @@ class log(Command):
                 ax = fig.add_subplot(nplot, 1, iplot)
                 showx = iplot==nplot
                 getattr(RuntimeStatAnchor, 'plot_'+key)(
-                    lines, ax, xtime=ops.xtime, showx=showx,
+                    lines, ax, tocut=ops.tocut, xtime=ops.xtime, showx=showx,
                 )
                 iplot += 1
         # show.
