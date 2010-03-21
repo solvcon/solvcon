@@ -230,11 +230,41 @@ class RuntimeStatAnchor(Anchor):
             for it in range(len(self.CPU_NAMES))
         ])
         return ' '.join(['cputotal=%s'%self.cputotal, process, overall])
+    @staticmethod
+    def _parse_cpu(line):
+        every = line.split()
+        time = float(every[0])
+        return [time] + [float(tok.split('%')[0]) for tok in every[2:]]
+    @classmethod
+    def plot_cpu(cls, lines, xtime=False):
+        from matplotlib import pyplot as plt
+        arr, xval, xlabel = cls._parse(lines, 'cpu', xtime)
+        fig = plt.figure()
+        plt.plot(xval, arr[:,2:5].sum(axis=1), '-', label='us+st+ni')
+        plt.plot(xval, arr[:,5:7].sum(axis=1), ':', label='id+wa')
+        plt.plot(xval, arr[:,0:2].sum(axis=1), '--', label='utime+stime')
+        plt.xlabel(xlabel)
+        plt.ylabel('CPU percentage')
+        plt.legend(loc='right')
 
     def _msg_march(self, record):
         return '%g %g %g %g' % (
             record['march'], record['calc'], record['ibc'], record['bc'],
         )
+    @staticmethod
+    def _parse_march(line):
+        return [float(tok) for tok in line.split()]
+    @classmethod
+    def plot_march(cls, lines, xtime=False):
+        from matplotlib import pyplot as plt
+        arr, xval, xlabel = cls._parse(lines, 'march', xtime)
+        fig = plt.figure()
+        plt.plot(xval, arr[:,1]/arr[:,0]*100, '-', label='calc')
+        plt.plot(xval, arr[:,2]/arr[:,0]*100, ':', label='ibc')
+        plt.plot(xval, arr[:,3]/arr[:,0]*100, '--', label='bc')
+        plt.xlabel(xlabel)
+        plt.ylabel('Percentage in march')
+        plt.legend(loc='right')
 
     def _msg_envar(self, record):
         return ' '.join([
@@ -243,9 +273,47 @@ class RuntimeStatAnchor(Anchor):
 
     def _msg_mem(self, record):
         return '%d' % record['vsize']
+    @staticmethod
+    def _parse_mem(line):
+        time, vsize = line.split()
+        return [float(time), int(vsize)]
+    @classmethod
+    def plot_mem(cls, lines, xtime=False):
+        from matplotlib import pyplot as plt
+        arr, xval, xlabel = cls._parse(lines, 'mem', xtime)
+        fig = plt.figure()
+        plt.plot(xval, arr[:,0]/1024**2, '-')
+        plt.xlabel(xlabel)
+        plt.ylabel('Memory usage (MB)')
 
     def _msg_loadavg(self, record):
         return '%.2f %.2f %.2f' % tuple(record['loadavg'])
+    @staticmethod
+    def _parse_loadavg(line):
+        return [float(val) for val in line.split()]
+    @classmethod
+    def plot_loadavg(cls, lines, xtime=False):
+        from matplotlib import pyplot as plt
+        arr, xval, xlabel = cls._parse(lines, 'loadavg', xtime)
+        fig = plt.figure()
+        plt.plot(xval, arr[:,0], '-', label='1 min')
+        plt.plot(xval, arr[:,1], ':', label='5 min')
+        plt.plot(xval, arr[:,2], '--', label='15 min')
+        plt.xlabel(xlabel)
+        plt.ylabel('Load average')
+        plt.legend(loc='right')
+
+    @classmethod
+    def _parse(cls, lines, key, xtime):
+        from numpy import array, arange
+        myhead = 'RT_%s' % key
+        mymethod = getattr(cls, '_parse_%s' % key)
+        arr = array([mymethod(line.split(' ', 1)[1]) for line in
+            lines if line.startswith(myhead)
+        ], dtype='float64')
+        xval = arr[:,0]-arr[0,0] if xtime else arange(arr.shape[0])
+        xlabel = 'Time (s)' if xtime else 'Steps'
+        return arr[:,1:].copy(), xval.copy(), xlabel
 
     def postfull(self):
         import sys

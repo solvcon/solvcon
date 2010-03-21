@@ -127,6 +127,59 @@ class mesh(Command):
         if ops.neu_file:
             self._save_mesh(ops, args, blk)
 
+class log(Command):
+    """
+    Log output.
+    """
+
+    min_args = 1
+
+    def __init__(self, env):
+        from optparse import OptionGroup
+        super(log, self).__init__(env)
+        op = self.op
+
+        opg = OptionGroup(op, 'Show Log')
+        opg.add_option('-m', action='store_true',
+            dest='mem', default=False,
+            help='Plot memory usage.',
+        )
+        opg.add_option('-c', action='store_true',
+            dest='cpu', default=False,
+            help='Plot CPU usage.',
+        )
+        opg.add_option('-r', action='store_true',
+            dest='march', default=False,
+            help='Plot time spent in march.',
+        )
+        opg.add_option('-l', action='store_true',
+            dest='loadavg', default=False,
+            help='Plot load average.',
+        )
+        opg.add_option('-t', action='store_true',
+            dest='xtime', default=False,
+            help='Use time as x-axis.',
+        )
+        op.add_option_group(opg)
+        self.opg_arrangement = opg
+
+    def __call__(self):
+        from matplotlib import pyplot as plt
+        from .anchor import RuntimeStatAnchor
+        ops, args = self.opargs
+        # load log data.
+        lines = open(args[0]).readlines()
+        # show.
+        plotted = 0
+        for key in 'mem', 'loadavg', 'cpu', 'march':
+            if getattr(ops, key):
+                getattr(RuntimeStatAnchor, 'plot_'+key)(
+                    lines, xtime=ops.xtime,
+                )
+                plotted += 1
+        if plotted:
+            plt.show()
+
 class ArrangementCommand(Command):
     """
     @ivar opg_arrangement: group for options for arrangement.
