@@ -151,11 +151,11 @@ class log(Command):
         )
         opg.add_option('-r', action='store_true',
             dest='march', default=False,
-            help='Plot time spent in march for update.',
+            help='Plot time spent in march for sol/dsol.',
         )
         opg.add_option('-s', action='store_true',
             dest='marchother', default=False,
-            help='Plot time spent in march for sol.',
+            help='Plot time spent in march for others.',
         )
         opg.add_option('-l', action='store_true',
             dest='loadavg', default=False,
@@ -168,11 +168,6 @@ class log(Command):
         opg.add_option('-t', action='store_true',
             dest='xtime', default=False,
             help='Use time as x-axis.',
-        )
-        opg.add_option('-e', action='store', type=int,
-            dest='tocut', default=1,
-            help='Number of leading tokens. Default is 1. For parallel it '
-                 'should be two',
         )
         opg.add_option('--backend', action='store',
             dest='backend', default='Agg',
@@ -227,7 +222,7 @@ class log(Command):
                 ax = fig.add_subplot(nplot, 1, iplot)
                 showx = iplot==nplot
                 getattr(RuntimeStatAnchor, 'plot_'+key)(
-                    lines, ax, tocut=ops.tocut, xtime=ops.xtime, showx=showx,
+                    lines, ax, xtime=ops.xtime, showx=showx,
                 )
                 iplot += 1
         # show.
