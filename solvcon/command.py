@@ -133,7 +133,7 @@ class log(Command):
     """
 
     min_args = 1
-    PLOTS = ['cpu', 'march', 'loadavg', 'mem']
+    PLOTS = ['cpu', 'perf', 'march', 'loadavg', 'mem']
 
     def __init__(self, env):
         from optparse import OptionGroup
@@ -148,6 +148,10 @@ class log(Command):
         opg.add_option('-c', action='store_true',
             dest='cpu', default=False,
             help='Plot CPU usage.',
+        )
+        opg.add_option('-p', action='store_true',
+            dest='perf', default=False,
+            help='Plot performance (inverse of marching time).',
         )
         opg.add_option('-r', action='store_true',
             dest='march', default=False,
@@ -165,6 +169,10 @@ class log(Command):
             dest='backend', default='Agg',
             help='The backend for matplotlib.',
         )
+        opg.add_option('--scale', action='store', type=int,
+            dest='scale', default=0.6,
+            help='The scale when having more than one subplot.',
+        )
         op.add_option_group(opg)
         self.opg_arrangement = opg
 
@@ -175,7 +183,7 @@ class log(Command):
         top = matplotlib.rcParams['figure.subplot.top']
         bottom = matplotlib.rcParams['figure.subplot.bottom']
         if nplot > 1:
-            upscale = nplot*0.4
+            upscale = nplot*ops.scale
             top = 1.0 - (1.0-top)*(1.0-top)/((1.0-top)*upscale)
             bottom = bottom*bottom/(bottom*upscale)
             figsize = figsize[0], figsize[1]*upscale

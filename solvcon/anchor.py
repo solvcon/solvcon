@@ -267,6 +267,14 @@ class RuntimeStatAnchor(Anchor):
         if showx: ax.set_xlabel(xlabel)
         ax.set_ylabel('Percentage in march')
         ax.legend(loc='right')
+    @classmethod
+    def plot_perf(cls, lines, ax, xtime=False, showx=True):
+        arr, xval, xlabel = cls._parse(lines, 'march', xtime)
+        arr[1:,:] = arr[1:,:] - arr[:-1,:]
+        time = arr[:,0]
+        ax.plot(xval, 1./time, '-')
+        if showx: ax.set_xlabel(xlabel)
+        ax.set_ylabel('Performance (iter/second)')
 
     def _msg_mem(self, record):
         return '%d' % record['vsize']
