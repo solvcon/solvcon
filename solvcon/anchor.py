@@ -247,7 +247,7 @@ class RuntimeStatAnchor(Anchor):
         ax.plot(xval, arr[:,5:7].sum(axis=1), ':', label='id+wa')
         ax.plot(xval, arr[:,0:2].sum(axis=1), '--', label='utime+stime')
         if showx: ax.set_xlabel(xlabel)
-        ax.set_ylabel('CPU percentage')
+        ax.set_ylabel('CPU %')
         ax.legend(loc='right')
 
     def _msg_march(self, record):
@@ -257,6 +257,17 @@ class RuntimeStatAnchor(Anchor):
     @staticmethod
     def _parse_march(line):
         return [float(tok) for tok in line.split()]
+    @classmethod
+    def plot_marchtime(cls, lines, ax, xtime=False, showx=True):
+        arr, xval, xlabel = cls._parse(lines, 'march', xtime)
+        arr[1:,:] = arr[1:,:] - arr[:-1,:]
+        ax.plot(xval, arr[:,0], '-', label='march')
+        ax.plot(xval, arr[:,1], '--', label='calc')
+        ax.plot(xval, arr[:,2], '+', label='ibc')
+        ax.plot(xval, arr[:,3], 'x', label='bc')
+        if showx: ax.set_xlabel(xlabel)
+        ax.set_ylabel('Time in march (s)')
+        ax.legend(loc='right')
     @classmethod
     def plot_march(cls, lines, ax, xtime=False, showx=True):
         arr, xval, xlabel = cls._parse(lines, 'march', xtime)
@@ -274,7 +285,7 @@ class RuntimeStatAnchor(Anchor):
         time = arr[:,0]
         ax.plot(xval, 1./time, '-')
         if showx: ax.set_xlabel(xlabel)
-        ax.set_ylabel('Performance (iter/second)')
+        ax.set_ylabel('Performance (iter/s)')
 
     def _msg_mem(self, record):
         return '%d' % record['vsize']
