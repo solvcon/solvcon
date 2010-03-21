@@ -171,7 +171,8 @@ class log(Command):
         )
         opg.add_option('--scale', action='store', type=int,
             dest='scale', default=0.6,
-            help='The scale when having more than one subplot.',
+            help='The scale when having more than one subplot.'
+                 ' Default is 0.6.',
         )
         op.add_option_group(opg)
         self.opg_arrangement = opg
