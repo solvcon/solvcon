@@ -133,6 +133,7 @@ class log(Command):
     """
 
     min_args = 1
+    PLOTS = ['cpu', 'march', 'loadavg', 'mem']
 
     def __init__(self, env):
         from optparse import OptionGroup
@@ -160,24 +161,57 @@ class log(Command):
             dest='xtime', default=False,
             help='Use time as x-axis.',
         )
+        opg.add_option('--backend', action='store',
+            dest='backend', default='Agg',
+            help='The backend for matplotlib.',
+        )
         op.add_option_group(opg)
         self.opg_arrangement = opg
+
+    def _init_mpl(self, nplot):
+        import matplotlib
+        ops, args = self.opargs
+        figsize = matplotlib.rcParams['figure.figsize']
+        top = matplotlib.rcParams['figure.subplot.top']
+        bottom = matplotlib.rcParams['figure.subplot.bottom']
+        if nplot > 1:
+            upscale = nplot*0.4
+            top = 1.0 - (1.0-top)*(1.0-top)/((1.0-top)*upscale)
+            bottom = bottom*bottom/(bottom*upscale)
+            figsize = figsize[0], figsize[1]*upscale
+        matplotlib.rcParams.update({
+            'backend': ops.backend,
+            'figure.figsize': figsize,
+            'figure.subplot.top': top,
+            'figure.subplot.bottom': bottom,
+        })
 
     def __call__(self):
         from matplotlib import pyplot as plt
         from .anchor import RuntimeStatAnchor
         ops, args = self.opargs
+        # count plots.
+        nplot = 0
+        for key in self.PLOTS:
+            if getattr(ops, key):
+                nplot += 1
+        self._init_mpl(nplot)
         # load log data.
         lines = open(args[0]).readlines()
-        # show.
-        plotted = 0
-        for key in 'mem', 'loadavg', 'cpu', 'march':
+        # plot.
+        iplot = 1
+        if nplot:
+            fig = plt.figure()
+        for key in self.PLOTS:
             if getattr(ops, key):
+                ax = fig.add_subplot(nplot, 1, iplot)
+                showx = iplot==nplot
                 getattr(RuntimeStatAnchor, 'plot_'+key)(
-                    lines, xtime=ops.xtime,
+                    lines, ax, xtime=ops.xtime, showx=showx,
                 )
-                plotted += 1
-        if plotted:
+                iplot += 1
+        # show.
+        if nplot:
             plt.show()
 
 class ArrangementCommand(Command):

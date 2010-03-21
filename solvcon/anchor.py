@@ -202,6 +202,11 @@ class RuntimeStatAnchor(Anchor):
         record.update(self.svr.timer)
         return record
 
+    def _msg_envar(self, record):
+        return ' '.join([
+            '%s=%s' % (key, str(record[key])) for key in self.ENVAR_KEYS
+        ])
+
     def _msg_cpu(self, record):
         # get the difference to the frame since last run of this method.
         if len(self.records):
@@ -236,16 +241,14 @@ class RuntimeStatAnchor(Anchor):
         time = float(every[0])
         return [time] + [float(tok.split('%')[0]) for tok in every[2:]]
     @classmethod
-    def plot_cpu(cls, lines, xtime=False):
-        from matplotlib import pyplot as plt
+    def plot_cpu(cls, lines, ax, xtime=False, showx=True):
         arr, xval, xlabel = cls._parse(lines, 'cpu', xtime)
-        fig = plt.figure()
-        plt.plot(xval, arr[:,2:5].sum(axis=1), '-', label='us+st+ni')
-        plt.plot(xval, arr[:,5:7].sum(axis=1), ':', label='id+wa')
-        plt.plot(xval, arr[:,0:2].sum(axis=1), '--', label='utime+stime')
-        plt.xlabel(xlabel)
-        plt.ylabel('CPU percentage')
-        plt.legend(loc='right')
+        ax.plot(xval, arr[:,2:5].sum(axis=1), '-', label='us+st+ni')
+        ax.plot(xval, arr[:,5:7].sum(axis=1), ':', label='id+wa')
+        ax.plot(xval, arr[:,0:2].sum(axis=1), '--', label='utime+stime')
+        if showx: ax.set_xlabel(xlabel)
+        ax.set_ylabel('CPU percentage')
+        ax.legend(loc='right')
 
     def _msg_march(self, record):
         return '%g %g %g %g' % (
@@ -255,21 +258,14 @@ class RuntimeStatAnchor(Anchor):
     def _parse_march(line):
         return [float(tok) for tok in line.split()]
     @classmethod
-    def plot_march(cls, lines, xtime=False):
-        from matplotlib import pyplot as plt
+    def plot_march(cls, lines, ax, xtime=False, showx=True):
         arr, xval, xlabel = cls._parse(lines, 'march', xtime)
-        fig = plt.figure()
-        plt.plot(xval, arr[:,1]/arr[:,0]*100, '-', label='calc')
-        plt.plot(xval, arr[:,2]/arr[:,0]*100, ':', label='ibc')
-        plt.plot(xval, arr[:,3]/arr[:,0]*100, '--', label='bc')
-        plt.xlabel(xlabel)
-        plt.ylabel('Percentage in march')
-        plt.legend(loc='right')
-
-    def _msg_envar(self, record):
-        return ' '.join([
-            '%s=%s' % (key, str(record[key])) for key in self.ENVAR_KEYS
-        ])
+        ax.plot(xval, arr[:,1]/arr[:,0]*100, '-', label='calc')
+        ax.plot(xval, arr[:,2]/arr[:,0]*100, ':', label='ibc')
+        ax.plot(xval, arr[:,3]/arr[:,0]*100, '--', label='bc')
+        if showx: ax.set_xlabel(xlabel)
+        ax.set_ylabel('Percentage in march')
+        ax.legend(loc='right')
 
     def _msg_mem(self, record):
         return '%d' % record['vsize']
@@ -278,13 +274,11 @@ class RuntimeStatAnchor(Anchor):
         time, vsize = line.split()
         return [float(time), int(vsize)]
     @classmethod
-    def plot_mem(cls, lines, xtime=False):
-        from matplotlib import pyplot as plt
+    def plot_mem(cls, lines, ax, xtime=False, showx=True):
         arr, xval, xlabel = cls._parse(lines, 'mem', xtime)
-        fig = plt.figure()
-        plt.plot(xval, arr[:,0]/1024**2, '-')
-        plt.xlabel(xlabel)
-        plt.ylabel('Memory usage (MB)')
+        ax.plot(xval, arr[:,0]/1024**2, '-')
+        if showx: ax.set_xlabel(xlabel)
+        ax.set_ylabel('Memory usage (MB)')
 
     def _msg_loadavg(self, record):
         return '%.2f %.2f %.2f' % tuple(record['loadavg'])
@@ -292,16 +286,14 @@ class RuntimeStatAnchor(Anchor):
     def _parse_loadavg(line):
         return [float(val) for val in line.split()]
     @classmethod
-    def plot_loadavg(cls, lines, xtime=False):
-        from matplotlib import pyplot as plt
+    def plot_loadavg(cls, lines, ax, xtime=False, showx=True):
         arr, xval, xlabel = cls._parse(lines, 'loadavg', xtime)
-        fig = plt.figure()
-        plt.plot(xval, arr[:,0], '-', label='1 min')
-        plt.plot(xval, arr[:,1], ':', label='5 min')
-        plt.plot(xval, arr[:,2], '--', label='15 min')
-        plt.xlabel(xlabel)
-        plt.ylabel('Load average')
-        plt.legend(loc='right')
+        ax.plot(xval, arr[:,0], '-', label='1 min')
+        ax.plot(xval, arr[:,1], ':', label='5 min')
+        ax.plot(xval, arr[:,2], '--', label='15 min')
+        if showx: ax.set_xlabel(xlabel)
+        ax.set_ylabel('Load average')
+        ax.legend(loc='right')
 
     @classmethod
     def _parse(cls, lines, key, xtime):
