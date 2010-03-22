@@ -249,6 +249,7 @@ class RuntimeStatAnchor(Anchor):
         ax.plot(xval, arr[:,0:2].sum(axis=1), '--', label='utime+stime')
         if showx: ax.set_xlabel(xlabel)
         ax.set_ylabel('CPU %')
+        ax.set_ylim([0,100])
         ax.legend(loc='right')
 
     def _msg_march(self, record):
@@ -265,12 +266,14 @@ class RuntimeStatAnchor(Anchor):
         arr, xval, xlabel = cls._parse(lines, 'march', xtime)
         arr[1:,:] = arr[1:,:] - arr[:-1,:]
         arr[0,:] = arr[1,:]
+        rest = arr[:,0] - arr[:,1:].sum(axis=1)
         ax.plot(xval, arr[:,0], '-', label='march')
         ax.plot(xval, arr[:,2], '--', label='msol')
         ax.plot(xval, arr[:,5], ':', label='mdsol')
-        ax.plot(xval, arr[:,0]-arr[:,1:].sum(axis=1), 'x', label='remain')
+        ax.plot(xval, rest, 'x', label='remain')
         if showx: ax.set_xlabel(xlabel)
         ax.set_ylabel('March (s)')
+        ax.set_ylim([0, arr.mean(axis=0).take((0,2,5)).max()*1.1])
         ax.legend(loc='lower left')
     @classmethod
     def plot_marchother(cls, lines, ax, xtime=False, showx=True):
@@ -284,6 +287,7 @@ class RuntimeStatAnchor(Anchor):
         ax.plot(xval, arr[:,7], ':', label='bcdsol')
         if showx: ax.set_xlabel(xlabel)
         ax.set_ylabel('March other (s)')
+        ax.set_ylim([0, arr.mean(axis=0).take((1,3,6,4,7)).max()*1.1])
         ax.legend(loc='lower left')
     @classmethod
     def plot_perf(cls, lines, ax, xtime=False, showx=True):
