@@ -203,8 +203,33 @@ class log(Command):
             'figure.subplot.bottom': bottom,
         })
 
+    def _get_datas(self):
+        import os, glob
+        ops, args = self.opargs
+        fn = args[0]
+        fns = list()
+        if os.path.isdir(fn):
+            if ops.filename != None:
+                main, ext = os.path.splitext(ops.filename)
+                dsttmpl = main+'%d'+ext
+            else:
+                dsttmpl = None
+            nfn = len(glob.glob(os.path.join(fn, 'solvcon.solver*.log')))
+            for idx in range(nfn):
+                src = os.path.join(fn, 'solvcon.solver%d.log'%idx)
+                if dsttmpl != None:
+                    dst = dsttmpl%idx
+                else:
+                    dst = None
+                lines = open(src).readlines()
+                fns.append((lines, src, dst))
+        else:
+            lines = open(fn).readlines()
+            fns.append((lines, fn, ops.filename))
+        return fns
+
     def __call__(self):
-        import os
+        import os, sys
         from matplotlib import pyplot as plt
         from .anchor import RuntimeStatAnchor
         ops, args = self.opargs
@@ -214,27 +239,30 @@ class log(Command):
             if getattr(ops, key):
                 nplot += 1
         self._init_mpl(nplot)
-        # load log data.
-        fn = args[0]
-        lines = open(fn).readlines()
+        # get source and destination.
+        datas = self._get_datas()
         # plot.
-        iplot = 1
-        if nplot:
-            fig = plt.figure()
-        for key in self.PLOTS:
-            if getattr(ops, key):
-                ax = fig.add_subplot(nplot, 1, iplot)
-                showx = iplot==nplot
-                getattr(RuntimeStatAnchor, 'plot_'+key)(
-                    lines, ax, xtime=ops.xtime, showx=showx,
-                )
-                iplot += 1
+        for lines, src, dst in datas:
+            if nplot:
+                fig = plt.figure()
+            iplot = 1
+            for key in self.PLOTS:
+                if getattr(ops, key):
+                    ax = fig.add_subplot(nplot, 1, iplot)
+                    showx = iplot==nplot
+                    getattr(RuntimeStatAnchor, 'plot_'+key)(
+                        lines, ax, xtime=ops.xtime, showx=showx,
+                    )
+                    iplot += 1
+            if nplot:
+                sys.stdout.write('%s processed' % src)
+                if dst != None:
+                    plt.savefig(dst)
+                    sys.stdout.write(' and written to %s.' % dst)
+                sys.stdout.write('\n')
         # show.
-        if nplot:
-            if ops.filename == None:
-                plt.show()
-            else:
-                plt.savefig(ops.filename)
+        if nplot and ops.filename == None:
+            plt.show()
 
 class ArrangementCommand(Command):
     """
