@@ -395,6 +395,7 @@ class BlockCase(BaseCase):
         'solver.dealer': None,
         'solver.outposts': list,
         'solver.envar': dict,
+        'solver.ibcthread': False,
     }
 
     @property
@@ -568,7 +569,7 @@ class BlockCase(BaseCase):
         )
         self.runhooks.drop_anchor(svr)
         svr.bind()
-        svr.ibcthread = False
+        svr.ibcthread = self.solver.ibcthread
         svr.init()
         self.solver.solverobj = svr
     def _local_bind_solver(self):
@@ -576,7 +577,7 @@ class BlockCase(BaseCase):
         @return: nothing
         """
         self.solver.solverobj.bind()
-        self.solver.solverobj.ibcthread = False
+        self.solver.solverobj.ibcthread = self.solver.ibcthread
         self.solver.domainobj.bind()
     def _remote_init_solver(self):
         """
@@ -596,7 +597,8 @@ class BlockCase(BaseCase):
             svr.unbind()    # ensure no pointers (unpicklable) in solver.
             dealer[iblk].remote_setattr('muscle', svr)
         for sdw in dealer: sdw.cmd.bind()
-        for sdw in dealer: sdw.cmd.remote_setattr('ibcthread', True)
+        for sdw in dealer: sdw.cmd.remote_setattr('ibcthread',
+            self.solver.ibcthread)
         for sdw in dealer: sdw.cmd.init()
         dealer.barrier()
     def _remote_load_solver(self):
@@ -609,7 +611,8 @@ class BlockCase(BaseCase):
             dealer[iblk].remote_loadobj('muscle',
                 self.io.dump.svrfntmpl % str(iblk))
         for sdw in dealer: sdw.cmd.bind()
-        for sdw in dealer: sdw.cmd.remote_setattr('ibcthread', True)
+        for sdw in dealer: sdw.cmd.remote_setattr('ibcthread',
+            self.solver.ibcthread)
         dealer.barrier()
 
     # workers and worker manager (dealer) creation.
