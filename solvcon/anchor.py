@@ -243,6 +243,7 @@ class RuntimeStatAnchor(Anchor):
     @classmethod
     def plot_cpu(cls, lines, ax, xtime=False, showx=True):
         arr, xval, xlabel = cls._parse(lines, 'cpu', xtime)
+        arr[0,:] = arr[1,:]
         ax.plot(xval, arr[:,2:5].sum(axis=1), '-', label='us+st+ni')
         ax.plot(xval, arr[:,5:7].sum(axis=1), ':', label='id+wa')
         ax.plot(xval, arr[:,0:2].sum(axis=1), '--', label='utime+stime')
@@ -263,9 +264,11 @@ class RuntimeStatAnchor(Anchor):
     def plot_march(cls, lines, ax, xtime=False, showx=True):
         arr, xval, xlabel = cls._parse(lines, 'march', xtime)
         arr[1:,:] = arr[1:,:] - arr[:-1,:]
+        arr[0,:] = arr[1,:]
         ax.plot(xval, arr[:,0], '-', label='march')
         ax.plot(xval, arr[:,2], '--', label='msol')
         ax.plot(xval, arr[:,5], ':', label='mdsol')
+        ax.plot(xval, arr[:,0]-arr[:,1:].sum(axis=1), 'x', label='remain')
         if showx: ax.set_xlabel(xlabel)
         ax.set_ylabel('March (s)')
         ax.legend(loc='lower left')
@@ -273,6 +276,7 @@ class RuntimeStatAnchor(Anchor):
     def plot_marchother(cls, lines, ax, xtime=False, showx=True):
         arr, xval, xlabel = cls._parse(lines, 'march', xtime)
         arr[1:,:] = arr[1:,:] - arr[:-1,:]
+        arr[0,:] = arr[1,:]
         ax.plot(xval, arr[:,1], '-', label='update')
         ax.plot(xval, arr[:,3], '+', label='ibcsol')
         ax.plot(xval, arr[:,6], 'x', label='ibcdsol')
@@ -285,6 +289,7 @@ class RuntimeStatAnchor(Anchor):
     def plot_perf(cls, lines, ax, xtime=False, showx=True):
         arr, xval, xlabel = cls._parse(lines, 'march', xtime)
         arr[1:,:] = arr[1:,:] - arr[:-1,:]
+        arr[0,:] = arr[1,:]
         time = arr[:,0]
         ax.plot(xval, 1./time, '-')
         if showx: ax.set_xlabel(xlabel)

@@ -398,6 +398,12 @@ class BlockSolver(BaseSolver):
         assert self.msh != None and self.exn != None
         return [byref(self.msh), byref(self.exn)]
 
+    def remote_setattr(self, name, var):
+        """
+        Remotely set attribute of worker.
+        """
+        return setattr(self, name, var)
+
     def bind(self):
         """
         Bind all the boundary condition objects.
