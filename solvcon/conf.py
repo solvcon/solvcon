@@ -82,4 +82,4 @@ class Solvcon(object):
 env = Solvcon()
 
 def use_application(modname):
-    __import__(modname, fromlist=['arrangement', 'boundcond'])
+    __import__(modname, fromlist=['arrangement', 'boundcond', 'command'])
