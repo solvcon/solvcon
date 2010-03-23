@@ -172,3 +172,23 @@ class TestParallel(TestBlockCaseRun):
             clcnd += blk.clcnd*self.time_increment/2
         # compare.
         self.assertTrue((dsoln==clcnd).all())
+
+    def test_ibcthread(self):
+        import sys
+        from nose.plugins.skip import SkipTest
+        if sys.platform.startswith('win'): raise SkipTest
+        from numpy import zeros
+        from ..domain import Collective
+        from .. import anchor
+        case = self._get_case(anchor.ZeroIAnchor,
+            npart=self.npart, domaintype=Collective, ibcthread=True)
+        case.run()
+        # get result.
+        soln = case.execution.var['soln'][:,0]
+        # calculate reference
+        blk = case.solver.domainobj.blk
+        clvol = zeros(soln.shape, dtype=soln.dtype)
+        for iistep in range(self.nsteps*2):
+            clvol += blk.clvol*self.time_increment/2
+        # compare.
+        self.assertTrue((soln==clvol).all())

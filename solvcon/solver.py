@@ -250,8 +250,8 @@ class BlockSolver(BaseSolver):
         exchange interfaces.
     @ctype IBCSLEEP: float
 
-    @ivar ibcthead: flag if using threads.
-    @itype ibcthead: bool
+    @ivar ibcthread: flag if using threads.
+    @itype ibcthread: bool
 
     @ivar svrn: serial number of block.
     @itype svrn: int
@@ -320,7 +320,7 @@ class BlockSolver(BaseSolver):
         self.exnkw = self.pop_exnkw(blk, kw)
         super(BlockSolver, self).__init__(*args, **kw)
         assert self.fpdtype == blk.fpdtype
-        self.ibcthead = kw.pop('ibcthead', False)
+        self.ibcthread = kw.pop('ibcthread', False)
         # absorb block.
         ## meta-data.
         self.svrn = blk.blkn
@@ -672,7 +672,7 @@ class BlockSolver(BaseSolver):
         for ibc in self.ibclist:
             # check if sleep or not.
             if ibc < 0:
-                if not self.ibcthead:
+                if not self.ibcthread:
                     tosleep = abs(
                         self.IBCSLEEP if self.IBCSLEEP != None else ibc
                     )
@@ -691,7 +691,7 @@ class BlockSolver(BaseSolver):
                     bc.rblkn, sendn, recvn) 
             kwargs = {'worker': worker}
             # call to data transfer.
-            if self.ibcthead:
+            if self.ibcthread:
                 threads.append(Thread(
                     target=target,
                     args=args,
@@ -700,7 +700,7 @@ class BlockSolver(BaseSolver):
                 threads[-1].start()
             else:
                 target(*args, **kwargs)
-        if self.ibcthead:
+        if self.ibcthread:
             for thread in threads:
                 thread.join()
 
