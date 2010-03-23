@@ -135,7 +135,7 @@ class TestOutpost(TestCase):
         ftw.terminate()
 
 class TestRemote(TestCase):
-    def test_remote(self):
+    def test_python(self):
         from subprocess import PIPE
         from ..rpc import Remote
         remote = Remote('localhost')
@@ -144,6 +144,16 @@ class TestRemote(TestCase):
                 'sys.stdout.write(os.environ["A_TEST_ENV"])'
             ], envar={'A_TEST_ENV': 'A_TEST_VALUE'}, stdout=PIPE),
             'A_TEST_VALUE'
+        )
+
+    def test_shell(self):
+        from subprocess import PIPE
+        from ..rpc import Remote
+        remote = Remote('localhost')
+        self.assertEqual(remote.shell([
+                'echo "A_TEST_VALUE"',
+            ]),
+            'A_TEST_VALUE\n'
         )
 
 class TestFootway(TestCase):
