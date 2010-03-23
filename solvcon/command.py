@@ -202,6 +202,7 @@ class log(Command):
             'figure.subplot.top': top,
             'figure.subplot.bottom': bottom,
         })
+        matplotlib.use(ops.backend)
 
     def _get_datas(self):
         import os, glob
@@ -230,7 +231,6 @@ class log(Command):
 
     def __call__(self):
         import os, sys
-        from matplotlib import pyplot as plt
         from .anchor import RuntimeStatAnchor
         ops, args = self.opargs
         # count plots.
@@ -239,6 +239,7 @@ class log(Command):
             if getattr(ops, key):
                 nplot += 1
         self._init_mpl(nplot)
+        from matplotlib import pyplot as plt
         # get source and destination.
         datas = self._get_datas()
         # plot.
