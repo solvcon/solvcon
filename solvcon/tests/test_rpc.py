@@ -168,6 +168,21 @@ class TestFootway(TestCase):
         # terminate.
         ftw.terminate()
 
+    def test_kill_remote(self):
+        import sys
+        from nose.plugins.skip import SkipTest
+        if sys.platform.startswith('win'): raise SkipTest
+        from ..rpc import DEFAULT_AUTHKEY, Footway
+        authkey = DEFAULT_AUTHKEY
+        port = Footway.build_outpost(address='localhost', authkey=authkey)
+        ftw = Footway(address=('localhost', port), authkey=authkey)
+        pid = ftw.pid
+        # terminate.
+        ftw.terminate()
+        # there should be no process to be killed remotely.
+        msg = ftw.kill_remote()
+        self.assertTrue('%d'%pid in msg)
+
     def test_create(self):
         import sys
         from nose.plugins.skip import SkipTest

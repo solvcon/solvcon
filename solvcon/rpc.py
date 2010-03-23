@@ -678,7 +678,7 @@ class Footway(object):
         self.pid = self.getpid()
 
     def kill_remote(self):
-        Remote(self.address[0]).shell([
+        return Remote(self.address[0]).shell([
             'kill -9 %d' % self.pid,
         ])
 
