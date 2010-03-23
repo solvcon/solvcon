@@ -369,6 +369,7 @@ class BaseCase(CaseInfo):
                     case.init(level=runlevel)
                     case.info('\n')
                     case.run(level=runlevel)
+                    case.cleanup()
             except:
                 case.cleanup()
                 raise
@@ -885,9 +886,7 @@ for node in $nodes; do ssh $node killall %s; done
         if flag_parallel:
             for sdw in dealer: sdw.cmd.final()
             self.solver.dealer.terminate()
-            for ftw in self.solver.outposts:
-                ftw.terminate()
-                ftw.kill_remote()
+            for ftw in self.solver.outposts: ftw.terminate()
         else:
             self.solver.solverobj.final()
 
