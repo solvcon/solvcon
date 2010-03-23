@@ -331,7 +331,7 @@ class BaseCase(CaseInfo):
         # end log.
         self._log_end('run')
 
-    def cleanup(self):
+    def cleanup(self, signum=None, frame=None):
         pass
 
     @classmethod
@@ -345,6 +345,7 @@ class BaseCase(CaseInfo):
         @return: simulation function.
         @rtype: callable
         """
+        import signal
         import cPickle as pickle
         from .batch import Scheduler
         def simu(*args, **kw):
@@ -366,6 +367,8 @@ class BaseCase(CaseInfo):
                     sbm = scheduler(case, arnname=casename, **resources)
                     sbm(runlevel=runlevel, postpone=postpone)
                 else:
+                    signal.signal(signal.SIGTERM, case.cleanup)
+                    signal.signal(signal.SIGINT, case.cleanup)
                     case.init(level=runlevel)
                     case.info('\n')
                     case.run(level=runlevel)
@@ -467,8 +470,8 @@ class BlockCase(BaseCase):
             self.solver.solverobj.bind()
             self.solver.domainobj.bind()
 
-    def cleanup(self):
-        super(BlockCase, self).cleanup()
+    def cleanup(self, signum=None, frame=None):
+        super(BlockCase, self).cleanup(signum=signum, frame=frame)
         for ftw in self.solver.outposts: ftw.kill_remote()
 
     ############################################################################
