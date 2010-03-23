@@ -129,6 +129,7 @@ class RuntimeStatAnchor(Anchor):
         ('guest_time', int), ('cguest_time', int),
     ]
 
+    SETTING_KEYS = ['ibcthread']
     ENVAR_KEYS = ['KMP_AFFINITY']
 
     CPU_NAMES = ['us', 'sy', 'ni', 'id', 'wa', 'hi', 'si', 'st']
@@ -201,6 +202,12 @@ class RuntimeStatAnchor(Anchor):
         # timer.
         record.update(self.svr.timer)
         return record
+
+    def _msg_setting(self, record):
+        return ' '.join([
+            '%s=%s' % (key, str(getattr(self.svr, key))) for key in
+                self.SETTING_KEYS
+        ])
 
     def _msg_envar(self, record):
         return ' '.join([
@@ -349,7 +356,7 @@ class RuntimeStatAnchor(Anchor):
         rec = self._get_record()
         # output the messages.
         time = rec['time']
-        for mkey in ['march', 'cpu', 'loadavg', 'mem', 'envar']:
+        for mkey in ['march', 'cpu', 'loadavg', 'mem', 'setting', 'envar']:
             method = getattr(self, '_msg_%s'%mkey)
             self.svr.mesg('RT_%s: %.20e %s\n' % (mkey, time, method(rec)))
         # save.
