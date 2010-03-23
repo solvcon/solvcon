@@ -173,6 +173,10 @@ class log(Command):
             dest='filename', default=None,
             help='Save plot to a file with specified name.',
         )
+        opg.add_option('--lloc', action='store',
+            dest='lloc', default=None,
+            help='Legend location.  Default is None (by plot).',
+        )
         opg.add_option('--backend', action='store',
             dest='backend', default='TkAgg',
             help='The backend for matplotlib.',
@@ -250,10 +254,13 @@ class log(Command):
             for key in self.PLOTS:
                 if getattr(ops, key):
                     ax = fig.add_subplot(nplot, 1, iplot)
-                    showx = iplot==nplot
-                    getattr(RuntimeStatAnchor, 'plot_'+key)(
-                        lines, ax, xtime=ops.xtime, showx=showx,
-                    )
+                    kws = {
+                        'xtime': ops.xtime,
+                        'showx': iplot==nplot,
+                    }
+                    if ops.lloc != None:
+                        kws['lloc'] = ops.lloc
+                    getattr(RuntimeStatAnchor, 'plot_'+key)(lines, ax, **kws)
                     iplot += 1
             if nplot:
                 sys.stdout.write('%s processed' % src)

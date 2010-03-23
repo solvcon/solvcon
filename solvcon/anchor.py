@@ -248,7 +248,8 @@ class RuntimeStatAnchor(Anchor):
         time = float(every[0])
         return [time] + [float(tok.split('%')[0]) for tok in every[2:]]
     @classmethod
-    def plot_cpu(cls, lines, ax, xtime=False, showx=True):
+    def plot_cpu(cls, lines, ax, xtime=False, showx=True,
+            lloc='right'):
         arr, xval, xlabel = cls._parse(lines, 'cpu', xtime)
         arr[0,:] = arr[1,:]
         ax.plot(xval, arr[:,2:5].sum(axis=1), '-', label='us+st+ni')
@@ -257,7 +258,7 @@ class RuntimeStatAnchor(Anchor):
         if showx: ax.set_xlabel(xlabel)
         ax.set_ylabel('CPU %')
         ax.set_ylim([0,100])
-        ax.legend(loc='right')
+        ax.legend(loc=lloc)
 
     def _msg_march(self, record):
         return '%g %g %g %g %g %g %g %g' % (
@@ -269,7 +270,8 @@ class RuntimeStatAnchor(Anchor):
     def _parse_march(line):
         return [float(tok) for tok in line.split()]
     @classmethod
-    def plot_march(cls, lines, ax, xtime=False, showx=True):
+    def plot_march(cls, lines, ax, xtime=False, showx=True,
+            lloc='upper right'):
         arr, xval, xlabel = cls._parse(lines, 'march', xtime)
         arr[1:,:] = arr[1:,:] - arr[:-1,:]
         arr[0,:] = arr[1,:]
@@ -281,9 +283,10 @@ class RuntimeStatAnchor(Anchor):
         if showx: ax.set_xlabel(xlabel)
         ax.set_ylabel('March (s)')
         ax.set_ylim([0, arr.mean(axis=0).take((0,2,5)).max()*1.1])
-        ax.legend(loc='lower left')
+        ax.legend(loc=lloc)
     @classmethod
-    def plot_marchother(cls, lines, ax, xtime=False, showx=True):
+    def plot_marchother(cls, lines, ax, xtime=False, showx=True,
+            lloc='upper left'):
         arr, xval, xlabel = cls._parse(lines, 'march', xtime)
         arr[1:,:] = arr[1:,:] - arr[:-1,:]
         arr[0,:] = arr[1,:]
@@ -295,9 +298,10 @@ class RuntimeStatAnchor(Anchor):
         if showx: ax.set_xlabel(xlabel)
         ax.set_ylabel('March other (s)')
         ax.set_ylim([0, arr.mean(axis=0).take((1,3,6,4,7)).max()*1.1])
-        ax.legend(loc='lower left')
+        ax.legend(loc=lloc)
     @classmethod
-    def plot_perf(cls, lines, ax, xtime=False, showx=True):
+    def plot_perf(cls, lines, ax, xtime=False, showx=True,
+            lloc=None):
         arr, xval, xlabel = cls._parse(lines, 'march', xtime)
         arr[1:,:] = arr[1:,:] - arr[:-1,:]
         arr[0,:] = arr[1,:]
@@ -313,7 +317,8 @@ class RuntimeStatAnchor(Anchor):
         time, vsize = line.split()
         return [float(time), int(vsize)]
     @classmethod
-    def plot_mem(cls, lines, ax, xtime=False, showx=True):
+    def plot_mem(cls, lines, ax, xtime=False, showx=True,
+            lloc=None):
         arr, xval, xlabel = cls._parse(lines, 'mem', xtime)
         ax.plot(xval, arr[:,0]/1024**2, '-')
         if showx: ax.set_xlabel(xlabel)
@@ -325,14 +330,15 @@ class RuntimeStatAnchor(Anchor):
     def _parse_loadavg(line):
         return [float(val) for val in line.split()]
     @classmethod
-    def plot_loadavg(cls, lines, ax, xtime=False, showx=True):
+    def plot_loadavg(cls, lines, ax, xtime=False, showx=True,
+            lloc='right'):
         arr, xval, xlabel = cls._parse(lines, 'loadavg', xtime)
         ax.plot(xval, arr[:,0], '-', label='1 min')
         ax.plot(xval, arr[:,1], ':', label='5 min')
         ax.plot(xval, arr[:,2], '--', label='15 min')
         if showx: ax.set_xlabel(xlabel)
         ax.set_ylabel('Load average')
-        ax.legend(loc='right')
+        ax.legend(loc=lloc)
 
     @classmethod
     def _parse(cls, lines, key, xtime):
