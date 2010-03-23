@@ -174,7 +174,7 @@ class log(Command):
             help='Save plot to a file with specified name.',
         )
         opg.add_option('--backend', action='store',
-            dest='backend', default='Agg',
+            dest='backend', default='TkAgg',
             help='The backend for matplotlib.',
         )
         opg.add_option('--scale', action='store', type=int,
