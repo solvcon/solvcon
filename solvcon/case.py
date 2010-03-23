@@ -331,6 +331,9 @@ class BaseCase(CaseInfo):
         # end log.
         self._log_end('run')
 
+    def cleanup(self):
+        pass
+
     @classmethod
     def register_arrangement(cls, func):
         """
@@ -358,13 +361,17 @@ class BaseCase(CaseInfo):
                 casename = func.__name__
                 case = func(casename=casename, *args, **kw)
             # submit/run.
-            if submit:
-                sbm = scheduler(case, arnname=casename, **resources)
-                sbm(runlevel=runlevel, postpone=postpone)
-            else:
-                case.init(level=runlevel)
-                case.info('\n')
-                case.run(level=runlevel)
+            try:
+                if submit:
+                    sbm = scheduler(case, arnname=casename, **resources)
+                    sbm(runlevel=runlevel, postpone=postpone)
+                else:
+                    case.init(level=runlevel)
+                    case.info('\n')
+                    case.run(level=runlevel)
+            except:
+                case.cleanup()
+                raise
         # register self to simulation registries.
         cls.arrangements[func.__name__] = simu
         arrangements[func.__name__] = simu
@@ -458,6 +465,9 @@ class BlockCase(BaseCase):
                 setattr(self.solver.solverobj, key, svrholds[key])
             self.solver.solverobj.bind()
             self.solver.domainobj.bind()
+
+    def cleanup(self):
+        super(BlockCase, self).cleanup()
 
     ############################################################################
     ###

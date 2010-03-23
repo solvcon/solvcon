@@ -522,6 +522,10 @@ class Outpost(object):
         os.chdir(dirname)
         self.conn.send(None)
 
+    def getpid(self):
+        import os
+        self.conn.send(os.getpid())
+
     def create(self, **kw):
         """
         Create another process for an empty worker, and register the worker to
@@ -646,6 +650,8 @@ class Footway(object):
     @itype address: tuple
     @ivar authkey: the authkey for the outpost.
     @itype authkey: str
+    @ivar pid: the pid on remote.
+    @itype pid: int
     """
 
     WAIT_FOR_REACT = 0.1
@@ -658,6 +664,7 @@ class Footway(object):
                                              else self.WAIT_FOR_REACT
         while not self.ready():
             sleep(self.wait_for_react)
+        self.pid = self.getpid()
 
     def __getattr__(self, key):
         from time import sleep
