@@ -227,7 +227,7 @@ class BaseSolver(object):
         for key in ['mesg',]:
             holds[key] = getattr(self, key)
             setattr(self, key, None)
-        pickle.dump(self, open(objfn, 'w'), pickle.HIGHEST_PROTOCOL)
+        pickle.dump(self, open(objfn, 'wb'), pickle.HIGHEST_PROTOCOL)
         for key in holds:
             setattr(self, key, holds[key])
         self.bind()

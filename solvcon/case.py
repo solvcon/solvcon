@@ -353,7 +353,7 @@ class BaseCase(CaseInfo):
             runlevel = kw.pop('runlevel')
             # obtain the case object.
             if runlevel == 1:
-                case = pickle.load(open(cls.CSEFN_DEFAULT))
+                case = pickle.load(open(cls.CSEFN_DEFAULT, 'rb'))
             else:
                 casename = func.__name__
                 case = func(casename=casename, *args, **kw)
@@ -447,7 +447,7 @@ class BlockCase(BaseCase):
         # pickle.
         self.solver.dealer = None
         self.solver.outposts = list()
-        pickle.dump(self, open(self.io.dump.csefn, 'w'),
+        pickle.dump(self, open(self.io.dump.csefn, 'wb'),
             pickle.HIGHEST_PROTOCOL)
         # bind.
         if flag_parallel:
