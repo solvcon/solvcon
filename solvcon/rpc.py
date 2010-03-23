@@ -513,6 +513,7 @@ class Outpost(object):
             except Terminate:
                 for proc in self._procs:
                     proc.terminate()
+                self.conn.close()
                 break
             self.conn.close()
 
