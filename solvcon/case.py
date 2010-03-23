@@ -468,6 +468,7 @@ class BlockCase(BaseCase):
 
     def cleanup(self):
         super(BlockCase, self).cleanup()
+        for ftw in self.solver.outposts: ftw.kill_remote()
 
     ############################################################################
     ###
@@ -884,7 +885,9 @@ for node in $nodes; do ssh $node killall %s; done
         if flag_parallel:
             for sdw in dealer: sdw.cmd.final()
             self.solver.dealer.terminate()
-            for ftw in self.solver.outposts: ftw.terminate()
+            for ftw in self.solver.outposts:
+                ftw.terminate()
+                ftw.kill_remote()
         else:
             self.solver.solverobj.final()
 

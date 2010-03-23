@@ -521,7 +521,6 @@ class Outpost(object):
         import os
         os.chdir(dirname)
         self.conn.send(None)
-
     def getpid(self):
         import os
         self.conn.send(os.getpid())
@@ -611,6 +610,22 @@ class Remote(object):
         pathstr = sep.join([path for path in pathlist if path])
         return 'export %s=%s:$%s' % (key, pathstr, key)
 
+    @property
+    def ssh_cmds(self):
+        ssh_cmds = ['ssh', '-n']
+        for key in self.ssh_config:
+            ssh_cmds.append('-o')
+            ssh_cmds.append('%s=%s' % (key, str(self.ssh_config[key])))
+        ssh_cmds.append('%s@%s' % (self.username, self.address))
+        return ssh_cmds
+
+    def shell(self, script):
+        from subprocess import Popen, PIPE, STDOUT
+        cmds = self.ssh_cmds
+        cmds.append('; '.join(script))
+        subp = Popen(cmds, stdout=PIPE, stderr=STDOUT)
+        return subp.stdout.read()
+
     def __call__(self, script, envar=None, stdout=None):
         """
         @param script: the script to be send to remote machine to execute.
@@ -629,11 +644,7 @@ class Remote(object):
             ])
         remote_cmds.append('%s -c \'%s\''%(sys.executable, '; '.join(script)))
         # build the commands for ssh.
-        ssh_cmds = ['ssh', '-n']
-        for key in self.ssh_config:
-            ssh_cmds.append('-o')
-            ssh_cmds.append('%s=%s' % (key, str(self.ssh_config[key])))
-        ssh_cmds.append('%s@%s' % (self.username, self.address))
+        ssh_cmds = self.ssh_cmds
         # join ssh commands and remote commands and fire.
         subp = Popen(ssh_cmds + ['; '.join(remote_cmds)], stdout=stdout)
         # get the return from ssh.
@@ -665,6 +676,14 @@ class Footway(object):
         while not self.ready():
             sleep(self.wait_for_react)
         self.pid = self.getpid()
+
+    def kill_remote(self):
+        Remote(self.address[0]).shell([
+            'kill -9 %d' % self.pid,
+        ])
+
+    def __del__(self):
+        self.kill_remote()
 
     def __getattr__(self, key):
         from time import sleep
