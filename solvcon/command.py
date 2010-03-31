@@ -122,7 +122,7 @@ class mesh(Command):
             info('  Cell volume (min, max, all): %g, %g, %g.\n' % (
                 blk.clvol.min(), blk.clvol.max(), blk.clvol.sum()))
             info('  Face area (min, max, all): %g, %g, %g.\n' % (
-                blk.fcarea.min(), blk.fcarea.max(), blk.fcarea.sum()))
+                blk.fcara.min(), blk.fcara.max(), blk.fcara.sum()))
         # save.
         if ops.neu_file:
             self._save_mesh(ops, args, blk)
