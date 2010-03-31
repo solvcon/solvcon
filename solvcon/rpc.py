@@ -721,11 +721,15 @@ class Footway(object):
         """
         from subprocess import PIPE
         remote = Remote(address, paths=paths)
-        port = int(remote([
+        val = int(remote([
             'import sys',
             'from solvcon.rpc import pick_unused_port',
             'sys.stdout.write(str(pick_unused_port()))',
         ], stdout=PIPE))
+        try:
+            port = int(val)
+        except ValueError:
+            raise IOError, 'remote port detection fails'
         remote([
             'from solvcon.rpc import Outpost',
             'outpost = Outpost(publicaddress=("%s", %d), authkey="%s")' % (
