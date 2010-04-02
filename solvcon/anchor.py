@@ -261,8 +261,8 @@ class RuntimeStatAnchor(Anchor):
         ax.legend(loc=lloc)
 
     def _msg_march(self, record):
-        return '%g %g %g %g %g %g %g %g' % (
-            record['march'], record['update'],
+        return '%g %g %g %g %g %g %g %g %g' % (
+            record['march'], record['update'], record['cfl'],
             record['msol'], record['ibcsol'], record['bcsol'],
             record['mdsol'], record['ibcdsol'], record['bcdsol'],
         )
@@ -275,14 +275,13 @@ class RuntimeStatAnchor(Anchor):
         arr, xval, xlabel = cls._parse(lines, 'march', xtime)
         arr[1:,:] = arr[1:,:] - arr[:-1,:]
         arr[0,:] = arr[1,:]
-        rest = arr[:,0] - arr[:,1:].sum(axis=1)
         ax.plot(xval, arr[:,0], '-', label='march')
-        ax.plot(xval, arr[:,2], '--', label='msol')
-        ax.plot(xval, arr[:,5], ':', label='mdsol')
-        ax.plot(xval, rest, 'x', label='remain')
+        ax.plot(xval, arr[:,3], '--', label='msol')
+        ax.plot(xval, arr[:,6], ':', label='mdsol')
+        ax.plot(xval, arr[:,2], 'x', label='cfl')
         if showx: ax.set_xlabel(xlabel)
         ax.set_ylabel('March (s)')
-        ax.set_ylim([0, arr.mean(axis=0).take((0,2,5)).max()*1.1])
+        ax.set_ylim([0, arr.mean(axis=0).take((0,3,6,2)).max()*1.1])
         ax.legend(loc=lloc)
     @classmethod
     def plot_marchother(cls, lines, ax, xtime=False, showx=True,
@@ -290,14 +289,16 @@ class RuntimeStatAnchor(Anchor):
         arr, xval, xlabel = cls._parse(lines, 'march', xtime)
         arr[1:,:] = arr[1:,:] - arr[:-1,:]
         arr[0,:] = arr[1,:]
+        rest = arr[:,0] - arr[:,1:].sum(axis=1)
         ax.plot(xval, arr[:,1], '-', label='update')
-        ax.plot(xval, arr[:,3], '+', label='ibcsol')
-        ax.plot(xval, arr[:,6], 'x', label='ibcdsol')
-        ax.plot(xval, arr[:,4], '--', label='bcsol')
-        ax.plot(xval, arr[:,7], ':', label='bcdsol')
+        ax.plot(xval, arr[:,4], '+', label='ibcsol')
+        ax.plot(xval, arr[:,7], 'x', label='ibcdsol')
+        ax.plot(xval, arr[:,5], '--', label='bcsol')
+        ax.plot(xval, arr[:,8], ':', label='bcdsol')
+        ax.plot(xval, rest, '.k', label='remain')
         if showx: ax.set_xlabel(xlabel)
         ax.set_ylabel('March other (s)')
-        ax.set_ylim([0, arr.mean(axis=0).take((1,3,6,4,7)).max()*1.1])
+        ax.set_ylim([0, arr.mean(axis=0).take((1,4,7,5,8)).max()*1.1])
         ax.legend(loc=lloc)
     @classmethod
     def plot_perf(cls, lines, ax, xtime=False, showx=True,

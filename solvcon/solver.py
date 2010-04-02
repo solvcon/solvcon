@@ -387,6 +387,7 @@ class BlockSolver(BaseSolver):
             'msol': 0.0,
             'ibcsol': 0.0,
             'bcsol': 0.0,
+            'cfl': 0.0,
             'mdsol': 0.0,
             'ibcdsol': 0.0,
             'bcdsol': 0.0,
@@ -562,8 +563,10 @@ class BlockSolver(BaseSolver):
                 for bc in self.bclist: bc.sol()
                 self.timer['bcsol'] += _time() - t1
                 self.runanchors('precfl')
+                t1 = _time()
                 cCFL = self.estimatecfl()
                 maxCFL = cCFL if cCFL > maxCFL else maxCFL
+                self.timer['cfl'] += _time() - t1
                 # solution gradients.
                 self.runanchors('premarchdsol')
                 t1 = _time()
