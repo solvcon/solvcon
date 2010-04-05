@@ -94,6 +94,23 @@ class TestAnchor(TestCase):
         svr.march(self.time, self.time_increment, self.nsteps)
         svr.final()
 
+    def test_calcstat(self):
+        import warnings
+        from .. import anchor
+        svr = CustomBlockSolver(self._get_block(), neq=self.neq)
+        svr.runanchors.append(anchor.CalcStatAnchor(svr,
+            recorders=['notexist'],
+        ))
+        warnings.simplefilter("ignore")
+        svr.bind()
+        svr.init()
+        warnings.resetwarnings()
+        svr.soln.fill(0.0)
+        svr.dsoln.fill(0.0)
+        # run.
+        svr.march(self.time, self.time_increment, self.nsteps)
+        svr.final()
+
     def test_runtimestat2(self):
         import warnings
         from .. import anchor

@@ -127,9 +127,56 @@ class mesh(Command):
         if ops.neu_file:
             self._save_mesh(ops, args, blk)
 
-class log(Command):
+class SolverLog(Command):
     """
-    Log output.
+    Actions related Solver log.
+    """
+
+    def __init__(self, env):
+        from optparse import OptionGroup
+        super(SolverLog, self).__init__(env)
+        op = self.op
+
+        opg = OptionGroup(op, 'Solver Log')
+        opg.add_option('-f', action='store',
+            dest='filename', default=None,
+            help='Save plot to a file with specified name.',
+        )
+        opg.add_option('--backend', action='store',
+            dest='backend', default='TkAgg',
+            help='The backend for matplotlib.  Default is TkAgg.',
+        )
+        op.add_option_group(opg)
+        self.opg_arrangement = opg
+
+    def _get_datas(self):
+        import os, glob
+        ops, args = self.opargs
+        fn = args[0]
+        fns = list()
+        if os.path.isdir(fn):
+            if ops.filename != None:
+                main, ext = os.path.splitext(ops.filename)
+                dsttmpl = main+'%d'+ext
+            else:
+                dsttmpl = None
+            nfn = len(glob.glob(os.path.join(fn, 'solvcon.solver*.log')))
+            for idx in range(nfn):
+                src = os.path.join(fn, 'solvcon.solver%d.log'%idx)
+                if dsttmpl != None:
+                    dst = dsttmpl%idx
+                else:
+                    dst = None
+                lines = open(src).readlines()
+                fns.append((lines, src, dst))
+        else:
+            lines = open(fn).readlines()
+            fns.append((lines, fn, ops.filename))
+        return fns
+
+class log_runtime(SolverLog):
+    """
+    Show output from RuntimeStatAnchor.
     """
 
     min_args = 1
@@ -137,10 +184,10 @@ class log(Command):
 
     def __init__(self, env):
         from optparse import OptionGroup
-        super(log, self).__init__(env)
+        super(log_runtime, self).__init__(env)
         op = self.op
 
-        opg = OptionGroup(op, 'Show Log')
+        opg = OptionGroup(op, 'Show Runtime')
         opg.add_option('-c', action='store_true',
             dest='cpu', default=False,
             help='Plot CPU usage.',
@@ -169,17 +216,9 @@ class log(Command):
             dest='xtime', default=False,
             help='Use time as x-axis.',
         )
-        opg.add_option('-f', action='store',
-            dest='filename', default=None,
-            help='Save plot to a file with specified name.',
-        )
         opg.add_option('--lloc', action='store',
             dest='lloc', default=None,
             help='Legend location.  Default is None (by plot).',
-        )
-        opg.add_option('--backend', action='store',
-            dest='backend', default='TkAgg',
-            help='The backend for matplotlib.',
         )
         opg.add_option('--scale', action='store', type=int,
             dest='scale', default=0.6,
@@ -207,31 +246,6 @@ class log(Command):
             'figure.subplot.bottom': bottom,
         })
         matplotlib.use(ops.backend)
-
-    def _get_datas(self):
-        import os, glob
-        ops, args = self.opargs
-        fn = args[0]
-        fns = list()
-        if os.path.isdir(fn):
-            if ops.filename != None:
-                main, ext = os.path.splitext(ops.filename)
-                dsttmpl = main+'%d'+ext
-            else:
-                dsttmpl = None
-            nfn = len(glob.glob(os.path.join(fn, 'solvcon.solver*.log')))
-            for idx in range(nfn):
-                src = os.path.join(fn, 'solvcon.solver%d.log'%idx)
-                if dsttmpl != None:
-                    dst = dsttmpl%idx
-                else:
-                    dst = None
-                lines = open(src).readlines()
-                fns.append((lines, src, dst))
-        else:
-            lines = open(fn).readlines()
-            fns.append((lines, fn, ops.filename))
-        return fns
 
     def __call__(self):
         import os, sys
@@ -262,6 +276,89 @@ class log(Command):
                         kws['lloc'] = ops.lloc
                     getattr(RuntimeStatAnchor, 'plot_'+key)(lines, ax, **kws)
                     iplot += 1
+            if nplot:
+                sys.stdout.write('%s processed' % src)
+                if dst != None:
+                    plt.savefig(dst)
+                    sys.stdout.write(' and written to %s.' % dst)
+                sys.stdout.write('\n')
+        # show.
+        if nplot and ops.filename == None:
+            plt.show()
+
+class log_calc(SolverLog):
+    """
+    Show output from CalcStatAnchor.
+    """
+
+    min_args = 1
+
+    def __init__(self, env):
+        from optparse import OptionGroup
+        super(log_calc, self).__init__(env)
+        op = self.op
+
+        opg = OptionGroup(op, 'Show Calc')
+        opg.add_option('-k', action='store',
+            dest='plotkeys', default='',
+            help='Keys to plot.',
+        )
+        opg.add_option('--lloc', action='store',
+            dest='lloc', default=None,
+            help='Legend location.  Default is None (by plot).',
+        )
+        opg.add_option('--scale', action='store', type=int,
+            dest='scale', default=0.6,
+            help='The scale when having more than one subplot.'
+                 ' Default is 0.6.',
+        )
+        op.add_option_group(opg)
+        self.opg_arrangement = opg
+
+    def _init_mpl(self, nplot):
+        import matplotlib
+        ops, args = self.opargs
+        figsize = matplotlib.rcParams['figure.figsize']
+        top = matplotlib.rcParams['figure.subplot.top']
+        bottom = matplotlib.rcParams['figure.subplot.bottom']
+        if nplot > 1:
+            upscale = nplot*ops.scale
+            top = 1.0 - (1.0-top)*(1.0-top)/((1.0-top)*upscale)
+            bottom = bottom*bottom/(bottom*upscale)
+            figsize = figsize[0], figsize[1]*upscale
+        matplotlib.rcParams.update({
+            'backend': ops.backend,
+            'figure.figsize': figsize,
+            'figure.subplot.top': top,
+            'figure.subplot.bottom': bottom,
+        })
+        matplotlib.use(ops.backend)
+
+    def __call__(self):
+        import os, sys
+        from .anchor import CalcStatAnchor
+        ops, args = self.opargs
+        # count plots.
+        plotkeys = ops.plotkeys.split(',')
+        nplot = len(plotkeys)
+        self._init_mpl(nplot)
+        from matplotlib import pyplot as plt
+        # get source and destination.
+        datas = self._get_datas()
+        # plot.
+        for lines, src, dst in datas:
+            if nplot:
+                fig = plt.figure()
+            iplot = 1
+            for key in plotkeys:
+                ax = fig.add_subplot(nplot, 1, iplot)
+                kws = {
+                    'showx': iplot==nplot,
+                }
+                if ops.lloc != None:
+                    kws['lloc'] = ops.lloc
+                CalcStatAnchor.plot(key, lines, ax, **kws)
+                iplot += 1
             if nplot:
                 sys.stdout.write('%s processed' % src)
                 if dst != None:

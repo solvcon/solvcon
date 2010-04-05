@@ -369,6 +369,51 @@ class RuntimeStatAnchor(Anchor):
         # save.
         self.records.append(rec)
 
+class CalcStatAnchor(Anchor):
+    """
+    Report the time used in each calculating subroutine.
+    """
+
+    def __init__(self, svr, **kw):
+        self.recorders = kw.pop('recorders', [])
+        super(CalcStatAnchor, self).__init__(svr, **kw)
+
+    @classmethod
+    def plot(cls, key, lines, ax, showx=True, lloc='best'):
+        arr, xval, xlabel = cls._parse(lines, key)
+        for it in range(arr.shape[1]):
+            ax.plot(xval, arr[:,it], label='%s%d'%(key, it))
+        if showx: ax.set_xlabel(xlabel)
+        ax.set_ylabel('CPU ticks')
+        ax.legend(loc=lloc)
+
+    @classmethod
+    def _parse(cls, lines, key):
+        from numpy import array, arange
+        myhead = 'CP_%s: ' % key
+        nmyhead = len(myhead)
+        data = list()
+        for line in lines:
+            loc = line.find(myhead)
+            if loc > -1:
+                data.append([int(val) for val in line[loc+nmyhead:].split()])
+        arr = array(data, dtype='int32')
+        arr[1:,:] = arr[1:,:] - arr[:-1,:]
+        arr[0,:] = arr[1,:]
+        xval = arange(arr.shape[0])+1
+        xlabel = 'Steps'
+        return arr, xval.copy(), xlabel
+
+    def postfull(self):
+        for key in self.recorders:
+            if key not in self.svr.cputime:
+                continue
+            vals = self.svr.cputime[key]
+            nval = len(vals)
+            self.svr.mesg('CP_%s: %s\n' % (
+                key, ' '.join(['%d'%val for val in vals])
+            ))
+
 class ZeroIAnchor(Anchor):
     """
     Fill the solutions with zero.

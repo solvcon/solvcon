@@ -392,6 +392,8 @@ class BlockSolver(BaseSolver):
             'ibcdsol': 0.0,
             'bcdsol': 0.0,
         }
+        self.cputime = {
+        }
 
     @property
     def args_struct(self):
