@@ -299,6 +299,19 @@ class Torque(Scheduler):
         return [Node(nodeitem, ncore=1) for nodeitem in nodelist]
 
 class OscGlenn(Torque):
+    @property
+    def str_postrun(self):
+        import sys, os
+        newstr = [super(OscGlenn, self).str_postrun]
+        newstr.extend([
+            '/usr/local/bin/mpiexec -comm none -pernode killall %s' % \
+            os.path.basename(sys.executable),
+        ])
+        return '\n'.join(newstr)
+
+class OscGlennGbE(OscGlenn):
+    pass
+class OscGlennIB(OscGlenn):
     def nodelist(self):
         ndlst = super(OscGlenn, self).nodelist()
         for node in ndlst:
