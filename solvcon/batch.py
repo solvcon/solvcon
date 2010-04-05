@@ -300,15 +300,6 @@ class Torque(Scheduler):
 
 class OscGlenn(Torque):
     @property
-    def str_prerun(self):
-        msgs = [
-            'export I_MPI_DEBUG=2',
-            'export I_MPI_DEVICE=rmda:OpenIB-cma',
-        ]
-        msgs.append(super(OscGlenn, self).str_prerun)
-        return '\n'.join(msgs)
-
-    @property
     def str_postrun(self):
         import sys, os
         newstr = [super(OscGlenn, self).str_postrun]
@@ -321,6 +312,15 @@ class OscGlenn(Torque):
 class OscGlennGbE(OscGlenn):
     pass
 class OscGlennIB(OscGlenn):
+    @property
+    def str_prerun(self):
+        msgs = [
+            'export I_MPI_DEBUG=2',
+            'export I_MPI_DEVICE=rmda:OpenIB-cma',
+        ]
+        msgs.append(super(OscGlenn, self).str_prerun)
+        return '\n'.join(msgs)
+
     def nodelist(self):
         ndlst = super(OscGlenn, self).nodelist()
         for node in ndlst:
