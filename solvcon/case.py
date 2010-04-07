@@ -473,6 +473,8 @@ class BlockCase(BaseCase):
             self.solver.domainobj.bind()
 
     def cleanup(self, signum=None, frame=None):
+        if self.solver.solverobj != None:
+            self.solver.solverobj.unbind()
         for ftw in self.solver.outposts: ftw.kill_remote()
         super(BlockCase, self).cleanup(signum=signum, frame=frame)
 
