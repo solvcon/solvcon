@@ -541,6 +541,7 @@ class BlockSolver(BaseSolver):
 
     def march(self, time, time_increment, steps_run, worker=None):
         from time import time as _time
+        from gc import collect as gcollect
         maxCFL = -2.0
         istep = 0
         while istep < steps_run:
@@ -585,6 +586,7 @@ class BlockSolver(BaseSolver):
                 # increment time.
                 time += time_increment/2
                 self.runanchors('posthalf')
+            gcollect()
             self.timer['march'] += _time() - t0
             istep += 1
             self.runanchors('postfull')
