@@ -74,7 +74,6 @@ class BaseSolver(object):
         @rtype: dict
         """
         exnkw = dict()
-        exnkw['ncore'] = kw.pop('ncore', -1)
         exnkw['neq'] = kw.pop('neq')
         exnkw['time'] = 0.0
         exnkw['time_increment'] = 0.0
@@ -88,9 +87,9 @@ class BaseSolver(object):
         from .anchor import AnchorList
         self._fpdtype = kw.pop('fpdtype', env.fpdtype)
         self._fpdtype = env.fpdtype if self._fpdtype==None else self._fpdtype
+        self.ncore = kw.pop('ncore', -1)
         self.enable_mesg = kw.pop('enable_mesg', False)
         self.mesg = None
-        self.ncore = kw.pop('ncore', -1)
         # for compatibility to the constructor of BlockSolver, only pop
         # executional keywords while the dictionary doesn't exist.
         if not getattr(self, 'exnkw', False):
