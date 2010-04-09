@@ -143,6 +143,7 @@ class BaseCase(CaseInfo):
         'execution.neq': 0, # number of unknowns.
         'execution.var': dict,  # for Calculator hooks.
         'execution.varstep': None,  # the step for which var and dvar are valid.
+        'execution.ncore': -1,  # number of cores to use in solver.
         # dynamic related.
         'dynamic.inputfn': 'solvcon.input',
         'dynamic.bakfn': 'solvcon.input.bak',
@@ -583,6 +584,7 @@ class BlockCase(BaseCase):
         @return: nothing
         """
         svr = self.solver.solvertype(self.solver.domainobj.blk,
+            ncore=self.execution.ncore,
             neq=self.execution.neq, fpdtype=self.execution.fpdtype,
             enable_mesg=self.io.solver_output,
         )
@@ -607,6 +609,7 @@ class BlockCase(BaseCase):
         for iblk in range(nblk):
             sbk = self.solver.domainobj[iblk]
             svr = self.solver.solvertype(sbk,
+                ncore=self.execution.ncore,
                 neq=self.execution.neq, fpdtype=self.execution.fpdtype,
                 enable_mesg=self.io.solver_output,
             )

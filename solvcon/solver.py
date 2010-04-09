@@ -90,6 +90,7 @@ class BaseSolver(object):
         self._fpdtype = env.fpdtype if self._fpdtype==None else self._fpdtype
         self.enable_mesg = kw.pop('enable_mesg', False)
         self.mesg = None
+        self.ncore = kw.pop('ncore', -1)
         # for compatibility to the constructor of BlockSolver, only pop
         # executional keywords while the dictionary doesn't exist.
         if not getattr(self, 'exnkw', False):
@@ -162,7 +163,7 @@ class BaseSolver(object):
         # create executional data.
         self.exn = self._exeinfotype_(**self.exnkw)
         # detect number of cores.
-        if sys.platform.startswith('linux2'):
+        if self.ncore == -1 and sys.platform.startswith('linux2'):
             f = open('/proc/stat')
             data = f.read()
             f.close()
@@ -171,7 +172,7 @@ class BaseSolver(object):
             cpulist = [line for line in cpulist if line.split()[0] != 'cpu']
             self.exn.ncore = len(cpulist)
         else:
-            self.exn.ncore = -1
+            self.exn.ncore = self.ncore
 
     def init(self, **kw):
         """
@@ -541,7 +542,6 @@ class BlockSolver(BaseSolver):
 
     def march(self, time, time_increment, steps_run, worker=None):
         from time import time as _time
-        from gc import collect as gcollect
         maxCFL = -2.0
         istep = 0
         while istep < steps_run:
@@ -586,7 +586,6 @@ class BlockSolver(BaseSolver):
                 # increment time.
                 time += time_increment/2
                 self.runanchors('posthalf')
-            gcollect()
             self.timer['march'] += _time() - t0
             istep += 1
             self.runanchors('postfull')
