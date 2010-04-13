@@ -6,7 +6,18 @@ Multi-threading.
 """
 
 class ThreadPool(object):
+    """
+    A synchronized thread pool.  The number of pre-created threads is not
+    changeable.
+
+    @ivar nthread: number of threads in the pool.
+    @itype nthread: int
+    """
     def __init__(self, nthread):
+        """
+        @param nthread: number of threads for the pool.
+        @type nthread: int
+        """
         from thread import allocate_lock, start_new_thread
         self.func = None
         self.nthread = nthread
@@ -21,6 +32,9 @@ class ThreadPool(object):
             tid = start_new_thread(self.eventloop, (tdata,))
             self.__threadids[it] = tid
     def eventloop(self, tdata):
+        """
+        Event loop for the pre-created threads.
+        """
         from thread import exit
         while True:
             tdata[0].acquire()
@@ -30,6 +44,12 @@ class ThreadPool(object):
                 tdata[3] = self.func(*tdata[2])
             tdata[1].release()
     def __call__(self, func, arglists):
+        """
+        @param func: a callable to be dispatched to the thread pool
+        @type func: callable
+        @param arglists: a list of arguments for the callable.
+        @type arglists: list
+        """
         self.func = func
         nthread = self.nthread
         it = 0
