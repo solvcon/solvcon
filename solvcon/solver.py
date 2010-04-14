@@ -241,9 +241,6 @@ class BlockSolver(BaseSolver):
     @cvar _interface_init_: list of attributes (arrays) to be exchanged on
         interface when initialized.
     @ctype _interface_init_: list
-    @cvar IBCSLEEP: the sleep time in seconds while not using thread for
-        exchange interfaces.
-    @ctype IBCSLEEP: float
 
     @ivar ibcthread: flag if using threads.
     @itype ibcthread: bool
@@ -287,8 +284,6 @@ class BlockSolver(BaseSolver):
     CLMND = Block.CLMND
     CLMFC = Block.CLMFC
     del Block
-
-    IBCSLEEP = None
 
     def __init__(self, blk, *args, **kw):
         """
@@ -653,11 +648,6 @@ class BlockSolver(BaseSolver):
         for ibc in self.ibclist:
             # check if sleep or not.
             if ibc < 0:
-                if not self.ibcthread:
-                    tosleep = abs(
-                        self.IBCSLEEP if self.IBCSLEEP != None else ibc
-                    )
-                    sleep(tosleep)
                 continue 
             bc, sendn, recvn = ibc
             # determine callable and arguments.
