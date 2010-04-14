@@ -149,6 +149,16 @@ class BaseSolver(object):
             dprefix = ''
         self.mesg = Printer(dfn, prefix=dprefix, override=True)
 
+    @staticmethod
+    def detect_ncore():
+        f = open('/proc/stat')
+        data = f.read()
+        f.close()
+        cpulist = [line for line in data.split('\n') if
+            line.startswith('cpu')]
+        cpulist = [line for line in cpulist if line.split()[0] != 'cpu']
+        return len(cpulist)
+
     def bind(self):
         """
         Put everything that cannot be pickled, such as file objects, ctypes
@@ -163,15 +173,7 @@ class BaseSolver(object):
         self.exn = self._exeinfotype_(**self.exnkw)
         # detect number of cores.
         if self.ncore == -1 and sys.platform.startswith('linux2'):
-            f = open('/proc/stat')
-            data = f.read()
-            f.close()
-            cpulist = [line for line in data.split('\n') if
-                line.startswith('cpu')]
-            cpulist = [line for line in cpulist if line.split()[0] != 'cpu']
-            self.exn.ncore = len(cpulist)
-        else:
-            self.exn.ncore = self.ncore
+            self.ncore = self.detect_ncore()
 
     def init(self, **kw):
         """
