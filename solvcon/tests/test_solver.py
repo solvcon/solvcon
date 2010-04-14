@@ -28,17 +28,6 @@ class TestBase(TestCase):
         svr.bind()
         self.assertEqual(svr.val, 'bind')
 
-    def test_exeinfo(self):
-        from ..solver import BaseSolverExeinfo
-        einfo = BaseSolverExeinfo()
-        self.assertEqual(str(einfo), '''type execution
-    integer*4 :: ncore = 0
-    integer*4 :: neq = 0
-    real*8 :: time = 0.0
-    real*8 :: time_increment = 0.0
-end type execution'''
-        )
-
 class TestFpdtype(TestCase):
     def test_fp(self):
         from ..dependency import pointer_of, str_of
@@ -96,7 +85,7 @@ class TestBlock(TestCase):
 
     def test_neq(self):
         svr = self._get_solver()
-        self.assertEqual(svr.exn.neq, self.neq)
+        self.assertEqual(svr.neq, self.neq)
 
     def test_blkn(self):
         svr = self._get_solver()
@@ -118,21 +107,14 @@ class TestBlock(TestCase):
         self.assertEqual(svr.sol.shape[0], svr.soln.shape[0])
         self.assertEqual(svr.sol.shape[1], svr.soln.shape[1])
         self.assertEqual(svr.sol.shape[0], svr.ncell+svr.ngstcell)
-        self.assertEqual(svr.sol.shape[1], svr.exn.neq)
+        self.assertEqual(svr.sol.shape[1], svr.neq)
         self.assertEqual(len(svr.dsol.shape), 3)
         self.assertEqual(svr.dsol.shape[0], svr.dsoln.shape[0])
         self.assertEqual(svr.dsol.shape[1], svr.dsoln.shape[1])
         self.assertEqual(svr.dsol.shape[2], svr.dsoln.shape[2])
         self.assertEqual(svr.dsol.shape[0], svr.ncell+svr.ngstcell)
-        self.assertEqual(svr.dsol.shape[1], svr.exn.neq)
+        self.assertEqual(svr.dsol.shape[1], svr.neq)
         self.assertEqual(svr.dsol.shape[2], svr.ndim)
-
-    def test_struct(self):
-        from ctypes import byref
-        svr = self._get_solver()
-        args_struct = svr.args_struct
-        self.assertEqual(args_struct[0]._obj, svr.msh)
-        self.assertEqual(args_struct[1]._obj, svr.exn)
 
     time = 0.0
     time_increment = 1.0
@@ -147,7 +129,7 @@ class TestBlock(TestCase):
         svr.march(time, time_increment, nsteps)
         return svr
 
-    def test_dsoln(self):
+    def test_soln(self):
         from numpy import zeros
         # run.
         svr = self._run_solver(self.time, self.time_increment, self.nsteps)

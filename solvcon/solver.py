@@ -5,21 +5,25 @@
 Definition of the structure of solvers.
 """
 
+from ctypes import Structure
 from .gendata import TypeWithBinder
-from .dependency import FortranType
 
-class BaseSolverExeinfo(FortranType):
+class BaseSolverExedata(Structure):
     """
     Execution information for BaseSolver.
     """
-    _fortran_name_ = 'execution'
     from ctypes import c_int, c_double
     _fields_ = [
-        ('ncore', c_int),
-        ('neq', c_int),
+        ('ncore', c_int), ('neq', c_int),
         ('time', c_double), ('time_increment', c_double),
     ]
-    del c_int, c_double
+    del c_int, c_double 
+    def __init__(self, *args, **kw):
+        svr = kw.pop('svr', None)
+        if svr == None:
+            return
+        for key in ('ncore', 'neq', 'time', 'time_increment'):
+            setattr(self, key, getattr(svr, key))
 
 class BaseSolver(object):
     """
@@ -50,34 +54,21 @@ class BaseSolver(object):
     @ivar runanchors: the list for the anchor objects to be run.
     @itype runanchors: solvcon.anchor.AnchorList
 
-    @ivar exn: execution information for the solver.  This should be redefined
-        in child classes.
-    @itype exn: BlockSolverExeinfo
+    @ivar exd: execution information for the solver.
+    @itype exd: ctypes.Structure
+    @ivar exds: a list of execution information for the solver.
+    @itype exds: list
+    @ivar tpool: thread pool for solver.
+    @itype tpool: solvcon.mthread.ThreadPool
     """
 
     __metaclass__ = TypeWithBinder
-    _pointers_ = ['exn']
+    _pointers_ = ['exd', 'exds']
 
-    _exeinfotype_ = BaseSolverExeinfo
+    _exedatatype_ = BaseSolverExedata
     _clib_solve = None  # subclass should override.
 
     MESG_FILENAME_DEFAULT = 'solvcon.solver.log'
-
-    def pop_exnkw(self, kw):
-        """
-        Executional keywords poper.
-
-        @parameter kw: the keywords.
-        @type kw: dict
-
-        @return: executional keywords.
-        @rtype: dict
-        """
-        exnkw = dict()
-        exnkw['neq'] = kw.pop('neq')
-        exnkw['time'] = 0.0
-        exnkw['time_increment'] = 0.0
-        return exnkw
 
     def __init__(self, **kw):
         """
@@ -87,17 +78,17 @@ class BaseSolver(object):
         from .anchor import AnchorList
         self._fpdtype = kw.pop('fpdtype', env.fpdtype)
         self._fpdtype = env.fpdtype if self._fpdtype==None else self._fpdtype
-        self.ncore = kw.pop('ncore', -1)
         self.enable_mesg = kw.pop('enable_mesg', False)
         self.mesg = None
-        # for compatibility to the constructor of BlockSolver, only pop
-        # executional keywords while the dictionary doesn't exist.
-        if not getattr(self, 'exnkw', False):
-            self.exnkw = self.pop_exnkw(kw)
+        self.ncore = kw.pop('ncore', -1)
+        self.neq = kw.pop('neq')
+        self.time = kw.pop('time', 0.0)
+        self.time_increment = kw.pop('time_increment', 0.0)
         # anchor list.
         self.runanchors = AnchorList(self)
         # data structure for C/FORTRAN.
-        self.exn = None
+        self.exd = None
+        self.exds = list()
 
     @property
     def fpdtype(self):
@@ -167,13 +158,20 @@ class BaseSolver(object):
         @return: nothing
         """
         import sys
+        from solvcon.mthread import ThreadPool
         # create message device.
         if self.mesg == None: self.__create_mesg()
-        # create executional data.
-        self.exn = self._exeinfotype_(**self.exnkw)
         # detect number of cores.
         if self.ncore == -1 and sys.platform.startswith('linux2'):
             self.ncore = self.detect_ncore()
+        # create executional data.
+        exdtype = self._exedatatype_
+        self.exd = exdtype(svr=self)
+        self.exds = list()
+        for it in range(self.ncore):
+            self.exds.append(exdtype(svr=self))
+        # create thread pool.
+        self.tpool = ThreadPool(nthread=self.ncore)
 
     def init(self, **kw):
         """
@@ -285,8 +283,7 @@ class BlockSolver(BaseSolver):
     @itype _calc_dsoln_args: list
     """
 
-    _pointers_ = ['msh', 'solptr', 'solnptr', 'dsolptr', 'dsolnptr',
-        '_calc_soln_args', '_calc_dsoln_args']
+    _pointers_ = ['msh']
 
     _interface_init_ = ['cecnd', 'cevol']
 
@@ -298,28 +295,12 @@ class BlockSolver(BaseSolver):
 
     IBCSLEEP = None
 
-    def pop_exnkw(self, blk, kw):
-        """
-        Executional keywords poper with block.
-
-        @parameter blk: the block object.
-        @type blk: solvcon.block.Block
-        @parameter kw: the keywords.
-        @type kw: dict
-
-        @return: executional keywords.
-        @rtype: dict
-        """
-        exnkw = super(BlockSolver, self).pop_exnkw(kw)
-        return exnkw
-
     def __init__(self, blk, *args, **kw):
         """
         @keyword neq: number of equations (variables).
         @type neq: int
         """
         from numpy import empty
-        self.exnkw = self.pop_exnkw(blk, kw)
         super(BlockSolver, self).__init__(*args, **kw)
         assert self.fpdtype == blk.fpdtype
         self.ibcthread = kw.pop('ibcthread', False)
@@ -365,7 +346,7 @@ class BlockSolver(BaseSolver):
             (ngstcell+ncell, blk.CLMFC+1, ndim), dtype=self.fpdtype)
         self.cevol = empty((ngstcell+ncell, blk.CLMFC+1), dtype=self.fpdtype)
         ## solutions.
-        neq = self.exnkw['neq']
+        neq = self.neq
         self.sol = empty((ngstcell+ncell, neq), dtype=self.fpdtype)
         self.soln = empty((ngstcell+ncell, neq), dtype=self.fpdtype)
         self.dsol = empty((ngstcell+ncell, neq, ndim), dtype=self.fpdtype)
@@ -397,12 +378,6 @@ class BlockSolver(BaseSolver):
         self.cputime = {
         }
 
-    @property
-    def args_struct(self):
-        from ctypes import byref
-        assert self.msh != None and self.exn != None
-        return [byref(self.msh), byref(self.exn)]
-
     def remote_setattr(self, name, var):
         """
         Remotely set attribute of worker.
@@ -428,22 +403,6 @@ class BlockSolver(BaseSolver):
             ngstnode=self.ngstnode, ngstface=self.ngstface,
             ngstcell=self.ngstcell,
         )
-        # pointers.
-        fpptr = self.fpptr
-        self.solptr = self.sol.ctypes.data_as(fpptr)
-        self.solnptr = self.soln.ctypes.data_as(fpptr)
-        self.dsolptr = self.dsol.ctypes.data_as(fpptr)
-        self.dsolnptr = self.dsoln.ctypes.data_as(fpptr)
-        self._calc_soln_args = self.args_struct + [
-            self.clvol.ctypes.data_as(fpptr),
-            self.solptr,
-            self.solnptr,
-        ]
-        self._calc_dsoln_args = self.args_struct + [
-            self.clcnd.ctypes.data_as(fpptr),
-            self.dsolptr,
-            self.dsolnptr,
-        ]
         # boundary conditions.
         for bc in self.bclist:
             bc.bind()
@@ -494,9 +453,25 @@ class BlockSolver(BaseSolver):
     # CESE solving algorithm.
     ##################################################
     def calc_soln(self):
-        self._clib_solvcon.calc_soln_(*self._calc_soln_args)
+        from ctypes import byref
+        fpptr = self.fpptr
+        self._clib_solvcon.calc_soln_(
+            byref(self.msh),
+            byref(self.exd),
+            self.clvol.ctypes.data_as(fpptr),
+            self.sol.ctypes.data_as(fpptr),
+            self.soln.ctypes.data_as(fpptr),
+        )
     def calc_dsoln(self):
-        self._clib_solvcon.calc_dsoln_(*self._calc_dsoln_args)
+        from ctypes import byref
+        fpptr = self.fpptr
+        self._clib_solvcon.calc_dsoln_(
+            byref(self.msh),
+            byref(self.exd),
+            self.clcnd.ctypes.data_as(fpptr),
+            self.dsol.ctypes.data_as(fpptr),
+            self.dsoln.ctypes.data_as(fpptr),
+        )
 
     def boundcond(self):
         """
@@ -515,14 +490,23 @@ class BlockSolver(BaseSolver):
         self.sol[:,:] = self.soln[:,:]
         self.dsol[:,:,:] = self.dsoln[:,:,:]
 
+    def _set_time(self, time, time_increment):
+        """
+        Set the time for self and structures.
+        """
+        self.exd.time = self.time = time
+        for exd in self.exds:
+            exd.time = time
+        self.exd.time_increment = self.time_increment = time_increment
+        for exd in self.exds:
+            exd.time_increment = time_increment
     def marchsol(self, time, time_increment):
         """
         March the solution U vector in the solver and BCs.
 
         @return: nothing.
         """
-        self.exn.time = time
-        self.exn.time_increment = time_increment
+        self._set_time(time, time_increment)
         self.calc_soln()
     def estimatecfl(self):
         return -2.0
@@ -532,8 +516,7 @@ class BlockSolver(BaseSolver):
 
         @return: nothing.
         """
-        self.exn.time = time
-        self.exn.time_increment = time_increment
+        self._set_time(time, time_increment)
         self.calc_dsoln()
 
     def boundsol(self):
