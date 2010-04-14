@@ -57,14 +57,12 @@ class BaseSolver(object):
 
     @ivar exd: execution information for the solver.
     @itype exd: ctypes.Structure
-    @ivar exds: a list of execution information for the solver.
-    @itype exds: list
     @ivar tpool: thread pool for solver.
     @itype tpool: solvcon.mthread.ThreadPool
     """
 
     __metaclass__ = TypeWithBinder
-    _pointers_ = ['exd', 'exds']
+    _pointers_ = ['exd']
 
     _exedatatype_ = BaseSolverExedata
     _clib_solve = None  # subclass should override.
@@ -89,7 +87,6 @@ class BaseSolver(object):
         self.runanchors = AnchorList(self)
         # data structure for C/FORTRAN.
         self.exd = None
-        self.exds = list()
 
     @property
     def fpdtype(self):
@@ -168,9 +165,6 @@ class BaseSolver(object):
         # create executional data.
         exdtype = self._exedatatype_
         self.exd = exdtype(svr=self)
-        self.exds = list()
-        for it in range(self.ncore):
-            self.exds.append(exdtype(svr=self))
         # create thread pool.
         self.tpool = ThreadPool(nthread=self.ncore)
 
@@ -496,11 +490,7 @@ class BlockSolver(BaseSolver):
         Set the time for self and structures.
         """
         self.exd.time = self.time = time
-        for exd in self.exds:
-            exd.time = time
         self.exd.time_increment = self.time_increment = time_increment
-        for exd in self.exds:
-            exd.time_increment = time_increment
     def marchsol(self, time, time_increment):
         """
         March the solution U vector in the solver and BCs.
