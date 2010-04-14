@@ -20,6 +20,7 @@ class BaseSolverExedata(Structure):
     del c_int, c_double 
     def __init__(self, *args, **kw):
         svr = kw.pop('svr', None)
+        super(BaseSolverExedata, self).__init__(*args, **kw)
         if svr == None:
             return
         for key in ('ncore', 'neq', 'time', 'time_increment'):
