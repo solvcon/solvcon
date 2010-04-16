@@ -335,7 +335,7 @@ class BlockIO(object):
             buf = zlib.decompress(buf)
         else:
             buf = stream.read(length * dobj.itemsize)
-        arr = np.frombuffer(buf, dtype=dtype).reshape(shape)
+        arr = np.frombuffer(buf, dtype=dtype).reshape(shape).copy()
         return arr
 
     def _load_connectivity(self, meta, stream, blk):
@@ -445,7 +445,24 @@ class BlockIO(object):
         @return: nothing.
         """
         import warnings
-        for ibc in range(len(blk.bclist)):
+        from ..boundcond import periodic
+        # match periodic BCs.
+        nmidx = dict([(blk.bclist[idx].name, idx) for idx in
+            range(len(blk.bclist))])
+        npidx = list()
+        for key in name_mapper:
+            bct, val = name_mapper[key]
+            if not issubclass(bct, periodic):
+                npidx.append(nmidx[key])
+                continue
+            ibc0 = nmidx[key]
+            ibc1 = nmidx[val]
+            pbc0 = blk.bclist[ibc0] = bct(blk.bclist[ibc0])
+            pbc1 = blk.bclist[ibc1] = bct(blk.bclist[ibc1])
+            pbc0.couple(pbc1)
+            pbc1.couple(pbc0)
+        # process non-periodic BCs.
+        for ibc in npidx:
             bc = blk.bclist[ibc]
             # recreate BC according to name mapping.
             mapper = name_mapper.get(bc.name, None)
