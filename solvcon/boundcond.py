@@ -254,3 +254,62 @@ class interface(BC):
         assert (self.rclp[:,0]<0).all()
         assert (self.rclp[:,1]>=0).all()
         assert (self.rclp[:,2]>=0).all()
+
+class periodic(interface):
+    """
+    BC type for periodic boundary condition.
+    """
+    typn = -2**15+2
+
+    def sort(self, ref):
+        from numpy import sqrt
+        dist = sqrt(((self.blk.fccnd[self.facn[:,0],:] - ref)**2).sum(axis=1))
+        slct = dist.argsort()
+        self.facn = self.facn[slct,:]
+
+    def couple(self, rbc):
+        """
+        Calculate self.rclp[:,:] form the information about related BC object
+        provided by rbc parameter.
+
+        @param rbc: Related BC object.
+        @type rbc: solvcon.boundcond.periodic
+        @return: nothing.
+        """
+        from numpy import empty
+        blk = self.blk
+        facn = self.facn
+        facn[:,2] = rbc.facn[:,0]
+        # fill informations from related block.
+        self.rblkinfo[:] = (blk.nnode, blk.ngstnode,
+            blk.nface, blk.ngstface, blk.ncell, blk.ngstcell)
+        # calculate indices of related cells.
+        self.rclp = empty((len(self),3), dtype='int32')
+        self.rclp[:,0] = blk.fccls[facn[:,0],1]
+        self.rclp[:,1] = blk.fccls[facn[:,2],0]
+        self.rclp[:,2] = blk.fccls[facn[:,0],0]
+        # assertion.
+        assert (self.rclp[:,0]<0).all()
+        assert (self.rclp[:,1]>=0).all()
+        assert (self.rclp[:,2]>=0).all()
+        # copy metrics.
+        slctm = self.rclp[:,0] + blk.ngstcell
+        slctr = self.rclp[:,1] + blk.ngstcell
+        blk.shcltpn[slctm] = blk.shcltpn[slctr]
+        blk.shclgrp[slctm] = blk.shclgrp[slctr]
+        blk.shclvol[slctm] = blk.shclvol[slctr]
+        # move coordinates.
+        shf = blk.shclcnd[slctr,:] - blk.fccnd[facn[:,2],:]
+        blk.shclcnd[slctm,:] = self.blk.fccnd[facn[:,0],:] + shf
+
+    def sol(self):
+        svr = self.svr
+        slctm = self.rclp[:,0] + svr.ngstcell
+        slctr = self.rclp[:,1] + svr.ngstcell
+        svr.soln[slctm,:] = svr.soln[slctr,:]
+
+    def dsol(self):
+        svr = self.svr
+        slctm = self.rclp[:,0] + svr.ngstcell
+        slctr = self.rclp[:,1] + svr.ngstcell
+        svr.dsoln[slctm,:,:] = svr.dsoln[slctr,:,:]

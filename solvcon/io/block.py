@@ -451,14 +451,18 @@ class BlockIO(object):
             range(len(blk.bclist))])
         npidx = list()
         for key in name_mapper:
-            bct, val = name_mapper[key]
+            bct, vdict = name_mapper[key]
             if not issubclass(bct, periodic):
                 npidx.append(nmidx[key])
                 continue
+            val = vdict['link']
             ibc0 = nmidx[key]
             ibc1 = nmidx[val]
             pbc0 = blk.bclist[ibc0] = bct(blk.bclist[ibc0])
             pbc1 = blk.bclist[ibc1] = bct(blk.bclist[ibc1])
+            ref = vdict['ref']
+            pbc0.sort(ref)
+            pbc1.sort(ref)
             pbc0.couple(pbc1)
             pbc1.couple(pbc0)
         # process non-periodic BCs.
