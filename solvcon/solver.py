@@ -555,6 +555,7 @@ class BlockSolver(BaseSolver):
                 self.timer['bcdsol'] += _time() - t1
                 # increment time.
                 time += time_increment/2
+                self._set_time(time, time_increment)
                 self.runanchors('posthalf')
             self.timer['march'] += _time() - t0
             istep += 1
