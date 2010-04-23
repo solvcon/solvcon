@@ -1,6 +1,9 @@
 import os
 Import('env')
 
+# lib_solvconc.
+lib_solvconc = env.SharedLibrary('lib/_clib_solvconc', Glob('src/*/*.c'))
+
 # lib_solvcon.
 def compile_objects(srcs, ext, F90FLAGS):
     ext = '.' + ext if ext[0] != '.' else ext
@@ -32,7 +35,8 @@ lib_metis = metisenv.SharedLibrary('lib/_clib_metis',
     Glob('%s/*.c'%metissrc))
 
 # name targets and set default.
-solvcon = Alias('solvcon', [lib_solvcon_d, lib_solvcon_s, lib_solvcontest])
+solvcon = Alias('solvcon', [lib_solvconc,
+    lib_solvcon_d, lib_solvcon_s, lib_solvcontest])
 metis = Alias('metis', [lib_metis])
 all = Alias('all', [metis, solvcon])
 Default(all)

@@ -176,6 +176,7 @@ else:
 
 # solvcon environment.
 env = Environment(ENV=os.environ, tools=tools,
+    CPPPATH='src', CFLAGS='-O2',
     F90FLAGS=' '.join(['-O2', FLAG_FPP]),
 )
 def build_epydoc(target, source, env):

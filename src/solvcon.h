@@ -1,0 +1,17 @@
+#ifndef _SOLVCON
+#define _SOLVCON
+
+typedef struct {
+    int ndim;
+    int fcmnd, clmnd, clmfc;
+    int nnode, nface, ncell, nbound;
+    int ngstnode, ngstface, ngstcell;
+    // metric.
+    double *ndcrd, *fccnd, *fcnml, *fcara, *clcnd, *clvol;
+    // meta.
+    int *fctpn, *cltpn, *clgrp;
+    // connectivity.
+    int *fcnds, *fccls, *clnds, *clfcs;
+} MeshData;
+
+#endif

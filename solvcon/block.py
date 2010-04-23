@@ -3,6 +3,7 @@
 
 """Unstructured mesh definition."""
 
+from ctypes import Structure
 from numpy import array
 from .dependency import FortranType
 
@@ -50,6 +51,57 @@ class BlockShape(FortranType):
                 if val == None:
                     val = getattr(blk, name.upper(), None)
                 setattr(self, name, val)
+
+class MeshData(Structure):
+    """
+    Data structure for mesh.
+    """
+    from ctypes import c_int, c_double, POINTER
+    _fields_ = [
+        ('ndim', c_int),
+        ('fcmnd', c_int), ('clmnd', c_int), ('clmfc', c_int),
+        ('nnode', c_int), ('nface', c_int), ('ncell', c_int),
+        ('nbound', c_int),
+        ('ngstnode', c_int), ('ngstface', c_int), ('ngstcell', c_int),
+        # metric.
+        ('ndcrd', POINTER(c_double)),
+        ('fccnd', POINTER(c_double)), ('fcnml', POINTER(c_double)),
+        ('fcara', POINTER(c_double)),
+        ('clcnd', POINTER(c_double)), ('clvol', POINTER(c_double)),
+        # meta.
+        ('fctpn', POINTER(c_int)),
+        ('cltpn', POINTER(c_int)), ('clgrp', POINTER(c_int)),
+        # connectivity.
+        ('fcnds', POINTER(c_int)), ('fccls', POINTER(c_int)),
+        ('clnds', POINTER(c_int)), ('clfcs', POINTER(c_int)),
+    ]
+    del c_int, c_double, POINTER
+
+    def __set_pointer(self, svr, aname, atype):
+        from ctypes import POINTER
+        ptr = getattr(svr, aname).ctypes.data_as(POINTER(atype))
+        setattr(self, aname, ptr)
+
+    def __init__(self, *args, **kw):
+        from ctypes import c_int, c_double
+        blk = kw.pop('blk')
+        super(MeshData, self).__init__(*args, **kw)
+        for key in ('ndim',):
+            setattr(self, key, getattr(blk, key))
+        for key in ('fcmnd', 'clmnd', 'clmfc',):
+            setattr(self, key, getattr(blk, key.upper()))
+        for key in ('nnode', 'nface', 'ncell', 'nbound',
+                    'ngstnode', 'ngstface', 'ngstcell',):
+            setattr(self, key, getattr(blk, key))
+        # metric.
+        for aname in ('ndcrd', 'fccnd', 'fcnml', 'fcara', 'clcnd', 'clvol',):
+            self.__set_pointer(blk, aname, c_double)
+        # meta.
+        for aname in ('fctpn', 'cltpn', 'clgrp',):
+            self.__set_pointer(blk, aname, c_int)
+        # connectivity.
+        for aname in ('fcnds', 'fccls', 'clnds', 'clfcs',):
+            self.__set_pointer(blk, aname, c_int)
 
 class Block(object):
     """
@@ -250,6 +302,9 @@ class Block(object):
         @rtype: BlockShape
         """
         return BlockShape(blk=self)
+
+    def create_msd(self):
+        return MeshData(blk=self)
 
     def calc_metric(self):
         """

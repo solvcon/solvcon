@@ -430,3 +430,9 @@ class TestBlockShape(TestCase):
 end type block"""
         obft = self.oblique.create_shape()
         self.assertEqual(str(obft), shape_text)
+
+class TestMeshData(TestCase):
+    oblique = get_blk_from_oblique_neu()
+
+    def test_meshdata(self):
+        msd = self.oblique.create_msd()
