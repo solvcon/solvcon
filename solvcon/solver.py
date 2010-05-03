@@ -65,6 +65,10 @@ class BaseSolver(object):
     @ivar mmnames: marching methods name.
     @itype mmnames: list
     @ivar marchret: return value set for march.
+
+    @ivar der: the dictionary to put derived data arrays.  Mostly used by
+        Anchors.
+    @itype der: dict
     """
 
     __metaclass__ = TypeWithBinder
@@ -106,6 +110,8 @@ class BaseSolver(object):
         # timer.
         self.timer = Timer()
         self.cputime = Timer()
+        # derived data.
+        self.der = dict()
 
     @property
     def fpdtype(self):
@@ -310,11 +316,13 @@ class BlockSolver(BaseSolver):
 
     @ivar ibcthread: flag if using threads.
     @itype ibcthread: bool
-    @ivar svrn: serial number of block.
+    @ivar ibclist: list of interface BCs.
+    @itype ibclist: list
+
+    @ivar svrn: serial number of solver object.
     @itype svrn: int
-    @ivar der: the dictionary to put derived data arrays.  Mostly used by
-        Anchors.
-    @itype der: dict
+    @ivar nsvr: number of solver objects.
+    @itype nsvr: int
     """
 
     _interface_init_ = []
@@ -334,7 +342,6 @@ class BlockSolver(BaseSolver):
         super(BlockSolver, self).__init__(*args, **kw)
         assert self.fpdtype == blk.fpdtype
         self.ibcthread = kw.pop('ibcthread', False)
-        self.der = dict()
         self.ibclist = None
         # absorb block.
         self.svrn = blk.blkn
@@ -368,12 +375,6 @@ class BlockSolver(BaseSolver):
         self.clcnd = blk.shclcnd
         self.clvol = blk.shclvol
 
-    def remote_setattr(self, name, var):
-        """
-        Remotely set attribute of worker.
-        """
-        return setattr(self, name, var)
-
     def bind(self):
         """
         Bind all the boundary condition objects.
@@ -382,9 +383,6 @@ class BlockSolver(BaseSolver):
             method should firstly bind all pointers, secondly super binder, and 
             then methods/subroutines.
         """
-        from ctypes import byref, c_int
-        from solvcon.mthread import ThreadPool
-        from .block import BlockShape
         super(BlockSolver, self).bind()
         # boundary conditions.
         for bc in self.bclist:
@@ -444,6 +442,12 @@ class BlockSolver(BaseSolver):
     ##################################################
     # parallelization.
     ##################################################
+    def remote_setattr(self, name, var):
+        """
+        Remotely set attribute of worker.
+        """
+        return setattr(self, name, var)
+
     def pull(self, arrname, inder=False, worker=None):
         """
         Pull data array to dealer (rpc) through worker object.
