@@ -59,6 +59,8 @@ class BaseSolver(object):
     @itype exd: ctypes.Structure
     @ivar tpool: thread pool for solver.
     @itype tpool: solvcon.mthread.ThreadPool
+    @ivar mmnames: marching methods name.
+    @itype mmnames: list
     """
 
     __metaclass__ = TypeWithBinder
@@ -68,6 +70,7 @@ class BaseSolver(object):
     _clib_solve = None  # subclass should override.
 
     MESG_FILENAME_DEFAULT = 'solvcon.solver.log'
+    MMNAMES = []
 
     def __init__(self, **kw):
         """
@@ -75,6 +78,7 @@ class BaseSolver(object):
         """
         from .conf import env
         from .anchor import AnchorList
+        from .gendata import Timer
         self._fpdtype = kw.pop('fpdtype', env.fpdtype)
         self._fpdtype = env.fpdtype if self._fpdtype==None else self._fpdtype
         self.enable_mesg = kw.pop('enable_mesg', False)
@@ -83,10 +87,19 @@ class BaseSolver(object):
         self.neq = kw.pop('neq')
         self.time = kw.pop('time', 0.0)
         self.time_increment = kw.pop('time_increment', 0.0)
+        self.step_current = 0
+        self.substep_current = 0
+        self.substep_run = kw.pop('substep_run', 2)
         # anchor list.
         self.runanchors = AnchorList(self)
         # data structure for C/FORTRAN.
         self.exd = None
+        # marching methods name.
+        self.mmnames = self.MMNAMES[:]
+        self.marchret = None
+        # timer.
+        self.timer = Timer()
+        self.cputime = Timer()
 
     @property
     def fpdtype(self):
@@ -181,9 +194,9 @@ class BaseSolver(object):
     def preloop(self):
         self.runanchors('preloop')
 
-    def march(self, time, time_increment, steps_run):
+    def march(self, time, time_increment, steps_run, worker=None):
         """
-        An empty marcher for the solver object.
+        Default marcher for the solver object.
 
         @param time: starting time of marching.
         @type time: float
@@ -191,10 +204,40 @@ class BaseSolver(object):
         @type time_increment: float
         @param steps_run: the count of time steps to run.
         @type steps_run: int
-        @return: maximum CFL number.
+        @return: arbitrary return value.
         @rtype: float
         """
-        return -2.0
+        from time import time as _time
+        maxCFL = -2.0
+        self.step_current = 0
+        while self.step_current < steps_run:
+            self.substep_current = 0
+            self.runanchors('prefull')
+            t0 = _time()
+            while self.substep_current < self.substep_run:
+                self._set_time(time, time_increment)
+                self.runanchors('presub')
+                # run marching methods.
+                for mmname in self.mmnames:
+                    method = getattr(self, mmname)
+                    t1 = _time()
+                    self.runanchors('pre'+mmname)
+                    t2 = _time()
+                    method(worker=worker)
+                    self.timer.increase(mmname, _time() - t2)
+                    self.runanchors('post'+mmname)
+                    self.timer.increase(mmname, _time() - t1)
+                # increment time.
+                time += time_increment/self.substep_run
+                self._set_time(time, time_increment)
+                self.runanchors('postsub')
+                self.substep_current += 1
+            self.timer.increase('march', _time() - t0)
+            self.step_current += 1
+            self.runanchors('postfull')
+        if worker:
+            worker.conn.send(self.marchret)
+        return self.marchret
 
     def postloop(self):
         self.runanchors('postloop')
@@ -353,20 +396,6 @@ class BlockSolver(BaseSolver):
         # calculator arguments.
         self._calc_soln_args = None
         self._calc_dsoln_args = None
-        # timer.
-        self.timer = {
-            'update': 0.0,
-            'march': 0.0,
-            'msol': 0.0,
-            'ibcsol': 0.0,
-            'bcsol': 0.0,
-            'cfl': 0.0,
-            'mdsol': 0.0,
-            'ibcdsol': 0.0,
-            'bcdsol': 0.0,
-        }
-        self.cputime = {
-        }
 
     def remote_setattr(self, name, var):
         """
@@ -440,132 +469,7 @@ class BlockSolver(BaseSolver):
         super(BlockSolver, self).init(**kw)
 
     ##################################################
-    # CESE solving algorithm.
-    ##################################################
-    def calc_soln(self):
-        from ctypes import byref
-        fpptr = self.fpptr
-        self._clib_solvcon.calc_soln_(
-            byref(self.msh),
-            byref(self.exd),
-            self.clvol.ctypes.data_as(fpptr),
-            self.sol.ctypes.data_as(fpptr),
-            self.soln.ctypes.data_as(fpptr),
-        )
-    def calc_dsoln(self):
-        from ctypes import byref
-        fpptr = self.fpptr
-        self._clib_solvcon.calc_dsoln_(
-            byref(self.msh),
-            byref(self.exd),
-            self.clcnd.ctypes.data_as(fpptr),
-            self.dsol.ctypes.data_as(fpptr),
-            self.dsoln.ctypes.data_as(fpptr),
-        )
-
-    def boundcond(self):
-        """
-        Update the boundary conditions.
-
-        @return: nothing.
-        """
-        for bc in self.bclist: bc.sol()
-        for bc in self.bclist: bc.dsol() 
-    def update(self):
-        """
-        Copy from old solution arrays to new solution arrays.
-
-        @return: nothing.
-        """
-        self.sol[:,:] = self.soln[:,:]
-        self.dsol[:,:,:] = self.dsoln[:,:,:]
-
-    def _set_time(self, time, time_increment):
-        """
-        Set the time for self and structures.
-        """
-        self.exd.time = self.time = time
-        self.exd.time_increment = self.time_increment = time_increment
-    def marchsol(self, time, time_increment):
-        """
-        March the solution U vector in the solver and BCs.
-
-        @return: nothing.
-        """
-        self._set_time(time, time_increment)
-        self.calc_soln()
-    def estimatecfl(self):
-        return -2.0
-    def marchdsol(self, time, time_increment):
-        """
-        March the gradient of solution dU vector in the solver and BCs.
-
-        @return: nothing.
-        """
-        self._set_time(time, time_increment)
-        self.calc_dsoln()
-
-    def boundsol(self):
-        for bc in self.bclist: bc.sol()
-    def bounddsol(self):
-        for bc in self.bclist: bc.dsol()
-
-    def march(self, time, time_increment, steps_run, worker=None):
-        from time import time as _time
-        maxCFL = -2.0
-        istep = 0
-        while istep < steps_run:
-            self.runanchors('prefull')
-            t0 = _time()
-            for ihalf in range(2):
-                self.runanchors('prehalf')
-                t1 = _time()
-                self.update()
-                self.timer['update'] += _time() - t1
-                # solutions.
-                self.runanchors('premarchsol')
-                t1 = _time()
-                self.marchsol(time, time_increment)
-                self.timer['msol'] += _time() - t1
-                self.runanchors('preexsoln')
-                t1 = _time()
-                if worker: self.exchangeibc('soln', worker=worker)
-                self.timer['ibcsol'] += _time() - t1
-                self.runanchors('prebcsoln')
-                t1 = _time()
-                for bc in self.bclist: bc.sol()
-                self.timer['bcsol'] += _time() - t1
-                self.runanchors('precfl')
-                t1 = _time()
-                cCFL = self.estimatecfl()
-                maxCFL = cCFL if cCFL > maxCFL else maxCFL
-                self.timer['cfl'] += _time() - t1
-                # solution gradients.
-                self.runanchors('premarchdsol')
-                t1 = _time()
-                self.marchdsol(time, time_increment)
-                self.timer['mdsol'] += _time() - t1
-                self.runanchors('preexdsoln')
-                t1 = _time()
-                if worker: self.exchangeibc('dsoln', worker=worker)
-                self.timer['ibcdsol'] += _time() - t1
-                self.runanchors('prebcdsoln')
-                t1 = _time()
-                for bc in self.bclist: bc.dsol()
-                self.timer['bcdsol'] += _time() - t1
-                # increment time.
-                time += time_increment/2
-                self._set_time(time, time_increment)
-                self.runanchors('posthalf')
-            self.timer['march'] += _time() - t0
-            istep += 1
-            self.runanchors('postfull')
-        if worker:
-            worker.conn.send(maxCFL)
-        return maxCFL
-
-    ##################################################
-    # below are for parallelization.
+    # parallelization.
     ##################################################
     def pull(self, arrname, inder=False, worker=None):
         """
@@ -724,3 +628,73 @@ class BlockSolver(BaseSolver):
         rarr = conn.recv()  # comm.
         slct = bc.rclp[:,0] + ngstcell
         arr[slct] = rarr[:]
+
+    ##################################################
+    # marching helpers.
+    ##################################################
+    def _set_time(self, time, time_increment):
+        """
+        Set the time for self and structures.
+        """
+        self.exd.time = self.time = time
+        self.exd.time_increment = self.time_increment = time_increment
+
+    def boundcond(self):
+        """
+        Update the boundary conditions.
+
+        @return: nothing.
+        """
+        for bc in self.bclist: bc.sol()
+        for bc in self.bclist: bc.dsol()
+
+    ##################################################
+    # marching algorithm.
+    ##################################################
+    MMNAMES = list()
+    MMNAMES.append('update')
+    def update(self, worker=None):
+        self.sol[:,:] = self.soln[:,:]
+        self.dsol[:,:,:] = self.dsoln[:,:,:]
+
+    MMNAMES.append('calcsoln')
+    def calcsoln(self, worker=None):
+        from ctypes import byref
+        fpptr = self.fpptr
+        self._clib_solvcon.calc_soln_(
+            byref(self.msh),
+            byref(self.exd),
+            self.clvol.ctypes.data_as(fpptr),
+            self.sol.ctypes.data_as(fpptr),
+            self.soln.ctypes.data_as(fpptr),
+        )
+
+    MMNAMES.append('ibcsol')
+    def ibcsol(self, worker=None):
+        if worker: self.exchangeibc('soln', worker=worker)
+    MMNAMES.append('bcsol')
+    def bcsol(self, worker=None):
+        for bc in self.bclist: bc.sol()
+
+    MMNAMES.append('calccfl')
+    def calccfl(self, worker=None):
+        self.marchret = -2.0
+
+    MMNAMES.append('calcdsoln')
+    def calcdsoln(self, worker=None):
+        from ctypes import byref
+        fpptr = self.fpptr
+        self._clib_solvcon.calc_dsoln_(
+            byref(self.msh),
+            byref(self.exd),
+            self.clcnd.ctypes.data_as(fpptr),
+            self.dsol.ctypes.data_as(fpptr),
+            self.dsoln.ctypes.data_as(fpptr),
+        )
+
+    MMNAMES.append('ibcdsol')
+    def ibcdsol(self, worker=None):
+        if worker: self.exchangeibc('dsoln', worker=worker)
+    MMNAMES.append('bcdsol')
+    def bcdsol(self, worker=None):
+        for bc in self.bclist: bc.dsol()

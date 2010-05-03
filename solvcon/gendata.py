@@ -55,6 +55,13 @@ class SingleAssignDict(dict):
                 str(key), str(self[key]))
         super(SingleAssignDict, self).__setitem__(key, item)
 
+class Timer(dict):
+    """
+    Timer dictionary with increase method.
+    """
+    def increase(self, key, delta):
+        self[key] = self.get(key, 0.0) + delta
+
 # Define the base metaclass for classes want binders.
 def bind(self):
     """

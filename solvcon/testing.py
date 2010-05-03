@@ -7,6 +7,7 @@ Provide functionalities for unittests.
 
 import os
 from unittest import TestCase
+from .solver import BlockSolver
 
 def loadfile(filename):
     """
@@ -47,3 +48,55 @@ def get_blk_from_oblique_neu(fpdtype=None):
     }
     return GambitNeutral(loadfile('oblique.neu')
         ).toblock(bcname_mapper=bcname_mapper, fpdtype=fpdtype)
+
+class TestingSolver(BlockSolver):
+    ##################################################
+    # marching algorithm.
+    ##################################################
+    MMNAMES = list()
+    MMNAMES.append('update')
+    def update(self, worker=None):
+        self.sol[:,:] = self.soln[:,:]
+        self.dsol[:,:,:] = self.dsoln[:,:,:]
+
+    MMNAMES.append('calcsoln')
+    def calcsoln(self, worker=None):
+        from ctypes import byref
+        fpptr = self.fpptr
+        self._clib_solvcon.calc_soln_(
+            byref(self.msh),
+            byref(self.exd),
+            self.clvol.ctypes.data_as(fpptr),
+            self.sol.ctypes.data_as(fpptr),
+            self.soln.ctypes.data_as(fpptr),
+        )
+
+    MMNAMES.append('ibcsol')
+    def ibcsol(self, worker=None):
+        if worker: self.exchangeibc('soln', worker=worker)
+    MMNAMES.append('bcsol')
+    def bcsol(self, worker=None):
+        for bc in self.bclist: bc.sol()
+
+    MMNAMES.append('calccfl')
+    def calccfl(self, worker=None):
+        self.marchret = -2.0
+
+    MMNAMES.append('calcdsoln')
+    def calcdsoln(self, worker=None):
+        from ctypes import byref
+        fpptr = self.fpptr
+        self._clib_solvcon.calc_dsoln_(
+            byref(self.msh),
+            byref(self.exd),
+            self.clcnd.ctypes.data_as(fpptr),
+            self.dsol.ctypes.data_as(fpptr),
+            self.dsoln.ctypes.data_as(fpptr),
+        )
+
+    MMNAMES.append('ibcdsol')
+    def ibcdsol(self, worker=None):
+        if worker: self.exchangeibc('dsoln', worker=worker)
+    MMNAMES.append('bcdsol')
+    def bcdsol(self, worker=None):
+        for bc in self.bclist: bc.dsol()

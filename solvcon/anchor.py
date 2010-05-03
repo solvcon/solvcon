@@ -87,7 +87,9 @@ class AnchorList(list):
         if method == 'postloop' or method == 'exhaust':
             runanchors = reversed(runanchors)
         for anchor in runanchors:
-            getattr(anchor, method)()
+            func = getattr(anchor, method, None)
+            if func != None:
+                func()
 
 class RuntimeStatAnchor(Anchor):
     """
@@ -363,7 +365,7 @@ class RuntimeStatAnchor(Anchor):
         rec = self._get_record()
         # output the messages.
         time = rec['time']
-        for mkey in ['march', 'cpu', 'loadavg', 'mem', 'setting', 'envar']:
+        for mkey in ['cpu', 'loadavg', 'mem', 'setting', 'envar']:
             method = getattr(self, '_msg_%s'%mkey)
             self.svr.mesg('RT_%s: %.20e %s\n' % (mkey, time, method(rec)))
         # save.
