@@ -262,57 +262,6 @@ class RuntimeStatAnchor(Anchor):
         ax.set_ylim([0,100])
         ax.legend(loc=lloc)
 
-    def _msg_march(self, record):
-        return '%g %g %g %g %g %g %g %g %g' % (
-            record['march'], record['update'], record['cfl'],
-            record['msol'], record['ibcsol'], record['bcsol'],
-            record['mdsol'], record['ibcdsol'], record['bcdsol'],
-        )
-    @staticmethod
-    def _parse_march(line):
-        return [float(tok) for tok in line.split()]
-    @classmethod
-    def plot_march(cls, lines, ax, xtime=False, showx=True,
-            lloc='upper right'):
-        arr, xval, xlabel = cls._parse(lines, 'march', xtime)
-        arr[1:,:] = arr[1:,:] - arr[:-1,:]
-        arr[0,:] = arr[1,:]
-        ax.plot(xval, arr[:,0], '-', label='march')
-        ax.plot(xval, arr[:,3], '--', label='msol')
-        ax.plot(xval, arr[:,6], ':', label='mdsol')
-        ax.plot(xval, arr[:,2], 'x', label='cfl')
-        if showx: ax.set_xlabel(xlabel)
-        ax.set_ylabel('March (s)')
-        ax.set_ylim([0, arr.mean(axis=0).take((0,3,6,2)).max()*1.1])
-        ax.legend(loc=lloc)
-    @classmethod
-    def plot_marchother(cls, lines, ax, xtime=False, showx=True,
-            lloc='upper left'):
-        arr, xval, xlabel = cls._parse(lines, 'march', xtime)
-        arr[1:,:] = arr[1:,:] - arr[:-1,:]
-        arr[0,:] = arr[1,:]
-        rest = arr[:,0] - arr[:,1:].sum(axis=1)
-        ax.plot(xval, arr[:,1], '-', label='update')
-        ax.plot(xval, arr[:,4], '+', label='ibcsol')
-        ax.plot(xval, arr[:,7], 'x', label='ibcdsol')
-        ax.plot(xval, arr[:,5], '--', label='bcsol')
-        ax.plot(xval, arr[:,8], ':', label='bcdsol')
-        ax.plot(xval, rest, '.k', label='remain')
-        if showx: ax.set_xlabel(xlabel)
-        ax.set_ylabel('March other (s)')
-        ax.set_ylim([0, arr.mean(axis=0).take((1,4,7,5,8)).max()*1.1])
-        ax.legend(loc=lloc)
-    @classmethod
-    def plot_perf(cls, lines, ax, xtime=False, showx=True,
-            lloc=None):
-        arr, xval, xlabel = cls._parse(lines, 'march', xtime)
-        arr[1:,:] = arr[1:,:] - arr[:-1,:]
-        arr[0,:] = arr[1,:]
-        time = arr[:,0]
-        ax.plot(xval, 1./time, '-')
-        if showx: ax.set_xlabel(xlabel)
-        ax.set_ylabel('Performance (iter/s)')
-
     def _msg_mem(self, record):
         return '%d' % record['vsize']
     @staticmethod
@@ -371,14 +320,51 @@ class RuntimeStatAnchor(Anchor):
         # save.
         self.records.append(rec)
 
-class CalcStatAnchor(Anchor):
+class MarchStatAnchor(Anchor):
     """
-    Report the time used in each calculating subroutine.
+    Report the time used in each methods of marching.
     """
 
-    def __init__(self, svr, **kw):
-        self.recorders = kw.pop('recorders', [])
-        super(CalcStatAnchor, self).__init__(svr, **kw)
+    @classmethod
+    def plot(cls, keys, lines, ax, lloc='best'):
+        maxavg = 0.0
+        for key in keys:
+            arr, xval, xlabel = cls._parse(lines, key)
+            ax.plot(xval, arr[:,0], label='%s'%key)
+            maxavg = max(arr[:,0].mean(), maxavg)
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel('Time (s)')
+        ax.set_ylim([0.0, maxavg*1.5])
+        ax.legend(loc=lloc)
+
+    @classmethod
+    def _parse(cls, lines, key):
+        from numpy import array, arange
+        myhead = 'MA_%s: ' % key
+        nmyhead = len(myhead)
+        data = list()
+        for line in lines:
+            loc = line.find(myhead)
+            if loc > -1:
+                data.append([float(val) for val in line[loc+nmyhead:].split()])
+        arr = array(data, dtype='float64')
+        arr[1:,:] = arr[1:,:] - arr[:-1,:]
+        arr[0,:] = arr[1,:]
+        xval = arange(arr.shape[0])+1
+        xlabel = 'Steps'
+        return arr, xval.copy(), xlabel
+
+    def postfull(self):
+        for key in self.svr.mmnames:
+            val = self.svr.timer.get(key, None)
+            if val == None:
+                continue
+            self.svr.mesg('MA_%s: %g\n' % (key, val))
+
+class TpoolStatAnchor(Anchor):
+    """
+    Report the ticks used in each threads in pool.
+    """
 
     @classmethod
     def plot(cls, key, lines, ax, showx=True, lloc='best'):
@@ -392,7 +378,7 @@ class CalcStatAnchor(Anchor):
     @classmethod
     def _parse(cls, lines, key):
         from numpy import array, arange
-        myhead = 'CP_%s: ' % key
+        myhead = 'TP_%s: ' % key
         nmyhead = len(myhead)
         data = list()
         for line in lines:
@@ -407,12 +393,12 @@ class CalcStatAnchor(Anchor):
         return arr, xval.copy(), xlabel
 
     def postfull(self):
-        for key in self.recorders:
-            if key not in self.svr.cputime:
+        for key in self.svr.mmnames:
+            if key not in self.svr.ticker:
                 continue
-            vals = self.svr.cputime[key]
+            vals = self.svr.ticker[key]
             nval = len(vals)
-            self.svr.mesg('CP_%s: %s\n' % (
+            self.svr.mesg('TP_%s: %s\n' % (
                 key, ' '.join(['%d'%val for val in vals])
             ))
 

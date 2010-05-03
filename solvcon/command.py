@@ -286,19 +286,19 @@ class log_runtime(SolverLog):
         if nplot and ops.filename == None:
             plt.show()
 
-class log_calc(SolverLog):
+class log_march(SolverLog):
     """
-    Show output from CalcStatAnchor.
+    Show output from MarchStatAnchor.
     """
 
     min_args = 1
 
     def __init__(self, env):
         from optparse import OptionGroup
-        super(log_calc, self).__init__(env)
+        super(log_march, self).__init__(env)
         op = self.op
 
-        opg = OptionGroup(op, 'Show Calc')
+        opg = OptionGroup(op, 'Show March')
         opg.add_option('-k', action='store',
             dest='plotkeys', default='',
             help='Keys to plot.',
@@ -336,7 +336,85 @@ class log_calc(SolverLog):
 
     def __call__(self):
         import os, sys
-        from .anchor import CalcStatAnchor
+        from .anchor import MarchStatAnchor
+        ops, args = self.opargs
+        # count plots.
+        plotkeys = ops.plotkeys.split(',')
+        nplot = len(plotkeys)
+        self._init_mpl(nplot)
+        from matplotlib import pyplot as plt
+        # get source and destination.
+        datas = self._get_datas()
+        # plot.
+        if nplot == 0:
+            return
+        for lines, src, dst in datas:
+            fig = plt.figure()
+            ax = fig.add_subplot(1, 1, 1)
+            kws = dict()
+            if ops.lloc != None:
+                kws['lloc'] = ops.lloc
+            MarchStatAnchor.plot(plotkeys, lines, ax, **kws)
+            sys.stdout.write('%s processed' % src)
+            if dst != None:
+                plt.savefig(dst)
+                sys.stdout.write(' and written to %s.' % dst)
+            sys.stdout.write('\n')
+        # show.
+        if ops.filename == None:
+            plt.show()
+
+class log_tpool(SolverLog):
+    """
+    Show output from TpoolStatAnchor.
+    """
+
+    min_args = 1
+
+    def __init__(self, env):
+        from optparse import OptionGroup
+        super(log_tpool, self).__init__(env)
+        op = self.op
+
+        opg = OptionGroup(op, 'Show Tpool')
+        opg.add_option('-k', action='store',
+            dest='plotkeys', default='',
+            help='Keys to plot.',
+        )
+        opg.add_option('--lloc', action='store',
+            dest='lloc', default=None,
+            help='Legend location.  Default is None (by plot).',
+        )
+        opg.add_option('--scale', action='store', type=int,
+            dest='scale', default=0.6,
+            help='The scale when having more than one subplot.'
+                 ' Default is 0.6.',
+        )
+        op.add_option_group(opg)
+        self.opg_arrangement = opg
+
+    def _init_mpl(self, nplot):
+        import matplotlib
+        ops, args = self.opargs
+        figsize = matplotlib.rcParams['figure.figsize']
+        top = matplotlib.rcParams['figure.subplot.top']
+        bottom = matplotlib.rcParams['figure.subplot.bottom']
+        if nplot > 1:
+            upscale = nplot*ops.scale
+            top = 1.0 - (1.0-top)*(1.0-top)/((1.0-top)*upscale)
+            bottom = bottom*bottom/(bottom*upscale)
+            figsize = figsize[0], figsize[1]*upscale
+        matplotlib.rcParams.update({
+            'backend': ops.backend,
+            'figure.figsize': figsize,
+            'figure.subplot.top': top,
+            'figure.subplot.bottom': bottom,
+        })
+        matplotlib.use(ops.backend)
+
+    def __call__(self):
+        import os, sys
+        from .anchor import TpoolStatAnchor
         ops, args = self.opargs
         # count plots.
         plotkeys = ops.plotkeys.split(',')
@@ -357,7 +435,7 @@ class log_calc(SolverLog):
                 }
                 if ops.lloc != None:
                     kws['lloc'] = ops.lloc
-                CalcStatAnchor.plot(key, lines, ax, **kws)
+                TpoolStatAnchor.plot(key, lines, ax, **kws)
                 iplot += 1
             if nplot:
                 sys.stdout.write('%s processed' % src)

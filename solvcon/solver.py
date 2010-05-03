@@ -108,8 +108,8 @@ class BaseSolver(object):
         self.mmnames = self.MMNAMES[:]
         self.marchret = None
         # timer.
-        self.timer = Timer()
-        self.cputime = Timer()
+        self.timer = Timer(vtype=float)
+        self.ticker = dict()
         # derived data.
         self.der = dict()
 
@@ -191,11 +191,12 @@ class BaseSolver(object):
             setattr(self, key, holds[key])
         self.bind()
 
-    def _tcall(self, cfunc, iter_start, iter_end):
+    def _tcall(self, cfunc, iter_start, iter_end, tickerkey=None):
         """
         Use thread pool to call C functions in parallel (shared-memory).
         """
         from ctypes import byref, c_int
+        from numpy import zeros
         ncore = self.ncore
         if ncore > 0:
             incre = (iter_end-iter_start)/ncore + 1
@@ -208,6 +209,11 @@ class BaseSolver(object):
             ret = self.tpool(cfunc, self.arglists)
         else:
             ret = [cfunc(byref(self.exd), c_int(iter_start), c_int(iter_end))]
+        if tickerkey != None:
+            if tickerkey not in self.ticker:
+                self.ticker[tickerkey] = zeros(len(ret), dtype='int32')
+            for it in range(len(ret)):
+                self.ticker[tickerkey][it] += ret[it]
         return ret
 
     def bind(self):

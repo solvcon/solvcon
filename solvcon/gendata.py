@@ -59,8 +59,11 @@ class Timer(dict):
     """
     Timer dictionary with increase method.
     """
+    def __init__(self, *args, **kw):
+        self.vtype = kw.pop('vtype', float)
+        super(Timer, self).__init__(*args, **kw)
     def increase(self, key, delta):
-        self[key] = self.get(key, 0.0) + delta
+        self[key] = self.get(key, self.vtype(0)) + self.vtype(delta)
 
 # Define the base metaclass for classes want binders.
 def bind(self):
