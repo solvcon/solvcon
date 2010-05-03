@@ -122,6 +122,16 @@ class BaseSolver(object):
         from .dependency import _clib_solvcon_of
         return _clib_solvcon_of(self.fpdtype)
 
+    @staticmethod
+    def detect_ncore():
+        f = open('/proc/stat')
+        data = f.read()
+        f.close()
+        cpulist = [line for line in data.split('\n') if
+            line.startswith('cpu')]
+        cpulist = [line for line in cpulist if line.split()[0] != 'cpu']
+        return len(cpulist)
+
     def __create_mesg(self, force=False):
         """
         Create the message outputing device, which is intended for debugging
@@ -151,15 +161,23 @@ class BaseSolver(object):
             dprefix = ''
         self.mesg = Printer(dfn, prefix=dprefix, override=True)
 
-    @staticmethod
-    def detect_ncore():
-        f = open('/proc/stat')
-        data = f.read()
-        f.close()
-        cpulist = [line for line in data.split('\n') if
-            line.startswith('cpu')]
-        cpulist = [line for line in cpulist if line.split()[0] != 'cpu']
-        return len(cpulist)
+    def dump(self, objfn):
+        """
+        Pickle self into the given filename.
+
+        @parameter objfn: the output filename.
+        @type objfn: str
+        """
+        import cPickle as pickle
+        holds = dict()
+        self.unbind()
+        for key in ['mesg',]:
+            holds[key] = getattr(self, key)
+            setattr(self, key, None)
+        pickle.dump(self, open(objfn, 'wb'), pickle.HIGHEST_PROTOCOL)
+        for key in holds:
+            setattr(self, key, holds[key])
+        self.bind()
 
     def bind(self):
         """
@@ -189,10 +207,30 @@ class BaseSolver(object):
         """
         pass
 
+    def final(self):
+        """
+        An empty finalizer for the solver object.
+
+        @return: nothing.
+        """
+        pass
+
     def provide(self):
         self.runanchors('provide')
     def preloop(self):
         self.runanchors('preloop')
+
+    def postloop(self):
+        self.runanchors('postloop')
+    def exhaust(self):
+        self.runanchors('exhaust')
+
+    def _set_time(self, time, time_increment):
+        """
+        Set the time for self and structures.
+        """
+        self.exd.time = self.time = time
+        self.exd.time_increment = self.time_increment = time_increment
 
     def march(self, time, time_increment, steps_run, worker=None):
         """
@@ -239,37 +277,6 @@ class BaseSolver(object):
             worker.conn.send(self.marchret)
         return self.marchret
 
-    def postloop(self):
-        self.runanchors('postloop')
-    def exhaust(self):
-        self.runanchors('exhaust')
-
-    def final(self):
-        """
-        An empty finalizer for the solver object.
-
-        @return: nothing.
-        """
-        pass
-
-    def dump(self, objfn):
-        """
-        Pickle self into the given filename.
-
-        @parameter objfn: the output filename.
-        @type objfn: str
-        """
-        import cPickle as pickle
-        holds = dict()
-        self.unbind()
-        for key in ['mesg',]:
-            holds[key] = getattr(self, key)
-            setattr(self, key, None)
-        pickle.dump(self, open(objfn, 'wb'), pickle.HIGHEST_PROTOCOL)
-        for key in holds:
-            setattr(self, key, holds[key])
-        self.bind()
-
 class BlockSolver(BaseSolver):
     """
     Generic class for multi-dimensional (implemented with Block)
@@ -287,40 +294,14 @@ class BlockSolver(BaseSolver):
 
     @ivar ibcthread: flag if using threads.
     @itype ibcthread: bool
-
     @ivar svrn: serial number of block.
     @itype svrn: int
-    @ivar msh: shape information of the Block.
-    @itype msh: solvecon.block.BlockShape
-
-    @ivar cecnd: coordinates of center of CCE/BCEs.
-    @itype cecnd: numpy.ndarray
-    @ivar cevol: volumes of CCE/BCEs.
-    @itype cevol: numpy.ndarray
-
-    @ivar sol: solution variables (for last time-step).
-    @itype sol: numpy.ndarray
-    @ivar soln: solution variables (to be updated for the marching time-step).
-    @itype soln: numpy.ndarray
-    @ivar dsol: gradient of solution variables (for last time-step).
-    @itype dsol: numpy.ndarray
-    @ivar dsoln: gradient of solution variables (to be updated for the marching
-        time-step).
-    @itype dsoln: numpy.ndarray
-
     @ivar der: the dictionary to put derived data arrays.  Mostly used by
         Anchors.
     @itype der: dict
-
-    @ivar _calc_soln_args: a list of ctypes entities for marchsol() method.
-    @itype _calc_soln_args: list
-    @ivar _calc_dsoln_args: a list of ctypes entities for dmarchsol() method.
-    @itype _calc_dsoln_args: list
     """
 
-    _pointers_ = ['msh']
-
-    _interface_init_ = ['cecnd', 'cevol']
+    _interface_init_ = []
 
     from .block import Block
     FCMND = Block.FCMND
@@ -337,11 +318,12 @@ class BlockSolver(BaseSolver):
         super(BlockSolver, self).__init__(*args, **kw)
         assert self.fpdtype == blk.fpdtype
         self.ibcthread = kw.pop('ibcthread', False)
+        self.der = dict()
+        self.ibclist = None
         # absorb block.
-        ## meta-data.
         self.svrn = blk.blkn
         self.nsvr = None
-        ### shape.
+        ## shape.
         self.ndim = blk.ndim
         self.nnode = blk.nnode
         self.nface = blk.nface
@@ -350,7 +332,7 @@ class BlockSolver(BaseSolver):
         self.ngstnode = blk.ngstnode
         self.ngstface = blk.ngstface
         self.ngstcell = blk.ngstcell
-        ### cell grouping and BCs.
+        ## cell grouping and BCs.
         self.grpnames = blk.grpnames
         self.clgrp = blk.shclgrp
         self.bclist = blk.bclist
@@ -365,37 +347,10 @@ class BlockSolver(BaseSolver):
         ## metrics.
         self.ndcrd = blk.shndcrd
         self.fccnd = blk.shfccnd
+        self.fcara = blk.shfcara
         self.fcnml = blk.shfcnml
         self.clcnd = blk.shclcnd
         self.clvol = blk.shclvol
-        # data structure for C/FORTRAN.
-        self.msh = None
-        # create arrays.
-        ndim = self.ndim
-        ncell = self.ncell
-        ngstcell = self.ngstcell
-        ## metrics.
-        self.cecnd = empty(
-            (ngstcell+ncell, blk.CLMFC+1, ndim), dtype=self.fpdtype)
-        self.cevol = empty((ngstcell+ncell, blk.CLMFC+1), dtype=self.fpdtype)
-        ## solutions.
-        neq = self.neq
-        self.sol = empty((ngstcell+ncell, neq), dtype=self.fpdtype)
-        self.soln = empty((ngstcell+ncell, neq), dtype=self.fpdtype)
-        self.dsol = empty((ngstcell+ncell, neq, ndim), dtype=self.fpdtype)
-        self.dsoln = empty((ngstcell+ncell, neq, ndim), dtype=self.fpdtype)
-        ## derived data.
-        self.der = dict()
-        # interface BC information list.
-        self.ibclist = None
-        # pointers for solutions.
-        self.solptr = None
-        self.solnptr = None
-        self.dsolptr = None
-        self.dsolnptr = None
-        # calculator arguments.
-        self._calc_soln_args = None
-        self._calc_dsoln_args = None
 
     def remote_setattr(self, name, var):
         """
@@ -413,15 +368,6 @@ class BlockSolver(BaseSolver):
         """
         from .block import BlockShape
         super(BlockSolver, self).bind()
-        # structures.
-        self.msh = BlockShape(
-            ndim=self.ndim,
-            fcmnd=self.FCMND, clmnd=self.CLMND, clmfc=self.CLMFC,
-            nnode=self.nnode, nface=self.nface, ncell=self.ncell,
-            nbound=self.nbound,
-            ngstnode=self.ngstnode, ngstface=self.ngstface,
-            ngstcell=self.ngstcell,
-        )
         # boundary conditions.
         for bc in self.bclist:
             bc.bind()
@@ -467,6 +413,15 @@ class BlockSolver(BaseSolver):
         for bc in self.bclist:
             bc.init(**kw)
         super(BlockSolver, self).init(**kw)
+
+    def boundcond(self):
+        """
+        Update the boundary conditions.
+
+        @return: nothing.
+        """
+        for bc in self.bclist: bc.sol()
+        for bc in self.bclist: bc.dsol()
 
     ##################################################
     # parallelization.
@@ -628,73 +583,3 @@ class BlockSolver(BaseSolver):
         rarr = conn.recv()  # comm.
         slct = bc.rclp[:,0] + ngstcell
         arr[slct] = rarr[:]
-
-    ##################################################
-    # marching helpers.
-    ##################################################
-    def _set_time(self, time, time_increment):
-        """
-        Set the time for self and structures.
-        """
-        self.exd.time = self.time = time
-        self.exd.time_increment = self.time_increment = time_increment
-
-    def boundcond(self):
-        """
-        Update the boundary conditions.
-
-        @return: nothing.
-        """
-        for bc in self.bclist: bc.sol()
-        for bc in self.bclist: bc.dsol()
-
-    ##################################################
-    # marching algorithm.
-    ##################################################
-    MMNAMES = list()
-    MMNAMES.append('update')
-    def update(self, worker=None):
-        self.sol[:,:] = self.soln[:,:]
-        self.dsol[:,:,:] = self.dsoln[:,:,:]
-
-    MMNAMES.append('calcsoln')
-    def calcsoln(self, worker=None):
-        from ctypes import byref
-        fpptr = self.fpptr
-        self._clib_solvcon.calc_soln_(
-            byref(self.msh),
-            byref(self.exd),
-            self.clvol.ctypes.data_as(fpptr),
-            self.sol.ctypes.data_as(fpptr),
-            self.soln.ctypes.data_as(fpptr),
-        )
-
-    MMNAMES.append('ibcsol')
-    def ibcsol(self, worker=None):
-        if worker: self.exchangeibc('soln', worker=worker)
-    MMNAMES.append('bcsol')
-    def bcsol(self, worker=None):
-        for bc in self.bclist: bc.sol()
-
-    MMNAMES.append('calccfl')
-    def calccfl(self, worker=None):
-        self.marchret = -2.0
-
-    MMNAMES.append('calcdsoln')
-    def calcdsoln(self, worker=None):
-        from ctypes import byref
-        fpptr = self.fpptr
-        self._clib_solvcon.calc_dsoln_(
-            byref(self.msh),
-            byref(self.exd),
-            self.clcnd.ctypes.data_as(fpptr),
-            self.dsol.ctypes.data_as(fpptr),
-            self.dsoln.ctypes.data_as(fpptr),
-        )
-
-    MMNAMES.append('ibcdsol')
-    def ibcdsol(self, worker=None):
-        if worker: self.exchangeibc('dsoln', worker=worker)
-    MMNAMES.append('bcdsol')
-    def bcdsol(self, worker=None):
-        for bc in self.bclist: bc.dsol()

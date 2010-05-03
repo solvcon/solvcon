@@ -1,11 +1,11 @@
 from unittest import TestCase
 
-from ..solver import BlockSolver
-class CustomBlockSolver(BlockSolver):
+from ..testing import TestingSolver
+class CustomBlockSolver(TestingSolver):
     import os
     DEBUG_FILENAME_DEFAULT = os.devnull
     del os
-del BlockSolver
+del TestingSolver
 
 class TestAnchor(TestCase):
     neq = 1

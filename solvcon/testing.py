@@ -50,6 +50,54 @@ def get_blk_from_oblique_neu(fpdtype=None):
         ).toblock(bcname_mapper=bcname_mapper, fpdtype=fpdtype)
 
 class TestingSolver(BlockSolver):
+    _pointers_ = ['msh']
+
+    _interface_init_ = ['cecnd', 'cevol']
+
+    def __init__(self, blk, *args, **kw):
+        """
+        @keyword neq: number of equations (variables).
+        @type neq: int
+        """
+        from numpy import empty
+        super(TestingSolver, self).__init__(blk, *args, **kw)
+        # data structure for C/FORTRAN.
+        self.msh = None
+        # arrays.
+        ndim = self.ndim
+        ncell = self.ncell
+        ngstcell = self.ngstcell
+        ## solutions.
+        neq = self.neq
+        self.sol = empty((ngstcell+ncell, neq), dtype=self.fpdtype)
+        self.soln = empty((ngstcell+ncell, neq), dtype=self.fpdtype)
+        self.dsol = empty((ngstcell+ncell, neq, ndim), dtype=self.fpdtype)
+        self.dsoln = empty((ngstcell+ncell, neq, ndim), dtype=self.fpdtype)
+        ## metrics.
+        self.cecnd = empty(
+            (ngstcell+ncell, self.CLMFC+1, ndim), dtype=self.fpdtype)
+        self.cevol = empty((ngstcell+ncell, self.CLMFC+1), dtype=self.fpdtype)
+
+    def bind(self):
+        """
+        Bind all the boundary condition objects.
+
+        @note: BC must be bound AFTER solver "pointers".  Overridders to the
+            method should firstly bind all pointers, secondly super binder, and 
+            then methods/subroutines.
+        """
+        from .block import BlockShape
+        super(TestingSolver, self).bind()
+        # structures.
+        self.msh = BlockShape(
+            ndim=self.ndim,
+            fcmnd=self.FCMND, clmnd=self.CLMND, clmfc=self.CLMFC,
+            nnode=self.nnode, nface=self.nface, ncell=self.ncell,
+            nbound=self.nbound,
+            ngstnode=self.ngstnode, ngstface=self.ngstface,
+            ngstcell=self.ngstcell,
+        )
+
     ##################################################
     # marching algorithm.
     ##################################################

@@ -78,12 +78,11 @@ class TestBlockCaseRun(TestCase):
     nsteps = 10
 
     def _get_case(self, CaseInit, **kw):
-        from ..testing import get_blk_from_sample_neu
-        from ..solver import BlockSolver
+        from ..testing import get_blk_from_sample_neu, TestingSolver
         from ..case import BlockCase
         from ..helper import Information
         case = BlockCase(basedir='.', basefn='blockcase',
-            solvertype=BlockSolver, neq=1,
+            solvertype=TestingSolver, neq=1,
             steps_run=self.nsteps, time_increment=self.time_increment,
             **kw
         )

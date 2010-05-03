@@ -2,6 +2,7 @@ import os
 from unittest import TestCase
 from ..testing import get_blk_from_sample_neu
 from ..solver import BaseSolver, BlockSolver
+from ..testing import TestingSolver
 
 class CustomBaseSolver(BaseSolver):
     def __init__(self, **kw):
@@ -11,7 +12,7 @@ class CustomBaseSolver(BaseSolver):
         super(CustomBaseSolver, self).bind()
         self.val = 'bind'
 
-class CustomBlockSolver(BlockSolver):
+class CustomBlockSolver(TestingSolver):
     MESG_FILENAME_DEFAULT = os.devnull
 
 class TestBase(TestCase):
