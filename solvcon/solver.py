@@ -59,12 +59,16 @@ class BaseSolver(object):
     @itype exd: ctypes.Structure
     @ivar tpool: thread pool for solver.
     @itype tpool: solvcon.mthread.ThreadPool
+    @ivar arglists: argument lists for C functions to be executed in the
+        thread pool.
+    @itype arglists: list
     @ivar mmnames: marching methods name.
     @itype mmnames: list
+    @ivar marchret: return value set for march.
     """
 
     __metaclass__ = TypeWithBinder
-    _pointers_ = ['exd']
+    _pointers_ = ['exd', 'tpool', 'arglists']
 
     _exedatatype_ = BaseSolverExedata
     _clib_solve = None  # subclass should override.
@@ -94,6 +98,8 @@ class BaseSolver(object):
         self.runanchors = AnchorList(self)
         # data structure for C/FORTRAN.
         self.exd = None
+        self.tpool = None
+        self.arglists = None
         # marching methods name.
         self.mmnames = self.MMNAMES[:]
         self.marchret = None
@@ -179,6 +185,25 @@ class BaseSolver(object):
             setattr(self, key, holds[key])
         self.bind()
 
+    def _tcall(self, cfunc, iter_start, iter_end):
+        """
+        Use thread pool to call C functions in parallel (shared-memory).
+        """
+        from ctypes import byref, c_int
+        ncore = self.ncore
+        if ncore > 0:
+            incre = (iter_end-iter_start)/ncore + 1
+            istart = iter_start
+            for it in range(ncore):
+                iend = min(istart+incre, iter_end)
+                self.arglists[it][1].value = istart
+                self.arglists[it][2].value = iend
+                istart = iend
+            ret = self.tpool(cfunc, self.arglists)
+        else:
+            ret = [cfunc(byref(self.exd), c_int(iter_start), c_int(iter_end))]
+        return ret
+
     def bind(self):
         """
         Put everything that cannot be pickled, such as file objects, ctypes
@@ -187,6 +212,7 @@ class BaseSolver(object):
         @return: nothing
         """
         import sys
+        from ctypes import byref, c_int
         from solvcon.mthread import ThreadPool
         # create message device.
         if self.mesg == None: self.__create_mesg()
@@ -198,28 +224,19 @@ class BaseSolver(object):
         self.exd = exdtype(svr=self)
         # create thread pool.
         self.tpool = ThreadPool(nthread=self.ncore)
+        self.arglists = list()
+        for it in range(self.ncore):
+            self.arglists.append([byref(self.exd), c_int(0), c_int(0)])
 
     def init(self, **kw):
-        """
-        An empty initializer for the solver object.
-
-        @return: nothing.
-        """
         pass
-
     def final(self):
-        """
-        An empty finalizer for the solver object.
-
-        @return: nothing.
-        """
-        pass
+        self.unbind()
 
     def provide(self):
         self.runanchors('provide')
     def preloop(self):
         self.runanchors('preloop')
-
     def postloop(self):
         self.runanchors('postloop')
     def exhaust(self):
@@ -231,7 +248,6 @@ class BaseSolver(object):
         """
         self.exd.time = self.time = time
         self.exd.time_increment = self.time_increment = time_increment
-
     def march(self, time, time_increment, steps_run, worker=None):
         """
         Default marcher for the solver object.
@@ -366,6 +382,8 @@ class BlockSolver(BaseSolver):
             method should firstly bind all pointers, secondly super binder, and 
             then methods/subroutines.
         """
+        from ctypes import byref, c_int
+        from solvcon.mthread import ThreadPool
         from .block import BlockShape
         super(BlockSolver, self).bind()
         # boundary conditions.
