@@ -363,6 +363,33 @@ class BlockHook(Hook):
                 start = 0
             getattr(cse.solver.solverobj, key)[start:] = arrg[:]
 
+class CollectHook(BlockHook):
+    """
+    Collect data from remote solvers.
+    """
+
+    def __init__(self, cse, **kw):
+        self.varlist = kw.pop('varlist')
+        super(CollectHook, self).__init__(cse, **kw)
+    def postmarch(self):
+        from numpy import isnan
+        psteps = self.psteps
+        istep = self.cse.execution.step_current
+        if istep%psteps != 0:
+            return
+        vstep = self.cse.execution.varstep
+        var = self.cse.execution.var
+        # collect variables from solver object.
+        if istep != vstep:
+            for key, kw in self.varlist:
+                arr = var[key] = self._collect_interior(key, **kw)
+                nans = isnan(arr)
+                if nans.any():
+                    raise ValueError('nan occurs in %s at step %d' % (
+                        key, istep))
+        self.cse.execution.varstep = istep
+    preloop = postmarch
+
 class BlockInfoHook(BlockHook):
     def preloop(self):
         blk = self.blk
@@ -387,9 +414,8 @@ class BlockInfoHook(BlockHook):
 
 class SplitMarker(BlockHook):
     """
-    Save the splitted geometry.
+    Mark each cell with the domain index.
     """
-
     def preloop(self):
         from numpy import zeros
         from .domain import Collective
@@ -399,6 +425,14 @@ class SplitMarker(BlockHook):
             cse.execution.var['domain'] = dom.part
         else:
             cse.execution.var['domain'] = zeros(dom.blk.ncell, dtype='int32')
+
+class GroupMarker(BlockHook):
+    """
+    Mark each cell with the group index.
+    """
+    def preloop(self):
+        var = self.cse.execution.var
+        var['clgrp'] = self.blk.clgrp.copy()
 
 class NpySave(BlockHook):
     """
