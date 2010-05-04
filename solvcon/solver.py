@@ -81,9 +81,6 @@ class BaseSolver(object):
     MMNAMES = []
 
     def __init__(self, **kw):
-        """
-        @keyword fpdtype: dtype for the floating point data.
-        """
         from .conf import env
         from .anchor import AnchorList
         from .gendata import Timer
@@ -308,7 +305,8 @@ class BaseSolver(object):
 class BlockSolver(BaseSolver):
     """
     Generic class for multi-dimensional (implemented with Block)
-    sequential/parallel solvers.
+    sequential/parallel solvers.  Meta, metric, and connectivity data arrays
+    are absorbed into the instance of this class.
 
     Before the invocation of init() method, bind() method must be called.
 
@@ -322,13 +320,21 @@ class BlockSolver(BaseSolver):
 
     @ivar ibcthread: flag if using threads.
     @itype ibcthread: bool
-    @ivar ibclist: list of interface BCs.
-    @itype ibclist: list
 
     @ivar svrn: serial number of solver object.
     @itype svrn: int
     @ivar nsvr: number of solver objects.
     @itype nsvr: int
+
+    @ivar grpnames: list of names of groups.
+    @itype grpnames: list
+    @ivar ngroup: number of groups.
+    @itype ngroup: int
+
+    @ivar bclist: list of BCs.
+    @itype bclist: list
+    @ivar ibclist: list of interface BCs.
+    @itype ibclist: list
     """
 
     _interface_init_ = []
@@ -340,19 +346,23 @@ class BlockSolver(BaseSolver):
     del Block
 
     def __init__(self, blk, *args, **kw):
-        """
-        @keyword neq: number of equations (variables).
-        @type neq: int
-        """
         from numpy import empty
+        self.ibcthread = kw.pop('ibcthread', False)
         super(BlockSolver, self).__init__(*args, **kw)
         assert self.fpdtype == blk.fpdtype
-        self.ibcthread = kw.pop('ibcthread', False)
-        self.ibclist = None
-        # absorb block.
+        # index.
         self.svrn = blk.blkn
         self.nsvr = None
-        ## shape.
+        # group.
+        self.grpnames = blk.grpnames
+        self.ngroup = len(self.grpnames)
+        # BCs.
+        self.bclist = blk.bclist
+        for bc in self.bclist:
+            bc.blk = None
+            bc.svr = self
+        self.ibclist = None
+        # mesh shape.
         self.ndim = blk.ndim
         self.nnode = blk.nnode
         self.nface = blk.nface
@@ -361,13 +371,8 @@ class BlockSolver(BaseSolver):
         self.ngstnode = blk.ngstnode
         self.ngstface = blk.ngstface
         self.ngstcell = blk.ngstcell
-        ## cell grouping and BCs.
-        self.grpnames = blk.grpnames
+        # meta array.
         self.clgrp = blk.shclgrp
-        self.bclist = blk.bclist
-        for bc in self.bclist:
-            bc.blk = None
-            bc.svr = self
         ## connectivity.
         self.clnds = blk.shclnds
         self.clfcs = blk.shclfcs
