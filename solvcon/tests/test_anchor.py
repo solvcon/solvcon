@@ -70,7 +70,9 @@ class TestAnchor(TestCase):
         import warnings
         from .. import anchor
         svr = CustomBlockSolver(self._get_block(), neq=self.neq)
-        svr.runanchors.append(anchor.ZeroIAnchor(svr))
+        svr.runanchors.append(anchor.FillAnchor(svr,
+            keys=('soln', 'dsoln'), value=0.0,
+        ))
         warnings.simplefilter("ignore")
         svr.bind()
         svr.init()

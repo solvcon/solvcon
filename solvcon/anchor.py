@@ -402,10 +402,14 @@ class TpoolStatAnchor(Anchor):
                 key, ' '.join(['%d'%val for val in vals])
             ))
 
-class ZeroIAnchor(Anchor):
+class FillAnchor(Anchor):
     """
-    Fill the solutions with zero.
+    Fill the array with value.
     """
+    def __init__(self, svr, **kw):
+        self.keys = kw.pop('keys')
+        self.value = kw.pop('value')
+        super(FillAnchor, self).__init__(svr, **kw)
     def provide(self):
-        self.svr.soln.fill(0.0)
-        self.svr.dsoln.fill(0.0)
+        for key in self.keys:
+            getattr(self.svr, key).fill(self.value)

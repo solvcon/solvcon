@@ -77,9 +77,10 @@ class TestBlockCaseRun(TestCase):
     time_increment = 1.0
     nsteps = 10
 
-    def _get_case(self, CaseInit, **kw):
+    def _get_case(self, **kw):
         from ..testing import get_blk_from_sample_neu, TestingSolver
         from ..case import BlockCase
+        from ..anchor import FillAnchor
         from ..helper import Information
         case = BlockCase(basedir='.', basefn='blockcase',
             solvertype=TestingSolver, neq=1,
@@ -89,7 +90,9 @@ class TestBlockCaseRun(TestCase):
         case.info = Information()
         #case.info = lambda *a: None
         case.load_block = get_blk_from_sample_neu
-        case.runhooks.append(CaseInit)
+        case.runhooks.append(FillAnchor,
+            keys=('soln', 'dsoln'), value=0.0,
+        )
         case.runhooks.append(CaseCollect)
         case.init()
         return case
@@ -98,8 +101,7 @@ class TestSequential(TestBlockCaseRun):
     def test_soln(self):
         from numpy import zeros
         from ..domain import Domain
-        from .. import anchor
-        case = self._get_case(anchor.ZeroIAnchor, domaintype=Domain)
+        case = self._get_case(domaintype=Domain)
         svr = case.solver.solverobj
         case.run()
         ngstcell = svr.ngstcell
@@ -115,8 +117,7 @@ class TestSequential(TestBlockCaseRun):
     def test_dsoln(self):
         from numpy import zeros
         from ..domain import Domain
-        from .. import anchor
-        case = self._get_case(anchor.ZeroIAnchor, domaintype=Domain)
+        case = self._get_case(domaintype=Domain)
         svr = case.solver.solverobj
         case.run()
         ngstcell = svr.ngstcell
@@ -138,9 +139,7 @@ class TestParallel(TestBlockCaseRun):
         if sys.platform.startswith('win'): raise SkipTest
         from numpy import zeros
         from ..domain import Collective
-        from .. import anchor
-        case = self._get_case(anchor.ZeroIAnchor,
-            npart=self.npart, domaintype=Collective)
+        case = self._get_case(npart=self.npart, domaintype=Collective)
         case.run()
         # get result.
         soln = case.execution.var['soln'][:,0]
@@ -158,9 +157,7 @@ class TestParallel(TestBlockCaseRun):
         if sys.platform.startswith('win'): raise SkipTest
         from numpy import zeros
         from ..domain import Collective
-        from .. import anchor
-        case = self._get_case(anchor.ZeroIAnchor,
-            npart=self.npart, domaintype=Collective)
+        case = self._get_case(npart=self.npart, domaintype=Collective)
         case.run()
         # get result.
         dsoln = case.execution.var['dsoln'][:,0,:]
@@ -178,9 +175,9 @@ class TestParallel(TestBlockCaseRun):
         if sys.platform.startswith('win'): raise SkipTest
         from numpy import zeros
         from ..domain import Collective
-        from .. import anchor
-        case = self._get_case(anchor.ZeroIAnchor,
-            npart=self.npart, domaintype=Collective, ibcthread=True)
+        case = self._get_case(
+            npart=self.npart, domaintype=Collective, ibcthread=True,
+        )
         case.run()
         # get result.
         soln = case.execution.var['soln'][:,0]
