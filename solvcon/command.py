@@ -318,19 +318,8 @@ class log_march(SolverLog):
     def _init_mpl(self, nplot):
         import matplotlib
         ops, args = self.opargs
-        figsize = matplotlib.rcParams['figure.figsize']
-        top = matplotlib.rcParams['figure.subplot.top']
-        bottom = matplotlib.rcParams['figure.subplot.bottom']
-        if nplot > 1:
-            upscale = nplot*ops.scale
-            top = 1.0 - (1.0-top)*(1.0-top)/((1.0-top)*upscale)
-            bottom = bottom*bottom/(bottom*upscale)
-            figsize = figsize[0], figsize[1]*upscale
         matplotlib.rcParams.update({
             'backend': ops.backend,
-            'figure.figsize': figsize,
-            'figure.subplot.top': top,
-            'figure.subplot.bottom': bottom,
         })
         matplotlib.use(ops.backend)
 
