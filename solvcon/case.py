@@ -390,6 +390,9 @@ class BlockCase(BaseCase):
 
     Subclass must implement _load_block_for_init() private method for init()
     method to load the needed block.
+
+    @ivar pythonpaths: extra python paths.
+    @itype pythonpaths: list
     """
     defdict = {
         # execution related.
@@ -411,6 +414,10 @@ class BlockCase(BaseCase):
         'solver.envar': dict,
         'solver.ibcthread': False,
     }
+
+    def __init__(self, **kw):
+        self.pythonpaths = kw.pop('pythonpaths', [])
+        super(BlockCase, self).__init__(**kw)
 
     @property
     def is_parallel(self):
@@ -683,6 +690,7 @@ class BlockCase(BaseCase):
             'LD_LIBRARY_PATH',
             'PYTHONPATH',
         ])
+        paths['PYTHONPATH'].extend(self.pythonpaths)
         paths['PYTHONPATH'].insert(0, self.io.rootdir)
         # prepare nodelist.
         info('\n********\nNodelist')
