@@ -615,21 +615,26 @@ class BlockCase(BaseCase):
         nblk = len(self.solver.domainobj)
         for iblk in range(nblk):
             sbk = self.solver.domainobj[iblk]
+            self.info('solver #%d/%d: ' % (iblk+1, nblk))
             svr = self.solver.solvertype(sbk,
                 ncore=self.execution.ncore,
                 neq=self.execution.neq, fpdtype=self.execution.fpdtype,
                 enable_mesg=self.io.solver_output,
             )
+            self.info('sending ... ')
             svr.svrn = iblk
             svr.nsvr = nblk
             self.runhooks.drop_anchor(svr)
             svr.unbind()    # ensure no pointers (unpicklable) in solver.
             dealer[iblk].remote_setattr('muscle', svr)
+            self.info('done.\n')
+        self.info('Bind/Init ... ')
         for sdw in dealer: sdw.cmd.bind()
         for sdw in dealer: sdw.cmd.remote_setattr('ibcthread',
             self.solver.ibcthread)
         for sdw in dealer: sdw.cmd.init()
         dealer.barrier()
+        self.info('done.\n')
     def _remote_load_solver(self):
         """
         @return: nothing
