@@ -372,6 +372,7 @@ class BlockSolver(BaseSolver):
         self.ngstface = blk.ngstface
         self.ngstcell = blk.ngstcell
         # meta array.
+        self.cltpn = blk.shcltpn
         self.clgrp = blk.shclgrp
         ## connectivity.
         self.clnds = blk.shclnds
