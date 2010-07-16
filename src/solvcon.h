@@ -1,6 +1,8 @@
 #ifndef _SOLVCON
 #define _SOLVCON
 
+#include <math.h>
+
 typedef struct {
     int ndim;
     int fcmnd, clmnd, clmfc;
