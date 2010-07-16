@@ -15,6 +15,7 @@ int calc_metric(MeshData *msd) {
     double *pndcrd, *p2ndcrd, *pfccnd, *pfcnml, *pfcara;
     // arrays.
     double lvec[msd->ndim];
+    double radvec[msd->fcmnd][msd->ndim];
     // iterators.
     int ifc, inf, ind;
     int it;
@@ -66,7 +67,47 @@ int calc_metric(MeshData *msd) {
             pfcnml[1] /= pfcara[0];
         };
     } else if (msd->ndim == 3) {
+        for (ifc=0; ifc<msd->nface; ifc++) {
+            pfcnds = msd->fcnds + ifc*msd->fcmnd;
+            pfccnd = msd->fccnd + ifc*msd->ndim;
+            pfcnml = msd->fcnml + ifc*msd->ndim;
+            pfcara = msd->fcara + ifc;
+            // compute radial vector.
+            nnd = pfcnds[0];
+            for (inf=0; inf<nnd; inf++) {
+                ind = pfcnds[inf+1];
+                pndcrd = msd->ndcrd + ind*msd->ndim;
+                radvec[inf][0] = pndcrd[0] - pfccnd[0];
+                radvec[inf][1] = pndcrd[1] - pfccnd[1];
+                radvec[inf][2] = pndcrd[2] - pfccnd[2];
+            };
+            // compute cross product.
+            pfcnml[0] = radvec[nnd-1][1]*radvec[0][2]
+                      - radvec[nnd-1][2]*radvec[0][1];
+            pfcnml[1] = radvec[nnd-1][2]*radvec[0][0]
+                      - radvec[nnd-1][0]*radvec[0][2];
+            pfcnml[2] = radvec[nnd-1][0]*radvec[0][1]
+                      - radvec[nnd-1][1]*radvec[0][0];
+            for (ind=1; ind<nnd; ind++) {
+                pfcnml[0] += radvec[ind-1][1]*radvec[ind][2]
+                           - radvec[ind-1][2]*radvec[ind][1];
+                pfcnml[1] += radvec[ind-1][2]*radvec[ind][0]
+                           - radvec[ind-1][0]*radvec[ind][2];
+                pfcnml[2] += radvec[ind-1][0]*radvec[ind][1]
+                           - radvec[ind-1][1]*radvec[ind][0];
+            };
+            // compute face area.
+            pfcara[0] = sqrt(pfcnml[0]*pfcnml[0] + pfcnml[1]*pfcnml[1]
+                           + pfcnml[2]*pfcnml[2]);
+            // normalize normal vector.
+            pfcnml[0] /= pfcara[0];
+            pfcnml[1] /= pfcara[0];
+            pfcnml[2] /= pfcara[0];
+            // get real face area.
+            pfcara[0] /= 2.0;
+        };
     };
+
     return 0;
 };
 // vim: set ts=4 et:
