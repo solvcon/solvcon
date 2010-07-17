@@ -9,16 +9,19 @@
 */
 int calc_metric(MeshData *msd) {
     int fcnnd;
-    int nnd;
+    int nnd, nfc;
     // pointers.
-    int *pfcnds;
-    double *pndcrd, *p2ndcrd, *pfccnd, *pfcnml, *pfcara;
+    int *pfcnds, *pfccls, *pclnds, *pclfcs;
+    double *pndcrd, *p2ndcrd, *pfccnd, *pfcnml, *pfcara, *pclcnd, *pclvol;
+    // scalars.
+    double vol;
     // arrays.
+    int ndstf[msd->fcmnd];
     double lvec[msd->ndim];
     double radvec[msd->fcmnd][msd->ndim];
     // iterators.
-    int ifc, inf, ind;
-    int it;
+    int ifc, inf, ind, icl, inc;
+    int idm, it, jt;
 
     // compute face center coordinate.
     pfcnds = msd->fcnds;
@@ -26,20 +29,20 @@ int calc_metric(MeshData *msd) {
     for (ifc=0; ifc<msd->nface; ifc++) {
         fcnnd = pfcnds[0];
         // empty center.
-        for (it=0; it<msd->ndim; it++) {
-            pfccnd[it] = 0.0;
+        for (idm=0; idm<msd->ndim; idm++) {
+            pfccnd[idm] = 0.0;
         };
         // sum all node coordinates.
         for (inf=1; inf<=msd->fcmnd; inf++) {
             ind = pfcnds[inf];
             pndcrd = msd->ndcrd + ind*msd->ndim;
-            for (it=0; it<msd->ndim; it++) {
-                pfccnd[it] += pndcrd[it];
+            for (idm=0; idm<msd->ndim; idm++) {
+                pfccnd[idm] += pndcrd[idm];
             };
         };
         // average.
-        for (it=0; it<msd->ndim; it++) {
-            pfccnd[it] /= fcnnd;
+        for (idm=0; idm<msd->ndim; idm++) {
+            pfccnd[idm] /= fcnnd;
         };
         // advance.
         pfcnds += msd->fcmnd+1;
@@ -106,6 +109,82 @@ int calc_metric(MeshData *msd) {
             // get real face area.
             pfcara[0] /= 2.0;
         };
+    };
+
+    // compute center point coordinate for each cell.
+    for (icl=0; icl<msd->ncell; icl++) {
+        pclcnd = msd->clcnd + icl*msd->ndim;
+        for (idm=0; idm<msd->ndim; idm++) {
+            pclcnd[idm] = 0.0;
+        };
+        pclnds = msd->clnds + icl*msd->clmnd;
+        nnd = pclnds[0];
+        for (inc=1; inc<=nnd; inc++) {
+            ind = pclnds[inc];
+            pndcrd = msd->ndcrd + ind*msd->ndim;
+            for (idm=0; idm<msd->ndim; idm++) {
+                pclcnd[idm] += pndcrd[idm];
+            };
+        };
+        for (idm=0; idm<msd->ndim; idm++) {
+            pclcnd[idm] /= nnd;
+        };
+    };
+
+    // compute volume for each cell.
+    for (icl=0; icl<msd->ncell; icl++) {
+        pclcnd = msd->clcnd + icl*msd->ndim;
+        pclvol = msd->clvol + icl;
+        pclvol[0] = 0.0;
+        pclfcs = msd->clfcs + icl*msd->clmfc;
+        nfc = pclfcs[0];
+        for (it=1; it<=nfc; it++) {
+            ifc = pclfcs[it];
+            pfccls = msd->fccls + ifc*4;
+            pfcnds = msd->fcnds + ifc*msd->fcmnd;
+            pfccnd = msd->fccnd + ifc*msd->ndim;
+            pfcara = msd->fcara + ifc;
+            // calculate volume associated with each face.
+            vol = 0.0;
+            for (idm=0; idm<msd->ndim; idm++) {
+                vol += (pfccnd[idm] - pclcnd[idm]) * pfcnml[idm];
+            };
+            vol *= pfcara[0];
+            // check if need to reorder node definition and connecting cell
+            // list for the face.
+            if (vol < 0.0) {
+                if (pfccls[0] == icl) {
+                    nnd = pfcnds[0];
+                    for (jt=0; jt<nnd; jt++) {
+                        ndstf[jt] = pfcnds[nnd-jt];
+                    };
+                    for (jt=0; jt<nnd; jt++) {
+                        pfcnds[jt+1] = ndstf[jt];
+                    };
+                    for (idm=0; idm<msd->ndim; idm++) {
+                        pfcnml[idm] = -pfcnml[idm];
+                    };
+                };
+                vol = -vol;
+            } else {
+                if (pfccls[0] != icl) {
+                    nnd = pfcnds[0];
+                    for (jt=0; jt<nnd; jt++) {
+                        ndstf[jt] = pfcnds[nnd-jt];
+                    };
+                    for (jt=0; jt<nnd; jt++) {
+                        pfcnds[jt+1] = ndstf[jt];
+                    };
+                    for (idm=0; idm<msd->ndim; idm++) {
+                        pfcnml[idm] = -pfcnml[idm];
+                    };
+                };
+            };
+            // accumulate the volume for the cell.
+            pclvol[0] += vol;
+        };
+        // calculate the real volume.
+        pclvol[0] /= msd->ndim;
     };
 
     return 0;

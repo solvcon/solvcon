@@ -31,7 +31,7 @@ real(FPKIND) :: lvec(0:msh%ndim-1), radvec(0:msh%ndim-1, 0:msh%fcmnd-1)
 ! scalars.
 real(FPKIND) :: vol
 ! lists.
-real(FPKIND) :: nds_tf(0:msh%fcmnd-1)
+real(FPKIND) :: nds_tf(0:msh%fcmnd-1)   ! FIXME: wrong data type.
 ! number holders.
 integer(4) :: nnd, nfc
 ! iterators.
