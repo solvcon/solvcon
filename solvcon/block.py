@@ -263,6 +263,10 @@ class Block(object):
     def _clib_solvcon(self):
         from .dependency import _clib_solvcon_of
         return _clib_solvcon_of(self.fpdtype)
+    @property
+    def _clib_solvconc(self):
+        from .dependency import _clib_solvconc_of
+        return _clib_solvconc_of(self.fpdtype)
 
     @property
     def ndim(self):
@@ -319,6 +323,7 @@ class Block(object):
         fpptr = self.fpptr
         msh = self.create_shape()
         self._clib_solvcon.calc_metric_(
+        #self._clib_solvconc.calc_metric(
             # input.
             byref(msh),
             self.ndcrd.ctypes.data_as(self.fpptr),
