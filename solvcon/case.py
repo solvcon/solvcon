@@ -726,7 +726,7 @@ class BlockCase(BaseCase):
 nodes="
 %s
 "
-for node in $nodes; do ssh $node killall %s; done
+for node in $nodes; do rsh $node killall %s; done
 """ % (
             '\n'.join([node.name for node in nodelist]),
             os.path.split(sys.executable)[-1],
