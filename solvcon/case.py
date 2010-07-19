@@ -526,6 +526,11 @@ class BlockCase(BaseCase):
             self._log_start('build_dealer')
             self.solver.dealer = self._create_workers()
             self._log_end('build_dealer')
+            # make interconnections for rpc.
+            self.info('\n')
+            self._log_start('interconnect')
+            self._interconnect()
+            self._log_end('interconnect')
             # spread out and initialize decomposed solvers.
             if level != 1:
                 self.info('\n')
@@ -537,11 +542,11 @@ class BlockCase(BaseCase):
                 self._log_start('remote_load_solver')
                 self._remote_load_solver()
                 self._log_end('remote_load_solver')
-            # make interconnections for rpc.
+            # exchange boundary information.
             self.info('\n')
-            self._log_start('interconnect')
-            self._interconnect()
-            self._log_end('interconnect')
+            self._log_start('exchange')
+            self._exchange_meta()
+            self._log_end('exchange')
             # initialize exchange for remote solver objects.
             if level != 1:
                 self.info('\n')
@@ -749,14 +754,13 @@ for node in $nodes; do rsh $node killall %s; done
                 if dom.interfaces[iblk][jblk] != None:
                     dealer.bridge((iblk, jblk))
         dealer.barrier()
-        # initialize exchanging.
+        # show exchanging pairs.
         self.info('Interface exchanging pairs:\n')
         dwidth = len(str(nblk-1))
         ifacelists = dom.ifacelists
         for iblk in range(nblk):
             ifacelist = ifacelists[iblk]
             sdw = dealer[iblk]
-            sdw.cmd.init_exchange(ifacelist)
             # print.
             self.info(('%%0%dd ->' % dwidth) % iblk)
             for pair in ifacelist:
@@ -766,6 +770,25 @@ for node in $nodes; do rsh $node killall %s; done
                     stab = '-'.join([('%%0%dd'%dwidth)%item for item in pair])
                 self.info(' %s' % stab)
             self.info('\n')
+
+    # exchange
+    def _exchange_meta(self):
+        """
+        Exchange meta data.
+
+        @return: nothing
+        """
+        dom = self.solver.domainobj
+        dealer = self.solver.dealer
+        nblk = len(dom)
+        self.info('Interface exchanging pairs:\n')
+        dwidth = len(str(nblk-1))
+        ifacelists = dom.ifacelists
+        for iblk in range(nblk):
+            ifacelist = ifacelists[iblk]
+            sdw = dealer[iblk]
+            sdw.cmd.init_exchange(ifacelist)
+            self.info('BCs for solver #%d/%d initialized.\n' % (iblk+1, nblk))
     def _exchange_metric(self):
         """
         Exchange metric data for solver.

@@ -8,47 +8,6 @@ Remote procedure call and inter-process communication.
 DEFAULT_AUTHKEY = 'solvcon.rpc'
 DEFAULT_SLEEP = 0.1
 
-def pick_unused_port():
-    """
-    Use socket to find out a unused (inet) port.
-    """
-    import socket
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.bind(('localhost', 0))
-    addr, port = s.getsockname()
-    s.close()
-    return port
-
-def guess_address(family, localhost=True):
-    """
-    Guess a unused address according to given family.
-
-    @param family: AF_INET, AF_UNIX, AF_PIPE.
-    @type family: str
-    @keyword localhost: use 'localhost' as hostname or not.
-    @type localhost: bool
-    """
-    from socket import gethostname
-    from random import sample
-    string = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-    strlen = 8
-    port = pick_unused_port()
-    if family == 'AF_INET':
-        if localhost:
-            hostname = 'localhost'
-        else:
-            hostname = gethostname()
-        address = (hostname, port)
-    elif family == 'AF_UNIX':
-        strpart = ''.join(sample(string, strlen))
-        address = '/tmp/srpc%s%d' % (strpart, port)
-    elif family == 'AF_PIPE':
-        strpart = ''.join(sample(string, strlen))
-        address = r'\\.\pipe\srpc' + "%s%d"%(strpart, port)
-    else:
-        raise ValueError, "family can't be %s" % family
-    return address
-
 class Terminate(Exception):
     """
     Signaling termination of Worker event loop.
@@ -342,7 +301,8 @@ class Dealer(list):
         @type wait_for_accept: float
         """
         from time import sleep
-        from .connection import Process, Client
+        from multiprocessing import Process
+        from .connection import guess_address, Client
         # create and start the process.
         address = guess_address(self.family)
         proc = Process(
@@ -394,7 +354,7 @@ class Dealer(list):
             DEFAULT.
         @type wait_for_accept: float
         """
-        from .connection import Listener
+        from .connection import guess_address, Listener
         # start a listener at here, the dealer's side.
         publiclsnr = Listener(address=self.publicaddress, authkey=self.authkey)
         publicconn = publiclsnr.accept()
@@ -523,7 +483,8 @@ class Outpost(object):
         Create another process for an empty worker, and register the worker to
         given address and authentication key.
         """
-        from .connection import Process
+        from multiprocessing import Process
+        from . connection import pick_unused_port
         port = pick_unused_port()
         address = (self.publicaddress[0], port)
         proc = Process(
@@ -716,7 +677,7 @@ class Footway(object):
         remote = Remote(address, paths=paths)
         val = int(remote([
             'import sys',
-            'from solvcon.rpc import pick_unused_port',
+            'from solvcon.connection import pick_unused_port',
             'sys.stdout.write(str(pick_unused_port()))',
         ], stdout=PIPE))
         try:
@@ -760,6 +721,7 @@ def run_client(address, authkey):
 
 if __name__ == '__main__':
     import sys
+    from .connection import pick_unused_port
     if len(sys.argv) == 1:
         # tell me a unused port on this machine.
         sys.stdout.write("%d\n" % pick_unused_port())

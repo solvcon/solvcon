@@ -5,7 +5,46 @@
 Remote connection and communication.
 """
 
-from multiprocessing import Process
+def pick_unused_port():
+    """
+    Use socket to find out a unused (inet) port.
+    """
+    import socket
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.bind(('localhost', 0))
+    addr, port = s.getsockname()
+    s.close()
+    return port
+
+def guess_address(family, localhost=True):
+    """
+    Guess a unused address according to given family.
+
+    @param family: AF_INET, AF_UNIX, AF_PIPE.
+    @type family: str
+    @keyword localhost: use 'localhost' as hostname or not.
+    @type localhost: bool
+    """
+    from socket import gethostname
+    from random import sample
+    string = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    strlen = 8
+    port = pick_unused_port()
+    if family == 'AF_INET':
+        if localhost:
+            hostname = 'localhost'
+        else:
+            hostname = gethostname()
+        address = (hostname, port)
+    elif family == 'AF_UNIX':
+        strpart = ''.join(sample(string, strlen))
+        address = '/tmp/srpc%s%d' % (strpart, port)
+    elif family == 'AF_PIPE':
+        strpart = ''.join(sample(string, strlen))
+        address = r'\\.\pipe\srpc' + "%s%d"%(strpart, port)
+    else:
+        raise ValueError, "family can't be %s" % family
+    return address
 
 def guess_family(address):
     """

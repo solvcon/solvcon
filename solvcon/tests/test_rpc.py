@@ -95,9 +95,9 @@ class TestOutpost(TestCase):
         from nose.plugins.skip import SkipTest
         if sys.platform.startswith('win'): raise SkipTest
         from time import sleep
-        from ..connection import Process
-        from ..rpc import (DEFAULT_AUTHKEY, DEFAULT_SLEEP,
-            pick_unused_port, Outpost, Footway)
+        from multiprocessing import Process
+        from ..connection import pick_unused_port
+        from ..rpc import DEFAULT_AUTHKEY, DEFAULT_SLEEP, Outpost, Footway
         port = pick_unused_port()
         authkey = DEFAULT_AUTHKEY
         outpost = Outpost(publicaddress=('localhost', port), authkey=authkey)
@@ -113,9 +113,10 @@ class TestOutpost(TestCase):
         from nose.plugins.skip import SkipTest
         if sys.platform.startswith('win'): raise SkipTest
         from time import sleep
-        from ..connection import Process, Client
+        from multiprocessing import Process
+        from ..connection import pick_unused_port, Client
         from ..rpc import (DEFAULT_AUTHKEY, DEFAULT_SLEEP,
-            pick_unused_port, Outpost, Footway, Shadow)
+            Outpost, Footway, Shadow)
         port = pick_unused_port()
         authkey = DEFAULT_AUTHKEY
         outpost = Outpost(publicaddress=('localhost', port), authkey=authkey)
