@@ -8,7 +8,6 @@
  * And fcnds could be reordered.
 */
 int calc_metric(MeshData *msd) {
-    int fcnnd;
     int nnd, nfc;
     // pointers.
     int *pfcnds, *pfccls, *pclnds, *pclfcs;
@@ -16,9 +15,8 @@ int calc_metric(MeshData *msd) {
     // scalars.
     FPTYPE vol;
     // arrays.
-    int ndstf[msd->fcmnd];
-    FPTYPE lvec[msd->ndim];
-    FPTYPE radvec[msd->fcmnd][msd->ndim];
+    FPTYPE radvec[FCMND][msd->ndim];
+    int ndstf[FCMND];
     // iterators.
     int ifc, inf, ind, icl, inc;
     int idm, it, jt;
@@ -27,54 +25,50 @@ int calc_metric(MeshData *msd) {
     pfcnds = msd->fcnds;
     pfccnd = msd->fccnd;
     for (ifc=0; ifc<msd->nface; ifc++) {
-        fcnnd = pfcnds[0];
-        // empty center.
         for (idm=0; idm<msd->ndim; idm++) {
             pfccnd[idm] = 0.0;
         };
-        // sum all node coordinates.
-        for (inf=1; inf<=msd->fcmnd; inf++) {
+        nnd = pfcnds[0];
+        for (inf=1; inf<=nnd; inf++) {
             ind = pfcnds[inf];
             pndcrd = msd->ndcrd + ind*msd->ndim;
             for (idm=0; idm<msd->ndim; idm++) {
                 pfccnd[idm] += pndcrd[idm];
             };
         };
-        // average.
         for (idm=0; idm<msd->ndim; idm++) {
-            pfccnd[idm] /= fcnnd;
+            pfccnd[idm] /= nnd;
         };
-        // advance.
-        pfcnds += msd->fcmnd+1;
+        // advance pointers.
+        pfcnds += FCMND+1;
         pfccnd += msd->ndim;
     };
 
     // compute face normal vector and area.
+    pfcnds = msd->fcnds;
+    pfccnd = msd->fccnd;
+    pfcnml = msd->fcnml;
+    pfcara = msd->fcara;
     if (msd->ndim == 2) {
         for (ifc=0; ifc<msd->nface; ifc++) {
-            nnd = 2;    // 2D faces are always lines.
-            pfcnds = msd->fcnds + ifc*msd->fcmnd;
+            // 2D faces are always lines.
             pndcrd = msd->ndcrd + pfcnds[1]*msd->ndim;
             p2ndcrd = msd->ndcrd + pfcnds[2]*msd->ndim;
-            pfcnml = msd->fcnml + ifc*msd->ndim;
-            pfcara = msd->fcara + ifc;
-            lvec[0] = p2ndcrd[0] - pndcrd[0];
-            lvec[1] = p2ndcrd[1] - pndcrd[1];
             // face normal.
-            pfcnml[0] = lvec[1];
-            pfcnml[1] = -lvec[0];
+            pfcnml[0] = p2ndcrd[1] - pndcrd[1];
+            pfcnml[1] = -(p2ndcrd[0] - pndcrd[0]);
             // face ara.
             pfcara[0] = sqrt(pfcnml[0]*pfcnml[0] + pfcnml[1]*pfcnml[1]);
             // normalize face normal.
             pfcnml[0] /= pfcara[0];
             pfcnml[1] /= pfcara[0];
+            // advance pointers.
+            pfcnds += FCMND+1;
+            pfcnml += msd->ndim;
+            pfcara += 1;
         };
     } else if (msd->ndim == 3) {
         for (ifc=0; ifc<msd->nface; ifc++) {
-            pfcnds = msd->fcnds + ifc*msd->fcmnd;
-            pfccnd = msd->fccnd + ifc*msd->ndim;
-            pfcnml = msd->fcnml + ifc*msd->ndim;
-            pfcara = msd->fcara + ifc;
             // compute radial vector.
             nnd = pfcnds[0];
             for (inf=0; inf<nnd; inf++) {
@@ -108,16 +102,21 @@ int calc_metric(MeshData *msd) {
             pfcnml[2] /= pfcara[0];
             // get real face area.
             pfcara[0] /= 2.0;
+            // advance pointers.
+            pfcnds += FCMND+1;
+            pfccnd += msd->ndim;
+            pfcnml += msd->ndim;
+            pfcara += 1;
         };
     };
 
     // compute center point coordinate for each cell.
+    pclnds = msd->clnds;
+    pclcnd = msd->clcnd;
     for (icl=0; icl<msd->ncell; icl++) {
-        pclcnd = msd->clcnd + icl*msd->ndim;
         for (idm=0; idm<msd->ndim; idm++) {
             pclcnd[idm] = 0.0;
         };
-        pclnds = msd->clnds + icl*msd->clmnd;
         nnd = pclnds[0];
         for (inc=1; inc<=nnd; inc++) {
             ind = pclnds[inc];
@@ -129,20 +128,24 @@ int calc_metric(MeshData *msd) {
         for (idm=0; idm<msd->ndim; idm++) {
             pclcnd[idm] /= nnd;
         };
+        // advance pointers.
+        pclnds += CLMND+1;
+        pclcnd += msd->ndim;
     };
 
     // compute volume for each cell.
+    pclfcs = msd->clfcs;
+    pclcnd = msd->clcnd;
+    pclvol = msd->clvol;
     for (icl=0; icl<msd->ncell; icl++) {
-        pclcnd = msd->clcnd + icl*msd->ndim;
-        pclvol = msd->clvol + icl;
         pclvol[0] = 0.0;
-        pclfcs = msd->clfcs + icl*msd->clmfc;
         nfc = pclfcs[0];
         for (it=1; it<=nfc; it++) {
             ifc = pclfcs[it];
-            pfccls = msd->fccls + ifc*4;
-            pfcnds = msd->fcnds + ifc*msd->fcmnd;
+            pfccls = msd->fccls + ifc*FCREL;
+            pfcnds = msd->fcnds + ifc*(FCMND+1);
             pfccnd = msd->fccnd + ifc*msd->ndim;
+            pfcnml = msd->fcnml + ifc*msd->ndim;
             pfcara = msd->fcara + ifc;
             // calculate volume associated with each face.
             vol = 0.0;
@@ -185,6 +188,10 @@ int calc_metric(MeshData *msd) {
         };
         // calculate the real volume.
         pclvol[0] /= msd->ndim;
+        // advance pointers.
+        pclfcs += CLMFC+1;
+        pclcnd += msd->ndim;
+        pclvol += 1;
     };
 
     return 0;

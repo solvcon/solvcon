@@ -59,7 +59,6 @@ class MeshData(Structure):
     from ctypes import c_int, c_double, POINTER
     _fields_ = [
         ('ndim', c_int),
-        ('fcmnd', c_int), ('clmnd', c_int), ('clmfc', c_int),
         ('nnode', c_int), ('nface', c_int), ('ncell', c_int),
         ('nbound', c_int),
         ('ngstnode', c_int), ('ngstface', c_int), ('ngstcell', c_int),
@@ -88,8 +87,6 @@ class MeshData(Structure):
         super(MeshData, self).__init__(*args, **kw)
         for key in ('ndim',):
             setattr(self, key, getattr(blk, key))
-        for key in ('fcmnd', 'clmnd', 'clmfc',):
-            setattr(self, key, getattr(blk, key.upper()))
         for key in ('nnode', 'nface', 'ncell', 'nbound',
                     'ngstnode', 'ngstface', 'ngstcell',):
             setattr(self, key, getattr(blk, key))
@@ -321,23 +318,28 @@ class Block(object):
         from .dependency import intptr
         # call the subroutine.
         fpptr = self.fpptr
-        msh = self.create_shape()
-        self._clib_solvcon.calc_metric_(
-        #self._clib_solvconc.calc_metric(
-            # input.
-            byref(msh),
-            self.ndcrd.ctypes.data_as(self.fpptr),
-            self.fccls.ctypes.data_as(intptr),
-            self.clnds.ctypes.data_as(intptr),
-            self.clfcs.ctypes.data_as(intptr),
-            # output/input.
-            self.fcnds.ctypes.data_as(intptr),
-            self.fccnd.ctypes.data_as(fpptr),
-            self.fcnml.ctypes.data_as(fpptr),
-            self.fcara.ctypes.data_as(fpptr),
-            self.clcnd.ctypes.data_as(fpptr),
-            self.clvol.ctypes.data_as(fpptr),
-        )
+        if self.ndim != 0:
+            msd = self.create_msd()
+            self._clib_solvconc.calc_metric(
+                byref(msd),
+            )
+        else:
+            msh = self.create_shape()
+            self._clib_solvcon.calc_metric_(
+                # input.
+                byref(msh),
+                self.ndcrd.ctypes.data_as(self.fpptr),
+                self.fccls.ctypes.data_as(intptr),
+                self.clnds.ctypes.data_as(intptr),
+                self.clfcs.ctypes.data_as(intptr),
+                # output/input.
+                self.fcnds.ctypes.data_as(intptr),
+                self.fccnd.ctypes.data_as(fpptr),
+                self.fcnml.ctypes.data_as(fpptr),
+                self.fcara.ctypes.data_as(fpptr),
+                self.clcnd.ctypes.data_as(fpptr),
+                self.clvol.ctypes.data_as(fpptr),
+            )
 
     def build_interior(self):
         """
