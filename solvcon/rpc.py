@@ -248,14 +248,11 @@ class Agent(object):
 
     @ivar connection: connection to the worker.
     @itype connection: solvcon.connection.Client
-    @ivar process: process object; can be None.
-    @itype process: solvcon.connection.Process
     @ivar noticetype: type of notice object to send.
     @itype noticetype: Notice
     """
-    def __init__(self, connection=None, process=None, noticetype=Command):
+    def __init__(self, connection=None, noticetype=Command):
         self.connection = connection
-        self.process = process
         self.noticetype = noticetype
 
     def __getattr__(self, name):
@@ -276,23 +273,17 @@ class Shadow(object):
     @itype connection: solvcon.connection.Client
     @ivar address: remote address.
     @itype address: tuple or str
-    @ivar process: process object; can be None.
-    @itype process: solvcon.connection.Process
     @ivar cmd: agent to muscle.
     @itype cmd: Agent
     @ivar ctl: agent to worker.
     @itype ctl: Agent
     """
-    def __init__(self, listener=None, connection=None, address=None,
-            process=None):
+    def __init__(self, listener=None, connection=None, address=None):
         self.listener = listener
         self.connection = connection
         self.address = address
-        self.process = process
-        self.cmd = Agent(connection=connection, process=process,
-          noticetype=Command)
-        self.ctl = Agent(connection=connection, process=process,
-          noticetype=Control)
+        self.cmd = Agent(connection=connection, noticetype=Command)
+        self.ctl = Agent(connection=connection, noticetype=Control)
 
     def __getattr__(self, name):
         """
@@ -362,7 +353,7 @@ class Dealer(list):
         sleep(wait_for_accept if wait_for_accept!=None else self.WAIT_FOR_ACCEPT)
         # connect to the created process and make its shadow.
         conn = Client(address=address, authkey=self.authkey)
-        shadow = Shadow(connection=conn, address=address, process=proc)
+        shadow = Shadow(connection=conn, address=address)
         shadow.remote_setattr('serial', len(self))
         self.append(shadow)
 
