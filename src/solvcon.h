@@ -9,7 +9,7 @@ typedef struct {
     int nnode, nface, ncell, nbound;
     int ngstnode, ngstface, ngstcell;
     // metric.
-    double *ndcrd, *fccnd, *fcnml, *fcara, *clcnd, *clvol;
+    FPTYPE *ndcrd, *fccnd, *fcnml, *fcara, *clcnd, *clvol;
     // meta.
     int *fctpn, *cltpn, *clgrp;
     // connectivity.

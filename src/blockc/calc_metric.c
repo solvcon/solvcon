@@ -12,13 +12,13 @@ int calc_metric(MeshData *msd) {
     int nnd, nfc;
     // pointers.
     int *pfcnds, *pfccls, *pclnds, *pclfcs;
-    double *pndcrd, *p2ndcrd, *pfccnd, *pfcnml, *pfcara, *pclcnd, *pclvol;
+    FPTYPE *pndcrd, *p2ndcrd, *pfccnd, *pfcnml, *pfcara, *pclcnd, *pclvol;
     // scalars.
-    double vol;
+    FPTYPE vol;
     // arrays.
     int ndstf[msd->fcmnd];
-    double lvec[msd->ndim];
-    double radvec[msd->fcmnd][msd->ndim];
+    FPTYPE lvec[msd->ndim];
+    FPTYPE radvec[msd->fcmnd][msd->ndim];
     // iterators.
     int ifc, inf, ind, icl, inc;
     int idm, it, jt;
