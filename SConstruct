@@ -165,10 +165,18 @@ if GetOption('count'):
 # global tools.
 tools = []
 tools.append(GetOption('f90'))
+F90FLAGS = [
+    '-O2',
+]
 if GetOption('f90') == 'gfortran':
-    FLAG_FPP = '-x f95-cpp-input'
+    F90FLAGS.extend([
+        '-x',
+        'f95-cpp-input',
+    ])
 elif GetOption('f90') == 'ifort':
-    FLAG_FPP = '-fpp'
+    F90FLAGS.extend([
+        '-fpp',
+    ])
 if sys.platform.startswith('win'):
     tools.insert(0, 'mingw')
 else:
@@ -176,8 +184,8 @@ else:
 
 # solvcon environment.
 env = Environment(ENV=os.environ, tools=tools,
-    CPPPATH='src', CFLAGS='-O2',
-    F90FLAGS=' '.join(['-O2', FLAG_FPP]),
+    CPPPATH='src', CFLAGS=['-O2'],
+    F90FLAGS=F90FLAGS,
 )
 def build_epydoc(target, source, env):
     import sys

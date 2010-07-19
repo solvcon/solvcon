@@ -1,28 +1,40 @@
 import os
 Import('env')
 
+
 # lib_solvconc.
-lib_solvconc = env.SharedLibrary('lib/_clib_solvconc', Glob('src/*/*.c'))
+clibs = list()
+for fpmark, fptype in [('s', 'float'), ('d', 'double'),]:
+    ddsts = list()
+    for dsrc in Glob('src/*'):
+        dsrc = str(dsrc)
+        if not os.path.isdir(dsrc): continue
+        ddst = 'lib/%s_%s' % (os.path.basename(dsrc), fpmark)
+        VariantDir(ddst, dsrc, duplicate=0)
+        ddsts.append(ddst)
+    envm = env.Clone()
+    envm.Prepend(CCFLAGS=['-DFPTYPE=%s'%fptype])
+    clibs.append(envm.SharedLibrary(
+        'lib/_clib_solvconc_%s' % fpmark,
+        [Glob('%s/*.c'%ddst) for ddst in ddsts],
+    ))
 
 # lib_solvcon.
-def compile_objects(srcs, ext, F90FLAGS):
-    ext = '.' + ext if ext[0] != '.' else ext
-    objs = []
-    for src in srcs:
-        src = str(src)
-        dst = os.path.splitext(src)[0] + ext
-        objs.append(env.SharedObject(dst, src,
-            F90FLAGS=' '.join(F90FLAGS),
-        ))
-    return objs
-F90FLAGS = env['F90FLAGS']
-SRCS = Glob('src/*/*.f90')
-lib_solvcon_d = env.SharedLibrary('lib/_clib_solvcon_d',
-    compile_objects(SRCS, '.dos', ['-DFPKIND=8', F90FLAGS]),
-)
-lib_solvcon_s = env.SharedLibrary('lib/_clib_solvcon_s',
-    compile_objects(SRCS, '.sos', ['-DFPKIND=4', F90FLAGS]),
-)
+flibs = list()
+for fpmark, fptype in [('s', 4), ('d', 8),]:
+    ddsts = list()
+    for dsrc in Glob('src/*'):
+        dsrc = str(dsrc)
+        if not os.path.isdir(dsrc): continue
+        ddst = 'lib/%s_%s' % (os.path.basename(dsrc), fpmark)
+        VariantDir(ddst, dsrc, duplicate=0)
+        ddsts.append(ddst)
+    envm = env.Clone()
+    envm.Prepend(F90FLAGS=['-DFPKIND=%d'%fptype])
+    flibs.append(envm.SharedLibrary(
+        'lib/_clib_solvcon_%s' % fpmark,
+        [Glob('%s/*.f90'%ddst) for ddst in ddsts],
+    ))
 
 # lib_solvcontest.
 lib_solvcontest = env.SharedLibrary('lib/_clib_solvcontest',
@@ -35,8 +47,7 @@ lib_metis = metisenv.SharedLibrary('lib/_clib_metis',
     Glob('%s/*.c'%metissrc))
 
 # name targets and set default.
-solvcon = Alias('solvcon', [lib_solvconc,
-    lib_solvcon_d, lib_solvcon_s, lib_solvcontest])
+solvcon = Alias('solvcon', clibs + flibs + [lib_solvcontest])
 metis = Alias('metis', [lib_metis])
 all = Alias('all', [metis, solvcon])
 Default(all)
