@@ -215,12 +215,9 @@ class Worker(object):
         @param authkey: authentication key for connection.
         @type authkey: str
         """
-        from .connection import Listener
-        # get port and report it to master.
-        address = guess_address(family, localhost=False)
-        self.conn.send(address)
+        lsnr = self.lsnr
+        self.conn.send(lsnr.address)
         # bind the address to set up a connection.
-        lsnr = Listener(address=address, authkey=authkey)
         conn = lsnr.accept()
         # after get connected, save the listener and connection.
         self.plsnrs[peern] = lsnr
@@ -277,6 +274,8 @@ class Shadow(object):
     @itype listener: solvcon.connection.Listener
     @ivar connection: connection to the worker.
     @itype connection: solvcon.connection.Client
+    @ivar address: remote address.
+    @itype address: tuple or str
     @ivar process: process object; can be None.
     @itype process: solvcon.connection.Process
     @ivar cmd: agent to muscle.
@@ -284,9 +283,11 @@ class Shadow(object):
     @ivar ctl: agent to worker.
     @itype ctl: Agent
     """
-    def __init__(self, listener=None, connection=None, process=None):
+    def __init__(self, listener=None, connection=None, address=None,
+            process=None):
         self.listener = listener
         self.connection = connection
+        self.address = address
         self.process = process
         self.cmd = Agent(connection=connection, process=process,
           noticetype=Command)
@@ -361,7 +362,7 @@ class Dealer(list):
         sleep(wait_for_accept if wait_for_accept!=None else self.WAIT_FOR_ACCEPT)
         # connect to the created process and make its shadow.
         conn = Client(address=address, authkey=self.authkey)
-        shadow = Shadow(connection=conn, process=proc)
+        shadow = Shadow(connection=conn, address=address, process=proc)
         shadow.remote_setattr('serial', len(self))
         self.append(shadow)
 
@@ -379,7 +380,7 @@ class Dealer(list):
         from .connection import Client
         # connect to the remotely created process and make its shadow.
         conn = Client(address=(inetaddr, port), authkey=authkey)
-        shadow = Shadow(connection=conn)
+        shadow = Shadow(connection=conn, address=(inetaddr, port))
         shadow.remote_setattr('serial', len(self))
         self.append(shadow)
 
@@ -436,6 +437,7 @@ class Dealer(list):
         # ask higher to accept connection.
         self[phigh].accept_peer(plow, self.family, self.authkey)
         address = self[phigh].recv()
+        assert address == self[phigh].address
         # ask lower to make connection.
         sleep(wait_for_accept if wait_for_accept!=None else self.WAIT_FOR_ACCEPT)
         self[plow].connect_peer(phigh, address, self.authkey)

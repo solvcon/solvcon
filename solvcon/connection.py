@@ -125,6 +125,7 @@ class Listener(object):
         self._socket.bind(address)
         self._socket.listen(1)
         # store extra information.
+        self.address = address
         self._last_accepted = None
         self._authkey = authkey
     def accept(self):
