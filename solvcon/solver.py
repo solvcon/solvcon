@@ -444,7 +444,7 @@ class BlockSolver(BaseSolver):
         """
         for arrname in self._solution_array_:
             arr = getattr(self, arrname)
-            arr.fill(ALMOST_ZERO)
+            arr.fill(ALMOST_ZERO)   # prevent initializer forgets to set!
         for bc in self.bclist:
             bc.init(**kw)
         super(BlockSolver, self).init(**kw)

@@ -620,7 +620,7 @@ class BlockCase(BaseCase):
         nblk = len(self.solver.domainobj)
         for iblk in range(nblk):
             sbk = self.solver.domainobj[iblk]
-            self.info('solver #%d/%d: ' % (iblk+1, nblk))
+            self.info('solver #%d/(%d-1): ' % (iblk, nblk))
             svr = self.solver.solvertype(sbk,
                 ncore=self.execution.ncore,
                 neq=self.execution.neq, fpdtype=self.execution.fpdtype,
@@ -747,12 +747,16 @@ for node in $nodes; do rsh $node killall %s; done
         dom = self.solver.domainobj
         dealer = self.solver.dealer
         nblk = len(dom)
+        dwidth = len(str(nblk-1))
         for iblk in range(nblk):
+            self.info(('%%0%dd ->' % dwidth) % iblk)
             for jblk in range(nblk):
                 if iblk >= jblk:
                     continue
                 if dom.interfaces[iblk][jblk] != None:
                     dealer.bridge((iblk, jblk))
+                    self.info((' %%0%dd'%dwidth) % jblk)
+            self.info('.\n')
         dealer.barrier()
         # construct spanning tree.
         #graph = list()
@@ -775,7 +779,8 @@ for node in $nodes; do rsh $node killall %s; done
         dom = self.solver.domainobj
         dealer = self.solver.dealer
         nblk = len(dom)
-        self.info('Interface exchanging pairs:\n')
+        self.info('Interface exchanging pairs (%d phases):\n' % len(
+            dom.ifacelists[0]))
         dwidth = len(str(nblk-1))
         for iblk in range(nblk):
             ifacelist = dom.ifacelists[iblk]
