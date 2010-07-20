@@ -8,6 +8,8 @@ Definition of the structure of solvers.
 from ctypes import Structure
 from .gendata import TypeWithBinder
 
+ALMOST_ZERO = 1.e-200
+
 class BaseSolverExedata(Structure):
     """
     Execution information for BaseSolver.
@@ -338,6 +340,7 @@ class BlockSolver(BaseSolver):
     """
 
     _interface_init_ = []
+    _solution_array_ = []
 
     from .block import Block
     FCMND = Block.FCMND
@@ -439,6 +442,9 @@ class BlockSolver(BaseSolver):
         """
         Check and initialize BCs.
         """
+        for arrname in self._solution_array_:
+            arr = getattr(self, arrname)
+            arr.fill(ALMOST_ZERO)
         for bc in self.bclist:
             bc.init(**kw)
         super(BlockSolver, self).init(**kw)

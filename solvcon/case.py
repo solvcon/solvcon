@@ -853,11 +853,9 @@ for node in $nodes; do rsh $node killall %s; done
         self.runhooks('preloop')
         if flag_parallel:
             for sdw in dealer: sdw.cmd.preloop()
-            # FIXME: array names should not be hard-coded here.
-            for sdw in dealer: sdw.cmd.exchangeibc('sol', with_worker=True)
-            for sdw in dealer: sdw.cmd.exchangeibc('dsol', with_worker=True)
-            for sdw in dealer: sdw.cmd.exchangeibc('soln', with_worker=True)
-            for sdw in dealer: sdw.cmd.exchangeibc('dsoln', with_worker=True)
+            for arrname in self.solver.solvertype._solution_array_:
+                for sdw in dealer:
+                    sdw.cmd.exchangeibc(arrname, with_worker=True)
             for sdw in dealer: sdw.cmd.boundcond()
         else:
             self.solver.solverobj.preloop()
