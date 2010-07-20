@@ -744,6 +744,7 @@ for node in $nodes; do rsh $node killall %s; done
 
         @return: nothing
         """
+        from .connection import SpanningTreeNode
         dom = self.solver.domainobj
         dealer = self.solver.dealer
         nblk = len(dom)
@@ -758,18 +759,27 @@ for node in $nodes; do rsh $node killall %s; done
         self.info('Interface exchanging pairs:\n')
         dwidth = len(str(nblk-1))
         ifacelists = dom.ifacelists
+        graph = list()
         for iblk in range(nblk):
             ifacelist = ifacelists[iblk]
             sdw = dealer[iblk]
             # print.
             self.info(('%%0%dd ->' % dwidth) % iblk)
+            lst = list()
             for pair in ifacelist:
                 if pair < 0:
                     stab = '-' * (2*dwidth+1)
                 else:
+                    lst.append(pair[0] + pair[1] - iblk)
                     stab = '-'.join([('%%0%dd'%dwidth)%item for item in pair])
                 self.info(' %s' % stab)
+            graph.append(lst)
             self.info('\n')
+        # construct spanning tree.
+        head = SpanningTreeNode(val=0, level=0)
+        visited = dict()
+        head.traverse(graph, visited)
+        assert len(visited) == nblk
 
     # exchange
     def _exchange_meta(self):

@@ -408,6 +408,9 @@ class Dealer(list):
         if msg:
             sys.stdout.write(msg)
 
+    def broadcast(self, obj):
+        pass
+
     def barrier(self, idx=slice(None,None,None), msg=None):
         """
         Check for barrier signals sent from workers.  Used for synchronization.

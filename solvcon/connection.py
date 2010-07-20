@@ -183,3 +183,19 @@ class Listener(object):
         return conn
     def close(self):
         self._socket.close()
+
+class SpanningTreeNode(dict):
+    def __init__(self, *args, **kw):
+        self.val = kw.pop('val')
+        self.level = kw.pop('level')
+        super(SpanningTreeNode, self).__init__(*args, **kw)
+    def traverse(self, graph, visited):
+        if self.val not in visited:
+            visited[self.val] = True
+            for it in graph[self.val]:
+                nd = SpanningTreeNode(val=it, level=self.level+1)
+                if nd.traverse(graph, visited) == True:
+                    self[it] = nd
+            return True
+        else:
+            return False
