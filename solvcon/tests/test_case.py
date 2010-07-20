@@ -1,3 +1,6 @@
+# -*- coding: UTF-8 -*-
+# Copyright (C) 2008-2010 by Yung-Yu Chen.  See LICENSE.txt for terms of usage.
+
 from unittest import TestCase
 
 class TestArrangement(TestCase):

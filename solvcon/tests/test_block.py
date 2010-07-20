@@ -1,4 +1,5 @@
 # -*- coding: UTF-8 -*-
+# Copyright (C) 2008-2010 by Yung-Yu Chen.  See LICENSE.txt for terms of usage.
 
 from unittest import TestCase
 from ..testing import get_blk_from_oblique_neu, get_blk_from_sample_neu
