@@ -660,3 +660,39 @@ class Footway(object):
             'outpost.run()',
         ], envar=envar)
         return port
+
+def raise_worker(address, authkey=DEFAULT_AUTHKEY, envar=None, paths=None,
+        profiler_data=None):
+    """
+    @param address: the IP/DN of the machine to build an outpost.
+    @type address: str
+    @keyword authkey: the authkey for the outpost.
+    @type authkey: str
+    @keywork envar: additional environment variables to remote.
+    @type envar: dict
+    @return: the port that the remote outpost listen on.
+    @rtype: int
+    """
+    import os
+    from subprocess import PIPE
+    remote = Remote(address, paths=paths)
+    val = int(remote([
+        'import sys',
+        'from solvcon.connection import pick_unused_port',
+        'sys.stdout.write(str(pick_unused_port()))',
+    ], stdout=PIPE))
+    try:
+        port = int(val)
+    except ValueError:
+        raise IOError, 'remote port detection fails'
+    # build remote codes.
+    pdata = str(profiler_data).replace("'", '"')
+    codes = [
+        'import os',
+        'os.chdir("%s")' % os.path.abspath(os.getcwd()),
+        'from solvcon.rpc import Worker',
+        'wkr = Worker(None, profiler_data=%s)' % pdata,
+        'wkr.run(("%s", %d), "%s")' % (address, port, authkey),
+    ]
+    remote(codes, envar=envar)
+    return port

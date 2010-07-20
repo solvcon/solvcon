@@ -692,7 +692,7 @@ class BlockCase(BaseCase):
                 profiler_data=self._get_profiler_data(iblk)))
     def _create_workers_remote(self, dealer, nblk):
         import os, sys
-        from .rpc import DEFAULT_AUTHKEY, Footway, Shadow
+        from .rpc import DEFAULT_AUTHKEY, raise_worker
         from .conf import env
         info = self.info
         authkey = DEFAULT_AUTHKEY
@@ -714,16 +714,10 @@ class BlockCase(BaseCase):
         iworker = 0 
         for node in nodelist:
             inetaddr = node.address
-            port = Footway.build_outpost(inetaddr,
-                authkey=authkey, envar=self.solver.envar, paths=paths)
-            ftw = Footway(address=(inetaddr, port), authkey=authkey)
-            ftw.chdir(os.getcwd())
-            self.solver.outposts.append(ftw)
-            for iblk in range(node.ncore):
-                pport = ftw.create(
-                    profiler_data=self._get_profiler_data(iworker))
-                dealer.appoint(inetaddr, pport, authkey)
-                iworker += 1
+            port = raise_worker(inetaddr, authkey=authkey,
+                envar=self.solver.envar, paths=paths,
+                profiler_data=self._get_profiler_data(iworker))
+            dealer.appoint(inetaddr, port, authkey)
         assert len(dealer) == nblk
         # create remote killer script.
         if self.io.rkillfn:
