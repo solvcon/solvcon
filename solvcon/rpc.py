@@ -336,45 +336,6 @@ class Dealer(list):
         shadow.remote_setattr('serial', len(self))
         self.append(shadow)
 
-    def recruit(self, family=None, wait_for_accept=None):
-        """
-        Wait for a remote worker to register in.  The sequence of actions is:
-          1. The dealer will create a listener on a given/known/public address
-             for the worker to connect to.
-          2. Prepare for the information (address, etc.) about another listener 
-             to be created.
-          3. Transfer the information about the new listener to the
-             worker at the client side.
-          4. Close the public connection and create the new listener.
-        The rest is book-keeping the information about connection and make the
-        shadow out of it.
-
-        @param family: family of the connection to establish.
-        @type family: str
-        @keyword wait_for_accept: seconds to wait after accepting.  If None use
-            DEFAULT.
-        @type wait_for_accept: float
-        """
-        from .connection import guess_address, Listener
-        # start a listener at here, the dealer's side.
-        publiclsnr = Listener(address=self.publicaddress, authkey=self.authkey)
-        publicconn = publiclsnr.accept()
-        # prepare the data to be sent to the worker for the persistent
-        # connection.
-        address = guess_address(family if family!=None else 'AF_INET')
-        wait_for_accept = wait_for_accept if wait_for_accept!=None \
-                                          else self.WAIT_FOR_ACCEPT
-        # create the new listener and send the information.
-        lsnr = Listener(address=address, authkey=self.authkey)
-        publicconn.send((address, self.authkey, wait_for_accept))
-        # close the old/public connection and accept for the new/persistent one.
-        publicconn.close()
-        conn = lsnr.accept()
-        # book-keeping the shadows.
-        shadow = Shadow(listener=lsnr, connection=conn)
-        shadow.remote_setattr('serial', len(self))
-        self.append(shadow)
-
     def bridge(self, peers, wait_for_accept=None):
         """
         Tell two peering worker to establish a connection.
@@ -699,51 +660,3 @@ class Footway(object):
             'outpost.run()',
         ], envar=envar)
         return port
-
-def run_server(dealer, nworker):
-    """
-    Take a dealer and recruit a number of workers for it.
-
-    @param dealer: the dealer that can recruit.  In order to recruit, the 
-        dealer must have publicaddress.
-    @type dealer: Dealer
-    @param nworker: number of workers the dealer needs.
-    @type nworker: int
-    """
-    for iworker in range(nworker):
-        dealer.recruit()
-    return dealer
-
-def run_client(address, authkey):
-    """
-    Summon a worker without any muscle and register it to the dealer specified
-    on the address with the authentication key.
-
-    @param address: the address to connect to.
-    @type address: str or tuple
-    @param authkey: authentication key for connection.
-    @type authkey: str
-    @return: nothing.
-    """
-    Worker(None).register(address, authkey)
-
-if __name__ == '__main__':
-    import sys
-    from .connection import pick_unused_port
-    if len(sys.argv) == 1:
-        # tell me a unused port on this machine.
-        sys.stdout.write("%d\n" % pick_unused_port())
-    elif len(sys.argv) == 5:
-        # create a dealer according to the given information and wait for
-        # workers to register.  this is a demonstration.
-        publicaddress = (sys.argv[1], int(sys.argv[2]))
-        authkey = sys.argv[3]
-        dealer = Dealer(publicaddress=publicaddress, authkey=authkey)
-        run_server(dealer, int(sys.argv[4]))
-        for sdw in dealer:
-            sys.stdout.write("%s at %s\n" % (
-              sdw, sdw.listener.address))
-        raw_input() # pause.
-    elif len(sys.argv) == 4:
-        # create a worker without muscle and register it to the remote dealer.
-        run_client((sys.argv[1], int(sys.argv[2])), sys.argv[3])
