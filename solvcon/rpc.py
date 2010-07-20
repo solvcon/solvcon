@@ -205,17 +205,17 @@ class Agent(object):
     """
     Remote agent to worker.
 
-    @ivar connection: connection to the worker.
-    @itype connection: solvcon.connection.Client
+    @ivar conn: connection to the worker.
+    @itype conn: solvcon.connection.Client
     @ivar noticetype: type of notice object to send.
     @itype noticetype: Notice
     """
-    def __init__(self, connection=None, noticetype=Command):
-        self.connection = connection
+    def __init__(self, conn=None, noticetype=Command):
+        self.conn = conn
         self.noticetype = noticetype
 
     def __getattr__(self, name):
-        conn = self.connection
+        conn = self.conn
         ntype = self.noticetype
         def func(*arg, **kw):
             conn.send(ntype(name, *arg, **kw))
@@ -226,10 +226,10 @@ class Shadow(object):
     Convenient wrapper for two agents that send commands to remote worker and
     muscle.  The default agent is to the worker (ctl).
 
-    @ivar listener: listener to worker.
-    @itype listener: solvcon.connection.Listener
-    @ivar connection: connection to the worker.
-    @itype connection: solvcon.connection.Client
+    @ivar lsnr: listener to worker.
+    @itype lsnr: solvcon.connection.Listener
+    @ivar conn: connection to the worker.
+    @itype conn: solvcon.connection.Client
     @ivar address: remote address.
     @itype address: tuple or str
     @ivar cmd: agent to muscle.
@@ -237,12 +237,12 @@ class Shadow(object):
     @ivar ctl: agent to worker.
     @itype ctl: Agent
     """
-    def __init__(self, listener=None, connection=None, address=None):
-        self.listener = listener
-        self.connection = connection
+    def __init__(self, lsnr=None, conn=None, address=None):
+        self.lsnr = lsnr
+        self.conn = conn
         self.address = address
-        self.cmd = Agent(connection=connection, noticetype=Command)
-        self.ctl = Agent(connection=connection, noticetype=Control)
+        self.cmd = Agent(conn=conn, noticetype=Command)
+        self.ctl = Agent(conn=conn, noticetype=Control)
 
     def __getattr__(self, name):
         """
@@ -254,7 +254,7 @@ class Shadow(object):
         """
         Receive data from worker/muscle.
         """
-        return self.connection.recv(*args, **kw)
+        return self.conn.recv(*args, **kw)
 
 class Remote(object):
     """
@@ -419,7 +419,7 @@ class Dealer(list):
         sleep(wait_for_accept if wait_for_accept!=None else self.WAIT_FOR_ACCEPT)
         # connect to the created process and make its shadow.
         conn = Client(address=address, authkey=self.authkey)
-        shadow = Shadow(connection=conn, address=address)
+        shadow = Shadow(conn=conn, address=address)
         shadow.remote_setattr('serial', len(self))
         self.append(shadow)
 
@@ -464,7 +464,7 @@ class Dealer(list):
         ], envar=envar)
         # connect to the remotely created process and make its shadow.
         conn = Client(address=(inetaddr, port), authkey=authkey)
-        shadow = Shadow(connection=conn, address=(inetaddr, port))
+        shadow = Shadow(conn=conn, address=(inetaddr, port))
         shadow.remote_setattr('serial', len(self))
         self.append(shadow)
 
