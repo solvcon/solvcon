@@ -89,52 +89,6 @@ class TestWorker(TestCase):
         dealer.barrier()
         dealer.terminate()
 
-class TestOutpost(TestCase):
-    def test_creation_termination(self):
-        import sys
-        from nose.plugins.skip import SkipTest
-        if sys.platform.startswith('win'): raise SkipTest
-        from time import sleep
-        from multiprocessing import Process
-        from ..connection import pick_unused_port
-        from ..rpc import DEFAULT_AUTHKEY, DEFAULT_SLEEP, Outpost, Footway
-        port = pick_unused_port()
-        authkey = DEFAULT_AUTHKEY
-        outpost = Outpost(publicaddress=('localhost', port), authkey=authkey)
-        proc = Process(target=outpost.run)
-        proc.start()
-        sleep(DEFAULT_SLEEP)
-        ftw = Footway(address=('localhost', port), authkey=authkey)
-        # terminate.
-        ftw.terminate()
-
-    def test_muscle(self):
-        import sys
-        from nose.plugins.skip import SkipTest
-        if sys.platform.startswith('win'): raise SkipTest
-        from time import sleep
-        from multiprocessing import Process
-        from ..connection import pick_unused_port, Client
-        from ..rpc import (DEFAULT_AUTHKEY, DEFAULT_SLEEP,
-            Outpost, Footway, Shadow)
-        port = pick_unused_port()
-        authkey = DEFAULT_AUTHKEY
-        outpost = Outpost(publicaddress=('localhost', port), authkey=authkey)
-        proc = Process(target=outpost.run)
-        proc.start()
-        sleep(DEFAULT_SLEEP)
-        ftw = Footway(address=('localhost', port), authkey=authkey)
-        # create worker and set muscle.
-        pport = ftw.create()
-        conn = Client(address=('localhost', pport), authkey=authkey)
-        shadow = Shadow(connection=conn)
-        muscle = Solver("solver0", "solver1")
-        shadow.remote_setattr('muscle', muscle)
-        # do something with the muscle.
-        shadow.cmd.assert_msg('solver0')
-        # terminate.
-        ftw.terminate()
-
 class TestRemote(TestCase):
     def test_python(self):
         from subprocess import PIPE
@@ -156,50 +110,3 @@ class TestRemote(TestCase):
             ]),
             'A_TEST_VALUE\n'
         )
-
-class TestFootway(TestCase):
-    def test_build(self):
-        import sys
-        from nose.plugins.skip import SkipTest
-        if sys.platform.startswith('win'): raise SkipTest
-        from ..rpc import DEFAULT_AUTHKEY, Footway
-        authkey = DEFAULT_AUTHKEY
-        port = Footway.build_outpost(address='localhost', authkey=authkey)
-        ftw = Footway(address=('localhost', port), authkey=authkey)
-        # terminate.
-        ftw.terminate()
-
-    def test_kill_remote(self):
-        import sys
-        from nose.plugins.skip import SkipTest
-        if sys.platform.startswith('win'): raise SkipTest
-        from ..rpc import DEFAULT_AUTHKEY, Footway
-        authkey = DEFAULT_AUTHKEY
-        port = Footway.build_outpost(address='localhost', authkey=authkey)
-        ftw = Footway(address=('localhost', port), authkey=authkey)
-        pid = ftw.pid
-        # terminate.
-        ftw.terminate()
-        # there should be no process to be killed remotely.
-        msg = ftw.kill_remote()
-        self.assertTrue('%d'%pid in msg)
-
-    def test_create(self):
-        import sys
-        from nose.plugins.skip import SkipTest
-        if sys.platform.startswith('win'): raise SkipTest
-        from ..connection import Client
-        from ..rpc import DEFAULT_AUTHKEY, Footway, Shadow
-        authkey = DEFAULT_AUTHKEY
-        port = Footway.build_outpost(address='localhost', authkey=authkey)
-        ftw = Footway(address=('localhost', port), authkey=authkey)
-        # create worker and set muscle.
-        pport = ftw.create()
-        conn = Client(address=('localhost', pport), authkey=authkey)
-        shadow = Shadow(connection=conn)
-        muscle = Solver("solver0", "solver1")
-        shadow.remote_setattr('muscle', muscle)
-        # do something with the muscle.
-        shadow.cmd.assert_msg('solver0')
-        # terminate.
-        ftw.terminate()

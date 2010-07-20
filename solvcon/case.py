@@ -410,7 +410,6 @@ class BlockCase(BaseCase):
         'solver.domaintype': None,
         'solver.domainobj': None,
         'solver.dealer': None,
-        'solver.outposts': list,
         'solver.envar': dict,
         'solver.ibcthread': False,
     }
@@ -457,7 +456,6 @@ class BlockCase(BaseCase):
         if flag_parallel:
             for iblk in range(len(self.solver.domainobj)):
                 dealer[iblk].cmd.dump(self.io.dump.svrfntmpl % str(iblk))
-            outposts = self.solver.outposts
         else:
             self.solver.domainobj.unbind()
             self.solver.solverobj.unbind()
@@ -467,12 +465,10 @@ class BlockCase(BaseCase):
                 setattr(self.solver.solverobj, key, None)
         # pickle.
         self.solver.dealer = None
-        self.solver.outposts = list()
         pickle.dump(self, open(self.io.dump.csefn, 'wb'),
             pickle.HIGHEST_PROTOCOL)
         # bind.
         if flag_parallel:
-            self.solver.outposts = outposts
             self.solver.dealer = dealer
         else:
             for key in svrholds:
@@ -483,7 +479,6 @@ class BlockCase(BaseCase):
     def cleanup(self, signum=None, frame=None):
         if self.solver.solverobj != None:
             self.solver.solverobj.unbind()
-        for ftw in self.solver.outposts: ftw.kill_remote()
         super(BlockCase, self).cleanup(signum=signum, frame=frame)
 
     ############################################################################
@@ -692,7 +687,7 @@ class BlockCase(BaseCase):
                 profiler_data=self._get_profiler_data(iblk)))
     def _create_workers_remote(self, dealer, nblk):
         import os, sys
-        from .rpc import DEFAULT_AUTHKEY, raise_worker
+        from .rpc import DEFAULT_AUTHKEY
         from .conf import env
         info = self.info
         authkey = DEFAULT_AUTHKEY
@@ -702,22 +697,20 @@ class BlockCase(BaseCase):
         ])
         paths['PYTHONPATH'].extend(self.pythonpaths)
         paths['PYTHONPATH'].insert(0, self.io.rootdir)
-        # prepare nodelist.
-        info('\n********\nNodelist')
+        # appoint remote worker objects.
+        info('Appoint remote worker for the nodelist')
         nodelist = self.execution.scheduler(self).nodelist()
         if env.command != None and env.command.opargs[0].compress_nodelist:
             info(' (compressed)')
         info(':\n')
-        for node in nodelist:
-            info('  %s\n' % node.name)
-        # print out content of node file.
         iworker = 0 
         for node in nodelist:
-            inetaddr = node.address
-            port = raise_worker(inetaddr, authkey=authkey,
+            info('  %s' % node.name)
+            dealer.appoint(node.address, authkey,
                 envar=self.solver.envar, paths=paths,
                 profiler_data=self._get_profiler_data(iworker))
-            dealer.appoint(inetaddr, port, authkey)
+            info(' worker #%d appointed.\n' % iworker)
+            iworker += 1
         assert len(dealer) == nblk
         # create remote killer script.
         if self.io.rkillfn:
@@ -935,7 +928,6 @@ for node in $nodes; do rsh $node killall %s; done
         if flag_parallel:
             for sdw in dealer: sdw.cmd.final()
             self.solver.dealer.terminate()
-            for ftw in self.solver.outposts: ftw.terminate()
         else:
             self.solver.solverobj.final()
 
