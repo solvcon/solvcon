@@ -775,7 +775,7 @@ for node in $nodes; do rsh $node killall %s; done
             graph.append(lst)
             self.info('\n')
         # construct spanning tree.
-        dealer.span(graph)
+        #dealer.span(graph)
 
     # exchange
     def _exchange_meta(self):
