@@ -754,27 +754,31 @@ for node in $nodes; do rsh $node killall %s; done
                 if dom.interfaces[iblk][jblk] != None:
                     dealer.bridge((iblk, jblk))
         dealer.barrier()
-        # construct graph and show exchanging pairs.
+        # show exchanging pairs.
         self.info('Interface exchanging pairs:\n')
         dwidth = len(str(nblk-1))
         ifacelists = dom.ifacelists
-        graph = list()
         for iblk in range(nblk):
             ifacelist = ifacelists[iblk]
             sdw = dealer[iblk]
             # print.
             self.info(('%%0%dd ->' % dwidth) % iblk)
-            lst = list()
             for pair in ifacelist:
                 if pair < 0:
                     stab = '-' * (2*dwidth+1)
                 else:
-                    lst.append(pair[0] + pair[1] - iblk)
                     stab = '-'.join([('%%0%dd'%dwidth)%item for item in pair])
                 self.info(' %s' % stab)
-            graph.append(lst)
             self.info('\n')
         # construct spanning tree.
+        #graph = list()
+        #for iblk in range(nblk):
+        #    ifacelist = ifacelists[iblk]
+        #    lst = list()
+        #    for pair in ifacelist:
+        #        if isinstance(pair, tuple):
+        #            lst.append(pair[0] + pair[1] - iblk)
+        #    graph.append(lst)
         #dealer.span(graph)
 
     # exchange
