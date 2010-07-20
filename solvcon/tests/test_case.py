@@ -130,7 +130,7 @@ class TestSequential(TestBlockCaseRun):
         # compare.
         self.assertTrue((dsoln==clcnd).all())
 
-class TestParallel(TestBlockCaseRun):
+class TestLocalParallel(TestBlockCaseRun):
     npart = 3
 
     def test_soln(self):
@@ -175,9 +175,8 @@ class TestParallel(TestBlockCaseRun):
         if sys.platform.startswith('win'): raise SkipTest
         from numpy import zeros
         from ..domain import Collective
-        case = self._get_case(
-            npart=self.npart, domaintype=Collective, ibcthread=True,
-        )
+        case = self._get_case(npart=self.npart, domaintype=Collective,
+            ibcthread=True)
         case.run()
         # get result.
         soln = case.execution.var['soln'][:,0]
@@ -188,3 +187,17 @@ class TestParallel(TestBlockCaseRun):
             clvol += blk.clvol*self.time_increment/2
         # compare.
         self.assertTrue((soln==clvol).all())
+
+class TestRemoteParallel(TestBlockCaseRun):
+    npart = 2
+
+    def test_runparallel(self):
+        import sys
+        from nose.plugins.skip import SkipTest
+        if sys.platform.startswith('win'): raise SkipTest
+        from numpy import zeros
+        from ..batch import Localhost
+        from ..domain import Distributed
+        case = self._get_case(npart=self.npart, domaintype=Distributed,
+            scheduler=Localhost, rkillfn='')
+        case.run()

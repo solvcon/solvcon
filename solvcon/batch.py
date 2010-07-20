@@ -225,10 +225,9 @@ class Localhost(Scheduler):
     """
     Scheduler for localhost.
     """
-    def __iter__(self):
-        npart = self.case.execution.npart
-        for i in range(1):
-            yield Node('localhost', ncore=npart)
+    def nodelist(self):
+        return [Node('localhost', ncore=1)
+            for i in range(self.case.execution.npart)]
 
 class Torque(Scheduler):
     """

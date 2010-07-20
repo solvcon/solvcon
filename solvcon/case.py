@@ -726,16 +726,17 @@ class BlockCase(BaseCase):
                 iworker += 1
         assert len(dealer) == nblk
         # create remote killer script.
-        f = open(self.io.rkillfn, 'w')
-        f.write("""#!/bin/sh
+        if self.io.rkillfn:
+            f = open(self.io.rkillfn, 'w')
+            f.write("""#!/bin/sh
 nodes="
 %s
 "
 for node in $nodes; do rsh $node killall %s; done
 """ % (
-            '\n'.join([node.name for node in nodelist]),
-            os.path.split(sys.executable)[-1],
-        ))
+                '\n'.join([node.name for node in nodelist]),
+                os.path.split(sys.executable)[-1],
+            ))
 
     # interconnection.
     def _interconnect(self):
