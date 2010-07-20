@@ -744,7 +744,6 @@ for node in $nodes; do rsh $node killall %s; done
 
         @return: nothing
         """
-        from .connection import SpanningTreeNode
         dom = self.solver.domainobj
         dealer = self.solver.dealer
         nblk = len(dom)
@@ -755,7 +754,7 @@ for node in $nodes; do rsh $node killall %s; done
                 if dom.interfaces[iblk][jblk] != None:
                     dealer.bridge((iblk, jblk))
         dealer.barrier()
-        # show exchanging pairs.
+        # construct graph and show exchanging pairs.
         self.info('Interface exchanging pairs:\n')
         dwidth = len(str(nblk-1))
         ifacelists = dom.ifacelists
@@ -776,10 +775,7 @@ for node in $nodes; do rsh $node killall %s; done
             graph.append(lst)
             self.info('\n')
         # construct spanning tree.
-        head = SpanningTreeNode(val=0, level=0)
-        visited = dict()
-        head.traverse(graph, visited)
-        assert len(visited) == nblk
+        dealer.span(graph)
 
     # exchange
     def _exchange_meta(self):

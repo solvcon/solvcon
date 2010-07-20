@@ -288,6 +288,7 @@ class Dealer(list):
             else:
                 self.family = 'AF_INET'
         super(Dealer, self).__init__(*args, **kw)
+        self.spanhead = None
 
     def hire(self, worker, inetaddr=None, wait_for_accept=None):
         """
@@ -393,6 +394,13 @@ class Dealer(list):
         sleep(wait_for_accept if wait_for_accept!=None else self.WAIT_FOR_ACCEPT)
         self[plow].connect_peer(phigh, address, self.authkey)
 
+    def span(self, graph):
+        from .connection import SpanningTreeNode
+        self.spanhead = SpanningTreeNode(val=0, level=0)
+        visited = dict()
+        self.spanhead.traverse(graph, visited)
+        assert len(graph) == len(visited)
+
     def terminate(self, idx=slice(None,None,None), msg=None):
         """
         Termiinate workers.
@@ -407,9 +415,6 @@ class Dealer(list):
             sdw.terminate()
         if msg:
             sys.stdout.write(msg)
-
-    def broadcast(self, obj):
-        pass
 
     def barrier(self, idx=slice(None,None,None), msg=None):
         """
