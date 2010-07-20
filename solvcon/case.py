@@ -542,11 +542,11 @@ class BlockCase(BaseCase):
                 self._log_start('remote_load_solver')
                 self._remote_load_solver()
                 self._log_end('remote_load_solver')
-            # exchange boundary information.
+            # initialize interfaces.
             self.info('\n')
-            self._log_start('exchange')
-            self._exchange_meta()
-            self._log_end('exchange')
+            self._log_start('init_interface')
+            self._init_interface()
+            self._log_end('init_interface')
             # initialize exchange for remote solver objects.
             if level != 1:
                 self.info('\n')
@@ -754,26 +754,10 @@ for node in $nodes; do rsh $node killall %s; done
                 if dom.interfaces[iblk][jblk] != None:
                     dealer.bridge((iblk, jblk))
         dealer.barrier()
-        # show exchanging pairs.
-        self.info('Interface exchanging pairs:\n')
-        dwidth = len(str(nblk-1))
-        ifacelists = dom.ifacelists
-        for iblk in range(nblk):
-            ifacelist = ifacelists[iblk]
-            sdw = dealer[iblk]
-            # print.
-            self.info(('%%0%dd ->' % dwidth) % iblk)
-            for pair in ifacelist:
-                if pair < 0:
-                    stab = '-' * (2*dwidth+1)
-                else:
-                    stab = '-'.join([('%%0%dd'%dwidth)%item for item in pair])
-                self.info(' %s' % stab)
-            self.info('\n')
         # construct spanning tree.
         #graph = list()
         #for iblk in range(nblk):
-        #    ifacelist = ifacelists[iblk]
+        #    ifacelist = dom.ifacelists[iblk]
         #    lst = list()
         #    for pair in ifacelist:
         #        if isinstance(pair, tuple):
@@ -781,8 +765,8 @@ for node in $nodes; do rsh $node killall %s; done
         #    graph.append(lst)
         #dealer.span(graph)
 
-    # exchange
-    def _exchange_meta(self):
+    # interface.
+    def _init_interface(self):
         """
         Exchange meta data.
 
@@ -793,12 +777,20 @@ for node in $nodes; do rsh $node killall %s; done
         nblk = len(dom)
         self.info('Interface exchanging pairs:\n')
         dwidth = len(str(nblk-1))
-        ifacelists = dom.ifacelists
         for iblk in range(nblk):
-            ifacelist = ifacelists[iblk]
+            ifacelist = dom.ifacelists[iblk]
             sdw = dealer[iblk]
             sdw.cmd.init_exchange(ifacelist)
-            self.info('BCs for solver #%d/%d initialized.\n' % (iblk+1, nblk))
+            # print.
+            self.info(('%%0%dd ->' % dwidth) % iblk)
+            for pair in ifacelist:
+                if pair < 0:
+                    stab = '-' * (2*dwidth+1)
+                else:
+                    stab = '-'.join([('%%0%dd'%dwidth)%item for item in pair])
+                self.info(' %s' % stab)
+            self.info('\n')
+
     def _exchange_metric(self):
         """
         Exchange metric data for solver.
@@ -861,6 +853,9 @@ for node in $nodes; do rsh $node killall %s; done
         self.runhooks('preloop')
         if flag_parallel:
             for sdw in dealer: sdw.cmd.preloop()
+            # FIXME: array names should not be hard-coded here.
+            for sdw in dealer: sdw.cmd.exchangeibc('sol', with_worker=True)
+            for sdw in dealer: sdw.cmd.exchangeibc('dsol', with_worker=True)
             for sdw in dealer: sdw.cmd.exchangeibc('soln', with_worker=True)
             for sdw in dealer: sdw.cmd.exchangeibc('dsoln', with_worker=True)
             for sdw in dealer: sdw.cmd.boundcond()
