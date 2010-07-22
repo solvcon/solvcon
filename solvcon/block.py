@@ -318,9 +318,8 @@ class Block(object):
         from .dependency import intptr
         # call the subroutine.
         fpptr = self.fpptr
-        msd = self.create_msd()
         self._clib_solvconc.calc_metric(
-            byref(msd),
+            byref(self.create_msd()),
         )
 
     def build_interior(self):
@@ -353,16 +352,10 @@ class Block(object):
         for arr in clfcs, fcnds, fccls:
             arr.fill(-1)
         ## call the subroutine.
-        self._clib_solvcon.get_faces_from_cells_(
+        self._clib_solvconc.get_faces_from_cells(
             # input.
-            byref(c_int(self.nnode)),
-            byref(c_int(self.ncell)),
-            byref(c_int(max_nfc)),
-            byref(c_int(self.CLMND)),
-            byref(c_int(self.CLMFC)),
-            byref(c_int(self.FCMND)),
-            self.cltpn.ctypes.data_as(intptr),
-            self.clnds.ctypes.data_as(intptr),
+            byref(self.create_msd()),
+            c_int(max_nfc),
             # output.
             byref(nface),
             clfcs.ctypes.data_as(intptr),
@@ -370,6 +363,23 @@ class Block(object):
             fcnds.ctypes.data_as(intptr),
             fccls.ctypes.data_as(intptr),
         )
+        #self._clib_solvcon.get_faces_from_cells_(
+        #    # input.
+        #    byref(c_int(self.nnode)),
+        #    byref(c_int(self.ncell)),
+        #    byref(c_int(max_nfc)),
+        #    byref(c_int(self.CLMND)),
+        #    byref(c_int(self.CLMFC)),
+        #    byref(c_int(self.FCMND)),
+        #    self.cltpn.ctypes.data_as(intptr),
+        #    self.clnds.ctypes.data_as(intptr),
+        #    # output.
+        #    byref(nface),
+        #    clfcs.ctypes.data_as(intptr),
+        #    fctpn.ctypes.data_as(intptr),
+        #    fcnds.ctypes.data_as(intptr),
+        #    fccls.ctypes.data_as(intptr),
+        #)
         ## shuffle the result.
         nface = nface.value
         clfcs = clfcs[:nface,:]

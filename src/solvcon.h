@@ -1,8 +1,9 @@
 #ifndef _SOLVCON
 #define _SOLVCON
 
-#include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
+#include <stdio.h>
 
 typedef struct {
     int ndim;

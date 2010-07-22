@@ -6,7 +6,7 @@
  *  3. center of cells.
  *  4. volume of cells.
  * And fcnds could be reordered.
-*/
+ */
 int calc_metric(MeshData *msd) {
     int nnd, nfc;
     // pointers.
