@@ -1,3 +1,5 @@
+// Copyright (C) 2008-2010 by Yung-Yu Chen.  See LICENSE.txt for terms of
+// usage.
 #ifndef _SOLVCON
 #define _SOLVCON
 

@@ -1,5 +1,5 @@
 # -*- coding: UTF-8 -*-
-# Copyright (C) 2008-2009 by Yung-Yu Chen.  See LICENSE.txt for terms of usage.
+# Copyright (C) 2008-2010 by Yung-Yu Chen.  See LICENSE.txt for terms of usage.
 
 """Unstructured mesh definition."""
 
@@ -316,11 +316,26 @@ class Block(object):
         """
         from ctypes import byref
         from .dependency import intptr
-        # call the subroutine.
-        fpptr = self.fpptr
         self._clib_solvconc.calc_metric(
             byref(self.create_msd()),
         )
+        #fpptr = self.fpptr
+        #msh = self.create_shape()
+        #self._clib_solvcon.calc_metric_(
+        #    # input.
+        #    byref(msh),
+        #    self.ndcrd.ctypes.data_as(fpptr),
+        #    self.fccls.ctypes.data_as(intptr),
+        #    self.clnds.ctypes.data_as(intptr),
+        #    self.clfcs.ctypes.data_as(intptr),
+        #    # output/input.
+        #    self.fcnds.ctypes.data_as(intptr),
+        #    self.fccnd.ctypes.data_as(fpptr),
+        #    self.fcnml.ctypes.data_as(fpptr),
+        #    self.fcara.ctypes.data_as(fpptr),
+        #    self.clcnd.ctypes.data_as(fpptr),
+        #    self.clvol.ctypes.data_as(fpptr),
+        #)
 
     def build_interior(self):
         """

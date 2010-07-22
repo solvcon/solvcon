@@ -1,3 +1,5 @@
+// Copyright (C) 2008-2010 by Yung-Yu Chen.  See LICENSE.txt for terms of
+// usage.
 #include "solvcon.h"
 /*
  * subroutine get_faces_from_cells: Extract interier faces from node list of

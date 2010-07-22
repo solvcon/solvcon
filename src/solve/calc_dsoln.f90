@@ -1,3 +1,4 @@
+! Copyright (C) 2008-2010 by Yung-Yu Chen.  See LICENSE.txt for terms of usage.
 subroutine calc_dsoln(msh, exn, clcnd, dsol, dsoln)
 implicit none
 include 'ctypes.inc'

@@ -1,3 +1,4 @@
+! Copyright (C) 2008-2010 by Yung-Yu Chen.  See LICENSE.txt for terms of usage.
 ! geometrical informations for mesh.
 type mesh
     ! number of axis, number of equations; ndimgeo, neq.

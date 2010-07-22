@@ -1,3 +1,5 @@
+// Copyright (C) 2008-2010 by Yung-Yu Chen.  See LICENSE.txt for terms of
+// usage.
 #include "solvcon.h"
 /*
  * subroutine calc_metric: Calculate all metric information, including:

@@ -1,3 +1,4 @@
+! Copyright (C) 2008-2010 by Yung-Yu Chen.  See LICENSE.txt for terms of usage.
 subroutine count_max_nodeinblock(max_clnnd, ncell, nblk, nnode, &
     clnds, part, max_ndcnt)
 implicit none

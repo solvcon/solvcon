@@ -1,3 +1,4 @@
+! Copyright (C) 2008-2010 by Yung-Yu Chen.  See LICENSE.txt for terms of usage.
 subroutine calc_soln(msh, exn, clvol, sol, soln)
 implicit none
 include 'ctypes.inc'
