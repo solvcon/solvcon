@@ -49,20 +49,25 @@ class Partitioner(object):
         """
         from ctypes import POINTER, c_int, byref
         from numpy import empty
-        from .dependency import _clib_solvcon_d
+        from .dependency import _clib_solvconc_d
         intptr = POINTER(c_int)
         rcells = empty((blk.ncell, blk.CLMFC), dtype='int32')
         rcellno = empty(blk.ncell, dtype='int32')
-        _clib_solvcon_d.build_rcells_( 
-            byref(c_int(blk.CLMFC)),
-            byref(c_int(blk.nface)),
-            byref(c_int(blk.ncell)),
-            blk.clfcs.ctypes.data_as(intptr),
-            blk.fccls.ctypes.data_as(intptr),
-            # output.
+        _clib_solvconc_d.build_rcells(
+            byref(blk.create_msd()),
             rcells.ctypes.data_as(intptr),
             rcellno.ctypes.data_as(intptr),
         )
+        #_clib_solvcon_d.build_rcells_( 
+        #    byref(c_int(blk.CLMFC)),
+        #    byref(c_int(blk.nface)),
+        #    byref(c_int(blk.ncell)),
+        #    blk.clfcs.ctypes.data_as(intptr),
+        #    blk.fccls.ctypes.data_as(intptr),
+        #    # output.
+        #    rcells.ctypes.data_as(intptr),
+        #    rcellno.ctypes.data_as(intptr),
+        #)
         return rcells, rcellno
 
     @classmethod
