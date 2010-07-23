@@ -255,18 +255,24 @@ class Collective(Domain, list):
         @rtype: int
         """
         from ctypes import c_int, byref, POINTER
-        from .dependency import _clib_solvcon_d
+        from .dependency import _clib_solvconc_d
         intptr = POINTER(c_int)
         max_ndcnt = c_int(0)
-        _clib_solvcon_d.count_max_nodeinblock_(
-            byref(c_int(blk.CLMND)),
-            byref(c_int(blk.ncell)),
-            byref(c_int(part.max()+1)),
-            byref(c_int(blk.nnode)),
-            blk.clnds.ctypes.data_as(intptr),
+        _clib_solvconc_d.count_max_nodeinblock(
+            byref(blk.create_msd()),
             part.ctypes.data_as(intptr),
+            c_int(part.max()+1),
             byref(max_ndcnt),
         )
+        #_clib_solvcon_d.count_max_nodeinblock_(
+        #    byref(c_int(blk.CLMND)),
+        #    byref(c_int(blk.ncell)),
+        #    byref(c_int(part.max()+1)),
+        #    byref(c_int(blk.nnode)),
+        #    blk.clnds.ctypes.data_as(intptr),
+        #    part.ctypes.data_as(intptr),
+        #    byref(max_ndcnt),
+        #)
         return max_ndcnt.value
 
     def partition(self, nblk):
