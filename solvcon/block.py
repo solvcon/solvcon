@@ -492,28 +492,32 @@ class Block(object):
         self._assign_ghost(ngstnode, ngstface, ngstcell)
         self._reassign_interior(ngstnode, ngstface, ngstcell)
         # build ghost information, including connectivities and metrics.
-        fpptr = self.fpptr
-        msh = self.create_shape()
-        self._clib_solvcon.build_ghost_(
-            # meta data.
-            byref(msh),
+        self._clib_solvconc.build_ghost(
+            byref(self.create_msd()),
             self.bndfcs.ctypes.data_as(intptr),
-            self.shfctpn.ctypes.data_as(intptr),
-            self.shcltpn.ctypes.data_as(intptr),
-            self.shclgrp.ctypes.data_as(intptr),
-            # connectivity.
-            self.shfcnds.ctypes.data_as(intptr),
-            self.shfccls.ctypes.data_as(intptr),
-            self.shclnds.ctypes.data_as(intptr),
-            self.shclfcs.ctypes.data_as(intptr),
-            # geometry.
-            self.shndcrd.ctypes.data_as(fpptr),
-            self.shfccnd.ctypes.data_as(fpptr),
-            self.shfcnml.ctypes.data_as(fpptr),
-            self.shfcara.ctypes.data_as(fpptr),
-            self.shclcnd.ctypes.data_as(fpptr),
-            self.shclvol.ctypes.data_as(fpptr),
         )
+        #fpptr = self.fpptr
+        #msh = self.create_shape()
+        #self._clib_solvcon.build_ghost_(
+        #    # meta data.
+        #    byref(msh),
+        #    self.bndfcs.ctypes.data_as(intptr),
+        #    self.shfctpn.ctypes.data_as(intptr),
+        #    self.shcltpn.ctypes.data_as(intptr),
+        #    self.shclgrp.ctypes.data_as(intptr),
+        #    # connectivity.
+        #    self.shfcnds.ctypes.data_as(intptr),
+        #    self.shfccls.ctypes.data_as(intptr),
+        #    self.shclnds.ctypes.data_as(intptr),
+        #    self.shclfcs.ctypes.data_as(intptr),
+        #    # geometry.
+        #    self.shndcrd.ctypes.data_as(fpptr),
+        #    self.shfccnd.ctypes.data_as(fpptr),
+        #    self.shfcnml.ctypes.data_as(fpptr),
+        #    self.shfcara.ctypes.data_as(fpptr),
+        #    self.shclcnd.ctypes.data_as(fpptr),
+        #    self.shclvol.ctypes.data_as(fpptr),
+        #)
 
     def _count_ghost(self):
         """

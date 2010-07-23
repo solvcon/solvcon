@@ -5,7 +5,6 @@
  * subroutine get_faces_from_cells: Extract interier faces from node list of
  * cells.  Subroutine is designed to handle all types of cell.  See block.py
  * for the types to be supported.
- * 
  */
 int get_faces_from_cells(MeshData *msd, int mface,
         int *pnface, int *clfcs, int *fctpn, int *fcnds, int *fccls) {
