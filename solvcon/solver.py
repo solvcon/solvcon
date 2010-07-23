@@ -132,10 +132,6 @@ class BaseSolver(object):
     def _clib_solvcon(self):
         from .dependency import _clib_solvcon_of
         return _clib_solvcon_of(self.fpdtype)
-    @property
-    def _clib_solvconc(self):
-        from .dependency import _clib_solvconc_of
-        return _clib_solvconc_of(self.fpdtype)
 
     @staticmethod
     def detect_ncore():

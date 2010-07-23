@@ -54,8 +54,6 @@ def loadcdll(location, libname):
 
 _clib_solvcon_d = loadcdll(env.libdir, '_clib_solvcon_d')
 _clib_solvcon_s = loadcdll(env.libdir, '_clib_solvcon_s')
-_clib_solvconc_d = loadcdll(env.libdir, '_clib_solvconc_d')
-_clib_solvconc_s = loadcdll(env.libdir, '_clib_solvconc_s')
 
 def _clib_solvcon_of(dtype):
     import numpy as np
@@ -63,15 +61,6 @@ def _clib_solvcon_of(dtype):
         return _clib_solvcon_s
     elif dtype == np.float64:
         return _clib_solvcon_d
-    else:
-        raise TypeError
-
-def _clib_solvconc_of(dtype):
-    import numpy as np
-    if dtype == np.float32:
-        return _clib_solvconc_s
-    elif dtype == np.float64:
-        return _clib_solvconc_d
     else:
         raise TypeError
 

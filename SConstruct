@@ -1,6 +1,9 @@
 import os
 import sys
 
+AddOption('--enable-f90', dest='enable_f90',
+    action='store', default=False,
+    help='Enable FORTRAN (90) version binary.')
 AddOption('--f90', dest='f90', type='string',
     action='store', default='gfortran',
     help='Fortran compiler (SCons tool): gfortran, ifort.')

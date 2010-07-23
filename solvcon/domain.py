@@ -49,11 +49,11 @@ class Partitioner(object):
         """
         from ctypes import POINTER, c_int, byref
         from numpy import empty
-        from .dependency import _clib_solvconc_d
+        from .dependency import _clib_solvcon_d
         intptr = POINTER(c_int)
         rcells = empty((blk.ncell, blk.CLMFC), dtype='int32')
         rcellno = empty(blk.ncell, dtype='int32')
-        _clib_solvconc_d.build_rcells(
+        _clib_solvcon_d.build_rcells(
             byref(blk.create_msd()),
             rcells.ctypes.data_as(intptr),
             rcellno.ctypes.data_as(intptr),
@@ -260,10 +260,10 @@ class Collective(Domain, list):
         @rtype: int
         """
         from ctypes import c_int, byref, POINTER
-        from .dependency import _clib_solvconc_d
+        from .dependency import _clib_solvcon_d
         intptr = POINTER(c_int)
         max_ndcnt = c_int(0)
-        _clib_solvconc_d.count_max_nodeinblock(
+        _clib_solvcon_d.count_max_nodeinblock(
             byref(blk.create_msd()),
             part.ctypes.data_as(intptr),
             c_int(part.max()+1),

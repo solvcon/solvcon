@@ -112,7 +112,7 @@ class TestingSolver(BlockSolver):
     def calcsoln(self, worker=None):
         from ctypes import byref
         fpptr = self.fpptr
-        self._clib_solvconc.calc_soln(
+        self._clib_solvcon.calc_soln(
             byref(self.msd),
             byref(self.exd),
             self.clvol.ctypes.data_as(fpptr),
@@ -142,7 +142,7 @@ class TestingSolver(BlockSolver):
     def calcdsoln(self, worker=None):
         from ctypes import byref
         fpptr = self.fpptr
-        self._clib_solvconc.calc_dsoln(
+        self._clib_solvcon.calc_dsoln(
             byref(self.msd),
             byref(self.exd),
             self.clcnd.ctypes.data_as(fpptr),
