@@ -76,7 +76,7 @@ class TestCtypesFortran(TestCase):
         # run FORTRAN subroutine.
         tval = randint(0,10000000)
         self.args[0] = byref(c_int(tval))
-        self.lib_c_ctypes.ctypes_test_(*self.args)
+        self.lib_c_ctypes.ctypes_test(*self.args)
         # revert in Python and test.
         self.a -= tval
         for i in range(len(self.a)):
@@ -97,7 +97,7 @@ class TestCtypesFortran(TestCase):
         # run FORTRAN subroutine.
         tval = float(randint(0,10000000))
         self.args[1] = byref(c_double(tval))
-        self.lib_c_ctypes.ctypes_test_(*self.args)
+        self.lib_c_ctypes.ctypes_test(*self.args)
         # revert in Python and test.
         self.b[1:,:] -= tval
         b = self.b.flatten()
@@ -127,7 +127,7 @@ class TestCtypesFortran(TestCase):
         r2.idx = 10
         r2.arr[:] = arr[:]
         # run foreign function.
-        self.lib_c_ctypes.ctypes_type_test_(byref(r1), byref(r2))
+        self.lib_c_ctypes.ctypes_type_test(byref(r1), byref(r2))
         # verify result.
         self.assertEqual(r1.idx, -r2.idx)
         for i in range(10):

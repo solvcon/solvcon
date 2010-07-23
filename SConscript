@@ -18,6 +18,9 @@ if not GetOption('enable_f90'):
             'lib/_clib_solvcon_%s' % fpmark,
             [Glob('%s/*.c'%ddst) for ddst in ddsts],
         ))
+    # lib_solvcontest in C.
+    lib_solvcontest = env.SharedLibrary('lib/_clib_solvcontest',
+        Glob('test/src/*.c'))
 else:
     # lib_solvcon in FORTRAN.
     for fpmark, fptype in [('s', 4), ('d', 8),]:
@@ -34,10 +37,10 @@ else:
             'lib/_clib_solvcon_%s' % fpmark,
             [Glob('%s/*.f90'%ddst) for ddst in ddsts],
         ))
+    # lib_solvcontest.
+    lib_solvcontest = env.SharedLibrary('lib/_clib_solvcontest',
+        Glob('test/src/*.f90'))
 
-# lib_solvcontest.
-lib_solvcontest = env.SharedLibrary('lib/_clib_solvcontest',
-    Glob('test/src/*.f90'))
 epydoc = env.Epydoc('solvcon/__init__.py')
 sphinx = env.Sphinx('doc/source/conf.py')
 
