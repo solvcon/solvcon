@@ -86,9 +86,10 @@ class TestingSolver(BlockSolver):
             method should firstly bind all pointers, secondly super binder, and 
             then methods/subroutines.
         """
-        from .block import BlockShape
+        from .block import BlockShape, MeshData
         super(TestingSolver, self).bind()
         # structures.
+        self.msd = MeshData(blk=self)
         self.msh = BlockShape(
             ndim=self.ndim,
             fcmnd=self.FCMND, clmnd=self.CLMND, clmfc=self.CLMFC,
@@ -111,13 +112,20 @@ class TestingSolver(BlockSolver):
     def calcsoln(self, worker=None):
         from ctypes import byref
         fpptr = self.fpptr
-        self._clib_solvcon.calc_soln_(
-            byref(self.msh),
+        self._clib_solvconc.calc_soln(
+            byref(self.msd),
             byref(self.exd),
             self.clvol.ctypes.data_as(fpptr),
             self.sol.ctypes.data_as(fpptr),
             self.soln.ctypes.data_as(fpptr),
         )
+        #self._clib_solvcon.calc_soln_(
+        #    byref(self.msh),
+        #    byref(self.exd),
+        #    self.clvol.ctypes.data_as(fpptr),
+        #    self.sol.ctypes.data_as(fpptr),
+        #    self.soln.ctypes.data_as(fpptr),
+        #)
 
     MMNAMES.append('ibcsol')
     def ibcsol(self, worker=None):
@@ -134,13 +142,20 @@ class TestingSolver(BlockSolver):
     def calcdsoln(self, worker=None):
         from ctypes import byref
         fpptr = self.fpptr
-        self._clib_solvcon.calc_dsoln_(
-            byref(self.msh),
+        self._clib_solvconc.calc_dsoln(
+            byref(self.msd),
             byref(self.exd),
             self.clcnd.ctypes.data_as(fpptr),
             self.dsol.ctypes.data_as(fpptr),
             self.dsoln.ctypes.data_as(fpptr),
         )
+        #self._clib_solvcon.calc_dsoln_(
+        #    byref(self.msh),
+        #    byref(self.exd),
+        #    self.clcnd.ctypes.data_as(fpptr),
+        #    self.dsol.ctypes.data_as(fpptr),
+        #    self.dsoln.ctypes.data_as(fpptr),
+        #)
 
     MMNAMES.append('ibcdsol')
     def ibcdsol(self, worker=None):

@@ -19,6 +19,11 @@ typedef struct {
     int *fcnds, *fccls, *clnds, *clfcs;
 } MeshData;
 
+typedef struct {
+	int ncore, neq;
+	double time, time_increment;
+} ExecutionData;
+
 #define FCMND 4
 #define CLMND 8
 #define CLMFC 6
