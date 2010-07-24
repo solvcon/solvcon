@@ -585,16 +585,27 @@ class BlockCase(BaseCase):
             raise ValueError
         return blk
 
+    def make_solver_keywords(self):
+        """
+        Return keywords to initialize solvers.
+
+        @return: keywords
+        @rtype: dict
+        """
+        return dict(
+            ncore=self.execution.ncore,
+            neq=self.execution.neq,
+            fpdtype=self.execution.fpdtype,
+            enable_mesg=self.io.solver_output,
+        )
+
     # solver object initialization/binding/loading.
     def _local_init_solver(self):
         """
         @return: nothing
         """
-        svr = self.solver.solvertype(self.solver.domainobj.blk,
-            ncore=self.execution.ncore,
-            neq=self.execution.neq, fpdtype=self.execution.fpdtype,
-            enable_mesg=self.io.solver_output,
-        )
+        svr = self.solver.solvertype(
+            self.solver.domainobj.blk, **self.make_solver_keywords())
         self.runhooks.drop_anchor(svr)
         svr.bind()
         svr.ibcthread = self.solver.ibcthread
@@ -616,11 +627,7 @@ class BlockCase(BaseCase):
         for iblk in range(nblk):
             sbk = self.solver.domainobj[iblk]
             self.info('solver #%d/(%d-1): ' % (iblk, nblk))
-            svr = self.solver.solvertype(sbk,
-                ncore=self.execution.ncore,
-                neq=self.execution.neq, fpdtype=self.execution.fpdtype,
-                enable_mesg=self.io.solver_output,
-            )
+            svr = self.solver.solvertype(sbk, **self.make_solver_keywords())
             self.info('sending ... ')
             svr.svrn = iblk
             svr.nsvr = nblk
