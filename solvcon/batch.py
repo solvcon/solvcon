@@ -6,9 +6,10 @@ Supporting functionalities for cluster batch systems.
 """
 
 class Node(object):
-    def __init__(self, name, ncore=1, attrs=None):
+    def __init__(self, name, ncore=1, serial=None, attrs=None):
         self.name = name
         self.ncore = ncore
+        self.serial = serial
         self.attrs = attrs if attrs != None else list()
 
     def __str__(self):
@@ -221,13 +222,65 @@ class Scheduler(object):
     def nodelist(self):
         raise NotImplementedError
 
+    def create_worker(self, *args, **kw):
+        """
+        True implementations are in create_worker_*() and have identical spec.
+        """
+        raise NotImplementedError
+
+    def create_worker_ssh(self, node, authkey,
+            envar=None, paths=None, profiler_data=None):
+        """
+        Use secure shell to create worker object.
+
+        @param node: node information.
+        @type node: Node
+        @param authkey: the authkey for the worker.
+        @type authkey: str
+        @keyword envar: additional environment variables to remote.
+        @type envar: dict
+        @keyword paths: path for remote execution.
+        @type paths: dict
+        @keyword profiler_data: profiler setting for remote worker.
+        @type profiler_data: tuple
+        @return: the port that the remote worker listen on.
+        @rtype: int
+        """
+        import os
+        from subprocess import PIPE
+        from .connection import Client
+        from .rpc import SecureShell
+        remote = SecureShell(node.address, paths=paths)
+        # determine remotely available port.
+        val = int(remote([
+            'import sys',
+            'from solvcon.connection import pick_unused_port',
+            'sys.stdout.write(str(pick_unused_port()))',
+        ], stdout=PIPE))
+        try:
+            port = int(val)
+        except ValueError:
+            raise IOError, 'remote port detection fails'
+        # create remote worker objects and return.
+        pdata = str(profiler_data).replace("'", '"')
+        remote([
+            'import os',
+            'os.chdir("%s")' % os.path.abspath(os.getcwd()),
+            'from solvcon.rpc import Worker',
+            'wkr = Worker(None, profiler_data=%s)' % pdata,
+            'wkr.run(("%s", %d), "%s")' % (node.address, port, authkey),
+        ], envar=envar)
+        return port
+
 class Localhost(Scheduler):
     """
     Scheduler for localhost.
     """
     def nodelist(self):
-        return [Node('localhost', ncore=1)
+        return [Node('localhost', ncore=1, serial=i)
             for i in range(self.case.execution.npart)]
+    def create_worker(self, *args, **kw):
+        return self.create_worker_ssh(*args, **kw)
 
 class Torque(Scheduler):
     """
@@ -295,7 +348,9 @@ class Torque(Scheduler):
                     if nodeitem not in cnodelist:
                         cnodelist.append(nodeitem)
                 nodelist = cnodelist
-        return [Node(nodeitem, ncore=1) for nodeitem in nodelist]
+        #return [Node(nodeitem, ncore=1) for nodeitem in nodelist]
+        return [Node(nodelist[it], ncore=1, serial=it) for it in
+            range(len(nodelist))]
 
 class OscGlenn(Torque):
     @property

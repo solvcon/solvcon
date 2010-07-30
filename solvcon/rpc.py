@@ -256,7 +256,147 @@ class Shadow(object):
         """
         return self.conn.recv(*args, **kw)
 
-class Remote(object):
+class Dealer(list):
+    """
+    Contains shadows to workers.  Workers can be hired or recruited.  A hired
+    worker is local to the dealer so that the dealer can directly start it.  A
+    recruited worker is remote, and the a dealer can only wait for it to
+    register.  A recruited worker is instantiated by itself, in a standalone
+    process, and usually remotely.
+
+    @ivar publicaddress: the public address for worker to gain connection
+        information.  It is used for recruitment.
+    @itype publicaddress: tuple or str
+    @ivar authkey: authentication key for worker connection.
+    @itype authkey: str
+    @ivar family: connection family for automatically connection generation.
+        Can be 'AF_PIPE', 'AF_UNIX', or 'AF_INET'.
+    @itype family: str
+    """
+    WAIT_FOR_ACCEPT = 0.1
+
+    def __init__(self, *args, **kw):
+        import sys
+        self.publicaddress = kw.pop('publicaddress', None)
+        self.authkey = kw.pop('authkey', DEFAULT_AUTHKEY)
+        self.family = kw.pop('family', None)
+        if self.family == None:
+            if sys.platform.startswith('win'):
+                self.family = 'AF_PIPE'
+            elif sys.platform.startswith('linux'):
+                self.family = 'AF_UNIX'
+            else:
+                self.family = 'AF_INET'
+        super(Dealer, self).__init__(*args, **kw)
+        self.spanhead = None
+
+    def hire(self, worker, inetaddr=None, wait_for_accept=None):
+        """
+        Create a process for a worker object.  The worker will be sent to
+        the process.
+
+        @param worker: worker object.
+        @type worker: Worker
+        @keyword wait_for_accept: seconds to wait after accepting.  If None use
+            DEFAULT.
+        @type wait_for_accept: float
+        """
+        from time import sleep
+        from multiprocessing import Process
+        from .connection import guess_address, Client
+        # create and start the process.
+        address = guess_address(self.family)
+        proc = Process(
+            target=worker.run,
+            args=(address, self.authkey),
+        )
+        proc.start()
+        sleep(wait_for_accept if wait_for_accept!=None else self.WAIT_FOR_ACCEPT)
+        # connect to the created process and make its shadow.
+        conn = Client(address=address, authkey=self.authkey)
+        shadow = Shadow(conn=conn, address=address)
+        shadow.remote_setattr('serial', len(self))
+        self.append(shadow)
+
+    def appoint(self, inetaddr, port, authkey):
+        """
+        @param inetaddr: the IP/DN of the machine to build the worker.
+        @type inetaddr: str
+        @param port: the port that the remote worker listen on.
+        @type: int
+        @param authkey: the authkey for the worker.
+        @type authkey: str
+        @return: nothing
+        """
+        from .connection import Client
+        conn = Client(address=(inetaddr, port), authkey=authkey)
+        shadow = Shadow(conn=conn, address=(inetaddr, port))
+        shadow.remote_setattr('serial', len(self))
+        self.append(shadow)
+
+    def bridge(self, peers, wait_for_accept=None):
+        """
+        Tell two peering worker to establish a connection.
+        """
+        from time import sleep
+        plow, phigh = peers
+        assert plow != phigh    # makes no sense.
+        if plow > phigh:
+            tmp = plow
+            plow = phigh
+            phigh = tmp
+        # ask higher to accept connection.
+        self[phigh].accept_peer(plow, self.family, self.authkey)
+        address = self[phigh].recv()
+        assert address == self[phigh].address
+        # ask lower to make connection.
+        sleep(wait_for_accept if wait_for_accept!=None else self.WAIT_FOR_ACCEPT)
+        self[plow].connect_peer(phigh, address, self.authkey)
+
+    def span(self, graph):
+        from .connection import SpanningTreeNode
+        self.spanhead = SpanningTreeNode(val=0, level=0)
+        visited = dict()
+        self.spanhead.traverse(graph, visited)
+        assert len(graph) == len(visited)
+
+    def terminate(self, idx=slice(None,None,None), msg=None):
+        """
+        Termiinate workers.
+        
+        @param idx: what to terminate
+        @type idx: slice or list
+        @param msg: message to output after temination.
+        @type msg: str
+        """
+        import sys
+        for sdw in self[idx]:
+            sdw.terminate()
+        if msg:
+            sys.stdout.write(msg)
+
+    def barrier(self, idx=slice(None,None,None), msg=None):
+        """
+        Check for barrier signals sent from workers.  Used for synchronization.
+        
+        @param idx: what to synchronize.
+        @type idx: slice or list
+        @param msg: message to output after synchronization.
+        @type msg: str
+        """
+        import sys
+        for sdw in self[idx]:
+            sdw.barrier()
+        for sdw in self[idx]:
+            assert issubclass(sdw.recv(), Barrier)
+        if msg:
+            sys.stdout.write(msg)
+
+###############################################################################
+# Remote invocation.
+###############################################################################
+
+class SecureShell(object):
     """
     Remote execution through ssh.
 
@@ -360,168 +500,3 @@ class Remote(object):
             return subp.stdout.read()
         else:
             return None
-
-class Dealer(list):
-    """
-    Contains shadows to workers.  Workers can be hired or recruited.  A hired
-    worker is local to the dealer so that the dealer can directly start it.  A
-    recruited worker is remote, and the a dealer can only wait for it to
-    register.  A recruited worker is instantiated by itself, in a standalone
-    process, and usually remotely.
-
-    @ivar publicaddress: the public address for worker to gain connection
-        information.  It is used for recruitment.
-    @itype publicaddress: tuple or str
-    @ivar authkey: authentication key for worker connection.
-    @itype authkey: str
-    @ivar family: connection family for automatically connection generation.
-        Can be 'AF_PIPE', 'AF_UNIX', or 'AF_INET'.
-    @itype family: str
-    """
-    WAIT_FOR_ACCEPT = 0.1
-
-    def __init__(self, *args, **kw):
-        import sys
-        self.publicaddress = kw.pop('publicaddress', None)
-        self.authkey = kw.pop('authkey', DEFAULT_AUTHKEY)
-        self.family = kw.pop('family', None)
-        if self.family == None:
-            if sys.platform.startswith('win'):
-                self.family = 'AF_PIPE'
-            elif sys.platform.startswith('linux'):
-                self.family = 'AF_UNIX'
-            else:
-                self.family = 'AF_INET'
-        super(Dealer, self).__init__(*args, **kw)
-        self.spanhead = None
-
-    def hire(self, worker, inetaddr=None, wait_for_accept=None):
-        """
-        Create a process for a worker object.  The worker will be sent to
-        the process.
-
-        @param worker: worker object.
-        @type worker: Worker
-        @keyword wait_for_accept: seconds to wait after accepting.  If None use
-            DEFAULT.
-        @type wait_for_accept: float
-        """
-        from time import sleep
-        from multiprocessing import Process
-        from .connection import guess_address, Client
-        # create and start the process.
-        address = guess_address(self.family)
-        proc = Process(
-            target=worker.run,
-            args=(address, self.authkey),
-        )
-        proc.start()
-        sleep(wait_for_accept if wait_for_accept!=None else self.WAIT_FOR_ACCEPT)
-        # connect to the created process and make its shadow.
-        conn = Client(address=address, authkey=self.authkey)
-        shadow = Shadow(conn=conn, address=address)
-        shadow.remote_setattr('serial', len(self))
-        self.append(shadow)
-
-    def appoint(self, inetaddr, authkey,
-            envar=None, paths=None, profiler_data=None):
-        """
-        @param inetaddr: the IP/DN of the machine to build the worker.
-        @type inetaddr: str
-        @param authkey: the authkey for the worker.
-        @type authkey: str
-        @keyword envar: additional environment variables to remote.
-        @type envar: dict
-        @keyword paths: path for remote execution.
-        @type paths: dict
-        @keyword profiler_data: profiler setting for remote worker.
-        @type profiler_data: tuple
-        @return: the port that the remote worker listen on.
-        @rtype: int
-        """
-        import os
-        from subprocess import PIPE
-        from .connection import Client
-        remote = Remote(inetaddr, paths=paths)
-        # determine remotely available port.
-        val = int(remote([
-            'import sys',
-            'from solvcon.connection import pick_unused_port',
-            'sys.stdout.write(str(pick_unused_port()))',
-        ], stdout=PIPE))
-        try:
-            port = int(val)
-        except ValueError:
-            raise IOError, 'remote port detection fails'
-        # create remote worker objects.
-        pdata = str(profiler_data).replace("'", '"')
-        remote([
-            'import os',
-            'os.chdir("%s")' % os.path.abspath(os.getcwd()),
-            'from solvcon.rpc import Worker',
-            'wkr = Worker(None, profiler_data=%s)' % pdata,
-            'wkr.run(("%s", %d), "%s")' % (inetaddr, port, authkey),
-        ], envar=envar)
-        # connect to the remotely created process and make its shadow.
-        conn = Client(address=(inetaddr, port), authkey=authkey)
-        shadow = Shadow(conn=conn, address=(inetaddr, port))
-        shadow.remote_setattr('serial', len(self))
-        self.append(shadow)
-
-    def bridge(self, peers, wait_for_accept=None):
-        """
-        Tell two peering worker to establish a connection.
-        """
-        from time import sleep
-        plow, phigh = peers
-        assert plow != phigh    # makes no sense.
-        if plow > phigh:
-            tmp = plow
-            plow = phigh
-            phigh = tmp
-        # ask higher to accept connection.
-        self[phigh].accept_peer(plow, self.family, self.authkey)
-        address = self[phigh].recv()
-        assert address == self[phigh].address
-        # ask lower to make connection.
-        sleep(wait_for_accept if wait_for_accept!=None else self.WAIT_FOR_ACCEPT)
-        self[plow].connect_peer(phigh, address, self.authkey)
-
-    def span(self, graph):
-        from .connection import SpanningTreeNode
-        self.spanhead = SpanningTreeNode(val=0, level=0)
-        visited = dict()
-        self.spanhead.traverse(graph, visited)
-        assert len(graph) == len(visited)
-
-    def terminate(self, idx=slice(None,None,None), msg=None):
-        """
-        Termiinate workers.
-        
-        @param idx: what to terminate
-        @type idx: slice or list
-        @param msg: message to output after temination.
-        @type msg: str
-        """
-        import sys
-        for sdw in self[idx]:
-            sdw.terminate()
-        if msg:
-            sys.stdout.write(msg)
-
-    def barrier(self, idx=slice(None,None,None), msg=None):
-        """
-        Check for barrier signals sent from workers.  Used for synchronization.
-        
-        @param idx: what to synchronize.
-        @type idx: slice or list
-        @param msg: message to output after synchronization.
-        @type msg: str
-        """
-        import sys
-        for sdw in self[idx]:
-            sdw.barrier()
-        for sdw in self[idx]:
-            assert issubclass(sdw.recv(), Barrier)
-        if msg:
-            sys.stdout.write(msg)

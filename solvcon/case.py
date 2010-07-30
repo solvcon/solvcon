@@ -706,16 +706,18 @@ class BlockCase(BaseCase):
         paths['PYTHONPATH'].insert(0, self.io.rootdir)
         # appoint remote worker objects.
         info('Appoint remote worker for the nodelist')
-        nodelist = self.execution.scheduler(self).nodelist()
+        sch = self.execution.scheduler(self)
+        nodelist = sch.nodelist()
         if env.command != None and env.command.opargs[0].compress_nodelist:
             info(' (compressed)')
         info(':\n')
         iworker = 0 
         for node in nodelist:
             info('  %s' % node.name)
-            dealer.appoint(node.address, authkey,
+            port = sch.create_worker(node, authkey,
                 envar=self.solver.envar, paths=paths,
                 profiler_data=self._get_profiler_data(iworker))
+            dealer.appoint(node.address, port, authkey)
             info(' worker #%d appointed.\n' % iworker)
             iworker += 1
         assert len(dealer) == nblk
