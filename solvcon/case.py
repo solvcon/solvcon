@@ -717,8 +717,9 @@ class BlockCase(BaseCase):
             port = sch.create_worker(node, authkey,
                 envar=self.solver.envar, paths=paths,
                 profiler_data=self._get_profiler_data(iworker))
+            info(' worker #%d created' % iworker)
             dealer.appoint(node.address, port, authkey)
-            info(' worker #%d appointed.\n' % iworker)
+            info(' and appointed.\n')
             iworker += 1
         assert len(dealer) == nblk
         # create remote killer script.
