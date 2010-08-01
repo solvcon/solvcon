@@ -248,7 +248,7 @@ class Scheduler(object):
         """
         import os
         from subprocess import PIPE
-        from .connection import Client
+        from .connection import Client  # XXX: no need.
         from .rpc import SecureShell
         remote = SecureShell(node.address, paths=paths)
         # determine remotely available port.
@@ -286,6 +286,10 @@ class Torque(Scheduler):
     """
     Torque/OpenPBS.
     """
+
+    def __init__(self, case, **kw):
+        super(Torque, self).__init__(case, **kw)
+        self._nodelist = None
 
     @property
     def str_resource(self):
@@ -335,22 +339,86 @@ class Torque(Scheduler):
     def nodelist(self):
         import os
         from .conf import env
-        # read node file.
-        f = open(os.environ['PBS_NODEFILE'])
-        nodelist = [item.strip() for item in f.readlines()]
-        f.close()
-        # compress nodelist.
-        if env.command != None:
-            ops, args = env.command.opargs
-            if ops.compress_nodelist:
-                cnodelist = list()
-                for nodeitem in nodelist:
-                    if nodeitem not in cnodelist:
-                        cnodelist.append(nodeitem)
-                nodelist = cnodelist
-        #return [Node(nodeitem, ncore=1) for nodeitem in nodelist]
-        return [Node(nodelist[it], ncore=1, serial=it) for it in
-            range(len(nodelist))]
+        if not self._nodelist:
+            # read node file.
+            f = open(os.environ['PBS_NODEFILE'])
+            entries = [item.strip() for item in f.readlines()]
+            f.close()
+            nodelist = [Node(entries[it], ncore=1, serial=it) for it in
+                range(self.case.execution.npart)]
+            # compress nodelist.
+            if env.command != None:
+                ops, args = env.command.opargs
+                if ops.compress_nodelist:
+                    cnodelist = [nodelist[0]]
+                    for nodeitem in nodelist[1:]:
+                        cnodeitem = cnodelist[-1]
+                        if nodeitem.address == cnodeitem.address:
+                            cnodeitem.ncore += 1
+                        else:
+                            cnodelist.append(nodeitem)
+                    nodelist = cnodelist
+            # build node list.
+            self._nodelist = nodelist
+        return self._nodelist
+
+    def create_worker_torque(self, node, authkey,
+            envar=None, paths=None, profiler_data=None):
+        """
+        Use Torque TM API to create worker object.
+
+        @param node: node information.
+        @type node: Node
+        @param authkey: the authkey for the worker.
+        @type authkey: str
+        @keyword envar: additional environment variables to remote.
+        @type envar: dict
+        @keyword paths: path for remote execution.
+        @type paths: dict
+        @keyword profiler_data: profiler setting for remote worker.
+        @type profiler_data: tuple
+        @return: the port that the remote worker listen on.
+        @rtype: int
+        """
+        import sys, os
+        from socket import gethostbyname
+        from threading import Thread
+        from Queue import Queue
+        from .batch_torque import TaskManager
+        from .connection import pick_unused_port
+        # setup listener for remote port.
+        myhost = self.nodelist()[0].address
+        myport = pick_unused_port()
+        portq = Queue()
+        def get_port():
+            from .connection import Listener
+            lsnr = Listener((myhost, myport), authkey=authkey)
+            conn = lsnr.accept()
+            portq.put(conn.recv())
+            conn.close()
+        thd = Thread(target=get_port)
+        thd.start()
+        # start remote worker.
+        tm = TaskManager(paths=paths)
+        tm.spawn(sys.executable, '-c',
+            "from solvcon.batch_torque import run_worker; "
+            "run_worker(%s, %s, %s, %s, %s)" % (
+                "('%s', %d)" % (myhost, myport),
+                "'%s'" % os.getcwd(),
+                str(profiler_data),
+                "'%s'" % node.address,
+                "'%s'" % authkey,
+            ), where=node.serial, envar=envar)
+        # stop listening thread.
+        thd.join()
+        return portq.get()
+
+    def create_worker(self, *args, **kw):
+        from .batch_torque import TaskManager
+        if TaskManager._clib_torque:
+            return self.create_worker_torque(*args, **kw)
+        else:
+            return self.create_worker_ssh(*args, **kw)
 
 class OscGlenn(Torque):
     @property
