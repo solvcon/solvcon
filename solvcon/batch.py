@@ -358,7 +358,7 @@ class Torque(Scheduler):
                         else:
                             cnodelist.append(nodeitem)
                     nodelist = cnodelist
-            # build node list.
+            # cut nodelist.
             self._nodelist = nodelist[:self.case.execution.npart]
         return self._nodelist
 
