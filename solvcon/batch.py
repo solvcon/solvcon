@@ -345,7 +345,7 @@ class Torque(Scheduler):
             entries = [item.strip() for item in f.readlines()]
             f.close()
             nodelist = [Node(entries[it], ncore=1, serial=it) for it in
-                range(self.case.execution.npart)]
+                range(len(entries))]
             # compress nodelist.
             if env.command != None:
                 ops, args = env.command.opargs
@@ -359,7 +359,7 @@ class Torque(Scheduler):
                             cnodelist.append(nodeitem)
                     nodelist = cnodelist
             # build node list.
-            self._nodelist = nodelist
+            self._nodelist = nodelist[:self.case.execution.npart]
         return self._nodelist
 
     def create_worker_torque(self, node, authkey,
