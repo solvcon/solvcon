@@ -50,24 +50,27 @@ class Partitioner(object):
         from ctypes import POINTER, c_int, byref
         from numpy import empty
         from .dependency import _clib_solvcon_d
+        from .conf import env
         intptr = POINTER(c_int)
         rcells = empty((blk.ncell, blk.CLMFC), dtype='int32')
         rcellno = empty(blk.ncell, dtype='int32')
-        _clib_solvcon_d.build_rcells(
-            byref(blk.create_msd()),
-            rcells.ctypes.data_as(intptr),
-            rcellno.ctypes.data_as(intptr),
-        )
-        #_clib_solvcon_d.build_rcells_( 
-        #    byref(c_int(blk.CLMFC)),
-        #    byref(c_int(blk.nface)),
-        #    byref(c_int(blk.ncell)),
-        #    blk.clfcs.ctypes.data_as(intptr),
-        #    blk.fccls.ctypes.data_as(intptr),
-        #    # output.
-        #    rcells.ctypes.data_as(intptr),
-        #    rcellno.ctypes.data_as(intptr),
-        #)
+        if not env.use_fortran:
+            _clib_solvcon_d.build_rcells(
+                byref(blk.create_msd()),
+                rcells.ctypes.data_as(intptr),
+                rcellno.ctypes.data_as(intptr),
+            )
+        else:
+            _clib_solvcon_d.build_rcells_( 
+                byref(c_int(blk.CLMFC)),
+                byref(c_int(blk.nface)),
+                byref(c_int(blk.ncell)),
+                blk.clfcs.ctypes.data_as(intptr),
+                blk.fccls.ctypes.data_as(intptr),
+                # output.
+                rcells.ctypes.data_as(intptr),
+                rcellno.ctypes.data_as(intptr),
+            )
         return rcells, rcellno
 
     @classmethod
@@ -261,23 +264,26 @@ class Collective(Domain, list):
         """
         from ctypes import c_int, byref, POINTER
         from .dependency import _clib_solvcon_d
+        from .conf import env
         intptr = POINTER(c_int)
         max_ndcnt = c_int(0)
-        _clib_solvcon_d.count_max_nodeinblock(
-            byref(blk.create_msd()),
-            part.ctypes.data_as(intptr),
-            c_int(part.max()+1),
-            byref(max_ndcnt),
-        )
-        #_clib_solvcon_d.count_max_nodeinblock_(
-        #    byref(c_int(blk.CLMND)),
-        #    byref(c_int(blk.ncell)),
-        #    byref(c_int(part.max()+1)),
-        #    byref(c_int(blk.nnode)),
-        #    blk.clnds.ctypes.data_as(intptr),
-        #    part.ctypes.data_as(intptr),
-        #    byref(max_ndcnt),
-        #)
+        if not env.use_fortran:
+            _clib_solvcon_d.count_max_nodeinblock(
+                byref(blk.create_msd()),
+                part.ctypes.data_as(intptr),
+                c_int(part.max()+1),
+                byref(max_ndcnt),
+            )
+        else:
+            _clib_solvcon_d.count_max_nodeinblock_(
+                byref(c_int(blk.CLMND)),
+                byref(c_int(blk.ncell)),
+                byref(c_int(part.max()+1)),
+                byref(c_int(blk.nnode)),
+                blk.clnds.ctypes.data_as(intptr),
+                part.ctypes.data_as(intptr),
+                byref(max_ndcnt),
+            )
         return max_ndcnt.value
 
     def partition(self, nblk):

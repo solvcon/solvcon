@@ -111,21 +111,24 @@ class TestingSolver(BlockSolver):
     MMNAMES.append('calcsoln')
     def calcsoln(self, worker=None):
         from ctypes import byref
+        from .conf import env
         fpptr = self.fpptr
-        self._clib_solvcon.calc_soln(
-            byref(self.msd),
-            byref(self.exd),
-            self.clvol.ctypes.data_as(fpptr),
-            self.sol.ctypes.data_as(fpptr),
-            self.soln.ctypes.data_as(fpptr),
-        )
-        #self._clib_solvcon.calc_soln_(
-        #    byref(self.msh),
-        #    byref(self.exd),
-        #    self.clvol.ctypes.data_as(fpptr),
-        #    self.sol.ctypes.data_as(fpptr),
-        #    self.soln.ctypes.data_as(fpptr),
-        #)
+        if not env.use_fortran:
+            self._clib_solvcon.calc_soln(
+                byref(self.msd),
+                byref(self.exd),
+                self.clvol.ctypes.data_as(fpptr),
+                self.sol.ctypes.data_as(fpptr),
+                self.soln.ctypes.data_as(fpptr),
+            )
+        else:
+            self._clib_solvcon.calc_soln_(
+                byref(self.msh),
+                byref(self.exd),
+                self.clvol.ctypes.data_as(fpptr),
+                self.sol.ctypes.data_as(fpptr),
+                self.soln.ctypes.data_as(fpptr),
+            )
 
     MMNAMES.append('ibcsol')
     def ibcsol(self, worker=None):
@@ -141,21 +144,24 @@ class TestingSolver(BlockSolver):
     MMNAMES.append('calcdsoln')
     def calcdsoln(self, worker=None):
         from ctypes import byref
+        from .conf import env
         fpptr = self.fpptr
-        self._clib_solvcon.calc_dsoln(
-            byref(self.msd),
-            byref(self.exd),
-            self.clcnd.ctypes.data_as(fpptr),
-            self.dsol.ctypes.data_as(fpptr),
-            self.dsoln.ctypes.data_as(fpptr),
-        )
-        #self._clib_solvcon.calc_dsoln_(
-        #    byref(self.msh),
-        #    byref(self.exd),
-        #    self.clcnd.ctypes.data_as(fpptr),
-        #    self.dsol.ctypes.data_as(fpptr),
-        #    self.dsoln.ctypes.data_as(fpptr),
-        #)
+        if not env.use_fortran:
+            self._clib_solvcon.calc_dsoln(
+                byref(self.msd),
+                byref(self.exd),
+                self.clcnd.ctypes.data_as(fpptr),
+                self.dsol.ctypes.data_as(fpptr),
+                self.dsoln.ctypes.data_as(fpptr),
+            )
+        else:
+            self._clib_solvcon.calc_dsoln_(
+                byref(self.msh),
+                byref(self.exd),
+                self.clcnd.ctypes.data_as(fpptr),
+                self.dsol.ctypes.data_as(fpptr),
+                self.dsoln.ctypes.data_as(fpptr),
+            )
 
     MMNAMES.append('ibcdsol')
     def ibcdsol(self, worker=None):
