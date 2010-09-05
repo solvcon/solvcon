@@ -437,14 +437,15 @@ class OscGlennIB(OscGlenn):
     @property
     def str_prerun(self):
         msgs = [
-            'export I_MPI_DEBUG=2',
-            'export I_MPI_DEVICE=rmda:OpenIB-cma',
+            #'export I_MPI_DEBUG=2',
+            #'export I_MPI_DEVICE=rmda:OpenIB-cma',
         ]
-        msgs.append(super(OscGlenn, self).str_prerun)
+        msgs.append(super(OscGlennIB, self).str_prerun)
         return '\n'.join(msgs)
 
     def nodelist(self):
-        ndlst = super(OscGlenn, self).nodelist()
+        ndlst = super(OscGlennIB, self).nodelist()
         for node in ndlst:
-            node.name = node.name[:3] + '-ib-' + node.name[3:]
+            if '-ib-' not in node.name:
+                node.name = node.name[:3] + '-ib-' + node.name[3:]
         return ndlst
