@@ -90,11 +90,11 @@ class TestWorker(TestCase):
         dealer.barrier()
         dealer.terminate()
 
-class TestRemote(TestCase):
+class TestSecureShell(TestCase):
     def test_python(self):
         from subprocess import PIPE
-        from ..rpc import Remote
-        remote = Remote('localhost')
+        from ..rpc import SecureShell
+        remote = SecureShell('localhost')
         self.assertEqual(remote([
                 'import sys, os',
                 'sys.stdout.write(os.environ["A_TEST_ENV"])'
@@ -104,8 +104,8 @@ class TestRemote(TestCase):
 
     def test_shell(self):
         from subprocess import PIPE
-        from ..rpc import Remote
-        remote = Remote('localhost')
+        from ..rpc import SecureShell
+        remote = SecureShell('localhost')
         self.assertEqual(remote.shell([
                 'echo "A_TEST_VALUE"',
             ]),

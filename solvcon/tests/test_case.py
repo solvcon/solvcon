@@ -204,3 +204,20 @@ class TestRemoteParallel(TestBlockCaseRun):
         case = self._get_case(npart=self.npart, domaintype=Distributed,
             scheduler=Localhost, rkillfn='')
         case.run()
+
+class TestTorqueParallel(TestBlockCaseRun):
+    npart = 2
+
+    def test_runparallel(self):
+        import sys, os
+        from nose.plugins.skip import SkipTest
+        if sys.platform.startswith('win'): raise SkipTest
+        from ..batch_torque import TaskManager
+        if TaskManager._clib_torque == None or \
+           'PBS_NODEFILE' not in os.environ: raise SkipTest
+        from numpy import zeros
+        from ..batch import Torque
+        from ..domain import Distributed
+        case = self._get_case(npart=self.npart, domaintype=Distributed,
+            scheduler=Torque, rkillfn='')
+        case.run()
