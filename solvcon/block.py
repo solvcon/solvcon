@@ -312,26 +312,29 @@ class Block(object):
         """
         from ctypes import byref
         from .dependency import intptr
-        self._clib_solvcon.calc_metric(
-            byref(self.create_msd()),
-        )
-        #fpptr = self.fpptr
-        #msh = self.create_shape()
-        #self._clib_solvcon.calc_metric_(
-        #    # input.
-        #    byref(msh),
-        #    self.ndcrd.ctypes.data_as(fpptr),
-        #    self.fccls.ctypes.data_as(intptr),
-        #    self.clnds.ctypes.data_as(intptr),
-        #    self.clfcs.ctypes.data_as(intptr),
-        #    # output/input.
-        #    self.fcnds.ctypes.data_as(intptr),
-        #    self.fccnd.ctypes.data_as(fpptr),
-        #    self.fcnml.ctypes.data_as(fpptr),
-        #    self.fcara.ctypes.data_as(fpptr),
-        #    self.clcnd.ctypes.data_as(fpptr),
-        #    self.clvol.ctypes.data_as(fpptr),
-        #)
+        from .conf import env
+        if not env.use_fortran:
+            self._clib_solvcon.calc_metric(
+                byref(self.create_msd()),
+            )
+        else:
+            fpptr = self.fpptr
+            msh = self.create_shape()
+            self._clib_solvcon.calc_metric_(
+                # input.
+                byref(msh),
+                self.ndcrd.ctypes.data_as(fpptr),
+                self.fccls.ctypes.data_as(intptr),
+                self.clnds.ctypes.data_as(intptr),
+                self.clfcs.ctypes.data_as(intptr),
+                # output/input.
+                self.fcnds.ctypes.data_as(intptr),
+                self.fccnd.ctypes.data_as(fpptr),
+                self.fcnml.ctypes.data_as(fpptr),
+                self.fcara.ctypes.data_as(fpptr),
+                self.clcnd.ctypes.data_as(fpptr),
+                self.clvol.ctypes.data_as(fpptr),
+            )
 
     def build_interior(self):
         """
@@ -345,6 +348,7 @@ class Block(object):
         from numpy import empty
         from ctypes import byref, c_int
         from .dependency import intptr
+        from .conf import env
         # prepare to build connectivity: calculate max number of faces.
         max_nfc = 0
         for sig in elemtype[1:2]:   # 1D cells.
@@ -363,34 +367,36 @@ class Block(object):
         for arr in clfcs, fcnds, fccls:
             arr.fill(-1)
         ## call the subroutine.
-        self._clib_solvcon.get_faces_from_cells(
-            # input.
-            byref(self.create_msd()),
-            c_int(max_nfc),
-            # output.
-            byref(nface),
-            clfcs.ctypes.data_as(intptr),
-            fctpn.ctypes.data_as(intptr),
-            fcnds.ctypes.data_as(intptr),
-            fccls.ctypes.data_as(intptr),
-        )
-        #self._clib_solvcon.get_faces_from_cells_(
-        #    # input.
-        #    byref(c_int(self.nnode)),
-        #    byref(c_int(self.ncell)),
-        #    byref(c_int(max_nfc)),
-        #    byref(c_int(self.CLMND)),
-        #    byref(c_int(self.CLMFC)),
-        #    byref(c_int(self.FCMND)),
-        #    self.cltpn.ctypes.data_as(intptr),
-        #    self.clnds.ctypes.data_as(intptr),
-        #    # output.
-        #    byref(nface),
-        #    clfcs.ctypes.data_as(intptr),
-        #    fctpn.ctypes.data_as(intptr),
-        #    fcnds.ctypes.data_as(intptr),
-        #    fccls.ctypes.data_as(intptr),
-        #)
+        if not env.use_fortran:
+            self._clib_solvcon.get_faces_from_cells(
+                # input.
+                byref(self.create_msd()),
+                c_int(max_nfc),
+                # output.
+                byref(nface),
+                clfcs.ctypes.data_as(intptr),
+                fctpn.ctypes.data_as(intptr),
+                fcnds.ctypes.data_as(intptr),
+                fccls.ctypes.data_as(intptr),
+            )
+        else:
+            self._clib_solvcon.get_faces_from_cells_(
+                # input.
+                byref(c_int(self.nnode)),
+                byref(c_int(self.ncell)),
+                byref(c_int(max_nfc)),
+                byref(c_int(self.CLMND)),
+                byref(c_int(self.CLMFC)),
+                byref(c_int(self.FCMND)),
+                self.cltpn.ctypes.data_as(intptr),
+                self.clnds.ctypes.data_as(intptr),
+                # output.
+                byref(nface),
+                clfcs.ctypes.data_as(intptr),
+                fctpn.ctypes.data_as(intptr),
+                fcnds.ctypes.data_as(intptr),
+                fccls.ctypes.data_as(intptr),
+            )
         ## shuffle the result.
         nface = nface.value
         clfcs = clfcs[:nface,:]
@@ -482,38 +488,41 @@ class Block(object):
         from ctypes import byref
         from numpy import arange
         from .dependency import intptr
+        from .conf import env
         # initialize data structure (arrays) for ghost information.
         ngstnode, ngstface, ngstcell = self._count_ghost()
         self._init_shared(ngstnode, ngstface, ngstcell)
         self._assign_ghost(ngstnode, ngstface, ngstcell)
         self._reassign_interior(ngstnode, ngstface, ngstcell)
         # build ghost information, including connectivities and metrics.
-        self._clib_solvcon.build_ghost(
-            byref(self.create_msd()),
-            self.bndfcs.ctypes.data_as(intptr),
-        )
-        #fpptr = self.fpptr
-        #msh = self.create_shape()
-        #self._clib_solvcon.build_ghost_(
-        #    # meta data.
-        #    byref(msh),
-        #    self.bndfcs.ctypes.data_as(intptr),
-        #    self.shfctpn.ctypes.data_as(intptr),
-        #    self.shcltpn.ctypes.data_as(intptr),
-        #    self.shclgrp.ctypes.data_as(intptr),
-        #    # connectivity.
-        #    self.shfcnds.ctypes.data_as(intptr),
-        #    self.shfccls.ctypes.data_as(intptr),
-        #    self.shclnds.ctypes.data_as(intptr),
-        #    self.shclfcs.ctypes.data_as(intptr),
-        #    # geometry.
-        #    self.shndcrd.ctypes.data_as(fpptr),
-        #    self.shfccnd.ctypes.data_as(fpptr),
-        #    self.shfcnml.ctypes.data_as(fpptr),
-        #    self.shfcara.ctypes.data_as(fpptr),
-        #    self.shclcnd.ctypes.data_as(fpptr),
-        #    self.shclvol.ctypes.data_as(fpptr),
-        #)
+        if not env.use_fortran:
+            self._clib_solvcon.build_ghost(
+                byref(self.create_msd()),
+                self.bndfcs.ctypes.data_as(intptr),
+            )
+        else:
+            fpptr = self.fpptr
+            msh = self.create_shape()
+            self._clib_solvcon.build_ghost_(
+                # meta data.
+                byref(msh),
+                self.bndfcs.ctypes.data_as(intptr),
+                self.shfctpn.ctypes.data_as(intptr),
+                self.shcltpn.ctypes.data_as(intptr),
+                self.shclgrp.ctypes.data_as(intptr),
+                # connectivity.
+                self.shfcnds.ctypes.data_as(intptr),
+                self.shfccls.ctypes.data_as(intptr),
+                self.shclnds.ctypes.data_as(intptr),
+                self.shclfcs.ctypes.data_as(intptr),
+                # geometry.
+                self.shndcrd.ctypes.data_as(fpptr),
+                self.shfccnd.ctypes.data_as(fpptr),
+                self.shfcnml.ctypes.data_as(fpptr),
+                self.shfcara.ctypes.data_as(fpptr),
+                self.shclcnd.ctypes.data_as(fpptr),
+                self.shclvol.ctypes.data_as(fpptr),
+            )
 
     def _count_ghost(self):
         """

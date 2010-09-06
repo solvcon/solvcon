@@ -44,6 +44,8 @@ class Solvcon(object):
         self._intdtype = None
         # dynamic properties.
         self.command = None
+        # library.
+        self.use_fortran = bool(os.environ.get('SOLVCON_FORTRAN', False))
 
     @property
     def fpdtype(self):

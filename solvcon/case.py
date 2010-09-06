@@ -379,6 +379,7 @@ class BaseCase(CaseInfo):
             except:
                 case.cleanup()
                 raise
+            return case
         # register self to simulation registries.
         cls.arrangements[func.__name__] = simu
         arrangements[func.__name__] = simu
