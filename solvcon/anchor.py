@@ -2,7 +2,8 @@
 # Copyright (C) 2008-2009 by Yung-Yu Chen.  See LICENSE.txt for terms of usage.
 
 """
-Anchors attached to the solvers.
+Anchors attached to the solvers.  There's only one base anchor class for
+subclassing.  Any other anchors defined here are for directly installation.
 """
 
 class Anchor(object):
@@ -27,23 +28,9 @@ class Anchor(object):
         pass
     def prefull(self):
         pass
-    def prehalf(self):
+    def presub(self):
         pass
-    def premarchsol(self):
-        pass
-    def preexsoln(self):
-        pass
-    def prebcsoln(self):
-        pass
-    def precfl(self):
-        pass
-    def premarchdsol(self):
-        pass
-    def preexdsoln(self):
-        pass
-    def prebcdsoln(self):
-        pass
-    def posthalf(self):
+    def postsub(self):
         pass
     def postfull(self):
         pass
@@ -54,6 +41,8 @@ class Anchor(object):
 
 class AnchorList(list):
     """
+    Anchor container and invoker.
+
     @ivar svr: solver object.
     @itype svr: solvcon.solver.BaseSolver
     """

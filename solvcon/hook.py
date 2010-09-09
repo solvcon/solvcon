@@ -2,12 +2,13 @@
 # Copyright (C) 2008-2009 by Yung-Yu Chen.  See LICENSE.txt for terms of usage.
 
 """
-Hooks for simulation cases.
+Hooks for simulation cases.  Two categories of hooks are defined here: (i) base
+hooks for subclassing and (ii) generic hooks which can be readily installed.
 """
 
 class Hook(object):
     """
-    Container class for various hooking subroutines for BaseCase.
+    Organizer class for hooking subroutines for BaseCase.
 
     @ivar cse: Case object.
     @itype cse: BaseCase
@@ -122,6 +123,8 @@ class Hook(object):
 
 class HookList(list):
     """
+    Hook container and invoker.
+
     @ivar cse: case object.
     @itype cse: solvcon.case.BaseCase
     """
@@ -167,25 +170,24 @@ class HookList(list):
         for hok in self:
             hok.drop_anchor(svr)
 
+################################################################################
+# Fundamental hooks.
+################################################################################
 class ProgressHook(Hook):
     """
-    Print progess.
+    Print simulation progess.
 
     @ivar linewidth: the maximal width for progress symbol.  50 is upper limit.
     @itype linewidth: int
     """
-
     def __init__(self, cse, **kw):
         self.linewidth = kw.pop('linewidth', 50)
-        assert self.linewidth <= 50
         super(ProgressHook, self).__init__(cse, **kw)
-
     def preloop(self):
         istep = self.cse.execution.step_current
         nsteps = self.cse.execution.steps_run
         info = self.info
         info("Steps %d/%d\n" % (istep, nsteps))
-
     def postmarch(self):
         from time import time
         istep = self.cse.execution.step_current
@@ -207,6 +209,9 @@ class ProgressHook(Hook):
         elif istep == nsteps:
             info("\nStep %d/%d done\n" % (istep, nsteps))
 
+################################################################################
+# Hooks for BlockCase.
+################################################################################
 class BlockHook(Hook):
     """
     Base type for hooks needing a BlockCase.
@@ -318,13 +323,31 @@ class BlockHook(Hook):
                 start = 0
             getattr(cse.solver.solverobj, key)[start:] = arrg[:]
 
-class CollectHook(BlockHook):
-    """
-    Collect data from remote solvers.
-    """
+class BlockInfoHook(BlockHook):
+    def preloop(self):
+        blk = self.blk
+        self.info("Block information:\n  %s\n" % str(blk))
+    def postloop(self):
+        ncell = self.blk.ncell
+        time = self.cse.log.time['solver_march']
+        step_init = self.cse.execution.step_init
+        step_current = self.cse.execution.step_current
+        neq = self.cse.execution.neq
+        npart = self.cse.execution.npart
+        perf = (step_current-step_init)*ncell / time * 1.e-6
+        self.info('Performance:\n')
+        self.info('  %g seconds in marching solver.\n' % time)
+        self.info('  %g microseconds/cell.\n' % (1./perf))
+        self.info('  %g Mcells/seconds.\n' % perf)
+        self.info('  %g Mvariables/seconds.\n' % (perf*neq))
+        if isinstance(self.cse.execution.npart, int):
+            self.info('  %g Mcells/seconds/computer.\n' % (perf/npart))
+            self.info('  %g Mvariables/seconds/computer.\n' % (perf*neq/npart))
 
+class CollectHook(BlockHook):
     def __init__(self, cse, **kw):
         self.varlist = kw.pop('varlist')
+        self.error_on_nan = kw.pop('error_on_nan', False)
         super(CollectHook, self).__init__(cse, **kw)
     def postmarch(self):
         from numpy import isnan
@@ -339,34 +362,18 @@ class CollectHook(BlockHook):
             for key, kw in self.varlist:
                 arr = var[key] = self._collect_interior(key, **kw)
                 nans = isnan(arr)
+                msg = 'nan occurs in %s at step %d' % (key, istep)
                 if nans.any():
-                    raise ValueError('nan occurs in %s at step %d' % (
-                        key, istep))
+                    if self.error_on_nan:
+                        raise ValueError(msg)
+                    else:
+                        self.info(msg+'\n')
         self.cse.execution.varstep = istep
     preloop = postmarch
 
-class BlockInfoHook(BlockHook):
-    def preloop(self):
-        blk = self.blk
-        self.info("Block information:\n  %s\n" % str(blk))
-
-    def postloop(self):
-        ncell = self.blk.ncell
-        time = self.cse.log.time['solver_march']
-        step_init = self.cse.execution.step_init
-        step_current = self.cse.execution.step_current
-        neq = self.cse.execution.neq
-        npart = self.cse.execution.npart
-        perf = (step_current-step_init)*ncell / time * 1.e-6
-        self.info('Performance:\n')
-        self.info('  %g seconds in marching solver.\n' % time)
-        self.info('  %g microseconds/(iteration*cell).\n' % (1./perf))
-        self.info('  %g Mstint/seconds.\n' % perf)
-        self.info('  %g Mvariables/seconds.\n' % (perf*neq))
-        if isinstance(self.cse.execution.npart, int):
-            self.info('  %g Mstint/seconds/computer.\n' % (perf/npart))
-            self.info('  %g Mvariables/seconds/computer.\n' % (perf*neq/npart))
-
+################################################################################
+# Markers.
+################################################################################
 class SplitMarker(BlockHook):
     """
     Mark each cell with the domain index.
@@ -389,109 +396,9 @@ class GroupMarker(BlockHook):
         var = self.cse.execution.var
         var['clgrp'] = self.blk.clgrp.copy()
 
-class NpySave(BlockHook):
-    """
-    Save data into Numpy npy/npz format.
-
-    @ivar name: name of the array to be saved.
-    @itype name: str
-    @ivar compress: flag to use npz or npy.
-    @itype compress: bool
-    @ivar fntmpl: customizer for the filename template.
-    @itype fntmpl: str
-    """
-
-    def __init__(self, cse, **kw):
-        from math import log10, ceil
-        self.name = kw.pop('name', None)
-        self.compress = kw.pop('compress', False)
-        fntmpl = kw.pop('fntmpl', None)
-        super(NpySave, self).__init__(cse, **kw)
-        if fntmpl == None:
-            nsteps = cse.execution.steps_run
-            basefn = cse.io.basefn
-            fntmpl = basefn
-            if self.name:
-                fntmpl += '_%s'%self.name
-            fntmpl += '_%%0%dd'%int(ceil(log10(nsteps))+1)
-            if self.compress:
-                fntmpl += '.npz'
-            else:
-                fntmpl += '.npy'
-        self.fntmpl = fntmpl
-
-    def _save(self, arr, istep):
-        """
-        @param arr: the array to be written.
-        @type arr: numpy.ndarray
-        @param istep: the time step.
-        @type istep: int
-        """
-        from numpy import save, savez
-        if self.compress:
-            write = savez
-        else:
-            write = save
-        fn = self.fntmpl % istep
-        write(fn, arr)
-
-class VarSave(NpySave):
-    """
-    Save soln to npy file.
-    """
-
-    def __init__(self, cse, **kw):
-        assert 'name' in kw
-        assert 'fntmpl' not in kw
-        super(VarSave, self).__init__(cse, **kw)
-
-    def preloop(self):
-        istep = self.cse.execution.step_current
-        soln = self.cse.execution.var[self.name]
-        self._save(soln, istep)
-
-    def postmarch(self):
-        psteps = self.psteps
-        istep = self.cse.execution.step_current
-        if istep%psteps == 0:
-            soln = self.cse.execution.var[self.name]
-            self._save(soln, istep)
-
-class FinalCompare(BlockHook):
-    """
-    Compare certain variable array after finishing the main loop.
-
-    @ivar goldfn: file name for the gold data.
-    @itype goldfn: str
-    @ivar varname: variable name.
-    @itype varname: str
-    @ivar absdiff: the sum of absolute difference.  This variable is set (not
-        None) only after the loop is finished.
-    @itype absdiff: int
-    """
-    def __init__(self, cse, **kw):
-        self.goldfn = kw.pop('goldfn')
-        self.varname = kw.pop('varname')
-        super(FinalCompare, self).__init__(cse, **kw)
-        self.absdiff = None
-
-    def postloop(self):
-        from numpy import load, abs
-        info = self.info
-        try:
-            gold = load(self.goldfn)
-        except:
-            info('Error in loading gold file %s.\n' % self.goldfn)
-            return
-        arr = self.cse.execution.var[self.varname]
-        absdiff = abs(arr - gold).sum()
-        info('Absolute summation of difference in %s (compared against\n'
-             '  %s\n'
-             ') is %g .\n' % (
-            self.varname, self.goldfn, absdiff))
-        # save result to self.
-        self.absdiff = absdiff
-
+################################################################################
+# Vtk writers.
+################################################################################
 class VtkSave(BlockHook):
     """
     Base type for writer for cse with a block.
