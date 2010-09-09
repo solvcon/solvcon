@@ -190,24 +190,38 @@ class BaseSolver(object):
             setattr(self, key, holds[key])
         self.bind()
 
-    def _tcall(self, cfunc, iter_start, iter_end, tickerkey=None):
+    def _tcall(self, *args, **kw):
         """
         Use thread pool to call C functions in parallel (shared-memory).
         """
         from ctypes import byref, c_int
         from numpy import zeros
         ncore = self.ncore
+        cfunc = args[0]
+        iter_start = args[1]
+        iter_end = args[2]
+        tickerkey = kw.pop('tickerkey', None)
         if ncore > 0:
+            if len(args)>3:
+                alsts = list()
+                for it in range(self.ncore):
+                    alst = [byref(self.exd), c_int(0), c_int(0)]
+                    alst.extend(args[3:])
+                    alsts.append(alst)
+            else:
+                alsts = self.arglists
             incre = (iter_end-iter_start)/ncore + 1
             istart = iter_start
             for it in range(ncore):
                 iend = min(istart+incre, iter_end)
-                self.arglists[it][1].value = istart
-                self.arglists[it][2].value = iend
+                alsts[it][1].value = istart
+                alsts[it][2].value = iend
                 istart = iend
-            ret = self.tpool(cfunc, self.arglists)
+            ret = self.tpool(cfunc, alsts)
         else:
-            ret = [cfunc(byref(self.exd), c_int(iter_start), c_int(iter_end))]
+            alst = [byref(self.exd), c_int(iter_start), c_int(iter_end)]
+            alst.extend(args[3:])
+            ret = [cfunc(*alst)]
         if tickerkey != None:
             if tickerkey not in self.ticker:
                 self.ticker[tickerkey] = zeros(len(ret), dtype='int32')
