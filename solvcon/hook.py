@@ -193,7 +193,6 @@ class ProgressHook(Hook):
         tstart = self.cse.log.time['loop_march'][0]
         psteps = self.psteps
         linewidth = self.linewidth
-        cCFL = self.cse.execution.cCFL
         info = self.info
         # calculate estimated remaining time.
         tcurr = time()
