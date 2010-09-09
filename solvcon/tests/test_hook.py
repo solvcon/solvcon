@@ -5,7 +5,6 @@ class TestHook(TestCase):
         from .. import hook
         self.assertTrue(hook.Hook)
         self.assertTrue(hook.ProgressHook)
-        self.assertTrue(hook.CflHook)
 
     def test_type(self):
         from .. import hook
@@ -24,13 +23,6 @@ class TestHook(TestCase):
         self.assertEqual(ProgressHook.premarch, Hook.premarch)
         self.assertNotEqual(ProgressHook.postmarch, Hook.postmarch)
         self.assertEqual(ProgressHook.postloop, Hook.postloop)
-
-    def test_cfl(self):
-        from ..hook import Hook, CflHook
-        self.assertEqual(CflHook.preloop, Hook.preloop)
-        self.assertEqual(CflHook.premarch, Hook.premarch)
-        self.assertNotEqual(CflHook.postmarch, Hook.postmarch)
-        self.assertNotEqual(CflHook.postloop, Hook.postloop)
 
 class TestBlockHook(TestCase):
     def test_type(self):

@@ -137,9 +137,7 @@ class BaseCase(CaseInfo):
         'execution.step_current': None,
         'execution.steps_run': None,
         'execution.steps_stride': 1,
-        'execution.cCFL': 0.0,  # current.
-        'execution.aCFL': 0.0,  # accumulated.
-        'execution.mCFL': 0.0,  # mean.
+        'execution.marchret': None,
         'execution.neq': 0, # number of unknowns.
         'execution.var': dict,  # for Calculator hooks.
         'execution.varstep': None,  # the step for which var and dvar are valid.
@@ -308,23 +306,14 @@ class BaseCase(CaseInfo):
         self._log_start('run', msg=' '+self.io.basefn)
         self.info("\n")
         # prepare for time marching.
-        aCFL = 0.0
         self.execution.step_current = 0
         self.runhooks('preloop')
         self._log_start('loop_march')
         while self.execution.step_current < self.execution.steps_run:
             self.runhooks('premarch')
-            cCFL = self.solver.solverobj.march(
+            self.execution.marchret = self.solver.solverobj.march(
                 self.execution.step_current*self.execution.time_increment,
                 self.execution.time_increment)
-            # process CFL.
-            istep = self.execution.step_current
-            aCFL += cCFL
-            mCFL = aCFL/(istep+1)
-            self.execution.cCFL = cCFL
-            self.execution.aCFL = aCFL
-            self.execution.mCFL = mCFL
-            # increment to next time step.
             self.execution.step_current += 1
             self.runhooks('postmarch')
         self._log_start('loop_march')
@@ -870,7 +859,6 @@ for node in $nodes; do rsh $node killall %s; done
         dealer = self.solver.dealer
         flag_parallel = self.is_parallel
         self.log.time['solver_march'] = 0.0
-        aCFL = 0.0
         self.info('\n')
         self._log_start('loop_march')
         while self.execution.step_current < self.execution.steps_run:
@@ -886,27 +874,18 @@ for node in $nodes; do rsh $node killall %s; done
             self.runhooks('premarch')
             # march.
             solver_march_marker = timer()
-            cCFL = -1.0
             steps_stride = self.execution.steps_stride
             time_increment = self.execution.time_increment
             time = self.execution.step_current*time_increment
             if flag_parallel:
                 for sdw in dealer: sdw.cmd.march(time, time_increment,
                     steps_stride, with_worker=True)
-                cCFL = max([sdw.recv() for sdw in dealer])
+                self.execution.marchret = [sdw.recv() for sdw in dealer]
             else:
-                cCFL = self.solver.solverobj.march(time, time_increment,
-                    steps_stride)
+                self.execution.marchret = self.solver.solverobj.march(time,
+                    time_increment, steps_stride)
             self.execution.time += time_increment*steps_stride
             self.log.time['solver_march'] += timer() - solver_march_marker
-            # process CFL.
-            istep = self.execution.step_current
-            aCFL += cCFL*steps_stride
-            mCFL = aCFL/(istep+steps_stride)
-            self.execution.cCFL = cCFL
-            self.execution.aCFL = aCFL
-            self.execution.mCFL = mCFL
-            # increment to next time step.
             self.execution.step_current += steps_stride
             # hook: postmarch.
             self.runhooks('postmarch')

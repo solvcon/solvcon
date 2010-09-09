@@ -208,50 +208,6 @@ class ProgressHook(Hook):
         elif istep == nsteps:
             info("\nStep %d/%d done\n" % (istep, nsteps))
 
-class CflHook(Hook):
-    """
-    Make sure is CFL number is bounded and print averaged CFL number over time.
-
-    @ivar cflmin: CFL number should be greater than or equal to the value.
-    @itype cflmin: float
-    @ivar cflmax: CFL number should be less than the value.
-    @itype cflmax: float
-    @ivar fullstop: flag to stop when CFL is out of bound.  Default True.
-    @itype fullstop: bool
-    """
-
-    def __init__(self, cse, **kw):
-        self.cflmin = kw.pop('cflmin', 0.0)
-        self.cflmax = kw.pop('cflmax', 1.0)
-        self.fullstop = kw.pop('fullstop', True)
-        super(CflHook, self).__init__(cse, **kw)
-
-    def _notify(self, msg):
-        from warnings import warn
-        if self.fullstop:
-            raise RuntimeError, msg
-        else:
-            warn(msg)
-
-    def postmarch(self):
-        psteps = self.psteps
-        info = self.info
-        cCFL = self.cse.execution.cCFL
-        istep = self.cse.execution.step_current
-        if self.cflmin != None and cCFL < self.cflmin:
-            self._notify("CFL = %g < %g after step: %d" % (
-                cCFL, self.cflmin, istep))
-        if self.cflmax != None and cCFL >= self.cflmax:
-            self._notify("CFL = %g >= %g after step: %d" % (
-                cCFL, self.cflmax, istep))
-        # output information.
-        if istep > 0 and istep%psteps == 0:
-            info("CFL = %.2f\n" % cCFL)
-
-    def postloop(self):
-        info = self.info
-        info("Averaged maximum CFL = %g.\n" % self.cse.execution.mCFL)
-
 class BlockHook(Hook):
     """
     Base type for hooks needing a BlockCase.
