@@ -287,6 +287,7 @@ class BaseSolver(object):
         @rtype: float
         """
         from time import time as _time
+        self.marchret = None
         self.step_current = 0
         while self.step_current < steps_run:
             self.substep_current = 0
