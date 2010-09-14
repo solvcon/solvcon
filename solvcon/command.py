@@ -192,18 +192,6 @@ class log_runtime(SolverLog):
             dest='cpu', default=False,
             help='Plot CPU usage.',
         )
-        opg.add_option('-p', action='store_true',
-            dest='perf', default=False,
-            help='Plot performance (inverse of marching time).',
-        )
-        opg.add_option('-r', action='store_true',
-            dest='march', default=False,
-            help='Plot time spent in march for sol/dsol.',
-        )
-        opg.add_option('-s', action='store_true',
-            dest='marchother', default=False,
-            help='Plot time spent in march for others.',
-        )
         opg.add_option('-l', action='store_true',
             dest='loadavg', default=False,
             help='Plot load average.',
