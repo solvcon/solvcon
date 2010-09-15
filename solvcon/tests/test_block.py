@@ -88,9 +88,6 @@ class MetricTest(TestCase):
     testblock = None
 
     def test_fcnml(self):
-        """
-        Test if fcnml does point outward on boundary.
-        """
         blk = self.testblock
         ndim = blk.ndim
         bfcs = blk.bndfcs[:,0]
@@ -163,9 +160,6 @@ class GhostTest(TestCase):
             igcl += 1
 
     def test_ndcrd(self):
-        """
-        Test mirrored nodes for ghost cells against boundary faces.
-        """
         blk = self.testblock
         ndim = blk.ndim
         bfcs = blk.bndfcs[:,0]
@@ -200,10 +194,6 @@ class GhostTest(TestCase):
             igcl += 1
 
     def test_fccnd(self):
-        """
-        Test calculated center of faces for ghost cells are properly mirrored 
-        against boundary faces.
-        """
         blk = self.testblock
         ndim = blk.ndim
         bfcs = blk.bndfcs[:,0]
@@ -238,10 +228,6 @@ class GhostTest(TestCase):
             igcl += 1
 
     def test_fcnml(self):
-        """
-        Test calculated normal vector of faces for ghost cells are properly 
-        mirrored against boundary faces.
-        """
         blk = self.testblock
         ndim = blk.ndim
         bfcs = blk.bndfcs[:,0]
@@ -279,10 +265,6 @@ class GhostTest(TestCase):
             igcl += 1
 
     def test_fcara(self):
-        """
-        Test for the equivelence of area of ghost faces and mirrored interior
-        faces.
-        """
         blk = self.testblock
         bfcs = blk.bndfcs[:,0]
         bcls = blk.fccls[bfcs,0]    # interior cells next to boundary.
@@ -302,10 +284,6 @@ class GhostTest(TestCase):
             igcl += 1
 
     def test_clvol(self):
-        """
-        Test for the equivelence of volume of ghost cells and mirrored interior
-        cells.
-        """
         blk = self.testblock
         bfcs = blk.bndfcs[:,0]
         bcls = blk.fccls[bfcs,0]    # interior cells next to boundary.
@@ -329,12 +307,12 @@ class TestGhostDouble2D(GhostTest):
 class TestGhostSingle3D(GhostTest):
     __test__ = True
     testblock = get_blk_from_sample_neu(fpdtype='float32')
-    rounding_to = 5
+    rounding_to = 4
 
 class TestGhostDouble3D(GhostTest):
     __test__ = True
     testblock = get_blk_from_sample_neu(fpdtype='float64')
-    rounding_to = 14
+    rounding_to = 13
 
 class TestShared(TestCase):
     oblique = get_blk_from_oblique_neu()
