@@ -289,6 +289,7 @@ class BaseSolver(object):
         from time import time as _time
         self.marchret = None
         self.step_current = 0
+        self.runanchors('premarch')
         while self.step_current < steps_run:
             self.substep_current = 0
             self.runanchors('prefull')
@@ -316,6 +317,7 @@ class BaseSolver(object):
             self.runanchors('postfull')
         if worker:
             worker.conn.send(self.marchret)
+        self.runanchors('postmarch')
         return self.marchret
 
 class BlockSolver(BaseSolver):

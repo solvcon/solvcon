@@ -26,6 +26,8 @@ class Anchor(object):
         pass
     def preloop(self):
         pass
+    def premarch(self):
+        pass
     def prefull(self):
         pass
     def presub(self):
@@ -33,6 +35,8 @@ class Anchor(object):
     def postsub(self):
         pass
     def postfull(self):
+        pass
+    def postmarch(self):
         pass
     def postloop(self):
         pass
