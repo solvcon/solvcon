@@ -23,7 +23,7 @@ class ElementGroup(object):
     @ivar elems: elements array of shape of (nelgp).
     @type elems: numpy.ndarray
     """
-    def __init__(self, data):
+    def __init__(self, data=None):
         from numpy import empty
         self.ngp = None # retained as 1-based.
         self.nelgp = None
@@ -33,7 +33,7 @@ class ElementGroup(object):
         self.solver = empty(0)
         self.elems = empty(0)
         # run parser.
-        self._parse(data)
+        if data != None: self._parse(data)
 
     def __str__(self):
         return '[Group #%d(%s): %d elements]' % (
@@ -81,7 +81,7 @@ class BoundaryCondition(object):
     @ivar values: array of values attached to each record.
     @type values: numpy.ndarray
     """
-    def __init__(self, data):
+    def __init__(self, data=None):
         from numpy import empty
         self.name = ''
         self.itype = None
@@ -91,7 +91,7 @@ class BoundaryCondition(object):
         self.elems = empty(0)
         self.values = empty(0)
         # run parser.
-        self._parse(data)
+        if data != None: self._parse(data)
 
     def __str__(self):
         return '[BC "%s": %d entries with %d values]' % (
@@ -358,6 +358,182 @@ class GambitNeutralParser(object):
         neu.bcs.append(BoundaryCondition(data))
     processors['BOUNDARY CONDITIONS'] = _boundary_conditions
 
+class GambitNeutralReader(object):
+    """
+    Read and store information of a Gambit Neutral file line by line.
+
+    @ivar neuf: source file.
+    @itype neuf: file
+    @ivar neu: GambitNeutral object to be saved to.
+    @itype neu: solvcon.io.gambit.neutral.GambitNeutral
+    """
+    def __init__(self, neuf, neu):
+        self.neuf = neuf
+        self.neu = neu
+    def read(self):
+        neuf = self.neuf
+        neu = self.neu
+        while True:
+            toks = neuf.readline()[:20].strip().lower().split()
+            header = []
+            for tok in toks:
+                header.extend(tok.split('/'))
+            header = '_'.join(header)
+            method = getattr(self, '_'+header, None)
+            if method != None:
+                method(neuf, neu)
+                assert neuf.readline().strip() == 'ENDOFSECTION'
+            else:
+                break
+    @staticmethod
+    def _control_info(neuf, neu):
+        neu.header = neuf.readline().strip()
+        neu.title = neuf.readline().strip()
+        neu.data_source = neuf.readline().strip()
+        for i in range(2): neuf.readline()
+        line = neuf.readline().rstrip()
+        neu.numnp = int(line[1:10])
+        neu.nelem = int(line[11:20])
+        neu.ngrps = int(line[21:30])
+        neu.nbsets = int(line[31:40])
+        neu.ndfcd = int(line[41:50])
+        neu.ndfvl = int(line[51:60])
+    @staticmethod
+    def _nodal_coordinates(neuf, neu):
+        from numpy import empty
+        nodes = empty((neu.numnp, neu.ndfcd), dtype='float64')
+        nodeids = empty(neu.numnp, dtype='int32')
+        ndim = neu.ndfcd
+        nnode = neu.numnp
+        ind = 0
+        while ind < nnode:
+            line = neuf.readline()
+            nodeids[ind] = int(line[:10])
+            for idm in range(ndim):
+                nodes[ind,idm] = float(line[10+20*idm:10+20*(idm+1)])
+            ind += 1
+        # renumber according to first value of each line.
+        # NOTE: unused number contains garbage.
+        nodeids -= 1
+        neu.nodes = empty((nodeids.max()+1, neu.ndfcd), dtype='float64')
+        neu.nodes[nodeids] = nodes[nodeids]
+    @staticmethod
+    def _elements_cells(neuf, neu):
+        from numpy import empty
+        from ..block import MAX_CLNND
+        ncell = neu.nelem
+        elems = empty((ncell, MAX_CLNND+2), dtype='int32')
+        icl = 0
+        while icl < ncell:
+            line = neuf.readline()
+            elems[icl,0] = int(line[9:11])
+            elems[icl,1] = ncl = int(line[12:14])
+            for it in range(min(ncl, 7)):
+                elems[icl,2+it] = int(line[15+8*it:15+8*(it+1)]) - 1
+            if ncl > 7:
+                line = neuf.readline()
+            elems[icl,2+7] = int(line[15:15+8]) - 1
+            icl += 1
+        neu.elems = elems
+    @classmethod
+    def _element_group(cls, neuf, neu):
+        emg = ElementGroup()
+        # group statistics.
+        line = neuf.readline()
+        emg.ngp = int(line[7:7+10])
+        emg.nelgp = int(line[28:28+10])
+        emg.mtyp = int(line[49:49+10])
+        emg.nflags = int(line[68:68+10])
+        # group name.
+        line = neuf.readline()
+        emg.elmmat = line.strip()
+        # solver data.
+        emg.solver = cls._read_values(neuf, 8, emg.nflags, 'int32')
+        # element data.
+        emg.elems = cls._read_values(neuf, 8, emg.nelgp, 'int32')-1
+        # append group.
+        neu.grps.append(emg)
+    @staticmethod
+    def _boundary_conditions(neuf, neu):
+        from numpy import empty
+        bc = BoundaryCondition()
+        # control record.
+        line = neuf.readline()
+        bc.name = line[:32].strip()
+        bc.itype = int(line[32:32+10])
+        bc.nentry = nbfc = int(line[42:42+10])
+        bc.nvalues = nval = int(line[52:52+10])
+        if bc.itype == 0: # nodes.
+            bc.elems = elems = empty(nbfc, dtype='int32')
+            bc.values = values = empty((nbfc, nval), dtype='float64')
+            ibfc = 0
+            while ibfc < nbfc:
+                line = neuf.readline()
+                elems[ibfc] = int(line[0:10])
+                values[ibfc] = [float(line[10+20*it:10+20*(it+1)]) for it in
+                    range(nval)]
+                ibfc += 1
+        elif bc.itype == 1: # elements/cells.
+            bc.elems = elems = empty((nbfc, 3), dtype='int32')
+            bc.values = values = empty((nbfc, nval), dtype='float64')
+            ibfc = 0
+            while ibfc < nbfc:
+                line = neuf.readline()
+                elems[ibfc] = (int(line[0:10])-1,
+                    int(line[10:15]), int(line[15:20]))
+                values[ibfc] = [float(line[20+20*it:20+20*(it+1)]) for it in
+                    range(nval)]
+                ibfc += 1
+        else:
+            raise ValueError, 'only 0/1 of itype is allowed'
+        assert ibfc == nbfc
+        # append.
+        neu.bcs.append(bc)
+
+    @staticmethod
+    def _read_values(neuf, width, nval, dtype):
+        """
+        Read homogeneous values from the current position of the opened
+        neutral file.
+
+        @param neuf: neutral file.
+        @type neuf: file
+        @param width: character width per value.
+        @type width: int
+        @param nval: number of values to read.
+        @type nval: int
+        @param dtype: dtype string to construct ndarray.
+        @type dtype: str
+        @return: read array.
+        @rtype: numpy.ndarray
+        """
+        from numpy import empty
+        # determine type.
+        if dtype.startswith('int'):
+            vtype = int
+        elif dtype.startswith('float'):
+            vtype = float
+        else:
+            raise TypeError, '%s not supported'%dtype
+        # allocate array.
+        arr = empty(nval, dtype=dtype)
+        # read.
+        iline = 0
+        ival = 0
+        while ival < nval:
+            line = neuf.readline()
+            iline += 1
+            nchar = len(line)
+            line = line.rstrip()
+            nc = len(line)
+            if nc%width != 0:
+                raise IndexError, 'not exact chars at line %d'%(ival/iline)
+            nt = nc/width
+            arr[ival:ival+nt] = [vtype(line[8*it:8*(it+1)]) for it in range(nt)]
+            ival += nt
+        assert ival == nval
+        return arr
+
 class GambitNeutral(object):
     """
     Represent information in a Gambit Neutral file.
@@ -417,8 +593,11 @@ class GambitNeutral(object):
         self.grps = []
         # boundary conditions info.
         self.bcs = []
-        # run parser.
-        GambitNeutralParser(data, self).parse()
+        # parse/read.
+        if hasattr(data, 'read'):
+            GambitNeutralReader(data, self).read()
+        else:
+            GambitNeutralParser(data, self).parse()
 
     def __str__(self):
         return '[Neutral (%s): %d nodes, %d elements, %d groups, %d bcs]' % (

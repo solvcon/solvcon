@@ -9,6 +9,23 @@ import os
 from unittest import TestCase
 from .solver import BlockSolver
 
+def openfile(filename):
+    """
+    Open file with requested file name.  The file name contains relative path
+    to 'data' directory in this directory, and uses forward slash as delimiter 
+    of directory components.
+
+    @param filename: path of file relative to 'data' directory in this directory.
+    @type filename: str
+    @return: opened file.
+    @rtype: file
+    """
+    import os
+    from .conf import env
+    path = [env.datadir] + filename.split('/')
+    path = os.path.join(*path)
+    return open(path)
+
 def loadfile(filename):
     """
     Load file with requested file name.  The file name contains relative path
@@ -20,11 +37,7 @@ def loadfile(filename):
     @return: loaded data.
     @rtype: str
     """
-    import os
-    from .conf import env
-    path = [env.datadir] + filename.split('/')
-    path = os.path.join(*path)
-    return open(path).read()
+    return openfile(filename).read()
 
 def get_blk_from_sample_neu(fpdtype=None):
     """

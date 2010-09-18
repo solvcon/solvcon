@@ -51,19 +51,14 @@ class mesh(Command):
         from .helper import info
         if ops.neu_file != '':
             neufn = ops.neu_file
-            # load block from other format.
             if neufn.endswith('.gz'):
                 opener = gzip.open
             else:
                 opener = open
-            info('Loading %s ... ' % neufn)
+            # load gambit nuetral file.
+            info('Load Gambit Neutral file: %s ... ' % neufn)
             timer = time()
-            data = opener(neufn).read()
-            info('%d byte. (%gs)\n' % (len(data), time()-timer))
-            # create neu object.
-            info('Parse Gambit Neutral ... ')
-            timer = time()
-            neu = GambitNeutral(data)
+            neu = GambitNeutral(opener(neufn))
             if ops.print_block:
                 info('\n  %s\n' % str(neu))
                 if ops.print_bc:

@@ -2,7 +2,7 @@
 
 import os
 from unittest import TestCase
-from ...testing import loadfile
+from ...testing import openfile, loadfile
 from .. import gambit
 
 class NeutralTest(TestCase):
@@ -69,5 +69,17 @@ class TestNeutralSingle(NeutralTest):
 class TestNeutralDouble(NeutralTest):
     __test__ = True
     neu = gambit.GambitNeutral(loadfile('sample.neu'))
+    blk = neu.toblock(fpdtype='float64')
+    round_to = 15
+
+class TestNeutralReadSingle(NeutralTest):
+    __test__ = True
+    neu = gambit.GambitNeutral(openfile('sample.neu'))
+    blk = neu.toblock(fpdtype='float32')
+    round_to = 6
+
+class TestNeutralReadDouble(NeutralTest):
+    __test__ = True
+    neu = gambit.GambitNeutral(openfile('sample.neu'))
     blk = neu.toblock(fpdtype='float64')
     round_to = 15
