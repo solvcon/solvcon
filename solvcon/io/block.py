@@ -77,7 +77,7 @@ class BlockIO(object):
                 bc.sern, bc.name, str(bc.blkn), len(bc), bc.nvalue,
             ))
         # binary part.
-        stream.write('-*- start of binary data -*-\n')
+        stream.write(self.BINARY_MARKER+'\n')
         self._save_connectivity(blk, stream)
         self._save_type(blk, stream)
         self._save_metrics(blk, stream)
