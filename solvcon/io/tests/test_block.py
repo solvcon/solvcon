@@ -4,7 +4,7 @@ from unittest import TestCase
 from ...testing import get_blk_from_oblique_neu, get_blk_from_sample_neu
 
 class CheckBlockIO(TestCase):
-    def check_shape(self, newblk, blk):
+    def _check_shape(self, newblk, blk):
         # shape.
         self.assertEqual(newblk.ndim, blk.ndim)
         self.assertEqual(newblk.nnode, blk.nnode)
@@ -16,14 +16,12 @@ class CheckBlockIO(TestCase):
         self.assertEqual(newblk.ngstcell, blk.ngstcell)
         # serial number.
         self.assertEqual(newblk.blkn, blk.blkn)
-
-    def check_group(self, newblk, blk):
+    def _check_group(self, newblk, blk):
         # group names.
         self.assertEqual(len(newblk.grpnames), len(blk.grpnames))
         for igrp in range(len(blk.grpnames)):
             self.assertEqual(newblk.grpnames[igrp], blk.grpnames[igrp])
-
-    def check_bc(self, newblk, blk):
+    def _check_bc(self, newblk, blk):
         self.assertTrue((newblk.bndfcs == blk.bndfcs).all())
         self.assertEqual(len(newblk.bclist), len(blk.bclist))
         for ibc in range(len(newblk.bclist)):
@@ -41,8 +39,7 @@ class CheckBlockIO(TestCase):
             self.assertEqual(newbc.value.shape[1], bc.value.shape[1])
             if newbc.value.shape[1] > 0:
                 self.assertTrue((newbc.value == bc.value).all())
-
-    def check_array(self, newblk, blk):
+    def _check_array(self, newblk, blk):
         # metrics.
         self.assertTrue((newblk.ndcrd == blk.ndcrd).all())
         self.assertTrue((newblk.fccnd == blk.fccnd).all())
@@ -92,18 +89,12 @@ class CheckBlockIO(TestCase):
         self.assertTrue((newblk.shclnds == blk.shclnds).all())
         self.assertTrue((newblk.shclfcs == blk.shclfcs).all())
 
-class TestBlockIO(CheckBlockIO):
-    __test__ = False
-    testblock = None
-    compressor = None
-
-    def test_reload(self):
+class TestReload(CheckBlockIO):
+    def _check_reload(self, blk, compressor):
         from cStringIO import StringIO
         from ..block import BlockIO
-
-        blk = self.testblock
         # save.
-        bio = BlockIO(blk=blk, flag_compress=self.compressor)
+        bio = BlockIO(blk=blk, flag_compress=compressor)
         dataio = StringIO()
         bio.save(stream=dataio)
         value = dataio.getvalue()
@@ -111,38 +102,59 @@ class TestBlockIO(CheckBlockIO):
         bio = BlockIO()
         dataio = StringIO(value)
         newblk = bio.load(stream=dataio)
+        # check
+        self._check_shape(newblk, blk)
+        self._check_group(newblk, blk)
+        self._check_bc(newblk, blk)
+        self._check_array(newblk, blk)
+    def test_reload2d_raw(self):
+        self._check_reload(get_blk_from_oblique_neu(), '')
+    def test_reload2d_gz(self):
+        self._check_reload(get_blk_from_oblique_neu(), 'gz')
+    def test_reload2d_bz2(self):
+        self._check_reload(get_blk_from_oblique_neu(), 'bz2')
+    def test_reload3d_raw(self):
+        self._check_reload(get_blk_from_sample_neu(), '')
+    def test_reload3d_gz(self):
+        self._check_reload(get_blk_from_sample_neu(), 'gz')
+    def test_reload3d_bz2(self):
+        self._check_reload(get_blk_from_sample_neu(), 'bz2')
 
-        self.check_shape(newblk, blk)
-        self.check_group(newblk, blk)
-        self.check_bc(newblk, blk)
-        self.check_array(newblk, blk)
-
-class TestBlockIO2D(TestBlockIO):
-    __test__ = True
-    testblock = get_blk_from_oblique_neu()
-    compressor = ''
-
-class TestBlockIO3D(TestBlockIO):
-    __test__ = True
-    testblock = get_blk_from_sample_neu()
-    compressor = ''
-
-class TestBlockIO2Dbz2(TestBlockIO):
-    __test__ = True
-    testblock = get_blk_from_oblique_neu()
-    compressor = 'bz2'
-
-class TestBlockIO3Dbz2(TestBlockIO):
-    __test__ = True
-    testblock = get_blk_from_sample_neu()
-    compressor = 'bz2'
-
-class TestBlockIO2Dgz(TestBlockIO):
-    __test__ = True
-    testblock = get_blk_from_oblique_neu()
-    compressor = 'gz'
-
-class TestBlockIO3Dgz(TestBlockIO):
-    __test__ = True
-    testblock = get_blk_from_sample_neu()
-    compressor = 'gz'
+class TestLoad0001(CheckBlockIO):
+    def _check_load(self, blk, stream):
+        from ..block import BlockIO
+        bio = BlockIO()
+        # check version of stream.
+        meta, lines, textlen = bio.read_meta(stream=stream)
+        self.assertEqual(meta.FORMAT_REV, '0.0.0.1')
+        # load from steam.
+        blkl = bio.load(stream=stream)
+        # check.
+        self._check_shape(blk, blkl)
+        self._check_group(blk, blkl)
+        self._check_bc(blk, blkl)
+        self._check_array(blk, blkl)
+    def test_load2d_raw(self):
+        from ...testing import openfile
+        self._check_load(get_blk_from_oblique_neu(), openfile(
+            'oblique_0.0.0.1.blk', 'rb'))
+    def test_load2d_gz(self):
+        from ...testing import openfile
+        self._check_load(get_blk_from_oblique_neu(), openfile(
+            'oblique_0.0.0.1_gz.blk', 'rb'))
+    def test_load2d_bz2(self):
+        from ...testing import openfile
+        self._check_load(get_blk_from_oblique_neu(), openfile(
+            'oblique_0.0.0.1_bz2.blk', 'rb'))
+    def test_load3d_raw(self):
+        from ...testing import openfile
+        self._check_load(get_blk_from_sample_neu(), openfile(
+            'sample_0.0.0.1.blk', 'rb'))
+    def test_load3d_gz(self):
+        from ...testing import openfile
+        self._check_load(get_blk_from_sample_neu(), openfile(
+            'sample_0.0.0.1_gz.blk', 'rb'))
+    def test_load3d_bz2(self):
+        from ...testing import openfile
+        self._check_load(get_blk_from_sample_neu(), openfile(
+            'sample_0.0.0.1_bz2.blk', 'rb'))

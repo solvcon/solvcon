@@ -1,5 +1,5 @@
 # -*- coding: UTF-8 -*-
-# Copyright (C) 2008-2009 by Yung-Yu Chen.  See LICENSE.txt for terms of usage.
+# Copyright (C) 2008-2010 by Yung-Yu Chen.  See LICENSE.txt for terms of usage.
 
 """Intrinsic format mesh IO."""
 
@@ -181,19 +181,16 @@ class BlockIO(object):
             if bc.value.shape[1] > 0:
                 self._write_array(self.flag_compress, bc.value, stream)
 
-    def load(self, stream=None, bcmapper=None):
+    def read_meta(self, stream=None):
         """
-        Load block from stream with BC mapper applied.
+        Read meta-data of Block file from stream.
         
         @keyword stream: file object or file name to be read.
         @type stream: file or str
-        @keyword bcmapper: BC type mapper.
-        @type bcmapper: dict
-        @return: the read block object.
-        @rtype: solvcon.block.Block
+        @return: meta-data, raw text lines of meta-data, and the length of
+            meta-data in bytes.
+        @rtype: solvcon.gendata.AttributeDict, list, int
         """
-        from ..block import Block
-        bcmapper = bcmapper if bcmapper != None else self.bcmapper
         if stream == None:
             stream = open(self.filename, 'rb')
         elif isinstance(stream, str):
@@ -201,41 +198,7 @@ class BlockIO(object):
         # determine the text part and binary part.
         lines, textlen = self._get_textpart(stream)
         meta = self._parse_meta(lines)
-        fpdtype = meta.fpdtype if self.fpdtype == None else self.fpdtype
-        blk = Block(fpdtype=fpdtype)
-        blk.blkn = meta.blkn
-        ## groups.
-        meta_length = self.meta_length
-        begin = meta_length + 1
-        end = meta_length + 1 + meta.ngroup
-        blk.grpnames = [line.split('=')[-1].strip() for line in lines[begin:end]]
-        ## BC object information.
-        begin = meta_length + 1 + meta.ngroup
-        end = meta_length + 1 + meta.ngroup + meta.nbc
-        bcsinfo = []
-        for line in lines[begin:end]:
-            key, value = line.split('=')
-            sern = int(key.strip()[2:])
-            name, blkn, flen, nval = [tok.strip() for tok in value.split(',')]
-            try:
-                blkn = int(blkn)
-            except ValueError:
-                blkn = None
-            flen = int(flen)
-            nval = int(nval)
-            bcsinfo.append((sern, name, blkn, flen, nval))
-        # load arrays.
-        stream.seek(textlen)
-        self._load_connectivity(meta, stream, blk)
-        self._load_type(meta, stream, blk)
-        self._load_metrics(meta, stream, blk)
-        self._load_boundcond(meta, bcsinfo, fpdtype, stream, blk)
-        # construct subarrays.
-        self._construct_subarrays(meta, blk)
-        # post-process for BCs.
-        if bcmapper != None:
-            self._convert_bc(bcmapper, blk)
-        return blk
+        return meta, lines, textlen
 
     def _get_textpart(self, stream):
         """
@@ -273,7 +236,6 @@ class BlockIO(object):
         import numpy as np
         from ..gendata import AttributeDict
         meta = AttributeDict()
-        meta_length = self.meta_length
         # parse text.
         ## flags.
         begin = 1
@@ -300,6 +262,61 @@ class BlockIO(object):
         except ValueError:
             meta.blkn = None
         return meta
+
+    def load(self, stream=None, bcmapper=None):
+        """
+        Load block from stream with BC mapper applied.
+        
+        @keyword stream: file object or file name to be read.
+        @type stream: file or str
+        @keyword bcmapper: BC type mapper.
+        @type bcmapper: dict
+        @return: the read block object.
+        @rtype: solvcon.block.Block
+        """
+        from ..block import Block
+        bcmapper = bcmapper if bcmapper != None else self.bcmapper
+        if stream == None:
+            stream = open(self.filename, 'rb')
+        elif isinstance(stream, str):
+            stream = open(stream, 'rb')
+        # determine the text part and binary part.
+        meta, lines, textlen = self.read_meta(stream)
+        fpdtype = meta.fpdtype if self.fpdtype == None else self.fpdtype
+        blk = Block(fpdtype=fpdtype)
+        blk.blkn = meta.blkn
+        ## groups.
+        meta_length = self.meta_length
+        begin = meta_length + 1
+        end = meta_length + 1 + meta.ngroup
+        blk.grpnames = [line.split('=')[-1].strip() for line in lines[begin:end]]
+        ## BC object information.
+        begin = meta_length + 1 + meta.ngroup
+        end = meta_length + 1 + meta.ngroup + meta.nbc
+        bcsinfo = []
+        for line in lines[begin:end]:
+            key, value = line.split('=')
+            sern = int(key.strip()[2:])
+            name, blkn, flen, nval = [tok.strip() for tok in value.split(',')]
+            try:
+                blkn = int(blkn)
+            except ValueError:
+                blkn = None
+            flen = int(flen)
+            nval = int(nval)
+            bcsinfo.append((sern, name, blkn, flen, nval))
+        # load arrays.
+        stream.seek(textlen)
+        self._load_connectivity(meta, stream, blk)
+        self._load_type(meta, stream, blk)
+        self._load_metrics(meta, stream, blk)
+        self._load_boundcond(meta, bcsinfo, fpdtype, stream, blk)
+        # construct subarrays.
+        self._construct_subarrays(meta, blk)
+        # post-process for BCs.
+        if bcmapper != None:
+            self._convert_bc(bcmapper, blk)
+        return blk
 
     @staticmethod
     def _read_array(flag_compress, shape, dtype, stream):

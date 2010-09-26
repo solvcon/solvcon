@@ -9,14 +9,17 @@ import os
 from unittest import TestCase
 from .solver import BlockSolver
 
-def openfile(filename):
+def openfile(filename, mode=None):
     """
     Open file with requested file name.  The file name contains relative path
     to 'data' directory in this directory, and uses forward slash as delimiter 
     of directory components.
 
-    @param filename: path of file relative to 'data' directory in this directory.
+    @param filename: path of file relative to 'data' directory in this
+        directory.
     @type filename: str
+    @keyword mode: file mode.
+    @type mode: str
     @return: opened file.
     @rtype: file
     """
@@ -24,7 +27,10 @@ def openfile(filename):
     from .conf import env
     path = [env.datadir] + filename.split('/')
     path = os.path.join(*path)
-    return open(path)
+    if mode != None:
+        return open(path, mode)
+    else:
+        return open(path)
 
 def loadfile(filename):
     """
