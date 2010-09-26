@@ -1,29 +1,89 @@
 # -*- coding: UTF-8 -*-
 # Copyright (C) 2008-2010 by Yung-Yu Chen.  See LICENSE.txt for terms of usage.
 
-"""Intrinsic format mesh IO."""
+"""Intrinsic format mesh I/O."""
 
-class BlockIO(object):
+from ..gendata import SingleAssignDict, AttributeDict
+
+class BlockFormatRegistry(SingleAssignDict, AttributeDict):
+    def register(self, blftype):
+        name = blftype.__name__
+        rev = blftype.FORMAT_REV
+        self[name] = self[rev] = blftype
+        return blftype
+blfregy = BlockFormatRegistry() # registry singleton.
+
+class BlockFormatMeta(type):
     """
-    Save/load functionality for block/mesh object.
+    Sum the length of all META_ entries of bases and derived classes; only 
+    collect from 1 level of parents.
+    """
+    def __new__(cls, name, bases, namespace):
+        mldict = dict()
+        # collect length from base classes.  later overrides former.
+        # NOTE: only 1 level of parents is considered.
+        for base in bases:
+            for key in base.__dict__:
+                if key.startswith('META_'):
+                    mldict[key] = len(getattr(base, key))
+        # collect length from derived class, and override bases.
+        for key in namespace:
+            if key.startswith('META_'):
+                mldict[key] = len(namespace[key])
+        # sum them all.
+        namespace['meta_length'] = sum([mldict[k] for k in mldict])
+        # recreate the class.
+        newcls = super(BlockFormatMeta, cls).__new__(cls, name, bases, namespace)
+        # register.
+        blfregy.register(newcls)
+        return newcls
+
+class BlockFormat(object):
+    """
+    Abstract class for fundamental facilities for I/O intrinsic mesh format
+    (blk).  A blk file is in general composed by (i) meta-data, (ii) group
+    list, (iii) boundary condition list, and (iv) binary arrays.  The saved
+    arrays can be compressed.  The compression must be applied to all or none
+    of the arrays.  Each of the concrete derived classes represents a version
+    of format, and should override (i) save, (ii) read_meta, and (iii) load
+    methods.
 
     @cvar READ_BLOCK: length per reading from file.
     @ctype READ_BLOCK: int
     @cvar BINARY_MARKER: a string to mark the starting of binary data.
     @ctype BINARY_MARKER: str
-    @ivar blk: attached block object.
-    @itype blk: solvcon.block.Block
-    @ivar filename: associated in/out filename.
-    @itype filename: str
+    @cvar FILE_HEADER: header of blk file.
+    @ctype FILE_HEADER: str
+    @cvar FORMAT_REV: revision of format; must be overridden.
+    @ctype FORMAT_REV: str
+
+    @cvar META_GLOBAL: global meta entries.
+    @ctype META_GLOBAL: tuple
+    @cvar META_DESC: descriptive meta entries.
+    @ctype META_DESC: tuple
+    @cvar META_GEOM: geometric meta entries.
+    @ctype META_GEOM: tuple
+    @cvar META_SWITCH: optional flags.
+    @ctype META_SWITCH: tuple
+    @cvar META_ATT: attached meta entries.
+    @ctype META_ATT: tuple
+
+    @cvar meta_length: length of all META_ entries.
+    @ctype meta_length: int
+
+    @ivar flag_compress: the compression to use: '', 'gz', or 'bz2'
+    @itype flag_compress: str
     @ivar fpdtype: specified fpdtype for I/O.
-    @itype fpdtyp: numpy.dtype
-    @ivar bcmapper: boundary condition object conversion mapper.
-    @itype bcmapper: dict
+    @itype fpdtype: numpy.dtype
     """
 
+    __metaclass__ = BlockFormatMeta
+
     READ_BLOCK = 1024
+    FILE_HEADER = '-*- solvcon blk mesh file -*-'
     BINARY_MARKER = '-*- start of binary data -*-'
-    FORMAT_REV = '0.0.0.1'
+    FORMAT_REV = None
+
     META_GLOBAL = (
         'FORMAT_REV',
         'flag_compress',
@@ -36,53 +96,51 @@ class BlockIO(object):
         'ndim', 'nnode', 'nface', 'ncell', 'nbound',
         'ngstnode', 'ngstface', 'ngstcell',
     )
+    META_SWITCH = tuple()
     META_ATT = (
         'ngroup', 'nbc',
     )
 
     def __init__(self, **kw):
-        self.blk = kw.pop('blk', None)
         self.fpdtype = kw.pop('fpdtype', None)
-        self.bcmapper = kw.pop('bcmapper', None)
         self.flag_compress = kw.pop('flag_compress', '')
-
-    @property
-    def meta_length(self):
-        return sum([len(getattr(self, key)) for key in self.__class__.__dict__
-            if key.startswith('META_')])
-
-    def save(self, blk=None, stream=None):
+    def save(self, blk, stream):
         """
         Save the block object into a file.
         
-        @keyword blk: to-be-written block object.
+        @param blk: to-be-written block object.
         @type blk: solvcon.block.Block
-        @keyword stream: file object or file name to be read.
+        @param stream: file object or file name to be read.
         @type stream: file or str
         """
-        if blk == None:
-            blk = self.blk
-        if stream == None:
-            stream = open(self.filename, 'wb')
-        elif isinstance(stream, str):
-            stream = open(stream, 'wb')
-        # text part.
-        stream.write('-*- solvcon blk mesh file -*-\n')
-        self._save_meta(blk, stream)
-        for ig in range(len(blk.grpnames)):
-            stream.write('group%d = %s\n' % (ig, blk.grpnames[ig]))
-        for ibc in range(len(blk.bclist)):
-            bc = blk.bclist[ibc]
-            stream.write('bc%d = %s, %s, %d, %d\n' % (
-                bc.sern, bc.name, str(bc.blkn), len(bc), bc.nvalue,
-            ))
-        # binary part.
-        stream.write(self.BINARY_MARKER+'\n')
-        self._save_connectivity(blk, stream)
-        self._save_type(blk, stream)
-        self._save_metrics(blk, stream)
-        self._save_boundcond(blk, stream)
+        raise NotImplementedError
+    def read_meta(self, stream):
+        """
+        Read meta-data of blk file from stream.
+        
+        @param stream: file object or file name to be read.
+        @type stream: file or str
+        @return: meta-data, raw text lines of meta-data, and the length of
+            meta-data in bytes.
+        @rtype: solvcon.gendata.AttributeDict, list, int
+        """
+        raise NotImplementedError
+    def load(self, stream, bcmapper):
+        """
+        Load block from stream with BC mapper applied.
+        
+        @param stream: file object or file name to be read.
+        @type stream: file or str
+        @param bcmapper: BC type mapper.
+        @type bcmapper: dict
+        @return: the read block object.
+        @rtype: solvcon.block.Block
+        """
+        raise NotImplementedError
 
+    ############################################################################
+    # Facilities for writing.
+    ############################################################################
     def _save_meta(self, blk, stream):
         """
         @param blk: block object to alter.
@@ -97,6 +155,9 @@ class BlockIO(object):
         # special description and geometry.
         for key in self.META_DESC + self.META_GEOM:
             stream.write('%s = %s\n' % (key, str(getattr(blk, key))))
+        # optional switches.
+        for key in self.META_SWITCH:
+            stream.write('%s = %s\n' % (key, str(getattr(self, key))))
         # attached/META_ATT.
         stream.write('ngroup = %d\n' % len(blk.grpnames))
         stream.write('nbc = %d\n' % len(blk.bclist))
@@ -112,9 +173,7 @@ class BlockIO(object):
         @type stream: file
         @return: nothing.
         """
-        import bz2
-        import zlib
-        import struct
+        import bz2, zlib, struct
         if flag_compress == 'bz2':
             data = bz2.compress(arr.data, 9)
             stream.write(struct.pack('q', len(data)))
@@ -125,7 +184,8 @@ class BlockIO(object):
             data = arr.data
         stream.write(data)
 
-    def _save_connectivity(self, blk, stream):
+    @classmethod
+    def _save_boundcond(cls, flag_compress, blk, stream):
         """
         @param blk: block object to alter.
         @type blk: solvcon.block.Block
@@ -133,74 +193,18 @@ class BlockIO(object):
         @type stream: file
         @return: nothing.
         """
-        from bz2 import compress
-        for key in (
-            'shfcnds', 'shfccls', 'shclnds', 'shclfcs',
-        ):
-            self._write_array(self.flag_compress, getattr(blk, key), stream)
-
-    def _save_type(self, blk, stream):
-        """
-        @param blk: block object to alter.
-        @type blk: solvcon.block.Block
-        @param stream: output stream.
-        @type stream: file
-        @return: nothing.
-        """
-        for key in (
-            'shfctpn', 'shcltpn', 'shclgrp',
-        ):
-            self._write_array(self.flag_compress, getattr(blk, key), stream)
-
-    def _save_metrics(self, blk, stream):
-        """
-        @param blk: block object to alter.
-        @type blk: solvcon.block.Block
-        @param stream: output stream.
-        @type stream: file
-        @return: nothing.
-        """
-        for key in (
-            'shndcrd', 'shfccnd', 'shfcnml', 'shfcara',
-            'shclcnd', 'shclvol',
-        ):
-            self._write_array(self.flag_compress, getattr(blk, key), stream)
-
-    def _save_boundcond(self, blk, stream):
-        """
-        @param blk: block object to alter.
-        @type blk: solvcon.block.Block
-        @param stream: output stream.
-        @type stream: file
-        @return: nothing.
-        """
-        self._write_array(self.flag_compress, blk.bndfcs, stream)
+        cls._write_array(flag_compress, blk.bndfcs, stream)
         for bc in blk.bclist:
             if len(bc) > 0:
-                self._write_array(self.flag_compress, bc.facn, stream)
+                cls._write_array(flag_compress, bc.facn, stream)
             if bc.value.shape[1] > 0:
-                self._write_array(self.flag_compress, bc.value, stream)
+                cls._write_array(flag_compress, bc.value, stream)
 
-    def read_meta(self, stream=None):
-        """
-        Read meta-data of Block file from stream.
-        
-        @keyword stream: file object or file name to be read.
-        @type stream: file or str
-        @return: meta-data, raw text lines of meta-data, and the length of
-            meta-data in bytes.
-        @rtype: solvcon.gendata.AttributeDict, list, int
-        """
-        if stream == None:
-            stream = open(self.filename, 'rb')
-        elif isinstance(stream, str):
-            stream = open(stream, 'rb')
-        # determine the text part and binary part.
-        lines, textlen = self._get_textpart(stream)
-        meta = self._parse_meta(lines)
-        return meta, lines, textlen
-
-    def _get_textpart(self, stream):
+    ############################################################################
+    # Facilities for reading.
+    ############################################################################
+    @classmethod
+    def _get_textpart(cls, stream):
         """
         Retrieve the text part from the stream.
         
@@ -210,11 +214,11 @@ class BlockIO(object):
         @rtype: tuple
         """
         buf = ''
-        while self.BINARY_MARKER not in buf:
-            buf += stream.read(self.READ_BLOCK)
-        buf = buf.split(self.BINARY_MARKER)[0]
+        while cls.BINARY_MARKER not in buf:
+            buf += stream.read(cls.READ_BLOCK)
+        buf = buf.split(cls.BINARY_MARKER)[0]
         lines = buf.split('\n')[:-1]
-        textlen = len(buf) + len(self.BINARY_MARKER) + 1
+        textlen = len(buf) + len(cls.BINARY_MARKER) + 1
         # assert text format.
         assert lines[0].strip()[:3] == '-*-'
         assert lines[0].strip()[-3:] == '-*-'
@@ -224,7 +228,8 @@ class BlockIO(object):
         stream.seek(0)
         return lines, textlen
 
-    def _parse_meta(self, lines):
+    @classmethod
+    def _parse_meta(cls, lines):
         """
         Parse meta information from the file.
         
@@ -237,21 +242,33 @@ class BlockIO(object):
         from ..gendata import AttributeDict
         meta = AttributeDict()
         # parse text.
-        ## flags.
+        ## global.
         begin = 1
-        end = begin + len(self.META_GLOBAL)
+        end = begin + len(cls.META_GLOBAL)
         for line in lines[begin:end]:
             key, val = [to.strip() for to in line.split('=')]
             meta[key] = val
         ## type.
         begin = end
-        end = begin + len(self.META_DESC)
+        end = begin + len(cls.META_DESC)
         for line in lines[begin:end]:
             key, val = [to.strip() for to in line.split('=')]
             meta[key] = val
         ## geometry.
         begin = end
-        end = begin + len(self.META_GEOM) + len(self.META_ATT)
+        end = begin + len(cls.META_GEOM)
+        for line in lines[begin:end]:
+            key, val = [to.strip() for to in line.split('=')]
+            meta[key] = int(val)
+        ## switches.
+        begin = end
+        end = begin + len(cls.META_SWITCH)
+        for line in lines[begin:end]:
+            key, val = [to.strip() for to in line.split('=')]
+            meta[key] = bool(val)   # XXX: to be implemented.
+        ## attached.
+        begin = end
+        end = begin + len(cls.META_ATT)
         for line in lines[begin:end]:
             key, val = [to.strip() for to in line.split('=')]
             meta[key] = int(val)
@@ -262,61 +279,6 @@ class BlockIO(object):
         except ValueError:
             meta.blkn = None
         return meta
-
-    def load(self, stream=None, bcmapper=None):
-        """
-        Load block from stream with BC mapper applied.
-        
-        @keyword stream: file object or file name to be read.
-        @type stream: file or str
-        @keyword bcmapper: BC type mapper.
-        @type bcmapper: dict
-        @return: the read block object.
-        @rtype: solvcon.block.Block
-        """
-        from ..block import Block
-        bcmapper = bcmapper if bcmapper != None else self.bcmapper
-        if stream == None:
-            stream = open(self.filename, 'rb')
-        elif isinstance(stream, str):
-            stream = open(stream, 'rb')
-        # determine the text part and binary part.
-        meta, lines, textlen = self.read_meta(stream)
-        fpdtype = meta.fpdtype if self.fpdtype == None else self.fpdtype
-        blk = Block(fpdtype=fpdtype)
-        blk.blkn = meta.blkn
-        ## groups.
-        meta_length = self.meta_length
-        begin = meta_length + 1
-        end = meta_length + 1 + meta.ngroup
-        blk.grpnames = [line.split('=')[-1].strip() for line in lines[begin:end]]
-        ## BC object information.
-        begin = meta_length + 1 + meta.ngroup
-        end = meta_length + 1 + meta.ngroup + meta.nbc
-        bcsinfo = []
-        for line in lines[begin:end]:
-            key, value = line.split('=')
-            sern = int(key.strip()[2:])
-            name, blkn, flen, nval = [tok.strip() for tok in value.split(',')]
-            try:
-                blkn = int(blkn)
-            except ValueError:
-                blkn = None
-            flen = int(flen)
-            nval = int(nval)
-            bcsinfo.append((sern, name, blkn, flen, nval))
-        # load arrays.
-        stream.seek(textlen)
-        self._load_connectivity(meta, stream, blk)
-        self._load_type(meta, stream, blk)
-        self._load_metrics(meta, stream, blk)
-        self._load_boundcond(meta, bcsinfo, fpdtype, stream, blk)
-        # construct subarrays.
-        self._construct_subarrays(meta, blk)
-        # post-process for BCs.
-        if bcmapper != None:
-            self._convert_bc(bcmapper, blk)
-        return blk
 
     @staticmethod
     def _read_array(flag_compress, shape, dtype, stream):
@@ -355,7 +317,8 @@ class BlockIO(object):
         arr = np.frombuffer(buf, dtype=dtype).reshape(shape).copy()
         return arr
 
-    def _load_connectivity(self, meta, stream, blk):
+    @classmethod
+    def _load_connectivity(cls, meta, stream, blk):
         """
         @param meta: meta information dictionary.
         @type meta: solvcon.gendata.AttributeDict
@@ -366,16 +329,17 @@ class BlockIO(object):
         @return: nothing.
         """
         from numpy import int32
-        blk.shfcnds = self._read_array(meta.flag_compress,
+        blk.shfcnds = cls._read_array(meta.flag_compress,
             (meta.ngstface+meta.nface, meta.FCMND+1), int32, stream)
-        blk.shfccls = self._read_array(meta.flag_compress,
+        blk.shfccls = cls._read_array(meta.flag_compress,
             (meta.ngstface+meta.nface, 4), int32, stream)
-        blk.shclnds = self._read_array(meta.flag_compress,
+        blk.shclnds = cls._read_array(meta.flag_compress,
             (meta.ngstcell+meta.ncell, meta.CLMND+1), int32, stream)
-        blk.shclfcs = self._read_array(meta.flag_compress,
+        blk.shclfcs = cls._read_array(meta.flag_compress,
             (meta.ngstcell+meta.ncell, meta.CLMFC+1), int32, stream)
 
-    def _load_type(self, meta, stream, blk):
+    @classmethod
+    def _load_type(cls, meta, stream, blk):
         """
         @param meta: meta information dictionary.
         @type meta: solvcon.gendata.AttributeDict
@@ -386,14 +350,15 @@ class BlockIO(object):
         @return: nothing.
         """
         from numpy import int32
-        blk.shfctpn = self._read_array(meta.flag_compress,
+        blk.shfctpn = cls._read_array(meta.flag_compress,
             (meta.ngstface+meta.nface,), int32, stream)
-        blk.shcltpn = self._read_array(meta.flag_compress,
+        blk.shcltpn = cls._read_array(meta.flag_compress,
             (meta.ngstcell+meta.ncell,), int32, stream)
-        blk.shclgrp = self._read_array(meta.flag_compress,
+        blk.shclgrp = cls._read_array(meta.flag_compress,
             (meta.ngstcell+meta.ncell,), int32, stream)
 
-    def _load_metrics(self, meta, stream, blk):
+    @classmethod
+    def _load_geometry(cls, meta, stream, blk):
         """
         @param meta: meta information dictionary.
         @type meta: solvcon.gendata.AttributeDict
@@ -404,20 +369,21 @@ class BlockIO(object):
         @return: nothing.
         """
         fpdtype = blk.fpdtype
-        blk.shndcrd = self._read_array(meta.flag_compress,
+        blk.shndcrd = cls._read_array(meta.flag_compress,
             (meta.ngstnode+meta.nnode, meta.ndim), fpdtype, stream)
-        blk.shfccnd = self._read_array(meta.flag_compress,
+        blk.shfccnd = cls._read_array(meta.flag_compress,
             (meta.ngstface+meta.nface, meta.ndim), fpdtype, stream)
-        blk.shfcnml = self._read_array(meta.flag_compress,
+        blk.shfcnml = cls._read_array(meta.flag_compress,
             (meta.ngstface+meta.nface, meta.ndim), fpdtype, stream)
-        blk.shfcara = self._read_array(meta.flag_compress,
+        blk.shfcara = cls._read_array(meta.flag_compress,
             (meta.ngstface+meta.nface,), fpdtype, stream)
-        blk.shclcnd = self._read_array(meta.flag_compress,
+        blk.shclcnd = cls._read_array(meta.flag_compress,
             (meta.ngstcell+meta.ncell, meta.ndim), fpdtype, stream)
-        blk.shclvol = self._read_array(meta.flag_compress,
+        blk.shclvol = cls._read_array(meta.flag_compress,
             (meta.ngstcell+meta.ncell,), fpdtype, stream)
 
-    def _load_boundcond(self, meta, bcsinfo, fpdtype, stream, blk):
+    @classmethod
+    def _load_boundcond(cls, meta, bcsinfo, fpdtype, stream, blk):
         """
         @param meta: meta information dictionary.
         @type meta: solvcon.gendata.AttributeDict
@@ -433,7 +399,7 @@ class BlockIO(object):
         """
         import numpy as np
         from ..boundcond import BC
-        blk.bndfcs = self._read_array(meta.flag_compress,
+        blk.bndfcs = cls._read_array(meta.flag_compress,
             (meta.nbound, 2), np.int32, stream)
         for bcinfo in bcsinfo:
             sern, name, blkn, flen, nval = bcinfo
@@ -443,14 +409,18 @@ class BlockIO(object):
             bc.blk = blk
             bc.blkn = blkn
             if flen > 0:
-                bc.facn = self._read_array(meta.flag_compress,
+                bc.facn = cls._read_array(meta.flag_compress,
                     (flen, 3), np.int32, stream)
             if nval > 0:
-                bc.value = self._read_array(meta.flag_compress,
+                bc.value = cls._read_array(meta.flag_compress,
                     (flen, nval), fpdtype, stream)
             blk.bclist.append(bc)
 
-    def _convert_bc(self, name_mapper, blk):
+    ############################################################################
+    # Facilities for conversion.
+    ############################################################################
+    @staticmethod
+    def _convert_bc(name_mapper, blk):
         """
         Convert boundary condition object into proper types.
         
@@ -500,7 +470,8 @@ class BlockIO(object):
             newbc.blk = blk
             blk.bclist[ibc] = newbc
 
-    def _construct_subarrays(self, meta, blk):
+    @staticmethod
+    def _construct_subarrays(meta, blk):
         """
         @param meta: meta information dictionary.
         @type meta: solvcon.gendata.AttributeDict
@@ -508,7 +479,7 @@ class BlockIO(object):
         @type blk: solvcon.block.Block
         @return: nothing.
         """
-        # metrics.
+        # geometry.
         blk.ndcrd = blk.shndcrd[meta.ngstnode:,:]
         blk.fccnd = blk.shfccnd[meta.ngstface:,:]
         blk.fcnml = blk.shfcnml[meta.ngstface:,:]
@@ -525,7 +496,6 @@ class BlockIO(object):
         blk.clfcs = blk.shclfcs[meta.ngstcell:,:]
         # descriptive data.
         blk.clgrp = blk.shclgrp[meta.ngstcell:]
-
         # ghost metrics.
         blk.gstndcrd = blk.shndcrd[meta.ngstnode-1::-1,:]
         blk.gstfccnd = blk.shfccnd[meta.ngstface-1::-1,:]
@@ -543,3 +513,163 @@ class BlockIO(object):
         blk.gstclfcs = blk.shclfcs[meta.ngstcell-1::-1,:]
         # ghost descriptive data.
         blk.gstclgrp = blk.shclgrp[meta.ngstcell-1::-1]
+
+class BlockFormat0001(BlockFormat):
+    """
+    Save/load functionality for block/mesh object.
+    """
+
+    FORMAT_REV = '0.0.0.1'
+
+    def save(self, blk, stream):
+        # text part.
+        stream.write(self.FILE_HEADER + '\n')
+        ## meta.
+        self._save_meta(blk, stream)
+        ## group.
+        for ig in range(len(blk.grpnames)):
+            stream.write('group%d = %s\n' % (ig, blk.grpnames[ig]))
+        ## boundary conditions.
+        for ibc in range(len(blk.bclist)):
+            bc = blk.bclist[ibc]
+            stream.write('bc%d = %s, %s, %d, %d\n' % (
+                bc.sern, bc.name, str(bc.blkn), len(bc), bc.nvalue,
+            ))
+        # binary part.
+        stream.write(self.BINARY_MARKER+'\n')
+        ## connectivity.
+        for key in 'shfcnds', 'shfccls', 'shclnds', 'shclfcs':
+            self._write_array(self.flag_compress, getattr(blk, key), stream)
+        ## type.
+        for key in 'shfctpn', 'shcltpn', 'shclgrp':
+            self._write_array(self.flag_compress, getattr(blk, key), stream)
+        ## geometry.
+        for key in ('shndcrd', 'shfccnd', 'shfcnml', 'shfcara',
+            'shclcnd', 'shclvol'):
+            self._write_array(self.flag_compress, getattr(blk, key), stream)
+        ## boundary conditions.
+        self._save_boundcond(self.flag_compress, blk, stream)
+
+    def read_meta(self, stream):
+        # determine the text part and binary part.
+        lines, textlen = self._get_textpart(stream)
+        return self._parse_meta(lines)
+
+    def load(self, stream, bcmapper):
+        from ..block import Block
+        # determine the text part and binary part.
+        lines, textlen = self._get_textpart(stream)
+        meta = self._parse_meta(lines)
+        fpdtype = meta.fpdtype if self.fpdtype == None else self.fpdtype
+        blk = Block(fpdtype=fpdtype)
+        blk.blkn = meta.blkn
+        ## groups.
+        meta_length = self.meta_length
+        begin = meta_length + 1
+        end = meta_length + 1 + meta.ngroup
+        blk.grpnames = [line.split('=')[-1].strip()
+            for line in lines[begin:end]]
+        ## BC object information.
+        begin = meta_length + 1 + meta.ngroup
+        end = meta_length + 1 + meta.ngroup + meta.nbc
+        bcsinfo = []
+        for line in lines[begin:end]:
+            key, value = line.split('=')
+            sern = int(key.strip()[2:])
+            name, blkn, flen, nval = [tok.strip() for tok in value.split(',')]
+            try:
+                blkn = int(blkn)
+            except ValueError:
+                blkn = None
+            flen = int(flen)
+            nval = int(nval)
+            bcsinfo.append((sern, name, blkn, flen, nval))
+        # load arrays.
+        stream.seek(textlen)
+        self._load_connectivity(meta, stream, blk)
+        self._load_type(meta, stream, blk)
+        self._load_geometry(meta, stream, blk)
+        self._load_boundcond(meta, bcsinfo, fpdtype, stream, blk)
+        # conversion.
+        self._construct_subarrays(meta, blk)
+        if bcmapper != None:
+            self._convert_bc(bcmapper, blk)
+        return blk
+
+class BlockIO(object):
+    """
+    @ivar blk: attached block object.
+    @itype blk: solvcon.block.Block
+    @ivar bcmapper: boundary condition object conversion mapper.
+    @itype bcmapper: dict
+    @ivar filename: filename of the blk file.
+    @itype filename: str
+    @ivar fmt: name of the format to use; can be either class name or
+        revision string.
+    @itype fmt: str
+
+    @ivar flag_compress: the compression to use: '', 'gz', or 'bz2'
+    @itype flag_compress: str
+    @ivar fpdtype: specified fpdtype for I/O.
+    @itype fpdtype: numpy.dtype
+    """
+
+    def __init__(self, **kw):
+        self.blk = kw.pop('blk', None)
+        self.bcmapper = kw.pop('bcmapper', None)
+        self.filename = kw.pop('filename', None)
+        fmt = kw.pop('fmt', 'BlockFormat0001')
+        fpdtype = kw.pop('fpdtype', None)
+        flag_compress = kw.pop('flag_compress', '')
+        super(BlockIO, self).__init__()
+        # create BlockFormat object.
+        self.blf = blfregy[fmt](fpdtype=fpdtype,
+            flag_compress=flag_compress)
+
+    def save(self, blk=None, stream=None):
+        """
+        Save the block object into a file.
+        
+        @keyword blk: to-be-written block object.
+        @type blk: solvcon.block.Block
+        @keyword stream: file object or file name to be read.
+        @type stream: file or str
+        """
+        if blk == None:
+            blk = self.blk
+        if stream == None:
+            stream = open(self.filename, 'wb')
+        elif isinstance(stream, str):
+            stream = open(stream, 'wb')
+        self.blf.save(blk=blk, stream=stream)
+
+    def read_meta(self, stream=None):
+        """
+        Read meta-data of blk file from stream.
+        
+        @keyword stream: file object or file name to be read.
+        @type stream: file or str
+        @return: meta-data, raw text lines of meta-data, and the length of
+            meta-data in bytes.
+        @rtype: solvcon.gendata.AttributeDict, list, int
+        """
+        return self.blf.read_meta(stream=stream)
+
+    def load(self, stream=None, bcmapper=None):
+        """
+        Load block from stream with BC mapper applied.
+        
+        @keyword stream: file object or file name to be read.
+        @type stream: file or str
+        @keyword bcmapper: BC type mapper.
+        @type bcmapper: dict
+        @return: the read block object.
+        @rtype: solvcon.block.Block
+        """
+        from ..block import Block
+        bcmapper = bcmapper if bcmapper != None else self.bcmapper
+        if stream == None:
+            stream = open(self.filename, 'rb')
+        elif isinstance(stream, str):
+            stream = open(stream, 'rb')
+        return self.blf.load(stream=stream, bcmapper=bcmapper)

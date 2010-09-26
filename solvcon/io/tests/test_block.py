@@ -125,7 +125,7 @@ class TestLoad0001(CheckBlockIO):
         from ..block import BlockIO
         bio = BlockIO()
         # check version of stream.
-        meta, lines, textlen = bio.read_meta(stream=stream)
+        meta = bio.read_meta(stream=stream)
         self.assertEqual(meta.FORMAT_REV, '0.0.0.1')
         # load from steam.
         blkl = bio.load(stream=stream)
