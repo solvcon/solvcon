@@ -11,8 +11,7 @@ from ..gendata import SingleAssignDict, AttributeDict
 class BlockFormatRegistry(SingleAssignDict, AttributeDict):
     def register(self, blftype):
         name = blftype.__name__
-        rev = blftype.FORMAT_REV
-        self[name] = self[rev] = blftype
+        self[name] = blftype
         return blftype
 blfregy = BlockFormatRegistry() # registry singleton.
 
@@ -276,36 +275,15 @@ class BlockFormat(object):
         from ..gendata import AttributeDict
         meta = AttributeDict()
         # parse text.
-        ## global.
-        begin = 1
-        end = begin + len(cls.META_GLOBAL)
-        for line in lines[begin:end]:
-            key, val = [to.strip() for to in line.split('=')]
-            meta[key] = val
-        ## type.
-        begin = end
-        end = begin + len(cls.META_DESC)
-        for line in lines[begin:end]:
-            key, val = [to.strip() for to in line.split('=')]
-            meta[key] = val
-        ## geometry.
-        begin = end
-        end = begin + len(cls.META_GEOM)
-        for line in lines[begin:end]:
-            key, val = [to.strip() for to in line.split('=')]
-            meta[key] = int(val)
-        ## switches.
-        begin = end
-        end = begin + len(cls.META_SWITCH)
-        for line in lines[begin:end]:
-            key, val = [to.strip() for to in line.split('=')]
-            meta[key] = cls._parse_bool(val)
-        ## attached.
-        begin = end
-        end = begin + len(cls.META_ATT)
-        for line in lines[begin:end]:
-            key, val = [to.strip() for to in line.split('=')]
-            meta[key] = int(val)
+        end = 1
+        for vset, vfnc in ((cls.META_GLOBAL, str), (cls.META_DESC, str),
+                (cls.META_GEOM, int), (cls.META_SWITCH, cls._parse_bool),
+                (cls.META_ATT, int)):
+            begin = end
+            end = begin + len(vset)
+            for line in lines[begin:end]:
+                key, val = [to.strip() for to in line.split('=')]
+                meta[key] = vfnc(val)
         # further process parsed text.
         meta['fpdtype'] = getattr(np, meta.pop('fpdtypestr'))
         try:
@@ -600,7 +578,7 @@ class TrivialBlockFormat(BlockFormat):
         for key in ('shndcrd', 'shfccnd', 'shfcnml', 'shfcara',
             'shclcnd', 'shclvol'):
             self._write_array(self.flag_compress, getattr(blk, key), stream)
-        ## boundary conditions.
+        # boundary conditions.
         self._save_boundcond(self.flag_compress, blk, stream)
     def load(self, stream, bcmapper):
         from ..block import Block

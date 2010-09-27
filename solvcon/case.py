@@ -488,7 +488,11 @@ class BlockCase(BaseCase):
         # initilize the whole solver and domain.
         if level != 1:
             self._log_start('build_domain')
-            self.solver.domainobj = self.solver.domaintype(self.load_block())
+            loaded = self.load_block()
+            if isinstance(loaded, self.solver.domaintype):
+                self.solver.domainobj = loaded
+            else:
+                self.solver.domainobj = self.solver.domaintype(loaded)
             self._log_end('build_domain')
         # for serial execution.
         if not self.is_parallel:
