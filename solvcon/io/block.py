@@ -589,15 +589,14 @@ class TrivialBlockFormat(BlockFormat):
         stream.write(self.FILE_HEADER + '\n')
         self._save_meta(blk, stream)
         self._save_group_and_bclist(blk, stream)
-        # binary part.
         stream.write(self.BINARY_MARKER+'\n')
-        ## connectivity.
+        # connectivity.
         for key in 'shfcnds', 'shfccls', 'shclnds', 'shclfcs':
             self._write_array(self.flag_compress, getattr(blk, key), stream)
-        ## type.
+        # type.
         for key in 'shfctpn', 'shcltpn', 'shclgrp':
             self._write_array(self.flag_compress, getattr(blk, key), stream)
-        ## geometry.
+        # geometry.
         for key in ('shndcrd', 'shfccnd', 'shfcnml', 'shfcara',
             'shclcnd', 'shclvol'):
             self._write_array(self.flag_compress, getattr(blk, key), stream)
