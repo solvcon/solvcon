@@ -5,4 +5,4 @@
 I/O facilities.
 """
 
-__all__ = ['block', 'gambit', 'vtk']
+__all__ = ['block', 'core', 'gambit', 'vtk']

@@ -6,41 +6,23 @@ Intrinsic format mesh I/O.  Provides:
   - TrivialBlockFormat (revision 0.0.0.1).
 """
 
-from ..gendata import SingleAssignDict, AttributeDict
+from .core import FormatRegistry, FormatMeta, Format, strbool
 
-class BlockFormatRegistry(SingleAssignDict, AttributeDict):
-    def register(self, blftype):
-        name = blftype.__name__
-        self[name] = blftype
-        return blftype
-blfregy = BlockFormatRegistry() # registry singleton.
-
-class BlockFormatMeta(type):
+blfregy = FormatRegistry() # registry singleton.
+class BlockFormatMeta(FormatMeta):
     """
     Sum the length of all META_ entries of bases and derived classes; only 
     collect from 1 level of parents.
     """
     def __new__(cls, name, bases, namespace):
-        mldict = dict()
-        # collect length from base classes.  later overrides former.
-        # NOTE: only 1 level of parents is considered.
-        for base in bases:
-            for key in base.__dict__:
-                if key.startswith('META_'):
-                    mldict[key] = len(getattr(base, key))
-        # collect length from derived class, and override bases.
-        for key in namespace:
-            if key.startswith('META_'):
-                mldict[key] = len(namespace[key])
-        # sum them all.
-        namespace['meta_length'] = sum([mldict[k] for k in mldict])
         # recreate the class.
-        newcls = super(BlockFormatMeta, cls).__new__(cls, name, bases, namespace)
+        newcls = super(BlockFormatMeta, cls).__new__(
+            cls, name, bases, namespace)
         # register.
         blfregy.register(newcls)
         return newcls
 
-class BlockFormat(object):
+class BlockFormat(Format):
     """
     Abstract class for fundamental facilities for I/O intrinsic mesh format
     (blk).  A blk file is in general composed by (i) meta-data, (ii) group
@@ -53,14 +35,8 @@ class BlockFormat(object):
     object for meta-data.  All other methods are either class methods or static
     methods.
 
-    @cvar READ_BLOCK: length per reading from file.
-    @ctype READ_BLOCK: int
-    @cvar BINARY_MARKER: a string to mark the starting of binary data.
-    @ctype BINARY_MARKER: str
     @cvar FILE_HEADER: header of blk file.
     @ctype FILE_HEADER: str
-    @cvar FORMAT_REV: revision of format; must be overridden.
-    @ctype FORMAT_REV: str
 
     @cvar META_GLOBAL: global meta entries.
     @ctype META_GLOBAL: tuple
@@ -76,51 +52,36 @@ class BlockFormat(object):
     @cvar meta_length: length of all META_ entries.
     @ctype meta_length: int
 
-    @ivar flag_compress: the compression to use: '', 'gz', or 'bz2'
-    @itype flag_compress: str
+    @ivar compressor: the compression to use: '', 'gz', or 'bz2'
+    @itype compressor: str
     @ivar fpdtype: specified fpdtype for I/O.
     @itype fpdtype: numpy.dtype
     """
 
     __metaclass__ = BlockFormatMeta
 
-    READ_BLOCK = 1024
     FILE_HEADER = '-*- solvcon blk mesh file -*-'
-    BINARY_MARKER = '-*- start of binary data -*-'
-    FORMAT_REV = None
 
-    META_GLOBAL = (
-        'FORMAT_REV',
-        'flag_compress',
+    SPEC_OF_META = (
+        ('GLOBAL', str),
+        ('DESC', str),
+        ('GEOM', int),
+        ('SWITCH', strbool),
     )
-    META_DESC = (
-        'blkn', 'fpdtypestr',
-    )
+    META_GLOBAL = ('FORMAT_REV', ('flag_compress', 'compressor'),)
+    META_DESC = ('blkn', 'fpdtypestr',)
     META_GEOM = (
         'FCMND', 'CLMND', 'CLMFC',
         'ndim', 'nnode', 'nface', 'ncell', 'nbound',
         'ngstnode', 'ngstface', 'ngstcell',
     )
     META_SWITCH = tuple()
-    META_ATT = (
-        'ngroup', 'nbc',
-    )
+    META_ATT = ('ngroup', 'nbc',)
 
     def __init__(self, **kw):
-        self.flag_compress = kw.pop('flag_compress', '')
+        self.compressor = kw.pop('compressor', '')
         self.fpdtype = kw.pop('fpdtype', None)
         super(BlockFormat, self).__init__()
-    def read_meta(self, stream):
-        """
-        Read meta-data of blk file from stream.
-        
-        @param stream: file object or file name to be read.
-        @type stream: file or str
-        @return: meta-data, raw text lines of meta-data, and the length of
-            meta-data in bytes.
-        @rtype: solvcon.gendata.AttributeDict, list, int
-        """
-        return self._parse_meta(self._get_textpart(stream)[0])
     def save(self, blk, stream):
         """
         Save the block object into a file.
@@ -157,7 +118,10 @@ class BlockFormat(object):
         """
         # global.
         for key in self.META_GLOBAL:
-            stream.write('%s = %s\n' % (key, str(getattr(self, key))))
+            skey = key
+            if hasattr(key, '__iter__'):
+                key, skey = key
+            stream.write('%s = %s\n' % (key, str(getattr(self, skey))))
         # special description and geometry.
         for key in self.META_DESC + self.META_GEOM:
             stream.write('%s = %s\n' % (key, str(getattr(blk, key))))
@@ -185,29 +149,8 @@ class BlockFormat(object):
             stream.write('bc%d = %s, %s, %d, %d\n' % (
                 bc.sern, bc.name, str(bc.blkn), len(bc), bc.nvalue,
             ))
-    @staticmethod
-    def _write_array(flag_compress, arr, stream):
-        """
-        @param flag_compress: how to compress data arrays.
-        @type flag_compress: str
-        @param arr: the array to be written.
-        @type arr: numpy.ndarray
-        @param stream: output stream.
-        @type stream: file
-        @return: nothing.
-        """
-        import bz2, zlib, struct
-        if flag_compress == 'bz2':
-            data = bz2.compress(arr.data, 9)
-            stream.write(struct.pack('q', len(data)))
-        elif flag_compress == 'gz':
-            data = zlib.compress(arr.data, 9)
-            stream.write(struct.pack('q', len(data)))
-        else:
-            data = arr.data
-        stream.write(data)
     @classmethod
-    def _save_boundcond(cls, flag_compress, blk, stream):
+    def _save_boundcond(cls, compressor, blk, stream):
         """
         @param blk: block object to alter.
         @type blk: solvcon.block.Block
@@ -215,52 +158,16 @@ class BlockFormat(object):
         @type stream: file
         @return: nothing.
         """
-        cls._write_array(flag_compress, blk.bndfcs, stream)
+        cls._write_array(compressor, blk.bndfcs, stream)
         for bc in blk.bclist:
             if len(bc) > 0:
-                cls._write_array(flag_compress, bc.facn, stream)
+                cls._write_array(compressor, bc.facn, stream)
             if bc.value.shape[1] > 0:
-                cls._write_array(flag_compress, bc.value, stream)
+                cls._write_array(compressor, bc.value, stream)
 
     ############################################################################
     # Facilities for reading.
     ############################################################################
-    @classmethod
-    def _get_textpart(cls, stream):
-        """
-        Retrieve the text part from the stream.
-        
-        @param stream: input stream.
-        @type stream: file
-        @return: text lines and length of text part (including separator).
-        @rtype: tuple
-        """
-        buf = ''
-        while cls.BINARY_MARKER not in buf:
-            buf += stream.read(cls.READ_BLOCK)
-        buf = buf.split(cls.BINARY_MARKER)[0]
-        lines = buf.split('\n')[:-1]
-        textlen = len(buf) + len(cls.BINARY_MARKER) + 1
-        # assert text format.
-        assert lines[0].strip()[:3] == '-*-'
-        assert lines[0].strip()[-3:] == '-*-'
-        # assert text end location.
-        stream.seek(0)
-        assert stream.read(textlen)[-1] == '\n'
-        stream.seek(0)
-        return lines, textlen
-    @staticmethod
-    def _parse_bool(val):
-        try:
-            return bool(int(val))
-        except:
-            val = val.lower()
-            if val == 'true' or val == 'on':
-                return True
-            elif val == 'false' or val == 'off':
-                return False
-        finally:
-            return None
     @classmethod
     def _parse_meta(cls, lines):
         """
@@ -272,13 +179,12 @@ class BlockFormat(object):
         @rtype: solvcon.gendata.AttributeDict
         """
         import numpy as np
-        from ..gendata import AttributeDict
-        meta = AttributeDict()
-        # parse text.
-        end = 1
-        for vset, vfnc in ((cls.META_GLOBAL, str), (cls.META_DESC, str),
-                (cls.META_GEOM, int), (cls.META_SWITCH, cls._parse_bool),
-                (cls.META_ATT, int)):
+        # parse shared text.
+        meta = super(BlockFormat, cls)._parse_meta(lines)
+        # parse my text.
+        end = 1 + sum([
+            len(getattr(cls, 'META_'+mn)) for mn, mf in cls.SPEC_OF_META])
+        for vset, vfnc in ((cls.META_ATT, int),):
             begin = end
             end = begin + len(vset)
             for line in lines[begin:end]:
@@ -325,42 +231,6 @@ class BlockFormat(object):
             nval = int(nval)
             bcsinfo.append((sern, name, blkn, flen, nval))
         return bcsinfo
-    @staticmethod
-    def _read_array(flag_compress, shape, dtype, stream):
-        """
-        Read data from the input stream and convert it to ndarray with given
-        shape and dtype.
-
-        @param flag_compress: how to compress data arrays.
-        @type flag_compress: str
-        @param shape: ndarray shape.
-        @type shape: tuple
-        @param dtype: ndarray dtype.
-        @type dtype: numpy.dtype
-        @param stream: input stream.
-        @type stream: file
-        @return: resulted array.
-        @rtype: numpy.ndarray
-        """
-        import bz2
-        import zlib
-        import numpy as np
-        length = shape[0]
-        for dim in shape[1:]:
-            length *= dim
-        dobj = dtype()
-        if flag_compress == 'bz2':
-            buflen = np.frombuffer(stream.read(8), dtype=np.int64)[0]
-            buf = stream.read(buflen)
-            buf = bz2.decompress(buf)
-        elif flag_compress == 'gz':
-            buflen = np.frombuffer(stream.read(8), dtype=np.int64)[0]
-            buf = stream.read(buflen)
-            buf = zlib.decompress(buf)
-        else:
-            buf = stream.read(length * dobj.itemsize)
-        arr = np.frombuffer(buf, dtype=dtype).reshape(shape).copy()
-        return arr
     @classmethod
     def _load_connectivity(cls, meta, stream, blk):
         """
@@ -570,16 +440,16 @@ class TrivialBlockFormat(BlockFormat):
         stream.write(self.BINARY_MARKER+'\n')
         # connectivity.
         for key in 'shfcnds', 'shfccls', 'shclnds', 'shclfcs':
-            self._write_array(self.flag_compress, getattr(blk, key), stream)
+            self._write_array(self.compressor, getattr(blk, key), stream)
         # type.
         for key in 'shfctpn', 'shcltpn', 'shclgrp':
-            self._write_array(self.flag_compress, getattr(blk, key), stream)
+            self._write_array(self.compressor, getattr(blk, key), stream)
         # geometry.
         for key in ('shndcrd', 'shfccnd', 'shfcnml', 'shfcara',
             'shclcnd', 'shclvol'):
-            self._write_array(self.flag_compress, getattr(blk, key), stream)
+            self._write_array(self.compressor, getattr(blk, key), stream)
         # boundary conditions.
-        self._save_boundcond(self.flag_compress, blk, stream)
+        self._save_boundcond(self.compressor, blk, stream)
     def load(self, stream, bcmapper):
         from ..block import Block
         # determine the text part and binary part.
@@ -617,8 +487,8 @@ class BlockIO(object):
         revision string.
     @itype fmt: str
 
-    @ivar flag_compress: the compression to use: '', 'gz', or 'bz2'
-    @itype flag_compress: str
+    @ivar compressor: the compression to use: '', 'gz', or 'bz2'
+    @itype compressor: str
     @ivar fpdtype: specified fpdtype for I/O.
     @itype fpdtype: numpy.dtype
     """
@@ -628,11 +498,10 @@ class BlockIO(object):
         self.filename = kw.pop('filename', None)
         fmt = kw.pop('fmt', 'TrivialBlockFormat')
         fpdtype = kw.pop('fpdtype', None)
-        flag_compress = kw.pop('flag_compress', '')
+        compressor = kw.pop('compressor', '')
         super(BlockIO, self).__init__()
         # create BlockFormat object.
-        self.blf = blfregy[fmt](flag_compress=flag_compress,
-            fpdtype=fpdtype)
+        self.blf = blfregy[fmt](compressor=compressor, fpdtype=fpdtype)
     def save(self, blk=None, stream=None):
         """
         Save the block object into a file.
