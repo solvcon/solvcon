@@ -48,8 +48,7 @@ class BlockFormat(object):
     list, (iii) boundary condition list, and (iv) binary arrays.  The saved
     arrays can be compressed.  The compression must be applied to all or none
     of the arrays.  Each of the concrete derived classes represents a version
-    of format, and should override (i) save(), (ii) read_meta(), and (iii) 
-    load() methods.
+    of format, and should override (i) save() and (ii) load() methods.
 
     There is only one object method: _save_meta(), since it needs to access
     object for meta-data.  All other methods are either class methods or static
@@ -111,16 +110,7 @@ class BlockFormat(object):
     def __init__(self, **kw):
         self.flag_compress = kw.pop('flag_compress', '')
         self.fpdtype = kw.pop('fpdtype', None)
-    def save(self, blk, stream):
-        """
-        Save the block object into a file.
-        
-        @param blk: to-be-written block object.
-        @type blk: solvcon.block.Block
-        @param stream: file object or file name to be read.
-        @type stream: file or str
-        """
-        raise NotImplementedError
+        super(BlockFormat, self).__init__()
     def read_meta(self, stream):
         """
         Read meta-data of blk file from stream.
@@ -130,6 +120,16 @@ class BlockFormat(object):
         @return: meta-data, raw text lines of meta-data, and the length of
             meta-data in bytes.
         @rtype: solvcon.gendata.AttributeDict, list, int
+        """
+        return self._parse_meta(self._get_textpart(stream)[0])
+    def save(self, blk, stream):
+        """
+        Save the block object into a file.
+        
+        @param blk: to-be-written block object.
+        @type blk: solvcon.block.Block
+        @param stream: file object or file name to be read.
+        @type stream: file or str
         """
         raise NotImplementedError
     def load(self, stream, bcmapper):
@@ -168,6 +168,24 @@ class BlockFormat(object):
         # attached/META_ATT.
         stream.write('ngroup = %d\n' % len(blk.grpnames))
         stream.write('nbc = %d\n' % len(blk.bclist))
+    @classmethod
+    def _save_group_and_bclist(cls, blk, stream):
+        """
+        @param blk: block object to alter.
+        @type blk: solvcon.block.Block
+        @param stream: output stream.
+        @type stream: file
+        @return: nothing.
+        """
+        ## group.
+        for ig in range(len(blk.grpnames)):
+            stream.write('group%d = %s\n' % (ig, blk.grpnames[ig]))
+        ## boundary conditions.
+        for ibc in range(len(blk.bclist)):
+            bc = blk.bclist[ibc]
+            stream.write('bc%d = %s, %s, %d, %d\n' % (
+                bc.sern, bc.name, str(bc.blkn), len(bc), bc.nvalue,
+            ))
     @staticmethod
     def _write_array(flag_compress, arr, stream):
         """
@@ -232,6 +250,18 @@ class BlockFormat(object):
         assert stream.read(textlen)[-1] == '\n'
         stream.seek(0)
         return lines, textlen
+    @staticmethod
+    def _parse_bool(val):
+        try:
+            return bool(int(val))
+        except:
+            val = val.lower()
+            if val == 'true' or val == 'on':
+                return True
+            elif val == 'false' or val == 'off':
+                return False
+        finally:
+            return None
     @classmethod
     def _parse_meta(cls, lines):
         """
@@ -269,7 +299,7 @@ class BlockFormat(object):
         end = begin + len(cls.META_SWITCH)
         for line in lines[begin:end]:
             key, val = [to.strip() for to in line.split('=')]
-            meta[key] = bool(val)   # XXX: to be implemented.
+            meta[key] = cls._parse_bool(val)
         ## attached.
         begin = end
         end = begin + len(cls.META_ATT)
@@ -283,6 +313,40 @@ class BlockFormat(object):
         except ValueError:
             meta.blkn = None
         return meta
+    @classmethod
+    def _load_group_and_bclist(cls, meta, lines, blk):
+        """
+        @return: meta information dictionary.
+        @rtype: solvcon.gendata.AttributeDict
+        @param lines: text data
+        @type lines: list
+        @param blk: Block object to load to.
+        @type blk: solvcon.block.Block
+        @return: BC information.
+        @rtype: list
+        """
+        # groups.
+        meta_length = cls.meta_length
+        begin = meta_length + 1
+        end = meta_length + 1 + meta.ngroup
+        blk.grpnames = [line.split('=')[-1].strip()
+            for line in lines[begin:end]]
+        # BC object information.
+        begin = meta_length + 1 + meta.ngroup
+        end = meta_length + 1 + meta.ngroup + meta.nbc
+        bcsinfo = []
+        for line in lines[begin:end]:
+            key, value = line.split('=')
+            sern = int(key.strip()[2:])
+            name, blkn, flen, nval = [tok.strip() for tok in value.split(',')]
+            try:
+                blkn = int(blkn)
+            except ValueError:
+                blkn = None
+            flen = int(flen)
+            nval = int(nval)
+            bcsinfo.append((sern, name, blkn, flen, nval))
+        return bcsinfo
     @staticmethod
     def _read_array(flag_compress, shape, dtype, stream):
         """
@@ -358,7 +422,7 @@ class BlockFormat(object):
         blk.shclgrp = cls._read_array(meta.flag_compress,
             (meta.ngstcell+meta.ncell,), int32, stream)
     @classmethod
-    def _load_geometry(cls, meta, stream, blk):
+    def _load_geometry(cls, meta, stream, blk, extra=True):
         """
         @param meta: meta information dictionary.
         @type meta: solvcon.gendata.AttributeDict
@@ -366,21 +430,24 @@ class BlockFormat(object):
         @type stream: file
         @param blk: block object to alter.
         @type blk: solvcon.block.Block
+        @keyword extra: load extra geometry data.
+        @type extra: bool
         @return: nothing.
         """
         fpdtype = blk.fpdtype
         blk.shndcrd = cls._read_array(meta.flag_compress,
             (meta.ngstnode+meta.nnode, meta.ndim), fpdtype, stream)
-        blk.shfccnd = cls._read_array(meta.flag_compress,
-            (meta.ngstface+meta.nface, meta.ndim), fpdtype, stream)
-        blk.shfcnml = cls._read_array(meta.flag_compress,
-            (meta.ngstface+meta.nface, meta.ndim), fpdtype, stream)
-        blk.shfcara = cls._read_array(meta.flag_compress,
-            (meta.ngstface+meta.nface,), fpdtype, stream)
-        blk.shclcnd = cls._read_array(meta.flag_compress,
-            (meta.ngstcell+meta.ncell, meta.ndim), fpdtype, stream)
-        blk.shclvol = cls._read_array(meta.flag_compress,
-            (meta.ngstcell+meta.ncell,), fpdtype, stream)
+        if extra:
+            blk.shfccnd = cls._read_array(meta.flag_compress,
+                (meta.ngstface+meta.nface, meta.ndim), fpdtype, stream)
+            blk.shfcnml = cls._read_array(meta.flag_compress,
+                (meta.ngstface+meta.nface, meta.ndim), fpdtype, stream)
+            blk.shfcara = cls._read_array(meta.flag_compress,
+                (meta.ngstface+meta.nface,), fpdtype, stream)
+            blk.shclcnd = cls._read_array(meta.flag_compress,
+                (meta.ngstcell+meta.ncell, meta.ndim), fpdtype, stream)
+            blk.shclvol = cls._read_array(meta.flag_compress,
+                (meta.ngstcell+meta.ncell,), fpdtype, stream)
     @classmethod
     def _load_boundcond(cls, meta, bcsinfo, fpdtype, stream, blk):
         """
@@ -514,23 +581,14 @@ class BlockFormat(object):
 
 class TrivialBlockFormat(BlockFormat):
     """
-    The most trivial blk format.
+    Simplest blk format.
     """
     FORMAT_REV = '0.0.0.1'
     def save(self, blk, stream):
         # text part.
         stream.write(self.FILE_HEADER + '\n')
-        ## meta.
         self._save_meta(blk, stream)
-        ## group.
-        for ig in range(len(blk.grpnames)):
-            stream.write('group%d = %s\n' % (ig, blk.grpnames[ig]))
-        ## boundary conditions.
-        for ibc in range(len(blk.bclist)):
-            bc = blk.bclist[ibc]
-            stream.write('bc%d = %s, %s, %d, %d\n' % (
-                bc.sern, bc.name, str(bc.blkn), len(bc), bc.nvalue,
-            ))
+        self._save_group_and_bclist(blk, stream)
         # binary part.
         stream.write(self.BINARY_MARKER+'\n')
         ## connectivity.
@@ -545,39 +603,17 @@ class TrivialBlockFormat(BlockFormat):
             self._write_array(self.flag_compress, getattr(blk, key), stream)
         ## boundary conditions.
         self._save_boundcond(self.flag_compress, blk, stream)
-    def read_meta(self, stream):
-        # determine the text part and binary part.
-        lines, textlen = self._get_textpart(stream)
-        return self._parse_meta(lines)
     def load(self, stream, bcmapper):
         from ..block import Block
         # determine the text part and binary part.
         lines, textlen = self._get_textpart(stream)
+        # create meta-data dict and block object.
         meta = self._parse_meta(lines)
         fpdtype = meta.fpdtype if self.fpdtype == None else self.fpdtype
         blk = Block(fpdtype=fpdtype)
         blk.blkn = meta.blkn
-        ## groups.
-        meta_length = self.meta_length
-        begin = meta_length + 1
-        end = meta_length + 1 + meta.ngroup
-        blk.grpnames = [line.split('=')[-1].strip()
-            for line in lines[begin:end]]
-        ## BC object information.
-        begin = meta_length + 1 + meta.ngroup
-        end = meta_length + 1 + meta.ngroup + meta.nbc
-        bcsinfo = []
-        for line in lines[begin:end]:
-            key, value = line.split('=')
-            sern = int(key.strip()[2:])
-            name, blkn, flen, nval = [tok.strip() for tok in value.split(',')]
-            try:
-                blkn = int(blkn)
-            except ValueError:
-                blkn = None
-            flen = int(flen)
-            nval = int(nval)
-            bcsinfo.append((sern, name, blkn, flen, nval))
+        # load group and BC list.
+        bcsinfo = self._load_group_and_bclist(meta, lines, blk)
         # load arrays.
         stream.seek(textlen)
         self._load_connectivity(meta, stream, blk)

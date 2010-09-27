@@ -89,7 +89,7 @@ class CheckBlockIO(TestCase):
         self.assertTrue((newblk.shclnds == blk.shclnds).all())
         self.assertTrue((newblk.shclfcs == blk.shclfcs).all())
 
-class TestReload(CheckBlockIO):
+class TestReloadTrivial(CheckBlockIO):
     def _check_reload(self, blk, compressor):
         from cStringIO import StringIO
         from ..block import BlockIO
@@ -119,8 +119,7 @@ class TestReload(CheckBlockIO):
         self._check_reload(get_blk_from_sample_neu(), 'gz')
     def test_reload3d_bz2(self):
         self._check_reload(get_blk_from_sample_neu(), 'bz2')
-
-class TestLoad0001(CheckBlockIO):
+class TestLoadTrivial(CheckBlockIO):
     def _check_load(self, blk, stream):
         from ..block import BlockIO
         bio = BlockIO()
