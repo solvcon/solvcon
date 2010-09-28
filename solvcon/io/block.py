@@ -200,8 +200,8 @@ class BlockFormat(Format):
     @classmethod
     def _load_group_and_bclist(cls, meta, lines, blk):
         """
-        @return: meta information dictionary.
-        @rtype: solvcon.gendata.AttributeDict
+        @param meta: meta information dictionary.
+        @type meta: solvcon.gendata.AttributeDict
         @param lines: text data
         @type lines: list
         @param blk: Block object to load to.
@@ -517,7 +517,7 @@ class BlockIO(object):
             stream = open(self.filename, 'wb')
         elif isinstance(stream, str):
             stream = open(stream, 'wb')
-        self.blf.save(blk=blk, stream=stream)
+        self.blf.save(blk, stream)
     def read_meta(self, stream=None):
         """
         Read meta-data of blk file from stream.
@@ -528,7 +528,7 @@ class BlockIO(object):
             meta-data in bytes.
         @rtype: solvcon.gendata.AttributeDict, list, int
         """
-        return self.blf.read_meta(stream=stream)
+        return self.blf.read_meta(stream)
     def load(self, stream=None, bcmapper=None):
         """
         Load block from stream with BC mapper applied.
@@ -546,4 +546,4 @@ class BlockIO(object):
             stream = open(self.filename, 'rb')
         elif isinstance(stream, str):
             stream = open(stream, 'rb')
-        return self.blf.load(stream=stream, bcmapper=bcmapper)
+        return self.blf.load(stream, bcmapper)

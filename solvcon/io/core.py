@@ -13,7 +13,8 @@ class FormatRegistry(SingleAssignDict, AttributeDict):
     """
     def register(self, ftype):
         name = ftype.__name__
-        self[name] = ftype
+        rev = ftype.FORMAT_REV
+        self[name] = self[rev] = ftype
         return ftype
 
 class FormatMeta(type):
@@ -41,10 +42,9 @@ class FormatMeta(type):
 class Format(object):
     """
     Abstract class for SOLVCON intrinsic I/O format Each of the concrete
-    derived classes represents a version of format.  Public interface methods
-    are (i) save(), (ii) load(), and (iii) read_meta(), where save() and load()
-    must be overridden.  read_meta() method uses _parse_meta() private method
-    to report the meta-data of the format, which is defined in META_* class
+    derived classes represents a version of format.  Public interface method is
+    read_meta().  read_meta() method uses _parse_meta() private method to
+    report the meta-data of the format, which is defined in META_* class
     attributes (as tuples).  The default _parse_meta() and _save_meta() use
     SPEC_OF_META to determine the order and converter the each field of the
     META section.
@@ -89,26 +89,6 @@ class Format(object):
         @rtype: solvcon.gendata.AttributeDict
         """
         return self._parse_meta(self._get_textpart(stream)[0])
-    def save(self, obj, stream):
-        """
-        Save the block object into a file.
-        
-        @param obj: to-be-written object.
-        @type obj: object
-        @param stream: file object or file name to be read.
-        @type stream: file or str
-        """
-        raise NotImplementedError
-    def load(self, stream):
-        """
-        Load object from stream.
-        
-        @param stream: file object or file name to be read.
-        @type stream: file or str
-        @return: object.
-        @rtype: object
-        """
-        raise NotImplementedError
 
     ############################################################################
     # Facilities for writing.
