@@ -93,22 +93,6 @@ class Format(object):
     ############################################################################
     # Facilities for writing.
     ############################################################################
-    def _save_meta(self, stream):
-        """
-        @param stream: output stream.
-        @type stream: file
-        @return: nothing.
-        """
-        for mname, mfunc in self.SPEC_OF_META:
-            # skip everything after the first section with None converter.
-            if mfunc == None: break
-            # process.
-            msec = getattr(self, 'META_'+mname)
-            for key in msec:
-                skey = key
-                if hasattr(key, '__iter__'):
-                    key, skey = key
-                stream.write('%s = %s\n' % (key, str(getattr(self, skey))))
     @staticmethod
     def _write_array(compressor, arr, stream):
         """
@@ -180,7 +164,10 @@ class Format(object):
             end = begin + len(msec)
             for line in lines[begin:end]:
                 key, val = [to.strip() for to in line.split('=')]
-                meta[key] = mfunc(val)
+                try:
+                    meta[key] = mfunc(val)
+                except ValueError:
+                    meta[key] = None
         return meta
     @staticmethod
     def _read_array(compressor, shape, dtype, stream):

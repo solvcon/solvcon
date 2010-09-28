@@ -89,17 +89,17 @@ class CheckBlockIO(TestCase):
         self.assertTrue((newblk.shclnds == blk.shclnds).all())
         self.assertTrue((newblk.shclfcs == blk.shclfcs).all())
 
-class TestReloadTrivial(CheckBlockIO):
+class TestReloadOldTrivial(CheckBlockIO):
     def _check_reload(self, blk, compressor):
         from cStringIO import StringIO
         from ..block import BlockIO
         # save.
-        bio = BlockIO(blk=blk, flag_compress=compressor)
+        bio = BlockIO(compressor=compressor, fmt='OldTrivialBlockFormat')
         dataio = StringIO()
-        bio.save(stream=dataio)
+        bio.save(blk=blk, stream=dataio)
         value = dataio.getvalue()
         # load.
-        bio = BlockIO()
+        bio = BlockIO(fmt='OldTrivialBlockFormat')
         dataio = StringIO(value)
         newblk = bio.load(stream=dataio)
         # check
@@ -119,7 +119,7 @@ class TestReloadTrivial(CheckBlockIO):
         self._check_reload(get_blk_from_sample_neu(), 'gz')
     def test_reload3d_bz2(self):
         self._check_reload(get_blk_from_sample_neu(), 'bz2')
-class TestLoadTrivial(CheckBlockIO):
+class TestLoadOldTrivial(CheckBlockIO):
     def _check_load(self, blk, stream):
         from ..block import BlockIO
         bio = BlockIO()
@@ -157,3 +157,34 @@ class TestLoadTrivial(CheckBlockIO):
         from ...testing import openfile
         self._check_load(get_blk_from_sample_neu(), openfile(
             'sample_0.0.0.1_bz2.blk', 'rb'))
+
+class TestReloadTrivial(CheckBlockIO):
+    def _check_reload(self, blk, compressor):
+        from cStringIO import StringIO
+        from ..block import BlockIO
+        # save.
+        bio = BlockIO(compressor=compressor, fmt='TrivialBlockFormat')
+        dataio = StringIO()
+        bio.save(blk=blk, stream=dataio)
+        value = dataio.getvalue()
+        # load.
+        bio = BlockIO(fmt='TrivialBlockFormat')
+        dataio = StringIO(value)
+        newblk = bio.load(stream=dataio)
+        # check
+        self._check_shape(newblk, blk)
+        self._check_group(newblk, blk)
+        self._check_bc(newblk, blk)
+        self._check_array(newblk, blk)
+    def test_reload2d_raw(self):
+        self._check_reload(get_blk_from_oblique_neu(), '')
+    def test_reload2d_gz(self):
+        self._check_reload(get_blk_from_oblique_neu(), 'gz')
+    def test_reload2d_bz2(self):
+        self._check_reload(get_blk_from_oblique_neu(), 'bz2')
+    def test_reload3d_raw(self):
+        self._check_reload(get_blk_from_sample_neu(), '')
+    def test_reload3d_gz(self):
+        self._check_reload(get_blk_from_sample_neu(), 'gz')
+    def test_reload3d_bz2(self):
+        self._check_reload(get_blk_from_sample_neu(), 'bz2')
