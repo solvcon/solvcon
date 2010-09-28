@@ -3,17 +3,13 @@
 
 """
 Intrinsic format mesh I/O.  Provides:
-  - TrivialDomainFormat (revision 0.0.0.1).
+  - TrivialDomainFormat (revision 0.0.1).
 """
 
 from .core import FormatRegistry, FormatMeta, Format, strbool
 
 dmfregy = FormatRegistry() # registry singleton.
 class DomainFormatMeta(FormatMeta):
-    """
-    Sum the length of all META_ entries of bases and derived classes; only 
-    collect from 1 level of parents.
-    """
     def __new__(cls, name, bases, namespace):
         # recreate the class.
         newcls = super(DomainFormatMeta, cls).__new__(

@@ -122,7 +122,7 @@ class TestReloadOldTrivial(CheckBlockIO):
 class TestLoadOldTrivial(CheckBlockIO):
     def _check_load(self, blk, stream):
         from ..block import BlockIO
-        bio = BlockIO()
+        bio = BlockIO(fmt='OldTrivialBlockFormat')
         # check version of stream.
         meta = bio.read_meta(stream=stream)
         self.assertEqual(meta.FORMAT_REV, '0.0.0.1')
@@ -157,6 +157,43 @@ class TestLoadOldTrivial(CheckBlockIO):
         from ...testing import openfile
         self._check_load(get_blk_from_sample_neu(), openfile(
             'sample_0.0.0.1_bz2.blk', 'rb'))
+class TestDetectLoad(CheckBlockIO):
+    def test_load_oldtrivial2d(self):
+        import os
+        from ...conf import env
+        from ..block import BlockIO
+        # determine file path.
+        path = [env.datadir] + ['oblique_0.0.0.1.blk']
+        path = os.path.join(*path)
+        # load block.
+        bio = BlockIO(filename=path)
+        meta = bio.read_meta()
+        self.assertEqual(meta.FORMAT_REV, '0.0.0.1')
+        blkl = bio.load()
+        # check with neu block.
+        blk = get_blk_from_oblique_neu()
+        self._check_shape(blk, blkl)
+        self._check_group(blk, blkl)
+        self._check_bc(blk, blkl)
+        self._check_array(blk, blkl)
+    def test_load_oldtrivial3d(self):
+        import os
+        from ...conf import env
+        from ..block import BlockIO
+        # determine file path.
+        path = [env.datadir] + ['sample_0.0.0.1.blk']
+        path = os.path.join(*path)
+        # load block.
+        bio = BlockIO(filename=path)
+        meta = bio.read_meta()
+        self.assertEqual(meta.FORMAT_REV, '0.0.0.1')
+        blkl = bio.load()
+        # check with neu block.
+        blk = get_blk_from_sample_neu()
+        self._check_shape(blk, blkl)
+        self._check_group(blk, blkl)
+        self._check_bc(blk, blkl)
+        self._check_array(blk, blkl)
 
 class TestReloadTrivial(CheckBlockIO):
     def _check_reload(self, blk, compressor):

@@ -3,17 +3,14 @@
 
 """
 Intrinsic format mesh I/O.  Provides:
-  - TrivialBlockFormat (revision 0.0.0.1).
+  - OldTrivialBlockFormat (revision 0.0.0.1).
+  - TrivialBlockFormat (revision 0.0.1).
 """
 
 from .core import FormatRegistry, FormatMeta, Format, strbool
 
 blfregy = FormatRegistry() # registry singleton.
 class BlockFormatMeta(FormatMeta):
-    """
-    Sum the length of all META_ entries of bases and derived classes; only 
-    collect from 1 level of parents.
-    """
     def __new__(cls, name, bases, namespace):
         # recreate the class.
         newcls = super(BlockFormatMeta, cls).__new__(
@@ -36,17 +33,6 @@ class BlockFormat(Format):
 
     @cvar FILE_HEADER: header of blk file.
     @ctype FILE_HEADER: str
-
-    @cvar META_GLOBAL: global meta entries.
-    @ctype META_GLOBAL: tuple
-    @cvar META_DESC: descriptive meta entries.
-    @ctype META_DESC: tuple
-    @cvar META_GEOM: geometric meta entries.
-    @ctype META_GEOM: tuple
-    @cvar META_SWITCH: optional flags.
-    @ctype META_SWITCH: tuple
-    @cvar META_ATT: attached meta entries.
-    @ctype META_ATT: tuple
 
     @cvar meta_length: length of all META_ entries.
     @ctype meta_length: int
@@ -535,12 +521,35 @@ class BlockIO(object):
         self.blk = kw.pop('blk', None)
         self.bcmapper = kw.pop('bcmapper', None)
         self.filename = kw.pop('filename', None)
-        fmt = kw.pop('fmt', 'OldTrivialBlockFormat')
+        fmt = kw.pop('fmt', None)
         fpdtype = kw.pop('fpdtype', None)
         compressor = kw.pop('compressor', '')
         super(BlockIO, self).__init__()
         # create BlockFormat object.
+        if fmt == None and self.filename != None:
+            fmt = self._peek_revision(self.filename)
+        if fmt == None:
+            fmt = 'TrivialBlockFormt'
         self.blf = blfregy[fmt](compressor=compressor, fpdtype=fpdtype)
+    @staticmethod
+    def _peek_revision(filename):
+        from .core import Format
+        # open file.
+        try:
+            stream = open(filename, 'rb')
+        except:
+            return None
+        # read text part.
+        fmt = Format()
+        lines, textlen = fmt._get_textpart(stream)
+        stream.close()
+        # determine the format revision.
+        rev = None
+        for line in lines:
+            if 'FORMAT_REV' in line:
+                rev = line.split('=')[-1].strip()
+                break
+        return rev
     def save(self, blk=None, stream=None):
         """
         Save the block object into a file.
@@ -567,6 +576,10 @@ class BlockIO(object):
             meta-data in bytes.
         @rtype: solvcon.gendata.AttributeDict, list, int
         """
+        if stream == None:
+            stream = open(self.filename, 'rb')
+        elif isinstance(stream, str):
+            stream = open(stream, 'rb')
         return self.blf.read_meta(stream)
     def load(self, stream=None, bcmapper=None):
         """
