@@ -1,43 +1,42 @@
 =====================
-Solvcon documentation
+SOLVCON documentation
 =====================
 
-Solvcon_ is a framework to write explicit and time-accurate simulation codes
-for PDEs with the unstructured mesh.  As a framework, Solvcon_ provides:
+SOLVCON_ is a framework to write explicit and time-accurate simulation codes
+for PDEs with the unstructured mesh.  As a framework, SOLVCON_ provides:
 
-1. A data structure for two- and three-dimensional mixed-type unstructured
-   meshes.
+#. A data structure for two- and three-dimensional unstructured mesh of mixed
+   elements.
 
-2. Unstructured mesh importers (currently Fluent Gambit (tm) neutral file
-   format is implemented).
+#. Unstructured mesh importers.
 
-3. Simulation data writers in VTK_ legacy format.
+#. Simulation data writers in VTK_ legacy format.
 
-4. An organized and flexible system to write pre- and post-processing codes
+#. An organized and flexible system to write pre- and post-processing codes
    (the **Hooks**).
 
-5. Predefined and automated domain-decomposition logic.
+#. Predefined and automated domain-decomposition logic.
 
-6. IPC (Inter-Process Communication) and RPC (Remote Procedure Call).  
+#. IPC (Inter-Process Communication) and RPC (Remote Procedure Call).  
 
-.. _Solvcon: http://cfd.eng.ohio-state.edu/~yungyuc/solvcon/
+.. _SOLVCON: http://solvcon.net/
 .. _VTK: http://www.vtk.org/
 
-.. note:: Solvcon_ is not a framework that applies to all kinds of scientific
+.. note:: SOLVCON_ is not a framework that applies to all kinds of scientific
    code, but it's general enough to help programs which fit in the category.
-   You can use Solvcon_ for **Computational Fluid Dynamics** (CFD),
+   You can use SOLVCON_ for **Computational Fluid Dynamics** (CFD),
    **Computational Mechanics**, **Computational Electromagnetics**, or any
    other fields that solve PDEs.
 
-By using Solvcon_, you are able to concentrate in implementing the essential
+By using SOLVCON_, you are able to concentrate in implementing the essential
 numerical algorithm in one-, two- or three-dimensional space.  You don't need
 to worry about how to parse and load an unstructured mesh, where to specify the
 initial conditions in your code, or how to implement the boundary conditions
-for your solver.  Solvcon_ provides the guidelines for all the components that
+for your solver.  SOLVCON_ provides the guidelines for all the components that
 a simulation code for PDEs needed.
 
 If you don't even know anything about or have no experience in implementing a
-scientific code, then Solvcon_ is a good resource for you to get start.
+scientific code, then SOLVCON_ is a good resource for you to get start.
 
 Contents
 ========
@@ -51,7 +50,7 @@ Contents
 Get Solvcon
 ===========
 
-Solvcon_ hasn't been released.  Ask the developer (`Yung-Yu Chen`_) for detail.
+SOLVCON_ hasn't been released.  Ask the author (`Yung-Yu Chen`_) for detail.
 
 .. _Yung-Yu Chen: mailto: yyc@seety.org
 

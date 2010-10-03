@@ -2,11 +2,11 @@
 Installation
 ============
 
-The installation of Solvcon_ is easy and automated.  The build tool (SCons_)
+The installation of SOLVCON_ is easy and automated.  The build tool (SCons_)
 can even download some of the external dependency for you (if you have Internet
 connection).
 
-.. _Solvcon: http://cfd.eng.ohio-state.edu/~yungyuc/solvcon/
+.. _SOLVCON: http://solvcon.net/
 
 Solvcon is developed mainly with Python_, partly with FORTRAN 90/95.  It 
 supports both Linux and Windows.
@@ -19,11 +19,9 @@ Dependencies
 ============
 
 The following are the required dependent softwares.  You have to install them 
-before you can build and install Solvcon_:
+before you can build and install SOLVCON_:
 
-* Python_ 2.5+.
-
-* A FORTRAN 90/95 compiler.  gfortran_ 4.3+ is suggested.
+* Python_ 2.6+.
 
 * A C compiler.  gcc_ 4.3+ is suggested.
 
@@ -33,32 +31,29 @@ before you can build and install Solvcon_:
 
 * Metis_ 4.0.1.
 
+* Nose_ 0.11+.
+
 .. _gfortran: http://gcc.gnu.org/fortran/
 .. _gcc: http://gcc.gnu.org/
 .. _Numpy: http://www.numpy.org/
 .. _Metis: http://glaros.dtc.umn.edu/gkhome/views/metis/
+.. _Nose: http://somethingaboutorange.com/mrl/projects/nose/
 
 .. note:: You don't need to install Metis_ manually, since Solvcon will
    download and build it for you.  If you don't have Internet connection, you
    have to download the Metis_ tarball and put it into the ``dep/`` directory.
 
-And there are also optional softwares you can install:
+Optional tools:
 
 * Matplotlib_ 0.99+.
-
-* Nose_ 0.11+.
 
 * Sphinx_ 0.5.1+.
 
 * Epydoc_ 3+.
 
-* Mplayer_/mencoder.
-
 .. _Matplotlib: http://matplotlib.sourceforge.net/
-.. _Nose: http://somethingaboutorange.com/mrl/projects/nose/
 .. _Sphinx: http://sphinx.pocoo.org/
 .. _Epydoc: http://epydoc.sourceforge.net/
-.. _Mplayer: http://www.mplayerhq.hu/
 
 .. note:: If you don't install Matplotlib_, some of the pre-defined visualizing
    post-processors will not function.
@@ -66,27 +61,33 @@ And there are also optional softwares you can install:
 If you are using Debian/Ubuntu, the following command can install all the
 dependencies for you::
 
-  $ apt-get install build-essentials gfortran gcc python2.5 python-numpy 
-   python-matplotlib scons python-nose python-sphinx python-epydoc
-   mplayer mencoder
+  $ apt-get install build-essentials gfortran gcc python2.6 python-numpy \
+  python-matplotlib scons python-nose python-sphinx python-epydoc \
+  mplayer mencoder
 
 Build/Compile
 =============
 
-After downloading the Solvcon_ package and installing all the required 
+After downloading the SOLVCON_ package and installing all the required 
 softwares, you should extract the package and change the directory into the
 package root.  In the directory, execute SCons_ like::
 
-  $ scons --download --extract -Q
+  $ scons --download --extract --apply-patches=metislog2
+
+.. note::
+
+   METIS is incompatible to the current release of gcc.  A patch is supplied
+   with SOLVCON and can be automatically applied with the --apply-patches
+   option.
 
 The builder will download all the needed external source package (such as
 Metis_) and build the software.  By default it uses gfortran_ and gcc_ as the
-compilers.  If you just want to recompile the package, you can omit the
-``--download`` and ``--extract`` switch and use::
+compilers.  If you just want to recompile the package, ``--download`` and
+``--extract`` switches can be omitted::
 
   $ scons -Q
 
-After Solvcon_ is built, if you have installed Nose_, you can run::
+After SOLVCON_ is built, if you have installed Nose_, you can run::
 
   $ nosetests
 
@@ -108,7 +109,7 @@ If you have Sphinx_ and Epydoc_ installed, run::
 will build this documentation and the API documentation.  You can find both
 documentations in ``doc/`` directory.
 
-.. note:: Sphinx_ requires docutils_, and the docstrings inside Solvcon_ also 
+.. note:: Sphinx_ requires docutils_, and the docstrings inside SOLVCON_ also 
    require docutils_.  You have to install docutils_ in order to build the
    documentation.
 
@@ -122,8 +123,8 @@ documentations in ``doc/`` directory.
 Install
 =======
 
-Currently you don't need to "install" Solvcon_.  The only thing you need to do
-is to make your Python_ recognize the built Solvcon_.  You can do it by adding
-the path to the Solvcon_ package into the environment variable ``PYTHONPATH``.
+Currently you don't need to "install" SOLVCON_.  The only thing you need to do
+is to make your Python_ recognize the built SOLVCON_.  You can do it by adding
+the path to the SOLVCON_ package into the environment variable ``PYTHONPATH``.
 
 .. vim: set ft=rst ff=unix fenc=utf8 ai:
