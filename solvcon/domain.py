@@ -143,19 +143,19 @@ class Collective(Domain, list):
     @itype edgecut: int
     @ivar part: array holding the partitioned indices.
     @itype part: numpy.ndarray
-    @ivar idxinfo: a list contains another list that holds for nodes, faces,
+    @ivar idxinfo: a tuple contains another list that holds for nodes, faces,
         and cells that belong to each partitioned sub-block.  It looks like
         [[mynds, myfcs, mycls], [mynds, myfcs, mycls], ...].  The index
         information actually can serve as local to global index mapper.  For
         example, dom.idxinfo[0][2][33] indicates the global index of the 34-th 
         local cell in block #0.
-    @itype idxinfo: list
-    @ivar mappers: a list contains mapper for nodes, faces, and cells from
+    @itype idxinfo: tuple
+    @ivar mappers: a tuple contains mapper for nodes, faces, and cells from
         global index to local index.  It looks like [ndmaps, fcmaps, clmaps].
         The shape of fcmaps and clmaps is always (nface, 5) and (ncell, 2),
         respectively.  The shape of ndmaps is (nnode, 1+2*ndmblk), where ndmblk
         is the maximal number of blocks sharing a single node.
-    @itype mappers: list
+    @itype mappers: tuple
     @ivar ifparr: array storing the interface pairs as [[ijbc, jibc], [ijbc,
         jibc], ...].
     @itype ifparr: numpy.ndarray
@@ -232,7 +232,7 @@ class Collective(Domain, list):
             mynds = mynds[mynds>-1]
             mynds.sort()
             idxinfo.append([mynds, myfcs, mycls])
-        self.idxinfo = idxinfo
+        self.idxinfo = tuple(idxinfo)
         # prepare mappers.
         ndmblk = self._count_max_nodeinblock(blk, part)
         ndmaps = empty((blk.nnode, 1+2*ndmblk), dtype='int32')
@@ -243,7 +243,7 @@ class Collective(Domain, list):
         fcmaps.fill(-1)
         fcmaps[:,0] = 0
         clmaps.fill(-1)
-        self.mappers = [ndmaps, fcmaps, clmaps]
+        self.mappers = (ndmaps, fcmaps, clmaps)
 
     @staticmethod
     def _reindex(bemap, idxmap, cond=lambda arr: arr>=0):
