@@ -185,59 +185,6 @@ class Collective(Domain, list):
         for blk in self:
             blk.unbind()
 
-    def make_iflist_per_block(self):
-        """
-        Create the ifacelist for each block/solver object to initialize the
-        interface exchanger.
-
-        @return: list of ifacelist.
-        @rtype: list
-        """
-        from numpy import array, concatenate
-        nblk = len(self)
-        pairlist = self.ifparr.tolist()
-        # determine exchanging order.
-        stages = list()
-        while len(pairlist) > 0:
-            # filter for the current stage.
-            stage = list()
-            instage = list()
-            ipair = 0
-            while ipair < len(pairlist):
-                pair = pairlist[ipair]
-                if pair[0] not in instage and pair[1] not in instage:
-                    stage.append(pair)
-                    instage.extend(pair)
-                    del pairlist[ipair]
-                else:
-                    ipair += 1
-            # assert that all indices in the stage are different to each other.
-            instage.sort()
-            for it in range(len(instage)-1):
-                assert instage[it+1] > instage[it]
-            # append to stages.
-            stages.append(stage)
-        # create ifacelists.
-        iflists = [list() for iblk in range(nblk)]
-        istage = 0
-        for stage in stages:
-            for pair in stage:
-                iflists[pair[0]].append(pair)
-                iflists[pair[1]].append(pair)
-            for iflist in iflists:
-                if len(iflist) <= istage:
-                    iflist.append(-self.IFSLEEP)    # negative for skip.
-            istage += 1
-        ## checking.
-        hasmax = False
-        for iblk in range(nblk):
-            iflist = iflists[iblk]
-            # assert the pair is for the blk.
-            for pair in iflist:
-                if not pair < 0:
-                    assert iblk in pair
-        return iflists
-
     @classmethod
     def _count_max_nodeinblock(cls, blk, part):
         """
@@ -275,13 +222,12 @@ class Collective(Domain, list):
 
     def partition(self, nblk):
         """
-        Partition the whole block into sub-blocks.  Set self.idxinfo .
+        Partition the whole block into sub-blocks and put information into
+        self.edgecut, self.part, self.idxinfo and self.mappers.
 
         @param nblk: number of sub-blocks to be partitioned.
         @type nblk: int
         """
-        assert self.blk
-        assert len(self.idxinfo) == 0
         from numpy import empty, arange, unique
         blk = self.blk
         # call partitioner.
@@ -302,16 +248,16 @@ class Collective(Domain, list):
             idxinfo.append([mynds, myfcs, mycls])
         self.idxinfo = idxinfo
         # prepare mappers.
-        ndmblk = self._count_max_nodeinblock(self.blk, part)
-        ndmaps = empty((self.blk.nnode, 1+2*ndmblk), dtype='int32')
-        fcmaps = empty((self.blk.nface, 5), dtype='int32')
-        clmaps = empty((self.blk.ncell, 2), dtype='int32')
+        ndmblk = self._count_max_nodeinblock(blk, part)
+        ndmaps = empty((blk.nnode, 1+2*ndmblk), dtype='int32')
+        fcmaps = empty((blk.nface, 5), dtype='int32')
+        clmaps = empty((blk.ncell, 2), dtype='int32')
         ndmaps.fill(-1)
         ndmaps[:,0] = 0
         fcmaps.fill(-1)
         fcmaps[:,0] = 0
         clmaps.fill(-1)
-        self.mappers.extend([ndmaps, fcmaps, clmaps])
+        self.mappers = [ndmaps, fcmaps, clmaps]
 
     @staticmethod
     def _reindex(bemap, idxmap, cond=lambda arr: arr>=0):
@@ -336,7 +282,7 @@ class Collective(Domain, list):
     def split(self, nblk=None, interface_type=None):
         """
         Split the whole block according to the partitioning information
-        (self.idxinfo).
+        (self.idxinfo) and write to self list ad self.ifplist.
 
         In the body of this method, the length of the xxmap (i.e., ndmap,
         fcmap, and clmap) arrays are actually nxxxx+1, and xxmap[nxxxx] is set
@@ -368,8 +314,6 @@ class Collective(Domain, list):
 
         @return: nothing.
         """
-        assert self.blk
-        assert len(self) == 0
         from numpy import empty, arange, array
         from .block import Block
         from .boundcond import bctregy
@@ -379,6 +323,7 @@ class Collective(Domain, list):
         ndmaps, fcmaps, clmaps = self.mappers
 
         # Step 1: Distribute all data from the whole-block to each sub-block.
+        del self[:]
         iblk = 0
         for mynds, myfcs, mycls in self.idxinfo:
             blk = Block(ndim=self.blk.ndim,
@@ -405,11 +350,9 @@ class Collective(Domain, list):
             self.append(blk)
             iblk += 1
 
-        # Step 2: Compute neighboring block information (also set rblkclmap).
+        # Step 2: Compute neighboring block information.
         clmap = empty(self.blk.ncell+1, dtype='int32')
         clmap.fill(-1)
-        #rblkclmap = empty(self.blk.ncell+1, dtype='int32')    # result.
-        #rblkclmap.fill(-1)
         iblk = 0
         for blk in self:
             belong = blk.fccls[:,0]
@@ -442,10 +385,6 @@ class Collective(Domain, list):
             neibcl[notmine] = neibor[notmine]
             nbnd = (neibor<0).sum()
             neibor[notmine] = -nbnd-1   # it doesn't matter to be how negative.
-            ## Save cell indices with neighboring block for later use.
-            #notmine = belong[notmine]   # change meaning of "notmine" from
-            #                            # face indices to cell indices.
-            #rblkclmap[notmine] = clmap[notmine]
             # next.
             iblk += 1
         # Record maps for cells.
@@ -456,7 +395,6 @@ class Collective(Domain, list):
         ndmap = empty(self.blk.nnode+1, dtype='int32')
         fcmap = empty(self.blk.nface+1, dtype='int32')
         clmap = clmap
-        #rblkclmap = rblkclmap
         iblk = 0
         for blk in self:
             mynode, myface, mycell = self.idxinfo[iblk]
@@ -506,8 +444,6 @@ class Collective(Domain, list):
             neibor[neibor<0] = -1
             want = (blk.fccls[:,2]==-1)
             blk.fccls[want,1] = clmap[neibor][want]
-            #want = (blk.fccls[:,2]!=-1)
-            #blk.fccls[want,3] = rblkclmap[neibor][want]
             neibcl = blk.fccls[:,3]
             blk.fccls[:,3] = clmap[neibcl]
             # next.
@@ -593,8 +529,58 @@ class Collective(Domain, list):
                 blk.shclcnd[slctm,:] = rblk.shclcnd[slctr,:]
                 blk.shclvol[slctm,:] = rblk.shclvol[slctr,:]
 
-    def merge(self):
-        assert self.nblk > 1
+    def make_iflist_per_block(self):
+        """
+        Create the ifacelist for each block/solver object to initialize the
+        interface exchanger.
+
+        @return: list of ifacelist.
+        @rtype: list
+        """
+        from numpy import array, concatenate
+        nblk = len(self)
+        pairlist = self.ifparr.tolist()
+        # determine exchanging order.
+        stages = list()
+        while len(pairlist) > 0:
+            # filter for the current stage.
+            stage = list()
+            instage = list()
+            ipair = 0
+            while ipair < len(pairlist):
+                pair = pairlist[ipair]
+                if pair[0] not in instage and pair[1] not in instage:
+                    stage.append(pair)
+                    instage.extend(pair)
+                    del pairlist[ipair]
+                else:
+                    ipair += 1
+            # assert that all indices in the stage are different to each other.
+            instage.sort()
+            for it in range(len(instage)-1):
+                assert instage[it+1] > instage[it]
+            # append to stages.
+            stages.append(stage)
+        # create ifacelists.
+        iflists = [list() for iblk in range(nblk)]
+        istage = 0
+        for stage in stages:
+            for pair in stage:
+                iflists[pair[0]].append(pair)
+                iflists[pair[1]].append(pair)
+            for iflist in iflists:
+                if len(iflist) <= istage:
+                    iflist.append(-self.IFSLEEP)    # negative for skip.
+            istage += 1
+        ## checking.
+        hasmax = False
+        for iblk in range(nblk):
+            iflist = iflists[iblk]
+            # assert the pair is for the blk.
+            for pair in iflist:
+                if not pair < 0:
+                    assert iblk in pair
+        return iflists
 
 class Distributed(Collective):
     """
