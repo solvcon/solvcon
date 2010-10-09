@@ -143,12 +143,12 @@ class Collective(Domain, list):
     @itype edgecut: int
     @ivar part: array holding the partitioned indices.
     @itype part: numpy.ndarray
-    @ivar idxinfo: a tuple contains another list that holds for nodes, faces,
-        and cells that belong to each partitioned sub-block.  It looks like
-        [[mynds, myfcs, mycls], [mynds, myfcs, mycls], ...].  The index
-        information actually can serve as local to global index mapper.  For
-        example, dom.idxinfo[0][2][33] indicates the global index of the 34-th 
-        local cell in block #0.
+    @ivar idxinfo: a tuple contains tuples that hold nodes, faces, and cells
+        that belong to each partitioned sub-block.  It looks like ((mynds,
+        myfcs, mycls), (mynds, myfcs, mycls), ...).  The index information
+        actually can serve as local to global index mapper.  For example,
+        dom.idxinfo[0][2][33] indicates the global index of the 34-th local
+        cell in block #0.
     @itype idxinfo: tuple
     @ivar mappers: a tuple contains mapper for nodes, faces, and cells from
         global index to local index.  It looks like [ndmaps, fcmaps, clmaps].
@@ -231,7 +231,7 @@ class Collective(Domain, list):
             mynds = unique(blk.clnds[mycls,1:].flatten())
             mynds = mynds[mynds>-1]
             mynds.sort()
-            idxinfo.append([mynds, myfcs, mycls])
+            idxinfo.append((mynds, myfcs, mycls))
         self.idxinfo = tuple(idxinfo)
         # prepare mappers.
         ndmblk = self._count_max_nodeinblock(blk, part)
