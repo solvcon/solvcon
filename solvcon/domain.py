@@ -161,13 +161,9 @@ class Collective(Domain, list):
         respectively.  The shape of ndmaps is (nnode, 1+2*ndmblk), where ndmblk
         is the maximal number of blocks sharing a single node.
     @itype mappers: list
-    @ivar interfaces: a list contains pairs of all the interface BC objects.
-        It looks like [[ijbc, jibc], [ijbc, jibc], ...].  Interfaces must occur
-        in pairs.  An interface related to block #jblk from block #iblk
-        guarantees the other interface related to block #iblk from block #jblk.
-        The numbers of border faces are the same for these two mutual
-        interfaces.
-    @itype interfaces: list
+    @ivar ifparr: array storing the interface pairs as [[ijbc, jibc], [ijbc,
+        jibc], ...].
+    @itype ifparr: numpy.ndarray
     """
 
     IFSLEEP = 1.e-10    # in seconds.
@@ -178,7 +174,7 @@ class Collective(Domain, list):
         self.part = None
         self.idxinfo = list()
         self.mappers = list()
-        self.interfaces = list()
+        self.ifparr = None
 
     def bind(self):
         super(Collective, self).bind()
@@ -189,26 +185,17 @@ class Collective(Domain, list):
         for blk in self:
             blk.unbind()
 
-    @property
-    def ifacelists(self):
+    def make_iflist_per_block(self):
         """
-        Create the ifacelist for each solver object to initialize the
+        Create the ifacelist for each block/solver object to initialize the
         interface exchanger.
 
         @return: list of ifacelist.
         @rtype: list
         """
         from numpy import array, concatenate
-        interfaces = self.interfaces
-        nblk = len(interfaces)
-        # create exchange pairs.
-        pairlist = list()
-        for iblk in range(nblk):
-            for jblk in range(nblk):
-                if iblk >= jblk:
-                    continue
-                if interfaces[iblk][jblk] != None:
-                    pairlist.append((iblk,jblk))
+        nblk = len(self)
+        pairlist = self.ifparr.tolist()
         # determine exchanging order.
         stages = list()
         while len(pairlist) > 0:
@@ -383,7 +370,7 @@ class Collective(Domain, list):
         """
         assert self.blk
         assert len(self) == 0
-        from numpy import empty, arange
+        from numpy import empty, arange, array
         from .block import Block
         from .boundcond import bctregy
         if isinstance(nblk, int):
@@ -530,11 +517,7 @@ class Collective(Domain, list):
         if interface_type == None:
             interface_type = bctregy.interface
         assert issubclass(interface_type, bctregy.interface)
-        ## create placeholder for the interface list.
-        interfaces = self.interfaces
-        for blk in self:
-            interfaces.append([None]*len(self))
-        ## build BC objects.
+        ifplist = list()
         iblk = 0
         for blk in self:
             # setup markers.
@@ -585,9 +568,11 @@ class Collective(Domain, list):
                 bc.facn[:,2] = rfcs[:]
                 blk.bclist.append(bc)
                 # assign to interface list.
-                interfaces[iblk][jblk] = bc
+                if iblk < jblk:
+                    ifplist.append((iblk, jblk))
             # next.
             iblk += 1
+        self.ifparr = array(ifplist, dtype='int32')
 
         # Step 5: Supplement the rest of the blocks.
         for blk in self:

@@ -109,30 +109,17 @@ class TestCollective(TestCase):
                     self.assertTrue((blk.fccls[bfcs,1] < 0).all())
             self.assertTrue(has_interface)
 
-    def test_interfaces_diagonal(self):
-        dom = self.dom
-        interfaces = dom.interfaces
-        for iblk in range(len(dom)):
-            self.assertTrue(interfaces[iblk][iblk]==None)
-
     def test_interfaces_count(self):
         from ..boundcond import bctregy
         dom = self.dom
-        interfaces = dom.interfaces
         # count from blocks.
         cnt_blk = 0
         for blk in dom:
             for sbc in blk.bclist:
                 if isinstance(sbc, bctregy.interface):
                     cnt_blk += 1
-        # count from interface list.
-        cnt_lst = 0
-        for iblk in range(len(dom)):
-            for jblk in range(len(dom)):
-                if interfaces[iblk][jblk] != None:
-                    cnt_lst += 1
         # compare.
-        self.assertEqual(cnt_blk, cnt_lst)
+        self.assertEqual(cnt_blk, dom.ifparr.shape[0]*2)
 
     def nottest_write(self):
         from ..io.vtk import VtkLegacyUstGridWriter
@@ -156,21 +143,21 @@ class TestInterface(TestCase):
         blk = testing.get_blk_from_oblique_neu()
         dom = Collective(blk=blk)
         dom.split(2)
-        ifacelists = dom.ifacelists
+        iflists = dom.make_iflist_per_block()
     def test_oblique8(self):
         from ..domain import Collective
         from .. import testing
         blk = testing.get_blk_from_oblique_neu()
         dom = Collective(blk=blk)
         dom.split(8)
-        ifacelists = dom.ifacelists
+        iflists = dom.make_iflist_per_block()
     def test_oblique24(self):
         from ..domain import Collective
         from .. import testing
         blk = testing.get_blk_from_oblique_neu()
         dom = Collective(blk=blk)
         dom.split(24)
-        ifacelists = dom.ifacelists
+        iflists = dom.make_iflist_per_block()
 
     def test_sample2(self):
         from ..domain import Collective
@@ -178,11 +165,11 @@ class TestInterface(TestCase):
         blk = testing.get_blk_from_sample_neu()
         dom = Collective(blk=blk)
         dom.split(2)
-        ifacelists = dom.ifacelists
+        iflists = dom.make_iflist_per_block()
     def test_sample4(self):
         from ..domain import Collective
         from .. import testing
         blk = testing.get_blk_from_sample_neu()
         dom = Collective(blk=blk)
         dom.split(4)
-        ifacelists = dom.ifacelists
+        iflists = dom.make_iflist_per_block()

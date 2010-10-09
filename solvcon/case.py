@@ -738,28 +738,16 @@ for node in $nodes; do rsh $node killall %s; done
         """
         dom = self.solver.domainobj
         dealer = self.solver.dealer
-        nblk = len(dom)
-        dwidth = len(str(nblk-1))
-        for iblk in range(nblk):
-            self.info(('%%0%dd ->' % dwidth) % iblk)
-            for jblk in range(nblk):
-                if iblk >= jblk:
-                    continue
-                if dom.interfaces[iblk][jblk] != None:
-                    dealer.bridge((iblk, jblk))
-                    self.info((' %%0%dd'%dwidth) % jblk)
+        dwidth = len(str(len(dom)-1))
+        oblk = -1
+        for iblk, jblk in dom.ifparr:
+            if iblk != oblk:
+                self.info(('%%0%dd ->' % dwidth) % iblk)
+                oblk = iblk
+            dealer.bridge((iblk, jblk))
+            self.info((' %%0%dd'%dwidth) % jblk)
             self.info('.\n')
         dealer.barrier()
-        # construct spanning tree.
-        #graph = list()
-        #for iblk in range(nblk):
-        #    ifacelist = dom.ifacelists[iblk]
-        #    lst = list()
-        #    for pair in ifacelist:
-        #        if isinstance(pair, tuple):
-        #            lst.append(pair[0] + pair[1] - iblk)
-        #    graph.append(lst)
-        #dealer.span(graph)
 
     # interface.
     def _init_interface(self):
@@ -771,11 +759,12 @@ for node in $nodes; do rsh $node killall %s; done
         dom = self.solver.domainobj
         dealer = self.solver.dealer
         nblk = len(dom)
+        iflists = dom.make_iflist_per_block()
         self.info('Interface exchanging pairs (%d phases):\n' % len(
-            dom.ifacelists[0]))
+            iflists[0]))
         dwidth = len(str(nblk-1))
         for iblk in range(nblk):
-            ifacelist = dom.ifacelists[iblk]
+            ifacelist = iflists[iblk]
             sdw = dealer[iblk]
             sdw.cmd.init_exchange(ifacelist)
             # print.
