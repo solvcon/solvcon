@@ -216,9 +216,9 @@ class interface(BC):
     """
     typn = -2**15+1
 
-    def __init__(self, bc=None):
+    def __init__(self, **kw):
         from numpy import empty
-        super(interface, self).__init__(bc)
+        super(interface, self).__init__(**kw)
         self.rblkn = getattr(self, 'rblkn', -1)
         self.rblkinfo = empty(6, dtype='int32')
         self.rclp = empty((0,3), dtype='int32')

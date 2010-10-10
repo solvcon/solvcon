@@ -32,8 +32,10 @@ class CheckDomainIO(TestCase):
                 self.assertTrue((don.idxinfo[it][2] ==
                     doo.idxinfo[it][2]).all())
             except StandardError as e:
-                e.value += '; inconsistent data at %d-th block' % it
-                raise e
+                msgs = list(e.args)
+                msgs.append('%d-th block' % it)
+                e.args = tuple(msgs)
+                raise
 
     def _check_block_shape(self, newblk, blk):
         # shape.
@@ -53,23 +55,36 @@ class CheckDomainIO(TestCase):
         for igrp in range(len(blk.grpnames)):
             self.assertEqual(newblk.grpnames[igrp], blk.grpnames[igrp])
     def _check_block_bc(self, newblk, blk):
+        from ...boundcond import interface
         self.assertTrue((newblk.bndfcs == blk.bndfcs).all())
         self.assertEqual(len(newblk.bclist), len(blk.bclist))
         for ibc in range(len(newblk.bclist)):
-            newbc = newblk.bclist[ibc]
-            bc = blk.bclist[ibc]
-            # meta data.
-            self.assertEqual(newbc.sern, bc.sern)
-            self.assertEqual(newbc.name, bc.name)
-            self.assertNotEqual(newbc.blk, bc.blk)
-            self.assertEqual(newbc.blkn, bc.blkn)
-            self.assertTrue(newbc.svr == None)
-            # faces.
-            self.assertTrue((newbc.facn[:,:2] == bc.facn[:,:2]).all())
-            # values.
-            self.assertEqual(newbc.value.shape[1], bc.value.shape[1])
-            if newbc.value.shape[1] > 0:
-                self.assertTrue((newbc.value == bc.value).all())
+            try:
+                newbc = newblk.bclist[ibc]
+                bc = blk.bclist[ibc]
+                # meta data.
+                self.assertEqual(newbc.sern, bc.sern)
+                self.assertEqual(newbc.name, bc.name)
+                self.assertNotEqual(newbc.blk, bc.blk)
+                self.assertEqual(newbc.blkn, bc.blkn)
+                self.assertTrue(newbc.svr == None)
+                # faces.
+                self.assertTrue((newbc.facn[:,:2] == bc.facn[:,:2]).all())
+                # values.
+                self.assertEqual(newbc.value.shape[1], bc.value.shape[1])
+                if newbc.value.shape[1] > 0:
+                    self.assertTrue((newbc.value == bc.value).all())
+                # for interface.
+                if isinstance(bc, interface):
+                    self.assertTrue(isinstance(newbc, interface))
+                    self.assertEqual(newbc.rblkn, bc.rblkn)
+                    self.assertTrue((newbc.rblkinfo == bc.rblkinfo).all())
+                    self.assertTrue((newbc.rclp == bc.rclp).all())
+            except StandardError as e:
+                msgs = list(e.args)
+                msgs.append('%d-th BC' % ibc)
+                e.args = tuple(msgs)
+                raise
     def _check_block_array(self, newblk, blk):
         # metrics.
         self.assertTrue((newblk.ndcrd == blk.ndcrd).all())
@@ -121,7 +136,7 @@ class CheckDomainIO(TestCase):
         self.assertTrue((newblk.shclfcs == blk.shclfcs).all())
 
 class TestReloadTrivial(CheckDomainIO):
-    def test_trial(self):
+    def test_whole_domain(self):
         from tempfile import mkdtemp
         from shutil import rmtree
         from ...domain import Collective
@@ -147,7 +162,50 @@ class TestReloadTrivial(CheckDomainIO):
         self._check_block_array(don.blk, doo.blk)
         # check split blocks.
         for iblk in range(npart):
-            self._check_block_shape(don[iblk], doo[iblk])
-            self._check_block_group(don[iblk], doo[iblk])
-            self._check_block_bc(don[iblk], doo[iblk])
-            self._check_block_array(don[iblk], doo[iblk])
+            try:
+                self._check_block_shape(don[iblk], doo[iblk])
+                self._check_block_group(don[iblk], doo[iblk])
+                self._check_block_bc(don[iblk], doo[iblk])
+                self._check_block_array(don[iblk], doo[iblk])
+            except StandardError as e:
+                msgs = list(e.args)
+                msgs.append('%d-th block' % iblk)
+                e.args = tuple(msgs)
+                raise
+    def test_single_block(self):
+        from tempfile import mkdtemp
+        from shutil import rmtree
+        from ...domain import Collective
+        from ..domain import DomainIO
+        npart = 3
+        # create original domain.
+        blk = get_sample_neu()
+        doo = Collective(blk=blk)
+        doo.split(npart)
+        dio = DomainIO(compressor='gz')
+        # save and reload to new domain.
+        dirname = mkdtemp()
+        dio.save(dom=doo, dirname=dirname)
+        don = dio.load_block(dirname=dirname)
+        # check whole block.
+        blk = dio.load_block(dirname=dirname, blkid=None, bcmapper=None)
+        self._check_block_shape(blk, doo.blk)
+        self._check_block_group(blk, doo.blk)
+        self._check_block_bc(blk, doo.blk)
+        self._check_block_array(blk, doo.blk)
+        # check split blocks.
+        for iblk in range(npart):
+            try:
+                blk = dio.load_block(dirname=dirname, blkid=iblk,
+                    bcmapper=None)
+                self._check_block_shape(blk, doo[iblk])
+                self._check_block_group(blk, doo[iblk])
+                self._check_block_bc(blk, doo[iblk])
+                self._check_block_array(blk, doo[iblk])
+            except StandardError as e:
+                msgs = list(e.args)
+                msgs.append('%d-th block' % iblk)
+                e.args = tuple(msgs)
+                raise
+        # finalize.
+        rmtree(dirname)

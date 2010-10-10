@@ -22,11 +22,14 @@ class CheckBlockIO(TestCase):
         for igrp in range(len(blk.grpnames)):
             self.assertEqual(newblk.grpnames[igrp], blk.grpnames[igrp])
     def _check_bc(self, newblk, blk):
+        from ...boundcond import interface
         self.assertTrue((newblk.bndfcs == blk.bndfcs).all())
         self.assertEqual(len(newblk.bclist), len(blk.bclist))
         for ibc in range(len(newblk.bclist)):
             newbc = newblk.bclist[ibc]
             bc = blk.bclist[ibc]
+            self.assertFalse(isinstance(newbc, interface))
+            self.assertFalse(isinstance(bc, interface))
             # meta data.
             self.assertEqual(newbc.sern, bc.sern)
             self.assertEqual(newbc.name, bc.name)

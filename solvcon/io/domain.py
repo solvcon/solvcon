@@ -35,6 +35,8 @@ class DomainFormat(Format):
 
     FILE_HEADER = '-*- solvcon dom file -*-'
     DOM_FILENAME = 'domain.dom'
+    WHOLE_FILENAME = 'whole.blk'
+    SPLIT_FILENAME = 'part%d.blk'
 
     SPEC_OF_META = (
         ('GLOBAL', str),
@@ -96,11 +98,12 @@ class DomainFormat(Format):
         stream.close()
         # blocks.
         blf = blfregy[self.blk_format_rev](compressor=self.compressor)
-        stream = open(os.path.join(dirname, 'whole.blk'), 'wb')
+        stream = open(os.path.join(dirname, self.WHOLE_FILENAME), 'wb')
         blf.save(dom.blk, stream)
         stream.close()
         for iblk in range(len(dom)):
-            stream = open(os.path.join(dirname, 'part%d.blk'%iblk), 'wb')
+            stream = open(
+                os.path.join(dirname, self.SPLIT_FILENAME%iblk), 'wb')
             blf.save(dom[iblk], stream)
             stream.close()
     def load(self, dirname, bcmapper):
@@ -172,18 +175,20 @@ class DomainFormat(Format):
         @return: the read block object.
         @rtype: solvcon.block.Block
         """
+        import os
         from .block import blfregy
+        # load the text part of DOM file for block filename.
         stream = open(os.path.join(dirname, self.DOM_FILENAME), 'rb')
-        # determine the text part and binary part.
         lines, textlen = self._get_textpart(stream)
-        # create meta-data dict.
         meta = self._parse_meta(lines)
-        # load filename.
         whole, split = self._load_block_filename(meta, lines)
+        stream.close()
         blkfn = whole if blkid == None else split[blkid]
         # load block.
-        return blfregy[meta.blk_format_rev]().load(
-            open(os.path.join(dirname, blkfn), 'rb'), bcmapper)
+        stream = open(os.path.join(dirname, blkfn), 'rb')
+        blk = blfregy[meta.blk_format_rev]().load(stream, bcmapper)
+        stream.close()
+        return blk
 
     ############################################################################
     # Facilities for writing.
@@ -312,8 +317,8 @@ class DomainIO(object):
         
         @keyword dom: to-be-written domain object.
         @type dom: solvcon.domain.Domain
-        @keyword stream: file object or file name to be read.
-        @type stream: file or str
+        @keyword dirname: directory name to be read.
+        @type dirname: str
         """
         dom = self.dom if dom == None else dom
         dirname = self.dirname if dirname == None else dirname
@@ -329,24 +334,31 @@ class DomainIO(object):
         @rtype: solvcon.gendata.AttributeDict, list, int
         """
         return self.dmf.read_meta(stream)
-    def load(self, dirname, bcmapper=None):
+    def load(self, dirname=None, bcmapper=None):
         """
         Load domain from stream with BC mapper applied.
         
+        @keyword dirname: directory name to be read.
+        @type dirname: str
+        @keyword bcmapper: BC type mapper.
+        @type bcmapper: dict
+        @return: the read domain object.
+        @rtype: solvcon.domain.Collective
+        """
+        dirname = self.dirname if dirname == None else dirname
+        return self.dmf.load(dirname, bcmapper)
+    def load_block(self, dirname=None, blkid=None, bcmapper=None):
+        """
+        Load block from stream with BC mapper applied.
+        
+        @keyword dirname: directory name to be read.
+        @type dirname: str
+        @keyword blkid: the id of block to be read.
+        @type blkid: int
+        @keyword bcmapper: BC type mapper.
+        @type bcmapper: dict
         @return: the read block object.
         @rtype: solvcon.block.Block
         """
         dirname = self.dirname if dirname == None else dirname
-        return self.dmf.load(dirname, bcmapper)
-    def load_block(self, dirname, blkid, bcmapper=None):
-        """
-        Load block from stream with BC mapper applied.
-        
-        @return: the read block object.
-        @rtype: solvcon.block.Block
-        """
-        if stream == None:
-            stream = open(self.filename, 'rb')
-        elif isinstance(stream, str):
-            stream = open(stream, 'rb')
-        return self.dmf.load(stream)
+        return self.dmf.load_block(dirname, blkid, bcmapper)
