@@ -180,7 +180,7 @@ class Format(object):
         @param shape: ndarray shape.
         @type shape: tuple
         @param dtype: ndarray dtype.
-        @type dtype: numpy.dtype
+        @type dtype: numpy.dtype or str
         @param stream: input stream.
         @type stream: file
         @return: resulted array.
@@ -192,6 +192,8 @@ class Format(object):
         length = shape[0]
         for dim in shape[1:]:
             length *= dim
+        if isinstance(dtype, basestring):
+            dtype = getattr(np, dtype)
         dobj = dtype()
         if compressor == 'bz2':
             buflen = np.frombuffer(stream.read(8), dtype=np.int64)[0]

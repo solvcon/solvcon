@@ -1,10 +1,41 @@
 # -*- coding: UTF-8 -*-
 
 from unittest import TestCase
-from ...testing import get_blk_from_oblique_neu, get_blk_from_sample_neu
+
+def get_sample_neu():
+    """
+    Read data from oblique.neu file and convert it into Block.
+    """
+    from ...testing import loadfile
+    from ..gambit import GambitNeutral
+    blk = GambitNeutral(loadfile('sample.neu')).toblock()
+    for bc in blk.bclist:
+        if bc.name == 'unspecified':
+            bc.name = 'unspec_orig'
+    return blk
 
 class CheckDomainIO(TestCase):
-    def _check_shape(self, newblk, blk):
+    def _check_domain_shape(self, don, doo):
+        self.assertEqual(don.edgecut, doo.edgecut)
+    def _check_domain_array(self, don, doo):
+        self.assertTrue((don.part == doo.part).all())
+        self.assertTrue((don.ifparr == doo.ifparr).all())
+        self.assertTrue((don.mappers[0] == doo.mappers[0]).all())
+        self.assertTrue((don.mappers[1] == doo.mappers[1]).all())
+        self.assertTrue((don.mappers[2] == doo.mappers[2]).all())
+        for it in range(len(doo)):
+            try:
+                self.assertTrue((don.idxinfo[it][0] ==
+                    doo.idxinfo[it][0]).all())
+                self.assertTrue((don.idxinfo[it][1] ==
+                    doo.idxinfo[it][1]).all())
+                self.assertTrue((don.idxinfo[it][2] ==
+                    doo.idxinfo[it][2]).all())
+            except StandardError as e:
+                e.value += '; inconsistent data at %d-th block' % it
+                raise e
+
+    def _check_block_shape(self, newblk, blk):
         # shape.
         self.assertEqual(newblk.ndim, blk.ndim)
         self.assertEqual(newblk.nnode, blk.nnode)
@@ -16,12 +47,12 @@ class CheckDomainIO(TestCase):
         self.assertEqual(newblk.ngstcell, blk.ngstcell)
         # serial number.
         self.assertEqual(newblk.blkn, blk.blkn)
-    def _check_group(self, newblk, blk):
+    def _check_block_group(self, newblk, blk):
         # group names.
         self.assertEqual(len(newblk.grpnames), len(blk.grpnames))
         for igrp in range(len(blk.grpnames)):
             self.assertEqual(newblk.grpnames[igrp], blk.grpnames[igrp])
-    def _check_bc(self, newblk, blk):
+    def _check_block_bc(self, newblk, blk):
         self.assertTrue((newblk.bndfcs == blk.bndfcs).all())
         self.assertEqual(len(newblk.bclist), len(blk.bclist))
         for ibc in range(len(newblk.bclist)):
@@ -39,7 +70,7 @@ class CheckDomainIO(TestCase):
             self.assertEqual(newbc.value.shape[1], bc.value.shape[1])
             if newbc.value.shape[1] > 0:
                 self.assertTrue((newbc.value == bc.value).all())
-    def _check_array(self, newblk, blk):
+    def _check_block_array(self, newblk, blk):
         # metrics.
         self.assertTrue((newblk.ndcrd == blk.ndcrd).all())
         self.assertTrue((newblk.fccnd == blk.fccnd).all())
@@ -90,34 +121,33 @@ class CheckDomainIO(TestCase):
         self.assertTrue((newblk.shclfcs == blk.shclfcs).all())
 
 class TestReloadTrivial(CheckDomainIO):
-    def _check_reload(self, blk, compressor):
-        from cStringIO import StringIO
-        from ..block import BlockIO
-        # save.
-        bio = BlockIO(blk=blk, flag_compress=compressor)
-        dataio = StringIO()
-        bio.save(stream=dataio)
-        value = dataio.getvalue()
-        # load.
-        bio = BlockIO()
-        dataio = StringIO(value)
-        newblk = bio.load(stream=dataio)
-        # check
-        self._check_shape(newblk, blk)
-        self._check_group(newblk, blk)
-        self._check_bc(newblk, blk)
-        self._check_array(newblk, blk)
-class TestLoadTrivial(CheckDomainIO):
-    def _check_load(self, blk, stream):
-        from ..block import BlockIO
-        bio = BlockIO()
-        # check version of stream.
-        meta = bio.read_meta(stream=stream)
-        self.assertEqual(meta.FORMAT_REV, '0.0.0.1')
-        # load from steam.
-        blkl = bio.load(stream=stream)
-        # check.
-        self._check_shape(blk, blkl)
-        self._check_group(blk, blkl)
-        self._check_bc(blk, blkl)
-        self._check_array(blk, blkl)
+    def test_trial(self):
+        from tempfile import mkdtemp
+        from shutil import rmtree
+        from ...domain import Collective
+        from ..domain import DomainIO
+        npart = 3
+        # create original domain.
+        blk = get_sample_neu()
+        doo = Collective(blk=blk)
+        doo.split(npart)
+        dio = DomainIO(compressor='gz')
+        # save and reload to new domain.
+        dirname = mkdtemp()
+        dio.save(dom=doo, dirname=dirname)
+        don = dio.load(dirname=dirname)
+        rmtree(dirname)
+        # check domain.
+        self._check_domain_shape(don, doo)
+        self._check_domain_array(don, doo)
+        # check whole block.
+        self._check_block_shape(don.blk, doo.blk)
+        self._check_block_group(don.blk, doo.blk)
+        self._check_block_bc(don.blk, doo.blk)
+        self._check_block_array(don.blk, doo.blk)
+        # check split blocks.
+        for iblk in range(npart):
+            self._check_block_shape(don[iblk], doo[iblk])
+            self._check_block_group(don[iblk], doo[iblk])
+            self._check_block_bc(don[iblk], doo[iblk])
+            self._check_block_array(don[iblk], doo[iblk])

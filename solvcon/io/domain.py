@@ -38,14 +38,14 @@ class DomainFormat(Format):
 
     SPEC_OF_META = (
         ('GLOBAL', str),
-        ('CUT', int),
-        ('BLOCK', str),
         ('SWITCH', strbool),
+        ('SHAPE', int),
+        ('IDXINFO', None),
     )
-    META_GLOBAL = ('FORMAT_REV', 'compressor',)
-    META_CUT = ('edgecut', 'npart',)
-    META_BLOCK = ('blk_format_rev',)
+    META_GLOBAL = ('FORMAT_REV', 'compressor', 'blk_format_rev',)
     META_SWITCH = tuple()
+    META_SHAPE = ('edgecut', 'nnode', 'nface', 'ncell',
+        'npart', 'nifp', 'ndmblk',)
 
     def __init__(self, **kw):
         self.compressor = kw.pop('compressor', '')
@@ -66,16 +66,99 @@ class DomainFormat(Format):
         meta = self._parse_meta(self._get_textpart(stream)[0])
         stream.close()
         return meta
-    def save(self, dom, stream):
+    def save(self, dom, dirname):
         """
         Save the dom object into a file.
         
         @param dom: to-be-written domain object; must be split.
         @type dom: solvcon.domain.Collective
-        @param stream: file object or file name to be read.
-        @type stream: file or str
+        @param dirname: the directory to save data.
+        @type dirname: str
         """
-        raise NotImplementedError
+        import os
+        from .block import blfregy
+        stream = open(os.path.join(dirname, self.DOM_FILENAME), 'wb')
+        # text part.
+        stream.write(self.FILE_HEADER + '\n')
+        self._save_meta(dom, stream)
+        self._save_idxinfo_shape(dom, stream)
+        self._save_block_filenames(dirname, dom, stream)
+        stream.write(self.BINARY_MARKER + '\n')
+        # binary part.
+        self._write_array(self.compressor, dom.part, stream)
+        self._write_array(self.compressor, dom.ifparr, stream)
+        for maparr in dom.mappers:
+            self._write_array(self.compressor, maparr, stream)
+        for mynds, myfcs, mycls in dom.idxinfo:
+            self._write_array(self.compressor, mynds, stream)
+            self._write_array(self.compressor, myfcs, stream)
+            self._write_array(self.compressor, mycls, stream)
+        stream.close()
+        # blocks.
+        blf = blfregy[self.blk_format_rev](compressor=self.compressor)
+        stream = open(os.path.join(dirname, 'whole.blk'), 'wb')
+        blf.save(dom.blk, stream)
+        stream.close()
+        for iblk in range(len(dom)):
+            stream = open(os.path.join(dirname, 'part%d.blk'%iblk), 'wb')
+            blf.save(dom[iblk], stream)
+            stream.close()
+    def load(self, dirname, bcmapper):
+        """
+        Load domain file in the specified directory with BC mapper applied.
+        
+        @param dirname: directory name of domain.
+        @type dirname: str
+        @param bcmapper: BC type mapper.
+        @type bcmapper: dict
+        @return: the read domain object.
+        @rtype: solvcon.domain.Collective
+        """
+        import os
+        from .block import blfregy
+        from ..domain import Collective
+        dom = Collective(None)
+        stream = open(os.path.join(dirname, self.DOM_FILENAME), 'rb')
+        # determine the text part and binary part.
+        lines, textlen = self._get_textpart(stream)
+        # create meta-data dict.
+        meta = self._parse_meta(lines)
+        dom.edgecut = meta.edgecut
+        # load idxinfo shape.
+        idxlens = self._load_idxinfo_shape(meta, lines)
+        # load filename.
+        whole, split = self._load_block_filename(meta, lines)
+        # load arrays.
+        stream.seek(textlen)
+        dom.part = self._read_array(meta.compressor,
+            (meta.ncell,), 'int32', stream)
+        dom.ifparr = self._read_array(meta.compressor,
+            (meta.nifp, 2), 'int32', stream)
+        ndmaps = self._read_array(meta.compressor,
+            (meta.nnode, 1+2*meta.ndmblk), 'int32', stream)
+        fcmaps = self._read_array(meta.compressor,
+            (meta.nface, 5), 'int32', stream)
+        clmaps = self._read_array(meta.compressor,
+            (meta.ncell, 2), 'int32', stream)
+        dom.mappers = (ndmaps, fcmaps, clmaps)
+        idxinfo = list()
+        for nnd, nfc, ncl in idxlens:
+            mynds = self._read_array(meta.compressor, (nnd,), 'int32', stream)
+            myfcs = self._read_array(meta.compressor, (nfc,), 'int32', stream)
+            mycls = self._read_array(meta.compressor, (ncl,), 'int32', stream)
+            idxinfo.append((mynds, myfcs, mycls))
+        dom.idxinfo = tuple(idxinfo)
+        stream.close()
+        # load blocks.
+        blf = blfregy[meta.blk_format_rev]()
+        stream = open(os.path.join(dirname, whole), 'rb')
+        dom.blk = blf.load(stream, bcmapper)
+        stream.close()
+        for sfn in split:
+            stream = open(os.path.join(dirname, sfn), 'rb')
+            dom.append(blf.load(stream, bcmapper))
+            stream.close()
+        return dom
     def load_block(self, dirname, blkid, bcmapper):
         """
         Load block file in the specified directory with BC mapper applied.
@@ -89,95 +172,6 @@ class DomainFormat(Format):
         @return: the read block object.
         @rtype: solvcon.block.Block
         """
-        raise NotImplementedError
-
-    ############################################################################
-    # Facilities for writing.
-    ############################################################################
-    def _save_meta(self, dom, stream):
-        """
-        @param dom: partitioned domain object to store.
-        @type dom: solvcon.domain.Collective
-        @param stream: output stream.
-        @type stream: file
-        @return: nothing.
-        """
-        # global.
-        for key in self.META_GLOBAL:
-            skey = key
-            if hasattr(key, '__iter__'):
-                key, skey = key
-            stream.write('%s = %s\n' % (key, str(getattr(self, skey))))
-        # cut.
-        stream.write('%s = %d\n' % ('edgecut', dom.edgecut))
-        stream.write('%s = %d\n' % ('npart', len(dom)))
-        # optional switches.
-        for key in self.META_SWITCH:
-            stream.write('%s = %s\n' % (key, str(getattr(self, key))))
-    @staticmethod
-    def _save_block_filenames(dirname, dom, stream):
-        import os
-        stream.write('%s = %s\n' % ('whole',
-            os.path.join(dirname, 'whole.blk')))
-        for iblk in range(len(dom)):
-            stream.write('%s = %s\n' % ('part%d'%iblk,
-                os.path.join(dirname, 'part%d.blk'%iblk)))
-    def _save_blocks(self, dom, dirname):
-        import os
-        from .block import blfregy
-        # block format.
-        blf = blfregy[self.blk_format_rev](compressor=self.compressor)
-        # save whole.
-        stream = open(os.path.join(dirname, 'whole.blk'), 'wb')
-        blf.save(dom.blk, stream)
-        stream.close()
-        # save split blocks.
-        for iblk in range(len(dom)):
-            stream = open(os.path.join(dirname, 'part%d.blk'%iblk), 'wb')
-            blf.save(dom[iblk], stream)
-            stream.close()
-
-    ############################################################################
-    # Facilities for reading.
-    ############################################################################
-    @classmethod
-    def _load_block_filename(cls, meta, lines):
-        """
-        @param meta: meta information dictionary.
-        @type meta: solvcon.gendata.AttributeDict
-        @param lines: text data
-        @type lines: list
-        @return: filenames for whole and split blocks.
-        @rtype: str, list of str
-        """
-        meta_length = cls.meta_length
-        # filename for whole block.
-        end = meta_length + 1
-        whole = lines[end].split('=')[-1].strip()
-        # filenames for split blocks.
-        begin = end + 1
-        end = begin + meta.npart
-        split = [line.split('=')[-1].strip() for line in lines[begin:end]]
-        return whole, split
-
-class TrivialDomainFormat(DomainFormat):
-    """
-    Simplest dom format.
-    """
-    FORMAT_REV = '0.0.1'
-    def save(self, dom, dirname):
-        import os
-        stream = open(os.path.join(dirname, self.DOM_FILENAME), 'wb')
-        # text part.
-        stream.write(self.FILE_HEADER + '\n')
-        self._save_meta(dom, stream)
-        self._save_block_filenames(dirname, dom, stream)
-        stream.write(self.BINARY_MARKER + '\n')
-        # binary part.
-        # blocks.
-        self._save_blocks(dom, dirname)
-    def load_block(self, dirname, blkid, bcmapper):
-        import os
         from .block import blfregy
         stream = open(os.path.join(dirname, self.DOM_FILENAME), 'rb')
         # determine the text part and binary part.
@@ -190,6 +184,102 @@ class TrivialDomainFormat(DomainFormat):
         # load block.
         return blfregy[meta.blk_format_rev]().load(
             open(os.path.join(dirname, blkfn), 'rb'), bcmapper)
+
+    ############################################################################
+    # Facilities for writing.
+    ############################################################################
+    def _save_meta(self, dom, stream):
+        """
+        @param dom: partitioned domain object to store.
+        @type dom: solvcon.domain.Collective
+        @param stream: output stream.
+        @type stream: file
+        @return: nothing.
+        """
+        # auto sections.
+        for secname in 'GLOBAL', 'SWITCH':
+            for key in getattr(self, 'META_'+secname):
+                skey = key
+                if hasattr(key, '__iter__'):
+                    key, skey = key
+                stream.write('%s = %s\n' % (key, str(getattr(self, key))))
+        # shape.
+        stream.write('%s = %d\n' % ('edgecut', dom.edgecut))
+        stream.write('%s = %d\n' % ('nnode', dom.blk.nnode))
+        stream.write('%s = %d\n' % ('nface', dom.blk.nface))
+        stream.write('%s = %d\n' % ('ncell', dom.blk.ncell))
+        stream.write('%s = %d\n' % ('npart', len(dom)))
+        stream.write('%s = %d\n' % ('nifp', dom.ifparr.shape[0]))
+        ndmaps, fcmaps, clmaps = dom.mappers
+        assert ndmaps.shape[1]%2 == 1
+        stream.write('%s = %d\n' % ('ndmblk', (ndmaps.shape[1]-1)/2))
+    @staticmethod
+    def _save_idxinfo_shape(dom, stream):
+        nblk = len(dom)
+        for iblk in range(nblk):
+            key = 'idxinfo%d' % iblk
+            spe = ' '.join(['%d'%arr.shape[0] for arr in dom.idxinfo[iblk]])
+            stream.write('%s = %s\n' % (key, spe))
+    @staticmethod
+    def _save_block_filenames(dirname, dom, stream):
+        import os
+        stream.write('%s = %s\n' % ('whole', 'whole.blk'))
+        for iblk in range(len(dom)):
+            stream.write('%s = %s\n' % ('part%d'%iblk, 'part%d.blk'%iblk))
+
+    ############################################################################
+    # Facilities for reading.
+    ############################################################################
+    @classmethod
+    def _load_idxinfo_shape(cls, meta, lines):
+        """
+        @param meta: meta information dictionary.
+        @type meta: solvcon.gendata.AttributeDict
+        @param lines: text data
+        @type lines: list
+        @return: length of indices.
+        @rtype: list
+        """
+        meta_length = cls.meta_length
+        begin = meta_length + 1
+        end = meta_length + 1 + meta.npart
+        idxlens = list()
+        for line in lines[begin:end]:
+            try:
+                toks = line.split('=')[-1].strip().split()
+                if len(toks) != 3:
+                    raise IndexError('must have 3 tokens')
+                idxlens.append([int(tok) for tok in toks])
+            except StandardError as e:
+                e.value += '; wrong format in the %d-th index length' % len(
+                    idxlens)
+                raise e
+        return idxlens
+    @classmethod
+    def _load_block_filename(cls, meta, lines):
+        """
+        @param meta: meta information dictionary.
+        @type meta: solvcon.gendata.AttributeDict
+        @param lines: text data
+        @type lines: list
+        @return: filenames for whole and split blocks.
+        @rtype: str, list of str
+        """
+        meta_length = cls.meta_length
+        # filename for whole block.
+        end = meta_length + 1 + meta.npart
+        whole = lines[end].split('=')[-1].strip()
+        # filenames for split blocks.
+        begin = end + 1
+        end = begin + meta.npart
+        split = [line.split('=')[-1].strip() for line in lines[begin:end]]
+        return whole, split
+
+class TrivialDomainFormat(DomainFormat):
+    """
+    Simplest dom format.
+    """
+    FORMAT_REV = '0.0.1'
 
 class DomainIO(object):
     """
@@ -215,7 +305,7 @@ class DomainIO(object):
         compressor = kw.pop('compressor', '')
         super(DomainIO, self).__init__()
         # create DomainFormat object.
-        self.dmf = dmfregy[fmt](compressor=compressor, fpdtype=fpdtype)
+        self.dmf = dmfregy[fmt](compressor=compressor)
     def save(self, dom=None, dirname=None):
         """
         Save the block object into a file.
@@ -225,13 +315,9 @@ class DomainIO(object):
         @keyword stream: file object or file name to be read.
         @type stream: file or str
         """
-        if blk == None:
-            blk = self.blk
-        if stream == None:
-            stream = open(self.filename, 'wb')
-        elif isinstance(stream, str):
-            stream = open(stream, 'wb')
-        self.dmf.save(dom, stream)
+        dom = self.dom if dom == None else dom
+        dirname = self.dirname if dirname == None else dirname
+        self.dmf.save(dom, dirname)
     def read_meta(self, stream=None):
         """
         Read meta-data of dom file from stream.
@@ -243,6 +329,15 @@ class DomainIO(object):
         @rtype: solvcon.gendata.AttributeDict, list, int
         """
         return self.dmf.read_meta(stream)
+    def load(self, dirname, bcmapper=None):
+        """
+        Load domain from stream with BC mapper applied.
+        
+        @return: the read block object.
+        @rtype: solvcon.block.Block
+        """
+        dirname = self.dirname if dirname == None else dirname
+        return self.dmf.load(dirname, bcmapper)
     def load_block(self, dirname, blkid, bcmapper=None):
         """
         Load block from stream with BC mapper applied.
