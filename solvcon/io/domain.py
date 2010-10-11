@@ -88,6 +88,7 @@ class DomainFormat(Format):
         stream.write(self.BINARY_MARKER + '\n')
         # binary part.
         self._write_array(self.compressor, dom.part, stream)
+        self._write_array(self.compressor, dom.shapes, stream)
         self._write_array(self.compressor, dom.ifparr, stream)
         for maparr in dom.mappers:
             self._write_array(self.compressor, maparr, stream)
@@ -106,7 +107,7 @@ class DomainFormat(Format):
                 os.path.join(dirname, self.SPLIT_FILENAME%iblk), 'wb')
             blf.save(dom[iblk], stream)
             stream.close()
-    def load(self, dirname, bcmapper):
+    def load(self, dirname, bcmapper, with_split, domaintype):
         """
         Load domain file in the specified directory with BC mapper applied.
         
@@ -114,13 +115,18 @@ class DomainFormat(Format):
         @type dirname: str
         @param bcmapper: BC type mapper.
         @type bcmapper: dict
+        @param with_split: load split block as well.
+        @type with_split: bool
+        @param domaintype: the type used to instantiate domain object.
+        @type domaintype: solvcon.domain.Collective
         @return: the read domain object.
         @rtype: solvcon.domain.Collective
         """
         import os
         from .block import blfregy
         from ..domain import Collective
-        dom = Collective(None)
+        assert issubclass(domaintype, Collective)
+        dom = domaintype(None)
         stream = open(os.path.join(dirname, self.DOM_FILENAME), 'rb')
         # determine the text part and binary part.
         lines, textlen = self._get_textpart(stream)
@@ -135,6 +141,8 @@ class DomainFormat(Format):
         stream.seek(textlen)
         dom.part = self._read_array(meta.compressor,
             (meta.ncell,), 'int32', stream)
+        dom.shapes = self._read_array(meta.compressor,
+            (meta.npart, 7), 'int32', stream)
         dom.ifparr = self._read_array(meta.compressor,
             (meta.nifp, 2), 'int32', stream)
         ndmaps = self._read_array(meta.compressor,
@@ -157,10 +165,11 @@ class DomainFormat(Format):
         stream = open(os.path.join(dirname, whole), 'rb')
         dom.blk = blf.load(stream, bcmapper)
         stream.close()
-        for sfn in split:
-            stream = open(os.path.join(dirname, sfn), 'rb')
-            dom.append(blf.load(stream, bcmapper))
-            stream.close()
+        if with_split:
+            for sfn in split:
+                stream = open(os.path.join(dirname, sfn), 'rb')
+                dom.append(blf.load(stream, bcmapper))
+                stream.close()
         return dom
     def load_block(self, dirname, blkid, bcmapper):
         """
@@ -334,7 +343,8 @@ class DomainIO(object):
         @rtype: solvcon.gendata.AttributeDict, list, int
         """
         return self.dmf.read_meta(stream)
-    def load(self, dirname=None, bcmapper=None):
+    def load(self, dirname=None, bcmapper=None, with_split=False,
+        domaintype=None):
         """
         Load domain from stream with BC mapper applied.
         
@@ -342,11 +352,20 @@ class DomainIO(object):
         @type dirname: str
         @keyword bcmapper: BC type mapper.
         @type bcmapper: dict
+        @keyword with_split: load split block as well.
+        @type with_split: bool
+        @keyword domaintype: the type used to instantiate domain object.
+        @type domaintype: type
         @return: the read domain object.
         @rtype: solvcon.domain.Collective
         """
+        from .. import domain
         dirname = self.dirname if dirname == None else dirname
-        return self.dmf.load(dirname, bcmapper)
+        if domaintype is None:
+            domaintype = domain.Collective
+        elif isinstance(domaintype, basestring):
+            domiantype = getattr(domain, domaintype)
+        return self.dmf.load(dirname, bcmapper, with_split, domaintype)
     def load_block(self, dirname=None, blkid=None, bcmapper=None):
         """
         Load block from stream with BC mapper applied.

@@ -143,7 +143,8 @@ def go():
     from . import command
     from .conf import env, use_application
     for modname in env.modnames:
-        use_application(modname)
+        if modname:
+            use_application(modname)
     narg = len(sys.argv)
     if narg >= 2 and not sys.argv[1].startswith('-'):
         cmdcls = cmdregy.get(sys.argv[1], None)

@@ -78,18 +78,20 @@ class TestBlockCaseRun(TestCase):
     nsteps = 10
 
     def _get_case(self, **kw):
-        from ..testing import get_blk_from_sample_neu, TestingSolver
+        import os
+        from ..testing import TestingSolver
+        from ..conf import env
         from ..case import BlockCase
         from ..anchor import FillAnchor
         from ..helper import Information
-        case = BlockCase(basedir='.', basefn='blockcase',
+        meshfn = kw.get('meshfn', 'sample.neu')
+        kw['meshfn'] = os.path.join(env.datadir, meshfn)
+        case = BlockCase(basedir='.', basefn='blockcase', bcmap=None,
             solvertype=TestingSolver, neq=1,
             steps_run=self.nsteps, time_increment=self.time_increment,
             **kw
         )
         case.info = Information()
-        #case.info = lambda *a: None
-        case.load_block = get_blk_from_sample_neu
         case.runhooks.append(FillAnchor,
             keys=('soln', 'dsoln'), value=0.0,
         )
@@ -191,7 +193,7 @@ class TestLocalParallel(TestBlockCaseRun):
 class TestRemoteParallel(TestBlockCaseRun):
     npart = 2
 
-    def test_runparallel(self):
+    def test_dsoln(self):
         import sys
         from nose.plugins.skip import SkipTest
         if sys.platform.startswith('win'): raise SkipTest
@@ -201,6 +203,57 @@ class TestRemoteParallel(TestBlockCaseRun):
         case = self._get_case(npart=self.npart, domaintype=Distributed,
             scheduler=Localhost, rkillfn='')
         case.run()
+        # get result.
+        dsoln = case.execution.var['dsoln'][:,0,:]
+        # calculate reference
+        blk = case.solver.domainobj.blk
+        clcnd = zeros(dsoln.shape, dtype=dsoln.dtype)
+        for iistep in range(self.nsteps*2):
+            clcnd += blk.clcnd*self.time_increment/2
+        # compare.
+        self.assertTrue((dsoln==clcnd).all())
+
+class TestPresplitLocalParallel(TestBlockCaseRun):
+    npart = 3
+    def test_soln(self):
+        import sys
+        from nose.plugins.skip import SkipTest
+        if sys.platform.startswith('win'): raise SkipTest
+        from numpy import zeros
+        from ..domain import Collective
+        case = self._get_case(npart=self.npart, domaintype=Collective,
+            meshfn='sample.dom')
+        case.run()
+        # get result.
+        soln = case.execution.var['soln'][:,0]
+        # calculate reference
+        blk = case.solver.domainobj.blk
+        clvol = zeros(soln.shape, dtype=soln.dtype)
+        for iistep in range(self.nsteps*2):
+            clvol += blk.clvol*self.time_increment/2
+        # compare.
+        self.assertTrue((soln==clvol).all())
+class TestPresplitRemoteParallel(TestBlockCaseRun):
+    npart = 3
+    def test_dsoln(self):
+        import sys
+        from nose.plugins.skip import SkipTest
+        if sys.platform.startswith('win'): raise SkipTest
+        from numpy import zeros
+        from ..batch import Localhost
+        from ..domain import Distributed
+        case = self._get_case(npart=self.npart, domaintype=Distributed,
+            scheduler=Localhost, rkillfn='', meshfn='sample.dom')
+        case.run()
+        # get result.
+        dsoln = case.execution.var['dsoln'][:,0,:]
+        # calculate reference
+        blk = case.solver.domainobj.blk
+        clcnd = zeros(dsoln.shape, dtype=dsoln.dtype)
+        for iistep in range(self.nsteps*2):
+            clcnd += blk.clcnd*self.time_increment/2
+        # compare.
+        self.assertTrue((dsoln==clcnd).all())
 
 class TestTorqueParallel(TestBlockCaseRun):
     npart = 2

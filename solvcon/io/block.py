@@ -672,7 +672,7 @@ class BlockIO(object):
         if fmt == None and self.filename != None:
             fmt = self._peek_revision(self.filename)
         if fmt == None:
-            fmt = 'TrivialBlockFormt'
+            fmt = 'TrivialBlockFormat'
         self.blf = blfregy[fmt](compressor=compressor, fpdtype=fpdtype)
     @staticmethod
     def _peek_revision(filename):

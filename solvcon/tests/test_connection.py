@@ -22,6 +22,5 @@ class TestSpanningTree(TestCase):
         head = SpanningTreeNode(val=0, level=0)
         visited = dict()
         head.traverse(graph, visited)
-        print head
         # test results.
         self.assertEqual(len(visited), len(graph))

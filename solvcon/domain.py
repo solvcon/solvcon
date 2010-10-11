@@ -156,6 +156,8 @@ class Collective(Domain, list):
         respectively.  The shape of ndmaps is (nnode, 1+2*ndmblk), where ndmblk
         is the maximal number of blocks sharing a single node.
     @itype mappers: tuple
+    @ivar shapes: the shape of each of split blocks.
+    @itype shapes: numpy.ndarray
     @ivar ifparr: array storing the interface pairs as [[ijbc, jibc], [ijbc,
         jibc], ...].
     @itype ifparr: numpy.ndarray
@@ -167,9 +169,23 @@ class Collective(Domain, list):
         super(Collective, self).__init__(*args, **kw)
         self.edgecut = 0
         self.part = None
-        self.idxinfo = list()
-        self.mappers = list()
+        self.idxinfo = tuple()
+        self.mappers = tuple()
+        self.shapes = None
         self.ifparr = None
+
+    @property
+    def nblk(self):
+        """
+        Number of sub-domain split.
+        """
+        return len(self.idxinfo)
+    @property
+    def presplit(self):
+        """
+        Check if already split but sub-domains are not loaded.
+        """
+        return (len(self) == 0) and (len(self.idxinfo) != 0)
 
     @classmethod
     def _count_max_nodeinblock(cls, blk, part):
@@ -514,6 +530,15 @@ class Collective(Domain, list):
                 blk.shclgrp[slctm] = rblk.shclgrp[slctr]
                 blk.shclcnd[slctm,:] = rblk.shclcnd[slctr,:]
                 blk.shclvol[slctm,:] = rblk.shclvol[slctr,:]
+        # store shape information of the split block.
+        shapes = list()
+        for blk in self:
+            shape = list()
+            for key in ('nnode', 'nface', 'ncell', 'nbound', 'ngstnode',
+                'ngstface', 'ngstcell'):
+                shape.append(getattr(blk, key))
+            shapes.append(tuple(shape))
+        self.shapes = array(shapes, dtype='int32')
 
     def make_iflist_per_block(self):
         """
@@ -524,7 +549,7 @@ class Collective(Domain, list):
         @rtype: list
         """
         from numpy import array, concatenate
-        nblk = len(self)
+        nblk = self.nblk
         pairlist = self.ifparr.tolist()
         # determine exchanging order.
         stages = list()

@@ -28,6 +28,10 @@ class mesh(Command):
             dest='compressor', default='',
             help='Empty string (no compression), gz or bz2.',
         )
+        opg.add_option('--split', action='store', type='int',
+            dest='split', default=None,
+            help='Split the loaded block into given number of parts.',
+        )
         opg.add_option('--bc-reject', action='store', type='string',
             dest='bc_reject', default='',
             help='The BC (name) to be rejected in conversion.',
@@ -43,7 +47,8 @@ class mesh(Command):
         op.add_option_group(opg)
         self.opg_arrangement = opg
 
-    def _load_mesh(self, ops, args):
+    @staticmethod
+    def _load_mesh(ops, args):
         from time import time
         import gzip
         from .io.gambit import GambitNeutral
@@ -85,19 +90,42 @@ class mesh(Command):
             blk = bio.load(stream=args[0])
         return blk
 
-    def _save_mesh(self, ops, args, blk):
+    @staticmethod
+    def _save_block(ops, blk, blkfn):
         from time import time
         from .io.block import BlockIO
         from .helper import info
-        blkfn = args[0]
-        # save block.
-        bio = BlockIO(blk=blk, flag_compress=ops.compressor)
+        bio = BlockIO(blk=blk, compressor=ops.compressor)
         info('Save to blk format ... ')
         timer = time()
         bio.save(stream=blkfn)
         info('done. (%gs)\n' % (time()-timer))
 
+    @staticmethod
+    def _save_domain(ops, blk, dirname):
+        import os
+        from time import time
+        from .domain import Collective
+        from .io.domain import DomainIO
+        from .helper import info
+        info('Create domain ... ')
+        timer = time()
+        dom = Collective(blk)
+        info('done. (%gs)\n' % (time()-timer))
+        info('Split domain ... ')
+        timer = time()
+        dom.split(ops.split)
+        info('done. (%gs)\n' % (time()-timer))
+        dio = DomainIO(dom=dom, compressor=ops.compressor)
+        if not os.path.exists:
+            os.makedirs(dirname)
+        info('Save to directory ... ')
+        timer = time()
+        dio.save(dirname=dirname)
+        info('done. (%gs)\n' % (time()-timer))
+
     def __call__(self):
+        import os
         from time import time
         from .helper import info
         ops, args = self.opargs
@@ -120,7 +148,11 @@ class mesh(Command):
                 blk.fcara.min(), blk.fcara.max(), blk.fcara.sum()))
         # save.
         if ops.neu_file:
-            self._save_mesh(ops, args, blk)
+            path = args[0]
+            if ops.split is None:
+                self._save_block(ops, blk, path)
+            else:
+                self._save_domain(ops, blk, path)
 
 class SolverLog(Command):
     """

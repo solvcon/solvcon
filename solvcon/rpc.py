@@ -201,6 +201,46 @@ class Worker(object):
     def terminate(self):
         raise Terminate
 
+    def create_solver(self, bcmap, dirname, iblk, nblk, solvertype, svrkw):
+        """
+        Load a block and create a solver object with the given information, and
+        set it to muscle.
+
+        @param bcmap: BC mapper.
+        @type bcmap: dict
+        @param dirname: the directory of saved domain object.
+        @type dirname: str
+        @param iblk: index of the block to be loaded.
+        @type iblk: int
+        @param nblk: number of total blocks (sub-domains).
+        @type nblk: int
+        @param solvertype: the type of solver to be created.
+        @type solvertype: type
+        @param svrkw: keywords passed to the constructor of solver.
+        @type svrkw: dict
+        @return: nothing
+        """
+        from .io.domain import DomainIO
+        dio = DomainIO()
+        blk = dio.load_block(dirname=dirname, blkid=iblk, bcmapper=bcmap)
+        svr = solvertype(blk, **svrkw)
+        svr.svrn = iblk
+        svr.nsvr = nblk
+        svr.unbind()
+        self.muscle = svr
+
+    def drop_anchor(self, ankcls, ankkw):
+        """
+        Create an anchor object and append it to the solver muscle.
+
+        @param ankcls: anchor type.
+        @type ankcls: type
+        @param ankkw: keywords to the constructor of the anchor.
+        @type ankkw: dict
+        @return: nothing
+        """
+        self.muscle.runanchors.append(ankcls, **ankkw)
+
 class Agent(object):
     """
     Remote agent to worker.

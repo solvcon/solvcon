@@ -19,6 +19,7 @@ class CheckDomainIO(TestCase):
         self.assertEqual(don.edgecut, doo.edgecut)
     def _check_domain_array(self, don, doo):
         self.assertTrue((don.part == doo.part).all())
+        self.assertTrue((don.shapes == doo.shapes).all())
         self.assertTrue((don.ifparr == doo.ifparr).all())
         self.assertTrue((don.mappers[0] == doo.mappers[0]).all())
         self.assertTrue((don.mappers[1] == doo.mappers[1]).all())
@@ -150,7 +151,7 @@ class TestReloadTrivial(CheckDomainIO):
         # save and reload to new domain.
         dirname = mkdtemp()
         dio.save(dom=doo, dirname=dirname)
-        don = dio.load(dirname=dirname)
+        don = dio.load(dirname=dirname, with_split=True)
         rmtree(dirname)
         # check domain.
         self._check_domain_shape(don, doo)
@@ -172,6 +173,7 @@ class TestReloadTrivial(CheckDomainIO):
                 msgs.append('%d-th block' % iblk)
                 e.args = tuple(msgs)
                 raise
+
     def test_single_block(self):
         from tempfile import mkdtemp
         from shutil import rmtree
@@ -209,3 +211,30 @@ class TestReloadTrivial(CheckDomainIO):
                 raise
         # finalize.
         rmtree(dirname)
+
+    def test_limited_domain(self):
+        from tempfile import mkdtemp
+        from shutil import rmtree
+        from ...domain import Collective
+        from ..domain import DomainIO
+        npart = 3
+        # create original domain.
+        blk = get_sample_neu()
+        doo = Collective(blk=blk)
+        doo.split(npart)
+        dio = DomainIO(compressor='gz')
+        # save and reload to new domain.
+        dirname = mkdtemp()
+        dio.save(dom=doo, dirname=dirname)
+        don = dio.load(dirname=dirname)
+        rmtree(dirname)
+        # check domain.
+        self._check_domain_shape(don, doo)
+        self._check_domain_array(don, doo)
+        # check whole block.
+        self._check_block_shape(don.blk, doo.blk)
+        self._check_block_group(don.blk, doo.blk)
+        self._check_block_bc(don.blk, doo.blk)
+        self._check_block_array(don.blk, doo.blk)
+        # check split blocks.
+        self.assertEqual(len(don), 0)

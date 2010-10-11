@@ -395,7 +395,7 @@ class BlockCase(BaseCase):
         'io.dump.csefn': 'solvcon.dump.case.obj',
         'io.dump.svrfntmpl': 'solvcon.dump.solver%s.obj',
         # conditions.
-        'condition.bcmap': dict,
+        'condition.bcmap': None,
         # solver.
         'solver.domaintype': None,
         'solver.domainobj': None,
@@ -504,7 +504,7 @@ class BlockCase(BaseCase):
         # for parallel execution.
         else:
             # split the domain.
-            if level != 1:
+            if level != 1 and not self.solver.domainobj.presplit:
                 self.info('\n')
                 self._log_start('split_domain')
                 self.solver.domainobj.split(
@@ -551,12 +551,17 @@ class BlockCase(BaseCase):
         @return: a block object.
         @rtype: solvcon.block.Block
         """
-        import gzip
+        import os, gzip
         from .io.gambit import GambitNeutral
         from .io.block import BlockIO
+        from .io.domain import DomainIO
         meshfn = self.io.meshfn
         bcmapper = self.condition.bcmap
-        if '.neu' in meshfn:
+        if os.path.isdir(meshfn):
+            dof = DomainIO()
+            obj = dof.load(dirname=meshfn, bcmapper=bcmapper,
+                with_split=False, domaintype=self.solver.domaintype)
+        elif '.neu' in meshfn:
             self._log_start('read_neu_data', msg=' from %s'%meshfn)
             if meshfn.endswith('.gz'):
                 stream = gzip.open(meshfn)
@@ -569,15 +574,15 @@ class BlockCase(BaseCase):
             neu = GambitNeutral(data)
             self._log_end('create_neu_object')
             self._log_start('convert_neu_to_block')
-            blk = neu.toblock(bcname_mapper=bcmapper)
+            obj = neu.toblock(bcname_mapper=bcmapper)
             self._log_end('convert_neu_to_block')
         elif '.blk' in meshfn:
             self._log_start('load_block')
-            blk = BlockIO().load(stream=meshfn, bcmapper=bcmapper)
+            obj = BlockIO().load(stream=meshfn, bcmapper=bcmapper)
             self._log_end('load_block')
         else:
             raise ValueError
-        return blk
+        return obj
 
     def make_solver_keywords(self):
         """
@@ -617,17 +622,25 @@ class BlockCase(BaseCase):
         @return: nothing
         """
         dealer = self.solver.dealer
-        nblk = len(self.solver.domainobj)
+        solvertype = self.solver.solvertype
+        dom = self.solver.domainobj
+        nblk = dom.nblk
         for iblk in range(nblk):
-            sbk = self.solver.domainobj[iblk]
+            svrkw = self.make_solver_keywords()
             self.info('solver #%d/(%d-1): ' % (iblk, nblk))
-            svr = self.solver.solvertype(sbk, **self.make_solver_keywords())
-            self.info('sending ... ')
-            svr.svrn = iblk
-            svr.nsvr = nblk
-            self.runhooks.drop_anchor(svr)
-            svr.unbind()    # ensure no pointers (unpicklable) in solver.
-            dealer[iblk].remote_setattr('muscle', svr)
+            if dom.presplit:
+                dealer[iblk].create_solver(self.condition.bcmap,
+                    self.io.meshfn, iblk, nblk, solvertype, svrkw)
+                self.runhooks.drop_anchor(dealer[iblk])
+            else:
+                sbk = dom[iblk]
+                svr = solvertype(sbk, **svrkw)
+                self.info('sending ... ')
+                svr.svrn = iblk
+                svr.nsvr = nblk
+                self.runhooks.drop_anchor(svr)
+                svr.unbind()    # ensure no pointers (unpicklable) in solver.
+                dealer[iblk].remote_setattr('muscle', svr)
             self.info('done.\n')
         self.info('Bind/Init ... ')
         for sdw in dealer: sdw.cmd.bind()
@@ -641,7 +654,7 @@ class BlockCase(BaseCase):
         @return: nothing
         """
         dealer = self.solver.dealer
-        nblk = len(self.solver.domainobj)
+        nblk = self.solver.domainobj.nblk
         for iblk in range(nblk):
             dealer[iblk].remote_loadobj('muscle',
                 self.io.dump.svrfntmpl % str(iblk))
@@ -659,7 +672,7 @@ class BlockCase(BaseCase):
         @rtype: solvcon.rpc.Dealer
         """
         from .rpc import Dealer
-        nblk = len(self.solver.domainobj)
+        nblk = self.solver.domainobj.nblk
         flag_parallel = self.is_parallel
         if flag_parallel == 1:
             family = None
@@ -738,15 +751,17 @@ for node in $nodes; do rsh $node killall %s; done
         """
         dom = self.solver.domainobj
         dealer = self.solver.dealer
-        dwidth = len(str(len(dom)-1))
+        dwidth = len(str(dom.nblk-1))
         oblk = -1
         for iblk, jblk in dom.ifparr:
             if iblk != oblk:
+                if oblk != -1:
+                    self.info('.\n')
                 self.info(('%%0%dd ->' % dwidth) % iblk)
                 oblk = iblk
             dealer.bridge((iblk, jblk))
             self.info((' %%0%dd'%dwidth) % jblk)
-            self.info('.\n')
+        self.info('.\n')
         dealer.barrier()
 
     # interface.
@@ -758,7 +773,7 @@ for node in $nodes; do rsh $node killall %s; done
         """
         dom = self.solver.domainobj
         dealer = self.solver.dealer
-        nblk = len(dom)
+        nblk = dom.nblk
         iflists = dom.make_iflist_per_block()
         self.info('Interface exchanging pairs (%d phases):\n' % len(
             iflists[0]))

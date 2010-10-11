@@ -86,6 +86,26 @@ class Hook(object):
                 return False
         return True
 
+    @staticmethod
+    def _deliver_anchor(target, ankcls, ankkw):
+        """
+        Provide the information to instantiate anchor object for a solver.  The
+        target object can be a real solver object or a shadow associated to a
+        remote worker object with attached muscle of solver object.
+
+        @param target: the solver or shadow object.
+        @type target: solvcon.solver.Solver or solvcon.rpc.Shadow
+        @param ankcls: type of the anchor to instantiate.
+        @type ankcls: type
+        @param ankkw: keywords to instantiate anchor object.
+        @type ankkw: dict
+        @return: nothing
+        """
+        from .rpc import Shadow
+        if isinstance(target, Shadow):
+            target.drop_anchor(ankcls, ankkw)
+        else:
+            target.runanchors.append(ankcls, **ankkw)
     def drop_anchor(self, svr):
         """
         Drop the anchor(s) to the solver object.
@@ -94,8 +114,7 @@ class Hook(object):
         @type svr: solvon.solver.BaseSolver
         @return: nothing
         """
-        if self.ankcls:
-            svr.runanchors.append(self.ankcls, **self.kws)
+        if self.ankcls: self._deliver_anchor(svr, self.ankcls, self.kws)
 
     def preloop(self):
         """
@@ -249,7 +268,7 @@ class BlockHook(Hook):
             # collect arrays from solvers.
             dealer = self.cse.solver.dealer
             arrs = list()
-            for iblk in range(len(dom)):
+            for iblk in range(dom.nblk):
                 dealer[iblk].cmd.pull(key, inder=inder, with_worker=True)
                 arr = dealer[iblk].recv()
                 arrs.append(arr)
@@ -259,12 +278,11 @@ class BlockHook(Hook):
             arrg = empty(shape, dtype=arrs[0].dtype)
             # set global array.
             clmaps = dom.mappers[2]
-            for iblk in range(len(dom)):
-                blk = dom[iblk]
+            for iblk in range(dom.nblk):
                 slctg = (clmaps[:,1] == iblk)
                 slctl = clmaps[slctg,0]
                 if consider_ghost:
-                    slctl += blk.ngstcell
+                    slctl += dom.shapes[iblk,6]
                 arrg[slctg] = arrs[iblk][slctl]
         else:
             if consider_ghost:
