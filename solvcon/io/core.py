@@ -208,6 +208,46 @@ class Format(object):
         arr = np.frombuffer(buf, dtype=dtype).reshape(shape).copy()
         return arr
 
+class FormatIORegistry(SingleAssignDict, AttributeDict):
+    """
+    Registry for all FormatIO classes.
+    """
+    def register(self, ftype):
+        name = ftype.__name__
+        self[name] = ftype
+        return ftype
+fioregy = FormatIORegistry()    # registry singleton.
+class FormatIOMeta(type):
+    """
+    Metaclass for FormatIO.
+    """
+    def __new__(cls, name, bases, namespace):
+        # recreate the class.
+        newcls = super(FormatIOMeta, cls).__new__(
+            cls, name, bases, namespace)
+        # register.
+        fioregy.register(newcls)
+        return newcls
+class FormatIO(object):
+    """
+    Proxy to mesh format object.
+    """
+    __metaclass__ = FormatIOMeta
+    def save(self):
+        """
+        Save an object for mesh.
+        """
+        raise NotImplementedError
+    def load(self, bcmapper=None):
+        """
+        Load and return an object for mesh.
+
+        @keyword bcmapper: BC type mapper.
+        @type bcmapper: dict
+        @return: the loaded object for mesh.
+        """
+        raise NotImplementedError
+
 ################################################################################
 # Utility
 ################################################################################

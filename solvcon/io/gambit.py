@@ -5,6 +5,8 @@
 Gambit Neutral file.
 """
 
+from .core import FormatIO
+
 class ElementGroup(object):
     """
     One single element group information in Gambit Neutral file.
@@ -753,6 +755,42 @@ class GambitNeutral(object):
             bc.sern = len(blk.bclist)
             bc.blk = blk
             blk.bclist.append(bc)
+
+class NeutralIO(FormatIO):
+    """
+    Proxy to gambit neutral file format.
+    """
+    def load(self, stream, bcrej=None):
+        """
+        Load block from stream with BC mapper applied.
+
+        @keyword stream: file object or file name to be read.
+        @type stream: file or str
+        @keyword bcrej: names of the BC to reject.
+        @type bcrej: list
+        @return: the loaded block.
+        @rtype: solvcon.block.Block
+        """
+        import gzip
+        # load gambit neutral file.
+        if isinstance(stream, basestring):
+            if stream.endswith('.gz'):
+                opener = gzip.open
+            else:
+                opener = open
+            stream = opener(stream)
+        neu = GambitNeutral(stream)
+        stream.close()
+        # convert loaded neutral object into block object.
+        if bcrej:
+            onlybcnames = list()
+            for bc in neu.bcs:
+                if bc.name not in bcrej:
+                    onlybcnames.append(bc.name)
+        else:
+            onlybcnames = None
+        blk = neu.toblock(onlybcnames=onlybcnames)
+        return blk
 
 if __name__ == '__main__':
     import sys

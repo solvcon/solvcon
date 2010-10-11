@@ -6,7 +6,7 @@ Intrinsic format mesh I/O.  Provides:
   - TrivialDomainFormat (revision 0.0.1).
 """
 
-from .core import FormatRegistry, FormatMeta, Format, strbool
+from .core import FormatRegistry, FormatMeta, Format, FormatIO, strbool
 
 dmfregy = FormatRegistry() # registry singleton.
 class DomainFormatMeta(FormatMeta):
@@ -295,7 +295,7 @@ class TrivialDomainFormat(DomainFormat):
     """
     FORMAT_REV = '0.0.1'
 
-class DomainIO(object):
+class DomainIO(FormatIO):
     """
     Proxy to dom directory format.
 

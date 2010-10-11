@@ -7,7 +7,7 @@ Intrinsic format mesh I/O.  Provides:
   - TrivialBlockFormat (revision 0.0.1).
 """
 
-from .core import FormatRegistry, FormatMeta, Format, strbool
+from .core import FormatRegistry, FormatMeta, Format, FormatIO, strbool
 
 blfregy = FormatRegistry() # registry singleton.
 class BlockFormatMeta(FormatMeta):
@@ -641,7 +641,7 @@ class TrivialBlockFormat(BlockFormat):
                     (bcinfo[3], 3), 'int32', stream)
             blk.bclist.append(bc)
 
-class BlockIO(object):
+class BlockIO(FormatIO):
     """
     Proxy to blk file format.
 
@@ -737,8 +737,14 @@ class BlockIO(object):
         """
         from ..block import Block
         bcmapper = bcmapper if bcmapper != None else self.bcmapper
-        if stream == None:
+        blf = self.blf
+        if stream is None:
             stream = open(self.filename, 'rb')
-        elif isinstance(stream, str):
+        elif isinstance(stream, basestring):
+            # guess for file format.
+            fmt = self._peek_revision(stream)
+            if fmt == None:
+                fmt = 'TrivialBlockFormat'
+            blf = blfregy[fmt]()
             stream = open(stream, 'rb')
-        return self.blf.load(stream, bcmapper)
+        return blf.load(stream, bcmapper)

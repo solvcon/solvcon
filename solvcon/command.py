@@ -20,9 +20,9 @@ class mesh(Command):
         op = self.op
 
         opg = OptionGroup(op, 'Mesh')
-        opg.add_option('--from-neu-file', action='store', type='string',
-            dest='neu_file', default='',
-            help='The file name for source Gambit Neutral file.',
+        opg.add_option('--formats', action='store', type='string',
+            dest='formats', default='',
+            help='Assign the I/O formats as InputIO,OutputIO.',
         )
         opg.add_option('--compressor', action='store', type='string',
             dest='compressor', default='',
@@ -48,59 +48,15 @@ class mesh(Command):
         self.opg_arrangement = opg
 
     @staticmethod
-    def _load_mesh(ops, args):
-        from time import time
-        import gzip
-        from .io.gambit import GambitNeutral
-        from .io.block import BlockIO
-        from .helper import info
-        if ops.neu_file != '':
-            neufn = ops.neu_file
-            if neufn.endswith('.gz'):
-                opener = gzip.open
-            else:
-                opener = open
-            # load gambit nuetral file.
-            info('Load Gambit Neutral file: %s ... ' % neufn)
-            timer = time()
-            neu = GambitNeutral(opener(neufn))
-            if ops.print_block:
-                info('\n  %s\n' % str(neu))
-                if ops.print_bc:
-                    for bc in neu.bcs:
-                        info('    %s\n' % str(bc))
-            info('  (%gs)\n' % (time()-timer))
-            # creat block object.
-            info('Convert to block object ...')
-            timer = time()
-            if ops.bc_reject:
-                rejects = ops.bc_reject.split(',')
-                onlybcnames = list()
-                for bc in neu.bcs:
-                    if bc.name not in rejects:
-                        onlybcnames.append(bc.name)
-                    else:
-                        info('\n  CAUTION: "%s" BC is rejected.' % bc.name)
-            else:
-                onlybcnames = None
-            blk = neu.toblock(onlybcnames=onlybcnames)
-            info('  (%gs)\n' % (time()-timer))
-        else:
-            bio = BlockIO()
-            blk = bio.load(stream=args[0])
-        return blk
-
-    @staticmethod
     def _save_block(ops, blk, blkfn):
         from time import time
         from .io.block import BlockIO
         from .helper import info
         bio = BlockIO(blk=blk, compressor=ops.compressor)
-        info('Save to blk format ... ')
+        info('Save to %s of blk format ... ' % blkfn)
         timer = time()
         bio.save(stream=blkfn)
         info('done. (%gs)\n' % (time()-timer))
-
     @staticmethod
     def _save_domain(ops, blk, dirname):
         import os
@@ -112,28 +68,67 @@ class mesh(Command):
         timer = time()
         dom = Collective(blk)
         info('done. (%gs)\n' % (time()-timer))
-        info('Split domain ... ')
+        info('Split domain into %d parts ... ' % ops.split)
         timer = time()
         dom.split(ops.split)
         info('done. (%gs)\n' % (time()-timer))
         dio = DomainIO(dom=dom, compressor=ops.compressor)
-        if not os.path.exists:
+        if not os.path.exists(dirname):
             os.makedirs(dirname)
-        info('Save to directory ... ')
+        info('Save to directory %s/ ... ' % dirname)
         timer = time()
         dio.save(dirname=dirname)
         info('done. (%gs)\n' % (time()-timer))
+    @staticmethod
+    def _determine_formats(ops, args):
+        """
+        Determine I/O formats based on arguments.
 
+        @return: I/O formats.
+        @rtype: FormatIO, str
+        """
+        from .helper import info
+        from .io import gambit, block, domain   # refresh formatio registry.
+        from .io.core import fioregy
+        iio = oio = None
+        if ops.formats:
+            tokens = ops.formats.split(',')
+            if len(tokens) == 1:
+                iio = tokens[0]
+            elif len(tokens) == 2:
+                iio, oio = tokens
+        if iio is None:
+            fn = args[0]
+            if fn.endswith('.blk'):
+                iio = 'BlockIO'
+            elif '.neu' in fn:
+                iio = 'NeutralIO'
+            else:
+                iio = 'NeutralIO'
+            if len(args) == 2:
+                fn = args[1]
+                if fn.endswith('.blk'):
+                    oio = 'BlockIO'
+                elif fn.endswith('.dom'):
+                    oio = 'DomainIO'
+            info('I/O formats are determined as: %s, %s.\n' % (iio, oio))
+        iio = fioregy[iio]()
+        return iio, oio
     def __call__(self):
         import os
         from time import time
         from .helper import info
         ops, args = self.opargs
+        # determine file formats.
+        iio, oio = self._determine_formats(ops, args)
         # load.
-        blk = self._load_mesh(ops, args)
+        info('Load %s (%s) ... ' % (args[0], type(iio).__name__))
+        timer = time()
+        blk = iio.load(stream=args[0])
+        info('done. (%gs)\n' % (time()-timer))
         # print block information.
-        info('Block information:')
         if ops.print_block:
+            info('Block information:')
             info('\n  %s\n' % str(blk))
             if ops.print_bc:
                 for bc in blk.bclist:
@@ -144,14 +139,15 @@ class mesh(Command):
                 info('    grp#%d: %s\n' % (igrp, grpname))
             info('  Cell volume (min, max, all): %g, %g, %g.\n' % (
                 blk.clvol.min(), blk.clvol.max(), blk.clvol.sum()))
-            info('  Face area (min, max, all): %g, %g, %g.\n' % (
-                blk.fcara.min(), blk.fcara.max(), blk.fcara.sum()))
         # save.
-        if ops.neu_file:
-            path = args[0]
-            if ops.split is None:
+        if oio is not None:
+            path = args[1]
+            if oio == 'BlockIO':
                 self._save_block(ops, blk, path)
-            else:
+            elif oio == 'DomainIO':
+                if ops.split is None:
+                    info('No saving: split must be specified.\n')
+                    return
                 self._save_domain(ops, blk, path)
 
 class SolverLog(Command):
