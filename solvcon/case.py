@@ -581,7 +581,7 @@ class BlockCase(BaseCase):
             obj = BlockIO().load(stream=meshfn, bcmapper=bcmapper)
             self._log_end('load_block')
         else:
-            raise ValueError
+            raise ValueError(meshfn)
         return obj
 
     def make_solver_keywords(self):
