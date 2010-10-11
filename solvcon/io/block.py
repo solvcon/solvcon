@@ -327,7 +327,14 @@ class BlockFormat(Format):
         for key in name_mapper:
             bct, vdict = name_mapper[key]
             if not issubclass(bct, periodic):
-                npidx.append(nmidx[key])
+                try:
+                    if key in nmidx:
+                        npidx.append(nmidx[key])
+                except Exception as e:
+                    args = list(e.args)
+                    args.append(str(nmidx))
+                    e.args = tuple(args)
+                    raise
                 continue
             val = vdict['link']
             ibc0 = nmidx[key]
