@@ -342,25 +342,43 @@ class BlockHook(Hook):
             getattr(cse.solver.solverobj, key)[start:] = arrg[:]
 
 class BlockInfoHook(BlockHook):
+    def __init__(self, cse, **kw):
+        self.show_bclist = kw.pop('show_bclist', False)
+        self.perffn = kw.pop('perffn', None)
+        super(BlockInfoHook, self).__init__(cse, **kw)
     def preloop(self):
         blk = self.blk
         self.info("Block information:\n  %s\n" % str(blk))
+        if self.show_bclist:
+            for bc in blk.bclist:
+                self.info("  %s\n" % bc)
     def postloop(self):
+        import os
         ncell = self.blk.ncell
         time = self.cse.log.time['solver_march']
         step_init = self.cse.execution.step_init
         step_current = self.cse.execution.step_current
         neq = self.cse.execution.neq
         npart = self.cse.execution.npart
+        # determine filename.
+        perffn = '%s_perf.txt' % self.cse.io.basefn
+        perffn = self.perffn if self.perffn is not None else perffn
+        perffn = os.path.join(self.cse.io.basedir, perffn)
+        pf = open(perffn, 'w')
+        # calculate and output performance.
+        def out(msg):
+            self.info(msg)
+            pf.write(msg)
         perf = (step_current-step_init)*ncell / time * 1.e-6
-        self.info('Performance:\n')
-        self.info('  %g seconds in marching solver.\n' % time)
-        self.info('  %g microseconds/cell.\n' % (1./perf))
-        self.info('  %g Mcells/seconds.\n' % perf)
-        self.info('  %g Mvariables/seconds.\n' % (perf*neq))
+        out('Performance of %s:\n' % self.cse.io.basefn)
+        out('  %g seconds in marching solver.\n' % time)
+        out('  %g microseconds/cell.\n' % (1./perf))
+        out('  %g Mcells/seconds.\n' % perf)
+        out('  %g Mvariables/seconds.\n' % (perf*neq))
         if isinstance(self.cse.execution.npart, int):
-            self.info('  %g Mcells/seconds/computer.\n' % (perf/npart))
-            self.info('  %g Mvariables/seconds/computer.\n' % (perf*neq/npart))
+            out('  %g Mcells/seconds/computer.\n' % (perf/npart))
+            out('  %g Mvariables/seconds/computer.\n' % (perf*neq/npart))
+        pf.close()
 
 class CollectHook(BlockHook):
     def __init__(self, cse, **kw):
