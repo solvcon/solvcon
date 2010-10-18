@@ -293,7 +293,7 @@ class BaseSolver(object):
         while self.step_current < steps_run:
             self.substep_current = 0
             self.runanchors('prefull')
-            t0 = _time()
+            t0= _time()
             while self.substep_current < self.substep_run:
                 self._set_time(time, time_increment)
                 self.runanchors('presub')
@@ -306,12 +306,12 @@ class BaseSolver(object):
                     method(worker=worker)
                     self.timer.increase(mmname, _time() - t2)
                     self.runanchors('post'+mmname)
-                    self.timer.increase(mmname, _time() - t1)
+                    self.timer.increase(mmname+'_a', _time() - t1)
                 # increment time.
                 time += time_increment/self.substep_run
                 self._set_time(time, time_increment)
-                self.runanchors('postsub')
                 self.substep_current += 1
+                self.runanchors('postsub')
             self.timer.increase('march', _time() - t0)
             self.step_current += 1
             self.runanchors('postfull')

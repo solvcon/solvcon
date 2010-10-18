@@ -203,7 +203,7 @@ class log_runtime(SolverLog):
     """
 
     min_args = 1
-    PLOTS = ['cpu', 'perf', 'march', 'marchother', 'loadavg', 'mem']
+    PLOTS = ['cpu', 'loadavg', 'mem']
 
     def __init__(self, env):
         from optparse import OptionGroup

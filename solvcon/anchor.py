@@ -322,7 +322,7 @@ class MarchStatAnchor(Anchor):
     def plot(cls, keys, lines, ax, lloc='best'):
         maxavg = 0.0
         for key in keys:
-            arr, xval, xlabel = cls._parse(lines, key)
+            arr, xval, xlabel = cls.parse(lines, key)
             ax.plot(xval, arr[:,0], label='%s'%key)
             maxavg = max(arr[:,0].mean(), maxavg)
         ax.set_xlabel(xlabel)
@@ -331,7 +331,7 @@ class MarchStatAnchor(Anchor):
         ax.legend(loc=lloc)
 
     @classmethod
-    def _parse(cls, lines, key):
+    def parse(cls, lines, key, diff=True):
         from numpy import array, arange
         myhead = 'MA_%s: ' % key
         nmyhead = len(myhead)
@@ -341,14 +341,15 @@ class MarchStatAnchor(Anchor):
             if loc > -1:
                 data.append([float(val) for val in line[loc+nmyhead:].split()])
         arr = array(data, dtype='float64')
-        arr[1:,:] = arr[1:,:] - arr[:-1,:]
-        arr[0,:] = arr[1,:]
+        if diff:
+            arr[1:,:] = arr[1:,:] - arr[:-1,:]
+            arr[0,:] = arr[1,:]
         xval = arange(arr.shape[0])+1
         xlabel = 'Steps'
         return arr, xval.copy(), xlabel
 
     def postfull(self):
-        for key in self.svr.mmnames:
+        for key in ['march'] + self.svr.mmnames:
             val = self.svr.timer.get(key, None)
             if val == None:
                 continue
