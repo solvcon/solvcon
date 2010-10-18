@@ -327,7 +327,7 @@ class BaseCase(CaseInfo):
             raise KeyboardInterrupt
 
     @classmethod
-    def register_arrangement(cls, func):
+    def register_arrangement(cls, func, casename=None):
         """
         Decorate simulation functions.  This function asserts required
         signature which is necessary for a function to be a valid simulation
@@ -340,6 +340,7 @@ class BaseCase(CaseInfo):
         import signal
         import cPickle as pickle
         from .batch import Scheduler
+        if casename is None: casename = func.__name__
         def simu(*args, **kw):
             kw.pop('casename', None)
             resources = kw.pop('resources', dict())
@@ -351,7 +352,6 @@ class BaseCase(CaseInfo):
             if runlevel == 1:
                 case = pickle.load(open(cls.CSEFN_DEFAULT, 'rb'))
             else:
-                casename = func.__name__
                 case = func(casename=casename, *args, **kw)
             # submit/run.
             try:
@@ -370,8 +370,8 @@ class BaseCase(CaseInfo):
                 raise
             return case
         # register self to simulation registries.
-        cls.arrangements[func.__name__] = simu
-        arrangements[func.__name__] = simu
+        cls.arrangements[casename] = simu
+        arrangements[casename] = simu
         return simu
 
 class BlockCase(BaseCase):
