@@ -557,6 +557,7 @@ class BlockCase(BaseCase):
         from .io.domain import DomainIO
         meshfn = self.io.meshfn
         bcmapper = self.condition.bcmap
+        self.info('mesh file: %s\n' % meshfn)
         if os.path.isdir(meshfn):
             dof = DomainIO()
             obj = dof.load(dirname=meshfn, bcmapper=bcmapper,
@@ -728,7 +729,8 @@ class BlockCase(BaseCase):
             dealer.appoint(node.address, port, authkey)
             info(' and appointed.\n')
             iworker += 1
-        assert len(dealer) == nblk
+        if len(dealer) != nblk:
+            raise IndexError('%d != %d' % (len(dealer), nblk))
         # create remote killer script.
         if self.io.rkillfn:
             f = open(self.io.rkillfn, 'w')
