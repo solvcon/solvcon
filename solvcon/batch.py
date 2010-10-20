@@ -308,19 +308,21 @@ class Torque(Scheduler):
                 tokens.append(token)
         # nodes and ppn must be together.
         idx1 = 0
-        for idx1 in range(len(tokens)):
+        while idx1 < len(tokens):
             if 'nodes' in tokens[idx1]:
                 break
+            idx1 += 1
         idx2 = 0
-        for idx2 in range(len(tokens)):
+        while idx2 < len(tokens):
             if 'ppn' in tokens[idx2]:
                 break
-        if idx1 != idx2:
+            idx2 += 1
+        if idx1 != len(tokens) and idx2 != len(tokens) and idx1 != idx2:
             tokens[idx1] = ':'.join([tokens[idx1], tokens[idx2]])
             del tokens[idx2]
         # return resource string.
         if tokens:
-            return '\n'.join(['#PBS -l %s' % token for token in tokens])
+            return '#PBS -l %s' % ','.join(tokens)
         else:
             return ''
 
