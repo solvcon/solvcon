@@ -515,7 +515,7 @@ class ArrangementCommand(Command):
         ops, args = self.opargs
         dct = dict()
         if ops.envar:
-            for ent in ops.envar.split(':'):
+            for ent in ops.envar.split(','):
                 key, val = [it.strip() for it in ent.split('=')]
                 dct[key] = val
         return dct
