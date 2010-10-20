@@ -332,17 +332,18 @@ class DomainIO(FormatIO):
         dom = self.dom if dom == None else dom
         dirname = self.dirname if dirname == None else dirname
         self.dmf.save(dom, dirname)
-    def read_meta(self, stream=None):
+    def read_meta(self, dirname=None):
         """
         Read meta-data of dom file from stream.
         
-        @keyword stream: file object or file name to be read.
-        @type stream: file or str
+        @keyword dirname: the directory of domain data.
+        @type dirname: str
         @return: meta-data, raw text lines of meta-data, and the length of
             meta-data in bytes.
         @rtype: solvcon.gendata.AttributeDict, list, int
         """
-        return self.dmf.read_meta(stream)
+        dirname = self.dirname if dirname == None else dirname
+        return self.dmf.read_meta(dirname)
     def load(self, dirname=None, bcmapper=None, with_split=False,
         domaintype=None):
         """
