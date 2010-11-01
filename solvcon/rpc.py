@@ -55,6 +55,7 @@ class Worker(object):
     @itype pconns: dict
     """
     def __init__(self, muscle, profiler_data=None):
+        from .conf import env
         self.muscle = muscle
         self.serial = None
         self.lsnr = None
@@ -65,6 +66,7 @@ class Worker(object):
         self.profiler_dat = profiler_data[0] if profiler_data else None
         self.profiler_log = profiler_data[1] if profiler_data else None
         self.profiler_sort = profiler_data[2] if profiler_data else None
+        self.mpi = env.mpi
 
     def _eventloop(self):
         """
@@ -88,6 +90,9 @@ class Worker(object):
         import cProfile
         import pstats
         if self.do_profile:
+            if self.mpi:
+                self.profiler_dat += '%d' % self.mpi.rank
+                self.profiler_log += '%d' % self.mpi.rank
             cProfile.runctx('self._eventloop()', globals(), locals(),
                 self.profiler_dat)
             plog = open(self.profiler_log, 'w')
@@ -133,9 +138,12 @@ class Worker(object):
         @param authkey: authentication key for connection.
         @type authkey: str
         """
+        from .conf import env
         from .connection import Listener
         # listen on the given address and accept connection.
         self.lsnr = Listener(address=address, authkey=authkey)
+        if address[1] == 0 and env.mpi:
+            env.mpi.send(self.lsnr.address[1], 0, 1)
         self.conn = self.lsnr.accept()
         # start eventloop.
         self.eventloop()
@@ -197,6 +205,22 @@ class Worker(object):
         from .connection import Client
         conn = Client(address=address, authkey=authkey)
         self.pconns[peern] = conn
+
+    def set_peer(self, src, dst):
+        """
+        Create MPI proxy for a pair of p2p connection.
+
+        @param src: source worker ID.
+        @type src: int
+        @param dst: destination worker ID.
+        @type dst: int
+        """
+        from .connection import MPIConnection
+        self.pconns[dst] = MPIConnection(src+1, dst+1)
+
+    def get_port_by_mpi(self, dst, tag):
+        port = self.mpi.recv(dst, tag)
+        self.conn.send(port)
 
     def terminate(self):
         raise Terminate
@@ -379,19 +403,27 @@ class Dealer(list):
         Tell two peering worker to establish a connection.
         """
         from time import sleep
+        from .conf import env
         plow, phigh = peers
         assert plow != phigh    # makes no sense.
         if plow > phigh:
             tmp = plow
             plow = phigh
             phigh = tmp
-        # ask higher to accept connection.
-        self[phigh].accept_peer(plow, self.family, self.authkey)
-        address = self[phigh].recv()
-        assert address == self[phigh].address
-        # ask lower to make connection.
-        sleep(wait_for_accept if wait_for_accept!=None else self.WAIT_FOR_ACCEPT)
-        self[plow].connect_peer(phigh, address, self.authkey)
+        if env.mpi:
+            self[phigh].set_peer(phigh, plow)
+            self[plow].set_peer(plow, phigh)
+        else:
+            # ask higher to accept connection.
+            self[phigh].accept_peer(plow, self.family, self.authkey)
+            address = self[phigh].recv()
+            if address != self[phigh].address:
+                raise ValueError('%s != %s' % (
+                    str(address), str(self[phigh].address)))
+            # ask lower to make connection.
+            sleep(wait_for_accept
+                if wait_for_accept!=None else self.WAIT_FOR_ACCEPT)
+            self[plow].connect_peer(phigh, address, self.authkey)
 
     def span(self, graph):
         from .connection import SpanningTreeNode

@@ -12,6 +12,8 @@ Configurable environmental variables:
   semi-colon.  There should be no spaces.
 * ``SOLVCON_FPDTYPE``: a string for the numpy dtype object for floating-point.
   The default fpdtype to be used is float64 (double).
+* ``SOLVCON_FORTRAN``: flag to use FORTRAN binaries.
+* ``SOLVCON_MPI``: flag to use MPI.
 """
 
 __docformat__ = 'restructuredtext en'
@@ -22,6 +24,7 @@ class Solvcon(object):
     """
     def __init__(self):
         import os
+        from .mpy import MPI
         # directories.
         self.pydir = os.path.abspath(os.path.dirname(__file__))
         self.pkgdir = os.path.abspath(os.path.join(self.pydir, '..'))
@@ -46,6 +49,9 @@ class Solvcon(object):
         self.command = None
         # library.
         self.use_fortran = bool(os.environ.get('SOLVCON_FORTRAN', False))
+        # MPI.
+        self.mpi = os.environ.get('SOLVCON_MPI', None)
+        self.mpi = MPI() if self.mpi is not None else self.mpi
 
     @property
     def fpdtype(self):

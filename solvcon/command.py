@@ -7,6 +7,50 @@ Commands for users.
 
 from .cmdutil import Command
 
+class mpi(Command):
+    """
+    Utilities for MPI.
+    """
+
+    min_args = 0
+
+    def __init__(self, env):
+        from optparse import OptionGroup
+        super(mpi, self).__init__(env)
+        op = self.op
+        opg = OptionGroup(op, 'MPI')
+        opg.add_option('--node-env', action='store',
+            dest='node_env', default='PBS_NODEFILE',
+            help='Environment variable of the host file.',
+        )
+        opg.add_option('--head-last', action='store_true',
+            dest='head_last', default=False,
+            help='Make the head node to be last in the host file.',
+        )
+        op.add_option_group(opg)
+        self.opg_arrangement = opg
+
+    @staticmethod
+    def _head_last(nodefn):
+        import sys
+        f = open(nodefn)
+        nodes = f.readlines()
+        f.close()
+        first = nodes[0]
+        ind = 1
+        while ind < len(nodes):
+            if nodes[ind] != first:
+                break
+            ind += 1
+        nodes = nodes[ind:] + nodes[:ind]
+        sys.stdout.write('\n'.join([node.strip() for node in nodes]))
+
+    def __call__(self):
+        import os
+        ops, args = self.opargs
+        if ops.head_last:
+            self._head_last(os.environ[ops.node_env])
+
 class mesh(Command):
     """
     Mesh manipulation.
@@ -531,10 +575,12 @@ class run(ArrangementCommand):
         import os
         import cProfile
         import pstats
+        from socket import gethostname
         from .helper import info
-        from .conf import use_application
+        from .conf import use_application, env
         from . import batch, domain
         from .case import arrangements
+        from .rpc import Worker, DEFAULT_AUTHKEY
         ops, args = self.opargs
         if len(args) > 0:
             name = args[0]
@@ -563,20 +609,29 @@ class run(ArrangementCommand):
             'npart': npart, 'domaintype': domaintype,
         }
         func = arrangements[name]
-        if ops.use_profiler:
-            cProfile.runctx('func(submit=False, **funckw)', globals(), locals(),
-                ops.profiler_dat)
-            plog = open(ops.profiler_log, 'w')
-            p = pstats.Stats(ops.profiler_dat, stream=plog)
-            p.sort_stats(*ops.profiler_sort.split(','))
-            p.dump_stats(ops.profiler_dat)
-            p.print_stats()
-            plog.close()
-            info('*** Profiled information saved in '
-                '%s (raw) and %s (text).\n' % (
-                ops.profiler_dat, ops.profiler_log))
+        if env.mpi and env.mpi.rank != 0:
+            pdata = (
+                ops.profiler_dat,
+                ops.profiler_log,
+                ops.profiler_sort,
+            ) if ops.use_profiler else None
+            wkr = Worker(None, profiler_data=pdata)
+            wkr.run((gethostname(), 0), DEFAULT_AUTHKEY)    # FIXME
         else:
-            func(submit=False, **funckw)
+            if ops.use_profiler:
+                cProfile.runctx('func(submit=False, **funckw)',
+                    globals(), locals(), ops.profiler_dat)
+                plog = open(ops.profiler_log, 'w')
+                p = pstats.Stats(ops.profiler_dat, stream=plog)
+                p.sort_stats(*ops.profiler_sort.split(','))
+                p.dump_stats(ops.profiler_dat)
+                p.print_stats()
+                plog.close()
+                info('*** Profiled information saved in '
+                    '%s (raw) and %s (text).\n' % (
+                    ops.profiler_dat, ops.profiler_log))
+            else:
+                func(submit=False, **funckw)
 
 class submit(ArrangementCommand):
     """
@@ -594,6 +649,10 @@ class submit(ArrangementCommand):
         opg.add_option('-l', '--resources', action='store',
             dest='resources', default='',
             help='Resource list with "," as delimiter.',
+        )
+        opg.add_option('--use-mpi', action='store_true',
+            dest='use_mpi', default=False,
+            help='Indicate to use MPI as transport layer.',
         )
         opg.add_option('--postpone', action='store_true',
             dest='postpone', default=False,
@@ -620,7 +679,8 @@ class submit(ArrangementCommand):
         # get scheduler class.
         scheduler = getattr(batch, ops.scheduler)
         # submit to arrangement.
-        arrangements[name](submit=True, postpone=ops.postpone,
+        arrangements[name](submit=True,
+            use_mpi=ops.use_mpi, postpone=ops.postpone,
             envar=self.envar,
             runlevel=ops.runlevel,
             resources=resources, scheduler=scheduler, npart=ops.npart,

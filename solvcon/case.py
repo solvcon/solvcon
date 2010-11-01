@@ -346,6 +346,7 @@ class BaseCase(CaseInfo):
             resources = kw.pop('resources', dict())
             scheduler = kw.get('scheduler', Scheduler)
             submit = kw.pop('submit')
+            use_mpi = kw.pop('use_mpi', False)
             postpone = kw.pop('postpone', False)
             runlevel = kw.pop('runlevel')
             # obtain the case object.
@@ -356,7 +357,8 @@ class BaseCase(CaseInfo):
             # submit/run.
             try:
                 if submit:
-                    sbm = scheduler(case, arnname=casename, **resources)
+                    sbm = scheduler(case, arnname=casename, use_mpi=use_mpi,
+                        **resources)
                     sbm(runlevel=runlevel, postpone=postpone)
                 else:
                     signal.signal(signal.SIGTERM, case.cleanup)
@@ -713,11 +715,13 @@ class BlockCase(BaseCase):
         paths['PYTHONPATH'].extend(self.pythonpaths)
         paths['PYTHONPATH'].insert(0, self.io.rootdir)
         # appoint remote worker objects.
-        info('Appoint remote worker for the nodelist')
+        info('Appoint remote workers')
         sch = self.execution.scheduler(self)
         nodelist = sch.nodelist()
         if env.command != None and env.command.opargs[0].compress_nodelist:
             info(' (compressed)')
+        if env.mpi:
+            info(' (head excluded for MPI)')
         info(':\n')
         iworker = 0 
         for node in nodelist:

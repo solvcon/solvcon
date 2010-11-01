@@ -104,6 +104,18 @@ class Credential(object):
         if res != self.SUCCESS:
             raise IOError('digest sent was rejected')
 
+class MPIConnection(object):
+    TAG = 1
+    def __init__(self, src, dst):
+        self.src = src
+        self.dst = dst
+    def send(self, dat):
+        from .conf import env
+        env.mpi.send(dat, self.dst, self.TAG)
+    def recv(self):
+        from .conf import env
+        return env.mpi.recv(self.dst, self.TAG)
+
 CLIENT_TIMEOUT = 20.
 def Client(address, family=None, authkey=None):
     """
@@ -164,7 +176,7 @@ class Listener(object):
         self._socket.bind(address)
         self._socket.listen(1)
         # store extra information.
-        self.address = address
+        self.address = self._socket.getsockname()
         self._last_accepted = None
         self._authkey = authkey
     def accept(self):

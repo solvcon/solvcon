@@ -10,6 +10,7 @@ class Node(object):
         self.name = name
         self.ncore = ncore
         self.serial = serial
+        self.pserial = serial
         self.attrs = attrs if attrs != None else list()
 
     def __str__(self):
@@ -19,7 +20,8 @@ class Node(object):
 
     @property
     def address(self):
-        return self.name
+        from socket import gethostbyname
+        return gethostbyname(self.name)
 
 class Scheduler(object):
     """
@@ -39,6 +41,8 @@ class Scheduler(object):
     @itype output: str
     @ivar shell: Shell to be used on the cluster.
     @itype shell: str
+    @ivar use_mpi: Indicate to use MPI as transport layer.
+    @itype use_mpi: bool
     @ivar resource: Specified resources.
     @itype resource: dict
     """
@@ -69,6 +73,7 @@ class Scheduler(object):
             self.jobdir = case.io.basedir
         self.output = kw.pop('output', self.DEFAULT_OUTPUT)
         self.shell = kw.pop('shell', self.DEFAULT_SHELL)
+        self.use_mpi = kw.pop('use_mpi', False)
         self.resource = case.execution.resources.copy()
         self.resource.update(kw)
         super(Scheduler, self).__init__()
@@ -157,10 +162,20 @@ class Scheduler(object):
         else:
             scgops = ''
         scgops = '--runlevel %%d %s' % scgops
-        cmdstr = ' '.join([scgpath, scgargs, scgops]).strip()
+        # build command list.
+        cmds = ['time']
+        if self.use_mpi:
+            cmds.extend([
+                'SOLVCON_MPI=1', 'mpiexec', '-n %d'%(ops.npart+1),
+            ])
+            if ops.compress_nodelist:
+                cmds.extend([
+                    '-pernode',
+                ])
+        cmds.extend([scgpath, scgargs, scgops])
         return '\n'.join([
             'cd %s' % self.jobdir,
-            'time %s' % cmdstr,
+            ' '.join(cmds).strip()
         ])
 
     def __str__(self):
@@ -277,7 +292,7 @@ class Localhost(Scheduler):
     Scheduler for localhost.
     """
     def nodelist(self):
-        return [Node('localhost', ncore=1, serial=i)
+        return [Node('127.0.0.1', ncore=1, serial=i)
             for i in range(self.case.execution.npart)]
     def create_worker(self, *args, **kw):
         return self.create_worker_ssh(*args, **kw)
@@ -296,6 +311,8 @@ class Torque(Scheduler):
         res = self.resource.copy()
         if self.case.execution.npart != None:
             res['nodes'] = self.case.execution.npart
+            if self.use_mpi:
+                res['nodes'] += 1
         # build resource tokens.
         tokens = list()
         for key in sorted(res.keys()):
@@ -358,8 +375,12 @@ class Torque(Scheduler):
                         if nodeitem.address == cnodeitem.address:
                             cnodeitem.ncore += 1
                         else:
+                            nodeitem.serial = len(cnodelist)
                             cnodelist.append(nodeitem)
                     nodelist = cnodelist
+            # exclude head when using MPI.
+            if env.mpi:
+                nodelist = nodelist[1:]
             # cut nodelist.
             self._nodelist = nodelist[:self.case.execution.npart]
         return self._nodelist
@@ -383,7 +404,6 @@ class Torque(Scheduler):
         @rtype: int
         """
         import sys, os
-        from socket import gethostbyname
         from threading import Thread
         from Queue import Queue
         from .batch_torque import TaskManager
@@ -402,6 +422,7 @@ class Torque(Scheduler):
         thd.start()
         # start remote worker.
         tm = TaskManager(paths=paths)
+        print node.address, node.serial
         tm.spawn(sys.executable, '-c',
             "from solvcon.batch_torque import run_worker; "
             "run_worker(%s, %s, %s, %s, %s)" % (
@@ -410,19 +431,53 @@ class Torque(Scheduler):
                 str(profiler_data),
                 "'%s'" % node.address,
                 "'%s'" % authkey,
-            ), where=node.serial, envar=envar)
+            ), where=node.pserial, envar=envar)
         # stop listening thread.
         thd.join()
         return portq.get()
 
+    def create_worker_mpi(self, node, authkey,
+            envar=None, paths=None, profiler_data=None):
+        """
+        Use MPI to link remote worker object.
+
+        @param node: node information.
+        @type node: Node
+        @param authkey: the authkey for the worker.
+        @type authkey: str
+        @keyword envar: additional environment variables to remote.
+        @type envar: dict
+        @keyword paths: path for remote execution.
+        @type paths: dict
+        @keyword profiler_data: profiler setting for remote worker.
+        @type profiler_data: tuple
+        @return: the port that the remote worker listen on.
+        @rtype: int
+        """
+        from .conf import env
+        return env.mpi.recv(node.serial, 1)
+
     def create_worker(self, *args, **kw):
+        from .conf import env
         from .batch_torque import TaskManager
-        if TaskManager._clib_torque:
+        if env.mpi:
+            return self.create_worker_mpi(*args, **kw)
+        elif TaskManager._clib_torque:
             return self.create_worker_torque(*args, **kw)
         else:
             return self.create_worker_ssh(*args, **kw)
 
 class OscGlenn(Torque):
+    @property
+    def str_prerun(self):
+        msgs = [super(OscGlenn, self).str_prerun]
+        if self.use_mpi:
+            msgs.extend([
+                'module unload mpi',
+                'module load mpi2',
+            ])
+        return '\n'.join(msgs)
+
     @property
     def str_postrun(self):
         import sys, os
