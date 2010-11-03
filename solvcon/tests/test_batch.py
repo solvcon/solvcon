@@ -2,17 +2,17 @@
 
 from unittest import TestCase
 
-class TestScheduler(TestCase):
+class TestBatch(TestCase):
     def test_init(self):
         from ..case import BlockCase
-        from ..batch import Scheduler
+        from ..batch import Batch
         case = BlockCase()
 
     def test_script(self):
         from ..case import BlockCase
-        from ..batch import Scheduler
+        from ..batch import Batch
         case = BlockCase(rootdir='/tmp')
-        sbm = Scheduler(case, arnname='arn')
+        sbm = Batch(case, arnname='arn')
         self.assertRaises(NotImplementedError, lambda: sbm.str_resource)
         self.assertRaises(NotImplementedError, lambda: sbm.str_jobname)
         self.assertRaises(NotImplementedError, lambda: sbm.str_output)
@@ -38,9 +38,9 @@ echo "Finish @`date`."'''
         from nose.plugins.skip import SkipTest
         if sys.platform.startswith('win'): raise SkipTest
         from ..case import BlockCase
-        from ..batch import Torque
+        from ..batch import batregy
         case = BlockCase(rootdir='/tmp')
-        sbm = Torque(case, arnname='arn')
+        sbm = batregy.Torque(case, arnname='arn')
         self.assertEqual(str(sbm), self.SCRIPT)
 
     def test_tofile(self):
@@ -49,11 +49,11 @@ echo "Finish @`date`."'''
         if sys.platform.startswith('win'): raise SkipTest
         import os, shutil
         from ..case import BlockCase
-        from ..batch import Torque
+        from ..batch import batregy
         case = BlockCase(rootdir='/tmp')
         msg = []
         case.info = lambda m: msg.append(m)
-        sbm = Torque(case, arnname='arn')
+        sbm = batregy.Torque(case, arnname='arn')
         fnlist = sbm.tofile()
         for it in range(len(fnlist)):
             self.assertEqual(fnlist[it], '/tmp/arn/arn.pbs%d'%it)
@@ -70,11 +70,11 @@ echo "Finish @`date`."'''
         if sys.platform.startswith('win'): raise SkipTest
         import os, shutil
         from ..case import BlockCase
-        from ..batch import Torque
+        from ..batch import batregy
         case = BlockCase(rootdir='/tmp')
         msg = []
         case.info = lambda m: msg.append(m)
-        sbm = Torque(case, arnname='arn')
+        sbm = batregy.Torque(case, arnname='arn')
         if not os.path.exists('/tmp/arn'):
             os.makedirs('/tmp/arn')
         fnlist = sbm.tofile()
@@ -91,11 +91,11 @@ echo "Finish @`date`."'''
         if sys.platform.startswith('win'): raise SkipTest
         import os, shutil
         from ..case import BlockCase
-        from ..batch import Torque
+        from ..batch import batregy
         case = BlockCase(rootdir='/tmp')
         msg = []
         case.info = lambda m: msg.append(m)
-        sbm = Torque(case, arnname='arn')
+        sbm = batregy.Torque(case, arnname='arn')
         if os.path.exists('/tmp/arn'):
             shutil.rmtree('/tmp/arn')
         fnlist = sbm.tofile()
@@ -111,11 +111,11 @@ echo "Finish @`date`."'''
         if sys.platform.startswith('win'): raise SkipTest
         import os, shutil
         from ..case import BlockCase
-        from ..batch import Torque
+        from ..batch import batregy
         case = BlockCase(rootdir='/tmp', empty_jobdir=True)
         msg = []
         case.info = lambda m: msg.append(m)
-        sbm = Torque(case, arnname='arn')
+        sbm = batregy.Torque(case, arnname='arn')
         if not os.path.exists('/tmp/arn'):
             os.makedirs('/tmp/arn')
         fnlist = sbm.tofile()

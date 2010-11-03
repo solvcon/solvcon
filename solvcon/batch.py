@@ -2,8 +2,16 @@
 # Copyright (C) 2008-2010 by Yung-Yu Chen.  See LICENSE.txt for terms of usage.
 
 """
-Supporting functionalities for cluster batch systems.
+Basic support for cluster batch systems.
+
+* batregy: The registry containing all usable batch system abstraction.
+* Batch: The fundamental class for batch systems.
+* Localhost: A dummy batch systems for domain decomposition working on
+    localhost.
+* Torque: The Torque batch system.
 """
+
+from .gendata import SingleAssignDict, AttributeDict
 
 class Node(object):
     def __init__(self, name, ncore=1, serial=None, attrs=None):
@@ -23,7 +31,23 @@ class Node(object):
         from socket import gethostbyname
         return gethostbyname(self.name)
 
-class Scheduler(object):
+class BatchRegistry(SingleAssignDict, AttributeDict):
+    def register(self, cmdtype):
+        name = cmdtype.__name__
+        if name in self:
+            raise KeyError('%s was already registered as a batch' % name)
+        self[name] = cmdtype
+        return cmdtype
+batregy = BatchRegistry() # registry singleton.
+
+class BatchMeta(type):
+    def __new__(cls, name, bases, namespace):
+        newcls = super(BatchMeta, cls).__new__(cls, name, bases, namespace)
+        # register.
+        batregy.register(newcls)
+        return newcls
+
+class Batch(object):
     """
     Batch system submitter.
 
@@ -33,11 +57,11 @@ class Scheduler(object):
     @itype case: solvcon.case.core.Case
     @ivar arnname: The name of the arrangement to be run.
     @itype arnname: str
-    @ivar jobname: The name to send to scheduler.
+    @ivar jobname: The name to send to batch system.
     @itype jobname: str
     @ivar jobdir: The absolute path for job.
     @itype jobdir: str
-    @ivar output: Scheduler output type.
+    @ivar output: Batch output type.
     @itype output: str
     @ivar shell: Shell to be used on the cluster.
     @itype shell: str
@@ -46,6 +70,8 @@ class Scheduler(object):
     @ivar resource: Specified resources.
     @itype resource: dict
     """
+
+    __metaclass__ = BatchMeta
 
     _subcmd_ = 'qsub'
 
@@ -76,7 +102,7 @@ class Scheduler(object):
         self.use_mpi = kw.pop('use_mpi', False)
         self.resource = case.execution.resources.copy()
         self.resource.update(kw)
-        super(Scheduler, self).__init__()
+        super(Batch, self).__init__()
 
     @property
     def str_header(self):
@@ -136,7 +162,7 @@ class Scheduler(object):
             if ops.npart != None:
                 scgops.append('\\\n')
                 scgops.append('--npart=%d' % ops.npart)
-                scgops.append('--scheduler=%s' % ops.scheduler)
+                scgops.append('--batch=%s' % ops.batch)
             if ops.envar:
                 scgops.append('\\\n')
                 envar = env.command.envar
@@ -291,9 +317,30 @@ class Scheduler(object):
         ], envar=envar)
         return port
 
-class Localhost(Scheduler):
+    def create_worker_mpi(self, node, authkey,
+            envar=None, paths=None, profiler_data=None):
+        """
+        Use MPI to link remote worker object.
+
+        @param node: node information.
+        @type node: Node
+        @param authkey: the authkey for the worker.
+        @type authkey: str
+        @keyword envar: additional environment variables to remote.
+        @type envar: dict
+        @keyword paths: path for remote execution.
+        @type paths: dict
+        @keyword profiler_data: profiler setting for remote worker.
+        @type profiler_data: tuple
+        @return: the port that the remote worker listen on.
+        @rtype: int
+        """
+        from .conf import env
+        return env.mpi.recv(node.serial, 1)
+
+class Localhost(Batch):
     """
-    Scheduler for localhost.
+    Dummy batch abstraction for localhost.
     """
     def nodelist(self):
         return [Node('127.0.0.1', ncore=1, serial=i)
@@ -301,7 +348,7 @@ class Localhost(Scheduler):
     def create_worker(self, *args, **kw):
         return self.create_worker_ssh(*args, **kw)
 
-class Torque(Scheduler):
+class Torque(Batch):
     """
     Torque/OpenPBS.
     """
@@ -426,7 +473,6 @@ class Torque(Scheduler):
         thd.start()
         # start remote worker.
         tm = TaskManager(paths=paths)
-        print node.address, node.serial
         tm.spawn(sys.executable, '-c',
             "from solvcon.batch_torque import run_worker; "
             "run_worker(%s, %s, %s, %s, %s)" % (
@@ -440,27 +486,6 @@ class Torque(Scheduler):
         thd.join()
         return portq.get()
 
-    def create_worker_mpi(self, node, authkey,
-            envar=None, paths=None, profiler_data=None):
-        """
-        Use MPI to link remote worker object.
-
-        @param node: node information.
-        @type node: Node
-        @param authkey: the authkey for the worker.
-        @type authkey: str
-        @keyword envar: additional environment variables to remote.
-        @type envar: dict
-        @keyword paths: path for remote execution.
-        @type paths: dict
-        @keyword profiler_data: profiler setting for remote worker.
-        @type profiler_data: tuple
-        @return: the port that the remote worker listen on.
-        @rtype: int
-        """
-        from .conf import env
-        return env.mpi.recv(node.serial, 1)
-
     def create_worker(self, *args, **kw):
         from .conf import env
         from .batch_torque import TaskManager
@@ -470,78 +495,3 @@ class Torque(Scheduler):
             return self.create_worker_torque(*args, **kw)
         else:
             return self.create_worker_ssh(*args, **kw)
-
-class OscGlenn(Torque):
-    @property
-    def _hostfile(self):
-        import os
-        return os.path.join(self.jobdir, self.jobname+'.hostfile')
-
-    @property
-    def str_prerun(self):
-        import os
-        from .conf import env
-        ops, args = env.command.opargs
-        msgs = [super(OscGlenn, self).str_prerun]
-        if self.use_mpi:
-            msgs.extend([
-                #'export I_MPI_DEBUG=2',
-                #'export I_MPI_DEVICE=rdma:OpenIB-cma',
-                'module unload mpi',
-                'module unload mpi2',
-                'module load mvapich2-1.5-gnu',
-                #'module load intel-compilers-11.1',
-                #'module load mvapich2-1.5-intel',
-                #'module load mvapich2-1.4.1-gnu',
-                #'module load mvapich2-1.4-gnu',
-                #'module load intel-mpi-4.0.0.028',
-            ])
-            msgs.append('%s %s \\\n %s' % (
-                os.path.join(self.case.io.rootdir, 'scg'),
-                'mpi --compress-nodelist' if ops.compress_nodelist else 'mpi',
-                self._hostfile,
-            ))
-        return '\n'.join(msgs)
-
-    def build_mpi_runner(self):
-        import os
-        from .conf import env
-        ops, args = env.command.opargs
-        #cmds = ['SOLVCON_MPI=1', 'mpiexec',
-        #    '-n %d'%(ops.npart+1)]
-        cmds = ['mpirun_rsh', '-rsh',
-            '-np %d'%(ops.npart+1), '\\\n',
-            '-hostfile %s' % self._hostfile, '\\\n',
-            'LD_PRELOAD=libmpich.so',
-            'PBS_NODEFILE=$PBS_NODEFILE', 'SOLVCON_MPI=1', '\\\n',
-        ]
-        return ' '.join(cmds)
-
-    @property
-    def str_postrun(self):
-        import sys, os
-        newstr = [super(OscGlenn, self).str_postrun]
-        newstr.extend([
-            '/usr/local/bin/mpiexec -comm none -pernode killall %s' % \
-            os.path.basename(sys.executable),
-        ])
-        return '\n'.join(newstr)
-
-class OscGlennGbE(OscGlenn):
-    pass
-class OscGlennIB(OscGlenn):
-    @property
-    def str_prerun(self):
-        msgs = [
-            #'export I_MPI_DEBUG=2',
-            #'export I_MPI_DEVICE=rmda:OpenIB-cma',
-        ]
-        msgs.append(super(OscGlennIB, self).str_prerun)
-        return '\n'.join(msgs)
-
-    def nodelist(self):
-        ndlst = super(OscGlennIB, self).nodelist()
-        for node in ndlst:
-            if '-ib-' not in node.name:
-                node.name = node.name[:3] + '-ib-' + node.name[3:]
-        return ndlst

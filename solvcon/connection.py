@@ -116,6 +116,8 @@ class SocketConnection(object):
         return self.conn.send(*args, **kw)
     def recv(self, *args, **kw):
         return self.conn.recv(*args, **kw)
+    def close(self, *args, **kw):
+        return self.conn.close(*args, **kw)
     def sendarr(self, arr):
         self.send(arr)
     def recvarr(self, arr):

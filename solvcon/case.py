@@ -128,8 +128,8 @@ class BaseCase(CaseInfo):
     defdict = {
         # execution related.
         'execution.fpdtype': conf.env.fpdtypestr,
-        'execution.scheduler': batch.Scheduler,
-        'execution.resources': dict,    # for scheduler.
+        'execution.batch': batch.Batch,
+        'execution.resources': dict,    # for batch.
         'execution.stop': False,
         'execution.time': 0.0,
         'execution.time_increment': 0.0,
@@ -339,12 +339,12 @@ class BaseCase(CaseInfo):
         """
         import signal
         import cPickle as pickle
-        from .batch import Scheduler
+        from .batch import Batch
         if casename is None: casename = func.__name__
         def simu(*args, **kw):
             kw.pop('casename', None)
             resources = kw.pop('resources', dict())
-            scheduler = kw.get('scheduler', Scheduler)
+            batch = kw.get('batch', Batch)
             submit = kw.pop('submit')
             use_mpi = kw.pop('use_mpi', False)
             postpone = kw.pop('postpone', False)
@@ -357,7 +357,7 @@ class BaseCase(CaseInfo):
             # submit/run.
             try:
                 if submit:
-                    sbm = scheduler(case, arnname=casename, use_mpi=use_mpi,
+                    sbm = batch(case, arnname=casename, use_mpi=use_mpi,
                         **resources)
                     sbm(runlevel=runlevel, postpone=postpone)
                 else:
@@ -716,8 +716,8 @@ class BlockCase(BaseCase):
         paths['PYTHONPATH'].insert(0, self.io.rootdir)
         # appoint remote worker objects.
         info('Appoint remote workers')
-        sch = self.execution.scheduler(self)
-        nodelist = sch.nodelist()
+        bat = self.execution.batch(self)
+        nodelist = bat.nodelist()
         if env.command != None and env.command.opargs[0].compress_nodelist:
             info(' (compressed)')
         if env.mpi:
@@ -726,7 +726,7 @@ class BlockCase(BaseCase):
         iworker = 0 
         for node in nodelist:
             info('  %s' % node.name)
-            port = sch.create_worker(node, authkey,
+            port = bat.create_worker(node, authkey,
                 envar=self.solver.envar, paths=paths,
                 profiler_data=self._get_profiler_data(iworker))
             info(' worker #%d created' % iworker)

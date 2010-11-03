@@ -201,7 +201,7 @@ class TestRemoteParallel(TestBlockCaseRun):
         from ..batch import Localhost
         from ..domain import Distributed
         case = self._get_case(npart=self.npart, domaintype=Distributed,
-            scheduler=Localhost, rkillfn='')
+            batch=Localhost, rkillfn='')
         case.run()
         # get result.
         dsoln = case.execution.var['dsoln'][:,0,:]
@@ -243,7 +243,7 @@ class TestPresplitRemoteParallel(TestBlockCaseRun):
         from ..batch import Localhost
         from ..domain import Distributed
         case = self._get_case(npart=self.npart, domaintype=Distributed,
-            scheduler=Localhost, rkillfn='', meshfn='sample.dom')
+            batch=Localhost, rkillfn='', meshfn='sample.dom')
         case.run()
         # get result.
         dsoln = case.execution.var['dsoln'][:,0,:]
@@ -269,5 +269,5 @@ class TestTorqueParallel(TestBlockCaseRun):
         from ..batch import Torque
         from ..domain import Distributed
         case = self._get_case(npart=self.npart, domaintype=Distributed,
-            scheduler=Torque, rkillfn='')
+            batch=Torque, rkillfn='')
         case.run()

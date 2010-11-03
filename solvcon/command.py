@@ -533,9 +533,9 @@ class ArrangementCommand(Command):
             dest='envar', default=None,
             help='Additional environmental variable to remote solvers.',
         )
-        opg.add_option('-s', '--scheduler', action='store',
-            dest='scheduler', default='Scheduler',
-            help='The name of scheduler.',
+        opg.add_option('-b', '--batch', action='store',
+            dest='batch', default='Batch',
+            help='The name of batch system.',
         )
         opg.add_option('--use-profiler', action='store_true',
             dest='use_profiler', default=False,
@@ -588,7 +588,8 @@ class run(ArrangementCommand):
         from socket import gethostname
         from .helper import info
         from .conf import use_application, env
-        from . import batch, domain
+        from . import domain
+        from .batch import batregy
         from .case import arrangements
         from .rpc import Worker, DEFAULT_AUTHKEY
         ops, args = self.opargs
@@ -599,12 +600,12 @@ class run(ArrangementCommand):
         # import application packages.
         for modname in self.env.modnames:
             use_application(modname)
-        # get scheduler.
-        scheduler = getattr(batch, ops.scheduler)
+        # get batch.
+        batch = batregy[ops.batch]
         # get partition number and domain type.
         npart = ops.npart
         if npart != None:
-            if scheduler == batch.Scheduler:
+            if batch == batregy.Batch:
                 domaintype = domain.Collective
             else:
                 domaintype = domain.Distributed
@@ -615,7 +616,7 @@ class run(ArrangementCommand):
             'envar': self.envar,
             'runlevel': ops.runlevel,
             'solver_output': ops.solver_output,
-            'scheduler': scheduler,
+            'batch': batch,
             'npart': npart, 'domaintype': domaintype,
         }
         func = arrangements[name]
@@ -645,7 +646,7 @@ class run(ArrangementCommand):
 
 class submit(ArrangementCommand):
     """
-    Submit arrangement to batch scheduler.
+    Submit arrangement to batch system.
     """
 
     min_args = 1
@@ -666,7 +667,7 @@ class submit(ArrangementCommand):
         )
         opg.add_option('--postpone', action='store_true',
             dest='postpone', default=False,
-            help='Postpone feeding into scheduler.',
+            help='Postpone feeding into batch system.',
         )
         op.add_option_group(opg)
         self.opg_batch = opg
@@ -674,7 +675,7 @@ class submit(ArrangementCommand):
     def __call__(self):
         import os
         from .conf import use_application
-        from . import batch
+        from .batch import batregy
         from .case import arrangements
         ops, args = self.opargs
         if len(args) > 0:
@@ -686,14 +687,14 @@ class submit(ArrangementCommand):
             use_application(modname)
         # build resource list.
         resources = dict([(line, None) for line in ops.resources.split(',')])
-        # get scheduler class.
-        scheduler = getattr(batch, ops.scheduler)
+        # get batch class.
+        batch = batregy[ops.batch]
         # submit to arrangement.
         arrangements[name](submit=True,
             use_mpi=ops.use_mpi, postpone=ops.postpone,
             envar=self.envar,
             runlevel=ops.runlevel,
-            resources=resources, scheduler=scheduler, npart=ops.npart,
+            resources=resources, batch=batch, npart=ops.npart,
         )
 
 class help(Command):
