@@ -544,4 +544,4 @@ class OscGlennIB(OscGlenn):
         for node in ndlst:
             if '-ib-' not in node.name:
                 node.name = node.name[:3] + '-ib-' + node.name[3:]
-        return ndls
+        return ndlst

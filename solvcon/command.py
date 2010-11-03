@@ -626,7 +626,7 @@ class run(ArrangementCommand):
                 ops.profiler_sort,
             ) if ops.use_profiler else None
             wkr = Worker(None, profiler_data=pdata)
-            wkr.run((gethostname(), 0), DEFAULT_AUTHKEY)    # FIXME
+            wkr.run(('0.0.0.0', 0), DEFAULT_AUTHKEY)    # FIXME
         else:
             if ops.use_profiler:
                 cProfile.runctx('func(submit=False, **funckw)',
