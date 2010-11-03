@@ -125,22 +125,20 @@ class Scheduler(object):
     def str_postrun(self):
         return 'echo "Finish @`date`."'
 
-    @property
-    def str_run(self):
+    def build_scg_command(self):
         import os
         from .conf import env
         scgpath = os.path.join(self.case.io.rootdir, 'scg')
-        scgargs = ' '.join([
-            'run',
-            self.arnname,
-        ])
+        scgargs = ' '.join(['run', self.arnname])
         if env.command != None:
             ops, args = env.command.opargs
             scgops = list()
             if ops.npart != None:
+                scgops.append('\\\n')
                 scgops.append('--npart=%d' % ops.npart)
                 scgops.append('--scheduler=%s' % ops.scheduler)
             if ops.envar:
+                scgops.append('\\\n')
                 envar = env.command.envar
                 scgops.append('--envar %s' % ':'.join([
                     '%s=%s' % (key, envar[key]) for key in envar
@@ -148,6 +146,7 @@ class Scheduler(object):
             if ops.compress_nodelist:
                 scgops.append('--compress-nodelist')
             if ops.use_profiler:
+                scgops.append('\\\n')
                 scgops.append('--use-profiler')
                 scgops.extend([
                     '--profiler-sort=%s' % ops.profiler_sort,
@@ -157,22 +156,27 @@ class Scheduler(object):
             if ops.solver_output:
                 scgops.append('--solver-output')
             if ops.basedir:
+                scgops.append('\\\n')
                 scgops.append('--basedir=%s' % os.path.abspath(ops.basedir))
             scgops = ' '.join(scgops)
         else:
             scgops = ''
         scgops = '--runlevel %%d %s' % scgops
-        # build command list.
+        return ' '.join([scgpath, scgargs, scgops])
+
+    def build_mpi_runner(self):
+        return ''
+
+    @property
+    def str_run(self):
         cmds = ['time']
         if self.use_mpi:
-            cmds.extend([
-                'SOLVCON_MPI=1', 'mpiexec', '-n %d'%(ops.npart+1),
-            ])
-            if ops.compress_nodelist:
-                cmds.extend([
-                    '-pernode',
-                ])
-        cmds.extend([scgpath, scgargs, scgops])
+            mpi_runner = self.build_mpi_runner()
+            if not mpi_runner:
+                raise RuntimeError(
+                    '%s gave null mpi_runner' % str(self.__class__))
+            cmds.append(mpi_runner)
+        cmds.append(self.build_scg_command())
         return '\n'.join([
             'cd %s' % self.jobdir,
             ' '.join(cmds).strip()
@@ -469,14 +473,49 @@ class Torque(Scheduler):
 
 class OscGlenn(Torque):
     @property
+    def _hostfile(self):
+        import os
+        return os.path.join(self.jobdir, self.jobname+'.hostfile')
+
+    @property
     def str_prerun(self):
+        import os
+        from .conf import env
+        ops, args = env.command.opargs
         msgs = [super(OscGlenn, self).str_prerun]
         if self.use_mpi:
             msgs.extend([
+                #'export I_MPI_DEBUG=2',
+                #'export I_MPI_DEVICE=rdma:OpenIB-cma',
                 'module unload mpi',
-                'module load mpi2',
+                'module unload mpi2',
+                'module load mvapich2-1.5-gnu',
+                #'module load intel-compilers-11.1',
+                #'module load mvapich2-1.5-intel',
+                #'module load mvapich2-1.4.1-gnu',
+                #'module load mvapich2-1.4-gnu',
+                #'module load intel-mpi-4.0.0.028',
             ])
+            msgs.append('%s %s \\\n %s' % (
+                os.path.join(self.case.io.rootdir, 'scg'),
+                'mpi --compress-nodelist' if ops.compress_nodelist else 'mpi',
+                self._hostfile,
+            ))
         return '\n'.join(msgs)
+
+    def build_mpi_runner(self):
+        import os
+        from .conf import env
+        ops, args = env.command.opargs
+        #cmds = ['SOLVCON_MPI=1', 'mpiexec',
+        #    '-n %d'%(ops.npart+1)]
+        cmds = ['mpirun_rsh', '-rsh',
+            '-np %d'%(ops.npart+1), '\\\n',
+            '-hostfile %s' % self._hostfile, '\\\n',
+            'LD_PRELOAD=libmpich.so',
+            'PBS_NODEFILE=$PBS_NODEFILE', 'SOLVCON_MPI=1', '\\\n',
+        ]
+        return ' '.join(cmds)
 
     @property
     def str_postrun(self):
@@ -505,4 +544,4 @@ class OscGlennIB(OscGlenn):
         for node in ndlst:
             if '-ib-' not in node.name:
                 node.name = node.name[:3] + '-ib-' + node.name[3:]
-        return ndlst
+        return ndls

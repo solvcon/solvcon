@@ -66,7 +66,6 @@ class Worker(object):
         self.profiler_dat = profiler_data[0] if profiler_data else None
         self.profiler_log = profiler_data[1] if profiler_data else None
         self.profiler_sort = profiler_data[2] if profiler_data else None
-        self.mpi = env.mpi
 
     def _eventloop(self):
         """
@@ -89,10 +88,11 @@ class Worker(object):
     def eventloop(self):
         import cProfile
         import pstats
+        from .conf import env
         if self.do_profile:
-            if self.mpi:
-                self.profiler_dat += '%d' % self.mpi.rank
-                self.profiler_log += '%d' % self.mpi.rank
+            if env.mpi:
+                self.profiler_dat += '%d' % env.mpi.rank
+                self.profiler_log += '%d' % env.mpi.rank
             cProfile.runctx('self._eventloop()', globals(), locals(),
                 self.profiler_dat)
             plog = open(self.profiler_log, 'w')

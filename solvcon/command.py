@@ -23,6 +23,10 @@ class mpi(Command):
             dest='node_env', default='PBS_NODEFILE',
             help='Environment variable of the host file.',
         )
+        opg.add_option('--compress-nodelist', action='store_true',
+            dest='compress_nodelist', default=False,
+            help='To compress nodelist on the head node.',
+        )
         opg.add_option('--head-last', action='store_true',
             dest='head_last', default=False,
             help='Make the head node to be last in the host file.',
@@ -30,26 +34,32 @@ class mpi(Command):
         op.add_option_group(opg)
         self.opg_arrangement = opg
 
-    @staticmethod
-    def _head_last(nodefn):
-        import sys
-        f = open(nodefn)
-        nodes = f.readlines()
-        f.close()
-        first = nodes[0]
-        ind = 1
-        while ind < len(nodes):
-            if nodes[ind] != first:
-                break
-            ind += 1
-        nodes = nodes[ind:] + nodes[:ind]
-        sys.stdout.write('\n'.join([node.strip() for node in nodes]))
-
     def __call__(self):
-        import os
+        import os, sys
         ops, args = self.opargs
+        f = open(os.environ[ops.node_env])
+        nodes = [node.strip() for node in f.readlines()]
+        f.close()
+        if ops.compress_nodelist:
+            newnodes = []
+            for node in nodes:
+                if not newnodes or newnodes[-1] != node:
+                    newnodes.append(node)
+            nodes = newnodes
         if ops.head_last:
-            self._head_last(os.environ[ops.node_env])
+            first = nodes[0]
+            ind = 1
+            while ind < len(nodes):
+                if nodes[ind] != first:
+                    break
+                ind += 1
+            nodes = nodes[ind:] + nodes[:ind]
+        if len(args) > 0:
+            f = open(args[0], 'w')
+            f.write('\n'.join([node.strip() for node in nodes]))
+            f.close()
+        else:
+            sys.stdout.write('\n'.join([node.strip() for node in nodes]))
 
 class mesh(Command):
     """

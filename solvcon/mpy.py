@@ -376,9 +376,9 @@ class MPI(object):
         # dump obj.
         dat = dumps(obj, -1)
         self.Send(byref(c_int(len(dat))), c_int(1), c_int(self.INT),
-            c_int(dst), c_int(tag), c_int(self.COMM_WORLD))
+            c_int(dst), c_int(tag), c_int(comm))
         self.Send(c_char_p(dat), c_int(len(dat)), c_int(self.BYTE),
-            c_int(dst), c_int(tag), c_int(self.COMM_WORLD))
+            c_int(dst), c_int(tag), c_int(comm))
     def recv(self, src, tag, comm=None):
         from cPickle import loads
         from ctypes import c_int, byref, create_string_buffer
@@ -387,13 +387,27 @@ class MPI(object):
         dlen = c_int()
         status = c_int(0)
         self.Recv(byref(dlen), c_int(1), c_int(self.INT),
-            c_int(src), c_int(tag), c_int(self.COMM_WORLD), byref(status))
+            c_int(src), c_int(tag), c_int(comm), byref(status))
         status.value = 0
         dat = create_string_buffer(dlen.value)
         self.Recv(byref(dat), dlen, c_int(self.BYTE),
-            c_int(src), c_int(tag), c_int(self.COMM_WORLD), byref(status))
+            c_int(src), c_int(tag), c_int(comm), byref(status))
         obj = loads(dat.raw)
         return obj
+
+    def sendarr(self, arr, dst, tag, comm=None):
+        from ctypes import c_int, c_void_p
+        comm = self.COMM_WORLD if comm is None else comm
+        self.Send(arr.ctypes.data_as(c_void_p),
+            c_int(arr.nbytes), c_int(self.BYTE),
+            c_int(dst), c_int(tag), c_int(comm))
+    def recvarr(self, arr, src, tag, comm=None):
+        from ctypes import c_int, c_void_p, byref
+        comm = self.COMM_WORLD if comm is None else comm
+        status = c_int(0)
+        self.Recv(arr.ctypes.data_as(c_void_p),
+            c_int(arr.nbytes), c_int(self.BYTE),
+            c_int(src), c_int(tag), c_int(comm), byref(status))
 
 def main():
     import os, sys

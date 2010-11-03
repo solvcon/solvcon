@@ -606,17 +606,20 @@ class BlockSolver(BaseSolver):
         @keyword worker: the wrapping worker object for parallel processing.
         @type worker: solvcon.rpc.Worker
         """
-        from numpy import frombuffer
+        from numpy import empty
         conn = worker.pconns[bc.rblkn]
         ngstcell = self.ngstcell
         arr = getattr(self, arrname)
         # ask the receiver for data.
-        rarr = conn.recv()  # comm.
+        shape = list(arr.shape)
+        shape[0] = bc.rclp.shape[0]
+        rarr = empty(shape, dtype=arr.dtype)
+        conn.recvarr(rarr)  # comm.
         slct = bc.rclp[:,0] + ngstcell
         arr[slct] = rarr[:]
         # provide the receiver with data.
         slct = bc.rclp[:,2] + ngstcell
-        conn.send(arr[slct])    # comm.
+        conn.sendarr(arr[slct]) # comm.
 
     def pullibc(self, arrname, bc, sendn, worker=None):
         """
@@ -631,14 +634,17 @@ class BlockSolver(BaseSolver):
         @keyword worker: the wrapping worker object for parallel processing.
         @type worker: solvcon.rpc.Worker
         """
-        from numpy import frombuffer
+        from numpy import empty
         conn = worker.pconns[bc.rblkn]
         ngstcell = self.ngstcell
         arr = getattr(self, arrname)
         # provide sender the data.
         slct = bc.rclp[:,2] + ngstcell
-        conn.send(arr[slct])    # comm.
+        conn.sendarr(arr[slct]) # comm.
         # ask data from sender.
-        rarr = conn.recv()  # comm.
+        shape = list(arr.shape)
+        shape[0] = bc.rclp.shape[0]
+        rarr = empty(shape, dtype=arr.dtype)
+        conn.recvarr(rarr)  # comm.
         slct = bc.rclp[:,0] + ngstcell
         arr[slct] = rarr[:]

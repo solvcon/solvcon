@@ -104,6 +104,23 @@ class Credential(object):
         if res != self.SUCCESS:
             raise IOError('digest sent was rejected')
 
+class SocketConnection(object):
+    def __init__(self, *args, **kw):
+        from _multiprocessing import Connection
+        self.conn = Connection(*args, **kw)
+    def send_bytes(self, *args, **kw):
+        return self.conn.send_bytes(*args, **kw)
+    def recv_bytes(self, *args, **kw):
+        return self.conn.recv_bytes(*args, **kw)
+    def send(self, *args, **kw):
+        return self.conn.send(*args, **kw)
+    def recv(self, *args, **kw):
+        return self.conn.recv(*args, **kw)
+    def sendarr(self, arr):
+        self.send(arr)
+    def recvarr(self, arr):
+        arr[:] = self.recv()[:]
+
 class MPIConnection(object):
     TAG = 1
     def __init__(self, src, dst):
@@ -115,6 +132,12 @@ class MPIConnection(object):
     def recv(self):
         from .conf import env
         return env.mpi.recv(self.dst, self.TAG)
+    def sendarr(self, arr):
+        from .conf import env
+        env.mpi.sendarr(arr, self.dst, self.TAG)
+    def recvarr(self, arr):
+        from .conf import env
+        env.mpi.recvarr(arr, self.dst, self.TAG)
 
 CLIENT_TIMEOUT = 20.
 def Client(address, family=None, authkey=None):
@@ -129,7 +152,6 @@ def Client(address, family=None, authkey=None):
     @type authkey: str
     """
     import os, time, errno, socket
-    from _multiprocessing import Connection
     timeout = time.time() + CLIENT_TIMEOUT
     family = family or guess_family(address)
     # create socket.
@@ -144,7 +166,7 @@ def Client(address, family=None, authkey=None):
         else:
             break
     # create connection.
-    conn = Connection(os.dup(skt.fileno()))
+    conn = SocketConnection(os.dup(skt.fileno()))
     skt.close()
     # authenticate.
     if authkey is not None:
@@ -181,11 +203,10 @@ class Listener(object):
         self._authkey = authkey
     def accept(self):
         import os
-        from _multiprocessing import Connection
         # accepting connection.
         skt, self._last_accepted = self._socket.accept()
         # establish connection.
-        conn = Connection(os.dup(skt.fileno()))
+        conn = SocketConnection(os.dup(skt.fileno()))
         skt.close()
         # authenticate.
         if self._authkey:
