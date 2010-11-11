@@ -6,11 +6,12 @@ README for Solvcon
 :copyright: (C) 2008-2010.
 
 SOLVCON is a multi-physics software framework for high-fidelity solutions of
-partial differential equations.  Please refer to the documentation resides in
-the ``doc/source/`` directory for detail.
+partial differential equations, developed by `Yung-Yu Chen <yyc@solvcon.net>`_.
+Please refer to the documentation resides in the ``doc/source/`` directory for
+detail.
 
-SOLVCON is free software (for freedom, not price) developed by `Yung-Yu Chen
-<yyc@solvcon.net>`_.  See http://www.gnu.org/licenses/gpl-2.0.html or
-``COPYING`` for the complete license.
+SOLVCON is free software (for freedom, not price).  See
+http://www.gnu.org/licenses/gpl-2.0.html or ``COPYING`` for the complete
+license.
 
 .. vim: set ft=rst ff=unix fenc=utf8:
