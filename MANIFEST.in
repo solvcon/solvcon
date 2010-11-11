@@ -1,5 +1,5 @@
 include MANIFEST.in
-include README.rst LICENSE.txt COPYING
+include README.rst COPYING
 include doc/source/* doc/source/*/*
 include SCons* patch/*.patch
 include src/*/*.f90 src/*/*.inc

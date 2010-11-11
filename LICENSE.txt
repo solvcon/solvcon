@@ -1,4 +1,0 @@
-Copyright (C) 2008-2010 by Yung-Yu Chen.  All rights reserved.
-
-Unauthorized use or distribution of the software, i.e., SOLVCON, is not
-allowed.
