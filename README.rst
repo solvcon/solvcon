@@ -3,10 +3,14 @@ README for Solvcon
 ==================
 
 :author: Yung-Yu Chen <yyc@seety.org>
-:copyright: c 2008-2009. All rights reserved.
+:copyright: (C) 2008-2010.
 
-Solvcon is a framework for solvers of PDE systems, developed by `Yung-Yu Chen
-<yyc@seety.org>`_.  Please refer to the documentation resides in the
-``doc/source/`` directory for detail.  See ``LICENSE.txt`` for terms of usage.
+SOLVCON is a multi-physics software framework for high-fidelity solutions of
+partial differential equations.  Please refer to the documentation resides in
+the ``doc/source/`` directory for detail.
+
+SOLVCON is a free software, developed by `Yung-Yu Chen <yyc@solvcon.net>`_ and
+released in General Public License version 2.  See ``COPYING`` for terms of
+usage.
 
 .. vim: set ft=rst ff=unix fenc=utf8:
