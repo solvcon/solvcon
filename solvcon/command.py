@@ -89,6 +89,14 @@ class mesh(Command):
         op = self.op
 
         opg = OptionGroup(op, 'Mesh')
+        opg.add_option('--ascii', action='store_false',
+            dest='binary', default=True,
+            help='Use ASCII in VTK (default is binary).',
+        )
+        opg.add_option('--fpdtype', action='store', type='string',
+            dest='fpdtype', default='float64',
+            help='dtype for floating-point (default is float64).',
+        )
         opg.add_option('--formats', action='store', type='string',
             dest='formats', default='',
             help='Assign the I/O formats as InputIO,OutputIO.',
@@ -149,6 +157,17 @@ class mesh(Command):
         dio.save(dirname=dirname)
         info('done. (%gs)\n' % (time()-timer))
     @staticmethod
+    def _save_vtklegacy(ops, blk, vtkfn, binary, fpdtype):
+        from time import time
+        from .io.vtk import VtkLegacyUstGridWriter
+        from .helper import info
+        info('Save to file %s (%s/%s)... ' % (
+            vtkfn, 'binary' if binary else 'ascii', fpdtype))
+        timer = time()
+        VtkLegacyUstGridWriter(blk,
+            binary=binary, fpdtype=fpdtype).write(vtkfn)
+        info('done. (%gs)\n' % (time()-timer))
+    @staticmethod
     def _determine_formats(ops, args):
         """
         Determine I/O formats based on arguments.
@@ -180,6 +199,8 @@ class mesh(Command):
                     oio = 'BlockIO'
                 elif fn.endswith('.dom'):
                     oio = 'DomainIO'
+                elif fn.endswith('.vtk'):
+                    oio = 'VtkLegacyIO'
             info('I/O formats are determined as: %s, %s.\n' % (iio, oio))
         iio = fioregy[iio]()
         return iio, oio
@@ -218,6 +239,8 @@ class mesh(Command):
                     info('No saving: split must be specified.\n')
                     return
                 self._save_domain(ops, blk, path)
+            elif oio == 'VtkLegacyIO':
+                self._save_vtklegacy(ops, blk, path, ops.binary, ops.fpdtype)
 
 class SolverLog(Command):
     """
