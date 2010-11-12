@@ -17,7 +17,5 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 """
-I/O facilities.
+VTK XML file.
 """
-
-__all__ = ['block', 'core', 'domain', 'gambit', 'vtk', 'vtkxml']
