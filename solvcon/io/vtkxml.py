@@ -18,6 +18,9 @@
 
 """
 VTK XML file.
+
+For a detailed description of the file format, see:
+http://www.geophysik.uni-muenchen.de/intranet/it-service/applications/paraview/vtk-file-formats/
 """
 
 class VtkXmlWriter(object):
