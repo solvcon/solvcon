@@ -93,6 +93,15 @@ class mesh(Command):
             dest='binary', default=True,
             help='Use ASCII in VTK (default is binary).',
         )
+        opg.add_option('--encoding', action='store', type='string',
+            dest='encoding', default='raw',
+            help='The encoding used in VTK XML binary data (raw/base64). '
+                 'Must be base64 for inline binary data.',
+        )
+        opg.add_option('--inline', action='store_false',
+            dest='appended', default=True,
+            help='Inline binary data in VTK XML file.',
+        )
         opg.add_option('--fpdtype', action='store', type='string',
             dest='fpdtype', default='float64',
             help='dtype for floating-point (default is float64).',
@@ -168,6 +177,23 @@ class mesh(Command):
             binary=binary, fpdtype=fpdtype).write(vtkfn)
         info('done. (%gs)\n' % (time()-timer))
     @staticmethod
+    def _save_vtkxml(ops, blk, vtkfn, appended, binary, encoding, compressor,
+        fpdtype):
+        from time import time
+        from .io.vtkxml import VtkXmlUstGridWriter
+        from .helper import info
+        if appended:
+            fmt = 'appended'
+        else:
+            fmt = 'binary' if binary else 'ascii'
+        timer = time()
+        wtr = VtkXmlUstGridWriter(blk, appended=appended, binary=binary,
+            encoding=encoding, compressor=compressor, fpdtype=fpdtype)
+        info('Save to file %s (%s/%s/%s/%s)... ' % (vtkfn, fmt, wtr.encoding,
+            compressor, fpdtype))
+        wtr.write(vtkfn)
+        info('done. (%gs)\n' % (time()-timer))
+    @staticmethod
     def _determine_formats(ops, args):
         """
         Determine I/O formats based on arguments.
@@ -200,7 +226,9 @@ class mesh(Command):
                 elif fn.endswith('.dom'):
                     oio = 'DomainIO'
                 elif fn.endswith('.vtk'):
-                    oio = 'VtkLegacyIO'
+                    oio = 'VtkLegacy'
+                elif fn.endswith('.vtu'):
+                    oio = 'VtkXml'
             info('I/O formats are determined as: %s, %s.\n' % (iio, oio))
         iio = fioregy[iio]()
         return iio, oio
@@ -239,8 +267,11 @@ class mesh(Command):
                     info('No saving: split must be specified.\n')
                     return
                 self._save_domain(ops, blk, path)
-            elif oio == 'VtkLegacyIO':
+            elif oio == 'VtkLegacy':
                 self._save_vtklegacy(ops, blk, path, ops.binary, ops.fpdtype)
+            elif oio == 'VtkXml':
+                self._save_vtkxml(ops, blk, path, ops.appended, ops.binary,
+                    ops.encoding, ops.compressor, ops.fpdtype)
 
 class SolverLog(Command):
     """
