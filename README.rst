@@ -1,5 +1,5 @@
 ==================
-README for Solvcon
+README for SOLVCON
 ==================
 
 :author: Yung-Yu Chen <yyc@solvcon.net>

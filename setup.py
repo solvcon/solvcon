@@ -30,6 +30,20 @@ Programming Language :: Python
 Topic :: Scientific/Engineering
 Topic :: Software Development :: Libraries :: Application Frameworks"""
 
+def write_readme():
+    import solvcon
+    f = open('README.rst', 'w')
+    f.write("""==================
+README for SOLVCON
+==================
+
+:author: Yung-Yu Chen <yyc@solvcon.net>
+:copyright: c 2008-2010.
+""")
+    f.write(solvcon.__doc__)
+    f.write("""
+.. vim: set ft=rst ff=unix fenc=utf8:""")
+
 def main():
     import os, sys
     # BEFORE importing distutils, remove MANIFEST. distutils doesn't properly
@@ -39,6 +53,8 @@ def main():
     from glob import glob
     from distutils.core import setup
     import solvcon
+
+    write_readme()
 
     setup(
         name='SOLVCON',
