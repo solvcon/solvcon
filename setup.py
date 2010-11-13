@@ -16,12 +16,9 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-"""Unstructured mesh manipulator."""
+"""SOLVCON distribution script."""
 
-import os
-
-CLASSIFIERS = """\
-Development Status :: 3 - alpha
+CLASSIFIERS = """Development Status :: 3 - Alpha
 Intended Audience :: Developers
 Intended Audience :: Education
 Intended Audience :: Science/Research
@@ -31,29 +28,27 @@ Operating System :: POSIX :: Linux
 Programming Language :: C
 Programming Language :: Python
 Topic :: Scientific/Engineering
-Topic :: Software Development :: Libraries :: Application Frameworks
-"""
-
-# BEFORE importing distutils, remove MANIFEST. distutils doesn't properly
-# update it when the contents of directories change.
-if os.path.exists('MANIFEST'): os.remove('MANIFEST')
+Topic :: Software Development :: Libraries :: Application Frameworks"""
 
 def main():
     import os, sys
+    # BEFORE importing distutils, remove MANIFEST. distutils doesn't properly
+    # update it when the contents of directories change.
+    if os.path.exists('MANIFEST'):
+        os.remove('MANIFEST')
     from glob import glob
     from distutils.core import setup
     import solvcon
 
-    doclines = solvcon.__doc__.split('\n')
-
     setup(
-        name='solvcon',
+        name='SOLVCON',
         maintainer='Yung-Yu Chen',
         author='Yung-Yu Chen',
         maintainer_email='yyc@solvcon.net',
         author_email='yyc@solvcon.net',
-        description=doclines[0],
-        long_description='\n'.join(doclines[2:]),
+        description='A supercomputing framework for '
+                    'solving PDEs by hybrid parallelism.',
+        long_description=solvcon.__doc__,
         license='GPL',
         url='http://solvcon.net/',
         download_url='https://bitbucket.org/yungyuc/solvcon/downloads',
