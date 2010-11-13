@@ -19,6 +19,15 @@
 """
 Information about the configuration of solvcon.
 
+SOLVCON will find each of the solvcon.ini files from current working directory
+toward the root, and use their settings.  Three settings are recognized in
+[SOLVCON] section:
+
+* APPS: SOLVCON_APPS
+* LOGFILE: SOLVCON_LOGFILE
+* PROJECT_DIR: SOLVCON_PROJECT_DIR.  Can be set at empty, which indicates the
+    path where the configuration file locates.
+
 Configurable environmental variables:
 
 * ``SOLVCON_PROJECT_DIR``: the directory holds the applications.
@@ -27,6 +36,8 @@ Configurable environmental variables:
   semi-colon.  There should be no spaces.
 * ``SOLVCON_FPDTYPE``: a string for the numpy dtype object for floating-point.
   The default fpdtype to be used is float64 (double).
+* ``SOLVCON_INTDTYPE``: a string for the numpy dtype object for integer.
+  The default intdtype to be used is int32.
 * ``SOLVCON_FORTRAN``: flag to use FORTRAN binaries.
 * ``SOLVCON_MPI``: flag to use MPI.
 """
@@ -38,7 +49,8 @@ class Solvcon(object):
     The configuration singleton.
     """
     def __init__(self):
-        import os
+        import os, sys
+        from ConfigParser import ConfigParser
         from .mpy import MPI
         # directories.
         self.pydir = os.path.abspath(os.path.dirname(__file__))
@@ -46,17 +58,44 @@ class Solvcon(object):
         self.libdir = os.path.abspath(os.path.join(self.pydir, '..', 'lib'))
         self.datadir = os.path.abspath(
             os.path.join(self.pydir, '..', 'test', 'data'))
+        # configuration files.
+        cfgdirs = list()
+        cwd = os.getcwd()
+        parent = os.path.dirname(cwd)
+        while parent != cwd:
+            if os.path.exists(os.path.join(cwd, 'solvcon.ini')):
+                cfgdirs.append(cwd)
+            cwd = parent
+            parent = os.path.dirname(cwd)
+        cfg = ConfigParser()
+        cfg.read([
+            os.path.join(dname, 'solvcon.ini') for dname in cfgdirs])
         ## project directory.
-        projdir = os.environ.get('SOLVCON_PROJECT_DIR', None)
+        project_dir = None
+        if cfg.has_option('SOLVCON', 'PROJECT_DIR'):
+            project_dir = cfg.get('SOLVCON', 'PROJECT_DIR')
+        if project_dir == '' and len(cfgdirs):
+            project_dir = cfgdirs[0]
+        projdir = os.environ.get('SOLVCON_PROJECT_DIR', project_dir)
         if projdir == None:
             projdir = os.getcwd()
         self.projdir = os.path.abspath(projdir)
+        sys.path.insert(0, self.projdir)
         # logging.
-        logfn = os.environ.get('SOLVCON_LOGFILE', None)
+        logfn = None
+        if cfg.has_option('SOLVCON', 'LOGFILE'):
+            logfn = cfg.get('SOLVCON', 'LOGFILE')
+        logfn = os.environ.get('SOLVCON_LOGFILE', logfn)
         self.logfile = None if logfn == None else open(logfn, 'w')
         self.logfn = logfn
         # settings.
-        self.modnames = os.environ.get('SOLVCON_APPS', '').split(';')
+        if cfg.has_option('SOLVCON', 'APPS'):
+            self.modnames = cfg.get('SOLVCON', 'APPS').split(';')
+        else:
+            self.modnames = list()
+        emodnames = os.environ.get('SOLVCON_APPS', '').split(';')
+        if emodnames:
+            self.modnames.extend(emodnames)
         # data types.
         self._fpdtype = None
         self._intdtype = None
@@ -105,4 +144,5 @@ class Solvcon(object):
 env = Solvcon()
 
 def use_application(modname):
-    __import__(modname, fromlist=['arrangement',])
+    if modname:
+        __import__(modname, fromlist=['arrangement',])

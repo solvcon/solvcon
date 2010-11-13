@@ -666,9 +666,6 @@ class run(ArrangementCommand):
             name = args[0]
         else:
             name = os.path.basename(os.getcwd())
-        # import application packages.
-        for modname in self.env.modnames:
-            use_application(modname)
         # get batch.
         batch = batregy[ops.batch]
         # get partition number and domain type.
