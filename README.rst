@@ -13,7 +13,7 @@ Number-crunching is performed by high-speed subroutines written in C.  By
 taking the mixed-language approach, PDE solvers can be rapidly developed and
 simultaneously utilize hundreds of nodes in a supercomputer by parallel
 computing.  SOLVCON is multi-physics, and stocking numerical algorithms and
-physical models are ready for in the namespace ``solvcon.kerpak``.  See
+physical models are ready for use in the namespace ``solvcon.kerpak``.  See
 http://solvcon.net/ or contact the author `Yung-Yu Chen <yyc@solvcon.net>`_ for
 detail.
 
