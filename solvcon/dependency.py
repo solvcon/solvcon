@@ -52,7 +52,7 @@ def loadcdll(location, libname):
 
     @param location: location of the ctypes library.
     @type location: str
-    @param libname: basename of library.
+    @param libname: full basename of library.
     @type libname: str
     @return: ctypes library.
     @rtype: ctypes.CDLL
@@ -67,10 +67,18 @@ def loadcdll(location, libname):
     libpath = os.path.join(libdir, tmpl%libname)
     return cdllcache.setdefault(libpath, CDLL(libpath))
 def getcdll(libname):
-    return loadcdll(env.libdir, libname)
+    """
+    Load shared objects at the default location.
 
-_clib_solvcon_d = getcdll('_clib_solvcon_d')
-_clib_solvcon_s = getcdll('_clib_solvcon_s')
+    @param libname: main basename of library without sc_ prefix.
+    @type libname: str
+    @return: ctypes library.
+    @rtype: ctypes.CDLL
+    """
+    return loadcdll(env.libdir, 'sc_'+libname)
+
+_clib_solvcon_d = getcdll('solvcon_d')
+_clib_solvcon_s = getcdll('solvcon_s')
 
 def _clib_solvcon_of(dtype):
     import numpy as np
@@ -81,7 +89,7 @@ def _clib_solvcon_of(dtype):
     else:
         raise TypeError
 
-_clib_metis = loadcdll(env.libdir, '_clib_metis')
+_clib_metis = getcdll('metis')
 
 class FortranType(Structure):
     """

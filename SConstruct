@@ -207,18 +207,6 @@ env.Append(BUILDERS={
     ),
 })
 
-# metis environment.
-metissrc = 'dep/metis-4.0/Lib'
-CCFLAGS = ''
-if sys.platform.startswith('win'):
-    CCFLAGS = ' '.join([CCFLAGS, '-D__VC__'])
-OPM = '-O3'
-DBG = ''
-metisenv = Environment(ENV=os.environ, tools=tools,
-    CCFLAGS=' '.join([CCFLAGS, '-I%s'%metissrc, OPM, DBG]))
-
 Export('env')
-Export('metisenv')
-Export('metissrc')
 SConscript(['SConscript'])
 # vim: set ft=python ff=unix:

@@ -292,8 +292,8 @@ class CeseSolver(BlockSolver):
     from ctypes import c_int
     from solvcon.dependency import getcdll
     __clib_cese = {
-        2: getcdll('_clib_cese2d'),
-        3: getcdll('_clib_cese3d'),
+        2: getcdll('cese2d'),
+        3: getcdll('cese3d'),
     }
     del getcdll, c_int
     @property
@@ -438,8 +438,8 @@ class CeseBC(BC):
 
     from solvcon.dependency import getcdll
     __clib_ceseb = {
-        2: getcdll('_clib_ceseb2d'),
-        3: getcdll('_clib_ceseb3d'),
+        2: getcdll('ceseb2d'),
+        3: getcdll('ceseb3d'),
     }
     del getcdll
     @property

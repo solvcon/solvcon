@@ -44,7 +44,7 @@ class TestCtypesFortran(TestCase):
         from ..conf import env
         # load the dll created by f2py and bind the subroutine.
         tmpl = '%s.dll' if sys.platform.startswith('win') else 'lib%s.so'
-        libpath = os.path.join(env.libdir, tmpl%'_clib_solvcontest')
+        libpath = os.path.join(env.libdir, tmpl%'sc_solvcontest')
         self.lib_c_ctypes = CDLL(libpath)
         # create test arrays.
         self.a = arange(10, dtype='int32')

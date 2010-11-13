@@ -42,8 +42,8 @@ class EulerSolver(CeseSolver):
     from ctypes import c_int
     from solvcon.dependency import getcdll
     __clib_euler = {
-        2: getcdll('_clib_euler2d'),
-        3: getcdll('_clib_euler3d'),
+        2: getcdll('euler2d'),
+        3: getcdll('euler3d'),
     }
     del getcdll, c_int
     @property
@@ -107,8 +107,8 @@ class EulerBC(CeseBC):
     typn = -10000
     from solvcon.dependency import getcdll
     __clib_eulerb = {
-        2: getcdll('_clib_eulerb2d'),
-        3: getcdll('_clib_eulerb3d'),
+        2: getcdll('eulerb2d'),
+        3: getcdll('eulerb3d'),
     }
     del getcdll
     @property
