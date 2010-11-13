@@ -199,13 +199,13 @@ class BC(object):
         """
         pass
 
-    def sol(self):
+    def sol(self):  # FIXME: should be in kerpak.
         """
         Update ghost cells after marchsol.
         """
         pass
 
-    def dsol(self):
+    def dsol(self): # FIXME: should be in kerpak.
         """
         Update ghost cells after marchdsol.
         """
@@ -270,7 +270,7 @@ class interface(BC):
         assert (self.rclp[:,1]>=0).all()
         assert (self.rclp[:,2]>=0).all()
 
-class periodic(interface):
+class periodic(interface):  # FIXME: should be in kerpak.
     """
     BC type for periodic boundary condition.
     """

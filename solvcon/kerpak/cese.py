@@ -459,6 +459,9 @@ class CeseBC(BC):
         )
 
 class CeseNonrefl(CeseBC):
+    """
+    General non-reflective boundary condition (NRBC).
+    """
     typn = 1000
     _ghostgeom_ = 'mirror'
     def sol(self):

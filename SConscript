@@ -30,6 +30,18 @@ if not GetOption('enable_f90'):
                 'lib/_clib_%s%dd'%(lkey, ndim),
                 Glob('lib/%s%dd/*.c'%(lkey, ndim)),
             ))
+    # lib_euler.
+    dimlibs = ['euler', 'eulerb']
+    for ndim in 2, 3:
+        for lkey in dimlibs:
+            VariantDir('lib/%s%dd'%(lkey, ndim), 'src/%s'%lkey, duplicate=0)
+        envm = env.Clone()
+        envm.Prepend(CCFLAGS=['-DNDIM=%d'%ndim])
+        for lkey in dimlibs:
+            libs.append(envm.SharedLibrary(
+                'lib/_clib_%s%dd'%(lkey, ndim),
+                Glob('lib/%s%dd/*.c'%(lkey, ndim)),
+            ))
     # lib_solvcontest in C.
     lib_solvcontest = env.SharedLibrary('lib/_clib_solvcontest',
         Glob('test/src/*.c'))
