@@ -123,7 +123,7 @@ To be written.
 
 __docformat__ = 'restructuredtext en'
 
-__version__ = '0.0.1'
+__version__ = '0.0.1+'
 
 __description__ = "Solver Constructor: a framework to solve hyperbolic PDEs"
 
