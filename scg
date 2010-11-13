@@ -1,5 +1,6 @@
 #!/usr/bin/env python2.6
 import sys, os
-sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
+if os.path.exists(os.path.join(os.path.dirname(__file__), 'solvcon')):
+    sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 import solvcon
 solvcon.go()
