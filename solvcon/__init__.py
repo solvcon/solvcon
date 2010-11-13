@@ -56,7 +56,7 @@ __description__ = "Solver Constructor: a framework to solve hyperbolic PDEs"
 
 __all__ = ['batch', 'batch_torque', 'block', 'boundcond', 'case',
     'cmdutil', 'command', 'conf', 'connection', 'dependency', 'domain',
-    'gendata', 'helper', 'io', 'rpc', 'solver', 'mthread', 'mpy']
+    'gendata', 'helper', 'io', 'kerpak', 'rpc', 'solver', 'mthread', 'mpy']
 
 from .cmdutil import go
 

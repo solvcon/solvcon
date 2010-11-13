@@ -66,9 +66,11 @@ def loadcdll(location, libname):
         libdir = os.path.dirname(libdir)
     libpath = os.path.join(libdir, tmpl%libname)
     return cdllcache.setdefault(libpath, CDLL(libpath))
+def getcdll(libname):
+    return loadcdll(env.libdir, libname)
 
-_clib_solvcon_d = loadcdll(env.libdir, '_clib_solvcon_d')
-_clib_solvcon_s = loadcdll(env.libdir, '_clib_solvcon_s')
+_clib_solvcon_d = getcdll('_clib_solvcon_d')
+_clib_solvcon_s = getcdll('_clib_solvcon_s')
 
 def _clib_solvcon_of(dtype):
     import numpy as np
