@@ -18,7 +18,7 @@ http://solvcon.net/ or contact the author `Yung-Yu Chen <yyc@solvcon.net>`_ for
 detail.
 
 The default numerical algorithm in SOLVCON is the space-time Conservation
-Element and Solution Element (CESE_) method.  The CESE_ method deliver
+Element and Solution Element (CESE_) method.  The CESE_ method delivers
 time-accurate solutions for hyperbolic PDEs.
 
 SOLVCON is free software (for freedom, not price) and released under GPLv2.
