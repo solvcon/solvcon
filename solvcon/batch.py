@@ -169,7 +169,8 @@ class Batch(object):
     def build_scg_command(self):
         import os
         from .conf import env
-        scgpath = os.path.join(self.case.io.rootdir, 'scg')
+        #scgpath = os.path.join(self.case.io.rootdir, 'scg')
+        scgpath = 'scg' # FIXME: make it more flexible.
         scgargs = ' '.join(['run', self.arnname])
         if env.command != None:
             ops, args = env.command.opargs

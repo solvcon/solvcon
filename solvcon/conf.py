@@ -55,9 +55,14 @@ class Solvcon(object):
         # directories.
         self.pydir = os.path.abspath(os.path.dirname(__file__))
         self.pkgdir = os.path.abspath(os.path.join(self.pydir, '..'))
-        self.libdir = os.path.abspath(os.path.join(self.pydir, '..', 'lib'))
-        self.datadir = os.path.abspath(
-            os.path.join(self.pydir, '..', 'test', 'data'))
+        libdir = os.path.join(self.pydir, '..', 'lib')
+        if not os.path.exists(libdir):
+            libdir = os.path.join(sys.prefix, 'solvcon', 'lib')
+        self.libdir = os.path.abspath(libdir)
+        datadir = os.path.join(self.pydir, '..', 'test', 'data')
+        if not os.path.exists(datadir):
+            datadir = os.path.join(sys.prefix, 'solvcon', 'test', 'data')
+        self.datadir = os.path.abspath(datadir)
         # configuration files.
         cfgdirs = list()
         cwd = os.getcwd()

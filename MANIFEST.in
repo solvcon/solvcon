@@ -2,6 +2,6 @@ include MANIFEST.in
 include README.rst COPYING
 include doc/source/* doc/source/*/*
 include SCons* patch/*.patch
-include src/*/*.f90 src/*/*.inc
-include test/data/*
-include test/src/*.inc test/src/*.f90
+recursive-include lib *
+recursive-include src *
+recursive-include test *

@@ -30,7 +30,7 @@ echo "Customized paths for job:"
 export PYTHONPATH=/tmp:$PYTHONPATH
 echo "Run @`date`:"
 cd /tmp/arn
-time /tmp/scg run arn --runlevel %d
+time scg run arn --runlevel %d
 echo "Finish @`date`."'''
 
     def test_script(self):
