@@ -51,7 +51,8 @@ def main():
         long_description=solvcon.__doc__,
         license='GPL',
         url='http://solvcon.net/',
-        download_url='https://bitbucket.org/yungyuc/solvcon/downloads',
+        download_url='http://bitbucket.org/yungyuc/solvcon/downloads/'
+                     'SOLVCON-0.0.1.tar.gz',
         classifiers=[tok.strip() for tok in CLASSIFIERS.split('\n')],
         platforms=[
             'Linux',
