@@ -642,7 +642,8 @@ class PMarchSave(MarchSave):
         for ieq in range(self.cse.execution.neq):
             sarrs['soln[%d]'%ieq] = 'float64'
         # write.
-        wtr = PVtkXmlUstGridWriter(self.blk, scalars=sarrs, vectors=varrs,
+        wtr = PVtkXmlUstGridWriter(self.blk, fpdtype=self.fpdtype,
+            scalars=sarrs, vectors=varrs,
             npiece=self.cse.execution.npart, pextmpl=self.pextmpl)
         wtr.write(self.vtkfn_tmpl % istep)
     def preloop(self):
