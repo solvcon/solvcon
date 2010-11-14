@@ -113,8 +113,8 @@ How to Use
 Examples for using SOLVCON are put in ``$SCSRC/examples``.  To run these
 examples, you need corresponding mesh data, which is kept in a standalone
 repository at https://bitbucket.org/yungyuc/scdata .  The ``scdata`` directory
-should be put in a directory upper than ``$SCSRC/examples``.  The examples will
-find the ``scdata`` directory automatically.
+should be downloaded in a directory higher than ``$SCSRC/examples``.  The
+examples will find the ``scdata`` directory automatically.
 
 These examples are useful for you to learn how to use SOLVCON to construct your
 own solvers or applications.
