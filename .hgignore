@@ -17,5 +17,5 @@ MANIFEST
 *.dll
 *.def
 *.a
-examples/*/result
+examples/*/*/result
 sandbox/*/result
