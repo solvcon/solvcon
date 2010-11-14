@@ -17,4 +17,4 @@ MANIFEST
 *.dll
 *.def
 *.a
-examples/*/run
+examples/*/result

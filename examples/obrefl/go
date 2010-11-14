@@ -281,7 +281,7 @@ def obrefl_base(casename=None, meshname=None,
         'lower': (bctregy.EulerWall, {},),
     }
     # set up case.
-    basedir = os.path.abspath(os.path.join(os.getcwd(), 'run'))
+    basedir = os.path.abspath(os.path.join(os.getcwd(), 'result'))
     cse = euler.EulerCase(basedir=basedir, rootdir=env.projdir,
         basefn=casename, meshfn=os.path.join(env.find_scdata_mesh(), meshname),
         bcmap=bcmap, **kw)
