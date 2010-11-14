@@ -117,7 +117,7 @@ should be downloaded in a directory higher than ``$SCSRC/examples``.  The
 examples will find the ``scdata`` directory automatically.
 
 These examples are useful for you to learn how to use SOLVCON to construct your
-own solvers or applications.
+own solvers or applications.  Please read them in detail.
 
 .. _CESE: http://www.grc.nasa.gov/WWW/microbus/
 .. _SCons: http://www.scons.org/
