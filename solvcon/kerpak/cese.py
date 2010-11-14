@@ -747,8 +747,9 @@ class ProbeHook(BlockHook):
         self.ankkw = kw
         self.points = None
     def drop_anchor(self, svr):
-        ank = ProbeAnchor(svr, **self.ankkw)
-        svr.runanchors.append(ank, name=self.name)
+        ankkw = self.ankkw.copy()
+        ankkw['name'] = self.name
+        self._deliver_anchor(svr, ProbeAnchor, ankkw)
     def _collect(self):
         cse = self.cse
         if cse.is_parallel:

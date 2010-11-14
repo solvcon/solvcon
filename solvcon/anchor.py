@@ -99,6 +99,74 @@ class AnchorList(list):
             if func != None:
                 func()
 
+class FakeBlockVtk(object):
+    """
+    Faked block from solver for being used by VTK.
+    """
+    def __init__(self, svr):
+        self.ndim = svr.ndim
+        self.nnode = svr.nnode
+        self.ncell = svr.ncell
+        self.ndcrd = svr.ndcrd[svr.ngstnode:]
+        self.clnds = svr.clnds[svr.ngstcell:]
+        self.cltpn = svr.cltpn[svr.ngstcell:]
+        self.fpdtype = svr.fpdtype
+
+class MarchSaveAnchor(Anchor):
+    """
+    Save solution data into VTK XML format for a solver.
+
+    @ivar anames: the arrays in der of solvers to be saved.  True means in der.
+    @itype anames: dict
+    @ivar fpdtype: string for floating point data type (in numpy convention).
+    @itype fpdtype: str
+    @ivar psteps: the interval (in step) to save data.
+    @itype psteps: int
+    @ivar vtkfn_tmpl: the template string for the VTK file.
+    @itype vtkfn_tmpl: str
+    """
+    def __init__(self, svr, **kw):
+        self.anames = kw.pop('anames', dict())
+        self.fpdtype = kw.pop('fpdtype')
+        self.psteps = kw.pop('psteps')
+        self.vtkfn_tmpl = kw.pop('vtkfn_tmpl')
+        super(MarchSaveAnchor, self).__init__(svr, **kw)
+    def _write(self, istep):
+        from .io.vtkxml import VtkXmlUstGridWriter
+        ngstcell = self.svr.ngstcell
+        sarrs = dict()
+        varrs = dict()
+        # collect derived.
+        for key in self.anames:
+            # get the array.
+            if self.anames[key]:
+                arr = self.svr.der[key][ngstcell:]
+            else:
+                arr = getattr(self.svr, key)[ngstcell:]
+            # put array in dict.
+            if len(arr.shape) == 1:
+                sarrs[key] = arr
+            elif arr.shape[1] == self.svr.ndim:
+                varrs[key] = arr
+            else:
+                for it in range(arr.shape[1]):
+                    sarrs['%s[%d]' % (key, it)] = arr
+        # collect unknowns.
+        for ieq in range(self.svr.neq):
+            sarrs['soln[%d]'%ieq] = self.svr.soln[ngstcell:,ieq]
+        # write.
+        wtr = VtkXmlUstGridWriter(FakeBlockVtk(self.svr),
+            fpdtype=self.fpdtype, scalars=sarrs, vectors=varrs)
+        svrn = self.svr.svrn
+        wtr.write(self.vtkfn_tmpl % (istep if svrn is None else (istep, svrn)))
+    def preloop(self):
+        self._write(0)
+    def postmarch(self):
+        psteps = self.psteps
+        istep = self.svr.step_global
+        if istep%psteps == 0:
+            self._write(istep)
+
 class RuntimeStatAnchor(Anchor):
     """
     Report the Linux load average through solver.  Reports are made after a

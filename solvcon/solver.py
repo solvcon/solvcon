@@ -109,6 +109,7 @@ class BaseSolver(object):
         self.neq = kw.pop('neq')
         self.time = kw.pop('time', 0.0)
         self.time_increment = kw.pop('time_increment', 0.0)
+        self.step_global = 0
         self.step_current = 0
         self.substep_current = 0
         self.substep_run = kw.pop('substep_run', 2)
@@ -328,6 +329,7 @@ class BaseSolver(object):
                 self.substep_current += 1
                 self.runanchors('postsub')
             self.timer.increase('march', _time() - t0)
+            self.step_global += 1
             self.step_current += 1
             self.runanchors('postfull')
         if worker:

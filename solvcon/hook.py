@@ -129,7 +129,8 @@ class Hook(object):
         @type svr: solvon.solver.BaseSolver
         @return: nothing
         """
-        if self.ankcls: self._deliver_anchor(svr, self.ankcls, self.kws)
+        if self.ankcls:
+            self._deliver_anchor(svr, self.ankcls, self.kws)
 
     def preloop(self):
         """
@@ -448,7 +449,7 @@ class GroupMarker(BlockHook):
         var['clgrp'] = self.blk.clgrp.copy()
 
 ################################################################################
-# Vtk writers.
+# Vtk legacy writers.
 ################################################################################
 class VtkSave(BlockHook):
     """
@@ -577,4 +578,79 @@ class MarchSave(VtkSave):
         vstep = exe.varstep
         if istep%psteps == 0:
             assert istep == vstep   # data must be fresh.
+            self._write(istep)
+
+################################################################################
+# Vtk XML parallel writers.
+################################################################################
+
+class PMarchSave(MarchSave):
+    """
+    Save the geometry and variables in a case when time marching in parallel
+    VTK XML format.
+
+    @ivar anames: the arrays in der of solvers to be saved.  Format is (name,
+        inder, ndim), (name, inder, ndim) ...  For ndim > 0 the
+        array is a spatial vector, for ndim == 0 a simple scalar, and ndim < 0
+        a list of scalar.
+    @itype anames: list
+    @ivar fpdtype: string for floating point data type (in numpy convention).
+    @itype fpdtype: str
+    @ivar pextmpl: template for the extension of split VTK file name.
+    @itype pextmpl: str
+    """
+    def __init__(self, cse, **kw):
+        import os
+        from math import log10, ceil
+        self.anames = kw.pop('anames', list())
+        self.fpdtype = kw.pop('fpdtype', str(cse.execution.fpdtype))
+        super(PMarchSave, self).__init__(cse, **kw)
+        # override vtkfn_tmpl.
+        nsteps = cse.execution.steps_run
+        basefn = cse.io.basefn
+        vtkfn_tmpl = basefn + "_%%0%dd"%int(ceil(log10(nsteps))+1) + '.pvtu'
+        self.vtkfn_tmpl = os.path.join(cse.io.basedir,
+            kw.pop('vtkfn_tmpl', vtkfn_tmpl))
+        # craft ext name template.
+        npart = cse.execution.npart
+        self.pextmpl = '.p%%0%dd'%int(ceil(log10(npart))+1) if npart else ''
+        self.pextmpl += '.vtu'
+    def drop_anchor(self, svr):
+        import os
+        from .anchor import MarchSaveAnchor
+        basefn = os.path.splitext(self.vtkfn_tmpl)[0]
+        anames = dict([(ent[0], ent[1]) for ent in self.anames])
+        ankkw = dict(anames=anames, fpdtype=self.fpdtype,
+            psteps=self.psteps, vtkfn_tmpl=basefn+self.pextmpl)
+        self._deliver_anchor(svr, MarchSaveAnchor, ankkw)
+    def _write(self, istep):
+        from .io.vtkxml import PVtkXmlUstGridWriter
+        if not self.cse.execution.npart:
+            return
+        sarrs = dict()
+        varrs = dict()
+        # collect derived.
+        for key, inder, ndim in self.anames:
+            if ndim > 0:
+                varrs[key] = self.fpdtype
+            elif ndim < 0:
+                for it in range(abs(ndim)):
+                    sarrs['%s[%d]' % (key, it)] = self.fpdtype
+            else:
+                sarrs[key] = self.fpdtype
+        # collect unknowns.
+        for ieq in range(self.cse.execution.neq):
+            sarrs['soln[%d]'%ieq] = 'float64'
+        # write.
+        wtr = PVtkXmlUstGridWriter(self.blk, scalars=sarrs, vectors=varrs,
+            npiece=self.cse.execution.npart, pextmpl=self.pextmpl)
+        wtr.write(self.vtkfn_tmpl % istep)
+    def preloop(self):
+        self._write(0)
+    def postmarch(self):
+        psteps = self.psteps
+        exe = self.cse.execution
+        istep = exe.step_current
+        vstep = exe.varstep
+        if istep%psteps == 0:
             self._write(istep)

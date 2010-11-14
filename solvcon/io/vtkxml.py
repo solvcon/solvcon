@@ -238,49 +238,6 @@ class VtkXmlUstGridWriter(VtkXmlWriter):
         super(VtkXmlUstGridWriter, self).__init__(blk, *args, **kw)
         self.griddata = None
 
-    def _convert_varr(self, arr):
-        """
-        Helper to convert vector data array from a block.
-
-        @param arr: array to be converted.  It will be copied and remain
-            untouched.
-        @type arr: numpy.ndarray
-        @return: converted array.
-        @rtype: numpy.ndarray
-        """
-        from numpy import empty
-        arr = arr.copy()
-        ndim = self.blk.ndim
-        nit = arr.shape[0]
-        if ndim == 2:
-            arrn = empty((nit, ndim+1), dtype=arr.dtype)
-            arrn[:,2] = 0.0
-            arrn[:,:2] = arr[:,:]
-            arr = arrn
-        return arr
-
-    @staticmethod
-    def _convert_clnds(clnds):
-        """
-        Convert nodes in cells into a compressed array format.
-
-        @param clnds: the array to be compressed.
-        @type clnds: numpy.ndarray
-        @return: the compressed array.
-        @rtype: numpy.ndarray
-        """
-        from numpy import empty
-        arr = empty(clnds[:,0].sum(), dtype='int32')
-        ncell = clnds.shape[0]
-        icl = 0
-        it = 0
-        while icl < ncell:
-            ncl = clnds[icl,0]
-            arr[it:it+ncl] = clnds[icl,1:ncl+1]
-            it += ncl
-            icl += 1
-        return arr
-
     def write(self, outf, close_on_finish=False):
         """
         Write to file.
@@ -313,24 +270,30 @@ class VtkXmlUstGridWriter(VtkXmlWriter):
             ('NumberOfCells', self.blk.ncell),
         ]))
         aplist = list() if self.appended else None
+        # data.
+        outf.write(self._tag_open('CellData'))
+        for key in sorted(self.scalars.keys()):
+            arr = self.scalars[key].astype(self.fpdtype)
+            self._write_darr(arr, outf, aplist, [('Name', key)])
+        for key in sorted(self.vectors.keys()):
+            arr = self._convert_varr(self.vectors[key].astype(self.fpdtype))
+            self._write_darr(arr, outf, aplist, [
+                ('Name', key), ('NumberOfComponents', 3)])
+        outf.write(self._tag_close('CellData'))
         # write points.
         outf.write(self._tag_open('Points'))
-        self._write_darr(self._convert_varr(self.blk.ndcrd), outf, aplist, [
-            ('NumberOfComponents', 3),
-        ])
+        arr = self.blk.ndcrd.astype(self.fpdtype)
+        self._write_darr(self._convert_varr(arr), outf, aplist, [
+            ('NumberOfComponents', 3)])
         outf.write(self._tag_close('Points'))
         # write cells.
         outf.write(self._tag_open('Cells'))
         self._write_darr(self._convert_clnds(self.blk.clnds), outf, aplist, [
-            ('Name', 'connectivity'),
-        ])
+            ('Name', 'connectivity')])
         self._write_darr(self.blk.clnds[:,0].cumsum(dtype='int32'), outf,
-            aplist, [
-            ('Name', 'offsets'),
-        ])
+            aplist, [('Name', 'offsets')])
         self._write_darr(self.cltpn_map[self.blk.cltpn], outf, aplist, [
-            ('Name', 'types'),
-        ])
+            ('Name', 'types')])
         outf.write(self._tag_close('Cells'))
         # write footer.
         outf.write(self._tag_close('Piece'))
@@ -343,3 +306,120 @@ class VtkXmlUstGridWriter(VtkXmlWriter):
         # discard griddata if not cached.
         if not self.cache_grid:
             self.griddata = None
+
+    def _convert_varr(self, arr):
+        """
+        Helper to convert vector data array from a block.
+
+        @param arr: array to be converted.  It will be copied and remain
+            untouched.
+        @type arr: numpy.ndarray
+        @return: converted array.
+        @rtype: numpy.ndarray
+        """
+        from numpy import empty
+        arr = arr.copy()
+        ndim = self.blk.ndim
+        nit = arr.shape[0]
+        if ndim == 2:
+            arrn = empty((nit, ndim+1), dtype=arr.dtype)
+            arrn[:,2] = 0.0
+            try:
+                arrn[:,:2] = arr[:,:]
+            except ValueError, e:
+                args = [a for a in e.args]
+                args.append('arrn.shape=%s, arr.shape=%s' % (
+                    str(arrn.shape), str(arr.shape)))
+                e.args = args
+                raise
+            arr = arrn
+        return arr
+
+    @staticmethod
+    def _convert_clnds(clnds):
+        """
+        Convert nodes in cells into a compressed array format.
+
+        @param clnds: the array to be compressed.
+        @type clnds: numpy.ndarray
+        @return: the compressed array.
+        @rtype: numpy.ndarray
+        """
+        from numpy import empty
+        arr = empty(clnds[:,0].sum(), dtype='int32')
+        ncell = clnds.shape[0]
+        icl = 0
+        it = 0
+        while icl < ncell:
+            ncl = clnds[icl,0]
+            arr[it:it+ncl] = clnds[icl,1:ncl+1]
+            it += ncl
+            icl += 1
+        return arr
+
+class PVtkXmlUstGridWriter(VtkXmlUstGridWriter):
+    """
+    Parallel VTK XML unstructured mesh file format.  Capable for ASCII or
+    BINARY.
+    """
+    def __init__(self, blk, *args, **kw):
+        npiece = kw.pop('npiece')
+        self.npiece = npiece if npiece else 1
+        self.pextmpl = kw.pop('pextmpl')
+        super(PVtkXmlUstGridWriter, self).__init__(blk, *args, **kw)
+
+    def write(self, outf, close_on_finish=False):
+        """
+        Write to file.
+
+        @param outf: output file name
+        @type outf: str
+        @keyword close_on_finish: flag close on finishing (True).  Default
+            False.  If outf is file name, the output file will be close no
+            matter what is set in this flag.
+        @type close_on_finish: bool
+        @return: nothing
+        """
+        import os
+        mainfn = os.path.splitext(outf)[0]
+        outf = open(outf, 'w')
+        # write header.
+        outf.write('<?xml version="1.0"?>\n')
+        attr = [
+            ('type', 'PUnstructuredGrid'),
+            ('version', '0.1'),
+            ('byte_order', 'LittleEndian'),
+        ]
+        outf.write(self._tag_open('VTKFile', attr))
+        outf.write(self._tag_open('PUnstructuredGrid', [
+            ('GhostLevel', 0),
+        ]))
+        # data.
+        outf.write(self._tag_open('PCellData'))
+        for key in sorted(self.scalars.keys()):
+            dtype = self.scalars[key]
+            attr = [('type', self.dtype_map[str(dtype)]), ('Name', key)]
+            outf.write(self._tag_open('PDataArray', attr, close=True))
+        for key in sorted(self.vectors.keys()):
+            dtype = self.vectors[key]
+            attr = [('type', self.dtype_map[str(dtype)]), ('Name', key),
+                ('NumberOfComponents', 3)]
+            outf.write(self._tag_open('PDataArray', attr, close=True))
+        outf.write(self._tag_close('PCellData'))
+        # write points.
+        outf.write(self._tag_open('PPoints'))
+        outf.write(self._tag_open('PDataArray', [
+            ('type', self.dtype_map[str(self.fpdtype)]),
+            ('NumberOfComponents', 3),
+        ], close=True))
+        outf.write(self._tag_close('PPoints'))
+        # write pieces.
+        pfntmpl = os.path.basename(mainfn + self.pextmpl)
+        for ipiece in range(self.npiece):
+            outf.write(self._tag_open('Piece', [
+                ('Source', pfntmpl % ipiece),
+            ], close=True))
+        # write footer.
+        outf.write(self._tag_close('PUnstructuredGrid'))
+        outf.write(self._tag_close('VTKFile'))
+        outf.close()

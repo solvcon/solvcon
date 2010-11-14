@@ -18,3 +18,4 @@ MANIFEST
 *.def
 *.a
 examples/*/result
+sandbox/*/result
