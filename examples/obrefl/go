@@ -1,0 +1,340 @@
+#!/usr/bin/env python2.6
+# -*- coding: UTF-8 -*-
+#
+# Copyright (C) 2010 Yung-Yu Chen <yyc@solvcon.net>.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+"""
+An example simulation for reflection of oblique shock wave.  A SOLVCON
+application consists of at least an arrangement, which is a callable decorated
+by the register_arrangement() classmethod of the corresponding Case class.  The
+arrangement is responsible for instantiating desired Case object and returning
+it.
+
+In this example, additional helper classes are defined to provide more
+functionalities:
+
+- ObliqueShock: calculate the exact solution of oblique shock wave reflected
+  from a ramp and a wall.
+- ExactObshockHook: report information for the exact solution during
+  simulation.
+- ReflProbe: probe the simulated solution in the discretized spatial domain.
+
+To aid parameterized studies, the arrangement, named as obrefl(), simply
+provides necessary parameters to a fundamental function, obrefl_base().  See
+the docstring and source codes for detail.
+
+At the end of the script, solvcon is imported and solvcon.go() is run.
+solvcon.go() is the main entry point of all SOLVCON applications.  solvcon.go()
+provides a lot of options and built-in functionalities.  You can execute this
+script with --help option to see the help information.
+
+The arrangement obrefl can be run by simply executing ./go run.
+"""
+
+from solvcon.hook import BlockHook
+from solvcon.kerpak.cese import ProbeHook
+from solvcon.kerpak import euler
+
+class ObliqueShock(object):
+    """
+    Exact solution of oblique shock wave resulted from a ramp.
+    """
+    def __init__(self, ga, dta, M1, err=1.e-14, maxiter=100):
+        """
+        @param ga: specific heat ratio.
+        @type ga: float
+        @param dta: ramp deflection angle (in radius).
+        @type dta: float
+        @param M1: incoming Mach number.
+        @type M1: float
+        """
+        self._ga = ga
+        self._dta = dta
+        self._M1 = M1
+        self._err = err
+        self._maxiter = 100
+        self.bta = self._calc_shock_angle(self._dta, self._M1)
+        self.M2 = self._calc_behind_M(self.bta, self._dta, self._M1)
+        self.bta2 = self._calc_shock_angle(self._dta, self.M2)
+        self.M3 = self._calc_behind_M(self.bta2, self._dta, self.M2)
+
+    def _calc_shock_angle(self, dta, M):
+        from math import tan, sin, cos
+        ga = self._ga
+        # calculate.
+        bta = dta * 2
+        tand = tan(dta)
+        cnt = 0
+        while True:
+            cotb = 1.0/tan(bta)
+            sinb = sin(bta)
+            cosb = cos(bta)
+            cos2b = cos(2.0*bta)
+            f = 2*cotb*((M*sinb)**2-1) - tand*(2+M**2*(ga+cos2b))
+            fp = M**2*(4*cosb**2 + 4*tand*sinb*cosb - 2) + 2.0/sinb**2
+            diff = f/fp
+            bta -= diff
+            if abs(diff) < self._err or cnt >= self._maxiter:
+                break
+            cnt += 1
+        return bta
+    def _calc_behind_M(self, bta, dta, M):
+        from math import sin, sqrt
+        ga = self._ga
+        # calculate.
+        sinb = sin(bta)
+        sinbd = sin(bta-dta)
+        nume = (M*sinb)**2 + 2.0/(ga-1)
+        deno = 2*ga*(M*sinb)**2/(ga-1) - 1.0
+        return sqrt(nume/(deno*sinbd**2))
+    def _calc_behind_p(self, bta, M):
+        from math import sin
+        ga = self._ga
+        # calculate.
+        sinb = sin(bta)
+        nume = 2*ga*(M*sinb)**2 - (ga-1)
+        deno = ga + 1
+        return nume / deno
+    def _calc_behind_rho(self, bta, M):
+        from math import sin
+        ga = self._ga
+        # calculate.
+        sinb = sin(bta)
+        nume = (ga+1) * (M*sinb)**2
+        deno = 2 + (ga-1) * (M*sinb)**2
+        return nume / deno
+    def _calc_behind_T(self, bta, M):
+        from math import sin
+        ga = self._ga
+        # calculate.
+        sinb = sin(bta)
+        nume = 2 + (ga-1)*(M*sinb)**2
+        nume *= 2*ga*(M*sinb)**2 - (ga-1)
+        deno = ((ga+1)*M*sinb)**2
+        return nume / deno
+
+    @property
+    def ga(self):
+        return self._ga
+    @property
+    def dta(self):
+        return self._dta
+    @property
+    def M1(self):
+        return self._M1
+
+    def calc_rho2(self, rho1):
+        return rho1 * self._calc_behind_rho(self.bta, self._M1)
+    def calc_rho3(self, rho1):
+        rho2 = self.calc_rho2(rho1)
+        return rho2 * self._calc_behind_rho(self.bta2, self.M2)
+    def calc_p2(self, p1):
+        return p1 * self._calc_behind_p(self.bta, self._M1)
+    def calc_p3(self, p1):
+        p2 = self.calc_p2(p1)
+        return p2 * self._calc_behind_p(self.bta2, self.M2)
+    def calc_a2(self, rho1, p1):
+        from math import sqrt
+        rho2 = self.calc_rho2(rho1)
+        p2 = self.calc_p2(p1)
+        return sqrt(self.ga*p2/rho2)
+    def calc_a3(self, rho1, p1):
+        from math import sqrt
+        rho3 = self.calc_rho3(rho1)
+        p3 = self.calc_p3(p1)
+        return sqrt(self.ga*p3/rho3)
+    def calc_T2(self, T1):
+        return T1 * self._calc_behind_T(self.bta, self._M1)
+    def calc_T3(self, T1):
+        T2 = self.calc_T2(T1)
+        return T2 * self._calc_behind_T(self.bta2, self.M2)
+
+class ExactObshockHook(BlockHook):
+    """
+    Show the exact solution for the reflection of oblique shock wave.
+    """
+    def __init__(self, cse, **kw):
+        self.dta = kw.pop('dta')
+        self.M1 = kw.pop('M1')
+        self.ga = kw.pop('gamma')
+        self.p1 = kw.pop('p')
+        self.rho1 = kw.pop('rho')
+        self.region = kw.pop('region', 2)
+        super(ExactObshockHook, self).__init__(cse, **kw)
+    def _calculate(self):
+        from math import pi
+        obs = ObliqueShock(ga=self.ga, dta=self.dta, M1=self.M1)
+        self.info('Oblique shock relation (exact):\n')
+        self.info('  delta = %.3f deg (ramp angle)\n' % (obs.dta/pi*180))
+        self.info('  beta  = %.3f deg (shock angle)\n' % (obs.bta/pi*180))
+        self.info('  M2    = %.10f\n' % obs.M2)
+        self.info('  rho2  = %.10f\n' % obs.calc_rho2(self.rho1))
+        self.info('  p2    = %.10f\n' % obs.calc_p2(self.p1))
+        if self.region >= 3:
+            self.info('  beta2 = %.3f deg (shock angle)\n' % (obs.bta2/pi*180))
+            self.info('  - dta = %.3f deg (shock-ramp angle)\n' % (
+                (obs.bta2-obs.dta)/pi*180))
+            self.info('  M3    = %.10f\n' % obs.M3)
+            self.info('  rho3  = %.10f\n' % obs.calc_rho3(self.rho1))
+            self.info('  p3    = %.10f\n' % obs.calc_p3(self.p1))
+    def preloop(self):
+        self._calculate()
+    postloop = preloop
+
+class ReflProbe(ProbeHook):
+    """
+    Place a probe for the flow properties in the reflected region.
+    """
+    def __init__(self, cse, **kw):
+        from math import pi, cos, sin, tan
+        kw['speclst'] = ['M', 'rho', 'p']
+        # calculate exact solution.
+        dta = kw.pop('dta')
+        M1 = kw.pop('M1')
+        ga = kw.pop('gamma')
+        p1 = kw.pop('p')
+        rho1 = kw.pop('rho')
+        obs = ObliqueShock(ga=ga, dta=dta, M1=M1)
+        self.M3 = obs.M3
+        self.rho3 = obs.calc_rho3(rho1)
+        self.p3 = obs.calc_p3(p1)
+        bta = obs.bta
+        bta2 = obs.bta2
+        # detemine location.
+        x0 = kw.pop('x0')
+        y0 = kw.pop('y0')
+        z0 = kw.pop('z0', None)
+        x1 = kw.pop('x1')
+        y1 = kw.pop('y1')
+        z1 = kw.pop('z1', None)
+        factor = kw.pop('factor', 0.9)
+        lgh = (y1-y0) / tan(bta)
+        hgt = factor * (x1-x0-lgh) * tan((bta2-dta)/2)
+        lgh = factor * (x1-x0-lgh) + lgh
+        if z0:
+            poi = ('poi', lgh, hgt, (z1+z0)/2)
+        else:
+            poi = ('poi', lgh, hgt)
+        kw['coords'] = (poi,)
+        # ancestor.
+        super(ReflProbe, self).__init__(cse, **kw)
+    def postloop(self):
+        super(ReflProbe, self).postloop()
+        self.info('Probe result at %s:\n' % self.points[0])
+        M, rho, p = self.points[0].vals[-1][1:]
+        self.info('  M3   = %.3f/%.3f (error=%%%.2f)\n' % (M, self.M3,
+            abs((M-self.M3)/self.M3)*100))
+        self.info('  rho3 = %.3f/%.3f (error=%%%.2f)\n' % (rho, self.rho3,
+            abs((rho-self.rho3)/self.rho3)*100))
+        self.info('  p3   = %.3f/%.3f (error=%%%.2f)\n' % (p, self.p3,
+            abs((p-self.p3)/self.p3)*100))
+
+def obrefl_base(casename=None, meshname=None,
+    gamma=None, density=None, pressure=None, M=None, dta=None,
+    psteps=None, ssteps=None, profile_only=False, **kw
+):
+    """
+    Fundamental configuration of the simulation and return the case object.
+
+    @return: the created Case object.
+    @rtype: solvcon.case.BlockCase
+    """
+    import os
+    from numpy import pi, array, sin, cos, sqrt
+    from solvcon.conf import env
+    from solvcon.boundcond import bctregy
+    from solvcon.solver import ALMOST_ZERO
+    from solvcon import hook, anchor
+    from solvcon.kerpak import cese
+    # set flow properties (fp).
+    fpb = {
+        'gamma': gamma, 'rho': density, 'v2': 0.0, 'v3': 0.0, 'p': pressure,
+    }
+    fpb['v1'] = M*sqrt(gamma*fpb['p']/fpb['rho'])
+    fpt = fpb.copy()
+    ob = ObliqueShock(ga=gamma, dta=dta, M1=M)
+    fpt['rho'] = ob.calc_rho2(fpb['rho'])
+    fpt['p'] = ob.calc_p2(fpb['p'])
+    V2 = ob.M2 * ob.calc_a2(fpb['rho'], fpb['p']) 
+    fpt['v1'] = V2 * cos(dta)
+    fpt['v2'] = -V2 * sin(dta)
+    fpi = fpb.copy()
+    # set up BCs.
+    bcmap = {
+        'upper': (bctregy.EulerInlet, fpt,),
+        'left': (bctregy.EulerInlet, fpb,),
+        'right': (bctregy.CeseNonrefl, {},),
+        'lower': (bctregy.EulerWall, {},),
+    }
+    # set up case.
+    basedir = os.path.abspath(os.path.join(os.getcwd(), 'run'))
+    cse = euler.EulerCase(basedir=basedir, rootdir=env.projdir,
+        basefn=casename, meshfn=os.path.join(env.find_scdata_mesh(), meshname),
+        bcmap=bcmap, **kw)
+    # anchors for solvers.
+    cse.runhooks.append(anchor.RuntimeStatAnchor)
+    cse.runhooks.append(anchor.MarchStatAnchor)
+    cse.runhooks.append(anchor.TpoolStatAnchor)
+    # informative.
+    cse.runhooks.append(hook.BlockInfoHook)
+    if not profile_only:
+        cse.runhooks.append(hook.ProgressHook,
+            psteps=psteps, linewidth=ssteps/psteps,
+        )
+        cse.runhooks.append(cese.CflHook, fullstop=False, psteps=ssteps,
+            cflmax=10.0, linewidth=ssteps/psteps,
+        )
+        cse.runhooks.append(cese.ConvergeHook, psteps=ssteps)
+        cse.runhooks.append(hook.SplitMarker)
+        cse.runhooks.append(hook.GroupMarker)
+    # initializer.
+    cse.runhooks.append(anchor.FillAnchor, keys=('soln',), value=ALMOST_ZERO)
+    cse.runhooks.append(anchor.FillAnchor, keys=('dsoln',), value=0)
+    cse.runhooks.append(euler.UniformIAnchor, **fpi)
+    # post processing.
+    if not profile_only:
+        # collect variables.
+        varlist = list()
+        for var in ['soln', 'dsoln', 'mqlty']:
+            varlist.append((var, {'inder': False, 'consider_ghost': True}))
+        for var in euler.EulerOAnchor._varlist_:
+            varlist.append((var, {'inder': True, 'consider_ghost': True}))
+        cse.runhooks.append(hook.CollectHook, psteps=ssteps, varlist=varlist)
+        # execution order is reversed for postloop.
+        cse.runhooks.append(ReflProbe, psteps=ssteps,
+            x0=0, x1=4, y0=0, y1=1, z0=0, z1=0, dta=dta, M1=M, **fpb)
+        cse.runhooks.append(ExactObshockHook, region=3, dta=dta, M1=M, **fpb)
+        cse.runhooks.append(euler.EulerOAnchor)
+        cse.runhooks.append(cese.VerifyHook, arrnames=['soln'])
+        # output.
+        cse.runhooks.append(hook.MarchSave,
+            psteps=ssteps, binary=True, cache_grid=True)
+    return cse
+
+@euler.EulerCase.register_arrangement
+def obrefl(casename, **kw):
+    """
+    The true arrangement which specifies necessary parameters for execution.
+    """
+    from math import pi
+    return obrefl_base(casename, meshname='obrefl_t4m100mm.neu.gz',
+        gamma=1.4, density=1.0, pressure=1.0, M=3.0, dta=10.0/180*pi,
+        time_increment=7.e-3, steps_run=400, ssteps=100, psteps=2, **kw)
+
+if __name__ == '__main__':
+    import solvcon
+    solvcon.go()

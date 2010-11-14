@@ -146,6 +146,25 @@ class Solvcon(object):
             self._intdtype = _intdtype
         return _intdtype
 
+    def find_scdata_mesh(self):
+        """
+        Find the mesh directory of the scdata from the current working
+        directory all the way to the root.
+        """
+        import os
+        meshdir = None
+        cwd = os.getcwd()
+        parent = os.path.dirname(cwd)
+        while parent != cwd:
+            if os.path.exists(os.path.join(cwd, 'scdata')):
+                meshdir = os.path.join(cwd, 'scdata', 'mesh')
+                break
+            cwd = parent
+            parent = os.path.dirname(cwd)
+        if meshdir is None:
+            raise OSError('cannot find mesh directory')
+        return os.path.abspath(meshdir)
+
 env = Solvcon()
 
 def use_application(modname):

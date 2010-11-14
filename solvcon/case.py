@@ -251,6 +251,8 @@ class BaseCase(CaseInfo):
         # expand basedir.
         if self.io.abspath:
             self.io.basedir = os.path.abspath(self.io.basedir)
+        if self.io.basedir is not None and not os.path.exists(self.io.basedir):
+            os.makedirs(self.io.basedir)
 
     def _dynamic_execute(self):
         """

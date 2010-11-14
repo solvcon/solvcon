@@ -778,9 +778,10 @@ class ProbeHook(BlockHook):
         self._collect()
         return True
     def postloop(self):
+        import os
         from numpy import array, save
         for point in self.points:
-            save(
-                'pt_%s_%s.npy' % (self.name, point.name),
-                array(point.vals, dtype='float64')
-            )
+            ptfn = '%s_pt_%s_%s.npy' % (
+                self.cse.io.basefn, self.name, point.name)
+            ptfn = os.path.join(self.cse.io.basedir, ptfn)
+            save(ptfn, array(point.vals, dtype='float64'))

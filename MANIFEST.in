@@ -5,3 +5,4 @@ include SCons* patch/*.patch
 recursive-include lib *
 recursive-include src *
 recursive-include test *
+include examples/obrefl/go

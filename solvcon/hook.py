@@ -509,6 +509,7 @@ class MarchSave(VtkSave):
     @itype vtkfn_tmpl: str
     """
     def __init__(self, cse, **kw):
+        import os
         from math import log10, ceil
         super(MarchSave, self).__init__(cse, **kw)
         nsteps = cse.execution.steps_run
@@ -518,7 +519,8 @@ class MarchSave(VtkSave):
             vtkfn_tmpl += ".bin.vtk"
         else:
             vtkfn_tmpl += ".vtk"
-        self.vtkfn_tmpl = kw.pop('vtkfn_tmpl', vtkfn_tmpl)
+        self.vtkfn_tmpl = os.path.join(cse.io.basedir,
+            kw.pop('vtkfn_tmpl', vtkfn_tmpl))
 
     @property
     def data(self):
