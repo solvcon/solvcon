@@ -19,8 +19,14 @@
 
 """
 Run with ./go submit osc --npart=3 --batch=OscGlenn --compress-nodelist
---use-mpi.  Environmental variable ALTDIR specifies where to save the PVTU
-files, and NOSAVE turns off saving.
+--use-mpi.  Environmental variables are used to control detail behaviors of
+this simulation/arrangement:
+
+- CMPR specifies compressor used to output VTU files ('gz' or '').
+- ALTDIR specifies where to save the PVTU files.  Use absolute path.
+- ALTSYM specifies the symbolic link to the alternate PVTK directory.  Use
+  relative path to the basedir.
+- NOSAVE turns off saving.
 """
 
 import os
@@ -42,7 +48,7 @@ class OscGlenn(Torque):
     def get_extra_envars(self):
         import os
         items = list()
-        for key in 'ALTDIR', 'ALTSYM', 'NOSAVE':
+        for key in 'CMPR', 'ALTDIR', 'ALTSYM', 'NOSAVE':
             if os.environ.get(key, None) is not None:
                 items.append('%s=%s' % (key, os.environ[key]))
         return items
@@ -172,6 +178,7 @@ def pvtk_base(casename=None, meshname=None, psteps=None, ssteps=None,
             ('sch', True, 0),
             ('v', True, 0.5),
         ], fpdtype='float64', psteps=ssteps,
+        compressor=os.environ.get('CMPR', 'gz'),
         altdir=os.environ.get('ALTDIR', ''),
         altsym=os.environ.get('ALTSYM', ''))
     return cse

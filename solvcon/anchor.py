@@ -118,6 +118,8 @@ class MarchSaveAnchor(Anchor):
 
     @ivar anames: the arrays in der of solvers to be saved.  True means in der.
     @itype anames: dict
+    @ivar compressor: compressor for binary data.  Can only be 'gz' or ''.
+    @itype compressor: str
     @ivar fpdtype: string for floating point data type (in numpy convention).
     @itype fpdtype: str
     @ivar psteps: the interval (in step) to save data.
@@ -127,6 +129,7 @@ class MarchSaveAnchor(Anchor):
     """
     def __init__(self, svr, **kw):
         self.anames = kw.pop('anames', dict())
+        self.compressor = kw.pop('compressor')
         self.fpdtype = kw.pop('fpdtype')
         self.psteps = kw.pop('psteps')
         self.vtkfn_tmpl = kw.pop('vtkfn_tmpl')
@@ -155,8 +158,8 @@ class MarchSaveAnchor(Anchor):
         for ieq in range(self.svr.neq):
             sarrs['soln[%d]'%ieq] = self.svr.soln[ngstcell:,ieq]
         # write.
-        wtr = VtkXmlUstGridWriter(FakeBlockVtk(self.svr),
-            fpdtype=self.fpdtype, scalars=sarrs, vectors=varrs)
+        wtr = VtkXmlUstGridWriter(FakeBlockVtk(self.svr), fpdtype=self.fpdtype,
+            compressor=self.compressor, scalars=sarrs, vectors=varrs)
         svrn = self.svr.svrn
         wtr.write(self.vtkfn_tmpl % (istep if svrn is None else (istep, svrn)))
     def preloop(self):
