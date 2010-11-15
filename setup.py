@@ -57,8 +57,10 @@ def main():
     write_readme()
 
     data_files = list()
-    data_files.append((os.path.join('lib', 'solvcon'),
-        glob(os.path.join('lib', '*'))))
+    # libraries.
+    data_files.append(
+        (os.path.join('lib', 'solvcon'), glob(os.path.join('lib', '*'))))
+    # test data.
     lead = os.path.join('share', 'solvcon', 'test')
     data_files.extend([
         (lead, glob(os.path.join('test', 'data', '*.neu'))),
@@ -66,6 +68,11 @@ def main():
         (lead, glob(os.path.join('test', 'data', '*.vtk'))),
         (os.path.join(lead, 'sample.dom'),
             glob(os.path.join('test', 'data', 'sample.dom', '*')))])
+    # examples.
+    lead = os.path.join('share', 'solvcon')
+    for edir in glob(os.path.join('examples', '*', '*')):
+        data_files.append(
+            (os.path.join(lead, edir), [os.path.join(edir, 'go')]))
 
     setup(
         name='SOLVCON',
