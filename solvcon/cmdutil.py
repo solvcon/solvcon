@@ -150,6 +150,13 @@ class Command(object):
     def __call__(self):
         raise NotImplementedError
 
+def test():
+    test.__test__ = False
+    import os
+    import nose
+    path = os.path.dirname(__file__)
+    nose.run(defaultTest=path)
+
 def go():
     """
     Command runner.

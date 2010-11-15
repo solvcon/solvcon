@@ -138,7 +138,7 @@ __all__ = ['batch', 'batch_torque', 'block', 'boundcond', 'case',
     'cmdutil', 'command', 'conf', 'connection', 'dependency', 'domain',
     'gendata', 'helper', 'io', 'kerpak', 'rpc', 'solver', 'mthread', 'mpy']
 
-from .cmdutil import go
+from .cmdutil import go, test
 
 if __name__ == '__main__':
     go()

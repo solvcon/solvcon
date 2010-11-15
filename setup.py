@@ -56,6 +56,17 @@ def main():
 
     write_readme()
 
+    data_files = list()
+    data_files.append((os.path.join('lib', 'solvcon'),
+        glob(os.path.join('lib', '*'))))
+    lead = os.path.join('share', 'solvcon', 'test')
+    data_files.extend([
+        (lead, glob(os.path.join('test', 'data', '*.neu'))),
+        (lead, glob(os.path.join('test', 'data', '*.blk'))),
+        (lead, glob(os.path.join('test', 'data', '*.vtk'))),
+        (os.path.join(lead, 'sample.dom'),
+            glob(os.path.join('test', 'data', 'sample.dom', '*')))])
+
     setup(
         name='SOLVCON',
         maintainer='Yung-Yu Chen',
@@ -85,17 +96,7 @@ def main():
             'solvcon.kerpak',
             'solvcon.tests',
         ],
-        data_files=[    # FIXME: put in share.
-            ('solvcon/lib', glob(os.path.join('lib', '*'))),
-            ('solvcon/test/data',
-                glob(os.path.join('test', 'data', '*.neu'))),
-            ('solvcon/test/data',
-                glob(os.path.join('test', 'data', '*.blk'))),
-            ('solvcon/test/data',
-                glob(os.path.join('test', 'data', '*.vtk'))),
-            ('solvcon/test/data/sample.dom',
-                glob(os.path.join('test', 'data', 'sample.dom', '*'))),
-        ],
+        data_files=data_files,
     )
     return
 
