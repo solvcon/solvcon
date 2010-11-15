@@ -662,8 +662,9 @@ class ConvergeHook(BlockHook):
         self.csteps = self.psteps if csteps == None else cstep
         self.ankkw = kw
     def drop_anchor(self, svr):
-        ank = ConvergeAnchor(svr, **self.ankkw)
-        svr.runanchors.append(ank, name=self.name)
+        ankkw = self.ankkw.copy()
+        ankkw['name'] = self.name
+        self._deliver_anchor(svr, ConvergeAnchor, ankkw)
     def _collect(self):
         from numpy import sqrt
         cse = self.cse
@@ -672,7 +673,7 @@ class ConvergeHook(BlockHook):
             dom = cse.solver.domainobj
             dealer = cse.solver.dealer
             allnorm = list()
-            for iblk in range(len(dom)):
+            for iblk in range(dom.nblk):
                 dealer[iblk].cmd.pullank(self.name, 'norm', with_worker=True)
                 allnorm.append(dealer[iblk].recv())
             norm = {'Linf': [0.0]*neq, 'L1': [0.0]*neq, 'L2': [0.0]*neq}
@@ -756,7 +757,7 @@ class ProbeHook(BlockHook):
             dom = cse.solver.domainobj
             dealer = cse.solver.dealer
             allpoints = list()
-            for iblk in range(len(dom)):
+            for iblk in range(dom.nblk):
                 dealer[iblk].cmd.pullank(self.name, 'points', with_worker=True)
                 allpoints.append(dealer[iblk].recv())
             npt = len(allpoints[0])

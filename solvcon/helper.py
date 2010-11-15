@@ -147,11 +147,14 @@ def search_in_parents(loc, name):
     """
     import os
     item = ''
-    parent = os.path.dirname(loc)
-    while parent != loc:
+    loc = os.path.abspath(loc)
+    while True:
         if os.path.exists(os.path.join(loc, name)):
             item = os.path.join(loc, name)
             break
-        loc = parent
         parent = os.path.dirname(loc)
+        if loc == parent:
+            break
+        else:
+            loc = parent
     return os.path.abspath(item) if item else item

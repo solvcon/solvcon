@@ -8,6 +8,7 @@ tmp/
 dep/
 dist/
 MANIFEST
+solvcon.log
 *.pyc
 *.o
 *.so
@@ -18,4 +19,6 @@ MANIFEST
 *.def
 *.a
 examples/*/*/result
+examples/*/*/mesh/
 sandbox/*/result
+sandbox/*/mesh/
