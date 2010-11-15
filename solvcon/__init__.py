@@ -100,12 +100,15 @@ without using the options ``--download``, ``--extract``, and
 ``--apply-patches``.  If you want a clean rebuild, run ``scons -c`` before
 ``scons``.
 
-Optionally, if you have Nose_ installed, you can run::
+Test
+====
 
-  $ nosetests
+If you have Nose_ installed, you can run::
 
-for unit tests.  Every test should pass, except something specific to cluster
-batch systems could be skipped (indicated by S).
+  $ python -c 'import solvcon; solvcon.test()'
+
+for unit tests.  Every test should pass, except one specific to cluster batch
+systems could be skipped (indicated by S).
 
 How to Use
 ==========
