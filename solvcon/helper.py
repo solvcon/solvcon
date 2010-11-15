@@ -132,3 +132,26 @@ def get_username():
     if not username:
         username = os.environ['LOGNAME']
     return username
+
+def search_in_parents(loc, name):
+    """
+    Search for something in the file system all the way up from the specified
+    location to the root.
+
+    @param loc: the location to start searching.
+    @type loc: str
+    @param name: the searching target.
+    @type name: str
+    @return: the absolute path to the FS item.
+    @rtype: str
+    """
+    import os
+    item = ''
+    parent = os.path.dirname(loc)
+    while parent != loc:
+        if os.path.exists(os.path.join(loc, name)):
+            item = os.path.join(loc, name)
+            break
+        loc = parent
+        parent = os.path.dirname(loc)
+    return os.path.abspath(item) if item else item
