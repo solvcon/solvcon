@@ -30,7 +30,19 @@ echo "Customized paths for job:"
 export PYTHONPATH=/tmp:$PYTHONPATH
 echo "Run @`date`:"
 cd /tmp/arn
-time scg run arn --runlevel %d
+time %s run arn --runlevel %%d
+echo "Finish @`date`."'''
+    SCRIPT_FILE = '''#!/bin/sh
+
+#PBS -N arn
+#PBS -j oe
+#PBS -S /bin/sh
+echo "Customized paths for job:"
+. $HOME/.bashrc_path
+export PYTHONPATH=/tmp:$PYTHONPATH
+echo "Run @`date`:"
+cd /tmp/arn
+time %s run arn --runlevel %d
 echo "Finish @`date`."'''
 
     def test_script(self):
@@ -39,9 +51,10 @@ echo "Finish @`date`."'''
         if sys.platform.startswith('win'): raise SkipTest
         from ..case import BlockCase
         from ..batch import batregy
+        from ..conf import env
         case = BlockCase(rootdir='/tmp')
         sbm = batregy.Torque(case, arnname='arn')
-        self.assertEqual(str(sbm), self.SCRIPT)
+        self.assertEqual(str(sbm), self.SCRIPT%env.get_entry_point())
 
     def test_tofile(self):
         import sys
@@ -50,6 +63,7 @@ echo "Finish @`date`."'''
         import os, shutil
         from ..case import BlockCase
         from ..batch import batregy
+        from ..conf import env
         case = BlockCase(rootdir='/tmp')
         msg = []
         case.info = lambda m: msg.append(m)
@@ -59,7 +73,8 @@ echo "Finish @`date`."'''
             self.assertEqual(fnlist[it], '/tmp/arn/arn.pbs%d'%it)
             fn = fnlist[it]
             f = open(fn)
-            self.assertEqual(f.read(), self.SCRIPT%it)
+            self.assertEqual(f.read(),
+                self.SCRIPT_FILE%(env.get_entry_point(), it))
             f.close()
         shutil.rmtree('/tmp/arn')
         self.assertFalse(os.path.exists('/tmp/arn'))

@@ -165,6 +165,18 @@ class Solvcon(object):
             raise OSError('cannot find mesh directory')
         return os.path.abspath(meshdir)
 
+    def get_entry_point(self):
+        """
+        If the entry point is invoked by searching in path, just return it.  If
+        the entry point is invoked by specifying a location, return the
+        absolute path of the entry script/code.
+        """
+        import sys, os
+        name = os.path.abspath(sys.argv[0])
+        if name.find(sys.prefix) != -1 and name.find('scg') != -1:
+            name = os.path.basename(name)
+        return name
+
 env = Solvcon()
 
 def use_application(modname):

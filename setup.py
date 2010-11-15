@@ -85,7 +85,7 @@ def main():
             'solvcon.kerpak',
             'solvcon.tests',
         ],
-        data_files=[
+        data_files=[    # FIXME: put in share.
             ('solvcon/lib', glob(os.path.join('lib', '*'))),
             ('solvcon/test/data',
                 glob(os.path.join('test', 'data', '*.neu'))),

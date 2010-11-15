@@ -169,8 +169,6 @@ class Batch(object):
     def build_scg_command(self):
         import os
         from .conf import env
-        #scgpath = os.path.join(self.case.io.rootdir, 'scg')
-        scgpath = 'scg' # FIXME: make it more flexible.
         scgargs = ' '.join(['run', self.arnname])
         if env.command != None:
             ops, args = env.command.opargs
@@ -204,7 +202,7 @@ class Batch(object):
         else:
             scgops = ''
         scgops = '--runlevel %%d %s' % scgops
-        return ' '.join([scgpath, scgargs, scgops])
+        return ' '.join([env.get_entry_point(), scgargs, scgops])
 
     def build_mpi_runner(self):
         return ''

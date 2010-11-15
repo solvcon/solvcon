@@ -1,0 +1,205 @@
+#!/usr/bin/env python2.6
+# -*- coding: UTF-8 -*-
+#
+# Copyright (C) 2010 Yung-Yu Chen <yyc@solvcon.net>.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+"""
+Example for using the Glenn cluster at Ohio Supercomputer Center (OSC).
+SOLVCON models the batch systems in solvcon.batch, and by subclassing
+solvcon.batch.Batch, users can customize the abstraction.  SOLVCON has provided
+an abstraction for Torque/OpenPBS in solvcon.batch.Torque.  If your cluster
+also uses Torque, you can subclass Torque rather than Batch to save time.
+
+In this file, OscGlenn, OscGlennGbE and OscGlennIB are provided.  The reason to
+have OscGlennGbE and OscGlennIB is for SOLVCON to use socket to bind the TCP/IP
+layer of either GbE or IB.  If MPI communication layer is used by specifying
+--use-mpi, all the three batches should work equivelently.
+
+For serial simulation, execute ./go run.  To submit to the PBS/Torque at OSC
+Glenn cluster, execute ./go submit osc --npart=2 --batch=OscGlenn
+--compress-nodelist --use-mpi.  The name of arrangement cannot be omitted when
+it is submit.  --npart specifies how many sub-domains to be decomposed to,
+--batch specifies the batch system to be used, --compress-nodelist indicates
+using all processors of a node, and --use-mpi specifies to use MPI library for
+communication.  You can also add -l 'resource string' while submitting the job.
+Note the resource requesting must match --compress-nodelist.  This arrangement
+by default use the olddual partition.
+"""
+
+from solvcon.batch import Torque
+from solvcon.kerpak import euler
+
+################################################################################
+# Customized abstraction for Glenn cluster at OSC.
+################################################################################
+class OscGlenn(Torque):
+    """
+    Abstraction of the Torque installed on the Glenn cluster at OSC.
+    """
+    @property
+    def _hostfile(self):
+        import os
+        return os.path.join(self.jobdir, self.jobname+'.hostfile')
+    @property
+    def str_prerun(self):
+        import os
+        from solvcon.conf import env
+        ops, args = env.command.opargs
+        msgs = [super(OscGlenn, self).str_prerun]
+        if self.use_mpi:
+            msgs.extend([
+                #'export I_MPI_DEBUG=2',
+                #'export I_MPI_DEVICE=rdma:OpenIB-cma',
+                'module unload mpi',
+                'module unload mpi2',
+                'module load mvapich2-1.5-gnu',
+                #'module load intel-compilers-11.1',
+                #'module load mvapich2-1.5-intel',
+                #'module load mvapich2-1.4.1-gnu',
+                #'module load mvapich2-1.4-gnu',
+                #'module load intel-mpi-4.0.0.028',
+            ])
+            msgs.append('%s %s \\\n %s' % (
+                env.get_entry_point(),
+                'mpi --compress-nodelist' if ops.compress_nodelist else 'mpi',
+                self._hostfile,
+            ))
+        return '\n'.join(msgs)
+    def build_mpi_runner(self):
+        return self.build_mpi_runner_mpirun()
+    def build_mpi_runner_mpiexec(self):
+        from solvcon.conf import env
+        ops, args = env.command.opargs
+        cmds = ['SOLVCON_MPI=1', 'mpiexec', '-n %d'%(ops.npart+1)]
+        if ops.compress_nodelist:
+            cmds.append('-pernode')
+        return ' '.join(cmds)
+    def build_mpi_runner_mpirun(self):
+        from solvcon.conf import env
+        ops, args = env.command.opargs
+        cmds = ['mpirun_rsh', '-rsh',
+            '-np %d'%(ops.npart+1), '\\\n',
+            '-hostfile %s' % self._hostfile, '\\\n',
+            'LD_PRELOAD=libmpich.so',
+            'PBS_NODEFILE=$PBS_NODEFILE', 'SOLVCON_MPI=1', '\\\n',
+        ]
+        return ' '.join(cmds)
+    @property
+    def str_postrun(self):
+        import sys, os
+        newstr = [super(OscGlenn, self).str_postrun]
+        newstr.extend([
+            'mpiexec -comm none -pernode killall %s' % \
+            os.path.basename(sys.executable),
+        ])
+        return '\n'.join(newstr)
+class OscGlennGbE(OscGlenn):
+    pass
+class OscGlennIB(OscGlenn):
+    def nodelist(self):
+        ndlst = super(OscGlennIB, self).nodelist()
+        for node in ndlst:
+            if '-ib-' not in node.name:
+                node.name = node.name[:3] + '-ib-' + node.name[3:]
+        return ndlst
+
+################################################################################
+# Basic configuration.
+################################################################################
+def osc_base(casename=None, meshname=None, psteps=None, ssteps=None,
+    gamma=None, density=None, pressure=None, M=None, **kw):
+    """
+    Fundamental configuration of the simulation and return the case object.
+
+    @return: the created Case object.
+    @rtype: solvcon.case.BlockCase
+    """
+    import os
+    from numpy import sqrt
+    from solvcon.conf import env
+    from solvcon.boundcond import bctregy
+    from solvcon.solver import ALMOST_ZERO
+    from solvcon import hook, anchor
+    from solvcon.kerpak import cese
+    # set flow properties (fp).
+    fpb = {'gamma': gamma, 'rho': density, 'p': pressure, 'v2': 0.0, 'v3': 0.0}
+    fpb['v1'] = M*sqrt(gamma*fpb['p']/fpb['rho'])
+    fpi = fpb.copy()
+    # set up BCs.
+    bcmap = {
+        'cylinder': (bctregy.EulerWall, {},),
+        'farfield': (bctregy.EulerInlet, fpb,),
+        'outflow': (bctregy.CeseNonrefl, {},),
+    }
+    # set up case.
+    basedir = os.path.abspath(os.getcwd())
+    if os.path.basename(basedir) != 'result':   # for submitted job.
+        basedir = os.path.join(basedir, 'result')
+    cse = euler.EulerCase(basedir=basedir, rootdir=env.projdir,
+        basefn=casename, meshfn=os.path.join(env.find_scdata_mesh(), meshname),
+        bcmap=bcmap, **kw)
+    # statistical anchors for solvers.
+    for name in 'Runtime', 'March', 'Tpool':
+        cse.runhooks.append(getattr(anchor, name+'StatAnchor'))
+    # informative hooks.
+    cse.runhooks.append(hook.BlockInfoHook)
+    cse.runhooks.append(hook.ProgressHook, psteps=psteps,
+        linewidth=ssteps/psteps)
+    cse.runhooks.append(cese.CflHook, fullstop=False, psteps=ssteps,
+        cflmax=10.0, linewidth=ssteps/psteps)
+    cse.runhooks.append(cese.ConvergeHook, psteps=ssteps)
+    # initializer anchors..
+    cse.runhooks.append(anchor.FillAnchor, keys=('soln',), value=ALMOST_ZERO)
+    cse.runhooks.append(anchor.FillAnchor, keys=('dsoln',), value=0)
+    cse.runhooks.append(euler.UniformIAnchor, **fpi)
+    # analyzing/output anchors and hooks.
+    cse.runhooks.append(euler.EulerOAnchor)
+    cse.runhooks.append(hook.PMarchSave, anames=[
+        ('soln', False, -4),
+        ('rho', True, 0),
+        ('p', True, 0),
+        ('T', True, 0),
+        ('ke', True, 0),
+        ('M', True, 0),
+        ('sch', True, 0),
+        ('v', True, 0.5),
+    ], fpdtype='float64', psteps=ssteps)
+    return cse
+
+################################################################################
+# The arrangement.
+################################################################################
+@euler.EulerCase.register_arrangement
+def osc(casename, **kw):
+    """
+    Resources are set to use olddual (dual dual-core Opteron) nodes.
+    """
+    kw.setdefault('resources', {
+        'ppn=4:olddual:pvfs': None,
+        'walltime': '00:01:00',
+    })
+    return osc_base(casename=casename, meshname='hyperblunt_t100mm.neu.gz',
+        gamma=1.4, density=1.0, pressure=1.0, M=3.0, rkillfn='',
+        diffname='tau', tauname='scale', taumin=0.0, tauscale=4.0,
+        time_increment=7.e-3, steps_run=200, ssteps=50, psteps=1, **kw)
+
+################################################################################
+# Invoke SOLVCON workflow.
+################################################################################
+if __name__ == '__main__':
+    import solvcon
+    solvcon.go()
