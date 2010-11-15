@@ -596,6 +596,11 @@ class PMarchSave(MarchSave):
     @itype anames: list
     @ivar fpdtype: string for floating point data type (in numpy convention).
     @itype fpdtype: str
+    @ivar altdir: the alternate directory to save the VTK files.
+    @itype altdir: str
+    @ivar altsym: the symbolic link in basedir pointing to the alternate
+        directory to save the VTK files.
+    @itype altsym: str
     @ivar pextmpl: template for the extension of split VTK file name.
     @itype pextmpl: str
     """
@@ -604,13 +609,24 @@ class PMarchSave(MarchSave):
         from math import log10, ceil
         self.anames = kw.pop('anames', list())
         self.fpdtype = kw.pop('fpdtype', str(cse.execution.fpdtype))
+        self.altdir = kw.pop('altdir', '')
+        self.altsym = kw.pop('altsym', '')
         super(PMarchSave, self).__init__(cse, **kw)
         # override vtkfn_tmpl.
         nsteps = cse.execution.steps_run
         basefn = cse.io.basefn
+        if self.altdir:
+            vdir = self.altdir
+            if self.altsym:
+                altsym = os.path.join(cse.io.basedir, self.altsym)
+                if not os.path.exists(altsym):
+                    os.symlink(vdir, altsym)
+        else:
+            vdir = cse.io.basedir
+        if not os.path.exists(vdir):
+            os.makedirs(vdir)
         vtkfn_tmpl = basefn + "_%%0%dd"%int(ceil(log10(nsteps))+1) + '.pvtu'
-        self.vtkfn_tmpl = os.path.join(cse.io.basedir,
-            kw.pop('vtkfn_tmpl', vtkfn_tmpl))
+        self.vtkfn_tmpl = os.path.join(vdir, kw.pop('vtkfn_tmpl', vtkfn_tmpl))
         # craft ext name template.
         npart = cse.execution.npart
         self.pextmpl = '.p%%0%dd'%int(ceil(log10(npart))+1) if npart else ''
@@ -645,7 +661,10 @@ class PMarchSave(MarchSave):
         wtr = PVtkXmlUstGridWriter(self.blk, fpdtype=self.fpdtype,
             scalars=sarrs, vectors=varrs,
             npiece=self.cse.execution.npart, pextmpl=self.pextmpl)
-        wtr.write(self.vtkfn_tmpl % istep)
+        vtkfn = self.vtkfn_tmpl % istep
+        self.info('Writing \n  %s\n... ' % vtkfn)
+        wtr.write(vtkfn)
+        self.info('done.\n')
     def preloop(self):
         self._write(0)
     def postmarch(self):

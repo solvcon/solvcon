@@ -18,26 +18,9 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 """
-Example for using the Glenn cluster at Ohio Supercomputer Center (OSC).
-SOLVCON models the batch systems in solvcon.batch, and by subclassing
-solvcon.batch.Batch, users can customize the abstraction.  SOLVCON has provided
-an abstraction for Torque/OpenPBS in solvcon.batch.Torque.  If your cluster
-also uses Torque, you can subclass Torque rather than Batch to save time.
-
-In this file, OscGlenn, OscGlennGbE and OscGlennIB are provided.  The reason to
-have OscGlennGbE and OscGlennIB is for SOLVCON to use socket to bind the TCP/IP
-layer of either GbE or IB.  If MPI communication layer is used by specifying
---use-mpi, all the three batches should work equivelently.
-
-For serial simulation, execute ./go run.  To submit to the PBS/Torque at OSC
-Glenn cluster, execute ./go submit osc --npart=2 --batch=OscGlenn
---compress-nodelist --use-mpi.  The name of arrangement cannot be omitted when
-it is submit.  --npart specifies how many sub-domains to be decomposed to,
---batch specifies the batch system to be used, --compress-nodelist indicates
-using all processors of a node, and --use-mpi specifies to use MPI library for
-communication.  You can also add -l 'resource string' while submitting the job.
-Note the resource requesting must match --compress-nodelist.  This arrangement
-by default use the olddual partition.
+Run with ./go submit osc --npart=3 --batch=OscGlenn --compress-nodelist
+--use-mpi.  Environmental variable ALTDIR specifies where to save the PVTU
+files, and NOSAVE turns off saving.
 """
 
 import os
@@ -56,12 +39,20 @@ class OscGlenn(Torque):
     def _hostfile(self):
         import os
         return os.path.join(self.jobdir, self.jobname+'.hostfile')
+    def get_extra_envars(self):
+        import os
+        items = list()
+        for key in 'ALTDIR', 'ALTSYM', 'NOSAVE':
+            if os.environ.get(key, None) is not None:
+                items.append('%s=%s' % (key, os.environ[key]))
+        return items
     @property
     def str_prerun(self):
         import os
         from solvcon.conf import env
         ops, args = env.command.opargs
         msgs = [super(OscGlenn, self).str_prerun]
+        msgs.extend(['export %s' % item for item in self.get_extra_envars()])
         if self.use_mpi:
             msgs.extend([
                 'module unload mpi mpi2',
@@ -90,6 +81,7 @@ class OscGlenn(Torque):
             '-hostfile %s' % self._hostfile, '\\\n',
             'LD_PRELOAD=libmpich.so',
             'PBS_NODEFILE=$PBS_NODEFILE', 'SOLVCON_MPI=1', '\\\n',
+            ' \\\n '.join(self.get_extra_envars()), '\\\n',
         ]
         return ' '.join(cmds)
     @property
@@ -116,7 +108,7 @@ class OscGlennIB(OscGlenn):
 ################################################################################
 def pvtk_base(casename=None, meshname=None, psteps=None, ssteps=None,
     gamma=None, rhoi=None, prei=None, Mi=None, rhoj=None, prej=None, Mj=None,
-    do_save=True, **kw):
+    **kw):
     """
     Fundamental configuration of the simulation and return the case object.
 
@@ -169,7 +161,7 @@ def pvtk_base(casename=None, meshname=None, psteps=None, ssteps=None,
     cse.runhooks.append(euler.UniformIAnchor, **fpi)
     # analyzing/output anchors and hooks.
     cse.runhooks.append(euler.EulerOAnchor)
-    if do_save:
+    if not os.environ.get('NOSAVE', False):
         cse.runhooks.append(hook.PMarchSave, anames=[
             ('soln', False, -5),
             ('rho', True, 0),
@@ -179,7 +171,9 @@ def pvtk_base(casename=None, meshname=None, psteps=None, ssteps=None,
             ('M', True, 0),
             ('sch', True, 0),
             ('v', True, 0.5),
-        ], fpdtype='float64', psteps=ssteps)
+        ], fpdtype='float64', psteps=ssteps,
+        altdir=os.environ.get('ALTDIR', ''),
+        altsym=os.environ.get('ALTSYM', ''))
     return cse
 
 ################################################################################
@@ -198,7 +192,7 @@ def pvtk(casename, **kw):
         gamma=1.4, Mi=1.98, rhoi=0.86, prei=41.8e3, Mj=1.02, rhoj=6.64,
         prej=476.e3, diffname='tau', tauname='scale', taumin=0.1, tauscale=0.9,
         rkillfn='', time_increment=3.e-5, steps_run=10, ssteps=10, psteps=1,
-        do_save=False, **kw)
+        **kw)
 
 ################################################################################
 # Invoke SOLVCON workflow.
