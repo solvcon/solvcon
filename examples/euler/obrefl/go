@@ -290,7 +290,6 @@ def obrefl_base(casename=None, meshname=None,
     cse.runhooks.append(anchor.MarchStatAnchor)
     cse.runhooks.append(anchor.TpoolStatAnchor)
     # informative.
-    cse.runhooks.append(hook.BlockInfoHook)
     if not profile_only:
         cse.runhooks.append(hook.ProgressHook,
             psteps=psteps, linewidth=ssteps/psteps,
@@ -301,6 +300,7 @@ def obrefl_base(casename=None, meshname=None,
         cse.runhooks.append(cese.ConvergeHook, psteps=ssteps)
         cse.runhooks.append(hook.SplitMarker)
         cse.runhooks.append(hook.GroupMarker)
+    cse.runhooks.append(hook.BlockInfoHook, psteps=ssteps)
     # initializer.
     cse.runhooks.append(anchor.FillAnchor, keys=('soln',), value=ALMOST_ZERO)
     cse.runhooks.append(anchor.FillAnchor, keys=('dsoln',), value=0)

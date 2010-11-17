@@ -359,6 +359,10 @@ class BlockHook(Hook):
 
 class BlockInfoHook(BlockHook):
     def __init__(self, cse, **kw):
+        """
+        If keyword psteps is None, postmarch method will not output performance
+        information.
+        """
         self.show_bclist = kw.pop('show_bclist', False)
         self.perffn = kw.pop('perffn', None)
         super(BlockInfoHook, self).__init__(cse, **kw)
@@ -368,7 +372,10 @@ class BlockInfoHook(BlockHook):
         if self.show_bclist:
             for bc in blk.bclist:
                 self.info("  %s\n" % bc)
-    def postloop(self):
+    def _show_performance(self):
+        """
+        Show and store performance information.
+        """
         import os
         ncell = self.blk.ncell
         time = self.cse.log.time['solver_march']
@@ -388,6 +395,7 @@ class BlockInfoHook(BlockHook):
         perf = (step_current-step_init)*ncell / time * 1.e-6
         out('Performance of %s:\n' % self.cse.io.basefn)
         out('  %g seconds in marching solver.\n' % time)
+        out('  %g seconds/step.\n' % (time/(step_current-step_init)))
         out('  %g microseconds/cell.\n' % (1./perf))
         out('  %g Mcells/seconds.\n' % perf)
         out('  %g Mvariables/seconds.\n' % (perf*neq))
@@ -395,6 +403,14 @@ class BlockInfoHook(BlockHook):
             out('  %g Mcells/seconds/computer.\n' % (perf/npart))
             out('  %g Mvariables/seconds/computer.\n' % (perf*neq/npart))
         pf.close()
+    def postmarch(self):
+        istep = self.cse.execution.step_current
+        nsteps = self.cse.execution.steps_run
+        psteps = self.psteps
+        if istep > 0 and psteps and istep%psteps == 0 and istep != nsteps:
+            self._show_performance()
+    def postloop(self):
+        self._show_performance()
 
 class CollectHook(BlockHook):
     def __init__(self, cse, **kw):

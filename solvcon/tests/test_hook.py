@@ -40,7 +40,7 @@ class TestBlockHook(TestCase):
         from ..hook import Hook, BlockInfoHook
         self.assertNotEqual(BlockInfoHook.preloop, Hook.preloop)
         self.assertEqual(BlockInfoHook.premarch, Hook.premarch)
-        self.assertEqual(BlockInfoHook.postmarch, Hook.postmarch)
+        self.assertNotEqual(BlockInfoHook.postmarch, Hook.postmarch)
         self.assertNotEqual(BlockInfoHook.postloop, Hook.postloop)
 
     def test_vtksave(self):
