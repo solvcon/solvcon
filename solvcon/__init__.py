@@ -43,8 +43,8 @@ made for backward compatibility at the current stage.**
 Credits
 =======
 
-SOLVCON is developed by `Yung-Yu Chen <yyc@solvcon.net>`_ in the `CFD Lab
-<http://cfd.eng.ohio-state.edu/>`_ led by `Prof. Sheng-Tao John Yu
+SOLVCON is developed by `Yung-Yu Chen <mailto:yyc@solvcon.net>`_ in the `CFD
+Lab <http://cfd.eng.ohio-state.edu/>`_ led by `Prof. Sheng-Tao John Yu
 <mailto:yu.274@osu.edu>`_ in the Department of Mechanical and Aerospace
 Engineering at The Ohio State University.
 
