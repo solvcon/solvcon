@@ -28,12 +28,12 @@ computing.  SOLVCON is multi-physics, and stocking numerical algorithms and
 physical models are ready for use in the namespace ``solvcon.kerpak``.
 
 The default numerical algorithm in SOLVCON is the space-time Conservation
-Element and Solution Element (CESE_) method, which was invented by `Dr.
-Sin-Chung Chang <mailto:Sin-Chung.Chang-1@nasa.gov>`_ at NASA Glenn Research
-Center.  The CESE_ method delivers time-accurate solutions of hyperbolic PDEs,
-and has been used to solve various physical processes including fluid dynamics,
-aero-acoustics, detonations, magnetohydrodynamics (MHD), stress waves in
-complex solids, electromagnetics, to be named but a few.
+Element and Solution Element (CESE_) method, which was originally developed by
+`Dr. Sin-Chung Chang <mailto:Sin-Chung.Chang-1@nasa.gov>`_ at NASA Glenn
+Research Center.  The CESE_ method delivers time-accurate solutions of
+hyperbolic PDEs, and has been used to solve various physical processes
+including fluid dynamics, aero-acoustics, detonations, magnetohydrodynamics
+(MHD), stress waves in complex solids, electromagnetics, to be named but a few.
 
 SOLVCON is free software (for freedom, not price) and released under GPLv2.
 See http://www.gnu.org/licenses/gpl-2.0.html or ``COPYING`` for the complete
@@ -43,10 +43,10 @@ made for backward compatibility at the current stage.**
 Credits
 =======
 
-SOLVCON is developed by `Yung-Yu Chen <mailto:yyc@solvcon.net>`_ in the `CFD
-Lab <http://cfd.eng.ohio-state.edu/>`_ led by `Prof. Sheng-Tao John Yu
-<mailto:yu.274@osu.edu>`_ in the Department of Mechanical and Aerospace
-Engineering at The Ohio State University.
+SOLVCON is developed by `Yung-Yu Chen <mailto:yyc@solvcon.net>`_ and `Sheng-Tao
+John Yu <mailto:yu.274@osu.edu>`_ in the `CFD Lab
+<http://cfd.eng.ohio-state.edu/>`_ , Department of Mechanical and Aerospace
+Engineering, The Ohio State University.
 
 Key Features
 ============
