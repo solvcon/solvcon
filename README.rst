@@ -6,25 +6,35 @@ README for SOLVCON
 :copyright: c 2008-2010.
 
 SOLVCON: a multi-physics software framework for high-fidelity solutions of
-partial differential equations by hybrid parallelism.
+partial differential equations (PDEs) by hybrid parallelism.
 
 Python is the primary programming language for constructing SOLVCON.
 Number-crunching is performed by high-speed subroutines written in C.  By
 taking the mixed-language approach, PDE solvers can be rapidly developed and
 simultaneously utilize hundreds of nodes in a supercomputer by parallel
 computing.  SOLVCON is multi-physics, and stocking numerical algorithms and
-physical models are ready for use in the namespace ``solvcon.kerpak``.  See
-http://solvcon.net/ or contact the author `Yung-Yu Chen <yyc@solvcon.net>`_ for
-detail.
+physical models are ready for use in the namespace ``solvcon.kerpak``.
 
 The default numerical algorithm in SOLVCON is the space-time Conservation
-Element and Solution Element (CESE_) method.  The CESE_ method delivers
-time-accurate solutions for hyperbolic PDEs.
+Element and Solution Element (CESE_) method, which was invented by `Dr.
+Sin-Chung Chang <mailto:Sin-Chung.Chang-1@nasa.gov>`_ at NASA Glenn Research
+Center.  The CESE_ method delivers time-accurate solutions of hyperbolic PDEs,
+and has been used to solve various physical processes including fluid dynamics,
+aero-acoustics, detonations, magnetohydrodynamics (MHD), stress waves in
+complex solids, electromagnetics, to be named but a few.
 
 SOLVCON is free software (for freedom, not price) and released under GPLv2.
 See http://www.gnu.org/licenses/gpl-2.0.html or ``COPYING`` for the complete
-license.  SOLVCON is still in alpha and subjects to changes.  No effort is made
-for backward compatibility at the current stage.
+license.  **SOLVCON is still in alpha and subjects to changes.  No effort is
+made for backward compatibility at the current stage.**
+
+Credits
+=======
+
+SOLVCON is developed by `Yung-Yu Chen <yyc@solvcon.net>`_ in the `CFD Lab
+<http://cfd.eng.ohio-state.edu/>`_ led by `Prof. Sheng-Tao John Yu
+<mailto:yu.274@osu.edu>`_ in the Department of Mechanical and Aerospace
+Engineering at The Ohio State University.
 
 Key Features
 ============
@@ -109,6 +119,15 @@ examples will find the ``scdata`` directory automatically.
 
 These examples are useful for you to learn how to use SOLVCON to construct your
 own solvers or applications.  Please read them in detail.
+
+Resources
+=========
+
+- Portal: http://solvcon.net/
+- Mailing list: http://groups.google.com/group/solvcon
+- Issue tracker (bug report): https://bitbucket.org/yungyuc/solvcon/issues
+- Source: https://bitbucket.org/yungyuc/solvcon/src
+- Downloads: https://bitbucket.org/yungyuc/solvcon/downloads
 
 .. _CESE: http://www.grc.nasa.gov/WWW/microbus/
 .. _SCons: http://www.scons.org/
