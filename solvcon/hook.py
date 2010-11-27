@@ -703,8 +703,6 @@ class PVtkHook(BlockHook):
         array is a spatial vector, for ndim == 0 a simple scalar, and ndim < 0
         a list of scalar.
     @itype anames: list
-    @ivar compressor: compressor for binary data.  Can only be 'gz' or ''.
-    @itype compressor: str
     @ivar fpdtype: string for floating point data type (in numpy convention).
     @itype fpdtype: str
     @ivar altdir: the alternate directory to save the VTK files.
@@ -719,7 +717,6 @@ class PVtkHook(BlockHook):
         import os
         from math import log10, ceil
         self.anames = kw.pop('anames', list())
-        self.compressor = kw.pop('compressor', 'gz')
         self.fpdtype = kw.pop('fpdtype', 'float32')
         self.altdir = kw.pop('altdir', '')
         self.altsym = kw.pop('altsym', '')
