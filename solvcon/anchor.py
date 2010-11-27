@@ -319,7 +319,7 @@ class VtkAnchor(Anchor):
     @staticmethod
     def _vtk_cut(inp, origin, normal):
         """
-        VTK operation: cut
+        VTK operation: cut.
 
         @param inp: input VTK object.
         @type inp: vtk.vtkobject
@@ -337,8 +337,34 @@ class VtkAnchor(Anchor):
         cut = vtk.vtkCutter()
         cut.SetInputConnection(inp.GetOutputPort())
         cut.SetCutFunction(pne)
-        cut.Update()
         return cut
+    @staticmethod
+    def _vtk_contour_value(inp, num, value):
+        import vtk
+        cnr = vtk.vtkContourFilter()
+        cnr.SetInputConnection(inp.GetOutputPort())
+        cnr.SetValue(num, value)
+        return cnr
+    @staticmethod
+    def _vtk_contour_range(inp, num, start, end):
+        import vtk
+        cnr = vtk.vtkContourFilter()
+        cnr.SetInputConnection(inp.GetOutputPort())
+        cnr.GenerateValues(num, start, end)
+        return cnr
+    @staticmethod
+    def _vtk_lump_poly(*args):
+        """
+        Lump all passed-in poly together.
+
+        @return: output VTK object.
+        @rtype: vtk.vtkobject
+        """
+        import vtk
+        apd = vtk.vtkAppendPolyData()
+        for vbj in args:
+            apd.AddInput(vbj.GetOutput())
+        return apd
     @staticmethod
     def _vtk_write_poly(inp, outfn):
         """

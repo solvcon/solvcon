@@ -240,6 +240,7 @@ class SampleVtkAnchor(VtkAnchor):
         self._aggregate()
         usp = self._vtk_c2p(self.svr.ust)
         cut = self._vtk_cut(usp, (0,0,0), (0,1,0))
+        cut.Update()
         self._vtk_write_poly(cut, self.vtkfn)
 class TestPresplitRemoteParallel(TestBlockCaseRun):
     npart = 3
