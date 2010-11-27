@@ -194,17 +194,9 @@ class VtkAnchor(Anchor):
         svrn = self.svr.svrn
         return self.vtkfn_tmpl % (
             istep if svrn is None else (istep, svrn))
-    def _make_usp(self):
-        """
-        Make a CellData to PointData filter from solver object.
-
-        @return: point data.
-        @rtype: vtk.vtkobject
-        """
-        import vtk
-        usp = vtk.vtkCellDataToPointData()
-        usp.SetInput(self.svr.ust)
-        return usp
+    ############################################################################
+    # Utilities methods.
+    ############################################################################
     @staticmethod
     def _valid_vector(arr):
         """
@@ -291,6 +283,9 @@ class VtkAnchor(Anchor):
             else:
                 for it in range(arr.shape[1]):
                     self._set_arr(arr[:,it], '%s[%d]' % (key, it))
+    ############################################################################
+    # External interface.
+    ############################################################################
     def preloop(self):
         self.process(0)
     def postmarch(self):
@@ -304,6 +299,63 @@ class VtkAnchor(Anchor):
         overidden.
         """
         raise NotImplementedError
+    ############################################################################
+    # Predefined VTK operations.
+    ############################################################################
+    @staticmethod
+    def _vtk_c2p(inp):
+        """
+        VTK operation: cell to point.
+
+        @param inp: input VTK object.
+        @type inp: vtk.vtkobject
+        @return: output VTK object.
+        @rtype: vtk.vtkobject
+        """
+        import vtk
+        usp = vtk.vtkCellDataToPointData()
+        usp.SetInput(inp)
+        return usp
+    @staticmethod
+    def _vtk_cut(inp, origin, normal):
+        """
+        VTK operation: cut
+
+        @param inp: input VTK object.
+        @type inp: vtk.vtkobject
+        @param origin: a 3-tuple for cut origin.
+        @type origin: tuple
+        @param normal: a 3-tuple for cut normal.
+        @type normal: tuple
+        @return: output VTK object.
+        @rtype: vtk.vtkobject
+        """
+        import vtk
+        pne = vtk.vtkPlane()
+        pne.SetOrigin(origin)
+        pne.SetNormal(normal)
+        cut = vtk.vtkCutter()
+        cut.SetInputConnection(inp.GetOutputPort())
+        cut.SetCutFunction(pne)
+        cut.Update()
+        return cut
+    @staticmethod
+    def _vtk_write_poly(inp, outfn):
+        """
+        Write VTK polydata to a file.
+
+        @param inp: input VTK object.
+        @type inp: vtk.vtkobject
+        @param outfn: output file name.
+        @type outfn: str
+        @return: nothing
+        """
+        import vtk
+        wtr = vtk.vtkXMLPolyDataWriter()
+        wtr.EncodeAppendedDataOff()
+        wtr.SetInput(inp.GetOutput())
+        wtr.SetFileName(outfn)
+        wtr.Write()
 
 ################################################################################
 # StatAnchor.

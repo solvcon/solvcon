@@ -237,23 +237,10 @@ class TestPresplitLocalParallel(TestBlockCaseRun):
 
 class SampleVtkAnchor(VtkAnchor):
     def process(self, istep):
-        import vtk
         self._aggregate()
-        usp = self._make_usp()
-        # slice.
-        pne = vtk.vtkPlane()
-        pne.SetOrigin(0, 0, 0)
-        pne.SetNormal(0, 1, 0)
-        cut = vtk.vtkCutter()
-        cut.SetInputConnection(usp.GetOutputPort())
-        cut.SetCutFunction(pne)
-        cut.Update()
-        # write.
-        wtr = vtk.vtkXMLPolyDataWriter()
-        wtr.EncodeAppendedDataOff()
-        wtr.SetInput(cut.GetOutput())
-        wtr.SetFileName(self.vtkfn)
-        wtr.Write()
+        usp = self._vtk_c2p(self.svr.ust)
+        cut = self._vtk_cut(usp, (0,0,0), (0,1,0))
+        self._vtk_write_poly(cut, self.vtkfn)
 class TestPresplitRemoteParallel(TestBlockCaseRun):
     npart = 3
     def test_dsoln_and_parallel_output(self):
