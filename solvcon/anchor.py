@@ -340,17 +340,43 @@ class VtkAnchor(Anchor):
         return cut
     @staticmethod
     def _vtk_contour_value(inp, num, value):
+        """
+        VTK operation: contour by a single value.
+
+        @param inp: input VTK object.
+        @type inp: vtk.vtkobject
+        @param num: the index of the contour line.
+        @type num: int
+        @param value: the value of the contour line.
+        @type value: float
+        @return: output VTK object.
+        @rtype: vtk.vtkobject
+        """
         import vtk
         cnr = vtk.vtkContourFilter()
         cnr.SetInputConnection(inp.GetOutputPort())
         cnr.SetValue(num, value)
         return cnr
     @staticmethod
-    def _vtk_contour_range(inp, num, start, end):
+    def _vtk_contour_range(inp, num, begin, end):
+        """
+        VTK operation: contour by a range.
+
+        @param inp: input VTK object.
+        @type inp: vtk.vtkobject
+        @param num: the number of the contour lines.
+        @type num: int
+        @param begin: the start of the range.
+        @type begin: float
+        @param end: the end of the range.
+        @type end: float
+        @return: output VTK object.
+        @rtype: vtk.vtkobject
+        """
         import vtk
         cnr = vtk.vtkContourFilter()
         cnr.SetInputConnection(inp.GetOutputPort())
-        cnr.GenerateValues(num, start, end)
+        cnr.GenerateValues(num, begin, end)
         return cnr
     @staticmethod
     def _vtk_lump_poly(*args):
