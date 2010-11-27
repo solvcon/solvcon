@@ -337,6 +337,19 @@ class BaseSolver(object):
         self.runanchors('postmarch')
         return self.marchret
 
+class FakeBlockVtk(object):
+    """
+    Faked block from solver for being used by VTK.
+    """
+    def __init__(self, svr):
+        self.ndim = svr.ndim
+        self.nnode = svr.nnode
+        self.ncell = svr.ncell
+        self.ndcrd = svr.ndcrd[svr.ngstnode:]
+        self.clnds = svr.clnds[svr.ngstcell:]
+        self.cltpn = svr.cltpn[svr.ngstcell:]
+        self.fpdtype = svr.fpdtype
+
 class BlockSolver(BaseSolver):
     """
     Generic class for multi-dimensional (implemented with Block)
@@ -423,6 +436,18 @@ class BlockSolver(BaseSolver):
         self.fcnml = blk.shfcnml
         self.clcnd = blk.shclcnd
         self.clvol = blk.shclvol
+        # in situ visualization by VTK.
+        self._ust = None
+
+    @property
+    def ust(self):
+        from solvcon.helper import make_ust_from_blk
+        _ust = self._ust
+        if _ust is None:
+            fbk = FakeBlockVtk(self)
+            _ust = make_ust_from_blk(fbk)
+        self._ust = _ust
+        return _ust
 
     def bind(self):
         """

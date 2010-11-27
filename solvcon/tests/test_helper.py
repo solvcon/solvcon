@@ -58,3 +58,15 @@ class TestPrinter(TestCase):
         p('test message')
         self.assertEqual(sys.stdout.getvalue(), 'test message')
         sys.stdout = stdout
+
+class TestVtk(TestCase):
+    def test_vtk(self):
+        import sys
+        from nose.plugins.skip import SkipTest
+        try:
+            import vtk
+        except ImportError:
+            raise SkipTest
+        from ..helper import make_ust_from_blk
+        from ..testing import get_blk_from_sample_neu
+        ust = make_ust_from_blk(get_blk_from_sample_neu())

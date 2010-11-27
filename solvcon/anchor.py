@@ -99,18 +99,9 @@ class AnchorList(list):
             if func != None:
                 func()
 
-class FakeBlockVtk(object):
-    """
-    Faked block from solver for being used by VTK.
-    """
-    def __init__(self, svr):
-        self.ndim = svr.ndim
-        self.nnode = svr.nnode
-        self.ncell = svr.ncell
-        self.ndcrd = svr.ndcrd[svr.ngstnode:]
-        self.clnds = svr.clnds[svr.ngstcell:]
-        self.cltpn = svr.cltpn[svr.ngstcell:]
-        self.fpdtype = svr.fpdtype
+################################################################################
+# Solution output.
+################################################################################
 
 class MarchSaveAnchor(Anchor):
     """
@@ -136,10 +127,11 @@ class MarchSaveAnchor(Anchor):
         super(MarchSaveAnchor, self).__init__(svr, **kw)
     def _write(self, istep):
         from .io.vtkxml import VtkXmlUstGridWriter
+        from .solver import FakeBlockVtk
         ngstcell = self.svr.ngstcell
         sarrs = dict()
         varrs = dict()
-        # collect derived.
+        # collect data.
         for key in self.anames:
             # get the array.
             if self.anames[key]:
@@ -153,10 +145,7 @@ class MarchSaveAnchor(Anchor):
                 varrs[key] = arr
             else:
                 for it in range(arr.shape[1]):
-                    sarrs['%s[%d]' % (key, it)] = arr
-        # collect unknowns.
-        for ieq in range(self.svr.neq):
-            sarrs['soln[%d]'%ieq] = self.svr.soln[ngstcell:,ieq]
+                    sarrs['%s[%d]' % (key, it)] = arr[:,it]
         # write.
         wtr = VtkXmlUstGridWriter(FakeBlockVtk(self.svr), fpdtype=self.fpdtype,
             compressor=self.compressor, scalars=sarrs, vectors=varrs)
@@ -169,6 +158,145 @@ class MarchSaveAnchor(Anchor):
         istep = self.svr.step_global
         if istep%psteps == 0:
             self._write(istep)
+
+################################################################################
+# Anchors for in situ visualization.
+################################################################################
+
+class VtkAnchor(Anchor):
+    """
+    Abstract class for VTK filtering anchor.  Must override process() method
+    for use.
+
+    @ivar anames: the arrays in der of solvers to be saved.  True means in der.
+    @itype anames: dict
+    @ivar fpdtype: string for floating point data type (in numpy convention).
+    @itype fpdtype: str
+    @ivar psteps: the interval (in step) to save data.
+    @itype psteps: int
+    @ivar vtkfn_tmpl: the template string for the VTK file.
+    @itype vtkfn_tmpl: str
+    """
+    VANMAP = dict(float32='vtkFloatArray', float64='vtkDoubleArray')
+    def __init__(self, svr, **kw):
+        self.anames = kw.pop('anames', dict())
+        self.fpdtype = kw.pop('fpdtype')
+        self.psteps = kw.pop('psteps')
+        self.vtkfn_tmpl = kw.pop('vtkfn_tmpl')
+        self.vac = dict()
+        super(VtkAnchor, self).__init__(svr, **kw)
+    @property
+    def vtkfn(self):
+        """
+        The correct file name for VTK based on the template.
+        """
+        istep = self.svr.step_global
+        svrn = self.svr.svrn
+        return self.vtkfn_tmpl % (
+            istep if svrn is None else (istep, svrn))
+    @staticmethod
+    def _valid_vector(arr):
+        """
+        A valid vector must have 3 compoments.  If it has only 2, pad it.  If
+        it has more than 3, raise ValueError.
+
+        @param arr: input vector array.
+        @type arr: numpy.ndarray
+        @return: validated array.
+        @rtype: numpy.ndarray
+        """
+        from numpy import empty
+        if arr.shape[1] < 3:
+            arrn = empty((arr.shape[0], 3), dtype=arr.dtype)
+            arrn[:,2] = 0.0
+            try:
+                arrn[:,:2] = arr[:,:]
+            except ValueError, e:
+                args = e.args[:]
+                args.append('arrn.shape=%s, arr.shape=%s' % (
+                    str(arrn.shape), str(arr.shape)))
+                e.args = args
+                raise
+            arr = arrn
+        elif arr.shape[1] > 3:
+            raise IndexError('arr.shape[1] = %d > 3'%arr.shape[1])
+        return arr
+    def _set_arr(self, arr, name):
+        """
+        Set the data of a ndarray to vtk array and return the set vtk array.
+        If the array of the specified name existed, use the existing array.
+
+        @param arr: input array.
+        @type arr: numpy.ndarray
+        @param name: array name.
+        @type name: str
+        @return: the set VTK array object.
+        """
+        import vtk
+        ust = self.svr.ust
+        if ust.GetCellData().HasArray(name):
+            vaj = ust.GetCellData().GetArray(name)
+        else:
+            vaj = getattr(vtk, self.VANMAP[self.fpdtype])()
+            # prepare for vector.
+            if len(arr.shape) > 1:
+                vaj.SetNumberOfComponents(3)
+            # set number of tuples to allocate.
+            vaj.SetNumberOfTuples(arr.shape[0])
+            # cache.
+            vaj.SetName(name)
+            ust.GetCellData().AddArray(vaj)
+        # set data.
+        nt = arr.shape[0]
+        it = 0
+        if len(arr.shape) > 1:
+            while it < nt:
+                vaj.SetTuple3(it, *arr[it])
+                it += 1
+        else:
+            while it < nt:
+                vaj.SetValue(it, arr[it])
+                it += 1
+        return vaj
+    def _aggregate(self):
+        """
+        Aggregate data from solver object to VTK unstructured mesh.
+
+        @return: nothing
+        """
+        ngstcell = self.svr.ngstcell
+        # collect derived.
+        for key in self.anames:
+            # get the array.
+            if self.anames[key]:
+                arr = self.svr.der[key][ngstcell:]
+            else:
+                arr = getattr(self.svr, key)[ngstcell:]
+            # set array in unstructured mesh.
+            if len(arr.shape) == 1:
+                self._set_arr(arr, key)
+            elif arr.shape[1] == self.svr.ndim:
+                self._set_arr(self._valid_vector(arr), key)
+            else:
+                for it in range(arr.shape[1]):
+                    self._set_arr(arr[:,it], '%s[%d]' % (key, it))
+    def preloop(self):
+        self.process(0)
+    def postmarch(self):
+        psteps = self.psteps
+        istep = self.svr.step_global
+        if istep%psteps == 0:
+            self.process(istep)
+    def process(self, istep):
+        """
+        This method implements the VTK filtering operations.  Must be
+        overidden.
+        """
+        raise NotImplementedError
+
+################################################################################
+# StatAnchor.
+################################################################################
 
 class RuntimeStatAnchor(Anchor):
     """
@@ -481,6 +609,10 @@ class TpoolStatAnchor(Anchor):
             self.svr.mesg('TP_%s: %s\n' % (
                 key, ' '.join(['%d'%val for val in vals])
             ))
+
+################################################################################
+# Initialization.
+################################################################################
 
 class FillAnchor(Anchor):
     """

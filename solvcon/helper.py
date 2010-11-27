@@ -158,3 +158,41 @@ def search_in_parents(loc, name):
         else:
             loc = parent
     return os.path.abspath(item) if item else item
+
+def make_ust_from_blk(blk):
+    """
+    Create vtk.vtkUnstructuredGrid object from Block object.
+
+    @param blk: input block.
+    @type blk: solvcon.block.Block
+    @return: the ust object.
+    @rtype: vtk.vtkUnstructuredGrid
+    """
+    from numpy import array
+    import vtk
+    cltpm = array([1, 3, 9, 5, 12, 10, 13, 14], dtype='int32')
+    nnode = blk.nnode
+    ndcrd = blk.ndcrd
+    ncell = blk.ncell
+    cltpn = blk.cltpn
+    clnds = blk.clnds
+    # create vtkPoints.
+    pts = vtk.vtkPoints()
+    pts.SetNumberOfPoints(nnode)
+    ind = 0
+    while ind < nnode:
+        pts.SetPoint(ind, ndcrd[ind,:])
+        ind += 1
+    # create vtkUnstructuredGrid.
+    ust = vtk.vtkUnstructuredGrid()
+    ust.Allocate(ncell, ncell)
+    ust.SetPoints(pts)
+    icl = 0
+    while icl < ncell:
+        tpn = cltpm[cltpn[icl]]
+        ids = vtk.vtkIdList()
+        for inl in range(1, clnds[icl,0]+1):
+            ids.InsertNextId(clnds[icl,inl])
+        ust.InsertNextCell(tpn, ids)
+        icl += 1
+    return ust

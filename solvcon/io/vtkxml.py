@@ -22,6 +22,7 @@ VTK XML file.
 For a detailed description of the file format, see:
 http://www.geophysik.uni-muenchen.de/
 intranet/it-service/applications/paraview/vtk-file-formats/
+or http://j.mp/hkkON0
 """
 
 class VtkXmlWriter(object):
@@ -361,6 +362,11 @@ class PVtkXmlUstGridWriter(VtkXmlUstGridWriter):
     """
     Parallel VTK XML unstructured mesh file format.  Capable for ASCII or
     BINARY.
+
+    @ivar npiece: number of pieces of the parallel writer.
+    @itype npiece: int
+    @ivar pextmpl: ext filename template.
+    @itype pextmpl: str
     """
     def __init__(self, blk, *args, **kw):
         npiece = kw.pop('npiece')
@@ -421,5 +427,86 @@ class PVtkXmlUstGridWriter(VtkXmlUstGridWriter):
             ], close=True))
         # write footer.
         outf.write(self._tag_close('PUnstructuredGrid'))
+        outf.write(self._tag_close('VTKFile'))
+        outf.close()
+
+class PVtkXmlPolyDataWriter(VtkXmlWriter):
+    """
+    Parallel VTK XML polydata file format.  Note the default fpdtype is
+    float32, since the vtk.vtkXMLPolyDataWriter write Points in Float32 format.
+
+    @ivar scalars: dictionary holding scalar data.
+    @itype scalars: dict
+    @ivar vectors: dictionary holding vector data.
+    @itype vectors: dict
+    @ivar npiece: number of pieces of the parallel writer.
+    @itype npiece: int
+    @ivar pextmpl: ext filename template.
+    @itype pextmpl: str
+    """
+    def __init__(self, blk, *args, **kw):
+        kw.setdefault('fpdtype', 'float32')
+        self.scalars = kw.pop('scalars', dict())
+        self.vectors = kw.pop('vectors', dict())
+        npiece = kw.pop('npiece')
+        self.npiece = npiece if npiece else 1
+        self.pextmpl = kw.pop('pextmpl')
+        super(PVtkXmlPolyDataWriter, self).__init__(blk, *args, **kw)
+
+    def write(self, outf, close_on_finish=False):
+        """
+        Write to file.
+
+        @param outf: output file name
+        @type outf: str
+        @keyword close_on_finish: flag close on finishing (True).  Default
+            False.  If outf is file name, the output file will be close no
+            matter what is set in this flag.
+        @type close_on_finish: bool
+        @return: nothing
+        """
+        import os
+        mainfn = os.path.splitext(outf)[0]
+        outf = open(outf, 'w')
+        # write header.
+        outf.write('<?xml version="1.0"?>\n')
+        attr = [
+            ('type', 'PPolyData'),
+            ('version', '0.1'),
+            ('byte_order', 'LittleEndian'),
+        ]
+        outf.write(self._tag_open('VTKFile', attr))
+        outf.write(self._tag_open('PPolyData', [
+            ('GhostLevel', 0),
+        ]))
+        # data.
+        outf.write(self._tag_open('PPointData'))
+        for key in sorted(self.scalars.keys()):
+            dtype = self.scalars[key]
+            attr = [('type', self.dtype_map[str(dtype)]), ('Name', key)]
+            outf.write(self._tag_open('PDataArray', attr, close=True))
+        for key in sorted(self.vectors.keys()):
+            dtype = self.vectors[key]
+            attr = [('type', self.dtype_map[str(dtype)]), ('Name', key),
+                ('NumberOfComponents', 3)]
+            outf.write(self._tag_open('PDataArray', attr, close=True))
+        outf.write(self._tag_close('PPointData'))
+        outf.write(self._tag_open('PCellData'))
+        outf.write(self._tag_close('PCellData'))
+        # write points.
+        outf.write(self._tag_open('PPoints'))
+        outf.write(self._tag_open('PDataArray', [
+            ('type', self.dtype_map[str(self.fpdtype)]),
+            ('NumberOfComponents', 3),
+        ], close=True))
+        outf.write(self._tag_close('PPoints'))
+        # write pieces.
+        pfntmpl = os.path.basename(mainfn + self.pextmpl)
+        for ipiece in range(self.npiece):
+            outf.write(self._tag_open('Piece', [
+                ('Source', pfntmpl % ipiece),
+            ], close=True))
+        # write footer.
+        outf.write(self._tag_close('PPolyData'))
         outf.write(self._tag_close('VTKFile'))
         outf.close()
