@@ -600,7 +600,7 @@ class MarchSave(VtkSave):
 # Vtk XML parallel writers.
 ################################################################################
 
-class PMarchSave(MarchSave):
+class PMarchSave(BlockHook):
     """
     Save the geometry and variables in a case when time marching in parallel
     VTK XML format.

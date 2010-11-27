@@ -194,6 +194,17 @@ class VtkAnchor(Anchor):
         svrn = self.svr.svrn
         return self.vtkfn_tmpl % (
             istep if svrn is None else (istep, svrn))
+    def _make_usp(self):
+        """
+        Make a CellData to PointData filter from solver object.
+
+        @return: point data.
+        @rtype: vtk.vtkobject
+        """
+        import vtk
+        usp = vtk.vtkCellDataToPointData()
+        usp.SetInput(self.svr.ust)
+        return usp
     @staticmethod
     def _valid_vector(arr):
         """

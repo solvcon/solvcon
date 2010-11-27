@@ -118,8 +118,7 @@ class CutVtkAnchor(VtkAnchor):
     def process(self, istep):
         import vtk
         self._aggregate()
-        usp = vtk.vtkCellDataToPointData()
-        usp.SetInput(self.svr.ust)
+        usp = self._make_usp()
         # slice.
         pne = vtk.vtkPlane()
         pne.SetOrigin(0, 0, 0)
@@ -134,7 +133,6 @@ class CutVtkAnchor(VtkAnchor):
         wtr.SetInput(cut.GetOutput())
         wtr.SetFileName(self.vtkfn)
         wtr.Write()
-        self._aggregate()
 
 ################################################################################
 # Basic configuration.
@@ -218,7 +216,6 @@ def vtkw_base(casename=None, meshname=None, psteps=None, ssteps=None,
                 ('sch', True, 0),
                 ('v', True, 0.5),
             ], ankcls=CutVtkAnchor, psteps=ssteps,
-            compressor=os.environ.get('CMPR', 'gz'),
             altdir=os.environ.get('ALTDIR', ''),
             altsym=os.environ.get('ALTSYM', ''))
     return cse

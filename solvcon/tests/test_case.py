@@ -2,6 +2,7 @@
 # Copyright (C) 2008-2010 by Yung-Yu Chen.  See LICENSE.txt for terms of usage.
 
 from unittest import TestCase
+from ..anchor import VtkAnchor
 
 class TestArrangement(TestCase):
     def test_arrangement_registry(self):
@@ -233,22 +234,76 @@ class TestPresplitLocalParallel(TestBlockCaseRun):
             clvol += blk.clvol*self.time_increment/2
         # compare.
         self.assertTrue((soln==clvol).all())
+
+class SampleVtkAnchor(VtkAnchor):
+    def process(self, istep):
+        import vtk
+        self._aggregate()
+        usp = self._make_usp()
+        # slice.
+        pne = vtk.vtkPlane()
+        pne.SetOrigin(0, 0, 0)
+        pne.SetNormal(0, 1, 0)
+        cut = vtk.vtkCutter()
+        cut.SetInputConnection(usp.GetOutputPort())
+        cut.SetCutFunction(pne)
+        cut.Update()
+        # write.
+        wtr = vtk.vtkXMLPolyDataWriter()
+        wtr.EncodeAppendedDataOff()
+        wtr.SetInput(cut.GetOutput())
+        wtr.SetFileName(self.vtkfn)
+        wtr.Write()
 class TestPresplitRemoteParallel(TestBlockCaseRun):
     npart = 3
-    def test_dsoln(self):
-        import sys
+    def test_dsoln_and_parallel_output(self):
+        import sys, os
+        import shutil, glob
+        from tempfile import mkdtemp
         from nose.plugins.skip import SkipTest
         if sys.platform.startswith('win'): raise SkipTest
         from numpy import zeros
+        from ..conf import env
+        from ..testing import TestingSolver
         from ..batch import Localhost
         from ..domain import Distributed
-        case = self._get_case(npart=self.npart, domaintype=Distributed,
-            batch=Localhost, rkillfn='', meshfn='sample.dom')
-        case.run()
+        from ..helper import Information
+        from .. import case, hook, anchor
+        # construct case.
+        cse = case.BlockCase(basedir='.', basefn='blockcase', bcmap=None,
+            solvertype=TestingSolver, neq=1,
+            steps_run=self.nsteps, time_increment=self.time_increment,
+            npart=self.npart, domaintype=Distributed,
+            batch=Localhost, rkillfn='',
+            meshfn=os.path.join(env.datadir, 'sample.dom'))
+        cse.info = Information()
+        cse.runhooks.append(anchor.FillAnchor,
+            keys=('soln', 'dsoln'), value=0.0,
+        )
+        cse.runhooks.append(CaseCollect)
+        tdir = mkdtemp()
+        cse.runhooks.append(hook.PMarchSave, anames=[
+            ('soln', False, -1),
+        ], fpdtype='float32', psteps=1, compressor='gz', altdir=tdir)
+        cse.runhooks.append(hook.PVtkHook, anames=[
+            ('soln', False, -1),
+        ], ankcls=SampleVtkAnchor, psteps=1, altdir=tdir)
+        cse.init()
+        cse.run()
+        # verify output files.
+        self.assertEqual(len(glob.glob(os.path.join(tdir, '*.pvtu'))),
+            self.nsteps+1)
+        self.assertEqual(len(glob.glob(os.path.join(tdir, '*.pvtp'))),
+            self.nsteps+1)
+        self.assertEqual(len(glob.glob(os.path.join(tdir, '*.vtu'))),
+            (self.nsteps+1)*self.npart)
+        self.assertEqual(len(glob.glob(os.path.join(tdir, '*.vtp'))),
+            (self.nsteps+1)*self.npart)
+        shutil.rmtree(tdir)
         # get result.
-        dsoln = case.execution.var['dsoln'][:,0,:]
+        dsoln = cse.execution.var['dsoln'][:,0,:]
         # calculate reference
-        blk = case.solver.domainobj.blk
+        blk = cse.solver.domainobj.blk
         clcnd = zeros(dsoln.shape, dtype=dsoln.dtype)
         for iistep in range(self.nsteps*2):
             clcnd += blk.clcnd*self.time_increment/2
