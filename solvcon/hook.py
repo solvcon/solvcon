@@ -698,6 +698,9 @@ class PMarchSave(MarchSave):
 
 class PVtkHook(BlockHook):
     """
+    Anchor dropper and wrapping PVTP file writer.  Note, fpdtype should be set
+    to single precision or parallel VTP file could be in wrong format.
+
     @ivar anames: the arrays in der of solvers to be saved.  Format is (name,
         inder, ndim), (name, inder, ndim) ...  For ndim > 0 the
         array is a spatial vector, for ndim == 0 a simple scalar, and ndim < 0
