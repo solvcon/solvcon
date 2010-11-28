@@ -18,12 +18,10 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 """
-Example for parallel VTU writer hook.  Run with ./go run --npart=3.  Parallel
-VTU files are to be written in the result directory.  Environmental variables
-are used to control detail behaviors of this simulation/arrangement:
+Example for VTK operations.  Run with ./go run --npart=3.  Environmental
+variables are used to control detail behaviors of this simulation/arrangement:
 
-- CMPR specifies compressor used to output VTU files ('gz' or '').
-- ALTDIR specifies where to save the PVTU files.  Use absolute path.
+- ALTDIR specifies where to save the PVTP and VTP files.  Use absolute path.
 - ALTSYM specifies the symbolic link to the alternate directory.  Use relative
   path to the basedir.
 """
@@ -31,11 +29,34 @@ are used to control detail behaviors of this simulation/arrangement:
 import os
 from solvcon.batch import Torque
 from solvcon.kerpak import euler
+from solvcon.anchor import VtkAnchor
+
+################################################################################
+# Visualization.
+################################################################################
+class CutVtkAnchor(VtkAnchor):
+    def process(self, istep):
+        self._aggregate()
+        self.svr.ust.GetCellData().SetActiveScalars('p')
+        usp = self._vtk_c2p(self.svr.ust)
+        fts = list()
+        #cut = self._vtk_cut(usp, (0,0,1), (0,0,1))
+        #cnr = self._vtk_contour_range(cut, 50, 30000, 300000)
+        #cnr.Update()
+        #fts.append(cnr)
+        fts.append(self._vtk_cut(usp, (0,0,1.e-6), (0,0,1)))
+        fts[-1].Update()
+        fts.append(self._vtk_cut(usp, (0,0,4.5), (0,1,0)))
+        fts[-1].Update()
+        #fts.append(self._vtk_contour_value(usp, 0, 300000))
+        #fts[-1].Update()
+        lpd = self._vtk_lump_poly(*fts)
+        self._vtk_write_poly(lpd, self.vtkfn)
 
 ################################################################################
 # Basic configuration.
 ################################################################################
-def pvtk_base(casename=None, meshname=None, psteps=None, ssteps=None,
+def vtkw_base(casename=None, meshname=None, psteps=None, ssteps=None,
     gamma=None, rhoi=None, prei=None, Mi=None, rhoj=None, prej=None, Mj=None,
     **kw):
     """
@@ -87,7 +108,7 @@ def pvtk_base(casename=None, meshname=None, psteps=None, ssteps=None,
     cse.runhooks.append(euler.UniformIAnchor, **fpi)
     # analyzing/output anchors and hooks.
     cse.runhooks.append(euler.EulerOAnchor)
-    cse.runhooks.append(hook.PMarchSave, anames=[
+    cse.runhooks.append(hook.PVtkHook, anames=[
             ('soln', False, -5),
             ('rho', True, 0),
             ('p', True, 0),
@@ -96,8 +117,7 @@ def pvtk_base(casename=None, meshname=None, psteps=None, ssteps=None,
             ('M', True, 0),
             ('sch', True, 0),
             ('v', True, 0.5),
-        ], fpdtype='float64', psteps=ssteps,
-        compressor=os.environ.get('CMPR', 'gz'),
+        ], ankcls=CutVtkAnchor, psteps=ssteps,
         altdir=os.environ.get('ALTDIR', ''),
         altsym=os.environ.get('ALTSYM', ''))
     return cse
@@ -106,8 +126,8 @@ def pvtk_base(casename=None, meshname=None, psteps=None, ssteps=None,
 # The arrangement.
 ################################################################################
 @euler.EulerCase.register_arrangement
-def pvtk(casename, **kw):
-    return pvtk_base(casename=casename, meshname='sjcf5v1m_m500mm.neu.gz',
+def vtkw(casename, **kw):
+    return vtkw_base(casename=casename, meshname='sjcf5v1m_m500mm.neu.gz',
         gamma=1.4, Mi=1.98, rhoi=0.86, prei=41.8e3, Mj=1.02, rhoj=6.64,
         prej=476.e3, diffname='tau', tauname='scale', taumin=0.1, tauscale=0.9,
         rkillfn='', time_increment=2.5e-4, steps_run=10, ssteps=10, psteps=1,

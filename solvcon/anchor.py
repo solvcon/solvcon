@@ -381,7 +381,8 @@ class VtkAnchor(Anchor):
     @staticmethod
     def _vtk_lump_poly(*args):
         """
-        Lump all passed-in poly together.
+        Lump all passed-in poly together.  FIXME: when lumped together, vectors
+        are messed up.
 
         @return: output VTK object.
         @rtype: vtk.vtkobject
