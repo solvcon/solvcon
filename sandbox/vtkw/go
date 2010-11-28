@@ -18,7 +18,7 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 """
-Run with ./go submit osc --npart=3 --batch=OscGlenn --compress-nodelist
+Run with ./go submit pvtk --npart=3 --batch=OscGlenn --compress-nodelist
 --use-mpi.  Environmental variables are used to control detail behaviors of
 this simulation/arrangement:
 

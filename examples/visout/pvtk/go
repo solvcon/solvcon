@@ -1,0 +1,115 @@
+#!/usr/bin/env python2.6
+# -*- coding: UTF-8 -*-
+#
+# Copyright (C) 2010 Yung-Yu Chen <yyc@solvcon.net>.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+"""
+Example for parallel VTU writer hook.  Run with ./go run --npart=3.  Parallel
+VTU files are to be written in the result directory.
+"""
+
+import os
+from solvcon.batch import Torque
+from solvcon.kerpak import euler
+
+################################################################################
+# Basic configuration.
+################################################################################
+def pvtk_base(casename=None, meshname=None, psteps=None, ssteps=None,
+    gamma=None, rhoi=None, prei=None, Mi=None, rhoj=None, prej=None, Mj=None,
+    **kw):
+    """
+    Fundamental configuration of the simulation and return the case object.
+
+    @return: the created Case object.
+    @rtype: solvcon.case.BlockCase
+    """
+    import os
+    from numpy import sqrt
+    from solvcon.helper import search_in_parents
+    from solvcon.conf import env
+    from solvcon.boundcond import bctregy
+    from solvcon.solver import ALMOST_ZERO
+    from solvcon import hook, anchor
+    from solvcon.kerpak import cese
+    # set flow properties (fp).
+    fpi = {'gamma': gamma, 'rho': rhoi, 'p': prei, 'v2': 0.0, 'v3': 0.0}
+    fpi['v1'] = Mi*sqrt(gamma*fpi['p']/fpi['rho'])
+    fpj = {'gamma': gamma, 'rho': rhoj, 'p': prej, 'v1': 0.0, 'v2': 0.0}
+    fpj['v3'] = Mj*sqrt(gamma*fpj['p']/fpj['rho'])
+    # set up BCs.
+    bcmap = {
+        'jet': (bctregy.EulerInlet, fpj,),
+        'upstream': (bctregy.EulerInlet, fpi,),
+        'downstream': (bctregy.CeseNonrefl, {},),
+        'side': (bctregy.CeseNonrefl, {},),
+        'top': (bctregy.CeseNonrefl, {},),
+        'wall': (bctregy.EulerWall, {},),
+    }
+    # set up case.
+    basedir = os.path.join(os.path.abspath(os.getcwd()), 'result')
+    cse = euler.EulerCase(basedir=basedir, rootdir=env.projdir,
+        basefn=casename, meshfn=os.path.join(env.find_scdata_mesh(), meshname),
+        bcmap=bcmap, **kw)
+    # statistical anchors for solvers.
+    for name in 'Runtime', 'March', 'Tpool':
+        cse.runhooks.append(getattr(anchor, name+'StatAnchor'))
+    # informative hooks.
+    cse.runhooks.append(hook.BlockInfoHook)
+    cse.runhooks.append(hook.ProgressHook, psteps=psteps,
+        linewidth=ssteps/psteps)
+    cse.runhooks.append(cese.CflHook, fullstop=False, psteps=ssteps,
+        cflmax=10.0, linewidth=ssteps/psteps)
+    cse.runhooks.append(cese.ConvergeHook, psteps=ssteps)
+    # initializer anchors..
+    cse.runhooks.append(anchor.FillAnchor, keys=('soln',), value=ALMOST_ZERO)
+    cse.runhooks.append(anchor.FillAnchor, keys=('dsoln',), value=0)
+    cse.runhooks.append(euler.UniformIAnchor, **fpi)
+    # analyzing/output anchors and hooks.
+    cse.runhooks.append(euler.EulerOAnchor)
+    cse.runhooks.append(hook.PMarchSave, anames=[
+        ('soln', False, -5),
+        ('rho', True, 0),
+        ('p', True, 0),
+        ('T', True, 0),
+        ('ke', True, 0),
+        ('M', True, 0),
+        ('sch', True, 0),
+        ('v', True, 0.5),
+    ], fpdtype='float64', psteps=ssteps, compressor='gz')
+    return cse
+
+################################################################################
+# The arrangement.
+################################################################################
+@euler.EulerCase.register_arrangement
+def pvtk(casename, **kw):
+    """
+    Resources are set to use olddual (dual dual-core Opteron) nodes.
+    """
+    return pvtk_base(casename=casename, meshname='sjcf5v1m_m500mm.neu.gz',
+        gamma=1.4, Mi=1.98, rhoi=0.86, prei=41.8e3, Mj=1.02, rhoj=6.64,
+        prej=476.e3, diffname='tau', tauname='scale', taumin=0.1, tauscale=0.9,
+        rkillfn='', time_increment=2.5e-4, steps_run=10, ssteps=10, psteps=1,
+        **kw)
+
+################################################################################
+# Invoke SOLVCON workflow.
+################################################################################
+if __name__ == '__main__':
+    import solvcon
+    solvcon.go()
