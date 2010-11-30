@@ -20,6 +20,8 @@
 Visualizing algorithm by VTK.
 """
 
+VANMAP = dict(float32='vtkFloatArray', float64='vtkDoubleArray')
+
 def make_ust_from_blk(blk):
     """
     Create vtk.vtkUnstructuredGrid object from Block object.
@@ -57,6 +59,74 @@ def make_ust_from_blk(blk):
         ust.InsertNextCell(tpn, ids)
         icl += 1
     return ust
+
+def valid_vector(arr):
+    """
+    A valid vector must have 3 compoments.  If it has only 2, pad it.  If
+    it has more than 3, raise ValueError.
+
+    @param arr: input vector array.
+    @type arr: numpy.ndarray
+    @return: validated array.
+    @rtype: numpy.ndarray
+    """
+    from numpy import empty
+    if arr.shape[1] < 3:
+        arrn = empty((arr.shape[0], 3), dtype=arr.dtype)
+        arrn[:,2] = 0.0
+        try:
+            arrn[:,:2] = arr[:,:]
+        except ValueError, e:
+            args = e.args[:]
+            args.append('arrn.shape=%s, arr.shape=%s' % (
+                str(arrn.shape), str(arr.shape)))
+            e.args = args
+            raise
+        arr = arrn
+    elif arr.shape[1] > 3:
+        raise IndexError('arr.shape[1] = %d > 3'%arr.shape[1])
+    return arr
+
+def set_array(arr, name, fpdtype, ust):
+    """
+    Set the data of a ndarray to vtk array and return the set vtk array.
+    If the array of the specified name existed, use the existing array.
+
+    @param arr: input array.
+    @type arr: numpy.ndarray
+    @param name: array name.
+    @type name: str
+    @param fpdtype: floating point dtype.
+    @type fpdtype: str
+    @param ust: the UnstructuredGrid object to store the array.
+    @type ust: vtk.vtkobject
+    @return: the set VTK array object.
+    """
+    import vtk
+    if ust.GetCellData().HasArray(name):
+        vaj = ust.GetCellData().GetArray(name)
+    else:
+        vaj = getattr(vtk, VANMAP[fpdtype])()
+        # prepare for vector.
+        if len(arr.shape) > 1:
+            vaj.SetNumberOfComponents(3)
+        # set number of tuples to allocate.
+        vaj.SetNumberOfTuples(arr.shape[0])
+        # cache.
+        vaj.SetName(name)
+        ust.GetCellData().AddArray(vaj)
+    # set data.
+    nt = arr.shape[0]
+    it = 0
+    if len(arr.shape) > 1:
+        while it < nt:
+            vaj.SetTuple3(it, *arr[it])
+            it += 1
+    else:
+        while it < nt:
+            vaj.SetValue(it, arr[it])
+            it += 1
+    return vaj
 
 class VtkOperation(object):
     """

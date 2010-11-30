@@ -39,18 +39,17 @@ Engineering, The Ohio State University.
 Key Features
 ============
 
-- Unstructured mesh consisting of mixed elements in two- and three-dimensional
-  space.
+- Pluggable multi-physics.
+- Built-in CESE_ solvers.
+- Unstructured mesh consisting of mixed elements.
 - Interface to Message-Passing Interface (MPI) libraries.
+- Socket communication layer: working without MPI installed.
 - Automatic distributed-memory parallelization by domain decomposition.
-- Highly modularized solving kernels of PDEs to decouple pthread and CUDA from
-  domain decomposition for hybrid parallelism.
-- In situ visualization by calling VTK library.
-- Standalone writers of VTK legacy and XML file formats implemented in pure
-  Python.
-- Built-in communication layer by using socket: working without MPI installed.
-- Integration to supercomputer (cluster) batch systems: automatic construction
-  of submit scripts.
+- Hybrid parallelism for GPU clusters.
+- Parallel I/O.
+- In situ visualization by VTK_ library.
+- Standalone writers to VTK legacy and XML file formats.
+- Integration to supercomputer (cluster) batch systems.
 
 Install
 =======
