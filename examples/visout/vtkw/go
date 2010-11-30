@@ -36,22 +36,23 @@ from solvcon.anchor import VtkAnchor
 ################################################################################
 class CutVtkAnchor(VtkAnchor):
     def process(self, istep):
+        from solvcon.visual_vtk import Vop
         self._aggregate()
         self.svr.ust.GetCellData().SetActiveScalars('p')
-        usp = self._vtk_c2p(self.svr.ust)
+        usp = Vop.c2p(self.svr.ust)
         fts = list()
-        #cut = self._vtk_cut(usp, (0,0,1), (0,0,1))
-        #cnr = self._vtk_contour_range(cut, 50, 30000, 300000)
+        #cut = Vop.cut(usp, (0,0,1), (0,0,1))
+        #cnr = Vop.contour_range(cut, 50, 30000, 300000)
         #cnr.Update()
         #fts.append(cnr)
-        fts.append(self._vtk_cut(usp, (0,0,1.e-6), (0,0,1)))
-        fts[-1].Update()
-        fts.append(self._vtk_cut(usp, (0,0,4.5), (0,1,0)))
-        fts[-1].Update()
-        #fts.append(self._vtk_contour_value(usp, 0, 300000))
+        #fts.append(Vop.cut(usp, (0,0,0.1), (0,0,1)))
         #fts[-1].Update()
-        lpd = self._vtk_lump_poly(*fts)
-        self._vtk_write_poly(lpd, self.vtkfn)
+        fts.append(Vop.cut(usp, (0,0,4.5), (0,1,0)))
+        fts[-1].Update()
+        #fts.append(Vop.contour_value(usp, 0, 300000))
+        #fts[-1].Update()
+        lpd = Vop.lump_poly(*fts)
+        Vop.write_poly(lpd, self.vtkfn)
 
 ################################################################################
 # Basic configuration.

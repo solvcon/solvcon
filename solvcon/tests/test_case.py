@@ -237,11 +237,12 @@ class TestPresplitLocalParallel(TestBlockCaseRun):
 
 class SampleVtkAnchor(VtkAnchor):
     def process(self, istep):
+        from ..visual_vtk import Vop
         self._aggregate()
-        usp = self._vtk_c2p(self.svr.ust)
-        cut = self._vtk_cut(usp, (0,0,0), (0,1,0))
+        usp = Vop.c2p(self.svr.ust)
+        cut = Vop.cut(usp, (0,0,0), (0,1,0))
         cut.Update()
-        self._vtk_write_poly(cut, self.vtkfn)
+        Vop.write_poly(cut, self.vtkfn)
 class TestPresplitRemoteParallel(TestBlockCaseRun):
     npart = 3
     def test_dsoln_and_parallel_output(self):
@@ -250,6 +251,10 @@ class TestPresplitRemoteParallel(TestBlockCaseRun):
         from tempfile import mkdtemp
         from nose.plugins.skip import SkipTest
         if sys.platform.startswith('win'): raise SkipTest
+        try:
+            import vtk
+        except ImportError:
+            raise SkipTest
         from numpy import zeros
         from ..conf import env
         from ..testing import TestingSolver

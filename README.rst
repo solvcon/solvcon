@@ -41,14 +41,16 @@ Key Features
 
 - Unstructured mesh consisting of mixed elements in two- and three-dimensional
   space.
-- Use of advanced Message-Passing Interface (MPI) libraries.
+- Interface to Message-Passing Interface (MPI) libraries.
 - Automatic distributed-memory parallelization by domain decomposition.
 - Highly modularized solving kernels of PDEs to decouple pthread and CUDA from
   domain decomposition for hybrid parallelism.
+- In situ visualization by calling VTK library.
+- Standalone writers of VTK legacy and XML file formats implemented in pure
+  Python.
+- Built-in communication layer by using socket: working without MPI installed.
 - Integration to supercomputer (cluster) batch systems: automatic construction
   of submit scripts.
-- Built-in writers to VTK legacy and XML formats.
-- Built-in communication layer by using socket: working without MPI installed.
 
 Install
 =======
@@ -106,7 +108,15 @@ If you have Nose_ installed, you can run::
   $ python -c 'import solvcon; solvcon.test()'
 
 for unit tests.  Every test should pass, except one specific to cluster batch
-systems could be skipped (indicated by S).
+systems could be skipped (indicated by S).  If you do not have VTK_ and its
+Python binding, VTK-related tests will also be skipped.
+
+In Situ Visualization
+=====================
+
+Several pre-defined visualizing operations are built in SOLVCON by using VTK
+library.  To use the provided in situ visualization, please make sure VTK and
+its Python binding is installed correctly.
 
 How to Use
 ==========
@@ -136,5 +146,6 @@ Resources
 .. _Numpy: http://www.numpy.org/
 .. _METIS: http://glaros.dtc.umn.edu/gkhome/views/metis/
 .. _Nose: http://somethingaboutorange.com/mrl/projects/nose/
+.. _VTK: http://vtk.org/
 
 .. vim: set ft=rst ff=unix fenc=utf8:

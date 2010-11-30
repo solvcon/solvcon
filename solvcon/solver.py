@@ -441,7 +441,7 @@ class BlockSolver(BaseSolver):
 
     @property
     def ust(self):
-        from solvcon.helper import make_ust_from_blk
+        from .visual_vtk import make_ust_from_blk
         _ust = self._ust
         if _ust is None:
             fbk = FakeBlockVtk(self)
