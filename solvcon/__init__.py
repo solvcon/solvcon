@@ -29,7 +29,7 @@ physical models are ready for use in the namespace ``solvcon.kerpak``.
 
 The default numerical algorithm in SOLVCON is the space-time Conservation
 Element and Solution Element (CESE_) method, which was originally developed by
-Dr. Sin-Chung Chang at NASA Glenn Research Center.  The CESE_ method delivers
+Sin-Chung Chang at NASA Glenn Research Center.  The CESE_ method delivers
 time-accurate solutions of hyperbolic PDEs, and has been used to solve various
 physical processes including fluid dynamics, aero-acoustics, detonations,
 magnetohydrodynamics (MHD), stress waves in complex solids, electromagnetics,
