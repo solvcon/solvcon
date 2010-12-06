@@ -23,7 +23,7 @@ Space-time Conservation Element and Solution Element (CESE) method.
 from ctypes import Structure
 from solvcon.solver import BlockSolver
 from solvcon.case import BlockCase
-from solvcon.boundcond import BC
+from solvcon.boundcond import BC, periodic
 from solvcon.anchor import Anchor
 from solvcon.hook import Hook, BlockHook
 
@@ -482,6 +482,22 @@ class CeseNonrefl(CeseBC):
             c_int(self.facn.shape[0]),
             self.facn.ctypes.data_as(intptr),
         )
+
+class CesePeriodic(periodic):
+    """
+    General periodic boundary condition for sequential runs.
+    """
+    typn = 1001
+    def init(self, **kw):
+        svr = self.svr
+        ngstcell = svr.ngstcell
+        ngstface = svr.ngstface
+        facn = self.facn
+        slctm = self.rclp[:,0] + ngstcell
+        slctr = self.rclp[:,1] + ngstcell
+        # move coordinates.
+        shf = svr.cecnd[slctr,0,:] - svr.fccnd[facn[:,2]+ngstface,:]
+        svr.cecnd[slctm,0,:] = svr.fccnd[facn[:,0]+ngstface,:] + shf
 
 ################################################################################
 # Anchors.

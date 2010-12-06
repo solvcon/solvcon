@@ -324,7 +324,8 @@ class BlockFormat(Format):
     @staticmethod
     def _convert_bc(name_mapper, blk):
         """
-        Convert boundary condition object into proper types.
+        Convert boundary condition object into proper types.  The method can
+        process periodic BCs.
         
         @param name_mapper: map name to bc type and value dictionary; the two
             objects are organized in a tuple.

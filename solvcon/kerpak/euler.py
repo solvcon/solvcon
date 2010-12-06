@@ -39,13 +39,12 @@ class EulerSolver(CeseSolver):
         kw['nsca'] = 1
         super(EulerSolver, self).__init__(blk, *args, **kw)
         self.cflc = self.cfl.copy()
-    from ctypes import c_int
     from solvcon.dependency import getcdll
     __clib_euler = {
         2: getcdll('euler2d'),
         3: getcdll('euler3d'),
     }
-    del getcdll, c_int
+    del getcdll
     @property
     def _clib_euler(self):
         return self.__clib_euler[self.ndim]
@@ -54,13 +53,12 @@ class EulerSolver(CeseSolver):
     def _jacofunc_(self):
         return self._clib_euler.calc_jaco
     def calccfl(self, worker=None):
-        from ctypes import byref, c_int
         func = getattr(self._clib_euler, 'calc_cfl_'+self.cflname)
         self._tcall(func, 0, self.ncell)
         mincfl = self.ocfl.min()
         maxcfl = self.ocfl.max()
         nadj = (self.cfl==1).sum()
-        if self.marchret == None:
+        if self.marchret is None:
             self.marchret = [0.0, 0.0, 0, 0]
         self.marchret[0] = mincfl
         self.marchret[1] = maxcfl
@@ -104,7 +102,7 @@ class EulerBC(CeseBC):
     """
     Basic BC class for the Euler equations.
     """
-    typn = -10000
+    typn = -10100
     from solvcon.dependency import getcdll
     __clib_eulerb = {
         2: getcdll('eulerb2d'),

@@ -397,9 +397,6 @@ class BlockCase(BaseCase):
     """
     Base class for multi-dimensional cases using block.
 
-    Subclass must implement _load_block_for_init() private method for init()
-    method to load the needed block.
-
     @ivar pythonpaths: extra python paths.
     @itype pythonpaths: list
     """
@@ -415,6 +412,7 @@ class BlockCase(BaseCase):
         'io.dump.svrfntmpl': 'solvcon.dump.solver%s.obj',
         # conditions.
         'condition.bcmap': None,
+        'condition.bcmod': None,
         # solver.
         'solver.domaintype': None,
         'solver.domainobj': None,
@@ -508,6 +506,8 @@ class BlockCase(BaseCase):
         if level != 1:
             self._log_start('build_domain')
             loaded = self.load_block()
+            if callable(self.condition.bcmod):
+                self.condition.bcmod(loaded)
             if isinstance(loaded, self.solver.domaintype):
                 self.solver.domainobj = loaded
             else:
@@ -603,6 +603,44 @@ class BlockCase(BaseCase):
         else:
             raise ValueError(meshfn)
         return obj
+
+    @staticmethod
+    def couple_periodic(blk, bcmap):
+        """
+        Couple periodic boundary conditions.
+
+        @param blk: the block having periodic BCs to be coupled.
+        @type blk: solvcon.block.Block
+        @param bcmap: mapper for periodic BCs.
+        @type bcmap: dict
+        @return: nothing
+        """
+        from solvcon.boundcond import periodic
+        nmidx = dict([(blk.bclist[idx].name, idx) for idx in
+            range(len(blk.bclist))])
+        npidx = list()
+        for key in bcmap:
+            bct, vdict = bcmap[key]
+            if not issubclass(bct, periodic):
+                try:
+                    if key in nmidx:
+                        npidx.append(nmidx[key])
+                except Exception as e:
+                    args = list(e.args)
+                    args.append(str(nmidx))
+                    e.args = tuple(args)
+                    raise
+                continue
+            val = vdict['link']
+            ibc0 = nmidx[key]
+            ibc1 = nmidx[val]
+            pbc0 = blk.bclist[ibc0] = bct(bc=blk.bclist[ibc0])
+            pbc1 = blk.bclist[ibc1] = bct(bc=blk.bclist[ibc1])
+            ref = vdict['ref']
+            pbc0.sort(ref)
+            pbc1.sort(ref)
+            pbc0.couple(pbc1)
+            pbc1.couple(pbc0)
 
     def make_solver_keywords(self):
         """

@@ -764,7 +764,7 @@ class GambitNeutral(object):
             if name_mapper is not None:
                 bct, vdict = name_mapper.get(bc.name, None)
                 if bct is not None:
-                    bc = bct(bc)
+                    bc = bct(bc=bc)
                     bc.feedValue(vdict)
             # save to block object.
             bc.sern = len(blk.bclist)

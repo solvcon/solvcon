@@ -1,0 +1,161 @@
+#!/usr/bin/env python2.6
+# -*- coding: UTF-8 -*-
+#
+# Copyright (C) 2010 Yung-Yu Chen <yyc@solvcon.net>.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+"""
+Convergence test for anisotropic elastic solver.
+"""
+
+from solvcon.anchor import Anchor
+from solvcon.hook import BlockHook
+from solvcon.kerpak import elastic
+
+################################################################################
+# Source term treatment.
+################################################################################
+class PointSource(object):
+    def __init__(self, name, crd, amp, delay, freq):
+        self.name = name
+        self.crd = crd
+        self.pcl = -1
+        self.amp = amp
+        self.delay = delay
+        self.freq = freq
+    def locate_cell(self, svr):
+        idx = svr.locate_point(self.crd[0], self.crd[1])
+        self.pcl = idx[0]
+    def calc_timedep(self, svr):
+        raise NotImplementedError
+    def __call__(self, svr):
+        from math import exp, pi
+        tdep = self.calc_timedep(svr)
+        return self.amp * tdep / svr.cevol[svr.ngstcell+self.pcl,0]
+class PointSourceRicker(PointSource):
+    def calc_timedep(self, svr):
+        from math import exp, pi
+        time = svr.exd.time
+        time_increment = svr.exd.time_increment
+        delay = self.delay
+        freq = self.freq
+        t1 = time - delay
+        t2 = t1 + time_increment/2
+        tdep = t2*exp(-(pi*freq*t2)**2) - t1*exp(-(pi*freq*t1)**2)
+        return tdep / 2
+class PointSourceCos(PointSource):
+    def calc_timedep(self, svr):
+        from math import sin, pi
+        time = svr.exd.time
+        time_increment = svr.exd.time_increment
+        delay = self.delay
+        freq = self.freq
+        t1 = time - delay
+        t2 = t1 + time_increment/2
+        pref = 2*pi*freq
+        tdep = sin(pref*t2) - sin(pref*t1)
+        return tdep / pref
+
+class PSAnchor(Anchor):
+    def __init__(self, svr, **kw):
+        self.sources = kw.pop('sources')
+        super(PSAnchor, self).__init__(svr, **kw)
+    def preloop(self):
+        svr = self.svr
+        for src in self.sources:
+            src.locate_cell(svr)
+    def postcalcsoln(self):
+        svr = self.svr
+        ngstcell = svr.ngstcell
+        for src in self.sources:
+            if src.pcl >= 0:
+                svr.soln[ngstcell+src.pcl,:] += src(svr)
+
+################################################################################
+# Basic configuration.
+################################################################################
+def elas_base(casename=None, meshname=None, mtrlname='GaAs',
+    al=20.0, be=40.0, ga=50.0, wtests=None, psteps=1, ssteps=50, **kw):
+    """
+    Fundamental configuration of the simulation and return the case object.
+
+    @return: the created Case object.
+    @rtype: solvcon.case.BlockCase
+    """
+    import os
+    from numpy import pi, array, sin, cos, sqrt
+    from solvcon.conf import env
+    from solvcon.boundcond import bctregy
+    from solvcon import hook, anchor
+    from solvcon.solver import ALMOST_ZERO
+    from solvcon.kerpak import cese
+    from solvcon.kerpak.elastic import mltregy
+    # set up BCs.
+    bcmap = {
+        'left': (bctregy.CeseNonrefl, {}),
+        'right': (bctregy.CeseNonrefl, {}),
+        'upper': (bctregy.CeseNonrefl, {}),
+        'lower': (bctregy.CeseNonrefl, {}),
+    }
+    # set up case.
+    mtrl = mltregy[mtrlname](al=al*pi/180.0, be=be*pi/180.0, ga=ga*pi/180.0)
+    basedir = os.path.join(os.path.abspath(os.getcwd()), 'result')
+    cse = elastic.ElasticCase(basedir=basedir, rootdir=env.projdir,
+        basefn=casename, meshfn=os.path.join(env.find_scdata_mesh(), meshname),
+        bcmap=bcmap, mtrldict={None: mtrl}, **kw)
+    # statistical anchors for solvers.
+    for name in 'Runtime', 'March', 'Tpool':
+        cse.runhooks.append(getattr(anchor, name+'StatAnchor'))
+    # informative hooks.
+    cse.runhooks.append(hook.BlockInfoHook)
+    cse.runhooks.append(hook.ProgressHook, psteps=psteps,
+        linewidth=ssteps/psteps)
+    cse.runhooks.append(cese.CflHook, fullstop=False, psteps=ssteps,
+        cflmax=10.0, linewidth=ssteps/psteps)
+    # initializer anchors..
+    cse.runhooks.append(anchor.FillAnchor, keys=('soln',), value=ALMOST_ZERO)
+    cse.runhooks.append(anchor.FillAnchor, keys=('dsoln',), value=0)
+    ## point source.
+    src = PointSourceRicker(name='source', crd=(0.0, 0.0),
+        delay=0.0, freq=1.e3,
+        amp=array([
+            1, 1, 1, 0,0,0,0,0,0,
+        ], dtype='float64')*(-2000.0/2200.0),
+    )
+    cse.runhooks.append(PSAnchor, sources=[src])
+    # analyzing/output anchors and hooks.
+    #cse.runhooks.append(euler.ElasticOAnchor)
+    cse.runhooks.append(hook.PMarchSave, anames=[
+            ('soln', False, -9),
+        ], fpdtype='float64', psteps=ssteps, compressor='gz')
+    return cse
+
+################################################################################
+# The arrangement.
+################################################################################
+@elastic.ElasticCase.register_arrangement
+def elas(casename, **kw):
+    return elas_base(casename=casename, meshname='psquare_100mm.neu.gz',
+        time_increment=5.e-6,
+        #steps_run=400, steps_stride=1, ssteps=50, psteps=1, **kw)
+        steps_run=100, steps_stride=1, ssteps=1, psteps=1, **kw)
+
+################################################################################
+# Invoke SOLVCON workflow.
+################################################################################
+if __name__ == '__main__':
+    import solvcon
+    solvcon.go()

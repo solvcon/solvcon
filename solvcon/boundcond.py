@@ -270,7 +270,7 @@ class interface(BC):
         assert (self.rclp[:,1]>=0).all()
         assert (self.rclp[:,2]>=0).all()
 
-class periodic(interface):  # FIXME: should be in kerpak.
+class periodic(interface):
     """
     BC type for periodic boundary condition.
     """

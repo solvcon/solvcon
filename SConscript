@@ -32,6 +32,7 @@ libs.append(env.SharedLibrary('%s/%s_solvcontest' % (ldir, lpre),
 dimlibs = [ 
     'cese', 'ceseb',    # solvcon.kerpak.cese
     'euler', 'eulerb',  # solvcon.kerpak.euler
+    'elasticb', # solvcon.kerpak.elastic
 ]
 for ndim in 2, 3:
     for lkey in dimlibs:
@@ -39,6 +40,22 @@ for ndim in 2, 3:
             '%s/%s' % (sdir, lkey), duplicate=0)
     envm = env.Clone()
     envm.Prepend(CCFLAGS=['-DNDIM=%d'%ndim])
+    for lkey in dimlibs:
+        libs.append(envm.SharedLibrary(
+            '%s/%s_%s%dd' % (ldir, lpre, lkey, ndim),
+            Glob('%s/%s%dd/*.c' % (bdir, lkey, ndim)),
+        ))
+# elastic solver needs lapack.
+dimlibs = [
+    'elastic',  # solvcon.kerpak.elastic
+]
+for ndim in 2, 3:
+    for lkey in dimlibs:
+        VariantDir('%s/%s%dd' % (bdir, lkey, ndim),
+            '%s/%s' % (sdir, lkey), duplicate=0)
+    envm = env.Clone()
+    envm.Prepend(CCFLAGS=['-DNDIM=%d'%ndim])
+    envm.Prepend(LIBS=['lapack'])
     for lkey in dimlibs:
         libs.append(envm.SharedLibrary(
             '%s/%s_%s%dd' % (ldir, lpre, lkey, ndim),
