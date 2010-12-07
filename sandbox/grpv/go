@@ -87,8 +87,8 @@ class PSAnchor(Anchor):
 ################################################################################
 # Basic configuration.
 ################################################################################
-def grpv_base(casename=None, meshname=None, mtrlname='GaAs',
-    al=0.0, be=0.0, ga=0.0, psteps=None, ssteps=None, **kw):
+def grpv_base(casename=None, meshname=None, mtrlname='Beryl',
+    al=0.0, be=90.0, ga=0.0, psteps=None, ssteps=None, **kw):
     """
     Fundamental configuration of the simulation and return the case object.
 
@@ -131,9 +131,9 @@ def grpv_base(casename=None, meshname=None, mtrlname='GaAs',
     cse.runhooks.append(anchor.FillAnchor, keys=('dsoln',), value=0)
     ## point source.
     src = PointSourceRicker(name='source', crd=(0.0, 0.0),
-        delay=0.0, freq=1.e4,
+        delay=0.0, freq=1.e5,
         amp=array([
-            0, 0, 1, 0,0,0,0,0,0,
+            1, 1, 1, 0,0,0,0,0,0,
         ], dtype='float64'),
     )
     cse.runhooks.append(PSAnchor, sources=[src])
@@ -150,9 +150,9 @@ def grpv_base(casename=None, meshname=None, mtrlname='GaAs',
 ################################################################################
 @elastic.ElasticCase.register_arrangement
 def grpv(casename, **kw):
-    return grpv_base(casename=casename, meshname='psquare_100mm.neu.gz',
-        time_increment=5.e-6,
-        steps_run=200, steps_stride=1, ssteps=20, psteps=1, **kw)
+    return grpv_base(casename=casename, meshname='psquare_10mm.neu.gz',
+        time_increment=3.64e-7,
+        steps_run=250, steps_stride=1, ssteps=50, psteps=1, **kw)
 
 ################################################################################
 # Invoke SOLVCON workflow.
