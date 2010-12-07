@@ -113,7 +113,7 @@ class ElasticSolver(CeseSolver):
                 raise
             mtrllist.append(mtrl)
         return mtrllist
-    def boundcond(self):
+    def provide(self):
         from ctypes import byref, c_int
         # build material list.
         self.mtrllist = self._build_mtrllist(self.grpnames, self.mtrldict)
@@ -124,19 +124,20 @@ class ElasticSolver(CeseSolver):
             jaco[:,:,1] = mtrl.jacoy
             if self.ndim == 3:
                 jaco[:,:,2] = mtrl.jacoz
-        super(ElasticSolver, self).boundcond()
         # pre-calculate CFL.
         self._set_time(self.time, self.cfldt)
         self._clib_elastic.calc_cfl(
             byref(self.exd), c_int(0), c_int(self.ncell))
         self.cflmax = self.cfl.max()
+        # super method.
+        super(ElasticSolver, self).provide()
     def calccfl(self, worker=None):
         if self.marchret is None:
             self.marchret = [0.0, 0.0, 0, 0]
         self.marchret[0] = self.cflmax
         self.marchret[1] = self.cflmax
         self.marchret[2] = 0
-        self.marchret[3] += 0
+        self.marchret[3] = 0
         return self.marchret
 
 ###############################################################################
@@ -254,6 +255,42 @@ class ElasticTractionFree2(ElasticBC):
             c_int(self.facn.shape[0]),
             self.facn.ctypes.data_as(intptr),
         )
+
+################################################################################
+# Anchor.
+################################################################################
+
+class ElasticOAnchor(Anchor):
+    """
+    Calculate total energy, i.e., the summation of kinetic energy and strain
+    energy.
+    """
+    def _calculate_physics(self):
+        from ctypes import byref
+        from numpy import empty
+        from numpy.linalg import inv
+        svr = self.svr
+        # input arrays.
+        rhos = empty(svr.ngroup, dtype=svr.fpdtype)
+        comps = empty((svr.ngroup, 6, 6), dtype=svr.fpdtype)
+        for igp in range(svr.ngroup):
+            mtrl = svr.mtrllist[igp]
+            rhos[igp] = mtrl.rho
+            comps[igp,:,:] = inv(mtrl.stiff).T
+        # output arrays.
+        svr._clib_elastic.calc_energy(
+            byref(svr.exd),
+            rhos.ctypes.data_as(svr.fpptr),
+            comps.ctypes.data_as(svr.fpptr),
+            svr.der['energy'].ctypes.data_as(svr.fpptr),
+        )
+    def provide(self):
+        from numpy import empty
+        svr = self.svr
+        svr.der['energy'] = empty(svr.ngstcell+svr.ncell, dtype=svr.fpdtype)
+        self._calculate_physics()
+    def postfull(self):
+        self._calculate_physics()
 
 ################################################################################
 # Material definition.

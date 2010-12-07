@@ -160,7 +160,7 @@ def match_periodic(blk):
 # Basic configuration.
 ################################################################################
 def escv_base(casename=None, meshname=None, mtrlname='GaAs',
-    al=20.0, be=40.0, ga=50.0, wtests=None, psteps=1, ssteps=50, **kw):
+    al=20.0, be=40.0, ga=50.0, wtests=None, psteps=None, ssteps=None, **kw):
     """
     Fundamental configuration of the simulation and return the case object.
 
@@ -219,14 +219,12 @@ def escv_base(casename=None, meshname=None, mtrlname='GaAs',
 @elastic.ElasticCase.register_arrangement
 def escv(casename, **kw):
     from numpy import array, pi, sqrt
-    div = kw.pop('div', 30)
+    div = kw.pop('div', 32)
     std = kw.pop('std', 1)
     kw.setdefault('meshname', 'psquare_100mm.neu.gz')
     period = 2.649983322636356e-04
-    return escv_base(casename=casename,
-        time_increment=period/div, steps_run=2*div, steps_stride=std,
-        #ssteps=div, psteps=std,
-        ssteps=std, psteps=std,
+    return escv_base(casename=casename, time_increment=period/div,
+        steps_run=2*div, steps_stride=std, ssteps=div, psteps=std,
         wtests=(
             (array([1,1], dtype='float64')*pi, 8),
         ),

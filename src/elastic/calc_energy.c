@@ -30,7 +30,7 @@ void *calc_energy(exedata *exd, double *rhos, double *comps, double *en) {
     // loop over cells.
     pclgrp = exd->clgrp;
     psoln = exd->soln;
-    pen = en;
+    pen = en + exd->ngstcell;
     for (icl=0; icl<exd->ncell; icl++) {
         igp = pclgrp[0];
         pcomp = comps + igp*36;

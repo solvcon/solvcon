@@ -87,8 +87,8 @@ class PSAnchor(Anchor):
 ################################################################################
 # Basic configuration.
 ################################################################################
-def elas_base(casename=None, meshname=None, mtrlname='GaAs',
-    al=20.0, be=40.0, ga=50.0, wtests=None, psteps=1, ssteps=50, **kw):
+def grpv_base(casename=None, meshname=None, mtrlname='GaAs',
+    al=0.0, be=0.0, ga=0.0, psteps=None, ssteps=None, **kw):
     """
     Fundamental configuration of the simulation and return the case object.
 
@@ -115,6 +115,7 @@ def elas_base(casename=None, meshname=None, mtrlname='GaAs',
     basedir = os.path.join(os.path.abspath(os.getcwd()), 'result')
     cse = elastic.ElasticCase(basedir=basedir, rootdir=env.projdir,
         basefn=casename, meshfn=os.path.join(env.find_scdata_mesh(), meshname),
+        taylor=0.0,
         bcmap=bcmap, mtrldict={None: mtrl}, **kw)
     # statistical anchors for solvers.
     for name in 'Runtime', 'March', 'Tpool':
@@ -130,16 +131,17 @@ def elas_base(casename=None, meshname=None, mtrlname='GaAs',
     cse.runhooks.append(anchor.FillAnchor, keys=('dsoln',), value=0)
     ## point source.
     src = PointSourceRicker(name='source', crd=(0.0, 0.0),
-        delay=0.0, freq=1.e3,
+        delay=0.0, freq=1.e4,
         amp=array([
-            1, 1, 1, 0,0,0,0,0,0,
-        ], dtype='float64')*(-2000.0/2200.0),
+            0, 0, 1, 0,0,0,0,0,0,
+        ], dtype='float64'),
     )
     cse.runhooks.append(PSAnchor, sources=[src])
     # analyzing/output anchors and hooks.
-    #cse.runhooks.append(euler.ElasticOAnchor)
+    cse.runhooks.append(elastic.ElasticOAnchor)
     cse.runhooks.append(hook.PMarchSave, anames=[
             ('soln', False, -9),
+            ('energy', True, 0),
         ], fpdtype='float64', psteps=ssteps, compressor='gz')
     return cse
 
@@ -147,11 +149,10 @@ def elas_base(casename=None, meshname=None, mtrlname='GaAs',
 # The arrangement.
 ################################################################################
 @elastic.ElasticCase.register_arrangement
-def elas(casename, **kw):
-    return elas_base(casename=casename, meshname='psquare_100mm.neu.gz',
+def grpv(casename, **kw):
+    return grpv_base(casename=casename, meshname='psquare_100mm.neu.gz',
         time_increment=5.e-6,
-        #steps_run=400, steps_stride=1, ssteps=50, psteps=1, **kw)
-        steps_run=100, steps_stride=1, ssteps=1, psteps=1, **kw)
+        steps_run=200, steps_stride=1, ssteps=20, psteps=1, **kw)
 
 ################################################################################
 # Invoke SOLVCON workflow.

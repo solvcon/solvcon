@@ -18,15 +18,30 @@
 
 #include "elastic.h"
 
-void calc_jaco(exedata *exd, int icl, double *fcn, double *jacos) {
+void calc_jaco(exedata *exd, int icl,   
+        double fcn[NEQ][NDIM], double jacos[NEQ][NEQ][NDIM]) {
     // pointers.
-    double *pjaco;
+    double *psol;
+    double *pjaco, *pljaco;
     // interators.
-    int it, nt;
-    pjaco = exd->grpda + exd->clgrp[icl] * exd->gdlen;
+    int nt;
+    int it, ieq, jeq;
+    // fill jacobian.
+    pjaco = exd->grpda + exd->clgrp[icl]*exd->gdlen;
+    pljaco = (double *)jacos;
     nt = NEQ*NEQ*NDIM;
     for (it=0; it<nt; it++) {
-        jacos[it] = pjaco[it];
+        pljaco[it] = pjaco[it];
+    };
+    // calculate flux function.
+    psol = exd->sol + icl*NEQ;
+    for (ieq=0; ieq<NEQ; ieq++) {
+        fcn[ieq][0] = 0.0;
+        fcn[ieq][1] = 0.0;
+        for (jeq=0; jeq<NEQ; jeq++) {
+            fcn[ieq][0] += jacos[ieq][jeq][0] * psol[jeq];
+            fcn[ieq][1] += jacos[ieq][jeq][1] * psol[jeq];
+        };
     };
     return;
 };
