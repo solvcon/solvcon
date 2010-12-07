@@ -18,7 +18,8 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 """
-Convergence test for anisotropic elastic solver.
+Test for group (energy) velocity of beryl.  The stopping time is at 91
+microsecond.
 """
 
 from solvcon.anchor import Anchor
@@ -115,7 +116,6 @@ def grpv_base(casename=None, meshname=None, mtrlname='Beryl',
     basedir = os.path.join(os.path.abspath(os.getcwd()), 'result')
     cse = elastic.ElasticCase(basedir=basedir, rootdir=env.projdir,
         basefn=casename, meshfn=os.path.join(env.find_scdata_mesh(), meshname),
-        taylor=0.0,
         bcmap=bcmap, mtrldict={None: mtrl}, **kw)
     # statistical anchors for solvers.
     for name in 'Runtime', 'March', 'Tpool':
