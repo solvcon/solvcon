@@ -62,8 +62,11 @@ For SOLVCON to be built and run, it requires the following packages: (i)
 Python_ 2.6, (ii) SCons_, (iii) a C compiler, gcc_ or icc is OK, (iv) Numpy_,
 (v) LAPACK, and (vi) METIS_ for graph partitioning (SOLVCON will download it
 for you on building).  If you want to run the unit tests after building
-SOLVCON, you should also install Nose_.  It is recommended to run SOLVCON on
-64-bits Linux for high-resolution simulations.
+SOLVCON, you should also install Nose_.  64-bit Linux is recommended.  For
+Debian_ or Ubuntu_ users, you can use the following command to install the
+dependency::
+
+  $ sudo apt-get install python2.6 python2.6-dev python-profiler scons     build-essential gcc python-numpy python-nose python-vtk liblapack-pic
 
 Procedures to install are:
 
@@ -144,5 +147,7 @@ Resources
 .. _METIS: http://glaros.dtc.umn.edu/gkhome/views/metis/
 .. _Nose: http://somethingaboutorange.com/mrl/projects/nose/
 .. _VTK: http://vtk.org/
+.. _Debian: http://debian.org/
+.. _Ubuntu: http://ubuntu.com/
 
 .. vim: set ft=rst ff=unix fenc=utf8:
