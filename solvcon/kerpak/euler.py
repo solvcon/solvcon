@@ -134,6 +134,27 @@ class EulerWall(EulerBC):
             c_int(self.facn.shape[0]),
             self.facn.ctypes.data_as(intptr),
         )
+class EulerNonslipWall(EulerBC):
+    typn = 10121
+    _ghostgeom_ = 'mirror'
+    def sol(self):
+        from solvcon.dependency import intptr
+        from ctypes import byref, c_int
+        svr = self.svr
+        self._clib_eulerb.bound_nonslipwall_soln(
+            byref(svr.exd),
+            c_int(self.facn.shape[0]),
+            self.facn.ctypes.data_as(intptr),
+        )
+    def dsol(self):
+        from solvcon.dependency import intptr
+        from ctypes import byref, c_int
+        svr = self.svr
+        self._clib_eulerb.bound_nonslipwall_dsoln(
+            byref(svr.exd),
+            c_int(self.facn.shape[0]),
+            self.facn.ctypes.data_as(intptr),
+        )
 
 class EulerInlet(EulerBC):
     typn = 10130
