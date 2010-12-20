@@ -72,10 +72,10 @@ libraries.  SOLVCON uses SCons_ as the binary builder.
 
 For SOLVCON to be built and run, it requires the following packages: (i)
 Python_ 2.6, (ii) SCons_, (iii) a C compiler, gcc_ or icc is OK, (iv) Numpy_,
-and (v) METIS_ for graph partitioning (SOLVCON will download it for you on
-building).  If you want to run the unit tests after building SOLVCON, you
-should also install Nose_.  It is recommended to run SOLVCON on 64-bits Linux
-for high-resolution simulations.
+(v) LAPACK, and (vi) METIS_ for graph partitioning (SOLVCON will download it
+for you on building).  If you want to run the unit tests after building
+SOLVCON, you should also install Nose_.  It is recommended to run SOLVCON on
+64-bits Linux for high-resolution simulations.
 
 Procedures to install are:
 
