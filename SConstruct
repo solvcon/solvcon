@@ -186,10 +186,8 @@ else:
     tools.insert(0, 'default')
 
 # solvcon environment.
-libpath = os.environ.get('LIBPATH', '').split(';')
 env = Environment(ENV=os.environ, tools=tools,
     CPPPATH='src', CFLAGS=['-O2'], F90FLAGS=F90FLAGS,
-    LIBPATH=libpath,
 )
 def build_epydoc(target, source, env):
     import sys
