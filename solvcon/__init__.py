@@ -116,6 +116,16 @@ without using the options ``--download``, ``--extract``, and
 Test
 ====
 
+SOLVCON uses ssh to bootstrap the remote procedure call for its socket
+communication layer.  For tests to run correctly, you must `have ssh public key
+authentication configure
+<http://www.google.com/search?q=ssh+public+key+authentication>`_.  If you
+haven't done so, you can use the following commands::
+
+  $ ssh-keygen -t rsa -b 2048
+  $ cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys
+  $ chmod 400 ~/.ssh/authorized_keys
+
 If you have Nose_ installed, you can run::
 
   $ python -c 'import solvcon; solvcon.test()'
