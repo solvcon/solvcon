@@ -104,10 +104,10 @@ Test
 ====
 
 SOLVCON uses ssh to bootstrap the remote procedure call for its socket
-communication layer.  For tests to run correctly, you must `have ssh public key
-authentication configure
+communication layer.  For tests to be run correctly, you must `have ssh public
+key authentication configured
 <http://www.google.com/search?q=ssh+public+key+authentication>`_.  If you
-haven't done so, you can use the following commands::
+haven't done so, you can use the following commands to configure::
 
   $ ssh-keygen -t rsa -b 2048
   $ cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys
