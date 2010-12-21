@@ -26,7 +26,6 @@ class TestTorque(TestCase):
 #PBS -j oe
 #PBS -S /bin/sh
 echo "Customized paths for job:"
-. $HOME/.bashrc_path
 export PYTHONPATH=/tmp:$PYTHONPATH
 echo "Run @`date`:"
 cd /tmp/arn
@@ -38,7 +37,6 @@ echo "Finish @`date`."'''
 #PBS -j oe
 #PBS -S /bin/sh
 echo "Customized paths for job:"
-. $HOME/.bashrc_path
 export PYTHONPATH=/tmp:$PYTHONPATH
 echo "Run @`date`:"
 cd /tmp/arn

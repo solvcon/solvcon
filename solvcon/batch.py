@@ -68,6 +68,8 @@ class Batch(object):
 
     @cvar _subcmd_: the command name for the batch submission.
     @ctype _subcmd_: str
+    @cvar BASH_HOME_SOURCE: the files to be sourced in user's home.
+    @ctype BASH_HOME_SOURCE: list
     @ivar case: The Case corresponding object.
     @itype case: solvcon.case.core.Case
     @ivar arnname: The name of the arrangement to be run.
@@ -92,6 +94,8 @@ class Batch(object):
 
     DEFAULT_OUTPUT = 'oe'
     DEFAULT_SHELL = '/bin/sh'
+    BASH_HOME_SOURCE = []
+    #BASH_HOME_SOURCE = ['.bashrc_path', '.bashrc_acct']
 
     def __init__(self, case, **kw):
         """
@@ -144,11 +148,11 @@ class Batch(object):
         import os
         ret = list()
         ret.append('echo "Customized paths for job:"')
+        # source bash rc files per user.
         home = os.environ['HOME']
-        if os.path.exists(os.path.join(home, '.bashrc_path')):
-            ret.append('. $HOME/.bashrc_path')
-        if os.path.exists(os.path.join(home, '.bashrc_acct')):
-            ret.append('. $HOME/.bashrc_acct')
+        for fn in self.BASH_HOME_SOURCE:
+            if os.path.exists(os.path.join(home, fn)):
+                ret.append('. $HOME/%s'%fn)
         ret.append('export PYTHONPATH=%s:$PYTHONPATH' % self.case.io.rootdir)
         return '\n'.join(ret)
 
