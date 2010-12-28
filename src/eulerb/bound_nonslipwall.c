@@ -121,12 +121,6 @@ int bound_nonslipwall_dsoln(exedata *exd, int nbnd, int *facn) {
         pfcnds = exd->fcnds + ifc*(FCMND+1);
         pidsoln = exd->dsoln + icl*NEQ*NDIM;
         pjdsoln = exd->dsoln + jcl*NEQ*NDIM;
-        for (ieq=0; ieq<NEQ*NDIM; ieq++) {
-            pjdsoln[ieq] = 0.0;
-        };
-        // advance boundary face.
-        pfacn += BFREL;
-        continue;
         // coordinate transformation and set transformed vectors.
         pfccnd = exd->fccnd + ifc*NDIM;
         pfcnml = exd->fcnml + ifc*NDIM;
