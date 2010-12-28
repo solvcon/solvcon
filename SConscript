@@ -11,7 +11,7 @@ libs = list()
 for fpmark, fptype in [('s', 'float'), ('d', 'double'),]:
     ddsts = list()
     for dsrc in ['block', 'domain', 'partition', 'solve']:
-        dsrc = '%s/%sc' % (sdir, dsrc)
+        dsrc = '%s/%s' % (sdir, dsrc)
         if not os.path.isdir(dsrc): continue
         ddst = '%s/%s_%s' % (bdir, os.path.basename(dsrc), fpmark)
         VariantDir(ddst, dsrc, duplicate=0)
@@ -88,7 +88,6 @@ VariantDir('%s/metis' % bdir, src, duplicate=0)
 ccflags = list()
 if sys.platform.startswith('win'):
     ccflags.append('-D__VC__')
-ccflags.append('-O3')
 envm = env.Clone()
 envm['CCFLAGS'] = ' '.join(ccflags)
 envm['CPPPATH'] = '-I%s' % src
