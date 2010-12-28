@@ -67,7 +67,7 @@ if GetOption('enable_f90'): # TODO: OBSELETE
     for fpmark, fptype in [('s', 4), ('d', 8),]:
         ddsts = list()
         for dsrc in ['block', 'domain', 'partition', 'solve']:
-            dsrc = '%s/%sf' % (sdir, dsrc)
+            dsrc = '%sf/%s' % (sdir, dsrc)
             if not os.path.isdir(dsrc): continue
             ddst = '%s/%s_%s' % (bdir, os.path.basename(dsrc), fpmark)
             VariantDir(ddst, dsrc, duplicate=0)
