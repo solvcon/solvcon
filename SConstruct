@@ -20,7 +20,7 @@ AddOption('--apply-patches', dest='patches',
 
 AddOption('--get-scdata', dest='get_scdata',
     action='store_true', default=False,
-    help='Flag to download example data.')
+    help='Flag to clone/pull example data.')
 
 AddOption('--count', dest='count',
     action='store_true', default=False,
