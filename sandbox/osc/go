@@ -65,16 +65,9 @@ class OscGlenn(Torque):
         msgs = [super(OscGlenn, self).str_prerun]
         if self.use_mpi:
             msgs.extend([
-                #'export I_MPI_DEBUG=2',
-                #'export I_MPI_DEVICE=rdma:OpenIB-cma',
                 'module unload mpi',
                 'module unload mpi2',
                 'module load mvapich2-1.5-gnu',
-                #'module load intel-compilers-11.1',
-                #'module load mvapich2-1.5-intel',
-                #'module load mvapich2-1.4.1-gnu',
-                #'module load mvapich2-1.4-gnu',
-                #'module load intel-mpi-4.0.0.028',
             ])
             msgs.append('%s %s \\\n %s' % (
                 env.get_entry_point(),
@@ -83,11 +76,12 @@ class OscGlenn(Torque):
             ))
         return '\n'.join(msgs)
     def build_mpi_runner(self):
-        return self.build_mpi_runner_mpirun()
+        return self.build_mpi_runner_mpiexec()
     def build_mpi_runner_mpiexec(self):
         from solvcon.conf import env
         ops, args = env.command.opargs
-        cmds = ['SOLVCON_MPI=1', 'mpiexec', '-n %d'%(ops.npart+1)]
+        cmds = ['LD_PRELOAD=libmpich.so', 'SOLVCON_MPI=1', 'mpiexec',
+            '-n %d'%(ops.npart+1)]
         if ops.compress_nodelist:
             cmds.append('-pernode')
         return ' '.join(cmds)
