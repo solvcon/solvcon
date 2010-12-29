@@ -50,6 +50,9 @@ class OscGlenn(Torque):
     """
     Abstraction of the Torque installed on the Glenn cluster at OSC.
     """
+
+    BASH_HOME_SOURCE = ['.bashrc_path', '.bashrc_acct']
+
     @property
     def _hostfile(self):
         import os

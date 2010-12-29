@@ -95,8 +95,7 @@ class Batch(object):
     DEFAULT_OUTPUT = 'oe'
     DEFAULT_SHELL = '/bin/sh'
     BASH_HOME_SOURCE = []
-    #BASH_HOME_SOURCE = ['.bashrc_path', '.bashrc_acct']
-
+    
     def __init__(self, case, **kw):
         """
         @keyword rootdir: Root directory for the project/code.
