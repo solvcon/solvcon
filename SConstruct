@@ -165,8 +165,10 @@ if GetOption('get_scdata'):
     if __version__.endswith('+'):
         datapath = 'scdata'
         if os.path.exists(datapath):
+            orig = os.getcwd()
             os.chdir(datapath)
             os.system('hg pull -u')
+            os.chdir(orig)
         else:
             os.system(
                 'hg clone https://bitbucket.org/yungyuc/scdata %s'%datapath)
