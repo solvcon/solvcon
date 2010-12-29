@@ -3,6 +3,7 @@ setup.cfg
 build
 .sconsign.dblite
 .coverage
+scdata/
 doc/api/
 tmp/
 dep/

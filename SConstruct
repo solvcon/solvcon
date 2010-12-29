@@ -163,7 +163,7 @@ for patch in patches:
 if GetOption('get_scdata'):
     from solvcon import __version__
     if __version__.endswith('+'):
-        datapath = os.path.join('dep', 'scdata')
+        datapath = 'scdata'
         if os.path.exists(datapath):
             os.chdir(datapath)
             os.system('hg pull -u')
