@@ -66,7 +66,8 @@ SOLVCON, you should also install Nose_.  64-bit Linux is recommended.  For
 Debian_ or Ubuntu_ users, you can use the following command to install the
 dependency::
 
-  $ sudo apt-get install python2.6 python2.6-dev python-profiler scons     build-essential gcc python-numpy python-nose python-vtk liblapack-pic
+  $ sudo apt-get install python2.6 python2.6-dev python-profiler scons \
+    build-essential gcc python-numpy python-nose python-vtk liblapack-pic
 
 Procedures to install are:
 
