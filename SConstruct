@@ -18,6 +18,10 @@ AddOption('--apply-patches', dest='patches',
     action='store', default='',
     help='Indicate matches to be applied.')
 
+AddOption('--get-scdata', dest='get_scdata',
+    action='store_true', default=False,
+    help='Flag to download example data.')
+
 AddOption('--count', dest='count',
     action='store_true', default=False,
     help='Count line of sources.')
@@ -155,6 +159,19 @@ patches = [token for token in GetOption('patches').split(',') if token]
 for patch in patches:
     patchpath = os.path.join('patch', patch+'.patch')
     os.system('patch -p0 -i %s'%patchpath)
+
+if GetOption('get_scdata'):
+    from solvcon import __version__
+    if __version__.endswith('+'):
+        datapath = os.path.join('dep', 'scdata')
+        if os.path.exists(datapath):
+            os.chdir(datapath)
+            os.system('hg pull -u')
+        else:
+            os.system(
+                'hg clone https://bitbucket.org/yungyuc/scdata %s'%datapath)
+    else:
+        raise RuntimeError('released tarball shouldn\'t use this option')
 
 if GetOption('count'):
     counter = LineCounter('.py', '.f90', '.inc', '.c', '.h', 'cu')
