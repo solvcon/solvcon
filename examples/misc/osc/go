@@ -18,11 +18,12 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 """
-Example for using the Glenn cluster at Ohio Supercomputer Center (OSC).
-SOLVCON models the batch systems in solvcon.batch, and by subclassing
-solvcon.batch.Batch, users can customize the abstraction.  SOLVCON has provided
-an abstraction for Torque/OpenPBS in solvcon.batch.Torque.  If your cluster
-also uses Torque, you can subclass Torque rather than Batch to save time.
+Example for using the Glenn cluster at Ohio Supercomputer Center (OSC), and
+also how to customize batch-system connector for SOLVCON.  SOLVCON models the
+batch systems in solvcon.batch, and by subclassing solvcon.batch.Batch, users
+can customize the abstraction.  SOLVCON has provided an abstraction for
+Torque/OpenPBS in solvcon.batch.Torque.  If your cluster also uses Torque, you
+can subclass Torque rather than Batch to save time.
 
 In this file, OscGlenn, OscGlennGbE and OscGlennIB are provided.  The reason to
 have OscGlennGbE and OscGlennIB is for SOLVCON to use socket to bind the TCP/IP
