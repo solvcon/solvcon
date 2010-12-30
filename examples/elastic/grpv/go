@@ -20,6 +20,9 @@
 """
 Test for group (energy) velocity of beryl.  The stopping time is at 91
 microsecond.
+
+This example implements a point source for the velocity-stress equation solver,
+enabled by the corresponding Anchor class.
 """
 
 from solvcon.anchor import Anchor
