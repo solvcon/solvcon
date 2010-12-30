@@ -155,7 +155,11 @@ Resources
 .. _Python: http://www.python.org/
 .. _gcc: http://gcc.gnu.org/
 .. _Numpy: http://www.numpy.org/
+.. _LAPACK: http://www.netlib.org/lapack/
 .. _METIS: http://glaros.dtc.umn.edu/gkhome/views/metis/
+.. _Epydoc: http://epydoc.sf.net/
+.. _Mercurial: http://mercurial.selenic.com/
+.. _ssh: http://www.openssh.com/
 .. _Nose: http://somethingaboutorange.com/mrl/projects/nose/
 .. _VTK: http://vtk.org/
 .. _Debian: http://debian.org/
