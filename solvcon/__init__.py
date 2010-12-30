@@ -183,7 +183,7 @@ Resources
 
 __docformat__ = 'restructuredtext en'
 
-__version__ = '0.0.2'
+__version__ = '0.0.2+'
 
 __description__ = "Solver Constructor: a framework to solve hyperbolic PDEs"
 
