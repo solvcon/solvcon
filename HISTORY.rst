@@ -1,5 +1,5 @@
-0.0.1+
-======
+0.0.2
+=====
 
 - Bring in anisotropic elastic solver.
 - Implement proof-of-concept in situ visualization.
