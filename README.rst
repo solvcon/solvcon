@@ -52,7 +52,7 @@ Key Features
 Install
 =======
 
-The C codes in SOLVCON are intentionally made to be generic shared libraries
+The C codes in SOLVCON are intentionally made to be standard shared libraries
 rather than Python extension modules.  SOLVCON uses ``ctypes`` to load and call
 these binary codes.  In this way, the binary codes can be flexibly built and
 optimized for performance.  Hence, installing SOLVCON requires building these
@@ -60,20 +60,21 @@ libraries.  SOLVCON uses SCons_ as the binary builder.
 
 For SOLVCON to be built and run, it requires the following packages: (i)
 Python_ 2.6, (ii) SCons_, (iii) a C compiler, gcc_ or icc is OK, (iv) Numpy_,
-(v) LAPACK, and (vi) METIS_ for graph partitioning (SOLVCON will download it
-for you on building).  If you want to run the unit tests after building
-SOLVCON, you should also install Nose_.  64-bit Linux is recommended.  For
-Debian_ or Ubuntu_ users, you can use the following command to install the
-dependency::
+(v) LAPACK_, and (vi) METIS_ for graph partitioning (SOLVCON will download it
+for you on building).  Optional dependencies includes: (i) Nose_ for running
+unit tests, (ii) Epydoc_ for generating API documentation, and (iii) VTK_ for
+in situ visualization.  64-bits Linux is recommended.  For Debian_ or Ubuntu_
+users, they can use the following command to install the dependencies::
 
-  $ sudo apt-get install python2.6 python2.6-dev python-profiler scons \
-    build-essential gcc python-numpy python-nose python-vtk liblapack-pic
+  $ sudo apt-get install scons build-essential gcc liblapack-pic
+    python2.6 python2.6-dev python-profiler python-numpy
+    python-nose python-epydoc python-vtk
 
-Procedures to install are:
+Installation needs only three steps:
 
 1. First, obtain the latest release from
    https://bitbucket.org/yungyuc/solvcon/downloads .  Unpack the source
-   tarball.  Assume ``$SCSRC`` indicates the root directory of unpacked source
+   tarball.  Let ``$SCSRC`` indicates the root directory of unpacked source
    tree.
 
 2. Get into the source tree and run SCons_ to build the binary codes::
@@ -86,12 +87,29 @@ Procedures to install are:
      $ python setup.py install
 
 The option ``--download`` used above asks the building script to download
-necessary external packages, e.g., METIS, from Internet.  Option ``--extract``
-extracts the downloaded packages.  Since METIS is incompatible to the current
-release of gcc, a patch is supplied with SOLVCON and can be automatically
-applied to the downloaded METIS source with the ``--apply-patches`` option.
+necessary external source packages, e.g., METIS_, from Internet.  Option
+``--extract`` extracts the downloaded packages.  Since METIS is incompatible to
+the current release of gcc, a patch is supplied with SOLVCON and can be
+automatically applied to the downloaded METIS source with the
+``--apply-patches`` option.
 
-If you want to rebuild the binary after the installation, you can run::
+Install from Repository
+=======================
+
+Since SOLVCON is in intense development, you may want to use the latest source
+from the code repository.  You need to install Mercurial_, clone the repository
+to your local disk::
+
+  $ sudo apt-get install mercurial
+  $ hg clone https://bitbucket.org/yungyuc/solvcon
+
+and then follow steps 2 and 3.
+
+Rebuild/Reinstall
+=================
+
+If you want to rebuild and reinstall the binary after the installation, you can
+run::
 
   $ cd $SCSRC
   $ scons
@@ -99,52 +117,34 @@ If you want to rebuild the binary after the installation, you can run::
 
 without using the options ``--download``, ``--extract``, and
 ``--apply-patches``.  If you want a clean rebuild, run ``scons -c`` before
-``scons``.
+``scons``.  Note, ``scons -c`` does not remove the unpacked source, so you
+don't need to reapply the patches unless you have deleted the unpacked source
+files.
 
-Test
-====
+You can optionally install SOLVCON to your home directory rather than to the
+system.  It is convenient when you don't have the root permission on the
+system.  To do that, add the ``--home`` when invoking the ``setup.py`` script::
 
-SOLVCON uses ssh to bootstrap the remote procedure call for its socket
-communication layer.  For tests to be run correctly, you must `have ssh public
-key authentication configured
-<http://www.google.com/search?q=ssh+public+key+authentication>`_.  If you
-haven't done so, you can use the following commands to configure::
+  $ python setup.py install --home
 
-  $ ssh-keygen -t rsa -b 2048
-  $ cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys
-  $ chmod 400 ~/.ssh/authorized_keys
+Unit Test
+=========
 
 If you have Nose_ installed, you can run::
 
   $ python -c 'import solvcon; solvcon.test()'
 
-for unit tests.  Every test should pass, except one specific to cluster batch
-systems could be skipped (indicated by S).  If you do not have VTK_ and its
-Python binding, VTK-related tests will also be skipped.
-
-In Situ Visualization
-=====================
-
-Several pre-defined visualizing operations are built in SOLVCON by using VTK
-library.  To use the provided in situ visualization, please make sure VTK and
-its Python binding is installed correctly.
-
-How to Use
-==========
-
-Examples for using SOLVCON are put in ``$SCSRC/examples``.  To run these
-examples, you need corresponding mesh data, which is kept in a standalone
-repository at https://bitbucket.org/yungyuc/scdata .  The ``scdata`` directory
-should be downloaded in a directory higher than ``$SCSRC/examples``.  The
-examples will find the ``scdata`` directory automatically.
-
-These examples are useful for you to learn how to use SOLVCON to construct your
-own solvers or applications.  Please read them in detail.
+for unit tests.  Because SOLVCON uses ssh_ as its default approach for remote
+procedure call (RPC), you need to set up the public key authentication for ssh,
+or some of the unit tests for RPC would fail.  Every test should pass, except
+one specific to cluster batch systems could be skipped (indicated by S).  If
+you do not have VTK_ and its Python binding, VTK-related tests will also be
+skipped.
 
 Resources
 =========
 
-- Portal: http://solvcon.net/
+- Portal (with API document): http://solvcon.net/
 - Mailing list: http://groups.google.com/group/solvcon
 - Issue tracker (bug report): https://bitbucket.org/yungyuc/solvcon/issues
 - Source: https://bitbucket.org/yungyuc/solvcon/src
