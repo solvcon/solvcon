@@ -3,6 +3,7 @@
 
 - Bring in anisotropic elastic solver.
 - Implement proof-of-concept in situ visualization.
+- Refactor str_path property in solvcon.batch.Batch.
 
 0.0.1
 =====
