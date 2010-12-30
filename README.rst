@@ -134,12 +134,15 @@ If you have Nose_ installed, you can run::
 
   $ python -c 'import solvcon; solvcon.test()'
 
-for unit tests.  Because SOLVCON uses ssh_ as its default approach for remote
-procedure call (RPC), you need to set up the public key authentication for ssh,
-or some of the unit tests for RPC would fail.  Every test should pass, except
-one specific to cluster batch systems could be skipped (indicated by S).  If
-you do not have VTK_ and its Python binding, VTK-related tests will also be
-skipped.
+for unit tests.  Inside the source tree, you can also use::
+
+  $ nosetests
+
+Because SOLVCON uses ssh_ as its default approach for remote procedure call
+(RPC), you need to set up the public key authentication for ssh, or some of the
+unit tests for RPC would fail.  Every test should pass, except one specific to
+cluster batch systems could be skipped (indicated by S).  If you do not have
+VTK_ and its Python binding, VTK-related tests will also be skipped.
 
 Resources
 =========
