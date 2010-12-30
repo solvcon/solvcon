@@ -35,17 +35,21 @@ class Archive(object):
     depdir = 'dep'
 
     pkgs = (
-        ('http://glaros.dtc.umn.edu/gkhome/fetch/sw/metis/metis-4.0.tar.gz',
+        (['http://glaros.dtc.umn.edu/gkhome/fetch/sw/metis/metis-4.0.tar.gz',
+          'http://cfd.eng.ohio-state.edu/~yungyuc/pub/metis-4.0.tar.gz'],
          '0aa546419ff7ef50bd86ce1ec7f727c7'),
     )
 
     def __init__(self, url, md5sum, filename=None):
         import os
         from urlparse import urlparse
-        self.url = url
+        if isinstance(url, basestring):
+            self.url = [url]
+        else:
+            self.url = url
         self.md5sum = md5sum
         if filename == None:
-            up = urlparse(url)
+            up = urlparse(url[0])
             filename = up[2].split('/')[-1]
         self.filename = os.path.join(self.depdir, filename)
         if not os.path.exists(self.depdir):
@@ -75,8 +79,17 @@ class Archive(object):
             else:
                 sys.stdout.write("%s exists.\n" % fn)
                 return False
-        sys.stdout.write("Download %s from %s: " % (fn, url))
-        uf = urllib.urlopen(url)
+        # download.
+        for curl in url:
+            sys.stdout.write("Download %s from %s: " % (fn, curl))
+            sys.stdout.flush()
+            try:
+                uf = urllib.urlopen(curl)
+            except IOError:
+                sys.stdout.write("failed\n")
+                continue
+            else:
+                break
         f = open(fn, 'wb')
         sys.stdout.flush()
         while True:
@@ -87,6 +100,7 @@ class Archive(object):
             if len(data) < self.bufsize: break
         uf.close()
         f.close()
+        # checksum.
         if cksum:
             if cksum != self.digest(open(fn, 'rb')):
                 sys.stdout.write("note, %s checksum mismatch!\n" % fn)
