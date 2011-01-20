@@ -84,7 +84,6 @@ def hbnt_base(casename=None, meshname=None,
     cse.runhooks.append(euler.UniformIAnchor, **fpi)
     # post processing.
     if not profile_only:
-        print cse.execution.neq
         cse.runhooks.append(euler.EulerOAnchor)
         cse.runhooks.append(hook.PMarchSave, anames=[
             ('soln', False, -4),
