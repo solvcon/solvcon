@@ -63,3 +63,40 @@ class TestRead(TestCase):
             [-4, -3, -2], [-1, 0, 1], [2, 3, 0],
         ])).all())
         nc.close_file()
+
+    def test_ce(self):
+        from numpy import array
+        from ..netcdf import NetCDF
+        nc = NetCDF(self.testfn)
+        rec = nc.get_dim('rec')
+        i2 = nc.get_dim('i2')
+        i3 = nc.get_dim('i3')
+        arr = nc.get_array('ce', (rec, i2, i3), 'float32')
+        self.assertTrue((arr == array([
+            [[  1.,   2.,   3.,   4.,   5.,   6.,   7.],
+             [  8.,   9.,  10.,  11.,  12.,  13.,  14.],
+             [ 15.,  16.,  17.,  18.,  19.,  20.,  21.]],
+            [[  1.,   2.,   3.,   4.,   5.,   6.,   7.],
+             [  8.,   9.,  10.,  11.,  12.,  13.,  14.],
+             [ 15.,  16.,  17.,  18.,  19.,  20.,  21.]],
+            [[ 43.,  44.,  45.,  46.,  47.,  48.,  49.],
+             [ 50.,  51.,  52.,  53.,  54.,  55.,  56.],
+             [ 57.,  58.,  59.,  60.,  61.,  62.,   1.]],
+        ], dtype='float32')).all())
+        nc.close_file()
+
+    def test_doublevar(self):
+        from numpy import arange
+        from ..netcdf import NetCDF
+        nc = NetCDF(self.testfn)
+        w = nc.get_dim('w')
+        x = nc.get_dim('x')
+        y = nc.get_dim('y')
+        z = nc.get_dim('z')
+        arr = nc.get_array('doublevar', (w, x, y, z), 'float64')
+        arr2 = arange(w*x*y*z, dtype='float64') - 420
+        arr2[420-148+1] = 0
+        arr2[-1] = 0
+        arr2 = arr2.reshape(arr.shape)
+        self.assertTrue((arr == arr2).all())
+        nc.close_file()
