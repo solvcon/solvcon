@@ -1,3 +1,8 @@
+0.0.2+
+======
+
+- Add netCDF reading support.
+
 0.0.2
 =====
 
