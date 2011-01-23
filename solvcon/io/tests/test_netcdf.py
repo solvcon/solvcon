@@ -2,11 +2,8 @@
 
 from unittest import TestCase
 
-class TestRead(TestCase):
-    import os
-    from ...conf import env
-    testfn = [env.datadir] + ['ref_nctest_classic.nc']
-    testfn = os.path.join(*testfn)
+class BaseTestRead(TestCase):
+    __test__ = False
 
     def test_open(self):
         from ..netcdf import NetCDF
@@ -100,3 +97,17 @@ class TestRead(TestCase):
         arr2 = arr2.reshape(arr.shape)
         self.assertTrue((arr == arr2).all())
         nc.close_file()
+
+class TestReadClassic(BaseTestRead):
+    __test__ = True
+    import os
+    from ...conf import env
+    testfn = [env.datadir] + ['ref_nctest_classic.nc']
+    testfn = os.path.join(*testfn)
+
+class TestReadLong(BaseTestRead):
+    __test__ = True
+    import os
+    from ...conf import env
+    testfn = [env.datadir] + ['ref_nctest_64bit_offset.nc']
+    testfn = os.path.join(*testfn)
