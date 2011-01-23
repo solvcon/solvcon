@@ -51,3 +51,15 @@ class TestRead(TestCase):
         self.assertEqual(arr[0], -2)
         self.assertTrue((arr[1:] == 0).all())
         nc.close_file()
+
+    def test_bb(self):
+        from numpy import array
+        from ..netcdf import NetCDF
+        nc = NetCDF(self.testfn)
+        kk = nc.get_dim('kk')
+        jj = nc.get_dim('jj')
+        arr = nc.get_array('bb', (kk, jj), 'int32')
+        self.assertTrue((arr == array([
+            [-4, -3, -2], [-1, 0, 1], [2, 3, 0],
+        ])).all())
+        nc.close_file()
