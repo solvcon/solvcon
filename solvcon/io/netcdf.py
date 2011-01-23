@@ -16,6 +16,18 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
+"""
+This is a simple wrapper to netCDF C library.  This wrapper is designed to be
+self-sufficient.  That is, this should be kept to be an one-file module.
+
+The module is designed for reading rather than writing.  Only limited Pythonic
+API is implemented.  All constants are taken from the netcdf.h file in the
+official distribution (4.1.1).
+
+For more information about netCDF, please refer to 
+http://www.unidata.ucar.edu/software/netcdf/index.html
+"""
+
 _libs = dict()
 def get_lib(path):
     from ctypes import CDLL
