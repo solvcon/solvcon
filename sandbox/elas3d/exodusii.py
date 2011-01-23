@@ -245,7 +245,7 @@ class NetCDF(object):
                         # netCDF was built.
     NC4_LAST_ERROR = -128
 
-    def __init__(self, path=None, omode=None):
+    def __init__(self, path=None, omode=None, libname='libnetcdf.so'):
         """
         @keyword path: the file to open.
         @type path: str
@@ -253,7 +253,7 @@ class NetCDF(object):
         @type omode: int
         """
         from ctypes import c_char_p
-        self.lib = get_lib('libnetcdf.so')
+        self.lib = get_lib(libname)
         self.ncid = None
         # set up return type.
         self.nc_strerror.restype = c_char_p
