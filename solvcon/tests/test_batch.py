@@ -37,9 +37,9 @@ echo "Finish @`date`."'''
 #PBS -j oe
 #PBS -S /bin/sh
 echo "Customized paths for job:"
-export PYTHONPATH=/tmp:$PYTHONPATH
+export PYTHONPATH=%s:$PYTHONPATH
 echo "Run @`date`:"
-cd /tmp/arn
+cd %s/arn
 time %s run arn --runlevel %d
 echo "Finish @`date`."'''
 
@@ -59,23 +59,26 @@ echo "Finish @`date`."'''
         from nose.plugins.skip import SkipTest
         if sys.platform.startswith('win'): raise SkipTest
         import os, shutil
+        from tempfile import mkdtemp
         from ..case import BlockCase
         from ..batch import batregy
         from ..conf import env
-        case = BlockCase(rootdir='/tmp')
+        wdir = mkdtemp()
+        case = BlockCase(rootdir=wdir)
         msg = []
         case.info = lambda m: msg.append(m)
         sbm = batregy.Torque(case, arnname='arn')
         fnlist = sbm.tofile()
         for it in range(len(fnlist)):
-            self.assertEqual(fnlist[it], '/tmp/arn/arn.pbs%d'%it)
+            self.assertEqual(fnlist[it], os.path.join(wdir, 'arn',
+                'arn.pbs%d'%it))
             fn = fnlist[it]
             f = open(fn)
             self.assertEqual(f.read(),
-                self.SCRIPT_FILE%(env.get_entry_point(), it))
+                self.SCRIPT_FILE%(wdir, wdir, env.get_entry_point(), it))
             f.close()
-        shutil.rmtree('/tmp/arn')
-        self.assertFalse(os.path.exists('/tmp/arn'))
+        shutil.rmtree(wdir)
+        self.assertFalse(os.path.exists(wdir))
 
     def test_with_jobdir(self):
         import sys
