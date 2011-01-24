@@ -360,9 +360,49 @@ class NetCDF(object):
             func = self.nc_get_var_double
             ptr = POINTER(c_double)
         else:
-            raise TypeError('now surrport only int, float, and double')
+            raise TypeError('now surrport only int, float, double, and char')
         # load array.
         retval = func(self.ncid, varid, arr.ctypes.data_as(ptr))
         if retval != self.NC_NOERR:
             raise IOError(self.nc_strerror(retval))
         return arr
+
+    def get_lines(self, name, shape):
+        """
+        Load string from netCDF file.
+
+        @param name: the data to be loaded.
+        @type name: str
+        @param shape: the shape of ndarray.  Must be 1 or 2.
+        @type shape: tuple
+        @return: the loaded ndarray.
+        @rtype: numpy.ndarray
+        """
+        from ctypes import POINTER, c_int, c_char, byref
+        from numpy import empty
+        if len(shape) > 2:
+            raise IndexError('array should have no more than two dimension')
+        # get value ID.
+        varid = c_int()
+        retval = self.nc_inq_varid(self.ncid, name, byref(varid))
+        if retval != self.NC_NOERR:
+            raise IOError(self.nc_strerror(retval))
+        # prepare array and loader.
+        arr = empty(shape, dtype='byte')
+        # load string data.
+        retval = self.nc_get_var_text(self.ncid, varid,
+            arr.ctypes.data_as(POINTER(c_char)))
+        if retval != self.NC_NOERR:
+            raise IOError(self.nc_strerror(retval))
+        # convert to string.
+        shape = (1, shape[0]) if len(shape) < 2 else shape
+        arr = arr.reshape(shape)
+        lines = []
+        for ii in range(shape[0]):
+            for ij in range(shape[1]):
+                if arr[ii,ij] == 0:
+                    lines.append(arr[ii,:ij].tostring())
+                    break
+            if len(lines) <= ii:
+                lines.append(arr[ii,:].tostring())
+        return lines

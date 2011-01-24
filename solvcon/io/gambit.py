@@ -174,7 +174,7 @@ class BoundaryCondition(object):
         return None while nodal BCs encountered.
 
         @param blk: Block object for reference, nothing will be altered.
-        @type blk: solvcon.io.block.Block
+        @type blk: solvcon.block.Block
         @return: generic BC object.
         @rtype: solvcon.boundcond.BC
         """
