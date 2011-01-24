@@ -276,11 +276,25 @@ class GenesisIO(FormatIO):
         """
         Load block from stream with BC mapper applied.
 
-        @keyword stream: file object or file name to be read.
-        @type stream: file or str
+        @keyword stream: file name to be read.
+        @type stream: str
         @keyword bcrej: names of the BC to reject.
         @type bcrej: list
         @return: the loaded block.
         @rtype: solvcon.block.Block
         """
+        # load file into memory.
+        assert isinstance(stream, basestring)
+        gn = Genesis(stream)
+        gn.load()
+        gn.close_file()
+        # convert loaded neutral object into block object.
+        if bcrej:
+            onlybcnames = list()
+            for name, elem, side in gn.bcs:
+                if name not in bcrej:
+                    onlybcnames.append(name)
+        else:
+            onlybcnames = None
+        blk = gn.toblock(onlybcnames=onlybcnames)
         return blk
