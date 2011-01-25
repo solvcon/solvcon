@@ -571,6 +571,7 @@ class BlockCase(BaseCase):
         @rtype: solvcon.block.Block
         """
         import os, gzip
+        from .io.genesis import Genesis
         from .io.gambit import GambitNeutral
         from .io.block import BlockIO
         from .io.domain import DomainIO
@@ -581,6 +582,15 @@ class BlockCase(BaseCase):
             dof = DomainIO()
             obj = dof.load(dirname=meshfn, bcmapper=bcmapper,
                 with_split=False, domaintype=self.solver.domaintype)
+        elif meshfn.endswith('.g'):
+            self._log_start('create_genesis_object')
+            gn = Genesis(meshfn)
+            gn.load()
+            gn.close_file()
+            self._log_end('create_genesis_object')
+            self._log_start('convert_genesis_to_block')
+            obj = gn.toblock(bcname_mapper=bcmapper)
+            self._log_end('convert_genesis_to_block')
         elif '.neu' in meshfn:
             self._log_start('read_neu_data', msg=' from %s'%meshfn)
             if meshfn.endswith('.gz'):

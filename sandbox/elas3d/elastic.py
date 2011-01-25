@@ -1,6 +1,6 @@
 # -*- coding: UTF-8 -*-
 #
-# Copyright (C) 2010 Yung-Yu Chen <yyc@solvcon.net>.
+# Copyright (C) 2010-2011 Yung-Yu Chen <yyc@solvcon.net>.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -19,9 +19,22 @@
 from solvcon.gendata import SingleAssignDict, AttributeDict
 from solvcon.anchor import Anchor
 from solvcon.hook import BlockHook
-from .cese import CeseSolver
-from .cese import CeseCase
-from .cese import CeseBC
+#from .cese import CeseSolver
+#from .cese import CeseCase
+#from .cese import CeseBC
+from solvcon.kerpak.cese import CeseSolver, CeseCase, CeseBC
+
+def getcdll(libname):
+    """
+    Load shared objects at the default location.
+
+    @param libname: main basename of library without sc_ prefix.
+    @type libname: str
+    @return: ctypes library.
+    @rtype: ctypes.CDLL
+    """
+    from solvcon.dependency import loadcdll
+    return loadcdll('.', 'sc_'+libname)
 
 ###############################################################################
 # Metadata for materials.
@@ -70,16 +83,18 @@ class ElasticSolver(CeseSolver):
     @ivar mtrllist: list of all material objects.
     @itype mtrllist: list
     """
-    from solvcon.dependency import getcdll
+    #from solvcon.dependency import getcdll
     __clib_elastic = {
         2: getcdll('elastic2d'),
         3: getcdll('elastic3d'),
     }
-    del getcdll
+    #del getcdll
     @property
     def _clib_elastic(self):
         return self.__clib_elastic[self.ndim]
-    _gdlen_ = 9 * 9 * 2
+    @property
+    def _gdlen_(self):
+        return 9 * 9 * self.ndim
     @property
     def _jacofunc_(self):
         return self._clib_elastic.calc_jaco
@@ -177,12 +192,12 @@ class ElasticBC(CeseBC):
     Basic BC class for elastic problems.
     """
     typn = -10200
-    from solvcon.dependency import getcdll
+    #from solvcon.dependency import getcdll
     __clib_elasticb = {
         2: getcdll('elasticb2d'),
         3: getcdll('elasticb3d'),
     }
-    del getcdll
+    #del getcdll
     @property
     def _clib_elasticb(self):
         return self.__clib_elasticb[self.svr.ndim]

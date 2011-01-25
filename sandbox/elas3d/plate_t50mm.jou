@@ -1,0 +1,39 @@
+undo on
+# geometry.
+create vertex -0.5 -0.5 -0.05
+create vertex 0.5 -0.5 -0.05
+create vertex 0.5 0.5 -0.05
+create vertex -0.5 0.5 -0.05
+create curve 1 2
+create curve 2 3
+create curve 3 4
+create curve 4 1
+create surface 1 2 3 4
+sweep surface 1 direction z distance 0.05
+block 1 volume 1
+block 1 name "rear"
+volume 1 copy move z 0.05
+block 2 volume 2
+block 2 name "front"
+merge all surface
+sideset 1 surface 11
+sideset 2 surface 6
+sideset 3 surface 4 9
+sideset 4 surface 5 10
+sideset 5 surface 2 7
+sideset 6 surface 3 8
+sideset 1 name "front"
+sideset 2 name "rear"
+sideset 3 name "lower"
+sideset 4 name "left"
+sideset 5 name "upper"
+sideset 6 name "right"
+# mesh.
+volume 1 2 size 0.05
+volume 1 2 scheme tetmesh
+mesh volume 1 2
+# export.
+undo group begin
+set large exodus file off
+export genesis "plate_t50mm.g" dimension 3 overwrite
+undo group end

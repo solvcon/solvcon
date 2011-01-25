@@ -158,21 +158,33 @@ class TestReadTetra(TestCase):
         self.assertEqual(blk.bclist[0].name, 'front')
         self.assertEqual(len(blk.bclist[0]), 62)
         self.assertTrue((blk.fccnd[blk.bclist[0].facn[:,0],2] == 0.5).all())
+        self.assertAlmostEqual(blk.fcara[blk.bclist[0].facn[:,0]].sum(), 1.0,
+            15)
         self.assertEqual(blk.bclist[1].name, 'rear')
         self.assertEqual(len(blk.bclist[1]), 62)
         self.assertTrue((blk.fccnd[blk.bclist[1].facn[:,0],2] == -0.5).all())
+        self.assertAlmostEqual(blk.fcara[blk.bclist[1].facn[:,0]].sum(), 1.0,
+            15)
         self.assertEqual(blk.bclist[2].name, 'lower')
         self.assertEqual(len(blk.bclist[2]), 60)
         self.assertTrue((blk.fccnd[blk.bclist[2].facn[:,0],1] == -0.5).all())
+        self.assertAlmostEqual(blk.fcara[blk.bclist[2].facn[:,0]].sum(), 1.0,
+            15)
         self.assertEqual(blk.bclist[3].name, 'left')
         self.assertEqual(len(blk.bclist[3]), 60)
         self.assertTrue((blk.fccnd[blk.bclist[3].facn[:,0],0] == -0.5).all())
+        self.assertAlmostEqual(blk.fcara[blk.bclist[3].facn[:,0]].sum(), 1.0,
+            15)
         self.assertEqual(blk.bclist[4].name, 'upper')
         self.assertEqual(len(blk.bclist[4]), 60)
         self.assertTrue((blk.fccnd[blk.bclist[4].facn[:,0],1] == 0.5).all())
+        self.assertAlmostEqual(blk.fcara[blk.bclist[4].facn[:,0]].sum(), 1.0,
+            15)
         self.assertEqual(blk.bclist[5].name, 'right')
         self.assertEqual(len(blk.bclist[5]), 60)
         self.assertTrue((blk.fccnd[blk.bclist[5].facn[:,0],0] == 0.5).all())
+        self.assertAlmostEqual(blk.fcara[blk.bclist[5].facn[:,0]].sum(), 1.0,
+            15)
         # test geometry.
         self.assertEqual(blk.ndcrd.min(), -0.5)
         self.assertEqual(blk.ndcrd.max(), 0.5)
