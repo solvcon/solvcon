@@ -1,7 +1,7 @@
 #!/usr/bin/env python2.6
 # -*- coding: UTF-8 -*-
 #
-# Copyright (C) 2010 Yung-Yu Chen <yyc@solvcon.net>.
+# Copyright (C) 2010-2011 Yung-Yu Chen <yyc@solvcon.net>.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -143,38 +143,6 @@ class PlaneWaveHook(BlockHook):
         self.info('L2 norm in velocity:\n')
         self.info('  %e, %e, %e\n' % tuple(self.norm['L2'][:3]))
 
-class ConvergePeriodic(CesePeriodic):
-    def couple(self, rbc):
-        from numpy import sqrt, abs, empty
-        assert len(self) == len(rbc)
-        fccnd = self.blk.fccnd
-        fcara = self.blk.fcara
-        fcnml = self.blk.fcnml
-        slct = empty(len(self), dtype='int32')
-        slct.fill(-1)
-        tol = sqrt(fcara).min() * 1.e-7
-        for jbc in range(len(rbc)):
-            jfc = rbc.facn[jbc,0]
-            for ibc in range(len(self)):
-                ifc = self.facn[ibc,0]
-                vec = abs(fccnd[ifc,:] - fccnd[jfc,:])
-                if vec[0] < tol and vec[1] < tol:
-                    assert fcara[ifc] - fcara[jfc] < tol
-                    assert ((fcnml[ifc] + fcnml[jfc])**2).sum() < tol
-                    break
-                elif vec[0] <tol and vec[2] < tol:
-                    assert fcara[ifc] - fcara[jfc] < tol
-                    assert ((fcnml[ifc] + fcnml[jfc])**2).sum() < tol
-                    break
-                elif vec[1] <tol and vec[2] < tol:
-                    assert fcara[ifc] - fcara[jfc] < tol
-                    assert ((fcnml[ifc] + fcnml[jfc])**2).sum() < tol
-                    break
-            slct[jbc] = ibc
-        self.facn = self.facn[slct,:]
-        assert (slct != -1).all()
-        super(ConvergePeriodic, self).couple(rbc)
-
 def match_periodic(blk):
     from numpy import array
     from solvcon.boundcond import bctregy
@@ -223,7 +191,6 @@ def elas3d_base(casename=None, mtrlname='GaAs', meshname=None,
     #from solvcon.kerpak.elastic import mltregy
     from elastic import mltregy
     # set up BCs.
-    #bct = bctregy.CeseNonrefl
     bct = bctregy.BC
     bcmap = {
         'front': (bct, {}),
@@ -238,8 +205,8 @@ def elas3d_base(casename=None, mtrlname='GaAs', meshname=None,
     basedir = os.path.join(os.path.abspath(os.getcwd()), 'result')
     cse = elastic.ElasticCase(basedir=basedir, rootdir=env.projdir,
         basefn=casename, meshfn=os.path.join('..', '..', 'tmp', meshname),
-        bcmap=bcmap, bcmod=match_periodic,
-        mtrldict={None: mtrl}, taylor=0.0, **kw)
+        bcmap=bcmap, bcmod=match_periodic, mtrldict={None: mtrl},
+        taylor=0.0, **kw)
     # statistical anchors for solvers.
     for name in 'Runtime', 'March', 'Tpool':
         cse.runhooks.append(getattr(anchor, name+'StatAnchor'))
@@ -273,13 +240,11 @@ def elas3d(casename, **kw):
     from numpy import array, pi, sqrt
     div = kw.pop('div', 36)
     std = kw.pop('std', 1)
-    #period = 2.649983322636356e-04
-    #period = 2.353142528777195e-04
-    period = 2.766299216606265e-04
+    period = 2.649983322636356e-04
     return elas3d_base(casename=casename, meshname='cube_t200mm.g',
-        time_increment=period/div, steps_run=2*div, ssteps=std, psteps=std,
+        time_increment=period/div, steps_run=2*div, ssteps=div, psteps=std,
         wtests=(
-            (array([1,0,1], dtype='float64')*pi, 8),
+            (array([1,1,0], dtype='float64')*pi, 8),
         ),
         **kw
     )
