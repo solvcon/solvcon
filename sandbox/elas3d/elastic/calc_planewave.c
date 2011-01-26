@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Yung-Yu Chen <yyc@solvcon.net>.
+ * Copyright (C) 2010-2011 Yung-Yu Chen <yyc@solvcon.net>.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,7 +23,11 @@ int calc_planewave(exedata *exd, double *asol, double *adsol,
     // pointers.
     double *pasol, *padsol, *pcecnd;
     // scalars.
-    double tdep, sdep, sxdep, sydep;
+    double tdep, sdep, sxdep, sydep
+#if NDIM == 3
+        , szdep
+#endif
+        ;
     // iterators.
     int icl, ieq;
     tdep = afreq*exd->time;
@@ -31,15 +35,25 @@ int calc_planewave(exedata *exd, double *asol, double *adsol,
     padsol = adsol;
     pcecnd = exd->cecnd;
     for (icl=0; icl<exd->ncell; icl++) {
-        sdep = wvec[0]*(pcecnd[0]-ctr[0]) + wvec[1]*(pcecnd[1]-ctr[1]);
+        sdep = wvec[0]*(pcecnd[0]-ctr[0]) + wvec[1]*(pcecnd[1]-ctr[1])
+#if NDIM == 3
+            + wvec[2]*(pcecnd[2]-ctr[2])
+#endif
+            ;
         sxdep = -sin(sdep - tdep);
         sdep = cos(sdep - tdep);
+#if NDIM == 3
+        szdep = wvec[2]*sxdep;
+#endif
         sydep = wvec[1]*sxdep;
         sxdep = wvec[0]*sxdep;
         for (ieq=0; ieq<NEQ; ieq++) {
             pasol[ieq] += amp[ieq] * sdep;
             padsol[0] += amp[ieq] * sxdep;
             padsol[1] += amp[ieq] * sydep;
+#if NDIM == 3
+            padsol[2] += amp[ieq] * szdep;
+#endif
             padsol += NDIM;
         };
         pasol += NEQ;

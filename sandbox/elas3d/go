@@ -36,9 +36,12 @@ class PlaneWaveSolution(object):
     def __init__(self, mtrl, idx, amp, ctr, wvec):
         from numpy import sqrt
         from numpy.linalg import eig
+        assert len(ctr) == len(wvec)
         # calculate eigenvectors and eigenvalues.
         nml = wvec/sqrt((wvec**2).sum())
         jaco = mtrl.jacox*nml[0] + mtrl.jacoy*nml[1]
+        if len(nml) == 3:
+            jaco += mtrl.jacoz*nml[2]
         evl, evc = eig(jaco)
         srt = evl.argsort()
         evl = evl[srt[idx]]
@@ -253,7 +256,7 @@ def elas3d_base(casename=None, mtrlname='GaAs', meshname=None,
     pws = list()
     for wvec, idx in wtests:
         pws.append(PlaneWaveSolution(mtrl=mtrl, amp=1.0, idx=idx,
-            ctr=array([0,0], dtype='float64'), wvec=wvec))
+            ctr=array([0,0,0], dtype='float64'), wvec=wvec))
     cse.runhooks.append(PlaneWaveHook, psteps=ssteps, planewaves=pws)
     # analyzing/output anchors and hooks.
     #cse.runhooks.append(euler.ElasticOAnchor)
@@ -267,14 +270,16 @@ def elas3d_base(casename=None, mtrlname='GaAs', meshname=None,
 ################################################################################
 @elastic.ElasticCase.register_arrangement
 def elas3d(casename, **kw):
-    from numpy import array, pi
-    div = kw.pop('div', 40)
-    std = kw.pop('std', 2)
-    period = 2.649983322636356e-04
+    from numpy import array, pi, sqrt
+    div = kw.pop('div', 36)
+    std = kw.pop('std', 1)
+    #period = 2.649983322636356e-04
+    #period = 2.353142528777195e-04
+    period = 2.766299216606265e-04
     return elas3d_base(casename=casename, meshname='cube_t200mm.g',
-        time_increment=period/div, steps_run=2*div, ssteps=div, psteps=std,
+        time_increment=period/div, steps_run=2*div, ssteps=std, psteps=std,
         wtests=(
-            (array([1,1], dtype='float64')*pi, 8),
+            (array([1,0,1], dtype='float64')*pi, 8),
         ),
         **kw
     )
