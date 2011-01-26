@@ -271,7 +271,7 @@ def elas3d(casename, **kw):
     div = kw.pop('div', 40)
     std = kw.pop('std', 2)
     period = 2.649983322636356e-04
-    return elas3d_base(casename=casename, meshname='plate_t200mm.g',
+    return elas3d_base(casename=casename, meshname='cube_t200mm.g',
         time_increment=period/div, steps_run=2*div, ssteps=div, psteps=std,
         wtests=(
             (array([1,1], dtype='float64')*pi, 8),
