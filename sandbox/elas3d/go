@@ -147,19 +147,19 @@ def match_periodic(blk):
         'left': (
             bctregy.CesePeriodic, {
                 'link': 'right',
-                'ref': array([-2,0,0], dtype='float64'),
+                'ref': array([0,-2,-2], dtype='float64'),
             }
         ),
         'lower': (
             bctregy.CesePeriodic, {
                 'link': 'upper',
-                'ref': array([0,-2,0], dtype='float64'),
+                'ref': array([-2,0,-2], dtype='float64'),
             }
         ),
         'rear': (
             bctregy.CesePeriodic, {
                 'link': 'front',
-                'ref': array([0,0,-2], dtype='float64'),
+                'ref': array([-2,-2,0], dtype='float64'),
             }
         ),
     }
@@ -201,7 +201,7 @@ def elas3d_base(casename=None, mtrlname='GaAs',
     basedir = os.path.join(os.path.abspath(os.getcwd()), 'result')
     cse = elastic.ElasticCase(basedir=basedir, rootdir=env.projdir,
         basefn=casename, meshfn='../../tmp/plate_t50mm.g',
-        bcmap=bcmap, #bcmod=match_periodic,
+        bcmap=bcmap, bcmod=match_periodic,
         mtrldict={None: mtrl}, **kw)
     # statistical anchors for solvers.
     for name in 'Runtime', 'March', 'Tpool':
