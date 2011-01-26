@@ -26,6 +26,7 @@ sys.path.insert(0, '../..')
 from solvcon.anchor import Anchor
 from solvcon.hook import BlockHook
 #from solvcon.kerpak import elastic
+from solvcon.kerpak.cese import CesePeriodic
 import elastic
 
 ###############################################################################
@@ -139,25 +140,58 @@ class PlaneWaveHook(BlockHook):
         self.info('L2 norm in velocity:\n')
         self.info('  %e, %e, %e\n' % tuple(self.norm['L2'][:3]))
 
+class ConvergePeriodic(CesePeriodic):
+    def couple(self, rbc):
+        from numpy import sqrt, abs, empty
+        assert len(self) == len(rbc)
+        fccnd = self.blk.fccnd
+        fcara = self.blk.fcara
+        fcnml = self.blk.fcnml
+        slct = empty(len(self), dtype='int32')
+        slct.fill(-1)
+        tol = sqrt(fcara).min() * 1.e-7
+        for jbc in range(len(rbc)):
+            jfc = rbc.facn[jbc,0]
+            for ibc in range(len(self)):
+                ifc = self.facn[ibc,0]
+                vec = abs(fccnd[ifc,:] - fccnd[jfc,:])
+                if vec[0] < tol and vec[1] < tol:
+                    assert fcara[ifc] - fcara[jfc] < tol
+                    assert ((fcnml[ifc] + fcnml[jfc])**2).sum() < tol
+                    break
+                elif vec[0] <tol and vec[2] < tol:
+                    assert fcara[ifc] - fcara[jfc] < tol
+                    assert ((fcnml[ifc] + fcnml[jfc])**2).sum() < tol
+                    break
+                elif vec[1] <tol and vec[2] < tol:
+                    assert fcara[ifc] - fcara[jfc] < tol
+                    assert ((fcnml[ifc] + fcnml[jfc])**2).sum() < tol
+                    break
+            slct[jbc] = ibc
+        self.facn = self.facn[slct,:]
+        assert (slct != -1).all()
+        super(ConvergePeriodic, self).couple(rbc)
+
 def match_periodic(blk):
     from numpy import array
     from solvcon.boundcond import bctregy
     from solvcon.case import BlockCase
+    bct = bctregy.CesePeriodic
     bcmap = {
         'left': (
-            bctregy.CesePeriodic, {
+            bct, {
                 'link': 'right',
                 'ref': array([0,-2,-2], dtype='float64'),
             }
         ),
         'lower': (
-            bctregy.CesePeriodic, {
+            bct, {
                 'link': 'upper',
                 'ref': array([-2,0,-2], dtype='float64'),
             }
         ),
         'rear': (
-            bctregy.CesePeriodic, {
+            bct, {
                 'link': 'front',
                 'ref': array([-2,-2,0], dtype='float64'),
             }
@@ -168,7 +202,7 @@ def match_periodic(blk):
 ################################################################################
 # Basic configuration.
 ################################################################################
-def elas3d_base(casename=None, mtrlname='GaAs',
+def elas3d_base(casename=None, mtrlname='GaAs', meshname=None,
     al=20.0, be=40.0, ga=50.0, wtests=None, psteps=None, ssteps=None, **kw):
     """
     Fundamental configuration of the simulation and return the case object.
@@ -200,9 +234,9 @@ def elas3d_base(casename=None, mtrlname='GaAs',
     mtrl = mltregy[mtrlname](al=al*pi/180.0, be=be*pi/180.0, ga=ga*pi/180.0)
     basedir = os.path.join(os.path.abspath(os.getcwd()), 'result')
     cse = elastic.ElasticCase(basedir=basedir, rootdir=env.projdir,
-        basefn=casename, meshfn='../../tmp/plate_t50mm.g',
+        basefn=casename, meshfn=os.path.join('..', '..', 'tmp', meshname),
         bcmap=bcmap, bcmod=match_periodic,
-        mtrldict={None: mtrl}, **kw)
+        mtrldict={None: mtrl}, taylor=0.0, **kw)
     # statistical anchors for solvers.
     for name in 'Runtime', 'March', 'Tpool':
         cse.runhooks.append(getattr(anchor, name+'StatAnchor'))
@@ -234,8 +268,11 @@ def elas3d_base(casename=None, mtrlname='GaAs',
 @elastic.ElasticCase.register_arrangement
 def elas3d(casename, **kw):
     from numpy import array, pi
-    return elas3d_base(casename=casename, time_increment=7.e-7,
-        steps_run=30, steps_stride=1, ssteps=1, psteps=1,
+    div = kw.pop('div', 40)
+    std = kw.pop('std', 2)
+    period = 2.649983322636356e-04
+    return elas3d_base(casename=casename, meshname='plate_t200mm.g',
+        time_increment=period/div, steps_run=2*div, ssteps=div, psteps=std,
         wtests=(
             (array([1,1], dtype='float64')*pi, 8),
         ),

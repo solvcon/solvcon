@@ -1,18 +1,18 @@
 undo on
 # geometry.
-create vertex -1 -1 -0.05
-create vertex 1 -1 -0.05
-create vertex 1 1 -0.05
-create vertex -1 1 -0.05
+create vertex -1 -1 -0.1
+create vertex 1 -1 -0.1
+create vertex 1 1 -0.1
+create vertex -1 1 -0.1
 create curve 1 2
 create curve 2 3
 create curve 3 4
 create curve 4 1
 create surface 1 2 3 4
-sweep surface 1 direction z distance 0.05
+sweep surface 1 direction z distance 0.1
 block 1 volume 1
 block 1 name "rear"
-volume 1 copy move z 0.05
+volume 1 copy move z 0.1
 block 2 volume 2
 block 2 name "front"
 merge all surface
@@ -29,7 +29,7 @@ sideset 4 name "left"
 sideset 5 name "upper"
 sideset 6 name "right"
 # mesh.
-volume 1 2 size 0.05
+volume 1 2 size 0.1
 surface 6 4 9 5 10 scheme trimesh
 mesh surface 6 4 9 5 10
 copy mesh surface 6 onto surface 11 source curve 3 target curve 13 source vertex 4 target vertex 13 nosmoothing
@@ -42,5 +42,5 @@ mesh volume 1 2
 # export.
 undo group begin
 set large exodus file off
-export genesis "plate_t50mm.g" dimension 3 overwrite
+export genesis "plate_t100mm.g" dimension 3 overwrite
 undo group end
