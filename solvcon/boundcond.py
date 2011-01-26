@@ -277,6 +277,8 @@ class periodic(interface):
     typn = -2**15+2
 
     def sort(self, ref):
+        if ref is None:
+            return
         from numpy import sqrt
         dist = sqrt(((self.blk.fccnd[self.facn[:,0],:] - ref)**2).sum(axis=1))
         slct = dist.argsort()

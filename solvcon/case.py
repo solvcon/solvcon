@@ -646,7 +646,7 @@ class BlockCase(BaseCase):
             ibc1 = nmidx[val]
             pbc0 = blk.bclist[ibc0] = bct(bc=blk.bclist[ibc0])
             pbc1 = blk.bclist[ibc1] = bct(bc=blk.bclist[ibc1])
-            ref = vdict['ref']
+            ref = vdict.get('ref', None)
             pbc0.sort(ref)
             pbc1.sort(ref)
             pbc0.couple(pbc1)
