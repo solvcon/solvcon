@@ -232,22 +232,38 @@ def elas3d_base(casename=None, mtrlname='GaAs', meshname=None,
         ], fpdtype='float64', psteps=ssteps, compressor='gz')
     return cse
 
-################################################################################
-# The arrangement.
-################################################################################
-@elastic.ElasticCase.register_arrangement
-def elas3d(casename, **kw):
+def elas3d_skel(casename, div, std, meshname, **kw):
     from numpy import array, pi, sqrt
-    div = kw.pop('div', 36)
-    std = kw.pop('std', 1)
     period = 2.649983322636356e-04
-    return elas3d_base(casename=casename, meshname='cube_t200mm.g',
+    return elas3d_base(casename=casename, meshname=meshname,
         time_increment=period/div, steps_run=2*div, ssteps=div, psteps=std,
         wtests=(
             (array([1,1,0], dtype='float64')*pi, 8),
-        ),
-        **kw
-    )
+        ), **kw)
+
+################################################################################
+# The arrangement for demonstration.
+################################################################################
+@elastic.ElasticCase.register_arrangement
+def elas3d(casename, **kw):
+    return elas3d_skel(casename=casename, div=36, std=1,
+        meshname='cube_t200mm.g')
+
+################################################################################
+# The arrangement for convergence test.
+################################################################################
+@elastic.ElasticCase.register_arrangement
+def elas3d_200(casename, **kw):
+    return elas3d_skel(casename=casename, div=36, std=1,
+        meshname='cube_t200mm.g')
+@elastic.ElasticCase.register_arrangement
+def elas3d_150(casename, **kw):
+    return elas3d_skel(casename=casename, div=54, std=1,
+        meshname='cube_t150mm.g')
+@elastic.ElasticCase.register_arrangement
+def elas3d_100(casename, **kw):
+    return elas3d_skel(casename=casename, div=72, std=2,
+        meshname='cube_t100mm.g')
 
 ################################################################################
 # Invoke SOLVCON workflow.

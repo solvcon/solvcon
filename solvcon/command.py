@@ -665,10 +665,10 @@ class run(ArrangementCommand):
         from .case import arrangements
         from .rpc import Worker, DEFAULT_AUTHKEY
         ops, args = self.opargs
-        if len(args) > 0:
-            name = args[0]
+        if len(args) == 0:
+            names = [os.path.basename(os.getcwd())]
         else:
-            name = os.path.basename(os.getcwd())
+            names = args
         # get batch.
         batch = batregy[ops.batch]
         # get partition number and domain type.
@@ -688,30 +688,31 @@ class run(ArrangementCommand):
             'batch': batch,
             'npart': npart, 'domaintype': domaintype,
         }
-        func = arrangements[name]
-        if env.mpi and env.mpi.rank != 0:
-            pdata = (
-                ops.profiler_dat,
-                ops.profiler_log,
-                ops.profiler_sort,
-            ) if ops.use_profiler else None
-            wkr = Worker(None, profiler_data=pdata)
-            wkr.run(('0.0.0.0', 0), DEFAULT_AUTHKEY)    # FIXME
-        else:
-            if ops.use_profiler:
-                cProfile.runctx('func(submit=False, **funckw)',
-                    globals(), locals(), ops.profiler_dat)
-                plog = open(ops.profiler_log, 'w')
-                p = pstats.Stats(ops.profiler_dat, stream=plog)
-                p.sort_stats(*ops.profiler_sort.split(','))
-                p.dump_stats(ops.profiler_dat)
-                p.print_stats()
-                plog.close()
-                info('*** Profiled information saved in '
-                    '%s (raw) and %s (text).\n' % (
-                    ops.profiler_dat, ops.profiler_log))
+        for name in names:
+            func = arrangements[name]
+            if env.mpi and env.mpi.rank != 0:
+                pdata = (
+                    ops.profiler_dat,
+                    ops.profiler_log,
+                    ops.profiler_sort,
+                ) if ops.use_profiler else None
+                wkr = Worker(None, profiler_data=pdata)
+                wkr.run(('0.0.0.0', 0), DEFAULT_AUTHKEY)    # FIXME
             else:
-                func(submit=False, **funckw)
+                if ops.use_profiler:
+                    cProfile.runctx('func(submit=False, **funckw)',
+                        globals(), locals(), ops.profiler_dat)
+                    plog = open(ops.profiler_log, 'w')
+                    p = pstats.Stats(ops.profiler_dat, stream=plog)
+                    p.sort_stats(*ops.profiler_sort.split(','))
+                    p.dump_stats(ops.profiler_dat)
+                    p.print_stats()
+                    plog.close()
+                    info('*** Profiled information saved in '
+                        '%s (raw) and %s (text).\n' % (
+                        ops.profiler_dat, ops.profiler_log))
+                else:
+                    func(submit=False, **funckw)
 
 class submit(ArrangementCommand):
     """
