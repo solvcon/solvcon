@@ -16,10 +16,15 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
+"""
+Anisotropic velocity-stress equations solver using the linear CESE method.
+"""
+
 from solvcon.gendata import SingleAssignDict, AttributeDict
 from solvcon.anchor import Anchor
 from solvcon.hook import BlockHook
-from solvcon.kerpak.lincese import LinceseSolver, LinceseCase, LinceseBC
+from solvcon.kerpak.cese import CeseBC
+from solvcon.kerpak.lincese import LinceseSolver, LinceseCase
 
 ###############################################################################
 # Metadata for materials.
@@ -124,15 +129,10 @@ class ElaslinCase(LinceseCase):
     defdict = {
         'execution.neq': 9,
         'solver.solvertype': ElaslinSolver,
-        'solver.cfldt': None,
         'solver.mtrldict': dict,
     }
     def make_solver_keywords(self):
         kw = super(ElaslinCase, self).make_solver_keywords()
-        # setup delta t for CFL calculation.
-        cfldt = self.solver.cfldt
-        cfldt = self.execution.time_increment if cfldt is None else cfldt
-        kw['cfldt'] = cfldt
         # setup material mapper.
         kw['mtrldict'] = self.solver.mtrldict
         return kw
@@ -141,7 +141,7 @@ class ElaslinCase(LinceseCase):
 # Boundary conditions.
 ###############################################################################
 
-class ElaslinBC(LinceseBC):
+class ElaslinBC(CeseBC):
     """
     Basic BC class for elastic problems.
     """

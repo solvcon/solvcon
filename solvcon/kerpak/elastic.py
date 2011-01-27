@@ -16,6 +16,10 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
+"""
+Anisotropic velocity-stress equations solver using the CESE method.
+"""
+
 from solvcon.gendata import SingleAssignDict, AttributeDict
 from solvcon.anchor import Anchor
 from solvcon.hook import BlockHook

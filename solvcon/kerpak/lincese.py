@@ -16,10 +16,14 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
+"""
+CESE solver specialized for general linear equations.
+"""
+
 from solvcon.gendata import SingleAssignDict, AttributeDict
 from solvcon.anchor import Anchor
 from solvcon.hook import BlockHook
-from solvcon.kerpak.cese import CeseSolver, CeseCase, CeseBC
+from solvcon.kerpak.cese import CeseSolver, CeseCase
 
 ###############################################################################
 # Solver.
@@ -86,7 +90,6 @@ class LinceseCase(CeseCase):
         'solver.domaintype': Domain,
         'solver.alpha': 0,
         'solver.cfldt': None,
-        'solver.mtrldict': dict,
     }
     del Domain
     def make_solver_keywords(self):
@@ -95,18 +98,7 @@ class LinceseCase(CeseCase):
         cfldt = self.solver.cfldt
         cfldt = self.execution.time_increment if cfldt is None else cfldt
         kw['cfldt'] = cfldt
-        # setup material mapper.
-        kw['mtrldict'] = self.solver.mtrldict
         return kw
-
-###############################################################################
-# Boundary conditions.
-###############################################################################
-
-class LinceseBC(CeseBC):
-    """
-    Basic BC class for linear CESE solver.
-    """
 
 ###############################################################################
 # Plane wave solution and initializer.

@@ -17,7 +17,7 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 """
-Multi-dimensional euler solver using the CESE method.
+Euler equations solver using the CESE method.
 """
 
 from .cese import CeseSolver
