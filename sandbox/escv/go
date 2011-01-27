@@ -139,22 +139,22 @@ class PlaneWaveHook(BlockHook):
 def match_periodic(blk):
     from numpy import array
     from solvcon.boundcond import bctregy
-    from solvcon.case import BlockCase
+    bct = bctregy.CesePeriodic
     bcmap = {
         'left': (
-            bctregy.CesePeriodic, {
+            bct, {
                 'link': 'right',
                 'ref': array([0,-2], dtype='float64'),
             }
         ),
         'lower': (
-            bctregy.CesePeriodic, {
+            bct, {
                 'link': 'upper',
                 'ref': array([-2,0], dtype='float64'),
             }
         ),
     }
-    BlockCase.couple_periodic(blk, bcmap)
+    bct.couple_all(blk, bcmap)
 
 ################################################################################
 # Basic configuration.

@@ -276,6 +276,18 @@ class periodic(interface):
     """
     typn = -2**15+2
 
+    def sol(self):
+        svr = self.svr
+        slctm = self.rclp[:,0] + svr.ngstcell
+        slctr = self.rclp[:,1] + svr.ngstcell
+        svr.soln[slctm,:] = svr.soln[slctr,:]
+
+    def dsol(self):
+        svr = self.svr
+        slctm = self.rclp[:,0] + svr.ngstcell
+        slctr = self.rclp[:,1] + svr.ngstcell
+        svr.dsoln[slctm,:,:] = svr.dsoln[slctr,:,:]
+
     def sort(self, ref):
         if ref is None:
             return
@@ -319,14 +331,40 @@ class periodic(interface):
         shf = blk.shclcnd[slctr,:] - blk.fccnd[facn[:,2],:]
         blk.shclcnd[slctm,:] = self.blk.fccnd[facn[:,0],:] + shf
 
-    def sol(self):
-        svr = self.svr
-        slctm = self.rclp[:,0] + svr.ngstcell
-        slctr = self.rclp[:,1] + svr.ngstcell
-        svr.soln[slctm,:] = svr.soln[slctr,:]
+    @staticmethod
+    def couple_all(blk, bcmap):
+        """
+        Couple all periodic boundary conditions.
 
-    def dsol(self):
-        svr = self.svr
-        slctm = self.rclp[:,0] + svr.ngstcell
-        slctr = self.rclp[:,1] + svr.ngstcell
-        svr.dsoln[slctm,:,:] = svr.dsoln[slctr,:,:]
+        @param blk: the block having periodic BCs to be coupled.
+        @type blk: solvcon.block.Block
+        @param bcmap: mapper for periodic BCs.
+        @type bcmap: dict
+        @return: nothing
+        """
+        from solvcon.boundcond import periodic
+        nmidx = dict([(blk.bclist[idx].name, idx) for idx in
+            range(len(blk.bclist))])
+        npidx = list()
+        for key in bcmap:
+            bct, vdict = bcmap[key]
+            if not issubclass(bct, periodic):
+                try:
+                    if key in nmidx:
+                        npidx.append(nmidx[key])
+                except Exception as e:
+                    args = list(e.args)
+                    args.append(str(nmidx))
+                    e.args = tuple(args)
+                    raise
+                continue
+            val = vdict['link']
+            ibc0 = nmidx[key]
+            ibc1 = nmidx[val]
+            pbc0 = blk.bclist[ibc0] = bct(bc=blk.bclist[ibc0])
+            pbc1 = blk.bclist[ibc1] = bct(bc=blk.bclist[ibc1])
+            ref = vdict.get('ref', None)
+            pbc0.sort(ref)
+            pbc1.sort(ref)
+            pbc0.couple(pbc1)
+            pbc1.couple(pbc0)

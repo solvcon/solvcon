@@ -229,7 +229,6 @@ def match_periodic(blk):
     """
     from numpy import array
     from solvcon.boundcond import bctregy
-    from solvcon.case import BlockCase
     bct = bctregy.CesePeriodic
     bcmap = {
         'left': (
@@ -251,7 +250,7 @@ def match_periodic(blk):
             }
         ),
     }
-    BlockCase.couple_periodic(blk, bcmap)
+    bct.couple_all(blk, bcmap)
 
 ################################################################################
 # Basic configuration.
