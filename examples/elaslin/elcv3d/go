@@ -106,8 +106,9 @@ class ElaslinPWSolution(PlaneWaveSolution):
             jaco += mtrl.jacoz*nml[2]
         evl, evc = eig(jaco)
         srt = evl.argsort()
-        evl = evl[srt[idx]]
-        evc = evc[:,srt[idx]]
+        evl = evl[srt[idx]].real
+        evc = evc[:,srt[idx]].real
+        evc *= evc[0]/abs(evc[0]+1.e-200)
         return evl, evc
 
 ################################################################################
