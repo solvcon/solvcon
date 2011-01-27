@@ -7,7 +7,7 @@ ldir = '.'
 libs = list()
 # kerpak libraries.
 dimlibs = [ 
-    'lincese',
+    'lincese', 'elaslin', 'elaslinb',
 ]
 for ndim in 2, 3:
     for lkey in dimlibs:
@@ -15,6 +15,7 @@ for ndim in 2, 3:
             '%s/%s' % (sdir, lkey), duplicate=0)
     envm = env.Clone()
     envm.Prepend(CCFLAGS=['-DNDIM=%d'%ndim])
+    envm.Prepend(LIBS=['lapack'])
     for lkey in dimlibs:
         libs.append(envm.SharedLibrary(
             '%s/%s_%s%dd' % (ldir, lpre, lkey, ndim),

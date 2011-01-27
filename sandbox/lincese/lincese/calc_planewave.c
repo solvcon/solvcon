@@ -16,7 +16,7 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "cese.h"
+#include "lincese.h"
 
 int calc_planewave(exedata *exd, double *asol, double *adsol,
         double *amp, double *ctr, double *wvec, double afreq) {

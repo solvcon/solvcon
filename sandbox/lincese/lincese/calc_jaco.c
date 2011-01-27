@@ -16,7 +16,7 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "cese.h"
+#include "lincese.h"
 
 void calc_jaco(exedata *exd, int icl,   
         double fcn[NEQ][NDIM], double jacos[NEQ][NEQ][NDIM]) {

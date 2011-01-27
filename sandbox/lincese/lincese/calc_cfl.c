@@ -16,7 +16,7 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "cese.h"
+#include "lincese.h"
 
 int calc_cfl(exedata *exd, int istart, int iend) {
     int cputicks;

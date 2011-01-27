@@ -19,9 +19,7 @@
 from solvcon.gendata import SingleAssignDict, AttributeDict
 from solvcon.anchor import Anchor
 from solvcon.hook import BlockHook
-#from .cese import CeseSolver
-#from .cese import CeseCase
-#from .cese import CeseBC
+#from .cese import CeseSolver, CeseCase, CeseBC
 from solvcon.kerpak.cese import CeseSolver, CeseCase, CeseBC
 
 def getcdll(libname):
@@ -48,10 +46,6 @@ class LinceseSolver(CeseSolver):
     @itype cfldt: float
     @ivar cflmax: the maximum CFL number.
     @itype cflmax: float
-    @ivar mtrldict: map from names to material objects.
-    @itype mtrldict: dict
-    @ivar mtrllist: list of all material objects.
-    @itype mtrllist: list
     """
     #from solvcon.dependency import getcdll
     __clib_lincese = {
@@ -63,52 +57,18 @@ class LinceseSolver(CeseSolver):
     def _clib_lincese(self):
         return self.__clib_lincese[self.ndim]
     @property
-    def _gdlen_(self):
-        return 9 * 9 * self.ndim
-    @property
     def _jacofunc_(self):
         return self._clib_lincese.calc_jaco
     def __init__(self, *args, **kw):
         self.cfldt = kw.pop('cfldt', None)
         self.cflmax = 0.0
-        self.mtrldict = kw.pop('mtrldict', {})
-        self.mtrllist = None
         super(LinceseSolver, self).__init__(*args, **kw)
-    @staticmethod
-    def _build_mtrllist(grpnames, mtrldict):
-        """
-        Build the material list out of the mapping dict.
-
-        @param grpnames: sequence of group names.
-        @type grpnames: list
-        @param mtrldict: the map from names to material objects.
-        @type mtrldict: dict
-        @return: the list of material object.
-        @rtype: Material
-        """
-        mtrllist = list()
-        default_mtuple = mtrldict.get(None, None)
-        for grpname in grpnames:
-            try:
-                mtrl = mtrldict.get(grpname, default_mtuple)
-            except KeyError, e:
-                args = e.args[:]
-                args.append('no material named %s in mtrldict'%grpname)
-                e.args = args
-                raise
-            mtrllist.append(mtrl)
-        return mtrllist
+    def make_grpda(self):
+        raise NotImplementedError
     def provide(self):
         from ctypes import byref, c_int
-        # build material list.
-        self.mtrllist = self._build_mtrllist(self.grpnames, self.mtrldict)
-        for igrp in range(len(self.grpnames)):
-            mtrl = self.mtrllist[igrp]
-            jaco = self.grpda[igrp].reshape(self.neq, self.neq, self.ndim)
-            jaco[:,:,0] = mtrl.jacox
-            jaco[:,:,1] = mtrl.jacoy
-            if self.ndim == 3:
-                jaco[:,:,2] = mtrl.jacoz
+        # fill group data array.
+        self.make_grpda()
         # pre-calculate CFL.
         self._set_time(self.time, self.cfldt)
         self._clib_lincese.calc_cfl(

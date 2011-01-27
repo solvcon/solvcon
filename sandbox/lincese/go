@@ -18,17 +18,17 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 """
-Convergence test for anisotropic elastic solver.
+Convergence test for anisotropic, linear elastic solver.
 """
 
 import sys
 sys.path.insert(0, '../..')
 from solvcon.anchor import Anchor
 from solvcon.hook import BlockHook
-#from solvcon.kerpak import elastic
+#from solvcon.kerpak import elaslin
 from solvcon.kerpak.cese import CesePeriodic
 from solvcon.cmdutil import Command
-import elastic
+import elaslin
 
 ###############################################################################
 # Command line.
@@ -71,7 +71,7 @@ class converge(Command):
         from math import log
         ops, args = self.opargs
         dat = [(mm,
-            load(open(os.path.join(ops.wdir, 'elas3d_%d_norm.pickle'%mm))))
+            load(open(os.path.join(ops.wdir, 'lincese_%d_norm.pickle'%mm))))
             for mm in (200, 150, 100)]
         sys.stdout.write(
             'Convergence of %s error-norm at the %dth (0--8) variable:\n' % (
@@ -118,7 +118,7 @@ class PlaneWaveSolution(object):
     def __call__(self, svr, asol, adsol):
         from ctypes import byref, c_double
         from solvcon.dependency import doubleptr
-        svr._clib_elastic.calc_planewave(
+        svr._clib_lincese.calc_planewave(
             byref(svr.exd),
             asol.ctypes.data_as(doubleptr),
             adsol.ctypes.data_as(doubleptr),
@@ -255,7 +255,7 @@ def match_periodic(blk):
 ################################################################################
 # Basic configuration.
 ################################################################################
-def elas3d_base(casename=None, mtrlname='GaAs',
+def lincese_base(casename=None, mtrlname='GaAs',
     al=20.0, be=40.0, ga=50.0, wtests=None, psteps=None, ssteps=None, **kw):
     """
     Fundamental configuration of the simulation and return the case object.
@@ -270,8 +270,8 @@ def elas3d_base(casename=None, mtrlname='GaAs',
     from solvcon import hook, anchor
     from solvcon.solver import ALMOST_ZERO
     from solvcon.kerpak import cese
-    #from solvcon.kerpak.elastic import mltregy
-    from elastic import mltregy
+    #from solvcon.kerpak.elaslin import mltregy
+    from elaslin import mltregy
     # set up BCs.
     bct = bctregy.BC
     bcmap = {
@@ -285,7 +285,7 @@ def elas3d_base(casename=None, mtrlname='GaAs',
     # set up case.
     mtrl = mltregy[mtrlname](al=al*pi/180.0, be=be*pi/180.0, ga=ga*pi/180.0)
     basedir = os.path.join(os.path.abspath(os.getcwd()), 'result')
-    cse = elastic.ElasticCase(basedir=basedir, rootdir=env.projdir,
+    cse = elaslin.ElaslinCase(basedir=basedir, rootdir=env.projdir,
         basefn=casename, mesher=mesher, bcmap=bcmap, bcmod=match_periodic,
         mtrldict={None: mtrl}, taylor=0.0, **kw)
     # statistical anchors for solvers.
@@ -307,16 +307,16 @@ def elas3d_base(casename=None, mtrlname='GaAs',
             ctr=array([0,0,0], dtype='float64'), wvec=wvec))
     cse.runhooks.append(PlaneWaveHook, psteps=ssteps, planewaves=pws)
     # analyzing/output anchors and hooks.
-    #cse.runhooks.append(euler.ElasticOAnchor)
+    #cse.runhooks.append(euler.ElaslinOAnchor)
     cse.runhooks.append(hook.PMarchSave, anames=[
             ('soln', False, -9),
         ], fpdtype='float64', psteps=ssteps, compressor='gz')
     return cse
 
-def elas3d_skel(casename, div, std, **kw):
+def lincese_skel(casename, div, std, **kw):
     from numpy import array, pi
     period = 2.649983322636356e-04
-    return elas3d_base(casename=casename,
+    return lincese_base(casename=casename,
         time_increment=period/div, steps_run=2*div, ssteps=div, psteps=std,
         wtests=(
             (array([1,1,0], dtype='float64')*pi, 8),
@@ -325,13 +325,13 @@ def elas3d_skel(casename, div, std, **kw):
 ################################################################################
 # The arrangement for demonstration.
 ################################################################################
-@elastic.ElasticCase.register_arrangement
-def elas3d(casename, **kw):
+@elaslin.ElaslinCase.register_arrangement
+def lincese(casename, **kw):
     from numpy import array, pi
     period = 2.649983322636356e-04
     div = 36
     std = 1
-    return elas3d_base(casename=casename,
+    return lincese_base(casename=casename,
         time_increment=period/div, steps_run=2*div, ssteps=std, psteps=std,
         wtests=(
             (array([1,1,0], dtype='float64')*pi, 8),
@@ -340,15 +340,15 @@ def elas3d(casename, **kw):
 ################################################################################
 # The arrangement for convergence test.
 ################################################################################
-@elastic.ElasticCase.register_arrangement
-def elas3d_200(casename, **kw):
-    return elas3d_skel(casename=casename, div=34, std=1)
-@elastic.ElasticCase.register_arrangement
-def elas3d_150(casename, **kw):
-    return elas3d_skel(casename=casename, div=44, std=1)
-@elastic.ElasticCase.register_arrangement
-def elas3d_100(casename, **kw):
-    return elas3d_skel(casename=casename, div=72, std=2)
+@elaslin.ElaslinCase.register_arrangement
+def lincese_200(casename, **kw):
+    return lincese_skel(casename=casename, div=34, std=1)
+@elaslin.ElaslinCase.register_arrangement
+def lincese_150(casename, **kw):
+    return lincese_skel(casename=casename, div=44, std=1)
+@elaslin.ElaslinCase.register_arrangement
+def lincese_100(casename, **kw):
+    return lincese_skel(casename=casename, div=72, std=2)
 
 ################################################################################
 # Invoke SOLVCON workflow.
