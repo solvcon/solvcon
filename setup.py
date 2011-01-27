@@ -75,7 +75,7 @@ def main():
             (os.path.join(lead, edir), [os.path.join(edir, 'go')]))
     for edir in glob(os.path.join('examples', 'elaslin', '*')):
         data_files.append(
-            (os.path.join(lead, edir), [os.path.join(edir, 'cube.tmpl')]))
+            (os.path.join(lead, edir), glob(os.path.join(edir, '*.tmpl'))))
 
     setup(
         name='SOLVCON',
