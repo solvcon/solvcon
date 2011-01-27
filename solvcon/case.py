@@ -406,6 +406,7 @@ class BlockCase(BaseCase):
         'execution.step_restart': None,
         'execution.steps_dump': None,
         # IO.
+        'io.mesher': None,
         'io.meshfn': None,
         'io.rkillfn': 'solvcon.kill.sh',
         'io.dump.csefn': 'solvcon.dump.case.obj',
@@ -578,7 +579,11 @@ class BlockCase(BaseCase):
         meshfn = self.io.meshfn
         bcmapper = self.condition.bcmap
         self.info('mesh file: %s\n' % meshfn)
-        if os.path.isdir(meshfn):
+        if callable(self.io.mesher):
+            self._log_start('create_block')
+            obj = self.io.mesher(self)
+            self._log_end('create_block')
+        elif os.path.isdir(meshfn):
             dof = DomainIO()
             obj = dof.load(dirname=meshfn, bcmapper=bcmapper,
                 with_split=False, domaintype=self.solver.domaintype)
