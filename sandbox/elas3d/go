@@ -31,7 +31,7 @@ from solvcon.cmdutil import Command
 import elastic
 
 ###############################################################################
-# Plane wave solution and initializer.
+# Command line.
 ###############################################################################
 class converge(Command):
     """
