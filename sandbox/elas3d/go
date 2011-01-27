@@ -27,7 +27,70 @@ from solvcon.anchor import Anchor
 from solvcon.hook import BlockHook
 #from solvcon.kerpak import elastic
 from solvcon.kerpak.cese import CesePeriodic
+from solvcon.cmdutil import Command
 import elastic
+
+###############################################################################
+# Plane wave solution and initializer.
+###############################################################################
+class converge(Command):
+    """
+    Calculate and verify convergence.
+
+    Must supply <delta> <M1>.
+    """
+    min_args = 0
+
+    def __init__(self, env):
+        from optparse import OptionGroup
+        super(converge, self).__init__(env)
+        op = self.op
+
+        opg = OptionGroup(op, 'Convergence')
+        opg.add_option("--wdir", action="store",
+            dest="wdir", default="result", help="Working directory.")
+        opg.add_option("--key", action="store",
+            dest="key", default="L2", help="Linf or L2 norm.")
+        opg.add_option("--idx", action="store", type=int,
+            dest="idx", default=0, help="Index of variable: 0--8.")
+        opg.add_option("--order", action="store", type=float,
+            dest="order", default=None,
+            help="Error-norm should converge at the rate, if given.")
+        opg.add_option("--order-tolerance", action="store", type=float,
+            dest="order_tolerance", default=0.4,
+            help="The variation of converge order which can be tolerated.")
+        opg.add_option("--stop-on-over", action="store_true",
+            dest="stop_on_over", default=False,
+            help="Raise ValueError if tolerance not met.")
+        op.add_option_group(opg)
+        self.opg_obshock = opg
+
+    def __call__(self):
+        import os, sys
+        from pickle import load
+        from math import log
+        ops, args = self.opargs
+        dat = [(mm,
+            load(open(os.path.join(ops.wdir, 'elas3d_%d_norm.pickle'%mm))))
+            for mm in (200, 150, 100)]
+        sys.stdout.write(
+            'Convergence of %s error-norm at the %dth (0--8) variable:\n' % (
+            ops.key, ops.idx))
+        for ih in range(1, len(dat)):
+            er = [dat[it][1][ops.key][ops.idx] for it in range(ih-1, ih+1)]
+            hr = [float(dat[it][0])/1000 for it in range(ih-1, ih+1)]
+            odr = log(er[1]/er[0])/log(hr[1]/hr[0])
+            sys.stdout.write('  %6.4f -> %6.4f (m): %g' % (hr[0], hr[1], odr))
+            if ops.order is not None:
+                if abs(odr - ops.order) < ops.order_tolerance:
+                    sys.stdout.write(' GOOD. Within')
+                else:
+                    if ops.stop_on_over:
+                        raise ValueError('out of tolerance')
+                    else:
+                        sys.stdout.write(' BAD. Out of')
+                sys.stdout.write(' %g +/- %g'%(ops.order, ops.order_tolerance))
+            sys.stdout.write('\n')
 
 ###############################################################################
 # Plane wave solution and initializer.
