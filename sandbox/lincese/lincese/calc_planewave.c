@@ -30,9 +30,9 @@ int calc_planewave(exedata *exd, double *asol, double *adsol,
         ;
     // iterators.
     int icl, ieq;
-    tdep = afreq*exd->time;
-    pasol = asol;
-    padsol = adsol;
+    tdep = afreq * exd->time;
+    pasol = asol + exd->ngstcell*NEQ;
+    padsol = adsol + exd->ngstcell*NEQ*NDIM;
     pcecnd = exd->cecnd;
     for (icl=0; icl<exd->ncell; icl++) {
         sdep = wvec[0]*(pcecnd[0]-ctr[0]) + wvec[1]*(pcecnd[1]-ctr[1])
