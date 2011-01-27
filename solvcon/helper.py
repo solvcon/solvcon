@@ -1,6 +1,6 @@
 # -*- coding: UTF-8 -*-
 #
-# Copyright (C) 2008-2010 Yung-Yu Chen <yyc@solvcon.net>.
+# Copyright (C) 2008-2011 Yung-Yu Chen <yyc@solvcon.net>.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -158,3 +158,58 @@ def search_in_parents(loc, name):
         else:
             loc = parent
     return os.path.abspath(item) if item else item
+
+class Cubit(object):
+    """
+    Delegate Cubit command through journaling file and load the generated mesh.
+
+    @ivar cmds: commands to be sent to Cubit.
+    @itype cmds: list
+    @ivar ndim: number of dimensions.
+    @itype ndim: int
+    @ivar large: use large file of Genesis/ExodusII or not.
+    @itype large: bool
+    """
+    def __init__(self, cmds, ndim, large=False):
+        self.cmds = cmds
+        self.ndim = ndim
+        self.large = large
+        self.stdout = None
+    def __call__(self):
+        """
+        Launch Cubit for generating mesh and then load the generated
+        Genesis/ExodusII file.
+
+        @return: the loaded Genesis object.
+        @rtype: solvcon.io.genesis.Genesis
+        """
+        from tempfile import mkdtemp
+        import os, shutil
+        from subprocess import Popen, PIPE, STDOUT
+        from .io.genesis import Genesis
+        # prepare working directory.
+        wdir = mkdtemp()
+        joup = os.path.join(wdir, 'jou.jou')
+        gnp = os.path.join(wdir, 'gn.g')
+        # prepare journaling file.
+        cmds = self.cmds[:]
+        cmds.insert(0, 'cd "%s"' % wdir)
+        cmds.append('set large exodus file %s' % 'on' if self.large else 'off')
+        cmds.append('export genesis "%s" dimension %d overwrite' % (
+            gnp, self.ndim))
+        jouf = open(joup, 'w')
+        jouf.write('\n'.join(cmds))
+        jouf.close()
+        # call Cubit and get the data.
+        cli = 'cubit -nographics -batch -nojournal -input %s' % joup
+        try:
+            pobj = Popen(cli, shell=True, stdout=PIPE, stderr=STDOUT)
+            self.stdout = pobj.stdout.read()
+            gn = Genesis(gnp)
+            gn.load()
+            gn.close_file()
+        except:
+            gn = None
+        finally:
+            shutil.rmtree(wdir)
+        return gn
