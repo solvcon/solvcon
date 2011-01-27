@@ -1,6 +1,6 @@
 # -*- coding: UTF-8 -*-
 #
-# Copyright (C) 2008-2010 Yung-Yu Chen <yyc@solvcon.net>.
+# Copyright (C) 2008-2011 Yung-Yu Chen <yyc@solvcon.net>.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -102,7 +102,6 @@ class EulerBC(CeseBC):
     """
     Basic BC class for the Euler equations.
     """
-    typn = -10100
     from solvcon.dependency import getcdll
     __clib_eulerb = {
         2: getcdll('eulerb2d'),
@@ -114,7 +113,6 @@ class EulerBC(CeseBC):
         return self.__clib_eulerb[self.svr.ndim]
 
 class EulerWall(EulerBC):
-    typn = 10120
     _ghostgeom_ = 'mirror'
     def sol(self):
         from solvcon.dependency import intptr
@@ -135,7 +133,6 @@ class EulerWall(EulerBC):
             self.facn.ctypes.data_as(intptr),
         )
 class EulerNonslipWall(EulerBC):
-    typn = 10121
     _ghostgeom_ = 'mirror'
     def sol(self):
         from solvcon.dependency import intptr
@@ -157,7 +154,6 @@ class EulerNonslipWall(EulerBC):
         )
 
 class EulerInlet(EulerBC):
-    typn = 10130
     vnames = ['rho', 'v1', 'v2', 'v3', 'p', 'gamma']
     vdefaults = {
         'rho': 1.0, 'p': 1.0, 'gamma': 1.4, 'v1': 0.0, 'v2': 0.0, 'v3': 0.0,
@@ -185,7 +181,6 @@ class EulerInlet(EulerBC):
         )
 
 class EulerOutlet(EulerBC):
-    typn = 10140
     _ghostgeom_ = 'translate'
     def sol(self):
         from solvcon.dependency import intptr

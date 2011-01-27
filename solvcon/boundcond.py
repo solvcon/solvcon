@@ -42,11 +42,6 @@ class BCMeta(TypeWithBinder):
     """
     def __new__(cls, name, bases, namespace):
         newcls = super(BCMeta, cls).__new__(cls, name, bases, namespace)
-        # check class value.
-        if not isinstance(newcls.typn, int):
-            raise ValueError, \
-                "typn has to be an integer, but found to be %s." % newcls.typn
-        # register.
         bctregy.register(newcls)
         return newcls
 
@@ -56,9 +51,6 @@ class BC(object):
     Generic boundary condition abstract class.  It's the base class that all
     boundary condition class should subclass.
 
-    @cvar typn: type number of this boundary condition.  Negative value means 
-        abstract class (boundary condition).
-    @type typn: int
     @cvar vnames: settable value names.
     @type vnames: list
     @cvar vdefaults: default values.
@@ -86,7 +78,6 @@ class BC(object):
 
     _pointers_ = [] # for binder.
 
-    typn = -1   # BC type number, must be an integer.
     vnames = [] # settable value names.
     vdefaults = {}  # defaults to values.
 
@@ -142,8 +133,8 @@ class BC(object):
         return self.facn.shape[0]
 
     def __str__(self):
-        return "[%s(%d)#%d \"%s\": %d faces with %d values]" % (
-            self.__class__.__name__, self.typn, self.sern, self.name,
+        return "[%s#%d \"%s\": %d faces with %d values]" % (
+            self.__class__.__name__, self.sern, self.name,
             len(self), self.nvalue)
 
     def cloneTo(self, another):
@@ -215,7 +206,6 @@ class unspecified(BC):
     """
     Abstract BC type for unspecified boundary conditions.
     """
-    typn = -2**15   # give the minimal value for a 2 bytes integer.
 
 class interface(BC):
     """
@@ -229,7 +219,6 @@ class interface(BC):
         column is for the indices of the cells belong to self block.
     @itype rclp: numpy.ndarray
     """
-    typn = -2**15+1
 
     def __init__(self, **kw):
         from numpy import empty
@@ -274,7 +263,6 @@ class periodic(interface):
     """
     BC type for periodic boundary condition.
     """
-    typn = -2**15+2
 
     def sol(self):
         svr = self.svr

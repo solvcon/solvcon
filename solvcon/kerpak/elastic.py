@@ -1,6 +1,6 @@
 # -*- coding: UTF-8 -*-
 #
-# Copyright (C) 2010 Yung-Yu Chen <yyc@solvcon.net>.
+# Copyright (C) 2010-2011 Yung-Yu Chen <yyc@solvcon.net>.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -176,7 +176,6 @@ class ElasticBC(CeseBC):
     """
     Basic BC class for elastic problems.
     """
-    typn = -10200
     from solvcon.dependency import getcdll
     __clib_elasticb = {
         2: getcdll('elasticb2d'),
@@ -188,7 +187,6 @@ class ElasticBC(CeseBC):
         return self.__clib_elasticb[self.svr.ndim]
 
 class ElasticTraction(ElasticBC):
-    typn = 10201
     vnames = [
         'bfcsys', 'tau1', 'tau2', 'tau3', 'freq', 'phase',
     ]
@@ -217,7 +215,6 @@ class ElasticTraction(ElasticBC):
         )
 
 class ElasticTractionFree(ElasticBC):
-    typn = 10202
     _ghostgeom_ = 'mirror'
     def sol(self):
         from solvcon.dependency import intptr
@@ -237,7 +234,6 @@ class ElasticTractionFree(ElasticBC):
         )
 
 class ElasticTractionFree2(ElasticBC):
-    typn = 10203
     _ghostgeom_ = 'mirror'
     def sol(self):
         from solvcon.dependency import intptr

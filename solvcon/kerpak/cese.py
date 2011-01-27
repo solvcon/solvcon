@@ -1,6 +1,6 @@
 # -*- coding: UTF-8 -*-
 #
-# Copyright (C) 2008-2010 Yung-Yu Chen <yyc@solvcon.net>.
+# Copyright (C) 2008-2011 Yung-Yu Chen <yyc@solvcon.net>.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -434,7 +434,6 @@ class CeseBC(BC):
     @cvar _ghostgeom_: selector for the ghost geometry caculator.
     @ctype _ghostgeom_: str
     """
-    typn = -1000
 
     from solvcon.dependency import getcdll
     __clib_ceseb = {
@@ -462,7 +461,6 @@ class CeseNonrefl(CeseBC):
     """
     General non-reflective boundary condition (NRBC).
     """
-    typn = 1000
     _ghostgeom_ = 'mirror'
     def sol(self):
         from solvcon.dependency import intptr
@@ -487,7 +485,6 @@ class CesePeriodic(periodic):
     """
     General periodic boundary condition for sequential runs.
     """
-    typn = 1001
     def init(self, **kw):
         svr = self.svr
         ngstcell = svr.ngstcell
