@@ -208,9 +208,10 @@ class PlaneWaveHook(BlockHook):
 
 def mesher(cse):
     from solvcon.helper import Cubit
-
-    itv = float(cse.io.basefn.split('_')[-1])/1000
-
+    try:
+        itv = float(cse.io.basefn.split('_')[-1])/1000
+    except ValueError:
+        itv = 0.2
     cmds = """
     # geometry.
     create vertex -1 -1 -1
@@ -260,7 +261,6 @@ def mesher(cse):
     volume 1 2 scheme tetmesh
     mesh volume 1 2
     """ % itv
-
     cmds = [cmd.strip() for cmd in cmds.strip().split('\n')]
     gn = Cubit(cmds, 3)()
     return gn.toblock(bcname_mapper=cse.condition.bcmap)
@@ -354,7 +354,7 @@ def elas3d_base(casename=None, mtrlname='GaAs',
     return cse
 
 def elas3d_skel(casename, div, std, **kw):
-    from numpy import array, pi, sqrt
+    from numpy import array, pi
     period = 2.649983322636356e-04
     return elas3d_base(casename=casename,
         time_increment=period/div, steps_run=2*div, ssteps=div, psteps=std,
@@ -367,7 +367,15 @@ def elas3d_skel(casename, div, std, **kw):
 ################################################################################
 @elastic.ElasticCase.register_arrangement
 def elas3d(casename, **kw):
-    return elas3d_skel(casename=casename, div=36, std=1)
+    from numpy import array, pi
+    period = 2.649983322636356e-04
+    div = 36
+    std = 1
+    return elas3d_base(casename=casename,
+        time_increment=period/div, steps_run=2*div, ssteps=std, psteps=std,
+        wtests=(
+            (array([1,1,0], dtype='float64')*pi, 8),
+        ), **kw)
 
 ################################################################################
 # The arrangement for convergence test.
