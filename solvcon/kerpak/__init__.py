@@ -17,11 +17,26 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 """
-Solving kernels and solving packages.
+Solver packages (SPs).
 
 Codes in this subpackage should use absolute import to access functionalities
-provided in SOLVCON, so that each SK or SP can be migrated outside the solvcon
+provided in SOLVCON, so that each SP can be migrated outside the solvcon
 package namespace.
+
+A SP inludes one or more solver kernels (SKs) and corresponding analysis
+functions.  These SPs implements both numerical algorithms and/or physical
+models.
+
+Available numerical algorithms include:
+ - cese: second order CESE method.
+ - lincese: second order CESE method specialized for linear equations.
+
+Available physical models:
+ - euler: the euler equations for gas dynamics.
+ - elastic: the velocity-stress equations for anisotropic, linear elastic 
+   solids, 2D only.
+ - elaslin: the velocity-stress equations for anisotropic, linear elastic
+   solids.
 """
 
 __all__ = ['cese', 'elaslin', 'elastic', 'euler', 'lincese']

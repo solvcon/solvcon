@@ -18,16 +18,14 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 """
-Convergence test for anisotropic, linear elastic solver.
+Convergence test for three-dimensional, anisotropic, linear elastic solver.
 """
 
-import sys
-sys.path.insert(0, '../..')
 from solvcon.anchor import Anchor
 from solvcon.hook import BlockHook
 from solvcon.kerpak.cese import CesePeriodic
-from solvcon.kerpak import elaslin
 from solvcon.kerpak.lincese import PlaneWaveSolution
+from solvcon.kerpak import elaslin
 from solvcon.cmdutil import Command
 
 ###############################################################################
@@ -71,7 +69,7 @@ class converge(Command):
         from math import log
         ops, args = self.opargs
         dat = [(mm,
-            load(open(os.path.join(ops.wdir, 'lincese_%d_norm.pickle'%mm))))
+            load(open(os.path.join(ops.wdir, 'elcv3d_%d_norm.pickle'%mm))))
             for mm in (200, 150, 100)]
         sys.stdout.write(
             'Convergence of %s error-norm at the %dth (0--8) variable:\n' % (
@@ -161,7 +159,7 @@ def match_periodic(blk):
 ################################################################################
 # Basic configuration.
 ################################################################################
-def lincese_base(casename=None, mtrlname='GaAs',
+def elcv3d_base(casename=None, mtrlname='GaAs',
     al=20.0, be=40.0, ga=50.0, wtests=None, psteps=None, ssteps=None, **kw):
     """
     Fundamental configuration of the simulation and return the case object.
@@ -222,10 +220,10 @@ def lincese_base(casename=None, mtrlname='GaAs',
         ], fpdtype='float64', psteps=ssteps, compressor='gz')
     return cse
 
-def lincese_skel(casename, div, std, **kw):
+def elcv3d_skel(casename, div, std, **kw):
     from numpy import array, pi
     period = 2.649983322636356e-04
-    return lincese_base(casename=casename,
+    return elcv3d_base(casename=casename,
         time_increment=period/div, steps_run=2*div, ssteps=div, psteps=std,
         wtests=(
             (array([1,1,0], dtype='float64')*pi, 8),
@@ -235,12 +233,12 @@ def lincese_skel(casename, div, std, **kw):
 # The arrangement for demonstration.
 ################################################################################
 @elaslin.ElaslinCase.register_arrangement
-def lincese(casename, **kw):
+def elcv3d(casename, **kw):
     from numpy import array, pi
     period = 2.649983322636356e-04
     div = 36
     std = 1
-    return lincese_base(casename=casename,
+    return elcv3d_base(casename=casename,
         time_increment=period/div, steps_run=2*div, ssteps=std, psteps=std,
         wtests=(
             (array([1,1,0], dtype='float64')*pi, 8),
@@ -250,14 +248,14 @@ def lincese(casename, **kw):
 # The arrangement for convergence test.
 ################################################################################
 @elaslin.ElaslinCase.register_arrangement
-def lincese_200(casename, **kw):
-    return lincese_skel(casename=casename, div=34, std=1)
+def elcv3d_200(casename, **kw):
+    return elcv3d_skel(casename=casename, div=34, std=1)
 @elaslin.ElaslinCase.register_arrangement
-def lincese_150(casename, **kw):
-    return lincese_skel(casename=casename, div=44, std=1)
+def elcv3d_150(casename, **kw):
+    return elcv3d_skel(casename=casename, div=44, std=1)
 @elaslin.ElaslinCase.register_arrangement
-def lincese_100(casename, **kw):
-    return lincese_skel(casename=casename, div=72, std=2)
+def elcv3d_100(casename, **kw):
+    return elcv3d_skel(casename=casename, div=72, std=2)
 
 ################################################################################
 # Invoke SOLVCON workflow.
