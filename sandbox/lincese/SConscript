@@ -1,26 +1,32 @@
 import os, sys
+
 Import('env')
+
+def make_dimlib(lname, lpre, ldir, sdir, bdir, env, extra_libs=None):
+    libs = []
+    for ndim in 2, 3:
+        VariantDir('%s/%s%dd' % (bdir, lname, ndim),
+            '%s/%s' % (sdir, lname), duplicate=0)
+        envm = env.Clone()
+        envm.Prepend(CCFLAGS=['-DNDIM=%d'%ndim])
+        if extra_libs is not None:
+            envm.Prepend(LIBS=extra_libs)
+        libs.append(envm.SharedLibrary(
+            '%s/%s_%s%dd' % (ldir, lpre, lname, ndim),
+            Glob('%s/%s%dd/*.c' % (bdir, lname, ndim))))
+    return libs
+
 lpre = 'sc'
+ldir = '.'
 sdir = '.'
 bdir = '../../tmp/build'
-ldir = '.'
 libs = list()
 # kerpak libraries.
-dimlibs = [ 
-    'lincese', 'elaslin', 'elaslinb',
-]
-for ndim in 2, 3:
-    for lkey in dimlibs:
-        VariantDir('%s/%s%dd' % (bdir, lkey, ndim),
-            '%s/%s' % (sdir, lkey), duplicate=0)
-    envm = env.Clone()
-    envm.Prepend(CCFLAGS=['-DNDIM=%d'%ndim])
-    envm.Prepend(LIBS=['lapack'])
-    for lkey in dimlibs:
-        libs.append(envm.SharedLibrary(
-            '%s/%s_%s%dd' % (ldir, lpre, lkey, ndim),
-            Glob('%s/%s%dd/*.c' % (bdir, lkey, ndim)),
-        ))
+for lname in ['lincese']:
+    libs.extend(make_dimlib(lname, lpre, ldir, sdir, bdir, env,
+        extra_libs=['lapack']))
+for lname in ['elaslin', 'elaslinb']:
+    libs.extend(make_dimlib(lname, lpre, ldir, sdir, bdir, env))
 all = Alias(libs)
 Default(all)
 # vim: set ft=python ff=unix:
