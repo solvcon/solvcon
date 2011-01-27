@@ -19,20 +19,7 @@
 from solvcon.gendata import SingleAssignDict, AttributeDict
 from solvcon.anchor import Anchor
 from solvcon.hook import BlockHook
-#from .cese import CeseSolver, CeseCase, CeseBC
 from solvcon.kerpak.cese import CeseSolver, CeseCase, CeseBC
-
-def getcdll(libname):
-    """
-    Load shared objects at the default location.
-
-    @param libname: main basename of library without sc_ prefix.
-    @type libname: str
-    @return: ctypes library.
-    @rtype: ctypes.CDLL
-    """
-    from solvcon.dependency import loadcdll
-    return loadcdll('.', 'sc_'+libname)
 
 ###############################################################################
 # Solver.
@@ -47,12 +34,12 @@ class LinceseSolver(CeseSolver):
     @ivar cflmax: the maximum CFL number.
     @itype cflmax: float
     """
-    #from solvcon.dependency import getcdll
+    from solvcon.dependency import getcdll
     __clib_lincese = {
         2: getcdll('lincese2d'),
         3: getcdll('lincese3d'),
     }
-    #del getcdll
+    del getcdll
     @property
     def _clib_lincese(self):
         return self.__clib_lincese[self.ndim]

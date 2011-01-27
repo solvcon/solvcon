@@ -25,11 +25,10 @@ import sys
 sys.path.insert(0, '../..')
 from solvcon.anchor import Anchor
 from solvcon.hook import BlockHook
-#from solvcon.kerpak import elaslin
 from solvcon.kerpak.cese import CesePeriodic
+from solvcon.kerpak import elaslin
+from solvcon.kerpak.lincese import PlaneWaveSolution
 from solvcon.cmdutil import Command
-import elaslin
-from lincese import PlaneWaveSolution
 
 ###############################################################################
 # Command line.
@@ -177,9 +176,8 @@ def lincese_base(casename=None, mtrlname='GaAs',
     from solvcon import hook, anchor
     from solvcon.solver import ALMOST_ZERO
     from solvcon.kerpak import cese
-    from lincese import PlaneWaveHook
-    #from solvcon.kerpak.elaslin import mltregy
-    from elaslin import mltregy
+    from solvcon.kerpak.lincese import PlaneWaveHook
+    from solvcon.kerpak.elaslin import mltregy
     # set up BCs.
     bct = bctregy.BC
     bcmap = {

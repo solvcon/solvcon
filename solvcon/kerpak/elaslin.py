@@ -19,19 +19,7 @@
 from solvcon.gendata import SingleAssignDict, AttributeDict
 from solvcon.anchor import Anchor
 from solvcon.hook import BlockHook
-from lincese import LinceseSolver, LinceseCase, LinceseBC
-
-def getcdll(libname):
-    """
-    Load shared objects at the default location.
-
-    @param libname: main basename of library without sc_ prefix.
-    @type libname: str
-    @return: ctypes library.
-    @rtype: ctypes.CDLL
-    """
-    from solvcon.dependency import loadcdll
-    return loadcdll('.', 'sc_'+libname)
+from solvcon.kerpak.lincese import LinceseSolver, LinceseCase, LinceseBC
 
 ###############################################################################
 # Metadata for materials.
@@ -76,12 +64,12 @@ class ElaslinSolver(LinceseSolver):
     @ivar mtrllist: list of all material objects.
     @itype mtrllist: list
     """
-    #from solvcon.dependency import getcdll
+    from solvcon.dependency import getcdll
     __clib_elaslin = {
         2: getcdll('elaslin2d'),
         3: getcdll('elaslin3d'),
     }
-    #del getcdll
+    del getcdll
     @property
     def _clib_elaslin(self):
         return self.__clib_elaslin[self.ndim]
@@ -157,12 +145,12 @@ class ElaslinBC(LinceseBC):
     """
     Basic BC class for elastic problems.
     """
-    #from solvcon.dependency import getcdll
+    from solvcon.dependency import getcdll
     __clib_elaslinb = {
         2: getcdll('elaslinb2d'),
         3: getcdll('elaslinb3d'),
     }
-    #del getcdll
+    del getcdll
     @property
     def _clib_elaslinb(self):
         return self.__clib_elaslinb[self.svr.ndim]

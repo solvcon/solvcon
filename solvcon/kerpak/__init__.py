@@ -24,4 +24,4 @@ provided in SOLVCON, so that each SK or SP can be migrated outside the solvcon
 package namespace.
 """
 
-__all__ = ['cese', 'elastic', 'euler']
+__all__ = ['cese', 'elaslin', 'elastic', 'euler', 'lincese']

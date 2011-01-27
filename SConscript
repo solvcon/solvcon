@@ -2,9 +2,9 @@ import os, sys
 Import('env')
 
 lpre = 'sc'
+ldir = 'lib'
 sdir = 'src'
 bdir = 'build'
-ldir = 'lib'
 libs = list()
 
 # lib_solvcon.
@@ -29,40 +29,34 @@ libs.append(env.SharedLibrary('%s/%s_solvcontest' % (ldir, lpre),
     Glob('%s/test/*.c'%bdir)))
 
 # kerpak libraries.
-dimlibs = [ 
-    'cese', 'ceseb',    # solvcon.kerpak.cese
-    'euler', 'eulerb',  # solvcon.kerpak.euler
-    'elasticb', # solvcon.kerpak.elastic
-]
-for ndim in 2, 3:
-    for lkey in dimlibs:
-        VariantDir('%s/%s%dd' % (bdir, lkey, ndim),
-            '%s/%s' % (sdir, lkey), duplicate=0)
-    envm = env.Clone()
-    envm.Prepend(CCFLAGS=['-DNDIM=%d'%ndim])
-    for lkey in dimlibs:
+def make_kplib(lname, lpre, ldir, sdir, bdir, env, extra_links=None):
+    """
+    Make kerpak libraries.
+    """
+    libs = []
+    for ndim in 2, 3:
+        VariantDir('%s/%s%dd' % (bdir, lname, ndim), sdir, duplicate=0)
+        envm = env.Clone()
+        envm.Prepend(CCFLAGS=['-DNDIM=%d'%ndim])
+        if extra_links is not None:
+            envm.Prepend(LIBS=extra_links)
         libs.append(envm.SharedLibrary(
-            '%s/%s_%s%dd' % (ldir, lpre, lkey, ndim),
-            Glob('%s/%s%dd/*.c' % (bdir, lkey, ndim)),
-        ))
-# elastic solver needs lapack.
-dimlibs = [
-    'elastic',  # solvcon.kerpak.elastic
+            '%s/%s_%s%dd' % (ldir, lpre, lname, ndim),
+            Glob('%s/%s%dd/*.c' % (bdir, lname, ndim))))
+    return libs
+kplibs = [ 
+    ('cese', None), ('ceseb', None),    # solvcon.kerpak.cese
+    ('elaslin', None), ('elaslinb', None),  # solvcon.kerpak.elaslin
+    ('elastic', ['lapack']), ('elasticb', None),    # solvcon.kerpak.elastic
+    ('euler', None), ('eulerb', None),  # solvcon.kerpak.euler
+    ('lincese', ['lapack']),    # solvcon.kerpak.lincese
 ]
-for ndim in 2, 3:
-    for lkey in dimlibs:
-        VariantDir('%s/%s%dd' % (bdir, lkey, ndim),
-            '%s/%s' % (sdir, lkey), duplicate=0)
-    envm = env.Clone()
-    envm.Prepend(CCFLAGS=['-DNDIM=%d'%ndim])
-    envm.Prepend(LIBS=['lapack'])
-    for lkey in dimlibs:
-        libs.append(envm.SharedLibrary(
-            '%s/%s_%s%dd' % (ldir, lpre, lkey, ndim),
-            Glob('%s/%s%dd/*.c' % (bdir, lkey, ndim)),
-        ))
+for lname, extra_links in kplibs:
+    libs.extend(make_kplib(lname, lpre, ldir, '%s/%s'%(sdir, lname),
+        bdir, env, extra_links=extra_links))
 
-if GetOption('enable_f90'): # TODO: OBSELETE
+# TODO: OBSELETE
+if GetOption('enable_f90'):
     # lib_solvcon in FORTRAN.
     for fpmark, fptype in [('s', 4), ('d', 8),]:
         ddsts = list()
