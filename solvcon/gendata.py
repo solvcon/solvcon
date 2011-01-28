@@ -70,6 +70,14 @@ class SingleAssignDict(dict):
                 str(key), str(self[key]))
         super(SingleAssignDict, self).__setitem__(key, item)
 
+class TypeNameRegistry(SingleAssignDict, AttributeDict):
+    """
+    Registry class for the name of types.
+    """
+    def register(self, tobj):
+        self[tobj.__name__] = tobj
+        return tobj
+
 class Timer(dict):
     """
     Timer dictionary with increase method.

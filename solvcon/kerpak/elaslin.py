@@ -20,7 +20,7 @@
 Anisotropic velocity-stress equations solver using the linear CESE method.
 """
 
-from solvcon.gendata import SingleAssignDict, AttributeDict
+from solvcon.gendata import TypeNameRegistry
 from solvcon.anchor import Anchor
 from solvcon.hook import BlockHook
 from solvcon.kerpak.cese import CeseBC
@@ -31,22 +31,7 @@ from solvcon.kerpak.lincese import (LinceseSolver, LinceseCase,
 # Metadata for materials.
 ###############################################################################
 
-class MtrlTypeRegistry(SingleAssignDict, AttributeDict):
-    """
-    BC type registry class, and its instance holds BC type classes, which can
-    be indexed by BC type name and BC type number. 
-    
-    In current design, there should exist only one registry singleton in 
-    package.
-
-    BC classes in registry should not be altered, in any circumstances.
-    """
-    def register(self, bctype):
-        name = bctype.__name__
-        self[name] = bctype
-        return bctype
-mltregy = MtrlTypeRegistry()  # registry singleton.
-
+mltregy = TypeNameRegistry()  # registry singleton.
 class MaterialMeta(type):
     """
     Meta class for material class.

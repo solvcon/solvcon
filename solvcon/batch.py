@@ -26,7 +26,7 @@ Basic support for cluster batch systems.
 * Torque: The Torque batch system.
 """
 
-from .gendata import SingleAssignDict, AttributeDict
+from .gendata import TypeNameRegistry
 
 class Node(object):
     def __init__(self, name, ncore=1, serial=None, attrs=None):
@@ -46,15 +46,7 @@ class Node(object):
         from socket import gethostbyname
         return gethostbyname(self.name)
 
-class BatchRegistry(SingleAssignDict, AttributeDict):
-    def register(self, cmdtype):
-        name = cmdtype.__name__
-        if name in self:
-            raise KeyError('%s was already registered as a batch' % name)
-        self[name] = cmdtype
-        return cmdtype
-batregy = BatchRegistry() # registry singleton.
-
+batregy = TypeNameRegistry() # registry singleton.
 class BatchMeta(type):
     def __new__(cls, name, bases, namespace):
         newcls = super(BatchMeta, cls).__new__(cls, name, bases, namespace)

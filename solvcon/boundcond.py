@@ -18,24 +18,9 @@
 
 """Primitive boundary condition definition."""
 
-from .gendata import SingleAssignDict, AttributeDict, TypeWithBinder
+from .gendata import TypeNameRegistry, TypeWithBinder
 
-class BcTypeRegistry(SingleAssignDict, AttributeDict):
-    """
-    BC type registry class, and its instance holds BC type classes, which can
-    be indexed by BC type name and BC type number. 
-    
-    In current design, there should exist only one registry singleton in 
-    package.
-
-    BC classes in registry should not be altered, in any circumstances.
-    """
-    def register(self, bctype):
-        name = bctype.__name__
-        self[name] = bctype
-        return bctype
-bctregy = BcTypeRegistry()  # registry singleton.
-
+bctregy = TypeNameRegistry()  # registry singleton.
 class BCMeta(TypeWithBinder):
     """
     Meta class for boundary condition class.

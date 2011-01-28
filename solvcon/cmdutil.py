@@ -20,14 +20,13 @@
 Supporting functionalities and structures for UI commands.
 """
 
-from .gendata import SingleAssignDict, AttributeDict
+from .gendata import TypeNameRegistry
 
-class CommandRegistry(SingleAssignDict, AttributeDict):
+class CommandRegistry(TypeNameRegistry):
     def register(self, cmdtype):
         name = cmdtype.__name__
         if name.islower():
-            self[name] = cmdtype
-            return cmdtype
+            return super(CommandRegistry, self).register(cmdtype)
         else:
             return None
 cmdregy = CommandRegistry() # registry singleton.
