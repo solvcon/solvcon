@@ -75,7 +75,7 @@ Installation needs only three steps:
 
 1. First, obtain the latest release from
    https://bitbucket.org/yungyuc/solvcon/downloads .  Unpack the source
-   tarball.  Let ``$SCSRC`` indicates the root directory of unpacked source
+   tarball.  Let ``$SCSRC`` indicate the root directory of unpacked source
    tree.
 
 2. Get into the source tree and run SCons_ to build the binary codes::
