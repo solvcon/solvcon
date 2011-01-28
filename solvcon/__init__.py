@@ -136,9 +136,9 @@ files.
 
 You can optionally install SOLVCON to your home directory rather than to the
 system.  It is convenient when you don't have the root permission on the
-system.  To do that, add the ``--home`` when invoking the ``setup.py`` script::
+system.  To do that, add the ``--user`` when invoking the ``setup.py`` script::
 
-  $ python setup.py install --home
+  $ python setup.py install --user
 
 Unit Test
 =========
