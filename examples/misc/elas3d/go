@@ -21,11 +21,8 @@
 Convergence test for anisotropic elastic solver.
 """
 
-import sys
-sys.path.insert(0, '../..')
 from solvcon.anchor import Anchor
 from solvcon.hook import BlockHook
-#from solvcon.kerpak import elastic
 from solvcon.kerpak.cese import CesePeriodic
 from solvcon.cmdutil import Command
 import elastic
@@ -307,7 +304,6 @@ def elas3d_base(casename=None, mtrlname='GaAs',
             ctr=array([0,0,0], dtype='float64'), wvec=wvec))
     cse.runhooks.append(PlaneWaveHook, psteps=ssteps, planewaves=pws)
     # analyzing/output anchors and hooks.
-    #cse.runhooks.append(euler.ElasticOAnchor)
     cse.runhooks.append(hook.PMarchSave, anames=[
             ('soln', False, -9),
         ], fpdtype='float64', psteps=ssteps, compressor='gz')

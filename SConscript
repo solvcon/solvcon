@@ -44,10 +44,9 @@ def make_kplib(lname, lpre, ldir, sdir, bdir, env, extra_links=None):
             '%s/%s_%s%dd' % (ldir, lpre, lname, ndim),
             Glob('%s/%s%dd/*.c' % (bdir, lname, ndim))))
     return libs
-kplibs = [ 
+kplibs = [
     ('cese', None), ('ceseb', None),    # solvcon.kerpak.cese
     ('elaslin', None), ('elaslinb', None),  # solvcon.kerpak.elaslin
-    ('elastic', ['lapack']), ('elasticb', None),    # solvcon.kerpak.elastic
     ('euler', None), ('eulerb', None),  # solvcon.kerpak.euler
     ('lincese', ['lapack']),    # solvcon.kerpak.lincese
 ]
