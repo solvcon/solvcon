@@ -28,21 +28,6 @@ from solvcon.kerpak.lincese import (LinceseSolver, LinceseCase,
     PlaneWaveSolution)
 
 ###############################################################################
-# Metadata for materials.
-###############################################################################
-
-mltregy = TypeNameRegistry()  # registry singleton.
-class MaterialMeta(type):
-    """
-    Meta class for material class.
-    """
-    def __new__(cls, name, bases, namespace):
-        newcls = super(MaterialMeta, cls).__new__(cls, name, bases, namespace)
-        # register.
-        mltregy.register(newcls)
-        return newcls
-
-###############################################################################
 # Solver.
 ###############################################################################
 
@@ -268,6 +253,17 @@ class ElaslinOAnchor(Anchor):
 ################################################################################
 # Material definition.
 ################################################################################
+
+mltregy = TypeNameRegistry()  # registry singleton.
+class MaterialMeta(type):
+    """
+    Meta class for material class.
+    """
+    def __new__(cls, name, bases, namespace):
+        newcls = super(MaterialMeta, cls).__new__(cls, name, bases, namespace)
+        # register.
+        mltregy.register(newcls)
+        return newcls
 
 class Material(object):
     """
