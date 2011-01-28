@@ -223,11 +223,11 @@ def elcv3d_base(casename=None, mtrlname='GaAs',
 
 def elcv3d_skel(casename, div, std, **kw):
     from numpy import array, pi
-    period = 2.649983322636356e-04
+    period = 2.353142528777195e-04
     return elcv3d_base(casename=casename,
         time_increment=period/div, steps_run=2*div, ssteps=div, psteps=std,
         wtests=(
-            (array([1,1,0], dtype='float64')*pi, 8),
+            (array([1,1,1], dtype='float64')*pi, 8),
         ), **kw)
 
 ################################################################################
@@ -236,13 +236,13 @@ def elcv3d_skel(casename, div, std, **kw):
 @elaslin.ElaslinCase.register_arrangement
 def elcv3d(casename, **kw):
     from numpy import array, pi
-    period = 2.649983322636356e-04
-    div = 36
+    period = 2.353142528777195e-04
+    div = 32
     std = 1
     return elcv3d_base(casename=casename,
         time_increment=period/div, steps_run=2*div, ssteps=std, psteps=std,
         wtests=(
-            (array([1,1,0], dtype='float64')*pi, 8),
+            (array([1,1,1], dtype='float64')*pi, 8),
         ), **kw)
 
 ################################################################################
@@ -250,13 +250,13 @@ def elcv3d(casename, **kw):
 ################################################################################
 @elaslin.ElaslinCase.register_arrangement
 def elcv3d_200(casename, **kw):
-    return elcv3d_skel(casename=casename, div=34, std=1)
+    return elcv3d_skel(casename=casename, div=32, std=1)
 @elaslin.ElaslinCase.register_arrangement
 def elcv3d_150(casename, **kw):
-    return elcv3d_skel(casename=casename, div=44, std=1)
+    return elcv3d_skel(casename=casename, div=40, std=1)
 @elaslin.ElaslinCase.register_arrangement
 def elcv3d_100(casename, **kw):
-    return elcv3d_skel(casename=casename, div=72, std=2)
+    return elcv3d_skel(casename=casename, div=64, std=2)
 
 ################################################################################
 # Invoke SOLVCON workflow.
