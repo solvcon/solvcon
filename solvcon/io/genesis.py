@@ -144,7 +144,7 @@ class Genesis(NetCDF):
 
     CLTPN_MAP = {
         'QUAD': 2,
-        'TRIANGLE': 3,
+        'TRI3': 3,
         'HEX': 4,
         'TETRA': 5,
         'WEDGE': 6,
