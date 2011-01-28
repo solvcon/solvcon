@@ -7,6 +7,7 @@ Developing
 - Add special CESE solver for linear equations in solvcon.kerpak.lincese
 - Add 2/3D anisotropic, linear elastic solver based on linear CESE solver in
   solvcon.kerpak.elaslin
+- Add an example for custom solver.
 
 0.0.2
 =====

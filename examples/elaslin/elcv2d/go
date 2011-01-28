@@ -97,27 +97,6 @@ class converge(Command):
                 sys.stdout.write(' %g +/- %g'%(ops.order, ops.order_tolerance))
             sys.stdout.write('\n')
 
-###############################################################################
-# Plane wave solution and initializer.
-###############################################################################
-class ElaslinPWSolution(PlaneWaveSolution):
-    def _calc_eigen(self, **kw):
-        wvec = kw['wvec']
-        mtrl = kw['mtrl']
-        idx = kw['idx']
-        from numpy import sqrt
-        from numpy.linalg import eig
-        nml = wvec/sqrt((wvec**2).sum())
-        jaco = mtrl.jacox*nml[0] + mtrl.jacoy*nml[1]
-        if len(nml) == 3:
-            jaco += mtrl.jacoz*nml[2]
-        evl, evc = eig(jaco)
-        srt = evl.argsort()
-        evl = evl[srt[idx]].real
-        evc = evc[:,srt[idx]].real
-        evc *= evc[0]/abs(evc[0]+1.e-200)
-        return evl, evc
-
 ################################################################################
 # Mesh generation and boundary condition processor.
 ################################################################################
@@ -177,7 +156,7 @@ def elcv2d_base(casename=None, mtrlname='GaAs',
     from solvcon.solver import ALMOST_ZERO
     from solvcon.kerpak import cese
     from solvcon.kerpak.lincese import PlaneWaveHook
-    from solvcon.kerpak.elaslin import mltregy
+    from solvcon.kerpak.elaslin import mltregy, ElaslinPWSolution
     # set up BCs.
     bct = bctregy.BC
     bcmap = {

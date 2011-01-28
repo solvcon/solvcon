@@ -24,7 +24,8 @@ from solvcon.gendata import SingleAssignDict, AttributeDict
 from solvcon.anchor import Anchor
 from solvcon.hook import BlockHook
 from solvcon.kerpak.cese import CeseBC
-from solvcon.kerpak.lincese import LinceseSolver, LinceseCase
+from solvcon.kerpak.lincese import (LinceseSolver, LinceseCase,
+    PlaneWaveSolution)
 
 ###############################################################################
 # Metadata for materials.
@@ -90,10 +91,9 @@ class ElaslinSolver(LinceseSolver):
         for igrp in range(len(self.grpnames)):
             mtrl = self.mtrllist[igrp]
             jaco = self.grpda[igrp].reshape(self.neq, self.neq, self.ndim)
-            jaco[:,:,0] = mtrl.jacox
-            jaco[:,:,1] = mtrl.jacoy
-            if self.ndim == 3:
-                jaco[:,:,2] = mtrl.jacoz
+            mjacos = mtrl.get_jacos()
+            for idm in range(self.ndim):
+                jaco[:,:,idm] = mjacos[idm,:,:]
     @staticmethod
     def _build_mtrllist(grpnames, mtrldict):
         """
@@ -222,6 +222,29 @@ class ElaslinTractionFree2(ElaslinBC):
         )
 
 ################################################################################
+# Plane wave solution.
+################################################################################
+
+class ElaslinPWSolution(PlaneWaveSolution):
+    def _calc_eigen(self, **kw):
+        from numpy import sqrt
+        from numpy.linalg import eig
+        wvec = kw['wvec']
+        mtrl = kw['mtrl']
+        idx = kw['idx']
+        nml = wvec/sqrt((wvec**2).sum())
+        jacos = mtrl.get_jacos()
+        jaco = jacos[0] * nml[0]
+        for idm in range(1, len(nml)):
+            jaco += jacos[idm] * nml[idm]
+        evl, evc = eig(jaco)
+        srt = evl.argsort()
+        evl = evl[srt[idx]].real
+        evc = evc[:,srt[idx]].real
+        evc *= evc[0]/abs(evc[0]+1.e-200)
+        return evl, evc
+
+################################################################################
 # Anchor.
 ################################################################################
 
@@ -281,23 +304,19 @@ class Material(object):
     _zeropoints_ = []
 
     from numpy import array
-    K = array([
-        [
+    K = array([ [
             [1, 0, 0, 0, 0, 0],
             [0, 0, 0, 0, 0, 1],
             [0, 0, 0, 0, 1, 0],
-        ],
-        [
+        ], [
             [0, 0, 0, 0, 0, 1],
             [0, 1, 0, 0, 0, 0],
             [0, 0, 0, 1, 0, 0],
-        ],
-        [
+        ], [
             [0, 0, 0, 0, 1, 0],
             [0, 0, 0, 1, 0, 0],
             [0, 0, 1, 0, 0, 0],
-        ],
-    ], dtype='float64')
+        ], ], dtype='float64')
     del array
 
     def __init__(self, *args, **kw):
@@ -325,7 +344,7 @@ class Material(object):
         self._check_origstiffzero(self.origstiff)
         # compute the stiffness matrix in the transformed global coordinate
         # system.
-        bondmat = self.bondmat
+        bondmat = self.get_bondmat()
         self.stiff = dot(bondmat, dot(self.origstiff, bondmat.T))
         super(Material, self).__init__(*args, **kw)
 
@@ -358,8 +377,7 @@ class Material(object):
         for i, j in cls._zeropoints_:
             assert origstiff[i,j] == 0.0
 
-    @property
-    def rotmat(self):
+    def get_rotmat(self):
         """
         Coordinate transformation matrix for three successive rotations through
         the Euler angles.
@@ -386,8 +404,7 @@ class Material(object):
         ], dtype='float64')
         return dot(gamat, dot(bemat, almat))
 
-    @property
-    def bondmat(self):
+    def get_bondmat(self):
         """
         The Bond's matrix M as a shorthand of coordinate transformation for the 
         6-component stress vector.
@@ -396,7 +413,7 @@ class Material(object):
         @rtype: numpy.ndarray
         """
         from numpy import empty
-        rotmat = self.rotmat
+        rotmat = self.get_rotmat()
         bond = empty((6,6), dtype='float64')
         # upper left.
         bond[:3,:3] = rotmat[:,:]**2
@@ -432,76 +449,35 @@ class Material(object):
         bond[5,5] = rotmat[0,1]*rotmat[1,0] + rotmat[0,0]*rotmat[1,1]
         return bond
 
-    def _jaco(self, K):
+    def get_jacos(self):
         """
+        Obtain the Jacobian matrices for the solid.
+
         @param K: the K matrix.
         @type K: numpy.ndarray
-        @return: the Jacobian matrix in x-dir.
+        @return: the Jacobian matrices
         @rtype: numpy.ndarray
         """
         from numpy import zeros, dot
         rho = self.rho
         sf = self.stiff
-        jaco = zeros((9,9), dtype='float64')
-        jaco[:3,3:] = K/(-rho)  # the upper right submatrix.
-        jaco[3:,:3] = -dot(sf, K.T) # the lower left submatrix.
-        return jaco
-    @property
-    def jacox(self):
-        """
-        @return: the Jacobian matrix in x-dir.
-        @rtype: numpy.ndarray
-        """
-        return self._jaco(self.K[0])
-    @property
-    def jacoy(self):
-        """
-        @return: the Jacobian matrix in y-dir.
-        @rtype: numpy.ndarray
-        """
-        return self._jaco(self.K[1])
-    @property
-    def jacoz(self):
-        """
-        @return: the Jacobian matrix in z-dir.
-        @rtype: numpy.ndarray
-        """
-        return self._jaco(self.K[2])
+        jacos = zeros((3,9,9), dtype='float64')
+        for idm in range(3):
+            K = self.K[idm]
+            jaco = jacos[idm]
+            jaco[:3,3:] = K/(-rho)  # the upper right submatrix.
+            jaco[3:,:3] = -dot(sf, K.T) # the lower left submatrix.
+        return jacos
 
-    def _eig(self, jaco):
-        from numpy.linalg import eig
-        evl, evc = eig(jaco)
-        srt = evl.argsort()
-        evl = evl[srt].real
-        evc = evc[:,srt].real
-        return evl, evc
-
-    @property
-    def eigx(self):
-        return self._eig(self.jacox)
-    @property
-    def eigy(self):
-        return self._eig(self.jacoy)
-    @property
-    def eigz(self):
-        return self._eig(self.jacoz)
-
-    @property
-    def vpx(self):
-        return self.eigx[0][-3:]
-    @property
-    def vpy(self):
-        return self.eigy[0][-3:]
-    @property
-    def vpz(self):
-        return self.eigz[0][-3:]
+################################################################################
+# Symmetry.
+################################################################################
 
 class Triclinic(Material):
     """
     The stiffness matrix has to be symmetric.
     """
     _zeropoints_ = []
-
     def __init__(self, *args, **kw):
         for key in kw.keys():   # becaues I modify the key.
             if len(key) == 4 and key[:2] == 'co':
@@ -515,14 +491,8 @@ class Triclinic(Material):
                     assert symkey not in kw
                 kw[symkey] = kw[key]
         super(Triclinic, self).__init__(*args, **kw)
-
     @classmethod
     def _check_origstiffzero(cls, origstiff):
-        """
-        Check for zero in original stiffness matrix.
-
-        @note: assumed symmetric.
-        """
         for i, j in cls._zeropoints_:
             assert origstiff[i,j] == origstiff[j,i] == 0.0
 
@@ -549,7 +519,6 @@ class Tetragonal(Triclinic):
         (2,3), (2,4), (2,5),
         (3,4), (3,5), (4,5),
     ]
-
     def __init__(self, *args, **kw):
         kw['co22'] = kw['co11']
         kw['co23'] = kw['co13']
@@ -563,7 +532,6 @@ class Trigonal(Triclinic):
         (2,3), (2,4), (2,5),
         (3,4),
     ]
-
     def __init__(self, *args, **kw):
         kw['co15'] = -kw.get('co25', 0.0)
         kw['co22'] = kw['co11']
@@ -590,7 +558,6 @@ class Cubic(Triclinic):
         (2,3), (2,4), (2,5),
         (3,4), (3,5), (4,5),
     ]
-
     def __init__(self, *args, **kw):
         kw['co13'] = kw['co12']
         kw['co22'] = kw['co11']
@@ -607,7 +574,6 @@ class Isotropic(Triclinic):
         (2,3), (2,4), (2,5),
         (3,4), (3,5), (4,5),
     ]
-
     def __init__(self, *args, **kw):
         kw['co12'] = kw['co11']-2*kw['co44']
         kw['co13'] = kw['co11']-2*kw['co44']
@@ -617,6 +583,10 @@ class Isotropic(Triclinic):
         kw['co55'] = kw['co44']
         kw['co66'] = kw['co44']
         super(Isotropic, self).__init__(*args, **kw)
+
+################################################################################
+# Material properties.
+################################################################################
 
 class GaAs(Cubic):
     def __init__(self, *args, **kw):
