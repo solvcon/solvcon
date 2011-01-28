@@ -245,13 +245,13 @@ def elcv2d_200(casename, **kw):
     return elcv2d_skel(casename=casename, div=18, std=1)
 @elaslin.ElaslinCase.register_arrangement
 def elcv2d_150(casename, **kw):
-    return elcv2d_skel(casename=casename, div=28, std=1)
+    return elcv2d_skel(casename=casename, div=22, std=1)
 @elaslin.ElaslinCase.register_arrangement
 def elcv2d_100(casename, **kw):
-    return elcv2d_skel(casename=casename, div=36, std=1)
+    return elcv2d_skel(casename=casename, div=32, std=1)
 @elaslin.ElaslinCase.register_arrangement
 def elcv2d_50(casename, **kw):
-    return elcv2d_skel(casename=casename, div=72, std=2)
+    return elcv2d_skel(casename=casename, div=64, std=2)
 
 ################################################################################
 # Invoke SOLVCON workflow.
