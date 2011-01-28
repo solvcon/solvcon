@@ -472,8 +472,8 @@ class Material(object):
         from numpy.linalg import eig
         evl, evc = eig(jaco)
         srt = evl.argsort()
-        evl = evl[srt]
-        evc = evc[:,srt]
+        evl = evl[srt].real
+        evc = evc[:,srt].real
         return evl, evc
 
     @property
