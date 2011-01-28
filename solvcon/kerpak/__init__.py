@@ -17,15 +17,12 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 """
-Solver packages (SPs).
-
-Codes in this subpackage should use absolute import to access functionalities
-provided in SOLVCON, so that each SP can be migrated outside the solvcon
-package namespace.
+Solver packages (SPs), including numerical algorithms and physical models.
 
 A SP inludes one or more solver kernels (SKs) and corresponding analysis
-functions.  These SPs implements both numerical algorithms and/or physical
-models.
+functions.  Codes in this subpackage should use absolute import to access
+functionalities provided in SOLVCON, so that each SP can be migrated outside
+the solvcon package namespace.
 
 Available numerical algorithms include:
  - cese: second order CESE method.
@@ -37,4 +34,4 @@ Available physical models:
    solids.
 """
 
-__all__ = ['cese', 'elaslin', 'elastic', 'euler', 'lincese']
+__all__ = ['cese', 'elaslin', 'euler', 'lincese']

@@ -18,7 +18,13 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 """
-Convergence test for anisotropic elastic solver.
+Demonstrate customizing a new solver from solvcon.kerpak.cese.  The custom
+solver is for linear elasticity.  Convergence test with plane wave for the
+solver is used as the model problem.  The wave vector is set to (pi, pi, 0).  A
+command line tool "./go converge" is provided to analyze the order of
+convergence of error after the arrangements are run.
+
+Run the arrangements by ./go run elas3d_200 elas3d_150 elas3d_100
 """
 
 from solvcon.anchor import Anchor
