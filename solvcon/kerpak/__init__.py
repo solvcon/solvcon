@@ -33,8 +33,6 @@ Available numerical algorithms include:
 
 Available physical models:
  - euler: the euler equations for gas dynamics.
- - elastic: the velocity-stress equations for anisotropic, linear elastic 
-   solids, 2D only.
  - elaslin: the velocity-stress equations for anisotropic, linear elastic
    solids.
 """

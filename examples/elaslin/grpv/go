@@ -27,7 +27,7 @@ enabled by the corresponding Anchor class.
 
 from solvcon.anchor import Anchor
 from solvcon.hook import BlockHook
-from solvcon.kerpak import elastic
+from solvcon.kerpak import elaslin
 
 ################################################################################
 # Source term treatment.
@@ -106,7 +106,7 @@ def grpv_base(casename=None, meshname=None, mtrlname='Beryl',
     from solvcon import hook, anchor
     from solvcon.solver import ALMOST_ZERO
     from solvcon.kerpak import cese
-    from solvcon.kerpak.elastic import mltregy
+    from solvcon.kerpak.elaslin import mltregy
     # set up BCs.
     bcmap = {
         'left': (bctregy.CeseNonrefl, {}),
@@ -117,7 +117,7 @@ def grpv_base(casename=None, meshname=None, mtrlname='Beryl',
     # set up case.
     mtrl = mltregy[mtrlname](al=al*pi/180.0, be=be*pi/180.0, ga=ga*pi/180.0)
     basedir = os.path.join(os.path.abspath(os.getcwd()), 'result')
-    cse = elastic.ElasticCase(basedir=basedir, rootdir=env.projdir,
+    cse = elaslin.ElaslinCase(basedir=basedir, rootdir=env.projdir,
         basefn=casename, meshfn=os.path.join(env.find_scdata_mesh(), meshname),
         bcmap=bcmap, mtrldict={None: mtrl}, **kw)
     # statistical anchors for solvers.
@@ -141,7 +141,7 @@ def grpv_base(casename=None, meshname=None, mtrlname='Beryl',
     )
     cse.runhooks.append(PSAnchor, sources=[src])
     # analyzing/output anchors and hooks.
-    cse.runhooks.append(elastic.ElasticOAnchor)
+    cse.runhooks.append(elaslin.ElaslinOAnchor)
     cse.runhooks.append(hook.PMarchSave, anames=[
             ('soln', False, -9),
             ('energy', True, 0),
@@ -151,7 +151,7 @@ def grpv_base(casename=None, meshname=None, mtrlname='Beryl',
 ################################################################################
 # The arrangement.
 ################################################################################
-@elastic.ElasticCase.register_arrangement
+@elaslin.ElaslinCase.register_arrangement
 def grpv(casename, **kw):
     return grpv_base(casename=casename, meshname='psquare_10mm.neu.gz',
         time_increment=3.64e-7,

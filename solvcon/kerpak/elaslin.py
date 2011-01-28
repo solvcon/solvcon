@@ -243,7 +243,7 @@ class ElaslinOAnchor(Anchor):
             rhos[igp] = mtrl.rho
             comps[igp,:,:] = inv(mtrl.stiff).T
         # output arrays.
-        svr._clib_elastic.calc_energy(
+        svr._clib_elaslin.calc_energy(
             byref(svr.exd),
             rhos.ctypes.data_as(svr.fpptr),
             comps.ctypes.data_as(svr.fpptr),
