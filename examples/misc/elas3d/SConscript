@@ -1,7 +1,7 @@
 Import('env')
 lpre = 'sc'
 sdir = '.'
-bdir = '../../tmp/build'
+bdir = '../../../tmp/build'
 ldir = '.'
 libs = list()
 

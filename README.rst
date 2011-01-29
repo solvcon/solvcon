@@ -97,9 +97,9 @@ automatically applied to the downloaded METIS source with the
 Install from Repository
 =======================
 
-Since SOLVCON is in intense development, you may want to use the latest source
-from the code repository.  You need to install Mercurial_, clone the repository
-to your local disk::
+Since SOLVCON is in intensive development, you may want to use the latest
+source from the code repository.  You need to install Mercurial_, clone the
+repository to your local disk::
 
   $ sudo apt-get install mercurial
   $ hg clone https://bitbucket.org/yungyuc/solvcon
@@ -109,8 +109,7 @@ and then follow steps 2 and 3.
 Rebuild/Reinstall
 =================
 
-If you want to rebuild and reinstall the binary after the installation, you can
-run::
+If you want to rebuild and reinstall the binary, you can run::
 
   $ cd $SCSRC
   $ scons
