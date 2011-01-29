@@ -109,7 +109,7 @@ and then follow steps 2 and 3.
 Rebuild/Reinstall
 =================
 
-If you want to rebuild and reinstall the binary, you can run::
+If you want to rebuild and reinstall, you can run::
 
   $ cd $SCSRC
   $ scons
