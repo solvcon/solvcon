@@ -24,9 +24,9 @@ cudaMemcpyDeviceToHost = 2  # device -> host.
 cudaMemcpyDeviceToDevice = 3    # device -> device.
 
 def main():
-    from ctypes import cdll, CDLL, byref, c_void_p, POINTER, c_float
+    from ctypes import cdll, CDLL, byref, c_void_p, POINTER, c_float, sizeof
     from numpy import empty, arange
-    cuda = cdll.LoadLibrary('libcudart.so')
+    cudart = cdll.LoadLibrary('libcudart.so')
     lib = cdll.LoadLibrary('libsc_cutest3d.so')
     nelm = 1024
 
@@ -40,30 +40,28 @@ def main():
     pcrra = c_void_p()
     pcrrb = c_void_p()
     pcrrc = c_void_p()
-    cuda.cudaMalloc(byref(pcrra), nelm*4)
-    cuda.cudaMalloc(byref(pcrrb), nelm*4)
-    cuda.cudaMalloc(byref(pcrrc), nelm*4)
+    cudart.cudaMalloc(byref(pcrra), arra.nbytes)
+    cudart.cudaMalloc(byref(pcrrb), arrb.nbytes)
+    cudart.cudaMalloc(byref(pcrrc), arrc.nbytes)
 
     # copy from host to device.
-    cuda.cudaMemcpy(pcrra, arra.ctypes.data_as(POINTER(c_float)),
-        nelm*4, cudaMemcpyHostToDevice)
-    cuda.cudaMemcpy(pcrrb, arrb.ctypes.data_as(POINTER(c_float)),
-        nelm*4, cudaMemcpyHostToDevice)
+    cudart.cudaMemcpy(pcrra, arra.ctypes.data_as(POINTER(c_float)),
+        arra.nbytes, cudaMemcpyHostToDevice)
+    cudart.cudaMemcpy(pcrrb, arrb.ctypes.data_as(POINTER(c_float)),
+        arrb.nbytes, cudaMemcpyHostToDevice)
 
     # invoke kernel.
-    #lib._Z13invoke_VecAddPfS_S_i(pcrra, pcrrb, pcrrc, nelm)
     lib.invoke_VecAdd(pcrra, pcrrb, pcrrc, nelm)
 
     # copy from device to host.
-    print arrc.sum()
-    cuda.cudaMemcpy(arrc.ctypes.data_as(POINTER(c_float)), pcrrc,
-        nelm*4, cudaMemcpyDeviceToHost)
+    cudart.cudaMemcpy(arrc.ctypes.data_as(POINTER(c_float)), pcrrc,
+        arrc.nbytes, cudaMemcpyDeviceToHost)
     print arrc.sum()
 
     # deallocate on GPU.
-    cuda.cudaFree(byref(pcrra))
-    cuda.cudaFree(byref(pcrrb))
-    cuda.cudaFree(byref(pcrrc))
+    cudart.cudaFree(byref(pcrra))
+    cudart.cudaFree(byref(pcrrb))
+    cudart.cudaFree(byref(pcrrc))
 
 if __name__ == '__main__':
     main()
