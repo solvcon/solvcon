@@ -1,0 +1,9 @@
+import os
+Import('env')
+
+env.SharedLibrary('_clib_vecadd', env.SharedObject('vecadd.cu'),
+    LIBS=['cublas', 'cudart', 'cuda'])
+
+env.Program('test.so', 'test.cu', LIBS=['cublas', 'cudart', 'cuda'])
+
+# vim: set ft=python ff=unix:
