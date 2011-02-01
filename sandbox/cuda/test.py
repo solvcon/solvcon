@@ -40,23 +40,24 @@ def main():
     pcrra = c_void_p()
     pcrrb = c_void_p()
     pcrrc = c_void_p()
-    cuda.cudaMalloc(byref(pcrra), nelm)
-    cuda.cudaMalloc(byref(pcrrb), nelm)
-    cuda.cudaMalloc(byref(pcrrc), nelm)
+    cuda.cudaMalloc(byref(pcrra), nelm*4)
+    cuda.cudaMalloc(byref(pcrrb), nelm*4)
+    cuda.cudaMalloc(byref(pcrrc), nelm*4)
 
     # copy from host to device.
     cuda.cudaMemcpy(pcrra, arra.ctypes.data_as(POINTER(c_float)),
-        nelm, cudaMemcpyHostToDevice)
+        nelm*4, cudaMemcpyHostToDevice)
     cuda.cudaMemcpy(pcrrb, arrb.ctypes.data_as(POINTER(c_float)),
-        nelm, cudaMemcpyHostToDevice)
+        nelm*4, cudaMemcpyHostToDevice)
 
     # invoke kernel.
-    lib._Z13invoke_VecAddPfS_S_i(pcrra, pcrrb, pcrrc, nelm)
+    #lib._Z13invoke_VecAddPfS_S_i(pcrra, pcrrb, pcrrc, nelm)
+    lib.invoke_VecAdd(pcrra, pcrrb, pcrrc, nelm)
 
     # copy from device to host.
     print arrc.sum()
     cuda.cudaMemcpy(arrc.ctypes.data_as(POINTER(c_float)), pcrrc,
-        nelm, cudaMemcpyDeviceToHost)
+        nelm*4, cudaMemcpyDeviceToHost)
     print arrc.sum()
 
     # deallocate on GPU.
