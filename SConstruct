@@ -1,17 +1,25 @@
 import os
 import sys
 
+# compilation.
 AddOption('--enable-f90', dest='enable_f90',
     action='store_true', default=False,
     help='Enable FORTRAN (90) version binary.')
 AddOption('--f90', dest='f90', type='string',
     action='store', default='gfortran',
     help='Fortran compiler (SCons tool): gfortran, ifort.')
-
 AddOption('--cc', dest='cc', type='string',
     action='store', default='gcc',
     help='C compiler (SCons tool): gcc, intelc.',)
+AddOption('--optlevel', dest='optlevel', type=int,
+    action='store', default=2,
+    help='Optimization level; default is 2.',)
+AddOption('--cmpvsn', action='store', default='',
+    dest='cmpvsn',
+    help='Compiler version; for gcc-4.5 it\'s --cmpvsn=-4.5',
+)
 
+# dependencies and patches.
 AddOption('--download', dest='download',
     action='store_true', default=False,
     help='Flag to download external packages.')
@@ -29,15 +37,6 @@ AddOption('--get-scdata', dest='get_scdata',
 AddOption('--count', dest='count',
     action='store_true', default=False,
     help='Count line of sources.')
-
-AddOption('--optlevel', dest='optlevel', type=int,
-    action='store', default=2,
-    help='Optimization level; default is 2.',)
-
-AddOption('--cmpvsn', action='store', default='',
-    dest='cmpvsn',
-    help='Set compiler version; eg gcc-4.5 --cmpvsn=-4.5. Only valid for gnu',
-)
 
 class Archive(object):
     """
@@ -215,51 +214,41 @@ if GetOption('count'):
 tools = []
 tools.append(GetOption('cc'))
 tools.append(GetOption('f90'))
-#F90FLAGS = [
-#    '-O2',
-#]
-if GetOption('optlevel') == 0:
-    F90FLAGS = [ '-O0', ]
-    CFLAGS   = [ '-O0', ]
-elif GetOption('optlevel') == 1:
-    F90FLAGS = [ '-O1', ]
-    CFLAGS   = [ '-O1', ]
-elif GetOption('optlevel') == 2:
-    F90FLAGS = [ '-O2', ]
-    CFLAGS   = [ '-O2', ]
-elif GetOption('optlevel') == 3:
-    F90FLAGS = [ '-O3', ]
-    CFLAGS   = [ '-O3', ]
+F90FLAGS = [
+    '-O%d'%GetOption('optlevel'),
+]
+CFLAGS = [
+    '-O%d'%GetOption('optlevel'),
+]
      
 if GetOption('f90') == 'gfortran':
+    F90 = 'gfortran%s' % GetOption('cmpvsn')
     F90FLAGS.extend([
         '-x',
         'f95-cpp-input',
     ])
 elif GetOption('f90') == 'ifort':
+    F90 = 'ifort'
     F90FLAGS.extend([
         '-fpp', '-vec-report=0'
     ])
+
+if GetOption('cc') == 'gcc':
+    CC = 'gcc%s' % GetOption('cmpvsn')
+else:
+    CC = 'icc'
 
 if sys.platform.startswith('win'):
     tools.insert(0, 'mingw')
 else:
     tools.insert(0, 'default')
 
-if GetOption('f90') == 'gfortran':
-    F90='gfortran%s' % GetOption('cmpvsn'),
-else:
-    F90='ifort'
-if GetOption('cc') == 'gcc':
-    CC='gcc%s' % GetOption('cmpvsn'),
-else:
-    CC='icc'   
-
-
 # solvcon environment.
 env = Environment(ENV=os.environ, tools=tools,
     CPPPATH='src', CFLAGS=CFLAGS, F90FLAGS=F90FLAGS,
 )
+if GetOption('cc') == 'intelc' or GetOption('f90') == 'ifort':
+    env['ENV']['LANG']='C' 
 def build_epydoc(target, source, env):
     import sys
     sys.path.insert(0, '.')
@@ -276,9 +265,6 @@ env.Append(BUILDERS={
         action=build_sphinx,
     ),
 })
-if GetOption('cc') == 'intelc' or GetOption('f90') == 'ifort':
-    env['ENV']['LANG']='C' 
-
 
 Export('env')
 SConscript(['SConscript'])
