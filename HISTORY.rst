@@ -3,7 +3,7 @@ Developing
 
 - Add netCDF reading support.
 - Add Cubit invokation helper for on-the-fly mesh generation.
-- Refactor coupling of periodic boudary condition.
+- Refactor coupling of periodic boundary condition.
 - Add special CESE solver for linear equations in solvcon.kerpak.lincese
 - Add 2/3D anisotropic, linear elastic solver based on linear CESE solver in
   solvcon.kerpak.elaslin
