@@ -50,6 +50,9 @@ def main():
     cuda.cudaMemcpy(pcrrb, arrb.ctypes.data_as(POINTER(c_float)),
         nelm, cudaMemcpyHostToDevice)
 
+    # invoke kernel.
+    lib._Z13invoke_VecAddPfS_S_i(pcrra, pcrrb, pcrrc, nelm)
+
     # copy from device to host.
     print arrc.sum()
     cuda.cudaMemcpy(arrc.ctypes.data_as(POINTER(c_float)), pcrrc,
