@@ -1,23 +1,8 @@
-import os
-import sys
-
-tools = []
-if sys.platform.startswith('win'):
-    tools.insert(0, 'mingw')
-else:
-    tools.insert(0, 'default')
+import sys, os
+tools = ['mingw' if sys.platform.startswith('win') else 'default']
 tools.append('cuda')
-
-NVCCFLAGS = [
-    '-arch sm_13',
-    '-Xcompiler',
-    '-fPIC',
-]
-
-env = Environment(ENV=os.environ, tools=tools,
-    NVCCFLAGS=' '.join(NVCCFLAGS).strip(),
-)
-
+env = Environment(ENV=os.environ, tools=tools, NVCCFLAGS=[
+    '-arch=sm_13', '-Xcompiler', '-fPIC'])
 Export('env')
 SConscript(['SConscript'])
 # vim: set ft=python ff=unix:
