@@ -247,8 +247,6 @@ else:
 env = Environment(ENV=os.environ, tools=tools,
     CPPPATH='src', CFLAGS=CFLAGS, F90FLAGS=F90FLAGS,
 )
-if GetOption('cc') == 'intelc' or GetOption('f90') == 'ifort':
-    env['ENV']['LANG']='C' 
 def build_epydoc(target, source, env):
     import sys
     sys.path.insert(0, '.')
