@@ -40,14 +40,14 @@ def main():
     gmemc = scuda.alloc(arrc.nbytes)
 
     # copy from host to device.
-    scuda.memcpy(arra, gmema)
-    scuda.memcpy(arrb, gmemb)
+    scuda.memcpy(gmema, arra)
+    scuda.memcpy(gmemb, arrb)
 
     # invoke kernel.
     lib.invoke_VecAdd(gmema.gptr, gmemb.gptr, gmemc.gptr, nelm)
 
     # copy from device to host.
-    scuda.memcpy(gmemc, arrc)
+    scuda.memcpy(arrc, gmemc)
     print arrc.sum()
 
     # deallocate on GPU.

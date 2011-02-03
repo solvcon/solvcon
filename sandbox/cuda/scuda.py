@@ -126,7 +126,7 @@ class Scuda(object):
         self.use_first_valid_device()
     def __del__(self):
         for gmem in self._alloc_gpumem:
-            self.free(gmem)
+            self.free(gmem, do_remove=False)
     def __getattr__(self, key):
         if key.startswith('cuda'):
             return getattr(self.cudart, key)
@@ -174,11 +174,11 @@ class Scuda(object):
         gmem = GpuMemory(gptr, nbytes)
         self._alloc_gpumem.add(gmem)
         return gmem
-    def free(self, gmem):
+    def free(self, gmem, do_remove=True):
         from ctypes import byref
         self.cudaFree(byref(gmem.gptr))
-        self._alloc_gpumem.remove(gmem)
-    def memcpy(self, src, tgt):
+        if do_remove: self._alloc_gpumem.remove(gmem)
+    def memcpy(self, tgt, src):
         from ctypes import c_void_p
         if isinstance(src, GpuMemory) and isinstance(tgt, GpuMemory):
             dkey = self.cudaMemcpyDeviceToDevice

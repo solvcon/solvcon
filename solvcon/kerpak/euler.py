@@ -38,7 +38,7 @@ class EulerSolver(CeseSolver):
         self.cflname = kw.pop('cflname', 'adj')
         kw['nsca'] = 1
         super(EulerSolver, self).__init__(blk, *args, **kw)
-        self.cflc = self.cfl.copy()
+        self.cflc = self.cfl.copy() # FIXME: obselete?
     from solvcon.dependency import getcdll
     __clib_euler = {
         2: getcdll('euler2d'),
