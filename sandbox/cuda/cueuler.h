@@ -22,6 +22,10 @@
 #include <fenv.h>
 #include "cese.h"
 
+// use CUDA max/min.
+#undef max
+#undef min
+
 #undef NEQ
 #if NDIM == 2
 #define NEQ 4

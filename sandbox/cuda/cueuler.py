@@ -54,6 +54,7 @@ class CueulerSolver(EulerSolver):
         super(CueulerSolver, self).__init__(blk, *args, **kw)
         # data structure for CUDA/C.
         self.exc = None
+        self.gexc = None
         # meta array.
         self.cugrpda = scu.alloc(self.grpda.nbytes)
         # dual mesh.
@@ -100,13 +101,15 @@ class CueulerSolver(EulerSolver):
             newptr = cast(gptr, ctmap[key])
             setattr(self.exc, key, newptr)
 
-    def vbind(self):
+    def bind(self):
+        from ctypes import sizeof
         if self.scu:
             self.exc = self._exedatatype_(svr=self)
             self.set_execuda(None, self.exc)
+            self.gexc = self.scu.alloc(sizeof(self.exc))
         super(CueulerSolver, self).bind()
 
-    def vupdate(self, worker=None):
+    def update(self, worker=None):
         if self.debug: self.mesg('update')
         # exchange solution and gradient.
         self.sol, self.soln = self.soln, self.sol
@@ -120,9 +123,10 @@ class CueulerSolver(EulerSolver):
         # set to CUDA.
         if self.scu:
             self.set_execuda(self.exd, self.exc)
+            self.scu.memcpy(self.cudsol, self.dsol)
         if self.debug: self.mesg(' done.\n')
 
-    def vibcam(self, worker=None):
+    def ibcam(self, worker=None):
         if self.debug: self.mesg('ibcam')
         if worker:
             if self.nsca: self.exchangeibc('amsca', worker=worker)
@@ -132,10 +136,15 @@ class CueulerSolver(EulerSolver):
                 if self.nvec: self.scu.memcpy(self.cuamvec, self.amvec)
         if self.debug: self.mesg(' done.\n')
 
-    def vcalcsolt(self, worker=None):
+    def calcsolt(self, worker=None):
         if self.debug: self.mesg('calcsolt')
         from ctypes import byref
-        self._clib_cueuler.calc_solt(byref(self.exc))
+        self.scu.memcpy(self.cusol, self.sol)
+        self.scu.memcpy(self.cudsol, self.dsol)
+        self.scu.memcpy(self.cuamsca, self.amsca)
+        self._clib_cueuler.calc_solt(byref(self.exc), self.gexc.gptr)
+        #self.scu.memcpy(self.solt, self.cusolt)
+        raise RuntimeError(self.solt.sum())
         if self.debug: self.mesg(' done.\n')
 
     def vcalcsoln(self, worker=None):
