@@ -13,7 +13,7 @@ def make_kplib(lname, lpre, ldir, sdir, bdir, env, extra_links=None):
     for ndim in 2, 3:
         VariantDir('%s/%s%dd' % (bdir, lname, ndim), sdir, duplicate=0)
         envm = env.Clone()
-        envm.Prepend(CCFLAGS=['-DNDIM=%d'%ndim])
+        envm.Prepend(NVCCFLAGS=['-DNDIM=%d'%ndim])
         if extra_links is not None:
             envm.Prepend(LIBS=extra_links)
         libs.append(envm.SharedLibrary(
@@ -22,6 +22,8 @@ def make_kplib(lname, lpre, ldir, sdir, bdir, env, extra_links=None):
     return libs
 kplibs = [
     ('cutest', ['cublas', 'cudart', 'cuda']),
+    ('cueuler', ['cudart', 'cuda']),
+    ('cueulerb', ['cudart', 'cuda']),
 ]
 for lname, extra_links in kplibs:
     libs.extend(make_kplib(lname, lpre, ldir, '%s/%s'%(sdir, lname),

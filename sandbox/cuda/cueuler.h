@@ -16,8 +16,8 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef SOLVCON_EULER_H
-#define SOLVCON_EULER_H
+#ifndef SOLVCON_CUEULER_H
+#define SOLVCON_CUEULER_H
 #include <stdio.h>
 #include <fenv.h>
 #include "cese.h"
@@ -31,8 +31,6 @@
 
 #undef NSCA
 #define NSCA 1
-
-#define FEANOR_DEBUG
 
 #endif
 // vim: set ts=4 et:
