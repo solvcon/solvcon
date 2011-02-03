@@ -17,51 +17,43 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-# cudaMemcpyKind in driver_types.h
-cudaMemcpyHostToHost = 0    # host -> host.
-cudaMemcpyHostToDevice = 1  # host -> device.
-cudaMemcpyDeviceToHost = 2  # device -> host.
-cudaMemcpyDeviceToDevice = 3    # device -> device.
-
 def main():
     from ctypes import cdll, CDLL, byref, c_void_p, POINTER, c_float, sizeof
     from numpy import empty, arange
-    cudart = cdll.LoadLibrary('libcudart.so')
+    from scuda import Scuda
+    scuda = Scuda()
     lib = cdll.LoadLibrary('libsc_cutest3d.so')
     nelm = 1024
 
+    print len(scuda), 'CUDA device(s)'
+    print 'I\'m using device #%d' % scuda.device
+
     # allocate on CPU.
     arra = arange(nelm, dtype='float32')
-    arrb = -arra
+    arrb = -arra * 3
     arrc = empty(nelm, dtype='float32')
     arrc.fill(2)
 
     # allocate on GPU.
-    pcrra = c_void_p()
-    pcrrb = c_void_p()
-    pcrrc = c_void_p()
-    cudart.cudaMalloc(byref(pcrra), arra.nbytes)
-    cudart.cudaMalloc(byref(pcrrb), arrb.nbytes)
-    cudart.cudaMalloc(byref(pcrrc), arrc.nbytes)
+    gmema = scuda.alloc(arra.nbytes)
+    gmemb = scuda.alloc(arrb.nbytes)
+    gmemc = scuda.alloc(arrc.nbytes)
 
     # copy from host to device.
-    cudart.cudaMemcpy(pcrra, arra.ctypes.data_as(POINTER(c_float)),
-        arra.nbytes, cudaMemcpyHostToDevice)
-    cudart.cudaMemcpy(pcrrb, arrb.ctypes.data_as(POINTER(c_float)),
-        arrb.nbytes, cudaMemcpyHostToDevice)
+    scuda.memcpy(arra, gmema)
+    scuda.memcpy(arrb, gmemb)
 
     # invoke kernel.
-    lib.invoke_VecAdd(pcrra, pcrrb, pcrrc, nelm)
+    lib.invoke_VecAdd(gmema.gptr, gmemb.gptr, gmemc.gptr, nelm)
 
     # copy from device to host.
-    cudart.cudaMemcpy(arrc.ctypes.data_as(POINTER(c_float)), pcrrc,
-        arrc.nbytes, cudaMemcpyDeviceToHost)
+    scuda.memcpy(gmemc, arrc)
     print arrc.sum()
 
     # deallocate on GPU.
-    cudart.cudaFree(byref(pcrra))
-    cudart.cudaFree(byref(pcrrb))
-    cudart.cudaFree(byref(pcrrc))
+    scuda.free(gmemc)
+    scuda.free(gmemb)
+    scuda.free(gmema)
 
 if __name__ == '__main__':
     main()
