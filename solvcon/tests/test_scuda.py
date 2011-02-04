@@ -26,9 +26,13 @@ class TestScuda20(TestScuda):
         import os
         from ctypes import CDLL
         from ..conf import env
-        # TODO: test for compute capability 2.0
+        if not self.scu.devprop.has_compute_capability('2.0'): raise SkipTest
         libpath = os.path.join(env.libdir, 'libsc_cuda20test.so')
         self.lib = CDLL(libpath)
+
+    def test_properties(self):
+        scu = self.scu
+        self.assertTrue(scu.devprop.major >= 2)
 
     def test_vecadd_float(self):
         from numpy import empty, arange

@@ -36,6 +36,69 @@ class GpuMemory(object):
         self.gptr = gptr
         self.nbytes = nbytes
 
+from ctypes import Structure, c_char, c_size_t, c_int
+class CudaDeviceProp(Structure):
+    _fields_ = [
+        ('name', c_char*256),
+        ('totalGlobalMem', c_size_t),
+        ('sharedMemPerBlock', c_size_t),
+        ('regsPerPerBlock', c_int),
+        ('warpSize', c_int),
+        ('memPitch', c_size_t),
+        ('maxThreadsPerBlock', c_int),
+        ('maxThreadsDim', c_int*3),
+        ('maxGridSize', c_int*3),
+        ('totalConstMem', c_size_t),
+        ('major', c_int),
+        ('minor', c_int),
+        ('clockRate', c_int),
+        ('textureAlignment', c_size_t),
+        ('deviceOverlap', c_int),
+        ('multiProcessorCount', c_int),
+        ('kernelExecTimeoutEnabled', c_int),
+        ('integrated', c_int),
+        ('canMapHostMemory', c_int),
+        ('computeMode', c_int),
+        ('maxTexture1D', c_int),
+        ('maxTexture2D', c_int*2),
+        ('maxTexture3D', c_int*3),
+        ('maxTexture2DArray', c_int*3),
+        ('surfaceAlignment', c_size_t),
+        ('concurrentKernels', c_int),
+        ('ECCEnabled', c_int),
+        ('pciBusID', c_int),
+        ('pciDeviceID', c_int),
+        ('tccDriver', c_int),
+        ('__cudaReserved', c_int*21),
+    ]
+    def __str__(self):
+        return self.name
+    def get_compute_capability(self):
+        return '%d.%d'%(self.major, self.minor)
+    def has_compute_capability(self, *args):
+        """
+        Determine if the device has the compute capability specified by the
+        arguments.  Arguments can be in the format of (i) 'x.y' or (ii) x, y.
+
+        @return: has the compute capability or not.
+        @rtype: bool
+        """
+        # parse input.
+        if len(args) == 1 and isinstance(args[0], basestring):
+            major, minor = [int(val) for val in args[0].split('.')]
+        elif len(args) == 2:
+            major, minor = args
+        else:
+            raise ValueError('incompatible arguments.')
+        # determine capability.
+        if major > self.major:
+            return True
+        elif major == self.major and minor >= self.minor:
+            return True
+        else:
+            return False
+del Structure, c_char, c_size_t, c_int
+
 class Scuda(object):
     """
     Wrapper for CUDA library by using ctypes.
@@ -133,6 +196,7 @@ class Scuda(object):
         self.cudart = get_lib(libname_cudart)
         self.cuda = get_lib(libname_cuda)
         self.device = None
+        self.devprop = CudaDeviceProp()
         self._alloc_gpumem = set()
         super(Scuda, self).__init__()
         self.use_first_valid_device()
@@ -142,8 +206,10 @@ class Scuda(object):
     def __getattr__(self, key):
         if key.startswith('cuda'):
             return getattr(self.cudart, key)
-        if key.startswith('cu'):
+        elif key.startswith('cu'):
             return getattr(self.cuda, key)
+        else:
+            raise KeyError
 
     def __len__(self):
         from ctypes import byref, c_int
@@ -151,6 +217,18 @@ class Scuda(object):
         self.cudaGetDeviceCount(byref(dcnt))
         return dcnt.value
 
+    def download_device_properties(self):
+        """
+        Use CUDA runtime API to download device properties to self object.  Set
+        self._device_properties.
+
+        @return: nothing
+        """
+        from ctypes import byref, c_int
+        ret = self.cudaGetDeviceProperties(byref(self.devprop),
+            c_int(self.device))
+        if ret != self.cudaSuccess:
+            raise ValueError(ret)
     def use_device(self, idx):
         """
         Use the specified device ID.  Set self.device.
@@ -160,13 +238,14 @@ class Scuda(object):
         @return: the device ID.
         @rtype: int
         """
-        from ctypes import c_int
+        from ctypes import c_int, byref
         assert idx < len(self)
         idx = c_int(idx)
         ret = self.cudaSetDevice(idx)
         if ret != self.cudaSuccess:
             raise ValueError(ret)
-        self.device = ret
+        self.device = idx.value
+        self.download_device_properties()
         return ret
     def use_first_valid_device(self):
         dev = None
