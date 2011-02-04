@@ -231,7 +231,7 @@ extern "C" int calc_solt(int nthread, exedata *exc, void *gexc) {
 
 #ifdef __CUDACC__
 __global__ void cuda_calc_soln(exedata *exd) {
-    int istart = -exd->ngstcell + blockDim.x * blockIdx.x + threadIdx.x;
+    int istart = blockDim.x * blockIdx.x + threadIdx.x;
 #else
 int calc_soln(exedata *exd, int istart, int iend) {
     struct tms timm0, timm1;
@@ -439,7 +439,7 @@ int calc_soln(exedata *exd, int istart, int iend) {
 #else
 };
 extern "C" int calc_soln(int nthread, exedata *exc, void *gexc) {
-    dim3 nblock = (exc->ngstcell + exc->ncell + nthread-1) / nthread;
+    dim3 nblock = (exc->ncell + nthread-1) / nthread;
     cuda_calc_soln<<<nblock, nthread>>>((exedata *)gexc);
     cudaThreadSynchronize();
     return 0;

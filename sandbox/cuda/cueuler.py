@@ -51,6 +51,7 @@ class CueulerSolver(EulerSolver):
         from solvcon.conf import env
         self.scu = scu = env.scu
         kw['nsca'] = 1
+        self.ncuthread = kw.pop('ncuthread',  32)
         super(CueulerSolver, self).__init__(blk, *args, **kw)
         # data structure for CUDA/C.
         self.exc = None
@@ -61,7 +62,7 @@ class CueulerSolver(EulerSolver):
             # geometry.
             'ndcrd', 'fccnd', 'clcnd',
             # meta array.
-            'grpda',
+            'cltpn', 'grpda',
             # dual mesh.
             'cecnd', 'cevol',
             # solutions.
@@ -114,6 +115,8 @@ class CueulerSolver(EulerSolver):
             self.__set_cuda_pointer(exc, self, key, self.ngstface)
         for key in ('clcnd',):
             self.__set_cuda_pointer(exc, self, key, self.ngstcell)
+        for key in ('cltpn',):
+            self.__set_cuda_pointer(exc, self, key, self.ngstcell)
         for key in ('grpda',):
             self.__set_cuda_pointer(exc, self, key, 0)
         for key in ('cecnd', 'cevol'):
@@ -135,6 +138,12 @@ class CueulerSolver(EulerSolver):
 
     def init(self, **kw):
         super(CueulerSolver, self).init(**kw)
+        if self.scu:
+            for key in ('cltpn',
+                'clfcs', 'fcnds', 'fccls', 'ndcrd', 'fccnd', 'clcnd',
+                'cecnd', 'cevol',
+            ):
+                self.scu.memcpy(getattr(self, 'cu'+key), getattr(self, key))
 
     def update(self, worker=None):
         if self.debug: self.mesg('update')
@@ -153,10 +162,7 @@ class CueulerSolver(EulerSolver):
             self.set_execuda(self.exd, self.exc)
             self.scu.cudaMemcpy(self.gexc.gptr, byref(self.exc),
                 sizeof(self.exc), self.scu.cudaMemcpyHostToDevice)
-            for key in ('sol', 'dsol', 'amsca',
-                'clfcs', 'fcnds', 'fccls', 'ndcrd', 'fccnd', 'clcnd',
-                'cecnd', 'cevol',
-            ):
+            for key in ('sol', 'dsol',):
                 self.scu.memcpy(getattr(self, 'cu'+key), getattr(self, key))
         if self.debug: self.mesg(' done.\n')
 
@@ -165,15 +171,15 @@ class CueulerSolver(EulerSolver):
         if worker:
             if self.nsca: self.exchangeibc('amsca', worker=worker)
             if self.nvec: self.exchangeibc('amvec', worker=worker)
-            if self.scu:
-                if self.nsca: self.scu.memcpy(self.cuamsca, self.amsca)
-                if self.nvec: self.scu.memcpy(self.cuamvec, self.amvec)
+        if self.nsca: self.scu.memcpy(self.cuamsca, self.amsca)
+        if self.nvec: self.scu.memcpy(self.cuamvec, self.amvec)
         if self.debug: self.mesg(' done.\n')
 
     def calcsolt(self, worker=None):
         if self.debug: self.mesg('calcsolt')
         from ctypes import byref
-        self._clib_cueuler.calc_solt(32, byref(self.exc), self.gexc.gptr)
+        self._clib_cueuler.calc_solt(self.ncuthread,
+            byref(self.exc), self.gexc.gptr)
         for key in ('solt',):
             self.scu.memcpy(getattr(self, key), getattr(self, 'cu'+key))
         if self.debug: self.mesg(' done.\n')
@@ -181,7 +187,8 @@ class CueulerSolver(EulerSolver):
     def calcsoln(self, worker=None):
         if self.debug: self.mesg('calcsoln')
         from ctypes import byref
-        self._clib_cueuler.calc_soln(32, byref(self.exc), self.gexc.gptr)
+        self._clib_cueuler.calc_soln(self.ncuthread,
+            byref(self.exc), self.gexc.gptr)
         for key in ('soln',):
             self.scu.memcpy(getattr(self, key), getattr(self, 'cu'+key))
         if self.debug: self.mesg(' done.\n')
@@ -200,10 +207,15 @@ class CueulerSolver(EulerSolver):
         self.marchret[3] += nadj
         return self.marchret
 
-    def vcalcdsoln(self, worker=None):
+    def calcdsoln(self, worker=None):
         if self.debug: self.mesg('calcdsoln')
         from ctypes import byref
-        self._clib_cueuler.calc_dsoln(byref(self.exc))
+        for key in ('cfl',):
+            self.scu.memcpy(getattr(self, 'cu'+key), getattr(self, key))
+        self._clib_cueuler.calc_dsoln(self.ncuthread,
+            byref(self.exc), self.gexc.gptr)
+        for key in ('dsoln',):
+            self.scu.memcpy(getattr(self, key), getattr(self, 'cu'+key))
         if self.debug: self.mesg(' done.\n')
 
 ###############################################################################

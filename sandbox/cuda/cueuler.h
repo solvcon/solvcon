@@ -36,11 +36,5 @@
 #undef NSCA
 #define NSCA 1
 
-#ifdef __CUDACC__
-__device__
-void calc_jaco(exedata *exd, int icl,
-        double fcn[NEQ][NDIM], double jacos[NEQ][NEQ][NDIM]);
-#endif
-
 #endif
 // vim: set ts=4 et:

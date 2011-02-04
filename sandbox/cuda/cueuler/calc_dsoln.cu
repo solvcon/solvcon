@@ -18,9 +18,41 @@
 
 #include "cueuler.h"
 
-int calc_dsoln_tau(exedata *exd, int istart, int iend) {
-    int cputicks;
+#ifdef __CUDACC__
+__global__ void cuda_calc_dsoln(exedata *exd) {
+    int istart = blockDim.x * blockIdx.x + threadIdx.x;
+    // Two-/three-dimensional GGE definition (in c-tau scheme).
+    const int ggefcs[31][3] = {
+        // quadrilaterals.
+        {1, 2, -1}, {2, 3, -1}, {3, 4, -1}, {4, 1, -1},
+        // triangles.
+        {1, 2, -1}, {2, 3, -1}, {3, 1, -1},
+        // hexahedra.
+        {2, 3, 5}, {6, 3, 2}, {4, 3, 6}, {5, 3, 4},
+        {5, 1, 2}, {2, 1, 6}, {6, 1, 4}, {4, 1, 5},
+        // tetrahedra.
+        {3, 1, 2}, {2, 1, 4}, {4, 1, 3}, {2, 4, 3},
+        // prisms.
+        {5, 2, 4}, {3, 2, 5}, {4, 2, 3},
+        {4, 1, 5}, {5, 1, 3}, {3, 1, 4},
+        // pyramids
+        {1, 5, 2}, {2, 5, 3}, {3, 5, 4}, {4, 5, 1},
+        {1, 3, 4}, {3, 1, 2},
+    };
+    const int ggerng[8][2] = {
+        {-1, -1}, {-2, -1}, {0, 4}, {4, 7},
+        {7, 15}, {15, 19}, {19, 25}, {25, 31},
+        //{0, 8}, {8, 12}, {12, 18}, {18, 24},
+    };
+#else
+int calc_dsoln(exedata *exd, int istart, int iend) {
     struct tms timm0, timm1;
+    int cputicks;
+    times(&timm0);
+#ifdef SOLVCESE_FE
+    feenableexcept(SOLVCESE_FE);
+#endif
+#endif
     int clnfc, fcnnd;
     // pointers.
     int *pcltpn;
@@ -42,19 +74,24 @@ int calc_dsoln_tau(exedata *exd, int istart, int iend) {
     // interators.
     int icl, ifl, ifl1, ifc, jcl, ieq, ivx;
     int ig0, ig1, ig;
-    times(&timm0);
-#ifdef SOLVCESE_FE
-    feenableexcept(SOLVCESE_FE);
-#endif
     hdt = exd->time_increment * 0.5;
+#ifndef __CUDACC__
     for (icl=istart; icl<iend; icl++) {
+#else
+    icl = istart;
+    if (icl < exd->ncell) {
+#endif
         pcltpn = exd->cltpn + icl;
         ig0 = ggerng[pcltpn[0]][0];
         ig1 = ggerng[pcltpn[0]][1];
         pclfcs = exd->clfcs + icl*(CLMFC+1);
 
         // determine tau.
+#ifdef __CUDACC__
+        tau = exd->taumin + fabs(exd->cfl[icl]) * exd->tauscale;
+#else
         tau = exd->taufunc(exd, icl);
+#endif
 
         // calculate the vertices of GGE with the tau parameter.
         pclfcs = exd->clfcs + icl*(CLMFC+1);
@@ -264,9 +301,20 @@ int calc_dsoln_tau(exedata *exd, int istart, int iend) {
             pdsoln += NDIM;
         };
     };
+#ifndef __CUDACC__
     times(&timm1);
     cputicks = (int)((timm1.tms_utime+timm1.tms_stime)
                    - (timm0.tms_utime+timm0.tms_stime));
     return cputicks;
 };
+#else
+};
+extern "C" int calc_dsoln(int nthread, exedata *exc, void *gexc) {
+    dim3 nblock = (exc->ncell + nthread-1) / nthread;
+    cuda_calc_dsoln<<<nblock, nthread>>>((exedata *)gexc);
+    cudaThreadSynchronize();
+    return 0;
+};
+#endif
+
 // vim: set ts=4 et:
