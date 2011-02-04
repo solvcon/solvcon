@@ -32,7 +32,7 @@ if FindFile('nvcc', os.environ['PATH'].split(':')):
     envm = env.Clone()
     envm['NVCCFLAGS'] = ['-arch=sm_13', '-Xcompiler', '-fPIC']
     envm.Append(LIBS=['cudart'])
-    VariantDir('%s/cuda13test' % bdir, 'test/cuda13src', duplicate=0)
+    VariantDir('%s/cuda13test' % bdir, 'test/cudasrc', duplicate=0)
     libs.append(envm.SharedLibrary('%s/%s_cuda13test' % (ldir, lpre),
         Glob('%s/cuda13test/*.cu'%bdir)))
 # lib_cuda20test.
@@ -40,7 +40,7 @@ if FindFile('nvcc', os.environ['PATH'].split(':')):
     envm = env.Clone()
     envm['NVCCFLAGS'] = ['-arch=sm_20', '-Xcompiler', '-fPIC']
     envm.Append(LIBS=['cudart'])
-    VariantDir('%s/cuda20test' % bdir, 'test/cuda20src', duplicate=0)
+    VariantDir('%s/cuda20test' % bdir, 'test/cudasrc', duplicate=0)
     libs.append(envm.SharedLibrary('%s/%s_cuda20test' % (ldir, lpre),
         Glob('%s/cuda20test/*.cu'%bdir)))
 
