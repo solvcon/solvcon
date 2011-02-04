@@ -213,19 +213,18 @@ __global__ void cuda_calc_solt(exedata *exd) {
                 psolt[ieq] -= val;
             };
         };
+#ifndef __CUDACC__
         // advance pointers.
         psolt += NEQ;
         pidsol += NEQ*NDIM;
+#endif
     };
 };
 
-extern "C" int calc_solt(exedata *exc, int gpexc) {
-    int istat;
-    istat = cudaMemcpy((void *)gpexc, exc, sizeof(exc), cudaMemcpyHostToDevice);
-    dim3 grid((exc->ngstcell + exc->ncell + 64-1)/64, 1, 1);
-    dim3 thread(64, 1, 1);
-    cuda_calc_solt<<<grid, thread>>>((exedata *)gpexc);
+extern "C" int calc_solt(int nthread, exedata *exc, void *gexc) {
+    dim3 nblock = (exc->ngstcell + exc->ncell + nthread-1) / nthread;
+    cuda_calc_solt<<<nblock, nthread>>>((exedata *)gexc);
     cudaThreadSynchronize();
-    return istat;
+    return 0;
 };
 // vim: set ts=4 et:
