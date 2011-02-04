@@ -47,4 +47,3 @@ class TestBc(TestCase):
         for bc in self.blk.bclist:
             self.assertEqual(bc.fpdtype, env.fpdtype)
             self.assertEqual(bc.fpdtypestr, str_of(env.fpdtype))
-            self.assertEqual(bc.fpptr, pointer_of(env.fpdtype))

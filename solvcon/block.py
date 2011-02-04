@@ -268,10 +268,6 @@ class Block(object):
         from .dependency import str_of
         return str_of(self.fpdtype)
     @property
-    def fpptr(self):
-        from .dependency import pointer_of
-        return pointer_of(self.fpdtype)
-    @property
     def _clib_solvcon(self):
         from .dependency import _clib_solvcon_of
         return _clib_solvcon_of(self.fpdtype)
@@ -515,7 +511,6 @@ class Block(object):
                 self.bndfcs.ctypes._as_parameter_,
             )
         else:
-            fpptr = self.fpptr
             msh = self.create_shape()
             self._clib_solvcon.build_ghost_(
                 # meta data.

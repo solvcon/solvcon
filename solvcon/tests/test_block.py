@@ -22,7 +22,6 @@ class TestCreation(TestCase):
         self.assertEqual(blk.ndcrd.dtype, env.fpdtype)
         self.assertEqual(blk.fpdtype, env.fpdtype)
         self.assertEqual(blk.fpdtypestr, str_of(env.fpdtype))
-        self.assertEqual(blk.fpptr, pointer_of(env.fpdtype))
 
     def test_MAX(self):
         from .. import block

@@ -146,7 +146,6 @@ class TestingSolver(BlockSolver):
     def calcsoln(self, worker=None):
         from ctypes import byref
         from .conf import env
-        fpptr = self.fpptr
         if not env.use_fortran:
             self._clib_solvcon.calc_soln(
                 byref(self.msd),
@@ -179,7 +178,6 @@ class TestingSolver(BlockSolver):
     def calcdsoln(self, worker=None):
         from ctypes import byref
         from .conf import env
-        fpptr = self.fpptr
         if not env.use_fortran:
             self._clib_solvcon.calc_dsoln(
                 byref(self.msd),

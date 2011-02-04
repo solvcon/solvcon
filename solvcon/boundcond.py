@@ -105,10 +105,6 @@ class BC(object):
     def fpdtypestr(self):
         from .dependency import str_of
         return str_of(self.fpdtype)
-    @property
-    def fpptr(self):
-        from .dependency import pointer_of
-        return pointer_of(self.fpdtype)
 
     @property
     def nvalue(self):

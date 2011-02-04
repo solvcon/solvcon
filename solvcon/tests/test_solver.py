@@ -36,7 +36,6 @@ class TestFpdtype(TestCase):
         bsvr = BaseSolver(neq=1)
         self.assertEqual(bsvr.fpdtype, env.fpdtype)
         self.assertEqual(bsvr.fpdtypestr, str_of(env.fpdtype))
-        self.assertEqual(bsvr.fpptr, pointer_of(env.fpdtype))
 
 class TestBlock(TestCase):
     neq = 1
