@@ -322,7 +322,6 @@ class Block(object):
         @return: nothing.
         """
         from ctypes import byref
-        from .dependency import intptr
         from .conf import env
         if not env.use_fortran:
             self._clib_solvcon.calc_metric(
@@ -357,7 +356,6 @@ class Block(object):
         """
         from numpy import empty
         from ctypes import byref, c_int
-        from .dependency import intptr
         from .conf import env
         # prepare to build connectivity: calculate max number of faces.
         max_nfc = 0
@@ -497,7 +495,6 @@ class Block(object):
         """
         from ctypes import byref
         from numpy import arange
-        from .dependency import intptr
         from .conf import env
         # initialize data structure (arrays) for ghost information.
         ngstnode, ngstface, ngstcell = self._count_ghost()

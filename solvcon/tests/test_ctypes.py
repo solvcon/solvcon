@@ -50,8 +50,6 @@ class TestCtypesFortran(TestCase):
         self.a = arange(10, dtype='int32')
         self.b = arange(20, dtype='float64').reshape((4,5))
         # prepare arguments.
-        intptr = POINTER(c_int)
-        doubleptr = POINTER(c_double)
         self.args = [
             byref(c_int(0)),        # placeholder.
             byref(c_double(0.0)),   # placeholder.

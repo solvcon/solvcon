@@ -449,7 +449,6 @@ class CeseBC(BC):
     _ghostgeom_ = None
 
     def init(self, **kw):
-        from solvcon.dependency import intptr
         from ctypes import byref, c_int
         super(CeseBC, self).init(**kw)
         getattr(self._clib_ceseb, 'ghostgeom_'+self._ghostgeom_)(
@@ -464,7 +463,6 @@ class CeseNonrefl(CeseBC):
     """
     _ghostgeom_ = 'mirror'
     def sol(self):
-        from solvcon.dependency import intptr
         from ctypes import byref, c_int
         svr = self.svr
         self._clib_ceseb.bound_nonrefl_soln(
@@ -473,7 +471,6 @@ class CeseNonrefl(CeseBC):
             self.facn.ctypes._as_parameter_,
         )
     def dsol(self):
-        from solvcon.dependency import intptr
         from ctypes import byref, c_int
         svr = self.svr
         self._clib_ceseb.bound_nonrefl_dsoln(
@@ -513,7 +510,6 @@ class ConvergeAnchor(Anchor):
             dtype=svr.fpdtype)
     def postfull(self):
         from ctypes import c_int, c_double
-        from solvcon.dependency import doubleptr
         svr = self.svr
         diff = svr.der['diff']
         svr._tcall(svr._clib_cese.calc_norm_diff, -svr.ngstcell, svr.ncell,

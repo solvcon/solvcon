@@ -42,7 +42,7 @@ class TestBc(TestCase):
                 self.assertEqual(bfc, bc.blk.bndfcs[idx,0])
 
     def test_fp(self):
-        from ..dependency import pointer_of, str_of
+        from ..dependency import str_of
         from ..conf import env
         for bc in self.blk.bclist:
             self.assertEqual(bc.fpdtype, env.fpdtype)

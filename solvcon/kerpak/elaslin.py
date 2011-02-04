@@ -135,7 +135,6 @@ class ElaslinTraction(ElaslinBC):
     }
     _ghostgeom_ = 'compress'
     def sol(self):
-        from solvcon.dependency import intptr
         from ctypes import byref, c_int
         self._clib_boundcond.bound_traction_soln(
             byref(self.svr.exd),
@@ -145,7 +144,6 @@ class ElaslinTraction(ElaslinBC):
             self.value.ctypes._as_parameter_,
         )
     def dsol(self):
-        from solvcon.dependency import intptr
         from ctypes import byref, c_int
         self._clib_boundcond.bound_traction_dsoln(
             byref(self.svr.exd),
@@ -156,7 +154,6 @@ class ElaslinTraction(ElaslinBC):
 class ElaslinTractionFree(ElaslinBC):
     _ghostgeom_ = 'mirror'
     def sol(self):
-        from solvcon.dependency import intptr
         from ctypes import byref, c_int
         self._clib_boundcond.bound_traction_free_soln(
             byref(self.svr.exd),
@@ -164,7 +161,6 @@ class ElaslinTractionFree(ElaslinBC):
             self.facn.ctypes._as_parameter_,
         )
     def dsol(self):
-        from solvcon.dependency import intptr
         from ctypes import byref, c_int
         self._clib_boundcond.bound_traction_free_dsoln(
             byref(self.svr.exd),
@@ -175,7 +171,6 @@ class ElaslinTractionFree(ElaslinBC):
 class ElaslinTractionFree2(ElaslinBC):
     _ghostgeom_ = 'mirror'
     def sol(self):
-        from solvcon.dependency import intptr
         from ctypes import byref, c_int
         self._clib_boundcond.bound_traction_free2_soln(
             byref(self.svr.exd),
@@ -183,7 +178,6 @@ class ElaslinTractionFree2(ElaslinBC):
             self.facn.ctypes._as_parameter_,
         )
     def dsol(self):
-        from solvcon.dependency import intptr
         from ctypes import byref, c_int
         self._clib_boundcond.bound_traction_free2_dsoln(
             byref(self.svr.exd),

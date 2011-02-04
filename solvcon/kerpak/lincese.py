@@ -129,7 +129,6 @@ class PlaneWaveSolution(object):
         raise NotImplementedError
     def __call__(self, svr, asol, adsol):
         from ctypes import byref, c_double
-        from solvcon.dependency import doubleptr
         svr._clib_lincese.calc_planewave(
             byref(svr.exd),
             asol.ctypes._as_parameter_,

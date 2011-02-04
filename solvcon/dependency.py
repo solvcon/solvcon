@@ -21,21 +21,9 @@ Logic for using external compiled libraries.
 """
 
 from ctypes import byref, c_int, c_float, c_double, POINTER, Structure
-intptr = POINTER(c_int)
-floatptr = POINTER(c_float)
-doubleptr = POINTER(c_double)
 # TODO: del byref
 del c_int, c_float, c_double, POINTER
 from .conf import env
-
-def pointer_of(dtype):
-    import numpy as np
-    if dtype == np.float32:
-        return floatptr
-    elif dtype == np.float64:
-        return doubleptr
-    else:
-        raise TypeError
 
 def str_of(dtype):
     import numpy as np

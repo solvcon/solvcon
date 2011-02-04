@@ -16,7 +16,7 @@ class TestCreation(TestCase):
 
     def test_fpdtype(self):
         from ..conf import env
-        from ..dependency import pointer_of, str_of
+        from ..dependency import str_of
         from ..block import Block
         blk = Block()
         self.assertEqual(blk.ndcrd.dtype, env.fpdtype)

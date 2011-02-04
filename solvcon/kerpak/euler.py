@@ -115,7 +115,6 @@ class EulerBC(CeseBC):
 class EulerWall(EulerBC):
     _ghostgeom_ = 'mirror'
     def sol(self):
-        from solvcon.dependency import intptr
         from ctypes import byref, c_int
         svr = self.svr
         self._clib_eulerb.bound_wall_soln(
@@ -124,7 +123,6 @@ class EulerWall(EulerBC):
             self.facn.ctypes._as_parameter_,
         )
     def dsol(self):
-        from solvcon.dependency import intptr
         from ctypes import byref, c_int
         svr = self.svr
         self._clib_eulerb.bound_wall_dsoln(
@@ -135,7 +133,6 @@ class EulerWall(EulerBC):
 class EulerNonslipWall(EulerBC):
     _ghostgeom_ = 'mirror'
     def sol(self):
-        from solvcon.dependency import intptr
         from ctypes import byref, c_int
         svr = self.svr
         self._clib_eulerb.bound_nonslipwall_soln(
@@ -144,7 +141,6 @@ class EulerNonslipWall(EulerBC):
             self.facn.ctypes._as_parameter_,
         )
     def dsol(self):
-        from solvcon.dependency import intptr
         from ctypes import byref, c_int
         svr = self.svr
         self._clib_eulerb.bound_nonslipwall_dsoln(
@@ -160,7 +156,6 @@ class EulerInlet(EulerBC):
     }
     _ghostgeom_ = 'mirror'
     def sol(self):
-        from solvcon.dependency import intptr
         from ctypes import byref, c_int
         svr = self.svr
         self._clib_eulerb.bound_inlet_soln(
@@ -171,7 +166,6 @@ class EulerInlet(EulerBC):
             self.value.ctypes._as_parameter_,
         )
     def dsol(self):
-        from solvcon.dependency import intptr
         from ctypes import byref, c_int
         svr = self.svr
         self._clib_eulerb.bound_inlet_dsoln(
@@ -183,7 +177,6 @@ class EulerInlet(EulerBC):
 class EulerOutlet(EulerBC):
     _ghostgeom_ = 'translate'
     def sol(self):
-        from solvcon.dependency import intptr
         from ctypes import byref, c_int
         svr = self.svr
         self._clib_eulerb.bound_outlet_soln(
@@ -192,7 +185,6 @@ class EulerOutlet(EulerBC):
             self.facn.ctypes._as_parameter_,
         )
     def dsol(self):
-        from solvcon.dependency import intptr
         from ctypes import byref, c_int
         svr = self.svr
         self._clib_eulerb.bound_outlet_dsoln(
@@ -267,7 +259,6 @@ class EulerOAnchor(Anchor):
         self._calculate_physics()
         self._calculate_schlieren()
     def _calculate_physics(self):
-        from solvcon.dependency import doubleptr
         svr = self.svr
         der = svr.der
         svr._tcall(svr._clib_euler.calc_physics, -svr.ngstcell, svr.ncell,
@@ -281,7 +272,6 @@ class EulerOAnchor(Anchor):
         )
     def _calculate_schlieren(self):
         from ctypes import c_double
-        from solvcon.dependency import doubleptr
         svr = self.svr
         sch = svr.der['sch']
         svr._tcall(svr._clib_euler.calc_schlieren_rhog,

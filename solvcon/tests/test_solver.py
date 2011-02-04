@@ -31,7 +31,7 @@ class TestBase(TestCase):
 
 class TestFpdtype(TestCase):
     def test_fp(self):
-        from ..dependency import pointer_of, str_of
+        from ..dependency import str_of
         from ..conf import env
         bsvr = BaseSolver(neq=1)
         self.assertEqual(bsvr.fpdtype, env.fpdtype)

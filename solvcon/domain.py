@@ -61,7 +61,6 @@ class Partitioner(object):
         from numpy import empty
         from .dependency import _clib_solvcon_d
         from .conf import env
-        intptr = POINTER(c_int)
         rcells = empty((blk.ncell, blk.CLMFC), dtype='int32')
         rcellno = empty(blk.ncell, dtype='int32')
         if not env.use_fortran:
@@ -114,7 +113,6 @@ class Partitioner(object):
         from ctypes import POINTER, c_int, byref
         from numpy import empty
         from .dependency import _clib_metis
-        intptr = POINTER(c_int)
         xadj, adjncy = cls._generate_csr(blk)
         # weighting.
         if vwgt == None:
@@ -216,7 +214,6 @@ class Collective(Domain, list):
         from ctypes import c_int, byref, POINTER
         from .dependency import _clib_solvcon_d
         from .conf import env
-        intptr = POINTER(c_int)
         max_ndcnt = c_int(0)
         if not env.use_fortran:
             _clib_solvcon_d.count_max_nodeinblock(
