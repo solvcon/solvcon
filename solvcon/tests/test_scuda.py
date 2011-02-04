@@ -6,15 +6,21 @@ from unittest import TestCase
 class TestScuda(TestCase):
     def setUp(self):
         import sys, os
-        from ctypes import CDLL
         from nose.plugins.skip import SkipTest
         from ..conf import env
         if sys.platform.startswith('win'): raise SkipTest
         if env.scu is None: raise SkipTest
         self.scu = env.scu
-        if self.scu:
-            libpath = os.path.join(env.libdir, 'libsc_cudatest.so')
-            self.lib = CDLL(libpath)
+
+class TestScuda20(TestScuda):
+    def setUp(self):
+        super(TestScuda20, self).setUp()
+        import os
+        from ctypes import CDLL
+        from ..conf import env
+        # TODO: test for compute capability 2.0
+        libpath = os.path.join(env.libdir, 'libsc_cuda20test.so')
+        self.lib = CDLL(libpath)
 
     def test_vecadd_float(self):
         from numpy import empty, arange

@@ -30,10 +30,11 @@ libs.append(env.SharedLibrary('%s/%s_solvcontest' % (ldir, lpre),
 # lib_cudatest.
 if FindFile('nvcc', os.environ['PATH'].split(':')):
     envm = env.Clone()
+    envm['NVCCFLAGS'] = ['-arch=sm_20', '-Xcompiler', '-fPIC']
     envm.Append(LIBS=['cudart'])
-    VariantDir('%s/cudatest' % bdir, 'test/cudasrc', duplicate=0)
-    libs.append(envm.SharedLibrary('%s/%s_cudatest' % (ldir, lpre),
-        Glob('%s/cudatest/*.cu'%bdir)))
+    VariantDir('%s/cuda20test' % bdir, 'test/cuda20src', duplicate=0)
+    libs.append(envm.SharedLibrary('%s/%s_cuda20test' % (ldir, lpre),
+        Glob('%s/cuda20test/*.cu'%bdir)))
 
 # kerpak libraries.
 def make_kplib(lname, lpre, ldir, sdir, bdir, env, extra_links=None):
