@@ -69,8 +69,10 @@ class TestScuda20(TestScuda):
         from numpy import empty, arange
         scu = self.scu
         lib = self.lib
+        nelm = 337
+        nthread = 32
         # CPU data.
-        ctm = Custom(nelm=1024, dval=4.0)
+        ctm = Custom(nelm=nelm, dval=4.0)
         arra = arange(ctm.nelm, dtype='float64')
         ctm.arra = arra.ctypes.data_as(c_void_p)
         arrb = arange(ctm.nelm, dtype='float64')
@@ -78,7 +80,7 @@ class TestScuda20(TestScuda):
         arrc = empty(ctm.nelm, dtype='float64')
         ctm.arrc = arrc.ctypes.data_as(c_void_p)
         # GPU data.
-        gtm = Custom(nelm=1024, dval=4.0)
+        gtm = Custom(nelm=ctm.nelm, dval=ctm.dval)
         garra = scu.alloc(arra.nbytes)
         scu.memcpy(garra, arra)
         gtm.arra = garra.gptr
@@ -92,7 +94,7 @@ class TestScuda20(TestScuda):
         gp = scu.alloc(sizeof(gtm))
         scu.cudaMemcpy(gp.gptr, byref(gtm), sizeof(gtm),
             scu.cudaMemcpyHostToDevice)
-        lib.structop(byref(ctm), gp.gptr)
+        lib.structop(nthread, byref(ctm), gp.gptr)
         # get back and compare.
         rarrc = empty(ctm.nelm, dtype='float64')
         rarrc.fill(1000)
