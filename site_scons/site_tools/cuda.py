@@ -179,7 +179,7 @@ def generate(env):
     # NVCC compiler flags.
     env['NVCCFLAGS'] = ''
     env['STATICNVCCFLAGS'] = ''
-    env['SHAREDNVCCFLAGS'] = ''
+    env['SHAREDNVCCFLAGS'] = '-Xcompiler -fPIC'
     env['ENABLESHAREDNVCCFLAG'] = '-shared'
 
     # libraries.

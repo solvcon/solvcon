@@ -36,7 +36,15 @@ class GpuMemory(object):
         self.gptr = gptr
         self.nbytes = nbytes
 
-from ctypes import Structure, c_char, c_size_t, c_int
+from ctypes import Structure, c_uint, c_char, c_size_t, c_int
+class CudaDim3(Structure):
+    _fields_ = [
+        ('x', c_uint), ('y', c_uint), ('z', c_uint),
+    ]
+    def __init__(self, *args, **kw):
+        super(CudaDim3, self).__init__(*args, **kw)
+        for key in ['x', 'y', 'z']:
+            if key not in kw: setattr(self, key, 1)
 class CudaDeviceProp(Structure):
     _fields_ = [
         ('name', c_char*256),
@@ -97,7 +105,7 @@ class CudaDeviceProp(Structure):
             return True
         else:
             return False
-del Structure, c_char, c_size_t, c_int
+del Structure, c_uint, c_char, c_size_t, c_int
 
 class Scuda(object):
     """

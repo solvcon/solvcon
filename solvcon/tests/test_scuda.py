@@ -38,7 +38,10 @@ class TestScuda20(TestScuda):
         self.assertTrue(scu.devprop.major >= 2)
 
     def test_vecadd_float(self):
+        from ctypes import (byref, c_size_t, c_void_p, c_int,
+            sizeof, create_string_buffer, memmove)
         from numpy import empty, arange
+        from solvcon.scuda import CudaDim3
         scu = self.scu
         lib = self.lib
         nelm = 1024
