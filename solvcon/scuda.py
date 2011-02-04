@@ -91,9 +91,9 @@ class CudaDeviceProp(Structure):
         else:
             raise ValueError('incompatible arguments.')
         # determine capability.
-        if major > self.major:
+        if self.major > major:
             return True
-        elif major == self.major and minor >= self.minor:
+        elif self.major == major and self.minor >= minor:
             return True
         else:
             return False

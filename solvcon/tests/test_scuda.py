@@ -27,6 +27,7 @@ class TestScuda20(TestScuda):
         super(TestScuda20, self).setUp()
         import os
         from ctypes import CDLL
+        from nose.plugins.skip import SkipTest
         from ..conf import env
         if not self.scu.devprop.has_compute_capability('2.0'): raise SkipTest
         libpath = os.path.join(env.libdir, 'libsc_cuda20test.so')
