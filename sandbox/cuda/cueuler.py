@@ -123,8 +123,15 @@ class CueulerSolver(EulerSolver):
             self.gexc = self.scu.alloc(sizeof(self.exc))
         super(CueulerSolver, self).bind()
 
+    def init(self, **kw):
+        super(CueulerSolver, self).init(**kw)
+        self.scu.memcpy(self.cusol, self.sol)
+        self.scu.memcpy(self.cudsol, self.dsol)
+        self.scu.memcpy(self.cuamsca, self.amsca)
+
     def update(self, worker=None):
         if self.debug: self.mesg('update')
+        from ctypes import byref, sizeof
         # exchange solution and gradient.
         self.sol, self.soln = self.soln, self.sol
         self.dsol, self.dsoln = self.dsoln, self.dsol
@@ -134,6 +141,11 @@ class CueulerSolver(EulerSolver):
         self.exd.soln = self.soln[ngstcell:].ctypes._as_parameter_
         self.exd.dsol = self.dsol[ngstcell:].ctypes._as_parameter_
         self.exd.dsoln = self.dsoln[ngstcell:].ctypes._as_parameter_
+        # reset GPU execution data.
+        if self.scu:
+            self.set_execuda(self.exd, self.exc)
+            self.scu.cudaMemcpy(self.gexc.gptr, byref(self.exc),
+                sizeof(self.exc), self.scu.cudaMemcpyHostToDevice)
         if self.debug: self.mesg(' done.\n')
 
     def ibcam(self, worker=None):
@@ -148,15 +160,10 @@ class CueulerSolver(EulerSolver):
 
     def calcsolt(self, worker=None):
         if self.debug: self.mesg('calcsolt')
-        from ctypes import byref, sizeof
+        from ctypes import byref
         # set to CUDA.
-        self.set_execuda(self.exd, self.exc)
-        self.scu.cudaMemcpy(self.gexc.gptr, byref(self.exc), sizeof(self.exc),
-            self.scu.cudaMemcpyHostToDevice)
         self.scu.memcpy(self.cusol, self.sol)
         self.scu.memcpy(self.cudsol, self.dsol)
-        self.scu.memcpy(self.cuamsca, self.amsca)
-        self.scu.memcpy(self.cusolt, self.solt)
         self._clib_cueuler.calc_solt(32, byref(self.exc), self.gexc.gptr)
         self.scu.memcpy(self.solt, self.cusolt)
         if self.debug: self.mesg(' done.\n')
