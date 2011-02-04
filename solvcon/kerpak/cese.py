@@ -35,7 +35,7 @@ class CeseSolverExedata(Structure):
     """
     Data structure to interface with C.
     """
-    from ctypes import c_int, c_double, POINTER, c_void_p
+    from ctypes import c_int, c_double, c_void_p
     _fields_ = [
         # inherited.
         ('ncore', c_int), ('neq', c_int),
@@ -57,30 +57,30 @@ class CeseSolverExedata(Structure):
         ('omegamin', c_double), ('omegascale', c_double),
         ('mqmin', c_double), ('mqscale', c_double),
         # meta array.
-        ('fctpn', POINTER(c_int)),
-        ('cltpn', POINTER(c_int)), ('clgrp', POINTER(c_int)),
-        ('grpda', POINTER(c_double)),
+        ('fctpn', c_void_p),
+        ('cltpn', c_void_p), ('clgrp', c_void_p),
+        ('grpda', c_void_p),
         # metric array.
-        ('ndcrd', POINTER(c_double)),
-        ('fccnd', POINTER(c_double)), ('fcnml', POINTER(c_double)),
-        ('clcnd', POINTER(c_double)), ('clvol', POINTER(c_double)),
-        ('cecnd', POINTER(c_double)), ('cevol', POINTER(c_double)),
-        ('mqlty', POINTER(c_double)),
+        ('ndcrd', c_void_p),
+        ('fccnd', c_void_p), ('fcnml', c_void_p),
+        ('clcnd', c_void_p), ('clvol', c_void_p),
+        ('cecnd', c_void_p), ('cevol', c_void_p),
+        ('mqlty', c_void_p),
         # connectivity array.
-        ('fcnds', POINTER(c_int)), ('fccls', POINTER(c_int)),
-        ('clnds', POINTER(c_int)), ('clfcs', POINTER(c_int)),
+        ('fcnds', c_void_p), ('fccls', c_void_p),
+        ('clnds', c_void_p), ('clfcs', c_void_p),
         # solution array.
-        ('sol', POINTER(c_double)), ('dsol', POINTER(c_double)),
-        ('solt', POINTER(c_double)),
-        ('soln', POINTER(c_double)), ('dsoln', POINTER(c_double)),
-        ('cfl', POINTER(c_double)), ('ocfl', POINTER(c_double)),
-        ('amsca', POINTER(c_double)), ('amvec', POINTER(c_double)),
+        ('sol', c_void_p), ('dsol', c_void_p),
+        ('solt', c_void_p),
+        ('soln', c_void_p), ('dsoln', c_void_p),
+        ('cfl', c_void_p), ('ocfl', c_void_p),
+        ('amsca', c_void_p), ('amvec', c_void_p),
     ]
-    del c_int, c_double, POINTER, c_void_p
+    del c_int, c_double, c_void_p
 
-    def __set_pointer(self, svr, aname, shf, atype):
-        from ctypes import POINTER
-        ptr = getattr(svr, aname)[shf:].ctypes.data_as(POINTER(atype))
+    def __set_pointer(self, svr, aname, shf):
+        from ctypes import c_void_p
+        ptr = getattr(svr, aname)[shf:].ctypes.data_as(c_void_p)
         setattr(self, aname, ptr)
 
     def __init__(self, *args, **kw):
@@ -115,33 +115,33 @@ class CeseSolverExedata(Structure):
             setattr(self, key, getattr(svr, key))
         # meta array.
         for aname in ('fctpn',):
-            self.__set_pointer(svr, aname, svr.ngstface, c_int)
+            self.__set_pointer(svr, aname, svr.ngstface)
         for aname in ('cltpn', 'clgrp',):
-            self.__set_pointer(svr, aname, svr.ngstcell, c_int)
+            self.__set_pointer(svr, aname, svr.ngstcell)
         for aname in ('grpda',):
-            self.__set_pointer(svr, aname, 0, c_double)
+            self.__set_pointer(svr, aname, 0)
         # metric array.
         for aname in ('ndcrd',):
-            self.__set_pointer(svr, aname, svr.ngstnode, c_double)
+            self.__set_pointer(svr, aname, svr.ngstnode)
         for aname in ('fccnd', 'fcnml',):
-            self.__set_pointer(svr, aname, svr.ngstface, c_double)
+            self.__set_pointer(svr, aname, svr.ngstface)
         for aname in ('clcnd', 'clvol', 'cecnd', 'cevol',):
-            self.__set_pointer(svr, aname, svr.ngstcell, c_double)
+            self.__set_pointer(svr, aname, svr.ngstcell)
         # mesh quality.
         for aname in ('mqlty',):
-            self.__set_pointer(svr, aname, svr.ngstcell, c_double)
+            self.__set_pointer(svr, aname, svr.ngstcell)
         # connectivity array.
         for aname in ('fcnds', 'fccls',):
-            self.__set_pointer(svr, aname, svr.ngstface, c_int)
+            self.__set_pointer(svr, aname, svr.ngstface)
         for aname in ('clnds', 'clfcs',):
-            self.__set_pointer(svr, aname, svr.ngstcell, c_int)
+            self.__set_pointer(svr, aname, svr.ngstcell)
         # solution array.
         for aname in ('sol', 'dsol', 'solt', 'soln', 'dsoln',):
-            self.__set_pointer(svr, aname, svr.ngstcell, c_double)
+            self.__set_pointer(svr, aname, svr.ngstcell)
         for aname in ('cfl', 'ocfl'):
-            self.__set_pointer(svr, aname, 0, c_double)
+            self.__set_pointer(svr, aname, 0)
         for aname in ('amsca', 'amvec'):
-            self.__set_pointer(svr, aname, svr.ngstcell, c_double)
+            self.__set_pointer(svr, aname, svr.ngstcell)
 
 class CeseSolver(BlockSolver):
     """
@@ -264,7 +264,7 @@ class CeseSolver(BlockSolver):
         return self.amvec.shape[1]
 
     def locate_point(self, *args):
-        from ctypes import byref, c_int
+        from ctypes import byref, c_int, c_void_p
         from numpy import array
         crd = array(args, dtype=self.fpdtype)
         picl = c_int(0)
@@ -273,7 +273,7 @@ class CeseSolver(BlockSolver):
         pjfl = c_int(0)
         self._clib_cese.locate_point(
             byref(self.exd),
-            crd.ctypes.data_as(self.fpptr),
+            crd.ctypes.data_as(c_void_p),
             byref(picl),
             byref(pifl),
             byref(pjcl),
@@ -306,16 +306,17 @@ class CeseSolver(BlockSolver):
     MMNAMES = list()
     MMNAMES.append('update')
     def update(self, worker=None):
+        from ctypes import c_void_p
         if self.debug: self.mesg('update')
         # exchange solution and gradient.
         self.sol, self.soln = self.soln, self.sol
         self.dsol, self.dsoln = self.dsoln, self.dsol
         # reset pointers in execution data.
         ngstcell = self.ngstcell
-        self.exd.sol = self.sol[ngstcell:].ctypes.data_as(self.fpptr)
-        self.exd.soln = self.soln[ngstcell:].ctypes.data_as(self.fpptr)
-        self.exd.dsol = self.dsol[ngstcell:].ctypes.data_as(self.fpptr)
-        self.exd.dsoln = self.dsoln[ngstcell:].ctypes.data_as(self.fpptr)
+        self.exd.sol = self.sol[ngstcell:].ctypes.data_as(c_void_p)
+        self.exd.soln = self.soln[ngstcell:].ctypes.data_as(c_void_p)
+        self.exd.dsol = self.dsol[ngstcell:].ctypes.data_as(c_void_p)
+        self.exd.dsoln = self.dsoln[ngstcell:].ctypes.data_as(c_void_p)
         if self.debug: self.mesg(' done.\n')
 
     MMNAMES.append('ibcam')
