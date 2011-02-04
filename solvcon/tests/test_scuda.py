@@ -3,6 +3,14 @@
 
 from unittest import TestCase
 
+from ctypes import Structure, c_int, c_float, c_double, c_void_p
+class Custom(Structure):
+    _fields_ = [
+        ('nelm', c_int),
+        ('dval', c_double),
+        ('arr', c_void_p),
+    ]
+
 class TestScuda(TestCase):
     def setUp(self):
         import sys, os
@@ -49,3 +57,31 @@ class TestScuda20(TestScuda):
         scu.free(gmemc)
         scu.free(gmemb)
         scu.free(gmema)
+
+    def test_structop(self):
+        from ctypes import c_void_p, sizeof, byref
+        from numpy import empty, arange
+        scu = self.scu
+        lib = self.lib
+        # CPU data.
+        ctm = Custom(nelm=1024, dval=4.0)
+        arr = arange(ctm.nelm, dtype='float64')
+        ctm.arr = arr.ctypes.data_as(c_void_p)
+        # GPU data.
+        gtm = Custom(nelm=1024, dval=4.0)
+        garr = scu.alloc(arr.nbytes)
+        scu.memcpy(garr, arr)
+        gtm.arr = garr.gptr
+        gp = scu.alloc(sizeof(gtm))
+        # operate.
+        scu.cudaMemcpy(gp.gptr, byref(gtm), sizeof(gtm),
+            scu.cudaMemcpyHostToDevice)
+        lib.structop(byref(ctm), gp.gptr)
+        # get back and compare.
+        rarr = empty(ctm.nelm, dtype='float64')
+        rarr.fill(1000)
+        scu.memcpy(rarr, garr)
+        self.assertTrue((rarr == arr+ctm.dval).all())
+        # free.
+        scu.free(garr)
+        scu.free(gp)
