@@ -1,13 +1,21 @@
 Developing
 ==========
 
-- Add netCDF reading support.
+New features:
+
+- Add ctypes-based netCDF reading support in ``solvcon.io.netcdf``.
+- Add Cubit/Genesis/ExodosII reader in ``solvcon.io.genesis``.
 - Add Cubit invokation helper for on-the-fly mesh generation.
-- Refactor coupling of periodic boundary condition.
-- Add special CESE solver for linear equations in solvcon.kerpak.lincese
+- Add special CESE solver for linear equations in ``solvcon.kerpak.lincese``.
 - Add 2/3D anisotropic, linear elastic solver based on linear CESE solver in
-  solvcon.kerpak.elaslin
-- Add an example for custom solver.
+  ``solvcon.kerpak.elaslin``.
+- Add an example for custom solver in ``example/misc/elas3d``.
+- Add a ctypes-based CUDA wrapper in ``solvcon.scuda``.
+
+Changes:
+
+- Refactor coupling of periodic boundary condition.
+- Remove ``\*ptr`` in ``solvcon.dependency``.
 
 0.0.2
 =====
