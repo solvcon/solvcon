@@ -17,7 +17,7 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 """
-A wrapper to CUDA shared library.
+A wrapper to CUDA shared library by using ctypes.
 """
 
 _libs = dict()
@@ -49,6 +49,18 @@ class Scuda(object):
     @ivar _alloc_gpumem: all allocated GpuMemory objects.
     @itype _alloc_gpumem: set
     """
+
+    @staticmethod
+    def has_cuda():
+        ret = False
+        try:
+            get_lib('libcudart.so')
+            get_lib('libcuda.so')
+        except OSError:
+            ret = False
+        else:
+            ret = True
+        return ret
 
     # cudaMemcpyKind enum in driver_types.h
     cudaMemcpyHostToHost = 0    # host -> host.

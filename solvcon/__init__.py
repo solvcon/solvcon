@@ -1,6 +1,6 @@
 # -*- coding: UTF-8 -*-
 #
-# Copyright (C) 2008-2010 Yung-Yu Chen <yyc@solvcon.net>.
+# Copyright (C) 2008-2011 Yung-Yu Chen <yyc@solvcon.net>.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -190,8 +190,8 @@ __description__ = "Solver Constructor: a framework to solve hyperbolic PDEs"
 
 __all__ = ['batch', 'batch_torque', 'block', 'boundcond', 'case',
     'cmdutil', 'command', 'conf', 'connection', 'dependency', 'domain',
-    'gendata', 'helper', 'io', 'kerpak', 'mpy', 'mthread', 'rpc', 'solver',
-    'visual_vtk']
+    'gendata', 'helper', 'io', 'kerpak', 'mpy', 'mthread', 'rpc', 'scuda',
+    'solver', 'visual_vtk']
 
 from .cmdutil import go, test
 

@@ -52,6 +52,7 @@ class Solvcon(object):
         import os, sys
         from ConfigParser import ConfigParser
         from .mpy import MPI
+        from .scuda import Scuda
         # directories.
         self.pydir = os.path.abspath(os.path.dirname(__file__))
         self.pkgdir = os.path.abspath(os.path.join(self.pydir, '..'))
@@ -117,6 +118,8 @@ class Solvcon(object):
         # MPI.
         self.mpi = os.environ.get('SOLVCON_MPI', None)
         self.mpi = MPI() if self.mpi is not None else self.mpi
+        # CUDA.
+        self.scu = Scuda() if Scuda.has_cuda() else None
 
     @property
     def fpdtype(self):

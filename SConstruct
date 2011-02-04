@@ -211,7 +211,7 @@ if GetOption('count'):
     sys.exit(0)
 
 # global tools.
-tools = []
+tools = ['cuda']
 tools.append(GetOption('cc'))
 tools.append(GetOption('f90'))
 F90FLAGS = [
@@ -220,7 +220,7 @@ F90FLAGS = [
 CFLAGS = [
     '-O%d'%GetOption('optlevel'),
 ]
-     
+
 if GetOption('f90') == 'gfortran':
     F90 = 'gfortran%s' % GetOption('cmpvsn')
     F90FLAGS.extend([
@@ -246,6 +246,7 @@ else:
 # solvcon environment.
 env = Environment(ENV=os.environ, tools=tools,
     CPPPATH='src', CFLAGS=CFLAGS, F90FLAGS=F90FLAGS,
+    NVCCFLAGS=['-arch=sm_20', '-Xcompiler', '-fPIC'],
 )
 def build_epydoc(target, source, env):
     import sys

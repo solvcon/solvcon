@@ -20,13 +20,13 @@
 def main():
     from ctypes import cdll, CDLL, byref, c_void_p, POINTER, c_float, sizeof
     from numpy import empty, arange
-    from scuda import Scuda
-    scuda = Scuda()
+    from solvcon.conf import env
+    scu = env.scu
     lib = cdll.LoadLibrary('libsc_cutest3d.so')
     nelm = 1024
 
-    print len(scuda), 'CUDA device(s)'
-    print 'I\'m using device #%d' % scuda.device
+    print len(scu), 'CUDA device(s)'
+    print 'I\'m using device #%d' % scu.device
 
     # allocate on CPU.
     arra = arange(nelm, dtype='float32')
@@ -35,25 +35,25 @@ def main():
     arrc.fill(2)
 
     # allocate on GPU.
-    gmema = scuda.alloc(arra.nbytes)
-    gmemb = scuda.alloc(arrb.nbytes)
-    gmemc = scuda.alloc(arrc.nbytes)
+    gmema = scu.alloc(arra.nbytes)
+    gmemb = scu.alloc(arrb.nbytes)
+    gmemc = scu.alloc(arrc.nbytes)
 
     # copy from host to device.
-    scuda.memcpy(gmema, arra)
-    scuda.memcpy(gmemb, arrb)
+    scu.memcpy(gmema, arra)
+    scu.memcpy(gmemb, arrb)
 
     # invoke kernel.
     lib.invoke_VecAdd(gmema.gptr, gmemb.gptr, gmemc.gptr, nelm)
 
     # copy from device to host.
-    scuda.memcpy(arrc, gmemc)
+    scu.memcpy(arrc, gmemc)
     print arrc.sum()
 
     # deallocate on GPU.
-    scuda.free(gmemc)
-    scuda.free(gmemb)
-    scuda.free(gmema)
+    scu.free(gmemc)
+    scu.free(gmemb)
+    scu.free(gmema)
 
 if __name__ == '__main__':
     main()
