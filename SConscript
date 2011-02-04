@@ -27,7 +27,15 @@ for fpmark, fptype in [('s', 'float'), ('d', 'double'),]:
 VariantDir('%s/test' % bdir, 'test/src', duplicate=0)
 libs.append(env.SharedLibrary('%s/%s_solvcontest' % (ldir, lpre),
     Glob('%s/test/*.c'%bdir)))
-# lib_cudatest.
+# lib_cuda13test.
+if FindFile('nvcc', os.environ['PATH'].split(':')):
+    envm = env.Clone()
+    envm['NVCCFLAGS'] = ['-arch=sm_13', '-Xcompiler', '-fPIC']
+    envm.Append(LIBS=['cudart'])
+    VariantDir('%s/cuda13test' % bdir, 'test/cuda13src', duplicate=0)
+    libs.append(envm.SharedLibrary('%s/%s_cuda13test' % (ldir, lpre),
+        Glob('%s/cuda13test/*.cu'%bdir)))
+# lib_cuda20test.
 if FindFile('nvcc', os.environ['PATH'].split(':')):
     envm = env.Clone()
     envm['NVCCFLAGS'] = ['-arch=sm_20', '-Xcompiler', '-fPIC']
