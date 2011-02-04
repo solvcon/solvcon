@@ -425,7 +425,7 @@ class BlockSolver(BaseSolver):
         self.clfcs = blk.shclfcs
         self.fcnds = blk.shfcnds
         self.fccls = blk.shfccls
-        ## metrics.
+        ## geometry.
         self.ndcrd = blk.shndcrd
         self.fccnd = blk.shfccnd
         self.fcara = blk.shfcara

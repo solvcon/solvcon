@@ -55,21 +55,21 @@ class CueulerSolver(EulerSolver):
         # data structure for CUDA/C.
         self.exc = None
         self.gexc = None
-        # meta array.
-        self.cugrpda = scu.alloc(self.grpda.nbytes)
-        # dual mesh.
-        self.cucecnd = scu.alloc(self.cecnd.nbytes)
-        self.cucevol = scu.alloc(self.cevol.nbytes)
-        # solutions.
-        self.cusolt = scu.alloc(self.solt.nbytes)
-        self.cusol = scu.alloc(self.sol.nbytes)
-        self.cusoln = scu.alloc(self.soln.nbytes)
-        self.cudsol = scu.alloc(self.dsol.nbytes)
-        self.cudsoln = scu.alloc(self.dsoln.nbytes)
-        self.cucfl = scu.alloc(self.cfl.nbytes)
-        self.cuocfl = scu.alloc(self.ocfl.nbytes)
-        self.cuamsca = scu.alloc(self.amsca.nbytes)
-        self.cuamvec = scu.alloc(self.amvec.nbytes)
+        for key in (
+            # connectivity.
+            'clfcs', 'fcnds', 'fccls',
+            # geometry.
+            'ndcrd', 'fccnd', 'clcnd',
+            # meta array.
+            'grpda',
+            # dual mesh.
+            'cecnd', 'cevol',
+            # solutions.
+            'solt', 'sol', 'soln', 'dsol', 'dsoln',
+            'cfl', 'ocfl', 'amsca', 'amvec',
+        ):
+            nbytes = getattr(self, key).nbytes
+            setattr(self, 'cu'+key, scu.alloc(nbytes))
     #from solvcon.dependency import getcdll
     __clib_cueuler = {
         2: getcdll('cueuler2d'),
@@ -104,6 +104,16 @@ class CueulerSolver(EulerSolver):
         for key, ctp in exd._fields_:
             setattr(self.exc, key, getattr(exd, key))
         # set shifted pointers.
+        for key in ('clfcs',):
+            self.__set_cuda_pointer(exc, self, key, self.ngstcell)
+        for key in ('fcnds', 'fccls'):
+            self.__set_cuda_pointer(exc, self, key, self.ngstface)
+        for key in ('ndcrd',):
+            self.__set_cuda_pointer(exc, self, key, self.ngstnode)
+        for key in ('fccnd',):
+            self.__set_cuda_pointer(exc, self, key, self.ngstface)
+        for key in ('clcnd',):
+            self.__set_cuda_pointer(exc, self, key, self.ngstcell)
         for key in ('grpda',):
             self.__set_cuda_pointer(exc, self, key, 0)
         for key in ('cecnd', 'cevol'):
@@ -125,9 +135,6 @@ class CueulerSolver(EulerSolver):
 
     def init(self, **kw):
         super(CueulerSolver, self).init(**kw)
-        self.scu.memcpy(self.cusol, self.sol)
-        self.scu.memcpy(self.cudsol, self.dsol)
-        self.scu.memcpy(self.cuamsca, self.amsca)
 
     def update(self, worker=None):
         if self.debug: self.mesg('update')
@@ -146,6 +153,11 @@ class CueulerSolver(EulerSolver):
             self.set_execuda(self.exd, self.exc)
             self.scu.cudaMemcpy(self.gexc.gptr, byref(self.exc),
                 sizeof(self.exc), self.scu.cudaMemcpyHostToDevice)
+            for key in ('sol', 'dsol', 'amsca',
+                'clfcs', 'fcnds', 'fccls', 'ndcrd', 'fccnd', 'clcnd',
+                'cecnd', 'cevol',
+            ):
+                self.scu.memcpy(getattr(self, 'cu'+key), getattr(self, key))
         if self.debug: self.mesg(' done.\n')
 
     def ibcam(self, worker=None):
@@ -161,17 +173,17 @@ class CueulerSolver(EulerSolver):
     def calcsolt(self, worker=None):
         if self.debug: self.mesg('calcsolt')
         from ctypes import byref
-        # set to CUDA.
-        self.scu.memcpy(self.cusol, self.sol)
-        self.scu.memcpy(self.cudsol, self.dsol)
         self._clib_cueuler.calc_solt(32, byref(self.exc), self.gexc.gptr)
-        self.scu.memcpy(self.solt, self.cusolt)
+        for key in ('solt',):
+            self.scu.memcpy(getattr(self, key), getattr(self, 'cu'+key))
         if self.debug: self.mesg(' done.\n')
 
-    def vcalcsoln(self, worker=None):
+    def calcsoln(self, worker=None):
         if self.debug: self.mesg('calcsoln')
         from ctypes import byref
-        self._clib_cueuler.calc_soln(byref(self.exc))
+        self._clib_cueuler.calc_soln(32, byref(self.exc), self.gexc.gptr)
+        for key in ('soln',):
+            self.scu.memcpy(getattr(self, key), getattr(self, 'cu'+key))
         if self.debug: self.mesg(' done.\n')
 
     def vcalccfl(self, worker=None):

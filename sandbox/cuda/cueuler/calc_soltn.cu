@@ -373,7 +373,11 @@ int calc_soln(exedata *exd, int istart, int iend) {
             };
 
             // temporal flux (give space).
+#ifndef __CUDACC__
             exd->jacofunc(exd, jcl, (double *)fcn, (double *)jacos);
+#else
+            cuda_calc_jaco(exd, jcl, fcn, jacos);
+#endif
             pjsolt = exd->solt + jcl*NEQ;
             for (ieq=0; ieq<NEQ; ieq++) futm[ieq] = 0.0;
             for (inf=0; inf<fcnnd; inf++) {
