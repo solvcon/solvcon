@@ -1,14 +1,15 @@
 typedef struct {
     int nelm;
     double dval;
-    double* arr;
+    double* arra;
+    double* arrb;
+    double* arrc;
 } custom;
 
 __global__ void cuda_structop(custom *ctm) {
     int i = blockDim.x * blockIdx.x + threadIdx.x;
     if (i < ctm->nelm)
-        //garr[i] += ctm->dval - ctm->fval + i;
-        ctm->arr[i] = ctm->dval + i;
+        ctm->arrc[i] = ctm->arra[i] + ctm->arrb[i] + ctm->dval;
 };
 
 extern "C" void structop(custom *ctm, void *gp) {
