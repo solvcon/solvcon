@@ -67,19 +67,19 @@ class Partitioner(object):
         if not env.use_fortran:
             _clib_solvcon_d.build_rcells(
                 byref(blk.create_msd()),
-                rcells.ctypes.data_as(intptr),
-                rcellno.ctypes.data_as(intptr),
+                rcells.ctypes._as_parameter_,
+                rcellno.ctypes._as_parameter_,
             )
         else:
             _clib_solvcon_d.build_rcells_( 
                 byref(c_int(blk.CLMFC)),
                 byref(c_int(blk.nface)),
                 byref(c_int(blk.ncell)),
-                blk.clfcs.ctypes.data_as(intptr),
-                blk.fccls.ctypes.data_as(intptr),
+                blk.clfcs.ctypes._as_parameter_,
+                blk.fccls.ctypes._as_parameter_,
                 # output.
-                rcells.ctypes.data_as(intptr),
-                rcellno.ctypes.data_as(intptr),
+                rcells.ctypes._as_parameter_,
+                rcellno.ctypes._as_parameter_,
             )
         return rcells, rcellno
 
@@ -135,17 +135,17 @@ class Partitioner(object):
         edgecut = c_int(0)
         _clib_metis.METIS_PartGraphKway(
             byref(c_int(blk.ncell)),
-            xadj.ctypes.data_as(intptr),
-            adjncy.ctypes.data_as(intptr),
-            vwgt.ctypes.data_as(intptr),
-            adjwgt.ctypes.data_as(intptr),
+            xadj.ctypes._as_parameter_,
+            adjncy.ctypes._as_parameter_,
+            vwgt.ctypes._as_parameter_,
+            adjwgt.ctypes._as_parameter_,
             byref(c_int(wgtflag)),
             byref(c_int(0)),
             byref(c_int(npart)),
-            options.ctypes.data_as(intptr),
+            options.ctypes._as_parameter_,
             # output.
             byref(edgecut),
-            part.ctypes.data_as(intptr),
+            part.ctypes._as_parameter_,
         )
         return edgecut.value, part
 
@@ -221,7 +221,7 @@ class Collective(Domain, list):
         if not env.use_fortran:
             _clib_solvcon_d.count_max_nodeinblock(
                 byref(blk.create_msd()),
-                part.ctypes.data_as(intptr),
+                part.ctypes._as_parameter_,
                 c_int(part.max()+1),
                 byref(max_ndcnt),
             )
@@ -231,8 +231,8 @@ class Collective(Domain, list):
                 byref(c_int(blk.ncell)),
                 byref(c_int(part.max()+1)),
                 byref(c_int(blk.nnode)),
-                blk.clnds.ctypes.data_as(intptr),
-                part.ctypes.data_as(intptr),
+                blk.clnds.ctypes._as_parameter_,
+                part.ctypes._as_parameter_,
                 byref(max_ndcnt),
             )
         return max_ndcnt.value

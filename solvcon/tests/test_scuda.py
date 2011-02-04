@@ -75,11 +75,11 @@ class TestScuda20(TestScuda):
         # CPU data.
         ctm = Custom(nelm=nelm, dval=4.0)
         arra = arange(ctm.nelm, dtype='float64')
-        ctm.arra = arra.ctypes.data_as(c_void_p)
+        ctm.arra = arra.ctypes._as_parameter_
         arrb = arange(ctm.nelm, dtype='float64')
-        ctm.arrb = arrb.ctypes.data_as(c_void_p)
+        ctm.arrb = arrb.ctypes._as_parameter_
         arrc = empty(ctm.nelm, dtype='float64')
-        ctm.arrc = arrc.ctypes.data_as(c_void_p)
+        ctm.arrc = arrc.ctypes._as_parameter_
         # GPU data.
         gtm = Custom(nelm=ctm.nelm, dval=ctm.dval)
         garra = scu.alloc(arra.nbytes)
@@ -162,11 +162,11 @@ class TestScuda13(TestScuda):
         # CPU data.
         ctm = Custom(nelm=nelm, dval=4.0)
         arra = arange(ctm.nelm, dtype='float64')
-        ctm.arra = arra.ctypes.data_as(c_void_p)
+        ctm.arra = arra.ctypes._as_parameter_
         arrb = arange(ctm.nelm, dtype='float64')
-        ctm.arrb = arrb.ctypes.data_as(c_void_p)
+        ctm.arrb = arrb.ctypes._as_parameter_
         arrc = empty(ctm.nelm, dtype='float64')
-        ctm.arrc = arrc.ctypes.data_as(c_void_p)
+        ctm.arrc = arrc.ctypes._as_parameter_
         # GPU data.
         gtm = Custom(nelm=ctm.nelm, dval=ctm.dval)
         garra = scu.alloc(arra.nbytes)

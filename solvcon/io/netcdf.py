@@ -352,17 +352,14 @@ class NetCDF(object):
         arr = empty(shape, dtype=dtype)
         if dtype == 'int32':
             func = self.nc_get_var_int
-            ptr = POINTER(c_int)
         elif dtype == 'float32':
             func = self.nc_get_var_float
-            ptr = POINTER(c_float)
         elif dtype == 'float64':
             func = self.nc_get_var_double
-            ptr = POINTER(c_double)
         else:
             raise TypeError('now surrport only int, float, double, and char')
         # load array.
-        retval = func(self.ncid, varid, arr.ctypes.data_as(ptr))
+        retval = func(self.ncid, varid, arr.ctypes._as_parameter_)
         if retval != self.NC_NOERR:
             raise IOError(self.nc_strerror(retval))
         return arr
@@ -391,7 +388,7 @@ class NetCDF(object):
         arr = empty(shape, dtype='byte')
         # load string data.
         retval = self.nc_get_var_text(self.ncid, varid,
-            arr.ctypes.data_as(POINTER(c_char)))
+            arr.ctypes._as_parameter_)
         if retval != self.NC_NOERR:
             raise IOError(self.nc_strerror(retval))
         # convert to string.

@@ -151,17 +151,17 @@ class TestingSolver(BlockSolver):
             self._clib_solvcon.calc_soln(
                 byref(self.msd),
                 byref(self.exd),
-                self.clvol.ctypes.data_as(fpptr),
-                self.sol.ctypes.data_as(fpptr),
-                self.soln.ctypes.data_as(fpptr),
+                self.clvol.ctypes._as_parameter_,
+                self.sol.ctypes._as_parameter_,
+                self.soln.ctypes._as_parameter_,
             )
         else:
             self._clib_solvcon.calc_soln_(
                 byref(self.msh),
                 byref(self.exd),
-                self.clvol.ctypes.data_as(fpptr),
-                self.sol.ctypes.data_as(fpptr),
-                self.soln.ctypes.data_as(fpptr),
+                self.clvol.ctypes._as_parameter_,
+                self.sol.ctypes._as_parameter_,
+                self.soln.ctypes._as_parameter_,
             )
 
     MMNAMES.append('ibcsol')
@@ -184,17 +184,17 @@ class TestingSolver(BlockSolver):
             self._clib_solvcon.calc_dsoln(
                 byref(self.msd),
                 byref(self.exd),
-                self.clcnd.ctypes.data_as(fpptr),
-                self.dsol.ctypes.data_as(fpptr),
-                self.dsoln.ctypes.data_as(fpptr),
+                self.clcnd.ctypes._as_parameter_,
+                self.dsol.ctypes._as_parameter_,
+                self.dsoln.ctypes._as_parameter_,
             )
         else:
             self._clib_solvcon.calc_dsoln_(
                 byref(self.msh),
                 byref(self.exd),
-                self.clcnd.ctypes.data_as(fpptr),
-                self.dsol.ctypes.data_as(fpptr),
-                self.dsoln.ctypes.data_as(fpptr),
+                self.clcnd.ctypes._as_parameter_,
+                self.dsol.ctypes._as_parameter_,
+                self.dsoln.ctypes._as_parameter_,
             )
 
     MMNAMES.append('ibcdsol')

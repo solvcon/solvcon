@@ -71,29 +71,29 @@ class MeshData(Structure):
     """
     Data structure for mesh.
     """
-    from ctypes import c_int, c_double, POINTER
+    from ctypes import c_int, c_void_p
     _fields_ = [
         ('ndim', c_int),
         ('nnode', c_int), ('nface', c_int), ('ncell', c_int),
         ('nbound', c_int),
         ('ngstnode', c_int), ('ngstface', c_int), ('ngstcell', c_int),
         # metric.
-        ('ndcrd', POINTER(c_double)),
-        ('fccnd', POINTER(c_double)), ('fcnml', POINTER(c_double)),
-        ('fcara', POINTER(c_double)),
-        ('clcnd', POINTER(c_double)), ('clvol', POINTER(c_double)),
+        ('ndcrd', c_void_p),
+        ('fccnd', c_void_p), ('fcnml', c_void_p),
+        ('fcara', c_void_p),
+        ('clcnd', c_void_p), ('clvol', c_void_p),
         # meta.
-        ('fctpn', POINTER(c_int)),
-        ('cltpn', POINTER(c_int)), ('clgrp', POINTER(c_int)),
+        ('fctpn', c_void_p),
+        ('cltpn', c_void_p), ('clgrp', c_void_p),
         # connectivity.
-        ('fcnds', POINTER(c_int)), ('fccls', POINTER(c_int)),
-        ('clnds', POINTER(c_int)), ('clfcs', POINTER(c_int)),
+        ('fcnds', c_void_p), ('fccls', c_void_p),
+        ('clnds', c_void_p), ('clfcs', c_void_p),
     ]
-    del c_int, c_double, POINTER
+    del c_int, c_void_p
 
-    def __set_pointer(self, svr, aname, atype):
+    def __set_pointer(self, svr, aname):
         from ctypes import POINTER
-        ptr = getattr(svr, aname).ctypes.data_as(POINTER(atype))
+        ptr = getattr(svr, aname).ctypes._as_parameter_
         setattr(self, aname, ptr)
 
     def __init__(self, *args, **kw):
@@ -107,13 +107,13 @@ class MeshData(Structure):
             setattr(self, key, getattr(blk, key))
         # metric.
         for aname in ('ndcrd', 'fccnd', 'fcnml', 'fcara', 'clcnd', 'clvol',):
-            self.__set_pointer(blk, aname, c_double)
+            self.__set_pointer(blk, aname)
         # meta.
         for aname in ('fctpn', 'cltpn', 'clgrp',):
-            self.__set_pointer(blk, aname, c_int)
+            self.__set_pointer(blk, aname)
         # connectivity.
         for aname in ('fcnds', 'fccls', 'clnds', 'clfcs',):
-            self.__set_pointer(blk, aname, c_int)
+            self.__set_pointer(blk, aname)
 
 class Block(object):
     """
@@ -333,22 +333,21 @@ class Block(object):
                 byref(self.create_msd()),
             )
         else:
-            fpptr = self.fpptr
             msh = self.create_shape()
             self._clib_solvcon.calc_metric_(
                 # input.
                 byref(msh),
-                self.ndcrd.ctypes.data_as(fpptr),
-                self.fccls.ctypes.data_as(intptr),
-                self.clnds.ctypes.data_as(intptr),
-                self.clfcs.ctypes.data_as(intptr),
+                self.ndcrd.ctypes._as_parameter_,
+                self.fccls.ctypes._as_parameter_,
+                self.clnds.ctypes._as_parameter_,
+                self.clfcs.ctypes._as_parameter_,
                 # output/input.
-                self.fcnds.ctypes.data_as(intptr),
-                self.fccnd.ctypes.data_as(fpptr),
-                self.fcnml.ctypes.data_as(fpptr),
-                self.fcara.ctypes.data_as(fpptr),
-                self.clcnd.ctypes.data_as(fpptr),
-                self.clvol.ctypes.data_as(fpptr),
+                self.fcnds.ctypes._as_parameter_,
+                self.fccnd.ctypes._as_parameter_,
+                self.fcnml.ctypes._as_parameter_,
+                self.fcara.ctypes._as_parameter_,
+                self.clcnd.ctypes._as_parameter_,
+                self.clvol.ctypes._as_parameter_,
             )
 
     def build_interior(self):
@@ -389,10 +388,10 @@ class Block(object):
                 c_int(max_nfc),
                 # output.
                 byref(nface),
-                clfcs.ctypes.data_as(intptr),
-                fctpn.ctypes.data_as(intptr),
-                fcnds.ctypes.data_as(intptr),
-                fccls.ctypes.data_as(intptr),
+                clfcs.ctypes._as_parameter_,
+                fctpn.ctypes._as_parameter_,
+                fcnds.ctypes._as_parameter_,
+                fccls.ctypes._as_parameter_,
             )
         else:
             self._clib_solvcon.get_faces_from_cells_(
@@ -403,14 +402,14 @@ class Block(object):
                 byref(c_int(self.CLMND)),
                 byref(c_int(self.CLMFC)),
                 byref(c_int(self.FCMND)),
-                self.cltpn.ctypes.data_as(intptr),
-                self.clnds.ctypes.data_as(intptr),
+                self.cltpn.ctypes._as_parameter_,
+                self.clnds.ctypes._as_parameter_,
                 # output.
                 byref(nface),
-                clfcs.ctypes.data_as(intptr),
-                fctpn.ctypes.data_as(intptr),
-                fcnds.ctypes.data_as(intptr),
-                fccls.ctypes.data_as(intptr),
+                clfcs.ctypes._as_parameter_,
+                fctpn.ctypes._as_parameter_,
+                fcnds.ctypes._as_parameter_,
+                fccls.ctypes._as_parameter_,
             )
         ## shuffle the result.
         nface = nface.value
@@ -513,7 +512,7 @@ class Block(object):
         if not env.use_fortran:
             self._clib_solvcon.build_ghost(
                 byref(self.create_msd()),
-                self.bndfcs.ctypes.data_as(intptr),
+                self.bndfcs.ctypes._as_parameter_,
             )
         else:
             fpptr = self.fpptr
@@ -521,22 +520,22 @@ class Block(object):
             self._clib_solvcon.build_ghost_(
                 # meta data.
                 byref(msh),
-                self.bndfcs.ctypes.data_as(intptr),
-                self.shfctpn.ctypes.data_as(intptr),
-                self.shcltpn.ctypes.data_as(intptr),
-                self.shclgrp.ctypes.data_as(intptr),
+                self.bndfcs.ctypes._as_parameter_,
+                self.shfctpn.ctypes._as_parameter_,
+                self.shcltpn.ctypes._as_parameter_,
+                self.shclgrp.ctypes._as_parameter_,
                 # connectivity.
-                self.shfcnds.ctypes.data_as(intptr),
-                self.shfccls.ctypes.data_as(intptr),
-                self.shclnds.ctypes.data_as(intptr),
-                self.shclfcs.ctypes.data_as(intptr),
+                self.shfcnds.ctypes._as_parameter_,
+                self.shfccls.ctypes._as_parameter_,
+                self.shclnds.ctypes._as_parameter_,
+                self.shclfcs.ctypes._as_parameter_,
                 # geometry.
-                self.shndcrd.ctypes.data_as(fpptr),
-                self.shfccnd.ctypes.data_as(fpptr),
-                self.shfcnml.ctypes.data_as(fpptr),
-                self.shfcara.ctypes.data_as(fpptr),
-                self.shclcnd.ctypes.data_as(fpptr),
-                self.shclvol.ctypes.data_as(fpptr),
+                self.shndcrd.ctypes._as_parameter_,
+                self.shfccnd.ctypes._as_parameter_,
+                self.shfcnml.ctypes._as_parameter_,
+                self.shfcara.ctypes._as_parameter_,
+                self.shclcnd.ctypes._as_parameter_,
+                self.shclvol.ctypes._as_parameter_,
             )
 
     def _count_ghost(self):

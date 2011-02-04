@@ -132,11 +132,11 @@ class PlaneWaveSolution(object):
         from solvcon.dependency import doubleptr
         svr._clib_lincese.calc_planewave(
             byref(svr.exd),
-            asol.ctypes.data_as(doubleptr),
-            adsol.ctypes.data_as(doubleptr),
-            self.amp.ctypes.data_as(doubleptr),
-            self.ctr.ctypes.data_as(doubleptr),
-            self.wvec.ctypes.data_as(doubleptr),
+            asol.ctypes._as_parameter_,
+            adsol.ctypes._as_parameter_,
+            self.amp.ctypes._as_parameter_,
+            self.ctr.ctypes._as_parameter_,
+            self.wvec.ctypes._as_parameter_,
             c_double(self.afreq),
         )
 

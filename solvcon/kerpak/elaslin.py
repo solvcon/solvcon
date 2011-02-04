@@ -140,9 +140,9 @@ class ElaslinTraction(ElaslinBC):
         self._clib_boundcond.bound_traction_soln(
             byref(self.svr.exd),
             c_int(self.facn.shape[0]),
-            self.facn.ctypes.data_as(intptr),
+            self.facn.ctypes._as_parameter_,
             c_int(self.value.shape[1]),
-            self.value.ctypes.data_as(self.fpptr),
+            self.value.ctypes._as_parameter_,
         )
     def dsol(self):
         from solvcon.dependency import intptr
@@ -150,7 +150,7 @@ class ElaslinTraction(ElaslinBC):
         self._clib_boundcond.bound_traction_dsoln(
             byref(self.svr.exd),
             c_int(self.facn.shape[0]),
-            self.facn.ctypes.data_as(intptr),
+            self.facn.ctypes._as_parameter_,
         )
 
 class ElaslinTractionFree(ElaslinBC):
@@ -161,7 +161,7 @@ class ElaslinTractionFree(ElaslinBC):
         self._clib_boundcond.bound_traction_free_soln(
             byref(self.svr.exd),
             c_int(self.facn.shape[0]),
-            self.facn.ctypes.data_as(intptr),
+            self.facn.ctypes._as_parameter_,
         )
     def dsol(self):
         from solvcon.dependency import intptr
@@ -169,7 +169,7 @@ class ElaslinTractionFree(ElaslinBC):
         self._clib_boundcond.bound_traction_free_dsoln(
             byref(self.svr.exd),
             c_int(self.facn.shape[0]),
-            self.facn.ctypes.data_as(intptr),
+            self.facn.ctypes._as_parameter_,
         )
 
 class ElaslinTractionFree2(ElaslinBC):
@@ -180,7 +180,7 @@ class ElaslinTractionFree2(ElaslinBC):
         self._clib_boundcond.bound_traction_free2_soln(
             byref(self.svr.exd),
             c_int(self.facn.shape[0]),
-            self.facn.ctypes.data_as(intptr),
+            self.facn.ctypes._as_parameter_,
         )
     def dsol(self):
         from solvcon.dependency import intptr
@@ -188,7 +188,7 @@ class ElaslinTractionFree2(ElaslinBC):
         self._clib_boundcond.bound_traction_free2_dsoln(
             byref(self.svr.exd),
             c_int(self.facn.shape[0]),
-            self.facn.ctypes.data_as(intptr),
+            self.facn.ctypes._as_parameter_,
         )
 
 ################################################################################
@@ -238,9 +238,9 @@ class ElaslinOAnchor(Anchor):
         # output arrays.
         svr._clib_elaslin.calc_energy(
             byref(svr.exd),
-            rhos.ctypes.data_as(svr.fpptr),
-            comps.ctypes.data_as(svr.fpptr),
-            svr.der['energy'].ctypes.data_as(svr.fpptr),
+            rhos.ctypes._as_parameter_,
+            comps.ctypes._as_parameter_,
+            svr.der['energy'].ctypes._as_parameter_,
         )
     def provide(self):
         from numpy import empty

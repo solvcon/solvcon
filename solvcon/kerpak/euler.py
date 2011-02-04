@@ -121,7 +121,7 @@ class EulerWall(EulerBC):
         self._clib_eulerb.bound_wall_soln(
             byref(svr.exd),
             c_int(self.facn.shape[0]),
-            self.facn.ctypes.data_as(intptr),
+            self.facn.ctypes._as_parameter_,
         )
     def dsol(self):
         from solvcon.dependency import intptr
@@ -130,7 +130,7 @@ class EulerWall(EulerBC):
         self._clib_eulerb.bound_wall_dsoln(
             byref(svr.exd),
             c_int(self.facn.shape[0]),
-            self.facn.ctypes.data_as(intptr),
+            self.facn.ctypes._as_parameter_,
         )
 class EulerNonslipWall(EulerBC):
     _ghostgeom_ = 'mirror'
@@ -141,7 +141,7 @@ class EulerNonslipWall(EulerBC):
         self._clib_eulerb.bound_nonslipwall_soln(
             byref(svr.exd),
             c_int(self.facn.shape[0]),
-            self.facn.ctypes.data_as(intptr),
+            self.facn.ctypes._as_parameter_,
         )
     def dsol(self):
         from solvcon.dependency import intptr
@@ -150,7 +150,7 @@ class EulerNonslipWall(EulerBC):
         self._clib_eulerb.bound_nonslipwall_dsoln(
             byref(svr.exd),
             c_int(self.facn.shape[0]),
-            self.facn.ctypes.data_as(intptr),
+            self.facn.ctypes._as_parameter_,
         )
 
 class EulerInlet(EulerBC):
@@ -166,9 +166,9 @@ class EulerInlet(EulerBC):
         self._clib_eulerb.bound_inlet_soln(
             byref(svr.exd),
             c_int(self.facn.shape[0]),
-            self.facn.ctypes.data_as(intptr),
+            self.facn.ctypes._as_parameter_,
             c_int(self.value.shape[1]),
-            self.value.ctypes.data_as(intptr),
+            self.value.ctypes._as_parameter_,
         )
     def dsol(self):
         from solvcon.dependency import intptr
@@ -177,7 +177,7 @@ class EulerInlet(EulerBC):
         self._clib_eulerb.bound_inlet_dsoln(
             byref(svr.exd),
             c_int(self.facn.shape[0]),
-            self.facn.ctypes.data_as(intptr),
+            self.facn.ctypes._as_parameter_,
         )
 
 class EulerOutlet(EulerBC):
@@ -189,7 +189,7 @@ class EulerOutlet(EulerBC):
         self._clib_eulerb.bound_outlet_soln(
             byref(svr.exd),
             c_int(self.facn.shape[0]),
-            self.facn.ctypes.data_as(intptr),
+            self.facn.ctypes._as_parameter_,
         )
     def dsol(self):
         from solvcon.dependency import intptr
@@ -198,7 +198,7 @@ class EulerOutlet(EulerBC):
         self._clib_eulerb.bound_outlet_dsoln(
             byref(svr.exd),
             c_int(self.facn.shape[0]),
-            self.facn.ctypes.data_as(intptr),
+            self.facn.ctypes._as_parameter_,
         )
 
 ###############################################################################
@@ -271,13 +271,13 @@ class EulerOAnchor(Anchor):
         svr = self.svr
         der = svr.der
         svr._tcall(svr._clib_euler.calc_physics, -svr.ngstcell, svr.ncell,
-            der['v'].ctypes.data_as(doubleptr),
-            der['rho'].ctypes.data_as(doubleptr),
-            der['p'].ctypes.data_as(doubleptr),
-            der['T'].ctypes.data_as(doubleptr),
-            der['ke'].ctypes.data_as(doubleptr),
-            der['a'].ctypes.data_as(doubleptr),
-            der['M'].ctypes.data_as(doubleptr),
+            der['v'].ctypes._as_parameter_,
+            der['rho'].ctypes._as_parameter_,
+            der['p'].ctypes._as_parameter_,
+            der['T'].ctypes._as_parameter_,
+            der['ke'].ctypes._as_parameter_,
+            der['a'].ctypes._as_parameter_,
+            der['M'].ctypes._as_parameter_,
         )
     def _calculate_schlieren(self):
         from ctypes import c_double
@@ -285,12 +285,12 @@ class EulerOAnchor(Anchor):
         svr = self.svr
         sch = svr.der['sch']
         svr._tcall(svr._clib_euler.calc_schlieren_rhog,
-            -svr.ngstcell, svr.ncell, sch.ctypes.data_as(doubleptr))
+            -svr.ngstcell, svr.ncell, sch.ctypes._as_parameter_)
         rhogmax = sch[svr.ngstcell:].max()
         svr._tcall(svr._clib_euler.calc_schlieren_sch,
             -svr.ngstcell, svr.ncell,
             c_double(self.schk), c_double(self.schk0), c_double(self.schk1),
-            c_double(rhogmax), sch.ctypes.data_as(doubleptr),
+            c_double(rhogmax), sch.ctypes._as_parameter_,
         )
     def postfull(self):
         self._calculate_physics()

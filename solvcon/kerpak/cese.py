@@ -80,7 +80,7 @@ class CeseSolverExedata(Structure):
 
     def __set_pointer(self, svr, aname, shf):
         from ctypes import c_void_p
-        ptr = getattr(svr, aname)[shf:].ctypes.data_as(c_void_p)
+        ptr = getattr(svr, aname)[shf:].ctypes._as_parameter_
         setattr(self, aname, ptr)
 
     def __init__(self, *args, **kw):
@@ -273,7 +273,7 @@ class CeseSolver(BlockSolver):
         pjfl = c_int(0)
         self._clib_cese.locate_point(
             byref(self.exd),
-            crd.ctypes.data_as(c_void_p),
+            crd.ctypes._as_parameter_,
             byref(picl),
             byref(pifl),
             byref(pjcl),
@@ -313,10 +313,10 @@ class CeseSolver(BlockSolver):
         self.dsol, self.dsoln = self.dsoln, self.dsol
         # reset pointers in execution data.
         ngstcell = self.ngstcell
-        self.exd.sol = self.sol[ngstcell:].ctypes.data_as(c_void_p)
-        self.exd.soln = self.soln[ngstcell:].ctypes.data_as(c_void_p)
-        self.exd.dsol = self.dsol[ngstcell:].ctypes.data_as(c_void_p)
-        self.exd.dsoln = self.dsoln[ngstcell:].ctypes.data_as(c_void_p)
+        self.exd.sol = self.sol[ngstcell:].ctypes._as_parameter_
+        self.exd.soln = self.soln[ngstcell:].ctypes._as_parameter_
+        self.exd.dsol = self.dsol[ngstcell:].ctypes._as_parameter_
+        self.exd.dsoln = self.dsoln[ngstcell:].ctypes._as_parameter_
         if self.debug: self.mesg(' done.\n')
 
     MMNAMES.append('ibcam')
@@ -455,7 +455,7 @@ class CeseBC(BC):
         getattr(self._clib_ceseb, 'ghostgeom_'+self._ghostgeom_)(
             byref(self.svr.exd),
             c_int(self.facn.shape[0]),
-            self.facn.ctypes.data_as(intptr),
+            self.facn.ctypes._as_parameter_,
         )
 
 class CeseNonrefl(CeseBC):
@@ -470,7 +470,7 @@ class CeseNonrefl(CeseBC):
         self._clib_ceseb.bound_nonrefl_soln(
             byref(svr.exd),
             c_int(self.facn.shape[0]),
-            self.facn.ctypes.data_as(intptr),
+            self.facn.ctypes._as_parameter_,
         )
     def dsol(self):
         from solvcon.dependency import intptr
@@ -479,7 +479,7 @@ class CeseNonrefl(CeseBC):
         self._clib_ceseb.bound_nonrefl_dsoln(
             byref(svr.exd),
             c_int(self.facn.shape[0]),
-            self.facn.ctypes.data_as(intptr),
+            self.facn.ctypes._as_parameter_,
         )
 
 class CesePeriodic(periodic):
@@ -517,7 +517,7 @@ class ConvergeAnchor(Anchor):
         svr = self.svr
         diff = svr.der['diff']
         svr._tcall(svr._clib_cese.calc_norm_diff, -svr.ngstcell, svr.ncell,
-            diff[svr.ngstcell:].ctypes.data_as(doubleptr),
+            diff[svr.ngstcell:].ctypes._as_parameter_,
         )
         # Linf norm.
         Linf = []
@@ -528,7 +528,7 @@ class ConvergeAnchor(Anchor):
         L1 = []
         for ieq in range(svr.neq):
             vals = svr._tcall(svr._clib_cese.calc_norm_L1, 0, svr.ncell,
-                diff[svr.ngstcell:].ctypes.data_as(doubleptr),
+                diff[svr.ngstcell:].ctypes._as_parameter_,
                 c_int(ieq),
             )
             L1.append(sum(vals))
@@ -538,7 +538,7 @@ class ConvergeAnchor(Anchor):
         L2 = []
         for ieq in range(svr.neq):
             vals = svr._tcall(svr._clib_cese.calc_norm_L2, 0, svr.ncell,
-                diff[svr.ngstcell:].ctypes.data_as(doubleptr),
+                diff[svr.ngstcell:].ctypes._as_parameter_,
                 c_int(ieq),
             )
             L2.append(sum(vals))

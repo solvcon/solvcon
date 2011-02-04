@@ -56,10 +56,10 @@ class TestCtypesFortran(TestCase):
             byref(c_int(0)),        # placeholder.
             byref(c_double(0.0)),   # placeholder.
             byref(c_int(self.a.shape[0])),
-            self.a.ctypes.data_as(intptr),
+            self.a.ctypes._as_parameter_,
             byref(c_int(self.b.shape[1])),
             byref(c_int(self.b.shape[0])),
-            self.b.ctypes.data_as(doubleptr),
+            self.b.ctypes._as_parameter_,
         ]
 
     def test_int(self):
@@ -114,16 +114,15 @@ class TestCtypesFortran(TestCase):
 
     def test_struct(self):
         from random import randint
-        from ctypes import POINTER, byref, c_int, c_double, Structure
+        from ctypes import POINTER, byref, c_int, c_double, Structure, c_void_p
         from numpy import arange
         from ..conf import env
         # build struct/type.
-        doubleptr = POINTER(c_double)
         class Record(Structure):
             _fields_ = [
                 ('idx', c_int),
                 ('arr', c_double * 10),
-                ('arr_ptr', doubleptr),
+                ('arr_ptr', c_void_p),
             ]
         # fill data into struct/type.
         arr = arange(10, dtype='float64')
@@ -131,7 +130,7 @@ class TestCtypesFortran(TestCase):
         r1 = Record()
         r1.idx = 10
         r1.arr[:] = arr[:]
-        r1.arr_ptr = arr1.ctypes.data_as(doubleptr)
+        r1.arr_ptr = arr1.ctypes._as_parameter_
         r2 = Record()
         r2.idx = 10
         r2.arr[:] = arr[:]

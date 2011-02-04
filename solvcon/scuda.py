@@ -270,7 +270,6 @@ class Scuda(object):
         self.cudaFree(byref(gmem.gptr))
         if do_remove: self._alloc_gpumem.remove(gmem)
     def memcpy(self, tgt, src):
-        from ctypes import c_void_p
         if isinstance(src, GpuMemory) and isinstance(tgt, GpuMemory):
             dkey = self.cudaMemcpyDeviceToDevice
             psrc = src.gptr
@@ -280,11 +279,11 @@ class Scuda(object):
         elif isinstance(src, GpuMemory):
             dkey = self.cudaMemcpyDeviceToHost
             psrc = src.gptr
-            ptgt = tgt.ctypes.data_as(c_void_p)
+            ptgt = tgt.ctypes._as_parameter_
             nbytes = tgt.nbytes
         elif isinstance(tgt, GpuMemory):
             dkey = self.cudaMemcpyHostToDevice
-            psrc = src.ctypes.data_as(c_void_p)
+            psrc = src.ctypes._as_parameter_
             ptgt = tgt.gptr
             nbytes = src.nbytes
         else:
