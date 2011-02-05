@@ -150,6 +150,7 @@ class LineCounter(object):
         self.counter = dict()
         self.testdir = kw.pop('testdir', ['tests'])
         self.testcounter = 0
+        self.corecounter = 0
 
     def __call__(self, path):
         import os
@@ -163,6 +164,9 @@ class LineCounter(object):
                 self.counter[extfn] = self.counter.get(extfn, 0) + nline
                 if os.path.basename(root) in self.testdir:
                     self.testcounter += nline
+                else:
+                    if extfn == '.py' and os.path.basename(root) == 'solvcon':
+                        self.corecounter += nline
 
     def __str__(self):
         keylenmax = max([len(key) for key in self.counter])
@@ -174,6 +178,8 @@ class LineCounter(object):
             all += self.counter[extfn]
         ret.append(tmpl % ('All', all))
         ret.append('%d are for unittest.' % self.testcounter)
+        ret.append('%d are for core (only .py directly in solvcon/).' % \
+            self.corecounter)
         return '\n'.join(ret)
 
 if GetOption('download'):

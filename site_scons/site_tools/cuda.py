@@ -84,8 +84,8 @@ def determine_paths(env):
             sys.stdout.write(
                 'scons: CUDA Toolkit found in %s\n' % cudaToolkitPath)
         else:
-            warn('Cannot find the CUDA Toolkit path. '
-                'Please set it to CUDA_TOOLKIT_PATH environment variable.')
+            sys.stdout.write('Cannot find CUDA Toolkit. '
+                'Set CUDA_TOOLKIT_PATH.\n')
     env['CUDA_TOOLKIT_PATH'] = cudaToolkitPath
 
     # find CUDA SDK path and set CUDA_SDK_PATH.
@@ -101,7 +101,7 @@ def determine_paths(env):
             '/'.join([home, 'Apps', 'CudaSDK']),
             '/'.join(['/usr', 'local', 'NVIDIA_CUDA_SDK']),
             '/'.join(['/usr', 'local', 'CUDASDK']),
-            '/'.join(['/usr', 'local', 'cuda_sdk']),
+            '/'.join(['/usr', 'local', 'cudasdk']),
             '/'.join(['/Developer', 'NVIDIA CUDA SDK']),
             '/'.join(['/Developer', 'CUDA SDK']),
             '/'.join(['/Developer', 'CUDA']),
@@ -118,8 +118,8 @@ def determine_paths(env):
             sys.stdout.write(
                 'scons: CUDA SDK found in %s \n' % cudaSDKPath)
         else:
-            warn('Cannot find the CUDA SDK path. '
-                'Please set it to CUDA_SDK_PATH environment variable.')
+            sys.stdout.write('Cannot find CUDA SDK. '
+                'Set CUDA_SDK_PATH.\n')
     env['CUDA_SDK_PATH'] = cudaSDKPath
 
     # return.
