@@ -73,8 +73,9 @@ def main():
     for edir in glob(os.path.join('examples', '*', '*')):
         data_files.append(
             (os.path.join(lead, edir), [os.path.join(edir, 'go')]))
-        data_files.append(
-            (os.path.join(lead, edir), glob(os.path.join(edir, '*.tmpl'))))
+        for ext in ('tmpl', 'py', 'h'):
+            data_files.append((os.path.join(lead, edir),
+                glob(os.path.join(edir, '*.%s'%ext))))
 
     setup(
         name='SOLVCON',

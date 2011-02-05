@@ -5,3 +5,8 @@ include SCons* patch/*.patch
 recursive-include src *
 recursive-include test *
 include examples/*/*/go
+include examples/*/*/SCons*
+include examples/*/*/*.tmpl
+include examples/*/*/*.py
+include examples/*/*/*.h
+include examples/*/*/*/*.c
