@@ -163,12 +163,9 @@ class TestingSolver(BlockSolver):
                 self.soln.ctypes._as_parameter_,
             )
 
-    MMNAMES.append('ibcsol')
-    def ibcsol(self, worker=None):
+    MMNAMES.append('ibcsoln')
+    def ibcsoln(self, worker=None):
         if worker: self.exchangeibc('soln', worker=worker)
-    MMNAMES.append('bcsol')
-    def bcsol(self, worker=None):
-        for bc in self.bclist: bc.sol()
 
     MMNAMES.append('calccfl')
     def calccfl(self, worker=None):
@@ -195,9 +192,6 @@ class TestingSolver(BlockSolver):
                 self.dsoln.ctypes._as_parameter_,
             )
 
-    MMNAMES.append('ibcdsol')
-    def ibcdsol(self, worker=None):
+    MMNAMES.append('ibcdsoln')
+    def ibcdsoln(self, worker=None):
         if worker: self.exchangeibc('dsoln', worker=worker)
-    MMNAMES.append('bcdsol')
-    def bcdsol(self, worker=None):
-        for bc in self.bclist: bc.dsol()

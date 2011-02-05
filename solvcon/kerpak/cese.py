@@ -286,6 +286,11 @@ class CeseSolver(BlockSolver):
         self._tcall(self._clib_cese.qualify_mesh, -self.ngstcell, self.ncell)
         super(CeseSolver, self).init(**kw)
 
+    def boundcond(self):
+        super(CeseSolver, self).boundcond()
+        for bc in self.bclist: bc.soln()
+        for bc in self.bclist: bc.dsoln()
+
     ##################################################
     # library.
     ##################################################
@@ -340,15 +345,15 @@ class CeseSolver(BlockSolver):
         self._tcall(func, 0, self.ncell, tickerkey='calcsoln')
         if self.debug: self.mesg(' done.\n')
 
-    MMNAMES.append('ibcsol')
-    def ibcsol(self, worker=None):
-        if self.debug: self.mesg('ibcsol')
+    MMNAMES.append('ibcsoln')
+    def ibcsoln(self, worker=None):
+        if self.debug: self.mesg('ibcsoln')
         if worker: self.exchangeibc('soln', worker=worker)
         if self.debug: self.mesg(' done.\n')
-    MMNAMES.append('bcsol')
-    def bcsol(self, worker=None):
-        if self.debug: self.mesg('bcsol')
-        for bc in self.bclist: bc.sol()
+    MMNAMES.append('bcsoln')
+    def bcsoln(self, worker=None):
+        if self.debug: self.mesg('bcsoln')
+        for bc in self.bclist: bc.soln()
         if self.debug: self.mesg(' done.\n')
 
     MMNAMES.append('calccfl')
@@ -367,15 +372,15 @@ class CeseSolver(BlockSolver):
         self._tcall(func, 0, self.ncell, tickerkey='calcdsoln')
         if self.debug: self.mesg(' done.\n')
 
-    MMNAMES.append('ibcdsol')
-    def ibcdsol(self, worker=None):
-        if self.debug: self.mesg('ibcdsol')
+    MMNAMES.append('ibcdsoln')
+    def ibcdsoln(self, worker=None):
+        if self.debug: self.mesg('ibcdsoln')
         if worker: self.exchangeibc('dsoln', worker=worker)
         if self.debug: self.mesg(' done.\n')
-    MMNAMES.append('bcdsol')
-    def bcdsol(self, worker=None):
-        if self.debug: self.mesg('bcdsol')
-        for bc in self.bclist: bc.dsol()
+    MMNAMES.append('bcdsoln')
+    def bcdsoln(self, worker=None):
+        if self.debug: self.mesg('bcdsoln')
+        for bc in self.bclist: bc.dsoln()
         if self.debug: self.mesg(' done.\n')
 
 ################################################################################
@@ -435,7 +440,6 @@ class CeseBC(BC):
     @cvar _ghostgeom_: selector for the ghost geometry caculator.
     @ctype _ghostgeom_: str
     """
-
     from solvcon.dependency import getcdll
     __clib_ceseb = {
         2: getcdll('ceseb2d'),
@@ -447,7 +451,6 @@ class CeseBC(BC):
         return self.__clib_ceseb[self.svr.ndim]
 
     _ghostgeom_ = None
-
     def init(self, **kw):
         from ctypes import byref, c_int
         super(CeseBC, self).init(**kw)
@@ -456,13 +459,23 @@ class CeseBC(BC):
             c_int(self.facn.shape[0]),
             self.facn.ctypes._as_parameter_,
         )
+    def soln(self):
+        """
+        Update ghost cells after marchsol.
+        """
+        pass
+    def dsoln(self):
+        """
+        Update ghost cells after marchdsol.
+        """
+        pass
 
 class CeseNonrefl(CeseBC):
     """
     General non-reflective boundary condition (NRBC).
     """
     _ghostgeom_ = 'mirror'
-    def sol(self):
+    def soln(self):
         from ctypes import byref, c_int
         svr = self.svr
         self._clib_ceseb.bound_nonrefl_soln(
@@ -470,7 +483,7 @@ class CeseNonrefl(CeseBC):
             c_int(self.facn.shape[0]),
             self.facn.ctypes._as_parameter_,
         )
-    def dsol(self):
+    def dsoln(self):
         from ctypes import byref, c_int
         svr = self.svr
         self._clib_ceseb.bound_nonrefl_dsoln(
@@ -493,6 +506,16 @@ class CesePeriodic(periodic):
         # move coordinates.
         shf = svr.cecnd[slctr,0,:] - svr.fccnd[facn[:,2]+ngstface,:]
         svr.cecnd[slctm,0,:] = svr.fccnd[facn[:,0]+ngstface,:] + shf
+    def soln(self):
+        svr = self.svr
+        slctm = self.rclp[:,0] + svr.ngstcell
+        slctr = self.rclp[:,1] + svr.ngstcell
+        svr.soln[slctm,:] = svr.soln[slctr,:]
+    def dsoln(self):
+        svr = self.svr
+        slctm = self.rclp[:,0] + svr.ngstcell
+        slctr = self.rclp[:,1] + svr.ngstcell
+        svr.dsoln[slctm,:,:] = svr.dsoln[slctr,:,:]
 
 ################################################################################
 # Anchors.

@@ -509,8 +509,7 @@ class BlockSolver(BaseSolver):
 
         @return: nothing.
         """
-        for bc in self.bclist: bc.sol()
-        for bc in self.bclist: bc.dsol()
+        pass
 
     ##################################################
     # parallelization.

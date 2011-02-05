@@ -266,7 +266,7 @@ class CueulerBC(CeseBC):
 
 class CueulerWall(CueulerBC):
     _ghostgeom_ = 'mirror'
-    def sol(self):
+    def soln(self):
         from solvcon.dependency import intptr
         from ctypes import byref, c_int
         svr = self.svr
@@ -275,7 +275,7 @@ class CueulerWall(CueulerBC):
             c_int(self.facn.shape[0]),
             self.facn.ctypes._as_parameter_,
         )
-    def dsol(self):
+    def dsoln(self):
         from solvcon.dependency import intptr
         from ctypes import byref, c_int
         svr = self.svr
@@ -291,7 +291,7 @@ class CueulerInlet(CueulerBC):
         'rho': 1.0, 'p': 1.0, 'gamma': 1.4, 'v1': 0.0, 'v2': 0.0, 'v3': 0.0,
     }
     _ghostgeom_ = 'mirror'
-    def sol(self):
+    def soln(self):
         from solvcon.dependency import intptr
         from ctypes import byref, c_int
         svr = self.svr
@@ -302,7 +302,7 @@ class CueulerInlet(CueulerBC):
             c_int(self.value.shape[1]),
             self.value.ctypes._as_parameter_,
         )
-    def dsol(self):
+    def dsoln(self):
         from solvcon.dependency import intptr
         from ctypes import byref, c_int
         svr = self.svr

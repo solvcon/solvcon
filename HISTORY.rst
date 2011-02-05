@@ -16,6 +16,8 @@ Changes:
 
 - Refactor coupling of periodic boundary condition.
 - Remove ``\*ptr`` in ``solvcon.dependency``.
+- Correct sol() to soln() and dsol() to dsoln() in BC.
+- Move sol()/soln() and dsol()/dsoln() from ``solvcon.boundcond`` to kerpak.
 
 0.0.2
 =====

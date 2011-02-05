@@ -171,18 +171,6 @@ class BC(object):
         """
         pass
 
-    def sol(self):  # FIXME: should be in kerpak.
-        """
-        Update ghost cells after marchsol.
-        """
-        pass
-
-    def dsol(self): # FIXME: should be in kerpak.
-        """
-        Update ghost cells after marchdsol.
-        """
-        pass
-
 class unspecified(BC):
     """
     Abstract BC type for unspecified boundary conditions.
@@ -244,18 +232,6 @@ class periodic(interface):
     """
     BC type for periodic boundary condition.
     """
-
-    def sol(self):
-        svr = self.svr
-        slctm = self.rclp[:,0] + svr.ngstcell
-        slctr = self.rclp[:,1] + svr.ngstcell
-        svr.soln[slctm,:] = svr.soln[slctr,:]
-
-    def dsol(self):
-        svr = self.svr
-        slctm = self.rclp[:,0] + svr.ngstcell
-        slctr = self.rclp[:,1] + svr.ngstcell
-        svr.dsoln[slctm,:,:] = svr.dsoln[slctr,:,:]
 
     def sort(self, ref):
         if ref is None:

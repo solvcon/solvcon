@@ -114,7 +114,7 @@ class EulerBC(CeseBC):
 
 class EulerWall(EulerBC):
     _ghostgeom_ = 'mirror'
-    def sol(self):
+    def soln(self):
         from ctypes import byref, c_int
         svr = self.svr
         self._clib_eulerb.bound_wall_soln(
@@ -122,7 +122,7 @@ class EulerWall(EulerBC):
             c_int(self.facn.shape[0]),
             self.facn.ctypes._as_parameter_,
         )
-    def dsol(self):
+    def dsoln(self):
         from ctypes import byref, c_int
         svr = self.svr
         self._clib_eulerb.bound_wall_dsoln(
@@ -132,7 +132,7 @@ class EulerWall(EulerBC):
         )
 class EulerNonslipWall(EulerBC):
     _ghostgeom_ = 'mirror'
-    def sol(self):
+    def soln(self):
         from ctypes import byref, c_int
         svr = self.svr
         self._clib_eulerb.bound_nonslipwall_soln(
@@ -140,7 +140,7 @@ class EulerNonslipWall(EulerBC):
             c_int(self.facn.shape[0]),
             self.facn.ctypes._as_parameter_,
         )
-    def dsol(self):
+    def dsoln(self):
         from ctypes import byref, c_int
         svr = self.svr
         self._clib_eulerb.bound_nonslipwall_dsoln(
@@ -155,7 +155,7 @@ class EulerInlet(EulerBC):
         'rho': 1.0, 'p': 1.0, 'gamma': 1.4, 'v1': 0.0, 'v2': 0.0, 'v3': 0.0,
     }
     _ghostgeom_ = 'mirror'
-    def sol(self):
+    def soln(self):
         from ctypes import byref, c_int
         svr = self.svr
         self._clib_eulerb.bound_inlet_soln(
@@ -165,7 +165,7 @@ class EulerInlet(EulerBC):
             c_int(self.value.shape[1]),
             self.value.ctypes._as_parameter_,
         )
-    def dsol(self):
+    def dsoln(self):
         from ctypes import byref, c_int
         svr = self.svr
         self._clib_eulerb.bound_inlet_dsoln(
@@ -176,7 +176,7 @@ class EulerInlet(EulerBC):
 
 class EulerOutlet(EulerBC):
     _ghostgeom_ = 'translate'
-    def sol(self):
+    def soln(self):
         from ctypes import byref, c_int
         svr = self.svr
         self._clib_eulerb.bound_outlet_soln(
@@ -184,7 +184,7 @@ class EulerOutlet(EulerBC):
             c_int(self.facn.shape[0]),
             self.facn.ctypes._as_parameter_,
         )
-    def dsol(self):
+    def dsoln(self):
         from ctypes import byref, c_int
         svr = self.svr
         self._clib_eulerb.bound_outlet_dsoln(

@@ -212,7 +212,7 @@ class ElasticTraction(ElasticBC):
         'tau1': 0.0, 'tau2': 0.0, 'tau3': 0.0, 'freq': 0.0, 'phase': 0.0,
     }
     _ghostgeom_ = 'compress'
-    def sol(self):
+    def soln(self):
         from solvcon.dependency import intptr
         from ctypes import byref, c_int
         self._clib_boundcond.bound_traction_soln(
@@ -222,7 +222,7 @@ class ElasticTraction(ElasticBC):
             c_int(self.value.shape[1]),
             self.value.ctypes.data_as(self.fpptr),
         )
-    def dsol(self):
+    def dsoln(self):
         from solvcon.dependency import intptr
         from ctypes import byref, c_int
         self._clib_boundcond.bound_traction_dsoln(
@@ -234,7 +234,7 @@ class ElasticTraction(ElasticBC):
 class ElasticTractionFree(ElasticBC):
     typn = 10202
     _ghostgeom_ = 'mirror'
-    def sol(self):
+    def soln(self):
         from solvcon.dependency import intptr
         from ctypes import byref, c_int
         self._clib_boundcond.bound_traction_free_soln(
@@ -242,7 +242,7 @@ class ElasticTractionFree(ElasticBC):
             c_int(self.facn.shape[0]),
             self.facn.ctypes.data_as(intptr),
         )
-    def dsol(self):
+    def dsoln(self):
         from solvcon.dependency import intptr
         from ctypes import byref, c_int
         self._clib_boundcond.bound_traction_free_dsoln(
@@ -254,7 +254,7 @@ class ElasticTractionFree(ElasticBC):
 class ElasticTractionFree2(ElasticBC):
     typn = 10203
     _ghostgeom_ = 'mirror'
-    def sol(self):
+    def soln(self):
         from solvcon.dependency import intptr
         from ctypes import byref, c_int
         self._clib_boundcond.bound_traction_free2_soln(
@@ -262,7 +262,7 @@ class ElasticTractionFree2(ElasticBC):
             c_int(self.facn.shape[0]),
             self.facn.ctypes.data_as(intptr),
         )
-    def dsol(self):
+    def dsoln(self):
         from solvcon.dependency import intptr
         from ctypes import byref, c_int
         self._clib_boundcond.bound_traction_free2_dsoln(
