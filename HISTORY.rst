@@ -18,6 +18,7 @@ Changes:
 - Remove ``\*ptr`` in ``solvcon.dependency``.
 - Correct sol() to soln() and dsol() to dsoln() in BC.
 - Move sol()/soln() and dsol()/dsoln() from ``solvcon.boundcond`` to kerpak.
+- Remove FORTRAN-related code.
 
 0.0.2
 =====

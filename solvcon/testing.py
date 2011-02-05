@@ -84,7 +84,7 @@ def get_blk_from_oblique_neu(fpdtype=None):
         ).toblock(bcname_mapper=bcname_mapper, fpdtype=fpdtype)
 
 class TestingSolver(BlockSolver):
-    _pointers_ = ['msh']
+    _pointers_ = ['msd']
 
     _interface_init_ = ['cecnd', 'cevol']
 
@@ -96,7 +96,7 @@ class TestingSolver(BlockSolver):
         from numpy import empty
         super(TestingSolver, self).__init__(blk, *args, **kw)
         # data structure for C/FORTRAN.
-        self.msh = None
+        self.msd = None
         # arrays.
         ndim = self.ndim
         ncell = self.ncell
@@ -120,18 +120,9 @@ class TestingSolver(BlockSolver):
             method should firstly bind all pointers, secondly super binder, and 
             then methods/subroutines.
         """
-        from .block import BlockShape, MeshData
+        from .block import MeshData
         super(TestingSolver, self).bind()
-        # structures.
         self.msd = MeshData(blk=self)
-        self.msh = BlockShape(
-            ndim=self.ndim,
-            fcmnd=self.FCMND, clmnd=self.CLMND, clmfc=self.CLMFC,
-            nnode=self.nnode, nface=self.nface, ncell=self.ncell,
-            nbound=self.nbound,
-            ngstnode=self.ngstnode, ngstface=self.ngstface,
-            ngstcell=self.ngstcell,
-        )
 
     ##################################################
     # marching algorithm.
@@ -145,23 +136,13 @@ class TestingSolver(BlockSolver):
     MMNAMES.append('calcsoln')
     def calcsoln(self, worker=None):
         from ctypes import byref
-        from .conf import env
-        if not env.use_fortran:
-            self._clib_solvcon.calc_soln(
-                byref(self.msd),
-                byref(self.exd),
-                self.clvol.ctypes._as_parameter_,
-                self.sol.ctypes._as_parameter_,
-                self.soln.ctypes._as_parameter_,
-            )
-        else:
-            self._clib_solvcon.calc_soln_(
-                byref(self.msh),
-                byref(self.exd),
-                self.clvol.ctypes._as_parameter_,
-                self.sol.ctypes._as_parameter_,
-                self.soln.ctypes._as_parameter_,
-            )
+        self._clib_solvcon.calc_soln(
+            byref(self.msd),
+            byref(self.exd),
+            self.clvol.ctypes._as_parameter_,
+            self.sol.ctypes._as_parameter_,
+            self.soln.ctypes._as_parameter_,
+        )
 
     MMNAMES.append('ibcsoln')
     def ibcsoln(self, worker=None):
@@ -174,23 +155,13 @@ class TestingSolver(BlockSolver):
     MMNAMES.append('calcdsoln')
     def calcdsoln(self, worker=None):
         from ctypes import byref
-        from .conf import env
-        if not env.use_fortran:
-            self._clib_solvcon.calc_dsoln(
-                byref(self.msd),
-                byref(self.exd),
-                self.clcnd.ctypes._as_parameter_,
-                self.dsol.ctypes._as_parameter_,
-                self.dsoln.ctypes._as_parameter_,
-            )
-        else:
-            self._clib_solvcon.calc_dsoln_(
-                byref(self.msh),
-                byref(self.exd),
-                self.clcnd.ctypes._as_parameter_,
-                self.dsol.ctypes._as_parameter_,
-                self.dsoln.ctypes._as_parameter_,
-            )
+        self._clib_solvcon.calc_dsoln(
+            byref(self.msd),
+            byref(self.exd),
+            self.clcnd.ctypes._as_parameter_,
+            self.dsol.ctypes._as_parameter_,
+            self.dsoln.ctypes._as_parameter_,
+        )
 
     MMNAMES.append('ibcdsoln')
     def ibcdsoln(self, worker=None):

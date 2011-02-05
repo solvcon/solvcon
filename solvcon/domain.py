@@ -60,26 +60,13 @@ class Partitioner(object):
         from ctypes import POINTER, c_int, byref
         from numpy import empty
         from .dependency import _clib_solvcon_d
-        from .conf import env
         rcells = empty((blk.ncell, blk.CLMFC), dtype='int32')
         rcellno = empty(blk.ncell, dtype='int32')
-        if not env.use_fortran:
-            _clib_solvcon_d.build_rcells(
-                byref(blk.create_msd()),
-                rcells.ctypes._as_parameter_,
-                rcellno.ctypes._as_parameter_,
-            )
-        else:
-            _clib_solvcon_d.build_rcells_( 
-                byref(c_int(blk.CLMFC)),
-                byref(c_int(blk.nface)),
-                byref(c_int(blk.ncell)),
-                blk.clfcs.ctypes._as_parameter_,
-                blk.fccls.ctypes._as_parameter_,
-                # output.
-                rcells.ctypes._as_parameter_,
-                rcellno.ctypes._as_parameter_,
-            )
+        _clib_solvcon_d.build_rcells(
+            byref(blk.create_msd()),
+            rcells.ctypes._as_parameter_,
+            rcellno.ctypes._as_parameter_,
+        )
         return rcells, rcellno
 
     @classmethod
@@ -213,25 +200,13 @@ class Collective(Domain, list):
         """
         from ctypes import c_int, byref, POINTER
         from .dependency import _clib_solvcon_d
-        from .conf import env
         max_ndcnt = c_int(0)
-        if not env.use_fortran:
-            _clib_solvcon_d.count_max_nodeinblock(
-                byref(blk.create_msd()),
-                part.ctypes._as_parameter_,
-                c_int(part.max()+1),
-                byref(max_ndcnt),
-            )
-        else:
-            _clib_solvcon_d.count_max_nodeinblock_(
-                byref(c_int(blk.CLMND)),
-                byref(c_int(blk.ncell)),
-                byref(c_int(part.max()+1)),
-                byref(c_int(blk.nnode)),
-                blk.clnds.ctypes._as_parameter_,
-                part.ctypes._as_parameter_,
-                byref(max_ndcnt),
-            )
+        _clib_solvcon_d.count_max_nodeinblock(
+            byref(blk.create_msd()),
+            part.ctypes._as_parameter_,
+            c_int(part.max()+1),
+            byref(max_ndcnt),
+        )
         return max_ndcnt.value
 
     def partition(self, nblk):

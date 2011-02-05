@@ -38,7 +38,6 @@ Configurable environmental variables:
   The default fpdtype to be used is float64 (double).
 * ``SOLVCON_INTDTYPE``: a string for the numpy dtype object for integer.
   The default intdtype to be used is int32.
-* ``SOLVCON_FORTRAN``: flag to use FORTRAN binaries.
 * ``SOLVCON_MPI``: flag to use MPI.
 """
 
@@ -113,8 +112,6 @@ class Solvcon(object):
         self._intdtype = None
         # dynamic properties.
         self.command = None
-        # library.
-        self.use_fortran = bool(os.environ.get('SOLVCON_FORTRAN', False))
         # MPI.
         self.mpi = os.environ.get('SOLVCON_MPI', None)
         self.mpi = MPI() if self.mpi is not None else self.mpi

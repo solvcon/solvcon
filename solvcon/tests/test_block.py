@@ -389,26 +389,6 @@ class TestShared(TestCase):
             self.assertSharedGhost(blk.ncell, blk.ngstcell,
                 blk.shclfcs[:,it], blk.gstclfcs[:,it])
 
-class TestBlockShape(TestCase):
-    oblique = get_blk_from_oblique_neu()
-
-    def test_BlockShape(self):
-        shape_text = """type block
-    integer*4 :: ndim = 2
-    integer*4 :: fcmnd = 4
-    integer*4 :: clmnd = 8
-    integer*4 :: clmfc = 6
-    integer*4 :: nnode = 72
-    integer*4 :: nface = 184
-    integer*4 :: ncell = 113
-    integer*4 :: nbound = 29
-    integer*4 :: ngstnode = 29
-    integer*4 :: ngstface = 58
-    integer*4 :: ngstcell = 29
-end type block"""
-        obft = self.oblique.create_shape()
-        self.assertEqual(str(obft), shape_text)
-
 class TestMeshData(TestCase):
     oblique = get_blk_from_oblique_neu()
 

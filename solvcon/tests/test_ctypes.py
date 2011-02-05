@@ -69,16 +69,12 @@ class TestCtypesFortran(TestCase):
         """
         from random import randint
         from ctypes import byref, c_int
-        from ..conf import env
         # back up array.
         a_orig = self.a.copy()
         # run FORTRAN subroutine.
         tval = randint(0,10000000)
         self.args[0] = byref(c_int(tval))
-        if not env.use_fortran:
-            self.lib_c_ctypes.ctypes_test(*self.args)
-        else:
-            self.lib_c_ctypes.ctypes_test_(*self.args)
+        self.lib_c_ctypes.ctypes_test(*self.args)
         # revert in Python and test.
         self.a -= tval
         for i in range(len(self.a)):
@@ -94,16 +90,12 @@ class TestCtypesFortran(TestCase):
         """
         from random import randint
         from ctypes import byref, c_double
-        from ..conf import env
         # back up array.
         b_orig = self.b.flatten()
         # run FORTRAN subroutine.
         tval = float(randint(0,10000000))
         self.args[1] = byref(c_double(tval))
-        if not env.use_fortran:
-            self.lib_c_ctypes.ctypes_test(*self.args)
-        else:
-            self.lib_c_ctypes.ctypes_test_(*self.args)
+        self.lib_c_ctypes.ctypes_test(*self.args)
         # revert in Python and test.
         self.b[1:,:] -= tval
         b = self.b.flatten()
@@ -114,7 +106,6 @@ class TestCtypesFortran(TestCase):
         from random import randint
         from ctypes import POINTER, byref, c_int, c_double, Structure, c_void_p
         from numpy import arange
-        from ..conf import env
         # build struct/type.
         class Record(Structure):
             _fields_ = [
@@ -133,10 +124,7 @@ class TestCtypesFortran(TestCase):
         r2.idx = 10
         r2.arr[:] = arr[:]
         # run foreign function.
-        if not env.use_fortran:
-            self.lib_c_ctypes.ctypes_type_test(byref(r1), byref(r2))
-        else:
-            self.lib_c_ctypes.ctypes_type_test_(byref(r1), byref(r2))
+        self.lib_c_ctypes.ctypes_type_test(byref(r1), byref(r2))
         # verify result.
         self.assertEqual(r1.idx, -r2.idx)
         for i in range(10):

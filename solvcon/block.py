@@ -39,34 +39,6 @@ MAX_CLNND = elemtype[:,2].max()
 MAX_CLNFC = max(elemtype[elemtype[:,1]==2,3].max(),
                 elemtype[elemtype[:,1]==3,4].max())
 
-class BlockShape(FortranType):
-    """
-    The shape of a block.
-    """
-
-    _fortran_name_ = 'block'
-    from ctypes import c_int
-    _fields_ = [
-        ('ndim', c_int),
-        ('fcmnd', c_int),
-        ('clmnd', c_int),
-        ('clmfc', c_int),
-        ('nnode', c_int), ('nface', c_int), ('ncell', c_int),
-        ('nbound', c_int),
-        ('ngstnode', c_int), ('ngstface', c_int), ('ngstcell', c_int),
-    ]
-    del c_int
-
-    def __init__(self, *args, **kw):
-        blk = kw.pop('blk', None)
-        super(BlockShape, self).__init__(*args, **kw)
-        if blk:
-            for name, ft in self._fields_:
-                val = getattr(blk, name, None)
-                if val == None:
-                    val = getattr(blk, name.upper(), None)
-                setattr(self, name, val)
-
 class MeshData(Structure):
     """
     Data structure for mesh.
@@ -173,7 +145,6 @@ class Block(object):
         @keyword ncell: number of cells.
         @keyword nbound: number of BC faces.
         """
-        import numpy
         from numpy import empty
         from .conf import env
         # get parameters.
@@ -304,13 +275,6 @@ class Block(object):
         for bc in self.bclist:
             bc.unbind()
 
-    def create_shape(self):
-        """
-        @return: the shape of this block.
-        @rtype: BlockShape
-        """
-        return BlockShape(blk=self)
-
     def create_msd(self):
         return MeshData(blk=self)
 
@@ -322,28 +286,7 @@ class Block(object):
         @return: nothing.
         """
         from ctypes import byref
-        from .conf import env
-        if not env.use_fortran:
-            self._clib_solvcon.calc_metric(
-                byref(self.create_msd()),
-            )
-        else:
-            msh = self.create_shape()
-            self._clib_solvcon.calc_metric_(
-                # input.
-                byref(msh),
-                self.ndcrd.ctypes._as_parameter_,
-                self.fccls.ctypes._as_parameter_,
-                self.clnds.ctypes._as_parameter_,
-                self.clfcs.ctypes._as_parameter_,
-                # output/input.
-                self.fcnds.ctypes._as_parameter_,
-                self.fccnd.ctypes._as_parameter_,
-                self.fcnml.ctypes._as_parameter_,
-                self.fcara.ctypes._as_parameter_,
-                self.clcnd.ctypes._as_parameter_,
-                self.clvol.ctypes._as_parameter_,
-            )
+        self._clib_solvcon.calc_metric(byref(self.create_msd()))
 
     def build_interior(self):
         """
@@ -356,7 +299,6 @@ class Block(object):
         """
         from numpy import empty
         from ctypes import byref, c_int
-        from .conf import env
         # prepare to build connectivity: calculate max number of faces.
         max_nfc = 0
         for sig in elemtype[1:2]:   # 1D cells.
@@ -375,36 +317,17 @@ class Block(object):
         for arr in clfcs, fcnds, fccls:
             arr.fill(-1)
         ## call the subroutine.
-        if not env.use_fortran:
-            self._clib_solvcon.get_faces_from_cells(
-                # input.
-                byref(self.create_msd()),
-                c_int(max_nfc),
-                # output.
-                byref(nface),
-                clfcs.ctypes._as_parameter_,
-                fctpn.ctypes._as_parameter_,
-                fcnds.ctypes._as_parameter_,
-                fccls.ctypes._as_parameter_,
-            )
-        else:
-            self._clib_solvcon.get_faces_from_cells_(
-                # input.
-                byref(c_int(self.nnode)),
-                byref(c_int(self.ncell)),
-                byref(c_int(max_nfc)),
-                byref(c_int(self.CLMND)),
-                byref(c_int(self.CLMFC)),
-                byref(c_int(self.FCMND)),
-                self.cltpn.ctypes._as_parameter_,
-                self.clnds.ctypes._as_parameter_,
-                # output.
-                byref(nface),
-                clfcs.ctypes._as_parameter_,
-                fctpn.ctypes._as_parameter_,
-                fcnds.ctypes._as_parameter_,
-                fccls.ctypes._as_parameter_,
-            )
+        self._clib_solvcon.get_faces_from_cells(
+            # input.
+            byref(self.create_msd()),
+            c_int(max_nfc),
+            # output.
+            byref(nface),
+            clfcs.ctypes._as_parameter_,
+            fctpn.ctypes._as_parameter_,
+            fcnds.ctypes._as_parameter_,
+            fccls.ctypes._as_parameter_,
+        )
         ## shuffle the result.
         nface = nface.value
         clfcs = clfcs[:nface,:]
@@ -495,40 +418,16 @@ class Block(object):
         """
         from ctypes import byref
         from numpy import arange
-        from .conf import env
         # initialize data structure (arrays) for ghost information.
         ngstnode, ngstface, ngstcell = self._count_ghost()
         self._init_shared(ngstnode, ngstface, ngstcell)
         self._assign_ghost(ngstnode, ngstface, ngstcell)
         self._reassign_interior(ngstnode, ngstface, ngstcell)
         # build ghost information, including connectivities and metrics.
-        if not env.use_fortran:
-            self._clib_solvcon.build_ghost(
-                byref(self.create_msd()),
-                self.bndfcs.ctypes._as_parameter_,
-            )
-        else:
-            msh = self.create_shape()
-            self._clib_solvcon.build_ghost_(
-                # meta data.
-                byref(msh),
-                self.bndfcs.ctypes._as_parameter_,
-                self.shfctpn.ctypes._as_parameter_,
-                self.shcltpn.ctypes._as_parameter_,
-                self.shclgrp.ctypes._as_parameter_,
-                # connectivity.
-                self.shfcnds.ctypes._as_parameter_,
-                self.shfccls.ctypes._as_parameter_,
-                self.shclnds.ctypes._as_parameter_,
-                self.shclfcs.ctypes._as_parameter_,
-                # geometry.
-                self.shndcrd.ctypes._as_parameter_,
-                self.shfccnd.ctypes._as_parameter_,
-                self.shfcnml.ctypes._as_parameter_,
-                self.shfcara.ctypes._as_parameter_,
-                self.shclcnd.ctypes._as_parameter_,
-                self.shclvol.ctypes._as_parameter_,
-            )
+        self._clib_solvcon.build_ghost(
+            byref(self.create_msd()),
+            self.bndfcs.ctypes._as_parameter_,
+        )
 
     def _count_ghost(self):
         """
