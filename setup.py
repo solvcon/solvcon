@@ -38,7 +38,7 @@ README for SOLVCON
 ==================
 
 :author: Yung-Yu Chen <yyc@solvcon.net>
-:copyright: c 2008-2010.
+:copyright: c 2008-2011.
 """)
     f.write(solvcon.__doc__)
     f.write("""

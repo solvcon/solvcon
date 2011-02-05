@@ -3,17 +3,17 @@ README for SOLVCON
 ==================
 
 :author: Yung-Yu Chen <yyc@solvcon.net>
-:copyright: c 2008-2010.
+:copyright: c 2008-2011.
 
 SOLVCON: a multi-physics software framework for high-fidelity solutions of
 partial differential equations (PDEs) by hybrid parallelism.
 
-Python is the primary programming language for constructing SOLVCON.
-Number-crunching is performed by high-speed subroutines written in C.  By
-taking the mixed-language approach, PDE solvers can be rapidly developed and
-simultaneously utilize hundreds of nodes in a supercomputer by parallel
-computing.  SOLVCON is multi-physics, and stocking numerical algorithms and
-physical models are ready for use in the namespace ``solvcon.kerpak``.
+SOLVCON primarily uses Python_, but number-crunching is done by C subroutines
+for speed.  The mixing-language approach allows PDE solvers to be rapidly
+developed for massively parallel computing.  The object-oriented design
+facilitated by Python makes SOLVCON easy to be systematically extended.
+SOLVCON supports pluggable physical models.  Stocking ones are accessible in
+the namespace ``solvcon.kerpak``.
 
 The default numerical algorithm in SOLVCON is the space-time Conservation
 Element and Solution Element (CESE_) method, which was originally developed by
@@ -23,37 +23,27 @@ physical processes including fluid dynamics, aero-acoustics, detonations,
 magnetohydrodynamics (MHD), stress waves in complex solids, electromagnetics,
 to be named but a few.
 
-SOLVCON is free software (for freedom, not price) and released under GPLv2.
-See http://www.gnu.org/licenses/gpl-2.0.html or ``COPYING`` for the complete
-license.  **SOLVCON is still in alpha and subjects to changes.  No effort is
-made for backward compatibility at the current stage.**
-
-Credits
-=======
-
-SOLVCON is developed by `Yung-Yu Chen <mailto:yyc@solvcon.net>`_ and `Sheng-Tao
-John Yu <mailto:yu.274@osu.edu>`_.
+SOLVCON is free software and released under GPLv2.  See
+http://www.gnu.org/licenses/gpl-2.0.html or ``COPYING`` for the license.
+SOLVCON is being developed and maintained by `Yung-Yu Chen
+<mailto:yyc@solvcon.net>`_ and `Sheng-Tao John Yu <mailto:yu.274@osu.edu>`_.
 
 Key Features
 ============
 
-- Pluggable multi-physics.
-- Built-in CESE_ solvers.
-- Unstructured mesh consisting of mixed elements.
-- Interface to Message-Passing Interface (MPI) libraries.
-- Socket communication layer: working without MPI installed.
-- Automatic distributed-memory parallelization by domain decomposition.
-- Hybrid parallelism for GPU clusters.
-- Parallel I/O.
-- In situ visualization by VTK_ library.
-- Standalone writers to VTK legacy and XML file formats.
-- Integration to supercomputer (cluster) batch systems.
+- **Multi-physics**: Pluggable physical models by the built-in CESE_ solvers
+- **Complex geometry**: 2/3D unstructured mesh consisting of mixed shapes
+- **Massively parallel**: Automatic domain decomposition with MPI or socket
+- **GPU cluster**: Hybrid parallelism with CUDA_
+- **Large data set**: In situ visualization by VTK_ and parallel I/O
+- **I/O formats**: VTK, GAMBIT Neutral, CUBIT Genesis/ExodosII, etc.
+- **Productive work flow**: Integration to batch systems, e.g., Torque
 
 Install
 =======
 
 The C codes in SOLVCON are intentionally made to be standard shared libraries
-rather than Python extension modules.  SOLVCON uses ``ctypes`` to load and call
+rather than Python extension modules.  SOLVCON uses ctypes_ to load and call
 these binary codes.  In this way, the binary codes can be flexibly built and
 optimized for performance.  Hence, installing SOLVCON requires building these
 libraries.  SOLVCON uses SCons_ as the binary builder.
@@ -70,6 +60,9 @@ Ubuntu_ users, they can use the following command to install the dependencies::
     libnetcdf-dev libnetcdf6 netcdf-bin
     python2.6 python2.6-dev python-profiler python-numpy
     python-nose python-epydoc python-vtk
+
+CUDA_ needs to be separately installed and configured for the CUDA support in
+SOLVCON to correctly work.
 
 Installation needs only three steps:
 
@@ -140,18 +133,17 @@ for unit tests.  Inside the source tree, you can also use::
 
 Because SOLVCON uses ssh_ as its default approach for remote procedure call
 (RPC), you need to set up the public key authentication for ssh, or some of the
-unit tests for RPC would fail.  Every test should pass, except one specific to
-cluster batch systems could be skipped (indicated by S).  If you do not have
-VTK_ and its Python binding, VTK-related tests will also be skipped.
+unit tests for RPC could fail.  Every test should pass, except some
+non-applicable to your environment could be skipped (indicated by S).  For
+example, if you do not have VTK_ and its Python binding, VTK-related tests will
+be skipped.
 
 Resources
 =========
 
 - Portal (with API document): http://solvcon.net/
 - Mailing list: http://groups.google.com/group/solvcon
-- Issue tracker (bug report): https://bitbucket.org/yungyuc/solvcon/issues
-- Source: https://bitbucket.org/yungyuc/solvcon/src
-- Downloads: https://bitbucket.org/yungyuc/solvcon/downloads
+- Downloads: http://bitbucket.org/yungyuc/solvcon/downloads
 
 .. _CESE: http://www.grc.nasa.gov/WWW/microbus/
 .. _SCons: http://www.scons.org/
@@ -162,10 +154,12 @@ Resources
 .. _NetCDF: http://www.unidata.ucar.edu/software/netcdf/index.html
 .. _METIS: http://glaros.dtc.umn.edu/gkhome/views/metis/
 .. _Epydoc: http://epydoc.sf.net/
+.. _CUDA: http://www.nvidia.com/object/cuda_home_new.html
 .. _Mercurial: http://mercurial.selenic.com/
 .. _ssh: http://www.openssh.com/
 .. _Nose: http://somethingaboutorange.com/mrl/projects/nose/
 .. _VTK: http://vtk.org/
+.. _ctypes: http://docs.python.org/library/ctypes.html
 .. _Debian: http://debian.org/
 .. _Ubuntu: http://ubuntu.com/
 
