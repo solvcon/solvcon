@@ -1,5 +1,5 @@
 # -*- coding: UTF-8 -*-
-# Copyright (C) 2008-2010 by Yung-Yu Chen.  See LICENSE.txt for terms of usage.
+# Copyright (C) 2008-2011 by Yung-Yu Chen.  See LICENSE.txt for terms of usage.
 
 from unittest import TestCase
 from ..anchor import VtkAnchor
