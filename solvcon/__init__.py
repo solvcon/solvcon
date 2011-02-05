@@ -180,7 +180,7 @@ __docformat__ = 'restructuredtext en'
 
 __version__ = '0.0.2+'
 
-__description__ = "Solver Constructor: a framework for PDE solvers"
+__description__ = "SOLVCON: a software framework for PDE solvers"
 
 __all__ = ['batch', 'batch_torque', 'block', 'boundcond', 'case',
     'cmdutil', 'command', 'conf', 'connection', 'dependency', 'domain',
