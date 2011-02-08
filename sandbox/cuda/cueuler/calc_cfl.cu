@@ -18,9 +18,18 @@
 
 #include "cueuler.h"
 
-int calc_cfl_adj(exedata *exd, int istart, int iend) {
-    int cputicks;
+#ifdef __CUDACC__
+__global__ void cuda_calc_cfl(exedata *exd) {
+    int istart = blockDim.x * blockIdx.x + threadIdx.x;
+#else
+int calc_cfl(exedata *exd, int istart, int iend) {
     struct tms timm0, timm1;
+    int cputicks;
+    times(&timm0);
+#ifdef SOLVCESE_FE
+    feenableexcept(SOLVCESE_FE);
+#endif
+#endif
     int clnfc;
     // pointers.
     int *pclfcs;
@@ -31,10 +40,6 @@ int calc_cfl_adj(exedata *exd, int istart, int iend) {
     double vec[NDIM];
     // iterators.
     int icl, ifl;
-    times(&timm0);
-#ifdef SOLVCESE_FE
-    feenableexcept(SOLVCESE_FE);
-#endif
     hdt = exd->time_increment / 2.0;
     pamsca = exd->amsca + istart*NSCA;
     pcfl = exd->cfl + istart;
@@ -42,7 +47,12 @@ int calc_cfl_adj(exedata *exd, int istart, int iend) {
     psoln = exd->soln + istart*NEQ;
     picecnd = exd->cecnd + istart*(CLMFC+1)*NDIM;
     pclfcs = exd->clfcs + istart*(CLMFC+1);
+#ifndef __CUDACC__
     for (icl=istart; icl<iend; icl++) {
+#else
+    icl = istart;
+    if (icl < exd->ncell) {
+#endif
         // estimate distance.
         dist = 1.e200;
         pcecnd = picecnd;
@@ -73,9 +83,6 @@ int calc_cfl_adj(exedata *exd, int istart, int iend) {
         ;
         ke = wspd/(2.0*psoln[0]);
         pr = ga1 * (psoln[1+NDIM] - ke);
-#if SOLVCESE_DEBUG
-        if (pr < 0.0) printf("%d: pr = %g\n", icl, pr);   // usual cause.
-#endif
         pr = (pr+fabs(pr))/2.0;
         wspd = sqrt(ga*pr/psoln[0]) + sqrt(wspd)/psoln[0];
         // CFL.
@@ -92,9 +99,20 @@ int calc_cfl_adj(exedata *exd, int istart, int iend) {
         picecnd += (CLMFC+1)*NDIM;
         pclfcs += CLMFC+1;
     };
+#ifndef __CUDACC__
     times(&timm1);
     cputicks = (int)((timm1.tms_utime+timm1.tms_stime)
                    - (timm0.tms_utime+timm0.tms_stime));
     return cputicks;
 };
+#else
+};
+extern "C" int calc_cfl(int nthread, exedata *exc, void *gexc) {
+    dim3 nblock = (exc->ncell + nthread-1) / nthread;
+    cuda_calc_cfl<<<nblock, nthread>>>((exedata *)gexc);
+    cudaThreadSynchronize();
+    return 0;
+};
+#endif
+
 // vim: set ts=4 et:

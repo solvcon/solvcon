@@ -180,8 +180,6 @@ class CueulerSolver(EulerSolver):
         from ctypes import byref
         self._clib_cueuler.calc_solt(self.ncuthread,
             byref(self.exc), self.gexc.gptr)
-        for key in ('solt',):
-            self.scu.memcpy(getattr(self, key), getattr(self, 'cu'+key))
         if self.debug: self.mesg(' done.\n')
 
     def calcsoln(self, worker=None):
@@ -193,9 +191,12 @@ class CueulerSolver(EulerSolver):
             self.scu.memcpy(getattr(self, key), getattr(self, 'cu'+key))
         if self.debug: self.mesg(' done.\n')
 
-    def vcalccfl(self, worker=None):
+    def calccfl(self, worker=None):
         from ctypes import byref
-        self._clib_cueuler.calc_cfl(byref(self.exc))
+        self._clib_cueuler.calc_cfl(self.ncuthread,
+            byref(self.exc), self.gexc.gptr)
+        for key in ('ocfl', 'cfl'):
+            self.scu.memcpy(getattr(self, key), getattr(self, 'cu'+key))
         mincfl = self.ocfl.min()
         maxcfl = self.ocfl.max()
         nadj = (self.cfl==1).sum()
@@ -210,8 +211,6 @@ class CueulerSolver(EulerSolver):
     def calcdsoln(self, worker=None):
         if self.debug: self.mesg('calcdsoln')
         from ctypes import byref
-        for key in ('cfl',):
-            self.scu.memcpy(getattr(self, 'cu'+key), getattr(self, key))
         self._clib_cueuler.calc_dsoln(self.ncuthread,
             byref(self.exc), self.gexc.gptr)
         for key in ('dsoln',):
