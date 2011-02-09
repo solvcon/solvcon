@@ -18,28 +18,45 @@
 
 #include "cueuler.h"
 
+#ifdef __CUDACC__
+__global__ void cuda_bound_inlet_soln(exedata *exd, int nbnd, int *facn,
+    int nvalue, double *value) {
+    int ibnd = blockDim.x * blockIdx.x + threadIdx.x;
+#else
 int bound_inlet_soln(exedata *exd, int nbnd, int *facn,
-        int nvalue, double *value) {
+    int nvalue, double *value) {
+    int ibnd;
+#endif
     // pointers.
     int *pfacn, *pfccls;
     double *pvalue, *pjsoln;
     // scalars.
     double rho, p, ga, ke;
-    double v1, v2, v3;
+    double v1, v2;
+#if NDIM == 3
+    double v3;
+#endif
     // iterators.
-    int ibnd, ifc, icl, jcl, ieq;
+    int ifc, jcl;
+#ifdef __CUDACC__
+    if (ibnd < nbnd) {
+        pfacn = facn + ibnd*BFREL;
+        pvalue = value + ibnd*nvalue;
+#else
     pfacn = facn;
     pvalue = value;
     for (ibnd=0; ibnd<nbnd; ibnd++) {
+#endif
         ifc = pfacn[0];
         pfccls = exd->fccls + ifc*FCREL;
-        icl = pfccls[0];
         jcl = pfccls[1];
         // extract parameters.
         rho = pvalue[0];
         v1 = pvalue[1];
         v2 = pvalue[2];
+#if NDIM == 3
         v3 = pvalue[3];
+#endif
         ke = (v1*v1 + v2*v2
 #if NDIM == 3
             + v3*v3
@@ -56,33 +73,71 @@ int bound_inlet_soln(exedata *exd, int nbnd, int *facn,
         pjsoln[3] = v3*rho;
 #endif
         pjsoln[1+NDIM] = p/(ga-1.0) + ke;
+#ifndef __CUDACC__
         // advance boundary face.
         pfacn += BFREL;
         pvalue += nvalue;
     };
     return 0;
-}
+};
+#else
+    };
+};
+extern "C" int bound_inlet_soln(int nthread, void *gexc,
+    int nbnd, void *gfacn, int nvalue, void *value) {
+    int nblock = (nbnd + nthread-1) / nthread;
+    cuda_bound_inlet_soln<<<nblock, nthread>>>((exedata *)gexc,
+        nbnd, (int *)gfacn, nvalue, (double *)value);
+    cudaThreadSynchronize();
+    return 0;
+};
+#endif
+
+#ifdef __CUDACC__
+__global__ void cuda_bound_inlet_dsoln(exedata *exd, int nbnd, int *facn) {
+    int ibnd = blockDim.x * blockIdx.x + threadIdx.x;
+#else
 int bound_inlet_dsoln(exedata *exd, int nbnd, int *facn) {
+    int ibnd;
+#endif
     // pointers.
     int *pfacn, *pfccls;
     double *pjdsoln;
     // iterators.
-    int ibnd, ifc, icl, jcl;
+    int ifc, jcl;
     int it;
+#ifdef __CUDACC__
+    if (ibnd < nbnd) {
+        pfacn = facn + ibnd*BFREL;
+#else
     pfacn = facn;
     for (ibnd=0; ibnd<nbnd; ibnd++) {
+#endif
         ifc = pfacn[0];
         pfccls = exd->fccls + ifc*FCREL;
-        icl = pfccls[0];
         jcl = pfccls[1];
         pjdsoln = exd->dsoln + jcl*NEQ*NDIM;
         // set to zero.
         for (it=0; it<NEQ*NDIM; it++) {
             pjdsoln[it] = 0.0;
         };
+#ifndef __CUDACC__
         // advance boundary face.
         pfacn += BFREL;
     };
     return 0;
-}
+};
+#else
+    };
+};
+extern "C" int bound_inlet_dsoln(int nthread, void *gexc,
+    int nbnd, void *gfacn) {
+    int nblock = (nbnd + nthread-1) / nthread;
+    cuda_bound_inlet_dsoln<<<nblock, nthread>>>((exedata *)gexc,
+        nbnd, (int *)gfacn);
+    cudaThreadSynchronize();
+    return 0;
+};
+#endif
+
 // vim: set ts=4 et:

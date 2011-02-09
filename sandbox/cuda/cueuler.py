@@ -338,22 +338,15 @@ class CueulerInlet(CueulerBC):
     }
     _ghostgeom_ = 'mirror'
     def soln(self):
-        from ctypes import byref, c_int
         svr = self.svr
-        self._clib_cueulerb.bound_inlet_soln(
-            byref(svr.exd),
-            c_int(self.facn.shape[0]),
-            self.facn.ctypes._as_parameter_,
-            c_int(self.value.shape[1]),
-            self.value.ctypes._as_parameter_,
+        self._clib_cueulerb.bound_inlet_soln(svr.ncuthread,
+            svr.gexc.gptr, self.facn.shape[0], self.cufacn.gptr,
+            self.value.shape[1], self.cuvalue.gptr,
         )
     def dsoln(self):
-        from ctypes import byref, c_int
         svr = self.svr
-        self._clib_cueulerb.bound_inlet_dsoln(
-            byref(svr.exd),
-            c_int(self.facn.shape[0]),
-            self.facn.ctypes._as_parameter_,
+        self._clib_cueulerb.bound_inlet_dsoln(svr.ncuthread,
+            svr.gexc.gptr, self.facn.shape[0], self.cufacn.gptr,
         )
 
 ###############################################################################
