@@ -54,11 +54,8 @@ def hbnt_base(casename=None, meshname=None,
     fpi = fpb.copy()
     # set up BCs.
     bcmap = {
-        #'cylinder': (bctregy.EulerWall, {},),
         'cylinder': (bctregy.CueulerWall, {},),
-        #'farfield': (bctregy.EulerInlet, fpb,),
         'farfield': (bctregy.CueulerInlet, fpb,),
-        #'outflow': (bctregy.CeseNonrefl, {},),
         'outflow': (bctregy.CueulerNonrefl, {},),
     }
     # set up case.

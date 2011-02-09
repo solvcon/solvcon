@@ -20,11 +20,12 @@
 Euler equations solver using the CESE method with CUDA.
 """
 
+from solvcon.gendata import AttributeDict
+from solvcon.anchor import Anchor
+from solvcon.hook import BlockHook
 from solvcon.kerpak.euler import EulerSolver
 from solvcon.kerpak.cese import CeseCase
 from solvcon.kerpak.cese import CeseBC
-from solvcon.anchor import Anchor
-from solvcon.hook import BlockHook
 
 def getcdll(libname):
     """
@@ -37,6 +38,69 @@ def getcdll(libname):
     """
     from solvcon.dependency import loadcdll
     return loadcdll('.', 'sc_'+libname)
+
+class CudaDataManager(AttributeDict):
+    """
+    Manage solver data on GPU memory.
+    """
+    def __init__(self, *args, **kw):
+        from ctypes import sizeof
+        self.svr = kw.pop('svr')
+        super(CudaDataManager, self).__init__(*args, **kw)
+        self.exd = self.svr._exedatatype_(svr=self.svr)
+        self.gexd = self.svr.scu.alloc(sizeof(self.exd))
+        # allocate all arrays.
+        for name in self.svr.cuarr_map:
+            shf = self.svr.cuarr_map[name]
+            carr = getattr(self.svr, name)
+            self[name] = self.svr.scu.alloc(carr.nbytes)
+    def __set_cuda_pointer(self, exc, svr, aname, shf):
+        from ctypes import c_void_p
+        arr = getattr(svr, aname)
+        gptr = self[aname].gptr
+        nt = 1
+        if len(arr.shape) > 1:
+            for width in arr.shape[1:]:
+                nt *= width
+        shf *= nt * arr.itemsize
+        addr = gptr.value + shf if gptr.value is not None else None
+        setattr(exc, aname, c_void_p(addr))
+
+    def update_exd(self, exd=None):
+        if exd is None:
+            exd = self.svr.exd
+        # copy everything.
+        for key, ctp in exd._fields_:
+            setattr(self.exd, key, getattr(exd, key))
+        # shift pointers.
+        for name in self.svr.cuarr_map:
+            shf = self.svr.cuarr_map[name]
+            self.__set_cuda_pointer(self.exd, self.svr, name, shf)
+        # send to GPU.
+        self.exd_to_gpu()
+
+    def exd_to_gpu(self):
+        from ctypes import byref, sizeof
+        scu = self.svr.scu
+        scu.cudaMemcpy(self.gexd.gptr, byref(self.exd),
+            sizeof(self.exd), scu.cudaMemcpyHostToDevice)
+
+    def arr_to_gpu(self, name=None):
+        scu = self.svr.scu
+        names = self if name is None else [name]
+        for name in names:
+            scu.memcpy(self[name], getattr(self.svr, name))
+    def arr_from_gpu(self, name=None):
+        scu = self.svr.scu
+        names = self if name is None else [name]
+        for name in names:
+            scu.memcpy(getattr(self.svr, name), self[name])
+
+    def free_all(self):
+        scu = self.svr.scu
+        scu.free(self.gexd)
+        for name in self.svr.cuarr_map:
+            scu.free(self[name])
 
 ###############################################################################
 # Solver.
@@ -53,24 +117,18 @@ class CueulerSolver(EulerSolver):
         kw['nsca'] = 1
         self.ncuthread = kw.pop('ncuthread',  32)
         super(CueulerSolver, self).__init__(blk, *args, **kw)
-        # data structure for CUDA/C.
-        self.exc = None
-        self.gexc = None
-        for key in (
-            # connectivity.
-            'clfcs', 'fcnds', 'fccls',
-            # geometry.
-            'ndcrd', 'fccnd', 'fcnml', 'clcnd',
-            # meta array.
-            'cltpn', 'grpda',
-            # dual mesh.
-            'cecnd', 'cevol',
-            # solutions.
-            'solt', 'sol', 'soln', 'dsol', 'dsoln',
-            'cfl', 'ocfl', 'amsca', 'amvec',
-        ):
-            nbytes = getattr(self, key).nbytes
-            setattr(self, 'cu'+key, scu.alloc(nbytes))
+        # set shifted pointers.
+        self.cumgr = None
+        self.cuarr_map = dict()
+        for key in ('grpda', 'cfl', 'ocfl',):
+            self.cuarr_map[key] = 0
+        for key in ('clfcs', 'clcnd', 'cltpn', 'cecnd', 'cevol',
+            'solt', 'sol', 'soln', 'dsol', 'dsoln', 'amsca', 'amvec',):
+            self.cuarr_map[key] = self.ngstcell
+        for key in ('fcnds', 'fccls', 'fccnd', 'fcnml'):
+            self.cuarr_map[key] = self.ngstface
+        for key in ('ndcrd',):
+            self.cuarr_map[key] = self.ngstnode
     #from solvcon.dependency import getcdll
     __clib_cueuler = {
         2: getcdll('cueuler2d'),
@@ -85,83 +143,29 @@ class CueulerSolver(EulerSolver):
     def _jacofunc_(self):
         return self._clib_euler.calc_jaco
 
-    @staticmethod
-    def __set_cuda_pointer(exc, svr, aname, shf):
-        from ctypes import c_void_p
-        arr = getattr(svr, aname)
-        gptr = getattr(svr, 'cu'+aname).gptr
-        nt = 1
-        if len(arr.shape) > 1:
-            for width in arr.shape[1:]:
-                nt *= width
-        shf *= nt * arr.itemsize
-        addr = gptr.value + shf if gptr.value is not None else None
-        setattr(exc, aname, c_void_p(addr))
-    def set_execuda(self, exd, exc):
-        from ctypes import c_void_p
-        if exd is None:
-            exd = self._exedatatype_(svr=self)
-        # copy everything.
-        for key, ctp in exd._fields_:
-            setattr(self.exc, key, getattr(exd, key))
-        # set shifted pointers.
-        for key in ('clfcs',):
-            self.__set_cuda_pointer(exc, self, key, self.ngstcell)
-        for key in ('fcnds', 'fccls'):
-            self.__set_cuda_pointer(exc, self, key, self.ngstface)
-        for key in ('ndcrd',):
-            self.__set_cuda_pointer(exc, self, key, self.ngstnode)
-        for key in ('fccnd', 'fcnml'):
-            self.__set_cuda_pointer(exc, self, key, self.ngstface)
-        for key in ('clcnd',):
-            self.__set_cuda_pointer(exc, self, key, self.ngstcell)
-        for key in ('cltpn',):
-            self.__set_cuda_pointer(exc, self, key, self.ngstcell)
-        for key in ('grpda',):
-            self.__set_cuda_pointer(exc, self, key, 0)
-        for key in ('cecnd', 'cevol'):
-            self.__set_cuda_pointer(exc, self, key, self.ngstcell)
-        for key in ('solt', 'sol', 'soln', 'dsol', 'dsoln',):
-            self.__set_cuda_pointer(exc, self, key, self.ngstcell)
-        for key in ('cfl', 'ocfl',):
-            self.__set_cuda_pointer(exc, self, key, 0)
-        for key in ('amsca', 'amvec',):
-            self.__set_cuda_pointer(exc, self, key, self.ngstcell)
-
     def bind(self):
-        from ctypes import sizeof
         if self.scu:
-            self.exc = self._exedatatype_(svr=self)
-            self.set_execuda(None, self.exc)
-            self.gexc = self.scu.alloc(sizeof(self.exc))
+            self.cumgr = CudaDataManager(svr=self)
         super(CueulerSolver, self).bind()
     def unbind(self):
-        if self.scu:
-            self.scu.free(self.gexc)
+        if self.scu and self.cumgr:
+            self.cumgr.free_all()
+            self.cumgr = None
         super(CueulerSolver, self).unbind()
 
     def init(self, **kw):
         super(CueulerSolver, self).init(**kw)
         if self.scu:
-            for key in ('cltpn',
-                'clfcs', 'fcnds', 'fccls', 'ndcrd', 'fccnd', 'fcnml', 'clcnd',
-                'cecnd', 'cevol',
-                'solt', 'sol', 'soln', 'dsol', 'dsoln',
-                'cfl', 'ocfl',
-                'amsca', 'amvec',
-            ):
-                self.scu.memcpy(getattr(self, 'cu'+key), getattr(self, key))
+            self.cumgr.arr_to_gpu()
 
     def boundcond(self):
         from ctypes import byref, sizeof
         if self.scu:
-            self.set_execuda(self.exd, self.exc)
-            self.scu.cudaMemcpy(self.gexc.gptr, byref(self.exc),
-                sizeof(self.exc), self.scu.cudaMemcpyHostToDevice)
+            self.cumgr.update_exd()
             for key in ('sol', 'soln', 'dsol', 'dsoln',):
-                self.scu.memcpy(getattr(self, 'cu'+key), getattr(self, key))
-            if self.nsca: self.scu.memcpy(self.cuamsca, self.amsca)
-            if self.nvec: self.scu.memcpy(self.cuamvec, self.amvec)
+                self.cumgr.arr_to_gpu(key)
+            if self.nsca: self.cumgr.arr_to_gpu('amsca')
+            if self.nvec: self.cumgr.arr_to_gpu('amvec')
         super(CueulerSolver, self).boundcond()
 
     def update(self, worker=None):
@@ -178,18 +182,15 @@ class CueulerSolver(EulerSolver):
         self.exd.dsoln = self.dsoln[ngstcell:].ctypes._as_parameter_
         # reset GPU execution data.
         if self.scu:
-            self.cusol, self.cusoln = self.cusoln, self.cusol
-            self.cudsol, self.cudsoln = self.cudsoln, self.cudsol
-            self.set_execuda(self.exd, self.exc)
-            self.scu.cudaMemcpy(self.gexc.gptr, byref(self.exc),
-                sizeof(self.exc), self.scu.cudaMemcpyHostToDevice)
-            #for key in ('sol', 'dsol',):
-            #    self.scu.memcpy(getattr(self, 'cu'+key), getattr(self, key))
+            cumgr = self.cumgr
+            cumgr.sol, cumgr.soln = cumgr.soln, cumgr.sol
+            cumgr.dsol, cumgr.dsoln = cumgr.dsoln, cumgr.dsol
+            cumgr.update_exd()
         if self.debug: self.mesg(' done.\n')
 
     def ibcam(self, worker=None):
         if self.debug: self.mesg('ibcam')
-        if worker:
+        if worker:  # FIXME: not working with CUDA.
             if self.nsca: self.exchangeibc('amsca', worker=worker)
             if self.nvec: self.exchangeibc('amvec', worker=worker)
         if self.debug: self.mesg(' done.\n')
@@ -198,24 +199,25 @@ class CueulerSolver(EulerSolver):
         if self.debug: self.mesg('calcsolt')
         from ctypes import byref
         self._clib_cueuler.calc_solt(self.ncuthread,
-            byref(self.exc), self.gexc.gptr)
+            byref(self.cumgr.exd), self.cumgr.gexd.gptr)
         if self.debug: self.mesg(' done.\n')
 
     def calcsoln(self, worker=None):
         if self.debug: self.mesg('calcsoln')
         from ctypes import byref
         self._clib_cueuler.calc_soln(self.ncuthread,
-            byref(self.exc), self.gexc.gptr)
-        for key in ('soln',):
-            self.scu.memcpy(getattr(self, key), getattr(self, 'cu'+key))
+            byref(self.cumgr.exd), self.cumgr.gexd.gptr)
+        if self.scu:
+            self.cumgr.arr_from_gpu('soln')
         if self.debug: self.mesg(' done.\n')
 
     def calccfl(self, worker=None):
         from ctypes import byref
         self._clib_cueuler.calc_cfl(self.ncuthread,
-            byref(self.exc), self.gexc.gptr)
-        for key in ('ocfl', 'cfl'):
-            self.scu.memcpy(getattr(self, key), getattr(self, 'cu'+key))
+            byref(self.cumgr.exd), self.cumgr.gexd.gptr)
+        if self.scu:
+            self.cumgr.arr_from_gpu('cfl')
+            self.cumgr.arr_from_gpu('ocfl')
         mincfl = self.ocfl.min()
         maxcfl = self.ocfl.max()
         nadj = (self.cfl==1).sum()
@@ -231,9 +233,9 @@ class CueulerSolver(EulerSolver):
         if self.debug: self.mesg('calcdsoln')
         from ctypes import byref
         self._clib_cueuler.calc_dsoln(self.ncuthread,
-            byref(self.exc), self.gexc.gptr)
-        #for key in ('dsoln',):
-        #    self.scu.memcpy(getattr(self, key), getattr(self, 'cu'+key))
+            byref(self.cumgr.exd), self.cumgr.gexd.gptr)
+        if self.scu:
+            self.cumgr.arr_from_gpu('dsoln')
         if self.debug: self.mesg(' done.\n')
 
 ###############################################################################
@@ -303,12 +305,12 @@ class CueulerNonrefl(CueulerBC):
     def soln(self):
         svr = self.svr
         self._clib_cueulerb.bound_nonrefl_soln(svr.ncuthread,
-            svr.gexc.gptr, self.facn.shape[0], self.cufacn.gptr,
+            svr.cumgr.gexd.gptr, self.facn.shape[0], self.cufacn.gptr,
         )
     def dsoln(self):
         svr = self.svr
         self._clib_cueulerb.bound_nonrefl_dsoln(svr.ncuthread,
-            svr.gexc.gptr, self.facn.shape[0], self.cufacn.gptr,
+            svr.cumgr.gexd.gptr, self.facn.shape[0], self.cufacn.gptr,
         )
 
 class CueulerWall(CueulerBC):
@@ -316,12 +318,12 @@ class CueulerWall(CueulerBC):
     def soln(self):
         svr = self.svr
         self._clib_cueulerb.bound_wall_soln(svr.ncuthread,
-            svr.gexc.gptr, self.facn.shape[0], self.cufacn.gptr,
+            svr.cumgr.gexd.gptr, self.facn.shape[0], self.cufacn.gptr,
         )
     def dsoln(self):
         svr = self.svr
         self._clib_cueulerb.bound_wall_dsoln(svr.ncuthread,
-            svr.gexc.gptr, self.facn.shape[0], self.cufacn.gptr,
+            svr.cumgr.gexd.gptr, self.facn.shape[0], self.cufacn.gptr,
         )
 
 class CueulerInlet(CueulerBC):
@@ -333,13 +335,13 @@ class CueulerInlet(CueulerBC):
     def soln(self):
         svr = self.svr
         self._clib_cueulerb.bound_inlet_soln(svr.ncuthread,
-            svr.gexc.gptr, self.facn.shape[0], self.cufacn.gptr,
+            svr.cumgr.gexd.gptr, self.facn.shape[0], self.cufacn.gptr,
             self.value.shape[1], self.cuvalue.gptr,
         )
     def dsoln(self):
         svr = self.svr
         self._clib_cueulerb.bound_inlet_dsoln(svr.ncuthread,
-            svr.gexc.gptr, self.facn.shape[0], self.cufacn.gptr,
+            svr.cumgr.gexd.gptr, self.facn.shape[0], self.cufacn.gptr,
         )
 
 ###############################################################################
