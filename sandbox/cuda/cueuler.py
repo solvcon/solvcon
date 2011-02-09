@@ -99,7 +99,7 @@ class CudaDataManager(AttributeDict):
     def free_all(self):
         scu = self.svr.scu
         scu.free(self.gexd)
-        for name in self.svr.cuarr_map:
+        for name in self:
             scu.free(self[name])
 
 ###############################################################################
