@@ -279,6 +279,16 @@ class CueulerBC(CeseBC):
     @property
     def _clib_cueulerb(self):
         return self.__clib_cueulerb[self.svr.ndim]
+    from solvcon.dependency import getcdll
+    __clib_eulerb = {
+        2: getcdll('eulerb2d'),
+        3: getcdll('eulerb3d'),
+    }
+    del getcdll
+    @property
+    def _clib_eulerb(self):
+        return self.__clib_eulerb[self.svr.ndim]
+
     def bind(self):
         super(CueulerBC, self).bind()
         scu = self.svr.scu
@@ -311,20 +321,14 @@ class CueulerNonrefl(CueulerBC):
 class CueulerWall(CueulerBC):
     _ghostgeom_ = 'mirror'
     def soln(self):
-        from ctypes import byref, c_int
         svr = self.svr
-        self._clib_cueulerb.bound_wall_soln(
-            byref(svr.exd),
-            c_int(self.facn.shape[0]),
-            self.facn.ctypes._as_parameter_,
+        self._clib_cueulerb.bound_wall_soln(svr.ncuthread,
+            svr.gexc.gptr, self.facn.shape[0], self.cufacn.gptr,
         )
     def dsoln(self):
-        from ctypes import byref, c_int
         svr = self.svr
-        self._clib_cueulerb.bound_wall_dsoln(
-            byref(svr.exd),
-            c_int(self.facn.shape[0]),
-            self.facn.ctypes._as_parameter_,
+        self._clib_cueulerb.bound_wall_dsoln(svr.ncuthread,
+            svr.gexc.gptr, self.facn.shape[0], self.cufacn.gptr,
         )
 
 class CueulerInlet(CueulerBC):
