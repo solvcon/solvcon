@@ -108,7 +108,7 @@ int calc_cfl(exedata *exd, int istart, int iend) {
 #else
 };
 extern "C" int calc_cfl(int nthread, exedata *exc, void *gexc) {
-    dim3 nblock = (exc->ncell + nthread-1) / nthread;
+    int nblock = (exc->ncell + nthread-1) / nthread;
     cuda_calc_cfl<<<nblock, nthread>>>((exedata *)gexc);
     cudaThreadSynchronize();
     return 0;

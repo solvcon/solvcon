@@ -60,7 +60,7 @@ class CueulerSolver(EulerSolver):
             # connectivity.
             'clfcs', 'fcnds', 'fccls',
             # geometry.
-            'ndcrd', 'fccnd', 'clcnd',
+            'ndcrd', 'fccnd', 'fcnml', 'clcnd',
             # meta array.
             'cltpn', 'grpda',
             # dual mesh.
@@ -111,7 +111,7 @@ class CueulerSolver(EulerSolver):
             self.__set_cuda_pointer(exc, self, key, self.ngstface)
         for key in ('ndcrd',):
             self.__set_cuda_pointer(exc, self, key, self.ngstnode)
-        for key in ('fccnd',):
+        for key in ('fccnd', 'fcnml'):
             self.__set_cuda_pointer(exc, self, key, self.ngstface)
         for key in ('clcnd',):
             self.__set_cuda_pointer(exc, self, key, self.ngstcell)
@@ -135,15 +135,32 @@ class CueulerSolver(EulerSolver):
             self.set_execuda(None, self.exc)
             self.gexc = self.scu.alloc(sizeof(self.exc))
         super(CueulerSolver, self).bind()
+    def unbind(self):
+        if self.scu:
+            self.scu.free(self.gexc)
+        super(CueulerSolver, self).unbind()
 
     def init(self, **kw):
         super(CueulerSolver, self).init(**kw)
         if self.scu:
             for key in ('cltpn',
-                'clfcs', 'fcnds', 'fccls', 'ndcrd', 'fccnd', 'clcnd',
+                'clfcs', 'fcnds', 'fccls', 'ndcrd', 'fccnd', 'fcnml', 'clcnd',
                 'cecnd', 'cevol',
+                'solt', 'sol', 'soln', 'dsol', 'dsoln',
+                'cfl', 'ocfl',
+                'amsca', 'amvec',
             ):
                 self.scu.memcpy(getattr(self, 'cu'+key), getattr(self, key))
+
+    def boundcond(self):
+        from ctypes import byref, sizeof
+        if self.scu:
+            self.set_execuda(self.exd, self.exc)
+            self.scu.cudaMemcpy(self.gexc.gptr, byref(self.exc),
+                sizeof(self.exc), self.scu.cudaMemcpyHostToDevice)
+            for key in ('sol', 'soln', 'dsol', 'dsoln',):
+                self.scu.memcpy(getattr(self, 'cu'+key), getattr(self, key))
+        super(CueulerSolver, self).boundcond()
 
     def update(self, worker=None):
         if self.debug: self.mesg('update')
@@ -260,13 +277,40 @@ class CueulerBC(CeseBC):
     }
     #del getcdll
     @property
-    def _clib_eulerb(self):
+    def _clib_cueulerb(self):
         return self.__clib_cueulerb[self.svr.ndim]
+    def bind(self):
+        super(CueulerBC, self).bind()
+        scu = self.svr.scu
+        for key in ('facn', 'value',):
+            nbytes = getattr(self, key).nbytes
+            setattr(self, 'cu'+key, scu.alloc(nbytes))
+    def unbind(self):
+        scu = self.svr.scu
+        for key in ('facn', 'value',):
+            scu.free(getattr(self, 'cu'+key))
+    def init(self, **kw):
+        super(CueulerBC, self).init(**kw)
+        scu = self.svr.scu
+        for key in ('facn', 'value',):
+            scu.memcpy(getattr(self, 'cu'+key), getattr(self, key))
+
+class CueulerNonrefl(CueulerBC):
+    _ghostgeom_ = 'mirror'
+    def soln(self):
+        svr = self.svr
+        self._clib_cueulerb.bound_nonrefl_soln(svr.ncuthread,
+            svr.gexc.gptr, self.facn.shape[0], self.cufacn.gptr,
+        )
+    def dsoln(self):
+        svr = self.svr
+        self._clib_cueulerb.bound_nonrefl_dsoln(svr.ncuthread,
+            svr.gexc.gptr, self.facn.shape[0], self.cufacn.gptr,
+        )
 
 class CueulerWall(CueulerBC):
     _ghostgeom_ = 'mirror'
     def soln(self):
-        from solvcon.dependency import intptr
         from ctypes import byref, c_int
         svr = self.svr
         self._clib_cueulerb.bound_wall_soln(
@@ -275,7 +319,6 @@ class CueulerWall(CueulerBC):
             self.facn.ctypes._as_parameter_,
         )
     def dsoln(self):
-        from solvcon.dependency import intptr
         from ctypes import byref, c_int
         svr = self.svr
         self._clib_cueulerb.bound_wall_dsoln(
@@ -291,7 +334,6 @@ class CueulerInlet(CueulerBC):
     }
     _ghostgeom_ = 'mirror'
     def soln(self):
-        from solvcon.dependency import intptr
         from ctypes import byref, c_int
         svr = self.svr
         self._clib_cueulerb.bound_inlet_soln(
@@ -302,7 +344,6 @@ class CueulerInlet(CueulerBC):
             self.value.ctypes._as_parameter_,
         )
     def dsoln(self):
-        from solvcon.dependency import intptr
         from ctypes import byref, c_int
         svr = self.svr
         self._clib_cueulerb.bound_inlet_dsoln(

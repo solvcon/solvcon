@@ -310,7 +310,7 @@ int calc_dsoln(exedata *exd, int istart, int iend) {
 #else
 };
 extern "C" int calc_dsoln(int nthread, exedata *exc, void *gexc) {
-    dim3 nblock = (exc->ncell + nthread-1) / nthread;
+    int nblock = (exc->ncell + nthread-1) / nthread;
     cuda_calc_dsoln<<<nblock, nthread>>>((exedata *)gexc);
     cudaThreadSynchronize();
     return 0;

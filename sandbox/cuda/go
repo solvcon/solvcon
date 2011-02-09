@@ -56,7 +56,8 @@ def hbnt_base(casename=None, meshname=None,
     bcmap = {
         'cylinder': (bctregy.EulerWall, {},),
         'farfield': (bctregy.EulerInlet, fpb,),
-        'outflow': (bctregy.CeseNonrefl, {},),
+        #'outflow': (bctregy.CeseNonrefl, {},),
+        'outflow': (bctregy.CueulerNonrefl, {},),
     }
     # set up case.
     basedir = os.path.abspath(os.path.join(os.getcwd(), 'result'))
@@ -106,6 +107,7 @@ def hbnt(casename, **kw):
         gamma=1.4, density=1.0, pressure=1.0, M=3.0, rkillfn='',
         diffname='tau', tauname='scale', taumin=0.0, tauscale=4.0,
         time_increment=5.e-3, steps_run=200, ssteps=50, psteps=1, **kw)
+        #time_increment=5.e-3, steps_run=1, ssteps=1, psteps=1, **kw)
 
 if __name__ == '__main__':
     import solvcon

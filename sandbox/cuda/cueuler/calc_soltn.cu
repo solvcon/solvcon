@@ -222,7 +222,7 @@ __global__ void cuda_calc_solt(exedata *exd) {
 };
 #ifdef __CUDACC__
 extern "C" int calc_solt(int nthread, exedata *exc, void *gexc) {
-    dim3 nblock = (exc->ngstcell + exc->ncell + nthread-1) / nthread;
+    int nblock = (exc->ngstcell + exc->ncell + nthread-1) / nthread;
     cuda_calc_solt<<<nblock, nthread>>>((exedata *)gexc);
     cudaThreadSynchronize();
     return 0;
@@ -439,7 +439,7 @@ int calc_soln(exedata *exd, int istart, int iend) {
 #else
 };
 extern "C" int calc_soln(int nthread, exedata *exc, void *gexc) {
-    dim3 nblock = (exc->ncell + nthread-1) / nthread;
+    int nblock = (exc->ncell + nthread-1) / nthread;
     cuda_calc_soln<<<nblock, nthread>>>((exedata *)gexc);
     cudaThreadSynchronize();
     return 0;

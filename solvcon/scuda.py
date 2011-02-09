@@ -276,7 +276,11 @@ class Scuda(object):
     def free(self, gmem, do_remove=True):
         from ctypes import byref
         self.cudaFree(byref(gmem.gptr))
-        if do_remove: self._alloc_gpumem.remove(gmem)
+        if do_remove:
+            try:
+                self._alloc_gpumem.remove(gmem)
+            except KeyError:
+                pass
     def memcpy(self, tgt, src):
         if isinstance(src, GpuMemory) and isinstance(tgt, GpuMemory):
             dkey = self.cudaMemcpyDeviceToDevice

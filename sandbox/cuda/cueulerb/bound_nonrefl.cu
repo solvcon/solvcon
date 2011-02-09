@@ -18,14 +18,25 @@
 
 #include "cueuler.h"
 
+#ifdef __CUDACC__
+__global__ void cuda_bound_nonrefl_soln(exedata *exd, int nbnd, int *facn) {
+    int ibnd = blockDim.x * blockIdx.x + threadIdx.x;
+#else
 int bound_nonrefl_soln(exedata *exd, int nbnd, int *facn) {
+    int ibnd;
+#endif
     // pointers.
     int *pfacn, *pfccls;
     double *pisol, *pisoln, *pjsoln;
     // iterators.
-    int ibnd, ifc, icl, jcl, ieq;
+    int ifc, icl, jcl, ieq;
+#ifdef __CUDACC__
+    if (ibnd < nbnd) {
+        pfacn = facn + ibnd*BFREL;
+#else
     pfacn = facn;
     for (ibnd=0; ibnd<nbnd; ibnd++) {
+#endif
         ifc = pfacn[0];
         pfccls = exd->fccls + ifc*FCREL;
         icl = pfccls[0];
@@ -37,37 +48,70 @@ int bound_nonrefl_soln(exedata *exd, int nbnd, int *facn) {
         for (ieq=0; ieq<NEQ; ieq++) {
             pjsoln[ieq] = pisoln[ieq] + exd->taylor*(pisol[ieq] - pisoln[ieq]);
         };
+#ifndef __CUDACC__
         // advance boundary face.
         pfacn += BFREL;
     };
     return 0;
-}
+};
+#else
+    };
+};
+extern "C" int bound_nonrefl_soln(int nthread, void *gexc,
+    int nbnd, void *gfacn) {
+    int nblock = (nbnd + nthread-1) / nthread;
+    cuda_bound_nonrefl_soln<<<nblock, nthread>>>((exedata *)gexc,
+        nbnd, (int *)gfacn);
+    cudaThreadSynchronize();
+    return 0;
+};
+#endif
+
+#ifdef __CUDACC__
+__global__ void cuda_bound_nonrefl_dsoln(exedata *exd, int nbnd, int *facn) {
+    int ibnd = blockDim.x * blockIdx.x + threadIdx.x;
+#else
 int bound_nonrefl_dsoln(exedata *exd, int nbnd, int *facn) {
+    int ibnd;
+#endif
     // pointers.
-    int *pfacn, *pfccls, *pfcnds;
+    int *pfacn, *pfccls;
     double *pidsol, *pidsoln, *pjdsoln, *pdsol, *pdsoln;
-    double *pndcrd, *pfccnd, *pfcnml;
+    double *pfcnml;
+#if NDIM == 3
+    int *pfcnds;
+    double *pndcrd, *pfccnd;
     // scalars.
     double len;
+#endif
     // arrays.
     double dif[NDIM];
     double vec[NEQ][NDIM];
     double mat[NDIM][NDIM], matinv[NDIM][NDIM];
     // iterators.
-    int ibnd, ifc, icl, jcl, ieq;
+    int ifc, icl, jcl, ieq;
+#ifdef __CUDACC__
+    if (ibnd < nbnd) {
+        pfacn = facn + ibnd*BFREL;
+#else
     pfacn = facn;
     for (ibnd=0; ibnd<nbnd; ibnd++) {
+#endif
         ifc = pfacn[0];
         pfccls = exd->fccls + ifc*FCREL;
-        pfcnds = exd->fcnds + ifc*(FCMND+1);
         icl = pfccls[0];
         jcl = pfccls[1];
+#if NDIM == 3
+        pfcnds = exd->fcnds + ifc*(FCMND+1);
+#endif
         pidsol = exd->dsol + icl*NEQ*NDIM;
         pidsoln = exd->dsoln + icl*NEQ*NDIM;
         pjdsoln = exd->dsoln + jcl*NEQ*NDIM;
         // coordinate transformation and set transformed vectors.
         pfcnml = exd->fcnml + ifc*NDIM;
+#if NDIM == 3
         pfccnd = exd->fccnd + ifc*NDIM;
+#endif
         mat[0][0] = matinv[0][0] = pfcnml[0];
         mat[0][1] = matinv[1][0] = pfcnml[1];
 #if NDIM == 3
@@ -120,10 +164,24 @@ int bound_nonrefl_dsoln(exedata *exd, int nbnd, int *facn) {
 #endif
             pdsoln += NDIM;
         };
+#ifndef __CUDACC__
         // advance boundary face.
         pfacn += BFREL;
     };
     return 0;
-}
+};
+#else
+    };
+};
+extern "C" int bound_nonrefl_dsoln(int nthread, void *gexc,
+    int nbnd, void *gfacn) {
+    dim3 nblock = (nbnd + nthread-1) / nthread;
+    cuda_bound_nonrefl_dsoln<<<nblock, nthread>>>((exedata *)gexc,
+        nbnd, (int *)gfacn);
+    cudaThreadSynchronize();
+    return 0;
+};
+#endif
+
 // vim: set ts=4 et:
 
