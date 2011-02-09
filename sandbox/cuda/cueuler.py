@@ -160,6 +160,8 @@ class CueulerSolver(EulerSolver):
                 sizeof(self.exc), self.scu.cudaMemcpyHostToDevice)
             for key in ('sol', 'soln', 'dsol', 'dsoln',):
                 self.scu.memcpy(getattr(self, 'cu'+key), getattr(self, key))
+            if self.nsca: self.scu.memcpy(self.cuamsca, self.amsca)
+            if self.nvec: self.scu.memcpy(self.cuamvec, self.amvec)
         super(CueulerSolver, self).boundcond()
 
     def update(self, worker=None):
@@ -176,11 +178,13 @@ class CueulerSolver(EulerSolver):
         self.exd.dsoln = self.dsoln[ngstcell:].ctypes._as_parameter_
         # reset GPU execution data.
         if self.scu:
+            self.cusol, self.cusoln = self.cusoln, self.cusol
+            self.cudsol, self.cudsoln = self.cudsoln, self.cudsol
             self.set_execuda(self.exd, self.exc)
             self.scu.cudaMemcpy(self.gexc.gptr, byref(self.exc),
                 sizeof(self.exc), self.scu.cudaMemcpyHostToDevice)
-            for key in ('sol', 'dsol',):
-                self.scu.memcpy(getattr(self, 'cu'+key), getattr(self, key))
+            #for key in ('sol', 'dsol',):
+            #    self.scu.memcpy(getattr(self, 'cu'+key), getattr(self, key))
         if self.debug: self.mesg(' done.\n')
 
     def ibcam(self, worker=None):
@@ -188,8 +192,6 @@ class CueulerSolver(EulerSolver):
         if worker:
             if self.nsca: self.exchangeibc('amsca', worker=worker)
             if self.nvec: self.exchangeibc('amvec', worker=worker)
-        if self.nsca: self.scu.memcpy(self.cuamsca, self.amsca)
-        if self.nvec: self.scu.memcpy(self.cuamvec, self.amvec)
         if self.debug: self.mesg(' done.\n')
 
     def calcsolt(self, worker=None):
@@ -230,8 +232,8 @@ class CueulerSolver(EulerSolver):
         from ctypes import byref
         self._clib_cueuler.calc_dsoln(self.ncuthread,
             byref(self.exc), self.gexc.gptr)
-        for key in ('dsoln',):
-            self.scu.memcpy(getattr(self, key), getattr(self, 'cu'+key))
+        #for key in ('dsoln',):
+        #    self.scu.memcpy(getattr(self, key), getattr(self, 'cu'+key))
         if self.debug: self.mesg(' done.\n')
 
 ###############################################################################
@@ -279,15 +281,6 @@ class CueulerBC(CeseBC):
     @property
     def _clib_cueulerb(self):
         return self.__clib_cueulerb[self.svr.ndim]
-    from solvcon.dependency import getcdll
-    __clib_eulerb = {
-        2: getcdll('eulerb2d'),
-        3: getcdll('eulerb3d'),
-    }
-    del getcdll
-    @property
-    def _clib_eulerb(self):
-        return self.__clib_eulerb[self.svr.ndim]
 
     def bind(self):
         super(CueulerBC, self).bind()

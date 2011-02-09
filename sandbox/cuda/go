@@ -56,7 +56,8 @@ def hbnt_base(casename=None, meshname=None,
     bcmap = {
         #'cylinder': (bctregy.EulerWall, {},),
         'cylinder': (bctregy.CueulerWall, {},),
-        'farfield': (bctregy.EulerInlet, fpb,),
+        #'farfield': (bctregy.EulerInlet, fpb,),
+        'farfield': (bctregy.CueulerInlet, fpb,),
         #'outflow': (bctregy.CeseNonrefl, {},),
         'outflow': (bctregy.CueulerNonrefl, {},),
     }
@@ -107,7 +108,8 @@ def hbnt(casename, **kw):
     return hbnt_base(casename=casename, meshname='hyperblunt_t100mm.neu.gz',
         gamma=1.4, density=1.0, pressure=1.0, M=3.0, rkillfn='',
         diffname='tau', tauname='scale', taumin=0.0, tauscale=4.0,
-        time_increment=5.e-3, steps_run=200, ssteps=50, psteps=1, **kw)
+        time_increment=5.e-3, steps_run=2000, ssteps=1000, psteps=20, **kw)
+        #time_increment=5.e-3, steps_run=200, ssteps=50, psteps=1, **kw)
         #time_increment=5.e-3, steps_run=1, ssteps=1, psteps=1, **kw)
 
 if __name__ == '__main__':
