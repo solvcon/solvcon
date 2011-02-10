@@ -17,7 +17,7 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 """
-Second-order CESE method with CUDA enabled.
+Second-order, multi-dimensional CESE method with CUDA enabled.
 """
 
 from ctypes import Structure
@@ -132,11 +132,10 @@ class CuseSolverExedata(Structure):
         ('fcnds', c_void_p), ('fccls', c_void_p),
         ('clnds', c_void_p), ('clfcs', c_void_p),
         # solution array.
-        ('sol', c_void_p), ('dsol', c_void_p),
-        ('solt', c_void_p),
+        ('amsca', c_void_p), ('amvec', c_void_p),
+        ('sol', c_void_p), ('dsol', c_void_p), ('solt', c_void_p),
         ('soln', c_void_p), ('dsoln', c_void_p),
         ('cfl', c_void_p), ('ocfl', c_void_p),
-        ('amsca', c_void_p), ('amvec', c_void_p),
     ]
     del c_int, c_double, c_void_p
 
@@ -194,11 +193,8 @@ class CuseSolverExedata(Structure):
         for aname in ('clnds', 'clfcs',):
             self.__set_pointer(svr, aname, svr.ngstcell)
         # solution array.
-        for aname in ('sol', 'dsol', 'solt', 'soln', 'dsoln',):
-            self.__set_pointer(svr, aname, svr.ngstcell)
-        for aname in ('cfl', 'ocfl'):
-            self.__set_pointer(svr, aname, 0)
-        for aname in ('amsca', 'amvec'):
+        for aname in ('amsca', 'amvec', 'sol', 'dsol', 'solt', 'soln', 'dsoln',
+                      'cfl', 'ocfl'):
             self.__set_pointer(svr, aname, svr.ngstcell)
 
 class CuseSolver(BlockSolver):
@@ -324,11 +320,11 @@ class CuseSolver(BlockSolver):
         self.soln = empty((ngstcell+ncell, neq), dtype=fpdtype)
         self.dsol = empty((ngstcell+ncell, neq, ndim), dtype=fpdtype)
         self.dsoln = empty((ngstcell+ncell, neq, ndim), dtype=fpdtype)
-        for key in ('amsca', 'amvec', 'solt', 'sol', 'soln', 'dsol', 'dsoln'):
+        self.cfl = empty(ngstcell+ncell, dtype=fpdtype)
+        self.ocfl = empty(ngstcell+ncell, dtype=fpdtype)
+        for key in ('amsca', 'amvec', 'solt', 'sol', 'soln', 'dsol', 'dsoln',
+            'cfl', 'ocfl'):
             self.cuarr_map[key] = self.ngstcell
-        self.cfl = empty(ncell, dtype=fpdtype)
-        self.ocfl = empty(ncell, dtype=fpdtype)
-        self.cuarr_map['cfl'] = self.cuarr_map['ocfl'] = 0
 
     @property
     def gdlen(self):

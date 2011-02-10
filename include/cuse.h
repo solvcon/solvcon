@@ -68,7 +68,7 @@ typedef struct {
     // connectivity array.
     int *fcnds, *fccls, *clnds, *clfcs;
     // solutions array.
-    double *sol, *dsol, *solt, *soln, *dsoln, *cfl, *ocfl, *amsca, *amvec;
+    double *amsca, *amvec, *sol, *dsol, *solt, *soln, *dsoln, *cfl, *ocfl;
 } exedata;
 
 #ifndef __CUDACC__

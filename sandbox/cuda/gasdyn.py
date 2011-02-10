@@ -49,7 +49,6 @@ class GasdynSolver(CuseSolver):
     def __init__(self, blk, *args, **kw):
         kw['nsca'] = 1
         super(GasdynSolver, self).__init__(blk, *args, **kw)
-        self.cflc = self.cfl.copy() # FIXME: obselete?
     #from solvcon.dependency import getcdll
     __clib_gasdyn = {
         2: getcdll('gasdyn2d'),
@@ -64,11 +63,13 @@ class GasdynSolver(CuseSolver):
     def _jacofunc_(self):
         return self._clib_gasdyn.calc_jaco
     def calccfl(self, worker=None):
-        func = self._clib_gasdyn.calc_cfl
-        self._tcall(func, 0, self.ncell)
-        mincfl = self.ocfl.min()
-        maxcfl = self.ocfl.max()
-        nadj = (self.cfl==1).sum()
+        self._tcall(self._clib_gasdyn.calc_cfl, 0, self.ncell)
+        ocfl = self.ocfl[self.ngstcell:]
+        cfl = self.cfl[self.ngstcell:]
+        # determine extremum.
+        mincfl = ocfl.min()
+        maxcfl = ocfl.max()
+        nadj = (cfl==1).sum()
         if self.marchret is None:
             self.marchret = [0.0, 0.0, 0, 0]
         self.marchret[0] = mincfl
