@@ -60,12 +60,11 @@ typedef struct {
     double taylor, cnbfac, sftfac;
     double taumin, taumax, tauscale;
     double omegamin, omegascale;
-    double mqmin, mqscale;
     // meta array.
     int *fctpn, *cltpn, *clgrp;
     double *grpda;
     // geometry array.
-    double *ndcrd, *fccnd, *fcnml, *clcnd, *clvol, *cecnd, *cevol, *mqlty;
+    double *ndcrd, *fccnd, *fcnml, *clcnd, *clvol, *cecnd, *cevol;
     // connectivity array.
     int *fcnds, *fccls, *clnds, *clfcs;
     // solutions array.

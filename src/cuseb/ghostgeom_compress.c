@@ -16,7 +16,7 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "cese.h"
+#include "cuse.h"
 
 int ghostgeom_compress(exedata *exd, int nbnd, int *facn) {
     int clnfc, fcnnd;

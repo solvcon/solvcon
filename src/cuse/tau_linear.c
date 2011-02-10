@@ -18,7 +18,12 @@
 
 #include "cuse.h"
 
-double calc_tau_scale(exedata *exd, int icl) {
-    return exd->taumin + fabs(exd->cfl[icl]) * exd->tauscale;
+double tau_linear(exedata *exd, int icl) {
+    double tau;
+    tau = min(fabs(exd->cfl[icl]), exd->taumax);
+    tau -= exd->taumin;
+    tau = max(tau, 0.0);
+    tau += exd->taumin;
+    return tau;
 };
 // vim: set ts=4 et:

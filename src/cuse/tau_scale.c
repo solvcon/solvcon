@@ -18,23 +18,7 @@
 
 #include "cuse.h"
 
-double calc_tau_scale_mesh(exedata *exd, int icl) {
-    int *pclfcs, *pfccls;
-    double mq, mqa;
-    int ifl, jcl;
-    mq = exd->mqlty[icl] - exd->mqmin;
-    mq = (mq+fabs(mq))/2;   // must be non-negative.
-    mqa = mq;
-    pclfcs = exd->clfcs + icl*(CLMFC+1);
-    for (ifl=1; ifl<=pclfcs[0]; ifl++) {
-        pfccls = exd->fccls + pclfcs[ifl]*FCREL;
-        jcl = pfccls[0] + pfccls[1] - icl;
-        mq = exd->mqlty[jcl] - exd->mqmin;
-        mq = (mq+fabs(mq))/2;   // must be non-negative.
-        mqa += mq;
-    };
-    mqa /= (pclfcs[0]+1);
-    return exd->taumin + fabs(exd->cfl[icl]) * exd->tauscale
-                       + mqa * exd->mqscale;
+double tau_scale(exedata *exd, int icl) {
+    return exd->taumin + fabs(exd->cfl[icl]) * exd->tauscale;
 };
 // vim: set ts=4 et:

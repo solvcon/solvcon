@@ -119,7 +119,6 @@ class CuseSolverExedata(Structure):
         ('cnbfac', c_double), ('sftfac', c_double),
         ('taumin', c_double), ('taumax', c_double), ('tauscale', c_double),
         ('omegamin', c_double), ('omegascale', c_double),
-        ('mqmin', c_double), ('mqscale', c_double),
         # meta array.
         ('fctpn', c_void_p),
         ('cltpn', c_void_p), ('clgrp', c_void_p),
@@ -129,7 +128,6 @@ class CuseSolverExedata(Structure):
         ('fccnd', c_void_p), ('fcnml', c_void_p),
         ('clcnd', c_void_p), ('clvol', c_void_p),
         ('cecnd', c_void_p), ('cevol', c_void_p),
-        ('mqlty', c_void_p),
         # connectivity array.
         ('fcnds', c_void_p), ('fccls', c_void_p),
         ('clnds', c_void_p), ('clfcs', c_void_p),
@@ -169,13 +167,12 @@ class CuseSolverExedata(Structure):
         # function pointer.
         self.jacofunc = cast(svr._jacofunc_, c_void_p).value
         self.taufunc = cast(getattr(svr._clib_cuse_c,
-            'calc_tau_'+svr.tauname), c_void_p).value
+            'tau_'+svr.tauname), c_void_p).value
         self.omegafunc = cast(getattr(svr._clib_cuse_c,
-            'calc_omega_'+svr.omeganame), c_void_p).value
+            'omega_'+svr.omeganame), c_void_p).value
         # scheme. 
         for key in ('alpha', 'taylor', 'cnbfac', 'sftfac',
-                    'taumin', 'taumax', 'tauscale', 'omegamin', 'omegascale',
-                    'mqmin', 'mqscale',):
+                    'taumin', 'taumax', 'tauscale', 'omegamin', 'omegascale',):
             setattr(self, key, getattr(svr, key))
         # meta array.
         for aname in ('fctpn',):
@@ -190,9 +187,6 @@ class CuseSolverExedata(Structure):
         for aname in ('fccnd', 'fcnml',):
             self.__set_pointer(svr, aname, svr.ngstface)
         for aname in ('clcnd', 'clvol', 'cecnd', 'cevol',):
-            self.__set_pointer(svr, aname, svr.ngstcell)
-        # mesh quality.
-        for aname in ('mqlty',):
             self.__set_pointer(svr, aname, svr.ngstcell)
         # connectivity array.
         for aname in ('fcnds', 'fccls',):
@@ -299,8 +293,6 @@ class CuseSolver(BlockSolver):
         self.tauscale = float(kw.pop('tauscale', 0.0))
         self.omegamin = float(kw.pop('omegamin', 1.1))
         self.omegascale = float(kw.pop('omegascale', 0.0))
-        self.mqmin = float(kw.pop('mqmin', 1.0))
-        self.mqscale = float(kw.pop('mqscale', 0.0))
         super(CuseSolver, self).__init__(blk, *args, **kw)
         fpdtype = self.fpdtype
         ndim = self.ndim
@@ -324,8 +316,6 @@ class CuseSolver(BlockSolver):
         self.cecnd = empty((ngstcell+ncell, self.CLMFC+1, ndim), dtype=fpdtype)
         self.cevol = empty((ngstcell+ncell, self.CLMFC+1), dtype=fpdtype)
         self.cuarr_map['cecnd'] = self.cuarr_map['cevol'] = self.ngstcell
-        # mesh quality.
-        self.mqlty = empty(ngstcell+ncell, dtype=fpdtype)
         # solutions.
         self.amsca = empty((ngstcell+ncell, nsca), dtype=fpdtype)
         self.amvec = empty((ngstcell+ncell, nvec, ndim), dtype=fpdtype)
@@ -365,7 +355,6 @@ class CuseSolver(BlockSolver):
 
     def init(self, **kw):
         self._tcall(self._clib_cuse_c.calc_ce, 0, self.ncell)
-        self._tcall(self._clib_cuse_c.qualify_mesh, -self.ngstcell, self.ncell)
         super(CuseSolver, self).init(**kw)
         if self.scu: self.cumgr.arr_to_gpu()
 
@@ -543,8 +532,6 @@ class CuseCase(BlockCase):
         'solver.tauscale': None,
         'solver.omegamin': None,
         'solver.omegascale': None,
-        'solver.mqmin': None,
-        'solver.mqscale': None,
     }
     def make_solver_keywords(self):
         kw = super(CuseCase, self).make_solver_keywords()
@@ -554,8 +541,7 @@ class CuseCase(BlockCase):
             if val != None: kw[key] = val
         kw['alpha'] = int(self.solver.alpha)
         for key in ('taylor', 'cnbfac', 'sftfac',
-                    'taumin', 'taumax', 'tauscale', 'omegamin', 'omegascale',
-                    'mqmin', 'mqscale',):
+                    'taumin', 'taumax', 'tauscale', 'omegamin', 'omegascale',):
             val = self.solver.get(key)
             if val != None: kw[key] = float(val)
         return kw

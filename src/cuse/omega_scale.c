@@ -18,7 +18,7 @@
 
 #include "cuse.h"
 
-double calc_omega_scale(exedata *exd, int icl) {
+double omega_scale(exedata *exd, int icl) {
     return exd->omegamin + fabs(exd->cfl[icl]) * exd->omegascale;
 };
 // vim: set ts=4 et:

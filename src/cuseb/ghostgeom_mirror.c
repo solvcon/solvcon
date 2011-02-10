@@ -17,7 +17,7 @@
  */
 
 
-#include "cese.h"
+#include "cuse.h"
 
 int ghostgeom_mirror(exedata *exd, int nbnd, int *facn) {
     // pointers.

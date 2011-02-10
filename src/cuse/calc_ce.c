@@ -19,6 +19,9 @@
 #include "cuse.h"
 
 int calc_ce(exedata *exd, int istart, int iend) {
+#ifdef SOLVCON_FE
+    feenableexcept(SOLVCON_FE);
+#endif
     int clnfc, fcnnd;
     // pointers.
     int *pclfcs, *pfccls, *pfcnds;
@@ -35,9 +38,6 @@ int calc_ce(exedata *exd, int istart, int iend) {
     double voli, vole, volb, volc;  // internal, external, BCE, CCE.
     // iterators.
     int icl, jcl, ind, ifl, inf, ifc;
-#ifdef SOLVCESE_FE
-    feenableexcept(SOLVCESE_FE);
-#endif
     // loop for cells.
     for (icl=istart; icl<iend; icl++) {
         pcevol = exd->cevol + icl*(CLMFC+1);
