@@ -18,7 +18,7 @@
 
 #include "cuse.h"
 
-int calc_norm_diff(exedata *exd, int istart, int iend, double *diff) {
+int process_norm_diff(exedata *exd, int istart, int iend, double *diff) {
     // pointers.
     double *psol, *psoln, *pdiff;
     // interators.
@@ -36,7 +36,7 @@ int calc_norm_diff(exedata *exd, int istart, int iend, double *diff) {
         psoln += NEQ;
     };
 };
-double calc_norm_L1(exedata *exd, int istart, int iend,
+double process_norm_L1(exedata *exd, int istart, int iend,
         double *diff, int teq) {
     // pointers.
     double *pclvol, *pdiff;
@@ -55,7 +55,7 @@ double calc_norm_L1(exedata *exd, int istart, int iend,
     };
     return smd;
 };
-double calc_norm_L2(exedata *exd, int istart, int iend,
+double process_norm_L2(exedata *exd, int istart, int iend,
         double *diff, int teq) {
     // pointers.
     double *pclvol, *pdiff;

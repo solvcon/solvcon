@@ -18,7 +18,7 @@
 
 #include "cuse.h"
 
-int calc_ce(exedata *exd, int istart, int iend) {
+int prepare_ce(exedata *exd, int istart, int iend) {
 #ifdef SOLVCON_FE
     feenableexcept(SOLVCON_FE);
 #endif

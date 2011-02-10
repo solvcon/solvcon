@@ -354,7 +354,7 @@ class CuseSolver(BlockSolver):
         super(CuseSolver, self).unbind()
 
     def init(self, **kw):
-        self._tcall(self._clib_cuse_c.calc_ce, 0, self.ncell)
+        self._tcall(self._clib_cuse_c.prepare_ce, 0, self.ncell)
         super(CuseSolver, self).init(**kw)
         if self.scu: self.cumgr.arr_to_gpu()
 
@@ -681,31 +681,26 @@ class ConvergeAnchor(Anchor):
         from ctypes import c_int, c_double
         svr = self.svr
         diff = svr.der['diff']
-        svr._tcall(svr._clib_cuse_c.calc_norm_diff, -svr.ngstcell, svr.ncell,
-            diff[svr.ngstcell:].ctypes._as_parameter_,
-        )
+        svr._tcall(svr._clib_cuse_c.process_norm_diff, -svr.ngstcell,
+            svr.ncell, diff[svr.ngstcell:].ctypes._as_parameter_)
         # Linf norm.
         Linf = []
         Linf.extend(diff.max(axis=0))
         self.norm['Linf'] = Linf
         # L1 norm.
-        svr._clib_cuse_c.calc_norm_L1.restype = c_double
+        svr._clib_cuse_c.process_norm_L1.restype = c_double
         L1 = []
         for ieq in range(svr.neq):
-            vals = svr._tcall(svr._clib_cuse_c.calc_norm_L1, 0, svr.ncell,
-                diff[svr.ngstcell:].ctypes._as_parameter_,
-                c_int(ieq),
-            )
+            vals = svr._tcall(svr._clib_cuse_c.process_norm_L1, 0, svr.ncell,
+                diff[svr.ngstcell:].ctypes._as_parameter_, c_int(ieq))
             L1.append(sum(vals))
         self.norm['L1'] = L1
         # L2 norm.
-        svr._clib_cuse_c.calc_norm_L2.restype = c_double
+        svr._clib_cuse_c.process_norm_L2.restype = c_double
         L2 = []
         for ieq in range(svr.neq):
-            vals = svr._tcall(svr._clib_cuse_c.calc_norm_L2, 0, svr.ncell,
-                diff[svr.ngstcell:].ctypes._as_parameter_,
-                c_int(ieq),
-            )
+            vals = svr._tcall(svr._clib_cuse_c.process_norm_L2, 0, svr.ncell,
+                diff[svr.ngstcell:].ctypes._as_parameter_, c_int(ieq))
             L2.append(sum(vals))
         self.norm['L2'] = L2
 
