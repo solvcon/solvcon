@@ -18,12 +18,9 @@
 
 #ifndef SOLVCON_CUSE_H
 #define SOLVCON_CUSE_H
-#include <stddef.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <math.h>
-#include <fenv.h>
-#include <sys/times.h>
+
+#define FPTYPE double
+#include "solvcon.h"
 
 #ifndef __CUDACC__
 /*
@@ -38,22 +35,8 @@
 #endif
 
 /*
- * quantities.
- */
-#define PI 3.14159265358979311600
-#define SOLVCESE_ALMOST_ZERO 1.e-200
-#define SOLVCESE_TINY 1.e-60
-#define SOLVCESE_SMALL 1.e-30
-
-/*
  * Generic definitions and data structure.
  */
-#define FCMND 4
-#define CLMND 8
-#define CLMFC 6
-#define FCREL 4
-#define MFGE 8
-#define BFREL 3
 #define NEQ exd->neq
 #define NSCA exd->nsca
 #define NVEC exd->nvec
@@ -101,17 +84,6 @@ extern const int hvfs[8][2];
 extern const int hrng[8][2];
 extern const int evts[42][2];
 extern const int egng[8][2];
-#endif
-
-/*
- * Debugging.
- */
-//#define SOLVCESE_DEBUG
-// floating point exception.
-#ifdef SOLVCESE_DEBUG
-//#define SOLVCESE_FE FE_ALL_EXCEPT
-#define SOLVCESE_FE FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW
-//#define SOLVCESE_FE FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW | FE_UNDERFLOW
 #endif
 
 #endif

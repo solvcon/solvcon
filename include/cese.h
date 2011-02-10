@@ -18,12 +18,9 @@
 
 #ifndef SOLVCON_CESE_H
 #define SOLVCON_CESE_H
-#include <stddef.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <math.h>
-#include <fenv.h>
-#include <sys/times.h>
+
+#define FPTYPE double
+#include "solvcon.h"
 
 /*
  * shorthand for min/max.
@@ -38,7 +35,6 @@
 /*
  * quantities.
  */
-#define PI 3.14159265358979311600
 #define SOLVCESE_ALMOST_ZERO 1.e-200
 #define SOLVCESE_TINY 1.e-60
 #define SOLVCESE_SMALL 1.e-30
@@ -46,12 +42,6 @@
 /*
  * Generic definitions and data structure.
  */
-#define FCMND 4
-#define CLMND 8
-#define CLMFC 6
-#define FCREL 4
-#define MFGE 8
-#define BFREL 3
 #define NEQ exd->neq
 #define NSCA exd->nsca
 #define NVEC exd->nvec

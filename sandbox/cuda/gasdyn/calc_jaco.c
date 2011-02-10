@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Yung-Yu Chen <yyc@solvcon.net>.
+ * Copyright (C) 2010-2011 Yung-Yu Chen <yyc@solvcon.net>.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -40,7 +40,7 @@ void calc_jaco(exedata *exd, int icl,
     ga3 = ga-3;
     ga1h = ga1/2;
     psol = exd->sol + icl*NEQ;
-    u1 = psol[0] + SOLVCESE_TINY;
+    u1 = psol[0] + SOLVCON_TINY;
     u2 = psol[1];
     u3 = psol[2];
     u4 = psol[3];

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2010 Yung-Yu Chen <yyc@solvcon.net>.
+ * Copyright (C) 2008-2011 Yung-Yu Chen <yyc@solvcon.net>.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,7 +22,30 @@
 #include <stdlib.h>
 #include <math.h>
 #include <stdio.h>
+#include <fenv.h>
+#include <stddef.h>
+#include <sys/times.h>
 
+/*
+ * quantities.
+ */
+#define PI 3.14159265358979311600
+#define SOLVCON_ALMOST_ZERO 1.e-200
+#define SOLVCON_TINY 1.e-60
+#define SOLVCON_SMALL 1.e-30
+
+/*
+ * mesh constants.
+ */
+#define FCMND 4
+#define CLMND 8
+#define CLMFC 6
+#define FCREL 4
+#define BFREL 3
+
+/*
+ * mesh structure.
+ */
 typedef struct {
     int ndim;
     int nnode, nface, ncell, nbound;
@@ -35,15 +58,22 @@ typedef struct {
     int *fcnds, *fccls, *clnds, *clfcs;
 } MeshData;
 
+/*
+ * example execution data.
+ */
 typedef struct {
 	int ncore, neq;
 	double time, time_increment;
 } ExecutionData;
 
-#define FCMND 4
-#define CLMND 8
-#define CLMFC 6
-#define FCREL 4
-#define BFREL 3
+/*
+ * Debugging.
+ */
+// floating point exception.
+#ifdef SOLVCON_DEBUG
+//#define SOLVCESE_FE FE_ALL_EXCEPT
+#define SOLVCON_FE FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW
+//#define SOLVCON_FE FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW | FE_UNDERFLOW
+#endif
 
 #endif

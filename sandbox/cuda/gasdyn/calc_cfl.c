@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Yung-Yu Chen <yyc@solvcon.net>.
+ * Copyright (C) 2010-2011 Yung-Yu Chen <yyc@solvcon.net>.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,6 +21,10 @@
 int calc_cfl(exedata *exd, int istart, int iend) {
     int cputicks;
     struct tms timm0, timm1;
+    times(&timm0);
+#ifdef SOLVCON_FE
+    feenableexcept(SOLVCON_FE);
+#endif
     int clnfc;
     // pointers.
     int *pclfcs;
@@ -31,10 +35,6 @@ int calc_cfl(exedata *exd, int istart, int iend) {
     double vec[NDIM];
     // iterators.
     int icl, ifl;
-    times(&timm0);
-#ifdef SOLVCESE_FE
-    feenableexcept(SOLVCESE_FE);
-#endif
     hdt = exd->time_increment / 2.0;
     pamsca = exd->amsca + istart*NSCA;
     pcfl = exd->cfl + istart;
@@ -73,7 +73,7 @@ int calc_cfl(exedata *exd, int istart, int iend) {
         ;
         ke = wspd/(2.0*psoln[0]);
         pr = ga1 * (psoln[1+NDIM] - ke);
-#if SOLVCESE_DEBUG
+#if SOLVCON_DEBUG
         if (pr < 0.0) printf("%d: pr = %g\n", icl, pr);   // usual cause.
 #endif
         pr = (pr+fabs(pr))/2.0;
@@ -81,9 +81,9 @@ int calc_cfl(exedata *exd, int istart, int iend) {
         // CFL.
         pocfl[0] = hdt*wspd/dist;
         // if pressure is null, make CFL to be 1.
-        pcfl[0] = (pocfl[0]-1.0) * pr/(pr+SOLVCESE_TINY) + 1.0;
+        pcfl[0] = (pocfl[0]-1.0) * pr/(pr+SOLVCON_TINY) + 1.0;
         // correct negative pressure.
-        psoln[1+NDIM] = pr/ga1 + ke + SOLVCESE_TINY;
+        psoln[1+NDIM] = pr/ga1 + ke + SOLVCON_TINY;
         // advance.
         pamsca += NSCA;
         pcfl += 1;

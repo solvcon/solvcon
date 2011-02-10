@@ -33,8 +33,8 @@ int calc_solt(exedata *exd, int istart, int iend) {
     struct tms timm0, timm1;
     int cputicks;
     times(&timm0);
-#ifdef SOLVCESE_FE
-    feenableexcept(SOLVCESE_FE);
+#ifdef SOLVCON_FE
+    feenableexcept(SOLVCON_FE);
 #endif
 #endif
     // pointers.
@@ -105,8 +105,8 @@ int calc_soln(exedata *exd, int istart, int iend) {
     struct tms timm0, timm1;
     int cputicks;
     times(&timm0);
-#ifdef SOLVCESE_FE
-    feenableexcept(SOLVCESE_FE);
+#ifdef SOLVCON_FE
+    feenableexcept(SOLVCON_FE);
 #endif
 #endif
     int clnfc, fcnnd;
@@ -207,8 +207,8 @@ int calc_soln(exedata *exd, int istart, int iend) {
             };
             // calculate outward area vector of the bounding sub-face.
 #if NDIM == 3
-            voe = (pfccls[0] - icl) + SOLVCESE_ALMOST_ZERO;
-            voe /= (icl - pfccls[0]) + SOLVCESE_ALMOST_ZERO;
+            voe = (pfccls[0] - icl) + SOLVCON_ALMOST_ZERO;
+            voe /= (icl - pfccls[0]) + SOLVCON_ALMOST_ZERO;
             voe *= 0.5;
             for (inf=0; inf<fcnnd; inf++) {
                 disu0 = crd[inf  ][0] - cnde[0];

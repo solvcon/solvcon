@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2010 Yung-Yu Chen <yyc@solvcon.net>.
+ * Copyright (C) 2008-2011 Yung-Yu Chen <yyc@solvcon.net>.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,7 +16,7 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "cese.h"
+#include "cuse.h"
 
 int calc_norm_diff(exedata *exd, int istart, int iend, double *diff) {
     // pointers.

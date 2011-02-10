@@ -49,8 +49,8 @@ int calc_dsoln(exedata *exd, int istart, int iend) {
     struct tms timm0, timm1;
     int cputicks;
     times(&timm0);
-#ifdef SOLVCESE_FE
-    feenableexcept(SOLVCESE_FE);
+#ifdef SOLVCON_FE
+    feenableexcept(SOLVCON_FE);
 #endif
 #endif
     int clnfc;
@@ -218,7 +218,7 @@ int calc_dsoln(exedata *exd, int istart, int iend) {
 
         // calculate and weight gradient.
         for (ieq=0; ieq<NEQ; ieq++) {
-            deno[ieq] = SOLVCESE_ALMOST_ZERO;
+            deno[ieq] = SOLVCON_ALMOST_ZERO;
             nume[ieq][0] = nume[ieq][1] = 0.0;
 #if NDIM == 3
             nume[ieq][2] = 0.0;
@@ -292,7 +292,7 @@ int calc_dsoln(exedata *exd, int istart, int iend) {
 #if NDIM == 3
                 wgt += grd[2]*grd[2];
 #endif
-                wgt = 1.0 / pow(sqrt(wgt+SOLVCESE_ALMOST_ZERO), exd->alpha);
+                wgt = 1.0 / pow(sqrt(wgt+SOLVCON_ALMOST_ZERO), exd->alpha);
                 deno[ieq] += wgt;
                 nume[ieq][0] += wgt*grd[0];
                 nume[ieq][1] += wgt*grd[1];

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Yung-Yu Chen <yyc@solvcon.net>.
+ * Copyright (C) 2010-2011 Yung-Yu Chen <yyc@solvcon.net>.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,6 +23,10 @@ int calc_physics(exedata *exd, int istart, int iend,
         double *sos, double *mac) {
     int cputicks;
     struct tms timm0, timm1;
+    times(&timm0);
+#ifdef SOLVCON_FE
+    feenableexcept(SOLVCON_FE);
+#endif
     // pointers.
     double *pclcnd, *pcecnd;
     double *pamsca, *psoln, *pdsoln;
@@ -33,10 +37,6 @@ int calc_physics(exedata *exd, int istart, int iend,
     double sft[NDIM];
     // iterators.
     int icl;
-    times(&timm0);
-#ifdef SOLVCESE_FE
-    feenableexcept(SOLVCESE_FE);
-#endif
     pclcnd = exd->clcnd + istart*NDIM;
     pcecnd = exd->cecnd + istart*(CLMFC+1)*NDIM;
     pamsca = exd->amsca + istart*NSCA;
@@ -101,7 +101,7 @@ int calc_physics(exedata *exd, int istart, int iend,
         // Mach number.
         pmac[0] = sqrt(pken[0]/prho[0]*2);
         pmac[0] *= psos[0]
-            / (psos[0]*psos[0] + SOLVCESE_ALMOST_ZERO); // prevent nan/inf.
+            / (psos[0]*psos[0] + SOLVCON_ALMOST_ZERO); // prevent nan/inf.
         // advance pointer.
         pclcnd += NDIM;
         pcecnd += (CLMFC+1)*NDIM;

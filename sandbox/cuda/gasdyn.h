@@ -18,9 +18,7 @@
 
 #ifndef SOLVCON_GASDYN_H
 #define SOLVCON_GASDYN_H
-#include <stdio.h>
-#include <fenv.h>
-#include "cese.h"
+#include "cuse.h"
 
 #undef NEQ
 #if NDIM == 2

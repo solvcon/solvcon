@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Yung-Yu Chen <yyc@solvcon.net>.
+ * Copyright (C) 2010-2011 Yung-Yu Chen <yyc@solvcon.net>.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,15 +22,15 @@ int calc_schlieren_rhog(exedata *exd, int istart, int iend,
         double *rhog) {
     int cputicks;
     struct tms timm0, timm1;
+    times(&timm0);
+#ifdef SOLVCON_FE
+    feenableexcept(SOLVCON_FE);
+#endif
     // pointers.
     double *pdsoln;
     double *prhog;
     // iterators.
     int icl;
-    times(&timm0);
-#ifdef SOLVCESE_FE
-    feenableexcept(SOLVCESE_FE);
-#endif
     pdsoln = exd->dsoln + istart*NEQ*NDIM;
     prhog = rhog + istart+exd->ngstcell;
     for (icl=istart; icl<iend; icl++) {
@@ -60,11 +60,11 @@ int calc_schlieren_sch(exedata *exd, int istart, int iend,
     // iterators.
     int icl;
     times(&timm0);
-#ifdef SOLVCESE_FE
-    feenableexcept(SOLVCESE_FE);
+#ifdef SOLVCON_FE
+    feenableexcept(SOLVCON_FE);
 #endif
     fac0 = k0 * rhogmax;
-    fac1 = -k / ((k1-k0) * rhogmax + SOLVCESE_ALMOST_ZERO);
+    fac1 = -k / ((k1-k0) * rhogmax + SOLVCON_ALMOST_ZERO);
     psch = sch + istart+exd->ngstcell;
     for (icl=istart; icl<iend; icl++) {
         // density gradient.

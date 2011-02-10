@@ -30,8 +30,8 @@ int qualify_mesh(exedata *exd, int istart, int iend) {
     int it0, it1, it;
     // loop over cells.
     for (icl=istart; icl<iend; icl++) {
-        lnt = SOLVCESE_ALMOST_ZERO;
-        sht = 1./SOLVCESE_ALMOST_ZERO;
+        lnt = SOLVCON_ALMOST_ZERO;
+        sht = 1./SOLVCON_ALMOST_ZERO;
         ctpn = exd->cltpn[icl];
         pclnds = exd->clnds + icl*(CLMND+1);
         pclfcs = exd->clfcs + icl*(CLMFC+1);
