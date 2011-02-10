@@ -251,7 +251,7 @@ else:
 
 # solvcon environment.
 env = Environment(ENV=os.environ, tools=tools,
-    CPPPATH='src', CFLAGS=CFLAGS, F90FLAGS=F90FLAGS,
+    CPPPATH='include', CFLAGS=CFLAGS, F90FLAGS=F90FLAGS,
 )
 def build_epydoc(target, source, env):
     import sys

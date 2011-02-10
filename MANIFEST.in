@@ -2,6 +2,7 @@ include MANIFEST.in
 include README.rst HISTORY.rst COPYING
 include doc/source/* doc/source/*/*
 include SCons* patch/*.patch
+recursive-include include *
 recursive-include src *
 recursive-include test *
 include examples/*/*/go
