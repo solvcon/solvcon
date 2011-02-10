@@ -70,6 +70,34 @@ for lname, extra_links in kplibs:
     libs.extend(make_kplib(lname, lpre, ldir, '%s/%s'%(sdir, lname),
         bdir, env, extra_links=extra_links))
 
+# kerpak libraries with CUDA.
+def make_kpculib(lname, lpre, ldir, sdir, bdir, env, extra_links=None):
+    """
+    Make kerpak libraries with CUDA.
+    """
+    libs = []
+    for ndim in 2, 3:
+        for ext in ('c', 'cu'):
+            VariantDir('%s/%s%dd_%s' % (bdir, lname, ndim, ext),
+                sdir, duplicate=0)
+            envm = env.Clone()
+            envm.Prepend(CCFLAGS=['-DNDIM=%d'%ndim])
+            envm.Prepend(NVCCFLAGS=['-DNDIM=%d'%ndim])
+            if ext == 'cu': envm.Append(LIBS=['cudart'])
+            if extra_links is not None:
+                envm.Prepend(LIBS=extra_links)
+            libs.append(envm.SharedLibrary(
+                '%s/%s_%s%dd_%s' % (ldir, lpre, lname, ndim, ext),
+                Glob('%s/%s%dd_%s/*.%s' % (bdir, lname, ndim, ext, ext))))
+    return libs
+kpculibs = [
+    ('cuse', None), ('cuseb', None),    # solvcon.kerpak.cuse
+]
+for lname, extra_links in kpculibs:
+    libs.extend(make_kpculib(lname, lpre, ldir, '%s/%s'%(sdir, lname),
+        bdir, env, extra_links=extra_links))
+
+
 # TODO: OBSELETE
 if GetOption('enable_f90'):
     # lib_solvcon in FORTRAN.

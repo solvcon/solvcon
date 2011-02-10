@@ -3,7 +3,8 @@ tools = ['mingw' if sys.platform.startswith('win') else 'default']
 tools.append('cuda')
 env = Environment(ENV=os.environ, tools=tools,
     NVCCFLAGS=['-arch=sm_20'])
-env.Append(NVCCINC=' -I ../../src')
+env.Append(CPPPATH=['../../include', '.'])
+env.Append(NVCCINC=' -I ../../include')
 Export('env')
 SConscript(['SConscript'])
 # vim: set ft=python ff=unix:

@@ -11,6 +11,7 @@ New features:
   ``solvcon.kerpak.elaslin``.
 - Add an example for custom solver in ``example/misc/elas3d``.
 - Add a ctypes-based CUDA wrapper in ``solvcon.scuda``.
+- Add CUDA-enabled 2nd-order CESE solver.
 
 Changes:
 
