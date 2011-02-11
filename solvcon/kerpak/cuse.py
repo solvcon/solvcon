@@ -409,11 +409,8 @@ class CuseSolver(BlockSolver):
         # exchange items in GPU execution data.
         if self.scu:
             cumgr = self.cumgr
-            if False:
-                cumgr.sol, cumgr.soln = cumgr.soln, cumgr.sol
-                cumgr.dsol, cumgr.dsoln = cumgr.dsoln, cumgr.dsol
-            else:
-                self.cumgr.arr_to_gpu('sol', 'soln', 'dsol')
+            cumgr.sol, cumgr.soln = cumgr.soln, cumgr.sol
+            cumgr.dsol, cumgr.dsoln = cumgr.dsoln, cumgr.dsol
             cumgr.update_exd()
         if self.debug: self.mesg(' done.\n')
 
@@ -457,7 +454,7 @@ class CuseSolver(BlockSolver):
     def bcsoln(self, worker=None):
         if self.debug: self.mesg('bcsoln')
         for bc in self.bclist: bc.soln()
-        self.cumgr.arr_from_gpu('soln')
+        if self.scu: self.cumgr.arr_from_gpu('soln')
         if self.debug: self.mesg(' done.\n')
 
     MMNAMES.append('calccfl')
@@ -490,7 +487,7 @@ class CuseSolver(BlockSolver):
     def bcdsoln(self, worker=None):
         if self.debug: self.mesg('bcdsoln')
         for bc in self.bclist: bc.dsoln()
-        self.cumgr.arr_from_gpu('dsoln')
+        if self.scu: self.cumgr.arr_from_gpu('dsoln')
         if self.debug: self.mesg(' done.\n')
 
 ###############################################################################
