@@ -18,7 +18,7 @@
 
 #include "gasdyn.h"
 
-int calc_physics(exedata *exd, int istart, int iend,
+int process_physics(exedata *exd, int istart, int iend,
         double *vel, double *rho, double *pre, double *tem, double *ken,
         double *sos, double *mac) {
     int cputicks;

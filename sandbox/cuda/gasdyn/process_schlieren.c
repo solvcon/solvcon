@@ -18,7 +18,7 @@
 
 #include "gasdyn.h"
 
-int calc_schlieren_rhog(exedata *exd, int istart, int iend,
+int process_schlieren_rhog(exedata *exd, int istart, int iend,
         double *rhog) {
     int cputicks;
     struct tms timm0, timm1;
@@ -49,20 +49,20 @@ int calc_schlieren_rhog(exedata *exd, int istart, int iend,
                    - (timm0.tms_utime+timm0.tms_stime));
     return cputicks;
 };
-int calc_schlieren_sch(exedata *exd, int istart, int iend,
+int process_schlieren_sch(exedata *exd, int istart, int iend,
         double k, double k0, double k1, double rhogmax, double *sch) {
     int cputicks;
     struct tms timm0, timm1;
+    times(&timm0);
+#ifdef SOLVCON_FE
+    feenableexcept(SOLVCON_FE);
+#endif
     // pointers.
     double *psch;
     // scalars.
     double fac0, fac1;
     // iterators.
     int icl;
-    times(&timm0);
-#ifdef SOLVCON_FE
-    feenableexcept(SOLVCON_FE);
-#endif
     fac0 = k0 * rhogmax;
     fac1 = -k / ((k1-k0) * rhogmax + SOLVCON_ALMOST_ZERO);
     psch = sch + istart+exd->ngstcell;

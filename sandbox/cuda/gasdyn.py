@@ -231,7 +231,7 @@ class GasdynOAnchor(Anchor):
     def _calculate_physics(self):
         svr = self.svr
         der = svr.der
-        svr._tcall(svr._clib_gasdyn.calc_physics, -svr.ngstcell, svr.ncell,
+        svr._tcall(svr._clib_gasdyn.process_physics, -svr.ngstcell, svr.ncell,
             der['v'].ctypes._as_parameter_,
             der['rho'].ctypes._as_parameter_,
             der['p'].ctypes._as_parameter_,
@@ -244,10 +244,10 @@ class GasdynOAnchor(Anchor):
         from ctypes import c_double
         svr = self.svr
         sch = svr.der['sch']
-        svr._tcall(svr._clib_gasdyn.calc_schlieren_rhog,
+        svr._tcall(svr._clib_gasdyn.process_schlieren_rhog,
             -svr.ngstcell, svr.ncell, sch.ctypes._as_parameter_)
         rhogmax = sch[svr.ngstcell:].max()
-        svr._tcall(svr._clib_gasdyn.calc_schlieren_sch,
+        svr._tcall(svr._clib_gasdyn.process_schlieren_sch,
             -svr.ngstcell, svr.ncell,
             c_double(self.schk), c_double(self.schk0), c_double(self.schk1),
             c_double(rhogmax), sch.ctypes._as_parameter_,

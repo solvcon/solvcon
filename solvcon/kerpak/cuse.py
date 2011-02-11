@@ -74,6 +74,7 @@ class CudaDataManager(AttributeDict):
         scu.cudaMemcpy(self.gexd.gptr, byref(self.exd),
             sizeof(self.exd), scu.cudaMemcpyHostToDevice)
 
+    # FIXME: accept list as name.
     def arr_to_gpu(self, name=None):
         scu = self.svr.scu
         names = self if name is None else [name]
@@ -265,6 +266,7 @@ class CuseSolver(BlockSolver):
         self.tauscale = float(kw.pop('tauscale', 0.0))
         self.omegamin = float(kw.pop('omegamin', 1.1))
         self.omegascale = float(kw.pop('omegascale', 0.0))
+        # super call.
         super(CuseSolver, self).__init__(blk, *args, **kw)
         fpdtype = self.fpdtype
         ndim = self.ndim
@@ -275,12 +277,12 @@ class CuseSolver(BlockSolver):
         # CUDA manager.
         self.cumgr = None
         self.cuarr_map = dict()
-        for key in ('clfcs', 'clcnd', 'cltpn'):
-            self.cuarr_map[key] = self.ngstcell
-        for key in ('fcnds', 'fccls', 'fccnd', 'fcnml'):
-            self.cuarr_map[key] = self.ngstface
         for key in ('ndcrd',):
             self.cuarr_map[key] = self.ngstnode
+        for key in ('fcnds', 'fccls', 'fccnd', 'fcnml'):
+            self.cuarr_map[key] = self.ngstface
+        for key in ('clfcs', 'clcnd', 'cltpn'):
+            self.cuarr_map[key] = self.ngstcell
         # meta array.
         self.grpda = empty((ngroup, self._gdlen_), dtype=fpdtype)
         self.cuarr_map['grpda'] = 0
