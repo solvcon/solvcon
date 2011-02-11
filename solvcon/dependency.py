@@ -54,19 +54,23 @@ def loadcdll(location, libname):
         libdir = os.path.dirname(libdir)
     libpath = os.path.join(libdir, tmpl%libname)
     return cdllcache.setdefault(libpath, CDLL(libpath))
-def getcdll(libname, raise_on_fail=True):
+def getcdll(libname, location=None, raise_on_fail=True):
     """
     Load shared objects at the default location.
 
     @param libname: main basename of library without sc_ prefix.
     @type libname: str
+    @keyword location: location of the library.
+    @type location: str
     @keyword raise_on_fail: raise the error on failing to load. Default True.
     @type raise_on_fail: bool
     @return: ctypes library.
     @rtype: ctypes.CDLL
     """
+    import os
+    location = env.libdir if location is None else location
     try:
-        lib = loadcdll(env.libdir, 'sc_'+libname)
+        lib = loadcdll(location, 'sc_'+libname)
     except OSError:
         if raise_on_fail:
             raise

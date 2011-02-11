@@ -26,18 +26,6 @@ from solvcon.kerpak.cuse import CuseBC
 from solvcon.anchor import Anchor
 from solvcon.hook import BlockHook
 
-def getcdll(libname):
-    """
-    Load shared objects at the default location.
-
-    @param libname: main basename of library without sc_ prefix.
-    @type libname: str
-    @return: ctypes library.
-    @rtype: ctypes.CDLL
-    """
-    from solvcon.dependency import loadcdll
-    return loadcdll('.', 'sc_'+libname)
-
 ###############################################################################
 # Solver.
 ###############################################################################
@@ -49,12 +37,12 @@ class GasdynSolver(CuseSolver):
     def __init__(self, blk, *args, **kw):
         kw['nsca'] = 1
         super(GasdynSolver, self).__init__(blk, *args, **kw)
-    #from solvcon.dependency import getcdll
+    from solvcon.dependency import getcdll
     __clib_gasdyn = {
-        2: getcdll('gasdyn2d'),
-        3: getcdll('gasdyn3d'),
+        2: getcdll('gasdyn2d', location=__file__),
+        3: getcdll('gasdyn3d', location=__file__),
     }
-    #del getcdll
+    del getcdll
     @property
     def _clib_gasdyn(self):
         return self.__clib_gasdyn[self.ndim]
@@ -107,14 +95,14 @@ class GasdynCase(CuseCase):
 
 class GasdynBC(CuseBC):
     """
-    Basic BC class for the Euler equations.
+    Basic BC class for gas dynamics.
     """
-    #from solvcon.dependency import getcdll
+    from solvcon.dependency import getcdll
     __clib_gasdynb = {
-        2: getcdll('gasdynb2d'),
-        3: getcdll('gasdynb3d'),
+        2: getcdll('gasdynb2d', location=__file__),
+        3: getcdll('gasdynb3d', location=__file__),
     }
-    #del getcdll
+    del getcdll
     @property
     def _clib_gasdynb(self):
         return self.__clib_gasdynb[self.svr.ndim]
