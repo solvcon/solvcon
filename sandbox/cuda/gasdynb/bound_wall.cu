@@ -16,37 +16,52 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "gasdyn.h"
+#include "cueuler.h"
 
+#ifdef __CUDACC__
+__global__ void cuda_bound_wall_soln(exedata *exd, int nbnd, int *facn) {
+    int ibnd = blockDim.x * blockIdx.x + threadIdx.x;
+#else
 int bound_wall_soln(exedata *exd, int nbnd, int *facn) {
+    int ibnd;
+#endif
     // pointers.
-    int *pfacn, *pfccls, *pfcnds;
-    double *pndcrd, *pfccnd, *pfcnml;
+    int *pfacn, *pfccls;
+    double *pfcnml;
     double *pisoln, *pjsoln;
+#if NDIM == 3
+    int *pfcnds;
+    double *pndcrd, *pfccnd;
     // scalars.
     double len;
+#endif
     // arrays.
     double mat[NDIM][NDIM], matinv[NDIM][NDIM];
     double mom[NDIM];
     // iterators.
-    int ibnd, ifc, icl, jcl;
+    int ifc, icl, jcl;
+#ifdef __CUDACC__
+    if (ibnd < nbnd) {
+        pfacn = facn + ibnd*BFREL;
+#else
     pfacn = facn;
     for (ibnd=0; ibnd<nbnd; ibnd++) {
+#endif
         ifc = pfacn[0];
         pfccls = exd->fccls + ifc*FCREL;
         icl = pfccls[0];
         jcl = pfccls[1];
-        pfcnds = exd->fcnds + ifc*(FCMND+1);
         pisoln = exd->soln + icl*NEQ;
         pjsoln = exd->soln + jcl*NEQ;
         // rotation and inverse rotation matrices.
-        pfccnd = exd->fccnd + ifc*NDIM;
         pfcnml = exd->fcnml + ifc*NDIM;
         mat[0][0] = matinv[0][0] = pfcnml[0];
         mat[0][1] = matinv[1][0] = pfcnml[1];
 #if NDIM == 3
         mat[0][2] = matinv[2][0] = pfcnml[2];
+        pfcnds = exd->fcnds + ifc*(FCMND+1);
         pndcrd = exd->ndcrd + pfcnds[1]*NDIM;
+        pfccnd = exd->fccnd + ifc*NDIM;
         mat[1][0] = pndcrd[0] - pfccnd[0];
         mat[1][1] = pndcrd[1] - pfccnd[1];
         mat[1][2] = pndcrd[2] - pfccnd[2];
@@ -91,40 +106,69 @@ int bound_wall_soln(exedata *exd, int nbnd, int *facn) {
         // set solutions.
         pjsoln[0] = pisoln[0];
         pjsoln[1+NDIM] = pisoln[1+NDIM];
+#ifndef __CUDACC__
         // advance boundary face.
         pfacn += BFREL;
     };
     return 0;
-}
+};
+#else
+    };
+};
+extern "C" int bound_wall_soln(int nthread, void *gexc,
+    int nbnd, void *gfacn) {
+    int nblock = (nbnd + nthread-1) / nthread;
+    cuda_bound_wall_soln<<<nblock, nthread>>>((exedata *)gexc,
+        nbnd, (int *)gfacn);
+    cudaThreadSynchronize();
+    return 0;
+};
+#endif
+
+#ifdef __CUDACC__
+__global__ void cuda_bound_wall_dsoln(exedata *exd, int nbnd, int *facn) {
+    int ibnd = blockDim.x * blockIdx.x + threadIdx.x;
+#else
 int bound_wall_dsoln(exedata *exd, int nbnd, int *facn) {
+    int ibnd;
+#endif
     // pointers.
-    int *pfacn, *pfccls, *pfcnds;
+    int *pfacn, *pfccls;
     double *pidsoln, *pjdsoln, *pdsoln;
-    double *pndcrd, *pfccnd, *pfcnml;
+    double *pfcnml;
+#if NDIM == 3
+    int *pfcnds;
+    double *pndcrd, *pfccnd;
     // scalars.
     double len;
+#endif
     // arrays.
     double vec[NEQ][NDIM];
     double mat[NDIM][NDIM], matinv[NDIM][NDIM];
     // iterators.
-    int ibnd, ifc, icl, jcl, ieq;
+    int ifc, icl, jcl, ieq;
+#ifdef __CUDACC__
+    if (ibnd < nbnd) {
+        pfacn = facn + ibnd*BFREL;
+#else
     pfacn = facn;
     for (ibnd=0; ibnd<nbnd; ibnd++) {
+#endif
         ifc = pfacn[0];
         pfccls = exd->fccls + ifc*FCREL;
         icl = pfccls[0];
         jcl = pfccls[1];
-        pfcnds = exd->fcnds + ifc*(FCMND+1);
         pidsoln = exd->dsoln + icl*NEQ*NDIM;
         pjdsoln = exd->dsoln + jcl*NEQ*NDIM;
         // coordinate transformation and set transformed vectors.
-        pfccnd = exd->fccnd + ifc*NDIM;
         pfcnml = exd->fcnml + ifc*NDIM;
         mat[0][0] = matinv[0][0] = pfcnml[0];
         mat[0][1] = matinv[1][0] = pfcnml[1];
 #if NDIM == 3
         mat[0][2] = matinv[2][0] = pfcnml[2];
+        pfcnds = exd->fcnds + ifc*(FCMND+1);
         pndcrd = exd->ndcrd + pfcnds[1]*NDIM;
+        pfccnd = exd->fccnd + ifc*NDIM;
         mat[1][0] = pndcrd[0] - pfccnd[0];
         mat[1][1] = pndcrd[1] - pfccnd[1];
         mat[1][2] = pndcrd[2] - pfccnd[2];
@@ -182,130 +226,23 @@ int bound_wall_dsoln(exedata *exd, int nbnd, int *facn) {
 #endif
             pdsoln += NDIM;
         };
+#ifndef __CUDACC__
         // advance boundary face.
         pfacn += BFREL;
     };
     return 0;
-}
-/*int bound_wall_soln_wrong(exedata *exd, int nbnd, int *facn) {
-    // pointers.
-    int *pfacn, *pfccls;
-    double *pfcnml;
-    double *pisoln, *pjsoln;
-    // scalars.
-    double mom;
-    // iterators.
-    int ibnd, ifc, icl, jcl;
-    pfacn = facn;
-    for (ibnd=0; ibnd<nbnd; ibnd++) {
-        ifc = pfacn[0];
-        pfccls = exd->fccls + ifc*FCREL;
-        pfcnml = exd->fcnml + ifc*NDIM;
-        icl = pfccls[0];
-        jcl = pfccls[1];
-        // quantity.
-        pisoln = exd->soln + icl*NEQ;
-        pjsoln = exd->soln + jcl*NEQ;
-        mom = pisoln[1]*pfcnml[0] + pisoln[2]*pfcnml[1]
-#if NDIM == 3
-            + pisoln[3]*pfcnml[2]
-#endif
-        ;
-        // set solutions.
-        pjsoln[0] = pisoln[0];
-        pjsoln[1] = pisoln[1] - 2.0*mom*pfcnml[0];
-        pjsoln[2] = pisoln[2] - 2.0*mom*pfcnml[1];
-#if NDIM == 3
-        pjsoln[3] = pisoln[3] - 2.0*mom*pfcnml[2];
-#endif
-        pjsoln[1+NDIM] = pisoln[1+NDIM];
-        // advance boundary face.
-        pfacn += BFREL;
+};
+#else
     };
+};
+extern "C" int bound_wall_dsoln(int nthread, void *gexc,
+    int nbnd, void *gfacn) {
+    int nblock = (nbnd + nthread-1) / nthread;
+    cuda_bound_wall_dsoln<<<nblock, nthread>>>((exedata *)gexc,
+        nbnd, (int *)gfacn);
+    cudaThreadSynchronize();
     return 0;
-}
-int bound_wall_dsoln_wrong(exedata *exd, int nbnd, int *facn) {
-    // pointers.
-    int *pfacn, *pfccls;
-    double *pidsoln, *pjdsoln, *pdsoln;
-    double *pfcnml;
-    // scalars.
-    double val;
-    // arrays.
-    double mom[NDIM], dom[NDIM];
-    // iterators.
-    int ibnd, ifc, icl, jcl;
-    int idm;
-    pfacn = facn;
-    for (ibnd=0; ibnd<nbnd; ibnd++) {
-        ifc = pfacn[0];
-        pfccls = exd->fccls + ifc*FCREL;
-        pfcnml = exd->fcnml + ifc*NDIM;
-        icl = pfccls[0];
-        jcl = pfccls[1];
-        pidsoln = exd->dsoln + icl*NEQ*NDIM;
-        pjdsoln = exd->dsoln + jcl*NEQ*NDIM;
-        // set density.
-        val = pfcnml[0]*pidsoln[0] + pfcnml[1]*pidsoln[1]
-#if NDIM == 3
-            + pfcnml[2]*pidsoln[2]
+};
 #endif
-        ;
-        pjdsoln[0] = pidsoln[0] - 2.0*pfcnml[0]*val;
-        pjdsoln[1] = pidsoln[1] - 2.0*pfcnml[1]*val;
-#if NDIM == 3
-        pjdsoln[2] = pidsoln[2] - 2.0*pfcnml[2]*val;
-#endif
-        pidsoln += NDIM;
-        pjdsoln += NDIM;
-        // set momentum.
-        mom[0] = pfcnml[0]*pidsoln[0*NDIM+0] + pfcnml[1]*pidsoln[1*NDIM+0]
-#if NDIM == 3
-               + pfcnml[2]*pidsoln[2*NDIM+0]
-#endif
-        ;
-        mom[1] = pfcnml[0]*pidsoln[0*NDIM+1] + pfcnml[1]*pidsoln[1*NDIM+1]
-#if NDIM == 3
-               + pfcnml[2]*pidsoln[2*NDIM+1]
-#endif
-        ;
-#if NDIM == 3
-        mom[2] = pfcnml[0]*pidsoln[0*NDIM+2] + pfcnml[1]*pidsoln[1*NDIM+2]
-               + pfcnml[2]*pidsoln[2*NDIM+2];
-#endif
-        for (idm=0; idm<NDIM; idm++) {
-            dom[0] = pidsoln[0] - 2.0*pfcnml[0]*mom[0];
-            dom[1] = pidsoln[1] - 2.0*pfcnml[1]*mom[1];
-#if NDIM == 3
-            dom[2] = pidsoln[2] - 2.0*pfcnml[2]*mom[2];
-#endif
-            val = pfcnml[0]*dom[0] + pfcnml[1]*dom[1]
-#if NDIM == 3
-                + pfcnml[2]*dom[2]
-#endif
-            ;
-            pjdsoln[0] = dom[0] - 2.0*pfcnml[0]*val;
-            pjdsoln[1] = dom[1] - 2.0*pfcnml[1]*val;
-#if NDIM == 3
-            pjdsoln[2] = dom[2] - 2.0*pfcnml[2]*val;
-#endif
-            pidsoln += NDIM;
-            pjdsoln += NDIM;
-        };
-        // set total energy.
-        val = pfcnml[0]*pidsoln[0] + pfcnml[1]*pidsoln[1]
-#if NDIM == 3
-            + pfcnml[2]*pidsoln[2]
-#endif
-        ;
-        pjdsoln[0] = pidsoln[0] - 2.0*pfcnml[0]*val;
-        pjdsoln[1] = pidsoln[1] - 2.0*pfcnml[1]*val;
-#if NDIM == 3
-        pjdsoln[2] = pidsoln[2] - 2.0*pfcnml[2]*val;
-#endif
-        // advance boundary face.
-        pfacn += BFREL;
-    };
-    return 0;
-}*/
+
 // vim: set ts=4 et:
