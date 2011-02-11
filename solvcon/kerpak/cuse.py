@@ -18,6 +18,8 @@
 
 """
 Second-order, multi-dimensional CESE method with CUDA enabled.
+
+Three functionalities are defined: (i) CFL, (ii) Convergence, and (iii) Probe.
 """
 
 from ctypes import Structure
@@ -74,7 +76,7 @@ class CudaDataManager(AttributeDict):
         scu.cudaMemcpy(self.gexd.gptr, byref(self.exd),
             sizeof(self.exd), scu.cudaMemcpyHostToDevice)
 
-    # FIXME: accept list as name.
+    # TODO: accept list as name.
     def arr_to_gpu(self, name=None):
         scu = self.svr.scu
         names = self if name is None else [name]
@@ -352,7 +354,7 @@ class CuseSolver(BlockSolver):
         """
         from ctypes import byref
         from numpy import array
-        crd = array(args, dtype=self.fpdtype)   # FIXME: could be type error.
+        crd = array(args, dtype='float64')
         picl = c_int(0)
         pifl = c_int(0)
         pjcl = c_int(0)
@@ -393,13 +395,11 @@ class CuseSolver(BlockSolver):
         # exchange solution and gradient.
         self.sol, self.soln = self.soln, self.sol
         self.dsol, self.dsoln = self.dsoln, self.dsol
-        # reset pointers in execution data.
-        ngstcell = self.ngstcell
-        self.exd.sol = self.sol[ngstcell:].ctypes._as_parameter_
-        self.exd.soln = self.soln[ngstcell:].ctypes._as_parameter_
-        self.exd.dsol = self.dsol[ngstcell:].ctypes._as_parameter_
-        self.exd.dsoln = self.dsoln[ngstcell:].ctypes._as_parameter_
-        # reset GPU execution data.
+        # exchange pointers in execution data.
+        exd = self.exd
+        exd.sol, exd.soln = exd.soln, exd.sol
+        exd.dsol, exd.dsoln = exd.dsoln, exd.dsol
+        # exchange items in GPU execution data.
         if self.scu:
             cumgr = self.cumgr
             cumgr.sol, cumgr.soln = cumgr.soln, cumgr.sol
@@ -638,100 +638,7 @@ class CusePeriodic(periodic):
         svr.cumgr.arr_to_gpu('dsoln')
 
 ################################################################################
-# Anchors.
-################################################################################
-
-class ConvergeAnchor(Anchor):
-    def __init__(self, svr, **kw):
-        self.norm = {}
-        super(ConvergeAnchor, self).__init__(svr, **kw)
-    def preloop(self):
-        from numpy import empty
-        svr = self.svr
-        der = svr.der
-        der['diff'] = empty((svr.ngstcell+svr.ncell, svr.neq),
-            dtype=svr.fpdtype)
-    def postfull(self):
-        from ctypes import c_int, c_double
-        svr = self.svr
-        diff = svr.der['diff']
-        svr._tcall(svr._clib_cuse_c.process_norm_diff, -svr.ngstcell,
-            svr.ncell, diff[svr.ngstcell:].ctypes._as_parameter_)
-        # Linf norm.
-        Linf = []
-        Linf.extend(diff.max(axis=0))
-        self.norm['Linf'] = Linf
-        # L1 norm.
-        svr._clib_cuse_c.process_norm_L1.restype = c_double
-        L1 = []
-        for ieq in range(svr.neq):
-            vals = svr._tcall(svr._clib_cuse_c.process_norm_L1, 0, svr.ncell,
-                diff[svr.ngstcell:].ctypes._as_parameter_, c_int(ieq))
-            L1.append(sum(vals))
-        self.norm['L1'] = L1
-        # L2 norm.
-        svr._clib_cuse_c.process_norm_L2.restype = c_double
-        L2 = []
-        for ieq in range(svr.neq):
-            vals = svr._tcall(svr._clib_cuse_c.process_norm_L2, 0, svr.ncell,
-                diff[svr.ngstcell:].ctypes._as_parameter_, c_int(ieq))
-            L2.append(sum(vals))
-        self.norm['L2'] = L2
-
-class Probe(object):
-    """
-    Represent a point in the mesh.
-    """
-    def __init__(self, *args, **kw):
-        from numpy import array
-        self.speclst = kw.pop('speclst')
-        self.name = kw.pop('name', None)
-        self.crd = array(args, dtype='float64')
-        self.pcl = -1
-        self.vals = list()
-    def __str__(self):
-        crds = ','.join(['%g'%val for val in self.crd])
-        return 'Pt/%s#%d(%s)%d' % (self.name, self.pcl, crds, len(self.vals))
-    def locate_cell(self, svr):
-        idx = svr.locate_point(*self.crd)
-        self.pcl = idx[0]
-    def __call__(self, svr, time):
-        ngstcell = svr.ngstcell
-        vlist = [time]
-        for spec in self.speclst:
-            arr = None
-            if isinstance(spec, str):
-                arr = svr.der[spec]
-            elif isinstance(spec, int):
-                if spec >= 0 and spec < svr.neq:
-                    arr = svr.soln[:,spec]
-                elif spec < 0 and -1-spec < svr.neq:
-                    spec = -1-spec
-                    arr = svr.sol[:,spec]
-            if arr == None:
-                raise IndexError, 'spec %s incorrect'%str(spec)
-            vlist.append(arr[ngstcell+self.pcl])
-        self.vals.append(vlist)
-
-class ProbeAnchor(Anchor):
-    """
-    Anchor for probe.
-    """
-    def __init__(self, svr, **kw):
-        speclst = kw.pop('speclst')
-        self.points = list()
-        for data in kw.pop('coords'):
-            pkw = {'speclst': speclst, 'name': data[0]}
-            self.points.append(Probe(*data[1:], **pkw))
-        super(ProbeAnchor, self).__init__(svr, **kw)
-    def preloop(self):
-        for point in self.points: point.locate_cell(self.svr)
-        for point in self.points: point(self.svr, self.svr.time)
-    def postfull(self):
-        for point in self.points: point(self.svr, self.svr.time)
-
-################################################################################
-# Hooks.
+# CFL.
 ################################################################################
 
 class CflHook(Hook):
@@ -796,9 +703,49 @@ class CflHook(Hook):
                 nCFL, xCFL, self.hnCFL, self.hxCFL, nadj,
                 self.aadj, self.haadj))
             self.aadj = 0
-
     def postloop(self):
         self.info("Averaged maximum CFL = %g.\n" % self.mCFL)
+
+################################################################################
+# Convergence.
+################################################################################
+
+class ConvergeAnchor(Anchor):
+    def __init__(self, svr, **kw):
+        self.norm = {}
+        super(ConvergeAnchor, self).__init__(svr, **kw)
+    def preloop(self):
+        from numpy import empty
+        svr = self.svr
+        der = svr.der
+        der['diff'] = empty((svr.ngstcell+svr.ncell, svr.neq),
+            dtype=svr.fpdtype)
+    def postfull(self):
+        from ctypes import c_int, c_double
+        svr = self.svr
+        diff = svr.der['diff']
+        svr._tcall(svr._clib_cuse_c.process_norm_diff, -svr.ngstcell,
+            svr.ncell, diff[svr.ngstcell:].ctypes._as_parameter_)
+        # Linf norm.
+        Linf = []
+        Linf.extend(diff.max(axis=0))
+        self.norm['Linf'] = Linf
+        # L1 norm.
+        svr._clib_cuse_c.process_norm_L1.restype = c_double
+        L1 = []
+        for ieq in range(svr.neq):
+            vals = svr._tcall(svr._clib_cuse_c.process_norm_L1, 0, svr.ncell,
+                diff[svr.ngstcell:].ctypes._as_parameter_, c_int(ieq))
+            L1.append(sum(vals))
+        self.norm['L1'] = L1
+        # L2 norm.
+        svr._clib_cuse_c.process_norm_L2.restype = c_double
+        L2 = []
+        for ieq in range(svr.neq):
+            vals = svr._tcall(svr._clib_cuse_c.process_norm_L2, 0, svr.ncell,
+                diff[svr.ngstcell:].ctypes._as_parameter_, c_int(ieq))
+            L2.append(sum(vals))
+        self.norm['L2'] = L2
 
 class ConvergeHook(BlockHook):
     def __init__(self, cse, **kw):
@@ -853,3 +800,109 @@ class ConvergeHook(BlockHook):
                     ', '.join(['%d'%ieq for ieq in eqs]),
                     ' '.join(['%.4e'%norm[key][ieq] for ieq in eqs]),
                 ))
+
+################################################################################
+# Probe.
+################################################################################
+
+class Probe(object):
+    """
+    Represent a point in the mesh.
+    """
+    def __init__(self, *args, **kw):
+        from numpy import array
+        self.speclst = kw.pop('speclst')
+        self.name = kw.pop('name', None)
+        self.crd = array(args, dtype='float64')
+        self.pcl = -1
+        self.vals = list()
+    def __str__(self):
+        crds = ','.join(['%g'%val for val in self.crd])
+        return 'Pt/%s#%d(%s)%d' % (self.name, self.pcl, crds, len(self.vals))
+    def locate_cell(self, svr):
+        idx = svr.locate_point(*self.crd)
+        self.pcl = idx[0]
+    def __call__(self, svr, time):
+        ngstcell = svr.ngstcell
+        vlist = [time]
+        for spec in self.speclst:
+            arr = None
+            if isinstance(spec, str):
+                arr = svr.der[spec]
+            elif isinstance(spec, int):
+                if spec >= 0 and spec < svr.neq:
+                    arr = svr.soln[:,spec]
+                elif spec < 0 and -1-spec < svr.neq:
+                    spec = -1-spec
+                    arr = svr.sol[:,spec]
+            if arr == None:
+                raise IndexError, 'spec %s incorrect'%str(spec)
+            vlist.append(arr[ngstcell+self.pcl])
+        self.vals.append(vlist)
+
+class ProbeAnchor(Anchor):
+    """
+    Anchor for probe.
+    """
+    def __init__(self, svr, **kw):
+        speclst = kw.pop('speclst')
+        self.points = list()
+        for data in kw.pop('coords'):
+            pkw = {'speclst': speclst, 'name': data[0]}
+            self.points.append(Probe(*data[1:], **pkw))
+        super(ProbeAnchor, self).__init__(svr, **kw)
+    def preloop(self):
+        for point in self.points: point.locate_cell(self.svr)
+        for point in self.points: point(self.svr, self.svr.time)
+    def postfull(self):
+        for point in self.points: point(self.svr, self.svr.time)
+
+class ProbeHook(BlockHook):
+    """
+    Point probe.
+    """
+    def __init__(self, cse, **kw):
+        self.name = kw.pop('name', 'ppank')
+        super(ProbeHook, self).__init__(cse, **kw)
+        self.ankkw = kw
+        self.points = None
+    def drop_anchor(self, svr):
+        ankkw = self.ankkw.copy()
+        ankkw['name'] = self.name
+        self._deliver_anchor(svr, ProbeAnchor, ankkw)
+    def _collect(self):
+        cse = self.cse
+        if cse.is_parallel:
+            dom = cse.solver.domainobj
+            dealer = cse.solver.dealer
+            allpoints = list()
+            for iblk in range(dom.nblk):
+                dealer[iblk].cmd.pullank(self.name, 'points', with_worker=True)
+                allpoints.append(dealer[iblk].recv())
+            npt = len(allpoints[0])
+            points = [None]*npt
+            for rpoints in allpoints:
+                ipt = 0
+                while ipt < npt:
+                    if points[ipt] == None and rpoints[ipt].pcl >=0:
+                        points[ipt] = rpoints[ipt]
+                    ipt += 1
+        else:
+            svr = self.cse.solver.solverobj
+            points = [pt for pt in svr.runanchors[self.name].points
+                if pt.pcl >= 0]
+        self.points = points
+    def postmarch(self):
+        psteps = self.psteps
+        istep = self.cse.execution.step_current
+        if istep%psteps != 0: return False
+        self._collect()
+        return True
+    def postloop(self):
+        import os
+        from numpy import array, save
+        for point in self.points:
+            ptfn = '%s_pt_%s_%s.npy' % (
+                self.cse.io.basefn, self.name, point.name)
+            ptfn = os.path.join(self.cse.io.basedir, ptfn)
+            save(ptfn, array(point.vals, dtype='float64'))

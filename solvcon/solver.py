@@ -110,7 +110,7 @@ class BaseSolver(object):
         self.time = kw.pop('time', 0.0)
         self.time_increment = kw.pop('time_increment', 0.0)
         self.step_global = 0
-        self.step_current = 0
+        self.step_current = 0   # TODO: change it to match global time step.
         self.substep_current = 0
         self.substep_run = kw.pop('substep_run', 2)
         # anchor list.

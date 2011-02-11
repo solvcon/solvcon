@@ -32,7 +32,7 @@ from solvcon.hook import BlockHook
 
 class GasdynSolver(CuseSolver):
     """
-    Inviscid aerodynamic solver for the Euler equations.
+    Gas dynamics solver of the Euler equations.
     """
     def __init__(self, blk, *args, **kw):
         kw['nsca'] = 1
@@ -72,7 +72,7 @@ class GasdynSolver(CuseSolver):
 
 class GasdynCase(CuseCase):
     """
-    Inviscid aerodynamic case for the Euler equations.
+    Gas dynamics case.
     """
     from solvcon.domain import Domain
     defdict = {
@@ -157,7 +157,7 @@ class GasdynInlet(GasdynBC):
 
 class GasdynIAnchor(Anchor):
     """
-    Basic initializing anchor class for all Euler problems.
+    Basic initializing anchor class of GasdynSolver.
     """
     def __init__(self, svr, **kw):
         assert isinstance(svr, GasdynSolver)
