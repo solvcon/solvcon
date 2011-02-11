@@ -324,7 +324,7 @@ class CuseSolver(BlockSolver):
             self.cumgr = CudaDataManager(svr=self)
         super(CuseSolver, self).bind()
     def unbind(self):
-        if self.scu and self.cumgr:
+        if self.scu and self.cumgr is not None:
             self.cumgr.free_all()
             self.cumgr = None
         super(CuseSolver, self).unbind()

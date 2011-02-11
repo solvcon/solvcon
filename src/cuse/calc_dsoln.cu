@@ -87,11 +87,11 @@ int calc_dsoln(exedata *exd, int istart, int iend) {
     int icl, ifl, ifl1, ifc, jcl, ieq, ivx;
     int ig0, ig1, ig;
     hdt = exd->time_increment * 0.5;
-#ifndef __CUDACC__
-    for (icl=istart; icl<iend; icl++) {
-#else
+#ifdef __CUDACC__
     icl = istart;
     if (icl < exd->ncell) {
+#else
+    for (icl=istart; icl<iend; icl++) {
 #endif
         pcltpn = exd->cltpn + icl;
         ig0 = ggerng[pcltpn[0]][0];

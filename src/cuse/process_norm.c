@@ -18,7 +18,12 @@
 
 #include "cuse.h"
 
-int process_norm_diff(exedata *exd, int istart, int iend, double *diff) {
+#ifdef __CUDACC__
+__global__ void cuda_process_norm_diff(exedata *exd, double *diff) {
+    int istart = blockDim.x * blockIdx.x + threadIdx.x;
+#else
+void process_norm_diff(exedata *exd, int istart, int iend, double *diff) {
+#endif
     // pointers.
     double *psol, *psoln, *pdiff;
     // interators.
@@ -26,16 +31,33 @@ int process_norm_diff(exedata *exd, int istart, int iend, double *diff) {
     pdiff = diff + istart*NEQ;
     psol = exd->sol + istart*NEQ;
     psoln = exd->soln + istart*NEQ;
+#ifdef __CUDACC__
+    icl = istart;
+    if (icl < exd->ncell) {
+#else
     for (icl=istart; icl<iend; icl++) {
+#endif
         for (ieq=0; ieq<NEQ; ieq++) {
             pdiff[ieq] = fabs(psoln[ieq] - psol[ieq]);
         };
+#ifndef __CUDACC__
         // advance pointers.
         pdiff += NEQ;
         psol += NEQ;
         psoln += NEQ;
     };
 };
+#else
+    };
+};
+extern "C" void process_norm_diff(int nthread, exedata *exc, void *gexc,
+        double *diff) {
+    int nblock = (exc->ncell + nthread-1) / nthread;
+    cuda_process_norm_diff<<<nblock, nthread>>>((exedata *)gexc, diff);
+    cudaThreadSynchronize();
+};
+#endif
+
 double process_norm_L1(exedata *exd, int istart, int iend,
         double *diff, int teq) {
     // pointers.
