@@ -207,6 +207,7 @@ class Scuda(object):
         self.devprop = CudaDeviceProp()
         self._alloc_gpumem = set()
         super(Scuda, self).__init__()
+        self._dcnt = None
         self.use_first_valid_device()
     def __del__(self):
         for gmem in self._alloc_gpumem:
@@ -221,9 +222,11 @@ class Scuda(object):
 
     def __len__(self):
         from ctypes import byref, c_int
-        dcnt = c_int()
-        self.cudaGetDeviceCount(byref(dcnt))
-        return dcnt.value
+        if self._dcnt is None:
+            dcnt = c_int()
+            self.cudaGetDeviceCount(byref(dcnt))
+            self._dcnt = dcnt.value
+        return self._dcnt
 
     def download_device_properties(self):
         """

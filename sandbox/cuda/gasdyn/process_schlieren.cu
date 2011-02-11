@@ -19,7 +19,7 @@
 #include "gasdyn.h"
 
 #ifdef __CUDACC__
-__global__ void cuda_schlieren_rhog(exedata *exd,
+__global__ void cuda_process_schelieren_rhog(exedata *exd,
         double *rhog) {
     int istart = blockDim.x * blockIdx.x + threadIdx.x;
 #else
@@ -74,7 +74,7 @@ extern "C" int process_schelieren_rhog(int nthread, exedata *exc, void *gexc,
 #endif
 
 #ifdef __CUDACC__
-__global__ void cuda_schlieren_sch(exedata *exd,
+__global__ void cuda_process_schelieren_sch(exedata *exd,
         double k, double k0, double k1, double rhogmax, double *sch) {
     int istart = blockDim.x * blockIdx.x + threadIdx.x;
 #else
@@ -117,7 +117,7 @@ int process_schlieren_sch(exedata *exd, int istart, int iend,
     };
 };
 extern "C" int process_schelieren_sch(int nthread, exedata *exc, void *gexc,
-        double *rhog) {
+        double k, double k0, double k1, double rhogmax, double *sch) {
     int nblock = (exc->ncell + nthread-1) / nthread;
     cuda_process_schelieren_sch<<<nblock, nthread>>>((exedata *)gexc,
         k, k0, k1, rhogmax, sch);

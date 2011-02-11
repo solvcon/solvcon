@@ -194,8 +194,8 @@ class CuseSolver(BlockSolver):
 
     @ivar scu: CUDA wrapper.
     @itype scu: solvcon.scuda.Scuda
-    @ivar ncuthread: number of thread per block for CUDA.
-    @itype ncuthread: int
+    @ivar ncuth: number of thread per block for CUDA.
+    @itype ncuth: int
 
     @ivar diffname: name of gradient calculation function; tau is default,
         omega is selectable.
@@ -252,8 +252,8 @@ class CuseSolver(BlockSolver):
         nsca = kw.pop('nsca', 0)
         nvec = kw.pop('nvec', 0)
         # CUDA parameters.
-        self.ncuthread = kw.pop('ncuthread',  0)
-        self.scu = scu = env.scu if self.ncuthread else None
+        self.ncuth = kw.pop('ncuth',  0)
+        self.scu = scu = env.scu if self.ncuth else None
         # scheme parameters.
         diffname = kw.pop('diffname', None)
         self.diffname = diffname if diffname != None else 'tau'
@@ -420,7 +420,7 @@ class CuseSolver(BlockSolver):
     MMNAMES.append('calcsolt')
     def calcsolt(self, worker=None):
         if self.debug: self.mesg('calcsolt')
-        if self.scu:
+        if False and self.scu:
             from ctypes import byref
             self._clib_cuse_cu.calc_solt(self.ncuthread,
                 byref(self.cumgr.exd), self.cumgr.gexd.gptr)
@@ -431,7 +431,7 @@ class CuseSolver(BlockSolver):
     MMNAMES.append('calcsoln')
     def calcsoln(self, worker=None):
         if self.debug: self.mesg('calcsoln')
-        if self.scu:
+        if False and self.scu:
             from ctypes import byref
             self._clib_cuse_cu.calc_soln(self.ncuthread,
                 byref(self.cumgr.exd), self.cumgr.gexd.gptr)
@@ -464,9 +464,9 @@ class CuseSolver(BlockSolver):
     MMNAMES.append('calcdsoln')
     def calcdsoln(self, worker=None):
         if self.debug: self.mesg('calcdsoln')
-        if self.scu:
+        if False and self.scu:
             from ctypes import byref
-            self._clib_cuse_cu.calc_dsoln(self.ncuthread,
+            self._clib_cuse_cu.calc_dsoln(self.ncuth,
                 byref(self.cumgr.exd), self.cumgr.gexd.gptr)
             self.cumgr.arr_from_gpu('dsoln')
         else:
@@ -496,6 +496,7 @@ class CuseCase(BlockCase):
     defdict = {
         'execution.verified_norm': -1.0,
         'solver.debug_cese': False,
+        'solver.ncuth': 0,
         'solver.diffname': None,
         'solver.tauname': None,
         'solver.omeganame': None,
@@ -512,6 +513,7 @@ class CuseCase(BlockCase):
     def make_solver_keywords(self):
         kw = super(CuseCase, self).make_solver_keywords()
         kw['debug'] = self.solver.debug_cese
+        kw['ncuth'] = int(self.solver.ncuth)
         for key in 'diffname', 'tauname', 'omeganame':
             val = self.solver.get(key)
             if val != None: kw[key] = val
@@ -595,8 +597,8 @@ class CuseNonrefl(CuseBC):
     def soln(self):
         from ctypes import byref
         svr = self.svr
-        if self.svr.scu:
-            self._clib_cuseb_cu.bound_nonrefl_soln(svr.ncuthread,
+        if False and self.svr.scu:
+            self._clib_cuseb_cu.bound_nonrefl_soln(svr.ncuth,
                 svr.cumgr.gexd.gptr, self.facn.shape[0], self.cufacn.gptr)
         else:
             self._clib_cuseb_c.bound_nonrefl_soln(byref(svr.exd),
@@ -605,8 +607,8 @@ class CuseNonrefl(CuseBC):
     def dsoln(self):
         from ctypes import byref
         svr = self.svr
-        if self.svr.scu:
-            self._clib_cuseb_cu.bound_nonrefl_dsoln(svr.ncuthread,
+        if False and self.svr.scu:
+            self._clib_cuseb_cu.bound_nonrefl_dsoln(svr.ncuth,
                 svr.cumgr.gexd.gptr, self.facn.shape[0], self.cufacn.gptr)
         else:
             self._clib_cuseb_c.bound_nonrefl_dsoln(byref(svr.exd),

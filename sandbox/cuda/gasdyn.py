@@ -38,20 +38,27 @@ class GasdynSolver(CuseSolver):
         kw['nsca'] = 1
         super(GasdynSolver, self).__init__(blk, *args, **kw)
     from solvcon.dependency import getcdll
-    __clib_gasdyn = {
-        2: getcdll('gasdyn2d', location=__file__),
-        3: getcdll('gasdyn3d', location=__file__),
+    __clib_gasdyn_c = {
+        2: getcdll('gasdyn2d_c', location=__file__),
+        3: getcdll('gasdyn3d_c', location=__file__),
+    }
+    __clib_gasdyn_cu = {
+        2: getcdll('gasdyn2d_cu', location=__file__),
+        3: getcdll('gasdyn3d_cu', location=__file__),
     }
     del getcdll
     @property
-    def _clib_gasdyn(self):
-        return self.__clib_gasdyn[self.ndim]
+    def _clib_gasdyn_c(self):
+        return self.__clib_gasdyn_c[self.ndim]
+    @property
+    def _clib_gasdyn_cu(self):
+        return self.__clib_gasdyn_cu[self.ndim]
     _gdlen_ = 0
     @property
     def _jacofunc_(self):
-        return self._clib_gasdyn.calc_jaco
+        return self._clib_gasdyn_c.calc_jaco
     def calccfl(self, worker=None):
-        self._tcall(self._clib_gasdyn.calc_cfl, 0, self.ncell)
+        self._tcall(self._clib_gasdyn_c.calc_cfl, 0, self.ncell)
         ocfl = self.ocfl[self.ngstcell:]
         cfl = self.cfl[self.ngstcell:]
         # determine extremum.
@@ -98,21 +105,28 @@ class GasdynBC(CuseBC):
     Basic BC class for gas dynamics.
     """
     from solvcon.dependency import getcdll
-    __clib_gasdynb = {
-        2: getcdll('gasdynb2d', location=__file__),
-        3: getcdll('gasdynb3d', location=__file__),
+    __clib_gasdynb_c = {
+        2: getcdll('gasdynb2d_c', location=__file__),
+        3: getcdll('gasdynb3d_c', location=__file__),
+    }
+    __clib_gasdynb_cu = {
+        2: getcdll('gasdynb2d_cu', location=__file__),
+        3: getcdll('gasdynb3d_cu', location=__file__),
     }
     del getcdll
     @property
-    def _clib_gasdynb(self):
-        return self.__clib_gasdynb[self.svr.ndim]
+    def _clib_gasdynb_c(self):
+        return self.__clib_gasdynb_c[self.svr.ndim]
+    @property
+    def _clib_gasdynb_cu(self):
+        return self.__clib_gasdynb_cu[self.svr.ndim]
 
 class GasdynWall(GasdynBC):
     _ghostgeom_ = 'mirror'
     def soln(self):
         from ctypes import byref, c_int
         svr = self.svr
-        self._clib_gasdynb.bound_wall_soln(
+        self._clib_gasdynb_c.bound_wall_soln(
             byref(svr.exd),
             c_int(self.facn.shape[0]),
             self.facn.ctypes._as_parameter_,
@@ -120,7 +134,7 @@ class GasdynWall(GasdynBC):
     def dsoln(self):
         from ctypes import byref, c_int
         svr = self.svr
-        self._clib_gasdynb.bound_wall_dsoln(
+        self._clib_gasdynb_c.bound_wall_dsoln(
             byref(svr.exd),
             c_int(self.facn.shape[0]),
             self.facn.ctypes._as_parameter_,
@@ -135,7 +149,7 @@ class GasdynInlet(GasdynBC):
     def soln(self):
         from ctypes import byref, c_int
         svr = self.svr
-        self._clib_gasdynb.bound_inlet_soln(
+        self._clib_gasdynb_c.bound_inlet_soln(
             byref(svr.exd),
             c_int(self.facn.shape[0]),
             self.facn.ctypes._as_parameter_,
@@ -145,7 +159,7 @@ class GasdynInlet(GasdynBC):
     def dsoln(self):
         from ctypes import byref, c_int
         svr = self.svr
-        self._clib_gasdynb.bound_inlet_dsoln(
+        self._clib_gasdynb_c.bound_inlet_dsoln(
             byref(svr.exd),
             c_int(self.facn.shape[0]),
             self.facn.ctypes._as_parameter_,
@@ -224,7 +238,7 @@ class GasdynOAnchor(Anchor):
     def _calculate_physics(self):
         svr = self.svr
         der = svr.der
-        svr._tcall(svr._clib_gasdyn.process_physics, -svr.ngstcell, svr.ncell,
+        svr._tcall(svr._clib_gasdyn_c.process_physics, -svr.ngstcell, svr.ncell,
             der['v'].ctypes._as_parameter_,
             der['rho'].ctypes._as_parameter_,
             der['p'].ctypes._as_parameter_,
@@ -237,10 +251,10 @@ class GasdynOAnchor(Anchor):
         from ctypes import c_double
         svr = self.svr
         sch = svr.der['sch']
-        svr._tcall(svr._clib_gasdyn.process_schlieren_rhog,
+        svr._tcall(svr._clib_gasdyn_c.process_schlieren_rhog,
             -svr.ngstcell, svr.ncell, sch.ctypes._as_parameter_)
         rhogmax = sch[svr.ngstcell:].max()
-        svr._tcall(svr._clib_gasdyn.process_schlieren_sch,
+        svr._tcall(svr._clib_gasdyn_c.process_schlieren_sch,
             -svr.ngstcell, svr.ncell,
             c_double(self.schk), c_double(self.schk0), c_double(self.schk1),
             c_double(rhogmax), sch.ctypes._as_parameter_,

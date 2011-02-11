@@ -131,8 +131,8 @@ class CueulerSolver(EulerSolver):
             self.cuarr_map[key] = self.ngstnode
     #from solvcon.dependency import getcdll
     __clib_cueuler = {
-        2: getcdll('cueuler2d'),
-        3: getcdll('cueuler3d'),
+        2: getcdll('cueuler2d_cu'),
+        3: getcdll('cueuler3d_cu'),
     }
     #del getcdll
     @property
@@ -144,28 +144,25 @@ class CueulerSolver(EulerSolver):
         return self._clib_euler.calc_jaco
 
     def bind(self):
-        if self.scu:
-            self.cumgr = CudaDataManager(svr=self)
+        self.cumgr = CudaDataManager(svr=self)
         super(CueulerSolver, self).bind()
     def unbind(self):
-        if self.scu and self.cumgr:
+        if self.cumgr:
             self.cumgr.free_all()
             self.cumgr = None
         super(CueulerSolver, self).unbind()
 
     def init(self, **kw):
         super(CueulerSolver, self).init(**kw)
-        if self.scu:
-            self.cumgr.arr_to_gpu()
+        self.cumgr.arr_to_gpu()
 
     def boundcond(self):
         from ctypes import byref, sizeof
-        if self.scu:
-            self.cumgr.update_exd()
-            for key in ('sol', 'soln', 'dsol', 'dsoln',):
-                self.cumgr.arr_to_gpu(key)
-            if self.nsca: self.cumgr.arr_to_gpu('amsca')
-            if self.nvec: self.cumgr.arr_to_gpu('amvec')
+        self.cumgr.update_exd()
+        for key in ('sol', 'soln', 'dsol', 'dsoln',):
+            self.cumgr.arr_to_gpu(key)
+        if self.nsca: self.cumgr.arr_to_gpu('amsca')
+        if self.nvec: self.cumgr.arr_to_gpu('amvec')
         super(CueulerSolver, self).boundcond()
 
     def update(self, worker=None):
@@ -181,11 +178,10 @@ class CueulerSolver(EulerSolver):
         self.exd.dsol = self.dsol[ngstcell:].ctypes._as_parameter_
         self.exd.dsoln = self.dsoln[ngstcell:].ctypes._as_parameter_
         # reset GPU execution data.
-        if self.scu:
-            cumgr = self.cumgr
-            cumgr.sol, cumgr.soln = cumgr.soln, cumgr.sol
-            cumgr.dsol, cumgr.dsoln = cumgr.dsoln, cumgr.dsol
-            cumgr.update_exd()
+        cumgr = self.cumgr
+        cumgr.sol, cumgr.soln = cumgr.soln, cumgr.sol
+        cumgr.dsol, cumgr.dsoln = cumgr.dsoln, cumgr.dsol
+        cumgr.update_exd()
         if self.debug: self.mesg(' done.\n')
 
     def ibcam(self, worker=None):
@@ -207,17 +203,15 @@ class CueulerSolver(EulerSolver):
         from ctypes import byref
         self._clib_cueuler.calc_soln(self.ncuthread,
             byref(self.cumgr.exd), self.cumgr.gexd.gptr)
-        if self.scu:
-            self.cumgr.arr_from_gpu('soln')
+        self.cumgr.arr_from_gpu('soln')
         if self.debug: self.mesg(' done.\n')
 
     def calccfl(self, worker=None):
         from ctypes import byref
         self._clib_cueuler.calc_cfl(self.ncuthread,
             byref(self.cumgr.exd), self.cumgr.gexd.gptr)
-        if self.scu:
-            self.cumgr.arr_from_gpu('cfl')
-            self.cumgr.arr_from_gpu('ocfl')
+        self.cumgr.arr_from_gpu('cfl')
+        self.cumgr.arr_from_gpu('ocfl')
         mincfl = self.ocfl.min()
         maxcfl = self.ocfl.max()
         nadj = (self.cfl==1).sum()
@@ -234,8 +228,7 @@ class CueulerSolver(EulerSolver):
         from ctypes import byref
         self._clib_cueuler.calc_dsoln(self.ncuthread,
             byref(self.cumgr.exd), self.cumgr.gexd.gptr)
-        if self.scu:
-            self.cumgr.arr_from_gpu('dsoln')
+        self.cumgr.arr_from_gpu('dsoln')
         if self.debug: self.mesg(' done.\n')
 
 ###############################################################################
@@ -276,8 +269,8 @@ class CueulerBC(CeseBC):
     """
     #from solvcon.dependency import getcdll
     __clib_cueulerb = {
-        2: getcdll('cueulerb2d'),
-        3: getcdll('cueulerb3d'),
+        2: getcdll('cueulerb2d_cu'),
+        3: getcdll('cueulerb3d_cu'),
     }
     #del getcdll
     @property
