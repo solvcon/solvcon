@@ -18,8 +18,15 @@
 
 #include "gasdyn.h"
 
+#ifdef __CUDACC__
+__device__ void cuda_calc_jaco(exedata *exd, int icl,
+        double (*fcn)[NDIM], double (*ajacos)[NDIM]) {
+    double (*jacos)[NEQ][NDIM];
+    jacos = (double (*)[NEQ][NDIM])ajacos;
+#else
 void calc_jaco(exedata *exd, int icl,
         double fcn[NEQ][NDIM], double jacos[NEQ][NEQ][NDIM]) {
+#endif
     // pointers.
     double *psol;
     // scalars.
@@ -177,4 +184,5 @@ void calc_jaco(exedata *exd, int icl,
 
     return;
 };
+
 // vim: set ts=4 et:
