@@ -160,6 +160,8 @@ class LineCounter(object):
                 mainfn, extfn = splitext(fname)
                 if extfn not in self.exts:
                     continue
+                if os.path.islink(join(root, fname)):
+                    continue
                 nline = len(open(join(root, fname)).readlines())
                 self.counter[extfn] = self.counter.get(extfn, 0) + nline
                 if os.path.basename(root) in self.testdir:
@@ -208,8 +210,8 @@ if GetOption('get_scdata'):
         raise RuntimeError('released tarball shouldn\'t use this option')
 
 if GetOption('count'):
-    counter = LineCounter('.py', '.f90', '.inc', '.c', '.h', 'cu')
-    paths = ('solvcon', 'src', 'test')
+    counter = LineCounter('.py', '.f90', '.inc', '.c', '.h', '.cu')
+    paths = ('solvcon', 'src', 'include', 'test')
     for path in paths:
         counter(path)
     sys.stdout.write('In directories %s:\n' % ', '.join(paths))
