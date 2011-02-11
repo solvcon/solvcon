@@ -116,7 +116,7 @@ int bound_wall_soln(exedata *exd, int nbnd, int *facn) {
     };
 };
 extern "C" int bound_wall_soln(int nthread, void *gexc,
-    int nbnd, void *gfacn) {
+        int nbnd, void *gfacn) {
     int nblock = (nbnd + nthread-1) / nthread;
     cuda_bound_wall_soln<<<nblock, nthread>>>((exedata *)gexc,
         nbnd, (int *)gfacn);
@@ -236,7 +236,7 @@ int bound_wall_dsoln(exedata *exd, int nbnd, int *facn) {
     };
 };
 extern "C" int bound_wall_dsoln(int nthread, void *gexc,
-    int nbnd, void *gfacn) {
+        int nbnd, void *gfacn) {
     int nblock = (nbnd + nthread-1) / nthread;
     cuda_bound_wall_dsoln<<<nblock, nthread>>>((exedata *)gexc,
         nbnd, (int *)gfacn);
