@@ -20,9 +20,13 @@
 
 #ifdef __CUDACC__
 __device__ void cuda_calc_jaco(exedata *exd, int icl,
-        double (*fcn)[NDIM], double (*jacos)[NDIM]) {
+        double (*fcn)[NDIM], double (*jacos)[NDIM]);    // declare.
+#ifndef SOLVCON_CUSE_JACO
+__device__ void cuda_calc_jaco(exedata *exd, int icl,
+        double (*fcn)[NDIM], double (*jacos)[NDIM]) {   // define.
     return;
 };
+#endif
 #endif
 
 #ifdef __CUDACC__
@@ -42,7 +46,7 @@ int calc_solt(exedata *exd, int istart, int iend) {
     // scalars.
     double val;
     // arrays.
-#ifdef __CUDACC__
+#if defined(__CUDACC__) && !defined(SOLVCON_CUSE_JACO)
     double (*jacos)[NDIM];
     double (*fcn)[NDIM];
     jacos = (double (*)[NDIM])malloc(NEQ*NEQ*NDIM*sizeof(double));
@@ -86,8 +90,10 @@ int calc_solt(exedata *exd, int istart, int iend) {
 };
 #else
     };
+#ifndef SOLVCON_CUSE_JACO
     free(jacos);
     free(fcn);
+#endif
 };
 extern "C" int calc_solt(int nthread, exedata *exc, void *gexc) {
     int nblock = (exc->ngstcell + exc->ncell + nthread-1) / nthread;
@@ -126,7 +132,7 @@ int calc_soln(exedata *exd, int istart, int iend) {
     double cnde[NDIM];
     double sfnml[FCMND][NDIM];
     double sfcnd[FCMND][NDIM];
-#ifdef __CUDACC__
+#if defined(__CUDACC__) && !defined(SOLVCON_CUSE_JACO)
     double *futo, *fusp, *futm;
     double (*jacos)[NDIM];
     double *usfc;
@@ -315,6 +321,7 @@ int calc_soln(exedata *exd, int istart, int iend) {
     return cputicks;
 };
 #else
+#ifndef SOLVCON_CUSE_JACO
     free(futo);
     free(fusp);
     free(futm);
@@ -322,6 +329,7 @@ int calc_soln(exedata *exd, int istart, int iend) {
     free(usfc);
     free(fcn);
     free(dfcn);
+#endif
 };
 extern "C" int calc_soln(int nthread, exedata *exc, void *gexc) {
     int nblock = (exc->ncell + nthread-1) / nthread;

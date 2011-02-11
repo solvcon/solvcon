@@ -65,7 +65,7 @@ int calc_dsoln(exedata *exd, int istart, int iend) {
     // arrays.
     double xps[CLMFC][NDIM], dsp[CLMFC][NDIM];
     double crd[NDIM], cnd[NDIM], cndge[NDIM], sft[NDIM];
-#ifdef __CUDACC__
+#if defined(__CUDACC__) && !defined(SOLVCON_CUSE_JACO)
     double *deno;
     double (*nume)[NDIM];
     deno = (double *)malloc(NEQ*sizeof(double));
@@ -320,9 +320,11 @@ int calc_dsoln(exedata *exd, int istart, int iend) {
     return cputicks;
 };
 #else
+#ifndef SOLVCON_CUSE_JACO
     free(deno);
     free(nume);
     free(udf);
+#endif
 };
 extern "C" int calc_dsoln(int nthread, exedata *exc, void *gexc) {
     int nblock = (exc->ncell + nthread-1) / nthread;

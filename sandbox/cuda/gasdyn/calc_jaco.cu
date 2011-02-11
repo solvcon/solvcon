@@ -19,6 +19,12 @@
 #include "gasdyn.h"
 
 #ifdef __CUDACC__
+#define SOLVCON_CUSE_JACO
+#include "calc_soltn.cu"
+#include "calc_dsoln.cu"
+#endif
+
+#ifdef __CUDACC__
 __device__ void cuda_calc_jaco(exedata *exd, int icl,
         double (*fcn)[NDIM], double (*ajacos)[NDIM]) {
     double (*jacos)[NEQ][NDIM];
