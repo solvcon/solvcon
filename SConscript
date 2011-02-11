@@ -78,6 +78,9 @@ def make_kpculib(lname, lpre, ldir, sdir, bdir, env, extra_links=None):
     libs = []
     for ndim in 2, 3:
         for ext in ('c', 'cu'):
+            if ext == 'cu':
+                if not FindFile('nvcc', os.environ['PATH'].split(':')):
+                    continue
             VariantDir('%s/%s%dd_%s' % (bdir, lname, ndim, ext),
                 sdir, duplicate=0)
             envm = env.Clone()
@@ -93,10 +96,9 @@ def make_kpculib(lname, lpre, ldir, sdir, bdir, env, extra_links=None):
 kpculibs = [
     ('cuse', None), ('cuseb', None),    # solvcon.kerpak.cuse
 ]
-if FindFile('nvcc', os.environ['PATH'].split(':')):
-    for lname, extra_links in kpculibs:
-        libs.extend(make_kpculib(lname, lpre, ldir, '%s/%s'%(sdir, lname),
-            bdir, env, extra_links=extra_links))
+for lname, extra_links in kpculibs:
+    libs.extend(make_kpculib(lname, lpre, ldir, '%s/%s'%(sdir, lname),
+        bdir, env, extra_links=extra_links))
 
 
 # TODO: OBSELETE

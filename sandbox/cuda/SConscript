@@ -1,3 +1,4 @@
+import os
 Import('env')
 lpre = 'sc'
 sdir = '.'
@@ -34,6 +35,8 @@ def make_kpculib(lname, lpre, ldir, sdir, bdir, env, extra_links=None):
     """
     libs = []
     for ndim in 2, 3:
+        if not FindFile('nvcc', os.environ['PATH'].split(':')):
+            continue
         VariantDir('%s/%s%dd' % (bdir, lname, ndim), sdir, duplicate=0)
         envm = env.Clone()
         envm.Prepend(NVCCFLAGS=['-DNDIM=%d'%ndim])
@@ -52,9 +55,11 @@ for lname, extra_links in kpculibs:
     libs.extend(make_kpculib(lname, lpre, ldir, '%s/%s'%(sdir, lname),
         bdir, env, extra_links=extra_links))
 
-binary = env.Program('test.so', ['test.cu', 'cutest/vecadd.cu'],
-    LIBS=['cublas', 'cudart', 'cuda'])
+tobuild = [libs]
+if FindFile('nvcc', os.environ['PATH'].split(':')):
+    tobuild.append(env.Program('test.so', ['test.cu', 'cutest/vecadd.cu'],
+        LIBS=['cublas', 'cudart', 'cuda']))
 
-all = Alias([libs, binary])
+all = Alias(tobuild)
 Default(all)
 # vim: set ft=python ff=unix:

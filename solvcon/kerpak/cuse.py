@@ -120,12 +120,10 @@ class CuseSolverExedata(Structure):
         ('taumin', c_double), ('taumax', c_double), ('tauscale', c_double),
         ('omegamin', c_double), ('omegascale', c_double),
         # meta array.
-        ('fctpn', c_void_p),
-        ('cltpn', c_void_p), ('clgrp', c_void_p),
+        ('fctpn', c_void_p), ('cltpn', c_void_p), ('clgrp', c_void_p),
         ('grpda', c_void_p),
         # metric array.
-        ('ndcrd', c_void_p),
-        ('fccnd', c_void_p), ('fcnml', c_void_p),
+        ('ndcrd', c_void_p), ('fccnd', c_void_p), ('fcnml', c_void_p),
         ('clcnd', c_void_p), ('clvol', c_void_p),
         ('cecnd', c_void_p), ('cevol', c_void_p),
         # connectivity array.
@@ -150,51 +148,30 @@ class CuseSolverExedata(Structure):
         super(CuseSolverExedata, self).__init__(*args, **kw)
         if svr == None:
             return
-        # inherited.
-        for key in ('ncore', 'neq', 'time', 'time_increment',):
-            setattr(self, key, getattr(svr, key))
-        # mesh shape.
-        for key in ('ndim', 'nnode', 'nface', 'ncell', 'nbound',
-                    'ngstnode', 'ngstface', 'ngstcell',):
-            setattr(self, key, getattr(svr, key))
-        # group shape.
-        for key in ('ngroup', 'gdlen',):
-            setattr(self, key, getattr(svr, key))
-        # parameter shape.
-        for key in ('nsca', 'nvec',):
-            setattr(self, key, getattr(svr, key))
         # function pointer.
         self.jacofunc = cast(svr._jacofunc_, c_void_p).value
         self.taufunc = cast(getattr(svr._clib_cuse_c,
             'tau_'+svr.tauname), c_void_p).value
         self.omegafunc = cast(getattr(svr._clib_cuse_c,
             'omega_'+svr.omeganame), c_void_p).value
-        # scheme. 
-        for key in ('alpha', 'taylor', 'cnbfac', 'sftfac',
-                    'taumin', 'taumax', 'tauscale', 'omegamin', 'omegascale',):
+        # scalar.
+        for key in ('ncore', 'neq', 'time', 'time_increment',
+                    'ndim', 'nnode', 'nface', 'ncell', 'nbound',
+                    'ngstnode', 'ngstface', 'ngstcell',
+                    'ngroup', 'gdlen', 'nsca', 'nvec',
+                    'alpha', 'taylor', 'cnbfac', 'sftfac',
+                    'taumin', 'taumax', 'tauscale', 'omegamin', 'omegascale'):
             setattr(self, key, getattr(svr, key))
-        # meta array.
-        for aname in ('fctpn',):
-            self.__set_pointer(svr, aname, svr.ngstface)
-        for aname in ('cltpn', 'clgrp',):
-            self.__set_pointer(svr, aname, svr.ngstcell)
+        # arrays.
         for aname in ('grpda',):
             self.__set_pointer(svr, aname, 0)
-        # metric array.
         for aname in ('ndcrd',):
             self.__set_pointer(svr, aname, svr.ngstnode)
-        for aname in ('fccnd', 'fcnml',):
+        for aname in ('fctpn', 'fcnds', 'fccls', 'fccnd', 'fcnml'):
             self.__set_pointer(svr, aname, svr.ngstface)
-        for aname in ('clcnd', 'clvol', 'cecnd', 'cevol',):
-            self.__set_pointer(svr, aname, svr.ngstcell)
-        # connectivity array.
-        for aname in ('fcnds', 'fccls',):
-            self.__set_pointer(svr, aname, svr.ngstface)
-        for aname in ('clnds', 'clfcs',):
-            self.__set_pointer(svr, aname, svr.ngstcell)
-        # solution array.
-        for aname in ('amsca', 'amvec', 'sol', 'dsol', 'solt', 'soln', 'dsoln',
-                      'cfl', 'ocfl'):
+        for aname in ('cltpn', 'clgrp', 'clcnd', 'clvol', 'cecnd', 'cevol',
+                      'clnds', 'clfcs', 'amsca', 'amvec',
+                      'sol', 'dsol', 'solt', 'soln', 'dsoln', 'cfl', 'ocfl'):
             self.__set_pointer(svr, aname, svr.ngstcell)
 
 class CuseSolver(BlockSolver):
@@ -393,8 +370,8 @@ class CuseSolver(BlockSolver):
         3: getcdll('cuse3d_c'),
     }
     __clib_cuse_cu = {
-        2: getcdll('cuse2d_cu'),
-        3: getcdll('cuse3d_cu'),
+        2: getcdll('cuse2d_cu', raise_on_fail=False),
+        3: getcdll('cuse3d_cu', raise_on_fail=False),
     }
     del getcdll
     @property
@@ -565,8 +542,8 @@ class CuseBC(BC):
         3: getcdll('cuseb3d_c'),
     }
     __clib_cuseb_cu = {
-        2: getcdll('cuseb2d_cu'),
-        3: getcdll('cuseb3d_cu'),
+        2: getcdll('cuseb2d_cu', raise_on_fail=False),
+        3: getcdll('cuseb3d_cu', raise_on_fail=False),
     }
     del getcdll
     @property
