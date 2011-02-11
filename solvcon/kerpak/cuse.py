@@ -564,6 +564,7 @@ class CuseBC(BC):
         if self.svr.scu:
             for key in ('facn', 'value',):
                 self.svr.scu.free(getattr(self, 'cu'+key))
+
     def init(self, **kw):
         from ctypes import byref, c_int
         super(CuseBC, self).init(**kw)
@@ -575,6 +576,7 @@ class CuseBC(BC):
         if self.svr.scu:
             for key in ('facn', 'value',):
                 self.svr.scu.memcpy(getattr(self, 'cu'+key), getattr(self, key))
+
     def soln(self):
         """
         Update ghost cells after self.svr.calcsoln.
