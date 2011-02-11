@@ -41,6 +41,7 @@
 #define NSCA exd->nsca
 #define NVEC exd->nvec
 typedef struct {
+    /* parameter section */
     // inherited.
     int ncore, neq;
     double time, time_increment;
@@ -56,10 +57,12 @@ typedef struct {
     double taylor, cnbfac, sftfac;
     double taumin, taumax, tauscale;
     double omegamin, omegascale;
+    /* function section. */
     // function pointer.
     void (*jacofunc)(void *exd, int icl, double *fcn, double *jacos);
     double (*taufunc)(void *exd, int icl);
     double (*omegafunc)(void *exd, int icl);
+    /* array section. */
     // meta array.
     int *fctpn, *cltpn, *clgrp;
     double *grpda;
