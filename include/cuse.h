@@ -51,15 +51,15 @@ typedef struct {
     int ngroup, gdlen;
     // parameter shape.
     int nsca, nvec;
-    // function pointer.
-    void (*jacofunc)(void *exd, int icl, double *fcn, double *jacos);
-    double (*taufunc)(void *exd, int icl);
-    double (*omegafunc)(void *exd, int icl);
     // scheme.
     int alpha;
     double taylor, cnbfac, sftfac;
     double taumin, taumax, tauscale;
     double omegamin, omegascale;
+    // function pointer.
+    void (*jacofunc)(void *exd, int icl, double *fcn, double *jacos);
+    double (*taufunc)(void *exd, int icl);
+    double (*omegafunc)(void *exd, int icl);
     // meta array.
     int *fctpn, *cltpn, *clgrp;
     double *grpda;

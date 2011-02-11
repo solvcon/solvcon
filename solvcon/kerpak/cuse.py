@@ -112,13 +112,13 @@ class CuseSolverExedata(Structure):
         ('ngroup', c_int), ('gdlen', c_int),
         # parameter shape.
         ('nsca', c_int), ('nvec', c_int),
-        # function pointer.
-        ('jacofunc', c_void_p), ('taufunc', c_void_p), ('omegafunc', c_void_p),
         # scheme.
         ('alpha', c_int), ('taylor', c_double),
         ('cnbfac', c_double), ('sftfac', c_double),
         ('taumin', c_double), ('taumax', c_double), ('tauscale', c_double),
         ('omegamin', c_double), ('omegascale', c_double),
+        # function pointer.
+        ('jacofunc', c_void_p), ('taufunc', c_void_p), ('omegafunc', c_void_p),
         # meta array.
         ('fctpn', c_void_p), ('cltpn', c_void_p), ('clgrp', c_void_p),
         ('grpda', c_void_p),
@@ -156,9 +156,8 @@ class CuseSolverExedata(Structure):
             'omega_'+svr.omeganame), c_void_p).value
         # scalar.
         for key in ('ncore', 'neq', 'time', 'time_increment',
-                    'ndim', 'nnode', 'nface', 'ncell', 'nbound',
-                    'ngstnode', 'ngstface', 'ngstcell',
-                    'ngroup', 'gdlen', 'nsca', 'nvec',
+                    'ndim', 'nnode', 'nface', 'ncell', 'nbound', 'ngstnode',
+                    'ngstface', 'ngstcell', 'ngroup', 'gdlen', 'nsca', 'nvec',
                     'alpha', 'taylor', 'cnbfac', 'sftfac',
                     'taumin', 'taumax', 'tauscale', 'omegamin', 'omegascale'):
             setattr(self, key, getattr(svr, key))
