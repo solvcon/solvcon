@@ -18,14 +18,21 @@
 
 #include "gasdyn.h"
 
+#ifdef __CUDACC__
+__global__ void cuda_process_physics(exedata *exd,
+        double *vel, double *rho, double *pre, double *tem, double *ken,
+        double *sos, double *mac) {
+    int istart = blockDim.x * blockIdx.x + threadIdx.x;
+#else
 int process_physics(exedata *exd, int istart, int iend,
         double *vel, double *rho, double *pre, double *tem, double *ken,
         double *sos, double *mac) {
-    int cputicks;
     struct tms timm0, timm1;
+    int cputicks;
     times(&timm0);
 #ifdef SOLVCON_FE
     feenableexcept(SOLVCON_FE);
+#endif
 #endif
     // pointers.
     double *pclcnd, *pcecnd;
@@ -48,7 +55,12 @@ int process_physics(exedata *exd, int istart, int iend,
     pken = ken + istart+exd->ngstcell;
     psos = sos + istart+exd->ngstcell;
     pmac = mac + istart+exd->ngstcell;
+#ifdef __CUDACC__
+    icl = istart;
+    if (icl < exd->ncell) {
+#else
     for (icl=istart; icl<iend; icl++) {
+#endif
         ga = pamsca[0];
         ga1 = ga - 1;
         pdsoln = exd->dsoln + icl*NEQ*NDIM;
@@ -102,6 +114,7 @@ int process_physics(exedata *exd, int istart, int iend,
         pmac[0] = sqrt(pken[0]/prho[0]*2);
         pmac[0] *= psos[0]
             / (psos[0]*psos[0] + SOLVCON_ALMOST_ZERO); // prevent nan/inf.
+#ifndef __CUDACC__
         // advance pointer.
         pclcnd += NDIM;
         pcecnd += (CLMFC+1)*NDIM;
@@ -120,4 +133,18 @@ int process_physics(exedata *exd, int istart, int iend,
                    - (timm0.tms_utime+timm0.tms_stime));
     return cputicks;
 };
+#else
+    };
+};
+extern "C" int process_physics(int nthread, exedata *exc, void *gexc,
+        double *vel, double *rho, double *pre, double *tem, double *ken,
+        double *sos, double *mac) {
+    int nblock = (exc->ncell + nthread-1) / nthread;
+    cuda_process_physics<<<nblock, nthread>>>((exedata *)gexc,
+        vel, rho, pre, tem, ken, sos, mac);
+    cudaThreadSynchronize();
+    return 0;
+};
+#endif
+
 // vim: set ts=4 et:

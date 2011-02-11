@@ -195,8 +195,13 @@ class UniformIAnchor(GasdynIAnchor):
         svr.sol[:] = svr.soln[:]
 
 class GasdynOAnchor(Anchor):
+    """
+    Calculates physical quantities for output.  Implements (i) provide() and
+    (ii) postfull() methods.
+    """
     _varlist_ = ['v', 'rho', 'p', 'T', 'ke', 'a', 'M', 'sch']
     def __init__(self, svr, **kw):
+        self.rsteps = kw.pop('rsteps')
         self.schk = kw.pop('schk', 1.0)
         self.schk0 = kw.pop('schk0', 0.0)
         self.schk1 = kw.pop('schk1', 1.0)
@@ -241,5 +246,8 @@ class GasdynOAnchor(Anchor):
             c_double(rhogmax), sch.ctypes._as_parameter_,
         )
     def postfull(self):
-        self._calculate_physics()
-        self._calculate_schlieren()
+        istep = self.svr.step_global
+        rsteps = self.rsteps
+        if istep > 0 and istep%rsteps == 0:
+            self._calculate_physics()
+            self._calculate_schlieren()

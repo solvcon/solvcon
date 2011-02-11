@@ -18,13 +18,19 @@
 
 #include "gasdyn.h"
 
+#ifdef __CUDACC__
+__global__ void cuda_schlieren_rhog(exedata *exd,
+        double *rhog) {
+    int istart = blockDim.x * blockIdx.x + threadIdx.x;
+#else
 int process_schlieren_rhog(exedata *exd, int istart, int iend,
         double *rhog) {
-    int cputicks;
     struct tms timm0, timm1;
+    int cputicks;
     times(&timm0);
 #ifdef SOLVCON_FE
     feenableexcept(SOLVCON_FE);
+#endif
 #endif
     // pointers.
     double *pdsoln;
@@ -33,13 +39,19 @@ int process_schlieren_rhog(exedata *exd, int istart, int iend,
     int icl;
     pdsoln = exd->dsoln + istart*NEQ*NDIM;
     prhog = rhog + istart+exd->ngstcell;
+#ifdef __CUDACC__
+    icl = istart;
+    if (icl < exd->ncell) {
+#else
     for (icl=istart; icl<iend; icl++) {
+#endif
         // density gradient.
         prhog[0] = pdsoln[0]*pdsoln[0] + pdsoln[1]*pdsoln[1];
 #if NDIM == 3
         prhog[0] += pdsoln[2]*pdsoln[2];
 #endif
         prhog[0] = sqrt(prhog[0]);
+#ifndef __CUDACC__
         // advance pointers.
         pdsoln += NEQ*NDIM;
         prhog += 1;
@@ -49,13 +61,31 @@ int process_schlieren_rhog(exedata *exd, int istart, int iend,
                    - (timm0.tms_utime+timm0.tms_stime));
     return cputicks;
 };
+#else
+    };
+};
+extern "C" int process_schelieren_rhog(int nthread, exedata *exc, void *gexc,
+        double *rhog) {
+    int nblock = (exc->ncell + nthread-1) / nthread;
+    cuda_process_schelieren_rhog<<<nblock, nthread>>>((exedata *)gexc, rhog);
+    cudaThreadSynchronize();
+    return 0;
+};
+#endif
+
+#ifdef __CUDACC__
+__global__ void cuda_schlieren_sch(exedata *exd,
+        double k, double k0, double k1, double rhogmax, double *sch) {
+    int istart = blockDim.x * blockIdx.x + threadIdx.x;
+#else
 int process_schlieren_sch(exedata *exd, int istart, int iend,
         double k, double k0, double k1, double rhogmax, double *sch) {
-    int cputicks;
     struct tms timm0, timm1;
+    int cputicks;
     times(&timm0);
 #ifdef SOLVCON_FE
     feenableexcept(SOLVCON_FE);
+#endif
 #endif
     // pointers.
     double *psch;
@@ -66,9 +96,15 @@ int process_schlieren_sch(exedata *exd, int istart, int iend,
     fac0 = k0 * rhogmax;
     fac1 = -k / ((k1-k0) * rhogmax + SOLVCON_ALMOST_ZERO);
     psch = sch + istart+exd->ngstcell;
+#ifdef __CUDACC__
+    icl = istart;
+    if (icl < exd->ncell) {
+#else
     for (icl=istart; icl<iend; icl++) {
+#endif
         // density gradient.
         psch[0] = exp((psch[0]-fac0)*fac1);
+#ifndef __CUDACC__
         // advance pointers.
         psch += 1;
     };
@@ -77,4 +113,17 @@ int process_schlieren_sch(exedata *exd, int istart, int iend,
                    - (timm0.tms_utime+timm0.tms_stime));
     return cputicks;
 };
+#else
+    };
+};
+extern "C" int process_schelieren_sch(int nthread, exedata *exc, void *gexc,
+        double *rhog) {
+    int nblock = (exc->ncell + nthread-1) / nthread;
+    cuda_process_schelieren_sch<<<nblock, nthread>>>((exedata *)gexc,
+        k, k0, k1, rhogmax, sch);
+    cudaThreadSynchronize();
+    return 0;
+};
+#endif
+
 // vim: set ts=4 et:

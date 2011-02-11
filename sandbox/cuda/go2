@@ -79,7 +79,7 @@ def hbnt_base(casename=None, meshname=None,
     cse.runhooks.append(anchor.FillAnchor, keys=('dsoln',), value=0)
     cse.runhooks.append(gasdyn.UniformIAnchor, **fpi)
     # post processing.
-    cse.runhooks.append(gasdyn.GasdynOAnchor)
+    cse.runhooks.append(gasdyn.GasdynOAnchor, rsteps=ssteps)
     cse.runhooks.append(hook.PMarchSave, anames=[
         ('soln', False, -4),
         ('rho', True, 0),
