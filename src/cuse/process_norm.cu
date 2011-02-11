@@ -65,7 +65,7 @@ double process_norm_L1(exedata *exd, int istart, int iend,
     // scalars.
     double smd;
     // interators.
-    int icl, ieq;
+    int icl;
     smd = 0.0;
     pdiff = diff + istart*NEQ;
     pclvol = exd->clvol + istart;
@@ -84,7 +84,7 @@ double process_norm_L2(exedata *exd, int istart, int iend,
     // scalars.
     double smd;
     // interators.
-    int icl, ieq;
+    int icl;
     smd = 0.0;
     pdiff = diff + istart*NEQ;
     pclvol = exd->clvol + istart;
