@@ -63,9 +63,8 @@ def hbnt_base(casename=None, meshname=None,
         basefn=casename, meshfn=os.path.join(env.find_scdata_mesh(), meshname),
         bcmap=bcmap, **kw)
     # anchors for solvers.
-    cse.runhooks.append(anchor.RuntimeStatAnchor)
-    cse.runhooks.append(anchor.MarchStatAnchor)
-    cse.runhooks.append(anchor.TpoolStatAnchor)
+    for key in 'Runtime', 'March', 'Tpool':
+        cse.runhooks.append(getattr(anchor, key+'StatAnchor'))
     # informative.
     cse.runhooks.append(hook.BlockInfoHook)
     cse.runhooks.append(hook.ProgressHook,

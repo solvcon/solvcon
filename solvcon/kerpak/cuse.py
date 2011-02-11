@@ -19,7 +19,9 @@
 """
 Second-order, multi-dimensional CESE method with CUDA enabled.
 
-Three functionalities are defined: (i) CFL, (ii) Convergence, and (iii) Probe.
+Three functionalities are defined: (i) CFL (CflHook), (ii) Convergence
+(ConvergeAnchor, ConvergeHook), and (iii) Prober (Probe, ProbeAnchor,
+ProbeHook).
 """
 
 from ctypes import Structure
@@ -645,7 +647,9 @@ class CusePeriodic(periodic):
 
 class CflHook(Hook):
     """
-    Make sure is CFL number is bounded and print averaged CFL number over time.
+    Makes sure CFL number is bounded and print averaged CFL number over time.
+    Reports CFL information per time step and on finishing.  Implements (i)
+    postmarch() and (ii) postloop() methods.
 
     @ivar cflmin: CFL number should be greater than or equal to the value.
     @itype cflmin: float
@@ -653,6 +657,18 @@ class CflHook(Hook):
     @itype cflmax: float
     @ivar fullstop: flag to stop when CFL is out of bound.  Default True.
     @itype fullstop: bool
+    @ivar aCFL: accumulated CFL.
+    @itype aCFL: float
+    @ivar mCFL: mean CFL.
+    @itype mCFL: float
+    @ivar hnCFL: hereditary minimal CFL.
+    @itype hnCFL: float
+    @ivar hxCFL: hereditary maximal CFL.
+    @itype hxCFL: float
+    @ivar aadj: number of adjusted CFL accumulated since last report.
+    @itype aadj: int
+    @ivar haadj: total number of adjusted CFL since simulation started.
+    @itype haadj: int
     """
     def __init__(self, cse, **kw):
         self.cflmin = kw.pop('cflmin', 0.0)
@@ -668,7 +684,7 @@ class CflHook(Hook):
     def _notify(self, msg):
         from warnings import warn
         if self.fullstop:
-            raise RuntimeError, msg
+            raise RuntimeError(msg)
         else:
             warn(msg)
     def postmarch(self):
@@ -713,9 +729,19 @@ class CflHook(Hook):
 ################################################################################
 
 class ConvergeAnchor(Anchor):
+    """
+    Performs calculation for convergence on Solver.  Implements (i) preloop()
+    and (ii) postfull() methods.
+
+    @ivar rsteps: steps to run.
+    @itype rsteps: int
+    @ivar norm: container of calculated norm.
+    @itype norm: dict
+    """
     def __init__(self, svr, **kw):
-        self.norm = {}
+        self.rsteps = kw.pop('rsteps')
         super(ConvergeAnchor, self).__init__(svr, **kw)
+        self.norm = {}
     def preloop(self):
         from numpy import empty
         svr = self.svr
@@ -723,44 +749,67 @@ class ConvergeAnchor(Anchor):
         der['diff'] = empty((svr.ngstcell+svr.ncell, svr.neq),
             dtype=svr.fpdtype)
     def postfull(self):
-        from ctypes import c_int, c_double
+        from ctypes import c_double
         svr = self.svr
-        diff = svr.der['diff']
-        svr._tcall(svr._clib_cuse_c.process_norm_diff, -svr.ngstcell,
-            svr.ncell, diff[svr.ngstcell:].ctypes._as_parameter_)
-        # Linf norm.
-        Linf = []
-        Linf.extend(diff.max(axis=0))
-        self.norm['Linf'] = Linf
-        # L1 norm.
-        svr._clib_cuse_c.process_norm_L1.restype = c_double
-        L1 = []
-        for ieq in range(svr.neq):
-            vals = svr._tcall(svr._clib_cuse_c.process_norm_L1, 0, svr.ncell,
-                diff[svr.ngstcell:].ctypes._as_parameter_, c_int(ieq))
-            L1.append(sum(vals))
-        self.norm['L1'] = L1
-        # L2 norm.
-        svr._clib_cuse_c.process_norm_L2.restype = c_double
-        L2 = []
-        for ieq in range(svr.neq):
-            vals = svr._tcall(svr._clib_cuse_c.process_norm_L2, 0, svr.ncell,
-                diff[svr.ngstcell:].ctypes._as_parameter_, c_int(ieq))
-            L2.append(sum(vals))
-        self.norm['L2'] = L2
+        istep = svr.step_global
+        rsteps = self.rsteps
+        if istep > 0 and istep%rsteps == 0:
+            diff = svr.der['diff']
+            svr._tcall(svr._clib_cuse_c.process_norm_diff, -svr.ngstcell,
+                svr.ncell, diff[svr.ngstcell:].ctypes._as_parameter_)
+            # Linf norm.
+            Linf = []
+            Linf.extend(diff.max(axis=0))
+            self.norm['Linf'] = Linf
+            # L1 norm.
+            svr._clib_cuse_c.process_norm_L1.restype = c_double
+            L1 = []
+            for ieq in range(svr.neq):
+                vals = svr._tcall(svr._clib_cuse_c.process_norm_L1, 0,
+                    svr.ncell, diff[svr.ngstcell:].ctypes._as_parameter_, ieq)
+                L1.append(sum(vals))
+            self.norm['L1'] = L1
+            # L2 norm.
+            svr._clib_cuse_c.process_norm_L2.restype = c_double
+            L2 = []
+            for ieq in range(svr.neq):
+                vals = svr._tcall(svr._clib_cuse_c.process_norm_L2, 0,
+                    svr.ncell, diff[svr.ngstcell:].ctypes._as_parameter_, ieq)
+                L2.append(sum(vals))
+            self.norm['L2'] = L2
 
 class ConvergeHook(BlockHook):
+    """
+    Initiates and controls the remote ConvergeAnchor.  Implements (i)
+    drop_anchor() and (ii) postmarch() methods.
+
+    @ivar name: name of the converge tool.
+    @itype name: str
+    @ivar keys: kinds of norms to output; Linf, L1, and L2.
+    @itype keys: list
+    @ivar eqs: indices of unknowns (associated with the equations).
+    @itype eqs: list
+    @ivar csteps: steps to collect; default to psteps.
+    @itype csteps: int
+    @ivar rsteps: steps to run (Anchor); default to csteps.
+    @itype rsteps: int
+    @ivar ankkw: hold the remaining keywords for Anchor.
+    @itype ankkw: dict
+    """
     def __init__(self, cse, **kw):
         self.name = kw.pop('name', 'converge')
         self.keys = kw.pop('keys', None)
         self.eqs = kw.pop('eqs', None)
         csteps = kw.pop('csteps', None)
+        rsteps = kw.pop('rsteps', None)
         super(ConvergeHook, self).__init__(cse, **kw)
-        self.csteps = self.psteps if csteps == None else cstep
+        self.csteps = self.psteps if csteps == None else csteps
+        self.rsteps = self.csteps if rsteps == None else rsteps
         self.ankkw = kw
     def drop_anchor(self, svr):
         ankkw = self.ankkw.copy()
         ankkw['name'] = self.name
+        ankkw['rsteps'] = self.rsteps
         self._deliver_anchor(svr, ConvergeAnchor, ankkw)
     def _collect(self):
         from numpy import sqrt
