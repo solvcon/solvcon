@@ -53,12 +53,22 @@ class GasdynSolver(CuseSolver):
     @property
     def _clib_gasdyn_cu(self):
         return self.__clib_gasdyn_cu[self.ndim]
+    @property
+    def _clib_mcu(self):
+        return self.__clib_gasdyn_cu[self.ndim]
     _gdlen_ = 0
     @property
     def _jacofunc_(self):
         return self._clib_gasdyn_c.calc_jaco
     def calccfl(self, worker=None):
-        self._tcall(self._clib_gasdyn_c.calc_cfl, 0, self.ncell)
+        from ctypes import byref
+        if self.scu:
+            self._clib_gasdyn_cu.calc_cfl(self.ncuth,
+                byref(self.cumgr.exd), self.cumgr.gexd.gptr)
+            #self.cumgr.arr_from_gpu('cfl')
+            #self.cumgr.arr_from_gpu('ocfl')
+        else:
+            self._tcall(self._clib_gasdyn_c.calc_cfl, 0, self.ncell)
         ocfl = self.ocfl[self.ngstcell:]
         cfl = self.cfl[self.ngstcell:]
         # determine extremum.
@@ -124,21 +134,23 @@ class GasdynBC(CuseBC):
 class GasdynWall(GasdynBC):
     _ghostgeom_ = 'mirror'
     def soln(self):
-        from ctypes import byref, c_int
+        from ctypes import byref
         svr = self.svr
-        self._clib_gasdynb_c.bound_wall_soln(
-            byref(svr.exd),
-            c_int(self.facn.shape[0]),
-            self.facn.ctypes._as_parameter_,
-        )
+        if svr.scu:
+            self._clib_gasdynb_cu.bound_wall_soln(svr.ncuth,
+                svr.cumgr.gexd.gptr, self.facn.shape[0], self.cufacn.gptr)
+        else:
+            self._clib_gasdynb_c.bound_wall_soln(byref(svr.exd),
+                self.facn.shape[0], self.facn.ctypes._as_parameter_)
     def dsoln(self):
-        from ctypes import byref, c_int
+        from ctypes import byref
         svr = self.svr
-        self._clib_gasdynb_c.bound_wall_dsoln(
-            byref(svr.exd),
-            c_int(self.facn.shape[0]),
-            self.facn.ctypes._as_parameter_,
-        )
+        if svr.scu:
+            self._clib_gasdynb_cu.bound_wall_dsoln(svr.ncuth,
+                svr.cumgr.gexd.gptr, self.facn.shape[0], self.cufacn.gptr)
+        else:
+            self._clib_gasdynb_c.bound_wall_dsoln(byref(svr.exd),
+                self.facn.shape[0], self.facn.ctypes._as_parameter_)
 
 class GasdynInlet(GasdynBC):
     vnames = ['rho', 'v1', 'v2', 'v3', 'p', 'gamma']
@@ -147,23 +159,26 @@ class GasdynInlet(GasdynBC):
     }
     _ghostgeom_ = 'mirror'
     def soln(self):
-        from ctypes import byref, c_int
+        from ctypes import byref
         svr = self.svr
-        self._clib_gasdynb_c.bound_inlet_soln(
-            byref(svr.exd),
-            c_int(self.facn.shape[0]),
-            self.facn.ctypes._as_parameter_,
-            c_int(self.value.shape[1]),
-            self.value.ctypes._as_parameter_,
-        )
+        if svr.scu:
+            self._clib_gasdynb_cu.bound_inlet_soln(svr.ncuth,
+                svr.cumgr.gexd.gptr, self.facn.shape[0], self.cufacn.gptr,
+                self.value.shape[1], self.cuvalue.gptr)
+        else:
+            self._clib_gasdynb_c.bound_inlet_soln(byref(svr.exd),
+                self.facn.shape[0], self.facn.ctypes._as_parameter_,
+                self.value.shape[1], self.value.ctypes._as_parameter_)
     def dsoln(self):
-        from ctypes import byref, c_int
+        from ctypes import byref
         svr = self.svr
-        self._clib_gasdynb_c.bound_inlet_dsoln(
-            byref(svr.exd),
-            c_int(self.facn.shape[0]),
-            self.facn.ctypes._as_parameter_,
-        )
+        if svr.scu:
+            self._clib_gasdynb_cu.bound_inlet_dsoln(svr.ncuth,
+                svr.cumgr.gexd.gptr, self.facn.shape[0], self.cufacn.gptr)
+        else:
+            self._clib_gasdynb_c.bound_inlet_dsoln(byref(svr.exd),
+                self.facn.shape[0], self.facn.ctypes._as_parameter_)
+
 
 ###############################################################################
 # Anchors.

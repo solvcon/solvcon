@@ -16,7 +16,7 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "cueuler.h"
+#include "gasdyn.h"
 
 #ifdef __CUDACC__
 __global__ void cuda_bound_wall_soln(exedata *exd, int nbnd, int *facn) {

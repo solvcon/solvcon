@@ -16,7 +16,7 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "cueuler.h"
+#include "gasdyn.h"
 
 #ifdef __CUDACC__
 __global__ void cuda_calc_cfl(exedata *exd) {
@@ -26,8 +26,8 @@ int calc_cfl(exedata *exd, int istart, int iend) {
     struct tms timm0, timm1;
     int cputicks;
     times(&timm0);
-#ifdef SOLVCESE_FE
-    feenableexcept(SOLVCESE_FE);
+#ifdef SOLVCON_FE
+    feenableexcept(SOLVCON_FE);
 #endif
 #endif
     int clnfc;
@@ -88,9 +88,9 @@ int calc_cfl(exedata *exd, int istart, int iend) {
         // CFL.
         pocfl[0] = hdt*wspd/dist;
         // if pressure is null, make CFL to be 1.
-        pcfl[0] = (pocfl[0]-1.0) * pr/(pr+SOLVCESE_TINY) + 1.0;
+        pcfl[0] = (pocfl[0]-1.0) * pr/(pr+SOLVCON_TINY) + 1.0;
         // correct negative pressure.
-        psoln[1+NDIM] = pr/ga1 + ke + SOLVCESE_TINY;
+        psoln[1+NDIM] = pr/ga1 + ke + SOLVCON_TINY;
         // advance.
         pamsca += NSCA;
         pcfl += 1;

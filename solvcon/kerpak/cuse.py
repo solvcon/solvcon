@@ -188,6 +188,8 @@ class CuseSolver(BlockSolver):
     @cvar _jacofunc_: ctypes function to Jacobian calculator.  Must be
         overridden.
     @ctype _jacofunc_: ctypes.FuncPtr
+    @cvar _clib_mcu: ctypes library for physical model on GPU.
+    @ctype _clib_mcu: ctypes.CDLL
 
     @ivar debug: flag for debugging.
     @itype debug: bool
@@ -243,6 +245,7 @@ class CuseSolver(BlockSolver):
 
     _gdlen_ = None
     _jacofunc_ = None
+    _clib_mcu = None
 
     def __init__(self, blk, *args, **kw):
         from numpy import empty
@@ -420,9 +423,9 @@ class CuseSolver(BlockSolver):
     MMNAMES.append('calcsolt')
     def calcsolt(self, worker=None):
         if self.debug: self.mesg('calcsolt')
-        if False and self.scu:
+        if self.scu:
             from ctypes import byref
-            self._clib_cuse_cu.calc_solt(self.ncuthread,
+            self._clib_mcu.calc_solt(self.ncuth,
                 byref(self.cumgr.exd), self.cumgr.gexd.gptr)
         else:
             self._tcall(self._clib_cuse_c.calc_solt, -self.ngstcell, self.ncell,
@@ -431,9 +434,9 @@ class CuseSolver(BlockSolver):
     MMNAMES.append('calcsoln')
     def calcsoln(self, worker=None):
         if self.debug: self.mesg('calcsoln')
-        if False and self.scu:
+        if self.scu:
             from ctypes import byref
-            self._clib_cuse_cu.calc_soln(self.ncuthread,
+            self._clib_mcu.calc_soln(self.ncuth,
                 byref(self.cumgr.exd), self.cumgr.gexd.gptr)
             self.cumgr.arr_from_gpu('soln')
         else:
@@ -464,9 +467,9 @@ class CuseSolver(BlockSolver):
     MMNAMES.append('calcdsoln')
     def calcdsoln(self, worker=None):
         if self.debug: self.mesg('calcdsoln')
-        if False and self.scu:
+        if self.scu:
             from ctypes import byref
-            self._clib_cuse_cu.calc_dsoln(self.ncuth,
+            self._clib_mcu.calc_dsoln(self.ncuth,
                 byref(self.cumgr.exd), self.cumgr.gexd.gptr)
             self.cumgr.arr_from_gpu('dsoln')
         else:
@@ -597,7 +600,7 @@ class CuseNonrefl(CuseBC):
     def soln(self):
         from ctypes import byref
         svr = self.svr
-        if False and self.svr.scu:
+        if self.svr.scu:
             self._clib_cuseb_cu.bound_nonrefl_soln(svr.ncuth,
                 svr.cumgr.gexd.gptr, self.facn.shape[0], self.cufacn.gptr)
         else:
@@ -607,7 +610,7 @@ class CuseNonrefl(CuseBC):
     def dsoln(self):
         from ctypes import byref
         svr = self.svr
-        if False and self.svr.scu:
+        if self.svr.scu:
             self._clib_cuseb_cu.bound_nonrefl_dsoln(svr.ncuth,
                 svr.cumgr.gexd.gptr, self.facn.shape[0], self.cufacn.gptr)
         else:
