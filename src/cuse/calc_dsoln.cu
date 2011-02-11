@@ -77,7 +77,7 @@ int calc_dsoln(exedata *exd, int istart, int iend) {
     double grd[NDIM];
     double dst[NDIM][NDIM];
     double dnv[NDIM][NDIM];
-#ifdef __CUDACC__
+#if defined(__CUDACC__) && !defined(SOLVCON_CUSE_JACO)
     double (*udf)[NDIM];
     udf = (double (*)[NDIM])malloc(NEQ*NDIM*sizeof(double));
 #else

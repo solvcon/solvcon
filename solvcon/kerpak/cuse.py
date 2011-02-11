@@ -78,15 +78,14 @@ class CudaDataManager(AttributeDict):
         scu.cudaMemcpy(self.gexd.gptr, byref(self.exd),
             sizeof(self.exd), scu.cudaMemcpyHostToDevice)
 
-    # TODO: accept list as name.
-    def arr_to_gpu(self, name=None):
+    def arr_to_gpu(self, *args):
         scu = self.svr.scu
-        names = self if name is None else [name]
+        names = self if not args else args
         for name in names:
             scu.memcpy(self[name], getattr(self.svr, name))
-    def arr_from_gpu(self, name=None):
+    def arr_from_gpu(self, *args):
         scu = self.svr.scu
-        names = self if name is None else [name]
+        names = self if not args else args
         for name in names:
             scu.memcpy(getattr(self.svr, name), self[name])
 
@@ -342,13 +341,16 @@ class CuseSolver(BlockSolver):
     def boundcond(self):
         if self.scu:
             self.cumgr.update_exd()
-            for key in ('sol', 'soln', 'dsol', 'dsoln'):
-                self.cumgr.arr_to_gpu(key)
+            self.cumgr.arr_to_gpu('sol', 'soln', 'dsol', 'dsoln')
             if self.nsca: self.cumgr.arr_to_gpu('amsca')
             if self.nvec: self.cumgr.arr_to_gpu('amvec')
         super(CuseSolver, self).boundcond()
         for bc in self.bclist: bc.soln()
+        if self.scu:
+            self.cumgr.arr_from_gpu('sol', 'soln')
         for bc in self.bclist: bc.dsoln()
+        if self.scu:
+            self.cumgr.arr_from_gpu('dsol', 'dsoln')
 
     ###########################################################################
     # utility.
@@ -407,8 +409,11 @@ class CuseSolver(BlockSolver):
         # exchange items in GPU execution data.
         if self.scu:
             cumgr = self.cumgr
-            cumgr.sol, cumgr.soln = cumgr.soln, cumgr.sol
-            cumgr.dsol, cumgr.dsoln = cumgr.dsoln, cumgr.dsol
+            if False:
+                cumgr.sol, cumgr.soln = cumgr.soln, cumgr.sol
+                cumgr.dsol, cumgr.dsoln = cumgr.dsoln, cumgr.dsol
+            else:
+                self.cumgr.arr_to_gpu('sol', 'soln', 'dsol')
             cumgr.update_exd()
         if self.debug: self.mesg(' done.\n')
 
@@ -438,7 +443,6 @@ class CuseSolver(BlockSolver):
             from ctypes import byref
             self._clib_mcu.calc_soln(self.ncuth,
                 byref(self.cumgr.exd), self.cumgr.gexd.gptr)
-            self.cumgr.arr_from_gpu('soln')
         else:
             func = self._clib_cuse_c.calc_soln
             self._tcall(func, 0, self.ncell, tickerkey='calcsoln')
@@ -453,6 +457,7 @@ class CuseSolver(BlockSolver):
     def bcsoln(self, worker=None):
         if self.debug: self.mesg('bcsoln')
         for bc in self.bclist: bc.soln()
+        self.cumgr.arr_from_gpu('soln')
         if self.debug: self.mesg(' done.\n')
 
     MMNAMES.append('calccfl')
@@ -471,7 +476,6 @@ class CuseSolver(BlockSolver):
             from ctypes import byref
             self._clib_mcu.calc_dsoln(self.ncuth,
                 byref(self.cumgr.exd), self.cumgr.gexd.gptr)
-            self.cumgr.arr_from_gpu('dsoln')
         else:
             func = self._clib_cuse_c.calc_dsoln
             self._tcall(func, 0, self.ncell, tickerkey='calcdsoln')
@@ -486,6 +490,7 @@ class CuseSolver(BlockSolver):
     def bcdsoln(self, worker=None):
         if self.debug: self.mesg('bcdsoln')
         for bc in self.bclist: bc.dsoln()
+        self.cumgr.arr_from_gpu('dsoln')
         if self.debug: self.mesg(' done.\n')
 
 ###############################################################################
@@ -600,7 +605,7 @@ class CuseNonrefl(CuseBC):
     def soln(self):
         from ctypes import byref
         svr = self.svr
-        if self.svr.scu:
+        if svr.scu:
             self._clib_cuseb_cu.bound_nonrefl_soln(svr.ncuth,
                 svr.cumgr.gexd.gptr, self.facn.shape[0], self.cufacn.gptr)
         else:
@@ -610,7 +615,7 @@ class CuseNonrefl(CuseBC):
     def dsoln(self):
         from ctypes import byref
         svr = self.svr
-        if self.svr.scu:
+        if svr.scu:
             self._clib_cuseb_cu.bound_nonrefl_dsoln(svr.ncuth,
                 svr.cumgr.gexd.gptr, self.facn.shape[0], self.cufacn.gptr)
         else:

@@ -65,8 +65,8 @@ class GasdynSolver(CuseSolver):
         if self.scu:
             self._clib_gasdyn_cu.calc_cfl(self.ncuth,
                 byref(self.cumgr.exd), self.cumgr.gexd.gptr)
-            #self.cumgr.arr_from_gpu('cfl')
-            #self.cumgr.arr_from_gpu('ocfl')
+            self.cumgr.arr_from_gpu('cfl')
+            self.cumgr.arr_from_gpu('ocfl')
         else:
             self._tcall(self._clib_gasdyn_c.calc_cfl, 0, self.ncell)
         ocfl = self.ocfl[self.ngstcell:]
@@ -178,7 +178,6 @@ class GasdynInlet(GasdynBC):
         else:
             self._clib_gasdynb_c.bound_inlet_dsoln(byref(svr.exd),
                 self.facn.shape[0], self.facn.ctypes._as_parameter_)
-
 
 ###############################################################################
 # Anchors.
