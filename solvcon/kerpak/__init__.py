@@ -25,13 +25,15 @@ functionalities provided in SOLVCON, so that each SP can be migrated outside
 the solvcon package namespace.
 
 Available numerical algorithms include:
- - cese: second order CESE method.
+ - cese: second order, multi-dimensional CESE method.
+ - cuse: second order, multi-dimensional, CUDA-enabled CESE method.
  - lincese: second order CESE method specialized for linear equations.
 
 Available physical models:
  - euler: the euler equations for gas dynamics.
  - elaslin: the velocity-stress equations for anisotropic, linear elastic
    solids.
+ - gasdyn: CUDA-enabled, gas-dynamics simulator.
 """
 
-__all__ = ['cese', 'elaslin', 'euler', 'lincese']
+__all__ = ['cese', 'cuse', 'elaslin', 'euler', 'gasdyn', 'lincese']

@@ -39,12 +39,12 @@ class GasdynSolver(CuseSolver):
         super(GasdynSolver, self).__init__(blk, *args, **kw)
     from solvcon.dependency import getcdll
     __clib_gasdyn_c = {
-        2: getcdll('gasdyn2d_c', location=__file__),
-        3: getcdll('gasdyn3d_c', location=__file__),
+        2: getcdll('gasdyn2d_c'),
+        3: getcdll('gasdyn3d_c'),
     }
     __clib_gasdyn_cu = {
-        2: getcdll('gasdyn2d_cu', location=__file__),
-        3: getcdll('gasdyn3d_cu', location=__file__),
+        2: getcdll('gasdyn2d_cu'),
+        3: getcdll('gasdyn3d_cu'),
     }
     del getcdll
     @property
@@ -115,12 +115,12 @@ class GasdynBC(CuseBC):
     """
     from solvcon.dependency import getcdll
     __clib_gasdynb_c = {
-        2: getcdll('gasdynb2d_c', location=__file__),
-        3: getcdll('gasdynb3d_c', location=__file__),
+        2: getcdll('gasdynb2d_c'),
+        3: getcdll('gasdynb3d_c'),
     }
     __clib_gasdynb_cu = {
-        2: getcdll('gasdynb2d_cu', location=__file__),
-        3: getcdll('gasdynb3d_cu', location=__file__),
+        2: getcdll('gasdynb2d_cu'),
+        3: getcdll('gasdynb3d_cu'),
     }
     del getcdll
     @property

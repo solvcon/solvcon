@@ -18,17 +18,16 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 """
-Supersonic flow over a cylinder.  Note the spatial domain includes only the
-fore flow for the bow shock.  To save time, the time steps is not set to be
-enough for convergence.  You can further increase the steps.
+Supersonic flow over a cylinder run on CUDA.  Note the spatial domain includes
+only the fore flow for the bow shock.  To save time, the time steps is not set
+to be enough for convergence.  You can further increase the steps.
 
-The arrangement hbnt can be run by simply executing ./go run for serial or 
-./go run --npart=n for parallel.
+The arrangement blnt can be run by simply executing ./go run.
 """
 
-import gasdyn
+from solvcon.kerpak import gasdyn
 
-def hbnt_base(casename=None, meshname=None, 
+def blnt_base(casename=None, meshname=None, 
     gamma=None, density=None, pressure=None, M=None,
     psteps=None, ssteps=None, **kw
 ):
@@ -93,18 +92,18 @@ def hbnt_base(casename=None, meshname=None,
     return cse
 
 @gasdyn.GasdynCase.register_arrangement
-def hbnt(casename, **kw):
+def blnt(casename, **kw):
     """
     The true arrangement which specifies necessary parameters for execution.
     For parallel execution of domain decomposition, batch is default to
     'Localhost'.
     """
     kw.setdefault('batch', 'Localhost')
-    return hbnt_base(casename=casename, meshname='hyperblunt_t100mm.neu.gz',
+    return blnt_base(casename=casename, meshname='hyperblunt_t100mm.neu.gz',
         gamma=1.4, density=1.0, pressure=1.0, M=3.0, rkillfn='',
         diffname='tau', tauname='scale', taumin=0.0, tauscale=4.0,
         ncuth=32,
-        time_increment=5.e-3, steps_run=200, ssteps=50, psteps=1, **kw)
+        time_increment=5.e-3, steps_run=2000, ssteps=500, psteps=10, **kw)
 
 if __name__ == '__main__':
     import solvcon

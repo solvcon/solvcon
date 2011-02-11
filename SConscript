@@ -86,6 +86,7 @@ def make_kpculib(lname, lpre, ldir, sdir, bdir, env, extra_links=None):
             envm = env.Clone()
             envm.Prepend(CCFLAGS=['-DNDIM=%d'%ndim])
             envm.Prepend(NVCCFLAGS=['-DNDIM=%d'%ndim])
+            envm.Append(NVCCINC=' -I src/cuse')
             if ext == 'cu': envm.Append(LIBS=['cudart'])
             if extra_links is not None:
                 envm.Prepend(LIBS=extra_links)
@@ -95,6 +96,7 @@ def make_kpculib(lname, lpre, ldir, sdir, bdir, env, extra_links=None):
     return libs
 kpculibs = [
     ('cuse', None), ('cuseb', None),    # solvcon.kerpak.cuse
+    ('gasdyn', None), ('gasdynb', None),    # solvcon.kerpak.gasdyn
 ]
 for lname, extra_links in kpculibs:
     libs.extend(make_kpculib(lname, lpre, ldir, '%s/%s'%(sdir, lname),
