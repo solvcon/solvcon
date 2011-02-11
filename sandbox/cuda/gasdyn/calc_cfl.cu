@@ -16,14 +16,19 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "gasdyn.h"
+#include "cueuler.h"
 
+#ifdef __CUDACC__
+__global__ void cuda_calc_cfl(exedata *exd) {
+    int istart = blockDim.x * blockIdx.x + threadIdx.x;
+#else
 int calc_cfl(exedata *exd, int istart, int iend) {
-    int cputicks;
     struct tms timm0, timm1;
+    int cputicks;
     times(&timm0);
-#ifdef SOLVCON_FE
-    feenableexcept(SOLVCON_FE);
+#ifdef SOLVCESE_FE
+    feenableexcept(SOLVCESE_FE);
+#endif
 #endif
     int clnfc;
     // pointers.
@@ -42,7 +47,12 @@ int calc_cfl(exedata *exd, int istart, int iend) {
     psoln = exd->soln + istart*NEQ;
     picecnd = exd->cecnd + istart*(CLMFC+1)*NDIM;
     pclfcs = exd->clfcs + istart*(CLMFC+1);
+#ifndef __CUDACC__
     for (icl=istart; icl<iend; icl++) {
+#else
+    icl = istart;
+    if (icl < exd->ncell) {
+#endif
         // estimate distance.
         dist = 1.e200;
         pcecnd = picecnd;
@@ -73,17 +83,14 @@ int calc_cfl(exedata *exd, int istart, int iend) {
         ;
         ke = wspd/(2.0*psoln[0]);
         pr = ga1 * (psoln[1+NDIM] - ke);
-#if SOLVCON_DEBUG
-        if (pr < 0.0) printf("%d: pr = %g\n", icl, pr);   // usual cause.
-#endif
         pr = (pr+fabs(pr))/2.0;
         wspd = sqrt(ga*pr/psoln[0]) + sqrt(wspd)/psoln[0];
         // CFL.
         pocfl[0] = hdt*wspd/dist;
         // if pressure is null, make CFL to be 1.
-        pcfl[0] = (pocfl[0]-1.0) * pr/(pr+SOLVCON_TINY) + 1.0;
+        pcfl[0] = (pocfl[0]-1.0) * pr/(pr+SOLVCESE_TINY) + 1.0;
         // correct negative pressure.
-        psoln[1+NDIM] = pr/ga1 + ke + SOLVCON_TINY;
+        psoln[1+NDIM] = pr/ga1 + ke + SOLVCESE_TINY;
         // advance.
         pamsca += NSCA;
         pcfl += 1;
@@ -92,9 +99,20 @@ int calc_cfl(exedata *exd, int istart, int iend) {
         picecnd += (CLMFC+1)*NDIM;
         pclfcs += CLMFC+1;
     };
+#ifndef __CUDACC__
     times(&timm1);
     cputicks = (int)((timm1.tms_utime+timm1.tms_stime)
                    - (timm0.tms_utime+timm0.tms_stime));
     return cputicks;
 };
+#else
+};
+extern "C" int calc_cfl(int nthread, exedata *exc, void *gexc) {
+    int nblock = (exc->ncell + nthread-1) / nthread;
+    cuda_calc_cfl<<<nblock, nthread>>>((exedata *)gexc);
+    cudaThreadSynchronize();
+    return 0;
+};
+#endif
+
 // vim: set ts=4 et:
