@@ -62,11 +62,12 @@ libraries.  SOLVCON uses SCons_ as the binary builder.
 
 For SOLVCON to be built and run, it requires the following packages: (i)
 Python_ 2.6, (ii) SCons_, (iii) a C compiler, gcc_ or icc is OK, (iv) Numpy_,
-(v) LAPACK_, (vi) NetCDF_, and (vii) METIS_ for graph partitioning (SOLVCON will
-download it for you on building).  Optional dependencies include: (i) Nose_ for
-running unit tests, (ii) Epydoc_ for generating API documentation, and (iii)
-VTK_ for in situ visualization.  64-bits Linux is recommended.  For Debian_ or
-Ubuntu_ users, they can use the following command to install the dependencies::
+(v) LAPACK_, (vi) NetCDF_ higher than version 4, and (vii) METIS_ for graph
+partitioning (SOLVCON will download it for you on building).  Optional
+dependencies include: (i) Nose_ for running unit tests, (ii) Epydoc_ for
+generating API documentation, and (iii) VTK_ for in situ visualization.
+64-bits Linux is recommended.  For Debian_ or Ubuntu_ users, they can use the
+following command to install the dependencies::
 
   $ sudo apt-get install scons build-essential gcc liblapack-pic
     libnetcdf-dev libnetcdf6 netcdf-bin
