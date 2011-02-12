@@ -57,9 +57,12 @@ def main():
     write_readme()
 
     data_files = list()
+    # includes.
+    data_files.append((os.path.join('include', 'solvcon'),
+        glob(os.path.join('include', '*'))))
     # libraries.
-    data_files.append(
-        (os.path.join('lib', 'solvcon'), glob(os.path.join('lib', '*'))))
+    data_files.append((os.path.join('lib', 'solvcon'),
+        glob(os.path.join('lib', '*'))))
     # test data.
     lead = os.path.join('share', 'solvcon', 'test')
     data_files.extend([
