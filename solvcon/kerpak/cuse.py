@@ -459,11 +459,6 @@ class CuseSolver(BlockSolver):
 
     MMNAMES.append('calccfl')
     def calccfl(self, worker=None):
-        """
-        @return: mincfl, maxcfl, number of tuned CFL, accumulated number of
-            tuned CFL.
-        @rtype: tuple
-        """
         raise NotImplementedError
 
     MMNAMES.append('calcdsoln')
@@ -652,12 +647,36 @@ class CusePeriodic(periodic):
 # CFL.
 ################################################################################
 
+class CflAnchor(Anchor):
+    def __init__(self, svr, **kw):
+        self.rsteps = kw.pop('rsteps')
+        super(CflAnchor, self).__init__(svr, **kw)
+    def postmarch(self):
+        svr = self.svr
+        # download data.
+        if svr.scu:
+            svr.cumgr.arr_from_gpu('cfl', 'ocfl')
+        ocfl = svr.ocfl[svr.ngstcell:]
+        cfl = svr.cfl[svr.ngstcell:]
+        # determine extremum.
+        mincfl = ocfl.min()
+        maxcfl = ocfl.max()
+        nadj = (cfl==1).sum()
+        # store.
+        lst = svr.marchret.setdefault('cfl', [0.0, 0.0, 0, 0])
+        lst[0] = mincfl
+        lst[1] = maxcfl
+        lst[2] = nadj
+        lst[3] += nadj
+
 class CflHook(Hook):
     """
     Makes sure CFL number is bounded and print averaged CFL number over time.
     Reports CFL information per time step and on finishing.  Implements (i)
     postmarch() and (ii) postloop() methods.
 
+    @ivar name: name of the CFL tool.
+    @itype name: str
     @ivar cflmin: CFL number should be greater than or equal to the value.
     @itype cflmin: float
     @ivar cflmax: CFL number should be less than the value.
@@ -678,6 +697,7 @@ class CflHook(Hook):
     @itype haadj: int
     """
     def __init__(self, cse, **kw):
+        self.name = kw.pop('name', 'cfl')
         self.cflmin = kw.pop('cflmin', 0.0)
         self.cflmax = kw.pop('cflmax', 1.0)
         self.fullstop = kw.pop('fullstop', True)
@@ -687,7 +707,17 @@ class CflHook(Hook):
         self.hxCFL = 0.0
         self.aadj = 0
         self.haadj = 0
+        csteps = kw.pop('csteps', None)
+        rsteps = kw.pop('rsteps', None)
         super(CflHook, self).__init__(cse, **kw)
+        self.csteps = self.psteps if csteps == None else csteps
+        self.rsteps = self.csteps if rsteps == None else rsteps
+        self.ankkw = kw
+    def drop_anchor(self, svr):
+        ankkw = self.ankkw.copy()
+        ankkw['name'] = self.name
+        ankkw['rsteps'] = self.rsteps
+        self._deliver_anchor(svr, CflAnchor, ankkw)
     def _notify(self, msg):
         from warnings import warn
         if self.fullstop:
@@ -699,14 +729,14 @@ class CflHook(Hook):
         info = self.info
         steps_stride = self.cse.execution.steps_stride
         istep = self.cse.execution.step_current
-        marchret = self.cse.execution.marchret
+        mr = self.cse.execution.marchret
         is_parallel = self.cse.is_parallel
         psteps = self.psteps
         # collect CFL.
-        nCFL = max([m[0] for m in marchret]) if is_parallel else marchret[0]
-        xCFL = max([m[1] for m in marchret]) if is_parallel else marchret[1]
-        nadj = sum([m[2] for m in marchret]) if is_parallel else marchret[2]
-        aadj = sum([m[3] for m in marchret]) if is_parallel else marchret[2]
+        nCFL = max([m[0] for m in mr['cfl']]) if is_parallel else mr['cfl'][0]
+        xCFL = max([m[1] for m in mr['cfl']]) if is_parallel else mr['cfl'][1]
+        nadj = sum([m[2] for m in mr['cfl']]) if is_parallel else mr['cfl'][2]
+        aadj = sum([m[3] for m in mr['cfl']]) if is_parallel else mr['cfl'][3]
         hnCFL = min([nCFL, self.hnCFL])
         self.hnCFL = hnCFL if not isnan(hnCFL) else self.hnCFL
         hxCFL = max([xCFL, self.hxCFL])

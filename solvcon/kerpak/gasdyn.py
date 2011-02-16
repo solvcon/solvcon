@@ -65,22 +65,8 @@ class GasdynSolver(CuseSolver):
         if self.scu:
             self._clib_gasdyn_cu.calc_cfl(self.ncuth,
                 byref(self.cumgr.exd), self.cumgr.gexd.gptr)
-            self.cumgr.arr_from_gpu('cfl', 'ocfl')
         else:
             self._tcall(self._clib_gasdyn_c.calc_cfl, 0, self.ncell)
-        ocfl = self.ocfl[self.ngstcell:]
-        cfl = self.cfl[self.ngstcell:]
-        # determine extremum.
-        mincfl = ocfl.min()
-        maxcfl = ocfl.max()
-        nadj = (cfl==1).sum()
-        if self.marchret is None:
-            self.marchret = [0.0, 0.0, 0, 0]
-        self.marchret[0] = mincfl
-        self.marchret[1] = maxcfl
-        self.marchret[2] = nadj
-        self.marchret[3] += nadj
-        return self.marchret
 
 ###############################################################################
 # Case.

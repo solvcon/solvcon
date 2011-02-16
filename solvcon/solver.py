@@ -299,7 +299,7 @@ class BaseSolver(object):
         @rtype: float
         """
         from time import time as _time
-        self.marchret = None
+        self.marchret = dict()
         self.step_current = 0
         self.runanchors('premarch')
         while self.step_current < steps_run:
@@ -328,9 +328,9 @@ class BaseSolver(object):
             self.step_global += 1
             self.step_current += 1
             self.runanchors('postfull')
+        self.runanchors('postmarch')
         if worker:
             worker.conn.send(self.marchret)
-        self.runanchors('postmarch')
         return self.marchret
 
 class FakeBlockVtk(object):
