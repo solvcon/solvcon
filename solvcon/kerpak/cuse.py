@@ -454,7 +454,6 @@ class CuseSolver(BlockSolver):
     def bcsoln(self, worker=None):
         if self.debug: self.mesg('bcsoln')
         for bc in self.bclist: bc.soln()
-        if self.scu: self.cumgr.arr_from_gpu('soln')
         if self.debug: self.mesg(' done.\n')
 
     MMNAMES.append('calccfl')
@@ -482,7 +481,6 @@ class CuseSolver(BlockSolver):
     def bcdsoln(self, worker=None):
         if self.debug: self.mesg('bcdsoln')
         for bc in self.bclist: bc.dsoln()
-        if self.scu: self.cumgr.arr_from_gpu('dsoln')
         if self.debug: self.mesg(' done.\n')
 
 ###############################################################################
@@ -648,26 +646,36 @@ class CusePeriodic(periodic):
 ################################################################################
 
 class CflAnchor(Anchor):
+    """
+    Counting CFL numbers.  Use svr.marchret to return results.  Implements
+    postmarch() method.
+
+    @ivar rsteps: steps to run.
+    @itype rsteps: int
+    """
     def __init__(self, svr, **kw):
         self.rsteps = kw.pop('rsteps')
         super(CflAnchor, self).__init__(svr, **kw)
     def postmarch(self):
         svr = self.svr
-        # download data.
-        if svr.scu:
-            svr.cumgr.arr_from_gpu('cfl', 'ocfl')
-        ocfl = svr.ocfl[svr.ngstcell:]
-        cfl = svr.cfl[svr.ngstcell:]
-        # determine extremum.
-        mincfl = ocfl.min()
-        maxcfl = ocfl.max()
-        nadj = (cfl==1).sum()
-        # store.
-        lst = svr.marchret.setdefault('cfl', [0.0, 0.0, 0, 0])
-        lst[0] = mincfl
-        lst[1] = maxcfl
-        lst[2] = nadj
-        lst[3] += nadj
+        istep = svr.step_global
+        rsteps = self.rsteps
+        if istep > 0 and istep%rsteps == 0:
+            # download data.
+            if svr.scu:
+                svr.cumgr.arr_from_gpu('cfl', 'ocfl')
+            ocfl = svr.ocfl[svr.ngstcell:]
+            cfl = svr.cfl[svr.ngstcell:]
+            # determine extremum.
+            mincfl = ocfl.min()
+            maxcfl = ocfl.max()
+            nadj = (cfl==1).sum()
+            # store.
+            lst = svr.marchret.setdefault('cfl', [0.0, 0.0, 0, 0])
+            lst[0] = mincfl
+            lst[1] = maxcfl
+            lst[2] = nadj
+            lst[3] += nadj
 
 class CflHook(Hook):
     """
@@ -677,6 +685,8 @@ class CflHook(Hook):
 
     @ivar name: name of the CFL tool.
     @itype name: str
+    @ivar rsteps: steps to run.
+    @itype rsteps: int
     @ivar cflmin: CFL number should be greater than or equal to the value.
     @itype cflmin: float
     @ivar cflmax: CFL number should be less than the value.
@@ -707,11 +717,9 @@ class CflHook(Hook):
         self.hxCFL = 0.0
         self.aadj = 0
         self.haadj = 0
-        csteps = kw.pop('csteps', None)
         rsteps = kw.pop('rsteps', None)
         super(CflHook, self).__init__(cse, **kw)
-        self.csteps = self.psteps if csteps == None else csteps
-        self.rsteps = self.csteps if rsteps == None else rsteps
+        self.rsteps = self.psteps if rsteps == None else rsteps
         self.ankkw = kw
     def drop_anchor(self, svr):
         ankkw = self.ankkw.copy()
@@ -727,37 +735,38 @@ class CflHook(Hook):
     def postmarch(self):
         from numpy import isnan
         info = self.info
-        steps_stride = self.cse.execution.steps_stride
         istep = self.cse.execution.step_current
         mr = self.cse.execution.marchret
-        is_parallel = self.cse.is_parallel
+        isp = self.cse.is_parallel
+        rsteps = self.rsteps
         psteps = self.psteps
         # collect CFL.
-        nCFL = max([m[0] for m in mr['cfl']]) if is_parallel else mr['cfl'][0]
-        xCFL = max([m[1] for m in mr['cfl']]) if is_parallel else mr['cfl'][1]
-        nadj = sum([m[2] for m in mr['cfl']]) if is_parallel else mr['cfl'][2]
-        aadj = sum([m[3] for m in mr['cfl']]) if is_parallel else mr['cfl'][3]
-        hnCFL = min([nCFL, self.hnCFL])
-        self.hnCFL = hnCFL if not isnan(hnCFL) else self.hnCFL
-        hxCFL = max([xCFL, self.hxCFL])
-        self.hxCFL = hxCFL if not isnan(hxCFL) else self.hxCFL
-        self.aCFL += xCFL*steps_stride
-        self.mCFL = self.aCFL/(istep+steps_stride)
-        self.aadj += aadj
-        self.haadj += aadj
-        # check.
-        if self.cflmin != None and nCFL < self.cflmin:
-            self._notify("CFL = %g < %g after step: %d" % (
-                nCFL, self.cflmin, istep))
-        if self.cflmax != None and xCFL >= self.cflmax:
-            self._notify("CFL = %g >= %g after step: %d" % (
-                xCFL, self.cflmax, istep))
-        # output information.
-        if istep > 0 and istep%psteps == 0:
-            info("CFL = %.2f/%.2f - %.2f/%.2f adjusted: %d/%d/%d\n" % (
-                nCFL, xCFL, self.hnCFL, self.hxCFL, nadj,
-                self.aadj, self.haadj))
-            self.aadj = 0
+        if istep > 0 and istep%rsteps == 0:
+            nCFL = max([m[0] for m in mr['cfl']]) if isp else mr['cfl'][0]
+            xCFL = max([m[1] for m in mr['cfl']]) if isp else mr['cfl'][1]
+            nadj = sum([m[2] for m in mr['cfl']]) if isp else mr['cfl'][2]
+            aadj = sum([m[3] for m in mr['cfl']]) if isp else mr['cfl'][3]
+            hnCFL = min([nCFL, self.hnCFL])
+            self.hnCFL = hnCFL if not isnan(hnCFL) else self.hnCFL
+            hxCFL = max([xCFL, self.hxCFL])
+            self.hxCFL = hxCFL if not isnan(hxCFL) else self.hxCFL
+            self.aCFL += xCFL*rsteps
+            self.mCFL = self.aCFL/istep
+            self.aadj += aadj
+            self.haadj += aadj
+            # check.
+            if self.cflmin != None and nCFL < self.cflmin:
+                self._notify("CFL = %g < %g after step: %d" % (
+                    nCFL, self.cflmin, istep))
+            if self.cflmax != None and xCFL >= self.cflmax:
+                self._notify("CFL = %g >= %g after step: %d" % (
+                    xCFL, self.cflmax, istep))
+            # output information.
+            if istep > 0 and istep%psteps == 0:
+                info("CFL = %.2f/%.2f - %.2f/%.2f adjusted: %d/%d/%d\n" % (
+                    nCFL, xCFL, self.hnCFL, self.hxCFL, nadj,
+                    self.aadj, self.haadj))
+                self.aadj = 0
     def postloop(self):
         self.info("Averaged maximum CFL = %g.\n" % self.mCFL)
 

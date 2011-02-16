@@ -58,12 +58,11 @@ class EulerSolver(CeseSolver):
         mincfl = self.ocfl.min()
         maxcfl = self.ocfl.max()
         nadj = (self.cfl==1).sum()
-        if self.marchret is None:
-            self.marchret = [0.0, 0.0, 0, 0]
-        self.marchret[0] = mincfl
-        self.marchret[1] = maxcfl
-        self.marchret[2] = nadj
-        self.marchret[3] += nadj
+        self.marchret.setdefault('cfl', [0.0, 0.0, 0, 0])
+        self.marchret['cfl'][0] = mincfl
+        self.marchret['cfl'][1] = maxcfl
+        self.marchret['cfl'][2] = nadj
+        self.marchret['cfl'][3] += nadj
         return self.marchret
 
 ###############################################################################

@@ -219,21 +219,6 @@ class GasdynOAnchor(Anchor):
         self.schk0 = kw.pop('schk0', 0.0)
         self.schk1 = kw.pop('schk1', 1.0)
         super(GasdynOAnchor, self).__init__(svr, **kw)
-    def provide(self):
-        from numpy import empty
-        svr = self.svr
-        der = svr.der
-        nelm = svr.ngstcell + svr.ncell
-        der['v'] = empty((nelm, svr.ndim), dtype=svr.fpdtype)
-        der['rho'] = empty(nelm, dtype=svr.fpdtype)
-        der['p'] = empty(nelm, dtype=svr.fpdtype)
-        der['T'] = empty(nelm, dtype=svr.fpdtype)
-        der['ke'] = empty(nelm, dtype=svr.fpdtype)
-        der['a'] = empty(nelm, dtype=svr.fpdtype)
-        der['M'] = empty(nelm, dtype=svr.fpdtype)
-        der['sch'] = empty(nelm, dtype=svr.fpdtype)
-        self._calculate_physics()
-        self._calculate_schlieren()
     def _calculate_physics(self):
         svr = self.svr
         der = svr.der
@@ -258,9 +243,27 @@ class GasdynOAnchor(Anchor):
             c_double(self.schk), c_double(self.schk0), c_double(self.schk1),
             c_double(rhogmax), sch.ctypes._as_parameter_,
         )
+    def provide(self):
+        from numpy import empty
+        svr = self.svr
+        der = svr.der
+        nelm = svr.ngstcell + svr.ncell
+        der['v'] = empty((nelm, svr.ndim), dtype=svr.fpdtype)
+        der['rho'] = empty(nelm, dtype=svr.fpdtype)
+        der['p'] = empty(nelm, dtype=svr.fpdtype)
+        der['T'] = empty(nelm, dtype=svr.fpdtype)
+        der['ke'] = empty(nelm, dtype=svr.fpdtype)
+        der['a'] = empty(nelm, dtype=svr.fpdtype)
+        der['M'] = empty(nelm, dtype=svr.fpdtype)
+        der['sch'] = empty(nelm, dtype=svr.fpdtype)
+        self._calculate_physics()
+        self._calculate_schlieren()
     def postfull(self):
+        svr = self.svr
         istep = self.svr.step_global
         rsteps = self.rsteps
         if istep > 0 and istep%rsteps == 0:
+            if svr.scu:
+                svr.cumgr.arr_from_gpu('amsca', 'soln', 'dsoln')
             self._calculate_physics()
             self._calculate_schlieren()
