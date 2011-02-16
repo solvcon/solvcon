@@ -147,12 +147,11 @@ class ElasticSolver(CeseSolver):
         # super method.
         super(ElasticSolver, self).provide()
     def calccfl(self, worker=None):
-        if self.marchret is None:
-            self.marchret = [0.0, 0.0, 0, 0]
-        self.marchret[0] = self.cflmax
-        self.marchret[1] = self.cflmax
-        self.marchret[2] = 0
-        self.marchret[3] = 0
+        self.marchret.setdefault('cfl', [0.0, 0.0, 0, 0])
+        self.marchret['cfl'][0] = self.cflmax
+        self.marchret['cfl'][1] = self.cflmax
+        self.marchret['cfl'][2] = 0
+        self.marchret['cfl'][3] = 0
         return self.marchret
 
 ###############################################################################
