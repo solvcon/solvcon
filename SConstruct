@@ -254,7 +254,7 @@ else:
 # solvcon environment.
 env = Environment(ENV=os.environ, tools=tools,
     CPPPATH='include', CFLAGS=CFLAGS, F90FLAGS=F90FLAGS,
-    NVCCFLAGS=['-arch=sm_20'],
+    NVCCFLAGS=['-arch=sm_13'],
 )
 env.Append(NVCCINC=' -I include')
 def build_epydoc(target, source, env):
