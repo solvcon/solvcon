@@ -8,19 +8,15 @@ AddOption('--enable-f90', dest='enable_f90',
 AddOption('--f90', dest='f90', type='string',
     action='store', default='gfortran',
     help='Fortran compiler (SCons tool): gfortran, ifort.')
-AddOption('--cc', dest='cc', type='string',
-    action='store', default='gcc',
+AddOption('--cc', dest='cc', type='string', action='store', default='gcc',
     help='C compiler (SCons tool): gcc, intelc.',)
-AddOption('--optlevel', dest='optlevel', type=int,
-    action='store', default=2,
+AddOption('--optlevel', dest='optlevel', type=int, action='store', default=2,
     help='Optimization level; default is 2.',)
-AddOption('--cmpvsn', action='store', default='',
-    dest='cmpvsn',
+AddOption('--cmpvsn', action='store', default='', dest='cmpvsn',
     help='Compiler version; for gcc-4.5 it\'s --cmpvsn=-4.5',
 )
-AddOption('--sm', action='store', default='20',
-    dest='sm',
-    help='Compute capability.',
+AddOption('--sm', action='store', default='20', dest='sm',
+    help='Compute capability; 13=1.3 and 20=2.0 are currently supported.',
 )
 
 # dependencies and patches.
