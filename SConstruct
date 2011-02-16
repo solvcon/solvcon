@@ -18,6 +18,10 @@ AddOption('--cmpvsn', action='store', default='',
     dest='cmpvsn',
     help='Compiler version; for gcc-4.5 it\'s --cmpvsn=-4.5',
 )
+AddOption('--sm', action='store', default='20',
+    dest='sm',
+    help='Compute capability.',
+)
 
 # dependencies and patches.
 AddOption('--download', dest='download',
@@ -254,7 +258,7 @@ else:
 # solvcon environment.
 env = Environment(ENV=os.environ, tools=tools,
     CPPPATH='include', CFLAGS=CFLAGS, F90FLAGS=F90FLAGS,
-    NVCCFLAGS=['-arch=sm_13'],
+    NVCCFLAGS=['-arch=sm_%s'%GetOption('sm')],
 )
 env.Append(NVCCINC=' -I include')
 def build_epydoc(target, source, env):

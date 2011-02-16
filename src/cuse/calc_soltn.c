@@ -339,4 +339,4 @@ extern "C" int calc_soln(int nthread, exedata *exc, void *gexc) {
 };
 #endif
 
-// vim: set ts=4 et:
+// vim: set ft=cuda ts=4 et:

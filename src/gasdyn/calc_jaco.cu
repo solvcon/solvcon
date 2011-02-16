@@ -20,8 +20,8 @@
 
 #ifdef __CUDACC__
 #define SOLVCON_CUSE_JACO
-#include "calc_soltn.cu"
-#include "calc_dsoln.cu"
+#include "calc_soltn.c"
+#include "calc_dsoln.c"
 #endif
 
 #ifdef __CUDACC__
