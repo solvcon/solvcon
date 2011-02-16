@@ -68,6 +68,7 @@ extern "C" int bound_nonrefl_soln(int nthread, void *gexc,
 #endif
 
 #ifdef __CUDACC__
+extern __shared__ double arr[];
 __global__ void cuda_bound_nonrefl_dsoln(exedata *exd, int nbnd, int *facn) {
     int ibnd = blockDim.x * blockIdx.x + threadIdx.x;
 #else
@@ -88,7 +89,8 @@ int bound_nonrefl_dsoln(exedata *exd, int nbnd, int *facn) {
     double dif[NDIM];
 #ifdef __CUDACC__
     double (*vec)[NDIM];
-    vec = (double (*)[NDIM])malloc(NEQ*NDIM*sizeof(double));
+    //vec = (double (*)[NDIM])malloc(NEQ*NDIM*sizeof(double));
+    vec = (double (*)[NDIM])&arr[NEQ*NDIM*threadIdx.x];
 #else
     double vec[NEQ][NDIM];
 #endif
@@ -177,12 +179,13 @@ int bound_nonrefl_dsoln(exedata *exd, int nbnd, int *facn) {
 };
 #else
     };
-    free(vec);
+    //free(vec);
 };
-extern "C" int bound_nonrefl_dsoln(int nthread, void *gexc,
+extern "C" int bound_nonrefl_dsoln(int nthread, exedata *exc, void *gexc,
     int nbnd, void *gfacn) {
     dim3 nblock = (nbnd + nthread-1) / nthread;
-    cuda_bound_nonrefl_dsoln<<<nblock, nthread>>>((exedata *)gexc,
+    size_t nsh = nthread * exc->neq * exc->ndim * sizeof(double);
+    cuda_bound_nonrefl_dsoln<<<nblock, nthread, nsh>>>((exedata *)gexc,
         nbnd, (int *)gfacn);
     cudaThreadSynchronize();
     return 0;

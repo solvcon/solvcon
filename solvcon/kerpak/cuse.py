@@ -608,12 +608,12 @@ class CuseNonrefl(CuseBC):
         else:
             self._clib_cuseb_c.bound_nonrefl_soln(byref(svr.exd),
                 self.facn.shape[0], self.facn.ctypes._as_parameter_)
-
     def dsoln(self):
         from ctypes import byref
         svr = self.svr
         if svr.scu:
             self._clib_cuseb_cu.bound_nonrefl_dsoln(svr.ncuth,
+                byref(svr.cumgr.exd),
                 svr.cumgr.gexd.gptr, self.facn.shape[0], self.cufacn.gptr)
         else:
             self._clib_cuseb_c.bound_nonrefl_dsoln(byref(svr.exd),
