@@ -35,6 +35,5 @@ mesh volume 1 2
 # export.
 undo group begin
 set large exodus file on
-#export genesis "../test/data/cubic_t200mm.g" dimension 3 overwrite
-export genesis "../../tmp/cubic_t200mm_large.g" dimension 3 overwrite
+export genesis "../test/data/cubic_t200mm_large.g" dimension 3 overwrite
 undo group end
