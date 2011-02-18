@@ -187,28 +187,6 @@ class Collective(Domain, list):
         """
         return (len(self) == 0) and (len(self.idxinfo) != 0)
 
-    @classmethod
-    def _count_max_nodeinblock(cls, blk, part):
-        """
-        @param blk: the global Block object to count.
-        @type blk: solvcon.block.Block
-        @param part: partition.
-        @type part: numpy.ndnarray
-
-        @return: maximal number of blocks that a node is shared with.
-        @rtype: int
-        """
-        from ctypes import c_int, byref, POINTER
-        from .dependency import _clib_solvcon_d
-        max_ndcnt = c_int(0)
-        _clib_solvcon_d.count_max_nodeinblock(
-            byref(blk.create_msd()),
-            part.ctypes._as_parameter_,
-            c_int(part.max()+1),
-            byref(max_ndcnt),
-        )
-        return max_ndcnt.value
-
     def partition(self, nblk):
         """
         Partition the whole block into sub-blocks and put information into
@@ -217,7 +195,7 @@ class Collective(Domain, list):
         @param nblk: number of sub-blocks to be partitioned.
         @type nblk: int
         """
-        from numpy import empty, arange, unique
+        from numpy import empty, arange, unique, zeros
         blk = self.blk
         # call partitioner.
         edgecut, part = Partitioner(blk)(nblk)
@@ -237,7 +215,10 @@ class Collective(Domain, list):
             idxinfo.append((mynds, myfcs, mycls))
         self.idxinfo = tuple(idxinfo)
         # prepare mappers.
-        ndmblk = self._count_max_nodeinblock(blk, part)
+        ndcnts = zeros(blk.nnode, dtype='int32')
+        for mynds, myfcs, mycls in self.idxinfo:
+            ndcnts[mynds] += 1
+        ndmblk = ndcnts.max()
         ndmaps = empty((blk.nnode, 1+2*ndmblk), dtype='int32')
         fcmaps = empty((blk.nface, 5), dtype='int32')
         clmaps = empty((blk.ncell, 2), dtype='int32')
@@ -397,7 +378,7 @@ class Collective(Domain, list):
             self._reindex_conn(blk.fcnds, ndmap)
             self._reindex_conn(blk.clnds, ndmap)
             self._reindex_conn(blk.clfcs, fcmap)
-            # Record maps for nodes and cells.
+            # Record maps for nodes and faces.
             locs = ndmaps[mynode,0]
             ndmaps[mynode,1+locs*2] = ndmap[mynode]
             ndmaps[mynode,1+locs*2+1] = iblk
