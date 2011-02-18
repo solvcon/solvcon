@@ -189,3 +189,16 @@ class TestReadTetra(TestCase):
         self.assertEqual(blk.ndcrd.min(), -0.5)
         self.assertEqual(blk.ndcrd.max(), 0.5)
         self.assertAlmostEqual(blk.clvol.sum(), 1.0, 14)
+
+class TestLarge(TestCase):
+    def test_compare(self):
+        import os
+        from ...conf import env
+        from ..genesis import Genesis
+        gn1 = Genesis(os.path.join(env.datadir, 'cubic_t200mm.g'))
+        gn1.load()
+        gn1.close_file()
+        gn2 = Genesis(os.path.join(env.datadir, 'cubic_t200mm_large.g'))
+        gn2.load()
+        gn2.close_file()
+        self.assertTrue((gn1.ndcrd == gn2.ndcrd).all())

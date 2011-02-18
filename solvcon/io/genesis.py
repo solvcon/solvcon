@@ -90,6 +90,8 @@ class Genesis(NetCDF):
 
         @return: nothing
         """
+        from ctypes import c_int, byref
+        from numpy import hstack
         # meta data.
         self.ndim = ndim = self.get_dim('num_dim')
         self.nnode = nnode = self.get_dim('num_nodes')
@@ -114,7 +116,16 @@ class Genesis(NetCDF):
             side = self.get_array('side_ss%d'%(ibc+1), (nface,), 'int32')
             self.bcs[ibc] = (self.bcs[ibc], elem, side)
         # coordinate.
-        self.ndcrd = self.get_array('coord', (ndim, nnode), 'float64').T.copy()
+        large = c_int()
+        self.nc_get_att_int(self.ncid, self.NC_GLOBAL, 'file_size',
+            byref(large))
+        if large.value:
+            vnames = ['coord%s' % ('xyz'[idm]) for idm in range(ndim)]
+            crds = [self.get_array(vn, nnode, 'float64') for vn in vnames]
+            self.ndcrd = hstack([crd.reshape((nnode,1)) for crd in crds])
+        else:
+            self.ndcrd = self.get_array('coord', (ndim, nnode),
+                'float64').T.copy()
         # mapper.
         self.emap = self.get_array('elem_map', (self.ncell,), 'int32')
 
