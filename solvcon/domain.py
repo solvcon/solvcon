@@ -39,7 +39,7 @@ class Domain(object):
 
 class Partitioner(object):
     """
-    Interface to METIS library for domain partition.
+    Interface to SCOTCH/METIS library for domain partition.
 
     @ivar blk: Block object to be partitioned.
     @itype blk: solvcon.block.Block
@@ -80,7 +80,7 @@ class Partitioner(object):
     @classmethod
     def _partgraph(cls, blk, npart, vwgt=None):
         """
-        Call METIS to do the partition.
+        Call SCOTCH/METIS to do the partition.
         """
         from ctypes import c_int, byref
         from numpy import empty
@@ -124,7 +124,7 @@ class Collective(Domain, list):
     Domain retaining the relationship between the collective and the decomposed
     blocks.
 
-    @ivar edgecut: number of edge cut by METIS.
+    @ivar edgecut: number of edge cut by SCOTCH/METIS.
     @itype edgecut: int
     @ivar part: array holding the partitioned indices.
     @itype part: numpy.ndarray
