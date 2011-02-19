@@ -98,6 +98,8 @@ for name in 'scotchmetis-5.1', 'scotchmetis':
         _clib_metis = CDLL('lib%s.so'%name)
     except OSError:
         pass
+    if _clib_metis is not None:
+        break
 del CDLL
 _clib_metis = getcdll('metis') if _clib_metis is None else _clib_metis
 
