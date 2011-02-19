@@ -247,74 +247,12 @@ class Collective(Domain, list):
             self.append(blk)
             iblk += 1
 
-    @staticmethod
-    def _reindex(bemap, idxmap, cond=lambda arr: arr>=0):
+    def compute_neighbor_block(self):
         """
-        Reindex generic arrays.
+        Split step 2: Compute neighboring block information.
         """
-        assert len(bemap.shape) == 1
-        want = cond(bemap)
-        bemap[want] = idxmap[bemap][want]
-    @classmethod
-    def _reindex_conn(cls, conn, idxmap):
-        """
-        Reindex connectivity arrays.
-        """
-        bemap = conn[:,1:].ravel()
-        #want = bemap>=0
-        #bemap[want] = idxmap[bemap][want]
-        cls._reindex(bemap, idxmap)
-        conn[:,1:] = bemap.reshape((conn.shape[0], conn.shape[1]-1))[:,:]
-
-    def split(self, nblk=None, interface_type=None, do_all=True):
-        """
-        Split the whole block according to the partitioning information
-        (self.idxinfo) and write to self list ad self.ifplist.
-
-        In the body of this method, the length of the xxmap (i.e., ndmap,
-        fcmap, and clmap) arrays are actually nxxxx+1, and xxmap[nxxxx] is set
-        to be -1.  By doing this, the negative value (literally -1) in the
-        index array to be mapped can be easily mapped to the correct -1,
-        without complex branching logic.
-
-        Outline the algorithm:
-          1. Distribute connectivity information from whole-block into each
-             sub-block.  At this point, the sub-blocks are instantiated.  BC
-             objects remains untouched.
-          2. With the knowledge of the split in mind, book-keep the
-             connectivity across splitted boundary.  All the indices of nodes,
-             faces, and cells are kept unchange at this point.
-          3. Map the global indices of nodes, faces, and cells to be local to
-             each sub-block.  At the same time, BC objects are distributed to
-             sub-blocks.
-          4. Create interface BC objects for the splitting.
-          5. Supplement the ghost information for splitted blocks.  Also copy
-             relating data across both ends of interfaces.
-
-        @keyword nblk: if None, use already done partition information, else
-            take it as an integer and call partition.
-        @type nblk: int
-        @keyword interface_type: BC type for the interface.  Must be a subclass
-            of solvcon.boundcond.interface.  Setting it to None will use the
-            default solvcon.boundcond.interface.
-        @type interface_type: solvcon.boundcond.interface
-        @keyword do_all: flag to do all steps.
-        @type do_all: bool
-
-        @return: nothing.
-        """
-        from numpy import empty, arange, array
-        from .boundcond import bctregy
-        if isinstance(nblk, int) and self.part is None:
-            self.partition(nblk)
+        from numpy import empty, arange
         part = self.part
-        ndmaps, fcmaps, clmaps = self.mappers
-
-        # Step 1: Distribute all data from the whole-block to each sub-block.
-        if do_all:
-            self.distribute()
-
-        # Step 2: Compute neighboring block information.
         clmap = empty(self.blk.ncell+1, dtype='int32')
         clmap.fill(-1)
         iblk = 0
@@ -352,13 +290,38 @@ class Collective(Domain, list):
             # next.
             iblk += 1
         # Record maps for cells.
+        ndmaps, fcmaps, clmaps = self.mappers
         clmaps[:,0] = clmap[:-1]
         clmaps[:,1] = part[:]
+        return clmap
 
-        # Step 3: Reindex nodes, faces, and cells, and distribute BCs.
+    @staticmethod
+    def _reindex(bemap, idxmap, cond=lambda arr: arr>=0):
+        """
+        Reindex generic arrays.
+        """
+        assert len(bemap.shape) == 1
+        want = cond(bemap)
+        bemap[want] = idxmap[bemap][want]
+    @classmethod
+    def _reindex_conn(cls, conn, idxmap):
+        """
+        Reindex connectivity arrays.
+        """
+        bemap = conn[:,1:].ravel()
+        #want = bemap>=0
+        #bemap[want] = idxmap[bemap][want]
+        cls._reindex(bemap, idxmap)
+        conn[:,1:] = bemap.reshape((conn.shape[0], conn.shape[1]-1))[:,:]
+
+    def reindex(self, clmap):
+        """
+        Split step 3: Reindex nodes, faces, and cells, and distribute BCs.
+        """
+        from numpy import empty, arange
+        ndmaps, fcmaps, clmaps = self.mappers
         ndmap = empty(self.blk.nnode+1, dtype='int32')
         fcmap = empty(self.blk.nface+1, dtype='int32')
-        clmap = clmap
         iblk = 0
         for blk in self:
             mynode, myface, mycell = self.idxinfo[iblk]
@@ -413,10 +376,16 @@ class Collective(Domain, list):
             # next.
             iblk += 1
 
-        # Step 4: Build interface BC objects.
-        if interface_type == None:
+    def build_interface(self, interface_type=None):
+        """
+        Split step 4: Build interface BC objects.
+        """
+        from numpy import empty, arange, array
+        from .boundcond import bctregy
+        if interface_type is None:
             interface_type = bctregy.interface
         assert issubclass(interface_type, bctregy.interface)
+        ndmaps, fcmaps, clmaps = self.mappers
         ifplist = list()
         iblk = 0
         for blk in self:
@@ -474,7 +443,12 @@ class Collective(Domain, list):
             iblk += 1
         self.ifparr = array(ifplist, dtype='int32')
 
-        # Step 5: Supplement the rest of the blocks.
+    def supplement(self):
+        """
+        Split step 5: Supplement the rest of the blocks.
+        """
+        from numpy import array
+        from .boundcond import bctregy
         for blk in self:
             blk.calc_metric()
             blk.build_boundary()
@@ -501,6 +475,57 @@ class Collective(Domain, list):
                 shape.append(getattr(blk, key))
             shapes.append(tuple(shape))
         self.shapes = array(shapes, dtype='int32')
+
+    def split(self, nblk=None, interface_type=None):
+        """
+        Split the whole block according to the partitioning information
+        (self.idxinfo) and write to self list ad self.ifplist.
+
+        In the body of this method, the length of the xxmap (i.e., ndmap,
+        fcmap, and clmap) arrays are actually nxxxx+1, and xxmap[nxxxx] is set
+        to be -1.  By doing this, the negative value (literally -1) in the
+        index array to be mapped can be easily mapped to the correct -1,
+        without complex branching logic.
+
+        Outline the algorithm:
+          1. Distribute connectivity information from whole-block into each
+             sub-block.  At this point, the sub-blocks are instantiated.  BC
+             objects remains untouched.
+          2. With the knowledge of the split in mind, book-keep the
+             connectivity across splitted boundary.  All the indices of nodes,
+             faces, and cells are kept unchange at this point.
+          3. Map the global indices of nodes, faces, and cells to be local to
+             each sub-block.  At the same time, BC objects are distributed to
+             sub-blocks.
+          4. Create interface BC objects for the splitting.
+          5. Supplement the ghost information for splitted blocks.  Also copy
+             relating data across both ends of interfaces.
+
+        @keyword nblk: if None, use already done partition information, else
+            take it as an integer and call partition.
+        @type nblk: int
+        @keyword interface_type: BC type for the interface.  Must be a subclass
+            of solvcon.boundcond.interface.  Setting it to None will use the
+            default solvcon.boundcond.interface.
+        @type interface_type: solvcon.boundcond.interface
+        @keyword do_all: flag to do all steps.
+        @type do_all: bool
+
+        @return: nothing.
+        """
+        # Step 0: partition the graph built from mesh.
+        if isinstance(nblk, int) and self.part is None:
+            self.partition(nblk)
+        # Step 1: Distribute all data from the whole-block to each sub-block.
+        self.distribute()
+        # Step 2: Compute neighboring block information.
+        clmap = self.compute_neighbor_block()
+        # Step 3: Reindex nodes, faces, and cells, and distribute BCs.
+        self.reindex(clmap)
+        # Step 4: Build interface BC objects.
+        self.build_interface(interface_type)
+        # Step 5: Supplement the rest of the blocks.
+        self.supplement()
 
     def make_iflist_per_block(self):
         """
