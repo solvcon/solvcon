@@ -214,6 +214,39 @@ class Collective(Domain, list):
         clmaps.fill(-1)
         self.mappers = (ndmaps, fcmaps, clmaps)
 
+    def distribute(self):
+        """
+        Split step 1: Distribute all data from the whole-block to each
+        sub-block.
+        """
+        from .block import Block
+        del self[:]
+        iblk = 0
+        for mynds, myfcs, mycls in self.idxinfo:
+            blk = Block(ndim=self.blk.ndim,
+                nnode=mynds.shape[0],
+                nface=myfcs.shape[0],
+                ncell=mycls.shape[0],
+                fpdtype=self.blk.fpdtype,
+            )
+            blk.blkn = iblk
+            # names of cell groups.
+            blk.grpnames = self.blk.grpnames    # OK to use a single object.
+            # basic metrics.
+            blk.ndcrd[:,:] = self.blk.ndcrd[mynds,:]
+            # type.
+            blk.fctpn[:] = self.blk.fctpn[myfcs]
+            blk.cltpn[:] = self.blk.cltpn[mycls]
+            blk.clgrp[:] = self.blk.clgrp[mycls]
+            # connectivity.
+            blk.fcnds[:,:] = self.blk.fcnds[myfcs,:]
+            blk.fccls[:,:] = self.blk.fccls[myfcs,:]
+            blk.clnds[:,:] = self.blk.clnds[mycls,:]
+            blk.clfcs[:,:] = self.blk.clfcs[mycls,:]
+            # append.
+            self.append(blk)
+            iblk += 1
+
     @staticmethod
     def _reindex(bemap, idxmap, cond=lambda arr: arr>=0):
         """
@@ -222,7 +255,6 @@ class Collective(Domain, list):
         assert len(bemap.shape) == 1
         want = cond(bemap)
         bemap[want] = idxmap[bemap][want]
-
     @classmethod
     def _reindex_conn(cls, conn, idxmap):
         """
@@ -234,7 +266,7 @@ class Collective(Domain, list):
         cls._reindex(bemap, idxmap)
         conn[:,1:] = bemap.reshape((conn.shape[0], conn.shape[1]-1))[:,:]
 
-    def split(self, nblk=None, interface_type=None):
+    def split(self, nblk=None, interface_type=None, do_all=True):
         """
         Split the whole block according to the partitioning information
         (self.idxinfo) and write to self list ad self.ifplist.
@@ -266,11 +298,12 @@ class Collective(Domain, list):
             of solvcon.boundcond.interface.  Setting it to None will use the
             default solvcon.boundcond.interface.
         @type interface_type: solvcon.boundcond.interface
+        @keyword do_all: flag to do all steps.
+        @type do_all: bool
 
         @return: nothing.
         """
         from numpy import empty, arange, array
-        from .block import Block
         from .boundcond import bctregy
         if isinstance(nblk, int) and self.part is None:
             self.partition(nblk)
@@ -278,32 +311,8 @@ class Collective(Domain, list):
         ndmaps, fcmaps, clmaps = self.mappers
 
         # Step 1: Distribute all data from the whole-block to each sub-block.
-        del self[:]
-        iblk = 0
-        for mynds, myfcs, mycls in self.idxinfo:
-            blk = Block(ndim=self.blk.ndim,
-                nnode=mynds.shape[0],
-                nface=myfcs.shape[0],
-                ncell=mycls.shape[0],
-                fpdtype=self.blk.fpdtype,
-            )
-            blk.blkn = iblk
-            # names of cell groups.
-            blk.grpnames = self.blk.grpnames    # OK to use a single object.
-            # basic metrics.
-            blk.ndcrd[:,:] = self.blk.ndcrd[mynds,:]
-            # type.
-            blk.fctpn[:] = self.blk.fctpn[myfcs]
-            blk.cltpn[:] = self.blk.cltpn[mycls]
-            blk.clgrp[:] = self.blk.clgrp[mycls]
-            # connectivity.
-            blk.fcnds[:,:] = self.blk.fcnds[myfcs,:]
-            blk.fccls[:,:] = self.blk.fccls[myfcs,:]
-            blk.clnds[:,:] = self.blk.clnds[mycls,:]
-            blk.clfcs[:,:] = self.blk.clfcs[mycls,:]
-            # append.
-            self.append(blk)
-            iblk += 1
+        if do_all:
+            self.distribute()
 
         # Step 2: Compute neighboring block information.
         clmap = empty(self.blk.ncell+1, dtype='int32')

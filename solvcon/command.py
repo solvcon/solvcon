@@ -158,9 +158,14 @@ class mesh(Command):
         timer = time()
         dom.partition(ops.split)
         info('done. (%gs)\n' % (time()-timer))
+        info('Split step 1: distribute domain into %d sub-domains ... ' % \
+            ops.split)
+        timer = time()
+        dom.distribute()
+        info('done. (%gs)\n' % (time()-timer))
         info('Split domain into %d parts ... ' % ops.split)
         timer = time()
-        dom.split(ops.split)
+        dom.split(ops.split, do_all=False)
         info('done. (%gs)\n' % (time()-timer))
         dio = DomainIO(dom=dom, compressor=ops.compressor)
         if not os.path.exists(dirname):

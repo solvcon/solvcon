@@ -90,7 +90,16 @@ def _clib_solvcon_of(dtype):
     else:
         raise TypeError
 
-_clib_metis = getcdll('metis')
+# use scotch whenever possible.
+_clib_metis = None
+from ctypes import CDLL
+for name in 'scotchmetis-5.1', 'scotchmetis':
+    try:
+        _clib_metis = CDLL('lib%s.so'%name)
+    except OSError:
+        pass
+del CDLL
+_clib_metis = getcdll('metis') if _clib_metis is None else _clib_metis
 
 class FortranType(Structure):
     """
