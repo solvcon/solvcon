@@ -214,7 +214,7 @@ class GasdynOAnchor(Anchor):
     """
     _varlist_ = ['v', 'rho', 'p', 'T', 'ke', 'a', 'M', 'sch']
     def __init__(self, svr, **kw):
-        self.rsteps = kw.pop('rsteps')
+        self.rsteps = kw.pop('rsteps', 1)
         self.schk = kw.pop('schk', 1.0)
         self.schk0 = kw.pop('schk0', 0.0)
         self.schk1 = kw.pop('schk1', 1.0)
