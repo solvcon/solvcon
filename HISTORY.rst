@@ -21,6 +21,10 @@ Changes:
 - Move sol()/soln() and dsol()/dsoln() from ``solvcon.boundcond`` to kerpak.
 - Remove FORTRAN-related code.
 - Create ``include/`` directory and put header files in it.
+- By default, use SCOTCH-5.1 instead of METIS-4.  METIS-4 fails on allocating
+  memory for meshes with more than 35 million cells.  If SCOTCH cannot be found
+  in system, fall back to METIS-4.
+- Refactor ``solvcon.domain.Collective.split()``.
 
 0.0.2
 =====
