@@ -52,44 +52,29 @@ class Partitioner(object):
     def __call__(self, npart):
         return self._partgraph(self.blk, npart)
 
-    @classmethod
-    def _calculate_rcells(cls, blk):
-        """
-        Calculate related cells.
-        """
-        from ctypes import POINTER, c_int, byref
-        from numpy import empty
-        from .dependency import _clib_solvcon_d
-        rcells = empty((blk.ncell, blk.CLMFC), dtype='int32')
-        rcellno = empty(blk.ncell, dtype='int32')
-        _clib_solvcon_d.build_rcells(
-            byref(blk.create_msd()),
-            rcells.ctypes._as_parameter_,
-            rcellno.ctypes._as_parameter_,
-        )
-        return rcells, rcellno
-
-    @classmethod
-    def _generate_csr(cls, blk):
+    @staticmethod
+    def _generate_csrgraph(blk):
         """
         Interpret a valid unstructured grid block into CSR (Compressed Storage
-        Foramt) that ParMETIS/METIS uses.
+        Format) that ParMETIS/METIS uses.
         """
+        from ctypes import byref
         from numpy import empty, add
+        from .dependency import _clib_solvcon_d
         ncell = blk.ncell
-        # set convenient local names.
-        rcells, rcellno = cls._calculate_rcells(blk)
+        # build the table of related cells.
+        rcells = empty((blk.ncell, blk.CLMFC), dtype='int32')
+        rcellno = empty(blk.ncell, dtype='int32')
+        _clib_solvcon_d.build_rcells(byref(blk.create_msd()),
+            rcells.ctypes._as_parameter_, rcellno.ctypes._as_parameter_)
         # build xadj: cell boundaries.
         xadj = empty(ncell+1, dtype='int32')
         xadj[0] = 0
         xadj[1:] = add.accumulate(rcellno)
         # build adjncy: edge/relations.
         adjncy = empty(xadj[-1], dtype='int32')
-        i = 0
-        while i < ncell:
-            trcells = rcells[i]
-            adjncy[xadj[i]:xadj[i+1]] = trcells[trcells!=-1]
-            i += 1
+        _clib_solvcon_d.build_csr(byref(blk.create_msd()),
+            rcells.ctypes._as_parameter_, adjncy.ctypes._as_parameter_)
         return xadj, adjncy
 
     @classmethod
@@ -97,10 +82,10 @@ class Partitioner(object):
         """
         Call METIS to do the partition.
         """
-        from ctypes import POINTER, c_int, byref
+        from ctypes import c_int, byref
         from numpy import empty
         from .dependency import _clib_metis
-        xadj, adjncy = cls._generate_csr(blk)
+        xadj, adjncy = cls._generate_csrgraph(blk)
         # weighting.
         if vwgt == None:
             vwgt = empty(1, dtype='int32')
@@ -287,7 +272,7 @@ class Collective(Domain, list):
         from numpy import empty, arange, array
         from .block import Block
         from .boundcond import bctregy
-        if isinstance(nblk, int):
+        if isinstance(nblk, int) and self.part is None:
             self.partition(nblk)
         part = self.part
         ndmaps, fcmaps, clmaps = self.mappers
