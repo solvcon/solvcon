@@ -43,8 +43,8 @@ class GasdynSolver(CuseSolver):
         3: getcdll('gasdyn3d_c'),
     }
     __clib_gasdyn_cu = {
-        2: getcdll('gasdyn2d_cu'),
-        3: getcdll('gasdyn3d_cu'),
+        2: getcdll('gasdyn2d_cu', raise_on_fail=False),
+        3: getcdll('gasdyn3d_cu', raise_on_fail=False),
     }
     del getcdll
     @property
@@ -105,8 +105,8 @@ class GasdynBC(CuseBC):
         3: getcdll('gasdynb3d_c'),
     }
     __clib_gasdynb_cu = {
-        2: getcdll('gasdynb2d_cu'),
-        3: getcdll('gasdynb3d_cu'),
+        2: getcdll('gasdynb2d_cu', raise_on_fail=False),
+        3: getcdll('gasdynb3d_cu', raise_on_fail=False),
     }
     del getcdll
     @property

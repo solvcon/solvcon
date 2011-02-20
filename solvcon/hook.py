@@ -691,6 +691,9 @@ class PMarchSave(BlockHook):
         vstep = exe.varstep
         if istep%psteps == 0:
             self._write(istep)
+    def postloop(self):
+        istep = self.cse.execution.step_current
+        self._write(istep)
 
 ################################################################################
 # Hooks for in situ visualization.

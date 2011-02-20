@@ -158,6 +158,9 @@ class MarchSaveAnchor(Anchor):
         istep = self.svr.step_global
         if istep%psteps == 0:
             self._write(istep)
+    def postloop(self):
+        istep = self.svr.step_global
+        self._write(istep)
 
 ################################################################################
 # Anchors for in situ visualization.

@@ -1,0 +1,31 @@
+reset
+# create objects.
+brick x 9
+create cylinder height 9 radius 0.5
+subtract volume 2 from volume 1 keep
+delete volume 1
+brick x 9
+# rotate.
+volume 4 move x 9
+rotate volume 2 3 4 about X angle 90
+volume 2 3 4 move y 4.5
+# merge entities.
+imprint all
+merge surface 7 with surface 10
+merge surface 16 with surface 20
+# BC.
+sideset 1 surface 9
+sideset 1 name "jet"
+sideset 2 surface 14
+sideset 2 name "upstream"
+sideset 3 surface 22
+sideset 3 name "downstream"
+sideset 4 surface 13 15 19 21
+sideset 4 name "side"
+sideset 5 surface 8 12 18
+sideset 5 name "top"
+sideset 6 surface 11 17
+sideset 6 name "wall"
+# mesh.
+volume 2 3 4 size %g
+mesh volume 2 3 4
