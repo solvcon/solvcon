@@ -92,7 +92,9 @@ int bound_nswall_soln(exedata *exd, int nbnd, int *facn) {
         // set momentum.
         mom[0] = -mom[0];
         mom[1] = -mom[1];
+#if NDIM == 3
         mom[2] = -mom[2];
+#endif
         // inversely rotate momentum vector.
 #if NDIM == 3
         pjsoln[1] = matinv[0][0]*mom[0] + matinv[0][1]*mom[1]
