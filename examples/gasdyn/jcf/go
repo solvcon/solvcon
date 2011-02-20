@@ -80,7 +80,7 @@ def jcf_base(casename=None,
     ssteps = int(10**(floor(log10(steps_run))-1))*2
     psteps = int(ceil(float(ssteps)/50))
     # set up BCs.
-    wallbct = bctregy.GasdynNonslipWall if nonslip else bctregy.GasdynWall
+    wallbct = bctregy.GasdynNswall if nonslip else bctregy.GasdynWall
     bcmap = {
         'jet': (bctregy.GasdynInlet, fpj,),
         'upstream': (bctregy.GasdynInlet, fpi,),
@@ -129,7 +129,7 @@ def jcf_skel(casename, **kw):
     return jcf_base(casename=casename,
         gamma=1.4, Mi=1.98, rhoi=0.86, prei=41.8e3, Mj=1.02, rhoj=6.64,
         prej=476.e3, diffname='tau', tauname='scale', taumin=0.1, tauscale=0.9,
-        **kw)
+        nonslip=True, **kw)
 
 ################################################################################
 # Example arrangements.

@@ -137,6 +137,27 @@ class GasdynWall(GasdynBC):
             self._clib_gasdynb_c.bound_wall_dsoln(byref(svr.exd),
                 self.facn.shape[0], self.facn.ctypes._as_parameter_)
 
+class GasdynNswall(GasdynBC):
+    _ghostgeom_ = 'mirror'
+    def soln(self):
+        from ctypes import byref
+        svr = self.svr
+        if svr.scu:
+            self._clib_gasdynb_cu.bound_nswall_soln(svr.ncuth,
+                svr.cumgr.gexd.gptr, self.facn.shape[0], self.cufacn.gptr)
+        else:
+            self._clib_gasdynb_c.bound_nswall_soln(byref(svr.exd),
+                self.facn.shape[0], self.facn.ctypes._as_parameter_)
+    def dsoln(self):
+        from ctypes import byref
+        svr = self.svr
+        if svr.scu:
+            self._clib_gasdynb_cu.bound_nswall_dsoln(svr.ncuth,
+                svr.cumgr.gexd.gptr, self.facn.shape[0], self.cufacn.gptr)
+        else:
+            self._clib_gasdynb_c.bound_nswall_dsoln(byref(svr.exd),
+                self.facn.shape[0], self.facn.ctypes._as_parameter_)
+
 class GasdynInlet(GasdynBC):
     vnames = ['rho', 'v1', 'v2', 'v3', 'p', 'gamma']
     vdefaults = {
