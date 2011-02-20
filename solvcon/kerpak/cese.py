@@ -656,10 +656,10 @@ class CflHook(Hook):
         isp = self.cse.is_parallel
         psteps = self.psteps
         # collect CFL.
-        nCFL = max([m[0] for m in mr['cfl']]) if isp else mr['cfl'][0]
-        xCFL = max([m[1] for m in mr['cfl']]) if isp else mr['cfl'][1]
-        nadj = sum([m[2] for m in mr['cfl']]) if isp else mr['cfl'][2]
-        aadj = sum([m[3] for m in mr['cfl']]) if isp else mr['cfl'][2]
+        nCFL = max([m['cfl'][0] for m in mr]) if isp else mr['cfl'][0]
+        xCFL = max([m['cfl'][1] for m in mr]) if isp else mr['cfl'][1]
+        nadj = sum([m['cfl'][2] for m in mr]) if isp else mr['cfl'][2]
+        aadj = sum([m['cfl'][3] for m in mr]) if isp else mr['cfl'][2]
         hnCFL = min([nCFL, self.hnCFL])
         self.hnCFL = hnCFL if not isnan(hnCFL) else self.hnCFL
         hxCFL = max([xCFL, self.hxCFL])
