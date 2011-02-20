@@ -17,27 +17,20 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 """
-SOLVCON: a multi-physics software framework for high-fidelity solutions of
-partial differential equations (PDEs) by hybrid parallelism.
+SOLVCON: a multi-physics, supercomputing software framework for high-fidelity
+solutions of partial differential equations (PDEs) by hybrid parallelism.
 
-SOLVCON primarily uses Python_, but number-crunching is done by C subroutines
-for speed.  The mixing-language approach allows PDE solvers to be rapidly
-developed for massively parallel computing.  The object-oriented design
-facilitated by Python makes SOLVCON easy to be systematically extended.
-SOLVCON supports pluggable physical models.  Stocking ones are accessible in
-the namespace ``solvcon.kerpak``.
+SOLVCON facilitates rapid devlopment of PDE solvers for massively parallel
+computing.  C or CUDA_ is used for fast number-crunching.  SOLVCON is designed
+for extension to various physical processes.  Numerical algorithms and physical
+models are pluggable.  Sub-package ``solvcon.kerpak`` contains default
+implementations.  The default numerical algorithm in SOLVCON is the space-time
+Conservation Element and Solution Element (CESE_) method, which was originally
+developed by Sin-Chung Chang at NASA Glenn Research Center.  The CESE_ method
+solves generic, first-order, hyperbolic PDEs.
 
-The default numerical algorithm in SOLVCON is the space-time Conservation
-Element and Solution Element (CESE_) method, which was originally developed by
-Sin-Chung Chang at NASA Glenn Research Center.  The CESE_ method delivers
-time-accurate solutions of hyperbolic PDEs, and has been used to solve various
-physical processes including fluid dynamics, aero-acoustics, detonations,
-magnetohydrodynamics (MHD), stress waves in complex solids, electromagnetics,
-to be named but a few.
-
-SOLVCON is free software and released under GPLv2.  See
-http://www.gnu.org/licenses/gpl-2.0.html or ``COPYING`` for the license.
-SOLVCON is being developed and maintained by `Yung-Yu Chen
+SOLVCON is released under `GNU GPLv2
+<http://www.gnu.org/licenses/gpl-2.0.html>`_, and developed by `Yung-Yu Chen
 <mailto:yyc@solvcon.net>`_ and `Sheng-Tao John Yu <mailto:yu.274@osu.edu>`_.
 
 Key Features
@@ -46,7 +39,7 @@ Key Features
 - **Multi-physics**: Pluggable physical models by the built-in CESE_ solvers
 - **Complex geometry**: 2/3D unstructured mesh consisting of mixed shapes
 - **Massively parallel**: Automatic domain decomposition with MPI or socket
-- **GPU cluster**: Hybrid parallelism with CUDA_
+- **GPGPU computing**: Hybrid parallelism with CUDA_
 - **Large data set**: In situ visualization by VTK_ and parallel I/O
 - **I/O formats**: VTK, GAMBIT Neutral, CUBIT Genesis/ExodosII, etc.
 - **Productive work flow**: Integration to batch systems, e.g., Torque
@@ -75,13 +68,13 @@ to install the dependencies::
     python2.6 python2.6-dev python-profiler python-numpy
     libscotch-5.1 python-nose python-epydoc python-vtk
 
-CUDA_ needs to be separately installed and configured for the CUDA support in
-SOLVCON to correctly work.  For dealing with meshes with more then 35 million
-cells, SCOTCH-5.1 is recommended, for METIS-4 has issues on memory allocation.
+CUDA_ needs to be separately installed and configured.  For using meshes with
+more then 35 million cells, SCOTCH-5.1 is recommended.  METIS-4 has issues on
+memory allocation for large graphes.
 
-Installation needs only three steps:
+The three steps to install:
 
-1. First, obtain the latest release from
+1. Obtain the latest release from
    https://bitbucket.org/yungyuc/solvcon/downloads .  Unpack the source
    tarball.  Let ``$SCSRC`` indicate the root directory of unpacked source
    tree.
@@ -95,6 +88,12 @@ Installation needs only three steps:
 
      $ python setup.py install
 
+   Optionally, you can install SOLVCON to your home directory.  It is useful
+   when you don't have the root permission on the system.  To do this, add the
+   ``--user`` when invoking the ``setup.py`` script::
+
+     $ python setup.py install --user
+
 The option ``--download`` used above asks the building script to download
 necessary external source packages, e.g., METIS_, from Internet.  Option
 ``--extract`` extracts the downloaded packages.  Since METIS is incompatible to
@@ -105,9 +104,8 @@ automatically applied to the downloaded METIS source with the
 Install from Repository
 =======================
 
-Since SOLVCON is in intensive development, you may want to use the latest
-source from the code repository.  You need to install Mercurial_, clone the
-repository to your local disk::
+To use the latest source from the code repository, you need to use Mercurial_
+to clone the repository to your local disk::
 
   $ sudo apt-get install mercurial
   $ hg clone https://bitbucket.org/yungyuc/solvcon
@@ -126,32 +124,28 @@ If you want to rebuild and reinstall, you can run::
 without using the options ``--download``, ``--extract``, and
 ``--apply-patches``.  If you want a clean rebuild, run ``scons -c`` before
 ``scons``.  Note, ``scons -c`` does not remove the unpacked source, so you
-don't need to reapply the patches unless you have deleted the unpacked source
-files.
-
-You can optionally install SOLVCON to your home directory rather than to the
-system.  It is convenient when you don't have the root permission on the
-system.  To do that, add the ``--user`` when invoking the ``setup.py`` script::
-
-  $ python setup.py install --user
+don't need to reapply the patches unless you manually deleted it.
 
 Unit Test
 =========
 
 If you have Nose_ installed, you can run::
 
+  $ nosetests
+
+inside the source tree for unit tests.  To test installed version, use the
+following command instead::
+
   $ python -c 'import solvcon; solvcon.test()'
 
-for unit tests.  Inside the source tree, you can also use::
-
-  $ nosetests
+When testing installed version, make sure your current directory does not have
+a sub-directory named as ``solvcon``.
 
 Because SOLVCON uses ssh_ as its default approach for remote procedure call
 (RPC), you need to set up the public key authentication for ssh, or some of the
-unit tests for RPC could fail.  Every test should pass, except some
-non-applicable to your environment could be skipped (indicated by S).  For
-example, if you do not have VTK_ and its Python binding, VTK-related tests will
-be skipped.
+unit tests for RPC could fail.  Some tests using optional libraries could be
+skipped (indicated by S), if you do not have the libraries installed.
+Everything else should pass.
 
 Resources
 =========

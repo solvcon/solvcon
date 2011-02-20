@@ -1,5 +1,11 @@
-Developing
-==========
+0.0.3
+=====
+
+The biggest improvement of this release is the addition of CUDA-enabled, CESE
+base solver kernel ``solvcon.kerpak.cuse``.  ``cuse`` is designed to use either
+pthread on CPU or CUDA on GPU.  The release also contains many important
+features for future development, including interface with CUBIT, incorporation
+of SCOTCH-5.1 for partitioning large graph.
 
 New features:
 
@@ -9,7 +15,7 @@ New features:
 - Add special CESE solver for linear equations in ``solvcon.kerpak.lincese``.
 - Add 2/3D anisotropic, linear elastic solver based on linear CESE solver in
   ``solvcon.kerpak.elaslin``.
-- Add an example for custom solver in ``example/misc/elas3d``.
+- Add an example for custom solver in ``examples/misc/elas3d``.
 - Add a ctypes-based CUDA wrapper in ``solvcon.scuda``.
 - Add CUDA-enabled 2nd-order CESE solver.
 - Add non-slip wall to ``solvcon.kerpak.gasdyn``.
