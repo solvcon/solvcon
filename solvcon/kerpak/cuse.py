@@ -345,10 +345,10 @@ class CuseSolver(BlockSolver):
             if self.nsca: self.cumgr.arr_to_gpu('amsca')
             if self.nvec: self.cumgr.arr_to_gpu('amvec')
         super(CuseSolver, self).boundcond()
-        for bc in self.bclist: bc.soln()
+        self.call_non_interface_bc('soln')
         if self.scu:
             self.cumgr.arr_from_gpu('sol', 'soln')
-        for bc in self.bclist: bc.dsoln()
+        self.call_non_interface_bc('dsoln')
         if self.scu:
             self.cumgr.arr_from_gpu('dsol', 'dsoln')
 
@@ -453,7 +453,7 @@ class CuseSolver(BlockSolver):
     MMNAMES.append('bcsoln')
     def bcsoln(self, worker=None):
         if self.debug: self.mesg('bcsoln')
-        for bc in self.bclist: bc.soln()
+        self.call_non_interface_bc('soln')
         if self.debug: self.mesg(' done.\n')
 
     MMNAMES.append('calccfl')
@@ -480,7 +480,7 @@ class CuseSolver(BlockSolver):
     MMNAMES.append('bcdsoln')
     def bcdsoln(self, worker=None):
         if self.debug: self.mesg('bcdsoln')
-        for bc in self.bclist: bc.dsoln()
+        self.call_non_interface_bc('dsoln')
         if self.debug: self.mesg(' done.\n')
 
 ###############################################################################

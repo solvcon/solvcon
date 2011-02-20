@@ -288,8 +288,8 @@ class CeseSolver(BlockSolver):
 
     def boundcond(self):
         super(CeseSolver, self).boundcond()
-        for bc in self.bclist: bc.soln()
-        for bc in self.bclist: bc.dsoln()
+        self.call_non_interface_bc('soln')
+        self.call_non_interface_bc('dsoln')
 
     ##################################################
     # library.
@@ -353,7 +353,7 @@ class CeseSolver(BlockSolver):
     MMNAMES.append('bcsoln')
     def bcsoln(self, worker=None):
         if self.debug: self.mesg('bcsoln')
-        for bc in self.bclist: bc.soln()
+        self.call_non_interface_bc('soln')
         if self.debug: self.mesg(' done.\n')
 
     MMNAMES.append('calccfl')
@@ -380,7 +380,7 @@ class CeseSolver(BlockSolver):
     MMNAMES.append('bcdsoln')
     def bcdsoln(self, worker=None):
         if self.debug: self.mesg('bcdsoln')
-        for bc in self.bclist: bc.dsoln()
+        self.call_non_interface_bc('dsoln')
         if self.debug: self.mesg(' done.\n')
 
 ################################################################################
