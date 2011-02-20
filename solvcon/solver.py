@@ -511,7 +511,7 @@ class BlockSolver(BaseSolver):
         """
         pass
 
-    def call_non_interface_bc(name, *args, **kw):
+    def call_non_interface_bc(self, name, *args, **kw):
         """
         Call method of each of non-interface BC objects in my list.
 
@@ -520,7 +520,7 @@ class BlockSolver(BaseSolver):
         @return: nothing
         """
         from .boundcond import interface
-        bclist = [bc for bc in self.bclist if not isinstance(interface, bc)]
+        bclist = [bc for bc in self.bclist if not isinstance(bc, interface)]
         for bc in bclist:
             getattr(bc, name)(*args, **kw)
 
