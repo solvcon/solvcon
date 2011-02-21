@@ -1,6 +1,8 @@
 0.0.3
 =====
 
+Date: 2011/2/20
+
 The biggest improvement of this release is the addition of CUDA-enabled, CESE
 base solver kernel ``solvcon.kerpak.cuse``.  ``cuse`` is designed to use either
 pthread on CPU or CUDA on GPU.  The release also contains many important
