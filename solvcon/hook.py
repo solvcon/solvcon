@@ -686,14 +686,14 @@ class PMarchSave(BlockHook):
         self._write(0)
     def postmarch(self):
         psteps = self.psteps
-        exe = self.cse.execution
-        istep = exe.step_current
-        vstep = exe.varstep
+        istep = self.cse.execution.step_current
         if istep%psteps == 0:
             self._write(istep)
     def postloop(self):
+        psteps = self.psteps
         istep = self.cse.execution.step_current
-        self._write(istep)
+        if istep%psteps != 0:
+            self._write(istep)
 
 ################################################################################
 # Hooks for in situ visualization.
@@ -780,8 +780,11 @@ class PVtkHook(BlockHook):
         self._write(0)
     def postmarch(self):
         psteps = self.psteps
-        exe = self.cse.execution
-        istep = exe.step_current
-        vstep = exe.varstep
+        istep = self.cse.execution.step_current
         if istep%psteps == 0:
+            self._write(istep)
+    def postloop(self):
+        psteps = self.psteps
+        istep = self.cse.execution.step_current
+        if istep%psteps != 0:
             self._write(istep)

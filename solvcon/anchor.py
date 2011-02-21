@@ -159,8 +159,10 @@ class MarchSaveAnchor(Anchor):
         if istep%psteps == 0:
             self._write(istep)
     def postloop(self):
+        psteps = self.psteps
         istep = self.svr.step_global
-        self._write(istep)
+        if istep%psteps != 0:
+            self._write(istep)
 
 ################################################################################
 # Anchors for in situ visualization.
@@ -227,6 +229,11 @@ class VtkAnchor(Anchor):
         psteps = self.psteps
         istep = self.svr.step_global
         if istep%psteps == 0:
+            self.process(istep)
+    def postloop(self):
+        psteps = self.psteps
+        istep = self.svr.step_global
+        if istep%psteps != 0:
             self.process(istep)
     def process(self, istep):
         """
