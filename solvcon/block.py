@@ -20,7 +20,6 @@
 
 from ctypes import Structure
 from numpy import array
-from .dependency import FortranType
 
 # metadata for unstructured mesh.
 elemtype = array([

@@ -20,12 +20,10 @@
 Logic for using external compiled libraries.
 """
 
-from ctypes import byref, c_int, c_float, c_double, POINTER, Structure
-# TODO: del byref
-del c_int, c_float, c_double, POINTER
-from .conf import env
-
 def str_of(dtype):
+    """
+    Determine the string representation of a dtype of floating-point.
+    """
     import numpy as np
     for dtypestr in 'float64', 'float32':
         if dtype == getattr(np, dtypestr):
@@ -68,6 +66,7 @@ def getcdll(libname, location=None, raise_on_fail=True):
     @rtype: ctypes.CDLL
     """
     import os
+    from .conf import env
     location = env.libdir if location is None else location
     try:
         lib = loadcdll(location, 'sc_'+libname)
@@ -90,7 +89,7 @@ def _clib_solvcon_of(dtype):
     else:
         raise TypeError
 
-# use scotch whenever possible.
+# use SCOTCH-5.1 whenever possible.
 _clib_metis = None
 from ctypes import CDLL
 for name in 'scotchmetis-5.1', 'scotchmetis':
@@ -102,99 +101,3 @@ for name in 'scotchmetis-5.1', 'scotchmetis':
         break
 del CDLL
 _clib_metis = getcdll('metis') if _clib_metis is None else _clib_metis
-
-class FortranType(Structure):
-    """
-    A modified ctypes Structure that can generate text for FORTRAN TYPE 
-    definition.
-    
-    @note: ctypes is magic!
-      1. You can't just override the base constructor. Somehow ctypes.Structure
-         doesn't like it and gives wrong memory address.  If you do override,
-         potential bug is there.  Use absorb() method to mimic customized
-         constructor.
-      2. Metaclassing Structure is dangerous.  Don't do that.
-      3. Don't subclass TWICE.  Problems were experienced when there's another
-         layer of inheritance.
-
-    @cvar _fortran_name_: FORTRAN TYPE name.
-    @ctype _fortran_name_: str
-    @cvar typemapper: map from ctypes type to FORTRAN declaration type string.
-    @ctype typemapper: dict
-    """
-
-    _fortran_name_ = None
-    from ctypes import c_int, c_double
-    typemapper = {
-        c_int: 'integer*4',
-        c_double: 'real*8',
-    }
-    del c_int, c_double
-
-    def __str__(self):
-        assert self._fortran_name_
-        lst = []
-        lst.append('type %s' % self._fortran_name_)
-        for name, vartype in self._fields_:
-            lst.append('    %s :: %s = %s' % (
-                self.typemapper[vartype], name, getattr(self, name)))
-        lst.append('end type %s' % self._fortran_name_)
-        outdata = '\n'.join(lst)
-        return outdata
-
-    def to_text(self, out=None):
-        """
-        @keyword out: output file.  Can be None (output to no file).
-        @type out: file
-        @return: converted text.
-        @rtype: str
-        """
-        assert self._fortran_name_
-
-        lst = []
-        lst.append('type %s' % self._fortran_name_)
-        for name, vartype in self._fields_:
-            lst.append('    %s :: %s' % (self.typemapper[vartype], name))
-        lst.append('end type %s' % self._fortran_name_)
-        outdata = '\n'.join(lst)
-
-        if isinstance(out, str):
-            out = open(out, 'w')
-        if out:
-            out.write(outdata)
-        return outdata
-
-    def absorb(self, another):
-        """
-        Absorb the fields value from another ctypes structure.
-
-        @param another: another ftype/ctypes structure.
-        @type another: FortranType
-        @return: nothing.
-        """
-        myfields = self._fields_
-        ivar = 0
-        for key, vartype in another._fields_:
-            # check.
-            myname, mytype = myfields[ivar]
-            assert myname == key
-            assert mytype == vartype
-            # set.
-            val = getattr(another, key)
-            setattr(self, key, val)
-            ivar += 1
-
-    def become(self, othertype):
-        """
-        Make object of another subclass and absort self to it.
-
-        @param othertype: a subclass of self.
-        @type othertype: type
-        @return: absorbed other object.
-        @rtype: FortranType
-        """
-        other = othertype()
-        other.absorb(self)
-        return other
-
-del Structure

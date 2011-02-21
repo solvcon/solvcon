@@ -53,9 +53,8 @@ class BaseSolver(object):
     @cvar _clib_solve: the external dll (accessible through ctypes) which do
         the cell loop.  Subclass should override it.
     @ctype _clib_solve: ctypes.CDLL
-    @cvar _exeinfotype_: the type of Exeinfo (solvcon.dependency.FortranType) 
-        for the solver.
-    @ctype _exeinfotype_: type
+    @cvar _exedatatype_: the C struct definition in ctypes.Structure.
+    @ctype _exedatatype_: ctypes.Structure
 
     @cvar MESG_FILENAME_DEFAULT = the default file name for serial solver
         object.
