@@ -1,7 +1,7 @@
 0.0.3
 =====
 
-Date: 2011/2/20
+Date: 2011/2/20 GMT-0500
 
 The biggest improvement of this release is the addition of CUDA-enabled, CESE
 base solver kernel ``solvcon.kerpak.cuse``.  ``cuse`` is designed to use either
