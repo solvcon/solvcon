@@ -1,11 +1,11 @@
 0.0.3
 =====
 
-Date: 2011/2/20 GMT-0500
+Release date: 2011/2/20 (GMT-0500)
 
 The biggest improvement of this release is the addition of CUDA-enabled, CESE
-base solver kernel ``solvcon.kerpak.cuse``.  ``cuse`` is designed to use either
-pthread on CPU or CUDA on GPU.  The release also contains many important
+base solver kernel ``solvcon.kerpak.cuse``.  ``cuse`` module is designed to use
+either pthread on CPU or CUDA on GPU.  The release also contains many important
 features for future development, including interface with CUBIT, incorporation
 of SCOTCH-5.1 for partitioning large graph.
 
@@ -13,7 +13,7 @@ New features:
 
 - Add ctypes-based netCDF reading support in ``solvcon.io.netcdf``.
 - Add Cubit/Genesis/ExodosII reader in ``solvcon.io.genesis``.
-- Add Cubit invokation helper for on-the-fly mesh generation.
+- Add Cubit invocation helper for on-the-fly mesh generation.
 - Add special CESE solver for linear equations in ``solvcon.kerpak.lincese``.
 - Add 2/3D anisotropic, linear elastic solver based on linear CESE solver in
   ``solvcon.kerpak.elaslin``.
@@ -25,7 +25,7 @@ New features:
 Changes:
 
 - Refactor coupling of periodic boundary condition.
-- Remove ``\*ptr`` in ``solvcon.dependency``.
+- Remove ``*ptr`` in ``solvcon.dependency``.
 - Correct sol() to soln() and dsol() to dsoln() in BC.
 - Move sol()/soln() and dsol()/dsoln() from ``solvcon.boundcond`` to kerpak.
 - Remove FORTRAN-related code.
