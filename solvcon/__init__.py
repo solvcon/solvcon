@@ -70,7 +70,7 @@ to install the dependencies::
 
 CUDA_ needs to be separately installed and configured.  For using meshes with
 more then 35 million cells, SCOTCH-5.1 is recommended.  METIS-4 has issues on
-memory allocation for large graphes.
+memory allocation for large graphs.
 
 The three steps to install:
 
