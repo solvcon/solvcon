@@ -760,19 +760,17 @@ class PVtkHook(BlockHook):
         if not self.cse.execution.npart:
             return
         # collect data.
-        sarrs = dict()
-        varrs = dict()
+        arrs = list()
         for key, inder, ndim in self.anames:
             if ndim > 0:
-                varrs[key] = self.fpdtype
+                arrs.append((key, self.fpdtype, True))
             elif ndim < 0:
                 for it in range(abs(ndim)):
-                    sarrs['%s[%d]' % (key, it)] = self.fpdtype
+                    arrs.append(('%s[%d]' % (key, it), self.fpdtype, False))
             else:
-                sarrs[key] = self.fpdtype
+                arrs.append((key, self.fpdtype, False))
         # write.
-        wtr = PVtkXmlPolyDataWriter(self.blk, fpdtype=self.fpdtype,
-            scalars=sarrs, vectors=varrs,
+        wtr = PVtkXmlPolyDataWriter(self.blk, fpdtype=self.fpdtype, arrs=arrs,
             npiece=self.cse.execution.npart, pextmpl=self.pextmpl)
         vtkfn = self.vtkfn_tmpl % istep
         self.info('Writing \n  %s\n... ' % vtkfn)

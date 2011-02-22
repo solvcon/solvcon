@@ -435,22 +435,19 @@ class PVtkXmlPolyDataWriter(VtkXmlWriter):
     Parallel VTK XML polydata file format.  Note the default fpdtype is
     float32, since the vtk.vtkXMLPolyDataWriter write Points in Float32 format.
 
-    @ivar scalars: dictionary holding scalar data.
-    @itype scalars: dict
-    @ivar vectors: dictionary holding vector data.
-    @itype vectors: dict
     @ivar npiece: number of pieces of the parallel writer.
     @itype npiece: int
     @ivar pextmpl: ext filename template.
     @itype pextmpl: str
+    @ivar arrs: specification of point arrays; list of (key, dtype, isvec).
+    @itype arrs: list
     """
     def __init__(self, blk, *args, **kw):
         kw.setdefault('fpdtype', 'float32')
-        self.scalars = kw.pop('scalars', dict())
-        self.vectors = kw.pop('vectors', dict())
         npiece = kw.pop('npiece')
         self.npiece = npiece if npiece else 1
         self.pextmpl = kw.pop('pextmpl')
+        self.arrs = kw.pop('arrs')
         super(PVtkXmlPolyDataWriter, self).__init__(blk, *args, **kw)
 
     def write(self, outf, close_on_finish=False):
@@ -481,14 +478,10 @@ class PVtkXmlPolyDataWriter(VtkXmlWriter):
         ]))
         # data.
         outf.write(self._tag_open('PPointData'))
-        for key in sorted(self.scalars.keys()):
-            dtype = self.scalars[key]
+        for key, dtype, isvec in self.arrs:
             attr = [('type', self.dtype_map[str(dtype)]), ('Name', key)]
-            outf.write(self._tag_open('PDataArray', attr, close=True))
-        for key in sorted(self.vectors.keys()):
-            dtype = self.vectors[key]
-            attr = [('type', self.dtype_map[str(dtype)]), ('Name', key),
-                ('NumberOfComponents', 3)]
+            if isvec:
+                attr.append(('NumberOfComponents', 3))
             outf.write(self._tag_open('PDataArray', attr, close=True))
         outf.write(self._tag_close('PPointData'))
         outf.write(self._tag_open('PCellData'))
