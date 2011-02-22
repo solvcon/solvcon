@@ -32,6 +32,30 @@ from solvcon.kerpak import gasdyn
 from solvcon.anchor import VtkAnchor
 
 ################################################################################
+# In situ visualization.
+################################################################################
+class CutVtkAnchor(VtkAnchor):
+    def process(self, istep):
+        from solvcon.visual_vtk import Vop
+        self._aggregate()
+        self.svr.ust.GetCellData().SetActiveScalars('p')
+        usp = Vop.c2p(self.svr.ust)
+        usp.Update()
+        fts = list()
+        #cut = Vop.cut(usp, (0,0,1), (0,0,1))
+        #cnr = Vop.contour_range(cut, 50, 30000, 300000)
+        #cnr.Update()
+        #fts.append(cnr)
+        fts.append(Vop.cut(usp, (0,0.1,0), (0,1,0)))
+        fts[-1].Update()
+        fts.append(Vop.cut(usp, (0,4.5,0), (0,0,1)))
+        fts[-1].Update()
+        #fts.append(Vop.contour_value(usp, 0, 300000))
+        #fts[-1].Update()
+        lpd = Vop.lump_poly(*fts)
+        Vop.write_poly(lpd, self.vtkfn)
+
+################################################################################
 # Mesh generation.
 ################################################################################
 def mesher(cse):
@@ -111,15 +135,25 @@ def jcf_base(casename=None,
     # analyzing/output anchors and hooks.
     cse.runhooks.append(gasdyn.GasdynOAnchor)
     cse.runhooks.append(hook.PMarchSave, anames=[
-        ('soln', False, -5),
+        #('soln', False, -5),
         ('rho', True, 0),
         ('p', True, 0),
-        ('T', True, 0),
-        ('ke', True, 0),
+        #('T', True, 0),
+        #('ke', True, 0),
         ('M', True, 0),
         ('sch', True, 0),
         ('v', True, 0.5),
     ], psteps=ssteps, fpdtype='float32', compressor='gz')
+    cse.runhooks.append(hook.PVtkHook, anames=[
+        #('soln', False, -5),
+        ('rho', True, 0),
+        ('p', True, 0),
+        #('T', True, 0),
+        #('ke', True, 0),
+        ('M', True, 0),
+        ('sch', True, 0),
+        ('v', True, 0.5),
+    ], ankcls=CutVtkAnchor, psteps=ssteps)
     return cse
 
 def jcf_skel(casename, **kw):
