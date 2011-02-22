@@ -726,6 +726,7 @@ class PVtkHook(BlockHook):
         self.fpdtype = kw.pop('fpdtype', 'float32')
         self.altdir = kw.pop('altdir', '')
         self.altsym = kw.pop('altsym', '')
+        self.ankkw = kw.pop('ankkw', dict())
         super(PVtkHook, self).__init__(cse, **kw)
         # override vtkfn_tmpl.
         nsteps = cse.execution.steps_run
@@ -750,8 +751,9 @@ class PVtkHook(BlockHook):
         import os
         basefn = os.path.splitext(self.vtkfn_tmpl)[0]
         anames = dict([(ent[0], ent[1]) for ent in self.anames])
-        ankkw = dict(anames=anames, fpdtype=self.fpdtype, psteps=self.psteps,
-            vtkfn_tmpl=basefn+self.pextmpl)
+        ankkw = self.ankkw.copy()
+        ankkw.update(dict(anames=anames, fpdtype=self.fpdtype,
+            psteps=self.psteps, vtkfn_tmpl=basefn+self.pextmpl))
         self._deliver_anchor(svr, self.ankcls, ankkw)
     def _write(self, istep):
         from .io.vtkxml import PVtkXmlPolyDataWriter

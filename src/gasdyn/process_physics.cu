@@ -20,13 +20,13 @@
 
 #ifdef __CUDACC__
 __global__ void cuda_process_physics(exedata *exd,
-        double *vel, double *rho, double *pre, double *tem, double *ken,
-        double *sos, double *mac) {
+        double *vel, double *vor, double *vorm, double *rho, double *pre,
+        double *tem, double *ken, double *sos, double *mac) {
     int istart = blockDim.x * blockIdx.x + threadIdx.x;
 #else
 int process_physics(exedata *exd, int istart, int iend,
-        double *vel, double *rho, double *pre, double *tem, double *ken,
-        double *sos, double *mac) {
+        double *vel, double *vor, double *vorm, double *rho, double *pre,
+        double *tem, double *ken, double *sos, double *mac) {
     struct tms timm0, timm1;
     int cputicks;
     times(&timm0);
@@ -37,7 +37,8 @@ int process_physics(exedata *exd, int istart, int iend,
     // pointers.
     double *pclcnd, *pcecnd;
     double *pamsca, *psoln, *pdsoln;
-    double *prho, *pvel, *ppre, *ptem, *pken, *psos, *pmac;
+    double (*pvd)[NDIM];    // shorthand for derivative.
+    double *prho, *pvel, *pvor, *pvorm, *ppre, *ptem, *pken, *psos, *pmac;
     // scalars.
     double ga, ga1;
     // arrays.
@@ -49,6 +50,8 @@ int process_physics(exedata *exd, int istart, int iend,
     pamsca = exd->amsca + istart*NSCA;
     psoln = exd->soln + istart*NEQ;
     pvel = vel + (istart+exd->ngstcell)*NDIM;
+    pvor = vor + (istart+exd->ngstcell)*NDIM;
+    pvorm = vorm + istart+exd->ngstcell;
     prho = rho + istart+exd->ngstcell;
     ppre = pre + istart+exd->ngstcell;
     ptem = tem + istart+exd->ngstcell;
@@ -64,6 +67,7 @@ int process_physics(exedata *exd, int istart, int iend,
         ga = pamsca[0];
         ga1 = ga - 1;
         pdsoln = exd->dsoln + icl*NEQ*NDIM;
+        pvd = (double (*)[NDIM])pdsoln;
         sft[0] = pclcnd[0] - pcecnd[0];
         sft[1] = pclcnd[1] - pcecnd[1];
 #if NDIM == 3
@@ -96,6 +100,21 @@ int process_physics(exedata *exd, int istart, int iend,
         pvel[2] /= prho[0];
         pken[0] += pvel[2]*pvel[2];
 #endif
+        // vorticity.
+#if NDIM == 3
+        pvor[0] = ((pvd[3][1] - pvd[2][2])
+                 - (pvel[2]*pvd[0][1] - pvel[1]*pvd[0][2])) / prho[0];
+        pvor[1] = ((pvd[1][2] - pvd[3][0])
+                 - (pvel[0]*pvd[0][2] - pvel[2]*pvd[0][0])) / prho[0];
+        pvor[2] = ((pvd[2][0] - pvd[1][1])
+                 - (pvel[1]*pvd[0][0] - pvel[0]*pvd[0][1])) / prho[0];
+        pvorm[0] = sqrt(pvor[0]*pvor[0] + pvor[1]*pvor[1] + pvor[2]*pvor[2]);
+#else
+        pvor[0] = ((pvd[2][0] - pvd[1][1])
+                 - (pvel[1]*pvd[0][0] - pvel[0]*pvd[0][1])) / prho[0];
+        pvor[1] = pvor[0];
+        pvorm[0] = fabs(pvor[0]);
+#endif
         // kinetic energy.
         pken[0] *= prho[0]/2;
         // pressure.
@@ -121,6 +140,8 @@ int process_physics(exedata *exd, int istart, int iend,
         pamsca += 1;
         psoln += NEQ;
         pvel += NDIM;
+        pvor += NDIM;
+        pvorm += 1;
         prho += 1;
         ppre += 1;
         ptem += 1;
@@ -137,11 +158,11 @@ int process_physics(exedata *exd, int istart, int iend,
     };
 };
 extern "C" int process_physics(int nthread, exedata *exc, void *gexc,
-        double *vel, double *rho, double *pre, double *tem, double *ken,
-        double *sos, double *mac) {
+        double *vel, double *vor, double *vorm, double *rho, double *pre,
+        double *tem, double *ken, double *sos, double *mac) {
     int nblock = (exc->ncell + nthread-1) / nthread;
     cuda_process_physics<<<nblock, nthread>>>((exedata *)gexc,
-        vel, rho, pre, tem, ken, sos, mac);
+        vel, vor, vorm, rho, pre, tem, ken, sos, mac);
     cudaThreadSynchronize();
     return 0;
 };

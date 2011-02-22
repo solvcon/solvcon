@@ -245,6 +245,8 @@ class GasdynOAnchor(Anchor):
         der = svr.der
         svr._tcall(svr._clib_gasdyn_c.process_physics, -svr.ngstcell, svr.ncell,
             der['v'].ctypes._as_parameter_,
+            der['w'].ctypes._as_parameter_,
+            der['wm'].ctypes._as_parameter_,
             der['rho'].ctypes._as_parameter_,
             der['p'].ctypes._as_parameter_,
             der['T'].ctypes._as_parameter_,
@@ -270,6 +272,8 @@ class GasdynOAnchor(Anchor):
         der = svr.der
         nelm = svr.ngstcell + svr.ncell
         der['v'] = empty((nelm, svr.ndim), dtype=svr.fpdtype)
+        der['w'] = empty((nelm, svr.ndim), dtype=svr.fpdtype)
+        der['wm'] = empty(nelm, dtype=svr.fpdtype)
         der['rho'] = empty(nelm, dtype=svr.fpdtype)
         der['p'] = empty(nelm, dtype=svr.fpdtype)
         der['T'] = empty(nelm, dtype=svr.fpdtype)
