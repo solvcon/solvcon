@@ -171,7 +171,7 @@ class MarchSaveAnchor(Anchor):
 class VtkAnchor(Anchor):
     """
     Abstract class for VTK filtering anchor.  Must override process() method
-    for use.
+    for use.  Note: svr.ust is shared by all VtkAnchor instances.
 
     @ivar anames: the arrays in der of solvers to be saved.  True means in der.
     @itype anames: dict
@@ -188,6 +188,7 @@ class VtkAnchor(Anchor):
         self.psteps = kw.pop('psteps')
         self.vtkfn_tmpl = kw.pop('vtkfn_tmpl')
         self.vac = dict()
+        print self.anames
         super(VtkAnchor, self).__init__(svr, **kw)
     @property
     def vtkfn(self):
@@ -209,7 +210,7 @@ class VtkAnchor(Anchor):
         fpdtype = self.fpdtype
         ust = self.svr.ust
         # collect derived.
-        for key in self.anames:
+        for key in self.anames: # FIXME: should allow ordering.
             # get the array.
             if self.anames[key]:
                 arr = self.svr.der[key][ngstcell:]
