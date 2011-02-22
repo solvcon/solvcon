@@ -704,6 +704,9 @@ class PVtkHook(BlockHook):
     Anchor dropper and wrapping PVTP file writer.  Note, fpdtype should be set
     to single precision or parallel VTP file could be in wrong format.
 
+    @ivar name: name of this VTK operation set; there can be multiple operation
+        sets attaching on a Case object; default is None.
+    @itype name: str
     @ivar anames: the arrays in der of solvers to be saved.  Format is (name,
         inder, ndim), (name, inder, ndim) ...  For ndim > 0 the
         array is a spatial vector, for ndim == 0 a simple scalar, and ndim < 0
@@ -722,6 +725,7 @@ class PVtkHook(BlockHook):
     def __init__(self, cse, **kw):
         import os
         from math import log10, ceil
+        self.name = kw.pop('name', None)
         self.anames = kw.pop('anames', list())
         self.fpdtype = kw.pop('fpdtype', 'float32')
         self.altdir = kw.pop('altdir', '')
@@ -730,7 +734,6 @@ class PVtkHook(BlockHook):
         super(PVtkHook, self).__init__(cse, **kw)
         # override vtkfn_tmpl.
         nsteps = cse.execution.steps_run
-        basefn = cse.io.basefn
         if self.altdir:
             vdir = self.altdir
             if self.altsym:
@@ -741,7 +744,11 @@ class PVtkHook(BlockHook):
             vdir = cse.io.basedir
         if not os.path.exists(vdir):
             os.makedirs(vdir)
-        vtkfn_tmpl = basefn + "_%%0%dd"%int(ceil(log10(nsteps))+1) + '.pvtp'
+        # determine VTK file name template.
+        vtkfn_tmpl = cse.io.basefn
+        if self.name is not None:
+            vtkfn_tmpl += '_%s' % self.name
+        vtkfn_tmpl += "_%%0%dd"%int(ceil(log10(nsteps))+1) + '.pvtp'
         self.vtkfn_tmpl = os.path.join(vdir, kw.pop('vtkfn_tmpl', vtkfn_tmpl))
         # craft ext name template.
         npart = cse.execution.npart
