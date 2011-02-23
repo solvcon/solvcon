@@ -188,7 +188,6 @@ class VtkAnchor(Anchor):
         self.psteps = kw.pop('psteps')
         self.vtkfn_tmpl = kw.pop('vtkfn_tmpl')
         self.vac = dict()
-        print self.anames
         super(VtkAnchor, self).__init__(svr, **kw)
     @property
     def vtkfn(self):
