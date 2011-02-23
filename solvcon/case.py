@@ -743,7 +743,7 @@ class BlockCase(BaseCase):
         paths = dict([(key, os.environ.get(key, '').split(':')) for key in
             'LD_LIBRARY_PATH',
             'PYTHONPATH',
-        ])
+        ])  # TODO: make sure VTK in LD_LIBRARY_PATH.
         paths['PYTHONPATH'].extend(self.pythonpaths)
         paths['PYTHONPATH'].insert(0, self.io.rootdir)
         # appoint remote worker objects.
