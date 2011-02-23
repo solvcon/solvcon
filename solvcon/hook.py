@@ -757,9 +757,8 @@ class PVtkHook(BlockHook):
     def drop_anchor(self, svr):
         import os
         basefn = os.path.splitext(self.vtkfn_tmpl)[0]
-        anames = dict([(ent[0], ent[1]) for ent in self.anames])
         ankkw = self.ankkw.copy()
-        ankkw.update(dict(anames=anames, fpdtype=self.fpdtype,
+        ankkw.update(dict(anames=self.anames, fpdtype=self.fpdtype,
             psteps=self.psteps, vtkfn_tmpl=basefn+self.pextmpl))
         self._deliver_anchor(svr, self.ankcls, ankkw)
     def _write(self, istep):

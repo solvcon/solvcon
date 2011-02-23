@@ -209,9 +209,9 @@ class VtkAnchor(Anchor):
         fpdtype = self.fpdtype
         ust = self.svr.ust
         # collect derived.
-        for key in self.anames: # FIXME: should allow ordering.
+        for key, inder, flag in self.anames:
             # get the array.
-            if self.anames[key]:
+            if inder:
                 arr = self.svr.der[key][ngstcell:]
             else:
                 arr = getattr(self.svr, key)[ngstcell:]
