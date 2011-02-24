@@ -278,7 +278,7 @@ class Scuda(object):
         return gmem
     def free(self, gmem, do_remove=True):
         from ctypes import byref
-        self.cudaFree(byref(gmem.gptr))
+        self.cudaFree(byref(gmem.gptr)) # XXX: is byref right?
         if do_remove:
             try:
                 self._alloc_gpumem.remove(gmem)
