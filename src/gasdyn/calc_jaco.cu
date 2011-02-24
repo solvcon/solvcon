@@ -19,16 +19,8 @@
 #include "gasdyn.h"
 
 #ifdef __CUDACC__
-#define SOLVCON_CUSE_JACO
-#include "calc_soltn.c"
-#include "calc_dsoln.c"
-#endif
-
-#ifdef __CUDACC__
 __device__ void cuda_calc_jaco(exedata *exd, int icl,
-        double (*fcn)[NDIM], double (*ajacos)[NDIM]) {
-    double (*jacos)[NEQ][NDIM];
-    jacos = (double (*)[NEQ][NDIM])ajacos;
+        double fcn[NEQ][NDIM], double jacos[NEQ][NEQ][NDIM]) {
 #else
 void calc_jaco(exedata *exd, int icl,
         double fcn[NEQ][NDIM], double jacos[NEQ][NEQ][NDIM]) {
@@ -191,4 +183,9 @@ void calc_jaco(exedata *exd, int icl,
     return;
 };
 
-// vim: set ts=4 et:
+#ifdef __CUDACC__
+#include "calc_soltn.c"
+#include "calc_dsoln.c"
+#endif
+
+// vim: set ft=cuda ts=4 et:

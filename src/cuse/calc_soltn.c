@@ -19,17 +19,6 @@
 #include "cuse.h"
 
 #ifdef __CUDACC__
-__device__ void cuda_calc_jaco(exedata *exd, int icl,
-        double (*fcn)[NDIM], double (*jacos)[NDIM]);    // declare.
-#ifndef SOLVCON_CUSE_JACO
-__device__ void cuda_calc_jaco(exedata *exd, int icl,
-        double (*fcn)[NDIM], double (*jacos)[NDIM]) {   // define.
-    return;
-};
-#endif
-#endif
-
-#ifdef __CUDACC__
 __global__ void cuda_calc_solt(exedata *exd) {
     int istart = -exd->ngstcell + blockDim.x * blockIdx.x + threadIdx.x;
 #else
@@ -46,15 +35,8 @@ int calc_solt(exedata *exd, int istart, int iend) {
     // scalars.
     double val;
     // arrays.
-#if defined(__CUDACC__) && !defined(SOLVCON_CUSE_JACO)
-    double (*jacos)[NDIM];
-    double (*fcn)[NDIM];
-    jacos = (double (*)[NDIM])malloc(NEQ*NEQ*NDIM*sizeof(double));
-    fcn = (double (*)[NDIM])malloc(NEQ*NDIM*sizeof(double));
-#else
-    double jacos[NEQ*NEQ][NDIM];
+    double jacos[NEQ][NEQ][NDIM];
     double fcn[NEQ][NDIM];
-#endif
     // interators.
     int icl, ieq, jeq, idm;
     psolt = exd->solt + istart*NEQ;
@@ -76,7 +58,7 @@ int calc_solt(exedata *exd, int istart, int iend) {
                 val = 0.0;
                 pdsol = pidsol;
                 for (jeq=0; jeq<NEQ; jeq++) {
-                    val += jacos[ieq*NEQ+jeq][idm]*pdsol[idm];
+                    val += jacos[ieq][jeq][idm]*pdsol[idm];
                     pdsol += NDIM;
                 };
                 psolt[ieq] -= val;
@@ -90,10 +72,6 @@ int calc_solt(exedata *exd, int istart, int iend) {
 };
 #else
     };
-#ifndef SOLVCON_CUSE_JACO
-    free(jacos);
-    free(fcn);
-#endif
 };
 extern "C" int calc_solt(int nthread, exedata *exc, void *gexc) {
     int nblock = (exc->ngstcell + exc->ncell + nthread-1) / nthread;
@@ -132,37 +110,25 @@ int calc_soln(exedata *exd, int istart, int iend) {
     double cnde[NDIM];
     double sfnml[FCMND][NDIM];
     double sfcnd[FCMND][NDIM];
-#if defined(__CUDACC__) && !defined(SOLVCON_CUSE_JACO)
-    double *futo, *fusp, *futm;
-    double (*jacos)[NDIM];
-    double *usfc;
-    double (*fcn)[NDIM], (*dfcn)[NDIM];
-    futo = (double *)malloc(NEQ*sizeof(double));
-    fusp = (double *)malloc(NEQ*sizeof(double));
-    futm = (double *)malloc(NEQ*sizeof(double));
-    jacos = (double (*)[NDIM])malloc(NEQ*NEQ*NDIM*sizeof(double));
-    usfc = (double *)malloc(NEQ*sizeof(double));
-    fcn = (double (*)[NDIM])malloc(NEQ*NDIM*sizeof(double));
-    dfcn = (double (*)[NDIM])malloc(NEQ*NDIM*sizeof(double));
-#else
-    double futo[NEQ], fusp[NEQ], futm[NEQ];
-    double jacos[NEQ*NEQ][NDIM];
+    double fusp[NEQ], futm[NEQ];
+    double jacos[NEQ][NEQ][NDIM];
     double usfc[NEQ];
     double fcn[NEQ][NDIM], dfcn[NEQ][NDIM];
-#endif
     // interators.
     int icl, ifl, inf, ifc, jcl, ieq, jeq;
     qdt = exd->time_increment * 0.25;
     hdt = exd->time_increment * 0.5;
 #ifndef __CUDACC__
+    psoln = exd->soln + istart*NEQ;
     for (icl=istart; icl<iend; icl++) {
 #else
     icl = istart;
     if (icl < exd->ncell) {
+        psoln = exd->soln + istart*NEQ;
 #endif
         // initialize fluxes.
         for (ieq=0; ieq<NEQ; ieq++) {
-            futo[ieq] = 0.0;
+            psoln[ieq] = 0.0;
         };
 
         pclfcs = exd->clfcs + icl*(CLMFC+1);
@@ -284,10 +250,10 @@ int calc_soln(exedata *exd, int istart, int iend) {
                     dfcn[ieq][2] = fcn[ieq][2];
 #endif
                     for (jeq=0; jeq<NEQ; jeq++) {
-                        dfcn[ieq][0] += jacos[ieq*NEQ+jeq][0] * usfc[jeq];
-                        dfcn[ieq][1] += jacos[ieq*NEQ+jeq][1] * usfc[jeq];
+                        dfcn[ieq][0] += jacos[ieq][jeq][0] * usfc[jeq];
+                        dfcn[ieq][1] += jacos[ieq][jeq][1] * usfc[jeq];
 #if NDIM == 3
-                        dfcn[ieq][2] += jacos[ieq*NEQ+jeq][2] * usfc[jeq];
+                        dfcn[ieq][2] += jacos[ieq][jeq][2] * usfc[jeq];
 #endif
                     };
                 };
@@ -303,33 +269,26 @@ int calc_soln(exedata *exd, int istart, int iend) {
 
             // sum fluxes.
             for (ieq=0; ieq<NEQ; ieq++) {
-                futo[ieq] += fusp[ieq] - hdt*futm[ieq];
+                psoln[ieq] += fusp[ieq] - hdt*futm[ieq];
             };
         };
 
         // update solutions.
-        psoln = exd->soln + icl*NEQ;
         pcevol = exd->cevol + icl*(CLMFC+1);
         for (ieq=0; ieq<NEQ; ieq++) {
-            psoln[ieq] = futo[ieq] / pcevol[0];
+            psoln[ieq] /= pcevol[0];
         };
-    };
 #ifndef __CUDACC__
+        // advance pointers.
+        psoln += NEQ;
+    };
     times(&timm1);
     cputicks = (int)((timm1.tms_utime+timm1.tms_stime)
                    - (timm0.tms_utime+timm0.tms_stime));
     return cputicks;
 };
 #else
-#ifndef SOLVCON_CUSE_JACO
-    free(futo);
-    free(fusp);
-    free(futm);
-    free(jacos);
-    free(usfc);
-    free(fcn);
-    free(dfcn);
-#endif
+    };
 };
 extern "C" int calc_soln(int nthread, exedata *exc, void *gexc) {
     int nblock = (exc->ncell + nthread-1) / nthread;

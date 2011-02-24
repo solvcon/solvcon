@@ -65,24 +65,12 @@ int calc_dsoln(exedata *exd, int istart, int iend) {
     // arrays.
     double xps[CLMFC][NDIM], dsp[CLMFC][NDIM];
     double crd[NDIM], cnd[NDIM], cndge[NDIM], sft[NDIM];
-#if defined(__CUDACC__) && !defined(SOLVCON_CUSE_JACO)
-    double *deno;
-    double (*nume)[NDIM];
-    deno = (double *)malloc(NEQ*sizeof(double));
-    nume = (double (*)[NDIM])malloc(NEQ*NDIM*sizeof(double));
-#else
     double deno[NEQ];
     double nume[NEQ][NDIM];
-#endif
     double grd[NDIM];
     double dst[NDIM][NDIM];
     double dnv[NDIM][NDIM];
-#if defined(__CUDACC__) && !defined(SOLVCON_CUSE_JACO)
-    double (*udf)[NDIM];
-    udf = (double (*)[NDIM])malloc(NEQ*NDIM*sizeof(double));
-#else
     double udf[NEQ][NDIM];
-#endif
     // interators.
     int icl, ifl, ifl1, ifc, jcl, ieq, ivx;
     int ig0, ig1, ig;
@@ -320,11 +308,6 @@ int calc_dsoln(exedata *exd, int istart, int iend) {
     return cputicks;
 };
 #else
-#ifndef SOLVCON_CUSE_JACO
-    free(deno);
-    free(nume);
-    free(udf);
-#endif
 };
 extern "C" int calc_dsoln(int nthread, exedata *exc, void *gexc) {
     int nblock = (exc->ncell + nthread-1) / nthread;
