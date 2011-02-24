@@ -101,6 +101,7 @@ int calc_soln(exedata *exd, int istart, int iend) {
     double *pjsol, *pdsol, *pjsolt, *psoln;
     // scalars.
     double hdt, qdt, voe;
+    double fusp, futm;
 #if NDIM == 3
     double disu0, disu1, disu2;
     double disv0, disv1, disv2;
@@ -110,21 +111,22 @@ int calc_soln(exedata *exd, int istart, int iend) {
     double cnde[NDIM];
     double sfnml[FCMND][NDIM];
     double sfcnd[FCMND][NDIM];
-    double fusp[NEQ], futm[NEQ];
-    double jacos[NEQ][NEQ][NDIM];
     double usfc[NEQ];
     double fcn[NEQ][NDIM], dfcn[NEQ][NDIM];
+    double jacos[NEQ][NEQ][NDIM];
     // interators.
     int icl, ifl, inf, ifc, jcl, ieq, jeq;
     qdt = exd->time_increment * 0.25;
     hdt = exd->time_increment * 0.5;
 #ifndef __CUDACC__
     psoln = exd->soln + istart*NEQ;
+    pcevol = exd->cevol + istart*(CLMFC+1);
     for (icl=istart; icl<iend; icl++) {
 #else
     icl = istart;
     if (icl < exd->ncell) {
         psoln = exd->soln + istart*NEQ;
+        pcevol = exd->cevol + istart*(CLMFC+1);
 #endif
         // initialize fluxes.
         for (ieq=0; ieq<NEQ; ieq++) {
@@ -209,17 +211,14 @@ int calc_soln(exedata *exd, int istart, int iend) {
             pjsol = exd->sol + jcl*NEQ;
             pdsol = exd->dsol + jcl*NEQ*NDIM;
             for (ieq=0; ieq<NEQ; ieq++) {
-                fusp[ieq] = pjsol[ieq];
-                fusp[ieq] += (pcecnd[0]-pjcecnd[0]) * pdsol[0];
-                fusp[ieq] += (pcecnd[1]-pjcecnd[1]) * pdsol[1];
+                fusp = pjsol[ieq];
+                fusp += (pcecnd[0]-pjcecnd[0]) * pdsol[0];
+                fusp += (pcecnd[1]-pjcecnd[1]) * pdsol[1];
 #if NDIM == 3
-                fusp[ieq] += (pcecnd[2]-pjcecnd[2]) * pdsol[2];
+                fusp += (pcecnd[2]-pjcecnd[2]) * pdsol[2];
 #endif
+                psoln[ieq] += fusp * pcevol[ifl];
                 pdsol += NDIM;
-            };
-            pcevol = exd->cevol + icl*(CLMFC+1)+ifl;
-            for (ieq=0; ieq<NEQ; ieq++) {
-                fusp[ieq] *= pcevol[0];
             };
 
             // temporal flux (give space).
@@ -229,7 +228,6 @@ int calc_soln(exedata *exd, int istart, int iend) {
             cuda_calc_jaco(exd, jcl, fcn, jacos);
 #endif
             pjsolt = exd->solt + jcl*NEQ;
-            for (ieq=0; ieq<NEQ; ieq++) futm[ieq] = 0.0;
             for (inf=0; inf<fcnnd; inf++) {
                 // solution at sub-face center.
                 pdsol = exd->dsol + jcl*NEQ*NDIM;
@@ -259,28 +257,25 @@ int calc_soln(exedata *exd, int istart, int iend) {
                 };
                 // temporal flux.
                 for (ieq=0; ieq<NEQ; ieq++) {
-                    futm[ieq] += dfcn[ieq][0] * sfnml[inf][0];
-                    futm[ieq] += dfcn[ieq][1] * sfnml[inf][1];
+                    futm = 0.0;
+                    futm += dfcn[ieq][0] * sfnml[inf][0];
+                    futm += dfcn[ieq][1] * sfnml[inf][1];
 #if NDIM == 3
-                    futm[ieq] += dfcn[ieq][2] * sfnml[inf][2];
+                    futm += dfcn[ieq][2] * sfnml[inf][2];
 #endif
+                    psoln[ieq] -= hdt*futm;
                 };
-            };
-
-            // sum fluxes.
-            for (ieq=0; ieq<NEQ; ieq++) {
-                psoln[ieq] += fusp[ieq] - hdt*futm[ieq];
             };
         };
 
         // update solutions.
-        pcevol = exd->cevol + icl*(CLMFC+1);
         for (ieq=0; ieq<NEQ; ieq++) {
             psoln[ieq] /= pcevol[0];
         };
 #ifndef __CUDACC__
         // advance pointers.
         psoln += NEQ;
+        pcevol += CLMFC+1;
     };
     times(&timm1);
     cputicks = (int)((timm1.tms_utime+timm1.tms_stime)
