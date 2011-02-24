@@ -24,6 +24,8 @@ Three functionalities are defined: (i) CFL (CflHook), (ii) Convergence
 ProbeHook).
 """
 
+CUDA_RAISE_ON_FAIL = True
+
 from ctypes import Structure
 from solvcon.gendata import AttributeDict
 from solvcon.solver import BlockSolver
@@ -380,8 +382,8 @@ class CuseSolver(BlockSolver):
         3: getcdll('cuse3d_c'),
     }
     __clib_cuse_cu = {
-        2: getcdll('cuse2d_cu', raise_on_fail=False),
-        3: getcdll('cuse3d_cu', raise_on_fail=False),
+        2: getcdll('cuse2d_cu', raise_on_fail=CUDA_RAISE_ON_FAIL),
+        3: getcdll('cuse3d_cu', raise_on_fail=CUDA_RAISE_ON_FAIL),
     }
     del getcdll
     @property
@@ -412,6 +414,8 @@ class CuseSolver(BlockSolver):
             cumgr.sol, cumgr.soln = cumgr.soln, cumgr.sol
             cumgr.dsol, cumgr.dsoln = cumgr.dsoln, cumgr.dsol
             cumgr.update_exd()
+            #self.cumgr.arr_from_gpu('solt') # DEBUG.
+            #print self.solt.sum()   # DEBUG.
         if self.debug: self.mesg(' done.\n')
 
     MMNAMES.append('ibcam')
@@ -545,8 +549,8 @@ class CuseBC(BC):
         3: getcdll('cuseb3d_c'),
     }
     __clib_cuseb_cu = {
-        2: getcdll('cuseb2d_cu', raise_on_fail=False),
-        3: getcdll('cuseb3d_cu', raise_on_fail=False),
+        2: getcdll('cuseb2d_cu', raise_on_fail=CUDA_RAISE_ON_FAIL),
+        3: getcdll('cuseb3d_cu', raise_on_fail=CUDA_RAISE_ON_FAIL),
     }
     del getcdll
     @property
@@ -642,8 +646,53 @@ class CusePeriodic(periodic):
         svr.cumgr.arr_to_gpu('dsoln')
 
 ################################################################################
-# TODO: CUDA downloader.
+# CUDA downloader.
 ################################################################################
+
+class CudaUpDownAnchor(Anchor):
+    """
+    Upload and download variable arrays between GPU device memory and CPU host
+    memory.  By default preloop() and premarch() callbacks do uploading, and
+    postmarch() and postloop() do downloading.  The default behavior
+    is compatible to solvcon.anchor.VtkAnchor.  Subclasses can override
+    callback methods for more complicated operations.
+
+    @ivar rsteps: steps to run.
+    @itype rsteps: int
+    @ivar uparrs: names of arrays to be uploaded from host to device.
+    @itype uparrs: list
+    @ivar downarrs: names of arrays to be downloaded from device to host.
+    @itype downarrs: list
+    """
+    def __init__(self, svr, **kw):
+        self.rsteps = kw.pop('rsteps', 1)
+        self.uparrs = kw.pop('uparrs', list())
+        self.downarrs = kw.pop('downarrs', list())
+        super(CudaUpDownAnchor, self).__init__(svr, **kw)
+    def _upload(self):
+        if self.svr.scu and self.uparrs:
+            self.svr.cumgr.arr_to_gpu(*self.uparrs)
+    def _download(self):
+        if self.svr.scu and self.downarrs:
+            print self.downarrs
+            self.svr.cumgr.arr_from_gpu(*self.downarrs)
+    def preloop(self):
+        self._upload()
+    def premarch(self):
+        istep = self.svr.step_global
+        rsteps = self.rsteps
+        if istep > 0 and istep%rsteps == 0:
+            self._upload()
+    def postmarch(self):
+        istep = self.svr.step_global
+        rsteps = self.rsteps
+        if istep > 0 and istep%rsteps == 0:
+            self._download()
+    def postloop(self):
+        istep = self.svr.step_global
+        rsteps = self.rsteps
+        if istep%rsteps != 0:
+            self.process(istep)
 
 ################################################################################
 # CFL.
