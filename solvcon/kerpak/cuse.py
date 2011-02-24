@@ -24,7 +24,7 @@ Three functionalities are defined: (i) CFL (CflHook), (ii) Convergence
 ProbeHook).
 """
 
-CUDA_RAISE_ON_FAIL = True
+CUDA_RAISE_ON_FAIL = False
 
 from ctypes import Structure
 from solvcon.gendata import AttributeDict
