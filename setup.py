@@ -66,6 +66,9 @@ def main():
     # test data.
     lead = os.path.join('share', 'solvcon', 'test')
     data_files.extend([
+        (lead, glob(os.path.join('test', 'data', '*.g'))),
+        (lead, glob(os.path.join('test', 'data', '*.jou'))),
+        (lead, glob(os.path.join('test', 'data', '*.nc'))),
         (lead, glob(os.path.join('test', 'data', '*.neu'))),
         (lead, glob(os.path.join('test', 'data', '*.blk'))),
         (lead, glob(os.path.join('test', 'data', '*.vtk'))),
