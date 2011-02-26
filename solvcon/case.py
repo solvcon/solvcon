@@ -408,6 +408,7 @@ class BlockCase(BaseCase):
         # IO.
         'io.mesher': None,
         'io.meshfn': None,
+        'io.domain.with_arrs': True,
         'io.rkillfn': 'solvcon.kill.sh',
         'io.dump.csefn': 'solvcon.dump.case.obj',
         'io.dump.svrfntmpl': 'solvcon.dump.solver%s.obj',
@@ -586,6 +587,7 @@ class BlockCase(BaseCase):
         elif os.path.isdir(meshfn):
             dof = DomainIO()
             obj = dof.load(dirname=meshfn, bcmapper=bcmapper,
+                with_arrs=self.io.domain.with_arrs,
                 with_split=False, domaintype=self.solver.domaintype)
         elif meshfn.endswith('.g'):
             self._log_start('create_genesis_object')

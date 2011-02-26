@@ -185,7 +185,7 @@ class Format(object):
                     meta[key] = None
         return meta
     @staticmethod
-    def _read_array(compressor, shape, dtype, stream):
+    def _read_array(compressor, shape, dtype, stream, seek_only=False):
         """
         Read data from the input stream and convert it to ndarray with given
         shape and dtype.
@@ -198,6 +198,8 @@ class Format(object):
         @type dtype: numpy.dtype or str
         @param stream: input stream.
         @type stream: file
+        @keyword seek_only: do not really read, only seek; default False.
+        @type seek_only: bool
         @return: resulted array.
         @rtype: numpy.ndarray
         """
@@ -212,15 +214,28 @@ class Format(object):
         dobj = dtype()
         if compressor == 'bz2':
             buflen = np.frombuffer(stream.read(8), dtype=np.int64)[0]
-            buf = stream.read(buflen)
-            buf = bz2.decompress(buf)
+            if seek_only:
+                stream.seek(stream.tell() + buflen)
+            else:
+                buf = stream.read(buflen)
+                buf = bz2.decompress(buf)
         elif compressor == 'gz':
             buflen = np.frombuffer(stream.read(8), dtype=np.int64)[0]
-            buf = stream.read(buflen)
-            buf = zlib.decompress(buf)
+            if seek_only:
+                stream.seek(stream.tell() + buflen)
+            else:
+                buf = stream.read(buflen)
+                buf = zlib.decompress(buf)
         else:
-            buf = stream.read(length * dobj.itemsize)
-        arr = np.frombuffer(buf, dtype=dtype).reshape(shape).copy()
+            buflen = length * dobj.itemsize
+            if seek_only:
+                stream.seek(stream.tell() + buflen)
+            else:
+                buf = stream.read(buflen)
+        if seek_only:
+            arr = None
+        else:
+            arr = np.frombuffer(buf, dtype=dtype).reshape(shape).copy()
         return arr
 
 class FormatIORegistry(SingleAssignDict, AttributeDict):

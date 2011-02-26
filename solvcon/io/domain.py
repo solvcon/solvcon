@@ -122,7 +122,7 @@ class DomainFormat(Format):
                 os.path.join(dirname, self.SPLIT_FILENAME%iblk), 'wb')
             blf.save(dom[iblk], stream)
             stream.close()
-    def load(self, dirname, bcmapper, with_split, domaintype):
+    def load(self, dirname, bcmapper, with_arrs, with_split, domaintype):
         """
         Load domain file in the specified directory with BC mapper applied.
         
@@ -130,6 +130,8 @@ class DomainFormat(Format):
         @type dirname: str
         @param bcmapper: BC type mapper.
         @type bcmapper: dict
+        @param with_arrs: load arrays for domain object.
+        @type with_arrs: bool
         @param with_split: load split block as well.
         @type with_split: bool
         @param domaintype: the type used to instantiate domain object.
@@ -154,24 +156,28 @@ class DomainFormat(Format):
         whole, split = self._load_block_filename(meta, lines)
         # load arrays.
         stream.seek(textlen)
+        seek_only = not with_arrs   # if not reading arrays, seek only.
         dom.part = self._read_array(meta.compressor,
-            (meta.ncell,), 'int32', stream)
+            (meta.ncell,), 'int32', stream, seek_only=seek_only)
         dom.shapes = self._read_array(meta.compressor,
-            (meta.npart, 7), 'int32', stream)
+            (meta.npart, 7), 'int32', stream, seek_only=seek_only)
         dom.ifparr = self._read_array(meta.compressor,
-            (meta.nifp, 2), 'int32', stream)
+            (meta.nifp, 2), 'int32', stream)    # this must be read.
         ndmaps = self._read_array(meta.compressor,
-            (meta.nnode, 1+2*meta.ndmblk), 'int32', stream)
+            (meta.nnode, 1+2*meta.ndmblk), 'int32', stream, seek_only=seek_only)
         fcmaps = self._read_array(meta.compressor,
-            (meta.nface, 5), 'int32', stream)
+            (meta.nface, 5), 'int32', stream, seek_only=seek_only)
         clmaps = self._read_array(meta.compressor,
-            (meta.ncell, 2), 'int32', stream)
+            (meta.ncell, 2), 'int32', stream, seek_only=seek_only)
         dom.mappers = (ndmaps, fcmaps, clmaps)
         idxinfo = list()
         for nnd, nfc, ncl in idxlens:
-            mynds = self._read_array(meta.compressor, (nnd,), 'int32', stream)
-            myfcs = self._read_array(meta.compressor, (nfc,), 'int32', stream)
-            mycls = self._read_array(meta.compressor, (ncl,), 'int32', stream)
+            mynds = self._read_array(meta.compressor, (nnd,), 'int32',
+                stream, seek_only=seek_only)
+            myfcs = self._read_array(meta.compressor, (nfc,), 'int32',
+                stream, seek_only=seek_only)
+            mycls = self._read_array(meta.compressor, (ncl,), 'int32',
+                stream, seek_only=seek_only)
             idxinfo.append((mynds, myfcs, mycls))
         dom.idxinfo = tuple(idxinfo)
         stream.close()
@@ -359,8 +365,8 @@ class DomainIO(FormatIO):
         """
         dirname = self.dirname if dirname == None else dirname
         return self.dmf.read_meta(dirname)
-    def load(self, dirname=None, bcmapper=None, with_split=False,
-        domaintype=None):
+    def load(self, dirname=None, bcmapper=None, with_arrs=True,
+        with_split=False, domaintype=None):
         """
         Load domain from stream with BC mapper applied.
         
@@ -368,6 +374,8 @@ class DomainIO(FormatIO):
         @type dirname: str
         @keyword bcmapper: BC type mapper.
         @type bcmapper: dict
+        @keyword with_arrs: load arrays for domain object.
+        @type with_arrs: bool
         @keyword with_split: load split block as well.
         @type with_split: bool
         @keyword domaintype: the type used to instantiate domain object.
@@ -381,7 +389,8 @@ class DomainIO(FormatIO):
             domaintype = domain.Collective
         elif isinstance(domaintype, basestring):
             domiantype = getattr(domain, domaintype)
-        return self.dmf.load(dirname, bcmapper, with_split, domaintype)
+        return self.dmf.load(dirname, bcmapper, with_arrs, with_split,
+            domaintype)
     def load_block(self, dirname=None, blkid=None, bcmapper=None):
         """
         Load block from stream with BC mapper applied.
