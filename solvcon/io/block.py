@@ -94,7 +94,7 @@ class BlockFormat(Format):
             self._write_array(self.compressor, getattr(blk, key), stream)
         ## boundary conditions.
         self._save_boundcond(self.compressor, blk, stream)
-    def load(self, stream, bcmapper):
+    def load(self, stream, bcmapper, only_meta=False):
         """
         Load block from stream with BC mapper applied.
         
@@ -102,6 +102,8 @@ class BlockFormat(Format):
         @type stream: file or str
         @param bcmapper: BC type mapper.
         @type bcmapper: dict
+        @keyword only_meta: read only meta data and return.
+        @type only_meta: bool
         @return: the read block object.
         @rtype: solvcon.block.Block
         """
@@ -110,6 +112,8 @@ class BlockFormat(Format):
         lines, textlen = self._get_textpart(stream)
         # create meta-data dict and block object.
         meta = self._parse_meta(lines)
+        if only_meta:
+            return meta
         fpdtype = meta.fpdtype if self.fpdtype == None else self.fpdtype
         blk = Block(fpdtype=fpdtype)
         blk.blkn = meta.blkn

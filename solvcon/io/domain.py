@@ -122,7 +122,8 @@ class DomainFormat(Format):
                 os.path.join(dirname, self.SPLIT_FILENAME%iblk), 'wb')
             blf.save(dom[iblk], stream)
             stream.close()
-    def load(self, dirname, bcmapper, with_arrs, with_split, domaintype):
+    def load(self, dirname, bcmapper, with_arrs, with_whole, with_split,
+            domaintype):
         """
         Load domain file in the specified directory with BC mapper applied.
         
@@ -132,6 +133,8 @@ class DomainFormat(Format):
         @type bcmapper: dict
         @param with_arrs: load arrays for domain object.
         @type with_arrs: bool
+        @param with_whole: load whole block.
+        @type with_whole: bool
         @param with_split: load split block as well.
         @type with_split: bool
         @param domaintype: the type used to instantiate domain object.
@@ -182,9 +185,10 @@ class DomainFormat(Format):
         dom.idxinfo = tuple(idxinfo)
         stream.close()
         # load blocks.
+        only_meta = not with_whole
         blf = blfregy[meta.blk_format_rev]()
         stream = open(os.path.join(dirname, whole), 'rb')
-        dom.blk = blf.load(stream, bcmapper)
+        dom.blk = blf.load(stream, bcmapper, only_meta=only_meta)
         stream.close()
         if with_split:
             for sfn in split:
@@ -366,7 +370,7 @@ class DomainIO(FormatIO):
         dirname = self.dirname if dirname == None else dirname
         return self.dmf.read_meta(dirname)
     def load(self, dirname=None, bcmapper=None, with_arrs=True,
-        with_split=False, domaintype=None):
+        with_whole=True, with_split=False, domaintype=None):
         """
         Load domain from stream with BC mapper applied.
         
@@ -376,6 +380,8 @@ class DomainIO(FormatIO):
         @type bcmapper: dict
         @keyword with_arrs: load arrays for domain object.
         @type with_arrs: bool
+        @keyword with_whole: load whole block.
+        @type with_whole: bool
         @keyword with_split: load split block as well.
         @type with_split: bool
         @keyword domaintype: the type used to instantiate domain object.
@@ -389,8 +395,8 @@ class DomainIO(FormatIO):
             domaintype = domain.Collective
         elif isinstance(domaintype, basestring):
             domiantype = getattr(domain, domaintype)
-        return self.dmf.load(dirname, bcmapper, with_arrs, with_split,
-            domaintype)
+        return self.dmf.load(dirname, bcmapper, with_arrs, with_whole,
+            with_split, domaintype)
     def load_block(self, dirname=None, blkid=None, bcmapper=None):
         """
         Load block from stream with BC mapper applied.
