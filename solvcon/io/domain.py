@@ -123,7 +123,7 @@ class DomainFormat(Format):
             blf.save(dom[iblk], stream)
             stream.close()
     def load(self, dirname, bcmapper, with_arrs, with_whole, with_split,
-            domaintype):
+            return_filenames, domaintype):
         """
         Load domain file in the specified directory with BC mapper applied.
         
@@ -137,6 +137,9 @@ class DomainFormat(Format):
         @type with_whole: bool
         @param with_split: load split block as well.
         @type with_split: bool
+        @param return_filenames: also return the relative paths of containing
+            filenames.
+        @type return:filenames: bool
         @param domaintype: the type used to instantiate domain object.
         @type domaintype: solvcon.domain.Collective
         @return: the read domain object.
@@ -195,8 +198,11 @@ class DomainFormat(Format):
                 stream = open(os.path.join(dirname, sfn), 'rb')
                 dom.append(blf.load(stream, bcmapper))
                 stream.close()
-        return dom
-    def load_block(self, dirname, blkid, bcmapper):
+        if return_filenames:
+            return dom, whole, split
+        else:
+            return dom
+    def load_block(self, dirname, blkid, bcmapper, blkfn=None):
         """
         Load block file in the specified directory with BC mapper applied.
         
@@ -206,21 +212,41 @@ class DomainFormat(Format):
         @type blkid: int or None
         @param bcmapper: BC type mapper.
         @type bcmapper: dict
+        @keyword blkfn: the file name of the block to be loaded; relative path.
+        @type blkfn: str
         @return: the read block object.
         @rtype: solvcon.block.Block
         """
         import os
-        from .block import blfregy
+        from time import sleep
+        from random import seed, random
+        from .block import BlockIO
         # load the text part of DOM file for block filename.
-        stream = open(os.path.join(dirname, self.DOM_FILENAME), 'rb')
-        lines, textlen = self._get_textpart(stream)
-        meta = self._parse_meta(lines)
-        whole, split = self._load_block_filename(meta, lines)
-        stream.close()
-        blkfn = whole if blkid == None else split[blkid]
+        if blkfn is None:
+            stream = open(os.path.join(dirname, self.DOM_FILENAME), 'rb')
+            lines, textlen = self._get_textpart(stream)
+            meta = self._parse_meta(lines)
+            whole, split = self._load_block_filename(meta, lines)
+            stream.close()
+            blkfn = whole if blkid == None else split[blkid]
         # load block.
-        stream = open(os.path.join(dirname, blkfn), 'rb')
-        blk = blfregy[meta.blk_format_rev]().load(stream, bcmapper)
+        blkpath = os.path.join(dirname, blkfn)
+        ## need to capture random parallel input error.
+        seed(blkid)
+        itry = 0
+        while True:
+            try:
+                stream = open(blkpath, 'rb')
+            except IOError, e:
+                if itry <= 100:
+                    itry += 1
+                    sleep(1.0+random())
+                else:
+                    e.args = list(e.args) + [blkid, itry]
+                    raise
+            else:
+                break
+        blk = BlockIO().load(stream=stream, bcmapper=bcmapper)
         stream.close()
         return blk
 
@@ -370,7 +396,8 @@ class DomainIO(FormatIO):
         dirname = self.dirname if dirname == None else dirname
         return self.dmf.read_meta(dirname)
     def load(self, dirname=None, bcmapper=None, with_arrs=True,
-        with_whole=True, with_split=False, domaintype=None):
+        with_whole=True, with_split=False, return_filenames=False,
+        domaintype=None):
         """
         Load domain from stream with BC mapper applied.
         
@@ -384,6 +411,9 @@ class DomainIO(FormatIO):
         @type with_whole: bool
         @keyword with_split: load split block as well.
         @type with_split: bool
+        @keyword return_filenames: also return the relative paths of containing
+            filenames.
+        @type return:filenames: bool
         @keyword domaintype: the type used to instantiate domain object.
         @type domaintype: type
         @return: the read domain object.
@@ -396,8 +426,8 @@ class DomainIO(FormatIO):
         elif isinstance(domaintype, basestring):
             domiantype = getattr(domain, domaintype)
         return self.dmf.load(dirname, bcmapper, with_arrs, with_whole,
-            with_split, domaintype)
-    def load_block(self, dirname=None, blkid=None, bcmapper=None):
+            with_split, return_filenames, domaintype)
+    def load_block(self, dirname=None, blkid=None, bcmapper=None, blkfn=None):
         """
         Load block from stream with BC mapper applied.
         
@@ -407,8 +437,10 @@ class DomainIO(FormatIO):
         @type blkid: int
         @keyword bcmapper: BC type mapper.
         @type bcmapper: dict
+        @keyword blkfn: the file name of the block to be loaded; relative path.
+        @type blkfn: str
         @return: the read block object.
         @rtype: solvcon.block.Block
         """
         dirname = self.dirname if dirname == None else dirname
-        return self.dmf.load_block(dirname, blkid, bcmapper)
+        return self.dmf.load_block(dirname, blkid, bcmapper, blkfn=blkfn)

@@ -410,6 +410,8 @@ class BlockCase(BaseCase):
         'io.meshfn': None,
         'io.domain.with_arrs': True,
         'io.domain.with_whole': True,
+        'io.domain.wholefn': None,
+        'io.domain.splitfns': None,
         'io.rkillfn': 'solvcon.kill.sh',
         'io.dump.csefn': 'solvcon.dump.case.obj',
         'io.dump.svrfntmpl': 'solvcon.dump.solver%s.obj',
@@ -587,10 +589,12 @@ class BlockCase(BaseCase):
             self._log_end('create_block')
         elif os.path.isdir(meshfn):
             dof = DomainIO()
-            obj = dof.load(dirname=meshfn, bcmapper=bcmapper,
+            obj, whole, split = dof.load(dirname=meshfn, bcmapper=bcmapper,
                 with_arrs=self.io.domain.with_arrs,
-                with_whole=self.io.domain.with_whole,
-                with_split=False, domaintype=self.solver.domaintype)
+                with_whole=self.io.domain.with_whole, with_split=False,
+                return_filenames=True, domaintype=self.solver.domaintype)
+            self.io.domain.wholefn = whole
+            self.io.domain.splitfn = split
         elif meshfn.endswith('.g'):
             self._log_start('create_genesis_object')
             gn = Genesis(meshfn)
@@ -669,7 +673,8 @@ class BlockCase(BaseCase):
             self.info('solver #%d/(%d-1): ' % (iblk, nblk))
             if dom.presplit:
                 dealer[iblk].create_solver(self.condition.bcmap,
-                    self.io.meshfn, iblk, nblk, solvertype, svrkw)
+                    self.io.meshfn, self.io.domain.splitfn[iblk],
+                    iblk, nblk, solvertype, svrkw)
                 self.runhooks.drop_anchor(dealer[iblk])
             else:
                 sbk = dom[iblk]

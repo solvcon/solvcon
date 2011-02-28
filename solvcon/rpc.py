@@ -240,7 +240,8 @@ class Worker(object):
     def terminate(self):
         raise Terminate
 
-    def create_solver(self, bcmap, dirname, iblk, nblk, solvertype, svrkw):
+    def create_solver(self, bcmap, dirname, blkfn, iblk, nblk, solvertype,
+            svrkw):
         """
         Load a block and create a solver object with the given information, and
         set it to muscle.
@@ -249,6 +250,8 @@ class Worker(object):
         @type bcmap: dict
         @param dirname: the directory of saved domain object.
         @type dirname: str
+        @param blkfn: the relative path for the block to be loaded.
+        @type blkfn: str
         @param iblk: index of the block to be loaded.
         @type iblk: int
         @param nblk: number of total blocks (sub-domains).
@@ -261,7 +264,8 @@ class Worker(object):
         """
         from .io.domain import DomainIO
         dio = DomainIO()
-        blk = dio.load_block(dirname=dirname, blkid=iblk, bcmapper=bcmap)
+        blk = dio.load_block(dirname=dirname, blkid=iblk, bcmapper=bcmap,
+            blkfn=blkfn)
         svr = solvertype(blk, **svrkw)
         svr.svrn = iblk
         svr.nsvr = nblk
