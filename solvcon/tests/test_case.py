@@ -235,6 +235,39 @@ class TestPresplitLocalParallel(TestBlockCaseRun):
         # compare.
         self.assertTrue((soln==clvol).all())
 
+class TestPresplitLocalParallelNoArrs(TestBlockCaseRun):
+    npart = 3
+    def _get_case_nocollect(self, **kw):
+        import os
+        from ..testing import TestingSolver
+        from ..conf import env
+        from ..case import BlockCase
+        from ..anchor import FillAnchor
+        from ..helper import Information
+        meshfn = kw.get('meshfn', 'sample.neu')
+        kw['meshfn'] = os.path.join(env.datadir, meshfn)
+        case = BlockCase(basedir='.', basefn='blockcase', bcmap=None,
+            solvertype=TestingSolver, neq=1,
+            steps_run=self.nsteps, time_increment=self.time_increment,
+            **kw
+        )
+        case.info = Information()
+        case.runhooks.append(FillAnchor,
+            keys=('soln', 'dsoln'), value=0.0,
+        )
+        case.init()
+        return case
+    def test_run(self):
+        import sys
+        from nose.plugins.skip import SkipTest
+        if sys.platform.startswith('win'): raise SkipTest
+        from numpy import zeros
+        from ..domain import Collective
+        case = self._get_case_nocollect(npart=self.npart,
+            domaintype=Collective, meshfn='sample.dom',
+            with_arrs=False, with_whole=False)
+        case.run()
+
 class SampleVtkAnchor(VtkAnchor):
     def process(self, istep):
         from ..visual_vtk import Vop
