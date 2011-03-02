@@ -1,5 +1,21 @@
-Upcoming
-========
+0.0.4
+=====
+
+Release date: 2011/3/2 (GMT-0500)
+
+This release enhances pre-procesing and start-up for large-scale simulations.
+Unstructured meshes using up to 66 million elements have been tested.  Two new
+options to ``solvcon.case.BlockCase`` are added: (i) ``io.domain.with_arrs``
+and (ii) ``io.domain.with_whole``.  They can be used to turn off arrays in the
+``Collective`` object.  By omitting those arrays on head node, memory usage is
+significantly reduced.  Available memory on head node will not constrain the
+size of simulations.
+
+Bug-fix:
+
+- Issue #12: Order of variables for in situ visualization can be specified to
+  make the order of data arrays of VTK poly data consistent among head and
+  slave nodes.
 
 0.0.3
 =====

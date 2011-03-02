@@ -18,6 +18,8 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 """
+Experimental.  Not guaranteed to work.
+
 Supersonic flow over a cylinder run on CUDA.  Note the spatial domain includes
 only the fore flow for the bow shock.  To save time, the time steps is not set
 to be enough for convergence.  You can further increase the steps.
