@@ -23,7 +23,6 @@ Intended Audience :: Developers
 Intended Audience :: Education
 Intended Audience :: Science/Research
 License :: OSI Approved :: GNU General Public License (GPL)
-Operating System :: Microsoft :: Windows
 Operating System :: POSIX :: Linux
 Programming Language :: C
 Programming Language :: Python
