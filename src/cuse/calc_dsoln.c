@@ -87,11 +87,7 @@ int calc_dsoln(exedata *exd, int istart, int iend) {
         pclfcs = exd->clfcs + icl*(CLMFC+1);
 
         // determine tau.
-#ifdef __CUDACC__
         tau = exd->taumin + fabs(exd->cfl[icl]) * exd->tauscale;
-#else
-        tau = exd->taufunc(exd, icl);
-#endif
 
         // calculate the vertices of GGE with the tau parameter.
         pclfcs = exd->clfcs + icl*(CLMFC+1);

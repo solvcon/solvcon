@@ -71,7 +71,7 @@ int calc_cfl(exedata *exd, int istart, int iend) {
 #endif
             );
             // minimal value.
-            dist = min(wspd, dist);
+            dist = fmin(wspd, dist);
         };
         // wave speed.
         ga = pamsca[0];

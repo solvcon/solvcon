@@ -22,18 +22,6 @@
 #define FPTYPE double
 #include "solvcon.h"
 
-#ifndef __CUDACC__
-/*
- * shorthand for min/max. NOTE: floating point has fmin()/fmax().
- */
-#ifndef max
-#define max( a, b ) ( ((a) > (b)) ? (a) : (b) )
-#endif
-#ifndef min
-#define min( a, b ) ( ((a) < (b)) ? (a) : (b) )
-#endif
-#endif
-
 /*
  * Generic definitions and data structure.
  */
@@ -56,13 +44,10 @@ typedef struct {
     int alpha;
     double sigma0;
     double taylor, cnbfac, sftfac;
-    double taumin, taumax, tauscale;
-    double omegamin, omegascale;
+    double taumin, tauscale;
     /* function section. */
     // function pointer.
     void (*jacofunc)(void *exd, int icl, double *fcn, double *jacos);
-    double (*taufunc)(void *exd, int icl);
-    double (*omegafunc)(void *exd, int icl);
     /* array section. */
     // meta array.
     int *fctpn, *cltpn, *clgrp;

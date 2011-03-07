@@ -186,6 +186,7 @@ void calc_jaco(exedata *exd, int icl,
 #ifdef __CUDACC__
 #include "calc_soltn.c"
 #include "calc_dsoln.c"
+#include "calc_dsoln_w3.c"
 #endif
 
 // vim: set ft=cuda ts=4 et:

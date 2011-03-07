@@ -303,8 +303,8 @@ int calc_dsoln_w3(exedata *exd, int istart, int iend) {
             for (ieq=0; ieq<NEQ; ieq++) {
                 wgt = dlt[ifg][ieq] / dla[ieq] - ofg1;
                 dlt[ifg][ieq] = wgt;
-                udf[ieq][0] = max(udf[ieq][0], wgt);
-                udf[ieq][1] = min(udf[ieq][1], wgt);
+                udf[ieq][0] = fmax(udf[ieq][0], wgt);
+                udf[ieq][1] = fmin(udf[ieq][1], wgt);
             };
         };
         for (ieq=0; ieq<NEQ; ieq++) {

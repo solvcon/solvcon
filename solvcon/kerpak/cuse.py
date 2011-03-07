@@ -121,10 +121,9 @@ class CuseSolverExedata(Structure):
         # scheme.
         ('alpha', c_int), ('sigma0', c_double),
         ('taylor', c_double), ('cnbfac', c_double), ('sftfac', c_double),
-        ('taumin', c_double), ('taumax', c_double), ('tauscale', c_double),
-        ('omegamin', c_double), ('omegascale', c_double),
+        ('taumin', c_double), ('tauscale', c_double),
         # function pointer.
-        ('jacofunc', c_void_p), ('taufunc', c_void_p), ('omegafunc', c_void_p),
+        ('jacofunc', c_void_p),
         # meta array.
         ('fctpn', c_void_p), ('cltpn', c_void_p), ('clgrp', c_void_p),
         ('grpda', c_void_p),
@@ -156,16 +155,11 @@ class CuseSolverExedata(Structure):
             return
         # function pointer.
         self.jacofunc = cast(svr._jacofunc_, c_void_p).value
-        self.taufunc = cast(getattr(svr._clib_cuse_c,
-            'tau_'+svr.tauname), c_void_p).value
-        self.omegafunc = cast(getattr(svr._clib_cuse_c,
-            'omega_'+svr.omeganame), c_void_p).value
-        # scalar.
         for key in ('ncore', 'neq', 'time', 'time_increment',
                     'ndim', 'nnode', 'nface', 'ncell', 'nbound', 'ngstnode',
                     'ngstface', 'ngstcell', 'ngroup', 'gdlen', 'nsca', 'nvec',
                     'alpha', 'sigma0', 'taylor', 'cnbfac', 'sftfac',
-                    'taumin', 'taumax', 'tauscale', 'omegamin', 'omegascale'):
+                    'taumin', 'tauscale'):
             setattr(self, key, getattr(svr, key))
         # arrays.
         for aname in ('grpda',):
@@ -200,13 +194,6 @@ class CuseSolver(BlockSolver):
     @ivar ncuth: number of thread per block for CUDA.
     @itype ncuth: int
 
-    @ivar diffname: name of gradient calculation function; tau is default,
-        omega is selectable.
-    @itype diffname: str
-    @ivar tauname: name of tau function; default linear.
-    @itype tauname: str
-    @ivar omeganame: name of omega function; default scale.
-    @itype omeganame: str
     @ivar alpha: parameter to the weighting function.
     @itype alpha: int
     @ivar sigma0: constant parameter for W-3 scheme.
@@ -219,14 +206,8 @@ class CuseSolver(BlockSolver):
     @itype sftfac: float
     @ivar taumin: the lower bound of tau.
     @itype taumin: float
-    @ivar taumax: the upper bound of tau.
-    @itype taumax: float
     @ivar tauscale: scaling of tau.
     @itype tauscale: float
-    @ivar omegamin: the lower bound of omega.
-    @itype omegamin: float
-    @ivar omegascale: scaling of omega.
-    @itype omegascale: float
 
     @ivar grpda: group data.
     @ivar cecnd: solution points for CCEs and BCEs.
@@ -261,22 +242,13 @@ class CuseSolver(BlockSolver):
         self.ncuth = kw.pop('ncuth',  0)
         self.scu = scu = env.scu if self.ncuth else None
         # scheme parameters.
-        diffname = kw.pop('diffname', None)
-        self.diffname = diffname if diffname != None else 'tau'
-        tauname = kw.pop('tauname', None)
-        self.tauname = tauname if tauname != None else 'scale'
-        omeganame = kw.pop('omeganame', None)
-        self.omeganame = omeganame if omeganame != None else 'scale'
         self.alpha = int(kw.pop('alpha', 0))
         self.sigma0 = int(kw.pop('sigma0', 1.0))
         self.taylor = float(kw.pop('taylor', 1.0))  # dirty hack.
         self.cnbfac = float(kw.pop('cnbfac', 1.0))  # dirty hack.
         self.sftfac = float(kw.pop('sftfac', 1.0))  # dirty hack.
         self.taumin = float(kw.pop('taumin', 0.0))
-        self.taumax = float(kw.pop('taumax', 1.0))
         self.tauscale = float(kw.pop('tauscale', 1.0))
-        self.omegamin = float(kw.pop('omegamin', 1.1))
-        self.omegascale = float(kw.pop('omegascale', 0.0))
         # super call.
         super(CuseSolver, self).__init__(blk, *args, **kw)
         fpdtype = self.fpdtype
@@ -417,8 +389,6 @@ class CuseSolver(BlockSolver):
             cumgr.sol, cumgr.soln = cumgr.soln, cumgr.sol
             cumgr.dsol, cumgr.dsoln = cumgr.dsoln, cumgr.dsol
             cumgr.update_exd()
-            #self.cumgr.arr_from_gpu('solt') # DEBUG.
-            #print self.solt.sum()   # DEBUG.
         if self.debug: self.mesg(' done.\n')
 
     MMNAMES.append('ibcam')
@@ -472,7 +442,7 @@ class CuseSolver(BlockSolver):
         if self.debug: self.mesg('calcdsoln')
         if self.scu:
             from ctypes import byref
-            self._clib_mcu.calc_dsoln(self.ncuth,
+            self._clib_mcu.calc_dsoln_w3(self.ncuth,
                 byref(self.cumgr.exd), self.cumgr.gexd.gptr)
         else:
             func = self._clib_cuse_c.calc_dsoln_w3
@@ -502,30 +472,21 @@ class CuseCase(BlockCase):
         'execution.verified_norm': -1.0,
         'solver.debug_cese': False,
         'solver.ncuth': 0,
-        'solver.diffname': None,
-        'solver.tauname': None,
-        'solver.omeganame': None,
         'solver.alpha': 1,
         'solver.sigma0': 1.0,
         'solver.taylor': 1.0,
         'solver.cnbfac': 1.0,
         'solver.sftfac': 1.0,
         'solver.taumin': None,
-        'solver.taumax': None,
         'solver.tauscale': None,
-        'solver.omegamin': None,
-        'solver.omegascale': None,
     }
     def make_solver_keywords(self):
         kw = super(CuseCase, self).make_solver_keywords()
         kw['debug'] = self.solver.debug_cese
         kw['ncuth'] = int(self.solver.ncuth)
-        for key in 'diffname', 'tauname', 'omeganame':
-            val = self.solver.get(key)
-            if val != None: kw[key] = val
         kw['alpha'] = int(self.solver.alpha)
         for key in ('sigma0', 'taylor', 'cnbfac', 'sftfac',
-                    'taumin', 'taumax', 'tauscale', 'omegamin', 'omegascale',):
+                    'taumin', 'tauscale',):
             val = self.solver.get(key)
             if val != None: kw[key] = float(val)
         return kw
