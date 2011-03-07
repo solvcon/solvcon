@@ -61,8 +61,7 @@ int calc_dsoln_w3(exedata *exd, int istart, int iend) {
     double *pisoln, *pjsol, *pjsoln, *pdsol, *pdsoln;
     double *pjsolt;
     // scalars.
-    int nfg;
-    double tau, hdt, vob, voc, wgt, sgm0;
+    double tau, hdt, vob, voc, wgt, ofg1, sgm0;
     double grd0, grd1;
 #if NDIM == 3
     double grd2;
@@ -75,7 +74,7 @@ int calc_dsoln_w3(exedata *exd, int istart, int iend) {
     double udf[NEQ][NDIM];
     double gfd[MFGE][NEQ][NDIM];
     double dlt[MFGE][NEQ];
-    double dla[NEQ], dlx[NEQ], dln[NEQ], sgm[NEQ];
+    double dla[NEQ];
     // interators.
     int icl, ifl, ifl1, ifc, jcl, ieq, ivx;
     int ig0, ig1, ig, ifg;
@@ -89,7 +88,7 @@ int calc_dsoln_w3(exedata *exd, int istart, int iend) {
         pcltpn = exd->cltpn + icl;
         ig0 = ggerng[pcltpn[0]][0];
         ig1 = ggerng[pcltpn[0]][1];
-        nfg = ig1-ig0;
+        ofg1 = 1.0/(ig1-ig0);
         pclfcs = exd->clfcs + icl*(CLMFC+1);
 
         // determine sigma0 and tau.
@@ -294,26 +293,28 @@ int calc_dsoln_w3(exedata *exd, int istart, int iend) {
             };
         };
 
-        // calculate W-3/4 delta.
+        // calculate W-3/4 delta and sigma_max.
+        // NOTE: udf is recycled; resulting sigma_max is stored in udf[][0].
         for (ieq=0; ieq<NEQ; ieq++) {
-            dlx[ieq] = -1;
-            dln[ieq] = 2;
+            udf[ieq][0] = udf[ieq][1] = 0.0;
         };
         for (ig=ig0; ig<ig1; ig++) {
             ifg = ig-ig0;
             for (ieq=0; ieq<NEQ; ieq++) {
-                wgt = dlt[ifg][ieq] / dla[ieq] - 1.0/nfg;
+                wgt = dlt[ifg][ieq] / dla[ieq] - ofg1;
                 dlt[ifg][ieq] = wgt;
-                dlx[ieq] = fmax(dlx[ieq], wgt);
-                dln[ieq] = fmin(dln[ieq], wgt);
+                udf[ieq][0] = max(udf[ieq][0], wgt);
+                udf[ieq][1] = min(udf[ieq][1], wgt);
             };
+        };
+        for (ieq=0; ieq<NEQ; ieq++) {
+            udf[ieq][0] = fmin(
+                (1.0-ofg1)/(udf[ieq][0]+SOLVCON_ALMOST_ZERO),
+                -ofg1/(udf[ieq][1]-SOLVCON_ALMOST_ZERO)
+            );
         };
 
         // weight and update gradient.
-        for (ieq=0; ieq<NEQ; ieq++) {
-            sgm[ieq] = fmax((1.0-1.0/nfg)/(dlx[ieq]+SOLVCON_ALMOST_ZERO),
-                            -1.0/(dln[ieq]*nfg+SOLVCON_ALMOST_ZERO));
-        };
         pdsoln = exd->dsoln + icl*NEQ*NDIM;
         for (ieq=0; ieq<NEQ; ieq++) {
             pdsoln[0] = pdsoln[1] = 0.0;
@@ -326,8 +327,8 @@ int calc_dsoln_w3(exedata *exd, int istart, int iend) {
             ifg = ig-ig0;
             pdsoln = exd->dsoln + icl*NEQ*NDIM;
             for (ieq=0; ieq<NEQ; ieq++) {
-                wgt = fmin(sgm[ieq], sgm0);
-                wgt = 1.0/nfg + wgt*dlt[ifg][ieq];
+                wgt = fmin(udf[ieq][0], sgm0);
+                wgt = ofg1 + wgt*dlt[ifg][ieq];
                 pdsoln[0] += wgt*gfd[ifg][ieq][0];
                 pdsoln[1] += wgt*gfd[ifg][ieq][1];
 #if NDIM == 3
