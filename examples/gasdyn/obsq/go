@@ -20,8 +20,10 @@
 """
 Experimental.  Not guaranteed to work.
 
-An example simulation for reflection of oblique shock wave on quadrilateral
-mesh.  The arrangement obsq can be run by simply executing ./go run.
+An example simulation for reflection of oblique shock wave on dynamically
+generated quadrilateral or triangular mesh.  In io.meshfn, Specify xxx_trimesh
+for triangles, and xxx_map for quadrilaterals.  The arrangement obsq can be run
+by simply executing ./go run.
 """
 
 from solvcon.hook import BlockHook
