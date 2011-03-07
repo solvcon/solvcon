@@ -24,7 +24,7 @@
 
 #ifndef __CUDACC__
 /*
- * shorthand for min/max.
+ * shorthand for min/max. NOTE: floating point has fmin()/fmax().
  */
 #ifndef max
 #define max( a, b ) ( ((a) > (b)) ? (a) : (b) )

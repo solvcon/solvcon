@@ -70,14 +70,12 @@ int calc_dsoln_w3(exedata *exd, int istart, int iend) {
     // arrays.
     double xps[CLMFC][NDIM], dsp[CLMFC][NDIM];
     double crd[NDIM], cnd[NDIM], cndge[NDIM], sft[NDIM];
-    double deno[NEQ];
-    double nume[NEQ][NDIM];
     double dst[NDIM][NDIM];
     double dnv[NDIM][NDIM];
     double udf[NEQ][NDIM];
     double gfd[MFGE][NEQ][NDIM];
-    double dlt[MFGE+1][NEQ];
-    double dlx[NEQ], dln[NEQ], sgm[NEQ];
+    double dlt[MFGE][NEQ];
+    double dla[NEQ], dlx[NEQ], dln[NEQ], sgm[NEQ];
     // interators.
     int icl, ifl, ifl1, ifc, jcl, ieq, ivx;
     int ig0, ig1, ig, ifg;
@@ -211,7 +209,7 @@ int calc_dsoln_w3(exedata *exd, int istart, int iend) {
 
         // calculate gradient and weighting delta.
         for (ieq=0; ieq<NEQ; ieq++) {
-            dlt[MFGE][ieq] = 0;
+            dla[ieq] = 0;
         };
         pisoln = exd->soln + icl*NEQ;
         for (ig=ig0; ig<ig1; ig++) {
@@ -291,8 +289,8 @@ int calc_dsoln_w3(exedata *exd, int istart, int iend) {
 #endif
                 wgt = 1.0 / pow(sqrt(wgt+SOLVCON_ALMOST_ZERO), exd->alpha);
                 // store and accumulate weighting function.
+                dla[ieq] += wgt;
                 dlt[ifg][ieq] = wgt;
-                dlt[MFGE][ieq] += wgt;
             };
         };
 
@@ -304,17 +302,17 @@ int calc_dsoln_w3(exedata *exd, int istart, int iend) {
         for (ig=ig0; ig<ig1; ig++) {
             ifg = ig-ig0;
             for (ieq=0; ieq<NEQ; ieq++) {
-                wgt = dlt[ifg][ieq] / dlt[MFGE][ieq] - 1.0/nfg;
+                wgt = dlt[ifg][ieq] / dla[ieq] - 1.0/nfg;
                 dlt[ifg][ieq] = wgt;
-                dlx[ieq] = max(dlx[ieq], wgt);
-                dln[ieq] = min(dln[ieq], wgt);
+                dlx[ieq] = fmax(dlx[ieq], wgt);
+                dln[ieq] = fmin(dln[ieq], wgt);
             };
         };
 
         // weight and update gradient.
         for (ieq=0; ieq<NEQ; ieq++) {
-            sgm[ieq] = max((1.0-1.0/nfg)/(dlx[ieq]+SOLVCON_ALMOST_ZERO),
-                           -1.0/(dln[ieq]*nfg+SOLVCON_ALMOST_ZERO));
+            sgm[ieq] = fmax((1.0-1.0/nfg)/(dlx[ieq]+SOLVCON_ALMOST_ZERO),
+                            -1.0/(dln[ieq]*nfg+SOLVCON_ALMOST_ZERO));
         };
         pdsoln = exd->dsoln + icl*NEQ*NDIM;
         for (ieq=0; ieq<NEQ; ieq++) {
@@ -328,7 +326,7 @@ int calc_dsoln_w3(exedata *exd, int istart, int iend) {
             ifg = ig-ig0;
             pdsoln = exd->dsoln + icl*NEQ*NDIM;
             for (ieq=0; ieq<NEQ; ieq++) {
-                wgt = min(sgm[ieq], sgm0);
+                wgt = fmin(sgm[ieq], sgm0);
                 wgt = 1.0/nfg + wgt*dlt[ifg][ieq];
                 pdsoln[0] += wgt*gfd[ifg][ieq][0];
                 pdsoln[1] += wgt*gfd[ifg][ieq][1];
