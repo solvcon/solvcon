@@ -1,0 +1,17 @@
+reset
+# create objects.
+create surface rectangle width 4 height 1 zplane
+move surface 1 x 2 y 0.5
+# BC.
+sideset 1 curve 1
+sideset 1 name "upper"
+sideset 2 curve 2
+sideset 2 name "left"
+sideset 3 curve 3
+sideset 3 name "lower"
+sideset 4 curve 4
+sideset 4 name "right"
+# mesh.
+surface 1 scheme %s
+surface 1 size %g
+mesh surface 1

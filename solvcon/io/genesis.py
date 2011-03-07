@@ -154,7 +154,7 @@ class Genesis(NetCDF):
         return blk
 
     CLTPN_MAP = {
-        'QUAD': 2,
+        'SHELL4': 2,    # CUBIT wants 2D quads in this way <shrug>.
         'TRI3': 3,
         'HEX8': 4,
         'TETRA': 5,
@@ -236,7 +236,7 @@ class Genesis(NetCDF):
 
     # define map for clfcs.
     CLFCS_MAP = {}
-    CLFCS_MAP[2] = [1,2,3,4]    # quadrilateral.
+    CLFCS_MAP[2] = [0,0,1,2,3,4]    # quadrilateral.
     CLFCS_MAP[3] = [1,2,3]  # triangle.
     CLFCS_MAP[4] = [5,2,6,4,1,3]    # hexahedron.
     CLFCS_MAP[5] = [2,4,3,1]    # tetrahedron.

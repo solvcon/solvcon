@@ -20,37 +20,17 @@
 """
 Experimental.  Not guaranteed to work.
 
-An example simulation for reflection of oblique shock wave.  A SOLVCON
-application consists of at least an arrangement, which is a callable decorated
-by the register_arrangement() classmethod of the corresponding Case class.  The
-arrangement is responsible for instantiating desired Case object and returning
-it.
-
-In this example, additional helper classes are defined to provide more
-functionalities:
-
-- ObliqueShock: calculate the exact solution of oblique shock wave reflected
-  from a ramp and a wall.
-- ExactObshockHook: report information for the exact solution during
-  simulation.
-- ReflProbe: probe the simulated solution in the discretized spatial domain.
-
-To aid parameterized studies, the arrangement, named as obrf(), simply
-provides necessary parameters to a fundamental function, obrf_base().  See
-the docstring and source codes for detail.
-
-At the end of the script, solvcon is imported and solvcon.go() is run.
-solvcon.go() is the main entry point of all SOLVCON applications.  solvcon.go()
-provides a lot of options and built-in functionalities.  You can execute this
-script with --help option to see the help information.
-
-The arrangement obrf can be run by simply executing ./go run.
+An example simulation for reflection of oblique shock wave on quadrilateral
+mesh.  The arrangement obsq can be run by simply executing ./go run.
 """
 
 from solvcon.hook import BlockHook
 from solvcon.kerpak.cese import ProbeHook
 from solvcon.kerpak import gasdyn
 
+################################################################################
+# Analyzing logic.
+################################################################################
 class ObliqueShock(object):
     """
     Exact solution of oblique shock wave resulted from a ramp.
@@ -245,7 +225,26 @@ class ReflProbe(ProbeHook):
         self.info('  p3   = %.3f/%.3f (error=%%%.2f)\n' % (p, self.p3,
             abs((p-self.p3)/self.p3)*100))
 
-def obrf_base(casename=None, meshname=None,
+################################################################################
+# Mesh generation.
+################################################################################
+def mesher(cse):
+    """
+    Generate mesh according to the CUBIT journaling file obsq.tmpl.
+    """
+    import os
+    from solvcon.helper import Cubit
+    itv, scheme = cse.io.meshfn.split('_')
+    itv = float(itv)/1000
+    cmds = open('obsq.tmpl').read() % (scheme, itv)
+    cmds = [cmd.strip() for cmd in cmds.strip().split('\n')]
+    gn = Cubit(cmds, 2, large=False)()
+    return gn.toblock(bcname_mapper=cse.condition.bcmap)
+
+################################################################################
+# Base setting.
+################################################################################
+def obsq_base(casename=None,
     gamma=None, density=None, pressure=None, M=None, dta=None,
     psteps=None, ssteps=None, **kw
 ):
@@ -285,8 +284,7 @@ def obrf_base(casename=None, meshname=None,
     # set up case.
     basedir = os.path.abspath(os.path.join(os.getcwd(), 'result'))
     cse = gasdyn.GasdynCase(basedir=basedir, rootdir=env.projdir,
-        basefn=casename, meshfn=os.path.join(env.find_scdata_mesh(), meshname),
-        bcmap=bcmap, **kw)
+        basefn=casename, mesher=mesher, bcmap=bcmap, **kw)
     # anchors for solvers.
     cse.runhooks.append(anchor.RuntimeStatAnchor)
     cse.runhooks.append(anchor.MarchStatAnchor)
@@ -324,15 +322,18 @@ def obrf_base(casename=None, meshname=None,
         psteps=ssteps, binary=True, cache_grid=True)
     return cse
 
+################################################################################
+# Arrangement.
+################################################################################
 @gasdyn.GasdynCase.register_arrangement
-def obrf(casename, **kw):
+def obsq(casename, **kw):
     """
     The true arrangement which specifies necessary parameters for execution.
     """
     from math import pi
-    return obrf_base(casename, meshname='obrefl_t4m100mm.neu.gz',
+    return obsq_base(casename, meshfn='50_map',
         gamma=1.4, density=1.0, pressure=1.0, M=3.0, dta=10.0/180*pi,
-        time_increment=7.e-3, steps_run=400, ssteps=100, psteps=2, **kw)
+        time_increment=9.9e-3, steps_run=400, ssteps=100, psteps=2, **kw)
 
 if __name__ == '__main__':
     import solvcon

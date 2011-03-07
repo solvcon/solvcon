@@ -29,8 +29,8 @@ sideset 5 name "upper"
 sideset 6 name "right"
 # mesh.
 volume 1 2 size 0.2
-volume 1 2 scheme tetmesh
+volume 1 2 scheme map
 mesh volume 1 2
 # export.
 set large exodus file off
-export genesis "../test/data/cubic_t200mm.g" dimension 3 overwrite
+export genesis "../test/data/cubic_h200mm.g" dimension 3 overwrite
