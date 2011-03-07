@@ -196,7 +196,8 @@ class CuseSolver(BlockSolver):
 
     @ivar alpha: parameter to the weighting function.
     @itype alpha: int
-    @ivar sigma0: constant parameter for W-3 scheme.
+    @ivar sigma0: constant parameter for W-3 scheme; should be of order of 1.
+        Default is 3.0.  If set to 0.0 then use calc_dsoln_w1() instead.
     @itype sigma0: float
     @ivar taylor: factor for Taylor's expansion; 0 off, 1 on.
     @itype taylor: float
@@ -243,7 +244,7 @@ class CuseSolver(BlockSolver):
         self.scu = scu = env.scu if self.ncuth else None
         # scheme parameters.
         self.alpha = int(kw.pop('alpha', 0))
-        self.sigma0 = int(kw.pop('sigma0', 1.0))
+        self.sigma0 = int(kw.pop('sigma0', 3.0))
         self.taylor = float(kw.pop('taylor', 1.0))  # dirty hack.
         self.cnbfac = float(kw.pop('cnbfac', 1.0))  # dirty hack.
         self.sftfac = float(kw.pop('sftfac', 1.0))  # dirty hack.
@@ -442,10 +443,12 @@ class CuseSolver(BlockSolver):
         if self.debug: self.mesg('calcdsoln')
         if self.scu:
             from ctypes import byref
-            self._clib_mcu.calc_dsoln_w3(self.ncuth,
-                byref(self.cumgr.exd), self.cumgr.gexd.gptr)
+            func = getattr(self._clib_mcu, 'calc_dsoln_w%d' % (
+                1 if self.sigma0 == 0.0 else 3))
+            func(self.ncuth, byref(self.cumgr.exd), self.cumgr.gexd.gptr)
         else:
-            func = self._clib_cuse_c.calc_dsoln_w3
+            func = getattr(self._clib_cuse_c, 'calc_dsoln_w%d' % (
+                1 if self.sigma0 == 0.0 else 3))
             self._tcall(func, 0, self.ncell, tickerkey='calcdsoln')
         if self.debug: self.mesg(' done.\n')
 
@@ -473,7 +476,7 @@ class CuseCase(BlockCase):
         'solver.debug_cese': False,
         'solver.ncuth': 0,
         'solver.alpha': 1,
-        'solver.sigma0': 1.0,
+        'solver.sigma0': 3.0,
         'solver.taylor': 1.0,
         'solver.cnbfac': 1.0,
         'solver.sftfac': 1.0,
