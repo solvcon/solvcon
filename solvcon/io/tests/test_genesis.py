@@ -543,6 +543,164 @@ class TestReadTri(TestCase):
         self.assertAlmostEqual(blk.ndcrd.max(), 0.5, 15)
         self.assertAlmostEqual(blk.clvol.sum(), 1.0, 14)
 
+class TestReadQuad(TestCase):
+    import os
+    from ...conf import env
+    testfn = [env.datadir] + ['square_q200mm.g']
+    testfn = os.path.join(*testfn)
+
+    def test_dim(self):
+        from ..genesis import Genesis
+        gn = Genesis(self.testfn)
+        self.assertEqual(gn.get_dim('num_dim'), 2)
+        self.assertEqual(gn.get_dim('num_nodes'), 36)
+        self.assertEqual(gn.get_dim('num_elem'), 25)
+        self.assertEqual(gn.get_dim('num_el_blk'), 1)
+        self.assertEqual(gn.get_dim('num_side_sets'), 4)
+        gn.close_file()
+
+    def test_ss_names(self):
+        from ..genesis import Genesis
+        gn = Genesis(self.testfn)
+        nbc = gn.get_dim('num_side_sets')
+        slen = gn.get_dim('len_string')
+        lines = gn.get_lines('ss_names', (nbc, slen))
+        self.assertEqual(len(lines), 4)
+        self.assertEqual(lines[0], 'upper')
+        self.assertEqual(gn.get_dim('num_side_ss1'), 5)
+        self.assertEqual(lines[1], 'left')
+        self.assertEqual(gn.get_dim('num_side_ss2'), 5)
+        self.assertEqual(lines[2], 'lower')
+        self.assertEqual(gn.get_dim('num_side_ss3'), 5)
+        self.assertEqual(lines[3], 'right')
+        self.assertEqual(gn.get_dim('num_side_ss4'), 5)
+        gn.close_file()
+
+    def test_coord(self):
+        from ..genesis import Genesis
+        gn = Genesis(self.testfn)
+        ndim = gn.get_dim('num_dim')
+        nnode = gn.get_dim('num_nodes')
+        ndcrd = gn.get_array('coord', (ndim, nnode), 'float64').T.copy()
+        self.assertTrue((ndcrd >= -0.5-1.e-15).all())
+        self.assertTrue((ndcrd <= 0.5+1.e-15).all())
+        gn.close_file()
+
+    def test_block(self):
+        from ..genesis import Genesis
+        gn = Genesis(self.testfn)
+        # name.
+        nblk = gn.get_dim('num_el_blk')
+        slen = gn.get_dim('len_string')
+        blks = gn.get_lines('eb_names', (nblk, slen))
+        self.assertEqual(len(blks), 1)
+        # block 1.
+        ncell = gn.get_dim('num_el_in_blk1')
+        clnnd = gn.get_dim('num_nod_per_el1')
+        clnds = gn.get_array('connect1', (ncell, clnnd), 'int32')
+        self.assertEqual(clnds.min(), 1)
+        self.assertEqual(clnds.max(), 36)
+        self.assertEqual(gn.get_attr_text('elem_type', 'connect1'), 'SHELL4')
+        gn.close_file()
+
+    def test_load(self):
+        from numpy import arange
+        from ..genesis import Genesis
+        # load from netCDF.
+        gn = Genesis(self.testfn)
+        gn.load()
+        gn.close_file()
+        # meta data.
+        self.assertEqual(gn.ndim, 2)
+        self.assertEqual(gn.nnode, 36)
+        self.assertEqual(gn.ncell, 25)
+        # blocks.
+        self.assertEqual(len(gn.blks), 1)
+        self.assertEqual(gn.blks[0][1], 'SHELL4')
+        self.assertEqual(gn.blks[0][2].shape, (25, 4))
+        # BCs.
+        self.assertEqual(len(gn.bcs), 4)
+        self.assertEqual(gn.bcs[0][0], 'upper')
+        self.assertEqual(gn.bcs[0][1].shape, (5,))
+        self.assertEqual(gn.bcs[0][2].shape, (5,))
+        self.assertEqual(gn.bcs[1][0], 'left')
+        self.assertEqual(gn.bcs[1][1].shape, (5,))
+        self.assertEqual(gn.bcs[1][2].shape, (5,))
+        self.assertEqual(gn.bcs[2][0], 'lower')
+        self.assertEqual(gn.bcs[2][1].shape, (5,))
+        self.assertEqual(gn.bcs[2][2].shape, (5,))
+        self.assertEqual(gn.bcs[3][0], 'right')
+        self.assertEqual(gn.bcs[3][1].shape, (5,))
+        self.assertEqual(gn.bcs[3][2].shape, (5,))
+        # coordinate.
+        self.assertEqual(gn.ndcrd.shape, (36, 2))
+        self.assertTrue((gn.ndcrd >= -0.5-1.e-15).all())
+        self.assertTrue((gn.ndcrd <= 0.5+1.e-15).all())
+        # mapper.
+        self.assertTrue((gn.emap == arange(25)+1).all())
+
+    def test_convert_interior(self):
+        from ...block import Block
+        from ..genesis import Genesis
+        # load from netCDF.
+        gn = Genesis(self.testfn)
+        gn.load()
+        gn.close_file()
+        # convert.
+        blk = Block(ndim=gn.ndim, nnode=gn.nnode, ncell=gn.ncell,
+            fpdtype='float64')
+        gn._convert_interior_to(blk)
+        # test cell type.
+        self.assertTrue((blk.cltpn == 2).all())
+        self.assertTrue((blk.clnds[:,0] == 4).all())
+        # test index of node in cell.
+        self.assertEqual(blk.clnds[:,1:5].min(), 0)
+        self.assertEqual(blk.clnds[:,1:5].max(), 36-1)
+        # test group.
+        self.assertEqual(len(blk.grpnames), 1)
+        self.assertEqual(blk.clgrp.min(), 0)
+        self.assertEqual((blk.clgrp==0).sum(), 25)
+
+    def test_toblock(self):
+        from numpy import abs
+        from ..genesis import Genesis
+        # load from netCDF.
+        gn = Genesis(self.testfn)
+        gn.load()
+        gn.close_file()
+        # convert.
+        blk = gn.toblock()
+        # test BC.
+        self.assertEqual(len(blk.bclist), 4)
+        self.assertEqual(blk.bclist[0].name, 'upper')
+        self.assertEqual(len(blk.bclist[0]), 5)
+        self.assertTrue((abs(blk.fccnd[blk.bclist[0].facn[:,0],1] - 0.5)
+            < 1.e-15).all())
+        self.assertAlmostEqual(blk.fcara[blk.bclist[0].facn[:,0]].sum(), 1.0,
+            15)
+        self.assertEqual(blk.bclist[1].name, 'left')
+        self.assertEqual(len(blk.bclist[1]), 5)
+        self.assertTrue((abs(blk.fccnd[blk.bclist[1].facn[:,0],0] + 0.5) 
+            < 1.e-15).all())
+        self.assertAlmostEqual(blk.fcara[blk.bclist[1].facn[:,0]].sum(), 1.0,
+            15)
+        self.assertEqual(blk.bclist[2].name, 'lower')
+        self.assertEqual(len(blk.bclist[2]), 5)
+        self.assertTrue((abs(blk.fccnd[blk.bclist[2].facn[:,0],1] + 0.5)
+            < 1.e-15).all())
+        self.assertAlmostEqual(blk.fcara[blk.bclist[2].facn[:,0]].sum(), 1.0,
+            15)
+        self.assertEqual(blk.bclist[3].name, 'right')
+        self.assertEqual(len(blk.bclist[3]), 5)
+        self.assertTrue((abs(blk.fccnd[blk.bclist[3].facn[:,0],0] - 0.5)
+            < 1.e-15).all())
+        self.assertAlmostEqual(blk.fcara[blk.bclist[3].facn[:,0]].sum(), 1.0,
+            15)
+        # test geometry.
+        self.assertAlmostEqual(blk.ndcrd.min(), -0.5, 15)
+        self.assertAlmostEqual(blk.ndcrd.max(), 0.5, 15)
+        self.assertAlmostEqual(blk.clvol.sum(), 1.0, 14)
+
 class TestLarge(TestCase):
     def test_compare(self):
         import os
