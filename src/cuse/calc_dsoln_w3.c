@@ -294,7 +294,7 @@ int calc_dsoln_w3(exedata *exd, int istart, int iend) {
         };
 
         // calculate W-3/4 delta and sigma_max.
-        // NOTE: udf is recycled; resulting sigma_max is stored in udf[][0].
+        // NOTE: udf is reused here; resulting sigma_max is stored in udf[][0].
         for (ieq=0; ieq<NEQ; ieq++) {
             udf[ieq][0] = udf[ieq][1] = 0.0;
         };
