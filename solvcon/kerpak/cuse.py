@@ -337,7 +337,7 @@ class CuseSolver(BlockSolver):
         """
         Locate the cell index where the input coordinate is.
         """
-        from ctypes import byref
+        from ctypes import byref, c_int
         from numpy import array
         crd = array(args, dtype='float64')
         picl = c_int(0)
