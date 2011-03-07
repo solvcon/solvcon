@@ -54,6 +54,7 @@ typedef struct {
     int nsca, nvec;
     // scheme.
     int alpha;
+    double sigma0;
     double taylor, cnbfac, sftfac;
     double taumin, taumax, tauscale;
     double omegamin, omegascale;
@@ -74,10 +75,11 @@ typedef struct {
     double *amsca, *amvec, *sol, *dsol, *solt, *soln, *dsoln, *cfl, *ocfl;
 } exedata;
 
-#ifndef __CUDACC__
 /*
  * mapping arrays.
  */
+#define MFGE 8
+#ifndef __CUDACC__
 extern const int ggefcs[31][3];
 extern const int ggerng[8][2];
 extern const int sfcs[4][3];

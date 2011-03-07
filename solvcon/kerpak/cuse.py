@@ -119,8 +119,8 @@ class CuseSolverExedata(Structure):
         # parameter shape.
         ('nsca', c_int), ('nvec', c_int),
         # scheme.
-        ('alpha', c_int), ('taylor', c_double),
-        ('cnbfac', c_double), ('sftfac', c_double),
+        ('alpha', c_int), ('sigma0', c_double),
+        ('taylor', c_double), ('cnbfac', c_double), ('sftfac', c_double),
         ('taumin', c_double), ('taumax', c_double), ('tauscale', c_double),
         ('omegamin', c_double), ('omegascale', c_double),
         # function pointer.
@@ -164,7 +164,7 @@ class CuseSolverExedata(Structure):
         for key in ('ncore', 'neq', 'time', 'time_increment',
                     'ndim', 'nnode', 'nface', 'ncell', 'nbound', 'ngstnode',
                     'ngstface', 'ngstcell', 'ngroup', 'gdlen', 'nsca', 'nvec',
-                    'alpha', 'taylor', 'cnbfac', 'sftfac',
+                    'alpha', 'sigma0', 'taylor', 'cnbfac', 'sftfac',
                     'taumin', 'taumax', 'tauscale', 'omegamin', 'omegascale'):
             setattr(self, key, getattr(svr, key))
         # arrays.
@@ -209,6 +209,8 @@ class CuseSolver(BlockSolver):
     @itype omeganame: str
     @ivar alpha: parameter to the weighting function.
     @itype alpha: int
+    @ivar sigma0: constant parameter for W-3 scheme.
+    @itype sigma0: float
     @ivar taylor: factor for Taylor's expansion; 0 off, 1 on.
     @itype taylor: float
     @ivar cnbfac: factor to use BCE centroid, othersize midpoint; 0 off, 1 on.
@@ -262,16 +264,17 @@ class CuseSolver(BlockSolver):
         diffname = kw.pop('diffname', None)
         self.diffname = diffname if diffname != None else 'tau'
         tauname = kw.pop('tauname', None)
-        self.tauname = tauname if tauname != None else 'linear'
+        self.tauname = tauname if tauname != None else 'scale'
         omeganame = kw.pop('omeganame', None)
         self.omeganame = omeganame if omeganame != None else 'scale'
         self.alpha = int(kw.pop('alpha', 0))
-        self.taylor = float(kw.pop('taylor', 1.0))
-        self.cnbfac = float(kw.pop('cnbfac', 1.0))
-        self.sftfac = float(kw.pop('sftfac', 1.0))
+        self.sigma0 = int(kw.pop('sigma0', 1.0))
+        self.taylor = float(kw.pop('taylor', 1.0))  # dirty hack.
+        self.cnbfac = float(kw.pop('cnbfac', 1.0))  # dirty hack.
+        self.sftfac = float(kw.pop('sftfac', 1.0))  # dirty hack.
         self.taumin = float(kw.pop('taumin', 0.0))
         self.taumax = float(kw.pop('taumax', 1.0))
-        self.tauscale = float(kw.pop('tauscale', 0.0))
+        self.tauscale = float(kw.pop('tauscale', 1.0))
         self.omegamin = float(kw.pop('omegamin', 1.1))
         self.omegascale = float(kw.pop('omegascale', 0.0))
         # super call.
@@ -472,7 +475,7 @@ class CuseSolver(BlockSolver):
             self._clib_mcu.calc_dsoln(self.ncuth,
                 byref(self.cumgr.exd), self.cumgr.gexd.gptr)
         else:
-            func = self._clib_cuse_c.calc_dsoln
+            func = self._clib_cuse_c.calc_dsoln_w3
             self._tcall(func, 0, self.ncell, tickerkey='calcdsoln')
         if self.debug: self.mesg(' done.\n')
 
@@ -503,6 +506,7 @@ class CuseCase(BlockCase):
         'solver.tauname': None,
         'solver.omeganame': None,
         'solver.alpha': 1,
+        'solver.sigma0': 1.0,
         'solver.taylor': 1.0,
         'solver.cnbfac': 1.0,
         'solver.sftfac': 1.0,
@@ -520,7 +524,7 @@ class CuseCase(BlockCase):
             val = self.solver.get(key)
             if val != None: kw[key] = val
         kw['alpha'] = int(self.solver.alpha)
-        for key in ('taylor', 'cnbfac', 'sftfac',
+        for key in ('sigma0', 'taylor', 'cnbfac', 'sftfac',
                     'taumin', 'taumax', 'tauscale', 'omegamin', 'omegascale',):
             val = self.solver.get(key)
             if val != None: kw[key] = float(val)
