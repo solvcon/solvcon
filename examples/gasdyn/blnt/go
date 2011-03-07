@@ -103,7 +103,7 @@ def blnt(casename, **kw):
     kw.setdefault('batch', 'Localhost')
     return blnt_base(casename=casename, meshname='hyperblunt_t100mm.neu.gz',
         gamma=1.4, density=1.0, pressure=1.0, M=3.0, rkillfn='', sigma0=2.0,
-        ncuth=256,
+        #ncuth=128,
         time_increment=9.e-3, steps_run=2000, ssteps=500, psteps=10, **kw)
 
 if __name__ == '__main__':

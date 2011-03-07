@@ -19,7 +19,7 @@
 #include "cuse.h"
 
 #ifdef __CUDACC__
-__global__ void cuda_calc_dsoln(exedata *exd) {
+__global__ void cuda_calc_dsoln_w1(exedata *exd) {
     int istart = blockDim.x * blockIdx.x + threadIdx.x;
     // Two-/three-dimensional GGE definition (in c-tau scheme).
     const int ggefcs[31][3] = {
@@ -45,7 +45,7 @@ __global__ void cuda_calc_dsoln(exedata *exd) {
         //{0, 8}, {8, 12}, {12, 18}, {18, 24},
     };
 #else
-int calc_dsoln(exedata *exd, int istart, int iend) {
+int calc_dsoln_w1(exedata *exd, int istart, int iend) {
     struct tms timm0, timm1;
     int cputicks;
     times(&timm0);
@@ -305,9 +305,9 @@ int calc_dsoln(exedata *exd, int istart, int iend) {
 };
 #else
 };
-extern "C" int calc_dsoln(int nthread, exedata *exc, void *gexc) {
+extern "C" int calc_dsoln_w1(int nthread, exedata *exc, void *gexc) {
     int nblock = (exc->ncell + nthread-1) / nthread;
-    cuda_calc_dsoln<<<nblock, nthread>>>((exedata *)gexc);
+    cuda_calc_dsoln_w1<<<nblock, nthread>>>((exedata *)gexc);
     cudaThreadSynchronize();
     return 0;
 };

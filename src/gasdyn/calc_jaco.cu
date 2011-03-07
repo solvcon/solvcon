@@ -185,7 +185,7 @@ void calc_jaco(exedata *exd, int icl,
 
 #ifdef __CUDACC__
 #include "calc_soltn.c"
-#include "calc_dsoln.c"
+#include "calc_dsoln_w1.c"
 #include "calc_dsoln_w3.c"
 #endif
 
