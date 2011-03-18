@@ -234,14 +234,13 @@ class CuseSolver(BlockSolver):
 
     def __init__(self, blk, *args, **kw):
         from numpy import empty
-        from solvcon.conf import env
         self.debug = kw.pop('debug', False)
         # shape parameters.
         nsca = kw.pop('nsca', 0)
         nvec = kw.pop('nvec', 0)
         # CUDA parameters.
         self.ncuth = kw.pop('ncuth',  0)
-        self.scu = scu = env.scu if self.ncuth else None
+        self.scu = None
         # scheme parameters.
         self.alpha = int(kw.pop('alpha', 0))
         self.sigma0 = int(kw.pop('sigma0', 3.0))
@@ -302,6 +301,8 @@ class CuseSolver(BlockSolver):
         return self.amvec.shape[1]
 
     def bind(self):
+        from solvcon.conf import env
+        self.scu = env.scu if self.ncuth else None
         if self.scu:
             self.cumgr = CudaDataManager(svr=self)
         super(CuseSolver, self).bind()
@@ -537,7 +538,9 @@ class CuseBC(BC):
     def unbind(self):
         if self.svr.scu:
             for key in ('facn', 'value',):
-                self.svr.scu.free(getattr(self, 'cu'+key))
+                gptr = getattr(self, 'cu'+key, None)
+                if gptr is not None:
+                    self.svr.scu.free(getattr(self, 'cu'+key))
 
     def init(self, **kw):
         from ctypes import byref, c_int
