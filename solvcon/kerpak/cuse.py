@@ -36,7 +36,9 @@ from solvcon.hook import Hook, BlockHook
 
 class CudaDataManager(AttributeDict):
     """
-    Manage solver data on GPU memory.
+    Customized dictionary managing solver data on GPU memory.  Each item in
+    the object represents a block of allocated memory on GPU, i.e.,
+    solvcon.scuda.GpuMemory object.
     """
     def __init__(self, *args, **kw):
         from ctypes import sizeof
@@ -332,6 +334,109 @@ class CuseSolver(BlockSolver):
             self.cumgr.arr_from_gpu('dsol', 'dsoln')
 
     ###########################################################################
+    # parallelization.
+    ###########################################################################
+    def pushibc(self, arrname, bc, recvn, worker=None):
+        """
+        Push data toward selected interface which connect to blocks with larger
+        serial number than myself.  If CUDA is present, data are first uploaded
+        to and then downloaded from GPU.
+
+        @param arrname: name of the array in the object to exchange.
+        @type arrname: str
+        @param bc: the interface BC to push.
+        @type bc: solvcon.boundcond.interface
+        @param recvn: serial number of the peer to exchange data with.
+        @type recvn: int
+        @keyword worker: the wrapping worker object for parallel processing.
+        @type worker: solvcon.rpc.Worker
+        """
+        from numpy import empty
+        conn = worker.pconns[bc.rblkn]
+        ngstcell = self.ngstcell
+        arr = getattr(self, arrname)
+        shape = list(arr.shape)
+        shape[0] = bc.rclp.shape[0]
+        # for CUDA up/download.
+        stride = arr.itemsize
+        for size in arr.shape[1:]:
+            stride *= size
+        # ask the receiver for data.
+        rarr = empty(shape, dtype=arr.dtype)
+        conn.recvarr(rarr)  # comm.
+        # set array and upload to GPU.
+        slct = bc.rclp[:,0] + ngstcell
+        if self.scu:
+            gbrr = self.scu.alloc(rarr.nbytes)
+            self.scu.memcpy(rarr, gbrr)
+            garr = self.cumgr[arrname]
+            self._clib_cuse_cu.slct_io(self.ncuth, 0, len(slct), stride,
+                slct.ctypes._as_parameter_, garr.gptr, gbrr.gptr)
+        else:
+            arr[slct] = rarr[:]
+        # download from GPU and get array.
+        slct = bc.rclp[:,2] + ngstcell
+        if self.scu:
+            self._clib_cuse_cu.slct_io(self.ncuth, 1, len(slct), stride,
+                slct.ctypes._as_parameter_, garr.gptr, gbrr.gptr)
+            self.scu.memcpy(gbrr, rarr)
+            self.scu.free(gbrr)
+        else:
+            rarr[:] = arr[slct]
+        # provide the receiver with data.
+        conn.sendarr(rarr)  # comm.
+
+    def pullibc(self, arrname, bc, sendn, worker=None):
+        """
+        Pull data from the interface determined by the serial of peer.  If CUDA
+        is present, data are first downloaded from GPU and then uploaded to
+        GPU.
+
+        @param arrname: name of the array in the object to exchange.
+        @type arrname: str
+        @param bc: the interface BC to pull.
+        @type bc: solvcon.boundcond.interface
+        @param sendn: serial number of the peer to exchange data with.
+        @type sendn: int
+        @keyword worker: the wrapping worker object for parallel processing.
+        @type worker: solvcon.rpc.Worker
+        """
+        from numpy import empty
+        conn = worker.pconns[bc.rblkn]
+        ngstcell = self.ngstcell
+        arr = getattr(self, arrname)
+        shape = list(arr.shape)
+        shape[0] = bc.rclp.shape[0]
+        # for CUDA up/download.
+        stride = arr.itemsize
+        for size in arr.shape[1:]:
+            stride *= size
+        # download from GPU and get array.
+        slct = bc.rclp[:,2] + ngstcell
+        rarr = empty(shape, dtype=arr.dtype)
+        if self.scu:
+            garr = self.cumgr[arrname]
+            gbrr = self.scu.alloc(rarr.nbytes)
+            self._clib_cuse_cu.slct_io(self.ncuth, 1, len(slct), stride,
+                slct.ctypes._as_parameter_, garr.gptr, gbrr.gptr)
+            self.scu.memcpy(gbrr, rarr)
+        else:
+            rarr[:] = arr[slct]
+        # provide sender the data.
+        conn.sendarr(rarr)  # comm.
+        # ask data from sender.
+        conn.recvarr(rarr)  # comm.
+        # set array and upload to GPU.
+        slct = bc.rclp[:,0] + ngstcell
+        if self.scu:
+            self.scu.memcpy(rarr, gbrr)
+            self._clib_cuse_cu.slct_io(self.ncuth, 0, len(slct), stride,
+                slct.ctypes._as_parameter_, garr.gptr, gbrr.gptr)
+            self.scu.free(gbrr)
+        else:
+            arr[slct] = rarr[:]
+
+    ###########################################################################
     # utility.
     ###########################################################################
     def locate_point(self, *args):
@@ -396,7 +501,7 @@ class CuseSolver(BlockSolver):
     MMNAMES.append('ibcam')
     def ibcam(self, worker=None):
         if self.debug: self.mesg('ibcam')
-        if worker:  # FIXME: not working with CUDA.
+        if worker:
             if self.nsca: self.exchangeibc('amsca', worker=worker)
             if self.nvec: self.exchangeibc('amvec', worker=worker)
         if self.debug: self.mesg(' done.\n')
