@@ -97,11 +97,11 @@ def make_kpculib(lname, lpre, ldir, sdir, bdir, env, extra_links=None):
 kpculibs = [
     ('cuse', None), ('cuseb', None),    # solvcon.kerpak.cuse
     ('gasdyn', None), ('gasdynb', None),    # solvcon.kerpak.gasdyn
+    ('lincuse', ['lapack']),    # solvcon.kerpak.lincese
 ]
 for lname, extra_links in kpculibs:
     libs.extend(make_kpculib(lname, lpre, ldir, '%s/%s'%(sdir, lname),
         bdir, env, extra_links=extra_links))
-
 
 # TODO: OBSELETE
 if GetOption('enable_f90'):

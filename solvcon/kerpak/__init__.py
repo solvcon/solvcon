@@ -28,6 +28,8 @@ Available numerical algorithms include:
  - cese: second order, multi-dimensional CESE method.
  - cuse: second order, multi-dimensional, CUDA-enabled CESE method.
  - lincese: second order CESE method specialized for linear equations.
+ - lincuse: second order CESE method specialized for linear equations with CUDA
+   support.
 
 Available physical models:
  - euler: the euler equations for gas dynamics.
@@ -36,4 +38,4 @@ Available physical models:
  - gasdyn: CUDA-enabled, gas-dynamics simulator.
 """
 
-__all__ = ['cese', 'cuse', 'elaslin', 'euler', 'gasdyn', 'lincese']
+__all__ = ['cese', 'cuse', 'elaslin', 'euler', 'gasdyn', 'lincese', 'lincuse']
