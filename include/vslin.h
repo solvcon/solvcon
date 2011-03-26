@@ -16,15 +16,15 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef SOLVCON_LINCUSE_H
-#define SOLVCON_LINCUSE_H
-#include "cuse.h"
+#ifndef SOLVCON_VSLIN_H
+#define SOLVCON_VSLIN_H
+#include "lincuse.h"
 
-// lapack.
-#define lapack_dgeev dgeev_
-extern void lapack_dgeev(char *jobvl, char *jobvr, int *n, double *a, int *lda,
-        double *wr, double *wi, double *vl, int *ldvl, double *vr, int *ldvr,
-        double *work, int *lwork, int *info);
+#undef NEQ
+#define NEQ 9
+
+int get_transformation(double *nvec, double *svec,
+        double rotm[][3], double bondm[][6], double bondminv[][6]);
 
 #endif
 // vim: set ts=4 et:

@@ -98,6 +98,7 @@ kpculibs = [
     ('cuse', None), ('cuseb', None),    # solvcon.kerpak.cuse
     ('gasdyn', None), ('gasdynb', None),    # solvcon.kerpak.gasdyn
     ('lincuse', ['lapack']),    # solvcon.kerpak.lincese
+    ('vslin', None), ('vslinb', None),  # solvcon.kerpak.vslin
 ]
 for lname, extra_links in kpculibs:
     libs.extend(make_kpculib(lname, lpre, ldir, '%s/%s'%(sdir, lname),

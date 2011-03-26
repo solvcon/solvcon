@@ -23,7 +23,7 @@ CESE solver specialized for general linear equations with CUDA support.
 from solvcon.gendata import SingleAssignDict, AttributeDict
 from solvcon.anchor import Anchor
 from solvcon.hook import BlockHook
-from solvcon.kerpak.cuse import CuseSolver, CuseCase
+from solvcon.kerpak.cuse import CUDA_RAISE_ON_FAIL, CuseSolver, CuseCase
 
 ###############################################################################
 # Solver.
@@ -39,17 +39,24 @@ class LincuseSolver(CuseSolver):
     @itype cflmax: float
     """
     from solvcon.dependency import getcdll
-    __clib_lincuse = {
-        2: getcdll('lincuse2d'),
-        3: getcdll('lincuse3d'),
+    __clib_lincuse_c = {
+        2: getcdll('lincuse2d_c'),
+        3: getcdll('lincuse3d_c'),
+    }
+    __clib_lincuse_cu = {
+        2: getcdll('lincuse2d_cu', raise_on_fail=CUDA_RAISE_ON_FAIL),
+        3: getcdll('lincuse3d_cu', raise_on_fail=CUDA_RAISE_ON_FAIL),
     }
     del getcdll
     @property
-    def _clib_lincuse(self):
-        return self.__clib_lincuse[self.ndim]
+    def _clib_lincuse_c(self):
+        return self.__clib_lincuse_c[self.ndim]
+    @property
+    def _clib_lincuse_cu(self):
+        return self.__clib_lincuse_cu[self.ndim]
     @property
     def _jacofunc_(self):
-        return self._clib_lincuse.calc_jaco
+        return self._clib_lincuse_c.calc_jaco
     def __init__(self, *args, **kw):
         self.cfldt = kw.pop('cfldt', None)
         self.cflmax = 0.0
@@ -62,18 +69,13 @@ class LincuseSolver(CuseSolver):
         self.make_grpda()
         # pre-calculate CFL.
         self._set_time(self.time, self.cfldt)
-        self._clib_lincuse.calc_cfl(
+        self._clib_lincuse_c.calc_cfl(
             byref(self.exd), c_int(0), c_int(self.ncell))
-        self.cflmax = self.cfl.max()
+        self.ocfl[:] = self.cfl[:]
         # super method.
         super(LincuseSolver, self).provide()
     def calccfl(self, worker=None):
-        self.marchret.setdefault('cfl', [0.0, 0.0, 0, 0])
-        self.marchret['cfl'][0] = self.cflmax
-        self.marchret['cfl'][1] = self.cflmax
-        self.marchret['cfl'][2] = 0
-        self.marchret['cfl'][3] = 0
-        return self.marchret
+        pass
 
 ###############################################################################
 # Case.
@@ -128,7 +130,7 @@ class PlaneWaveSolution(object):
         raise NotImplementedError
     def __call__(self, svr, asol, adsol):
         from ctypes import byref, c_double
-        svr._clib_lincuse.calc_planewave(
+        svr._clib_lincuse_c.calc_planewave(
             byref(svr.exd),
             asol.ctypes._as_parameter_,
             adsol.ctypes._as_parameter_,

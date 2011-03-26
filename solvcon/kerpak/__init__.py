@@ -35,7 +35,10 @@ Available physical models:
  - euler: the euler equations for gas dynamics.
  - elaslin: the velocity-stress equations for anisotropic, linear elastic
    solids.
+ - vslin: the velocity-stress equations for anisotropic, linear elastic solids
+   with CUDA support.
  - gasdyn: CUDA-enabled, gas-dynamics simulator.
 """
 
-__all__ = ['cese', 'cuse', 'elaslin', 'euler', 'gasdyn', 'lincese', 'lincuse']
+__all__ = ['cese', 'cuse', 'elaslin', 'euler', 'gasdyn', 'lincese', 'lincuse',
+'vslin']

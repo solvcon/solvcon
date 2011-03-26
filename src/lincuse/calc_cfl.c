@@ -110,7 +110,7 @@ int calc_cfl(exedata *exd, int istart, int iend) {
             };
             // calculate CFL number.
             cfl = hdt * wr[argsort[NEQ-1]] / dist;
-            pcfl[0] = max(pcfl[0], cfl);
+            pcfl[0] = fmax(pcfl[0], cfl);
         };
         // advance.
         pcfl += 1;
