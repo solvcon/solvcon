@@ -228,10 +228,23 @@ class interface(BC):
         assert (self.rclp[:,1]>=0).all()
         assert (self.rclp[:,2]>=0).all()
 
-class periodic(interface):
+class periodic(BC):
     """
     BC type for periodic boundary condition.
     """
+
+    def __init__(self, **kw):
+        from numpy import empty
+        super(periodic, self).__init__(**kw)
+        self.rblkn = getattr(self, 'rblkn', -1)
+        self.rblkinfo = empty(6, dtype='int32')
+        self.rclp = empty((0,3), dtype='int32')
+
+    def cloneTo(self, another):
+        super(interface, self).cloneTo(another)
+        another.rblkn = self.rblkn
+        another.rblkinfo = self.rblkinfo.copy()
+        another.rclp = self.rclp.copy()
 
     def sort(self, ref):
         if ref is None:

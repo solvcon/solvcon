@@ -710,16 +710,20 @@ class CusePeriodic(periodic):
         svr = self.svr
         slctm = self.rclp[:,0] + svr.ngstcell
         slctr = self.rclp[:,1] + svr.ngstcell
-        svr.cumgr.arr_from_gpu('soln')
+        if svr.scu:
+            svr.cumgr.arr_from_gpu('soln')
         svr.soln[slctm,:] = svr.soln[slctr,:]
-        svr.cumgr.arr_to_gpu('soln')
+        if svr.scu:
+            svr.cumgr.arr_to_gpu('soln')
     def dsoln(self):
         svr = self.svr
         slctm = self.rclp[:,0] + svr.ngstcell
         slctr = self.rclp[:,1] + svr.ngstcell
-        svr.cumgr.arr_from_gpu('dsoln')
+        if svr.scu:
+            svr.cumgr.arr_from_gpu('dsoln')
         svr.dsoln[slctm,:,:] = svr.dsoln[slctr,:,:]
-        svr.cumgr.arr_to_gpu('dsoln')
+        if svr.scu:
+            svr.cumgr.arr_to_gpu('dsoln')
 
 ################################################################################
 # CUDA downloader.
