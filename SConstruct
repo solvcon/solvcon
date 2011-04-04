@@ -47,9 +47,8 @@ class Archive(object):
     depdir = 'dep'
 
     pkgs = (
-        (['http://glaros.dtc.umn.edu/gkhome/fetch/sw/metis/metis-4.0.tar.gz',
-          'http://cfd.eng.ohio-state.edu/~yungyuc/pub/metis-4.0.tar.gz'],
-         '0aa546419ff7ef50bd86ce1ec7f727c7'),
+        ('http://glaros.dtc.umn.edu/gkhome/fetch/sw/metis/metis-4.0.3.tar.gz',
+         'd3848b454532ef18dc83e4fb160d1e10'),
     )
 
     def __init__(self, url, md5sum, filename=None):
@@ -61,7 +60,7 @@ class Archive(object):
             self.url = url
         self.md5sum = md5sum
         if filename == None:
-            up = urlparse(url[0])
+            up = urlparse(self.url[0])
             filename = up[2].split('/')[-1]
         self.filename = os.path.join(self.depdir, filename)
         if not os.path.exists(self.depdir):

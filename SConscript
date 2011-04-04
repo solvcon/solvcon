@@ -126,7 +126,7 @@ if GetOption('enable_f90'):
         Glob('test/src/*.f90'))
 
 # METIS.
-src = 'dep/metis-4.0/Lib'
+src = 'dep/metis-4.0.3/Lib'
 VariantDir('%s/metis' % bdir, src, duplicate=0)
 ccflags = list()
 if sys.platform.startswith('win'):
