@@ -18,8 +18,6 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 """
-Experimental.  Not guaranteed to work.
-
 Test for group (energy) velocity of beryl.  The stopping time is at 91
 microsecond.
 
