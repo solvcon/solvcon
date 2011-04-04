@@ -18,11 +18,9 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 """
-Experimental.  Not guaranteed to work.
-
-Supersonic flow over a cylinder run on CUDA.  Note the spatial domain includes
-only the fore flow for the bow shock.  To save time, the time steps is not set
-to be enough for convergence.  You can further increase the steps.
+Supersonic flow over a cylinder.  Solver has CUDA enabled.  Note the spatial
+domain includes only the fore flow for the bow shock.  You can further increase
+the steps.
 
 The arrangement blnt can be run by simply executing ./go run.
 """
@@ -93,18 +91,29 @@ def blnt_base(casename=None, meshname=None,
     ], fpdtype='float64', psteps=ssteps)
     return cse
 
+def blnt_skel(casename, **kw):
+    return blnt_base(casename=casename, meshname='hyperblunt_t100mm.neu.gz',
+        gamma=1.4, density=1.0, pressure=1.0, rkillfn='', ncuth=128,
+        steps_run=2000, ssteps=500, psteps=10, **kw)
+
 @gasdyn.GasdynCase.register_arrangement
 def blnt(casename, **kw):
-    """
-    The true arrangement which specifies necessary parameters for execution.
-    For parallel execution of domain decomposition, batch is default to
-    'Localhost'.
-    """
-    kw.setdefault('batch', 'Localhost')
-    return blnt_base(casename=casename, meshname='hyperblunt_t100mm.neu.gz',
-        gamma=1.4, density=1.0, pressure=1.0, M=3.0, rkillfn='',
-        ncuth=128,
-        time_increment=9.e-3, steps_run=2000, ssteps=500, psteps=10, **kw)
+    return blnt_skel(casename=casename, M=3.0, time_increment=9.e-3, **kw)
+
+@gasdyn.GasdynCase.register_arrangement
+def blnt_m5(casename, **kw):
+    return blnt_skel(casename=casename, M=5.0, time_increment=6.e-3,
+        taumin=0.5, **kw)
+
+@gasdyn.GasdynCase.register_arrangement
+def blnt_m10(casename, **kw):
+    return blnt_skel(casename=casename, M=5.0, time_increment=3.e-3,
+        taumin=1.0, **kw)
+
+@gasdyn.GasdynCase.register_arrangement
+def blnt_m20(casename, **kw):
+    return blnt_skel(casename=casename, M=20.0, time_increment=1.6e-3,
+        taumin=1.0, **kw)
 
 if __name__ == '__main__':
     import solvcon
