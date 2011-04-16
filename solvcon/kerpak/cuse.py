@@ -358,29 +358,34 @@ class CuseSolver(BlockSolver):
         shape = list(arr.shape)
         shape[0] = bc.rclp.shape[0]
         # for CUDA up/download.
-        stride = arr.itemsize
-        for size in arr.shape[1:]:
-            stride *= size
+        if self.scu:
+            stride = arr.itemsize
+            for size in arr.shape[1:]:
+                stride *= size
         # ask the receiver for data.
         rarr = empty(shape, dtype=arr.dtype)
         conn.recvarr(rarr)  # comm.
         # set array and upload to GPU.
         slct = bc.rclp[:,0] + ngstcell
         if self.scu:
+            gslct = self.scu.alloc(slct.nbytes)
+            self.scu.memcpy(gslct, slct)
             gbrr = self.scu.alloc(rarr.nbytes)
-            self.scu.memcpy(rarr, gbrr)
+            self.scu.memcpy(gbrr, rarr)
             garr = self.cumgr[arrname]
             self._clib_cuse_cu.slct_io(self.ncuth, 0, len(slct), stride,
-                slct.ctypes._as_parameter_, garr.gptr, gbrr.gptr)
+                gslct.gptr, garr.gptr, gbrr.gptr)
         else:
             arr[slct] = rarr[:]
         # download from GPU and get array.
         slct = bc.rclp[:,2] + ngstcell
         if self.scu:
+            self.scu.memcpy(gslct, slct)
             self._clib_cuse_cu.slct_io(self.ncuth, 1, len(slct), stride,
-                slct.ctypes._as_parameter_, garr.gptr, gbrr.gptr)
-            self.scu.memcpy(gbrr, rarr)
+                gslct.gptr, garr.gptr, gbrr.gptr)
+            self.scu.memcpy(rarr, gbrr)
             self.scu.free(gbrr)
+            self.scu.free(gslct)
         else:
             rarr[:] = arr[slct]
         # provide the receiver with data.
@@ -408,18 +413,21 @@ class CuseSolver(BlockSolver):
         shape = list(arr.shape)
         shape[0] = bc.rclp.shape[0]
         # for CUDA up/download.
-        stride = arr.itemsize
-        for size in arr.shape[1:]:
-            stride *= size
+        if self.scu:
+            stride = arr.itemsize
+            for size in arr.shape[1:]:
+                stride *= size
         # download from GPU and get array.
         slct = bc.rclp[:,2] + ngstcell
         rarr = empty(shape, dtype=arr.dtype)
         if self.scu:
-            garr = self.cumgr[arrname]
+            gslct = self.scu.alloc(slct.nbytes)
+            self.scu.memcpy(gslct, slct)
             gbrr = self.scu.alloc(rarr.nbytes)
+            garr = self.cumgr[arrname]
             self._clib_cuse_cu.slct_io(self.ncuth, 1, len(slct), stride,
-                slct.ctypes._as_parameter_, garr.gptr, gbrr.gptr)
-            self.scu.memcpy(gbrr, rarr)
+                gslct.gptr, garr.gptr, gbrr.gptr)
+            self.scu.memcpy(rarr, gbrr)
         else:
             rarr[:] = arr[slct]
         # provide sender the data.
@@ -429,10 +437,12 @@ class CuseSolver(BlockSolver):
         # set array and upload to GPU.
         slct = bc.rclp[:,0] + ngstcell
         if self.scu:
-            self.scu.memcpy(rarr, gbrr)
+            self.scu.memcpy(gslct, slct)
+            self.scu.memcpy(gbrr, rarr)
             self._clib_cuse_cu.slct_io(self.ncuth, 0, len(slct), stride,
-                slct.ctypes._as_parameter_, garr.gptr, gbrr.gptr)
+                gslct.gptr, garr.gptr, gbrr.gptr)
             self.scu.free(gbrr)
+            self.scu.free(gslct)
         else:
             arr[slct] = rarr[:]
 
