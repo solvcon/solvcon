@@ -25,7 +25,20 @@ for the bow shock.  You can further increase the steps.
 The arrangement blnt can be run by simply executing ./go run.
 """
 
+from solvcon.batch import Batch
 from solvcon.kerpak import gasdyn
+
+class Tester(Batch):
+    BASH_HOME_SOURCE = ['.bashrc_path', '.bashrc_acct']
+    def nodelist(self):
+        from solvcon.batch import Node
+        ndlst = [
+            Node('w128', ncore=1, serial=0),
+            Node('w129', ncore=1, serial=0),
+        ]
+        return ndlst
+    def create_worker(self, *args, **kw):
+        return self.create_worker_ssh(*args, **kw)
 
 def par_base(casename=None, meshname=None, 
     gamma=None, density=None, pressure=None, M=None,
@@ -94,8 +107,7 @@ def par_base(casename=None, meshname=None,
 def par_skel(casename, **kw):
     return par_base(casename=casename, meshname='hyperblunt_t100mm.neu.gz',
         gamma=1.4, density=1.0, pressure=1.0, rkillfn='', ncuth=128,
-        #steps_run=2000, ssteps=500, psteps=10, **kw)
-        steps_run=10, ssteps=1, psteps=1, **kw)
+        steps_run=2000, ssteps=500, psteps=10, **kw)
 
 @gasdyn.GasdynCase.register_arrangement
 def par(casename, **kw):
