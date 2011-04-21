@@ -25,22 +25,28 @@ for the bow shock.  You can further increase the steps.
 The arrangement blnt can be run by simply executing ./go run.
 """
 
-from solvcon.batch import Batch
+from solvcon.batch import Torque
 from solvcon.kerpak import gasdyn
 
-class Tester(Batch):
+class Tester(Torque):
     BASH_HOME_SOURCE = ['.bashrc_path', '.bashrc_acct']
-    def nodelist(self):
-        from solvcon.batch import Node
-        ndlst = [
-            Node('w128', ncore=1, serial=0),
-            Node('w129', ncore=1, serial=0),
-        ]
-        return ndlst
     def create_worker(self, *args, **kw):
         return self.create_worker_ssh(*args, **kw)
+    @property
+    def str_path(self):
+        import os
+        sep = ':'
+        ppaths = []
+        for path in os.environ.get('PYTHONPATH', '').split(sep):
+            ppaths.append(os.path.abspath(path))
+        ret = [super(Tester, self).str_path]
+        if ppaths:
+            ret.append('export PYTHONPATH=%s'%sep.join(ppaths+['$PYTHONPATH']))
+        ret.append('export')
+        ret.append('python2.6 -c "from solvcon.conf import env; print env.scu"')
+        return '\n'.join(ret)
 
-def par_base(casename=None, meshname=None, 
+def par_base(casename=None, meshname=None,
     gamma=None, density=None, pressure=None, M=None,
     psteps=None, ssteps=None, **kw
 ):
@@ -70,7 +76,9 @@ def par_base(casename=None, meshname=None,
         'outflow': (bctregy.CuseNonrefl, {},),
     }
     # set up case.
-    basedir = os.path.abspath(os.path.join(os.getcwd(), 'result'))
+    basedir = os.path.abspath(os.getcwd())
+    if os.path.basename(basedir) != 'result':   # for submitted job.
+        basedir = os.path.join(os.getcwd(), 'result')
     cse = gasdyn.GasdynCase(basedir=basedir, rootdir=env.projdir,
         basefn=casename, meshfn=os.path.join(env.find_scdata_mesh(), meshname),
         bcmap=bcmap, **kw)
