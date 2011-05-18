@@ -1,5 +1,5 @@
 include MANIFEST.in
-include README.rst HISTORY.rst COPYING
+include README.rst HISTORY.rst CREDITS.rst COPYING
 include doc/source/* doc/source/*/*
 include SCons* patch/*.patch
 include site_scons/site_tools/*.py
