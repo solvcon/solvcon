@@ -318,6 +318,7 @@ class CuseSolver(BlockSolver):
         self._tcall(self._clib_cuse_c.prepare_ce, 0, self.ncell)
         super(CuseSolver, self).init(**kw)
         if self.scu: self.cumgr.arr_to_gpu()
+        self.mesg('cuda is %s\n'%('on' if self.scu else 'off'))
 
     def boundcond(self):
         if self.scu:
