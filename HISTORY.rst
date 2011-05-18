@@ -1,6 +1,35 @@
 Upcoming
 ========
 
+0.0.6
+=====
+
+Release date: 2011/5/18 (GMT-0500)
+
+This release also contains enhancements planned for 0.0.5, which would not be
+released.  SOLVCON now partially supports GPU clusters.  Solvers for linear
+equations and the velocity-stress equations are updated.  The CESE base solver
+is enhanced.
+
+New features:
+
+- Support GPU clusters.  SOLVCON can spread decomposed sub-domains to multiple
+  GPU devices distributed over network.  Currently only one GPU device per
+  compute node is supported.
+- A generic solver for linear equations: ``solvcon.kerpak.lincuse``.  The new
+  version of generic linear solver support both CPU and CPU.
+- A velocity-stress equaltions solver is ported to be based on
+  ``solvcon.kerpak.lincuse``.  The new solver is packaged in
+  ``solvcon.kerpak.vslin``.
+- Add W-3 weighting scheme to ``solvcon.kerpak.cuse``.  W-3 scheme is more
+  stable than W-1 and W-2.
+
+Bug-fixes:
+
+- Consolidate reading quadrilateral mesh from CUBIT/Genesis/ExodusII; CUBIT
+  uses 'SHELL4' for 2D quad.
+- Update SCons scripts for the upgrade of METIS to 4.0.3.
+
 0.0.4
 =====
 

@@ -47,7 +47,7 @@ Key Features
 Install
 =======
 
-The C codes in SOLVCON are intentionally made to be standard shared libraries
+The C code in SOLVCON are intentionally made to be standard shared libraries
 rather than Python extension modules.  SOLVCON uses ctypes_ to load and call
 these binary codes.  In this way, the binary codes can be flexibly built and
 optimized for performance.  Hence, installing SOLVCON requires building these
@@ -55,13 +55,13 @@ libraries.  SOLVCON uses SCons_ as the binary builder.
 
 For SOLVCON to be built and run, it requires the following packages: (i)
 Python_ 2.6, (ii) SCons_, (iii) a C compiler, gcc_ or icc is OK, (iv) Numpy_,
-(v) LAPACK_, (vi) NetCDF_ higher than version 4, and (vii) METIS_ version 4 for
-graph partitioning (SOLVCON will download it for you on building).  Optional
-dependencies include: (i) SCOTCH_ (higher than version 5.1) as an alternative
-of METIS, (ii) Nose_ for running unit tests, (iii) Epydoc_ for generating API
-documentation, and (iv) VTK_ for in situ visualization.  64-bits Linux is
-recommended.  For Debian_ or Ubuntu_ users, they can use the following command
-to install the dependencies::
+(v) LAPACK_, (vi) NetCDF_ higher than version 4, and (vii) METIS_ version 4.0.3
+for graph partitioning (SOLVCON will download it for you on building).
+Optional dependencies include: (i) SCOTCH_ (higher than version 5.1) as an
+alternative of METIS, (ii) Nose_ for running unit tests, (iii) Epydoc_ for
+generating API documentation, and (iv) VTK_ for in situ visualization.  64-bits
+Linux is recommended.  For Debian_ or Ubuntu_ users, they can use the following
+command to install the dependencies::
 
   $ sudo apt-get install scons build-essential gcc liblapack-pic
     libnetcdf-dev libnetcdf6 netcdf-bin
@@ -76,13 +76,14 @@ The three steps to install:
 
 1. Obtain the latest release from
    https://bitbucket.org/yungyuc/solvcon/downloads .  Unpack the source
-   tarball.  Let ``$SCSRC`` indicate the root directory of unpacked source
-   tree.
+   tarball.
 
 2. Get into the source tree and run SCons_ to build the binary codes::
 
      $ cd $SCSRC
-     $ scons --download --extract --apply-patches=metislog2
+     $ scons --download --extract
+
+   ``$SCSRC`` indicates the root directory of unpacked source tree.
 
 3. Install everything::
 
@@ -96,10 +97,7 @@ The three steps to install:
 
 The option ``--download`` used above asks the building script to download
 necessary external source packages, e.g., METIS_, from Internet.  Option
-``--extract`` extracts the downloaded packages.  Since METIS is incompatible to
-the current release of gcc, a patch is supplied with SOLVCON and can be
-automatically applied to the downloaded METIS source with the
-``--apply-patches`` option.
+``--extract`` extracts the downloaded packages.
 
 Install from Repository
 =======================
@@ -121,10 +119,8 @@ If you want to rebuild and reinstall, you can run::
   $ scons
   $ python setup.py install
 
-without using the options ``--download``, ``--extract``, and
-``--apply-patches``.  If you want a clean rebuild, run ``scons -c`` before
-``scons``.  Note, ``scons -c`` does not remove the unpacked source, so you
-don't need to reapply the patches unless you manually deleted it.
+without using the options ``--download`` and ``--extract``.  If you want a
+clean rebuild, run ``scons -c`` before ``scons``.
 
 Unit Test
 =========
@@ -176,7 +172,7 @@ Resources
 
 __docformat__ = 'restructuredtext en'
 
-__version__ = '0.0.4+'
+__version__ = '0.0.6'
 
 __description__ = "SOLVCON: a software framework for PDE solvers"
 
