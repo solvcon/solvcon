@@ -60,6 +60,9 @@ CUDA_ needs to be separately installed and configured.  For using meshes with
 more then 35 million cells, SCOTCH-5.1 is recommended.  METIS-4 has issues on
 memory allocation for large graphs.
 
+The end of this section describes how to manually compile these dependencies
+with helper scripts shipped with SOLVCON.
+
 The three steps to install:
 
 1. Obtain the latest release from
@@ -86,6 +89,18 @@ The three steps to install:
 The option ``--download`` used above asks the building script to download
 necessary external source packages, e.g., METIS_, from Internet.  Option
 ``--extract`` extracts the downloaded packages.
+
+If one wants to build the dependencies from ground up, he/she can take a look
+into ``$SCSRC/ground``.  The directory contains scripts to compile most of the
+depended packages, excepting very fundamental ones.  For those who like to get
+their hands dirty, the following packages still need to be installed as
+prerequisite::
+
+  $ sudo apt-get install build-essential gcc libcurl4-gnutls-dev
+
+Sometimes it is inevitable to compile these dependencies from source.  For
+example, to deploy SOLVCON on a supercomputer/cluster which runs stable but
+out-dated OSes.  The ``ground/`` directory is meant to ease the tedious task.
 
 Install from Repository
 =======================
