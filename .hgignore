@@ -8,6 +8,7 @@ doc/api/
 tmp/
 dep/
 dist/
+ground/downloaded/
 MANIFEST
 solvcon.log
 *.pyc
