@@ -1,3 +1,5 @@
+prefix		= $(SCPREFIX)
+
 EXE		=
 LIB		= .a
 OBJ		= .o

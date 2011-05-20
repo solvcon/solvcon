@@ -1,6 +1,6 @@
 #!/bin/sh
 
-./configure --prefix=$HOME/opt \
+./configure --prefix=$SCPREFIX \
 	--disable-fortran \
 	--enable-shared \
 > configure.log 2>&1
