@@ -4,15 +4,13 @@ export SCBIN=$(SCPREFIX)/bin
 binary: build/BLAS/make.log build/lapack-3.3.1/make.log \
 	build/ATLAS/ATLAS_LINUX/make.log \
 	build/netcdf-4.1.2/make.log build/libscotchmetis.so \
-	build/Python-2.6.6/make.log build/Python-2.7.1/make.log
+	build/Python-2.6.6/make.log build/Python-2.7.1/make.log \
+	$(SCBIN)/scvars.sh
 
 python: build/numpy-1.6.0/build build/scons-2.0.1/build \
 	build/nose-1.0.0/build build/epydoc-3.0.1/build
 
 all: binary python
-
-install:
-	cd fftw-3.2.1 && make install
 
 build/BLAS/make.log:
 	mkdir -p build
@@ -67,6 +65,9 @@ build/Python-2.7.1/make.log:
 	mv $(SCBIN)/2to3 $(SCBIN)/2to3-2.7
 	mv $(SCBIN)/smtpd.py $(SCBIN)/smtpd-2.7.py
 
+$(SCBIN)/scvars.sh:
+	$(SCBIN)/python2.7 create-scvars.py
+
 build/numpy-1.6.0/build:
 	mkdir -p build
 	cd build && tar xf ../downloaded/numpy-1.6.0.tar.gz
@@ -104,7 +105,7 @@ build/epydoc-3.0.1/build:
 clean:
 	rm -rf build/BLAS build/lapack-3.3.1 build/netcdf-4.1.2 \
 	build/ATLAS build/scotch_5.8.11 build/libscotchmetis.so \
-	build/Python-2.6.6 build/Python-2.7.1 \
+	build/Python-2.6.6 build/Python-2.7.1 $(SCBIN)/scvars.sh \
 	build/numpy-1.6.0 build/scons-2.0.1 build/nose-1.0.0 build/epydoc-3.0.1
 
 .PHONY: binary python all clean
