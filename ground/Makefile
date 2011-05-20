@@ -1,5 +1,6 @@
 all: build/BLAS/make.log build/lapack-3.3.1/make.log build/netcdf-4.1.2/make.log \
-	build/libscotchmetis.so
+	build/libscotchmetis.so \
+	Python-2.6.6/make.log Python-2.7.1/make.log
 
 install:
 	cd fftw-3.2.1 && make install
@@ -29,8 +30,19 @@ build/libscotchmetis.so:
 		gcc -shared -o ../libscotchmetis.so \
 		-Llib -lscotch src/libscotchmetis/*.o
 
+Python-2.6.6/make.log:
+	mkdir -p build
+	cd build && tar xf ../downloaded/Python-2.6.6.tar.bz2
+	cd build/Python-2.6.6 && ../../build-python.sh
+
+Python-2.7.1/make.log:
+	mkdir -p build
+	cd build && tar xf ../downloaded/Python-2.7.1.tar.bz2
+	cd build/Python-2.7.1 && ../../build-python.sh
+
 clean:
 	rm -rf build/BLAS build/lapack-3.3.1 build/netcdf-4.1.2 \
-	build/libscotchmetis.so
+	build/libscotchmetis.so \
+	Python-2.6.6 Python-2.7.1
 
 .PHONY: clean
