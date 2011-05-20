@@ -6,7 +6,8 @@ binary: build/BLAS/make.log build/lapack-3.3.1/make.log \
 	build/netcdf-4.1.2/make.log build/libscotchmetis.so \
 	build/Python-2.6.6/make.log build/Python-2.7.1/make.log
 
-python: build/numpy-1.6.0/build build/scons-2.0.1/build
+python: build/numpy-1.6.0/build build/scons-2.0.1/build \
+	build/nose-1.0.0/build build/epydoc-3.0.1/build
 
 all: binary python
 
@@ -82,10 +83,28 @@ build/scons-2.0.1/build:
 		$(SCBIN)/python2.7 setup.py install > install2.7.log 2>&1
 	$(SCBIN)/python2.7 modify-pyshebang.py $(SCBIN)/scons*
 
+build/nose-1.0.0/build:
+	mkdir -p build
+	cd build && tar xf ../downloaded/nose-1.0.0.tar.gz
+	cd build/nose-1.0.0 && \
+		$(SCBIN)/python2.6 setup.py install > install2.6.log 2>&1
+	cd build/nose-1.0.0 && \
+		$(SCBIN)/python2.7 setup.py install > install2.7.log 2>&1
+	$(SCBIN)/python2.7 modify-pyshebang.py $(SCBIN)/nosetests*
+
+build/epydoc-3.0.1/build:
+	mkdir -p build
+	cd build && tar xf ../downloaded/epydoc-3.0.1.tar.gz
+	cd build/epydoc-3.0.1 && \
+		$(SCBIN)/python2.6 setup.py install > install2.6.log 2>&1
+	cd build/epydoc-3.0.1 && \
+		$(SCBIN)/python2.7 setup.py install > install2.7.log 2>&1
+	$(SCBIN)/python2.7 modify-pyshebang.py $(SCBIN)/epydoc*
+
 clean:
 	rm -rf build/BLAS build/lapack-3.3.1 build/netcdf-4.1.2 \
 	build/ATLAS build/scotch_5.8.11 build/libscotchmetis.so \
 	build/Python-2.6.6 build/Python-2.7.1 \
-	build/numpy-1.6.0 build/scons-2.0.1
+	build/numpy-1.6.0 build/scons-2.0.1 build/nose-1.0.0 build/epydoc-3.0.1
 
 .PHONY: binary python all clean
