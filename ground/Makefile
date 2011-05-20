@@ -10,7 +10,9 @@ binary: build/BLAS/make.log build/lapack-3.3.1/make.log \
 python: build/numpy-1.6.0/build build/scons-2.0.1/build \
 	build/nose-1.0.0/build build/epydoc-3.0.1/build
 
-all: binary python
+vtk: build/vtk-5.6.1/make.log
+
+all: binary python vtk
 
 build/BLAS/make.log:
 	mkdir -p build
@@ -101,6 +103,12 @@ build/epydoc-3.0.1/build:
 	cd build/epydoc-3.0.1 && \
 		$(SCBIN)/python2.7 setup.py install > install2.7.log 2>&1
 	$(SCBIN)/python2.7 modify-pyshebang.py $(SCBIN)/epydoc*
+
+build/vtk-5.6.1/make.log:
+	mkdir -p build/vtk-5.6.1
+	cd build && tar xf ../downloaded/vtk-5.6.1.tar.gz
+	cd build && tar xf ../downloaded/vtkdata-5.6.1.tar.gz
+	cd build/vtk-5.6.1 && ../../build-vtk.sh
 
 clean:
 	rm -rf build/BLAS build/lapack-3.3.1 build/netcdf-4.1.2 \
