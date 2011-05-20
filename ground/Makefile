@@ -6,7 +6,7 @@ binary: build/BLAS/make.log build/lapack-3.3.1/make.log \
 	build/netcdf-4.1.2/make.log build/libscotchmetis.so \
 	build/Python-2.6.6/make.log build/Python-2.7.1/make.log
 
-python: build/numpy-1.6.0/build
+python: build/numpy-1.6.0/build build/scons-2.0.1/build
 
 all: binary python
 
@@ -75,10 +75,17 @@ build/numpy-1.6.0/build:
 	cd build/numpy-1.6.0 && \
 		$(SCBIN)/python2.7 setup.py install > install2.7.log 2>&1
 
+build/scons-2.0.1/build:
+	mkdir -p build
+	cd build && tar xf ../downloaded/scons-2.0.1.tar.gz
+	cd build/scons-2.0.1 && \
+		$(SCBIN)/python2.7 setup.py install > install2.7.log 2>&1
+	$(SCBIN)/python2.7 modify-pyshebang.py $(SCBIN)/scons*
+
 clean:
 	rm -rf build/BLAS build/lapack-3.3.1 build/netcdf-4.1.2 \
 	build/ATLAS build/scotch_5.8.11 build/libscotchmetis.so \
 	build/Python-2.6.6 build/Python-2.7.1 \
-	build/numpy-1.6.0
+	build/numpy-1.6.0 build/scons-2.0.1
 
 .PHONY: binary python all clean
