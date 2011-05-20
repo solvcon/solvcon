@@ -1,11 +1,12 @@
 export SCPREFIX=$(HOME)/opt/scruntime
 export SCBIN=$(SCPREFIX)/bin
 
-binary: build/BLAS/make.log build/lapack-3.3.1/make.log build/netcdf-4.1.2/make.log \
-	build/libscotchmetis.so \
+binary: build/BLAS/make.log build/lapack-3.3.1/make.log \
+	build/ATLAS/ATLAS_LINUX/make.log \
+	build/netcdf-4.1.2/make.log build/libscotchmetis.so \
 	build/Python-2.6.6/make.log build/Python-2.7.1/make.log
 
-python: numpy-1.4.1/build
+python: build/numpy-1.6.0/build
 
 all: binary python
 
@@ -21,6 +22,11 @@ build/lapack-3.3.1/make.log:
 	mkdir -p build
 	cd build && tar xf ../downloaded/lapack-3.3.1.tgz
 	cd build/lapack-3.3.1 && ../../build-lapack.sh
+
+build/ATLAS/ATLAS_LINUX/make.log:
+	mkdir -p build
+	cd build && tar xf ../downloaded/atlas3.8.4.tar.bz2
+	cd build/ATLAS && ../../build-atlas.sh
 
 build/netcdf-4.1.2/make.log:
 	mkdir -p build
@@ -60,16 +66,19 @@ build/Python-2.7.1/make.log:
 	mv $(SCBIN)/2to3 $(SCBIN)/2to3-2.7
 	mv $(SCBIN)/smtpd.py $(SCBIN)/smtpd-2.7.py
 
-numpy-1.4.1/build:
-	tar xf downloaded/numpy-1.4.1.tar.gz
-	cd numpy-1.4.1 && ../generate-scipy.py
-	cd numpy-1.4.1 && $(SCBIN)/python2.6 setup.py build > build2.6.log 2>&1
-	cd numpy-1.4.1 && $(SCBIN)/python2.7 setup.py build > build2.7.log 2>&1
+build/numpy-1.6.0/build:
+	mkdir -p build
+	cd build && tar xf ../downloaded/numpy-1.6.0.tar.gz
+	cd build/numpy-1.6.0 && ../../generate-numpy.py
+	cd build/numpy-1.6.0 && \
+		$(SCBIN)/python2.6 setup.py install > install2.6.log 2>&1
+	cd build/numpy-1.6.0 && \
+		$(SCBIN)/python2.7 setup.py install > install2.7.log 2>&1
 
 clean:
 	rm -rf build/BLAS build/lapack-3.3.1 build/netcdf-4.1.2 \
-	build/libscotchmetis.so \
+	build/ATLAS build/scotch_5.8.11 build/libscotchmetis.so \
 	build/Python-2.6.6 build/Python-2.7.1 \
-	build/numpy-1.4.1
+	build/numpy-1.6.0
 
 .PHONY: binary python all clean
