@@ -1,4 +1,4 @@
-export SCPREFIX=$(HOME)/opt/scruntime
+export SCPREFIX?=$(HOME)/opt/scruntime
 export SCBIN=$(SCPREFIX)/bin
 
 binary: build/BLAS/make.log build/lapack-3.3.1/make.log \

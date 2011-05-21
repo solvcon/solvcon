@@ -96,7 +96,8 @@ depended packages, excepting very fundamental ones.  For those who like to get
 their hands dirty, the following packages still need to be installed as
 prerequisite::
 
-  $ sudo apt-get install build-essential gcc libcurl4-gnutls-dev
+  $ sudo apt-get install build-essential gcc cmake libcurl4-gnutls-dev
+  libhdf5-serial-dev
 
 Sometimes it is inevitable to compile these dependencies from source.  For
 example, to deploy SOLVCON on a supercomputer/cluster which runs stable but
