@@ -1,6 +1,19 @@
 Upcoming
 ========
 
+New features:
+
+- A set of building scripts for dependencies of SOLVCON is written in
+  ``ground/`` directory.  A Python script ``ground/get`` download all depended
+  source tarballs according to ``ground/get.ini``.  A make file
+  ``ground/Makefile`` directs the building with targets ``binary``, ``python``,
+  ``vtk``.  The targets must be built in order.  An environment variable
+  ``$SCPREFIX`` can be set when making to specify the destination of
+  installation.  The make file will create a shell script
+  ``$SCROOT/bin/scvars.sh`` exporting necessary environment variables for using
+  the customized runtime.  ``$SCROOT`` is the installing destination (i.e.,
+  ``$SCPREFIX``), and is set in the shell script as well.
+
 0.0.6
 =====
 
