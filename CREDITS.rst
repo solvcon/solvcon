@@ -9,4 +9,4 @@ Contributors:
 
 - Yung-Yu Chen <yyc@solvcon.net>
 - Sheng-Tao John Yu <yu.274@osu.edu>
-- David Bilyeu
+- David Bilyeu <bilyeu.4@osu.edu>
