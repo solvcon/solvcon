@@ -49,8 +49,6 @@ class Archive(object):
     pkgs = (
         ('http://glaros.dtc.umn.edu/gkhome/fetch/sw/metis/metis-4.0.3.tar.gz',
          'd3848b454532ef18dc83e4fb160d1e10'),
-        ('http://gforge.inria.fr/frs/download.php/28043/scotch_5.1.11.tar.gz',
-         '36d638a227f38a219b51fe8ddc2093ac'),
     )
 
     def __init__(self, url, md5sum, filename=None):
