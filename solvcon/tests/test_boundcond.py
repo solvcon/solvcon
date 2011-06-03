@@ -12,6 +12,17 @@ class TestBc(TestCase):
     #__test__ = False    # temporarily turned off.
     blk = gambit.GambitNeutral(loadfile('sample.neu')).toblock()
 
+    def test_print_vanilla(self):
+        from ..boundcond import BC
+        obj = BC()
+        self.assertEqual(str(obj), '[BC#None "None": 0 faces with 0 values]')
+
+    def test_print_sern(self):
+        from ..boundcond import BC
+        obj = BC()
+        obj.sern = 5
+        self.assertEqual(str(obj), '[BC#5 "None": 0 faces with 0 values]')
+
     def test_certain_bct(self):
         from ..boundcond import bctregy
         # check that the existance of the most generic abstract BC types.

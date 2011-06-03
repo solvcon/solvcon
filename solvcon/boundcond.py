@@ -114,7 +114,7 @@ class BC(object):
         return self.facn.shape[0]
 
     def __str__(self):
-        return "[%s#%d \"%s\": %d faces with %d values]" % (
+        return "[%s#%s \"%s\": %d faces with %d values]" % (
             self.__class__.__name__, self.sern, self.name,
             len(self), self.nvalue)
 
