@@ -521,7 +521,11 @@ class BlockSolver(BaseSolver):
         from .boundcond import interface
         bclist = [bc for bc in self.bclist if not isinstance(bc, interface)]
         for bc in bclist:
-            getattr(bc, name)(*args, **kw)
+            try:
+                getattr(bc, name)(*args, **kw)
+            except Exception as e:
+                e.args = tuple([str(bc), name] + list(e.args))
+                raise
 
     ##################################################
     # parallelization.
