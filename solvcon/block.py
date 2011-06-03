@@ -366,7 +366,7 @@ class Block(object):
 
         @return: nothing.
         """
-        from numpy import arange, empty
+        from numpy import arange, empty, unique
         from .boundcond import bctregy
         if unspec_type == None:
             unspec_type = bctregy.unspecified
@@ -380,16 +380,20 @@ class Block(object):
         bndfcs = empty((nbound, 2), dtype='int32')
         ibfc = 0
         for bc in self.bclist:
-            # save face indices and type number to array.
-            bndfcs[ibfc:ibfc+len(bc),0] = bc.facn[:,0]
-            bndfcs[ibfc:ibfc+len(bc),1] = bc.sern
-            # save bndfc indices back to bc object.
-            bc.facn[:,1] = arange(ibfc,ibfc+len(bc))
-            # mark specified indices.
-            slct = allfacn.searchsorted(bc.facn[:,0])
-            specified[slct] = True
-            # advance counter.
-            ibfc += len(bc)
+            try:
+                # save face indices and type number to array.
+                bndfcs[ibfc:ibfc+len(bc),0] = bc.facn[:,0]
+                bndfcs[ibfc:ibfc+len(bc),1] = bc.sern
+                # save bndfc indices back to bc object.
+                bc.facn[:,1] = arange(ibfc,ibfc+len(bc))
+                # mark specified indices.
+                slct = allfacn.searchsorted(bc.facn[:,0])
+                specified[slct] = True
+                # advance counter.
+                ibfc += len(bc)
+            except Exception as e:
+                e.args = tuple([str(bc)] + list(e.args))
+                raise
         # collect unspecified boundary faces.
         leftfcs = allfacn[specified == False]
         if leftfcs.shape[0] != 0:
