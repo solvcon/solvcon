@@ -241,7 +241,7 @@ class periodic(BC):
         self.rclp = empty((0,3), dtype='int32')
 
     def cloneTo(self, another):
-        super(interface, self).cloneTo(another)
+        super(periodic, self).cloneTo(another)
         another.rblkn = self.rblkn
         another.rblkinfo = self.rblkinfo.copy()
         another.rclp = self.rclp.copy()
