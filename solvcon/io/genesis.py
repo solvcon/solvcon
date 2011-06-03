@@ -225,7 +225,7 @@ class Genesis(NetCDF):
                     continue
             # recreate BC according to name mapping.
             if name_mapper is not None:
-                bct, vdict = name_mapper.get(bc.name, None)
+                bct, vdict = name_mapper.get(bc.name, (None, None))
                 if bct is not None:
                     bc = bct(bc=bc)
                     bc.feedValue(vdict)
