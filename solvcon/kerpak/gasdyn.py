@@ -137,8 +137,7 @@ class GasdynWall(GasdynBC):
             self._clib_gasdynb_c.bound_wall_dsoln(byref(svr.exd),
                 self.facn.shape[0], self.facn.ctypes._as_parameter_)
 
-class GasdynNswall(GasdynBC):
-    _ghostgeom_ = 'mirror'
+class GasdynNswall(GasdynWall):
     def soln(self):
         from ctypes import byref
         svr = self.svr
