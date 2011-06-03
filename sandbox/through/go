@@ -100,12 +100,8 @@ def mesher(cse):
     """
     import os
     from solvcon.helper import Cubit
-    try:
-        itv = float(cse.io.basefn.split('_')[-1])/1000
-    except ValueError:
-        itv = 0.1
     cmds = open(os.path.join(os.path.dirname(__file__),
-        'through.tmpl')).read()# % itv
+        'through.tmpl')).read()
     cmds = [cmd.strip() for cmd in cmds.strip().split('\n')]
     gn = Cubit(cmds, 2)()
     return gn.toblock(bcname_mapper=cse.condition.bcmap)
@@ -302,10 +298,10 @@ def through_base(casename=None, meshname=None,
     fpb['v1'] = Ms*sqrt(gamma*fpi['p']/fpi['rho'])*(1-density/fpb['rho'])
     # set up BCs.
     bcmap = {
-        'upper': (bctregy.GasdynWall, {},),
+        'upper': (bctregy.CuseNonrefl, {},),
         'left': (bctregy.GasdynInlet, fpb,),
         'right': (bctregy.CuseNonrefl, {},),
-        'lower': (bctregy.GasdynWall, {},),
+        'lower': (bctregy.CuseNonrefl, {},),
         'iupperu': (bctregy.GasdynWall, {},),
         'iupperd': (bctregy.GasdynWall, {},),
         'ileftu': (bctregy.GasdynWall, {},),
@@ -362,10 +358,10 @@ def through(casename, **kw):
     """
     from math import pi
     return through_base(casename,
-        gamma=1.4, density=1.0, pressure=1.0, Ms=1.5, time_increment=7.e-3,
+        gamma=1.4, density=1.0, pressure=1.0, Ms=3, time_increment=7.e-3,
         #steps_run=1, ssteps=1, psteps=1, **kw)
         #steps_run=50, ssteps=10, psteps=1, **kw)
-        steps_run=500, ssteps=10, psteps=10, **kw)
+        steps_run=1000, ssteps=10, psteps=10, **kw)
 
 if __name__ == '__main__':
     import solvcon
