@@ -210,8 +210,11 @@ class Genesis(NetCDF):
         @type blk: solvcon.block.Block
         @keyword onlynames: positively list wanted names of BCs.
         @type onlynames: list
-        @keyword name_mapper: map name to bc type and value dictionary; the two
-            objects are organized in a tuple.
+        @keyword name_mapper: map name to bc type and value dictionary; value
+            of the key can be a 2- or 3-tuple.  If it is a 2-tuple (the usual
+            case), the first item is bc type and the second item is value array
+            dict.  If it is a 3-tuple, the items are bc type, bc constructing
+            keywords, and value array dict.
         @type name_mapper: dict
         @return: nothing.
         """
@@ -225,9 +228,21 @@ class Genesis(NetCDF):
                     continue
             # recreate BC according to name mapping.
             if name_mapper is not None:
-                bct, vdict = name_mapper.get(bc.name, (None, None))
+                # FIXME: this is a new treatment for bcmap dict.  The old
+                # approach is a 2-tuple, but a 3-tuple should be better.  The
+                # new approach has not been tested, but after fully tested, it
+                # should be adopted as default.
+                bpars = name_mapper.get(bc.name, (None, None, None))
+                if len(bpars) == 3:
+                    pass
+                elif len(bpars) == 2:
+                    bpars = (bpars[0], {}, bpars[1])
+                else:
+                    raise ValueError('BC name must be mapped to a 2-/3-tuple '
+                        'for %s'%str(bc))
+                bct, bkw, vdict = bpars
                 if bct is not None:
-                    bc = bct(bc=bc)
+                    bc = bct(bc=bc, **bkw)
                     bc.feedValue(vdict)
             # save to block object.
             bc.sern = len(blk.bclist)
