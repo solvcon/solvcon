@@ -26,6 +26,7 @@ The arrangement through can be run by simply executing ./go run.
 """
 
 from solvcon.hook import BlockHook
+from solvcon.anchor import Anchor
 from solvcon.kerpak.cese import ProbeHook
 from solvcon.kerpak import gasdyn
 
@@ -109,13 +110,136 @@ def mesher(cse):
     gn = Cubit(cmds, 2)()
     return gn.toblock(bcname_mapper=cse.condition.bcmap)
 
-def match_periodic(blk):
+class GasdynOpenWall(gasdyn.GasdynWall):
+    def __init__(self, **kw):
+        from numpy import empty
+        super(GasdynOpenWall, self).__init__(**kw)
+        self.rblkn = getattr(self, 'rblkn', -1)
+        self.rblkinfo = empty(6, dtype='int32')
+        self.rclp = empty((0,3), dtype='int32')
+
+    def cloneTo(self, another):
+        super(GasdynOpenwall, self).cloneTo(another)
+        another.rblkn = self.rblkn
+        another.rblkinfo = self.rblkinfo.copy()
+        another.rclp = self.rclp.copy()
+
+    def sort(self, ref):
+        if ref is None:
+            return
+        from numpy import sqrt
+        dist = sqrt(((self.svr.fccnd[self.facn[:,0],:] - ref)**2).sum(axis=1))
+        slct = dist.argsort()
+        self.facn = self.facn[slct,:]
+
+    def couple(self, rbc):
+        """
+        Calculate self.rclp[:,:] form the information about related BC object
+        provided by rbc parameter.
+
+        @param rbc: Related BC object.
+        @type rbc: solvcon.boundcond.periodic
+        @return: nothing.
+        """
+        from numpy import empty
+        svr = self.svr
+        facn = self.facn
+        facn[:,2] = rbc.facn[:,0]
+        # fill informations from related block.
+        self.rblkinfo[:] = (svr.nnode, svr.ngstnode,
+            svr.nface, svr.ngstface, svr.ncell, svr.ngstcell)
+        # calculate indices of related cells.
+        self.rclp = empty((len(self),3), dtype='int32')
+        self.rclp[:,0] = svr.fccls[svr.ngstface+facn[:,0],1]
+        self.rclp[:,1] = svr.fccls[svr.ngstface+facn[:,2],0]
+        self.rclp[:,2] = svr.fccls[svr.ngstface+facn[:,0],0]
+        # assertion.
+        assert (self.rclp[:,0]<0).all()
+        assert (self.rclp[:,1]>=0).all()
+        assert (self.rclp[:,2]>=0).all()
+        # copy metrics.
+        slctm = self.rclp[:,0] + svr.ngstcell
+        slctr = self.rclp[:,1] + svr.ngstcell
+        svr.cltpn[slctm] = svr.cltpn[slctr]
+        svr.clgrp[slctm] = svr.clgrp[slctr]
+        svr.clvol[slctm] = svr.clvol[slctr]
+        # move coordinates.
+        shf = svr.clcnd[slctr,:] - svr.fccnd[svr.ngstface+facn[:,2],:]
+        svr.clcnd[slctm,:] = svr.fccnd[svr.ngstface+facn[:,0],:] + shf
+
+    @staticmethod
+    def couple_all(svr, bcmap):
+        """
+        Couple all periodic boundary conditions.
+
+        @param svr: the solver having periodic BCs to be coupled.
+        @type svr: solvcon.block.Block
+        @param bcmap: mapper for periodic BCs.
+        @type bcmap: dict
+        @return: nothing
+        """
+        from solvcon.boundcond import periodic
+        nmidx = dict([(svr.bclist[idx].name, idx) for idx in
+            range(len(svr.bclist))])
+        npidx = list()
+        for key in bcmap:
+            bct, vdict = bcmap[key]
+            if not issubclass(bct, GasdynOpenWall):
+                try:
+                    if key in nmidx:
+                        npidx.append(nmidx[key])
+                except Exception as e:
+                    args = list(e.args)
+                    args.append(str(nmidx))
+                    e.args = tuple(args)
+                    raise
+                continue
+            val = vdict['link']
+            ibc0 = nmidx[key]
+            ibc1 = nmidx[val]
+            pbc0 = svr.bclist[ibc0] = bct(bc=svr.bclist[ibc0])
+            pbc1 = svr.bclist[ibc1] = bct(bc=svr.bclist[ibc1])
+            ref = vdict.get('ref', None)
+            pbc0.sort(ref)
+            pbc1.sort(ref)
+            pbc0.couple(pbc1)
+            pbc1.couple(pbc0)
+
+    def init(self, **kw):
+        svr = self.svr
+        ngstcell = svr.ngstcell
+        ngstface = svr.ngstface
+        facn = self.facn
+        slctm = self.rclp[:,0] + ngstcell
+        slctr = self.rclp[:,1] + ngstcell
+        # move coordinates.
+        shf = svr.cecnd[slctr,0,:] - svr.fccnd[facn[:,2]+ngstface,:]
+        svr.cecnd[slctm,0,:] = svr.fccnd[facn[:,0]+ngstface,:] + shf
+    def soln(self):
+        svr = self.svr
+        slctm = self.rclp[:,0] + svr.ngstcell
+        slctr = self.rclp[:,1] + svr.ngstcell
+        if svr.scu:
+            svr.cumgr.arr_from_gpu('soln')
+        svr.soln[slctm,:] = svr.soln[slctr,:]
+        if svr.scu:
+            svr.cumgr.arr_to_gpu('soln')
+    def dsoln(self):
+        svr = self.svr
+        slctm = self.rclp[:,0] + svr.ngstcell
+        slctr = self.rclp[:,1] + svr.ngstcell
+        if svr.scu:
+            svr.cumgr.arr_from_gpu('dsoln')
+        svr.dsoln[slctm,:,:] = svr.dsoln[slctr,:,:]
+        if svr.scu:
+            svr.cumgr.arr_to_gpu('dsoln')
+
+def match_open_wall(svr):
     """
     Match periodic boundary condition.
     """
     from numpy import array
-    from solvcon.boundcond import bctregy
-    bct = bctregy.CusePeriodic
+    bct = GasdynOpenWall
     bcmap = dict()
     bcmap.update({
         'iupperu': (
@@ -133,7 +257,21 @@ def match_periodic(blk):
         'irightu': (
             bct, {'link': 'irightd', 'ref': array([0,0], dtype='float64')}
         )})
-    bct.couple_all(blk, bcmap)
+    bct.couple_all(svr, bcmap)
+
+class ReptureAnchor(Anchor):
+    def __init__(self, svr, **kw):
+        self.estep = float(kw.pop('estep'))
+        super(ReptureAnchor, self).__init__(svr, **kw)
+    def prefull(self):
+        svr = self.svr
+        if svr.step_global == self.estep:
+            match_open_wall(svr)
+            for bc in svr.bclist:
+                if isinstance(bc, GasdynOpenWall):
+                    bc.init()
+            svr._tcall(svr._clib_cuse_c.prepare_ce, 0, svr.ncell)
+            if svr.scu: svr.cumgr.arr_to_gpu()
 
 def through_base(casename=None, meshname=None,
     gamma=None, density=None, pressure=None, Ms=None,
@@ -164,24 +302,23 @@ def through_base(casename=None, meshname=None,
     fpb['v1'] = Ms*sqrt(gamma*fpi['p']/fpi['rho'])*(1-density/fpb['rho'])
     # set up BCs.
     bcmap = {
-        'upper': (bctregy.CuseNonrefl, {},),
+        'upper': (bctregy.GasdynWall, {},),
         'left': (bctregy.GasdynInlet, fpb,),
         'right': (bctregy.CuseNonrefl, {},),
-        'lower': (bctregy.CuseNonrefl, {},),
-        'iupperu': (bctregy.BC, {},),
-        'iupperd': (bctregy.BC, {},),
-        'ileftu': (bctregy.BC, {},),
-        'ileftd': (bctregy.BC, {},),
-        'irightu': (bctregy.BC, {},),
-        'irightd': (bctregy.BC, {},),
-        'iloweru': (bctregy.BC, {},),
-        'ilowerd': (bctregy.BC, {},),
+        'lower': (bctregy.GasdynWall, {},),
+        'iupperu': (bctregy.GasdynWall, {},),
+        'iupperd': (bctregy.GasdynWall, {},),
+        'ileftu': (bctregy.GasdynWall, {},),
+        'ileftd': (bctregy.GasdynWall, {},),
+        'irightu': (bctregy.GasdynWall, {},),
+        'irightd': (bctregy.GasdynWall, {},),
+        'iloweru': (bctregy.GasdynWall, {},),
+        'ilowerd': (bctregy.GasdynWall, {},),
     }
     # set up case.
     basedir = os.path.abspath(os.path.join(os.getcwd(), 'result'))
     cse = gasdyn.GasdynCase(basedir=basedir, rootdir=env.projdir,
-        basefn=casename, meshfn=None, mesher=mesher,
-        bcmap=bcmap, bcmod=match_periodic, **kw)
+        basefn=casename, meshfn=None, mesher=mesher, bcmap=bcmap, **kw)
     # anchors for solvers.
     for key in 'Runtime', 'March', 'Tpool':
         cse.runhooks.append(getattr(anchor, key+'StatAnchor'))
@@ -200,6 +337,8 @@ def through_base(casename=None, meshname=None,
     cse.runhooks.append(anchor.FillAnchor, keys=('soln',), value=ALMOST_ZERO)
     cse.runhooks.append(anchor.FillAnchor, keys=('dsoln',), value=0)
     cse.runhooks.append(gasdyn.UniformIAnchor, **fpi)
+    # repture.
+    cse.runhooks.append(ReptureAnchor, estep=100)
     # post processing.
     ## collect variables.
     varlist = list()
@@ -226,7 +365,7 @@ def through(casename, **kw):
         gamma=1.4, density=1.0, pressure=1.0, Ms=1.5, time_increment=7.e-3,
         #steps_run=1, ssteps=1, psteps=1, **kw)
         #steps_run=50, ssteps=10, psteps=1, **kw)
-        steps_run=100, ssteps=10, psteps=10, **kw)
+        steps_run=500, ssteps=10, psteps=10, **kw)
 
 if __name__ == '__main__':
     import solvcon
