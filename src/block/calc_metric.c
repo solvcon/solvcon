@@ -25,7 +25,7 @@
  *  4. volume of cells.
  * And fcnds could be reordered.
  */
-int calc_metric(MeshData *msd) {
+int calc_metric(MeshData *msd, int use_incenter) {
     int nnd, nfc;
     // pointers.
     int *pfcnds, *pfccls, *pclnds, *pclfcs;

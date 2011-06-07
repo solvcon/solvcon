@@ -106,6 +106,8 @@ class Block(object):
     @note: Prefixes: nd = node, fc = face, cl = cell; gst = ghost; sh = shared.
 
     @ivar _fpdtype: dtype for the floating point data in the block instance.
+    @ivar use_incenter: specify using incenter or not.
+    @itype use_incenter: bool
     @ivar blkn: serial number of the block.
     @ivar bclist: list of associated BC objects.
     @ivar bndfcs: list of BC faces, contains BC face index and BC class serial
@@ -143,6 +145,8 @@ class Block(object):
         @keyword nface: number of faces.
         @keyword ncell: number of cells.
         @keyword nbound: number of BC faces.
+        @keyword use_incenter: specify using incenter or not.
+        @type use_incenter: bool
         """
         from numpy import empty
         from .conf import env
@@ -154,6 +158,7 @@ class Block(object):
         nface = kw.setdefault('nface', 0)
         ncell = kw.setdefault('ncell', 0)
         nbound = kw.setdefault('nbound', 0)
+        self.use_incenter = kw.setdefault('use_incenter', False)
         # serial number of the block.
         self.blkn = None
         # boundary conditions and boundary faces information.
@@ -302,8 +307,9 @@ class Block(object):
 
         @return: nothing.
         """
-        from ctypes import byref
-        self._clib_solvcon.calc_metric(byref(self.create_msd()))
+        from ctypes import byref, c_int
+        self._clib_solvcon.calc_metric(byref(self.create_msd()),
+            c_int(1 if self.use_incenter else 0))
 
     def build_interior(self):
         """

@@ -14,6 +14,13 @@ class TestCreation(TestCase):
         self.assertEqual(str(blk),
             '[Block (0D): 0 nodes, 0 faces (0 BC), 0 cells]')
 
+    def test_use_incenter(self):
+        from ..block import Block
+        blk = Block()
+        self.assertFalse(blk.use_incenter)
+        blk = Block(use_incenter=True)
+        self.assertTrue(blk.use_incenter)
+
     def test_fpdtype(self):
         from ..conf import env
         from ..dependency import str_of
