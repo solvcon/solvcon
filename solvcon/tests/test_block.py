@@ -8,18 +8,26 @@ class TestCreation(TestCase):
     def test_import(self):
         from ..block import Block
 
-    def test_create_block(self):
-        from ..block import Block
-        blk = Block()
-        self.assertEqual(str(blk),
-            '[Block (0D): 0 nodes, 0 faces (0 BC), 0 cells]')
-
-    def test_use_incenter(self):
+    def test_use_centroid_default(self):
         from ..block import Block
         blk = Block()
         self.assertFalse(blk.use_incenter)
+        self.assertEqual(str(blk),
+            '[Block (0D/centroid): 0 nodes, 0 faces (0 BC), 0 cells]')
+
+    def test_use_centroid(self):
+        from ..block import Block
+        blk = Block(use_incenter=False)
+        self.assertFalse(blk.use_incenter)
+        self.assertEqual(str(blk),
+            '[Block (0D/centroid): 0 nodes, 0 faces (0 BC), 0 cells]')
+
+    def test_use_incenter(self):
+        from ..block import Block
         blk = Block(use_incenter=True)
         self.assertTrue(blk.use_incenter)
+        self.assertEqual(str(blk),
+            '[Block (0D/incenter): 0 nodes, 0 faces (0 BC), 0 cells]')
 
     def test_fpdtype(self):
         from ..conf import env
