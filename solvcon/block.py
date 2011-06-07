@@ -267,6 +267,24 @@ class Block(object):
     def ngstcell(self):
         return self.gstclnds.shape[0]
 
+    def check_simplex(self):
+        """
+        Check whether or not the block is composed purely by simplices, i.e.,
+        triangles in two-dimensional space, or tetrahedra in three-dimensional
+        space.
+
+        @return: True if the block is composed purely by simplices; otherwise
+            False.
+        @rtype: bool
+        """
+        if self.ndim == 2:
+            ret = (self.cltpn == 3).all()
+        elif self.ndim == 3:
+            ret = (self.cltpn == 5).all()
+        else:
+            raise ValueError('ndim %d != 2 or 3' % self.ndim)
+        return ret
+
     def bind(self):
         for bc in self.bclist:
             bc.bind()

@@ -391,6 +391,11 @@ class TestShared(TestCase):
 
 class TestMeshData(TestCase):
     oblique = get_blk_from_oblique_neu()
+    sample = get_blk_from_sample_neu()
 
     def test_meshdata(self):
         msd = self.oblique.create_msd()
+
+    def test_simpex(self):
+        self.assertTrue(self.oblique.check_simplex())
+        self.assertFalse(self.sample.check_simplex())
