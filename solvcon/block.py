@@ -225,7 +225,9 @@ class Block(object):
 
     def __str__(self):
         return ', '.join([
-            '[Block (%dD): %d nodes'%(self.ndim, self.nnode),
+            '[Block (%dD/%s): %d nodes'%(self.ndim,
+                'incenter' if self.use_incenter else 'centroid',
+                self.nnode),
             '%d faces (%d BC)'%(self.nface, self.nbound),
             '%d cells]'%self.ncell
         ])
