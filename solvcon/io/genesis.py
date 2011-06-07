@@ -129,7 +129,8 @@ class Genesis(NetCDF):
         # mapper.
         self.emap = self.get_array('elem_map', (self.ncell,), 'int32')
 
-    def toblock(self, onlybcnames=None, bcname_mapper=None, fpdtype=None):
+    def toblock(self, onlybcnames=None, bcname_mapper=None, fpdtype=None,
+            use_incenter=False):
         """
         Convert Cubit/Genesis/ExodusII object to Block object.
 
@@ -139,12 +140,14 @@ class Genesis(NetCDF):
         @type bcname_mapper: dict
         @keyword fpdtype: floating-point dtype.
         @type fpdtype: str
+        @keyword use_incenter: use incenter when creating block.
+        @type use_incenter: bool
         @return: Block object.
         @rtype: solvcon.block.Block
         """
         from ..block import Block
         blk = Block(ndim=self.ndim, nnode=self.nnode, ncell=self.ncell,
-            fpdtype=fpdtype)
+            fpdtype=fpdtype, use_incenter=use_incenter)
         self._convert_interior_to(blk)
         blk.build_interior()
         self._convert_bc_to(blk,

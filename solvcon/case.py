@@ -419,6 +419,7 @@ class BlockCase(BaseCase):
         'condition.bcmap': None,
         'condition.bcmod': None,
         # solver.
+        'solver.use_incenter': False,
         'solver.domaintype': None,
         'solver.domainobj': None,
         'solver.dealer': None,
@@ -602,7 +603,8 @@ class BlockCase(BaseCase):
             gn.close_file()
             self._log_end('create_genesis_object')
             self._log_start('convert_genesis_to_block')
-            obj = gn.toblock(bcname_mapper=bcmapper)
+            obj = gn.toblock(bcname_mapper=bcmapper,
+                use_incenter=self.solver.use_incenter)
             self._log_end('convert_genesis_to_block')
         elif '.neu' in meshfn:
             self._log_start('read_neu_data', msg=' from %s'%meshfn)
@@ -617,7 +619,8 @@ class BlockCase(BaseCase):
             neu = GambitNeutral(data)
             self._log_end('create_neu_object')
             self._log_start('convert_neu_to_block')
-            obj = neu.toblock(bcname_mapper=bcmapper)
+            obj = neu.toblock(bcname_mapper=bcmapper,
+                use_incenter=self.solver.use_incenter)
             self._log_end('convert_neu_to_block')
         elif '.blk' in meshfn:
             self._log_start('load_block')

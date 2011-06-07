@@ -1,0 +1,106 @@
+#!/usr/bin/env python2.6
+# -*- coding: UTF-8 -*-
+#
+# Copyright (C) 2010-2011 Yung-Yu Chen <yyc@solvcon.net>.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+"""
+Use supersonic flow over a cylinder for testing incenter.
+
+The arrangement ictr can be run by simply executing ./go run.
+"""
+
+from solvcon.kerpak import gasdyn
+
+def ictr_base(casename=None, meshname=None, 
+    gamma=None, density=None, pressure=None, M=None,
+    psteps=None, ssteps=None, **kw
+):
+    """
+    Fundamental configuration of the simulation and return the case object.
+
+    @return: the created Case object.
+    @rtype: solvcon.case.BlockCase
+    """
+    import os
+    from numpy import sqrt
+    from solvcon.conf import env
+    from solvcon.boundcond import bctregy
+    from solvcon.solver import ALMOST_ZERO
+    from solvcon import hook, anchor
+    from solvcon.kerpak import cuse
+    # set flow properties (fp).
+    fpb = {
+        'gamma': gamma, 'rho': density, 'v2': 0.0, 'v3': 0.0, 'p': pressure,
+    }
+    fpb['v1'] = M*sqrt(gamma*fpb['p']/fpb['rho'])
+    fpi = fpb.copy()
+    # set up BCs.
+    bcmap = {
+        'cylinder': (bctregy.GasdynWall, {},),
+        'farfield': (bctregy.GasdynInlet, fpb,),
+        'outflow': (bctregy.CuseNonrefl, {},),
+    }
+    # set up case.
+    basedir = os.path.abspath(os.path.join(os.getcwd(), 'result'))
+    cse = gasdyn.GasdynCase(basedir=basedir, rootdir=env.projdir,
+        basefn=casename, meshfn=os.path.join(env.find_scdata_mesh(), meshname),
+        bcmap=bcmap, **kw)
+    # anchors for solvers.
+    for key in 'Runtime', 'March', 'Tpool':
+        cse.runhooks.append(getattr(anchor, key+'StatAnchor'))
+    # informative.
+    cse.runhooks.append(hook.BlockInfoHook)
+    cse.runhooks.append(hook.ProgressHook,
+        psteps=psteps, linewidth=ssteps/psteps)
+    cse.runhooks.append(cuse.CflHook, fullstop=False, psteps=ssteps,
+        cflmax=10.0, linewidth=ssteps/psteps)
+    cse.runhooks.append(cuse.ConvergeHook, psteps=ssteps)
+    cse.runhooks.append(hook.SplitMarker)
+    cse.runhooks.append(hook.GroupMarker)
+    # initializer.
+    cse.runhooks.append(anchor.FillAnchor, keys=('soln',), value=ALMOST_ZERO)
+    cse.runhooks.append(anchor.FillAnchor, keys=('dsoln',), value=0)
+    cse.runhooks.append(gasdyn.UniformIAnchor, **fpi)
+    # post processing.
+    cse.runhooks.append(gasdyn.GasdynOAnchor, rsteps=ssteps)
+    cse.runhooks.append(hook.PMarchSave, anames=[
+        ('soln', False, -4),
+        ('rho', True, 0),
+        ('p', True, 0),
+        ('T', True, 0),
+        ('ke', True, 0),
+        ('M', True, 0),
+        ('sch', True, 0),
+        ('v', True, 0.5),
+    ], fpdtype='float64', psteps=ssteps)
+    return cse
+
+def ictr_skel(casename, **kw):
+    return ictr_base(casename=casename, meshname='hyperblunt_t100mm.neu.gz',
+        gamma=1.4, density=1.0, pressure=1.0, M=20.0, taylor=0.0,
+        time_increment=1.2e-3, steps_run=2000, ssteps=500, psteps=10, **kw)
+
+@gasdyn.GasdynCase.register_arrangement
+def ictr_centroid(casename, **kw):
+    return ictr_skel(casename=casename, use_incenter=False, **kw)
+@gasdyn.GasdynCase.register_arrangement
+def ictr_incenter(casename, **kw):
+    return ictr_skel(casename=casename, use_incenter=True, **kw)
+
+if __name__ == '__main__':
+    import solvcon
+    solvcon.go()

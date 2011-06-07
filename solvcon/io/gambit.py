@@ -630,7 +630,8 @@ class GambitNeutral(object):
     def ncell(self):
         return self.elems.shape[0]
 
-    def toblock(self, onlybcnames=None, bcname_mapper=None, fpdtype=None):
+    def toblock(self, onlybcnames=None, bcname_mapper=None, fpdtype=None,
+            use_incenter=False):
         """
         Convert GambitNeutral object to Block object.
 
@@ -638,13 +639,17 @@ class GambitNeutral(object):
         @type onlybcnames: list
         @keyword bcname_mapper: map name to bc type number.
         @type bcname_mapper: dict
+        @keyword fpdtype: floating-point dtype.
+        @type fpdtype: str
+        @keyword use_incenter: use incenter when creating block.
+        @type use_incenter: bool
         @return: Block object.
         @rtype: solvcon.block.Block
         """
         from ..block import Block
         # create corresponding block according to GambitNeutral object.
         blk = Block(ndim=self.ndim, nnode=self.nnode, ncell=self.ncell,
-            fpdtype=fpdtype)
+            fpdtype=fpdtype, use_incenter=use_incenter)
         self._convert_interior_to(blk)
         blk.build_interior()
         self._convert_bc_to(blk,

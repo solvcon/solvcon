@@ -188,36 +188,56 @@ int calc_metric(MeshData *msd, int use_incenter) {
     pclcnd = msd->clcnd;
     if (msd->ndim == 2) {
         for (icl=0; icl<msd->ncell; icl++) {
-            // averaged point.
-            crd[0] = crd[1] = 0.0;
-            nnd = pclnds[0];
-            for (inc=1; inc<=nnd; inc++) {
-                ind = pclnds[inc];
-                pndcrd = msd->ndcrd + ind*msd->ndim;
-                crd[0] += pndcrd[0];
-                crd[1] += pndcrd[1];
-            };
-            crd[0] /= nnd;
-            crd[1] /= nnd;
-            // weight centroid.
-            pclcnd[0] = pclcnd[1] = voc = 0.0;
-            nfc = pclfcs[0];
-            for (ifl=1; ifl<=nfc; ifl++) {
-                ifc = pclfcs[ifl];
-                pfccnd = msd->fccnd + ifc*msd->ndim;
-                pfcnml = msd->fcnml + ifc*msd->ndim;
-                pfcara = msd->fcara + ifc;
-                du0 = crd[0] - pfccnd[0];
-                du1 = crd[1] - pfccnd[1];
-                vob = fabs(du0*pfcnml[0] + du1*pfcnml[1]) * pfcara[0];
+            if ((use_incenter == 1) && (msd->cltpn[icl] == 3)) {
+                pndcrd = msd->ndcrd + pclnds[1]*msd->ndim;
+                vob = msd->fcara[pclfcs[2]];
+                voc = vob;
+                pclcnd[0] = vob*pndcrd[0];
+                pclcnd[1] = vob*pndcrd[1];
+                pndcrd = msd->ndcrd + pclnds[2]*msd->ndim;
+                vob = msd->fcara[pclfcs[3]];
                 voc += vob;
-                dv0 = pfccnd[0] + du0/3;
-                dv1 = pfccnd[1] + du1/3;
-                pclcnd[0] += dv0 * vob;
-                pclcnd[1] += dv1 * vob;
+                pclcnd[0] += vob*pndcrd[0];
+                pclcnd[1] += vob*pndcrd[1];
+                pndcrd = msd->ndcrd + pclnds[3]*msd->ndim;
+                vob = msd->fcara[pclfcs[1]];
+                voc += vob;
+                pclcnd[0] += vob*pndcrd[0];
+                pclcnd[1] += vob*pndcrd[1];
+                pclcnd[0] /= voc;
+                pclcnd[1] /= voc;
+            } else {
+                // averaged point.
+                crd[0] = crd[1] = 0.0;
+                nnd = pclnds[0];
+                for (inc=1; inc<=nnd; inc++) {
+                    ind = pclnds[inc];
+                    pndcrd = msd->ndcrd + ind*msd->ndim;
+                    crd[0] += pndcrd[0];
+                    crd[1] += pndcrd[1];
+                };
+                crd[0] /= nnd;
+                crd[1] /= nnd;
+                // weight centroid.
+                pclcnd[0] = pclcnd[1] = voc = 0.0;
+                nfc = pclfcs[0];
+                for (ifl=1; ifl<=nfc; ifl++) {
+                    ifc = pclfcs[ifl];
+                    pfccnd = msd->fccnd + ifc*msd->ndim;
+                    pfcnml = msd->fcnml + ifc*msd->ndim;
+                    pfcara = msd->fcara + ifc;
+                    du0 = crd[0] - pfccnd[0];
+                    du1 = crd[1] - pfccnd[1];
+                    vob = fabs(du0*pfcnml[0] + du1*pfcnml[1]) * pfcara[0];
+                    voc += vob;
+                    dv0 = pfccnd[0] + du0/3;
+                    dv1 = pfccnd[1] + du1/3;
+                    pclcnd[0] += dv0 * vob;
+                    pclcnd[1] += dv1 * vob;
+                };
+                pclcnd[0] /= voc;
+                pclcnd[1] /= voc;
             };
-            pclcnd[0] /= voc;
-            pclcnd[1] /= voc;
             // advance pointers.
             pclnds += CLMND+1;
             pclfcs += CLMFC+1;
@@ -225,43 +245,73 @@ int calc_metric(MeshData *msd, int use_incenter) {
         };
     } else if (msd->ndim == 3) {
         for (icl=0; icl<msd->ncell; icl++) {
-            // averaged point.
-            crd[0] = crd[1] = crd[2] = 0.0;
-            nnd = pclnds[0];
-            for (inc=1; inc<=nnd; inc++) {
-                ind = pclnds[inc];
-                pndcrd = msd->ndcrd + ind*msd->ndim;
-                crd[0] += pndcrd[0];
-                crd[1] += pndcrd[1];
-                crd[2] += pndcrd[2];
+            if ((use_incenter == 1) && (msd->cltpn[icl] == 5)) {
+                pndcrd = msd->ndcrd + pclnds[1]*msd->ndim;
+                vob = msd->fcara[pclfcs[4]];
+                voc = vob;
+                pclcnd[0] = vob*pndcrd[0];
+                pclcnd[1] = vob*pndcrd[1];
+                pclcnd[2] = vob*pndcrd[2];
+                pndcrd = msd->ndcrd + pclnds[2]*msd->ndim;
+                vob = msd->fcara[pclfcs[3]];
+                voc = vob;
+                pclcnd[0] = vob*pndcrd[0];
+                pclcnd[1] = vob*pndcrd[1];
+                pclcnd[2] = vob*pndcrd[2];
+                pndcrd = msd->ndcrd + pclnds[3]*msd->ndim;
+                vob = msd->fcara[pclfcs[2]];
+                voc = vob;
+                pclcnd[0] = vob*pndcrd[0];
+                pclcnd[1] = vob*pndcrd[1];
+                pclcnd[2] = vob*pndcrd[2];
+                pndcrd = msd->ndcrd + pclnds[4]*msd->ndim;
+                vob = msd->fcara[pclfcs[1]];
+                voc = vob;
+                pclcnd[0] = vob*pndcrd[0];
+                pclcnd[1] = vob*pndcrd[1];
+                pclcnd[2] = vob*pndcrd[2];
+                pclcnd[0] /= voc;
+                pclcnd[1] /= voc;
+                pclcnd[2] /= voc;
+            } else {
+                // averaged point.
+                crd[0] = crd[1] = crd[2] = 0.0;
+                nnd = pclnds[0];
+                for (inc=1; inc<=nnd; inc++) {
+                    ind = pclnds[inc];
+                    pndcrd = msd->ndcrd + ind*msd->ndim;
+                    crd[0] += pndcrd[0];
+                    crd[1] += pndcrd[1];
+                    crd[2] += pndcrd[2];
+                };
+                crd[0] /= nnd;
+                crd[1] /= nnd;
+                crd[2] /= nnd;
+                // weight centroid.
+                pclcnd[0] = pclcnd[1] = pclcnd[2] = voc = 0.0;
+                nfc = pclfcs[0];
+                for (ifl=1; ifl<=nfc; ifl++) {
+                    ifc = pclfcs[ifl];
+                    pfccnd = msd->fccnd + ifc*msd->ndim;
+                    pfcnml = msd->fcnml + ifc*msd->ndim;
+                    pfcara = msd->fcara + ifc;
+                    du0 = crd[0] - pfccnd[0];
+                    du1 = crd[1] - pfccnd[1];
+                    du2 = crd[2] - pfccnd[2];
+                    vob = fabs(du0*pfcnml[0] + du1*pfcnml[1] + du2*pfcnml[2])
+                        * pfcara[0];
+                    voc += vob;
+                    dv0 = pfccnd[0] + du0/4;
+                    dv1 = pfccnd[1] + du1/4;
+                    dv2 = pfccnd[2] + du2/4;
+                    pclcnd[0] += dv0 * vob;
+                    pclcnd[1] += dv1 * vob;
+                    pclcnd[2] += dv2 * vob;
+                };
+                pclcnd[0] /= voc;
+                pclcnd[1] /= voc;
+                pclcnd[2] /= voc;
             };
-            crd[0] /= nnd;
-            crd[1] /= nnd;
-            crd[2] /= nnd;
-            // weight centroid.
-            pclcnd[0] = pclcnd[1] = pclcnd[2] = voc = 0.0;
-            nfc = pclfcs[0];
-            for (ifl=1; ifl<=nfc; ifl++) {
-                ifc = pclfcs[ifl];
-                pfccnd = msd->fccnd + ifc*msd->ndim;
-                pfcnml = msd->fcnml + ifc*msd->ndim;
-                pfcara = msd->fcara + ifc;
-                du0 = crd[0] - pfccnd[0];
-                du1 = crd[1] - pfccnd[1];
-                du2 = crd[2] - pfccnd[2];
-                vob = fabs(du0*pfcnml[0] + du1*pfcnml[1] + du2*pfcnml[2])
-                    * pfcara[0];
-                voc += vob;
-                dv0 = pfccnd[0] + du0/4;
-                dv1 = pfccnd[1] + du1/4;
-                dv2 = pfccnd[2] + du2/4;
-                pclcnd[0] += dv0 * vob;
-                pclcnd[1] += dv1 * vob;
-                pclcnd[2] += dv2 * vob;
-            };
-            pclcnd[0] /= voc;
-            pclcnd[1] /= voc;
-            pclcnd[2] /= voc;
             // advance pointers.
             pclnds += CLMND+1;
             pclfcs += CLMFC+1;
