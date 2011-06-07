@@ -40,6 +40,15 @@ class TestFpdtype(TestCase):
 class TestBlock(TestCase):
     neq = 1
 
+    def test_simplex(self):
+        from ..testing import get_blk_from_sample_neu, get_blk_from_oblique_neu
+        svr = CustomBlockSolver(get_blk_from_oblique_neu(),
+            neq=self.neq, enable_mesg=True)
+        self.assertTrue(svr.all_simplex)
+        svr = CustomBlockSolver(get_blk_from_sample_neu(),
+            neq=self.neq, enable_mesg=True)
+        self.assertFalse(svr.all_simplex)
+
     @staticmethod
     def _get_block():
         return get_blk_from_sample_neu()

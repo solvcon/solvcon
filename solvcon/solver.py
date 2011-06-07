@@ -378,6 +378,8 @@ class BlockSolver(BaseSolver):
     @itype bclist: list
     @ivar ibclist: list of interface BCs.
     @itype ibclist: list
+    @ivar all_simplex: True if the mesh is all-simplex, False otherwise.
+    @itype all_simplex: bool
     """
 
     _interface_init_ = []
@@ -394,6 +396,7 @@ class BlockSolver(BaseSolver):
         self.ibcthread = kw.pop('ibcthread', False)
         super(BlockSolver, self).__init__(*args, **kw)
         assert self.fpdtype == blk.fpdtype
+        self.all_simplex = blk.check_simplex()
         # index.
         self.svrn = blk.blkn
         self.nsvr = None
