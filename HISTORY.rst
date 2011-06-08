@@ -1,5 +1,12 @@
-Upcoming
-========
+0.0.7
+=====
+
+Release date: 2011/6/8 (GMT-0500)
+
+In this release, SOLVCON starts to support using incenters or centroids for
+constructing basic Conservation Elements (BCEs) of the CESE method.  Incenters
+are only enabled for simplex cells.  Three more examples for supersonic flows
+are also added, in addition to the new capability.
 
 New features:
 
@@ -13,9 +20,11 @@ New features:
   ``$SCROOT/bin/scvars.sh`` exporting necessary environment variables for using
   the customized runtime.  ``$SCROOT`` is the installing destination (i.e.,
   ``$SCPREFIX``), and is set in the shell script as well.
-- The center of a cell can now be calculated as an incenter rather than
-  centroid.  This enables incenter-based CESE implementation that will benefit
-  calculating Navier-Stokes equations in the future.
+- The center of a cell can now be calculated as an incenter.  Use of incenter
+  or centroid is controlled by a keyword parameter ``use_incenter`` of
+  ``solvcon.block.Block`` constructor.  This enables incenter-based CESE
+  implementation that will benefit calculating Navier-Stokes equations in the
+  future.
 - More examples for compressible inviscid flows are provided.
 
 Bug-fix:
