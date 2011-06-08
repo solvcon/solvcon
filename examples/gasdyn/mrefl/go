@@ -175,3 +175,8 @@ if __name__ == '__main__':
     cse.init()
     cse.run()
     cse.cleanup()
+    cse = mrefl_base('mrefls_10', gamma=1.4, density=1.0, pressure=1.0, Ms=8.0,
+        time_increment=3.e-4, steps_run=700, ssteps=50, psteps=1)
+    cse.init()
+    cse.run()
+    cse.cleanup()
