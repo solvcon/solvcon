@@ -21,7 +21,8 @@ from solvcon.hook import BlockHook
 from solvcon.kerpak import gasdyn
 
 """
-Calculate Mach reflection.  This script can be run directly by ./go .
+Calculate Mach reflection.  Parameters are non-dimensionalized.  This script
+can be run directly by ./go .
 """
 
 class MovingShock(object):
