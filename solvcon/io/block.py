@@ -20,6 +20,7 @@
 Intrinsic format mesh I/O.  Provides:
   - OldTrivialBlockFormat (revision 0.0.0.1).
   - TrivialBlockFormat (revision 0.0.1).
+  - IncenterBlockFormat (revision 0.0.7).
 """
 
 from .core import FormatRegistry, FormatMeta, Format, FormatIO, strbool

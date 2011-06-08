@@ -19,6 +19,7 @@
 """
 Intrinsic format mesh I/O.  Provides:
   - TrivialDomainFormat (revision 0.0.1).
+  - IncenterDomainFormat (revision 0.0.7).
 """
 
 from .core import FormatRegistry, FormatMeta, Format, FormatIO, strbool
@@ -238,7 +239,7 @@ class DomainFormat(Format):
             try:
                 stream = open(blkpath, 'rb')
             except IOError, e:
-                if itry <= 100:
+                if itry <= 1:
                     itry += 1
                     sleep(1.0+random())
                 else:
@@ -322,8 +323,9 @@ class DomainFormat(Format):
                     raise IndexError('must have 3 tokens')
                 idxlens.append([int(tok) for tok in toks])
             except StandardError as e:
-                e.value += '; wrong format in the %d-th index length' % len(
-                    idxlens)
+                e.args = tuple([
+                    'wrong format in the %d-th index length' % len(idxlens)
+                    ] + list(e.args))
                 raise e
         return idxlens
     @classmethod
@@ -352,6 +354,12 @@ class TrivialDomainFormat(DomainFormat):
     """
     FORMAT_REV = '0.0.1'
 
+class IncenterDomainFormat(DomainFormat):
+    """
+    Domain format for incenter-enabled meshes.
+    """
+    FORMAT_REV = '0.0.7'
+
 class DomainIO(FormatIO):
     """
     Proxy to dom directory format.
@@ -370,13 +378,37 @@ class DomainIO(FormatIO):
     @itype dmf: DomainFormat
     """
     def __init__(self, **kw):
+        import os
         self.dom = kw.pop('dom', None)
         self.dirname = kw.pop('dirname', None)
-        fmt = kw.pop('fmt', 'TrivialDomainFormat')
+        fmt = kw.pop('fmt', None)
         compressor = kw.pop('compressor', '')
         super(DomainIO, self).__init__()
-        # create DomainFormat object.
+        # create BlockFormat object.
+        if fmt == None and self.dirname != None:
+            fmt = self._peek_revision(os.path.join(self.dirname, 'domain.dom'))
+        if fmt == None:
+            fmt = 'IncenterDomainFormat'
         self.dmf = dmfregy[fmt](compressor=compressor)
+    @staticmethod
+    def _peek_revision(filename):
+        from .core import Format
+        # open file.
+        try:
+            stream = open(filename, 'rb')
+        except:
+            return None
+        # read text part.
+        fmt = Format()
+        lines, textlen = fmt._get_textpart(stream)
+        stream.close()
+        # determine the format revision.
+        rev = None
+        for line in lines:
+            if 'FORMAT_REV' in line:
+                rev = line.split('=')[-1].strip()
+                break
+        return rev
     def save(self, dom=None, dirname=None):
         """
         Save the block object into a file.

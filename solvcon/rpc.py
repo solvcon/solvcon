@@ -263,9 +263,8 @@ class Worker(object):
         @return: nothing
         """
         from .io.domain import DomainIO
-        dio = DomainIO()
-        blk = dio.load_block(dirname=dirname, blkid=iblk, bcmapper=bcmap,
-            blkfn=blkfn)
+        dio = DomainIO(dirname=dirname)
+        blk = dio.load_block(blkid=iblk, bcmapper=bcmap, blkfn=blkfn)
         svr = solvertype(blk, **svrkw)
         svr.svrn = iblk
         svr.nsvr = nblk

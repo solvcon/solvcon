@@ -589,8 +589,8 @@ class BlockCase(BaseCase):
             obj = self.io.mesher(self)
             self._log_end('create_block')
         elif os.path.isdir(meshfn):
-            dof = DomainIO()
-            obj, whole, split = dof.load(dirname=meshfn, bcmapper=bcmapper,
+            dof = DomainIO(dirname=meshfn)
+            obj, whole, split = dof.load(bcmapper=bcmapper,
                 with_arrs=self.io.domain.with_arrs,
                 with_whole=self.io.domain.with_whole, with_split=False,
                 return_filenames=True, domaintype=self.solver.domaintype)
