@@ -18,8 +18,9 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 """
-Calculate Sod's shock tube problem in three-dimesional space.  Parameters are
-non-dimensionalized.  This script can be run directly by ./go .
+Calculate Sod's shock tube problem in three-dimesional space.  Also test for
+incenter implementation.  Parameters are non-dimensionalized.  This script can
+be run directly by ./go .
 """
 
 from solvcon.kerpak import gasdyn
@@ -120,7 +121,7 @@ def tube_base(casename=None,
     return cse
 
 if __name__ == '__main__':
-    cse = tube_base('tube_20',
+    cse = tube_base('tube_20', use_incenter=True,
         gamma=1.4, rho1=1.0, p1=1.0, rho2=0.125, p2=0.25,
         time_increment=1.8e-3, steps_run=400, ssteps=40, psteps=1)
     cse.init()
