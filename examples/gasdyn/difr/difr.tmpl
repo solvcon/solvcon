@@ -1,0 +1,29 @@
+# points.
+create vertex 0 0 0
+create vertex -1 0 0
+create vertex -1 1 0
+create vertex 1 1 0
+create vertex 1 -1 0
+create vertex 0 -1 0
+# lines.
+create curve 1 2
+create curve 2 3
+create curve 3 4
+create curve 4 5
+create curve 5 6
+create curve 6 1
+# surface.
+create surface 1 2 3 4 5 6
+# BCs.
+sideset 1 curve 1 6
+sideset 2 curve 3
+sideset 3 curve 2
+sideset 4 curve 4 5
+sideset 1 name "wall"
+sideset 2 name "top"
+sideset 3 name "inflow"
+sideset 4 name "outflow"
+# mesh.
+surface 1 size %g
+surface 1 scheme submap
+mesh surface 1
