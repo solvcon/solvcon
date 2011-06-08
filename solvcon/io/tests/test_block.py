@@ -230,6 +230,83 @@ class TestLoadTrivial(CheckBlockIO):
         self._check_load(get_blk_from_sample_neu(), openfile(
             'sample_0.0.1_bz2.blk', 'rb'))
 
+class TestReloadIncenter(CheckBlockIO):
+    def _check_reload(self, blk, compressor):
+        from cStringIO import StringIO
+        from ..block import BlockIO
+        # save.
+        bio = BlockIO(compressor=compressor, fmt='IncenterBlockFormat')
+        dataio = StringIO()
+        bio.save(blk=blk, stream=dataio)
+        value = dataio.getvalue()
+        # load.
+        bio = BlockIO(fmt='IncenterBlockFormat')
+        dataio = StringIO(value)
+        newblk = bio.load(stream=dataio)
+        # check
+        self._check_shape(newblk, blk)
+        self._check_group(newblk, blk)
+        self._check_bc(newblk, blk)
+        self._check_array(newblk, blk)
+        self.assertEqual(newblk.use_incenter, blk.use_incenter)
+    def test_reload2d_raw(self):
+        self._check_reload(get_blk_from_oblique_neu(use_incenter=False), '')
+        self._check_reload(get_blk_from_oblique_neu(use_incenter=True), '')
+    def test_reload2d_gz(self):
+        self._check_reload(get_blk_from_oblique_neu(use_incenter=False), 'gz')
+        self._check_reload(get_blk_from_oblique_neu(use_incenter=True), 'gz')
+    def test_reload2d_bz2(self):
+        self._check_reload(get_blk_from_oblique_neu(use_incenter=False), 'bz2')
+        self._check_reload(get_blk_from_oblique_neu(use_incenter=True), 'bz2')
+    def test_reload3d_raw(self):
+        self._check_reload(get_blk_from_sample_neu(use_incenter=False), '')
+        self._check_reload(get_blk_from_sample_neu(use_incenter=True), '')
+    def test_reload3d_gz(self):
+        self._check_reload(get_blk_from_sample_neu(use_incenter=False), 'gz')
+        self._check_reload(get_blk_from_sample_neu(use_incenter=True), 'gz')
+    def test_reload3d_bz2(self):
+        self._check_reload(get_blk_from_sample_neu(use_incenter=False), 'bz2')
+        self._check_reload(get_blk_from_sample_neu(use_incenter=True), 'bz2')
+class TestLoadIncenter(CheckBlockIO):
+    def _check_load(self, blk, stream):
+        from ..block import BlockIO
+        bio = BlockIO(fmt='IncenterBlockFormat')
+        # check version of stream.
+        meta = bio.read_meta(stream=stream)
+        self.assertEqual(meta.FORMAT_REV, '0.0.7')
+        # load from steam.
+        blkl = bio.load(stream=stream)
+        # check.
+        self._check_shape(blk, blkl)
+        self._check_group(blk, blkl)
+        self._check_bc(blk, blkl)
+        self._check_array(blk, blkl)
+        self.assertFalse(blk.use_incenter)
+    def test_load2d_raw(self):
+        from ...testing import openfile
+        self._check_load(get_blk_from_oblique_neu(), openfile(
+            'oblique_0.0.7.blk', 'rb'))
+    def test_load2d_gz(self):
+        from ...testing import openfile
+        self._check_load(get_blk_from_oblique_neu(), openfile(
+            'oblique_0.0.7_gz.blk', 'rb'))
+    def test_load2d_bz2(self):
+        from ...testing import openfile
+        self._check_load(get_blk_from_oblique_neu(), openfile(
+            'oblique_0.0.7_bz2.blk', 'rb'))
+    def test_load3d_raw(self):
+        from ...testing import openfile
+        self._check_load(get_blk_from_sample_neu(), openfile(
+            'sample_0.0.7.blk', 'rb'))
+    def test_load3d_gz(self):
+        from ...testing import openfile
+        self._check_load(get_blk_from_sample_neu(), openfile(
+            'sample_0.0.7_gz.blk', 'rb'))
+    def test_load3d_bz2(self):
+        from ...testing import openfile
+        self._check_load(get_blk_from_sample_neu(), openfile(
+            'sample_0.0.7_bz2.blk', 'rb'))
+
 class TestDetectLoad(CheckBlockIO):
     def test_load_oldtrivial2d(self):
         import os

@@ -299,5 +299,5 @@ def strbool(val):
             return True
         elif val == 'false' or val == 'off':
             return False
-    finally:
+    else:
         return None

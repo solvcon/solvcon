@@ -1,6 +1,6 @@
 # -*- coding: UTF-8 -*-
 #
-# Copyright (C) 2008-2010 Yung-Yu Chen <yyc@solvcon.net>.
+# Copyright (C) 2008-2011 Yung-Yu Chen <yyc@solvcon.net>.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -115,7 +115,10 @@ class BlockFormat(Format):
         if only_meta:
             return meta
         fpdtype = meta.fpdtype if self.fpdtype == None else self.fpdtype
-        blk = Block(fpdtype=fpdtype)
+        kw = {'fpdtype': fpdtype}
+        if 'use_incenter' in meta and meta['use_incenter'] is not None:
+            kw['use_incenter'] = meta.use_incenter
+        blk = Block(**kw)
         blk.blkn = meta.blkn
         # load group and BC list.
         self._load_group(meta, lines, blk)
@@ -668,6 +671,45 @@ class TrivialBlockFormat(BlockFormat):
                     (bcinfo[3], 3), 'int32', stream)
             blk.bclist.append(bc)
 
+class IncenterBlockFormat(TrivialBlockFormat):
+    """
+    Block format that can indicate incenter.
+    """
+    FORMAT_REV = '0.0.7'
+    SPEC_OF_META = (
+        ('GLOBAL', str),
+        ('SWITCH', strbool),
+        ('DESC', str),
+        ('GEOM', int),
+        ('FEATURE', strbool),
+        ('ATT', int),
+    )
+    META_FEATURE = ('use_incenter',)
+
+    ############################################################################
+    # Facilities for writing.
+    ############################################################################
+    def _save_meta(self, blk, stream):
+        """
+        @param blk: block object to alter.
+        @type blk: solvcon.block.Block
+        @param stream: output stream.
+        @type stream: file
+        @return: nothing.
+        """
+        for secname in 'GLOBAL', 'SWITCH':
+            for key in getattr(self, 'META_'+secname):
+                skey = key
+                if hasattr(key, '__iter__'):
+                    key, skey = key
+                stream.write('%s = %s\n' % (key, str(getattr(self, key))))
+        # special description and geometry.
+        for key in self.META_DESC + self.META_GEOM + self.META_FEATURE:
+            stream.write('%s = %s\n' % (key, str(getattr(blk, key))))
+        # attached/META_ATT.
+        stream.write('ngroup = %d\n' % len(blk.grpnames))
+        stream.write('nbc = %d\n' % len(blk.bclist))
+
 class BlockIO(FormatIO):
     """
     Proxy to blk file format.
@@ -699,7 +741,7 @@ class BlockIO(FormatIO):
         if fmt == None and self.filename != None:
             fmt = self._peek_revision(self.filename)
         if fmt == None:
-            fmt = 'TrivialBlockFormat'
+            fmt = 'IncenterBlockFormat'
         self.blf = blfregy[fmt](compressor=compressor, fpdtype=fpdtype)
     @staticmethod
     def _peek_revision(filename):
@@ -771,7 +813,8 @@ class BlockIO(FormatIO):
             # guess for file format.
             fmt = self._peek_revision(stream)
             if fmt == None:
-                fmt = 'TrivialBlockFormat'
+                fmt = 'IncenterBlockFormat'
             blf = blfregy[fmt]()
             stream = open(stream, 'rb')
+        print blf
         return blf.load(stream, bcmapper)

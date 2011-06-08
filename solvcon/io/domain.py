@@ -1,6 +1,6 @@
 # -*- coding: UTF-8 -*-
 #
-# Copyright (C) 2008-2010 Yung-Yu Chen <yyc@solvcon.net>.
+# Copyright (C) 2008-2011 Yung-Yu Chen <yyc@solvcon.net>.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -220,7 +220,7 @@ class DomainFormat(Format):
         import os
         from time import sleep
         from random import seed, random
-        from .block import BlockIO
+        from .block import blfregy
         # load the text part of DOM file for block filename.
         if blkfn is None:
             stream = open(os.path.join(dirname, self.DOM_FILENAME), 'rb')
@@ -246,7 +246,13 @@ class DomainFormat(Format):
                     raise
             else:
                 break
-        blk = BlockIO().load(stream=stream, bcmapper=bcmapper)
+        ## determine block format revision.
+        if blkfn is None:
+            obj = meta
+        else:
+            obj = self
+        blf = blfregy[obj.blk_format_rev]()
+        blk = blf.load(stream=stream, bcmapper=bcmapper)
         stream.close()
         return blk
 

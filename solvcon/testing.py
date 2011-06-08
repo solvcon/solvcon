@@ -60,15 +60,18 @@ def loadfile(filename):
     """
     return openfile(filename).read()
 
-def get_blk_from_sample_neu(fpdtype=None):
+def get_blk_from_sample_neu(fpdtype=None, use_incenter=None):
     """
     Read data from sample.neu file and convert it into Block.
     """
     from .io.gambit import GambitNeutral
     from .boundcond import bctregy
-    return GambitNeutral(loadfile('sample.neu')).toblock(fpdtype=fpdtype)
+    kw = {'fpdtype': fpdtype}
+    if use_incenter is not None:
+        kw['use_incenter'] = use_incenter
+    return GambitNeutral(loadfile('sample.neu')).toblock(**kw)
 
-def get_blk_from_oblique_neu(fpdtype=None):
+def get_blk_from_oblique_neu(fpdtype=None, use_incenter=None):
     """
     Read data from oblique.neu file and convert it into Block.
     """
@@ -80,8 +83,10 @@ def get_blk_from_oblique_neu(fpdtype=None):
         'wall': (bctregy.unspecified, {}),
         'farfield': (bctregy.unspecified, {}),
     }
-    return GambitNeutral(loadfile('oblique.neu')
-        ).toblock(bcname_mapper=bcname_mapper, fpdtype=fpdtype)
+    kw = {'fpdtype': fpdtype, 'bcname_mapper': bcname_mapper}
+    if use_incenter is not None:
+        kw['use_incenter'] = use_incenter
+    return GambitNeutral(loadfile('oblique.neu')).toblock(**kw)
 
 class TestingSolver(BlockSolver):
     _pointers_ = ['msd']
