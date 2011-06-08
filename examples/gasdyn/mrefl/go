@@ -1,0 +1,176 @@
+#!/usr/bin/env python2.6
+# -*- coding: UTF-8 -*-
+#
+# Copyright (C) 2010-2011 Yung-Yu Chen <yyc@solvcon.net>.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+from solvcon.hook import BlockHook
+from solvcon.kerpak import gasdyn
+
+"""
+Calculate Mach reflection
+"""
+
+class MovingShock(object):
+    """
+    Subscript 1 denotes quantities before shock (have not touched by shock),
+    subscript 2 denotes quantities after shock (passed by shock).
+    """
+    def __init__(self, ga, Ms):
+        self.ga = ga
+        self.Ms = Ms
+
+    def _calc_ratio_rho(self, p1, p2):
+        nume = 1 + (self.ga+1)/(self.ga-1) * (p2/p1)
+        deno = (self.ga+1)/(self.ga-1) + (p2/p1)
+        return nume/deno
+    def _calc_ratio_p(self):
+        nume = 2*self.ga*self.Ms**2 - (self.ga-1)
+        deno = self.ga + 1
+        return nume/deno
+    def _calc_ratio_T(self, p1, p2):
+        nume = (self.ga+1)/(self.ga-1) + p2/p1
+        nume *= p2
+        deno = 1 + (self.ga+1)/(self.ga-1) * p2/p1
+        deno *= p1
+        return nume/deno
+
+    def calc_rho1(self, rho2, p1, p2):
+        return rho2 / self._calc_ratio_rho(p1, p2)
+    def calc_rho2(self, rho1, p1, p2):
+        return rho1 * self._calc_ratio_rho(p1, p2)
+    def calc_p1(self, p2):
+        return p2 / self._calc_ratio_p()
+    def calc_p2(self, p1):
+        return p1 * self._calc_ratio_p()
+    def calc_T1(self, T2, p1, p2):
+        return T2 / self._calc_ratio_T(p1, p2)
+    def calc_T2(self, T1, p1, p2):
+        return T1 * self._calc_ratio_T(p1, p2)
+
+    def calc_M2p(self):
+        from math import sqrt
+        nume = 2 * (self.Ms**2-1)
+        deno = 2*self.ga*self.Ms**2 - (self.ga-1)
+        deno *= 2 + (self.ga-1)*self.Ms**2
+        deno = sqrt(deno)
+        return nume / deno
+
+class ExactMovingShockHook(BlockHook):
+    def __init__(self, cse, **kw):
+        self.ga = kw.pop('gamma')
+        self.Ms = kw.pop('Ms')
+        self.rho = kw.pop('rho')
+        self.p = kw.pop('p')
+        super(ExactMovingShockHook, self).__init__(cse, **kw)
+    def preloop(self):
+        ms = MovingShock(self.ga, self.Ms)
+        self.info('Properties behind shock (exact):\n')
+        self.info('  rho2 = %.10f\n' % self.rho)
+        self.info('  p2   = %.10f\n' % self.p)
+        self.info('  M2   = %.10f\n' % ms.calc_M2p())
+        self.info('  Ms   = %.10f\n' % self.Ms)
+    postloop = preloop
+
+def mesher(cse):
+    """
+    Generate a cube according to journaling file cube.tmpl.
+    """
+    import os
+    from solvcon.helper import Cubit
+    itv = float(cse.io.basefn.split('_')[-1])/1000
+    cmds = open(os.path.join(os.path.dirname(__file__),
+        'mrefl.tmpl')).read() % itv
+    cmds = [cmd.strip() for cmd in cmds.strip().split('\n')]
+    gn = Cubit(cmds, 2)()
+    return gn.toblock(bcname_mapper=cse.condition.bcmap)
+
+def mrefl_base(casename=None,
+    gamma=None, density=None, pressure=None, Ms=None,
+    psteps=None, ssteps=None, **kw
+):
+    """
+    Fundamental configuration of the simulation and return the case object.
+
+    @return: the created Case object.
+    @rtype: solvcon.case.BlockCase
+    """
+    import os
+    from numpy import pi, array, sin, cos, sqrt
+    from solvcon.conf import env
+    from solvcon.boundcond import bctregy
+    from solvcon.solver import ALMOST_ZERO
+    from solvcon import hook, anchor
+    from solvcon.kerpak import cuse
+    # set flow properties (fp).
+    ms = MovingShock(ga=gamma, Ms=Ms)
+    fpi = {
+        'gamma': gamma, 'rho': density, 'v2': 0.0, 'v3': 0.0, 'p': pressure,
+    }
+    fpi['v1'] = 0.0
+    fpb = fpi.copy()
+    fpb['p'] = ms.calc_p2(pressure)
+    fpb['rho'] = ms.calc_rho2(density, pressure, fpb['p'])
+    fpb['v1'] = Ms*sqrt(gamma*fpi['p']/fpi['rho'])*(1-density/fpb['rho'])
+    # set up BCs.
+    bcmap = {
+        'upper': (bctregy.GasdynWall, {},),
+        'left': (bctregy.GasdynInlet, fpb,),
+        'right': (bctregy.CuseNonrefl, {},),
+        'lower': (bctregy.GasdynWall, {},),
+        'ramp': (bctregy.GasdynWall, {},),
+    }
+    # set up case.
+    basedir = os.path.abspath(os.path.join(os.getcwd(), 'result'))
+    cse = gasdyn.GasdynCase(basedir=basedir, rootdir=env.projdir,
+        basefn=casename, mesher=mesher, bcmap=bcmap, **kw)
+    # informative.
+    cse.runhooks.append(hook.ProgressHook,
+        psteps=psteps, linewidth=ssteps/psteps,
+    )
+    cse.runhooks.append(cuse.CflHook, fullstop=False, psteps=ssteps,
+        cflmax=10.0, linewidth=ssteps/psteps,
+    )
+    cse.runhooks.append(cuse.ConvergeHook, psteps=ssteps)
+    cse.runhooks.append(hook.SplitMarker)
+    cse.runhooks.append(hook.GroupMarker)
+    cse.runhooks.append(hook.BlockInfoHook, psteps=ssteps, show_bclist=True)
+    # initializer.
+    cse.runhooks.append(anchor.FillAnchor, keys=('soln',), value=ALMOST_ZERO)
+    cse.runhooks.append(anchor.FillAnchor, keys=('dsoln',), value=0)
+    cse.runhooks.append(gasdyn.UniformIAnchor, **fpi)
+    # post processing.
+    ## collect variables.
+    varlist = list()
+    for var in ['soln', 'dsoln']:
+        varlist.append((var, {'inder': False, 'consider_ghost': True}))
+    for var in ['rho', 'p', 'T', 'ke', 'M', 'sch', 'v']:
+        varlist.append((var, {'inder': True, 'consider_ghost': True}))
+    cse.runhooks.append(hook.CollectHook, psteps=ssteps, varlist=varlist)
+    ## execution order is reversed for postloop.
+    cse.runhooks.append(ExactMovingShockHook, Ms=Ms, **fpb)
+    cse.runhooks.append(gasdyn.GasdynOAnchor, rsteps=ssteps)
+    ## output.
+    cse.runhooks.append(hook.MarchSave,
+        psteps=ssteps, binary=True, cache_grid=True)
+    return cse
+
+if __name__ == '__main__':
+    cse = mrefl_base('mrefl_10', gamma=1.4, density=1.0, pressure=1.0, Ms=1.5,
+        time_increment=1.6e-3, steps_run=700, ssteps=50, psteps=1)
+    cse.init()
+    cse.run()
+    cse.cleanup()
