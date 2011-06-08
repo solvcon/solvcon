@@ -147,7 +147,7 @@ class TestReloadTrivial(CheckDomainIO):
         blk = get_sample_neu()
         doo = Collective(blk=blk)
         doo.split(npart)
-        dio = DomainIO(compressor='gz')
+        dio = DomainIO(compressor='gz', fmt='TrivialDomainFormat')
         # save and reload to new domain.
         dirname = mkdtemp()
         dio.save(dom=doo, dirname=dirname)
@@ -184,7 +184,7 @@ class TestReloadTrivial(CheckDomainIO):
         blk = get_sample_neu()
         doo = Collective(blk=blk)
         doo.split(npart)
-        dio = DomainIO(compressor='gz')
+        dio = DomainIO(compressor='gz', fmt='TrivialDomainFormat')
         # save and reload to new domain.
         dirname = mkdtemp()
         dio.save(dom=doo, dirname=dirname)
@@ -222,7 +222,110 @@ class TestReloadTrivial(CheckDomainIO):
         blk = get_sample_neu()
         doo = Collective(blk=blk)
         doo.split(npart)
-        dio = DomainIO(compressor='gz')
+        dio = DomainIO(compressor='gz', fmt='TrivialDomainFormat')
+        # save and reload to new domain.
+        dirname = mkdtemp()
+        dio.save(dom=doo, dirname=dirname)
+        don = dio.load(dirname=dirname)
+        rmtree(dirname)
+        # check domain.
+        self._check_domain_shape(don, doo)
+        self._check_domain_array(don, doo)
+        # check whole block.
+        self._check_block_shape(don.blk, doo.blk)
+        self._check_block_group(don.blk, doo.blk)
+        self._check_block_bc(don.blk, doo.blk)
+        self._check_block_array(don.blk, doo.blk)
+        # check split blocks.
+        self.assertEqual(len(don), 0)
+
+class TestReloadIncenter(CheckDomainIO):
+    def test_whole_domain(self):
+        from tempfile import mkdtemp
+        from shutil import rmtree
+        from ...domain import Collective
+        from ..domain import DomainIO
+        npart = 3
+        # create original domain.
+        blk = get_sample_neu()
+        doo = Collective(blk=blk)
+        doo.split(npart)
+        dio = DomainIO(compressor='gz', fmt='IncenterDomainFormat')
+        # save and reload to new domain.
+        dirname = mkdtemp()
+        dio.save(dom=doo, dirname=dirname)
+        don = dio.load(dirname=dirname, with_split=True)
+        rmtree(dirname)
+        # check domain.
+        self._check_domain_shape(don, doo)
+        self._check_domain_array(don, doo)
+        # check whole block.
+        self._check_block_shape(don.blk, doo.blk)
+        self._check_block_group(don.blk, doo.blk)
+        self._check_block_bc(don.blk, doo.blk)
+        self._check_block_array(don.blk, doo.blk)
+        # check split blocks.
+        for iblk in range(npart):
+            try:
+                self._check_block_shape(don[iblk], doo[iblk])
+                self._check_block_group(don[iblk], doo[iblk])
+                self._check_block_bc(don[iblk], doo[iblk])
+                self._check_block_array(don[iblk], doo[iblk])
+            except StandardError as e:
+                msgs = list(e.args)
+                msgs.append('%d-th block' % iblk)
+                e.args = tuple(msgs)
+                raise
+
+    def test_single_block(self):
+        from tempfile import mkdtemp
+        from shutil import rmtree
+        from ...domain import Collective
+        from ..domain import DomainIO
+        npart = 3
+        # create original domain.
+        blk = get_sample_neu()
+        doo = Collective(blk=blk)
+        doo.split(npart)
+        dio = DomainIO(compressor='gz', fmt='IncenterDomainFormat')
+        # save and reload to new domain.
+        dirname = mkdtemp()
+        dio.save(dom=doo, dirname=dirname)
+        don = dio.load_block(dirname=dirname)
+        # check whole block.
+        blk = dio.load_block(dirname=dirname, blkid=None, bcmapper=None)
+        self._check_block_shape(blk, doo.blk)
+        self._check_block_group(blk, doo.blk)
+        self._check_block_bc(blk, doo.blk)
+        self._check_block_array(blk, doo.blk)
+        # check split blocks.
+        for iblk in range(npart):
+            try:
+                blk = dio.load_block(dirname=dirname, blkid=iblk,
+                    bcmapper=None)
+                self._check_block_shape(blk, doo[iblk])
+                self._check_block_group(blk, doo[iblk])
+                self._check_block_bc(blk, doo[iblk])
+                self._check_block_array(blk, doo[iblk])
+            except StandardError as e:
+                msgs = list(e.args)
+                msgs.append('%d-th block' % iblk)
+                e.args = tuple(msgs)
+                raise
+        # finalize.
+        rmtree(dirname)
+
+    def test_limited_domain(self):
+        from tempfile import mkdtemp
+        from shutil import rmtree
+        from ...domain import Collective
+        from ..domain import DomainIO
+        npart = 3
+        # create original domain.
+        blk = get_sample_neu()
+        doo = Collective(blk=blk)
+        doo.split(npart)
+        dio = DomainIO(compressor='gz', fmt='IncenterDomainFormat')
         # save and reload to new domain.
         dirname = mkdtemp()
         dio.save(dom=doo, dirname=dirname)
