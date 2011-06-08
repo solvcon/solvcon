@@ -1,0 +1,14 @@
+# cylinder.
+create cylinder height 2 radius 0.1
+rotate volume 1 about Y angle -90
+# mesh.
+volume 1 size %g
+volume 1 scheme Tetmesh
+mesh volume 1
+# BC.
+sideset 1 surface 1
+sideset 1 name "wall"
+sideset 2 surface 2
+sideset 2 name "right"
+sideset 3 surface 3
+sideset 3 name "left"
