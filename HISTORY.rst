@@ -13,6 +13,15 @@ New features:
   ``$SCROOT/bin/scvars.sh`` exporting necessary environment variables for using
   the customized runtime.  ``$SCROOT`` is the installing destination (i.e.,
   ``$SCPREFIX``), and is set in the shell script as well.
+- The center of a cell can now be calculated as an incenter rather than
+  centroid.  This enables incenter-based CESE implementation that will benefit
+  calculating Navier-Stokes equations in the future.
+- More examples for compressible inviscid flows are provided.
+
+Bug-fix:
+
+- A bug in coordiate transformation for wall boundary conditions of gas
+  dynamics module (``solvcon.kerpak.gasdyn``).
 
 0.0.6
 =====
