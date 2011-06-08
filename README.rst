@@ -90,11 +90,24 @@ The option ``--download`` used above asks the building script to download
 necessary external source packages, e.g., METIS_, from Internet.  Option
 ``--extract`` extracts the downloaded packages.
 
-If one wants to build the dependencies from ground up, he/she can take a look
-into ``$SCSRC/ground``.  The directory contains scripts to compile most of the
-depended packages, excepting very fundamental ones.  For those who like to get
-their hands dirty, the following packages still need to be installed as
-prerequisite::
+Build and Install Dependencies (Optional)
+=========================================
+
+If one wants to build the dependencies from ground up, he/she should take a
+look of directory ``$SCSRC/ground``.  The directory contains scripts to compile
+most of the depended packages.  The ``Makefile`` in the directory has three
+default targets: ``binary``, ``python``, and ``vtk``.  An additional target
+``all`` will run all of them in order.  The Makefile automatically installs
+built files, and takes environment variable ``$SCPREFIX`` as installation
+target path.  If not specified, by default it is set to
+``$HOME/opt/scruntime``.  A script ``$SCROOT/bin/scvars.sh`` will be created to
+export necessary environment variables for the installed dependencies.
+Variable ``$SCROOT`` points to the installation target path; it is the runtime
+version of variable ``$SCPREFIX`` used in building phase.  ``$SCROOT`` will be
+set by ``scvars.sh`` script too.
+
+For those who like to get their hands dirty, the following packages still need
+to be installed as prerequisite::
 
   $ sudo apt-get install build-essential gcc cmake libcurl4-gnutls-dev
   libhdf5-serial-dev
