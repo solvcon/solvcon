@@ -380,6 +380,8 @@ class BlockSolver(BaseSolver):
     @itype ibclist: list
     @ivar all_simplex: True if the mesh is all-simplex, False otherwise.
     @itype all_simplex: bool
+    @ivar use_incenter: True if the mesh uses incenters, False otherwise.
+    @itype use_incenter: bool
     """
 
     _interface_init_ = []
@@ -397,6 +399,7 @@ class BlockSolver(BaseSolver):
         super(BlockSolver, self).__init__(*args, **kw)
         assert self.fpdtype == blk.fpdtype
         self.all_simplex = blk.check_simplex()
+        self.use_incenter = blk.use_incenter
         # index.
         self.svrn = blk.blkn
         self.nsvr = None

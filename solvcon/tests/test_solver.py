@@ -49,6 +49,15 @@ class TestBlock(TestCase):
             neq=self.neq, enable_mesg=True)
         self.assertFalse(svr.all_simplex)
 
+    def test_incenter(self):
+        from ..testing import get_blk_from_sample_neu, get_blk_from_oblique_neu
+        svr = CustomBlockSolver(get_blk_from_oblique_neu(use_incenter=True),
+            neq=self.neq, enable_mesg=True)
+        self.assertTrue(svr.use_incenter)
+        svr = CustomBlockSolver(get_blk_from_sample_neu(use_incenter=False),
+            neq=self.neq, enable_mesg=True)
+        self.assertFalse(svr.use_incenter)
+
     @staticmethod
     def _get_block():
         return get_blk_from_sample_neu()
