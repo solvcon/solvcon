@@ -157,8 +157,8 @@ def hetero_base(casename=None, meshname=None, mtrlin='Beryl', mtrlout='GaAs',
 # The arrangement.
 ################################################################################
 @vslin.VslinCase.register_arrangement
-def hetero_10(casename, **kw):
-    return hetero_base(casename=casename, time_increment=4.e-7,
+def hetero_20(casename, **kw):
+    return hetero_base(casename=casename, time_increment=8.e-7,
         steps_run=250, steps_stride=1, ssteps=50, psteps=1, **kw)
 
 ################################################################################
