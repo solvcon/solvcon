@@ -90,32 +90,6 @@ The option ``--download`` used above asks the building script to download
 necessary external source packages, e.g., METIS_, from Internet.  Option
 ``--extract`` extracts the downloaded packages.
 
-Build and Install Dependencies (Optional)
-=========================================
-
-If one wants to build the dependencies from ground up, he/she should take a
-look of directory ``$SCSRC/ground``.  The directory contains scripts to compile
-most of the depended packages.  The ``Makefile`` in the directory has three
-default targets: ``binary``, ``python``, and ``vtk``.  An additional target
-``all`` will run all of them in order.  The Makefile automatically installs
-built files, and takes environment variable ``$SCPREFIX`` as installation
-target path.  If not specified, by default it is set to
-``$HOME/opt/scruntime``.  A script ``$SCROOT/bin/scvars.sh`` will be created to
-export necessary environment variables for the installed dependencies.
-Variable ``$SCROOT`` points to the installation target path; it is the runtime
-version of variable ``$SCPREFIX`` used in building phase.  ``$SCROOT`` will be
-set by ``scvars.sh`` script too.
-
-For those who like to get their hands dirty, the following packages still need
-to be installed as prerequisite::
-
-  $ sudo apt-get install build-essential gcc cmake libcurl4-gnutls-dev
-  libhdf5-serial-dev
-
-Sometimes it is unavoidable to compile these dependencies from source.  For
-example, to deploy SOLVCON on a supercomputer/cluster which runs stable but
-out-dated OSes.  The ``ground/`` directory is meant to ease the tedious task.
-
 Install from Repository
 =======================
 
@@ -159,6 +133,32 @@ Because SOLVCON uses ssh_ as its default approach for remote procedure call
 unit tests for RPC could fail.  Some tests using optional libraries could be
 skipped (indicated by S), if you do not have the libraries installed.
 Everything else should pass.
+
+Build and Install Dependencies (Optional)
+=========================================
+
+If one wants to build the dependencies from ground up, he/she should take a
+look of directory ``$SCSRC/ground``.  The directory contains scripts to compile
+most of the depended packages.  The ``Makefile`` in the directory has three
+default targets: ``binary``, ``python``, and ``vtk``.  An additional target
+``all`` will run all of them in order.  The Makefile automatically installs
+built files, and takes environment variable ``$SCPREFIX`` as installation
+target path.  If not specified, by default it is set to
+``$HOME/opt/scruntime``.  A script ``$SCROOT/bin/scvars.sh`` will be created to
+export necessary environment variables for the installed dependencies.
+Variable ``$SCROOT`` points to the installation target path; it is the runtime
+version of variable ``$SCPREFIX`` used in building phase.  ``$SCROOT`` will be
+set by ``scvars.sh`` script too.
+
+For those who like to get their hands dirty, the following packages still need
+to be installed as prerequisite::
+
+  $ sudo apt-get install build-essential gcc cmake libcurl4-gnutls-dev
+  libhdf5-serial-dev
+
+Sometimes it is unavoidable to compile these dependencies from source.  For
+example, to deploy SOLVCON on a supercomputer/cluster which runs stable but
+out-dated OSes.  The ``ground/`` directory is meant to ease the tedious task.
 
 Resources
 =========
