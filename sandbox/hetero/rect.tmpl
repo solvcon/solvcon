@@ -1,0 +1,49 @@
+# left surface.
+create vertex -2 -1 0
+create vertex -1 -0.2 0
+create vertex -1 0.2 0
+create vertex -2 1 0
+create curve 1 2
+create curve 2 3
+create curve 3 4
+create curve 4 1
+create surface 1 2 3 4
+# bottom surface.
+create vertex 2 -1 0
+create vertex 1 -0.2
+create curve 1 9
+create curve 9 10
+create curve 10 2
+create surface 5 6 7 1
+# right surface.
+create vertex 2 1 0
+create vertex 1 0.2 0
+create curve 9 17
+create curve 17 18
+create curve 18 10
+create surface 9 10 11 6
+# top surface.
+create curve 17 4
+create curve 18 3
+create surface 10 13 14 3
+# center surface.
+create surface 2 7 11 14
+merge all
+# BCs.
+sideset 1 curve 5
+sideset 2 curve 9
+sideset 3 curve 13
+sideset 4 curve 4
+sideset 1 name "lower"
+sideset 2 name "right"
+sideset 3 name "upper"
+sideset 4 name "left"
+# mesh.
+surface 1 2 3 4 5 size %g
+surface 1 2 3 4 5 scheme trimesh
+mesh surface 1 2 3 4 5
+# groups.
+block 1 surface 5
+block 1 name "inner"
+block 2 surface 1 2 3 4
+block 2 name "outer"
