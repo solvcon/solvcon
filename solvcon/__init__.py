@@ -124,7 +124,7 @@ to be installed as prerequisite::
   $ sudo apt-get install build-essential gcc cmake libcurl4-gnutls-dev
   libhdf5-serial-dev
 
-Sometimes it is inevitable to compile these dependencies from source.  For
+Sometimes it is unavoidable to compile these dependencies from source.  For
 example, to deploy SOLVCON on a supercomputer/cluster which runs stable but
 out-dated OSes.  The ``ground/`` directory is meant to ease the tedious task.
 
