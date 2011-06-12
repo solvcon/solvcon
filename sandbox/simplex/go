@@ -1,0 +1,142 @@
+#!/usr/bin/env python2.6
+# -*- coding: UTF-8 -*-
+#
+# Copyright (C) 2010-2011 Yung-Yu Chen <yyc@solvcon.net>.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+"""
+Calculate Sod's shock tube problem in three-dimesional space.  Also test for
+incenter implementation.  Parameters are non-dimensionalized.  This script can
+be run directly by ./go .
+"""
+
+from solvcon.kerpak import gasdyn
+
+class CustomSolver(gasdyn.GasdynSolver):
+    def calcsoln(self, worker=None):
+        if self.debug: self.mesg('calcsoln')
+        if self.scu:
+            from ctypes import byref
+            self._clib_mcu.calc_soln(self.ncuth,
+                byref(self.cumgr.exd), self.cumgr.gexd.gptr)
+        else:
+            func = self._clib_cuse_c.calcs_soln
+            self._tcall(func, 0, self.ncell, tickerkey='calcsoln')
+        if self.debug: self.mesg(' done.\n')
+
+class DiaphragmIAnchor(gasdyn.GasdynIAnchor):
+    def __init__(self, svr, **kw):
+        self.rho1 = float(kw.pop('rho1'))
+        self.rho2 = float(kw.pop('rho2'))
+        self.p1 = float(kw.pop('p1'))
+        self.p2 = float(kw.pop('p2'))
+        super(DiaphragmIAnchor, self).__init__(svr, **kw)
+    def provide(self):
+        super(DiaphragmIAnchor, self).provide()
+        gamma = self.gamma
+        svr = self.svr
+        svr.soln[:,0].fill(self.rho1)
+        svr.soln[:,1].fill(0.0)
+        svr.soln[:,2].fill(0.0)
+        if svr.ndim == 3:
+            svr.soln[:,3].fill(0.0)
+        svr.soln[:,svr.ndim+1].fill(self.p1/(gamma-1))
+        # set.
+        slct = svr.clcnd[:,0] > 0.0
+        svr.soln[slct,0] = self.rho2
+        svr.soln[slct,svr.ndim+1] = self.p2
+        # update.
+        svr.sol[:] = svr.soln[:]
+
+def mesher(cse):
+    """
+    Generate a cube according to journaling file cube.tmpl.
+    """
+    import os
+    from solvcon.helper import Cubit
+    try:
+        itv = float(cse.io.basefn.split('_')[-1])/1000
+    except ValueError:
+        itv = 0.2
+    cmds = open(os.path.join(os.path.dirname(__file__),
+        'tube.tmpl')).read() % itv
+    cmds = [cmd.strip() for cmd in cmds.strip().split('\n')]
+    gn = Cubit(cmds, 3)()
+    return gn.toblock(bcname_mapper=cse.condition.bcmap)
+
+def tube_base(casename=None,
+    gamma=None, rho1=None, p1=None, rho2=None, p2=None,
+    psteps=None, ssteps=None, **kw
+):
+    """
+    Fundamental configuration of the simulation and return the case object.
+
+    @return: the created Case object.
+    @rtype: solvcon.case.BlockCase
+    """
+    import os
+    from numpy import sqrt
+    from solvcon.conf import env
+    from solvcon.boundcond import bctregy
+    from solvcon.solver import ALMOST_ZERO
+    from solvcon import hook, anchor
+    from solvcon.kerpak import cuse
+    # set up BCs.
+    bcmap = {
+        'wall': (bctregy.GasdynWall, {},),
+        'left': (bctregy.CuseNonrefl, {},),
+        'right': (bctregy.CuseNonrefl, {},),
+    }
+    # set up case.
+    basedir = os.path.abspath(os.path.join(os.getcwd(), 'result'))
+    cse = gasdyn.GasdynCase(basedir=basedir, rootdir=env.projdir,
+        solvertype=CustomSolver,
+        basefn=casename, mesher=mesher, bcmap=bcmap, **kw)
+    # informative.
+    cse.runhooks.append(hook.BlockInfoHook)
+    cse.runhooks.append(hook.ProgressHook,
+        psteps=psteps, linewidth=ssteps/psteps)
+    cse.runhooks.append(cuse.CflHook, fullstop=False, psteps=ssteps,
+        cflmax=10.0, linewidth=ssteps/psteps)
+    cse.runhooks.append(cuse.ConvergeHook, psteps=ssteps)
+    cse.runhooks.append(hook.SplitMarker)
+    cse.runhooks.append(hook.GroupMarker)
+    # initializer.
+    cse.runhooks.append(anchor.FillAnchor, keys=('soln',), value=ALMOST_ZERO)
+    cse.runhooks.append(anchor.FillAnchor, keys=('dsoln',), value=0)
+    cse.runhooks.append(DiaphragmIAnchor,
+        gamma=gamma, rho1=rho1, p1=p1, rho2=rho2, p2=p2)
+    # post processing.
+    ## collect variables.
+    varlist = list()
+    for var in ['soln', 'dsoln']:
+        varlist.append((var, {'inder': False, 'consider_ghost': True}))
+    for var in ['rho', 'p', 'T', 'ke', 'M', 'sch', 'v']:
+        varlist.append((var, {'inder': True, 'consider_ghost': True}))
+    cse.runhooks.append(hook.CollectHook, psteps=ssteps, varlist=varlist)
+    cse.runhooks.append(gasdyn.GasdynOAnchor, rsteps=ssteps)
+    ## output.
+    cse.runhooks.append(hook.MarchSave,
+        psteps=ssteps, binary=True, cache_grid=True)
+    return cse
+
+if __name__ == '__main__':
+    cse = tube_base('tube_20', use_incenter=True,
+        gamma=1.4, rho1=1.0, p1=1.0, rho2=0.125, p2=0.25,
+        time_increment=1.8e-3, steps_run=400, ssteps=40, psteps=1)
+    cse.init()
+    cse.run()
+    cse.cleanup()

@@ -41,15 +41,15 @@ int calcs_soln(exedata *exd, int istart, int iend) {
     // scalars.
     double hdt, qdt, voe;
     double fusp, futm;
+    double crd00, crd01, crd10, crd11, cnde0, cnde1;
 #if NDIM == 3
+    double crd02, crd12, crd20, crd21, crd22, cnde2;
     double disu0, disu1, disu2;
     double disv0, disv1, disv2;
 #endif
     // arrays.
-    double crd[FCNND+1][NDIM];
-    double cnde[NDIM];
-    double sfnml[FCMND][NDIM];
-    double sfcnd[FCMND][NDIM];
+    double sfnml[FCNND][NDIM];
+    double sfcnd[FCNND][NDIM];
     double usfc[NEQ];
     double fcn[NEQ][NDIM], dfcn[NEQ][NDIM];
     double jacos[NEQ][NEQ][NDIM];
@@ -78,68 +78,68 @@ int calcs_soln(exedata *exd, int istart, int iend) {
             // face node coordinates. (unrolled)
             pfcnds = exd->fcnds + ifc*(FCMND+1);
             pndcrd = exd->ndcrd + pfcnds[0+1]*NDIM;   // node 0.
-            crd[0][0] = crd[FCNND][0] = pndcrd[0];
-            crd[0][1] = crd[FCNND][1] = pndcrd[1];
+            crd00 = pndcrd[0];
+            crd01 = pndcrd[1];
 #if NDIM == 3
-            crd[0][2] = crd[FCNND][2] = pndcrd[2];
+            crd02 = pndcrd[2];
 #endif
             pndcrd = exd->ndcrd + pfcnds[1+1]*NDIM;   // node 1.
-            crd[1][0] = pndcrd[0];
-            crd[1][1] = pndcrd[1];
+            crd10 = pndcrd[0];
+            crd11 = pndcrd[1];
 #if NDIM == 3
-            crd[1][2] = pndcrd[2];
+            crd12 = pndcrd[2];
             pndcrd = exd->ndcrd + pfcnds[2+1]*NDIM;   // node 2.
-            crd[2][0] = pndcrd[0];
-            crd[2][1] = pndcrd[1];
-            crd[2][2] = pndcrd[2];
+            crd20 = pndcrd[0];
+            crd21 = pndcrd[1];
+            crd22 = pndcrd[2];
 #endif
             // neighboring cell center.
             pfccls = exd->fccls + ifc*FCREL;
             jcl = pfccls[0] + pfccls[1] - icl;
             pclcnd = exd->clcnd + jcl*NDIM;
-            cnde[0] = pclcnd[0];
-            cnde[1] = pclcnd[1];
+            cnde0 = pclcnd[0];
+            cnde1 = pclcnd[1];
 #if NDIM == 3
-            cnde[2] = pclcnd[2];
+            cnde2 = pclcnd[2];
 #endif
             // calculate geometric center of the bounding sub-face. (unrolled)
-            sfcnd[0][0] = cnde[0] + crd[0][0];    // sub-face 0.
+            sfcnd[0][0] = cnde0 + crd00;    // sub-face 0.
 #if NDIM == 3
-            sfcnd[0][0] += crd[0+1][0];
+            sfcnd[0][0] += crd10;
 #endif
             sfcnd[0][0] /= NDIM;
-            sfcnd[0][1] = cnde[1] + crd[0][1];
+            sfcnd[0][1] = cnde1 + crd01;
 #if NDIM == 3
-            sfcnd[0][1] += crd[0+1][1];
+            sfcnd[0][1] += crd11;
 #endif
             sfcnd[0][1] /= NDIM;
 #if NDIM == 3
-            sfcnd[0][2] = cnde[2] + crd[0][2];
-            sfcnd[0][2] += crd[0+1][2];
+            sfcnd[0][2] = cnde2 + crd02;
+            sfcnd[0][2] += crd12;
             sfcnd[0][2] /= NDIM;
 #endif
-            sfcnd[1][0] = cnde[0] + crd[1][0];    // sub-face 1.
+            sfcnd[1][0] = cnde0 + crd10;    // sub-face 1.
 #if NDIM == 3
-            sfcnd[1][0] += crd[1+1][0];
+            sfcnd[1][0] += crd20;
 #endif
             sfcnd[1][0] /= NDIM;
-            sfcnd[1][1] = cnde[1] + crd[1][1];
+            sfcnd[1][1] = cnde1 + crd11;
 #if NDIM == 3
-            sfcnd[1][1] += crd[1+1][1];
+            sfcnd[1][1] += crd21;
 #endif
             sfcnd[1][1] /= NDIM;
 #if NDIM == 3
-            sfcnd[1][2] = cnde[2] + crd[1][2];
-            sfcnd[1][2] += crd[1+1][2];
+            sfcnd[1][2] = cnde2 + crd12;
+            sfcnd[1][2] += crd22;
             sfcnd[1][2] /= NDIM;
-            sfcnd[2][0] = cnde[0] + crd[2][0];    // sub-face 2.
-            sfcnd[2][0] += crd[2+1][0];
+            sfcnd[2][0] = cnde0 + crd20;    // sub-face 2.
+            sfcnd[2][0] += crd00;
             sfcnd[2][0] /= NDIM;
-            sfcnd[2][1] = cnde[1] + crd[2][1];
-            sfcnd[2][1] += crd[2+1][1];
+            sfcnd[2][1] = cnde1 + crd21;
+            sfcnd[2][1] += crd01;
             sfcnd[2][1] /= NDIM;
-            sfcnd[2][2] = cnde[2] + crd[2][2];
-            sfcnd[2][2] += crd[2+1][2];
+            sfcnd[2][2] = cnde2 + crd22;
+            sfcnd[2][2] += crd02;
             sfcnd[2][2] /= NDIM;
 #endif
             // calculate outward area vector of the bounding sub-face.
@@ -148,41 +148,41 @@ int calcs_soln(exedata *exd, int istart, int iend) {
             voe = (pfccls[0] - icl) + SOLVCON_ALMOST_ZERO;
             voe /= (icl - pfccls[0]) + SOLVCON_ALMOST_ZERO;
             voe *= 0.5;
-            disu0 = crd[0  ][0] - cnde[0];  // sub-face 0.
-            disu1 = crd[0  ][1] - cnde[1];
-            disu2 = crd[0  ][2] - cnde[2];
-            disv0 = crd[0+1][0] - cnde[0];
-            disv1 = crd[0+1][1] - cnde[1];
-            disv2 = crd[0+1][2] - cnde[2];
+            disu0 = crd00 - cnde0;  // sub-face 0.
+            disu1 = crd01 - cnde1;
+            disu2 = crd02 - cnde2;
+            disv0 = crd10 - cnde0;
+            disv1 = crd11 - cnde1;
+            disv2 = crd12 - cnde2;
             sfnml[0][0] = (disu1*disv2 - disu2*disv1) * voe;
             sfnml[0][1] = (disu2*disv0 - disu0*disv2) * voe;
             sfnml[0][2] = (disu0*disv1 - disu1*disv0) * voe;
-            disu0 = crd[1  ][0] - cnde[0];  // sub-face 1.
-            disu1 = crd[1  ][1] - cnde[1];
-            disu2 = crd[1  ][2] - cnde[2];
-            disv0 = crd[1+1][0] - cnde[0];
-            disv1 = crd[1+1][1] - cnde[1];
-            disv2 = crd[1+1][2] - cnde[2];
+            disu0 = crd10 - cnde0;  // sub-face 1.
+            disu1 = crd11 - cnde1;
+            disu2 = crd12 - cnde2;
+            disv0 = crd20 - cnde0;
+            disv1 = crd21 - cnde1;
+            disv2 = crd22 - cnde2;
             sfnml[1][0] = (disu1*disv2 - disu2*disv1) * voe;
             sfnml[1][1] = (disu2*disv0 - disu0*disv2) * voe;
             sfnml[1][2] = (disu0*disv1 - disu1*disv0) * voe;
-            disu0 = crd[2  ][0] - cnde[0];  // sub-face 2.
-            disu1 = crd[2  ][1] - cnde[1];
-            disu2 = crd[2  ][2] - cnde[2];
-            disv0 = crd[2+1][0] - cnde[0];
-            disv1 = crd[2+1][1] - cnde[1];
-            disv2 = crd[2+1][2] - cnde[2];
+            disu0 = crd20 - cnde0;  // sub-face 2.
+            disu1 = crd21 - cnde1;
+            disu2 = crd22 - cnde2;
+            disv0 = crd00 - cnde0;
+            disv1 = crd01 - cnde1;
+            disv2 = crd02 - cnde2;
             sfnml[2][0] = (disu1*disv2 - disu2*disv1) * voe;
             sfnml[2][1] = (disu2*disv0 - disu0*disv2) * voe;
             sfnml[2][2] = (disu0*disv1 - disu1*disv0) * voe;
 #else
-            voe = (crd[0][0]-cnde[0])*(crd[1][1]-cnde[1])
-                - (crd[0][1]-cnde[1])*(crd[1][0]-cnde[0]);
+            voe = (crd00-cnde0)*(crd11-cnde1)
+                - (crd01-cnde1)*(crd10-cnde0);
             voe /= fabs(voe);
-            sfnml[0][0] = -(cnde[1]-crd[0][1]) * voe;
-            sfnml[0][1] =  (cnde[0]-crd[0][0]) * voe;
-            sfnml[1][0] =  (cnde[1]-crd[1][1]) * voe;
-            sfnml[1][1] = -(cnde[0]-crd[1][0]) * voe;
+            sfnml[0][0] = -(cnde1-crd01) * voe;
+            sfnml[0][1] =  (cnde0-crd00) * voe;
+            sfnml[1][0] =  (cnde1-crd11) * voe;
+            sfnml[1][1] = -(cnde0-crd10) * voe;
 #endif
 
             // spatial flux (given time).
