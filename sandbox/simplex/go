@@ -30,11 +30,24 @@ class CustomSolver(gasdyn.GasdynSolver):
         if self.debug: self.mesg('calcsoln')
         if self.scu:
             from ctypes import byref
-            self._clib_mcu.calc_soln(self.ncuth,
+            self._clib_mcu.calcs_soln(self.ncuth,
                 byref(self.cumgr.exd), self.cumgr.gexd.gptr)
         else:
             func = self._clib_cuse_c.calcs_soln
             self._tcall(func, 0, self.ncell, tickerkey='calcsoln')
+        if self.debug: self.mesg(' done.\n')
+
+    def calcdsoln(self, worker=None):
+        if self.debug: self.mesg('calcdsoln')
+        if self.scu:
+            from ctypes import byref
+            func = getattr(self._clib_mcu, 'calcs_dsoln_w%d' % (
+                1 if self.sigma0 == 0.0 else 3))
+            func(self.ncuth, byref(self.cumgr.exd), self.cumgr.gexd.gptr)
+        else:
+            func = getattr(self._clib_cuse_c, 'calcs_dsoln_w%d' % (
+                1 if self.sigma0 == 0.0 else 3))
+            self._tcall(func, 0, self.ncell, tickerkey='calcdsoln')
         if self.debug: self.mesg(' done.\n')
 
 class DiaphragmIAnchor(gasdyn.GasdynIAnchor):
