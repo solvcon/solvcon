@@ -25,6 +25,18 @@ The arrangement ictr can be run by simply executing ./go run.
 
 from solvcon.kerpak import gasdyn
 
+class CustomSolver(gasdyn.GasdynSolver):
+    def calcsoln(self, worker=None):
+        if self.debug: self.mesg('calcsoln')
+        if self.scu:
+            from ctypes import byref
+            self._clib_mcu.calc_soln(self.ncuth,
+                byref(self.cumgr.exd), self.cumgr.gexd.gptr)
+        else:
+            func = self._clib_cuse_c.calcs_soln
+            self._tcall(func, 0, self.ncell, tickerkey='calcsoln')
+        if self.debug: self.mesg(' done.\n')
+
 def ictr_base(casename=None, meshname=None, 
     gamma=None, density=None, pressure=None, M=None,
     psteps=None, ssteps=None, **kw
@@ -57,6 +69,7 @@ def ictr_base(casename=None, meshname=None,
     # set up case.
     basedir = os.path.abspath(os.path.join(os.getcwd(), 'result'))
     cse = gasdyn.GasdynCase(basedir=basedir, rootdir=env.projdir,
+        solvertype=CustomSolver,
         basefn=casename, meshfn=os.path.join(env.find_scdata_mesh(), meshname),
         bcmap=bcmap, **kw)
     # anchors for solvers.
