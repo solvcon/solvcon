@@ -18,6 +18,7 @@
 
 #include "cuse.h"
 
+// TODO: make it openmp.
 int ghostgeom_compress(exedata *exd, int nbnd, int *facn) {
     int clnfc, fcnnd;
     // pointers.

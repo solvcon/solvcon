@@ -26,27 +26,25 @@ int bound_nswall_soln(exedata *exd, int nbnd, int *facn) {
     int ibnd;
 #endif
     // pointers.
-    int *pfacn, *pfccls;
-    double *pfcnml;
+    int *pfacn, *pfccls, *pfcnds;
+    double *pfcnml, *pndcrd, *pfccnd;
     double *pisoln, *pjsoln;
-#if NDIM == 3
-    int *pfcnds;
-    double *pndcrd, *pfccnd;
     // scalars.
     double len;
-#endif
     // arrays.
     double mat[NDIM][NDIM], mvt[NDIM][NDIM];
     double mom[NDIM];
     // iterators.
     int ifc, icl, jcl;
-#ifdef __CUDACC__
-    if (ibnd < nbnd) {
-        pfacn = facn + ibnd*BFREL;
-#else
-    pfacn = facn;
+#ifndef __CUDACC__
+    #pragma omp parallel for default(shared) private(ibnd, \
+    pfacn, pfccls, pfcnds, pfcnml, pndcrd, pfccnd, \
+    pisoln, pjsoln, len, mat, mvt, mom, ifc, icl, jcl)
     for (ibnd=0; ibnd<nbnd; ibnd++) {
+#else
+    if (ibnd < nbnd) {
 #endif
+        pfacn = facn + ibnd*BFREL;
         ifc = pfacn[0];
         pfccls = exd->fccls + ifc*FCREL;
         icl = pfccls[0];
@@ -111,8 +109,6 @@ int bound_nswall_soln(exedata *exd, int nbnd, int *facn) {
         pjsoln[0] = pisoln[0];
         pjsoln[1+NDIM] = pisoln[1+NDIM];
 #ifndef __CUDACC__
-        // advance boundary face.
-        pfacn += BFREL;
     };
     return 0;
 };
@@ -137,29 +133,27 @@ int bound_nswall_dsoln(exedata *exd, int nbnd, int *facn) {
     int ibnd;
 #endif
     // pointers.
-    int *pfacn, *pfccls;
+    int *pfacn, *pfccls, *pfcnds;
+    double *pfcnml, *pndcrd, *pfccnd, (*pten)[NDIM];
     double *pidsoln, *pjdsoln, *pdsoln;
-    double *pfcnml;
-    double (*pten)[NDIM];
-#if NDIM == 3
-    int *pfcnds;
-    double *pndcrd, *pfccnd;
     // scalars.
     double len;
-#endif
     // arrays.
     double vec[NEQ][NDIM];
     double vmt[NDIM][NDIM];
     double mat[NDIM][NDIM], mvt[NDIM][NDIM];
     // iterators.
     int ifc, icl, jcl, ieq, it, jt;
-#ifdef __CUDACC__
-    if (ibnd < nbnd) {
-        pfacn = facn + ibnd*BFREL;
-#else
-    pfacn = facn;
+#ifndef __CUDACC__
+    #pragma omp parallel for default(shared) private(ibnd, \
+    pfacn, pfccls, pfcnds, pfcnml, pndcrd, pfccnd, pten, \
+    pidsoln, pjdsoln, pdsoln, \
+    len, vec, vmt, mat, mvt, ifc, icl, jcl, ieq, it, jt)
     for (ibnd=0; ibnd<nbnd; ibnd++) {
+#else
+    if (ibnd < nbnd) {
 #endif
+        pfacn = facn + ibnd*BFREL;
         ifc = pfacn[0];
         pfccls = exd->fccls + ifc*FCREL;
         icl = pfccls[0];
@@ -273,8 +267,6 @@ int bound_nswall_dsoln(exedata *exd, int nbnd, int *facn) {
             };
         };
 #ifndef __CUDACC__
-        // advance boundary face.
-        pfacn += BFREL;
     };
     return 0;
 };

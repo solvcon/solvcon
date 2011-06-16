@@ -2,6 +2,9 @@ import os
 import sys
 
 # compilation.
+AddOption('--disable-openmp', dest='use_openmp',
+    action='store_false', default=True,
+    help='Disable OpenMP.')
 AddOption('--enable-f90', dest='enable_f90',
     action='store_true', default=False,
     help='Enable FORTRAN (90) version binary.')
@@ -217,6 +220,17 @@ if GetOption('count'):
     sys.stdout.write(str(counter)+'\n')
     sys.exit(0)
 
+def check_sse4():
+    import sys
+    if not sys.platform.startswith('linux'):
+        return False
+    entries = [line.split(':') for line in
+        open('/proc/cpuinfo').read().strip().split('\n') if len(line) > 0]
+    cpuinfo = dict([(entry[0].strip(), entry[1].strip()) for entry in entries])
+    if 'sse4' in cpuinfo['flags']:
+        return True
+    return False
+
 # global tools.
 tools = ['cuda']
 tools.append(GetOption('cc'))
@@ -227,6 +241,18 @@ F90FLAGS = [
 CFLAGS = [
     '-O%d'%GetOption('optlevel'),
 ]
+LIBS = []
+
+if check_sse4():
+    CFLAGS.extend([
+        '-msse4',
+        '-mfpmath=sse',
+    ])
+
+if GetOption('use_openmp'):
+    if GetOption('cc') == 'gcc':
+        CFLAGS.append('-fopenmp')
+        LIBS.append('-lgomp')
 
 if GetOption('f90') == 'gfortran':
     F90 = 'gfortran%s' % GetOption('cmpvsn')
@@ -252,7 +278,7 @@ else:
 
 # solvcon environment.
 env = Environment(ENV=os.environ, tools=tools,
-    CPPPATH='include', CFLAGS=CFLAGS, F90FLAGS=F90FLAGS,
+    CPPPATH='include', CFLAGS=CFLAGS, F90FLAGS=F90FLAGS, LIBS=LIBS,
     NVCCFLAGS=['-arch=sm_%s'%GetOption('sm')],
 )
 env.Append(NVCCINC=' -I include')

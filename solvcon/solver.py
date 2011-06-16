@@ -73,6 +73,8 @@ class BaseSolver(object):
 
     @ivar exd: execution information for the solver.
     @itype exd: ctypes.Structure
+    @ivar enable_tpool: flag to enable thread pool on binding.
+    @itype enable_tpool: bool
     @ivar tpool: thread pool for solver.
     @itype tpool: solvcon.mthread.ThreadPool
     @ivar arglists: argument lists for C functions to be executed in the
@@ -104,6 +106,7 @@ class BaseSolver(object):
         self._fpdtype = env.fpdtype if self._fpdtype==None else self._fpdtype
         self.enable_mesg = kw.pop('enable_mesg', False)
         self.mesg = None
+        self.enable_tpool = kw.pop('enable_tpool', True)
         self.ncore = kw.pop('ncore', -1)
         self.neq = kw.pop('neq')
         self.time = kw.pop('time', 0.0)
@@ -205,6 +208,8 @@ class BaseSolver(object):
         """
         Use thread pool to call C functions in parallel (shared-memory).
         """
+        if not self.tpool:
+            raise RuntimeError('tpool is not available in %s'%str(self))
         from ctypes import byref, c_int
         from numpy import zeros
         ncore = self.ncore
@@ -259,7 +264,8 @@ class BaseSolver(object):
         exdtype = self._exedatatype_
         self.exd = exdtype(svr=self)
         # create thread pool.
-        self.tpool = ThreadPool(nthread=self.ncore)
+        if self.enable_tpool:
+            self.tpool = ThreadPool(nthread=self.ncore)
         self.arglists = list()
         for it in range(self.ncore):
             self.arglists.append([byref(self.exd), c_int(0), c_int(0)])

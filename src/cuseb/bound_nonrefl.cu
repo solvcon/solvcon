@@ -30,13 +30,14 @@ int bound_nonrefl_soln(exedata *exd, int nbnd, int *facn) {
     double *pisol, *pisoln, *pjsoln;
     // iterators.
     int ifc, icl, jcl, ieq;
-#ifdef __CUDACC__
-    if (ibnd < nbnd) {
-        pfacn = facn + ibnd*BFREL;
-#else
-    pfacn = facn;
+#ifndef __CUDACC__
+    #pragma omp parallel for default(shared) private(ibnd, pfacn, pfccls, \
+    pisol, pisoln, pjsoln, ifc, icl, jcl, ieq)
     for (ibnd=0; ibnd<nbnd; ibnd++) {
+#else
+    if (ibnd < nbnd) {
 #endif
+        pfacn = facn + ibnd*BFREL;
         ifc = pfacn[0];
         pfccls = exd->fccls + ifc*FCREL;
         icl = pfccls[0];
@@ -49,8 +50,6 @@ int bound_nonrefl_soln(exedata *exd, int nbnd, int *facn) {
             pjsoln[ieq] = pisoln[ieq] + exd->taylor*(pisol[ieq] - pisoln[ieq]);
         };
 #ifndef __CUDACC__
-        // advance boundary face.
-        pfacn += BFREL;
     };
     return 0;
 };
@@ -76,20 +75,15 @@ int bound_nonrefl_dsoln(exedata *exd, int nbnd, int *facn) {
     int ibnd;
 #endif
     // pointers.
-    int *pfacn, *pfccls;
+    int *pfacn, *pfccls, *pfcnds;
+    double *pfcnml, *pndcrd, *pfccnd;
     double *pidsol, *pidsoln, *pjdsoln, *pdsol, *pdsoln;
-    double *pfcnml;
-#if NDIM == 3
-    int *pfcnds;
-    double *pndcrd, *pfccnd;
     // scalars.
     double len;
-#endif
     // arrays.
     double dif[NDIM];
 #ifdef __CUDACC__
     double (*vec)[NDIM];
-    //vec = (double (*)[NDIM])malloc(NEQ*NDIM*sizeof(double));
     vec = (double (*)[NDIM])&arr[NEQ*NDIM*threadIdx.x];
 #else
     double vec[NEQ][NDIM];
@@ -97,13 +91,16 @@ int bound_nonrefl_dsoln(exedata *exd, int nbnd, int *facn) {
     double mat[NDIM][NDIM], matinv[NDIM][NDIM];
     // iterators.
     int ifc, icl, jcl, ieq;
-#ifdef __CUDACC__
-    if (ibnd < nbnd) {
-        pfacn = facn + ibnd*BFREL;
-#else
-    pfacn = facn;
+#ifndef __CUDACC__
+    #pragma omp parallel for default(shared) private(ibnd, \
+    pfacn, pfccls, pfcnds, pfcnml, pndcrd, pfccnd, \
+    pidsol, pidsoln, pjdsoln, pdsol, pdsoln, \
+    len, dif, vec, mat, matinv)
     for (ibnd=0; ibnd<nbnd; ibnd++) {
+#else
+    if (ibnd < nbnd) {
 #endif
+        pfacn = facn + ibnd*BFREL;
         ifc = pfacn[0];
         pfccls = exd->fccls + ifc*FCREL;
         icl = pfccls[0];
@@ -116,13 +113,11 @@ int bound_nonrefl_dsoln(exedata *exd, int nbnd, int *facn) {
         pjdsoln = exd->dsoln + jcl*NEQ*NDIM;
         // coordinate transformation and set transformed vectors.
         pfcnml = exd->fcnml + ifc*NDIM;
-#if NDIM == 3
-        pfccnd = exd->fccnd + ifc*NDIM;
-#endif
         mat[0][0] = matinv[0][0] = pfcnml[0];
         mat[0][1] = matinv[1][0] = pfcnml[1];
 #if NDIM == 3
         mat[0][2] = matinv[2][0] = pfcnml[2];
+        pfccnd = exd->fccnd + ifc*NDIM;
         pndcrd = exd->ndcrd + pfcnds[1]*NDIM;
         mat[1][0] = pndcrd[0] - pfccnd[0];
         mat[1][1] = pndcrd[1] - pfccnd[1];
@@ -172,8 +167,6 @@ int bound_nonrefl_dsoln(exedata *exd, int nbnd, int *facn) {
             pdsoln += NDIM;
         };
 #ifndef __CUDACC__
-        // advance boundary face.
-        pfacn += BFREL;
     };
     return 0;
 };

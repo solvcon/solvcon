@@ -22,10 +22,7 @@
 __global__ void cuda_calc_cfl(exedata *exd) {
     int istart = blockDim.x * blockIdx.x + threadIdx.x;
 #else
-int calc_cfl(exedata *exd, int istart, int iend) {
-    struct tms timm0, timm1;
-    int cputicks;
-    times(&timm0);
+int calc_cfl(exedata *exd) {
 #ifdef SOLVCON_FE
     feenableexcept(SOLVCON_FE);
 #endif
@@ -41,18 +38,22 @@ int calc_cfl(exedata *exd, int istart, int iend) {
     // iterators.
     int icl, ifl;
     hdt = exd->time_increment / 2.0;
-    pamsca = exd->amsca + istart*NSCA;
-    pcfl = exd->cfl + istart;
-    pocfl = exd->ocfl + istart;
-    psoln = exd->soln + istart*NEQ;
-    picecnd = exd->cecnd + istart*(CLMFC+1)*NDIM;
-    pclfcs = exd->clfcs + istart*(CLMFC+1);
 #ifndef __CUDACC__
-    for (icl=istart; icl<iend; icl++) {
+    #pragma omp parallel for private(clnfc, \
+    pclfcs, pamsca, pcfl, pocfl, psoln, picecnd, pcecnd, \
+    dist, wspd, ga, ga1, pr, ke, vec, icl, ifl) \
+    firstprivate(hdt)
+    for (icl=0; icl<exd->ncell; icl++) {
 #else
     icl = istart;
     if (icl < exd->ncell) {
 #endif
+        pamsca = exd->amsca + icl*NSCA;
+        pcfl = exd->cfl + icl;
+        pocfl = exd->ocfl + icl;
+        psoln = exd->soln + icl*NEQ;
+        picecnd = exd->cecnd + icl*(CLMFC+1)*NDIM;
+        pclfcs = exd->clfcs + icl*(CLMFC+1);
         // estimate distance.
         dist = 1.e200;
         pcecnd = picecnd;
@@ -100,10 +101,7 @@ int calc_cfl(exedata *exd, int istart, int iend) {
         pclfcs += CLMFC+1;
     };
 #ifndef __CUDACC__
-    times(&timm1);
-    cputicks = (int)((timm1.tms_utime+timm1.tms_stime)
-                   - (timm0.tms_utime+timm0.tms_stime));
-    return cputicks;
+    return 0;
 };
 #else
 };

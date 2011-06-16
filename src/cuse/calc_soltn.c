@@ -23,9 +23,6 @@ __global__ void cuda_calc_solt(exedata *exd) {
     int istart = -exd->ngstcell + blockDim.x * blockIdx.x + threadIdx.x;
 #else
 int calc_solt(exedata *exd, int istart, int iend) {
-    struct tms timm0, timm1;
-    int cputicks;
-    times(&timm0);
 #ifdef SOLVCON_FE
     feenableexcept(SOLVCON_FE);
 #endif
@@ -39,14 +36,16 @@ int calc_solt(exedata *exd, int istart, int iend) {
     double fcn[NEQ][NDIM];
     // interators.
     int icl, ieq, jeq, idm;
-    psolt = exd->solt + istart*NEQ;
-    pidsol = exd->dsol + istart*NEQ*NDIM;
 #ifndef __CUDACC__
+    #pragma omp parallel for \
+    private(psolt, pidsol, pdsol, val, jacos, fcn, ieq, jeq, idm)
     for (icl=istart; icl<iend; icl++) {
 #else
     icl = istart;
     if (icl < exd->ncell) {
 #endif
+        psolt = exd->solt + icl*NEQ;
+        pidsol = exd->dsol + icl*NEQ*NDIM;
 #ifndef __CUDACC__
         exd->jacofunc(exd, icl, (double *)fcn, (double *)jacos);
 #else
@@ -65,10 +64,8 @@ int calc_solt(exedata *exd, int istart, int iend) {
             };
         };
 #ifndef __CUDACC__
-        // advance pointers.
-        psolt += NEQ;
-        pidsol += NEQ*NDIM;
     };
+    return 0;
 };
 #else
     };
@@ -85,10 +82,7 @@ extern "C" int calc_solt(int nthread, exedata *exc, void *gexc) {
 __global__ void cuda_calc_soln(exedata *exd) {
     int istart = blockDim.x * blockIdx.x + threadIdx.x;
 #else
-int calc_soln(exedata *exd, int istart, int iend) {
-    struct tms timm0, timm1;
-    int cputicks;
-    times(&timm0);
+int calc_soln(exedata *exd) {
 #ifdef SOLVCON_FE
     feenableexcept(SOLVCON_FE);
 #endif
@@ -96,21 +90,12 @@ int calc_soln(exedata *exd, int istart, int iend) {
     int clnfc, fcnnd;
     // partial pointers.
     int *pclfcs, *pfcnds, *pfccls;
-    double *pndcrd,  *pclcnd;
-    double *pjcecnd, *pcecnd, *pcevol;
+    double *pjcecnd, *pcecnd, *pcevol, (*psfmrc)[NDIM];
     double *pjsol, *pdsol, *pjsolt, *psoln;
     // scalars.
-    double hdt, qdt, voe;
-    double fusp, futm;
-#if NDIM == 3
-    double disu0, disu1, disu2;
-    double disv0, disv1, disv2;
-#endif
+    double hdt, qdt;
+    double voe, fusp, futm;
     // arrays.
-    double crd[FCMND+1][NDIM];
-    double cnde[NDIM];
-    double sfnml[FCMND][NDIM];
-    double sfcnd[FCMND][NDIM];
     double usfc[NEQ];
     double fcn[NEQ][NDIM], dfcn[NEQ][NDIM];
     double jacos[NEQ][NEQ][NDIM];
@@ -119,15 +104,19 @@ int calc_soln(exedata *exd, int istart, int iend) {
     qdt = exd->time_increment * 0.25;
     hdt = exd->time_increment * 0.5;
 #ifndef __CUDACC__
-    psoln = exd->soln + istart*NEQ;
-    pcevol = exd->cevol + istart*(CLMFC+1);
-    for (icl=istart; icl<iend; icl++) {
+    #pragma omp parallel for private(clnfc, fcnnd, \
+    pclfcs, pfcnds, pfccls, pjcecnd, pcecnd, pcevol, psfmrc, \
+    pjsol, pdsol, pjsolt, psoln, \
+    voe, fusp, futm, usfc, fcn, dfcn, jacos, \
+    icl, ifl, inf, ifc, jcl, ieq, jeq) \
+    firstprivate(hdt, qdt)
+    for (icl=0; icl<exd->ncell; icl++) {
 #else
     icl = istart;
     if (icl < exd->ncell) {
-        psoln = exd->soln + istart*NEQ;
-        pcevol = exd->cevol + istart*(CLMFC+1);
 #endif
+        psoln = exd->soln + icl*NEQ;
+        pcevol = exd->cevol + icl*(CLMFC+1);
         // initialize fluxes.
         for (ieq=0; ieq<NEQ; ieq++) {
             psoln[ieq] = 0.0;
@@ -137,75 +126,10 @@ int calc_soln(exedata *exd, int istart, int iend) {
         clnfc = pclfcs[0];
         for (ifl=1; ifl<=clnfc; ifl++) {
             ifc = pclfcs[ifl];
-            // face node coordinates.
-            pfcnds = exd->fcnds + ifc*(FCMND+1);
-            fcnnd = pfcnds[0];
-            for (inf=0; inf<fcnnd; inf++) {
-                pndcrd = exd->ndcrd + pfcnds[inf+1]*NDIM;
-                crd[inf][0] = pndcrd[0];
-                crd[inf][1] = pndcrd[1];
-#if NDIM == 3
-                crd[inf][2] = pndcrd[2];
-#endif
-            };
-            crd[fcnnd][0] = crd[0][0];
-            crd[fcnnd][1] = crd[0][1];
-#if NDIM == 3
-            crd[fcnnd][2] = crd[0][2];
-#endif
-            // neighboring cell center.
-            pfccls = exd->fccls + ifc*FCREL;
-            jcl = pfccls[0] + pfccls[1] - icl;
-            pclcnd = exd->clcnd + jcl*NDIM;
-            cnde[0] = pclcnd[0];
-            cnde[1] = pclcnd[1];
-#if NDIM == 3
-            cnde[2] = pclcnd[2];
-#endif
-            // calculate geometric center of the bounding sub-face.
-            for (inf=0; inf<fcnnd; inf++) {
-                sfcnd[inf][0] = cnde[0] + crd[inf][0];
-#if NDIM == 3
-                sfcnd[inf][0] += crd[inf+1][0];
-#endif
-                sfcnd[inf][0] /= NDIM;
-                sfcnd[inf][1] = cnde[1] + crd[inf][1];
-#if NDIM == 3
-                sfcnd[inf][1] += crd[inf+1][1];
-#endif
-                sfcnd[inf][1] /= NDIM;
-#if NDIM == 3
-                sfcnd[inf][2] = cnde[2] + crd[inf][2] + crd[inf+1][2];
-                sfcnd[inf][2] /= NDIM;
-#endif
-            };
-            // calculate outward area vector of the bounding sub-face.
-#if NDIM == 3
-            voe = (pfccls[0] - icl) + SOLVCON_ALMOST_ZERO;
-            voe /= (icl - pfccls[0]) + SOLVCON_ALMOST_ZERO;
-            voe *= 0.5;
-            for (inf=0; inf<fcnnd; inf++) {
-                disu0 = crd[inf  ][0] - cnde[0];
-                disu1 = crd[inf  ][1] - cnde[1];
-                disu2 = crd[inf  ][2] - cnde[2];
-                disv0 = crd[inf+1][0] - cnde[0];
-                disv1 = crd[inf+1][1] - cnde[1];
-                disv2 = crd[inf+1][2] - cnde[2];
-                sfnml[inf][0] = (disu1*disv2 - disu2*disv1) * voe;
-                sfnml[inf][1] = (disu2*disv0 - disu0*disv2) * voe;
-                sfnml[inf][2] = (disu0*disv1 - disu1*disv0) * voe;
-            };
-#else
-            voe = (crd[0][0]-cnde[0])*(crd[1][1]-cnde[1])
-                - (crd[0][1]-cnde[1])*(crd[1][0]-cnde[0]);
-            voe /= fabs(voe);
-            sfnml[0][0] = -(cnde[1]-crd[0][1]) * voe;
-            sfnml[0][1] =  (cnde[0]-crd[0][0]) * voe;
-            sfnml[1][0] =  (cnde[1]-crd[1][1]) * voe;
-            sfnml[1][1] = -(cnde[0]-crd[1][0]) * voe;
-#endif
 
             // spatial flux (given time).
+            pfccls = exd->fccls + ifc*FCREL;
+            jcl = pfccls[0] + pfccls[1] - icl;
             pjcecnd = exd->cecnd + jcl*(CLMFC+1)*NDIM;
             pcecnd = exd->cecnd + (icl*(CLMFC+1)+ifl)*NDIM;
             pjsol = exd->sol + jcl*NEQ;
@@ -228,15 +152,18 @@ int calc_soln(exedata *exd, int istart, int iend) {
             cuda_calc_jaco(exd, jcl, fcn, jacos);
 #endif
             pjsolt = exd->solt + jcl*NEQ;
+            fcnnd = exd->fcnds[ifc*(FCMND+1)];
             for (inf=0; inf<fcnnd; inf++) {
+                psfmrc = (double (*)[NDIM])(exd->sfmrc
+                    + (((icl*CLMFC + ifl-1)*FCMND+inf)*2*NDIM));
                 // solution at sub-face center.
                 pdsol = exd->dsol + jcl*NEQ*NDIM;
                 for (ieq=0; ieq<NEQ; ieq++) {
                     usfc[ieq] = qdt * pjsolt[ieq];
-                    usfc[ieq] += (sfcnd[inf][0]-pjcecnd[0]) * pdsol[0];
-                    usfc[ieq] += (sfcnd[inf][1]-pjcecnd[1]) * pdsol[1];
+                    usfc[ieq] += (psfmrc[0][0]-pjcecnd[0]) * pdsol[0];
+                    usfc[ieq] += (psfmrc[0][1]-pjcecnd[1]) * pdsol[1];
 #if NDIM == 3
-                    usfc[ieq] += (sfcnd[inf][2]-pjcecnd[2]) * pdsol[2];
+                    usfc[ieq] += (psfmrc[0][2]-pjcecnd[2]) * pdsol[2];
 #endif
                     pdsol += NDIM;
                 };
@@ -258,10 +185,10 @@ int calc_soln(exedata *exd, int istart, int iend) {
                 // temporal flux.
                 for (ieq=0; ieq<NEQ; ieq++) {
                     futm = 0.0;
-                    futm += dfcn[ieq][0] * sfnml[inf][0];
-                    futm += dfcn[ieq][1] * sfnml[inf][1];
+                    futm += dfcn[ieq][0] * psfmrc[1][0];
+                    futm += dfcn[ieq][1] * psfmrc[1][1];
 #if NDIM == 3
-                    futm += dfcn[ieq][2] * sfnml[inf][2];
+                    futm += dfcn[ieq][2] * psfmrc[1][2];
 #endif
                     psoln[ieq] -= hdt*futm;
                 };
@@ -273,14 +200,8 @@ int calc_soln(exedata *exd, int istart, int iend) {
             psoln[ieq] /= pcevol[0];
         };
 #ifndef __CUDACC__
-        // advance pointers.
-        psoln += NEQ;
-        pcevol += CLMFC+1;
     };
-    times(&timm1);
-    cputicks = (int)((timm1.tms_utime+timm1.tms_stime)
-                   - (timm0.tms_utime+timm0.tms_stime));
-    return cputicks;
+    return 0;
 };
 #else
     };

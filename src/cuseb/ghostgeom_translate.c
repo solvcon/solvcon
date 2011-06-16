@@ -18,6 +18,7 @@
 
 #include "cuse.h"
 
+// TODO: make it openmp.
 int ghostgeom_translate(exedata *exd, int nbnd, int *facn) {
     // pointers.
     int *pfacn, *pfccls;

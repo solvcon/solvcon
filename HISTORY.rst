@@ -1,7 +1,12 @@
 Upcoming
 ========
 
+New features:
 
+- ``solvcon.kerpak.cuse`` series modules are changed to use OpenMP for
+  multi-threaded computing.  They were using a thread pool built-in SOLVCON for
+  multi-threading.  OpenMP makes multi-threaded functions more flexible in
+  argument specification.
 
 0.0.7
 =====

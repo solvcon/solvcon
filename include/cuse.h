@@ -53,7 +53,7 @@ typedef struct {
     int *fctpn, *cltpn, *clgrp;
     double *grpda;
     // geometry array.
-    double *ndcrd, *fccnd, *fcnml, *clcnd, *clvol, *cecnd, *cevol;
+    double *ndcrd, *fccnd, *fcnml, *clcnd, *clvol, *cecnd, *cevol, *sfmrc;
     // connectivity array.
     int *fcnds, *fccls, *clnds, *clfcs;
     // solutions array.

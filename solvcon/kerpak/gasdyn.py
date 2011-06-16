@@ -66,7 +66,7 @@ class GasdynSolver(CuseSolver):
             self._clib_gasdyn_cu.calc_cfl(self.ncuth,
                 byref(self.cumgr.exd), self.cumgr.gexd.gptr)
         else:
-            self._tcall(self._clib_gasdyn_c.calc_cfl, 0, self.ncell)
+            self._clib_gasdyn_c.calc_cfl(byref(self.exd))
 
 ###############################################################################
 # Case.
@@ -240,9 +240,10 @@ class GasdynOAnchor(Anchor):
         self.schk1 = kw.pop('schk1', 1.0)
         super(GasdynOAnchor, self).__init__(svr, **kw)
     def _calculate_physics(self):
+        from ctypes import byref
         svr = self.svr
         der = svr.der
-        svr._tcall(svr._clib_gasdyn_c.process_physics, -svr.ngstcell, svr.ncell,
+        svr._clib_gasdyn_c.process_physics(byref(svr.exd),
             der['v'].ctypes._as_parameter_,
             der['w'].ctypes._as_parameter_,
             der['wm'].ctypes._as_parameter_,
@@ -254,14 +255,13 @@ class GasdynOAnchor(Anchor):
             der['M'].ctypes._as_parameter_,
         )
     def _calculate_schlieren(self):
-        from ctypes import c_double
+        from ctypes import byref, c_double
         svr = self.svr
         sch = svr.der['sch']
-        svr._tcall(svr._clib_gasdyn_c.process_schlieren_rhog,
-            -svr.ngstcell, svr.ncell, sch.ctypes._as_parameter_)
+        svr._clib_gasdyn_c.process_schlieren_rhog(byref(svr.exd),
+            sch.ctypes._as_parameter_)
         rhogmax = sch[svr.ngstcell:].max()
-        svr._tcall(svr._clib_gasdyn_c.process_schlieren_sch,
-            -svr.ngstcell, svr.ncell,
+        svr._clib_gasdyn_c.process_schlieren_sch(byref(svr.exd),
             c_double(self.schk), c_double(self.schk0), c_double(self.schk1),
             c_double(rhogmax), sch.ctypes._as_parameter_,
         )

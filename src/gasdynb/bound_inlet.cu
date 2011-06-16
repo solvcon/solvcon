@@ -32,21 +32,18 @@ int bound_inlet_soln(exedata *exd, int nbnd, int *facn,
     double *pvalue, *pjsoln;
     // scalars.
     double rho, p, ga, ke;
-    double v1, v2;
-#if NDIM == 3
-    double v3;
-#endif
+    double v1, v2, v3;
     // iterators.
     int ifc, jcl;
-#ifdef __CUDACC__
+#ifndef __CUDACC__
+    #pragma omp parallel for default(shared) private(ibnd, pfacn, pfccls, \
+    pvalue, pjsoln, rho, p, ga, ke, v1, v2, v3, ifc, jcl)
+    for (ibnd=0; ibnd<nbnd; ibnd++) {
+#else
     if (ibnd < nbnd) {
+#endif
         pfacn = facn + ibnd*BFREL;
         pvalue = value + ibnd*nvalue;
-#else
-    pfacn = facn;
-    pvalue = value;
-    for (ibnd=0; ibnd<nbnd; ibnd++) {
-#endif
         ifc = pfacn[0];
         pfccls = exd->fccls + ifc*FCREL;
         jcl = pfccls[1];
@@ -74,9 +71,6 @@ int bound_inlet_soln(exedata *exd, int nbnd, int *facn,
 #endif
         pjsoln[1+NDIM] = p/(ga-1.0) + ke;
 #ifndef __CUDACC__
-        // advance boundary face.
-        pfacn += BFREL;
-        pvalue += nvalue;
     };
     return 0;
 };
@@ -104,15 +98,15 @@ int bound_inlet_dsoln(exedata *exd, int nbnd, int *facn) {
     int *pfacn, *pfccls;
     double *pjdsoln;
     // iterators.
-    int ifc, jcl;
-    int it;
-#ifdef __CUDACC__
-    if (ibnd < nbnd) {
-        pfacn = facn + ibnd*BFREL;
-#else
-    pfacn = facn;
+    int ifc, jcl, it;
+#ifndef __CUDACC__
+    #pragma omp parallel for default(shared) private(ibnd, pfacn, pfccls, \
+    pjdsoln, ifc, jcl, it)
     for (ibnd=0; ibnd<nbnd; ibnd++) {
+#else
+    if (ibnd < nbnd) {
 #endif
+        pfacn = facn + ibnd*BFREL;
         ifc = pfacn[0];
         pfccls = exd->fccls + ifc*FCREL;
         jcl = pfccls[1];
@@ -122,8 +116,6 @@ int bound_inlet_dsoln(exedata *exd, int nbnd, int *facn) {
             pjdsoln[it] = 0.0;
         };
 #ifndef __CUDACC__
-        // advance boundary face.
-        pfacn += BFREL;
     };
     return 0;
 };

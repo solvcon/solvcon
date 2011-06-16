@@ -18,59 +18,48 @@
 
 #include "cuse.h"
 
-int process_norm_diff(exedata *exd, int istart, int iend, double *diff) {
+int process_norm_diff(exedata *exd, double *diff) {
     // pointers.
     double *psol, *psoln, *pdiff;
     // interators.
     int icl, ieq;
-    pdiff = diff + istart*NEQ;
-    psol = exd->sol + istart*NEQ;
-    psoln = exd->soln + istart*NEQ;
-    for (icl=istart; icl<iend; icl++) {
+    #pragma omp parallel for private(psol, psoln, pdiff, icl, ieq)
+    for (icl=-exd->ngstcell; icl<exd->ngstcell; icl++) {
+        pdiff = diff + icl*NEQ;
+        psol = exd->sol + icl*NEQ;
+        psoln = exd->soln + icl*NEQ;
         for (ieq=0; ieq<NEQ; ieq++) {
             pdiff[ieq] = fabs(psoln[ieq] - psol[ieq]);
         };
-        // advance pointers.
-        pdiff += NEQ;
-        psol += NEQ;
-        psoln += NEQ;
     };
 };
-double process_norm_L1(exedata *exd, int istart, int iend,
-        double *diff, int teq) {
+double process_norm_L1(exedata *exd, double *diff, int teq) {
     // pointers.
-    double *pclvol, *pdiff;
+    double *pdiff;
     // scalars.
     double smd;
     // interators.
     int icl;
     smd = 0.0;
-    pdiff = diff + istart*NEQ;
-    pclvol = exd->clvol + istart;
-    for (icl=istart; icl<iend; icl++) {
-        smd += pdiff[teq] * pclvol[0];
-        // advance pointers.
-        pdiff += NEQ;
-        pclvol += 1;
+    #pragma omp parallel for private(pdiff, icl) reduction(+:smd)
+    for (icl=0; icl<exd->ncell; icl++) {
+        pdiff = diff + icl*NEQ;
+        smd += pdiff[teq] * exd->clvol[icl];
     };
     return smd;
 };
-double process_norm_L2(exedata *exd, int istart, int iend,
-        double *diff, int teq) {
+double process_norm_L2(exedata *exd, double *diff, int teq) {
     // pointers.
-    double *pclvol, *pdiff;
+    double *pdiff;
     // scalars.
     double smd;
     // interators.
     int icl;
     smd = 0.0;
-    pdiff = diff + istart*NEQ;
-    pclvol = exd->clvol + istart;
-    for (icl=istart; icl<iend; icl++) {
-        smd += pdiff[teq]*pdiff[teq] * pclvol[0];
-        // advance pointers.
-        pdiff += NEQ;
-        pclvol += 1;
+    #pragma omp parallel for private(pdiff, icl) reduction(+:smd)
+    for (icl=0; icl<exd->ncell; icl++) {
+        pdiff = diff + icl*NEQ;
+        smd += pdiff[teq]*pdiff[teq] * exd->clvol[icl];
     };
     return smd;
 };

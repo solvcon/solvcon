@@ -19,15 +19,13 @@
 #include "gasdyn.h"
 
 #ifdef __CUDACC__
+// FIXME: this function shouldn't go to CUDA, doesn't make sense.
 __global__ void cuda_process_schelieren_rhog(exedata *exd,
         double *rhog) {
+    // and this starting index is incorrect.
     int istart = blockDim.x * blockIdx.x + threadIdx.x;
 #else
-int process_schlieren_rhog(exedata *exd, int istart, int iend,
-        double *rhog) {
-    struct tms timm0, timm1;
-    int cputicks;
-    times(&timm0);
+int process_schlieren_rhog(exedata *exd, double *rhog) {
 #ifdef SOLVCON_FE
     feenableexcept(SOLVCON_FE);
 #endif
@@ -37,14 +35,15 @@ int process_schlieren_rhog(exedata *exd, int istart, int iend,
     double *prhog;
     // iterators.
     int icl;
-    pdsoln = exd->dsoln + istart*NEQ*NDIM;
-    prhog = rhog + istart+exd->ngstcell;
-#ifdef __CUDACC__
+#ifndef __CUDACC__
+    #pragma omp parallel for private(pdsoln, prhog, icl)
+    for (icl=-exd->ngstcell; icl<exd->ncell; icl++) {
+#else
     icl = istart;
     if (icl < exd->ncell) {
-#else
-    for (icl=istart; icl<iend; icl++) {
 #endif
+        pdsoln = exd->dsoln + icl*NEQ*NDIM;
+        prhog = rhog + icl+exd->ngstcell;
         // density gradient.
         prhog[0] = pdsoln[0]*pdsoln[0] + pdsoln[1]*pdsoln[1];
 #if NDIM == 3
@@ -52,14 +51,8 @@ int process_schlieren_rhog(exedata *exd, int istart, int iend,
 #endif
         prhog[0] = sqrt(prhog[0]);
 #ifndef __CUDACC__
-        // advance pointers.
-        pdsoln += NEQ*NDIM;
-        prhog += 1;
     };
-    times(&timm1);
-    cputicks = (int)((timm1.tms_utime+timm1.tms_stime)
-                   - (timm0.tms_utime+timm0.tms_stime));
-    return cputicks;
+    return 0;
 };
 #else
     };
@@ -74,15 +67,14 @@ extern "C" int process_schelieren_rhog(int nthread, exedata *exc, void *gexc,
 #endif
 
 #ifdef __CUDACC__
+// FIXME: this function shouldn't go to CUDA, doesn't make sense.
 __global__ void cuda_process_schelieren_sch(exedata *exd,
         double k, double k0, double k1, double rhogmax, double *sch) {
+    // and this starting index is incorrect.
     int istart = blockDim.x * blockIdx.x + threadIdx.x;
 #else
-int process_schlieren_sch(exedata *exd, int istart, int iend,
+int process_schlieren_sch(exedata *exd,
         double k, double k0, double k1, double rhogmax, double *sch) {
-    struct tms timm0, timm1;
-    int cputicks;
-    times(&timm0);
 #ifdef SOLVCON_FE
     feenableexcept(SOLVCON_FE);
 #endif
@@ -95,23 +87,20 @@ int process_schlieren_sch(exedata *exd, int istart, int iend,
     int icl;
     fac0 = k0 * rhogmax;
     fac1 = -k / ((k1-k0) * rhogmax + SOLVCON_ALMOST_ZERO);
-    psch = sch + istart+exd->ngstcell;
-#ifdef __CUDACC__
+#ifndef __CUDACC__
+    #pragma omp parallel for private(psch, icl) \
+    firstprivate(fac0, fac1)
+    for (icl=-exd->ngstcell; icl<exd->ncell; icl++) {
+#else
     icl = istart;
     if (icl < exd->ncell) {
-#else
-    for (icl=istart; icl<iend; icl++) {
 #endif
+        psch = sch + icl+exd->ngstcell;
         // density gradient.
         psch[0] = exp((psch[0]-fac0)*fac1);
 #ifndef __CUDACC__
-        // advance pointers.
-        psch += 1;
     };
-    times(&timm1);
-    cputicks = (int)((timm1.tms_utime+timm1.tms_stime)
-                   - (timm0.tms_utime+timm0.tms_stime));
-    return cputicks;
+    return 0;
 };
 #else
     };

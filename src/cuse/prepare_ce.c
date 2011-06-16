@@ -18,7 +18,7 @@
 
 #include "cuse.h"
 
-int prepare_ce(exedata *exd, int istart, int iend) {
+int prepare_ce(exedata *exd) {
 #ifdef SOLVCON_FE
     feenableexcept(SOLVCON_FE);
 #endif
@@ -30,16 +30,20 @@ int prepare_ce(exedata *exd, int istart, int iend) {
     double crdi[NDIM], crde[NDIM];
     double cndi[NDIM], cnde[NDIM];
     double crd[FCMND+2][NDIM];
-#if NDIM == 3
+    // scalars.
     double disu0, disu1, disu2, disv0, disv1, disv2;
     double dist0, dist1, dist2, disw0, disw1, disw2;
-#endif
-    // scalars.
     double voli, vole, volb, volc;  // internal, external, BCE, CCE.
     // iterators.
     int icl, jcl, ind, ifl, inf, ifc;
     // loop for cells.
-    for (icl=istart; icl<iend; icl++) {
+    #pragma omp parallel for private(clnfc, fcnnd, pclfcs, pfccls, pfcnds, \
+    crdi, crde, cndi, cnde, crd, \
+    disu0, disu1, disu2, disv0, disv1, disv2, \
+    dist0, dist1, dist2, disw0, disw1, disw2, \
+    voli, vole, volb, volc, \
+    icl, jcl, ind, ifl, inf, ifc)
+    for (icl=0; icl<exd->ncell; icl++) {
         pcevol = exd->cevol + icl*(CLMFC+1);
         pcecnd = exd->cecnd + icl*(CLMFC+1)*NDIM;
         // self cell center.

@@ -26,6 +26,10 @@
 #include <stddef.h>
 #include <sys/times.h>
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
 /*
  * quantities.
  */

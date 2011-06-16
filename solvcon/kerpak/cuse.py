@@ -132,7 +132,7 @@ class CuseSolverExedata(Structure):
         # metric array.
         ('ndcrd', c_void_p), ('fccnd', c_void_p), ('fcnml', c_void_p),
         ('clcnd', c_void_p), ('clvol', c_void_p),
-        ('cecnd', c_void_p), ('cevol', c_void_p),
+        ('cecnd', c_void_p), ('cevol', c_void_p), ('sfmrc', c_void_p),
         # connectivity array.
         ('fcnds', c_void_p), ('fccls', c_void_p),
         ('clnds', c_void_p), ('clfcs', c_void_p),
@@ -164,7 +164,7 @@ class CuseSolverExedata(Structure):
                     'taumin', 'tauscale'):
             setattr(self, key, getattr(svr, key))
         # arrays.
-        for aname in ('grpda',):
+        for aname in ('grpda', 'sfmrc'):
             self.__set_pointer(svr, aname, 0)
         for aname in ('ndcrd',):
             self.__set_pointer(svr, aname, svr.ngstnode)
@@ -199,7 +199,7 @@ class CuseSolver(BlockSolver):
     @ivar alpha: parameter to the weighting function.
     @itype alpha: int
     @ivar sigma0: constant parameter for W-3 scheme; should be of order of 1.
-        Default is 3.0.  If set to 0.0 then use calc_dsoln_w1() instead.
+        Default is 3.0.
     @itype sigma0: float
     @ivar taylor: factor for Taylor's expansion; 0 off, 1 on.
     @itype taylor: float
@@ -215,6 +215,9 @@ class CuseSolver(BlockSolver):
     @ivar grpda: group data.
     @ivar cecnd: solution points for CCEs and BCEs.
     @ivar cevol: CCE and BCE volumes.
+    @ivar sfmrc: sub-face geometry.  It is a 5-dimensional array, and the shape
+        is (ncell, CLMFC, FCMND, 2, NDIM).  sfmrc[...,0,:] are centers,
+        while sfmrc[...,1,:] are normal vectors.
     @ivar amsca: Parameter scalar array.
     @ivar amvec: Parameter vector array.
     @ivar solt: temporal diffrentiation of solution.
@@ -252,6 +255,7 @@ class CuseSolver(BlockSolver):
         self.taumin = float(kw.pop('taumin', 0.0))
         self.tauscale = float(kw.pop('tauscale', 1.0))
         # super call.
+        kw.setdefault('enable_tpool', False)
         super(CuseSolver, self).__init__(blk, *args, **kw)
         fpdtype = self.fpdtype
         ndim = self.ndim
@@ -275,6 +279,9 @@ class CuseSolver(BlockSolver):
         self.cecnd = empty((ngstcell+ncell, self.CLMFC+1, ndim), dtype=fpdtype)
         self.cevol = empty((ngstcell+ncell, self.CLMFC+1), dtype=fpdtype)
         self.cuarr_map['cecnd'] = self.cuarr_map['cevol'] = self.ngstcell
+        self.sfmrc = empty((ncell, self.CLMFC, self.FCMND, 2, ndim),
+            dtype=fpdtype)
+        self.cuarr_map['sfmrc'] = 0
         # solutions.
         self.amsca = empty((ngstcell+ncell, nsca), dtype=fpdtype)
         self.amvec = empty((ngstcell+ncell, nvec, ndim), dtype=fpdtype)
@@ -315,8 +322,10 @@ class CuseSolver(BlockSolver):
         super(CuseSolver, self).unbind()
 
     def init(self, **kw):
-        self._tcall(self._clib_cuse_c.prepare_ce, 0, self.ncell)
+        from ctypes import byref
+        self._clib_cuse_c.prepare_ce(byref(self.exd))
         super(CuseSolver, self).init(**kw)
+        self._clib_cuse_c.prepare_sf(byref(self.exd))
         if self.scu: self.cumgr.arr_to_gpu()
         self.mesg('cuda is %s\n'%('on' if self.scu else 'off'))
 
@@ -519,25 +528,24 @@ class CuseSolver(BlockSolver):
 
     MMNAMES.append('calcsolt')
     def calcsolt(self, worker=None):
+        from ctypes import byref
         if self.debug: self.mesg('calcsolt')
         if self.scu:
-            from ctypes import byref
             self._clib_mcu.calc_solt(self.ncuth,
                 byref(self.cumgr.exd), self.cumgr.gexd.gptr)
         else:
-            self._tcall(self._clib_cuse_c.calc_solt, -self.ngstcell, self.ncell,
-                tickerkey='calcsolt')
+            self._clib_cuse_c.calc_solt(byref(self.exd),
+                -self.ngstcell, self.ncell)
         if self.debug: self.mesg(' done.\n')
     MMNAMES.append('calcsoln')
     def calcsoln(self, worker=None):
+        from ctypes import byref
         if self.debug: self.mesg('calcsoln')
         if self.scu:
-            from ctypes import byref
             self._clib_mcu.calc_soln(self.ncuth,
                 byref(self.cumgr.exd), self.cumgr.gexd.gptr)
         else:
-            func = self._clib_cuse_c.calc_soln
-            self._tcall(func, 0, self.ncell, tickerkey='calcsoln')
+            self._clib_cuse_c.calc_soln(byref(self.exd))
         if self.debug: self.mesg(' done.\n')
 
     MMNAMES.append('ibcsoln')
@@ -557,16 +565,13 @@ class CuseSolver(BlockSolver):
 
     MMNAMES.append('calcdsoln')
     def calcdsoln(self, worker=None):
+        from ctypes import byref
         if self.debug: self.mesg('calcdsoln')
         if self.scu:
-            from ctypes import byref
-            func = getattr(self._clib_mcu, 'calc_dsoln_w%d' % (
-                1 if self.sigma0 == 0.0 else 3))
-            func(self.ncuth, byref(self.cumgr.exd), self.cumgr.gexd.gptr)
+            self._clib_mcu.calc_dsoln_w3(self.ncuth,
+                byref(self.cumgr.exd), self.cumgr.gexd.gptr)
         else:
-            func = getattr(self._clib_cuse_c, 'calc_dsoln_w%d' % (
-                1 if self.sigma0 == 0.0 else 3))
-            self._tcall(func, 0, self.ncell, tickerkey='calcdsoln')
+            self._clib_cuse_c.calc_dsoln_w3(byref(self.exd))
         if self.debug: self.mesg(' done.\n')
 
     MMNAMES.append('ibcdsoln')
@@ -939,14 +944,14 @@ class ConvergeAnchor(Anchor):
         der['diff'] = empty((svr.ngstcell+svr.ncell, svr.neq),
             dtype=svr.fpdtype)
     def postfull(self):
-        from ctypes import c_double
+        from ctypes import byref, c_double
         svr = self.svr
         istep = svr.step_global
         rsteps = self.rsteps
         if istep > 0 and istep%rsteps == 0:
             diff = svr.der['diff']
-            svr._tcall(svr._clib_cuse_c.process_norm_diff, -svr.ngstcell,
-                svr.ncell, diff[svr.ngstcell:].ctypes._as_parameter_)
+            svr._clib_cuse_c.process_norm_diff(byref(svr.exd),
+                diff[svr.ngstcell:].ctypes._as_parameter_)
             # Linf norm.
             Linf = []
             Linf.extend(diff.max(axis=0))
@@ -955,17 +960,17 @@ class ConvergeAnchor(Anchor):
             svr._clib_cuse_c.process_norm_L1.restype = c_double
             L1 = []
             for ieq in range(svr.neq):
-                vals = svr._tcall(svr._clib_cuse_c.process_norm_L1, 0,
-                    svr.ncell, diff[svr.ngstcell:].ctypes._as_parameter_, ieq)
-                L1.append(sum(vals))
+                vals = svr._clib_cuse_c.process_norm_L1(byref(svr.exd),
+                    diff[svr.ngstcell:].ctypes._as_parameter_, ieq)
+                L1.append(vals)
             self.norm['L1'] = L1
             # L2 norm.
             svr._clib_cuse_c.process_norm_L2.restype = c_double
             L2 = []
             for ieq in range(svr.neq):
-                vals = svr._tcall(svr._clib_cuse_c.process_norm_L2, 0,
-                    svr.ncell, diff[svr.ngstcell:].ctypes._as_parameter_, ieq)
-                L2.append(sum(vals))
+                vals = svr._clib_cuse_c.process_norm_L2(byref(svr.exd),
+                    diff[svr.ngstcell:].ctypes._as_parameter_, ieq)
+                L2.append(vals)
             self.norm['L2'] = L2
 
 class ConvergeHook(BlockHook):

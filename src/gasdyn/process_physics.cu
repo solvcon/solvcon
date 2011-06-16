@@ -19,17 +19,16 @@
 #include "gasdyn.h"
 
 #ifdef __CUDACC__
+// FIXME: this function shouldn't go to CUDA, doesn't make sense.
 __global__ void cuda_process_physics(exedata *exd,
         double *vel, double *vor, double *vorm, double *rho, double *pre,
         double *tem, double *ken, double *sos, double *mac) {
+    // and this starting index is incorrect.
     int istart = blockDim.x * blockIdx.x + threadIdx.x;
 #else
-int process_physics(exedata *exd, int istart, int iend,
+int process_physics(exedata *exd,
         double *vel, double *vor, double *vorm, double *rho, double *pre,
         double *tem, double *ken, double *sos, double *mac) {
-    struct tms timm0, timm1;
-    int cputicks;
-    times(&timm0);
 #ifdef SOLVCON_FE
     feenableexcept(SOLVCON_FE);
 #endif
@@ -45,29 +44,34 @@ int process_physics(exedata *exd, int istart, int iend,
     double sft[NDIM];
     // iterators.
     int icl;
-    pclcnd = exd->clcnd + istart*NDIM;
-    pcecnd = exd->cecnd + istart*(CLMFC+1)*NDIM;
-    pamsca = exd->amsca + istart*NSCA;
-    psoln = exd->soln + istart*NEQ;
-    pvel = vel + (istart+exd->ngstcell)*NDIM;
-    pvor = vor + (istart+exd->ngstcell)*NDIM;
-    pvorm = vorm + istart+exd->ngstcell;
-    prho = rho + istart+exd->ngstcell;
-    ppre = pre + istart+exd->ngstcell;
-    ptem = tem + istart+exd->ngstcell;
-    pken = ken + istart+exd->ngstcell;
-    psos = sos + istart+exd->ngstcell;
-    pmac = mac + istart+exd->ngstcell;
-#ifdef __CUDACC__
+#ifndef __CUDACC__
+    #pragma omp parallel for private(pclcnd, pcecnd, pamsca, psoln, pdsoln, \
+    pvd, prho, pvel, pvor, pvorm, ppre, ptem, pken, psos, pmac, \
+    ga, ga1, sft, icl)
+    for (icl=-exd->ngstcell; icl<exd->ncell; icl++) {
+#else
     icl = istart;
     if (icl < exd->ncell) {
-#else
-    for (icl=istart; icl<iend; icl++) {
 #endif
+        pclcnd = exd->clcnd + icl*NDIM;
+        pcecnd = exd->cecnd + icl*(CLMFC+1)*NDIM;
+        pamsca = exd->amsca + icl*NSCA;
+        psoln = exd->soln + icl*NEQ;
+        pvel = vel + (icl+exd->ngstcell)*NDIM;
+        pvor = vor + (icl+exd->ngstcell)*NDIM;
+        pvorm = vorm + icl+exd->ngstcell;
+        prho = rho + icl+exd->ngstcell;
+        ppre = pre + icl+exd->ngstcell;
+        ptem = tem + icl+exd->ngstcell;
+        pken = ken + icl+exd->ngstcell;
+        psos = sos + icl+exd->ngstcell;
+        pmac = mac + icl+exd->ngstcell;
+        // obtain flow parameters.
         ga = pamsca[0];
         ga1 = ga - 1;
         pdsoln = exd->dsoln + icl*NEQ*NDIM;
         pvd = (double (*)[NDIM])pdsoln;
+        // shift from solution point to cell center.
         sft[0] = pclcnd[0] - pcecnd[0];
         sft[1] = pclcnd[1] - pcecnd[1];
 #if NDIM == 3
@@ -134,25 +138,8 @@ int process_physics(exedata *exd, int istart, int iend,
         pmac[0] *= psos[0]
             / (psos[0]*psos[0] + SOLVCON_ALMOST_ZERO); // prevent nan/inf.
 #ifndef __CUDACC__
-        // advance pointer.
-        pclcnd += NDIM;
-        pcecnd += (CLMFC+1)*NDIM;
-        pamsca += 1;
-        psoln += NEQ;
-        pvel += NDIM;
-        pvor += NDIM;
-        pvorm += 1;
-        prho += 1;
-        ppre += 1;
-        ptem += 1;
-        pken += 1;
-        psos += 1;
-        pmac += 1;
     };
-    times(&timm1);
-    cputicks = (int)((timm1.tms_utime+timm1.tms_stime)
-                   - (timm0.tms_utime+timm0.tms_stime));
-    return cputicks;
+    return 0;
 };
 #else
     };

@@ -45,10 +45,7 @@ __global__ void cuda_calc_dsoln_w3(exedata *exd) {
         //{0, 8}, {8, 12}, {12, 18}, {18, 24},
     };
 #else
-int calc_dsoln_w3(exedata *exd, int istart, int iend) {
-    struct tms timm0, timm1;
-    int cputicks;
-    times(&timm0);
+int calc_dsoln_w3(exedata *exd) {
 #ifdef SOLVCON_FE
     feenableexcept(SOLVCON_FE);
 #endif
@@ -61,11 +58,9 @@ int calc_dsoln_w3(exedata *exd, int istart, int iend) {
     double *pisoln, *pjsol, *pjsoln, *pdsol, *pdsoln;
     double *pjsolt;
     // scalars.
-    double tau, hdt, vob, voc, wgt, ofg1, sgm0;
-    double grd0, grd1;
-#if NDIM == 3
-    double grd2;
-#endif
+    double hdt;
+    double tau, vob, voc, wgt, ofg1, sgm0;
+    double grd0, grd1, grd2;
     // arrays.
     double xps[CLMFC][NDIM], dsp[CLMFC][NDIM];
     double crd[NDIM], cnd[NDIM], cndge[NDIM], sft[NDIM];
@@ -79,11 +74,20 @@ int calc_dsoln_w3(exedata *exd, int istart, int iend) {
     int icl, ifl, ifl1, ifc, jcl, ieq, ivx;
     int ig0, ig1, ig, ifg;
     hdt = exd->time_increment * 0.5;
-#ifdef __CUDACC__
+#ifndef __CUDACC__
+    #pragma omp parallel for private(clnfc, pcltpn, pclfcs, \
+    pfccls, pcecnd, picecnd, pjcecnd, \
+    pisoln, pjsol, pjsoln, pdsol, pdsoln, pjsolt, \
+    tau, vob, voc, wgt, ofg1, sgm0, \
+    grd0, grd1, grd2, \
+    xps, dsp, crd, cnd, cndge, sft, dst, dnv, udf, gfd, dlt, dla, \
+    icl, ifl, ifl1, ifc, jcl, \
+    ieq, ivx, ig0, ig1, ig, ifg) \
+    firstprivate(hdt)
+    for (icl=0; icl<exd->ncell; icl++) {
+#else
     icl = istart;
     if (icl < exd->ncell) {
-#else
-    for (icl=istart; icl<iend; icl++) {
 #endif
         pcltpn = exd->cltpn + icl;
         ig0 = ggerng[pcltpn[0]][0];
@@ -339,10 +343,7 @@ int calc_dsoln_w3(exedata *exd, int istart, int iend) {
         };
     };
 #ifndef __CUDACC__
-    times(&timm1);
-    cputicks = (int)((timm1.tms_utime+timm1.tms_stime)
-                   - (timm0.tms_utime+timm0.tms_stime));
-    return cputicks;
+    return 0;
 };
 #else
 };
