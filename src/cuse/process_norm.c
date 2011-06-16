@@ -18,7 +18,7 @@
 
 #include "cuse.h"
 
-int process_norm_diff(exedata *exd, double *diff) {
+void process_norm_diff(exedata *exd, double *diff) {
     // pointers.
     double *psol, *psoln, *pdiff;
     // interators.

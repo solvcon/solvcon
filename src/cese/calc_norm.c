@@ -18,7 +18,7 @@
 
 #include "cese.h"
 
-int calc_norm_diff(exedata *exd, int istart, int iend, double *diff) {
+void calc_norm_diff(exedata *exd, int istart, int iend, double *diff) {
     // pointers.
     double *psol, *psoln, *pdiff;
     // interators.

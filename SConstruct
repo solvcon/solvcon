@@ -5,12 +5,6 @@ import sys
 AddOption('--disable-openmp', dest='use_openmp',
     action='store_false', default=True,
     help='Disable OpenMP.')
-AddOption('--enable-f90', dest='enable_f90',
-    action='store_true', default=False,
-    help='Enable FORTRAN (90) version binary.')
-AddOption('--f90', dest='f90', type='string',
-    action='store', default='gfortran',
-    help='Fortran compiler (SCons tool): gfortran, ifort.')
 AddOption('--cc', dest='cc', type='string', action='store', default='gcc',
     help='C compiler (SCons tool): gcc, intelc.',)
 AddOption('--optlevel', dest='optlevel', type=int, action='store', default=2,
@@ -212,7 +206,7 @@ if GetOption('get_scdata'):
         raise RuntimeError('released tarball shouldn\'t use this option')
 
 if GetOption('count'):
-    counter = LineCounter('.py', '.f90', '.inc', '.c', '.h', '.cu')
+    counter = LineCounter('.py', '.c', '.h', '.cu')
     paths = ('solvcon', 'src', 'include', 'test')
     for path in paths:
         counter(path)
@@ -234,54 +228,56 @@ def check_sse4():
 # global tools.
 tools = ['cuda']
 tools.append(GetOption('cc'))
-tools.append(GetOption('f90'))
-F90FLAGS = [
-    '-O%d'%GetOption('optlevel'),
-]
+
+# basic flags.
+CPPPATH = ['include']
 CFLAGS = [
     '-O%d'%GetOption('optlevel'),
 ]
+NVCCFLAGS = ['-arch=sm_%s'%GetOption('sm')]
+LINKFLAGS = []
 LIBS = []
 
 if check_sse4():
-    CFLAGS.extend([
-        '-msse4',
-        '-mfpmath=sse',
-    ])
-
-if GetOption('use_openmp'):
     if GetOption('cc') == 'gcc':
-        CFLAGS.append('-fopenmp')
-        LIBS.append('-lgomp')
+        CFLAGS.extend([
+            '-msse4',
+            '-mfpmath=sse',
+        ])
 
-if GetOption('f90') == 'gfortran':
-    F90 = 'gfortran%s' % GetOption('cmpvsn')
-    F90FLAGS.extend([
-        '-x',
-        'f95-cpp-input',
-    ])
-elif GetOption('f90') == 'ifort':
-    F90 = 'ifort'
-    F90FLAGS.extend([
-        '-fpp', '-vec-report=0'
-    ])
+if GetOption('cc') == 'intelc':
+    LIBS.append('irc_s')
 
 if GetOption('cc') == 'gcc':
     CC = 'gcc%s' % GetOption('cmpvsn')
-else:
-    CC = 'icc'
 
 if sys.platform.startswith('win'):
     tools.insert(0, 'mingw')
 else:
     tools.insert(0, 'default')
 
+# metis environment.
+metisenv = Environment(ENV=os.environ, tools=tools,
+    CPPPATH=CPPPATH, CFLAGS=CFLAGS, LINKFLAGS=LINKFLAGS, LIBS=LIBS,
+    NVCCFLAGS=NVCCFLAGS,
+)
+
 # solvcon environment.
 env = Environment(ENV=os.environ, tools=tools,
-    CPPPATH='include', CFLAGS=CFLAGS, F90FLAGS=F90FLAGS, LIBS=LIBS,
-    NVCCFLAGS=['-arch=sm_%s'%GetOption('sm')],
+    CPPPATH=CPPPATH, CFLAGS=CFLAGS, LINKFLAGS=LINKFLAGS, LIBS=LIBS,
+    NVCCFLAGS=NVCCFLAGS,
 )
 env.Append(NVCCINC=' -I include')
+
+if GetOption('use_openmp'):
+    if GetOption('cc') == 'gcc':
+        env.Append(CFLAGS='-fopenmp')
+        env.Append(LINKFLAGS='-fopenmp')
+        #env.Append(LIBS='-lgomp')
+    elif GetOption('cc') == 'intelc':
+        env.Append(CFLAGS='-openmp')
+        env.Append(LINKFLAGS='-openmp')
+
 def build_epydoc(target, source, env):
     import sys
     sys.path.insert(0, '.')
@@ -299,6 +295,6 @@ env.Append(BUILDERS={
     ),
 })
 
-Export('env')
+Export('env', 'metisenv')
 SConscript(['SConscript'])
 # vim: set ft=python ff=unix:

@@ -1,5 +1,5 @@
 import os, sys
-Import('env')
+Import('env', 'metisenv')
 
 lpre = 'sc'
 ldir = 'lib'
@@ -104,34 +104,13 @@ for lname, extra_links in kpculibs:
     libs.extend(make_kpculib(lname, lpre, ldir, '%s/%s'%(sdir, lname),
         bdir, env, extra_links=extra_links))
 
-# TODO: OBSELETE
-if GetOption('enable_f90'):
-    # lib_solvcon in FORTRAN.
-    for fpmark, fptype in [('s', 4), ('d', 8),]:
-        ddsts = list()
-        for dsrc in ['block', 'domain', 'partition', 'solve']:
-            dsrc = '%sf/%s' % (sdir, dsrc)
-            if not os.path.isdir(dsrc): continue
-            ddst = '%s/%s_%s' % (bdir, os.path.basename(dsrc), fpmark)
-            VariantDir(ddst, dsrc, duplicate=0)
-            ddsts.append(ddst)
-        envm = env.Clone()
-        envm.Prepend(F90FLAGS=['-DFPKIND=%d'%fptype])
-        libs.append(envm.SharedLibrary(
-            '%s/%s_solvcon_%s' % (ldir, lpre, fpmark),
-            [Glob('%s/*.f90'%ddst) for ddst in ddsts],
-        ))
-    # lib_solvcontest.
-    lib_solvcontest = env.SharedLibrary('%s/%s_solvcontest' % (ldir, lpre),
-        Glob('test/src/*.f90'))
-
 # METIS.
 src = 'dep/metis-4.0.3/Lib'
 VariantDir('%s/metis' % bdir, src, duplicate=0)
 ccflags = list()
 if sys.platform.startswith('win'):
     ccflags.append('-D__VC__')
-envm = env.Clone()
+envm = metisenv.Clone()
 envm['CCFLAGS'] = ' '.join(ccflags)
 envm['CPPPATH'] = '-I%s' % src
 lib_metis = envm.SharedLibrary('%s/%s_metis' % (ldir, lpre),
