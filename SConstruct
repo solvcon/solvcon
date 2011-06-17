@@ -225,11 +225,19 @@ def check_sse4():
         return True
     return False
 
-# global tools.
-tools = ['cuda']
-tools.append(GetOption('cc'))
+# metis environment.
+metisenv = Environment(ENV=os.environ,
+    tools=[
+        'mingw' if sys.platform.startswith('win') else 'default',
+        GetOption('cc'),
+    ], CFLAGS='-O2')
 
-# basic flags.
+# solvcon environment.
+tools = [
+    'mingw' if sys.platform.startswith('win') else 'default', 
+    'cuda',
+    GetOption('cc'),
+]
 CPPPATH = ['include']
 CFLAGS = [
     '-O%d'%GetOption('optlevel'),
@@ -238,45 +246,28 @@ NVCCFLAGS = ['-arch=sm_%s'%GetOption('sm')]
 LINKFLAGS = []
 LIBS = []
 
+if GetOption('cc') == 'intelc':
+    LIBS.append('irc_s')
 if check_sse4():
     if GetOption('cc') == 'gcc':
         CFLAGS.extend([
             '-msse4',
             '-mfpmath=sse',
         ])
-
-if GetOption('cc') == 'intelc':
-    LIBS.append('irc_s')
-
-if GetOption('cc') == 'gcc':
-    CC = 'gcc%s' % GetOption('cmpvsn')
-
-if sys.platform.startswith('win'):
-    tools.insert(0, 'mingw')
-else:
-    tools.insert(0, 'default')
-
-# metis environment.
-metisenv = Environment(ENV=os.environ, tools=tools,
-    CPPPATH=CPPPATH, CFLAGS=CFLAGS, LINKFLAGS=LINKFLAGS, LIBS=LIBS,
-    NVCCFLAGS=NVCCFLAGS,
-)
-
-# solvcon environment.
+if GetOption('use_openmp'):
+    if GetOption('cc') == 'gcc':
+        CFLAGS.append('-fopenmp')
+        LINKFLAGS.append('-fopenmp')
+    elif GetOption('cc') == 'intelc':
+        CFLAGS.append('-openmp')
+        LINKFLAGS.append('-openmp')
 env = Environment(ENV=os.environ, tools=tools,
     CPPPATH=CPPPATH, CFLAGS=CFLAGS, LINKFLAGS=LINKFLAGS, LIBS=LIBS,
     NVCCFLAGS=NVCCFLAGS,
 )
 env.Append(NVCCINC=' -I include')
-
-if GetOption('use_openmp'):
-    if GetOption('cc') == 'gcc':
-        env.Append(CFLAGS='-fopenmp')
-        env.Append(LINKFLAGS='-fopenmp')
-        #env.Append(LIBS='-lgomp')
-    elif GetOption('cc') == 'intelc':
-        env.Append(CFLAGS='-openmp')
-        env.Append(LINKFLAGS='-openmp')
+if GetOption('cc') == 'gcc':
+    env.Replace(CC='gcc%s'%GetOption('cmpvsn'))
 
 def build_epydoc(target, source, env):
     import sys

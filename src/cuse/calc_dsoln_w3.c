@@ -89,14 +89,14 @@ int calc_dsoln_w3(exedata *exd) {
     icl = istart;
     if (icl < exd->ncell) {
 #endif
-        pcltpn = exd->cltpn + icl;
+        pcltpn = exd->cltpn + icl;  // 1 flops.
         ig0 = ggerng[pcltpn[0]][0];
         ig1 = ggerng[pcltpn[0]][1];
         ofg1 = 1.0/(ig1-ig0);
         pclfcs = exd->clfcs + icl*(CLMFC+1);
 
         // determine sigma0 and tau.
-        sgm0 = exd->sigma0 / fabs(exd->cfl[icl]);
+        sgm0 = exd->sigma0 / fabs(exd->cfl[icl]);   // 3 flops.
         tau = exd->taumin + fabs(exd->cfl[icl]) * exd->tauscale;
 
         // calculate the vertices of GGE with the tau parameter.
@@ -104,7 +104,7 @@ int calc_dsoln_w3(exedata *exd) {
         picecnd = exd->cecnd + icl*(CLMFC+1)*NDIM;
         pcecnd = picecnd;
         clnfc = pclfcs[0];
-        for (ifl=1; ifl<=clnfc; ifl++) {
+        for (ifl=1; ifl<=clnfc; ifl++) {    // clnfc*(16+8) flops.
             ifl1 = ifl - 1;
             ifc = pclfcs[ifl];
             pfccls = exd->fccls + ifc*FCREL;
@@ -134,14 +134,14 @@ int calc_dsoln_w3(exedata *exd) {
 #if NDIM == 3
         crd[2] = 0.0;
 #endif
-        for (ifl=0; ifl<clnfc; ifl++) {
+        for (ifl=0; ifl<clnfc; ifl++) { // clnfc*(2+1) flops.
             crd[0] += xps[ifl][0];
             crd[1] += xps[ifl][1];
 #if NDIM == 3
             crd[2] += xps[ifl][2];
 #endif
         };
-        crd[0] /= clnfc;
+        crd[0] /= clnfc;    // 2+1 flops.
         crd[1] /= clnfc;
 #if NDIM == 3
         crd[2] /= clnfc;
@@ -157,7 +157,7 @@ int calc_dsoln_w3(exedata *exd) {
 #if NDIM == 3
             cnd[2] = crd[2];
 #endif
-            for (ivx=0; ivx<NDIM; ivx++) {
+            for (ivx=0; ivx<NDIM; ivx++) {  // MFGE*NDIM*(4+2) flops.
                 ifl = ggefcs[ig][ivx]-1;
                 cnd[0] += xps[ifl][0];
                 cnd[1] += xps[ifl][1];
@@ -170,7 +170,7 @@ int calc_dsoln_w3(exedata *exd) {
                 dst[ivx][2] = xps[ifl][2] - crd[2];
 #endif
             };
-            cnd[0] /= NDIM+1;
+            cnd[0] /= NDIM+1;   //  MFGE*(2+(4,16)) flops.
             cnd[1] /= NDIM+1;
 #if NDIM == 3
             cnd[2] /= NDIM+1;
@@ -183,26 +183,26 @@ int calc_dsoln_w3(exedata *exd) {
             vob = fabs(dst[0][0]*dst[1][1] - dst[0][1]*dst[1][0]);
             vob /= 2;
 #endif
-            voc += vob;
+            voc += vob; // MFGE*(5+2) flops.
             cndge[0] += cnd[0] * vob;
             cndge[1] += cnd[1] * vob;
 #if NDIM == 3
             cndge[2] += cnd[2] * vob;
 #endif
         };
-        cndge[0] /= voc;
+        cndge[0] /= voc;    // 2+1 flops.
         cndge[1] /= voc;
 #if NDIM == 3
         cndge[2] /= voc;
 #endif
         // calculate GGE shift.
         pcecnd = exd->cecnd + icl*(CLMFC+1)*NDIM;
-        sft[0] = exd->sftfac * (pcecnd[0] - cndge[0]);
+        sft[0] = exd->sftfac * (pcecnd[0] - cndge[0]);  // 4+2 flops.
         sft[1] = exd->sftfac * (pcecnd[1] - cndge[1]);
 #if NDIM == 3
         sft[2] = exd->sftfac * (pcecnd[2] - cndge[2]);
 #endif
-        for (ifl=0; ifl<clnfc; ifl++) {
+        for (ifl=0; ifl<clnfc; ifl++) { // clnfc*(2+1) flops.
             dsp[ifl][0] += sft[0];
             dsp[ifl][1] += sft[1];
 #if NDIM == 3
@@ -216,7 +216,7 @@ int calc_dsoln_w3(exedata *exd) {
         };
         pisoln = exd->soln + icl*NEQ;
         for (ig=ig0; ig<ig1; ig++) {
-            ifg = ig-ig0;
+            ifg = ig-ig0;   // MFGE*1 flops
             for (ivx=0; ivx<NDIM; ivx++) {
                 ifl = ggefcs[ig][ivx];
                 ifc = pclfcs[ifl];
@@ -224,7 +224,7 @@ int calc_dsoln_w3(exedata *exd) {
                 pfccls = exd->fccls + ifc*FCREL;
                 jcl = pfccls[0] + pfccls[1] - icl;
                 // distance.
-                dst[ivx][0] = xps[ifl][0] - cndge[0];
+                dst[ivx][0] = xps[ifl][0] - cndge[0]; // MFGE*NDIM*(2+1) flops.
                 dst[ivx][1] = xps[ifl][1] - cndge[1];
 #if NDIM == 3
                 dst[ivx][2] = xps[ifl][2] - cndge[2];
@@ -234,17 +234,19 @@ int calc_dsoln_w3(exedata *exd) {
                 pjsoln = exd->soln + jcl*NEQ;
 				pjsolt = exd->solt + jcl*NEQ;
                 pdsol = exd->dsol + jcl*NEQ*NDIM;
-                for (ieq=0; ieq<NEQ; ieq++) {
+                for (ieq=0; ieq<NEQ; ieq++) {   // MFGE*NDIM*NEQ*(9+2) flops.
                     voc = pjsol[ieq] + hdt*pjsolt[ieq] - pjsoln[ieq];
-                    udf[ieq][ivx] = pjsoln[ieq] + exd->taylor*voc - pisoln[ieq]
-                                  + dsp[ifl][0]*pdsol[0] + dsp[ifl][1]*pdsol[1];
+                    voc *= exd->taylor;
+                    udf[ieq][ivx] = pjsoln[ieq] + voc - pisoln[ieq];
+                    udf[ieq][ivx] += dsp[ifl][0]*pdsol[0];
+                    udf[ieq][ivx] += dsp[ifl][1]*pdsol[1];
 #if NDIM == 3
                     udf[ieq][ivx] += dsp[ifl][2]*pdsol[2];
 #endif
                     pdsol += NDIM;
                 };
             };
-            // prepare inverse matrix for gradient.
+            // prepare inverse matrix for gradient. MFGE*(3,32) flops.
 #if NDIM == 3
             dnv[0][0] = dst[1][1]*dst[2][2] - dst[1][2]*dst[2][1];
             dnv[0][1] = dst[0][2]*dst[2][1] - dst[0][1]*dst[2][2];
@@ -263,7 +265,7 @@ int calc_dsoln_w3(exedata *exd) {
             voc = dst[0][0]*dst[1][1] - dst[0][1]*dst[1][0];
 #endif
             // calculate grdient and weighting delta.
-            for (ieq=0; ieq<NEQ; ieq++) {
+            for (ieq=0; ieq<NEQ; ieq++) {   // MFGE*NEQ*(17+12) flops.
                 grd0 = dnv[0][0]*udf[ieq][0] + dnv[0][1]*udf[ieq][1];
 #if NDIM == 3
                 grd0 += dnv[0][2]*udf[ieq][2];
@@ -298,24 +300,26 @@ int calc_dsoln_w3(exedata *exd) {
         };
 
         // calculate W-3/4 delta and sigma_max.
-        // NOTE: udf is reused here; resulting sigma_max is stored in udf[][0].
+        // NOTE: udf is reused here.
         for (ieq=0; ieq<NEQ; ieq++) {
             udf[ieq][0] = udf[ieq][1] = 0.0;
         };
         for (ig=ig0; ig<ig1; ig++) {
             ifg = ig-ig0;
-            for (ieq=0; ieq<NEQ; ieq++) {
+            for (ieq=0; ieq<NEQ; ieq++) {   // MFGE*NEQ*2 flops.
                 wgt = dlt[ifg][ieq] / dla[ieq] - ofg1;
                 dlt[ifg][ieq] = wgt;
                 udf[ieq][0] = fmax(udf[ieq][0], wgt);
                 udf[ieq][1] = fmin(udf[ieq][1], wgt);
             };
         };
-        for (ieq=0; ieq<NEQ; ieq++) {
-            udf[ieq][0] = fmin(
+        // NOTE: dla is reused here for sigma_max.
+        for (ieq=0; ieq<NEQ; ieq++) {   // NEQ*5 flops.
+            dla[ieq] = fmin(
                 (1.0-ofg1)/(udf[ieq][0]+SOLVCON_ALMOST_ZERO),
                 -ofg1/(udf[ieq][1]-SOLVCON_ALMOST_ZERO)
             );
+            dla[ieq] = fmin(dla[ieq], sgm0);
         };
 
         // weight and update gradient.
@@ -327,12 +331,11 @@ int calc_dsoln_w3(exedata *exd) {
 #endif
             pdsoln += NDIM;
         };
-        for (ig=ig0; ig<ig1; ig++) {
+        for (ig=ig0; ig<ig1; ig++) {    // MFGE*NEQ*(6+2) flops.
             ifg = ig-ig0;
             pdsoln = exd->dsoln + icl*NEQ*NDIM;
             for (ieq=0; ieq<NEQ; ieq++) {
-                wgt = fmin(udf[ieq][0], sgm0);
-                wgt = ofg1 + wgt*dlt[ifg][ieq];
+                wgt = ofg1 + dla[ieq]*dlt[ifg][ieq];
                 pdsoln[0] += wgt*gfd[ifg][ieq][0];
                 pdsoln[1] += wgt*gfd[ifg][ieq][1];
 #if NDIM == 3
