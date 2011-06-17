@@ -24,7 +24,7 @@ void process_norm_diff(exedata *exd, double *diff) {
     // interators.
     int icl, ieq;
     #pragma omp parallel for private(psol, psoln, pdiff, icl, ieq)
-    for (icl=-exd->ngstcell; icl<exd->ngstcell; icl++) {
+    for (icl=-exd->ngstcell; icl<exd->ncell; icl++) {
         pdiff = diff + icl*NEQ;
         psol = exd->sol + icl*NEQ;
         psoln = exd->soln + icl*NEQ;
