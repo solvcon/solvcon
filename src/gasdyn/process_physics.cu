@@ -20,13 +20,13 @@
 
 #ifdef __CUDACC__
 // FIXME: this function shouldn't go to CUDA, doesn't make sense.
-__global__ void cuda_process_physics(exedata *exd,
+__global__ void cuda_process_physics(exedata *exd, double gasconst,
         double *vel, double *vor, double *vorm, double *rho, double *pre,
         double *tem, double *ken, double *sos, double *mac) {
     // and this starting index is incorrect.
     int istart = blockDim.x * blockIdx.x + threadIdx.x;
 #else
-int process_physics(exedata *exd,
+int process_physics(exedata *exd, double gasconst,
         double *vel, double *vor, double *vorm, double *rho, double *pre,
         double *tem, double *ken, double *sos, double *mac) {
 #ifdef SOLVCON_FE
@@ -130,7 +130,7 @@ int process_physics(exedata *exd,
         ppre[0] = (ppre[0] - pken[0]) * ga1;
         ppre[0] = (ppre[0] + fabs(ppre[0])) / 2; // make sure it's positive.
         // temperature.
-        ptem[0] = ppre[0]/prho[0];
+        ptem[0] = ppre[0]/(prho[0]*gasconst);
         // speed of sound.
         psos[0] = sqrt(ga*ppre[0]/prho[0]);
         // Mach number.
@@ -145,10 +145,11 @@ int process_physics(exedata *exd,
     };
 };
 extern "C" int process_physics(int nthread, exedata *exc, void *gexc,
+        double gasconst,
         double *vel, double *vor, double *vorm, double *rho, double *pre,
         double *tem, double *ken, double *sos, double *mac) {
     int nblock = (exc->ncell + nthread-1) / nthread;
-    cuda_process_physics<<<nblock, nthread>>>((exedata *)gexc,
+    cuda_process_physics<<<nblock, nthread>>>((exedata *)gexc, gasconst,
         vel, vor, vorm, rho, pre, tem, ken, sos, mac);
     cudaThreadSynchronize();
     return 0;

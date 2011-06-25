@@ -26,6 +26,101 @@ from solvcon.kerpak.cuse import CuseBC
 from solvcon.anchor import Anchor
 from solvcon.hook import BlockHook
 
+################################################################################
+# Utility.
+################################################################################
+
+class MovingShock(object):
+    """
+    Define relations across a moving shock wave.  Subscript 1 denotes
+    quantities before shock (have not touched by shock), subscript 2 denotes
+    quantities after shock (passed by shock).
+
+    @ivar ga: ratio of specific heat.
+    @itype ga: float
+    @ivar Ms: Mach number of shock wave.
+    @itype Ms: float
+    @ivar gasconst: gas constant.
+    @itype gasconst: float
+    """
+    def __init__(self, ga, Ms, **kw):
+        self.ga = ga
+        self.Ms = Ms
+        self.gasconst = kw.pop('gasconst', 1.0)
+
+    @property
+    def ratio_p(self):
+        ga = self.ga
+        Ms = self.Ms
+        return (2*ga*Ms**2 - (ga-1))/(ga+1)
+    @property
+    def ratio_rho(self):
+        ga = self.ga
+        Ms = self.Ms
+        return (ga+1)*Ms**2/(2+(ga-1)*Ms**2)
+    @property
+    def ratio_T(self):
+        ga = self.ga
+        Ms = self.Ms
+        return self.ratio_p/self.ratio_rho
+
+    @property
+    def M2(self):
+        from math import sqrt
+        ga = self.ga
+        Ms = self.Ms
+        return sqrt(((ga-1)*Ms**2+2)/(2*ga*Ms**2-(ga-1)))
+    @property
+    def M2p(self):
+        from math import sqrt
+        M1 = self.Ms
+        M2 = self.M2
+        ratio_a = sqrt(self.ratio_T)
+        return M1/ratio_a - M2
+
+    def calc_temperature(self, p, rho):
+        """
+        Calculate temperature according to given pressure and density.
+        
+        @param p: pressure.
+        @type p: float
+        @param rho: density.
+        @type rho: float
+        @return: temperature
+        @rtype: float
+        """
+        return p/(rho*self.gasconst)
+    def calc_speedofsound(self, p, rho):
+        """
+        Calculate speed of sound according to given pressure and density.
+        
+        @param p: pressure.
+        @type p: float
+        @param rho: density.
+        @type rho: float
+        @return: speed of sound
+        @rtype: float
+        """
+        from math import sqrt
+        ga = self.ga
+        return sqrt(ga*p/rho)
+    def calc_speeds(self, p, rho):
+        """
+        Calculate shock wave speed and upstream speed for static downstream.
+
+        @param p: downstream pressure.
+        @type p: float
+        @param rho: downstream density.
+        @type rho: float
+        @return: a 2-tuple for shock wave and upstream speeds.
+        @rtype: (float, float)
+        """
+        M1 = self.Ms
+        M2 = self.M2
+        a1 = self.calc_speedofsound(p, rho)
+        a2 = self.calc_speedofsound(p*self.ratio_p, rho*self.ratio_rho)
+        return M1*a1, M1*a1 - M2*a2
+
 ###############################################################################
 # Solver.
 ###############################################################################
@@ -235,15 +330,17 @@ class GasdynOAnchor(Anchor):
     _varlist_ = ['v', 'rho', 'p', 'T', 'ke', 'a', 'M', 'sch']
     def __init__(self, svr, **kw):
         self.rsteps = kw.pop('rsteps', 1)
+        self.gasconst = kw.pop('gasconst', 1.0)
         self.schk = kw.pop('schk', 1.0)
         self.schk0 = kw.pop('schk0', 0.0)
         self.schk1 = kw.pop('schk1', 1.0)
         super(GasdynOAnchor, self).__init__(svr, **kw)
     def _calculate_physics(self):
-        from ctypes import byref
+        from ctypes import byref, c_double
         svr = self.svr
         der = svr.der
         svr._clib_gasdyn_c.process_physics(byref(svr.exd),
+            c_double(self.gasconst),
             der['v'].ctypes._as_parameter_,
             der['w'].ctypes._as_parameter_,
             der['wm'].ctypes._as_parameter_,
