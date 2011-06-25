@@ -50,28 +50,43 @@ class MovingShock(object):
 
     @property
     def ratio_p(self):
+        """
+        ratio of upstream/downstream pressure.
+        """
         ga = self.ga
         Ms = self.Ms
         return (2*ga*Ms**2 - (ga-1))/(ga+1)
     @property
     def ratio_rho(self):
+        """
+        ratio of upstream/downstream density.
+        """
         ga = self.ga
         Ms = self.Ms
         return (ga+1)*Ms**2/(2+(ga-1)*Ms**2)
     @property
     def ratio_T(self):
+        """
+        ratio of upstream/downstream temperature.
+        """
         ga = self.ga
         Ms = self.Ms
         return self.ratio_p/self.ratio_rho
 
     @property
     def M2(self):
+        """
+        Mach number behind standing normal shock wave.
+        """
         from math import sqrt
         ga = self.ga
         Ms = self.Ms
         return sqrt(((ga-1)*Ms**2+2)/(2*ga*Ms**2-(ga-1)))
     @property
     def M2p(self):
+        """
+        Mach number behind moving normal shock wave.
+        """
         from math import sqrt
         M1 = self.Ms
         M2 = self.M2
@@ -326,6 +341,9 @@ class GasdynOAnchor(Anchor):
     """
     Calculates physical quantities for output.  Implements (i) provide() and
     (ii) postfull() methods.
+
+    @ivar gasconst: gas constant.
+    @itype gasconst: float.
     """
     _varlist_ = ['v', 'rho', 'p', 'T', 'ke', 'a', 'M', 'sch']
     def __init__(self, svr, **kw):
