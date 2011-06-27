@@ -1,0 +1,55 @@
+# geometry.
+create surface rectangle width 0.4 height 0.4 zplane 
+create surface rectangle width 0.8 height 0.8 zplane 
+move Surface 2  x -0.6 y -0.6 include_merged 
+create surface rectangle width 0.4 height 0.8 zplane 
+move Surface 3  y -0.6 include_merged 
+create surface rectangle width 0.8 height 0.8 zplane 
+move Surface 4  x 0.6 y -0.6 include_merged 
+create surface rectangle width 0.8 height 0.4 zplane 
+move Surface 5  x 0.6 include_merged 
+create surface rectangle width 0.8 height 0.8 zplane 
+move Surface 6  x 0.6 y 0.6 include_merged 
+create surface rectangle width 0.4 height 0.8 zplane 
+move Surface 7  y 0.6 include_merged 
+create surface rectangle width 0.8 height 0.8 zplane 
+move Surface 8  x -0.6 y 0.6 include_merged 
+create surface rectangle width 0.8 height 0.4 zplane 
+move Surface 9  x -0.6 include_merged 
+merge curve 8 with curve 10
+merge curve 12 with curve 14
+merge curve 13 with curve 19
+merge curve 17 with curve 23
+merge curve 22 with curve 28
+merge curve 26 with curve 32
+merge curve 31 with curve 33
+merge curve 35 with curve 5
+# BCs.
+sideset 1 curve 7 11 15
+sideset 1 name "lower"
+sideset 2 curve 16 20 24
+sideset 2 name "right"
+sideset 3 curve 21 25 29
+sideset 3 name "upper"
+sideset 4 curve 6 30 34
+sideset 4 name "left"
+sideset 5 curve 3
+sideset 5 name "iloweru"
+sideset 6 curve 9
+sideset 6 name "ilowerd"
+sideset 7 curve 4
+sideset 7 name "irightu"
+sideset 8 curve 18
+sideset 8 name "irightd"
+sideset 9 curve 1
+sideset 9 name "iupperu"
+sideset 10 curve 27
+sideset 10 name "iupperd"
+sideset 11 curve 2
+sideset 11 name "ileftu"
+sideset 12 curve 36
+sideset 12 name "ileftd"
+# mesh.
+surface 1 2 3 4 5 6 7 8 9 size 0.05
+surface 1 2 3 4 5 6 7 8 9 scheme submap
+mesh surface 1 2 3 4 5 6 7 8 9
