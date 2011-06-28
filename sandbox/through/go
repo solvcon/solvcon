@@ -58,7 +58,7 @@ def mesher(cse):
     import os
     from solvcon.helper import Cubit
     cmds = open(os.path.join(os.path.dirname(__file__),
-        'through2.tmpl')).read() % cse.io.meshfn
+        'through.tmpl')).read() % cse.io.meshfn
     cmds = [cmd.strip() for cmd in cmds.strip().split('\n')]
     gn = Cubit(cmds, 2)()
     return gn.toblock(bcname_mapper=cse.condition.bcmap)
