@@ -58,7 +58,7 @@ def mesher(cse):
     import os
     from solvcon.helper import Cubit
     cmds = open(os.path.join(os.path.dirname(__file__),
-        'through2.tmpl')).read()
+        'through2.tmpl')).read() % cse.io.meshfn
     cmds = [cmd.strip() for cmd in cmds.strip().split('\n')]
     gn = Cubit(cmds, 2)()
     return gn.toblock(bcname_mapper=cse.condition.bcmap)
@@ -67,28 +67,27 @@ class GasdynOpenWall(gasdyn.GasdynWall):
     def __init__(self, **kw):
         from numpy import empty
         super(GasdynOpenWall, self).__init__(**kw)
-        self.rblkn = getattr(self, 'rblkn', -1)
-        self.rblkinfo = empty(6, dtype='int32')
-        self.rclp = empty((0,3), dtype='int32')
+        self.slctm = empty(0, dtype='int32')
+        self.slctr = empty(0, dtype='int32')
 
     def cloneTo(self, another):
         super(GasdynOpenwall, self).cloneTo(another)
-        another.rblkn = self.rblkn
-        another.rblkinfo = self.rblkinfo.copy()
-        another.rclp = self.rclp.copy()
+        another.slctm = self.slctm.copy()
+        another.slctr = self.slctr.copy()
 
     def sort(self, ref):
         if ref is None:
             return
-        from numpy import sqrt
-        dist = sqrt(((self.svr.fccnd[self.facn[:,0],:] - ref)**2).sum(axis=1))
+        svr = self.svr
+        ngstface = svr.ngstface
+        dist = ((svr.fccnd[self.facn[:,0]+ngstface,:] - ref)**2).sum(axis=1)
         slct = dist.argsort()
         self.facn = self.facn[slct,:]
 
     def couple(self, rbc):
         """
-        Calculate self.rclp[:,:] form the information about related BC object
-        provided by rbc parameter.
+        Calculate indices of related cells form the information about related
+        BC object provided by rbc parameter.
 
         @param rbc: Related BC object.
         @type rbc: solvcon.boundcond.periodic
@@ -96,29 +95,20 @@ class GasdynOpenWall(gasdyn.GasdynWall):
         """
         from numpy import empty
         svr = self.svr
+        ngstface = svr.ngstface
+        ngstcell = svr.ngstcell
         facn = self.facn
         facn[:,2] = rbc.facn[:,0]
-        # fill informations from related block.
-        self.rblkinfo[:] = (svr.nnode, svr.ngstnode,
-            svr.nface, svr.ngstface, svr.ncell, svr.ngstcell)
         # calculate indices of related cells.
-        self.rclp = empty((len(self),3), dtype='int32')
-        self.rclp[:,0] = svr.fccls[svr.ngstface+facn[:,0],1]
-        self.rclp[:,1] = svr.fccls[svr.ngstface+facn[:,2],0]
-        self.rclp[:,2] = svr.fccls[svr.ngstface+facn[:,0],0]
-        # assertion.
-        assert (self.rclp[:,0]<0).all()
-        assert (self.rclp[:,1]>=0).all()
-        assert (self.rclp[:,2]>=0).all()
+        self.slctm = slctm = svr.fccls[ngstface+facn[:,0],1] + ngstcell
+        self.slctr = slctr = svr.fccls[ngstface+facn[:,2],0] + ngstcell
+        assert (slctm<ngstcell).all()
+        assert (slctr>=ngstcell).all()
         # copy metrics.
-        slctm = self.rclp[:,0] + svr.ngstcell
-        slctr = self.rclp[:,1] + svr.ngstcell
         svr.cltpn[slctm] = svr.cltpn[slctr]
         svr.clgrp[slctm] = svr.clgrp[slctr]
         svr.clvol[slctm] = svr.clvol[slctr]
-        # move coordinates.
-        shf = svr.clcnd[slctr,:] - svr.fccnd[svr.ngstface+facn[:,2],:]
-        svr.clcnd[slctm,:] = svr.fccnd[svr.ngstface+facn[:,0],:] + shf
+        svr.clcnd[slctm,:] = svr.clcnd[slctr,:]
 
     @staticmethod
     def couple_all(svr, bcmap):
@@ -160,18 +150,13 @@ class GasdynOpenWall(gasdyn.GasdynWall):
 
     def init(self, **kw):
         svr = self.svr
-        ngstcell = svr.ngstcell
-        ngstface = svr.ngstface
-        facn = self.facn
-        slctm = self.rclp[:,0] + ngstcell
-        slctr = self.rclp[:,1] + ngstcell
-        # move coordinates.
-        shf = svr.cecnd[slctr,0,:] - svr.fccnd[facn[:,2]+ngstface,:]
-        svr.cecnd[slctm,0,:] = svr.fccnd[facn[:,0]+ngstface,:] + shf
+        slctm = self.slctm
+        slctr = self.slctr
+        svr.cecnd[slctm,0,:] = svr.cecnd[slctr,0,:]
     def soln(self):
         svr = self.svr
-        slctm = self.rclp[:,0] + svr.ngstcell
-        slctr = self.rclp[:,1] + svr.ngstcell
+        slctm = self.slctm
+        slctr = self.slctr
         if svr.scu:
             svr.cumgr.arr_from_gpu('soln')
         svr.soln[slctm,:] = svr.soln[slctr,:]
@@ -179,8 +164,8 @@ class GasdynOpenWall(gasdyn.GasdynWall):
             svr.cumgr.arr_to_gpu('soln')
     def dsoln(self):
         svr = self.svr
-        slctm = self.rclp[:,0] + svr.ngstcell
-        slctr = self.rclp[:,1] + svr.ngstcell
+        slctm = self.slctm
+        slctr = self.slctr
         if svr.scu:
             svr.cumgr.arr_from_gpu('dsoln')
         svr.dsoln[slctm,:,:] = svr.dsoln[slctr,:,:]
@@ -193,22 +178,23 @@ def match_open_wall(svr):
     """
     from numpy import array
     bct = GasdynOpenWall
+    refp = array([0.1,0.1], dtype='float64')
     bcmap = dict()
     bcmap.update({
         'iupperu': (
-            bct, {'link': 'iupperd', 'ref': array([0,0], dtype='float64')}
+            bct, {'link': 'iupperd', 'ref': refp}
         )})
     bcmap.update({
         'iloweru': (
-            bct, {'link': 'ilowerd', 'ref': array([0,0], dtype='float64')}
+            bct, {'link': 'ilowerd', 'ref': refp}
         )})
     bcmap.update({
         'ileftu': (
-            bct, {'link': 'ileftd', 'ref': array([0,0], dtype='float64')}
+            bct, {'link': 'ileftd', 'ref': refp}
         )})
     bcmap.update({
         'irightu': (
-            bct, {'link': 'irightd', 'ref': array([0,0], dtype='float64')}
+            bct, {'link': 'irightd', 'ref': refp}
         )})
     bct.couple_all(svr, bcmap)
 
@@ -225,6 +211,7 @@ class RuptureAnchor(Anchor):
                 if isinstance(bc, GasdynOpenWall):
                     bc.init()
             svr._clib_cuse_c.prepare_ce(byref(svr.exd))
+            svr._clib_cuse_c.prepare_sf(byref(svr.exd))
             if svr.scu: svr.cumgr.arr_to_gpu()
 
 def through_base(casename=None, meshname=None,
@@ -273,7 +260,7 @@ def through_base(casename=None, meshname=None,
     # set up case.
     basedir = os.path.abspath(os.path.join(os.getcwd(), 'result'))
     cse = gasdyn.GasdynCase(basedir=basedir, rootdir=env.projdir,
-        basefn=casename, meshfn=None, mesher=mesher, bcmap=bcmap, **kw)
+        basefn=casename, meshfn=meshname, mesher=mesher, bcmap=bcmap, **kw)
     # anchors for solvers.
     for key in 'Runtime', 'March', 'Tpool':
         cse.runhooks.append(getattr(anchor, key+'StatAnchor'))
@@ -311,16 +298,18 @@ def through_base(casename=None, meshname=None,
         psteps=ssteps, binary=True, cache_grid=True)
     return cse
 
-@gasdyn.GasdynCase.register_arrangement
-def through(casename, **kw):
-    """
-    The true arrangement which specifies necessary parameters for execution.
-    """
-    from math import pi
-    return through_base(casename, gamma=1.4, gasconst=286.9,
-        density=1.205, pressure=101325., Ms=3, time_increment=3.5e-5,
-        steps_run=50, ssteps=1, psteps=1, **kw)
-
 if __name__ == '__main__':
-    import solvcon
-    solvcon.go()
+    cse = through_base('through_quad',
+        gamma=1.4, gasconst=286.9, density=1.205, pressure=101325., Ms=3.0,
+        meshname='map', time_increment=1.5e-4, steps_run=10,
+        ssteps=1, psteps=1)
+    cse.init()
+    cse.run()
+    cse.cleanup()
+    cse = through_base('through_tri',
+        gamma=1.4, gasconst=286.9, density=1.205, pressure=101325., Ms=3.0,
+        meshname='tridelaunay', time_increment=5.e-5, steps_run=30,
+        ssteps=1, psteps=1)
+    cse.init()
+    cse.run()
+    cse.cleanup()
