@@ -52,9 +52,6 @@ class ExactMovingShockHook(BlockHook):
     postloop = preloop
 
 def mesher(cse):
-    """
-    Generate a cube according to journaling file cube.tmpl.
-    """
     import os
     from solvcon.helper import Cubit
     cmds = open(os.path.join(os.path.dirname(__file__),
@@ -63,140 +60,170 @@ def mesher(cse):
     gn = Cubit(cmds, 2)()
     return gn.toblock(bcname_mapper=cse.condition.bcmap)
 
+class Glue(object):
+    """
+    Glue two boundary conditions which exactly collocate.
+
+    @cvar CACHE_KEYS_ENABLER: names of arrays whose original values to be
+        cached when the glue is enabled.
+    @ctype CACHE_KEYS_ENABLER: tuple
+    @ivar sbc: source BC object.
+    @itype sbc: solvcon.boundcond.BC
+    @ivar reciprocal: the glue object on the other side.
+    @itype reciprocal: Glue
+    @ivar ref: a reference point for matching bounding faces.
+    @itype ref: numpy.ndarray
+    @ivar cache: cache for mesh data.
+    @itype cache: dict
+    @ivar scls: source cell list.
+    @itype scls: numpy.ndarray
+    @ivar dcls: destination cell list.
+    @itype dcls: numpy.ndarray
+    """
+
+    CACHE_KEYS_ENABLER = ('cltpn', 'clgrp', 'clvol', 'clcnd')
+
+    def __init__(self, sbc, dbc, ref=None, reciprocal=None):
+        """
+        If no reference point is given through ref keyword, a random reference
+        point is generated for sorting boundary faces to be glued.
+
+        @param sbc: source BC object.
+        @type sbc: solvcon.boundcond.BC
+        @param dbc: destination BC object.
+        @type dbc: solvcon.boundcond.BC
+        @keyword ref: a reference point for matching bounding faces.
+        @type ref: numpy.ndarray
+        @keyword reciprocal: the glue object on the other side.
+        @type reciprocal: Glue
+        """
+        from random import random
+        from numpy import array
+        blk = sbc.blk
+        ngstcell = blk.ngstcell
+        ndim = blk.ndim
+        fpdtype = blk.fpdtype
+        # set source BC object and cache container.
+        self.sbc = sbc
+        self.cache = dict()
+        # calculate and set a reference point and use it to sort faces.
+        if ref is None:
+            self.ref = array([random() for it in range(ndim)], dtype=fpdtype)
+        else:
+            self.ref = ref
+        assert len(self.ref) == ndim
+        if reciprocal is None:
+            self.sort(sbc, self.ref)
+            self.sort(dbc, self.ref)
+        # calculate and set cell lists.
+        self.scls = blk.fccls[sbc.facn[:,0],1] + ngstcell
+        self.dcls = blk.fccls[dbc.facn[:,0],0] + ngstcell
+        assert (self.scls<ngstcell).all()
+        assert (self.dcls>=ngstcell).all()
+        # set properties to source BC.
+        assert hasattr(sbc, 'glue')
+        sbc.glue = self
+        # create and set reciprocal if self is the first in a pair.
+        if reciprocal is None:
+            self.reciprocal = Glue(dbc, sbc, ref=self.ref, reciprocal=self)
+        else:
+            assert isinstance(reciprocal, Glue)
+            self.reciprocal = reciprocal
+
+    @staticmethod
+    def sort(bc, ref):
+        """
+        Sort the face list of a BC object according to the reference
+        point.
+
+        @param bc: a BC object.
+        @type bc: solvcon.boundcond.BC
+        @return: nothing
+        """
+        fcs = bc.blk.fccnd[bc.facn[:,0],:]
+        dist = ((fcs - ref)**2).sum(axis=1)
+        slct = dist.argsort()
+        bc.facn = bc.facn[slct]
+
+    def enable(self, *args):
+        """
+        Enable this glue by setting ghost information from interior and store
+        original values in a cache.  Arguments are the keys of arrays to be
+        cached.
+
+        @return: nothing
+        """
+        keys = args if args else self.CACHE_KEYS_ENABLER
+        for key in keys:
+            arr = getattr(self.sbc.svr, key)
+            self.cache[key] = arr[self.scls].copy()
+            self.take(key)
+    def disable(self, *args):
+        """
+        Disable this glue by restoring ghost information from cached values.
+        Arguments are the keys of cached arrays.
+
+        @return: nothing
+        """
+        keys = args if args else self.CACHE_KEYS_ENABLER
+        for key in keys:
+            arr = getattr(self.sbc.svr, key)
+            arr[self.scls] = self.cache[key]
+
+    def take(self, key):
+        """
+        Take array values from interior cells to ghost cells.
+
+        @param key: the name of the array.
+        @type key: str
+        @return: nothing
+        """
+        arr = getattr(self.sbc.svr, key)
+        arr[self.scls] = arr[self.dcls]
+
 class GasdynOpenWall(gasdyn.GasdynWall):
     def __init__(self, **kw):
         from numpy import empty
         super(GasdynOpenWall, self).__init__(**kw)
-        self.slctm = empty(0, dtype='int32')
-        self.slctr = empty(0, dtype='int32')
+        self.glue = None
 
     def cloneTo(self, another):
-        super(GasdynOpenwall, self).cloneTo(another)
-        another.slctm = self.slctm.copy()
-        another.slctr = self.slctr.copy()
-
-    def sort(self, ref):
-        if ref is None:
-            return
-        svr = self.svr
-        ngstface = svr.ngstface
-        dist = ((svr.fccnd[self.facn[:,0]+ngstface,:] - ref)**2).sum(axis=1)
-        slct = dist.argsort()
-        self.facn = self.facn[slct,:]
-
-    def couple(self, rbc):
-        """
-        Calculate indices of related cells form the information about related
-        BC object provided by rbc parameter.
-
-        @param rbc: Related BC object.
-        @type rbc: solvcon.boundcond.periodic
-        @return: nothing.
-        """
-        from numpy import empty
-        svr = self.svr
-        ngstface = svr.ngstface
-        ngstcell = svr.ngstcell
-        facn = self.facn
-        facn[:,2] = rbc.facn[:,0]
-        # calculate indices of related cells.
-        self.slctm = slctm = svr.fccls[ngstface+facn[:,0],1] + ngstcell
-        self.slctr = slctr = svr.fccls[ngstface+facn[:,2],0] + ngstcell
-        assert (slctm<ngstcell).all()
-        assert (slctr>=ngstcell).all()
-        # copy metrics.
-        svr.cltpn[slctm] = svr.cltpn[slctr]
-        svr.clgrp[slctm] = svr.clgrp[slctr]
-        svr.clvol[slctm] = svr.clvol[slctr]
-        svr.clcnd[slctm,:] = svr.clcnd[slctr,:]
-
-    @staticmethod
-    def couple_all(svr, bcmap):
-        """
-        Couple all periodic boundary conditions.
-
-        @param svr: the solver having periodic BCs to be coupled.
-        @type svr: solvcon.block.Block
-        @param bcmap: mapper for periodic BCs.
-        @type bcmap: dict
-        @return: nothing
-        """
-        from solvcon.boundcond import periodic
-        nmidx = dict([(svr.bclist[idx].name, idx) for idx in
-            range(len(svr.bclist))])
-        npidx = list()
-        for key in bcmap:
-            bct, vdict = bcmap[key]
-            if not issubclass(bct, GasdynOpenWall):
-                try:
-                    if key in nmidx:
-                        npidx.append(nmidx[key])
-                except Exception as e:
-                    args = list(e.args)
-                    args.append(str(nmidx))
-                    e.args = tuple(args)
-                    raise
-                continue
-            val = vdict['link']
-            ibc0 = nmidx[key]
-            ibc1 = nmidx[val]
-            pbc0 = svr.bclist[ibc0] = bct(bc=svr.bclist[ibc0])
-            pbc1 = svr.bclist[ibc1] = bct(bc=svr.bclist[ibc1])
-            ref = vdict.get('ref', None)
-            pbc0.sort(ref)
-            pbc1.sort(ref)
-            pbc0.couple(pbc1)
-            pbc1.couple(pbc0)
+        super(GasdynOpenWall, self).cloneTo(another)
+        another.glue = self.glue
 
     def init(self, **kw):
-        svr = self.svr
-        slctm = self.slctm
-        slctr = self.slctr
-        svr.cecnd[slctm,0,:] = svr.cecnd[slctr,0,:]
+        super(GasdynOpenWall, self).init(**kw)
+        self.glue.enable()
+        self.glue.enable('cecnd')
     def soln(self):
         svr = self.svr
-        slctm = self.slctm
-        slctr = self.slctr
         if svr.scu:
             svr.cumgr.arr_from_gpu('soln')
-        svr.soln[slctm,:] = svr.soln[slctr,:]
+        self.glue.take('soln')
         if svr.scu:
             svr.cumgr.arr_to_gpu('soln')
     def dsoln(self):
         svr = self.svr
-        slctm = self.slctm
-        slctr = self.slctr
         if svr.scu:
             svr.cumgr.arr_from_gpu('dsoln')
-        svr.dsoln[slctm,:,:] = svr.dsoln[slctr,:,:]
+        self.glue.take('dsoln')
         if svr.scu:
             svr.cumgr.arr_to_gpu('dsoln')
 
 def match_open_wall(svr):
-    """
-    Match periodic boundary condition.
-    """
-    from numpy import array
-    bct = GasdynOpenWall
-    refp = array([0.1,0.1], dtype='float64')
-    bcmap = dict()
-    bcmap.update({
-        'iupperu': (
-            bct, {'link': 'iupperd', 'ref': refp}
-        )})
-    bcmap.update({
-        'iloweru': (
-            bct, {'link': 'ilowerd', 'ref': refp}
-        )})
-    bcmap.update({
-        'ileftu': (
-            bct, {'link': 'ileftd', 'ref': refp}
-        )})
-    bcmap.update({
-        'irightu': (
-            bct, {'link': 'irightd', 'ref': refp}
-        )})
-    bct.couple_all(svr, bcmap)
+    nmidx = dict([(svr.bclist[idx].name, idx) for idx in
+        range(len(svr.bclist))])
+    for key0, key1 in (
+        ('ileftu', 'ileftd'),
+        ('iloweru', 'ilowerd'),
+        ('irightu', 'irightd'),
+        ('iupperu', 'iupperd'),
+    ):
+        ibc0 = nmidx[key0]
+        ibc1 = nmidx[key1]
+        pbc0 = svr.bclist[ibc0]
+        pbc1 = svr.bclist[ibc1]
+        Glue(pbc0, pbc1)
 
 class RuptureAnchor(Anchor):
     def __init__(self, svr, **kw):
@@ -248,19 +275,20 @@ def through_base(casename=None, meshname=None,
         'left': (bctregy.GasdynInlet, fpb,),
         'right': (bctregy.CuseNonrefl, {},),
         'lower': (bctregy.GasdynWall, {},),
-        'iupperu': (bctregy.GasdynWall, {},),
-        'iupperd': (bctregy.GasdynWall, {},),
-        'ileftu': (bctregy.GasdynWall, {},),
-        'ileftd': (bctregy.GasdynWall, {},),
-        'irightu': (bctregy.GasdynWall, {},),
-        'irightd': (bctregy.GasdynWall, {},),
-        'iloweru': (bctregy.GasdynWall, {},),
-        'ilowerd': (bctregy.GasdynWall, {},),
+        'iupperu': (bctregy.GasdynOpenWall, {},),
+        'iupperd': (bctregy.GasdynOpenWall, {},),
+        'ileftu': (bctregy.GasdynOpenWall, {},),
+        'ileftd': (bctregy.GasdynOpenWall, {},),
+        'irightu': (bctregy.GasdynOpenWall, {},),
+        'irightd': (bctregy.GasdynOpenWall, {},),
+        'iloweru': (bctregy.GasdynOpenWall, {},),
+        'ilowerd': (bctregy.GasdynOpenWall, {},),
     }
     # set up case.
     basedir = os.path.abspath(os.path.join(os.getcwd(), 'result'))
     cse = gasdyn.GasdynCase(basedir=basedir, rootdir=env.projdir,
-        basefn=casename, meshfn=meshname, mesher=mesher, bcmap=bcmap, **kw)
+        basefn=casename, meshfn=meshname, mesher=mesher,
+        bcmap=bcmap, bcmod=match_open_wall, **kw)
     # anchors for solvers.
     for key in 'Runtime', 'March', 'Tpool':
         cse.runhooks.append(getattr(anchor, key+'StatAnchor'))
@@ -280,7 +308,7 @@ def through_base(casename=None, meshname=None,
     cse.runhooks.append(anchor.FillAnchor, keys=('dsoln',), value=0)
     cse.runhooks.append(gasdyn.UniformIAnchor, **fpi)
     # repture.
-    cse.runhooks.append(RuptureAnchor, estep=0)
+    #cse.runhooks.append(RuptureAnchor, estep=0)
     # post processing.
     ## collect variables.
     varlist = list()
