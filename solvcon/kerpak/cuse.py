@@ -19,9 +19,9 @@
 """
 Second-order, multi-dimensional CESE method with CUDA enabled.
 
-Three functionalities are defined: (i) CFL (CflHook), (ii) Convergence
-(ConvergeAnchor, ConvergeHook), and (iii) Prober (Probe, ProbeAnchor,
-ProbeHook).
+Four functionalities are defined: (i) CuseGlue, (ii) CFL (CflHook), (iii)
+Convergence (ConvergeAnchor, ConvergeHook), and (iv) Prober (Probe,
+ProbeAnchor, ProbeHook).
 """
 
 CUDA_RAISE_ON_FAIL = False
@@ -31,7 +31,7 @@ from solvcon.gendata import AttributeDict
 from solvcon.solver import BlockSolver
 from solvcon.case import BlockCase
 from solvcon.boundcond import BC, periodic
-from solvcon.anchor import Anchor
+from solvcon.anchor import Anchor, GlueAnchor
 from solvcon.hook import Hook, BlockHook
 
 class CudaDataManager(AttributeDict):
@@ -622,7 +622,7 @@ class CuseCase(BlockCase):
 
 class CuseBC(BC):
     """
-    Basic BC class for the Euler equations.
+    Basic BC class for the cuse series solvers.  This class support glue BCs.
 
     @cvar _ghostgeom_: indicate which ghost geometry processor to use.
     @ctype _ghostgeom_: str
@@ -649,6 +649,27 @@ class CuseBC(BC):
     @property
     def _clib_cuseb_cu(self):
         return self.__clib_cuseb_cu[self.svr.ndim]
+
+    def __init__(self, **kw):
+        from numpy import empty
+        super(CuseBC, self).__init__(**kw)
+        self.glue = None
+    def cloneTo(self, another):
+        super(CuseBC, self).cloneTo(another)
+        another.glue = None
+
+    def gluetake(self, key):
+        """
+        Use the attached Glue object to update the array specified by key.
+
+        @param key: array name.
+        @type key: str
+        @return: nothing
+        """
+        svr = self.svr
+        if svr.scu: svr.cumgr.arr_from_gpu(key)
+        self.glue.take(key)
+        if svr.scu: svr.cumgr.arr_to_gpu(key)
 
     def bind(self):
         super(CuseBC, self).bind()
@@ -789,6 +810,20 @@ class CudaUpDownAnchor(Anchor):
         rsteps = self.rsteps
         if istep%rsteps != 0:
             self.process(istep)
+
+################################################################################
+# Glue.
+################################################################################
+
+class CuseGlue(GlueAnchor):
+    """
+    Use Glue class to glue specified BC objects of a solver object.  The class
+    is only valid for CuseSolver.
+    """
+    KEYS_ENABLER = ('cecnd',)
+    def __init__(self, svr, **kw):
+        assert isinstance(svr, CuseSolver)
+        super(CuseGlue, self).__init__(svr, **kw)
 
 ################################################################################
 # CFL.

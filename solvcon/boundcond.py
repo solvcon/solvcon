@@ -16,7 +16,12 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-"""Primitive boundary condition definition."""
+"""
+Primitive boundary condition definition.
+
+Basic supportive logic for interface BCs, periodic BCs, and glued BCs is
+defined here.
+"""
 
 from .gendata import TypeNameRegistry, TypeWithBinder
 
@@ -326,3 +331,137 @@ class periodic(BC):
             pbc1.sort(ref)
             pbc0.couple(pbc1)
             pbc1.couple(pbc0)
+
+class Glue(object):
+    """
+    Glue two boundary conditions which are considered to be collocated.
+
+    @cvar CACHE_KEYS_ENABLER: names of arrays whose original values to be
+        cached when the glue is enabled.
+    @ctype CACHE_KEYS_ENABLER: tuple
+    @ivar sbc: source BC object.
+    @itype sbc: solvcon.boundcond.BC
+    @ivar reciprocal: the glue object on the other side.
+    @itype reciprocal: Glue
+    @ivar ref: a reference point for matching bounding faces.
+    @itype ref: numpy.ndarray
+    @ivar cache: cache for mesh data.
+    @itype cache: dict
+    @ivar scls: source cell list shifted by ngstcell.
+    @itype scls: numpy.ndarray
+    @ivar dcls: destination cell list shifted by ngstcell.
+    @itype dcls: numpy.ndarray
+    """
+
+    CACHE_KEYS_ENABLER = ('cltpn', 'clgrp', 'clvol', 'clcnd')
+
+    def __init__(self, sbc, dbc, ref=None, reciprocal=None):
+        """
+        The constructor will create a PAIR of Glue objects attached to the
+        input source BC object (sbc) and destination BC object (dbc).  Each
+        Glue object in the pair is the reciprocal of the other.  The
+        constructor DOES NOT modify associated BC or BlockSolver objects except
+        setting BC objects' glue property to self.  If no reference point is
+        given through ref keyword, a random reference point is generated for
+        sorting boundary faces to be glued.
+
+        @param sbc: source BC object.
+        @type sbc: solvcon.boundcond.BC
+        @param dbc: destination BC object.
+        @type dbc: solvcon.boundcond.BC
+        @keyword ref: a reference point for matching bounding faces.
+        @type ref: numpy.ndarray
+        @keyword reciprocal: the glue object on the other side.
+        @type reciprocal: Glue
+        """
+        from random import random
+        from numpy import array
+        svr = sbc.svr
+        ngstface = svr.ngstface
+        ngstcell = svr.ngstcell
+        ndim = svr.ndim
+        fpdtype = svr.fpdtype
+        # set source BC object and cache container.
+        self.sbc = sbc
+        self.cache = dict()
+        # calculate and set a reference point and use it to sort faces.
+        if ref is None:
+            ref = array([random() for it in range(ndim)], dtype=fpdtype)
+        assert len(ref) == ndim
+        self.ref = ref
+        # calculate and set cell lists.
+        self.scls = svr.fccls[self.__sortfcs(sbc,ref),1] + ngstcell
+        self.dcls = svr.fccls[self.__sortfcs(dbc,ref),0] + ngstcell
+        assert (self.scls<ngstcell).all()
+        assert (self.dcls>=ngstcell).all()
+        # set properties to source BC.
+        assert hasattr(sbc, 'glue')
+        sbc.glue = self
+        # create and set reciprocal if self is the first in a pair.
+        if reciprocal is None:
+            self.reciprocal = Glue(dbc, sbc, ref=ref, reciprocal=self)
+        else:
+            assert isinstance(reciprocal, Glue)
+            self.reciprocal = reciprocal
+
+    @staticmethod
+    def __sortfcs(bc, ref):
+        """
+        Get the sorted face list of a BC object according to the reference
+        point.
+
+        @param bc: a BC object.
+        @type bc: solvcon.boundcond.BC
+        @param ref: reference point.
+        @type ref: numpy.ndarray
+        @return: sorted face indices shifted by ngstface.
+        @rtype: numpy.ndarray
+        """
+        cnd = bc.svr.fccnd[bc.facn[:,0]+bc.svr.ngstface,:]
+        dist = ((cnd - ref)**2).sum(axis=1)
+        return bc.facn[dist.argsort(),0]+bc.svr.ngstface
+
+    def enable(self, *args, **kw):
+        """
+        Enable this glue by setting ghost information from interior and store
+        original values in a cache.  Arguments are the keys of arrays to be
+        cached.
+
+        @keyword with_default: use CACHE_KEYS_ENABLER anyway.  Default True.
+        @type with_default: bool
+        @return: nothing
+        """
+        keys = list(args)
+        if args and kw.get('with_default', True):
+            keys.extend(self.CACHE_KEYS_ENABLER)
+        for key in keys:
+            arr = getattr(self.sbc.svr, key)
+            self.cache[key] = arr[self.scls].copy()
+            self.take(key)
+
+    def disable(self, *args, **kw):
+        """
+        Disable this glue by restoring ghost information from cached values.
+        Arguments are the keys of cached arrays.
+
+        @keyword with_default: use CACHE_KEYS_ENABLER anyway.  Default True.
+        @type with_default: bool
+        @return: nothing
+        """
+        keys = list(args)
+        if args and kw.get('with_default', True):
+            keys.extend(self.CACHE_KEYS_ENABLER)
+        for key in keys:
+            arr = getattr(self.sbc.svr, key)
+            arr[self.scls] = self.cache[key]
+
+    def take(self, key):
+        """
+        Take array values from interior cells to ghost cells.
+
+        @param key: the name of the array.
+        @type key: str
+        @return: nothing
+        """
+        arr = getattr(self.sbc.svr, key)
+        arr[self.scls] = arr[self.dcls]

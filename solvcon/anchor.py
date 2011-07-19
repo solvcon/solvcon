@@ -19,6 +19,10 @@
 """
 Anchors attached to the solvers.  There's only one base anchor class for
 subclassing.  Any other anchors defined here are for directly installation.
+
+A special GlueAnchor is defined to glue two collocated BCs.  The pair of glued
+BCs works as an internal interface.  As such, the BCs can be dynamically turn
+on or off.
 """
 
 class Anchor(object):
@@ -573,3 +577,93 @@ class FillAnchor(Anchor):
     def provide(self):
         for key in self.keys:
             getattr(self.svr, key).fill(self.value)
+
+################################################################################
+# Glue.
+################################################################################
+
+class GlueAnchor(Anchor):
+    """
+    Use Glue class to glue specified BC objects of a solver object.
+
+    @cvar KEYS_ENABLER: names of the arrays that should be modified when
+        enabling/disabling the glue.
+    @ctype KEYS_ENABLER: sequence
+    @ivar bcpairs: a sequence of 2-tuples for BC object pairs to be glued.
+    @itype bcpairs: sequence
+    """
+
+    KEYS_ENABLER = tuple()
+
+    def __init__(self, svr, **kw):
+        self.bcpairs = kw.pop('bcpairs')
+        super(GlueAnchor, self).__init__(svr, **kw)
+
+    def _attach_glue(self):
+        """
+        Attach Glue objects to specified BC object pairs.
+
+        @return: nothing
+        """
+        from .boundcond import Glue
+        nmbc = dict([(bc.name, bc) for bc in self.svr.bclist])
+        for key0, key1 in self.bcpairs:
+            assert nmbc[key0].glue is None
+            assert nmbc[key1].glue is None
+            Glue(nmbc[key0], nmbc[key1])
+
+    def _detach_glue(self):
+        """
+        Detach Glue objects from specified BC object pairs.
+
+        @return: nothing
+        """
+        from .boundcond import Glue
+        nmbc = dict([(bc.name, bc) for bc in self.svr.bclist])
+        for key0, key1 in self.bcpairs:
+            assert isinstance(nmbc[key0].glue, Glue)
+            assert isinstance(nmbc[key1].glue, Glue)
+            nmbc[key0].glue = None
+            nmbc[key1].glue = None
+
+    def _enable_glue(self, check=True):
+        """
+        Enable the gluing mechanism by calling Glue.enable() for specified BC
+        object pairs.
+
+        @keyword check: check Glue object or not.  Default True.
+        @type check: bool
+        @return: nothing
+        """
+        from ctypes import byref
+        svr = self.svr
+        if check:
+            self._attach_glue()
+        nmbc = dict([(bc.name, bc) for bc in svr.bclist])
+        for keys in self.bcpairs:
+            for key in keys:
+                nmbc[key].glue.enable(*self.KEYS_ENABLER)
+        svr._clib_cuse_c.prepare_ce(byref(svr.exd))
+        svr._clib_cuse_c.prepare_sf(byref(svr.exd))
+        if svr.scu: svr.cumgr.arr_to_gpu()
+
+    def _disable_glue(self, check=True):
+        """
+        Disable the gluing mechanism by calling Glue.disable() for specified BC
+        object pairs.
+
+        @keyword check: check Glue object or not.  Default True.
+        @type check: bool
+        @return: nothing
+        """
+        from ctypes import byref
+        svr = self.svr
+        nmbc = dict([(bc.name, bc) for bc in svr.bclist])
+        for keys in self.bcpairs:
+            for key in keys:
+                nmbc[key].glue.disable(*self.KEYS_ENABLER)
+        svr._clib_cuse_c.prepare_ce(byref(svr.exd))
+        svr._clib_cuse_c.prepare_sf(byref(svr.exd))
+        if svr.scu: svr.cumgr.arr_to_gpu()
+        if check:
+            self._detach_glue()
