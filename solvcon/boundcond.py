@@ -98,6 +98,7 @@ class BC(object):
             self.blk  = None
             self.blkn = None
             self.svr  = None
+            self.glue = None
             # face list.
             self.facn = empty((0,3), dtype='int32')
             # attached (specified) value.
@@ -137,6 +138,7 @@ class BC(object):
         another.blk  = self.blk
         another.blkn = self.blkn
         another.svr  = self.svr
+        another.glue = None
         another.facn = self.facn.copy()
         another.value = self.value.copy()
 
@@ -163,6 +165,19 @@ class BC(object):
             values[:,iv].fill(vpairs[vn])
         # save set array.
         self.value = values
+
+    def gluetake(self, key):
+        """
+        Use the attached Glue object to update the array specified by key.
+
+        @param key: array name.
+        @type key: str
+        @return: nothing
+        """
+        svr = self.svr
+        if svr.scu: svr.cumgr.arr_from_gpu(key)
+        self.glue.take(key)
+        if svr.scu: svr.cumgr.arr_to_gpu(key)
 
     def init(self, **kw):
         """

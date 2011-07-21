@@ -650,27 +650,6 @@ class CuseBC(BC):
     def _clib_cuseb_cu(self):
         return self.__clib_cuseb_cu[self.svr.ndim]
 
-    def __init__(self, **kw):
-        from numpy import empty
-        super(CuseBC, self).__init__(**kw)
-        self.glue = None
-    def cloneTo(self, another):
-        super(CuseBC, self).cloneTo(another)
-        another.glue = None
-
-    def gluetake(self, key):
-        """
-        Use the attached Glue object to update the array specified by key.
-
-        @param key: array name.
-        @type key: str
-        @return: nothing
-        """
-        svr = self.svr
-        if svr.scu: svr.cumgr.arr_from_gpu(key)
-        self.glue.take(key)
-        if svr.scu: svr.cumgr.arr_to_gpu(key)
-
     def bind(self):
         super(CuseBC, self).bind()
         if self.svr.scu:
