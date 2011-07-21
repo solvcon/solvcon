@@ -23,15 +23,15 @@ from numpy import array
 
 # metadata for unstructured mesh.
 elemtype = array([
-    # index, dim, node, edge, face,    name
-    [     0,   0,    1,    0,    0, ], # node/point/vertex
-    [     1,   1,    2,    0,    0, ], # line/edge
-    [     2,   2,    4,    4,    0, ], # quadrilateral
-    [     3,   2,    3,    3,    0, ], # triangle
-    [     4,   3,    8,    8,    6, ], # hexahedron/brick
-    [     5,   3,    4,    4,    4, ], # tetrahedron
-    [     6,   3,    6,    9,    5, ], # prism/wedge
-    [     7,   3,    5,    8,    5, ], # pyramid
+    # index, dim, node, edge, surface,    name
+    [     0,   0,    1,    0,       0, ], # node/point/vertex
+    [     1,   1,    2,    0,       0, ], # line/edge
+    [     2,   2,    4,    4,       0, ], # quadrilateral
+    [     3,   2,    3,    3,       0, ], # triangle
+    [     4,   3,    8,   12,       6, ], # hexahedron/brick
+    [     5,   3,    4,    6,       4, ], # tetrahedron
+    [     6,   3,    6,    9,       5, ], # prism/wedge
+    [     7,   3,    5,    8,       5, ], # pyramid
 ], dtype='int32')
 MAX_FCNND = elemtype[elemtype[:,1]<3,2].max()
 MAX_CLNND = elemtype[:,2].max()
