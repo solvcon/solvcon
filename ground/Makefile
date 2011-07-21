@@ -7,7 +7,8 @@ binary: build/BLAS/make.log build/lapack-3.3.1/make.log \
 	build/Python-2.6.6/make.log build/Python-2.7.1/make.log \
 	$(SCBIN)/scvars.sh
 
-python: build/numpy-1.6.0/build build/scons-2.0.1/build \
+python: build/mercurial-1.9/build \
+	build/numpy-1.6.0/build build/scons-2.0.1/build \
 	build/nose-1.0.0/build build/epydoc-3.0.1/build
 
 vtk: build/vtk-5.6.1/make.log
@@ -69,6 +70,12 @@ build/Python-2.7.1/make.log:
 
 $(SCBIN)/scvars.sh:
 	$(SCBIN)/python2.7 create-scvars.py
+
+build/mercurial-1.9/build:
+	mkdir -p build
+	cd build && tar xf ../downloaded/mercurial-1.9.tar.gz
+	cd build/mercurial-1.9 && \
+		$(SCBIN)/python2.7 setup.py install > install2.7.log 2>&1
 
 build/numpy-1.6.0/build:
 	mkdir -p build
