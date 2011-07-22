@@ -147,7 +147,7 @@ class VtkOperation(object):
         usp.SetInput(inp)
         return usp
     @staticmethod
-    def clip(inp, origin, normal, inside_out=False):
+    def clip(inp, origin, normal, inside_out=False, take_cell=False):
         """
         VTK operation: clip.  A vtkGeometryFilter is used to convert the
         resulted vtkUnstructuredMesh object into a vtkPolyData object.
@@ -158,8 +158,11 @@ class VtkOperation(object):
         @type origin: tuple
         @param normal: a 3-tuple for cut normal.
         @type normal: tuple
-        @keyword inside_out: make inside out.  Default false.
+        @keyword inside_out: make inside out.  Default False.
         @type inside_out: bool
+        @keyword take_cell: treat the input VTK object with values on cells.
+            Default False.
+        @type: take_cell: bool
         @return: output VTK object.
         @rtype: vtk.vtkobject
         """
@@ -168,7 +171,10 @@ class VtkOperation(object):
         pne.SetOrigin(origin)
         pne.SetNormal(normal)
         clip = vtk.vtkClipDataSet()
-        clip.SetInputConnection(inp.GetOutputPort())
+        if take_cell:
+            clip.SetInput(inp)
+        else:
+            clip.SetInputConnection(inp.GetOutputPort())
         clip.SetClipFunction(pne)
         if inside_out:
             clip.InsideOutOn()
