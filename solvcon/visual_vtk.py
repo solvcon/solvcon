@@ -147,6 +147,35 @@ class VtkOperation(object):
         usp.SetInput(inp)
         return usp
     @staticmethod
+    def clip(inp, origin, normal, inside_out=False):
+        """
+        VTK operation: clip.  A vtkGeometryFilter is used to convert the
+        resulted vtkUnstructuredMesh object into a vtkPolyData object.
+
+        @param inp: input VTK object.
+        @type inp: vtk.vtkobject
+        @param origin: a 3-tuple for cut origin.
+        @type origin: tuple
+        @param normal: a 3-tuple for cut normal.
+        @type normal: tuple
+        @keyword inside_out: make inside out.  Default false.
+        @type inside_out: bool
+        @return: output VTK object.
+        @rtype: vtk.vtkobject
+        """
+        import vtk
+        pne = vtk.vtkPlane()
+        pne.SetOrigin(origin)
+        pne.SetNormal(normal)
+        clip = vtk.vtkClipDataSet()
+        clip.SetInputConnection(inp.GetOutputPort())
+        clip.SetClipFunction(pne)
+        if inside_out:
+            clip.InsideOutOn()
+        parison = vtk.vtkGeometryFilter()
+        parison.SetInputConnection(clip.GetOutputPort())
+        return parison
+    @staticmethod
     def cut(inp, origin, normal):
         """
         VTK operation: cut.
