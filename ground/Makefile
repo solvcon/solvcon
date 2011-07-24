@@ -11,7 +11,7 @@ python: build/mercurial-1.9/build \
 	build/numpy-1.6.0/build build/scons-2.0.1/build \
 	build/nose-1.0.0/build build/epydoc-3.0.1/build
 
-vtk: build/vtk-5.6.1/make.log
+vtk: build/cmake-2.8.5/make.log build/vtk-5.6.1/make.log
 
 all: binary python vtk
 
@@ -111,6 +111,12 @@ build/epydoc-3.0.1/build:
 		$(SCBIN)/python2.7 setup.py install > install2.7.log 2>&1
 	$(SCBIN)/python2.7 modify-pyshebang.py $(SCBIN)/epydoc*
 
+build/cmake-2.8.5/make.log:
+	mkdir -p build
+	cd build && tar xf ../downloaded/cmake-2.8.5.tar.gz
+	cd build/cmake-2.8.5 && ../../build-cmake.sh
+	cd build/cmake-2.8.5 && make install > install.log 2>&1
+
 build/vtk-5.6.1/make.log:
 	mkdir -p build/vtk-5.6.1
 	cd build && tar xf ../downloaded/vtk-5.6.1.tar.gz
@@ -121,6 +127,9 @@ clean:
 	rm -rf build/BLAS build/lapack-3.3.1 build/netcdf-4.1.2 \
 	build/ATLAS build/scotch_5.8.11 build/libscotchmetis.so \
 	build/Python-2.6.6 build/Python-2.7.1 $(SCBIN)/scvars.sh \
-	build/numpy-1.6.0 build/scons-2.0.1 build/nose-1.0.0 build/epydoc-3.0.1
+	build/mercurial-1.9/ \
+	build/numpy-1.6.0 build/scons-2.0.1 build/nose-1.0.0 \
+	build/epydoc-3.0.1 \
+	build/cmake-2.8.5 build/vtk-5.6.1
 
 .PHONY: binary python all clean

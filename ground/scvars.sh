@@ -44,5 +44,6 @@ ldpathmunge () {
 pathmunge $SCROOT/bin
 manpathmunge $SCROOT/share/man
 ldpathmunge $SCROOT/lib
+ldpathmunge $SCROOT/lib/vtk-5.6
 
 # vim: sw=2 ts=2 tw=76 et nu ft=sh:
