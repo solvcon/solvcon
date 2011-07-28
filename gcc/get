@@ -1,0 +1,68 @@
+#!/usr/bin/env python
+
+bufsize = 1024*1024
+
+def get_pkgs():
+    from ConfigParser import ConfigParser
+    cfg = ConfigParser()
+    cfg.read('get.ini')
+    for sec in cfg.sections():
+        if cfg.has_option(sec, 'url') and cfg.has_option(sec, 'md5'):
+            yield cfg.get(sec, 'url'), cfg.get(sec, 'md5')
+
+def digest(f):
+    try:
+        import hashlib
+        m = hashlib.md5()
+    except:
+        import md5
+        m = md5.new()
+    while True:
+        data = f.read(bufsize)
+        m.update(data)
+        if len(data) < bufsize: break
+    return m.hexdigest()
+
+def download(url, cksum):
+    import sys
+    import os
+    import urllib
+    from urlparse import urlparse
+    up = urlparse(url)
+    fn = os.path.join('downloaded', up[2].split('/')[-1])
+    if not (os.path.exists('downloaded') and os.path.isdir('downloaded')):
+        os.makedirs('downloaded')
+    if os.path.exists(fn):
+        if cksum and cksum != digest(open(fn, 'rb')):
+            sys.stdout.write("%s checksum mismatch, delete old.\n" % fn)
+            os.unlink(fn)
+        else:
+            sys.stdout.write("%s exists.\n" % fn)
+            return False
+    sys.stdout.write("Download %s from %s: " % (fn, url))
+    uf = urllib.urlopen(url)
+    f = open(fn, 'wb')
+    sys.stdout.flush()
+    while True:
+        data = uf.read(bufsize)
+        sys.stdout.write('.')
+        sys.stdout.flush()
+        f.write(data)
+        if len(data) < bufsize: break
+    uf.close()
+    f.close()
+    if cksum:
+        if cksum != digest(open(fn, 'rb')):
+            sys.stdout.write("note, %s checksum mismatch!\n" % fn)
+        else:
+            sys.stdout.write("%s checksum OK.\n" % fn)
+    else:
+        sys.stdout.write("no checksum defined for %s .\n" % fn)
+    sys.stdout.write(" done.\n")
+
+def main():
+    for url, cksum in get_pkgs():
+        download(url, cksum)
+
+if __name__ == '__main__':
+    main()

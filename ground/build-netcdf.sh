@@ -8,4 +8,4 @@
 	#--with-hdf5=$HDF5_HOME \
 	#--enable-netcdf4 \
 
-make > make.log 2>&1
+make -j $NP > make.log 2>&1

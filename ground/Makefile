@@ -1,5 +1,6 @@
 export SCPREFIX?=$(HOME)/opt/scruntime
 export SCBIN=$(SCPREFIX)/bin
+export NP?=$(`cat /proc/cpuinfo | grep processor | wc -l`)
 
 binary: build/BLAS/make.log build/lapack-3.3.1/make.log \
 	build/ATLAS/ATLAS_LINUX/make.log \
@@ -115,7 +116,6 @@ build/cmake-2.8.5/make.log:
 	mkdir -p build
 	cd build && tar xf ../downloaded/cmake-2.8.5.tar.gz
 	cd build/cmake-2.8.5 && ../../build-cmake.sh
-	cd build/cmake-2.8.5 && make install > install.log 2>&1
 
 build/vtk-5.6.1/make.log:
 	mkdir -p build/vtk-5.6.1

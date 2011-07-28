@@ -10,4 +10,4 @@
 	LDFLAGS=-Wl,-rpath=$SCPREFIX/lib \
 > configure.log 2>&1
 
-make > make.log 2>&1
+make -j $NP > make.log 2>&1

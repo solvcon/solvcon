@@ -6,4 +6,4 @@ sed -e "s/OPTS     \= -O2/OPTS     \=\ -O2\ -fPIC/g" \
 	make.inc
 
 cd SRC
-make > ../make.log 2>&1
+make -j $NP > ../make.log 2>&1

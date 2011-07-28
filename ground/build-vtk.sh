@@ -11,5 +11,5 @@ cmake \
     -DPYTHON_LIBRARY=$SCPREFIX/lib/libpython2.7.so \
     ../VTK > cmake.log 2>&1
 
-make > make.log 2>&1
+make -j $NP > make.log 2>&1
 make install > install.log 2>&1
