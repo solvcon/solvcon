@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 
 site_tmpl = """[DEFAULT]
-library_dirs = /usr/local/lib:%(SCPREFIX)s/lib
+library_dirs = /usr/local/lib:%(SCROOT)s/lib
 include_dirs =
-/usr/local/include:%(SCPREFIX)s/include:%(SCPREFIX)s/include/atlas
+/usr/local/include:%(SCROOT)s/include:%(SCROOT)s/include/atlas
 
 [atlas]
 atlas_libs = lapack, f77blas, cblas, atlas"""

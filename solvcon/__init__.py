@@ -25,9 +25,8 @@ computing.  C or CUDA_ is used for fast number-crunching.  SOLVCON is designed
 for extension to various physical processes.  Numerical algorithms and physical
 models are pluggable.  Sub-package ``solvcon.kerpak`` contains default
 implementations.  The default numerical algorithm in SOLVCON is the space-time
-Conservation Element and Solution Element (CESE_) method, which was originally
-developed by Sin-Chung Chang at NASA Glenn Research Center.  The CESE_ method
-solves generic, first-order, hyperbolic PDEs.
+Conservation Element and Solution Element (CESE_) method that solves generic
+conservation laws.
 
 SOLVCON is released under `GNU GPLv2
 <http://www.gnu.org/licenses/gpl-2.0.html>`_, and developed by `Yung-Yu Chen
@@ -40,33 +39,33 @@ Key Features
 - **Complex geometry**: 2/3D unstructured mesh consisting of mixed shapes
 - **Massively parallel**: Automatic domain decomposition with MPI or socket
 - **GPGPU computing**: Hybrid parallelism with CUDA_
-- **Large data set**: In situ visualization by VTK_ and parallel I/O
+- **Large data set**: In situ visualization by using VTK_
 - **I/O formats**: VTK, GAMBIT Neutral, CUBIT Genesis/ExodosII, etc.
-- **Productive work flow**: Integration to batch systems, e.g., Torque
+- **Productive work flow**: Python scripts as programmable input files
 
 Install
 =======
 
-The C code in SOLVCON are intentionally made to be standard shared libraries
+The C code in SOLVCON is intentionally made to be standard shared libraries
 rather than Python extension modules.  SOLVCON uses ctypes_ to load and call
 these binary codes.  In this way, the binary codes can be flexibly built and
 optimized for performance.  Hence, installing SOLVCON requires building these
-libraries.  SOLVCON uses SCons_ as the binary builder.
+libraries.  SOLVCON uses SCons_ as the builder.  It is recommended to run
+SOLVCON on 64-bit Linux.
 
-For SOLVCON to be built and run, it requires the following packages: (i)
-Python_ 2.6 or 2.7, (ii) SCons_, (iii) a C compiler, gcc_ or icc is OK, (iv)
-Numpy_, (v) LAPACK_, (vi) NetCDF_ higher than version 4, and (vii) METIS_
-version 4.0.3 for graph partitioning (SOLVCON will download it for you on
-building).  Optional dependencies include: (i) SCOTCH_ (version 5.1 or higher)
-as an alternative of METIS, (ii) Nose_ for running unit tests, (iii) Epydoc_
-for generating API documentation, (iv) VTK_ for in situ visualization, and (v)
-docutils and pygraphviz for formatting of Epydoc.  64-bits Linux is
-recommended.  Debian_ or Ubuntu_ users can use the following command to install
-the dependencies::
+SOLVCON depends on the following packages: (i) Python_ 2.6 or 2.7 (preferred),
+(ii) SCons_, (iii) gcc_ (version 4.3 or higher) or icc, (iv) Numpy_ (version
+1.6 or higher), (v) LAPACK_, (vi) NetCDF_ (version 4 or higher), and (vii)
+METIS_ (version 4.0.3; SOLVCON will download it for you on building).  Optional
+dependencies include: (i) SCOTCH_ (version 5.1 or higher) as an alternative of
+METIS, (ii) Nose_ for running unit tests, (iii) Epydoc_ for generating API
+documentation, (iv) VTK_ for in situ visualization, and (v) docutils and
+pygraphviz for Epydoc formatting.  Debian_ or Ubuntu_ users can use the
+following command to install the dependencies::
 
   $ sudo apt-get install scons build-essential gcc liblapack-pic
     libnetcdf-dev libnetcdf6 netcdf-bin
-    python2.6 python2.6-dev python-profiler python-numpy
+    python2.7 python2.7-dev python-profiler python-numpy
     libscotch-5.1 python-nose python-epydoc python-vtk
     python-docutils python-pygraphviz 
 
@@ -94,15 +93,16 @@ The three steps to install:
 
      $ python setup.py install
 
-   Optionally, you can install SOLVCON to your home directory.  It is useful
-   when you don't have the root permission on the system.  To do this, add the
-   ``--user`` when invoking the ``setup.py`` script::
-
-     $ python setup.py install --user
-
 The option ``--download`` used above asks the building script to download
 necessary external source packages, e.g., METIS_, from Internet.  Option
 ``--extract`` extracts the downloaded packages.
+
+Although not recommended, you can optionally install SOLVCON to your
+``$HOME/.local`` directory.  It is one of the workarounds when you don't have
+the root permission on the system.  To do this, add the ``--user`` when
+invoking the ``setup.py`` script::
+
+ $ python setup.py install --user
 
 Install from Repository
 =======================
@@ -151,28 +151,50 @@ Everything else should pass.
 Build and Install Dependencies (Optional)
 =========================================
 
-If one wants to build the dependencies from ground up, he/she should take a
-look of directory ``$SCSRC/ground``.  The directory contains scripts to compile
-most of the depended packages.  The ``Makefile`` in the directory has three
-default targets: ``binary``, ``python``, and ``vtk``.  An additional target
-``all`` will run all of them in order.  The Makefile automatically installs
-built files, and takes environment variable ``$SCPREFIX`` as installation
-target path.  If not specified, by default it is set to
-``$HOME/opt/scruntime``.  A script ``$SCROOT/bin/scvars.sh`` will be created to
-export necessary environment variables for the installed dependencies.
-Variable ``$SCROOT`` points to the installation target path; it is the runtime
-version of variable ``$SCPREFIX`` used in building phase.  ``$SCROOT`` will be
-set by ``scvars.sh`` script too.
+SOLVCON depends on a number of external software packages.  Although these
+dependencies should be met by using the package management of the OSes, getting
+the support staffs to install missing packages on a supercomputer/cluster takes
+time.  As such, SOLVCON provides a simple building system to facilitate the
+installation into a user's home directory or a customized path.
 
-For those who like to get their hands dirty, the following packages still need
-to be installed as prerequisite::
+Some Python installation does not include the VTK wrapper.  In this case, one
+might also need to use self-compiled Python runtime to use VTK in SOLVCON for
+in situ visualization.
 
-  $ sudo apt-get install build-essential gcc gfortran cmake libcurl4-gnutls-dev
-  libhdf5-serial-dev
+The ``$SCSRC/ground`` directory contains scripts to build most of the packages
+that SOLVCON depends on.  The ``$SCSRC/ground/Makefile`` file has three default
+targets: ``binary``, ``python``, and ``vtk``.  And the additional ``all``
+target will run all of them in order.  The built files will be automatically
+installed into the path specified by the ``$SCROOT`` environment variable,
+which is set to ``$HOME/opt/scruntime`` by default.  The
+``$SCROOT/bin/scvars.sh`` script will be created to export necessary
+environment variables for the installed dependencies, including the ``$SCROOT``
+environment variable.
 
-Sometimes it is unavoidable to compile these dependencies from source.  For
-example, to deploy SOLVCON on a supercomputer/cluster which runs stable but
-out-dated OSes.  The ``ground/`` directory is meant to ease the tedious task.
+The ``$SCSRC/gcc`` directory contains scripts to build gcc_.  The
+``$SCROOT/bin/scgccvars.sh`` script will be created to export necessary
+environment variables for the installed gcc.  The enabled languages include
+only C, C++, and Fortran.  The default value of ``$SCROOT`` remains to be
+``$HOME/opt/scruntime``, while the built compiler will be installed into
+``$SCROOT/gcc``.  Note: do not use different ``$SCROOT`` when compiling
+``$SCSRC/gcc`` and ``$SCSRC/ground``.
+
+``$SCROOT/bin/scvars.sh`` and ``$SCROOT/bin/scgccvars.sh`` can be separately
+imported.  The two sets of packages reside in different directories and do not
+mix with each other nor system software.  Users can diable these environments
+by not importing the two scripts.
+
+Some packages have not been incorporated into the dependency building system
+described above.  Debian_ or Ubuntu_ users should install the additional
+dependencies by using::
+
+  $ sudo apt-get install build-essential gcc gfortran gcc-multilib m4
+  libreadline6 libreadline6-dev libncursesw5 libncurses5-dev libbz2-1.0
+  libbz2-dev libdb4.8 libdb-dev libgdbm3 libgdbm-dev libsqlite3-0
+  libsqlite3-dev libcurl4-gnutls-dev libhdf5-serial-dev libgl1-mesa-dev
+  libxt-dev
+
+These building scripts have only been tested with 64-bit Linux.
 
 Resources
 =========

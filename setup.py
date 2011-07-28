@@ -59,7 +59,7 @@ def main():
     # includes.
     data_files.append((os.path.join('include', 'solvcon'),
         glob(os.path.join('include', '*'))))
-    # libraries.
+    # libraries.  NOTE: this directory should be manually removed for sdist.
     data_files.append((os.path.join('lib', 'solvcon'),
         glob(os.path.join('lib', '*'))))
     # test data.

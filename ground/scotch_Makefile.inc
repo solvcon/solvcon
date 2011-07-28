@@ -1,4 +1,4 @@
-prefix		= $(SCPREFIX)
+prefix		= $(SCROOT)
 
 EXE		=
 LIB		= .a

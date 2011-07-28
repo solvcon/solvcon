@@ -1,6 +1,6 @@
 #!/bin/sh
 
-./configure --prefix=$SCPREFIX \
+./configure --prefix=$SCROOT \
 	--disable-fortran \
 	--disable-dap \
 	--enable-shared \

@@ -1,16 +1,16 @@
-export SCPREFIX?=$(HOME)/opt/scruntime
-export SCBIN=$(SCPREFIX)/bin
+export SCROOT?=$(HOME)/opt/scruntime
+export SCBIN=$(SCROOT)/bin
 export NP?=$(`cat /proc/cpuinfo | grep processor | wc -l`)
 
 binary: build/BLAS/make.log build/lapack-3.3.1/make.log \
 	build/ATLAS/ATLAS_LINUX/make.log \
 	build/netcdf-4.1.2/make.log build/libscotchmetis.so \
-	build/Python-2.6.6/make.log build/Python-2.7.1/make.log \
+	build/Python-2.7.2/make.log \
 	$(SCBIN)/scvars.sh
 
 python: build/mercurial-1.9/build \
-	build/numpy-1.6.0/build build/scons-2.0.1/build \
-	build/nose-1.0.0/build build/epydoc-3.0.1/build
+	build/numpy-1.6.1/build build/scons-2.0.1/build \
+	build/nose-1.1.1/build build/epydoc-3.0.1/build
 
 vtk: build/cmake-2.8.5/make.log build/vtk-5.6.1/make.log
 
@@ -47,22 +47,11 @@ build/libscotchmetis.so:
 		gcc -shared -o ../libscotchmetis.so \
 		-Llib -lscotch src/libscotchmetis/*.o
 
-build/Python-2.6.6/make.log:
+build/Python-2.7.2/make.log:
 	mkdir -p build
-	cd build && tar xf ../downloaded/Python-2.6.6.tar.bz2
-	cd build/Python-2.6.6 && ../../build-python.sh
-	cd build/Python-2.6.6 && make install > install.log 2>&1
-	rm -f $(SCBIN)/python
-	mv $(SCBIN)/pydoc $(SCBIN)/pydoc-2.6
-	mv $(SCBIN)/idle $(SCBIN)/idle-2.6
-	mv $(SCBIN)/2to3 $(SCBIN)/2to3-2.6
-	mv $(SCBIN)/smtpd.py $(SCBIN)/smtpd-2.6.py
-
-build/Python-2.7.1/make.log:
-	mkdir -p build
-	cd build && tar xf ../downloaded/Python-2.7.1.tar.bz2
-	cd build/Python-2.7.1 && ../../build-python.sh
-	cd build/Python-2.7.1 && make install > install.log 2>&1
+	cd build && tar xf ../downloaded/Python-2.7.2.tar.bz2
+	cd build/Python-2.7.2 && ../../build-python.sh
+	cd build/Python-2.7.2 && make install > install.log 2>&1
 	rm -f $(SCBIN)/python $(SCBIN)/python-config
 	mv $(SCBIN)/pydoc $(SCBIN)/pydoc-2.7
 	mv $(SCBIN)/idle $(SCBIN)/idle-2.7
@@ -78,13 +67,11 @@ build/mercurial-1.9/build:
 	cd build/mercurial-1.9 && \
 		$(SCBIN)/python2.7 setup.py install > install2.7.log 2>&1
 
-build/numpy-1.6.0/build:
+build/numpy-1.6.1/build:
 	mkdir -p build
-	cd build && tar xf ../downloaded/numpy-1.6.0.tar.gz
-	cd build/numpy-1.6.0 && ../../generate-numpy.py
-	cd build/numpy-1.6.0 && \
-		$(SCBIN)/python2.6 setup.py install > install2.6.log 2>&1
-	cd build/numpy-1.6.0 && \
+	cd build && tar xf ../downloaded/numpy-1.6.1.tar.gz
+	cd build/numpy-1.6.1 && ../../generate-numpy.py
+	cd build/numpy-1.6.1 && \
 		$(SCBIN)/python2.7 setup.py install > install2.7.log 2>&1
 
 build/scons-2.0.1/build:
@@ -94,20 +81,16 @@ build/scons-2.0.1/build:
 		$(SCBIN)/python2.7 setup.py install > install2.7.log 2>&1
 	$(SCBIN)/python2.7 modify-pyshebang.py $(SCBIN)/scons*
 
-build/nose-1.0.0/build:
+build/nose-1.1.1/build:
 	mkdir -p build
-	cd build && tar xf ../downloaded/nose-1.0.0.tar.gz
-	cd build/nose-1.0.0 && \
-		$(SCBIN)/python2.6 setup.py install > install2.6.log 2>&1
-	cd build/nose-1.0.0 && \
+	cd build && tar xf ../downloaded/nose-1.1.1.tar.gz
+	cd build/nose-1.1.1 && \
 		$(SCBIN)/python2.7 setup.py install > install2.7.log 2>&1
 	$(SCBIN)/python2.7 modify-pyshebang.py $(SCBIN)/nosetests*
 
 build/epydoc-3.0.1/build:
 	mkdir -p build
 	cd build && tar xf ../downloaded/epydoc-3.0.1.tar.gz
-	cd build/epydoc-3.0.1 && \
-		$(SCBIN)/python2.6 setup.py install > install2.6.log 2>&1
 	cd build/epydoc-3.0.1 && \
 		$(SCBIN)/python2.7 setup.py install > install2.7.log 2>&1
 	$(SCBIN)/python2.7 modify-pyshebang.py $(SCBIN)/epydoc*
@@ -126,9 +109,9 @@ build/vtk-5.6.1/make.log:
 clean:
 	rm -rf build/BLAS build/lapack-3.3.1 build/netcdf-4.1.2 \
 	build/ATLAS build/scotch_5.8.11 build/libscotchmetis.so \
-	build/Python-2.6.6 build/Python-2.7.1 $(SCBIN)/scvars.sh \
+	build/Python-2.7.2 $(SCBIN)/scvars.sh \
 	build/mercurial-1.9/ \
-	build/numpy-1.6.0 build/scons-2.0.1 build/nose-1.0.0 \
+	build/numpy-1.6.1 build/scons-2.0.1 build/nose-1.1.1 \
 	build/epydoc-3.0.1 \
 	build/cmake-2.8.5 build/vtk-5.6.1
 

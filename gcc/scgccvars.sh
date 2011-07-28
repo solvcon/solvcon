@@ -1,4 +1,3 @@
-#MANPATH=$(manpath -q)
 
 manpathmunge () {
   if ! echo $MANPATH | egrep -q "(^|:)$1($|:)" ; then

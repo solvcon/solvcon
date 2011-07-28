@@ -12,7 +12,7 @@ fi
 
 mkdir -p $ATLAS_PLAT
 cd $ATLAS_PLAT
-../configure --prefix=$SCPREFIX \
+../configure --prefix=$SCROOT \
 	-Si cputhrchk 0 \
 	$BITS \
 	-Fa alg -fPIC \

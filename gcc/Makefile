@@ -1,5 +1,5 @@
-export SCPREFIX?=$(HOME)/opt/scruntime
-export SCBIN=$(SCPREFIX)/bin
+export SCROOT?=$(HOME)/opt/scruntime
+export SCBIN=$(SCROOT)/bin
 export NP?=$(`cat /proc/cpuinfo | grep processor | wc -l`)
 
 default: gcc
@@ -31,7 +31,7 @@ build/gcc-4.6.1-build/make.log:
 	cd build/gcc-4.6.1-build && ../../build-gcc.sh gcc-4.6.1
 
 $(SCBIN)/scgccvars.sh:
-	$(SCBIN)/python2.7 create-scgccvars.py
+	./create-scgccvars.sh
 
 clean:
 	rm -rf build/gmp-5.0.2 build/mpfr-3.0.1 build/mpc-0.9 \
