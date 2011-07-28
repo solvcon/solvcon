@@ -176,8 +176,10 @@ The ``$SCSRC/gcc`` directory contains scripts to build gcc_.  The
 environment variables for the installed gcc.  The enabled languages include
 only C, C++, and Fortran.  The default value of ``$SCROOT`` remains to be
 ``$HOME/opt/scruntime``, while the built compiler will be installed into
-``$SCROOT/gcc``.  Note: do not use different ``$SCROOT`` when compiling
-``$SCSRC/gcc`` and ``$SCSRC/ground``.
+``$SCROOT/gcc``.  Note: (i) Do not use different ``$SCROOT`` when compiling
+``$SCSRC/gcc`` and ``$SCSRC/ground``. (ii) On hyper-threading CPUs the ``NP``
+environment variable should be set to the actual number of cores, or
+compilation of gcc could exhausts system memory.
 
 ``$SCROOT/bin/scvars.sh`` and ``$SCROOT/bin/scgccvars.sh`` can be separately
 imported.  The two sets of packages reside in different directories and do not
