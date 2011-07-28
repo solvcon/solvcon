@@ -59,14 +59,16 @@ Numpy_, (v) LAPACK_, (vi) NetCDF_ higher than version 4, and (vii) METIS_
 version 4.0.3 for graph partitioning (SOLVCON will download it for you on
 building).  Optional dependencies include: (i) SCOTCH_ (version 5.1 or higher)
 as an alternative of METIS, (ii) Nose_ for running unit tests, (iii) Epydoc_
-for generating API documentation, and (iv) VTK_ for in situ visualization.
-64-bits Linux is recommended.  For Debian_ or Ubuntu_ users, they can use the
-following command to install the dependencies::
+for generating API documentation, (iv) VTK_ for in situ visualization, and (v)
+docutils and pygraphviz for formatting of Epydoc.  64-bits Linux is
+recommended.  Debian_ or Ubuntu_ users can use the following command to install
+the dependencies::
 
   $ sudo apt-get install scons build-essential gcc liblapack-pic
     libnetcdf-dev libnetcdf6 netcdf-bin
     python2.6 python2.6-dev python-profiler python-numpy
     libscotch-5.1 python-nose python-epydoc python-vtk
+    python-docutils python-pygraphviz 
 
 CUDA_ needs to be separately installed and configured.  For using meshes with
 more then 35 million cells, SCOTCH-5.1 is recommended.  METIS-4 has issues on
@@ -165,7 +167,7 @@ set by ``scvars.sh`` script too.
 For those who like to get their hands dirty, the following packages still need
 to be installed as prerequisite::
 
-  $ sudo apt-get install build-essential gcc cmake libcurl4-gnutls-dev
+  $ sudo apt-get install build-essential gcc gfortran cmake libcurl4-gnutls-dev
   libhdf5-serial-dev
 
 Sometimes it is unavoidable to compile these dependencies from source.  For
