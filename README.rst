@@ -16,7 +16,7 @@ simulations.
 SOLVCON is released under `GNU GPLv2
 <http://www.gnu.org/licenses/gpl-2.0.html>`_, and developed by `Yung-Yu Chen
 <mailto:yyc@solvcon.net>`_ and `Sheng-Tao John Yu <mailto:yu.274@osu.edu>`_.
-The web site is at http://solvcon.net/ .
+The official web site is at http://solvcon.net/ .
 
 Key Features
 ============
