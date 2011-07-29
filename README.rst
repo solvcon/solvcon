@@ -173,10 +173,10 @@ described above.  Debian_ or Ubuntu_ users should install the additional
 dependencies by using::
 
   $ sudo apt-get install build-essential gcc gfortran gcc-multilib m4
-  libreadline6 libreadline6-dev libncursesw5 libncurses5-dev libbz2-1.0
-  libbz2-dev libdb4.8 libdb-dev libgdbm3 libgdbm-dev libsqlite3-0
-  libsqlite3-dev libcurl4-gnutls-dev libhdf5-serial-dev libgl1-mesa-dev
-  libxt-dev
+   libreadline6 libreadline6-dev libncursesw5 libncurses5-dev libbz2-1.0
+   libbz2-dev libdb4.8 libdb-dev libgdbm3 libgdbm-dev libsqlite3-0
+   libsqlite3-dev libcurl4-gnutls-dev libhdf5-serial-dev libgl1-mesa-dev
+   libxt-dev
 
 These building scripts have only been tested with 64-bit Linux.
 
