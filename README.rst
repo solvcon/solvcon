@@ -8,38 +8,34 @@ README for SOLVCON
 SOLVCON: a multi-physics, supercomputing software framework for high-fidelity
 solutions of partial differential equations (PDEs) by hybrid parallelism.
 
-SOLVCON facilitates rapid devlopment of PDE solvers for massively parallel
-computing.  C or CUDA_ is used for fast number-crunching.  SOLVCON is designed
-for extension to various physical processes.  Numerical algorithms and physical
-models are pluggable.  Sub-package ``solvcon.kerpak`` contains default
-implementations.  The default numerical algorithm in SOLVCON is the space-time
-Conservation Element and Solution Element (CESE_) method that solves generic
-conservation laws.
+SOLVCON uses the space-time Conservation Element and Solution Element (CESE_)
+method to solve generic conservation laws.  SOLVCON focuses on rapid
+development of high-performance computing (HPC) code for large-scale
+simulations.
 
 SOLVCON is released under `GNU GPLv2
 <http://www.gnu.org/licenses/gpl-2.0.html>`_, and developed by `Yung-Yu Chen
 <mailto:yyc@solvcon.net>`_ and `Sheng-Tao John Yu <mailto:yu.274@osu.edu>`_.
+The web site is at http://solvcon.net/ .
 
 Key Features
 ============
 
-- **Multi-physics**: Pluggable physical models by the built-in CESE_ solvers
-- **Complex geometry**: 2/3D unstructured mesh consisting of mixed shapes
-- **Massively parallel**: Automatic domain decomposition with MPI or socket
-- **GPGPU computing**: Hybrid parallelism with CUDA_
-- **Large data set**: In situ visualization by using VTK_
-- **I/O formats**: VTK, GAMBIT Neutral, CUBIT Genesis/ExodosII, etc.
-- **Productive work flow**: Python scripts as programmable input files
+- Pluggable multi-physics
+- Unstructured meshes for modeling complex geometry
+- Hybrid parallel computing
+- Ready-to-use I/O formats
+- Parallel I/O and in situ visualization
+- Automated and productive work flow
 
 Install
 =======
 
-The C code in SOLVCON is intentionally made to be standard shared libraries
-rather than Python extension modules.  SOLVCON uses ctypes_ to load and call
-these binary codes.  In this way, the binary codes can be flexibly built and
-optimized for performance.  Hence, installing SOLVCON requires building these
-libraries.  SOLVCON uses SCons_ as the builder.  It is recommended to run
-SOLVCON on 64-bit Linux.
+Installing SOLVCON requires building shared libraries by using SCons_.  SOLVCON
+uses C to implement HPC code.  The C code in SOLVCON is designed to be standard
+shared libraries rather than Python extension modules.  SOLVCON uses ctypes_ to
+access the libraries.  As such, the binary code can be optimized more flexibly.
+It is recommended to run SOLVCON on 64-bit Linux.
 
 SOLVCON depends on the following packages: (i) Python_ 2.6 or 2.7 (preferred),
 (ii) SCons_, (iii) gcc_ (version 4.3 or higher) or icc, (iv) Numpy_ (version
@@ -52,19 +48,15 @@ pygraphviz for Epydoc formatting.  Debian_ or Ubuntu_ users can use the
 following command to install the dependencies::
 
   $ sudo apt-get install scons build-essential gcc liblapack-pic
-    libnetcdf-dev libnetcdf6 netcdf-bin
-    python2.7 python2.7-dev python-profiler python-numpy
-    libscotch-5.1 python-nose python-epydoc python-vtk
-    python-docutils python-pygraphviz 
+    libnetcdf-dev libnetcdf6 netcdf-bin libscotch-5.1
+    python2.7 python2.7-dev python-numpy python-vtk
+    python-nose python-epydoc python-docutils python-pygraphviz 
 
-CUDA_ needs to be separately installed and configured.  For using meshes with
-more then 35 million cells, SCOTCH-5.1 is recommended.  METIS-4 has issues on
-memory allocation for large graphs.
+Another optional dependency is CUDA_, which needs to be separately installed
+and configured.  For using meshes with more then 35 million cells, SCOTCH-5.1
+is recommended.  METIS-4 has issues on memory allocation for large graphs.
 
-The end of this section describes how to manually compile these dependencies
-with helper scripts shipped with SOLVCON.
-
-The three steps to install:
+There are three steps to install SOLVCON:
 
 1. Obtain the latest release from
    https://bitbucket.org/yungyuc/solvcon/downloads .  Unpack the source
@@ -75,13 +67,13 @@ The three steps to install:
      $ cd $SCSRC
      $ scons --download --extract
 
-   ``$SCSRC`` indicates the root directory of unpacked source tree.
+   where ``$SCSRC`` indicates the root directory of unpacked source tree.
 
 3. Install everything::
 
      $ python setup.py install
 
-The option ``--download`` used above asks the building script to download
+The option ``--download`` used above lets the building script download
 necessary external source packages, e.g., METIS_, from Internet.  Option
 ``--extract`` extracts the downloaded packages.
 
@@ -92,16 +84,21 @@ invoking the ``setup.py`` script::
 
  $ python setup.py install --user
 
-Install from Repository
-=======================
+SOLVCON is designed to work without explicit installation.  You can simply set
+the ``$PYTHONPATH`` environment variable to point to the unpacked source
+distribution (``$SCSRC``).  Compilation of binary code by using SCons is still
+required.
 
-To use the latest source from the code repository, you need to use Mercurial_
-to clone the repository to your local disk::
+Development Version
+===================
+
+To use the latest development version, you need to use Mercurial_ to access the
+source repository.  Clone the repository::
 
   $ sudo apt-get install mercurial
   $ hg clone https://bitbucket.org/yungyuc/solvcon
 
-and then follow steps 2 and 3.
+and follow steps 2 and 3 in Install_.
 
 Rebuild/Reinstall
 =================
@@ -122,13 +119,13 @@ If you have Nose_ installed, you can run::
 
   $ nosetests
 
-inside the source tree for unit tests.  To test installed version, use the
+inside the source tree for unit tests.  To test the installed package, use the
 following command instead::
 
   $ python -c 'import solvcon; solvcon.test()'
 
-When testing installed version, make sure your current directory does not have
-a sub-directory named as ``solvcon``.
+When testing the installed package, make sure your current directory does not
+have a sub-directory named as ``solvcon``.
 
 Because SOLVCON uses ssh_ as its default approach for remote procedure call
 (RPC), you need to set up the public key authentication for ssh, or some of the
@@ -140,39 +137,35 @@ Build and Install Dependencies (Optional)
 =========================================
 
 SOLVCON depends on a number of external software packages.  Although these
-dependencies should be met by using the package management of the OSes, getting
-the support staffs to install missing packages on a supercomputer/cluster takes
-time.  As such, SOLVCON provides a simple building system to facilitate the
-installation into a user's home directory or a customized path.
-
-Some Python installation does not include the VTK wrapper.  In this case, one
-might also need to use self-compiled Python runtime to use VTK in SOLVCON for
-in situ visualization.
+dependencies should be taken care by OSes, it takes time to get the support
+personnels to install missing packages on a cluster/supercomputer.  As such,
+SOLVCON provides a simple building system to facilitate the installation into a
+customizable location.
 
 The ``$SCSRC/ground`` directory contains scripts to build most of the packages
-that SOLVCON depends on.  The ``$SCSRC/ground/Makefile`` file has three default
-targets: ``binary``, ``python``, and ``vtk``.  And the additional ``all``
-target will run all of them in order.  The built files will be automatically
-installed into the path specified by the ``$SCROOT`` environment variable,
-which is set to ``$HOME/opt/scruntime`` by default.  The
+that SOLVCON depends on.  The ``$SCSRC/ground/get`` script downloads the source
+packages to be built.  The ``$SCSRC/ground/Makefile`` file has three default
+targets: ``binary``, ``python``, and ``vtk``.  The built files will be
+automatically installed into the path specified by the ``$SCROOT`` environment
+variable, which is set to ``$HOME/opt/scruntime`` by default.  The
 ``$SCROOT/bin/scvars.sh`` script will be created to export necessary
-environment variables for the installed dependencies, including the ``$SCROOT``
-environment variable.
+environment variables for the installed software, and the ``$SCROOT``
+environment variable itself.
 
 The ``$SCSRC/gcc`` directory contains scripts to build gcc_.  The
 ``$SCROOT/bin/scgccvars.sh`` script will be created to export necessary
-environment variables for the installed gcc.  The enabled languages include
+environment variables for the self-compiled gcc.  The enabled languages include
 only C, C++, and Fortran.  The default value of ``$SCROOT`` remains to be
-``$HOME/opt/scruntime``, while the built compiler will be installed into
-``$SCROOT/gcc``.  Note: (i) Do not use different ``$SCROOT`` when compiling
-``$SCSRC/gcc`` and ``$SCSRC/ground``. (ii) On hyper-threading CPUs the ``NP``
+``$HOME/opt/scruntime``, while the software will be installed into
+``$SCROOT/gcc``.  Note: (i) Do not use different ``$SCROOT`` when building
+``$SCSRC/gcc`` and ``$SCSRC/ground``.  (ii) On hyper-threading CPUs the ``NP``
 environment variable should be set to the actual number of cores, or
-compilation of gcc could exhausts system memory.
+compilation of gcc could exhaust system memory.
 
 ``$SCROOT/bin/scvars.sh`` and ``$SCROOT/bin/scgccvars.sh`` can be separately
-imported.  The two sets of packages reside in different directories and do not
-mix with each other nor system software.  Users can diable these environments
-by not importing the two scripts.
+sourced.  The two sets of packages reside in different directories and do not
+mix with each other nor system software.  Users can disable these environments
+by not sourcing the two scripts.
 
 Some packages have not been incorporated into the dependency building system
 described above.  Debian_ or Ubuntu_ users should install the additional
@@ -185,13 +178,6 @@ dependencies by using::
   libxt-dev
 
 These building scripts have only been tested with 64-bit Linux.
-
-Resources
-=========
-
-- Portal (with API document): http://solvcon.net/
-- Mailing list: http://groups.google.com/group/solvcon
-- Downloads: http://bitbucket.org/yungyuc/solvcon/downloads
 
 .. _CESE: http://www.grc.nasa.gov/WWW/microbus/
 .. _SCons: http://www.scons.org/
