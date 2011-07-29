@@ -23,7 +23,8 @@ solutions of partial differential equations (PDEs) by hybrid parallelism.
 SOLVCON uses the space-time Conservation Element and Solution Element (CESE_)
 method to solve generic conservation laws.  SOLVCON focuses on rapid
 development of high-performance computing (HPC) code for large-scale
-simulations.
+simulations.  SOLVCON is developed by using Python for the main structure, to
+incorporate C, CUDA_, or other programming languages for HPC.
 
 SOLVCON is released under `GNU GPLv2
 <http://www.gnu.org/licenses/gpl-2.0.html>`_, and developed by `Yung-Yu Chen
@@ -38,7 +39,7 @@ Key Features
 - Hybrid parallel computing
 - Ready-to-use I/O formats
 - Parallel I/O and in situ visualization
-- Automated and productive work flow
+- Automated work flow
 
 Install
 =======
