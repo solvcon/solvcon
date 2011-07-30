@@ -31,17 +31,24 @@ Topic :: Software Development :: Libraries :: Application Frameworks"""
 
 def write_readme():
     import solvcon
-    f = open('README.rst', 'w')
-    f.write("""==================
+    readme_new = ''.join([
+    """==================
 README for SOLVCON
 ==================
 
 :author: Yung-Yu Chen <yyc@solvcon.net>
 :copyright: c 2008-2011.
-""")
-    f.write(solvcon.__doc__)
-    f.write("""
-.. vim: set ft=rst ff=unix fenc=utf8:""")
+""", solvcon.__doc__,
+    """
+.. vim: set ft=rst ff=unix fenc=utf8:"""])
+    f = open('README.rst', 'r')
+    readme_old = f.read()
+    f.close()
+    if readme_new != readme_old:
+        print 'hi'
+        f = open('README.rst', 'w')
+        f.write(readme_new)
+        f.close()
 
 def main():
     import os, sys
