@@ -43,5 +43,6 @@ ldpathmunge () {
 pathmunge $SCROOT/gcc/bin
 manpathmunge $SCROOT/gcc/share/man
 ldpathmunge $SCROOT/gcc/lib
+ldpathmunge $SCROOT/gcc/lib64
 
 # vim: sw=2 ts=2 tw=76 et nu ft=sh:
