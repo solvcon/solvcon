@@ -817,5 +817,4 @@ class BlockIO(FormatIO):
                 fmt = 'IncenterBlockFormat'
             blf = blfregy[fmt]()
             stream = open(stream, 'rb')
-        print blf
         return blf.load(stream, bcmapper)
