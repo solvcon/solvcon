@@ -9,7 +9,7 @@ tmp/
 dep/
 dist/
 ground/downloaded/
-gcc/downloaded/
+soil/downloaded/
 MANIFEST
 solvcon.log
 *.pyc
