@@ -40,9 +40,9 @@ ldpathmunge () {
   export LD_LIBRARY_PATH
 }
 
-pathmunge $SCROOT/gcc/bin
-manpathmunge $SCROOT/gcc/share/man
-ldpathmunge $SCROOT/gcc/lib
-ldpathmunge $SCROOT/gcc/lib64
+pathmunge $SCROOT/soil/bin
+manpathmunge $SCROOT/soil/share/man
+ldpathmunge $SCROOT/soil/lib
+ldpathmunge $SCROOT/soil/lib64
 
 # vim: sw=2 ts=2 tw=76 et nu ft=sh:

@@ -165,13 +165,13 @@ variable, which is set to ``$HOME/opt/scruntime`` by default.  The
 environment variables for the installed software, and the ``$SCROOT``
 environment variable itself.
 
-The ``$SCSRC/gcc`` directory contains scripts to build gcc_.  The
+The ``$SCSRC/soil`` directory contains scripts to build gcc_.  The
 ``$SCROOT/bin/scgccvars.sh`` script will be created to export necessary
 environment variables for the self-compiled gcc.  The enabled languages include
 only C, C++, and Fortran.  The default value of ``$SCROOT`` remains to be
 ``$HOME/opt/scruntime``, while the software will be installed into
-``$SCROOT/gcc``.  Note: (i) Do not use different ``$SCROOT`` when building
-``$SCSRC/gcc`` and ``$SCSRC/ground``.  (ii) On hyper-threading CPUs the ``NP``
+``$SCROOT/soil``.  Note: (i) Do not use different ``$SCROOT`` when building
+``$SCSRC/soil`` and ``$SCSRC/ground``.  (ii) On hyper-threading CPUs the ``NP``
 environment variable should be set to the actual number of cores, or
 compilation of gcc could exhaust system memory.
 

@@ -10,9 +10,12 @@ New features:
   multi-threaded computing.  They were using a thread pool built-in SOLVCON for
   multi-threading.  OpenMP makes multi-threaded functions more flexible in
   argument specification.
-- Add the ``gcc/`` directory for providing building helpers for GCC 4.6.1.
+- Add the ``soil/`` directory for providing building helpers for GCC 4.6.1.
+  Note, the name ``gcc/`` is deliberately avoided for the directory, because of
+  a bug in gcc itself (bug id 48306
+  http://gcc.gnu.org/bugzilla/show_bug.cgi?id=48306 ).
 - Add ``-j`` command line option for building dependencies in the ``ground/``
-  directory and the ``gcc/`` directory.  Note that ATLAS doesn't work with
+  directory and the ``soil/`` directory.  Note that ATLAS doesn't work with
   ``make -j N``.
 
 0.0.7
