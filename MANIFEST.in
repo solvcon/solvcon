@@ -4,7 +4,7 @@ include doc/source/* doc/source/*/*
 include SCons* patch/*.patch
 include site_scons/site_tools/*.py
 include ground/*
-include gcc/*
+include soil/*
 recursive-include include *
 recursive-include src *
 recursive-include test *
