@@ -52,14 +52,14 @@ def mesher(cse):
     """
     import os
     from solvcon.helper import Cubit
-    itv = float(cse.io.basefn.split('_')[-1])/1000
+    itv = float(cse.io.meshfn)/1000
     cmds = open(os.path.join(os.path.dirname(__file__),
         'mrefl.tmpl')).read() % itv
     cmds = [cmd.strip() for cmd in cmds.strip().split('\n')]
     gn = Cubit(cmds, 2)()
     return gn.toblock(bcname_mapper=cse.condition.bcmap)
 
-def mrefl_base(casename=None, gamma=None, gasconst=None,
+def mrefl_base(casename=None, meshfn=None, gamma=None, gasconst=None,
     density=None, pressure=None, Ms=None,
     psteps=None, ssteps=None, **kw
 ):
@@ -98,7 +98,7 @@ def mrefl_base(casename=None, gamma=None, gasconst=None,
     # set up case.
     basedir = os.path.abspath(os.path.join(os.getcwd(), 'result'))
     cse = gasdyn.GasdynCase(basedir=basedir, rootdir=env.projdir,
-        basefn=casename, mesher=mesher, bcmap=bcmap, **kw)
+        basefn=casename, mesher=mesher, meshfn=meshfn, bcmap=bcmap, **kw)
     # informative.
     cse.runhooks.append(hook.ProgressHook,
         psteps=psteps, linewidth=ssteps/psteps,
@@ -132,13 +132,21 @@ def mrefl_base(casename=None, gamma=None, gasconst=None,
     return cse
 
 if __name__ == '__main__':
-    cse = mrefl_base('mrefl_10', gamma=1.4, gasconst=286.9,
+    import sys
+    if len(sys.argv) == 2 and sys.argv[1] == 'fine':
+        cse = mrefl_base('mreflf', meshfn='5', gamma=1.4, gasconst=286.9,
+            density=1.205, pressure=101325., Ms=1.5,
+            time_increment=2.75e-6, steps_run=1000, ssteps=100, psteps=2)
+        cse.init()
+        cse.run()
+        cse.cleanup()
+    cse = mrefl_base('mrefl', meshfn='10', gamma=1.4, gasconst=286.9,
         density=1.205, pressure=101325., Ms=1.5,
         time_increment=6.e-6, steps_run=500, ssteps=50, psteps=1)
     cse.init()
     cse.run()
     cse.cleanup()
-    cse = mrefl_base('mrefls_10', gamma=1.4, gasconst=286.9,
+    cse = mrefl_base('mrefls', meshfn='10', gamma=1.4, gasconst=286.9,
         density=1.205, pressure=101325., Ms=8.0,
         time_increment=1.e-6, steps_run=500, ssteps=50, psteps=1)
     cse.init()
