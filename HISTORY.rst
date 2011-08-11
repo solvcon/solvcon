@@ -1,5 +1,13 @@
-Upcoming
-========
+0.1
+===
+
+Release date: 2011/8/11 (GMT-0500)
+
+This release marks a milestone of SOLVCON.  Future development of SOLVCON will
+be directed for production use.  The planned directions include (i) the
+high-order CESE method, (ii) improving the scalability by consolidating
+distributed-memory parallel code, (iii) expanding the capabilities of the
+existing solver kernels, and (iv) incorporating more physical processes.
 
 New features:
 
