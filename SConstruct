@@ -44,7 +44,8 @@ class Archive(object):
     depdir = 'dep'
 
     pkgs = (
-        ('http://glaros.dtc.umn.edu/gkhome/fetch/sw/metis/metis-4.0.3.tar.gz',
+        ('http://glaros.dtc.umn.edu'
+         '/gkhome/fetch/sw/metis/OLD/metis-4.0.3.tar.gz',
          'd3848b454532ef18dc83e4fb160d1e10'),
     )
 
@@ -65,8 +66,8 @@ class Archive(object):
 
     @classmethod
     def digest(cls, f):
-        import md5
-        m = md5.new()
+        import hashlib
+        m = hashlib.md5()
         while True:
             data = f.read(cls.bufsize)
             m.update(data)

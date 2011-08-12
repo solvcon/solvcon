@@ -4,8 +4,8 @@
 Release date: 2011/8/11 (GMT-0500)
 
 This release marks a milestone of SOLVCON.  Future development of SOLVCON will
-be directed for production use.  The planned directions include (i) the
-high-order CESE method, (ii) improving the scalability by consolidating
+focus on production use.  The planned directions include (i) the high-order
+CESE method, (ii) improving the scalability by consolidating the
 distributed-memory parallel code, (iii) expanding the capabilities of the
 existing solver kernels, and (iv) incorporating more physical processes.
 
@@ -25,6 +25,10 @@ New features:
 - Add ``-j`` command line option for building dependencies in the ``ground/``
   directory and the ``soil/`` directory.  Note that ATLAS doesn't work with
   ``make -j N``.
+
+Bug-fix:
+
+- METIS changes its download URL.  Modify SConstruct accordingly.
 
 0.0.7
 =====
