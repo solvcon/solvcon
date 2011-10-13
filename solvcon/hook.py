@@ -421,7 +421,7 @@ class CollectHook(BlockHook):
         from numpy import isnan
         psteps = self.psteps
         istep = self.cse.execution.step_current
-        if istep%psteps != 0:
+        if istep%psteps != 0 and istep != self.cse.execution.steps_run:
             return
         vstep = self.cse.execution.varstep
         var = self.cse.execution.var
@@ -592,7 +592,7 @@ class MarchSave(VtkSave):
         exe = self.cse.execution
         istep = exe.step_current
         vstep = exe.varstep
-        if istep%psteps == 0:
+        if istep%psteps == 0 or istep == self.cse.execution.steps_run:
             assert istep == vstep   # data must be fresh.
             self._write(istep)
 
