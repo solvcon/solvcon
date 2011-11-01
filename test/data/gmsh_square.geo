@@ -1,0 +1,16 @@
+lc = 5.e-1;
+Point(1) = {1,1,0,lc};
+Point(2) = {-1,1,0,lc};
+Point(3) = {-1,-1,0,lc};
+Point(4) = {1,-1,0,lc};
+Line(1) = {1,2};
+Line(2) = {2,3};
+Line(3) = {3,4};
+Line(4) = {4,1};
+Line Loop(5) = {1,2,3,4};
+Plane Surface(6) = {5};
+Physical Line("top") = {1};
+Physical Line("left") = {2};
+Physical Line("bottom") = {3};
+Physical Line("right") = {4};
+Physical Surface("domain") = {6};
