@@ -577,6 +577,7 @@ class BlockCase(BaseCase):
         @rtype: solvcon.block.Block
         """
         import os, gzip
+        from .io.gmsh import Gmsh
         from .io.genesis import Genesis
         from .io.gambit import GambitNeutral
         from .io.block import BlockIO
@@ -596,6 +597,20 @@ class BlockCase(BaseCase):
                 return_filenames=True, domaintype=self.solver.domaintype)
             self.io.domain.wholefn = whole
             self.io.domain.splitfn = split
+        elif '.msh' in meshfn:
+            self._log_start('create_gmsh_object')
+            if meshfn.endswith('.gz'):
+                stream = gzip.open(meshfn)
+            else:
+                stream = open(meshfn)
+            gmh = Gmsh(stream)
+            gmh.load()
+            stream.close()
+            self._log_end('create_gmsh_object')
+            self._log_start('convert_gmsh_to_block')
+            obj = gmh.toblock(bcname_mapper=bcmapper,
+                use_incenter=self.solver.use_incenter)
+            self._log_end('convert_msh_to_block')
         elif meshfn.endswith('.g'):
             self._log_start('create_genesis_object')
             gn = Genesis(meshfn)

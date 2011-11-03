@@ -74,22 +74,9 @@ class PolygonIAnchor(gasdyn.GasdynIAnchor):
         svr.sol[:] = svr.soln[:]
 
 ################################################################################
-# Mesh generation and boundary condition processor.
-################################################################################
-def mesher(cse):
-    """
-    Generate a square according to the Gmsh script.
-    """
-    from solvcon.helper import Gmsh
-    cmds = open('square.geo').read()
-    cmds = [cmd.strip() for cmd in cmds.strip().split('\n')]
-    gmh = Gmsh(cmds)()
-    return gmh.toblock(bcname_mapper=cse.condition.bcmap)
-
-################################################################################
 # Basic configuration.
 ################################################################################
-def impl_base(casename=None, nside=None, rad=None,
+def implosion_base(casename=None, meshname=None, nside=None, rad=None,
     gamma=None, density=None, pressure0=None, pressure1=None,
     psteps=None, ssteps=None, **kw):
     """
@@ -115,7 +102,9 @@ def impl_base(casename=None, nside=None, rad=None,
     # set up case.
     basedir = os.path.abspath(os.path.join(os.getcwd(), 'result'))
     cse = gasdyn.GasdynCase(basedir=basedir, rootdir=env.projdir,
-        basefn=casename, mesher=mesher, bcmap=bcmap, **kw)
+        basefn=casename,
+        meshfn=os.path.join(env.find_scdata_mesh(), meshname),
+        bcmap=bcmap, **kw)
     # anchors for solvers.
     for name in 'Runtime', 'March', 'Tpool':
         cse.runhooks.append(getattr(anchor, name+'StatAnchor'))
@@ -145,13 +134,13 @@ def impl_base(casename=None, nside=None, rad=None,
     return cse
 
 @gasdyn.GasdynCase.register_arrangement
-def gmsh(casename, **kw):
+def implosion(casename, **kw):
     """
     The true arrangement which specifies necessary parameters for execution.
     """
-    return impl_base(casename=casename,
+    return implosion_base(casename=casename, meshname='gmsh_square.msh.gz',
         nside=5, rad=0.5, gamma=1.4, density=1.0, pressure0=0.1, pressure1=1.0,
-        time_increment=2.e-2, steps_run=1600, ssteps=50, psteps=1, **kw)
+        time_increment=1.e-2, steps_run=400, ssteps=10, psteps=1, **kw)
 
 if __name__ == '__main__':
     import solvcon

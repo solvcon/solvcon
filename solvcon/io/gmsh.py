@@ -411,7 +411,7 @@ class GmshIO(FormatIO):
     """
     Proxy to Gmsh file format.
     """
-    def load(self, stream, bcrej=None, bcname_mapper=None):
+    def load(self, stream, bcrej=None, bcmapper=None):
         """
         Load block from stream with BC mapper applied.
 
@@ -419,8 +419,8 @@ class GmshIO(FormatIO):
         @type stream: file or str
         @keyword bcrej: names of the BC to reject.
         @type bcrej: list
-        @keyword bcname_mapper: map name to bc type number.
-        @type bcname_mapper: dict
+        @keyword bcmapper: map name to bc type number.
+        @type bcmapper: dict
         @return: the loaded block.
         @rtype: solvcon.block.Block
         """
@@ -443,5 +443,5 @@ class GmshIO(FormatIO):
                     onlybcnames.append(bc.name)
         else:
             onlybcnames = None
-        blk = gmh.toblock(onlybcnames=onlybcnames, bcname_mapper=bcname_mapper)
+        blk = gmh.toblock(onlybcnames=onlybcnames, bcname_mapper=bcmapper)
         return blk
