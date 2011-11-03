@@ -1,0 +1,158 @@
+#!/usr/bin/env python2.6
+# -*- coding: UTF-8 -*-
+#
+# Copyright (C) 2011 Yung-Yu Chen <yyc@solvcon.net>.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+"""
+Example for implosion.  This example takes 1600 time steps and about 10 minutes
+to finish.
+"""
+
+from solvcon.anchor import Anchor
+from solvcon.kerpak import gasdyn
+
+################################################################################
+# Initializer.
+################################################################################
+class PolygonIAnchor(gasdyn.GasdynIAnchor):
+    def __init__(self, svr, **kw):
+        from numpy import array, pi
+        self.ctr = array(kw.pop('ctr', [0,0]), dtype='float64')
+        self.rot = float(kw.pop('rot', pi/2))
+        self.rad = float(kw.pop('rad'))
+        self.nside = int(kw.pop('nside'))
+        self.rho = float(kw.pop('rho'))
+        self.p0 = float(kw.pop('p0'))
+        self.p1 = float(kw.pop('p1'))
+        super(PolygonIAnchor, self).__init__(svr, **kw)
+    def provide(self):
+        from numpy import empty, array, cos, sin, pi
+        super(PolygonIAnchor, self).provide()
+        gamma = self.gamma
+        svr = self.svr
+        svr.soln[:,0].fill(self.rho)
+        svr.soln[:,1].fill(0.0)
+        svr.soln[:,2].fill(0.0)
+        if svr.ndim == 3:
+            svr.soln[:,3].fill(0.0)
+        svr.soln[:,svr.ndim+1].fill(self.p1/(gamma-1))
+        v0 = empty((svr.ngstcell+svr.ncell, svr.ndim), dtype='float64')
+        v1 = empty(svr.ndim, dtype='float64')
+        v2 = empty(svr.ndim, dtype='float64')
+        for iside in range(self.nside):
+            v0[:,0] = svr.clcnd[:,0] - self.ctr[0]
+            v0[:,1] = svr.clcnd[:,1] - self.ctr[1]
+            ang = 2.0*pi/self.nside * iside + self.rot
+            v1[0] = self.rad * cos(ang)
+            v1[1] = self.rad * sin(ang)
+            ang += 2.0*pi/self.nside
+            v2[0] = self.rad * cos(ang)
+            v2[1] = self.rad * sin(ang)
+            v1s = v1[0]**2 + v1[1]**2
+            v2s = v2[0]**2 + v2[1]**2
+            v01 = v0[:,0]*v1[0] + v0[:,1]*v1[1]
+            v02 = v0[:,0]*v2[0] + v0[:,1]*v2[1]
+            v12 = v1[0]*v2[0] + v1[1]*v2[1]
+            bcc0 = (v01*v2s - v02*v12)/(v1s*v2s - v12**2)
+            bcc1 = (v02*v1s - v01*v12)/(v1s*v2s - v12**2)
+            slct = (bcc0>0) & (bcc1>0) & ((bcc0+bcc1)<1)
+            svr.soln[slct,svr.ndim+1] = self.p0/(gamma-1)
+        svr.sol[:] = svr.soln[:]
+
+################################################################################
+# Mesh generation and boundary condition processor.
+################################################################################
+def mesher(cse):
+    """
+    Generate a square according to the Gmsh script.
+    """
+    from solvcon.helper import Gmsh
+    cmds = open('square.geo').read()
+    cmds = [cmd.strip() for cmd in cmds.strip().split('\n')]
+    gmh = Gmsh(cmds)()
+    return gmh.toblock(bcname_mapper=cse.condition.bcmap)
+
+################################################################################
+# Basic configuration.
+################################################################################
+def impl_base(casename=None, nside=None, rad=None,
+    gamma=None, density=None, pressure0=None, pressure1=None,
+    psteps=None, ssteps=None, **kw):
+    """
+    Fundamental configuration of the simulation and return the case object.
+
+    @return: the created Case object.
+    @rtype: solvcon.case.BlockCase
+    """
+    import os
+    from numpy import sqrt
+    from solvcon.conf import env
+    from solvcon.boundcond import bctregy
+    from solvcon.solver import ALMOST_ZERO
+    from solvcon import hook, anchor
+    from solvcon.kerpak import cuse
+    # set up BCs.
+    bcmap = {
+        'left': (bctregy.GasdynWall, {}),
+        'right': (bctregy.GasdynWall, {}),
+        'upper': (bctregy.GasdynWall, {}),
+        'lower': (bctregy.GasdynWall, {}),
+    }
+    # set up case.
+    basedir = os.path.abspath(os.path.join(os.getcwd(), 'result'))
+    cse = gasdyn.GasdynCase(basedir=basedir, rootdir=env.projdir,
+        basefn=casename, mesher=mesher, bcmap=bcmap, **kw)
+    # anchors for solvers.
+    for name in 'Runtime', 'March', 'Tpool':
+        cse.runhooks.append(getattr(anchor, name+'StatAnchor'))
+    # informative.
+    cse.runhooks.append(hook.BlockInfoHook)
+    cse.runhooks.append(hook.ProgressHook,
+        psteps=psteps, linewidth=ssteps/psteps)
+    cse.runhooks.append(cuse.CflHook, fullstop=False, psteps=ssteps,
+        cflmax=10.0, linewidth=ssteps/psteps)
+    # initializer.
+    cse.runhooks.append(anchor.FillAnchor, keys=('soln',), value=ALMOST_ZERO)
+    cse.runhooks.append(anchor.FillAnchor, keys=('dsoln',), value=0)
+    cse.runhooks.append(PolygonIAnchor, nside=nside, rad=rad, gamma=gamma,
+        rho=density, p0=pressure0, p1=pressure1)
+    # post processing.
+    cse.runhooks.append(gasdyn.GasdynOAnchor)
+    cse.runhooks.append(hook.PMarchSave, anames=[
+        ('soln', False, -4),
+        ('rho', True, 0),
+        ('p', True, 0),
+        ('T', True, 0),
+        ('ke', True, 0),
+        ('M', True, 0),
+        ('sch', True, 0),
+        ('v', True, 0.5),
+    ], fpdtype='float64', psteps=ssteps)
+    return cse
+
+@gasdyn.GasdynCase.register_arrangement
+def gmsh(casename, **kw):
+    """
+    The true arrangement which specifies necessary parameters for execution.
+    """
+    return impl_base(casename=casename,
+        nside=5, rad=0.5, gamma=1.4, density=1.0, pressure0=0.1, pressure1=1.0,
+        time_increment=2.e-2, steps_run=1600, ssteps=50, psteps=1, **kw)
+
+if __name__ == '__main__':
+    import solvcon
+    solvcon.go()

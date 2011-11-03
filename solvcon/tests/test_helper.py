@@ -1,6 +1,8 @@
 # -*- coding: UTF-8 -*-
 
+import os
 from unittest import TestCase
+from solvcon.conf import env
 
 class TestHelper(TestCase):
     def test_info(self):
@@ -58,3 +60,22 @@ class TestPrinter(TestCase):
         p('test message')
         self.assertEqual(sys.stdout.getvalue(), 'test message')
         sys.stdout = stdout
+
+from ..io.gmsh import GmshIO
+sblk = GmshIO().load(os.path.join(env.datadir, 'gmsh_square.msh.gz'))
+cblk = GmshIO().load(os.path.join(env.datadir, 'gmsh_cube.msh.gz'))
+class TestGmsh(TestCase):
+    def testSquare(self):
+        from ..helper import Gmsh
+        cmds = open(os.path.join(env.datadir, 'gmsh_square.geo')).read()
+        cmds = [cmd.strip() for cmd in cmds.strip().split('\n')]
+        gmh = Gmsh(cmds)()
+        blk = gmh.toblock()
+        self.assertEqual(len(sblk.bclist), len(blk.bclist))
+    def testCube(self):
+        from ..helper import Gmsh
+        cmds = open(os.path.join(env.datadir, 'gmsh_cube.geo')).read()
+        cmds = [cmd.strip() for cmd in cmds.strip().split('\n')]
+        gmh = Gmsh(cmds)()
+        blk = gmh.toblock()
+        self.assertEqual(len(cblk.bclist), len(blk.bclist))

@@ -213,3 +213,50 @@ class Cubit(object):
         finally:
             shutil.rmtree(wdir)
         return gn
+
+class Gmsh(object):
+    """
+    Delegate Gmsh command through journaling file and load the generated mesh.
+
+    @ivar cmds: commands to be sent to Cubit.
+    @itype cmds: list
+    """
+    def __init__(self, cmds):
+        self.cmds = cmds
+        self.stdout = None
+    def __call__(self):
+        """
+        Launch Gmsh for generating mesh and then load the generated file.
+
+        @return: the loaded Gmsh object.
+        @rtype: solvcon.io.gmsh.Gmsh
+        """
+        from tempfile import mkdtemp
+        import os, shutil
+        from subprocess import Popen, PIPE, STDOUT
+        from .io.gmsh import Gmsh
+        # prepare working directory.
+        wdir = mkdtemp()
+        cmdp = os.path.join(wdir, 'gmsh.geo')
+        mshp = os.path.join(wdir, 'gmsh.msh')
+        # prepare journaling file.
+        cmds = self.cmds[:]
+        cmdf = open(cmdp, 'w')
+        cmdf.write('\n'.join(cmds))
+        cmdf.write('\n')
+        cmdf.close()
+        # call Gmsh and get the data.
+        cli = 'gmsh %s -3 -o %s' % (cmdp, mshp)
+        try:
+            pobj = Popen(cli, shell=True, stdout=PIPE, stderr=STDOUT)
+            self.stdout = pobj.stdout.read()
+            mshf = open(mshp)
+            gmh = Gmsh(mshf)
+            gmh.load()
+            mshf.close()
+        except:
+            gmh = None
+            raise
+        finally:
+            shutil.rmtree(wdir)
+        return gmh
