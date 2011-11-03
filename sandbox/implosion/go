@@ -18,8 +18,7 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 """
-Example for implosion.  This example takes 1600 time steps and about 10 minutes
-to finish.
+Example for implosion that uses solvcon.kerpak.cuse.
 """
 
 from solvcon.anchor import Anchor
