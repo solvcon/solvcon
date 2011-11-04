@@ -163,7 +163,7 @@ class Gmsh(object):
         version_number = float(version_number)
         file_type = int(file_type)
         data_size = int(data_size)
-        assert version_number == 2.2
+        assert version_number > 2
         assert file_type == 0
         assert data_size == 8
     def _load_nodes(self):
