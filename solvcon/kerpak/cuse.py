@@ -130,7 +130,8 @@ class CuseSolverExedata(Structure):
         ('fctpn', c_void_p), ('cltpn', c_void_p), ('clgrp', c_void_p),
         ('grpda', c_void_p),
         # metric array.
-        ('ndcrd', c_void_p), ('fccnd', c_void_p), ('fcnml', c_void_p),
+        ('ndcrd', c_void_p),
+        ('fccnd', c_void_p), ('fcnml', c_void_p), ('fcara', c_void_p),
         ('clcnd', c_void_p), ('clvol', c_void_p),
         ('cecnd', c_void_p), ('cevol', c_void_p), ('sfmrc', c_void_p),
         # connectivity array.
@@ -140,7 +141,7 @@ class CuseSolverExedata(Structure):
         ('amsca', c_void_p), ('amvec', c_void_p),
         ('sol', c_void_p), ('dsol', c_void_p), ('solt', c_void_p),
         ('soln', c_void_p), ('dsoln', c_void_p),
-        ('cfl', c_void_p), ('ocfl', c_void_p),
+        ('stm', c_void_p), ('cfl', c_void_p), ('ocfl', c_void_p),
     ]
     del c_int, c_double, c_void_p
 
@@ -168,11 +169,12 @@ class CuseSolverExedata(Structure):
             self.__set_pointer(svr, aname, 0)
         for aname in ('ndcrd',):
             self.__set_pointer(svr, aname, svr.ngstnode)
-        for aname in ('fctpn', 'fcnds', 'fccls', 'fccnd', 'fcnml'):
+        for aname in ('fctpn', 'fcnds', 'fccls', 'fccnd', 'fcnml', 'fcara'):
             self.__set_pointer(svr, aname, svr.ngstface)
         for aname in ('cltpn', 'clgrp', 'clcnd', 'clvol', 'cecnd', 'cevol',
                       'clnds', 'clfcs', 'amsca', 'amvec',
-                      'sol', 'dsol', 'solt', 'soln', 'dsoln', 'cfl', 'ocfl'):
+                      'sol', 'dsol', 'solt', 'soln', 'dsoln',
+                      'stm', 'cfl', 'ocfl'):
             self.__set_pointer(svr, aname, svr.ngstcell)
 
 class CuseSolver(BlockSolver):
@@ -268,7 +270,7 @@ class CuseSolver(BlockSolver):
         self.cuarr_map = dict()
         for key in ('ndcrd',):
             self.cuarr_map[key] = self.ngstnode
-        for key in ('fcnds', 'fccls', 'fccnd', 'fcnml'):
+        for key in ('fcnds', 'fccls', 'fccnd', 'fcnml', 'fcara'):
             self.cuarr_map[key] = self.ngstface
         for key in ('clfcs', 'clcnd', 'cltpn'):
             self.cuarr_map[key] = self.ngstcell
@@ -290,10 +292,11 @@ class CuseSolver(BlockSolver):
         self.soln = empty((ngstcell+ncell, neq), dtype=fpdtype)
         self.dsol = empty((ngstcell+ncell, neq, ndim), dtype=fpdtype)
         self.dsoln = empty((ngstcell+ncell, neq, ndim), dtype=fpdtype)
+        self.stm = empty((ngstcell+ncell, neq), dtype=fpdtype)
         self.cfl = empty(ngstcell+ncell, dtype=fpdtype)
         self.ocfl = empty(ngstcell+ncell, dtype=fpdtype)
         for key in ('amsca', 'amvec', 'solt', 'sol', 'soln', 'dsol', 'dsoln',
-            'cfl', 'ocfl'):
+            'stm', 'cfl', 'ocfl'):
             self.cuarr_map[key] = self.ngstcell
 
     @property

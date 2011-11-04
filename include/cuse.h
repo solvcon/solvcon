@@ -53,11 +53,11 @@ typedef struct {
     int *fctpn, *cltpn, *clgrp;
     double *grpda;
     // geometry array.
-    double *ndcrd, *fccnd, *fcnml, *clcnd, *clvol, *cecnd, *cevol, *sfmrc;
+    double *ndcrd, *fccnd, *fcnml, *fcara, *clcnd, *clvol, *cecnd, *cevol, *sfmrc;
     // connectivity array.
     int *fcnds, *fccls, *clnds, *clfcs;
     // solutions array.
-    double *amsca, *amvec, *sol, *dsol, *solt, *soln, *dsoln, *cfl, *ocfl;
+    double *amsca, *amvec, *sol, *dsol, *solt, *soln, *dsoln, *stm, *cfl, *ocfl;
 } exedata;
 
 /*
