@@ -370,9 +370,9 @@ class Gmsh(object):
         bfcndh = dict()
         for ifc in bfcs:
             for ind in blk.fcnds[ifc,1:blk.fcnds[ifc,0]+1]:
-                lst = bfcndh.get(ind, list())
-                lst.append(ifc)
-                bfcndh[ind] = lst
+                fset = bfcndh.get(ind, set())
+                fset.add(ifc)
+                bfcndh[ind] = fset
         for name, dim, els in self.physics:
             if dim == self.ndim:
                 continue
@@ -382,11 +382,11 @@ class Gmsh(object):
             for iel in els:
                 elem = self.elems[iel]
                 nnd = elem[0]
-                # search for face.
                 nds = self.ndmap[elem[1:1+nnd]-1]
-                fset = set(bfcndh[nds[0]])
-                for ind in nds[1:]:
-                    fset &= set(bfcndh[ind])
+                # search for face.
+                fset = bfcndh[nds[0]] & bfcndh[nds[1]]
+                for ind in nds[2:]:
+                    fset &= bfcndh[ind]
                 assert len(fset) == 1   # should find only 1 face.
                 bndfcs.append(fset.pop())
             assert len(bndfcs) == len(els)  # must find everything.
