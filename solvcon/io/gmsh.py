@@ -365,8 +365,16 @@ class Gmsh(object):
 
         @return: nothing.
         """
-        from numpy import empty
+        from numpy import arange, empty
         from ..boundcond import BC
+        bfcs = arange(blk.nface, dtype='int32')[blk.fccls[:,1] < 0]
+        nbfc = bfcs.shape[0]
+        bfcndh = dict()
+        for ifc in bfcs:
+            for ind in blk.fcnds[ifc,1:blk.fcnds[ifc,0]+1]:
+                lst = bfcndh.get(ind, list())
+                lst.append(ifc)
+                bfcndh[ind] = lst
         for name, dim, els in self.physics:
             if dim == self.ndim:
                 continue
@@ -376,23 +384,14 @@ class Gmsh(object):
             for iel in els:
                 elem = self.elems[iel]
                 nnd = elem[0]
+                # search for face.
                 nds = self.ndmap[elem[1:1+nnd]-1]
-                # search for face.  XXX: this algorithm is EXTREMELY SLOW.
-                nface = blk.nface
-                ifc = 0
-                while ifc < nface:
-                    got = True
-                    for nd in nds:
-                        if nd not in blk.fcnds[ifc,1:]:
-                            got = False
-                            break
-                    if got:
-                        break
-                    ifc += 1
-                if ifc == nface:
-                    raise ValueError('nothing found for %s' % name)
-                bndfcs.append(ifc)
-            assert len(bndfcs) == len(els)  # must fine everything.
+                fset = set(bfcndh[nds[0]])
+                for ind in nds[1:]:
+                    fset &= set(bfcndh[ind])
+                assert len(fset) == 1   # should find only 1 face.
+                bndfcs.append(fset.pop())
+            assert len(bndfcs) == len(els)  # must find everything.
             if not bndfcs:  # skip empty physics group.
                 continue
             bcname_mapper = dict() if bcname_mapper is None else bcname_mapper
