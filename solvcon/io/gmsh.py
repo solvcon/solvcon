@@ -367,6 +367,7 @@ class Gmsh(object):
         from ..boundcond import BC
         bfcs = arange(blk.nface, dtype='int32')[blk.fccls[:,1] < 0]
         nbfc = bfcs.shape[0]
+        # make a hash table for boundary faces with nodes as keys.
         bfcndh = dict()
         for ifc in bfcs:
             for ind in blk.fcnds[ifc,1:blk.fcnds[ifc,0]+1]:
