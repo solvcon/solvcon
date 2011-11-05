@@ -350,9 +350,7 @@ class Gmsh(object):
             blk.grpnames.append('default')
     def _convert_boundary(self, onlybcnames, bcname_mapper, fpdtype, blk):
         """
-        Convert boundary information from Gmsh to SOLVCON block.  Note: the
-        face matching algorithm is EXTREMELY SLOW and needs to be redesigned
-        for large meshes.
+        Convert boundary information from Gmsh to SOLVCON block.
 
         @param onlybcnames: positively list wanted names of BCs.
         @type onlybcnames: list
