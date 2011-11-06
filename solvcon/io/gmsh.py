@@ -371,9 +371,7 @@ class Gmsh(object):
         bfcndh = dict()
         for ifc in bfcs:
             for ind in blk.fcnds[ifc,1:blk.fcnds[ifc,0]+1]:
-                fset = bfcndh.get(ind, set())
-                fset.add(ifc)
-                bfcndh[ind] = fset
+                bfcndh.setdefault(ind, set()).add(ifc)
         for name, dim, els in self.physics:
             if dim == self.ndim:
                 continue
