@@ -6,7 +6,7 @@ binary: build/BLAS/make.log build/lapack-3.3.1/make.log \
 	build/ATLAS/ATLAS_LINUX/make.log \
 	build/netcdf-4.1.2/make.log build/libscotchmetis.so \
 	build/Python-2.7.2/make.log \
-	$(SCBIN)/scvars.sh
+	$(SCBIN)/scvars.sh $(SCBIN)/scvars.csh
 
 python: build/mercurial-1.9/build \
 	build/numpy-1.6.1/build build/scons-2.0.1/build \
@@ -18,28 +18,28 @@ all: binary python vtk
 
 build/BLAS/make.log:
 	mkdir -p build
-	cd build && tar xf ../downloaded/blas.tgz
+	cd build && tar xfz ../downloaded/blas.tgz
 	cd build/BLAS && ../../build-blas.sh
 
 build/lapack-3.3.1/make.log:
 	mkdir -p build
-	cd build && tar xf ../downloaded/lapack-3.3.1.tgz
+	cd build && tar xfz ../downloaded/lapack-3.3.1.tgz
 	cd build/lapack-3.3.1 && ../../build-lapack.sh
 
 build/ATLAS/ATLAS_LINUX/make.log:
 	mkdir -p build
-	cd build && tar xf ../downloaded/atlas3.8.4.tar.bz2
+	cd build && tar xfj ../downloaded/atlas3.8.4.tar.bz2
 	cd build/ATLAS && ../../build-atlas.sh
 
 build/netcdf-4.1.2/make.log:
 	mkdir -p build
-	cd build && tar xf ../downloaded/netcdf-4.1.2.tar.gz
+	cd build && tar xfz ../downloaded/netcdf-4.1.2.tar.gz
 	cd build/netcdf-4.1.2 && ../../build-netcdf.sh
 	cd build/netcdf-4.1.2 && make install > install.log 2>&1
 
 build/libscotchmetis.so:
 	mkdir -p build
-	cd build && tar xf ../downloaded/scotch_5.1.11.tar.gz
+	cd build && tar xfz ../downloaded/scotch_5.1.11.tar.gz
 	cd build/scotch_5.1.11/src && \
 		cp ../../../scotch_Makefile.inc Makefile.inc && \
 		make > make.log 2>&1
@@ -49,7 +49,7 @@ build/libscotchmetis.so:
 
 build/Python-2.7.2/make.log:
 	mkdir -p build
-	cd build && tar xf ../downloaded/Python-2.7.2.tar.bz2
+	cd build && tar xfj ../downloaded/Python-2.7.2.tar.bz2
 	cd build/Python-2.7.2 && ../../build-python.sh
 	cd build/Python-2.7.2 && make install > install.log 2>&1
 	rm -f $(SCBIN)/python $(SCBIN)/python-config
@@ -61,49 +61,52 @@ build/Python-2.7.2/make.log:
 $(SCBIN)/scvars.sh:
 	$(SCBIN)/python2.7 create-scvars.py
 
+$(SCBIN)/scvars.csh:
+	$(SCBIN)/python2.7 create-scvars.py
+
 build/mercurial-1.9/build:
 	mkdir -p build
-	cd build && tar xf ../downloaded/mercurial-1.9.tar.gz
+	cd build && tar xfz ../downloaded/mercurial-1.9.tar.gz
 	cd build/mercurial-1.9 && \
 		$(SCBIN)/python2.7 setup.py install > install2.7.log 2>&1
 
 build/numpy-1.6.1/build:
 	mkdir -p build
-	cd build && tar xf ../downloaded/numpy-1.6.1.tar.gz
+	cd build && tar xfz ../downloaded/numpy-1.6.1.tar.gz
 	cd build/numpy-1.6.1 && ../../generate-numpy.py
 	cd build/numpy-1.6.1 && \
 		$(SCBIN)/python2.7 setup.py install > install2.7.log 2>&1
 
 build/scons-2.0.1/build:
 	mkdir -p build
-	cd build && tar xf ../downloaded/scons-2.0.1.tar.gz
+	cd build && tar xfz ../downloaded/scons-2.0.1.tar.gz
 	cd build/scons-2.0.1 && \
 		$(SCBIN)/python2.7 setup.py install > install2.7.log 2>&1
 	$(SCBIN)/python2.7 modify-pyshebang.py $(SCBIN)/scons*
 
 build/nose-1.0.0/build:
 	mkdir -p build
-	cd build && tar xf ../downloaded/nose-1.0.0.tar.gz
+	cd build && tar xfz ../downloaded/nose-1.0.0.tar.gz
 	cd build/nose-1.0.0 && \
 		$(SCBIN)/python2.7 setup.py install > install2.7.log 2>&1
 	$(SCBIN)/python2.7 modify-pyshebang.py $(SCBIN)/nosetests*
 
 build/epydoc-3.0.1/build:
 	mkdir -p build
-	cd build && tar xf ../downloaded/epydoc-3.0.1.tar.gz
+	cd build && tar xfz ../downloaded/epydoc-3.0.1.tar.gz
 	cd build/epydoc-3.0.1 && \
 		$(SCBIN)/python2.7 setup.py install > install2.7.log 2>&1
 	$(SCBIN)/python2.7 modify-pyshebang.py $(SCBIN)/epydoc*
 
 build/cmake-2.8.5/make.log:
 	mkdir -p build
-	cd build && tar xf ../downloaded/cmake-2.8.5.tar.gz
+	cd build && tar xfz ../downloaded/cmake-2.8.5.tar.gz
 	cd build/cmake-2.8.5 && ../../build-cmake.sh
 
 build/vtk-5.6.1/make.log:
 	mkdir -p build/vtk-5.6.1
-	cd build && tar xf ../downloaded/vtk-5.6.1.tar.gz
-	cd build && tar xf ../downloaded/vtkdata-5.6.1.tar.gz
+	cd build && tar xfz ../downloaded/vtk-5.6.1.tar.gz
+	cd build && tar xfz ../downloaded/vtkdata-5.6.1.tar.gz
 	cd build/vtk-5.6.1 && ../../build-vtk.sh
 
 clean:

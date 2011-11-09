@@ -1,0 +1,128 @@
+#!/usr/bin/env python
+
+class Command(object):
+    def __init__(self):
+        from optparse import OptionParser, OptionGroup
+
+        self._usage = '%prog <args> ... <ops> ...'
+
+        op = OptionParser(usage=self._usage)
+
+        opg = OptionGroup(op, 'Proxy')
+        opg.add_option('--proxy-host', action='store',
+            dest='proxy_host', default='',
+            help='Host name of the proxy.')
+        opg.add_option('--proxy-port', action='store',
+            dest='proxy_port', default='80',
+            help='Port number of the proxy.')
+        opg.add_option('--proxy-user', action='store',
+            dest='proxy_user', default='',
+            help='User name of the proxy.')
+        op.add_option_group(opg)
+        self.opg_proxy = opg
+
+        self.op = op
+        self._opargs = None
+    @property
+    def opargs(self):
+        if not self._opargs:
+            ops, args = self.op.parse_args()
+            narg = len(args)
+            if narg >= 1:
+                args = args[1:]
+            else:
+                args = []
+            self._opargs = ops, args
+        return self._opargs
+    def __getattr__(self, key):
+        return getattr(self.opargs[0], key)
+clp = Command()
+
+bufsize = 1024*1024
+
+def get_pkgs():
+    from ConfigParser import ConfigParser
+    cfg = ConfigParser()
+    cfg.read('get.ini')
+    for sec in cfg.sections():
+        if cfg.has_option(sec, 'url') and cfg.has_option(sec, 'md5'):
+            yield cfg.get(sec, 'url'), cfg.get(sec, 'md5')
+
+def digest(f):
+    try:
+        import hashlib
+        m = hashlib.md5()
+    except:
+        import md5
+        m = md5.new()
+    while True:
+        data = f.read(bufsize)
+        m.update(data)
+        if len(data) < bufsize: break
+    return m.hexdigest()
+
+def download(url, cksum):
+    import sys
+    import os
+    import urllib, urllib2
+    from urlparse import urlparse
+    up = urlparse(url)
+    fn = os.path.join('downloaded', up[2].split('/')[-1])
+    if not (os.path.exists('downloaded') and os.path.isdir('downloaded')):
+        os.makedirs('downloaded')
+    if os.path.exists(fn):
+        if cksum and cksum != digest(open(fn, 'rb')):
+            sys.stdout.write("%s checksum mismatch, delete old.\n" % fn)
+            os.unlink(fn)
+        else:
+            sys.stdout.write("%s exists.\n" % fn)
+            return False
+    sys.stdout.write("Download %s from %s: " % (fn, url))
+    sys.stdout.flush()
+    uf = urllib2.urlopen(url)
+    f = open(fn, 'wb')
+    sys.stdout.flush()
+    while True:
+        data = uf.read(bufsize)
+        sys.stdout.write('.')
+        sys.stdout.flush()
+        f.write(data)
+        if len(data) < bufsize: break
+    uf.close()
+    f.close()
+    if cksum:
+        if cksum != digest(open(fn, 'rb')):
+            sys.stdout.write("note, %s checksum mismatch!\n" % fn)
+        else:
+            sys.stdout.write("%s checksum OK.\n" % fn)
+    else:
+        sys.stdout.write("no checksum defined for %s .\n" % fn)
+    sys.stdout.write(" done.\n")
+
+def main():
+    import urllib, urllib2
+    import getpass
+    if clp.proxy_host:
+        proxy = dict(
+            host=clp.proxy_host,
+            port=clp.proxy_port,
+        )
+        if clp.proxy_user:
+            proxy.update(dict(
+                user=clp.proxy_user,
+                passwd=getpass.getpass(),
+            ))
+        for key in proxy:
+            if isinstance(proxy[key], basestring):
+                proxy[key] = urllib.quote(proxy[key])
+        proxyurl = 'http://%(user)s:%(passwd)s@%(host)s:%(port)s' % proxy
+        proxy_handler = urllib2.ProxyHandler({
+            'http': proxyurl, 'https': proxyurl})
+        opener = urllib2.build_opener(proxy_handler)
+        opener.addheaders = [('User-agent', 'SOLVCON')]
+        urllib2.install_opener(opener)
+    for url, cksum in get_pkgs():
+        download(url, cksum)
+
+if __name__ == '__main__':
+    main()
