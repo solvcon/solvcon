@@ -243,7 +243,7 @@ int bound_wall_dsoln(exedata *exd, int nbnd, int *facn) {
         pten = (double(*)[NDIM])(pjdsoln+NDIM);
         for (it=0; it<NDIM; it++) {
             for (jt=0; jt<NDIM; jt++) {
-                vmt[it][jt] = mvt[it][0]*vec[1][jt] + mat[it][1]*vec[2][jt]
+                vmt[it][jt] = mvt[it][0]*vec[1][jt] + mvt[it][1]*vec[2][jt]
 #if NDIM == 3
                             + mvt[it][2]*vec[3][jt]
 #endif
