@@ -223,7 +223,7 @@ class mesh(Command):
         """
         from .helper import info
         # refresh formatio registry.
-        from .io import gambit, genesis, block, domain
+        from .io import gambit, genesis, gmsh, block, domain
         from .io.core import fioregy
         iio = oio = None
         if ops.formats:
@@ -238,6 +238,8 @@ class mesh(Command):
                 iio = 'BlockIO'
             elif fn.endswith('.g'):
                 iio = 'GenesisIO'
+            elif '.msh' in fn:
+                iio = 'GmshIO'
             elif '.neu' in fn:
                 iio = 'NeutralIO'
             else:
