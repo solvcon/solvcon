@@ -1,14 +1,15 @@
 Upcoming
 ========
 
-Release date: 2011/11 (GMT+0800)
+Release date: 2011/12 (GMT+0800)
 
 This release fixes several bugs add a loader of Gmsh mesh format.
 
 New features:
 
 - Add a loader for Gmsh ASCII mesh format.  The loader locates in
-  solvcon.io.gmsh and is implemented as pure Python code.
+  solvcon.io.gmsh and is implemented as pure Python code.  ``scg mesh`` command
+  line tool can recognize the format.
 - Revamp the dependency building system to support older OSes and proxies that
   need authentication.
 
