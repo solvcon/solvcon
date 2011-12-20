@@ -30,6 +30,24 @@ def str_of(dtype):
             return dtypestr
     raise TypeError
 
+def guess_dllname(dllname):
+    """
+    Guess the name for a shared object file based on the platform the code is
+    running on.
+
+    @param dllname: the original name of the shared object file.
+    @type dllname: str
+    @return: the guessed full name of the shared object file.
+    @rtype: str
+    """
+    import sys
+    if sys.platform.startswith('win'):
+        tmpl = '%s.dll'
+    elif sys.platform == 'darwin':
+        tmpl = 'lib%s.dylib'
+    else:
+        tmpl = 'lib%s.so'
+    return tmpl % dllname
 cdllcache = dict()
 def loadcdll(location, libname):
     """
@@ -43,14 +61,13 @@ def loadcdll(location, libname):
     @return: ctypes library.
     @rtype: ctypes.CDLL
     """
-    import sys, os
+    import os
     from ctypes import CDLL
-    # initialize solver function.
-    tmpl = '%s.dll' if sys.platform.startswith('win') else 'lib%s.so'
+    libname = guess_dllname(libname)
     libdir = os.path.abspath(location)
     if not os.path.isdir(libdir):
         libdir = os.path.dirname(libdir)
-    libpath = os.path.join(libdir, tmpl%libname)
+    libpath = os.path.join(libdir, libname)
     return cdllcache.setdefault(libpath, CDLL(libpath))
 def getcdll(libname, location=None, raise_on_fail=True):
     """

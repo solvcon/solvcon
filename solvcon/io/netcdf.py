@@ -31,10 +31,11 @@ http://www.unidata.ucar.edu/software/netcdf/index.html
 _libs = dict()
 def get_lib(path):
     from ctypes import CDLL
+    from ..dependency import guess_dllname
     if path in _libs:
         lib = _libs[path]
     else:
-        lib = _libs[path] = CDLL('libnetcdf.so')
+        lib = _libs[path] = CDLL(guess_dllname('netcdf'))
     return lib
 
 class NetCDF(object):
