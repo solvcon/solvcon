@@ -1,121 +1,179 @@
+# Copyright (C) 2011 Yung-Yu Chen <yyc@solvcon.net>.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
 export SCROOT?=$(HOME)/opt/scruntime
 export SCBIN=$(SCROOT)/bin
+export SCLIB=$(SCROOT)/lib
+export SCETC=$(SCROOT)/etc
+export TMPDL=downloaded/
+export TMPBLD=build/
 export NP?=$(`cat /proc/cpuinfo | grep processor | wc -l`)
 
-binary: build/BLAS/make.log build/lapack-3.3.1/make.log \
-	build/ATLAS/ATLAS_LINUX/make.log \
-	build/netcdf-4.1.2/make.log build/libscotchmetis.so \
-	build/Python-2.7.2/make.log \
-	$(SCBIN)/scvars.sh $(SCBIN)/scvars.csh
+default: basictool basiclib pybin numlib pylib pytool
 
-python: build/mercurial-1.9/build \
-	build/numpy-1.6.1/build build/scons-2.0.1/build \
-	build/nose-1.0.0/build build/epydoc-3.0.1/build
+all: default vislib
 
-vtk: build/cmake-2.8.5/make.log build/vtk-5.6.1/make.log
+$(SCETC)/scvars.sh:
+	mkdir -p $(TMPBLD) $(SCBIN) $(SCLIB) $(SCETC)
+	./create-scvars.sh
 
-all: binary python vtk
+################################################################################
+# Start basictool.
+################################################################################
 
-build/BLAS/make.log:
-	mkdir -p build
-	cd build && tar xfz ../downloaded/blas.tgz
-	cd build/BLAS && ../../build-blas.sh
+basictool: $(SCETC)/scvars.sh \
+	$(SCETC)/cmake-2.8.5
 
-build/lapack-3.3.1/make.log:
-	mkdir -p build
-	cd build && tar xfz ../downloaded/lapack-3.3.1.tgz
-	cd build/lapack-3.3.1 && ../../build-lapack.sh
+$(SCETC)/cmake-2.8.5:
+	./build-cmake.sh cmake-2.8.5
+	touch $(SCETC)/cmake-2.8.5
 
-build/ATLAS/ATLAS_LINUX/make.log:
-	mkdir -p build
-	cd build && tar xfj ../downloaded/atlas3.8.4.tar.bz2
-	cd build/ATLAS && ../../build-atlas.sh
+################################################################################
+# End basictool.
+################################################################################
 
-build/netcdf-4.1.2/make.log:
-	mkdir -p build
-	cd build && tar xfz ../downloaded/netcdf-4.1.2.tar.gz
-	cd build/netcdf-4.1.2 && ../../build-netcdf.sh
-	cd build/netcdf-4.1.2 && make install > install.log 2>&1
+################################################################################
+# Begin basiclib.
+################################################################################
 
-build/libscotchmetis.so:
-	mkdir -p build
-	cd build && tar xfz ../downloaded/scotch_5.1.11.tar.gz
-	cd build/scotch_5.1.11/src && \
-		cp ../../../scotch_Makefile.inc Makefile.inc && \
-		make > make.log 2>&1
-	cd build/scotch_5.1.11 && \
-		gcc -shared -o ../libscotchmetis.so \
-		-Llib -lscotch src/libscotchmetis/*.o
+basiclib: $(SCETC)/scvars.sh \
+	$(SCETC)/blas $(SCETC)/lapack-3.3.1 $(SCETC)/atlas3.8.4
 
-build/Python-2.7.2/make.log:
-	mkdir -p build
-	cd build && tar xfj ../downloaded/Python-2.7.2.tar.bz2
-	cd build/Python-2.7.2 && ../../build-python.sh
-	cd build/Python-2.7.2 && make install > install.log 2>&1
-	rm -f $(SCBIN)/python $(SCBIN)/python-config
-	mv $(SCBIN)/pydoc $(SCBIN)/pydoc-2.7
-	mv $(SCBIN)/idle $(SCBIN)/idle-2.7
-	mv $(SCBIN)/2to3 $(SCBIN)/2to3-2.7
-	mv $(SCBIN)/smtpd.py $(SCBIN)/smtpd-2.7.py
+$(SCETC)/blas:
+	./build-blas.sh blas
+	touch $(SCETC)/blas
 
-$(SCBIN)/scvars.sh:
-	$(SCBIN)/python2.7 create-scvars.py
+$(SCETC)/lapack-3.3.1: $(SCETC)/blas
+	./build-lapack.sh lapack-3.3.1
+	touch $(SCETC)/lapack-3.3.1
 
-$(SCBIN)/scvars.csh:
-	$(SCBIN)/python2.7 create-scvars.py
+$(SCETC)/atlas3.8.4:
+	./build-atlas.sh atlas3.8.4
+	touch $(SCETC)/atlas3.8.4
 
-build/mercurial-1.9/build:
-	mkdir -p build
-	cd build && tar xfz ../downloaded/mercurial-1.9.tar.gz
-	cd build/mercurial-1.9 && \
+################################################################################
+# End basiclib.
+################################################################################
+
+################################################################################
+# Begin pybin.
+################################################################################
+
+pybin: $(SCETC)/scvars.sh \
+	$(SCETC)/Python-2.7.2
+
+$(SCETC)/Python-2.7.2:
+	./build-python.sh Python-2.7.2
+	touch $(SCETC)/Python-2.7.2
+
+################################################################################
+# End pybin.
+################################################################################
+
+################################################################################
+# Start pylib.
+################################################################################
+
+pylib: $(SCETC)/scvars.sh \
+	$(SCETC)/numpy-1.6.1
+
+$(SCETC)/numpy-1.6.1:
+	cd $(TMPBLD) && tar xfz ../$(TMPDL)/numpy-1.6.1.tar.gz
+	cd $(TMPBLD)/numpy-1.6.1 && ../../generate-numpy.py
+	cd $(TMPBLD)/numpy-1.6.1 && \
 		$(SCBIN)/python2.7 setup.py install > install2.7.log 2>&1
+	touch $(SCETC)/numpy-1.6.1
 
-build/numpy-1.6.1/build:
-	mkdir -p build
-	cd build && tar xfz ../downloaded/numpy-1.6.1.tar.gz
-	cd build/numpy-1.6.1 && ../../generate-numpy.py
-	cd build/numpy-1.6.1 && \
+################################################################################
+# End pylib.
+################################################################################
+
+################################################################################
+# Begin numlib.
+################################################################################
+
+numlib: $(SCETC)/scvars.sh \
+	$(SCETC)/netcdf-4.1.2 $(SCETC)/scotch_5.1.11
+
+$(SCETC)/netcdf-4.1.2:
+	./build-netcdf.sh netcdf-4.1.2
+	touch $(SCETC)/netcdf-4.1.2
+
+$(SCETC)/scotch_5.1.11:
+	./build-scotch.sh scotch_5.1.11
+	touch $(SCETC)/scotch_5.1.11
+
+################################################################################
+# End numlib.
+################################################################################
+
+################################################################################
+# Start pytool.
+################################################################################
+
+pytool: $(SCETC)/scvars.sh \
+	$(SCETC)/mercurial-1.9 $(SCETC)/scons-2.0.1 $(SCETC)/nose-1.0.0 \
+	$(SCETC)/epydoc-3.0.1
+
+$(SCETC)/mercurial-1.9:
+	cd $(TMPBLD) && tar xfz ../$(TMPDL)/mercurial-1.9.tar.gz
+	cd $(TMPBLD)/mercurial-1.9 && \
 		$(SCBIN)/python2.7 setup.py install > install2.7.log 2>&1
+	touch $(SCETC)/mercurial-1.9
 
-build/scons-2.0.1/build:
-	mkdir -p build
-	cd build && tar xfz ../downloaded/scons-2.0.1.tar.gz
-	cd build/scons-2.0.1 && \
+$(SCETC)/scons-2.0.1:
+	cd $(TMPBLD) && tar xfz ../$(TMPDL)/scons-2.0.1.tar.gz
+	cd $(TMPBLD)/scons-2.0.1 && \
 		$(SCBIN)/python2.7 setup.py install > install2.7.log 2>&1
 	$(SCBIN)/python2.7 modify-pyshebang.py $(SCBIN)/scons*
+	touch $(SCETC)/scons-2.0.1
 
-build/nose-1.0.0/build:
-	mkdir -p build
-	cd build && tar xfz ../downloaded/nose-1.0.0.tar.gz
-	cd build/nose-1.0.0 && \
+$(SCETC)/nose-1.0.0:
+	cd $(TMPBLD) && tar xfz ../$(TMPDL)/nose-1.0.0.tar.gz
+	cd $(TMPBLD)/nose-1.0.0 && \
 		$(SCBIN)/python2.7 setup.py install > install2.7.log 2>&1
 	$(SCBIN)/python2.7 modify-pyshebang.py $(SCBIN)/nosetests*
+	touch $(SCETC)/nose-1.0.0
 
-build/epydoc-3.0.1/build:
-	mkdir -p build
-	cd build && tar xfz ../downloaded/epydoc-3.0.1.tar.gz
-	cd build/epydoc-3.0.1 && \
+$(SCETC)/epydoc-3.0.1:
+	cd $(TMPBLD) && tar xfz ../$(TMPDL)/epydoc-3.0.1.tar.gz
+	cd $(TMPBLD)/epydoc-3.0.1 && \
 		$(SCBIN)/python2.7 setup.py install > install2.7.log 2>&1
 	$(SCBIN)/python2.7 modify-pyshebang.py $(SCBIN)/epydoc*
+	touch $(SCETC)/epydoc-3.0.1
 
-build/cmake-2.8.5/make.log:
-	mkdir -p build
-	cd build && tar xfz ../downloaded/cmake-2.8.5.tar.gz
-	cd build/cmake-2.8.5 && ../../build-cmake.sh
+################################################################################
+# End pytool.
+################################################################################
 
-build/vtk-5.6.1/make.log:
-	mkdir -p build/vtk-5.6.1
-	cd build && tar xfz ../downloaded/vtk-5.6.1.tar.gz
-	cd build && tar xfz ../downloaded/vtkdata-5.6.1.tar.gz
-	cd build/vtk-5.6.1 && ../../build-vtk.sh
+################################################################################
+# Start vislib.
+################################################################################
 
-clean:
-	rm -rf build/BLAS build/lapack-3.3.1 build/netcdf-4.1.2 \
-	build/ATLAS build/scotch_5.8.11 build/libscotchmetis.so \
-	build/Python-2.7.2 $(SCBIN)/scvars.sh \
-	build/mercurial-1.9/ \
-	build/numpy-1.6.1 build/scons-2.0.1 build/nose-1.0.0 \
-	build/epydoc-3.0.1 \
-	build/cmake-2.8.5 build/vtk-5.6.1
+vislib: $(SCETC)/scvars.sh \
+	$(SCETC)/vtk-5.6.1
 
-.PHONY: binary python all clean
+$(SCETC)/vtk-5.6.1:
+	./build-vtk.sh vtk-5.6.1 vtkdata-5.6.1
+	touch $(SCETC)/vtk-5.6.1
+
+################################################################################
+# End vislib.
+################################################################################
+
+.PHONY: default basictool basiclib pybin numlib pylib pytool
+
+# vim: set ai noet nu:

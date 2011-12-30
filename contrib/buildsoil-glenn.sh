@@ -1,9 +1,9 @@
 #!/bin/sh
-#PBS -l nodes=1:ppn=8:newdual:pvfs,walltime=1:00:00
+#PBS -l nodes=1:ppn=8:newdual:pvfs,walltime=2:00:00
 #PBS -N buildsoil
 #PBS -j oe
 #PBS -S /bin/sh
-
+#
 # Copyright (C) 2011 Yung-Yu Chen <yyc@solvcon.net>.
 #
 # This program is free software; you can redistribute it and/or modify
@@ -21,9 +21,15 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 echo "Customized paths for job:"
-. $HOME/.bashrc
+if [ -r $HOME/.bashrc ]
+then
+  . $HOME/.bashrc
+fi
 echo "Run @`date`:"
-cd /path/to/solvcon/soil/source
+if [ -n `echo $SCSRC` ]
+then
+  cd $SCSRC/soil
+fi
 NP=8 make
 echo "Finish @`date`."
 

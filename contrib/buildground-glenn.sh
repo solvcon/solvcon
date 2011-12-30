@@ -1,4 +1,8 @@
 #!/bin/sh
+#PBS -l nodes=1:ppn=8:newdual:pvfs,walltime=2:00:00
+#PBS -N buildground
+#PBS -j oe
+#PBS -S /bin/sh
 #
 # Copyright (C) 2011 Yung-Yu Chen <yyc@solvcon.net>.
 #
@@ -16,27 +20,17 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-PKGNAME=$1
-if [ -z "$PKGNAME" ]
-  then
-    echo "PKGNAME (parameter 1) not set"
-    exit
+echo "Customized paths for job:"
+if [ -r $HOME/.bashrc ]
+then
+  . $HOME/.bashrc
 fi
-
-# unpack.
-mkdir -p $TMPBLD
-cd $TMPBLD
-tar xfz ../$TMPDL/$PKGNAME.tgz
-
-# patch.
-cd $PKGNAME
-sed -e "s/OPTS     \= -O2/OPTS     \=\ -O2\ -fPIC/g" \
-	INSTALL/make.inc.gfortran | \
-	sed -e "s/NOOPT    \= -O0/NOOPT    \= -O0 -fPIC/g" > \
-	make.inc
-
-# build.
-cd SRC
-make -j $NP > ../make.log 2>&1
+echo "Run @`date`:"
+if [ -n "`echo $SCSRC`" ]
+then
+  cd $SCSRC/ground
+fi
+NP=8 make all
+echo "Finish @`date`."
 
 # vim: set ai et nu:

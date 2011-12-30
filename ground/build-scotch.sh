@@ -22,21 +22,17 @@ if [ -z "$PKGNAME" ]
     echo "PKGNAME (parameter 1) not set"
     exit
 fi
+SCOTCHSO=libscotchmetis.so
 
 # unpack.
 mkdir -p $TMPBLD
 cd $TMPBLD
-tar xfz ../$TMPDL/$PKGNAME.tgz
-
-# patch.
-cd $PKGNAME
-sed -e "s/OPTS     \= -O2/OPTS     \=\ -O2\ -fPIC/g" \
-	INSTALL/make.inc.gfortran | \
-	sed -e "s/NOOPT    \= -O0/NOOPT    \= -O0 -fPIC/g" > \
-	make.inc
+tar xfz ../$TMPDL/$PKGNAME.tar.gz
 
 # build.
-cd SRC
-make -j $NP > ../make.log 2>&1
+cd $PKGNAME/src
+cp ../../../scotch_Makefile.inc Makefile.inc
+make > make.log 2>&1
+gcc -shared -o $SCLIB/$SCOTCHSO -L../lib -lscotch libscotchmetis/*.o
 
 # vim: set ai et nu:
