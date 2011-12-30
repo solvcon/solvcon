@@ -1,43 +1,60 @@
+# Copyright (C) 2011 Yung-Yu Chen <yyc@solvcon.net>.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
 export SCROOT?=$(HOME)/opt/scruntime
 export SCBIN=$(SCROOT)/bin
+export SCETC=$(SCROOT)/etc
+export TMPDL=downloaded/
+export TMPBLD=build/
 export NP?=$(`cat /proc/cpuinfo | grep processor | wc -l`)
 
 default: gcc
 
-gcc: build/gmp-5.0.2/make.log build/mpfr-3.0.1/make.log build/mpc-0.9/make.log \
-	build/gcc-4.6.1-build/make.log \
-	$(SCBIN)/scgccvars.sh $(SCBIN)/scgccvars.csh
-
-build/gmp-5.0.2/make.log:
-	mkdir -p build
-	cd build && tar xfj ../downloaded/gmp-5.0.2.tar.bz2
-	cd build/gmp-5.0.2 && ../../build-gmp.sh
-
-build/mpfr-3.0.1/make.log:
-	mkdir -p build
-	cd build && tar xfj ../downloaded/mpfr-3.0.1.tar.bz2
-	cd build/mpfr-3.0.1 && patch -N -Z -p1 < ../../downloaded/allpatches > \
-		patch.log 2>&1
-	cd build/mpfr-3.0.1 && ../../build-mpfr.sh
-
-build/mpc-0.9/make.log:
-	mkdir -p build
-	cd build && tar xfz ../downloaded/mpc-0.9.tar.gz
-	cd build/mpc-0.9 && ../../build-mpc.sh
-
-build/gcc-4.6.1-build/make.log:
-	mkdir -p build build/gcc-4.6.1-build
-	cd build && tar xfj ../downloaded/gcc-4.6.1.tar.bz2
-	cd build/gcc-4.6.1-build && ../../build-gcc.sh gcc-4.6.1
-
-$(SCBIN)/scgccvars.sh:
+$(SCETC)/scgccvars.sh:
+	mkdir -p $(TMPBLD) $(SCBIN) $(SCETC)
 	./create-scgccvars.sh
 
-$(SCBIN)/scgccvars.csh:
-	./create-scgccvars.sh
+################################################################################
+# Begin gcc
+################################################################################
 
-clean:
-	rm -rf build/gmp-5.0.2 build/mpfr-3.0.1 build/mpc-0.9 \
-	build/gcc-4.6.1-build
+gcc: $(SCETC)/scgccvars.sh \
+	$(SCETC)/gmp-5.0.2 $(SCETC)/mpfr-3.0.1 $(SCETC)/mpc-0.9 \
+	$(SCETC)/gcc-4.6.1
 
-.PHONY: binary python all clean
+$(SCETC)/gmp-5.0.2:
+	./build-gmp.sh gmp-5.0.2
+	touch $(SCETC)/gmp-5.0.2
+
+$(SCETC)/mpfr-3.0.1: $(SCETC)/gmp-5.0.2
+	./build-mpfr.sh mpfr-3.0.1
+	touch $(SCETC)/mpfr-3.0.1
+
+$(SCETC)/mpc-0.9: $(SCETC)/gmp-5.0.2 $(SCETC)/mpfr-3.0.1
+	./build-mpc.sh mpc-0.9
+	touch $(SCETC)/mpc-0.9
+
+$(SCETC)/gcc-4.6.1: $(SCETC)/gmp-5.0.2 $(SCETC)/mpfr-3.0.1 $(SCETC)/mpc-0.9
+	./build-gcc.sh gcc-4.6.1
+	touch $(SCETC)/gcc-4.6.1
+
+################################################################################
+# End gcc
+################################################################################
+
+.PHONY: default gcc
+
+# vim: set ai noet nu:

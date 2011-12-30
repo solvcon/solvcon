@@ -1,5 +1,9 @@
 #!/bin/sh
-#
+#PBS -l nodes=1:ppn=8:newdual:pvfs,walltime=1:00:00
+#PBS -N buildsoil
+#PBS -j oe
+#PBS -S /bin/sh
+
 # Copyright (C) 2011 Yung-Yu Chen <yyc@solvcon.net>.
 #
 # This program is free software; you can redistribute it and/or modify
@@ -16,36 +20,11 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-# Building issues:
-# * asm/errno.h on Ubuntu 11.04:
-#   https://bugs.launchpad.net/ubuntu/+source/clang/+bug/774215
-
-PKGNAME=$1
-if [ -z "$PKGNAME" ]
-  then
-    echo "PKGNAME (parameter 1) not set"
-    exit
-fi
-
-# unpack.
-mkdir -p $TMPBLD
-cd $TMPBLD
-tar xfj ../$TMPDL/$PKGNAME.tar.bz2
-
-# build.
-mkdir -p $PKGNAME-build
-cd $PKGNAME-build
-export LD_LIBRARY_PATH=$SCROOT/soil/lib
-export LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:$SCROOT/soil/lib
-#export CFLAGS=-m64
-../$PKGNAME/configure --prefix=$SCROOT/soil \
-	--with-gmp=$SCROOT/soil \
-	--with-mpfr=$SCROOT/soil \
-	--with-mpc=$SCROOT/soil \
-	--enable-languages=c,c++,fortran \
-	--disable-multilib \
-> configure.log 2>&1
-make -j $NP > make.log 2>&1
-make install > install.log 2>&1
+echo "Customized paths for job:"
+. $HOME/.bashrc
+echo "Run @`date`:"
+cd /path/to/solvcon/soil/source
+NP=8 make
+echo "Finish @`date`."
 
 # vim: set ai et nu:
