@@ -40,7 +40,7 @@ It is recommended to run SOLVCON on 64-bit Linux.
 
 SOLVCON depends on the following packages: (i) Python_ 2.6 or 2.7 (preferred),
 (ii) SCons_, (iii) gcc_ (version 4.3 or higher) or icc, (iv) Numpy_ (version
-1.6 or higher), (v) LAPACK_, (vi) NetCDF_ (version 4 or higher), and (vii)
+1.5 or higher), (v) LAPACK_, (vi) NetCDF_ (version 4 or higher), and (vii)
 METIS_ (version 4.0.3; SOLVCON will download it for you on building).  Optional
 dependencies include: (i) SCOTCH_ (version 5.1 or higher) as an alternative of
 METIS, (ii) Nose_ for running unit tests, (iii) Epydoc_ for generating API
@@ -56,6 +56,11 @@ following command to install the dependencies::
 Another optional dependency is CUDA_, which needs to be separately installed
 and configured.  For using meshes with more then 35 million cells, SCOTCH-5.1
 is recommended.  METIS-4 has issues on memory allocation for large graphs.
+
+.. note::
+
+  For Debian Squeeze (6.0), you need also ``apt-get install python-profiler``
+  to install the built-in Python profiler.
 
 There are three steps to install SOLVCON:
 
