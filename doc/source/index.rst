@@ -47,13 +47,6 @@ Contents
    install
    concept
 
-Get Solvcon
-===========
-
-SOLVCON_ hasn't been released.  Ask the author (`Yung-Yu Chen`_) for detail.
-
-.. _Yung-Yu Chen: mailto: yyc@seety.org
-
 Indices and tables
 ==================
 
