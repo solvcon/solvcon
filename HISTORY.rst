@@ -3,19 +3,26 @@ Upcoming
 
 Release date: 2011/12 (GMT+0800)
 
-This release fixes several bugs add a loader of Gmsh mesh format.
+This release adds a loader of Gmsh mesh format and fixes several bugs.
 
 New features:
 
 - Add a loader for Gmsh ASCII mesh format.  The loader locates in
   solvcon.io.gmsh and is implemented as pure Python code.  ``scg mesh`` command
-  line tool can recognize the format.
+  line tool can recognize the format.  Issue #52.
 - Revamp the dependency building system to support older OSes and proxies that
-  need authentication.
+  need authentication.  Issue #53.
+- Extract the SCons commands for building the Epydoc and Sphinx document from
+  SConstruct into standalone SCons tools.  Two new tools are added in the
+  directory ``site_scons/site_tools/``: ``sphinx.py`` and ``scons_epydoc.py``.
+  Note that the SCons tool for Epydoc cannot be named as ``epydoc.py`` or the
+  name collides with the real ``epydoc`` package.
 
 Bug-fix:
 
-- Output timing of CollectHook and MarchSave.
+- Issue #49: "No Vtk for final time step".  Output timing of CollectHook and
+  MarchSave.
+- Issue #54: "Shared objects are not found under Mac OS X".
 
 0.1
 ===
