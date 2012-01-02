@@ -32,8 +32,11 @@ tar xfz ../$TMPDL/$2.tar.gz
 # patch.
 mkdir -p $PKGNAME
 cd VTK
-patch -p1 < ../../patches/vtk-ptrdiff_t.patch > ../$PKGNAME/patch.log 2>&1
-patch -p1 < ../../patches/vtk-offsetof.patch >> ../$PKGNAME/patch.log 2>&1
+echo "" > ../$PKGNAME/patch.log
+patch -p1 < ../../patches/$PKGNAME/01-ptrdiff_t.patch >> \
+    ../$PKGNAME/patch.log 2>&1
+patch -p1 < ../../patches/$PKGNAME/02-offsetof.patch >> \
+    ../$PKGNAME/patch.log 2>&1
 cd ..
 
 # build.
