@@ -234,39 +234,37 @@ metisenv = Environment(ENV=os.environ,
     ], CFLAGS='-O2')
 
 # solvcon environment.
-tools = [
-    'mingw' if sys.platform.startswith('win') else 'default', 
-    'cuda',
-    GetOption('cc'),
-]
-CPPPATH = ['include']
-CFLAGS = [
-    '-O%d'%GetOption('optlevel'),
-]
-NVCCFLAGS = ['-arch=sm_%s'%GetOption('sm')]
-LINKFLAGS = []
-LIBS = []
-
+env = Environment(ENV=os.environ)
+# tools.
+env.Tool('mingw' if sys.platform.startswith('win') else 'default')
+env.Tool(GetOption('cc'))
+env.Tool('sphinx')
+env.Tool('scons_epydoc')
+# Intel C runtime library.
 if GetOption('cc') == 'intelc':
-    LIBS.append('irc_s')
-if check_sse4():
-    if GetOption('cc') == 'gcc':
-        CFLAGS.extend([
-            '-msse4',
-            '-mfpmath=sse',
-        ])
+    env.Append(LIBS='irc_s')
+# optimization level.
+env.Append(CFLAGS='-O%d'%GetOption('optlevel'))
+# SSE4.
+if check_sse4() and GetOption('cc') == 'gcc':
+    env.Append(CFLAGS='-msse4')
+    env.Append(CFLAGS='-mfpmath=sse')
+# OpenMP.
 if GetOption('use_openmp'):
     if GetOption('cc') == 'gcc':
-        CFLAGS.append('-fopenmp')
-        LINKFLAGS.append('-fopenmp')
+        env.Append(CFLAGS='-fopenmp')
+        env.Append(LINKFLAGS='-fopenmp')
     elif GetOption('cc') == 'intelc':
-        CFLAGS.append('-openmp')
-        LINKFLAGS.append('-openmp')
-env = Environment(ENV=os.environ, tools=tools+['sphinx', 'scons_epydoc'],
-    CPPPATH=CPPPATH, CFLAGS=CFLAGS, LINKFLAGS=LINKFLAGS, LIBS=LIBS,
-    NVCCFLAGS=NVCCFLAGS,
-)
+        env.Append(CFLAGS='-openmp')
+        env.Append(LINKFLAGS='-openmp')
+# include paths.
+env.Append(CPPPATH='include')
+# CUDA.
+env.Tool('cuda')
+env.Append(NVCCFLAGS='-arch=sm_%s'%GetOption('sm'))
 env.Append(NVCCINC=' -I include')
+
+# replace gcc with a certain version.
 if GetOption('cc') == 'gcc':
     env.Replace(CC='gcc%s'%GetOption('cmpvsn'))
 

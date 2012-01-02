@@ -35,5 +35,3 @@ def generate(env):
 
 def exists(env):
     return env.Detect('sphinx')
-
-# vim: set ft=python ff=unix:

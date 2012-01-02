@@ -84,8 +84,8 @@ def determine_paths(env):
             sys.stdout.write(
                 'scons: CUDA Toolkit found in %s\n' % cudaToolkitPath)
         else:
-            sys.stdout.write('Cannot find CUDA Toolkit. '
-                'Set CUDA_TOOLKIT_PATH.\n')
+            sys.stdout.write('scons: No CUDA Toolkit found. '
+                'Set CUDA_TOOLKIT_PATH if CUDA is desired.\n')
     env['CUDA_TOOLKIT_PATH'] = cudaToolkitPath
 
     # find CUDA SDK path and set CUDA_SDK_PATH.
@@ -118,8 +118,8 @@ def determine_paths(env):
             sys.stdout.write(
                 'scons: CUDA SDK found in %s \n' % cudaSDKPath)
         else:
-            sys.stdout.write('Cannot find CUDA SDK. '
-                'Set CUDA_SDK_PATH.\n')
+            sys.stdout.write('scons: No CUDA SDK found. '
+                'Set CUDA_SDK_PATH if CUDA SDK is desired.\n')
     env['CUDA_SDK_PATH'] = cudaSDKPath
 
     # return.
