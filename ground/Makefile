@@ -20,7 +20,8 @@ export SCLIB=$(SCROOT)/lib
 export SCETC=$(SCROOT)/etc
 export TMPDL=downloaded/
 export TMPBLD=build/
-export NP?=$(`cat /proc/cpuinfo | grep processor | wc -l`)
+#export NP?=$(`cat /proc/cpuinfo | grep processor | wc -l`)
+export NP?=1
 
 default: basictool basiclib pybin numlib pylib pytool
 
