@@ -69,10 +69,8 @@ Another optional dependency is CUDA_, which needs to be separately installed
 and configured.  For using meshes with more then 35 million cells, SCOTCH-5.1
 is recommended.  METIS-4 has issues on memory allocation for large graphs.
 
-.. note::
-
-  For Debian Squeeze (6.0), you need also ``apt-get install python-profiler``
-  to install the built-in Python profiler.
+Note: For Debian Squeeze (6.0), you need also ``apt-get install
+python-profiler`` to install the built-in Python profiler.
 
 There are three steps to install SOLVCON:
 
