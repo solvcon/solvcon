@@ -1,0 +1,11 @@
+diff -rupN VTK.orig/Common/vtkPythonUtil.h VTK/Common/vtkPythonUtil.h
+--- VTK.orig/Common/vtkPythonUtil.h	2010-09-28 04:40:01.000000000 +0800
++++ VTK/Common/vtkPythonUtil.h	2012-01-02 10:03:06.000000000 +0800
+@@ -15,6 +15,7 @@
+ #ifndef __vtkPythonUtil_h
+ #define __vtkPythonUtil_h
+ 
++#include <stddef.h>
+ #include "vtkPython.h"
+ #include "vtkCommand.h"
+ 

@@ -29,8 +29,14 @@ cd $TMPBLD
 tar xfz ../$TMPDL/$PKGNAME.tar.gz
 tar xfz ../$TMPDL/$2.tar.gz
 
-# build.
+# patch.
 mkdir -p $PKGNAME
+cd VTK
+patch -p1 < ../../patches/vtk-ptrdiff_t.patch > ../$PKGNAME/patch.log 2>&1
+patch -p1 < ../../patches/vtk-offsetof.patch >> ../$PKGNAME/patch.log 2>&1
+cd ..
+
+# build.
 cd $PKGNAME
 cmake \
     -DCMAKE_CXX_FLAGS="-O3 -DNDEBUG -fPIC" \
