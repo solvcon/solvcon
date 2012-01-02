@@ -117,8 +117,8 @@ lib_metis = envm.SharedLibrary('%s/%s_metis' % (ldir, lpre),
     Glob('%s/metis/*.c' % bdir))
 
 # documents.
-epydoc = env.Epydoc('solvcon/__init__.py')
-sphinx = env.Sphinx('doc/source/conf.py')
+epydoc = env.BuildEpydoc('solvcon/__init__.py')
+sphinx = env.BuildSphinx(Glob('doc/source/*.rst')+Glob('doc/source/*.py'))
 
 # name targets and set default.
 solvcon = Alias('solvcon', libs)

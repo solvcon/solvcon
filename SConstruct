@@ -262,30 +262,13 @@ if GetOption('use_openmp'):
     elif GetOption('cc') == 'intelc':
         CFLAGS.append('-openmp')
         LINKFLAGS.append('-openmp')
-env = Environment(ENV=os.environ, tools=tools,
+env = Environment(ENV=os.environ, tools=tools+['sphinx', 'scons_epydoc'],
     CPPPATH=CPPPATH, CFLAGS=CFLAGS, LINKFLAGS=LINKFLAGS, LIBS=LIBS,
     NVCCFLAGS=NVCCFLAGS,
 )
 env.Append(NVCCINC=' -I include')
 if GetOption('cc') == 'gcc':
     env.Replace(CC='gcc%s'%GetOption('cmpvsn'))
-
-def build_epydoc(target, source, env):
-    import sys
-    sys.path.insert(0, '.')
-    from solvcon.helper import generate_apidoc
-    generate_apidoc()
-def build_sphinx(target, source, env):
-    import os
-    os.system('sphinx-build doc/source doc/build')
-env.Append(BUILDERS={
-    'Epydoc': Builder(
-        action=build_epydoc,
-    ),
-    'Sphinx': Builder(
-        action=build_sphinx,
-    ),
-})
 
 Export('env', 'metisenv')
 SConscript(['SConscript'])
