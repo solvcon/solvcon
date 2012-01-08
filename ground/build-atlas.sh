@@ -22,7 +22,7 @@ if [ -z "$PKGNAME" ]
     echo "PKGNAME (parameter 1) not set"
     exit
 fi
-LAPACK=`pwd`/../../lapack-3.3.1/lapack_LINUX.a
+LAPACK=`pwd`/build/lapack-3.3.1/lapack_LINUX.a
 ATLAS_PLAT=ATLAS_LINUX
 
 # determine arch.
