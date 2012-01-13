@@ -60,6 +60,7 @@ SOLVCON depends on the following packages:
 - NetCDF_ (version 4 or higher)
 - METIS_ (version 4.0.3; SOLVCON will download it for you on building)
 - `gmsh <http://geuz.org/gmsh/>`_
+- `Sphinx <http://sphinx.pocoo.org/>`_ 1.0+
 
 Optional dependencies include:
 
