@@ -38,18 +38,31 @@ shared libraries rather than Python extension modules.  SOLVCON uses ctypes_ to
 access the libraries.  As such, the binary code can be optimized more flexibly.
 It is recommended to run SOLVCON on 64-bit Linux.
 
-SOLVCON depends on the following packages: (i) Python_ 2.6 or 2.7 (preferred),
-(ii) SCons_, (iii) gcc_ (version 4.3 or higher) or icc, (iv) Numpy_ (version
-1.5 or higher), (v) LAPACK_, (vi) NetCDF_ (version 4 or higher), and (vii)
-METIS_ (version 4.0.3; SOLVCON will download it for you on building).  Optional
-dependencies include: (i) SCOTCH_ (version 5.1 or higher) as an alternative of
-METIS, (ii) Nose_ for running unit tests, (iii) Epydoc_ for generating API
-documentation, (iv) VTK_ for in situ visualization, and (v) docutils and
-pygraphviz for Epydoc formatting.  Debian_ or Ubuntu_ users can use the
-following command to install the dependencies::
+SOLVCON depends on the following packages:
+
+- Python_ 2.6 or 2.7 (preferred)
+- SCons_
+- gcc_ (version 4.3 or higher) or icc
+- Numpy_ (version 1.5 or higher)
+- LAPACK_
+- NetCDF_ (version 4 or higher)
+- METIS_ (version 4.0.3; SOLVCON will download it for you on building)
+- `gmsh <http://geuz.org/gmsh/>`_
+
+Optional dependencies include:
+
+- SCOTCH_ (version 5.1 or higher) as an alternative of METIS
+- Nose_ for running unit tests
+- Epydoc_ for generating API documentation
+- VTK_ for in situ visualization
+- docutils
+- pygraphviz
+
+Debian_ or Ubuntu_ users can use the following command to install the
+dependencies::
 
   $ sudo apt-get install scons build-essential gcc liblapack-pic
-    libnetcdf-dev libnetcdf6 netcdf-bin libscotch-5.1
+    libnetcdf-dev libnetcdf6 netcdf-bin libscotch-5.1 gmsh
     python2.7 python2.7-dev python-numpy python-vtk
     python-nose python-epydoc python-docutils python-pygraphviz 
 
