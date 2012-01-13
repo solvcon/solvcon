@@ -89,7 +89,7 @@ $(SCETC)/Python-2.7.2:
 ################################################################################
 
 pylib: $(SCETC)/scvars.sh \
-	$(SCETC)/numpy-1.6.1
+	$(SCETC)/numpy-1.6.1 $(SCETC)/distribute-0.6.24
 
 $(SCETC)/numpy-1.6.1:
 	cd $(TMPBLD) && tar xfz ../$(TMPDL)/numpy-1.6.1.tar.gz
@@ -97,6 +97,12 @@ $(SCETC)/numpy-1.6.1:
 	cd $(TMPBLD)/numpy-1.6.1 && \
 		$(SCBIN)/python2.7 setup.py install > install2.7.log 2>&1
 	touch $(SCETC)/numpy-1.6.1
+
+$(SCETC)/distribute-0.6.24:
+	cd $(TMPBLD) && tar xfz ../$(TMPDL)/distribute-0.6.24.tar.gz
+	cd $(TMPBLD)/distribute-0.6.24 && \
+		$(SCBIN)/python2.7 setup.py install > install2.7.log 2>&1
+	touch $(SCETC)/distribute-0.6.24
 
 ################################################################################
 # End pylib.
@@ -127,7 +133,8 @@ $(SCETC)/scotch_5.1.11:
 
 pytool: $(SCETC)/scvars.sh \
 	$(SCETC)/mercurial-2.0.2 $(SCETC)/scons-2.1.0 $(SCETC)/nose-1.0.0 \
-	$(SCETC)/epydoc-3.0.1
+	$(SCETC)/epydoc-3.0.1 $(SCETC)/docutils-0.8.1 $(SCETC)/Jinja2-2.6 \
+	$(SCETC)/Pygments-1.4 $(SCETC)/Sphinx-1.1.2
 
 $(SCETC)/mercurial-2.0.2:
 	cd $(TMPBLD) && tar xfz ../$(TMPDL)/mercurial-2.0.2.tar.gz
@@ -156,6 +163,31 @@ $(SCETC)/epydoc-3.0.1:
 	$(SCBIN)/python2.7 modify-pyshebang.py $(SCBIN)/epydoc*
 	touch $(SCETC)/epydoc-3.0.1
 
+$(SCETC)/docutils-0.8.1:
+	cd $(TMPBLD) && tar xfz ../$(TMPDL)/docutils-0.8.1.tar.gz
+	cd $(TMPBLD)/docutils-0.8.1 && \
+		$(SCBIN)/python2.7 setup.py install > install2.7.log 2>&1
+	touch $(SCETC)/docutils-0.8.1
+
+$(SCETC)/Jinja2-2.6: $(SCETC)/distribute-0.6.24
+	cd $(TMPBLD) && tar xfz ../$(TMPDL)/Jinja2-2.6.tar.gz
+	cd $(TMPBLD)/Jinja2-2.6 && \
+		$(SCBIN)/python2.7 setup.py install > install2.7.log 2>&1
+	touch $(SCETC)/Jinja2-2.6
+
+$(SCETC)/Pygments-1.4:
+	cd $(TMPBLD) && tar xfz ../$(TMPDL)/Pygments-1.4.tar.gz
+	cd $(TMPBLD)/Pygments-1.4 && \
+		$(SCBIN)/python2.7 setup.py install > install2.7.log 2>&1
+	touch $(SCETC)/Pygments-1.4
+
+$(SCETC)/Sphinx-1.1.2: $(SCETC)/docutils-0.8.1 $(SCETC)/Jinja2-2.6 \
+		$(SCETC)/Pygments-1.4
+	cd $(TMPBLD) && tar xfz ../$(TMPDL)/Sphinx-1.1.2.tar.gz
+	cd $(TMPBLD)/Sphinx-1.1.2 && \
+		$(SCBIN)/python2.7 setup.py install > install2.7.log 2>&1
+	touch $(SCETC)/Sphinx-1.1.2
+
 ################################################################################
 # End pytool.
 ################################################################################
@@ -165,9 +197,9 @@ $(SCETC)/epydoc-3.0.1:
 ################################################################################
 
 mesher: $(SCETC)/scvars.sh \
-	$(SCETC)/gmsh-2.5.0
+	$(SCETC)/gmsh-2.5.0-source
 
-$(SCETC)/gmsh-2.5.0:
+$(SCETC)/gmsh-2.5.0-source:
 	./build-gmsh.sh gmsh-2.5.0-source
 	touch $(SCETC)/gmsh-2.5.0-source
 
