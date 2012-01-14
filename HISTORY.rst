@@ -1,7 +1,7 @@
 Upcoming
 ========
 
-Release date: 2011/12 (GMT+0800)
+Release date: 2012 (GMT+0800)
 
 This release adds a loader of Gmsh mesh format and fixes several bugs.
 
@@ -17,12 +17,14 @@ New features:
   directory ``site_scons/site_tools/``: ``sphinx.py`` and ``scons_epydoc.py``.
   Note that the SCons tool for Epydoc cannot be named as ``epydoc.py`` or the
   name collides with the real ``epydoc`` package.
+- Add Gmsh and Sphinx into ground/.
 
 Bug-fix:
 
 - Issue #49: "No Vtk for final time step".  Output timing of CollectHook and
   MarchSave.
 - Issue #54: "Shared objects are not found under Mac OS X".
+- Issue #38: "soln/dsoln shouldn't be hard-coded".
 
 0.1
 ===
