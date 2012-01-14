@@ -41,8 +41,8 @@ Key Features
 - Parallel I/O and in situ visualization
 - Automated work flow
 
-Install
-=======
+Prerequisite
+============
 
 SOLVCON depends on the following packages:
 
@@ -72,6 +72,9 @@ python-profiler`` to install the built-in Python profiler.
 Another optional dependency is CUDA_, which needs to be separately installed
 and configured.  For using meshes with more then 35 million cells, SCOTCH-5.1
 is recommended.  METIS-4 has issues on memory allocation for large graphs.
+
+Install
+=======
 
 There are three steps to install SOLVCON:
 
