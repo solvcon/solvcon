@@ -1,6 +1,6 @@
 # -*- coding: UTF-8 -*-
 #
-# Copyright (C) 2008-2011 Yung-Yu Chen <yyc@solvcon.net>.
+# Copyright (C) 2008-2012 Yung-Yu Chen <yyc@solvcon.net>.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,8 +17,8 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 """
-SOLVCON: a multi-physics, supercomputing software framework for high-fidelity
-solutions of partial differential equations (PDEs) by hybrid parallelism.
+SOLVCON: a multi-physics software framework for high-fidelity solutions of
+partial differential equations (PDEs) by hybrid parallelism.
 
 SOLVCON uses the space-time Conservation Element and Solution Element (CESE_)
 method to solve generic conservation laws.  SOLVCON focuses on rapid
@@ -44,47 +44,34 @@ Key Features
 Install
 =======
 
-Installing SOLVCON requires building shared libraries by using SCons_.  SOLVCON
-uses C to implement HPC code.  The C code in SOLVCON is designed to be standard
-shared libraries rather than Python extension modules.  SOLVCON uses ctypes_ to
-access the libraries.  As such, the binary code can be optimized more flexibly.
-It is recommended to run SOLVCON on 64-bit Linux.
-
 SOLVCON depends on the following packages:
 
-- Python_ 2.6 or 2.7 (preferred)
-- SCons_
-- gcc_ (version 4.3 or higher) or icc
-- Numpy_ (version 1.5 or higher)
+- gcc_ 4.3+
+- SCons_ 2+
+- Python_ 2.6 or 2.7 (2.7 is preferred)
+- Numpy_ 1.5+
 - LAPACK_
-- NetCDF_ (version 4 or higher)
-- METIS_ (version 4.0.3; SOLVCON will download it for you on building)
-- `gmsh <http://geuz.org/gmsh/>`_
+- NetCDF_ 4+
+- METIS_ 4.0.3+ (SOLVCON will download it for you on building) or SCOTCH_ 5.1+
+- Nose_ 1.0+
+- Epydoc_ 3+
+- pygraphviz 1.1+
 - `Sphinx <http://sphinx.pocoo.org/>`_ 1.0+
+- `gmsh <http://geuz.org/gmsh/>`_ 2.5+
+- VTK_ 5.6+
 
-Optional dependencies include:
+The following command will install these packages on Debian/Ubunbu::
 
-- SCOTCH_ (version 5.1 or higher) as an alternative of METIS
-- Nose_ for running unit tests
-- Epydoc_ for generating API documentation
-- VTK_ for in situ visualization
-- docutils
-- pygraphviz
+  $ sudo apt-get install build-essential gcc scons liblapack-pic libnetcdf-dev
+  libnetcdf6 netcdf-bin libscotch-5.1 python2.7 python2.7-dev python-numpy
+  python-nose python-epydoc python-pygraphviz python-sphinx gmsh python-vtk
 
-Debian_ or Ubuntu_ users can use the following command to install the
-dependencies::
-
-  $ sudo apt-get install scons build-essential gcc liblapack-pic
-    libnetcdf-dev libnetcdf6 netcdf-bin libscotch-5.1 gmsh
-    python2.7 python2.7-dev python-numpy python-vtk
-    python-nose python-epydoc python-docutils python-pygraphviz 
+Note: For Debian Squeeze (6.0), you need also ``apt-get install
+python-profiler`` to install the built-in Python profiler.
 
 Another optional dependency is CUDA_, which needs to be separately installed
 and configured.  For using meshes with more then 35 million cells, SCOTCH-5.1
 is recommended.  METIS-4 has issues on memory allocation for large graphs.
-
-Note: For Debian Squeeze (6.0), you need also ``apt-get install
-python-profiler`` to install the built-in Python profiler.
 
 There are three steps to install SOLVCON:
 
@@ -198,7 +185,7 @@ mix with each other nor system software.  Users can disable these environments
 by not sourcing the two scripts.
 
 Some packages have not been incorporated into the dependency building system
-described above.  Debian_ or Ubuntu_ users should install the additional
+described above.  Debian or Ubuntu users should install the additional
 dependencies by using::
 
   $ sudo apt-get install build-essential gcc gfortran gcc-multilib m4
@@ -225,8 +212,6 @@ These building scripts have only been tested with 64-bit Linux.
 .. _Nose: http://somethingaboutorange.com/mrl/projects/nose/
 .. _VTK: http://vtk.org/
 .. _ctypes: http://docs.python.org/library/ctypes.html
-.. _Debian: http://debian.org/
-.. _Ubuntu: http://ubuntu.com/
 """
 
 __docformat__ = 'restructuredtext en'
