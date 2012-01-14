@@ -69,7 +69,7 @@ python-profiler`` to install the built-in Python profiler.
 Building document of SOLVCON requires the following packages:
 
 - Epydoc_ 3+
-- pygraphviz 1.1+
+- `pygraphviz <http://networkx.lanl.gov/pygraphviz/>`_ 1.1+
 - `Sphinx <http://sphinx.pocoo.org/>`_ 1.0+
 
 which can be installed on Debian/Ubunbu by using the command::
