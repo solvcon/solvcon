@@ -8,11 +8,13 @@ README for SOLVCON
 SOLVCON: a multi-physics software framework for high-fidelity solutions of
 partial differential equations (PDEs) by hybrid parallelism.
 
-SOLVCON uses the space-time Conservation Element and Solution Element (CESE_)
-method to solve generic conservation laws.  SOLVCON focuses on rapid
-development of high-performance computing (HPC) code for large-scale
-simulations.  SOLVCON is developed by using Python for the main structure, to
-incorporate C, CUDA_, or other programming languages for HPC.
+SOLVCON uses the space-time Conservation Element and Solution Element (`CESE
+<http://www.grc.nasa.gov/WWW/microbus/>`_) method to solve generic conservation
+laws.  SOLVCON focuses on rapid development of high-performance computing (HPC)
+code for large-scale simulations.  SOLVCON is developed by using Python for the
+main structure, to incorporate C, `CUDA
+<http://www.nvidia.com/object/cuda_home_new.html>`_, or other programming
+languages for HPC.
 
 SOLVCON is released under `GNU GPLv2
 <http://www.gnu.org/licenses/gpl-2.0.html>`_, and developed by `Yung-Yu Chen
@@ -34,16 +36,18 @@ Prerequisite
 
 SOLVCON depends on the following packages:
 
-- gcc_ 4.3+
-- SCons_ 2+
-- Python_ 2.6 or 2.7 (2.7 is preferred)
-- Numpy_ 1.5+
-- LAPACK_
-- NetCDF_ 4+
-- METIS_ 4.0.3+ (SOLVCON will download it for you on building) or SCOTCH_ 5.1+
-- Nose_ 1.0+
+- `gcc <http://gcc.gnu.org/>`_ 4.3+
+- `SCons <http://www.scons.org/>`_ 2+
+- `Python <http://www.python.org/>`_ 2.6 or 2.7 (2.7 is preferred)
+- `Numpy <http://www.numpy.org/>`_ 1.5+
+- `LAPACK <http://www.netlib.org/lapack/>`_
+- `NetCDF <http://www.unidata.ucar.edu/software/netcdf/index.html>`_ 4+
+- `METIS <http://glaros.dtc.umn.edu/gkhome/views/metis/>`_ 4.0.3+ (SOLVCON will
+  download it for you on building) or `SCOTCH
+  <http://www.labri.fr/perso/pelegrin/scotch/>`_ 5.1+
+- `Nose <http://somethingaboutorange.com/mrl/projects/nose/>`_ 1.0+
 - `gmsh <http://geuz.org/gmsh/>`_ 2.5+
-- VTK_ 5.6+
+- `VTK <http://vtk.org/>`_ 5.6+
 
 The following command will install these packages on Debian/Ubunbu::
 
@@ -56,7 +60,7 @@ python-profiler`` to install the built-in Python profiler.
 
 Building document of SOLVCON requires the following packages:
 
-- Epydoc_ 3+
+- `Epydoc <http://epydoc.sf.net/>`_ 3+
 - `pygraphviz <http://networkx.lanl.gov/pygraphviz/>`_ 1.1+
 - `Sphinx <http://sphinx.pocoo.org/>`_ 1.0+
 
@@ -107,8 +111,9 @@ required.
 Development Version
 ===================
 
-To use the latest development version, you need to use Mercurial_ to access the
-source repository.  Clone the repository::
+To use the latest development version, you need to use `Mercurial
+<http://mercurial.selenic.com/>`_ to access the source repository.  Clone the
+repository::
 
   $ sudo apt-get install mercurial
   $ hg clone https://bitbucket.org/yungyuc/solvcon
@@ -142,11 +147,11 @@ following command instead::
 When testing the installed package, make sure your current directory does not
 have a sub-directory named as ``solvcon``.
 
-Because SOLVCON uses ssh_ as its default approach for remote procedure call
-(RPC), you need to set up the public key authentication for ssh, or some of the
-unit tests for RPC could fail.  Some tests using optional libraries could be
-skipped (indicated by S), if you do not have the libraries installed.
-Everything else should pass.
+Because SOLVCON uses `ssh <http://www.openssh.com/>`_ as its default approach
+for remote procedure call (RPC), you need to set up the public key
+authentication for ssh, or some of the unit tests for RPC could fail.  Some
+tests using optional libraries could be skipped (indicated by S), if you do not
+have the libraries installed.  Everything else should pass.
 
 Build and Install Dependencies (Optional)
 =========================================
@@ -193,22 +198,5 @@ dependencies by using::
    libxt-dev
 
 These building scripts have only been tested with 64-bit Linux.
-
-.. _CESE: http://www.grc.nasa.gov/WWW/microbus/
-.. _SCons: http://www.scons.org/
-.. _Python: http://www.python.org/
-.. _gcc: http://gcc.gnu.org/
-.. _Numpy: http://www.numpy.org/
-.. _LAPACK: http://www.netlib.org/lapack/
-.. _NetCDF: http://www.unidata.ucar.edu/software/netcdf/index.html
-.. _METIS: http://glaros.dtc.umn.edu/gkhome/views/metis/
-.. _SCOTCH: http://www.labri.fr/perso/pelegrin/scotch/
-.. _Epydoc: http://epydoc.sf.net/
-.. _CUDA: http://www.nvidia.com/object/cuda_home_new.html
-.. _Mercurial: http://mercurial.selenic.com/
-.. _ssh: http://www.openssh.com/
-.. _Nose: http://somethingaboutorange.com/mrl/projects/nose/
-.. _VTK: http://vtk.org/
-.. _ctypes: http://docs.python.org/library/ctypes.html
 
 .. vim: set ft=rst ff=unix fenc=utf8:
