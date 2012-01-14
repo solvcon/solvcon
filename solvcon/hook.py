@@ -550,11 +550,15 @@ class MarchSave(VtkSave):
         cse = self.cse
         exe = cse.execution
         var = exe.var
+        # names of solution arrays.
+        sarrnames = []
+        if 'solverobj' in cse.solver:
+            sarrnames = cse.solver.solverobj._solution_array_
         # create dictionaries for scalars and vectors.
         sarrs = dict()
         varrs = dict()
         for key in var:
-            if key == 'soln' or key == 'dsoln': # skip pure solution.
+            if key in sarrnames: # skip pure solution.
                 continue
             arr = var[key]
             if len(arr.shape) == 1:
