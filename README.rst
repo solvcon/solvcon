@@ -42,9 +42,6 @@ SOLVCON depends on the following packages:
 - NetCDF_ 4+
 - METIS_ 4.0.3+ (SOLVCON will download it for you on building) or SCOTCH_ 5.1+
 - Nose_ 1.0+
-- Epydoc_ 3+
-- pygraphviz 1.1+
-- `Sphinx <http://sphinx.pocoo.org/>`_ 1.0+
 - `gmsh <http://geuz.org/gmsh/>`_ 2.5+
 - VTK_ 5.6+
 
@@ -52,10 +49,20 @@ The following command will install these packages on Debian/Ubunbu::
 
   $ sudo apt-get install build-essential gcc scons liblapack-pic libnetcdf-dev
   libnetcdf6 netcdf-bin libscotch-5.1 python2.7 python2.7-dev python-numpy
-  python-nose python-epydoc python-pygraphviz python-sphinx gmsh python-vtk
+  python-nose gmsh python-vtk
 
 Note: For Debian Squeeze (6.0), you need also ``apt-get install
 python-profiler`` to install the built-in Python profiler.
+
+Building document of SOLVCON requires the following packages:
+
+- Epydoc_ 3+
+- pygraphviz 1.1+
+- `Sphinx <http://sphinx.pocoo.org/>`_ 1.0+
+
+which can be installed on Debian/Ubunbu by using the command::
+
+  $ sudo apt-get install python-epydoc python-pygraphviz python-sphinx
 
 Another optional dependency is CUDA_, which needs to be separately installed
 and configured.  For using meshes with more then 35 million cells, SCOTCH-5.1
