@@ -1,6 +1,12 @@
 Upcoming
 ========
 
+This release starts to document by using Sphinx and improves the class
+hierarchy of IO and boundary-condition treatments.
+
+0.1.1
+=====
+
 Release date: 2012/1/21 (GMT+0800)
 
 This release adds a loader of Gmsh mesh format and fixes several bugs.
