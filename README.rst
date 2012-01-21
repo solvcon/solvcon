@@ -3,7 +3,7 @@ README for SOLVCON
 ==================
 
 :author: Yung-Yu Chen <yyc@solvcon.net>
-:copyright: c 2008-2011.
+:copyright: c 2008-2012.
 
 SOLVCON: a multi-physics software framework for high-fidelity solutions of
 partial differential equations (PDEs) by hybrid parallelism.
