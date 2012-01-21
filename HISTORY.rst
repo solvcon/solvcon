@@ -1,7 +1,7 @@
 Upcoming
 ========
 
-Release date: 2012 (GMT+0800)
+Release date: 2012/1/21 (GMT+0800)
 
 This release adds a loader of Gmsh mesh format and fixes several bugs.
 

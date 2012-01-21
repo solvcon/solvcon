@@ -55,20 +55,16 @@ class Solvcon(object):
         # directories.
         self.pydir = os.path.abspath(os.path.dirname(__file__))
         self.pkgdir = os.path.abspath(os.path.join(self.pydir, '..'))
-        libdir = os.path.join(self.pydir, '..', 'lib')
-        for root in [sys.prefix, os.path.join(os.environ['HOME'], '.local')]:
-            if os.path.exists(libdir):
-                break
-            else:
-                libdir = os.path.join(root, 'lib', 'solvcon')
-        self.libdir = os.path.abspath(libdir)
-        datadir = os.path.join(self.pydir, '..', 'test', 'data')
-        for root in [sys.prefix, os.path.join(os.environ['HOME'], '.local')]:
-            if os.path.exists(datadir):
-                break
-            else:
-                datadir = os.path.join(root, 'share', 'solvcon', 'test')
-        self.datadir = os.path.abspath(datadir)
+        ## library directory.
+        paths = [os.path.join(self.pydir, '..', 'lib')] + [
+            os.path.join(root, 'lib', 'solvcon') for root in (
+                os.path.join(os.environ['HOME'], '.local'), sys.prefix)]
+        self.libdir = self._get_first_existing_path(paths)
+        ## data directory.
+        paths = [os.path.join(self.pydir, '..', 'test', 'data')] + [
+            os.path.join(root, 'share', 'solvcon', 'test') for root in (
+                os.path.join(os.environ['HOME'], '.local'), sys.prefix)]
+        self.datadir = self._get_first_existing_path(paths)
         # configuration files.
         cfgdirs = list()
         cwd = os.getcwd()
@@ -117,6 +113,22 @@ class Solvcon(object):
         self.mpi = MPI() if self.mpi is not None else self.mpi
         # CUDA.
         self.scu = Scuda() if Scuda.has_cuda() else None
+
+    @staticmethod
+    def _get_first_existing_path(paths):
+        """
+        Return the first existing path and turn it into an absolute path.
+
+        @param paths: The list of paths.
+        @type paths: list
+        @return: The first existing path.
+        @rtype: str
+        """
+        import os
+        for path in paths:
+            if os.path.exists(path):
+                return os.path.abspath(path)
+        raise ValueError('None of %s exists' % str(paths))
 
     @property
     def fpdtype(self):

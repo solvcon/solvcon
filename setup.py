@@ -37,7 +37,7 @@ README for SOLVCON
 ==================
 
 :author: Yung-Yu Chen <yyc@solvcon.net>
-:copyright: c 2008-2011.
+:copyright: c 2008-2012.
 """, solvcon.__doc__,
     """
 .. vim: set ft=rst ff=unix fenc=utf8:"""])

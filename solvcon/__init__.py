@@ -214,7 +214,7 @@ These building scripts have only been tested with 64-bit Linux.
 
 __docformat__ = 'restructuredtext en'
 
-__version__ = '0.1+'
+__version__ = '0.1.1'
 
 __description__ = "SOLVCON: a software framework for PDE solvers"
 
