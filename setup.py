@@ -45,7 +45,6 @@ README for SOLVCON
     readme_old = f.read()
     f.close()
     if readme_new != readme_old:
-        print 'hi'
         f = open('README.rst', 'w')
         f.write(readme_new)
         f.close()
