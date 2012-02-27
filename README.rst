@@ -5,21 +5,21 @@ README for SOLVCON
 :author: Yung-Yu Chen <yyc@solvcon.net>
 :copyright: c 2008-2012.
 
-SOLVCON: a multi-physics software framework for high-fidelity solutions of
-partial differential equations (PDEs) by hybrid parallelism.
+SOLVCON: A software framework to develop high-fidelity solvers of partial
+differential equtions (PDEs).
 
-SOLVCON uses the space-time Conservation Element and Solution Element (`CESE
-<http://www.grc.nasa.gov/WWW/microbus/>`_) method to solve generic conservation
-laws.  SOLVCON focuses on rapid development of high-performance computing (HPC)
-code for large-scale simulations.  SOLVCON is developed by using Python for the
-main structure, to incorporate C, `CUDA
-<http://www.nvidia.com/object/cuda_home_new.html>`_, or other programming
-languages for HPC.
+SOLVCON uses the space-time `Conservation Element and Solution Element CESE
+<http://www.grc.nasa.gov/WWW/microbus/>`__) method to solve generic
+conservation laws.  Python is used to host code written in C, `CUDA
+<http://www.nvidia.com/object/cuda_home_new.html>`__, or other programming
+languages for high-performance computing (HPC).  Hybrid parallelism is achieved
+by segregating share- and distributed-memory parallel computing in the
+different layers of the software framework established by Python.
 
-SOLVCON is released under `GNU GPLv2
-<http://www.gnu.org/licenses/gpl-2.0.html>`_, and developed by `Yung-Yu Chen
-<mailto:yyc@solvcon.net>`_ and `Sheng-Tao John Yu <mailto:yu.274@osu.edu>`_.
-The official web site is at http://solvcon.net/ .
+SOLVCON is developed by `Yung-Yu Chen <mailto:yyc@solvcon.net>`__ and
+`Sheng-Tao John Yu <mailto:yu.274@osu.edu>`__, and released under `GNU GPLv2
+<http://www.gnu.org/licenses/gpl-2.0.html>`__.  Please consult the web site
+http://solvcon.net/ for more information.
 
 Key Features:
 

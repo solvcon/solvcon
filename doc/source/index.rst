@@ -2,7 +2,7 @@
 SOLVCON -- SOLVer CONstructor
 =============================
 
-Supportive functionalities, e.g., mesh loading, result writing, visualizing,
+Supportive functionalities, e.g., mesh loading, result outputing, visualizing,
 etc., are usually the tedious and error-prone part of coding up a PDE solver.
 It takes a lot of efforts to develop the functionalities, and more efforts to
 maintain them.  As the result, compared to the supportive functionalities, the
