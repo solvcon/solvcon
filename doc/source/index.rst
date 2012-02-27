@@ -1,42 +1,53 @@
-=====================
-SOLVCON documentation
-=====================
+=============================
+SOLVCON -- SOLVer CONstructor
+=============================
 
-SOLVCON_ is a framework to write explicit and time-accurate simulation codes
-for PDEs with the unstructured mesh.  As a framework, SOLVCON_ provides:
+Supportive functionalities, e.g., mesh loading, result writing, visualizing,
+etc., are usually the tedious and error-prone part of coding up a PDE solver.
+It takes a lot of efforts to develop the functionalities, and more efforts to
+maintain them.  As the result, compared to the supportive functionalities, the
+lines of code written for the core numerical methods of a PDE solver are fairly
+few.  The productivity of PDE-solver developers will be rocket-boosted is they
+do not need to worry about the supportive functionalities.
 
-#. A data structure for two- and three-dimensional unstructured mesh of mixed
-   elements.
+Unfortunately, no matter how costly developing the supportive functionalities
+is, it cannot be avoided.  A PDE solver without a mesh loader or a mesh
+generator is not applicable at all.  PDE solvers need supportive
+functionalities to deliver results.
 
-#. Unstructured mesh importers.
+To resolve this dilemmatic issue, we designed `SOLVCON <http://solvcon.net/>`_
+to host supportive functionalities and to provide a `software framework
+<http://en.wikipedia.org/wiki/Software_framework>`__ to develop
+high-performance, massively parallelized PDE solvers.  Generally speaking, PDE
+solvers are computer programs consisting of two levels of loops: The outer loop
+and the inner loops.  Computer code of both the supportive functionalities and
+the numerical methods can be wrapped around the fundamental two-loop structure.
+As a result, supportive functionalities can be segregated from the core
+numerical algorithms.  The reusability gained by using SOLVCON can
+significantly save the efforts of the development of PDE solvers.
 
-#. Simulation data writers in VTK_ legacy format.
+This is especially true for solvers of hyperbolic PDEs or conservation laws,
+i.e., for solving systems of first-order PDEs in the quasi-linear form:
 
-#. An organized and flexible system to write pre- and post-processing codes
-   (the **Hooks**).
+.. math::
 
-#. Predefined and automated domain-decomposition logic.
+  \dpd{\bvec{u}}{t}
+  + \sum_{\iota=1}^3 \mathrm{A}^{(\iota)}(\bvec{u})\dpd{\bvec{u}}{x_{\iota}}
+  = \bvec{s}(\bvec{u}).
 
-#. IPC (Inter-Process Communication) and RPC (Remote Procedure Call).  
+In the context of numerical solutions of conservation laws, the outer loop is
+used to perform time-marching, and is usually called the *temporal loop*.
+Within the outer temporal loop, the inner loops are used to sweep over the
+discretized spatial domain.  Therefore, the inner loops are called the *spatial
+loops*.  While there is only one outer temporal loop, there usually are many
+inner spatial loops to perform different numerical calculations.
 
-.. _SOLVCON: http://solvcon.net/
-.. _VTK: http://www.vtk.org/
-
-.. note:: SOLVCON_ is not a framework that applies to all kinds of scientific
-   code, but it's general enough to help programs which fit in the category.
-   You can use SOLVCON_ for **Computational Fluid Dynamics** (CFD),
-   **Computational Mechanics**, **Computational Electromagnetics**, or any
-   other fields that solve PDEs.
-
-By using SOLVCON_, you are able to concentrate in implementing the essential
-numerical algorithm in one-, two- or three-dimensional space.  You don't need
-to worry about how to parse and load an unstructured mesh, where to specify the
-initial conditions in your code, or how to implement the boundary conditions
-for your solver.  SOLVCON_ provides the guidelines for all the components that
-a simulation code for PDEs needed.
-
-If you don't even know anything about or have no experience in implementing a
-scientific code, then SOLVCON_ is a good resource for you to get start.
+Using SOLVCON calls for the fundamental understanding of the basic, macroscopic
+two-loop structure of PDE solvers.  The fundamental structure makes no
+assumption for the computer architecture nor the numerical method employed.
+The macroscopic abstraction allows the developed PDE solvers to be as
+high-performance as possible, at the price of being unable to use some of the
+built-in functionalities.
 
 Contents
 ========
@@ -45,7 +56,7 @@ Contents
    :maxdepth: 2
 
    install
-   concept
+   tutorial
 
 Indices and tables
 ==================
@@ -54,4 +65,8 @@ Indices and tables
 * :ref:`modindex`
 * :ref:`search`
 
+History
+=======
+
+.. include:: ../../HISTORY.rst
 .. vim: set ft=rst ff=unix fenc=utf8:

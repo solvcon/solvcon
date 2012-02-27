@@ -2,8 +2,8 @@
 Installation
 ============
 
-Prerequisite
-============
+Prerequisites
+=============
 
 SOLVCON depends on the following packages:
 
@@ -22,7 +22,7 @@ SOLVCON depends on the following packages:
 
 The following command will install these packages on Debian/Ubunbu::
 
-  $ sudo apt-get install build-essential gcc scons liblapack-pic libnetcdf-dev
+  sudo apt-get install build-essential gcc scons liblapack-pic libnetcdf-dev
   libnetcdf6 netcdf-bin libscotch-5.1 python2.7 python2.7-dev python-numpy
   python-nose gmsh python-vtk
 
@@ -37,7 +37,7 @@ Building document of SOLVCON requires the following packages:
 
 which can be installed on Debian/Ubunbu by using the command::
 
-  $ sudo apt-get install python-epydoc python-pygraphviz python-sphinx
+  sudo apt-get install python-epydoc python-pygraphviz python-sphinx
 
 Another optional dependency is `CUDA
 <http://www.nvidia.com/object/cuda_home_new.html>`_, which needs to be
@@ -45,85 +45,86 @@ separately installed and configured.  For using meshes with more then 35
 million cells, SCOTCH-5.1 is recommended.  METIS-4 has issues on memory
 allocation for large graphs.
 
-Install
-=======
+Download
+========
 
-There are three steps to install SOLVCON:
+You can obtain the source tarball at
+https://bitbucket.org/yungyuc/solvcon/downloads.  Alternatively, you can also
+clone the source code managed by `Mercurial <http://mercurial.selenic.com/>`_
+(hg)::
 
-1. Obtain the latest release from
-   https://bitbucket.org/yungyuc/solvcon/downloads.  Unpack the source
-   tarball.
+  hg clone https://bitbucket.org/yungyuc/solvcon
 
-2. Get into the source tree and run SCons_ to build the binary codes::
+If you don't have hg installed, the following command can do it on a
+Debian/Ubuntu::
 
-     $ cd $SCSRC
-     $ scons --download --extract
+  sudo apt-get install mercurial
 
-   where ``$SCSRC`` indicates the root directory of unpacked source tree.
+Build
+=====
 
-3. Install everything::
+The binary part of SOLVCON is built by using SCons_::
 
-     $ python setup.py install
+  cd $SCSRC
+  scons --download --extract
 
-The option ``--download`` used above lets the building script download
-necessary external source packages, e.g., METIS_, from Internet.  Option
-``--extract`` extracts the downloaded packages.
-
-Although not recommended, you can optionally install SOLVCON to your
-``$HOME/.local`` directory.  It is one of the workarounds when you don't have
-the root permission on the system.  To do this, add the ``--user`` when
-invoking the ``setup.py`` script::
-
- $ python setup.py install --user
+where ``$SCSRC`` indicates the root directory of unpacked source tree.  The
+option ``--download`` lets the building script download necessary external
+source packages, e.g., METIS_, from Internet.  Option ``--extract`` extracts
+the downloaded packages.
 
 SOLVCON is designed to work without explicit installation.  You can simply set
-the ``$PYTHONPATH`` environment variable to point to the unpacked source
-distribution (``$SCSRC``).  Compilation of binary code by using SCons is still
-required.
+the environment variable ``$PYTHONPATH`` to point to the source code, i.e.,
+``$SCSRC``.  Note that the binary code is needed to be compiled.
 
-Development Version
-===================
+.. note::
 
-To use the latest development version, you need to clone the source repository
-managed by `Mercurial <http://mercurial.selenic.com/>`_::
+  The Python runtime will search the paths in the environment variable
+  ``$PYTHONPATH`` for Python modules.  See
+  http://docs.python.org/tutorial/modules.html#the-module-search-path for
+  detail.
 
-  $ sudo apt-get install mercurial
-  $ hg clone https://bitbucket.org/yungyuc/solvcon
+Install to Your System (Optional)
+=================================
 
-and follow steps 2 and 3 in Install_.
+You can install SOLVCON along with the compiled binary part into your Python
+system::
 
-Rebuild/Reinstall
-=================
+  python setup.py install
 
-If you want to rebuild and reinstall, you can run::
+.. warning::
 
-  $ cd $SCSRC
-  $ scons
-  $ python setup.py install
-
-without using the options ``--download`` and ``--extract``.  If you want a
-clean rebuild, run ``scons -c`` before ``scons``.
+  Although adding the option ``--user`` to the above command can enable
+  per-user installation, it is not recommended to do so.  If you don't have
+  permission to install SOLVCON to your Python system, the preferred workaround
+  is (i) to set ``$PYTHONPATH``, (ii) to use `virtualenv
+  <http://pypi.python.org/pypi/virtualenv>`__, or (iii) to build a standalone
+  Python runtime as described in :ref:`manual-prerequisites`.
 
 Unit Test
 =========
 
 If you have Nose_ installed, you can run::
 
-  $ nosetests
+  nosetests
 
 inside the source tree for unit tests.  To test the installed package, use the
 following command instead::
 
-  $ python -c 'import solvcon; solvcon.test()'
+  python -c 'import solvcon; solvcon.test()'
 
 When testing the installed package, make sure your current directory does not
 have a sub-directory named as ``solvcon``.
 
-Because SOLVCON uses `ssh <http://www.openssh.com/>`_ as its default approach
-for remote procedure call (RPC), you need to set up the public key
-authentication for ssh, or some of the unit tests for RPC could fail.  Some
-tests using optional libraries could be skipped (indicated by S), if you do not
-have the libraries installed.  Everything else should pass.
+.. important::
+  
+  Because SOLVCON uses `ssh <http://www.openssh.com/>`_ as its default approach
+  for remote procedure call (RPC), you need to set up the public key
+  authentication for ssh, or some of the unit tests for RPC could fail.  Some
+  tests using optional libraries could be skipped (indicated by S), if you do
+  not have the libraries installed.  Everything else should pass.
+
+.. _manual-prerequisites:
 
 Manually Build Prerequisites (Optional)
 =======================================
@@ -165,11 +166,11 @@ Some packages have not been incorporated into the dependency building system
 described above.  Debian or Ubuntu users should install the additional
 dependencies by using::
 
-  $ sudo apt-get install build-essential gcc gfortran gcc-multilib m4
-   libreadline6 libreadline6-dev libncursesw5 libncurses5-dev libbz2-1.0
-   libbz2-dev libdb4.8 libdb-dev libgdbm3 libgdbm-dev libsqlite3-0
-   libsqlite3-dev libcurl4-gnutls-dev libhdf5-serial-dev libgl1-mesa-dev
-   libxt-dev
+  sudo apt-get install build-essential gcc gfortran gcc-multilib m4
+  libreadline6 libreadline6-dev libncursesw5 libncurses5-dev libbz2-1.0
+  libbz2-dev libdb4.8 libdb-dev libgdbm3 libgdbm-dev libsqlite3-0
+  libsqlite3-dev libcurl4-gnutls-dev libhdf5-serial-dev libgl1-mesa-dev
+  libxt-dev
 
 These building scripts have only been tested with 64-bit Linux.
 

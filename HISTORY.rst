@@ -1,11 +1,11 @@
 Upcoming
-========
+++++++++
 
 This release starts to document by using Sphinx and improves the class
 hierarchy of IO and boundary-condition treatments.
 
 0.1.1
-=====
++++++
 
 Release date: 2012/1/21 (GMT+0800)
 
@@ -33,7 +33,7 @@ Bug-fix:
 - Issue #38: "soln/dsoln shouldn't be hard-coded".
 
 0.1
-===
++++
 
 Release date: 2011/8/11 (GMT-0500)
 
@@ -65,7 +65,7 @@ Bug-fix:
 - METIS changes its download URL.  Modify SConstruct accordingly.
 
 0.0.7
-=====
++++++
 
 Release date: 2011/6/8 (GMT-0500)
 
@@ -99,7 +99,7 @@ Bug-fix:
   dynamics module (``solvcon.kerpak.gasdyn``).
 
 0.0.6
-=====
++++++
 
 Release date: 2011/5/18 (GMT-0500)
 
@@ -128,7 +128,7 @@ Bug-fixes:
 - Update SCons scripts for the upgrade of METIS to 4.0.3.
 
 0.0.4
-=====
++++++
 
 Release date: 2011/3/2 (GMT-0500)
 
@@ -147,7 +147,7 @@ Bug-fix:
   slave nodes.
 
 0.0.3
-=====
++++++
 
 Release date: 2011/2/20 (GMT-0500)
 
@@ -184,14 +184,14 @@ Changes:
 - Refactor ``solvcon.domain.Collective.split()``.
 
 0.0.2
-=====
++++++
 
 - Bring in anisotropic elastic solver.
 - Implement proof-of-concept in situ visualization.
 - Refactor str_path property in solvcon.batch.Batch.
 
 0.0.1
-=====
++++++
 
 - The first alpha release: a technology preview.
 

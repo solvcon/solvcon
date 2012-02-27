@@ -171,6 +171,14 @@ htmlhelp_basename = 'SOLVCONdoc'
 
 # -- Options for LaTeX output --------------------------------------------------
 
+latex_elements = {
+    'preamble': r'''\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{vector}
+\usepackage{commath}'''
+}
+#pngmath_latex_preamble = latex_elements['preamble']
+
 # The paper size ('letter' or 'a4').
 #latex_paper_size = 'letter'
 
@@ -180,8 +188,12 @@ htmlhelp_basename = 'SOLVCONdoc'
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
-  ('index', 'SOLVCON.tex', u'SOLVCON Documentation',
-   u'Yung-Yu Chen', 'manual'),
+  #('index', 'SOLVCON.tex', u'SOLVCON Documentation',
+  # u'Yung-Yu Chen', 'manual'),
+  ('install', 'solvcon_install.tex', u'Install SOLVCON',
+   u'Yung-Yu Chen', 'howto'),
+  ('tutorial', 'solvcon_tutorial.tex', u'SOLVCON Tutorial',
+   u'Yung-Yu Chen', 'howto'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
