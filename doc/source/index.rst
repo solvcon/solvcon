@@ -2,23 +2,25 @@
 SOLVCON -- SOLVer CONstructor
 =============================
 
-Supportive functionalities, e.g., mesh loading, result outputing, visualizing,
-etc., are usually the tedious and error-prone part of coding up a PDE solver.
-It takes a lot of efforts to develop the functionalities, and more efforts to
-maintain them.  As the result, compared to the supportive functionalities, the
-lines of code written for the core numerical methods of a PDE solver are fairly
-few.  The productivity of PDE-solver developers will be rocket-boosted is they
-do not need to worry about the supportive functionalities.
+Supportive functionalities, e.g., mesh loading, result outputting, parallel
+computing, visualizing, etc., are usually the tedious and error-prone part of
+coding up a PDE solver.  It takes a lot of efforts to develop the
+functionalities, and more efforts to maintain them.  As the result, compared to
+the supportive functionalities, the lines of code written for the core
+numerical methods of a PDE solver are fairly few.  The productivity of
+PDE-solver developers will be rocket-boosted is they do not need to worry about
+the supportive functionalities.
 
 Unfortunately, no matter how costly developing the supportive functionalities
 is, it cannot be avoided.  A PDE solver without a mesh loader or a mesh
-generator is not applicable at all.  PDE solvers need supportive
-functionalities to deliver results.
+generator is not applicable at all.  For high-end applications, a solver of
+production use must exploit parallel computing and run on thousands of
+computers.  PDE solvers need supportive functionalities to deliver results.
 
 To resolve this dilemmatic issue, we designed `SOLVCON <http://solvcon.net/>`_
 to host supportive functionalities and to provide a `software framework
 <http://en.wikipedia.org/wiki/Software_framework>`__ to develop
-high-performance, massively parallelized PDE solvers.  Generally speaking, PDE
+high-performance, massively-parallelized PDE solvers.  Generally speaking, PDE
 solvers are computer programs consisting of two levels of loops: The outer loop
 and the inner loops.  Computer code of both the supportive functionalities and
 the numerical methods can be wrapped around the fundamental two-loop structure.
