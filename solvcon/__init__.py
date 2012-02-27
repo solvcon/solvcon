@@ -38,7 +38,7 @@ Key Features:
 - Pluggable multi-physics
 - Unstructured meshes for modeling complex geometry
 - Hybrid parallel computing
-- Ready-to-use I/O formats
+- Ready-to-use I/O facilities
 - Parallel I/O and in situ visualization
 - Automated work flow
 """
