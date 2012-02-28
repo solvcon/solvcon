@@ -177,7 +177,7 @@ latex_elements = {
 \usepackage{vector}
 \usepackage{commath}'''
 }
-#pngmath_latex_preamble = latex_elements['preamble']
+pngmath_latex_preamble = latex_elements['preamble']
 
 # The paper size ('letter' or 'a4').
 #latex_paper_size = 'letter'
