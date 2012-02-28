@@ -11,11 +11,11 @@ numerical methods of a PDE solver are fairly few.  The productivity of
 PDE-solver developers will be rocket-boosted is they do not need to worry about
 the supportive functionalities.
 
-Unfortunately, no matter how costly developing the supportive functionalities
-is, it cannot be avoided.  A PDE solver without a mesh loader or a mesh
-generator is not applicable at all.  For high-end applications, a solver of
-production use must exploit parallel computing and run on thousands of
-computers.  PDE solvers need supportive functionalities to deliver results.
+Unfortunately, it cannot be avoided to develop the supportive functionalities.
+For example, a PDE solver without a mesh loader or a mesh generator is not
+applicable at all.  For high-end applications, a solver of production use must
+exploit parallel computing and run on thousands of computers.  PDE solvers need
+supportive functionalities to deliver results.
 
 To resolve this dilemmatic issue, we designed `SOLVCON <http://solvcon.net/>`_
 to host supportive functionalities and to provide a `software framework
@@ -24,12 +24,12 @@ high-performance, massively-parallelized PDE solvers.  Generally speaking, PDE
 solvers are computer programs consisting of two levels of loops: The outer loop
 and the inner loops.  Computer code of both the supportive functionalities and
 the numerical methods can be wrapped around the fundamental two-loop structure.
-As a result, supportive functionalities can be segregated from the core
-numerical algorithms.  The reusability gained by using SOLVCON can
-significantly save the efforts of the development of PDE solvers.
+SOLVCON uses the basic structure to segregate supportive functionalities from
+the core numerical algorithms.  The reusability gained by using SOLVCON can
+significantly save the efforts of developing PDE solvers.
 
-This is especially true for solvers of hyperbolic PDEs or conservation laws,
-i.e., for solving systems of first-order PDEs in the quasi-linear form:
+An important application of SOLVCON is to solve conservation laws, which are
+written as systems of first-order, quasi-linear PDEs:
 
 .. math::
 
@@ -44,12 +44,20 @@ discretized spatial domain.  Therefore, the inner loops are called the *spatial
 loops*.  While there is only one outer temporal loop, there usually are many
 inner spatial loops to perform different numerical calculations.
 
-Using SOLVCON calls for the fundamental understanding of the basic, macroscopic
-two-loop structure of PDE solvers.  The fundamental structure makes no
-assumption for the computer architecture nor the numerical method employed.
-The macroscopic abstraction allows the developed PDE solvers to be as
-high-performance as possible, at the price of being unable to use some of the
-built-in functionalities.
+The key features of SOLVCON include:
+
+- Pluggable multi-physics by using the `Conservation Element and Solution
+  Element (CESE) <http://www.grc.nasa.gov/WWW/microbus/>`__ method
+- Unstructured meshes of mixed elements for modeling complex geometry
+- Hybrid parallel computing
+- Ready-to-use I/O facilities
+- In situ visualization and parallel I/O
+
+Using SOLVCON calls for the fundamental understanding of the basic two-loop
+structure of PDE solvers.  The basic structure makes no assumption for the
+computer architecture nor the numerical method employed.  The macroscopic
+abstraction allows the developed PDE solvers to be as high-performance as
+possible.
 
 Contents
 ========

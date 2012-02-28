@@ -32,15 +32,6 @@ SOLVCON is developed by `Yung-Yu Chen <mailto:yyc@solvcon.net>`__ and
 `Sheng-Tao John Yu <mailto:yu.274@osu.edu>`__, and released under `GNU GPLv2
 <http://www.gnu.org/licenses/gpl-2.0.html>`__.  Please consult the web site
 http://solvcon.net/ for more information.
-
-Key Features:
-
-- Pluggable multi-physics
-- Unstructured meshes for modeling complex geometry
-- Hybrid parallel computing
-- Ready-to-use I/O facilities
-- Parallel I/O and in situ visualization
-- Automated work flow
 """
 
 __docformat__ = 'restructuredtext en'

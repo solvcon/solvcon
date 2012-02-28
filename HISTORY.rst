@@ -1,7 +1,7 @@
 Upcoming
 ++++++++
 
-This release starts to document by using Sphinx and improves the class
+This release starts to document by using Sphinx and to improve the class
 hierarchy of IO and boundary-condition treatments.
 
 0.1.1
