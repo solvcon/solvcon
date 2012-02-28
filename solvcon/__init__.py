@@ -20,9 +20,9 @@
 SOLVCON: A software framework to develop high-fidelity solvers of partial
 differential equtions (PDEs).
 
-SOLVCON uses the space-time `Conservation Element and Solution Element CESE
-<http://www.grc.nasa.gov/WWW/microbus/>`__) method to solve generic
-conservation laws.  Python is used to host code written in C, `CUDA
+SOLVCON uses the space-time `Conservation Element and Solution Element (CESE)
+<http://www.grc.nasa.gov/WWW/microbus/>`__ method to solve generic conservation
+laws.  Python is used to host code written in C, `CUDA
 <http://www.nvidia.com/object/cuda_home_new.html>`__, or other programming
 languages for high-performance computing (HPC).  Hybrid parallelism is achieved
 by segregating share- and distributed-memory parallel computing in the
