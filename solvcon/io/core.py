@@ -20,16 +20,15 @@
 Core I/O facilities for SOLVCON intrinsic constructs.
 """
 
-from ..gendata import SingleAssignDict, AttributeDict
+from ..gendata import TypeNameRegistry
 
-class FormatRegistry(SingleAssignDict, AttributeDict):
+class FormatRegistry(TypeNameRegistry):
     """
     Registry for a certain class of formats.
     """
     def register(self, ftype):
-        name = ftype.__name__
-        rev = ftype.FORMAT_REV
-        self[name] = self[rev] = ftype
+        ftype = super(FormatRegistry, self).register(ftype)
+        self[ftype.FORMAT_REV] = ftype
         return ftype
 
 class FormatMeta(type):
@@ -238,15 +237,7 @@ class Format(object):
             arr = np.frombuffer(buf, dtype=dtype).reshape(shape).copy()
         return arr
 
-class FormatIORegistry(SingleAssignDict, AttributeDict):
-    """
-    Registry for all FormatIO classes.
-    """
-    def register(self, ftype):
-        name = ftype.__name__
-        self[name] = ftype
-        return ftype
-fioregy = FormatIORegistry()    # registry singleton.
+fioregy = TypeNameRegistry()    # registry singleton.
 class FormatIOMeta(type):
     """
     Metaclass for FormatIO.
