@@ -247,9 +247,12 @@ class Gmsh(object):
         cmdf.close()
         # call Gmsh and get the data.
         cli = 'gmsh %s -3 -o %s' % (cmdp, mshp)
+        pobj = Popen(cli, shell=True, stdout=PIPE, stderr=STDOUT)
+        self.stdout = pobj.stdout.read()
+        if not os.path.exists(mshp):
+            raise OSError('%s not produced by gmsh command line'%mshp)
+        # get the data.
         try:
-            pobj = Popen(cli, shell=True, stdout=PIPE, stderr=STDOUT)
-            self.stdout = pobj.stdout.read()
             mshf = open(mshp)
             gmh = Gmsh(mshf)
             gmh.load()
