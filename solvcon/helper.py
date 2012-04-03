@@ -218,7 +218,7 @@ class Gmsh(object):
     """
     Delegate Gmsh command through journaling file and load the generated mesh.
 
-    @ivar cmds: commands to be sent to Cubit.
+    @ivar cmds: commands to be sent to gmsh.
     @itype cmds: list
     """
     def __init__(self, cmds):

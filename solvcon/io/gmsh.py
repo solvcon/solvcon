@@ -325,6 +325,7 @@ class Gmsh(object):
         @return: nothing.
         """
         from numpy import empty, arange
+        assert len(self.usnds) > 0
         # basic information.
         blk.ndcrd[:] = self.nodes[self.usnds,:self.ndim]
         blk.cltpn[:] = self.cltpn[self.intels]
