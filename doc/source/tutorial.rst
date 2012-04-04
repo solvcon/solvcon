@@ -45,6 +45,31 @@ examples, you need to:
 
   in ``$SCSRC``.
 
+Configuration
+=============
+
+SOLVCON will find each of the solvcon.ini files from current working directory
+toward the root, and use their settings.  Three settings are recognized in
+``[SOLVCON]`` section:
+
+- ``APPS``: Equivelent to the environment variable ``SOLVCON_APPS``.
+- ``LOGFILE``: Equivelent to the environment variable ``SOLVCON_LOGFILE``.
+- ``PROJECT_DIR``: Equivelent to the environment variable
+  ``SOLVCON_PROJECT_DIR``.  Can be set to empty, which indicates the path where
+  the configuration file locates.
+
+The configurable environment variables:
+
+- ``SOLVCON_PROJECT_DIR``: the directory holds the applications.
+- ``SOLVCON_LOGFILE``: filename for solvcon logfile.
+- ``SOLVCON_APPS``: names of the available applications, seperated with
+  semi-colon.  There should be no spaces.
+- ``SOLVCON_FPDTYPE``: a string for the numpy dtype object for floating-point.
+  The default fpdtype to be used is float64 (double).
+- ``SOLVCON_INTDTYPE``: a string for the numpy dtype object for integer.  The
+  default intdtype to be used is int32.
+- ``SOLVCON_MPI``: flag to use MPI.
+
 Mesh Generation (to Be Added)
 =============================
 

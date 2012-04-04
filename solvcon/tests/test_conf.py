@@ -22,12 +22,3 @@ class ConfTest(TestCase):
         self.assertEqual(conf.Solvcon().fpdtype, np.float64)
         os.environ['SOLVCON_FPDTYPE'] = 'float32'
         self.assertEqual(conf.Solvcon().fpdtype, np.float32)
-
-    def test_intdtypes(self):
-        import numpy as np
-        from .. import conf
-        self.assertRaises(AttributeError, getattr, conf, 'intdtype')
-        os.environ['SOLVCON_INTDTYPE'] = 'int32'
-        self.assertEqual(conf.Solvcon().intdtype, np.int32)
-        os.environ['SOLVCON_INTDTYPE'] = 'int64'
-        self.assertEqual(conf.Solvcon().intdtype, np.int64)

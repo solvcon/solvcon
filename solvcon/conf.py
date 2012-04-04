@@ -1,6 +1,6 @@
 # -*- coding: UTF-8 -*-
 #
-# Copyright (C) 2008-2011 Yung-Yu Chen <yyc@solvcon.net>.
+# Copyright (C) 2008-2012 Yung-Yu Chen <yyc@solvcon.net>.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,35 +17,40 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 """
-Information about the configuration of solvcon.
+.. py:data:: env
 
-SOLVCON will find each of the solvcon.ini files from current working directory
-toward the root, and use their settings.  Three settings are recognized in
-[SOLVCON] section:
-
-* APPS: SOLVCON_APPS
-* LOGFILE: SOLVCON_LOGFILE
-* PROJECT_DIR: SOLVCON_PROJECT_DIR.  Can be set at empty, which indicates the
-    path where the configuration file locates.
-
-Configurable environmental variables:
-
-* ``SOLVCON_PROJECT_DIR``: the directory holds the applications.
-* ``SOLVCON_LOGFILE``: filename for solvcon logfile.
-* ``SOLVCON_APPS``: names of the available applications, seperated with
-  semi-colon.  There should be no spaces.
-* ``SOLVCON_FPDTYPE``: a string for the numpy dtype object for floating-point.
-  The default fpdtype to be used is float64 (double).
-* ``SOLVCON_INTDTYPE``: a string for the numpy dtype object for integer.
-  The default intdtype to be used is int32.
-* ``SOLVCON_MPI``: flag to use MPI.
+  The global singleton of :py:class:`Solvcon` to provide configuration for
+  other components of SOLVCON.
 """
 
 __docformat__ = 'restructuredtext en'
 
 class Solvcon(object):
     """
-    The configuration singleton.
+    The configuration class.
+
+    :ivar pydir: The path of the :py:mod:`solvcon` package that is running.
+    :type pydir: str
+    :ivar pkgdir: The path that contains :py:mod:`solvcon` package that is
+        running.
+    :type pkgdir: str
+    :ivar libdir: The path of the compiled binary of SOLVCON.
+    :type libdir: str
+    :ivar datadir: The path of the static data of SOLVCON.
+    :type datadir: str
+    :ivar projdir: The path that hosts a SOLVCON project.
+    :type projdir: str
+    :ivar logfile: The stream that saves runtime output.
+    :type logfile: file
+    :ivar logfn: The (absolute) path of the logfile.
+    :type logfn: str
+    :ivar modnames: Names of SOLVCON applications.
+    :type modnames: list of str
+    :ivar command: Unknown
+    :ivar mpi: The MPI runtime interface.
+    :type mpi: solvcon.mpy.MPI
+    :ivar scu: The CUDA runtime interface.
+    :type scu: solvcon.scuda.Scuda.
     """
     def __init__(self):
         import os, sys
@@ -103,9 +108,9 @@ class Solvcon(object):
         emodnames = os.environ.get('SOLVCON_APPS', '').split(';')
         if emodnames:
             self.modnames.extend(emodnames)
+        self.modnames = [name.strip() for name in self.modnames if name]
         # data types.
         self._fpdtype = None
-        self._intdtype = None
         # dynamic properties.
         self.command = None
         # MPI.
@@ -119,10 +124,10 @@ class Solvcon(object):
         """
         Return the first existing path and turn it into an absolute path.
 
-        @param paths: The list of paths.
-        @type paths: list
-        @return: The first existing path.
-        @rtype: str
+        :param paths: The list of paths.
+        :type paths: list
+        :return: The first existing path.
+        :rtype: str
         """
         import os
         for path in paths:
@@ -149,25 +154,13 @@ class Solvcon(object):
             if self.fpdtype == getattr(np, dtypestr):
                 return dtypestr
 
-    @property
-    def intdtype(self):
-        """
-        INACTIVE; PLANNED FOR FUTURE USE.
-        """
-        import os
-        import numpy as np
-        if self._intdtype != None:
-            _intdtype = self._intdtype
-        else:
-            dtypestr = os.environ.get('SOLVCON_INTDTYPE', 'int32')
-            _intdtype = getattr(np, dtypestr)
-            self._intdtype = _intdtype
-        return _intdtype
-
     def find_scdata_mesh(self):
         """
         Find the mesh directory of the scdata from the current working
         directory all the way to the root.
+
+        :return: The path to the supplemental SOLVCON mesh data.
+        :rtype: str
         """
         import os
         from .helper import search_in_parents
@@ -181,6 +174,9 @@ class Solvcon(object):
         If the entry point is invoked by searching in path, just return it.  If
         the entry point is invoked by specifying a location, return the
         absolute path of the entry script/code.
+
+        :return: The invoked name.
+        :rtype: str
         """
         import sys, os
         name = os.path.abspath(sys.argv[0])
@@ -188,8 +184,18 @@ class Solvcon(object):
             name = os.path.basename(name)
         return name
 
-env = Solvcon()
+    def _enable_applications(self):
+        """
+        Enable a SOLVCON application by importing the module (or package).
 
-def use_application(modname):
-    if modname:
-        __import__(modname, fromlist=['arrangement',])
+        :return: Nothing.
+        """
+        for modname in self.modnames:
+            if modname:
+                raise ValueError("modname can't be '%s' (%s)" % (
+                    modname, str(self.modnames)))
+            else:
+                __import__(modname, fromlist=['arrangement',])
+
+env = Solvcon()
+env._enable_applications()
