@@ -681,7 +681,7 @@ class run(ArrangementCommand):
         import pstats
         from socket import gethostname
         from .helper import info
-        from .conf import use_application, env
+        from .conf import env
         from . import domain
         from .batch import batregy
         from .case import arrangements
