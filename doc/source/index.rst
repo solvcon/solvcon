@@ -2,65 +2,77 @@
 SOLVCON -- SOLVer CONstructor
 =============================
 
-Supportive functionalities, e.g., mesh loading, result outputting, parallel
-computing, visualizing, etc., are usually the tedious and error-prone part of
-coding up a PDE solver.  It takes a lot of efforts to develop the
-functionalities, and more efforts to maintain them.  As the result, compared to
-the supportive functionalities, the lines of code written for the core
-numerical methods of a PDE solver are fairly few.  The productivity of
-PDE-solver developers will be rocket-boosted is they do not need to worry about
-the supportive functionalities.
+SOLVCON is a `Python <http://www.python.org>`__-based toolkit for solving
+conservation laws and partial differential equations (PDEs).  In addition to
+building the numerical solvers of PDEs, SOLVCON assists producing the
+human-comprehensible results by providing the following *supportive
+functionalities*: (i) Data structures of meshes, (ii) readers and writers of
+mesh and field data, (iii) visualizers, and (iv) an adjustable work flow.
 
-Unfortunately, it cannot be avoided to develop the supportive functionalities.
-For example, a PDE solver without a mesh loader or a mesh generator is not
-applicable at all.  For high-end applications, a solver of production use must
-exploit parallel computing and run on thousands of computers.  PDE solvers need
-supportive functionalities to deliver results.
+The goal of SOLVCON is to help code developers to focus on the numerical
+algorithms.  These computing cores can be written in C or any high-speed
+language (Fortran, CUDA, C++, etc.; you name it) and interfaced with SOLVCON.
+SOLVCON has a general work flow that includes things like mesh loaders (`Gmsh
+<http://www.geuz.org/gmsh/>`__, FLUENT Gambit (R), and `CUBIT
+<http://cubit.sandia.gov/>`__), MPI, and VTK.  Users of SOLVCON can just take
+the supportive functionalities and jump into the physics and numerics.
 
-To resolve this dilemmatic issue, we designed `SOLVCON <http://solvcon.net/>`_
-to host supportive functionalities and to provide a `software framework
-<http://en.wikipedia.org/wiki/Software_framework>`__ to develop
-high-performance, massively-parallelized PDE solvers.  Generally speaking, PDE
-solvers are computer programs consisting of two levels of loops: The outer loop
-and the inner loops.  Computer code of both the supportive functionalities and
-the numerical methods can be wrapped around the fundamental two-loop structure.
-SOLVCON uses the basic structure to segregate supportive functionalities from
-the core numerical algorithms.  The reusability gained by using SOLVCON can
-significantly save the efforts of developing PDE solvers.
+For solving for conservation laws and most PDEs, the computer codes usually
+contains two levels of loops.  An outer loop is used to perform time-marching,
+and is usually called the *temporal loop*.  Within the outer temporal loop,
+there are multiple inner loops to sweep over the discretized spatial domain.
+The inner loops are called the *spatial loops*.  This is the well-known
+*two-loop structure* of PDE solvers and is absorbed into the SOLVCON work flow.
+`Inversion of control (IoC)
+<http://en.wikipedia.org/wiki/Inversion_of_control>`__ is used to expose the
+work flow to the code developers.
 
-An important application of SOLVCON is to solve conservation laws, which are
-written as systems of first-order, quasi-linear PDEs:
+SOLVCON is released under `GNU GPLv2
+<http://www.gnu.org/licenses/gpl-2.0.html>`__.  The development is still at an
+early stage.  *Comments, contribution, and collaboration are very welcomed.*
+You can reach us at `our public discussion group
+<http://groups.google.com/group/solvcon>`__ or contact us by sending a private
+email to contact@solvcon.net.
+
+Getting Started
+===============
+
+The following two documents can help you to start using SOLVCON:
+
+- :doc:`install`: Install, build, test, and run SOLVCON
+- :doc:`tutorial`: Understand the basic usage of SOLVCON
+
+The code base contains a lot of useful docstrings which are being organized
+into :doc:`modules`.  More resources are listed in the Resources_ section.
+
+The CESE Method
+===============
+
+SOLVCON also contains a ready-to-use series of solvers that use the space-time
+`Conservation Element and Solution Element (CESE)
+<http://www.grc.nasa.gov/WWW/microbus/>`__ method, a novel numerical method
+developed by Chang.  They solve for the three-dimensional, non-linear or
+linear, conservation laws of the quasi-linear form:
 
 .. math::
 
   \dpd{\bvec{u}}{t}
   + \sum_{\iota=1}^3 \mathrm{A}^{(\iota)}(\bvec{u})\dpd{\bvec{u}}{x_{\iota}}
-  = \bvec{s}(\bvec{u}).
+  = \bvec{s}(\bvec{u})
 
-In the context of numerical solutions of conservation laws, the outer loop is
-used to perform time-marching, and is usually called the *temporal loop*.
-Within the outer temporal loop, the inner loops are used to sweep over the
-discretized spatial domain.  Therefore, the inner loops are called the *spatial
-loops*.  While there is only one outer temporal loop, there usually are many
-inner spatial loops to perform different numerical calculations.
+where :math:`\bvec{u}` is the unknown vector, :math:`\mathrm{A}^{(1)}`,
+:math:`\mathrm{A}^{(2)}`, and :math:`\mathrm{A}^{(3)}` the Jacobian matrices,
+:math:`\bvec{s}` the source term.  Because the CESE method is developed against
+the general mathematical form of the conservation laws, it is suitable for
+multi-physics applications.  Solvers of gas dynamics and stress waves have been
+incorporated in the SOLVCON code base.  Published results can be found in
+:doc:`pub_app`.
 
-The key features of SOLVCON include:
+In addition to the practical applications, the solvers also serve as examples
+of how to use the SOLVCON work flow.
 
-- Pluggable multi-physics by using the `Conservation Element and Solution
-  Element (CESE) <http://www.grc.nasa.gov/WWW/microbus/>`__ method
-- Unstructured meshes of mixed elements for modeling complex geometry
-- Hybrid parallel computing
-- Ready-to-use I/O facilities
-- In situ visualization and parallel I/O
-
-Using SOLVCON calls for the fundamental understanding of the basic two-loop
-structure of PDE solvers.  The basic structure makes no assumption for the
-computer architecture nor the numerical method employed.  The macroscopic
-abstraction allows the developed PDE solvers to be as high-performance as
-possible.
-
-Contents
-========
+Documentation
+=============
 
 .. toctree::
    :maxdepth: 2
@@ -68,6 +80,71 @@ Contents
    install
    tutorial
    modules
+   history
+
+Resources
+=========
+
+- Download: https://bitbucket.org/yungyuc/solvcon/downloads
+- Papers and presentations:
+
+  - `PyCon US 2011 talk
+    <http://us.pycon.org/2011/schedule/presentations/50/>`__: `slides
+    <http://solvcon.net/slide/PyCon11_yyc.pdf>`__ and `video
+    <http://pycon.blip.tv/file/4882902/>`__
+  - Yung-Yu Chen, David Bilyeu, Lixiang Yang, and Sheng-Tao John Yu,
+    "SOLVCON: A Python-Based CFD Software Framework for Hybrid
+    Parallelization",
+    *49th AIAA Aerospace Sciences Meeting*,
+    January 4-7 2011, Orlando, Florida.
+    `AIAA Paper 2011-1065
+    <http://pdf.aiaa.org/preview/2011/CDReadyMASM11_2388/PV2011_1065.pdf>`_
+- Code development and support:
+
+  - API documents generated by using `Epydoc
+    <http://epydoc.sourceforge.net/>`__: `nightly
+    <http://solvcon.net/doc/timely/epydoc/>`__, `0.1.1
+    <http://solvcon.net/doc/0.1.1/epydoc/>`__, `0.1
+    <http://solvcon.net/doc/0.1/epydoc/>`__, `0.0.7
+    <http://solvcon.net/doc/0.0.7/epydoc/>`__, `0.0.6
+    <http://solvcon.net/doc/0.0.6/epydoc/>`__, `0.0.4
+    <http://solvcon.net/doc/0.0.4/epydoc/>`__, `0.0.3
+    <http://solvcon.net/doc/0.0.3/epydoc/>`__, `0.0.2
+    <http://solvcon.net/doc/0.0.2/epydoc/>`__, `0.0.1
+    <http://solvcon.net/doc/0.0.1/epydoc/>`__
+  - Bitbucket repository (hg): https://bitbucket.org/yungyuc/solvcon/src
+  - Issue tracker (bug reports here):
+    https://bitbucket.org/yungyuc/solvcon/issues?status=new&status=open
+  - Buildbot: http://solvcon.net/buildbot
+  - Mailing list (Google group): http://groups.google.com/group/solvcon
+  - IRC channel: `#solvcon <irc://irc.freenode.net/solvcon>`__ on `freenode
+    <http://freenode.net/using_the_network.shtml>`__
+- The CESE method:
+
+  - The CE/SE working group: http://www.grc.nasa.gov/WWW/microbus/
+  - The CESE research group at OSU: http://cfd.solvcon.net/research.html
+  - Selected papers:
+
+    - Sin-Chung Chang, "The Method of Space-Time Conservation Element and
+      Solution Element -- A New Approach for Solving the Navier-Stokes and
+      Euler Equations", *Journal of Computational Physics*, Volume 119, Issue
+      2, July 1995, Pages 295-324.  `doi: 10.1006/jcph.1995.1137
+      <http://dx.doi.org/10.1006/jcph.1995.1137>`_
+    - Xiao-Yen Wang, Sin-Chung Chang, "A 2D Non-Splitting Unstructured
+      Triangular Mesh Euler Solver Based on the Space-Time Conservation Element
+      and Solution Element Method", *Computational Fluid Dynamics Journal*,
+      Volume 8, Issue 2, 1999, Pages 309-325.
+    - Zeng-Chan Zhang, S. T. John Yu, Sin-Chung Chang, "A Space-Time
+      Conservation Element and Solution Element Method for Solving the Two- and
+      Three-Dimensional Unsteady Euler Equations Using Quadrilateral and
+      Hexahedral Meshes", *Journal of Computational Physics*, Volume 175, Issue
+      1, Jan. 2002, Pages 168-199.  `doi: 10.1006/jcph.2001.6934
+      <http://dx.doi.org/10.1006/jcph.2001.6934>`_
+- Other:
+
+  - :doc:`pub_app`
+  - :doc:`link`
+  - :doc:`link_other`
 
 Indices and tables
 ==================
@@ -76,8 +153,4 @@ Indices and tables
 * :ref:`modindex`
 * :ref:`search`
 
-History
-=======
-
-.. include:: ../../HISTORY.rst
-.. vim: set ft=rst ff=unix fenc=utf8:
+.. vim: set spell ft=rst ff=unix fenc=utf8:
