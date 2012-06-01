@@ -163,6 +163,7 @@ def go():
     import sys
     from . import command
     from .conf import env
+    env.enable_applications()
     narg = len(sys.argv)
     if narg >= 2 and not sys.argv[1].startswith('-'):
         cmdcls = cmdregy.get(sys.argv[1], None)

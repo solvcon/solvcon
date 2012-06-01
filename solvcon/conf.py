@@ -184,18 +184,17 @@ class Solvcon(object):
             name = os.path.basename(name)
         return name
 
-    def _enable_applications(self):
+    def enable_applications(self):
         """
         Enable a SOLVCON application by importing the module (or package).
 
         :return: Nothing.
         """
         for modname in self.modnames:
-            if modname:
+            if not modname:
                 raise ValueError("modname can't be '%s' (%s)" % (
                     modname, str(self.modnames)))
             else:
                 __import__(modname, fromlist=['arrangement',])
 
 env = Solvcon()
-env._enable_applications()
