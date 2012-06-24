@@ -202,7 +202,7 @@ if GetOption('get_scdata'):
             os.chdir(orig)
         else:
             os.system(
-                'hg clone https://bitbucket.org/yungyuc/scdata %s'%datapath)
+                'hg clone https://bitbucket.org/solvcon/scdata %s'%datapath)
     else:
         raise RuntimeError('released tarball shouldn\'t use this option')
 
