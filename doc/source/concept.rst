@@ -1,17 +1,17 @@
 =======================
-Concepts behind Solvcon
+Concepts behind SOLVCON
 =======================
 
-Solvcon_ is a software framework.  What does that mean?
+SOLVCON_ is a software framework.  What does that mean?
 
-.. _Solvcon: http://cfd.eng.ohio-state.edu/~yungyuc/solvcon/
+.. _SOLVCON: http://solvcon.net/
 
 A software framework dictates how you can write a software program.  Since
-Solvcon_ is targeting to simulation codes, it guides, or requires, programmers
+SOLVCON_ is targeting to simulation codes, it guides, or requires, programmers
 to write the scientific codes in a specific way.  Therefore, when using 
-Solvcon_, you can say that we lose some of our freedom in coding.
+SOLVCON_, you can say that we lose some of our freedom in coding.
 
-.. note:: Solvcon_ is designed for scientific codes that solve PDEs in a
+.. note:: SOLVCON_ is designed for scientific codes that solve PDEs in a
    time-accurate way, and uses the unstructured mesh.  When I mention
    *scientific codes* or *simulation codes* later, I mean the specific category
    of codes.
@@ -57,7 +57,7 @@ practices make our codes to be less useful.  For example, it's easy to find
 codes can run only on the environment on which they are developed, or the
 post-processing portion takes longer time to finish than solving.
 
-There should be a better way to finish the tedious tasks.  Solvcon_ is designed
+There should be a better way to finish the tedious tasks.  SOLVCON_ is designed
 to free you from these headaches, for the specific category of scientific
 codes.  It saves you a lot of coding, and provides a lot of functionalities to
 your code.  Those are what we trade some of our freedom in coding for.
@@ -65,7 +65,7 @@ your code.  Those are what we trade some of our freedom in coding for.
 Stereotyped Simulation
 ======================
 
-I start the discussion of the concepts of Solvcon_ from what a simulation code
+I start the discussion of the concepts of SOLVCON_ from what a simulation code
 usually looks like.
 
 A scientific code usually has a kernel, which implements the numerical method
@@ -117,34 +117,34 @@ the simulation code:
 Of course, if one wants to write parallel code, there are more things to do,
 but the structure is pretty much the same as the described.
 
-Model of Solvcon
+Model of SOLVCON
 ================
 
-Solvcon_ abstracts the common structure that almost all the simulation codes
+SOLVCON_ abstracts the common structure that almost all the simulation codes
 share, and makes it a framework.  That is, instead of construct the must-have
-skeleton by your own, you get it from Solvcon_.  All you need is to know where
+skeleton by your own, you get it from SOLVCON_.  All you need is to know where
 to put what code in.
 
 For example, there are more than 7,000 lines of well-organized code in
-Solvcon_, and you need to write less than 2,000 lines of code for one- and
+SOLVCON_, and you need to write less than 2,000 lines of code for one- and
 two-dimensional stress wave simulation and corresponding post-processing.  Then
 you enjoy automatically available features like parallelization, mixed-typed
 unstructured mesh, and input and output components.
 
-The essential part of Solvcon_ is the mesh definition, rather than anything
+The essential part of SOLVCON_ is the mesh definition, rather than anything
 else such as the solving algorithm.  It makes good sense for people having
 experience in implementing their own solver.  The most time-consuming part of
 the implementation could be to figure out how to correctly manipulate the
 unstructured connectivities for various types of fundamental elements.  Only
 after one has a right definition of the spatial domain, the numerical algorithm
-can be correctly tested.  Solvcon_ defines the connectivities for seven
+can be correctly tested.  SOLVCON_ defines the connectivities for seven
 different elements in two- and three-dimensional space, including triangles,
 quadrilaterals, tetrahedra, prisms, pyramids, and hexahedra.  All the
 fundamental elements can be mixed up (in the same rank of spatial domain, that
 is, you can not mix elements in two-dimensional space with others in
 three-dimensional space).  The mesh is defined in :class:`solvcon.block.Block`.
 
-For the real solving work, Solvcon_ puts the cell loop and the marching loop in
+For the real solving work, SOLVCON_ puts the cell loop and the marching loop in
 :mod:`solvcon.solver` and :mod:`solvcon.case`, respectively.  The two
 sub-packages contains definitions for one- and multi-dimensional solvers and
 cases.  The solvers care only for the cell loop, while the cases need to
@@ -187,7 +187,7 @@ different.
 Hierarchical Structure
 ======================
 
-The following list roughly demonstrates the structure of Solvcon_:
+The following list roughly demonstrates the structure of SOLVCON_:
 
 * :mod:`solvcon` -- The top-level namespace.
 
@@ -232,8 +232,8 @@ internally and usually you don't need to touch them.
 How to Organize Your Simulation Code
 ====================================
 
-Solvcon_ is a framework, not the solver itself.  That is, Solvcon_ is a tool or
-a library that helps you to create your solving code.  Since Solvcon_ is
+SOLVCON_ is a framework, not the solver itself.  That is, SOLVCON_ is a tool or
+a library that helps you to create your solving code.  Since SOLVCON_ is
 written (mostly) in the Python programming language, your code will be a Python
 program as well.
 
@@ -277,14 +277,14 @@ However, the languages suit number crunching are too primitive to write an
 easy-to-use and flexible framework for general problems or physical models.  For
 the balance, to mix Python with another number crunching programming language,
 usually FORTRAN, is a reasonable take, and the result turns out to be very
-good.  Codes developed using Solvcon_ are just as fast as their pure-FORTRAN
+good.  Codes developed using SOLVCON_ are just as fast as their pure-FORTRAN
 counterpart, and sometimes even faster.
 
 Big Picture
 +++++++++++
 
 There is an entry point for every program on the earth.  The entry point for
-the simulation code using Solvcon_ would be a **driving script** written in
+the simulation code using SOLVCON_ would be a **driving script** written in
 Python.  The driving script dictates how to run the simulation code, and is
 responsible for all the setting-up and finalizing things.
 
@@ -366,16 +366,16 @@ is a Python script, you have full control over it to do anything.  If you
 really want a traditional input file, nothing stops you.
 
 You can use the way how :mod:`solvcon` is structured to organize your
-simulation code.  It makes good sense since you are using Solvcon_.  However,
+simulation code.  It makes good sense since you are using SOLVCON_.  However,
 it's also OK for you to take other way to organize your code.  The only thing
-you need to do is to make use of Solvcon_.
+you need to do is to make use of SOLVCON_.
 
-No matter how you use Solvcon_, it would save you from a lot of coding for the
+No matter how you use SOLVCON_, it would save you from a lot of coding for the
 features it provides.
 
-Although Solvcon_ is convenient, it does impose limitation to how you can write
+Although SOLVCON_ is convenient, it does impose limitation to how you can write
 your code.  The entry point has to be a Python script.  Sometimes it's
-cumbersome, but usually there are workarounds.  Solvcon_ would be a good tool,
+cumbersome, but usually there are workarounds.  SOLVCON_ would be a good tool,
 but it's not a free lunch.
 
 .. vim: set ft=rst ff=unix fenc=utf8 ai:

@@ -49,11 +49,11 @@ Download
 ========
 
 You can obtain the source tarball at
-https://bitbucket.org/yungyuc/solvcon/downloads.  Alternatively, you can also
+https://bitbucket.org/solvcon/solvcon/downloads.  Alternatively, you can also
 clone the source code managed by `Mercurial <http://mercurial.selenic.com/>`_
 (hg)::
 
-  hg clone https://bitbucket.org/yungyuc/solvcon
+  hg clone https://bitbucket.org/solvcon/solvcon
 
 If you don't have hg installed, the following command can do it on a
 Debian/Ubuntu::

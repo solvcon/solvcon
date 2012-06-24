@@ -85,7 +85,7 @@ Documentation
 Resources
 =========
 
-- Download: https://bitbucket.org/yungyuc/solvcon/downloads
+- Download: https://bitbucket.org/solvcon/solvcon/downloads
 - Papers and presentations:
 
   - `PyCon US 2011 talk
@@ -112,9 +112,9 @@ Resources
     <http://solvcon.net/doc/0.0.3/epydoc/>`__, `0.0.2
     <http://solvcon.net/doc/0.0.2/epydoc/>`__, `0.0.1
     <http://solvcon.net/doc/0.0.1/epydoc/>`__
-  - Bitbucket repository (hg): https://bitbucket.org/yungyuc/solvcon/src
+  - Bitbucket repository (hg): https://bitbucket.org/solvcon/solvcon/src
   - Issue tracker (bug reports here):
-    https://bitbucket.org/yungyuc/solvcon/issues?status=new&status=open
+    https://bitbucket.org/solvcon/solvcon/issues?status=new&status=open
   - Buildbot: http://solvcon.net/buildbot
   - Mailing list (Google group): http://groups.google.com/group/solvcon
   - IRC channel: `#solvcon <irc://irc.freenode.net/solvcon>`__ on `freenode
