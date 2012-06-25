@@ -123,7 +123,7 @@ sphinx = env.BuildSphinx(Glob('doc/source/*.rst')+Glob('doc/source/*.py'))
 # name targets and set default.
 solvcon = Alias('solvcon', libs)
 metis = Alias('metis', [lib_metis])
-all = Alias('all', [metis, solvcon])
+all = Alias('all', [solvcon])
 Default(all)
 Alias('epydoc', epydoc)
 Alias('sphinx', sphinx)
