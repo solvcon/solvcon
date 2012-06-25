@@ -1,5 +1,5 @@
 import os, sys
-Import('env', 'metisenv')
+Import('everything', 'env', 'metisenv')
 
 lpre = 'sc'
 ldir = 'lib'
@@ -120,11 +120,10 @@ lib_metis = envm.SharedLibrary('%s/%s_metis' % (ldir, lpre),
 epydoc = env.BuildEpydoc('solvcon/__init__.py')
 sphinx = env.BuildSphinx(Glob('doc/source/*.rst')+Glob('doc/source/*.py'))
 
-# name targets and set default.
+# name targets.
 solvcon = Alias('solvcon', libs)
 metis = Alias('metis', [lib_metis])
-all = Alias('all', [solvcon])
-Default(all)
+everything.append(solvcon)
 Alias('epydoc', epydoc)
 Alias('sphinx', sphinx)
 doc = Alias('doc', [epydoc, sphinx])

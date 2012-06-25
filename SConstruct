@@ -268,6 +268,10 @@ env.Append(NVCCINC=' -I include')
 if GetOption('cc') == 'gcc':
     env.Replace(CC='gcc%s'%GetOption('cmpvsn'))
 
-Export('env', 'metisenv')
+everything = []
+Export('everything', 'env', 'metisenv')
+
 SConscript(['SConscript'])
+Default(everything)
+
 # vim: set ft=python ff=unix:
