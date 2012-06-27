@@ -250,7 +250,9 @@ class Gmsh(object):
         pobj = Popen(cli, shell=True, stdout=PIPE, stderr=STDOUT)
         self.stdout = pobj.stdout.read()
         if not os.path.exists(mshp):
-            raise OSError('%s not produced by gmsh command line'%mshp)
+            raise OSError(
+                '%s not produced by gmsh command line, stdout:\n%s' % (mshp,
+                    self.stdout))
         # get the data.
         try:
             mshf = open(mshp)
