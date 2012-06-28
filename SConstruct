@@ -70,4 +70,4 @@ Export('everything', 'env')
 SConscript(['SConscript'])
 Default(everything)
 
-# vim: set ft=python ff=unix:
+# vim: set ff=unix ft=python fenc=utf8 ai et sw=4 ts=4 tw=79:

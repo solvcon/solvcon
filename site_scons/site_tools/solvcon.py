@@ -30,3 +30,5 @@ def generate(env):
 
 def exists(env):
     return env.Detect('solvcon')
+
+# vim: set ff=unix ft=python fenc=utf8 ai et sw=4 ts=4 tw=79:
