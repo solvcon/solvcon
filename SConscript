@@ -1,5 +1,5 @@
 import os, sys
-Import('everything', 'env', 'metisenv')
+Import('everything', 'env')
 
 lpre = 'sc'
 ldir = 'lib'
@@ -104,25 +104,12 @@ for lname, extra_links in kpculibs:
     libs.extend(make_kpculib(lname, lpre, ldir, '%s/%s'%(sdir, lname),
         bdir, env, extra_links=extra_links))
 
-# METIS.
-src = 'dep/metis-4.0.3/Lib'
-VariantDir('%s/metis' % bdir, src, duplicate=0)
-ccflags = list()
-if sys.platform.startswith('win'):
-    ccflags.append('-D__VC__')
-envm = metisenv.Clone()
-envm['CCFLAGS'] = ' '.join(ccflags)
-envm['CPPPATH'] = '-I%s' % src
-lib_metis = envm.SharedLibrary('%s/%s_metis' % (ldir, lpre),
-    Glob('%s/metis/*.c' % bdir))
-
 # documents.
 epydoc = env.BuildEpydoc('solvcon/__init__.py')
 sphinx = env.BuildSphinx(Glob('doc/source/*.rst')+Glob('doc/source/*.py'))
 
 # name targets.
 solvcon = Alias('solvcon', libs)
-metis = Alias('metis', [lib_metis])
 everything.append(solvcon)
 Alias('epydoc', epydoc)
 Alias('sphinx', sphinx)

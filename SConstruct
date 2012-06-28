@@ -201,13 +201,6 @@ if GetOption('count'):
     sys.stdout.write(str(counter)+'\n')
     sys.exit(0)
 
-# metis environment.
-metisenv = Environment(ENV=os.environ,
-    tools=[
-        'mingw' if sys.platform.startswith('win') else 'default',
-        GetOption('cc'),
-    ], CFLAGS='-O2')
-
 # solvcon environment.
 env = Environment(ENV=os.environ)
 # tools.
@@ -252,7 +245,7 @@ if GetOption('get_scdata'):
         raise RuntimeError('released tarball shouldn\'t use this option')
 
 everything = []
-Export('everything', 'env', 'metisenv')
+Export('everything', 'env')
 
 SConscript(['SConscript'])
 Default(everything)
