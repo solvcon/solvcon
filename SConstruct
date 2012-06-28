@@ -9,8 +9,6 @@ AddOption('--cc', dest='cc', type='string', action='store', default='gcc',
     help='C compiler (SCons tool): gcc, intelc; default is %default',)
 AddOption('--optlevel', dest='optlevel', type=str, action='store', default='2',
     help='Optimization level; default is %default.',)
-AddOption('--cmpvsn', action='store', default='', dest='cmpvsn',
-    help='Compiler version; for gcc-4.5 it\'s --cmpvsn=-4.5')
 AddOption('--sm', action='store', default='20', dest='sm',
     help='Compute capability; 13=1.3 and 20=2.0 are currently supported; '
     'default is %default.')
@@ -27,6 +25,8 @@ env.Tool(GetOption('cc'))
 env.Tool('solvcon')
 env.Tool('sphinx')
 env.Tool('scons_epydoc')
+# allow using alternative command for CC.
+env.Replace(CC=os.environ.get('CC', env['CC']))
 # Intel C runtime library.
 if GetOption('cc') == 'intelc':
     env.Append(LIBS='irc_s')
@@ -50,10 +50,6 @@ env.Append(CPPPATH='include')
 env.Tool('cuda')
 env.Append(NVCCFLAGS='-arch=sm_%s'%GetOption('sm'))
 env.Append(NVCCINC=' -I include')
-
-# replace gcc with a certain version.
-if GetOption('cc') == 'gcc':
-    env.Replace(CC='gcc%s'%GetOption('cmpvsn'))
 
 # get example data.
 if GetOption('get_scdata'):
