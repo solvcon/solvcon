@@ -21,63 +21,6 @@ AddOption('--get-scdata', dest='get_scdata',
     action='store_true', default=False,
     help='Flag to clone/pull example data.')
 
-AddOption('--count', dest='count',
-    action='store_true', default=False,
-    help='Count line of sources.')
-
-class LineCounter(object):
-    """
-    Walk given directory to count lines in source files.
-    """
-
-    def __init__(self, *args, **kw):
-        self.exts = args
-        self.counter = dict()
-        self.testdir = kw.pop('testdir', ['tests'])
-        self.testcounter = 0
-        self.corecounter = 0
-
-    def __call__(self, path):
-        import os
-        from os.path import join, splitext
-        for root, dirs, files in os.walk(path):
-            for fname in files:
-                mainfn, extfn = splitext(fname)
-                if extfn not in self.exts:
-                    continue
-                if os.path.islink(join(root, fname)):
-                    continue
-                nline = len(open(join(root, fname)).readlines())
-                self.counter[extfn] = self.counter.get(extfn, 0) + nline
-                if os.path.basename(root) in self.testdir:
-                    self.testcounter += nline
-                else:
-                    if extfn == '.py' and os.path.basename(root) == 'solvcon':
-                        self.corecounter += nline
-
-    def __str__(self):
-        keylenmax = max([len(key) for key in self.counter])
-        tmpl = "%%-%ds = %%d" % keylenmax
-        all = 0
-        ret = list()
-        for extfn in sorted(self.counter.keys()):
-            ret.append(tmpl % (extfn, self.counter[extfn]))
-            all += self.counter[extfn]
-        ret.append(tmpl % ('All', all))
-        ret.append('%d are for unittest.' % self.testcounter)
-        ret.append('%d are for core (only .py directly in solvcon/).' % \
-            self.corecounter)
-        return '\n'.join(ret)
-
-if GetOption('count'):
-    counter = LineCounter('.py', '.c', '.h', '.cu')
-    paths = ('solvcon', 'src', 'include', 'test')
-    for path in paths:
-        counter(path)
-    sys.stdout.write('In directories %s:\n' % ', '.join(paths))
-    sys.stdout.write(str(counter)+'\n')
-    sys.exit(0)
-
 # solvcon environment.
 env = Environment(ENV=os.environ)
 # tools.
