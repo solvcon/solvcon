@@ -1,5 +1,6 @@
 import os
 import sys
+from solvcon import __version__
 
 # compilation.
 AddOption('--disable-openmp', dest='use_openmp',
@@ -191,21 +192,6 @@ for patch in patches:
     patchpath = os.path.join('patch', patch+'.patch')
     os.system('patch -p0 -i %s'%patchpath)
 
-if GetOption('get_scdata'):
-    from solvcon import __version__
-    if __version__.endswith('+'):
-        datapath = 'scdata'
-        if os.path.exists(datapath):
-            orig = os.getcwd()
-            os.chdir(datapath)
-            os.system('hg pull -u')
-            os.chdir(orig)
-        else:
-            os.system(
-                'hg clone https://bitbucket.org/solvcon/scdata %s'%datapath)
-    else:
-        raise RuntimeError('released tarball shouldn\'t use this option')
-
 if GetOption('count'):
     counter = LineCounter('.py', '.c', '.h', '.cu')
     paths = ('solvcon', 'src', 'include', 'test')
@@ -214,17 +200,6 @@ if GetOption('count'):
     sys.stdout.write('In directories %s:\n' % ', '.join(paths))
     sys.stdout.write(str(counter)+'\n')
     sys.exit(0)
-
-def check_sse4():
-    import sys
-    if not sys.platform.startswith('linux'):
-        return False
-    entries = [line.split(':') for line in
-        open('/proc/cpuinfo').read().strip().split('\n') if len(line) > 0]
-    cpuinfo = dict([(entry[0].strip(), entry[1].strip()) for entry in entries])
-    if 'sse4' in cpuinfo['flags']:
-        return True
-    return False
 
 # metis environment.
 metisenv = Environment(ENV=os.environ,
@@ -238,6 +213,7 @@ env = Environment(ENV=os.environ)
 # tools.
 env.Tool('mingw' if sys.platform.startswith('win') else 'default')
 env.Tool(GetOption('cc'))
+env.Tool('solvcon')
 env.Tool('sphinx')
 env.Tool('scons_epydoc')
 # Intel C runtime library.
@@ -246,7 +222,7 @@ if GetOption('cc') == 'intelc':
 # optimization level.
 env.Append(CFLAGS='-O%d'%GetOption('optlevel'))
 # SSE4.
-if check_sse4() and GetOption('cc') == 'gcc':
+if env.HasSse4() and GetOption('cc') == 'gcc':
     env.Append(CFLAGS='-msse4')
     env.Append(CFLAGS='-mfpmath=sse')
 # OpenMP.
@@ -267,6 +243,13 @@ env.Append(NVCCINC=' -I include')
 # replace gcc with a certain version.
 if GetOption('cc') == 'gcc':
     env.Replace(CC='gcc%s'%GetOption('cmpvsn'))
+
+# get example data.
+if GetOption('get_scdata'):
+    if __version__.endswith('+'):
+        env.GetScdata('https://bitbucket.org/solvcon/scdata', 'scdata')
+    else:
+        raise RuntimeError('released tarball shouldn\'t use this option')
 
 everything = []
 Export('everything', 'env', 'metisenv')
