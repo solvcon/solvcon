@@ -24,9 +24,36 @@ def get_scdata(env, url, datapath):
     else:
         os.system('hg clone %s %s' % (url, datapath))
 
+LIBPREFIX = 'sc'
+LIBDIR = 'lib'
+SRCDIR = 'src'
+BUILDDIR = 'build'
+
+def solvcon_shared(env, sdirs, libname, fptype=None, srcroot=None):
+    env = env.Clone()
+    srcroot = srcroot if srcroot is not None else SRCDIR
+    # prepare file lists.
+    ddsts = list()
+    for dsrc in sdirs:
+        dsrc = '%s/%s' % (srcroot, str(dsrc))
+        if not os.path.isdir(dsrc): continue
+        ddst = '%s/%s' % (BUILDDIR, os.path.basename(dsrc))
+        if fptype is not None:
+            ddst += '_' + {'float': 's', 'double': 'd'}[fptype]
+        env.VariantDir(ddst, dsrc, duplicate=1)
+        ddsts.extend(env.Glob('%s/*.c'%ddst))
+    ddsts = env.Flatten(ddsts)
+    # make action.
+    env.Prepend(CCFLAGS=['-DFPTYPE=%s'%fptype])
+    filename = '%s/%s_%s' % (LIBDIR, LIBPREFIX, libname)
+    if fptype is not None:
+        filename += '_' + {'float': 's', 'double': 'd'}[fptype]
+    return env.SharedLibrary(filename, ddsts)
+
 def generate(env):
     env.AddMethod(has_sse4, 'HasSse4')
     env.AddMethod(get_scdata, 'GetScdata')
+    env.AddMethod(solvcon_shared, 'SolvconShared')
 
 def exists(env):
     return env.Detect('solvcon')

@@ -8,25 +8,12 @@ bdir = 'build'
 libs = list()
 
 # lib_solvcon.
-for fpmark, fptype in [('s', 'float'), ('d', 'double'),]:
-    ddsts = list()
-    for dsrc in ['block', 'domain', 'partition', 'solve']:
-        dsrc = '%s/%s' % (sdir, dsrc)
-        if not os.path.isdir(dsrc): continue
-        ddst = '%s/%s_%s' % (bdir, os.path.basename(dsrc), fpmark)
-        VariantDir(ddst, dsrc, duplicate=0)
-        ddsts.append(ddst)
-    envm = env.Clone()
-    envm.Prepend(CCFLAGS=['-DFPTYPE=%s'%fptype])
-    libs.append(envm.SharedLibrary(
-        '%s/%s_solvcon_%s' % (ldir, lpre, fpmark),
-        [Glob('%s/*.c'%ddst) for ddst in ddsts],
-    ))
+for fptype in ['float', 'double']:
+    libs.append(env.SolvconShared(
+        ['block', 'domain', 'partition', 'solve'], 'solvcon', fptype))
 
 # lib_solvcontest.
-VariantDir('%s/test' % bdir, 'test/src', duplicate=0)
-libs.append(env.SharedLibrary('%s/%s_solvcontest' % (ldir, lpre),
-    Glob('%s/test/*.c'%bdir)))
+libs.append(env.SolvconShared(['src'], 'solvcontest', srcroot='test'))
 # lib_cuda13test.
 if FindFile('nvcc', os.environ['PATH'].split(':')):
     envm = env.Clone()

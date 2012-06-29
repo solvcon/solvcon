@@ -12,7 +12,6 @@ AddOption('--optlevel', dest='optlevel', type=str, action='store', default='2',
 AddOption('--sm', action='store', default='20', dest='sm',
     help='Compute capability; 13=1.3 and 20=2.0 are currently supported; '
     'default is %default.')
-
 # miscellaneous.
 AddOption('--get-scdata', dest='get_scdata',
     action='store_true', default=False, help='Clone/pull example data.')
