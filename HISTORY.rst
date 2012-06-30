@@ -4,6 +4,17 @@ Upcoming
 This release starts to document by using Sphinx and to improve the class
 hierarchy of IO and boundary-condition treatments.
 
+Changes:
+
+- Remove the SCons METIS builder and the corresponding options of
+  ``--download``, ``--extract``, and ``--apply-patches``.  Now the SCOTCH
+  library is used for graph partitioning with its METIS interface.
+- Move the counter of lines of code in SOLVCON from SCons into a standalone
+  script ``contrib/countloc``, and thus remove the SCons option ``--count``.
+- Remove the SCons option ``--cmpvsn``.  For changing the command of C
+  compiler, you can now set the environment variable ``CC`` to whatever the
+  command you want.
+
 0.1.1
 +++++
 

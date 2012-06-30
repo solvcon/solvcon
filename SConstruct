@@ -1,260 +1,69 @@
-import os
-import sys
+"""
+SConstruct: The settings.
+"""
 
-# compilation.
-AddOption('--disable-openmp', dest='use_openmp',
-    action='store_false', default=True,
-    help='Disable OpenMP.')
-AddOption('--cc', dest='cc', type='string', action='store', default='gcc',
-    help='C compiler (SCons tool): gcc, intelc.',)
-AddOption('--optlevel', dest='optlevel', type=int, action='store', default=2,
-    help='Optimization level; default is 2.',)
-AddOption('--cmpvsn', action='store', default='', dest='cmpvsn',
-    help='Compiler version; for gcc-4.5 it\'s --cmpvsn=-4.5',
-)
+import sys, os
+from solvcon import __version__
+
+# compiler options.
+AddOption('--debug-build', dest='debug_build', action='store_true',
+    default=False, help='Make debugging build; '
+    'this option will add ".dbg" to build directory')
+AddOption('--disable-openmp', dest='openmp',
+    action='store_false', default=True, help='Disable OpenMP.')
+AddOption('--ctool', dest='ctool', type='string', action='store',
+    default='gcc',
+    help='SCons C compiler tool, e.g., gcc or intelc; default is "%default".')
+AddOption('--optlevel', dest='optlevel', type=str, action='store', default='2',
+    help='Optimization level; default is "%default".',)
 AddOption('--sm', action='store', default='20', dest='sm',
-    help='Compute capability; 13=1.3 and 20=2.0 are currently supported.',
-)
-
-# dependencies and patches.
-AddOption('--download', dest='download',
-    action='store_true', default=False,
-    help='Flag to download external packages.')
-AddOption('--extract', dest='extract',
-    action='store_true', default=False,
-    help='Flag to extract external packages.')
-AddOption('--apply-patches', dest='patches',
-    action='store', default='',
-    help='Indicate matches to be applied.')
-
+    help='Compute capability for CUDA; '
+    '13=1.3 and 20=2.0 are currently supported; default is "%default".')
+# generated files.
+AddOption('--library-prefix', dest='libprefix', type='string', action='store',
+    default='sc', help='Prefix for compiled libraries; default is "%default".')
+AddOption('--library-dir', dest='libdir', type='string', action='store',
+    default='lib',
+    help='Directory for compiled libraries; default is "%default".')
+AddOption('--build-dir', dest='builddir', type='string', action='store',
+    default='build', help='Build directory; default is "%default".')
+# miscellaneous.
 AddOption('--get-scdata', dest='get_scdata',
+    action='store_true', default=False, help='Clone/pull example data.')
+AddOption('--list-aliases', dest='list_aliases',
     action='store_true', default=False,
-    help='Flag to clone/pull example data.')
-
-AddOption('--count', dest='count',
-    action='store_true', default=False,
-    help='Count line of sources.')
-
-class Archive(object):
-    """
-    External package downloader/extractor.
-    """
-
-    bufsize = 1024*1024
-    depdir = 'dep'
-
-    pkgs = (
-        ('http://glaros.dtc.umn.edu'
-         '/gkhome/fetch/sw/metis/OLD/metis-4.0.3.tar.gz',
-         'd3848b454532ef18dc83e4fb160d1e10'),
-    )
-
-    def __init__(self, url, md5sum, filename=None):
-        import os
-        from urlparse import urlparse
-        if isinstance(url, basestring):
-            self.url = [url]
-        else:
-            self.url = url
-        self.md5sum = md5sum
-        if filename == None:
-            up = urlparse(self.url[0])
-            filename = up[2].split('/')[-1]
-        self.filename = os.path.join(self.depdir, filename)
-        if not os.path.exists(self.depdir):
-            os.makedirs(self.depdir)
-
-    @classmethod
-    def digest(cls, f):
-        import hashlib
-        m = hashlib.md5()
-        while True:
-            data = f.read(cls.bufsize)
-            m.update(data)
-            if len(data) < cls.bufsize: break
-        return m.hexdigest()
-
-    def download(self):
-        import sys
-        import os
-        import urllib
-        url = self.url
-        fn = self.filename
-        cksum = self.md5sum
-        if os.path.exists(fn):
-            if cksum and cksum != self.digest(open(fn, 'rb')):
-                sys.stdout.write("%s checksum mismatch, delete old.\n" % fn)
-                os.unlink(fn)
-            else:
-                sys.stdout.write("%s exists.\n" % fn)
-                return False
-        # download.
-        for curl in url:
-            sys.stdout.write("Download %s from %s: " % (fn, curl))
-            sys.stdout.flush()
-            try:
-                uf = urllib.urlopen(curl)
-            except IOError:
-                sys.stdout.write("failed\n")
-                continue
-            else:
-                break
-        f = open(fn, 'wb')
-        sys.stdout.flush()
-        while True:
-            data = uf.read(self.bufsize)
-            sys.stdout.write('.')
-            sys.stdout.flush()
-            f.write(data)
-            if len(data) < self.bufsize: break
-        uf.close()
-        f.close()
-        # checksum.
-        if cksum:
-            if cksum != self.digest(open(fn, 'rb')):
-                sys.stdout.write("note, %s checksum mismatch!\n" % fn)
-            else:
-                sys.stdout.write("%s checksum OK.\n" % fn)
-        else:
-            sys.stdout.write("no checksum defined for %s .\n" % fn)
-        sys.stdout.write(" done.\n")
-
-    def extract(self):
-        import tarfile
-        tar = tarfile.open(self.filename)
-        tar.extractall(path=self.depdir)
-        tar.close()
-
-    @classmethod
-    def downloadall(cls):
-        for url, md5sum in cls.pkgs:
-            obj = Archive(url, md5sum)
-            obj.download()
-
-    @classmethod
-    def extractall(cls):
-        for url, md5sum in cls.pkgs:
-            obj = Archive(url, md5sum)
-            obj.extract()
-
-class LineCounter(object):
-    """
-    Walk given directory to count lines in source files.
-    """
-
-    def __init__(self, *args, **kw):
-        self.exts = args
-        self.counter = dict()
-        self.testdir = kw.pop('testdir', ['tests'])
-        self.testcounter = 0
-        self.corecounter = 0
-
-    def __call__(self, path):
-        import os
-        from os.path import join, splitext
-        for root, dirs, files in os.walk(path):
-            for fname in files:
-                mainfn, extfn = splitext(fname)
-                if extfn not in self.exts:
-                    continue
-                if os.path.islink(join(root, fname)):
-                    continue
-                nline = len(open(join(root, fname)).readlines())
-                self.counter[extfn] = self.counter.get(extfn, 0) + nline
-                if os.path.basename(root) in self.testdir:
-                    self.testcounter += nline
-                else:
-                    if extfn == '.py' and os.path.basename(root) == 'solvcon':
-                        self.corecounter += nline
-
-    def __str__(self):
-        keylenmax = max([len(key) for key in self.counter])
-        tmpl = "%%-%ds = %%d" % keylenmax
-        all = 0
-        ret = list()
-        for extfn in sorted(self.counter.keys()):
-            ret.append(tmpl % (extfn, self.counter[extfn]))
-            all += self.counter[extfn]
-        ret.append(tmpl % ('All', all))
-        ret.append('%d are for unittest.' % self.testcounter)
-        ret.append('%d are for core (only .py directly in solvcon/).' % \
-            self.corecounter)
-        return '\n'.join(ret)
-
-if GetOption('download'):
-    Archive.downloadall()
-if GetOption('extract'):
-    Archive.extractall()
-
-patches = [token for token in GetOption('patches').split(',') if token]
-for patch in patches:
-    patchpath = os.path.join('patch', patch+'.patch')
-    os.system('patch -p0 -i %s'%patchpath)
-
-if GetOption('get_scdata'):
-    from solvcon import __version__
-    if __version__.endswith('+'):
-        datapath = 'scdata'
-        if os.path.exists(datapath):
-            orig = os.getcwd()
-            os.chdir(datapath)
-            os.system('hg pull -u')
-            os.chdir(orig)
-        else:
-            os.system(
-                'hg clone https://bitbucket.org/solvcon/scdata %s'%datapath)
-    else:
-        raise RuntimeError('released tarball shouldn\'t use this option')
-
-if GetOption('count'):
-    counter = LineCounter('.py', '.c', '.h', '.cu')
-    paths = ('solvcon', 'src', 'include', 'test')
-    for path in paths:
-        counter(path)
-    sys.stdout.write('In directories %s:\n' % ', '.join(paths))
-    sys.stdout.write(str(counter)+'\n')
-    sys.exit(0)
-
-def check_sse4():
-    import sys
-    if not sys.platform.startswith('linux'):
-        return False
-    entries = [line.split(':') for line in
-        open('/proc/cpuinfo').read().strip().split('\n') if len(line) > 0]
-    cpuinfo = dict([(entry[0].strip(), entry[1].strip()) for entry in entries])
-    if 'sse4' in cpuinfo['flags']:
-        return True
-    return False
-
-# metis environment.
-metisenv = Environment(ENV=os.environ,
-    tools=[
-        'mingw' if sys.platform.startswith('win') else 'default',
-        GetOption('cc'),
-    ], CFLAGS='-O2')
+    help='List all target aliases and build nothing.')
 
 # solvcon environment.
-env = Environment(ENV=os.environ)
+env = Environment(ENV=os.environ, SCLIBPREFIX=GetOption('libprefix'),
+    SCLIBDIR=GetOption('libdir'), SCBUILDDIR=GetOption('builddir'))
 # tools.
 env.Tool('mingw' if sys.platform.startswith('win') else 'default')
-env.Tool(GetOption('cc'))
+env.Tool(GetOption('ctool'))
+env.Tool('solvcon')
 env.Tool('sphinx')
 env.Tool('scons_epydoc')
+# allow using alternative command for CC.
+env.Replace(CC=os.environ.get('CC', env['CC']))
 # Intel C runtime library.
-if GetOption('cc') == 'intelc':
+if GetOption('ctool') == 'intelc':
     env.Append(LIBS='irc_s')
+# debugging.
+if GetOption('debug_build'):
+    env['SCBUILDDIR'] += '.dbg'
+    env.Append(CFLAGS='-g')
 # optimization level.
-env.Append(CFLAGS='-O%d'%GetOption('optlevel'))
+env.Append(CFLAGS='-O%s'%GetOption('optlevel'))
 # SSE4.
-if check_sse4() and GetOption('cc') == 'gcc':
+if env.HasSse4() and GetOption('ctool') == 'gcc':
     env.Append(CFLAGS='-msse4')
     env.Append(CFLAGS='-mfpmath=sse')
 # OpenMP.
-if GetOption('use_openmp'):
-    if GetOption('cc') == 'gcc':
+if GetOption('openmp'):
+    if GetOption('ctool') == 'gcc':
         env.Append(CFLAGS='-fopenmp')
         env.Append(LINKFLAGS='-fopenmp')
-    elif GetOption('cc') == 'intelc':
+    elif GetOption('ctool') == 'intelc':
         env.Append(CFLAGS='-openmp')
         env.Append(LINKFLAGS='-openmp')
 # include paths.
@@ -264,14 +73,31 @@ env.Tool('cuda')
 env.Append(NVCCFLAGS='-arch=sm_%s'%GetOption('sm'))
 env.Append(NVCCINC=' -I include')
 
-# replace gcc with a certain version.
-if GetOption('cc') == 'gcc':
-    env.Replace(CC='gcc%s'%GetOption('cmpvsn'))
+# get example data.
+if GetOption('get_scdata'):
+    if __version__.endswith('+'):
+        env.GetScdata('https://bitbucket.org/solvcon/scdata', 'scdata')
+    else:
+        raise RuntimeError('released tarball shouldn\'t use this option')
 
-everything = []
-Export('everything', 'env', 'metisenv')
-
+# invoke rules set in SConscript.
+targets = {}
+Export('targets', 'env')
 SConscript(['SConscript'])
-Default(everything)
 
-# vim: set ft=python ff=unix:
+# set alias and default targets.
+for key in targets:
+    Alias(key, targets[key])
+Alias('scdocs', [targets['sc'+key] for key in 'epydoc', 'sphinx'])
+Alias('sclibs', [targets['sc'+key] for key in 'main', 'test', 'kp', 'kpcu'])
+Default('sclibs')
+
+# show target aliases without doing anything else.
+if GetOption('list_aliases'):
+    for key in sorted(targets.keys()):
+        sys.stdout.write('First-level targets: %s\n' % key)
+    for key in 'scdocs', 'sclibs':
+        sys.stdout.write('Second-level targets: %s\n' % key)
+    sys.exit()
+
+# vim: set ff=unix ft=python fenc=utf8 ai et sw=4 ts=4 tw=79:
