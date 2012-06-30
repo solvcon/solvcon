@@ -28,8 +28,8 @@ LIBPREFIX = 'sc'
 LIBDIR = 'lib'
 BUILDDIR = 'build'
 
-def solvcon_shared(env, sdirs, libname, fptype=None, ndim=None, srcdir='src',
-        prepends=None):
+def solvcon_shared(env, sdirs, libname, ndim=None, ext=None, fptype=None,
+        srcdir='src', prepends=None):
     # clone the environment to avoid polution.
     env = env.Clone()
     # prepend custom environment variables.
@@ -48,21 +48,27 @@ def solvcon_shared(env, sdirs, libname, fptype=None, ndim=None, srcdir='src',
         ddst = '%s/%s' % (BUILDDIR, os.path.basename(dsrc))
         if ndim is not None:
             ddst += '%dd' % ndim
+        if ext is not None:
+            ddst += '_%s' % ext
         if fptype is not None:
-            ddst += '_' + {'float': 's', 'double': 'd'}[fptype]
+            ddst += '_%s' % {'float': 's', 'double': 'd'}[fptype]
         # copy source.
         env.VariantDir(ddst, dsrc, duplicate=1)
         # collect source files.
-        ddsts.extend(env.Glob('%s/*.c'%ddst))
+        ddsts.extend(env.Glob('%s/*.%s' % (ddst, 'c' if ext is None else ext)))
     ddsts = env.Flatten(ddsts)
     # craft library file name.
     filename = '%s/%s_%s' % (LIBDIR, LIBPREFIX, libname)
     if ndim is not None:
         env.Prepend(CCFLAGS=['-DNDIM=%d'%ndim])
+        env.Prepend(NVCCFLAGS=['-DNDIM=%d'%ndim])
         filename += '%dd' % ndim
+    if ext is not None:
+        filename += '_%s' % ext
     if fptype is not None:
         env.Prepend(CCFLAGS=['-DFPTYPE=%s'%fptype])
-        filename += '_' + {'float': 's', 'double': 'd'}[fptype]
+        env.Prepend(NVCCFLAGS=['-DFPTYPE=%s'%fptype])
+        filename += '_%s' % {'float': 's', 'double': 'd'}[fptype]
     # make the library.
     return env.SharedLibrary(filename, ddsts)
 

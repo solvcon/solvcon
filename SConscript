@@ -10,7 +10,7 @@ libs = list()
 # lib_solvcon.
 for fptype in ['float', 'double']:
     libs.append(env.SolvconShared(
-        ['block', 'domain', 'partition', 'solve'], 'solvcon', fptype))
+        ['block', 'domain', 'partition', 'solve'], 'solvcon', fptype=fptype))
 
 # lib_solvcontest.
 libs.append(env.SolvconShared(['src'], 'solvcontest', srcdir='test'))
@@ -74,8 +74,18 @@ kpculibs = [
     ('vslin', None), ('vslinb', None),  # solvcon.kerpak.vslin
 ]
 for lname, extra_links in kpculibs:
-    libs.extend(make_kpculib(lname, lpre, ldir, '%s/%s'%(sdir, lname),
-        bdir, env, extra_links=extra_links))
+    #libs.extend(make_kpculib(lname, lpre, ldir, '%s/%s'%(sdir, lname),
+    #    bdir, env, extra_links=extra_links))
+    for ndim in 2, 3:
+        for ext in ('c', 'cu'):
+            prepends = {'LIBS': extra_links}
+            if ext == 'cu':
+                if not FindFile('nvcc', os.environ['PATH'].split(':')):
+                    continue
+                prepends['NVCCINC'] = ' -I src/cuse'
+                prepends['LIBS'].append('cudart')
+            libs.extend(env.SolvconShared([lname], lname, ndim=ndim, ext=ext,
+                prepends=prepends))
 
 # documents.
 epydoc = env.BuildEpydoc('solvcon/__init__.py')
