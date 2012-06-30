@@ -6,9 +6,10 @@ import os, sys
 Import('targets', 'env')
 
 # lib_solvcon.
+scmain = targets.setdefault('scmain', [])
 for fptype in ['float', 'double']:
-    targets['scmain'] = env.SolvconShared(
-        ['block', 'domain', 'partition', 'solve'], 'solvcon', fptype=fptype)
+    scmain.append(env.SolvconShared(
+        ['block', 'domain', 'partition', 'solve'], 'solvcon', fptype=fptype))
 
 # lib_solvcontest.
 sctest = targets.setdefault('sctest', [])

@@ -30,6 +30,9 @@ AddOption('--build-dir', dest='builddir', type='string', action='store',
 # miscellaneous.
 AddOption('--get-scdata', dest='get_scdata',
     action='store_true', default=False, help='Clone/pull example data.')
+AddOption('--list-aliases', dest='list_aliases',
+    action='store_true', default=False,
+    help='List all target aliases and build nothing.')
 
 # solvcon environment.
 env = Environment(ENV=os.environ, SCLIBPREFIX=GetOption('libprefix'),
@@ -88,5 +91,13 @@ for key in targets:
 Alias('scdocs', [targets['sc'+key] for key in 'epydoc', 'sphinx'])
 Alias('sclibs', [targets['sc'+key] for key in 'main', 'test', 'kp', 'kpcu'])
 Default('sclibs')
+
+# show target aliases without doing anything else.
+if GetOption('list_aliases'):
+    for key in sorted(targets.keys()):
+        sys.stdout.write('First-level targets: %s\n' % key)
+    for key in 'scdocs', 'sclibs':
+        sys.stdout.write('Second-level targets: %s\n' % key)
+    sys.exit()
 
 # vim: set ff=unix ft=python fenc=utf8 ai et sw=4 ts=4 tw=79:
