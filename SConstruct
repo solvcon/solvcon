@@ -1,5 +1,8 @@
-import os
-import sys
+"""
+SConstruct: The settings.
+"""
+
+import sys, os
 from solvcon import __version__
 
 # compiler options.
@@ -74,10 +77,16 @@ if GetOption('get_scdata'):
     else:
         raise RuntimeError('released tarball shouldn\'t use this option')
 
-everything = []
-Export('everything', 'env')
-
+# invoke rules set in SConscript.
+targets = {}
+Export('targets', 'env')
 SConscript(['SConscript'])
-Default(everything)
+
+# set alias and default targets.
+for key in targets:
+    Alias(key, targets[key])
+Alias('scdocs', [targets['sc'+key] for key in 'epydoc', 'sphinx'])
+Alias('sclibs', [targets['sc'+key] for key in 'main', 'test', 'kp', 'kpcu'])
+Default('sclibs')
 
 # vim: set ff=unix ft=python fenc=utf8 ai et sw=4 ts=4 tw=79:
