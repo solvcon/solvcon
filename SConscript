@@ -13,7 +13,7 @@ for fptype in ['float', 'double']:
         ['block', 'domain', 'partition', 'solve'], 'solvcon', fptype))
 
 # lib_solvcontest.
-libs.append(env.SolvconShared(['src'], 'solvcontest', srcroot='test'))
+libs.append(env.SolvconShared(['src'], 'solvcontest', srcdir='test'))
 # lib_cuda13test.
 if FindFile('nvcc', os.environ['PATH'].split(':')):
     envm = env.Clone()

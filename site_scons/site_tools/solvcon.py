@@ -26,28 +26,44 @@ def get_scdata(env, url, datapath):
 
 LIBPREFIX = 'sc'
 LIBDIR = 'lib'
-SRCDIR = 'src'
 BUILDDIR = 'build'
 
-def solvcon_shared(env, sdirs, libname, fptype=None, srcroot=None):
+def solvcon_shared(env, sdirs, libname, fptype=None, ndim=None, srcdir='src',
+        prepends=None):
+    # clone the environment to avoid polution.
     env = env.Clone()
-    srcroot = srcroot if srcroot is not None else SRCDIR
+    # prepend custom environment variables.
+    prepends = {} if prepends is None else prepends
+    for key in prepends:
+        env.Prepend(key=prepends[key])
     # prepare file lists.
     ddsts = list()
     for dsrc in sdirs:
-        dsrc = '%s/%s' % (srcroot, str(dsrc))
-        if not os.path.isdir(dsrc): continue
+        # craft source directory name.
+        dsrc = '%s/%s' % (srcdir, str(dsrc))
+        # skip non-directory.
+        if not os.path.isdir(dsrc):
+            continue
+        # craft destination directory name.
         ddst = '%s/%s' % (BUILDDIR, os.path.basename(dsrc))
+        if ndim is not None:
+            ddst += '%dd' % ndim
         if fptype is not None:
             ddst += '_' + {'float': 's', 'double': 'd'}[fptype]
+        # copy source.
         env.VariantDir(ddst, dsrc, duplicate=1)
+        # collect source files.
         ddsts.extend(env.Glob('%s/*.c'%ddst))
     ddsts = env.Flatten(ddsts)
-    # make action.
-    env.Prepend(CCFLAGS=['-DFPTYPE=%s'%fptype])
+    # craft library file name.
     filename = '%s/%s_%s' % (LIBDIR, LIBPREFIX, libname)
+    if ndim is not None:
+        env.Prepend(CCFLAGS=['-DNDIM=%d'%ndim])
+        filename += '%dd' % ndim
     if fptype is not None:
+        env.Prepend(CCFLAGS=['-DFPTYPE=%s'%fptype])
         filename += '_' + {'float': 's', 'double': 'd'}[fptype]
+    # make the library.
     return env.SharedLibrary(filename, ddsts)
 
 def generate(env):
