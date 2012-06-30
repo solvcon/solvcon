@@ -34,7 +34,8 @@ def solvcon_shared(env, sdirs, libname, ndim=None, ext=None, fptype=None,
     # prepend custom environment variables.
     prepends = {} if prepends is None else prepends
     for key in prepends:
-        env.Prepend(key=prepends[key])
+        if prepends[key] is not None:
+            env.Prepend(**{key: prepends[key]}) # weird treatment for Prepend.
     # prepare file lists.
     ddsts = list()
     for dsrc in sdirs:
