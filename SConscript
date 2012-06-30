@@ -32,21 +32,6 @@ if FindFile('nvcc', os.environ['PATH'].split(':')):
         Glob('%s/cuda20test/*.cu'%bdir)))
 
 # kerpak libraries.
-def make_kplib(lname, lpre, ldir, sdir, bdir, env, extra_links=None):
-    """
-    Make kerpak libraries.
-    """
-    libs = []
-    for ndim in 2, 3:
-        VariantDir('%s/%s%dd' % (bdir, lname, ndim), sdir, duplicate=0)
-        envm = env.Clone()
-        envm.Prepend(CCFLAGS=['-DNDIM=%d'%ndim])
-        if extra_links is not None:
-            envm.Prepend(LIBS=extra_links)
-        libs.append(envm.SharedLibrary(
-            '%s/%s_%s%dd' % (ldir, lpre, lname, ndim),
-            Glob('%s/%s%dd/*.c' % (bdir, lname, ndim))))
-    return libs
 kplibs = [
     ('cese', None), ('ceseb', None),    # solvcon.kerpak.cese
     ('elaslin', None), ('elaslinb', None),  # solvcon.kerpak.elaslin
@@ -54,8 +39,9 @@ kplibs = [
     ('lincese', ['lapack']),    # solvcon.kerpak.lincese
 ]
 for lname, extra_links in kplibs:
-    libs.extend(make_kplib(lname, lpre, ldir, '%s/%s'%(sdir, lname),
-        bdir, env, extra_links=extra_links))
+    for ndim in 2, 3:
+        libs.extend(env.SolvconShared([lname], lname, ndim=ndim,
+            prepends={'LIBS': extra_links}))
 
 # kerpak libraries with CUDA.
 def make_kpculib(lname, lpre, ldir, sdir, bdir, env, extra_links=None):
