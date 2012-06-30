@@ -44,29 +44,6 @@ for lname, extra_links in kplibs:
             prepends={'LIBS': extra_links}))
 
 # kerpak libraries with CUDA.
-def make_kpculib(lname, lpre, ldir, sdir, bdir, env, extra_links=None):
-    """
-    Make kerpak libraries with CUDA.
-    """
-    libs = []
-    for ndim in 2, 3:
-        for ext in ('c', 'cu'):
-            if ext == 'cu':
-                if not FindFile('nvcc', os.environ['PATH'].split(':')):
-                    continue
-            VariantDir('%s/%s%dd_%s' % (bdir, lname, ndim, ext),
-                sdir, duplicate=0)
-            envm = env.Clone()
-            envm.Prepend(CCFLAGS=['-DNDIM=%d'%ndim])
-            envm.Prepend(NVCCFLAGS=['-DNDIM=%d'%ndim])
-            envm.Append(NVCCINC=' -I src/cuse')
-            if ext == 'cu': envm.Append(LIBS=['cudart'])
-            if extra_links is not None:
-                envm.Prepend(LIBS=extra_links)
-            libs.append(envm.SharedLibrary(
-                '%s/%s_%s%dd_%s' % (ldir, lpre, lname, ndim, ext),
-                Glob('%s/%s%dd_%s/*.%s' % (bdir, lname, ndim, ext, ext))))
-    return libs
 kpculibs = [
     ('cuse', None), ('cuseb', None),    # solvcon.kerpak.cuse
     ('gasdyn', None), ('gasdynb', None),    # solvcon.kerpak.gasdyn
@@ -74,8 +51,6 @@ kpculibs = [
     ('vslin', None), ('vslinb', None),  # solvcon.kerpak.vslin
 ]
 for lname, extra_links in kpculibs:
-    #libs.extend(make_kpculib(lname, lpre, ldir, '%s/%s'%(sdir, lname),
-    #    bdir, env, extra_links=extra_links))
     for ndim in 2, 3:
         for ext in ('c', 'cu'):
             prepends = {'LIBS': extra_links}

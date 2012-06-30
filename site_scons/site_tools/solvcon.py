@@ -24,12 +24,11 @@ def get_scdata(env, url, datapath):
     else:
         os.system('hg clone %s %s' % (url, datapath))
 
-LIBPREFIX = 'sc'
-LIBDIR = 'lib'
-BUILDDIR = 'build'
-
 def solvcon_shared(env, sdirs, libname, ndim=None, ext=None, fptype=None,
         srcdir='src', prepends=None):
+    """
+    I need SCBUILDDIR, SCLIBDIR, and SCLIBPREFIX set in env.
+    """
     # clone the environment to avoid polution.
     env = env.Clone()
     # prepend custom environment variables.
@@ -45,7 +44,7 @@ def solvcon_shared(env, sdirs, libname, ndim=None, ext=None, fptype=None,
         if not os.path.isdir(dsrc):
             continue
         # craft destination directory name.
-        ddst = '%s/%s' % (BUILDDIR, os.path.basename(dsrc))
+        ddst = '%s/%s' % (env['SCBUILDDIR'], os.path.basename(dsrc))
         if ndim is not None:
             ddst += '%dd' % ndim
         if ext is not None:
@@ -58,7 +57,7 @@ def solvcon_shared(env, sdirs, libname, ndim=None, ext=None, fptype=None,
         ddsts.extend(env.Glob('%s/*.%s' % (ddst, 'c' if ext is None else ext)))
     ddsts = env.Flatten(ddsts)
     # craft library file name.
-    filename = '%s/%s_%s' % (LIBDIR, LIBPREFIX, libname)
+    filename = '%s/%s_%s' % (env['SCLIBDIR'], env['SCLIBPREFIX'], libname)
     if ndim is not None:
         env.Prepend(CCFLAGS=['-DNDIM=%d'%ndim])
         env.Prepend(NVCCFLAGS=['-DNDIM=%d'%ndim])
