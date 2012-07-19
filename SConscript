@@ -5,6 +5,10 @@ SConscript: The defined rules.
 import os, sys
 Import('targets', 'env')
 
+# libsolvcon.
+sclib = targets.setdefault('sclib', [])
+sclib.append(env.SolvconStatic(['mesh'], 'solvcon', sclibprefix=''))
+
 # lib_solvcon.
 scmain = targets.setdefault('scmain', [])
 for fptype in ['float', 'double']:
@@ -63,6 +67,13 @@ for lname, extra_links in [
                 prepends['LIBS'].append('cudart')
             sckpcu.extend(env.SolvconShared([lname], lname, ndim=ndim, ext=ext,
                 prepends=prepends))
+
+# cython.
+scmods = targets.setdefault('scmods', [])
+env.VariantDir('%s/cython'%env['SCBUILDDIR'], 'cython', duplicate=1)
+prepends = {'LIBS': ['solvcon']}
+scmods.extend(env.SolvconModule(
+    env.Glob('%s/cython/*.pyx'%env['SCBUILDDIR']), prepends=prepends))
 
 # documents.
 targets['scepydoc'] = env.BuildEpydoc('solvcon/__init__.py')

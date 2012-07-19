@@ -24,8 +24,8 @@ def get_scdata(env, url, datapath):
     else:
         os.system('hg clone %s %s' % (url, datapath))
 
-def solvcon_shared(env, sdirs, libname, ndim=None, ext=None, fptype=None,
-        srcdir='src', prepends=None):
+def prepare_files(env, sdirs, libname, ndim=None, ext=None, fptype=None,
+        srcdir='src', prepends=None, sclibprefix=None):
     """
     I need SCBUILDDIR, SCLIBDIR, and SCLIBPREFIX set in env.
     """
@@ -36,6 +36,8 @@ def solvcon_shared(env, sdirs, libname, ndim=None, ext=None, fptype=None,
     for key in prepends:
         if prepends[key] is not None:
             env.Prepend(**{key: prepends[key]}) # weird treatment for Prepend.
+    # determine library prefix.
+    sclibprefix = env['SCLIBPREFIX'] if sclibprefix is None else sclibprefix
     # prepare file lists.
     ddsts = list()
     for dsrc in sdirs:
@@ -58,7 +60,7 @@ def solvcon_shared(env, sdirs, libname, ndim=None, ext=None, fptype=None,
         ddsts.extend(env.Glob('%s/*.%s' % (ddst, 'c' if ext is None else ext)))
     ddsts = env.Flatten(ddsts)
     # craft library file name.
-    filename = '%s/%s_%s' % (env['SCLIBDIR'], env['SCLIBPREFIX'], libname)
+    filename = '%s/%s%s' % (env['SCLIBDIR'], sclibprefix, libname)
     if ndim is not None:
         env.Prepend(CCFLAGS=['-DNDIM=%d'%ndim])
         env.Prepend(NVCCFLAGS=['-DNDIM=%d'%ndim])
@@ -70,12 +72,48 @@ def solvcon_shared(env, sdirs, libname, ndim=None, ext=None, fptype=None,
         env.Prepend(NVCCFLAGS=['-DFPTYPE=%s'%fptype])
         filename += '_%s' % {'float': 's', 'double': 'd'}[fptype]
     # make the library.
+    return env, filename, ddsts
+
+def solvcon_static(env, *args, **kw):
+    if '-fPIC' not in env['CFLAGS']:
+        env = env.Clone()
+        env.Append(CFLAGS=['-fPIC'])
+    env, filename, ddsts = prepare_files(env, *args, **kw)
+    return env.StaticLibrary(filename, ddsts)
+
+def solvcon_shared(env, *args, **kw):
+    env, filename, ddsts = prepare_files(env, *args, **kw)
     return env.SharedLibrary(filename, ddsts)
+
+def solvcon_module(env, srcs, prepends=None, pkgroot='solvcon'):
+    from SCons.Defaults import Copy
+    env = env.Clone()
+    # prepend custom environment variables.
+    prepends = {} if prepends is None else prepends
+    for key in prepends:
+        if prepends[key] is not None:
+            env.Prepend(**{key: prepends[key]}) # weird treatment for Prepend.
+    # make sure of input list.
+    if isinstance(srcs, basestring):
+        srcs = [srcs]
+    # make all sources.
+    dsts = []
+    for src in srcs:
+        mainfn = os.path.splitext(os.path.basename(str(src)))[0]
+        pyobj = env.PythonObject(env.Cython(src))[0]
+        pymod = env.SharedLibrary(
+            '%s/%s'%(env['SCLIBDIR'], mainfn), pyobj, SHLIBPREFIX='')[0]
+        modfn = os.path.basename(str(pymod))
+        dsts.append(env.Command(
+            '%s/%s'%(pkgroot, modfn), pymod, Copy("$TARGET", "$SOURCE")))
+    return dsts
 
 def generate(env):
     env.AddMethod(has_sse4, 'HasSse4')
     env.AddMethod(get_scdata, 'GetScdata')
+    env.AddMethod(solvcon_static, 'SolvconStatic')
     env.AddMethod(solvcon_shared, 'SolvconShared')
+    env.AddMethod(solvcon_module, 'SolvconModule')
 
 def exists(env):
     return env.Detect('solvcon')

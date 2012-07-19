@@ -302,6 +302,75 @@ class Block(object):
     def create_msd(self):
         return MeshData(blk=self)
 
+    def create_msh(self):
+        """
+        Build a simple 2D triangle with 4 subtriangles.
+
+        >>> blk = Block(ndim=2, nnode=4, nface=6, ncell=3, nbound=3)
+        >>> blk.ndcrd[0,:] = (0,0)
+        >>> blk.ndcrd[1,:] = (-1,-1)
+        >>> blk.ndcrd[2,:] = (1,-1)
+        >>> blk.ndcrd[3,:] = (0,1)
+        >>> blk.cltpn[:] = 3
+        >>> blk.clnds[0,:4] = (3, 0,1,2)
+        >>> blk.clnds[1,:4] = (3, 0,2,3)
+        >>> blk.clnds[2,:4] = (3, 0,3,1)
+        >>> blk.build_interior()
+
+        Create a MeshData:
+
+        >>> msh = blk.create_msh()
+        >>> (msh.ndcrd == blk.ndcrd).all()
+        True
+        >>> (msh.fccnd == blk.fccnd).all()
+        True
+        >>> (msh.fcnml == blk.fcnml).all()
+        True
+        >>> (msh.fcara == blk.fcara).all()
+        True
+        >>> (msh.clcnd == blk.clcnd).all()
+        True
+        >>> (msh.clvol == blk.clvol).all()
+        True
+        >>> (msh.fctpn == blk.fctpn).all()
+        True
+        >>> (msh.cltpn == blk.cltpn).all()
+        True
+        >>> (msh.clgrp == blk.clgrp).all()
+        True
+        >>> (msh.fcnds == blk.fcnds).all()
+        True
+        >>> (msh.fccls == blk.fccls).all()
+        True
+        >>> (msh.clnds == blk.clnds).all()
+        True
+        >>> (msh.clfcs == blk.clfcs).all()
+        True
+        """
+        from .mesh import MeshData
+        msh = MeshData()
+        msh.ndim = self.ndim
+        msh.nnode = self.nnode
+        msh.nface = self.nface
+        msh.ncell = self.ncell
+        msh.ngstnode = self.ngstnode
+        msh.ngstface = self.ngstface
+        msh.ngstcell = self.ngstcell
+        msh.ndcrd = self.ndcrd
+        msh.fccnd = self.fccnd
+        msh.fcnml = self.fcnml
+        msh.fcara = self.fcara
+        msh.clcnd = self.clcnd
+        msh.clvol = self.clvol
+        msh.fctpn = self.fctpn
+        msh.cltpn = self.cltpn
+        msh.clgrp = self.clgrp
+        msh.fcnds = self.fcnds
+        msh.fccls = self.fccls
+        msh.clnds = self.clnds
+        msh.clfcs = self.clfcs
+        return msh
+
     def calc_metric(self):
         """
         Calculate metrics including normal vector and area of faces, and
@@ -309,9 +378,12 @@ class Block(object):
 
         @return: nothing.
         """
-        from ctypes import byref, c_int
-        self._clib_solvcon.calc_metric(byref(self.create_msd()),
-            c_int(1 if self.use_incenter else 0))
+        if self.fpdtypestr == 'float64':
+            self.create_msh().calc_metric(self.use_incenter)
+        else:
+            from ctypes import byref, c_int
+            self._clib_solvcon.calc_metric(byref(self.create_msd()),
+                c_int(1 if self.use_incenter else 0))
 
     def build_interior(self):
         """
@@ -334,31 +406,36 @@ class Block(object):
             max_nfc += (self.cltpn == sig[0]).sum()*sig[4]
         # build connectivity information: get face definition from node list 
         # of cells.
-        nface = c_int(0)
-        clfcs = empty((self.ncell, self.CLMFC+1), dtype='int32')
-        fctpn = empty(max_nfc, dtype='int32')
-        fcnds = empty((max_nfc, self.FCMND+1), dtype='int32')
-        fccls = empty((max_nfc, 4), dtype='int32')
-        for arr in clfcs, fcnds, fccls:
-            arr.fill(-1)
-        ## call the subroutine.
-        self._clib_solvcon.get_faces_from_cells(
-            # input.
-            byref(self.create_msd()),
-            c_int(max_nfc),
-            # output.
-            byref(nface),
-            clfcs.ctypes._as_parameter_,
-            fctpn.ctypes._as_parameter_,
-            fcnds.ctypes._as_parameter_,
-            fccls.ctypes._as_parameter_,
-        )
-        ## shuffle the result.
-        nface = nface.value
-        clfcs = clfcs[:nface,:]
-        fctpn = fctpn[:nface]
-        fcnds = fcnds[:nface,:]
-        fccls = fccls[:nface,:]
+        if self.fpdtypestr == 'float64':
+            msh = self.create_msh()
+            clfcs, fctpn, fcnds, fccls = msh.extract_faces_from_cells(max_nfc)
+            nface = fctpn.shape[0]
+        else:
+            nface = c_int(0)
+            clfcs = empty((self.ncell, self.CLMFC+1), dtype='int32')
+            fctpn = empty(max_nfc, dtype='int32')
+            fcnds = empty((max_nfc, self.FCMND+1), dtype='int32')
+            fccls = empty((max_nfc, 4), dtype='int32')
+            for arr in clfcs, fcnds, fccls:
+                arr.fill(-1)
+            ## call the subroutine.
+            self._clib_solvcon.get_faces_from_cells(
+                # input.
+                byref(self.create_msd()),
+                c_int(max_nfc),
+                # output.
+                byref(nface),
+                clfcs.ctypes._as_parameter_,
+                fctpn.ctypes._as_parameter_,
+                fcnds.ctypes._as_parameter_,
+                fccls.ctypes._as_parameter_,
+            )
+            ## shuffle the result.
+            nface = nface.value
+            clfcs = clfcs[:nface,:]
+            fctpn = fctpn[:nface]
+            fcnds = fcnds[:nface,:]
+            fccls = fccls[:nface,:]
         # check for initialization of information for faces.
         if self.nface != nface:
             # connectivity, used in this method.
@@ -445,18 +522,20 @@ class Block(object):
 
         @return: nothing.
         """
-        from ctypes import byref
-        from numpy import arange
         # initialize data structure (arrays) for ghost information.
         ngstnode, ngstface, ngstcell = self._count_ghost()
         self._init_shared(ngstnode, ngstface, ngstcell)
         self._assign_ghost(ngstnode, ngstface, ngstcell)
         self._reassign_interior(ngstnode, ngstface, ngstcell)
         # build ghost information, including connectivities and metrics.
-        self._clib_solvcon.build_ghost(
-            byref(self.create_msd()),
-            self.bndfcs.ctypes._as_parameter_,
-        )
+        if self.fpdtypestr == 'float64':
+            self.create_msh().build_ghost(self.bndfcs)
+        else:
+            from ctypes import byref
+            self._clib_solvcon.build_ghost(
+                byref(self.create_msd()),
+                self.bndfcs.ctypes._as_parameter_,
+            )
 
     def _count_ghost(self):
         """

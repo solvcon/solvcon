@@ -19,9 +19,14 @@ AddOption('--optlevel', dest='optlevel', type=str, action='store', default='2',
 AddOption('--sm', action='store', default='20', dest='sm',
     help='Compute capability for CUDA; '
     '13=1.3 and 20=2.0 are currently supported; default is "%default".')
+# paths.
+AddOption('--python-path', dest='pythonpath', type='string', action='store',
+    default=os.path.join(sys.prefix, 'include',
+        'python%d.%d'%tuple(sys.version_info[:2])),
+    help='Python include path; default is %default.')
 # generated files.
 AddOption('--library-prefix', dest='libprefix', type='string', action='store',
-    default='sc', help='Prefix for compiled libraries; default is "%default".')
+    default='sc_', help='Prefix for compiled libraries; default is "%default".')
 AddOption('--library-dir', dest='libdir', type='string', action='store',
     default='lib',
     help='Directory for compiled libraries; default is "%default".')
@@ -40,6 +45,8 @@ env = Environment(ENV=os.environ, SCLIBPREFIX=GetOption('libprefix'),
 # tools.
 env.Tool('mingw' if sys.platform.startswith('win') else 'default')
 env.Tool(GetOption('ctool'))
+env.Tool('cython')
+env.Tool('pyext')
 env.Tool('solvcon')
 env.Tool('sphinx')
 env.Tool('scons_epydoc')
@@ -67,7 +74,11 @@ if GetOption('openmp'):
         env.Append(CFLAGS='-openmp')
         env.Append(LINKFLAGS='-openmp')
 # include paths.
-env.Append(CPPPATH='include')
+env.Append(CPPPATH=['include'])
+env.Append(CPPPATH=[GetOption('pythonpath')])
+env.Prepend(CYTHONFLAGS=['-Icython'])
+# library paths.
+env.Append(LIBPATH=[GetOption('libdir')])
 # CUDA.
 env.Tool('cuda')
 env.Append(NVCCFLAGS='-arch=sm_%s'%GetOption('sm'))
@@ -89,8 +100,9 @@ SConscript(['SConscript'])
 for key in targets:
     Alias(key, targets[key])
 Alias('scdocs', [targets['sc'+key] for key in 'epydoc', 'sphinx'])
-Alias('sclibs', [targets['sc'+key] for key in 'main', 'test', 'kp', 'kpcu'])
-Default('sclibs')
+Alias('sclibs', [targets['sc'+key] for key in
+    'lib', 'main', 'test', 'kp', 'kpcu'])
+Default(['sclibs', 'scmods'])
 
 # show target aliases without doing anything else.
 if GetOption('list_aliases'):
