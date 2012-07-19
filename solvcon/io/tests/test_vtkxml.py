@@ -22,7 +22,7 @@ class VtkXmlTest(TestCase):
                 self.assertEqual(oline, nline)
             i += 1
  
-    def test_xml_single(self):
+    """def test_xml_single(self):
         import StringIO
         from ...testing import loadfile
         from .. import gambit
@@ -34,7 +34,7 @@ class VtkXmlTest(TestCase):
         wtr.write(outf)
         dat = outf.getvalue()
         self.assertNotEqual(dat.find('Float32'), -1)
-        self.assertEqual(dat.find('Float64'), -1)
+        self.assertEqual(dat.find('Float64'), -1)"""
 
     def test_xml_double(self):
         import StringIO
@@ -42,7 +42,7 @@ class VtkXmlTest(TestCase):
         from .. import gambit
         from .. import vtkxml
         blk = gambit.GambitNeutral(loadfile('sample.neu')).toblock(
-            fpdtype='float32')
+            fpdtype='float64')
         wtr = vtkxml.VtkXmlUstGridWriter(blk, fpdtype='float64')
         outf = StringIO.StringIO()
         wtr.write(outf)
@@ -56,7 +56,7 @@ class VtkXmlTest(TestCase):
         from .. import gambit
         from .. import vtkxml
         blk = gambit.GambitNeutral(loadfile('sample.neu')).toblock(
-            fpdtype='float32')
+            fpdtype='float64')
         wtr = vtkxml.VtkXmlUstGridWriter(blk, appended=True)
         outf = StringIO.StringIO()
         wtr.write(outf)
@@ -70,7 +70,7 @@ class VtkXmlTest(TestCase):
         from .. import gambit
         from .. import vtkxml
         blk = gambit.GambitNeutral(loadfile('sample.neu')).toblock(
-            fpdtype='float32')
+            fpdtype='float64')
         wtr = vtkxml.VtkXmlUstGridWriter(blk, appended=False, binary=True)
         outf = StringIO.StringIO()
         wtr.write(outf)
@@ -86,7 +86,7 @@ class VtkXmlTest(TestCase):
         from .. import gambit
         from .. import vtkxml
         blk = gambit.GambitNeutral(loadfile('sample.neu')).toblock(
-            fpdtype='float32')
+            fpdtype='float64')
         wtr = vtkxml.VtkXmlUstGridWriter(blk, appended=False, binary=False)
         outfd, ofn = mkstemp(text=True)
         outf = os.fdopen(outfd, 'w')

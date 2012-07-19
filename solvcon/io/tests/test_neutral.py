@@ -60,11 +60,11 @@ class NeutralTest(TestCase):
         for icl in ecls:
             self.assert_(icl in ocls)
 
-class TestNeutralSingle(NeutralTest):
+"""class TestNeutralSingle(NeutralTest):
     __test__ = True
     neu = gambit.GambitNeutral(loadfile('sample.neu'))
     blk = neu.toblock(fpdtype='float32')
-    round_to = 6
+    round_to = 6"""
 
 class TestNeutralDouble(NeutralTest):
     __test__ = True
@@ -72,11 +72,11 @@ class TestNeutralDouble(NeutralTest):
     blk = neu.toblock(fpdtype='float64')
     round_to = 15
 
-class TestNeutralReadSingle(NeutralTest):
+"""class TestNeutralReadSingle(NeutralTest):
     __test__ = True
     neu = gambit.GambitNeutral(openfile('sample.neu'))
     blk = neu.toblock(fpdtype='float32')
-    round_to = 6
+    round_to = 6"""
 
 class TestNeutralReadDouble(NeutralTest):
     __test__ = True

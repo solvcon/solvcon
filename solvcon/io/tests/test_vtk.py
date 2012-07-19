@@ -39,11 +39,11 @@ class WriteTest(TestCase):
         # compare new result with old result line by line.
         self.assertLines(self.str_neu_vtk, str_blk_vtk)
 
-class TestWriteSingle(WriteTest):
+"""class TestWriteSingle(WriteTest):
     __test__ = True
     blk = gambit.GambitNeutral(loadfile('sample.neu')).toblock(
         fpdtype='float32')
-    str_neu_vtk = loadfile('sample.neu.single.vtk')
+    str_neu_vtk = loadfile('sample.neu.single.vtk')"""
 
 class TestWriteDouble(WriteTest):
     __test__ = True

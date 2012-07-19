@@ -137,22 +137,26 @@ class Block(object):
 
     def __init__(self, *args, **kw):
         """
-        Initialization.
+        :keyword fpdtype: dtype for the floating point data.  Deprecated.
+        :keyword ndim: spatial dimension.
+        :type ndim: int
+        :keyword nnode: number of nodes.
+        :type nnode: int
+        :keyword nface: number of faces.
+        :type nface: int
+        :keyword ncell: number of cells.
+        :type ncell: int
+        :keyword nbound: number of BC faces.
+        :type nbound: int
+        :keyword use_incenter: specify using incenter or not.
+        :type use_incenter: bool
 
-        @keyword fpdtype: dtype for the floating point data.
-        @keyword ndim: spatial dimension.
-        @keyword nnode: number of nodes.
-        @keyword nface: number of faces.
-        @keyword ncell: number of cells.
-        @keyword nbound: number of BC faces.
-        @keyword use_incenter: specify using incenter or not.
-        @type use_incenter: bool
+        Initialization.
         """
         from numpy import empty
-        from .conf import env
+        # get rid of fpdtype setting.
+        kw.pop('fpdtype', None)
         # get parameters.
-        self._fpdtype = kw.pop('fpdtype', env.fpdtype)
-        self._fpdtype = env.fpdtype if self._fpdtype==None else self._fpdtype
         ndim = kw.setdefault('ndim', 0)
         nnode = kw.setdefault('nnode', 0)
         nface = kw.setdefault('nface', 0)
@@ -234,20 +238,12 @@ class Block(object):
 
     @property
     def fpdtype(self):
-        import numpy
-        _fpdtype = self._fpdtype
-        if isinstance(_fpdtype, str):
-            return getattr(numpy, _fpdtype)
-        else:
-            return self._fpdtype
+        from numpy import float64
+        return float64
     @property
     def fpdtypestr(self):
         from .dependency import str_of
         return str_of(self.fpdtype)
-    @property
-    def _clib_solvcon(self):
-        from .dependency import _clib_solvcon_of
-        return _clib_solvcon_of(self.fpdtype)
 
     @property
     def ndim(self):
@@ -378,12 +374,7 @@ class Block(object):
 
         @return: nothing.
         """
-        if self.fpdtypestr == 'float64':
-            self.create_msh().calc_metric(self.use_incenter)
-        else:
-            from ctypes import byref, c_int
-            self._clib_solvcon.calc_metric(byref(self.create_msd()),
-                c_int(1 if self.use_incenter else 0))
+        self.create_msh().calc_metric(self.use_incenter)
 
     def build_interior(self):
         """
@@ -395,7 +386,6 @@ class Block(object):
         @return: nothing.
         """
         from numpy import empty
-        from ctypes import byref, c_int
         # prepare to build connectivity: calculate max number of faces.
         max_nfc = 0
         for sig in elemtype[1:2]:   # 1D cells.
@@ -406,36 +396,9 @@ class Block(object):
             max_nfc += (self.cltpn == sig[0]).sum()*sig[4]
         # build connectivity information: get face definition from node list 
         # of cells.
-        if self.fpdtypestr == 'float64':
-            msh = self.create_msh()
-            clfcs, fctpn, fcnds, fccls = msh.extract_faces_from_cells(max_nfc)
-            nface = fctpn.shape[0]
-        else:
-            nface = c_int(0)
-            clfcs = empty((self.ncell, self.CLMFC+1), dtype='int32')
-            fctpn = empty(max_nfc, dtype='int32')
-            fcnds = empty((max_nfc, self.FCMND+1), dtype='int32')
-            fccls = empty((max_nfc, 4), dtype='int32')
-            for arr in clfcs, fcnds, fccls:
-                arr.fill(-1)
-            ## call the subroutine.
-            self._clib_solvcon.get_faces_from_cells(
-                # input.
-                byref(self.create_msd()),
-                c_int(max_nfc),
-                # output.
-                byref(nface),
-                clfcs.ctypes._as_parameter_,
-                fctpn.ctypes._as_parameter_,
-                fcnds.ctypes._as_parameter_,
-                fccls.ctypes._as_parameter_,
-            )
-            ## shuffle the result.
-            nface = nface.value
-            clfcs = clfcs[:nface,:]
-            fctpn = fctpn[:nface]
-            fcnds = fcnds[:nface,:]
-            fccls = fccls[:nface,:]
+        msh = self.create_msh()
+        clfcs, fctpn, fcnds, fccls = msh.extract_faces_from_cells(max_nfc)
+        nface = fctpn.shape[0]
         # check for initialization of information for faces.
         if self.nface != nface:
             # connectivity, used in this method.
@@ -528,14 +491,7 @@ class Block(object):
         self._assign_ghost(ngstnode, ngstface, ngstcell)
         self._reassign_interior(ngstnode, ngstface, ngstcell)
         # build ghost information, including connectivities and metrics.
-        if self.fpdtypestr == 'float64':
-            self.create_msh().build_ghost(self.bndfcs)
-        else:
-            from ctypes import byref
-            self._clib_solvcon.build_ghost(
-                byref(self.create_msd()),
-                self.bndfcs.ctypes._as_parameter_,
-            )
+        self.create_msh().build_ghost(self.bndfcs)
 
     def _count_ghost(self):
         """
