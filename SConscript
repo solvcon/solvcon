@@ -13,7 +13,7 @@ sclib.append(env.SolvconStatic(['mesh'], 'solvcon', sclibprefix=''))
 scmain = targets.setdefault('scmain', [])
 for fptype in ['float', 'double']:
     scmain.append(env.SolvconShared(
-        ['block', 'domain', 'partition', 'solve'], 'solvcon', fptype=fptype))
+        ['domain', 'partition', 'solve'], 'solvcon', fptype=fptype))
 
 # lib_solvcontest.
 sctest = targets.setdefault('sctest', [])
