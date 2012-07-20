@@ -52,31 +52,6 @@ class Partitioner(object):
     def __call__(self, npart):
         return self._partgraph(self.blk, npart)
 
-    @staticmethod
-    def _generate_csrgraph(blk):
-        """
-        Interpret a valid unstructured grid block into CSR (Compressed Storage
-        Format) that ParMETIS/METIS uses.
-        """
-        from ctypes import byref
-        from numpy import empty, add
-        from .dependency import _clib_solvcon_d
-        ncell = blk.ncell
-        # build the table of related cells.
-        rcells = empty((blk.ncell, blk.CLMFC), dtype='int32')
-        rcellno = empty(blk.ncell, dtype='int32')
-        _clib_solvcon_d.build_rcells(byref(blk.create_msd()),
-            rcells.ctypes._as_parameter_, rcellno.ctypes._as_parameter_)
-        # build xadj: cell boundaries.
-        xadj = empty(ncell+1, dtype='int32')
-        xadj[0] = 0
-        xadj[1:] = add.accumulate(rcellno)
-        # build adjncy: edge/relations.
-        adjncy = empty(xadj[-1], dtype='int32')
-        _clib_solvcon_d.build_csr(byref(blk.create_msd()),
-            rcells.ctypes._as_parameter_, adjncy.ctypes._as_parameter_)
-        return xadj, adjncy
-
     @classmethod
     def _partgraph(cls, blk, npart, vwgt=None):
         """
@@ -85,7 +60,7 @@ class Partitioner(object):
         from ctypes import c_int, byref
         from numpy import empty
         from .dependency import _clib_metis
-        xadj, adjncy = cls._generate_csrgraph(blk)
+        xadj, adjncy = blk.create_msh().build_csr()
         # weighting.
         if vwgt == None:
             vwgt = empty(1, dtype='int32')

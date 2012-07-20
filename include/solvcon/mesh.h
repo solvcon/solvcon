@@ -39,6 +39,8 @@ void sc_mesh_build_ghost(sc_mesh *msd, int *bndfcs);
 int sc_mesh_calc_metric(sc_mesh *msd, int use_incenter);
 int sc_mesh_extract_faces_from_cells(sc_mesh *msd, int mface,
         int *pnface, int *clfcs, int *fctpn, int *fcnds, int *fccls);
+int sc_mesh_build_rcells(sc_mesh *msd, int *rcells, int *rcellno);
+int sc_mesh_build_csr(sc_mesh *msd, int *rcells, int *adjncy);
 
 /*
  * mesh constants.

@@ -16,7 +16,7 @@
 
 from solvcon cimport sc_mesh, FCMND, CLMND, CLMFC, FCREL, BFREL
 from solvcon cimport (sc_mesh_build_ghost, sc_mesh_calc_metric,
-    sc_mesh_extract_faces_from_cells)
+    sc_mesh_extract_faces_from_cells, sc_mesh_build_rcells, sc_mesh_build_csr)
 import numpy as np
 cimport numpy as cnp
 
@@ -279,5 +279,22 @@ cdef class MeshData:
         fccls = fccls[:nface,:].copy()
         # return.
         return clfcs, fctpn, fcnds, fccls
+
+    def build_csr(self):
+        # build the table of related cells.
+        cdef cnp.ndarray[int, ndim=2, mode="c"] rcells = np.empty(
+            (self.ncell, CLMFC), dtype='int32')
+        cdef cnp.ndarray[int, ndim=1, mode="c"] rcellno = np.empty(
+            self.ncell, dtype='int32')
+        sc_mesh_build_rcells(self._mesh, &rcells[0,0], &rcellno[0])
+        # build xadj: cell boundaries.
+        xadj = np.empty(self.ncell+1, dtype='int32')
+        xadj[0] = 0
+        xadj[1:] = np.add.accumulate(rcellno)
+        # build adjncy: edge/relations.
+        cdef cnp.ndarray[int, ndim=1, mode="c"] adjncy = np.empty(
+            xadj[-1], dtype='int32')
+        sc_mesh_build_csr(self._mesh, &rcells[0,0], &adjncy[0])
+        return xadj, adjncy
 
 # vim: set fenc=utf8 ft=pyrex ff=unix ai et nu sw=4 ts=4 tw=79 
