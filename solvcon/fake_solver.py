@@ -35,7 +35,9 @@ class FakeSolver(Solver):
     >>> svr = FakeSolver(blk, neq=1)
     >>> # initialize.
     >>> svr.sol.fill(0)
+    >>> svr.soln.fill(0)
     >>> svr.dsol.fill(0)
+    >>> svr.dsoln.fill(0)
     >>> ret = svr.march(0.0, 0.01, 100)
     >>> # calculate and compare soln.
     >>> from numpy import empty_like
@@ -95,28 +97,7 @@ class FakeSolver(Solver):
         """
         from .fake_algorithm import FakeAlgorithm
         alg = FakeAlgorithm()
-        # mesh.
-        alg.ndim = self.blk.ndim
-        alg.nnode = self.blk.nnode
-        alg.nface = self.blk.nface
-        alg.ncell = self.blk.ncell
-        alg.ngstnode = self.blk.ngstnode
-        alg.ngstface = self.blk.ngstface
-        alg.ngstcell = self.blk.ngstcell
-        alg.ndcrd = self.blk.ndcrd
-        alg.fccnd = self.blk.fccnd
-        alg.fcnml = self.blk.fcnml
-        alg.fcara = self.blk.fcara
-        alg.clcnd = self.blk.clcnd
-        alg.clvol = self.blk.clvol
-        alg.fctpn = self.blk.fctpn
-        alg.cltpn = self.blk.cltpn
-        alg.clgrp = self.blk.clgrp
-        alg.fcnds = self.blk.fcnds
-        alg.fccls = self.blk.fccls
-        alg.clnds = self.blk.clnds
-        alg.clfcs = self.blk.clfcs
-        # solver.
+        alg.setup_mesh(self.blk)
         alg.setup_algorithm(self)
         return alg
 

@@ -300,71 +300,19 @@ class Block(object):
 
     def create_msh(self):
         """
-        Build a simple 2D triangle with 4 subtriangles.
-
         >>> blk = Block(ndim=2, nnode=4, nface=6, ncell=3, nbound=3)
-        >>> blk.ndcrd[0,:] = (0,0)
-        >>> blk.ndcrd[1,:] = (-1,-1)
-        >>> blk.ndcrd[2,:] = (1,-1)
-        >>> blk.ndcrd[3,:] = (0,1)
+        >>> blk.ndcrd[:,:] = (0,0), (-1,-1), (1,-1), (0,1)
         >>> blk.cltpn[:] = 3
-        >>> blk.clnds[0,:4] = (3, 0,1,2)
-        >>> blk.clnds[1,:4] = (3, 0,2,3)
-        >>> blk.clnds[2,:4] = (3, 0,3,1)
+        >>> blk.clnds[:,:4] = (3, 0,1,2), (3, 0,2,3), (3, 0,3,1)
         >>> blk.build_interior()
-
-        Create a MeshData:
-
         >>> msh = blk.create_msh()
-        >>> (msh.ndcrd == blk.ndcrd).all()
-        True
-        >>> (msh.fccnd == blk.fccnd).all()
-        True
-        >>> (msh.fcnml == blk.fcnml).all()
-        True
-        >>> (msh.fcara == blk.fcara).all()
-        True
-        >>> (msh.clcnd == blk.clcnd).all()
-        True
-        >>> (msh.clvol == blk.clvol).all()
-        True
-        >>> (msh.fctpn == blk.fctpn).all()
-        True
-        >>> (msh.cltpn == blk.cltpn).all()
-        True
-        >>> (msh.clgrp == blk.clgrp).all()
-        True
-        >>> (msh.fcnds == blk.fcnds).all()
-        True
-        >>> (msh.fccls == blk.fccls).all()
-        True
-        >>> (msh.clnds == blk.clnds).all()
-        True
-        >>> (msh.clfcs == blk.clfcs).all()
-        True
+        >>> blk.build_boundary()
+        >>> blk.build_ghost()
+        >>> msh = blk.create_msh()
         """
         from .mesh import MeshData
         msh = MeshData()
-        msh.ndim = self.ndim
-        msh.nnode = self.nnode
-        msh.nface = self.nface
-        msh.ncell = self.ncell
-        msh.ngstnode = self.ngstnode
-        msh.ngstface = self.ngstface
-        msh.ngstcell = self.ngstcell
-        msh.ndcrd = self.ndcrd
-        msh.fccnd = self.fccnd
-        msh.fcnml = self.fcnml
-        msh.fcara = self.fcara
-        msh.clcnd = self.clcnd
-        msh.clvol = self.clvol
-        msh.fctpn = self.fctpn
-        msh.cltpn = self.cltpn
-        msh.clgrp = self.clgrp
-        msh.fcnds = self.fcnds
-        msh.fccls = self.fccls
-        msh.clnds = self.clnds
-        msh.clfcs = self.clfcs
+        msh.setup_mesh(self)
         return msh
 
     def calc_metric(self):
