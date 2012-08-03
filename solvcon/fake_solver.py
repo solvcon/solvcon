@@ -117,16 +117,7 @@ class FakeSolver(Solver):
         alg.clnds = self.blk.clnds
         alg.clfcs = self.blk.clfcs
         # solver.
-        alg.ncore = self.ncore
-        alg.neq = self.neq
-        alg.time = self.time
-        alg.time_increment = self.time_increment
-        alg.sol = self.sol
-        alg.soln = self.soln
-        alg.dsol = self.dsol
-        alg.dsoln = self.dsoln
-        alg.cecnd = self.cecnd
-        alg.cevol = self.cevol
+        alg.setup_algorithm(self)
         return alg
 
     ##################################################
