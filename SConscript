@@ -7,7 +7,7 @@ Import('targets', 'env')
 
 # libsolvcon.
 sclib = targets.setdefault('sclib', [])
-sclib.append(env.SolvconStatic(['mesh'], 'solvcon', sclibprefix=''))
+sclib.append(env.SolvconStatic(['mesh', 'fake_algorithm'], 'solvcon', sclibprefix=''))
 
 # lib_solvcon.
 scmain = targets.setdefault('scmain', [])
