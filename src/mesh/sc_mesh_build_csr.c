@@ -18,7 +18,7 @@
 
 #include "solvcon/mesh.h"
 
-int sc_mesh_build_csr(sc_mesh *msd, int *rcells, int *adjncy) {
+int sc_mesh_build_csr(sc_mesh_t *msd, int *rcells, int *adjncy) {
     // pointers.
     int *prcells, *padjncy;
     // iterators.

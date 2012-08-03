@@ -14,7 +14,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-from mesh cimport sc_mesh, FCMND, CLMND, CLMFC, FCREL, BFREL
+from mesh cimport sc_mesh_t, FCMND, CLMND, CLMFC, FCREL, BFREL
 from mesh cimport (sc_mesh_build_ghost, sc_mesh_calc_metric,
     sc_mesh_extract_faces_from_cells, sc_mesh_build_rcells, sc_mesh_build_csr)
 import numpy as np
@@ -26,9 +26,9 @@ cnp.import_array()
 cdef extern from "stdlib.h":
     void* malloc(size_t size)
 
-cdef class MeshData:
+cdef class Mesh:
     def __cinit__(self):
-        self._mesh = <sc_mesh *>malloc(sizeof(sc_mesh));
+        self._mesh = <sc_mesh_t *>malloc(sizeof(sc_mesh_t));
 
     def setup_mesh(self, blk):
         # meta data.

@@ -38,7 +38,7 @@
  * ghost indices are negative in shared arrays.
  */
 
-void sc_mesh_build_ghost(sc_mesh *msd, int *bndfcs) {
+void sc_mesh_build_ghost(sc_mesh_t *msd, int *bndfcs) {
     int nnd, nfc;
     // pointers.
     int *pbndfcs;

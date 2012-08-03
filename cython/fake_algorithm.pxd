@@ -14,7 +14,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-from mesh cimport sc_mesh
+from mesh cimport sc_mesh_t
 
 cdef extern from "solvcon/fake_algorithm.h":
     ctypedef struct sc_fake_algorithm_t:
@@ -23,11 +23,11 @@ cdef extern from "solvcon/fake_algorithm.h":
         double *sol, *soln, *dsol, *dsoln
         double *cecnd, *cevol
 
-    int sc_fake_algorithm_calc_soln(sc_mesh *msd, sc_fake_algorithm_t *exd)
-    int sc_fake_algorithm_calc_dsoln(sc_mesh *msd, sc_fake_algorithm_t *exd)
+    int sc_fake_algorithm_calc_soln(sc_mesh_t *msd, sc_fake_algorithm_t *exd)
+    int sc_fake_algorithm_calc_dsoln(sc_mesh_t *msd, sc_fake_algorithm_t *exd)
 
-from mesh cimport MeshData
-cdef class FakeAlgorithm(MeshData):
+from mesh cimport Mesh
+cdef class FakeAlgorithm(Mesh):
     cdef sc_fake_algorithm_t *_alg
 
 # vim: set fenc=utf8 ft=pyrex ff=unix ai et sw=4 ts=4 tw=79:

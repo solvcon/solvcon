@@ -28,8 +28,8 @@ typedef struct {
     double *cecnd, *cevol;
 } sc_fake_algorithm_t;
 
-int sc_fake_algorithm_calc_soln(sc_mesh *msd, sc_fake_algorithm_t *exd);
-int calc_dsoln(sc_mesh *msd, sc_fake_algorithm_t *exd);
+int sc_fake_algorithm_calc_soln(sc_mesh_t *msd, sc_fake_algorithm_t *exd);
+int calc_dsoln(sc_mesh_t *msd, sc_fake_algorithm_t *exd);
 
 #endif
 

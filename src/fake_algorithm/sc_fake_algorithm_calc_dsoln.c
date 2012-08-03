@@ -19,7 +19,7 @@
 #include "solvcon/mesh.h"
 #include "solvcon/fake_algorithm.h"
 
-int sc_fake_algorithm_calc_dsoln(sc_mesh *msd, sc_fake_algorithm_t *exd) {
+int sc_fake_algorithm_calc_dsoln(sc_mesh_t *msd, sc_fake_algorithm_t *exd) {
     double *pdsol, *pdsoln, *pclcnd;
     int icl, ieq, idm;
     pdsol = exd->dsol;

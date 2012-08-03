@@ -310,8 +310,8 @@ class Block(object):
         >>> blk.build_ghost()
         >>> msh = blk.create_msh()
         """
-        from .mesh import MeshData
-        msh = MeshData()
+        from .mesh import Mesh
+        msh = Mesh()
         msh.setup_mesh(self)
         return msh
 

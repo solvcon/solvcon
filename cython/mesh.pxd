@@ -21,7 +21,7 @@ cdef extern from "solvcon/mesh.h":
     int FCREL=4
     int BFREL=3
 
-    ctypedef struct sc_mesh:
+    ctypedef struct sc_mesh_t:
         int ndim, nnode, nface, ncell, nbound, ngstnode, ngstface, ngstcell
         # geometry.
         double *ndcrd, *fccnd, *fcnml, *fcara, *clcnd, *clvol
@@ -30,14 +30,14 @@ cdef extern from "solvcon/mesh.h":
         # connectivity.
         int *fcnds, *fccls, *clnds, *clfcs
 
-    void sc_mesh_build_ghost(sc_mesh *msd, int *bndfcs)
-    int sc_mesh_calc_metric(sc_mesh *msd, int use_incenter)
-    int sc_mesh_extract_faces_from_cells(sc_mesh *msd, int mface,
+    void sc_mesh_build_ghost(sc_mesh_t *msd, int *bndfcs)
+    int sc_mesh_calc_metric(sc_mesh_t *msd, int use_incenter)
+    int sc_mesh_extract_faces_from_cells(sc_mesh_t *msd, int mface,
             int *pnface, int *clfcs, int *fctpn, int *fcnds, int *fccls)
-    int sc_mesh_build_rcells(sc_mesh *msd, int *rcells, int *rcellno)
-    int sc_mesh_build_csr(sc_mesh *msd, int *rcells, int *adjncy)
+    int sc_mesh_build_rcells(sc_mesh_t *msd, int *rcells, int *rcellno)
+    int sc_mesh_build_csr(sc_mesh_t *msd, int *rcells, int *adjncy)
 
-cdef class MeshData:
-    cdef sc_mesh *_mesh
+cdef class Mesh:
+    cdef sc_mesh_t *_mesh
 
 # vim: set fenc=utf8 ft=pyrex ff=unix ai et sw=4 ts=4 tw=79:

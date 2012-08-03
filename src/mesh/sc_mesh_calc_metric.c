@@ -30,7 +30,7 @@
  * And fcnds could be reordered.
  */
 
-int sc_mesh_calc_metric(sc_mesh *msd, int use_incenter) {
+int sc_mesh_calc_metric(sc_mesh_t *msd, int use_incenter) {
     int nnd, nfc;
     // pointers.
     int *pfcnds, *pfccls, *pclnds, *pclfcs;

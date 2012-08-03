@@ -14,7 +14,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-from mesh cimport MeshData, CLMFC
+from mesh cimport Mesh, CLMFC
 from fake_algorithm cimport (sc_fake_algorithm_t,
     sc_fake_algorithm_calc_soln, sc_fake_algorithm_calc_dsoln)
 import numpy as np
@@ -26,7 +26,7 @@ cnp.import_array()
 cdef extern from "stdlib.h":
     void* malloc(size_t size)
 
-cdef class FakeAlgorithm(MeshData):
+cdef class FakeAlgorithm(Mesh):
     def __cinit__(self):
         self._alg = <sc_fake_algorithm_t *>malloc(sizeof(sc_fake_algorithm_t))
 

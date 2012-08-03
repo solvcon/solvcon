@@ -24,7 +24,7 @@
  * handle all types of cell.  See block.py for the types to be supported.
  */
 
-int sc_mesh_extract_faces_from_cells(sc_mesh *msd, int mface,
+int sc_mesh_extract_faces_from_cells(sc_mesh_t *msd, int mface,
         int *pnface, int *clfcs, int *fctpn, int *fcnds, int *fccls) {
     // pointers.
     int *pcltpn, *pclnds, *pclfcs, *pfctpn, *pfcnds, *pfccls;

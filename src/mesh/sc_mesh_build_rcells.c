@@ -18,7 +18,7 @@
 
 #include "solvcon/mesh.h"
 
-int sc_mesh_build_rcells(sc_mesh *msd, int *rcells, int *rcellno) {
+int sc_mesh_build_rcells(sc_mesh_t *msd, int *rcells, int *rcellno) {
     // pointers.
     int *pclfcs, *pfccls;
     int *prcells;

@@ -30,17 +30,17 @@ typedef struct {
 	int *fctpn, *cltpn, *clgrp;
 	// connectivity.
 	int *fcnds, *fccls, *clnds, *clfcs;
-} sc_mesh;
+} sc_mesh_t;
 
 /*
  * sc_mesh methods.
  */
-void sc_mesh_build_ghost(sc_mesh *msd, int *bndfcs);
-int sc_mesh_calc_metric(sc_mesh *msd, int use_incenter);
-int sc_mesh_extract_faces_from_cells(sc_mesh *msd, int mface,
+void sc_mesh_build_ghost(sc_mesh_t *msd, int *bndfcs);
+int sc_mesh_calc_metric(sc_mesh_t *msd, int use_incenter);
+int sc_mesh_extract_faces_from_cells(sc_mesh_t *msd, int mface,
         int *pnface, int *clfcs, int *fctpn, int *fcnds, int *fccls);
-int sc_mesh_build_rcells(sc_mesh *msd, int *rcells, int *rcellno);
-int sc_mesh_build_csr(sc_mesh *msd, int *rcells, int *adjncy);
+int sc_mesh_build_rcells(sc_mesh_t *msd, int *rcells, int *rcellno);
+int sc_mesh_build_csr(sc_mesh_t *msd, int *rcells, int *adjncy);
 
 /*
  * mesh constants.
