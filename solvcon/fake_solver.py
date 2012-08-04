@@ -17,7 +17,7 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 """
-A fake solver that uses the :py:mod:`solvcon.fake_algorithm`.
+A fake solver that uses :py:mod:`solvcon.fake_algorithm`.
 """
 
 from .mesh_solver import MeshSolver

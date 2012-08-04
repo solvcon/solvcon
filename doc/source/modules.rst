@@ -9,3 +9,29 @@ Module References
 
 .. automodule:: solvcon.conf
   :members:
+
+:py:mod:`solvcon.mesh`
+======================
+
+.. automodule:: solvcon.mesh
+  :members:
+
+:py:mod:`solvcon.mesh_solver`
+=============================
+
+.. automodule:: solvcon.mesh_solver
+  :members:
+
+:py:mod:`solvcon.fake_algorithm`
+================================
+
+.. automodule:: solvcon.fake_algorithm
+  :members:
+
+:py:mod:`solvcon.fake_solver`
+=============================
+
+.. automodule:: solvcon.fake_solver
+  :members:
+
+.. vim: set spell ff=unix fenc=utf8 ft=rst:
