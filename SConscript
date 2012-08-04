@@ -69,10 +69,9 @@ for lname, extra_links in [
 
 # cython.
 scmods = targets.setdefault('scmods', [])
-env.VariantDir('%s/cython'%env['SCBUILDDIR'], 'cython', duplicate=1)
 prepends = {'LIBS': ['solvcon']}
 scmods.extend(env.SolvconModule(
-    env.Glob('%s/cython/*.pyx'%env['SCBUILDDIR']), prepends=prepends))
+    env.Glob('solvcon/*.pyx'), prepends=prepends))
 
 # documents.
 targets['scepydoc'] = env.BuildEpydoc('solvcon/__init__.py')

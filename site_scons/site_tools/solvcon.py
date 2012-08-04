@@ -100,12 +100,8 @@ def solvcon_module(env, srcs, prepends=None, pkgroot='solvcon'):
     dsts = []
     for src in srcs:
         mainfn = os.path.splitext(os.path.basename(str(src)))[0]
-        pyobj = env.PythonObject(env.Cython(src))[0]
-        pymod = env.SharedLibrary(
-            '%s/%s'%(env['SCLIBDIR'], mainfn), pyobj, SHLIBPREFIX='')[0]
-        modfn = os.path.basename(str(pymod))
-        dsts.append(env.Command(
-            '%s/%s'%(pkgroot, modfn), pymod, Copy("$TARGET", "$SOURCE")))
+        pymod = env.PythonExtension(env.Cython(src))[0]
+        dsts.append(pymod)
     return dsts
 
 def generate(env):

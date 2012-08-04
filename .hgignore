@@ -21,6 +21,7 @@ solvcon.log
 *.dll
 *.def
 *.a
+solvcon/*.c
 examples/*/*/result
 examples/*/*/mesh/
 sandbox/*/result
