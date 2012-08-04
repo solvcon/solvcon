@@ -43,18 +43,34 @@ class MeshSolver(object):
         from .gendata import Timer
         super(MeshSolver, self).__init__()
         kw.pop('fpdtype', None)
-        self.ibcthread = kw.pop('ibcthread', False)
+        # set reporting facility.
         self.enable_mesg = kw.pop('enable_mesg', False)
         self.mesg = None
-        self.enable_tpool = kw.pop('enable_tpool', True)
+        # set mesh.
+        self.blk = blk
+        self.all_simplex = blk.check_simplex()
+        self.use_incenter = blk.use_incenter
+        # set meta data.
         self.ncore = kw.pop('ncore', -1)
         self.neq = kw.pop('neq')
+        self.svrn = blk.blkn
+        self.nsvr = None
+        # set time.
         self.time = kw.pop('time', 0.0)
         self.time_increment = kw.pop('time_increment', 0.0)
+        # set step.
         self.step_global = 0
         self.step_current = 0
         self.substep_current = 0
         self.substep_run = kw.pop('substep_run', 2)
+        # group.
+        self.grpnames = blk.grpnames
+        self.ngroup = len(self.grpnames)
+        # BCs.
+        self.bclist = blk.bclist
+        for bc in self.bclist:
+            bc.svr = self
+        self.ibclist = None
         # anchor list.
         self.runanchors = AnchorList(self)
         # marching methods name.
@@ -65,48 +81,6 @@ class MeshSolver(object):
         self.ticker = dict()
         # derived data.
         self.der = dict()
-        # block data.
-        self.all_simplex = blk.check_simplex()
-        self.use_incenter = blk.use_incenter
-        # index.
-        self.svrn = blk.blkn
-        self.nsvr = None
-        # group.
-        self.grpnames = blk.grpnames
-        self.ngroup = len(self.grpnames)
-        # BCs.
-        self.bclist = blk.bclist
-        for bc in self.bclist:
-            bc.blk = None
-            bc.svr = self
-        self.ibclist = None
-        # mesh shape.
-        self.ndim = blk.ndim
-        self.nnode = blk.nnode
-        self.nface = blk.nface
-        self.ncell = blk.ncell
-        self.nbound = blk.nbound
-        self.ngstnode = blk.ngstnode
-        self.ngstface = blk.ngstface
-        self.ngstcell = blk.ngstcell
-        # meta array.
-        self.fctpn = blk.shfctpn
-        self.cltpn = blk.shcltpn
-        self.clgrp = blk.shclgrp
-        ## connectivity.
-        self.clnds = blk.shclnds
-        self.clfcs = blk.shclfcs
-        self.fcnds = blk.shfcnds
-        self.fccls = blk.shfccls
-        ## geometry.
-        self.ndcrd = blk.shndcrd
-        self.fccnd = blk.shfccnd
-        self.fcara = blk.shfcara
-        self.fcnml = blk.shfcnml
-        self.clcnd = blk.shclcnd
-        self.clvol = blk.shclvol
-        # in situ visualization by VTK.
-        self._ust = None
 
     @property
     def fpdtype(self):
@@ -116,8 +90,39 @@ class MeshSolver(object):
     def fpdtypestr(self):
         return 'float64'
 
+    @property
+    def ndim(self):
+        return self.blk.ndim
+    @property
+    def nnode(self):
+        return self.blk.nnode
+    @property
+    def nface(self):
+        return self.blk.nface
+    @property
+    def ncell(self):
+        return self.blk.ncell
+    @property
+    def nbound(self):
+        return self.blk.nbound
+    @property
+    def ngstnode(self):
+        return self.blk.ngstnode
+    @property
+    def ngstface(self):
+        return self.blk.ngstface
+    @property
+    def ngstcell(self):
+        return self.blk.ngstcell
+
     @staticmethod
     def detect_ncore():
+        """
+        :return: Number of cores.
+        :rtype: int
+
+        Only works under Linux.
+        """
         f = open('/proc/stat')
         data = f.read()
         f.close()
@@ -153,11 +158,6 @@ class MeshSolver(object):
             dfn = os.devnull
             dprefix = ''
         self.mesg = Printer(dfn, prefix=dprefix, override=True)
-
-    def init(self, **kw):
-        pass
-    def final(self):
-        pass
 
     def provide(self):
         self.runanchors('provide')
@@ -223,16 +223,6 @@ class MeshSolver(object):
             worker.conn.send(self.marchret)
         return self.marchret
 
-    @property
-    def ust(self):
-        from .visual_vtk import make_ust_from_blk
-        _ust = self._ust
-        if _ust is None:
-            fbk = FakeBlockVtk(self)
-            _ust = make_ust_from_blk(fbk)
-        self._ust = _ust
-        return _ust
-
     def bind(self):
         """
         Bind all the boundary condition objects.
@@ -241,7 +231,6 @@ class MeshSolver(object):
             method should firstly bind all pointers, secondly super binder, and 
             then methods/subroutines.
         """
-        super(BlockSolver, self).bind()
         # boundary conditions.
         for bc in self.bclist:
             bc.bind()
@@ -250,7 +239,6 @@ class MeshSolver(object):
         """
         Unbind all the boundary condition objects.
         """
-        super(BlockSolver, self).unbind()
         for bc in self.bclist:
             bc.unbind()
 
@@ -289,7 +277,6 @@ class MeshSolver(object):
             arr.fill(ALMOST_ZERO)   # prevent initializer forgets to set!
         for bc in self.bclist:
             bc.init(**kw)
-        super(BlockSolver, self).init(**kw)
 
     def boundcond(self):
         """
@@ -421,18 +408,7 @@ class MeshSolver(object):
                     bc.rblkn, sendn, recvn) 
             kwargs = {'worker': worker}
             # call to data transfer.
-            if self.ibcthread:
-                threads.append(Thread(
-                    target=target,
-                    args=args,
-                    kwargs=kwargs,
-                ))
-                threads[-1].start()
-            else:
-                target(*args, **kwargs)
-        if self.ibcthread:
-            for thread in threads:
-                thread.join()
+            target(*args, **kwargs)
 
     def pushibc(self, arrname, bc, recvn, worker=None):
         """

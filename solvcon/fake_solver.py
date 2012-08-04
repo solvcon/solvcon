@@ -53,7 +53,7 @@ class FakeSolver(MeshSolver):
     >>> clvol = empty_like(soln)
     >>> clvol.fill(0)
     >>> for iistep in range(200):
-    ...     clvol[:,0] += svr.clvol[svr.ngstcell:]*svr.time_increment/2
+    ...     clvol[:,0] += svr.blk.clvol*svr.time_increment/2
     >>> (soln==clvol).all()
     True
     >>> # calculate and compare the results in dsoln.
@@ -61,7 +61,7 @@ class FakeSolver(MeshSolver):
     >>> clcnd = empty_like(dsoln)
     >>> clcnd.fill(0)
     >>> for iistep in range(200):
-    ...     clcnd += svr.clcnd[svr.ngstcell:]*svr.time_increment/2
+    ...     clcnd += svr.blk.clcnd*svr.time_increment/2
     >>> # compare.
     >>> (dsoln==clcnd).all()
     True
@@ -82,12 +82,11 @@ class FakeSolver(MeshSolver):
         >>> svr = FakeSolver(blk, neq=1)
         """
         from numpy import empty
-        self.blk = blk
         super(FakeSolver, self).__init__(blk, *args, **kw)
         # arrays.
-        ndim = self.ndim
-        ncell = self.ncell
-        ngstcell = self.ngstcell
+        ndim = blk.ndim
+        ncell = blk.ncell
+        ngstcell = blk.ngstcell
         ## solutions.
         neq = self.neq
         self.sol = empty((ngstcell+ncell, neq), dtype=self.fpdtype)
