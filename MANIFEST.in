@@ -8,6 +8,7 @@ include soil/*
 recursive-include include *
 recursive-include src *
 recursive-include test *
+include ftests/*/*.py
 include examples/*/*/go
 include examples/*/*/SCons*
 include examples/*/*/*.tmpl
