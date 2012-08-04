@@ -20,9 +20,9 @@
 A fake solver that uses the :py:mod:`solvcon.fake_algorithm`.
 """
 
-from .solver import Solver
+from .mesh_solver import MeshSolver
 
-class FakeSolver(Solver):
+class FakeSolver(MeshSolver):
     """
     >>> from .block import Block
     >>> blk = Block(ndim=2, nnode=4, nface=6, ncell=3, nbound=3)
