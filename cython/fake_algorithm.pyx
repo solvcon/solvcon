@@ -27,6 +27,9 @@ cdef extern from "stdlib.h":
     void* malloc(size_t size)
 
 cdef class FakeAlgorithm(Mesh):
+    """
+    An algorithm class that does trivial calculation.
+    """
     def __cinit__(self):
         self._alg = <sc_fake_algorithm_t *>malloc(sizeof(sc_fake_algorithm_t))
 

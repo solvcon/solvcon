@@ -25,7 +25,7 @@ Module References
 :py:mod:`solvcon.fake_algorithm`
 ================================
 
-.. automodule:: solvcon.fake_algorithm
+.. autoclass:: solvcon.fake_algorithm.FakeAlgorithm
   :members:
 
 :py:mod:`solvcon.fake_solver`

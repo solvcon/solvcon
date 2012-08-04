@@ -24,6 +24,12 @@ from .mesh_solver import MeshSolver
 
 class FakeSolver(MeshSolver):
     """
+    .. inheritance-diagram:: FakeSolver
+
+    A fake solver that calculates trivial things to demonstrate the use of
+    :py:class:`.mesh_solver.MeshSolver`.
+
+    >>> # build a block before creating a solver.
     >>> from .block import Block
     >>> blk = Block(ndim=2, nnode=4, nface=6, ncell=3, nbound=3)
     >>> blk.ndcrd[:,:] = (0,0), (-1,-1), (1,-1), (0,1)
@@ -32,21 +38,32 @@ class FakeSolver(MeshSolver):
     >>> blk.build_interior()
     >>> blk.build_boundary()
     >>> blk.build_ghost()
+    >>> # create a solver.
     >>> svr = FakeSolver(blk, neq=1)
-    >>> # initialize.
+    >>> # initialize the solver.
     >>> svr.sol.fill(0)
     >>> svr.soln.fill(0)
     >>> svr.dsol.fill(0)
     >>> svr.dsoln.fill(0)
+    >>> # run the solver.
     >>> ret = svr.march(0.0, 0.01, 100)
-    >>> # calculate and compare soln.
+    >>> # calculate and compare the results in soln.
     >>> from numpy import empty_like
     >>> soln = svr.soln[svr.ngstcell:,:]
-    >>> arr = empty_like(soln)
-    >>> arr.fill(0)
+    >>> clvol = empty_like(soln)
+    >>> clvol.fill(0)
     >>> for iistep in range(200):
-    ...     arr[:,0] += svr.clvol[svr.ngstcell:]*svr.time_increment/2
-    >>> (soln==arr).all()
+    ...     clvol[:,0] += svr.clvol[svr.ngstcell:]*svr.time_increment/2
+    >>> (soln==clvol).all()
+    True
+    >>> # calculate and compare the results in dsoln.
+    >>> dsoln = svr.dsoln[svr.ngstcell:,0,:]
+    >>> clcnd = empty_like(dsoln)
+    >>> clcnd.fill(0)
+    >>> for iistep in range(200):
+    ...     clcnd += svr.clcnd[svr.ngstcell:]*svr.time_increment/2
+    >>> # compare.
+    >>> (dsoln==clcnd).all()
     True
     """
 
@@ -84,6 +101,8 @@ class FakeSolver(MeshSolver):
 
     def create_alg(self):
         """
+        Create a :py:class:`.fake_algorithm.FakeAlgorithm` object.
+
         >>> from .block import Block
         >>> blk = Block(ndim=2, nnode=4, nface=6, ncell=3, nbound=3)
         >>> blk.ndcrd[:,:] = (0,0), (-1,-1), (1,-1), (0,1)
