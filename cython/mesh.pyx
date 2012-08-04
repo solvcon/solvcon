@@ -27,10 +27,19 @@ cdef extern from "stdlib.h":
     void* malloc(size_t size)
 
 cdef class Mesh:
+    """
+    Data set of unstructured meshes of mixed elements.
+    """
     def __cinit__(self):
         self._mesh = <sc_mesh_t *>malloc(sizeof(sc_mesh_t));
 
     def setup_mesh(self, blk):
+        """
+        :param blk: External source of mesh data.
+        :type blk: .block.Block
+
+        Set up mesh data from external object.
+        """
         # meta data.
         self._mesh.ndim = blk.ndim
         self._mesh.nnode = blk.nnode
@@ -110,13 +119,34 @@ cdef class Mesh:
             self._mesh.clfcs = &clfcs[0,0]
 
     def build_ghost(self, cnp.ndarray[int, ndim=2, mode="c"] bndfcs):
+        """
+        :param bndfcs: Boundary faces.
+        :type bndfcs: numpy.ndarray
+        :return: Nothing.
+
+        Build data for ghost cells and related information.
+        """
         sc_mesh_build_ghost(self._mesh, &bndfcs[0,0])
 
     def calc_metric(self, use_incenter):
+        """
+        :return: Nothing.
+
+        Calculate metrics including normal vector and area of faces, and
+        centroid coordinates and volume of cells.
+        """
         cdef use_incenter_val = 1 if use_incenter else 0
         sc_mesh_calc_metric(self._mesh, use_incenter_val)
 
     def extract_faces_from_cells(self, max_nfc):
+        """
+        :param max_nfc: Maximum number of faces allowed.
+        :type max_nfc: int
+        :return: clfcs, fctpn, fcnds, fccls
+        :rtype: tuple of numpy.ndarray
+
+        Extract face definition from defined cell data.
+        """
         # declare data.
         cdef int nface
         cdef cnp.ndarray[int, ndim=2, mode="c"] clfcs = np.empty(
@@ -141,7 +171,14 @@ cdef class Mesh:
         # return.
         return clfcs, fctpn, fcnds, fccls
 
-    def build_csr(self):
+    def create_csr(self):
+        """
+        :return: xadj, adjncy
+        :rtype: tuple of numpy.ndarray
+
+        Build the connectivity graph in the CSR (compressed storage format)
+        required by METIS.
+        """
         # build the table of related cells.
         cdef cnp.ndarray[int, ndim=2, mode="c"] rcells = np.empty(
             (self._mesh.ncell, CLMFC), dtype='int32')

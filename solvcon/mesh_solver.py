@@ -21,6 +21,9 @@ Solvers that base on :py:class:`.mesh.Mesh`.
 """
 
 class MeshSolver(object):
+    """
+    Base class for all solvers that base on :py:class:`.mesh.Mesh`.
+    """
     MESG_FILENAME_DEFAULT = 'solvcon.solver.log'
     MMNAMES = []
 

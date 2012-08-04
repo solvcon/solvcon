@@ -13,7 +13,7 @@ Module References
 :py:mod:`solvcon.mesh`
 ======================
 
-.. automodule:: solvcon.mesh
+.. autoclass:: solvcon.mesh.Mesh
   :members:
 
 :py:mod:`solvcon.mesh_solver`

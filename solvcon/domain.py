@@ -60,7 +60,7 @@ class Partitioner(object):
         from ctypes import c_int, byref
         from numpy import empty
         from .dependency import _clib_metis
-        xadj, adjncy = blk.create_msh().build_csr()
+        xadj, adjncy = blk.create_msh().create_csr()
         # weighting.
         if vwgt == None:
             vwgt = empty(1, dtype='int32')
