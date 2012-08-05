@@ -16,35 +16,11 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef _SOLVCON_MESH_H_
-#define _SOLVCON_MESH_H_
+#ifndef _SOLVCON_DEF_H_
+#define _SOLVCON_DEF_H_
 
-/*
- * sc_mesh struct.
- */
-typedef struct {
-	int ndim, nnode, nface, ncell, nbound, ngstnode, ngstface, ngstcell;
-	// geometry.
-	double *ndcrd, *fccnd, *fcnml, *fcara, *clcnd, *clvol;
-	// meta.
-	int *fctpn, *cltpn, *clgrp;
-	// connectivity.
-	int *fcnds, *fccls, *clnds, *clfcs;
-} sc_mesh_t;
+#include <Python.h>
 
-/*
- * sc_mesh methods.
- */
-void sc_mesh_build_ghost(sc_mesh_t *msd, int *bndfcs);
-int sc_mesh_calc_metric(sc_mesh_t *msd, int use_incenter);
-int sc_mesh_extract_faces_from_cells(sc_mesh_t *msd, int mface,
-        int *pnface, int *clfcs, int *fctpn, int *fcnds, int *fccls);
-int sc_mesh_build_rcells(sc_mesh_t *msd, int *rcells, int *rcellno);
-int sc_mesh_build_csr(sc_mesh_t *msd, int *rcells, int *adjncy);
-
-/*
- * mesh constants.
- */
 #define FCMND 4
 #define CLMND 8
 #define CLMFC 6

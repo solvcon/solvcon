@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2010 Yung-Yu Chen <yyc@solvcon.net>.
+ * Copyright (C) 2008-2012 Yung-Yu Chen <yyc@solvcon.net>.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,7 +16,8 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "solvcon/mesh.h"
+#include "solvcon/def.h"
+#include "mesh.h"
 
 int sc_mesh_build_rcells(sc_mesh_t *msd, int *rcells, int *rcellno) {
     // pointers.
@@ -70,4 +71,5 @@ int sc_mesh_build_rcells(sc_mesh_t *msd, int *rcells, int *rcellno) {
 
     return 0;
 };
+
 // vim: set ts=4 et:

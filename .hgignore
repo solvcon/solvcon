@@ -22,6 +22,7 @@ solvcon.log
 *.def
 *.a
 solvcon/*.c
+solvcon/*.h
 examples/*/*/result
 examples/*/*/mesh/
 sandbox/*/result

@@ -74,15 +74,14 @@ if GetOption('openmp'):
         env.Append(CFLAGS='-openmp')
         env.Append(LINKFLAGS='-openmp')
 # include paths.
-env.Append(CPPPATH=['include'])
+env.Append(CPPPATH=['include', 'solvcon'])
 env.Append(CPPPATH=[GetOption('pythonpath')])
-env.Prepend(CYTHONFLAGS=['-Icython'])
 # library paths.
 env.Append(LIBPATH=[GetOption('libdir')])
 # CUDA.
 env.Tool('cuda')
 env.Append(NVCCFLAGS='-arch=sm_%s'%GetOption('sm'))
-env.Append(NVCCINC=' -I include')
+env.Append(NVCCINC=' -I include -I solvcon')
 
 # get example data.
 if GetOption('get_scdata'):
@@ -101,7 +100,7 @@ for key in targets:
     Alias(key, targets[key])
 Alias('scdocs', [targets['sc'+key] for key in 'epydoc', 'sphinx'])
 Alias('sclibs', [targets['sc'+key] for key in
-    'lib', 'main', 'test', 'kp', 'kpcu'])
+    'main', 'test', 'kp', 'kpcu'])
 Default(['sclibs', 'scmods'])
 
 # show target aliases without doing anything else.

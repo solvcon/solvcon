@@ -88,6 +88,7 @@ def solvcon_shared(env, *args, **kw):
 def solvcon_module(env, srcs, prepends=None, pkgroot='solvcon'):
     from SCons.Defaults import Copy
     env = env.Clone()
+    stenv = env.Clone()
     # prepend custom environment variables.
     prepends = {} if prepends is None else prepends
     for key in prepends:
@@ -96,11 +97,25 @@ def solvcon_module(env, srcs, prepends=None, pkgroot='solvcon'):
     # make sure of input list.
     if isinstance(srcs, basestring):
         srcs = [srcs]
-    # make all sources.
-    dsts = []
+    # cython C files.
+    cyfiles = []
     for src in srcs:
         mainfn = os.path.splitext(os.path.basename(str(src)))[0]
-        pymod = env.PythonExtension(env.Cython(src))[0]
+        cyfiles.append(env.Cython(src))
+    cyfiles = env.Flatten(cyfiles)
+    # static library.
+    sdirs = [os.path.splitext(os.path.basename(str(src)))[0] for src in srcs]
+    stenv, filename, ddsts = prepare_files(
+        stenv, sdirs, 'solvcon', sclibprefix='')
+    stenv.Depends(ddsts, cyfiles)
+    if '-fPIC' not in stenv['CFLAGS']:
+        stenv.Append(CFLAGS=['-fPIC'])
+    sclib = stenv.StaticLibrary(filename, ddsts)
+    # make all sources.
+    dsts = []
+    for cyfile in cyfiles:
+        mainfn = os.path.splitext(os.path.basename(str(src)))[0]
+        pymod = env.PythonExtension(cyfile)[0]
         dsts.append(pymod)
     return dsts
 

@@ -5,10 +5,6 @@ SConscript: The defined rules.
 import os, sys
 Import('targets', 'env')
 
-# libsolvcon.
-sclib = targets.setdefault('sclib', [])
-sclib.append(env.SolvconStatic(['mesh', 'fake_algorithm'], 'solvcon', sclibprefix=''))
-
 # lib_solvcon.
 scmain = targets.setdefault('scmain', [])
 for fptype in ['float', 'double']:
@@ -71,7 +67,8 @@ for lname, extra_links in [
 scmods = targets.setdefault('scmods', [])
 prepends = {'LIBS': ['solvcon']}
 scmods.extend(env.SolvconModule(
-    env.Glob('solvcon/*.pyx'), prepends=prepends))
+    ['solvcon/%s.pyx' % name for name in ('mesh', 'fake_algorithm')],
+    prepends=prepends))
 
 # documents.
 targets['scepydoc'] = env.BuildEpydoc('solvcon/__init__.py')

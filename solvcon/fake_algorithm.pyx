@@ -14,14 +14,17 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-from mesh cimport Mesh, CLMFC
-from fake_algorithm cimport (sc_fake_algorithm_t,
-    sc_fake_algorithm_calc_soln, sc_fake_algorithm_calc_dsoln)
+from mesh cimport sc_mesh_t, Mesh
+from fake_algorithm cimport sc_fake_algorithm_t
 import numpy as np
 cimport numpy as cnp
 
 # initialize NumPy.
 cnp.import_array()
+
+cdef extern:
+    int sc_fake_algorithm_calc_soln(sc_mesh_t *msd, sc_fake_algorithm_t *exd)
+    int sc_fake_algorithm_calc_dsoln(sc_mesh_t *msd, sc_fake_algorithm_t *exd)
 
 cdef extern from "stdlib.h":
     void* malloc(size_t size)

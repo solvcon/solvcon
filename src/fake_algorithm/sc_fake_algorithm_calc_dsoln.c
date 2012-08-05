@@ -16,8 +16,9 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "solvcon/mesh.h"
-#include "solvcon/fake_algorithm.h"
+#include "solvcon/def.h"
+#include "mesh.h"
+#include "fake_algorithm.h"
 
 int sc_fake_algorithm_calc_dsoln(sc_mesh_t *msd, sc_fake_algorithm_t *exd) {
     double *pdsol, *pdsoln, *pclcnd;

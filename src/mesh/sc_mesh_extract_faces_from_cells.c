@@ -16,8 +16,9 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
+#include "solvcon/def.h"
 #include <stdlib.h>
-#include "solvcon/mesh.h"
+#include "mesh.h"
 
 /*
  * Extract interier faces from node list of cells.  Subroutine is designed to

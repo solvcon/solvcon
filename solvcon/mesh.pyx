@@ -15,16 +15,22 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 from mesh cimport sc_mesh_t, FCMND, CLMND, CLMFC, FCREL, BFREL
-from mesh cimport (sc_mesh_build_ghost, sc_mesh_calc_metric,
-    sc_mesh_extract_faces_from_cells, sc_mesh_build_rcells, sc_mesh_build_csr)
 import numpy as np
 cimport numpy as cnp
 
-# initialize NumPy.
-cnp.import_array()
+cdef extern:
+    void sc_mesh_build_ghost(sc_mesh_t *msd, int *bndfcs)
+    int sc_mesh_calc_metric(sc_mesh_t *msd, int use_incenter)
+    int sc_mesh_extract_faces_from_cells(sc_mesh_t *msd, int mface,
+            int *pnface, int *clfcs, int *fctpn, int *fcnds, int *fccls)
+    int sc_mesh_build_rcells(sc_mesh_t *msd, int *rcells, int *rcellno)
+    int sc_mesh_build_csr(sc_mesh_t *msd, int *rcells, int *adjncy)
 
 cdef extern from "stdlib.h":
     void* malloc(size_t size)
+
+# initialize NumPy.
+cnp.import_array()
 
 cdef class Mesh:
     """
@@ -138,7 +144,7 @@ cdef class Mesh:
         cdef use_incenter_val = 1 if use_incenter else 0
         sc_mesh_calc_metric(self._mesh, use_incenter_val)
 
-    def extract_faces_from_cells(self, max_nfc):
+    def extract_faces_from_cells(self, int max_nfc):
         """
         :param max_nfc: Maximum number of faces allowed.
         :type max_nfc: int
@@ -148,7 +154,8 @@ cdef class Mesh:
         Extract face definition from defined cell data.
         """
         # declare data.
-        cdef int nface
+        assert max_nfc > 0
+        assert self._mesh.ncell > 0
         cdef cnp.ndarray[int, ndim=2, mode="c"] clfcs = np.empty(
             (self._mesh.ncell, CLMFC+1), dtype='int32')
         cdef cnp.ndarray[int, ndim=1, mode="c"] fctpn = np.empty(
@@ -161,7 +168,8 @@ cdef class Mesh:
         for arr in clfcs, fcnds, fccls:
             arr.fill(-1)
         # call worker.
-        sc_mesh_extract_faces_from_cells(self._mesh, <int> max_nfc,
+        cdef int nface
+        sc_mesh_extract_faces_from_cells(self._mesh, max_nfc,
                 &nface, &clfcs[0,0], &fctpn[0], &fcnds[0,0], &fccls[0,0])
         # shuffle the result.
         clfcs = clfcs[:nface,:].copy()
