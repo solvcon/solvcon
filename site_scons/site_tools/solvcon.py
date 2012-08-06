@@ -113,7 +113,7 @@ def solvcon_module(env, srcs, prepends=None, pkgroot='solvcon'):
         stenv.Append(CFLAGS=['-fPIC'])
     sclib = stenv.StaticLibrary(filename, ddsts)
     # make all sources.
-    dsts = []
+    dsts = [sclib]
     for cyfile in cyfiles:
         mainfn = os.path.splitext(os.path.basename(str(src)))[0]
         pymod = env.PythonExtension(cyfile)[0]
