@@ -19,8 +19,8 @@ AUTHORS:
 import os
 import re
 try:
-    import set
-except ImportError:
+    set
+except NameError:
     from sets import Set as set
 import itertools
 
