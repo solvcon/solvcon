@@ -1,5 +1,5 @@
 # -*- coding: UTF-8 -*-
-# Copyright (C) 2008-2010 by Yung-Yu Chen.  See LICENSE.txt for terms of usage.
+# Copyright (C) 2008-2012 by Yung-Yu Chen.  See LICENSE.txt for terms of usage.
 
 from unittest import TestCase
 from ..testing import get_blk_from_oblique_neu, get_blk_from_sample_neu
@@ -407,9 +407,6 @@ class TestShared(TestCase):
 class TestMeshData(TestCase):
     oblique = get_blk_from_oblique_neu()
     sample = get_blk_from_sample_neu()
-
-    def test_meshdata(self):
-        msd = self.oblique.create_msd()
 
     def test_simpex(self):
         self.assertTrue(self.oblique.check_simplex())

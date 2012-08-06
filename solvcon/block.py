@@ -38,54 +38,6 @@ MAX_CLNND = elemtype[:,2].max()
 MAX_CLNFC = max(elemtype[elemtype[:,1]==2,3].max(),
                 elemtype[elemtype[:,1]==3,4].max())
 
-class MeshData(Structure):
-    """
-    Data structure for mesh.
-    """
-    from ctypes import c_int, c_void_p
-    _fields_ = [
-        ('ndim', c_int),
-        ('nnode', c_int), ('nface', c_int), ('ncell', c_int),
-        ('nbound', c_int),
-        ('ngstnode', c_int), ('ngstface', c_int), ('ngstcell', c_int),
-        # metric.
-        ('ndcrd', c_void_p),
-        ('fccnd', c_void_p), ('fcnml', c_void_p),
-        ('fcara', c_void_p),
-        ('clcnd', c_void_p), ('clvol', c_void_p),
-        # meta.
-        ('fctpn', c_void_p),
-        ('cltpn', c_void_p), ('clgrp', c_void_p),
-        # connectivity.
-        ('fcnds', c_void_p), ('fccls', c_void_p),
-        ('clnds', c_void_p), ('clfcs', c_void_p),
-    ]
-    del c_int, c_void_p
-
-    def __set_pointer(self, svr, aname):
-        from ctypes import POINTER
-        ptr = getattr(svr, aname).ctypes._as_parameter_
-        setattr(self, aname, ptr)
-
-    def __init__(self, *args, **kw):
-        from ctypes import c_int, c_double
-        blk = kw.pop('blk')
-        super(MeshData, self).__init__(*args, **kw)
-        for key in ('ndim',):
-            setattr(self, key, getattr(blk, key))
-        for key in ('nnode', 'nface', 'ncell', 'nbound',
-                    'ngstnode', 'ngstface', 'ngstcell',):
-            setattr(self, key, getattr(blk, key))
-        # metric.
-        for aname in ('ndcrd', 'fccnd', 'fcnml', 'fcara', 'clcnd', 'clvol',):
-            self.__set_pointer(blk, aname)
-        # meta.
-        for aname in ('fctpn', 'cltpn', 'clgrp',):
-            self.__set_pointer(blk, aname)
-        # connectivity.
-        for aname in ('fcnds', 'fccls', 'clnds', 'clfcs',):
-            self.__set_pointer(blk, aname)
-
 class Block(object):
     """
     Provide metric and connectivity information for unstructured-mesh block.
@@ -294,9 +246,6 @@ class Block(object):
     def unbind(self):
         for bc in self.bclist:
             bc.unbind()
-
-    def create_msd(self):
-        return MeshData(blk=self)
 
     def create_msh(self):
         """

@@ -89,8 +89,6 @@ def get_blk_from_oblique_neu(fpdtype=None, use_incenter=None):
     return GambitNeutral(loadfile('oblique.neu')).toblock(**kw)
 
 class TestingSolver(BlockSolver):
-    _pointers_ = ['msd']
-
     _interface_init_ = ['cecnd', 'cevol']
 
     def __init__(self, blk, *args, **kw):
@@ -101,7 +99,7 @@ class TestingSolver(BlockSolver):
         from numpy import empty
         super(TestingSolver, self).__init__(blk, *args, **kw)
         # data structure for C/FORTRAN.
-        self.msd = None
+        self.blk = blk
         # arrays.
         ndim = self.ndim
         ncell = self.ncell
@@ -117,17 +115,12 @@ class TestingSolver(BlockSolver):
             (ngstcell+ncell, self.CLMFC+1, ndim), dtype=self.fpdtype)
         self.cevol = empty((ngstcell+ncell, self.CLMFC+1), dtype=self.fpdtype)
 
-    def bind(self):
-        """
-        Bind all the boundary condition objects.
-
-        @note: BC must be bound AFTER solver "pointers".  Overridders to the
-            method should firstly bind all pointers, secondly super binder, and 
-            then methods/subroutines.
-        """
-        from .block import MeshData
-        super(TestingSolver, self).bind()
-        self.msd = MeshData(blk=self)
+    def create_alg(self):
+        from .fake_algorithm import FakeAlgorithm
+        alg = FakeAlgorithm()
+        alg.setup_mesh(self.blk)
+        alg.setup_algorithm(self)
+        return alg
 
     ##################################################
     # marching algorithm.
@@ -140,14 +133,7 @@ class TestingSolver(BlockSolver):
 
     MMNAMES.append('calcsoln')
     def calcsoln(self, worker=None):
-        from ctypes import byref
-        self._clib_solvcon.calc_soln(
-            byref(self.msd),
-            byref(self.exd),
-            self.clvol.ctypes._as_parameter_,
-            self.sol.ctypes._as_parameter_,
-            self.soln.ctypes._as_parameter_,
-        )
+        self.create_alg().calc_soln()
 
     MMNAMES.append('ibcsoln')
     def ibcsoln(self, worker=None):
@@ -159,14 +145,7 @@ class TestingSolver(BlockSolver):
 
     MMNAMES.append('calcdsoln')
     def calcdsoln(self, worker=None):
-        from ctypes import byref
-        self._clib_solvcon.calc_dsoln(
-            byref(self.msd),
-            byref(self.exd),
-            self.clcnd.ctypes._as_parameter_,
-            self.dsol.ctypes._as_parameter_,
-            self.dsoln.ctypes._as_parameter_,
-        )
+        self.create_alg().calc_dsoln()
 
     MMNAMES.append('ibcdsoln')
     def ibcdsoln(self, worker=None):
