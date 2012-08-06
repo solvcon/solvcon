@@ -3,6 +3,7 @@ SConstruct: The settings.
 """
 
 import sys, os
+import numpy as np
 from solvcon import __version__
 
 # compiler options.
@@ -75,7 +76,9 @@ if GetOption('openmp'):
         env.Append(LINKFLAGS='-openmp')
 # include paths.
 env.Append(CPPPATH=['include', 'solvcon'])
-env.Append(CPPPATH=[GetOption('pythonpath')])
+for path in [GetOption('pythonpath'), np.get_include()]:
+    if path not in env['CPPPATH']:
+        env.Append(CPPPATH=[path])
 # library paths.
 env.Append(LIBPATH=[GetOption('libdir')])
 # CUDA.
