@@ -107,7 +107,8 @@ def solvcon_module(env, srcs, prepends=None, pkgroot='solvcon'):
     sdirs = [os.path.splitext(os.path.basename(str(src)))[0] for src in srcs]
     stenv, filename, ddsts = prepare_files(
         stenv, sdirs, 'solvcon', sclibprefix='')
-    stenv.Depends(ddsts, cyfiles)
+    for ddst in ddsts:
+        stenv.Depends(ddst, cyfiles)
     if '-fPIC' not in stenv['CFLAGS']:
         stenv.Append(CFLAGS=['-fPIC'])
     sclib = stenv.StaticLibrary(filename, ddsts)
