@@ -16,7 +16,8 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "solvcon/def.h"
+#include <Python.h>
+
 #include "mesh.h"
 
 int sc_mesh_build_rcells(sc_mesh_t *msd, int *rcells, int *rcellno) {

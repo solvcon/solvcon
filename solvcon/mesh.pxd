@@ -24,12 +24,12 @@ cdef public:
         # connectivity.
         int *fcnds, *fccls, *clnds, *clfcs
 
-cdef:
-    int FCMND=4
-    int CLMND=8
-    int CLMFC=6
-    int FCREL=4
-    int BFREL=3
+    cdef enum sc_mesh_shape_enum:
+        FCMND = 4
+        CLMND = 8
+        CLMFC = 6
+        FCREL = 4
+        BFREL = 3
 
 cdef class Mesh:
     cdef sc_mesh_t *_mesh

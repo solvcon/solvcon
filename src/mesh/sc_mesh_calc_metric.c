@@ -16,8 +16,9 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "solvcon/def.h"
+#include <Python.h>
 #include <math.h>
+
 #include "mesh.h"
 
 /*
