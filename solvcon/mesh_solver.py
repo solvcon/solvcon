@@ -30,15 +30,7 @@ class MeshSolver(object):
     _interface_init_ = []
     _solution_array_ = []
 
-    from .block import Block
-    FCMND = Block.FCMND
-    CLMND = Block.CLMND
-    CLMFC = Block.CLMFC
-    del Block
-
     def __init__(self, blk, *args, **kw):
-        from numpy import empty
-        from .conf import env
         from .anchor import AnchorList
         from .gendata import Timer
         super(MeshSolver, self).__init__()
@@ -78,7 +70,6 @@ class MeshSolver(object):
         self.marchret = None
         # timer.
         self.timer = Timer(vtype=float)
-        self.ticker = dict()
         # derived data.
         self.der = dict()
 
@@ -170,23 +161,28 @@ class MeshSolver(object):
 
     def _set_time(self, time, time_increment):
         """
-        Set the time for self and structures.  TODO: should be property setter.
+        :param time: Starting time of marching.
+        :type time: float
+        :param time_increment: Temporal interval :math:`\Delta t` for the time step.
+        :type time_increment: float
+
+        Set the time for self and structures.
         """
         self.time = time
         self.time_increment = time_increment
 
     def march(self, time, time_increment, steps_run, worker=None):
         """
-        Default marcher for the solver object.
+        :param time: Starting time of marching.
+        :type time: float
+        :param time_increment: Temporal interval :math:`\Delta t` for the time step.
+        :type time_increment: float
+        :param steps_run: The count of time steps to run.
+        :type steps_run: int
+        :return: arbitrary return value.
+        :rtype: float
 
-        @param time: starting time of marching.
-        @type time: float
-        @param time_increment: temporal interval for the time step.
-        @type time_increment: float
-        @param steps_run: the count of time steps to run.
-        @type steps_run: int
-        @return: arbitrary return value.
-        @rtype: float
+        Default marcher for the solver object.
         """
         from time import time as _time
         self.marchret = dict()
@@ -223,51 +219,6 @@ class MeshSolver(object):
             worker.conn.send(self.marchret)
         return self.marchret
 
-    def bind(self):
-        """
-        Bind all the boundary condition objects.
-
-        @note: BC must be bound AFTER solver "pointers".  Overridders to the
-            method should firstly bind all pointers, secondly super binder, and 
-            then methods/subroutines.
-        """
-        # boundary conditions.
-        for bc in self.bclist:
-            bc.bind()
-
-    def unbind(self):
-        """
-        Unbind all the boundary condition objects.
-        """
-        for bc in self.bclist:
-            bc.unbind()
-
-    @property
-    def is_bound(self):
-        """
-        Check boundness for solver as well as BC objects.
-        """
-        if not super(BlockSolver, self).is_bound:
-            return False
-        else:
-            for bc in self.bclist:
-                if not bc.is_bound:
-                    return False
-            return True
-
-    @property
-    def is_unbound(self):
-        """
-        Check unboundness for solver as well as BC objects.
-        """
-        if not super(BlockSolver, self).is_unbound:
-            return False
-        else:
-            for bc in self.bclist:
-                if not bc.is_unbound:
-                    return False
-                return True
-
     def init(self, **kw):
         """
         Check and initialize BCs.
@@ -280,19 +231,19 @@ class MeshSolver(object):
 
     def boundcond(self):
         """
-        Update the boundary conditions.
+        :return: Nothing.
 
-        @return: nothing.
+        Update the boundary conditions.
         """
         pass
 
     def call_non_interface_bc(self, name, *args, **kw):
         """
-        Call method of each of non-interface BC objects in my list.
+        :param name: Name of the method of BC to call.
+        :type name: str
+        :return: Nothing.
 
-        @param name: name of the method of BC to call.
-        @type name: str
-        @return: nothing
+        Call method of each of non-interface BC objects in my list.
         """
         from .boundcond import interface
         bclist = [bc for bc in self.bclist if not isinstance(bc, interface)]
@@ -314,15 +265,15 @@ class MeshSolver(object):
 
     def pull(self, arrname, inder=False, worker=None):
         """
-        Pull data array to dealer (rpc) through worker object.
+        :param arrname: The namd of the array to pull to master.
+        :type arrname: str
+        :param inder: The data array is derived data array.  Default is False.
+        :type inder: bool
+        :keyword worker: The worker object for communication.  Default is None.
+        :type worker: solvcon.rpc.Worker
+        :return: Nothing.
 
-        @param arrname: the array to pull to master.
-        @type arrname: str
-        @param inder: the data array is derived data array.
-        @type inder: bool
-        @keyword worker: the worker object for communication.
-        @type worker: solvcon.rpc.Worker
-        @return: nothing.
+        Pull data array to dealer (rpc) through worker object.
         """
         conn = worker.conn
         if inder:
@@ -333,17 +284,17 @@ class MeshSolver(object):
 
     def push(self, marr, arrname, start=0, inder=False):
         """
-        Push data array received from dealer (rpc) into self.
+        :param marr: The array passed in.
+        :type marr: numpy.ndarray
+        :param arrname: The array to pull to master.
+        :type arrname: str
+        :param start: The starting index of pushing.  Default is 0.
+        :type start: int
+        :param inder: The data array is derived data array.  Default is False.
+        :type inder: bool
+        :return: Nothing.
 
-        @param marr: the array passed in.
-        @type marr: numpy.ndarray
-        @param arrname: the array to pull to master.
-        @type arrname: str
-        @param start: the starting index of pushing.
-        @type start: int
-        @param inder: the data array is derived data array.
-        @type inder: bool
-        @return: nothing.
+        Push data array received from dealer (rpc) into self.
         """
         if inder:
             arr = self.der[arrname]
@@ -353,15 +304,15 @@ class MeshSolver(object):
 
     def pullank(self, ankname, objname, worker=None):
         """
-        Pull data array to dealer (rpc) through worker object.
+        :param ankname: The name of related anchor.
+        :type ankname: str
+        :param objname: The object to pull to master.
+        :type objname: str
+        :keyword worker: The worker object for communication.  Default is None.
+        :type worker: solvcon.rpc.Worker
+        :return: Nothing.
 
-        @param ankname: the name of related anchor.
-        @type ankname: str
-        @param objname: the object to pull to master.
-        @type objname: str
-        @keyword worker: the worker object for communication.
-        @type worker: solvcon.rpc.Worker
-        @return: nothing.
+        Pull data array to dealer (rpc) through worker object.
         """
         conn = worker.conn
         obj = getattr(self.runanchors[ankname], objname)
@@ -412,17 +363,18 @@ class MeshSolver(object):
 
     def pushibc(self, arrname, bc, recvn, worker=None):
         """
+        :param arrname: The name of the array in the object to exchange.
+        :type arrname: str
+        :param bc: The interface BC to push.
+        :type bc: solvcon.boundcond.interface
+        :param recvn: Serial number of the peer to exchange data with.
+        :type recvn: int
+        :keyword worker: The wrapping worker object for parallel processing.
+            Default is None.
+        :type worker: solvcon.rpc.Worker
+
         Push data toward selected interface which connect to blocks with larger
         serial number than myself.
-
-        @param arrname: name of the array in the object to exchange.
-        @type arrname: str
-        @param bc: the interface BC to push.
-        @type bc: solvcon.boundcond.interface
-        @param recvn: serial number of the peer to exchange data with.
-        @type recvn: int
-        @keyword worker: the wrapping worker object for parallel processing.
-        @type worker: solvcon.rpc.Worker
         """
         from numpy import empty
         conn = worker.pconns[bc.rblkn]
@@ -441,16 +393,17 @@ class MeshSolver(object):
 
     def pullibc(self, arrname, bc, sendn, worker=None):
         """
-        Pull data from the interface determined by the serial of peer.
+        :param arrname: The name of the array in the object to exchange.
+        :type arrname: str
+        :param bc: The interface BC to pull.
+        :type bc: solvcon.boundcond.interface
+        :param sendn: Serial number of the peer to exchange data with.
+        :type sendn: int
+        :keyword worker: The wrapping worker object for parallel processing.
+            Default is None.
+        :type worker: solvcon.rpc.Worker
 
-        @param arrname: name of the array in the object to exchange.
-        @type arrname: str
-        @param bc: the interface BC to pull.
-        @type bc: solvcon.boundcond.interface
-        @param sendn: serial number of the peer to exchange data with.
-        @type sendn: int
-        @keyword worker: the wrapping worker object for parallel processing.
-        @type worker: solvcon.rpc.Worker
+        Pull data from the interface determined by the serial of peer.
         """
         from numpy import empty
         conn = worker.pconns[bc.rblkn]

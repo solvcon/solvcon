@@ -95,8 +95,8 @@ class FakeSolver(MeshSolver):
         self.dsoln = empty((ngstcell+ncell, neq, ndim), dtype=self.fpdtype)
         ## metrics.
         self.cecnd = empty(
-            (ngstcell+ncell, self.CLMFC+1, ndim), dtype=self.fpdtype)
-        self.cevol = empty((ngstcell+ncell, self.CLMFC+1), dtype=self.fpdtype)
+            (ngstcell+ncell, self.blk.CLMFC+1, ndim), dtype=self.fpdtype)
+        self.cevol = empty((ngstcell+ncell, self.blk.CLMFC+1), dtype=self.fpdtype)
 
     def create_alg(self):
         """
