@@ -39,7 +39,7 @@ for lname, extra_links in [
         ('cese', None), ('ceseb', None),    # solvcon.kerpak.cese
         ('elaslin', None), ('elaslinb', None),  # solvcon.kerpak.elaslin
         ('euler', None), ('eulerb', None),  # solvcon.kerpak.euler
-        ('lincese', ['lapack']),    # solvcon.kerpak.lincese
+        ('lincese', ['lapack', 'blas', 'gfortran']),    # solvcon.kerpak.lincese
         ]:
     for ndim in 2, 3:
         sckp.extend(env.SolvconShared([lname], lname, ndim=ndim,
@@ -50,7 +50,7 @@ sckpcu = targets.setdefault('sckpcu', [])
 for lname, extra_links in [
         ('cuse', None), ('cuseb', None),    # solvcon.kerpak.cuse
         ('gasdyn', None), ('gasdynb', None),    # solvcon.kerpak.gasdyn
-        ('lincuse', ['lapack']),    # solvcon.kerpak.lincese
+        ('lincuse', ['lapack', 'blas', 'gfortran']),    # solvcon.kerpak.lincuse
         ('vslin', None), ('vslinb', None),  # solvcon.kerpak.vslin
         ]:
     for ndim in 2, 3:
