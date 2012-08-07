@@ -40,8 +40,6 @@ class MeshSolver(object):
         self.mesg = None
         # set mesh.
         self.blk = blk
-        self.all_simplex = blk.check_simplex()
-        self.use_incenter = blk.use_incenter
         # set meta data.
         self.ncore = kw.pop('ncore', -1)
         self.neq = kw.pop('neq')
