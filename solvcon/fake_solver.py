@@ -49,7 +49,7 @@ class FakeSolver(MeshSolver):
     >>> ret = svr.march(0.0, 0.01, 100)
     >>> # calculate and compare the results in soln.
     >>> from numpy import empty_like
-    >>> soln = svr.soln[svr.ngstcell:,:]
+    >>> soln = svr.soln[svr.blk.ngstcell:,:]
     >>> clvol = empty_like(soln)
     >>> clvol.fill(0)
     >>> for iistep in range(200):
@@ -57,7 +57,7 @@ class FakeSolver(MeshSolver):
     >>> (soln==clvol).all()
     True
     >>> # calculate and compare the results in dsoln.
-    >>> dsoln = svr.dsoln[svr.ngstcell:,0,:]
+    >>> dsoln = svr.dsoln[svr.blk.ngstcell:,0,:]
     >>> clcnd = empty_like(dsoln)
     >>> clcnd.fill(0)
     >>> for iistep in range(200):
@@ -87,16 +87,17 @@ class FakeSolver(MeshSolver):
         ndim = blk.ndim
         ncell = blk.ncell
         ngstcell = blk.ngstcell
+        fpdtype = 'float64'
         ## solutions.
         neq = self.neq
-        self.sol = empty((ngstcell+ncell, neq), dtype=self.fpdtype)
-        self.soln = empty((ngstcell+ncell, neq), dtype=self.fpdtype)
-        self.dsol = empty((ngstcell+ncell, neq, ndim), dtype=self.fpdtype)
-        self.dsoln = empty((ngstcell+ncell, neq, ndim), dtype=self.fpdtype)
+        self.sol = empty((ngstcell+ncell, neq), dtype=fpdtype)
+        self.soln = empty((ngstcell+ncell, neq), dtype=fpdtype)
+        self.dsol = empty((ngstcell+ncell, neq, ndim), dtype=fpdtype)
+        self.dsoln = empty((ngstcell+ncell, neq, ndim), dtype=fpdtype)
         ## metrics.
         self.cecnd = empty(
-            (ngstcell+ncell, self.blk.CLMFC+1, ndim), dtype=self.fpdtype)
-        self.cevol = empty((ngstcell+ncell, self.blk.CLMFC+1), dtype=self.fpdtype)
+            (ngstcell+ncell, self.blk.CLMFC+1, ndim), dtype=fpdtype)
+        self.cevol = empty((ngstcell+ncell, self.blk.CLMFC+1), dtype=fpdtype)
 
     def create_alg(self):
         """

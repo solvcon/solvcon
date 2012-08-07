@@ -71,39 +71,6 @@ class MeshSolver(object):
         # derived data.
         self.der = dict()
 
-    @property
-    def fpdtype(self):
-        from numpy import float64
-        return float64
-    @property
-    def fpdtypestr(self):
-        return 'float64'
-
-    @property
-    def ndim(self):
-        return self.blk.ndim
-    @property
-    def nnode(self):
-        return self.blk.nnode
-    @property
-    def nface(self):
-        return self.blk.nface
-    @property
-    def ncell(self):
-        return self.blk.ncell
-    @property
-    def nbound(self):
-        return self.blk.nbound
-    @property
-    def ngstnode(self):
-        return self.blk.ngstnode
-    @property
-    def ngstface(self):
-        return self.blk.ngstface
-    @property
-    def ngstcell(self):
-        return self.blk.ngstcell
-
     @staticmethod
     def detect_ncore():
         """
