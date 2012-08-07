@@ -33,6 +33,7 @@ mkdir -p $PKGNAME/build
 cd $PKGNAME/build
 cmake \
     -DCMAKE_INSTALL_PREFIX=$SCROOT \
+    -DCMAKE_EXE_LINKER_FLAGS=-lgfortran \
     -DENABLE_MATCH=OFF \
     -DENABLE_PETSC=OFF \
     -DENABLE_SLEPC=OFF \
