@@ -121,7 +121,8 @@ class MeshSolver(object):
         """
         :param time: Starting time of marching.
         :type time: float
-        :param time_increment: Temporal interval :math:`\Delta t` for the time step.
+        :param time_increment: Temporal interval :math:`\Delta t` for the time
+            step.
         :type time_increment: float
 
         Set the time for self and structures.
@@ -133,7 +134,8 @@ class MeshSolver(object):
         """
         :param time: Starting time of marching.
         :type time: float
-        :param time_increment: Temporal interval :math:`\Delta t` for the time step.
+        :param time_increment: Temporal interval :math:`\Delta t` for the time
+            step.
         :type time_increment: float
         :param steps_run: The count of time steps to run.
         :type steps_run: int
