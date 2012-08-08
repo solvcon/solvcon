@@ -9,6 +9,24 @@ solvers that use the space-time `Conservation Element and Solution Element
 compressible flows and stress waves in solids can be solved by using the
 stocked solvers.
 
+The goal of SOLVCON is to help code developers to focus on the numerical
+algorithms.  These computing cores can be written in C or any high-speed
+language (Fortran, CUDA, C++, etc.; you name it) and interfaced with SOLVCON.
+SOLVCON has a general work flow that includes things like mesh loaders (`Gmsh
+<http://www.geuz.org/gmsh/>`__, FLUENT Gambit (R), and `CUBIT
+<http://cubit.sandia.gov/>`__), MPI, and VTK.  Users of SOLVCON can just take
+the supportive functionalities and jump into the physics and numerics.
+
+For solving for conservation laws and most PDEs, the computer codes usually
+contains two levels of loops.  An outer loop is used to perform time-marching,
+and is usually called the *temporal loop*.  Within the outer temporal loop,
+there are multiple inner loops to sweep over the discretized spatial domain.
+The inner loops are called the *spatial loops*.  This is the well-known
+*two-loop structure* of PDE solvers and is absorbed into the SOLVCON work flow.
+`Inversion of control (IoC)
+<http://en.wikipedia.org/wiki/Inversion_of_control>`__ is used to expose the
+work flow to the code developers.
+
 The key functionalities of SOLVCON will be introduced in this document.
 
 Set up the Environment

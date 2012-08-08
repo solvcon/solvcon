@@ -4,35 +4,13 @@ SOLVCON -- SOLVer CONstructor
 
 SOLVCON is a `Python <http://www.python.org>`__-based toolkit for solving
 conservation laws and partial differential equations (PDEs).  In addition to
-building the numerical solvers of PDEs, SOLVCON assists producing the
-human-comprehensible results by providing the following *supportive
-functionalities*: (i) Data structures of meshes, (ii) readers and writers of
-mesh and field data, (iii) visualizers, and (iv) an adjustable work flow.
-
-The goal of SOLVCON is to help code developers to focus on the numerical
-algorithms.  These computing cores can be written in C or any high-speed
-language (Fortran, CUDA, C++, etc.; you name it) and interfaced with SOLVCON.
-SOLVCON has a general work flow that includes things like mesh loaders (`Gmsh
-<http://www.geuz.org/gmsh/>`__, FLUENT Gambit (R), and `CUBIT
-<http://cubit.sandia.gov/>`__), MPI, and VTK.  Users of SOLVCON can just take
-the supportive functionalities and jump into the physics and numerics.
-
-For solving for conservation laws and most PDEs, the computer codes usually
-contains two levels of loops.  An outer loop is used to perform time-marching,
-and is usually called the *temporal loop*.  Within the outer temporal loop,
-there are multiple inner loops to sweep over the discretized spatial domain.
-The inner loops are called the *spatial loops*.  This is the well-known
-*two-loop structure* of PDE solvers and is absorbed into the SOLVCON work flow.
-`Inversion of control (IoC)
-<http://en.wikipedia.org/wiki/Inversion_of_control>`__ is used to expose the
-work flow to the code developers.
-
-SOLVCON is released under `GNU GPLv2
-<http://www.gnu.org/licenses/gpl-2.0.html>`__.  The development is still at an
-early stage.  *Comments, contribution, and collaboration are very welcomed.*
-You can reach us at `our public discussion group
-<http://groups.google.com/group/solvcon>`__ or contact us by sending a private
-email to contact@solvcon.net.
+the `core algorithms <http://www.grc.nasa.gov/WWW/microbus/>`__, SOLVCON
+organizes the supportive functionalities of a PDE solver, e.g., data structure
+of meshes, I/O, visualizers, etc.  SOLVCON is released under `GNU GPLv2
+<http://www.gnu.org/licenses/gpl-2.0.html>`__.  *Comments, contribution, and
+collaboration are welcomed.*  You can reach us at
+http://groups.google.com/group/solvcon or contact us by sending a private email
+to contact@solvcon.net.
 
 Getting Started
 ===============
@@ -48,10 +26,9 @@ into :doc:`modules`.  More resources are listed in the Resources_ section.
 The CESE Method
 ===============
 
-SOLVCON also contains a ready-to-use series of solvers that use the space-time
-`Conservation Element and Solution Element (CESE)
-<http://www.grc.nasa.gov/WWW/microbus/>`__ method, a novel numerical method
-developed by Chang.  They solve for the three-dimensional, non-linear or
+SOLVCON implements the space-time `Conservation Element and Solution Element
+(CESE) <http://www.grc.nasa.gov/WWW/microbus/>`__ method, a novel numerical
+method developed by Chang.  They solve for the three-dimensional, non-linear or
 linear, conservation laws of the quasi-linear form:
 
 .. math::
