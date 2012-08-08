@@ -82,6 +82,8 @@ class FakeSolver(MeshSolver):
         >>> svr = FakeSolver(blk, neq=1)
         """
         from numpy import empty
+        # meta data.
+        self.neq = kw.pop('neq')
         super(FakeSolver, self).__init__(blk, *args, **kw)
         # arrays.
         ndim = blk.ndim

@@ -43,7 +43,6 @@ cdef class FakeAlgorithm(Mesh):
 
     def setup_algorithm(self, svr):
         # meta data.
-        self._alg.ncore = svr.ncore
         self._alg.neq = svr.neq
         self._alg.time = svr.time
         self._alg.time_increment = svr.time_increment

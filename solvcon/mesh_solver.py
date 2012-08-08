@@ -34,15 +34,12 @@ class MeshSolver(object):
         from .anchor import AnchorList
         from .gendata import Timer
         super(MeshSolver, self).__init__()
-        kw.pop('fpdtype', None)
         # set reporting facility.
         self.enable_mesg = kw.pop('enable_mesg', False)
         self.mesg = None
         # set mesh.
         self.blk = blk
         # set meta data.
-        self.ncore = kw.pop('ncore', -1)
-        self.neq = kw.pop('neq')
         self.svrn = blk.blkn
         self.nsvr = None
         # set time.
@@ -53,12 +50,8 @@ class MeshSolver(object):
         self.step_current = 0
         self.substep_current = 0
         self.substep_run = kw.pop('substep_run', 2)
-        # group.
-        self.grpnames = blk.grpnames
-        self.ngroup = len(self.grpnames)
         # BCs.
-        self.bclist = blk.bclist
-        for bc in self.bclist:
+        for bc in self.blk.bclist:
             bc.svr = self
         self.ibclist = None
         # anchor list.

@@ -16,7 +16,7 @@
 
 cdef public:
     ctypedef struct sc_fake_algorithm_t:
-        int ncore, neq
+        int neq
         double time, time_increment
         double *sol, *soln, *dsol, *dsoln
         double *cecnd, *cevol
