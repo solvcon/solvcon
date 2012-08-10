@@ -22,6 +22,9 @@ Solvers that base on :py:class:`.mesh.Mesh`.
 
 class MeshSolver(object):
     """
+    :cvar MMNAMES: Names of the methods to be called in :py:meth:`march`.
+    :type MMANMES: list of str
+
     Base class for all solvers that base on :py:class:`.mesh.Mesh`.
     """
     MESG_FILENAME_DEFAULT = 'solvcon.solver.log'
@@ -30,7 +33,7 @@ class MeshSolver(object):
     _interface_init_ = []
     _solution_array_ = []
 
-    def __init__(self, blk, *args, **kw):
+    def __init__(self, blk, **kw):
         from .anchor import AnchorList
         from .gendata import Timer
         super(MeshSolver, self).__init__()
@@ -107,6 +110,17 @@ class MeshSolver(object):
             dfn = os.devnull
             dprefix = ''
         self.mesg = Printer(dfn, prefix=dprefix, override=True)
+
+    @classmethod
+    def register_method(cls, func):
+        """
+        :param func: The function to be recorded.
+        :type func: bound method
+
+        Record the name of the input function to :py:attr:`MMNAMES`.
+        """
+        cls.MMNAMES.append(func.__name__)
+        return func
 
     def provide(self):
         self.runanchors('provide')

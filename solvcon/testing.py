@@ -60,6 +60,17 @@ def loadfile(filename):
     """
     return openfile(filename).read()
 
+def create_trivial_2d_blk():
+    from solvcon.block import Block
+    blk = Block(ndim=2, nnode=4, nface=6, ncell=3, nbound=3)
+    blk.ndcrd[:,:] = (0,0), (-1,-1), (1,-1), (0,1)
+    blk.cltpn[:] = 3
+    blk.clnds[:,:4] = (3, 0,1,2), (3, 0,2,3), (3, 0,3,1)
+    blk.build_interior()
+    blk.build_boundary()
+    blk.build_ghost()
+    return blk
+
 def get_blk_from_sample_neu(fpdtype=None, use_incenter=None):
     """
     Read data from sample.neu file and convert it into Block.

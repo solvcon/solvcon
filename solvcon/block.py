@@ -18,10 +18,8 @@
 
 """Unstructured mesh definition."""
 
-from ctypes import Structure
-from numpy import array
-
 # metadata for unstructured mesh.
+from numpy import array
 elemtype = array([
     # index, dim, node, edge, surface,    name
     [     0,   0,    1,    0,       0, ], # node/point/vertex
@@ -33,6 +31,7 @@ elemtype = array([
     [     6,   3,    6,    9,       5, ], # prism/wedge
     [     7,   3,    5,    8,       5, ], # pyramid
 ], dtype='int32')
+del array
 MAX_FCNND = elemtype[elemtype[:,1]<3,2].max()
 MAX_CLNND = elemtype[:,2].max()
 MAX_CLNFC = max(elemtype[elemtype[:,1]==2,3].max(),
@@ -40,47 +39,67 @@ MAX_CLNFC = max(elemtype[elemtype[:,1]==2,3].max(),
 
 class Block(object):
     """
-    Provide metric and connectivity information for unstructured-mesh block.
-    In terms of APIs in the Block class, to build a block requires the
-    following actions:
-      1. build_interior: build up inner connectivity and call calc_metric to
-         calculate metrics for interior meshes.
-      2. build_boundary: build up information of boundary faces according to
-         boundary conditions objects (BCs).  Also "patch" the block with
-         "unspecified" BC for boundary faces without related BC objects.
-      3. build_ghost: build up information for ghost cells.  Ghost cells is for
-         treatment of boundary conditions in a solving code/logic.  The
-         build-up includes create ghost entities (nodes, faces, and cells
-         itself) and their connectivity and metrics.  The storage of interior
-         meshed will be changed to make the storgae for both interior and ghost
-         information contiguous.
-
-    @note: Prefixes: nd = node, fc = face, cl = cell; gst = ghost; sh = shared.
-
-    @ivar _fpdtype: dtype for the floating point data in the block instance.
-    @ivar use_incenter: specify using incenter or not.
-    @itype use_incenter: bool
-    @ivar blkn: serial number of the block.
-    @ivar bclist: list of associated BC objects.
-    @ivar bndfcs: list of BC faces, contains BC face index and BC class serial
+    :ivar use_incenter: specify using incenter or not.
+    :itype use_incenter: bool
+    :ivar blkn: serial number of the block.
+    :ivar bclist: list of associated BC objects.
+    :ivar bndfcs: list of BC faces, contains BC face index and BC class serial
         number, respectively.  The type number definition follows Nasa 2D CESE 
         code.
-    @ivar grpnames: list of names of cell groups.
-    @ivar ndcrd: Node croodinate data.
-    @ivar fccnd: Central coordinates of face.
-    @ivar fcnml: Unit-normal vector of face.
-    @ivar fcara: Area of face.
-    @ivar clcnd: Central coordinates of cell.
-    @ivar clvol: Volume of cell.
-    @ivar fctpn: Type of face.
-    @ivar cltpn: Type of cell.
-    @ivar clgrp: Group index of cell.
-    @ivar fcnds: List of nodes in face; arr[:,0] for the number.
-    @ivar fccls: Related cells for each face, contains belong, neibor (ghost as
+    :ivar grpnames: list of names of cell groups.
+    :ivar ndcrd: Node croodinate data.
+    :ivar fccnd: Central coordinates of face.
+    :ivar fcnml: Unit-normal vector of face.
+    :ivar fcara: Area of face.
+    :ivar clcnd: Central coordinates of cell.
+    :ivar clvol: Volume of cell.
+    :ivar fctpn: Type of face.
+    :ivar cltpn: Type of cell.
+    :ivar clgrp: Group index of cell.
+    :ivar fcnds: List of nodes in face; arr[:,0] for the number.
+    :ivar fccls: Related cells for each face, contains belong, neibor (ghost as
         negative), neiblk, and neibcl (cell index in neighboring block), 
         respectively.
-    @ivar clnds: List of nodes in cell; arr[:,0] for the number.
-    @ivar clfcs: List of faces in cell; arr[:,0] for the number.
+    :ivar clnds: List of nodes in cell; arr[:,0] for the number.
+    :ivar clfcs: List of faces in cell; arr[:,0] for the number.
+
+    Provide geometry and connectivity information for unstructured-mesh block.
+    In terms of APIs in the Block class, to build a block requires the
+    following actions:
+
+    1. build_interior: build up inner connectivity and call calc_metric to
+      calculate metrics for interior meshes.
+    2. build_boundary: build up information of boundary faces according to
+       boundary conditions objects (BCs).  Also "patch" the block with
+       "unspecified" BC for boundary faces without related BC objects.
+    3. build_ghost: build up information for ghost cells.  Ghost cells is for
+       treatment of boundary conditions in a solving code/logic.  The
+       build-up includes create ghost entities (nodes, faces, and cells
+       itself) and their connectivity and metrics.  The storage of interior
+       meshed will be changed to make the storgae for both interior and ghost
+       information contiguous.
+
+    .. note:
+
+        Prefixes: nd = node, fc = face, cl = cell; gst = ghost; sh = shared.
+
+    >>> # build a 2D block.
+    >>> blk = Block(ndim=2, nnode=4, nface=6, ncell=3, nbound=3)
+    >>> blk.ndcrd[:,:] = (0,0), (-1,-1), (1,-1), (0,1)
+    >>> blk.cltpn[:] = 3
+    >>> blk.clnds[:,:4] = (3, 0,1,2), (3, 0,2,3), (3, 0,3,1)
+    >>> blk.build_interior()
+    >>> blk.build_boundary()
+    >>> blk.build_ghost()
+    >>> # also test for a short-hand method.
+    >>> from .testing import create_trivial_2d_blk
+    >>> tblk = create_trivial_2d_blk()
+    >>> (tblk.shndcrd == blk.shndcrd).all()
+    True
+    >>> (tblk.shfccnd == blk.shfccnd).all()
+    True
+    >>> (tblk.shfccls == blk.shfccls).all()
+    True
     """
 
     FCMND = MAX_FCNND

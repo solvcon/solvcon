@@ -30,14 +30,8 @@ class FakeSolver(MeshSolver):
     :py:class:`.mesh_solver.MeshSolver`.
 
     >>> # build a block before creating a solver.
-    >>> from .block import Block
-    >>> blk = Block(ndim=2, nnode=4, nface=6, ncell=3, nbound=3)
-    >>> blk.ndcrd[:,:] = (0,0), (-1,-1), (1,-1), (0,1)
-    >>> blk.cltpn[:] = 3
-    >>> blk.clnds[:,:4] = (3, 0,1,2), (3, 0,2,3), (3, 0,3,1)
-    >>> blk.build_interior()
-    >>> blk.build_boundary()
-    >>> blk.build_ghost()
+    >>> from .testing import create_trivial_2d_blk
+    >>> blk = create_trivial_2d_blk()
     >>> # create a solver.
     >>> svr = FakeSolver(blk, neq=1)
     >>> # initialize the solver.
@@ -71,14 +65,8 @@ class FakeSolver(MeshSolver):
 
     def __init__(self, blk, *args, **kw):
         """
-        >>> from .block import Block
-        >>> blk = Block(ndim=2, nnode=4, nface=6, ncell=3, nbound=3)
-        >>> blk.ndcrd[:,:] = (0,0), (-1,-1), (1,-1), (0,1)
-        >>> blk.cltpn[:] = 3
-        >>> blk.clnds[:,:4] = (3, 0,1,2), (3, 0,2,3), (3, 0,3,1)
-        >>> blk.build_interior()
-        >>> blk.build_boundary()
-        >>> blk.build_ghost()
+        >>> from .testing import create_trivial_2d_blk
+        >>> blk = create_trivial_2d_blk()
         >>> svr = FakeSolver(blk, neq=1)
         """
         from numpy import empty
@@ -105,14 +93,8 @@ class FakeSolver(MeshSolver):
         """
         Create a :py:class:`.fake_algorithm.FakeAlgorithm` object.
 
-        >>> from .block import Block
-        >>> blk = Block(ndim=2, nnode=4, nface=6, ncell=3, nbound=3)
-        >>> blk.ndcrd[:,:] = (0,0), (-1,-1), (1,-1), (0,1)
-        >>> blk.cltpn[:] = 3
-        >>> blk.clnds[:,:4] = (3, 0,1,2), (3, 0,2,3), (3, 0,3,1)
-        >>> blk.build_interior()
-        >>> blk.build_boundary()
-        >>> blk.build_ghost()
+        >>> from .testing import create_trivial_2d_blk
+        >>> blk = create_trivial_2d_blk()
         >>> svr = FakeSolver(blk, neq=1)
         >>> alg = svr.create_alg()
         """
@@ -122,31 +104,54 @@ class FakeSolver(MeshSolver):
         alg.setup_algorithm(self)
         return alg
 
-    ##################################################
+    ###########################################################################
     # marching algorithm.
-    ##################################################
-    MMNAMES = list()
-    MMNAMES.append('update')
+    ###########################################################################
+    @MeshSolver.register_method
     def update(self, worker=None):
+        """
+        Update solution arrays.
+
+        >>> from .testing import create_trivial_2d_blk
+        >>> blk = create_trivial_2d_blk()
+        >>> svr = FakeSolver(blk, neq=1)
+        >>> # initialize with different solution arrays.
+        >>> svr.sol.fill(0)
+        >>> svr.soln.fill(2)
+        >>> svr.dsol.fill(0)
+        >>> svr.dsoln.fill(2)
+        >>> (svr.sol != svr.soln).all()
+        True
+        >>> (svr.dsol != svr.dsoln).all()
+        True
+        >>> # update and then solution arrays become the same.
+        >>> svr.update()
+        >>> (svr.sol == svr.soln).all()
+        True
+        >>> (svr.dsol == svr.dsoln).all()
+        True
+        """
         self.sol[:,:] = self.soln[:,:]
         self.dsol[:,:,:] = self.dsoln[:,:,:]
 
-    MMNAMES.append('calcsoln')
+    @MeshSolver.register_method
     def calcsoln(self, worker=None):
         self.create_alg().calc_soln()
 
-    MMNAMES.append('ibcsoln')
+    @MeshSolver.register_method
     def ibcsoln(self, worker=None):
         if worker: self.exchangeibc('soln', worker=worker)
 
-    MMNAMES.append('calccfl')
+    @MeshSolver.register_method
     def calccfl(self, worker=None):
         self.marchret = -2.0
 
-    MMNAMES.append('calcdsoln')
+    @MeshSolver.register_method
     def calcdsoln(self, worker=None):
         self.create_alg().calc_dsoln()
 
-    MMNAMES.append('ibcdsoln')
+    @MeshSolver.register_method
     def ibcdsoln(self, worker=None):
         if worker: self.exchangeibc('dsoln', worker=worker)
+
+# vim: set ff=unix fenc=utf8 ft=python ai et sw=4 ts=4 tw=79:
