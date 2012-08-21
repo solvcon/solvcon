@@ -23,9 +23,6 @@ Helping functionalities.
 class Printer(object):
     """
     Print message to a stream.
-
-    @ivar _streams: list of (stream, filename) tuples to be used..
-    @itype _streams: list
     """
 
     def __init__(self, streams, **kw):
@@ -63,21 +60,38 @@ class Printer(object):
                 stream.flush()
 
 class Information(object):
-    def __init__(self, **kw):
-        self.prefix = kw.pop('prefix', '*')
-        self.nchar = kw.pop('nchar', 4)
-        self.width = kw.pop('width', 80)
-        self.level = kw.pop('level', 0)
-        self.muted = kw.pop('muted', False)
+    """
+    Information logger.
+    """
+
+    def __init__(self, prefix='*', nchar=4, width=80, level=0, muted=False):
+        self.prefix = prefix
+        self.nchar = nchar
+        self.width = width
+        self.level = level
+        self.muted = muted
+
     @property
     def streams(self):
+        """
+        :type: list
+
+        List of output streams.
+        """
         import sys
         from .conf import env
         if self.muted: return []
         streams = [sys.stdout]
         if env.logfile != None: streams.append(env.logfile)
         return streams
+
     def __call__(self, data, travel=0, level=None, has_gap=True):
+        """
+        :param data: String data to be output.
+        :type data: str
+
+        Output.
+        """
         self.level += travel
         if level == None:
             level = self.level
@@ -114,8 +128,8 @@ def generate_apidoc(outputdir='doc/api'):
 
 def iswin():
     """
-    @return: flag under windows or not.
-    @rtype: bool
+    :return: Flag under windows or not.
+    :rtype: bool
     """
     import sys
     if sys.platform.startswith('win'):
@@ -135,15 +149,15 @@ def get_username():
 
 def search_in_parents(loc, name):
     """
+    :param loc: The location to start searching.
+    :type loc: str
+    :param name: The searching target.
+    :type name: str
+    :return: The absolute path to the FS item.
+    :rtype: str
+
     Search for something in the file system all the way up from the specified
     location to the root.
-
-    @param loc: the location to start searching.
-    @type loc: str
-    @param name: the searching target.
-    @type name: str
-    @return: the absolute path to the FS item.
-    @rtype: str
     """
     import os
     item = ''
@@ -161,27 +175,29 @@ def search_in_parents(loc, name):
 
 class Cubit(object):
     """
-    Delegate Cubit command through journaling file and load the generated mesh.
+    :ivar cmds: Commands to be sent to Cubit.
+    :type cmds: list
+    :ivar ndim: Number of dimensions.
+    :type ndim: int
+    :ivar large: Flag to use large file of Genesis/ExodusII or not.
+    :type large: bool
 
-    @ivar cmds: commands to be sent to Cubit.
-    @itype cmds: list
-    @ivar ndim: number of dimensions.
-    @itype ndim: int
-    @ivar large: use large file of Genesis/ExodusII or not.
-    @itype large: bool
+    Delegate Cubit command through journaling file and load the generated mesh.
     """
+
     def __init__(self, cmds, ndim, large=False):
         self.cmds = cmds
         self.ndim = ndim
         self.large = large
         self.stdout = None
+
     def __call__(self):
         """
+        :return: The loaded Genesis object.
+        :rtype: solvcon.io.genesis.Genesis
+
         Launch Cubit for generating mesh and then load the generated
         Genesis/ExodusII file.
-
-        @return: the loaded Genesis object.
-        @rtype: solvcon.io.genesis.Genesis
         """
         from tempfile import mkdtemp
         import os, shutil
@@ -216,20 +232,20 @@ class Cubit(object):
 
 class Gmsh(object):
     """
-    Delegate Gmsh command through journaling file and load the generated mesh.
+    :ivar cmds: Commands to be sent to gmsh.
+    :type cmds: list
 
-    @ivar cmds: commands to be sent to gmsh.
-    @itype cmds: list
+    Delegate Gmsh command through journaling file and load the generated mesh.
     """
     def __init__(self, cmds):
         self.cmds = cmds
         self.stdout = None
     def __call__(self):
         """
-        Launch Gmsh for generating mesh and then load the generated file.
+        :return: The loaded Gmsh object.
+        :rtype: solvcon.io.gmsh.Gmsh
 
-        @return: the loaded Gmsh object.
-        @rtype: solvcon.io.gmsh.Gmsh
+        Launch Gmsh for generating mesh and then load the generated file.
         """
         from tempfile import mkdtemp
         import os, shutil
