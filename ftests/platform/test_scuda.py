@@ -1,5 +1,20 @@
 # -*- coding: UTF-8 -*-
-# Copyright (C) 2008-2011 by Yung-Yu Chen.  See LICENSE.txt for terms of usage.
+#
+# Copyright (C) 2008-2012 by Yung-Yu Chen.  See LICENSE.txt for terms of usage.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 from unittest import TestCase
 
@@ -17,7 +32,7 @@ class TestScuda(TestCase):
     def setUp(self):
         import sys, os
         from nose.plugins.skip import SkipTest
-        from ..conf import env
+        from solvcon.conf import env
         if sys.platform.startswith('win'): raise SkipTest
         if env.scu is None: raise SkipTest
         self.scu = env.scu
@@ -28,7 +43,7 @@ class TestScuda20(TestScuda):
         import os
         from ctypes import CDLL
         from nose.plugins.skip import SkipTest
-        from ..conf import env
+        from solvcon.conf import env
         if not self.scu.devprop.has_compute_capability('2.0'): raise SkipTest
         libpath = os.path.join(env.libdir, 'libsc_cuda20test.so')
         self.lib = CDLL(libpath)
@@ -116,7 +131,7 @@ class TestScuda13(TestScuda):
         import os
         from ctypes import CDLL
         from nose.plugins.skip import SkipTest
-        from ..conf import env
+        from solvcon.conf import env
         if not self.scu.devprop.has_compute_capability('1.3'): raise SkipTest
         libpath = os.path.join(env.libdir, 'libsc_cuda13test.so')
         self.lib = CDLL(libpath)
@@ -196,3 +211,5 @@ class TestScuda13(TestScuda):
         scu.free(garrb)
         scu.free(garrc)
         scu.free(gp)
+
+# vim: set ff=unix fenc=utf8 ft=python ai et sw=4 ts=4 tw=79:
