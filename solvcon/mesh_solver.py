@@ -487,14 +487,13 @@ class MeshCase(CaseInfo):
         tarr = [0,0,0]
         tarr[0] = time()
         self.log.time[action] = tarr
-        info(
-            info.prefix * (info.width-info.level*info.nchar),
-            travel=1
-        )
+        # header.
+        prefix = info.prefix * (info.width-info.level*info.nchar)
+        info(prefix, travel=1)
+        # content.
         info('\nStart %s%s%s' % (action, msg, postmsg))
-        info(
-            '\n' + info.prefix * (info.width-info.level*info.nchar) + '\n',
-        )
+        prefix = info.prefix * (info.width-info.level*info.nchar)
+        info('\n' + prefix + '\n')
 
     def _log_end(self, action, msg='', postmsg=' . '):
         """
@@ -511,16 +510,13 @@ class MeshCase(CaseInfo):
         tarr = self.log.time.setdefault(action, [0,0,0])
         tarr[1] = time()
         tarr[2] = tarr[1] - tarr[0]
-        info(
-            info.prefix * (info.width-info.level*info.nchar) + \
-            '\nEnd %s%s%sElapsed time (sec) = %g' % (
-                action, msg, postmsg, tarr[2]
-            )
-        )
-        info(
-            '\n' + info.prefix * (info.width-(info.level-1)*info.nchar) + '\n',
-            travel=-1
-        )
+        # footer.
+        prefix = info.prefix * (info.width-info.level*info.nchar)
+        info(prefix + '\nEnd %s%s%sElapsed time (sec) = %g' % (
+            action, msg, postmsg, tarr[2]))
+        # up a level.
+        prefix = info.prefix * (info.width-(info.level-1)*info.nchar)
+        info('\n' + prefix + '\n', travel=-1)
 
     def init(self, level=0):
         """
