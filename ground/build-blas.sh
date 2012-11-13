@@ -32,5 +32,6 @@ tar xfz ../$TMPDL/$PKGNAME.tgz
 cd BLAS
 cp ../../blas.make.inc make.inc
 make -j $NP > make.log 2>&1
+cp libblas.a $SCLIB/
 
 # vim: set ai et nu:

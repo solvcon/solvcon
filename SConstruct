@@ -80,6 +80,8 @@ for path in [GetOption('pythonpath'), np.get_include()]:
     if path not in env['CPPPATH']:
         env.Append(CPPPATH=[path])
 # library paths.
+if 'SCROOT' in os.environ:
+    env.Append(LIBPATH=[os.path.join(os.environ['SCROOT'], 'lib')])
 env.Append(LIBPATH=[GetOption('libdir')])
 # CUDA.
 env.Tool('cuda')
