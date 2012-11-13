@@ -132,9 +132,9 @@ $(SCETC)/scotch_5.1.11:
 ################################################################################
 
 pytool: $(SCETC)/scvars.sh \
-	$(SCETC)/mercurial-2.0.2 $(SCETC)/scons-2.1.0 $(SCETC)/nose-1.0.0 \
-	$(SCETC)/epydoc-3.0.1 $(SCETC)/docutils-0.8.1 $(SCETC)/Jinja2-2.6 \
-	$(SCETC)/Pygments-1.4 $(SCETC)/Sphinx-1.1.2
+	$(SCETC)/mercurial-2.0.2 $(SCETC)/scons-2.1.0 $(SCETC)/Cython-0.17.1 \
+	$(SCETC)/nose-1.0.0 $(SCETC)/epydoc-3.0.1 $(SCETC)/docutils-0.8.1 \
+	$(SCETC)/Jinja2-2.6 $(SCETC)/Pygments-1.4 $(SCETC)/Sphinx-1.1.2
 
 $(SCETC)/mercurial-2.0.2:
 	cd $(TMPBLD) && tar xfz ../$(TMPDL)/mercurial-2.0.2.tar.gz
@@ -148,6 +148,13 @@ $(SCETC)/scons-2.1.0:
 		$(SCBIN)/python2.7 setup.py install > install2.7.log 2>&1
 	$(SCBIN)/python2.7 modify-pyshebang.py $(SCBIN)/scons*
 	touch $(SCETC)/scons-2.1.0
+
+$(SCETC)/Cython-0.17.1:
+	cd $(TMPBLD) && tar xfz ../$(TMPDL)/Cython-0.17.1.tar.gz
+	cd $(TMPBLD)/Cython-0.17.1 && \
+		$(SCBIN)/python2.7 setup.py install > install2.7.log 2>&1
+	$(SCBIN)/python2.7 modify-pyshebang.py $(SCBIN)/scons*
+	touch $(SCETC)/Cython-0.17.1
 
 $(SCETC)/nose-1.0.0:
 	cd $(TMPBLD) && tar xfz ../$(TMPDL)/nose-1.0.0.tar.gz
