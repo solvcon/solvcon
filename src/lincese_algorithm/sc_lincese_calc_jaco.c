@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2012 Yung-Yu Chen <yyc@solvcon.net>.
+ * Copyright (C) 2010-2012 Yung-Yu Chen <yyc@solvcon.net>.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,9 +25,9 @@
 
 #undef NDIM
 #define NDIM 2
-#include "sc_lincese_calc_solt.c_body"
+#include "sc_lincese_calc_jaco.c_body"
 #undef NDIM
 #define NDIM 3
-#include "sc_lincese_calc_solt.c_body"
+#include "sc_lincese_calc_jaco.c_body"
 
 // vim: set ts=4 et:

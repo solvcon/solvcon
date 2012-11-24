@@ -23,8 +23,10 @@ cimport numpy as cnp
 cnp.import_array()
 
 cdef extern:
-    void sc_lincese_algorithm_calc_solt(sc_mesh_t *msd, sc_lincese_algorithm_t *exd)
-    void sc_lincese_algorithm_calc_soln(sc_mesh_t *msd, sc_lincese_algorithm_t *exd)
+    void sc_lincese_algorithm_calc_solt_2d(sc_mesh_t *msd, sc_lincese_algorithm_t *exd)
+    void sc_lincese_algorithm_calc_solt_3d(sc_mesh_t *msd, sc_lincese_algorithm_t *exd)
+    void sc_lincese_algorithm_calc_soln_2d(sc_mesh_t *msd, sc_lincese_algorithm_t *exd)
+    void sc_lincese_algorithm_calc_soln_3d(sc_mesh_t *msd, sc_lincese_algorithm_t *exd)
     void sc_lincese_algorithm_calc_dsoln_w3(sc_mesh_t *msd, sc_lincese_algorithm_t *exd)
 
 cdef extern from "stdlib.h":
@@ -62,10 +64,16 @@ cdef class LinceseAlgorithm(Mesh):
         self._alg.cevol = &cevol[self._mesh.ngstcell,0]
 
     def calc_solt(self):
-        sc_lincese_algorithm_calc_solt(self._mesh, self._alg)
+        if self._mesh.ndim == 3:
+            sc_lincese_algorithm_calc_solt_3d(self._mesh, self._alg)
+        else:
+            sc_lincese_algorithm_calc_solt_2d(self._mesh, self._alg)
 
     def calc_soln(self):
-        sc_lincese_algorithm_calc_soln(self._mesh, self._alg)
+        if self._mesh.ndim == 3:
+            sc_lincese_algorithm_calc_soln_3d(self._mesh, self._alg)
+        else:
+            sc_lincese_algorithm_calc_soln_2d(self._mesh, self._alg)
 
     def calc_dsoln(self):
         sc_lincese_algorithm_calc_dsoln_w3(self._mesh, self._alg)
