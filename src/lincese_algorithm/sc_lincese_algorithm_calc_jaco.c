@@ -25,9 +25,9 @@
 
 #undef NDIM
 #define NDIM 2
-#include "sc_lincese_calc_jaco.c_body"
+#include "sc_lincese_algorithm_calc_jaco.c_body"
 #undef NDIM
 #define NDIM 3
-#include "sc_lincese_calc_jaco.c_body"
+#include "sc_lincese_algorithm_calc_jaco.c_body"
 
 // vim: set ts=4 et:

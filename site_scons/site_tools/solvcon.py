@@ -158,7 +158,7 @@ def solvcon_module(env, srcs, prepends=None, pkgroot='solvcon'):
     # static library.
     sdirs = [os.path.splitext(os.path.basename(str(src)))[0] for src in srcs]
     stenv, filename, ddsts = prepare_module_files(
-        stenv, sdirs, 'solvcon', ndim=2, sclibprefix='')
+        stenv, sdirs, 'solvcon', sclibprefix='')
     if '-fPIC' not in stenv['CFLAGS']:
         stenv.Append(CFLAGS=['-fPIC'])
     sclib = stenv.StaticLibrary(filename, ddsts)
@@ -167,6 +167,7 @@ def solvcon_module(env, srcs, prepends=None, pkgroot='solvcon'):
     for cyfile in cyfiles:
         mainfn = os.path.splitext(os.path.basename(str(src)))[0]
         pymod = env.PythonExtension(cyfile)[0]
+        env.Depends(pymod, sclib)
         dsts.append(pymod)
     return dsts
 
