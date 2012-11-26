@@ -27,7 +27,8 @@ cdef extern:
     void sc_lincese_algorithm_calc_solt_3d(sc_mesh_t *msd, sc_lincese_algorithm_t *exd)
     void sc_lincese_algorithm_calc_soln_2d(sc_mesh_t *msd, sc_lincese_algorithm_t *exd)
     void sc_lincese_algorithm_calc_soln_3d(sc_mesh_t *msd, sc_lincese_algorithm_t *exd)
-    void sc_lincese_algorithm_calc_dsoln_w3(sc_mesh_t *msd, sc_lincese_algorithm_t *exd)
+    void sc_lincese_algorithm_calc_dsoln_2d(sc_mesh_t *msd, sc_lincese_algorithm_t *exd)
+    void sc_lincese_algorithm_calc_dsoln_3d(sc_mesh_t *msd, sc_lincese_algorithm_t *exd)
 
 cdef extern from "stdlib.h":
     void* malloc(size_t size)
@@ -76,6 +77,9 @@ cdef class LinceseAlgorithm(Mesh):
             sc_lincese_algorithm_calc_soln_2d(self._mesh, self._alg)
 
     def calc_dsoln(self):
-        sc_lincese_algorithm_calc_dsoln_w3(self._mesh, self._alg)
+        if self._mesh.ndim == 3:
+            sc_lincese_algorithm_calc_dsoln_3d(self._mesh, self._alg)
+        else:
+            sc_lincese_algorithm_calc_dsoln_2d(self._mesh, self._alg)
 
 # vim: set fenc=utf8 ft=pyrex ff=unix ai et sw=4 ts=4 tw=79:
