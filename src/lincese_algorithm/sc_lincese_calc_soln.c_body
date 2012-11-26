@@ -22,7 +22,7 @@ sc_lincese_calc_soln_3d
 #else
 sc_lincese_calc_soln_2d
 #endif
-        (sc_mesh_t *msd, sc_lincese_algorithm_t *exd) {
+        (sc_mesh_t *msd, sc_lincese_algorithm_t *alg) {
     int clnfc, fcnnd;
     // partial pointers.
     int *pclfcs, *pfcnds, *pfccls;
@@ -37,8 +37,8 @@ sc_lincese_calc_soln_2d
     double jacos[NEQ][NEQ][NDIM];
     // interators.
     int icl, ifl, inf, ifc, jcl, ieq, jeq;
-    qdt = exd->time_increment * 0.25;
-    hdt = exd->time_increment * 0.5;
+    qdt = alg->time_increment * 0.25;
+    hdt = alg->time_increment * 0.5;
     #pragma omp parallel for private(clnfc, fcnnd, \
     pclfcs, pfcnds, pfccls, pjcecnd, pcecnd, pcevol, psfmrc, \
     pjsol, pdsol, pjsolt, psoln, \
@@ -46,8 +46,8 @@ sc_lincese_calc_soln_2d
     icl, ifl, inf, ifc, jcl, ieq, jeq) \
     firstprivate(hdt, qdt)
     for (icl=0; icl<msd->ncell; icl++) {
-        psoln = exd->soln + icl*NEQ;
-        pcevol = exd->cevol + icl*(CLMFC+1);
+        psoln = alg->soln + icl*NEQ;
+        pcevol = alg->cevol + icl*(CLMFC+1);
         // initialize fluxes.
         for (ieq=0; ieq<NEQ; ieq++) {
             psoln[ieq] = 0.0;
@@ -61,10 +61,10 @@ sc_lincese_calc_soln_2d
             // spatial flux (given time).
             pfccls = msd->fccls + ifc*FCREL;
             jcl = pfccls[0] + pfccls[1] - icl;
-            pjcecnd = exd->cecnd + jcl*(CLMFC+1)*NDIM;
-            pcecnd = exd->cecnd + (icl*(CLMFC+1)+ifl)*NDIM;
-            pjsol = exd->sol + jcl*NEQ;
-            pdsol = exd->dsol + jcl*NEQ*NDIM;
+            pjcecnd = alg->cecnd + jcl*(CLMFC+1)*NDIM;
+            pcecnd = alg->cecnd + (icl*(CLMFC+1)+ifl)*NDIM;
+            pjsol = alg->sol + jcl*NEQ;
+            pdsol = alg->dsol + jcl*NEQ*NDIM;
             for (ieq=0; ieq<NEQ; ieq++) {
                 fusp = pjsol[ieq];
                 fusp += (pcecnd[0]-pjcecnd[0]) * pdsol[0];
@@ -78,17 +78,17 @@ sc_lincese_calc_soln_2d
 
             // temporal flux (give space).
 #if NDIM == 3
-            sc_lincese_calc_jaco_3d(exd, jcl, fcn, jacos);
+            sc_lincese_calc_jaco_3d(alg, jcl, fcn, jacos);
 #else
-            sc_lincese_calc_jaco_2d(exd, jcl, fcn, jacos);
+            sc_lincese_calc_jaco_2d(alg, jcl, fcn, jacos);
 #endif
-            pjsolt = exd->solt + jcl*NEQ;
+            pjsolt = alg->solt + jcl*NEQ;
             fcnnd = msd->fcnds[ifc*(FCMND+1)];
             for (inf=0; inf<fcnnd; inf++) {
-                psfmrc = (double (*)[NDIM])(exd->sfmrc
+                psfmrc = (double (*)[NDIM])(alg->sfmrc
                     + (((icl*CLMFC + ifl-1)*FCMND+inf)*2*NDIM));
                 // solution at sub-face center.
-                pdsol = exd->dsol + jcl*NEQ*NDIM;
+                pdsol = alg->dsol + jcl*NEQ*NDIM;
                 for (ieq=0; ieq<NEQ; ieq++) {
                     usfc[ieq] = qdt * pjsolt[ieq];
                     usfc[ieq] += (psfmrc[0][0]-pjcecnd[0]) * pdsol[0];

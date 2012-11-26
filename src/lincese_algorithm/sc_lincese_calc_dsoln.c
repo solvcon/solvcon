@@ -21,7 +21,7 @@
 #include "mesh.h"
 #include "lincese_algorithm.h"
 
-#define NEQ exd->neq
+#define NEQ alg->neq
 #define MFGE 8
 #define ALMOST_ZERO 1.e-200
 

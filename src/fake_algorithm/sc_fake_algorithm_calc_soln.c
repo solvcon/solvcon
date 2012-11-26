@@ -21,18 +21,18 @@
 #include "mesh.h"
 #include "fake_algorithm.h"
 
-int sc_fake_algorithm_calc_soln(sc_mesh_t *msd, sc_fake_algorithm_t *exd) {
+int sc_fake_algorithm_calc_soln(sc_mesh_t *msd, sc_fake_algorithm_t *alg) {
     double *psol, *psoln, *pclvol;
     int icl, ieq;
-    psol = exd->sol;
-    psoln = exd->soln;
+    psol = alg->sol;
+    psoln = alg->soln;
     pclvol = msd->clvol;
     for (icl=0; icl<msd->ncell; icl++) {
-        for (ieq=0; ieq<exd->neq; ieq++) {
-            psoln[ieq] = psol[ieq] + pclvol[0] * exd->time_increment / 2.0;
+        for (ieq=0; ieq<alg->neq; ieq++) {
+            psoln[ieq] = psol[ieq] + pclvol[0] * alg->time_increment / 2.0;
         };
-        psol += exd->neq;
-        psoln += exd->neq;
+        psol += alg->neq;
+        psoln += alg->neq;
         pclvol += 1;
     };
     return 0;

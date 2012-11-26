@@ -21,7 +21,7 @@
 #include "mesh.h"
 #include "lincese_algorithm.h"
 
-#define NEQ exd->neq
+#define NEQ alg->neq
 
 #undef NDIM
 #define NDIM 2

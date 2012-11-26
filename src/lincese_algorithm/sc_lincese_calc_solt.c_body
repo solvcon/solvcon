@@ -22,7 +22,7 @@ sc_lincese_calc_solt_3d
 #else
 sc_lincese_calc_solt_2d
 #endif
-        (sc_mesh_t *msd, sc_lincese_algorithm_t *exd) {
+        (sc_mesh_t *msd, sc_lincese_algorithm_t *alg) {
     // pointers.
     double *psolt, *pidsol, *pdsol;
     // scalars.
@@ -35,12 +35,12 @@ sc_lincese_calc_solt_2d
     #pragma omp parallel for \
     private(psolt, pidsol, pdsol, val, jacos, fcn, ieq, jeq, idm)
     for (icl=-msd->ngstcell; icl<msd->ncell; icl++) {
-        psolt = exd->solt + icl*NEQ;
-        pidsol = exd->dsol + icl*NEQ*NDIM;
+        psolt = alg->solt + icl*NEQ;
+        pidsol = alg->dsol + icl*NEQ*NDIM;
 #if NDIM == 3
-        sc_lincese_calc_jaco_3d(exd, icl, fcn, jacos);
+        sc_lincese_calc_jaco_3d(alg, icl, fcn, jacos);
 #else
-        sc_lincese_calc_jaco_2d(exd, icl, fcn, jacos);
+        sc_lincese_calc_jaco_2d(alg, icl, fcn, jacos);
 #endif
         for (ieq=0; ieq<NEQ; ieq++) {
             psolt[ieq] = 0.0;

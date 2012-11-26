@@ -23,12 +23,12 @@ cimport numpy as cnp
 cnp.import_array()
 
 cdef extern:
-    void sc_lincese_algorithm_calc_solt_2d(sc_mesh_t *msd, sc_lincese_algorithm_t *exd)
-    void sc_lincese_algorithm_calc_solt_3d(sc_mesh_t *msd, sc_lincese_algorithm_t *exd)
-    void sc_lincese_algorithm_calc_soln_2d(sc_mesh_t *msd, sc_lincese_algorithm_t *exd)
-    void sc_lincese_algorithm_calc_soln_3d(sc_mesh_t *msd, sc_lincese_algorithm_t *exd)
-    void sc_lincese_algorithm_calc_dsoln_2d(sc_mesh_t *msd, sc_lincese_algorithm_t *exd)
-    void sc_lincese_algorithm_calc_dsoln_3d(sc_mesh_t *msd, sc_lincese_algorithm_t *exd)
+    void sc_lincese_algorithm_calc_solt_2d(sc_mesh_t *msd, sc_lincese_algorithm_t *alg)
+    void sc_lincese_algorithm_calc_solt_3d(sc_mesh_t *msd, sc_lincese_algorithm_t *alg)
+    void sc_lincese_algorithm_calc_soln_2d(sc_mesh_t *msd, sc_lincese_algorithm_t *alg)
+    void sc_lincese_algorithm_calc_soln_3d(sc_mesh_t *msd, sc_lincese_algorithm_t *alg)
+    void sc_lincese_algorithm_calc_dsoln_2d(sc_mesh_t *msd, sc_lincese_algorithm_t *alg)
+    void sc_lincese_algorithm_calc_dsoln_3d(sc_mesh_t *msd, sc_lincese_algorithm_t *alg)
 
 cdef extern from "stdlib.h":
     void* malloc(size_t size)

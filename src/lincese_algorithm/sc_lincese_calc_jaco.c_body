@@ -22,7 +22,7 @@ sc_lincese_calc_jaco_3d
 #else
 sc_lincese_calc_jaco_2d
 #endif
-        (sc_mesh_t *msd, sc_lincese_algorithm_t *exd, int icl,
+        (sc_mesh_t *msd, sc_lincese_algorithm_t *alg, int icl,
         double fcn[NEQ][NDIM], double jacos[NEQ][NEQ][NDIM]) {
     // pointers.
     double *psol;
@@ -31,14 +31,14 @@ sc_lincese_calc_jaco_2d
     int nt;
     int it, ieq, jeq;
     // fill jacobian.
-    pjaco = exd->grpda + msd->clgrp[icl]*exd->gdlen;
+    pjaco = alg->grpda + msd->clgrp[icl]*alg->gdlen;
     pljaco = (double *)jacos;
     nt = NEQ*NEQ*NDIM;
     for (it=0; it<nt; it++) {
         pljaco[it] = pjaco[it];
     };
     // calculate flux function.
-    psol = exd->sol + icl*NEQ;
+    psol = alg->sol + icl*NEQ;
     for (ieq=0; ieq<NEQ; ieq++) {
         fcn[ieq][0] = 0.0;
         fcn[ieq][1] = 0.0;

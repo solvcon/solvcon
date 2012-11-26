@@ -23,8 +23,8 @@ cimport numpy as cnp
 cnp.import_array()
 
 cdef extern:
-    int sc_fake_algorithm_calc_soln(sc_mesh_t *msd, sc_fake_algorithm_t *exd)
-    int sc_fake_algorithm_calc_dsoln(sc_mesh_t *msd, sc_fake_algorithm_t *exd)
+    int sc_fake_algorithm_calc_soln(sc_mesh_t *msd, sc_fake_algorithm_t *alg)
+    int sc_fake_algorithm_calc_dsoln(sc_mesh_t *msd, sc_fake_algorithm_t *alg)
 
 cdef extern from "stdlib.h":
     void* malloc(size_t size)
