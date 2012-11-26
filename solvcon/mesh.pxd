@@ -32,6 +32,6 @@ cdef public:
         BFREL = 3
 
 cdef class Mesh:
-    cdef sc_mesh_t *_mesh
+    cdef sc_mesh_t *_msd
 
 # vim: set fenc=utf8 ft=pyrex ff=unix ai et sw=4 ts=4 tw=79:

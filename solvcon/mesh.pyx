@@ -37,7 +37,7 @@ cdef class Mesh:
     Data set of unstructured meshes of mixed elements.
     """
     def __cinit__(self):
-        self._mesh = <sc_mesh_t *>malloc(sizeof(sc_mesh_t));
+        self._msd = <sc_mesh_t *>malloc(sizeof(sc_mesh_t));
 
     def setup_mesh(self, blk):
         """
@@ -47,82 +47,82 @@ cdef class Mesh:
         Set up mesh data from external object.
         """
         # meta data.
-        self._mesh.ndim = blk.ndim
-        self._mesh.nnode = blk.nnode
-        self._mesh.nface = blk.nface
-        self._mesh.ncell = blk.ncell
-        self._mesh.nbound = blk.nbound
-        self._mesh.ngstnode = blk.ngstnode
-        self._mesh.ngstface = blk.ngstface
-        self._mesh.ngstcell = blk.ngstcell
+        self._msd.ndim = blk.ndim
+        self._msd.nnode = blk.nnode
+        self._msd.nface = blk.nface
+        self._msd.ncell = blk.ncell
+        self._msd.nbound = blk.nbound
+        self._msd.ngstnode = blk.ngstnode
+        self._msd.ngstface = blk.ngstface
+        self._msd.ngstcell = blk.ngstcell
         # geometry arrays.
         cdef cnp.ndarray[double, ndim=2, mode="c"] ndcrd = blk.ndcrd
         if ndcrd.shape[0] * ndcrd.shape[1] == 0:
-            self._mesh.ndcrd = NULL
+            self._msd.ndcrd = NULL
         else:
-            self._mesh.ndcrd = &ndcrd[0,0]
+            self._msd.ndcrd = &ndcrd[0,0]
         cdef cnp.ndarray[double, ndim=2, mode="c"] fccnd = blk.fccnd
         if fccnd.shape[0] * fccnd.shape[1] == 0:
-            self._mesh.fccnd = NULL
+            self._msd.fccnd = NULL
         else:
-            self._mesh.fccnd = &fccnd[0,0]
+            self._msd.fccnd = &fccnd[0,0]
         cdef cnp.ndarray[double, ndim=2, mode="c"] fcnml = blk.fcnml
         if fcnml.shape[0] * fcnml.shape[1] == 0:
-            self._mesh.fcnml = NULL
+            self._msd.fcnml = NULL
         else:
-            self._mesh.fcnml = &fcnml[0,0]
+            self._msd.fcnml = &fcnml[0,0]
         cdef cnp.ndarray[double, ndim=1, mode="c"] fcara = blk.fcara
         if fcara.shape[0] == 0:
-            self._mesh.fcara = NULL
+            self._msd.fcara = NULL
         else:
-            self._mesh.fcara = &fcara[0]
+            self._msd.fcara = &fcara[0]
         cdef cnp.ndarray[double, ndim=2, mode="c"] clcnd = blk.clcnd
         if clcnd.shape[0] * clcnd.shape[1] == 0:
-            self._mesh.clcnd = NULL
+            self._msd.clcnd = NULL
         else:
-            self._mesh.clcnd = &clcnd[0,0]
+            self._msd.clcnd = &clcnd[0,0]
         cdef cnp.ndarray[double, ndim=1, mode="c"] clvol = blk.clvol
         if clvol.shape[0] == 0:
-            self._mesh.clvol = NULL
+            self._msd.clvol = NULL
         else:
-            self._mesh.clvol = &clvol[0]
+            self._msd.clvol = &clvol[0]
         # meta arrays.
         cdef cnp.ndarray[int, ndim=1, mode="c"] fctpn = blk.fctpn
         if fctpn.shape[0] == 0:
-            self._mesh.fctpn = NULL
+            self._msd.fctpn = NULL
         else:
-            self._mesh.fctpn = &fctpn[0]
+            self._msd.fctpn = &fctpn[0]
         cdef cnp.ndarray[int, ndim=1, mode="c"] cltpn = blk.cltpn
         if cltpn.shape[0] == 0:
-            self._mesh.cltpn = NULL
+            self._msd.cltpn = NULL
         else:
-            self._mesh.cltpn = &cltpn[0]
+            self._msd.cltpn = &cltpn[0]
         cdef cnp.ndarray[int, ndim=1, mode="c"] clgrp = blk.clgrp
         if clgrp.shape[0] == 0:
-            self._mesh.clgrp = NULL
+            self._msd.clgrp = NULL
         else:
-            self._mesh.clgrp = &clgrp[0]
+            self._msd.clgrp = &clgrp[0]
         # connectivity arrays.
         cdef cnp.ndarray[int, ndim=2, mode="c"] fcnds = blk.fcnds
         if fcnds.shape[0] * fcnds.shape[1] == 0:
-            self._mesh.fcnds = NULL
+            self._msd.fcnds = NULL
         else:
-            self._mesh.fcnds = &fcnds[0,0]
+            self._msd.fcnds = &fcnds[0,0]
         cdef cnp.ndarray[int, ndim=2, mode="c"] fccls = blk.fccls
         if fccls.shape[0] * fccls.shape[1] == 0:
-            self._mesh.fccls = NULL
+            self._msd.fccls = NULL
         else:
-            self._mesh.fccls = &fccls[0,0]
+            self._msd.fccls = &fccls[0,0]
         cdef cnp.ndarray[int, ndim=2, mode="c"] clnds = blk.clnds
         if clnds.shape[0] * clnds.shape[1] == 0:
-            self._mesh.clnds = NULL
+            self._msd.clnds = NULL
         else:
-            self._mesh.clnds = &clnds[0,0]
+            self._msd.clnds = &clnds[0,0]
         cdef cnp.ndarray[int, ndim=2, mode="c"] clfcs = blk.clfcs
         if clfcs.shape[0] * clfcs.shape[1] == 0:
-            self._mesh.clfcs = NULL
+            self._msd.clfcs = NULL
         else:
-            self._mesh.clfcs = &clfcs[0,0]
+            self._msd.clfcs = &clfcs[0,0]
 
     def build_ghost(self, cnp.ndarray[int, ndim=2, mode="c"] bndfcs):
         """
@@ -132,7 +132,7 @@ cdef class Mesh:
 
         Build data for ghost cells and related information.
         """
-        sc_mesh_build_ghost(self._mesh, &bndfcs[0,0])
+        sc_mesh_build_ghost(self._msd, &bndfcs[0,0])
 
     def calc_metric(self, use_incenter):
         """
@@ -142,7 +142,7 @@ cdef class Mesh:
         centroid coordinates and volume of cells.
         """
         cdef use_incenter_val = 1 if use_incenter else 0
-        sc_mesh_calc_metric(self._mesh, use_incenter_val)
+        sc_mesh_calc_metric(self._msd, use_incenter_val)
 
     def extract_faces_from_cells(self, int max_nfc):
         """
@@ -155,9 +155,9 @@ cdef class Mesh:
         """
         # declare data.
         assert max_nfc > 0
-        assert self._mesh.ncell > 0
+        assert self._msd.ncell > 0
         cdef cnp.ndarray[int, ndim=2, mode="c"] clfcs = np.empty(
-            (self._mesh.ncell, CLMFC+1), dtype='int32')
+            (self._msd.ncell, CLMFC+1), dtype='int32')
         cdef cnp.ndarray[int, ndim=1, mode="c"] fctpn = np.empty(
             max_nfc, dtype='int32')
         cdef cnp.ndarray[int, ndim=2, mode="c"] fcnds = np.empty(
@@ -169,7 +169,7 @@ cdef class Mesh:
             arr.fill(-1)
         # call worker.
         cdef int nface
-        sc_mesh_extract_faces_from_cells(self._mesh, max_nfc,
+        sc_mesh_extract_faces_from_cells(self._msd, max_nfc,
                 &nface, &clfcs[0,0], &fctpn[0], &fcnds[0,0], &fccls[0,0])
         # shuffle the result.
         clfcs = clfcs[:nface,:].copy()
@@ -189,18 +189,18 @@ cdef class Mesh:
         """
         # build the table of related cells.
         cdef cnp.ndarray[int, ndim=2, mode="c"] rcells = np.empty(
-            (self._mesh.ncell, CLMFC), dtype='int32')
+            (self._msd.ncell, CLMFC), dtype='int32')
         cdef cnp.ndarray[int, ndim=1, mode="c"] rcellno = np.empty(
-            self._mesh.ncell, dtype='int32')
-        sc_mesh_build_rcells(self._mesh, &rcells[0,0], &rcellno[0])
+            self._msd.ncell, dtype='int32')
+        sc_mesh_build_rcells(self._msd, &rcells[0,0], &rcellno[0])
         # build xadj: cell boundaries.
-        xadj = np.empty(self._mesh.ncell+1, dtype='int32')
+        xadj = np.empty(self._msd.ncell+1, dtype='int32')
         xadj[0] = 0
         xadj[1:] = np.add.accumulate(rcellno)
         # build adjncy: edge/relations.
         cdef cnp.ndarray[int, ndim=1, mode="c"] adjncy = np.empty(
             xadj[-1], dtype='int32')
-        sc_mesh_build_csr(self._mesh, &rcells[0,0], &adjncy[0])
+        sc_mesh_build_csr(self._msd, &rcells[0,0], &adjncy[0])
         return xadj, adjncy
 
 # vim: set fenc=utf8 ft=pyrex ff=unix ai et nu sw=4 ts=4 tw=79:

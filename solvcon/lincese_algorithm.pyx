@@ -52,34 +52,34 @@ cdef class LinceseAlgorithm(Mesh):
         self._alg.time_increment = svr.time_increment
         # arrays.
         cdef cnp.ndarray[double, ndim=2, mode="c"] sol = svr.sol
-        self._alg.sol = &sol[self._mesh.ngstcell,0]
+        self._alg.sol = &sol[self._msd.ngstcell,0]
         cdef cnp.ndarray[double, ndim=2, mode="c"] soln = svr.soln
-        self._alg.soln = &soln[self._mesh.ngstcell,0]
+        self._alg.soln = &soln[self._msd.ngstcell,0]
         cdef cnp.ndarray[double, ndim=3, mode="c"] dsol = svr.dsol
-        self._alg.dsol = &dsol[self._mesh.ngstcell,0,0]
+        self._alg.dsol = &dsol[self._msd.ngstcell,0,0]
         cdef cnp.ndarray[double, ndim=3, mode="c"] dsoln = svr.dsoln
-        self._alg.dsoln = &dsoln[self._mesh.ngstcell,0,0]
+        self._alg.dsoln = &dsoln[self._msd.ngstcell,0,0]
         cdef cnp.ndarray[double, ndim=3, mode="c"] cecnd = svr.cecnd
-        self._alg.cecnd = &cecnd[self._mesh.ngstcell,0,0]
+        self._alg.cecnd = &cecnd[self._msd.ngstcell,0,0]
         cdef cnp.ndarray[double, ndim=2, mode="c"] cevol = svr.cevol
-        self._alg.cevol = &cevol[self._mesh.ngstcell,0]
+        self._alg.cevol = &cevol[self._msd.ngstcell,0]
 
     def calc_solt(self):
-        if self._mesh.ndim == 3:
-            sc_lincese_algorithm_calc_solt_3d(self._mesh, self._alg)
+        if self._msd.ndim == 3:
+            sc_lincese_algorithm_calc_solt_3d(self._msd, self._alg)
         else:
-            sc_lincese_algorithm_calc_solt_2d(self._mesh, self._alg)
+            sc_lincese_algorithm_calc_solt_2d(self._msd, self._alg)
 
     def calc_soln(self):
-        if self._mesh.ndim == 3:
-            sc_lincese_algorithm_calc_soln_3d(self._mesh, self._alg)
+        if self._msd.ndim == 3:
+            sc_lincese_algorithm_calc_soln_3d(self._msd, self._alg)
         else:
-            sc_lincese_algorithm_calc_soln_2d(self._mesh, self._alg)
+            sc_lincese_algorithm_calc_soln_2d(self._msd, self._alg)
 
     def calc_dsoln(self):
-        if self._mesh.ndim == 3:
-            sc_lincese_algorithm_calc_dsoln_3d(self._mesh, self._alg)
+        if self._msd.ndim == 3:
+            sc_lincese_algorithm_calc_dsoln_3d(self._msd, self._alg)
         else:
-            sc_lincese_algorithm_calc_dsoln_2d(self._mesh, self._alg)
+            sc_lincese_algorithm_calc_dsoln_2d(self._msd, self._alg)
 
 # vim: set fenc=utf8 ft=pyrex ff=unix ai et sw=4 ts=4 tw=79:
