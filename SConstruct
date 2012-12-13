@@ -53,6 +53,8 @@ env.Tool('sphinx')
 env.Tool('scons_epydoc')
 # allow using alternative command for CC.
 env.Replace(CC=os.environ.get('CC', env['CC']))
+# SCOTCH.
+env.Append(LIBS=['scotchmetis', 'scotch', 'scotcherr', 'scotcherrexit'])
 # Intel C runtime library.
 if GetOption('ctool') == 'intelc':
     env.Append(LIBS='irc_s')
@@ -80,6 +82,8 @@ for path in [GetOption('pythonpath'), np.get_include()]:
     if path not in env['CPPPATH']:
         env.Append(CPPPATH=[path])
 # library paths.
+if 'SCROOT' in os.environ:
+    env.Append(LIBPATH=[os.environ['SCROOT']+'/lib'])
 env.Append(LIBPATH=[GetOption('libdir')])
 # CUDA.
 env.Tool('cuda')

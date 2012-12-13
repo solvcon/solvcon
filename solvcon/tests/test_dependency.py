@@ -19,7 +19,3 @@ class TestClibrary(TestCase):
         from .. import dependency as dep
         self.assertTrue(isinstance(dep._clib_solvcon_d, CDLL))
         self.assertTrue(isinstance(dep._clib_solvcon_s, CDLL))
-    def test_metis(self):
-        from ctypes import CDLL
-        from .. import dependency as dep
-        self.assertTrue(isinstance(dep._clib_metis, CDLL))

@@ -17,6 +17,7 @@
 export SCROOT?=$(HOME)/opt/scruntime
 export SCBIN=$(SCROOT)/bin
 export SCLIB=$(SCROOT)/lib
+export SCINC=$(SCROOT)/include
 export SCETC=$(SCROOT)/etc
 export TMPDL=downloaded/
 export TMPBLD=build/
@@ -51,7 +52,7 @@ $(SCETC)/cmake-2.8.5:
 ################################################################################
 
 basiclib: $(SCETC)/scvars.sh \
-	$(SCETC)/blas $(SCETC)/lapack-3.3.1 $(SCETC)/atlas3.8.4
+	$(SCETC)/blas $(SCETC)/lapack-3.3.1
 
 $(SCETC)/blas:
 	./build-blas.sh blas

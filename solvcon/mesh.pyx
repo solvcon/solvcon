@@ -26,6 +26,10 @@ cdef extern:
     int sc_mesh_build_rcells(sc_mesh_t *msd, int *rcells, int *rcellno)
     int sc_mesh_build_csr(sc_mesh_t *msd, int *rcells, int *adjncy)
 
+    void METIS_PartGraphKway( int *n, int *xadj, int *adjncy, int *vwgt,
+        int *adjwgt, int *wgtflag, int *numflag, int *nparts, int *options,
+        int *edgecut, int *part)
+
 cdef extern from "stdlib.h":
     void* malloc(size_t size)
 
@@ -202,5 +206,49 @@ cdef class Mesh:
             xadj[-1], dtype='int32')
         sc_mesh_build_csr(self._mesh, &rcells[0,0], &adjncy[0])
         return xadj, adjncy
+
+    def partition(self, int npart, vwgtarr=None):
+        # obtain CSR.
+        ret = self.create_csr()
+        cdef cnp.ndarray[int, ndim=1, mode="c"] xadj = ret[0]
+        cdef cnp.ndarray[int, ndim=1, mode="c"] adjncy = ret[1]
+        # weighting.
+        if vwgtarr is None:
+            vwgtarr = np.empty(1, dtype='int32')
+        cdef cnp.ndarray[int, ndim=1, mode="c"] vwgt = vwgtarr
+        cdef int wgtflag
+        if len(vwgtarr) == self._mesh.ncell:
+            wgtflag = 2
+        else:
+            vwgt.fill(0)
+            wgtflag = 0
+        # FIXME: not consistent when len(vwgt) == ncell.
+        cdef cnp.ndarray[int, ndim=1, mode="c"] adjwgt = np.empty(
+            1, dtype='int32')
+        adjwgt.fill(0)
+        # options.
+        cdef cnp.ndarray[int, ndim=1, mode="c"] options = np.empty(
+            5, dtype='int32')
+        options.fill(0)
+        # do the partition.
+        cdef cnp.ndarray[int, ndim=1, mode="c"] part = np.empty(
+            self._mesh.ncell, dtype='int32')
+        cdef int numflag = 0
+        cdef int edgecut
+        METIS_PartGraphKway(
+            &self._mesh.ncell,
+            &xadj[0],
+            &adjncy[0],
+            &vwgt[0],
+            &adjwgt[0],
+            &wgtflag,
+            &numflag,
+            &npart,
+            &options[0],
+            # output.
+            &edgecut,
+            &part[0],
+        )
+        return edgecut, part
 
 # vim: set fenc=utf8 ft=pyrex ff=unix ai et nu sw=4 ts=4 tw=79:

@@ -105,16 +105,3 @@ def _clib_solvcon_of(dtype):
         return _clib_solvcon_d
     else:
         raise TypeError
-
-# use SCOTCH-5.1 whenever possible.
-_clib_metis = None
-from ctypes import CDLL
-for name in 'scotchmetis-5.1', 'scotchmetis':
-    try:
-        _clib_metis = CDLL('lib%s.so'%name)
-    except OSError:
-        pass
-    if _clib_metis is not None:
-        break
-del CDLL
-_clib_metis = getcdll('metis') if _clib_metis is None else _clib_metis

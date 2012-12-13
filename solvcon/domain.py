@@ -1,6 +1,6 @@
 # -*- coding: UTF-8 -*-
 #
-# Copyright (C) 2008-2011 Yung-Yu Chen <yyc@solvcon.net>.
+# Copyright (C) 2008-2012 Yung-Yu Chen <yyc@solvcon.net>.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -158,7 +158,8 @@ class Collective(Domain, list):
         from numpy import empty, arange, unique, zeros
         blk = self.blk
         # call partitioner.
-        edgecut, part = Partitioner(blk)(nblk)
+        #edgecut, part = Partitioner(blk)(nblk)
+        edgecut, part = blk.partition(nblk)
         self.edgecut = edgecut
         self.part = part
         # numbering.

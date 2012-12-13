@@ -33,6 +33,12 @@ tar xfz ../$TMPDL/$PKGNAME.tar.gz
 cd $PKGNAME/src
 cp ../../../scotch_Makefile.inc Makefile.inc
 make > make.log 2>&1
-gcc -shared -o $SCLIB/$SCOTCHSO -L../lib -lscotch libscotchmetis/*.o
+cd ..
+
+# install.
+cp lib/* $SCLIB
+cp bin/* $SCBIN
+cp include/* $SCINC
+#gcc -shared -o $SCLIB/$SCOTCHSO -L../lib -lscotch libscotchmetis/*.o
 
 # vim: set ai et nu:

@@ -589,3 +589,7 @@ class Block(object):
         clgrp = self.shclgrp[ngstcell:]
         clgrp[:] = self.clgrp[:]
         self.clgrp = clgrp
+
+    def partition(self, npart):
+        msh = self.create_msh()
+        return msh.partition(npart)

@@ -39,4 +39,7 @@ sed -e "s/OPTS     \= -O2/OPTS     \=\ -O2\ -fPIC/g" \
 cd SRC
 make -j $NP > ../make.log 2>&1
 
+# install.
+cp ../lapack_LINUX.a $SCLIB/liblapack.a
+
 # vim: set ai et nu:
