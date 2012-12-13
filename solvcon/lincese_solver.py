@@ -69,26 +69,34 @@ class LinceseSolver(MeshSolver):
     ###########################################################################
     # marching algorithm.
     ###########################################################################
-    #@LinceseSolver.register_method # XXX: shouldn't it be LinceseSolver?
+    MMNAMES = MeshSolver.new_method_list()
+
+    @MMNAMES.register
     def update(self, worker=None):
         self.sol[:,:] = self.soln[:,:]
         self.dsol[:,:,:] = self.dsoln[:,:,:]
 
+    @MMNAMES.register
     def calcsolt(self, worker=None):
         self.create_alg().calc_solt()
 
+    @MMNAMES.register
     def calcsoln(self, worker=None):
         self.create_alg().calc_soln()
 
+    @MMNAMES.register
     def ibcsoln(self, worker=None):
         if worker: self.exchangeibc('soln', worker=worker)
 
+    @MMNAMES.register
     def calccfl(self, worker=None):
         self.marchret = -2.0
 
+    @MMNAMES.register
     def calcdsoln(self, worker=None):
         self.create_alg().calc_dsoln()
 
+    @MMNAMES.register
     def ibcdsoln(self, worker=None):
         if worker: self.exchangeibc('dsoln', worker=worker)
 

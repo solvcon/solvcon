@@ -107,7 +107,9 @@ class FakeSolver(MeshSolver):
     ###########################################################################
     # marching algorithm.
     ###########################################################################
-    @MeshSolver.register_method # TODO: should use FakeSolver.
+    MMNAMES = MeshSolver.new_method_list()
+
+    @MMNAMES.register
     def update(self, worker=None):
         """
         Update solution arrays.
@@ -134,23 +136,23 @@ class FakeSolver(MeshSolver):
         self.sol[:,:] = self.soln[:,:]
         self.dsol[:,:,:] = self.dsoln[:,:,:]
 
-    @MeshSolver.register_method
+    @MMNAMES.register
     def calcsoln(self, worker=None):
         self.create_alg().calc_soln()
 
-    @MeshSolver.register_method
+    @MMNAMES.register
     def ibcsoln(self, worker=None):
         if worker: self.exchangeibc('soln', worker=worker)
 
-    @MeshSolver.register_method
+    @MMNAMES.register
     def calccfl(self, worker=None):
         self.marchret = -2.0
 
-    @MeshSolver.register_method
+    @MMNAMES.register
     def calcdsoln(self, worker=None):
         self.create_alg().calc_dsoln()
 
-    @MeshSolver.register_method
+    @MMNAMES.register
     def ibcdsoln(self, worker=None):
         if worker: self.exchangeibc('dsoln', worker=worker)
 

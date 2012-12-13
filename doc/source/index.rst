@@ -56,7 +56,8 @@ Documentation
 
    install
    tutorial
-   modules
+   solvers
+   system_modules
    history
 
 Resources
