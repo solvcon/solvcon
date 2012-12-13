@@ -34,4 +34,7 @@ cp ../../blas.make.inc make.inc
 make -j $NP > make.log 2>&1
 cp libblas.a $SCLIB/
 
+# install.
+cp libblas.a $SCLIB
+
 # vim: set ai et nu:

@@ -53,6 +53,8 @@ env.Tool('sphinx')
 env.Tool('scons_epydoc')
 # allow using alternative command for CC.
 env.Replace(CC=os.environ.get('CC', env['CC']))
+# SCOTCH.
+env.Append(LIBS=['scotchmetis', 'scotch', 'scotcherr', 'scotcherrexit'])
 # Intel C runtime library.
 if GetOption('ctool') == 'intelc':
     env.Append(LIBS='irc_s')

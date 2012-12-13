@@ -40,4 +40,7 @@ cd SRC
 make -j $NP > ../make.log 2>&1
 cp ../lapack_LINUX.a $SCLIB/liblapack.a
 
+# install.
+cp ../lapack_LINUX.a $SCLIB/liblapack.a
+
 # vim: set ai et nu:

@@ -34,7 +34,7 @@ $(SCETC)/scgccvars.sh:
 
 gcc: $(SCETC)/scgccvars.sh \
 	$(SCETC)/gmp-5.0.2 $(SCETC)/mpfr-3.0.1 $(SCETC)/mpc-0.9 \
-	$(SCETC)/gcc-4.6.1
+	$(SCETC)/gcc-4.7.2
 
 $(SCETC)/gmp-5.0.2:
 	./build-gmp.sh gmp-5.0.2
@@ -48,9 +48,9 @@ $(SCETC)/mpc-0.9: $(SCETC)/gmp-5.0.2 $(SCETC)/mpfr-3.0.1
 	./build-mpc.sh mpc-0.9
 	touch $(SCETC)/mpc-0.9
 
-$(SCETC)/gcc-4.6.1: $(SCETC)/gmp-5.0.2 $(SCETC)/mpfr-3.0.1 $(SCETC)/mpc-0.9
-	./build-gcc.sh gcc-4.6.1
-	touch $(SCETC)/gcc-4.6.1
+$(SCETC)/gcc-4.7.2: $(SCETC)/gmp-5.0.2 $(SCETC)/mpfr-3.0.1 $(SCETC)/mpc-0.9
+	./build-gcc.sh gcc-4.7.2
+	touch $(SCETC)/gcc-4.7.2
 
 ################################################################################
 # End gcc

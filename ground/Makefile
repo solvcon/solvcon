@@ -17,6 +17,7 @@
 export SCROOT?=$(HOME)/opt/scruntime
 export SCBIN=$(SCROOT)/bin
 export SCLIB=$(SCROOT)/lib
+export SCINC=$(SCROOT)/include
 export SCETC=$(SCROOT)/etc
 export TMPDL=downloaded/
 export TMPBLD=build/

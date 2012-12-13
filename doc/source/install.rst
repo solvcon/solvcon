@@ -23,8 +23,8 @@ SOLVCON depends on the following packages:
 The following command will install these packages on Debian/Ubunbu::
 
   sudo apt-get install build-essential gcc scons liblapack-pic libnetcdf-dev
-  libnetcdf6 netcdf-bin libscotch-5.1 python2.7 python2.7-dev python-numpy
-  python-nose gmsh python-vtk
+  libnetcdf6 netcdf-bin libscotch-dev libscotchmetis-dev libscotch-5.1
+  python2.7 python2.7-dev python-numpy python-nose gmsh python-vtk
 
 Note: For Debian Squeeze (6.0), you need also ``apt-get install
 python-profiler`` to install the built-in Python profiler.
