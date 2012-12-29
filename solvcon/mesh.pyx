@@ -217,7 +217,7 @@ cdef class Mesh:
             vwgtarr = np.empty(1, dtype='int32')
         cdef cnp.ndarray[int, ndim=1, mode="c"] vwgt = vwgtarr
         cdef int wgtflag
-        if len(vwgtarr) == self._mesh.ncell:
+        if len(vwgtarr) == self._msd.ncell:
             wgtflag = 2
         else:
             vwgt.fill(0)
@@ -232,11 +232,11 @@ cdef class Mesh:
         options.fill(0)
         # do the partition.
         cdef cnp.ndarray[int, ndim=1, mode="c"] part = np.empty(
-            self._mesh.ncell, dtype='int32')
+            self._msd.ncell, dtype='int32')
         cdef int numflag = 0
         cdef int edgecut
         METIS_PartGraphKway(
-            &self._mesh.ncell,
+            &self._msd.ncell,
             &xadj[0],
             &adjncy[0],
             &vwgt[0],
