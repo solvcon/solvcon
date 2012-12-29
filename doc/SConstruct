@@ -7,7 +7,7 @@ env = Environment(ENV=os.environ, LATEXFLAGS='--src-specials',
     ],
 )
 
-EPSDIR = 'source/_static'
+EPSDIR = 'source/_static_generated'
 allfigs = list()
 for dname in ['latexschematic']:
     pstricks = env.Pstricks(Glob('%s/*.tex'%dname), OUTDIR=EPSDIR)
