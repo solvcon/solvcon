@@ -17,62 +17,24 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 """
-A fake solver that uses :py:mod:`solvcon.fake_algorithm`.
+A two-/three-dimensional, second order CESE solver for generic linear PDEs. It
+uses :py:mod:`solvcon.lincese_algorithm`.
 """
 
 from .mesh_solver import MeshSolver
 
-class FakeSolver(MeshSolver):
+class LinceseSolver(MeshSolver):
     """
-    .. inheritance-diagram:: FakeSolver
-
-    A fake solver that calculates trivial things to demonstrate the use of
-    :py:class:`.mesh_solver.MeshSolver`.
-
-    >>> # build a block before creating a solver.
-    >>> from .testing import create_trivial_2d_blk
-    >>> blk = create_trivial_2d_blk()
-    >>> # create a solver.
-    >>> svr = FakeSolver(blk, neq=1)
-    >>> # initialize the solver.
-    >>> svr.sol.fill(0)
-    >>> svr.soln.fill(0)
-    >>> svr.dsol.fill(0)
-    >>> svr.dsoln.fill(0)
-    >>> # run the solver.
-    >>> ret = svr.march(0.0, 0.01, 100)
-    >>> # calculate and compare the results in soln.
-    >>> from numpy import empty_like
-    >>> soln = svr.soln[svr.blk.ngstcell:,:]
-    >>> clvol = empty_like(soln)
-    >>> clvol.fill(0)
-    >>> for iistep in range(200):
-    ...     clvol[:,0] += svr.blk.clvol*svr.time_increment/2
-    >>> (soln==clvol).all()
-    True
-    >>> # calculate and compare the results in dsoln.
-    >>> dsoln = svr.dsoln[svr.blk.ngstcell:,0,:]
-    >>> clcnd = empty_like(dsoln)
-    >>> clcnd.fill(0)
-    >>> for iistep in range(200):
-    ...     clcnd += svr.blk.clcnd*svr.time_increment/2
-    >>> # compare.
-    >>> (dsoln==clcnd).all()
-    True
+    .. inheritance-diagram:: LinceseSolver
     """
 
     _interface_init_ = ['cecnd', 'cevol']
 
     def __init__(self, blk, *args, **kw):
-        """
-        >>> from .testing import create_trivial_2d_blk
-        >>> blk = create_trivial_2d_blk()
-        >>> svr = FakeSolver(blk, neq=1)
-        """
         from numpy import empty
         # meta data.
         self.neq = kw.pop('neq')
-        super(FakeSolver, self).__init__(blk, *args, **kw)
+        super(LinceseSolver, self).__init__(blk, *args, **kw)
         # arrays.
         ndim = blk.ndim
         ncell = blk.ncell
@@ -91,15 +53,15 @@ class FakeSolver(MeshSolver):
 
     def create_alg(self):
         """
-        Create a :py:class:`.fake_algorithm.FakeAlgorithm` object.
+        Create a :py:class:`.lincese_algorithm.LinceseAlgorithm` object.
 
         >>> from .testing import create_trivial_2d_blk
         >>> blk = create_trivial_2d_blk()
-        >>> svr = FakeSolver(blk, neq=1)
+        >>> svr = LinceseSolver(blk, neq=1)
         >>> alg = svr.create_alg()
         """
-        from .fake_algorithm import FakeAlgorithm
-        alg = FakeAlgorithm()
+        from .lincese_algorithm import LinceseAlgorithm
+        alg = LinceseAlgorithm()
         alg.setup_mesh(self.blk)
         alg.setup_algorithm(self)
         return alg
@@ -111,30 +73,12 @@ class FakeSolver(MeshSolver):
 
     @MMNAMES.register
     def update(self, worker=None):
-        """
-        Update solution arrays.
-
-        >>> from .testing import create_trivial_2d_blk
-        >>> blk = create_trivial_2d_blk()
-        >>> svr = FakeSolver(blk, neq=1)
-        >>> # initialize with different solution arrays.
-        >>> svr.sol.fill(0)
-        >>> svr.soln.fill(2)
-        >>> svr.dsol.fill(0)
-        >>> svr.dsoln.fill(2)
-        >>> (svr.sol != svr.soln).all()
-        True
-        >>> (svr.dsol != svr.dsoln).all()
-        True
-        >>> # update and then solution arrays become the same.
-        >>> svr.update()
-        >>> (svr.sol == svr.soln).all()
-        True
-        >>> (svr.dsol == svr.dsoln).all()
-        True
-        """
         self.sol[:,:] = self.soln[:,:]
         self.dsol[:,:,:] = self.dsoln[:,:,:]
+
+    @MMNAMES.register
+    def calcsolt(self, worker=None):
+        self.create_alg().calc_solt()
 
     @MMNAMES.register
     def calcsoln(self, worker=None):

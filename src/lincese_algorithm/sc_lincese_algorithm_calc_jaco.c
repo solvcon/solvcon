@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2012 Yung-Yu Chen <yyc@solvcon.net>.
+ * Copyright (C) 2010-2012 Yung-Yu Chen <yyc@solvcon.net>.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,23 +19,15 @@
 #include <Python.h>
 
 #include "mesh.h"
-#include "fake_algorithm.h"
+#include "lincese_algorithm.h"
 
-int sc_fake_algorithm_calc_soln(sc_mesh_t *msd, sc_fake_algorithm_t *alg) {
-    double *psol, *psoln, *pclvol;
-    int icl, ieq;
-    psol = alg->sol;
-    psoln = alg->soln;
-    pclvol = msd->clvol;
-    for (icl=0; icl<msd->ncell; icl++) {
-        for (ieq=0; ieq<alg->neq; ieq++) {
-            psoln[ieq] = psol[ieq] + pclvol[0] * alg->time_increment / 2.0;
-        };
-        psol += alg->neq;
-        psoln += alg->neq;
-        pclvol += 1;
-    };
-    return 0;
-};
+#define NEQ alg->neq
+
+#undef NDIM
+#define NDIM 2
+#include "sc_lincese_algorithm_calc_jaco.c_body"
+#undef NDIM
+#define NDIM 3
+#include "sc_lincese_algorithm_calc_jaco.c_body"
 
 // vim: set ts=4 et:

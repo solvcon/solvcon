@@ -16,41 +16,13 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include <Python.h>
-
-#include "mesh.h"
-#include "lincese_algorithm.h"
-
-#define NDIM 3
-#define NEQ exd->neq
-#define MFGE 8
-#define ALMOST_ZERO 1.e-200
-
-// Two-/three-dimensional GGE definition (in c-tau scheme).
-const int ggefcs[31][3] = {
-    // quadrilaterals.
-    {1, 2, -1}, {2, 3, -1}, {3, 4, -1}, {4, 1, -1},
-    // triangles.
-    {1, 2, -1}, {2, 3, -1}, {3, 1, -1},
-    // hexahedra.
-    {2, 3, 5}, {6, 3, 2}, {4, 3, 6}, {5, 3, 4},
-    {5, 1, 2}, {2, 1, 6}, {6, 1, 4}, {4, 1, 5},
-    // tetrahedra.
-    {3, 1, 2}, {2, 1, 4}, {4, 1, 3}, {2, 4, 3},
-    // prisms.
-    {5, 2, 4}, {3, 2, 5}, {4, 2, 3},
-    {4, 1, 5}, {5, 1, 3}, {3, 1, 4},
-    // pyramids
-    {1, 5, 2}, {2, 5, 3}, {3, 5, 4}, {4, 5, 1},
-    {1, 3, 4}, {3, 1, 2},
-};
-const int ggerng[8][2] = {
-    {-1, -1}, {-2, -1}, {0, 4}, {4, 7},
-    {7, 15}, {15, 19}, {19, 25}, {25, 31},
-    //{0, 8}, {8, 12}, {12, 18}, {18, 24},
-};
-
-int sc_lincese_calc_dsoln_w3(sc_mesh_t *msd, sc_lincese_algorithm_t *exd) {
+void
+#if NDIM == 3
+sc_lincese_algorithm_calc_dsoln_3d
+#else
+sc_lincese_algorithm_calc_dsoln_2d
+#endif
+        (sc_mesh_t *msd, sc_lincese_algorithm_t *alg) {
     int clnfc;
     // pointers.
     int *pcltpn;
@@ -74,7 +46,7 @@ int sc_lincese_calc_dsoln_w3(sc_mesh_t *msd, sc_lincese_algorithm_t *exd) {
     // interators.
     int icl, ifl, ifl1, ifc, jcl, ieq, ivx;
     int ig0, ig1, ig, ifg;
-    hdt = exd->time_increment * 0.5;
+    hdt = alg->time_increment * 0.5;
     #pragma omp parallel for private(clnfc, pcltpn, pclfcs, \
     pfccls, pcecnd, picecnd, pjcecnd, \
     pisoln, pjsol, pjsoln, pdsol, pdsoln, pjsolt, \
@@ -92,12 +64,12 @@ int sc_lincese_calc_dsoln_w3(sc_mesh_t *msd, sc_lincese_algorithm_t *exd) {
         pclfcs = msd->clfcs + icl*(CLMFC+1);
 
         // determine sigma0 and tau.
-        sgm0 = exd->sigma0 / fabs(exd->cfl[icl]);   // 3 flops.
-        tau = exd->taumin + fabs(exd->cfl[icl]) * exd->tauscale;
+        sgm0 = alg->sigma0 / fabs(alg->cfl[icl]);   // 3 flops.
+        tau = alg->taumin + fabs(alg->cfl[icl]) * alg->tauscale;
 
         // calculate the vertices of GGE with the tau parameter.
         pclfcs = msd->clfcs + icl*(CLMFC+1);
-        picecnd = exd->cecnd + icl*(CLMFC+1)*NDIM;
+        picecnd = alg->cecnd + icl*(CLMFC+1)*NDIM;
         pcecnd = picecnd;
         clnfc = pclfcs[0];
         for (ifl=1; ifl<=clnfc; ifl++) {    // clnfc*(16+8) flops.
@@ -105,21 +77,21 @@ int sc_lincese_calc_dsoln_w3(sc_mesh_t *msd, sc_lincese_algorithm_t *exd) {
             ifc = pclfcs[ifl];
             pfccls = msd->fccls + ifc*FCREL;
             jcl = pfccls[0] + pfccls[1] - icl;
-            pjcecnd = exd->cecnd + jcl*(CLMFC+1)*NDIM;
+            pjcecnd = alg->cecnd + jcl*(CLMFC+1)*NDIM;
             pcecnd += NDIM;
             // location of P/M points and displacement to neighboring solution
             // points.
             sft[0] = (picecnd[0] + pjcecnd[0])/2;
-            sft[0] += exd->cnbfac*(pcecnd[0] - sft[0]);
+            sft[0] += alg->cnbfac*(pcecnd[0] - sft[0]);
             xps[ifl1][0] = (pjcecnd[0] - sft[0])*tau + sft[0];
             dsp[ifl1][0] = xps[ifl1][0] - pjcecnd[0];
             sft[1] = (picecnd[1] + pjcecnd[1])/2;
-            sft[1] += exd->cnbfac*(pcecnd[1] - sft[1]);
+            sft[1] += alg->cnbfac*(pcecnd[1] - sft[1]);
             xps[ifl1][1] = (pjcecnd[1] - sft[1])*tau + sft[1];
             dsp[ifl1][1] = xps[ifl1][1] - pjcecnd[1];
 #if NDIM == 3
             sft[2] = (picecnd[2] + pjcecnd[2])/2;
-            sft[2] += exd->cnbfac*(pcecnd[2] - sft[2]);
+            sft[2] += alg->cnbfac*(pcecnd[2] - sft[2]);
             xps[ifl1][2] = (pjcecnd[2] - sft[2])*tau + sft[2];
             dsp[ifl1][2] = xps[ifl1][2] - pjcecnd[2];
 #endif
@@ -192,11 +164,11 @@ int sc_lincese_calc_dsoln_w3(sc_mesh_t *msd, sc_lincese_algorithm_t *exd) {
         cndge[2] /= voc;
 #endif
         // calculate GGE shift.
-        pcecnd = exd->cecnd + icl*(CLMFC+1)*NDIM;
-        sft[0] = exd->sftfac * (pcecnd[0] - cndge[0]);  // 4+2 flops.
-        sft[1] = exd->sftfac * (pcecnd[1] - cndge[1]);
+        pcecnd = alg->cecnd + icl*(CLMFC+1)*NDIM;
+        sft[0] = alg->sftfac * (pcecnd[0] - cndge[0]);  // 4+2 flops.
+        sft[1] = alg->sftfac * (pcecnd[1] - cndge[1]);
 #if NDIM == 3
-        sft[2] = exd->sftfac * (pcecnd[2] - cndge[2]);
+        sft[2] = alg->sftfac * (pcecnd[2] - cndge[2]);
 #endif
         for (ifl=0; ifl<clnfc; ifl++) { // clnfc*(2+1) flops.
             dsp[ifl][0] += sft[0];
@@ -210,7 +182,7 @@ int sc_lincese_calc_dsoln_w3(sc_mesh_t *msd, sc_lincese_algorithm_t *exd) {
         for (ieq=0; ieq<NEQ; ieq++) {
             dla[ieq] = 0;
         };
-        pisoln = exd->soln + icl*NEQ;
+        pisoln = alg->soln + icl*NEQ;
         for (ig=ig0; ig<ig1; ig++) {
             ifg = ig-ig0;   // MFGE*1 flops
             for (ivx=0; ivx<NDIM; ivx++) {
@@ -226,13 +198,13 @@ int sc_lincese_calc_dsoln_w3(sc_mesh_t *msd, sc_lincese_algorithm_t *exd) {
                 dst[ivx][2] = xps[ifl][2] - cndge[2];
 #endif
                 // solution difference.
-                pjsol = exd->sol + jcl*NEQ;
-                pjsoln = exd->soln + jcl*NEQ;
-				pjsolt = exd->solt + jcl*NEQ;
-                pdsol = exd->dsol + jcl*NEQ*NDIM;
+                pjsol = alg->sol + jcl*NEQ;
+                pjsoln = alg->soln + jcl*NEQ;
+				pjsolt = alg->solt + jcl*NEQ;
+                pdsol = alg->dsol + jcl*NEQ*NDIM;
                 for (ieq=0; ieq<NEQ; ieq++) {   // MFGE*NDIM*NEQ*(9+2) flops.
                     voc = pjsol[ieq] + hdt*pjsolt[ieq] - pjsoln[ieq];
-                    voc *= exd->taylor;
+                    voc *= alg->taylor;
                     udf[ieq][ivx] = pjsoln[ieq] + voc - pisoln[ieq];
                     udf[ieq][ivx] += dsp[ifl][0]*pdsol[0];
                     udf[ieq][ivx] += dsp[ifl][1]*pdsol[1];
@@ -288,7 +260,7 @@ int sc_lincese_calc_dsoln_w3(sc_mesh_t *msd, sc_lincese_algorithm_t *exd) {
 #if NDIM == 3
                 wgt += grd2*grd2;
 #endif
-                wgt = 1.0 / pow(sqrt(wgt+ALMOST_ZERO), exd->alpha);
+                wgt = 1.0 / pow(sqrt(wgt+ALMOST_ZERO), alg->alpha);
                 // store and accumulate weighting function.
                 dla[ieq] += wgt;
                 dlt[ifg][ieq] = wgt;
@@ -319,7 +291,7 @@ int sc_lincese_calc_dsoln_w3(sc_mesh_t *msd, sc_lincese_algorithm_t *exd) {
         };
 
         // weight and update gradient.
-        pdsoln = exd->dsoln + icl*NEQ*NDIM;
+        pdsoln = alg->dsoln + icl*NEQ*NDIM;
         for (ieq=0; ieq<NEQ; ieq++) {
             pdsoln[0] = pdsoln[1] = 0.0;
 #if NDIM == 3
@@ -329,7 +301,7 @@ int sc_lincese_calc_dsoln_w3(sc_mesh_t *msd, sc_lincese_algorithm_t *exd) {
         };
         for (ig=ig0; ig<ig1; ig++) {    // MFGE*NEQ*(6+2) flops.
             ifg = ig-ig0;
-            pdsoln = exd->dsoln + icl*NEQ*NDIM;
+            pdsoln = alg->dsoln + icl*NEQ*NDIM;
             for (ieq=0; ieq<NEQ; ieq++) {
                 wgt = ofg1 + dla[ieq]*dlt[ifg][ieq];
                 pdsoln[0] += wgt*gfd[ifg][ieq][0];
@@ -341,7 +313,6 @@ int sc_lincese_calc_dsoln_w3(sc_mesh_t *msd, sc_lincese_algorithm_t *exd) {
             };
         };
     };
-    return 0;
 };
 
-// vim: set ts=4 et:
+// vim: set ft=c ts=4 et:

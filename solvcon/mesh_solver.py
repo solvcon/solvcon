@@ -22,6 +22,11 @@ Solvers that base on :py:class:`.mesh.Mesh`.
 
 from .case import CaseInfo
 
+class _MethodList(list):
+    def register(self, func):
+        self.append(func.__name__)
+        return func
+
 class MeshSolver(object):
     """
     :cvar MMNAMES: Names of the methods to be called in :py:meth:`march`.
@@ -29,8 +34,8 @@ class MeshSolver(object):
 
     Base class for all solvers that base on :py:class:`.mesh.Mesh`.
     """
+    MMNAMES = None
     MESG_FILENAME_DEFAULT = 'solvcon.solver.log'
-    MMNAMES = []
 
     _interface_init_ = []
     _solution_array_ = []
@@ -113,16 +118,9 @@ class MeshSolver(object):
             dprefix = ''
         self.mesg = Printer(dfn, prefix=dprefix, override=True)
 
-    @classmethod
-    def register_method(cls, func):
-        """
-        :param func: The function to be recorded.
-        :type func: bound method
-
-        Record the name of the input function to :py:attr:`MMNAMES`.
-        """
-        cls.MMNAMES.append(func.__name__)
-        return func
+    @staticmethod
+    def new_method_list():
+        return _MethodList()
 
     def provide(self):
         self.runanchors('provide')

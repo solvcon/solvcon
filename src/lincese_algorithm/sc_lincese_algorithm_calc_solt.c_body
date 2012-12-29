@@ -16,15 +16,13 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include <Python.h>
-
-#include "mesh.h"
-#include "lincese_algorithm.h"
-
-#define NDIM msd->ndim
-#define NEQ exd->neq
-
-void sc_lincese_calc_solt(sc_mesh_t *msd, sc_lincese_algorithm_t *exd) {
+void
+#if NDIM == 3
+sc_lincese_algorithm_calc_solt_3d
+#else
+sc_lincese_algorithm_calc_solt_2d
+#endif
+        (sc_mesh_t *msd, sc_lincese_algorithm_t *alg) {
     // pointers.
     double *psolt, *pidsol, *pdsol;
     // scalars.
@@ -37,9 +35,13 @@ void sc_lincese_calc_solt(sc_mesh_t *msd, sc_lincese_algorithm_t *exd) {
     #pragma omp parallel for \
     private(psolt, pidsol, pdsol, val, jacos, fcn, ieq, jeq, idm)
     for (icl=-msd->ngstcell; icl<msd->ncell; icl++) {
-        psolt = exd->solt + icl*NEQ;
-        pidsol = exd->dsol + icl*NEQ*NDIM;
-        exd->jacofunc(exd, icl, (double *)fcn, (double *)jacos);
+        psolt = alg->solt + icl*NEQ;
+        pidsol = alg->dsol + icl*NEQ*NDIM;
+#if NDIM == 3
+        sc_lincese_algorithm_calc_jaco_3d(alg, icl, fcn, jacos);
+#else
+        sc_lincese_algorithm_calc_jaco_2d(alg, icl, fcn, jacos);
+#endif
         for (ieq=0; ieq<NEQ; ieq++) {
             psolt[ieq] = 0.0;
             for (idm=0; idm<NDIM; idm++) {
@@ -55,4 +57,4 @@ void sc_lincese_calc_solt(sc_mesh_t *msd, sc_lincese_algorithm_t *exd) {
     };
 };
 
-// vim: set ts=4 et:
+// vim: set ft=c ts=4 et:
