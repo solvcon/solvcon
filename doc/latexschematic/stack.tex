@@ -1,0 +1,118 @@
+% coorType 1 only works for pst-3dplot version 1.83+.
+\psset{unit=0.5 in}
+%\psset{coorType=2,Alpha=135}
+\begin{pspicture}(-2.1,-0.1)(9.4,6.1)
+
+\newcommand{\cmod}{CornflowerBlue}
+%\newcommand{\ccat}{MidnightBlue}
+\newcommand{\ccat}{BrickRed}
+%\newcommand{\ccat}{NavyBlue}
+\newcommand{\csubs}{BrickRed}
+%\newcommand{\cfc}{RedViolet}
+\newcommand{\crel}{BurntOrange}
+
+\psset{linewidth=0.01,fillstyle=solid}
+
+\pcline[linewidth=0.02](-2,0)(8,0)
+\rput[bl](-1.9,0.1){\bfseries foundation}
+
+\pcline(0.1,0.4)(1.9,0.4)
+\rput[c](1,0.25){\color{\ccat}\itshape mesh}
+\psframe[shadow=true,fillcolor=\cmod](0.1,1.6)(1.9,1.9)
+\rput[c](1,1.75){domain}
+\psframe[shadow=true,fillcolor=\cmod](0.1,1.2)(1.9,1.5)
+\rput[c](1,1.35){block}
+
+\pcline(2.1,0.7)(3.9,0.7)
+\rput[c](3,0.55){\color{\ccat}\itshape distributed}
+\rput[c](3,0.25){\color{\ccat}\itshape parallel}
+\psframe[shadow=true,fillcolor=\cmod](2.1,1.6)(3.9,1.9)
+\rput[c](3,1.75){rpc}
+\psframe[shadow=true,fillcolor=\cmod](2.1,1.2)(3.9,1.5)
+\rput[c](3,1.35){mpy}
+\psframe[shadow=true,fillcolor=\cmod](2.1,0.8)(3.9,1.1)
+\rput[c](3,0.95){connection}
+
+\pcline(4.1,0.7)(5.9,0.7)
+\rput[c](5,0.55){\color{\ccat}\itshape shared}
+\rput[c](5,0.25){\color{\ccat}\itshape parallel}
+\psframe[shadow=true,fillcolor=\cmod](4.1,1.6)(5.9,1.9)
+\rput[c](5,1.75){scuda}
+\psframe[shadow=true,fillcolor=\cmod](4.1,1.2)(5.9,1.5)
+\rput[c](5,1.35){mthread}
+
+\pcline(6.1,0.4)(7.9,0.4)
+\rput[c](7,0.25){\color{\ccat}\itshape utility}
+\psframe[shadow=true,fillcolor=\cmod](6.1,1.6)(7.9,1.9)
+\rput[c](7,1.75){conf}
+\psframe[shadow=true,fillcolor=\cmod](6.1,1.2)(7.9,1.5)
+\rput[c](7,1.35){gendata}
+\psframe[shadow=true,fillcolor=\cmod](6.1,0.8)(7.9,1.1)
+\rput[c](7,0.95){dependency}
+
+\pcline[linewidth=0.02](-2,2)(8,2)
+\rput[bl](-1.9,2.1){\bfseries execution}
+
+\psframe[shadow=true,fillcolor=\cmod](0.6,2.1)(2.4,2.4)
+\rput[c](1.5,2.25){case}
+\psframe[shadow=true,fillcolor=\cmod](0.6,2.9)(2.4,3.2)
+\rput[c](1.5,3.05){hook}
+\pcline[linewidth=0.04,linecolor=\crel]{*-*}(1.5,2.45)(1.5,2.85)
+
+\pcline[linewidth=0.04,linecolor=\crel]{<->}(2.45,2.25)(3.05,2.25)
+
+\psframe[shadow=true,fillcolor=\cmod](3.1,2.1)(4.9,2.4)
+\rput[c](4,2.25){solver}
+\psframe[shadow=true,fillcolor=\cmod](3.1,2.9)(4.9,3.2)
+\rput[c](4,3.05){anchor}
+\psframe[shadow=true,fillcolor=\cmod](5.6,2.1)(7.4,2.4)
+\rput[c](6.5,2.25){boundcond}
+\pcline[linewidth=0.04,linecolor=\crel]{*-*}(4,2.45)(4,2.85)
+\pcline[linewidth=0.04,linecolor=\crel]{*-*}(4.95,2.25)(5.55,2.25)
+
+\pcline[linewidth=0.02](-2,3.3)(8,3.3)
+\rput[bl](-1.9,3.4){\bfseries employment}
+
+\psframe[shadow=true,fillcolor=\cmod](0.1,3.4)(1.9,3.7)
+\rput[c](1,3.55){batch}
+\psframe[shadow=true,fillcolor=\cmod](2.1,3.4)(3.9,3.7)
+\rput[c](3,3.55){io}
+\psframe[shadow=true,fillcolor=\cmod](4.1,3.4)(5.9,3.7)
+\rput[c](5,3.55){visual\_vtk}
+\psframe[shadow=true,fillcolor=\cmod](6.1,3.4)(7.9,3.7)
+\rput[c](7,3.55){command}
+
+\pcline[linewidth=0.02](-2,3.8)(8,3.8)
+\rput[bl](-1.9,3.9){\bfseries calculation}
+
+\psframe[shadow=true,fillcolor=\cmod](0.1,3.9)(1.9,4.2)
+\rput[c](1,4.05){cese}
+\psframe[shadow=true,fillcolor=\cmod](0.1,4.3)(1.9,4.6)
+\rput[c](1,4.45){lincese}
+\psframe[shadow=true,fillcolor=\cmod](0.1,4.7)(1.9,5.0)
+\rput[c](1,4.85){euler}
+\psframe[shadow=true,fillcolor=\cmod](0.1,5.1)(1.9,5.4)
+\rput[c](1,5.25){elaslin}
+
+\psframe[shadow=true,fillcolor=\cmod](2.1,3.9)(3.9,4.2)
+\rput[c](3,4.05){cuse}
+\psframe[shadow=true,fillcolor=\cmod](2.1,4.3)(3.9,4.6)
+\rput[c](3,4.45){lincuse}
+\psframe[shadow=true,fillcolor=\cmod](2.1,4.7)(3.9,5.0)
+\rput[c](3,4.85){gasdyn}
+\psframe[shadow=true,fillcolor=\cmod](2.1,5.1)(3.9,5.4)
+\rput[c](3,5.25){vslin}
+
+\rput[l](5,4.05){\ldots (\textit{solver packages})}
+
+\pcline[linewidth=0.02](-2,5.5)(8,5.5)
+\rput[bl](-1.9,5.6){\bfseries application}
+
+\psframe[shadow=true,framearc=0.3](0.1,5.6)(7.9,6.0)
+\rput[c](4,5.8){\color{\csubs}\itshape driving scripts}
+
+\rput[bc](8.7,0.1){\large machine}
+\rput[tc](8.7,5.9){\large user}
+\pcline[linewidth=0.02]{->}(8.7,0.3)(8.7,5.7)
+
+\end{pspicture}

@@ -3,35 +3,11 @@ SOLVCON -- SOLVer CONstructor
 =============================
 
 SOLVCON is a `Python <http://www.python.org>`__-based toolkit for solving
-conservation laws and partial differential equations (PDEs).  In addition to
-the `core algorithms <http://www.grc.nasa.gov/WWW/microbus/>`__, SOLVCON
-organizes the supportive functionalities of a PDE solver, e.g., data structure
-of meshes, I/O, visualizers, etc.  SOLVCON is released under `GNU GPLv2
-<http://www.gnu.org/licenses/gpl-2.0.html>`__.  *Comments, contribution, and
-collaboration are welcomed.*  You can reach us at
-http://groups.google.com/group/solvcon or contact us by sending a private email
-to contact@solvcon.net.
-
-Getting Started
-===============
-
-The following two documents can help you to start using SOLVCON:
-
-- :doc:`install`: Install, build, test, and run SOLVCON
-- :doc:`tutorial`: Understand the basic usage of SOLVCON
-
-The code base contains a lot of useful docstrings which are being organized
-into :doc:`modules`.  More resources are listed in the Resources_ section.
-
-The CESE Method
-===============
-
-SOLVCON implements the space-time `Conservation Element and Solution Element
-(CESE) <http://www.grc.nasa.gov/WWW/microbus/>`__ method, a novel numerical
-method developed by Chang.  They solve for the three-dimensional, non-linear or
-linear, conservation laws of the quasi-linear form:
+conservation laws formulated as a coupled system of partial differential
+equations (PDEs):
 
 .. math::
+  :label: e:consform
 
   \dpd{\bvec{u}}{t}
   + \sum_{\iota=1}^3 \mathrm{A}^{(\iota)}(\bvec{u})\dpd{\bvec{u}}{x_{\iota}}
@@ -39,14 +15,22 @@ linear, conservation laws of the quasi-linear form:
 
 where :math:`\bvec{u}` is the unknown vector, :math:`\mathrm{A}^{(1)}`,
 :math:`\mathrm{A}^{(2)}`, and :math:`\mathrm{A}^{(3)}` the Jacobian matrices,
-:math:`\bvec{s}` the source term.  Because the CESE method is developed against
-the general mathematical form of the conservation laws, it is suitable for
-multi-physics applications.  Solvers of gas dynamics and stress waves have been
-incorporated in the SOLVCON code base.  Published results can be found in
-:doc:`pub_app`.
+and :math:`\bvec{s}` the source term.  SOLVCON employs the space-time
+`Conservation Element and Solution Element (CESE)
+<http://www.grc.nasa.gov/WWW/microbus/>`__ method, which is developed to solve
+non-linear problems, e.g., shock capturing.  The CESE method is also suitable
+for multi-physics problems for it solves the general mathematical form of the
+conservation laws, as shown in Eq. :eq:`e:consform`.  Solvers of gas dynamics
+and stress waves are implemented.  Results can be found in :doc:`pub_app`.
 
-In addition to the practical applications, the solvers also serve as examples
-of how to use the SOLVCON work flow.
+To start using SOLVCON, two documents are helpful: :doc:`install` and
+:doc:`tutorial`.  The Resources_ section contains more information.
+
+The software is released under `GNU GPLv2
+<http://www.gnu.org/licenses/gpl-2.0.html>`__.  *Comments, contribution, and
+collaboration are welcomed.*  You can reach us at
+http://groups.google.com/group/solvcon or contact us by sending a private email
+to contact@solvcon.net.
 
 Documentation
 =============
@@ -56,7 +40,7 @@ Documentation
 
    install
    tutorial
-   solvers
+   architecture
    system_modules
    history
 

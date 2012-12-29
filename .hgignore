@@ -5,6 +5,7 @@ build
 .coverage
 scdata/
 doc/api/
+doc/source/_static/*.eps
 tmp/
 dep/
 dist/
