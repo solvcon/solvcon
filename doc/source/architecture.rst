@@ -9,7 +9,7 @@ be considered as the replacement of the traditional input files, but allows the
 users to write code that alters the behaviors of the system.
 
 
-.. figure:: _static_generated/stack.png
+.. figure:: _static/stack.png
   :width: 700px
   :alt: Architecture of SOLVCON
   :align: center
