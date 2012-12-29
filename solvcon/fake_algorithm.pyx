@@ -36,11 +36,6 @@ cdef class FakeAlgorithm(Mesh):
     def __cinit__(self):
         self._alg = <sc_fake_algorithm_t *>malloc(sizeof(sc_fake_algorithm_t))
 
-    def set_alg_double_array_2d(self,
-            cnp.ndarray[double, ndim=2, mode="c"] nda, name, int shift):
-        #self._alg[name] = &nda[shift,0]
-        pass
-
     def setup_algorithm(self, svr):
         # meta data.
         self._alg.neq = svr.neq
