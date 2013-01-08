@@ -41,9 +41,7 @@ which can be installed on Debian/Ubunbu by using the command::
 
 Another optional dependency is `CUDA
 <http://www.nvidia.com/object/cuda_home_new.html>`_, which needs to be
-separately installed and configured.  For using meshes with more then 35
-million cells, SCOTCH-5.1 is recommended.  METIS-4 has issues on memory
-allocation for large graphs.
+separately installed and configured.
 
 Download
 ========
@@ -66,12 +64,9 @@ Build
 The binary part of SOLVCON is built by using SCons_::
 
   cd $SCSRC
-  scons --download --extract
+  scons
 
-where ``$SCSRC`` indicates the root directory of unpacked source tree.  The
-option ``--download`` lets the building script download necessary external
-source packages, e.g., METIS_, from Internet.  Option ``--extract`` extracts
-the downloaded packages.
+where ``$SCSRC`` indicates the root directory of unpacked source tree.
 
 SOLVCON is designed to work without explicit installation.  You can simply set
 the environment variable ``$PYTHONPATH`` to point to the source code, i.e.,
