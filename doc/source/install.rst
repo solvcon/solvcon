@@ -10,21 +10,21 @@ SOLVCON depends on the following packages:
 - `gcc <http://gcc.gnu.org/>`_ 4.3+
 - `SCons <http://www.scons.org/>`_ 2+
 - `Python <http://www.python.org/>`_ 2.6 or 2.7 (2.7 is preferred)
+- `Cython <http://www.cython.org/>`_ 0.16+
 - `Numpy <http://www.numpy.org/>`_ 1.5+
 - `LAPACK <http://www.netlib.org/lapack/>`_
 - `NetCDF <http://www.unidata.ucar.edu/software/netcdf/index.html>`_ 4+
-- `METIS <http://glaros.dtc.umn.edu/gkhome/views/metis/>`_ 4.0.3+ (SOLVCON will
-  download it for you on building) or `SCOTCH
-  <http://www.labri.fr/perso/pelegrin/scotch/>`_ 5.1+
+- `SCOTCH <http://www.labri.fr/perso/pelegrin/scotch/>`_ 5.1+
 - `Nose <http://somethingaboutorange.com/mrl/projects/nose/>`_ 1.0+
 - `gmsh <http://geuz.org/gmsh/>`_ 2.5+
 - `VTK <http://vtk.org/>`_ 5.6+
 
 The following command will install these packages on Debian/Ubunbu::
 
-  sudo apt-get install build-essential gcc scons liblapack-pic libnetcdf-dev
-  libnetcdf6 netcdf-bin libscotch-dev libscotchmetis-dev libscotch-5.1
-  python2.7 python2.7-dev python-numpy python-nose gmsh python-vtk
+  sudo apt-get install build-essential gcc gfortran scons
+  liblapack-pic liblapack-dev libnetcdf-dev libnetcdf6 netcdf-bin
+  libscotch-dev libscotchmetis-dev libscotch-5.1
+  python2.7 python2.7-dev cython python-numpy python-nose gmsh python-vtk
 
 Note: For Debian Squeeze (6.0), you need also ``apt-get install
 python-profiler`` to install the built-in Python profiler.
