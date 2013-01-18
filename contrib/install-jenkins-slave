@@ -1,0 +1,14 @@
+#!/bin/sh
+
+# install prerequisite on debian/ubuntu
+apt-get install daemon sun-java6-jre
+
+# copy files.
+install -o root jenkins-slave /etc/init.d/jenkins-slave
+install -o root jenkins-slave-default /etc/default/jenkins-slave
+
+# update rcX.d.
+update-rc.d jenkins-slave defaults
+
+# echo help.
+echo "NOTE: Before starting the slave, you must fill JENKINS_SLAVE_USER and JENKINS_SLAVE_HOME in /etc/default/jenkins-slave."

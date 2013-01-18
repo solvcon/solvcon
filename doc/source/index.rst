@@ -42,6 +42,7 @@ Documentation
    tutorial
    architecture
    system_modules
+   contribution
    history
 
 Resources

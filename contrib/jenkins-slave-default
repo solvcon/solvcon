@@ -1,0 +1,20 @@
+# defaults for jenkins continuous integration slave.
+
+# usually set to host name.
+JENKINS_SLAVE_NAME=`hostname`
+
+# slave admin must provide this.
+JENKINS_SLAVE_USER=
+
+# usually the home of the local slave user.
+JENKINS_SLAVE_HOME=
+
+# slave admin must set which host to connect to.
+JENKINS_MASTER_LOCATION="solvcon.net:8080"
+
+# slave admin doesn't need to change these.
+JENKINS_SLAVE_ROOT="$JENKINS_SLAVE_HOME/$JENKINS_SLAVE_NAME"
+JENKINS_SLAVE_JAR="$JENKINS_SLAVE_ROOT/slave.jar"
+JENKINS_SLAVE_LOG="$JENKINS_SLAVE_ROOT/slave.log"
+JENKINS_SLAVE_JAR_URL="http://$JENKINS_MASTER_LOCATION/jnlpJars/slave.jar"
+JENKINS_NODE_URL="http://$JENKINS_MASTER_LOCATION/computer/$JENKINS_SLAVE_NAME/slave-agent.jnlp"
