@@ -33,7 +33,7 @@ Building document of SOLVCON requires the following packages:
 
 - `Epydoc <http://epydoc.sf.net/>`_ 3+
 - `pygraphviz <http://networkx.lanl.gov/pygraphviz/>`_ 1.1+
-- `Sphinx <http://sphinx.pocoo.org/>`_ 1.0+
+- `Sphinx <http://sphinx.pocoo.org/>`_ 1.1.2+
 
 which can be installed on Debian/Ubunbu by using the command::
 
