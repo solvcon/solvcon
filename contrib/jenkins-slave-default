@@ -10,7 +10,7 @@ JENKINS_SLAVE_USER=
 JENKINS_SLAVE_HOME=
 
 # slave admin must set which host to connect to.
-JENKINS_MASTER_LOCATION="solvcon.net:8080"
+JENKINS_MASTER_LOCATION="ci.solvcon.net"
 
 # slave admin doesn't need to change these.
 JENKINS_SLAVE_ROOT="$JENKINS_SLAVE_HOME/$JENKINS_SLAVE_NAME"
