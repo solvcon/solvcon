@@ -62,6 +62,12 @@ do_start()
 	cd $JENKINS_SLAVE_ROOT
 	$SU -l $JENKINS_SLAVE_USER -c \
 		"wget -q -r $JENKINS_SLAVE_JAR_URL -O $JENKINS_SLAVE_JAR"
+	# XXX: a hack to make ssh key-auth work for solvcon.helper.get_username().
+	export LOGNAME=$JENKINS_SLAVE_USER
+	# XXX: similar to the hack, but not of real use.
+	export USER=$JENKINS_SLAVE_USER
+	export USERNAME=$JENKINS_SLAVE_USER
+	export HOME=$JENKINS_SLAVE_HOME
 	start-stop-daemon --start --pidfile $PIDFILE --exec $DAEMON \
 		-- $DAEMON_ARGS || return 2
 }
