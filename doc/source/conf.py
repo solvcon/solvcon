@@ -101,7 +101,7 @@ html_theme = 'default'
 # further.  For a list of options available for each theme, see the
 # documentation.
 html_theme_options = {
-    'rightsidebar': True,
+    'rightsidebar': False,
     'stickysidebar': False,
     'externalrefs': True,
     'sidebarbgcolor': '#D8D8D8',
