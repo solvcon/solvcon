@@ -1,7 +1,7 @@
-#!/usr/bin/env python2.6
+#!/usr/bin/env python
 # -*- coding: UTF-8 -*-
 #
-# Copyright (C) 2010-2011 Yung-Yu Chen <yyc@solvcon.net>.
+# Copyright (C) 2010-2012 Yung-Yu Chen <yyc@solvcon.net>.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -245,6 +245,21 @@ class ReflProbe(ProbeHook):
         self.info('  p3   = %.3f/%.3f (error=%%%.2f)\n' % (p, self.p3,
             abs((p-self.p3)/self.p3)*100))
 
+################################################################################
+# Mesh generation.
+################################################################################
+def mesher(cse):
+    """
+    Generate mesh according to the Gmsh command template file obrf.tmpl.
+    """
+    import os
+    from solvcon.helper import Gmsh
+    itv = float(cse.io.meshfn)/1000
+    cmds = open('obrf.tmpl').read() % itv
+    cmds = [cmd.strip() for cmd in cmds.strip().split('\n')]
+    gmh = Gmsh(cmds)()
+    return gmh.toblock(bcname_mapper=cse.condition.bcmap)
+
 def obrf_base(casename=None, meshname=None,
     gamma=None, density=None, pressure=None, M=None, dta=None,
     psteps=None, ssteps=None, **kw
@@ -285,8 +300,7 @@ def obrf_base(casename=None, meshname=None,
     # set up case.
     basedir = os.path.abspath(os.path.join(os.getcwd(), 'result'))
     cse = gasdyn.GasdynCase(basedir=basedir, rootdir=env.projdir,
-        basefn=casename, meshfn=os.path.join(env.find_scdata_mesh(), meshname),
-        bcmap=bcmap, **kw)
+        basefn=casename, mesher=mesher, bcmap=bcmap, **kw)
     # anchors for solvers.
     cse.runhooks.append(anchor.RuntimeStatAnchor)
     cse.runhooks.append(anchor.MarchStatAnchor)
@@ -330,7 +344,7 @@ def obrf(casename, **kw):
     The true arrangement which specifies necessary parameters for execution.
     """
     from math import pi
-    return obrf_base(casename, meshname='obrefl_t4m100mm.neu.gz',
+    return obrf_base(casename, meshfn='100',
         gamma=1.4, density=1.0, pressure=1.0, M=3.0, dta=10.0/180*pi,
         time_increment=7.e-3, steps_run=400, ssteps=100, psteps=2, **kw)
 
