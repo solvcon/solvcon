@@ -55,7 +55,6 @@ listed in `ustmesh_2d_sample.geo`_.  On the other hand, creation of structured
 meshes often needs a large amount of manual operations and will not be
 discussed in this document.
 
-
 In SOLVCON, we assume a mesh is fully covered by a finite number of
 non-overlapping sub-regions, and only composed by these sub-regions.  The
 sub-regions are called *mesh elements*.  In one-dimensional space, SOLVCON also
@@ -92,8 +91,10 @@ three-dimensional mesh elements, *hexahedra*, *tetrahedra*, *prisms*, and
 
 The numbers annotated in the figures are the order of the vertices of the
 elements.  A SOLVCON mesh can be a mixture of elements of the same dimension,
-although it is often composed of one type of element.  The meshes are defined
-by various look-up tables in :py:class:`solvcon.block.Block`.
+although it is often composed of one type of element.  Two modules provide the
+support of the meshes: (i) :py:class:`solvcon.block` defines and manages
+various look-up tables that form the data structure of the mesh in Python, and
+(ii) :py:class:`solvcon.mesh` serves as the interface of the mesh data in C.
 
 Entities
 ++++++++
@@ -493,7 +494,7 @@ By running the additional code, the block can be saved as a VTK file for viewing
 
   .. py:method:: build_interior
 
-    :return: nothing
+    :return: Nothing.
 
     Building up a :py:class:`Block` object includes two steps.  First, the
     method extracts arrays :py:attr:`clfcs`, :py:attr:`fctpn`,
@@ -507,7 +508,7 @@ By running the additional code, the block can be saved as a VTK file for viewing
 
   .. py:method:: build_boundary
 
-    :return: nothing
+    :return: Nothing.
 
     This method iterates over each of the :py:class:`solvcon.boundcond.BC`
     objects listed in :py:attr:`bclist` to collect boundary-condition
@@ -518,7 +519,7 @@ By running the additional code, the block can be saved as a VTK file for viewing
 
   .. py:method:: build_ghost
 
-    :return: nothing
+    :return: Nothing.
 
     This method creates the shared arrays, calculates the information for ghost
     cells, and reassigns interior arrays as the right portions of the shared
@@ -551,7 +552,7 @@ By running the additional code, the block can be saved as a VTK file for viewing
 
   .. py:method:: create_msh()
 
-    :return: an object contains the :c:type:`sc_mesh_t` variable for C code to
+    :return: An object contains the :c:type:`sc_mesh_t` variable for C code to
       use data in the :py:class:`Block` object.
     :rtype: :py:class:`solvcon.mesh.Mesh`
 
