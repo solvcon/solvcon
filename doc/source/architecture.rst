@@ -155,17 +155,17 @@ Although SOLVCON doesn't support one-dimensional solvers, for completeness, we
 define the relation between one-dimensional cells (lines) and their
 sub-entities as:
 
-+--------------+------+---------+
-| Shape (type) | Face | = Point |
-+==============+======+=========+
-| Line (0)     |    0 | ∙ 0     |
-+              +------+---------+
-|              |    1 | ∙ 1     |
-+--------------+------+---------+
++--------------+------+-----------------+
+| Shape (type) | Face | = Point         |
++==============+======+=================+
+| Line (0)     |    0 | :math:`\cdot` 0 |
++              +------+-----------------+
+|              |    1 | :math:`\cdot` 1 |
++--------------+------+-----------------+
 
 That is, as shown in Figure :ref:`f_elm_1d`, a one-dimensional "cell" (line)
-has two "faces", which are essentially point 0 and point 1.  Symbol ∙ indicates
-a point.
+has two "faces", which are essentially point 0 and point 1.  Symbol
+:math:`\cdot` indicates a point.
 
 It will be more practical to illustrate the relation between two-dimensional
 cells and their sub-entities in a table (see Figure :ref:`f_elm_2d` for point
@@ -174,25 +174,25 @@ locations):
 +-------------------+------+-------------------------+
 | Shape (type)      | Face | = Line formed by points |
 +===================+======+=========================+
-| Quadrilateral (2) |    0 | ∕ 0 1                   |
+| Quadrilateral (2) |    0 | :math:`\diagup` 0 1     |
 +                   +------+-------------------------+
-|                   |    1 | ∕ 1 2                   |
+|                   |    1 | :math:`\diagup` 1 2     |
 +                   +------+-------------------------+
-|                   |    2 | ∕ 2 3                   |
+|                   |    2 | :math:`\diagup` 2 3     |
 +                   +------+-------------------------+
-|                   |    3 | ∕ 3 0                   |
+|                   |    3 | :math:`\diagup` 3 0     |
 +-------------------+------+-------------------------+
-| Triangle (3)      |    0 | ∕ 0 1                   |
+| Triangle (3)      |    0 | :math:`\diagup` 0 1     |
 +                   +------+-------------------------+
-|                   |    1 | ∕ 1 2                   |
+|                   |    1 | :math:`\diagup` 1 2     |
 +                   +------+-------------------------+
-|                   |    2 | ∕ 2 0                   |
+|                   |    2 | :math:`\diagup` 2 0     |
 +-------------------+------+-------------------------+
 
-Symbol ∕ indicates a line.  The orientation of lines of each two-dimensional
-shape is defined to follow the right-hand rule.  The shape enclosed by the
-lines has an area normal vector points to the direction of :math:`+z` (outward
-paper/screen).
+Symbol :math:`\diagup` indicates a line.  The orientation of lines of each
+two-dimensional shape is defined to follow the right-hand rule.  The shape
+enclosed by the lines has an area normal vector points to the direction of
+:math:`+z` (outward paper/screen).
 
 The relation between three-dimensional cells and their sub-entities is defined
 in the table (see Figure :ref:`f_elm_3d` for point locations):
@@ -200,48 +200,49 @@ in the table (see Figure :ref:`f_elm_3d` for point locations):
 +-----------------+------+----------------------------+
 | Shape (type)    | Face | = Surface formed by points |
 +=================+======+============================+
-| Hexahedron (4)  |    0 | ☐ 0 3 2 1                  |
+| Hexahedron (4)  |    0 | :math:`\square` 0 3 2 1    |
 +                 +------+----------------------------+
-|                 |    1 | ☐ 1 2 6 5                  |
+|                 |    1 | :math:`\square` 1 2 6 5    |
 +                 +------+----------------------------+
-|                 |    2 | ☐ 4 5 6 7                  |
+|                 |    2 | :math:`\square` 4 5 6 7    |
 +                 +------+----------------------------+
-|                 |    3 | ☐ 0 4 7 3                  |
+|                 |    3 | :math:`\square` 0 4 7 3    |
 +                 +------+----------------------------+
-|                 |    4 | ☐ 0 1 5 4                  |
+|                 |    4 | :math:`\square` 0 1 5 4    |
 +                 +------+----------------------------+
-|                 |    5 | ☐ 2 3 7 6                  |
+|                 |    5 | :math:`\square` 2 3 7 6    |
 +-----------------+------+----------------------------+
-| Tetrahedron (5) |    0 | △ 0 2 1                    |
+| Tetrahedron (5) |    0 | :math:`\triangle` 0 2 1    |
 +                 +------+----------------------------+
-|                 |    1 | △ 0 1 3                    |
+|                 |    1 | :math:`\triangle` 0 1 3    |
 +                 +------+----------------------------+
-|                 |    2 | △ 0 3 2                    |
+|                 |    2 | :math:`\triangle` 0 3 2    |
 +                 +------+----------------------------+
-|                 |    3 | △ 1 2 3                    |
+|                 |    3 | :math:`\triangle` 1 2 3    |
 +-----------------+------+----------------------------+
-| Prism (6)       |    0 | △ 0 1 2                    |
+| Prism (6)       |    0 | :math:`\triangle` 0 1 2    |
 +                 +------+----------------------------+
-|                 |    1 | △ 3 5 4                    |
+|                 |    1 | :math:`\triangle` 3 5 4    |
 +                 +------+----------------------------+
-|                 |    2 | ☐ 0 3 4 1                  |
+|                 |    2 | :math:`\square` 0 3 4 1    |
 +                 +------+----------------------------+
-|                 |    3 | ☐ 0 2 5 3                  |
+|                 |    3 | :math:`\square` 0 2 5 3    |
 +                 +------+----------------------------+
-|                 |    4 | ☐ 1 4 5 2                  |
+|                 |    4 | :math:`\square` 1 4 5 2    |
 +-----------------+------+----------------------------+
-| Pyramid (7)     |    0 | △ 0 4 3                    |
+| Pyramid (7)     |    0 | :math:`\triangle` 0 4 3    |
 +                 +------+----------------------------+
-|                 |    1 | △ 1 4 0                    |
+|                 |    1 | :math:`\triangle` 1 4 0    |
 +                 +------+----------------------------+
-|                 |    2 | △ 2 4 1                    |
+|                 |    2 | :math:`\triangle` 2 4 1    |
 +                 +------+----------------------------+
-|                 |    3 | △ 3 4 2                    |
+|                 |    3 | :math:`\triangle` 3 4 2    |
 +                 +------+----------------------------+
-|                 |    4 | ☐ 0 3 2 1                  |
+|                 |    4 | :math:`\square` 0 3 2 1    |
 +-----------------+------+----------------------------+
 
-Symbol ☐ indicates a quadrilateral, while symbol △ indicates a triangle.
+Symbol :math:`\square` indicates a quadrilateral, while symbol
+:math:`\triangle` indicates a triangle.
 
 Because a face is associated to two adjacent cells unless it's a boundary face,
 it needs to identify to which cell it belongs, and to which cell it is
