@@ -268,14 +268,22 @@ class Block(object):
 
     def create_msh(self):
         """
+        :return: An object contains the :c:type:`sc_mesh_t` variable for C code to
+          use data in the :py:class:`Block` object.
+        :rtype: :py:class:`solvcon.mesh.Mesh`
+
+        The following code shows how and when to use this method:
+
         >>> blk = Block(ndim=2, nnode=4, nface=6, ncell=3, nbound=3)
         >>> blk.ndcrd[:,:] = (0,0), (-1,-1), (1,-1), (0,1)
         >>> blk.cltpn[:] = 3
         >>> blk.clnds[:,:4] = (3, 0,1,2), (3, 0,2,3), (3, 0,3,1)
         >>> blk.build_interior()
+        >>> # it's OK to get a msh when its content is still invalid.
         >>> msh = blk.create_msh()
         >>> blk.build_boundary()
         >>> blk.build_ghost()
+        >>> # now the msh is valid for the blk is fully built-up.
         >>> msh = blk.create_msh()
         """
         from .mesh import Mesh
@@ -294,12 +302,17 @@ class Block(object):
 
     def build_interior(self):
         """
-        Build all remaining connectivity information out of cell node
-        definition, and calculate metric.
+        :return: Nothing.
 
-        This method alters content in self object.
+        Building up a :py:class:`Block` object includes two steps.  First, the
+        method extracts arrays :py:attr:`clfcs`, :py:attr:`fctpn`,
+        :py:attr:`fcnds`, and :py:attr:`fccls` from the defined arrays
+        :py:attr:`cltpn` and :py:attr:`clnds`.  If the number of extracted
+        faces is not the same as that passed into the constructor, arrays
+        related to faces are recreated.
 
-        @return: nothing.
+        Second, the method calculates the geometry information and fills the
+        corresponding arrays.
         """
         from numpy import empty
         # prepare to build connectivity: calculate max number of faces.
@@ -334,19 +347,23 @@ class Block(object):
 
     def build_boundary(self, unspec_type=None, unspec_name="unspecified"):
         """
-        Build boundary faces according to face connectivity.  If a face belongs
-        to only one cell (i.e., has no neighboring cell), it is regarded as a
-        boundary face.
+        :keyword unspec_type: BC type for the unspecified boundary faces.
+            Set to :py:obj:`None` indicates the default to
+            :py:class:`solvcon.boundcond.unspecified`.
+        :type unspec_type: :py:class:`type`
+        :keyword unspec_name: Name for the unspecified BC.
+        :type unspec_name: :py:class:`str`
+        :return: Nothing.
 
-        This method alters content in self object.
-
-        @keyword unspec_type: BC type for the unspecified boundary faces.
-            The default is solvcon.boundcond.unspecified.
-        @type unspec_type: solvcon.boundcond.BC
-        @keyword unspec_name: name for the unspecified BC.
-        @type unspec_name: str
-
-        @return: nothing.
+        This method iterates over each of the :py:class:`solvcon.boundcond.BC`
+        objects listed in :py:attr:`bclist` to collect boundary-condition
+        information and build boundary faces.  If a face belongs to only one
+        cell (i.e., has no neighboring cell), it is regarded as a boundary
+        face.
+        
+        Unspecified boundary faces will be collected to form an additional
+        :py:class:`solvcon.boundcond.BC` object.  It sets :py:attr:`bndfcs` for
+        later use by :py:meth:`build_ghost`.
         """
         from numpy import arange, empty, unique
         from .boundcond import bctregy
@@ -395,11 +412,11 @@ class Block(object):
 
     def build_ghost(self):
         """
-        Build data for ghost cells and related information.
+        :return: Nothing.
 
-        This method alters content in self object.
-
-        @return: nothing.
+        This method creates the shared arrays, calculates the information for ghost
+        cells, and reassigns interior arrays as the right portions of the shared
+        arrays.
         """
         # initialize data structure (arrays) for ghost information.
         ngstnode, ngstface, ngstcell = self._count_ghost()

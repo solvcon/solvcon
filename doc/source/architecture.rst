@@ -492,38 +492,9 @@ By running the additional code, the block can be saved as a VTK file for viewing
   arrays for the :py:class:`Block` object.  Only after the build-up process,
   the :py:class:`Block` object can be used by solvers.
 
-  .. py:method:: build_interior
-
-    :return: Nothing.
-
-    Building up a :py:class:`Block` object includes two steps.  First, the
-    method extracts arrays :py:attr:`clfcs`, :py:attr:`fctpn`,
-    :py:attr:`fcnds`, and :py:attr:`fccls` from the defined arrays
-    :py:attr:`cltpn` and :py:attr:`clnds`.  If the number of extracted faces is
-    not the same as that passed into the constructor, arrays related to faces
-    are recreated.
-
-    Second, the method calculates the geometry information and fills the
-    corresponding arrays.
-
-  .. py:method:: build_boundary
-
-    :return: Nothing.
-
-    This method iterates over each of the :py:class:`solvcon.boundcond.BC`
-    objects listed in :py:attr:`bclist` to collect boundary-condition
-    information.  Unspecified boundary faces (i.e., faces that are not interior
-    faces) will be collected to form an additional
-    :py:class:`solvcon.boundcond.BC` object.  It sets :py:attr:`bndfcs` for
-    later use by :py:meth:`build_ghost`.
-
-  .. py:method:: build_ghost
-
-    :return: Nothing.
-
-    This method creates the shared arrays, calculates the information for ghost
-    cells, and reassigns interior arrays as the right portions of the shared
-    arrays.
+  .. automethod:: build_interior
+  .. automethod:: build_boundary
+  .. automethod:: build_ghost
 
   A :py:class:`Block` object also contains three instance variables for
   boundary-condition treatments:
@@ -550,11 +521,7 @@ By running the additional code, the block can be saved as a VTK file for viewing
     index of the face, while the second column is the serial number of the
     associated :py:class:`solvcon.boundcond.BC` object.
 
-  .. py:method:: create_msh()
-
-    :return: An object contains the :c:type:`sc_mesh_t` variable for C code to
-      use data in the :py:class:`Block` object.
-    :rtype: :py:class:`solvcon.mesh.Mesh`
+  .. automethod:: create_msh
 
 .. py:currentmodule:: solvcon.block
 
