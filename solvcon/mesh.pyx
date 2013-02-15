@@ -150,10 +150,13 @@ cdef class Mesh:
 
     def extract_faces_from_cells(self, int max_nfc):
         """
-        :param max_nfc: Maximum number of faces allowed.
+        :param max_nfc: Maximum value of possible number of faces to be extracted.
         :type max_nfc: int
-        :return: clfcs, fctpn, fcnds, fccls
-        :rtype: tuple of numpy.ndarray
+        :return: Four interior :py:class:`numpy.ndarray` for
+          :py:class:`solvcon.block.Block.clfcs`,
+          :py:class:`solvcon.block.Block.fctpn`,
+          :py:class:`solvcon.block.Block.fcnds`, and
+          :py:class:`solvcon.block.Block.fccls`.
 
         Extract face definition from defined cell data.
         """

@@ -524,7 +524,8 @@ By running the additional code, the block can be saved as a VTK file for viewing
     cells, and reassigns interior arrays as the right portions of the shared
     arrays.
 
-  Attributes related to boundary-condition treatments:
+  A :py:class:`Block` object also contains three instance variables for
+  boundary-condition treatments:
 
   .. py:attribute:: bclist
 
@@ -547,6 +548,12 @@ By running the additional code, the block can be saved as a VTK file for viewing
     contains the data for a boundary face.  The first column is the 0-based
     index of the face, while the second column is the serial number of the
     associated :py:class:`solvcon.boundcond.BC` object.
+
+  .. py:method:: create_msh()
+
+    :return: an object contains the :c:type:`sc_mesh_t` variable for C code to
+      use data in the :py:class:`Block` object.
+    :rtype: :py:class:`solvcon.mesh.Mesh`
 
 .. py:currentmodule:: solvcon.block
 
@@ -573,14 +580,211 @@ In class :py:class:`Block` there are also useful constants defined:
     The maximum number of faces that a cell can have.  From the first table in
     Section `Entities`_, its value should be 6.
 
-Basic Constructs
-================
+Low-Level Interface to C
+++++++++++++++++++++++++
 
 .. py:module:: solvcon.mesh
 
+Although it is convenient to have data structure defined in the Python module
+:py:mod:`solvcon.block`, kernel of numerical methods are usually implemented in
+C.  To bridge Python and C, we use `Cython <http://cython.org/>`__ to write an
+interfacing module :py:mod:`solvcon.mesh`.  This module enables C code to use
+the mesh data held by a :py:mod:`solvcon.block.Block` object, and allows Python
+to use those C functions.
+
+A header file ``mesh.h`` contains the essential declarations to use the mesh
+data:
+
+.. c:type:: sc_mesh_t
+
+  This ``struct`` is the counterpart of the Python class
+  :py:class:`solvcon.block.Block` in C.  It contains four sections of fields in
+  order.
+
+  The first field section is for shape.  These fields correspond to the
+  instance properties (attributes) in :py:class:`solvcon.block.Block` of the
+  same names:
+
+  .. c:member:: int ndim
+  .. c:member:: int nnode
+  .. c:member:: int nface
+  .. c:member:: int ncell
+  .. c:member:: int nbound
+  .. c:member:: int ngstnode
+  .. c:member:: int ngstface
+  .. c:member:: int ngstcell
+
+  The second field section is for geometry arrays.  These fields correspond to
+  the instance variables (attributes) in :py:class:`solvcon.block.Block` of the
+  same names:
+
+  .. note::
+  
+    All arrays in :c:type:`sc_mesh_t` are shared arrays but the pointers point
+    to the start of their interior portion.  In this way, access to ghost
+    information can be efficiently done by using negative indices of nodes,
+    faces, and cells in the first dimension of these arrays.  But negative
+    indices in higher dimensions of the arrays is meaningless.
+
+  .. c:member:: double* ndcrd
+  .. c:member:: double* fccnd
+  .. c:member:: double* fcnml
+  .. c:member:: double* fcara
+  .. c:member:: double* clcnd
+  .. c:member:: double* clvol
+
+  The third field section is for type/meta arrays.  These fields correspond to
+  the instance variables (attributes) in :py:class:`solvcon.block.Block` of the
+  same names:
+
+  .. c:member:: int* fctpn
+  .. c:member:: int* cltpn
+  .. c:member:: int* clgrp
+
+  The fourth and final field section is for connectivity arrays.  These fields
+  correspond to the instance variables (attributes) in
+  :py:class:`solvcon.block.Block` of the same names:
+
+  .. c:member:: int* fcnds
+  .. c:member:: int* fccls
+  .. c:member:: int* clnds
+  .. c:member:: int* clfcs
+
+The SOLVCON C library (``libsolvcon.a``) contains five mesh-related functions
+that are used internally in :py:class:`Mesh`.  These functions are not meant to
+be part of the interface, but can be a reference about the usage of
+:c:type:`sc_mesh_t`:
+
+.. c:function:: int sc_mesh_extract_faces_from_cells(sc_mesh_t *msd, \
+    int mface, int *pnface, int *clfcs, int *fctpn, int *fcnds, int *fccls)
+
+  This function extracts interior faces from the node lists of the cells given
+  in the first argument ``msd``.  The second argument ``mface`` is also an
+  input, which sets the maximum value of possible number of faces to be
+  extracted.
+
+  The rest of the arguments is outputs.  The arrays pointed by the last four
+  arguments need to be pre-allocated with appropriate size or the memory will
+  be corrupted.
+
+.. c:function:: int sc_mesh_calc_metric(sc_mesh_t *msd, int use_incenter)
+
+  This function calculates the geometry information and stores the calculated
+  values into the arrays specified in ``msd``.  The second argument
+  ``use_incenter`` is a flag.  When it is set to ``1``, the function calculates
+  and stores the incenter of the cells.  Otherwise, the function calculates and
+  stores the centroids of the cells.
+
+.. c:function:: void sc_mesh_build_ghost(sc_mesh_t *msd, int *bndfcs)
+
+  Build all information for ghost cells by mirroring information from interior
+  cells.  The arrays in the first argument ``msd`` will be altered, but data in
+  the second argument ``bndfcs`` will remain intact.  The action includes:
+
+  1. Define indices and build connectivities for ghost nodes, faces, 
+     and cells.  In the same loop, mirror the coordinates of interior 
+     nodes to ghost nodes.
+  2. Compute center coordinates for faces for ghost cells.
+  3. Compute normal vectors and areas for faces for ghost cells.
+  4. Compute center coordinates for ghost cells.
+  5. Compute volume for ghost cells.
+ 
+  It should be noted that all the geometry, type/meta and connectivity data
+  used in this function are SHARED arrays rather than interior arrays.  The
+  indices for ghost information should be carefully treated.  All the ghost
+  indices are negative in shared arrays.
+
+.. c:function:: int sc_mesh_build_rcells(sc_mesh_t *msd, \
+    int *rcells, int *rcellno)
+
+  This is a utility function used by :py:meth:`Mesh.create_csr`.  The first
+  argument ``msd`` is input and will not be changed, and the output will be
+  write to the second and third arguments, ``rcells`` and ``rcellno``.
+  Sufficient memory must be pre-allocated for the output arrays before calling
+  or memory can be corrupted.
+
+.. c:function:: int sc_mesh_build_csr(sc_mesh_t *msd, int *rcells, int *adjncy)
+
+  This is a utility function used by :py:meth:`Mesh.create_csr`.  The first
+  argument ``msd`` and the second argument ``rcells`` are input and will not be
+  changed, while the third argument ``adjncy`` is output.  Sufficient memory
+  must be pre-allocated for the output array before calling or memory can be
+  corrupted.
+
+A Python class :py:class:`Mesh` is written by using Cython to convert a
+Python-space :py:class:`solvcon.block.Block` object into a :c:type:`sc_mesh_t`
+``struct`` variable for use in C.  This class is meant to be subclassed to
+implement the core number-crunching algorithm of a numerical method.  In
+addition, this class also provides functionalities that need the C utility
+functions listed above.
+
 .. py:class:: Mesh
 
-  This class represents the data set of unstructured meshes of mixed elements.
+  This class associates the C functions for mesh operations to the mesh data
+  and exposes the functions to Python.
+
+  .. py:attribute:: _msd
+
+    This attribute holds a C ``struct`` :c:type:`sc_mesh_t` for internal use.
+
+  .. py:method:: setup_mesh(blk)
+
+    :param blk: The block object to be copied from.
+    :type blk: :py:class:`solvcon.block.Block`
+
+  .. py:method:: extract_faces_from_cells(max_nfc)
+
+    :param max_nfc: Maximum value of possible number of faces to be extracted.
+    :type max_nfc: C :c:type:`int`
+    :return: Four interior :py:class:`numpy.ndarray` for
+      :py:class:`solvcon.block.Block.clfcs`,
+      :py:class:`solvcon.block.Block.fctpn`,
+      :py:class:`solvcon.block.Block.fcnds`, and
+      :py:class:`solvcon.block.Block.fccls`.
+
+    Internally calls :c:func:`sc_mesh_extract_face_from_cells`.
+
+  .. py:method:: calc_metric()
+
+    :return: Nothing.
+
+    Calculates geometry information including normal vector and area of faces,
+    and centroid/incenter coordinates and volume of cells.  Internally calls
+    :c:func:`sc_mesh_calc_metric`.
+
+  .. py:method:: build_ghost()
+
+    :return: Nothing.
+
+    Builds data for ghost cells.  Internally calls
+    :c:func:`sc_mesh_build_ghost`.
+
+  .. py:method:: create_csr()
+
+    :return: xadj, adjncy
+    :rtype: tuple of :py:class:`numpy.ndarray`
+
+    Builds the connectivity graph in the CSR (compressed storage format) used
+    by SCOTCH/METIS.  Internally calls :c:func:`sc_mesh_build_rcells` and
+    :c:func:`sc_mesh_build_csr`.
+
+  .. py:method:: partition(npart, vwgtarr=None)
+
+    :param npart: Number of parts to be partitioned to.
+    :type npart: C :c:type:`int`
+    :keyword vwgtarr: vwgt weighting settings.  Default is :py:obj:`None`.
+    :type vwgtarr: :py:class:`numpy.ndarray`
+    :return: A 2-tuple of (i) number of cut edges for the partitioning and (ii)
+      a :py:class:`numpy.ndarray` of shape
+      (:py:attr:`solvcon.block.Block.ncell`,) and type ``int32`` that indicates
+      the partition number of each cell in the mesh.
+    :rtype: :py:class:`int`, :py:class:`numpy.ndarray`
+
+    Internally calls :c:func:`METIS_PartGraphKway` of the SCOTCH library for
+    mesh partitioning.
+
+A Dummy Solver
+==============
 
 .. py:module:: solvcon.mesh_solver
 
@@ -601,9 +805,6 @@ Basic Constructs
   - run level 0: fresh run (default),
   - run level 1: restart run,
   - run level 2: initialization only.
-
-A Dummy Solver
-==============
 
 To achieve high-performance in SOLVCON, the implementation of a numerical
 method is divided into two parts: (i) a solver class and (ii) an algorithm
