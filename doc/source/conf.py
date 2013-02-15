@@ -207,6 +207,8 @@ latex_documents = [
    u'Yung-Yu Chen', 'howto'),
   ('tutorial', 'solvcon_tutorial.tex', u'SOLVCON Tutorial',
    u'Yung-Yu Chen', 'howto'),
+  ('architecture', 'solvcon_architecture.tex', u'SOLVCON Architecture',
+   u'Yung-Yu Chen', 'howto'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
