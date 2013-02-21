@@ -21,7 +21,7 @@ A two-/three-dimensional, second order CESE solver for generic linear PDEs. It
 uses :py:mod:`solvcon.lincese_algorithm`.
 """
 
-from .mesh_solver import MeshSolver
+from .solver import MeshSolver
 
 class LinceseSolver(MeshSolver):
     """

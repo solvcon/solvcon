@@ -752,15 +752,135 @@ functions listed above.
     Internally calls :c:func:`METIS_PartGraphKway` of the SCOTCH library for
     mesh partitioning.
 
-A Dummy Solver
+Numerical Code
 ==============
 
-.. py:module:: solvcon.mesh_solver
+We are now ready to develop code for numerical methods, aided by the data
+structure and facilities explained in Section `Unstructured Meshes`_.  In
+SOLVCON, code of a numerical method should be implemented in four interactive
+components: (i) fundamental number-crunching functions, (ii) an algorithm
+class, (iii) a solver class, and (iv) a case class.  The first component is
+usually implemented in C for high speed.  The second component (an algorithm
+class) is implemented with Cython to provide access to the number-crunching
+functions for other Python code.  The third component (a solver class)
+abstracts the inner spatial loops of a PDE solver.  The fourth component (a
+case class) abstracts the outer temporal loop of a PDE solver.  The latter two
+components should both be implemented with Python.
 
-.. py:class:: MeshSolver(blk, **kw)
+The latter two components of a numerical method, the solver-case pair, actually
+shape how the method should operate.  It is adequate to say that the former two
+components, number-crunchers and the algorithm class, are provided for
+accelerating.  If we don't care about speed, a numerical method can be
+implemented in pure Python with only a solver class and a case class.  This
+fact can be exploited for writing a new numerical method with SOLVCON.  A slow
+version can be first prototyped with Python code in solver and case, and faster
+versions can be developed by moving code from Python to Cython (algorithm) or C
+(number-crunching functions).
 
-  This is the base class for all solver classes that use
-  :py:class:`solvcon.mesh.Mesh`.
+.. note::
+
+  For a PDE-solving method, code written in Python is in general two orders of
+  magnitude slower than that written in C or Fortran.  And Cython code is still
+  a bit (percentages or times) slower than C code.  Hence, in reality, we need
+  to write C code for speed.
+
+.. py:module:: solvcon.solver
+
+.. autoclass:: MeshSolver
+
+  Both time-accurate and steady-state numerical methods are supported by this
+  class.  Steady-state methods can be viewed as special cases of time-accurate
+  ones.  Two instance attributes are used to record the temporal information:
+  
+  .. py:attribute:: time
+  
+    The current time of the solver.  By default, :py:attr:`time` is initialized
+    to ``0.0``, which is usually desired value.  The default value can be
+    overridden from the constructor.
+      
+  .. py:attribute:: time_increment
+  
+    The temporal interval between the current and the next time steps.  It is
+    usually referred to as :math:`\Delta t` in the numerical literature.  By
+    default, :py:attr:`time_increment` is initialized to ``0.0``, but the
+    default should be overridden from the constructor.
+
+  The status of time-marching are stored in the following four members are
+  used:
+  
+  .. py:attribute:: step_current
+  
+    It is an :py:class:`int` that records the current step of the solver.  It
+    is initialized to ``0``.
+  
+  .. py:attribute:: step_global
+  
+    It is similar to :py:attr:`step_current`, but persists over restart.
+    Without restarts, :py:attr:`step_global` should be identical to
+    :py:attr:`step_current`.
+  
+  .. py:attribute:: substep_run
+  
+    The number of sub-steps that a single time step should be split into.  It
+    is initialized to ``1`` and should be overidden in subclasses if needed.
+  
+  .. py:attribute:: substep_current
+  
+    The current sub-step of the solver.  It is initialized to ``0``.
+
+  .. py:attribute:: _MMNAMES
+
+    This class attribute holds the names of the methods to be called in
+    :py:meth:`march`.  It is of type :py:class:`_MethodList`.  The default
+    value is ``None`` and must be set again in subclasses.
+
+  .. automethod:: new_method_list
+
+  .. py:attribute:: runanchors
+
+    This instance attribute is of type :py:class:`solvcon.anchor.AnchorList`,
+    and the foundation of the anchor mechanism of SOLVCON.  An
+    :py:class:`solvcon.anchor.AnchorList` object like this collects a set of
+    :py:class:`solver.anchor.Anchor` objects, and is callable.  When being
+    called, :py:attr:`runanchors` iterates the contained
+    :py:class:`solvcon.anchor.Anchor` objects and invokes the corresponding
+    method of the anchor.
+
+  .. automethod:: march
+
+    This method performs time-marching.  The parameters ``time`` and
+    ``time_increment`` are used to reset the instance attributes
+    :py:attr:`time` and :py:attr:`time_increment`, respectively.
+
+    There is a nested two-level loop in this method for time-marching.  The
+    outer loop iterates for time steps, and the inner loop iterates for sub
+    time steps.  The outer loop runs ``steps_run`` times, while the inner loop
+    runs :py:attr:`substep_run` times.  In total, the inner loop runs
+    ``steps_run`` * :py:attr:`substep_run` times.  In each sub time step (in
+    the inner loop), the attribute :py:attr:`time` increments
+    :py:attr:`time_increment`/:py:attr:`substep_run`.  The temporal increment
+    per time step is effectively :py:attr:`time_increment`, with a slight error
+    because of round-off.
+
+    Before entering and after leaving the outer loop, ``premarch`` and
+    ``postmarch`` anchors will be run (through the attribute
+    :py:attr:`runanchors`).  Similarly, before entering and after leaving the
+    inner loop, ``prefull`` and ``postfull`` anchors will be run.  Inside the
+    inner loop of sub steps, before and after executing all the marching
+    methods, ``presub`` and ``postsub`` anchors will be run.  Lastly, before
+    and after invoking every marching method, a pair of anchors will be run.
+    The anchors for a marching method are related to the name of the marching
+    method itself.  For example, if a marching method is named "calcsome",
+    anchor ``precalcsome`` will be run before the invocation, and anchor
+    ``postcalcsome`` will be run afterward.
+
+  .. automethod:: detect_ncore
+
+  For distributed-memory parallel computing (i.e., MPI runs), the member
+  :py:attr:`svrn` indicates the serial number (0-based) the object is.  The
+  value of :py:attr:`svrn` comes from :py:attr:`blk`.  Another member,
+  :py:attr:`nsvr`, is the total number of collaborative solvers in the parallel
+  run, and is initialized to ``None``.
 
 .. py:class:: MeshCase(**kw)
 
