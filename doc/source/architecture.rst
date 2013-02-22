@@ -857,7 +857,7 @@ versions can be developed by moving code from Python to Cython (algorithm) or C
     time steps.  The outer loop runs ``steps_run`` times, while the inner loop
     runs :py:attr:`substep_run` times.  In total, the inner loop runs
     ``steps_run`` * :py:attr:`substep_run` times.  In each sub time step (in
-    the inner loop), the attribute :py:attr:`time` increments
+    the inner loop), the increment of the attribute :py:attr:`time` is
     :py:attr:`time_increment`/:py:attr:`substep_run`.  The temporal increment
     per time step is effectively :py:attr:`time_increment`, with a slight error
     because of round-off.
