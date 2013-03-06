@@ -303,7 +303,7 @@ class RuntimeStatAnchor(Anchor):
         sinfo = f.read().split()
         f.close()
         pstat = dict()
-        for it in range(len(sinfo)):
+        for it in range(len(cls.PSTAT_KEYS)):
             key, typ = cls.PSTAT_KEYS[it]
             pstat[key] = typ(sinfo[it])
         return pstat
