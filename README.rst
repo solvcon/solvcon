@@ -2,9 +2,6 @@
 README for SOLVCON
 ==================
 
-:author: Yung-Yu Chen <yyc@solvcon.net>
-:copyright: c 2008-2012.
-
 SOLVCON: A software framework to develop high-fidelity solvers of partial
 differential equtions (PDEs).
 
