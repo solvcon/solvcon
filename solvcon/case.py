@@ -1,6 +1,6 @@
 # -*- coding: UTF-8 -*-
 #
-# Copyright (C) 2008-2010 Yung-Yu Chen <yyc@solvcon.net>.
+# Copyright (C) 2008-2013 Yung-Yu Chen <yyc@solvcon.net>.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -22,15 +22,27 @@ Simulation cases.
 
 from .gendata import SingleAssignDict, AttributeDict
 
-class ArrangementRegistry(SingleAssignDict, AttributeDict):
+class _ArrangementRegistry(SingleAssignDict, AttributeDict):
     """
-    Arrangement registry class.  A simulation is a callable that returns a case
-    object.
+    Arrangement registry class.  An "arrangement" is a callable that returns a
+    :py:class:`MeshCase` object.
     """
     def __setitem__(self, key, value):
-        assert callable(value)
-        super(ArrangementRegistry, self).__setitem__(key, value)
-arrangements = ArrangementRegistry()  # overall registry singleton.
+        """
+        >>> regy = _ArrangementRegistry()
+        >>> # assigning a key to a function is OK.
+        >>> regy['func1'] = lambda a: a
+        >>> # assigning a key to anything else isn't allowed.
+        >>> regy['func2'] = None
+        Traceback (most recent call last):
+          ...
+        ValueError: None should be a callable, but a <type 'NoneType'> is got.
+        """
+        if not callable(value):
+            raise ValueError("%s should be a callable, but a %s is got." % (
+                str(value), str(type(value))))
+        super(_ArrangementRegistry, self).__setitem__(key, value)
+arrangements = _ArrangementRegistry()  # overall registry singleton.
 
 class CaseInfoMeta(type):
     """
@@ -45,7 +57,7 @@ class CaseInfoMeta(type):
         defdict.update(newcls.defdict)
         newcls.defdict = defdict
         # create different simulation registry objects for case classes.
-        newcls.arrangements = ArrangementRegistry()
+        newcls.arrangements = _ArrangementRegistry()
         return newcls
 class CaseInfo(dict):
     """
@@ -999,3 +1011,297 @@ for node in $nodes; do rsh $node killall %s; done
     ### End of block of case execution.
     ###
     ############################################################################
+
+class MeshCase(CaseInfo):
+    """
+    Base class for simulation cases based on :py:class:`solvcon.mesh.Mesh`.
+    """
+
+    defdict = {
+        # execution related.
+        'execution.stop': False,
+        'execution.time': 0.0,
+        'execution.time_increment': 0.0,
+        'execution.step_init': 0,
+        'execution.step_current': None,
+        'execution.steps_run': None,
+        'execution.steps_stride': 1,
+        'execution.marchret': None,
+        'execution.neq': 0, # number of unknowns.
+        'execution.var': dict,  # for Calculator hooks.
+        'execution.varstep': None,  # the step for which var and dvar are valid.
+        # io related.
+        'io.abspath': False,    # flag to use abspath or not.
+        'io.rootdir': None,
+        'io.basedir': None,
+        'io.basefn': None,
+        'io.empty_jobdir': False,
+        'io.solver_output': False,
+        # conditions.
+        'condition.mtrllist': list,
+        # solver.
+        'solver.solvertype': None,
+        'solver.solverobj': None,
+        # logging.
+        'log.time': dict,
+    }
+
+    def __init__(self, **kw):
+        import os
+        from .hook import HookList
+        from .helper import Information
+        # populate value from keywords.
+        initpairs = list()
+        for cinfok in self.defdict.keys():
+            lkey = cinfok.split('.')[-1]
+            initpairs.append((cinfok, kw.pop(lkey, None)))
+        # initialize with the left keywords.
+        super(MeshCase, self).__init__(**kw)
+        # populate value from keywords.
+        for cinfok, val in initpairs:
+            if val is not None:
+                self._set_through(cinfok, val)
+        # create runhooks.
+        self.runhooks = HookList(self)
+        # expand basedir.
+        if self.io.abspath:
+            self.io.basedir = os.path.abspath(self.io.basedir)
+        if self.io.basedir is not None and not os.path.exists(self.io.basedir):
+            os.makedirs(self.io.basedir)
+        # message logger.
+        self.info = Information()
+
+    def _log_start(self, action, msg='', postmsg=' ... '):
+        """
+        :param action: Action key.
+        :type action: str
+        :keyword msg: Trailing message for the action key.
+        :type msg: str
+        :return: Nothing.
+
+        Print to user and record start time for certain action.
+        """
+        from time import time
+        info = self.info
+        tarr = [0,0,0]
+        tarr[0] = time()
+        self.log.time[action] = tarr
+        # header.
+        prefix = info.prefix * (info.width-info.level*info.nchar)
+        info(prefix, travel=1)
+        # content.
+        info('\nStart %s%s%s' % (action, msg, postmsg))
+        prefix = info.prefix * (info.width-info.level*info.nchar)
+        info('\n' + prefix + '\n')
+
+    def _log_end(self, action, msg='', postmsg=' . '):
+        """
+        :param action: Action key.
+        :type action: str
+        :keyword msg: Supplemental message.
+        :type msg: str
+        :return: Nothing
+
+        Print to user and record end time for certain action.
+        """
+        from time import time
+        info = self.info
+        tarr = self.log.time.setdefault(action, [0,0,0])
+        tarr[1] = time()
+        tarr[2] = tarr[1] - tarr[0]
+        # footer.
+        prefix = info.prefix * (info.width-info.level*info.nchar)
+        info(prefix + '\nEnd %s%s%sElapsed time (sec) = %g' % (
+            action, msg, postmsg, tarr[2]))
+        # up a level.
+        prefix = info.prefix * (info.width-(info.level-1)*info.nchar)
+        info('\n' + prefix + '\n', travel=-1)
+
+    def init(self, level=0):
+        """
+        :keyword level: Run level; higher level does less work.
+        :type level: :py:class:`int`
+        :return: Nothing
+
+        Load a block and initialize the solver from the geometry information in
+        the block and conditions in the self case.  If parallel run is
+        specified (through domaintype), split the domain and perform
+        corresponding tasks.  A simple example:
+
+        >>> cse = MeshCase()
+        >>> cse.init()
+        """
+        pass
+
+    def run(self, level=0):
+        """
+        :keyword level: Run level; higher level does less work.
+        :type level: :py:class:`int`
+        :return: Nothing
+
+        Temporal loop for the incorporated solver.  A simple example:
+
+        >>> cse = MeshCase(basefn='meshcase')
+        >>> cse.info.muted = True
+        >>> cse.init()
+        >>> cse.run()
+        """
+        # start log.
+        self._log_start('run', msg=' '+self.io.basefn)
+        self.info("\n")
+        # prepare for time marching.
+        self.execution.step_current = 0
+        self.runhooks('preloop')
+        self._log_start('loop_march')
+        while self.execution.step_current < self.execution.steps_run:
+            self.runhooks('premarch')
+            self.execution.marchret = self.solver.solverobj.march(
+                self.execution.step_current*self.execution.time_increment,
+                self.execution.time_increment)
+            self.execution.step_current += 1
+            self.runhooks('postmarch')
+        self._log_start('loop_march')
+        self.runhooks('postloop')
+        # end log.
+        self._log_end('run')
+
+    def cleanup(self, signum=None, frame=None):
+        """
+        :keyword signum: Signal number.
+        :keyword frame: Current stack frame.
+
+        A signal handler for cleaning up the simulation case on termination or
+        when errors occur.  This method can be overridden in subclasses.  The
+        base implementation is trivial, but usually doesn't need to be
+        overridden.
+        
+        An example to connect this method to a signal:
+
+        >>> cse = MeshCase(basefn='meshcase')
+        >>> cse.info.muted = True
+        >>> import signal
+        >>> signal.signal(signal.SIGTERM, cse.cleanup)
+        0
+
+        An example to call this method explicitly:
+
+        >>> cse.init()
+        >>> cse.run()
+        >>> cse.cleanup()
+        """
+        import signal
+        if signum == signal.SIGINT:
+            raise KeyboardInterrupt
+
+    @classmethod
+    def register_arrangement(cls, func, casename=None):
+        """
+        :return: Simulation function.
+        :rtype: callable
+
+        This class method is a decorator that creates a closure (internal
+        function) that turns the decorated function to an arrangement, and
+        registers the arrangement into the module-level registry and the
+        class-level registry.  The decorator function should return a
+        :py:class:`MeshCase` object ``cse``, and the closure performs a
+        simulation run by the following code:
+
+        .. code-block:: python
+
+            try:
+                signal.signal(signal.SIGTERM, cse.cleanup)
+                signal.signal(signal.SIGINT, cse.cleanup)
+                cse.init(level=runlevel)
+                cse.run(level=runlevel)
+                cse.cleanup()
+            except:
+                cse.cleanup()
+                raise
+        
+        The usage of this decorator can be exemplified by the following code,
+        which creates four arrangements (although the first three are
+        erroneous):
+
+        >>> @MeshCase.register_arrangement
+        ... def arg1():
+        ...     return None
+        >>> @MeshCase.register_arrangement
+        ... def arg2(wrongname):
+        ...     return None
+        >>> @MeshCase.register_arrangement
+        ... def arg3(casename):
+        ...     return None
+        >>> @MeshCase.register_arrangement
+        ... def arg4(casename):
+        ...     cse = MeshCase(basefn='meshcase')
+        ...     cse.info.muted = True
+        ...     return cse
+
+        The created arrangements are collected to a class attribute
+        :py:attr:`arrangements`, i.e., the class-level registry:
+
+        >>> sorted(MeshCase.arrangements.keys())
+        ['arg1', 'arg2', 'arg3', 'arg4']
+
+        The arrangements in the class attribute :py:attr:`arrangements` are
+        also put into a module-level attribute
+        :py:data:`solvcon.case.arrangements`:
+
+        >>> arrangements == MeshCase.arrangements
+        True
+
+        The first example arrangement is a bad one, because it allows no
+        argument:
+
+        >>> arrangements.arg1()
+        Traceback (most recent call last):
+          ...
+        TypeError: arg1() takes no arguments (1 given)
+
+        The second example arrangement is still a bad one, because although it
+        has an argument, the name of the argument is incorrect:
+
+        >>> arrangements.arg2()
+        Traceback (most recent call last):
+          ...
+        TypeError: arg2() got an unexpected keyword argument 'casename'
+
+        The third example arrangement is a bad one for another reason.  It
+        doesn't return a :py:class:`MeshCase`:
+
+        >>> arrangements.arg3()
+        Traceback (most recent call last):
+          ...
+        AttributeError: 'NoneType' object has no attribute 'cleanup'
+
+        The fourth example arrangement is finally good:
+
+        >>> arrangements.arg4()
+        """
+        if casename is None: casename = func.__name__
+        def simu(*args, **kw):
+            import signal
+            import cPickle as pickle
+            kw.setdefault('casename', casename)
+            runlevel = kw.pop('runlevel', 0)
+            # obtain the case object.
+            if runlevel == 1:
+                cse = pickle.load(open(cls.CSEFN_DEFAULT, 'rb'))
+            else:
+                cse = func(*args, **kw)
+            # run.
+            try:
+                signal.signal(signal.SIGTERM, cse.cleanup)
+                signal.signal(signal.SIGINT, cse.cleanup)
+                cse.init(level=runlevel)
+                cse.run(level=runlevel)
+                cse.cleanup()
+            except:
+                cse.cleanup()
+                raise
+        # register self to simulation registries.
+        cls.arrangements[casename] = arrangements[casename] = simu
+        # return the simulation function.
+        return simu
+
+# vim: set ff=unix fenc=utf8 ft=python ai et sw=4 ts=4 tw=79:

@@ -1,6 +1,6 @@
 # -*- coding: UTF-8 -*-
 #
-# Copyright (C) 2008-2012 Yung-Yu Chen <yyc@solvcon.net>.
+# Copyright (C) 2008-2013 Yung-Yu Chen <yyc@solvcon.net>.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -20,7 +20,7 @@ from unittest import TestCase
 
 class TestMeshCase(TestCase):
     def test_empty_fields(self):
-        from solvcon.mesh_solver import MeshCase
+        from solvcon.case import MeshCase
         case = MeshCase()
         # execution related.
         self.assertTrue(isinstance(case.runhooks, list))
@@ -46,13 +46,13 @@ class TestMeshCase(TestCase):
 
     def test_abspath(self):
         import os
-        from solvcon.mesh_solver import MeshCase
+        from solvcon.case import MeshCase
         case = MeshCase(basedir='.', abspath=True)
         path = os.path.abspath('.')
         self.assertEqual(case.io.basedir, path)
 
     def test_init(self):
-        from solvcon.mesh_solver import MeshCase
+        from solvcon.case import MeshCase
         case = MeshCase()
         case.init()
 

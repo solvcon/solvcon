@@ -3,11 +3,11 @@ Architecture
 ============
 
 SOLVCON is built upon two keystones: (i) unstructured meshes for spatial
-discretization and (ii) two-loop structure of partial differential equation
-(PDE) solvers.  The data structure of unstructured meshes forms the foundation
-layer, and the two basic loops forms the execution layer, as shown in Figure
-:ref:`fig_stack`.  The two basic constructs supports the modules for physical
-processes and numerical methods, on which applications are developed.
+discretization and (ii) two-level loop structure of partial differential
+equation (PDE) solvers.  The data structure of unstructured meshes forms the
+foundation layer, and the two basic loops forms the execution layer, as shown
+in Figure :ref:`fig_stack`.  The two basic constructs supports the modules for
+physical processes and numerical methods, on which applications are developed.
 
 The layered architecture of SOLVCON allows users to write Python scripts to
 drive the whole system.  This design helps automating simulations a lot.
@@ -755,36 +755,104 @@ functions listed above.
 Numerical Code
 ==============
 
-We are now ready to develop code for numerical methods, aided by the data
-structure and facilities explained in Section `Unstructured Meshes`_.  In
-SOLVCON, code of a numerical method should be implemented in four interactive
-components: (i) fundamental number-crunching functions, (ii) an algorithm
-class, (iii) a solver class, and (iv) a case class.  The first component is
-usually implemented in C for high speed.  The second component (an algorithm
-class) is implemented with Cython to provide access to the number-crunching
-functions for other Python code.  The third component (a solver class)
-abstracts the inner spatial loops of a PDE solver.  The fourth component (a
-case class) abstracts the outer temporal loop of a PDE solver.  The latter two
-components should both be implemented with Python.
+As the data structure and facilities are defined (in Section "`Unstructured
+Meshes`_"), we are now ready to develop code for numerical methods.  The
+numerical calculations in SOLVCON rely on exploiting a two-level loop
+structure, i.e., the temporal loop and the spatial loops.  For time-accurate
+solvers, there is always an outer loop that coordinates the time-marching.  The
+outer loop is called the *temporal loop*, and it should be implemented in
+subclasses of :py:class:`solvcon.case.MeshCase`.  Inside the temporal loop,
+there can be one or many inner loops that calculate the new values of the
+fields.  The inner loops are called the *spatial loops*, and they should be
+implemented in subclasses of :py:class:`solvcon.solver.MeshSolver`.
 
-The latter two components of a numerical method, the solver-case pair, actually
-shape how the method should operate.  It is adequate to say that the former two
-components, number-crunchers and the algorithm class, are provided for
-accelerating.  If we don't care about speed, a numerical method can be
-implemented in pure Python with only a solver class and a case class.  This
-fact can be exploited for writing a new numerical method with SOLVCON.  A slow
-version can be first prototyped with Python code in solver and case, and faster
-versions can be developed by moving code from Python to Cython (algorithm) or C
-(number-crunching functions).
+Although time-marching needs both the temporal and the spatial loops, the outer
+temporal loop is more responsible for coordinating, while the inner spatial
+loops is closer to numerical algorithms.  The nature of these two levels allows
+us to segregate code.  An object of :py:class:`solvcon.case.MeshCase` can be
+seen as the realization of a simulation case in SOLVCON (as a convention the
+object's name should contain or just be ``cse``).  Code in
+:py:class:`solvcon.case.MeshCase` is mainly about obtaining settings, provision
+of the execution environment, input, and output.  On the other hand, an object
+of :py:class:`solvcon.solver.MeshSolver` is used to manipulate the field data
+by the implemented numerical algorithm (as a convention the object's name
+should contain or just be ``svr``).  Its code shouldn't involve input nor
+output (excepting that for debugging) but needs to take parallelism into
+account.
 
-.. note::
+The two classes :py:class:`solvcon.case.MeshCase` and
+:py:class:`solvcon.solver.MeshSolver` establish good segregation for numerical
+methods, but to make code flexible, SOLVCON provides a companion for each of
+the classes.  A :py:class:`solvcon.case.MeshCase` object can contain one or
+more :py:class:`solvcon.hook.MeshHook` objects to perform custom operations at
+certain pre-defined stages (as a convention the objects should be named with
+``hok``).  Similarly, a :py:class:`solvcon.solver.MeshSolver` object can have
+one or more :py:class:`solvcon.anchor.MeshAnchor` objects for processing field
+data by using code that is not part of the numerical algorithm (as a convention
+the objects should be named with ``ank``).  In this section, for conciseness,
+the terms case, solver, hook, and anchor are sometimes referred to as the
+classes :py:class:`solvcon.case.MeshCase`,
+:py:class:`solvcon.solver.MeshSolver`, :py:class:`solvcon.hook.MeshHook`, and
+:py:class:`solvcon.anchor.MeshAnchor`, respectively, or their instances,
+respectively.
 
-  For a PDE-solving method, code written in Python is in general two orders of
-  magnitude slower than that written in C or Fortran.  And Cython code is still
-  a bit (percentages or times) slower than C code.  Hence, in reality, we need
-  to write C code for speed.
+.. py:module:: solvcon.case
+
+Case
+++++
+
+Module :py:mod:`solvcon.case` contains code for making a simulation case
+(subclasses of :py:class:`solvcon.case.MeshCase`).  Because a case coordinates
+the whole process of a simulation run, for parallel execution, there can be
+only one :py:class:`MeshCase` object residing in the controller (head) node.
+
+By the design, :py:class:`MeshCase` itself cannot be directly used.  It must be
+subclassed to implement control logic for a specific application.  The
+application can be a concrete model for a certain physical process, or an
+abstraction of a group of related physical processes, which can be further
+subclassed.
+
+.. autoclass:: MeshCase
+
+  .. inheritance-diagram:: MeshCase
+
+  :py:meth:`init` and :py:meth:`run` are the two primary methods responsible
+  for the execution of the simulation case object.  Both methods accept a
+  keyword parameter "level":
+
+  - run level 0: fresh run (default),
+  - run level 1: restart run,
+  - run level 2: initialization only.
+
+  .. automethod:: cleanup
+
+Initialize
+----------
+
+.. automethod:: MeshCase.init
+
+Time-March
+----------
+
+.. automethod:: MeshCase.run
+
+Arrangement
+-----------
+
+.. py:data:: arrangements
+
+  The module-level registry for arrangements.
+
+.. py:attribute:: MeshCase.arrangements
+
+  The class-level registry for arrangements.
+
+.. automethod:: MeshCase.register_arrangement
 
 .. py:module:: solvcon.solver
+
+Solver
+++++++
 
 .. autoclass:: MeshSolver
 
@@ -882,19 +950,6 @@ versions can be developed by moving code from Python to Cython (algorithm) or C
   :py:attr:`nsvr`, is the total number of collaborative solvers in the parallel
   run, and is initialized to ``None``.
 
-.. py:class:: MeshCase(**kw)
-
-  This is the base class for all simulation cases that use
-  :py:class:`MeshSolver` (and in turn :py:class:`solvcon.mesh.Mesh`).
-
-  init() and run() are the two primary methods responsible for the
-  execution of the simulation case object.  Both methods accept a keyword
-  parameter ``level`` which indicates the run level of the run:
-
-  - run level 0: fresh run (default),
-  - run level 1: restart run,
-  - run level 2: initialization only.
-
 To achieve high-performance in SOLVCON, the implementation of a numerical
 method is divided into two parts: (i) a solver class and (ii) an algorithm
 class.  A solver class is responsible for providing the API and managing
@@ -904,6 +959,16 @@ the algorithm class from the solver class.  Two modules,
 :py:mod:`solvcon.fake_solver` and :py:mod:`solvcon.fake_algorithm`, are put in
 SOLVCON to exemplify the delegation structure by using a dummy numerical
 method.
+
+.. note::
+
+  For a PDE-solving method, code written in Python is in general two orders of
+  magnitude slower than that written in C or Fortran.  And Cython code is still
+  a bit (percentages or times) slower than C code.  Hence, in reality, we need
+  to write C code for speed.
+
+Example Solver
+--------------
 
 .. py:module:: solvcon.fake_solver
 
@@ -979,6 +1044,12 @@ The :py:mod:`solvcon.fake_algorithm` module contains the
 
     Wraps the C functions :c:func:`sc_fake_algorithm_calc_dsoln`.  Do the work
     delegated from :py:meth:`solvcon.fake_solver.FakeSolver.calcdsoln`.
+
+Hook
+++++
+
+Anchor
+++++++
 
 Code Listings
 =============

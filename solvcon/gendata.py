@@ -59,15 +59,28 @@ class DefaultDict(dict):
 
 class SingleAssignDict(dict):
     """
-    Dictionary in which key/value can only be assigned once.
+    Dictionary in which key can only be assigned to a value once.
     """
     def __setitem__(self, key, item):
         """
-        Check for duplicated assignment.
+        >>> dct = SingleAssignDict()
+        >>> # creating a new key is OK:
+        >>> dct['a'] = 10
+        >>> # resetting an existing key isn't allowed:
+        >>> dct['a'] = 20
+        Traceback (most recent call last):
+          ...
+        IndexError: Resetting key "a" (20 to 10) isn't allowed.
+        >>> # even resetting a key to its current value isn't allowed:
+        >>> dct['a'] = dct['a']
+        Traceback (most recent call last):
+          ...
+        IndexError: Resetting key "a" (10 to 10) isn't allowed.
         """
         if key in self:
-            raise IndexError, "Cannot reset value for key=%s to override %s."%(
-                str(key), str(self[key]))
+            raise IndexError(
+                "Resetting key \"%s\" (%s to %s) isn't allowed." % (
+                    str(key), str(item), str(self[key])))
         super(SingleAssignDict, self).__setitem__(key, item)
 
 class TypeNameRegistry(SingleAssignDict, AttributeDict):
