@@ -50,7 +50,6 @@ class MeshSolver(object):
         self.blk = blk
         for bc in self.blk.bclist:
             bc.svr = self
-        self.ibclist = None
         # set time.
         self.time = time
         self.time_increment = time_increment
@@ -72,6 +71,18 @@ class MeshSolver(object):
         self.timer = Timer(vtype=float)
         self.enable_mesg = enable_mesg
         self.mesg = None
+
+    @property
+    def bclist(self):
+        return self.blk.bclist
+
+    @property
+    def grpnames(self):
+        return self.blk.grpnames
+
+    @property
+    def ngroup(self):
+        return len(self.grpnames)
 
     @staticmethod
     def detect_ncore():
