@@ -78,3 +78,46 @@ class TestBaseCase(TestCase):
         from ..case import BaseCase
         case = BaseCase()
         case.init()
+
+class TestMeshCase(TestCase):
+    def test_empty_fields(self):
+        from solvcon.case import MeshCase
+        cse = MeshCase()
+        # execution related.
+        self.assertTrue(isinstance(cse.runhooks, list))
+        self.assertEqual(cse.execution.time, 0.0)
+        self.assertEqual(cse.execution.time_increment, 0.0)
+        self.assertEqual(cse.execution.step_init, 0)
+        self.assertEqual(cse.execution.step_current, None)
+        self.assertEqual(cse.execution.steps_run, None)
+        self.assertEqual(cse.execution.var, dict())
+        self.assertEqual(cse.execution.varstep, None)
+        # io related.
+        self.assertEqual(cse.io.abspath, False)
+        self.assertEqual(cse.io.basedir, None)
+        self.assertEqual(cse.io.basefn, None)
+        # condition related.
+        self.assertEqual(cse.condition.mtrllist, list())
+        # solver related.
+        self.assertEqual(cse.solver.solvertype, None)
+        self.assertEqual(cse.solver.solverobj, None)
+        # logging.
+        self.assertEqual(cse.log.time, dict())
+
+    def test_abspath(self):
+        import os
+        from solvcon.case import MeshCase
+        cse = MeshCase(basedir='.', abspath=True)
+        path = os.path.abspath('.')
+        self.assertEqual(cse.io.basedir, path)
+
+    def test_init(self):
+        from solvcon.testing import create_trivial_2d_blk
+        from solvcon.domain import Domain
+        from solvcon.solver import MeshSolver
+        from solvcon.case import MeshCase
+        blk = create_trivial_2d_blk()
+        cse = MeshCase(basefn='meshcase', mesher=lambda *arg: blk,
+            domaintype=Domain, solvertype=MeshSolver)
+        cse.info.muted = True
+        cse.init()
