@@ -1,6 +1,6 @@
 # -*- coding: UTF-8 -*-
 #
-# Copyright (C) 2008-2011 Yung-Yu Chen <yyc@solvcon.net>.
+# Copyright (C) 2008-2013 Yung-Yu Chen <yyc@solvcon.net>.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -422,28 +422,33 @@ class periodic(BC):
         from numpy import empty
         blk = self.blk
         facn = self.facn
-        facn[:,2] = rbc.facn[:,0]
-        # fill informations from related block.
-        self.rblkinfo[:] = (blk.nnode, blk.ngstnode,
-            blk.nface, blk.ngstface, blk.ncell, blk.ngstcell)
-        # calculate indices of related cells.
-        self.rclp = empty((len(self),3), dtype='int32')
-        self.rclp[:,0] = blk.fccls[facn[:,0],1]
-        self.rclp[:,1] = blk.fccls[facn[:,2],0]
-        self.rclp[:,2] = blk.fccls[facn[:,0],0]
-        # assertion.
-        assert (self.rclp[:,0]<0).all()
-        assert (self.rclp[:,1]>=0).all()
-        assert (self.rclp[:,2]>=0).all()
-        # copy metrics.
-        slctm = self.rclp[:,0] + blk.ngstcell
-        slctr = self.rclp[:,1] + blk.ngstcell
-        blk.shcltpn[slctm] = blk.shcltpn[slctr]
-        blk.shclgrp[slctm] = blk.shclgrp[slctr]
-        blk.shclvol[slctm] = blk.shclvol[slctr]
-        # move coordinates.
-        shf = blk.shclcnd[slctr,:] - blk.fccnd[facn[:,2],:]
-        blk.shclcnd[slctm,:] = self.blk.fccnd[facn[:,0],:] + shf
+        try:
+            facn[:,2] = rbc.facn[:,0]
+            # fill informations from related block.
+            self.rblkinfo[:] = (blk.nnode, blk.ngstnode,
+                blk.nface, blk.ngstface, blk.ncell, blk.ngstcell)
+            # calculate indices of related cells.
+            self.rclp = empty((len(self),3), dtype='int32')
+            self.rclp[:,0] = blk.fccls[facn[:,0],1]
+            self.rclp[:,1] = blk.fccls[facn[:,2],0]
+            self.rclp[:,2] = blk.fccls[facn[:,0],0]
+            # assertion.
+            assert (self.rclp[:,0]<0).all()
+            assert (self.rclp[:,1]>=0).all()
+            assert (self.rclp[:,2]>=0).all()
+            # copy metrics.
+            slctm = self.rclp[:,0] + blk.ngstcell
+            slctr = self.rclp[:,1] + blk.ngstcell
+            blk.shcltpn[slctm] = blk.shcltpn[slctr]
+            blk.shclgrp[slctm] = blk.shclgrp[slctr]
+            blk.shclvol[slctm] = blk.shclvol[slctr]
+            # move coordinates.
+            shf = blk.shclcnd[slctr,:] - blk.fccnd[facn[:,2],:]
+            blk.shclcnd[slctm,:] = self.blk.fccnd[facn[:,0],:] + shf
+        except Exception as e:
+            e.args = tuple(list(e.args) + [
+                'self bc \'%s\' to rbc \'%s\'' % (self.name, rbc.name)])
+            raise
 
     @staticmethod
     def couple_all(blk, bcmap):

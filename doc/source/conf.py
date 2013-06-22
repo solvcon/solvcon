@@ -31,7 +31,7 @@ import solvcon
 extensions = ['sphinx.ext.pngmath', 'sphinx.ext.autodoc',
     'sphinx.ext.inheritance_diagram']
 
-autoclass_content = 'both'
+autoclass_content = 'class'
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']

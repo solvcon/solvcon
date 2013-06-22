@@ -1,6 +1,6 @@
 # -*- coding: UTF-8 -*-
 #
-# Copyright (C) 2011 Yung-Yu Chen <yyc@solvcon.net>.
+# Copyright (C) 2011-2013 Yung-Yu Chen <yyc@solvcon.net>.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -29,44 +29,14 @@ from .core import FormatIO
 class Gmsh(object):
     """
     Gmsh mesh object.  Indices nodes and elements in Gmsh is 1-based (Fortran
-    convention) instead of 0-based (C convention) that is used throughout
+    convention), but 0-based (C convention) indices are used throughout
     SOLVCON.  However, physics groups are using 0-based index.
 
-    @cvar ELMAP: Element definition map.  The key is Gmsh element type ID.  The
-        value is a 4-tuple: (i) dimension, (ii) number of total nodes, (iii) 
-        SOLVCON cell type ID, and (iv) SOLVCON cell node ordering.
-    @ctype ELMAP: dict
-    @ivar stream: Input stream of the mesh data.
-    @itype stream: file
-    @ivar ndim: Number of dimension of this mesh.
-    @itype ndim: int
-    @ivar nodes: Three-dimensional coordinates of all nodes.  The shape is
-        (number of Gmsh nodes, 3).  Note for even two-dimensional meshes the
-        array still stores three-dimensional coordinates.
-    @itype nodes: numpy.ndarray
-    @ivar usnds: Indices (0-based) of the nodes really useful for SOLVCON.
-    @itype usnds: numpy.ndarray
-    @ivar ndmap: A mapping array from Gmsh node indices (0-based) to SOLVCON
-        node indices (0-based).
-    @itype ndmap: numpy.ndarray
-    @ivar cltpn: SOLVCON cell type ID for each Gmsh element.
-    @itype cltpn: numpy.ndarray
-    @ivar elgrp: Group number of each Gmsh element.
-    @itype elgrp: numpy.ndarray
-    @ivar eldim: Dimension of each Gmsh element.
-    @itype eldim: numpy.ndarray
-    @ivar elems: Gmsh node indices (1-based) of each Gmsh element.
-    @itype elems: numpy.ndarray
-    @ivar intels: Indeces (0-based) of the elements inside the domain.
-    @itype intels: numpy.ndarray
-    @ivar physics: Physics groups as a list of 3-tuples: (i) dimension, (ii)
-        index (0-based), and (iii) name.  If a physics group has the same 
-        dimension as the mesh, it is an interior group.  Otherwise, the physics
-        group must have one less dimension than the mesh, and it must be used
-        as the boundary definition.
-    @itype physics: list
     """
 
+    #: Element definition map.  The key is Gmsh element type ID.  The
+    #: value is a 4-tuple: (i) dimension, (ii) number of total nodes, (iii) 
+    #: SOLVCON cell type ID, and (iv) SOLVCON cell node ordering.
     ELMAP = {
         # ID: dimension, number of nodes, type id, node ordering.
         1: (1, 2, 1, [0, 1]),  # 2-node line.
@@ -104,18 +74,105 @@ class Gmsh(object):
         93: (3, 125, 4, [0, 1, 2, 3, 4, 5, 6, 7]), # 125-node hexahedron.
     }
 
-    def __init__(self, stream):
+    def __init__(self, stream, load=False):
+        """
+        >>> # sample data.
+        >>> import StringIO
+        >>> data = \"\"\"$MeshFormat
+        ... 2.2 0 8
+        ... $EndMeshFormat
+        ... $Nodes
+        ... 3
+        ... 1 -1 0 0
+        ... 2 1 0 0
+        ... 3 0 1 0
+        ... $EndNodes
+        ... $Elements
+        ... 1
+        ... 1 2 2 1 22 1 2 3
+        ... $EndElements
+        ... $PhysicalNames
+        ... 1
+        ... 2 1 "lower"
+        ... $EndPhysicalNames
+        ... $Periodic
+        ... 1
+        ... 0 1 3
+        ... 1
+        ... 1 3
+        ... $EndPeriodic\"\"\"
+
+        Creation of the object doesn't load data:
+
+        >>> gmsh = Gmsh(StringIO.StringIO(data))
+        >>> None is gmsh.ndim
+        True
+        >>> gmsh.load()
+        >>> gmsh.ndim
+        2
+        >>> gmsh.stream.close() # it's a good habit :-)
+
+        We can request to load data on creation by setting *load=True*.  Note
+        the stream will be closed after creation+loading.  The default behavior
+        is different to :py:meth:`load`.
+
+        >>> gmsh = Gmsh(StringIO.StringIO(data), load=True)
+        >>> gmsh.ndim
+        2
+        >>> gmsh.stream.closed
+        True
+        """
+        #: Input stream (:py:class:`file`) of the mesh data.
         self.stream = stream
+        #: Number of dimension of this mesh (py:class:`int`).  Stored by
+        #: :py:meth:`_load_elements`.
         self.ndim = None
+        #: Three-dimensional coordinates of all nodes
+        # (:py:class:`numpy.ndarray`).  The shape is (number
+        #: of Gmsh nodes, 3).  Note for even two-dimensional meshes the
+        #: array still stores three-dimensional coordinates.  Stored by
+        #: :py:meth:`_load_nodes`.
         self.nodes = None
+        #: Indices (0-based) of the nodes really useful for SOLVCON
+        #: (:py:class:`numpy.ndarray`).  Stored by :py:meth:`_load_elements`.
         self.usnds = None
+        #: A mapping array from Gmsh node indices (0-based) to SOLVCON node
+        #: indices (0-based) (:py:class:`numpy.ndarray`).  Stored by
+        #: :py:meth:`_load_elements`.
         self.ndmap = None
+        #: SOLVCON cell type ID for each Gmsh element
+        #: (py:class:`numpy.ndarray`).  Stored by :py:meth:`_load_elements`.
         self.cltpn = None
+        #: Physics group number of each Gmsh element; the first tag
+        #: (:py:class:`numpy.ndarray`).  Stored by :py:meth:`_load_elements`.
         self.elgrp = None
+        #: Geometrical gropu number of each Gmsh element; the second tag
+        #: (:py:class:`numpy.ndarray`).  Stored by :py:meth:`_load_elements`.
+        self.elgeo = None
+        #: Dimension of each Gmsh element (:py:class:`numpy.ndarray`).  Stored
+        #: by :py:meth:`_load_elements`.
         self.eldim = None
+        #: Gmsh node indices (1-based) of each Gmsh element
+        #: (:py:class:`numpy.ndarray`).  Stored by :py:meth:`_load_elements`.
         self.elems = None
+        #: Indices (0-based) of the elements inside the domain
+        #: (:py:class:`numpy.ndarray`).  Stored by :py:meth:`_parse_physics`.
         self.intels = None
+        #: Physics groups as a :py:class:`list` of 3-tuples: (i) dimension,
+        #: (ii) index (0-based), and (iii) name.  If a physics group has the
+        #: same dimension as the mesh, it is an interior group.  Otherwise, the
+        #: physics group must have one less dimension than the mesh, and it
+        #: must be used as the boundary definition.  Stored by
+        #: :py:meth:`_load_physics` and then processed by
+        #: :py:meth:`_parse_physics`.
         self.physics = list()
+        #: Periodic relation :py:class:`list`.  Each item is a
+        #: :py:class:`dict`:.  Stored by :py:meth:`_load_periodic`.
+        self.periodics = list()
+
+        # load file if requested.
+        if load:
+            self.load(close=True)
 
     @property
     def nnode(self):
@@ -123,6 +180,7 @@ class Gmsh(object):
         Number of nodes that is useful for SOLVCON.
         """
         return self.usnds.shape[0]
+
     @property
     def ncell(self):
         """
@@ -130,33 +188,90 @@ class Gmsh(object):
         """
         return self.intels.shape[0]
 
-    def load(self):
+    ############################################################################
+    # Loading methods.
+    def load(self, close=False):
         """
         Load mesh data from storage.
 
-        @return: nothing.
+        >>> # sample data.
+        >>> import StringIO
+        >>> data = \"\"\"$MeshFormat
+        ... 2.2 0 8
+        ... $EndMeshFormat
+        ... $Nodes
+        ... 3
+        ... 1 -1 0 0
+        ... 2 1 0 0
+        ... 3 0 1 0
+        ... $EndNodes
+        ... $Elements
+        ... 1
+        ... 1 2 2 1 22 1 2 3
+        ... $EndElements
+        ... $PhysicalNames
+        ... 1
+        ... 2 1 "lower"
+        ... $EndPhysicalNames
+        ... $Periodic
+        ... 1
+        ... 0 1 3
+        ... 1
+        ... 1 3
+        ... $EndPeriodic\"\"\"
+
+        Load the mesh data after creation of the object.  Note the stream is
+        left opened after loading.
+
+        >>> stream = StringIO.StringIO(data)
+        >>> gmsh = Gmsh(stream)
+        >>> gmsh.load()
+        >>> stream.closed
+        False
+        >>> stream.close() # it's a good habit :-)
+
+        We can ask :py:meth:`load` to close the stream after loading by using
+        *close=True*:
+
+        >>> gmsh = Gmsh(StringIO.StringIO(data))
+        >>> gmsh.load(close=True)
+        >>> gmsh.stream.closed
+        True
         """
-        stream = self.stream
         loader_map = {
-            '$MeshFormat': self._load_meta,
-            '$Nodes': self._load_nodes,
-            '$Elements': self._load_elements,
-            '$PhysicalNames': self._load_physics,
+            '$MeshFormat': lambda: Gmsh._check_meta(self.stream),
+            '$Nodes': lambda: Gmsh._load_nodes(self.stream),
+            '$Elements': lambda: Gmsh._load_elements(self.stream, self.nodes),
+            '$PhysicalNames': lambda: Gmsh._load_physics(self.stream),
+            '$Periodic': lambda: Gmsh._load_periodic(self.stream),
         }
         while True:
-            key = stream.readline().strip()
+            key = self.stream.readline().strip()
             if key:
-                loader_map[key]()
+                self.__dict__.update(loader_map[key]())
             else:
                 break
         self._parse_physics()
-    def _load_meta(self):
-        """
-        Load and check the meta data of the mesh.
+        if close:
+            self.stream.close()
 
-        @return: nothing.
+    @staticmethod
+    def _check_meta(stream):
         """
-        stream = self.stream
+        Load and check the meta data of the mesh.  It doesn't return anything
+        to be stored.
+        
+        >>> import StringIO
+        >>> stream = StringIO.StringIO(\"\"\"$MeshFormat
+        ... 2.2 0 8
+        ... $EndMeshFormat\"\"\")
+        >>> stream.readline()
+        '$MeshFormat\\n'
+        >>> Gmsh._check_meta(stream)
+        {}
+        >>> stream.readline()
+        ''
+        """
         version_number, file_type, data_size = stream.readline().split()
         if stream.readline().strip() != '$EndMeshFormat':
             return False
@@ -166,102 +281,188 @@ class Gmsh(object):
         assert version_number > 2
         assert file_type == 0
         assert data_size == 8
-    def _load_nodes(self):
+        return dict()
+
+    @staticmethod
+    def _load_nodes(stream):
         """
         Load node coordinates of the mesh data.  Because of the internal data
-        structure of Python, Numpy, and SOLVCON, the loaded nodes are using 
-        the 0-based index.
+        structure of Python, Numpy, and SOLVCON, the loaded :py:attr:`nodes`
+        are using the 0-based index.
 
-        @return: Successfully loaded or not.
-        @rtype: bool
+        >>> import StringIO
+        >>> stream = StringIO.StringIO(\"\"\"$Nodes
+        ... 3
+        ... 1 -1 0 0
+        ... 2 1 0 0
+        ... 3 0 1 0
+        ... $EndNodes\"\"\") # a triangle.
+        >>> stream.readline()
+        '$Nodes\\n'
+        >>> Gmsh._load_nodes(stream) # doctest: +NORMALIZE_WHITESPACE
+        {'nodes': array([[-1.,  0.,  0.], [ 1.,  0.,  0.], [ 0.,  1.,  0.]])}
+        >>> stream.readline()
+        ''
         """
         from numpy import empty
-        stream = self.stream
         nnode = int(stream.readline().strip())
-        self.nodes = empty((nnode, 3), dtype='float64')
+        nodes = empty((nnode, 3), dtype='float64')
         ind = 0
         while ind < nnode:
             dat = stream.readline().split()[1:]
-            self.nodes[ind,:] = [float(ent) for ent in dat]
+            nodes[ind,:] = [float(ent) for ent in dat]
             ind += 1
-        if stream.readline().strip() != '$EndNodes':
-            return False
-        else:
-            return True
-    def _load_elements(self):
+        # return.
+        assert stream.readline().strip() == '$EndNodes'
+        return dict(nodes=nodes)
+
+    @classmethod
+    def _load_elements(cls, stream, nodes):
         """
         Load element definition of the mesh data.  The node indices defined for
-        each element are still 1-based.
+        each element are still 1-based.  It returns :py:attr:`cltpn`,
+        :py:attr:`eldim`, :py:attr:`elems`, :py:attr:`elgeo`, :py:attr:`elgrp`,
+        :py:attr:`ndim`, :py:attr:`ndmap`, and :py:attr:`usnds` for storage.
 
-        @return: Successfully loaded or not.
-        @rtype: bool
+        >>> from numpy import array
+        >>> nodes = array([[-1.,  0.,  0.], [ 1.,  0.,  0.], [ 0.,  1.,  0.]])
+        >>> import StringIO
+        >>> stream = StringIO.StringIO(\"\"\"$Elements
+        ... 1
+        ... 1 2 2 1 22 1 2 3
+        ... $EndElements\"\"\") # a triangle.
+        >>> stream.readline()
+        '$Elements\\n'
+        >>> sorted(Gmsh._load_elements(
+        ...     stream, nodes).items()) # doctest: +NORMALIZE_WHITESPACE
+        [('cltpn', array([3], dtype=int32)),
+         ('eldim', array([2], dtype=int32)),
+         ('elems', array([[ 3,  1,  2,  3, -1, -1, -1, -1, -1]], dtype=int32)),
+         ('elgeo', array([22], dtype=int32)),
+         ('elgrp', array([1], dtype=int32)),
+         ('ndim', 2),
+         ('ndmap', array([0, 1, 2], dtype=int32)),
+         ('usnds', array([0, 1, 2], dtype=int32))]
+        >>> stream.readline()
+        ''
         """
         from numpy import empty, array, arange, unique
         from ..block import Block
-        stream = self.stream
         usnds = []
         nelem = int(stream.readline().strip())
-        self.cltpn = empty(nelem, dtype='int32')
-        self.elgrp = empty(nelem, dtype='int32')
-        self.eldim = empty(nelem, dtype='int32')
-        self.elems = empty((nelem, Block.CLMND+1), dtype='int32')
-        self.elems.fill(-1)
-        self.ndim = 0
+        cltpn = empty(nelem, dtype='int32')
+        elgrp = empty(nelem, dtype='int32')
+        elgeo = empty(nelem, dtype='int32')
+        eldim = empty(nelem, dtype='int32')
+        elems = empty((nelem, Block.CLMND+1), dtype='int32')
+        elems.fill(-1)
+        ndim = 0
         iel = 0
         while iel < nelem:
             dat = [int(ent) for ent in stream.readline().split()[1:]]
             tpn = dat[0]
             tag = dat[2:2+dat[1]]
             nds = dat[2+dat[1]:]
-            elmap = self.ELMAP[tpn]
-            self.cltpn[iel] = elmap[2]
-            self.elgrp[iel] = tag[0]
-            self.eldim[iel] = elmap[0]
+            elmap = cls.ELMAP[tpn]
+            cltpn[iel] = elmap[2]
+            elgrp[iel] = tag[0]
+            elgeo[iel] = tag[1]
+            eldim[iel] = elmap[0]
             nnd = len(elmap[3])
-            self.elems[iel,0] = nnd
+            elems[iel,0] = nnd
             nds = array(nds, dtype='int32')[elmap[3]]
             usnds.extend(nds)
-            self.elems[iel,1:nnd+1] = nds
-            self.ndim = elmap[0] if elmap[0] > self.ndim else self.ndim
+            elems[iel,1:nnd+1] = nds
+            ndim = elmap[0] if elmap[0] > ndim else ndim
             iel += 1
         usnds = array(usnds, dtype='int32') - 1
         usnds.sort()
         usnds = unique(usnds)
-        self.ndmap = empty(self.nodes.shape[0], dtype='int32')
-        self.ndmap.fill(-1)
-        self.ndmap[usnds] = arange(usnds.shape[0], dtype='int32')
-        self.usnds = usnds
-        if stream.readline().strip() != '$EndElements':
-            return False
-        else:
-            return True
-    def _load_physics(self):
-        """
-        Load physics groups of the mesh data.
+        ndmap = empty(nodes.shape[0], dtype='int32')
+        ndmap.fill(-1)
+        ndmap[usnds] = arange(usnds.shape[0], dtype='int32')
+        # returns.
+        assert stream.readline().strip() == '$EndElements'
+        return dict(ndim=ndim, cltpn=cltpn, elgrp=elgrp, elgeo=elgeo,
+                    eldim=eldim, elems=elems, ndmap=ndmap, usnds=usnds)
 
-        @return: Successfully loaded or not.
-        @rtype: bool
+    @staticmethod
+    def _load_physics(stream):
         """
-        from numpy import arange, concatenate, unique
-        stream = self.stream
+        Load physics groups of the mesh data.  Return :py:attr:`physics` for
+        storage.
+
+        >>> import StringIO
+        >>> stream = StringIO.StringIO(\"\"\"$PhysicalNames
+        ... 1
+        ... 2 1 "lower"
+        ... $EndPhysicalNames\"\"\")
+        >>> stream.readline()
+        '$PhysicalNames\\n'
+        >>> Gmsh._load_physics(stream)
+        {'physics': ['1', '2 1 "lower"']}
+        >>> stream.readline()
+        ''
+        """
+        physics = list()
         while True:
             line = stream.readline().strip()
             if line == '$EndPhysicalNames':
-                return True
+                return dict(physics=physics)
             else:
-                self.physics.append(line)
+                physics.append(line)
+
+    @staticmethod
+    def _load_periodic(stream):
+        """
+        Load periodic definition of the mesh data.  Return :py:attr:`periodics`
+        for storage.
+
+        >>> import StringIO
+        >>> stream = StringIO.StringIO(\"\"\"$Periodic
+        ... 1
+        ... 0 1 3
+        ... 1
+        ... 1 3
+        ... $EndPeriodic\"\"\") # a triangle.
+        >>> stream.readline()
+        '$Periodic\\n'
+        >>> Gmsh._load_periodic(stream) # doctest: +NORMALIZE_WHITESPACE
+        {'periodics': [{'ndim': 0,
+                        'stag': 1,
+                        'nodes': array([[1, 3]], dtype=int32),
+                        'mtag': 3}]}
+        >>> stream.readline()
+        ''
+        """
+        from numpy import array
+        # read the total number of periodic relations.
+        nent = int(stream.readline())
+        # loop over relations.
+        periodics = list()
+        while len(periodics) < nent:
+            # read data for this periodic realtion.
+            ndim, stag, mtag = map(int, stream.readline().split())
+            nnode = int(stream.readline())
+            nodes = array([map(int, stream.readline().split())
+                           for it in xrange(nnode)], dtype='int32')
+            # append the relation.
+            periodics.append(dict(
+                ndim=ndim, stag=stag, mtag=mtag, nodes=nodes))
+        # return.
+        assert '$EndPeriodic' == stream.readline().strip()
+        return dict(periodics=periodics)
+
     def _parse_physics(self):
         """
-        Parse physics groups of the mesh data.
-
-        @return: Successfully loaded or not.
-        @rtype: bool
+        Parse physics groups of the mesh data.  Process :py:attr:`physics` and
+        stores :py:attr:`intels`.
         """
         from numpy import arange, concatenate, unique
         elidx = arange(self.elems.shape[0], dtype='int32')
         if not self.physics:
             self.intels = elidx[self.eldim == self.ndim]
-            return False
+            return
         physics = []
         intels = []
         nphy = int(self.physics[0])
@@ -286,8 +487,11 @@ class Gmsh(object):
         intels = concatenate(intels)
         intels.sort()
         self.intels = unique(intels)
-        return True
+    # Loading methods.
+    ############################################################################
 
+    ############################################################################
+    # Converting methods.
     def toblock(self, onlybcnames=None, bcname_mapper=None, fpdtype=None,
             use_incenter=False):
         """
@@ -315,6 +519,7 @@ class Gmsh(object):
         blk.build_boundary()
         blk.build_ghost()
         return blk
+
     def _convert_interior(self, blk):
         """
         Convert interior information from Gmsh to SOLVCON block.
@@ -349,6 +554,7 @@ class Gmsh(object):
         else:
             blk.clgrp.fill(0)
             blk.grpnames.append('default')
+
     def _convert_boundary(self, onlybcnames, bcname_mapper, fpdtype, blk):
         """
         Convert boundary information from Gmsh to SOLVCON block.
@@ -403,23 +609,18 @@ class Gmsh(object):
             bc.sern = len(blk.bclist)
             bc.blk = blk
             blk.bclist.append(bc)
+    # Converting methods.
+    ############################################################################
+
 
 class GmshIO(FormatIO):
     """
     Proxy to Gmsh file format.
     """
+
     def load(self, stream, bcrej=None, bcmapper=None):
         """
         Load block from stream with BC mapper applied.
-
-        @keyword stream: file object or file name to be read.
-        @type stream: file or str
-        @keyword bcrej: names of the BC to reject.
-        @type bcrej: list
-        @keyword bcmapper: map name to bc type number.
-        @type bcmapper: dict
-        @return: the loaded block.
-        @rtype: solvcon.block.Block
         """
         import gzip
         # load Gmsh file.

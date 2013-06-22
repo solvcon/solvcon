@@ -1,0 +1,11 @@
+#!/usr/bin/env python
+
+import pprint
+from solvcon.io.gmsh import Gmsh
+
+with open('../../tmp/cube.msh') as fobj:
+    gmsh = Gmsh(fobj)
+    gmsh.load()
+    print gmsh.elgeo
+    pprint.pprint(gmsh.periodics)
+    pprint.pprint(gmsh.physics)

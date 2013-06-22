@@ -41,6 +41,7 @@ Documentation
    install
    tutorial
    architecture
+   inout
    system_modules
    contribution
    history

@@ -205,11 +205,11 @@ $(SCETC)/Sphinx-1.1.2: $(SCETC)/docutils-0.8.1 $(SCETC)/Jinja2-2.6 \
 ################################################################################
 
 mesher: $(SCETC)/scvars.sh \
-	$(SCETC)/gmsh-2.5.0-source
+	$(SCETC)/gmsh-2.7.0-source
 
-$(SCETC)/gmsh-2.5.0-source:
-	./build-gmsh.sh gmsh-2.5.0-source
-	touch $(SCETC)/gmsh-2.5.0-source
+$(SCETC)/gmsh-2.7.0-source:
+	./build-gmsh.sh gmsh-2.7.0-source
+	touch $(SCETC)/gmsh-2.7.0-source
 
 ################################################################################
 # End mesher.

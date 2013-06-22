@@ -1,6 +1,6 @@
 # -*- coding: UTF-8 -*-
 #
-# Copyright (C) 2008-2011 Yung-Yu Chen <yyc@solvcon.net>.
+# Copyright (C) 2008-2013 Yung-Yu Chen <yyc@solvcon.net>.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -237,9 +237,14 @@ class Gmsh(object):
 
     Delegate Gmsh command through journaling file and load the generated mesh.
     """
-    def __init__(self, cmds):
+    def __init__(self, cmds, preserve=False):
+        """
+        >>> gmh = Gmsh(["lc = 0.1;"])
+        >>> gmh = Gmsh(["lc = 0.1;"], preserve=True)
+        """
         self.cmds = cmds
         self.stdout = None
+        self.preserve = preserve
     def __call__(self):
         """
         :return: The loaded Gmsh object.
@@ -279,5 +284,8 @@ class Gmsh(object):
             gmh = None
             raise
         finally:
+            if self.preserve:
+                shutil.copyfile(cmdp, os.path.basename(cmdp))
+                shutil.copyfile(mshp, os.path.basename(mshp))
             shutil.rmtree(wdir)
         return gmh
