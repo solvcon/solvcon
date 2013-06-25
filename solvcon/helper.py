@@ -245,7 +245,7 @@ class Gmsh(object):
         self.cmds = cmds
         self.stdout = None
         self.preserve = preserve
-    def __call__(self):
+    def __call__(self, options=None):
         """
         :return: The loaded Gmsh object.
         :rtype: solvcon.io.gmsh.Gmsh
@@ -268,6 +268,8 @@ class Gmsh(object):
         cmdf.close()
         # call Gmsh and get the data.
         cli = 'gmsh %s -3 -o %s' % (cmdp, mshp)
+        if None is not options:
+            cli += ' %s' % options
         pobj = Popen(cli, shell=True, stdout=PIPE, stderr=STDOUT)
         self.stdout = pobj.stdout.read()
         if not os.path.exists(mshp):
