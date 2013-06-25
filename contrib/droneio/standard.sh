@@ -4,6 +4,6 @@ contrib/aptget.ubuntu.sh
 # build
 scons
 # unit tests.
-nosetests
+nosetests -v
 # functional tests.
-nosetests ftests/*
+nosetests ftests/* --exclude test_rpc -v
