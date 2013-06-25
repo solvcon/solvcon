@@ -6,4 +6,4 @@ scons
 # unit tests.
 nosetests -v
 # functional tests.
-nosetests ftests/* --exclude test_rpc -v
+nosetests ftests/* --exclude test_rpc --exclude test_remote -v
