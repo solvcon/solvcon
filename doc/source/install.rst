@@ -19,12 +19,13 @@ SOLVCON depends on the following packages:
 - `gmsh <http://geuz.org/gmsh/>`_ 2.5+
 - `VTK <http://vtk.org/>`_ 5.6+
 
-The following command will install these packages on Debian/Ubunbu::
+The following command will install these packages on Debian 7+:
 
-  sudo apt-get install build-essential gcc gfortran scons
-  liblapack-pic liblapack-dev libnetcdf-dev libnetcdf6 netcdf-bin
-  libscotch-dev libscotchmetis-dev libscotch-5.1
-  python2.7 python2.7-dev cython python-numpy python-nose gmsh python-vtk
+.. literalinclude:: ../../contrib/aptget.debian.sh
+
+On Ubuntu please use:
+
+.. literalinclude:: ../../contrib/aptget.ubuntu.sh
 
 Note: For Debian Squeeze (6.0), you need also ``apt-get install
 python-profiler`` to install the built-in Python profiler.
