@@ -1,4 +1,5 @@
 #!/bin/sh
+PYTHONPATH=../../..:$PYTHONPATH
 rm -rf result
 # 2D.
 ./go run cvg2d_200 cvg2d_150 cvg2d_100 cvg2d_50 
