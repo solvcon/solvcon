@@ -283,7 +283,6 @@ class CeseSolver(BlockSolver):
 
     def init(self, **kw):
         self._tcall(self._clib_cese.calc_ce, 0, self.ncell)
-        self._tcall(self._clib_cese.qualify_mesh, -self.ngstcell, self.ncell)
         super(CeseSolver, self).init(**kw)
 
     def boundcond(self):
