@@ -1019,6 +1019,7 @@ class MeshCase(CaseInfo):
 
     defdict = {
         # execution related.
+        'execution.fpdtype': 'float64',
         'execution.npart': None,    # number of decomposed blocks.
         'execution.stop': False,
         'execution.time': 0.0,
@@ -1563,6 +1564,12 @@ for node in $nodes; do rsh $node killall %s; done
     ###
     ############################################################################
 
+    ############################################################################
+    ###
+    ### Begin of block of case execution.
+    ###
+    ############################################################################
+
     def run(self, level=0):
         """
         :keyword level: Run level; higher level does less work.
@@ -1581,24 +1588,78 @@ for node in $nodes; do rsh $node killall %s; done
         >>> cse.init()
         >>> cse.run()
         """
-        # start log.
-        self._log_start('run', msg=' '+self.io.basefn)
-        self.info("\n")
-        # prepare for time marching.
-        self.execution.step_current = 0
+        self._log_start('run', msg=' (level %d) %s' % (level, self.io.basefn))
+        self.execution.step_current = self.execution.step_init
+        if level < 1:
+            self._run_provide()
+            self._run_preloop()
+        if level < 2:
+            self._run_march()
+            self._run_postloop()
+            self._run_exhaust()
+        else:   # level == 2.
+            self.dump()
+        self._run_final()
+        self._log_end('run', msg=' '+self.io.basefn)
+
+    # logics before entering main loop (march).
+    def _run_provide(self):
+        flag_parallel = self.is_parallel
+        # anchor: provide.
+        self.solver.solverobj.provide()
+    def _run_preloop(self):
+        flag_parallel = self.is_parallel
+        # hook: preloop.
         self.runhooks('preloop')
+        self.solver.solverobj.preloop()
+        self.solver.solverobj.apply_bc()
+
+    def _run_march(self):
+        from time import time as timer
+        flag_parallel = self.is_parallel
+        self.log.time['solver_march'] = 0.0
+        self.info('\n')
         self._log_start('loop_march')
         while self.execution.step_current < self.execution.steps_run:
+            if self.execution.stop: break
+            # hook: premarch.
             self.runhooks('premarch')
-            self.execution.marchret = self.solver.solverobj.march(
-                self.execution.step_current*self.execution.time_increment,
-                self.execution.time_increment)
-            self.execution.step_current += 1
+            # march.
+            solver_march_marker = timer()
+            steps_stride = self.execution.steps_stride
+            time_increment = self.execution.time_increment
+            time = self.execution.step_current*time_increment
+            self.execution.marchret = self.solver.solverobj.march(time,
+                time_increment, steps_stride)
+            self.execution.time += time_increment*steps_stride
+            self.log.time['solver_march'] += timer() - solver_march_marker
+            self.execution.step_current += steps_stride
+            # hook: postmarch.
             self.runhooks('postmarch')
-        self._log_start('loop_march')
-        self.runhooks('postloop')
         # end log.
-        self._log_end('run')
+        self._log_end('loop_march')
+        self.info('\n')
+
+    # logics after exiting main loop (march).
+    def _run_postloop(self):
+        flag_parallel = self.is_parallel
+        # hook: postloop.
+        self.solver.solverobj.postloop()
+        self.runhooks('postloop')
+    def _run_exhaust(self):
+        flag_parallel = self.is_parallel
+        # anchor: exhaust.
+        self.solver.solverobj.exhaust()
+    def _run_final(self):
+        flag_parallel = self.is_parallel
+        # finalize.
+        self.solver.solverobj.final()
+
+    ############################################################################
+    ###
+    ### End of block of case execution.
+    ###
+    ############################################################################
 
     def cleanup(self, signum=None, frame=None):
         """

@@ -1,6 +1,6 @@
 # -*- coding: UTF-8 -*-
 #
-# Copyright (C) 2008-2010 Yung-Yu Chen <yyc@solvcon.net>.
+# Copyright (C) 2008-2013 Yung-Yu Chen <yyc@solvcon.net>.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -25,6 +25,24 @@ BCs works as an internal interface.  As such, the BCs can be dynamically turn
 on or off.
 """
 
+
+import sys
+import os
+import time
+import ctypes
+
+
+import numpy as np
+
+
+# execution.
+from . import solver
+from . import boundcond
+# employment.
+from .io import vtkxml
+from . import visual_vtk
+
+
 class Anchor(object):
     """
     Anchor that called by solver objects at various stages.
@@ -36,8 +54,7 @@ class Anchor(object):
     """
 
     def __init__(self, svr, **kw):
-        from .solver import BaseSolver
-        assert isinstance(svr, BaseSolver)
+        assert isinstance(svr, (solver.BaseSolver, solver.MeshSolver))
         self.svr = svr
         self.kws = dict(kw)
 
@@ -130,8 +147,6 @@ class MarchSaveAnchor(Anchor):
         self.vtkfn_tmpl = kw.pop('vtkfn_tmpl')
         super(MarchSaveAnchor, self).__init__(svr, **kw)
     def _write(self, istep):
-        from .io.vtkxml import VtkXmlUstGridWriter
-        from .solver import FakeBlockVtk
         ngstcell = self.svr.ngstcell
         sarrs = dict()
         varrs = dict()
@@ -151,7 +166,8 @@ class MarchSaveAnchor(Anchor):
                 for it in range(arr.shape[1]):
                     sarrs['%s[%d]' % (key, it)] = arr[:,it]
         # write.
-        wtr = VtkXmlUstGridWriter(FakeBlockVtk(self.svr), fpdtype=self.fpdtype,
+        wtr = vtkxml.VtkXmlUstGridWriter(
+            solver.FakeBlockVtk(self.svr), fpdtype=self.fpdtype,
             compressor=self.compressor, scalars=sarrs, vectors=varrs)
         svrn = self.svr.svrn
         wtr.write(self.vtkfn_tmpl % (istep if svrn is None else (istep, svrn)))
@@ -208,7 +224,6 @@ class VtkAnchor(Anchor):
 
         @return: nothing
         """
-        from .visual_vtk import valid_vector, set_array
         ngstcell = self.svr.ngstcell
         fpdtype = self.fpdtype
         ust = self.svr.ust
@@ -221,12 +236,14 @@ class VtkAnchor(Anchor):
                 arr = getattr(self.svr, key)[ngstcell:]
             # set array in unstructured mesh.
             if len(arr.shape) == 1:
-                set_array(arr, key, fpdtype, ust)
+                visual_vtk.set_array(arr, key, fpdtype, ust)
             elif arr.shape[1] == self.svr.ndim:
-                set_array(valid_vector(arr), key, fpdtype, ust)
+                visual_vtk.set_array(
+                    visual_vtk.valid_vector(arr), key, fpdtype, ust)
             else:
                 for it in range(arr.shape[1]):
-                    set_array(arr[:,it], '%s[%d]' % (key, it), fpdtype, ust)
+                    visual_vtk.set_array(
+                        arr[:,it], '%s[%d]' % (key, it), fpdtype, ust)
     def preloop(self):
         self.process(0)
     def postmarch(self):
@@ -297,7 +314,6 @@ class RuntimeStatAnchor(Anchor):
 
     @classmethod
     def get_pstat(cls):
-        import os
         pid = os.getpid()
         f = open('/proc/%d/stat'%pid)
         sinfo = f.read().split()
@@ -324,7 +340,6 @@ class RuntimeStatAnchor(Anchor):
 
     @classmethod
     def get_envar(cls):
-        import os
         envar = dict()
         for key in cls.ENVAR_KEYS:
             envar[key] = os.environ.get(key, None)
@@ -344,9 +359,8 @@ class RuntimeStatAnchor(Anchor):
         super(RuntimeStatAnchor, self).__init__(svr, **kw)
 
     def _get_record(self):
-        from time import time
         record = dict()
-        record['time'] = time()
+        record['time'] = time.time()
         pstat = self.get_pstat()
         cpu = self.get_cpu_frame()
         loadavg = self.get_loadavg()
@@ -366,7 +380,7 @@ class RuntimeStatAnchor(Anchor):
 
     def _msg_setting(self, record):
         return ' '.join([
-            '%s=%s' % (key, str(getattr(self.svr, key))) for key in
+            '%s=%s' % (key, str(getattr(self.svr, key, None))) for key in
                 self.SETTING_KEYS
         ])
 
@@ -453,7 +467,6 @@ class RuntimeStatAnchor(Anchor):
 
     @classmethod
     def _parse(cls, lines, key, xtime):
-        from numpy import array, arange
         myhead = 'RT_%s: ' % key
         nmyhead = len(myhead)
         mymethod = getattr(cls, '_parse_%s' % key)
@@ -462,13 +475,12 @@ class RuntimeStatAnchor(Anchor):
             loc = line.find(myhead)
             if loc > -1:
                 data.append(mymethod(line[loc+nmyhead:]))
-        arr = array(data, dtype='float64')
-        xval = arr[:,0]-arr[0,0] if xtime else arange(arr.shape[0])+1
+        arr = np.array(data, dtype='float64')
+        xval = arr[:,0]-arr[0,0] if xtime else np.arange(arr.shape[0])+1
         xlabel = 'Time (s)' if xtime else 'Steps'
         return arr[:,1:].copy(), xval.copy(), xlabel
 
     def postfull(self):
-        import sys
         if not sys.platform.startswith('linux'): return
         rec = self._get_record()
         # output the messages.
@@ -498,7 +510,6 @@ class MarchStatAnchor(Anchor):
 
     @classmethod
     def parse(cls, lines, key, diff=True):
-        from numpy import array, arange
         myhead = 'MA_%s: ' % key
         nmyhead = len(myhead)
         data = list()
@@ -506,11 +517,11 @@ class MarchStatAnchor(Anchor):
             loc = line.find(myhead)
             if loc > -1:
                 data.append([float(val) for val in line[loc+nmyhead:].split()])
-        arr = array(data, dtype='float64')
+        arr = np.array(data, dtype='float64')
         if diff:
             arr[1:,:] = arr[1:,:] - arr[:-1,:]
             arr[0,:] = arr[1,:]
-        xval = arange(arr.shape[0])+1
+        xval = np.arange(arr.shape[0])+1
         xlabel = 'Steps'
         return arr, xval.copy(), xlabel
 
@@ -537,7 +548,6 @@ class TpoolStatAnchor(Anchor):
 
     @classmethod
     def _parse(cls, lines, key):
-        from numpy import array, arange
         myhead = 'TP_%s: ' % key
         nmyhead = len(myhead)
         data = list()
@@ -545,16 +555,16 @@ class TpoolStatAnchor(Anchor):
             loc = line.find(myhead)
             if loc > -1:
                 data.append([int(val) for val in line[loc+nmyhead:].split()])
-        arr = array(data, dtype='int32')
+        arr = np.array(data, dtype='int32')
         arr[1:,:] = arr[1:,:] - arr[:-1,:]
         arr[0,:] = arr[1,:]
-        xval = arange(arr.shape[0])+1
+        xval = np.arange(arr.shape[0])+1
         xlabel = 'Steps'
         return arr, xval.copy(), xlabel
 
     def postfull(self):
         for key in self.svr.mmnames:
-            if key not in self.svr.ticker:
+            if key not in getattr(self.svr, 'ticker', []):
                 continue
             vals = self.svr.ticker[key]
             nval = len(vals)
@@ -605,12 +615,11 @@ class GlueAnchor(Anchor):
 
         @return: nothing
         """
-        from .boundcond import Glue
         nmbc = dict([(bc.name, bc) for bc in self.svr.bclist])
         for key0, key1 in self.bcpairs:
             assert nmbc[key0].glue is None
             assert nmbc[key1].glue is None
-            Glue(nmbc[key0], nmbc[key1])
+            boundcond.Glue(nmbc[key0], nmbc[key1])
 
     def _detach_glue(self):
         """
@@ -618,11 +627,10 @@ class GlueAnchor(Anchor):
 
         @return: nothing
         """
-        from .boundcond import Glue
         nmbc = dict([(bc.name, bc) for bc in self.svr.bclist])
         for key0, key1 in self.bcpairs:
-            assert isinstance(nmbc[key0].glue, Glue)
-            assert isinstance(nmbc[key1].glue, Glue)
+            assert isinstance(nmbc[key0].glue, boundcond.Glue)
+            assert isinstance(nmbc[key1].glue, boundcond.Glue)
             nmbc[key0].glue = None
             nmbc[key1].glue = None
 
@@ -635,7 +643,6 @@ class GlueAnchor(Anchor):
         @type check: bool
         @return: nothing
         """
-        from ctypes import byref
         svr = self.svr
         if check:
             self._attach_glue()
@@ -643,8 +650,8 @@ class GlueAnchor(Anchor):
         for keys in self.bcpairs:
             for key in keys:
                 nmbc[key].glue.enable(*self.KEYS_ENABLER)
-        svr._clib_cuse_c.prepare_ce(byref(svr.exd))
-        svr._clib_cuse_c.prepare_sf(byref(svr.exd))
+        svr._clib_cuse_c.prepare_ce(ctypes.byref(svr.exd))
+        svr._clib_cuse_c.prepare_sf(ctypes.byref(svr.exd))
         if svr.scu: svr.cumgr.arr_to_gpu()
 
     def _disable_glue(self, check=True):
@@ -656,14 +663,13 @@ class GlueAnchor(Anchor):
         @type check: bool
         @return: nothing
         """
-        from ctypes import byref
         svr = self.svr
         nmbc = dict([(bc.name, bc) for bc in svr.bclist])
         for keys in self.bcpairs:
             for key in keys:
                 nmbc[key].glue.disable(*self.KEYS_ENABLER)
-        svr._clib_cuse_c.prepare_ce(byref(svr.exd))
-        svr._clib_cuse_c.prepare_sf(byref(svr.exd))
+        svr._clib_cuse_c.prepare_ce(ctypes.byref(svr.exd))
+        svr._clib_cuse_c.prepare_sf(ctypes.byref(svr.exd))
         if svr.scu: svr.cumgr.arr_to_gpu()
         if check:
             self._detach_glue()

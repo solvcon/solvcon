@@ -70,7 +70,7 @@ class MeshSolver(object):
         # reporting facility.
         self.timer = Timer(vtype=float)
         self.enable_mesg = enable_mesg
-        self.mesg = None
+        self._mesg = None
 
     @property
     def bclist(self):
@@ -83,6 +83,34 @@ class MeshSolver(object):
     @property
     def ngroup(self):
         return len(self.grpnames)
+
+    @property
+    def ndim(self):
+        return self.blk.ndim
+
+    @property
+    def nnode(self):
+        return self.blk.nnode
+
+    @property
+    def nface(self):
+        return self.blk.nface
+
+    @property
+    def ncell(self):
+        return self.blk.ncell
+
+    @property
+    def ngstnode(self):
+        return self.blk.ngstnode
+
+    @property
+    def ngstface(self):
+        return self.blk.ngstface
+
+    @property
+    def ngstcell(self):
+        return self.blk.ngstcell
 
     @staticmethod
     def detect_ncore():
@@ -98,13 +126,9 @@ class MeshSolver(object):
         cpulist = [line for line in cpulist if line.split()[0] != 'cpu']
         return len(cpulist)
 
-    __MESG_FILENAME_DEFAULT = 'solvcon.solver.log'
-    def __create_mesg(self, force=False):
+    @property
+    def mesg(self):
         """
-        :keyword force: flag to force the creation.  Default is False,
-        :type force: bool
-        :return: Nothing
-
         Create the message outputing object, which is intended for debugging
         and outputing messages related to the solver.  The outputing device is
         most useful when running distributed solvers.  The created device will
@@ -112,20 +136,19 @@ class MeshSolver(object):
         """
         import os
         from .helper import Printer
-        if force: self.enable_mesg = True
-        if self.enable_mesg:
-            if self.svrn != None:
-                main, ext = os.path.splitext(self.__MESG_FILENAME_DEFAULT)
-                tmpl = main + '%d' + ext
-                dfn = tmpl % self.svrn
-                dprefix = 'SOLVER%d: ' % self.svrn
+        if None is self._mesg:
+            if self.enable_mesg:
+                if self.svrn != None:
+                    dfn = 'solvcon.solver%d.log' % self.svrn
+                    dprefix = 'SOLVER%d: ' % self.svrn
+                else:
+                    dfn = 'solvcon.solver.log'
+                    dprefix = ''
             else:
-                dfn = self.MESG_FILENAME_DEFAULT
+                dfn = os.devnull
                 dprefix = ''
-        else:
-            dfn = os.devnull
-            dprefix = ''
-        self.mesg = Printer(dfn, prefix=dprefix, override=True)
+            self._mesg = Printer(dfn, prefix=dprefix, override=True)
+        return self._mesg
 
     _MMNAMES = None
     @staticmethod
@@ -216,7 +239,10 @@ class MeshSolver(object):
         for bc in self.bclist:
             bc.init(**kw)
 
-    def boundcond(self):
+    def final(self, **kw):
+        pass
+
+    def apply_bc(self):
         """
         :return: Nothing.
 

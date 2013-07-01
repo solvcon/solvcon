@@ -16,26 +16,30 @@
 
 cdef public:
     ctypedef struct sc_lincese_algorithm_t:
+        # equation number.
         int neq
+        # temporal information.
         double time, time_increment
-        # group shape.
-        int ngroup, gdlen
-        # parameter shape.
-        int nsca, nvec
-        # scheme.
+        # c-tau scheme.
         int alpha
         double sigma0, taylor, cnbfac, sftfac, taumin, tauscale
-        # function pointer.
-        void (*jacofunc)(void *exd, int icl, double *fcn, double *jacos)
-        # meta array.
-        double *grpda
         # metric array.
         double *cecnd, *cevol, *sfmrc
+        # parameters.
+        ## group data.
+        int ngroup, gdlen
+        double *grpda
+        ## scalar parameters.
+        int nsca
+        double *amsca
+        ## vector parameters.
+        int nvec
+        double *amvec
         # solution array.
-        double *amsca, *amvec, *sol, *dsol, *solt, *soln, *dsoln
+        double *sol, *dsol, *solt, *soln, *dsoln
         double *stm, *cfl, *ocfl
 
-from mesh cimport Mesh
+from .mesh cimport Mesh
 cdef class LinceseAlgorithm(Mesh):
     cdef sc_lincese_algorithm_t *_alg
 

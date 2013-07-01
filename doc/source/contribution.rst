@@ -2,6 +2,10 @@
 Contribution
 ============
 
+.. toctree::
+
+   python_style
+
 Set up Jenkins Slave
 ====================
 

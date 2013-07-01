@@ -22,7 +22,7 @@ sc_lincese_algorithm_calc_soln_3d
 #else
 sc_lincese_algorithm_calc_soln_2d
 #endif
-        (sc_mesh_t *msd, sc_lincese_algorithm_t *alg) {
+(sc_mesh_t *msd, sc_lincese_algorithm_t *alg) {
     int clnfc, fcnnd;
     // partial pointers.
     int *pclfcs, *pfcnds, *pfccls;
@@ -78,9 +78,9 @@ sc_lincese_algorithm_calc_soln_2d
 
             // temporal flux (give space).
 #if NDIM == 3
-            sc_lincese_algorithm_calc_jaco_3d(alg, jcl, fcn, jacos);
+            sc_lincese_algorithm_calc_jaco_3d(msd, alg, jcl, fcn, jacos);
 #else
-            sc_lincese_algorithm_calc_jaco_2d(alg, jcl, fcn, jacos);
+            sc_lincese_algorithm_calc_jaco_2d(msd, alg, jcl, fcn, jacos);
 #endif
             pjsolt = alg->solt + jcl*NEQ;
             fcnnd = msd->fcnds[ifc*(FCMND+1)];

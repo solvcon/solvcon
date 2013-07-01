@@ -1,0 +1,128 @@
+/*
+ * Copyright (C) 2010-2013 Yung-Yu Chen <yyc@solvcon.net>.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ */
+
+#define lapack_dgeev dgeev_
+
+void 
+#if NDIM == 3
+sc_lincese_algorithm_calc_cfl_3d
+#else
+sc_lincese_algorithm_calc_cfl_2d
+#endif
+(sc_mesh_t *msd, sc_lincese_algorithm_t *alg) {
+    int clnfc;
+    // pointers.
+    int *pclfcs, *pfccls;
+    double *pcfl, *picecnd, *pjcecnd, *pcecnd, *pjac;
+    // scalars.
+    double hdt, dist, cfl;
+    int lwork=4*NEQ;
+    int eiginfo;
+    int nswap;
+    // strings.
+    char *jobvl = "N";
+    char *jobvr = "N";
+    // arrays.
+    double wdir[NDIM];
+    double jacos[NEQ*NEQ*NDIM];
+    double jaco[NEQ][NEQ];
+    double fcn[NEQ][NEQ];
+    double evcl[NEQ][NEQ], evcr[NEQ][NEQ];
+    double wr[NEQ], wi[NEQ];
+    double work[lwork];
+    int argsort[NEQ];
+    // iterators.
+    int icl, jcl, ifl, ifc, ieq, jeq;
+    hdt = alg->time_increment / 2.0;
+    pcfl = alg->cfl;
+    picecnd = alg->cecnd;
+    pclfcs = msd->clfcs;
+    for (icl=0; icl<msd->ncell; icl++) {
+        pcfl[0] = 0.0;
+#if NDIM == 3
+        sc_lincese_algorithm_calc_jaco_3d(msd, alg, icl, fcn, jacos);
+#else
+        sc_lincese_algorithm_calc_jaco_2d(msd, alg, icl, fcn, jacos);
+#endif
+        clnfc = pclfcs[0];
+        for (ifl=1; ifl<=clnfc; ifl++) {
+            ifc = pclfcs[ifl];
+            pfccls = msd->fccls + ifc * FCREL;
+            jcl = pfccls[0] + pfccls[1] - icl;
+            // wave direction and distance.
+            pjcecnd = alg->cecnd + jcl * (CLMFC+1) * NDIM;
+            pcecnd = picecnd + NDIM;
+            wdir[0] = picecnd[0] - pcecnd[0];
+            wdir[1] = picecnd[1] - pcecnd[1];
+#if NDIM == 3
+            wdir[2] = picecnd[2] - pcecnd[2];
+#endif
+            dist = sqrt(wdir[0]*wdir[0] + wdir[1]*wdir[1]
+#if NDIM == 3
+                + wdir[2]*wdir[2]
+#endif
+                    );
+            wdir[0] /= dist;
+            wdir[1] /= dist;
+#if NDIM == 3
+            wdir[2] /= dist;
+#endif
+            // construct jacobian.
+            pjac = jacos;
+            for (ieq=0; ieq<NEQ; ieq++) {
+                for (jeq=0; jeq<NEQ; jeq++) {
+                    jaco[jeq][ieq] = wdir[0]*pjac[0] + wdir[1]*pjac[1]
+#if NDIM == 3
+                        + wdir[2]*pjac[2]
+#endif
+                        ;
+                    pjac += NDIM;
+                };
+            };
+            // solve eigen problem.
+            lapack_dgeev(jobvl, jobvr,
+                    &alg->neq, (double *)jaco, &alg->neq, wr, wi,
+                    (double *)evcl, &alg->neq, (double *)evcr, &alg->neq,
+                    work, &lwork, &eiginfo);
+            // bubble sort the eigenvalues and put result in indices.
+            for (ieq=0; ieq<NEQ; ieq++) {
+                argsort[ieq] = ieq;
+            };
+            nswap = 1;
+            while (nswap) {
+                nswap = 0;
+                for (ieq=1; ieq<NEQ; ieq++) {
+                    if (wr[argsort[ieq-1]] > wr[argsort[ieq]]) {
+                        eiginfo = argsort[ieq];
+                        argsort[ieq] = argsort[ieq-1];
+                        argsort[ieq-1] = eiginfo;
+                        nswap += 1;
+                    };
+                };
+            };
+            // calculate CFL number.
+            cfl = hdt * wr[argsort[NEQ-1]] / dist;
+            pcfl[0] = fmax(pcfl[0], cfl);
+        };
+        // advance.
+        pcfl += 1;
+        picecnd += (CLMFC+1) * NDIM;
+        pclfcs += CLMFC+1;
+    };
+};
+// vim: set ft=c ts=4 et:

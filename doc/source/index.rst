@@ -44,6 +44,7 @@ Documentation
    inout
    system_modules
    contribution
+   coding
    history
 
 Resources

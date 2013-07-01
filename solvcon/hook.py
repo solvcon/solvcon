@@ -21,6 +21,9 @@ Hooks for simulation cases.  Two categories of hooks are defined here: (i) base
 hooks for subclassing and (ii) generic hooks which can be readily installed.
 """
 
+
+from . import case
+
 class Hook(object):
     """
     Organizer class for hooking subroutines for BaseCase.
@@ -39,8 +42,7 @@ class Hook(object):
         @param cse: Case object.
         @type cse: BaseCase
         """
-        from .case import BaseCase
-        assert isinstance(cse, BaseCase)
+        assert isinstance(cse, (case.BaseCase, case.MeshCase))
         self.cse = cse
         self.info = cse.info
         self.psteps = kw.pop('psteps', None)
@@ -252,8 +254,7 @@ class BlockHook(Hook):
     Base type for hooks needing a BlockCase.
     """
     def __init__(self, cse, **kw):
-        from .case import BlockCase
-        assert isinstance(cse, BlockCase)
+        assert isinstance(cse, (case.BlockCase, case.MeshCase))
         super(BlockHook, self).__init__(cse, **kw)
 
     @property
