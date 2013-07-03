@@ -1,6 +1,6 @@
 # -*- coding: UTF-8 -*-
 #
-# Copyright (C) 2008-2010 Yung-Yu Chen <yyc@solvcon.net>.
+# Copyright (C) 2008-2013 Yung-Yu Chen <yyc@solvcon.net>.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -22,7 +22,18 @@ hooks for subclassing and (ii) generic hooks which can be readily installed.
 """
 
 
-from . import case
+import os
+import time
+import math
+
+import numpy as np
+
+from . import rpc
+from . import domain
+from . import anchor
+from .io import vtk as scvtk
+from .io import vtkxml
+
 
 class Hook(object):
     """
@@ -42,6 +53,7 @@ class Hook(object):
         @param cse: Case object.
         @type cse: BaseCase
         """
+        from . import case # avoid cyclic importation.
         assert isinstance(cse, (case.BaseCase, case.MeshCase))
         self.cse = cse
         self.info = cse.info
@@ -60,7 +72,6 @@ class Hook(object):
         @keyword verbose: flag if print out creation message.
         @type verbose: bool
         """
-        import os
         if not os.path.exists(dirname):
             os.makedirs(dirname)
             if verbose:
@@ -118,8 +129,7 @@ class Hook(object):
         @type ankkw: dict
         @return: nothing
         """
-        from .rpc import Shadow
-        if isinstance(target, Shadow):
+        if isinstance(target, rpc.Shadow):
             target.drop_anchor(ankcls, ankkw)
         else:
             target.runanchors.append(ankcls, **ankkw)
@@ -158,55 +168,6 @@ class Hook(object):
         """
         pass
 
-class HookList(list):
-    """
-    Hook container and invoker.
-
-    @ivar cse: case object.
-    @itype cse: solvcon.case.BaseCase
-    """
-    def __init__(self, cse, *args, **kw):
-        self.cse = cse
-        super(HookList, self).__init__(*args, **kw)
-    def append(self, obj, **kw):
-        """
-        The object to be appended (the first and only argument) should be a 
-        Hook object, but this method actually accept either a Hook type or an
-        Anchor type.  The method will automatically create the necessary Hook
-        object when detect acceptable type object passed as the first argument.
-
-        All the keywords go to the creation of the Hook object if the first
-        argument is a type.  If the first argument is an instantiated Hook
-        object, the method accepts no keywords.
-
-        @param obj: the hook object to be appended.
-        @type obj: solvcon.hook.Hook
-        """
-        from .anchor import Anchor
-        if isinstance(obj, type):
-            if issubclass(obj, Anchor):
-                kw['ankcls'] = obj
-                obj = Hook
-            obj = obj(self.cse, **kw)
-        else:
-            assert len(kw) == 0
-        super(HookList, self).append(obj)
-    def __call__(self, method):
-        """
-        Invoke the specified method for each hook object.
-
-        @param method: name of the method to run.
-        @type method: str
-        """
-        runhooks = self
-        if method == 'postloop':
-            runhooks = reversed(runhooks)
-        for hook in runhooks:
-            getattr(hook, method)()
-    def drop_anchor(self, svr):
-        for hok in self:
-            hok.drop_anchor(svr)
-
 ################################################################################
 # Fundamental hooks.
 ################################################################################
@@ -226,7 +187,6 @@ class ProgressHook(Hook):
         info = self.info
         info("Steps %d/%d\n" % (istep, nsteps))
     def postmarch(self):
-        from time import time
         istep = self.cse.execution.step_current
         nsteps = self.cse.execution.steps_run
         tstart = self.cse.log.time['loop_march'][0]
@@ -234,7 +194,7 @@ class ProgressHook(Hook):
         linewidth = self.linewidth
         info = self.info
         # calculate estimated remaining time.
-        tcurr = time()
+        tcurr = time.time()
         tleft = (tcurr-tstart) * ((float(nsteps)-float(istep))/float(istep))
         # output information.
         if istep%psteps == 0:
@@ -254,6 +214,7 @@ class BlockHook(Hook):
     Base type for hooks needing a BlockCase.
     """
     def __init__(self, cse, **kw):
+        from . import case # avoid cyclic importation.
         assert isinstance(cse, (case.BlockCase, case.MeshCase))
         super(BlockHook, self).__init__(cse, **kw)
 
@@ -276,7 +237,6 @@ class BlockHook(Hook):
         @return: the interior array hold by the solver.
         @rtype: numpy.ndarray
         """
-        from numpy import empty
         cse = self.cse
         ncell = self.blk.ncell
         ngstcell = self.blk.ngstcell
@@ -292,7 +252,7 @@ class BlockHook(Hook):
             # create global array.
             shape = [it for it in arrs[0].shape]
             shape[0] = ncell
-            arrg = empty(shape, dtype=arrs[0].dtype)
+            arrg = np.empty(shape, dtype=arrs[0].dtype)
             # set global array.
             clmaps = dom.mappers[2]
             for iblk in range(dom.nblk):
@@ -326,7 +286,6 @@ class BlockHook(Hook):
         @return: the interior array hold by the solver.
         @rtype: numpy.ndarray
         """
-        from numpy import empty
         cse = self.cse
         ncell = self.blk.ncell
         ngstcell = self.blk.ngstcell
@@ -342,7 +301,7 @@ class BlockHook(Hook):
                     shape[0] = blk.ngstcell+blk.ncell
                 else:
                     shape[0] = blk.ncell
-                arr = empty(shape, dtype=arrg.dtype)
+                arr = np.empty(shape, dtype=arrg.dtype)
                 # calculate selectors.
                 slctg = (clmaps[:,1] == iblk)
                 slctl = clmaps[slctg,0]
@@ -377,7 +336,6 @@ class BlockInfoHook(BlockHook):
         """
         Show and store performance information.
         """
-        import os
         ncell = self.blk.ncell
         time = self.cse.log.time['solver_march']
         step_init = self.cse.execution.step_init
@@ -419,7 +377,6 @@ class CollectHook(BlockHook):
         self.error_on_nan = kw.pop('error_on_nan', False)
         super(CollectHook, self).__init__(cse, **kw)
     def postmarch(self):
-        from numpy import isnan
         psteps = self.psteps
         istep = self.cse.execution.step_current
         if istep%psteps != 0 and istep != self.cse.execution.steps_run:
@@ -430,7 +387,7 @@ class CollectHook(BlockHook):
         if istep != vstep:
             for key, kw in self.varlist:
                 arr = var[key] = self._collect_interior(key, **kw)
-                nans = isnan(arr)
+                nans = np.isnan(arr)
                 msg = 'nan occurs in %s at step %d' % (key, istep)
                 if nans.any():
                     if self.error_on_nan:
@@ -448,14 +405,12 @@ class SplitMarker(BlockHook):
     Mark each cell with the domain index.
     """
     def preloop(self):
-        from numpy import zeros
-        from .domain import Collective
         cse = self.cse
         dom = cse.solver.domainobj
-        if isinstance(dom, Collective):
+        if isinstance(dom, domain.Collective):
             cse.execution.var['domain'] = dom.part
         else:
-            cse.execution.var['domain'] = zeros(dom.blk.ncell, dtype='int32')
+            cse.execution.var['domain'] = np.zeros(dom.blk.ncell, dtype='int32')
 
 class GroupMarker(BlockHook):
     """
@@ -488,8 +443,6 @@ class SplitSave(VtkSave):
     """
 
     def preloop(self):
-        from math import log10, ceil
-        from .io.vtk import VtkLegacyUstGridWriter
         cse = self.cse
         if cse.is_parallel == 0:
             return  # do nothing if not in parallel.
@@ -498,7 +451,7 @@ class SplitSave(VtkSave):
         nblk = len(dom)
         # build filename templates.
         vtkfn = basefn + '_decomp'
-        vtksfn_tmpl = basefn + '_decomp' + '_%%0%dd'%int(ceil(log10(nblk))+1)
+        vtksfn_tmpl = basefn + '_decomp' + '_%%0%dd'%int(math.ceil(math.log10(nblk))+1)
         if self.binary:
             vtkfn += ".bin.vtk"
             vtksfn_tmpl += ".bin.vtk"
@@ -509,12 +462,12 @@ class SplitSave(VtkSave):
         ## lumped.
         self.info("Save domain decomposition for visualization (%d parts).\n" \
             % nblk)
-        VtkLegacyUstGridWriter(dom.blk,
+        scvtk.VtkLegacyUstGridWriter(dom.blk,
             binary=self.binary, cache_grid=self.cache_grid).write(vtkfn)
         ## splitted.
         iblk = 0
         for blk in dom:
-            writer = VtkLegacyUstGridWriter(blk,
+            writer = scvtk.VtkLegacyUstGridWriter(blk,
                 binary=self.binary, cache_grid=self.cache_grid).write(
                 vtksfn_tmpl%iblk)
             iblk += 1
@@ -527,12 +480,10 @@ class MarchSave(VtkSave):
     @itype vtkfn_tmpl: str
     """
     def __init__(self, cse, **kw):
-        import os
-        from math import log10, ceil
         super(MarchSave, self).__init__(cse, **kw)
         nsteps = cse.execution.steps_run
         basefn = cse.io.basefn
-        vtkfn_tmpl = basefn + "_%%0%dd"%int(ceil(log10(nsteps))+1)
+        vtkfn_tmpl = basefn + "_%%0%dd"%int(math.ceil(math.log10(nsteps))+1)
         if self.binary:
             vtkfn_tmpl += ".bin.vtk"
         else:
@@ -582,12 +533,11 @@ class MarchSave(VtkSave):
         self.writer.write(self.vtkfn_tmpl % istep)
 
     def preloop(self):
-        from .io.vtk import VtkLegacyUstGridWriter
         psteps = self.psteps
         cse = self.cse
         blk = self.blk
         # initialize writer.
-        self.writer = VtkLegacyUstGridWriter(blk,
+        self.writer = scvtk.VtkLegacyUstGridWriter(blk,
             binary=self.binary, cache_grid=self.cache_grid)
         # write initially.
         self._write(0)
@@ -628,8 +578,6 @@ class PMarchSave(BlockHook):
     @itype pextmpl: str
     """
     def __init__(self, cse, **kw):
-        import os
-        from math import log10, ceil
         self.anames = kw.pop('anames', list())
         self.compressor = kw.pop('compressor', 'gz')
         self.fpdtype = kw.pop('fpdtype', str(cse.execution.fpdtype))
@@ -649,23 +597,20 @@ class PMarchSave(BlockHook):
             vdir = cse.io.basedir
         if not os.path.exists(vdir):
             os.makedirs(vdir)
-        vtkfn_tmpl = basefn + "_%%0%dd"%int(ceil(log10(nsteps))+1) + '.pvtu'
+        vtkfn_tmpl = basefn + "_%%0%dd"%int(math.ceil(math.log10(nsteps))+1) + '.pvtu'
         self.vtkfn_tmpl = os.path.join(vdir, kw.pop('vtkfn_tmpl', vtkfn_tmpl))
         # craft ext name template.
         npart = cse.execution.npart
-        self.pextmpl = '.p%%0%dd'%int(ceil(log10(npart))+1) if npart else ''
+        self.pextmpl = '.p%%0%dd'%int(math.ceil(math.log10(npart))+1) if npart else ''
         self.pextmpl += '.vtu'
     def drop_anchor(self, svr):
-        import os
-        from .anchor import MarchSaveAnchor
         basefn = os.path.splitext(self.vtkfn_tmpl)[0]
         anames = dict([(ent[0], ent[1]) for ent in self.anames])
         ankkw = dict(anames=anames, compressor=self.compressor,
             fpdtype=self.fpdtype, psteps=self.psteps,
             vtkfn_tmpl=basefn+self.pextmpl)
-        self._deliver_anchor(svr, MarchSaveAnchor, ankkw)
+        self._deliver_anchor(svr, anchor.MarchSaveAnchor, ankkw)
     def _write(self, istep):
-        from .io.vtkxml import PVtkXmlUstGridWriter
         if not self.cse.execution.npart:
             return
         # collect data.
@@ -680,7 +625,7 @@ class PMarchSave(BlockHook):
             else:
                 sarrs[key] = self.fpdtype
         # write.
-        wtr = PVtkXmlUstGridWriter(self.blk, fpdtype=self.fpdtype,
+        wtr = vtkxml.PVtkXmlUstGridWriter(self.blk, fpdtype=self.fpdtype,
             scalars=sarrs, vectors=varrs,
             npiece=self.cse.execution.npart, pextmpl=self.pextmpl)
         vtkfn = self.vtkfn_tmpl % istep
@@ -728,8 +673,6 @@ class PVtkHook(BlockHook):
     @itype pextmpl: str
     """
     def __init__(self, cse, **kw):
-        import os
-        from math import log10, ceil
         self.name = kw.pop('name', None)
         self.anames = kw.pop('anames', list())
         self.fpdtype = kw.pop('fpdtype', 'float32')
@@ -753,21 +696,19 @@ class PVtkHook(BlockHook):
         vtkfn_tmpl = cse.io.basefn
         if self.name is not None:
             vtkfn_tmpl += '_%s' % self.name
-        vtkfn_tmpl += "_%%0%dd"%int(ceil(log10(nsteps))+1) + '.pvtp'
+        vtkfn_tmpl += "_%%0%dd"%int(math.ceil(math.log10(nsteps))+1) + '.pvtp'
         self.vtkfn_tmpl = os.path.join(vdir, kw.pop('vtkfn_tmpl', vtkfn_tmpl))
         # craft ext name template.
         npart = cse.execution.npart
-        self.pextmpl = '.p%%0%dd'%int(ceil(log10(npart))+1) if npart else ''
+        self.pextmpl = '.p%%0%dd'%int(math.ceil(math.log10(npart))+1) if npart else ''
         self.pextmpl += '.vtp'
     def drop_anchor(self, svr):
-        import os
         basefn = os.path.splitext(self.vtkfn_tmpl)[0]
         ankkw = self.ankkw.copy()
         ankkw.update(dict(anames=self.anames, fpdtype=self.fpdtype,
             psteps=self.psteps, vtkfn_tmpl=basefn+self.pextmpl))
         self._deliver_anchor(svr, self.ankcls, ankkw)
     def _write(self, istep):
-        from .io.vtkxml import PVtkXmlPolyDataWriter
         if not self.cse.execution.npart:
             return
         # collect data.
@@ -781,7 +722,7 @@ class PVtkHook(BlockHook):
             else:
                 arrs.append((key, self.fpdtype, False))
         # write.
-        wtr = PVtkXmlPolyDataWriter(self.blk, fpdtype=self.fpdtype, arrs=arrs,
+        wtr = vtkxml.PVtkXmlPolyDataWriter(self.blk, fpdtype=self.fpdtype, arrs=arrs,
             npiece=self.cse.execution.npart, pextmpl=self.pextmpl)
         vtkfn = self.vtkfn_tmpl % istep
         self.info('Writing \n  %s\n... ' % vtkfn)
