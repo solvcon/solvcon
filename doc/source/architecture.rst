@@ -4,25 +4,7 @@ Architecture
 
 SOLVCON is built upon two keystones: (i) unstructured meshes for spatial
 discretization and (ii) two-level loop structure of partial differential
-equation (PDE) solvers.  The data structure of unstructured meshes forms the
-foundation layer, and the two basic loops forms the execution layer, as shown
-in Figure :ref:`fig_stack`.  The two basic constructs supports the modules for
-physical processes and numerical methods, on which applications are developed.
-
-The layered architecture of SOLVCON allows users to write Python scripts to
-drive the whole system.  This design helps automating simulations a lot.
-Moreover, components in lower levels can be replaced in the driving scripts,
-such that experimenting with new algorithms or implementation becomes very
-easy.
-
-.. _fig_stack:
-
-.. figure:: _static/stack.png
-  :width: 700px
-  :alt: Architecture of SOLVCON
-  :align: center
-
-  Architecture of SOLVCON
+equation (PDE) solvers.  The system is driving by Python scripts.
 
 Unstructured Meshes
 ===================
