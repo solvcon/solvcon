@@ -39,6 +39,7 @@ export LD_LIBRARY_PATH=$SCROOT/soil/lib
 export LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:$SCROOT/soil/lib
 #export CFLAGS=-m64
 ../$PKGNAME/configure --prefix=$SCROOT/soil \
+    $GCCOPTS \
 	--with-gmp=$SCROOT/soil \
 	--with-mpfr=$SCROOT/soil \
 	--with-mpc=$SCROOT/soil \
