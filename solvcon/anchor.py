@@ -22,9 +22,6 @@ The family of :py:class:`MeshAnchor` classes are attached to
 """
 
 
-# execution.
-from . import solver
-
 # import legacy.
 from .anchor_legacy import(
     Anchor, AnchorList,
@@ -43,6 +40,7 @@ class MeshAnchor(object):
     """
 
     def __init__(self, svr, **kw):
+        from . import solver # work around cyclic importation.
         assert isinstance(svr, solver.MeshSolver)
         self.svr = svr
         self.kws = dict(kw)

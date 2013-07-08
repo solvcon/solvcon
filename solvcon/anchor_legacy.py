@@ -31,12 +31,9 @@ import os
 import time
 import ctypes
 
-
 import numpy as np
 
-
 # execution.
-from . import solver
 from . import boundcond
 # employment.
 from .io import vtkxml
@@ -54,6 +51,7 @@ class Anchor(object):
     """
 
     def __init__(self, svr, **kw):
+        from . import solver # work around cyclic importation.
         assert isinstance(svr, (solver.BaseSolver, solver.MeshSolver))
         self.svr = svr
         self.kws = dict(kw)
@@ -147,6 +145,7 @@ class MarchSaveAnchor(Anchor):
         self.vtkfn_tmpl = kw.pop('vtkfn_tmpl')
         super(MarchSaveAnchor, self).__init__(svr, **kw)
     def _write(self, istep):
+        from . import solver # work around for cyclic importation.
         ngstcell = self.svr.ngstcell
         sarrs = dict()
         varrs = dict()

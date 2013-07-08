@@ -40,7 +40,7 @@ class MeshHook(object):
     """
 
     def __init__(self, cse, **kw):
-        from . import case # avoid cyclic importation.
+        from . import case # work around cyclic importation.
         assert isinstance(cse, case.MeshCase)
         self.cse = cse
         self.info = cse.info
