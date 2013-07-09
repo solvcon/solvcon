@@ -28,7 +28,8 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 """
-SOLVCON: Solvers of conservation laws.
+SOLVCON: Solvers of conservation laws.  Web site and documentation please see
+http://solvcon.net/.
 
 SOLVCON uses the space-time `Conservation Element and Solution Element (CESE)
 <http://www.grc.nasa.gov/WWW/microbus/>`__ method to solve generic conservation
@@ -37,8 +38,7 @@ parallelism and in situ processing and visualization.
 
 SOLVCON is developed by `Yung-Yu Chen <mailto:yyc@solvcon.net>`__ and
 `Sheng-Tao John Yu <mailto:yu.274@osu.edu>`__, and uses `BSD license
-<http://opensource.org/licenses/BSD-3-Clause>`__.  Please see
-http://solvcon.net/ for more information.
+<http://opensource.org/licenses/BSD-3-Clause>`__.
 """
 
 __docformat__ = 'restructuredtext en'
