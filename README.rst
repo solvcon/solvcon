@@ -2,20 +2,18 @@
 README for SOLVCON
 ==================
 
-SOLVCON: A software framework to develop high-fidelity solvers of partial
-differential equtions (PDEs).
+SOLVCON: Solvers of conservation laws.  |build_status|
+
+.. |build_status| image:: https://drone.io/bitbucket.org/solvcon/solvcon/status.png
 
 SOLVCON uses the space-time `Conservation Element and Solution Element (CESE)
 <http://www.grc.nasa.gov/WWW/microbus/>`__ method to solve generic conservation
-laws.  Python is used to host code written in C, `CUDA
-<http://www.nvidia.com/object/cuda_home_new.html>`__, or other programming
-languages for high-performance computing (HPC).  Hybrid parallelism is achieved
-by segregating share- and distributed-memory parallel computing in the
-different layers of the software framework established by Python.
+laws.  The system is constructed by using Python and C and support hybrid
+parallelism and in situ processing and visualization.
 
 SOLVCON is developed by `Yung-Yu Chen <mailto:yyc@solvcon.net>`__ and
-`Sheng-Tao John Yu <mailto:yu.274@osu.edu>`__, and released under `GNU GPLv2
-<http://www.gnu.org/licenses/gpl-2.0.html>`__.  Please consult the web site
+`Sheng-Tao John Yu <mailto:yu.274@osu.edu>`__, and uses `BSD license
+<http://opensource.org/licenses/BSD-3-Clause>`__.  Please see
 http://solvcon.net/ for more information.
 
 .. vim: set ft=rst ff=unix fenc=utf8:

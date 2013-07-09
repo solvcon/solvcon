@@ -2,44 +2,25 @@
 Tutorial
 ========
 
-SOLVCON is a Python library for developing high-performance,
-massively-parallelized PDE solvers.  By default, SOLVCON provides a series of
-solvers that use the space-time `Conservation Element and Solution Element
-(CESE) <http://www.grc.nasa.gov/WWW/microbus/>`__ method.  Problems of
-compressible flows and stress waves in solids can be solved by using the
-stocked solvers.
-
 The goal of SOLVCON is to help code developers to focus on the numerical
-algorithms.  These computing cores can be written in C or any high-speed
-language (Fortran, CUDA, C++, etc.; you name it) and interfaced with SOLVCON.
-SOLVCON has a general work flow that includes things like mesh loaders (`Gmsh
-<http://www.geuz.org/gmsh/>`__, FLUENT Gambit (R), and `CUBIT
-<http://cubit.sandia.gov/>`__), MPI, and VTK.  Users of SOLVCON can just take
-the supportive functionalities and jump into the physics and numerics.
-
-For solving for conservation laws and most PDEs, the computer codes usually
-contains two levels of loops.  An outer loop is used to perform time-marching,
-and is usually called the *temporal loop*.  Within the outer temporal loop,
-there are multiple inner loops to sweep over the discretized spatial domain.
-The inner loops are called the *spatial loops*.  This is the well-known
-*two-loop structure* of PDE solvers and is absorbed into the SOLVCON work flow.
-`Inversion of control (IoC)
-<http://en.wikipedia.org/wiki/Inversion_of_control>`__ is used to expose the
-work flow to the code developers.
-
-The key functionalities of SOLVCON will be introduced in this document.
+algorithms.  These computing code can be written in C or other high-speed
+languages and interfaced with SOLVCON.  SOLVCON has a general work flow that
+support mesh loaders (`Gmsh <http://www.geuz.org/gmsh/>`__, FLUENT Gambit (R),
+and `CUBIT <http://cubit.sandia.gov/>`__), MPI, and VTK.  These supportive
+functionalities are ready to help developing problem solvers.
 
 Set up the Environment
 ======================
 
 Assume:
 
-- SOLVCON is compiled without problems.  See the document of :doc:`install` for
-  more information.
+- SOLVCON is compiled without problems.  See :doc:`install` for more
+  information.
 - The compiled SOLVCON is located at ``$SCSRC``.
 - You are using bash.
 
-The following setting will enables SOLVCON::
+Usually we don't install SOLVCON into the OS, but use environment variable to
+enable it, so that it's easier to modify the source code::
 
   export PYTHONPATH=$SCSRC:$PYTHONPATH
 
@@ -47,7 +28,7 @@ And then the following command::
 
   python -c "import solvcon; print solvcon"
 
-should show you where SOLVCON is imported from.
+should show you the correct location of SOLVCON.
 
 There are various examples located at ``$SCSRC/examples``.  To follow the
 examples, you need to:
@@ -62,6 +43,9 @@ examples, you need to:
     scons --get-scdata
 
   in ``$SCSRC``.
+
+More information of the verification examples can be found in
+:doc:`verification`.
 
 Configuration
 =============
@@ -94,129 +78,98 @@ Mesh Generation (to Be Added)
 Before solving any PDE, you need to define the discretized spatial domain of
 the problem by generating the mesh.
 
-Driving Scripts (to Be Corrected)
-=================================
+Example Solver (in Progress)
+============================
 
-The simplest example: located at ``$SCSRC/examples/euler/hbnt/``.
+To achieve high-performance in SOLVCON, the implementation of a numerical
+method is divided into two parts: (i) a solver class and (ii) an algorithm
+class.  A solver class is responsible for providing the API and managing
+memory, while an algorithm class is responsible for number-crunching in C.
+Users usually only see the solver class.  Intensive calculation is delegated to
+the algorithm class from the solver class.  
 
-Objective:
+.. note::
 
-#. Understand the concept of "driving script" (programmable input file).
-#. Perform simulation with SOLVCON.
+  For a PDE-solving method, code written in Python is in general two orders of
+  magnitude slower than that written in C or Fortran.  And Cython code is still
+  a bit (percentages or times) slower than C code.  Hence, in reality, we need
+  to write C code for speed.
 
-Course:
+Two modules, :py:mod:`solvcon.fake_solver` and
+:py:mod:`solvcon.fake_algorithm`, are put in SOLVCON to exemplify the
+delegation structure by using a dummy numerical method.
 
-#. Run the code::
+.. py:module:: solvcon.fake_solver
 
-     $ PYTHONPATH=../../.. ./go run
+The :py:mod:`solvcon.fake_solver` module contains the
+:py:class:`FakeSolver` class that defines the API for the
+dummy numerical method.
 
-#. Simulation results are stored in the sub-directory ``result/``.  Use
-   ParaView to load the VTK files.
-#. Code organization:
+.. py:class:: FakeSolver
 
-   - First line: indicating it is a Python script.
-   - Second line: indicating encoding of the file.
-   - Line 4-18: comments for copyright information.
-   - Line 20-27: docstring in the form of `string literal
-     <http://docs.python.org/reference/lexical_analysis.html#string-literals>`_.
-   - Line 29: module-level import for arrangement decorator.
-   - Line 31-99: main body for instantiating the ``Case`` object in the form
-     of a Python function/callable; "creation function".
-   - Line 101-112: `decorated
-     <http://en.wikipedia.org/wiki/Decorator_pattern>`_ arrangement
-     (function).
-   - Line 114-116: invoking command-line interface of SOLVCON.
-#. Customization goes into the creation function:
+  This class represents the Python side of the numerical method.  It
+  instantiates a :py:class:`solvcon.fake_algorithm.FakeAlgorithm` object.
+  Computation-intensive tasks are delegated to the algorithm object.
 
-   - Specify BC: line 54-59.
-   - Feed parameter to Case: line 60-64.
-#. SOLVCON modules to hack:
+  .. py:method:: create_alg
 
-   - ``solvcon.boundcond``
-   - ``solvcon.case``
-   - ``solvcon.solver``
+    Create a :py:class:`solvcon.fake_algorithm.FakeAlgorithm` object and return it.
 
-The Hook System (to Be Corrected)
-=================================
+  .. py:attribute:: MMNAMES
 
-Located at ``$SCSRC/examples/euler/obrefl/``.
+    An ordered registry for all names of methods to be called by a marcher.  Any
+    methods to be called by a marcher should be registered into it.
 
-Objective:
+  The following six methods are for the numerical methods.  They are registered
+  into :py:attr:`MMNAMES` by the present order.
 
-- Use the programmability of input file for properties specification.
-- Understand the Hook system for custom post-processing.
+  .. py:method:: update
 
-Question:
+    Update the present solution arrays with the next solution arrays.
 
-- Where is the creation function?
+  .. py:method:: calcsoln
 
-Course:
+    Calculate the ``soln`` array.
 
-#. Run and inspect the simulation.
-#. Change the flow properties in line 263-275 and see the difference.
+  .. py:method:: ibcsoln
 
-   - Utility code is organized as a class in line 52-164, for calculating shock
-     properties.
-#. How to extend SOLVCON by using Hook, i.e., line 166-244, 318-320.
-#. SOLVCON modules to hack:
+    Interchange BC for the ``soln`` array.
 
-   - ``solvcon.hook``
-   - ``solvcon.kerpak.euler``
+  .. py:method:: calccfl
 
-Change Physical Model (to Be Corrected)
-=======================================
+    Calculate the CFL number.
 
-Located at ``$SCSRC/examples/elastic/grpv/``.
+  .. py:method:: calcdsoln
 
-Objective:
+    Calculate the ``dsoln`` array.
 
-- Change the physical model.
-- Understand the Anchor system for parallel processing.
+  .. py:method:: ibcdsoln
 
-Questions:
+    Interchange BC for the ``dsoln`` array.
 
-#. What is the path of the mesh file used in this simulation?
-#. What is the equivalent code of line 123-125 in the previous two examples?
+.. py:module:: solvcon.fake_algorithm
 
-Course:
+The :py:mod:`solvcon.fake_algorithm` module contains the
+:py:class:`FakeAlgorithm` that interfaces to the number-crunching C code.
 
-#. Run and inspect the simulation.
-#. Note the difference of line 144.  It uses a different calculator to the
-   Euler solver.
-#. Line 76-89, 135-142 uses the Anchor system to insert source term.
-#. Line 35-74 calculate the source value.
-#. SOLVCON modules to hack:
+.. py:class:: FakeAlgorithm
 
-   - ``solvcon.anchor``
-   - ``solvcon.kerpak.elastic``
+  This class represents the C side of the numerical method.  It wraps two C
+  functions :c:func:`sc_fake_algorithm_calc_soln` and
+  :c:func:`sc_fake_algorithm_calc_dsoln`.
 
-Output Control (to Be Corrected)
-================================
+  .. py:method:: setup_algorithm(svr)
 
-Located at ``$SCSRC/examples/visout/pvtk/``.
+    A :py:class:`FakeAlgorithm` object shouldn't allocate memory.  Instead, a
+    :py:class:`solvcon.fake_solver.FakeSolver` object should allocate the memory
+    and pass the solver into the algorithm.
 
-Objective:
+  .. py:method:: calc_soln
 
-- Parallel run.
-- Specify the variables to output.
+    Wraps the C functions :c:func:`sc_fake_algorithm_calc_soln`.  Do the work
+    delegated from :py:meth:`solvcon.fake_solver.FakeSolver.calcsoln`.
 
-Questions:
+  .. py:method:: calc_dsoln
 
-#. Guess what problem is it?
-#. Where is the code for sequential VTK output in legacy format?
-
-Course:
-
-#. Run the simulation in parallel by following the docstring.
-#. Inspect the solution.
-#. Line 90-102 specifies three kinds of quantities:
-
-   - Negative integer for array.
-   - Zero for scalar.
-   - Positive value for vector.
-#. Try to turn off some of the variables by commenting out.
-
-   - Before rerun the simulation, clean the ``result/`` directory.
-#. SOLVCON sub-package to hack:
-
-   - ``solvcon.io``
+    Wraps the C functions :c:func:`sc_fake_algorithm_calc_dsoln`.  Do the work
+    delegated from :py:meth:`solvcon.fake_solver.FakeSolver.calcdsoln`.
