@@ -20,15 +20,10 @@ Changes:
 - Remove the SCons option ``--cmpvsn``.  For changing the command of C
   compiler, you can now set the environment variable ``CC`` to whatever the
   command you want.
-- Renovate the documentation by using Sphinx.  (`#61
-  <https://bitbucket.org/solvcon/solvcon/issue/61>`__)
+- Renovate the documentation by using Sphinx.  (#61)
 - Add a directory ``contrib/verify_scripts`` to collect scripts for running
   verification examples.
-- Design a new hierarchy for solvers by using Cython.  (`#59
-  <https://bitbucket.org/solvcon/solvcon/issue/59>`__, `#60
-  <https://bitbucket.org/solvcon/solvcon/issue/60>`__, `#62
-  <https://bitbucket.org/solvcon/solvcon/issue/62>`__, `#63
-  <https://bitbucket.org/solvcon/solvcon/issue/63>`__)
+- Design a new hierarchy for solvers by using Cython.  (#59, #60, #62, #63)
 
   - A new series of "sach" (:py:class:`MeshSolver <solvcon.solver.MeshSolver>`,
     :py:class:`Anchor <solvcon.anchor.MeshAnchor>`, :py:class:`MeshCase

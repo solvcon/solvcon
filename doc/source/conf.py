@@ -28,8 +28,21 @@ import solvcon
 
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
-extensions = ['sphinx.ext.pngmath', 'sphinx.ext.autodoc',
-    'sphinx.ext.inheritance_diagram']
+extensions = [
+    'sphinx.ext.pngmath',
+    'sphinx.ext.autodoc',
+    'sphinx.ext.inheritance_diagram',
+]
+try:
+    from sphinxcontrib import issuetracker
+except ImportError:
+    pass
+else:
+    extensions.append('sphinxcontrib.issuetracker')
+
+# issuetracker settings.
+issuetracker = 'bitbucket'
+issuetracker_project = 'solvcon/solvcon'
 
 autoclass_content = 'class'
 
