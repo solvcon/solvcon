@@ -2,10 +2,8 @@
 Development Plan
 ================
 
-.. _v0.1.2:
-
-0.1.2
-=====
+Version 0.1.2
+=============
 
 This release starts to document by using Sphinx and to improve the class
 hierarchy of IO and boundary-condition treatments.
@@ -32,41 +30,31 @@ Changes:
   - The new sach is built upon pure Python :py:class:`Block
     <solvcon.block.Block>` and Cython :py:class:`Mesh <solvcon.mesh.Mesh>`.
 
-.. _v0.1.3:
-
-0.1.3
-=====
+Version 0.1.3
+=============
 
 - Incorporate the two-dimensional aero-/hydro-acoustic solver.
 
-.. _v0.1.4:
-
-0.1.4
-=====
+Version 0.1.4
+=============
 
 - Replicate all solvers that is derived from solvcon.kerpak.cuse to use the Cython-based solver system.
 - Deprecate solvcon.kerpak.cese series solvers.
 
-.. _v0.1.5:
-
-0.1.5
-=====
+Version 0.1.5
+=============
 
 - Move all solvers out of solvcon.kerpak to another structure.
 - Discard the solvcon.kerpak namespace.
 
-.. _v0.1.6:
-
-0.1.6
-=====
+Version 0.1.6
+=============
 
 - Use mpi4py instead of interfacing an arbitrary MPI library with ctypes.
 - Replace ctypes with Cython for a more robust interface to C/C++ code.
 
-.. _v0.2:
-
-0.2
-===
+Version 0.2
+===========
 
 - Organize verification, documentation, and examples for the included solvers.
 
