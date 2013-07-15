@@ -41,8 +41,11 @@ AddOption('--list-aliases', dest='list_aliases',
     help='List all target aliases and build nothing.')
 
 # solvcon environment.
-env = Environment(ENV=os.environ, SCLIBPREFIX=GetOption('libprefix'),
-    SCLIBDIR=GetOption('libdir'), SCBUILDDIR=GetOption('builddir'))
+env = Environment(ENV=os.environ,
+                  SCLIBPREFIX=GetOption('libprefix'),
+                  SCLIBDIR=os.path.abspath(GetOption('libdir')),
+                  SCBUILDDIR=os.path.abspath(GetOption('builddir')),
+                  SCPROJDIR=os.path.abspath('.'))
 # tools.
 env.Tool('mingw' if sys.platform.startswith('win') else 'default')
 env.Tool(GetOption('ctool'))
