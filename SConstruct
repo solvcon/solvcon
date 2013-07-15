@@ -77,7 +77,7 @@ if GetOption('openmp'):
         env.Append(CFLAGS='-openmp')
         env.Append(LINKFLAGS='-openmp')
 # include paths.
-env.Append(CPPPATH=['include', 'solvcon'])
+env.Append(CPPPATH=map(os.path.abspath, ['include', 'solvcon']))
 for path in [GetOption('pythonpath'), np.get_include()]:
     if path not in env['CPPPATH']:
         env.Append(CPPPATH=[path])
@@ -100,7 +100,7 @@ if GetOption('get_scdata'):
 # invoke rules set in SConscript.
 targets = {}
 Export('targets', 'env')
-SConscript(['SConscript'])
+SConscript(['SConscript', 'solvcon/SConscript'])
 
 # set alias and default targets.
 for key in targets:

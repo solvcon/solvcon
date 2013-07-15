@@ -20,9 +20,11 @@
 A fake solver that uses :py:mod:`solvcon.fake_algorithm`.
 """
 
-from .solver import MeshSolver
 
-class FakeSolver(MeshSolver):
+from solvcon import solver
+
+
+class FakeSolver(solver.MeshSolver):
     """
     .. inheritance-diagram:: FakeSolver
 
@@ -30,7 +32,7 @@ class FakeSolver(MeshSolver):
     :py:class:`.mesh_solver.MeshSolver`.
 
     >>> # build a block before creating a solver.
-    >>> from .testing import create_trivial_2d_blk
+    >>> from solvcon.testing import create_trivial_2d_blk
     >>> blk = create_trivial_2d_blk()
     >>> # create a solver.
     >>> svr = FakeSolver(blk, neq=1)
@@ -65,7 +67,7 @@ class FakeSolver(MeshSolver):
 
     def __init__(self, blk, *args, **kw):
         """
-        >>> from .testing import create_trivial_2d_blk
+        >>> from solvcon.testing import create_trivial_2d_blk
         >>> blk = create_trivial_2d_blk()
         >>> svr = FakeSolver(blk, neq=1)
         """
@@ -94,7 +96,7 @@ class FakeSolver(MeshSolver):
         """
         Create a :py:class:`.fake_algorithm.FakeAlgorithm` object.
 
-        >>> from .testing import create_trivial_2d_blk
+        >>> from solvcon.testing import create_trivial_2d_blk
         >>> blk = create_trivial_2d_blk()
         >>> svr = FakeSolver(blk, neq=1)
         >>> alg = svr.create_alg()
@@ -108,14 +110,14 @@ class FakeSolver(MeshSolver):
     ###########################################################################
     # marching algorithm.
     ###########################################################################
-    _MMNAMES = MeshSolver.new_method_list()
+    _MMNAMES = solver.MeshSolver.new_method_list()
 
     @_MMNAMES.register
     def update(self, worker=None):
         """
         Update solution arrays.
 
-        >>> from .testing import create_trivial_2d_blk
+        >>> from solvcon.testing import create_trivial_2d_blk
         >>> blk = create_trivial_2d_blk()
         >>> svr = FakeSolver(blk, neq=1)
         >>> # initialize with different solution arrays.

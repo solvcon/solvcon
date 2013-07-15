@@ -127,7 +127,7 @@ class TestingSolver(BlockSolver):
         self.cevol = empty((ngstcell+ncell, self.CLMFC+1), dtype=self.fpdtype)
 
     def create_alg(self):
-        from .fake_algorithm import FakeAlgorithm
+        from solvcon.parcel.fake.fake_algorithm import FakeAlgorithm
         alg = FakeAlgorithm()
         alg.setup_mesh(self.blk)
         alg.setup_algorithm(self)

@@ -68,7 +68,7 @@ scmods = targets.setdefault('scmods', [])
 prepends = {'LIBS': ['solvcon', 'lapack']}
 scmods.extend(env.SolvconModule(
     ['solvcon/%s.pyx' % name for name in (
-        'mesh', 'fake_algorithm', 'lincese_algorithm')],
+        'mesh', 'lincese_algorithm')],
     prepends=prepends))
 
 # documents.

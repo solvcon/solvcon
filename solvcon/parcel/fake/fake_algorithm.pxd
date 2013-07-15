@@ -21,7 +21,7 @@ cdef public:
         double *sol, *soln, *dsol, *dsoln
         double *cecnd, *cevol
 
-from mesh cimport Mesh
+from solvcon.mesh cimport Mesh
 cdef class FakeAlgorithm(Mesh):
     cdef sc_fake_algorithm_t *_alg
 

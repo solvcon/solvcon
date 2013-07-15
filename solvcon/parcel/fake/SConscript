@@ -1,0 +1,19 @@
+import os, sys
+
+Import('targets', 'env')
+
+env = env.Clone()
+env.Append(CPPPATH=[os.path.abspath('.')])
+scmods = targets.setdefault('scmods', [])
+print env['CPPPATH']
+
+pyx = env.Cython('fake_algorithm.pyx')
+env.Depends(pyx, 'fake_algorithm.pxd')
+objs = env.SharedObject(Glob('src/*.c'))
+env.Depends(objs, pyx)
+pymod = env.PythonExtension([pyx] + objs)
+env.Depends(pymod, objs)
+
+scmods.extend(pymod)
+
+# vim: set ff=unix ft=python fenc=utf8 ai et sw=4 ts=4 tw=79:

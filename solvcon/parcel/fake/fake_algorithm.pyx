@@ -14,7 +14,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-from mesh cimport sc_mesh_t, Mesh
+from solvcon.mesh cimport sc_mesh_t, Mesh
 from fake_algorithm cimport sc_fake_algorithm_t
 import numpy as np
 cimport numpy as cnp
