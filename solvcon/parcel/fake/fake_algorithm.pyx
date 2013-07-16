@@ -23,8 +23,8 @@ cimport numpy as cnp
 cnp.import_array()
 
 cdef extern:
-    int sc_fake_algorithm_calc_soln(sc_mesh_t *msd, sc_fake_algorithm_t *alg)
-    int sc_fake_algorithm_calc_dsoln(sc_mesh_t *msd, sc_fake_algorithm_t *alg)
+    int calc_soln(sc_mesh_t *msd, sc_fake_algorithm_t *alg)
+    int calc_dsoln(sc_mesh_t *msd, sc_fake_algorithm_t *alg)
 
 cdef extern from "stdlib.h":
     void* malloc(size_t size)
@@ -56,9 +56,9 @@ cdef class FakeAlgorithm(Mesh):
         self._alg.cevol = &cevol[self._msd.ngstcell,0]
 
     def calc_soln(self):
-        sc_fake_algorithm_calc_soln(self._msd, self._alg)
+        calc_soln(self._msd, self._alg)
 
     def calc_dsoln(self):
-        sc_fake_algorithm_calc_dsoln(self._msd, self._alg)
+        calc_dsoln(self._msd, self._alg)
 
 # vim: set fenc=utf8 ft=pyrex ff=unix ai et sw=4 ts=4 tw=79:
