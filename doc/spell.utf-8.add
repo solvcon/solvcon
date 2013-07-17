@@ -49,3 +49,5 @@ MeshSolver
 MeshCase
 py
 contrib
+doctests
+unittests

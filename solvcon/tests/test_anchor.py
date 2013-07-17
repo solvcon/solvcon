@@ -1,11 +1,72 @@
+import os
 from unittest import TestCase
 
-from ..testing import TestingSolver
-class CustomBlockSolver(TestingSolver):
-    import os
+from ..solver import BlockSolver
+
+class CustomBlockSolver(BlockSolver):
     DEBUG_FILENAME_DEFAULT = os.devnull
-    del os
-del TestingSolver
+
+    _interface_init_ = ['cecnd', 'cevol']
+
+    def __init__(self, blk, *args, **kw):
+        """
+        @keyword neq: number of equations (variables).
+        @type neq: int
+        """
+        from numpy import empty
+        super(CustomBlockSolver, self).__init__(blk, *args, **kw)
+        # data structure for C/FORTRAN.
+        self.blk = blk
+        # arrays.
+        ndim = self.ndim
+        ncell = self.ncell
+        ngstcell = self.ngstcell
+        ## solutions.
+        neq = self.neq
+        self.sol = empty((ngstcell+ncell, neq), dtype=self.fpdtype)
+        self.soln = empty((ngstcell+ncell, neq), dtype=self.fpdtype)
+        self.dsol = empty((ngstcell+ncell, neq, ndim), dtype=self.fpdtype)
+        self.dsoln = empty((ngstcell+ncell, neq, ndim), dtype=self.fpdtype)
+        ## metrics.
+        self.cecnd = empty(
+            (ngstcell+ncell, self.CLMFC+1, ndim), dtype=self.fpdtype)
+        self.cevol = empty((ngstcell+ncell, self.CLMFC+1), dtype=self.fpdtype)
+
+    def create_alg(self):
+        from solvcon.parcel.fake.fake_algorithm import FakeAlgorithm
+        alg = FakeAlgorithm()
+        alg.setup_mesh(self.blk)
+        alg.setup_algorithm(self)
+        return alg
+
+    ##################################################
+    # marching algorithm.
+    ##################################################
+    MMNAMES = list()
+    MMNAMES.append('update')
+    def update(self, worker=None):
+        self.sol[:,:] = self.soln[:,:]
+        self.dsol[:,:,:] = self.dsoln[:,:,:]
+
+    MMNAMES.append('calcsoln')
+    def calcsoln(self, worker=None):
+        self.create_alg().calc_soln()
+
+    MMNAMES.append('ibcsoln')
+    def ibcsoln(self, worker=None):
+        if worker: self.exchangeibc('soln', worker=worker)
+
+    MMNAMES.append('calccfl')
+    def calccfl(self, worker=None):
+        self.marchret = -2.0
+
+    MMNAMES.append('calcdsoln')
+    def calcdsoln(self, worker=None):
+        self.create_alg().calc_dsoln()
+
+    MMNAMES.append('ibcdsoln')
+    def ibcdsoln(self, worker=None):
+        if worker: self.exchangeibc('dsoln', worker=worker)
 
 class TestAnchor(TestCase):
     neq = 1

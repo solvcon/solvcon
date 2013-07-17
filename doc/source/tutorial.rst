@@ -78,98 +78,209 @@ Mesh Generation (to Be Added)
 Before solving any PDE, you need to define the discretized spatial domain of
 the problem by generating the mesh.
 
-Example Solver (in Progress)
-============================
+.. py:module:: solvcon.parcel.fake
 
-To achieve high-performance in SOLVCON, the implementation of a numerical
-method is divided into two parts: (i) a solver class and (ii) an algorithm
-class.  A solver class is responsible for providing the API and managing
-memory, while an algorithm class is responsible for number-crunching in C.
-Users usually only see the solver class.  Intensive calculation is delegated to
-the algorithm class from the solver class.  
+Problem Solver
+==============
 
-.. note::
+To demonstrate how to develop a problem solver, SOLVCON provides a "fake" one
+in :py:mod:`solvcon.parcel.fake`.  The package implements a trivial and
+meaningless algorithm which is easy to validate.  The related files are all in
+the directory ``$SCSRC/solvcon/parcel/fake``.  You can follow the source code
+and test cases to learn about how to write a problem solver with SOLVCON.
 
-  For a PDE-solving method, code written in Python is in general two orders of
-  magnitude slower than that written in C or Fortran.  And Cython code is still
-  a bit (percentages or times) slower than C code.  Hence, in reality, we need
-  to write C code for speed.
+There are two modules, :py:mod:`solver <solvcon.parcel.fake.solver>` and
+:py:mod:`fake_algorithm <solvcon.parcel.fake.fake_algorithm>`, inside that
+package.  They provides two classes: :py:class:`FakeSolver
+<solvcon.parcel.fake.solver.FakeSolver>` and :py:class:`FakeAlgorithm
+<solvcon.parcel.fake.fake_algorithm.FakeAlgorithm>`.  The former is the
+higher-level API and purely written in Python.  The latter is implemented with
+`Cython <http://cython.org>`__ to call low-level C code.  The real
+number-crunching code is written in C:
 
-Two modules, :py:mod:`solvcon.fake_solver` and
-:py:mod:`solvcon.fake_algorithm`, are put in SOLVCON to exemplify the
-delegation structure by using a dummy numerical method.
+.. c:function:: void fake_calc_soln(sc_mesh_t *msd, fake_algorithm_t *alg)
 
-.. py:module:: solvcon.fake_solver
+  :ref:`(Jump to the code listing). <fake_calc_soln_listing>`  Let
+  :math:`u_j^n` be the solution at :math:`j`-th cell and :math:`n`-th time
+  step, and :math:`v_j` be the volume at :math:`j`-th cell.  This function
+  advances each value in the solution array (:c:data:`fake_algorithm_t.sol` and
+  :c:data:`fake_algorithm_t.soln`) by using the following expression:
 
-The :py:mod:`solvcon.fake_solver` module contains the
-:py:class:`FakeSolver` class that defines the API for the
-dummy numerical method.
+  .. math::
 
-.. py:class:: FakeSolver
+    u_j^n = u_j^{n-\frac{1}{2}} + \frac{\Delta t}{2}v_j
 
-  This class represents the Python side of the numerical method.  It
-  instantiates a :py:class:`solvcon.fake_algorithm.FakeAlgorithm` object.
-  Computation-intensive tasks are delegated to the algorithm object.
+  Total number of values per cell is set in :c:data:`fake_algorithm_t.neq`.
 
-  .. py:method:: create_alg
+.. c:function:: void fake_calc_dsoln(sc_mesh_t *msd, fake_algorithm_t *alg)
 
-    Create a :py:class:`solvcon.fake_algorithm.FakeAlgorithm` object and return it.
+  :ref:`(Jump to the code listing). <fake_calc_dsoln_listing>`  Let
+  :math:`(u_{x_{\mu}})_j^n` be the :math:`x_{\mu}` component of the gradient of
+  :math:`u_j^n`, and :math:`(c_{\mu})_j` be the :math:`x_{\mu}` component of
+  the centroid of the :math:`j`-th cell.  :math:`\mu = 1, 2` or :math:`\mu = 1,
+  2, 3`.  This function advances each value in the solution gradient array
+  (:c:data:`fake_algorithm_t.dsol` and :c:data:`fake_algorithm_t.dsoln`) by
+  using the following expression:
 
-  .. py:attribute:: MMNAMES
+  .. math::
 
-    An ordered registry for all names of methods to be called by a marcher.  Any
-    methods to be called by a marcher should be registered into it.
+    (u_{x_{\mu}})_j^n =
+      (u_{x_{\mu}})j^{n-\frac{1}{2}} + \frac{\Delta t}{2}(c_{\mu})_j
 
-  The following six methods are for the numerical methods.  They are registered
-  into :py:attr:`MMNAMES` by the present order.
+  Total number of values per cell is set in :c:data:`fake_algorithm_t.neq`.
 
-  .. py:method:: update
+The Python/Cython/C hybrid style may seem complicated, but it is important for
+performance.  The two C functions are wrapped with the Cython methods
+:py:meth:`FakeAlgorithm.calc_soln
+<solvcon.parcel.fake.fake_algorithm.FakeAlgorithm.calc_soln>` and
+:py:meth:`FakeAlgorithm.calc_dsoln
+<solvcon.parcel.fake.fake_algorithm.FakeAlgorithm.calc_dsoln>`, respectively.
+Then, the higher level :py:class:`FakeSolver
+<solvcon.parcel.fake.solver.FakeSolver>` will use the lower-level
+:py:class:`FakeAlgorithm <solvcon.parcel.fake.fake_algorithm.FakeAlgorithm>` to
+connect the underneath numerical algorithm to the supportive functionalities
+prepared in SOLVCON.
 
-    Update the present solution arrays with the next solution arrays.
+.. py:module:: solvcon.parcel.fake.solver
 
-  .. py:method:: calcsoln
+:py:mod:`fake.solver <solvcon.parcel.fake.solver>`
+++++++++++++++++++++++++++++++++++++++++++++++++++
 
-    Calculate the ``soln`` array.
+This is the higher level module implemented in Python.
 
-  .. py:method:: ibcsoln
+.. autoclass:: FakeSolver
 
-    Interchange BC for the ``soln`` array.
+  .. inheritance-diagram:: FakeSolver
 
-  .. py:method:: calccfl
+  .. automethod:: __init__
 
-    Calculate the CFL number.
+  .. autoinstanceattribute:: neq
 
-  .. py:method:: calcdsoln
+  .. automethod:: create_alg
 
-    Calculate the ``dsoln`` array.
+  .. autoattribute:: _MMNAMES
 
-  .. py:method:: ibcdsoln
+  The following six methods build up the numerical algorithm.  They are
+  registered into :py:attr:`_MMNAMES` with the present order.
 
-    Interchange BC for the ``dsoln`` array.
+  .. automethod:: update
 
-.. py:module:: solvcon.fake_algorithm
+  .. automethod:: calcsoln
 
-The :py:mod:`solvcon.fake_algorithm` module contains the
-:py:class:`FakeAlgorithm` that interfaces to the number-crunching C code.
+  .. automethod:: ibcsoln
+
+  .. automethod:: calccfl
+
+  .. automethod:: calcdsoln
+
+  .. automethod:: ibcdsoln
+
+:py:class:`FakeSolver` defines the following solution arrays:
+
+.. autoinstanceattribute:: FakeSolver.sol
+
+.. autoinstanceattribute:: FakeSolver.soln
+
+.. autoinstanceattribute:: FakeSolver.dsol
+
+.. autoinstanceattribute:: FakeSolver.dsoln
+
+.. py:module:: solvcon.parcel.fake.fake_algorithm
+
+:py:mod:`fake.fake_algorithm <solvcon.parcel.fake.fake_algorithm>`
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+This is the lower level module implemented in Cython.  It is composed by two
+files.  ``$SCSRC/solvcon/parcel/fake/fake_algorithm.pxd`` declares the data
+structure for C.  ``$SCSRC/solvcon/parcel/fake/fake_algorithm.pyx`` defines the
+wrapping code.
+
+C API Declaration
+-----------------
+
+The Cython file ``fake_algorithm.pxd`` defines the following type for the
+low-level C functions to access the data in a :py:class:`FakeAlgorithm` that
+proxies :py:class:`FakeSolver <solvcon.parcel.fake.solver.FakeSolver>`:
+
+.. c:type:: fake_algorithm_t
+
+  .. c:member:: int neq
+
+    This should be set to :py:attr:`FakeSolver.neq
+    <solvcon.parcel.fake.solver.FakeSolver.neq>`.
+
+  .. c:member:: double time
+
+    This should be set to :py:attr:`MeshSolver.time
+    <solvcon.solver.MeshSolver.time>`.
+
+  .. c:member:: double time_increment
+
+    This should be set to :py:attr:`MeshSolver.time_increment
+    <solvcon.solver.MeshSolver.time_increment>`.
+
+  .. c:member:: double* sol
+
+    This should point to the 0-th cell of :py:attr:`FakeSolver.sol
+    <solvcon.parcel.fake.solver.FakeSolver.sol>`.  Therefore the address of
+    ghost cells is *smaller* than :c:data:`fake_algorithm_t.sol`.
+
+  .. c:member:: double* soln
+
+    This should point to the 0-th cell of :py:attr:`FakeSolver.soln
+    <solvcon.parcel.fake.solver.FakeSolver.soln>`.  Therefore the address of
+    ghost cells is *smaller* than :c:data:`fake_algorithm_t.soln`.
+
+  .. c:member:: double* dsol
+
+    This should point to the 0-th cell of :py:attr:`FakeSolver.dsol
+    <solvcon.parcel.fake.solver.FakeSolver.dsol>`.  Therefore the address of
+    ghost cells is *smaller* than :c:data:`fake_algorithm_t.dsol`.
+
+  .. c:member:: double* dsoln
+
+    This should point to the 0-th cell of :py:attr:`FakeSolver.dsoln
+    <solvcon.parcel.fake.solver.FakeSolver.dsoln>`.  Therefore the address of
+    ghost cells is *smaller* than :c:data:`fake_algorithm_t.dsoln`.
+
+Wrapper Class
+-------------
 
 .. py:class:: FakeAlgorithm
 
-  This class represents the C side of the numerical method.  It wraps two C
-  functions :c:func:`sc_fake_algorithm_calc_soln` and
-  :c:func:`sc_fake_algorithm_calc_dsoln`.
+  This class wraps around the C portion of the numerical method.
 
   .. py:method:: setup_algorithm(svr)
 
     A :py:class:`FakeAlgorithm` object shouldn't allocate memory.  Instead, a
-    :py:class:`solvcon.fake_solver.FakeSolver` object should allocate the memory
-    and pass the solver into the algorithm.
+    :py:class:`FakeSolver <solvcon.parcel.fake.solver.FakeSolver>` object
+    should allocate the memory and pass the solver into the algorithm.
 
   .. py:method:: calc_soln
 
-    Wraps the C functions :c:func:`sc_fake_algorithm_calc_soln`.  Do the work
-    delegated from :py:meth:`solvcon.fake_solver.FakeSolver.calcsoln`.
+    Wraps the C functions :c:func:`fake_calc_soln` (where the algorithm is
+    defined).
 
   .. py:method:: calc_dsoln
 
-    Wraps the C functions :c:func:`sc_fake_algorithm_calc_dsoln`.  Do the work
-    delegated from :py:meth:`solvcon.fake_solver.FakeSolver.calcdsoln`.
+    Wraps the C functions :c:func:`fake_calc_dsoln` (where the algorithm is
+    defined).
+
+C Code Listing
+++++++++++++++
+
+.. _fake_calc_soln_listing:
+
+.. rubric:: solvcon/parcel/fake/src/fake_calc_soln.c
+
+.. literalinclude:: ../../solvcon/parcel/fake/src/fake_calc_soln.c
+  :language: c
+  :linenos:
+
+.. _fake_calc_dsoln_listing:
+
+.. rubric:: solvcon/parcel/fake/src/fake_calc_dsoln.c
+
+.. literalinclude:: ../../solvcon/parcel/fake/src/fake_calc_dsoln.c
+  :language: c
+  :linenos:
