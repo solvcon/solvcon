@@ -39,12 +39,12 @@ export LD_LIBRARY_PATH=$SCROOT/soil/lib
 export LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:$SCROOT/soil/lib
 #export CFLAGS=-m64
 ../$PKGNAME/configure --prefix=$SCROOT/soil \
-    $GCCOPTS \
-	--with-gmp=$SCROOT/soil \
-	--with-mpfr=$SCROOT/soil \
-	--with-mpc=$SCROOT/soil \
-	--enable-languages=c,c++,fortran \
-	--disable-multilib \
+    $GCC_CONFIG_OPTS \
+    --with-gmp=$SCROOT/soil \
+    --with-mpfr=$SCROOT/soil \
+    --with-mpc=$SCROOT/soil \
+    --enable-languages=c,c++,fortran \
+    --disable-multilib \
 > configure.log 2>&1
 make -j $NP > make.log 2>&1
 make install > install.log 2>&1

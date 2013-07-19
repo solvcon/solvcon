@@ -22,7 +22,7 @@ export TMPBLD=build/
 #export NP?=$(`cat /proc/cpuinfo | grep processor | wc -l`)
 export NP?=1
 ## Additional options to pass to gcc compiler, e.g. --program-suffix=4.7 ... 
-export GCCOPTS?=
+export GCC_CONFIG_OPTS?=
 
 default: gcc
 
