@@ -41,8 +41,11 @@ AddOption('--list-aliases', dest='list_aliases',
     help='List all target aliases and build nothing.')
 
 # solvcon environment.
-env = Environment(ENV=os.environ, SCLIBPREFIX=GetOption('libprefix'),
-    SCLIBDIR=GetOption('libdir'), SCBUILDDIR=GetOption('builddir'))
+env = Environment(ENV=os.environ,
+                  SCLIBPREFIX=GetOption('libprefix'),
+                  SCLIBDIR=os.path.abspath(GetOption('libdir')),
+                  SCBUILDDIR=os.path.abspath(GetOption('builddir')),
+                  SCPROJDIR=os.path.abspath('.'))
 # tools.
 env.Tool('mingw' if sys.platform.startswith('win') else 'default')
 env.Tool(GetOption('ctool'))
@@ -77,7 +80,7 @@ if GetOption('openmp'):
         env.Append(CFLAGS='-openmp')
         env.Append(LINKFLAGS='-openmp')
 # include paths.
-env.Append(CPPPATH=['include', 'solvcon'])
+env.Append(CPPPATH=map(os.path.abspath, ['include', 'solvcon']))
 for path in [GetOption('pythonpath'), np.get_include()]:
     if path not in env['CPPPATH']:
         env.Append(CPPPATH=[path])
@@ -100,7 +103,7 @@ if GetOption('get_scdata'):
 # invoke rules set in SConscript.
 targets = {}
 Export('targets', 'env')
-SConscript(['SConscript'])
+SConscript(['SConscript', 'solvcon/SConscript'])
 
 # set alias and default targets.
 for key in targets:

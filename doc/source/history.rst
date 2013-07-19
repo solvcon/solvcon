@@ -1,5 +1,5 @@
-===============
-Release History
-===============
+=====================
+All Previous Versions
+=====================
 
 .. include:: ../../HISTORY.rst

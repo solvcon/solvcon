@@ -1,10 +1,10 @@
-============
-Architecture
-============
+===================
+Solver Architecture
+===================
 
 SOLVCON is built upon two keystones: (i) unstructured meshes for spatial
 discretization and (ii) two-level loop structure of partial differential
-equation (PDE) solvers.  The system is driving by Python scripts.
+equation (PDE) solvers.
 
 Unstructured Meshes
 ===================
@@ -232,10 +232,10 @@ neighbor.  The area normal vector of a face is always point from the belonging
 cell to neighboring cell.  The same rule applies to faces of two-dimensional
 meshes (lines) too.
 
-Data Structure
-++++++++++++++
-
 .. py:module:: solvcon.block
+
+Data Structure Defined in :py:mod:`solvcon.block` 
++++++++++++++++++++++++++++++++++++++++++++++++++
 
 Real data of unstructured meshes are stored in module
 :py:class:`solvcon.block`.  A simple table for all element types is defined as
@@ -531,10 +531,10 @@ In class :py:class:`Block` there are also useful constants defined:
     The maximum number of faces that a cell can have.  From the first table in
     Section `Entities`_, its value should be 6.
 
-Low-Level Interface to C
-++++++++++++++++++++++++
-
 .. py:module:: solvcon.mesh
+
+Low-Level Interface to C Defined in :py:mod:`solvcon.mesh`
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 Although it is convenient to have data structure defined in the Python module
 :py:mod:`solvcon.block`, kernel of numerical methods are usually implemented in
@@ -737,51 +737,49 @@ functions listed above.
 Numerical Code
 ==============
 
-As the data structure and facilities are defined (in Section "`Unstructured
-Meshes`_"), we are now ready to develop code for numerical methods.  The
-numerical calculations in SOLVCON rely on exploiting a two-level loop
+The numerical calculations in SOLVCON rely on exploiting a two-level loop
 structure, i.e., the temporal loop and the spatial loops.  For time-accurate
 solvers, there is always an outer loop that coordinates the time-marching.  The
 outer loop is called the *temporal loop*, and it should be implemented in
-subclasses of :py:class:`solvcon.case.MeshCase`.  Inside the temporal loop,
-there can be one or many inner loops that calculate the new values of the
-fields.  The inner loops are called the *spatial loops*, and they should be
-implemented in subclasses of :py:class:`solvcon.solver.MeshSolver`.
+subclasses of :py:class:`MeshCase <solvcon.case.MeshCase>`.  Inside the
+temporal loop, there can be one or many inner loops that calculate the new
+values of the fields.  The inner loops are called the *spatial loops*, and they
+should be implemented in subclasses of :py:class:`MeshSolver
+<solvcon.solver.MeshSolver>`.
 
-Although time-marching needs both the temporal and the spatial loops, the outer
-temporal loop is more responsible for coordinating, while the inner spatial
-loops is closer to numerical algorithms.  The nature of these two levels allows
-us to segregate code.  An object of :py:class:`solvcon.case.MeshCase` can be
-seen as the realization of a simulation case in SOLVCON (as a convention the
-object's name should contain or just be ``cse``).  Code in
-:py:class:`solvcon.case.MeshCase` is mainly about obtaining settings, provision
-of the execution environment, input, and output.  On the other hand, an object
-of :py:class:`solvcon.solver.MeshSolver` is used to manipulate the field data
-by the implemented numerical algorithm (as a convention the object's name
-should contain or just be ``svr``).  Its code shouldn't involve input nor
-output (excepting that for debugging) but needs to take parallelism into
-account.
+The outer temporal loop is more responsible for coordinating, while the inner
+spatial loops is closer to numerical algorithms.  These two levels allow us to
+segregate code.  An object of :py:class:`MeshCase <solvcon.case.MeshCase>` can
+be seen as the realization of a simulation case in SOLVCON (as a convention the
+object's name should contain or just be ``cse``).  Code in :py:class:`MeshCase
+<solvcon.case.MeshCase>` is mainly about obtaining settings, input and output,
+and provision of the execution environment.  On the other hand, we implement
+the numerical algorithm in :py:class:`MeshSolver <solvcon.solver.MeshSolver>`
+to manipulate the field data (as a convention the object's name should contain
+or just be ``svr``).  Its code shouldn't involve input nor output (excepting
+that for debugging) but needs to take parallelism into account.
 
-The two classes :py:class:`solvcon.case.MeshCase` and
-:py:class:`solvcon.solver.MeshSolver` establish good segregation for numerical
-methods, but to make code flexible, SOLVCON provides a companion for each of
-the classes.  A :py:class:`solvcon.case.MeshCase` object can contain one or
-more :py:class:`solvcon.hook.MeshHook` objects to perform custom operations at
-certain pre-defined stages (as a convention the objects should be named with
-``hok``).  Similarly, a :py:class:`solvcon.solver.MeshSolver` object can have
-one or more :py:class:`solvcon.anchor.MeshAnchor` objects for processing field
-data by using code that is not part of the numerical algorithm (as a convention
-the objects should be named with ``ank``).  In this section, for conciseness,
-the terms case, solver, hook, and anchor are sometimes referred to as the
-classes :py:class:`solvcon.case.MeshCase`,
-:py:class:`solvcon.solver.MeshSolver`, :py:class:`solvcon.hook.MeshHook`, and
-:py:class:`solvcon.anchor.MeshAnchor`, respectively, or their instances,
-respectively.
+Code for data processing should go to :py:class:`MeshHook
+<solvcon.hook.MeshHook>` (as a convention the objects should be named with
+``hok``), which is the companion of :py:class:`MeshCase
+<solvcon.case.MeshCase>`.  Code that processes data close to numerical methods
+should go to :py:class:`MeshAnchor <solvcon.anchor.MeshAnchor>` (as a
+convention the objects should be named with ``ank``), which is the companion of
+:py:class:`MeshSolver <solvcon.solver.MeshSolver>`.
+
+In this section, for conciseness, the terms solver, anchor, case, and hook are
+used to denote the classes :py:class:`MeshSolver <solvcon.solver.MeshSolver>`,
+:py:class:`MeshAnchor <solvcon.anchor.MeshAnchor>`, :py:class:`MeshCase
+<solvcon.case.MeshCase>`, and :py:class:`MehsHook <solvcon.hook.MeshHook>` or
+their instances, respectively.  In the `issue tracking system
+<https://bitbucket.org/solvcon/solvcon/issues?status=new&status=open>`__,
+solver, anchor, case, and hook form a `component "sach"
+<https://bitbucket.org/solvcon/solvcon/issues?component=sach%20(solver/anchor/case/hook)>`__.
 
 .. py:module:: solvcon.case
 
-Case
-++++
+:py:mod:`solvcon.case`
+++++++++++++++++++++++
 
 Module :py:mod:`solvcon.case` contains code for making a simulation case
 (subclasses of :py:class:`solvcon.case.MeshCase`).  Because a case coordinates
@@ -833,208 +831,78 @@ Arrangement
 
 .. py:module:: solvcon.solver
 
-Solver
-++++++
+:py:mod:`solvcon.solver`
+++++++++++++++++++++++++
+
+Module :py:mod:`solvcon.solver` provides the basic facilities for implementing
+numerical methods by subclassing :py:class:`MeshSolver`.  The base class is
+defined as:
 
 .. autoclass:: MeshSolver
 
-  Both time-accurate and steady-state numerical methods are supported by this
-  class.  Steady-state methods can be viewed as special cases of time-accurate
-  ones.  Two instance attributes are used to record the temporal information:
+  Two instance attributes are used to record the temporal information:
   
-  .. py:attribute:: time
+  .. autoinstanceattribute:: time
   
-    The current time of the solver.  By default, :py:attr:`time` is initialized
-    to ``0.0``, which is usually desired value.  The default value can be
-    overridden from the constructor.
-      
-  .. py:attribute:: time_increment
+  .. autoinstanceattribute:: time_increment
   
-    The temporal interval between the current and the next time steps.  It is
-    usually referred to as :math:`\Delta t` in the numerical literature.  By
-    default, :py:attr:`time_increment` is initialized to ``0.0``, but the
-    default should be overridden from the constructor.
+  Four instance attributes are used to track the status of time-marching:
+  
+  .. autoinstanceattribute:: step_current
+  
+  .. autoinstanceattribute:: step_global
+  
+  .. autoinstanceattribute:: substep_run
+  
+  .. autoinstanceattribute:: substep_current
 
-  The status of time-marching are stored in the following four members are
-  used:
-  
-  .. py:attribute:: step_current
-  
-    It is an :py:class:`int` that records the current step of the solver.  It
-    is initialized to ``0``.
-  
-  .. py:attribute:: step_global
-  
-    It is similar to :py:attr:`step_current`, but persists over restart.
-    Without restarts, :py:attr:`step_global` should be identical to
-    :py:attr:`step_current`.
-  
-  .. py:attribute:: substep_run
-  
-    The number of sub-steps that a single time step should be split into.  It
-    is initialized to ``1`` and should be overidden in subclasses if needed.
-  
-  .. py:attribute:: substep_current
-  
-    The current sub-step of the solver.  It is initialized to ``0``.
-
-  .. py:attribute:: _MMNAMES
-
-    This class attribute holds the names of the methods to be called in
-    :py:meth:`march`.  It is of type :py:class:`_MethodList`.  The default
-    value is ``None`` and must be set again in subclasses.
+  Derived classes of :py:class:`MeshSolver` should use the following method
+  :py:meth:`new_method_list` to make a new class variable :py:attr:`_MMNAMES`
+  to define numerical methods:
 
   .. automethod:: new_method_list
 
-  .. py:attribute:: runanchors
+  .. autoinstanceattribute:: _MMNAMES
 
-    This instance attribute is of type :py:class:`solvcon.anchor.AnchorList`,
-    and the foundation of the anchor mechanism of SOLVCON.  An
-    :py:class:`solvcon.anchor.AnchorList` object like this collects a set of
-    :py:class:`solver.anchor.Anchor` objects, and is callable.  When being
-    called, :py:attr:`runanchors` iterates the contained
-    :py:class:`solvcon.anchor.Anchor` objects and invokes the corresponding
-    method of the anchor.
+Time-Marching
+-------------
 
-  .. automethod:: march
+.. automethod:: MeshSolver.march
 
-    This method performs time-marching.  The parameters ``time`` and
-    ``time_increment`` are used to reset the instance attributes
-    :py:attr:`time` and :py:attr:`time_increment`, respectively.
+.. autoinstanceattribute:: MeshSolver.marchret
 
-    There is a nested two-level loop in this method for time-marching.  The
-    outer loop iterates for time steps, and the inner loop iterates for sub
-    time steps.  The outer loop runs ``steps_run`` times, while the inner loop
-    runs :py:attr:`substep_run` times.  In total, the inner loop runs
-    ``steps_run`` * :py:attr:`substep_run` times.  In each sub time step (in
-    the inner loop), the increment of the attribute :py:attr:`time` is
-    :py:attr:`time_increment`/:py:attr:`substep_run`.  The temporal increment
-    per time step is effectively :py:attr:`time_increment`, with a slight error
-    because of round-off.
+.. autoinstanceattribute:: MeshSolver.runanchors
 
-    Before entering and after leaving the outer loop, ``premarch`` and
-    ``postmarch`` anchors will be run (through the attribute
-    :py:attr:`runanchors`).  Similarly, before entering and after leaving the
-    inner loop, ``prefull`` and ``postfull`` anchors will be run.  Inside the
-    inner loop of sub steps, before and after executing all the marching
-    methods, ``presub`` and ``postsub`` anchors will be run.  Lastly, before
-    and after invoking every marching method, a pair of anchors will be run.
-    The anchors for a marching method are related to the name of the marching
-    method itself.  For example, if a marching method is named "calcsome",
-    anchor ``precalcsome`` will be run before the invocation, and anchor
-    ``postcalcsome`` will be run afterward.
+.. autoclass:: _MethodList
 
-  .. automethod:: detect_ncore
+Parallel Computing
+------------------
 
-  For distributed-memory parallel computing (i.e., MPI runs), the member
-  :py:attr:`svrn` indicates the serial number (0-based) the object is.  The
-  value of :py:attr:`svrn` comes from :py:attr:`blk`.  Another member,
-  :py:attr:`nsvr`, is the total number of collaborative solvers in the parallel
-  run, and is initialized to ``None``.
+For distributed-memory parallel computing (i.e., MPI runs), the member
+:py:attr:`svrn` indicates the serial number (0-based) the object is.  The value
+of :py:attr:`svrn` comes from :py:attr:`blk`.  Another member, :py:attr:`nsvr`,
+is the total number of collaborative solvers in the parallel run, and is
+initialized to ``None``.
 
-To achieve high-performance in SOLVCON, the implementation of a numerical
-method is divided into two parts: (i) a solver class and (ii) an algorithm
-class.  A solver class is responsible for providing the API and managing
-memory, while an algorithm class is responsible for number-crunching in C.
-Users usually only see the solver class.  Intensive calculation is delegated to
-the algorithm class from the solver class.  Two modules,
-:py:mod:`solvcon.fake_solver` and :py:mod:`solvcon.fake_algorithm`, are put in
-SOLVCON to exemplify the delegation structure by using a dummy numerical
-method.
+.. py:module:: solvcon.hook
 
-.. note::
+:py:mod:`solvcon.hook`
+++++++++++++++++++++++
 
-  For a PDE-solving method, code written in Python is in general two orders of
-  magnitude slower than that written in C or Fortran.  And Cython code is still
-  a bit (percentages or times) slower than C code.  Hence, in reality, we need
-  to write C code for speed.
+:py:class:`MeshHook <solvcon.hook.MeshHook>` performs custom operations at
+certain pre-defined stages.
 
-Example Solver
---------------
+.. autoclass:: Hook
 
-.. py:module:: solvcon.fake_solver
+.. py:module:: solvcon.anchor
 
-The :py:mod:`solvcon.fake_solver` module contains the
-:py:class:`FakeSolver` class that defines the API for the
-dummy numerical method.
+:py:mod:`solvcon.anchor`
+++++++++++++++++++++++++
 
-.. py:class:: FakeSolver
+.. autoclass:: Anchor
 
-  This class represents the Python side of the numerical method.  It
-  instantiates a :py:class:`solvcon.fake_algorithm.FakeAlgorithm` object.
-  Computation-intensive tasks are delegated to the algorithm object.
-
-  .. py:method:: create_alg
-
-    Create a :py:class:`solvcon.fake_algorithm.FakeAlgorithm` object and return it.
-
-  .. py:attribute:: MMNAMES
-
-    An ordered registry for all names of methods to be called by a marcher.  Any
-    methods to be called by a marcher should be registered into it.
-
-  The following six methods are for the numerical methods.  They are registered
-  into :py:attr:`MMNAMES` by the present order.
-
-  .. py:method:: update
-
-    Update the present solution arrays with the next solution arrays.
-
-  .. py:method:: calcsoln
-
-    Calculate the ``soln`` array.
-
-  .. py:method:: ibcsoln
-
-    Interchange BC for the ``soln`` array.
-
-  .. py:method:: calccfl
-
-    Calculate the CFL number.
-
-  .. py:method:: calcdsoln
-
-    Calculate the ``dsoln`` array.
-
-  .. py:method:: ibcdsoln
-
-    Interchange BC for the ``dsoln`` array.
-
-.. py:module:: solvcon.fake_algorithm
-
-The :py:mod:`solvcon.fake_algorithm` module contains the
-:py:class:`FakeAlgorithm` that interfaces to the number-crunching C code.
-
-.. py:class:: FakeAlgorithm
-
-  This class represents the C side of the numerical method.  It wraps two C
-  functions :c:func:`sc_fake_algorithm_calc_soln` and
-  :c:func:`sc_fake_algorithm_calc_dsoln`.
-
-  .. py:method:: setup_algorithm(svr)
-
-    A :py:class:`FakeAlgorithm` object shouldn't allocate memory.  Instead, a
-    :py:class:`solvcon.fake_solver.FakeSolver` object should allocate the memory
-    and pass the solver into the algorithm.
-
-  .. py:method:: calc_soln
-
-    Wraps the C functions :c:func:`sc_fake_algorithm_calc_soln`.  Do the work
-    delegated from :py:meth:`solvcon.fake_solver.FakeSolver.calcsoln`.
-
-  .. py:method:: calc_dsoln
-
-    Wraps the C functions :c:func:`sc_fake_algorithm_calc_dsoln`.  Do the work
-    delegated from :py:meth:`solvcon.fake_solver.FakeSolver.calcdsoln`.
-
-Hook
-++++
-
-Anchor
-++++++
-
-Code Listings
-=============
+References
+==========
 
 ustmesh_2d_sample.geo
 +++++++++++++++++++++
@@ -1053,9 +921,6 @@ The following command converts the mesh to a VTK file for ParaView:
 .. code-block:: bash
 
   scg mesh ustmesh_2d_sample.msh ustmesh_2d_sample.vtk
-
-References
-==========
 
 .. [Mavriplis97] D. J. Mavriplis, Unstructured grid techniques, Annual Review
   of Fluid Mechanics 29. (1997)

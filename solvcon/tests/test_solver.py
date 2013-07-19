@@ -2,7 +2,6 @@ import os
 from unittest import TestCase
 from ..testing import get_blk_from_sample_neu
 from ..solver import BaseSolver, BlockSolver
-from ..testing import TestingSolver
 
 class CustomBaseSolver(BaseSolver):
     def __init__(self, **kw):
@@ -12,8 +11,70 @@ class CustomBaseSolver(BaseSolver):
         super(CustomBaseSolver, self).bind()
         self.val = 'bind'
 
-class CustomBlockSolver(TestingSolver):
+class CustomBlockSolver(BlockSolver):
     MESG_FILENAME_DEFAULT = os.devnull
+
+    _interface_init_ = ['cecnd', 'cevol']
+
+    def __init__(self, blk, *args, **kw):
+        """
+        @keyword neq: number of equations (variables).
+        @type neq: int
+        """
+        from numpy import empty
+        super(CustomBlockSolver, self).__init__(blk, *args, **kw)
+        # data structure for C/FORTRAN.
+        self.blk = blk
+        # arrays.
+        ndim = self.ndim
+        ncell = self.ncell
+        ngstcell = self.ngstcell
+        ## solutions.
+        neq = self.neq
+        self.sol = empty((ngstcell+ncell, neq), dtype=self.fpdtype)
+        self.soln = empty((ngstcell+ncell, neq), dtype=self.fpdtype)
+        self.dsol = empty((ngstcell+ncell, neq, ndim), dtype=self.fpdtype)
+        self.dsoln = empty((ngstcell+ncell, neq, ndim), dtype=self.fpdtype)
+        ## metrics.
+        self.cecnd = empty(
+            (ngstcell+ncell, self.CLMFC+1, ndim), dtype=self.fpdtype)
+        self.cevol = empty((ngstcell+ncell, self.CLMFC+1), dtype=self.fpdtype)
+
+    def create_alg(self):
+        from solvcon.parcel.fake.fake_algorithm import FakeAlgorithm
+        alg = FakeAlgorithm()
+        alg.setup_mesh(self.blk)
+        alg.setup_algorithm(self)
+        return alg
+
+    ##################################################
+    # marching algorithm.
+    ##################################################
+    MMNAMES = list()
+    MMNAMES.append('update')
+    def update(self, worker=None):
+        self.sol[:,:] = self.soln[:,:]
+        self.dsol[:,:,:] = self.dsoln[:,:,:]
+
+    MMNAMES.append('calcsoln')
+    def calcsoln(self, worker=None):
+        self.create_alg().calc_soln()
+
+    MMNAMES.append('ibcsoln')
+    def ibcsoln(self, worker=None):
+        if worker: self.exchangeibc('soln', worker=worker)
+
+    MMNAMES.append('calccfl')
+    def calccfl(self, worker=None):
+        self.marchret = -2.0
+
+    MMNAMES.append('calcdsoln')
+    def calcdsoln(self, worker=None):
+        self.create_alg().calc_dsoln()
+
+    MMNAMES.append('ibcdsoln')
+    def ibcdsoln(self, worker=None):
+        if worker: self.exchangeibc('dsoln', worker=worker)
 
 class TestBase(TestCase):
     def test_base(self):
@@ -108,69 +169,3 @@ class TestBlock(TestCase):
     def test_blkn(self):
         svr = self._get_solver()
         self.assertEqual(svr.svrn, None)
-
-    def test_metric(self):
-        svr = self._get_solver()
-        self.assertEqual(len(svr.cecnd.shape), 3)
-        self.assertEqual(svr.cecnd.shape[0], svr.ncell+svr.ngstcell)
-        self.assertEqual(svr.cecnd.shape[1], svr.CLMFC+1)
-        self.assertEqual(svr.cecnd.shape[2], svr.ndim)
-        self.assertEqual(len(svr.cevol.shape), 2)
-        self.assertEqual(svr.cevol.shape[0], svr.ncell+svr.ngstcell)
-        self.assertEqual(svr.cevol.shape[1], svr.CLMFC+1)
-
-    def test_solution(self):
-        svr = self._get_solver()
-        self.assertEqual(len(svr.sol.shape), 2)
-        self.assertEqual(svr.sol.shape[0], svr.soln.shape[0])
-        self.assertEqual(svr.sol.shape[1], svr.soln.shape[1])
-        self.assertEqual(svr.sol.shape[0], svr.ncell+svr.ngstcell)
-        self.assertEqual(svr.sol.shape[1], svr.neq)
-        self.assertEqual(len(svr.dsol.shape), 3)
-        self.assertEqual(svr.dsol.shape[0], svr.dsoln.shape[0])
-        self.assertEqual(svr.dsol.shape[1], svr.dsoln.shape[1])
-        self.assertEqual(svr.dsol.shape[2], svr.dsoln.shape[2])
-        self.assertEqual(svr.dsol.shape[0], svr.ncell+svr.ngstcell)
-        self.assertEqual(svr.dsol.shape[1], svr.neq)
-        self.assertEqual(svr.dsol.shape[2], svr.ndim)
-
-    time = 0.0
-    time_increment = 1.0
-    nsteps = 10
-
-    def _run_solver(self, time, time_increment, nsteps):
-        # initialize.
-        svr = self._get_solver()
-        svr.soln.fill(0.0)
-        svr.dsoln.fill(0.0)
-        # run.
-        svr.march(time, time_increment, nsteps)
-        return svr
-
-    def test_soln(self):
-        from numpy import zeros
-        # run.
-        svr = self._run_solver(self.time, self.time_increment, self.nsteps)
-        ngstcell = svr.ngstcell
-        # get result.
-        soln = svr.soln[ngstcell:,0]
-        # calculate reference
-        clvol = zeros(soln.shape, dtype=soln.dtype)
-        for iistep in range(self.nsteps*2):
-            clvol += svr.clvol[ngstcell:]*self.time_increment/2
-        # compare.
-        self.assertTrue((soln==clvol).all())
-
-    def test_dsoln(self):
-        from numpy import zeros
-        # run.
-        svr = self._run_solver(self.time, self.time_increment, self.nsteps)
-        ngstcell = svr.ngstcell
-        # get result.
-        dsoln = svr.dsoln[ngstcell:,0,:]
-        # calculate reference
-        clcnd = zeros(dsoln.shape, dtype=dsoln.dtype)
-        for iistep in range(self.nsteps*2):
-            clcnd += svr.clcnd[ngstcell:]*self.time_increment/2
-        # compare.
-        self.assertTrue((dsoln==clcnd).all())

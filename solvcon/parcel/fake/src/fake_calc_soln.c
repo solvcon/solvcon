@@ -21,7 +21,7 @@
 #include "mesh.h"
 #include "fake_algorithm.h"
 
-int sc_fake_algorithm_calc_soln(sc_mesh_t *msd, sc_fake_algorithm_t *alg) {
+void fake_calc_soln(sc_mesh_t *msd, fake_algorithm_t *alg) {
     double *psol, *psoln, *pclvol;
     int icl, ieq;
     psol = alg->sol;
@@ -35,7 +35,6 @@ int sc_fake_algorithm_calc_soln(sc_mesh_t *msd, sc_fake_algorithm_t *alg) {
         psoln += alg->neq;
         pclvol += 1;
     };
-    return 0;
 };
 
 // vim: set ts=4 et:

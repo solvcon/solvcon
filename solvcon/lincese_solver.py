@@ -75,6 +75,7 @@ class LinceseSolver(solver.MeshSolver):
         # meta data.
         self.neq = kw.pop('neq')
         super(LinceseSolver, self).__init__(blk, **kw)
+        self.substep_run = 2
         ndim = blk.ndim
         ncell = blk.ncell
         ngstcell = blk.ngstcell

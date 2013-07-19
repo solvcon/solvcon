@@ -14,8 +14,8 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-from mesh cimport sc_mesh_t, Mesh
-from fake_algorithm cimport sc_fake_algorithm_t
+from solvcon.mesh cimport sc_mesh_t, Mesh
+from fake_algorithm cimport fake_algorithm_t
 import numpy as np
 cimport numpy as cnp
 
@@ -23,8 +23,8 @@ cimport numpy as cnp
 cnp.import_array()
 
 cdef extern:
-    int sc_fake_algorithm_calc_soln(sc_mesh_t *msd, sc_fake_algorithm_t *alg)
-    int sc_fake_algorithm_calc_dsoln(sc_mesh_t *msd, sc_fake_algorithm_t *alg)
+    int fake_calc_soln(sc_mesh_t *msd, fake_algorithm_t *alg)
+    int fake_calc_dsoln(sc_mesh_t *msd, fake_algorithm_t *alg)
 
 cdef extern from "stdlib.h":
     void* malloc(size_t size)
@@ -34,7 +34,7 @@ cdef class FakeAlgorithm(Mesh):
     An algorithm class that does trivial calculation.
     """
     def __cinit__(self):
-        self._alg = <sc_fake_algorithm_t *>malloc(sizeof(sc_fake_algorithm_t))
+        self._alg = <fake_algorithm_t *>malloc(sizeof(fake_algorithm_t))
 
     def setup_algorithm(self, svr):
         # meta data.
@@ -50,15 +50,11 @@ cdef class FakeAlgorithm(Mesh):
         self._alg.dsol = &dsol[self._msd.ngstcell,0,0]
         cdef cnp.ndarray[double, ndim=3, mode="c"] dsoln = svr.dsoln
         self._alg.dsoln = &dsoln[self._msd.ngstcell,0,0]
-        cdef cnp.ndarray[double, ndim=3, mode="c"] cecnd = svr.cecnd
-        self._alg.cecnd = &cecnd[self._msd.ngstcell,0,0]
-        cdef cnp.ndarray[double, ndim=2, mode="c"] cevol = svr.cevol
-        self._alg.cevol = &cevol[self._msd.ngstcell,0]
 
     def calc_soln(self):
-        sc_fake_algorithm_calc_soln(self._msd, self._alg)
+        fake_calc_soln(self._msd, self._alg)
 
     def calc_dsoln(self):
-        sc_fake_algorithm_calc_dsoln(self._msd, self._alg)
+        fake_calc_dsoln(self._msd, self._alg)
 
 # vim: set fenc=utf8 ft=pyrex ff=unix ai et sw=4 ts=4 tw=79:

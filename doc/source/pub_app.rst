@@ -1,6 +1,16 @@
+:orphan:
+
 =================================
 Published Applications of SOLVCON
 =================================
+
+- Po-Hsien Lin, Yung-Yu Chen, and S.-T. John Yu,
+  "Density-Velociy Equations with Bulk Modulus for Computational
+  Hydro-Acoustics",
+  *Theoretical and Computational Fluid Dynamics*,
+  Accepted.
+  `doi: 10.1007/s00162-013-0301-6
+  <http://dx.doi.org/10.1007/s00162-013-0301-6>`_
 
 - Lixiang Yang, Yung-Yu Chen, and Sheng-Tao John Yu,
   "Velocity-Stress Equations for Waves in Solids of Hexagonal Symmetry Solved

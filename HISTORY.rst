@@ -1,22 +1,5 @@
-Upcoming
-++++++++
-
-This release starts to document by using Sphinx and to improve the class
-hierarchy of IO and boundary-condition treatments.
-
-Changes:
-
-- Remove the SCons METIS builder and the corresponding options of
-  ``--download``, ``--extract``, and ``--apply-patches``.  Now the SCOTCH
-  library is used for graph partitioning with its METIS interface.
-- Move the counter of lines of code in SOLVCON from SCons into a standalone
-  script ``contrib/countloc``, and thus remove the SCons option ``--count``.
-- Remove the SCons option ``--cmpvsn``.  For changing the command of C
-  compiler, you can now set the environment variable ``CC`` to whatever the
-  command you want.
-
-0.1.1
-+++++
+Version 0.1.1
++++++++++++++
 
 Release date: 2012/1/21 (GMT+0800)
 
@@ -43,8 +26,8 @@ Bug-fix:
 - Issue #54: "Shared objects are not found under Mac OS X".
 - Issue #38: "soln/dsoln shouldn't be hard-coded".
 
-0.1
-+++
+Version 0.1
++++++++++++
 
 Release date: 2011/8/11 (GMT-0500)
 
@@ -75,8 +58,8 @@ Bug-fix:
 
 - METIS changes its download URL.  Modify SConstruct accordingly.
 
-0.0.7
-+++++
+Version 0.0.7
++++++++++++++
 
 Release date: 2011/6/8 (GMT-0500)
 
@@ -109,8 +92,8 @@ Bug-fix:
 - A bug in coordiate transformation for wall boundary conditions of gas
   dynamics module (``solvcon.kerpak.gasdyn``).
 
-0.0.6
-+++++
+Version 0.0.6
++++++++++++++
 
 Release date: 2011/5/18 (GMT-0500)
 
@@ -138,8 +121,8 @@ Bug-fixes:
   uses 'SHELL4' for 2D quad.
 - Update SCons scripts for the upgrade of METIS to 4.0.3.
 
-0.0.4
-+++++
+Version 0.0.4
++++++++++++++
 
 Release date: 2011/3/2 (GMT-0500)
 
@@ -157,8 +140,8 @@ Bug-fix:
   make the order of data arrays of VTK poly data consistent among head and
   slave nodes.
 
-0.0.3
-+++++
+Version 0.0.3
++++++++++++++
 
 Release date: 2011/2/20 (GMT-0500)
 
@@ -194,15 +177,15 @@ Changes:
   in system, fall back to METIS-4.
 - Refactor ``solvcon.domain.Collective.split()``.
 
-0.0.2
-+++++
+Version 0.0.2
++++++++++++++
 
 - Bring in anisotropic elastic solver.
 - Implement proof-of-concept in situ visualization.
 - Refactor str_path property in solvcon.batch.Batch.
 
-0.0.1
-+++++
+Version 0.0.1
++++++++++++++
 
 - The first alpha release: a technology preview.
 

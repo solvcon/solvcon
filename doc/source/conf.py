@@ -28,8 +28,21 @@ import solvcon
 
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
-extensions = ['sphinx.ext.pngmath', 'sphinx.ext.autodoc',
-    'sphinx.ext.inheritance_diagram']
+extensions = [
+    'sphinx.ext.pngmath',
+    'sphinx.ext.autodoc',
+    'sphinx.ext.inheritance_diagram',
+]
+try:
+    from sphinxcontrib import issuetracker
+except ImportError:
+    pass
+else:
+    extensions.append('sphinxcontrib.issuetracker')
+
+# issuetracker settings.
+issuetracker = 'bitbucket'
+issuetracker_project = 'solvcon/solvcon'
 
 autoclass_content = 'class'
 
@@ -97,26 +110,16 @@ modindex_common_prefix = ['solvcon.']
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = 'default'
+html_theme = 'solvcon'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
 html_theme_options = {
-    'rightsidebar': False,
-    'stickysidebar': False,
-    'externalrefs': True,
-    'sidebarbgcolor': '#D8D8D8',
-    'sidebartextcolor': '#303030',
-    'sidebarlinkcolor': '#383838',
-    'relbarbgcolor': '#B8B8B8',
-    'relbartextcolor': '#303030',
-    'relbarlinkcolor': '#383838',
-    'footerbgcolor': '#585858',
 }
 
 # Add any paths that contain custom themes here, relative to this directory.
-#html_theme_path = []
+html_theme_path = ['.']
 
 # The name for this set of Sphinx documents.  If None, it defaults to
 # "<project> v<release> documentation".

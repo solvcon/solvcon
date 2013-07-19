@@ -13,6 +13,7 @@ ground/downloaded/
 soil/downloaded/
 MANIFEST
 solvcon.log
+# compiled files.
 *.pyc
 *.o
 *.so
@@ -22,8 +23,12 @@ solvcon.log
 *.dll
 *.def
 *.a
+# cython generated interface files.
 solvcon/*.c
 solvcon/*.h
+solvcon/parcel/*/*.c
+solvcon/parcel/*/*.h
+# examples.
 examples/*/*/result*/
 examples/*/*/mesh/
 sandbox/*/result

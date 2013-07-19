@@ -1,6 +1,6 @@
 # -*- coding: UTF-8 -*-
 #
-# Copyright (c) 2008, Yung-Yu Chen <yyc@solvcon.net>
+# Copyright (c) 2013, Yung-Yu Chen <yyc@solvcon.net>
 #
 # All rights reserved.
 #
@@ -28,31 +28,5 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 """
-SOLVCON: Solvers of conservation laws.  Web site and documentation please see
-http://solvcon.net/.
-
-SOLVCON uses the space-time `Conservation Element and Solution Element (CESE)
-<http://www.grc.nasa.gov/WWW/microbus/>`__ method to solve generic conservation
-laws.  The system is constructed by using Python and C and support hybrid
-parallelism and in situ processing and visualization.
-
-SOLVCON is developed by `Yung-Yu Chen <mailto:yyc@solvcon.net>`__ and
-`Sheng-Tao John Yu <mailto:yu.274@osu.edu>`__, and uses `BSD license
-<http://opensource.org/licenses/BSD-3-Clause>`__.
+A fake parcel to demonstrate how to create a problem solver by using SOLVCON.
 """
-
-__docformat__ = 'restructuredtext en'
-
-__version__ = '0.1.1+'
-
-__description__ = "SOLVCON: Solvers of conservation laws"
-
-__all__ = ['batch', 'batch_torque', 'block', 'boundcond', 'case',
-    'cmdutil', 'command', 'conf', 'connection', 'dependency', 'domain',
-    'gendata', 'helper', 'io', 'kerpak', 'mpy', 'mthread', 'rpc', 'scuda',
-    'solver', 'visual_vtk']
-
-from .cmdutil import go, test
-
-if __name__ == '__main__':
-    go()
