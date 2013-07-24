@@ -64,7 +64,7 @@ Let
 Common Data Structure
 +++++++++++++++++++++
 
-.. c:type:: linear_algorithm_t
+.. c:type:: sc_linear_algorithm_t
 
   .. rubric:: Basic Information of the Solver
 
@@ -72,9 +72,9 @@ Common Data Structure
                 double time
                 double time_increment
 
-    :c:data:`linear_algorithm_t.neq` is the number of equations or the number
-    of variables in a mesh cell.  :c:data:`linear_algorithm_t.time` is the
-    current time of the solver.  :c:data:`linear_algorithm_t.time_increment`
+    :c:data:`sc_linear_algorithm_t.neq` is the number of equations or the number
+    of variables in a mesh cell.  :c:data:`sc_linear_algorithm_t.time` is the
+    current time of the solver.  :c:data:`sc_linear_algorithm_t.time_increment`
     is :math:`\Delta t`.
 
   .. rubric:: Parameters to the :math:`c\mbox{-}\tau` Scheme
@@ -124,13 +124,13 @@ Common Data Structure
 Metric for CEs & SEs
 ++++++++++++++++++++
 
-.. c:function:: void linear_prepare_ce_3d(sc_mesh_t *msd, linear_algorithm_t *alg)
-                void linear_prepare_ce_2d(sc_mesh_t *msd, linear_algorithm_t *alg)
+.. c:function:: void sc_linear_prepare_ce_3d(sc_mesh_t *msd, sc_linear_algorithm_t *alg)
+                void sc_linear_prepare_ce_2d(sc_mesh_t *msd, sc_linear_algorithm_t *alg)
 
   Calculate the volume and centroid of conservation elements.
 
-.. c:function:: void linear_prepare_sf_3d(sc_mesh_t *msd, linear_algorithm_t *alg)
-                void linear_prepare_sf_2d(sc_mesh_t *msd, linear_algorithm_t *alg)
+.. c:function:: void sc_linear_prepare_sf_3d(sc_mesh_t *msd, sc_linear_algorithm_t *alg)
+                void sc_linear_prepare_sf_2d(sc_mesh_t *msd, sc_linear_algorithm_t *alg)
 
   Calculate the centroid and normal of hyperplanes of conservation elements
   and solution elements.
@@ -138,35 +138,35 @@ Metric for CEs & SEs
 Time Marching
 +++++++++++++
 
-.. c:function:: void linear_calc_soln_3d(sc_mesh_t *msd, linear_algorithm_t *alg)
-                void linear_calc_soln_2d(sc_mesh_t *msd, linear_algorithm_t *alg)
+.. c:function:: void sc_linear_calc_soln_3d(sc_mesh_t *msd, sc_linear_algorithm_t *alg)
+                void sc_linear_calc_soln_2d(sc_mesh_t *msd, sc_linear_algorithm_t *alg)
 
   Calculate the solutions of the next half time step (:math:`(u_m)_j^{n+1/2})`
   based on the informaiton at the current time step (:math:`n`).
 
-.. c:function:: void linear_calc_solt_3d(sc_mesh_t *msd, linear_algorithm_t *alg)
-                void linear_calc_solt_2d(sc_mesh_t *msd, linear_algorithm_t *alg)
+.. c:function:: void sc_linear_calc_solt_3d(sc_mesh_t *msd, sc_linear_algorithm_t *alg)
+                void sc_linear_calc_solt_2d(sc_mesh_t *msd, sc_linear_algorithm_t *alg)
 
   Calculate the changing rate of solutions (:math:`(u_mt)_j^n`).
 
-.. c:function:: void linear_calc_jaco_3d(\
-                  sc_mesh_t *msd, linear_algorithm_t *alg, \
+.. c:function:: void sc_linear_calc_jaco_3d(\
+                  sc_mesh_t *msd, sc_linear_algorithm_t *alg, \
                   int icl, double fcn[NEQ][NDIM], double jacos[NEQ][NEQ][NDIM])
-                void linear_calc_jaco_2d(\
-                  sc_mesh_t *msd, linear_algorithm_t *alg, \
+                void sc_linear_calc_jaco_2d(\
+                  sc_mesh_t *msd, sc_linear_algorithm_t *alg, \
                   int icl, double fcn[NEQ][NDIM], double jacos[NEQ][NEQ][NDIM])
 
   Calculate the Jacobian matrices.
 
-.. c:function:: void linear_calc_dsoln_3d(sc_mesh_t *msd, linear_algorithm_t *alg)
-                void linear_calc_dsoln_2d(sc_mesh_t *msd, linear_algorithm_t *alg)
+.. c:function:: void sc_linear_calc_dsoln_3d(sc_mesh_t *msd, sc_linear_algorithm_t *alg)
+                void sc_linear_calc_dsoln_2d(sc_mesh_t *msd, sc_linear_algorithm_t *alg)
 
   Calculate the gradient of solutions of the next half time step
   (:math:`(u_{mx_{\mu}})_j^{n+1/2}`) based on the information at the current
   time step (:math:`n`).
 
-.. c:function:: void linear_calc_cfl_3d(sc_mesh_t *msd, linear_algorithm_t *alg)
-                void linear_calc_cfl_2d(sc_mesh_t *msd, linear_algorithm_t *alg)
+.. c:function:: void sc_linear_calc_cfl_3d(sc_mesh_t *msd, sc_linear_algorithm_t *alg)
+                void sc_linear_calc_cfl_2d(sc_mesh_t *msd, sc_linear_algorithm_t *alg)
 
   Calculate the CFL number based on the eigenvalues of the linear Jacobian
   matrices.
@@ -174,12 +174,12 @@ Time Marching
 Plane Wave Solution
 +++++++++++++++++++
 
-.. c:function:: void linear_calc_planewave_3d(\
-                  sc_mesh_t *msd, linear_algorithm_t *alg, \
+.. c:function:: void sc_linear_calc_planewave_3d(\
+                  sc_mesh_t *msd, sc_linear_algorithm_t *alg, \
                   double *asol, double *adsol, double *amp, \
                   double *ctr, double *wvec, double afreq)
-                void linear_calc_planewave_2d(\
-                  sc_mesh_t *msd, linear_algorithm_t *alg, \
+                void sc_linear_calc_planewave_2d(\
+                  sc_mesh_t *msd, sc_linear_algorithm_t *alg, \
                   double *asol, double *adsol, double *amp, \
                   double *ctr, double *wvec, double afreq)
 
