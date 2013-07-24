@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2012 Yung-Yu Chen <yyc@solvcon.net>.
+ * Copyright (C) 2008-2013 Yung-Yu Chen <yyc@solvcon.net>.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,15 +19,15 @@
 #include <Python.h>
 
 #include "mesh.h"
-#include "lincese_algorithm.h"
+#include "_algorithm.h"
 
-#define NEQ alg->neq
+#define ALMOST_ZERO 1.e-200
 
 #undef NDIM
 #define NDIM 2
-#include "sc_lincese_algorithm_calc_jaco.c_body"
+#include "sc_linear_prepare_sf.c_body"
 #undef NDIM
 #define NDIM 3
-#include "sc_lincese_algorithm_calc_jaco.c_body"
+#include "sc_linear_prepare_sf.c_body"
 
-// vim: set ts=4 et:
+// vim: set ft=cuda ts=4 et:

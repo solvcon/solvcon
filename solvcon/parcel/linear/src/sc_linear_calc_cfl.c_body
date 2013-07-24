@@ -20,11 +20,11 @@
 
 void 
 #if NDIM == 3
-sc_lincese_algorithm_calc_cfl_3d
+sc_linear_calc_cfl_3d
 #else
-sc_lincese_algorithm_calc_cfl_2d
+sc_linear_calc_cfl_2d
 #endif
-(sc_mesh_t *msd, sc_lincese_algorithm_t *alg) {
+(sc_mesh_t *msd, sc_linear_algorithm_t *alg) {
     int clnfc;
     // pointers.
     int *pclfcs, *pfccls;
@@ -55,9 +55,9 @@ sc_lincese_algorithm_calc_cfl_2d
     for (icl=0; icl<msd->ncell; icl++) {
         pcfl[0] = 0.0;
 #if NDIM == 3
-        sc_lincese_algorithm_calc_jaco_3d(msd, alg, icl, fcn, jacos);
+        sc_linear_calc_jaco_3d(msd, alg, icl, fcn, jacos);
 #else
-        sc_lincese_algorithm_calc_jaco_2d(msd, alg, icl, fcn, jacos);
+        sc_linear_calc_jaco_2d(msd, alg, icl, fcn, jacos);
 #endif
         clnfc = pclfcs[0];
         for (ifl=1; ifl<=clnfc; ifl++) {

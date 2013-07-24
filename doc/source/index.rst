@@ -43,6 +43,14 @@ Introduction
   tutorial
   verification
 
+Applications
+++++++++++++
+
+.. toctree::
+  :maxdepth: 2
+
+  app_linear
+
 Reference
 +++++++++
 

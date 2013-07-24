@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2013 Yung-Yu Chen <yyc@solvcon.net>.
+ * Copyright (C) 2008-2012 Yung-Yu Chen <yyc@solvcon.net>.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,15 +19,15 @@
 #include <Python.h>
 
 #include "mesh.h"
-#include "lincese_algorithm.h"
+#include "_algorithm.h"
 
-#define ALMOST_ZERO 1.e-200
+#define NEQ alg->neq
 
 #undef NDIM
 #define NDIM 2
-#include "sc_lincese_algorithm_prepare_sf.c_body"
+#include "sc_linear_calc_soln.c_body"
 #undef NDIM
 #define NDIM 3
-#include "sc_lincese_algorithm_prepare_sf.c_body"
+#include "sc_linear_calc_soln.c_body"
 
-// vim: set ft=cuda ts=4 et:
+// vim: set ts=4 et:

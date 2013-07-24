@@ -67,8 +67,7 @@ for lname, extra_links in [
 scmods = targets.setdefault('scmods', [])
 prepends = {'LIBS': ['solvcon', 'lapack']}
 scmods.extend(env.SolvconModule(
-    ['solvcon/%s.pyx' % name for name in (
-        'mesh', 'lincese_algorithm')],
+    ['solvcon/%s.pyx' % name for name in ('mesh',)],
     prepends=prepends))
 
 # documents.

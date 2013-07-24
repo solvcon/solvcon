@@ -18,11 +18,11 @@
 
 void 
 #if NDIM == 3
-sc_lincese_algorithm_calc_jaco_3d
+sc_linear_calc_jaco_3d
 #else
-sc_lincese_algorithm_calc_jaco_2d
+sc_linear_calc_jaco_2d
 #endif
-(sc_mesh_t *msd, sc_lincese_algorithm_t *alg,
+(sc_mesh_t *msd, sc_linear_algorithm_t *alg,
  int icl, double fcn[NEQ][NDIM], double jacos[NEQ][NEQ][NDIM]) {
     // pointers.
     double *psol;

@@ -18,11 +18,11 @@
 
 void 
 #if NDIM == 3
-sc_lincese_algorithm_prepare_sf_3d
+sc_linear_prepare_sf_3d
 #else
-sc_lincese_algorithm_prepare_sf_2d
+sc_linear_prepare_sf_2d
 #endif
-(sc_mesh_t *msd, sc_lincese_algorithm_t *alg) {
+(sc_mesh_t *msd, sc_linear_algorithm_t *alg) {
     int clnfc, fcnnd;
     // partial pointers.
     int *pclfcs, *pfcnds, *pfccls;

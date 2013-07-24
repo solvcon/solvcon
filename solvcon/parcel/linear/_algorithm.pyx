@@ -14,8 +14,8 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-from mesh cimport sc_mesh_t, Mesh
-from lincese_algorithm cimport sc_lincese_algorithm_t
+from solvcon.mesh cimport sc_mesh_t, Mesh
+from ._algorithm cimport sc_linear_algorithm_t
 import numpy as np
 cimport numpy as cnp
 
@@ -24,38 +24,38 @@ cnp.import_array()
 
 cdef extern:
     # metrics.
-    void sc_lincese_algorithm_prepare_ce_3d(sc_mesh_t *msd, sc_lincese_algorithm_t *alg)
-    void sc_lincese_algorithm_prepare_ce_2d(sc_mesh_t *msd, sc_lincese_algorithm_t *alg)
-    void sc_lincese_algorithm_prepare_sf_3d(sc_mesh_t *msd, sc_lincese_algorithm_t *alg)
-    void sc_lincese_algorithm_prepare_sf_2d(sc_mesh_t *msd, sc_lincese_algorithm_t *alg)
+    void sc_linear_prepare_ce_3d(sc_mesh_t *msd, sc_linear_algorithm_t *alg)
+    void sc_linear_prepare_ce_2d(sc_mesh_t *msd, sc_linear_algorithm_t *alg)
+    void sc_linear_prepare_sf_3d(sc_mesh_t *msd, sc_linear_algorithm_t *alg)
+    void sc_linear_prepare_sf_2d(sc_mesh_t *msd, sc_linear_algorithm_t *alg)
     # utility calculators.
-    void sc_lincese_algorithm_calc_planewave_2d(
-        sc_mesh_t *msd, sc_lincese_algorithm_t *alg,
+    void sc_linear_calc_planewave_2d(
+        sc_mesh_t *msd, sc_linear_algorithm_t *alg,
         double *asol, double *adsol, double *amp, double *ctr, double *wvec,
         double afreq)
-    void sc_lincese_algorithm_calc_planewave_3d(
-        sc_mesh_t *msd, sc_lincese_algorithm_t *alg,
+    void sc_linear_calc_planewave_3d(
+        sc_mesh_t *msd, sc_linear_algorithm_t *alg,
         double *asol, double *adsol, double *amp, double *ctr, double *wvec,
         double afreq)
     # algorithm calculators.
-    void sc_lincese_algorithm_calc_cfl_2d(sc_mesh_t *msd, sc_lincese_algorithm_t *alg)
-    void sc_lincese_algorithm_calc_cfl_3d(sc_mesh_t *msd, sc_lincese_algorithm_t *alg)
-    void sc_lincese_algorithm_calc_solt_2d(sc_mesh_t *msd, sc_lincese_algorithm_t *alg)
-    void sc_lincese_algorithm_calc_solt_3d(sc_mesh_t *msd, sc_lincese_algorithm_t *alg)
-    void sc_lincese_algorithm_calc_soln_2d(sc_mesh_t *msd, sc_lincese_algorithm_t *alg)
-    void sc_lincese_algorithm_calc_soln_3d(sc_mesh_t *msd, sc_lincese_algorithm_t *alg)
-    void sc_lincese_algorithm_calc_dsoln_2d(sc_mesh_t *msd, sc_lincese_algorithm_t *alg)
-    void sc_lincese_algorithm_calc_dsoln_3d(sc_mesh_t *msd, sc_lincese_algorithm_t *alg)
+    void sc_linear_calc_cfl_2d(sc_mesh_t *msd, sc_linear_algorithm_t *alg)
+    void sc_linear_calc_cfl_3d(sc_mesh_t *msd, sc_linear_algorithm_t *alg)
+    void sc_linear_calc_solt_2d(sc_mesh_t *msd, sc_linear_algorithm_t *alg)
+    void sc_linear_calc_solt_3d(sc_mesh_t *msd, sc_linear_algorithm_t *alg)
+    void sc_linear_calc_soln_2d(sc_mesh_t *msd, sc_linear_algorithm_t *alg)
+    void sc_linear_calc_soln_3d(sc_mesh_t *msd, sc_linear_algorithm_t *alg)
+    void sc_linear_calc_dsoln_2d(sc_mesh_t *msd, sc_linear_algorithm_t *alg)
+    void sc_linear_calc_dsoln_3d(sc_mesh_t *msd, sc_linear_algorithm_t *alg)
 
 cdef extern from "stdlib.h":
     void* malloc(size_t size)
 
-cdef class LinceseAlgorithm(Mesh):
+cdef class LinearAlgorithm(Mesh):
     """
     An algorithm class that does trivial calculation.
     """
     def __cinit__(self):
-        self._alg = <sc_lincese_algorithm_t *>malloc(sizeof(sc_lincese_algorithm_t))
+        self._alg = <sc_linear_algorithm_t *>malloc(sizeof(sc_linear_algorithm_t))
 
     def set_alg_double_array_2d(self,
             cnp.ndarray[double, ndim=2, mode="c"] nda, name, int shift):
@@ -130,15 +130,15 @@ cdef class LinceseAlgorithm(Mesh):
 
     def prepare_ce(self):
         if self._msd.ndim == 3:
-            sc_lincese_algorithm_prepare_ce_3d(self._msd, self._alg)
+            sc_linear_prepare_ce_3d(self._msd, self._alg)
         else:
-            sc_lincese_algorithm_prepare_ce_2d(self._msd, self._alg)
+            sc_linear_prepare_ce_2d(self._msd, self._alg)
 
     def prepare_sf(self):
         if self._msd.ndim == 3:
-            sc_lincese_algorithm_prepare_sf_3d(self._msd, self._alg)
+            sc_linear_prepare_sf_3d(self._msd, self._alg)
         else:
-            sc_lincese_algorithm_prepare_sf_2d(self._msd, self._alg)
+            sc_linear_prepare_sf_2d(self._msd, self._alg)
 
     def calc_planewave(self,
             cnp.ndarray[double, ndim=2, mode="c"] asol,
@@ -148,36 +148,36 @@ cdef class LinceseAlgorithm(Mesh):
             cnp.ndarray[double, ndim=1, mode="c"] wvec,
             double afreq):
         if self._msd.ndim == 3:
-            sc_lincese_algorithm_calc_planewave_3d(
+            sc_linear_calc_planewave_3d(
                 self._msd, self._alg,
                 &asol[0,0], &adsol[0,0,0], &amp[0], &ctr[0], &wvec[0], afreq)
         else:
-            sc_lincese_algorithm_calc_planewave_2d(
+            sc_linear_calc_planewave_2d(
                 self._msd, self._alg,
                 &asol[0,0], &adsol[0,0,0], &amp[0], &ctr[0], &wvec[0], afreq)
 
     def calc_cfl(self):
         if self._msd.ndim == 3:
-            sc_lincese_algorithm_calc_cfl_3d(self._msd, self._alg)
+            sc_linear_calc_cfl_3d(self._msd, self._alg)
         else:
-            sc_lincese_algorithm_calc_cfl_2d(self._msd, self._alg)
+            sc_linear_calc_cfl_2d(self._msd, self._alg)
 
     def calc_solt(self):
         if self._msd.ndim == 3:
-            sc_lincese_algorithm_calc_solt_3d(self._msd, self._alg)
+            sc_linear_calc_solt_3d(self._msd, self._alg)
         else:
-            sc_lincese_algorithm_calc_solt_2d(self._msd, self._alg)
+            sc_linear_calc_solt_2d(self._msd, self._alg)
 
     def calc_soln(self):
         if self._msd.ndim == 3:
-            sc_lincese_algorithm_calc_soln_3d(self._msd, self._alg)
+            sc_linear_calc_soln_3d(self._msd, self._alg)
         else:
-            sc_lincese_algorithm_calc_soln_2d(self._msd, self._alg)
+            sc_linear_calc_soln_2d(self._msd, self._alg)
 
     def calc_dsoln(self):
         if self._msd.ndim == 3:
-            sc_lincese_algorithm_calc_dsoln_3d(self._msd, self._alg)
+            sc_linear_calc_dsoln_3d(self._msd, self._alg)
         else:
-            sc_lincese_algorithm_calc_dsoln_2d(self._msd, self._alg)
+            sc_linear_calc_dsoln_2d(self._msd, self._alg)
 
 # vim: set fenc=utf8 ft=pyrex ff=unix ai et sw=4 ts=4 tw=79:

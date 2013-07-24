@@ -873,6 +873,8 @@ Time-Marching
 
 .. autoinstanceattribute:: MeshSolver.runanchors
 
+.. autoinstanceattribute:: MeshSolver.der
+
 .. autoclass:: _MethodList
 
 Parallel Computing

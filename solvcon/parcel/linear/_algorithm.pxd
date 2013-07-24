@@ -15,7 +15,7 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 cdef public:
-    ctypedef struct sc_lincese_algorithm_t:
+    ctypedef struct sc_linear_algorithm_t:
         # equation number.
         int neq
         # temporal information.
@@ -39,8 +39,8 @@ cdef public:
         double *sol, *dsol, *solt, *soln, *dsoln
         double *stm, *cfl, *ocfl
 
-from .mesh cimport Mesh
-cdef class LinceseAlgorithm(Mesh):
-    cdef sc_lincese_algorithm_t *_alg
+from solvcon.mesh cimport Mesh
+cdef class LinearAlgorithm(Mesh):
+    cdef sc_linear_algorithm_t *_alg
 
 # vim: set fenc=utf8 ft=pyrex ff=unix ai et sw=4 ts=4 tw=79:

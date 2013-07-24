@@ -18,11 +18,11 @@
 
 void
 #if NDIM == 3
-sc_lincese_algorithm_calc_planewave_3d
+sc_linear_calc_planewave_3d
 #else
-sc_lincese_algorithm_calc_planewave_2d
+sc_linear_calc_planewave_2d
 #endif
-(sc_mesh_t *msd, sc_lincese_algorithm_t *alg,
+(sc_mesh_t *msd, sc_linear_algorithm_t *alg,
  double *asol, double *adsol, double *amp, double *ctr, double *wvec,
  double afreq) {
     // pointers.

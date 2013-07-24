@@ -177,7 +177,7 @@ class HookList(list):
         @type obj: solvcon.hook.Hook
         """
         if isinstance(obj, type):
-            if issubclass(obj, anchor.Anchor):
+            if issubclass(obj, (anchor.MeshAnchor, anchor.Anchor)):
                 kw['ankcls'] = obj
                 obj = hook.Hook
             obj = obj(self.cse, **kw)

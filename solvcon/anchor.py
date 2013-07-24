@@ -41,7 +41,9 @@ class MeshAnchor(object):
 
     def __init__(self, svr, **kw):
         from . import solver # work around cyclic importation.
-        assert isinstance(svr, solver.MeshSolver)
+        if not isinstance(svr, solver.MeshSolver):
+            raise TypeError('%s must be a %s' % (
+                str(svr), str(solver.MeshSolver)))
         self.svr = svr
         self.kws = dict(kw)
 
