@@ -6,8 +6,8 @@ env = env.Clone()
 env.Append(CPPPATH=[os.path.abspath('.')])
 
 # compile Cython code to C.
-pyx = env.Cython('fake_algorithm.pyx')
-env.Depends(pyx, 'fake_algorithm.pxd')
+pyx = env.Cython('_algorithm.pyx')
+env.Depends(pyx, '_algorithm.pxd')
 
 # compile standard C code.
 relcwd = os.path.abspath('.')

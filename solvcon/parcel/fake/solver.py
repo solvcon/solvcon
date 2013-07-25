@@ -29,9 +29,9 @@ import numpy as np
 from solvcon import solver
 
 try: # for readthedocs to work.
-    from . import fake_algorithm
+    from . import _algorithm
 except ImportError:
-    warnings.warn("solvcon.parcel.fake.fake_algorithm isn't built",
+    warnings.warn("solvcon.parcel.fake._algorithm isn't built",
                   RuntimeWarning)
 
 
@@ -39,7 +39,7 @@ class FakeSolver(solver.MeshSolver):
     """
     This class represents the Python side of a demonstration-only numerical
     method.  It instantiates a :py:class:`FakeAlgorithm
-    <solvcon.parcel.fake.fake_algorithm.FakeAlgorithm>` object.
+    <solvcon.parcel.fake._algorithm.FakeAlgorithm>` object.
     Computation-intensive tasks are delegated to the algorithm object.
     """
 
@@ -112,16 +112,16 @@ class FakeSolver(solver.MeshSolver):
 
     def create_alg(self):
         """
-        Create a :py:class:`FakeAlgorithm <.fake_algorithm.FakeAlgorithm>`
+        Create a :py:class:`FakeAlgorithm <._algorithm.FakeAlgorithm>`
         object.
 
         >>> from solvcon.testing import create_trivial_2d_blk
         >>> blk = create_trivial_2d_blk()
         >>> svr = FakeSolver(blk, neq=1)
-        >>> isinstance(svr.create_alg(), fake_algorithm.FakeAlgorithm)
+        >>> isinstance(svr.create_alg(), _algorithm.FakeAlgorithm)
         True
         """
-        alg = fake_algorithm.FakeAlgorithm()
+        alg = _algorithm.FakeAlgorithm()
         alg.setup_mesh(self.blk)
         alg.setup_algorithm(self)
         return alg
@@ -165,7 +165,7 @@ class FakeSolver(solver.MeshSolver):
         """
         Advance :py:attr:`sol` to :py:attr:`soln`.  The calculation is
         delegated to :py:meth:`FakeAlgorithm.calc_soln
-        <solvcon.parcel.fake.fake_algorithm.FakeAlgorithm.calc_soln>`.
+        <solvcon.parcel.fake._algorithm.FakeAlgorithm.calc_soln>`.
 
         >>> # build a block before creating a solver.
         >>> from solvcon.testing import create_trivial_2d_blk
@@ -212,7 +212,7 @@ class FakeSolver(solver.MeshSolver):
         """
         Advance :py:attr:`dsol` to :py:attr:`dsoln`.  The calculation is
         delegated to :py:meth:`FakeAlgorithm.calc_dsoln
-        <solvcon.parcel.fake.fake_algorithm.FakeAlgorithm.calc_dsoln>`.
+        <solvcon.parcel.fake._algorithm.FakeAlgorithm.calc_dsoln>`.
 
         >>> # build a block before creating a solver.
         >>> from solvcon.testing import create_trivial_2d_blk

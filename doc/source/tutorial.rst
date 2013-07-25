@@ -90,36 +90,36 @@ the directory ``$SCSRC/solvcon/parcel/fake``.  You can follow the source code
 and test cases to learn about how to write a problem solver with SOLVCON.
 
 There are two modules, :py:mod:`solver <solvcon.parcel.fake.solver>` and
-:py:mod:`fake_algorithm <solvcon.parcel.fake.fake_algorithm>`, inside that
-package.  They provides two classes: :py:class:`FakeSolver
+:py:mod:`_algorithm <solvcon.parcel.fake._algorithm>`, inside that package.
+They provides two classes: :py:class:`FakeSolver
 <solvcon.parcel.fake.solver.FakeSolver>` and :py:class:`FakeAlgorithm
-<solvcon.parcel.fake.fake_algorithm.FakeAlgorithm>`.  The former is the
+<solvcon.parcel.fake._algorithm.FakeAlgorithm>`.  The former is the
 higher-level API and purely written in Python.  The latter is implemented with
 `Cython <http://cython.org>`__ to call low-level C code.  The real
 number-crunching code is written in C:
 
-.. c:function:: void fake_calc_soln(sc_mesh_t *msd, fake_algorithm_t *alg)
+.. c:function:: void fake_calc_soln(sc_mesh_t *msd, sc_fake_algorithm_t *alg)
 
   :ref:`(Jump to the code listing). <fake_calc_soln_listing>`  Let
   :math:`u_j^n` be the solution at :math:`j`-th cell and :math:`n`-th time
   step, and :math:`v_j` be the volume at :math:`j`-th cell.  This function
-  advances each value in the solution array (:c:data:`fake_algorithm_t.sol` and
-  :c:data:`fake_algorithm_t.soln`) by using the following expression:
+  advances each value in the solution array (:c:data:`sc_fake_algorithm_t.sol` and
+  :c:data:`sc_fake_algorithm_t.soln`) by using the following expression:
 
   .. math::
 
     u_j^n = u_j^{n-\frac{1}{2}} + \frac{\Delta t}{2}v_j
 
-  Total number of values per cell is set in :c:data:`fake_algorithm_t.neq`.
+  Total number of values per cell is set in :c:data:`sc_fake_algorithm_t.neq`.
 
-.. c:function:: void fake_calc_dsoln(sc_mesh_t *msd, fake_algorithm_t *alg)
+.. c:function:: void fake_calc_dsoln(sc_mesh_t *msd, sc_fake_algorithm_t *alg)
 
   :ref:`(Jump to the code listing). <fake_calc_dsoln_listing>`  Let
   :math:`(u_{x_{\mu}})_j^n` be the :math:`x_{\mu}` component of the gradient of
   :math:`u_j^n`, and :math:`(c_{\mu})_j` be the :math:`x_{\mu}` component of
   the centroid of the :math:`j`-th cell.  :math:`\mu = 1, 2` or :math:`\mu = 1,
   2, 3`.  This function advances each value in the solution gradient array
-  (:c:data:`fake_algorithm_t.dsol` and :c:data:`fake_algorithm_t.dsoln`) by
+  (:c:data:`sc_fake_algorithm_t.dsol` and :c:data:`sc_fake_algorithm_t.dsoln`) by
   using the following expression:
 
   .. math::
@@ -127,17 +127,17 @@ number-crunching code is written in C:
     (u_{x_{\mu}})_j^n =
       (u_{x_{\mu}})j^{n-\frac{1}{2}} + \frac{\Delta t}{2}(c_{\mu})_j
 
-  Total number of values per cell is set in :c:data:`fake_algorithm_t.neq`.
+  Total number of values per cell is set in :c:data:`sc_fake_algorithm_t.neq`.
 
 The Python/Cython/C hybrid style may seem complicated, but it is important for
 performance.  The two C functions are wrapped with the Cython methods
 :py:meth:`FakeAlgorithm.calc_soln
-<solvcon.parcel.fake.fake_algorithm.FakeAlgorithm.calc_soln>` and
+<solvcon.parcel.fake._algorithm.FakeAlgorithm.calc_soln>` and
 :py:meth:`FakeAlgorithm.calc_dsoln
-<solvcon.parcel.fake.fake_algorithm.FakeAlgorithm.calc_dsoln>`, respectively.
+<solvcon.parcel.fake._algorithm.FakeAlgorithm.calc_dsoln>`, respectively.
 Then, the higher level :py:class:`FakeSolver
 <solvcon.parcel.fake.solver.FakeSolver>` will use the lower-level
-:py:class:`FakeAlgorithm <solvcon.parcel.fake.fake_algorithm.FakeAlgorithm>` to
+:py:class:`FakeAlgorithm <solvcon.parcel.fake._algorithm.FakeAlgorithm>` to
 connect the underneath numerical algorithm to the supportive functionalities
 prepared in SOLVCON.
 
@@ -185,24 +185,24 @@ This is the higher level module implemented in Python.
 
 .. autoinstanceattribute:: FakeSolver.dsoln
 
-.. py:module:: solvcon.parcel.fake.fake_algorithm
+.. py:module:: solvcon.parcel.fake._algorithm
 
-:py:mod:`fake.fake_algorithm <solvcon.parcel.fake.fake_algorithm>`
-++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+:py:mod:`fake._algorithm <solvcon.parcel.fake._algorithm>`
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 This is the lower level module implemented in Cython.  It is composed by two
-files.  ``$SCSRC/solvcon/parcel/fake/fake_algorithm.pxd`` declares the data
-structure for C.  ``$SCSRC/solvcon/parcel/fake/fake_algorithm.pyx`` defines the
-wrapping code.
+files.  ``$SCSRC/solvcon/parcel/fake/_algorithm.pxd`` declares the data
+structure for C.  ``$SCSRC/solvcon/parcel/fake/_algorithm.pyx`` defines
+the wrapping code.
 
 C API Declaration
 -----------------
 
-The Cython file ``fake_algorithm.pxd`` defines the following type for the
+The Cython file ``_algorithm.pxd`` defines the following type for the
 low-level C functions to access the data in a :py:class:`FakeAlgorithm` that
 proxies :py:class:`FakeSolver <solvcon.parcel.fake.solver.FakeSolver>`:
 
-.. c:type:: fake_algorithm_t
+.. c:type:: sc_fake_algorithm_t
 
   .. c:member:: int neq
 
@@ -223,25 +223,25 @@ proxies :py:class:`FakeSolver <solvcon.parcel.fake.solver.FakeSolver>`:
 
     This should point to the 0-th cell of :py:attr:`FakeSolver.sol
     <solvcon.parcel.fake.solver.FakeSolver.sol>`.  Therefore the address of
-    ghost cells is *smaller* than :c:data:`fake_algorithm_t.sol`.
+    ghost cells is *smaller* than :c:data:`sc_fake_algorithm_t.sol`.
 
   .. c:member:: double* soln
 
     This should point to the 0-th cell of :py:attr:`FakeSolver.soln
     <solvcon.parcel.fake.solver.FakeSolver.soln>`.  Therefore the address of
-    ghost cells is *smaller* than :c:data:`fake_algorithm_t.soln`.
+    ghost cells is *smaller* than :c:data:`sc_fake_algorithm_t.soln`.
 
   .. c:member:: double* dsol
 
     This should point to the 0-th cell of :py:attr:`FakeSolver.dsol
     <solvcon.parcel.fake.solver.FakeSolver.dsol>`.  Therefore the address of
-    ghost cells is *smaller* than :c:data:`fake_algorithm_t.dsol`.
+    ghost cells is *smaller* than :c:data:`sc_fake_algorithm_t.dsol`.
 
   .. c:member:: double* dsoln
 
     This should point to the 0-th cell of :py:attr:`FakeSolver.dsoln
     <solvcon.parcel.fake.solver.FakeSolver.dsoln>`.  Therefore the address of
-    ghost cells is *smaller* than :c:data:`fake_algorithm_t.dsoln`.
+    ghost cells is *smaller* than :c:data:`sc_fake_algorithm_t.dsoln`.
 
 Wrapper Class
 -------------

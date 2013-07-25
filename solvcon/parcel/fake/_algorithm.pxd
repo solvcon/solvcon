@@ -15,13 +15,13 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 cdef public:
-    ctypedef struct fake_algorithm_t:
+    ctypedef struct sc_fake_algorithm_t:
         int neq
         double time, time_increment
         double *sol, *soln, *dsol, *dsoln
 
 from solvcon.mesh cimport Mesh
 cdef class FakeAlgorithm(Mesh):
-    cdef fake_algorithm_t *_alg
+    cdef sc_fake_algorithm_t *_alg
 
 # vim: set fenc=utf8 ft=pyrex ff=unix ai et sw=4 ts=4 tw=79:

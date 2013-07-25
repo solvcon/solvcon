@@ -19,9 +19,9 @@
 #include <Python.h>
 
 #include "mesh.h"
-#include "fake_algorithm.h"
+#include "_algorithm.h"
 
-void fake_calc_soln(sc_mesh_t *msd, fake_algorithm_t *alg) {
+void sc_fake_calc_soln(sc_mesh_t *msd, sc_fake_algorithm_t *alg) {
     double *psol, *psoln, *pclvol;
     int icl, ieq;
     psol = alg->sol;

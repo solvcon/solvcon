@@ -19,9 +19,9 @@
 #include <Python.h>
 
 #include "mesh.h"
-#include "fake_algorithm.h"
+#include "_algorithm.h"
 
-void fake_calc_dsoln(sc_mesh_t *msd, fake_algorithm_t *alg) {
+void sc_fake_calc_dsoln(sc_mesh_t *msd, sc_fake_algorithm_t *alg) {
     double *pdsol, *pdsoln, *pclcnd;
     int icl, ieq, idm;
     pdsol = alg->dsol;
