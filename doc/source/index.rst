@@ -2,9 +2,11 @@
 Solvers of Conservation Laws
 ============================
 
-SOLVCON is a `Python <http://www.python.org>`__-based toolkit for solving
-conservation laws formulated as a system of partial differential equations
-(PDEs) [Lax73]_:
+SOLVCON is a collection of `Python <http://www.python.org>`__-based
+conservation-law solvers that use the space-time `Conservation Element and
+Solution Element (CESE) method <http://www.grc.nasa.gov/WWW/microbus/>`__.
+SOLVCON targets at problems that can be formulated as a system of first-order,
+linear or non-linear partial differential equations (PDEs) [Lax73]_:
 
 .. math::
   :label: e:consform
@@ -15,20 +17,16 @@ conservation laws formulated as a system of partial differential equations
 
 where :math:`\bvec{u}` is the unknown vector, :math:`\mathrm{A}^{(1)}`,
 :math:`\mathrm{A}^{(2)}`, and :math:`\mathrm{A}^{(3)}` the Jacobian matrices,
-and :math:`\bvec{s}` the source term.  SOLVCON employs the space-time
-`Conservation Element and Solution Element (CESE) method
-<http://www.grc.nasa.gov/WWW/microbus/>`__, which is developed to solve linear
-and non-linear equations in the quasi-linear form.  The software uses `BSD
-license <http://opensource.org/licenses/BSD-3-Clause>`__.  You can reach us at
-at our public mailing list solvcon@googlegroups.com or its web interface
-http://groups.google.com/group/solvcon.  More information about the
-development:
+and :math:`\bvec{s}` the source term.
 
+- Get the source from https://bitbucket.org/solvcon/solvcon
 - Report bugs and request features at
   https://bitbucket.org/solvcon/solvcon/issues?status=new&status=open
-- Source control (hg) is hosted at https://bitbucket.org/solvcon/solvcon/src
-- Build slaves include `a Jenkins <http://ci.solvcon.net/>`__ and `drone.io
-  <https://drone.io/bitbucket.org/solvcon/solvcon>`__.
+- Ask questions in our `mailing list
+  <http://groups.google.com/group/solvcon>`__: solvcon@googlegroups.com
+
+This software uses `BSD license
+<http://opensource.org/licenses/BSD-3-Clause>`__.
 
 Documentation
 =============
