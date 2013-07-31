@@ -103,14 +103,13 @@ if GetOption('get_scdata'):
 # invoke rules set in SConscript.
 targets = {}
 Export('targets', 'env')
-SConscript(['SConscript', 'solvcon/SConscript'])
+SConscript(['SConscript', 'SConscript.legacy', 'solvcon/SConscript'])
 
 # set alias and default targets.
 for key in targets:
     Alias(key, targets[key])
 Alias('scdocs', [targets['sc'+key] for key in 'epydoc', 'sphinx'])
-Alias('sclibs', [targets['sc'+key] for key in
-    'main', 'test', 'kp', 'kpcu'])
+Alias('sclibs', [targets['sc'+key] for key in 'main', 'test', 'kp', 'kpcu'])
 Default(['sclibs', 'scmods'])
 
 # show target aliases without doing anything else.

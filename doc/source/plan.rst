@@ -5,8 +5,8 @@ Development Plan
 Version 0.1.2
 =============
 
-This release starts to document by using Sphinx and to improve the class
-hierarchy of IO and boundary-condition treatments.
+This release starts to document by using Sphinx and renew the architecture of
+problem solvers.
 
 Changes:
 
@@ -21,10 +21,11 @@ Changes:
 - Renovate the documentation by using Sphinx.  (#61)
 - Add a directory ``contrib/verify_scripts`` to collect scripts for running
   verification examples.
-- Design a new hierarchy for solvers by using Cython.  (#59, #60, #62, #63)
+- Design a new hierarchy for solvers by using Cython.  (#59, #60, #62, #63,
+  #65)
 
   - A new series of "sach" (:py:class:`MeshSolver <solvcon.solver.MeshSolver>`,
-    :py:class:`Anchor <solvcon.anchor.MeshAnchor>`, :py:class:`MeshCase
+    :py:class:`MeshAnchor <solvcon.anchor.MeshAnchor>`, :py:class:`MeshCase
     <solvcon.case.MeshCase>`, and :py:class:`MeshHook <solvcon.hook.MeshHook>`)
     is built.
   - The new sach is built upon pure Python :py:class:`Block
