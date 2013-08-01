@@ -5,59 +5,51 @@ Installation
 Prerequisites
 =============
 
-SOLVCON depends on the following packages:
+SOLVCON itself depends on the following packages:
 
 - `gcc <http://gcc.gnu.org/>`_ 4.3+
 - `SCons <http://www.scons.org/>`_ 2+
-- `Python <http://www.python.org/>`_ 2.6 or 2.7 (2.7 is preferred)
+- `Python <http://www.python.org/>`_ 2.7
 - `Cython <http://www.cython.org/>`_ 0.16+
 - `Numpy <http://www.numpy.org/>`_ 1.5+
 - `LAPACK <http://www.netlib.org/lapack/>`_
 - `NetCDF <http://www.unidata.ucar.edu/software/netcdf/index.html>`_ 4+
 - `SCOTCH <http://www.labri.fr/perso/pelegrin/scotch/>`_ 5.1+
-- `Nose <http://somethingaboutorange.com/mrl/projects/nose/>`_ 1.0+
+- `Nose <https://nose.readthedocs.org/en/latest/>`_ 1.0+
 - `gmsh <http://geuz.org/gmsh/>`_ 2.5+
 - `VTK <http://vtk.org/>`_ 5.6+
 
-The following command will install these packages on Debian 7+:
-
-.. literalinclude:: ../../contrib/aptget.debian.sh
-
-On Ubuntu please use:
-
-.. literalinclude:: ../../contrib/aptget.ubuntu.sh
-
-Note: For Debian Squeeze (6.0), you need also ``apt-get install
-python-profiler`` to install the built-in Python profiler.
-
 Building document of SOLVCON requires the following packages:
 
-- `Epydoc <http://epydoc.sf.net/>`_ 3+
 - `pygraphviz <http://networkx.lanl.gov/pygraphviz/>`_ 1.1+
 - `Sphinx <http://sphinx.pocoo.org/>`_ 1.1.2+
+- `Sphinxcontrib issue tracker
+  <http://sphinxcontrib-issuetracker.readthedocs.org/>`__ 0.11
 
-which can be installed on Debian/Ubunbu by using the command::
+You will also need `Mercurial <http://mercurial.selenic.com/>`_ (hg) to clone
+the development codebase.
 
-  sudo apt-get install python-epydoc python-pygraphviz python-sphinx
+The following command will install the dependencies on Debian 7.x (wheezy):
 
-Another optional dependency is `CUDA
-<http://www.nvidia.com/object/cuda_home_new.html>`_, which needs to be
-separately installed and configured.
+.. literalinclude:: ../../contrib/aptget.debian.7wheezy.sh
+
+On Ubuntu 12.04LTS please use:
+
+.. literalinclude:: ../../contrib/aptget.ubuntu.12.04LTS.sh
+
+Note: For Debian 6.x (squeeze), you need also ``apt-get install
+python-profiler`` for the Python built-in profiler.
 
 Download
 ========
 
-You can obtain the source tarball at
-https://bitbucket.org/solvcon/solvcon/downloads.  Alternatively, you can also
-clone the source code managed by `Mercurial <http://mercurial.selenic.com/>`_
-(hg)::
+It is suggested to use the in-development codebase.  Please clone the hg
+repository::
 
   hg clone https://bitbucket.org/solvcon/solvcon
 
-If you don't have hg installed, the following command can do it on a
-Debian/Ubuntu::
-
-  sudo apt-get install mercurial
+You can also obtain a tarball from
+https://bitbucket.org/solvcon/solvcon/downloads.
 
 Build
 =====
@@ -80,45 +72,21 @@ the environment variable ``$PYTHONPATH`` to point to the source code, i.e.,
   http://docs.python.org/tutorial/modules.html#the-module-search-path for
   detail.
 
-Install to Your System (Optional)
-=================================
-
-You can install SOLVCON along with the compiled binary part into your Python
-system::
-
-  python setup.py install
-
-.. warning::
-
-  Although adding the option ``--user`` to the above command can enable
-  per-user installation, it is not recommended to do so.  If you don't have
-  permission to install SOLVCON to your Python system, the preferred workaround
-  is (i) to set ``$PYTHONPATH``, (ii) to use `virtualenv
-  <http://pypi.python.org/pypi/virtualenv>`__, or (iii) to build a standalone
-  Python runtime as described in :ref:`manual-prerequisites`.
-
-Unit Test
+Run Tests
 =========
 
 If you have Nose_ installed, you can run::
 
   nosetests
 
-inside the source tree for unit tests.  To test the installed package, use the
-following command instead::
+in ``$SCSRC`` to run unit tests.  Another set of tests are collected in
+``$SCSRC/ftests/`` directory, and can be run with::
 
-  python -c 'import solvcon; solvcon.test()'
+  nosetests ftests/*
 
-When testing the installed package, make sure your current directory does not
-have a sub-directory named as ``solvcon``.
-
-.. important::
-  
-  Because SOLVCON uses `ssh <http://www.openssh.com/>`_ as its default approach
-  for remote procedure call (RPC), you need to set up the public key
-  authentication for ssh, or some of the unit tests for RPC could fail.  Some
-  tests using optional libraries could be skipped (indicated by S), if you do
-  not have the libraries installed.  Everything else should pass.
+Some tests in ``$SCSRC/ftests/`` involve remote procedure call (RPC) by using
+`ssh <http://www.openssh.com/>`_, so you need to set up the public key
+authentication of ssh.
 
 .. _manual-prerequisites:
 

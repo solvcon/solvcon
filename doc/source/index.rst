@@ -5,11 +5,11 @@ Solvers of Conservation Laws
 SOLVCON is a collection of `Python <http://www.python.org>`__-based
 conservation-law solvers that use the space-time `Conservation Element and
 Solution Element (CESE) method <http://www.grc.nasa.gov/WWW/microbus/>`__.
-SOLVCON targets at problems that can be formulated as a system of first-order,
-linear or non-linear partial differential equations (PDEs) [Lax73]_:
+SOLVCON targets at solving problems that can be formulated as a system of
+first-order, linear or non-linear partial differential equations (PDEs)
+[Lax73]_:
 
 .. math::
-  :label: e:consform
 
   \dpd{\bvec{u}}{t}
   + \sum_{\iota=1}^3 \mathrm{A}^{(\iota)}(\bvec{u})\dpd{\bvec{u}}{x_{\iota}}
@@ -17,16 +17,14 @@ linear or non-linear partial differential equations (PDEs) [Lax73]_:
 
 where :math:`\bvec{u}` is the unknown vector, :math:`\mathrm{A}^{(1)}`,
 :math:`\mathrm{A}^{(2)}`, and :math:`\mathrm{A}^{(3)}` the Jacobian matrices,
-and :math:`\bvec{s}` the source term.
+and :math:`\bvec{s}` the source term.  This software uses the `BSD license
+<http://opensource.org/licenses/BSD-3-Clause>`__.
 
 - Get the source from https://bitbucket.org/solvcon/solvcon
 - Report bugs and request features at
   https://bitbucket.org/solvcon/solvcon/issues?status=new&status=open
 - Ask questions in our `mailing list
   <http://groups.google.com/group/solvcon>`__: solvcon@googlegroups.com
-
-This software uses `BSD license
-<http://opensource.org/licenses/BSD-3-Clause>`__.
 
 Documentation
 =============
@@ -109,13 +107,6 @@ Resources
 - :doc:`link`
 - :doc:`link_other`
 
-Indices and Tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
-
 Release History
 ===============
 
@@ -125,6 +116,16 @@ Release History
    history
 
 .. rubric:: Footnotes
+
+Indices and Tables
+==================
+
+* :ref:`genindex`
+* :ref:`modindex`
+* :ref:`search`
+
+Bibliography
+============
 
 .. [Lax73] Peter D. Lax, *Hyperbolic Systems of Conservation Laws and the
   Mathematical Theory of Shock Waves*, Society for Industrial Mathematics,
