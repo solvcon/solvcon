@@ -1,6 +1,6 @@
 #!/bin/sh
 # install dependency.
-contrib/aptget.ubuntu.sh
+contrib/aptget.ubuntu.12.04LTS.sh
 # build
 scons
 # unit tests.
