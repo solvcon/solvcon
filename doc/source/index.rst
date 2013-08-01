@@ -17,8 +17,7 @@ first-order, linear or non-linear partial differential equations (PDEs)
 
 where :math:`\bvec{u}` is the unknown vector, :math:`\mathrm{A}^{(1)}`,
 :math:`\mathrm{A}^{(2)}`, and :math:`\mathrm{A}^{(3)}` the Jacobian matrices,
-and :math:`\bvec{s}` the source term.  This software uses the `BSD license
-<http://opensource.org/licenses/BSD-3-Clause>`__.
+and :math:`\bvec{s}` the source term.
 
 - Get the source from https://bitbucket.org/solvcon/solvcon
 - Report bugs and request features at
@@ -37,18 +36,11 @@ Introduction
 
   install
   tutorial
-  verification
-
-Applications
-++++++++++++
-
-.. toctree::
-  :maxdepth: 2
-
-  app_linear
 
 Reference
 +++++++++
+
+.. rubric:: Fundamental Level
 
 .. toctree::
   :maxdepth: 3
@@ -56,6 +48,13 @@ Reference
   architecture
   inout
   system_modules
+
+.. rubric:: Application Level
+
+.. toctree::
+  :maxdepth: 2
+
+  app_linear
 
 Control & Management
 ++++++++++++++++++++
@@ -65,6 +64,7 @@ Control & Management
 
   python_style
   plan
+  verification
 
 Resources
 =========
@@ -115,15 +115,6 @@ Release History
 
    history
 
-.. rubric:: Footnotes
-
-Indices and Tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
-
 Bibliography
 ============
 
@@ -131,5 +122,17 @@ Bibliography
   Mathematical Theory of Shock Waves*, Society for Industrial Mathematics,
   1973.  `ISBN 0898711770
   <http://www.worldcat.org/title/hyperbolic-systems-of-conservation-laws-and-the-mathematical-theory-of-shock-waves/oclc/798365>`__.
+  
+Copyright Notice
+================
+
+.. include:: ../../COPYING
+
+Indices and Tables
+==================
+
+* :ref:`genindex`
+* :ref:`modindex`
+* :ref:`search`
 
 .. vim: set spell ft=rst ff=unix fenc=utf8:
