@@ -41,8 +41,8 @@ class TestCtypesFortran(TestCase):
         import sys, os
         from ctypes import CDLL, c_int, c_double, POINTER, byref
         from numpy import arange
-        from ..dependency import guess_dllname
-        from ..conf import env
+        from solvcon.dependency import guess_dllname
+        from solvcon.conf import env
         # load the dll created by f2py and bind the subroutine.
         libpath = os.path.join(env.libdir, guess_dllname('sc_solvcontest'))
         self.lib_c_ctypes = CDLL(libpath)

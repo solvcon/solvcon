@@ -28,8 +28,6 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "cuse.h"
-
 void 
 #if NDIM == 3
 sc_linear_prepare_ce_3d

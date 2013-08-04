@@ -75,6 +75,8 @@ def loadcdll(location, libname):
     """
     import os
     from ctypes import CDLL
+    if None is location:
+        return None
     libname = guess_dllname(libname)
     libdir = os.path.abspath(location)
     if not os.path.isdir(libdir):
@@ -106,8 +108,11 @@ def getcdll(libname, location=None, raise_on_fail=True):
             lib = None
     return lib
 
-_clib_solvcon_d = getcdll('solvcon_d')
-_clib_solvcon_s = getcdll('solvcon_s')
+try:
+    _clib_solvcon_d = getcdll('solvcon_d')
+    _clib_solvcon_s = getcdll('solvcon_s')
+except OSError:
+    pass
 
 def _clib_solvcon_of(dtype):
     import numpy as np

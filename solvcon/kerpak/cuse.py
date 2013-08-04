@@ -483,8 +483,8 @@ class CuseSolver(BlockSolver):
     ###########################################################################
     from solvcon.dependency import getcdll
     __clib_cuse_c = {
-        2: getcdll('cuse2d_c'),
-        3: getcdll('cuse3d_c'),
+        2: getcdll('cuse2d_c', raise_on_fail=False),
+        3: getcdll('cuse3d_c', raise_on_fail=False),
     }
     __clib_cuse_cu = {
         2: getcdll('cuse2d_cu', raise_on_fail=CUDA_RAISE_ON_FAIL),
@@ -638,8 +638,8 @@ class CuseBC(BC):
     ###########################################################################
     from solvcon.dependency import getcdll
     __clib_cuseb_c = {
-        2: getcdll('cuseb2d_c'),
-        3: getcdll('cuseb3d_c'),
+        2: getcdll('cuseb2d_c', raise_on_fail=False),
+        3: getcdll('cuseb3d_c', raise_on_fail=False),
     }
     __clib_cuseb_cu = {
         2: getcdll('cuseb2d_cu', raise_on_fail=CUDA_RAISE_ON_FAIL),

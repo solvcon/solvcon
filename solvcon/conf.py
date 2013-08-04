@@ -145,7 +145,6 @@ class Solvcon(object):
         for path in paths:
             if os.path.exists(path):
                 return os.path.abspath(path)
-        raise ValueError('None of %s exists' % str(paths))
 
     @property
     def fpdtype(self):

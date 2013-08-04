@@ -41,8 +41,8 @@ class EulerSolver(CeseSolver):
         self.cflc = self.cfl.copy() # FIXME: obselete?
     from solvcon.dependency import getcdll
     __clib_euler = {
-        2: getcdll('euler2d'),
-        3: getcdll('euler3d'),
+        2: getcdll('euler2d', raise_on_fail=False),
+        3: getcdll('euler3d', raise_on_fail=False),
     }
     del getcdll
     @property
@@ -103,8 +103,8 @@ class EulerBC(CeseBC):
     """
     from solvcon.dependency import getcdll
     __clib_eulerb = {
-        2: getcdll('eulerb2d'),
-        3: getcdll('eulerb3d'),
+        2: getcdll('eulerb2d', raise_on_fail=False),
+        3: getcdll('eulerb3d', raise_on_fail=False),
     }
     del getcdll
     @property

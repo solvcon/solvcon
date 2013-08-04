@@ -43,8 +43,8 @@ class VslinSolver(LincuseSolver):
     """
     from solvcon.dependency import getcdll
     __clib_vslin_c = {
-        2: getcdll('vslin2d_c'),
-        3: getcdll('vslin3d_c'),
+        2: getcdll('vslin2d_c', raise_on_fail=False),
+        3: getcdll('vslin3d_c', raise_on_fail=False),
     }
     __clib_vslin_cu = {
         2: getcdll('vslin2d_cu', raise_on_fail=CUDA_RAISE_ON_FAIL),
@@ -125,8 +125,8 @@ class VslinBC(CuseBC):
     """
     from solvcon.dependency import getcdll
     __clib_vslinb_c = {
-        2: getcdll('vslinb2d_c'),
-        3: getcdll('vslinb3d_c'),
+        2: getcdll('vslinb2d_c', raise_on_fail=False),
+        3: getcdll('vslinb3d_c', raise_on_fail=False),
     }
     __clib_vslinb_cu = {
         2: getcdll('vslinb2d_cu', raise_on_fail=CUDA_RAISE_ON_FAIL),

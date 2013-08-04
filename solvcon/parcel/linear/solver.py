@@ -69,10 +69,10 @@ class LinearSolver(solver.MeshSolver):
 
         A linear solver can't be instantiated directly:
 
-        >>> svr = LinearSolver(blk, neq=1)
+        >>> svr = LinearSolver(blk, neq=1) # doctest: +ELLIPSIS
         Traceback (most recent call last):
         ...
-        TypeError: data type not understood
+        TypeError: data type ...
 
         To instantiate the linear solver, at least :py:attr:`gdlen` needs to be
         implemented:

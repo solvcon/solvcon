@@ -42,8 +42,8 @@ class ElaslinSolver(LinceseSolver):
     """
     from solvcon.dependency import getcdll
     __clib_elaslin = {
-        2: getcdll('elaslin2d'),
-        3: getcdll('elaslin3d'),
+        2: getcdll('elaslin2d', raise_on_fail=False),
+        3: getcdll('elaslin3d', raise_on_fail=False),
     }
     del getcdll
     @property
@@ -117,8 +117,8 @@ class ElaslinBC(CeseBC):
     """
     from solvcon.dependency import getcdll
     __clib_elaslinb = {
-        2: getcdll('elaslinb2d'),
-        3: getcdll('elaslinb3d'),
+        2: getcdll('elaslinb2d', raise_on_fail=False),
+        3: getcdll('elaslinb3d', raise_on_fail=False),
     }
     del getcdll
     @property

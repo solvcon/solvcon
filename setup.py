@@ -1,20 +1,32 @@
 # -*- coding: UTF-8 -*-
 #
-# Copyright (C) 2008-2011 Yung-Yu Chen <yyc@solvcon.net>.
+# Copyright (c) 2008, Yung-Yu Chen <yyc@solvcon.net>
 #
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
+# All rights reserved.
 #
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
 #
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, write to the Free Software Foundation, Inc.,
-# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+# - Redistributions of source code must retain the above copyright notice, this
+#   list of conditions and the following disclaimer.
+# - Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+# - Neither the name of the SOLVCON nor the names of its contributors may be
+#   used to endorse or promote products derived from this software without
+#   specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
 
 """SOLVCON distribution script."""
 
@@ -22,7 +34,7 @@ CLASSIFIERS = """Development Status :: 3 - Alpha
 Intended Audience :: Developers
 Intended Audience :: Education
 Intended Audience :: Science/Research
-License :: OSI Approved :: GNU General Public License (GPL)
+License :: OSI Approved :: BSD License
 Operating System :: POSIX :: Linux
 Programming Language :: C
 Programming Language :: Python
@@ -32,14 +44,15 @@ Topic :: Software Development :: Libraries :: Application Frameworks"""
 def write_readme():
     import solvcon
     readme_new = ''.join([
-    """==================
-README for SOLVCON
-==================
-
-:author: Yung-Yu Chen <yyc@solvcon.net>
-:copyright: c 2008-2012.
+    """==============
+SOLVCON README
+==============
 """, solvcon.__doc__,
     """
+|build_status|
+
+.. |build_status| image:: https://drone.io/bitbucket.org/solvcon/solvcon/status.png
+
 .. vim: set ft=rst ff=unix fenc=utf8:"""])
     f = open('README.rst', 'r')
     readme_old = f.read()
@@ -49,6 +62,24 @@ README for SOLVCON
         f.write(readme_new)
         f.close()
 
+def make_extension(name, c_subdirs, include_dirs=None, libraries=None):
+    import os
+    from glob import glob
+    from numpy.distutils.core import Extension
+    pak_dir = os.path.join(*name.split('.')[:-1])
+    files = [name.replace('.', os.sep) + '.c']
+    for c_subdir in sorted(c_subdirs):
+        path = os.path.join(pak_dir, c_subdir, '*.c')
+        files += glob(path)
+    include_dirs = [] if None is include_dirs else include_dirs
+    include_dirs.insert(0, 'solvcon')
+    include_dirs.insert(0, os.path.join(pak_dir))
+    libraries = [] if None is libraries else libraries
+    libraries = (['scotchmetis', 'scotch', 'scotcherr', 'scotcherrexit']
+                 + libraries)
+    return Extension(name, files,
+                     include_dirs=include_dirs, libraries=libraries)
+
 def main():
     import os, sys
     # BEFORE importing distutils, remove MANIFEST. distutils doesn't properly
@@ -56,7 +87,7 @@ def main():
     if os.path.exists('MANIFEST'):
         os.remove('MANIFEST')
     from glob import glob
-    from distutils.core import setup
+    from numpy.distutils.core import setup
     import solvcon
 
     write_readme()
@@ -94,16 +125,14 @@ def main():
         author='Yung-Yu Chen',
         maintainer_email='yyc@solvcon.net',
         author_email='yyc@solvcon.net',
-        description='A supercomputing framework for '
-                    'solving PDEs by hybrid parallelism.',
+        description='Solvers of Conservation Laws',
         long_description=solvcon.__doc__,
-        license='GPL',
+        license='BSD',
         url='http://solvcon.net/',
         download_url='http://bitbucket.org/yungyuc/solvcon/downloads/',
         classifiers=[tok.strip() for tok in CLASSIFIERS.split('\n')],
         platforms=[
             'Linux',
-            'Windows',
         ],
         version=solvcon.__version__,
         scripts=[
@@ -114,7 +143,14 @@ def main():
             'solvcon.io',
             'solvcon.io.tests',
             'solvcon.kerpak',
+            'solvcon.parcel',
             'solvcon.tests',
+        ],
+        ext_modules=[
+            make_extension('solvcon.mesh', ['src']),
+            make_extension('solvcon.parcel.fake._algorithm', ['src']),
+            make_extension('solvcon.parcel.linear._algorithm', ['src'],
+                           libraries=['lapack']),
         ],
         data_files=data_files,
     )

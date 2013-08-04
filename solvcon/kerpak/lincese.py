@@ -40,8 +40,8 @@ class LinceseSolver(CeseSolver):
     """
     from solvcon.dependency import getcdll
     __clib_lincese = {
-        2: getcdll('lincese2d'),
-        3: getcdll('lincese3d'),
+        2: getcdll('lincese2d', raise_on_fail=False),
+        3: getcdll('lincese3d', raise_on_fail=False),
     }
     del getcdll
     @property

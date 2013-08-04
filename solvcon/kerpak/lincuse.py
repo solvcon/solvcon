@@ -40,8 +40,8 @@ class LincuseSolver(CuseSolver):
     """
     from solvcon.dependency import getcdll
     __clib_lincuse_c = {
-        2: getcdll('lincuse2d_c'),
-        3: getcdll('lincuse3d_c'),
+        2: getcdll('lincuse2d_c', raise_on_fail=False),
+        3: getcdll('lincuse3d_c', raise_on_fail=False),
     }
     __clib_lincuse_cu = {
         2: getcdll('lincuse2d_cu', raise_on_fail=CUDA_RAISE_ON_FAIL),

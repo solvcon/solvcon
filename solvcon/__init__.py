@@ -29,8 +29,11 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 """
-SOLVCON: Solvers of conservation laws.  Please see the website
-http://solvcon.net/ for detail.
+SOLVCON: Solvers of conservation laws.  Web site and documentation please see
+http://solvcon.net/.  SOLVCON is a collection of conservation-law solvers that
+use the space-time `Conservation Element and Solution Element (CESE)
+<http://www.grc.nasa.gov/WWW/microbus/>`__ method.  The system is written with
+Python and C (the interfacing tool is `Cython <http://cython.org/>`__).
 """
 
 __docformat__ = 'restructuredtext en'

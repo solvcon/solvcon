@@ -12,10 +12,3 @@ class TestUtility(TestCase):
             self.assertEqual('libname.dylib', guess_dllname('name'))
         else:
             self.assertEqual('libname.so', guess_dllname('name'))
-
-class TestClibrary(TestCase):
-    def test_solvcon(self):
-        from ctypes import CDLL
-        from .. import dependency as dep
-        self.assertTrue(isinstance(dep._clib_solvcon_d, CDLL))
-        self.assertTrue(isinstance(dep._clib_solvcon_s, CDLL))
