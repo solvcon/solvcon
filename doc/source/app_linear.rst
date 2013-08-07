@@ -4,50 +4,11 @@ Second-Order Linear Solver (:py:mod:`solvcon.parcel.linear`)
 
 .. py:module:: solvcon.parcel.linear
 
-.. py:module:: solvcon.parcel.linear.velstress
-
-Velocity-Stress Equation Solver
-===============================
-
-See [1]_ for the basic formulation.
-
-.. py:module:: solvcon.parcel.linear.velstress.logic
-
-Solver Logic (:py:mod:`.velstress.logic <solvcon.parcel.linear.velstress.logic>`)
-+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-.. autoclass:: VslinPWSolution
-
-.. autoclass:: VslinSolver
-
-  .. autoinstanceattribute:: mtrldict
-
-  .. autoinstanceattribute:: mtrllist
-
-.. autoclass:: VslinCase
-
-.. py:module:: solvcon.parcel.linear.velstress.material
-
-Material Definition (:py:mod:`.velstress.logic <solvcon.parcel.linear.velstress.material>`)
-+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-.. autodata:: mltregy
-
-.. autoclass:: Material
-
-  .. autoinstanceattribute:: rho
-
-  .. autoinstanceattribute:: al
-
-  .. autoinstanceattribute:: be
-
-  .. autoinstanceattribute:: ga
-
-  .. autoinstanceattribute:: origstiff
-
-  .. autoinstanceattribute:: stiff
-
-.. py:module:: solvcon.parcel.linear._algorithm
+This package implements a basic second-order, three-dimensional CESE solver
+that uses the CFL-insensitive :math:`c\mbox{-}\tau` scheme.  The basic solver
+can be extended to solver for any linear system of first-order hyperbolic PDEs.
+An example is the velocity-stress equation solver in :py:mod:`.velstress
+<solvcon.parcel.linear.velstress>`.
 
 Numerical Implementation (:py:mod:`._algorithm <solvcon.parcel.linear._algorithm>`)
 ===================================================================================
@@ -324,8 +285,53 @@ Helpers for I/O (:py:mod:`.inout <solvcon.parcel.linear.inout>`)
 
   .. autoinstanceattribute:: pextmpl
 
-Reference
-=========
+.. py:module:: solvcon.parcel.linear.velstress
+
+Velocity-Stress Equation Solver (:py:mod:`.velstress <solvcon.parcel.linear.velstress>`)
+========================================================================================
+
+See [1]_ for the basic formulation.
+
+.. py:module:: solvcon.parcel.linear.velstress.logic
+
+Solver Logic (:py:mod:`.velstress.logic <solvcon.parcel.linear.velstress.logic>`)
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+.. autoclass:: VslinPWSolution
+
+.. autoclass:: VslinSolver
+
+  .. autoinstanceattribute:: mtrldict
+
+  .. autoinstanceattribute:: mtrllist
+
+.. autoclass:: VslinCase
+
+.. py:module:: solvcon.parcel.linear.velstress.material
+
+Material Definition (:py:mod:`.velstress.material <solvcon.parcel.linear.velstress.material>`)
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+.. autodata:: mltregy
+
+.. autoclass:: Material
+
+  .. autoinstanceattribute:: rho
+
+  .. autoinstanceattribute:: al
+
+  .. autoinstanceattribute:: be
+
+  .. autoinstanceattribute:: ga
+
+  .. autoinstanceattribute:: origstiff
+
+  .. autoinstanceattribute:: stiff
+
+.. py:module:: solvcon.parcel.linear._algorithm
+
+Bibliography
+============
 
 .. [1] Yung-Yu Chen, Lixiang Yang, and Sheng-Tao John Yu, "Hyperbolicity of
   Velocity-Stress Equations for Waves in Anisotropic Elastic Solids", *Journal

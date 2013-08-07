@@ -51,3 +51,6 @@ py
 contrib
 doctests
 unittests
+codebase
+tarballs
+jessie

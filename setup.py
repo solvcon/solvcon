@@ -44,16 +44,11 @@ Topic :: Software Development :: Libraries :: Application Frameworks"""
 def write_readme():
     import solvcon
     readme_new = ''.join([
-    """==============
-SOLVCON README
-==============
-""", solvcon.__doc__,
-    """
-|build_status|
+        """|build_status|
 
 .. |build_status| image:: https://drone.io/bitbucket.org/solvcon/solvcon/status.png
-
-.. vim: set ft=rst ff=unix fenc=utf8:"""])
+""",
+        solvcon.__doc__, "\n.. vim: set ft=rst ff=unix fenc=utf8:"])
     f = open('README.rst', 'r')
     readme_old = f.read()
     f.close()
