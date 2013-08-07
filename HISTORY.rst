@@ -1,3 +1,34 @@
+Version 0.1.2
++++++++++++++
+
+Release date: 2013/8/8 (GMT+0800)
+
+This release starts to document by using Sphinx and renew the architecture of
+problem solvers.
+
+Changes:
+
+- Remove the SCons METIS builder and the corresponding options of
+  ``--download``, ``--extract``, and ``--apply-patches``.  Now the SCOTCH
+  library is used for graph partitioning with its METIS interface.
+- Move the counter of lines of code in SOLVCON from SCons into a standalone
+  script ``contrib/countloc``, and thus remove the SCons option ``--count``.
+- Remove the SCons option ``--cmpvsn``.  For changing the command of C
+  compiler, you can now set the environment variable ``CC`` to whatever the
+  command you want.
+- Renovate the documentation by using Sphinx.  (#61)
+- Add a directory ``contrib/verify_scripts`` to collect scripts for running
+  verification examples.
+- Design a new hierarchy for solvers by using Cython.  (#59, #60, #62, #63,
+  #65)
+
+  - A new series of "sach" (:py:class:`MeshSolver <solvcon.solver.MeshSolver>`,
+    :py:class:`MeshAnchor <solvcon.anchor.MeshAnchor>`, :py:class:`MeshCase
+    <solvcon.case.MeshCase>`, and :py:class:`MeshHook <solvcon.hook.MeshHook>`)
+    is built.
+  - The new sach is built upon pure Python :py:class:`Block
+    <solvcon.block.Block>` and Cython :py:class:`Mesh <solvcon.mesh.Mesh>`.
+
 Version 0.1.1
 +++++++++++++
 

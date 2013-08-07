@@ -138,7 +138,7 @@ authentication of ssh.
 
 __docformat__ = 'restructuredtext en'
 
-__version__ = '0.1.1+'
+__version__ = '0.1.2'
 
 __description__ = "SOLVCON: Solvers of conservation laws"
 
