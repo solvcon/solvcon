@@ -82,10 +82,10 @@ class MeshSolver(object):
 
     >>> from .testing import create_trivial_2d_blk
     >>> svr = MeshSolver(create_trivial_2d_blk())
-    >>> svr.march(0.0, 0.1, 1)
+    >>> svr.march(0.0, 0.1, 1) # doctest: +ELLIPSIS
     Traceback (most recent call last):
         ...
-    TypeError: 'NoneType' object has no attribute '__getitem__'
+    TypeError: 'NoneType' object ...
 
     At minimal we need to override the :py:attr:`_MMNAMES` class attribute:
 
