@@ -4,7 +4,7 @@ Import('targets', 'env')
 
 env = env.Clone()
 env.Append(CPPPATH=[os.path.abspath('.')])
-env.Prepend(LIBS=['lapack'])
+env.Prepend(LIBS=['lapack', 'blas', 'gfortran'])
 
 # compile Cython code to C.
 pyx = env.Cython('_algorithm.pyx')

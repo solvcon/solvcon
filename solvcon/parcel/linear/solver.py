@@ -45,7 +45,7 @@ from solvcon import boundcond
 try: # for readthedocs to work.
     from . import _algorithm
 except ImportError:
-    warnings.warn("solvcon.parcel.fake._algorithm isn't built",
+    warnings.warn("solvcon.parcel.linear._algorithm isn't built",
                   RuntimeWarning)
 
 
