@@ -126,15 +126,15 @@ prerequisites.  SOLVCON provides a suite of scripts and makefiles to facilitate
 the tedious process.
 
 The ``$SCSRC/ground`` directory contains scripts to build most of the software
-that SOLVCON depends on.  The ``$SCSRC/ground/get`` script downloads the source
-packages to be built.  By default, the ``$SCSRC/ground/Makefile`` file does not
-make large packages related to visualization, e.g., VTK.  Visualization
-packages must be manually built by specifying the target ``vislib``.  The built
-files will be automatically installed into the path specified by the
-``$SCROOT`` environment variable, which is set to ``$HOME/opt/scruntime`` by
-default.  The ``$SCROOT/bin/scvars.sh`` script will be created to export
-necessary environment variables for the installed software, and the ``$SCROOT``
-environment variable itself.
+that SOLVCON depends on.  The ``$SCSRC/contrib/get`` script downloads the
+source packages to be built.  By default, the ``$SCSRC/ground/Makefile`` file
+does not make large packages related to visualization, e.g., VTK.
+Visualization packages must be manually built by specifying the target
+``vislib``.  The built files will be automatically installed into the path
+specified by the ``$SCROOT`` environment variable, which is set to
+``$HOME/opt/scruntime`` by default.  The ``$SCROOT/bin/scvars.sh`` script will
+be created to export necessary environment variables for the installed
+software, and the ``$SCROOT`` environment variable itself.
 
 The ``$SCSRC/soil`` directory contains scripts to build gcc_.  The
 ``$SCROOT/bin/scgccvars.sh`` script will be created to export necessary
