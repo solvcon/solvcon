@@ -132,7 +132,10 @@ class TestRemoteParallel(TestBlockCaseRun):
         from solvcon.batch import Localhost
         from solvcon.domain import Distributed
         localpath = os.path.abspath(os.path.dirname(__file__))
-        os.environ['PYTHONPATH'] += ':%s' % localpath
+        if 'PYTHONPATH' in os.environ:
+            os.environ['PYTHONPATH'] += ':%s' % localpath
+        else:
+            os.environ['PYTHONPATH'] = localpath
         case = self._get_case(npart=self.npart, domaintype=Distributed,
             batch=Localhost, rkillfn='')
         case.run()
