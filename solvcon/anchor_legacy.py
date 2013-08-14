@@ -332,7 +332,11 @@ class RuntimeStatAnchor(Anchor):
         pstat = dict()
         for it in range(len(cls.PSTAT_KEYS)):
             key, typ = cls.PSTAT_KEYS[it]
-            pstat[key] = typ(sinfo[it])
+            if it >= len(sinfo):
+                value = None
+            else:
+                value = typ(sinfo[it])
+            pstat[key] = value
         return pstat
 
     @staticmethod
