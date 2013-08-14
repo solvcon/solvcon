@@ -43,7 +43,7 @@ class Tester(Torque):
         if ppaths:
             ret.append('export PYTHONPATH=%s'%sep.join(ppaths+['$PYTHONPATH']))
         ret.append('export')
-        ret.append('python2.6 -c "from solvcon.conf import env; print env.scu"')
+        ret.append('python2.7 -c "from solvcon.conf import env; print env.scu"')
         return '\n'.join(ret)
 
 def par_base(casename=None, meshname=None,
