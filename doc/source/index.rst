@@ -17,7 +17,9 @@ first-order, linear or non-linear partial differential equations (PDEs)
 
 where :math:`\bvec{u}` is the unknown vector, :math:`\mathrm{A}^{(1)}`,
 :math:`\mathrm{A}^{(2)}`, and :math:`\mathrm{A}^{(3)}` the Jacobian matrices,
-and :math:`\bvec{s}` the source term.
+and :math:`\bvec{s}` the source term.  SOLVCON is designed to be a software
+framework to house various solvers [Chen11]_.  The design of SOLVCON is also
+discussed in [Chen11]_ and you can use it to cite the software.
 
 - Visit the project page https://bitbucket.org/solvcon/solvcon
 - Report bugs and request features at
@@ -247,6 +249,11 @@ Bibliography
   Mathematical Theory of Shock Waves*, Society for Industrial Mathematics,
   1973.  `ISBN 0898711770
   <http://www.worldcat.org/title/hyperbolic-systems-of-conservation-laws-and-the-mathematical-theory-of-shock-waves/oclc/798365>`__.
+
+.. [Chen11] Yung-Yu Chen, *A Multi-Physics Software Framework on Hybrid
+  Parallel Computing for High-Fidelity Solutions of Conservation Laws*, Ph.D.
+  Thesis, The Ohio State University, United States, Aug. 2011. (`OhioLINK
+  <http://rave.ohiolink.edu/etdc/view?acc_num=osu1313000975>`__)
 
 Appendices
 ==========
