@@ -192,8 +192,8 @@ htmlhelp_basename = 'SOLVCONdoc'
 latex_elements = {
     'preamble': r'''\usepackage{amsmath}
 \usepackage{amssymb}
-\usepackage{vector}
-\usepackage{commath}'''
+\usepackage{commath}
+\newcommand{\bvec}[1]{\ensuremath{\mathbf{#1}}}'''
 }
 pngmath_latex_preamble = latex_elements['preamble']
 
