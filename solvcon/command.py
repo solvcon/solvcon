@@ -294,6 +294,8 @@ class mesh(Command):
                 info('    grp#%d: %s\n' % (igrp, grpname))
             info('  Cell volume (min, max, all): %g, %g, %g.\n' % (
                 blk.clvol.min(), blk.clvol.max(), blk.clvol.sum()))
+            info('  Dx for CFL is ~0.5(min(cvol)^(1/ndim)): %e.\n' % (
+                0.5*blk.clvol.min()**(1.0/blk.ndim), ))
         # save.
         if oio is not None:
             path = args[1]
