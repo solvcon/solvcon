@@ -517,18 +517,15 @@ class Torque(Batch):
         else:
             return self.create_worker_ssh(*args, **kw)
 
-
-
-
-class GEN(Batch):
+class Generic(Batch):
     """
-    Generic batch system, should be compatible with all batch systems.
+    A generic batch system, should be compatible with all batch systems.
     Requires environmental variable 'SOLVCON_NODELIST' to load the correct
     nodes to be used for the parallel run.
     """
 
     def __init__(self, case, **kw):
-        super(GEN, self).__init__(case, **kw)
+        super(Generic, self).__init__(case, **kw)
         self._nodelist = None
 
     def nodelist(self):

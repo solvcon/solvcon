@@ -47,6 +47,7 @@ from . import anchor
 from .io import vtk as scvtk
 from .io import vtkxml
 
+from helper import file_len
 
 class Hook(object):
     """
@@ -214,7 +215,7 @@ class ProgressHook(Hook):
         if istep%psteps == 0:
             info("#")
         if istep > 0 and istep%(psteps*linewidth) == 0:
-            info("\nStep %d/%d, time elapsed %s remaining: %s\n" % (
+            info("\nStep %d/%d, time elapsed: %s remaining: %s\n" % (
                 istep, nsteps, 
                 str(timedelta(seconds=int(tcurr-tstart))),
                 str(timedelta(seconds=int(tleft))),
@@ -570,11 +571,6 @@ class MarchSave(VtkSave):
 ################################################################################
 # Vtk XML parallel writers.
 ################################################################################
-def file_len(fname):
-    with open(fname) as f:
-        for i, l in enumerate(f):
-            pass
-    return i + 1
     
 class PMarchSave(BlockHook):
     """
@@ -626,6 +622,8 @@ class PMarchSave(BlockHook):
         npart = cse.execution.npart
         self.pextmpl = '.p%%0%dd'%int(math.ceil(math.log10(npart))+1) if npart else ''
         self.pextmpl += '.vtu'
+    
+    
     def drop_anchor(self, svr):
         basefn = os.path.splitext(self.vtkfn_tmpl)[0]
         anames = dict([(ent[0], ent[1]) for ent in self.anames])
@@ -633,6 +631,7 @@ class PMarchSave(BlockHook):
             fpdtype=self.fpdtype, psteps=self.psteps,
             vtkfn_tmpl=basefn+self.pextmpl)
         self._deliver_anchor(svr, anchor.MarchSaveAnchor, ankkw)
+        
     def _write(self, istep):
         if not self.cse.execution.npart:
             return
@@ -655,6 +654,7 @@ class PMarchSave(BlockHook):
         self.info('Writing \n  %s\n... ' % vtkfn)
         wtr.write(vtkfn)
         self.info('done.\n')
+
     def write_pvd_head(self):
         outf = open(self.pvdf, 'w')
         outf.write('<?xml version="1.0"?>\n')
@@ -682,8 +682,8 @@ class PMarchSave(BlockHook):
         aFile = self.pvdf
         nline = file_len(aFile)
         os.rename( aFile, aFile+"~" )
-        destination= open( aFile, "w" )
-        source= open( aFile+"~", "r" )
+        destination = open( aFile, "w" )
+        source = open( aFile+"~", "r" )
         i = 0;
         for line in source:
             i += 1
@@ -694,18 +694,18 @@ class PMarchSave(BlockHook):
         destination.close()
         source.close()
         
-
-        
     def write_pvd_tail(self):
         
         outf = open(self.pvdf, 'a+')
         outf.write('  </Collection>\n')
         outf.write('</VTKFile>')
         outf.close()
+        
     def preloop(self):
         self._write(0)
         self.write_pvd_head()
         self.write_pvd_main()
+        
     def postmarch(self):
         psteps = self.psteps
         istep = self.cse.execution.step_current
@@ -719,9 +719,6 @@ class PMarchSave(BlockHook):
         if istep%psteps != 0:
             self._write(istep)
             self.write_pvd_main()
-
-
-
 
 ################################################################################
 # Hooks for in situ visualization.
