@@ -45,9 +45,12 @@ typedef struct {
     double sigma0;
     double taylor, cnbfac, sftfac;
     double taumin, tauscale;
+    // source indicator
+    int viscosity;
     /* function section. */
     // function pointer.
     void (*jacofunc)(void *exd, int icl, double *fcn, double *jacos);
+    void (*viscfunc)(void *exd, int icl, double *visc);
     /* array section. */
     // meta array.
     int *fctpn, *cltpn, *clgrp;

@@ -124,8 +124,10 @@ class CuseSolverExedata(Structure):
         ('alpha', c_int), ('sigma0', c_double),
         ('taylor', c_double), ('cnbfac', c_double), ('sftfac', c_double),
         ('taumin', c_double), ('tauscale', c_double),
+        # source indicator
+        ('viscosity', c_int),
         # function pointer.
-        ('jacofunc', c_void_p),
+        ('jacofunc', c_void_p), ('viscfunc', c_void_p),
         # meta array.
         ('fctpn', c_void_p), ('cltpn', c_void_p), ('clgrp', c_void_p),
         ('grpda', c_void_p),
@@ -158,11 +160,12 @@ class CuseSolverExedata(Structure):
             return
         # function pointer.
         self.jacofunc = cast(svr._jacofunc_, c_void_p).value
+        self.viscfunc = cast(svr._viscfunc_, c_void_p).value
         for key in ('ncore', 'neq', 'time', 'time_increment',
                     'ndim', 'nnode', 'nface', 'ncell', 'nbound', 'ngstnode',
                     'ngstface', 'ngstcell', 'ngroup', 'gdlen', 'nsca', 'nvec',
                     'alpha', 'sigma0', 'taylor', 'cnbfac', 'sftfac',
-                    'taumin', 'tauscale'):
+                    'taumin', 'tauscale', 'viscosity'):
             setattr(self, key, getattr(svr, key))
         # arrays.
         for aname in ('grpda', 'sfmrc'):
@@ -237,6 +240,7 @@ class CuseSolver(BlockSolver):
 
     _gdlen_ = None
     _jacofunc_ = None
+    _viscfunc_ = None
     _clib_mcu = None
 
     def __init__(self, blk, *args, **kw):
@@ -256,6 +260,7 @@ class CuseSolver(BlockSolver):
         self.sftfac = float(kw.pop('sftfac', 1.0))  # dirty hack.
         self.taumin = float(kw.pop('taumin', 0.0))
         self.tauscale = float(kw.pop('tauscale', 1.0))
+        self.viscosity = int(kw.pop('viscosity',0))
         # super call.
         kw.setdefault('enable_tpool', False)
         super(CuseSolver, self).__init__(blk, *args, **kw)
@@ -607,6 +612,7 @@ class CuseCase(BlockCase):
         'solver.sftfac': 1.0,
         'solver.taumin': None,
         'solver.tauscale': None,
+        'solver.viscosity': 0,
     }
     def make_solver_keywords(self):
         kw = super(CuseCase, self).make_solver_keywords()
@@ -614,7 +620,7 @@ class CuseCase(BlockCase):
         kw['ncuth'] = int(self.solver.ncuth)
         kw['alpha'] = int(self.solver.alpha)
         for key in ('sigma0', 'taylor', 'cnbfac', 'sftfac',
-                    'taumin', 'tauscale',):
+                    'taumin', 'tauscale', 'viscosity'):
             val = self.solver.get(key)
             if val != None: kw[key] = float(val)
         return kw

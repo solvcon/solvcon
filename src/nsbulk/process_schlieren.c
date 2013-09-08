@@ -16,7 +16,7 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "gasdyn.h"
+#include "bulk.h"
 
 #ifdef __CUDACC__
 // FIXME: this function shouldn't go to CUDA, doesn't make sense.

@@ -16,7 +16,7 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "gasdyn.h"
+#include "bulk.h"
 
 #ifdef __CUDACC__
 __global__ void cuda_calc_cfl(exedata *exd) {
@@ -32,7 +32,8 @@ int calc_cfl(exedata *exd) {
     int *pclfcs;
     double *pamsca, *pcfl, *pocfl, *psoln, *picecnd, *pcecnd;
     // scalars.
-    double hdt, dist, wspd, ga, ga1, pr, ke;
+    double hdt, dist, wspd, pr, ke;
+    double bulk, p0, rho0, eta;
     // arrays.
     double vec[NDIM];
     // iterators.
@@ -41,7 +42,7 @@ int calc_cfl(exedata *exd) {
 #ifndef __CUDACC__
     #pragma omp parallel for private(clnfc, \
     pclfcs, pamsca, pcfl, pocfl, psoln, picecnd, pcecnd, \
-    dist, wspd, ga, ga1, pr, ke, vec, icl, ifl) \
+    dist, wspd, pr, ke, vec, icl, ifl, bulk, p0, rho0, eta) \
     firstprivate(hdt)
     for (icl=0; icl<exd->ncell; icl++) {
 #else
@@ -75,30 +76,28 @@ int calc_cfl(exedata *exd) {
             dist = fmin(wspd, dist);
         };
         // wave speed.
-        ga = pamsca[0];
-        ga1 = ga - 1.0;
+        bulk = pamsca[0];
+        p0 = pamsca[1];
+        rho0 = pamsca[2];
+        eta = pamsca[3];
         wspd = psoln[1]*psoln[1] + psoln[2]*psoln[2]
 #if NDIM == 3
              + psoln[3]*psoln[3]
 #endif
         ;
         ke = wspd/(2.0*psoln[0]);
-        pr = ga1 * (psoln[1+NDIM] - ke);
-        pr = (pr+fabs(pr))/2.0;
-        wspd = sqrt(ga*pr/psoln[0]) + sqrt(wspd)/psoln[0];
+        // density base
+        //wspd = sqrt(bulk/psoln[0]) + sqrt(wspd)/psoln[0];
+        // pressure base
+        wspd = sqrt(bulk/(eta*psoln[0])) + sqrt(wspd)/psoln[0];
         // CFL.
         pocfl[0] = hdt*wspd/dist;
         // if pressure is null, make CFL to be 1.
-        pcfl[0] = (pocfl[0]-1.0) * pr/(pr+SOLVCON_TINY) + 1.0;
+        //pcfl[0] = (pocfl[0]-1.0) * pr/(pr+SOLVCON_TINY) + 1.0;
+        pcfl[0] = pocfl[0];
         // correct negative pressure.
-        psoln[1+NDIM] = pr/ga1 + ke + SOLVCON_TINY;
+        //psoln[1+NDIM] = pr/ga1 + ke + SOLVCON_TINY;
         // advance.
-        pamsca += NSCA;
-        pcfl += 1;
-        pocfl += 1;
-        psoln += NEQ;
-        picecnd += (CLMFC+1)*NDIM;
-        pclfcs += CLMFC+1;
     };
 #ifndef __CUDACC__
     return 0;

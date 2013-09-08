@@ -16,7 +16,7 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "gasdyn.h"
+#include "bulk.h"
 
 #ifdef __CUDACC__
 __global__ void cuda_bound_inlet_soln(exedata *exd, int nbnd, int *facn,
@@ -29,47 +29,79 @@ int bound_inlet_soln(exedata *exd, int nbnd, int *facn,
 #endif
     // pointers.
     int *pfacn, *pfccls;
-    double *pvalue, *pjsoln;
+    double *pamsca;
+    double *pvalue, *pjsoln, *pisol;
     // scalars.
-    double rho, p, ga, ke;
-    double v1, v2, v3;
+    double rhoi, bulk, rho, pi;
+    double v1i, v2i, v3i, v1;
+    double left, right;
+    // pressure base
+    double pini, p, eta;
     // iterators.
-    int ifc, jcl;
+    int ifc, jcl, icl;
 #ifndef __CUDACC__
     #pragma omp parallel for default(shared) private(ibnd, pfacn, pfccls, \
-    pvalue, pjsoln, rho, p, ga, ke, v1, v2, v3, ifc, jcl)
+    pamsca, pvalue, pjsoln, pisol, rhoi, bulk, rho, v1i, v2i, v3i, v1, left, right,\
+    pini, p, eta, ifc, jcl, icl, pi)
     for (ibnd=0; ibnd<nbnd; ibnd++) {
 #else
     if (ibnd < nbnd) {
 #endif
         pfacn = facn + ibnd*BFREL;
         pvalue = value + ibnd*nvalue;
+        pamsca = exd->amsca + ibnd*NSCA;
         ifc = pfacn[0];
         pfccls = exd->fccls + ifc*FCREL;
+        icl = pfccls[0];
         jcl = pfccls[1];
+        pisol = exd->sol + icl*NEQ;
         // extract parameters.
-        rho = pvalue[0];
-        v1 = pvalue[1];
-        v2 = pvalue[2];
+        bulk = pamsca[0];
+        eta  = pamsca[3];
+        pini = pamsca[5];
+        // density base
+        //rhoi = pvalue[0];
+        // pressure base
+        pi  = pvalue[0];
+        v1i = pvalue[1];
+        v2i = pvalue[2];
 #if NDIM == 3
-        v3 = pvalue[3];
+        v3i = pvalue[3];
 #endif
-        ke = (v1*v1 + v2*v2
-#if NDIM == 3
-            + v3*v3
-#endif
-        )*rho/2.0;
-        p = pvalue[4];
-        ga = pvalue[5];
-        // set solutions.
+        // density base
+        /*
+        rho = pisol[0];
+        v1 = pisol[1]/pisol[0];
+        right = -pow(rhoi,-0.5) + v1i/(2*sqrt(bulk));
+        left = -pow(rho,-0.5) - v1/(2*sqrt(bulk));
+        pjsoln = exd->soln +jcl*NEQ;
+        pjsoln[0] = 4/pow(right+left,2);
+        pjsoln[1] = pjsoln[0]*(right-left)*sqrt(bulk);
+        pjsoln[2] = 0.0;
+        */
+        // pressure base 
+        /*
+        p = pisol[0];
+        v1 = pisol[1]/pisol[0];
+        right = -pow(pi,-0.5) + v1i*sqrt(eta/bulk)/2;
+        left = -pow(p,-0.5) - v1*sqrt(eta/bulk)/2;
         pjsoln = exd->soln + jcl*NEQ;
-        pjsoln[0] = rho;
-        pjsoln[1] = v1*rho;
-        pjsoln[2] = v2*rho;
+        pjsoln[0] = 4/pow(right+left,2);
+        pjsoln[1] = pjsoln[0]*(right-left)*sqrt(bulk/eta);
+        pjsoln[2] = 0.0;
+        */
+        // force inlet
+        //
+        pjsoln = exd->soln +jcl*NEQ;
+        pjsoln[0] = pi;
+        pjsoln[1] = pi*v1i;
+        pjsoln[2] = 0.0;
+        //
+
 #if NDIM == 3
-        pjsoln[3] = v3*rho;
+        pjsoln[3] = 0.0;
 #endif
-        pjsoln[1+NDIM] = p/(ga-1.0) + ke;
+       
 #ifndef __CUDACC__
     };
     return 0;

@@ -41,4 +41,4 @@ Available physical models:
 """
 
 __all__ = ['cese', 'cuse', 'elaslin', 'euler', 'gasdyn', 'lincese', 'lincuse',
-'vslin']
+'vslin', 'bulk']
