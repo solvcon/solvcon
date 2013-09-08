@@ -40,8 +40,8 @@ class NSBulkSolver(CuseSolver):
         super(NSBulkSolver, self).__init__(blk, *args, **kw)
     from solvcon.dependency import getcdll
     __clib_nsbulk_c = {
-        2: getcdll('nsbulk2d_c'),
-        3: getcdll('nsbulk3d_c'),
+        2: getcdll('nsbulk2d'),
+        3: getcdll('nsbulk3d'),
     }
     __clib_nsbulk_cu = {
         2: getcdll('nsbulk2d_cu', raise_on_fail=False),
@@ -105,8 +105,8 @@ class NSBulkBC(CuseBC):
     """
     from solvcon.dependency import getcdll
     __clib_nsbulkb_c = {
-        2: getcdll('nsbulkb2d_c'),
-        3: getcdll('nsbulkb3d_c'),
+        2: getcdll('nsbulkb2d'),
+        3: getcdll('nsbulkb3d'),
     }
     __clib_nsbulkb_cu = {
         2: getcdll('nsbulkb2d_cu', raise_on_fail=False),
