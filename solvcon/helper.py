@@ -122,12 +122,6 @@ class Information(object):
             stream.flush()
 info = Information()
 
-def file_len(fname):
-    with open(fname) as f:
-        for i, l in enumerate(f):
-            pass
-    return i + 1
-
 def generate_apidoc(outputdir='doc/api'):
     """
     Use epydoc to generate API doc.

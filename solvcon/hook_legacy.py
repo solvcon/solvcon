@@ -34,7 +34,6 @@ categories of hooks are defined here: (i) base hooks for subclassing and (ii)
 generic hooks which can be readily installed.
 """
 
-
 import os
 import time
 import math
@@ -46,8 +45,6 @@ from . import domain
 from . import anchor
 from .io import vtk as scvtk
 from .io import vtkxml
-
-from helper import file_len
 
 class Hook(object):
     """
@@ -571,7 +568,6 @@ class MarchSave(VtkSave):
 ################################################################################
 # Vtk XML parallel writers.
 ################################################################################
-    
 class PMarchSave(BlockHook):
     """
     Save the geometry and variables in a case when time marching in parallel
@@ -622,8 +618,7 @@ class PMarchSave(BlockHook):
         npart = cse.execution.npart
         self.pextmpl = '.p%%0%dd'%int(math.ceil(math.log10(npart))+1) if npart else ''
         self.pextmpl += '.vtu'
-    
-    
+
     def drop_anchor(self, svr):
         basefn = os.path.splitext(self.vtkfn_tmpl)[0]
         anames = dict([(ent[0], ent[1]) for ent in self.anames])
@@ -631,7 +626,7 @@ class PMarchSave(BlockHook):
             fpdtype=self.fpdtype, psteps=self.psteps,
             vtkfn_tmpl=basefn+self.pextmpl)
         self._deliver_anchor(svr, anchor.MarchSaveAnchor, ankkw)
-        
+
     def _write(self, istep):
         if not self.cse.execution.npart:
             return
@@ -680,7 +675,11 @@ class PMarchSave(BlockHook):
         s = '    <DataSet timestep="%f" group="" part="" file="%s"/>\n' \
                     %(self.cse.execution.time, sname)
         aFile = self.pvdf
-        nline = file_len(aFile)
+        with open(aFile) as f:
+            for i, l in enumerate(f):
+                pass
+        nline = i +1
+        
         os.rename( aFile, aFile+"~" )
         destination = open( aFile, "w" )
         source = open( aFile+"~", "r" )
@@ -693,9 +692,8 @@ class PMarchSave(BlockHook):
 
         destination.close()
         source.close()
-        
+
     def write_pvd_tail(self):
-        
         outf = open(self.pvdf, 'a+')
         outf.write('  </Collection>\n')
         outf.write('</VTKFile>')
@@ -712,7 +710,7 @@ class PMarchSave(BlockHook):
         if istep%psteps == 0:
             self._write(istep)
             self.write_pvd_main()
-            
+
     def postloop(self):
         psteps = self.psteps
         istep = self.cse.execution.step_current

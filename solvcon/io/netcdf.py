@@ -356,6 +356,7 @@ class NetCDF(object):
         """
         from ctypes import POINTER, c_int, c_float, c_double, byref
         from numpy import empty, zeros
+        from solvcon.helper import info
         # get value ID.
         varid = c_int()
         retval = self.nc_inq_varid(self.ncid, name, byref(varid))
@@ -365,8 +366,8 @@ class NetCDF(object):
                 ## Poitwise does not provide an elem_map but as this is not
                 ## required under normal use, it should not terminate the
                 ## simulation
-                print "Could not find the elem_map variable in the mesh file: ",
-                print "Setting elem_map Array to 0"
+                info("Could not find the elem_map variable in the mesh file\n")
+                info("Setting elem_map Array to 0\n")
                 arr = zeros(shape, dtype=dtype)
                 return arr
             else:
