@@ -619,7 +619,7 @@ class PMarchSave(BlockHook):
         if not os.path.exists(vdir):
             os.makedirs(vdir)
 
-        self.pvdf = os.path.join(vdir,cse.io.basefn+".pvd")
+        self.pvdf = os.path.join(vdir, cse.io.basefn+".pvd")
         vtkfn_tmpl = basefn + "_%%0%dd"%int(math.ceil(math.log10(nsteps))+1) + '.pvtu'
         self.vtkfn_tmpl = os.path.join(vdir, kw.pop('vtkfn_tmpl', vtkfn_tmpl))
         # craft ext name template.
@@ -658,7 +658,7 @@ class PMarchSave(BlockHook):
         wtr.write(vtkfn)
         self.info('done.\n')
 
-    def write_pvd_head(self):
+    def _write_pvd_head(self):
         outf = open(self.pvdf, 'w')
         outf.write('<?xml version="1.0"?>\n')
         outf.write('<VTKFile type="Collection" version="0.1" \
@@ -668,18 +668,16 @@ class PMarchSave(BlockHook):
         outf.write('</VTKFile>')
         outf.close()
 
-    def write_pvd_main(self):
+    def _write_pvd_main(self, istep):
         from numpy import ceil, log10
         nsteps = self.cse.execution.steps_run
-        cwd  = os.path.abspath(os.getcwd())
-        
+
         if self.cse.is_parallel:
-            snamsfx = '.pvtu'
+            sname_tmpl = os.path.splitext(self.vtkfn_tmpl)[0]+'.pvtu'
         else:
-            snamsfx = '.vtu'
-        sname1 = os.path.basename(cwd)+"_%%0%dd" \
-                    % int(ceil(log10(nsteps)) + 1) + snamsfx
-        sname = sname1 %(self.cse.execution.step_current)
+            sname_tmpl = os.path.splitext(self.vtkfn_tmpl)[0]+'.vtu'
+
+        sname = sname_tmpl %(istep)
         s = '    <DataSet timestep="%f" group="" part="" file="%s"/>\n' \
                     % (self.cse.execution.time, sname)
         aFile = self.pvdf
@@ -703,22 +701,22 @@ class PMarchSave(BlockHook):
         
     def preloop(self):
         self._write(0)
-        self.write_pvd_head()
-        self.write_pvd_main()
+        self._write_pvd_head()
+        self._write_pvd_main(0)
         
     def postmarch(self):
         psteps = self.psteps
         istep = self.cse.execution.step_current
         if istep%psteps == 0:
             self._write(istep)
-            self.write_pvd_main()
+            self._write_pvd_main(istep)
 
     def postloop(self):
         psteps = self.psteps
         istep = self.cse.execution.step_current
         if istep%psteps != 0:
             self._write(istep)
-            self.write_pvd_main()
+            self._write_pvd_main(istep)
 
 ################################################################################
 # Hooks for in situ visualization.
