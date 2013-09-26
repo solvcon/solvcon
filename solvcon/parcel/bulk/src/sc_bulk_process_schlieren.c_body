@@ -1,0 +1,81 @@
+/*
+ * Copyright (C) 2010 Yung-Yu Chen <yyc@solvcon.net>.
+ *
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * - Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ * - Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ * - Neither the name of the SOLVCON nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ */
+
+void
+#if NDIM == 3
+sc_bulk_process_schelieren_rhog_3d
+#else
+sc_bulk_process_schelieren_rhog_2d
+#endif
+(sc_mesh_t *msd, sc_bulk_algorithm_t *alg, double *rhog) {
+    // pointers.
+    double *pdsoln;
+    double *prhog;
+    // iterators.
+    int icl;
+    #pragma omp parallel for private(pdsoln, prhog, icl)
+    for (icl=-msd->ngstcell; icl<msd->ncell; icl++) {
+        pdsoln = alg->dsoln + icl*NEQ*NDIM;
+        prhog = rhog + icl+msd->ngstcell;
+        // density gradient.
+        prhog[0] = pdsoln[0]*pdsoln[0] + pdsoln[1]*pdsoln[1];
+#if NDIM == 3
+        prhog[0] += pdsoln[2]*pdsoln[2];
+#endif
+        prhog[0] = sqrt(prhog[0]);
+    };
+};
+
+void
+#if NDIM == 3
+sc_bulk_process_schelieren_sch_3d
+#else
+sc_bulk_process_schelieren_sch_2d
+#endif
+(sc_mesh_t *msd, sc_bulk_algorithm_t *alg,
+ double k, double k0, double k1, double rhogmax, double *sch) {
+    // pointers.
+    double *psch;
+    // scalars.
+    double fac0, fac1;
+    // iterators.
+    int icl;
+    fac0 = k0 * rhogmax;
+    fac1 = -k / ((k1-k0) * rhogmax + _ALMOST_ZERO);
+    #pragma omp parallel for private(psch, icl) \
+    firstprivate(fac0, fac1)
+    for (icl=-msd->ngstcell; icl<msd->ncell; icl++) {
+        psch = sch + icl+msd->ngstcell;
+        // density gradient.
+        psch[0] = exp((psch[0]-fac0)*fac1);
+    };
+};
+
+// vim: set ft=c ts=4 et:

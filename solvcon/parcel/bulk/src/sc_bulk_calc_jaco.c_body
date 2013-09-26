@@ -1,0 +1,186 @@
+/*
+ * Copyright (C) 2013 Po-Hsien Lin <lin.880@buckeyemail.osu.edu>.
+ *
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * - Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ * - Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ * - Neither the name of the SOLVCON nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ */
+
+void
+#if NDIM == 3
+sc_bulk_calc_jaco_3d
+#else
+sc_bulk_calc_jaco_2d
+#endif
+(sc_mesh_t *msd, sc_bulk_algorithm_t *alg,
+ int icl, double fcn[NEQ][NDIM], double jacos[NEQ][NEQ][NDIM]) {
+    // pointers.
+    double *psol;
+    double *pamsca;
+    // scalars.
+    double bulk, p0, rho0, eta;
+    double u1, u2, u3;
+#if NDIM == 3
+    double u4;
+#endif
+    // accelerating variables.
+    double kdu1, u2u3, u2u4, u3u4, u2du1, u3du1, u4du1, bulkm;
+
+    pamsca = alg->amsca + icl*alg->nsca;
+    // initialize values.
+    bulk = pamsca[0];
+    p0 = pamsca[1];
+    rho0 = pamsca[2];
+    eta = pamsca[3];
+    psol = alg->sol + icl*NEQ;
+    u1 = psol[0] + _TINY;
+    u2 = psol[1];
+    u3 = psol[2];
+#if NDIM == 3
+    u4 = psol[3];
+#endif
+
+    // accelerating variables.
+    // density base
+    /*
+    kdu1 = bulk/u1;
+    bulkm = p0 + bulk*log(u1/rho0);
+    u2u3 = u2*u3;
+    u2du1 = u2/u1; u3du1 = u3/u1;
+#if NDIM == 3
+    u2u4 = u2*u4; u3u4 = u3*u4;
+    u4du1 = u4/u1;
+#endif
+    // flux function.
+#if NDIM == 3
+    fcn[0][0] = u2; fcn[0][1] = u3; fcn[0][2] = u4;
+    fcn[1][0] = u2*u2du1 + bulkm;
+    fcn[1][1] = u2*u3du1;
+    fcn[1][2] = u2*u4du1;
+    fcn[2][0] = u3*u2du1;
+    fcn[2][1] = u3*u3du1 + bulkm;
+    fcn[2][2] = u3*u4du1;
+    fcn[3][0] = u4*u2du1;
+    fcn[3][1] = u4*u3du1;
+    fcn[3][2] = u4*u4du1 + bulkm;
+#else
+    fcn[0][0] = u2;               fcn[0][1] = u3;
+    fcn[1][0] = u2*u2du1 + bulkm; fcn[1][1] = u2*u3du1;
+    fcn[2][0] = u3*u2du1;         fcn[2][1] = u3*u3du1 + bulkm;
+#endif
+    // Jacobian matrices.
+#if NDIM == 3
+    jacos[0][0][0] = 0; jacos[0][0][1] = 0; jacos[0][0][2] = 0;
+    jacos[0][1][0] = 1; jacos[0][1][1] = 0; jacos[0][1][2] = 0;
+    jacos[0][2][0] = 0; jacos[0][2][1] = 1; jacos[0][2][2] = 0;
+    jacos[0][3][0] = 0; jacos[0][3][1] = 0; jacos[0][3][2] = 1;
+
+    jacos[1][0][0] = kdu1-u2du1*u2du1; jacos[1][0][1] = -u2du1*u3du1; jacos[1][0][2] = -u2du1*u4du1;
+    jacos[1][1][0] = 2*u2du1;          jacos[1][1][1] = u3du1;        jacos[1][1][2] = u4du1;
+    jacos[1][2][0] = 0;                jacos[1][2][1] = u2du1;        jacos[1][2][2] = 0;
+    jacos[1][3][0] = 0;                jacos[1][3][1] = 0;            jacos[1][3][2] = u2du1;
+
+    jacos[2][0][0] = -u2du1*u3du1; jacos[2][0][1] = kdu1-u3du1*u3du1; jacos[2][0][2] = -u3du1*u4du1;
+    jacos[2][1][0] = u3du1;        jacos[2][1][1] = 0;                jacos[2][1][2] = 0;
+    jacos[2][2][0] = u2du1;        jacos[2][2][1] = 2*u3du1;          jacos[2][2][2] = u4du1;
+    jacos[2][3][0] = 0;            jacos[2][3][1] = 0;                jacos[2][3][2] = u3du1;
+
+    jacos[3][0][0] = -u2du1*u4du1; jacos[3][0][1] = -u3du1*u4du1;     jacos[3][0][2] = kdu1-u4du1*u4du1;
+    jacos[3][1][0] = u4du1;        jacos[3][1][1] = 0;                jacos[3][1][2] = 0;
+    jacos[3][2][0] = 0;            jacos[3][2][1] = u4du1;            jacos[3][2][2] = 0;
+    jacos[3][3][0] = u2du1;        jacos[3][3][1] = u3du1;            jacos[3][3][2] = 2*u4du1;
+#else
+    jacos[0][0][0] = 0; jacos[0][0][1] = 0;
+    jacos[0][1][0] = 1; jacos[0][1][1] = 0;
+    jacos[0][2][0] = 0; jacos[0][2][1] = 1;
+
+    jacos[1][0][0] = kdu1-u2du1*u2du1; jacos[1][0][1] = -u2du1*u3du1;
+    jacos[1][1][0] = 2*u2du1;          jacos[1][1][1] = u3du1;
+    jacos[1][2][0] = 0;                jacos[1][2][1] = u2du1;
+
+    jacos[2][0][0] = -u2du1*u3du1;     jacos[2][0][1] = kdu1-u3du1*u3du1;
+    jacos[2][1][0] = u3du1;            jacos[2][1][1] = 0;
+    jacos[2][2][0] = u2du1;            jacos[2][2][1] = 2*u3du1;
+#endif
+    */
+
+
+    // pressure base
+    //
+    kdu1 = bulk/(u1*eta);
+    bulkm = bulk*log(u1)/eta;
+    u2u3 = u2*u3;
+    u2du1 = u2/u1; u3du1 = u3/u1;
+#if NDIM == 3
+    u2u4 = u2*u4; u3u4 = u3*u4;
+    u4du1 = u4/u1;
+#endif
+#if NDIM == 3
+    fcn[0][0] = u2;               fcn[0][1] = u3;               fcn[0][2] = u4;
+    fcn[1][0] = u2*u2du1 + bulkm; fcn[1][1] = u2*u3du1;         fcn[1][2] = u2*u4du1;
+    fcn[2][0] = u3*u2du1;         fcn[2][1] = u3*u3du1 + bulkm; fcn[2][2] = u3*u4du1;
+    fcn[3][0] = u4*u2du1;         fcn[3][1] = u4*u3du1;         fcn[3][2] = u4*u4du1 + bulkm;
+#else
+    fcn[0][0] = u2;               fcn[0][1] = u3;
+    fcn[1][0] = u2*u2du1 + bulkm; fcn[1][1] = u2*u3du1;
+    fcn[2][0] = u3*u2du1;         fcn[2][1] = u3*u3du1 + bulkm;
+#endif   
+#if NDIM == 3
+    jacos[0][0][0] = 0; jacos[0][0][1] = 0; jacos[0][0][2] = 0;
+    jacos[0][1][0] = 1; jacos[0][1][1] = 0; jacos[0][1][2] = 0;
+    jacos[0][2][0] = 0; jacos[0][2][1] = 1; jacos[0][2][2] = 0;
+    jacos[0][3][0] = 0; jacos[0][3][1] = 0; jacos[0][3][2] = 1;
+
+    jacos[1][0][0] = kdu1/eta-u2du1*u2du1; jacos[1][0][1] = -u2du1*u3du1; jacos[1][0][2] = -u2du1*u4du1;
+    jacos[1][1][0] = 2*u2du1;              jacos[1][1][1] = u3du1;        jacos[1][1][2] = u4du1;
+    jacos[1][2][0] = 0;                    jacos[1][2][1] = u2du1;        jacos[1][2][2] = 0;
+    jacos[1][3][0] = 0;                    jacos[1][3][1] = 0;            jacos[1][3][2] = u2du1;
+
+    jacos[2][0][0] = -u2du1*u3du1; jacos[2][0][1] = kdu1/eta-u3du1*u3du1; jacos[2][0][2] = -u3du1*u4du1;
+    jacos[2][1][0] = u3du1;        jacos[2][1][1] = 0;                    jacos[2][1][2] = 0;
+    jacos[2][2][0] = u2du1;        jacos[2][2][1] = 2*u3du1;              jacos[2][2][2] = u4du1;
+    jacos[2][3][0] = 0;            jacos[2][3][1] = 0;                    jacos[2][3][2] = u3du1;
+
+    jacos[3][0][0] = -u2du1*u4du1; jacos[3][0][1] = -u3du1*u4du1;     jacos[3][0][2] = kdu1/eta-u4du1*u4du1;
+    jacos[3][1][0] = u4du1;        jacos[3][1][1] = 0;                jacos[3][1][2] = 0;
+    jacos[3][2][0] = 0;            jacos[3][2][1] = u4du1;            jacos[3][2][2] = 0;
+    jacos[3][3][0] = u2du1;        jacos[3][3][1] = u3du1;            jacos[3][3][2] = 2*u4du1;
+#else
+    jacos[0][0][0] = 0; jacos[0][0][1] = 0;
+    jacos[0][1][0] = 1; jacos[0][1][1] = 0;
+    jacos[0][2][0] = 0; jacos[0][2][1] = 1;
+
+    jacos[1][0][0] = kdu1/eta-u2du1*u2du1; jacos[1][0][1] = -u2du1*u3du1;
+    jacos[1][1][0] = 2*u2du1;              jacos[1][1][1] = u3du1;
+    jacos[1][2][0] = 0;                    jacos[1][2][1] = u2du1;
+
+    jacos[2][0][0] = -u2du1*u3du1;     jacos[2][0][1] = kdu1/eta-u3du1*u3du1;
+    jacos[2][1][0] = u3du1;            jacos[2][1][1] = 0;
+    jacos[2][2][0] = u2du1;            jacos[2][2][1] = 2*u3du1;
+#endif
+    //
+};
+
+// vim: set ft=c ts=4 et:

@@ -1,0 +1,148 @@
+/*
+ * Copyright (c) 2008, Yung-Yu Chen <yyc@solvcon.net>
+ *
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * - Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ * - Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ * - Neither the name of the SOLVCON nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ */
+
+void
+#if NDIM == 3
+sc_bulk_calc_soln_3d
+#else
+sc_bulk_calc_soln_2d
+#endif
+(sc_mesh_t *msd, sc_bulk_algorithm_t *alg) {
+    int clnfc, fcnnd;
+    // partial pointers.
+    int *pclfcs, *pfcnds, *pfccls;
+    double *pjcecnd, *pcecnd, *pcevol, (*psfmrc)[NDIM];
+    double *pjsol, *pdsol, *pjsolt, *psoln;
+    // scalars.
+    double hdt, qdt;
+    double voe, fusp, futm;
+    // arrays.
+    double usfc[NEQ];
+    double fcn[NEQ][NDIM], dfcn[NEQ][NDIM];
+    double jacos[NEQ][NEQ][NDIM];
+    // interators.
+    int icl, ifl, inf, ifc, jcl, ieq, jeq;
+    qdt = alg->time_increment * 0.25;
+    hdt = alg->time_increment * 0.5;
+    #pragma omp parallel for private(clnfc, fcnnd, \
+    pclfcs, pfcnds, pfccls, pjcecnd, pcecnd, pcevol, psfmrc, \
+    pjsol, pdsol, pjsolt, psoln, \
+    voe, fusp, futm, usfc, fcn, dfcn, jacos, \
+    icl, ifl, inf, ifc, jcl, ieq, jeq) \
+    firstprivate(hdt, qdt)
+    for (icl=0; icl<msd->ncell; icl++) {
+        psoln = alg->soln + icl*NEQ;
+        pcevol = alg->cevol + icl*(CLMFC+1);
+        // initialize fluxes.
+        for (ieq=0; ieq<NEQ; ieq++) {
+            psoln[ieq] = 0.0;
+        };
+
+        pclfcs = msd->clfcs + icl*(CLMFC+1);
+        clnfc = pclfcs[0];
+        for (ifl=1; ifl<=clnfc; ifl++) {
+            ifc = pclfcs[ifl];
+
+            // spatial flux (given time).
+            pfccls = msd->fccls + ifc*FCREL;
+            jcl = pfccls[0] + pfccls[1] - icl;
+            pjcecnd = alg->cecnd + jcl*(CLMFC+1)*NDIM;
+            pcecnd = alg->cecnd + (icl*(CLMFC+1)+ifl)*NDIM;
+            pjsol = alg->sol + jcl*NEQ;
+            pdsol = alg->dsol + jcl*NEQ*NDIM;
+            for (ieq=0; ieq<NEQ; ieq++) {
+                fusp = pjsol[ieq];
+                fusp += (pcecnd[0]-pjcecnd[0]) * pdsol[0];
+                fusp += (pcecnd[1]-pjcecnd[1]) * pdsol[1];
+#if NDIM == 3
+                fusp += (pcecnd[2]-pjcecnd[2]) * pdsol[2];
+#endif
+                psoln[ieq] += fusp * pcevol[ifl];
+                pdsol += NDIM;
+            };
+
+            // temporal flux (give space).
+#if NDIM == 3
+            sc_bulk_calc_jaco_3d(msd, alg, jcl, fcn, jacos);
+#else
+            sc_bulk_calc_jaco_2d(msd, alg, jcl, fcn, jacos);
+#endif
+            pjsolt = alg->solt + jcl*NEQ;
+            fcnnd = msd->fcnds[ifc*(FCMND+1)];
+            for (inf=0; inf<fcnnd; inf++) {
+                psfmrc = (double (*)[NDIM])(alg->sfmrc
+                    + (((icl*CLMFC + ifl-1)*FCMND+inf)*2*NDIM));
+                // solution at sub-face center.
+                pdsol = alg->dsol + jcl*NEQ*NDIM;
+                for (ieq=0; ieq<NEQ; ieq++) {
+                    usfc[ieq] = qdt * pjsolt[ieq];
+                    usfc[ieq] += (psfmrc[0][0]-pjcecnd[0]) * pdsol[0];
+                    usfc[ieq] += (psfmrc[0][1]-pjcecnd[1]) * pdsol[1];
+#if NDIM == 3
+                    usfc[ieq] += (psfmrc[0][2]-pjcecnd[2]) * pdsol[2];
+#endif
+                    pdsol += NDIM;
+                };
+                // spatial derivatives.
+                for (ieq=0; ieq<NEQ; ieq++) {
+                    dfcn[ieq][0] = fcn[ieq][0];
+                    dfcn[ieq][1] = fcn[ieq][1];
+#if NDIM == 3
+                    dfcn[ieq][2] = fcn[ieq][2];
+#endif
+                    for (jeq=0; jeq<NEQ; jeq++) {
+                        dfcn[ieq][0] += jacos[ieq][jeq][0] * usfc[jeq];
+                        dfcn[ieq][1] += jacos[ieq][jeq][1] * usfc[jeq];
+#if NDIM == 3
+                        dfcn[ieq][2] += jacos[ieq][jeq][2] * usfc[jeq];
+#endif
+                    };
+                };
+                // temporal flux.
+                for (ieq=0; ieq<NEQ; ieq++) {
+                    futm = 0.0;
+                    futm += dfcn[ieq][0] * psfmrc[1][0];
+                    futm += dfcn[ieq][1] * psfmrc[1][1];
+#if NDIM == 3
+                    futm += dfcn[ieq][2] * psfmrc[1][2];
+#endif
+                    psoln[ieq] -= hdt*futm;
+                };
+            };
+        };
+
+        // update solutions.
+        for (ieq=0; ieq<NEQ; ieq++) {
+            psoln[ieq] /= pcevol[0];
+        };
+    };
+};
+
+// vim: set ft=c ts=4 et:

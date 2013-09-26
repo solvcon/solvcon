@@ -1,0 +1,154 @@
+/*
+ * Copyright (C) 2010 Yung-Yu Chen <yyc@solvcon.net>.
+ *
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * - Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ * - Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ * - Neither the name of the SOLVCON nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ */
+
+void
+#if NDIM == 3
+sc_bulk_boudn_wall_soln_3d
+#else
+sc_bulk_boudn_wall_soln_2d
+#endif
+(sc_mesh_t *msd, sc_bulk_algorithm_t *alg, int nbnd, int *facn) {
+    // pointers.
+    int *pfacn, *pfccls, *pfcnds;
+    double *pfcnml, *pndcrd, *pfccnd;
+    double *pisoln, *pjsoln;
+    // scalars.
+    double len;
+    // arrays.
+    double nx, ny;
+    // iterators.
+    int ibnd, ifc, icl, jcl;
+    #pragma omp parallel for default(shared) private(ibnd, \
+    pfacn, pfccls, pfcnds, pfcnml, pndcrd, pfccnd, \
+    pisoln, pjsoln, len, ifc, icl, jcl, nx ,ny)
+    for (ibnd=0; ibnd<nbnd; ibnd++) {
+        pfacn = facn + ibnd*BFREL;
+        ifc = pfacn[0];
+        pfccls = msd->fccls + ifc*FCREL;
+        icl = pfccls[0];
+        jcl = pfccls[1];
+        pisoln = alg->soln + icl*NEQ;
+        pjsoln = alg->soln + jcl*NEQ;
+        // rotation and inverse rotation matrices.
+        pfcnml = msd->fcnml + ifc*NDIM;
+        pfcnds = msd->fcnds + ifc*(FCMND+1);
+        pfccnd = msd->fccnd + ifc*NDIM;
+        nx = pfcnml[0];
+        ny = pfcnml[1];
+        pjsoln[0] = pisoln[0];
+        pjsoln[1] = pisoln[1] - 2*nx*(nx*pisoln[1]+ny*pisoln[2]);
+        pjsoln[2] = pisoln[2] - 2*ny*(nx*pisoln[1]+ny*pisoln[2]);
+    };
+};
+
+void
+#if NDIM == 3
+sc_bulk_boudn_wall_dsoln_3d
+#else
+sc_bulk_boudn_wall_dsoln_2d
+#endif
+(sc_mesh_t *msd, sc_bulk_algorithm_t *alg, int nbnd, int *facn) {
+    // pointers.
+    int *pfacn, *pfccls, *pfcnds;
+    double *pfcnml, *pndcrd, *pfccnd, (*pten)[NDIM];
+    double *pidsoln, *pjdsoln, *pdsoln;
+    // scalars.
+    double len, x, y, deg, ux, uy, vx, vy, pi;
+    // arrays.
+    double vec[NEQ][NDIM];
+    double vmt[NDIM][NDIM], mat[NDIM][NDIM], mvt[NDIM][NDIM];
+    // iterators.
+    int ibnd, ifc, icl, jcl, ieq, it, jt;
+    pi = 3.14159265358979323846;
+    #pragma omp parallel for default(shared) private(ibnd, \
+    pfacn, pfccls, pfcnds, pfcnml, pndcrd, pfccnd, pten, \
+    pidsoln, pjdsoln, pdsoln, \
+    len, vec, vmt, mat, mvt, ifc, icl, jcl, ieq, it, jt)
+    for (ibnd=0; ibnd<nbnd; ibnd++) {
+        pfacn = facn + ibnd*BFREL;
+        ifc = pfacn[0];
+        pfccls = msd->fccls + ifc*FCREL;
+        icl = pfccls[0];
+        jcl = pfccls[1];
+        pidsoln = alg->dsoln + icl*NEQ*NDIM;
+        pjdsoln = alg->dsoln + jcl*NEQ*NDIM;
+        // coordinate transformation and set transformed vectors.
+        pfcnml = msd->fcnml + ifc*NDIM;
+        pfcnds = msd->fcnds + ifc*(FCMND+1);
+        pfccnd = msd->fccnd + ifc*NDIM;
+        if(pfcnml[0] >= 0)
+        {    x = pfcnml[0];
+             y = pfcnml[1];
+             if(x == 0 && y>0) deg = 0.0;
+             else if (x == 0 && y<0) deg = pi;
+             else if(pfcnml[1] > 0) 
+             {    deg = acos(y/sqrt(x*x+y*y));
+                  deg = -deg;}
+             else
+             {    deg = acos(x/sqrt(x*x+y*y));
+                  deg = 3*pi/2 - deg;}
+        }
+        else
+        {    x = pfcnml[0];
+             y = pfcnml[1];
+             if(y==0 && x>0) deg = -pi/2;
+             else if(y==0 && x<0) deg = pi/2;
+             else if(pfcnml[1] > 0)
+             {    deg = acos(y/sqrt(x*x+y*y));}
+             else 
+             {    deg = acos(-y/sqrt(x*x+y*y));
+                  deg = 2*pi - deg;} 
+        }
+        mat[0][0] = cos(2*deg);
+        mat[0][1] = sin(2*deg);
+        mat[1][0] = sin(2*deg);
+        mat[1][1] = -cos(2*deg);
+        pdsoln = pjdsoln;
+        //eq1  density(continuity equation)  
+        pdsoln[0] = mat[0][0]*pidsoln[0] + mat[0][1]*pidsoln[1];
+        pdsoln[1] = mat[1][0]*pidsoln[0] - mat[1][1]*pidsoln[1];
+        pdsoln += NDIM; pidsoln += NDIM;
+        ux = pidsoln[0]; uy = pidsoln[1];
+        pidsoln += NDIM;
+        vx = pidsoln[0]; vy = pidsoln[1];
+        //momentum equation eq2~3
+        pdsoln[0] = mat[0][0]*mat[0][0]*ux+mat[0][1]*mat[0][1]*vy+
+                    mat[0][0]*mat[0][1]*(vx+uy);
+        pdsoln[1] = -mat[0][0]*mat[0][0]*uy+mat[0][1]*mat[0][1]*vx+
+                    mat[0][0]*mat[0][1]*(ux-vy);
+        pdsoln += NDIM;
+        pdsoln[0] = -mat[0][0]*mat[0][0]*vx+mat[0][1]*mat[0][1]*uy+
+                    mat[0][0]*mat[0][1]*(ux-vy);
+        pdsoln[1] = mat[0][0]*mat[0][0]*vy+mat[0][1]*mat[0][1]*ux+
+                    mat[0][0]*mat[0][1]*(-uy-vx);
+    };
+};
+
+// vim: set ft=c ts=4 et:

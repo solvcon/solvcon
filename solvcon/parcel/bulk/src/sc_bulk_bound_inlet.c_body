@@ -1,0 +1,139 @@
+/*
+ * Copyright (C) 2010 Yung-Yu Chen <yyc@solvcon.net>.
+ *
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * - Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ * - Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ * - Neither the name of the SOLVCON nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ */
+
+void
+#if NDIM == 3
+sc_bulk_bound_inlet_soln_3d
+#else
+sc_bulk_bound_inlet_soln_2d
+#endif
+(sc_mesh_t *msd, sc_bulk_algorithm_t *alg,
+ int nbnd, int *facn, int nvalue, double *value) {
+    // pointers.
+    int *pfacn, *pfccls;
+    double *pamsca;
+    double *pvalue, *pjsoln, *pisol;
+    // scalars.
+    double rhoi, bulk, rho, pi;
+    double v1i, v2i, v3i, v1;
+    double left, right;
+    // pressure base
+    double pini, p, eta;
+    // iterators.
+    int ibnd, ifc, jcl, icl;
+    #pragma omp parallel for default(shared) private(ibnd, pfacn, pfccls, \
+    pamsca, pvalue, pjsoln, pisol, rhoi, bulk, rho, v1i, v2i, v3i, v1, left, right,\
+    pini, p, eta, ifc, jcl, icl, pi)
+    for (ibnd=0; ibnd<nbnd; ibnd++) {
+        pfacn = facn + ibnd*BFREL;
+        pvalue = value + ibnd*nvalue;
+        pamsca = alg->amsca + ibnd*(alg->nsca);
+        ifc = pfacn[0];
+        pfccls = msd->fccls + ifc*FCREL;
+        icl = pfccls[0];
+        jcl = pfccls[1];
+        pisol = alg->sol + icl*NEQ;
+        // extract parameters.
+        bulk = pamsca[0];
+        eta  = pamsca[3];
+        pini = pamsca[5];
+        // density base
+        //rhoi = pvalue[0];
+        // pressure base
+        pi  = pvalue[0];
+        v1i = pvalue[1];
+        v2i = pvalue[2];
+#if NDIM == 3
+        v3i = pvalue[3];
+#endif
+        // density base
+        /*
+        rho = pisol[0];
+        v1 = pisol[1]/pisol[0];
+        right = -pow(rhoi,-0.5) + v1i/(2*sqrt(bulk));
+        left = -pow(rho,-0.5) - v1/(2*sqrt(bulk));
+        pjsoln = exd->soln +jcl*NEQ;
+        pjsoln[0] = 4/pow(right+left,2);
+        pjsoln[1] = pjsoln[0]*(right-left)*sqrt(bulk);
+        pjsoln[2] = 0.0;
+        */
+        // pressure base 
+        /*
+        p = pisol[0];
+        v1 = pisol[1]/pisol[0];
+        right = -pow(pi,-0.5) + v1i*sqrt(eta/bulk)/2;
+        left = -pow(p,-0.5) - v1*sqrt(eta/bulk)/2;
+        pjsoln = exd->soln + jcl*NEQ;
+        pjsoln[0] = 4/pow(right+left,2);
+        pjsoln[1] = pjsoln[0]*(right-left)*sqrt(bulk/eta);
+        pjsoln[2] = 0.0;
+        */
+        // force inlet
+        //
+        pjsoln = alg->soln +jcl*NEQ;
+        pjsoln[0] = pi;
+        pjsoln[1] = pi*v1i;
+        pjsoln[2] = 0.0;
+        //
+#if NDIM == 3
+        pjsoln[3] = 0.0;
+#endif
+    };
+};
+
+void
+#if NDIM == 3
+sc_hydacou_bound_inlet_dsoln_3d
+#else
+sc_hydacou_bound_inlet_dsoln_2d
+#endif
+(sc_mesh_t *msd, sc_bulk_algorithm_t *alg,
+ int nbnd, int *facn) {
+    // pointers.
+    int *pfacn, *pfccls;
+    double *pjdsoln;
+    // iterators.
+    int ibnd, ifc, jcl, it;
+    #pragma omp parallel for default(shared) private(ibnd, pfacn, pfccls, \
+    pjdsoln, ifc, jcl, it)
+    for (ibnd=0; ibnd<nbnd; ibnd++) {
+        pfacn = facn + ibnd*BFREL;
+        ifc = pfacn[0];
+        pfccls = msd->fccls + ifc*FCREL;
+        jcl = pfccls[1];
+        pjdsoln = alg->dsoln + jcl*NEQ*NDIM;
+        // set to zero.
+        for (it=0; it<NEQ*NDIM; it++) {
+            pjdsoln[it] = 0.0;
+        };
+    };
+};
+
+// vim: set ft=c ts=4 et:
