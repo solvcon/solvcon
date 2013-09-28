@@ -34,7 +34,6 @@ categories of hooks are defined here: (i) base hooks for subclassing and (ii)
 generic hooks which can be readily installed.
 """
 
-
 import os
 import time
 import math
@@ -46,7 +45,6 @@ from . import domain
 from . import anchor
 from .io import vtk as scvtk
 from .io import vtkxml
-
 
 class Hook(object):
     """
@@ -200,6 +198,7 @@ class ProgressHook(Hook):
         info = self.info
         info("Steps %d/%d\n" % (istep, nsteps))
     def postmarch(self):
+        from datetime import timedelta
         istep = self.cse.execution.step_current
         nsteps = self.cse.execution.steps_run
         tstart = self.cse.log.time['loop_march'][0]
@@ -213,8 +212,10 @@ class ProgressHook(Hook):
         if istep%psteps == 0:
             info("#")
         if istep > 0 and istep%(psteps*linewidth) == 0:
-            info("\nStep %d/%d, %.1fs elapsed, %.1fs left\n" % (
-                istep, nsteps, tcurr-tstart, tleft,
+            info("\nStep %d/%d, time elapsed: %s remaining: %s\n" % (
+                istep, nsteps, 
+                str(timedelta(seconds=int(tcurr-tstart))),
+                str(timedelta(seconds=int(tleft))),
             ))
         elif istep == nsteps:
             info("\nStep %d/%d done\n" % (istep, nsteps))
@@ -339,12 +340,14 @@ class BlockInfoHook(BlockHook):
         self.show_bclist = kw.pop('show_bclist', False)
         self.perffn = kw.pop('perffn', None)
         super(BlockInfoHook, self).__init__(cse, **kw)
+
     def preloop(self):
         blk = self.blk
         self.info("Block information:\n  %s\n" % str(blk))
         if self.show_bclist:
             for bc in blk.bclist:
                 self.info("  %s\n" % bc)
+
     def _show_performance(self):
         """
         Show and store performance information.
@@ -375,14 +378,17 @@ class BlockInfoHook(BlockHook):
             out('  %g Mcells/seconds/computer.\n' % (perf/npart))
             out('  %g Mvariables/seconds/computer.\n' % (perf*neq/npart))
         pf.close()
+
     def postmarch(self):
         istep = self.cse.execution.step_current
         nsteps = self.cse.execution.steps_run
         psteps = self.psteps
         if istep > 0 and psteps and istep%psteps == 0 and istep != nsteps:
             self._show_performance()
+
     def postloop(self):
         self._show_performance()
+
 
 class CollectHook(BlockHook):
     def __init__(self, cse, **kw):
@@ -425,6 +431,7 @@ class SplitMarker(BlockHook):
         else:
             cse.execution.var['domain'] = np.zeros(dom.blk.ncell, dtype='int32')
 
+
 class GroupMarker(BlockHook):
     """
     Mark each cell with the group index.
@@ -449,6 +456,7 @@ class VtkSave(BlockHook):
         self.binary = kw.pop('binary', False)
         self.cache_grid = kw.pop('cache_grid', True)
         super(VtkSave, self).__init__(cse, **kw)
+
 
 class SplitSave(VtkSave):
     """
@@ -484,6 +492,7 @@ class SplitSave(VtkSave):
                 binary=self.binary, cache_grid=self.cache_grid).write(
                 vtksfn_tmpl%iblk)
             iblk += 1
+
 
 class MarchSave(VtkSave):
     """
@@ -567,7 +576,6 @@ class MarchSave(VtkSave):
 ################################################################################
 # Vtk XML parallel writers.
 ################################################################################
-
 class PMarchSave(BlockHook):
     """
     Save the geometry and variables in a case when time marching in parallel
@@ -610,12 +618,15 @@ class PMarchSave(BlockHook):
             vdir = cse.io.basedir
         if not os.path.exists(vdir):
             os.makedirs(vdir)
+
+        self.pvdf = os.path.join(vdir, cse.io.basefn+".pvd")
         vtkfn_tmpl = basefn + "_%%0%dd"%int(math.ceil(math.log10(nsteps))+1) + '.pvtu'
         self.vtkfn_tmpl = os.path.join(vdir, kw.pop('vtkfn_tmpl', vtkfn_tmpl))
         # craft ext name template.
         npart = cse.execution.npart
         self.pextmpl = '.p%%0%dd'%int(math.ceil(math.log10(npart))+1) if npart else ''
         self.pextmpl += '.vtu'
+
     def drop_anchor(self, svr):
         basefn = os.path.splitext(self.vtkfn_tmpl)[0]
         anames = dict([(ent[0], ent[1]) for ent in self.anames])
@@ -623,6 +634,7 @@ class PMarchSave(BlockHook):
             fpdtype=self.fpdtype, psteps=self.psteps,
             vtkfn_tmpl=basefn+self.pextmpl)
         self._deliver_anchor(svr, anchor.MarchSaveAnchor, ankkw)
+
     def _write(self, istep):
         if not self.cse.execution.npart:
             return
@@ -645,23 +657,70 @@ class PMarchSave(BlockHook):
         self.info('Writing \n  %s\n... ' % vtkfn)
         wtr.write(vtkfn)
         self.info('done.\n')
+
+    def _write_pvd_head(self):
+        outf = open(self.pvdf, 'w')
+        outf.write('<?xml version="1.0"?>\n')
+        outf.write('<VTKFile type="Collection" version="0.1" \
+             byte_order="LittleEndian" compressor="vtkZLibDataCompressor">\n')
+        outf.write('  <Collection>\n')
+        outf.write('  </Collection>\n')
+        outf.write('</VTKFile>')
+        outf.close()
+
+    def _write_pvd_main(self, istep):
+        from numpy import ceil, log10
+        nsteps = self.cse.execution.steps_run
+
+        if self.cse.is_parallel:
+            sname_tmpl = os.path.splitext(self.vtkfn_tmpl)[0]+'.pvtu'
+        else:
+            sname_tmpl = os.path.splitext(self.vtkfn_tmpl)[0]+'.vtu'
+
+        sname = sname_tmpl %(istep)
+        s = '    <DataSet timestep="%f" group="" part="" file="%s"/>\n' \
+                    % (self.cse.execution.time, sname)
+        aFile = self.pvdf
+        with open(aFile) as f:
+            for i, l in enumerate(f):
+                pass
+        nline = i +1
+        
+        os.rename(aFile, aFile+"~")
+        destination = open(aFile, "w")
+        source = open(aFile+"~", "r")
+        i = 0;
+        for line in source:
+            i += 1
+            destination.write(line)
+            if i == nline-2:
+                destination.write(s)
+
+        destination.close()
+        source.close()
+        
     def preloop(self):
         self._write(0)
+        self._write_pvd_head()
+        self._write_pvd_main(0)
+        
     def postmarch(self):
         psteps = self.psteps
         istep = self.cse.execution.step_current
         if istep%psteps == 0:
             self._write(istep)
+            self._write_pvd_main(istep)
+
     def postloop(self):
         psteps = self.psteps
         istep = self.cse.execution.step_current
         if istep%psteps != 0:
             self._write(istep)
+            self._write_pvd_main(istep)
 
 ################################################################################
 # Hooks for in situ visualization.
 ################################################################################
-
 class PVtkHook(BlockHook):
     """
     Anchor dropper and wrapping PVTP file writer.  Note, fpdtype should be set
@@ -715,12 +774,14 @@ class PVtkHook(BlockHook):
         npart = cse.execution.npart
         self.pextmpl = '.p%%0%dd'%int(math.ceil(math.log10(npart))+1) if npart else ''
         self.pextmpl += '.vtp'
+
     def drop_anchor(self, svr):
         basefn = os.path.splitext(self.vtkfn_tmpl)[0]
         ankkw = self.ankkw.copy()
         ankkw.update(dict(anames=self.anames, fpdtype=self.fpdtype,
             psteps=self.psteps, vtkfn_tmpl=basefn+self.pextmpl))
         self._deliver_anchor(svr, self.ankcls, ankkw)
+
     def _write(self, istep):
         if not self.cse.execution.npart:
             return
@@ -735,19 +796,22 @@ class PVtkHook(BlockHook):
             else:
                 arrs.append((key, self.fpdtype, False))
         # write.
-        wtr = vtkxml.PVtkXmlPolyDataWriter(self.blk, fpdtype=self.fpdtype, arrs=arrs,
-            npiece=self.cse.execution.npart, pextmpl=self.pextmpl)
+        wtr = vtkxml.PVtkXmlPolyDataWriter(self.blk, fpdtype=self.fpdtype, 
+            arrs=arrs, npiece=self.cse.execution.npart, pextmpl=self.pextmpl)
         vtkfn = self.vtkfn_tmpl % istep
         self.info('Writing \n  %s\n... ' % vtkfn)
         wtr.write(vtkfn)
         self.info('done.\n')
+
     def preloop(self):
         self._write(0)
+
     def postmarch(self):
         psteps = self.psteps
         istep = self.cse.execution.step_current
         if istep%psteps == 0:
             self._write(istep)
+
     def postloop(self):
         psteps = self.psteps
         istep = self.cse.execution.step_current

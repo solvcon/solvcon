@@ -175,6 +175,8 @@ class Genesis(NetCDF):
         'TETRA': 5,
         'WEDGE': 6,
         'PYRAMID': 7,
+        ## From Pointwise
+        'TRIANGLE': 3,
     }
     def _convert_interior_to(self, blk):
         """

@@ -676,7 +676,7 @@ class CflHook(Hook):
                 xCFL, self.cflmax, istep))
         # output information.
         if istep > 0 and istep%psteps == 0:
-            info("CFL = %.2f/%.2f - %.2f/%.2f adjusted: %d/%d/%d\n" % (
+            info("CFL = %.2g/%.2g - %.2g/%.2g adjusted: %d/%d/%d\n" % (
                 nCFL, xCFL, self.hnCFL, self.hxCFL, nadj,
                 self.aadj, self.haadj))
             self.aadj = 0

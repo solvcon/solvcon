@@ -516,3 +516,52 @@ class Torque(Batch):
             return self.create_worker_torque(*args, **kw)
         else:
             return self.create_worker_ssh(*args, **kw)
+
+class Generic(Batch):
+    """
+    A generic batch system, should be compatible with all batch systems.
+    Requires environmental variable 'SOLVCON_NODELIST' to load the correct
+    nodes to be used for the parallel run.
+    """
+
+    def __init__(self, case, **kw):
+        super(Generic, self).__init__(case, **kw)
+        self._nodelist = None
+
+    def nodelist(self):
+        import os
+        from .conf import env
+        if not self._nodelist:
+            # read node file.
+            solvcon_nodelist= str(  os.environ['SOLVCON_NODELIST']  )
+            f = open( solvcon_nodelist )
+            entries = [item.strip() for item in f.readlines()]
+            f.close()
+            nodelist = [Node(entries[it], ncore=1, serial=it) for it in
+                range(len(entries))]
+            # compress nodelist.
+            if env.command != None:
+                ops, args = env.command.opargs
+                if ops.compress_nodelist:
+                    cnodelist = [nodelist[0]]
+                    for nodeitem in nodelist[1:]:
+                        cnodeitem = cnodelist[-1]
+                        if nodeitem.address == cnodeitem.address:
+                            cnodeitem.ncore += 1
+                        else:
+                            nodeitem.serial = len(cnodelist)
+                            cnodelist.append(nodeitem)
+                    nodelist = cnodelist
+            # exclude head when using MPI.
+            if env.mpi:
+                nodelist = nodelist[1:]
+            # cut nodelist.
+            self._nodelist = nodelist[:self.case.execution.npart]
+        return self._nodelist
+
+    def create_worker(self, *args, **kw):
+        from .conf import env
+        if env.mpi:
+            return self.create_worker_mpi(*args, **kw)
+        else:
+            return self.create_worker_ssh(*args, **kw)

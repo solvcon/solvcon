@@ -355,12 +355,24 @@ class NetCDF(object):
         @rtype: numpy.ndarray
         """
         from ctypes import POINTER, c_int, c_float, c_double, byref
-        from numpy import empty
+        from numpy import empty, zeros
+        from solvcon.helper import info
         # get value ID.
         varid = c_int()
         retval = self.nc_inq_varid(self.ncid, name, byref(varid))
         if retval != self.NC_NOERR:
-            raise IOError(self.nc_strerror(retval))
+            if retval == self.NC_ENOTVAR and name == "elem_map":
+                ## Quick Fix for Pointwise:
+                ## Poitwise does not provide an elem_map but as this is not
+                ## required under normal use, it should not terminate the
+                ## simulation
+                info("Could not find the elem_map variable in the mesh file\n")
+                info("Setting elem_map Array to 0\n")
+                arr = zeros(shape, dtype=dtype)
+                return arr
+            else:
+                raise IOError(self.nc_strerror(retval))
+        
         # prepare array and loader.
         arr = empty(shape, dtype=dtype)
         if dtype == 'int32':
@@ -370,7 +382,7 @@ class NetCDF(object):
         elif dtype == 'float64':
             func = self.nc_get_var_double
         else:
-            raise TypeError('now surrport only int, float, double, and char')
+            raise TypeError('now support only int, float, double, and char')
         # load array.
         retval = func(self.ncid, varid, arr.ctypes._as_parameter_)
         if retval != self.NC_NOERR:
