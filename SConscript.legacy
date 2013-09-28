@@ -39,7 +39,6 @@ for lname, extra_links in [
         ('elaslin', None), ('elaslinb', None),  # solvcon.kerpak.elaslin
         ('euler', None), ('eulerb', None),  # solvcon.kerpak.euler
         ('lincese', ['lapack', 'blas', 'gfortran']),    # solvcon.kerpak.lincese
-        ('nsbulk', None), ('nsbulkb', None),
         ]:
     for ndim in 2, 3:
         sckp.extend(env.SolvconShared([lname], lname, ndim=ndim,

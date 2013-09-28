@@ -99,11 +99,8 @@ int calc_soln(exedata *exd) {
     double usfc[NEQ];
     double fcn[NEQ][NDIM], dfcn[NEQ][NDIM];
     double jacos[NEQ][NEQ][NDIM];
-    double visc[NEQ][NDIM];
     // interators.
     int icl, ifl, inf, ifc, jcl, ieq, jeq;
-    // source indicator
-    int viscosity;
     qdt = exd->time_increment * 0.25;
     hdt = exd->time_increment * 0.5;
 #ifndef __CUDACC__
@@ -111,7 +108,7 @@ int calc_soln(exedata *exd) {
     pclfcs, pfcnds, pfccls, pjcecnd, pcecnd, pcevol, psfmrc, \
     pjsol, pdsol, pjsolt, psoln, \
     voe, fusp, futm, usfc, fcn, dfcn, jacos, \
-    icl, ifl, inf, ifc, jcl, ieq, jeq, viscosity, visc) \
+    icl, ifl, inf, ifc, jcl, ieq, jeq) \
     firstprivate(hdt, qdt)
     for (icl=0; icl<exd->ncell; icl++) {
 #else
@@ -149,13 +146,10 @@ int calc_soln(exedata *exd) {
             };
 
             // temporal flux (give space).
-            viscosity = exd->viscosity;
 #ifndef __CUDACC__
             exd->jacofunc(exd, jcl, (double *)fcn, (double *)jacos);
-            if (viscosity == 1) exd->viscfunc(exd, jcl, (double *)visc);
 #else
             cuda_calc_jaco(exd, jcl, fcn, jacos);
-            if (viscosity == 1) cuda_calc_visc(exd, jcl, visc);
 #endif
             pjsolt = exd->solt + jcl*NEQ;
             fcnnd = exd->fcnds[ifc*(FCMND+1)];
@@ -180,28 +174,12 @@ int calc_soln(exedata *exd) {
 #if NDIM == 3
                     dfcn[ieq][2] = fcn[ieq][2];
 #endif
-                    // foc
-                    if(viscosity==1 && pcecnd[0]<0.013 && pcecnd[0]>-0.013 && pcecnd[1]<0.013 && pcecnd[1]>-0.013){
-                            dfcn[ieq][0] += visc[ieq][0];
-                            dfcn[ieq][1] += visc[ieq][1];
-#if NDIM == 3  
-                            dfcn[ieq][2] += visc[ieq][2];
-#endif
-                    }
-                    else if(viscosity==2 && pcecnd[1]<0.0127) {
-                            dfcn[ieq][0] += visc[ieq][0];
-                            dfcn[ieq][1] += visc[ieq][1];
-#if NDIM == 3  
-                            dfcn[ieq][2] += visc[ieq][2];
-#endif
-                    }
                     for (jeq=0; jeq<NEQ; jeq++) {
                         dfcn[ieq][0] += jacos[ieq][jeq][0] * usfc[jeq];
                         dfcn[ieq][1] += jacos[ieq][jeq][1] * usfc[jeq];
 #if NDIM == 3
                         dfcn[ieq][2] += jacos[ieq][jeq][2] * usfc[jeq];
 #endif
-                        
                     };
                 };
                 // temporal flux.
