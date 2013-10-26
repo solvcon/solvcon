@@ -6,6 +6,7 @@ build
 scdata/
 doc/api/
 doc/source/_static/*.eps
+opt/
 tmp/
 dep/
 dist/
@@ -17,6 +18,7 @@ solvcon.log
 *.pyc
 *.o
 *.so
+*.dylib
 *.os
 *.?os
 *.pyd

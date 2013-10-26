@@ -14,7 +14,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-export SCROOT?=$(HOME)/opt/scruntime
+export SCROOT?=$(shell cd ../opt; pwd)
 export SCBIN=$(SCROOT)/bin
 export SCLIB=$(SCROOT)/lib
 export SCINC=$(SCROOT)/include
@@ -24,12 +24,17 @@ export TMPBLD=build/
 #export NP?=$(`cat /proc/cpuinfo | grep processor | wc -l`)
 export NP?=1
 
+.PHONY: default basictool basiclib pybin numlib pylib pytool \
+	scvars
+
 default: basictool basiclib pybin numlib pylib pytool mesher
 
 all: default vislib
 
+scvars: $(SCETC)/scvars.sh
+
 $(SCETC)/scvars.sh:
-	mkdir -p $(TMPBLD) $(SCBIN) $(SCLIB) $(SCETC)
+	mkdir -p $(TMPBLD) $(SCBIN) $(SCLIB) $(SCINC) $(SCETC)
 	./create-scvars.sh
 
 ################################################################################
@@ -114,15 +119,19 @@ $(SCETC)/distribute-0.6.24:
 ################################################################################
 
 numlib: $(SCETC)/scvars.sh \
-	$(SCETC)/netcdf-4.1.2 $(SCETC)/scotch_5.1.11
+	$(SCETC)/netcdf-4.1.2 scotch
+
+netcdf: $(SCETC)/scvars.sh $(SCETC)/netcdf-4.1.2
 
 $(SCETC)/netcdf-4.1.2:
 	./build-netcdf.sh netcdf-4.1.2
 	touch $(SCETC)/netcdf-4.1.2
 
-$(SCETC)/scotch_5.1.11:
-	./build-scotch.sh scotch_5.1.11
-	touch $(SCETC)/scotch_5.1.11
+scotch: $(SCETC)/scvars.sh $(SCETC)/scotch_6.0.0
+
+$(SCETC)/scotch_6.0.0:
+	./build-scotch.sh scotch_6.0.0
+	touch $(SCETC)/scotch_6.0.0
 
 ################################################################################
 # End numlib.
@@ -142,6 +151,8 @@ $(SCETC)/mercurial-2.0.2:
 	cd $(TMPBLD)/mercurial-2.0.2 && \
 		$(SCBIN)/python2.7 setup.py install > install2.7.log 2>&1
 	touch $(SCETC)/mercurial-2.0.2
+
+scons: $(SCETC)/scvars.sh $(SCETC)/scons-2.1.0
 
 $(SCETC)/scons-2.1.0:
 	cd $(TMPBLD) && tar xfz ../$(TMPDL)/scons-2.1.0.tar.gz
@@ -207,6 +218,8 @@ $(SCETC)/Sphinx-1.1.2: $(SCETC)/docutils-0.8.1 $(SCETC)/Jinja2-2.6 \
 mesher: $(SCETC)/scvars.sh \
 	$(SCETC)/gmsh-2.7.0-source
 
+gmsh: $(SCETC)/scvars.sh $(SCETC)/gmsh-2.7.0-source
+
 $(SCETC)/gmsh-2.7.0-source:
 	./build-gmsh.sh gmsh-2.7.0-source
 	touch $(SCETC)/gmsh-2.7.0-source
@@ -229,7 +242,5 @@ $(SCETC)/vtk-5.6.1:
 ################################################################################
 # End vislib.
 ################################################################################
-
-.PHONY: default basictool basiclib pybin numlib pylib pytool
 
 # vim: set ai noet nu:

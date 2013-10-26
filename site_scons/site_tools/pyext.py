@@ -112,6 +112,8 @@ def pyext_coms(platform):
 
     if platform == 'darwin':
         pyext_linkcom += ' $_FRAMEWORKPATH $_FRAMEWORKS $FRAMEWORKSFLAGS'
+        # XXX: dirty hack for OSX 10.9.
+        pyext_linkcom += ' -lpython%d.%d' % sys.version_info[:2]
 
     return pyext_cccom, pyext_cxxcom, pyext_linkcom
 

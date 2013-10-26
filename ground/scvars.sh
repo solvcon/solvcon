@@ -40,10 +40,31 @@ ldpathmunge () {
   fi
   export LD_LIBRARY_PATH
 }
+dyldpathmunge () {
+  if ! echo $DYLD_LIBRARY_PATH | egrep -q "(^|:)$1($|:)" ; then
+    if [ "$2" = "after" ] ; then
+      DYLD_LIBRARY_PATH=$DYLD_LIBRARY_PATH:$1
+    else
+      DYLD_LIBRARY_PATH=$1:$DYLD_LIBRARY_PATH
+    fi
+  fi
+  export DYLD_LIBRARY_PATH
+}
 
 pathmunge $SCROOT/bin
 manpathmunge $SCROOT/share/man
-ldpathmunge $SCROOT/lib
-ldpathmunge $SCROOT/lib/vtk-5.6
+if [ `uname` == "Darwin" ]; then
+  dyldpathmunge $SCROOT/lib
+  dyldpathmunge $SCROOT/lib/vtk-5.6
+else
+  ldpathmunge $SCROOT/lib
+  ldpathmunge $SCROOT/lib/vtk-5.6
+fi
+
+unset manpathmunge
+unset pythonpathmunge
+unset pathmunge
+unset ldpathmunge
+unset dyldpathmunge
 
 # vim: sw=2 ts=2 tw=76 et nu ft=sh:

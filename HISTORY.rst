@@ -1,3 +1,17 @@
+Version 0.1.2+
+++++++++++++++
+
+Release date: Unknown
+
+Changes:
+
+- #73 scotch build script doesn't work in OS X.
+- #74 SCons doesn't build Python extension modules.
+- #75 Change the default dependency directory (``$SCROOT``) from
+  ``$HOME/opt/scruntime`` to ``$root/opt``.
+- #77 SCons script should respect LIBPATH environment variable.
+- #78 solvcon.rpc.Dealer.bridge doesn't work for localhost in OS X
+
 Version 0.1.2
 +++++++++++++
 

@@ -29,9 +29,17 @@ mkdir -p $TMPBLD
 cd $TMPBLD
 tar xfz ../$TMPDL/$PKGNAME.tar.gz
 
+# patch.
+cd $PKGNAME
+patch -p1 < ../../scotch_darwin.patch
+
 # build.
-cd $PKGNAME/src
-cp ../../../scotch_Makefile.inc Makefile.inc
+cd src
+if [ `uname` == "Darwin" ]; then
+  cp ../../../scotch_Makefile_darwin.inc Makefile.inc
+else
+  cp ../../../scotch_Makefile.inc Makefile.inc
+fi
 make > make.log 2>&1
 cd ..
 

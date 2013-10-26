@@ -50,7 +50,7 @@ SOLVCON itself depends on the following packages:
 - `Numpy <http://www.numpy.org/>`_ 1.5+
 - `LAPACK <http://www.netlib.org/lapack/>`_
 - `NetCDF <http://www.unidata.ucar.edu/software/netcdf/index.html>`_ 4+
-- `SCOTCH <http://www.labri.fr/perso/pelegrin/scotch/>`_ 5.1+
+- `SCOTCH <http://www.labri.fr/perso/pelegrin/scotch/>`_ 6.0+
 - `Nose <https://nose.readthedocs.org/en/latest/>`_ 1.0+
 - `gmsh <http://geuz.org/gmsh/>`_ 2.5+
 - `VTK <http://vtk.org/>`_ 5.6+
@@ -75,6 +75,8 @@ On Ubuntu 12.04LTS please use:
 
 Note: For Debian 6.x (squeeze), you need also ``apt-get install
 python-profiler`` for the Python built-in profiler.
+
+SOLVCON can also run on Mac OS X 10.9.
 
 Build
 +++++

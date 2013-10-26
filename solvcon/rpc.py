@@ -447,9 +447,15 @@ class Dealer(list):
             # ask higher to accept connection.
             self[phigh].accept_peer(plow, self.family, self.authkey)
             address = self[phigh].recv()
-            if address != self[phigh].address:
+            # check for consistency of addresses between two ends.
+            if (isinstance(address, tuple) and
+                address[0] == '127.0.0.1'):
+                taddr = ('localhost', address[1])
+            else:
+                taddr = address
+            if taddr != self[phigh].address:
                 raise ValueError('%s != %s' % (
-                    str(address), str(self[phigh].address)))
+                    str(taddr), str(self[phigh].address)))
             # ask lower to make connection.
             sleep(wait_for_accept
                 if wait_for_accept!=None else self.WAIT_FOR_ACCEPT)

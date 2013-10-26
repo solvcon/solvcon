@@ -84,10 +84,17 @@ env.Append(CPPPATH=map(os.path.abspath, ['include', 'solvcon']))
 for path in [GetOption('pythonpath'), np.get_include()]:
     if path not in env['CPPPATH']:
         env.Append(CPPPATH=[path])
+env.Append(CPPPATH=[os.path.abspath('opt/include')])
 # library paths.
 if 'SCROOT' in os.environ:
     env.Append(LIBPATH=[os.path.join(os.environ['SCROOT'], 'lib')])
-env.Append(LIBPATH=[GetOption('libdir')])
+if 'LIBPATH' in os.environ:
+    libpath = [pa for pa in os.environ['LIBPATH'].split(':') if pa]
+    env.Append(LIBPATH=libpath)
+env.Append(LIBPATH=[os.path.abspath(GetOption('libdir'))])
+env.Append(LIBPATH=[os.path.abspath('opt/lib')])
+env.Append(LIBPATH=[sys.exec_prefix+'/lib'])
+os.environ['DYLD_LIBRARY_PATH'] = sys.exec_prefix+'/lib'
 # CUDA.
 env.Tool('cuda')
 env.Append(NVCCFLAGS='-arch=sm_%s'%GetOption('sm'))
