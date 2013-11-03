@@ -94,7 +94,7 @@ def blnt_base(casename=None, meshname=None,
 def blnt_skel(casename, **kw):
     return blnt_base(casename=casename, meshname='hyperblunt_t100mm.neu.gz',
         gamma=1.4, density=1.0, pressure=1.0, rkillfn='', ncuth=128,
-        steps_run=2000, ssteps=500, psteps=10, **kw)
+        steps_run=2000, steps_dump=100, ssteps=500, psteps=10, **kw)
 
 @gasdyn.GasdynCase.register_arrangement
 def blnt(casename, **kw):

@@ -396,9 +396,10 @@ class BlockCase(BaseCase):
         # unbind.
         if flag_parallel:
             for iblk in range(len(self.solver.domainobj)):
-                dealer[iblk].cmd.dump(self.io.dump.svrfntmpl % str(iblk))
+                dumpfn = self.io.dump.svrfntmpl % str(iblk)
+                dumpfn = os.path.join(self.io.basedir, dumpfn)
+                dealer[iblk].cmd.dump(dumpfn)
         else:
-            self.solver.domainobj.unbind()
             self.solver.solverobj.unbind()
             svrholds = dict()
             for key in ['mesg',]:
@@ -406,8 +407,8 @@ class BlockCase(BaseCase):
                 setattr(self.solver.solverobj, key, None)
         # pickle.
         self.solver.dealer = None
-        pickle.dump(self, open(self.io.dump.csefn, 'wb'),
-            pickle.HIGHEST_PROTOCOL)
+        dumpfn = os.path.join(self.io.basedir, self.io.dump.csefn)
+        pickle.dump(self, open(dumpfn, 'wb'), pickle.HIGHEST_PROTOCOL)
         # bind.
         if flag_parallel:
             self.solver.dealer = dealer
@@ -415,7 +416,6 @@ class BlockCase(BaseCase):
             for key in svrholds:
                 setattr(self.solver.solverobj, key, svrholds[key])
             self.solver.solverobj.bind()
-            self.solver.domainobj.bind()
 
     def cleanup(self, signum=None, frame=None):
         if self.solver.solverobj != None:
