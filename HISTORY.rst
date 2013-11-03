@@ -11,6 +11,7 @@ Changes:
   ``$HOME/opt/scruntime`` to ``$root/opt``.
 - #77 SCons script should respect LIBPATH environment variable.
 - #78 solvcon.rpc.Dealer.bridge doesn't work for localhost in OS X
+- #79 Legacy case setting steps_dump results into error
 
 Version 0.1.2
 +++++++++++++
