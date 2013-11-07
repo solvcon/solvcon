@@ -406,7 +406,7 @@ where :math:`\phi \defeq \sum_{\mu=1}^3 k_{\mu}v_{\mu}`, and :math:`\psi \defeq
    -\sqrt{\frac{Kk_3^2}{(K+\rho^3)\psi}}
   \end{array}\right)
 
-For completeness, the right orthogonal eigenvector matrix is
+For completeness, the left orthogonal eigenvector matrix is
 
 .. math::
   :label: bulk.eigvecmatright
