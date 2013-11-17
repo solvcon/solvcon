@@ -391,22 +391,25 @@ where :math:`\phi \defeq \sum_{\mu=1}^3 k_{\mu}v_{\mu}`, and :math:`\psi \defeq
 
   \mathrm{T} = \left(\begin{array}{cccc}
     0 & 0 &
-    \sqrt{\frac{\rho^3}{K+\rho^3}} & \sqrt{\frac{\rho^3}{K+\rho^3}} \\
+    \rho\sqrt{\frac{\rho}{K+\rho^3}} & \rho\sqrt{\frac{\rho}{K+\rho^3}} \\
     \frac{k_3}{\sqrt{2k_3^2+(k_1+k_2)^2}} &
-    \frac{k_3}{\sqrt{2k_3^2+(k_1-k_2)^2}} &
-    \sqrt{\frac{Kk_1^2}{(K+\rho^3)\psi}} &
-   -\sqrt{\frac{Kk_1^2}{(K+\rho^3)\psi}} \\
+    \frac{k_2(k_1+k_2)+k_3^2}
+         {\sqrt{(2k_1k_2+k_3^2+\psi)\psi}} &
+    k_1\sqrt{\frac{K}{(K+\rho^3)\psi}} &
+   -k_1\sqrt{\frac{K}{(K+\rho^3)\psi}} \\
     \frac{k_3}{\sqrt{2k_3^2+(k_1+k_2)^2}} &
-   -\frac{k_3}{\sqrt{2k_3^2+(k_1-k_2)^2}} &
-    \sqrt{\frac{Kk_2^2}{(K+\rho^3)\psi}} &
-   -\sqrt{\frac{Kk_2^2}{(K+\rho^3)\psi}} \\
+   -\frac{k_1(k_1+k_2)+k_3^2}
+         {\sqrt{(2k_1k_2+k_3^2+\psi)\psi}} &
+    k_2\sqrt{\frac{K}{(K+\rho^3)\psi}} &
+   -k_2\sqrt{\frac{K}{(K+\rho^3)\psi}} \\
    -\frac{k_1+k_2}{\sqrt{2k_3^2+(k_1+k_2)^2}} &
-   -\frac{k_1-k_2}{\sqrt{2k_3^2+(k_1-k_2)^2}} &
-    \sqrt{\frac{Kk_3^2}{(K+\rho^3)\psi}} &
-   -\sqrt{\frac{Kk_3^2}{(K+\rho^3)\psi}}
+   -\frac{k_3(k_1-k_2)}
+         {\sqrt{(2k_1k_2+k_3^2+\psi)\psi}} &
+    k_3\sqrt{\frac{K}{(K+\rho^3)\psi}} &
+   -k_3\sqrt{\frac{K}{(K+\rho^3)\psi}}
   \end{array}\right)
 
-For completeness, the left orthogonal eigenvector matrix is
+For completeness, the left eigenvector matrix is
 
 .. math::
   :label: bulk.eigvecmatright
@@ -417,17 +420,20 @@ For completeness, the left orthogonal eigenvector matrix is
     \frac{k_3}{\sqrt{2k_3^2+(k_1+k_2)^2}} &
    -\frac{k_1+k_2}{\sqrt{2k_3^2+(k_1+k_2)^2}} \\
     0 &
-    \frac{k_3}{\sqrt{2k_3^2+(k_1-k_2)^2}} &
-   -\frac{k_3}{\sqrt{2k_3^2+(k_1-k_2)^2}} &
-   -\frac{k_1-k_2}{\sqrt{2k_3^2+(k_1-k_2)^2}} \\
-    \sqrt{\frac{\rho^3}{K+\rho^3}} &
-    \sqrt{\frac{Kk_1^2}{(K+\rho^3)\psi}} &
-    \sqrt{\frac{Kk_2^2}{(K+\rho^3)\psi}} &
-    \sqrt{\frac{Kk_3^2}{(K+\rho^3)\psi}} \\
-    \sqrt{\frac{\rho^3}{K+\rho^3}} &
-   -\sqrt{\frac{Kk_1^2}{(K+\rho^3)\psi}} &
-   -\sqrt{\frac{Kk_2^2}{(K+\rho^3)\psi}} &
-   -\sqrt{\frac{Kk_3^2}{(K+\rho^3)\psi}}
+    \frac{k_2(k_1+k_2)+k_3^2}
+         {\sqrt{(2k_1k_2+k_3^2+\psi)\psi}} &
+   -\frac{k_1(k_1+k_2)+k_3^2}
+         {\sqrt{(2k_1k_2+k_3^2+\psi)\psi}} &
+   -\frac{k_3(k_1-k_2)}
+         {\sqrt{(2k_1k_2+k_3^2+\psi)\psi}} \\
+    \rho\sqrt{\frac{\rho}{K+\rho^3}} &
+    k_1\sqrt{\frac{K}{(K+\rho^3)\psi}} &
+    k_2\sqrt{\frac{K}{(K+\rho^3)\psi}} &
+    k_3\sqrt{\frac{K}{(K+\rho^3)\psi}} \\
+    \rho\sqrt{\frac{\rho}{K+\rho^3}} &
+   -k_1\sqrt{\frac{Kk_1}{(K+\rho^3)\psi}} &
+   -k_2\sqrt{\frac{Kk_2}{(K+\rho^3)\psi}} &
+   -k_3\sqrt{\frac{Kk_3}{(K+\rho^3)\psi}}
   \end{array}\right)
 
 Riemann Invariants
