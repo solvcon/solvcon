@@ -384,56 +384,31 @@ polynomial equation :math:`\det(\tilde{\mathrm{R}} -
                          \phi-\sqrt{\frac{K\psi}{\rho}}
 
 where :math:`\phi \defeq \sum_{\mu=1}^3 k_{\mu}v_{\mu}`, and :math:`\psi \defeq
-\sum_{\mu=1}^3 k_{\mu}^2`.  The corresponding orthogonal eigenvector matrix is
+\sum_{\mu=1}^3 k_{\mu}^2`.  The corresponding eigenvector matrix is
 
 .. math::
   :label: bulk.eigvecmat
 
   \mathrm{T} = \left(\begin{array}{cccc}
     0 & 0 &
-    \rho\sqrt{\frac{\rho}{K+\rho^3}} & \rho\sqrt{\frac{\rho}{K+\rho^3}} \\
-    \frac{k_3}{\sqrt{2k_3^2+(k_1+k_2)^2}} &
-    \frac{k_2(k_1+k_2)+k_3^2}
-         {\sqrt{(2k_1k_2+k_3^2+\psi)\psi}} &
-    k_1\sqrt{\frac{K}{(K+\rho^3)\psi}} &
-   -k_1\sqrt{\frac{K}{(K+\rho^3)\psi}} \\
-    \frac{k_3}{\sqrt{2k_3^2+(k_1+k_2)^2}} &
-   -\frac{k_1(k_1+k_2)+k_3^2}
-         {\sqrt{(2k_1k_2+k_3^2+\psi)\psi}} &
-    k_2\sqrt{\frac{K}{(K+\rho^3)\psi}} &
-   -k_2\sqrt{\frac{K}{(K+\rho^3)\psi}} \\
-   -\frac{k_1+k_2}{\sqrt{2k_3^2+(k_1+k_2)^2}} &
-   -\frac{k_3(k_1-k_2)}
-         {\sqrt{(2k_1k_2+k_3^2+\psi)\psi}} &
-    k_3\sqrt{\frac{K}{(K+\rho^3)\psi}} &
-   -k_3\sqrt{\frac{K}{(K+\rho^3)\psi}}
+    \sqrt{\frac{\rho^3\psi}{K}} & \sqrt{\frac{\rho^3\psi}{K}} \\
+    k_3 &  0   & k_1 & -k_1 \\
+    0   &  k_3 & k_2 & -k_2 \\
+   -k_1 & -k_2 & k_3 & -k_3
   \end{array}\right)
 
-For completeness, the left eigenvector matrix is
+The left eigenvector matrix is
 
 .. math::
   :label: bulk.eigvecmatright
 
-  \mathrm{T}^{-1} = \mathrm{T}^t = \left(\begin{array}{cccc}
-    0 &
-    \frac{k_3}{\sqrt{2k_3^2+(k_1+k_2)^2}} &
-    \frac{k_3}{\sqrt{2k_3^2+(k_1+k_2)^2}} &
-   -\frac{k_1+k_2}{\sqrt{2k_3^2+(k_1+k_2)^2}} \\
-    0 &
-    \frac{k_2(k_1+k_2)+k_3^2}
-         {\sqrt{(2k_1k_2+k_3^2+\psi)\psi}} &
-   -\frac{k_1(k_1+k_2)+k_3^2}
-         {\sqrt{(2k_1k_2+k_3^2+\psi)\psi}} &
-   -\frac{k_3(k_1-k_2)}
-         {\sqrt{(2k_1k_2+k_3^2+\psi)\psi}} \\
-    \rho\sqrt{\frac{\rho}{K+\rho^3}} &
-    k_1\sqrt{\frac{K}{(K+\rho^3)\psi}} &
-    k_2\sqrt{\frac{K}{(K+\rho^3)\psi}} &
-    k_3\sqrt{\frac{K}{(K+\rho^3)\psi}} \\
-    \rho\sqrt{\frac{\rho}{K+\rho^3}} &
-   -k_1\sqrt{\frac{Kk_1}{(K+\rho^3)\psi}} &
-   -k_2\sqrt{\frac{Kk_2}{(K+\rho^3)\psi}} &
-   -k_3\sqrt{\frac{Kk_3}{(K+\rho^3)\psi}}
+  \mathrm{T}^{-1} = \left(\begin{array}{cccc}
+    0 & -\frac{k_1^2-\psi}{k_3\psi} & -\frac{k_1k_2}{k_3\psi} & -\frac{k_1}{\psi} \\
+    0 & -\frac{k_1k_2}{k_3\psi} & -\frac{k_2^2-\psi}{k_3\psi} & -\frac{k_2}{\psi} \\
+    \frac{1}{2\sqrt{\frac{\rho^3\psi}{K}}} &
+    \frac{k_1}{2\psi} &  \frac{k_2}{2\psi} &  \frac{k_3}{2\psi} \\
+    \frac{1}{2\sqrt{\frac{\rho^3\psi}{K}}} &
+   -\frac{k_1}{2\psi} & -\frac{k_2}{2\psi} & -\frac{k_3}{2\psi}
   \end{array}\right)
 
 Riemann Invariants
@@ -464,18 +439,40 @@ Pre-multiplying Eq. :eq:`bulk.ge.qlncsv1d` with :math:`\mathrm{T}^{-1}` gives
   \mathrm{T}^{-1}\dpd{\tilde{\bvec{u}}}{t}
   + \mathrm{\Lambda}\mathrm{T}^{-1}\dpd{\tilde{\bvec{u}}}{y} = 0
 
-If we can find characteristic variables :math:`\hat{\bvec{u}}` such that
+Define the characteristic variables
+
+.. math::
+  :label: bulk.chvar
+
+  \hat{\bvec{u}} \defeq \left(\begin{array}{c}
+   -\frac{k_1^2-\psi}{k_3\psi}v_1 - \frac{k_1k_2}{k_3\psi}v_2 - \frac{k_1}{\psi}v_3 \\
+   -\frac{k_1k_2}{k_3\psi}v_1 - \frac{k_2^2-\psi}{k_3\psi}v_2 - \frac{k_2}{\psi}v_3 \\
+   -\sqrt{\frac{K}{\rho\psi}} + \frac{k_1}{2\psi}v_1 + \frac{k_2}{2\psi}v_2 + \frac{k_3}{2\psi}v_3 \\
+   -\sqrt{\frac{K}{\rho\psi}} - \frac{k_1}{2\psi}v_1 - \frac{k_2}{2\psi}v_2 - \frac{k_3}{2\psi}v_3
+  \end{array}\right)
+
+such that
 
 .. math::
 
   \mathrm{T}^{-1} = \dpd{\hat{\bvec{u}}}{\tilde{\bvec{u}}}
 
-then aided by the chain rule, we can write
+Then aided by the chain rule, we can write
 
 .. math::
   :label: bulk.ge.char
 
   \dpd{\hat{\bvec{u}}}{t} + \mathrm{\Lambda}\dpd{\hat{\bvec{u}}}{y} = 0
+
+The governing equations are completely decoupled as
+
+.. math::
+  :label: bulk.ge.char.decouple
+
+  &\dpd{\hat{u}_1}{t} + \lambda_1\dpd{\hat{u}_1}{y} = 0 \\
+  &\dpd{\hat{u}_2}{t} + \lambda_2\dpd{\hat{u}_2}{y} = 0 \\
+  &\dpd{\hat{u}_3}{t} + \lambda_3\dpd{\hat{u}_3}{y} = 0 \\
+  &\dpd{\hat{u}_4}{t} + \lambda_4\dpd{\hat{u}_4}{y} = 0
 
 The components of :math:`\hat{\bvec{u}}` are the Riemann invariants.
 
