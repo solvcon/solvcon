@@ -27,7 +27,8 @@ framework to house various solvers.  The design of SOLVCON is discussed in
 - Ask questions in our `mailing list
   <http://groups.google.com/group/solvcon>`__: solvcon@googlegroups.com
 
-.. include:: ../../INSTALL.rst
+.. include:: ../../README.rst
+  :start-line: 10
 
 Documentation
 =============

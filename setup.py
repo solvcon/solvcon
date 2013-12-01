@@ -103,7 +103,7 @@ def main():
         maintainer_email='yyc@solvcon.net',
         author_email='yyc@solvcon.net',
         description='Solvers of Conservation Laws',
-        long_description=solvcon.__doc__+'\n\n'+open('INSTALL.rst').read(),
+        long_description=''.join(open('README.rst').readlines()[4:]),
         license='BSD',
         url='http://solvcon.net/',
         download_url='http://bitbucket.org/yungyuc/solvcon/downloads/',
