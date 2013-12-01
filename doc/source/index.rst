@@ -56,6 +56,7 @@ Application Reference
   :maxdepth: 2
 
   app_linear
+  app_bulk
 
 Development Support
 +++++++++++++++++++

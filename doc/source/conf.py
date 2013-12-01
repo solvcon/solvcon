@@ -193,7 +193,9 @@ latex_elements = {
     'preamble': r'''\usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{commath}
-\newcommand{\bvec}[1]{\ensuremath{\mathbf{#1}}}'''
+\newcommand{\bvec}[1]{\ensuremath{\mathbf{#1}}}
+\newcommand{\defeq}{\ensuremath{\buildrel {\text{def}}\over{=}}} 
+'''
 }
 pngmath_latex_preamble = latex_elements['preamble']
 
