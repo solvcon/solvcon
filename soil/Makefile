@@ -14,7 +14,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-export SCROOT?=$(HOME)/opt/scruntime
+export SCROOT?=$(shell cd ../opt; pwd)
 export SCBIN=$(SCROOT)/bin
 export SCETC=$(SCROOT)/etc
 export TMPDL=downloaded/

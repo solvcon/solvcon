@@ -41,22 +41,6 @@ Programming Language :: Python
 Topic :: Scientific/Engineering
 Topic :: Software Development :: Libraries :: Application Frameworks"""
 
-def write_readme():
-    import solvcon
-    readme_new = ''.join([
-        """|build_status|
-
-.. |build_status| image:: https://drone.io/bitbucket.org/solvcon/solvcon/status.png
-""",
-        solvcon.__doc__, "\n.. vim: set ft=rst ff=unix fenc=utf8:"])
-    f = open('README.rst', 'r')
-    readme_old = f.read()
-    f.close()
-    if readme_new != readme_old:
-        f = open('README.rst', 'w')
-        f.write(readme_new)
-        f.close()
-
 def make_extension(name, c_subdirs, include_dirs=None, libraries=None):
     import os
     from glob import glob
@@ -84,8 +68,6 @@ def main():
     from glob import glob
     from numpy.distutils.core import setup
     import solvcon
-
-    write_readme()
 
     data_files = list()
     # includes.
@@ -121,7 +103,7 @@ def main():
         maintainer_email='yyc@solvcon.net',
         author_email='yyc@solvcon.net',
         description='Solvers of Conservation Laws',
-        long_description=solvcon.__doc__,
+        long_description=solvcon.__doc__+'\n\n'+open('INSTALL.rst').read(),
         license='BSD',
         url='http://solvcon.net/',
         download_url='http://bitbucket.org/yungyuc/solvcon/downloads/',
