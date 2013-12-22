@@ -456,9 +456,10 @@ class Dealer(list):
             saddr = self[phigh].address
             if (isinstance(saddr, tuple) and
                 saddr[0] == '127.0.0.1'):
-                saddr = ('localhost', address[1])
-            if taddr != self[phigh].address:
-                raise ValueError('%s != %s' % (str(taddr), str(saddr)))
+                saddr = ('localhost', saddr[1]) 
+            if taddr != saddr:
+                raise ValueError('%s != %s' % (
+                    str(address), str(self[phigh].address)))
             # ask lower to make connection.
             sleep(wait_for_accept
                 if wait_for_accept!=None else self.WAIT_FOR_ACCEPT)
