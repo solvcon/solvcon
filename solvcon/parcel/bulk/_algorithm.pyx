@@ -41,6 +41,12 @@ cdef extern:
     void sc_bulk_prepare_sf_3d(sc_mesh_t *msd, sc_bulk_algorithm_t *alg)
     void sc_bulk_prepare_sf_2d(sc_mesh_t *msd, sc_bulk_algorithm_t *alg)
     # utility calculators.
+    void sc_bulk_process_physics_2d(sc_mesh_t *msd, sc_bulk_algorithm_t *alg,
+        double gasconst, double *vel, double *vor, double *vorm, double *rho,
+        double *pre, double *sos, double *mac)
+    void sc_bulk_process_physics_3d(sc_mesh_t *msd, sc_bulk_algorithm_t *alg,
+        double gasconst, double *vel, double *vor, double *vorm, double *rho,
+        double *pre, double *sos, double *mac)
     # algorithm calculators.
     void sc_bulk_calc_cfl_2d(sc_mesh_t *msd, sc_bulk_algorithm_t *alg)
     void sc_bulk_calc_cfl_3d(sc_mesh_t *msd, sc_bulk_algorithm_t *alg)
@@ -50,6 +56,15 @@ cdef extern:
     void sc_bulk_calc_soln_3d(sc_mesh_t *msd, sc_bulk_algorithm_t *alg)
     void sc_bulk_calc_dsoln_2d(sc_mesh_t *msd, sc_bulk_algorithm_t *alg)
     void sc_bulk_calc_dsoln_3d(sc_mesh_t *msd, sc_bulk_algorithm_t *alg)
+    # boundary-condition treaters.
+    void sc_bulk_bound_nonrefl_soln_2d(
+        sc_mesh_t *msd, sc_bulk_algorithm_t *alg, int nbnd, int *facn)
+    void sc_bulk_bound_nonrefl_soln_3d(
+        sc_mesh_t *msd, sc_bulk_algorithm_t *alg, int nbnd, int *facn)
+    void sc_bulk_bound_nonrefl_dsoln_2d(
+        sc_mesh_t *msd, sc_bulk_algorithm_t *alg, int nbnd, int *facn)
+    void sc_bulk_bound_nonrefl_dsoln_3d(
+        sc_mesh_t *msd, sc_bulk_algorithm_t *alg, int nbnd, int *facn)
 
 cdef extern from "stdlib.h":
     void* malloc(size_t size)
@@ -167,5 +182,21 @@ cdef class BulkAlgorithm(Mesh):
             sc_bulk_calc_dsoln_3d(self._msd, self._alg)
         else:
             sc_bulk_calc_dsoln_2d(self._msd, self._alg)
+
+    def bound_nonrefl_soln(self, cnp.ndarray[int, ndim=2, mode="c"] facn):
+        if self._msd.ndim == 3:
+            sc_bulk_bound_nonrefl_soln_3d(self._msd, self._alg,
+                facn.shape[0], &facn[0,0])
+        else:
+            sc_bulk_bound_nonrefl_soln_2d(self._msd, self._alg,
+                facn.shape[0], &facn[0,0])
+
+    def bound_nonrefl_dsoln(self, cnp.ndarray[int, ndim=2, mode="c"] facn):
+        if self._msd.ndim == 3:
+            sc_bulk_bound_nonrefl_dsoln_3d(self._msd, self._alg,
+                facn.shape[0], &facn[0,0])
+        else:
+            sc_bulk_bound_nonrefl_dsoln_2d(self._msd, self._alg,
+                facn.shape[0], &facn[0,0])
 
 # vim: set fenc=utf8 ft=pyrex ff=unix ai et sw=4 ts=4 tw=79:

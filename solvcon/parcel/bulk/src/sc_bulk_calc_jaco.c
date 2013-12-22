@@ -32,6 +32,7 @@
 
 #include "mesh.h"
 #include "_algorithm.h"
+#include "_algorithm_src.h"
 
 #define _TINY 1.e-60
 

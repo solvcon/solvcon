@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008, Yung-Yu Chen <yyc@solvcon.net>
+ * Copyright (C) 2013 Po-Hsien Lin <lin.880@buckeyemail.osu.edu>.
  *
  * All rights reserved.
  *
@@ -34,15 +34,17 @@
 #include "_algorithm.h"
 #include "_algorithm_src.h"
 
+#define _TINY 1.e-60
+
 #undef NDIM
 #define NDIM 2
 #undef NEQ
 #define NEQ 3
-#include "sc_bulk_calc_soln.c_body"
+#include "sc_bulk_calc_stm.c_body"
 #undef NDIM
 #define NDIM 3
 #undef NEQ
 #define NEQ 4
-#include "sc_bulk_calc_soln.c_body"
+#include "sc_bulk_calc_stm.c_body"
 
 // vim: set ts=4 et:

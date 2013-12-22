@@ -13,25 +13,31 @@ equation
 .. math::
   :label: bulk.comass
 
-  \dpd{\rho}{t} + \sum_{\mu=1}^3 \dpd{\rho v_{\mu}}{x_{\mu}} = 0
+  \dpd{\rho}{t} + \sum_{i=1}^3 \dpd{\rho v_i}{x_i} = 0
 
 and the momentum equations
 
 .. math::
   :label: bulk.comomentum
 
-  \dpd{\rho v_{\nu}}{t}
-  + \sum_{\mu=1}^3 \dpd{(\rho v_{\nu}v_{\mu} + \delta_{\nu\mu}p)}
-                       {x_{\mu}} = 0, \quad \nu = 1, 2, 3
+  \dpd{\rho v_j}{t}
+  + \sum_{i=1}^3 \dpd{(\rho v_iv_j + \delta_{ij}p)}{x_i}
+  = \dpd{}{x_j}\left(\lambda\sum_{k=1}^3\dpd{v_k}{x_k}\right)
+  + \sum_{i=1}^3 \dpd{}{x_i}
+                 \left[\mu \left( \dpd{v_i}{x_j}+\dpd{v_j}{x_i} \right)\right],
+                 \quad j = 1, 2, 3
 
 where :math:`\rho` is the density, :math:`v_1, v_2,` and :math:`v_3` the
 Cartesian component of the velocity, :math:`p` the pressure,
-:math:`\delta_{\nu\mu}, \nu,\mu = 1, 2, 3` the Kronecker delta, :math:`t` the
-time, and :math:`x_1, x_2`, and :math:`x_3` the Cartesian coordinate axes.  The
-above four equations have five independent variables :math:`\rho, p, v_1, v_2`,
-and :math:`v_3`, and hence are not closed without a constitutive relation.  In
-the :py:mod:`~.bulk` package, the constitutive relation (or the equation of
-state) of choice is
+:math:`\delta_{ij}, i, j = 1, 2, 3` the Kronecker delta, :math:`\lambda`
+the second viscosity coefficien, :math:`\mu` the dynamic viscosity coefficient,
+:math:`t` the time, and :math:`x_1, x_2`, and :math:`x_3` the Cartesian
+coordinate axes.  Newtonian fluid is assumed.
+
+The above four equations in Eqs. :eq:`bulk.comass` and :eq:`bulk.comomentum`
+have five independent variables :math:`\rho, p, v_1, v_2`, and :math:`v_3`, and
+hence are not closed without a constitutive relation.  In the :py:mod:`~.bulk`
+package, the constitutive relation (or the equation of state) of choice is
 
 .. math::
 
@@ -52,15 +58,20 @@ where :math:`p_0` and :math:`\rho_0` are constants.  Substituting Eq.
 .. math::
   :label: bulk.comomentum_eos
 
-  \dpd{\rho v_{\nu}}{t} + \sum_{\mu=1}^3\dpd{}{x_{\mu}}
-  \left[\rho v_{\nu}v_{\mu}
-      + \delta_{\nu\mu}\left(p_0 + K\ln\frac{\rho}{\rho_0}\right)
-  \right] = 0, \quad \nu = 1, 2, 3
+  \dpd{\rho v_j}{t} + \sum_{i=1}^3\dpd{}{x_i}
+  \left[\rho v_iv_j
+      + \delta_{ij}\left(p_0 + K\ln\frac{\rho}{\rho_0}\right) \right]
+  = \sum_{i=1}^3 \dpd{}{x_i}
+                 \left[\delta_{ij} \lambda \sum_{k=1}^3 \dpd{v_k}{x_k}
+                     + \mu \left( \dpd{v_i}{x_j}+\dpd{v_j}{x_i} \right)\right],
+                 \quad j = 1, 2, 3
 
 Jacobian Matrices
 +++++++++++++++++
 
-Define the conservation variables
+We proceed to analyze the advective part of the governing equations (Eqs.
+:eq:`bulk.comass` and :eq:`bulk.comomentum_eos`).  Define the conservation
+variables
 
 .. math::
   :label: bulk.csvar
@@ -90,7 +101,7 @@ and flux functions
   \end{array}\right)
 
 Aided by the definition of conservation variables in Eq. :eq:`bulk.csvar`, the
-flux functions defined in Eq.  :eq:`bulk.fluxf` can be rewritten with
+flux functions defined in Eq. :eq:`bulk.fluxf` can be rewritten with
 :math:`u_1, u_2, u_3`, and :math:`u_4`
 
 .. math::
@@ -111,14 +122,13 @@ flux functions defined in Eq.  :eq:`bulk.fluxf` can be rewritten with
     \frac{u_4^2}{u_1} + K\ln\frac{u_1}{\rho_0} + p_0
   \end{array}\right)
 
-By using Eq. :eq:`bulk.csvar` and Eq. :eq:`bulk.fluxfu`, the governing
-equations, Eqs. :eq:`bulk.comass` and :eq:`bulk.comomentum_eos`, can be cast
-into the conservative form
+By using Eq. :eq:`bulk.csvar` and Eq. :eq:`bulk.fluxfu`, the left-hand-side of
+the governing equations can be cast into the conservative form
 
 .. math::
   :label: bulk.ge.csv
 
-  \dpd{\bvec{u}}{t} + \sum_{\mu=1}^3\dpd{\bvec{f}^{(\mu)}}{x_{\mu}} = 0
+  \dpd{\bvec{u}}{t} + \sum_{i=1}^3\dpd{\bvec{f}^{(i)}}{x_i} = 0
 
 Aided by using the chain rule, Eq. :eq:`bulk.ge.csv` can be rewritten in the
 quasi-linear form
@@ -126,7 +136,7 @@ quasi-linear form
 .. math::
   :label: bulk.ge.qlcsv
 
-  \dpd{\bvec{u}}{t} + \sum_{\mu=1}^3\mathrm{A}^{(\mu)}\dpd{\bvec{u}}{x_{\mu}} = 0
+  \dpd{\bvec{u}}{t} + \sum_{i=1}^3\mathrm{A}^{(i)}\dpd{\bvec{u}}{x_i} = 0
 
 where the Jacobian matrices :math:`\mathrm{A}^{(1)}, \mathrm{A}^{(2)}`, and
 :math:`\mathrm{A}^{(3)}` are defined as
@@ -134,16 +144,16 @@ where the Jacobian matrices :math:`\mathrm{A}^{(1)}, \mathrm{A}^{(2)}`, and
 .. math::
   :label: bulk.jacogen
 
-  \mathrm{A}^{(\mu)} \defeq \left(\begin{array}{cccc}
-    \pd{f_1^{(\mu)}}{u_1} & \pd{f_1^{(\mu)}}{u_2} &
-    \pd{f_1^{(\mu)}}{u_3} & \pd{f_1^{(\mu)}}{u_4} \\
-    \pd{f_2^{(\mu)}}{u_1} & \pd{f_2^{(\mu)}}{u_2} &
-    \pd{f_2^{(\mu)}}{u_3} & \pd{f_2^{(\mu)}}{u_4} \\
-    \pd{f_3^{(\mu)}}{u_1} & \pd{f_3^{(\mu)}}{u_2} &
-    \pd{f_3^{(\mu)}}{u_3} & \pd{f_3^{(\mu)}}{u_4} \\
-    \pd{f_4^{(\mu)}}{u_1} & \pd{f_4^{(\mu)}}{u_2} &
-    \pd{f_4^{(\mu)}}{u_3} & \pd{f_4^{(\mu)}}{u_4}
-  \end{array}\right), \quad \mu = 1, 2, 3
+  \mathrm{A}^{(i)} \defeq \left(\begin{array}{cccc}
+    \pd{f_1^{(i)}}{u_1} & \pd{f_1^{(i)}}{u_2} &
+    \pd{f_1^{(i)}}{u_3} & \pd{f_1^{(i)}}{u_4} \\
+    \pd{f_2^{(i)}}{u_1} & \pd{f_2^{(i)}}{u_2} &
+    \pd{f_2^{(i)}}{u_3} & \pd{f_2^{(i)}}{u_4} \\
+    \pd{f_3^{(i)}}{u_1} & \pd{f_3^{(i)}}{u_2} &
+    \pd{f_3^{(i)}}{u_3} & \pd{f_3^{(i)}}{u_4} \\
+    \pd{f_4^{(i)}}{u_1} & \pd{f_4^{(i)}}{u_2} &
+    \pd{f_4^{(i)}}{u_3} & \pd{f_4^{(i)}}{u_4}
+  \end{array}\right), \quad i = 1, 2, 3
 
 Aided by using Eq. :eq:`bulk.fluxfu`, the Jacobian matrices defined in Eq.
 :eq:`bulk.jacogen` can be written out as
@@ -261,7 +271,7 @@ Pre-multiplying :math:`\pd{\tilde{\bvec{u}}}{\bvec{u}}` to Eq.
   :label: bulk.ge.qlncsv
 
   \dpd{\tilde{\bvec{u}}}{t} +
-  \sum_{\mu=1}^3\tilde{\mathrm{A}}^{(\mu)}\dpd{\tilde{\bvec{u}}}{x_{\mu}} = 0
+  \sum_{i=1}^3\tilde{\mathrm{A}}^{(i)}\dpd{\tilde{\bvec{u}}}{x_i} = 0
 
 where
 
@@ -334,12 +344,12 @@ Jacobian matrices :math:`\tilde{\mathrm{A}}^{(1)}`,
 .. math::
   :label: bulk.jaco.ncsvar.lc
 
-  \tilde{\mathrm{R}} \defeq \sum_{\mu=1}^3 k_{\mu}\tilde{\mathrm{A}}^{(\mu)}
+  \tilde{\mathrm{R}} \defeq \sum_{i=1}^3 k_i\tilde{\mathrm{A}}^{(i)}
   = \left(\begin{array}{cccc}
-    \sum_{\mu=1}^3 k_{\mu}v_{\mu} & k_1\rho & k_2\rho & k_3\rho \\
-    \frac{k_1K}{\rho^2} & \sum_{\mu=1}^3 k_{\mu}v_{\mu} & 0 & 0 \\
-    \frac{k_2K}{\rho^2} & 0 & \sum_{\mu=1}^3 k_{\mu}v_{\mu} & 0 \\
-    \frac{k_3K}{\rho^2} & 0 & 0 & \sum_{\mu=1}^3 k_{\mu}v_{\mu}
+    \sum_{i=1}^3 k_iv_i & k_1\rho & k_2\rho & k_3\rho \\
+    \frac{k_1K}{\rho^2} & \sum_{i=1}^3 k_iv_i & 0 & 0 \\
+    \frac{k_2K}{\rho^2} & 0 & \sum_{i=1}^3 k_iv_i & 0 \\
+    \frac{k_3K}{\rho^2} & 0 & 0 & \sum_{i=1}^3 k_iv_i
   \end{array}\right)
 
 where :math:`k_1, k_2`, and :math:`k_3` are real and bounded.
@@ -358,18 +368,18 @@ where
 .. math::
   :label: bulk.ge.y1d
 
-  y \defeq \sum_{\mu=1}^3 k_{\mu}x_{\mu}
+  y \defeq \sum_{i=1}^3 k_ix_i
 
 and aided by Eq. :eq:`bulk.jaco.ncsvar.lc` and the chain rule
 
 .. math::
 
-  \sum_{\mu=1}^3 \tilde{\mathrm{A}}^{(\mu)}
-                 \dpd{\tilde{\bvec{u}}}{x_{\mu}} =
-  \sum_{\mu=1}^3 \tilde{\mathrm{A}}^{(\mu)}
-                 \dpd{\tilde{\bvec{u}}}{y} \dpd{y}{x_{\mu}} =
-  \sum_{\mu=1}^3 k_{\mu} \tilde{\mathrm{A}}^{(\mu)}
-                 \dpd{\tilde{\bvec{u}}}{y} =
+  \sum_{i=1}^3 \tilde{\mathrm{A}}^{(i)}
+               \dpd{\tilde{\bvec{u}}}{x_i} =
+  \sum_{i=1}^3 \tilde{\mathrm{A}}^{(i)}
+               \dpd{\tilde{\bvec{u}}}{y} \dpd{y}{x_i} =
+  \sum_{i=1}^3 k_{i} \tilde{\mathrm{A}}^{(i)}
+               \dpd{\tilde{\bvec{u}}}{y} =
   \tilde{\mathrm{R}}\dpd{\tilde{\bvec{u}}}{y}
 
 The eigenvalues of :math:`\tilde{\mathrm{R}}` can be found by solving the
@@ -383,8 +393,8 @@ polynomial equation :math:`\det(\tilde{\mathrm{R}} -
                          \phi+\sqrt{\frac{K\psi}{\rho}},
                          \phi-\sqrt{\frac{K\psi}{\rho}}
 
-where :math:`\phi \defeq \sum_{\mu=1}^3 k_{\mu}v_{\mu}`, and :math:`\psi \defeq
-\sum_{\mu=1}^3 k_{\mu}^2`.  The corresponding eigenvector matrix is
+where :math:`\phi \defeq \sum_{i=1}^3 k_iv_i`, and :math:`\psi \defeq
+\sum_{i=1}^3 k_i^2`.  The corresponding eigenvector matrix is
 
 .. math::
   :label: bulk.eigvecmat
@@ -414,8 +424,8 @@ The left eigenvector matrix is
 Riemann Invariants
 ++++++++++++++++++
 
-Aided by Eq. :eq:`bulk.eigvecmat`, :math:`\tilde{\mathrm{R}}` can be
-diagonalized as
+Aided by Eqs. :eq:`bulk.eigvecmat` and :eq:`bulk.eigvecmatright`,
+:math:`\tilde{\mathrm{R}}` can be diagonalized as
 
 .. math::
   :label: bulk.eigvalmat
@@ -432,7 +442,10 @@ diagonalized as
     0 & 0 & 0 & \phi - \sqrt{\frac{K\psi}{\rho}}
   \end{array}\right) = \mathrm{T}^{-1}\tilde{\mathrm{R}}\mathrm{T}
 
-Pre-multiplying Eq. :eq:`bulk.ge.qlncsv1d` with :math:`\mathrm{T}^{-1}` gives
+Equation :eq:`bulk.eigvalmat` defines the eigenvalue matrix of
+:math:`\tilde{\mathrm{R}}`.  Aach element in the diagonal of the eigenvalue
+matrix is the eigenvalue listed in Eq. :eq:`bulk.eigval`.  Pre-multiplying Eq.
+:eq:`bulk.ge.qlncsv1d` with :math:`\mathrm{T}^{-1}` gives
 
 .. math::
 
@@ -464,27 +477,55 @@ Then aided by the chain rule, we can write
 
   \dpd{\hat{\bvec{u}}}{t} + \mathrm{\Lambda}\dpd{\hat{\bvec{u}}}{y} = 0
 
-The governing equations are completely decoupled as
+The components of :math:`\hat{\bvec{u}}` defined in :eq:`bulk.chvar` are the
+Riemann invariants.
+
+Diffusion Term Treatment
+========================
+
+The momentum equation (Eq. :eq:`bulk.comomentum_eos`) contains the diffusion
+term
 
 .. math::
-  :label: bulk.ge.char.decouple
 
-  &\dpd{\hat{u}_1}{t} + \lambda_1\dpd{\hat{u}_1}{y} = 0 \\
-  &\dpd{\hat{u}_2}{t} + \lambda_2\dpd{\hat{u}_2}{y} = 0 \\
-  &\dpd{\hat{u}_3}{t} + \lambda_3\dpd{\hat{u}_3}{y} = 0 \\
-  &\dpd{\hat{u}_4}{t} + \lambda_4\dpd{\hat{u}_4}{y} = 0
+  \sum_{i=1}^3 \dpd{}{x_i}
+               \left[\delta_{ij} \lambda \sum_{k=1}^3 \dpd{v_k}{x_k}
+                   + \mu \left( \dpd{v_i}{x_j}+\dpd{v_j}{x_i} \right)\right],
+               \quad j = 1, 2, 3
 
-The components of :math:`\hat{\bvec{u}}` are the Riemann invariants.
+Define
+
+.. math::
+  :label: bulk.dfuvec
+
+  \bvec{g}^{(1)} \defeq \left(\begin{array}{c}
+    0 \\
+    \lambda\sum_{k=1}^3\dpd{v_k}{x_k} + 2\mu\dpd{v_1}{x_1} \\
+    \mu(\dpd{v_1}{x_2} + \dpd{v_2}{x_1}) \\
+    \mu(\dpd{v_1}{x_3} + \dpd{v_3}{x_1})
+  \end{array}\right), \quad
+  \bvec{g}^{(2)} \defeq \left(\begin{array}{c}
+    0 \\
+    \mu(\dpd{v_2}{x_1} + \dpd{v_1}{x_2}) \\
+    \lambda\sum_{k=1}^3\dpd{v_k}{x_k} + 2\mu\dpd{v_2}{x_2} \\
+    \mu(\dpd{v_2}{x_3} + \dpd{v_3}{x_2})
+  \end{array}\right), \quad
+  \bvec{g}^{(3)} \defeq \left(\begin{array}{c}
+    0 \\
+    \mu(\dpd{v_3}{x_1} + \dpd{v_1}{x_3}) \\
+    \mu(\dpd{v_3}{x_2} + \dpd{v_2}{x_3}) \\
+    \lambda\sum_{k=1}^3\dpd{v_k}{x_k} + 2\mu\dpd{v_3}{x_3}
+  \end{array}\right)
 
 Bibliography
 ============
-
-.. [Warming] R. F. Warming, Richard M. Beam, and B. J. Hyett, "Diagonalization
-  and Simultaneous Symmetrization of the Gas-Dynamic Matrices", *Mathematics of
-  Computation*, Volume 29, Issue 132, Oct. 1975, Page 1037-1045.
-  http://www.jstor.org/stable/2005742
 
 .. [Chen] Yung-Yu Chen, Lixiang Yang, and Sheng-Tao John Yu, "Hyperbolicity of
   Velocity-Stress Equations for Waves in Anisotropic Elastic Solids", *Journal
   of Elasticity*, Volume 106, Issue 2, Feb. 2012, Page 149-164. `doi:
   10.1007/s10659-011-9315-8 <http://dx.doi.org/10.1007/s10659-011-9315-8>`__.
+
+.. [Warming] R. F. Warming, Richard M. Beam, and B. J. Hyett, "Diagonalization
+  and Simultaneous Symmetrization of the Gas-Dynamic Matrices", *Mathematics of
+  Computation*, Volume 29, Issue 132, Oct. 1975, Page 1037-1045.
+  http://www.jstor.org/stable/2005742

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) Po-Hsien Lin <lin.880@buckeyemail.osu.edu>.
+ * Copyright (C) 2013, Po-Hsien Lin <lin.880@buckeyemail.osu.edu>.
  *
  * All rights reserved.
  *
@@ -28,22 +28,59 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <Python.h>
+void
+#if NDIM == 3
+sc_bulk_calc_stm_3d
+#else
+sc_bulk_calc_stm_2d
+#endif
+(sc_mesh_t *msd, sc_bulk_algorithm_t *alg, int icl, double stms[NEQ][NDIM]) {
+    // pointers.
+    double *psol, *pdsol;
+    double *pamsca;
+    // scalars.
+    double bulk, p0, rho0, eta, mu, d, Re, vel, rho;
+    double u1, u2, u3;
+#if NDIM == 3
+    double u4;
+#endif
+    // accelerating variables.
+    double dudx, dudy, dvdx, dvdy;
+    pamsca = alg->amsca + icl*(alg->nsca);
+    // initialize values.
+    bulk = pamsca[0];
+    p0 = pamsca[1];
+    rho0 = pamsca[2];
+    eta = pamsca[3];
+    mu = pamsca[6];
+    d = pamsca[7];
+    psol = alg->sol + icl*NEQ;
+    pdsol = alg->dsol + icl*NEQ*NDIM;
+    u1 = psol[0] + _TINY;
+    u2 = psol[1];
+    u3 = psol[2];
+    vel = u2*u2 + u3*u3;
+#if NDIM == 3
+    u4 = psol[3];
+    vel += u4*u4;
+#endif
+    vel = sqrt(vel/(u1*u1));
 
-#include "mesh.h"
-#include "_algorithm.h"
+    dudx = u2/u1*pdsol[0];
+    dudy = u2/u1*pdsol[1];
+    dvdx = u3/u1*pdsol[0];
+    dvdy = u3/u1*pdsol[1];
+    pdsol += NDIM;
+    dudx = (pdsol[0]-dudx)/u1;
+    dudy = (pdsol[1]-dudy)/u1;
+    pdsol += NDIM;
+    dvdx = (pdsol[0]-dvdx)/u1;
+    dvdy = (pdsol[1]-dvdy)/u1;
 
-#define _TINY 1.e-60
+    // FIXME: these are only for 2D.
+    stms[0][0] = 0;                           stms[0][1] = 0;
+    stms[1][0] = mu*(2*dudx-2/3*(dudx+dvdy)); stms[1][1] = mu*(dudy+dvdx);
+    stms[2][0] = mu*(dudy+dvdx);              stms[2][1] = mu*(2*dvdy-2/3*(dudx+dvdy));
+};
 
-#undef NDIM
-#define NDIM 2
-#undef NEQ
-#define NEQ 3
-#include "sc_bulk_calc_visc.c_body"
-#undef NDIM
-#define NDIM 3
-#undef NEQ
-#define NEQ 4
-#include "sc_bulk_calc_visc.c_body"
-
-// vim: set ts=4 et:
+// vim: set ft=c ts=4 et:

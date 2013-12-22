@@ -47,6 +47,7 @@ sc_bulk_calc_soln_2d
     double usfc[NEQ];
     double fcn[NEQ][NDIM], dfcn[NEQ][NDIM];
     double jacos[NEQ][NEQ][NDIM];
+    double stms[NEQ][NDIM];
     // interators.
     int icl, ifl, inf, ifc, jcl, ieq, jeq;
     qdt = alg->time_increment * 0.25;
@@ -54,7 +55,7 @@ sc_bulk_calc_soln_2d
     #pragma omp parallel for private(clnfc, fcnnd, \
     pclfcs, pfcnds, pfccls, pjcecnd, pcecnd, pcevol, psfmrc, \
     pjsol, pdsol, pjsolt, psoln, \
-    voe, fusp, futm, usfc, fcn, dfcn, jacos, \
+    voe, fusp, futm, usfc, fcn, dfcn, jacos, stms, \
     icl, ifl, inf, ifc, jcl, ieq, jeq) \
     firstprivate(hdt, qdt)
     for (icl=0; icl<msd->ncell; icl++) {
@@ -91,8 +92,10 @@ sc_bulk_calc_soln_2d
             // temporal flux (give space).
 #if NDIM == 3
             sc_bulk_calc_jaco_3d(msd, alg, jcl, fcn, jacos);
+            sc_bulk_calc_stm_3d(msd, alg, jcl, stms);
 #else
             sc_bulk_calc_jaco_2d(msd, alg, jcl, fcn, jacos);
+            sc_bulk_calc_stm_2d(msd, alg, jcl, stms);
 #endif
             pjsolt = alg->solt + jcl*NEQ;
             fcnnd = msd->fcnds[ifc*(FCMND+1)];
@@ -112,10 +115,10 @@ sc_bulk_calc_soln_2d
                 };
                 // spatial derivatives.
                 for (ieq=0; ieq<NEQ; ieq++) {
-                    dfcn[ieq][0] = fcn[ieq][0];
-                    dfcn[ieq][1] = fcn[ieq][1];
+                    dfcn[ieq][0] = fcn[ieq][0] + stms[ieq][0];
+                    dfcn[ieq][1] = fcn[ieq][1] + stms[ieq][1];
 #if NDIM == 3
-                    dfcn[ieq][2] = fcn[ieq][2];
+                    dfcn[ieq][2] = fcn[ieq][2] + stms[ieq][2];
 #endif
                     for (jeq=0; jeq<NEQ; jeq++) {
                         dfcn[ieq][0] += jacos[ieq][jeq][0] * usfc[jeq];

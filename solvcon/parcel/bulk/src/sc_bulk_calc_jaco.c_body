@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Po-Hsien Lin <lin.880@buckeyemail.osu.edu>.
+ * Copyright (C) 2013, Po-Hsien Lin <lin.880@buckeyemail.osu.edu>.
  *
  * All rights reserved.
  *
@@ -64,7 +64,6 @@ sc_bulk_calc_jaco_2d
 
     // accelerating variables.
     // density base
-    /*
     kdu1 = bulk/u1;
     bulkm = p0 + bulk*log(u1/rho0);
     u2u3 = u2*u3;
@@ -124,11 +123,10 @@ sc_bulk_calc_jaco_2d
     jacos[2][1][0] = u3du1;            jacos[2][1][1] = 0;
     jacos[2][2][0] = u2du1;            jacos[2][2][1] = 2*u3du1;
 #endif
-    */
 
 
     // pressure base
-    //
+    /*
     kdu1 = bulk/(u1*eta);
     bulkm = bulk*log(u1)/eta;
     u2u3 = u2*u3;
@@ -180,7 +178,7 @@ sc_bulk_calc_jaco_2d
     jacos[2][1][0] = u3du1;            jacos[2][1][1] = 0;
     jacos[2][2][0] = u2du1;            jacos[2][2][1] = 2*u3du1;
 #endif
-    //
+    */
 };
 
 // vim: set ft=c ts=4 et:

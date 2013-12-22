@@ -39,6 +39,7 @@ import signal
 import cPickle as pickle
 import time
 import gzip
+import logging
 
 from . import hook
 from . import helper
@@ -389,6 +390,29 @@ class MeshCase(case_core.CaseInfo):
             raise ValueError(meshfn)
         return obj
 
+    @property
+    def blk(self):
+        """
+        >>> from solvcon.testing import create_trivial_2d_blk
+        >>> blk = create_trivial_2d_blk()
+        >>> from solvcon.solver import MeshSolver
+        >>> cse = MeshCase(
+        ...     mesher=lambda *arg: blk, domaintype=domain.Domain,
+        ...     solvertype=MeshSolver, basefn='meshcase')
+        >>> cse.info.muted = True
+
+        This property is only valid after :py:meth:`init`.
+
+        >>> str(cse.blk)
+        Traceback (most recent call last):
+            ...
+        KeyError: 'blk'
+        >>> cse.init()
+        >>> str(cse.blk)
+        '[Block (2D/centroid): 4 nodes, 6 faces (3 BC), 3 cells]'
+        """
+        return self.solver.domainobj.blk
+
     def make_solver_keywords(self):
         """
         :return: keywords
@@ -616,7 +640,7 @@ for node in $nodes; do rsh $node killall %s; done
         >>> cse.init()
         >>> cse.run()
         """
-        self._log_start('run', msg=' (level %d) %s' % (level, self.io.basefn))
+        self._log_start('run')
         self.execution.step_current = self.execution.step_init
         if level < 1:
             self._run_provide()
@@ -634,19 +658,23 @@ for node in $nodes; do rsh $node killall %s; done
     def _run_provide(self):
         flag_parallel = self.is_parallel
         # anchor: provide.
+        self._log_start('run_provide')
         self.solver.solverobj.provide()
+        self._log_end('run_provide')
     def _run_preloop(self):
         flag_parallel = self.is_parallel
         # hook: preloop.
+        self._log_start('run_preloop')
         self.runhooks('preloop')
         self.solver.solverobj.preloop()
         self.solver.solverobj.apply_bc()
+        self._log_end('run_preloop')
 
     def _run_march(self):
         flag_parallel = self.is_parallel
         self.log.time['solver_march'] = 0.0
         self.info('\n')
-        self._log_start('loop_march')
+        self._log_start('run_march')
         while self.execution.step_current < self.execution.steps_run:
             if self.execution.stop: break
             # hook: premarch.
@@ -664,23 +692,30 @@ for node in $nodes; do rsh $node killall %s; done
             # hook: postmarch.
             self.runhooks('postmarch')
         # end log.
-        self._log_end('loop_march')
+        self._log_end('run_march')
         self.info('\n')
 
     # logics after exiting main loop (march).
     def _run_postloop(self):
         flag_parallel = self.is_parallel
         # hook: postloop.
+        self._log_start('run_postloop')
         self.solver.solverobj.postloop()
         self.runhooks('postloop')
+        self._log_end('run_postloop')
     def _run_exhaust(self):
         flag_parallel = self.is_parallel
         # anchor: exhaust.
+        self._log_start('run_exhause')
         self.solver.solverobj.exhaust()
+        self._log_end('run_exhause')
+
     def _run_final(self):
         flag_parallel = self.is_parallel
         # finalize.
+        self._log_start('run_final')
         self.solver.solverobj.final()
+        self._log_end('run_final')
 
     ############################################################################
     ###

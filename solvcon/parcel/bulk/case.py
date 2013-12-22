@@ -1,6 +1,6 @@
 # -*- coding: UTF-8 -*-
 #
-# Copyright (c) 2008, Yung-Yu Chen <yyc@solvcon.net>
+# Copyright (c) 2013, Yung-Yu Chen <yyc@solvcon.net>
 #
 # All rights reserved.
 #
@@ -29,29 +29,44 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 """
-SOLVCON is a collection of `Python <http://www.python.org>`__-based
-conservation-law solvers that use the space-time `Conservation Element and
-Solution Element (CESE) method <http://www.grc.nasa.gov/WWW/microbus/>`__.
-SOLVCON targets at solving problems that can be formulated as a system of
-first-order, linear or non-linear partial differential equations (PDEs).
+The control interface.
 """
 
-__docformat__ = 'restructuredtext en'
 
-__version__ = '0.1.2+'
+from solvcon import case
+from solvcon import domain
 
-__description__ = "SOLVCON: Solvers of conservation laws"
+from . import solver as nssolver
 
-__all__ = ['batch', 'batch_torque', 'block', 'boundcond', 'case',
-    'cmdutil', 'command', 'conf', 'connection', 'dependency', 'domain',
-    'gendata', 'helper', 'io', 'kerpak', 'mpy', 'mthread', 'rpc', 'scuda',
-    'solver', 'visual_vtk']
 
-import logging
+class BulkCase(case.MeshCase):
+    """
+    Simulation case for the Navier-Stokes solver based on the bulk modulus.
+    """
+    defdict = {
+        'solver.solvertype': nssolver.BulkSolver,
+        'solver.domaintype': domain.Domain,
+        'solver.alpha': 0,
+        'solver.sigma0': 3.0,
+        'solver.taylor': 1.0,
+        'solver.cnbfac': 1.0,
+        'solver.sftfac': 1.0,
+        'solver.taumin': None,
+        'solver.tauscale': None,
+    }
+    def make_solver_keywords(self):
+        kw = super(BulkCase, self).make_solver_keywords()
+        # time.
+        neq = 4 if 3 == self.blk.ndim else 3
+        kw['neq'] = self.execution.neq = neq
+        kw['time'] = self.execution.time
+        kw['time_increment'] = self.execution.time_increment
+        # c-tau scheme parameters.
+        kw['alpha'] = int(self.solver.alpha)
+        for key in ('sigma0', 'taylor', 'cnbfac', 'sftfac',
+                    'taumin', 'tauscale',):
+            val = self.solver.get(key)
+            if val != None: kw[key] = float(val)
+        return kw
 
-from .cmdutil import go, test
-
-logging.basicConfig()
-
-if __name__ == '__main__':
-    go()
+# vim: set ff=unix fenc=utf8 ft=python ai et sw=4 ts=4 tw=79:

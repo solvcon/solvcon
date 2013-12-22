@@ -29,6 +29,16 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+
 """
 Bulk-modulus equations.
 """
+
+
+# this module should only import necessary entites.
+from .case import BulkCase
+from .solver import BulkSolver
+from .inout import (MeshInfoHook, ProgressHook, FillAnchor, CflAnchor, CflHook,
+                    MarchSaveAnchor, PMarchSave)
+
+# vim: set ff=unix fenc=utf8 ft=python ai et sw=4 ts=4 tw=79:
