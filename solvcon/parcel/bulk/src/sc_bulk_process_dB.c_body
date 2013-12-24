@@ -85,76 +85,16 @@ sc_bulk_process_dB_2d
         rho += pdsoln[2]*sft[2];
 #endif
         // density base
-        /*
         p = p0 + bulk*log(rho/rho0);
         ppredif[0] = p - pini;
         pdB[0] = 10 * log10(pow(ppredif[0]/pref,2));
-        */
-        // pressure base
-        //
-        p = bulk*log(rho);
-        ppredif[0] = p - pini;
-        pdB[0] = 10 * log10(pow(ppredif[0]/pref,2));
-        //
-        // cavity_parkhi
-        /*
-        if((pt[0]>0.1103 && pt[0]<0.1104) && (pt[1]>0.469 && pt[1]<0.47)) {
-            time = exd->time;
-            pre = fopen("pressure_parkhi.txt","a");
-            fprintf(pre,"%.10lf %.10lf\n", ppredif[0], time);
-            //printf("%lf %lf %lf\n", pt[0], pt[1], sqrt(pow(pt[0]-0.11,2)+pow(pt[1]-0.47,2)));
-            fclose(pre);
-        }
-        */
-        // cavity_parkhi1
-        /*
-        if((pt[0]>0.109 && pt[0]<0.1095) && (pt[1]>0.4705 && pt[1]<0.4706)) {
-            time = exd->time;
-            pre = fopen("pressure_parkhi.txt","a");
-            fprintf(pre,"%.10lf %.10lf\n", ppredif[0], time);
-            //printf("%lf %lf %lf\n", pt[0], pt[1], sqrt(pow(pt[0]-0.11,2)+pow(pt[1]-0.47,2)));
-            fclose(pre);
-        }
-        */
-        // cavity_ahuja_p88
-        /*
-        if((pt[0]>0.00019 && pt[0]<0.000198) && (pt[1]>3.6603 && pt[1]<3.66031)) {
-            time = exd->time;
-            pre = fopen("pressure_ahuja_p88.txt","a");
-            fprintf(pre,"%.10lf %.10lf\n", ppredif[0], time);
-            //printf("%lf %lf %lf\n", pt[0], pt[1], sqrt(pow(pt[0]-0.0,2)+pow(pt[1]-3.66,2)));
-            fclose(pre);
-        }
-        */
-        // cavity_ahuja_p88 short (height == 0.3)
-        //
-        //if((pt[0]>-0.000315 && pt[0]<-0.000311) && (pt[1]>0.24987 && pt[1]<0.24988)) {
-        //    time = exd->time;
-        //    pre = fopen("pressure_ahuja_p88_pt1.txt","a");
-        //    fprintf(pre,"%.10lf %.10lf\n", ppredif[0], time);
-            //printf("%lf %lf %lf\n", pt[0], pt[1], sqrt(pow(pt[0]-0.0,2)+pow(pt[1]-0.25,2)));
-        //    fclose(pre);
-        //}
-        /*
-        if((pt[0]>xmin && pt[0]<xmax) && (pt[1]>ymin && pt[1]<ymax)) {
+        
+        if((pt[0]>0 && pt[0]<0.01) && (pt[1]>2.048 && pt[1]<2.058)) {
             time = alg->time;
-            pre = fopen("pressure.txt","a");
+            pre = fopen("pressure_re89000.txt","a");
             fprintf(pre,"%.10lf %.10lf\n", ppredif[0], time);
-            //printf("%lf %lf %lf\n", pt[0], pt[1],sqrt(pow(pt[0]-0.0,2)+pow(pt[1]-1.2,2)));
             fclose(pre);
         }
-        */
-        //
-        // cavity_ahuja_p88_cut
-        /*
-        if((pt[0]>-0.00052 && pt[0]<-0.00051) && (pt[1]>0.2496 && pt[1]<0.2497)) {
-            time = exd->time;
-            pre = fopen("pressure_ahuja_p88_cut.txt","a");
-            fprintf(pre,"%.10lf %.10lf\n", ppredif[0], time);
-            //printf("%lf %lf %lf\n", pt[0], pt[1], sqrt(pow(pt[0]-0.0,2)+pow(pt[1]-0.25,2)));
-            fclose(pre);
-        }
-        */
     };
 };
 

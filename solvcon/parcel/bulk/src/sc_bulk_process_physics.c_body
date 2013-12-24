@@ -82,38 +82,27 @@ sc_bulk_process_physics_2d
 #if NDIM == 3
         prho[0] += pdsoln[2]*sft[2];
 #endif
-        // pressure density
-        p = prho[0];
-        prho[0] = eta*p;
         // velocity.
         pdsoln += NDIM;
         pvel[0] = psoln[1] + pdsoln[0]*sft[0] + pdsoln[1]*sft[1];
 #if NDIM == 3
         pvel[0] += pdsoln[2]*sft[2];
 #endif
-        // density
-        //pvel[0] /= prho[0];
-        // pressure
-        pvel[0] /= p;
+        pvel[0] /= prho[0];
         V += pvel[0]*pvel[0];
         pdsoln += NDIM;
         pvel[1] = psoln[2] + pdsoln[0]*sft[0] + pdsoln[1]*sft[1];
 #if NDIM == 3
         pvel[1] += pdsoln[2]*sft[2];
 #endif
-        // density
-        //pvel[1] /= prho[0];
-        // pressure
-        pvel[1] /= p;
+        pvel[1] /= prho[0];
         V += pvel[1]*pvel[1];
 #if NDIM == 3
         pdsoln += NDIM;
         pvel[2] = psoln[3] + pdsoln[0]*sft[0] + pdsoln[1]*sft[1];
         pvel[2] += pdsoln[2]*sft[2];
-        // density
-        //pvel[2] /= prho[0];
-        // pressure
-        pvel[2] /= p;
+        
+        pvel[2] /= prho[0];
         V += pvel[2]*pvel[2];
 #endif
         V = sqrt(V);
@@ -134,15 +123,9 @@ sc_bulk_process_physics_2d
 #endif
         // pressure.
         pdsoln += NDIM;
-        // density base
-        //ppre[0] = p0 + bulk*log(prho[0]/rho0);
-        // pressure base
-        ppre[0] = bulk*log(p);
+        ppre[0] = p0 + bulk*log(prho[0]/rho0);
         // speed of sound.
-        // density base
-        //psos[0] = sqrt(bulk/prho[0]);
-        // pressure base
-        psos[0] = sqrt(bulk/(eta*p));
+        psos[0] = sqrt(bulk/prho[0]);
         // Mach number.
         pmac[0] = V;
         pmac[0] *= psos[0]

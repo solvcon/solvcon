@@ -58,18 +58,6 @@ sc_bulk_bound_nonrefl_soln_2d
         pisol = alg->sol + icl*NEQ;
         pisoln = alg->soln + icl*NEQ;
         pjsoln = alg->soln + jcl*NEQ;
-        p = pisol[0];
-        pn = pisoln[0];
-        v1n = pisoln[1]/pn;
-        v2n = pisoln[2]/pn;
-        p = bulk*log(p);
-        pn = bulk*log(pn);
-        dp = pn - p;
-        pn = dp + pini;
-        pn = exp(pn/bulk);
-        //pjsoln[0] = pn;
-        //pjsoln[1] = pn*v1n;
-        //pjsoln[2] = pn*v2n;
         for (ieq=0; ieq<NEQ; ieq++) {
             pjsoln[ieq] = pisoln[ieq] + alg->taylor*(pisol[ieq] - pisoln[ieq]);
         };
@@ -145,7 +133,7 @@ sc_bulk_bound_nonrefl_dsoln_2d
         pdsoln = pjdsoln;
         if(fabs(nx) == 1.0)
         {    for(ieq=0; ieq<NEQ; ieq++)
-             {    pdsoln[0]=0;
+             {    pdsoln[0]=0.0;
                   pdsoln[1]=pidsoln[1];
                   pdsoln += NDIM;
                   pidsoln += NDIM;}
@@ -153,7 +141,7 @@ sc_bulk_bound_nonrefl_dsoln_2d
         else
         {    for(ieq=0; ieq<NEQ; ieq++)
              {    pdsoln[0]=pidsoln[0];
-                  pdsoln[1]=0;
+                  pdsoln[1]=0.0;
                   pdsoln += NDIM;
                   pidsoln += NDIM;}
         }

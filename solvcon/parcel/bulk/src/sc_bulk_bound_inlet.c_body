@@ -65,43 +65,22 @@ sc_bulk_bound_inlet_soln_2d
         eta  = pamsca[3];
         pini = pamsca[5];
         // density base
-        //rhoi = pvalue[0];
-        // pressure base
-        pi  = pvalue[0];
+        rhoi = pvalue[0];
         v1i = pvalue[1];
         v2i = pvalue[2];
 #if NDIM == 3
         v3i = pvalue[3];
 #endif
         // density base
-        /*
         rho = pisol[0];
         v1 = pisol[1]/pisol[0];
         right = -pow(rhoi,-0.5) + v1i/(2*sqrt(bulk));
         left = -pow(rho,-0.5) - v1/(2*sqrt(bulk));
-        pjsoln = exd->soln +jcl*NEQ;
+        pjsoln = alg->soln +jcl*NEQ;
         pjsoln[0] = 4/pow(right+left,2);
         pjsoln[1] = pjsoln[0]*(right-left)*sqrt(bulk);
         pjsoln[2] = 0.0;
-        */
-        // pressure base 
-        /*
-        p = pisol[0];
-        v1 = pisol[1]/pisol[0];
-        right = -pow(pi,-0.5) + v1i*sqrt(eta/bulk)/2;
-        left = -pow(p,-0.5) - v1*sqrt(eta/bulk)/2;
-        pjsoln = exd->soln + jcl*NEQ;
-        pjsoln[0] = 4/pow(right+left,2);
-        pjsoln[1] = pjsoln[0]*(right-left)*sqrt(bulk/eta);
-        pjsoln[2] = 0.0;
-        */
-        // force inlet
-        //
-        pjsoln = alg->soln +jcl*NEQ;
-        pjsoln[0] = pi;
-        pjsoln[1] = pi*v1i;
-        pjsoln[2] = 0.0;
-        //
+        
 #if NDIM == 3
         pjsoln[3] = 0.0;
 #endif

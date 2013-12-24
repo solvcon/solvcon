@@ -75,7 +75,7 @@ sc_bulk_bound_output_soln_2d
         v3r = pjsol[3]/pjsol[0];
 #endif
         // density base
-        /*
+        
         rhol = pisol[0];
         rhor = pjsol[0];
         right = -pow(rhol,-0.5) + v1l/(2*sqrt(bulk));
@@ -83,31 +83,14 @@ sc_bulk_bound_output_soln_2d
         rho = 4/pow(right+left,2);
         v1 = (right-left)*sqrt(bulk);
         v2 = rhol*(v1l+v2l)/rho - v1;
-        pjsoln = exd->soln + jcl*NEQ;
+        pjsoln = alg->soln + jcl*NEQ;
         pjsoln[0] = rho;
         pjsoln[1] = rho*v1;
         pjsoln[2] = rho*v2;
-        */
-        // pressure base 
-        //
-        pl = pisol[0];
-        pr = pjsol[0];
-        right = -pow(pl,-0.5) + v1l*sqrt(eta/bulk)/2;
-        left = -pow(pr,-0.5) - v1r*sqrt(eta/bulk)/2;
-        p = 4/pow(right+left,2);
-        v1 = (right-left)*sqrt(bulk/eta);
-        v2 = 2*(-1/sqrt(pl)+1/sqrt(p)+v2l*sqrt(eta/bulk)/2)*sqrt(bulk/eta);
-        //p = bulk*log(p);
-        //pr = bulk*log(pr);
-        //p = (pr-p) + pini;
-        //p = exp(p/bulk);
-        pjsoln = alg->soln + jcl*NEQ;
-        pjsoln[0] = p;
-        pjsoln[1] = p*v1;
-        pjsoln[2] = p*v2;
+        
 #if NDIM == 3
         pjsoln[3] = 0.0;
-#endif
+#endif        
     };
 };
 
@@ -194,11 +177,6 @@ sc_bulk_bound_output_dsoln_2d
                   pdsoln += NDIM;
                   pidsoln += NDIM;}
         }
-        /*for(ieq=0; ieq<NEQ; ieq++)
-        {    pdsoln[0]=pidsoln[0];
-             pdsoln[1]=pidsoln[1];
-             pdsoln+=NDIM;
-             pidsoln+=NDIM;}*/
     };
 };
 

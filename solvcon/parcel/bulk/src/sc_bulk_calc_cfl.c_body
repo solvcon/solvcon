@@ -90,16 +90,10 @@ sc_bulk_calc_cfl_2d
         ;
         ke = wspd/(2.0*psoln[0]);
         // density base
-        //wspd = sqrt(bulk/psoln[0]) + sqrt(wspd)/psoln[0];
-        // pressure base
-        wspd = sqrt(bulk/(eta*psoln[0])) + sqrt(wspd)/psoln[0];
+        wspd = sqrt(bulk/psoln[0]) + sqrt(wspd)/psoln[0];
         // CFL.
         pocfl[0] = hdt*wspd/dist;
-        // if pressure is null, make CFL to be 1.
-        //pcfl[0] = (pocfl[0]-1.0) * pr/(pr+SOLVCON_TINY) + 1.0;
         pcfl[0] = pocfl[0];
-        // correct negative pressure.
-        //psoln[1+NDIM] = pr/ga1 + ke + SOLVCON_TINY;
         // advance.
     };
 };
