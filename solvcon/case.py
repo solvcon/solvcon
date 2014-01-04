@@ -225,10 +225,11 @@ class MeshCase(case_core.CaseInfo):
             >>> blk = create_trivial_2d_blk()
             >>> cse = MeshCase(mesher=lambda *arg: blk)
             >>> cse.info.muted = True
-            >>> cse.init()
+            >>> cse.init() # doctest: +NORMALIZE_WHITESPACE
             Traceback (most recent call last):
                 ...
-            TypeError: isinstance() arg 2 must be a class, type, or tuple of classes and types
+            TypeError: isinstance() arg 2 must be a class, type, or tuple of
+            classes and types
 
         #. Type of the spatial domain.  This information is used for detemining
            sequential or parallel execution, and performing related operations:
@@ -244,7 +245,8 @@ class MeshCase(case_core.CaseInfo):
            method:
 
             >>> from solvcon.solver import MeshSolver
-            >>> cse = MeshCase(mesher=lambda *arg: blk, domaintype=domain.Domain,
+            >>> cse = MeshCase(mesher=lambda *arg: blk,
+            ...                domaintype=domain.Domain,
             ...                solvertype=MeshSolver)
             >>> cse.info.muted = True
             >>> cse.init()
@@ -284,7 +286,8 @@ class MeshCase(case_core.CaseInfo):
                 self.info('\n')
                 self._log_start('split_domain')
                 self.solver.domainobj.split(
-                    nblk=self.execution.npart, interface_type=boundcond.interface)
+                    nblk=self.execution.npart,
+                    interface_type=boundcond.interface)
                 self._log_end('split_domain')
             # make dealer and create workers for the dealer.
             self.info('\n')
@@ -520,7 +523,8 @@ class MeshCase(case_core.CaseInfo):
         info('Appoint remote workers')
         bat = self.execution.batch(self)
         nodelist = bat.nodelist()
-        if conf.env.command != None and conf.env.command.opargs[0].compress_nodelist:
+        if conf.env.command != None and \
+           conf.env.command.opargs[0].compress_nodelist:
             info(' (compressed)')
         if conf.env.mpi:
             info(' (head excluded for MPI)')

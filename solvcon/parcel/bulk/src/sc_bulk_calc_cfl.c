@@ -30,6 +30,8 @@
 
 #include <Python.h>
 
+#include <float.h>
+
 #include "mesh.h"
 #include "_algorithm.h"
 #include "_algorithm_src.h"

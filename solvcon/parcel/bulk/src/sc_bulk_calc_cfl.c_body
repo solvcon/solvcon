@@ -1,5 +1,5 @@
 /*
- * Copyright (C) Po-Hsien Lin <lin.880@buckeyemail.osu.edu>.
+ * Copyright (C) 2013 Po-Hsien Lin <lin.880@buckeyemail.osu.edu>.
  *
  * All rights reserved.
  *
@@ -59,7 +59,7 @@ sc_bulk_calc_cfl_2d
         picecnd = alg->cecnd + icl*(CLMFC+1)*NDIM;
         pclfcs = msd->clfcs + icl*(CLMFC+1);
         // estimate distance.
-        dist = 1.e200;
+        dist = DBL_MAX;
         pcecnd = picecnd;
         clnfc = pclfcs[0];
         for (ifl=1; ifl<=clnfc; ifl++) {
@@ -94,7 +94,6 @@ sc_bulk_calc_cfl_2d
         // CFL.
         pocfl[0] = hdt*wspd/dist;
         pcfl[0] = pocfl[0];
-        // advance.
     };
 };
 

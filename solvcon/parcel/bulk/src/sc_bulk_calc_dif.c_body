@@ -30,16 +30,16 @@
 
 void
 #if NDIM == 3
-sc_bulk_calc_stm_3d
+sc_bulk_calc_dif_3d
 #else
-sc_bulk_calc_stm_2d
+sc_bulk_calc_dif_2d
 #endif
-(sc_mesh_t *msd, sc_bulk_algorithm_t *alg, int icl, double stms[NEQ][NDIM]) {
+(sc_mesh_t *msd, sc_bulk_algorithm_t *alg, int icl, double difs[NEQ][NDIM]) {
     // pointers.
     double *psol, *pdsol;
     double *pamsca;
     // scalars.
-    double bulk, p0, rho0, eta, mu, d, Re, vel, rho;
+    double bulk, p0, rho0, eta, mu, vel, rho;
     double u1, u2, u3;
 #if NDIM == 3
     double u4;
@@ -52,8 +52,7 @@ sc_bulk_calc_stm_2d
     p0 = pamsca[1];
     rho0 = pamsca[2];
     eta = pamsca[3];
-    mu = pamsca[6];
-    d = pamsca[7];
+    mu = pamsca[4];
     psol = alg->sol + icl*NEQ;
     pdsol = alg->dsol + icl*NEQ*NDIM;
     u1 = psol[0] + _TINY;
@@ -78,9 +77,9 @@ sc_bulk_calc_stm_2d
     dvdy = (pdsol[1]-dvdy)/u1;
 
     // FIXME: these are only for 2D.
-    stms[0][0] = 0;                           stms[0][1] = 0;
-    stms[1][0] = mu*(2*dudx-2/3*(dudx+dvdy)); stms[1][1] = mu*(dudy+dvdx);
-    stms[2][0] = mu*(dudy+dvdx);              stms[2][1] = mu*(2*dvdy-2/3*(dudx+dvdy));
+    difs[0][0] = 0;                           difs[0][1] = 0;
+    difs[1][0] = mu*(2*dudx-2/3*(dudx+dvdy)); difs[1][1] = mu*(dudy+dvdx);
+    difs[2][0] = mu*(dudy+dvdx);              difs[2][1] = mu*(2*dvdy-2/3*(dudx+dvdy));
 };
 
 // vim: set ft=c ts=4 et:

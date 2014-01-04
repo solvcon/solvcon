@@ -40,11 +40,11 @@
 #define NDIM 2
 #undef NEQ
 #define NEQ 3
-#include "sc_bulk_calc_stm.c_body"
+#include "sc_bulk_calc_dif.c_body"
 #undef NDIM
 #define NDIM 3
 #undef NEQ
 #define NEQ 4
-#include "sc_bulk_calc_stm.c_body"
+#include "sc_bulk_calc_dif.c_body"
 
 // vim: set ts=4 et:
