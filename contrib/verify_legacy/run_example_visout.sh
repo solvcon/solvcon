@@ -3,8 +3,9 @@
 # When running from project root manually, use:
 # scons
 # scons --get-scdata # require internet connection.
-# contrib/osumecfd/run_example_visout.sh
+# ${this_script}
 WORKSPACE=${WORKSPACE-`pwd`}
+retval=0
 
 export PYTHONPATH=$WORKSPACE:$PYTHONPATH
 export EXHOME=$WORKSPACE/examples/visout
@@ -13,14 +14,22 @@ export EXHOME=$WORKSPACE/examples/visout
 cd $EXHOME/pvtk
 rm -rf result
 ./go run
+lret=$?; if [[ $lret != 0 ]] ; then retval=$lret; fi
+
 cd $EXHOME/vtkw
 rm -rf result
 ./go run
+lret=$?; if [[ $lret != 0 ]] ; then retval=$lret; fi
 
 # parallel (local).
 cd $EXHOME/pvtk
 rm -rf result
 ./go run --npart 3
+lret=$?; if [[ $lret != 0 ]] ; then retval=$lret; fi
+
 cd $EXHOME/vtkw
 rm -rf result
 ./go run --npart 3
+lret=$?; if [[ $lret != 0 ]] ; then retval=$lret; fi
+
+exit $retval
