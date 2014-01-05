@@ -127,7 +127,7 @@ def main():
             make_extension('solvcon.mesh', ['src']),
             make_extension('solvcon.parcel.fake._algorithm', ['src']),
             make_extension('solvcon.parcel.linear._algorithm', ['src'],
-                           libraries=['lapack']),
+                           libraries=['lapack', 'blas', 'gfortran']),
             make_extension('solvcon.parcel.bulk._algorithm', ['src']),
         ],
         data_files=data_files,

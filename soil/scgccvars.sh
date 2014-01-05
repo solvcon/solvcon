@@ -29,6 +29,16 @@ pathmunge () {
   fi
   export PATH
 }
+libpathmunge () {
+  if ! echo $LIBRARY_PATH | egrep -q "(^|:)$1($|:)" ; then
+    if [ "$2" = "after" ] ; then
+      LIBRARY_PATH=$LIBRARY_PATH:$1
+    else
+      LIBRARY_PATH=$1:$LIBRARY_PATH
+    fi
+  fi
+  export LIBRARY_PATH
+}
 ldpathmunge () {
   if ! echo $LD_LIBRARY_PATH | egrep -q "(^|:)$1($|:)" ; then
     if [ "$2" = "after" ] ; then
@@ -42,6 +52,8 @@ ldpathmunge () {
 
 pathmunge $SCROOT/soil/bin
 manpathmunge $SCROOT/soil/share/man
+libpathmunge $SCROOT/soil/lib
+libpathmunge $SCROOT/soil/lib64
 ldpathmunge $SCROOT/soil/lib
 ldpathmunge $SCROOT/soil/lib64
 
