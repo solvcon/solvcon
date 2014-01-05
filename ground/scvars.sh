@@ -30,6 +30,16 @@ pathmunge () {
   fi
   export PATH
 }
+libpathmunge () {
+  if ! echo $LIBRARY_PATH | egrep -q "(^|:)$1($|:)" ; then
+    if [ "$2" = "after" ] ; then
+      LIBRARY_PATH=$LIBRARY_PATH:$1
+    else
+      LIBRARY_PATH=$1:$LIBRARY_PATH
+    fi
+  fi
+  export LIBRARY_PATH
+}
 ldpathmunge () {
   if ! echo $LD_LIBRARY_PATH | egrep -q "(^|:)$1($|:)" ; then
     if [ "$2" = "after" ] ; then
@@ -53,6 +63,7 @@ dyldpathmunge () {
 
 pathmunge $SCROOT/bin
 manpathmunge $SCROOT/share/man
+libpathmunge $SCROOT/lib
 if [ `uname` == "Darwin" ]; then
   dyldpathmunge $SCROOT/lib
   dyldpathmunge $SCROOT/lib/vtk-5.6
@@ -64,6 +75,7 @@ fi
 unset manpathmunge
 unset pythonpathmunge
 unset pathmunge
+unset libpathmunge
 unset ldpathmunge
 unset dyldpathmunge
 

@@ -92,7 +92,6 @@ if 'LIBPATH' in os.environ:
     libpath = [pa for pa in os.environ['LIBPATH'].split(':') if pa]
     env.Append(LIBPATH=libpath)
 env.Append(LIBPATH=[os.path.abspath(GetOption('libdir'))])
-env.Append(LIBPATH=[os.path.abspath('opt/lib')])
 env.Append(LIBPATH=[sys.exec_prefix+'/lib'])
 os.environ['DYLD_LIBRARY_PATH'] = sys.exec_prefix+'/lib'
 # CUDA.

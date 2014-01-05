@@ -128,6 +128,7 @@ def main():
             make_extension('solvcon.parcel.fake._algorithm', ['src']),
             make_extension('solvcon.parcel.linear._algorithm', ['src'],
                            libraries=['lapack']),
+            make_extension('solvcon.parcel.bulk._algorithm', ['src']),
         ],
         data_files=data_files,
     )
