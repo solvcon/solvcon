@@ -21,7 +21,7 @@ def make_kplib(lname, lpre, ldir, sdir, bdir, env, extra_links=None):
             Glob('%s/%s%dd/*.c' % (bdir, lname, ndim))))
     return libs
 kplibs = [
-    ('elastic', ['lapack']), ('elasticb', None),
+    ('elastic', ['lapack', 'blas', 'gfortran']), ('elasticb', None),
 ]
 for lname, extra_links in kplibs:
     libs.extend(make_kplib(lname, lpre, ldir, '%s/%s'%(sdir, lname),
