@@ -126,7 +126,7 @@ class ProgressHook(hook.MeshHook):
     def postmarch(self):
         istep = self.cse.execution.step_current
         nsteps = self.cse.execution.steps_run
-        tstart = self.cse.log.time['loop_march'][0]
+        tstart = self.cse.log.time['run_march'][0]
         psteps = self.psteps
         linewidth = self.linewidth
         info = self.info

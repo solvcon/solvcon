@@ -172,8 +172,7 @@ def match_periodic(blk):
             bct, {
                 'link': 'upper',
                 'ref': np.array(
-                    [val,0,val]
-                    if blk.ndim == 3 else [val,0], dtype='float64'),
+                    [val,0,val] if blk.ndim == 3 else [val,0], dtype='float64')
             }
         ),
     })
@@ -234,7 +233,8 @@ def cvg_base(casename=None, mtrlname='GaAs',
         cflmax=10.0, linewidth=ssteps/psteps)
     # initializer anchors.
     cse.runhooks.append(linear.FillAnchor,
-                        mappers={'soln': solver.ALMOST_ZERO, 'dsoln': 0})
+                        mappers={'soln': solver.ALMOST_ZERO, 'dsoln': 0,
+                                 'cfl': 0})
     ## plane wave solution.
     pws = list()
     for wvec, idx in wtests:

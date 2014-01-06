@@ -706,9 +706,9 @@ for node in $nodes; do rsh $node killall %s; done
     def _run_exhaust(self):
         flag_parallel = self.is_parallel
         # anchor: exhaust.
-        self._log_start('run_exhause')
+        self._log_start('run_exhaust')
         self.solver.solverobj.exhaust()
-        self._log_end('run_exhause')
+        self._log_end('run_exhaust')
 
     def _run_final(self):
         flag_parallel = self.is_parallel
