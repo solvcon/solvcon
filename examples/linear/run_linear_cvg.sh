@@ -26,19 +26,19 @@ cd $EXHOME
 rm -rf $RESULTDIR
 
 # 2D.
-cmd="./go run cvg2d_200 cvg2d_150 cvg2d_100 cvg2d_50"
+cmd="$PYBIN go run cvg2d_200 cvg2d_150 cvg2d_100 cvg2d_50"
 echo $cmd
 $cmd
 lret=$?; if [[ $lret != 0 ]] ; then retval=$lret; fi
 
 # 3D.
-cmd="./go run cvg3d_400 cvg3d_200 cvg3d_150 cvg3d_100"
+cmd="$PYBIN go run cvg3d_400 cvg3d_200 cvg3d_150 cvg3d_100"
 echo $cmd
 $cmd
 lret=$?; if [[ $lret != 0 ]] ; then retval=$lret; fi
 
 # print converge.
-cmd="./go converge --order=2 --order-tolerance=0.4 --stop-on-over"
+cmd="$PYBIN go converge --order=2 --order-tolerance=0.4 --stop-on-over"
 echo $cmd
 $cmd
 lret=$?; if [[ $lret != 0 ]] ; then retval=$lret; fi
