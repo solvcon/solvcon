@@ -49,8 +49,8 @@ from solvcon.io import vtkxml
 class ICAnchor(anchor.MeshAnchor):
     def __init__(self, svr, **kw):
         self.bulk = kw.pop('bulk', 1.0)
-        self.rho0 = kw.pop('rho0', 1.0)
         self.p0 = kw.pop('p0', 1.0)
+        self.rho0 = kw.pop('rho0', 1.0)
         self.eta = kw.pop('eta', 1.0)
         self.mu = kw.pop('mu', 1.0)
         self.rho = kw.pop('rho', 1.0)
@@ -61,8 +61,8 @@ class ICAnchor(anchor.MeshAnchor):
 
     def provide(self):
         self.svr.amsca[:,0] = self.bulk
-        self.svr.amsca[:,1] = self.rho0
-        self.svr.amsca[:,2] = self.p0
+        self.svr.amsca[:,1] = self.p0
+        self.svr.amsca[:,2] = self.rho0
         self.svr.amsca[:,3] = self.eta
         self.svr.amsca[:,4] = self.mu
         self.svr.soln[0,:] = self.rho
