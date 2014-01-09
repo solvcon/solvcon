@@ -44,6 +44,8 @@ from solvcon import hook
 
 
 class PlaneWaveSolution(object):
+    # FIXME: THIS GUY NEEDS UNIT TEST.  Debugging in these classes is like pain
+    # in the ass.
     def __init__(self, **kw):
         wvec = kw['wvec']
         ctr = kw['ctr']
@@ -74,6 +76,8 @@ class PlaneWaveAnchor(anchor.MeshAnchor):
     :py:class:`LinearSolver <.solver.LinearSolver>`.
     """
 
+    # FIXME: THIS GUY NEEDS UNIT TEST.  The coupling with Hook isn't really
+    # easy to debug.
     def __init__(self, svr, planewaves=None, **kw):
         assert None is not planewaves
         #: Sequence of :py:class:`PlaneWaveSolution` objects.
@@ -106,7 +110,6 @@ class PlaneWaveAnchor(anchor.MeshAnchor):
         ngstcell = self.svr.ngstcell
         # plane wave solution.
         asol = self.svr.der['analytical']
-        asol.fill(0.0)
         self._calculate(asol)
         # difference.
         diff = self.svr.der['difference']
@@ -114,6 +117,8 @@ class PlaneWaveAnchor(anchor.MeshAnchor):
 
 
 class PlaneWaveHook(hook.MeshHook):
+    # FIXME: THIS GUY NEEDS UNIT TEST.  The coupling with Anchor isn't really
+    # easy to debug.
     def __init__(self, svr, planewaves=None, **kw):
         assert None is not planewaves
         #: Sequence of :py:class:`PlaneWaveSolution` objects.

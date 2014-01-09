@@ -152,7 +152,7 @@ class FillAnchor(anchor.MeshAnchor):
     def __init__(self, svr, mappers=None, **kw):
         assert None is not mappers
         #: A :py:class:`dict` maps the names of attributes of the
-        #: :py:attr:`MeshAnchor.svr #: <solvcon.anchor.MeshAnchor.svr>` to the
+        #: :py:attr:`MeshAnchor.svr <solvcon.anchor.MeshAnchor.svr>` to the
         #: filling value.
         self.mappers = mappers if mappers else {}
         super(FillAnchor, self).__init__(svr, **kw)

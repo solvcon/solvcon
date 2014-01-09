@@ -39,7 +39,6 @@ import signal
 import cPickle as pickle
 import time
 import gzip
-import logging
 
 from . import hook
 from . import helper

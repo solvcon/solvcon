@@ -65,11 +65,11 @@ sc_linear_calc_planewave_2d
         sydep = wvec[1]*sxdep;
         sxdep = wvec[0]*sxdep;
         for (ieq=0; ieq<NEQ; ieq++) {
-            pasol[ieq] += amp[ieq] * sdep;
-            padsol[0] += amp[ieq] * sxdep;
-            padsol[1] += amp[ieq] * sydep;
+            pasol[ieq] = amp[ieq] * sdep;
+            padsol[0] = amp[ieq] * sxdep;
+            padsol[1] = amp[ieq] * sydep;
 #if NDIM == 3
-            padsol[2] += amp[ieq] * szdep;
+            padsol[2] = amp[ieq] * szdep;
 #endif
             padsol += NDIM;
         };

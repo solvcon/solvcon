@@ -38,7 +38,7 @@ $cmd
 lret=$?; if [[ $lret != 0 ]] ; then retval=$lret; fi
 
 # print converge.
-cmd="$PYBIN go converge --order=2 --order-tolerance=0.4 --stop-on-over"
+cmd="$PYBIN go converge --order=2 --order-tolerance=0.5 --stop-on-over"
 echo $cmd
 $cmd
 lret=$?; if [[ $lret != 0 ]] ; then retval=$lret; fi

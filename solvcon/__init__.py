@@ -47,11 +47,7 @@ __all__ = ['batch', 'batch_torque', 'block', 'boundcond', 'case',
     'gendata', 'helper', 'io', 'kerpak', 'mpy', 'mthread', 'rpc', 'scuda',
     'solver', 'visual_vtk']
 
-import logging
-
 from .cmdutil import go, test
-
-logging.basicConfig()
 
 if __name__ == '__main__':
     go()
