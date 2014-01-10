@@ -46,6 +46,31 @@ from solvcon import hook
 from solvcon.io import vtkxml
 
 
+class ICAnchor(anchor.MeshAnchor):
+    def __init__(self, svr, **kw):
+        self.bulk = kw.pop('bulk', 1.0)
+        self.p0 = kw.pop('p0', 1.0)
+        self.rho0 = kw.pop('rho0', 1.0)
+        self.eta = kw.pop('eta', 1.0)
+        self.mu = kw.pop('mu', 1.0)
+        self.rho = kw.pop('rho', 1.0)
+        vel = kw.pop('vel', (0, 0, 0))
+        assert 3 == len(vel)
+        self.vel = np.array(vel, dtype='float64')
+        super(ICAnchor, self).__init__(svr, **kw)
+
+    def provide(self):
+        self.svr.amsca[:,0] = self.bulk
+        self.svr.amsca[:,1] = self.p0
+        self.svr.amsca[:,2] = self.rho0
+        self.svr.amsca[:,3] = self.eta
+        self.svr.amsca[:,4] = self.mu
+        self.svr.soln[0,:] = self.rho
+        for it in range(self.svr.ndim):
+            val = self.rho * self.vel[it]
+            self.svr.soln[it+1,:] = val
+
+
 class MeshInfoHook(hook.MeshHook):
     """Print mesh information.
     """

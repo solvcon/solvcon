@@ -39,16 +39,16 @@
 #define NEQ 3
 void sc_bulk_calc_jaco_2d(sc_mesh_t *msd, sc_bulk_algorithm_t *alg,
     int icl, double fcn[NEQ][NDIM], double jacos[NEQ][NEQ][NDIM]);
-void sc_bulk_calc_stm_2d(sc_mesh_t *msd, sc_bulk_algorithm_t *alg,
-    int icl, double stms[NEQ][NDIM]);
+void sc_bulk_calc_dif_2d(sc_mesh_t *msd, sc_bulk_algorithm_t *alg,
+    int icl, double difs[NEQ][NDIM]);
 #undef NDIM
 #define NDIM 3
 #undef NEQ
 #define NEQ 4
 void sc_bulk_calc_jaco_3d(sc_mesh_t *msd, sc_bulk_algorithm_t *alg,
     int icl, double fcn[NEQ][NDIM], double jacos[NEQ][NEQ][NDIM]);
-void sc_bulk_calc_stm_3d(sc_mesh_t *msd, sc_bulk_algorithm_t *alg,
-    int icl, double stms[NEQ][NDIM]);
+void sc_bulk_calc_dif_3d(sc_mesh_t *msd, sc_bulk_algorithm_t *alg,
+    int icl, double difs[NEQ][NDIM]);
 
 // vim: set ft=c ts=4 et:
 #endif // __SC_BULK__ALGORITHM_SRC_H__

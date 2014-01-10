@@ -85,14 +85,12 @@ class BulkSolver(solver.MeshSolver):
             (ngstcell+ncell, blk.CLMFC+1, ndim), dtype=fpdtype)
         self.cevol = np.empty(
             (ngstcell+ncell, blk.CLMFC+1), dtype=fpdtype)
-        self.sfmrc = np.empty((ncell, blk.CLMFC, blk.FCMND, 2, ndim),
-            dtype=fpdtype)
+        self.sfmrc = np.empty(
+            (ncell, blk.CLMFC, blk.FCMND, 2, ndim), dtype=fpdtype)
         # parameters.
         self.grpda = np.empty((self.ngroup, self.gdlen), dtype=fpdtype)
-        nsca = kw.pop('nsca', 4)
-        nvec = kw.pop('nvec', 0)
-        self.amsca = np.empty((ngstcell+ncell, nsca), dtype=fpdtype)
-        self.amvec = np.empty((ngstcell+ncell, nvec, ndim), dtype=fpdtype)
+        self.amsca = np.empty((ngstcell+ncell, 5), dtype=fpdtype)
+        self.amvec = np.empty((ngstcell+ncell, 0, ndim), dtype=fpdtype)
         # solutions.
         neq = self.neq
         self.sol = np.empty((ngstcell+ncell, neq), dtype=fpdtype)
@@ -134,7 +132,6 @@ class BulkSolver(solver.MeshSolver):
         # fill group data array.
         self._make_grpda()
         # pre-calculate CFL.
-        #self.create_alg().calc_cfl()
         self.ocfl[:] = self.cfl[:]
         # super method.
         super(BulkSolver, self).provide()
@@ -171,6 +168,10 @@ class BulkSolver(solver.MeshSolver):
     @_MMNAMES.register
     def bcsoln(self, worker=None):
         self.call_non_interface_bc('soln')
+
+    @_MMNAMES.register
+    def calccfl(self, worker=None):
+        self.create_alg().calc_cfl()
 
     @_MMNAMES.register
     def calcdsoln(self, worker=None):
