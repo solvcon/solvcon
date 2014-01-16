@@ -129,6 +129,8 @@ def main():
             make_extension('solvcon.parcel.linear._algorithm', ['src'],
                            libraries=['lapack', 'blas', 'gfortran']),
             make_extension('solvcon.parcel.bulk._algorithm', ['src']),
+            make_extension('solvcon.parcel.vewave._algorithm', ['src'],
+                           libraries=['lapack', 'blas', 'gfortran']),
         ],
         data_files=data_files,
     )

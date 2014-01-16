@@ -1,0 +1,22 @@
+# geometry.
+create vertex -1 -1 0
+create vertex 1 -1 0
+create vertex 1 1 0
+create vertex -1 1 0
+create curve 1 2
+create curve 2 3
+create curve 3 4
+create curve 4 1
+create surface 1 2 3 4
+sideset 1 curve 1
+sideset 2 curve 2
+sideset 3 curve 3
+sideset 4 curve 4
+sideset 1 name "lower"
+sideset 2 name "right"
+sideset 3 name "upper"
+sideset 4 name "left"
+# mesh.
+surface 1 size %g
+surface 1 scheme trimesh
+mesh surface 1

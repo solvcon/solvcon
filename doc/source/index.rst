@@ -57,6 +57,7 @@ Application Reference
 
   app_linear
   app_bulk
+  app_vewave
 
 Development Support
 +++++++++++++++++++

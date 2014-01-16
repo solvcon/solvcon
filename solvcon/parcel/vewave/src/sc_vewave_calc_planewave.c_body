@@ -1,0 +1,80 @@
+/*
+ * Copyright (c) 2010, Yung-Yu Chen <yyc@solvcon.net>
+ *
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * - Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ * - Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ * - Neither the name of the SOLVCON nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ */
+
+void
+#if NDIM == 3
+sc_vewave_calc_planewave_3d
+#else
+sc_vewave_calc_planewave_2d
+#endif
+(sc_mesh_t *msd, sc_vewave_algorithm_t *alg,
+ double *asol, double *adsol, double *amp, double *ctr, double *wvec,
+ double afreq) {
+    // pointers.
+    double *pasol, *padsol, *pcecnd;
+    // scalars.
+    double tdep, sdep, sxdep, sydep
+#if NDIM == 3
+        , szdep
+#endif
+        ;
+    // iterators.
+    int icl, ieq;
+    tdep = afreq * alg->time;
+    pasol = asol + msd->ngstcell*NEQ;
+    padsol = adsol + msd->ngstcell*NEQ*NDIM;
+    pcecnd = alg->cecnd;
+    for (icl=0; icl<msd->ncell; icl++) {
+        sdep = wvec[0]*(pcecnd[0]-ctr[0]) + wvec[1]*(pcecnd[1]-ctr[1])
+#if NDIM == 3
+            + wvec[2]*(pcecnd[2]-ctr[2])
+#endif
+            ;
+        sxdep = -sin(sdep - tdep);
+        sdep = cos(sdep - tdep);
+#if NDIM == 3
+        szdep = wvec[2]*sxdep;
+#endif
+        sydep = wvec[1]*sxdep;
+        sxdep = wvec[0]*sxdep;
+        for (ieq=0; ieq<NEQ; ieq++) {
+            pasol[ieq] = amp[ieq] * sdep;
+            padsol[0] = amp[ieq] * sxdep;
+            padsol[1] = amp[ieq] * sydep;
+#if NDIM == 3
+            padsol[2] = amp[ieq] * szdep;
+#endif
+            padsol += NDIM;
+        };
+        pasol += NEQ;
+        pcecnd += (CLMFC+1) * NDIM;
+    };
+};
+// vim: set ft=c ts=4 et:
