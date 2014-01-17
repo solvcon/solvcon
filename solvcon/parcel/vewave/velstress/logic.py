@@ -63,18 +63,21 @@ class VslinSolver(vewave.VewaveSolver):
     """
 
     def __init__(self, blk, mtrldict=None, **kw):
-        kw['neq'] = 9
         #: A :py:class:`dict` that maps names to :py:class:`Material
         #: <.material.Material>` object.
         self.mtrldict = mtrldict if mtrldict else {}
         #: A :py:class:`list` of all :py:class:`Material <.material.Material>`
         #: objects.
         self.mtrllist = None
+        if vewave.VewaveSolver.ndim == 3: kw['neq'] = 45
+        else: kw['neq'] = 23
         super(VslinSolver, self).__init__(blk, **kw)
+
 
     @property
     def gdlen(self):
-        return 9 * 9 * self.ndim
+        if self.ndim == 3: return 45 * 45 * self.ndim
+        else: return 23 * 23 * self.ndim
 
     def _make_grpda(self):
         self.mtrllist = self._build_mtrllist(self.grpnames, self.mtrldict)
@@ -109,13 +112,26 @@ class VslinSolver(vewave.VewaveSolver):
             mtrllist.append(mtrl)
         return mtrllist
 
+class VewaveSolver(VslinSolver):
+    
+    def __init__(self, blk, mtrldict=None, **kw):
+        super(VewaveSolver, self).__init__(blk, mtrldict, **kw)
+    
+    def _make_grpda(self):
+        self.mtrllist = self._build_mtrllist(self.grpnames, self.mtrldict)
+        for igrp in range(len(self.grpnames)):
+            mtrl = self.mtrllist[igrp]
+            jaco = self.grpda[igrp].reshape(self.neq, self.neq, self.ndim)
+            mjacos = mtrl.get_jacos(self.ndim)
+            for idm in range(self.ndim):
+                jaco[:,:,idm] = mjacos[idm,:,:]
 
 class VslinCase(vewave.VewaveCase):
     """Case for anisotropic elastic solids.
     """
     defdict = {
         'execution.neq': 9,
-        'solver.solvertype': VslinSolver,
+        'solver.solvertype': VewaveSolver,
         'solver.mtrldict': dict,
     }
 

@@ -85,6 +85,7 @@ class VewaveSolver(solver.MeshSolver):
         """
         # meta data.
         self.neq = kw.pop('neq')
+        print self.neq
         super(VewaveSolver, self).__init__(blk, **kw)
         self.substep_run = 2
         ndim = blk.ndim

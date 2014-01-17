@@ -52,6 +52,7 @@ from solvcon import solver
 from solvcon import helper
 from solvcon.parcel import vewave
 from solvcon.parcel.vewave import velstress
+from solvcon.parcel.vewave import VewaveSolve
 
 
 ###############################################################################
@@ -236,18 +237,18 @@ def cvg_base(casename=None, mtrlname='GaAs',
     cse.runhooks.append(vewave.FillAnchor,
                         mappers={'soln': solver.ALMOST_ZERO, 'dsoln': 0})
     ## plane wave solution.
-    pws = list()
-    for wvec, idx in wtests:
-        pws.append(velstress.VslinPWSolution(
-            amp=1.0, ctr=np.zeros(ndim, dtype='float64'), wvec=wvec,
-            mtrl=mtrl, idx=idx))
-    cse.runhooks.append(
-        vewave.PlaneWaveHook, psteps=ssteps, planewaves=pws)
+    #pws = list()
+    #for wvec, idx in wtests:
+    #    pws.append(velstress.VslinPWSolution(
+    #        amp=1.0, ctr=np.zeros(ndim, dtype='float64'), wvec=wvec,
+    #        mtrl=mtrl, idx=idx))
+    #cse.runhooks.append(
+    #    vewave.PlaneWaveHook, psteps=ssteps, planewaves=pws)
     # analyzing/output anchors and hooks.
     cse.runhooks.append(vewave.PMarchSave, anames=[
             ('soln', False, -9),
-            ('analytical', True, -9),
-            ('difference', True, -9),
+    #        ('analytical', True, -9),
+    #        ('difference', True, -9),
         ], fpdtype='float64', psteps=ssteps, compressor='gz')
     return cse
 
@@ -267,6 +268,14 @@ def cvg3d_skel(casename, div, std, **kw):
             (np.array([1,1,1], dtype='float64')*np.pi, 8),
         ), **kw)
 
+def cvg2d_ve(casename, div, std, mtrlname, **kw):
+    period = 2.649983322636356e-04
+    return cvg_base(casename=casename,
+        time_increment=period/div, steps_run=2*div, ssteps=div, psteps=std,
+        mtrlname=mtrlname,
+        wtests=(
+            (np.array([1,1], dtype='float64')*np.pi, 8),
+        ), **kw)
 
 ################################################################################
 # The arrangement for 2D convergence test.
@@ -291,6 +300,10 @@ def cvg2d_100(casename, **kw):
 @velstress.VslinCase.register_arrangement
 def cvg2d_50(casename, **kw):
     return cvg2d_skel(casename=casename, div=64, std=2)
+
+@velstress.VslinCase.register_arrangement
+def cvg2d_vewave(casename, **kw):
+    return cvg2d_ve(casename=casename, div=18, std=1, mtrlname='SoftTissue')
 
 
 ################################################################################
