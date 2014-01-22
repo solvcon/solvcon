@@ -57,41 +57,32 @@ class VewaveSolver(solver.MeshSolver):
     _interface_init_ = ['cecnd', 'cevol', 'sfmrc']
     _solution_array_ = ['solt', 'sol', 'soln', 'dsol', 'dsoln']
 
-    def __init__(self, blk, **kw):
+    def __init__(self, blk, mtrldict, **kw):
         """
-        A linear solver needs a :py:class:`Block <solvcon.block.Block>` having
-        at least one group:
+        A linear solver needs a :py:class:`Block <solvcon.block.Block>` and a
+        dictionary for mapping names to :py:class:`~.material.Material`:
 
         >>> from solvcon.testing import create_trivial_2d_blk
         >>> blk = create_trivial_2d_blk()
         >>> blk.clgrp.fill(0)
         >>> blk.grpnames.append('blank')
-
-        A linear solver can't be instantiated directly:
-
-        >>> svr = VewaveSolver(blk, neq=1) # doctest: +ELLIPSIS
-        Traceback (most recent call last):
-        ...
-        TypeError: data type ...
-
-        To instantiate the linear solver, at least :py:attr:`gdlen` needs to be
-        implemented:
-
-        >>> class SubSolver(VewaveSolver):
-        ...     @property
-        ...     def gdlen(self):
-        ...         return 1
-        >>> svr = SubSolver(blk, neq=1)
+        >>> svr = VewaveSolver(blk, {}) # doctest: +ELLIPSIS
         """
-        # meta data.
-        self.neq = kw.pop('neq')
         super(VewaveSolver, self).__init__(blk, **kw)
-        self.substep_run = 2
+        # meta data.
         ndim = blk.ndim
         ncell = blk.ncell
         ngstcell = blk.ngstcell
         fpdtype = 'float64'
+        self.neq = self.determine_neq(ndim)
+        #: A :py:class:`dict` that maps names to :py:class:`Material
+        #: <.material.Material>` object.
+        self.mtrldict = mtrldict if mtrldict else {}
+        #: A :py:class:`list` of all :py:class:`Material <.material.Material>`
+        #: objects.
+        self.mtrllist = None
         # scheme parameters.
+        self.substep_run = 2
         self.alpha = int(kw.pop('alpha', 0))
         self.sigma0 = int(kw.pop('sigma0', 3.0))
         self.taylor = float(kw.pop('taylor', 1.0))  # dirty hack.
@@ -123,9 +114,13 @@ class VewaveSolver(solver.MeshSolver):
         self.cfl = np.empty(ngstcell+ncell, dtype=fpdtype)
         self.ocfl = np.empty(ngstcell+ncell, dtype=fpdtype)
 
+    @staticmethod
+    def determine_neq(ndim):
+        return 45 if ndim == 3 else 23
+
     @property
     def gdlen(self):
-        return None
+        return self.determine_neq(self.ndim)**2 * self.ndim
 
     def create_alg(self):
         """
@@ -140,7 +135,7 @@ class VewaveSolver(solver.MeshSolver):
         ...     @property
         ...     def gdlen(self):
         ...         return 1
-        >>> svr = SubSolver(blk, neq=1)
+        >>> svr = SubSolver(blk, {})
 
         Create an associated algorithm object is straight-forward:
 
@@ -158,20 +153,47 @@ class VewaveSolver(solver.MeshSolver):
 
     def provide(self):
         # fill group data array.
-        self._make_grpda()
+        self.mtrllist = self._build_mtrllist(self.grpnames, self.mtrldict)
+        for igrp in range(len(self.grpnames)):
+            mtrl = self.mtrllist[igrp]
+            jaco = self.grpda[igrp].reshape(self.neq, self.neq, self.ndim)
+            mjacos = mtrl.get_jacos(self.ndim)
+            for idm in range(self.ndim):
+                jaco[:,:,idm] = mjacos[idm,:,:]
         # pre-calculate CFL.
         self.create_alg().calc_cfl()
         self.ocfl[:] = self.cfl[:]
         # super method.
         super(VewaveSolver, self).provide()
 
+    @staticmethod
+    def _build_mtrllist(grpnames, mtrldict):
+        """
+        Build the material list out of the mapping dict.
+
+        @type grpnames: list
+        @param mtrldict: the map from names to material objects.
+        @type mtrldict: dict
+        @return: the list of material object.
+        @rtype: Material
+        """
+        mtrllist = list()
+        default_mtuple = mtrldict.get(None, None)
+        for grpname in grpnames:
+            try:
+                mtrl = mtrldict.get(grpname, default_mtuple)
+            except KeyError, e:
+                args = e.args[:]
+                args.append('no material named %s in mtrldict'%grpname)
+                e.args = args
+                raise
+            mtrllist.append(mtrl)
+        return mtrllist
+
     def apply_bc(self):
         super(VewaveSolver, self).apply_bc()
         self.call_non_interface_bc('soln')
         self.call_non_interface_bc('dsoln')
-
-    def _make_grpda(self):
-        raise NotImplementedError
 
     ###########################################################################
     # Begin marching algorithm.

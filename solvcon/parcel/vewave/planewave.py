@@ -64,7 +64,20 @@ class PlaneWaveSolution(object):
         """Calculate and return a :py:class:`tuple` for eigenvalues and
         eigenvectors.  This method needs to be subclassed.
         """
-        raise NotImplementedError
+        wvec = kw['wvec']
+        mtrl = kw['mtrl']
+        idx = kw['idx']
+        nml = wvec/np.sqrt((wvec**2).sum())
+        jacos = mtrl.get_jacos()
+        jaco = jacos[0] * nml[0]
+        for idm in range(1, len(nml)):
+            jaco += jacos[idm] * nml[idm]
+        evl, evc = np.linalg.eig(jaco)
+        srt = evl.argsort()
+        evl = evl[srt[idx]].real
+        evc = evc[:,srt[idx]].real
+        evc *= evc[0]/abs(evc[0]+1.e-200)
+        return evl, evc
 
     def __call__(self, svr, asol, adsol):
         svr.create_alg().calc_planewave(

@@ -47,6 +47,7 @@ class VewaveCase(case.MeshCase):
         'execution.verified_norm': -1.0,
         'solver.solvertype': lsolver.VewaveSolver,
         'solver.domaintype': domain.Domain,
+        'solver.mtrldict': dict,
         'solver.alpha': 0,
         'solver.sigma0': 3.0,
         'solver.taylor': 1.0,
@@ -55,6 +56,13 @@ class VewaveCase(case.MeshCase):
         'solver.taumin': None,
         'solver.tauscale': None,
     }
+
+    def load_block(self):
+        loaded = super(VewaveCase, self).load_block()
+        ndim = loaded.ndim if hasattr(loaded, 'ndim') else loaded.blk.ndim
+        self.execution.neq = lsolver.VewaveSolver.determine_neq(ndim)
+        return loaded
+
     def make_solver_keywords(self):
         kw = super(VewaveCase, self).make_solver_keywords()
         # time.
@@ -66,7 +74,8 @@ class VewaveCase(case.MeshCase):
                     'taumin', 'tauscale',):
             val = self.solver.get(key)
             if val != None: kw[key] = float(val)
+        # setup material mapper.
+        kw['mtrldict'] = self.solver.mtrldict
         return kw
-
 
 # vim: set ff=unix fenc=utf8 ft=python ai et sw=4 ts=4 tw=79:

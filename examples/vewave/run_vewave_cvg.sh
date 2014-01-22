@@ -25,20 +25,9 @@ retval=0
 cd $EXHOME
 rm -rf $RESULTDIR
 
-# 2D.
-cmd="$PYBIN go run cvg2d_200 cvg2d_150 cvg2d_100 cvg2d_50"
-echo $cmd
-$cmd
-lret=$?; if [[ $lret != 0 ]] ; then retval=$lret; fi
-
-# 3D.
-cmd="$PYBIN go run cvg3d_400 cvg3d_200 cvg3d_150 cvg3d_100"
-echo $cmd
-$cmd
-lret=$?; if [[ $lret != 0 ]] ; then retval=$lret; fi
-
-# print converge.
-cmd="$PYBIN go converge --order=2 --order-tolerance=0.5 --stop-on-over"
+# At this early stage, as long as a 2D simulation can run toward the end, it's
+# good enough.
+cmd="$PYBIN go run cvg2d_200"
 echo $cmd
 $cmd
 lret=$?; if [[ $lret != 0 ]] ; then retval=$lret; fi

@@ -51,8 +51,6 @@ from solvcon import boundcond
 from solvcon import solver
 from solvcon import helper
 from solvcon.parcel import vewave
-from solvcon.parcel.vewave import velstress
-from solvcon.parcel.vewave import VewaveSolve
 
 
 ###############################################################################
@@ -193,7 +191,7 @@ def match_periodic(blk):
 ################################################################################
 # Basic configuration.
 ################################################################################
-def cvg_base(casename=None, mtrlname='GaAs',
+def cvg_base(casename=None, mtrlname='SoftTissue',
     al=20.0, be=40.0, ga=50.0, wtests=None, psteps=None, ssteps=None, **kw):
     """
     Fundamental configuration of the simulation and return the case object.
@@ -217,12 +215,12 @@ def cvg_base(casename=None, mtrlname='GaAs',
             'rear': (bct, {}),
         })
     # set up case.
-    mtrl = velstress.mltregy[mtrlname](
+    mtrl = vewave.mltregy[mtrlname](
         al=al*np.pi/180.0, be=be*np.pi/180.0, ga=ga*np.pi/180.0)
     basedir = os.path.join(os.path.abspath(os.getcwd()), 'result')
     local_mesher = functools.partial(
         mesher, use_cubit=os.environ.get('USE_CUBIT', False))
-    cse = velstress.VslinCase(
+    cse = vewave.VewaveCase(
         basedir=basedir, rootdir=conf.env.projdir, basefn=casename,
         mesher=local_mesher,
         bcmap=bcmap, bcmod=match_periodic, mtrldict={None: mtrl}, taylor=0.0,
@@ -239,7 +237,7 @@ def cvg_base(casename=None, mtrlname='GaAs',
     ## plane wave solution.
     #pws = list()
     #for wvec, idx in wtests:
-    #    pws.append(velstress.VslinPWSolution(
+    #    pws.append(vewave.PlaneWaveSolution(
     #        amp=1.0, ctr=np.zeros(ndim, dtype='float64'), wvec=wvec,
     #        mtrl=mtrl, idx=idx))
     #cse.runhooks.append(
@@ -280,7 +278,7 @@ def cvg2d_ve(casename, div, std, mtrlname, **kw):
 ################################################################################
 # The arrangement for 2D convergence test.
 ################################################################################
-@velstress.VslinCase.register_arrangement
+@vewave.VewaveCase.register_arrangement
 def cvg2d_test(casename, div=18, **kw):
     period = 2.649983322636356e-04
     return cvg_base(casename=casename,
@@ -288,20 +286,20 @@ def cvg2d_test(casename, div=18, **kw):
         wtests=(
             (np.array([1,1], dtype='float64')*np.pi, 8),
         ), **kw)
-@velstress.VslinCase.register_arrangement
+@vewave.VewaveCase.register_arrangement
 def cvg2d_200(casename, **kw):
     return cvg2d_skel(casename=casename, div=18, std=1)
-@velstress.VslinCase.register_arrangement
+@vewave.VewaveCase.register_arrangement
 def cvg2d_150(casename, **kw):
     return cvg2d_skel(casename=casename, div=22, std=1)
-@velstress.VslinCase.register_arrangement
+@vewave.VewaveCase.register_arrangement
 def cvg2d_100(casename, **kw):
     return cvg2d_skel(casename=casename, div=32, std=1)
-@velstress.VslinCase.register_arrangement
+@vewave.VewaveCase.register_arrangement
 def cvg2d_50(casename, **kw):
     return cvg2d_skel(casename=casename, div=64, std=2)
 
-@velstress.VslinCase.register_arrangement
+@vewave.VewaveCase.register_arrangement
 def cvg2d_vewave(casename, **kw):
     return cvg2d_ve(casename=casename, div=18, std=1, mtrlname='SoftTissue')
 
@@ -309,19 +307,19 @@ def cvg2d_vewave(casename, **kw):
 ################################################################################
 # The arrangement for 3D convergence test.
 ################################################################################
-@velstress.VslinCase.register_arrangement
+@vewave.VewaveCase.register_arrangement
 def cvg3d_500(casename, **kw):
     return cvg3d_skel(casename=casename, div=12, std=1)
-@velstress.VslinCase.register_arrangement
+@vewave.VewaveCase.register_arrangement
 def cvg3d_400(casename, **kw):
     return cvg3d_skel(casename=casename, div=16, std=1)
-@velstress.VslinCase.register_arrangement
+@vewave.VewaveCase.register_arrangement
 def cvg3d_200(casename, **kw):
     return cvg3d_skel(casename=casename, div=32, std=1)
-@velstress.VslinCase.register_arrangement
+@vewave.VewaveCase.register_arrangement
 def cvg3d_150(casename, **kw):
     return cvg3d_skel(casename=casename, div=48, std=1)
-@velstress.VslinCase.register_arrangement
+@vewave.VewaveCase.register_arrangement
 def cvg3d_100(casename, **kw):
     return cvg3d_skel(casename=casename, div=64, std=2)
 
