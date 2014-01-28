@@ -152,6 +152,12 @@ Release History
 
    history
 
+Contributors
+++++++++++++
+
+.. include:: ../../CREDITS.rst
+  :start-line: 3
+
 Indices and Tables
 ++++++++++++++++++
 
