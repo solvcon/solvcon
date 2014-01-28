@@ -2,6 +2,8 @@
 Development Plan
 ================
 
+(Deprecated).
+
 Version 0.1.3
 =============
 

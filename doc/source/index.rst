@@ -37,7 +37,6 @@ Documentation
   :maxdepth: 2
 
   tutorial
-  cese
 
 Programming Reference
 +++++++++++++++++++++
@@ -66,7 +65,6 @@ Development Support
   :maxdepth: 1
 
   python_style
-  plan
   verification
 
 Background Writing
@@ -76,6 +74,7 @@ Background Writing
   :maxdepth: 1
 
   tdnum/index
+  cese
 
 Other Resources
 +++++++++++++++
