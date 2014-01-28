@@ -69,6 +69,14 @@ Development Support
   plan
   verification
 
+Background Writing
+++++++++++++++++++
+
+.. toctree::
+  :maxdepth: 1
+
+  tdnum/index
+
 Other Resources
 +++++++++++++++
 
