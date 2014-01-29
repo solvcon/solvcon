@@ -58,6 +58,23 @@ cdef extern:
     void sc_vewave_calc_soln_3d(sc_mesh_t *msd, sc_vewave_algorithm_t *alg)
     void sc_vewave_calc_dsoln_2d(sc_mesh_t *msd, sc_vewave_algorithm_t *alg)
     void sc_vewave_calc_dsoln_3d(sc_mesh_t *msd, sc_vewave_algorithm_t *alg)
+    # boundary-condition treaters.
+    void sc_vewave_bound_nonrefl_soln_2d(
+        sc_mesh_t *msd, sc_vewave_algorithm_t *alg, int nbnd, int *facn)
+    void sc_vewave_bound_nonrefl_soln_3d(
+        sc_mesh_t *msd, sc_vewave_algorithm_t *alg, int nbnd, int *facn)
+    void sc_vewave_bound_nonrefl_dsoln_2d(
+        sc_mesh_t *msd, sc_vewave_algorithm_t *alg, int nbnd, int *facn)
+    void sc_vewave_bound_nonrefl_dsoln_3d(
+        sc_mesh_t *msd, sc_vewave_algorithm_t *alg, int nbnd, int *facn)
+    void sc_vewave_bound_sinewave_soln_2d(
+        sc_mesh_t *msd, sc_vewave_algorithm_t *alg, int nbnd, int *facn)
+    void sc_vewave_bound_sinewave_soln_3d(
+        sc_mesh_t *msd, sc_vewave_algorithm_t *alg, int nbnd, int *facn)
+    void sc_vewave_bound_sinewave_dsoln_2d(
+        sc_mesh_t *msd, sc_vewave_algorithm_t *alg, int nbnd, int *facn)
+    void sc_vewave_bound_sinewave_dsoln_3d(
+        sc_mesh_t *msd, sc_vewave_algorithm_t *alg, int nbnd, int *facn)
 
 cdef extern from "stdlib.h":
     void* malloc(size_t size)
@@ -191,5 +208,37 @@ cdef class VewaveAlgorithm(Mesh):
             sc_vewave_calc_dsoln_3d(self._msd, self._alg)
         else:
             sc_vewave_calc_dsoln_2d(self._msd, self._alg)
+
+    def bound_nonrefl_soln(self, cnp.ndarray[int, ndim=2, mode="c"] facn):
+        if self._msd.ndim == 3:
+            sc_vewave_bound_nonrefl_soln_3d(self._msd, self._alg,
+                facn.shape[0], &facn[0,0])
+        else:
+            sc_vewave_bound_nonrefl_soln_2d(self._msd, self._alg,
+                facn.shape[0], &facn[0,0])
+
+    def bound_nonrefl_dsoln(self, cnp.ndarray[int, ndim=2, mode="c"] facn):
+        if self._msd.ndim == 3:
+            sc_vewave_bound_nonrefl_dsoln_3d(self._msd, self._alg,
+                facn.shape[0], &facn[0,0])
+        else:
+            sc_vewave_bound_nonrefl_dsoln_2d(self._msd, self._alg,
+                facn.shape[0], &facn[0,0])
+    
+    def bound_sinewave_soln(self, cnp.ndarray[int, ndim=2, mode="c"] facn):
+        if self._msd.ndim == 3:
+            sc_vewave_bound_sinewave_soln_3d(self._msd, self._alg,
+                facn.shape[0], &facn[0,0])
+        else:
+            sc_vewave_bound_sinewave_soln_2d(self._msd, self._alg,
+                facn.shape[0], &facn[0,0])
+
+    def bound_sinewave_dsoln(self, cnp.ndarray[int, ndim=2, mode="c"] facn):
+        if self._msd.ndim == 3:
+            sc_vewave_bound_sinewave_dsoln_3d(self._msd, self._alg,
+                facn.shape[0], &facn[0,0])
+        else:
+            sc_vewave_bound_sinewave_dsoln_2d(self._msd, self._alg,
+                facn.shape[0], &facn[0,0])
 
 # vim: set fenc=utf8 ft=pyrex ff=unix ai et sw=4 ts=4 tw=79:

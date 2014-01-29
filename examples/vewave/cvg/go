@@ -53,6 +53,8 @@ from solvcon import helper
 from solvcon.parcel import vewave
 
 
+
+
 ###############################################################################
 # Command line.
 ###############################################################################
@@ -137,7 +139,8 @@ def mesher(cse, use_cubit=False):
                              'cubit' if use_cubit else 'gmsh')
     # determine characteristic length of mesh.
     try:
-        itv = float(cse.io.basefn.split('_')[-1])/1000
+        #itv = float(cse.io.basefn.split('_')[-1])/1000
+        itv = 6.67e-5
     except ValueError:
         itv = 0.2
     # load the meshing commands.
@@ -192,7 +195,8 @@ def match_periodic(blk):
 # Basic configuration.
 ################################################################################
 def cvg_base(casename=None, mtrlname='SoftTissue',
-    al=20.0, be=40.0, ga=50.0, wtests=None, psteps=None, ssteps=None, **kw):
+    al=20.0, be=40.0, ga=50.0, wtests=None, psteps=None, ssteps=None, rho=1060.0,
+    vp=1578.0, sig0=10, freq=2e6, **kw):
     """
     Fundamental configuration of the simulation and return the case object.
 
@@ -201,10 +205,12 @@ def cvg_base(casename=None, mtrlname='SoftTissue',
     """
     ndim = int(casename[3])
     # set up BCs.
-    bct = boundcond.bctregy.BC
+    # bct = boundcond.bctregy.BC
+    bct = boundcond.bctregy.VewaveNonRefl
+    sinewave = boundcond.bctregy.VewaveSine
     bcmap = dict()
     bcmap.update({
-        'left': (bct, {}),
+        'left': (sinewave, {}),
         'right': (bct, {}),
         'upper': (bct, {}),
         'lower': (bct, {}),
@@ -220,10 +226,13 @@ def cvg_base(casename=None, mtrlname='SoftTissue',
     basedir = os.path.join(os.path.abspath(os.getcwd()), 'result')
     local_mesher = functools.partial(
         mesher, use_cubit=os.environ.get('USE_CUBIT', False))
+    meshfn = os.path.join(os.path.abspath(os.getcwd()), 'mesh', "vewave2d.msh")
     cse = vewave.VewaveCase(
         basedir=basedir, rootdir=conf.env.projdir, basefn=casename,
-        mesher=local_mesher,
-        bcmap=bcmap, bcmod=match_periodic, mtrldict={None: mtrl}, taylor=0.0,
+        #mesher=local_mesher,
+        meshfn=meshfn,
+        bcmap=bcmap, #bcmod=match_periodic, 
+        mtrldict={None: mtrl}, taylor=0.0,
         use_incenter=False, **kw)
     # informative hooks.
     cse.runhooks.append(vewave.MeshInfoHook)
@@ -233,7 +242,9 @@ def cvg_base(casename=None, mtrlname='SoftTissue',
         cflmax=10.0, linewidth=ssteps/psteps)
     # initializer anchors.
     cse.runhooks.append(vewave.FillAnchor,
-                        mappers={'soln': solver.ALMOST_ZERO, 'dsoln': 0})
+                        mappers={'soln': 0.0, #solver.ALMOST_ZERO, 
+                        'dsoln': 0.0})
+    cse.runhooks.append(vewave.AmscaAnchor, rho=rho, vp=vp, sig0=sig0, freq=freq)
     ## plane wave solution.
     #pws = list()
     #for wvec, idx in wtests:
@@ -269,11 +280,9 @@ def cvg3d_skel(casename, div, std, **kw):
 def cvg2d_ve(casename, div, std, mtrlname, **kw):
     period = 2.649983322636356e-04
     return cvg_base(casename=casename,
-        time_increment=period/div, steps_run=2*div, ssteps=div, psteps=std,
+        time_increment=0.000000012, steps_run=2*div, ssteps=div, psteps=std,
         mtrlname=mtrlname,
-        wtests=(
-            (np.array([1,1], dtype='float64')*np.pi, 8),
-        ), **kw)
+        **kw)
 
 ################################################################################
 # The arrangement for 2D convergence test.
@@ -301,7 +310,8 @@ def cvg2d_50(casename, **kw):
 
 @vewave.VewaveCase.register_arrangement
 def cvg2d_vewave(casename, **kw):
-    return cvg2d_ve(casename=casename, div=18, std=1, mtrlname='SoftTissue')
+    return cvg2d_ve(casename=casename, div=4, std=1, mtrlname='SoftTissue',
+                    rho=1.06e3, vp=1578.0, sig0=10.0, freq=2e6)
 
 
 ################################################################################

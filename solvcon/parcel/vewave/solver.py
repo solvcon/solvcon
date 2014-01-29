@@ -73,6 +73,7 @@ class VewaveSolver(solver.MeshSolver):
         ndim = blk.ndim
         ncell = blk.ncell
         ngstcell = blk.ngstcell
+        self.clcnd = blk.clcnd
         fpdtype = 'float64'
         self.neq = self.determine_neq(ndim)
         #: A :py:class:`dict` that maps names to :py:class:`Material
@@ -99,7 +100,7 @@ class VewaveSolver(solver.MeshSolver):
             dtype=fpdtype)
         # parameters.
         self.grpda = np.empty((self.ngroup, self.gdlen), dtype=fpdtype)
-        nsca = kw.pop('nsca', 0)
+        nsca = kw.pop('nsca', 4)
         nvec = kw.pop('nvec', 0)
         self.amsca = np.empty((ngstcell+ncell, nsca), dtype=fpdtype)
         self.amvec = np.empty((ngstcell+ncell, nvec, ndim), dtype=fpdtype)
@@ -151,7 +152,7 @@ class VewaveSolver(solver.MeshSolver):
         super(VewaveSolver, self).init(**kw)
         self.create_alg().prepare_sf()
 
-    def provide(self):
+    def preloop(self):
         # fill group data array.
         self.mtrllist = self._build_mtrllist(self.grpnames, self.mtrldict)
         for igrp in range(len(self.grpnames)):
@@ -164,7 +165,7 @@ class VewaveSolver(solver.MeshSolver):
         self.create_alg().calc_cfl()
         self.ocfl[:] = self.cfl[:]
         # super method.
-        super(VewaveSolver, self).provide()
+        super(VewaveSolver, self).preloop()
 
     @staticmethod
     def _build_mtrllist(grpnames, mtrldict):
@@ -265,5 +266,23 @@ class VewavePeriodic(boundcond.periodic):
         slctr = self.rclp[:,1] + blk.ngstcell
         svr.dsoln[slctm,:,:] = svr.dsoln[slctr,:,:]
 
+class VewaveBC(boundcond.BC):
+    @property
+    def alg(self):
+        return self.svr.create_alg()
+
+class VewaveNonRefl(VewaveBC):
+    _ghostgeom_ = 'mirror'
+    def soln(self):
+        self.alg.bound_nonrefl_soln(self.facn)
+    def dsoln(self):
+        self.alg.bound_nonrefl_dsoln(self.facn)
+    
+class VewaveSine(VewaveBC):
+    _ghostgeom_ = 'mirror'
+    def soln(self):
+        self.alg.bound_sinewave_soln(self.facn)
+    def dsoln(self):
+        self.alg.bound_sinewave_dsoln(self.facn)
 
 # vim: set ff=unix fenc=utf8 ft=python ai et sw=4 ts=4 tw=79:

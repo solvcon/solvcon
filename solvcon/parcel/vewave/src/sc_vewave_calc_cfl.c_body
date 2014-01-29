@@ -41,6 +41,7 @@ sc_vewave_calc_cfl_2d
     // pointers.
     int *pclfcs, *pfccls;
     double *pcfl, *picecnd, *pjcecnd, *pcecnd, *pjac;
+    double *pamsca;
     // scalars.
     double hdt, dist, cfl;
     int lwork=4*NEQ;
@@ -72,6 +73,7 @@ sc_vewave_calc_cfl_2d
         sc_vewave_calc_jaco_2d(msd, alg, icl, fcn, jacos);
 #endif
         clnfc = pclfcs[0];
+        pamsca = alg->amsca + icl*alg->nsca;
         for (ifl=1; ifl<=clnfc; ifl++) {
             ifc = pclfcs[ifl];
             pfccls = msd->fccls + ifc * FCREL;
@@ -95,6 +97,7 @@ sc_vewave_calc_cfl_2d
             wdir[2] /= dist;
 #endif
             // construct jacobian.
+            /*
             pjac = jacos;
             for (ieq=0; ieq<NEQ; ieq++) {
                 for (jeq=0; jeq<NEQ; jeq++) {
@@ -127,8 +130,10 @@ sc_vewave_calc_cfl_2d
                     };
                 };
             };
+            */
             // calculate CFL number.
-            cfl = hdt * wr[argsort[NEQ-1]] / dist;
+            //cfl = hdt * wr[argsort[NEQ-1]] / dist;
+            cfl = hdt * pamsca[1] / dist;
             pcfl[0] = fmax(pcfl[0], cfl);
         };
         // advance.

@@ -45,6 +45,20 @@ from solvcon import anchor
 from solvcon import hook
 from solvcon.io import vtkxml
 
+class AmscaAnchor(anchor.MeshAnchor):
+    def __init__(self, svr, **kw):
+        self.rho = float(kw.pop('rho', 1.06e3))
+        self.vp = float(kw.pop('vp', 1578.0))
+        self.sig0 = float(kw.pop('sig0', 10.0))
+        self.freq = float(kw.pop('freq', 2e6))
+        self.svr = svr
+        super(AmscaAnchor, self).__init__(svr, **kw)
+
+    def provide(self):
+        self.svr.amsca[:,0] = self.rho
+        self.svr.amsca[:,1] = self.vp
+        self.svr.amsca[:,2] = self.sig0
+        self.svr.amsca[:,3] = self.freq
 
 class MeshInfoHook(hook.MeshHook):
     """Print mesh information.

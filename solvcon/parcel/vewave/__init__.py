@@ -37,8 +37,8 @@ Viscoelastic wave solver.
 from .case import VewaveCase
 from .solver import VewaveSolver, VewavePeriodic
 from .planewave import PlaneWaveSolution, PlaneWaveAnchor, PlaneWaveHook
-from .inout import (MeshInfoHook, ProgressHook, FillAnchor, CflAnchor, CflHook,
-                    MarchSaveAnchor, PMarchSave)
+from .inout import (AmscaAnchor, MeshInfoHook, ProgressHook, FillAnchor, 
+	                CflAnchor, CflHook, MarchSaveAnchor, PMarchSave)
 from .material import mltregy, Material
 
 # vim: set ff=unix fenc=utf8 ft=python ai et sw=4 ts=4 tw=79:

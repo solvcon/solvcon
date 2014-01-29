@@ -60,7 +60,8 @@ class Material(object):
     __metaclass__ = MaterialMeta
 
     def __init__(self, **kw):
-        self.rho = kw["rho"]
+        self.rho = kw['rho']
+        self.vp  = kw['vp']
         self.Gep = kw['Gep']
         self.Gem = kw['Gem']
         self.Glp = kw['Glp']
@@ -142,7 +143,7 @@ class Material(object):
             for i in range(6):
                 jacos[0][5+i][0]= (Glp[i]/tau[i]+Glm[i]/tau[i])
                 jacos[0][11+i][0] = (Glp[i]/tau[i]-Glm[i]/tau[i])
-                jacos[0][17+i][2] = Glm[i]/tau[i]
+                jacos[0][17+i][1] = Glm[i]/tau[i]
 
                 jacos[1][5+i][1]= (Glp[i]/tau[i]-Glm[i]/tau[i])
                 jacos[1][11+i][1] = (Glp[i]/tau[i]+Glm[i]/tau[i])
@@ -152,15 +153,16 @@ class Material(object):
 
 class SoftTissue(Material):
     def __init__(self, **kw):
-        kw.setdefault('rho', 1100.0)
-        kw.setdefault('Gep', 0.98666)
-        kw.setdefault('Gem', 0.98666)
-        kw.setdefault('Glp', [0.0025, 0.000368, 0.000744, 0.000132, 0.000511, 
-                              0.000753])
-        kw.setdefault('Glm', [0.0025, 0.000368, 0.000744, 0.000132, 0.000511, 
-                              0.000753])
-        kw.setdefault('tau', [3.1567e-9, 1.0508e-8, 3.3761e-8, 3.1344e-7, 
-                              3.2936e-6, 3.1123e-5])
+        kw.setdefault('rho', 1060.0)
+        kw.setdefault('vp', 1578.0)
+        gamma = 1060.0*1578.0**2
+        kw.setdefault('Gep', 0.983643335902*gamma)
+        kw.setdefault('Gem', 0.0)
+        kw.setdefault('Glp', [0.0015579*gamma, 0.04412869*gamma, -0.22507493*gamma, 
+                              0.52691894*gamma, -0.5573311*gamma, 0.22615716*gamma])
+        kw.setdefault('Glm', [0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        kw.setdefault('tau', [7.95774715e-08, 5.03654883e-08, 3.68414220e-08, 2.90428728e-08, 
+                              2.39691179e-08, 1.98943679e-08])
         super(SoftTissue, self). __init__(**kw)
 
 # vim: set ff=unix fenc=utf8 ft=python ai et sw=4 ts=4 tw=79:
