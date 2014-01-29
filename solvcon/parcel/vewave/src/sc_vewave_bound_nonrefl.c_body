@@ -1,0 +1,147 @@
+/*
+ * Copyright (C) 2010 Yung-Yu Chen <yyc@solvcon.net>.
+ *
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * - Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ * - Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ * - Neither the name of the SOLVCON nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ */
+void
+#if NDIM == 3
+sc_vewave_bound_nonrefl_soln_3d
+#else
+sc_vewave_bound_nonrefl_soln_2d
+#endif
+(sc_mesh_t *msd, sc_vewave_algorithm_t *alg, int nbnd, int *facn) {
+    // pointers.
+    int *pfacn, *pfccls;
+    double *pisol, *pisoln, *pjsoln, *pjsol;
+    double *pvalue, *pamsca;
+    // iterators.
+    int ibnd, ifc, icl, jcl, ieq;
+    #pragma omp parallel for default(shared) private(ibnd, pisol,\
+    pisoln, pjsoln, pjsol, ieq, pfacn, ifc, icl, jcl)
+    for (ibnd=0; ibnd<nbnd; ibnd++) {
+        pfacn = facn + ibnd*BFREL;
+        ifc = pfacn[0];
+        pfccls = msd->fccls + ifc*FCREL;
+        icl = pfccls[0];
+        jcl = pfccls[1];
+        // set solutions.
+        pisol = alg->sol + icl*NEQ;
+        pisoln = alg->soln + icl*NEQ;
+        pjsoln = alg->soln + jcl*NEQ;
+        for (ieq=0; ieq<NEQ; ieq++) {
+            pjsoln[ieq] = pisoln[ieq] + alg->taylor*(pisol[ieq] - pisoln[ieq]);
+        };
+    };
+};
+
+void
+#if NDIM == 3
+sc_vewave_bound_nonrefl_dsoln_3d
+#else
+sc_vewave_bound_nonrefl_dsoln_2d
+#endif
+(sc_mesh_t *msd, sc_vewave_algorithm_t *alg, int nbnd, int *facn) {
+    // pointers.
+    int *pfacn, *pfccls, *pfcnds;
+    double *pidsol, *pidsoln, *pjdsoln, *pdsol, *pdsoln;
+    double *pndcrd, *pfccnd, *pfcnml;
+    // scalars.
+    double len, nx, ny, x ,y, deg, pi;
+    // arrays.
+    double dif[NDIM];
+    double vec[NEQ][NDIM];
+    double mat[NDIM][NDIM], matinv[NDIM][NDIM];
+    // iterators.
+    int ibnd, ifc, icl, jcl, ieq;
+    pfacn = facn;
+    pi = 3.14159265358979323846;
+    #pragma omp parallel for default(shared) private(ibnd, pfacn, pfccls, \
+    pfcnds, pidsol, pidsoln, pjdsoln, pdsol, pdsoln, pndcrd, pfccnd, pfcnml, \
+    len, nx, ny, x, y, deg, pi, dif, vec, mat, matinv, ifc, icl, jcl, ieq)
+    for (ibnd=0; ibnd<nbnd; ibnd++) {
+        pfacn = facn + ibnd*BFREL;
+        ifc = pfacn[0];
+        pfccls = msd->fccls + ifc*FCREL;
+        pfcnds = msd->fcnds + ifc*(FCMND+1);
+        icl = pfccls[0];
+        jcl = pfccls[1];
+        pidsol = alg->dsol + icl*NEQ*NDIM;
+        pidsoln = alg->dsoln + icl*NEQ*NDIM;
+        pjdsoln = alg->dsoln + jcl*NEQ*NDIM;
+        // coordinate transformation and set transformed vectors.
+        pfcnml = msd->fcnml + ifc*NDIM;
+        pfccnd = msd->fccnd + ifc*NDIM;
+        if(pfcnml[0] >= 0)
+        {    x = pfcnml[0];
+             y = pfcnml[1];
+             nx = x; ny = y;
+             if(x == 0 && y>0) deg = 0.0;
+             else if (x == 0 && y<0) deg = pi;
+             else if(pfcnml[1] > 0) 
+             {    deg = acos(y/sqrt(x*x+y*y));
+                  deg = -deg;}
+             else
+             {    deg = acos(x/sqrt(x*x+y*y));
+                  deg = 3*pi/2 - deg;}
+        }
+        else
+        {    x = pfcnml[0];
+             y = pfcnml[1];
+             nx = x; ny = y;
+             if(y==0 && x>0) deg = -pi/2;
+             else if(y==0 && x<0) deg = pi/2;
+             else if(pfcnml[1] > 0)
+             {    deg = acos(y/sqrt(x*x+y*y));}
+             else 
+             {    deg = acos(-y/sqrt(x*x+y*y));
+                  deg = 2*pi - deg;} 
+        }
+        mat[0][0] = cos(deg);
+        mat[0][1] = -sin(deg);
+        mat[1][0] = sin(deg);
+        mat[1][1] = cos(deg);
+        pdsoln = pjdsoln;
+        if(fabs(nx) == 1.0){    
+            for(ieq=0; ieq<NEQ; ieq++){    
+                pdsoln[0]=0.0;
+                pdsoln[1]=pidsoln[1];
+                pdsoln += NDIM;
+                pidsoln += NDIM;
+            }
+        }
+        else{    
+            for(ieq=0; ieq<NEQ; ieq++){    
+                pdsoln[0]=pidsoln[0];
+                pdsoln[1]=0.0;
+                pdsoln += NDIM;
+                pidsoln += NDIM;
+            }
+        }
+    };
+};
+
+// vim: set ft=c ts=4 et:
