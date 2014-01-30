@@ -1,14 +1,19 @@
-========================
-Viscoelastic Wave Solver
-========================
+=================
+Viscoelastic Wave
+=================
 
 .. py:module:: solvcon.parcel.vewave
+
+Viscoelastic Model
+==================
+
+[Yang13]_
 
 Mathematical Model
 ==================
 
-For isothermal viscoelastical material, the model equations consist
-conservation of mass and momentum as follows,
+For isothermal viscoelastic material, the model equations consist conservation
+of mass and momentum as follows,
 
 .. math::
   :label: vewave.model
@@ -36,7 +41,7 @@ G^{\mu}_e, G^{\mu}_l,` and :math:`\tau_{\sigma l}` are the constants of the
 standard linear solid model.
 
 Jacobian Matrices
-=================
++++++++++++++++++
 
 Equation :eq:`vewave.model` can be further organized to a matrix vector form as
 follows,
@@ -187,14 +192,3 @@ where :math:`r = \frac{1}{\rho}, a = G^{\psi}_e+\sum^L_{l=1}G^{\psi}_l`, and
 :math:`b = G^{\mu}_e+\sum^L_{l=1}G^{\mu}_l`.  The :math:`k_1, k_2`, and
 :math:`k_3` are the components of a direction vector, as used in
 :doc:`app_bulk`.
-
-This is the placeholder for formulations of viscoelastic wave solver.
-References can be inserted like [VEWAVE14]_.
-
-Bibliography
-============
-
-.. [VEWAVE14] Jane Doe, "Snake Oil",
-  *Jungle of Possibility*,
-  Volume 106, Issue 2, Feb. 2014, Page 149-164. `doi:
-  28825252 <http://dx.doi.org/28825252>`__.

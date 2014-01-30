@@ -1,6 +1,6 @@
-========================================================================================
-Second-Order Hydro-Acoustic Solver Based on Bulk Modulus (:py:mod:`solvcon.parcel.bulk`)
-========================================================================================
+===============
+Hydro-Acoustics
+===============
 
 .. py:module:: solvcon.parcel.bulk
 
@@ -188,7 +188,7 @@ system of first-order PDEs.  For the governing equations, Eqs.
 :eq:`bulk.comass` and :eq:`bulk.comomentum_eos`, to be hyperbolic, the linear
 combination of the three Jacobian matrices of their quasi-linear for must be
 diagonalizable.  The spectrum of the linear combination must be all real, too
-[Warming]_, [Chen]_.
+[Warming75]_, [Chen12]_.
 
 To facilitate the analysis, we chose to use the non-conservative version of the
 governing equations.  Define the non-conservative variables
@@ -516,16 +516,3 @@ Define
     \mu(\dpd{v_3}{x_2} + \dpd{v_2}{x_3}) \\
     \lambda\sum_{k=1}^3\dpd{v_k}{x_k} + 2\mu\dpd{v_3}{x_3}
   \end{array}\right)
-
-Bibliography
-============
-
-.. [Chen] Yung-Yu Chen, Lixiang Yang, and Sheng-Tao John Yu, "Hyperbolicity of
-  Velocity-Stress Equations for Waves in Anisotropic Elastic Solids", *Journal
-  of Elasticity*, Volume 106, Issue 2, Feb. 2012, Page 149-164. `doi:
-  10.1007/s10659-011-9315-8 <http://dx.doi.org/10.1007/s10659-011-9315-8>`__.
-
-.. [Warming] R. F. Warming, Richard M. Beam, and B. J. Hyett, "Diagonalization
-  and Simultaneous Symmetrization of the Gas-Dynamic Matrices", *Mathematics of
-  Computation*, Volume 29, Issue 132, Oct. 1975, Page 1037-1045.
-  http://www.jstor.org/stable/2005742
