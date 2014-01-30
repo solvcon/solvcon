@@ -139,8 +139,7 @@ def mesher(cse, use_cubit=False):
                              'cubit' if use_cubit else 'gmsh')
     # determine characteristic length of mesh.
     try:
-        #itv = float(cse.io.basefn.split('_')[-1])/1000
-        itv = 6.67e-5
+        itv = float(cse.io.basefn.split('_')[-1])/1000
     except ValueError:
         itv = 0.2
     # load the meshing commands.
@@ -226,11 +225,9 @@ def cvg_base(casename=None, mtrlname='SoftTissue',
     basedir = os.path.join(os.path.abspath(os.getcwd()), 'result')
     local_mesher = functools.partial(
         mesher, use_cubit=os.environ.get('USE_CUBIT', False))
-    meshfn = os.path.join(os.path.abspath(os.getcwd()), 'mesh', "vewave2d.msh")
     cse = vewave.VewaveCase(
         basedir=basedir, rootdir=conf.env.projdir, basefn=casename,
-        #mesher=local_mesher,
-        meshfn=meshfn,
+        mesher=local_mesher,
         bcmap=bcmap, #bcmod=match_periodic, 
         mtrldict={None: mtrl}, taylor=0.0,
         use_incenter=False, **kw)
@@ -309,7 +306,7 @@ def cvg2d_50(casename, **kw):
     return cvg2d_skel(casename=casename, div=64, std=2)
 
 @vewave.VewaveCase.register_arrangement
-def cvg2d_vewave(casename, **kw):
+def cvg2dv_1(casename, **kw):
     return cvg2d_ve(casename=casename, div=4, std=1, mtrlname='SoftTissue',
                     rho=1.06e3, vp=1578.0, sig0=10.0, freq=2e6)
 
