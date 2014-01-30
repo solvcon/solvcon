@@ -33,6 +33,9 @@ Material definition.
 """
 
 
+__all__ = ['mltregy', 'Material']
+
+
 import numpy as np
 
 from solvcon import gendata

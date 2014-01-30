@@ -28,34 +28,26 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-"""
-Viscoelastic wave solver.
-"""
+
+import unittest
+import importlib
 
 
-__all__ = [
-    # case.
-    'VewaveCase',
-    # solver.
-    'VewaveSolver', 'VewavePeriodic', 'VewaveBC', 'VewaveNonRefl',
-    'VewaveSine',
-    # planewave.
-    'PlaneWaveSolution', 'PlaneWaveAnchor', 'PlaneWaveHook',
-    # inout.
-    'AmscaAnchor', 'MeshInfoHook', 'ProgressHook', 'FillAnchor', 'CflAnchor',
-    'CflHook', 'MarchSaveAnchor', 'PMarchSave',
-    # material.
-    'mltregy', 'Material',
-]
-
-
-# this module should only import necessary entites.
-from .case import VewaveCase
-from .solver import (VewaveSolver, VewavePeriodic, VewaveBC, VewaveNonRefl,
-                     VewaveSine)
-from .planewave import PlaneWaveSolution, PlaneWaveAnchor, PlaneWaveHook
-from .inout import (AmscaAnchor, MeshInfoHook, ProgressHook, FillAnchor, 
-                    CflAnchor, CflHook, MarchSaveAnchor, PMarchSave)
-from .material import mltregy, Material
-
-# vim: set ff=unix fenc=utf8 ft=python ai et sw=4 ts=4 tw=79:
+class TestAllImport(unittest.TestCase):
+    def test_everything(self):
+        allmods = [
+            'solvcon.parcel.vewave',
+            'solvcon.parcel.vewave.case',
+            'solvcon.parcel.vewave.inout',
+            'solvcon.parcel.vewave.material',
+            'solvcon.parcel.vewave.planewave',
+            'solvcon.parcel.vewave.solver',
+        ]
+        allmods = [importlib.import_module(name) for name in allmods]
+        for mod in allmods:
+            try:
+                for name in mod.__all__:
+                    getattr(mod, name) # must not raise error.
+            except Exception as e:
+                e.args = ['modname = %s'%mod.__name__] + list(e.args)
+                raise

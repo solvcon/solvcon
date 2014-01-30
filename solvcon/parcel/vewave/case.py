@@ -33,6 +33,9 @@ The control interface.
 """
 
 
+__all__ = ['VewaveCase']
+
+
 from solvcon import case
 from solvcon import domain
 
