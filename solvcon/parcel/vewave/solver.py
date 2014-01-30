@@ -35,10 +35,7 @@ uses :py:mod:`solvcon._algorithm`.
 
 
 __all__ = [
-    'VewaveSolver',
-    'VewavePeriodic',
-    'VewaveBC',
-    'VewaveNonRefl',
+    'VewaveSolver', 'VewavePeriodic', 'VewaveBC', 'VewaveNonRefl',
     'VewaveSine',
 ]
 
