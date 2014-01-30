@@ -60,6 +60,9 @@ the Jacobian matrices for the flux matrices:
 
   \dpd{U}{t} + A\dpd{U}{x_1} + B\dpd{U}{x_2} + C\dpd{U}{x_3} = S
 
+The Jacobian matrices (A, B, and C) can have a general form that is described 
+by M:
+
 .. math::
   :label: vewave.jacoM
 
@@ -69,10 +72,19 @@ the Jacobian matrices for the flux matrices:
       M_4 & M_5 & M_6
       \end{array} \right)
 
+For all Jacobian matrices, M1, M3, M5, and M6 are the same.
+They are all zero two-dimensional matrices with size, 3 by 3, 3 by (6xL), 
+(6+6xL) by 6, and (6+6xL) by 6xL, respectively.  The L is the number in 
+:eq:`vewave.model` and is decided by the number of the SLS constants 
+:math:`G^{\phi}` and :math:`G^{\mu}` are needed.
+The difference of M2 and M4 between each Jacobian matrices are given below.
+
+For Jacobian matrix A,
+
 .. math::
   :label: vewave.jacoA
 
-  & M_1 = \left( \begin{array}{cccccc}
+  & M_2 = \left( \begin{array}{cccccc}
         -\frac{1}{\rho} & 0 & 0 & 0 & 0 & 0 \\
         0 & 0 & 0 & 0 & 0 & -\frac{1}{\rho} \\
         0 & 0 & 0 & 0 & -\frac{1}{\rho} & 0 \\
@@ -103,6 +115,8 @@ the Jacobian matrices for the flux matrices:
         0 & \frac{G^{\mu}_l}{\tau_{\sigma l}} & 0
         \end{array} \right)
 
+For Jacobian matrix B,
+
 .. math::
   :label: vewave.jacoB
 
@@ -111,7 +125,7 @@ the Jacobian matrices for the flux matrices:
         0 & -\frac{1}{\rho} & 0 & 0 & 0 & 0 \\
         0 & 0 & 0 & -\frac{1}{\rho} & 0 & 0 \\
         \end{array} \right) \\
-  & M_5 = \left( \begin{array}{ccc}
+  & M_4 = \left( \begin{array}{ccc}
         0 & [2G^{\mu}_e-G^{\psi}_e+\sum^L_{l=1}
           (2G^{\mu}_l-G^{\psi}_l)] &
         0 \\
@@ -139,15 +153,17 @@ the Jacobian matrices for the flux matrices:
         \frac{G^{\mu}_l}{\tau_{\sigma l}} & 0 & 0
         \end{array} \right)
 
+For Jacobian matrix C,
+
 .. math::
   :label: vewave.jacoC
 
-  & M_3 = \left( \begin{array}{cccccc}
+  & M_2 = \left( \begin{array}{cccccc}
         0 & 0 & 0 & 0 & -\frac{1}{\rho} & 0 \\
         0 & 0 & 0 & -\frac{1}{\rho} & 0 & 0 \\
         0 & 0 & -\frac{1}{\rho} & 0 & 0 & 0 \\
         \end{array} \right) \\
-  & M_6 = \left( \begin{array}{ccc}
+  & M_4 = \left( \begin{array}{ccc}
         0 & 0 &
         [2G^{\mu}_e-G^{\psi}_e+\sum^L_{l=1}
           (2G^{\mu}_l-G^{\psi}_l)] \\
