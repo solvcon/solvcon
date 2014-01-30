@@ -14,8 +14,7 @@ Set up the Environment
 
 Assume:
 
-- SOLVCON is compiled without problems.  See :doc:`install` for more
-  information.
+- SOLVCON is compiled without problems.  See :doc:`index` for more information.
 - The compiled SOLVCON is located at ``$SCSRC``.
 - You are using bash.
 

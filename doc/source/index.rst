@@ -38,18 +38,8 @@ Documentation
 
   tutorial
 
-Programming Reference
-+++++++++++++++++++++
-
-.. toctree::
-  :maxdepth: 3
-
-  architecture
-  inout
-  system_modules
-
-Application Reference
-+++++++++++++++++++++
+Applications
+++++++++++++
 
 .. toctree::
   :maxdepth: 2
@@ -57,6 +47,25 @@ Application Reference
   app_linear
   app_bulk
   app_vewave
+
+Numerical Methods
++++++++++++++++++
+
+.. toctree::
+  :maxdepth: 1
+
+  tdnum/index
+  cese
+
+Infrastructure
+++++++++++++++
+
+.. toctree::
+  :maxdepth: 3
+
+  architecture
+  inout
+  system_modules
 
 Development Support
 +++++++++++++++++++
@@ -67,14 +76,8 @@ Development Support
   python_style
   verification
 
-Background Writing
-++++++++++++++++++
-
-.. toctree::
-  :maxdepth: 1
-
-  tdnum/index
-  cese
+Appendices
+==========
 
 Other Resources
 +++++++++++++++
@@ -117,28 +120,6 @@ Other Resources
 - :doc:`link`
 - :doc:`link_other`
 
-Bibliography
-============
-
-.. [Chang95] Sin-Chung Chang, "The Method of Space-Time Conservation Element
-  and Solution Element -- A New Approach for Solving the Navier-Stokes and
-  Euler Equations", *Journal of Computational Physics*, Volume 119, Issue 2,
-  July 1995, Pages 295-324.  `doi: 10.1006/jcph.1995.1137
-  <http://dx.doi.org/10.1006/jcph.1995.1137>`_
-
-.. [Chen11] Yung-Yu Chen, *A Multi-Physics Software Framework on Hybrid
-  Parallel Computing for High-Fidelity Solutions of Conservation Laws*, Ph.D.
-  Thesis, The Ohio State University, United States, Aug. 2011. (`OhioLINK
-  <http://rave.ohiolink.edu/etdc/view?acc_num=osu1313000975>`__)
-
-.. [Lax73] Peter D. Lax, "Hyperbolic Systems of Conservation Laws and the
-  Mathematical Theory of Shock Waves", *Society for Industrial Mathematics*,
-  1973.  `ISBN 0898711770
-  <http://www.worldcat.org/title/hyperbolic-systems-of-conservation-laws-and-the-mathematical-theory-of-shock-waves/oclc/798365>`__.
-
-Appendices
-==========
-
 Copyright Notice
 ++++++++++++++++
 
@@ -156,6 +137,12 @@ Contributors
 ++++++++++++
 
 .. include:: ../../CREDITS.rst
+  :start-line: 3
+
+Bibliography
+++++++++++++
+
+.. include:: bibliography.rst_inc
   :start-line: 3
 
 Indices and Tables
