@@ -34,6 +34,12 @@ uses :py:mod:`solvcon._algorithm`.
 """
 
 
+__all__ = [
+    'VewaveSolver', 'VewavePeriodic', 'VewaveBC', 'VewaveNonRefl',
+    'VewaveSine',
+]
+
+
 import os
 import warnings
 
@@ -266,10 +272,12 @@ class VewavePeriodic(boundcond.periodic):
         slctr = self.rclp[:,1] + blk.ngstcell
         svr.dsoln[slctm,:,:] = svr.dsoln[slctr,:,:]
 
+
 class VewaveBC(boundcond.BC):
     @property
     def alg(self):
         return self.svr.create_alg()
+
 
 class VewaveNonRefl(VewaveBC):
     _ghostgeom_ = 'mirror'
@@ -278,6 +286,7 @@ class VewaveNonRefl(VewaveBC):
     def dsoln(self):
         self.alg.bound_nonrefl_dsoln(self.facn)
     
+
 class VewaveSine(VewaveBC):
     _ghostgeom_ = 'mirror'
     def soln(self):

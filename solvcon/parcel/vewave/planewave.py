@@ -32,6 +32,8 @@
 Plane wave solution and initializer.
 """
 
+__all__ = ['PlaneWaveSolution', 'PlaneWaveAnchor', 'PlaneWaveHook']
+
 
 import os
 import math

@@ -33,6 +33,12 @@ Input and output facilities.
 """
 
 
+__all__ = [
+    'AmscaAnchor', 'MeshInfoHook', 'ProgressHook', 'FillAnchor', 'CflAnchor',
+    'CflHook', 'MarchSaveAnchor', 'PMarchSave',
+]
+
+
 import os
 import time
 import math
@@ -45,7 +51,11 @@ from solvcon import anchor
 from solvcon import hook
 from solvcon.io import vtkxml
 
+
 class AmscaAnchor(anchor.MeshAnchor):
+    """FIXME: this name is not distinguishing.  It seems I want to initialize
+    the solver, so maybe I should be renamed to InitializingAnchor?
+    """
     def __init__(self, svr, **kw):
         self.rho = float(kw.pop('rho', 1.06e3))
         self.vp = float(kw.pop('vp', 1578.0))
