@@ -60,7 +60,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'SOLVCON'
-copyright = u'2009-2014, Yung-Yu Chen'
+copyright = u'2009-2014, SOLVCON Project'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -209,13 +209,7 @@ pngmath_latex_preamble = latex_elements['preamble']
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
   #('index', 'SOLVCON.tex', u'SOLVCON Documentation',
-  # u'Yung-Yu Chen', 'manual'),
-  ('install', 'solvcon_install.tex', u'Install SOLVCON',
-   u'Yung-Yu Chen', 'howto'),
-  ('tutorial', 'solvcon_tutorial.tex', u'SOLVCON Tutorial',
-   u'Yung-Yu Chen', 'howto'),
-  ('architecture', 'solvcon_architecture.tex', u'SOLVCON Architecture',
-   u'Yung-Yu Chen', 'howto'),
+  # u'SOLVCON Project', 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
