@@ -140,4 +140,147 @@ the time-evolving solution of :math:`u`.
 
 .. TODO: add illustrative figures.
 
+Second-Order Linear PDEs with Two Independent Variables
+=======================================================
+
+.. math::
+  :label: tdnum.pde2d2v
+
+  A u_{xx} + B u_{xy} + C u_{yy} + D u_x + E u_y + F u + G = 0
+
+For linear PDEs, :math:`A, B, C, D, E, F, G` could be functions of :math:`x`
+and :math:`y`.
+
+For nonlinear PDEs, :math:`A, B, C, D, E, F, G` are functions of :math:`u` and
+it derivatives, e.g.,
+
+.. math::
+
+  A = A(u, u_x, u_y, u_{xx}, \ldots)
+
+The order of a PDE is determined by the higher order of the derivatives in the
+equation.  Thus Eq. :eq:`tdnum.pde2d2v` is a second-order PDE.
+
+We let :math:`H = -(D u_x + E u_y+ F u + G)` and Eq. :eq:`tdnum.pde2d2v`
+becomes
+
+.. math::
+
+  A u_{xx} + B u_{xy} + C u_{yy} = H
+
+If the characteristic curves exit on the :math:`(x, y)` plane, the second-order
+derivatives of :math:`u`, i.e., :math:`u_{xx}`, :math:`u_{xy}`, and
+:math:`u_{yy}` are undefined across the characteristic curves (similar to the
+idea of the one-dimensional PDE).
+
+Along a characteristic curve, we let :math:`\tau` be the independent variable
+which varies along the curve.  Along the characteristic curves, :math:`u =
+u(\tau)`, :math:`u_x = u_x(\tau)`, and :math:`u_y = u_y(\tau)` are continuous.  
+
+.. math::
+
+  & \dod{u_x}{\tau} = u_{xx} x_{\tau} + u_{xy} y_{\tau} \\
+  & \dod{u_y}{\tau} = u_{yx} x_{\tau} + u_{yy} y_{\tau}
+
+We also have :math:`A u_{xx} + B u_{xy} + C u_{yy} = H`.  Together we have the
+following matrix-vector form
+
+.. math::
+
+  \left(\begin{array}{ccc}
+    x_{\tau} & y_{\tau} & 0 \\
+    0 & x_{\tau} & y_{\tau} \\
+    A & B & C
+  \end{array}\right)
+  \left(\begin{array}{c}
+    u_{xx} \\ u_{xy} \\ u_{yy}
+  \end{array}\right)
+  = \left(\begin{array}{c}
+    \dod{u_x}{\tau} \\ \dod{u_y}{\tau} \\ H
+  \end{array}\right)
+
+To solve for :math:`u_{xx}`, :math:`u_{xy}`, and :math:`u_{yy}`, we use the
+Cramer's rule:
+
+.. math::
+
+  u_{xx} = \frac{\mathrm{D}_{xx}}{\mathrm{D}},
+  u_{xy} = \frac{\mathrm{D}_{xy}}{\mathrm{D}},
+  u_{yy} = \frac{\mathrm{D}_{yy}}{\mathrm{D}}
+
+where
+
+.. math::
+
+  & \mathrm{D} = \left|\begin{array}{ccc}
+    x_{\tau} & y_{\tau} & 0 \\
+    0 & x_{\tau} & y_{\tau} \\
+    A & B & C
+  \end{array}\right|
+  = C x_{\tau}^2 + A y_{\tau}^2 - B x_{\tau}y_{\tau}, \\
+  & \mathrm{D}_{xx} = \left|\begin{array}{ccc}
+    \dod{u_x}{\tau} & y_{\tau} & 0 \\
+    \dod{u_y}{\tau} & x_{\tau} & y_{\tau} \\
+    H & B & C
+  \end{array}\right| = \ldots, \\
+  & \mathrm{D}_{xy} = \left|\begin{array}{ccc}
+    x_{\tau} & \dod{u_x}{\tau} & 0 \\
+    0 & \dod{u_y}{\tau} & y_{\tau} \\
+    A & H & C
+  \end{array}\right| = \ldots, \\
+  & \mathrm{D}_{yy} = \left|\begin{array}{ccc}
+    x_{\tau} & y_{\tau} & \dod{u_x}{\tau} \\
+    0 & x_{\tau} & \dod{u_y}{\tau} \\
+    A & B & H
+  \end{array}\right| = \ldots
+
+Along the characteristic lines, :math:`u_{xx}`, :math:`u_{xy}`, and
+:math:`u_{yy}` are undefined.    There is not viable solution for
+:math:`u_{xx}`, :math:`u_{xy}`, and :math:`u_{yy}`.
+
+If :math:`\mathrm{D} = 0`,
+
+.. math::
+
+  & C \left(\dod{x}{\tau}\right)^2 + A \left(\dod{y}{\tau}\right)^2
+  - B \dod{x}{\tau}\dod{y}{\tau} = 0 \\
+  \Rightarrow\quad & A \left(\dod{y}{x}\right)^2
+  - B \dod{y}{x} + C = 0
+
+Let :math:`h \defeq \dod{y}{x}`, the slope of the characteristic curves is
+
+.. math::
+
+  h = \frac{B \pm \sqrt{B^2-4AC}}{2A}
+
+.. NOTE: The above equation is corrected from the notes.
+
+There are three cases:
+
+1. :math:`B^2 - 4AC > 0`, there are two distinct real roots for :math:`h`.
+2. :math:`B^2 - 4AC = 0`, there is only one real roots for :math:`h`.
+3. :math:`B^2 - 4AC < 0`, there is no real roots for :math:`h`.
+
+.. admonition:: Aside
+
+  Recall the quadratic equation (second-order polymonial with two variables)
+
+  .. math::
+
+    a x^2 + b xy + c y^2 + d x + e y + f = 0
+
+  - :math:`b^2-4ac > 0` means the equation is hyperbolic; :math:`xy = k,
+    \frac{x^2}{a^2} - \frac{y^2}{b^2} = k`.
+  - :math:`b^2-4ac = 0` means the equation is parabolic; :math:`y^2 = 4p x`.
+  - :math:`b^2-4ac < 0` means the equation is elliptic; :math:`\frac{x^2}{a^2}
+    + \frac{y^2}{b^2} = k`
+
+  For the PDE:
+
+    A u_{xx} + B u_{xy} + C u_{yy} + D u_x + E u_y + F = 0
+
+  - :math:`B^2-4AC > 0` means the PDE is hyperbolic.
+  - :math:`B^2-4AC = 0` means the PDE is parabolic.
+  - :math:`B^2-4AC < 0` menas the PDE is elliptic.
+
 .. vim: set spell ft=rst ff=unix fenc=utf8:
