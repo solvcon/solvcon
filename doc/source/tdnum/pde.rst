@@ -282,6 +282,8 @@ There are three cases:
 
   For the PDE:
 
+  .. math::
+
     A u_{xx} + B u_{xy} + C u_{yy} + D u_x + E u_y + F = 0
 
   - :math:`B^2-4AC > 0` means the PDE is hyperbolic.
@@ -408,12 +410,15 @@ Consider the specific coordinate transformation in the following
 
 .. math::
 
-  \dod{y}{x} &= \lambda \\
-  \dod{y}{x} &= \lambda_1 \dod{\xi}{\xi} \\
-  \dod{\xi}{x} &= \lambda_1 \dpd{\xi}{y} \\
-  \xi_x &= \lambda_1 \xi_y \\
-  \dod{y}{x} &= \lambda_2 \\
-  \eta_x &= \lambda_2\eta_y
+  \def\arraystretch{2.2}
+  \begin{array}{rcl|rcl}
+    \dod{y}{x} &=& \lambda_1 & 
+    \dod{y}{x} &=& \lambda_2 \\
+    \dod{y}{x} &=& \lambda_1 \dod{\xi}{\xi} &&& \\
+    \dod{\xi}{x} &=& \lambda_1 \dpd{\xi}{y} &&& \\
+    \xi_x &=& \lambda_1 \xi_y &
+    \eta_x &=& \lambda_2\eta_y
+  \end{array}
 
 recall that 
 
