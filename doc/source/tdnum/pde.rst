@@ -152,13 +152,13 @@ For linear PDEs, :math:`A, B, C, D, E, F, G` could be functions of :math:`x`
 and :math:`y`.
 
 For nonlinear PDEs, :math:`A, B, C, D, E, F, G` are functions of :math:`u` and
-it derivatives, e.g.,
+its derivatives, e.g.,
 
 .. math::
 
   A = A(u, u_x, u_y, u_{xx}, \ldots)
 
-The order of a PDE is determined by the higher order of the derivatives in the
+The order of a PDE is determined by the highest order of the derivatives in the
 equation.  Thus Eq. :eq:`tdnum.pde2d2v` is a second-order PDE.
 
 We let :math:`H = -(D u_x + E u_y+ F u + G)` and Eq. :eq:`tdnum.pde2d2v`
@@ -187,6 +187,7 @@ following matrix-vector form
 
 .. math::
 
+  \arraycolsep=1.4pt\def\arraystretch{2.2}
   \left(\begin{array}{ccc}
     x_{\tau} & y_{\tau} & 0 \\
     0 & x_{\tau} & y_{\tau} \\
@@ -212,33 +213,37 @@ where
 
 .. math::
 
-  & \mathrm{D} = \left|\begin{array}{ccc}
+  \mathrm{D} &= \left|\begin{array}{ccc}
     x_{\tau} & y_{\tau} & 0 \\
     0 & x_{\tau} & y_{\tau} \\
     A & B & C
   \end{array}\right|
   = C x_{\tau}^2 + A y_{\tau}^2 - B x_{\tau}y_{\tau}, \\
-  & \mathrm{D}_{xx} = \left|\begin{array}{ccc}
+  \mathrm{D}_{xx} &=
+  \arraycolsep=1.4pt\def\arraystretch{2.2}
+  \left|\begin{array}{ccc}
     \dod{u_x}{\tau} & y_{\tau} & 0 \\
     \dod{u_y}{\tau} & x_{\tau} & y_{\tau} \\
     H & B & C
   \end{array}\right| = \ldots, \\
-  & \mathrm{D}_{xy} = \left|\begin{array}{ccc}
+  \mathrm{D}_{xy} &=
+  \arraycolsep=1.4pt\def\arraystretch{2.2}
+  \left|\begin{array}{ccc}
     x_{\tau} & \dod{u_x}{\tau} & 0 \\
     0 & \dod{u_y}{\tau} & y_{\tau} \\
     A & H & C
   \end{array}\right| = \ldots, \\
-  & \mathrm{D}_{yy} = \left|\begin{array}{ccc}
+  \mathrm{D}_{yy} &=
+  \arraycolsep=1.4pt\def\arraystretch{2.2}
+  \left|\begin{array}{ccc}
     x_{\tau} & y_{\tau} & \dod{u_x}{\tau} \\
     0 & x_{\tau} & \dod{u_y}{\tau} \\
     A & B & H
   \end{array}\right| = \ldots
 
 Along the characteristic lines, :math:`u_{xx}`, :math:`u_{xy}`, and
-:math:`u_{yy}` are undefined.    There is not viable solution for
-:math:`u_{xx}`, :math:`u_{xy}`, and :math:`u_{yy}`.
-
-If :math:`\mathrm{D} = 0`,
+:math:`u_{yy}` are undefined.  There is not viable solution for :math:`u_{xx}`,
+:math:`u_{xy}`, and :math:`u_{yy}`, :math:`\Rightarrow \mathrm{D} = 0`,
 
 .. math::
 
@@ -282,5 +287,156 @@ There are three cases:
   - :math:`B^2-4AC > 0` means the PDE is hyperbolic.
   - :math:`B^2-4AC = 0` means the PDE is parabolic.
   - :math:`B^2-4AC < 0` menas the PDE is elliptic.
+
+Canonical Form of Second-Order PDEs
+===================================
+
+Perform coordinate transformation
+
+.. math::
+
+  (x, y) \rightarrow (\xi, \eta)
+
+We obtain
+
+.. math::
+
+  u_x &= u_{\xi}\xi_x + u_{\eta}\eta_x \\
+  u_y &= u_{\xi}\xi_y + u_{\eta}\eta_y \\
+  u_{xx} &= \dpd{(u_{\xi}\xi_x + u_{\eta}\eta_x)}{x} \\
+  &= (u_{\xi\xi} \xi_x + u_{\xi\eta} \eta_x)\xi_x  + u_{\xi} \xi_{xx}
+   + (u_{\eta\xi}\xi_x + u_{\eta\eta}\eta_x)\eta_x + u_{\eta}\eta_{xx} \\
+  &= u_{\xi\xi}\xi_x^2 + 2u_{\xi\eta}\xi_x\eta_x + u_{\eta\eta}\eta_x^2
+   + u_{\xi}\xi_{xx} + u_{\eta}\eta_{xx} \\
+  u_{yy} &= \dpd{(u_{\xi}\xi_y + u_{\eta}\eta_y)}{y} \\
+  &= (u_{\xi\xi} \xi_y + u_{\xi\eta} \eta_y)\xi_y  + u_{\xi} \xi_{yy}
+   + (u_{\eta\xi}\xi_y + u_{\eta\eta}\eta_y)\eta_y + u_{\eta}\eta_{yy} \\
+  &= u_{\xi\xi}\xi_y^2 + 2u_{\xi\eta}\xi_y\eta_y + u_{\eta\eta}\eta_y^2
+   + u_{\xi}\xi_{yy} + u_{\eta}\eta_{yy} \\
+  u_{xy} &= \dpd{(u_{\xi}\xi_x + u_{\eta}\eta_x)}{y} \\
+  &= (u_{\xi\xi} \xi_y + u_{\xi\eta} \eta_y)\xi_x  + u_{\xi} \xi_{xy}
+   + (u_{\eta\xi}\xi_y + u_{\eta\eta}\eta_y)\eta_x + u_{\eta}\eta_{xy} \\
+  &= u_{\xi\xi}\xi_x\xi_y + (\xi_x\eta_y + \xi_y\eta_x)u_{\xi\eta}
+   + u_{\eta\eta}\eta_x\eta_y + u_{\xi}\xi_{xy} + u_{\eta}\eta_{xy}
+
+Substitute into
+
+.. math::
+
+  &A u_{xx} + B u_{xy} + C u_{yy} = H \\
+  \Rightarrow\quad &
+  A(u_{\xi\xi}\xi_x^2 + 2u_{\xi\eta}\xi_x\eta_x + u_{\eta\eta}\eta_x^2
+   + u_{\xi}\xi_{xx} + u_{\eta}\eta_{xx}) \\
+  & + B[u_{\xi\xi}\xi_x\xi_y + (\xi_x\eta_y + \xi_y\eta_x)u_{\xi\eta}
+   + u_{\eta\eta}\eta_x\eta_y + u_{\xi}\xi_{xy} + u_{\eta}\eta_{xy}] \\
+  & + C(u_{\xi\xi}\xi_y^2 + 2u_{\xi\eta}\xi_y\eta_y + u_{\eta\eta}\eta_y^2
+   + u_{\xi}\xi_{yy} + u_{\eta}\eta_{yy})
+  = H \\
+  \Rightarrow\quad &
+  \bar{A}u_{\xi\xi} + \bar{B}u_{\xi\eta} + \bar{C}u_{\eta\eta} = \bar{H}
+
+where
+
+.. math::
+
+  \bar{A} &\defeq A\xi_x^2 + B\xi_x\xi_y + C\xi_y^2 \\
+  \bar{B} &\defeq
+    2A\xi_x\eta_x + B\xi_x\eta_y + B\xi_y\eta_x + 2C\xi_x\eta_y \\
+  \bar{C} &\defeq A\eta_x^2 + B\eta_x\eta_y + C\eta_y^2
+
+.. TODO: The notes have negative signs of the B in A and C bar, that I can't
+   reproduce.
+
+We have
+
+.. math::
+
+  \bar{B}^2 - 4\bar{A}\bar{C} = (B^2 - 4AC)(\xi_x\eta_y + \xi_y\eta_x)^2
+
+Thus :math:`B^2 - 4AC` and :math:`\bar{B}^2 - 4\bar{A}\bar{C}` have the same
+sign as long as :math:`\xi_x\eta_y + \xi_y\eta_x` is not zero.  After an
+arbitrary coordinate transformation, the property of the PDE does not change!
+
+.. TODO: The note have the square for the Jacobian, that I can't reproduce.
+
+.. admonition:: Aside
+
+  :math:`\xi_x\eta_y - \xi_y\eta_x = J = \dpd{(\xi\eta)}{(xy)}` is the Jacobian
+  of the coordinate transformation.  For a non-singular coordinate
+  transformation,
+
+  .. math::
+
+    J \ne 0, \, J^2 > 0
+
+As discussed above, each class of the second-order PDE with two independent
+variables can be reduced to a representative canonical form:
+
+1. Hyperbolic PDE:
+
+   .. math::
+
+     u_{\xi\eta} &= \tilde{H}(\xi, \eta, u, u_{\xi}, u_{\eta}) \\
+     u_{\xi\xi} - u_{\eta\eta} &= \tilde{H}'(\xi, \eta, u, u_{\xi}, u_{\eta})
+
+2. Parabolic PDE:
+
+   .. math::
+
+     u_{\xi\xi} = \tilde{H}(\xi, \eta, u, u_{\xi}, u_{\eta})
+
+3. Elliptic PDE:
+
+   .. math::
+
+     u_{\xi\xi} + u_{\eta\eta} = \tilde{H}(\xi, \eta, u, u_{\xi}, u_{\eta})
+
+Canonical Form of Hyperbolic PDEs
+=================================
+
+.. math::
+
+  &B^2 - 4AC > 0 \\
+
+  &Ah^2 - Bh + C = 0, \quad h = \dod{y}{x}
+  \, \mbox{the slope of characteristic curves} \\
+
+  h = \frac{B \pm \sqrt{B^2 - 4AC}}{2A} = \lambda_1, \lambda_2,
+  \quad \mbox{two distince real roots}
+
+Consider the specific coordinate transformation in the following
+
+.. math::
+
+  \dod{y}{x} &= \lambda \\
+  \dod{y}{x} &= \lambda_1 \dod{\xi}{\xi} \\
+  \dod{\xi}{x} &= \lambda_1 \dpd{\xi}{y} \\
+  \xi_x &= \lambda_1 \xi_y \\
+  \dod{y}{x} &= \lambda_2 \\
+  \eta_x &= \lambda_2\eta_y
+
+recall that 
+
+.. math::
+
+  \bar{A} &= A \xi_x^2 - B \xi_x\xi_y + C \xi_y^2 \\
+          &= A \lambda_1^2\xi_y^2 - B \lambda_1\xi_y^2 + C \xi_y^2 \\
+          &= (A \lambda_1^2 - B \lambda_1 + C) \xi_y^2 = 0 \\
+  \bar{C} &= A \eta_x^2 - B \eta_x\eta_y + C \eta_y^2 \\
+          &= (A \lambda_2^2 - B \lambda_2 + C) \eta_y^2 = 0
+
+Thus the PDE becomes
+
+.. math::
+
+  -\bar{B} u_{\xi\eta} = \bar{H}
+
+or
+
+.. math::
+
+  u_{\xi\eta} = \chi(\xi, \eta, u, u_{\xi}, u_{\eta})
+
+A canonical form of the hyperbolic PDE.
 
 .. vim: set spell ft=rst ff=unix fenc=utf8:
