@@ -343,7 +343,7 @@ where
 
   \bar{A} &\defeq A\xi_x^2 + B\xi_x\xi_y + C\xi_y^2 \\
   \bar{B} &\defeq
-    2A\xi_x\eta_x + B\xi_x\eta_y + B\xi_y\eta_x + 2C\xi_x\eta_y \\
+    2A\xi_x\eta_x + B\xi_x\eta_y + B\xi_y\eta_x + 2C\xi_y\eta_y \\
   \bar{C} &\defeq A\eta_x^2 + B\eta_x\eta_y + C\eta_y^2
 
 .. TODO: The notes have negative signs of the B in A and C bar, that I can't
@@ -353,10 +353,10 @@ We have
 
 .. math::
 
-  \bar{B}^2 - 4\bar{A}\bar{C} = (B^2 - 4AC)(\xi_x\eta_y + \xi_y\eta_x)^2
+  \bar{B}^2 - 4\bar{A}\bar{C} = (B^2 - 4AC)(\xi_x\eta_y - \xi_y\eta_x)^2
 
 Thus :math:`B^2 - 4AC` and :math:`\bar{B}^2 - 4\bar{A}\bar{C}` have the same
-sign as long as :math:`\xi_x\eta_y + \xi_y\eta_x` is not zero.  After an
+sign as long as :math:`\xi_x\eta_y - \xi_y\eta_x` is not zero.  After an
 arbitrary coordinate transformation, the property of the PDE does not change!
 
 .. TODO: The note have the square for the Jacobian, that I can't reproduce.
