@@ -49,8 +49,13 @@ Thus :math:`a \hat{u}_{xx} + b \hat{u}_{xt} + c \hat{u}_{tt} = 0` and :math:`a
   a (\hat{u}_{xx}+\tilde{u}_{xx}) + b (\hat{u}_{xt}+\tilde{u}_{xt})
   + c (\hat{u}_{tt}+\tilde{u}_{tt}) = 0
 
-First-Order PDE with Two Independent Variables
-==============================================
+In general a PDE can have two or more independent variables, but for the sake
+of conciseness, this chapter focuses on equations of two independent variables.
+A differential equation of only one independent variable is ordinary and cannot
+be a PDE.
+
+Method of Characteristics for First-Order PDE
+=============================================
 
 In the following linear PDE, :math:`A = A(x,y)`, :math:`B = B(x,y)`,
 :math:`F = F(x,y)`, and :math:`u = u(x,y)`:
@@ -134,9 +139,6 @@ line, while in general it is a characteristic curve.
 
   .. TODO: add illustrative figures.
 
-Non-Linear One-Dimensional PDE
-==============================
-
 In the inviscid Burger's equation
 
 .. math::
@@ -148,8 +150,8 @@ the time-evolving solution of :math:`u`.
 
 .. TODO: add illustrative figures.
 
-Second-Order Linear PDEs with Two Independent Variables
-=======================================================
+Second-Order PDE
+================
 
 .. math::
   :label: tdnum.pde2d2v
@@ -401,8 +403,8 @@ variables can be reduced to a representative canonical form:
 
      u_{\xi\xi} + u_{\eta\eta} = \tilde{H}(\xi, \eta, u, u_{\xi}, u_{\eta})
 
-Canonical Form of Hyperbolic PDEs
-=================================
+Hyperbolic PDEs
+===============
 
 .. math::
 
