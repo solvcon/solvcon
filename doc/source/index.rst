@@ -52,7 +52,7 @@ Numerical Methods
 +++++++++++++++++
 
 .. toctree::
-  :maxdepth: 1
+  :maxdepth: 3
 
   tdnum/index
   cese

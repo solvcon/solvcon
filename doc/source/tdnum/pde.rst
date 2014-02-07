@@ -3,46 +3,54 @@ What Are Partial Differential Equations?
 ========================================
 
 A partial differential equation (PDE) is an equation that contains partial
-derivatives of the unknown :math:`u`.  When :math:`u = u(x, y, z, t)`, we have
+derivatives of the unknown :math:`u`.  For example,
 
 .. math::
+  :label: tdnum.pde.dpd
 
-  \dpd{u}{t}, \dpd{u}{x}, \dpd{u}{y}, \dpd{u}{z},
-  \dpd[2]{u}{x}, \dmd{u}{2}{x}{}{y}{}, \ldots
+  a_1\dpd[2]{u}{x} + a_2\dmd{u}{2}{x}{}{t}{} + a_3\dpd[2]{u}{t}
+  + a_4\dpd{u}{x} + a_5\dpd{u}{t} + a_6u + a_0 = 0
 
-Sometimes subscripts are used to denote partial derivatives: :math:`u_t`,
-:math:`u_x`, :math:`u_y`, :math:`u_z`, :math:`u_{xx}`, etc.  Now we can write
-an arbitrary PDE like
+where :math:`u = u(x, t)`.  For convenience, sometimes subscripts are used to
+denote partial derivatives, like :math:`\square_x, \square_t`.  With the
+convention we can simplify the notation of the above PDE:
 
 .. math::
+  :label: tdnum.pde.sub
 
-  a_1 u + a_2 u_x + a_3 u_{xx} + a_4 uu_{xy} + a_5 u_{tt} = a_0
+  a_1u_{xx} + a_2u_{xt} + a_3u_{tt} + a_4u_x + a_5u_t + a_6u + a_0 = 0
 
-In a linear PDE, :math:`u` and it derivatives appear in the equation linearly.
-There is no product of :math:`u` and its derivatives, such as :math:`uu_x`,
-:math:`(u_x)^2`, etc.
+The *order* of a PDE is determined by its highest-order derivative.  For
+example, Eq. :eq:`tdnum.pde.sub` is second order.  A PDE is *linear* if every
+term behaves linearly in the equation.  The linearity can be defined after
+temporarily excluding the constant term (:math:`a_0` in Eq.
+:eq:`tdnum.pde.sub`) from the equation:
 
-In a homogeneous PDE, there is no sink or source term in the equation.  In the
-above example, :math:`a_0 = 0`.
+1. If :math:`u_1` and :math:`u_2` are both a solution of the modified equation,
+   then :math:`u_1 + u_2` is also a solution.
+2. If :math:`u_1` is a solution of the modified equation, then :math:`cu_1` is
+   also a solution where :math:`c` is a constant. 
 
-For a linear and homogeneous PDE, we have the principle of superposition.
-Individual solutions of the PDE can be added together to form a new solution.
+Otherwise it's nonlinear.  (Another way to define the linearity is to use
+linear operator, which is not discussed here.)  If Eq. :eq:`tdnum.pde.sub` is
+linear and :math:`a_0` is indeed zero, the equation is a *homogeneous* linear
+PDE.  For a homogeneous linear PDE, the principle of superposition applies.
 For example, let :math:`\hat{u}` and :math:`\tilde{u}` be solution of
 
 .. math::
 
-  a u_{xx} + b u_{xy} + c u_{yy} = 0
+  a u_{xx} + b u_{xt} + c u_{tt} = 0
 
-Thus :math:`a \hat{u}_{xx} + b \hat{u}_{xy} + c \hat{u}_{yy} = 0` and :math:`a
-\tilde{u}_{xx} + b \tilde{u}_{xy} + c \tilde{u}_{yy} = 0` hold true.  We have
+Thus :math:`a \hat{u}_{xx} + b \hat{u}_{xt} + c \hat{u}_{tt} = 0` and :math:`a
+\tilde{u}_{xx} + b \tilde{u}_{xt} + c \tilde{u}_{tt} = 0` hold true.  We have
 
 .. math::
 
-  a (\hat{u}_{xx}+\tilde{u}_{xx}) + b (\hat{u}_{xy}+\tilde{u}_{xy})
-  + c (\hat{u}_{yy}+\tilde{u}_{yy}) = 0
+  a (\hat{u}_{xx}+\tilde{u}_{xx}) + b (\hat{u}_{xt}+\tilde{u}_{xt})
+  + c (\hat{u}_{tt}+\tilde{u}_{tt}) = 0
 
-First-Order PDE in Two Dimensions
-=================================
+First-Order PDE with Two Independent Variables
+==============================================
 
 In the following linear PDE, :math:`A = A(x,y)`, :math:`B = B(x,y)`,
 :math:`F = F(x,y)`, and :math:`u = u(x,y)`:
@@ -379,7 +387,7 @@ variables can be reduced to a representative canonical form:
    .. math::
 
      u_{\xi\eta} &= \tilde{H}(\xi, \eta, u, u_{\xi}, u_{\eta}) \\
-     u_{\xi\xi} - u_{\eta\eta} &= \tilde{H}'(\xi, \eta, u, u_{\xi}, u_{\eta})
+     u_{\xi\xi} - u_{\eta\eta} &= \tilde{H}^*(\xi, \eta, u, u_{\xi}, u_{\eta})
 
 2. Parabolic PDE:
 

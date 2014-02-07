@@ -3,5 +3,5 @@
 body {
   clear: both;
   margin: 0 auto;
-  width: 960px;
+  width: 1200px;
 }
