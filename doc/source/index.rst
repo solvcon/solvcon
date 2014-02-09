@@ -37,6 +37,7 @@ Documentation
   :maxdepth: 2
 
   tutorial
+  doc_improvement
 
 Applications
 ++++++++++++
