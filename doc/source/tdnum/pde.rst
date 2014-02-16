@@ -6,14 +6,13 @@ A partial differential equation (PDE) is an equation that contains partial
 derivatives of the unknown :math:`u`.  For example,
 
 .. math::
-  :label: tdnum.pde.dpd
 
   a_1\dpd[2]{u}{x} + a_2\dmd{u}{2}{x}{}{t}{} + a_3\dpd[2]{u}{t}
   + a_4\dpd{u}{x} + a_5\dpd{u}{t} + a_6u + a_0 = 0
 
-where :math:`u = u(x, t)`.  For convenience, sometimes subscripts are used to
-denote partial derivatives, like :math:`\square_x, \square_t`.  With the
-convention we can simplify the notation of the above PDE:
+where :math:`u = u(x, t)`.  For convenience, sometimes subscripts
+(:math:`\square_x, \square_t`) are used to denote partial derivatives.  With
+the convention we can simplify the notation of the above PDE:
 
 .. math::
   :label: tdnum.pde.sub
@@ -23,19 +22,19 @@ convention we can simplify the notation of the above PDE:
 The *order* of a PDE is determined by its highest-order derivative.  For
 example, Eq. :eq:`tdnum.pde.sub` is second order.  A PDE is *linear* if every
 term behaves linearly in the equation.  The linearity can be defined after
-temporarily excluding the constant term (:math:`a_0` in Eq.
-:eq:`tdnum.pde.sub`) from the equation:
+temporarily excluding the constant term from the equation (:math:`a_0` in
+:eq:`tdnum.pde.sub`):
 
 1. If :math:`u_1` and :math:`u_2` are both a solution of the modified equation,
    then :math:`u_1 + u_2` is also a solution.
 2. If :math:`u_1` is a solution of the modified equation, then :math:`cu_1` is
    also a solution where :math:`c` is a constant. 
 
-Otherwise it's nonlinear.  (Another way to define the linearity is to use
-linear operator, which is not discussed here.)  If Eq. :eq:`tdnum.pde.sub` is
+Otherwise it's nonlinear.  (Another way to define the linearity is to use a
+linear operator, which is not discussed here.)  If :eq:`tdnum.pde.sub` is
 linear and :math:`a_0` is indeed zero, the equation is a *homogeneous* linear
-PDE.  For a homogeneous linear PDE, the principle of superposition applies.
-For example, let :math:`\hat{u}` and :math:`\tilde{u}` be solution of
+PDE, and the principle of superposition applies.  For example, let
+:math:`\hat{u}` and :math:`\tilde{u}` be solution of
 
 .. math::
 
@@ -49,48 +48,129 @@ Thus :math:`a \hat{u}_{xx} + b \hat{u}_{xt} + c \hat{u}_{tt} = 0` and :math:`a
   a (\hat{u}_{xx}+\tilde{u}_{xx}) + b (\hat{u}_{xt}+\tilde{u}_{xt})
   + c (\hat{u}_{tt}+\tilde{u}_{tt}) = 0
 
-In general a PDE can have two or more independent variables, but for the sake
-of conciseness, this chapter focuses on equations of two independent variables.
-A differential equation of only one independent variable is ordinary and cannot
-be a PDE.
+In general a PDE can have two or more independent variables.  For the sake of
+conciseness, the discussion is focused on equations of two independent
+variables.
 
-Method of Characteristics for First-Order PDE
-=============================================
+Method of Characteristics
+=========================
 
-In the following linear PDE, :math:`A = A(x,y)`, :math:`B = B(x,y)`,
-:math:`F = F(x,y)`, and :math:`u = u(x,y)`:
+A linear PDE
 
 .. math::
   :label: tdnum.linear2d
 
   A u_x + B u_y = F
 
-.. math::
-
-  & \dif u = u_x\dif x + u_y\dif y \\
-  \Rightarrow\quad & u_x = \frac{\dif u - u_y \dif y}{\dif x}
-
-Substituting above into Eq. :eq:`tdnum.linear2d` gives
+where :math:`A = A(x,y)`, :math:`B = B(x,y)`, and :math:`u = u(x,y)` can be
+solved by using the method of characteristics, which reduces the PDE of two
+independent variables to an ordinary differential equation (ODE).  First
+consider the homogeneous part of :eq:`tdnum.linear2d`
 
 .. math::
+  :label: tdnum.linearhomo2d
 
-  & A \frac{\dif u - u_y\dif y}{\dif x} + B u_y = F \\
-  \Rightarrow\quad & A (\dif u - u_y \dif y) + B u_y \dif x = F \dif x \\
-  \Rightarrow\quad & A \dif u + (B \dif x - A \dif y)u_y = F \dif x
+  A u_x + B u_y = 0
 
-If :math:`B\dif x - A\dif y = 0` (or :math:`\frac{\dif y}{\dif x} =
-\frac{B}{A}`), we have
+In the two-dimensional space :math:`(x, y)`, :eq:`tdnum.linearhomo2d` can be
+written as
 
 .. math::
 
-  A \dif u = F \dif x \,\mbox{, or}\, A \frac{\dif u}{\dif x} = F
+  (A, B)\cdot(u_x, u_y) = 0 \quad\mbox{or}\quad (A, B)\cdot\nabla u = 0
 
-Along the characteristic line :math:`\frac{\dif y}{\dif x} = \frac{B}{A}`,
-:math:`A\frac{\dif u}{\dif x} = F`, and a PDE in :math:`(x, y)` domain then
-becomes an ordinary differential equation (ODE).
+It can be seen that along the direction :math:`(A, B)`, the solution of
+:math:`u` doesn't change.  The vector :math:`(A, B)` can form a curve that is
+called the *characteristic curve* of :eq:`tdnum.linear2d`, and its slope is
 
-If :math:`A` and :math:`B` are constant, the characteristic line is a straight
-line, while in general it is a characteristic curve.
+.. math::
+
+  \dod{y}{x} = \frac{B}{A}
+
+To solve the homogeneous equation :eq:`tdnum.linearhomo2d`, choose a coordinate
+transformation
+
+.. math::
+
+  \left\{\begin{aligned}
+    \xi &= \xi(x, y) \\
+    \eta &= \eta(x, y)
+  \end{aligned}\right.
+
+Aided by the chain rule, we have
+
+.. math::
+
+  \left\{\begin{aligned}
+    u_x &= u_{\xi}\xi_x + u_{\eta}\eta_x \\
+    u_y &= u_{\xi}\xi_y + u_{\eta}\eta_y
+  \end{aligned}\right.
+
+Substitute the above into :eq:`tdnum.linearhomo2d` and get
+
+.. math::
+
+    (A\xi_x + B\xi_y) u_{\xi} + (A\eta_x + B\eta_y) u_{\eta} = 0
+
+By requiring :math:`A\eta_x + B\eta_y = 0`, :math:`u_{\eta}` is eliminated from
+the above equation.  Further, we choose to obtain the solution on the
+characteristic curve on which :math:`\dif y/\dif x = B/A`, and then
+
+.. math::
+
+  \dod{\eta}{x} &= \eta_x + \eta_y\dod{y}{x} = \eta_x + \frac{B}{A}\eta_y
+  = 0 \\
+  \dod{\eta}{y} &= \eta_x\dod{x}{y} + \eta_y = \frac{A}{B}\eta_x + \eta_y
+  = 0
+
+(:math:`A` and :math:`B` are assumed to be non-zero.)  :math:`\xi` and
+:math:`\eta` should be chosen so that the Jacobian determinant
+
+.. math::
+
+  J = \dpd{(\xi, \eta)}{(x, y)} = \left|\begin{array}{cc}
+    \xi_x & \xi_y \\ \eta_x & \eta_y
+  \end{array}\right| \neq 0
+
+which means the coordinate transformation is non-degenerate.  Finally, the
+original equation :eq:`tdnum.linear2d` is transformed to an ODE:
+
+.. math::
+  :label: tdnum.mocode
+
+  (A\xi_x + B\xi_y) u_{\xi} = F
+
+If :math:`A` and :math:`B` are constant, we have a straight *characteristic
+line*.
+
+.. admonition:: Alternative Way to the Characteristic Curve
+
+  .. math::
+
+    \dif u = u_x\dif x + u_y\dif y
+    \Rightarrow u_x = \frac{\dif u - u_y \dif y}{\dif x}
+
+  Substituting above into :eq:`tdnum.linear2d` gives
+
+  .. math::
+
+    & A \frac{\dif u - u_y\dif y}{\dif x} + B u_y = F \\
+    \Rightarrow\quad & A (\dif u - u_y \dif y) + B u_y \dif x = F \dif x \\
+    \Rightarrow\quad & A \dif u + (B \dif x - A \dif y)u_y = F \dif x
+
+  If requiring
+  
+  .. math::
+  
+    B\dif x - A\dif y = 0 \quad\mbox{or}\quad \dod{y}{x} = \frac{B}{A}
+  
+  we have
+
+  .. math::
+
+    A \dif u = F \dif x \quad\mbox{or}\quad A \dod{u}{x} = F
+
+  It is the same result as :eq:`tdnum.mocode` when we choose :math:`\xi = x`.
 
 .. admonition:: Example
   :class: example
@@ -300,8 +380,8 @@ There are three cases:
   - :math:`B^2-4AC = 0` means the PDE is parabolic.
   - :math:`B^2-4AC < 0` menas the PDE is elliptic.
 
-Canonical Form of Second-Order PDEs
-===================================
+Canonical Form
+==============
 
 Perform coordinate transformation
 
@@ -373,9 +453,9 @@ arbitrary coordinate transformation, the property of the PDE does not change!
 
 .. admonition:: Aside
 
-  :math:`\xi_x\eta_y - \xi_y\eta_x = J = \dpd{(\xi\eta)}{(xy)}` is the Jacobian
-  of the coordinate transformation.  For a non-singular coordinate
-  transformation,
+  :math:`\xi_x\eta_y - \xi_y\eta_x = J = \dpd{(\xi,\eta)}{(x,y)}` is the
+  Jacobian determinant of the coordinate transformation.  For a non-singular
+  coordinate transformation,
 
   .. math::
 
