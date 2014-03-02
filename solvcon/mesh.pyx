@@ -44,6 +44,7 @@ cdef extern:
 
 cdef extern from "stdlib.h":
     void* malloc(size_t size)
+    void free(void* ptr)
 
 # initialize NumPy.
 cnp.import_array()
@@ -54,6 +55,11 @@ cdef class Mesh:
     """
     def __cinit__(self):
         self._msd = <sc_mesh_t *>malloc(sizeof(sc_mesh_t));
+
+    def __dealloc__(self):
+        if NULL != self._msd:
+            free(<void*>self._msd)
+            self._msd = NULL
 
     def setup_mesh(self, blk):
         """

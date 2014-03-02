@@ -112,10 +112,19 @@ class MeshSolver(object):
     _solution_array_ = []
 
     def __init__(self, blk, time=0.0, time_increment=0.0, enable_mesg=False,
-            **kw):
+            debug=False, **kw):
         """
         A :py:class:`solvcon.block.Block` object must be provided to set the
         :py:attr:`blk` attribute.  The attribute holds the mesh data.
+
+        >>> from . import testing
+        >>> # set the debugging flag.
+        >>> svr = MeshSolver(testing.create_trivial_2d_blk())
+        >>> svr.debug
+        False
+        >>> svr = MeshSolver(testing.create_trivial_2d_blk(), debug=True)
+        >>> svr.debug
+        True
         """
         super(MeshSolver, self).__init__()
         # set mesh and BCs.
@@ -175,6 +184,8 @@ class MeshSolver(object):
         self.timer = gendata.Timer(vtype=float)
         self.enable_mesg = enable_mesg
         self._mesg = None
+        #: Debugging flag.
+        self.debug = debug
 
     ############################################################################
     # Meta data.
@@ -582,3 +593,46 @@ class MeshSolver(object):
         conn.recvarr(rarr)  # comm.
         slct = bc.rclp[:,0] + ngstcell
         arr[slct] = rarr[:]
+
+    def _check_array(self, *arrnames, **kw):
+        """
+        Private debugging method checking for array contents.
+
+        >>> from . import testing
+        >>> svr = MeshSolver(testing.create_trivial_2d_blk())
+        >>> svr.shclcnd = svr.blk.shclcnd.copy()
+        >>> svr.shclnds = svr.blk.shclnds.copy()
+        >>> arr = np.zeros(svr.blk.ngstcell+svr.blk.ncell, dtype='float64')
+        >>> # nothing should happen.
+        >>> svr._check_array('shclcnd')
+        >>> # RuntimeError should be raised.
+        >>> svr.shclcnd[svr.ngstcell,:] = np.nan
+        >>> svr._check_array('shclcnd') # doctest: +ELLIPSIS
+        Traceback (most recent call last):
+            ...
+        RuntimeError: ...
+        >>> # nothing should happen if perform=False
+        >>> svr.shclcnd[svr.ngstcell,:] = np.nan
+        >>> svr._check_array('shclcnd', perform=False)
+        >>> # nothing should happen because shclcnd is int array.
+        >>> svr.shclnds[svr.ngstcell,:] = np.nan
+        >>> svr._check_array('shclnds') # doctest: +ELLIPSIS
+        """
+        # do nothing if 'perform' is set to False.
+        if not kw.get('perform', True):
+            return
+        # prepare the status string.
+        status_keys = kw.pop('status_keys', None)
+        if status_keys:
+            keys = status_keys
+        else:
+            keys = ['ngstcell', 'ncell', 'step_current', 'substep_current']
+        status = ['%s=%d'%(key, getattr(self, key)) for key in keys]
+        status = ', '.join(status)
+        # check for all given arrays for nan.
+        for arrname in arrnames:
+            arr = getattr(self, arrname)
+            nanarr = np.isnan(arr)
+            if nanarr.any():
+                arrinfo = '%s%s'%(arrname, str(arr.shape))
+                raise RuntimeError(np.argwhere(nanarr), arrinfo, status)

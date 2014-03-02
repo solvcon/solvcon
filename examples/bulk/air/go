@@ -1,0 +1,131 @@
+#!/usr/bin/env python
+# -*- coding: UTF-8 -*-
+#
+# Copyright (c) 2010, Yung-Yu Chen <yyc@solvcon.net>
+#
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# - Redistributions of source code must retain the above copyright notice, this
+#   list of conditions and the following disclaimer.
+# - Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+# - Neither the name of the SOLVCON nor the names of its contributors may be
+#   used to endorse or promote products derived from this software without
+#   specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+
+
+import os
+
+import numpy as np
+
+import solvcon
+from solvcon import conf
+from solvcon import boundcond
+from solvcon import solver
+from solvcon import helper
+from solvcon.parcel import bulk
+
+
+################################################################################
+# Mesh generation and boundary condition processor.
+################################################################################
+def mesher(cse):
+    """
+    Generate meshes from template files.
+    """
+    # get dimensionality.
+    ndim = 2
+    # determine meshing template file name.
+    tmplfn = '%s.gmsh.tmpl' % ('cube' if 3 == ndim else 'square')
+    # determine characteristic length of mesh.
+    try:
+        itv = float(cse.io.basefn.split('_')[-1])/1000
+    except ValueError:
+        itv = 0.2
+    # load the meshing commands.
+    cmds = open(tmplfn).read() % itv
+    cmds = [cmd.strip() for cmd in cmds.strip().split('\n')]
+    # make the original mesh object.
+    mobj = helper.Gmsh(cmds)()
+    # convert the mesh to block.
+    blk = mobj.toblock(bcname_mapper=cse.condition.bcmap,
+                       use_incenter=cse.solver.use_incenter)
+    # return the converted block.
+    return blk
+
+
+################################################################################
+# Basic configuration.
+################################################################################
+def air_base(casename=None, psteps=None, ssteps=None, **kw):
+    """
+    Fundamental configuration of the simulation and return the case object.
+
+    @return: the created Case object.
+    @rtype: solvcon.case.BlockCase
+    """
+    ndim = 2
+    # set up BCs.
+    bct = boundcond.bctregy.BulkNonrefl
+    bcmap = dict()
+    bcmap.update({
+        'left': (bct, {}),
+        'right': (bct, {}),
+        'upper': (bct, {}),
+        'lower': (bct, {}),
+    })
+    if ndim == 3:
+        bcmap.update({
+            'front': (bct, {}),
+            'rear': (bct, {}),
+        })
+    # set up case.
+    basedir = os.path.join(os.path.abspath(os.getcwd()), 'result')
+    cse = bulk.case.BulkCase(
+        basedir=basedir, rootdir=conf.env.projdir, basefn=casename,
+        mesher=mesher, bcmap=bcmap, use_incenter=False, **kw)
+    # informative hooks.
+    cse.runhooks.append(bulk.MeshInfoHook)
+    cse.runhooks.append(bulk.ProgressHook, psteps=psteps,
+        linewidth=ssteps/psteps)
+    cse.runhooks.append(bulk.CflHook, fullstop=False, psteps=ssteps,
+        cflmax=10.0, linewidth=ssteps/psteps)
+    # initializer anchors.
+    cse.runhooks.append(bulk.FillAnchor,
+                        mappers={'soln': solver.ALMOST_ZERO, 'dsoln': 0,
+                                 'cfl': 0, 'ocfl': 0})
+    cse.runhooks.append(bulk.ICAnchor, rho=1.0)
+    # analyzing/output anchors and hooks.
+    cse.runhooks.append(bulk.PMarchSave, anames=[
+            ('soln', False, -4),
+        ], fpdtype='float64', psteps=ssteps, compressor='gz')
+    return cse
+
+@bulk.BulkCase.register_arrangement
+def air(casename, **kw):
+    return air_base(casename, steps_run=10, psteps=1, ssteps=1, **kw)
+
+
+################################################################################
+# Invoke SOLVCON workflow.
+################################################################################
+if __name__ == '__main__':
+    solvcon.go()
+
+# vim: set ai et nu sw=4 ts=4 tw=79:

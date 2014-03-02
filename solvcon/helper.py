@@ -35,6 +35,14 @@ Helping functionalities.
 class Printer(object):
     """
     Print message to a stream.
+
+    >>> import StringIO
+    >>> output = StringIO.StringIO()
+    >>> mesg = Printer(output)
+    >>> mesg('mesg')
+    >>> mesg(int, float) # object
+    >>> output.getvalue()
+    "mesg<type 'int'> <type 'float'>"
     """
 
     def __init__(self, streams, **kw):
@@ -64,7 +72,8 @@ class Printer(object):
     def streams(self):
         return (s[0] for s in self._streams)
 
-    def __call__(self, msg):
+    def __call__(self, *args):
+        msg = ' '.join([str(it) for it in args])
         msg = ''.join([self.prefix, msg, self.postfix])
         for stream in self.streams:
             stream.write(msg)

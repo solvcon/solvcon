@@ -68,6 +68,7 @@ cdef extern:
 
 cdef extern from "stdlib.h":
     void* malloc(size_t size)
+    void free(void* ptr)
 
 cdef class BulkAlgorithm(Mesh):
     """
@@ -76,10 +77,10 @@ cdef class BulkAlgorithm(Mesh):
     def __cinit__(self):
         self._alg = <sc_bulk_algorithm_t *>malloc(sizeof(sc_bulk_algorithm_t))
 
-    def set_alg_double_array_2d(self,
-            cnp.ndarray[double, ndim=2, mode="c"] nda, name, int shift):
-        #self._alg[name] = &nda[shift,0]
-        pass
+    def __dealloc__(self):
+        if NULL != self._alg:
+            free(<void*>self._alg)
+            self._alg = NULL
 
     def setup_algorithm(self, svr):
         # equations number.
@@ -113,7 +114,10 @@ cdef class BulkAlgorithm(Mesh):
         self._alg.ngroup = svr.ngroup
         self._alg.gdlen = svr.gdlen
         cdef cnp.ndarray[double, ndim=2, mode="c"] grpda = svr.grpda
-        self._alg.grpda = &grpda[0,0]
+        if 0 != svr.grpda.shape[1]:
+            self._alg.grpda = &grpda[0,0]
+        else:
+            self._alg.grpda = NULL
         # scalar parameters.
         self._alg.nsca = svr.amsca.shape[1]
         cdef cnp.ndarray[double, ndim=2, mode="c"] amsca = svr.amsca

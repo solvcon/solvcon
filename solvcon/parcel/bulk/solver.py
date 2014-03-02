@@ -56,8 +56,8 @@ class BulkSolver(solver.MeshSolver):
     def __init__(self, blk, **kw):
         """
         >>> # create a valid solver as the test fixture.
-        >>> from solvcon.testing import create_trivial_2d_blk
-        >>> blk = create_trivial_2d_blk()
+        >>> from solvcon import testing
+        >>> blk = testing.create_trivial_2d_blk()
         >>> blk.clgrp.fill(0)
         >>> blk.grpnames.append('blank')
         >>> svr = BulkSolver(blk)
@@ -65,7 +65,7 @@ class BulkSolver(solver.MeshSolver):
         3
         """
         # meta data.
-        self.neq = 3 if blk.ndim == 2 else 4
+        self.neq = neq = 3 if blk.ndim == 2 else 4
         super(BulkSolver, self).__init__(blk, **kw)
         self.substep_run = 2
         ndim = blk.ndim
@@ -88,11 +88,10 @@ class BulkSolver(solver.MeshSolver):
         self.sfmrc = np.empty(
             (ncell, blk.CLMFC, blk.FCMND, 2, ndim), dtype=fpdtype)
         # parameters.
-        self.grpda = np.empty((self.ngroup, self.gdlen), dtype=fpdtype)
+        self.grpda = np.empty((self.ngroup, 0), dtype=fpdtype)
         self.amsca = np.empty((ngstcell+ncell, 5), dtype=fpdtype)
         self.amvec = np.empty((ngstcell+ncell, 0, ndim), dtype=fpdtype)
         # solutions.
-        neq = self.neq
         self.sol = np.empty((ngstcell+ncell, neq), dtype=fpdtype)
         self.soln = np.empty((ngstcell+ncell, neq), dtype=fpdtype)
         self.solt = np.empty((ngstcell+ncell, neq), dtype=fpdtype)
@@ -101,48 +100,43 @@ class BulkSolver(solver.MeshSolver):
         self.stm = np.empty((ngstcell+ncell, neq), dtype=fpdtype)
         self.cfl = np.empty(ngstcell+ncell, dtype=fpdtype)
         self.ocfl = np.empty(ngstcell+ncell, dtype=fpdtype)
+        # algorithm object.
+        alg = _algorithm.BulkAlgorithm()
+        alg.setup_mesh(blk)
+        alg.setup_algorithm(self)
+        self.alg = alg
 
     @property
     def gdlen(self):
-        return 1
-
-    def create_alg(self):
-        """
-        Create a :py:class:`._algorithm.BulkAlgorithm` object.
-
-        >>> # create a valid solver as the test fixture.
-        >>> from solvcon.testing import create_trivial_2d_blk
-        >>> blk = create_trivial_2d_blk()
-        >>> blk.clgrp.fill(0)
-        >>> blk.grpnames.append('blank')
-        >>> svr = BulkSolver(blk)
-        >>> alg = svr.create_alg()
-        """
-        alg = _algorithm.BulkAlgorithm()
-        alg.setup_mesh(self.blk)
-        alg.setup_algorithm(self)
-        return alg
+        return self.grpda.shape[1]
 
     def init(self, **kw):
-        self.create_alg().prepare_ce()
+        # prepare ce metric data.
+        self.cevol.fill(0.0)
+        self.cecnd.fill(0.0)
+        self.alg.prepare_ce()
+        self._check_array('cevol', 'cecnd', perform=self.debug)
+        # super method.
         super(BulkSolver, self).init(**kw)
-        self.create_alg().prepare_sf()
+        self._check_array('soln', 'dsoln', perform=self.debug)
+        # prepare sub-face metric data.
+        self.sfmrc.fill(0.0)
+        self.alg.prepare_sf()
+        self._check_array('sfmrc', perform=self.debug)
 
     def provide(self):
-        # fill group data array.
-        self._make_grpda()
-        # pre-calculate CFL.
-        self.ocfl[:] = self.cfl[:]
         # super method.
         super(BulkSolver, self).provide()
+        self._check_array('soln', 'dsoln', perform=self.debug)
+        # fill group data array.
+        self.grpda.fill(0)
 
     def apply_bc(self):
         super(BulkSolver, self).apply_bc()
+        self._check_array('soln', 'dsoln', perform=self.debug)
         self.call_non_interface_bc('soln')
         self.call_non_interface_bc('dsoln')
-
-    def _make_grpda(self):
-        self.grpda.fill(0)
+        self._check_array('soln', 'dsoln', perform=self.debug)
 
     ###########################################################################
     # Begin marching algorithm.
@@ -150,16 +144,22 @@ class BulkSolver(solver.MeshSolver):
 
     @_MMNAMES.register
     def update(self, worker=None):
+        self._check_array('soln', 'dsoln', perform=self.debug)
         self.sol[:,:] = self.soln[:,:]
         self.dsol[:,:,:] = self.dsoln[:,:,:]
+        self._check_array('sol', 'dsol', perform=self.debug)
 
     @_MMNAMES.register
     def calcsolt(self, worker=None):
-        self.create_alg().calc_solt()
+        self._check_array('sol', 'dsol', perform=self.debug)
+        self.alg.calc_solt()
+        self._check_array('solt', perform=self.debug)
 
     @_MMNAMES.register
     def calcsoln(self, worker=None):
-        self.create_alg().calc_soln()
+        self._check_array('sol', 'dsol', perform=self.debug)
+        self.alg.calc_soln()
+        self._check_array('soln', 'dsoln', perform=self.debug)
 
     @_MMNAMES.register
     def ibcsoln(self, worker=None):
@@ -167,15 +167,21 @@ class BulkSolver(solver.MeshSolver):
 
     @_MMNAMES.register
     def bcsoln(self, worker=None):
+        self._check_array('sol', 'dsol', perform=self.debug)
         self.call_non_interface_bc('soln')
+        self._check_array('soln', 'dsoln', perform=self.debug)
 
     @_MMNAMES.register
     def calccfl(self, worker=None):
-        self.create_alg().calc_cfl()
+        self._check_array('sol', 'dsol', perform=self.debug)
+        self.alg.calc_cfl()
+        self._check_array('cfl', 'ocfl', 'soln', 'dsoln', perform=self.debug)
 
     @_MMNAMES.register
     def calcdsoln(self, worker=None):
-        self.create_alg().calc_dsoln()
+        self._check_array('sol', 'dsol', perform=self.debug)
+        self.alg.calc_dsoln()
+        self._check_array('soln', 'dsoln', perform=self.debug)
 
     @_MMNAMES.register
     def ibcdsoln(self, worker=None):
@@ -183,7 +189,9 @@ class BulkSolver(solver.MeshSolver):
 
     @_MMNAMES.register
     def bcdsoln(self, worker=None):
+        self._check_array('sol', 'dsol', perform=self.debug)
         self.call_non_interface_bc('dsoln')
+        self._check_array('soln', 'dsoln', perform=self.debug)
     # End marching algorithm.
     ###########################################################################
 
@@ -194,7 +202,7 @@ class BulkBC(boundcond.BC):
     """
     @property
     def alg(self):
-        return self.svr.create_alg()
+        return self.svr.alg
 
 
 class BulkNonrefl(BulkBC):
