@@ -80,8 +80,8 @@ class MeshSolver(object):
     example shows that we can't directly use it.  A vanilla
     :py:class:`MeshSolver` can't march:
 
-    >>> from .testing import create_trivial_2d_blk
-    >>> svr = MeshSolver(create_trivial_2d_blk())
+    >>> from . import testing
+    >>> svr = MeshSolver(testing.create_trivial_2d_blk())
     >>> svr.march(0.0, 0.1, 1) # doctest: +ELLIPSIS
     Traceback (most recent call last):
         ...
@@ -91,7 +91,7 @@ class MeshSolver(object):
 
     >>> class DerivedSolver(MeshSolver):
     ...     _MMNAMES = MeshSolver.new_method_list()
-    >>> svr = DerivedSolver(create_trivial_2d_blk())
+    >>> svr = DerivedSolver(testing.create_trivial_2d_blk())
     >>> svr.march(0.0, 0.1, 1)
     {}
 
@@ -103,7 +103,7 @@ class MeshSolver(object):
     ...     @_MMNAMES.register
     ...     def calcsomething(self, worker=None):
     ...         self.marchret['key'] = 'value'
-    >>> svr = ExampleSolver(create_trivial_2d_blk())
+    >>> svr = ExampleSolver(testing.create_trivial_2d_blk())
     >>> svr.march(0.0, 0.1, 1)
     {'key': 'value'}
     """
