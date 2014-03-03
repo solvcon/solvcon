@@ -185,8 +185,8 @@ Hyperbolicity
 +++++++++++++
 
 The left hand side of the model equation Eq. :eq:`vewave.gemat` can be proved
-as a hyperbolic system.  The method of proof is similar to the :doc:`app_bulk`.
-The list of the eigenvalues is provided:
+as a hyperbolic system.  The method of proof is similar to the
+:doc:`bulk/index`.  The list of the eigenvalues is provided:
 
 .. math::
   :label: vewave.eigValue
@@ -200,4 +200,4 @@ The list of the eigenvalues is provided:
 where :math:`r = \frac{1}{\rho}, a = G^{\psi}_e+\sum^L_{l=1}G^{\psi}_l`, and
 :math:`b = G^{\mu}_e+\sum^L_{l=1}G^{\mu}_l`.  The :math:`k_1, k_2`, and
 :math:`k_3` are the components of a direction vector, as used in
-:doc:`app_bulk`.
+:doc:`bulk/index`.

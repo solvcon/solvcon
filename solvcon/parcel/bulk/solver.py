@@ -196,24 +196,20 @@ class BulkSolver(solver.MeshSolver):
     ###########################################################################
 
     @staticmethod
-    def get_reynold(rhovel, dia, dvisco, out=None):
+    def get_reynolds(rhovel, dia, dvisco, out=None):
         """
-        Calculate the Reynold number
+        Calculate the Reynold number.
         
-        .. math::
-        
-            \mathrm{Re} \defeq \\frac{\\rho vD}{\mu}
-
         It can be used as a simple utility function:
 
-        >>> rho = 1.0 # km/m^3.
+        >>> rho = 1.2250 # kg/m^3.
         >>> vel = 20.0 # m/s.
         >>> dia = 0.1 # meter.
-        >>> dvisco = 1.983e-5 # km/(m s).
-        >>> BulkSolver.get_reynold(rho*vel, dia, dvisco)
-        100857.28693898134
+        >>> dvisco = 1.983e-5 # kg/(m s).
+        >>> BulkSolver.get_reynolds(rho*vel, dia, dvisco)
+        123550.17650025214
 
-        Or it can also take solution arrays form the solver:
+        Or it can take solution arrays form the solver:
 
         >>> from solvcon import testing
         >>> def get_solver(blk, rho, vel):
@@ -225,16 +221,16 @@ class BulkSolver(solver.MeshSolver):
         ...     return svr
         >>> svr = get_solver(testing.create_trivial_2d_blk(), rho, vel)
         >>> # the return is a brand new array.
-        >>> BulkSolver.get_reynold(svr.soln[1], dia, dvisco)
-        array([ 100857.28693898,  100857.28693898,  100857.28693898])
+        >>> BulkSolver.get_reynolds(svr.soln[1], dia, dvisco)
+        array([ 123550.17650025,  123550.17650025,  123550.17650025])
 
-        For memory efficiency, output array can be also assigned:
+        For memory efficiency, output array can be assigned:
 
         >>> svr = get_solver(testing.create_trivial_2d_blk(), rho, vel)
         >>> result = np.empty_like(svr.soln[1])
-        >>> ret = BulkSolver.get_reynold(svr.soln[1], dia, dvisco, out=result)
+        >>> ret = BulkSolver.get_reynolds(svr.soln[1], dia, dvisco, out=result)
         >>> ret
-        array([ 100857.28693898,  100857.28693898,  100857.28693898])
+        array([ 123550.17650025,  123550.17650025,  123550.17650025])
         >>> # the return is the preallocated array.
         >>> ret is result
         True

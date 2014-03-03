@@ -46,7 +46,7 @@ Applications
   :maxdepth: 2
 
   app_linear
-  app_bulk
+  bulk/index
   app_vewave
 
 Numerical Methods

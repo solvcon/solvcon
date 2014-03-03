@@ -1,24 +1,21 @@
-===================================
-Hydro-Acoustics (Under Development)
-===================================
+================================
+Formulations (Under Development)
+================================
 
-.. py:module:: solvcon.parcel.bulk
-
-Mathematical Model
-==================
+.. py:currentmodule:: solvcon.parcel.bulk
 
 The governing equations of the hydro-acoustic wave include the continuity
 equation
 
 .. math::
-  :label: bulk.comass
+  :label: comass
 
   \dpd{\rho}{t} + \sum_{i=1}^3 \dpd{\rho v_i}{x_i} = 0
 
 and the momentum equations
 
 .. math::
-  :label: bulk.comomentum
+  :label: comomentum
 
   \dpd{\rho v_j}{t}
   + \sum_{i=1}^3 \dpd{(\rho v_iv_j + \delta_{ij}p)}{x_i}
@@ -29,15 +26,15 @@ and the momentum equations
 
 where :math:`\rho` is the density, :math:`v_1, v_2,` and :math:`v_3` the
 Cartesian component of the velocity, :math:`p` the pressure,
-:math:`\delta_{ij}, i, j = 1, 2, 3` the Kronecker delta, :math:`\lambda`
-the second viscosity coefficien, :math:`\mu` the dynamic viscosity coefficient,
+:math:`\delta_{ij}, i, j = 1, 2, 3` the Kronecker delta, :math:`\lambda` the
+second viscosity coefficien, :math:`\mu` the dynamic viscosity coefficient,
 :math:`t` the time, and :math:`x_1, x_2`, and :math:`x_3` the Cartesian
 coordinate axes.  Newtonian fluid is assumed.
 
-The above four equations in Eqs. :eq:`bulk.comass` and :eq:`bulk.comomentum`
-have five independent variables :math:`\rho, p, v_1, v_2`, and :math:`v_3`, and
-hence are not closed without a constitutive relation.  In the :py:mod:`~.bulk`
-package, the constitutive relation (or the equation of state) of choice is
+The above four equations in :eq:`comass` and :eq:`comomentum` have five
+independent variables :math:`\rho, p, v_1, v_2`, and :math:`v_3`, and hence are
+not closed without a constitutive relation.  In the :py:mod:`~.bulk` package,
+the constitutive relation (or the equation of state) of choice is
 
 .. math::
 
@@ -48,15 +45,15 @@ density :math:`\rho` as the independent variable, and integrate the equation of
 state to be
 
 .. math::
-  :label: bulk.eos
+  :label: eos
 
   p = p_0 + K \ln\frac{\rho}{\rho_0}
 
-where :math:`p_0` and :math:`\rho_0` are constants.  Substituting Eq.
-:eq:`bulk.eos` into Eq. :eq:`bulk.comomentum` gives
+where :math:`p_0` and :math:`\rho_0` are constants.  Substituting :eq:`eos`
+into :eq:`comomentum` gives
 
 .. math::
-  :label: bulk.comomentum_eos
+  :label: comomentum_eos
 
   \dpd{\rho v_j}{t} + \sum_{i=1}^3\dpd{}{x_i}
   \left[\rho v_iv_j
@@ -67,14 +64,13 @@ where :math:`p_0` and :math:`\rho_0` are constants.  Substituting Eq.
                  \quad j = 1, 2, 3
 
 Jacobian Matrices
-+++++++++++++++++
+=================
 
-We proceed to analyze the advective part of the governing equations (Eqs.
-:eq:`bulk.comass` and :eq:`bulk.comomentum_eos`).  Define the conservation
-variables
+We proceed to analyze the advective part of the governing equations
+:eq:`comass` and :eq:`comomentum_eos`.  Define the conservation variables
 
 .. math::
-  :label: bulk.csvar
+  :label: csvar
 
   \bvec{u} \defeq \left(\begin{array}{c}
     \rho \\ \rho v_1 \\ \rho v_2 \\ \rho v_3
@@ -83,7 +79,7 @@ variables
 and flux functions
 
 .. math::
-  :label: bulk.fluxf
+  :label: fluxf
 
   \bvec{f}^{(1)} \defeq \left(\begin{array}{c}
     \rho v_1 \\
@@ -100,12 +96,12 @@ and flux functions
     \rho v_3^2 + K\ln\frac{\rho}{\rho_0} + p_0
   \end{array}\right)
 
-Aided by the definition of conservation variables in Eq. :eq:`bulk.csvar`, the
-flux functions defined in Eq. :eq:`bulk.fluxf` can be rewritten with
-:math:`u_1, u_2, u_3`, and :math:`u_4`
+Aided by the definition of conservation variables in :eq:`csvar`, the flux
+functions defined in :eq:`fluxf` can be rewritten with :math:`u_1, u_2, u_3`,
+and :math:`u_4`
 
 .. math::
-  :label: bulk.fluxfu
+  :label: fluxfu
 
   \bvec{f}^{(1)} = \left(\begin{array}{c}
     u_2 \\
@@ -122,19 +118,19 @@ flux functions defined in Eq. :eq:`bulk.fluxf` can be rewritten with
     \frac{u_4^2}{u_1} + K\ln\frac{u_1}{\rho_0} + p_0
   \end{array}\right)
 
-By using Eq. :eq:`bulk.csvar` and Eq. :eq:`bulk.fluxfu`, the left-hand-side of
-the governing equations can be cast into the conservative form
+By using :eq:`csvar` and :eq:`fluxfu`, the left-hand-side of the governing
+equations can be cast into the conservative form
 
 .. math::
-  :label: bulk.ge.csv
+  :label: ge.csv
 
   \dpd{\bvec{u}}{t} + \sum_{i=1}^3\dpd{\bvec{f}^{(i)}}{x_i} = 0
 
-Aided by using the chain rule, Eq. :eq:`bulk.ge.csv` can be rewritten in the
+Aided by using the chain rule, :eq:`ge.csv` can be rewritten in the
 quasi-linear form
 
 .. math::
-  :label: bulk.ge.qlcsv
+  :label: ge.qlcsv
 
   \dpd{\bvec{u}}{t} + \sum_{i=1}^3\mathrm{A}^{(i)}\dpd{\bvec{u}}{x_i} = 0
 
@@ -142,7 +138,7 @@ where the Jacobian matrices :math:`\mathrm{A}^{(1)}, \mathrm{A}^{(2)}`, and
 :math:`\mathrm{A}^{(3)}` are defined as
 
 .. math::
-  :label: bulk.jacogen
+  :label: jacogen
 
   \mathrm{A}^{(i)} \defeq \left(\begin{array}{cccc}
     \pd{f_1^{(i)}}{u_1} & \pd{f_1^{(i)}}{u_2} &
@@ -155,11 +151,11 @@ where the Jacobian matrices :math:`\mathrm{A}^{(1)}, \mathrm{A}^{(2)}`, and
     \pd{f_4^{(i)}}{u_3} & \pd{f_4^{(i)}}{u_4}
   \end{array}\right), \quad i = 1, 2, 3
 
-Aided by using Eq. :eq:`bulk.fluxfu`, the Jacobian matrices defined in Eq.
-:eq:`bulk.jacogen` can be written out as
+Aided by using :eq:`fluxfu`, the Jacobian matrices defined in :eq:`jacogen` can
+be written out as
 
 .. math::
-  :label: bulk.jaco.csvar
+  :label: jaco.csvar
 
   \mathrm{A}^{(1)} = \left(\begin{array}{cccc}
     0 & 1 & 0 & 0 \\
@@ -181,20 +177,20 @@ Aided by using Eq. :eq:`bulk.fluxfu`, the Jacobian matrices defined in Eq.
   \end{array}\right)
 
 Hyperbolicity
-+++++++++++++
+=============
 
 Hyperbolicity is a prerequisite for us to apply the space-time CESE method to a
-system of first-order PDEs.  For the governing equations, Eqs.
-:eq:`bulk.comass` and :eq:`bulk.comomentum_eos`, to be hyperbolic, the linear
-combination of the three Jacobian matrices of their quasi-linear for must be
-diagonalizable.  The spectrum of the linear combination must be all real, too
-[Warming75]_, [Chen12]_.
+system of first-order PDEs.  For the governing equations, :eq:`comass` and
+:eq:`comomentum_eos`, to be hyperbolic, the linear combination of the three
+Jacobian matrices of their quasi-linear for must be diagonalizable.  The
+spectrum of the linear combination must be all real, too [Warming75]_,
+[Chen12]_.
 
 To facilitate the analysis, we chose to use the non-conservative version of the
 governing equations.  Define the non-conservative variables
 
 .. math::
-  :label: bulk.ncsvar
+  :label: ncsvar
 
   \tilde{\bvec{u}} \defeq \left(\begin{array}{c}
     \rho \\ v_1 \\ v_2 \\ v_3
@@ -203,12 +199,12 @@ governing equations.  Define the non-conservative variables
     u_1 \\ \frac{u_2}{u_1} \\ \frac{u_3}{u_1} \\ \frac{u_4}{u_1}
   \end{array}\right)
 
-Aided by using Eqs. :eq:`bulk.ncsvar` and :eq:`bulk.csvar`, the transformation
-between the conservative variables and the non-conservative variables can be
-done with the transformation Jacobian defined as
+Aided by using :eq:`ncsvar` and :eq:`csvar`, the transformation between the
+conservative variables and the non-conservative variables can be done with the
+transformation Jacobian defined as
 
 .. math::
-  :label: bulk.noncstrans
+  :label: noncstrans
 
   \mathrm{P} \defeq \dpd{\tilde{\bvec{u}}}{\bvec{u}} =
   \left(\begin{array}{cccc}
@@ -232,7 +228,7 @@ done with the transformation Jacobian defined as
     -\frac{v_3}{\rho} & 0 & 0 & \frac{1}{\rho}
   \end{array}\right)
 
-Aided by writing Eq. :eq:`bulk.csvar` as
+Aided by writing :eq:`csvar` as
 
 .. math::
 
@@ -244,7 +240,7 @@ Aided by writing Eq. :eq:`bulk.csvar` as
 the inverse matrix of :math:`\mathrm{P}` can be obtained
 
 .. math::
-  :label: bulk.cstrans
+  :label: cstrans
 
   \mathrm{P}^{-1} = \dpd{\bvec{u}}{\tilde{\bvec{u}}} =
   \left(\begin{array}{cccc}
@@ -263,12 +259,11 @@ and :math:`\mathrm{P}^{-1}\mathrm{P} = \mathrm{P}\mathrm{P}^{-1} =
 \mathrm{I}_{4\times4}`.
 
 The transformation matrix :math:`\mathrm{P}` can be used to cast the
-conservative equations, Eq. :eq:`bulk.ge.qlcsv`, into non-conservative ones.
-Pre-multiplying :math:`\pd{\tilde{\bvec{u}}}{\bvec{u}}` to Eq.
-:eq:`bulk.ge.qlcsv` gives
+conservative equations, :eq:`ge.qlcsv`, into non-conservative ones.
+Pre-multiplying :math:`\pd{\tilde{\bvec{u}}}{\bvec{u}}` to :eq:`ge.qlcsv` gives
 
 .. math::
-  :label: bulk.ge.qlncsv
+  :label: ge.qlncsv
 
   \dpd{\tilde{\bvec{u}}}{t} +
   \sum_{i=1}^3\tilde{\mathrm{A}}^{(i)}\dpd{\tilde{\bvec{u}}}{x_i} = 0
@@ -276,7 +271,7 @@ Pre-multiplying :math:`\pd{\tilde{\bvec{u}}}{\bvec{u}}` to Eq.
 where
 
 .. math::
-  :label: bulk.jaco.ncsvar
+  :label: jaco.ncsvar
 
   \tilde{\mathrm{A}}^{(1)} \defeq
     \mathrm{P}\mathrm{A}^{(1)}\mathrm{P}^{-1}, \quad
@@ -287,10 +282,10 @@ where
 
 To help obtaining the expression of :math:`\tilde{\mathrm{A}}^{(1)},
 \tilde{\mathrm{A}}^{(2)}`, and :math:`\tilde{\mathrm{A}}^{(3)}`, we substitute
-Eq. :eq:`bulk.csvar` into Eq. :eq:`bulk.jaco.csvar` and get
+:eq:`csvar` into :eq:`jaco.csvar` and get
 
 .. math::
-  :label: bulk.jaco.ovar
+  :label: jaco.ovar
 
   \mathrm{A}^{(1)} = \left(\begin{array}{cccc}
     0 & 1 & 0 & 0 \\
@@ -311,12 +306,11 @@ Eq. :eq:`bulk.csvar` into Eq. :eq:`bulk.jaco.csvar` and get
     -v_3^2 + \frac{K}{\rho} & 0 & 0 & 2v_3
   \end{array}\right)
 
-The Jacobian matrices in Eq. :eq:`bulk.jaco.ncsvar` can be spelled out with the
-expressions in Eqs. :eq:`bulk.noncstrans`, :eq:`bulk.cstrans`, and
-:eq:`bulk.jaco.ovar`
+The Jacobian matrices in :eq:`jaco.ncsvar` can be spelled out with the
+expressions in :eq:`noncstrans`, :eq:`cstrans`, and :eq:`jaco.ovar`
 
 .. math::
-  :label: bulk.jaco.ncsvar.out
+  :label: jaco.ncsvar.out
 
   \tilde{\mathrm{A}}^{(1)} = \left(\begin{array}{cccc}
     v_1 & \rho & 0 & 0 \\
@@ -337,12 +331,12 @@ expressions in Eqs. :eq:`bulk.noncstrans`, :eq:`bulk.cstrans`, and
     \frac{K}{\rho^2} & 0 & 0 & v_3
   \end{array}\right)
 
-Equation :eq:`bulk.ge.qlncsv` is hyperbolic where the linear combination of its
-Jacobian matrices :math:`\tilde{\mathrm{A}}^{(1)}`,
-:math:`\tilde{\mathrm{A}}^{(2)}`, and :math:`\tilde{\mathrm{A}}^{(3)}`
+:eq:`ge.qlncsv` is hyperbolic where the linear combination of its Jacobian
+matrices :math:`\tilde{\mathrm{A}}^{(1)}`, :math:`\tilde{\mathrm{A}}^{(2)}`,
+and :math:`\tilde{\mathrm{A}}^{(3)}`
 
 .. math::
-  :label: bulk.jaco.ncsvar.lc
+  :label: jaco.ncsvar.lc
 
   \tilde{\mathrm{R}} \defeq \sum_{i=1}^3 k_i\tilde{\mathrm{A}}^{(i)}
   = \left(\begin{array}{cccc}
@@ -355,22 +349,22 @@ Jacobian matrices :math:`\tilde{\mathrm{A}}^{(1)}`,
 where :math:`k_1, k_2`, and :math:`k_3` are real and bounded.
 
 The linearly combined Jacobian matrix can be used to rewrite the
-three-dimensional governing equation, Eq. :eq:`bulk.ge.qlncsv`, into
-one-dimensional space
+three-dimensional governing equation, :eq:`ge.qlncsv`, into one-dimensional
+space
 
 .. math::
-  :label: bulk.ge.qlncsv1d
+  :label: ge.qlncsv1d
 
   \dpd{\tilde{\bvec{u}}}{t} + \tilde{\mathrm{R}}\dpd{\tilde{\bvec{u}}}{y} = 0
 
 where
 
 .. math::
-  :label: bulk.ge.y1d
+  :label: ge.y1d
 
   y \defeq \sum_{i=1}^3 k_ix_i
 
-and aided by Eq. :eq:`bulk.jaco.ncsvar.lc` and the chain rule
+and aided by :eq:`jaco.ncsvar.lc` and the chain rule
 
 .. math::
 
@@ -387,7 +381,7 @@ polynomial equation :math:`\det(\tilde{\mathrm{R}} -
 \lambda\mathrm{I}_{4\times4}) = 0` for :math:`\lambda`, and are
 
 .. math::
-  :label: bulk.eigval
+  :label: eigval
 
   \lambda_{1, 2, 3, 4} = \phi, \phi,
                          \phi+\sqrt{\frac{K\psi}{\rho}},
@@ -397,7 +391,7 @@ where :math:`\phi \defeq \sum_{i=1}^3 k_iv_i`, and :math:`\psi \defeq
 \sum_{i=1}^3 k_i^2`.  The corresponding eigenvector matrix is
 
 .. math::
-  :label: bulk.eigvecmat
+  :label: eigvecmat
 
   \mathrm{T} = \left(\begin{array}{cccc}
     0 & 0 &
@@ -410,7 +404,7 @@ where :math:`\phi \defeq \sum_{i=1}^3 k_iv_i`, and :math:`\psi \defeq
 The left eigenvector matrix is
 
 .. math::
-  :label: bulk.eigvecmatright
+  :label: eigvecmatright
 
   \mathrm{T}^{-1} = \left(\begin{array}{cccc}
     0 & -\frac{k_1^2-\psi}{k_3\psi} & -\frac{k_1k_2}{k_3\psi} & -\frac{k_1}{\psi} \\
@@ -422,13 +416,13 @@ The left eigenvector matrix is
   \end{array}\right)
 
 Riemann Invariants
-++++++++++++++++++
+==================
 
-Aided by Eqs. :eq:`bulk.eigvecmat` and :eq:`bulk.eigvecmatright`,
-:math:`\tilde{\mathrm{R}}` can be diagonalized as
+Aided by :eq:`eigvecmat` and :eq:`eigvecmatright`, :math:`\tilde{\mathrm{R}}`
+can be diagonalized as
 
 .. math::
-  :label: bulk.eigvalmat
+  :label: eigvalmat
 
   \mathrm{\Lambda} \defeq \left(\begin{array}{cccc}
     \lambda_1 & 0 & 0 & 0 \\
@@ -442,10 +436,10 @@ Aided by Eqs. :eq:`bulk.eigvecmat` and :eq:`bulk.eigvecmatright`,
     0 & 0 & 0 & \phi - \sqrt{\frac{K\psi}{\rho}}
   \end{array}\right) = \mathrm{T}^{-1}\tilde{\mathrm{R}}\mathrm{T}
 
-Equation :eq:`bulk.eigvalmat` defines the eigenvalue matrix of
-:math:`\tilde{\mathrm{R}}`.  Aach element in the diagonal of the eigenvalue
-matrix is the eigenvalue listed in Eq. :eq:`bulk.eigval`.  Pre-multiplying Eq.
-:eq:`bulk.ge.qlncsv1d` with :math:`\mathrm{T}^{-1}` gives
+:eq:`eigvalmat` defines the eigenvalue matrix of :math:`\tilde{\mathrm{R}}`.
+Aach element in the diagonal of the eigenvalue matrix is the eigenvalue listed
+in :eq:`eigval`.  Pre-multiplying :eq:`ge.qlncsv1d` with
+:math:`\mathrm{T}^{-1}` gives
 
 .. math::
 
@@ -455,7 +449,7 @@ matrix is the eigenvalue listed in Eq. :eq:`bulk.eigval`.  Pre-multiplying Eq.
 Define the characteristic variables
 
 .. math::
-  :label: bulk.chvar
+  :label: chvar
 
   \hat{\bvec{u}} \defeq \left(\begin{array}{c}
    -\frac{k_1^2-\psi}{k_3\psi}v_1 - \frac{k_1k_2}{k_3\psi}v_2 - \frac{k_1}{\psi}v_3 \\
@@ -473,18 +467,17 @@ such that
 Then aided by the chain rule, we can write
 
 .. math::
-  :label: bulk.ge.char
+  :label: ge.char
 
   \dpd{\hat{\bvec{u}}}{t} + \mathrm{\Lambda}\dpd{\hat{\bvec{u}}}{y} = 0
 
-The components of :math:`\hat{\bvec{u}}` defined in :eq:`bulk.chvar` are the
+The components of :math:`\hat{\bvec{u}}` defined in :eq:`chvar` are the
 Riemann invariants.
 
 Diffusion Term Treatment
 ========================
 
-The momentum equation (Eq. :eq:`bulk.comomentum_eos`) contains the diffusion
-term
+The momentum equation :eq:`comomentum_eos` contains the diffusion term
 
 .. math::
 
@@ -496,7 +489,7 @@ term
 Define
 
 .. math::
-  :label: bulk.dfuvec
+  :label: dfuvec
 
   \bvec{g}^{(1)} \defeq \left(\begin{array}{c}
     0 \\
@@ -516,14 +509,3 @@ Define
     \mu(\dpd{v_3}{x_2} + \dpd{v_2}{x_3}) \\
     \lambda\sum_{k=1}^3\dpd{v_k}{x_k} + 2\mu\dpd{v_3}{x_3}
   \end{array}\right)
-
-Air Flow over Cylindar
-======================
-
-Consider the acoustic field generated by air flowing over a cylindar.  The bulk
-modulus of air is :math:`K = 1.42 \times 10^5 \, \mathrm{Pa}`.  The density of
-air is TBD.  Choose the diameter of the cylindar to be :math:`D = 0.1
-\,\mathrm{m}`.  The speed of the background flow is TBD such that the Reynold
-numbers are :math:`\mathrm{Re} = 89,000, \, 46,000, \, 22,000`.
-
-.. automethod:: BulkSolver.get_reynold

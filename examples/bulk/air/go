@@ -31,15 +31,50 @@
 
 
 import os
+import sys
 
 import numpy as np
 
 import solvcon
 from solvcon import conf
+from solvcon import cmdutil
 from solvcon import boundcond
 from solvcon import solver
 from solvcon import helper
 from solvcon.parcel import bulk
+
+
+###############################################################################
+# Command line.
+###############################################################################
+class velocity(cmdutil.Command):
+    """
+    Calculate velocity from Reynolds number.
+    """
+    min_args = 0
+
+    def __init__(self, env):
+        from optparse import OptionGroup
+        super(velocity, self).__init__(env)
+        op = self.op
+
+        opg = OptionGroup(op, 'Reynolds')
+        opg.add_option("--density", action="store", type=float,
+            dest="density", help="Density (kg/m^3).")
+        opg.add_option("--reynolds", action="store", type=float,
+            dest="reynolds", help="Reynolds number.")
+        opg.add_option("--diameter", action="store", type=float,
+            dest="diameter", help="Diameter (m).")
+        opg.add_option("--dvisco", action="store", type=float,
+            dest="dvisco", help="Dynamic viscosity (kg/m s).")
+        op.add_option_group(opg)
+        self.opg_obshock = opg
+
+    def __call__(self):
+        ops, args = self.opargs
+        velocity = ops.reynolds * ops.dvisco
+        velocity /= ops.density * ops.diameter
+        sys.stdout.write('Velocity = %f\n' % velocity)
 
 
 ################################################################################
