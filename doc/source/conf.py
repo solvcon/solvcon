@@ -198,6 +198,8 @@ latex_elements = {
 '''
 }
 pngmath_latex_preamble = latex_elements['preamble']
+#pngmath_dvipng_args = ['-bg', 'Transparent']
+#pngmath_dvipng_args += ['-D', '300']
 
 # The paper size ('letter' or 'a4').
 #latex_paper_size = 'letter'

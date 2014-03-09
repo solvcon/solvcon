@@ -93,6 +93,7 @@ class MeshCase(case_core.CaseInfo):
         'condition.bcmod': None,
         'condition.mtrllist': list,
         # solver.
+        'solver.debug': False,
         'solver.use_incenter': False,
         'solver.domaintype': None,
         'solver.domainobj': None,
@@ -424,6 +425,7 @@ class MeshCase(case_core.CaseInfo):
         """
         return dict(
             enable_mesg=self.io.solver_output,
+            debug=self.solver.debug,
         )
 
     # solver object initialization/loading.

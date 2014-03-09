@@ -57,10 +57,12 @@ class BulkSolver(solver.MeshSolver):
         """
         >>> # create a valid solver as the test fixture.
         >>> from solvcon import testing
+        >>> from . import material
         >>> blk = testing.create_trivial_2d_blk()
-        >>> blk.clgrp.fill(0)
+        >>> blk.shclgrp.fill(0)
         >>> blk.grpnames.append('blank')
-        >>> svr = BulkSolver(blk)
+        >>> svrkw = dict(p0=1.0, rho0=1.0, fluids=[material.fluids.air])
+        >>> svr = BulkSolver(blk, **svrkw)
         >>> svr.neq
         3
         """
@@ -73,13 +75,22 @@ class BulkSolver(solver.MeshSolver):
         ngstcell = blk.ngstcell
         fpdtype = 'float64'
         # scheme parameters.
-        self.alpha = int(kw.pop('alpha', 0))
+        self.alpha = int(kw.pop('alpha', 1))
         self.sigma0 = int(kw.pop('sigma0', 3.0))
-        self.taylor = float(kw.pop('taylor', 1.0))  # dirty hack.
+        self.taylor = float(kw.pop('taylor', 1))  # dirty hack.
         self.cnbfac = float(kw.pop('cnbfac', 1.0))  # dirty hack.
         self.sftfac = float(kw.pop('sftfac', 1.0))  # dirty hack.
         self.taumin = float(kw.pop('taumin', 0.0))
         self.tauscale = float(kw.pop('tauscale', 1.0))
+        # physical parameters.
+        self.p0 = float(kw.pop('p0'))
+        self.rho0 = float(kw.pop('rho0'))
+        self.fluids = kw.pop('fluids')
+        assert len(self.fluids) == self.ngroup
+        self.velocities = kw.pop('velocities', None)
+        if None is self.velocities:
+            self.velocities = [(0.0, 0.0, 0.0)] * self.ngroup
+        assert len(self.velocities) == self.ngroup
         # dual mesh.
         self.cecnd = np.empty(
             (ngstcell+ncell, blk.CLMFC+1, ndim), dtype=fpdtype)
@@ -115,28 +126,66 @@ class BulkSolver(solver.MeshSolver):
         self.cevol.fill(0.0)
         self.cecnd.fill(0.0)
         self.alg.prepare_ce()
-        self._check_array('cevol', 'cecnd', perform=self.debug)
+        self._debug_check_array('cevol', 'cecnd')
         # super method.
         super(BulkSolver, self).init(**kw)
-        self._check_array('soln', 'dsoln', perform=self.debug)
+        self._debug_check_array('soln', 'dsoln')
         # prepare sub-face metric data.
         self.sfmrc.fill(0.0)
         self.alg.prepare_sf()
-        self._check_array('sfmrc', perform=self.debug)
+        self._debug_check_array('sfmrc')
 
     def provide(self):
+        """
+        >>> # create a valid solver as the test fixture.
+        >>> from solvcon import testing
+        >>> from . import material
+        >>> blk = testing.create_trivial_2d_blk()
+        >>> blk.shclgrp.fill(0)
+        >>> blk.grpnames.append('blank')
+        >>> svrkw = dict(p0=1.0, rho0=1.0, fluids=[material.fluids.air])
+        >>> svr = BulkSolver(blk, **svrkw)
+        >>> # initialize and provide the solver.
+        >>> svr.init()
+        >>> svr.amsca.fill(-1)
+        >>> svr.provide()
+        >>> (svr.amsca[:,0] == material.fluids.air.bulk).all()
+        True
+        >>> (svr.amsca[:,4] == material.fluids.air.mu).all()
+        True
+        >>> (svr.soln[:,0] == material.fluids.air.rho).all()
+        True
+        """
+        self.soln.fill(solver.ALMOST_ZERO)
+        for key in ('dsoln', 'cfl', 'ocfl'):
+            getattr(self, key).fill(0.0)
         # super method.
         super(BulkSolver, self).provide()
-        self._check_array('soln', 'dsoln', perform=self.debug)
+        self._debug_check_array('soln', 'dsoln')
+        # initialize array.
+        self.amsca[:,1] = self.p0
+        self.soln.fill(solver.ALMOST_ZERO)
+        for key in ('dsoln', 'cfl', 'ocfl'):
+            getattr(self, key).fill(0.0)
+        self.amsca[:,2] = self.rho0
+        self.amsca[:,3] = 1.0 # eta
+        for it, fluid in enumerate(self.fluids):
+            self.amsca[self.blk.shclgrp==it,0] = fluid.bulk
+            self.amsca[self.blk.shclgrp==it,4] = fluid.mu
+            self.soln[self.blk.shclgrp==it,0] = fluid.rho
+            vel = self.velocities[it]
+            for idim in range(self.ndim):
+                val = fluid.rho * vel[idim]
+                self.soln[self.blk.shclgrp==it,idim+1] = val
         # fill group data array.
         self.grpda.fill(0)
 
     def apply_bc(self):
         super(BulkSolver, self).apply_bc()
-        self._check_array('soln', 'dsoln', perform=self.debug)
+        self._debug_check_array('soln', 'dsoln')
         self.call_non_interface_bc('soln')
         self.call_non_interface_bc('dsoln')
-        self._check_array('soln', 'dsoln', perform=self.debug)
+        self._debug_check_array('soln', 'dsoln')
 
     ###########################################################################
     # Begin marching algorithm.
@@ -144,22 +193,25 @@ class BulkSolver(solver.MeshSolver):
 
     @_MMNAMES.register
     def update(self, worker=None):
-        self._check_array('soln', 'dsoln', perform=self.debug)
+        self._debug_check_array('soln', 'dsoln')
+        self.alg.update(self.time, self.time_increment)
         self.sol[:,:] = self.soln[:,:]
         self.dsol[:,:,:] = self.dsoln[:,:,:]
-        self._check_array('sol', 'dsol', perform=self.debug)
+        self._debug_check_array('sol', 'dsol')
 
     @_MMNAMES.register
     def calcsolt(self, worker=None):
-        self._check_array('sol', 'dsol', perform=self.debug)
+        self._debug_check_array('sol', 'dsol')
         self.alg.calc_solt()
-        self._check_array('solt', perform=self.debug)
+        self._debug_check_array('solt')
 
     @_MMNAMES.register
     def calcsoln(self, worker=None):
-        self._check_array('sol', 'dsol', perform=self.debug)
+        self._debug_check_array('sol', 'dsol')
         self.alg.calc_soln()
-        self._check_array('soln', 'dsoln', perform=self.debug)
+        if self.debug:
+            self._debug_check_array('soln', 'dsoln')
+            self._debug_check_array(self.soln[self.ngstcell:,0]<=0)
 
     @_MMNAMES.register
     def ibcsoln(self, worker=None):
@@ -167,21 +219,23 @@ class BulkSolver(solver.MeshSolver):
 
     @_MMNAMES.register
     def bcsoln(self, worker=None):
-        self._check_array('sol', 'dsol', perform=self.debug)
+        self._debug_check_array('sol', 'dsol')
         self.call_non_interface_bc('soln')
-        self._check_array('soln', 'dsoln', perform=self.debug)
+        if self.debug:
+            self._debug_check_array('soln', 'dsoln')
+            self._debug_check_array(self.soln[self.ngstcell:,0]<=0)
 
     @_MMNAMES.register
     def calccfl(self, worker=None):
-        self._check_array('sol', 'dsol', perform=self.debug)
+        self._debug_check_array('sol', 'dsol')
         self.alg.calc_cfl()
-        self._check_array('cfl', 'ocfl', 'soln', 'dsoln', perform=self.debug)
+        self._debug_check_array('cfl', 'ocfl', 'soln', 'dsoln')
 
     @_MMNAMES.register
     def calcdsoln(self, worker=None):
-        self._check_array('sol', 'dsol', perform=self.debug)
+        self._debug_check_array('sol', 'dsol')
         self.alg.calc_dsoln()
-        self._check_array('soln', 'dsoln', perform=self.debug)
+        self._debug_check_array('soln', 'dsoln')
 
     @_MMNAMES.register
     def ibcdsoln(self, worker=None):
@@ -189,9 +243,11 @@ class BulkSolver(solver.MeshSolver):
 
     @_MMNAMES.register
     def bcdsoln(self, worker=None):
-        self._check_array('sol', 'dsol', perform=self.debug)
+        self._debug_check_array('sol', 'dsol')
         self.call_non_interface_bc('dsoln')
-        self._check_array('soln', 'dsoln', perform=self.debug)
+        if self.debug:
+            self._debug_check_array('soln', 'dsoln')
+            self._debug_check_array(self.soln[self.ngstcell:,0]<=0)
     # End marching algorithm.
     ###########################################################################
 
@@ -212,11 +268,13 @@ class BulkSolver(solver.MeshSolver):
         Or it can take solution arrays form the solver:
 
         >>> from solvcon import testing
+        >>> from . import material
         >>> def get_solver(blk, rho, vel):
         ...     from solvcon import testing
-        ...     blk.clgrp.fill(0)
+        ...     blk.shclgrp.fill(0)
         ...     blk.grpnames.append('blank')
-        ...     svr = BulkSolver(blk)
+        ...     svrkw = dict(p0=1.0, rho0=1.0, fluids=[material.fluids.air])
+        ...     svr = BulkSolver(blk, **svrkw)
         ...     svr.soln[1,:].fill(rho*vel)
         ...     return svr
         >>> svr = get_solver(testing.create_trivial_2d_blk(), rho, vel)
@@ -250,9 +308,16 @@ class BulkBC(boundcond.BC):
     """
     Base class for all boundary conditions of the bulk solver.
     """
+
+    #: Ghost geometry calculator type.
+    _ghostgeom_ = None
+
     @property
     def alg(self):
         return self.svr.alg
+
+    def init(self, **kw):
+        getattr(self.alg, 'ghostgeom_'+self._ghostgeom_)(self.facn)
 
 
 class BulkNonrefl(BulkBC):

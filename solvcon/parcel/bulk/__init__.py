@@ -35,11 +35,20 @@ Bulk-modulus equations.
 """
 
 
+__all__ = [
+    'BulkFluid', 'fluids',
+    'BulkCase',
+    'BulkSolver',
+    'MeshInfoHook', 'ProgressHook', 'CflAnchor', 'CflHook',
+    'MarchSaveAnchor', 'PMarchSave',
+]
+
+
 # this module should only import necessary entites.
+from .material import BulkFluid, fluids
 from .case import BulkCase
 from .solver import BulkSolver
-from .inout import (ICAnchor,
-                    MeshInfoHook, ProgressHook, FillAnchor, CflAnchor, CflHook,
+from .inout import (MeshInfoHook, ProgressHook, CflAnchor, CflHook,
                     MarchSaveAnchor, PMarchSave)
 
 # vim: set ff=unix fenc=utf8 ft=python ai et sw=4 ts=4 tw=79:

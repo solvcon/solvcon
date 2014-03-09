@@ -12,7 +12,7 @@ system of first-order, linear or non-linear partial differential equations
 .. math::
 
   \dpd{\bvec{u}}{t}
-  + \sum_{\iota=1}^3 \mathrm{A}^{(\iota)}(\bvec{u})\dpd{\bvec{u}}{x_{\iota}}
+  + \sum_{k=1}^3 \mathrm{A}^{(k)}(\bvec{u})\dpd{\bvec{u}}{x_k}
   = \bvec{s}(\bvec{u})
 
 where :math:`\bvec{u}` is the unknown vector, :math:`\mathrm{A}^{(1)}`,

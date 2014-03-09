@@ -134,18 +134,14 @@ def air_base(casename=None, psteps=None, ssteps=None, **kw):
     basedir = os.path.join(os.path.abspath(os.getcwd()), 'result')
     cse = bulk.case.BulkCase(
         basedir=basedir, rootdir=conf.env.projdir, basefn=casename,
-        mesher=mesher, bcmap=bcmap, use_incenter=False, **kw)
+        mesher=mesher, bcmap=bcmap, use_incenter=False,
+        p0=1.0, rho0=1.0, fluids=[bulk.fluids.air], **kw)
     # informative hooks.
     cse.runhooks.append(bulk.MeshInfoHook)
     cse.runhooks.append(bulk.ProgressHook, psteps=psteps,
         linewidth=ssteps/psteps)
     cse.runhooks.append(bulk.CflHook, fullstop=False, psteps=ssteps,
         cflmax=10.0, linewidth=ssteps/psteps)
-    # initializer anchors.
-    cse.runhooks.append(bulk.FillAnchor,
-                        mappers={'soln': solver.ALMOST_ZERO, 'dsoln': 0,
-                                 'cfl': 0, 'ocfl': 0})
-    cse.runhooks.append(bulk.ICAnchor, rho=1.0)
     # analyzing/output anchors and hooks.
     cse.runhooks.append(bulk.PMarchSave, anames=[
             ('soln', False, -4),
@@ -154,7 +150,8 @@ def air_base(casename=None, psteps=None, ssteps=None, **kw):
 
 @bulk.BulkCase.register_arrangement
 def air(casename, **kw):
-    return air_base(casename, steps_run=10, psteps=1, ssteps=1, **kw)
+    return air_base(casename, time_increment=1.8e-4,
+        steps_run=10, psteps=1, ssteps=1, **kw)
 
 
 ################################################################################

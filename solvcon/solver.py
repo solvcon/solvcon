@@ -594,45 +594,78 @@ class MeshSolver(object):
         slct = bc.rclp[:,0] + ngstcell
         arr[slct] = rarr[:]
 
-    def _check_array(self, *arrnames, **kw):
+    def _debug_check_array(self, *arrnames, **kw):
         """
         Private debugging method checking for array contents.
 
         >>> from . import testing
-        >>> svr = MeshSolver(testing.create_trivial_2d_blk())
+        >>> svr = MeshSolver(testing.create_trivial_2d_blk(), debug=True)
         >>> svr.shclcnd = svr.blk.shclcnd.copy()
         >>> svr.shclnds = svr.blk.shclnds.copy()
         >>> arr = np.zeros(svr.blk.ngstcell+svr.blk.ncell, dtype='float64')
         >>> # nothing should happen.
-        >>> svr._check_array('shclcnd')
+        >>> svr._debug_check_array('shclcnd')
         >>> # RuntimeError should be raised.
         >>> svr.shclcnd[svr.ngstcell,:] = np.nan
-        >>> svr._check_array('shclcnd') # doctest: +ELLIPSIS
+        >>> svr._debug_check_array('shclcnd') # doctest: +ELLIPSIS
         Traceback (most recent call last):
             ...
         RuntimeError: ...
-        >>> # nothing should happen if perform=False
+        >>> # check value.
+        >>> svr.shclcnd.fill(0)
+        >>> svr._debug_check_array('shclcnd', val=0) # doctest: +ELLIPSIS
+        Traceback (most recent call last):
+            ...
+        RuntimeError: ...
+        >>> # check bool.
+        >>> svr._debug_check_array(svr.shclcnd!=0)
+        >>> svr._debug_check_array(svr.shclcnd==0) # doctest: +ELLIPSIS
+        Traceback (most recent call last):
+            ...
+        RuntimeError: ...
+        >>> # nothing should happen if not in debug mode.
+        >>> svr.debug = False
         >>> svr.shclcnd[svr.ngstcell,:] = np.nan
-        >>> svr._check_array('shclcnd', perform=False)
+        >>> svr._debug_check_array('shclcnd')
+        >>> svr.debug = True
         >>> # nothing should happen because shclcnd is int array.
         >>> svr.shclnds[svr.ngstcell,:] = np.nan
-        >>> svr._check_array('shclnds') # doctest: +ELLIPSIS
+        >>> svr._debug_check_array('shclnds') # doctest: +ELLIPSIS
         """
-        # do nothing if 'perform' is set to False.
-        if not kw.get('perform', True):
+        # do nothing if not in debug mode.
+        if not self.debug:
             return
         # prepare the status string.
         status_keys = kw.pop('status_keys', None)
         if status_keys:
             keys = status_keys
         else:
-            keys = ['ngstcell', 'ncell', 'step_current', 'substep_current']
+            keys = ['ngstcell', 'ncell',
+                    'step_global', 'step_current', 'substep_current']
         status = ['%s=%d'%(key, getattr(self, key)) for key in keys]
         status = ', '.join(status)
-        # check for all given arrays for nan.
+        # check for all given arrays.
+        slc = kw.get('slc', None)
+        val = kw.get('val', None)
         for arrname in arrnames:
-            arr = getattr(self, arrname)
-            nanarr = np.isnan(arr)
-            if nanarr.any():
+            # determine array name and contents.
+            if isinstance(arrname, np.ndarray):
+                arr = arrname
+                arrname = ''
+            else:
+                arr = getattr(self, arrname)
+            # array shape.
+            if None is not slc:
+                arr = arr[slc]
+            # found flag.
+            if np.bool == arr.dtype:
+                found = arr
+            else:
+                if None is val:
+                    found = np.isnan(arr)
+                else:
+                    found = arr == val
+            # test for report.
+            if found.any():
                 arrinfo = '%s%s'%(arrname, str(arr.shape))
-                raise RuntimeError(np.argwhere(nanarr), arrinfo, status)
+                raise RuntimeError(np.argwhere(found), arrinfo, status)

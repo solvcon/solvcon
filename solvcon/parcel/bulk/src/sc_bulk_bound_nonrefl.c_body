@@ -38,32 +38,30 @@ sc_bulk_bound_nonrefl_soln_2d
     // pointers.
     int *pfacn, *pfccls;
     double *pisol, *pisoln, *pjsoln, *pjsol;
-    double *pvalue, *pamsca;
+    double *pvalue;
     // iterators.
     int ibnd, ifc, icl, jcl, ieq;
-    double p, pn, v1n, v2n, pini, bulk, dp;
-    #pragma omp parallel for default(shared) private(ibnd, pfacn, pfccls, pisol,\
-     pisoln, pjsoln, pjsol, pvalue, ifc, icl, jcl, ieq, \
-     p, pn, v1n, v2n, pini, bulk)
+    #pragma omp parallel for default(shared) private(ibnd, pfacn, pfccls, \
+    pisol, pisoln, pjsoln, pjsol, pvalue, ifc, icl, jcl, ieq)
     for (ibnd=0; ibnd<nbnd; ibnd++) {
         pfacn = facn + ibnd*BFREL;
         ifc = pfacn[0];
         pfccls = msd->fccls + ifc*FCREL;
         icl = pfccls[0];
         jcl = pfccls[1];
-        pamsca = alg->amsca + icl*(alg->nsca);
-        bulk = pamsca[0];
-        pini = pamsca[5];
         // set solutions.
         pisol = alg->sol + icl*NEQ;
         pisoln = alg->soln + icl*NEQ;
         pjsoln = alg->soln + jcl*NEQ;
         for (ieq=0; ieq<NEQ; ieq++) {
-            pjsoln[ieq] = pisoln[ieq] + alg->taylor*(pisol[ieq] - pisoln[ieq]);
+            pjsoln[ieq] = pisoln[ieq];
         };
     };
 };
 
+#if 0
+// This is Po-Hsien's modification.  It is discarded and should be deleted when
+// we forget what it is.
 void
 #if NDIM == 3
 sc_bulk_bound_nonrefl_dsoln_3d
@@ -101,50 +99,150 @@ sc_bulk_bound_nonrefl_dsoln_2d
         // coordinate transformation and set transformed vectors.
         pfcnml = msd->fcnml + ifc*NDIM;
         pfccnd = msd->fccnd + ifc*NDIM;
-        if(pfcnml[0] >= 0)
-        {    x = pfcnml[0];
-             y = pfcnml[1];
-             nx = x; ny = y;
-             if(x == 0 && y>0) deg = 0.0;
-             else if (x == 0 && y<0) deg = pi;
-             else if(pfcnml[1] > 0) 
-             {    deg = acos(y/sqrt(x*x+y*y));
-                  deg = -deg;}
-             else
-             {    deg = acos(x/sqrt(x*x+y*y));
-                  deg = 3*pi/2 - deg;}
-        }
-        else
-        {    x = pfcnml[0];
-             y = pfcnml[1];
-             nx = x; ny = y;
-             if(y==0 && x>0) deg = -pi/2;
-             else if(y==0 && x<0) deg = pi/2;
-             else if(pfcnml[1] > 0)
-             {    deg = acos(y/sqrt(x*x+y*y));}
-             else 
-             {    deg = acos(-y/sqrt(x*x+y*y));
-                  deg = 2*pi - deg;} 
-        }
+        if (pfcnml[0] >= 0) {
+            x = pfcnml[0];
+            y = pfcnml[1];
+            nx = x; ny = y;
+            if (x == 0 && y>0) {
+                deg = 0.0;
+            } else if (x == 0 && y<0) {
+                deg = pi;
+            } else if(pfcnml[1] > 0) {
+                deg = acos(y/sqrt(x*x+y*y));
+                deg = -deg;
+            } else {
+                deg = acos(x/sqrt(x*x+y*y));
+                deg = 3*pi/2 - deg;
+            };
+        } else {
+            x = pfcnml[0];
+            y = pfcnml[1];
+            nx = x; ny = y;
+            if (y==0 && x>0) {
+                deg = -pi/2;
+            } else if (y==0 && x<0) {
+                deg = pi/2;
+            } else if (pfcnml[1] > 0) {
+                deg = acos(y/sqrt(x*x+y*y));
+            } else {
+                deg = acos(-y/sqrt(x*x+y*y));
+                deg = 2*pi - deg;
+            };
+        };
         mat[0][0] = cos(deg);
         mat[0][1] = -sin(deg);
         mat[1][0] = sin(deg);
         mat[1][1] = cos(deg);
         pdsoln = pjdsoln;
-        if(fabs(nx) == 1.0)
-        {    for(ieq=0; ieq<NEQ; ieq++)
-             {    pdsoln[0]=0.0;
-                  pdsoln[1]=pidsoln[1];
-                  pdsoln += NDIM;
-                  pidsoln += NDIM;}
-        }
-        else
-        {    for(ieq=0; ieq<NEQ; ieq++)
-             {    pdsoln[0]=pidsoln[0];
-                  pdsoln[1]=0.0;
-                  pdsoln += NDIM;
-                  pidsoln += NDIM;}
-        }
+        if (fabs(nx) == 1.0) {
+            for(ieq=0; ieq<NEQ; ieq++) {
+                pdsoln[0] = 0.0;
+                pdsoln[1] = pidsoln[1];
+                pdsoln += NDIM;
+                pidsoln += NDIM;
+            };
+        } else {
+            for(ieq=0; ieq<NEQ; ieq++) {
+                pdsoln[0] = pidsoln[0];
+                pdsoln[1] = 0.0;
+                pdsoln += NDIM;
+                pidsoln += NDIM;
+            };
+        };
+    };
+};
+#endif
+
+void
+#if NDIM == 3
+sc_bulk_bound_nonrefl_dsoln_3d
+#else
+sc_bulk_bound_nonrefl_dsoln_2d
+#endif
+(sc_mesh_t *msd, sc_bulk_algorithm_t *alg, int nbnd, int *facn) {
+    // pointers.
+    int *pfacn, *pfccls, *pfcnds;
+    double *pfcnml, *pndcrd, *pfccnd;
+    double *pidsol, *pidsoln, *pjdsoln, *pdsol, *pdsoln;
+    // scalars.
+    double len;
+    // arrays.
+    double dif[NDIM];
+    double vec[NEQ][NDIM];
+    double mat[NDIM][NDIM], matinv[NDIM][NDIM];
+    // iterators.
+    int ibnd, ifc, icl, jcl, ieq;
+    #pragma omp parallel for default(shared) private(ibnd, \
+    pfacn, pfccls, pfcnds, pfcnml, pndcrd, pfccnd, \
+    pidsol, pidsoln, pjdsoln, pdsol, pdsoln, \
+    len, dif, vec, mat, matinv)
+    for (ibnd=0; ibnd<nbnd; ibnd++) {
+        pfacn = facn + ibnd*BFREL;
+        ifc = pfacn[0];
+        pfccls = msd->fccls + ifc*FCREL;
+        icl = pfccls[0];
+        jcl = pfccls[1];
+#if NDIM == 3
+        pfcnds = msd->fcnds + ifc*(FCMND+1);
+#endif
+        pidsol = alg->dsol + icl*NEQ*NDIM;
+        pidsoln = alg->dsoln + icl*NEQ*NDIM;
+        pjdsoln = alg->dsoln + jcl*NEQ*NDIM;
+        // coordinate transformation and set transformed vectors.
+        pfcnml = msd->fcnml + ifc*NDIM;
+        mat[0][0] = matinv[0][0] = pfcnml[0];
+        mat[0][1] = matinv[1][0] = pfcnml[1];
+#if NDIM == 3
+        mat[0][2] = matinv[2][0] = pfcnml[2];
+        pfccnd = msd->fccnd + ifc*NDIM;
+        pndcrd = msd->ndcrd + pfcnds[1]*NDIM;
+        mat[1][0] = pndcrd[0] - pfccnd[0];
+        mat[1][1] = pndcrd[1] - pfccnd[1];
+        mat[1][2] = pndcrd[2] - pfccnd[2];
+        len = sqrt(mat[1][0]*mat[1][0] + mat[1][1]*mat[1][1]
+                 + mat[1][2]*mat[1][2]);
+        mat[1][0] = matinv[0][1] = mat[1][0]/len;
+        mat[1][1] = matinv[1][1] = mat[1][1]/len;
+        mat[1][2] = matinv[2][1] = mat[1][2]/len;
+        mat[2][0] = matinv[0][2] = mat[0][1]*mat[1][2] - mat[0][2]*mat[1][1];
+        mat[2][1] = matinv[1][2] = mat[0][2]*mat[1][0] - mat[0][0]*mat[1][2];
+        mat[2][2] = matinv[2][2] = mat[0][0]*mat[1][1] - mat[0][1]*mat[1][0];
+#else
+        mat[1][0] = matinv[0][1] =  pfcnml[1];
+        mat[1][1] = matinv[1][1] = -pfcnml[0];
+#endif
+        pdsol = pidsol; pdsoln = pidsoln;
+        for (ieq=0; ieq<NEQ; ieq++) {
+            vec[ieq][0] = 0.0;  // set perpendicular gradient to zero.
+            dif[0] = pdsoln[0] + alg->taylor*(pdsol[0] - pdsoln[0]);
+            dif[1] = pdsoln[1] + alg->taylor*(pdsol[1] - pdsoln[1]);
+#if NDIM == 3
+            dif[2] = pdsoln[2] + alg->taylor*(pdsol[2] - pdsoln[2]);
+            vec[ieq][1] = mat[1][0]*dif[0] + mat[1][1]*dif[1]
+                        + mat[1][2]*dif[2];
+            vec[ieq][2] = mat[2][0]*dif[0] + mat[2][1]*dif[1]
+                        + mat[2][2]*dif[2];
+#else
+            vec[ieq][1] = mat[1][0]*dif[0] + mat[1][1]*dif[1];
+#endif
+            pdsol += NDIM; pdsoln += NDIM;
+        };
+        // inversely transform the coordinate and set ghost gradient.
+        pdsoln = pjdsoln;
+        for (ieq=0; ieq<NEQ; ieq++) {
+#if NDIM == 3
+            pdsoln[0] = matinv[0][0]*vec[ieq][0] + matinv[0][1]*vec[ieq][1]
+                      + matinv[0][2]*vec[ieq][2];
+            pdsoln[1] = matinv[1][0]*vec[ieq][0] + matinv[1][1]*vec[ieq][1]
+                      + matinv[1][2]*vec[ieq][2];
+            pdsoln[2] = matinv[2][0]*vec[ieq][0] + matinv[2][1]*vec[ieq][1]
+                      + matinv[2][2]*vec[ieq][2];
+#else
+            pdsoln[0] = matinv[0][0]*vec[ieq][0] + matinv[0][1]*vec[ieq][1];
+            pdsoln[1] = matinv[1][0]*vec[ieq][0] + matinv[1][1]*vec[ieq][1];
+#endif
+            pdsoln += NDIM;
+        };
     };
 };
 

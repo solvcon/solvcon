@@ -36,7 +36,7 @@ The control interface.
 from solvcon import case
 from solvcon import domain
 
-from . import solver as nssolver
+from . import solver as localsolver
 
 
 class BulkCase(case.MeshCase):
@@ -44,15 +44,19 @@ class BulkCase(case.MeshCase):
     Simulation case for the Navier-Stokes solver based on the bulk modulus.
     """
     defdict = {
-        'solver.solvertype': nssolver.BulkSolver,
+        'solver.solvertype': localsolver.BulkSolver,
         'solver.domaintype': domain.Domain,
-        'solver.alpha': 0,
+        'solver.alpha': 1,
         'solver.sigma0': 3.0,
-        'solver.taylor': 1.0,
+        'solver.taylor': 1,
         'solver.cnbfac': 1.0,
         'solver.sftfac': 1.0,
         'solver.taumin': None,
         'solver.tauscale': None,
+        'solver.p0': None,
+        'solver.rho0': None,
+        'solver.fluids': None,
+        'solver.velocities': None,
     }
     def make_solver_keywords(self):
         kw = super(BulkCase, self).make_solver_keywords()
@@ -67,6 +71,11 @@ class BulkCase(case.MeshCase):
                     'taumin', 'tauscale',):
             val = self.solver.get(key)
             if val != None: kw[key] = float(val)
+        # fluid and solver properties.
+        kw['p0'] = self.solver.p0
+        kw['rho0'] = self.solver.rho0
+        kw['fluids'] = self.solver.fluids
+        kw['velocities'] = self.solver.velocities
         return kw
 
 # vim: set ff=unix fenc=utf8 ft=python ai et sw=4 ts=4 tw=79:

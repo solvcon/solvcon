@@ -56,6 +56,11 @@ cdef extern:
     void sc_bulk_calc_soln_3d(sc_mesh_t *msd, sc_bulk_algorithm_t *alg)
     void sc_bulk_calc_dsoln_2d(sc_mesh_t *msd, sc_bulk_algorithm_t *alg)
     void sc_bulk_calc_dsoln_3d(sc_mesh_t *msd, sc_bulk_algorithm_t *alg)
+    # ghost information calculators.
+    void sc_bulk_ghostgeom_mirror_2d(
+        sc_mesh_t *msd, sc_bulk_algorithm_t *alg, int nbnd, int *facn)
+    void sc_bulk_ghostgeom_mirror_3d(
+        sc_mesh_t *msd, sc_bulk_algorithm_t *alg, int nbnd, int *facn)
     # boundary-condition treaters.
     void sc_bulk_bound_nonrefl_soln_2d(
         sc_mesh_t *msd, sc_bulk_algorithm_t *alg, int nbnd, int *facn)
@@ -163,6 +168,10 @@ cdef class BulkAlgorithm(Mesh):
         else:
             sc_bulk_prepare_sf_2d(self._msd, self._alg)
 
+    def update(self, time, time_increment):
+        self._alg.time = time
+        self._alg.time_increment = time_increment
+
     def calc_cfl(self):
         if self._msd.ndim == 3:
             sc_bulk_calc_cfl_3d(self._msd, self._alg)
@@ -186,6 +195,14 @@ cdef class BulkAlgorithm(Mesh):
             sc_bulk_calc_dsoln_3d(self._msd, self._alg)
         else:
             sc_bulk_calc_dsoln_2d(self._msd, self._alg)
+
+    def ghostgeom_mirror(self, cnp.ndarray[int, ndim=2, mode="c"] facn):
+        if self._msd.ndim == 3:
+            sc_bulk_ghostgeom_mirror_3d(self._msd, self._alg,
+                facn.shape[0], &facn[0,0])
+        else:
+            sc_bulk_ghostgeom_mirror_2d(self._msd, self._alg,
+                facn.shape[0], &facn[0,0])
 
     def bound_nonrefl_soln(self, cnp.ndarray[int, ndim=2, mode="c"] facn):
         if self._msd.ndim == 3:

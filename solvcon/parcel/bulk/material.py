@@ -1,4 +1,6 @@
-# Copyright (c) 2013, Yung-Yu Chen <yyc@solvcon.net>
+# -*- coding: UTF-8 -*-
+#
+# Copyright (c) 2014, Yung-Yu Chen <yyc@solvcon.net>
 #
 # All rights reserved.
 #
@@ -26,33 +28,34 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-cdef public:
-    ctypedef struct sc_bulk_algorithm_t:
-        # equation number.
-        int neq
-        # temporal information.
-        double time, time_increment
-        # c-tau scheme.
-        int alpha, taylor
-        double sigma0, cnbfac, sftfac, taumin, tauscale
-        # metric array.
-        double *cecnd, *cevol, *sfmrc
-        # parameters.
-        ## group data.
-        int ngroup, gdlen
-        double *grpda
-        ## scalar parameters.
-        int nsca
-        double *amsca
-        ## vector parameters.
-        int nvec
-        double *amvec
-        # solution array.
-        double *sol, *dsol, *solt, *soln, *dsoln
-        double *stm, *cfl, *ocfl
+"""
+Material definition.
+"""
 
-from solvcon.mesh cimport Mesh
-cdef class BulkAlgorithm(Mesh):
-    cdef sc_bulk_algorithm_t *_alg
 
-# vim: set fenc=utf8 ft=pyrex ff=unix ai et sw=4 ts=4 tw=79:
+from solvcon import gendata
+
+
+class BulkFluid(object):
+    """
+    Fluid properties for :py:class:`~.solver.BulkSolver`.
+    """
+
+    def __init__(self, **kw):
+        self.bulk = kw.pop('bulk', 1.0)
+        self.eta = kw.pop('eta', 1.0)
+        self.mu = kw.pop('mu', 1.0)
+        self.rho = kw.pop('rho', 1.0)
+        vel = kw.pop('vel', (0, 0, 0))
+
+
+#: Collection of :py:class:`BulkFluid` objects.
+fluids = gendata.AttributeDict()
+
+fluids['air'] = BulkFluid(
+    bulk=1.42e5, # Pa
+    rho=1.225, # kg/m^3
+    mu=1.983e-5, # kg/(m s)
+)
+
+# vim: set ff=unix fenc=utf8 ft=python ai et sw=4 ts=4 tw=79:
