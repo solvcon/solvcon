@@ -26,7 +26,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from solvcon.mesh cimport sc_mesh_t, Mesh
+from solvcon.mesh cimport sc_mesh_t, sc_bound_t, Mesh, Bound
 from ._algorithm cimport sc_bulk_algorithm_t
 import numpy as np
 cimport numpy as cnp
@@ -58,18 +58,18 @@ cdef extern:
     void sc_bulk_calc_dsoln_3d(sc_mesh_t *msd, sc_bulk_algorithm_t *alg)
     # ghost information calculators.
     void sc_bulk_ghostgeom_mirror_2d(
-        sc_mesh_t *msd, sc_bulk_algorithm_t *alg, int nbnd, int *facn)
+        sc_mesh_t *msd, sc_bound_t *bcd, sc_bulk_algorithm_t *alg)
     void sc_bulk_ghostgeom_mirror_3d(
-        sc_mesh_t *msd, sc_bulk_algorithm_t *alg, int nbnd, int *facn)
+        sc_mesh_t *msd, sc_bound_t *bcd, sc_bulk_algorithm_t *alg)
     # boundary-condition treaters.
     void sc_bulk_bound_nonrefl_soln_2d(
-        sc_mesh_t *msd, sc_bulk_algorithm_t *alg, int nbnd, int *facn)
+        sc_mesh_t *msd, sc_bound_t *bcd, sc_bulk_algorithm_t *alg)
     void sc_bulk_bound_nonrefl_soln_3d(
-        sc_mesh_t *msd, sc_bulk_algorithm_t *alg, int nbnd, int *facn)
+        sc_mesh_t *msd, sc_bound_t *bcd, sc_bulk_algorithm_t *alg)
     void sc_bulk_bound_nonrefl_dsoln_2d(
-        sc_mesh_t *msd, sc_bulk_algorithm_t *alg, int nbnd, int *facn)
+        sc_mesh_t *msd, sc_bound_t *bcd, sc_bulk_algorithm_t *alg)
     void sc_bulk_bound_nonrefl_dsoln_3d(
-        sc_mesh_t *msd, sc_bulk_algorithm_t *alg, int nbnd, int *facn)
+        sc_mesh_t *msd, sc_bound_t *bcd, sc_bulk_algorithm_t *alg)
 
 cdef extern from "stdlib.h":
     void* malloc(size_t size)
@@ -196,28 +196,22 @@ cdef class BulkAlgorithm(Mesh):
         else:
             sc_bulk_calc_dsoln_2d(self._msd, self._alg)
 
-    def ghostgeom_mirror(self, cnp.ndarray[int, ndim=2, mode="c"] facn):
+    def ghostgeom_mirror(self, Bound bcd):
         if self._msd.ndim == 3:
-            sc_bulk_ghostgeom_mirror_3d(self._msd, self._alg,
-                facn.shape[0], &facn[0,0])
+            sc_bulk_ghostgeom_mirror_3d(self._msd, bcd._bcd, self._alg)
         else:
-            sc_bulk_ghostgeom_mirror_2d(self._msd, self._alg,
-                facn.shape[0], &facn[0,0])
+            sc_bulk_ghostgeom_mirror_2d(self._msd, bcd._bcd, self._alg)
 
-    def bound_nonrefl_soln(self, cnp.ndarray[int, ndim=2, mode="c"] facn):
+    def bound_nonrefl_soln(self, Bound bcd):
         if self._msd.ndim == 3:
-            sc_bulk_bound_nonrefl_soln_3d(self._msd, self._alg,
-                facn.shape[0], &facn[0,0])
+            sc_bulk_bound_nonrefl_soln_3d(self._msd, bcd._bcd, self._alg)
         else:
-            sc_bulk_bound_nonrefl_soln_2d(self._msd, self._alg,
-                facn.shape[0], &facn[0,0])
+            sc_bulk_bound_nonrefl_soln_2d(self._msd, bcd._bcd, self._alg)
 
-    def bound_nonrefl_dsoln(self, cnp.ndarray[int, ndim=2, mode="c"] facn):
+    def bound_nonrefl_dsoln(self, Bound bcd):
         if self._msd.ndim == 3:
-            sc_bulk_bound_nonrefl_dsoln_3d(self._msd, self._alg,
-                facn.shape[0], &facn[0,0])
+            sc_bulk_bound_nonrefl_dsoln_3d(self._msd, bcd._bcd, self._alg)
         else:
-            sc_bulk_bound_nonrefl_dsoln_2d(self._msd, self._alg,
-                facn.shape[0], &facn[0,0])
+            sc_bulk_bound_nonrefl_dsoln_2d(self._msd, bcd._bcd, self._alg)
 
 # vim: set fenc=utf8 ft=pyrex ff=unix ai et sw=4 ts=4 tw=79:

@@ -36,6 +36,11 @@ cdef public:
         # connectivity.
         int *fcnds, *fccls, *clnds, *clfcs
 
+    ctypedef struct sc_bound_t:
+        int nbound, nvalue
+        int *facn
+        double *value
+
     cdef enum sc_mesh_shape_enum:
         FCMND = 4
         CLMND = 8
@@ -45,5 +50,8 @@ cdef public:
 
 cdef class Mesh:
     cdef sc_mesh_t *_msd
+
+cdef class Bound:
+    cdef sc_bound_t *_bcd
 
 # vim: set fenc=utf8 ft=pyrex ff=unix ai et sw=4 ts=4 tw=79:

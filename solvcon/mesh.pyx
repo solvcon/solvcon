@@ -54,7 +54,7 @@ cdef class Mesh:
     Data set of unstructured meshes of mixed elements.
     """
     def __cinit__(self):
-        self._msd = <sc_mesh_t *>malloc(sizeof(sc_mesh_t));
+        self._msd = <sc_mesh_t *>malloc(sizeof(sc_mesh_t))
 
     def __dealloc__(self):
         if NULL != self._msd:
@@ -271,5 +271,35 @@ cdef class Mesh:
             &part[0],
         )
         return edgecut, part
+
+
+cdef class Bound:
+    """
+    Data set of boundary-condition treatment.
+    """
+    def __cinit__(self):
+        self._bcd = <sc_bound_t *>malloc(sizeof(sc_bound_t))
+
+    def setup_bound(self, bc):
+        """
+        :param bc: External source of mesh data.
+        :type bc: .boundcond.BC
+
+        Set up mesh data from external object.
+        """
+        # meta data.
+        self._bcd.nbound = len(bc)
+        self._bcd.nvalue = bc.nvalue
+        # geometry arrays.
+        cdef cnp.ndarray[int, ndim=2, mode="c"] facn = bc.facn
+        if facn.shape[0] * facn.shape[1] == 0:
+            self._bcd.facn = NULL
+        else:
+            self._bcd.facn = &facn[0,0]
+        cdef cnp.ndarray[double, ndim=2, mode="c"] value = bc.value
+        if value.shape[0] * value.shape[1] == 0:
+            self._bcd.value = NULL
+        else:
+            self._bcd.value = &value[0,0]
 
 # vim: set fenc=utf8 ft=pyrex ff=unix ai et nu sw=4 ts=4 tw=79:

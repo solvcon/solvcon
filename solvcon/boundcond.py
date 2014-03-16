@@ -36,6 +36,10 @@ defined here.
 """
 
 from .gendata import TypeNameRegistry, TypeWithBinder
+try: # for readthedocs to work.
+    from . import mesh
+except ImportError:
+    warnings.warn("solvcon.mesh isn't built", RuntimeWarning)
 
 class Glue(object):
     """
@@ -184,40 +188,24 @@ class BCMeta(TypeWithBinder):
 # Base/abstract BC type.
 class BC(object):
     """
-    Generic boundary condition abstract class.  It's the base class that all
-    boundary condition class should subclass.
+    Generic boundary condition abstract class; the base class that all boundary
+    condition classes should subclass.
 
-    @cvar vnames: settable value names.
-    @type vnames: list
-    @cvar vdefaults: default values.
-    @type vdefaults: dict
-
-    @ivar sern: serial number (for certain block).
-    @type sern: int
-    @ivar name: name.
-    @type name: str
-    @ivar blk: the block associated with this BC object.
-    @type blk: solvcon.block.Block
-    @ivar blkn: serial number of self block.
-    @type blkn: int
-    @ivar svr: solver object.
-    @type svr: solvcon.solver.BaseSolver
-    @ivar glue: glue for two collocated BC objects.
-    @type glue: Glue
-    @ivar facn: list of faces.  First column is the face index in block.  The
-        second column is the face index in bndfcs.  The third column is the
-        face index of the related block (if exists).
-    @type facn: numpy.ndarray
-    @ivar value: attached value for each boundary face.
-    @type value: numpy.ndarray
+    FIXME: provide doctests as examples.
     """
+
+    #: Boundary face relation number.
+    BFREL = 3
 
     __metaclass__ = BCMeta
 
-    _pointers_ = [] # for binder.
+    #: Holding names as pointers.  Used for binder.
+    _pointers_ = []
 
-    vnames = [] # settable value names.
-    vdefaults = {}  # defaults to values.
+    #: Settable value names.
+    vnames = []
+    #: Default values.
+    vdefaults = {}
 
     def __init__(self, bc=None, fpdtype=None):
         """
@@ -241,15 +229,28 @@ class BC(object):
             self.fpdtype = getattr(np, self.fpdtype)
         if bc is None:
             # general data.
+            #: Serial number (for certain block).
             self.sern = None
+            #: Identifying name.
             self.name = None
+            #: The :py:class:`~solvcon.block.Block` object associated with this
+            #: :py:class:`BC` object.
             self.blk  = None
+            #: Serial number of self :py:attr:`blk`.
             self.blkn = None
+            #: Associated :py:class :py:class:`~solvcon.solver.MeshSolver`
+            #: object.
             self.svr  = None
+            #: Associated :py:class:`Glue` object gluing two collocated
+            #: :py:class:`BC` objects.
             self.glue = None
-            # face list.
-            self.facn = empty((0,3), dtype='int32')
-            # attached (specified) value.
+            #: An :py:class:`numpy.ndarray` as a list of faces.  First column
+            #: is the face index in block.  The second column is the face index
+            #: in bndfcs.  The third column is the face index of the related
+            #: block (if exists).
+            self.facn = empty((0,self.BFREL), dtype='int32')
+            #: An :py:class:`numpy.ndarray` for attached (specified) value for
+            #: each boundary face.
             self.value = empty((0,self.nvalue), dtype=self.fpdtype)
         else:
             bc.cloneTo(self)
@@ -262,9 +263,21 @@ class BC(object):
 
     @property
     def nvalue(self):
+        """
+        Return the length of :py:attr:`vnames` as number of values per boundary
+        face.  It should be equivalent to the second shape element of
+        :py:class:`value`.
+
+        FIXME: provide doctests.
+        """
         return len(self.vnames)
 
     def __len__(self):
+        """
+        Return the first shape element of :py:class:`facn`.
+
+        FIXME: provide doctests.
+        """
         return self.facn.shape[0]
 
     def __str__(self):
@@ -272,12 +285,39 @@ class BC(object):
             self.__class__.__name__, self.sern, self.name,
             len(self), self.nvalue)
 
+    def create_bcd(self):
+        """
+        :return: An object contains the :c:type:`sc_bound_t` variable for C
+            interfacing.
+        :rtype: :py:class:`solvcon.mesh.Bound`
+
+        The following code shows how and when to use this method:
+
+        >>> import numpy as np
+        >>> # craft some face numbers for testing.
+        >>> bndfcs = [0,1,2]
+        >>> # craft the BC object for testing.
+        >>> bc = BC()
+        >>> bc.name = 'some_name'
+        >>> bc.facn = np.empty((len(bndfcs), BC.BFREL), dtype='int32')
+        >>> bc.facn.fill(-1)
+        >>> bc.facn[:,0] = bndfcs
+        >>> bc.sern = 0
+        >>> bc.blk = None # should be set to a block.
+        >>> # test for this method.
+        >>> bcd = bc.create_bcd()
+        """
+        bcd = mesh.Bound()
+        bcd.setup_bound(self)
+        return bcd
+
     def cloneTo(self, another):
         """
-        Clone self to passed-in another BC object.
+        :param another: Another BC object.
+        :type another: solvcon.boundcond.BC
+        :return: Nothing.
 
-        @param another: Another BC object.
-        @type another: solvcon.boundcond.BC
+        Clone self to *another* :py:class:`BC` object.
         """
         assert issubclass(type(another), type(self))
         assert another.fpdtype == self.fpdtype

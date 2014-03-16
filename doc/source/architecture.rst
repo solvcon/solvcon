@@ -680,7 +680,7 @@ functions listed above.
 
   .. py:method:: setup_mesh(blk)
 
-    :param blk: The block object to be copied from.
+    :param blk: The block object that supplies the information.
     :type blk: :py:class:`solvcon.block.Block`
 
   .. py:method:: extract_faces_from_cells(max_nfc)
@@ -886,6 +886,72 @@ of :py:attr:`svrn` comes from :py:attr:`blk`.  Another member, :py:attr:`nsvr`,
 is the total number of collaborative solvers in the parallel run, and is
 initialized to ``None``.
 
+.. py:module:: solvcon.boundcond
+
+:py:mod:`solvcon.boundcond`
++++++++++++++++++++++++++++
+
+.. autoclass:: BC
+
+  .. autoinstanceattribute:: facn
+
+  .. autoinstanceattribute:: value
+
+  .. autoattribute:: nvalue
+
+  .. automethod:: __len__
+
+  .. automethod:: cloneTo
+
+  .. automethod:: create_bcd
+
+.. autoattribute:: BC.vnames
+
+.. autoattribute:: BC.vdefaults
+
+Low-Level Interface to C for :py:class:`~solvcon.boundcond.BC`
+--------------------------------------------------------------
+
+.. py:currentmodule:: solvcon.mesh
+
+.. c:type:: sc_bound_t
+
+  This ``struct`` contains essential information for a
+  :py:class:`solvcon.boundcond.BC` object in C.
+
+  .. c:member:: int nbound
+
+    Number of boundary faces.  It's equivalent to
+    what :py:meth:`~solvcon.boundcond.BC.__len__` returns.
+
+  .. c:member:: int nvalue
+
+    Number of values per boundary face.
+
+  .. c:member:: int *facn
+
+    Pointer to the data storage of :py:attr:`BC.facn
+    <solvcon.boundcond.BC.facn>`.
+
+  .. c:member:: double *value
+
+    Pointer to the data storage of :py:attr:`BC.value
+    <solvcon.boundcond.BC.value>`.
+
+.. py:class:: Bound
+
+  This class associates the C functions for mesh operations to the mesh data
+  and exposes the functions to Python.
+
+  .. py:attribute:: _bcd
+
+    This attribute holds a C ``struct`` :c:type:`sc_bound_t` for internal use.
+
+  .. py:method:: setup_bound(bc)
+
+    :param bc: The :py:class:`~solvcon.boundcond.BC` object that supplies
+      information.
+
 .. py:module:: solvcon.hook
 
 :py:mod:`solvcon.hook`
@@ -923,9 +989,6 @@ The following command converts the mesh to a VTK file for ParaView:
 .. code-block:: bash
 
   scg mesh ustmesh_2d_sample.msh ustmesh_2d_sample.vtk
-
-.. [Mavriplis97] D. J. Mavriplis, Unstructured grid techniques, Annual Review
-  of Fluid Mechanics 29. (1997)
 
 .. rubric:: Footnotes
 

@@ -145,7 +145,8 @@ class MeshSolver(object):
         self.time_increment = time_increment
         # set step.
         #: It is an :py:class:`int` that records the current step of the
-        #: solver.  It is initialized to ``0``.
+        #: solver.  It is reset to ``0`` on every invokation of 
+        #: :py:meth:`march`.
         self.step_current = 0
         #: It is similar to :py:attr:`step_current`, but persists over restart.
         #: Without restarts, :py:attr:`step_global` should be identical to
@@ -324,14 +325,15 @@ class MeshSolver(object):
 
         This method performs time-marching.  The parameters *time_current* and
         *time_increment* are used to reset the instance attributes
-        :py:attr:`time` and :py:attr:`time_increment`, respectively.
+        :py:attr:`time` and :py:attr:`time_increment`, respectively.  In each
+        invokation :py:attr:`step_current` is reset to 0.
 
         There is a nested two-level loop in this method for time-marching.  The
         outer loop iterates for time steps, and the inner loop iterates for sub
-        time steps.  The outer loop runs ``steps_run`` times, while the inner
+        time steps.  The outer loop runs *steps_run* times, while the inner
         loop runs :py:attr:`substep_run` times.  In total, the inner loop runs
-        *steps_run* \* :py:attr:`substep_run` times.  In each sub time step
-        (in the inner loop), the increment of the attribute :py:attr:`time` is
+        *steps_run* \* :py:attr:`substep_run` times.  In each sub time step (in
+        the inner loop), the increment of the attribute :py:attr:`time` is
         :py:attr:`time_increment`/:py:attr:`substep_run`.  The temporal
         increment per time step is effectively :py:attr:`time_increment`, with
         a slight error because of round-off.

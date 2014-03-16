@@ -41,7 +41,7 @@ from solvcon import boundcond
 try: # for readthedocs to work.
     from . import _algorithm
 except ImportError:
-    warnings.warn("solvcon.parcel.linear._algorithm isn't built",
+    warnings.warn("solvcon.parcel.bulk._algorithm isn't built",
                   RuntimeWarning)
 
 
@@ -312,12 +312,17 @@ class BulkBC(boundcond.BC):
     #: Ghost geometry calculator type.
     _ghostgeom_ = None
 
+    def __init__(self, **kw):
+        super(BulkBC, self).__init__(**kw)
+        self.bcd = None
+
     @property
     def alg(self):
         return self.svr.alg
 
     def init(self, **kw):
-        getattr(self.alg, 'ghostgeom_'+self._ghostgeom_)(self.facn)
+        self.bcd = self.create_bcd()
+        getattr(self.alg, 'ghostgeom_'+self._ghostgeom_)(self.bcd)
 
 
 class BulkNonrefl(BulkBC):
@@ -326,8 +331,8 @@ class BulkNonrefl(BulkBC):
     """
     _ghostgeom_ = 'mirror'
     def soln(self):
-        self.alg.bound_nonrefl_soln(self.facn)
+        self.alg.bound_nonrefl_soln(self.bcd)
     def dsoln(self):
-        self.alg.bound_nonrefl_dsoln(self.facn)
+        self.alg.bound_nonrefl_dsoln(self.bcd)
 
 # vim: set ff=unix fenc=utf8 ft=python ai et sw=4 ts=4 tw=79:
