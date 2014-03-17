@@ -35,6 +35,8 @@ Basic supportive logic for interface BCs, periodic BCs, and glued BCs is
 defined here.
 """
 
+import warnings
+
 from .gendata import TypeNameRegistry, TypeWithBinder
 try: # for readthedocs to work.
     from . import mesh
