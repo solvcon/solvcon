@@ -42,12 +42,40 @@ __version__ = '0.1.2+'
 
 __description__ = "SOLVCON: Solvers of conservation laws"
 
-__all__ = ['batch', 'batch_torque', 'block', 'boundcond', 'case',
-    'cmdutil', 'command', 'conf', 'connection', 'dependency', 'domain',
-    'gendata', 'helper', 'io', 'kerpak', 'mpy', 'mthread', 'rpc', 'scuda',
-    'solver', 'visual_vtk']
+__all__ = [
+    # cmdutil
+    'go', 'Command',
+    # conf
+    'env',
+    # block
+    'Block',
+    # solver
+    'MeshSolver',
+    # case
+    'MeshCase',
+    # anchor
+    'MeshAnchor',
+    # hook
+    'MeshHook',
+    # boundcond
+    'BC', 'bctregy',
+    # helper
+    'helper',
+    # parcel
+    'parcel',
+]
 
-from .cmdutil import go, test
+from .cmdutil import Command, go
+from .conf import env
+from .block import Block
+from .solver import MeshSolver
+from .case import MeshCase
+from .anchor import MeshAnchor
+from .hook import MeshHook
+from .boundcond import BC, bctregy
+
+from . import helper
+from . import parcel
 
 if __name__ == '__main__':
     go()

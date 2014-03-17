@@ -39,22 +39,23 @@ sc_bulk_process_physics_2d
  double *pre, double *sos, double *mac) {
     // pointers.
     double *pclcnd, *pcecnd;
-    double *pamsca, *psoln, *pdsoln;
+    double *psoln, *pdsoln;
     double (*pvd)[NDIM];    // shorthand for derivative.
     double *prho, *pvel, *pvor, *pvorm, *ppre, *psos, *pmac;
     // scalars.
-    double bulk, p0, rho0, eta, ken, p, V;
+    double bulk, p0, rho0, ken, p, V;
     // arrays.
     double sft[NDIM];
     // iterators.
     int icl;
-    #pragma omp parallel for private(pclcnd, pcecnd, pamsca, psoln, pdsoln, \
+    p0 = alg->p0;
+    rho0 = alg->rho0;
+    #pragma omp parallel for private(pclcnd, pcecnd, psoln, pdsoln, \
     pvd, prho, pvel, pvor, pvorm, ppre, psos, pmac, \
-    sft, icl, bulk, p0, rho0, eta, ken, p, V)
+    sft, icl, bulk, ken, p, V)
     for (icl=-msd->ngstcell; icl<msd->ncell; icl++) {
         pclcnd = msd->clcnd + icl*NDIM;
         pcecnd = alg->cecnd + icl*(CLMFC+1)*NDIM;
-        pamsca = alg->amsca + icl*(alg->nsca);
         psoln = alg->soln + icl*NEQ;
         pvel = vel + (icl+msd->ngstcell)*NDIM;
         pvor = vor + (icl+msd->ngstcell)*NDIM;
@@ -64,10 +65,7 @@ sc_bulk_process_physics_2d
         psos = sos + icl+msd->ngstcell;
         pmac = mac + icl+msd->ngstcell;
         // obtain flow parameters.
-        bulk = pamsca[0];
-        p0 = pamsca[1];
-        rho0 = pamsca[2];
-        eta = pamsca[3];
+        bulk = alg->bulk[icl];
         V = 0;
         pdsoln = alg->dsoln + icl*NEQ*NDIM;
         pvd = (double (*)[NDIM])pdsoln;

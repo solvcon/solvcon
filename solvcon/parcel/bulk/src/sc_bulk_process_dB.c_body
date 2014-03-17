@@ -37,11 +37,11 @@ sc_bulk_process_dB_2d
 (sc_mesh_t *msd, sc_bulk_algorithm_t *alg, double *predif, double *dB) {
     // pointers.
     double *pclcnd, *pcecnd;
-    double *pamsca, *psoln, *pdsoln;
+    double *psoln, *pdsoln;
     double (*pvd)[NDIM];    // shorthand for derivative.
     double *ppredif, *pdB;
     // scalars.
-    double bulk, p0, rho0, eta, pref, pini, p, rho;
+    double bulk, p0, rho0, pref, pini, p, rho;
     double xmax, xmin, ymax, ymin;
     double time;
     double *pt;
@@ -50,26 +50,25 @@ sc_bulk_process_dB_2d
     double sft[NDIM];
     // iterators.
     int icl;
-    #pragma omp parallel for private(pclcnd, pcecnd, pamsca, psoln, pdsoln,\
-    ppredif, pdB, bulk, p0, rho0, eta, pref, pini, p, sft, icl, rho, pt)
+    p0 = alg->p0;
+    rho0 = alg->rho0;
+    #pragma omp parallel for private(pclcnd, pcecnd, psoln, pdsoln,\
+    ppredif, pdB, bulk, pref, pini, p, sft, icl, rho, pt)
     for (icl=-msd->ngstcell; icl<msd->ncell; icl++) {
         pclcnd = msd->clcnd + icl*NDIM;
         pcecnd = alg->cecnd + icl*(CLMFC+1)*NDIM;
-        pamsca = alg->amsca + icl*(alg->nsca);
         psoln = alg->soln + icl*NEQ;
         ppredif = predif + icl+msd->ngstcell;
         pdB = dB + icl+msd->ngstcell;
         // obtain flow parameters.
-        bulk = pamsca[0];
-        p0 = pamsca[1];
-        rho0 = pamsca[2];
-        eta = pamsca[3];
-        pref = pamsca[4];
+        bulk = alg->bulk[icl];
+        // FIXME: these are invalid.
+        /*pref = pamsca[4];
         pini = pamsca[5];
         xmax = pamsca[8];
         xmin = pamsca[9];
         ymax = pamsca[10];
-        ymin = pamsca[11];
+        ymin = pamsca[11];*/
         pdsoln = alg->dsoln + icl*NEQ*NDIM;
         pvd = (double (*)[NDIM])pdsoln;
         pt = alg->cecnd + icl*(CLMFC+1)*NDIM;

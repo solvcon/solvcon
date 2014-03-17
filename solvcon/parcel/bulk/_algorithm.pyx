@@ -123,20 +123,21 @@ cdef class BulkAlgorithm(Mesh):
             self._alg.grpda = &grpda[0,0]
         else:
             self._alg.grpda = NULL
-        # scalar parameters.
-        self._alg.nsca = svr.amsca.shape[1]
-        cdef cnp.ndarray[double, ndim=2, mode="c"] amsca = svr.amsca
-        if 0 != svr.amsca.shape[1]:
-            self._alg.amsca = &amsca[self._msd.ngstcell,0]
-        else:
-            self._alg.amsca = NULL
-        # vector parameters.
+        # scalar parameter arrays.
+        cdef cnp.ndarray[double, ndim=1, mode="c"] bulk = svr.bulk
+        self._alg.bulk = &bulk[self._msd.ngstcell]
+        cdef cnp.ndarray[double, ndim=1, mode="c"] dvisco = svr.dvisco
+        self._alg.dvisco = &dvisco[self._msd.ngstcell]
+        # vector parameter arrays.
         self._alg.nvec = svr.amvec.shape[1]
         cdef cnp.ndarray[double, ndim=3, mode="c"] amvec = svr.amvec
         if 0 != svr.amvec.shape[1]:
             self._alg.amvec = &amvec[self._msd.ngstcell,0,0]
         else:
             self._alg.amvec = NULL
+        # constant parameters.
+        self._alg.p0 = svr.p0
+        self._alg.rho0 = svr.rho0
 
     def _setup_solutions(self, svr):
         cdef cnp.ndarray[double, ndim=2, mode="c"] sol = svr.sol

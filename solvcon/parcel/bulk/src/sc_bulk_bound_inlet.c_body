@@ -38,32 +38,28 @@ sc_bulk_bound_inlet_soln_2d
  int nbnd, int *facn, int nvalue, double *value) {
     // pointers.
     int *pfacn, *pfccls;
-    double *pamsca;
     double *pvalue, *pjsoln, *pisol;
     // scalars.
     double rhoi, bulk, rho, pi;
     double v1i, v2i, v3i, v1;
     double left, right;
     // pressure base
-    double pini, p, eta;
+    double p;
     // iterators.
     int ibnd, ifc, jcl, icl;
     #pragma omp parallel for default(shared) private(ibnd, pfacn, pfccls, \
-    pamsca, pvalue, pjsoln, pisol, rhoi, bulk, rho, v1i, v2i, v3i, v1, left, right,\
-    pini, p, eta, ifc, jcl, icl, pi)
+    pvalue, pjsoln, pisol, rhoi, bulk, rho, v1i, v2i, v3i, v1, left, right,\
+    p, ifc, jcl, icl, pi)
     for (ibnd=0; ibnd<nbnd; ibnd++) {
         pfacn = facn + ibnd*BFREL;
         pvalue = value + ibnd*nvalue;
-        pamsca = alg->amsca + ibnd*(alg->nsca);
         ifc = pfacn[0];
         pfccls = msd->fccls + ifc*FCREL;
         icl = pfccls[0];
         jcl = pfccls[1];
         pisol = alg->sol + icl*NEQ;
         // extract parameters.
-        bulk = pamsca[0];
-        eta  = pamsca[3];
-        pini = pamsca[5];
+        bulk = alg->bulk[icl];
         // density base
         rhoi = pvalue[0];
         v1i = pvalue[1];

@@ -38,21 +38,22 @@ sc_bulk_calc_cfl_2d
     int clnfc;
     // pointers.
     int *pclfcs;
-    double *pamsca, *pcfl, *pocfl, *psoln, *picecnd, *pcecnd;
+    double *pcfl, *pocfl, *psoln, *picecnd, *pcecnd;
     // scalars.
     double hdt, dist, wspd, pr, ke;
-    double bulk, p0, rho0, eta;
+    double bulk, p0, rho0;
     // arrays.
     double vec[NDIM];
     // iterators.
     int icl, ifl;
+    p0 = alg->p0;
+    rho0 = alg->rho0;
     hdt = alg->time_increment / 2.0;
     #pragma omp parallel for private(clnfc, \
-    pclfcs, pamsca, pcfl, pocfl, psoln, picecnd, pcecnd, \
-    dist, wspd, pr, ke, vec, icl, ifl, bulk, p0, rho0, eta) \
+    pclfcs, pcfl, pocfl, psoln, picecnd, pcecnd, \
+    dist, wspd, pr, ke, vec, icl, ifl, bulk) \
     firstprivate(hdt)
     for (icl=0; icl<msd->ncell; icl++) {
-        pamsca = alg->amsca + icl*(alg->nsca);
         pcfl = alg->cfl + icl;
         pocfl = alg->ocfl + icl;
         psoln = alg->soln + icl*NEQ;
@@ -79,10 +80,7 @@ sc_bulk_calc_cfl_2d
             dist = fmin(wspd, dist);
         };
         // wave speed.
-        bulk = pamsca[0];
-        p0 = pamsca[1];
-        rho0 = pamsca[2];
-        eta = pamsca[3];
+        bulk = alg->bulk[icl];
         wspd = psoln[1]*psoln[1] + psoln[2]*psoln[2]
 #if NDIM == 3
              + psoln[3]*psoln[3]

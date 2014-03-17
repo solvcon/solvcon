@@ -32,33 +32,28 @@
 
 import os
 import sys
+import optparse
 
 import numpy as np
 
-import solvcon
-from solvcon import conf
-from solvcon import cmdutil
-from solvcon import boundcond
-from solvcon import solver
-from solvcon import helper
+import solvcon as sc
 from solvcon.parcel import bulk
 
 
 ###############################################################################
 # Command line.
 ###############################################################################
-class velocity(cmdutil.Command):
+class velocity(sc.Command):
     """
     Calculate velocity from Reynolds number.
     """
     min_args = 0
 
     def __init__(self, env):
-        from optparse import OptionGroup
         super(velocity, self).__init__(env)
         op = self.op
 
-        opg = OptionGroup(op, 'Reynolds')
+        opg = optparse.OptionGroup(op, 'Reynolds')
         opg.add_option("--density", action="store", type=float,
             dest="density", help="Density (kg/m^3).")
         opg.add_option("--reynolds", action="store", type=float,
@@ -97,12 +92,26 @@ def mesher(cse):
     cmds = open(tmplfn).read() % itv
     cmds = [cmd.strip() for cmd in cmds.strip().split('\n')]
     # make the original mesh object.
-    mobj = helper.Gmsh(cmds)()
+    mobj = sc.helper.Gmsh(cmds)()
     # convert the mesh to block.
     blk = mobj.toblock(bcname_mapper=cse.condition.bcmap,
                        use_incenter=cse.solver.use_incenter)
     # return the converted block.
     return blk
+
+
+class VerifyAnchor(sc.MeshAnchor):
+    def exhaust(self):
+        """
+        For now, assert the solutions remain the initialized value.
+        """
+        svr = self.svr
+        for it, fluid in enumerate(svr.fluids):
+            assert np.allclose(svr.soln[svr.blk.shclgrp==it,0], fluid.rho)
+            vel = svr.velocities[it]
+            for idim in range(svr.ndim):
+                val = fluid.rho * vel[idim]
+                assert np.allclose(svr.soln[svr.blk.shclgrp==it,idim+1], val)
 
 
 ################################################################################
@@ -117,7 +126,7 @@ def air_base(casename=None, psteps=None, ssteps=None, **kw):
     """
     ndim = 2
     # set up BCs.
-    bct = boundcond.bctregy.BulkNonrefl
+    bct = sc.bctregy.BulkNonrefl
     bcmap = dict()
     bcmap.update({
         'left': (bct, {}),
@@ -133,7 +142,7 @@ def air_base(casename=None, psteps=None, ssteps=None, **kw):
     # set up case.
     basedir = os.path.join(os.path.abspath(os.getcwd()), 'result')
     cse = bulk.case.BulkCase(
-        basedir=basedir, rootdir=conf.env.projdir, basefn=casename,
+        basedir=basedir, rootdir=sc.env.projdir, basefn=casename,
         mesher=mesher, bcmap=bcmap, use_incenter=False,
         p0=1.0, rho0=1.0, fluids=[bulk.fluids.air], **kw)
     # informative hooks.
@@ -142,6 +151,7 @@ def air_base(casename=None, psteps=None, ssteps=None, **kw):
         linewidth=ssteps/psteps)
     cse.runhooks.append(bulk.CflHook, fullstop=False, psteps=ssteps,
         cflmax=10.0, linewidth=ssteps/psteps)
+    cse.runhooks.append(VerifyAnchor)
     # analyzing/output anchors and hooks.
     cse.runhooks.append(bulk.PMarchSave, anames=[
             ('soln', False, -4),
@@ -158,6 +168,6 @@ def air(casename, **kw):
 # Invoke SOLVCON workflow.
 ################################################################################
 if __name__ == '__main__':
-    solvcon.go()
+    sc.go()
 
 # vim: set ai et nu sw=4 ts=4 tw=79:

@@ -38,9 +38,8 @@ sc_bulk_calc_jaco_2d
  int icl, double fcn[NEQ][NDIM], double jacos[NEQ][NEQ][NDIM]) {
     // pointers.
     double *psol;
-    double *pamsca;
     // scalars.
-    double bulk, p0, rho0, eta;
+    double bulk, p0, rho0;
     double u1, u2, u3;
 #if NDIM == 3
     double u4;
@@ -48,12 +47,10 @@ sc_bulk_calc_jaco_2d
     // accelerating variables.
     double kdu1, u2u3, u2u4, u3u4, u2du1, u3du1, u4du1, bulkm;
 
-    pamsca = alg->amsca + icl*alg->nsca;
     // initialize values.
-    bulk = pamsca[0];
-    p0 = pamsca[1];
-    rho0 = pamsca[2];
-    eta = pamsca[3];
+    bulk = alg->bulk[icl];
+    p0 = alg->p0;
+    rho0 = alg->rho0;
     psol = alg->sol + icl*NEQ;
     u1 = psol[0] + _TINY;
     u2 = psol[1];

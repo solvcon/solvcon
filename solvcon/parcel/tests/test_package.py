@@ -28,33 +28,21 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-"""
-Material definition.
-"""
+
+import unittest
+import importlib
 
 
-from solvcon import gendata
-
-
-class BulkFluid(object):
-    """
-    Fluid properties for :py:class:`~.solver.BulkSolver`.
-    """
-
-    def __init__(self, **kw):
-        self.bulk = kw.pop('bulk', 1.0)
-        self.dvisco = kw.pop('dvisco', 1.0)
-        self.rho = kw.pop('rho', 1.0)
-        vel = kw.pop('vel', (0, 0, 0))
-
-
-#: Collection of :py:class:`BulkFluid` objects.
-fluids = gendata.AttributeDict()
-
-fluids['air'] = BulkFluid(
-    bulk=1.42e5, # Pa
-    rho=1.225, # kg/m^3
-    dvisco=1.983e-5, # kg/(m s)
-)
-
-# vim: set ff=unix fenc=utf8 ft=python ai et sw=4 ts=4 tw=79:
+class TestAllImport(unittest.TestCase):
+    def test_everything(self):
+        allmods = [
+            'solvcon.parcel',
+        ]
+        allmods = [importlib.import_module(name) for name in allmods]
+        for mod in allmods:
+            try:
+                for name in mod.__all__:
+                    getattr(mod, name) # must not raise error.
+            except Exception as e:
+                e.args = ['modname = %s'%mod.__name__] + list(e.args)
+                raise

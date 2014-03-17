@@ -100,7 +100,9 @@ class BulkSolver(solver.MeshSolver):
             (ncell, blk.CLMFC, blk.FCMND, 2, ndim), dtype=fpdtype)
         # parameters.
         self.grpda = np.empty((self.ngroup, 0), dtype=fpdtype)
-        self.amsca = np.empty((ngstcell+ncell, 5), dtype=fpdtype)
+        self.bulk = np.empty(ngstcell+ncell, dtype=fpdtype)
+        self.dvisco = np.empty(ngstcell+ncell, dtype=fpdtype)
+        # FIXME: remove amvec
         self.amvec = np.empty((ngstcell+ncell, 0, ndim), dtype=fpdtype)
         # solutions.
         self.sol = np.empty((ngstcell+ncell, neq), dtype=fpdtype)
@@ -147,36 +149,30 @@ class BulkSolver(solver.MeshSolver):
         >>> svr = BulkSolver(blk, **svrkw)
         >>> # initialize and provide the solver.
         >>> svr.init()
-        >>> svr.amsca.fill(-1)
         >>> svr.provide()
-        >>> (svr.amsca[:,0] == material.fluids.air.bulk).all()
+        >>> (svr.bulk[:] == material.fluids.air.bulk).all()
         True
-        >>> (svr.amsca[:,4] == material.fluids.air.mu).all()
+        >>> (svr.dvisco[:] == material.fluids.air.dvisco).all()
         True
         >>> (svr.soln[:,0] == material.fluids.air.rho).all()
         True
         """
-        self.soln.fill(solver.ALMOST_ZERO)
-        for key in ('dsoln', 'cfl', 'ocfl'):
-            getattr(self, key).fill(0.0)
         # super method.
         super(BulkSolver, self).provide()
         self._debug_check_array('soln', 'dsoln')
         # initialize array.
-        self.amsca[:,1] = self.p0
         self.soln.fill(solver.ALMOST_ZERO)
         for key in ('dsoln', 'cfl', 'ocfl'):
             getattr(self, key).fill(0.0)
-        self.amsca[:,2] = self.rho0
-        self.amsca[:,3] = 1.0 # eta
         for it, fluid in enumerate(self.fluids):
-            self.amsca[self.blk.shclgrp==it,0] = fluid.bulk
-            self.amsca[self.blk.shclgrp==it,4] = fluid.mu
+            self.bulk[self.blk.shclgrp==it] = fluid.bulk
+            self.dvisco[self.blk.shclgrp==it] = fluid.dvisco
             self.soln[self.blk.shclgrp==it,0] = fluid.rho
             vel = self.velocities[it]
             for idim in range(self.ndim):
                 val = fluid.rho * vel[idim]
                 self.soln[self.blk.shclgrp==it,idim+1] = val
+        self._debug_check_array('bulk', 'dvisco')
         # fill group data array.
         self.grpda.fill(0)
 

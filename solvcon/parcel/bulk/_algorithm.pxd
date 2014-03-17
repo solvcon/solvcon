@@ -41,12 +41,16 @@ cdef public:
         ## group data.
         int ngroup, gdlen
         double *grpda
-        ## scalar parameters.
-        int nsca
-        double *amsca
-        ## vector parameters.
+        ## scalar parameter arrays.
+        #int nsca
+        #double *amsca
+        double *bulk
+        double *dvisco
+        ## vector parameter arrays.
         int nvec
         double *amvec
+        ## constant parameters.
+        double p0, rho0
         # solution array.
         double *sol, *dsol, *solt, *soln, *dsoln
         double *stm, *cfl, *ocfl
