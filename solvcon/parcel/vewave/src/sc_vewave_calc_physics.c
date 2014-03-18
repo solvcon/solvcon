@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Yung-Yu Chen <yyc@solvcon.net>.
+ * Copyright (c) 2010, Yung-Yu Chen <yyc@solvcon.net>
  *
  * All rights reserved.
  *
@@ -32,17 +32,10 @@
 
 #include "mesh.h"
 #include "_algorithm.h"
-//#include "_algorithm_src.h"
 
 #define NEQ alg->neq
 
-#undef NDIM
-#define NDIM 2
-//#undef NEQ
+#include "sc_vewave_calc_physics.c_body"
 
-#include "sc_vewave_bound_sinewave.c_body"
-#undef NDIM
-#define NDIM 3
-#include "sc_vewave_bound_sinewave.c_body"
 
 // vim: set ts=4 et:

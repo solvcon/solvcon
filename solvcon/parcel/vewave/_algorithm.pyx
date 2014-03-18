@@ -49,6 +49,9 @@ cdef extern:
         sc_mesh_t *msd, sc_vewave_algorithm_t *alg,
         double *asol, double *adsol, double *amp, double *ctr, double *wvec,
         double afreq)
+    void sc_vewave_calc_physics(sc_mesh_t *msd, sc_vewave_algorithm_t *alg,
+        double *s11, double *s22, double *s33, double *s23, double *s13,
+        double *s12)
     # algorithm calculators.
     void sc_vewave_calc_cfl_2d(sc_mesh_t *msd, sc_vewave_algorithm_t *alg)
     void sc_vewave_calc_cfl_3d(sc_mesh_t *msd, sc_vewave_algorithm_t *alg)
@@ -58,6 +61,13 @@ cdef extern:
     void sc_vewave_calc_soln_3d(sc_mesh_t *msd, sc_vewave_algorithm_t *alg)
     void sc_vewave_calc_dsoln_2d(sc_mesh_t *msd, sc_vewave_algorithm_t *alg)
     void sc_vewave_calc_dsoln_3d(sc_mesh_t *msd, sc_vewave_algorithm_t *alg)
+    # ghost information calculators.
+    void sc_vewave_ghostgeom_mirror_2d(
+        sc_mesh_t *msd, sc_vewave_algorithm_t *alg, int nbnd, int *facn)
+    void sc_vewave_ghostgeom_mirror_3d(
+        sc_mesh_t *msd, sc_vewave_algorithm_t *alg, int nbnd, int *facn)
+
+
     # boundary-condition treaters.
     void sc_vewave_bound_nonrefl_soln_2d(
         sc_mesh_t *msd, sc_vewave_algorithm_t *alg, int nbnd, int *facn)
@@ -67,17 +77,18 @@ cdef extern:
         sc_mesh_t *msd, sc_vewave_algorithm_t *alg, int nbnd, int *facn)
     void sc_vewave_bound_nonrefl_dsoln_3d(
         sc_mesh_t *msd, sc_vewave_algorithm_t *alg, int nbnd, int *facn)
-    void sc_vewave_bound_sinewave_soln_2d(
+    void sc_vewave_bound_longsinex_soln_2d(
         sc_mesh_t *msd, sc_vewave_algorithm_t *alg, int nbnd, int *facn)
-    void sc_vewave_bound_sinewave_soln_3d(
+    void sc_vewave_bound_longsinex_soln_3d(
         sc_mesh_t *msd, sc_vewave_algorithm_t *alg, int nbnd, int *facn)
-    void sc_vewave_bound_sinewave_dsoln_2d(
+    void sc_vewave_bound_longsinex_dsoln_2d(
         sc_mesh_t *msd, sc_vewave_algorithm_t *alg, int nbnd, int *facn)
-    void sc_vewave_bound_sinewave_dsoln_3d(
+    void sc_vewave_bound_longsinex_dsoln_3d(
         sc_mesh_t *msd, sc_vewave_algorithm_t *alg, int nbnd, int *facn)
 
 cdef extern from "stdlib.h":
     void* malloc(size_t size)
+    void free(void *ptr)
 
 cdef class VewaveAlgorithm(Mesh):
     """
@@ -86,10 +97,10 @@ cdef class VewaveAlgorithm(Mesh):
     def __cinit__(self):
         self._alg = <sc_vewave_algorithm_t *>malloc(sizeof(sc_vewave_algorithm_t))
 
-    def set_alg_double_array_2d(self,
-            cnp.ndarray[double, ndim=2, mode="c"] nda, name, int shift):
-        #self._alg[name] = &nda[shift,0]
-        pass
+    def __dealloc__(self):
+        if NULL != self._alg:
+            free(<void*>self._alg)
+            self._alg = NULL
 
     def setup_algorithm(self, svr):
         # equations number.
@@ -123,7 +134,11 @@ cdef class VewaveAlgorithm(Mesh):
         self._alg.ngroup = svr.ngroup
         self._alg.gdlen = svr.gdlen
         cdef cnp.ndarray[double, ndim=2, mode="c"] grpda = svr.grpda
-        self._alg.grpda = &grpda[0,0]
+        #self._alg.grpda = &grpda[0,0]
+        if 0 != svr.grpda.shape[1]:
+            self._alg.grpda = &grpda[0,0]
+        else:
+            self._alg.grpda = NULL
         # scalar parameters.
         self._alg.nsca = svr.amsca.shape[1]
         cdef cnp.ndarray[double, ndim=2, mode="c"] amsca = svr.amsca
@@ -169,6 +184,10 @@ cdef class VewaveAlgorithm(Mesh):
         else:
             sc_vewave_prepare_sf_2d(self._msd, self._alg)
 
+    def update(self, time, time_increment):
+        self._alg.time = time
+        self._alg.time_increment = time_increment
+
     def calc_planewave(self,
             cnp.ndarray[double, ndim=2, mode="c"] asol,
             cnp.ndarray[double, ndim=3, mode="c"] adsol,
@@ -184,6 +203,16 @@ cdef class VewaveAlgorithm(Mesh):
             sc_vewave_calc_planewave_2d(
                 self._msd, self._alg,
                 &asol[0,0], &adsol[0,0,0], &amp[0], &ctr[0], &wvec[0], afreq)
+
+    def calc_physics(self, 
+            cnp.ndarray[double, ndim=1, mode="c"] s11,
+            cnp.ndarray[double, ndim=1, mode="c"] s22,
+            cnp.ndarray[double, ndim=1, mode="c"] s33,
+            cnp.ndarray[double, ndim=1, mode="c"] s23,
+            cnp.ndarray[double, ndim=1, mode="c"] s13,
+            cnp.ndarray[double, ndim=1, mode="c"] s12):
+        sc_vewave_calc_physics(self._msd, self._alg, 
+            &s11[0], &s22[0], &s33[0], &s23[0], &s13[0], &s12[0])
 
     def calc_cfl(self):
         if self._msd.ndim == 3:
@@ -209,6 +238,14 @@ cdef class VewaveAlgorithm(Mesh):
         else:
             sc_vewave_calc_dsoln_2d(self._msd, self._alg)
 
+    def ghostgeom_mirror(self, cnp.ndarray[int, ndim=2, mode="c"] facn):
+        if self._msd.ndim == 3:
+            sc_vewave_ghostgeom_mirror_3d(self._msd, self._alg,
+                facn.shape[0], &facn[0,0])
+        else:
+            sc_vewave_ghostgeom_mirror_2d(self._msd, self._alg,
+                facn.shape[0], &facn[0,0])
+
     def bound_nonrefl_soln(self, cnp.ndarray[int, ndim=2, mode="c"] facn):
         if self._msd.ndim == 3:
             sc_vewave_bound_nonrefl_soln_3d(self._msd, self._alg,
@@ -225,20 +262,20 @@ cdef class VewaveAlgorithm(Mesh):
             sc_vewave_bound_nonrefl_dsoln_2d(self._msd, self._alg,
                 facn.shape[0], &facn[0,0])
     
-    def bound_sinewave_soln(self, cnp.ndarray[int, ndim=2, mode="c"] facn):
+    def bound_longsinex_soln(self, cnp.ndarray[int, ndim=2, mode="c"] facn):
         if self._msd.ndim == 3:
-            sc_vewave_bound_sinewave_soln_3d(self._msd, self._alg,
+            sc_vewave_bound_longsinex_soln_3d(self._msd, self._alg,
                 facn.shape[0], &facn[0,0])
         else:
-            sc_vewave_bound_sinewave_soln_2d(self._msd, self._alg,
+            sc_vewave_bound_longsinex_soln_2d(self._msd, self._alg,
                 facn.shape[0], &facn[0,0])
 
-    def bound_sinewave_dsoln(self, cnp.ndarray[int, ndim=2, mode="c"] facn):
+    def bound_longsinex_dsoln(self, cnp.ndarray[int, ndim=2, mode="c"] facn):
         if self._msd.ndim == 3:
-            sc_vewave_bound_sinewave_dsoln_3d(self._msd, self._alg,
+            sc_vewave_bound_longsinex_dsoln_3d(self._msd, self._alg,
                 facn.shape[0], &facn[0,0])
         else:
-            sc_vewave_bound_sinewave_dsoln_2d(self._msd, self._alg,
+            sc_vewave_bound_longsinex_dsoln_2d(self._msd, self._alg,
                 facn.shape[0], &facn[0,0])
 
 # vim: set fenc=utf8 ft=pyrex ff=unix ai et sw=4 ts=4 tw=79:

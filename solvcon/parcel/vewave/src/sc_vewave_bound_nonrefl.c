@@ -43,8 +43,6 @@
 #include "sc_vewave_bound_nonrefl.c_body"
 #undef NDIM
 #define NDIM 3
-//#undef NEQ
-//#define NEQ 45
 #include "sc_vewave_bound_nonrefl.c_body"
 
 // vim: set ts=4 et:

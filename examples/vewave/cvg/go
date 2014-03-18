@@ -194,8 +194,7 @@ def match_periodic(blk):
 # Basic configuration.
 ################################################################################
 def cvg_base(casename=None, mtrlname='SoftTissue',
-    al=20.0, be=40.0, ga=50.0, wtests=None, psteps=None, ssteps=None, rho=1060.0,
-    vp=1578.0, sig0=10, freq=2e6, **kw):
+    psteps=None, ssteps=None, rho=None, vp=None, sig0=None, freq=None, **kw):
     """
     Fundamental configuration of the simulation and return the case object.
 
@@ -203,13 +202,14 @@ def cvg_base(casename=None, mtrlname='SoftTissue',
     @rtype: solvcon.case.BlockCase
     """
     ndim = int(casename[3])
-    # set up BCs.
-    # bct = boundcond.bctregy.BC
+    # set up BCs. Options:
+    # a. boundcond.bctregy.VewaveNonRefl
+    # b. boundcond.bctregy.VewaveLongSineX
     bct = boundcond.bctregy.VewaveNonRefl
-    sinewave = boundcond.bctregy.VewaveSine
+    longsinex = boundcond.bctregy.VewaveLongSineX
     bcmap = dict()
     bcmap.update({
-        'left': (sinewave, {}),
+        'left': (longsinex, {}),
         'right': (bct, {}),
         'upper': (bct, {}),
         'lower': (bct, {}),
@@ -220,15 +220,14 @@ def cvg_base(casename=None, mtrlname='SoftTissue',
             'rear': (bct, {}),
         })
     # set up case.
-    mtrl = vewave.mltregy[mtrlname](
-        al=al*np.pi/180.0, be=be*np.pi/180.0, ga=ga*np.pi/180.0)
+    mtrl = vewave.mltregy[mtrlname]()
     basedir = os.path.join(os.path.abspath(os.getcwd()), 'result')
     local_mesher = functools.partial(
         mesher, use_cubit=os.environ.get('USE_CUBIT', False))
     cse = vewave.VewaveCase(
         basedir=basedir, rootdir=conf.env.projdir, basefn=casename,
         mesher=local_mesher,
-        bcmap=bcmap, #bcmod=match_periodic, 
+        bcmap=bcmap,
         mtrldict={None: mtrl}, taylor=0.0,
         use_incenter=False, **kw)
     # informative hooks.
@@ -242,94 +241,29 @@ def cvg_base(casename=None, mtrlname='SoftTissue',
                         mappers={'soln': 0.0, #solver.ALMOST_ZERO, 
                         'dsoln': 0.0})
     cse.runhooks.append(vewave.AmscaAnchor, rho=rho, vp=vp, sig0=sig0, freq=freq)
-    ## plane wave solution.
-    #pws = list()
-    #for wvec, idx in wtests:
-    #    pws.append(vewave.PlaneWaveSolution(
-    #        amp=1.0, ctr=np.zeros(ndim, dtype='float64'), wvec=wvec,
-    #        mtrl=mtrl, idx=idx))
-    #cse.runhooks.append(
-    #    vewave.PlaneWaveHook, psteps=ssteps, planewaves=pws)
     # analyzing/output anchors and hooks.
     cse.runhooks.append(vewave.PMarchSave, anames=[
-            ('soln', False, -9),
-    #        ('analytical', True, -9),
-    #        ('difference', True, -9),
+            ('s11', True, 0),
+            ('s22', True, 0),
+            ('s33', True, 0),
+            ('s23', True, 0),
+            ('s13', True, 0),
+            ('s12', True, 0),
         ], fpdtype='float64', psteps=ssteps, compressor='gz')
     return cse
 
-def cvg2d_skel(casename, div, std, **kw):
-    period = 2.649983322636356e-04
-    return cvg_base(casename=casename,
-        time_increment=period/div, steps_run=2*div, ssteps=div, psteps=std,
-        wtests=(
-            (np.array([1,1], dtype='float64')*np.pi, 8),
-        ), **kw)
-
-def cvg3d_skel(casename, div, std, **kw):
-    period = 2.353142528777195e-04
-    return cvg_base(casename=casename,
-        time_increment=period/div, steps_run=2*div, ssteps=div, psteps=std,
-        wtests=(
-            (np.array([1,1,1], dtype='float64')*np.pi, 8),
-        ), **kw)
-
-def cvg2d_ve(casename, div, std, mtrlname, **kw):
-    period = 2.649983322636356e-04
-    return cvg_base(casename=casename,
-        time_increment=0.000000012, steps_run=2*div, ssteps=div, psteps=std,
-        mtrlname=mtrlname,
-        **kw)
+def cvg2d_ve(casename, mtrlname, **kw):
+    return cvg_base(casename=casename, **kw)
 
 ################################################################################
 # The arrangement for 2D convergence test.
 ################################################################################
 @vewave.VewaveCase.register_arrangement
-def cvg2d_test(casename, div=18, **kw):
-    period = 2.649983322636356e-04
-    return cvg_base(casename=casename,
-        time_increment=period/div, steps_run=2*div, ssteps=1, psteps=1,
-        wtests=(
-            (np.array([1,1], dtype='float64')*np.pi, 8),
-        ), **kw)
-@vewave.VewaveCase.register_arrangement
-def cvg2d_200(casename, **kw):
-    return cvg2d_skel(casename=casename, div=18, std=1)
-@vewave.VewaveCase.register_arrangement
-def cvg2d_150(casename, **kw):
-    return cvg2d_skel(casename=casename, div=22, std=1)
-@vewave.VewaveCase.register_arrangement
-def cvg2d_100(casename, **kw):
-    return cvg2d_skel(casename=casename, div=32, std=1)
-@vewave.VewaveCase.register_arrangement
-def cvg2d_50(casename, **kw):
-    return cvg2d_skel(casename=casename, div=64, std=2)
-
-@vewave.VewaveCase.register_arrangement
 def cvg2dv_1(casename, **kw):
-    return cvg2d_ve(casename=casename, div=4, std=1, mtrlname='SoftTissue',
+    return cvg2d_ve(casename=casename, time_increment=0.000000012,
+                    steps_run=10, ssteps=1, psteps=1,
+                    mtrlname='SoftTissue',
                     rho=1.06e3, vp=1578.0, sig0=10.0, freq=2e6)
-
-
-################################################################################
-# The arrangement for 3D convergence test.
-################################################################################
-@vewave.VewaveCase.register_arrangement
-def cvg3d_500(casename, **kw):
-    return cvg3d_skel(casename=casename, div=12, std=1)
-@vewave.VewaveCase.register_arrangement
-def cvg3d_400(casename, **kw):
-    return cvg3d_skel(casename=casename, div=16, std=1)
-@vewave.VewaveCase.register_arrangement
-def cvg3d_200(casename, **kw):
-    return cvg3d_skel(casename=casename, div=32, std=1)
-@vewave.VewaveCase.register_arrangement
-def cvg3d_150(casename, **kw):
-    return cvg3d_skel(casename=casename, div=48, std=1)
-@vewave.VewaveCase.register_arrangement
-def cvg3d_100(casename, **kw):
-    return cvg3d_skel(casename=casename, div=64, std=2)
-
 
 ################################################################################
 # Invoke SOLVCON workflow.

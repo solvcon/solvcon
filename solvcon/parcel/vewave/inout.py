@@ -346,6 +346,27 @@ class MarchSaveAnchor(anchor.MeshAnchor):
         self.vtkfn_tmpl = vtkfn_tmpl
         super(MarchSaveAnchor, self).__init__(svr, **kw)
 
+    @property
+    def alg(self):
+        return self.svr.alg
+
+    def _calc_physics(self):
+        der = self.svr.der
+        self.alg.calc_physics(der['s11'], der['s22'], der['s33'],
+                              der['s23'], der['s13'], der['s12'])
+
+    def provide(self):
+        from numpy import empty
+        svr = self.svr
+        der = svr.der
+        nelm = svr.ngstcell + svr.ncell
+        der['s11'] = empty(nelm, dtype=self.fpdtype)
+        der['s22'] = empty(nelm, dtype=self.fpdtype)
+        der['s33'] = empty(nelm, dtype=self.fpdtype)
+        der['s23'] = empty(nelm, dtype=self.fpdtype)
+        der['s13'] = empty(nelm, dtype=self.fpdtype)
+        der['s12'] = empty(nelm, dtype=self.fpdtype)
+
     def _write(self, istep):
         ngstcell = self.svr.ngstcell
         sarrs = dict()
@@ -372,18 +393,21 @@ class MarchSaveAnchor(anchor.MeshAnchor):
         wtr.write(self.vtkfn_tmpl % (istep if svrn is None else (istep, svrn)))
 
     def preloop(self):
+        self._calc_physics()
         self._write(0)
 
     def postmarch(self):
         psteps = self.psteps
         istep = self.svr.step_global
         if istep%psteps == 0:
+            self._calc_physics()
             self._write(istep)
 
     def postloop(self):
         psteps = self.psteps
         istep = self.svr.step_global
         if istep%psteps != 0:
+            self._calc_physics()
             self._write(istep)
 
 

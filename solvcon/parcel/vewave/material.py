@@ -89,68 +89,78 @@ class Material(object):
             jacos[0][1][8] = -1.0/rho 
             jacos[0][2][7] = -1.0/rho
             jacos[0][3][0] = (-Gep-sumGlp)
-            jacos[0][4][0] = (2*(Gem+sumGlm)-Gep-sumGlp) 
-            jacos[0][5][0] = (2*(Gem+sumGlm)-Gep-sumGlp)
+            jacos[0][4][0] = (2.0*(Gem+sumGlm)-Gep-sumGlp) 
+            jacos[0][5][0] = (2.0*(Gem+sumGlm)-Gep-sumGlp)
             jacos[0][7][2] = (-Gem-sumGlm)
             jacos[0][8][1] = (-Gem-sumGlm)
                 
             jacos[1][0][8] = -1.0/rho
             jacos[1][1][4] = -1.0/rho
             jacos[1][2][6] = -1.0/rho
-            jacos[1][3][1] = (2*(Gem+sumGlm)-Gep-sumGlp)
+            jacos[1][3][1] = (2.0*(Gem+sumGlm)-Gep-sumGlp)
             jacos[1][4][1] = (-Gep-sumGlp)
-            jacos[1][5][1] = (2*(Gem+sumGlm)-Gep-sumGlp)
+            jacos[1][5][1] = (2.0*(Gem+sumGlm)-Gep-sumGlp)
             jacos[1][6][2] = (-Gem-sumGlm)
             jacos[1][8][0] = (-Gem-sumGlm)
                 
             jacos[2][0][7] = -1.0/rho
             jacos[2][1][6] = -1.0/rho
             jacos[2][2][5] = -1.0/rho
-            jacos[2][3][2] = (2*(Gem+sumGlm)-Gep-sumGlp)
-            jacos[2][4][2] = (2*(Gem+sumGlm)-Gep-sumGlp)
+            jacos[2][3][2] = (2.0*(Gem+sumGlm)-Gep-sumGlp)
+            jacos[2][4][2] = (2.0*(Gem+sumGlm)-Gep-sumGlp)
             jacos[2][5][2] = (-Gep-sumGlp)
             jacos[2][6][1] = (-Gem-sumGlm)
             jacos[2][7][0] = (-Gem-sumGlm)
             for i in range(6):
-                jacos[0][9+i][0]= (Glp[i]/tau[i]+Glm[i]/tau[i])
-                jacos[0][15+i][0] = (Glp[i]/tau[i]-Glm[i]/tau[i])
-                jacos[0][21+i][0] = (Glp[i]/tau[i]-Glm[i]/tau[i])
+                jacos[0][9+i][0]= (Glp[i]/tau[i])
+                jacos[0][15+i][0] = (Glp[i]/tau[i]-2.0*Glm[i]/tau[i])
+                jacos[0][21+i][0] = (Glp[i]/tau[i]-2.0*Glm[i]/tau[i])
                 jacos[0][33+i][2] = Glm[i]/tau[i]
                 jacos[0][39+i][1] = Glm[i]/tau[i]
 
-                jacos[1][9+i][1]= (Glp[i]/tau[i]-Glm[i]/tau[i])
-                jacos[1][15+i][1] = (Glp[i]/tau[i]+Glm[i]/tau[i])
-                jacos[1][21+i][1] = (Glp[i]/tau[i]-Glm[i]/tau[i])
+                jacos[1][9+i][1]= (Glp[i]/tau[i]-2.0*Glm[i]/tau[i])
+                jacos[1][15+i][1] = (Glp[i]/tau[i])
+                jacos[1][21+i][1] = (Glp[i]/tau[i]-2.0*Glm[i]/tau[i])
                 jacos[1][27+i][2] = Glm[i]/tau[i]
                 jacos[1][39+i][0] = Glm[i]/tau[i]
 
-                jacos[2][9+i][2]= (Glp[i]/tau[i]-Glm[i]/tau[i])
-                jacos[2][15+i][2] = (Glp[i]/tau[i]-Glm[i]/tau[i])
-                jacos[2][21+i][2] = (Glp[i]/tau[i]+Glm[i]/tau[i])
+                jacos[2][9+i][2]= (Glp[i]/tau[i]-2.0*Glm[i]/tau[i])
+                jacos[2][15+i][2] = (Glp[i]/tau[i]-2.0*Glm[i]/tau[i])
+                jacos[2][21+i][2] = (Glp[i]/tau[i])
                 jacos[2][27+i][1] = Glm[i]/tau[i]
                 jacos[2][33+i][0] = Glm[i]/tau[i]
         if ndim == 2:
-            jacos = np.zeros((2,23,23), dtype='float64')
-            jacos[0][0][2] = -1.0/rho 
-            jacos[0][1][4] = -1.0/rho 
-            jacos[0][2][0] = (-Gep-sumGlp)
-            jacos[0][3][0] = (2*(Gem+sumGlm)-Gep-sumGlp) 
-            jacos[0][4][1] = (-Gem-sumGlm)
+            jacos = np.zeros((2,45,45), dtype='float64')
+            jacos[0][0][3] = -1.0/rho 
+            jacos[0][1][8] = -1.0/rho
+            jacos[0][2][7] = -1.0/rho
+            jacos[0][3][0] = (-Gep-sumGlp)
+            jacos[0][4][0] = (2.0*(Gem+sumGlm)-Gep-sumGlp) 
+            jacos[0][5][0] = (2.0*(Gem+sumGlm)-Gep-sumGlp)
+            jacos[0][7][2] = (-Gem-sumGlm) 
+            jacos[0][8][1] = (-Gem-sumGlm)
                 
-            jacos[1][0][4] = -1.0/rho
-            jacos[1][1][3] = -1.0/rho
-            jacos[1][2][1] = (2*(Gem+sumGlm)-Gep-sumGlp)
-            jacos[1][3][1] = (-Gep-sumGlp)
-            jacos[1][4][0] = (-Gem-sumGlm)
+            jacos[1][0][8] = -1.0/rho
+            jacos[1][1][4] = -1.0/rho
+            jacos[1][2][6] = -1.0/rho
+            jacos[1][3][1] = (2.0*(Gem+sumGlm)-Gep-sumGlp)
+            jacos[1][4][1] = (-Gep-sumGlp)
+            jacos[1][5][1] = (2.0*(Gem+sumGlm)-Gep-sumGlp)
+            jacos[1][6][2] = (-Gem-sumGlm)
+            jacos[1][8][0] = (-Gem-sumGlm)
 
             for i in range(6):
-                jacos[0][5+i][0]= (Glp[i]/tau[i]+Glm[i]/tau[i])
-                jacos[0][11+i][0] = (Glp[i]/tau[i]-Glm[i]/tau[i])
-                jacos[0][17+i][1] = Glm[i]/tau[i]
+                jacos[0][9+i][0]= (Glp[i]/tau[i])
+                jacos[0][15+i][0] = (Glp[i]/tau[i]-2.0*Glm[i]/tau[i])
+                jacos[0][21+i][0] = (Glp[i]/tau[i]-2.0*Glm[i]/tau[i])
+                jacos[0][33+i][2] = Glm[i]/tau[i]
+                jacos[0][39+i][1] = Glm[i]/tau[i]
 
-                jacos[1][5+i][1]= (Glp[i]/tau[i]-Glm[i]/tau[i])
-                jacos[1][11+i][1] = (Glp[i]/tau[i]+Glm[i]/tau[i])
-                jacos[1][17+i][0] = Glm[i]/tau[i]
+                jacos[1][9+i][1]= (Glp[i]/tau[i]-2.0*Glm[i]/tau[i])
+                jacos[1][15+i][1] = (Glp[i]/tau[i])
+                jacos[1][21+i][0] = (Glp[i]/tau[i]-2.0*Glm[i]/tau[i])
+                jacos[1][27+i][0] = Glm[i]/tau[i]
+                jacos[1][39+i][0] = Glm[i]/tau[i]
         return jacos
 
 

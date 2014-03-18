@@ -163,6 +163,11 @@ def air(casename, **kw):
     return air_base(casename, time_increment=1.8e-4,
         steps_run=10, psteps=1, ssteps=1, **kw)
 
+@bulk.BulkCase.register_arrangement
+def cavity(casename, **kw):
+    return air_base(casename, time_increment=1.8e-4,
+        steps_run=10, psteps=1, ssteps=1, **kw)
+
 
 ################################################################################
 # Invoke SOLVCON workflow.

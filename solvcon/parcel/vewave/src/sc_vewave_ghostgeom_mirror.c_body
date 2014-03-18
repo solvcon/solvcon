@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Yung-Yu Chen <yyc@solvcon.net>.
+ * Copyright (C) 2014 Yung-Yu Chen <yyc@solvcon.net>.
  *
  * All rights reserved.
  *
@@ -28,21 +28,51 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <Python.h>
 
-#include "mesh.h"
-#include "_algorithm.h"
-//#include "_algorithm_src.h"
+void
+#if NDIM == 3
+sc_vewave_ghostgeom_mirror_3d
+#else
+sc_vewave_ghostgeom_mirror_2d
+#endif
+(sc_mesh_t *msd, sc_vewave_algorithm_t *alg, int nbnd, int *facn) {
+    // pointers.
+    int *pfacn, *pfccls;
+    double *pfccnd, *pfcnml;
+    double *picecnd, *pjcecnd;
+    // scalars.
+    double len;
+	// iterators.
+	int ibnd, ifc, icl, jcl;
 
-#define NEQ alg->neq
+    #pragma omp parallel for default(shared) private(ibnd, pfacn, pfccls,\
+    pfccnd, pfcnml, picecnd, pjcecnd, len, ifc, icl, jcl)
 
-#undef NDIM
-#define NDIM 2
-//#undef NEQ
+    for (ibnd=0; ibnd<nbnd; ibnd++) {
+        pfacn = facn + ibnd*BFREL;
+        ifc = pfacn[0];
+        pfccls = msd->fccls + ifc*FCREL;
+        icl = pfccls[0];
+        jcl = pfccls[1];
+        picecnd = alg->cecnd + icl*(CLMFC+1)*NDIM;
+        pjcecnd = alg->cecnd + jcl*(CLMFC+1)*NDIM;
+        // calculate displacement.
+        pfccnd = msd->fccnd + ifc * NDIM;
+        pfcnml = msd->fcnml + ifc * NDIM;
+        len = (pfccnd[0] - picecnd[0]) * pfcnml[0]
+            + (pfccnd[1] - picecnd[1]) * pfcnml[1]
+#if NDIM == 3
+            + (pfccnd[2] - picecnd[2]) * pfcnml[2]
+#endif
+            ;
+        len *= 2.0;
+        // set ghost solution point.
+        pjcecnd[0] = picecnd[0] + pfcnml[0] * len;
+        pjcecnd[1] = picecnd[1] + pfcnml[1] * len;
+#if NDIM == 3
+        pjcecnd[2] = picecnd[2] + pfcnml[2] * len;
+#endif
+    };
+};
 
-#include "sc_vewave_bound_sinewave.c_body"
-#undef NDIM
-#define NDIM 3
-#include "sc_vewave_bound_sinewave.c_body"
-
-// vim: set ts=4 et:
+// vim: set ft=c ts=4 et:

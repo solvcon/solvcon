@@ -29,21 +29,24 @@
  */
 void
 #if NDIM == 3
-sc_vewave_bound_sinewave_soln_3d
+sc_vewave_bound_longsinex_soln_3d
 #else
-sc_vewave_bound_sinewave_soln_2d
+sc_vewave_bound_longsinex_soln_2d
 #endif
 (sc_mesh_t *msd, sc_vewave_algorithm_t *alg, int nbnd, int *facn) {
     // pointers.
     int *pfacn, *pfccls;
-    double *pisol, *pisoln, *pjsoln, *pjsol;
-    double *pvalue, *pamsca;
+    double *pjsoln, *pjdsoln;
+    double *pamsca;
     // 
     double currentTime, stress, pi, sig0, freq;
     // iterators.
     int ibnd, ifc, icl, jcl, ieq;
-    #pragma omp parallel for default(shared) private(ibnd, pisol,\
-    pisoln, pjsoln, pjsol, ieq, pfacn, ifc, icl, jcl)
+
+    #pragma omp parallel for default(shared) private(ibnd, pfacn, pfccls,\
+    pjsoln, pjdsoln, pamsca, currentTime, stress, pi, sig0, freq, ifc, icl,\
+    jcl, ieq)
+
     for (ibnd=0; ibnd<nbnd; ibnd++) {
         pfacn = facn + ibnd*BFREL;
         ifc = pfacn[0];
@@ -53,14 +56,17 @@ sc_vewave_bound_sinewave_soln_2d
         pamsca = alg->amsca + icl*alg->nsca;
         // set solutions.
         pjsoln = alg->soln + jcl*NEQ;
+        pjdsoln = alg->dsoln + jcl*NEQ*NDIM;
         pi = 3.14159265359;
         currentTime = alg->time;
         sig0 = pamsca[2];
         freq = pamsca[3];
         stress = sig0*sin(2*pi*freq*currentTime);
         for (ieq=0; ieq<NEQ; ieq++) {
-            pjsoln[ieq] = 0.0; 
-            //pisoln[ieq] + alg->taylor*(pisol[ieq] - pisoln[ieq]);
+            pjsoln[ieq] = 0.0;
+            pjdsoln[0] = 0.0;
+            pjdsoln[1] = 0.0;
+            pjdsoln += NDIM;
         };
         pjsoln[3] = stress;
     };
@@ -68,21 +74,20 @@ sc_vewave_bound_sinewave_soln_2d
 
 void
 #if NDIM == 3
-sc_vewave_bound_sinewave_dsoln_3d
+sc_vewave_bound_longsinex_dsoln_3d
 #else
-sc_vewave_bound_sinewave_dsoln_2d
+sc_vewave_bound_longsinex_dsoln_2d
 #endif
 (sc_mesh_t *msd, sc_vewave_algorithm_t *alg, int nbnd, int *facn) {
     // pointers.
-    int *pfacn, *pfccls, *pfcnds;
-    double *pidsol, *pidsoln, *pjdsoln, *pdsol, *pdsoln;
-    double *pndcrd, *pfccnd, *pfcnml;
+    int *pfacn, *pfccls;
+    double *pjdsoln, *pdsoln;
     // iterators.
-    int ibnd, ifc, icl, jcl, ieq;
-    pfacn = facn;
+    int ibnd, ifc, jcl, ieq;
+
     #pragma omp parallel for default(shared) private(ibnd, pfacn, pfccls, \
-    pfcnds, pidsol, pidsoln, pjdsoln, pdsol, pdsoln, pndcrd, pfccnd, pfcnml, \
-    ifc, icl, jcl, ieq)
+    pjdsoln, pdsoln, ifc, jcl, ieq)
+
     for (ibnd=0; ibnd<nbnd; ibnd++) {
         pfacn = facn + ibnd*BFREL;
         ifc = pfacn[0];

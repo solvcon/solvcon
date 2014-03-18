@@ -30,13 +30,13 @@
 
 """
 A two-/three-dimensional, second order CESE solver for generic linear PDEs. It
-uses :py:mod:`solvcon._algorithm`.
+uses :py:mod:`solvcon./`.
 """
 
 
 __all__ = [
     'VewaveSolver', 'VewavePeriodic', 'VewaveBC', 'VewaveNonRefl',
-    'VewaveSine',
+    'VewaveLongSineX',
 ]
 
 
@@ -51,7 +51,7 @@ from solvcon import boundcond
 try: # for readthedocs to work.
     from . import _algorithm
 except ImportError:
-    warnings.warn("solvcon.parcel.linear._algorithm isn't built",
+    warnings.warn("solvcon.parcel.vewave._algorithm isn't built",
                   RuntimeWarning)
 
 
@@ -68,8 +68,8 @@ class VewaveSolver(solver.MeshSolver):
         A linear solver needs a :py:class:`Block <solvcon.block.Block>` and a
         dictionary for mapping names to :py:class:`~.material.Material`:
 
-        >>> from solvcon.testing import create_trivial_2d_blk
-        >>> blk = create_trivial_2d_blk()
+        >>> from solvcon import testing
+        >>> blk = testing.create_trivial_2d_blk()
         >>> blk.clgrp.fill(0)
         >>> blk.grpnames.append('blank')
         >>> svr = VewaveSolver(blk, {}) # doctest: +ELLIPSIS
@@ -90,9 +90,9 @@ class VewaveSolver(solver.MeshSolver):
         self.mtrllist = None
         # scheme parameters.
         self.substep_run = 2
-        self.alpha = int(kw.pop('alpha', 0))
+        self.alpha = int(kw.pop('alpha', 1))
         self.sigma0 = int(kw.pop('sigma0', 3.0))
-        self.taylor = float(kw.pop('taylor', 1.0))  # dirty hack.
+        self.taylor = float(kw.pop('taylor', 1))  # dirty hack.
         self.cnbfac = float(kw.pop('cnbfac', 1.0))  # dirty hack.
         self.sftfac = float(kw.pop('sftfac', 1.0))  # dirty hack.
         self.taumin = float(kw.pop('taumin', 0.0))
@@ -120,43 +120,31 @@ class VewaveSolver(solver.MeshSolver):
         self.stm = np.empty((ngstcell+ncell, neq), dtype=fpdtype)
         self.cfl = np.empty(ngstcell+ncell, dtype=fpdtype)
         self.ocfl = np.empty(ngstcell+ncell, dtype=fpdtype)
+        alg = _algorithm.VewaveAlgorithm()
+        alg.setup_mesh(blk)
+        alg.setup_algorithm(self)
+        self.alg = alg
 
     @staticmethod
     def determine_neq(ndim):
-        return 45 if ndim == 3 else 23
+        return 45
 
     @property
     def gdlen(self):
         return self.determine_neq(self.ndim)**2 * self.ndim
 
-    def create_alg(self):
-        """
-        Create a :py:class:`._algorithm.VewaveAlgorithm` object.
-
-        >>> # create a valid solver as the test fixture.
-        >>> from solvcon.testing import create_trivial_2d_blk
-        >>> blk = create_trivial_2d_blk()
-        >>> blk.clgrp.fill(0)
-        >>> blk.grpnames.append('blank')
-        >>> class SubSolver(VewaveSolver):
-        ...     @property
-        ...     def gdlen(self):
-        ...         return 1
-        >>> svr = SubSolver(blk, {})
-
-        Create an associated algorithm object is straight-forward:
-
-        >>> alg = svr.create_alg()
-        """
-        alg = _algorithm.VewaveAlgorithm()
-        alg.setup_mesh(self.blk)
-        alg.setup_algorithm(self)
-        return alg
-
     def init(self, **kw):
-        self.create_alg().prepare_ce()
+        self.cevol.fill(0.0)
+        self.cecnd.fill(0.0)
+        self.alg.prepare_ce()
         super(VewaveSolver, self).init(**kw)
-        self.create_alg().prepare_sf()
+        self.sfmrc.fill(0.0)
+        self.alg.prepare_sf()
+        self._debug_check_array('sfmrc')
+
+    def provide(self):
+        super(VewaveSolver, self).provide()
+        self.grpda.fill(0)
 
     def preloop(self):
         # fill group data array.
@@ -168,7 +156,7 @@ class VewaveSolver(solver.MeshSolver):
             for idm in range(self.ndim):
                 jaco[:,:,idm] = mjacos[idm,:,:]
         # pre-calculate CFL.
-        self.create_alg().calc_cfl()
+        self.alg.calc_cfl()
         self.ocfl[:] = self.cfl[:]
         # super method.
         super(VewaveSolver, self).preloop()
@@ -208,16 +196,19 @@ class VewaveSolver(solver.MeshSolver):
 
     @_MMNAMES.register
     def update(self, worker=None):
+        self.alg.update(self.time, self.time_increment)
         self.sol[:,:] = self.soln[:,:]
         self.dsol[:,:,:] = self.dsoln[:,:,:]
 
     @_MMNAMES.register
     def calcsolt(self, worker=None):
-        self.create_alg().calc_solt()
+        #self.create_alg().calc_solt()
+        self.alg.calc_solt()
 
     @_MMNAMES.register
     def calcsoln(self, worker=None):
-        self.create_alg().calc_soln()
+        #self.create_alg().calc_soln()
+        self.alg.calc_soln()
 
     @_MMNAMES.register
     def ibcsoln(self, worker=None):
@@ -229,7 +220,7 @@ class VewaveSolver(solver.MeshSolver):
 
     @_MMNAMES.register
     def calcdsoln(self, worker=None):
-        self.create_alg().calc_dsoln()
+        self.alg.calc_dsoln()
 
     @_MMNAMES.register
     def ibcdsoln(self, worker=None):
@@ -274,9 +265,15 @@ class VewavePeriodic(boundcond.periodic):
 
 
 class VewaveBC(boundcond.BC):
+    #: Ghost geometry calculator type.
+    _ghostgeom_ = None
+
     @property
     def alg(self):
-        return self.svr.create_alg()
+        return self.svr.alg
+
+    def init(self, **kw):
+        getattr(self.alg, 'ghostgeom_'+self._ghostgeom_)(self.facn)
 
 
 class VewaveNonRefl(VewaveBC):
@@ -287,11 +284,15 @@ class VewaveNonRefl(VewaveBC):
         self.alg.bound_nonrefl_dsoln(self.facn)
     
 
-class VewaveSine(VewaveBC):
+class VewaveLongSineX(VewaveBC):
+    """
+    Provide longitudinal wave in x-direction.
+    Wave is a sinusoidal wave.
+    """
     _ghostgeom_ = 'mirror'
     def soln(self):
-        self.alg.bound_sinewave_soln(self.facn)
+        self.alg.bound_longsinex_soln(self.facn)
     def dsoln(self):
-        self.alg.bound_sinewave_dsoln(self.facn)
+        self.alg.bound_longsinex_dsoln(self.facn)
 
 # vim: set ff=unix fenc=utf8 ft=python ai et sw=4 ts=4 tw=79:

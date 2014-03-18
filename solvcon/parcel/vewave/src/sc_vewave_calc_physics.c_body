@@ -1,0 +1,50 @@
+/*
+ * Copyright (C) 2010-2011 Yung-Yu Chen <yyc@solvcon.net>.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ */
+
+void sc_vewave_calc_physics(sc_mesh_t *msd, sc_vewave_algorithm_t *alg,
+    double *s11, double *s22, double *s33, double *s23, double *s13,
+    double *s12) {
+    // pointers.
+    double *psoln;
+    double *ps11, *ps22, *ps33, *ps23, *ps13, *ps12;
+    // iterators.
+    int icl;
+
+    #pragma omp parallel for private(psoln, ps11, ps22, ps33, ps23, ps13,\
+    ps12, icl)
+
+    for (icl=0; icl<msd->ncell; icl++) {
+        psoln = alg->soln + icl*NEQ;
+        ps11 = s11 +icl+msd->ngstcell;
+        ps22 = s22 +icl+msd->ngstcell;
+        ps33 = s33 +icl+msd->ngstcell;
+        ps23 = s23 +icl+msd->ngstcell;
+        ps13 = s13 +icl+msd->ngstcell;
+        ps12 = s12 +icl+msd->ngstcell;
+
+        ps11[0] = psoln[3];
+        ps22[0] = psoln[4];
+        ps33[0] = psoln[5];
+        ps23[0] = psoln[6];
+        ps13[0] = psoln[7];
+        ps12[0] = psoln[8];
+    };
+};
+
+
+// vim: set ts=4 et:

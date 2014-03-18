@@ -38,7 +38,7 @@ __all__ = [
     'VewaveCase',
     # solver.
     'VewaveSolver', 'VewavePeriodic', 'VewaveBC', 'VewaveNonRefl',
-    'VewaveSine',
+    'VewaveLongSineX',
     # planewave.
     'PlaneWaveSolution', 'PlaneWaveAnchor', 'PlaneWaveHook',
     # inout.
@@ -52,7 +52,7 @@ __all__ = [
 # this module should only import necessary entites.
 from .case import VewaveCase
 from .solver import (VewaveSolver, VewavePeriodic, VewaveBC, VewaveNonRefl,
-                     VewaveSine)
+                     VewaveLongSineX)
 from .planewave import PlaneWaveSolution, PlaneWaveAnchor, PlaneWaveHook
 from .inout import (AmscaAnchor, MeshInfoHook, ProgressHook, FillAnchor, 
                     CflAnchor, CflHook, MarchSaveAnchor, PMarchSave)

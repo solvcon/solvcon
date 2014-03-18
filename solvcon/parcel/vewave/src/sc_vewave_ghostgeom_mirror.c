@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Yung-Yu Chen <yyc@solvcon.net>.
+ * Copyright (C) 2014 Yung-Yu Chen <yyc@solvcon.net>.
  *
  * All rights reserved.
  *
@@ -28,21 +28,22 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 #include <Python.h>
 
 #include "mesh.h"
 #include "_algorithm.h"
-//#include "_algorithm_src.h"
-
-#define NEQ alg->neq
+#include "_algorithm_src.h"
 
 #undef NDIM
 #define NDIM 2
-//#undef NEQ
-
-#include "sc_vewave_bound_sinewave.c_body"
+#undef NEQ
+#define NEQ 45
+#include "sc_vewave_ghostgeom_mirror.c_body"
 #undef NDIM
 #define NDIM 3
-#include "sc_vewave_bound_sinewave.c_body"
+#undef NEQ
+#define NEQ 45
+#include "sc_vewave_ghostgeom_mirror.c_body"
 
 // vim: set ts=4 et:

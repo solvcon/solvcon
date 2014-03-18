@@ -33,8 +33,8 @@ cdef public:
         # temporal information.
         double time, time_increment
         # c-tau scheme.
-        int alpha
-        double sigma0, taylor, cnbfac, sftfac, taumin, tauscale
+        int alpha, taylor
+        double sigma0, cnbfac, sftfac, taumin, tauscale
         # metric array.
         double *cecnd, *cevol, *sfmrc
         # parameters.
