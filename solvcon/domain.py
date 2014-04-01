@@ -453,7 +453,7 @@ class Collective(Domain, list):
                 blk.shcltpn[slctm] = rblk.shcltpn[slctr]
                 blk.shclgrp[slctm] = rblk.shclgrp[slctr]
                 blk.shclcnd[slctm,:] = rblk.shclcnd[slctr,:]
-                blk.shclvol[slctm,:] = rblk.shclvol[slctr,:]
+                blk.shclvol[slctm] = rblk.shclvol[slctr]
         # store shape information of the split block.
         shapes = list()
         for blk in self:
