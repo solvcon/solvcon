@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2.7
 # -*- coding: UTF-8 -*-
 #
 # Copyright (c) 2010, Yung-Yu Chen <yyc@solvcon.net>
@@ -193,7 +193,7 @@ def match_periodic(blk):
 ################################################################################
 # Basic configuration.
 ################################################################################
-def cvg_base(casename=None, mtrlname='SoftTissue',
+def cvg_base(casename=None, mtrlname='SoftTissue', meshname=None,
     psteps=None, ssteps=None, rho=None, vp=None, sig0=None, freq=None, **kw):
     """
     Fundamental configuration of the simulation and return the case object.
@@ -201,6 +201,7 @@ def cvg_base(casename=None, mtrlname='SoftTissue',
     @return: the created Case object.
     @rtype: solvcon.case.BlockCase
     """
+    from . import rootdir
     ndim = int(casename[3])
     # set up BCs. Options:
     # a. boundcond.bctregy.VewaveNonRefl
@@ -221,10 +222,14 @@ def cvg_base(casename=None, mtrlname='SoftTissue',
         })
     # set up case.
     mtrl = vewave.mltregy[mtrlname]()
-    basedir = os.path.join(os.path.abspath(os.getcwd()), 'result')
-    meshfn = os.path.join(os.path.abspath(os.getcwd()), 'mesh', 'vewave2d_xxl.msh')
-    local_mesher = functools.partial(
-        mesher, use_cubit=os.environ.get('USE_CUBIT', False))
+    #basedir = os.path.join(os.path.abspath(os.getcwd()), 'result')
+    if conf.env.command and conf.env.command.opargs[0].basedir:
+        basedir = os.path.abspath(conf.env.command.opargs[0].basedir)
+    else:
+        basedir = os.path.abspath(os.getcwd())
+    meshfn = os.path.join(rootdir, 'mesh', meshname)
+    #local_mesher = functools.partial(
+    #    mesher, use_cubit=os.environ.get('USE_CUBIT', False))
     cse = vewave.VewaveCase(
         basedir=basedir, rootdir=conf.env.projdir, basefn=casename,
         #mesher=local_mesher,
@@ -261,17 +266,38 @@ def cvg2d_ve(casename, mtrlname, **kw):
 # The arrangement for 2D convergence test.
 ################################################################################
 @vewave.VewaveCase.register_arrangement
-def cvg2dv_1(casename, **kw):
+def cvg2dv(casename, **kw):
     return cvg2d_ve(casename=casename, time_increment=0.000000012,
                     steps_run=10, ssteps=1, psteps=1,
-                    mtrlname='SoftTissue',
+                    mtrlname='SoftTissue', meshname='vewave2d_s.msh',
                     rho=1.06e3, vp=1578.0, sig0=10.0, freq=2e6)
 
 @vewave.VewaveCase.register_arrangement
-def cvg2d_xxl(casename, **kw):
+def cvg2d_p2(casename, **kw):
     return cvg2d_ve(casename=casename, time_increment=1.5e-9,
                     steps_run=10, ssteps=1, psteps=1,
-                    mtrlname='SoftTissue',
+                    mtrlname='SoftTissue', meshname='vewave2d_xxl_p2.dom',
+                    rho=1.06e3, vp=1578.0, sig0=10.0, freq=2e6)
+
+@vewave.VewaveCase.register_arrangement
+def cvg2d_p3(casename, **kw):
+    return cvg2d_ve(casename=casename, time_increment=1.5e-9,
+                    steps_run=10, ssteps=1, psteps=1,
+                    mtrlname='SoftTissue', meshname='vewave2d_xxl_p3.dom',
+                    rho=1.06e3, vp=1578.0, sig0=10.0, freq=2e6)
+
+@vewave.VewaveCase.register_arrangement
+def cvg2d_p4(casename, **kw):
+    return cvg2d_ve(casename=casename, time_increment=1.5e-9,
+                    steps_run=10, ssteps=1, psteps=1,
+                    mtrlname='SoftTissue', meshname='vewave2d_xxl_p4.dom',
+                    rho=1.06e3, vp=1578.0, sig0=10.0, freq=2e6)
+
+@vewave.VewaveCase.register_arrangement
+def cvg2d_p5(casename, **kw):
+    return cvg2d_ve(casename=casename, time_increment=1.5e-9,
+                    steps_run=10, ssteps=1, psteps=1,
+                    mtrlname='SoftTissue', meshname='vewave2d_xxl_p5.dom',
                     rho=1.06e3, vp=1578.0, sig0=10.0, freq=2e6)
 
 ################################################################################
