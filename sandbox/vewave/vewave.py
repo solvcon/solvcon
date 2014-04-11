@@ -50,108 +50,86 @@ from solvcon import cmdutil
 from solvcon import boundcond
 from solvcon import solver
 from solvcon import helper
+from solvcon import command
 from solvcon.parcel import vewave
-
-
-
-
-###############################################################################
-# Command line.
-###############################################################################
-class converge(cmdutil.Command):
-    """
-    Calculate and verify convergence.
-
-    Must supply <delta> <M1>.
-    """
-    min_args = 0
-
-    def __init__(self, env):
-        super(converge, self).__init__(env)
-        op = self.op
-
-        opg = optparse.OptionGroup(op, 'Convergence')
-        opg.add_option("--wdir", action="store",
-            dest="wdir", default="result", help="Working directory.")
-        opg.add_option("--key", action="store",
-            dest="key", default="L2", help="Linf or L2 norm.")
-        opg.add_option("--idx", action="store", type=int,
-            dest="idx", default=0, help="Index of variable: 0--8.")
-        opg.add_option("--order", action="store", type=float,
-            dest="order", default=None,
-            help="Error-norm should converge at the rate, if given.")
-        opg.add_option("--order-tolerance", action="store", type=float,
-            dest="order_tolerance", default=0.4,
-            help="The variation of converge order which can be tolerated.")
-        opg.add_option("--stop-on-over", action="store_true",
-            dest="stop_on_over", default=False,
-            help="Raise ValueError if tolerance not met.")
-        op.add_option_group(opg)
-        self.opg_obshock = opg
-
-    def _convergence_test(self, mainfn):
-        ops, args = self.opargs
-        # collect data.
-        mms = reversed(sorted([int(txt.split('_')[1]) for txt in 
-            glob.glob(os.path.join(ops.wdir, '%s_*_norm.pickle'%mainfn))]))
-        dat = [(mm, pickle.load(open(os.path.join(ops.wdir,
-                '%s_%d_norm.pickle'%(mainfn, mm))))) for mm in mms]
-        # show convergence.
-        sys.stdout.write(
-            '%s convergence of %s error-norm at the %dth (0--8) variable:\n' % (
-            mainfn, ops.key, ops.idx))
-        for ih in range(1, len(dat)):
-            er = [dat[it][1][ops.key][ops.idx] for it in range(ih-1, ih+1)]
-            hr = [float(dat[it][0])/1000 for it in range(ih-1, ih+1)]
-            odr = math.log(er[1]/er[0])/math.log(hr[1]/hr[0])
-            sys.stdout.write('  %6.4f -> %6.4f (m): %g' % (hr[0], hr[1], odr))
-            if ops.order is not None:
-                if odr - ops.order > -ops.order_tolerance:
-                    sys.stdout.write(' GOOD. Larger than')
-                else:
-                    if ops.stop_on_over:
-                        raise ValueError('out of tolerance')
-                    else:
-                        sys.stdout.write(' BAD. Out of')
-                sys.stdout.write(
-                    ' %g - %g = %g' % (
-                        ops.order, ops.order_tolerance,
-                        ops.order - ops.order_tolerance))
-            sys.stdout.write('\n')
-
-    def __call__(self):
-        self._convergence_test('cvg2d')
-        self._convergence_test('cvg3d')
 
 
 ################################################################################
 # Mesh generation and boundary condition processor.
 ################################################################################
-def mesher(cse, use_cubit=False):
-    """
-    Generate meshes from template files.  Note Gmsh doesn't always generate the
-    same mesh with the same input.
-    """
-    # get dimensionality.
-    ndim = int(cse.io.basefn[3])
+def save_blk(blk, meshname):
+    from solvcon.io import block
+    bio = block.BlockIO(blk=blk)
+    bio.save(stream=meshname)
+
+def save_domain(blk, domainname, npart):
+    from time import time
+    from solvcon.domain import Collective
+    from solvcon.io.domain import DomainIO
+    from solvcon.helper import info
+    info('Create domain ... ')
+    timer = time()
+    dom = Collective(blk)
+    info('done. (%gs)\n' % (time()-timer))
+    info('Partition graph into %d parts ... ' % npart)
+    timer = time()
+    dom.partition(npart)
+    info('done. (%gs)\n' % (time()-timer))
+    info('Split step 1/5: distribute into sub-domains ... ')
+    timer = time()
+    dom.distribute()
+    info('done. (%gs)\n' % (time()-timer))
+    info('Split step 2/5: compute neighbor block ... ')
+    timer = time()
+    clmap = dom.compute_neighbor_block()
+    info('done. (%gs)\n' % (time()-timer))
+    info('Split step 3/5: reindex entities ... ')
+    timer = time()
+    dom.reindex(clmap)
+    info('done. (%gs)\n' % (time()-timer))
+    info('Split step 4/5: build interface ... ')
+    timer = time()
+    dom.build_interface()
+    info('done. (%gs)\n' % (time()-timer))
+    info('Split step 5/5: supplement ... ')
+    timer = time()
+    dom.supplement()
+    info('done. (%gs)\n' % (time()-timer))
+    dio = DomainIO(dom=dom, compressor='gz')
+    if not os.path.exists(domainname):
+        os.makedirs(domainname)
+    info('Save to directory %s/ ... ' % domainname)
+    timer = time()
+    dio.save(dirname=domainname)
+    info('done. (%gs)\n' % (time()-timer))
+
+def mesher(casename, bcmap):
     # determine meshing template file name.
-    tmplfn = '%s.%s.tmpl' % ('cube' if 3 == ndim else 'square',
-                             'cubit' if use_cubit else 'gmsh')
+    tmplfn = '%s.%s.tmpl' % ('vewave2d', 'gmsh')
     # determine characteristic length of mesh.
+    meshfiner = casename.split('_')[1]
+    npart = int(casename.split('_')[2])
     try:
-        itv = float(cse.io.basefn.split('_')[-1])/1000
+        itv = 0.0001 + float(meshfiner)/10000.0
     except ValueError:
-        itv = 0.2
+        itv = 0.0001
     # load the meshing commands.
     cmds = open(tmplfn).read() % itv
     cmds = [cmd.strip() for cmd in cmds.strip().split('\n')]
     # make the original mesh object.
-    mobj = helper.Cubit(cmds, ndim)() if use_cubit else helper.Gmsh(cmds)()
+    mobj = helper.Gmsh(cmds)()
     # convert the mesh to block.
-    blk = mobj.toblock(bcname_mapper=cse.condition.bcmap,
-                       use_incenter=cse.solver.use_incenter)
-    # return the converted block.
-    return blk
+    blk = mobj.toblock(bcname_mapper=bcmap,
+                       use_incenter=False)
+    basedir = os.path.join(os.path.abspath(os.getcwd()), 'mesh')
+    if npart == 0:
+        meshname = os.path.join(basedir, 'vewave2d_%d.blk' % int(meshfiner))
+        save_blk(blk, meshname)
+    else:
+        domainname = 'vewave2d_%d_p%d.dom' % (int(meshfiner),npart)
+        domainname = os.path.join(basedir, domainname)
+        save_domain(blk, domainname, npart)
+    
 
 def match_periodic(blk):
     """
@@ -201,7 +179,7 @@ def cvg_base(casename=None, mtrlname='SoftTissue', meshname=None,
     @return: the created Case object.
     @rtype: solvcon.case.BlockCase
     """
-    from . import rootdir
+    #from . import rootdir
     ndim = int(casename[3])
     # set up BCs. Options:
     # a. boundcond.bctregy.VewaveNonRefl
@@ -222,17 +200,13 @@ def cvg_base(casename=None, mtrlname='SoftTissue', meshname=None,
         })
     # set up case.
     mtrl = vewave.mltregy[mtrlname]()
-    #basedir = os.path.join(os.path.abspath(os.getcwd()), 'result')
-    if conf.env.command and conf.env.command.opargs[0].basedir:
-        basedir = os.path.abspath(conf.env.command.opargs[0].basedir)
-    else:
-        basedir = os.path.abspath(os.getcwd())
-    meshfn = os.path.join(rootdir, 'mesh', meshname)
-    #local_mesher = functools.partial(
-    #    mesher, use_cubit=os.environ.get('USE_CUBIT', False))
+    basedir = os.path.join(os.path.abspath(os.getcwd()), 'result', casename)
+    mesher(casename, bcmap)
+    meshfn = os.path.join(os.path.abspath(os.getcwd()), 'mesh', meshname)
+    local_mesher = functools.partial(
+        mesher, use_cubit=os.environ.get('USE_CUBIT', False))
     cse = vewave.VewaveCase(
         basedir=basedir, rootdir=conf.env.projdir, basefn=casename,
-        #mesher=local_mesher,
         meshfn=meshfn,
         bcmap=bcmap,
         mtrldict={None: mtrl}, taylor=0.0,
@@ -264,40 +238,46 @@ def cvg2d_ve(casename, mtrlname, **kw):
 
 ################################################################################
 # The arrangement for 2D convergence test.
+# Naming Convention
+# cvg2d_A_B:  A is meshfiner, larger means finer. 
+#             B is number of partition
+# Mesh file name:
+#   Serial:  vewave2d_A.blk
+#   Parallel:  vewave2d_A_pB.dom
 ################################################################################
 @vewave.VewaveCase.register_arrangement
-def cvg2dv(casename, **kw):
+def cvg2d_0_0(casename, **kw):
     return cvg2d_ve(casename=casename, time_increment=0.000000012,
                     steps_run=10, ssteps=1, psteps=1,
-                    mtrlname='SoftTissue', meshname='vewave2d_s.msh',
+                    mtrlname='SoftTissue', meshname='vewave2d_0.blk',
                     rho=1.06e3, vp=1578.0, sig0=10.0, freq=2e6)
 
 @vewave.VewaveCase.register_arrangement
-def cvg2d_p2(casename, **kw):
+def cvg2d_0_2(casename, **kw):
     return cvg2d_ve(casename=casename, time_increment=1.5e-9,
                     steps_run=10, ssteps=1, psteps=1,
-                    mtrlname='SoftTissue', meshname='vewave2d_xxl_p2.dom',
+                    mtrlname='SoftTissue', meshname='vewave2d_0_p2.dom',
                     rho=1.06e3, vp=1578.0, sig0=10.0, freq=2e6)
 
 @vewave.VewaveCase.register_arrangement
-def cvg2d_p3(casename, **kw):
+def cvg2d_0_3(casename, **kw):
     return cvg2d_ve(casename=casename, time_increment=1.5e-9,
                     steps_run=10, ssteps=1, psteps=1,
-                    mtrlname='SoftTissue', meshname='vewave2d_xxl_p3.dom',
+                    mtrlname='SoftTissue', meshname='vewave2d_0_p3.dom',
                     rho=1.06e3, vp=1578.0, sig0=10.0, freq=2e6)
 
 @vewave.VewaveCase.register_arrangement
-def cvg2d_p4(casename, **kw):
+def cvg2d_0_4(casename, **kw):
     return cvg2d_ve(casename=casename, time_increment=1.5e-9,
                     steps_run=10, ssteps=1, psteps=1,
-                    mtrlname='SoftTissue', meshname='vewave2d_xxl_p4.dom',
+                    mtrlname='SoftTissue', meshname='vewave2d_0_p4.dom',
                     rho=1.06e3, vp=1578.0, sig0=10.0, freq=2e6)
 
 @vewave.VewaveCase.register_arrangement
-def cvg2d_p5(casename, **kw):
+def cvg2d_0_5(casename, **kw):
     return cvg2d_ve(casename=casename, time_increment=1.5e-9,
                     steps_run=10, ssteps=1, psteps=1,
-                    mtrlname='SoftTissue', meshname='vewave2d_xxl_p5.dom',
+                    mtrlname='SoftTissue', meshname='vewave2d_0_p5.dom',
                     rho=1.06e3, vp=1578.0, sig0=10.0, freq=2e6)
 
 ################################################################################
