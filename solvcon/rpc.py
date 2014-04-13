@@ -280,7 +280,8 @@ class Worker(object):
         svr = solvertype(blk, **svrkw)
         svr.svrn = iblk
         svr.nsvr = nblk
-        svr.unbind()
+        if hasattr(svr, 'unbind'): # only unbind for ctype-based solvers.
+            svr.unbind()
         self.muscle = svr
 
     def drop_anchor(self, ankcls, ankkw):

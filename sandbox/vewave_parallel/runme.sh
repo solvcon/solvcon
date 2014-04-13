@@ -1,4 +1,5 @@
 #!/bin/sh
 export PYTHONPATH="../..:$PYTHONPATH"
 rm -rf result
-mkdir mesh
+mkdir -p mesh
+./go run cvg2d_0_2

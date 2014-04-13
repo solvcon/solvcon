@@ -37,6 +37,7 @@ See README.
 import sys
 import os
 import math
+import time
 import glob
 import pickle
 import optparse
@@ -44,68 +45,70 @@ import functools
 
 import numpy as np
 
-import solvcon
-from solvcon import conf
-from solvcon import cmdutil
-from solvcon import boundcond
-from solvcon import solver
-from solvcon import helper
-from solvcon import command
+import solvcon as sc
 from solvcon.parcel import vewave
+
+
+###############################################################################
+# Command line.
+###############################################################################
+class makemesh(sc.Command):
+    """
+    Calculate velocity from Reynolds number.
+    """
+    min_args = 1
+
+    def __call__(self):
+        ops, args = self.opargs
+        mesher(args[0], {})
 
 
 ################################################################################
 # Mesh generation and boundary condition processor.
 ################################################################################
 def save_blk(blk, meshname):
-    from solvcon.io import block
-    bio = block.BlockIO(blk=blk)
+    bio = sc.block.BlockIO(blk=blk)
     bio.save(stream=meshname)
 
 def save_domain(blk, domainname, npart):
-    from time import time
-    from solvcon.domain import Collective
     from solvcon.io.domain import DomainIO
-    from solvcon.helper import info
-    info('Create domain ... ')
-    timer = time()
-    dom = Collective(blk)
-    info('done. (%gs)\n' % (time()-timer))
-    info('Partition graph into %d parts ... ' % npart)
-    timer = time()
+    sc.helper.info('Create domain ... ')
+    timer = time.time()
+    dom = sc.Collective(blk)
+    sc.helper.info('done. (%gs)\n' % (time.time()-timer))
+    sc.helper.info('Partition graph into %d parts ... ' % npart)
+    timer = time.time()
     dom.partition(npart)
-    info('done. (%gs)\n' % (time()-timer))
-    info('Split step 1/5: distribute into sub-domains ... ')
-    timer = time()
+    sc.helper.info('done. (%gs)\n' % (time.time()-timer))
+    sc.helper.info('Split step 1/5: distribute into sub-domains ... ')
+    timer = time.time()
     dom.distribute()
-    info('done. (%gs)\n' % (time()-timer))
-    info('Split step 2/5: compute neighbor block ... ')
-    timer = time()
+    sc.helper.info('done. (%gs)\n' % (time.time()-timer))
+    sc.helper.info('Split step 2/5: compute neighbor block ... ')
+    timer = time.time()
     clmap = dom.compute_neighbor_block()
-    info('done. (%gs)\n' % (time()-timer))
-    info('Split step 3/5: reindex entities ... ')
-    timer = time()
+    sc.helper.info('done. (%gs)\n' % (time.time()-timer))
+    sc.helper.info('Split step 3/5: reindex entities ... ')
+    timer = time.time()
     dom.reindex(clmap)
-    info('done. (%gs)\n' % (time()-timer))
-    info('Split step 4/5: build interface ... ')
-    timer = time()
+    sc.helper.info('done. (%gs)\n' % (time.time()-timer))
+    sc.helper.info('Split step 4/5: build interface ... ')
+    timer = time.time()
     dom.build_interface()
-    info('done. (%gs)\n' % (time()-timer))
-    info('Split step 5/5: supplement ... ')
-    timer = time()
+    sc.helper.info('done. (%gs)\n' % (time.time()-timer))
+    sc.helper.info('Split step 5/5: supplement ... ')
+    timer = time.time()
     dom.supplement()
-    info('done. (%gs)\n' % (time()-timer))
+    sc.helper.info('done. (%gs)\n' % (time.time()-timer))
     dio = DomainIO(dom=dom, compressor='gz')
     if not os.path.exists(domainname):
         os.makedirs(domainname)
-    info('Save to directory %s/ ... ' % domainname)
-    timer = time()
+    sc.helper.info('Save to directory %s/ ... ' % domainname)
+    timer = time.time()
     dio.save(dirname=domainname)
-    info('done. (%gs)\n' % (time()-timer))
+    sc.helper.info('done. (%gs)\n' % (time.time()-timer))
 
 def mesher(casename, bcmap):
-    # determine meshing template file name.
-    tmplfn = '%s.%s.tmpl' % ('vewave2d', 'gmsh')
     # determine characteristic length of mesh.
     meshfiner = casename.split('_')[1]
     npart = int(casename.split('_')[2])
@@ -114,10 +117,10 @@ def mesher(casename, bcmap):
     except ValueError:
         itv = 0.0001
     # load the meshing commands.
-    cmds = open(tmplfn).read() % itv
+    cmds = open('vewave2d.gmsh.tmpl').read() % itv
     cmds = [cmd.strip() for cmd in cmds.strip().split('\n')]
     # make the original mesh object.
-    mobj = helper.Gmsh(cmds)()
+    mobj = sc.helper.Gmsh(cmds)()
     # convert the mesh to block.
     blk = mobj.toblock(bcname_mapper=bcmap,
                        use_incenter=False)
@@ -135,7 +138,7 @@ def match_periodic(blk):
     """
     Match periodic boundary condition.
     """
-    bct = boundcond.bctregy.VewavePeriodic
+    bct = sc.bctregy.VewavePeriodic
     bcmap = dict()
     val = -2
     bcmap.update({
@@ -182,10 +185,10 @@ def cvg_base(casename=None, mtrlname='SoftTissue', meshname=None,
     #from . import rootdir
     ndim = int(casename[3])
     # set up BCs. Options:
-    # a. boundcond.bctregy.VewaveNonRefl
-    # b. boundcond.bctregy.VewaveLongSineX
-    bct = boundcond.bctregy.VewaveNonRefl
-    longsinex = boundcond.bctregy.VewaveLongSineX
+    # a. sc.bctregy.VewaveNonRefl
+    # b. sc.bctregy.VewaveLongSineX
+    bct = sc.bctregy.VewaveNonRefl
+    longsinex = sc.bctregy.VewaveLongSineX
     bcmap = dict()
     bcmap.update({
         'left': (longsinex, {}),
@@ -206,7 +209,7 @@ def cvg_base(casename=None, mtrlname='SoftTissue', meshname=None,
     local_mesher = functools.partial(
         mesher, use_cubit=os.environ.get('USE_CUBIT', False))
     cse = vewave.VewaveCase(
-        basedir=basedir, rootdir=conf.env.projdir, basefn=casename,
+        basedir=basedir, rootdir=sc.env.projdir, basefn=casename,
         meshfn=meshfn,
         bcmap=bcmap,
         mtrldict={None: mtrl}, taylor=0.0,
@@ -256,6 +259,7 @@ def cvg2d_0_0(casename, **kw):
 def cvg2d_0_2(casename, **kw):
     return cvg2d_ve(casename=casename, time_increment=1.5e-9,
                     steps_run=10, ssteps=1, psteps=1,
+                    domaintype=sc.Collective, npart=2,
                     mtrlname='SoftTissue', meshname='vewave2d_0_p2.dom',
                     rho=1.06e3, vp=1578.0, sig0=10.0, freq=2e6)
 
@@ -284,6 +288,6 @@ def cvg2d_0_5(casename, **kw):
 # Invoke SOLVCON workflow.
 ################################################################################
 if __name__ == '__main__':
-    solvcon.go()
+    sc.go()
 
 # vim: set ai et nu sw=4 ts=4 tw=79:

@@ -82,6 +82,10 @@ class MeshCase(case_core.CaseInfo):
         # io related.
         'io.mesher': None,
         'io.meshfn': None,
+        'io.domain.with_arrs': True,
+        'io.domain.with_whole': True,
+        'io.domain.wholefn': None,
+        'io.domain.splitfns': None,
         'io.abspath': False,    # flag to use abspath or not.
         'io.rootdir': None,
         'io.basedir': None,
@@ -99,6 +103,7 @@ class MeshCase(case_core.CaseInfo):
         'solver.domainobj': None,
         'solver.solvertype': None,
         'solver.solverobj': None,
+        'solver.dealer': None,
         # logging.
         'log.time': dict,
     }
@@ -661,21 +666,34 @@ for node in $nodes; do rsh $node killall %s; done
 
     # logics before entering main loop (march).
     def _run_provide(self):
+        dealer = self.solver.dealer
         flag_parallel = self.is_parallel
         # anchor: provide.
         self._log_start('run_provide')
-        self.solver.solverobj.provide()
+        if flag_parallel:
+            for sdw in dealer: sdw.cmd.provide()
+        else:
+            self.solver.solverobj.provide()
         self._log_end('run_provide')
     def _run_preloop(self):
+        dealer = self.solver.dealer
         flag_parallel = self.is_parallel
         # hook: preloop.
         self._log_start('run_preloop')
         self.runhooks('preloop')
-        self.solver.solverobj.preloop()
-        self.solver.solverobj.apply_bc()
+        if flag_parallel:
+            for sdw in dealer: sdw.cmd.preloop()
+            for arrname in self.solver.solvertype._solution_array_:
+                for sdw in dealer:
+                    sdw.cmd.exchangeibc(arrname, with_worker=True)
+            for sdw in dealer: sdw.cmd.apply_bc()
+        else:
+            self.solver.solverobj.preloop()
+            self.solver.solverobj.apply_bc()
         self._log_end('run_preloop')
 
     def _run_march(self):
+        dealer = self.solver.dealer
         flag_parallel = self.is_parallel
         self.log.time['solver_march'] = 0.0
         self.info('\n')
@@ -689,8 +707,14 @@ for node in $nodes; do rsh $node killall %s; done
             steps_stride = self.execution.steps_stride
             time_increment = self.execution.time_increment
             time_current = self.execution.step_current*time_increment
-            self.execution.marchret = self.solver.solverobj.march(
-                time_current, time_increment, steps_stride)
+            if flag_parallel:
+                for sdw in dealer: sdw.cmd.march(
+                    time_current, time_increment, steps_stride,
+                    with_worker=True)
+                self.execution.marchret = [sdw.recv() for sdw in dealer]
+            else:
+                self.execution.marchret = self.solver.solverobj.march(
+                    time_current, time_increment, steps_stride)
             self.execution.time += time_increment*steps_stride
             self.log.time['solver_march'] += time.time() - solver_march_marker
             self.execution.step_current += steps_stride

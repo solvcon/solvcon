@@ -59,6 +59,8 @@ __all__ = [
     'MeshHook',
     # boundcond
     'BC', 'bctregy',
+    # domain
+    'Domain', 'Collective', 'Distributed',
     # helper
     'helper',
     # parcel
@@ -73,6 +75,7 @@ from .case import MeshCase
 from .anchor import MeshAnchor
 from .hook import MeshHook
 from .boundcond import BC, bctregy
+from .domain import Domain, Collective, Distributed
 
 from . import helper
 from . import parcel

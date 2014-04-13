@@ -32,6 +32,10 @@
 Domain decomposition.
 """
 
+
+__all__ = ['Domain', 'Collective', 'Distributed']
+
+
 class Domain(object):
     """
     Abstraction of computation domain.  It is the most basic domain that holds
