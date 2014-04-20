@@ -488,6 +488,7 @@ class Dealer(list):
         # connect to the created process and make its shadow.
         conn = Client(address=address, authkey=self.authkey)
         shadow = Shadow(conn=conn, address=address)
+        shadow.remote_setattr('serial', len(self))
         self.append(shadow)
 
     def appoint(self, inetaddr, port, authkey):
