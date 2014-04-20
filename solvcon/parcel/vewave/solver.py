@@ -60,7 +60,7 @@ class VewaveSolver(solver.MeshSolver):
     <._algorithm.VewaveAlgorithm>`.
     """
 
-    _interface_init_ = ['cecnd', 'cevol', 'sfmrc']
+    _interface_init_ = ['cecnd', 'cevol']
     _solution_array_ = ['solt', 'sol', 'soln', 'dsol', 'dsoln']
 
     def __init__(self, blk, mtrldict, **kw):

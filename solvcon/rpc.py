@@ -32,6 +32,10 @@
 Remote procedure call and inter-process communication.
 """
 
+
+import sys, os
+
+
 DEFAULT_AUTHKEY = 'solvcon.rpc'
 DEFAULT_SLEEP = 0.1
 
@@ -67,27 +71,50 @@ class Control(Command):
 class Worker(object):
     """
     The whole worker object will run remotely (means in separated process).
-
-    @ivar muscle: the muscle object.
-    @itype muscle: Muscle
-    @ivar serial: serial number of the worker process.
-    @itype serial: int
-    @ivar lsnr: the listener object for master.
-    @itype lsnr: solvcon.connection.Listener
-    @ivar conn: the connection object to master.
-    @itype conn: solvcon.connection.Client
-    @ivar plsnrs: dictionary of listener objects for peers.
-    @itype plsnrs: dict
-    @ivar pconns: dictionary of connection objects to peers.
-    @itype pconns: dict
     """
-    def __init__(self, muscle, profiler_data=None):
-        from .conf import env
+    def __init__(self, muscle, profiler_data=None, debug=None):
+        """
+        To create a :py:class:`Worker` object, give at least something for its
+        muscle:
+
+        >>> Worker() # this fails because there must be one muscle given.
+        Traceback (most recent call last):
+            ...
+        TypeError: __init__() takes at least 2 arguments (1 given)
+
+        By default the :py:class:`Worker` created is in non-debugging mode:
+
+        >>> wkr = Worker(None)
+        >>> wkr.debug, wkr.serial, wkr.basedir
+        (False, None, None)
+
+        If a :py:class:`Worker` is specified in a debugging mode, its
+        :py:attr:`~Worker.serial` and :py:attr:`~Worker.basedir` will be set:
+
+        >>> wkr = Worker(None, debug=(0, 'some_dir'))
+        >>> wkr.debug, wkr.serial, wkr.basedir
+        (True, 0, 'some_dir')
+        """
+        #: The :py:class:`Muscle` object; can be initialized as None and set
+        #: later.
         self.muscle = muscle
-        self.serial = None
+        #: Debugging flag.
+        self.debug = True if debug else False
+        self.stdout_orig = None
+        self.stderr_orig = None
+        #: Serial number of the worker process.
+        self.serial = int(debug[0]) if debug else None
+        #: Output base directory.
+        self.basedir = str(debug[1]) if debug else None
+        #: The :py:class:`solvcon.connection.Listener` object for master.
         self.lsnr = None
+        #: The :py:class:`multiprocessing.Connection` object to master.
         self.conn = None
+        #: Dictionary of :py:class:`solvcon.connection.Listerer` objects for
+        #: peers.
         self.plsnrs = dict()
+        #: Dictionary of :py:class:`multiprocessing.Connection` objects to
+        #: peers.
         self.pconns = dict()
         self.do_profile = True if profiler_data else False
         self.profiler_dat = profiler_data[0] if profiler_data else None
@@ -160,10 +187,11 @@ class Worker(object):
         Listen to given address and run event loop.  In this case, the worker
         has the listener and acts as a server.
 
-        @param address: address to listen.
-        @type address: str or tuple
-        @param authkey: authentication key for connection.
-        @type authkey: str
+        :param address: address to listen.
+        :type address: str or tuple
+        :param authkey: authentication key for connection.
+        :type authkey: str
+        :return: Nothing.
         """
         from .conf import env
         from .connection import Listener
@@ -173,7 +201,57 @@ class Worker(object):
             env.mpi.send(self.lsnr.address[1], 0, 1)
         self.conn = self.lsnr.accept()
         # start eventloop.
+        if self.debug: self._set_debug_output()
         self.eventloop()
+        if self.debug: self._unset_debug_output()
+
+    def _set_debug_output(self):
+        """
+        This method and :py:meth:`_unset_debug_output` manage output stream
+        redirection.
+
+        >>> # prepare the temporary directory.
+        >>> import tempfile, shutil, glob
+        >>> tdir = tempfile.mkdtemp()
+        >>> # make sure the directory is empty.
+        >>> outptn = os.path.join(tdir, 'worker.0.*.out')
+        >>> len(glob.glob(outptn))
+        0
+        >>> # make a worker without debugging enabled.
+        >>> wkr = Worker(None)
+        >>> len(glob.glob(outptn)) # no redirected output file.
+        0
+        >>> wkr._set_debug_output()
+        Traceback (most recent call last):
+            ...
+        TypeError: %d format: a number is required, not NoneType
+        >>> # make a worker with debugging.
+        >>> wkr = Worker(None, debug=(0, tdir))
+        >>> wkr._set_debug_output()
+        >>> outfns = glob.glob(outptn)
+        >>> len(outfns) # during output redirection, doctests doesn't work.
+        >>> wkr._unset_debug_output()
+        >>> len(outfns)
+        1
+        >>> os.path.exists(outfns[0])
+        True
+        >>> # clean up the temporary directory.
+        >>> shutil.rmtree(tdir)
+        """
+        outfn = 'worker.%d.%d.out' % (self.serial, os.getpid())
+        outfn = os.path.join(self.basedir, outfn)
+        self.stdout_orig = sys.stdout
+        self.stderr_orig = sys.stderr
+        sys.stdout = sys.stderr = open(outfn, 'w')
+
+    def _unset_debug_output(self):
+        """
+        This method and :py:meth:`_set_debug_output` manage output stream
+        redirection.
+        """
+        sys.stdout.close()
+        sys.stdout = self.stdout_orig
+        sys.stderr = self.stderr_orig
 
     def chdir(self, dirname):
         import os
@@ -280,7 +358,7 @@ class Worker(object):
         svr = solvertype(blk, **svrkw)
         svr.svrn = iblk
         svr.nsvr = nblk
-        if hasattr(svr, 'unbind'): # only unbind for ctype-based solvers.
+        if hasattr(svr, 'unbind'): # only unbind ctype-based solvers.
             svr.unbind()
         self.muscle = svr
 
@@ -410,7 +488,6 @@ class Dealer(list):
         # connect to the created process and make its shadow.
         conn = Client(address=address, authkey=self.authkey)
         shadow = Shadow(conn=conn, address=address)
-        shadow.remote_setattr('serial', len(self))
         self.append(shadow)
 
     def appoint(self, inetaddr, port, authkey):

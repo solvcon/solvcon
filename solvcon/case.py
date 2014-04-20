@@ -514,8 +514,14 @@ class MeshCase(case_core.CaseInfo):
         return None
     def _create_workers_local(self, dealer, nblk):
         for iblk in range(nblk):
-            dealer.hire(rpc.Worker(None,
-                profiler_data=self._get_profiler_data(iblk)))
+            if self.solver.debug:
+                debug = iblk, self.io.basedir
+            else:
+                debug = None
+            dealer.hire(rpc.Worker(
+                None,
+                profiler_data=self._get_profiler_data(iblk),
+                debug=debug))
     def _create_workers_remote(self, dealer, nblk):
         info = self.info
         authkey = rpc.DEFAULT_AUTHKEY
@@ -726,24 +732,37 @@ for node in $nodes; do rsh $node killall %s; done
 
     # logics after exiting main loop (march).
     def _run_postloop(self):
+        dealer = self.solver.dealer
         flag_parallel = self.is_parallel
         # hook: postloop.
         self._log_start('run_postloop')
-        self.solver.solverobj.postloop()
+        if flag_parallel:
+            for sdw in dealer: sdw.cmd.postloop()
+        else:
+            self.solver.solverobj.postloop()
         self.runhooks('postloop')
         self._log_end('run_postloop')
     def _run_exhaust(self):
+        dealer = self.solver.dealer
         flag_parallel = self.is_parallel
         # anchor: exhaust.
         self._log_start('run_exhaust')
-        self.solver.solverobj.exhaust()
+        if flag_parallel:
+            for sdw in dealer: sdw.cmd.exhaust()
+        else:
+            self.solver.solverobj.exhaust()
         self._log_end('run_exhaust')
 
     def _run_final(self):
+        dealer = self.solver.dealer
         flag_parallel = self.is_parallel
         # finalize.
         self._log_start('run_final')
-        self.solver.solverobj.final()
+        if flag_parallel:
+            for sdw in dealer: sdw.cmd.final()
+            dealer.terminate()
+        else:
+            self.solver.solverobj.final()
         self._log_end('run_final')
 
     ############################################################################
