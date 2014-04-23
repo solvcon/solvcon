@@ -2,4 +2,4 @@
 export PYTHONPATH="../..:$PYTHONPATH"
 rm -rf result
 mkdir -p mesh
-./go run cvg2d_0_2
+./go run cvg2d_0_0

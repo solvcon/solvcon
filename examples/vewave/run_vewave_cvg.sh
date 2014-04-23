@@ -27,7 +27,7 @@ rm -rf $RESULTDIR
 
 # At this early stage, as long as a 2D simulation can run toward the end, it's
 # good enough.
-cmd="$PYBIN go run cvg2d_200"
+cmd="$PYBIN go run cvg2d_0_0"
 echo $cmd
 $cmd
 lret=$?; if [[ $lret != 0 ]] ; then retval=$lret; fi

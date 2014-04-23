@@ -67,7 +67,7 @@ class makemesh(sc.Command):
 # Mesh generation and boundary condition processor.
 ################################################################################
 def save_blk(blk, meshname):
-    bio = sc.block.BlockIO(blk=blk)
+    bio = sc.io.block.BlockIO(blk=blk)
     bio.save(stream=meshname)
 
 def save_domain(blk, domainname, npart):
