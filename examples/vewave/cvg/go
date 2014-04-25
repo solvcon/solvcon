@@ -192,8 +192,11 @@ def cvg_base(casename=None, mtrlname='SoftTissue', meshname=None,
     # set up case.
     mtrl = vewave.mltregy[mtrlname]()
     basedir = os.path.join(os.path.abspath(os.getcwd()), 'result')
+    meshfn = os.path.join(os.path.abspath(os.getcwd()), 'mesh')
+    if not os.path.exists(meshfn):
+        os.makedirs(meshfn)
     mesher(casename, bcmap)
-    meshfn = os.path.join(os.path.abspath(os.getcwd()), 'mesh', meshname)
+    meshfn = os.path.join(meshfn, meshname)
     cse = vewave.VewaveCase(
         basedir=basedir, rootdir=conf.env.projdir, basefn=casename,
         meshfn=meshfn,
