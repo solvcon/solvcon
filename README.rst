@@ -63,6 +63,10 @@ and on Ubuntu 12.04LTS please use:
 
 .. literalinclude:: ../../contrib/aptget.ubuntu.12.04LTS.sh
 
+on Ubuntu 14.04LTS please use:
+
+.. literalinclude:: ../../contrib/aptget.ubuntu.14.04LTS.sh
+
 .. note::
 
   On Debian 6.x (squeeze), you need also ``apt-get install python-profiler``
