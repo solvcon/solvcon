@@ -57,15 +57,15 @@ mix with each other nor system software.
 With a package management system, life can be easier.  On Debian jessie, the
 following command will install the dependencies:
 
-.. literalinclude:: ../../contrib/aptget.debian.jessie.sh
+.. literalinclude:: contrib/aptget.debian.jessie.sh
 
 and on Ubuntu 12.04LTS please use:
 
-.. literalinclude:: ../../contrib/aptget.ubuntu.12.04LTS.sh
+.. literalinclude:: contrib/aptget.ubuntu.12.04LTS.sh
 
 on Ubuntu 14.04LTS please use:
 
-.. literalinclude:: ../../contrib/aptget.ubuntu.14.04LTS.sh
+.. literalinclude:: contrib/aptget.ubuntu.14.04LTS.sh
 
 .. note::
 
