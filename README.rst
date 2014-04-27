@@ -54,23 +54,8 @@ SCROOT=$SCSRC/opt``.  If we don't even have a compatible gcc_, the
 sourced.  The two sets of packages reside in different directories and do not
 mix with each other nor system software.
 
-With a package management system, life can be easier.  On Debian jessie, the
-following command will install the dependencies:
-
-.. literalinclude:: contrib/aptget.debian.jessie.sh
-
-and on Ubuntu 12.04LTS please use:
-
-.. literalinclude:: contrib/aptget.ubuntu.12.04LTS.sh
-
-on Ubuntu 14.04LTS please use:
-
-.. literalinclude:: contrib/aptget.ubuntu.14.04LTS.sh
-
-.. note::
-
-  On Debian 6.x (squeeze), you need also ``apt-get install python-profiler``
-  for the Python built-in profiler.
+With a package management system, life can be easier.  You can find the
+dependency installation scripts ``aptget.*.sh`` in the ``contrib/`` directory.
 
 Build
 +++++
