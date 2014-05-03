@@ -189,12 +189,16 @@ def generate(env):
         cudaSDKSubLibDir = 'darwin'
     else:
         cudaSDKSubLibDir = ''
-    env.Append(LIBPATH=[
-        '/'.join([cudaSDKPath, 'lib']),
-        '/'.join([cudaSDKPath, 'common', 'lib', cudaSDKSubLibDir]),
-        '/'.join([cudaToolkitPath, 'lib64']),
-        '/'.join([cudaToolkitPath, 'lib']),
-    ])
+    if cudaSDKPath:
+        env.Append(LIBPATH=[
+            '/'.join([cudaSDKPath, 'lib']),
+            '/'.join([cudaSDKPath, 'common', 'lib', cudaSDKSubLibDir]),
+        ])
+    if cudaToolkitPath:
+        env.Append(LIBPATH=[
+            '/'.join([cudaToolkitPath, 'lib64']),
+            '/'.join([cudaToolkitPath, 'lib']),
+        ])
 
 def exists(env):
     return env.Detect('nvcc')

@@ -42,12 +42,22 @@ http://www.unidata.ucar.edu/software/netcdf/index.html
 
 _libs = dict()
 def get_lib(path):
+    import sys, os
     from ctypes import CDLL
     from ..dependency import guess_dllname
     if path in _libs:
         lib = _libs[path]
     else:
-        lib = _libs[path] = CDLL(guess_dllname('netcdf'))
+        fn = guess_dllname('netcdf')
+        try:
+            lib = CDLL(fn)
+        except OSError as e:
+            # XXX: not a good practice to assume library location. Take it as a
+            # dirty workaround in case netcdf library isn't at where it should
+            # be.
+            fn = os.path.join(sys.exec_prefix, 'lib', fn)
+            lib = CDLL(fn)
+        _libs[path] = lib
     return lib
 
 class NetCDF(object):

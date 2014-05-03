@@ -10,8 +10,8 @@ from solvcon import __version__
 AddOption('--debug-build', dest='debug_build', action='store_true',
     default=False, help='Make debugging build; '
     'this option will add ".dbg" to build directory')
-AddOption('--disable-openmp', dest='openmp',
-    action='store_false', default=True, help='Disable OpenMP.')
+AddOption('--openmp', dest='openmp',
+    action='store_true', default=False, help='Enable OpenMP.')
 AddOption('--ctool', dest='ctool', type='string', action='store',
     default='gcc',
     help='SCons C compiler tool, e.g., gcc or intelc; default is "%default".')
@@ -74,7 +74,8 @@ if env.HasSse4() and GetOption('ctool') == 'gcc':
 # OpenMP.
 if GetOption('openmp'):
     if GetOption('ctool') == 'gcc':
-        env.Append(CFLAGS='-fopenmp')
+        if sys.platform != 'darwin':
+            env.Append(CFLAGS='-fopenmp')
         env.Append(LINKFLAGS='-fopenmp')
     elif GetOption('ctool') == 'intelc':
         env.Append(CFLAGS='-openmp')
@@ -93,7 +94,7 @@ if 'LIBPATH' in os.environ:
     env.Append(LIBPATH=libpath)
 env.Append(LIBPATH=[os.path.abspath(GetOption('libdir'))])
 env.Append(LIBPATH=[sys.exec_prefix+'/lib'])
-os.environ['DYLD_LIBRARY_PATH'] = sys.exec_prefix+'/lib'
+env.Append(LINKFLAGS=['-Wl,-rpath,%s/lib' % sys.exec_prefix])
 # CUDA.
 env.Tool('cuda')
 env.Append(NVCCFLAGS='-arch=sm_%s'%GetOption('sm'))

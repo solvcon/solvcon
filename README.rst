@@ -55,7 +55,8 @@ sourced.  The two sets of packages reside in different directories and do not
 mix with each other nor system software.
 
 With a package management system, life can be easier.  You can find the
-dependency installation scripts ``aptget.*.sh`` in the ``contrib/`` directory.
+dependency installation scripts ``aptget.*.sh`` and ``conda.sh`` in the
+``contrib/`` directory.
 
 Build
 +++++

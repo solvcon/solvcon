@@ -36,13 +36,14 @@ Intended Audience :: Education
 Intended Audience :: Science/Research
 License :: OSI Approved :: BSD License
 Operating System :: POSIX :: Linux
+Operating System :: MacOS :: MacOS X
 Programming Language :: C
 Programming Language :: Python
 Topic :: Scientific/Engineering
 Topic :: Software Development :: Libraries :: Application Frameworks"""
 
 def make_extension(name, c_subdirs, include_dirs=None, libraries=None):
-    import os
+    import sys, os
     from glob import glob
     from numpy.distutils.core import Extension
     pak_dir = os.path.join(*name.split('.')[:-1])
@@ -56,8 +57,10 @@ def make_extension(name, c_subdirs, include_dirs=None, libraries=None):
     libraries = [] if None is libraries else libraries
     libraries = (['scotchmetis', 'scotch', 'scotcherr', 'scotcherrexit']
                  + libraries)
+    rpathflag = '-Wl,-rpath,%s/lib' % sys.exec_prefix
     return Extension(name, files,
-                     include_dirs=include_dirs, libraries=libraries)
+                     include_dirs=include_dirs, libraries=libraries,
+                     extra_link_args=[rpathflag])
 
 def main():
     import os, sys
@@ -127,10 +130,10 @@ def main():
             make_extension('solvcon.mesh', ['src']),
             make_extension('solvcon.parcel.fake._algorithm', ['src']),
             make_extension('solvcon.parcel.linear._algorithm', ['src'],
-                           libraries=['lapack', 'blas', 'gfortran']),
+                           libraries=['lapack', 'blas']),
             make_extension('solvcon.parcel.bulk._algorithm', ['src']),
             make_extension('solvcon.parcel.vewave._algorithm', ['src'],
-                           libraries=['lapack', 'blas', 'gfortran']),
+                           libraries=['lapack', 'blas']),
         ],
         data_files=data_files,
     )
