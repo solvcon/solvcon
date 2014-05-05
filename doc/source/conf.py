@@ -12,7 +12,6 @@
 # serve to show the default.
 
 import sys, os
-sys.path.insert(0, os.path.abspath(os.path.join(*(['..']*2+['cython']))))
 sys.path.insert(0, os.path.abspath(os.path.join(*(['..']*2))))
 import solvcon
 

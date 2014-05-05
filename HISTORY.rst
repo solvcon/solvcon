@@ -5,13 +5,24 @@ Release date: Unknown
 
 Changes:
 
-- #73 scotch build script doesn't work in OS X.
-- #74 SCons doesn't build Python extension modules.
 - #75 Change the default dependency directory (``$SCROOT``) from
   ``$HOME/opt/scruntime`` to ``$root/opt``.
 - #77 SCons script should respect LIBPATH environment variable.
+- #95: Support anaconda/miniconda/conda for managing dependencies
+
+Bug-fixes:
+
+- #73 scotch build script doesn't work in OS X.
+- #74 SCons doesn't build Python extension modules.
 - #78 solvcon.rpc.Dealer.bridge doesn't work for localhost in OS X
 - #79 Legacy case setting steps_dump results into error
+- #82: SCons stops when there's file removed/moved
+- #87: Fix run_vewave_cvg.sh solution test
+- #89: examples/vewave/cvg/go failed due to missing mesh
+- #90: parcel/* solvers miss ghostgeom
+- #92: Clean up solvcon.parcel.bulk.solver.BulkSolver initial condition code
+- #93: http://ci.solvcon.net/job/examples.vewave_cvg/ fails around revision
+  51e85bf107a3a85b9930b4cabc5f3aa13b9c59bf
 
 Version 0.1.2
 +++++++++++++

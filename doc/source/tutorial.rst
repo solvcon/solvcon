@@ -14,7 +14,8 @@ Set up the Environment
 
 Assume:
 
-- SOLVCON is compiled without problems.  See :doc:`index` for more information.
+- SOLVCON is compiled without problems.  See :doc:`the homepage <index>` for
+  more information.
 - The compiled SOLVCON is located at ``$SCSRC``.
 - You are using bash.
 
@@ -46,8 +47,8 @@ examples, you need to:
 More information of the verification examples can be found in
 :doc:`verification`.
 
-Configuration
-=============
+Runtime Configuration
+=====================
 
 SOLVCON will find each of the solvcon.ini files from current working directory
 toward the root, and use their settings.  Three settings are recognized in

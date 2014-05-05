@@ -1,2 +1,0 @@
-cd doc/
-make html
