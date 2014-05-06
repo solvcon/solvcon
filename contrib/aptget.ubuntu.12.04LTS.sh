@@ -1,3 +1,4 @@
+#!/bin/sh
 sudo apt-get install build-essential gcc gfortran scons \
 liblapack-pic liblapack-dev libnetcdf-dev libnetcdf6 netcdf-bin \
 libscotch-dev libscotchmetis-dev libscotch-5.1 \
