@@ -4,6 +4,7 @@
 \begin{pspicture}(-2.1,-0.1)(9.4,6.1)
 
 \newcommand{\cmod}{CornflowerBlue}
+\newcommand{\cdmod}{Gray}
 %\newcommand{\ccat}{MidnightBlue}
 \newcommand{\ccat}{BrickRed}
 %\newcommand{\ccat}{NavyBlue}
@@ -71,39 +72,46 @@
 \pcline[linewidth=0.04,linecolor=\crel]{*-*}(4.95,2.25)(5.55,2.25)
 
 \pcline[linewidth=0.02](-2,3.3)(8,3.3)
-\rput[bl](-1.9,3.4){\bfseries employment}
+\rput[bl](-1.9,3.4){\bfseries utility}
 
 \psframe[shadow=true,fillcolor=\cmod](0.1,3.4)(1.9,3.7)
 \rput[c](1,3.55){batch}
 \psframe[shadow=true,fillcolor=\cmod](2.1,3.4)(3.9,3.7)
-\rput[c](3,3.55){io}
+\rput[c](3,3.55){command}
 \psframe[shadow=true,fillcolor=\cmod](4.1,3.4)(5.9,3.7)
-\rput[c](5,3.55){visual\_vtk}
+\rput[c](5,3.55){io}
 \psframe[shadow=true,fillcolor=\cmod](6.1,3.4)(7.9,3.7)
-\rput[c](7,3.55){command}
+\rput[c](7,3.55){visual\_vtk}
 
 \pcline[linewidth=0.02](-2,3.8)(8,3.8)
 \rput[bl](-1.9,3.9){\bfseries calculation}
 
-\psframe[shadow=true,fillcolor=\cmod](0.1,3.9)(1.9,4.2)
+\psframe[shadow=true,fillcolor=\cdmod](0.1,3.9)(1.9,4.2)
 \rput[c](1,4.05){cese}
-\psframe[shadow=true,fillcolor=\cmod](0.1,4.3)(1.9,4.6)
+\psframe[shadow=true,fillcolor=\cdmod](0.1,4.3)(1.9,4.6)
 \rput[c](1,4.45){lincese}
-\psframe[shadow=true,fillcolor=\cmod](0.1,4.7)(1.9,5.0)
+\psframe[shadow=true,fillcolor=\cdmod](0.1,4.7)(1.9,5.0)
 \rput[c](1,4.85){euler}
-\psframe[shadow=true,fillcolor=\cmod](0.1,5.1)(1.9,5.4)
+\psframe[shadow=true,fillcolor=\cdmod](0.1,5.1)(1.9,5.4)
 \rput[c](1,5.25){elaslin}
 
-\psframe[shadow=true,fillcolor=\cmod](2.1,3.9)(3.9,4.2)
+\psframe[shadow=true,fillcolor=\cdmod](2.1,3.9)(3.9,4.2)
 \rput[c](3,4.05){cuse}
-\psframe[shadow=true,fillcolor=\cmod](2.1,4.3)(3.9,4.6)
+\psframe[shadow=true,fillcolor=\cdmod](2.1,4.3)(3.9,4.6)
 \rput[c](3,4.45){lincuse}
-\psframe[shadow=true,fillcolor=\cmod](2.1,4.7)(3.9,5.0)
+\psframe[shadow=true,fillcolor=\cdmod](2.1,4.7)(3.9,5.0)
 \rput[c](3,4.85){gasdyn}
-\psframe[shadow=true,fillcolor=\cmod](2.1,5.1)(3.9,5.4)
+\psframe[shadow=true,fillcolor=\cdmod](2.1,5.1)(3.9,5.4)
 \rput[c](3,5.25){vslin}
 
-\rput[l](5,4.05){\ldots (\textit{solver packages})}
+\psframe[shadow=true,fillcolor=\cmod](4.1,3.9)(5.9,4.2)
+\rput[c](5,4.05){linear}
+\psframe[shadow=true,fillcolor=\cmod](4.1,4.3)(5.9,4.6)
+\rput[c](5,4.45){bulk}
+\psframe[shadow=true,fillcolor=\cmod](4.1,4.7)(5.9,5.0)
+\rput[c](5,4.85){vewave}
+
+\rput[l](6.1,4.05){\ldots}
 
 \pcline[linewidth=0.02](-2,5.5)(8,5.5)
 \rput[bl](-1.9,5.6){\bfseries application}
