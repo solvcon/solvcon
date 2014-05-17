@@ -59,9 +59,10 @@ Build
 
 The binary part of SOLVCON should be built with SCons_::
 
-  scons
+  scons scmods
 
-or `distutils <https://docs.python.org/2/distutils/>`__::
+After worth, it can be built with `distutils
+<https://docs.python.org/2/distutils/>`__::
 
   python setup.py build_ext --inplace
 
