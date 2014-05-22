@@ -8,10 +8,11 @@ Solution Element (CESE) method <http://www.grc.nasa.gov/WWW/microbus/>`__.
 SOLVCON targets at solving problems that can be formulated as a system of
 first-order, linear or non-linear partial differential equations (PDEs).
 
-Install
-=======
+Get the Code and the Dependencies
+=================================
 
-Please clone the development version from BitBucket (using `Mercurial
+Please clone the development version from `BitBucket
+<https://bitbucket.org/solvcon/solvcon>`__ (using `Mercurial
 <http://mercurial.selenic.com/>`_)::
 
   hg clone https://bitbucket.org/solvcon/solvcon
@@ -29,33 +30,8 @@ install them by running the scripts ``aptget.*.sh`` (Debian/Ubuntu) or
 <https://store.continuum.io/cshop/anaconda/>`__) provided in the ``contrib/``
 directory.
 
-.. note::
-
-  A hard way to install the dependencies is to build everything from source
-  with the scripts provided in the ``ground/`` directory::
-
-    cd ground
-    ../contrib/get
-    make all
-    source opt/etc/scvars.sh
-
-  A directory ``opt/`` will be created for the binaries.  The last line will
-  enable the runtime environment.  It also export an environment variable
-  ``SCROOT`` that points to ``opt/``.
-  
-  If we don't even have a compatible gcc_, scripts in the ``soil/`` directory
-  can be used::
-
-    cd soil
-    ../contrib/get
-    make
-    source opt/etc/scgccvars.sh
-
-  ``$SCROOT/etc/scvars.sh`` and ``$SCROOT/etc/scgccvars.sh`` must be separately
-  sourced.  The two sets of packages reside in different directories.
-
 Build
-+++++
+=====
 
 The binary part of SOLVCON should be built with SCons_::
 
@@ -83,7 +59,7 @@ following commands can build the document:
 The built document will be available at ``doc/build/html/``.
 
 Run Tests
-+++++++++
+=========
 
 Tests should be run with Nose_::
 
@@ -97,5 +73,33 @@ with::
 Some tests in ``ftests/`` involve remote procedure call (RPC) that uses `ssh
 <http://www.openssh.com/>`_.  You need to set up the public key authentication
 to properly run them.
+
+(Not Recommended) Build Dependencies from Source
+================================================
+
+A hard way to install the dependencies is to build everything from source with
+the scripts provided in the ``ground/`` directory::
+
+  cd ground
+  ../contrib/get
+  make all
+  cd ..
+  source opt/etc/scvars.sh
+
+A directory ``opt/`` will be created for the binaries.  The last line will
+enable the runtime environment.  It also export an environment variable
+``SCROOT`` that points to ``opt/``.
+  
+If we don't even have a compatible gcc_, scripts in the ``soil/`` directory can
+be used::
+
+  cd soil
+  ../contrib/get
+  make
+  cd ..
+  source opt/etc/scgccvars.sh
+
+``$SCROOT/etc/scvars.sh`` and ``$SCROOT/etc/scgccvars.sh`` must be separately
+sourced.  The two sets of packages reside in different directories.
 
 .. vim: set ft=rst ff=unix fenc=utf8:

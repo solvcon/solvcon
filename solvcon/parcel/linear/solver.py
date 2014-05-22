@@ -44,9 +44,10 @@ from solvcon import boundcond
 
 try: # for readthedocs to work.
     from . import _algorithm
-except ImportError:
-    warnings.warn("solvcon.parcel.linear._algorithm isn't built",
-                  RuntimeWarning)
+except ImportError as e:
+    warnings.warn(
+        "solvcon.parcel.linear._algorithm isn't built; %s" % str(e.args),
+        RuntimeWarning)
 
 
 class LinearSolver(solver.MeshSolver):
