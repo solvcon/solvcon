@@ -14,7 +14,7 @@ class PlotManager():
     def plotMesh(self, mesh):
         pass
 
-def plotSolution(self, solution):
+    def plotSolution(self, solution):
         pass
 
 class DataManager(PlotManager):
@@ -51,11 +51,16 @@ class SodTube():
 
     def getMesh(self):
         return self.mesh
+
     def getAnalyticSolution(self):
         return self.solution
+
     def calAnalyticSolution(self):
         pass
+
     def getCESESolution(self):
         return self.solution
+
     def calCESESolution(self, initcondition, mesh, ceseparameters):
         return self.solution
+
