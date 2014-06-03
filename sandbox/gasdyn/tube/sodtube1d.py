@@ -37,7 +37,13 @@ class SodTube():
     def __init__(self):
         # initial condition
         # [(xl, rhol, ul, pl), (xr, rhor, ur, pr)]
-        self.initcondition = [(1.0, 0.0, 1.0), (0.125, 0.0, 1.0)]
+        #
+        # Sod's initial condition
+        self.initcondition_sod = [(1.0, 0.0, 1.0), (0.125, 0.0, 1.0)]
+        # initial condition for a shock tube problem
+        # default is Sod's initial condition
+        # users could change this initial conditions
+        self.initcondition = self.initcondition_sod
         # a mesh, which has this format:
         # [point0, point1, point2, point3, ......, pointn]
         self.mesh = []
@@ -49,14 +55,24 @@ class SodTube():
         self.solution = []
         self.ceseparameters = []
 
+    def getInitcondition(self):
+        return self.initcondition
+
+    def setInitcondition(self, initcondition):
+        self.initcondition = initcondition
+
     def getMesh(self):
         return self.mesh
 
     def getAnalyticSolution(self):
-        return self.solution
+        return self.calAnalyticSolution()
 
-    def calAnalyticSolution(self):
-        pass
+    def calAnalyticSolution(self, initcondition=self.initcondition):
+        # where implementing the code to get the analytic solution
+        # by users' input condition
+        # default is the Sod's condition
+        solution = []
+        return solution
 
     def getCESESolution(self):
         return self.solution
