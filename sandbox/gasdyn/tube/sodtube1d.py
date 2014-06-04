@@ -1,6 +1,12 @@
 #!/usr/bin/python
 #
+# sodtube1d.py
+#
+#
 # 1D Sod Tube Test
+#
+# This program is implemented by OO style to be
+# a part of ipython notebook demo materials.
 #
 
 class PlotManager():
@@ -36,14 +42,25 @@ class SodTube():
     """
     def __init__(self):
         # initial condition
-        # [(xl, rhol, ul, pl), (xr, rhor, ur, pr)]
+        # [(rhol, ul, pl), (rhor, ur, pr)]
         #
         # Sod's initial condition
-        self.initcondition_sod = [(1.0, 0.0, 1.0), (0.125, 0.0, 1.0)]
+        self.RHOL = 1.0
+        self.UL = 0.0
+        self.PL = 1.0
+        self.RHOR = 0.125
+        self.UR = 0.0
+        self.PR = 1.0
+        self.initcondition_sod = [(self.ROHL, self.UL, self.PL),
+                                  (self.ROHR, self.UR, self.PR)]
         # initial condition for a shock tube problem
         # default is Sod's initial condition
         # users could change this initial conditions
         self.initcondition = self.initcondition_sod
+        # constants and conventions
+        self.GAMMA = 1.4 # ideal gas constant
+        self.GAMMA2 = (self.GAMMA - 1.0) / (self.GAMMA + 1.0)
+        self.BETA = (self.GAMMA - 1.0) / (2.0*self.GAMMA)
         # a mesh, which has this format:
         # [point0, point1, point2, point3, ......, pointn]
         self.mesh = []
@@ -73,6 +90,57 @@ class SodTube():
         # default is the Sod's condition
         solution = []
         return solution
+
+    def getVelocityRWave(self):
+        retrun ((self.GAMMA*self.PL/self.ROHL)^2)
+
+    def getVelocityShock(self):
+        return ((self.GAMMA*self.PR/self.ROHR)^2)
+
+    def getVelocityRegionI(self):
+        return self.UL
+
+    def getVelocityRegionII(self):
+        pass
+
+    def getVelocityRegionIII(self):
+        pass
+
+    def getVelocityRegionIV(self):
+        pass
+
+    def getVelocityRegionV(self):
+        return self.UR
+
+    def getPressureRegionI(self):
+        pass
+
+    def getPressureRegionII(self):
+        pass
+
+    def getPressureRegionIII(self):
+        pass
+
+    def getPressureRegionIV(self):
+        return self.getPressureRegionIII()
+
+    def getPressureRegionV(self):
+        pass
+
+    def getDensityRegionI(self):
+        pass
+
+    def getDensityRegionII(self):
+        pass
+
+    def getDensityRegionIII(self):
+        pass
+
+    def getDensityRegionIV(self):
+        pass
+
+    def getDensityRegionV(self):
+        pass
 
     def getCESESolution(self):
         return self.solution
