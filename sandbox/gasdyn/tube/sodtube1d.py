@@ -8,6 +8,7 @@
 # This program is implemented by OO style to be
 # a part of ipython notebook demo materials.
 #
+# DEBUG: search string 'DEBUG'
 
 import scipy.optimize as so
 
@@ -94,6 +95,9 @@ class SodTube():
         solution = []
         return solution
 
+    ##########################
+    ### Analytical formula ###
+    ##########################
     def analyticVelocityRegionIV(self, x):
         gamma = self.GAMMA
         ushock = self.getVelocityShock()
@@ -102,13 +106,23 @@ class SodTube():
         return x - (ushock/gamma)*(pIV/pr-1.0)*(((2*gamma/(gamma+1.0))/((pIV/pr)+(gamma-1.0)/(gamma+1.0)))**0.5)
 
     def analyticPressureRegionIV(self, x):
+        beta = self.BETA
         gamma = self.GAMMA
+        gamma2 = self.GAMMA2
         urwave = self.getVelocityRWave()
         ushock = self.getVelocityShock()
         pl = self.PL
         pr = self.PR
-        return (x/pr)*(1-(gamma-1)*(urwave/ushock)*(x/pr-1)/((2*gamma*(2*gamma+(gamma+1)*(x/pr-1)))**0.5))**(-2*gamma/(gamma-1)) - pl/pr
+        rhol = self.RHOL
+        rhor = self.RHOR
+        # These two formula are equivalent
+        #return (x/pr)*(1.0-(gamma-1.0)*(urwave/ushock)*(x/pr-1.0)/((2.0*gamma*(2.0*gamma+(gamma+1.0)*(x/pr-1.0)))**0.5))**(-2.0*gamma/(gamma-1.0)) - pl/pr # Altair
+        # DEBUG: REMOVE ME AFTER DEVELOPMENT
+        return ((x-pr)*(((1.0-gamma2)/(rhor*(x+gamma2*pr)))**0.5)) - (((pl**beta)-(x**beta))*(((1.0-gamma2**2)*(pl**(1.0/gamma))/((gamma2**2)*rhol))**0.5)) # wiki
 
+    ################
+    ### Velocity ###
+    ################
     def getVelocityRWave(self):
         return ((self.GAMMA*self.PL/self.RHOL)**0.5)
 
@@ -121,8 +135,8 @@ class SodTube():
     def getVelocityRegionII(self):
         pass
 
-    def getVelocityRegionIII(self):
-        pass
+    def getAnalyticVelocityRegionIII(self):
+        return self.getAnalyticVelocityRegionIV()
 
     def getAnalyticVelocityRegionIV(self):
         return self.getAnalyticVelocityRegionIVByNewton()
@@ -136,8 +150,11 @@ class SodTube():
     def getVelocityRegionV(self):
         return self.UR
 
+    ################
+    ### Pressure ###
+    ################
     def getPressureRegionI(self):
-        pass
+        return self.PL
 
     def getPressureRegionII(self):
         pass
@@ -155,8 +172,11 @@ class SodTube():
         return so.newton(self.analyticPressureRegionIV,x0)
 
     def getPressureRegionV(self):
-        pass
+        return self.PR
 
+    ################
+    ### Density  ###
+    ################
     def getDensityRegionI(self):
         pass
 
