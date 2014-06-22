@@ -53,7 +53,7 @@ class SodTube():
         self.PL = 1.0
         self.RHOR = 0.125
         self.UR = 0.0
-        self.PR = 1.0
+        self.PR = 0.1
         self.initcondition_sod = [(self.RHOL, self.UL, self.PL),
                                   (self.RHOR, self.UR, self.PR)]
         # initial condition for a shock tube problem
@@ -63,6 +63,7 @@ class SodTube():
         # constants and conventions
         self.GAMMA = 1.4 # ideal gas constant
         self.GAMMA2 = (self.GAMMA - 1.0) / (self.GAMMA + 1.0)
+        self.ALPHA = (self.GAMMA + 1.0) / (self.GAMMA - 1.0)
         self.BETA = (self.GAMMA - 1.0) / (2.0*self.GAMMA)
         # a mesh, which has this format:
         # [point0, point1, point2, point3, ......, pointn]
@@ -98,54 +99,83 @@ class SodTube():
     ##########################
     ### Analytical formula ###
     ##########################
-    def analyticVelocityRegionIV(self, x):
-        gamma = self.GAMMA
-        ushock = self.getVelocityShock()
-        pr = self.PR
-        pIV = self.getAnalyticPressureRegionIV()
-        return x - (ushock/gamma)*(pIV/pr-1.0)*(((2*gamma/(gamma+1.0))/((pIV/pr)+(gamma-1.0)/(gamma+1.0)))**0.5)
-
     def analyticPressureRegionIV(self, x):
+        # DEBUG: REMOVE ME AFTER DEVELOPMENT
+        #return ((x-pr)*(((1.0-gamma2)/(rhor*(x+gamma2*pr)))**0.5)) - (((pl**beta)-(x**beta))*(((1.0-gamma2**2)*(pl**(1.0/gamma))/((gamma2**2)*rhol))**0.5)) # wiki
+
+        # (10.51) Wesseling P.
+        pI = self.PL
+        pV = self.getPressureRegionV()
+        cI = self.getVelocityCI()
+        cV = self.getVelocityCV()
         beta = self.BETA
         gamma = self.GAMMA
-        gamma2 = self.GAMMA2
-        urwave = self.getVelocityRWave()
-        ushock = self.getVelocityShock()
-        pl = self.PL
-        pr = self.PR
-        rhol = self.RHOL
-        rhor = self.RHOR
-        # These two formula are equivalent
-        #return (x/pr)*(1.0-(gamma-1.0)*(urwave/ushock)*(x/pr-1.0)/((2.0*gamma*(2.0*gamma+(gamma+1.0)*(x/pr-1.0)))**0.5))**(-2.0*gamma/(gamma-1.0)) - pl/pr # Altair
-        # DEBUG: REMOVE ME AFTER DEVELOPMENT
-        return ((x-pr)*(((1.0-gamma2)/(rhor*(x+gamma2*pr)))**0.5)) - (((pl**beta)-(x**beta))*(((1.0-gamma2**2)*(pl**(1.0/gamma))/((gamma2**2)*rhol))**0.5)) # wiki
+        return ((x/pI) - ((1.0 - ((gamma-1.0)*cV*((x/pV) - 1.0))/(cI*((2.0*gamma*(gamma-1.0+(gamma+1.0)*(x/pV)))**0.5)))**(1.0/beta)))
 
     ################
     ### Velocity ###
     ################
-    def getVelocityRWave(self):
-        return ((self.GAMMA*self.PL/self.RHOL)**0.5)
+    def getVelocityFanLeft(self):
+        cI = self.getVelocityCI()
+        return -cI
+
+    def getVelocityFanRight(self):
+        uIII = self.getAnalyticVelocityRegionIII()
+        cIII = self.getVelocityCIII()
+        return uIII - cIII
 
     def getVelocityShock(self):
+        # P409, Wesseling P.
+        cV = self.getVelocityCV()
+        gamma = self.GAMMA
+        pIV = self.getAnalyticPressureRegionIV()
+        pV = self.getPressureRegionV()
+        return cV*(1.0+(gamma+1.0)/2.0/gamma*((pIV/pV)-1.0))*0.5
+
+    def getVelocityCI(self):
+        return ((self.GAMMA*self.PL/self.RHOL)**0.5)
+
+    def getVelocityCIII(self):
+        pIII = self.getAnalyticPressureRegionIII()
+        rhoIII = self.getAnalyticDensityRegionIII()
+        return (self.GAMMA*pIII/rhoIII)**0.5
+
+    def getVelocityCV(self):
         return ((self.GAMMA*self.PR/self.RHOR)**0.5)
 
     def getVelocityRegionI(self):
         return self.UL
 
-    def getVelocityRegionII(self):
-        pass
+    def getAnalyticVelocityRegionII(self, x, t):
+        cI = self.getVelocityCI()
+        gamma = self.GAMMA
+        return 2.0/(gamma+1.0)*(cI+x/t)
 
     def getAnalyticVelocityRegionIII(self):
         return self.getAnalyticVelocityRegionIV()
 
-    def getAnalyticVelocityRegionIV(self):
-        return self.getAnalyticVelocityRegionIVByNewton()
+    def getAnalyticVelocityRegionIV(self): # ~0.916 for Sod tube problem
+        #gamma = self.GAMMA
+        #cV = self.getVelocityCV()
+        #pV = self.PR
+        #return x - (ushock/gamma)*(x/pr-1.0)*(((2*gamma/(gamma+1.0))/((x/pr)+(gamma-1.0)/(gamma+1.0)))**0.5)
 
-    def getAnalyticVelocityRegionIVByNewton(self, x0=1):
-        """
-        x0 : the guess initial value to be applied in Newton method
-        """
-        return so.newton(self.analyticVelocityRegionIV,x0)
+        # next to (10.51), P410, Wesseling P.
+        # Need to verified...
+        #cI = self.getVelocityCI()
+        #beta = self.BETA
+        #gamma = self.GAMMA
+        #pI = self.getPressureRegionI()
+        #pIV = self.getAnalyticPressureRegionIV()
+        #return pI - x + 2.0/(gamma-1.0)*cI*(1.0 - (pIV/pI)**(beta))
+
+        # next to (10.48), Wesseling P. # ~0.306 for Sod tube problem
+        gamma = self.GAMMA
+        pIV = self.getAnalyticPressureRegionIV()
+        pV = self.getPressureRegionV()
+        p = pIV/pV
+        cV = self.getVelocityCV()
+        return cV*(p-1.0)*(2.0/(gamma*(gamma-1.0+(gamma+1.0)*p)))**0.5
 
     def getVelocityRegionV(self):
         return self.UR
@@ -156,11 +186,17 @@ class SodTube():
     def getPressureRegionI(self):
         return self.PL
 
-    def getPressureRegionII(self):
-        pass
+    def getAnalyticPressureRegionII(self, x, t):
+        # (10.44) Wesssling P.
+        cI = self.getVelocityCI()
+        uII = self.getAnalyticVelocityRegionII(x, t)
+        pI = self.PL
+        gamma = self.GAMMA
+        beta = self.BETA
+        return pI*(1.0-(gamma-1.0)*uII/2/cI)**(1.0/beta)
 
-    def getPressureRegionIII(self):
-        return self.getPressureRegionIV()
+    def getAnalyticPressureRegionIII(self):
+        return self.getAnalyticPressureRegionIV() 
 
     def getAnalyticPressureRegionIV(self):
         return self.getAnalyticPressureRegionIVByNewton()
@@ -178,19 +214,34 @@ class SodTube():
     ### Density  ###
     ################
     def getDensityRegionI(self):
-        pass
+        return self.RHOL
 
-    def getDensityRegionII(self):
-        pass
+    def getAnalyticDensityRegionII(self, x,t):
+        # (10.45), Wesseling P.
+        gamma = self.GAMMA
+        rhoI = self.RHOL
+        pI = self.getPressureRegionI()
+        pII = self.getAnalyticPressureRegionII(x, t)
+        return rhoI*(pII/pI)**(1.0/gamma)
 
-    def getDensityRegionIII(self):
-        pass
+    def getAnalyticDensityRegionIII(self):
+        # P410, Wesseling P.
+        rhoI = self.getDensityRegionI()
+        pI = self.getPressureRegionI()
+        pIII = self.getAnalyticPressureRegionIII()
+        return rhoI*(pIII/pI)**(1.0/self.GAMMA)
 
-    def getDensityRegionIV(self):
-        pass
+    def getAnalyticDensityRegionIV(self):
+        # P410, Wesseling P.
+        alpha = self.ALPHA
+        pIV = self.getAnalyticPressureRegionIV()
+        pV = self.getPressureRegionV()
+        p = pIV/pV
+        rhoV = self.getDensityRegionV()
+        return rhoV*(1.0+alpha*p)/(alpha+p)
 
     def getDensityRegionV(self):
-        pass
+        return self.RHOR 
 
     def getCESESolution(self):
         return self.solution
