@@ -113,7 +113,12 @@ def pyext_coms(platform):
     if platform == 'darwin':
         pyext_linkcom += ' $_FRAMEWORKPATH $_FRAMEWORKS $FRAMEWORKSFLAGS'
         # XXX: dirty hack for OSX 10.9.
-        pyext_linkcom += ' -lpython%d.%d' % sys.version_info[:2]
+        pylibmain = 'python%d.%d' % sys.version_info[:2]
+        pyext_linkcom += ' -l%s' % pylibmain
+        srcname = 'lib%s.dylib' % pylibmain
+        dstname = '@executable_path/../lib/lib%s.dylib' % pylibmain
+        pyext_linkcom += '; install_name_tool -change %s %s $TARGET' % (
+            srcname, dstname)
 
     return pyext_cccom, pyext_cxxcom, pyext_linkcom
 
