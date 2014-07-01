@@ -30,7 +30,10 @@ cdef public:
     ctypedef struct sc_fake_algorithm_t:
         int neq
         double time, time_increment
-        double *sol, *soln, *dsol, *dsoln
+        double *sol
+        double *soln
+        double *dsol
+        double *dsoln
 
 from solvcon.mesh cimport Mesh
 cdef class FakeAlgorithm(Mesh):

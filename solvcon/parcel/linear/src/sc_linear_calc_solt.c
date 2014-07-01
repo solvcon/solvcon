@@ -32,8 +32,7 @@
 
 #include "mesh.h"
 #include "_algorithm.h"
-
-#define NEQ alg->neq
+#include "_algorithm_src.h"
 
 #undef NDIM
 #define NDIM 2

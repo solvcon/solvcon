@@ -52,9 +52,9 @@ sc_vewave_calc_cfl_2d
     char *jobvr = "N";
     // arrays.
     double wdir[NDIM];
-    double jacos[NEQ*NEQ*NDIM];
+    double jacos[NEQ][NEQ][NDIM];
     double jaco[NEQ][NEQ];
-    double fcn[NEQ][NEQ];
+    double fcn[NEQ][NDIM];
     double evcl[NEQ][NEQ], evcr[NEQ][NEQ];
     double wr[NEQ], wi[NEQ];
     double work[lwork];

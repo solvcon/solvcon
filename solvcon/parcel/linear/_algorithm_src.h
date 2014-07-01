@@ -1,5 +1,7 @@
+#ifndef __SC_LINEAR__ALGORITHM_SRC_H__
+#define __SC_LINEAR__ALGORITHM_SRC_H__
 /*
- * Copyright (c) 2008, Yung-Yu Chen <yyc@solvcon.net>
+ * Copyright (C) 2013 Po-Hsien Lin <lin.880@buckeyemail.osu.edu>.
  *
  * All rights reserved.
  *
@@ -28,17 +30,23 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <Python.h>
-
 #include "mesh.h"
 #include "_algorithm.h"
-#include "_algorithm_src.h"
+
+#define NEQ alg->neq
 
 #undef NDIM
 #define NDIM 2
-#include "sc_vewave_calc_soln.c_body"
+void sc_linear_calc_jaco_2d(sc_mesh_t *msd, sc_linear_algorithm_t *alg,
+    int icl, double fcn[NEQ][NDIM], double jacos[NEQ][NEQ][NDIM]);
+void sc_linear_calc_dif_2d(sc_mesh_t *msd, sc_linear_algorithm_t *alg,
+    int icl, double difs[NEQ][NDIM]);
 #undef NDIM
 #define NDIM 3
-#include "sc_vewave_calc_soln.c_body"
+void sc_linear_calc_jaco_3d(sc_mesh_t *msd, sc_linear_algorithm_t *alg,
+    int icl, double fcn[NEQ][NDIM], double jacos[NEQ][NEQ][NDIM]);
+void sc_linear_calc_dif_3d(sc_mesh_t *msd, sc_linear_algorithm_t *alg,
+    int icl, double difs[NEQ][NDIM]);
 
-// vim: set ts=4 et:
+// vim: set ft=c ts=4 et:
+#endif // __SC_LINEAR__ALGORITHM_SRC_H__

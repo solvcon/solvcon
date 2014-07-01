@@ -36,7 +36,9 @@ cdef public:
         int alpha, taylor
         double sigma0, cnbfac, sftfac, taumin, tauscale
         # metric array.
-        double *cecnd, *cevol, *sfmrc
+        double *cecnd
+        double *cevol
+        double *sfmrc
         # parameters.
         ## group data.
         int ngroup, gdlen
@@ -52,8 +54,14 @@ cdef public:
         ## constant parameters.
         double p0, rho0
         # solution array.
-        double *sol, *dsol, *solt, *soln, *dsoln
-        double *stm, *cfl, *ocfl
+        double *sol
+        double *dsol
+        double *solt
+        double *soln
+        double *dsoln
+        double *stm
+        double *cfl
+        double *ocfl
 
 from solvcon.mesh cimport Mesh
 cdef class BulkAlgorithm(Mesh):

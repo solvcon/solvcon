@@ -28,8 +28,6 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define lapack_dgeev dgeev_
-
 void 
 #if NDIM == 3
 sc_linear_calc_cfl_3d
@@ -51,9 +49,9 @@ sc_linear_calc_cfl_2d
     char *jobvr = "N";
     // arrays.
     double wdir[NDIM];
-    double jacos[NEQ*NEQ*NDIM];
+    double jacos[NEQ][NEQ][NDIM];
     double jaco[NEQ][NEQ];
-    double fcn[NEQ][NEQ];
+    double fcn[NEQ][NDIM];
     double evcl[NEQ][NEQ], evcr[NEQ][NEQ];
     double wr[NEQ], wi[NEQ];
     double work[lwork];
@@ -95,7 +93,7 @@ sc_linear_calc_cfl_2d
             wdir[2] /= dist;
 #endif
             // construct jacobian.
-            pjac = jacos;
+            pjac = (double *)jacos;
             for (ieq=0; ieq<NEQ; ieq++) {
                 for (jeq=0; jeq<NEQ; jeq++) {
                     jaco[jeq][ieq] = wdir[0]*pjac[0] + wdir[1]*pjac[1]

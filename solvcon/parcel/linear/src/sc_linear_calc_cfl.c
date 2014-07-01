@@ -32,8 +32,11 @@
 
 #include "mesh.h"
 #include "_algorithm.h"
+#include "_algorithm_src.h"
 
-#define NEQ alg->neq
+void dgeev_(char *, char *, int *, double *, int *, double *, double *,
+            double *, int *, double *, int *, double *, int *, int *);
+#define lapack_dgeev dgeev_
 
 #undef NDIM
 #define NDIM 2

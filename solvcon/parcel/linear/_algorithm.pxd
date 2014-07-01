@@ -36,7 +36,9 @@ cdef public:
         int alpha
         double sigma0, taylor, cnbfac, sftfac, taumin, tauscale
         # metric array.
-        double *cecnd, *cevol, *sfmrc
+        double *cecnd
+        double *cevol
+        double *sfmrc
         # parameters.
         ## group data.
         int ngroup, gdlen
@@ -48,8 +50,14 @@ cdef public:
         int nvec
         double *amvec
         # solution array.
-        double *sol, *dsol, *solt, *soln, *dsoln
-        double *stm, *cfl, *ocfl
+        double *sol
+        double *dsol
+        double *solt
+        double *soln
+        double *dsoln
+        double *stm
+        double *cfl
+        double *ocfl
 
 from solvcon.mesh cimport Mesh
 cdef class LinearAlgorithm(Mesh):

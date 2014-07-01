@@ -30,11 +30,21 @@ cdef public:
     ctypedef struct sc_mesh_t:
         int ndim, nnode, nface, ncell, nbound, ngstnode, ngstface, ngstcell
         # geometry.
-        double *ndcrd, *fccnd, *fcnml, *fcara, *clcnd, *clvol
+        double *ndcrd
+        double *fccnd
+        double *fcnml
+        double *fcara
+        double *clcnd
+        double *clvol
         # meta.
-        int *fctpn, *cltpn, *clgrp
+        int *fctpn
+        int *cltpn
+        int *clgrp
         # connectivity.
-        int *fcnds, *fccls, *clnds, *clfcs
+        int *fcnds
+        int *fccls
+        int *clnds
+        int *clfcs
 
     ctypedef struct sc_bound_t:
         int nbound, nvalue
