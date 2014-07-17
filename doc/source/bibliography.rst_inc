@@ -42,8 +42,4 @@ Bibliography
   `doi: 10.1016/j.wavemoti.2012.09.002
   <http://dx.doi.org/10.1016/j.wavemoti.2012.09.002>`__.
 
-.. [Sod78] Sod, G. A., "A Survey of Several Finite Difference Methods for
-  Systems of Nonlinear Hyperbolic Conservation Laws", *J. Comput. Phys.*,
-  27: 1–31.
-
 .. vim: set spell ft=rst ff=unix fenc=utf8:

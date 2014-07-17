@@ -47,3 +47,13 @@ Riemann problem
   \bvec{w} \defeq \left(\begin{array}{c}
     \rho \\ u
   \end{array}\right)
+
+============
+Bibliography
+============
+
+.. [Sod78] Sod, G. A., "A Survey of Several Finite Difference Methods for
+  Systems of Nonlinear Hyperbolic Conservation Laws", *J. Comput. Phys.*,
+  27: 1–31.
+
+.. vim: set spell ft=rst ff=unix fenc=utf8:
