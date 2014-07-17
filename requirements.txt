@@ -1,2 +1,4 @@
 numpy>=1.5
 sphinxcontrib-issuetracker>=0.11
+paramiko>=1.14
+boto>=2.29.1
