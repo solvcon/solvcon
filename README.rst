@@ -23,10 +23,12 @@ SOLVCON has the following dependencies: `gcc <http://gcc.gnu.org/>`_ 4.3+,
 1.5+, `LAPACK <http://www.netlib.org/lapack/>`_, `NetCDF
 <http://www.unidata.ucar.edu/software/netcdf/index.html>`_ 4+, `SCOTCH
 <http://www.labri.fr/perso/pelegrin/scotch/>`_ 6.0+, `Nose
-<https://nose.readthedocs.org/en/latest/>`_ 1.0+, `gmsh
-<http://geuz.org/gmsh/>`_ 2.5+, and `VTK <http://vtk.org/>`_ 5.6+.  You can
-install them by running the scripts ``aptget.*.sh`` (Debian/Ubuntu) or
-``conda.sh`` (`Miniconda <http://conda.pydata.org/miniconda.html>`__/`Anaconda
+<https://nose.readthedocs.org/en/latest/>`_ 1.0+, `Paramiko
+<https://github.com/paramiko/paramiko>`_ 1.14+, `boto
+<http://boto.readthedocs.org/>`_ 2.29.1+, `gmsh <http://geuz.org/gmsh/>`_ 2.5+,
+and `VTK <http://vtk.org/>`_ 5.6+.  You can install them by running the scripts
+``aptget.*.sh`` (Debian/Ubuntu) or ``conda.sh`` (`Miniconda
+<http://conda.pydata.org/miniconda.html>`__/`Anaconda
 <https://store.continuum.io/cshop/anaconda/>`__) provided in the ``contrib/``
 directory.
 

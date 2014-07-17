@@ -184,4 +184,8 @@ def go():
     if cmdcls == None:
         cmdcls = cmdregy['help']
     cmd = cmdcls(env)
-    cmd()
+    try:
+        cmd()
+    except Exception as e:
+        e.args = ['%s.__call__()' % cmdcls.__name__] + list(e.args)
+        raise

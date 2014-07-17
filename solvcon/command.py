@@ -32,7 +32,248 @@
 Commands for users.
 """
 
+
+import time
+import itertools
+
+import boto.ec2
+
+from . import cloud
+from . import helper
+
 from .cmdutil import Command
+
+
+class Aws(Command):
+    """
+    Common optionts for controlling Amazon Web Service cloud machines.
+    """
+
+    def __init__(self, env):
+        from optparse import OptionGroup
+        super(Aws, self).__init__(env)
+        op = self.op
+        opg = OptionGroup(op, 'AWS Common')
+        opg.add_option(
+            "-r", "--region", action="store", default="us-west-2",
+            help="Region (default: \"%default\").")
+        opg.add_option(
+            "-t", "--tag", action="store", default="",
+            help="Tag (default: \"%default\").")
+        opg.add_option(
+            "-k", "--keyname", action="store", default="",
+            help="Key name (default: \"%default\").")
+        opg.add_option(
+            "-u", "--username", action="store", default="ec2-user",
+            help="User name (default: \"%default\").")
+        opg.add_option(
+            "--access-key-id", action="store", default=None,
+            help="AWS access key ID (default: \"%default\").")
+        opg.add_option(
+            "--secret-access-key", action="store", default=None,
+            help="AWS secret access key (default: \"%default\").")
+        op.add_option_group(opg)
+        self.opg_aws_common = opg
+
+    @staticmethod
+    def instance_information(inst, status):
+        msgs = ["%s: %s" % (inst.id, status)]
+        msgs.append("DNS: %s" % inst.public_dns_name)
+        msgs.append("itype: %s" % inst.instance_type)
+        return msgs
+
+
+class alaunch(Aws):
+    """
+    Launch an AWS EC2 machine.
+    """
+
+    min_args = 0
+
+    def __init__(self, env):
+        from optparse import OptionGroup
+        super(alaunch, self).__init__(env)
+        op = self.op
+        opg = OptionGroup(op, 'AWS Launch')
+        opg.add_option(
+            "--ami", action="store", default="ami-77d7a747",
+            help="Amazon Machine Image (default: \"%default\").")
+        opg.add_option(
+            "--osfamily", action="store", default="RHEL",
+            help="Operating system family (default: \"%default\").")
+        opg.add_option(
+            "--instance-type", action="store", default="t2.micro",
+            help="Instance type (default: \"%default\").")
+        opg.add_option(
+            "--security-group", action="store", default="everywhere",
+            help="Security group (default: \"%default\").")
+        op.add_option_group(opg)
+        self.opg_aws_launch = opg
+
+    @staticmethod
+    def launch_instance(ops):
+        conn = boto.ec2.connect_to_region(
+            ops.region, aws_access_key_id=ops.access_key_id,
+            aws_secret_access_key=ops.secret_access_key)
+        reservation = conn.run_instances(
+            ops.ami, key_name=ops.keyname, instance_type=ops.instance_type,
+            security_groups=[ops.security_group])
+        instance = reservation.instances[0]
+
+        helper.info('Waiting for instance to start:\n')
+        status = instance.update()
+        while status == 'pending':
+            time.sleep(10)
+            status = instance.update()
+        if status == 'running':
+            helper.info('New instance "%s" accessible at %s\n' % (
+                instance.id, instance.public_dns_name))
+        else:
+            helper.info('Instance status: %s\n' % status)
+
+        return instance
+
+    def __call__(self):
+        ops, args = self.opargs
+
+        instance = self.launch_instance(ops)
+        host = cloud.AwsHost(instance, ops.username, ops.osfamily)
+        host.connect()
+
+        if args:
+            with open(args[0]) as stream:
+                exec(stream.read())
+
+
+class arun(Aws):
+    """
+    Run commands on an AWS EC2 host.
+    """
+
+    min_args = 2
+
+    def __init__(self, env):
+        from optparse import OptionGroup
+        super(arun, self).__init__(env)
+        op = self.op
+        opg = OptionGroup(op, 'AWS Run')
+        opg.add_option(
+            "--osfamily", action="store", default="RHEL",
+            help="Operating system family (default: \"%default\").")
+        op.add_option_group(opg)
+        self.opg_aws_run = opg
+
+    def __call__(self):
+        ops, args = self.opargs
+
+        conn = boto.ec2.connect_to_region(
+            ops.region, aws_access_key_id=ops.access_key_id,
+            aws_secret_access_key=ops.secret_access_key)
+        inst = conn.get_only_instances(instance_ids=args[:1])[0]
+        host = cloud.AwsHost(inst, ops.username, ops.osfamily)
+        host.connect()
+
+        with open(args[1]) as stream:
+            exec(stream.read())
+
+
+class alist(Aws):
+    """
+    List all AWC EC2 instances.
+    """
+
+    min_args = 0
+
+    def __init__(self, env):
+        from optparse import OptionGroup
+        super(alist, self).__init__(env)
+        op = self.op
+        opg = OptionGroup(op, 'AWS List')
+        opg.add_option(
+            "--reveal", action="store_true", default=False,
+            help="Reveal terminated instances (default: \"%default\").")
+        op.add_option_group(opg)
+        self.opg_aws_list = opg
+
+    def __call__(self):
+        ops, args = self.opargs
+
+        conn = boto.ec2.connect_to_region(
+            ops.region, aws_access_key_id=ops.access_key_id,
+            aws_secret_access_key=ops.secret_access_key)
+        reservations = conn.get_all_reservations()
+        instances = itertools.chain(*(r.instances for r in reservations))
+        instances = list(instances)
+        if instances:
+            helper.info("%d instances:\n" % len(instances))
+            nhidden = 0
+            for ins in instances:
+                status = ins.update()
+                msgs = self.instance_information(ins, status)
+                if status == "terminated":
+                    nhidden += 1
+                    if not ops.reveal:
+                        continue
+                helper.info("\n  ".join(msgs) + "\n")
+            if not ops.reveal:
+                helper.info(
+                    "%d terminated instances are hidden from output.\n" %
+                    nhidden)
+        else:
+            helper.info("No instance.\n")
+
+class astop(Aws):
+    """
+    Stop AWS EC2 instance.
+    """
+
+    min_args = 1
+
+    def __init__(self, env):
+        from optparse import OptionGroup
+        super(astop, self).__init__(env)
+        op = self.op
+        opg = OptionGroup(op, 'AWS Stop')
+        opg.add_option(
+            "--force", action="store_true", default=False,
+            help="Force action (default: \"%(default)s\").")
+        op.add_option_group(opg)
+        self.opg_aws_stop = opg
+
+    def __call__(self):
+        ops, args = self.opargs
+
+        conn = boto.ec2.connect_to_region(
+            ops.region, aws_access_key_id=ops.access_key_id,
+            aws_secret_access_key=ops.secret_access_key)
+        instances = conn.get_only_instances(instance_ids=args)
+        for inst in instances:
+            status = inst.update()
+            msgs = self.instance_information(inst, status)
+            helper.info("Stopping " + "\n  ".join(msgs) + "\n")
+            inst.stop(force=ops.force)
+
+
+class aterminate(Aws):
+    """
+    Terminate AWS EC2 instance.
+    """
+
+    min_args = 1
+
+    def __call__(self):
+        ops, args = self.opargs
+
+        conn = boto.ec2.connect_to_region(
+            ops.region, aws_access_key_id=ops.access_key_id,
+            aws_secret_access_key=ops.secret_access_key)
+        instances = conn.get_only_instances(instance_ids=args)
+        for inst in instances:
+            status = inst.update()
+            msgs = self.instance_information(inst, status)
+            helper.info("Terminating " + "\n  ".join(msgs) + "\n")
+            inst.terminate()
+
 
 class mpi(Command):
     """
