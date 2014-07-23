@@ -75,7 +75,7 @@ class AwsHostSetting(collections.namedtuple("AwsHostSetting", _AWSHOSTINFOKEYS))
     ...                       osfamily="RHEL", username="ec2-user")
     >>> info # doctest: +NORMALIZE_WHITESPACE
     AwsHostSetting(region='us-west-2', ami='ami-77d7a747', osfamily='RHEL',
-    username='ec2-user', instance_type='t2.micro', security_groups=['default'])
+    username='ec2-user', instance_type='t2.micro', security_groups=('default',))
     >>> info.osfamily = "Debian"
     Traceback (most recent call last):
         ...
