@@ -41,12 +41,57 @@ Eular equations domain the physics part.
 Riemann problem
 ---------------
 
-.. math::
-  :label: riemannproblem
+The nonlinear hyperbolic system of PDEs :eq:`riemannproblem.pde`
+and the picewise-defined function :eq:`riemannproblem.piecewise`
+define the Riemann problem.
 
-  \bvec{w} \defeq \left(\begin{array}{c}
-    \rho \\ u
+.. math::
+  :label: riemannproblem.pde
+
+  \dpd{\bvec{U}}{t}
+  + \dpd{\bvec{F(\bvec{U})}}{x}
+  = 0
+
+
+.. math::
+  :label: riemannproblem.piecewise
+
+  \bvec{U} \defeq \left(\begin{array}{c}
+    \rho_L \\ u_L
   \end{array}\right)
+  \text{ for }
+  x <= 0
+  \text{ and }
+  \bvec{U} \defeq \left(\begin{array}{c}
+    \rho_R \\ u_R
+  \end{array}\right)
+  \text{ for }
+  x > 0
+
+Eular equations in gas dynamic
+------------------------------
+
+Eular equations are one of the hyperbolic systems of PDEs
+:eq:`riemannproblem.pde`. They represent mass conservation
+:eq:`eular.gasdyn.mass`, momentum conservation :eq:`eular.gasdyn.momentum`,
+and energy conservation :eq:`eular.gasdyn.energy`.
+
+.. math::
+  :label: eular.gasdyn.mass
+
+  \dpd{\rho}{t} + \dpd{{\rho}{v}}{x} = 0
+
+.. math::
+  :label: eular.gasdyn.momentum
+
+  \dpd{\rho{v}}{t} + \dpd{(p+\rho{v^2})}{x} = 0
+
+.. math::
+  :label: eular.gasdyn.energy
+
+  \dpd{(\frac{p}{\gamma-1} + \frac{\rho{v^2}}{2})}{t}
+  + \dpd{(\frac{\gamma}{\gamma-1}pv+\frac{1}{2}\rho{v^3})}{x}
+  = 0
 
 ============
 Bibliography
