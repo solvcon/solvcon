@@ -33,8 +33,10 @@ Commands for users.
 """
 
 
+import os.path
 import time
 import itertools
+import optparse
 
 import boto.ec2
 
@@ -55,7 +57,10 @@ class Aws(Command):
         op = self.op
         opg = OptionGroup(op, 'AWS Common')
         opg.add_option(
-            "-r", "--region", action="store", default="us-west-2",
+            "-n", "--regname", action="store", default="",
+            help="AWS host setting (default: \"%default\").")
+        opg.add_option(
+            "-r", "--region", action="store", default="",
             help="Region (default: \"%default\").")
         opg.add_option(
             "-t", "--tag", action="store", default="",
@@ -64,7 +69,7 @@ class Aws(Command):
             "-k", "--keyname", action="store", default="",
             help="Key name (default: \"%default\").")
         opg.add_option(
-            "-u", "--username", action="store", default="ec2-user",
+            "-u", "--username", action="store", default="",
             help="User name (default: \"%default\").")
         opg.add_option(
             "--access-key-id", action="store", default=None,
@@ -82,6 +87,14 @@ class Aws(Command):
         msgs.append("itype: %s" % inst.instance_type)
         return msgs
 
+    @staticmethod
+    def run_script(host, name):
+        if os.path.isfile(name):
+            with open(name) as stream:
+                exec(stream.read())
+        elif name in cloud.__all__:
+            obj = getattr(cloud, name)()
+            
 
 class alaunch(Aws):
     """
@@ -96,28 +109,58 @@ class alaunch(Aws):
         op = self.op
         opg = OptionGroup(op, 'AWS Launch')
         opg.add_option(
-            "--ami", action="store", default="ami-77d7a747",
+            "--ami", action="store", default="",
             help="Amazon Machine Image (default: \"%default\").")
         opg.add_option(
-            "--osfamily", action="store", default="RHEL",
+            "--osfamily", action="store", default="",
             help="Operating system family (default: \"%default\").")
         opg.add_option(
-            "--instance-type", action="store", default="t2.micro",
+            "--instance-type", action="store", default="",
             help="Instance type (default: \"%default\").")
         opg.add_option(
-            "--security-group", action="store", default="everywhere",
-            help="Security group (default: \"%default\").")
+            "--security-groups", action="store", default="",
+            help="Security groups (comma-separated list; default: \"%default\").")
         op.add_option_group(opg)
         self.opg_aws_launch = opg
 
     @staticmethod
-    def launch_instance(ops):
+    def parse_security_groups(option, opt_str, value, parser):
+        parser.values.security_groups = opt_str.split(",")
+
+    @staticmethod
+    def determine_setting(ops):
+        """
+        Retrieve settings from :py:class:`AwsHostSetting`.
+        """
+        def update_kws(dct, src):
+            for key in dct:
+                value = getattr(src, key, "")
+                if value:
+                    dct[key] = value
+        instkws = ("region", "ami", "instance_type", "security_groups")
+        instkws = dict((key, None) for key in instkws)
+        ahs = cloud.ahregy[ops.regname]
+        update_kws(instkws, ahs)
+        update_kws(instkws, ops)
+        sg = instkws["security_groups"]
+        if isinstance(sg, basestring):
+            instkws["security_groups"] = tuple(sg.split(","))
+        return ahs._replace(**instkws)
+
+    @staticmethod
+    def launch_instance(ops, ahs):
+        region = ahs.region
+        ami = ahs.ami
+        instkws = dict((key, getattr(ahs, key)) for key in 
+                       ("instance_type", "security_groups"))
+
+        helper.info('Launching in region %s with AMI ID %s:\n' % (region, ami))
+        helper.info('  instance_type=%s, security_groups=%s\n' % (
+            ahs.instance_type, ahs.security_groups))
         conn = boto.ec2.connect_to_region(
-            ops.region, aws_access_key_id=ops.access_key_id,
+            region, aws_access_key_id=ops.access_key_id,
             aws_secret_access_key=ops.secret_access_key)
-        reservation = conn.run_instances(
-            ops.ami, key_name=ops.keyname, instance_type=ops.instance_type,
-            security_groups=[ops.security_group])
+        reservation = conn.run_instances(ami, key_name=ops.keyname, **instkws)
         instance = reservation.instances[0]
 
         helper.info('Waiting for instance to start:\n')
@@ -136,13 +179,14 @@ class alaunch(Aws):
     def __call__(self):
         ops, args = self.opargs
 
-        instance = self.launch_instance(ops)
-        host = cloud.AwsHost(instance, ops.username, ops.osfamily)
+        ahs = self.determine_setting(ops)
+        instance = self.launch_instance(ops, ahs)
+        host = cloud.AwsHost(instance, ahs)
         host.connect()
+        host.install_minimal()
 
         if args:
-            with open(args[0]) as stream:
-                exec(stream.read())
+            self.run_script(host, args[0])
 
 
 class arun(Aws):
@@ -173,8 +217,7 @@ class arun(Aws):
         host = cloud.AwsHost(inst, ops.username, ops.osfamily)
         host.connect()
 
-        with open(args[1]) as stream:
-            exec(stream.read())
+        self.run_script(host, args[1])
 
 
 class alist(Aws):
@@ -197,6 +240,8 @@ class alist(Aws):
 
     def __call__(self):
         ops, args = self.opargs
+        if not ops.region:
+            raise ValueError("region is empty")
 
         conn = boto.ec2.connect_to_region(
             ops.region, aws_access_key_id=ops.access_key_id,
@@ -221,6 +266,7 @@ class alist(Aws):
                     nhidden)
         else:
             helper.info("No instance.\n")
+
 
 class astop(Aws):
     """

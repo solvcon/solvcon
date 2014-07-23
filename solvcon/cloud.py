@@ -34,6 +34,7 @@ Cloud controlling tools.
 
 
 import os
+import collections
 
 import boto.ec2
 import paramiko as ssh
@@ -47,14 +48,105 @@ __all__ = ['AwsHost']
 class OperatingSystem(object):
     FAMILIES = ("RHEL", "Suse", "Debian", "Ubuntu")
 
+    PACKAGE_INSTALL_COMMAND = {
+        "RHEL": "yum install -y",
+        "Debian": "apt-get install -y",
+        "Ubuntu": "apt-get install -y",
+    }
+
     def __init__(self, family):
         assert family in self.FAMILIES
         self.family = family
+        self.package_install_command = self.PACKAGE_INSTALL_COMMAND[family]
+
+
+#: Tuple keys of :py:class:`AwsHostSetting`.
+_AWSHOSTINFOKEYS = ("region", "ami", "osfamily", "username",
+                    "instance_type", "security_groups")
+
+class AwsHostSetting(collections.namedtuple("AwsHostSetting", _AWSHOSTINFOKEYS)):
+    """
+    Collection of AWS host information.
+
+    Filling information into the class :py:class:`AwsHostSetting`.  The filled
+    data will become read-only.
+
+    >>> info = AwsHostSetting(region="us-west-2", ami="ami-77d7a747",
+    ...                       osfamily="RHEL", username="ec2-user")
+    >>> info # doctest: +NORMALIZE_WHITESPACE
+    AwsHostSetting(region='us-west-2', ami='ami-77d7a747', osfamily='RHEL',
+    username='ec2-user', instance_type='t2.micro', security_groups=['default'])
+    >>> info.osfamily = "Debian"
+    Traceback (most recent call last):
+        ...
+    AttributeError: can't set attribute
+
+    Positional arguments aren't allowed:
+
+    >>> info = AwsHostSetting("us-west-2", "ami-77d7a747", "RHEL", "ec2-user")
+    Traceback (most recent call last):
+        ...
+    KeyError: "positional arguments aren't allowed"
+    """
+
+    #: Allowed OS families.
+    _OSFAMILIES = ("RHEL", "Ubuntu", "Debian")
+
+    #: Mapping to the package installation command for each of the OS families.
+    _PINSTCMD = {
+        "RHEL": "yum install -y",
+        "Ubuntu": "apt-get install -y",
+        "Debian": "apt-get install -y",
+    }
+
+    #: Minimal packages.
+    _MINPKGS = {
+        "RHEL": "mercurial git vim ctags wget screen bzip2 patch".split(),
+        "Ubuntu": "mercurial git vim ctags wget screen bzip2 patch".split(),
+        "Debian": "mercurial git vim ctags wget screen bzip2 patch".split(),
+    }
+
+    def __new__(cls, *args, **kw):
+        # Disallow positional arguments.
+        if args:
+            raise KeyError("positional arguments aren't allowed")
+        # Sanitize osfamily.
+        osfamily = kw['osfamily']
+        if osfamily not in cls._OSFAMILIES:
+            fam = ", ".join("\"%s\"" % fam for fam in cls._OSFAMILIES)
+            raise ValueError("osfamily \"%s\" not in %s" % (osfamily, fam))
+        # Set default values.
+        kw.setdefault("instance_type", "t2.micro")
+        kw.setdefault("security_groups", ("default",))
+        # Make up arguments.
+        args = tuple(kw[key] for key in cls._fields)
+        # Create the object.
+        obj = super(AwsHostSetting, cls).__new__(cls, *args)
+        # Return the object.
+        return obj
 
     @property
-    def package_install_command(self):
-        if "RHEL" == self.family:
-            return "yum install -y"
+    def pinstcmd(self):
+        return self._PINSTCMD[self.osfamily]
+
+    @property
+    def minpkgs(self):
+        return self._MINPKGS[self.osfamily]
+
+
+class AwsHostRegistry(dict):
+    @classmethod
+    def populate(cls):
+        regy = cls()
+        regy["RHEL64"] = AwsHostSetting(region="us-west-2", ami="ami-77d7a747",
+                                        osfamily="RHEL", username="ec2-user")
+        regy["trusty64"] = AwsHostSetting(
+            region="us-west-2", ami="ami-d34032e3",
+            osfamily="Ubuntu", username="ubuntu")
+        regy[""] = regy["trusty64"]
+        return regy
+
+ahregy = AwsHostRegistry.populate()
 
 
 class AwsHost(object):
@@ -62,13 +154,11 @@ class AwsHost(object):
     Abstraction for actions toward an AWS EC2 host.
     """
 
-    def __init__(self, instance, username, osfamily):
+    def __init__(self, instance, setting):
         #: :py:class:`boto.ec2.instance.Instance` for the host.
         self.instance = instance
-        #: :py:class:`str` for the user name to the host.
-        self.username = username
-        #: :py:class:`OperatingSystem`.
-        self.opsys = OperatingSystem(osfamily)
+        #: :py:class:`AwsHostSetting` for read-only AWS EC2 settings.
+        self.setting = setting
         #: :py:class:`paramiko.client.SSHClient` to command the remote host.
         self.cli = None
         def default_keyfn_getter(keyname):
@@ -83,7 +173,7 @@ class AwsHost(object):
         self.cli.load_system_host_keys()
         self.cli.set_missing_host_key_policy(ssh.client.AutoAddPolicy())
         self.cli.connect(self.instance.public_dns_name,
-                         username=self.username,
+                         username=self.setting.username,
                          key_filename=self.keyname2fn(self.instance.key_name),
                          allow_agent=True)
         return self.cli
@@ -111,10 +201,13 @@ class AwsHost(object):
         return data
 
     def install(self, packages):
-        manager = self.opsys.package_install_command
+        manager = self.setting.pinstcmd
         if not isinstance(packages, basestring):
             packages = " ".join(packages)
         self.run("%s %s" % (manager, packages), sudo=True)
+
+    def install_minimal(self):
+        self.install(self.setting.minpkgs)
 
     def hgclone(self, path, sshcmd="", **kw):
         cmd = "hg clone"
