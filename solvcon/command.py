@@ -142,7 +142,12 @@ class alaunch(Aws):
             help="Instance type (default: \"%default\").")
         opg.add_option(
             "--security-groups", action="store", default="",
-            help="Security groups (comma-separated list; default: \"%default\").")
+            help="Security groups "
+                 "(comma-separated list; default: \"%default\").")
+        opg.add_option(
+            "--retries", action="store", default=5, type=int,
+            help="Retries on post-launch SSH connection "
+                 "(default: \"%default\").")
         op.add_option_group(opg)
         self.opg_aws_launch = opg
 
@@ -185,7 +190,7 @@ class alaunch(Aws):
         ahs = self.determine_host_setting(ops)
         instance = self.launch_instance(ops, ahs)
         host = cloud.AwsHost(instance, ahs)
-        left = 5
+        left = ops.retries
         while left:
             left -= 1
             try:
