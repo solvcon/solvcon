@@ -37,6 +37,8 @@ import os.path
 import time
 import itertools
 import optparse
+import socket
+import errno
 
 import boto.ec2
 
@@ -79,6 +81,27 @@ class Aws(Command):
             help="AWS secret access key (default: \"%default\").")
         op.add_option_group(opg)
         self.opg_aws_common = opg
+
+    @staticmethod
+    def determine_host_setting(ops):
+        """
+        Retrieve settings from :py:class:`AwsHostSetting`.
+        """
+        def update_kws(dct, src):
+            for key in dct:
+                value = getattr(src, key, "")
+                if value:
+                    dct[key] = value
+        instkws = ("region", "ami", "username",
+                   "instance_type", "security_groups")
+        instkws = dict((key, None) for key in instkws)
+        ahs = cloud.ahregy[ops.regname]
+        update_kws(instkws, ahs)
+        update_kws(instkws, ops)
+        sg = instkws["security_groups"]
+        if isinstance(sg, basestring):
+            instkws["security_groups"] = tuple(sg.split(","))
+        return ahs._replace(**instkws)
 
     @staticmethod
     def instance_information(inst, status):
@@ -128,26 +151,6 @@ class alaunch(Aws):
         parser.values.security_groups = opt_str.split(",")
 
     @staticmethod
-    def determine_setting(ops):
-        """
-        Retrieve settings from :py:class:`AwsHostSetting`.
-        """
-        def update_kws(dct, src):
-            for key in dct:
-                value = getattr(src, key, "")
-                if value:
-                    dct[key] = value
-        instkws = ("region", "ami", "instance_type", "security_groups")
-        instkws = dict((key, None) for key in instkws)
-        ahs = cloud.ahregy[ops.regname]
-        update_kws(instkws, ahs)
-        update_kws(instkws, ops)
-        sg = instkws["security_groups"]
-        if isinstance(sg, basestring):
-            instkws["security_groups"] = tuple(sg.split(","))
-        return ahs._replace(**instkws)
-
-    @staticmethod
     def launch_instance(ops, ahs):
         region = ahs.region
         ami = ahs.ami
@@ -179,10 +182,25 @@ class alaunch(Aws):
     def __call__(self):
         ops, args = self.opargs
 
-        ahs = self.determine_setting(ops)
+        ahs = self.determine_host_setting(ops)
         instance = self.launch_instance(ops, ahs)
         host = cloud.AwsHost(instance, ahs)
-        host.connect()
+        left = 5
+        while left:
+            left -= 1
+            try:
+                host.connect()
+            except socket.error as e:
+                if (e.errno == errno.ECONNREFUSED and left):
+                    secs = 10.
+                    msg = "Connection refused. "
+                    msg += "Retry in %g seconds (%d times left)\n"
+                    msg = msg % (secs, left)
+                    helper.info(msg)
+                    time.sleep(secs)
+                else:
+                    helper.info("Connection refused.\n")
+                    raise
         host.install_minimal()
 
         if args:
@@ -209,12 +227,13 @@ class arun(Aws):
 
     def __call__(self):
         ops, args = self.opargs
+        ahs = self.determine_host_setting(ops)
 
         conn = boto.ec2.connect_to_region(
-            ops.region, aws_access_key_id=ops.access_key_id,
+            ahs.region, aws_access_key_id=ops.access_key_id,
             aws_secret_access_key=ops.secret_access_key)
         inst = conn.get_only_instances(instance_ids=args[:1])[0]
-        host = cloud.AwsHost(inst, ops.username, ops.osfamily)
+        host = cloud.AwsHost(inst, ahs)
         host.connect()
 
         self.run_script(host, args[1])
