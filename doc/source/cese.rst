@@ -193,6 +193,8 @@ From the left (:math:`x<0`) to the right (:math:`x>0`) of the diaphragm.
 
   * There is no boundary of the tube,so the status is always :math:`\bvec{U_R}`
 
+To derive the analytic solution, we will begin from the region 4 to get
+:math:`\bvec{u_4}`, then :math:`\bvec{u_3}` and finally `\bvec{u_2}`.
 
 ============
 Bibliography
