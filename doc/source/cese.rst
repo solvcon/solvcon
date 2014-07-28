@@ -8,73 +8,21 @@ solving linear and nonlinear first-order hyperbolic partial differential
 equations (PDEs).  The method was originally developed for solving aerodynamic
 problems [Chang95]_.
 
-Reliability
-===========
+Verification by the Euler Equations
+===================================
 
-A classic example to verify whether an CFD algorithm is well-developed and
-robust is the Sod shock tube problem.
-The Sod shock tube problem is named after Gary A. Sod who proposed and
-investigate the problem heavily in 1978 [Sod78]_.
-In the following we are going to introduce the Sod tube problem in detail.
+A classic example to verify whether a CFD algorithm the Sod shock tube problem
+[Sod78]_.  We will introduce this problem in what follows.
 
-Analytic solution
-+++++++++++++++++
+Sod's Shock Tube Problem
+++++++++++++++++++++++++
 
-In short,
-
-.. math::
-
-  \text{Sod shocktube problem} = \text{shock tube problem} + \text{Sod's initial condition}
-
-A shock tube problem is a well-defined problem and has an analytic solution.
+In short, a shock tube problem is a Riemann problem with the Euler equations.
 This is a good benchmark to compare different CFD algorithm results.
 
-Form the point of physics and mathematics view, we will say
-
-.. math::
-
-  \text{shock tube problem} = \text{Riemann problem} + \text{Eular equations in gas dynamic}
-
-where Riemann problem takes over the mathematics part and
-Eular equations domain the physics part.
-
-Riemann problem
----------------
-
-The nonlinear hyperbolic system of PDEs :eq:`riemannproblem.pde`
-and the piecewise-defined function :eq:`riemannproblem.piecewise`
-define the Riemann problem.
-
-.. math::
-  :label: riemannproblem.pde
-
-  \dpd{\bvec{U}}{t}
-  + \dpd{\bvec{F(\bvec{U})}}{x}
-  = 0
-
-
-.. math::
-  :label: riemannproblem.piecewise
-
-  \bvec{U} \defeq \left(\begin{array}{c}
-    \rho_L \\ u_L \\ p_L
-  \end{array}\right)
-  \text{ for }
-  x <= 0
-  \text{ and }
-  \bvec{U} \defeq \left(\begin{array}{c}
-    \rho_R \\ u_R \\ p_R
-  \end{array}\right)
-  \text{ for }
-  x > 0
-
-Eular equations in gas dynamic
-------------------------------
-
-Eular equations are one of the hyperbolic systems of PDEs
-:eq:`riemannproblem.pde`. They represent mass conservation
-:eq:`eular.gasdyn.mass`, momentum conservation :eq:`eular.gasdyn.momentum`,
-and energy conservation :eq:`eular.gasdyn.energy`.
+The Euler equations consist of conservation of mass (Eq.
+:eq:`eular.gasdyn.mass`), of momentum (Eq. :eq:`eular.gasdyn.momentum`), and of
+energy (Eq. :eq:`eular.gasdyn.energy`).
 
 .. math::
   :label: eular.gasdyn.mass
@@ -89,112 +37,123 @@ and energy conservation :eq:`eular.gasdyn.energy`.
 .. math::
   :label: eular.gasdyn.energy
 
-  \dpd{(\frac{p}{\gamma-1} + \frac{\rho{v^2}}{2})}{t}
-  + \dpd{(\frac{\gamma}{\gamma-1}pv+\frac{1}{2}\rho{v^3})}{x}
+  \dpd{}{t}\left(\frac{p}{\gamma-1} + \frac{\rho{v^2}}{2}\right)
+  + \dpd{}{x}\left(\frac{\gamma}{\gamma-1}pv+\frac{1}{2}\rho{v^3}\right)
   = 0
 
-If
+By defining
 
 .. math::
   :label: eular.gasdyn.u
 
-  \bvec{U}
+  \bvec{u}
   =
   \left(\begin{array}{c}
     u_1 \\ u_2 \\ u_3
   \end{array}\right)
   \defeq
   \left(\begin{array}{c}
-    \rho_1 \\ \rho_2 \\ \rho_3
+    \rho \\ \rho v \\
+    \rho\left(\frac{1}{\gamma-1}\frac{p}{\rho} + \frac{v^2}{2}\right)
   \end{array}\right)
 
 .. math::
   :label: eular.gasdyn.f
 
-  \bvec{F}
+  \bvec{f}
   =
   \left(\begin{array}{c}
     f_1 \\ f_2 \\ f_3
   \end{array}\right)
   \defeq
   \left(\begin{array}{c}
-    {\rho}{v} \\ {(p+\rho{v^2})} \\ {(\frac{\gamma}{\gamma-1}pv+\frac{1}{2}\rho{v^3})}
+    u_2 \\ (\gamma-1)u_3 - \frac{\gamma-3}{2}\frac{u_2^2}{u_1} \\
+    \gamma\frac{u_2u_3}{u_1} - \frac{\gamma-1}{2}\frac{u_2^3}{u_1^2}
   \end{array}\right)
 
-Equation :eq:`eular.gasdyn.mass`, :eq:`eular.gasdyn.momentum` and
-:eq:`eular.gasdyn.energy` could be written as `riemannproblem.pde`. 
+we can rewrite Eqs. :eq:`eular.gasdyn.mass`, :eq:`eular.gasdyn.momentum`, and
+:eq:`eular.gasdyn.energy` in a general form for nonlinear hyperbolic PDEs:
 
-1D Sod's shock tube problem
----------------------------
+.. math::
+  :label: riemannproblem.pde
 
-In :eq:`riemannproblem.piecewise`, if we introduce Sod's conditions in
-the one-dimension(1D) shock tube problem.
+  \dpd{\bvec{u}}{t} + \dpd{\bvec{f}(\bvec{u})}{x} = 0
+
+The initial condition of the Riemann problem is defined as:
+
+.. math::
+  :label: riemannproblem.piecewise
+
+  \bvec{u} = \left(\begin{array}{c}
+    \rho_L \\ u_L \\ p_L
+  \end{array}\right)
+  \text{ for }
+  x <= 0
+  \text{ and }
+  \bvec{u} = \left(\begin{array}{c}
+    \rho_R \\ u_R \\ p_R
+  \end{array}\right)
+  \text{ for }
+  x > 0
+
+By using Eq. :eq:`riemannproblem.piecewise`, Sod's initial conditions can be
+set as:
 
 .. math::
   :label: sod.conditions
 
-  \bvec{U} 
-  \defeq
+  \bvec{u} 
+  =
   \left(\begin{array}{c}
     1 \\ 0 \\ 1
   \end{array}\right)
-  \defeq
-  \bvec{U_L}
+  \defeq \bvec{u}_L
   \text{ for }
   x <= 0
   \text{ and }
-  \bvec{U}
-  \defeq
+  \bvec{u}
+  =
   \left(\begin{array}{c}
     0.125 \\ 0 \\ 0.1
   \end{array}\right)
-  \defeq
-  \bvec{U_R}
+  \defeq \bvec{u}_R
   \text{ for }
   x > 0
   \text{at } t=0
 
-and :math:`\bvec{U}` and :math:`\bvec{F}` obey Eular equations,
-this is called Sod's shock tube problem. The physical image could be
-there is a diaphragm, which ideal gas with the status :math:`\bvec{U_L}`
-in the left-hand side of the diaphragm, ideal gas with the status
-:math:`\bvec{U_R}` in the right-hand side. How does the status evolve
-after the diaphragm disappears all of a sudden, say at :math:`t>0`
+We divide the solution of the problem in "5 zones".  From the left
+(:math:`x<0`) to the right (:math:`x>0`) of the diaphragm.
 
-We describe the Sod shock tube at :math:`t>0` in "5 zones".
-From the left (:math:`x<0`) to the right (:math:`x>0`) of the diaphragm.
+- Region I
 
-* Region 1
+  - There is no boundary of the tube.  The status is always :math:`\bvec{u}_L`.
 
-  * There is no boundary of the tube,so the status is always :math:`\bvec{U_L}`
+- Region II
 
-* Region 2
-
-  * The status is linear combination of the sound in the region 2 and
-    the rarefaction wave. And the status is continuous from the region 1
-    to the region 3. For example, the velocity in the region 3, :math:`u_3`,
-    continues to decrease to be the velocity in the region 1,
-    :math:`u_1=0`.
-
-* Region 3
+  - Rarefaction wave.  The status is continuous from the region 1 to the region
+    3.
   
-  * In the shock "pocket", there is "no more shock" and the hyperbolic
-    PDE :eq:`riemannproblem.pde` told us :math:`u_3=u_4=\text{Reimann-invariants}`.
-    Together with Rankine-Hugoniot conditions, we know :math:`p_3=p_4` and
-    the density is discontinuous.
+- Region III
+  
+  - In the shock "pocket", there is "no more shock" and the hyperbolic PDE
+    :eq:`riemannproblem.pde` told us :math:`u_{\mathrm{III}}=u_{\mathrm{IV}}`
+    are Riemann invariants.  Together with Rankine-Hugoniot conditions, we know
+    :math:`p_{\mathrm{III}}=p_{\mathrm{IV}}` and the density is not continuous.
 
-* Region 4
+- Region IV
 
-  * Because of the expansion of the shock, there is shock discontinuity.
+  - Because of the expansion of the shock, there is shock discontinuity.
     The discontinuity status could be determined by Rankine-Hugoniot conditions
     [Wesselling01]_.
 
-* Region 5
+- Region V
 
-  * There is no boundary of the tube,so the status is always :math:`\bvec{U_R}`
+  - There is no boundary of the tube, so the status is always
+    :math:`\bvec{u}_R`
 
 To derive the analytic solution, we will begin from the region 4 to get
-:math:`\bvec{u_4}`, then :math:`\bvec{u_3}` and finally `\bvec{u_2}`.
+:math:`\bvec{u}_{\mathrm{IV}}`, then :math:`\bvec{u}_{\mathrm{III}}` and
+finally `\bvec{u}_{\mathrm{II}}`.
 
 ============
 Bibliography
