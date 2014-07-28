@@ -153,7 +153,7 @@ We divide the solution of the problem in "5 zones".  From the left
 
 To derive the analytic solution, we will begin from the region 4 to get
 :math:`\bvec{u}_{\mathrm{IV}}`, then :math:`\bvec{u}_{\mathrm{III}}` and
-finally `\bvec{u}_{\mathrm{II}}`.
+finally :math:`\bvec{u}_{\mathrm{II}}`.
 
 ============
 Bibliography
