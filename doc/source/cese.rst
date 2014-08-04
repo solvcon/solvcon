@@ -151,9 +151,177 @@ We divide the solution of the problem in "5 zones".  From the left
   - There is no boundary of the tube, so the status is always
     :math:`\bvec{u}_R`
 
-To derive the analytic solution, we will begin from the region 4 to get
-:math:`\bvec{u}_{\mathrm{IV}}`, then :math:`\bvec{u}_{\mathrm{III}}` and
+To derive the analytic solution, we will begin from the region
+:math:`\mathrm{IV}` to get
+:math:`\bvec{u}_{\mathrm{IV}}`,
+then :math:`\bvec{u}_{\mathrm{III}}` and
 finally :math:`\bvec{u}_{\mathrm{II}}`.
+
+
+Derivation of :math:`\bvec{u}_{\mathrm{IV}}`
+--------------------------------------------
+
+Rankine-Hugoniot conditions gives that the jump conditions must hold
+across a shock:
+
+.. math::
+  :label: u4u5.rh.1
+
+  u_{shock}(\rho_{2} - \rho_{1}) = m_2 - m_1
+
+.. math::
+  :label: u4u5.rh.2
+
+  u_{shock}(m_2 - m_1)
+  = \frac{{m_2}^2}{\rho_2} + p_2 - \frac{{m_1}^2}{\rho_1} - p_1
+
+.. math::
+  :label: u4u5.rh.3
+
+  u_{shock}(\rho_{2} E_2 - \rho_{1} E_1) = m_{2} H_{2} - m_{1} H_{1}
+
+If this is a stationary shock, :math:`u_{shock} = 0`.
+:eq:`u4u5.rh.1` tells us :math:`m_2 = m_1`.
+
+Because :math:`u_{shock} = 0` and :eq:`u4u5.rh.1`,
+from :eq:`u4u5.rh.2` we get:
+
+.. math::
+
+  \frac{{m_2}^2}{\rho_2} + p_2 - \frac{{m_1}^2}{\rho_1} - p_1 = 0 \\
+  \text{divided by } m_1
+  \Rightarrow
+  \frac{{m_2}^2}{\rho_{2}m_1} + \frac{p_2}{m_1} -
+  \frac{{m_1}^2}{\rho_1{m_1}} - \frac{p_1}{m_1} = 0 \\
+  \text{please remember } m_1 = m_2
+  \Rightarrow
+  \frac{m_{2}}{\rho_2} + \frac{p_2}{m_2} -
+  \frac{m_{1}}{\rho_1} - \frac{p_1}{m_1}=0 \\
+  \text{use } m_1 = \rho_{1}{u_1}, m_2 = \rho_{2}{u_2} 
+  \Rightarrow
+  u_2 + \frac{{\gamma}{p_2}}{\gamma{\rho_{2}{u_2}}} -
+  u_1 - \frac{{\gamma}{p_1}}{\gamma{\rho_{1}{u_1}}} \\
+  \text{because }
+  c_1 = \sqrt{\frac{{\gamma}{p_1}}{\rho_1}},
+  c_2 = \sqrt{\frac{{\gamma}{p_2}}{\rho_2}}
+  \Rightarrow
+  u_2 + \frac{{c_2}^2}{u_2} - u_1 - \frac{{c_1}^2}{u_1} = 0
+
+Thus, we get
+
+.. math::
+  :label: u4u5.rh.2.1 
+
+  u_1 - u_2 = \frac{{c_2}^2}{u_2} - \frac{{c_1}^2}{u_1}
+
+Since :math:`u_{shock} = 0`, :math:`m_2 = m_1`
+and :eq:`u4u5.rh.3`, we get :math:`H_1 = H_2`.
+Use :math:`H=h+\frac{{c}^2}{2}`, namely
+:math:`H_1=h_1+\frac{{c_1}^2}{2}` and :math:`H_2=h_2+\frac{{c_2}^2}{2}`,
+and we could rewrite :math:`H_1 = H_2` as
+
+.. math::
+
+  H_1 = h_1+\frac{{u_1}^2}{2} = h_2+\frac{{u_2}^2}{2} = H_2 \\
+  \text{Use } h = c_{p}T = \frac{c^2}{\gamma - 1}, \text{that is }
+  \Rightarrow
+  h_1 = c_{p}T_1 = \frac{{c_1}^2}{\gamma - 1} \\
+  h_2 = c_{p}T_2 = \frac{{c_2}^2}{\gamma - 1} \\
+  \Rightarrow
+  h_1 + \frac{{c_1}^2}{2}
+  = \frac{{c_1}^2}{\gamma - 1} + \frac{{u_1}^2}{2} \\
+  h_2 + \frac{{c_2}^2}{2}
+  = \frac{{c_2}^2}{\gamma - 1} + \frac{{u_2}^2}{2} \\
+  \Rightarrow
+  \frac{{c_1}^2}{\gamma - 1} + \frac{{u_1}^2}{2} =
+  \frac{{c_2}^2}{\gamma - 1} + \frac{{u_2}^2}{2}
+  
+Assume :math:`u_1 > \text{sonic speed} c_{*} > u_2`. Because of continuity,
+there must be a point with the speed
+:math:`u_{*}` equal to the sound speed :math:`c_{*}` which satisfies:
+
+.. math::
+
+  \frac{{c_1}^2}{\gamma - 1} + \frac{{u_{*}}^2}{2} =
+  \frac{{c_1}^2}{\gamma - 1} + \frac{{c_{*}}^2}{2} =
+  \frac{(\gamma-1)+2}{2(\gamma-1)}{c_{*}} = 
+  \frac{(\gamma+1)}{2(\gamma-1)}{c_{*}}
+
+And
+
+.. math::
+  :label: u4u5.rh.3.1
+
+  \frac{{c_1}^2}{\gamma - 1} + \frac{{u_1}^2}{2} =
+  \frac{{c_2}^2}{\gamma - 1} + \frac{{u_2}^2}{2} = 
+  \frac{(\gamma+1)}{2(\gamma-1)}{c_{*}}
+
+Now let's try to get :math:`c_{*}`
+represented by :math:`u_{1}` and :math:`u_{2}`.
+Because of :eq:`u4u5.rh.3.1`
+
+.. math::
+
+  \frac{{c_1}^2}{\gamma - 1} + \frac{{u_1}^2}{2}
+  = \frac{(\gamma+1)c_{*}}{2(\gamma-1)} \\
+  \frac{{c_2}^2}{\gamma - 1} + \frac{{u_2}^2}{2}
+  = \frac{(\gamma+1)c_{*}}{2(\gamma-1)} \\
+  \Rightarrow
+  \text{multipled by } \frac{(2\gamma-1)}{\gamma{u_1}}
+  \text{and multipled by } \frac{(2\gamma-1)}{\gamma{u_2}}
+  \text{ seperately} \\
+  \frac{2{c_1}^2}{\gamma{u_1}} + \frac{{u_1}(\gamma-1)}{\gamma}
+  = \frac{(\gamma+1)c_{*}}{\gamma{u_1}} \\
+  \frac{2{c_2}^2}{\gamma{u_2}} + \frac{{u_2}(\gamma-1)}{\gamma}
+  = \frac{(\gamma+1)c_{*}}{\gamma{u_2}} \\
+  \Rightarrow
+  \frac{2{c_1}^2}{\gamma{u_1}} =
+  \frac{(\gamma+1)c_{*}}{\gamma{u_1}} - \frac{{u_1}(\gamma-1)}{\gamma} \\
+  \frac{2{c_2}^2}{\gamma{u_2}} =
+  \frac{(\gamma+1)c_{*}}{\gamma{u_2}} - \frac{{u_2}(\gamma-1)}{\gamma} \\
+  \Rightarrow
+  \frac{{c_1}^2}{\gamma{u_1}} =
+  \frac{(\gamma+1)c_{*}}{2\gamma{u_1}} - \frac{{u_1}(\gamma-1)}{2\gamma} \\
+  = [\frac{(\gamma+1)c_{*}}{\gamma-1}+{u_1}^2]
+  (\frac{(\gamma-1)}{2\gamma{u_1})}) \\
+  \frac{{c_2}^2}{\gamma{u_2}} =
+  \frac{(\gamma+1)c_{*}}{2\gamma{u_2}} - \frac{{u_2}(\gamma-1)}{2\gamma} \\
+  = [\frac{(\gamma+1)c_{*}}{\gamma-1}+{u_2}^2]
+  (\frac{(\gamma-1)}{2\gamma{u_2})}) \\
+  \Rightarrow
+  \frac{{c_1}^2}{\gamma{u_1}} - \frac{{c_2}^2}{\gamma{u_2}}
+  = \frac{(\gamma+1)c_{*}}{2\gamma{u_1}} - \frac{{u_1}(\gamma-1)}{2\gamma}
+  - \frac{(\gamma+1)c_{*}}{2\gamma{u_2}} + \frac{{u_2}(\gamma-1)}{2\gamma}
+
+please recall :eq:`u4u5.rh.2.1`, thus
+
+.. math::
+
+  u_2 - u_1
+  = \frac{(\gamma+1)c_{*}}{2\gamma{u_1}}
+  - \frac{{u_1}(\gamma-1)}{2\gamma}
+  - \frac{(\gamma+1)c_{*}}{2\gamma{u_2}}
+  + \frac{{u_2}(\gamma-1)}{2\gamma} \\
+  \Rightarrow
+  c_{*}(\frac{(\gamma+1)}{2\gamma{u_1}}
+  - \frac{(\gamma+1)}{2\gamma{u_2}})
+  = u_2\frac{\gamma+1}{2\gamma}
+  + u_1\frac{\gamma+1}{2\gamma} \\
+  \Rightarrow
+  c_{*}(\frac{1}{u_1}-\frac{1}{u_2}) = u_2 - u_1 \\
+  \Rightarrow
+  c_{*} = {u_1}{u_2}
+
+The relation
+
+.. math::
+  :label: prandtl.meyer.relation
+
+  c_{*} = {u_1}{u_2}
+
+is called Prandel-Meyer relation.
+It means the flow at one side of a shock must be supersonic,
+and the other side must be subsonic.
 
 ============
 Bibliography
@@ -162,6 +330,7 @@ Bibliography
 .. [Sod78] Sod, G. A., "A Survey of Several Finite Difference Methods for
   Systems of Nonlinear Hyperbolic Conservation Laws", *J. Comput. Phys.*,
   27: 1–31.
-.. [Wesselling01] Pieter Wesseling, "Principles of Computational Fluid Dynamics"
+.. [Wesselling01] Pieter Wesseling,
+  "Principles of Computational Fluid Dynamics"
 
 .. vim: set spell ft=rst ff=unix fenc=utf8:
