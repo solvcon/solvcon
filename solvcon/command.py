@@ -95,7 +95,7 @@ class Aws(Command):
         instkws = ("region", "ami", "username",
                    "instance_type", "security_groups")
         instkws = dict((key, None) for key in instkws)
-        ahs = cloud.ahregy[ops.regname]
+        ahs = cloud.ahsregy[ops.regname]
         update_kws(instkws, ahs)
         update_kws(instkws, ops)
         sg = instkws["security_groups"]
@@ -206,7 +206,7 @@ class alaunch(Aws):
                 else:
                     helper.info("Connection refused.\n")
                     raise
-        host.install_minimal()
+        host.deploy_minimal()
 
         if args:
             self.run_script(host, args[0])
@@ -297,13 +297,16 @@ class astop(Aws):
     Stop AWS EC2 instance.
     """
 
-    min_args = 1
+    min_args = 0
 
     def __init__(self, env):
         from optparse import OptionGroup
         super(astop, self).__init__(env)
         op = self.op
         opg = OptionGroup(op, 'AWS Stop')
+        opg.add_option(
+            "--all", action="store_true", default=False,
+            help="Terminate all (default: \"%(default)s\").")
         opg.add_option(
             "--force", action="store_true", default=False,
             help="Force action (default: \"%(default)s\").")
@@ -316,12 +319,18 @@ class astop(Aws):
         conn = boto.ec2.connect_to_region(
             ops.region, aws_access_key_id=ops.access_key_id,
             aws_secret_access_key=ops.secret_access_key)
-        instances = conn.get_only_instances(instance_ids=args)
+        if ops.all:
+            reservations = conn.get_all_reservations()
+            instances = itertools.chain(*(r.instances for r in reservations))
+            instances = list(instances)
+        else:
+            instances = conn.get_only_instances(instance_ids=args)
         for inst in instances:
             status = inst.update()
-            msgs = self.instance_information(inst, status)
-            helper.info("Stopping " + "\n  ".join(msgs) + "\n")
-            inst.stop(force=ops.force)
+            if status not in ("stopped", "terminated"):
+                msgs = self.instance_information(inst, status)
+                helper.info("Stopping " + "\n  ".join(msgs) + "\n")
+                inst.stop(force=ops.force)
 
 
 class aterminate(Aws):
@@ -329,7 +338,18 @@ class aterminate(Aws):
     Terminate AWS EC2 instance.
     """
 
-    min_args = 1
+    min_args = 0
+
+    def __init__(self, env):
+        from optparse import OptionGroup
+        super(aterminate, self).__init__(env)
+        op = self.op
+        opg = OptionGroup(op, 'AWS Terminate')
+        opg.add_option(
+            "--all", action="store_true", default=False,
+            help="Terminate all (default: \"%(default)s\").")
+        op.add_option_group(opg)
+        self.opg_aws_stop = opg
 
     def __call__(self):
         ops, args = self.opargs
@@ -337,12 +357,18 @@ class aterminate(Aws):
         conn = boto.ec2.connect_to_region(
             ops.region, aws_access_key_id=ops.access_key_id,
             aws_secret_access_key=ops.secret_access_key)
-        instances = conn.get_only_instances(instance_ids=args)
+        if ops.all:
+            reservations = conn.get_all_reservations()
+            instances = itertools.chain(*(r.instances for r in reservations))
+            instances = list(instances)
+        else:
+            instances = conn.get_only_instances(instance_ids=args)
         for inst in instances:
             status = inst.update()
-            msgs = self.instance_information(inst, status)
-            helper.info("Terminating " + "\n  ".join(msgs) + "\n")
-            inst.terminate()
+            if status != "terminated":
+                msgs = self.instance_information(inst, status)
+                helper.info("Terminating " + "\n  ".join(msgs) + "\n")
+                inst.terminate()
 
 
 class mpi(Command):

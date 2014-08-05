@@ -35,6 +35,7 @@ Cloud controlling tools.
 
 import os
 import collections
+import functools
 
 import boto.ec2
 import paramiko as ssh
@@ -42,7 +43,7 @@ import paramiko as ssh
 import helper
 
 
-__all__ = ['AwsHost']
+__all__ = ['AwsHost', 'ahsregy']
 
 
 class OperatingSystem(object):
@@ -134,25 +135,29 @@ class AwsHostSetting(collections.namedtuple("AwsHostSetting", _AWSHOSTINFOKEYS))
         return self._MINPKGS[self.osfamily]
 
 
-class AwsHostRegistry(dict):
+class AwsHostSettingRegistry(dict):
     @classmethod
     def populate(cls):
         regy = cls()
-        regy["RHEL64"] = AwsHostSetting(region="us-west-2", ami="ami-77d7a747",
-                                        osfamily="RHEL", username="ec2-user")
+        regy["RHEL64"] = AwsHostSetting(
+            region="us-west-2", ami="ami-77d7a747",
+            osfamily="RHEL", username="ec2-user")
         regy["trusty64"] = AwsHostSetting(
             region="us-west-2", ami="ami-d34032e3",
             osfamily="Ubuntu", username="ubuntu")
         regy[""] = regy["trusty64"]
         return regy
 
-ahregy = AwsHostRegistry.populate()
+ahsregy = AwsHostSettingRegistry.populate()
 
 
 class AwsHost(object):
     """
     Abstraction for actions toward an AWS EC2 host.
     """
+
+    MINICONDA_URL = ("http://repo.continuum.io/miniconda/"
+                     "Miniconda-3.5.5-Linux-x86_64.sh")
 
     def __init__(self, instance, setting):
         #: :py:class:`boto.ec2.instance.Instance` for the host.
@@ -182,20 +187,87 @@ class AwsHost(object):
         self.cli.disconnect()
         self.cli = None
 
-    def run(self, cmd, sudo=False, wd=None, bufsize=-1, timeout=None):
+    @staticmethod
+    def _prepare_command(cmd, sudo=False, env=None, wd=None):
+        """
+        This is the helper method to make up the command (*cmd*) with different
+        settings.
+
+        The optional argument *sudo* will prefix "sudo".  Default is False:
+
+        >>> AwsHost._prepare_command("cmd")
+        'cmd'
+        >>> AwsHost._prepare_command("cmd", sudo=True)
+        'sudo cmd'
+
+        The optional argument *env* will prefix "env" with the given string of
+        environment variables.  The default is None:
+
+        >>> AwsHost._prepare_command("cmd", env="PATH=$HOME:$PATH")
+        'env PATH=$HOME:$PATH cmd'
+
+        The optional argument *wd* will first change the working directory and
+        execute the command.  The default is None:
+
+        >>> AwsHost._prepare_command("cmd", wd="/tmp")
+        'cd /tmp; cmd'
+
+        Argument *env* can be used with either *sudo* or *wd*:
+
+        >>> AwsHost._prepare_command("cmd", sudo=True,
+        ...                          env="PATH=$HOME:$PATH")
+        'sudo env PATH=$HOME:$PATH cmd'
+        >>> AwsHost._prepare_command("cmd", env="PATH=$HOME:$PATH", wd="/tmp")
+        'cd /tmp; env PATH=$HOME:$PATH cmd'
+
+        However, *sudo* doesn't work with *wd*:
+
+        >>> AwsHost._prepare_command("cmd", sudo=True, wd="/tmp")
+        Traceback (most recent call last):
+            ...
+        ValueError: sudo can't be True with wd set
+        """
+        if env is not None:
+            cmd = "env %s %s" % (env, cmd)
         if wd is not None:
             cmd = "cd %s; %s" % (wd, cmd)
-        helper.info(cmd + "\n")
+            if sudo:
+                raise ValueError("sudo can't be True with wd set")
+        if sudo:
+            cmd = "sudo %s" % cmd
+        return cmd
+
+    @staticmethod
+    def _setup_channel(chan, bufsize=-1, timeout=None):
         chan = self.cli.get_transport().open_session()
         forward = ssh.agent.AgentRequestHandler(chan)
         chan.get_pty()
         chan.set_combine_stderr(True)
         chan.settimeout(timeout)
-        if sudo:
-            cmd = "sudo %s" % cmd
         chan.exec_command(cmd)
         stdin = chan.makefile('wb', bufsize)
         stdout = chan.makefile('r', bufsize)
+        data = stdout.read()
+
+    def run(self, cmd, bufsize=-1, timeout=None, **kw):
+        # Prepare the command.
+        cmd = self._prepare_command(cmd, **kw)
+        # Log command information.
+        helper.info(cmd + "\n")
+        # Open the channel.
+        chan = self.cli.get_transport().open_session()
+        # Set up SSH authentication agent forwarding.
+        forward = ssh.agent.AgentRequestHandler(chan)
+        # Get and set up the terminal.
+        chan.get_pty()
+        chan.set_combine_stderr(True)
+        chan.settimeout(timeout)
+        # Send the command.
+        chan.exec_command(cmd)
+        # Use the STD I/O.
+        stdin = chan.makefile('wb', bufsize)
+        stdout = chan.makefile('r', bufsize)
+        # Get the data and report.
         data = stdout.read()
         helper.info(data + "\n")
         return data
@@ -206,12 +278,28 @@ class AwsHost(object):
             packages = " ".join(packages)
         self.run("%s %s" % (manager, packages), sudo=True)
 
-    def install_minimal(self):
-        self.install(self.setting.minpkgs)
-
     def hgclone(self, path, sshcmd="", **kw):
         cmd = "hg clone"
         if path.startswith("ssh") and sshcmd:
             cmd += " --ssh '%s'" % sshcmd
         cmd = "%s %s" % (cmd, path)
         self.run(cmd, **kw)
+
+    def deploy_minimal(self):
+        # Use OS package manager to install tools.
+        self.install(self.setting.minpkgs)
+        # Install miniconda.
+        mcurl = self.MINICONDA_URL
+        mcfn = mcurl.split("/")[-1]
+        run = functools.partial(self.run, wd="/tmp")
+        run("rm -f %s" % mcfn)
+        run("wget %s" % mcurl)
+        run("bash %s -p ~/opt/miniconda -b" % mcfn)
+        # Update and install conda packages.
+        run = functools.partial(self.run,
+                                env="PATH=$HOME/opt/miniconda/bin:$PATH")
+        run("conda update --all --yes")
+        run("conda install jinja2 --yes")
+        run("conda install setuptools mercurial conda-build "
+            "scons cython numpy netcdf4 nose sphinx paramiko boto "
+            "--yes")
