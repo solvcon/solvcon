@@ -222,20 +222,20 @@ and we could rewrite :math:`H_1 = H_2` as
 
 .. math::
 
-  H_1 = h_1+\frac{{u_1}^2}{2} = h_2+\frac{{u_2}^2}{2} = H_2 \\
-  \text{Use } h = c_{p}T = \frac{c^2}{\gamma - 1}, \text{that is }
-  \Rightarrow
-  h_1 = c_{p}T_1 = \frac{{c_1}^2}{\gamma - 1} \\
+  & H_1 = h_1+\frac{{u_1}^2}{2} = h_2+\frac{{u_2}^2}{2} = H_2 \\
+  & \text{Use } h = c_{p}T = \frac{c^2}{\gamma - 1} \\
+  & \text{that is }
+  \quad h_1 = c_{p}T_1 = \frac{{c_1}^2}{\gamma - 1} \quad
   h_2 = c_{p}T_2 = \frac{{c_2}^2}{\gamma - 1} \\
   \Rightarrow
-  h_1 + \frac{{c_1}^2}{2}
-  = \frac{{c_1}^2}{\gamma - 1} + \frac{{u_1}^2}{2} \\
-  h_2 + \frac{{c_2}^2}{2}
-  = \frac{{c_2}^2}{\gamma - 1} + \frac{{u_2}^2}{2} \\
+  \quad & h_1 + \frac{{u_1}^2}{2}
+  =  \frac{{c_1}^2}{\gamma - 1} + \frac{{u_1}^2}{2} \\
+  \quad & h_2 + \frac{{u_2}^2}{2}
+  =  \frac{{c_2}^2}{\gamma - 1} + \frac{{u_2}^2}{2} \\
   \Rightarrow
-  \frac{{c_1}^2}{\gamma - 1} + \frac{{u_1}^2}{2} =
-  \frac{{c_2}^2}{\gamma - 1} + \frac{{u_2}^2}{2}
-  
+  \quad & \frac{{c_1}^2}{\gamma - 1} + \frac{{u_1}^2}{2}
+  =  \frac{{c_2}^2}{\gamma - 1} + \frac{{u_2}^2}{2}
+
 Assume :math:`u_1 > \text{sonic speed} c_{*} > u_2`. Because of continuity,
 there must be a point with the speed
 :math:`u_{*}` equal to the sound speed :math:`c_{*}` which satisfies:
@@ -262,34 +262,34 @@ Because of :eq:`u4u5.rh.3.1`
 
 .. math::
 
-  \frac{{c_1}^2}{\gamma - 1} + \frac{{u_1}^2}{2}
+  & \frac{{c_1}^2}{\gamma - 1} + \frac{{u_1}^2}{2}
   = \frac{(\gamma+1)c_{*}}{2(\gamma-1)} \\
-  \frac{{c_2}^2}{\gamma - 1} + \frac{{u_2}^2}{2}
+  & \frac{{c_2}^2}{\gamma - 1} + \frac{{u_2}^2}{2}
   = \frac{(\gamma+1)c_{*}}{2(\gamma-1)} \\
-  \Rightarrow
   \text{multipled by } \frac{(2\gamma-1)}{\gamma{u_1}}
-  \text{and multipled by } \frac{(2\gamma-1)}{\gamma{u_2}}
+  & \text{ and multipled by } \frac{(2\gamma-1)}{\gamma{u_2}}
   \text{ seperately} \\
-  \frac{2{c_1}^2}{\gamma{u_1}} + \frac{{u_1}(\gamma-1)}{\gamma}
+  \Rightarrow
+  & \frac{2{c_1}^2}{\gamma{u_1}} + \frac{{u_1}(\gamma-1)}{\gamma}
   = \frac{(\gamma+1)c_{*}}{\gamma{u_1}} \\
-  \frac{2{c_2}^2}{\gamma{u_2}} + \frac{{u_2}(\gamma-1)}{\gamma}
+  & \frac{2{c_2}^2}{\gamma{u_2}} + \frac{{u_2}(\gamma-1)}{\gamma}
   = \frac{(\gamma+1)c_{*}}{\gamma{u_2}} \\
   \Rightarrow
-  \frac{2{c_1}^2}{\gamma{u_1}} =
+  & \frac{2{c_1}^2}{\gamma{u_1}} =
   \frac{(\gamma+1)c_{*}}{\gamma{u_1}} - \frac{{u_1}(\gamma-1)}{\gamma} \\
-  \frac{2{c_2}^2}{\gamma{u_2}} =
+  & \frac{2{c_2}^2}{\gamma{u_2}} =
   \frac{(\gamma+1)c_{*}}{\gamma{u_2}} - \frac{{u_2}(\gamma-1)}{\gamma} \\
   \Rightarrow
-  \frac{{c_1}^2}{\gamma{u_1}} =
-  \frac{(\gamma+1)c_{*}}{2\gamma{u_1}} - \frac{{u_1}(\gamma-1)}{2\gamma} \\
+  & \frac{{c_1}^2}{\gamma{u_1}}
+  = \frac{(\gamma+1)c_{*}}{2\gamma{u_1}} - \frac{{u_1}(\gamma-1)}{2\gamma}
   = [\frac{(\gamma+1)c_{*}}{\gamma-1}+{u_1}^2]
   (\frac{(\gamma-1)}{2\gamma{u_1})}) \\
-  \frac{{c_2}^2}{\gamma{u_2}} =
-  \frac{(\gamma+1)c_{*}}{2\gamma{u_2}} - \frac{{u_2}(\gamma-1)}{2\gamma} \\
+  & \frac{{c_2}^2}{\gamma{u_2}}
+  = \frac{(\gamma+1)c_{*}}{2\gamma{u_2}} - \frac{{u_2}(\gamma-1)}{2\gamma}
   = [\frac{(\gamma+1)c_{*}}{\gamma-1}+{u_2}^2]
   (\frac{(\gamma-1)}{2\gamma{u_2})}) \\
   \Rightarrow
-  \frac{{c_1}^2}{\gamma{u_1}} - \frac{{c_2}^2}{\gamma{u_2}}
+  & \frac{{c_1}^2}{\gamma{u_1}} - \frac{{c_2}^2}{\gamma{u_2}}
   = \frac{(\gamma+1)c_{*}}{2\gamma{u_1}} - \frac{{u_1}(\gamma-1)}{2\gamma}
   - \frac{(\gamma+1)c_{*}}{2\gamma{u_2}} + \frac{{u_2}(\gamma-1)}{2\gamma}
 
@@ -298,19 +298,19 @@ please recall :eq:`u4u5.rh.2.1`, thus
 .. math::
 
   u_2 - u_1
-  = \frac{(\gamma+1)c_{*}}{2\gamma{u_1}}
+  & = \frac{(\gamma+1)c_{*}}{2\gamma{u_1}}
   - \frac{{u_1}(\gamma-1)}{2\gamma}
   - \frac{(\gamma+1)c_{*}}{2\gamma{u_2}}
   + \frac{{u_2}(\gamma-1)}{2\gamma} \\
   \Rightarrow
-  c_{*}(\frac{(\gamma+1)}{2\gamma{u_1}}
+  & c_{*}(\frac{(\gamma+1)}{2\gamma{u_1}}
   - \frac{(\gamma+1)}{2\gamma{u_2}})
   = u_2\frac{\gamma+1}{2\gamma}
   + u_1\frac{\gamma+1}{2\gamma} \\
   \Rightarrow
-  c_{*}(\frac{1}{u_1}-\frac{1}{u_2}) = u_2 - u_1 \\
+  & c_{*}(\frac{1}{u_1}-\frac{1}{u_2}) = u_2 - u_1 \\
   \Rightarrow
-  c_{*} = {u_1}{u_2}
+  & c_{*} = {u_1}{u_2}
 
 The relation
 
