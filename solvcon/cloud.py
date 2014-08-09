@@ -43,7 +43,7 @@ import paramiko as ssh
 import helper
 
 
-__all__ = ['AwsHost', 'ahsregy']
+__all__ = ['AwsHost', 'aoregy']
 
 
 class OperatingSystem(object):
@@ -61,21 +61,21 @@ class OperatingSystem(object):
         self.package_install_command = self.PACKAGE_INSTALL_COMMAND[family]
 
 
-#: Tuple keys of :py:class:`AwsHostSetting`.
+#: Tuple keys of :py:class:`AwsOperator`.
 _AWSHOSTINFOKEYS = ("region", "ami", "osfamily", "username",
                     "instance_type", "security_groups")
 
-class AwsHostSetting(collections.namedtuple("AwsHostSetting", _AWSHOSTINFOKEYS)):
+class AwsOperator(collections.namedtuple("AwsOperator", _AWSHOSTINFOKEYS)):
     """
     Collection of AWS host information.
 
-    Filling information into the class :py:class:`AwsHostSetting`.  The filled
+    Filling information into the class :py:class:`AwsOperator`.  The filled
     data will become read-only.
 
-    >>> info = AwsHostSetting(region="us-west-2", ami="ami-77d7a747",
-    ...                       osfamily="RHEL", username="ec2-user")
+    >>> info = AwsOperator(region="us-west-2", ami="ami-77d7a747",
+    ...                    osfamily="RHEL", username="ec2-user")
     >>> info # doctest: +NORMALIZE_WHITESPACE
-    AwsHostSetting(region='us-west-2', ami='ami-77d7a747', osfamily='RHEL',
+    AwsOperator(region='us-west-2', ami='ami-77d7a747', osfamily='RHEL',
     username='ec2-user', instance_type='t2.micro', security_groups=('default',))
     >>> info.osfamily = "Debian"
     Traceback (most recent call last):
@@ -84,7 +84,7 @@ class AwsHostSetting(collections.namedtuple("AwsHostSetting", _AWSHOSTINFOKEYS))
 
     Positional arguments aren't allowed:
 
-    >>> info = AwsHostSetting("us-west-2", "ami-77d7a747", "RHEL", "ec2-user")
+    >>> info = AwsOperator("us-west-2", "ami-77d7a747", "RHEL", "ec2-user")
     Traceback (most recent call last):
         ...
     KeyError: "positional arguments aren't allowed"
@@ -93,6 +93,14 @@ class AwsHostSetting(collections.namedtuple("AwsHostSetting", _AWSHOSTINFOKEYS))
     #: Allowed OS families.
     _OSFAMILIES = ("RHEL", "Ubuntu", "Debian")
 
+    #: Mapping to the package metadata updating command for each of the OS
+    #: families.
+    _PMETACMD = {
+        "RHEL": "yum makecache -y",
+        "Ubuntu": "apt-get update -y",
+        "Debian": "apt-get update -y",
+    }
+
     #: Mapping to the package installation command for each of the OS families.
     _PINSTCMD = {
         "RHEL": "yum install -y",
@@ -100,11 +108,15 @@ class AwsHostSetting(collections.namedtuple("AwsHostSetting", _AWSHOSTINFOKEYS))
         "Debian": "apt-get install -y",
     }
 
+    _MINPKGS_COMMON = (
+        "vim ctags wget screen bzip2 patch mercurial git gcc gfortran".split())
+    _MINPKGS_DEBBUILD = ("build-essential zlib1g "
+                         "liblapack-dev liblapack-pic".split())
     #: Minimal packages.
     _MINPKGS = {
-        "RHEL": "mercurial git vim ctags wget screen bzip2 patch".split(),
-        "Ubuntu": "mercurial git vim ctags wget screen bzip2 patch".split(),
-        "Debian": "mercurial git vim ctags wget screen bzip2 patch".split(),
+        "RHEL": _MINPKGS_COMMON,
+        "Ubuntu": _MINPKGS_COMMON + _MINPKGS_DEBBUILD,
+        "Debian": _MINPKGS_COMMON + _MINPKGS_DEBBUILD,
     }
 
     def __new__(cls, *args, **kw):
@@ -122,9 +134,13 @@ class AwsHostSetting(collections.namedtuple("AwsHostSetting", _AWSHOSTINFOKEYS))
         # Make up arguments.
         args = tuple(kw[key] for key in cls._fields)
         # Create the object.
-        obj = super(AwsHostSetting, cls).__new__(cls, *args)
+        obj = super(AwsOperator, cls).__new__(cls, *args)
         # Return the object.
         return obj
+
+    @property
+    def pmetacmd(self):
+        return self._PMETACMD[self.osfamily]
 
     @property
     def pinstcmd(self):
@@ -135,35 +151,46 @@ class AwsHostSetting(collections.namedtuple("AwsHostSetting", _AWSHOSTINFOKEYS))
         return self._MINPKGS[self.osfamily]
 
 
-class AwsHostSettingRegistry(dict):
+class AwsOperatorRegistry(dict):
     @classmethod
     def populate(cls):
         regy = cls()
-        regy["RHEL64"] = AwsHostSetting(
+        regy["RHEL64"] = AwsOperator(
             region="us-west-2", ami="ami-77d7a747",
             osfamily="RHEL", username="ec2-user")
-        regy["trusty64"] = AwsHostSetting(
+        regy["trusty64"] = AwsOperator(
             region="us-west-2", ami="ami-d34032e3",
             osfamily="Ubuntu", username="ubuntu")
         regy[""] = regy["trusty64"]
         return regy
 
-ahsregy = AwsHostSettingRegistry.populate()
+aoregy = AwsOperatorRegistry.populate()
 
 
+# FIXME: AwsHost should be changed to a strategy so that AwsOperator is the
+# context.  In this way batch commanding and test mocking will be made possible
+# for AwsOperator.
 class AwsHost(object):
     """
     Abstraction for actions toward an AWS EC2 host.
     """
 
+    #: The downloading URL for conda installer.
     MINICONDA_URL = ("http://repo.continuum.io/miniconda/"
                      "Miniconda-3.5.5-Linux-x86_64.sh")
 
-    def __init__(self, instance, setting):
+    #: Where to find conda on the destination box.
+    MINICONDA_PATH = "$HOME/opt/miniconda/bin"
+
+    #: Where to find SOLVCON on the destination box.
+    SOLVCON_PATH = "$HOME/sc/solvcon"
+
+    # FIXME: Remove operator from this class.
+    def __init__(self, instance, operator):
         #: :py:class:`boto.ec2.instance.Instance` for the host.
         self.instance = instance
-        #: :py:class:`AwsHostSetting` for read-only AWS EC2 settings.
-        self.setting = setting
+        #: :py:class:`AwsOperator` for read-only AWS EC2 operators.
+        self.operator = operator
         #: :py:class:`paramiko.client.SSHClient` to command the remote host.
         self.cli = None
         def default_keyfn_getter(keyname):
@@ -173,12 +200,13 @@ class AwsHost(object):
         #: the key.
         self.keyname2fn = default_keyfn_getter
 
+    # FIXME: Parameterize username.
     def connect(self):
         self.cli = ssh.client.SSHClient()
         self.cli.load_system_host_keys()
         self.cli.set_missing_host_key_policy(ssh.client.AutoAddPolicy())
         self.cli.connect(self.instance.public_dns_name,
-                         username=self.setting.username,
+                         username=self.operator.username,
                          key_filename=self.keyname2fn(self.instance.key_name),
                          allow_agent=True)
         return self.cli
@@ -191,7 +219,7 @@ class AwsHost(object):
     def _prepare_command(cmd, sudo=False, env=None, wd=None):
         """
         This is the helper method to make up the command (*cmd*) with different
-        settings.
+        operators.
 
         The optional argument *sudo* will prefix "sudo".  Default is False:
 
@@ -272,14 +300,23 @@ class AwsHost(object):
         helper.info(data + "\n")
         return data
 
+    # FIXME: all these actions should go to AwsOperator.
+    def update_package_metadata(self):
+        self.run(self.operator.pmetacmd, sudo=True)
+
     def install(self, packages):
-        manager = self.setting.pinstcmd
+        manager = self.operator.pinstcmd
         if not isinstance(packages, basestring):
             packages = " ".join(packages)
         self.run("%s %s" % (manager, packages), sudo=True)
 
-    def hgclone(self, path, sshcmd="", **kw):
+    def hgclone(self, path, sshcmd="", ignore_key=False, **kw):
         cmd = "hg clone"
+        if ignore_key:
+            if not sshcmd:
+                sshcmd = "ssh -oStrictHostKeyChecking=no"
+            else:
+                raise ValueError("ignore_key can't be used with sshcmd")
         if path.startswith("ssh") and sshcmd:
             cmd += " --ssh '%s'" % sshcmd
         cmd = "%s %s" % (cmd, path)
@@ -287,19 +324,56 @@ class AwsHost(object):
 
     def deploy_minimal(self):
         # Use OS package manager to install tools.
-        self.install(self.setting.minpkgs)
+        self.update_package_metadata()
+        self.install(self.operator.minpkgs)
         # Install miniconda.
         mcurl = self.MINICONDA_URL
         mcfn = mcurl.split("/")[-1]
         run = functools.partial(self.run, wd="/tmp")
         run("rm -f %s" % mcfn)
         run("wget %s" % mcurl)
-        run("bash %s -p ~/opt/miniconda -b" % mcfn)
-        # Update and install conda packages.
-        run = functools.partial(self.run,
-                                env="PATH=$HOME/opt/miniconda/bin:$PATH")
+        run("bash %s -p $HOME/opt/miniconda -b" % mcfn)
+        # Update conda packages.
+        run = functools.partial(
+            self.run, env="PATH=%s:$PATH" % self.MINICONDA_PATH)
         run("conda update --all --yes")
-        run("conda install jinja2 --yes")
-        run("conda install setuptools mercurial conda-build "
+        # Install basic development tools with conda.
+        run("conda install jinja2 binstar conda-build grin --yes")
+        # Install standard dependencies with conda.
+        run("conda install setuptools mercurial "
             "scons cython numpy netcdf4 nose sphinx paramiko boto "
             "--yes")
+        # Install customized dependencies with conda.
+        run("conda install gmsh graphviz scotch --yes "
+            "-c https://conda.binstar.org/yungyuc/channel/solvcon")
+
+    def obtain_solvcon(self):
+        # Clone the remote repository.
+        self.run("mkdir -p $HOME/sc")
+        self.hgclone("http://bitbucket.org/solvcon/solvcon", wd="$HOME/sc")
+
+    def set_config_files(self):
+        # Write conda channel settings.
+        condarc = ("channels: [ "
+                   "\"https://conda.binstar.org/yungyuc/channel/solvcon\", "
+                   "defaults ]")
+        self.run("echo '%s' > $HOME/.condarc" % condarc)
+        # Back up bashrc.
+        self.run("cp $HOME/.bashrc /tmp")
+        # Write conda path to bashrc.
+        self.run("echo 'if ! echo $PATH | egrep -q \"(^|:)%s($|:)\" ; "
+                 "then export PATH=%s:$PATH ; fi' > $HOME/.bashrc" %
+                 (self.MINICONDA_PATH, self.MINICONDA_PATH))
+        # Write SOLVCON settings to bashrc.
+        self.run("echo 'export SCSRC=%s' >> $HOME/.bashrc" %
+                 self.SOLVCON_PATH)
+        self.run("echo 'export PYTHONPATH=$SCSRC' >> $HOME/.bashrc")
+        self.run("echo 'if ! echo $PATH | egrep -q \"(^|:)%s($|:)\" ; "
+                 "then export PATH=%s:$PATH ; fi' >> $HOME/.bashrc" %
+                 ("$SCSRC", "$SCSRC"))
+        # Copy back the backed up bashrc.
+        self.run("cat /tmp/.bashrc >> $HOME/.bashrc; rm -f /tmp/.bashrc")
+
+    def build_solvcon(self):
+        self.run("scons scmods", wd="$SCSRC")
+        self.run("nosetests", wd="$SCSRC")

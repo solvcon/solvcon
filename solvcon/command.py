@@ -95,7 +95,7 @@ class Aws(Command):
         instkws = ("region", "ami", "username",
                    "instance_type", "security_groups")
         instkws = dict((key, None) for key in instkws)
-        ahs = cloud.ahsregy[ops.regname]
+        ahs = cloud.aoregy[ops.regname]
         update_kws(instkws, ahs)
         update_kws(instkws, ops)
         sg = instkws["security_groups"]
@@ -207,6 +207,9 @@ class alaunch(Aws):
                     helper.info("Connection refused.\n")
                     raise
         host.deploy_minimal()
+        host.obtain_solvcon()
+        host.set_config_files()
+        host.build_solvcon()
 
         if args:
             self.run_script(host, args[0])
