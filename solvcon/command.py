@@ -83,7 +83,7 @@ class Aws(Command):
         self.opg_aws_common = opg
 
     @staticmethod
-    def determine_host_setting(ops):
+    def determine_operator(ops):
         """
         Retrieve settings from :py:class:`AwsHostSetting`.
         """
@@ -95,13 +95,13 @@ class Aws(Command):
         instkws = ("region", "ami", "username",
                    "instance_type", "security_groups")
         instkws = dict((key, None) for key in instkws)
-        ahs = cloud.aoregy[ops.regname]
-        update_kws(instkws, ahs)
+        operator = cloud.aoregy[ops.regname]
+        update_kws(instkws, operator)
         update_kws(instkws, ops)
         sg = instkws["security_groups"]
         if isinstance(sg, basestring):
             instkws["security_groups"] = tuple(sg.split(","))
-        return ahs._replace(**instkws)
+        return operator._replace(**instkws)
 
     @staticmethod
     def instance_information(inst, status):
@@ -156,15 +156,15 @@ class alaunch(Aws):
         parser.values.security_groups = opt_str.split(",")
 
     @staticmethod
-    def launch_instance(ops, ahs):
-        region = ahs.region
-        ami = ahs.ami
-        instkws = dict((key, getattr(ahs, key)) for key in 
+    def launch_instance(ops, operator):
+        region = operator.region
+        ami = operator.ami
+        instkws = dict((key, getattr(operator, key)) for key in 
                        ("instance_type", "security_groups"))
 
         helper.info('Launching in region %s with AMI ID %s:\n' % (region, ami))
         helper.info('  instance_type=%s, security_groups=%s\n' % (
-            ahs.instance_type, ahs.security_groups))
+            operator.instance_type, operator.security_groups))
         conn = boto.ec2.connect_to_region(
             region, aws_access_key_id=ops.access_key_id,
             aws_secret_access_key=ops.secret_access_key)
@@ -187,14 +187,14 @@ class alaunch(Aws):
     def __call__(self):
         ops, args = self.opargs
 
-        ahs = self.determine_host_setting(ops)
-        instance = self.launch_instance(ops, ahs)
-        host = cloud.AwsHost(instance, ahs)
+        operator = self.determine_operator(ops)
+        instance = self.launch_instance(ops, operator)
+        operator.host = cloud.AwsHost(instance)
         left = ops.retries
         while left:
             left -= 1
             try:
-                host.connect()
+                operator.connect()
             except socket.error as e:
                 if (e.errno == errno.ECONNREFUSED and left):
                     secs = 10.
@@ -206,13 +206,13 @@ class alaunch(Aws):
                 else:
                     helper.info("Connection refused.\n")
                     raise
-        host.deploy_minimal()
-        host.obtain_solvcon()
-        host.set_config_files()
-        host.build_solvcon()
+        operator.deploy_minimal()
+        operator.obtain_solvcon()
+        operator.set_config_files()
+        operator.build_solvcon()
 
         if args:
-            self.run_script(host, args[0])
+            self.run_script(operator, args[0])
 
 
 class arun(Aws):
@@ -235,16 +235,16 @@ class arun(Aws):
 
     def __call__(self):
         ops, args = self.opargs
-        ahs = self.determine_host_setting(ops)
+        operator = self.determine_operator(ops)
 
         conn = boto.ec2.connect_to_region(
-            ahs.region, aws_access_key_id=ops.access_key_id,
+            operator.region, aws_access_key_id=ops.access_key_id,
             aws_secret_access_key=ops.secret_access_key)
         inst = conn.get_only_instances(instance_ids=args[:1])[0]
-        host = cloud.AwsHost(inst, ahs)
-        host.connect()
+        operator.host = cloud.AwsHost(inst, operator)
+        operator.connect()
 
-        self.run_script(host, args[1])
+        self.run_script(operator, args[1])
 
 
 class alist(Aws):
