@@ -19,10 +19,10 @@ class Command():
     def execute(self):
         raise NotImplemented
 
-class GetGrid(Command):
+class GenGrid(Command):
     """The COMMAND for getting the grid"""
     def execute(self):
-        self._obj.get_grid()
+        self._obj.gen_grid()
 
 class GetSolution(Command):
     """
@@ -53,6 +53,11 @@ class DumpResult(Command):
     def execute(self):
         self._obj.dump_result()
 
+class DumpGrid(Command):
+    """The COMMAND for dumping the grid points"""
+    def execute(self):
+        self._obj.dump_grid()
+
 class Solver():
     """The RECEIVER class"""
     def __init__(self):
@@ -60,8 +65,15 @@ class Solver():
         self._u = ()
         self._result = []
 
-    def get_grid(self):
-        print("get grid points")
+    def gen_grid(self):
+        xstep = 50
+        xstart = -10000
+        xstop = 10000
+        grid = []
+        for x in range(xstart, xstop + xstep, xstep):
+            grid.append(float(x)/10000.0)
+        self._grid = tuple(grid)
+        print("generated grid points")
 
     def get_solution(self):
         print("get solution")
@@ -72,6 +84,11 @@ class Solver():
     def dump_result(self):
         print("dump result")
 
+    def dump_grid(self):
+        for point in self._grid:
+            print(point)
+        print("grid points were dumped")
+
 class SolutionClient():
     """The CLIENT class"""
     def __init__(self):
@@ -81,13 +98,15 @@ class SolutionClient():
     def invoke(self, cmd):
         cmd = cmd.strip().upper()
         if cmd == "GRID":
-            self._sodtube.execute(GetGrid(self._solver))
+            self._sodtube.execute(GenGrid(self._solver))
         elif cmd == "SOLUTION":
             self._sodtube.execute(GetSolution(self._solver))
         elif cmd == "ANALYTIC":
             self._sodtube.execute(CalAnalyticSolution(self._solver))
         elif cmd == "DUMP":
             self._sodtube.execute(DumpResult(self._solver))
+        elif cmd == "DUMPGRID":
+            self._sodtube.execute(DumpGrid(self._solver))
         else:
             print("No such command")
 
