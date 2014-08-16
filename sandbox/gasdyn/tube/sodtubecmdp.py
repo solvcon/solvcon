@@ -22,7 +22,7 @@ class Command():
 class GetGrid(Command):
     """The COMMAND for getting the grid"""
     def execute(self):
-        self._obj.dump()
+        self._obj.get_grid()
 
 class GetSolution(Command):
     """
@@ -44,7 +44,7 @@ class GetSolution(Command):
 class DumpResult(Command):
     """The COMMAND for dumping the result"""
     def execute(self):
-        self._obj.dump()
+        self._obj.dump_result()
 
 class Solver():
     """The RECEIVER class"""
@@ -68,16 +68,16 @@ class SolutionClient():
         self._solver = Solver()
         self._sodtube = SodTube()
 
-    def invoker(self, cmd):
+    def invoke(self, cmd):
         cmd = cmd.strip().upper()
         if cmd == "GRID":
-            self._sodtube.execute(GetGridCmd(self._solver))
+            self._sodtube.execute(GetGrid(self._solver))
         elif cmd == "SOLUTION":
             self._sodtube.execute(GetSolution(self._solver))
         elif cmd == "DUMP":
             self._sodtube.execute(DumpResult(self._solver))
         else:
-            pass
+            print("No such command")
 
 #if __name__ == "__main__":
 
