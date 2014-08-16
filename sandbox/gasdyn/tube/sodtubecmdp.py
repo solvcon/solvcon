@@ -27,19 +27,26 @@ class GetGrid(Command):
 class GetSolution(Command):
     """
     The COMMAND for getting the solution
-
-    TODO:
-    this could be a micro command
-        get_analytic_solution
-    to execute the sub commands like
-        get_solution_region1
-        get_solution_region2
-        get_solution_region3
-        get_solution_region4
-        get_solution_region5
     """
     def execute(self):
         self._obj.get_solution()
+
+class CalAnalyticSolution(Command):
+    """
+    The COMMAND for caculating the solution
+
+    TODO:
+    this could be a micro command
+        cal_analytic_solution
+    to execute the sub commands like
+        cal_solution_region1
+        cal_solution_region2
+        cal_solution_region3
+        cal_solution_region4
+        cal_solution_region5
+    """
+    def execute(self):
+        self._obj.cal_analytic_solution()
 
 class DumpResult(Command):
     """The COMMAND for dumping the result"""
@@ -59,6 +66,9 @@ class Solver():
     def get_solution(self):
         print("get solution")
 
+    def cal_analytic_solution(self):
+        print("get analytic_solution")
+
     def dump_result(self):
         print("dump result")
 
@@ -74,6 +84,8 @@ class SolutionClient():
             self._sodtube.execute(GetGrid(self._solver))
         elif cmd == "SOLUTION":
             self._sodtube.execute(GetSolution(self._solver))
+        elif cmd == "ANALYTIC":
+            self._sodtube.execute(CalAnalyticSolution(self._solver))
         elif cmd == "DUMP":
             self._sodtube.execute(DumpResult(self._solver))
         else:
