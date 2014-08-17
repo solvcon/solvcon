@@ -146,7 +146,7 @@ class SodTube():
     def getVelocityRegionI(self):
         return self.UL
 
-    def getAnalyticVelocityRegionII(self, x, t):
+    def getAnalyticVelocityRegion2(self, x, t):
         cI = self.getVelocityCI()
         gamma = self.GAMMA
         return 2.0/(gamma+1.0)*(cI+x/t)
@@ -186,14 +186,14 @@ class SodTube():
     def getPressureRegionI(self):
         return self.PL
 
-    def getAnalyticPressureRegionII(self, x, t):
+    def getAnalyticPressureRegion2(self, x, t):
         # (10.44) Wesssling P.
         cI = self.getVelocityCI()
-        uII = self.getAnalyticVelocityRegionII(x, t)
+        u2 = self.getAnalyticVelocityRegion2(x, t)
         pI = self.PL
         gamma = self.GAMMA
         beta = self.BETA
-        return pI*(1.0-(gamma-1.0)*uII/2/cI)**(1.0/beta)
+        return pI*(1.0-(gamma-1.0)*u2/2/cI)**(1.0/beta)
 
     def getAnalyticPressureRegion3(self):
         return self.getAnalyticPressureRegion4() 
@@ -216,13 +216,13 @@ class SodTube():
     def getDensityRegionI(self):
         return self.RHOL
 
-    def getAnalyticDensityRegionII(self, x,t):
+    def getAnalyticDensityRegion2(self, x,t):
         # (10.45), Wesseling P.
         gamma = self.GAMMA
         rhoI = self.RHOL
         pI = self.getPressureRegionI()
-        pII = self.getAnalyticPressureRegionII(x, t)
-        return rhoI*(pII/pI)**(1.0/gamma)
+        p2 = self.getAnalyticPressureRegion2(x, t)
+        return rhoI*(p2/pI)**(1.0/gamma)
 
     def getAnalyticDensityRegion3(self):
         # P410, Wesseling P.
