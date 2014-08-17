@@ -86,9 +86,9 @@ class SodTube():
         return self.mesh
 
     def get_analytic_Solution(self):
-        return self.calanalytic_Solution()
+        return self.cal_analytic_Solution()
 
-    def calanalytic_Solution(self, initcondition=None):
+    def cal_analytic_Solution(self, initcondition=None):
         # where implementing the code to get the analytic solution
         # by users' input condition
         # default is the Sod's condition
@@ -106,8 +106,8 @@ class SodTube():
         # (10.51) Wesseling P.
         p1 = self.PL
         p5 = self.get_pressure_region5()
-        c1 = self.get_velocity_C1()
-        c5 = self.get_velocity_C5()
+        c1 = self.get_velocity_c1()
+        c5 = self.get_velocity_c5()
         beta = self.BETA
         gamma = self.GAMMA
         return ((x/p1) - ((1.0 - ((gamma-1.0)*c5*((x/p5) - 1.0))/(c1*((2.0*gamma*(gamma-1.0+(gamma+1.0)*(x/p5)))**0.5)))**(1.0/beta)))
@@ -116,38 +116,38 @@ class SodTube():
     ### Velocity ###
     ################
     def get_velocity_FanLeft(self):
-        c1 = self.get_velocity_C1()
+        c1 = self.get_velocity_c1()
         return -c1
 
     def get_velocity_FanRight(self):
         u3 = self.get_analytic_velocity_region3()
-        c3 = self.get_velocity_C3()
+        c3 = self.get_velocity_c3()
         return u3 - c3
 
     def get_velocity_Shock(self):
         # P409, Wesseling P.
-        c5 = self.get_velocity_C5()
+        c5 = self.get_velocity_c5()
         gamma = self.GAMMA
         p4 = self.get_analytic_pressure_region4()
         p5 = self.get_pressure_region5()
         return c5*(1.0+(gamma+1.0)/2.0/gamma*((p4/p5)-1.0))*0.5
 
-    def get_velocity_C1(self):
+    def get_velocity_c1(self):
         return ((self.GAMMA*self.PL/self.RHOL)**0.5)
 
-    def get_velocity_C3(self):
+    def get_velocity_c3(self):
         p3 = self.get_analytic_pressure_region3()
         rho3 = self.get_analytic_density_region3()
         return (self.GAMMA*p3/rho3)**0.5
 
-    def get_velocity_C5(self):
+    def get_velocity_c5(self):
         return ((self.GAMMA*self.PR/self.RHOR)**0.5)
 
     def get_velocity_region1(self):
         return self.UL
 
     def get_analytic_velocity_region2(self, x, t):
-        c1 = self.get_velocity_C1()
+        c1 = self.get_velocity_c1()
         gamma = self.GAMMA
         return 2.0/(gamma+1.0)*(c1+x/t)
 
@@ -156,13 +156,13 @@ class SodTube():
 
     def get_analytic_velocity_region4(self): # ~0.916 for Sod tube problem
         #gamma = self.GAMMA
-        #c5 = self.get_velocity_C5()
+        #c5 = self.get_velocity_c5()
         #p5 = self.PR
         #return x - (ushock/gamma)*(x/pr-1.0)*(((2*gamma/(gamma+1.0))/((x/pr)+(gamma-1.0)/(gamma+1.0)))**0.5)
 
         # next to (10.51), P410, Wesseling P.
         # Need to verified...
-        #c1 = self.get_velocity_C1()
+        #c1 = self.get_velocity_c1()
         #beta = self.BETA
         #gamma = self.GAMMA
         #p1 = self.get_pressure_region1()
@@ -174,7 +174,7 @@ class SodTube():
         p4 = self.get_analytic_pressure_region4()
         p5 = self.get_pressure_region5()
         p = p4/p5
-        c5 = self.get_velocity_C5()
+        c5 = self.get_velocity_c5()
         return c5*(p-1.0)*(2.0/(gamma*(gamma-1.0+(gamma+1.0)*p)))**0.5
 
     def get_velocity_region5(self):
@@ -188,7 +188,7 @@ class SodTube():
 
     def get_analytic_pressure_region2(self, x, t):
         # (10.44) Wesssling P.
-        c1 = self.get_velocity_C1()
+        c1 = self.get_velocity_c1()
         u2 = self.get_analytic_velocity_region2(x, t)
         p1 = self.PL
         gamma = self.GAMMA
@@ -243,9 +243,9 @@ class SodTube():
     def get_density_region5(self):
         return self.RHOR 
 
-    def get_CESESolution(self):
+    def get_cese_Solution(self):
         return self.solution
 
-    def calCESESolution(self, initcondition, mesh, ceseparameters):
+    def cal_cese_Solution(self, initcondition, mesh, ceseparameters):
         return self.solution
 
