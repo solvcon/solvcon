@@ -14,13 +14,13 @@ x_steps = 10
 t = 0.004
 ###############
 
-rho4 = sodtube.get_AnalyticDensityRegion4()
-u4 = sodtube.get_AnalyticVelocityRegion4()
-p4 = sodtube.get_AnalyticPressureRegion4()
+rho4 = sodtube.get_analytic_DensityRegion4()
+u4 = sodtube.get_analytic_VelocityRegion4()
+p4 = sodtube.get_analytic_PressureRegion4()
 
-rho3 = sodtube.get_AnalyticDensityRegion3()
-u3 = sodtube.get_AnalyticVelocityRegion3()
-p3 = sodtube.get_AnalyticPressureRegion3()
+rho3 = sodtube.get_analytic_DensityRegion3()
+u3 = sodtube.get_analytic_VelocityRegion3()
+p3 = sodtube.get_analytic_PressureRegion3()
 #print rho4
 #print rho3
 #print p4
@@ -46,9 +46,9 @@ for x_step in xrange(x_steps,0,-1): # -1, -2, ... -10
 for x_step in xrange(x_steps): # 0, 1, ... 9
     x_fan = x_fan_delta_step*x_step + x_fan_left
     print'%f, %f, %f, %f' % (x_fan,
-                             sodtube.get_AnalyticDensityRegion2(x_fan,t),
-                             sodtube.get_AnalyticVelocityRegion2(x_fan,t),
-                             sodtube.get_AnalyticPressureRegion2(x_fan,t))
+                             sodtube.get_analytic_DensityRegion2(x_fan,t),
+                             sodtube.get_analytic_VelocityRegion2(x_fan,t),
+                             sodtube.get_analytic_PressureRegion2(x_fan,t))
 
 # Region 3
 x_disconti_delta = x_disconti - x_fan_right
