@@ -117,7 +117,7 @@ class SolutionClient():
             self._sodtube.execute(DumpResult(self._solver))
         elif cmd == "DUMPGRID":
             self._sodtube.execute(DumpGrid(self._solver))
-        elif cmd == "DUMPANALYTICREGION4"
+        elif cmd == "DUMPANALYTICREGION4":
             self._sodtube.execute(DumpAnalyticRegion4(self._solver))
         else:
             print("No such command")
