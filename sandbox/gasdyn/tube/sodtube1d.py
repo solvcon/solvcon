@@ -100,9 +100,6 @@ class SodTube():
     ### Analytical formula ###
     ##########################
     def analyticpressure_region4(self, x):
-        # DEBUG: REMOVE ME AFTER DEVELOPMENT
-        #return ((x-pr)*(((1.0-gamma2)/(rhor*(x+gamma2*pr)))**0.5)) - (((pl**beta)-(x**beta))*(((1.0-gamma2**2)*(pl**(1.0/gamma))/((gamma2**2)*rhol))**0.5)) # wiki
-
         # (10.51) Wesseling P.
         p1 = self.PL
         p5 = self.get_pressure_region5()
@@ -115,11 +112,11 @@ class SodTube():
     ################
     ### Velocity ###
     ################
-    def get_velocity_FanLeft(self):
+    def get_velocity_fan_left(self):
         c1 = self.get_velocity_c1()
         return -c1
 
-    def get_velocity_FanRight(self):
+    def get_velocity_fan_right(self):
         u3 = self.get_analytic_velocity_region3()
         c3 = self.get_velocity_c3()
         return u3 - c3
@@ -155,20 +152,6 @@ class SodTube():
         return self.get_analytic_velocity_region4()
 
     def get_analytic_velocity_region4(self): # ~0.916 for Sod tube problem
-        #gamma = self.GAMMA
-        #c5 = self.get_velocity_c5()
-        #p5 = self.PR
-        #return x - (ushock/gamma)*(x/pr-1.0)*(((2*gamma/(gamma+1.0))/((x/pr)+(gamma-1.0)/(gamma+1.0)))**0.5)
-
-        # next to (10.51), P410, Wesseling P.
-        # Need to verified...
-        #c1 = self.get_velocity_c1()
-        #beta = self.BETA
-        #gamma = self.GAMMA
-        #p1 = self.get_pressure_region1()
-        #p4 = self.get_analytic_pressure_region4()
-        #return p1 - x + 2.0/(gamma-1.0)*c1*(1.0 - (p4/p1)**(beta))
-
         # next to (10.48), Wesseling P. # ~0.306 for Sod tube problem
         gamma = self.GAMMA
         p4 = self.get_analytic_pressure_region4()

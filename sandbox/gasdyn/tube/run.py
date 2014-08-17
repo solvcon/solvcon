@@ -28,8 +28,8 @@ p3 = sodtube.get_analytic_pressure_region3()
 
 x_shock = sodtube.get_velocity_Shock()*t
 x_disconti = u3*t
-x_fan_right = sodtube.get_velocity_FanRight()*t
-x_fan_left = sodtube.get_velocity_FanLeft()*t
+x_fan_right = sodtube.get_velocity_fan_right()*t
+x_fan_left = sodtube.get_velocity_fan_left()*t
 
 x_fan_delta = x_fan_right - x_fan_left
 x_fan_delta_step = x_fan_delta/float(x_steps)
