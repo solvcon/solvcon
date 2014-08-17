@@ -70,10 +70,10 @@ for x_step in xrange(x_steps): # 0, 1, ... 9
                              u4,
                              p4)
 
-# Region V
+# Region 5
 for x_step in xrange(x_steps):
     x = x_fan_delta_step*x_step + x_shock
     print'%f, %f, %f, %f' % (x,
-                             sodtube.getDensityRegionV(),
-                             sodtube.getVelocityRegionV(),
-                             sodtube.getPressureRegionV())
+                             sodtube.getDensityRegion5(),
+                             sodtube.getVelocityRegion5(),
+                             sodtube.getPressureRegion5())
