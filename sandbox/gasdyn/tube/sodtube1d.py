@@ -20,10 +20,10 @@ class PlotManager():
     def __init__(self):
         pass
 
-    def plotMesh(self, mesh):
+    def plot_mesh(self, mesh):
         pass
 
-    def plotSolution(self, solution):
+    def plot_solution(self, solution):
         pass
 
 class DataManager(PlotManager):
@@ -33,10 +33,10 @@ class DataManager(PlotManager):
     def __init__(self):
         pass
 
-    def get_ErrorNorm(self, solution_A, solution_B):
+    def get_errorNorm(self, solution_A, solution_B):
         return solution_errornorm
 
-    def get_L2Norm(self, solution_A, solution_B):
+    def get_l2Norm(self, solution_A, solution_B):
         return solution_errornorm
 
 class SodTube():
@@ -76,13 +76,13 @@ class SodTube():
         self.solution = []
         self.ceseparameters = []
 
-    def get_Initcondition(self):
+    def get_initcondition(self):
         return self.initcondition
 
-    def set_Initcondition(self, initcondition):
+    def set_initcondition(self, initcondition):
         self.initcondition = initcondition
 
-    def get_Mesh(self):
+    def get_mesh(self):
         return self.mesh
 
     def get_analytic_Solution(self):
