@@ -72,9 +72,9 @@ class Solver():
         self._result = []
 
     def gen_grid(self):
-        xstep = 50
-        xstart = -10000
-        xstop = 10000
+        xstep = 100
+        xstart = -5050
+        xstop = 5050
         grid = []
         for x in range(xstart, xstop + xstep, xstep):
             grid.append(float(x)/10000.0)
