@@ -120,9 +120,9 @@ class SodTube():
         return -cI
 
     def getVelocityFanRight(self):
-        uIII = self.getAnalyticVelocityRegionIII()
-        cIII = self.getVelocityCIII()
-        return uIII - cIII
+        u3 = self.getAnalyticVelocityRegion3()
+        c3 = self.getVelocityC3()
+        return u3 - c3
 
     def getVelocityShock(self):
         # P409, Wesseling P.
@@ -135,10 +135,10 @@ class SodTube():
     def getVelocityCI(self):
         return ((self.GAMMA*self.PL/self.RHOL)**0.5)
 
-    def getVelocityCIII(self):
-        pIII = self.getAnalyticPressureRegionIII()
-        rhoIII = self.getAnalyticDensityRegionIII()
-        return (self.GAMMA*pIII/rhoIII)**0.5
+    def getVelocityC3(self):
+        p3 = self.getAnalyticPressureRegion3()
+        rho3 = self.getAnalyticDensityRegion3()
+        return (self.GAMMA*p3/rho3)**0.5
 
     def getVelocityCV(self):
         return ((self.GAMMA*self.PR/self.RHOR)**0.5)
@@ -151,7 +151,7 @@ class SodTube():
         gamma = self.GAMMA
         return 2.0/(gamma+1.0)*(cI+x/t)
 
-    def getAnalyticVelocityRegionIII(self):
+    def getAnalyticVelocityRegion3(self):
         return self.getAnalyticVelocityRegion4()
 
     def getAnalyticVelocityRegion4(self): # ~0.916 for Sod tube problem
@@ -195,7 +195,7 @@ class SodTube():
         beta = self.BETA
         return pI*(1.0-(gamma-1.0)*uII/2/cI)**(1.0/beta)
 
-    def getAnalyticPressureRegionIII(self):
+    def getAnalyticPressureRegion3(self):
         return self.getAnalyticPressureRegion4() 
 
     def getAnalyticPressureRegion4(self):
@@ -224,12 +224,12 @@ class SodTube():
         pII = self.getAnalyticPressureRegionII(x, t)
         return rhoI*(pII/pI)**(1.0/gamma)
 
-    def getAnalyticDensityRegionIII(self):
+    def getAnalyticDensityRegion3(self):
         # P410, Wesseling P.
         rhoI = self.getDensityRegionI()
         pI = self.getPressureRegionI()
-        pIII = self.getAnalyticPressureRegionIII()
-        return rhoI*(pIII/pI)**(1.0/self.GAMMA)
+        p3 = self.getAnalyticPressureRegion3()
+        return rhoI*(p3/pI)**(1.0/self.GAMMA)
 
     def getAnalyticDensityRegion4(self):
         # P410, Wesseling P.
