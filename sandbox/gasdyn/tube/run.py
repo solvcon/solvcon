@@ -34,13 +34,13 @@ x_fan_left = sodtube.getVelocityFanLeft()*t
 x_fan_delta = x_fan_right - x_fan_left
 x_fan_delta_step = x_fan_delta/float(x_steps)
 
-# Region I
+# Region 1
 for x_step in xrange(x_steps,0,-1): # -1, -2, ... -10
     x = -x_fan_delta_step*x_step + x_fan_left
     print'%f, %f, %f, %f' % (x,
-                             sodtube.getDensityRegionI(),
-                             sodtube.getVelocityRegionI(),
-                             sodtube.getPressureRegionI())
+                             sodtube.getDensityRegion1(),
+                             sodtube.getVelocityRegion1(),
+                             sodtube.getPressureRegion1())
 
 # Region 2
 for x_step in xrange(x_steps): # 0, 1, ... 9
