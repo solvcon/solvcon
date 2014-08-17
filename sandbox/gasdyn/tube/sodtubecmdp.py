@@ -58,6 +58,12 @@ class DumpGrid(Command):
     def execute(self):
         self._obj.dump_grid()
 
+class DumpAnalyticRegion4(Command):
+    """The COMMAND for dumping the analytic solution in the region 4"""
+    def execute(self):
+        self._obj.dump_analytic_region4()
+
+
 class Solver():
     """The RECEIVER class"""
     def __init__(self):
@@ -79,7 +85,8 @@ class Solver():
         print("get solution")
 
     def cal_analytic_solution(self):
-        print("get analytic_solution")
+        print("calculate analytic solution")
+
 
     def dump_result(self):
         print("dump result")
@@ -88,6 +95,9 @@ class Solver():
         for point in self._grid:
             print(point)
         print("grid points were dumped")
+
+    def dump_analytic_region4(self):
+        print("dump analytic solution in region4")
 
 class SolutionClient():
     """The CLIENT class"""
@@ -107,6 +117,8 @@ class SolutionClient():
             self._sodtube.execute(DumpResult(self._solver))
         elif cmd == "DUMPGRID":
             self._sodtube.execute(DumpGrid(self._solver))
+        elif cmd == "DUMPANALYTICREGION4"
+            self._sodtube.execute(DumpAnalyticRegion4(self._solver))
         else:
             print("No such command")
 
