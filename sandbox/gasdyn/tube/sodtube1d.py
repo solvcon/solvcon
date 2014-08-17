@@ -121,7 +121,7 @@ class SodTube():
         c3 = self.get_velocity_c3()
         return u3 - c3
 
-    def get_velocity_Shock(self):
+    def get_velocity_shock(self):
         # P409, Wesseling P.
         c5 = self.get_velocity_c5()
         gamma = self.GAMMA

@@ -26,7 +26,7 @@ p3 = sodtube.get_analytic_pressure_region3()
 #print p4
 #print p3
 
-x_shock = sodtube.get_velocity_Shock()*t
+x_shock = sodtube.get_velocity_shock()*t
 x_disconti = u3*t
 x_fan_right = sodtube.get_velocity_fan_right()*t
 x_fan_left = sodtube.get_velocity_fan_left()*t
