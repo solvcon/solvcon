@@ -79,7 +79,7 @@ class SodTube():
     def get_Initcondition(self):
         return self.initcondition
 
-    def setInitcondition(self, initcondition):
+    def set_Initcondition(self, initcondition):
         self.initcondition = initcondition
 
     def get_Mesh(self):
