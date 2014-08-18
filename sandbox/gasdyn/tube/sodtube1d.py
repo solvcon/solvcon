@@ -123,11 +123,11 @@ class SodTube():
 
     def get_velocity_shock(self):
         # P409, Wesseling P.
-        c5 = self.get_velocity_c5()
+        c5 = self.get_velocity_c5() # 1.0583
         gamma = self.GAMMA
-        p4 = self.get_analytic_pressure_region4()
-        p5 = self.get_pressure_region5()
-        return c5*(1.0+(gamma+1.0)/2.0/gamma*((p4/p5)-1.0))*0.5
+        p4 = self.get_analytic_pressure_region4() # 0.3031
+        p5 = self.get_pressure_region5() # 0.1
+        return c5*((1.0+(((gamma+1.0)*((p4/p5)-1.0))/(2.0*gamma)))**0.5)
 
     def get_velocity_c1(self):
         return ((self.GAMMA*self.PL/self.RHOL)**0.5)
