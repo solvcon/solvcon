@@ -107,5 +107,5 @@ for i in xrange(itp):
 for i in xrange(m):
     x = mtxq[1,i]/mtxq[0,i]
     z = a1*(mtxq[2,i] - 0.5*(x**2)*mtxq[0,i])
-    print('%f %f %f %f' % (xx[i],mtxq[0,i],x,z))
+    print('x %f rho %f u %f p %f' % (xx[i],mtxq[0,i],x,z))
 
