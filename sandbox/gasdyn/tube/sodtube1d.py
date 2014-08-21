@@ -39,6 +39,37 @@ class DataManager(PlotManager):
     def get_l2Norm(self, solution_A, solution_B):
         return solution_errornorm
 
+    def get_deviation(self, solution_a, solution_b):
+        solution_deviation = []
+        if len(solution_a) != len(solution_b):
+            print("two solutions have different mesh point numbers!")
+
+        for i in range(len(solution_a)):
+            if abs(solution_a[i][0] - solution_b[i][0]) < 0.000000001: # this is a bad way
+                x = solution_a[i][0]
+                drho_abs = abs(solution_a[i][1] - solution_b[i][1])
+                dv_abs = abs(solution_a[i][2] - solution_b[i][2])
+                dp_abs = abs(solution_a[i][3] - solution_b[i][3])
+                solution_deviation.append((x, drho_abs, dv_abs, dp_abs))
+            else:
+                print("two solutions have different mesh point!!")
+
+        if len(solution_deviation) == len(solution_a):
+            return solution_deviation
+        else:
+            print("sth. wrong when getting deviation!!")
+
+    def get_deviation_percent(self, solution_a, solution_b):
+        solution_deviation = self.get_deviation(solution_a, solution_b)
+        solution_deviation_precent = []
+        for i in range(len(solution_deviation)):
+            solution_deviation_precent.append((solution_a[i][0],
+                solution_deviation[i][1]/(solution_a[i][1]+1e-20),
+                solution_deviation[i][2]/(solution_a[i][2]+1e-20),
+                solution_deviation[i][3]/(solution_a[i][3]+1e-20)))
+        return solution_deviation_precent
+
+
     def dump_solution(self, solution):
         print'x rho v p'
         for i in solution:
