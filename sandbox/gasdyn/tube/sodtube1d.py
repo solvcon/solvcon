@@ -39,6 +39,11 @@ class DataManager(PlotManager):
     def get_l2Norm(self, solution_A, solution_B):
         return solution_errornorm
 
+    def dump_solution(self, solution):
+        print'x rho v p'
+        for i in solution:
+            print'%f %f %f %f' % (i[0], i[1], i[2], i[3])
+
 class SodTube():
     """
     The core to generate the 1D Sod tube test
@@ -82,18 +87,67 @@ class SodTube():
     def set_initcondition(self, initcondition):
         self.initcondition = initcondition
 
+    def gen_mesh(self):
+        import sodtubecmdp
+        solution_client = sodtubecmdp.SolutionClient()
+        solution_client.invoke("grid")
+        self.mesh = solution_client._solver._grid
+
     def get_mesh(self):
         return self.mesh
 
     def get_analytic_Solution(self):
         return self.cal_analytic_Solution()
 
-    def cal_analytic_Solution(self, initcondition=None):
+    def cal_analytic_Solution(self, mesh, t=0.2, initcondition=None):
         # where implementing the code to get the analytic solution
         # by users' input condition
         # default is the Sod's condition
         initcondition = initcondition or self.initcondition
+
+        rho4 = self.get_analytic_density_region4()
+        u4 = self.get_analytic_velocity_region4()
+        p4 = self.get_analytic_pressure_region4()
+        
+        rho3 = self.get_analytic_density_region3()
+        u3 = self.get_analytic_velocity_region3()
+        p3 = self.get_analytic_pressure_region3()
+        
+        x_shock = self.get_velocity_shock()*t
+        x_disconti = u3*t
+        x_fan_right = self.get_velocity_fan_right()*t
+        x_fan_left = self.get_velocity_fan_left()*t
+        
         solution = []
+        for x in mesh:
+            if x < x_fan_left or x == x_fan_left:
+                solution.append((x,
+                                 self.get_density_region1(),
+                                 self.get_velocity_region1(),
+                                 self.get_pressure_region1()))
+            elif x > x_fan_left and (x < x_fan_right or x == x_fan_right):
+                solution.append((x,
+                                 self.get_analytic_density_region2(float(x),t),
+                                 self.get_analytic_velocity_region2(float(x),t),
+                                 self.get_analytic_pressure_region2(float(x),t)))
+            elif x > x_fan_right and (x < x_disconti or x == x_disconti):
+                solution.append((x,
+                                 rho3,
+                                 u3,
+                                 p3))
+            elif x > x_disconti and (x < x_shock or x == x_shock):
+                solution.append((x,
+                                 rho4,
+                                 u4,
+                                 p4))
+            elif x > x_shock:
+                solution.append((x,
+                                self.get_density_region5(),
+                                self.get_velocity_region5(),
+                                self.get_pressure_region5()))
+            else:
+                print("Something wrong!!!")
+
         return solution
 
     ##########################
