@@ -96,10 +96,10 @@ class SodTube():
     def get_mesh(self):
         return self.mesh
 
-    def get_analytic_Solution(self):
-        return self.cal_analytic_Solution()
+    def get_analytic_solution(self):
+        return self.cal_analytic_solution()
 
-    def cal_analytic_Solution(self, mesh, t=0.2, initcondition=None):
+    def cal_analytic_solution(self, mesh, t=0.2, initcondition=None):
         # where implementing the code to get the analytic solution
         # by users' input condition
         # default is the Sod's condition
@@ -280,7 +280,7 @@ class SodTube():
     def get_density_region5(self):
         return self.RHOR 
 
-    def get_cese_Solution(self):
+    def get_cese_solution(self):
         import numpy as np
         
         it = 100 # iteration, which is integer
@@ -377,7 +377,7 @@ class SodTube():
         #return self.solution
         return solution
 
-    def cal_cese_Solution(self, initcondition, mesh, ceseparameters):
+    def cal_cese_solution(self, initcondition, mesh, ceseparameters):
 
         return self.solution
 
