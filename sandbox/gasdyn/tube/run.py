@@ -1,9 +1,9 @@
 #!/usr/bin/python
 #
-# run3.py
+# run.py
 #
 # Usage:
-#     ./run3.py
+#     ./run.py
 #
 # Description:
 #     An example to show how to use sodtube1d class
