@@ -11,6 +11,7 @@
 # DEBUG: search string 'DEBUG'
 
 import scipy.optimize as so
+import matplotlib.pyplot as plt
 
 class PlotManager():
     """
@@ -23,8 +24,56 @@ class PlotManager():
     def plot_mesh(self, mesh):
         pass
 
-    def plot_solution(self, solution):
+    def plot_solution(self):
         pass
+
+    def show_solution_comparison(self):
+        plt.show()
+
+    def get_plot_solutions_fig_rho(self,
+                           solution_a,
+                           solution_b,
+                           solution_a_label="series 1",
+                           solution_b_label="series 2"):
+        return self.get_plot_solutions_fig(solution_a, solution_b, 1, solution_a_label, solution_b_label)
+
+    def get_plot_solutions_fig_v(self,
+                           solution_a,
+                           solution_b,
+                           solution_a_label="series 1",
+                           solution_b_label="series 2"):
+        return self.get_plot_solutions_fig(solution_a, solution_b, 2, solution_a_label, solution_b_label)
+
+    def get_plot_solutions_fig_p(self,
+                           solution_a,
+                           solution_b,
+                           solution_a_label="series 1",
+                           solution_b_label="series 2"):
+        return self.get_plot_solutions_fig(solution_a, solution_b, 3, solution_a_label, solution_b_label)
+
+    def get_plot_solutions_fig(self,
+                       solution_a,
+                       solution_b,
+                       item,
+                       solution_a_label="series 1",
+                       solution_b_label="series 2"):
+        ax = self.get_solution_value_list(solution_a, 0)
+        ay = self.get_solution_value_list(solution_a, item)
+        bx = self.get_solution_value_list(solution_b, 0)
+        by = self.get_solution_value_list(solution_b, item)
+        fig = plt.figure()
+        ax1 = fig.add_subplot(111)
+        ax1.set_title(solution_a_label + " v.s. " + solution_b_label)
+        ax1.scatter(ax, ay, s=10, c='b', marker="s", label=solution_a_label)
+        ax1.scatter(bx, by, s=10, c='r', marker="o", label=solution_b_label)
+        plt.legend(loc='upper left')
+        return fig
+
+    def get_solution_value_list(self, solution, item):
+        solution_item_list = []
+        for i in solution:
+            solution_item_list.append(i[item])
+        return solution_item_list
 
 class DataManager(PlotManager):
     """
