@@ -2,11 +2,19 @@
 #
 # sodtube1d.py
 #
+# Description:
+#     1D Sod Tube Test
 #
-# 1D Sod Tube Test
+#     This program is implemented by OO style to be
+#     a part of ipython notebook demo materials.
 #
-# This program is implemented by OO style to be
-# a part of ipython notebook demo materials.
+#     The derivation of the equations for the analytic solution
+#     is based on the book,
+#     “Principles of Computational Fluid Dynamics”,
+#     written by Pieter Wesseling.
+#     Or, someone could refer to the solvcon website
+#     http://www.solvcon.net/en/latest/cese.html#sod-s-shock-tube-problem
+#
 #
 # DEBUG: search string 'DEBUG'
 
@@ -233,8 +241,26 @@ class SodTube():
     ##########################
     ### Analytical formula ###
     ##########################
-    def analyticpressure_region4(self, x):
-        # (10.51) Wesseling P.
+    def analytic_pressure_region4(self, x):
+        """
+        x: the root value we want to know.
+
+        This method return the formula to get the solution
+        of the pressure in the region 4.
+        It is a equation that could get the solution
+        by numerical approaches, e.g. Newton method.
+
+        For details how to derive the equation, someone
+        could refer to, for example, the equation (10.51)
+        of Pieter Wesseling,
+        “Principles of Computational Fluid Dynamics”
+
+        The method and the return equation will be
+        used by scipy numerial method, e.g.
+        scipy.newton
+        So, the method and the return value format
+        follow the request of scipy.
+        """
         p1 = self.PL
         p5 = self.get_pressure_region5()
         c1 = self.get_velocity_c1()
@@ -285,8 +311,12 @@ class SodTube():
     def get_analytic_velocity_region3(self):
         return self.get_analytic_velocity_region4()
 
-    def get_analytic_velocity_region4(self): # ~0.916 for Sod tube problem
-        # next to (10.48), Wesseling P. # ~0.306 for Sod tube problem
+    def get_analytic_velocity_region4(self):
+        """
+        The equation could be found in the
+        equation next to (10.48), Wesseling P.,
+        “Principles of Computational Fluid Dynamics”
+        """
         gamma = self.GAMMA
         p4 = self.get_analytic_pressure_region4()
         p5 = self.get_pressure_region5()
@@ -322,7 +352,7 @@ class SodTube():
         """
         x0 : the guess initial value to be applied in Newton method
         """
-        return so.newton(self.analyticpressure_region4,x0)
+        return so.newton(self.analytic_pressure_region4,x0)
 
     def get_pressure_region5(self):
         return self.PR
@@ -335,6 +365,7 @@ class SodTube():
 
     def get_analytic_density_region2(self, x,t):
         # (10.45), Wesseling P.
+        # “Principles of Computational Fluid Dynamics”
         gamma = self.GAMMA
         rho1 = self.RHOL
         p1 = self.get_pressure_region1()
@@ -343,6 +374,7 @@ class SodTube():
 
     def get_analytic_density_region3(self):
         # P410, Wesseling P.
+        # “Principles of Computational Fluid Dynamics”
         rho1 = self.get_density_region1()
         p1 = self.get_pressure_region1()
         p3 = self.get_analytic_pressure_region3()
@@ -350,6 +382,7 @@ class SodTube():
 
     def get_analytic_density_region4(self):
         # P410, Wesseling P.
+        # “Principles of Computational Fluid Dynamics”
         alpha = self.ALPHA
         p4 = self.get_analytic_pressure_region4()
         p5 = self.get_pressure_region5()
@@ -458,6 +491,5 @@ class SodTube():
         return solution
 
     def cal_cese_solution(self, initcondition, mesh, ceseparameters):
-
         return self.solution
 
