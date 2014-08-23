@@ -10,7 +10,7 @@
 #
 #     The derivation of the equations for the analytic solution
 #     is based on the book,
-#     “Principles of Computational Fluid Dynamics”,
+#     Principles of Computational Fluid Dynamics,
 #     written by Pieter Wesseling.
 #     Or, someone could refer to the solvcon website
 #     http://www.solvcon.net/en/latest/cese.html#sod-s-shock-tube-problem
@@ -253,7 +253,7 @@ class SodTube():
         For details how to derive the equation, someone
         could refer to, for example, the equation (10.51)
         of Pieter Wesseling,
-        “Principles of Computational Fluid Dynamics”
+        Principles of Computational Fluid Dynamics
 
         The method and the return equation will be
         used by scipy numerial method, e.g.
@@ -315,7 +315,7 @@ class SodTube():
         """
         The equation could be found in the
         equation next to (10.48), Wesseling P.,
-        “Principles of Computational Fluid Dynamics”
+        Principles of Computational Fluid Dynamics
         """
         gamma = self.GAMMA
         p4 = self.get_analytic_pressure_region4()
@@ -346,9 +346,9 @@ class SodTube():
         return self.get_analytic_pressure_region4() 
 
     def get_analytic_pressure_region4(self):
-        return self.get_analytic_pressure_region4ByNewton()
+        return self.get_analytic_pressure_region4_by_newton()
 
-    def get_analytic_pressure_region4ByNewton(self, x0=1):
+    def get_analytic_pressure_region4_by_newton(self, x0=1):
         """
         x0 : the guess initial value to be applied in Newton method
         """
@@ -365,7 +365,7 @@ class SodTube():
 
     def get_analytic_density_region2(self, x,t):
         # (10.45), Wesseling P.
-        # “Principles of Computational Fluid Dynamics”
+        # Principles of Computational Fluid Dynamics
         gamma = self.GAMMA
         rho1 = self.RHOL
         p1 = self.get_pressure_region1()
@@ -374,7 +374,7 @@ class SodTube():
 
     def get_analytic_density_region3(self):
         # P410, Wesseling P.
-        # “Principles of Computational Fluid Dynamics”
+        # Principles of Computational Fluid Dynamics
         rho1 = self.get_density_region1()
         p1 = self.get_pressure_region1()
         p3 = self.get_analytic_pressure_region3()
@@ -382,7 +382,7 @@ class SodTube():
 
     def get_analytic_density_region4(self):
         # P410, Wesseling P.
-        # “Principles of Computational Fluid Dynamics”
+        # Principles of Computational Fluid Dynamics
         alpha = self.ALPHA
         p4 = self.get_analytic_pressure_region4()
         p5 = self.get_pressure_region5()
