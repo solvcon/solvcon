@@ -244,8 +244,8 @@ there must be a point with the speed
 
   \frac{{c_1}^2}{\gamma - 1} + \frac{{u_{*}}^2}{2} =
   \frac{{c_1}^2}{\gamma - 1} + \frac{{c_{*}}^2}{2} =
-  \frac{(\gamma-1)+2}{2(\gamma-1)}{c_{*}} = 
-  \frac{(\gamma+1)}{2(\gamma-1)}{c_{*}}
+  \frac{(\gamma-1)+2}{2(\gamma-1)}{c^2_{*}} = 
+  \frac{(\gamma+1)}{2(\gamma-1)}{c^2_{*}}
 
 And
 
@@ -254,7 +254,7 @@ And
 
   \frac{{c_1}^2}{\gamma - 1} + \frac{{u_1}^2}{2} =
   \frac{{c_2}^2}{\gamma - 1} + \frac{{u_2}^2}{2} = 
-  \frac{(\gamma+1)}{2(\gamma-1)}{c_{*}}
+  \frac{(\gamma+1)}{2(\gamma-1)}{c^2_{*}}
 
 Now let's try to get :math:`c_{*}`
 represented by :math:`u_{1}` and :math:`u_{2}`.
@@ -322,6 +322,25 @@ The relation
 is called Prandel-Meyer relation.
 It means the flow at one side of a shock must be supersonic,
 and the other side must be subsonic.
+
+Now defining the Mach number :math:`M_1 = \frac{u_1}{c_1}` and
+:math:`M^{*} = \frac{u}{c_*}`, we get from :eq:`u4u5.rh.3.1`:
+
+.. math::
+
+   & \frac{{c_1}^2}{(\gamma - 1)} + \frac{{u_1}^2}{2} =
+   \frac{(\gamma+1)}{2(\gamma-1)}{c^2_{*}} \\
+   \Rightarrow
+   & \frac{{c_1}^2}{(u_1)^2}\frac{(u_1)^2}{\gamma - 1} +
+   \frac{{u_1}^2}{2} =
+   \frac{(\gamma+1)}{2(\gamma-1)}{c^2_{*}} \\
+   \text{dividied by } c^2_{*}
+   \Rightarrow
+   & \frac{{c_1}^2}{(u_1)^2}\frac{(u_1)^2}{c^2_{*}(\gamma - 1)} +
+   \frac{{u_1}^2}{(c^2_{*})2} =
+   \frac{(\gamma+1)}{2(\gamma-1)} \\
+   & \frac{M^*_1}{M_1(\gamma-1)} + \frac{M^{*2}_{1}}{2} =
+   \frac{{u_1}^2}{(c^2_{*})2}
 
 ============
 Bibliography
