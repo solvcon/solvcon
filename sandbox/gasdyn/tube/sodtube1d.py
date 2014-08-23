@@ -17,6 +17,7 @@
 #
 #
 # DEBUG: search string 'DEBUG'
+# why: somewhere don't understand very much ...
 
 import scipy.optimize as so
 import matplotlib.pyplot as plt
@@ -194,6 +195,8 @@ class SodTube():
         self.initcondition = initcondition
 
     def gen_mesh(self):
+        # this is horrible
+        # implement its own generator please.
         import sodtubecmdp
         solution_client = sodtubecmdp.SolutionClient()
         solution_client.invoke("grid")
