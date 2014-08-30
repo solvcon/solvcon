@@ -1,5 +1,6 @@
 SConscript([
     'fake/SConscript',
+    'gas/SConscript',
     'linear/SConscript',
     'bulk/SConscript',
     'vewave/SConscript',

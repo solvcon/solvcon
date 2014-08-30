@@ -1,0 +1,27 @@
+import os
+
+Import('targets', 'env')
+
+env = env.Clone()
+env.Append(CPPPATH=[os.path.abspath('.')])
+
+# compile Cython code to C.
+pyx = env.Cython('_algorithm.pyx')
+env.Depends(pyx, '_algorithm.pxd')
+
+# compile standard C code.
+relcwd = os.path.abspath('.')
+relcwd = relcwd.replace(env['SCPROJDIR'], '')
+relcwd = relcwd.lstrip('/')
+vardir = os.path.join(env['SCBUILDDIR'], relcwd, 'src')
+env.VariantDir(vardir, 'src', duplicate=1)
+objs = env.SharedObject(Glob(os.path.join(vardir, '*.c')))
+env.Depends(objs, pyx)
+
+# compile everything into a Python extension.
+pymod = env.PythonExtension([pyx] + objs)
+env.Depends(pymod, objs)
+
+targets.setdefault('scmods', []).extend(pymod)
+
+# vim: set ff=unix ft=python fenc=utf8 ai et sw=4 ts=4 tw=79:

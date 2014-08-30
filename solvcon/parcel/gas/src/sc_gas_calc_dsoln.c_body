@@ -1,0 +1,330 @@
+/*
+ * Copyright (c) 2014, Yung-Yu Chen <yyc@solvcon.net>
+ *
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * - Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ * - Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ * - Neither the name of the SOLVCON nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ */
+
+void
+#if NDIM == 3
+sc_gas_calc_dsoln_3d
+#else
+sc_gas_calc_dsoln_2d
+#endif
+(sc_mesh_t *msd, sc_gas_algorithm_t *alg) {
+    int clnfc;
+    // pointers.
+    int *pcltpn;
+    int *pclfcs, *pfccls;
+    double *pcecnd, *picecnd, *pjcecnd;
+    double *pisoln, *pjsol, *pjsoln, *pdsol, *pdsoln;
+    double *pjsolt;
+    // scalars.
+    double hdt;
+    double tau, vob, voc, wgt, ofg1, sgm0;
+    double grd0, grd1, grd2;
+    // arrays.
+    double xps[CLMFC][NDIM], dsp[CLMFC][NDIM];
+    double crd[NDIM], cnd[NDIM], cndge[NDIM], sft[NDIM];
+    double dst[NDIM][NDIM];
+    double dnv[NDIM][NDIM];
+    double udf[NEQ][NDIM];
+    double gfd[MFGE][NEQ][NDIM];
+    double dlt[MFGE][NEQ];
+    double dla[NEQ];
+    // interators.
+    int icl, ifl, ifl1, ifc, jcl, ieq, ivx;
+    int ig0, ig1, ig, ifg;
+    hdt = alg->time_increment * 0.5;
+    #pragma omp parallel for private(clnfc, pcltpn, pclfcs, \
+    pfccls, pcecnd, picecnd, pjcecnd, \
+    pisoln, pjsol, pjsoln, pdsol, pdsoln, pjsolt, \
+    tau, vob, voc, wgt, ofg1, sgm0, \
+    grd0, grd1, grd2, \
+    xps, dsp, crd, cnd, cndge, sft, dst, dnv, udf, gfd, dlt, dla, \
+    icl, ifl, ifl1, ifc, jcl, \
+    ieq, ivx, ig0, ig1, ig, ifg) \
+    firstprivate(hdt)
+    for (icl=0; icl<msd->ncell; icl++) {
+        pcltpn = msd->cltpn + icl;  // 1 flops.
+        ig0 = ggerng[pcltpn[0]][0];
+        ig1 = ggerng[pcltpn[0]][1];
+        ofg1 = 1.0/(ig1-ig0);
+        pclfcs = msd->clfcs + icl*(CLMFC+1);
+
+        // determine sigma0 and tau.
+        sgm0 = alg->sigma0 / fabs(alg->cfl[icl]);   // 3 flops.
+        tau = alg->taumin + fabs(alg->cfl[icl]) * alg->tauscale;
+
+        // calculate the vertices of GGE with the tau parameter.
+        pclfcs = msd->clfcs + icl*(CLMFC+1);
+        picecnd = alg->cecnd + icl*(CLMFC+1)*NDIM;
+        pcecnd = picecnd;
+        clnfc = pclfcs[0];
+        for (ifl=1; ifl<=clnfc; ifl++) {    // clnfc*(16+8) flops.
+            ifl1 = ifl - 1;
+            ifc = pclfcs[ifl];
+            pfccls = msd->fccls + ifc*FCREL;
+            jcl = pfccls[0] + pfccls[1] - icl;
+            pjcecnd = alg->cecnd + jcl*(CLMFC+1)*NDIM;
+            pcecnd += NDIM;
+            // location of P/M points and displacement to neighboring solution
+            // points.
+            sft[0] = (picecnd[0] + pjcecnd[0])/2;
+            sft[0] += alg->cnbfac*(pcecnd[0] - sft[0]);
+            xps[ifl1][0] = (pjcecnd[0] - sft[0])*tau + sft[0];
+            dsp[ifl1][0] = xps[ifl1][0] - pjcecnd[0];
+            sft[1] = (picecnd[1] + pjcecnd[1])/2;
+            sft[1] += alg->cnbfac*(pcecnd[1] - sft[1]);
+            xps[ifl1][1] = (pjcecnd[1] - sft[1])*tau + sft[1];
+            dsp[ifl1][1] = xps[ifl1][1] - pjcecnd[1];
+#if NDIM == 3
+            sft[2] = (picecnd[2] + pjcecnd[2])/2;
+            sft[2] += alg->cnbfac*(pcecnd[2] - sft[2]);
+            xps[ifl1][2] = (pjcecnd[2] - sft[2])*tau + sft[2];
+            dsp[ifl1][2] = xps[ifl1][2] - pjcecnd[2];
+#endif
+        };
+
+        // calculate average point.
+        crd[0] = crd[1] = 0.0;
+#if NDIM == 3
+        crd[2] = 0.0;
+#endif
+        for (ifl=0; ifl<clnfc; ifl++) { // clnfc*(2+1) flops.
+            crd[0] += xps[ifl][0];
+            crd[1] += xps[ifl][1];
+#if NDIM == 3
+            crd[2] += xps[ifl][2];
+#endif
+        };
+        crd[0] /= clnfc;    // 2+1 flops.
+        crd[1] /= clnfc;
+#if NDIM == 3
+        crd[2] /= clnfc;
+#endif
+        // calculate GGE centroid.
+        voc = cndge[0] = cndge[1] = 0.0;
+#if NDIM == 3
+        cndge[2] = 0.0;
+#endif
+        for (ig=ig0; ig<ig1; ig++) {
+            cnd[0] = crd[0];
+            cnd[1] = crd[1];
+#if NDIM == 3
+            cnd[2] = crd[2];
+#endif
+            for (ivx=0; ivx<NDIM; ivx++) {  // MFGE*NDIM*(4+2) flops.
+                ifl = ggefcs[ig][ivx]-1;
+                cnd[0] += xps[ifl][0];
+                cnd[1] += xps[ifl][1];
+#if NDIM == 3
+                cnd[2] += xps[ifl][2];
+#endif
+                dst[ivx][0] = xps[ifl][0] - crd[0];
+                dst[ivx][1] = xps[ifl][1] - crd[1];
+#if NDIM == 3
+                dst[ivx][2] = xps[ifl][2] - crd[2];
+#endif
+            };
+            cnd[0] /= NDIM+1;   //  MFGE*(2+(4,16)) flops.
+            cnd[1] /= NDIM+1;
+#if NDIM == 3
+            cnd[2] /= NDIM+1;
+            sft[0] = dst[0][1]*dst[1][2] - dst[0][2]*dst[1][1];
+            sft[1] = dst[0][2]*dst[1][0] - dst[0][0]*dst[1][2];
+            sft[2] = dst[0][0]*dst[1][1] - dst[0][1]*dst[1][0];
+            vob = fabs(sft[0]*dst[2][0] + sft[1]*dst[2][1] + sft[2]*dst[2][2]);
+            vob /= 6;
+#else
+            vob = fabs(dst[0][0]*dst[1][1] - dst[0][1]*dst[1][0]);
+            vob /= 2;
+#endif
+            voc += vob; // MFGE*(5+2) flops.
+            cndge[0] += cnd[0] * vob;
+            cndge[1] += cnd[1] * vob;
+#if NDIM == 3
+            cndge[2] += cnd[2] * vob;
+#endif
+        };
+        cndge[0] /= voc;    // 2+1 flops.
+        cndge[1] /= voc;
+#if NDIM == 3
+        cndge[2] /= voc;
+#endif
+        // calculate GGE shift.
+        pcecnd = alg->cecnd + icl*(CLMFC+1)*NDIM;
+        sft[0] = alg->sftfac * (pcecnd[0] - cndge[0]);  // 4+2 flops.
+        sft[1] = alg->sftfac * (pcecnd[1] - cndge[1]);
+#if NDIM == 3
+        sft[2] = alg->sftfac * (pcecnd[2] - cndge[2]);
+#endif
+        for (ifl=0; ifl<clnfc; ifl++) { // clnfc*(2+1) flops.
+            dsp[ifl][0] += sft[0];
+            dsp[ifl][1] += sft[1];
+#if NDIM == 3
+            dsp[ifl][2] += sft[2];
+#endif
+        };
+
+        // calculate gradient and weighting delta.
+        for (ieq=0; ieq<NEQ; ieq++) {
+            dla[ieq] = 0;
+        };
+        pisoln = alg->soln + icl*NEQ;
+        for (ig=ig0; ig<ig1; ig++) {
+            ifg = ig-ig0;   // MFGE*1 flops
+            for (ivx=0; ivx<NDIM; ivx++) {
+                ifl = ggefcs[ig][ivx];
+                ifc = pclfcs[ifl];
+                ifl -= 1;
+                pfccls = msd->fccls + ifc*FCREL;
+                jcl = pfccls[0] + pfccls[1] - icl;
+                // distance.
+                dst[ivx][0] = xps[ifl][0] - cndge[0]; // MFGE*NDIM*(2+1) flops.
+                dst[ivx][1] = xps[ifl][1] - cndge[1];
+#if NDIM == 3
+                dst[ivx][2] = xps[ifl][2] - cndge[2];
+#endif
+                // solution difference.
+                pjsol = alg->sol + jcl*NEQ;
+                pjsoln = alg->soln + jcl*NEQ;
+				pjsolt = alg->solt + jcl*NEQ;
+                pdsol = alg->dsol + jcl*NEQ*NDIM;
+                for (ieq=0; ieq<NEQ; ieq++) {   // MFGE*NDIM*NEQ*(9+2) flops.
+                    voc = pjsol[ieq] + hdt*pjsolt[ieq] - pjsoln[ieq];
+                    voc *= alg->taylor;
+                    udf[ieq][ivx] = pjsoln[ieq] + voc - pisoln[ieq];
+                    udf[ieq][ivx] += dsp[ifl][0]*pdsol[0];
+                    udf[ieq][ivx] += dsp[ifl][1]*pdsol[1];
+#if NDIM == 3
+                    udf[ieq][ivx] += dsp[ifl][2]*pdsol[2];
+#endif
+                    pdsol += NDIM;
+                };
+            };
+            // prepare inverse matrix for gradient. MFGE*(3,32) flops.
+#if NDIM == 3
+            dnv[0][0] = dst[1][1]*dst[2][2] - dst[1][2]*dst[2][1];
+            dnv[0][1] = dst[0][2]*dst[2][1] - dst[0][1]*dst[2][2];
+            dnv[0][2] = dst[0][1]*dst[1][2] - dst[0][2]*dst[1][1];
+            dnv[1][0] = dst[1][2]*dst[2][0] - dst[1][0]*dst[2][2];
+            dnv[1][1] = dst[0][0]*dst[2][2] - dst[0][2]*dst[2][0];
+            dnv[1][2] = dst[0][2]*dst[1][0] - dst[0][0]*dst[1][2];
+            dnv[2][0] = dst[1][0]*dst[2][1] - dst[1][1]*dst[2][0];
+            dnv[2][1] = dst[0][1]*dst[2][0] - dst[0][0]*dst[2][1];
+            dnv[2][2] = dst[0][0]*dst[1][1] - dst[0][1]*dst[1][0];
+            voc = dnv[0][2]*dst[2][0] + dnv[1][2]*dst[2][1]
+                + dnv[2][2]*dst[2][2];
+#else
+            dnv[0][0] =  dst[1][1]; dnv[0][1] = -dst[0][1];
+            dnv[1][0] = -dst[1][0]; dnv[1][1] =  dst[0][0];
+            voc = dst[0][0]*dst[1][1] - dst[0][1]*dst[1][0];
+#endif
+            // calculate grdient and weighting delta.
+            for (ieq=0; ieq<NEQ; ieq++) {   // MFGE*NEQ*(17+12) flops.
+                grd0 = dnv[0][0]*udf[ieq][0] + dnv[0][1]*udf[ieq][1];
+#if NDIM == 3
+                grd0 += dnv[0][2]*udf[ieq][2];
+#endif
+                grd0 /= voc;
+                grd1 = dnv[1][0]*udf[ieq][0] + dnv[1][1]*udf[ieq][1];
+#if NDIM == 3
+                grd1 += dnv[1][2]*udf[ieq][2];
+#endif
+                grd1 /= voc;
+#if NDIM == 3
+                grd2 = dnv[2][0]*udf[ieq][0] + dnv[2][1]*udf[ieq][1];
+                grd2 += dnv[2][2]*udf[ieq][2];
+                grd2 /= voc;
+#endif
+                // store for later weight.
+                gfd[ifg][ieq][0] = grd0;
+                gfd[ifg][ieq][1] = grd1;
+#if NDIM == 3
+                gfd[ifg][ieq][2] = grd2;
+#endif
+                // W-1/2 weight function.
+                wgt = grd0*grd0 + grd1*grd1;
+#if NDIM == 3
+                wgt += grd2*grd2;
+#endif
+                wgt = 1.0 / pow(sqrt(wgt+ALMOST_ZERO), alg->alpha);
+                // store and accumulate weighting function.
+                dla[ieq] += wgt;
+                dlt[ifg][ieq] = wgt;
+            };
+        };
+
+        // calculate W-3/4 delta and sigma_max.
+        // NOTE: udf is reused here.
+        for (ieq=0; ieq<NEQ; ieq++) {
+            udf[ieq][0] = udf[ieq][1] = 0.0;
+        };
+        for (ig=ig0; ig<ig1; ig++) {
+            ifg = ig-ig0;
+            for (ieq=0; ieq<NEQ; ieq++) {   // MFGE*NEQ*2 flops.
+                wgt = dlt[ifg][ieq] / dla[ieq] - ofg1;
+                dlt[ifg][ieq] = wgt;
+                udf[ieq][0] = fmax(udf[ieq][0], wgt);
+                udf[ieq][1] = fmin(udf[ieq][1], wgt);
+            };
+        };
+        // NOTE: dla is reused here for sigma_max.
+        for (ieq=0; ieq<NEQ; ieq++) {   // NEQ*5 flops.
+            dla[ieq] = fmin(
+                (1.0-ofg1)/(udf[ieq][0]+ALMOST_ZERO),
+                -ofg1/(udf[ieq][1]-ALMOST_ZERO)
+            );
+            dla[ieq] = fmin(dla[ieq], sgm0);
+        };
+
+        // weight and update gradient.
+        pdsoln = alg->dsoln + icl*NEQ*NDIM;
+        for (ieq=0; ieq<NEQ; ieq++) {
+            pdsoln[0] = pdsoln[1] = 0.0;
+#if NDIM == 3
+            pdsoln[2] = 0.0;
+#endif
+            pdsoln += NDIM;
+        };
+        for (ig=ig0; ig<ig1; ig++) {    // MFGE*NEQ*(6+2) flops.
+            ifg = ig-ig0;
+            pdsoln = alg->dsoln + icl*NEQ*NDIM;
+            for (ieq=0; ieq<NEQ; ieq++) {
+                wgt = ofg1 + dla[ieq]*dlt[ifg][ieq];
+                pdsoln[0] += wgt*gfd[ifg][ieq][0];
+                pdsoln[1] += wgt*gfd[ifg][ieq][1];
+#if NDIM == 3
+                pdsoln[2] += wgt*gfd[ifg][ieq][2];
+#endif
+                pdsoln += NDIM;
+            };
+        };
+    };
+};
+
+// vim: set ft=c ts=4 et:
