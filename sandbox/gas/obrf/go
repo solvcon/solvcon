@@ -309,7 +309,6 @@ def obrf(casename, **kw):
 
 
 if __name__ == '__main__':
-    import solvcon
-    solvcon.go()
+    sc.go()
 
 # vim: set ff=unix fenc=utf8 ft=python ai et sw=4 ts=4 tw=79:
