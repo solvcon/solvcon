@@ -40,6 +40,31 @@ cdef extern:
     void sc_gas_prepare_ce_2d(sc_mesh_t *msd, sc_gas_algorithm_t *alg)
     void sc_gas_prepare_sf_3d(sc_mesh_t *msd, sc_gas_algorithm_t *alg)
     void sc_gas_prepare_sf_2d(sc_mesh_t *msd, sc_gas_algorithm_t *alg)
+    # utility calculators.
+    void sc_gas_locate_point_2d(sc_mesh_t *msd, 
+        double *crd, int *picl, int *pifl, int *pjcl, int *pjfl)
+    void sc_gas_locate_point_3d(sc_mesh_t *msd, 
+        double *crd, int *picl, int *pifl, int *pjcl, int *pjfl)
+    ## physics processing.
+    void sc_gas_process_physics_2d(sc_mesh_t *msd, sc_gas_algorithm_t *alg,
+        double gasconst,
+        double *vel, double *vor, double *vorm, double *rho, double *pre,
+        double *tem, double *ken, double *sos, double *mac)
+    void sc_gas_process_physics_3d(sc_mesh_t *msd, sc_gas_algorithm_t *alg,
+        double gasconst,
+        double *vel, double *vor, double *vorm, double *rho, double *pre,
+        double *tem, double *ken, double *sos, double *mac)
+    ## Schlieren data processing.
+    void sc_gas_process_schlieren_rhog_2d(
+        sc_mesh_t *msd, sc_gas_algorithm_t *alg, double *rhog)
+    void sc_gas_process_schlieren_rhog_3d(
+        sc_mesh_t *msd, sc_gas_algorithm_t *alg, double *rhog)
+    void sc_gas_process_schlieren_sch_2d(
+        sc_mesh_t *msd, sc_gas_algorithm_t *alg,
+        double k, double k0, double k1, double rhogmax, double *sch)
+    void sc_gas_process_schlieren_sch_3d(
+        sc_mesh_t *msd, sc_gas_algorithm_t *alg,
+        double k, double k0, double k1, double rhogmax, double *sch)
     # algorithm calculators.
     void sc_gas_calc_cfl_2d(sc_mesh_t *msd, sc_gas_algorithm_t *alg)
     void sc_gas_calc_cfl_3d(sc_mesh_t *msd, sc_gas_algorithm_t *alg)
@@ -55,6 +80,7 @@ cdef extern:
     void sc_gas_ghostgeom_mirror_3d(
         sc_mesh_t *msd, sc_bound_t *bcd, sc_gas_algorithm_t *alg)
     # boundary-condition treaters.
+    ## non-reflective.
     void sc_gas_bound_nonrefl_soln_2d(
         sc_mesh_t *msd, sc_bound_t *bcd, sc_gas_algorithm_t *alg)
     void sc_gas_bound_nonrefl_soln_3d(
@@ -63,9 +89,29 @@ cdef extern:
         sc_mesh_t *msd, sc_bound_t *bcd, sc_gas_algorithm_t *alg)
     void sc_gas_bound_nonrefl_dsoln_3d(
         sc_mesh_t *msd, sc_bound_t *bcd, sc_gas_algorithm_t *alg)
+    ## wall.
+    void sc_gas_bound_wall_soln_2d(
+        sc_mesh_t *msd, sc_bound_t *bcd, sc_gas_algorithm_t *alg)
+    void sc_gas_bound_wall_soln_3d(
+        sc_mesh_t *msd, sc_bound_t *bcd, sc_gas_algorithm_t *alg)
+    void sc_gas_bound_wall_dsoln_2d(
+        sc_mesh_t *msd, sc_bound_t *bcd, sc_gas_algorithm_t *alg)
+    void sc_gas_bound_wall_dsoln_3d(
+        sc_mesh_t *msd, sc_bound_t *bcd, sc_gas_algorithm_t *alg)
+    ## inlet.
+    void sc_gas_bound_inlet_soln_2d(
+        sc_mesh_t *msd, sc_bound_t *bcd, sc_gas_algorithm_t *alg)
+    void sc_gas_bound_inlet_soln_3d(
+        sc_mesh_t *msd, sc_bound_t *bcd, sc_gas_algorithm_t *alg)
+    void sc_gas_bound_inlet_dsoln_2d(
+        sc_mesh_t *msd, sc_bound_t *bcd, sc_gas_algorithm_t *alg)
+    void sc_gas_bound_inlet_dsoln_3d(
+        sc_mesh_t *msd, sc_bound_t *bcd, sc_gas_algorithm_t *alg)
+
 
 cdef extern from "stdlib.h":
     void* malloc(size_t size)
+
 
 cdef class GasAlgorithm(Mesh):
     """
@@ -140,6 +186,74 @@ cdef class GasAlgorithm(Mesh):
         cdef cnp.ndarray[double, ndim=1, mode="c"] ocfl = svr.ocfl
         self._alg.ocfl = &ocfl[self._msd.ngstcell]
 
+    def locate_point(self, crd):
+        cdef cnp.ndarray[double, ndim=1, mode="c"] _crd = crd
+        cdef int icl, ifl, jcl, jfl
+        if self._msd.ndim == 3:
+            assert _crd.shape[0] >= 3
+            sc_gas_locate_point_3d(self._msd, &_crd[0],
+                &icl, &ifl, &jcl, &jfl)
+        else:
+            assert _crd.shape[0] >= 2
+            sc_gas_locate_point_2d(self._msd, &_crd[0],
+                &icl, &ifl, &jcl, &jfl)
+        return icl, ifl, jcl, jfl
+
+    def process_physics(self, gasconst, v, w, wm, rho, p, T, ke, a, M):
+        cdef double _gasconst = gasconst
+        cdef cnp.ndarray[double, ndim=2, mode="c"] _v = v
+        assert self._msd.ncell + self._msd.ngstcell == _v.shape[0]
+        cdef cnp.ndarray[double, ndim=2, mode="c"] _w = w
+        assert self._msd.ncell + self._msd.ngstcell == _w.shape[0]
+        cdef cnp.ndarray[double, ndim=1, mode="c"] _wm = wm
+        assert self._msd.ncell + self._msd.ngstcell == _wm.shape[0]
+        cdef cnp.ndarray[double, ndim=1, mode="c"] _rho = rho
+        assert self._msd.ncell + self._msd.ngstcell == _rho.shape[0]
+        cdef cnp.ndarray[double, ndim=1, mode="c"] _p = p
+        assert self._msd.ncell + self._msd.ngstcell == _p.shape[0]
+        cdef cnp.ndarray[double, ndim=1, mode="c"] _T = T
+        assert self._msd.ncell + self._msd.ngstcell == _T.shape[0]
+        cdef cnp.ndarray[double, ndim=1, mode="c"] _ke = ke
+        assert self._msd.ncell + self._msd.ngstcell == _ke.shape[0]
+        cdef cnp.ndarray[double, ndim=1, mode="c"] _a = a
+        assert self._msd.ncell + self._msd.ngstcell == _a.shape[0]
+        cdef cnp.ndarray[double, ndim=1, mode="c"] _M = M
+        assert self._msd.ncell + self._msd.ngstcell == _M.shape[0]
+        if self._msd.ndim == 3:
+            assert 3 == _v.shape[1]
+            assert 3 == _w.shape[1]
+            sc_gas_process_physics_3d(
+                self._msd, self._alg, _gasconst, &_v[0,0], &_w[0,0], &_wm[0],
+                &_rho[0], &_p[0], &_T[0], &_ke[0], &_a[0], &_M[0])
+        else:
+            assert 2 == _v.shape[1]
+            assert 2 == _w.shape[1]
+            sc_gas_process_physics_2d(
+                self._msd, self._alg, _gasconst, &_v[0,0], &_w[0,0], &_wm[0],
+                &_rho[0], &_p[0], &_T[0], &_ke[0], &_a[0], &_M[0])
+
+    def process_schlieren_rhog(self, sch):
+        cdef cnp.ndarray[double, ndim=1, mode="c"] _sch = sch
+        assert self._msd.ncell + self._msd.ngstcell == _sch.shape[0]
+        if self._msd.ndim == 3:
+            sc_gas_process_schlieren_rhog_3d(self._msd, self._alg, &_sch[0])
+        else:
+            sc_gas_process_schlieren_rhog_2d(self._msd, self._alg, &_sch[0])
+
+    def process_schlieren_sch(self, schk, schk0, schk1, sch):
+        cdef cnp.ndarray[double, ndim=1, mode="c"] _sch = sch
+        assert self._msd.ncell + self._msd.ngstcell == _sch.shape[0]
+        cdef double _schk = schk
+        cdef double _schk0 = schk0
+        cdef double _schk1 = schk1
+        cdef double rhogmax = _sch[self._msd.ngstcell:].max()
+        if self._msd.ndim == 3:
+            sc_gas_process_schlieren_sch_3d(self._msd, self._alg,
+                _schk, _schk0, _schk1, rhogmax, &_sch[0])
+        else:
+            sc_gas_process_schlieren_sch_2d(self._msd, self._alg,
+                _schk, _schk0, _schk1, rhogmax, &_sch[0])
+
     def prepare_ce(self):
         if self._msd.ndim == 3:
             sc_gas_prepare_ce_3d(self._msd, self._alg)
@@ -197,5 +311,29 @@ cdef class GasAlgorithm(Mesh):
             sc_gas_bound_nonrefl_dsoln_3d(self._msd, bcd._bcd, self._alg)
         else:
             sc_gas_bound_nonrefl_dsoln_2d(self._msd, bcd._bcd, self._alg)
+
+    def bound_wall_soln(self, Bound bcd):
+        if self._msd.ndim == 3:
+            sc_gas_bound_wall_soln_3d(self._msd, bcd._bcd, self._alg)
+        else:
+            sc_gas_bound_wall_soln_2d(self._msd, bcd._bcd, self._alg)
+
+    def bound_wall_dsoln(self, Bound bcd):
+        if self._msd.ndim == 3:
+            sc_gas_bound_wall_dsoln_3d(self._msd, bcd._bcd, self._alg)
+        else:
+            sc_gas_bound_wall_dsoln_2d(self._msd, bcd._bcd, self._alg)
+
+    def bound_inlet_soln(self, Bound bcd):
+        if self._msd.ndim == 3:
+            sc_gas_bound_inlet_soln_3d(self._msd, bcd._bcd, self._alg)
+        else:
+            sc_gas_bound_inlet_soln_2d(self._msd, bcd._bcd, self._alg)
+
+    def bound_inlet_dsoln(self, Bound bcd):
+        if self._msd.ndim == 3:
+            sc_gas_bound_inlet_dsoln_3d(self._msd, bcd._bcd, self._alg)
+        else:
+            sc_gas_bound_inlet_dsoln_2d(self._msd, bcd._bcd, self._alg)
 
 # vim: set fenc=utf8 ft=pyrex ff=unix ai et sw=4 ts=4 tw=79:

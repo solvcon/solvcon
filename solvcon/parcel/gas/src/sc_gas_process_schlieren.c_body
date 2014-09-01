@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Yung-Yu Chen <yyc@solvcon.net>
+ * Copyright (C) 2014 Yung-Yu Chen <yyc@solvcon.net>.
  *
  * All rights reserved.
  *
@@ -28,43 +28,54 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <Python.h>
-
-#include "mesh.h"
-#include "_algorithm.h"
-#include "_algorithm_src.h"
-
-#define MFGE 8
-
-// Two-/three-dimensional GGE definition (in c-tau scheme).
-const int ggefcs[31][3] = {
-    // quadrilaterals.
-    {1, 2, -1}, {2, 3, -1}, {3, 4, -1}, {4, 1, -1},
-    // triangles.
-    {1, 2, -1}, {2, 3, -1}, {3, 1, -1},
-    // hexahedra.
-    {2, 3, 5}, {6, 3, 2}, {4, 3, 6}, {5, 3, 4},
-    {5, 1, 2}, {2, 1, 6}, {6, 1, 4}, {4, 1, 5},
-    // tetrahedra.
-    {3, 1, 2}, {2, 1, 4}, {4, 1, 3}, {2, 4, 3},
-    // prisms.
-    {5, 2, 4}, {3, 2, 5}, {4, 2, 3},
-    {4, 1, 5}, {5, 1, 3}, {3, 1, 4},
-    // pyramids
-    {1, 5, 2}, {2, 5, 3}, {3, 5, 4}, {4, 5, 1},
-    {1, 3, 4}, {3, 1, 2},
-};
-const int ggerng[8][2] = {
-    {-1, -1}, {-2, -1}, {0, 4}, {4, 7},
-    {7, 15}, {15, 19}, {19, 25}, {25, 31},
-    //{0, 8}, {8, 12}, {12, 18}, {18, 24},
+void
+#if NDIM == 3
+sc_gas_process_schlieren_rhog_3d
+#else
+sc_gas_process_schlieren_rhog_2d
+#endif
+(sc_mesh_t *msd, sc_gas_algorithm_t *alg, double *rhog) {
+    // pointers.
+    double *pdsoln;
+    double *prhog;
+    // iterators.
+    int icl;
+    #pragma omp parallel for private(pdsoln, prhog, icl)
+    for (icl=-msd->ngstcell; icl<msd->ncell; icl++) {
+        pdsoln = alg->dsoln + icl*NEQ*NDIM;
+        prhog = rhog + icl+msd->ngstcell;
+        // density gradient.
+        prhog[0] = pdsoln[0]*pdsoln[0] + pdsoln[1]*pdsoln[1];
+#if NDIM == 3
+        prhog[0] += pdsoln[2]*pdsoln[2];
+#endif
+        prhog[0] = sqrt(prhog[0]);
+    };
 };
 
-#undef NDIM
-#define NDIM 2
-#include "sc_gas_calc_dsoln.c_body"
-#undef NDIM
-#define NDIM 3
-#include "sc_gas_calc_dsoln.c_body"
+void
+#if NDIM == 3
+sc_gas_process_schlieren_sch_3d
+#else
+sc_gas_process_schlieren_sch_2d
+#endif
+(sc_mesh_t *msd, sc_gas_algorithm_t *alg,
+    double k, double k0, double k1, double rhogmax, double *sch) {
+    // pointers.
+    double *psch;
+    // scalars.
+    double fac0, fac1;
+    // iterators.
+    int icl;
+    fac0 = k0 * rhogmax;
+    fac1 = -k / ((k1-k0) * rhogmax + ALMOST_ZERO);
+    #pragma omp parallel for private(psch, icl) \
+    firstprivate(fac0, fac1)
+    for (icl=-msd->ngstcell; icl<msd->ncell; icl++) {
+        psch = sch + icl+msd->ngstcell;
+        // density gradient.
+        psch[0] = exp((psch[0]-fac0)*fac1);
+    };
+};
 
-// vim: set ts=4 et:
+// vim: set ft=c ts=4 et:

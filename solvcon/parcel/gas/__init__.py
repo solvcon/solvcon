@@ -36,13 +36,25 @@ Gas-dynamics solvers.
 # this module should only import necessary entites.
 from .solver import GasSolver
 from .boundcond import GasBC, GasNonrefl
+from .case import GasCase
+from .probe import ProbeHook
+from .physics import PhysicsAnchor
+from .inout import MeshInfoHook, ProgressHook, FillAnchor, CflHook, PMarchSave
 
 
 __all__ = [
-    # solver.
+    # solver
     'GasSolver',
-    # boundcond.
+    # boundcond
     'GasBC', 'GasNonrefl',
+    # case
+    'GasCase',
+    # probe
+    'ProbeHook',
+    # physics
+    'PhysicsAnchor',
+    # inout
+    'MeshInfoHook', 'ProgressHook', 'FillAnchor', 'CflHook', 'PMarchSave',
 ]
 
 # vim: set ff=unix fenc=utf8 ft=python ai et sw=4 ts=4 tw=79:

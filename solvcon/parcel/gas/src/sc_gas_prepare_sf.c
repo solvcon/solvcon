@@ -32,8 +32,7 @@
 
 #include "mesh.h"
 #include "_algorithm.h"
-
-#define ALMOST_ZERO 1.e-200
+#include "_algorithm_src.h"
 
 #undef NDIM
 #define NDIM 2
