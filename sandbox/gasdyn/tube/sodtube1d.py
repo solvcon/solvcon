@@ -103,11 +103,19 @@ class DataManager(PlotManager):
     def __init__(self):
         pass
 
-    def get_errorNorm(self, solution_A, solution_B):
+    def get_errorNorm(self, solution_a, solution_b):
         return solution_errornorm
 
-    def get_l2Norm(self, solution_A, solution_B):
-        return solution_errornorm
+    def get_l2_norm(self, solution_a, solution_b):
+        solution_deviation_square = self.get_deviation_square(solution_a, solution_b)
+        l2_norm_rho = 0
+        l2_norm_v = 0
+        l2_norm_p = 0
+        for i in solution_deviation_square:
+            l2_norm_rho = l2_norm_rho + i[1]
+            l2_norm_v = l2_norm_v + i[2]
+            l2_norm_p = l2_norm_p + i[3]
+        return (l2_norm_rho, l2_norm_v, l2_norm_p)
 
     def get_deviation(self, solution_a, solution_b):
         solution_deviation = []
@@ -145,6 +153,16 @@ class DataManager(PlotManager):
                 solution_deviation[i][3]/(solution_a[i][3]+1e-20)))
         return solution_deviation_precent
 
+    def get_deviation_square(self, solution_a, solution_b):
+        solution_deviation_square = []
+        solution_deviation = self.get_deviation(solution_a, solution_b)
+        for i in range(len(solution_deviation)):
+            solution_deviation_square.append((
+                solution_deviation[i][0],
+                solution_deviation[i][1]*solution_deviation[i][1],
+                solution_deviation[i][2]*solution_deviation[i][2],
+                solution_deviation[i][3]*solution_deviation[i][3]))
+        return solution_deviation_square
 
     def dump_solution(self, solution):
         print'x rho v p'
@@ -205,10 +223,7 @@ class SodTube():
     def get_mesh(self):
         return self.mesh
 
-    def get_analytic_solution(self):
-        return self.cal_analytic_solution()
-
-    def cal_analytic_solution(self, mesh, t=0.2, initcondition=None):
+    def get_analytic_solution(self, mesh, t=0.2, initcondition=None):
         # where implementing the code to get the analytic solution
         # by users' input condition
         # default is the Sod's condition
