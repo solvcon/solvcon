@@ -132,6 +132,7 @@ def main():
             make_extension('solvcon.parcel.linear._algorithm', ['src'],
                            libraries=['lapack', 'blas']),
             make_extension('solvcon.parcel.bulk._algorithm', ['src']),
+            make_extension('solvcon.parcel.gas._algorithm', ['src']),
             make_extension('solvcon.parcel.vewave._algorithm', ['src'],
                            libraries=['lapack', 'blas']),
         ],
