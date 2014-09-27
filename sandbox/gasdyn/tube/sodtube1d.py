@@ -244,12 +244,13 @@ class SodTube():
         self.initcondition = initcondition
 
     def gen_mesh(self):
-        # this is horrible
-        # implement its own generator please.
-        import sodtubecmdp
-        solution_client = sodtubecmdp.SolutionClient()
-        solution_client.invoke("grid")
-        self.mesh = solution_client._solver._grid
+        xstep = 100 
+        xstart = -5050
+        xstop = 5050
+        grid = []
+        for x in range(xstart, xstop + xstep, xstep):
+            grid.append(float(x)/10000.0)
+        self.mesh = tuple(grid)
 
     def get_mesh(self):
         return self.mesh
