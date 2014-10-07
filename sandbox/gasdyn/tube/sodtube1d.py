@@ -480,7 +480,7 @@ class SodTube():
         ga = 1.4
 
         # Sod tube initial conditions of the left and right
-        # of the diagra
+        # of the diaphragm
         rhol = 1.0
         ul = 0.0
         pl = 1.0
@@ -489,7 +489,10 @@ class SodTube():
         pr = 0.1
         
         ia = 1
-        
+
+        # u_m of 1D Eular equation.
+        # this also means the status of the gas
+        # on grids. 
         mtxq = np.asmatrix(np.zeros(shape=(3,1000)))
         mtxqn = np.asmatrix(np.zeros(shape=(3,1000)))
         mtxqx = np.asmatrix(np.zeros(shape=(3,1000)))
@@ -517,6 +520,8 @@ class SodTube():
         mtxq[1][0] = rhol*ul
         mtxq[2][0] = pl/a1 + 0.5*rhol*ul**2.0
         itp = it + 1
+        # initialize the gas status before the diaphragm
+        # was removed.
         for i in xrange(itp):
             mtxq[0,i+1] = rhor
             mtxq[1,i+1] = rhor*ur
@@ -525,7 +530,7 @@ class SodTube():
             # for j in xrange(3):
             #     qx[j][i] = 0.0
         
-        m = 2
+        m = 2 # move out from the diaphragm which the 0th grid.
         mtxf = np.asmatrix(np.zeros(shape=(3,3)))
         for i in xrange(it):
             for j in xrange(m):
@@ -540,22 +545,33 @@ class SodTube():
                 mtxf[2,0] = a1*w2**3 - ga*w2*w3
                 mtxf[2,1] = ga*w3 - a1*w2**2
                 mtxf[2,2] = ga*w2
-        
+
+                # (4.17) in chang95
                 mtxqt[:,j] = -1.0*mtxf*mtxqx[:,j]
+                # (4.25) in chang95
+                # the n_(fmt)_j of the last term should be substitubed
+                # by the other terms.
                 mtxs[:,j] = qdx*mtxqx[:,j] + dtx*mtxf*mtxq[:,j] \
                             - dtx*qdt*mtxf*mtxf*mtxqx[:,j]
         
             mm = m - 1
             for j in xrange(mm):
+                # (4.24) in chang95
+                # Please note the j+1 on the left hand side addresses
+                # different t (n) from the j/j+1 on the right hand side,
+                # which address the other t (n-1/2) on the space-time
+                # surface.
                 mtxqn[:,j+1] = 0.5*(mtxq[:,j] \
                                     + mtxq[:,j+1] \
-                                    + mtxs[:,j] - mtxs[:,j+1]) # why?
-                vxl = np.asarray((mtxqn[:,j+1] - mtxq[:,j] - hdt*mtxqt[:,j]) \
+                                    + mtxs[:,j] - mtxs[:,j+1])
+                # (4.27) and (4.36) in chang95
+                vxl = np.asarray((mtxqn[:,j+1] \
+                                  - mtxq[:,j] - hdt*mtxqt[:,j]) \
                                   /hdx)
-                vxr = np.asarray((mtxq[:,j+1] \
-                                  + hdt*mtxqt[:,j+1] \
+                vxr = np.asarray((mtxq[:,j+1] + hdt*mtxqt[:,j+1] \
                                   - mtxqn[:,j+1]) \
-                                  /hdx) # why?
+                                  /hdx)
+                # (4.39) in chang95
                 mtxqx[:,j+1] = np.asmatrix((vxl*((abs(vxr))**ia) \
                                             + vxr*((abs(vxl))**ia)) \
                                             /(((abs(vxl))**ia) \
@@ -566,8 +582,9 @@ class SodTube():
         
             m = m + 1
         
-        t2 = dx*float(itp)
-        xx[0] = -0.5*t2
+        # draw the grid mesh
+        t2 = dx*float(itp) # total distance the wave goes through
+        xx[0] = -0.5*t2 # ask the diaphragm location x to be zero.
         for i in xrange(itp):
             xx[i+1] = xx[i] + dx
        
@@ -579,6 +596,12 @@ class SodTube():
 
         #return self.solution
         return solution
+
+    def get_cese_solution__mesh_size(self,
+                                     iteration=100,
+                                     grid_t=0.004,
+                                     grid_x = 0.01):
+        pass
 
     def cal_cese_solution(self, initcondition, mesh, ceseparameters):
         return self.solution
