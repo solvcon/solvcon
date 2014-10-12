@@ -243,10 +243,10 @@ class SodTube():
     def set_initcondition(self, initcondition):
         self.initcondition = initcondition
 
-    def gen_mesh(self):
-        xstep = 100 
-        xstart = -5050
-        xstop = 5050
+    def gen_mesh(self,
+                 xstep = 100,
+                 xstart = -5050,
+                 xstop = 5050):
         grid = []
         for x in range(xstart, xstop + xstep, xstep):
             grid.append(float(x)/10000.0)
@@ -468,7 +468,7 @@ class SodTube():
     def get_density_region5(self):
         return self.RHOR 
 
-    def get_cese_solution(self, iteration=100, grid_t=0.004, grid_x = 0.01):
+    def get_cese_solution_fortran_porting(self, iteration=100, grid_t=0.004, grid_x = 0.01):
         """
         porting chang95 demo example written in Frotran
         """
@@ -597,10 +597,90 @@ class SodTube():
         #return self.solution
         return solution
 
-    def get_cese_solution__mesh_size(self,
-                                     iteration=100,
-                                     grid_t=0.004,
-                                     grid_x = 0.01):
+    def get_cese_solution(self,
+                          iteration = 100,
+                          grid_size_t = 0.004,
+                          grid_size_x = 100,
+                          mesh_x_start = -5050,
+                          mesh_x_stop = 5050):
+        """
+        given the mesh size
+        output the solution based on CESE method
+        """
+
+        import numpy as np
+
+        self.gen_mesh(grid_size_x, mesh_x_start, mesh_x_stop)
+        mesh_x = self.get_mesh()
+
+        it = iteration # iteration, which is integer
+        dt = grid_t
+        dx = grid_size_x / 10000.0
+        # mesh point number along x
+        mesh_pt_number_x = (mesh_x_stop - mesh_x_start) / grid_size_x
+        ga = 1.4
+
+        # Sod tube initial conditions of the left and right
+        # of the diaphragm
+        rhol = 1.0
+        ul = 0.0
+        pl = 1.0
+        rhor = 0.125
+        ur = 0.0
+        pr = 0.1
+        
+        ia = 1
+
+        # u_m of 1D Eular equation.
+        # this also means the status of the gas
+        # on grids.
+        # prefix mtx_ means 'matrix of sth.'
+        mtxq = np.asmatrix(np.zeros(shape=(3, mesh_pt_number_x)))
+        # u_m, but means 'next' u_m
+        # u_m at the next time step 
+        mtxqn = np.asmatrix(np.zeros(shape=(3, mesh_pt_number_x)))
+        # partial matrix of q partial x
+        mtxqx = np.asmatrix(np.zeros(shape=(3, mesh_pt_number_x)))
+        # partial mastrix of q partial t
+        mtxqt = np.asmatrix(np.zeros(shape=(3, mesh_pt_number_x)))
+        # matrix s, it is a part of the marching mtx_qn
+        mtxs = np.asmatrix(np.zeros(shape=(3, mesh_pt_number_x)))
+        vxl = np.zeros(shape=(3,1))
+        vxr = np.zeros(shape=(3,1))
+        xx = mesh_x
+
+        mtxf = np.asmatrix(np.zeros(shape=(3,3)))
+        
+        hdt = dt/2.0
+        qdt = dt/4.0 #q:quad
+        hdx = dx/2.0
+        qdx = dx/4.0
+        
+        tt = hdt*it
+        dtx = dt/dx
+        
+        a1 = ga - 1.0
+        a2 = 3.0 - ga
+        a3 = a2/2.0
+        a4 = 1.5*a1
+        mtxq[0][0] = rhol
+        mtxq[1][0] = rhol*ul
+        mtxq[2][0] = pl/a1 + 0.5*rhol*ul**2.0
+        itp = it + 1
+        # initialize the gas status before the diaphragm
+        # was removed.
+        for i in xrange(mesh_pt_number_x):
+            mtxq[0,i+1] = rhor
+            mtxq[1,i+1] = rhor*ur
+            mtxq[2,i+1] = pr/a1 + 0.5*rhor*ur**2.0
+        # TODO: not completed
+        pass 
+        
+
+    def get_cese_solution_mesh_size(self,
+                                    iteration = 100,
+                                    grid_t = 0.004,
+                                    grid_x = 0.01):
         pass
 
     def cal_cese_solution(self, initcondition, mesh, ceseparameters):
