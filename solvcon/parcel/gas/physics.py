@@ -34,6 +34,22 @@ import numpy as np
 import solvcon as sc
 
 
+class DensityInitAnchor(sc.MeshAnchor):
+    """
+    Initialize only density.
+
+    FIXME: Give me doctests.
+    """
+
+    def __init__(self, svr, **kw):
+        #: Density.
+        self.rho = kw.pop('rho') 
+        super(DensityInitAnchor, self).__init__(svr, **kw)
+
+    def provide(self):
+        self.svr.soln[:,0] = self.rho
+
+
 class PhysicsAnchor(sc.MeshAnchor):
     """
     Calculates physical quantities for output.  Implements (i) provide() and

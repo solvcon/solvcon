@@ -141,7 +141,13 @@ class GasSolver(sc.MeshSolver):
         self._debug_check_array('sfmrc')
 
     def provide(self):
+        # super method.
         super(GasSolver, self).provide()
+        self._debug_check_array('soln', 'dsoln')
+        # density should not be zero.
+        self._debug_check_array(np.abs(self.soln[:,0])<=self.ALMOST_ZERO)
+        # fill group data array.
+        self.grpda.fill(0)
 
     def apply_bc(self):
         super(GasSolver, self).apply_bc()
@@ -189,6 +195,7 @@ class GasSolver(sc.MeshSolver):
     @_MMNAMES.register
     def calccfl(self, worker=None):
         self._debug_check_array('sol', 'dsol')
+        # FIXME: must be something wrong here.
         self.alg.calc_cfl()
         self._debug_check_array('cfl', 'ocfl', 'soln', 'dsoln')
 

@@ -284,17 +284,31 @@ def obrf_base(casename=None, meshname=None,
     # set up case.
     basedir = os.path.abspath(os.path.join(os.getcwd(), 'result'))
     cse = gas.GasCase(basedir=basedir, rootdir=sc.env.projdir,
-        basefn=casename, mesher=mesher, bcmap=bcmap, **kw)
+        basefn=casename, mesher=mesher, bcmap=bcmap, debug=False, **kw)
+    # informative.
+    cse.runhooks.append(gas.ProgressHook,
+        psteps=psteps, linewidth=ssteps/psteps,
+    )
+    cse.runhooks.append(gas.CflHook, fullstop=False, psteps=ssteps,
+        cflmax=10.0, linewidth=ssteps/psteps,
+    )
+    cse.runhooks.append(gas.MeshInfoHook, psteps=ssteps)
     # initializer.
     cse.runhooks.append(gas.FillAnchor,
                         mappers={'soln': gas.GasSolver.ALMOST_ZERO,
-                                 'dsoln': 0.0})
+                                 'dsoln': 0.0,
+                                 'amsca': gamma})
+    cse.runhooks.append(gas.DensityInitAnchor, rho=1.0)
     # post processing.
     cse.runhooks.append(gas.PhysicsAnchor, rsteps=ssteps)
     ## execution order is reversed for postloop.
     cse.runhooks.append(ReflProbe, psteps=ssteps,
         x0=0, x1=4, y0=0, y1=1, z0=0, z1=0, dta=dta, M1=M, **fpb)
     cse.runhooks.append(ExactObshockHook, region=3, dta=dta, M1=M, **fpb)
+    ## output.
+    cse.runhooks.append(gas.PMarchSave, anames=[
+            ('soln', False, -4),
+        ], fpdtype='float64', psteps=ssteps, compressor='gz')
     return cse
 
 
@@ -305,7 +319,7 @@ def obrf(casename, **kw):
     """
     return obrf_base(casename, meshfn='100',
         gamma=1.4, density=1.0, pressure=1.0, M=3.0, dta=10.0/180*np.pi,
-        time_increment=7.e-3, steps_run=400, ssteps=100, psteps=2, **kw)
+        time_increment=7.e-3, steps_run=600, ssteps=100, psteps=2, **kw)
 
 
 if __name__ == '__main__':
