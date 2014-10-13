@@ -58,7 +58,7 @@ sc_gas_calc_cfl_2d
         picecnd = alg->cecnd + icl*(CLMFC+1)*NDIM;
         pclfcs = msd->clfcs + icl*(CLMFC+1);
         // estimate distance.
-        dist = 1.e200;
+        dist = DBL_MAX;
         pcecnd = picecnd;
         clnfc = pclfcs[0];
         for (ifl=1; ifl<=clnfc; ifl++) {

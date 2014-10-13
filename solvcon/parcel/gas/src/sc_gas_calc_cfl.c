@@ -29,6 +29,7 @@
  */
 
 #include <Python.h>
+#include <float.h>
 
 #include "mesh.h"
 #include "_algorithm.h"

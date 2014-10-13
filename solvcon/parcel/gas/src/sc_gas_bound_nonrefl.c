@@ -36,13 +36,9 @@
 
 #undef NDIM
 #define NDIM 2
-#undef NEQ
-#define NEQ 3
 #include "sc_gas_bound_nonrefl.c_body"
 #undef NDIM
 #define NDIM 3
-#undef NEQ
-#define NEQ 4
 #include "sc_gas_bound_nonrefl.c_body"
 
 // vim: set ts=4 et:
