@@ -19,6 +19,7 @@
 # DEBUG: search string 'DEBUG'
 # why: somewhere don't understand very much ...
 
+import sys
 import scipy.optimize as so
 import matplotlib.pyplot as plt
 
@@ -466,7 +467,22 @@ class SodTube():
         return rho5*(1.0+alpha*p)/(alpha+p)
 
     def get_density_region5(self):
-        return self.RHOR 
+        return self.RHOR
+
+    def check_input(self,
+                    iteration,
+                    grid_size_t,
+                    mesh_t_stop,
+                    grid_size_x,
+                    mesh_x_start,
+                    mesh_x_stop):
+        import sys
+        mesh_x_delta = mesh_x_stop - mesh_x_start
+        if ((iteration == mesh_t_stop / (grid_size_t / 2)) and
+            (iteration == ((mesh_x_delta / (grid_size_x / 2)) - 1))):
+            print("Pass the iteration and mesh grid size configuration.")
+        else:
+            sys.exit("Please make sure you give correct inputs.")
 
     def get_cese_solution_fortran_porting(self, iteration=100, grid_t=0.004, grid_x = 0.01):
         """
@@ -519,6 +535,8 @@ class SodTube():
         mtxq[0][0] = rhol
         mtxq[1][0] = rhol*ul
         mtxq[2][0] = pl/a1 + 0.5*rhol*ul**2.0
+        # to be an odd number so the mesh along x could be n/2 points,
+        # 0, and n/2 points.
         itp = it + 1
         # initialize the gas status before the diaphragm
         # was removed.
@@ -600,15 +618,26 @@ class SodTube():
     def get_cese_solution(self,
                           iteration = 100,
                           grid_size_t = 0.004,
+                          mesh_t_stop = 0.2,
                           grid_size_x = 100,
                           mesh_x_start = -5050,
                           mesh_x_stop = 5050):
         """
         given the mesh size
         output the solution based on CESE method
+
+        iteration: int, please note n iteration will has n+1 mesh points.
+        
         """
 
         import numpy as np
+
+        self.check_input(iteration,
+                         grid_size_t,
+                         mesh_t_stop,
+                         grid_size_x,
+                         mesh_x_start,
+                         mesh_x_stop)
 
         self.gen_mesh(grid_size_x, mesh_x_start, mesh_x_stop)
         mesh_x = self.get_mesh()
@@ -666,6 +695,9 @@ class SodTube():
         mtxq[0][0] = rhol
         mtxq[1][0] = rhol*ul
         mtxq[2][0] = pl/a1 + 0.5*rhol*ul**2.0
+        # to be an odd number so the mesh along x could be n/2 points,
+        # 0, and n/2 points.
+        # also, n iteration will has n+1 mesh points.
         itp = it + 1
         # initialize the gas status before the diaphragm
         # was removed.
