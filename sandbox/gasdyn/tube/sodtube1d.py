@@ -626,7 +626,7 @@ class SodTube():
         given the mesh size
         output the solution based on CESE method
 
-        iteration: int, please note n iteration will has n+1 mesh points.
+        iteration: int, please note n iteration will has n+2 mesh points.
         
         """
 
