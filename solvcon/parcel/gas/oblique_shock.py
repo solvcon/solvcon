@@ -41,16 +41,6 @@ class ObliqueShockRelation(object):
     r"""
     Calculators of oblique shock relations.
 
-    The notation and derivations from Section 4.3 *Oblique Shock Relations* of
-    [Anderson03]_ are used.  :math:`\square_1` denotes upstream properties and
-    :math:`\square_2` denotes downstream properties.  Two important angles are
-    defined:
-
-    1. :math:`\beta`: The angle of the oblique shock wave deflected from the
-       upstream is :math:`\beta`; the shock angle.
-    2. :math:`\theta`: The angle of the flow behind the shock wave deflected from
-       the upstream is :math:`\theta`; the flow angle.
-
     The ratio of specific heat should be given to the constructor before the
     instance can be used:
 
