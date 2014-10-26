@@ -6,24 +6,23 @@ Reflection of Oblique Shock Wave (Under Development)
 
 Consider an oblique shock wave hits a solid wall and reflects.  The system will
 have two oblique shock waves and the relations of oblique shock will be applied
-twice to obtain the flow properties in the totally 3 zones.
+twice to obtain the flow properties in the total 3 zones.
 
 The given data include:
 
-1. The upstream Mach number :math:`M_1`.
-2. Either the first oblique shock angle :math:`\beta`, or the flow deflection
-   angle :math:`\theta`.
+1. The upstream (zone 1) Mach number :math:`M_1` and other flow properties
+   (density, pressure, and temperature).
+2. The first oblique shock angle :math:`\beta` (between zone 1 and 2) or the
+   flow deflection angle :math:`\theta` (across zone 1/2 and zone 2/3).
+   
+When :math:`M_1` and one of the angle :math:`\theta` or :math:`\beta` are
+given, the other angle can be calculated from
+:py:meth:`ObliqueShockRelation.calc_flow_angle` or
+:py:meth:`ObliqueShockRelation.calc_shock_angle`, respectively.
 
-Either of the angle :math:`\theta` or :math:`\beta` can be calculated from
-:py:meth:`~ObliqueShockRelation.calc_flow_angle` or
-:py:meth:`~ObliqueShockRelation.calc_shock_angle`, respectively, if :math:`M_1` and the
-other angle is known.
+.. attention::
 
-Therefore :math:`\theta` and the Mach number in the second zone :math:`M_2` are
-determined by applying the oblique shock relations for the first oblique shock.
-Because in the third zone, the flow will be in parallel to the wall behind the
-reflected oblique shock, the :math:`\beta`\ -:math:`\theta`\ -:math:`M`
-relation is used to determine the second oblique shock angle :math:`\beta'`.
+  I NEED A SCHEMATIC FOR THE REFLECTION PROBLEM.
 
 Relations across Oblique Shock
 ==============================
@@ -31,22 +30,17 @@ Relations across Oblique Shock
 Methods of calculating the shock relations are organized in the class
 :py:class:`ObliqueShockRelation`.
 
+.. attention::
+
+  I NEED A SCHEMATIC FOR THE OBLIQUE SHOCK RELATIONS.
+
+The oblique shock wave defines a rotated coordinate system :math:`(n, t)`,
+where :math:`\hat{n}` is the unit vector normal to the oblique shock, and
+:math:`\hat{t}` is the unit vector tangential to the shock.
+
 .. autoclass:: ObliqueShockRelation
 
   .. autoinstanceattribute:: gamma
-
-Define the angle of the oblique shock wave deflected from the upstream is
-:math:`\beta`, and the angle of the flow behind the shock wave deflected from
-the upstream is :math:`\theta`.  The oblique shock wave defines a rotated
-coordinate system :math:`(n, t)`, where :math:`\hat{n}` is the unit vector
-normal to the oblique shock, and :math:`\hat{t}` is the unit vector tangential
-to the shock.  Consequently, because :math:`M = v/a`, where :math:`a` is the
-speed of sound, the Mach number corresponding to the normal components of the
-velocity across the oblique shock can be written as:
-
-.. math::
-
-  M_{n1} = M_1\sin\beta, \quad M_{n2} = M_2\sin(\beta-\theta)
 
 Density: :py:meth:`~ObliqueShockRelation.calc_density_ratio`
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -88,3 +82,17 @@ Shock Angle: :py:meth:`~ObliqueShockRelation.calc_shock_angle`
 .. automethod:: ObliqueShockRelation.calc_shock_tangent
 
 .. automethod:: ObliqueShockRelation.calc_shock_tangent_aux
+
+Numerical Simluation
+====================
+
+.. attention::
+
+  TO BE WRITTEN:
+
+  - Meshing.
+  - Setting boundary-condition treatments.
+  - Field initialization.
+  - Physical variables calculation.
+  - Data probing.
+  - Field data output.

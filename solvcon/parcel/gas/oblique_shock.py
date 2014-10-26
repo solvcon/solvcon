@@ -43,8 +43,16 @@ class ObliqueShockRelation(object):
 
     The notation and derivations from Section 4.3 *Oblique Shock Relations* of
     [Anderson03]_ are used.  :math:`\square_1` denotes upstream properties and
-    :math:`\square_2` denotes downstream properties.  The ratio of specific
-    heat should be given to the constructor before the instance can be used:
+    :math:`\square_2` denotes downstream properties.  Two important angles are
+    defined:
+
+    1. :math:`\beta`: The angle of the oblique shock wave deflected from the
+       upstream is :math:`\beta`; the shock angle.
+    2. :math:`\theta`: The angle of the flow behind the shock wave deflected from
+       the upstream is :math:`\theta`; the flow angle.
+
+    The ratio of specific heat should be given to the constructor before the
+    instance can be used:
 
     >>> ObliqueShockRelation()
     Traceback (most recent call last):
@@ -99,7 +107,8 @@ class ObliqueShockRelation(object):
 
         as well as :py:class:`numpy.ndarray`:
 
-        >>> ob.calc_density_ratio(mach1=np.array([3, 3]), beta=37.8/180*np.pi).tolist()
+        >>> angle = 37.8/180*np.pi; angle = np.array([angle, angle])
+        >>> ob.calc_density_ratio(mach1=3, beta=angle).tolist()
         [2.420430254472311, 2.420430254472311]
 
         :param mach1: Upstream Mach number :math:`M_1`, dimensionless.
@@ -135,7 +144,8 @@ class ObliqueShockRelation(object):
 
         as well as :py:class:`numpy.ndarray`:
 
-        >>> ob.calc_pressure_ratio(mach1=np.array([3, 3]), beta=37.8/180*np.pi).tolist()
+        >>> angle = 37.8/180*np.pi; angle = np.array([angle, angle])
+        >>> ob.calc_pressure_ratio(mach1=3, beta=angle).tolist()
         [3.7777114257178446, 3.7777114257178446]
 
         :param mach1: Upstream Mach number :math:`M_1`, dimensionless.
@@ -174,7 +184,8 @@ class ObliqueShockRelation(object):
 
         as well as :py:class:`numpy.ndarray`:
 
-        >>> ob.calc_temperature_ratio(mach1=np.array([3, 3]), beta=37.8/180*np.pi).tolist()
+        >>> angle = 37.8/180*np.pi; angle = np.array([angle, angle])
+        >>> ob.calc_temperature_ratio(mach1=3, beta=angle).tolist()
         [1.5607602899268176, 1.5607602899268176]
 
         :param mach1: Upstream Mach number :math:`M_1`, dimensionless.
@@ -194,8 +205,8 @@ class ObliqueShockRelation(object):
 
           M_2 = \frac{M_{n2}}{\sin(\beta-\theta)}
 
-        where :math:`M_{n2}` is calculated from :math:`M_{n1} = M_1\sin\beta`
-        by :py:meth:`calc_normal_dmach`.
+        where :math:`M_{n2}` is calculated from :py:meth:`calc_normal_dmach`
+        with :math:`M_{n1} = M_1\sin\beta`.
 
         The method can be invoked with only either :math:`\beta` or
         :math:`\theta`:
