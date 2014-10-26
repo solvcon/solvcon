@@ -45,7 +45,7 @@ from solvcon import helper
 from solvcon.parcel import gas
 
 
-class ObliqueShock(object):
+class ObliqueShockOld(object):
     """
     Exact solution of oblique shock wave resulted from a ramp.
     """
@@ -67,6 +67,7 @@ class ObliqueShock(object):
         self.M2 = self._calc_behind_M(self.bta, self._dta, self._M1)
         self.bta2 = self._calc_shock_angle(self._dta, self.M2)
         self.M3 = self._calc_behind_M(self.bta2, self._dta, self.M2)
+        super(ObliqueShockOld, self).__init__()
 
     def _calc_shock_angle(self, dta, M):
         ga = self._ga
@@ -151,6 +152,69 @@ class ObliqueShock(object):
     def calc_T3(self, T1):
         T2 = self.calc_T2(T1)
         return T2 * self._calc_behind_T(self.bta2, self.M2)
+
+
+class ObliqueShockNew(gas.ObliqueShockRelation):
+    def __init__(self, ga, dta, M1, err=1.e-14, maxiter=100):
+        super(ObliqueShockNew, self).__init__(gamma=ga)
+        self.theta = dta
+        self.mach1 = M1
+        self.beta1 = self.calc_shock_angle(self.mach1, self.theta)
+        self.mach2 = self.calc_dmach(self.mach1, self.beta1)
+        self.beta2 = self.calc_shock_angle(self.mach2, self.theta)
+        self.mach3 = self.calc_dmach(self.mach2, self.beta2)
+
+    @property
+    def ga(self):
+        return self.gamma
+    @property
+    def dta(self):
+        return self.theta
+    @property
+    def M1(self):
+        return self.mach1
+    @property
+    def bta(self):
+        return self.beta1
+    @property
+    def M2(self):
+        return self.mach2
+    @property
+    def bta2(self):
+        return self.beta2
+    @property
+    def M3(self):
+        return self.mach3
+    @property
+    def bta3(self):
+        return self.beta3
+
+    def calc_rho2(self, rho1):
+        return rho1 * self.calc_density_ratio(self.mach1, self.beta1)
+    def calc_rho3(self, rho1):
+        rho2 = self.calc_rho2(rho1)
+        return rho2 * self.calc_density_ratio(self.mach2, self.beta2)
+    def calc_p2(self, p1):
+        return p1 * self.calc_pressure_ratio(self.mach1, self.beta1)
+    def calc_p3(self, p1):
+        p2 = self.calc_p2(p1)
+        return p2 * self.calc_pressure_ratio(self.mach2, self.beta2)
+    def calc_a2(self, rho1, p1):
+        rho2 = self.calc_rho2(rho1)
+        p2 = self.calc_p2(p1)
+        return np.sqrt(self.ga*p2/rho2)
+    def calc_a3(self, rho1, p1):
+        rho3 = self.calc_rho3(rho1)
+        p3 = self.calc_p3(p1)
+        return np.sqrt(self.ga*p3/rho3)
+    def calc_T2(self, T1):
+        return T1 * self.calc_temperature_ratio(self.mach1, self.beta1)
+    def calc_T3(self, T1):
+        T2 = self.calc_T2(T1)
+        return T2 * self.calc_temperature_ratio(self.mach2, self.beta2)
+
+
+ObliqueShock = ObliqueShockNew
 
 
 class ExactObshockHook(sc.MeshHook):
