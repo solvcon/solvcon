@@ -65,16 +65,16 @@ class ObliqueShockRelation(object):
 
     >>> ob.gamma
     1.4
-    >>> ob.calc_density_ratio(mach1=3, beta=37.8/180*np.pi)
-    2.4204302544723109
+    >>> round(ob.calc_density_ratio(mach1=3, beta=37.8/180*np.pi), 10)
+    2.4204302545
     >>> ob.gamma = 1.2
     >>> ob.gamma
     1.2
 
     The solution changes as :py:attr:`gamma` changes:
 
-    >>> ob.calc_density_ratio(mach1=3, beta=37.8/180*np.pi)
-    2.779324490186569
+    >>> round(ob.calc_density_ratio(mach1=3, beta=37.8/180*np.pi), 10)
+    2.7793244902
     """
 
     def __init__(self, gamma):
@@ -102,14 +102,14 @@ class ObliqueShockRelation(object):
         This method accepts scalar:
 
         >>> ob = ObliqueShockRelation(gamma=1.4)
-        >>> ob.calc_density_ratio(mach1=3, beta=37.8/180*np.pi)
-        2.4204302544723109
+        >>> round(ob.calc_density_ratio(mach1=3, beta=37.8/180*np.pi), 10)
+        2.4204302545
 
         as well as :py:class:`numpy.ndarray`:
 
         >>> angle = 37.8/180*np.pi; angle = np.array([angle, angle])
-        >>> ob.calc_density_ratio(mach1=3, beta=angle).tolist()
-        [2.420430254472311, 2.420430254472311]
+        >>> np.round(ob.calc_density_ratio(mach1=3, beta=angle), 10).tolist()
+        [2.4204302545, 2.4204302545]
 
         :param mach1: Upstream Mach number :math:`M_1`, dimensionless.
         :param beta: Oblique shock angle :math:`\beta` deflected from the
@@ -139,14 +139,14 @@ class ObliqueShockRelation(object):
         This method accepts scalar:
 
         >>> ob = ObliqueShockRelation(gamma=1.4)
-        >>> ob.calc_pressure_ratio(mach1=3, beta=37.8/180*np.pi)
-        3.7777114257178446
+        >>> round(ob.calc_pressure_ratio(mach1=3, beta=37.8/180*np.pi), 10)
+        3.7777114257
 
         as well as :py:class:`numpy.ndarray`:
 
         >>> angle = 37.8/180*np.pi; angle = np.array([angle, angle])
-        >>> ob.calc_pressure_ratio(mach1=3, beta=angle).tolist()
-        [3.7777114257178446, 3.7777114257178446]
+        >>> np.round(ob.calc_pressure_ratio(mach1=3, beta=angle), 10).tolist()
+        [3.7777114257, 3.7777114257]
 
         :param mach1: Upstream Mach number :math:`M_1`, dimensionless.
         :param beta: Oblique shock angle :math:`\beta` deflected from the
@@ -179,14 +179,14 @@ class ObliqueShockRelation(object):
         This method accepts scalar:
 
         >>> ob = ObliqueShockRelation(gamma=1.4)
-        >>> ob.calc_temperature_ratio(mach1=3, beta=37.8/180*np.pi)
-        1.5607602899268176
+        >>> round(ob.calc_temperature_ratio(mach1=3, beta=37.8/180*np.pi), 10)
+        1.5607602899
 
         as well as :py:class:`numpy.ndarray`:
 
         >>> angle = 37.8/180*np.pi; angle = np.array([angle, angle])
-        >>> ob.calc_temperature_ratio(mach1=3, beta=angle).tolist()
-        [1.5607602899268176, 1.5607602899268176]
+        >>> np.round(ob.calc_temperature_ratio(mach1=3, beta=angle), 10).tolist()
+        [1.5607602899, 1.5607602899]
 
         :param mach1: Upstream Mach number :math:`M_1`, dimensionless.
         :param beta: Oblique shock angle :math:`\beta` deflected from the
@@ -223,19 +223,19 @@ class ObliqueShockRelation(object):
 
         This method accepts scalar:
 
-        >>> ob.calc_dmach(3, beta=37.8/180*np.pi)
-        1.9924827009193213
-        >>> ob.calc_dmach(3, theta=20./180*np.pi)
-        1.9941316655645596
+        >>> round(ob.calc_dmach(3, beta=37.8/180*np.pi), 10)
+        1.9924827009
+        >>> round(ob.calc_dmach(3, theta=20./180*np.pi), 10)
+        1.9941316656
 
         as well as :py:class:`numpy.ndarray`:
 
         >>> angle = 37.8/180*np.pi; angle = np.array([angle, angle])
-        >>> ob.calc_dmach(3, beta=angle).tolist()
-        [1.9924827009193213, 1.9924827009193213]
+        >>> np.round(ob.calc_dmach(3, beta=angle), 10).tolist()
+        [1.9924827009, 1.9924827009]
         >>> angle = 20./180*np.pi; angle = np.array([angle, angle])
-        >>> ob.calc_dmach(3, theta=angle).tolist()
-        [1.9941316655645596, 1.9941316655645596]
+        >>> np.round(ob.calc_dmach(3, theta=angle), 10).tolist()
+        [1.9941316656, 1.9941316656]
 
         :param mach1: Upstream Mach number :math:`M_1`, dimensionless.
         :keyword beta: Oblique shock angle :math:`\beta` deflected from the
@@ -274,13 +274,13 @@ class ObliqueShockRelation(object):
         This method accepts scalar:
 
         >>> ob = ObliqueShockRelation(gamma=1.4)
-        >>> ob.calc_normal_dmach(mach_n1=3)
-        0.47519096331149141
+        >>> round(ob.calc_normal_dmach(mach_n1=3), 10)
+        0.4751909633
 
         as well as :py:class:`numpy.ndarray`:
 
-        >>> ob.calc_normal_dmach(mach_n1=np.array([3, 3])).tolist()
-        [0.4751909633114914, 0.4751909633114914]
+        >>> np.round(ob.calc_normal_dmach(mach_n1=np.array([3, 3])), 10).tolist()
+        [0.4751909633, 0.4751909633]
 
         :param mach_n1: Upstream Mach number :math:`M_{n1}` normal to the shock
                         wave, dimensionless.
@@ -302,14 +302,14 @@ class ObliqueShockRelation(object):
 
         >>> ob = ObliqueShockRelation(gamma=1.4)
         >>> angle = 48.25848/180*np.pi
-        >>> ob.calc_flow_angle(mach1=4, beta=angle)/np.pi*180
-        32.000000080687101
+        >>> round(ob.calc_flow_angle(mach1=4, beta=angle)/np.pi*180, 10)
+        32.0000000807
 
         as well as :py:class:`numpy.ndarray`:
 
         >>> angle = 48.25848/180*np.pi; angle = np.array([angle, angle])
-        >>> (ob.calc_flow_angle(mach1=4, beta=angle)/np.pi*180).tolist()
-        [32.0000000806871, 32.0000000806871]
+        >>> np.round((ob.calc_flow_angle(mach1=4, beta=angle)/np.pi*180), 10).tolist()
+        [32.0000000807, 32.0000000807]
 
         See Example 4.6 in [Anderson03]_ for the forward analysis.  The above
         is the inverse analysis.
@@ -336,14 +336,14 @@ class ObliqueShockRelation(object):
 
         >>> ob = ObliqueShockRelation(gamma=1.4)
         >>> angle = 48.25848/180*np.pi
-        >>> ob.calc_flow_tangent(mach1=4, beta=angle)
-        0.62486935386745279
+        >>> round(ob.calc_flow_tangent(mach1=4, beta=angle), 10)
+        0.6248693539
 
         as well as :py:class:`numpy.ndarray`:
 
         >>> angle = 48.25848/180*np.pi; angle = np.array([angle, angle])
-        >>> ob.calc_flow_tangent(mach1=4, beta=angle).tolist()
-        [0.6248693538674528, 0.6248693538674528]
+        >>> np.round(ob.calc_flow_tangent(mach1=4, beta=angle), 10).tolist()
+        [0.6248693539, 0.6248693539]
 
         See Example 4.6 in [Anderson03]_ for the forward analysis.  The above
         is the inverse analysis.
@@ -373,14 +373,16 @@ class ObliqueShockRelation(object):
         This method accepts scalar:
 
         >>> ob = ObliqueShockRelation(gamma=1.4)
-        >>> ob.calc_shock_angle(mach1=4, theta=32./180*np.pi, delta=1)/np.pi*180
-        48.258479872206713
+        >>> angle = 32./180*np.pi
+        >>> round(ob.calc_shock_angle(mach1=4, theta=angle, delta=1)/np.pi*180, 10)
+        48.2584798722
 
         as well as :py:class:`numpy.ndarray`:
 
-        >>> angle = 32./180*np.pi; angle = np.array([angle, angle])
-        >>> (ob.calc_shock_angle(mach1=4, theta=angle, delta=1)/np.pi*180).tolist()
-        [48.25847987220671, 48.25847987220671]
+        >>> angle = np.array([angle, angle])
+        >>> np.round(ob.calc_shock_angle(mach1=4, theta=angle, delta=1)/np.pi*180,
+        ...          10).tolist()
+        [48.2584798722, 48.2584798722]
 
         See Example 4.6 in [Anderson03]_ for the analysis.
 
@@ -413,14 +415,16 @@ class ObliqueShockRelation(object):
         This method accepts scalar:
 
         >>> ob = ObliqueShockRelation(gamma=1.4)
-        >>> ob.calc_shock_tangent(mach1=4, theta=32./180*np.pi, delta=1)
-        1.1207391857765745
+        >>> angle = 32./180*np.pi
+        >>> round(ob.calc_shock_tangent(mach1=4, theta=angle, delta=1), 10)
+        1.1207391858
 
         as well as :py:class:`numpy.ndarray`:
 
-        >>> angle = 32./180*np.pi; angle = np.array([angle, angle])
-        >>> ob.calc_shock_tangent(mach1=4, theta=angle, delta=1).tolist()
-        [1.1207391857765745, 1.1207391857765745]
+        >>> angle = np.array([angle, angle])
+        >>> np.round(ob.calc_shock_tangent(mach1=4, theta=angle, delta=1),
+        ...          10).tolist()
+        [1.1207391858, 1.1207391858]
 
         See Example 4.6 in [Anderson03]_ for the analysis.
 
@@ -472,17 +476,18 @@ class ObliqueShockRelation(object):
         This method accepts scalar:
 
         >>> ob = ObliqueShockRelation(gamma=1.4)
-        >>> ob.calc_shock_tangent_aux(mach1=4, theta=32./180*np.pi)
-        (11.208018841243311, 0.7428957120562536)
+        >>> lmbd, chi = ob.calc_shock_tangent_aux(mach1=4, theta=32./180*np.pi)
+        >>> round(lmbd, 10), round(chi, 10)
+        (11.2080188412, 0.7428957121)
 
         as well as :py:class:`numpy.ndarray`:
 
         >>> angle = 32./180*np.pi; angle = np.array([angle, angle])
         >>> lmbd, chi = ob.calc_shock_tangent_aux(mach1=4, theta=angle)
-        >>> lmbd.tolist()
-        [11.20801884124331, 11.20801884124331]
-        >>> chi.tolist()
-        [0.7428957120562536, 0.7428957120562536]
+        >>> np.round(lmbd, 10).tolist()
+        [11.2080188412, 11.2080188412]
+        >>> np.round(chi, 10).tolist()
+        [0.7428957121, 0.7428957121]
 
         See Example 4.6 in [Anderson03]_ for the analysis.
 
