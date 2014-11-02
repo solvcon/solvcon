@@ -537,10 +537,10 @@ class SodTube():
         mtxq[2][0] = pl/a1 + 0.5*rhol*ul**2.0
         # to be an odd number so the mesh along x could be n/2 points,
         # 0, and n/2 points.
-        itp = it + 1
+        grid_numbers_on_mesh = it + 1
         # initialize the gas status before the diaphragm
         # was removed.
-        for i in xrange(itp):
+        for i in xrange(grid_numbers_on_mesh):
             mtxq[0,i+1] = rhor
             mtxq[1,i+1] = rhor*ur
             mtxq[2,i+1] = pr/a1 + 0.5*rhor*ur**2.0
@@ -601,9 +601,9 @@ class SodTube():
             m = m + 1
         
         # draw the grid mesh
-        t2 = dx*float(itp) # total distance the wave goes through
+        t2 = dx*float(grid_numbers_on_mesh) # total distance the wave goes through
         xx[0] = -0.5*t2 # ask the diaphragm location x to be zero.
-        for i in xrange(itp):
+        for i in xrange(grid_numbers_on_mesh):
             xx[i+1] = xx[i] + dx
        
         solution = []
@@ -713,7 +713,8 @@ class SodTube():
                                     iteration = 100,
                                     grid_t = 0.004,
                                     grid_x = 0.01):
-        pass
+        grid_numbers_on_mesh = iteration + 1
+
 
     def cal_cese_solution(self, initcondition, mesh, ceseparameters):
         return self.solution
