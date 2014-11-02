@@ -488,8 +488,8 @@ class SodTube():
         """
         porting chang95 demo example written in Fortran on
         Sin-Chung Chang,
-        “The Method of Space-Time Conservation Element and Solution Element –
-        A New Approach for Solving the Navier-Stokes and Euler Equations”,
+        "The Method of Space-Time Conservation Element and Solution Element -
+        A New Approach for Solving the Navier-Stokes and Euler Equations",
         Journal of Computational Physics, Volume 119,
         Issue 2, July 1995, Pages 295-324
         """
@@ -542,10 +542,10 @@ class SodTube():
         mtxq[2][0] = pl/a1 + 0.5*rhol*ul**2.0
         # to be an odd number so the mesh along x could be n/2 points,
         # 0, and n/2 points.
-        mesh_pt_number_x = it + 1
+        itp = it + 1
         # initialize the gas status before the diaphragm
         # was removed.
-        for i in xrange(mesh_pt_number_x):
+        for i in xrange(itp):
             mtxq[0,i+1] = rhor
             mtxq[1,i+1] = rhor*ur
             mtxq[2,i+1] = pr/a1 + 0.5*rhor*ur**2.0
@@ -606,9 +606,9 @@ class SodTube():
             m = m + 1
         
         # draw the grid mesh
-        t2 = dx*float(mesh_pt_number_x) # total distance the wave goes through
+        t2 = dx*float(itp) # total distance the wave goes through
         xx[0] = -0.5*t2 # ask the diaphragm location x to be zero.
-        for i in xrange(mesh_pt_number_x):
+        for i in xrange(itp):
             xx[i+1] = xx[i] + dx
        
         solution = []
@@ -726,6 +726,7 @@ class SodTube():
                                     grid_t = 0.004,
                                     grid_x = 0.01):
         mesh_pt_number_x = iteration + 1
+
 
 
 
