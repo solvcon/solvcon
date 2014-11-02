@@ -52,7 +52,7 @@ print(dm.get_l2_norm(solution_analytic, solution_cese_fp,1,[(-0.25,-0.15),(-0.05
       dm.get_l2_norm(solution_analytic, solution_cese_fp,2,[(-0.25,-0.15),(0.30,0.40)]),
       dm.get_l2_norm(solution_analytic, solution_cese_fp,3,[(-0.25,-0.15),(-0.05,0.05),(0.30,0.40)]))
 
-#solution_cese_fp = sodtube.get_cese_solution_fortran_porting(400, 0.001)
-#print(dm.get_l2_norm(solution_analytic, solution_cese_fp,1,[(-0.25,-0.15),(-0.05,0.05),(0.15,0.25),(0.30,0.40)]),
-#      dm.get_l2_norm(solution_analytic, solution_cese_fp,2,[(-0.25,-0.15),(0.30,0.40)]),
-#      dm.get_l2_norm(solution_analytic, solution_cese_fp,3,[(-0.25,-0.15),(-0.05,0.05),(0.30,0.40)]))
+solution_cese_fp = sodtube.get_cese_solution_fortran_porting(400, 0.001, 0.0025)
+print(dm.get_l2_norm(solution_analytic, solution_cese_fp,1,[(-0.25,-0.15),(-0.05,0.05),(0.15,0.25),(0.30,0.40)]),
+      dm.get_l2_norm(solution_analytic, solution_cese_fp,2,[(-0.25,-0.15),(0.30,0.40)]),
+      dm.get_l2_norm(solution_analytic, solution_cese_fp,3,[(-0.25,-0.15),(-0.05,0.05),(0.30,0.40)]))

@@ -486,7 +486,12 @@ class SodTube():
 
     def get_cese_solution_fortran_porting(self, iteration=100, grid_t=0.004, grid_x = 0.01):
         """
-        porting chang95 demo example written in Frotran
+        porting chang95 demo example written in Fortran on
+        Sin-Chung Chang,
+        “The Method of Space-Time Conservation Element and Solution Element –
+        A New Approach for Solving the Navier-Stokes and Euler Equations”,
+        Journal of Computational Physics, Volume 119,
+        Issue 2, July 1995, Pages 295-324
         """
         import numpy as np
         
@@ -614,6 +619,13 @@ class SodTube():
 
         #return self.solution
         return solution
+
+    def get_cese_solution_fortran_porting_2(self, iteration=100, grid_t=0.004, grid_x = 0.01):
+        """
+        porting the code from
+        http://www.grc.nasa.gov/WWW/microbus/cese/SC_1D_Shock_tube.html
+        """
+        pass
 
     def get_cese_solution(self,
                           iteration = 100,
