@@ -1,0 +1,24 @@
+\begin{pspicture}(-1.2cm,-1.4cm)(3.2cm,1.4cm)
+
+% Center line.
+\psline[linewidth=0.5pt,linestyle=dotted](0,0)(3.1,0)
+
+% Stream lines.
+\rput(0.4;30){\psline[linewidth=0.5pt]{->}(1.2;-180)(0,0)(2.5;10)}
+\rput(0.4;-30){\psline[linewidth=0.5pt]{->}(1.2;-180)(0,0)(2.5;-10)}
+\rput[r](-0.2,0){\tiny $M>1$}
+
+% Wedge.
+\psline[linewidth=0.2pt,linestyle=solid](3;10)(0,0)(3;-10)
+\pswedge[linestyle=none,fillstyle=vlines,hatchwidth=0.2pt](0,0){2.5}{-10}{10}
+\psarc[linewidth=0.2pt]{->}(0,0){2.7}{0}{10}
+\rput(2.7;4){\tiny\psframebox*[framesep=0.5pt]{$\theta$}}
+\pstextpath(2.6,1pt){\psline[linestyle=none](0,0)(4;-10)}{\tiny wedge}
+
+% Shock.
+\psline[doubleline=true,linewidth=0.2pt,linestyle=solid](2.5;30)(0,0)(2.5;-30)
+\psarc[linewidth=0.2pt]{->}(0,0){2}{0}{30}
+\rput(2;20){\tiny\psframebox*[framesep=0.5pt]{$\beta$}}
+\pstextpath(0.5,1pt){\psline[linestyle=none](0,0)(2.5;30)}{\tiny oblique shock}
+
+\end{pspicture}

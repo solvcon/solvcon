@@ -6,7 +6,19 @@ Reflection of Oblique Shock Wave (Under Development)
 
 Consider an oblique shock wave hits a solid wall and reflects.  The system will
 have two oblique shock waves and the relations of oblique shock will be applied
-twice to obtain the flow properties in the total 3 zones.
+twice to obtain the flow properties in the total 3 zones.  Each oblique shock
+is resulted from a sudden change of flow direction, such as Figure
+:ref:`fig_oblique_shock`:
+
+.. _fig_oblique_shock:
+
+.. figure:: oblique_shock.png
+  :align: center
+
+  Oblique shock wave by a wedge
+
+  :math:`M` is Mach number.  :math:`\theta` is the flow deflection angle.
+  :math:`\beta` is the oblique shock angle.
 
 The given data include:
 
