@@ -633,8 +633,8 @@ class SodTube():
                           grid_size_t = 0.004,
                           mesh_t_stop = 0.2,
                           grid_size_x = 100,
-                          mesh_x_start = -5050,
-                          mesh_x_stop = 5050):
+                          mesh_x_start = -10050,
+                          mesh_x_stop = 10050):
         """
         given the mesh size
         output the solution based on CESE method
@@ -768,7 +768,7 @@ class SodTube():
             m = m + 1
             
         #solution__x_start_index = mesh_x.get_start_grid(mesh_pt_number_x)
-        solution_x_start_index = 0
+        solution_x_start_index = 50
         solution = []
         for i in range(mesh_pt_number_x):
             solution_x = mesh_x[i + solution_x_start_index]
