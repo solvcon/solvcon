@@ -1,6 +1,6 @@
 #!/bin/sh
 # install dependency.
-apt-get update
+sudo apt-get update
 contrib/aptget.ubuntu.12.04LTS.sh
 # build with scons.
 scons
