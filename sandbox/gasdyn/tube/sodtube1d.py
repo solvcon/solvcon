@@ -248,10 +248,10 @@ class SodTube():
                  xstep = 100,
                  xstart = -5050,
                  xstop = 5050):
-        grid = []
+        mesh = []
         for x in range(xstart, xstop + xstep, xstep):
-            grid.append(float(x)/10000.0)
-        self.mesh = tuple(grid)
+            mesh.append(float(x)/10000.0)
+        self.mesh = tuple(mesh)
 
     def get_mesh(self):
         return self.mesh
@@ -540,8 +540,6 @@ class SodTube():
         mtxq[0][0] = rhol
         mtxq[1][0] = rhol*ul
         mtxq[2][0] = pl/a1 + 0.5*rhol*ul**2.0
-        # to be an odd number so the mesh along x could be n/2 points,
-        # 0, and n/2 points.
         itp = it + 1
         # initialize the gas status before the diaphragm
         # was removed.
@@ -554,7 +552,6 @@ class SodTube():
             #     qx[j][i] = 0.0
         
         m = 2 # move out from the diaphragm which the 0th grid.
-        mtxf = np.asmatrix(np.zeros(shape=(3,3)))
         for i in xrange(it):
             for j in xrange(m):
                 w2 = mtxq[1,j]/mtxq[0,j]
@@ -606,6 +603,10 @@ class SodTube():
             m = m + 1
         
         # draw the grid mesh
+        # total distance the wave goes through
+        # 100 iterations
+        # 102 mesh points
+        # so 101 delta segaments
         t2 = dx*float(itp) # total distance the wave goes through
         xx[0] = -0.5*t2 # ask the diaphragm location x to be zero.
         for i in xrange(itp):
@@ -644,21 +645,22 @@ class SodTube():
 
         import numpy as np
 
-        self.check_input(iteration,
-                         grid_size_t,
-                         mesh_t_stop,
-                         grid_size_x,
-                         mesh_x_start,
-                         mesh_x_stop)
+        #self.check_input(iteration,
+        #                 grid_size_t,
+        #                 mesh_t_stop,
+        #                 grid_size_x,
+        #                 mesh_x_start,
+        #                 mesh_x_stop)
 
         self.gen_mesh(grid_size_x, mesh_x_start, mesh_x_stop)
         mesh_x = self.get_mesh()
 
         it = iteration # iteration, which is integer
-        dt = grid_t
-        dx = grid_size_x / 10000.0
+        dt = grid_size_t
+        dx = grid_size_x
         # mesh point number along x
-        mesh_pt_number_x = (mesh_x_stop - mesh_x_start) / grid_size_x
+        mesh_pt_number_x_at_half_t = iteration + 1
+        mesh_pt_number_x = iteration + 2
         ga = 1.4
 
         # Sod tube initial conditions of the left and right
@@ -688,7 +690,6 @@ class SodTube():
         mtxs = np.asmatrix(np.zeros(shape=(3, mesh_pt_number_x)))
         vxl = np.zeros(shape=(3,1))
         vxr = np.zeros(shape=(3,1))
-        xx = mesh_x
 
         mtxf = np.asmatrix(np.zeros(shape=(3,3)))
         
@@ -707,29 +708,90 @@ class SodTube():
         mtxq[0][0] = rhol
         mtxq[1][0] = rhol*ul
         mtxq[2][0] = pl/a1 + 0.5*rhol*ul**2.0
-        # to be an odd number so the mesh along x could be n/2 points,
-        # 0, and n/2 points.
-        # also, n iteration will has n+1 mesh points.
-        itp = it + 1
+        mesh_pt_number_x_at_half_t = it + 1
         # initialize the gas status before the diaphragm
         # was removed.
-        for i in xrange(mesh_pt_number_x):
+        for i in xrange(mesh_pt_number_x_at_half_t):
             mtxq[0,i+1] = rhor
             mtxq[1,i+1] = rhor*ur
             mtxq[2,i+1] = pr/a1 + 0.5*rhor*ur**2.0
-        # TODO: not completed
-        pass 
+
+        m = 2 # move out from the diaphragm which the 0th grid.
+        for i in xrange(it):
+            for j in xrange(m):
+                w2 = mtxq[1,j]/mtxq[0,j]
+                w3 = mtxq[2,j]/mtxq[0,j]
+                # f[0][0] = 0.0
+                mtxf[0,1] = 1.0
+                # f[0][2] = 0.0
+                mtxf[1,0] = -a3*w2**2
+                mtxf[1,1] = a2*w2
+                mtxf[1,2] = ga - 1.0
+                mtxf[2,0] = a1*w2**3 - ga*w2*w3
+                mtxf[2,1] = ga*w3 - a1*w2**2
+                mtxf[2,2] = ga*w2
+
+                # (4.17) in chang95
+                mtxqt[:,j] = -1.0*mtxf*mtxqx[:,j]
+                # (4.25) in chang95
+                # the n_(fmt)_j of the last term should be substitubed
+                # by the other terms.
+                mtxs[:,j] = qdx*mtxqx[:,j] + dtx*mtxf*mtxq[:,j] \
+                            - dtx*qdt*mtxf*mtxf*mtxqx[:,j]
         
+            mm = m - 1
+            for j in xrange(mm):
+                # (4.24) in chang95
+                # Please note the j+1 on the left hand side addresses
+                # different t (n) from the j/j+1 on the right hand side,
+                # which address the other t (n-1/2) on the space-time
+                # surface.
+                mtxqn[:,j+1] = 0.5*(mtxq[:,j] \
+                                    + mtxq[:,j+1] \
+                                    + mtxs[:,j] - mtxs[:,j+1])
+                # (4.27) and (4.36) in chang95
+                vxl = np.asarray((mtxqn[:,j+1] \
+                                  - mtxq[:,j] - hdt*mtxqt[:,j]) \
+                                  /hdx)
+                vxr = np.asarray((mtxq[:,j+1] + hdt*mtxqt[:,j+1] \
+                                  - mtxqn[:,j+1]) \
+                                  /hdx)
+                # (4.39) in chang95
+                mtxqx[:,j+1] = np.asmatrix((vxl*((abs(vxr))**ia) \
+                                            + vxr*((abs(vxl))**ia)) \
+                                            /(((abs(vxl))**ia) \
+                                                + ((abs(vxr))**ia) + 1.0E-60))
+        
+            for j in xrange(1,m):
+                mtxq[:,j] = mtxqn[:,j]
+        
+            m = m + 1
+            
+            #solution__x_start_index = mesh_x.get_start_grid(mesh_pt_number_x)
+            solution_x_start_index = 0
+            solution = []
+            for i in range(mesh_pt_number_x):
+                solution_x = mesh_x[i + solution_x_start_index]
+                x = solution_x
+                solution_rho = mtxq[0,i]
+                solution_v = mtxq[1,i]/mtxq[0,i]
+                solution_p = a1*(mtxq[2,i] - 0.5*(x**2)*mtxq[0,i])
+                solution.append((solution_x, solution_rho, solution_v, solution_p))
+            
+            return solution
 
     def get_cese_solution_mesh_size(self,
                                     iteration = 100,
                                     grid_t = 0.004,
+                                    mesh_x_start = -0.5050,
+                                    mesh_x_stop = 0.5050, 
                                     grid_x = 0.01):
         # iteration should be an even number to
         # make sure the grids return to the same
         # as the initial one.
         if iteration % 2 != 0:
             raise Exception(iteration, 'should be even!')
+        self.gen_mesh(grid_x * 10000, mesh_x_start * 10000, mesh_x_stop * 10000)
         mesh_pt_number_x_at_half_t = iteration + 1
         # grids generated by the iteration +
         # the most left grid +
