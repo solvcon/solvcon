@@ -1,6 +1,6 @@
 # -*- coding: UTF-8 -*-
 #
-# Copyright (c), 2014 Yung-Yu Chen <yyc@solvcon.net>
+# Copyright (c) 2014, Yung-Yu Chen <yyc@solvcon.net>
 #
 # All rights reserved.
 #
@@ -29,67 +29,44 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 """
-Boundary-condition treatments for :py:class:`~.solver.GasSolver`.
+The control interface.
 """
 
 
-from solvcon import boundcond
+from solvcon import case
+from solvcon import domain
 
-try: # for readthedocs to work.
-    from . import _algorithm
-except ImportError as e:
-    import warnings
-    warnings.warn(
-        "solvcon.parcel.gas._algorithm isn't built; %s" % str(e.args),
-        RuntimeWarning)
+from . import solver as localsolver
 
 
-class GasBC(boundcond.BC):
+class GasCase(case.MeshCase):
     """
-    Base class for all boundary conditions of the gas solver.
+    Simulation case for the Navier-Stokes solver based on the bulk modulus.
     """
-
-    #: Ghost geometry calculator type.
-    _ghostgeom_ = None
-
-    def __init__(self, **kw):
-        super(GasBC, self).__init__(**kw)
-        self.bcd = None
-
-    @property
-    def alg(self):
-        return self.svr.alg
-
-    def init(self, **kw):
-        self.bcd = self.create_bcd()
-        getattr(self.alg, 'ghostgeom_'+self._ghostgeom_)(self.bcd)
-
-
-class GasNonrefl(GasBC):
-    _ghostgeom_ = 'mirror'
-    def soln(self):
-        self.alg.bound_nonrefl_soln(self.bcd)
-    def dsoln(self):
-        self.alg.bound_nonrefl_dsoln(self.bcd)
-
-
-class GasWall(GasBC):
-    _ghostgeom_ = 'mirror'
-    def soln(self):
-        self.alg.bound_wall_soln(self.bcd)
-    def dsoln(self):
-        self.alg.bound_wall_dsoln(self.bcd)
-
-
-class GasInlet(GasBC):
-    vnames = ['rho', 'v1', 'v2', 'v3', 'p', 'gamma']
-    vdefaults = {
-        'rho': 1.0, 'p': 1.0, 'gamma': 1.4, 'v1': 0.0, 'v2': 0.0, 'v3': 0.0,
+    defdict = {
+        'solver.solvertype': localsolver.GasSolver,
+        'solver.domaintype': domain.Domain,
+        'solver.alpha': 1,
+        'solver.sigma0': 3.0,
+        'solver.taylor': 1.0,
+        'solver.cnbfac': 1.0,
+        'solver.sftfac': 1.0,
+        'solver.taumin': None,
+        'solver.tauscale': None,
     }
-    _ghostgeom_ = 'mirror'
-    def soln(self):
-        self.alg.bound_inlet_soln(self.bcd)
-    def dsoln(self):
-        self.alg.bound_inlet_dsoln(self.bcd)
+    def make_solver_keywords(self):
+        kw = super(GasCase, self).make_solver_keywords()
+        # time.
+        neq = self.blk.ndim + 2
+        kw['neq'] = self.execution.neq = neq
+        kw['time'] = self.execution.time
+        kw['time_increment'] = self.execution.time_increment
+        # c-tau scheme parameters.
+        kw['alpha'] = int(self.solver.alpha)
+        for key in ('sigma0', 'taylor', 'cnbfac', 'sftfac',
+                    'taumin', 'tauscale',):
+            val = self.solver.get(key)
+            if val != None: kw[key] = float(val)
+        return kw
 
 # vim: set ff=unix fenc=utf8 ft=python ai et sw=4 ts=4 tw=79:

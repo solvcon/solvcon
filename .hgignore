@@ -34,5 +34,6 @@ solvcon/parcel/*/*.h
 # examples.
 examples/*/*/result*/
 examples/*/*/mesh/
-sandbox/*/result
+sandbox/*/*/result/
+sandbox/*/result/
 sandbox/*/mesh/

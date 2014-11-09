@@ -1,0 +1,328 @@
+#!/usr/bin/env python2.7
+# -*- coding: UTF-8 -*-
+#
+# Copyright (c) 2014, Yung-Yu Chen <yyc@solvcon.net>
+#
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# - Redistributions of source code must retain the above copyright notice, this
+#   list of conditions and the following disclaimer.
+# - Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+# - Neither the name of the SOLVCON nor the names of its contributors may be
+#   used to endorse or promote products derived from this software without
+#   specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+
+
+"""
+FIXME: I have NaN in physical quantities.  I am bad.
+"""
+
+
+import os
+
+import numpy as np
+
+import solvcon as sc
+
+from solvcon import helper
+from solvcon.parcel import gas
+
+
+class ObliqueShock(object):
+    """
+    Exact solution of oblique shock wave resulted from a ramp.
+    """
+    def __init__(self, ga, dta, M1, err=1.e-14, maxiter=100):
+        """
+        @param ga: specific heat ratio.
+        @type ga: float
+        @param dta: ramp deflection angle (in radius).
+        @type dta: float
+        @param M1: incoming Mach number.
+        @type M1: float
+        """
+        self._ga = ga
+        self._dta = dta
+        self._M1 = M1
+        self._err = err
+        self._maxiter = 100
+        self.bta = self._calc_shock_angle(self._dta, self._M1)
+        self.M2 = self._calc_behind_M(self.bta, self._dta, self._M1)
+        self.bta2 = self._calc_shock_angle(self._dta, self.M2)
+        self.M3 = self._calc_behind_M(self.bta2, self._dta, self.M2)
+
+    def _calc_shock_angle(self, dta, M):
+        ga = self._ga
+        # calculate.
+        bta = dta * 2
+        tand = np.tan(dta)
+        cnt = 0
+        while True:
+            cotb = 1.0/np.tan(bta)
+            sinb = np.sin(bta)
+            cosb = np.cos(bta)
+            cos2b = np.cos(2.0*bta)
+            f = 2*cotb*((M*sinb)**2-1) - tand*(2+M**2*(ga+cos2b))
+            fp = M**2*(4*cosb**2 + 4*tand*sinb*cosb - 2) + 2.0/sinb**2
+            diff = f/fp
+            bta -= diff
+            if abs(diff) < self._err or cnt >= self._maxiter:
+                break
+            cnt += 1
+        return bta
+    def _calc_behind_M(self, bta, dta, M):
+        ga = self._ga
+        # calculate.
+        sinb = np.sin(bta)
+        sinbd = np.sin(bta-dta)
+        nume = (M*sinb)**2 + 2.0/(ga-1)
+        deno = 2*ga*(M*sinb)**2/(ga-1) - 1.0
+        return np.sqrt(nume/(deno*sinbd**2))
+    def _calc_behind_p(self, bta, M):
+        ga = self._ga
+        # calculate.
+        sinb = np.sin(bta)
+        nume = 2*ga*(M*sinb)**2 - (ga-1)
+        deno = ga + 1
+        return nume / deno
+    def _calc_behind_rho(self, bta, M):
+        ga = self._ga
+        # calculate.
+        sinb = np.sin(bta)
+        nume = (ga+1) * (M*sinb)**2
+        deno = 2 + (ga-1) * (M*sinb)**2
+        return nume / deno
+    def _calc_behind_T(self, bta, M):
+        ga = self._ga
+        # calculate.
+        sinb = np.sin(bta)
+        nume = 2 + (ga-1)*(M*sinb)**2
+        nume *= 2*ga*(M*sinb)**2 - (ga-1)
+        deno = ((ga+1)*M*sinb)**2
+        return nume / deno
+
+    @property
+    def ga(self):
+        return self._ga
+    @property
+    def dta(self):
+        return self._dta
+    @property
+    def M1(self):
+        return self._M1
+
+    def calc_rho2(self, rho1):
+        return rho1 * self._calc_behind_rho(self.bta, self._M1)
+    def calc_rho3(self, rho1):
+        rho2 = self.calc_rho2(rho1)
+        return rho2 * self._calc_behind_rho(self.bta2, self.M2)
+    def calc_p2(self, p1):
+        return p1 * self._calc_behind_p(self.bta, self._M1)
+    def calc_p3(self, p1):
+        p2 = self.calc_p2(p1)
+        return p2 * self._calc_behind_p(self.bta2, self.M2)
+    def calc_a2(self, rho1, p1):
+        rho2 = self.calc_rho2(rho1)
+        p2 = self.calc_p2(p1)
+        return np.sqrt(self.ga*p2/rho2)
+    def calc_a3(self, rho1, p1):
+        rho3 = self.calc_rho3(rho1)
+        p3 = self.calc_p3(p1)
+        return np.sqrt(self.ga*p3/rho3)
+    def calc_T2(self, T1):
+        return T1 * self._calc_behind_T(self.bta, self._M1)
+    def calc_T3(self, T1):
+        T2 = self.calc_T2(T1)
+        return T2 * self._calc_behind_T(self.bta2, self.M2)
+
+
+class ExactObshockHook(sc.MeshHook):
+    """
+    Show the exact solution for the reflection of oblique shock wave.
+    """
+
+    def __init__(self, cse, **kw):
+        self.dta = kw.pop('dta')
+        self.M1 = kw.pop('M1')
+        self.ga = kw.pop('gamma')
+        self.p1 = kw.pop('p')
+        self.rho1 = kw.pop('rho')
+        self.region = kw.pop('region', 2)
+        super(ExactObshockHook, self).__init__(cse, **kw)
+
+    def _calculate(self):
+        obs = ObliqueShock(ga=self.ga, dta=self.dta, M1=self.M1)
+        self.info('Oblique shock relation (exact):\n')
+        self.info('  delta = %.3f deg (ramp angle)\n' % (obs.dta/np.pi*180))
+        self.info('  beta  = %.3f deg (shock angle)\n' % (obs.bta/np.pi*180))
+        self.info('  M2    = %.10f\n' % obs.M2)
+        self.info('  rho2  = %.10f\n' % obs.calc_rho2(self.rho1))
+        self.info('  p2    = %.10f\n' % obs.calc_p2(self.p1))
+        if self.region >= 3:
+            self.info('  beta2 = %.3f deg (shock angle)\n' % (obs.bta2/np.pi*180))
+            self.info('  - dta = %.3f deg (shock-ramp angle)\n' % (
+                (obs.bta2-obs.dta)/np.pi*180))
+            self.info('  M3    = %.10f\n' % obs.M3)
+            self.info('  rho3  = %.10f\n' % obs.calc_rho3(self.rho1))
+            self.info('  p3    = %.10f\n' % obs.calc_p3(self.p1))
+
+    def preloop(self):
+        self._calculate()
+
+    postloop = preloop
+
+
+class ReflProbe(gas.ProbeHook):
+    """
+    Place a probe for the flow properties in the reflected region.
+    """
+    def __init__(self, cse, **kw):
+        kw['speclst'] = ['M', 'rho', 'p']
+        # calculate exact solution.
+        dta = kw.pop('dta')
+        M1 = kw.pop('M1')
+        ga = kw.pop('gamma')
+        p1 = kw.pop('p')
+        rho1 = kw.pop('rho')
+        obs = ObliqueShock(ga=ga, dta=dta, M1=M1)
+        self.M3 = obs.M3
+        self.rho3 = obs.calc_rho3(rho1)
+        self.p3 = obs.calc_p3(p1)
+        bta = obs.bta
+        bta2 = obs.bta2
+        # detemine location.
+        x0 = kw.pop('x0')
+        y0 = kw.pop('y0')
+        z0 = kw.pop('z0', None)
+        x1 = kw.pop('x1')
+        y1 = kw.pop('y1')
+        z1 = kw.pop('z1', None)
+        factor = kw.pop('factor', 0.9)
+        lgh = (y1-y0) / np.tan(bta)
+        hgt = factor * (x1-x0-lgh) * np.tan((bta2-dta)/2)
+        lgh = factor * (x1-x0-lgh) + lgh
+        if None is not z0:
+            poi = ('poi', lgh, hgt, (z1+z0)/2)
+        else:
+            poi = ('poi', lgh, hgt)
+        kw['coords'] = (poi,)
+        # ancestor.
+        super(ReflProbe, self).__init__(cse, **kw)
+
+    def postloop(self):
+        super(ReflProbe, self).postloop()
+        self.info('Probe result at %s:\n' % self.points[0])
+        M, rho, p = self.points[0].vals[-1][1:]
+        self.info('  M3   = %.3f/%.3f (error=%%%.2f)\n' % (M, self.M3,
+            abs((M-self.M3)/self.M3)*100))
+        self.info('  rho3 = %.3f/%.3f (error=%%%.2f)\n' % (rho, self.rho3,
+            abs((rho-self.rho3)/self.rho3)*100))
+        self.info('  p3   = %.3f/%.3f (error=%%%.2f)\n' % (p, self.p3,
+            abs((p-self.p3)/self.p3)*100))
+
+
+################################################################################
+# Mesh generation.
+################################################################################
+def mesher(cse):
+    """
+    Generate mesh according to the Gmsh command template file obrf.tmpl.
+    """
+    itv = float(cse.io.meshfn)/1000
+    cmds = open('obrf.tmpl').read() % itv
+    cmds = [cmd.strip() for cmd in cmds.strip().split('\n')]
+    gmh = helper.Gmsh(cmds)()
+    return gmh.toblock(bcname_mapper=cse.condition.bcmap)
+
+def obrf_base(casename=None, meshname=None,
+    gamma=None, density=None, pressure=None, M=None, dta=None,
+    psteps=None, ssteps=None, **kw
+):
+    """
+    Fundamental configuration of the simulation and return the case object.
+
+    @return: the created Case object.
+    @rtype: solvcon.parcel.gas.GasCase
+    """
+    # set flow properties (fp).
+    fpb = {
+        'gamma': gamma, 'rho': density, 'v2': 0.0, 'v3': 0.0, 'p': pressure,
+    }
+    fpb['v1'] = M*np.sqrt(gamma*fpb['p']/fpb['rho'])
+    fpt = fpb.copy()
+    ob = ObliqueShock(ga=gamma, dta=dta, M1=M)
+    fpt['rho'] = ob.calc_rho2(fpb['rho'])
+    fpt['p'] = ob.calc_p2(fpb['p'])
+    V2 = ob.M2 * ob.calc_a2(fpb['rho'], fpb['p']) 
+    fpt['v1'] = V2 * np.cos(dta)
+    fpt['v2'] = -V2 * np.sin(dta)
+    fpi = fpb.copy()
+    # set up BCs.
+    bcmap = {
+        'upper': (sc.bctregy.GasInlet, fpt,),
+        'left': (sc.bctregy.GasInlet, fpb,),
+        'right': (sc.bctregy.GasNonrefl, {},),
+        'lower': (sc.bctregy.GasWall, {},),
+    }
+    # set up case.
+    basedir = os.path.abspath(os.path.join(os.getcwd(), 'result'))
+    cse = gas.GasCase(basedir=basedir, rootdir=sc.env.projdir,
+        basefn=casename, mesher=mesher, bcmap=bcmap, debug=False, **kw)
+    # informative.
+    cse.runhooks.append(gas.ProgressHook,
+        psteps=psteps, linewidth=ssteps/psteps,
+    )
+    cse.runhooks.append(gas.CflHook, fullstop=False, psteps=ssteps,
+        cflmax=10.0, linewidth=ssteps/psteps,
+    )
+    cse.runhooks.append(gas.MeshInfoHook, psteps=ssteps)
+    # initializer.
+    cse.runhooks.append(gas.FillAnchor,
+                        mappers={'soln': gas.GasSolver.ALMOST_ZERO,
+                                 'dsoln': 0.0,
+                                 'amsca': gamma})
+    cse.runhooks.append(gas.DensityInitAnchor, rho=1.0)
+    # post processing.
+    cse.runhooks.append(gas.PhysicsAnchor, rsteps=ssteps)
+    ## execution order is reversed for postloop.
+    cse.runhooks.append(ReflProbe, psteps=ssteps,
+        x0=0, x1=4, y0=0, y1=1, z0=0, z1=0, dta=dta, M1=M, **fpb)
+    cse.runhooks.append(ExactObshockHook, region=3, dta=dta, M1=M, **fpb)
+    ## output.
+    cse.runhooks.append(gas.PMarchSave, anames=[
+            ('soln', False, -4),
+        ], fpdtype='float64', psteps=ssteps, compressor='gz')
+    return cse
+
+
+@gas.GasCase.register_arrangement
+def obrf(casename, **kw):
+    """
+    The true arrangement which specifies necessary parameters for execution.
+    """
+    return obrf_base(casename, meshfn='100',
+        gamma=1.4, density=1.0, pressure=1.0, M=3.0, dta=10.0/180*np.pi,
+        time_increment=7.e-3, steps_run=600, ssteps=100, psteps=2, **kw)
+
+
+if __name__ == '__main__':
+    sc.go()
+
+# vim: set ff=unix fenc=utf8 ft=python ai et sw=4 ts=4 tw=79:

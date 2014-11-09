@@ -376,7 +376,13 @@ class MeshSolver(object):
                     t1 = time.time()
                     self.runanchors('pre'+mmname)
                     t2 = time.time()
+                    if self.debug:
+                        self.mesg("step %d substep %d enter %s\n" % (
+                            self.step_current, self.substep_current, mmname))
                     method(worker=worker)
+                    if self.debug:
+                        self.mesg("step %d substep %d left %s\n" % (
+                            self.step_current, self.substep_current, mmname))
                     self.timer.increase(mmname, time.time() - t2)
                     self.runanchors('post'+mmname)
                     self.timer.increase(mmname+'_a', time.time() - t1)

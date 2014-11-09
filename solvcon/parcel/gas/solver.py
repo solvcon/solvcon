@@ -35,6 +35,8 @@ Gas-dynamics solver.
 
 import numpy as np
 
+import solvcon as sc
+
 from solvcon import solver
 
 try: # for readthedocs to work.
@@ -46,10 +48,13 @@ except ImportError as e:
         RuntimeWarning)
 
 
-class GasSolver(solver.MeshSolver):
+class GasSolver(sc.MeshSolver):
     """
     Gas-dynamics solver.
     """
+
+    # FIXME: This should go to solvcon.solver.MeshSolver.ALMOST_ZERO.
+    ALMOST_ZERO = solver.ALMOST_ZERO
 
     _interface_init_ = ['cecnd', 'cevol', 'sfmrc']
     _solution_array_ = ['solt', 'sol', 'soln', 'dsol', 'dsoln']
@@ -136,13 +141,13 @@ class GasSolver(solver.MeshSolver):
         self._debug_check_array('sfmrc')
 
     def provide(self):
-        # fill group data array.
-        self._make_grpda()
-        # pre-calculate CFL.
-        self.create_alg().calc_cfl()
-        self.ocfl[:] = self.cfl[:]
         # super method.
         super(GasSolver, self).provide()
+        self._debug_check_array('soln', 'dsoln')
+        # density should not be zero.
+        self._debug_check_array(np.abs(self.soln[:,0])<=self.ALMOST_ZERO)
+        # fill group data array.
+        self.grpda.fill(0)
 
     def apply_bc(self):
         super(GasSolver, self).apply_bc()
@@ -190,6 +195,7 @@ class GasSolver(solver.MeshSolver):
     @_MMNAMES.register
     def calccfl(self, worker=None):
         self._debug_check_array('sol', 'dsol')
+        # FIXME: must be something wrong here.
         self.alg.calc_cfl()
         self._debug_check_array('cfl', 'ocfl', 'soln', 'dsoln')
 
