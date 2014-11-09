@@ -657,7 +657,7 @@ class SodTube():
 
         it = iteration # iteration, which is integer
         dt = grid_size_t
-        dx = grid_size_x
+        dx = grid_size_x / 10000.0
         # mesh point number along x
         mesh_pt_number_x_at_half_t = iteration + 1
         mesh_pt_number_x = iteration + 2
@@ -767,18 +767,18 @@ class SodTube():
         
             m = m + 1
             
-            #solution__x_start_index = mesh_x.get_start_grid(mesh_pt_number_x)
-            solution_x_start_index = 0
-            solution = []
-            for i in range(mesh_pt_number_x):
-                solution_x = mesh_x[i + solution_x_start_index]
-                x = solution_x
-                solution_rho = mtxq[0,i]
-                solution_v = mtxq[1,i]/mtxq[0,i]
-                solution_p = a1*(mtxq[2,i] - 0.5*(x**2)*mtxq[0,i])
-                solution.append((solution_x, solution_rho, solution_v, solution_p))
-            
-            return solution
+        #solution__x_start_index = mesh_x.get_start_grid(mesh_pt_number_x)
+        solution_x_start_index = 0
+        solution = []
+        for i in range(mesh_pt_number_x):
+            solution_x = mesh_x[i + solution_x_start_index]
+            x = solution_x
+            solution_rho = mtxq[0,i]
+            solution_v = mtxq[1,i]/mtxq[0,i]
+            solution_p = a1*(mtxq[2,i] - 0.5*(solution_v**2)*mtxq[0,i])
+            solution.append((solution_x, solution_rho, solution_v, solution_p))
+        
+        return solution
 
     def get_cese_solution_mesh_size(self,
                                     iteration = 100,
