@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # install dependency.
 sudo apt-get update
 contrib/aptget.ubuntu.12.04LTS.sh
