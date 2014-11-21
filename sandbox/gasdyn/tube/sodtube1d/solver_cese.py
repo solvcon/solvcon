@@ -19,12 +19,37 @@
 # DEBUG: search string 'DEBUG'
 # why: somewhere don't understand very much ...
 
-import sys
-import scipy.optimize as so
-import matplotlib.pyplot as plt
+import numpy as np
 
 # a number to claim two floating number value are equal.
 delta_precision = 0.0000000000001
+
+ga = 1.4
+
+# Sod tube initial conditions of the left and right
+# of the diaphragm
+rhol = 1.0
+ul = 0.0
+pl = 1.0
+rhor = 0.125
+ur = 0.0
+pr = 0.1
+
+ia = 1
+
+a1 = ga - 1.0
+a2 = 3.0 - ga
+a3 = a2/2.0
+a4 = 1.5*a1
+
+
+hdt = 0.0
+qdt = 0.0 #q:quad
+hdx = 0.0
+qdx = 0.0
+
+tt = 0.0
+dtx = 0.0
 
 class Solver():
     """
@@ -32,36 +57,7 @@ class Solver():
     """
     def __init__(self):
         # initial condition
-        # [(rhol, ul, pl), (rhor, ur, pr)]
-        #
-        # Sod's initial condition
-        self.RHOL = 1.0
-        self.UL = 0.0
-        self.PL = 1.0
-        self.RHOR = 0.125
-        self.UR = 0.0
-        self.PR = 0.1
-        self.initcondition_sod = [(self.RHOL, self.UL, self.PL),
-                                  (self.RHOR, self.UR, self.PR)]
-        # initial condition for a shock tube problem
-        # default is Sod's initial condition
-        # users could change this initial conditions
-        self.initcondition = self.initcondition_sod
-        # constants and conventions
-        self.GAMMA = 1.4 # ideal gas constant
-        self.GAMMA2 = (self.GAMMA - 1.0) / (self.GAMMA + 1.0)
-        self.ALPHA = (self.GAMMA + 1.0) / (self.GAMMA - 1.0)
-        self.BETA = (self.GAMMA - 1.0) / (2.0*self.GAMMA)
-        # a mesh, which has this format:
-        # [point0, point1, point2, point3, ......, pointn]
-        self.mesh = []
-        # solution has this format:
-        # [(x0, rho0, u0, p0),
-        #  (x1, rho1, u1, p1),
-        #  ......,
-        #  (xn, rhon, un, pn)]
-        self.solution = []
-        self.ceseparameters = []
+        pass
 
     def gen_mesh(self,
                  xstep = 100,
@@ -89,8 +85,7 @@ class Solver():
         iteration: int, please note n iteration will has n+2 mesh points.
         
         """
-
-        import numpy as np
+        global hdt, qdt, hdx, qdx, tt, dtx 
 
         #self.check_input(iteration,
         #                 grid_size_t,
@@ -108,18 +103,6 @@ class Solver():
         # mesh point number along x
         mesh_pt_number_x_at_half_t = iteration + 1
         mesh_pt_number_x = iteration + 2
-        ga = 1.4
-
-        # Sod tube initial conditions of the left and right
-        # of the diaphragm
-        rhol = 1.0
-        ul = 0.0
-        pl = 1.0
-        rhor = 0.125
-        ur = 0.0
-        pr = 0.1
-        
-        ia = 1
 
         # u_m of 1D Eular equation.
         # this also means the status of the gas
@@ -148,10 +131,6 @@ class Solver():
         tt = hdt*it
         dtx = dt/dx
         
-        a1 = ga - 1.0
-        a2 = 3.0 - ga
-        a3 = a2/2.0
-        a4 = 1.5*a1
         mtxq[0][0] = rhol
         mtxq[1][0] = rhol*ul
         mtxq[2][0] = pl/a1 + 0.5*rhol*ul**2.0
@@ -165,27 +144,7 @@ class Solver():
 
         m = 2 # move out from the diaphragm which the 0th grid.
         for i in xrange(it):
-            for j in xrange(m):
-                w2 = mtxq[1,j]/mtxq[0,j]
-                w3 = mtxq[2,j]/mtxq[0,j]
-                # f[0][0] = 0.0
-                mtxf[0,1] = 1.0
-                # f[0][2] = 0.0
-                mtxf[1,0] = -a3*w2**2
-                mtxf[1,1] = a2*w2
-                mtxf[1,2] = ga - 1.0
-                mtxf[2,0] = a1*w2**3 - ga*w2*w3
-                mtxf[2,1] = ga*w3 - a1*w2**2
-                mtxf[2,2] = ga*w2
-
-                # (4.17) in chang95
-                mtxqt[:,j] = -1.0*mtxf*mtxqx[:,j]
-                # (4.25) in chang95
-                # the n_(fmt)_j of the last term should be substitubed
-                # by the other terms.
-                mtxs[:,j] = qdx*mtxqx[:,j] + dtx*mtxf*mtxq[:,j] \
-                            - dtx*qdt*mtxf*mtxf*mtxqx[:,j]
-        
+            self.get_cese_status_before_half_dt(m, mtxq, mtxf, mtxqt, mtxqx, mtxs)
             mm = m - 1
             for j in xrange(mm):
                 # (4.24) in chang95
@@ -251,11 +210,31 @@ class Solver():
     def cal_cese_solution(self, initcondition, mesh, ceseparameters):
         return self.solution
 
-    def get_cese_status_before_half_dt(m, mtxq, mtxf):
+    def get_cese_status_before_half_dt(self, m, mtxq, mtxf, mtxqt, mtxqx, mtxs):
         """
         the status is 
         """
-        pass
+        for j in xrange(m):
+            w2 = mtxq[1,j]/mtxq[0,j]
+            w3 = mtxq[2,j]/mtxq[0,j]
+            # f[0][0] = 0.0
+            mtxf[0,1] = 1.0
+            # f[0][2] = 0.0
+            mtxf[1,0] = -a3*w2**2
+            mtxf[1,1] = a2*w2
+            mtxf[1,2] = ga - 1.0
+            mtxf[2,0] = a1*w2**3 - ga*w2*w3
+            mtxf[2,1] = ga*w3 - a1*w2**2
+            mtxf[2,2] = ga*w2
+
+            # (4.17) in chang95
+            mtxqt[:,j] = -1.0*mtxf*mtxqx[:,j]
+            # (4.25) in chang95
+            # the n_(fmt)_j of the last term should be substitubed
+            # by the other terms.
+            mtxs[:,j] = qdx*mtxqx[:,j] + dtx*mtxf*mtxq[:,j] \
+                        - dtx*qdt*mtxf*mtxf*mtxqx[:,j]
+        return  m, mtxq, mtxf, mtxqt, mtxqx, mtxs
 
     def get_cese_status_after_half_dt():
         pass
