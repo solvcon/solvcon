@@ -69,18 +69,6 @@ class Solver():
     def set_initcondition(self, initcondition):
         self.initcondition = initcondition
 
-    def gen_mesh(self,
-                 xstep = 100,
-                 xstart = -5050,
-                 xstop = 5050):
-        mesh = []
-        for x in range(xstart, xstop + xstep, xstep):
-            mesh.append(float(x)/10000.0)
-        self.mesh = tuple(mesh)
-
-    def get_mesh(self):
-        return self.mesh
-
     def get_analytic_solution(self, mesh, t=0.2, initcondition=None):
         # where implementing the code to get the analytic solution
         # by users' input condition
