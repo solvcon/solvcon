@@ -63,6 +63,18 @@ class Solver():
         self.solution = []
         self.ceseparameters = []
 
+    def gen_mesh(self,
+                 xstep = 100,
+                 xstart = -5050,
+                 xstop = 5050):
+        mesh = []
+        for x in range(xstart, xstop + xstep, xstep):
+            mesh.append(float(x)/10000.0)
+        self.mesh = tuple(mesh)
+
+    def get_mesh(self):
+        return self.mesh
+
     def get_cese_solution(self,
                           iteration = 100,
                           grid_size_t = 0.004,
