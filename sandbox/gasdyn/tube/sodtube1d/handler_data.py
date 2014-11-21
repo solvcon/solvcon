@@ -26,7 +26,7 @@ import matplotlib.pyplot as plt
 # a number to claim two floating number value are equal.
 delta_precision = 0.0000000000001
 
-class DataManager(PlotManager):
+class DataManager():
     """
     Manage how to get extended information by input data.
     """
