@@ -32,9 +32,14 @@ given, the other angle can be calculated from
 :py:meth:`ObliqueShockRelation.calc_flow_angle` or
 :py:meth:`ObliqueShockRelation.calc_shock_angle`, respectively.
 
-.. attention::
+.. figure:: reflection.png
+  :align: center
 
-  I NEED A SCHEMATIC FOR THE REFLECTION PROBLEM.
+  Oblique shock reflected from a wall
+
+  :math:`M_{1,2,3}` are the Mach number in the corresponding zone 1, 2, and 3.
+  :math:`\theta` is the flow deflection angle.  :math:`\beta_{1,2}` are the
+  oblique shock angle behind the first and the second zone, respectively.
 
 Relations across Oblique Shock
 ==============================
