@@ -133,36 +133,16 @@ class Solver():
             mtxq[1,i+1] = rhor*ur
             mtxq[2,i+1] = pr/a1 + 0.5*rhor*ur**2.0
 
+        # m is the number used to calculate the status before
+        # the half delta t stepping is applied.
         m = 2 # move out from the diaphragm which the 0th grid.
         for i in xrange(it):
             self.get_cese_status_before_half_dt(m, mtxq, mtxf, mtxqt, mtxqx, mtxs)
-            mm = m - 1
-            for j in xrange(mm):
-                # (4.24) in chang95
-                # Please note the j+1 on the left hand side addresses
-                # different t (n) from the j/j+1 on the right hand side,
-                # which address the other t (n-1/2) on the space-time
-                # surface.
-                mtxqn[:,j+1] = 0.5*(mtxq[:,j] \
-                                    + mtxq[:,j+1] \
-                                    + mtxs[:,j] - mtxs[:,j+1])
-                # (4.27) and (4.36) in chang95
-                vxl = np.asarray((mtxqn[:,j+1] \
-                                  - mtxq[:,j] - hdt*mtxqt[:,j]) \
-                                  /hdx)
-                vxr = np.asarray((mtxq[:,j+1] + hdt*mtxqt[:,j+1] \
-                                  - mtxqn[:,j+1]) \
-                                  /hdx)
-                # (4.39) in chang95
-                mtxqx[:,j+1] = np.asmatrix((vxl*((abs(vxr))**ia) \
-                                            + vxr*((abs(vxl))**ia)) \
-                                            /(((abs(vxl))**ia) \
-                                                + ((abs(vxr))**ia) + 1.0E-60))
-        
-            for j in xrange(1,m):
-                mtxq[:,j] = mtxqn[:,j]
-        
-            m = m + 1
+            # stepping into the next halt delta t
+            # m mesh points along t could introduce m - 1 mesh points along t + 0.5*dt
+            self.get_cese_status_after_half_dt(m, mtxq, mtxqn, mtxqt, mtxqx, mtxs)
+            #  ask the status at t + 0.5*dt to be the next status before the half delta t is applied
+            m = self.push_status_along_t(m, mtxq, mtxqn)
             
         #solution__x_start_index = mesh_x.get_start_grid(mesh_pt_number_x)
         solution_x_start_index = 50
@@ -227,6 +207,32 @@ class Solver():
                         - dtx*qdt*mtxf*mtxf*mtxqx[:,j]
         return  m, mtxq, mtxf, mtxqt, mtxqx, mtxs
 
-    def get_cese_status_after_half_dt():
-        pass
-
+    def get_cese_status_after_half_dt(self, m, mtxq, mtxqn, mtxqt, mtxqx, mtxs):
+        mm = m - 1
+        for j in xrange(mm):
+            # (4.24) in chang95
+            # Please note the j+1 on the left hand side addresses
+            # different t (n) from the j/j+1 on the right hand side,
+            # which address the other t (n-1/2) on the space-time
+            # surface.
+            mtxqn[:,j+1] = 0.5*(mtxq[:,j] \
+                                + mtxq[:,j+1] \
+                                + mtxs[:,j] - mtxs[:,j+1])
+            # (4.27) and (4.36) in chang95
+            vxl = np.asarray((mtxqn[:,j+1] \
+                              - mtxq[:,j] - hdt*mtxqt[:,j]) \
+                              /hdx)
+            vxr = np.asarray((mtxq[:,j+1] + hdt*mtxqt[:,j+1] \
+                              - mtxqn[:,j+1]) \
+                              /hdx)
+            # (4.39) in chang95
+            mtxqx[:,j+1] = np.asmatrix((vxl*((abs(vxr))**ia) \
+                                        + vxr*((abs(vxl))**ia)) \
+                                        /(((abs(vxl))**ia) \
+                                            + ((abs(vxr))**ia) + 1.0E-60))
+        
+    def push_status_along_t(self, number_mesh_points_before_hdt, mtxq, mtxqn):
+        for j in xrange(1,number_mesh_points_before_hdt):
+            mtxq[:,j] = mtxqn[:,j]
+        number_mesh_points_before_hdt_next_iter = number_mesh_points_before_hdt + 1
+        return number_mesh_points_before_hdt_next_iter
