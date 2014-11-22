@@ -44,14 +44,6 @@ given, the other angle can be calculated from
 Relations across Oblique Shock
 ==============================
 
-.. attention::
-
-  I NEED A SCHEMATIC FOR THE OBLIQUE SHOCK RELATIONS.
-
-The oblique shock wave defines a rotated coordinate system :math:`(n, t)`,
-where :math:`\hat{n}` is the unit vector normal to the oblique shock, and
-:math:`\hat{t}` is the unit vector tangential to the shock.
-
 The notation and derivations from Section 4.3 *Oblique Shock Relations* of
 [Anderson03]_ are used.  :math:`\square_1` denotes upstream properties and
 :math:`\square_2` denotes downstream properties.  Two important angles are
@@ -63,7 +55,22 @@ defined:
    the upstream is :math:`\theta`; the flow angle.
 
 Methods of calculating the shock relations are organized in the class
-:py:class:`ObliqueShockRelation`.
+:py:class:`ObliqueShockRelation`.  Derivation of the relation uses a rotated
+coordinate system :math:`(n, t)` defined by the oblique shock, where
+:math:`\hat{n}` is the unit vector normal to the shock, and :math:`\hat{t}` is
+the unit vector tangential to the shock.  Figure :ref:`fig_oblique_relation` is
+useful in the derivation of the relations.
+
+.. _fig_oblique_relation:
+
+.. figure:: oblique_relation.png
+  :align: center
+
+  Properties across an oblique shock
+
+  The flow properties in the upstream zone of the oblique shock are :math:`v_1,
+  M_1, \rho_1, p_1, T_1`.  Those in the downstream zone of the shock are
+  :math:`v_2, M_2, \rho_2, p_2, T_2`.
 
 .. autoclass:: ObliqueShockRelation
 
