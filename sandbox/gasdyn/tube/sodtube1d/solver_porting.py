@@ -31,55 +31,7 @@ class Solver():
     The core to generate the 1D Sod tube test
     """
     def __init__(self):
-        # initial condition
-        # [(rhol, ul, pl), (rhor, ur, pr)]
-        #
-        # Sod's initial condition
-        self.RHOL = 1.0
-        self.UL = 0.0
-        self.PL = 1.0
-        self.RHOR = 0.125
-        self.UR = 0.0
-        self.PR = 0.1
-        self.initcondition_sod = [(self.RHOL, self.UL, self.PL),
-                                  (self.RHOR, self.UR, self.PR)]
-        # initial condition for a shock tube problem
-        # default is Sod's initial condition
-        # users could change this initial conditions
-        self.initcondition = self.initcondition_sod
-        # constants and conventions
-        self.GAMMA = 1.4 # ideal gas constant
-        self.GAMMA2 = (self.GAMMA - 1.0) / (self.GAMMA + 1.0)
-        self.ALPHA = (self.GAMMA + 1.0) / (self.GAMMA - 1.0)
-        self.BETA = (self.GAMMA - 1.0) / (2.0*self.GAMMA)
-        # a mesh, which has this format:
-        # [point0, point1, point2, point3, ......, pointn]
-        self.mesh = []
-        # solution has this format:
-        # [(x0, rho0, u0, p0),
-        #  (x1, rho1, u1, p1),
-        #  ......,
-        #  (xn, rhon, un, pn)]
-        self.solution = []
-        self.ceseparameters = []
-
-    def get_initcondition(self):
-        return self.initcondition
-
-    def set_initcondition(self, initcondition):
-        self.initcondition = initcondition
-
-    def gen_mesh(self,
-                 xstep = 100,
-                 xstart = -5050,
-                 xstop = 5050):
-        mesh = []
-        for x in range(xstart, xstop + xstep, xstep):
-            mesh.append(float(x)/10000.0)
-        self.mesh = tuple(mesh)
-
-    def get_mesh(self):
-        return self.mesh
+        pass
 
     def get_cese_solution_fortran_porting(self, iteration=100, grid_t=0.004, grid_x = 0.01):
         """
