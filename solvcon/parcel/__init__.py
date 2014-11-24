@@ -31,8 +31,9 @@
 Solver parcels.  A solver parcel includes everything about a problem solver.
 """
 
-__all__ = ['fake', 'bulk', 'linear']
+__all__ = ['fake', 'bulk', 'gas', 'linear']
 
 from . import fake
 from . import bulk
+from . import gas
 from . import linear
