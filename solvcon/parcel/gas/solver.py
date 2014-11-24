@@ -53,9 +53,6 @@ class GasSolver(sc.MeshSolver):
     Gas-dynamics solver.
     """
 
-    # FIXME: This should go to solvcon.solver.MeshSolver.ALMOST_ZERO.
-    ALMOST_ZERO = solver.ALMOST_ZERO
-
     _interface_init_ = ['cecnd', 'cevol', 'sfmrc']
     _solution_array_ = ['solt', 'sol', 'soln', 'dsol', 'dsoln']
 

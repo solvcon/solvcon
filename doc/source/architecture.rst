@@ -864,6 +864,13 @@ defined as:
 
   .. autoinstanceattribute:: _MMNAMES
 
+Useful entities are attached to the class :py:class:`MeshSolver`:
+
+.. autoattribute:: MeshSolver.ALMOST_ZERO
+
+  A positive floating-point number close to zero.  The value is not
+  ``DBL_MIN``, which can be accessed through :py:data:`sys.float_info`.
+
 Time-Marching
 -------------
 

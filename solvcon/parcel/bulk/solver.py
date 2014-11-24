@@ -161,7 +161,7 @@ class BulkSolver(solver.MeshSolver):
         super(BulkSolver, self).provide()
         self._debug_check_array('soln', 'dsoln')
         # initialize array.
-        self.soln.fill(solver.ALMOST_ZERO)
+        self.soln.fill(self.ALMOST_ZERO)
         for key in ('dsoln', 'cfl', 'ocfl'):
             getattr(self, key).fill(0.0)
         for it, fluid in enumerate(self.fluids):

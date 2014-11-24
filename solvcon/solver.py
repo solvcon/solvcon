@@ -43,7 +43,7 @@ from . import gendata
 from . import helper
 from . import boundcond
 
-from .solver_core import ALMOST_ZERO
+from . import solver_core
 
 # import legacy.
 from .solver_legacy import (
@@ -110,6 +110,8 @@ class MeshSolver(object):
 
     _interface_init_ = []
     _solution_array_ = []
+
+    ALMOST_ZERO = solver_core.ALMOST_ZERO
 
     def __init__(self, blk, time=0.0, time_increment=0.0, enable_mesg=False,
             debug=False, **kw):
@@ -409,7 +411,7 @@ class MeshSolver(object):
         """
         for arrname in self._solution_array_:
             arr = getattr(self, arrname)
-            arr.fill(ALMOST_ZERO)   # prevent initializer forgets to set!
+            arr.fill(self.ALMOST_ZERO) # prevent initializer forgets to set!
         for bc in self.bclist:
             bc.init(**kw)
 
