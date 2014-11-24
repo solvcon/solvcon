@@ -73,7 +73,7 @@ def mrefl_base(casename=None, meshfn=None, gamma=None, gasconst=None,
     from numpy import pi, array, sin, cos, sqrt
     from solvcon.conf import env
     from solvcon.boundcond import bctregy
-    from solvcon.solver import ALMOST_ZERO
+    from solvcon.solver_legacy import ALMOST_ZERO
     from solvcon import hook, anchor
     from solvcon.kerpak import cuse
     # set flow properties (fp).

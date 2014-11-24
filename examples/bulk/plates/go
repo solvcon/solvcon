@@ -108,7 +108,7 @@ def plates_base(casename=None, psteps=None, ssteps=None, **kw):
         cflmax=10.0, linewidth=ssteps/psteps)
     # initializer anchors.
     cse.runhooks.append(bulk.FillAnchor,
-                        mappers={'soln': solver.ALMOST_ZERO, 'dsoln': 0,
+                        mappers={'soln': solver.MeshSolver.ALMOST_ZERO, 'dsoln': 0,
                                  'cfl': 0, 'ocfl': 0})
     cse.runhooks.append(bulk.ICAnchor, rho=1.0)
     # analyzing/output anchors and hooks.

@@ -41,7 +41,7 @@ def blnt_base(casename=None, meshname=None,
     from numpy import sqrt
     from solvcon.conf import env
     from solvcon.boundcond import bctregy
-    from solvcon.solver import ALMOST_ZERO
+    from solvcon.solver_legacy import ALMOST_ZERO
     from solvcon import hook, anchor
     from solvcon.kerpak import cuse
     # set flow properties (fp).
