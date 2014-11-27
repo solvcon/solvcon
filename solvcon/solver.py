@@ -166,22 +166,9 @@ class MeshSolver(object):
         #: Total number of parallel solvers.
         self.nsvr = None
         # marching facilities.
-        #: Cached marching-method names.
         self._mmnames = None
-        #: This instance attribute is of type :py:class:`AnchorList
-        #: <solvcon.anchor.AnchorList>`, and the foundation of the anchor
-        #: mechanism of SOLVCON.  An :py:class:`AnchorList
-        #: <solvcon.anchor.AnchorList>` object like this collects a set of
-        #: :py:class:`Anchor <solver.anchor.Anchor>` #: objects, and is
-        #: callable.  When being called, :py:attr:`runanchors` iterates the
-        #: contained :py:class:`Anchor <solvcon.anchor.Anchor>` objects and
-        #: invokes the corresponding methods of the individual
-        #: :py:class:`Anchor <solvcon.anchor.Anchor>`.
-        self.runanchors = anchor.AnchorList(self)
-        #: Values to be returned by this solver.  It will be set to a
-        #: :py:class:`dict` in :py:meth:`march`.
+        self.runanchors = anchor.MeshAnchorList(self)
         self.marchret = None
-        #: Derived data container as a :py:class:`dict`.
         self.der = dict()
         # reporting facility.
         self.timer = gendata.Timer(vtype=float)

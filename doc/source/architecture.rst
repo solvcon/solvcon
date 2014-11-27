@@ -876,11 +876,25 @@ Time-Marching
 
 .. automethod:: MeshSolver.march
 
-.. autoinstanceattribute:: MeshSolver.marchret
+.. py:attribute:: MeshSolver.marchret
 
-.. autoinstanceattribute:: MeshSolver.runanchors
+  Values to be returned by this solver.  It will be set to a :py:class:`dict`
+  in :py:meth:`march`.
 
-.. autoinstanceattribute:: MeshSolver.der
+.. py:attribute:: MeshSolver.runanchors
+
+  This attribute is of type :py:class:`MeshAnchorList
+  <solvcon.anchor.MeshAnchorList>`, and the foundation of the anchor mechanism
+  of SOLVCON.  An :py:class:`MeshAnchorList <solvcon.anchor.MeshAnchorList>`
+  object like this collects a set of :py:class:`MeshAnchor
+  <solver.anchor.MeshAnchor>` objects, and is callable.  When being called,
+  :py:attr:`runanchors` iterates the contained :py:class:`MeshAnchor
+  <solvcon.anchor.MeshAnchor>` objects and invokes the corresponding methods of
+  the individual :py:class:`MeshAnchor <solvcon.anchor.MeshAnchor>`.
+
+.. py:attribute:: MeshSolver.der
+
+  Derived data container as a :py:class:`dict`.
 
 .. autoclass:: _MethodList
 
@@ -974,7 +988,17 @@ certain pre-defined stages.
 :py:mod:`solvcon.anchor`
 ++++++++++++++++++++++++
 
-.. autoclass:: Anchor
+.. autoclass:: MeshAnchor
+
+  .. py:attribute:: svr
+
+    The associated :py:class:`MeshSolver <solvcon.solver.MeshSolver>` instance.
+
+.. autoclass:: MeshAnchorList
+
+  .. py:attribute:: svr
+
+    The associated :py:class:`MeshSolver <solvcon.solver.MeshSolver>` instance.
 
 References
 ==========

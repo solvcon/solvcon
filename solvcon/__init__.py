@@ -54,7 +54,7 @@ __all__ = [
     # case
     'MeshCase',
     # anchor
-    'MeshAnchor',
+    'MeshAnchor', 'MeshAnchorList',
     # hook
     'MeshHook',
     # boundcond
@@ -72,7 +72,7 @@ from .conf import env
 from .block import Block
 from .solver import MeshSolver
 from .case import MeshCase
-from .anchor import MeshAnchor
+from .anchor import MeshAnchor, MeshAnchorList
 from .hook import MeshHook
 from .boundcond import BC, bctregy
 from .domain import Domain, Collective, Distributed

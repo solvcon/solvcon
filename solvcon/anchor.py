@@ -43,12 +43,8 @@ from .anchor_legacy import(
 
 class MeshAnchor(object):
     """
-    Anchor that called by solver objects at various stages.
-
-    @ivar svr: the solver object to be attached to.
-    @itype svr: solvcon.solver.Solver
-    @ivar kws: excessive keywords.
-    @itype kws: dict
+    Callback class to be invoked by :py:class:`MeshSolver
+    <solvcon.solver.MeshSolver>` objects at various stages.
     """
 
     def __init__(self, svr, **kw):
@@ -80,12 +76,10 @@ class MeshAnchor(object):
     def exhaust(self):
         pass
 
+
 class MeshAnchorList(list):
     """
-    Anchor container and invoker.
-
-    @ivar svr: solver object.
-    @itype svr: solvcon.solver.BaseSolver
+    Sequence container for :py:class:`MeshAnchor` instances.
     """
 
     def __init__(self, svr, *args, **kw):
