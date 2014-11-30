@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+from matplotlib.pyplot import scatter
+
 class Mesher():
     def __init__(self):
         pass
@@ -15,3 +17,12 @@ class Mesher():
 
     def get_mesh(self):
         return self.mesh
+
+    def show_mesh_ipython_nb(self):
+        """
+        Show the mesh by plotting the mesh points.
+        matplotlib.pyplot.plot is not used
+        because this method is used image inline ipython notebook.
+        """
+        list_values_y = [0]*len(self.mesh)
+        scatter(self.mesh, list_values_y)
