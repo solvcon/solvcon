@@ -1,23 +1,11 @@
 #!/usr/bin/python
 #
-# sodtube1d.py
+# handler_data.py
 #
 # Description:
-#     1D Sod Tube Test
 #
-#     This program is implemented by OO style to be
-#     a part of ipython notebook demo materials.
+#   helper functions to handle, caculate the solutions.
 #
-#     The derivation of the equations for the analytic solution
-#     is based on the book,
-#     Principles of Computational Fluid Dynamics,
-#     written by Pieter Wesseling.
-#     Or, someone could refer to the solvcon website
-#     http://www.solvcon.net/en/latest/cese.html#sod-s-shock-tube-problem
-#
-#
-# DEBUG: search string 'DEBUG'
-# why: somewhere don't understand very much ...
 
 import sys
 import scipy.optimize as so
@@ -80,6 +68,10 @@ class DataManager():
             will be adopted.
         """
 
+        if not (self.is_a_solution(solution_a) or
+                self.is_a_solution(solution_b)):
+            sys.exit()
+
         solution_deviation = []
         if len(solution_a) != len(solution_b):
             print("two solutions have different mesh point numbers!")
@@ -137,3 +129,42 @@ class DataManager():
         for i in solution:
             print'%f %f %f %f' % (i[0], i[1], i[2], i[3])
 
+    def is_a_solution(self, solution):
+        """
+        a solution should be
+
+        1. of the format
+            [(x_1, rho_1, v_1, p_1), (x_2, rho_2, v_2, p_2), ...]
+        2. x_1 < x_2 < x_3 ...etc., namely, monotonically increasing
+        3. length should be larger than zero.
+
+        This helper function will check the input has these features or not.
+
+        return True if it is a such list/solution, otherwise, return false.
+
+        """
+
+        # format: solution is a list
+        if not isinstance(solution, list):
+            print("solution is not a list.")
+            return False
+
+        # format: tuple with 4 elements
+        for i in solution:
+            if not isinstance(i, tuple):
+                print("solution element is not a tuple.")
+                return False
+
+        # x_1 < x_2 < x_3 ...etc.
+        for i in xrange(len(solution)):
+            if i+1 < len(solution):
+                if not (solution[i][0] < solution[i+1][0]):
+                    print("x is not monotonically increasing")
+                    return False
+
+        # length should be larger than zero.
+        if len(solution) == 0:
+            print("solution has nothing")
+            return False
+
+        return True
