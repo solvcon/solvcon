@@ -12,7 +12,7 @@
 import sodtube1d.generator_mesh as gmesh
 import sodtube1d.solver_analytic as analytic
 import sodtube1d.solver_cese as cese
-import sodtube1d.solver_porting as porting
+import sodtube1d.solver_porting as solver_porting
 # helper handlers
 import sodtube1d.handler_data as hd
 import sodtube1d.handler_plot as hp
@@ -27,8 +27,7 @@ solution_analytic = analytic_solver.get_analytic_solution(mesh)
 solver_cese = cese.Solver()
 solution_cese = solver_cese.get_cese_solution()
 
-solver_porting = porting.Solver()
-solution_porting = solver_porting.get_cese_solution_fortran_porting()
+solution_porting = solver_porting.get_specific_solution_for_unit_test_high_precision()
 
 dm = hd.DataManager()
 pm = hp.PlotManager()
