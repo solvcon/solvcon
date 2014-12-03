@@ -129,6 +129,27 @@ class DataManager():
         for i in solution:
             print'%f %f %f %f' % (i[0], i[1], i[2], i[3])
 
+    def is_identical_solution(self, solution_a, solution_b, dp=0.00000001):
+        """
+        Strictly to check two solutions. Regard them as the same
+        solution if:
+
+        1. their length is the same
+        2. their deviation is smaller than dp, the delta precision.
+
+        """
+
+        if len(solution_a) != len(solution_b):
+            return False
+
+        solution_deviation = self.get_deviation(solution_a, solution_b)
+        for i in solution_deviation:
+            if not (i[1] < dp and i[2] < dp and i[3] < dp):
+                return False
+
+        print("Two solutions are identical.")
+        return True
+
     def is_a_solution(self, solution):
         """
         a solution should be
