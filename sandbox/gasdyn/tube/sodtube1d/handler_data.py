@@ -23,9 +23,6 @@ import sys
 import scipy.optimize as so
 import matplotlib.pyplot as plt
 
-# a number to claim two floating number value are equal.
-delta_precision = 0.0000000000001
-
 class DataManager():
     """
     Manage how to get extended information by input data.
@@ -64,12 +61,25 @@ class DataManager():
                 sds.append(solution_dev_sqr_vector[vi])
         return sum(sds)
 
-    def get_deviation(self, solution_a, solution_b):
+    def get_deviation(self,
+                      solution_a,
+                      solution_b,
+                      delta_precision=0.0000000000001):
         """
+        delta_precision: float,
+            a number to claim two floating number value are equal.
+
+        Compare the value of the status on each mesh points of solution_a.
+
+        If the deviation of the mesh point coordinate value
+        is smaller than delta_precision, they will be regarded as
+        the same location.
+
         Note:
             only the mesh grid points of solution_a
             will be adopted.
         """
+
         solution_deviation = []
         if len(solution_a) != len(solution_b):
             print("two solutions have different mesh point numbers!")
