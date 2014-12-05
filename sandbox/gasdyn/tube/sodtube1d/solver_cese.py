@@ -43,8 +43,6 @@ a3 = a2/2.0
 a4 = 1.5*a1
 
 
-qdx = 0.0
-
 tt = 0.0
 dtx = 0.0
 
@@ -85,7 +83,7 @@ class Solver():
         iteration: int, please note n iteration will has n+2 mesh points.
         
         """
-        global qdx, tt, dtx 
+        global tt, dtx 
         iteration = self.iteration
         grid_size_t = self.grid_size_t
         mesh_t_stop = self.mesh_t_stop
@@ -125,8 +123,6 @@ class Solver():
         vxr = np.zeros(shape=(3,1))
 
         mtx_f = np.asmatrix(np.zeros(shape=(3,3)))
-        
-        qdx = self.grid_size_x/4.0
         
         tt = (grid_size_t/2.0)*it
         dtx = dt/self.grid_size_x
@@ -212,7 +208,7 @@ class Solver():
             # (4.25) in chang95
             # the n_(fmt)_j of the last term should be substitubed
             # by the other terms.
-            mtx_s[:,j] = qdx*mtx_qx[:,j] + dtx*mtx_f*mtx_q[:,j] \
+            mtx_s[:,j] = (self.grid_size_x/4.0)*mtx_qx[:,j] + dtx*mtx_f*mtx_q[:,j] \
                         - dtx*(self.grid_size_t/4.0)*mtx_f*mtx_f*mtx_qx[:,j]
         return  m, mtx_q, mtx_f, mtx_qt, mtx_qx, mtx_s
 
