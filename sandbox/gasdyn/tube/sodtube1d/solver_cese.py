@@ -21,9 +21,6 @@ import generator_mesh
 
 gmesh = generator_mesh.Mesher()
 
-# a number to claim two floating number value are equal.
-delta_precision = 0.0000000000001
-
 GAMMA = 1.4
 
 # Sod tube initial conditions of the left and right
@@ -34,8 +31,6 @@ pl = 1.0
 rhor = 0.125
 ur = 0.0
 pr = 0.1
-
-ia = 1
 
 class Solver():
     """
@@ -216,10 +211,10 @@ class Solver():
                               - mtx_qn[:,j+1]) \
                               /(self.grid_size_x/2.0))
             # (4.39) in chang95
-            mtx_qx[:,j+1] = np.asmatrix((vxl*((abs(vxr))**ia) \
-                                        + vxr*((abs(vxl))**ia)) \
-                                        /(((abs(vxl))**ia) \
-                                            + ((abs(vxr))**ia) + 1.0E-60))
+            mtx_qx[:,j+1] = np.asmatrix((vxl*((abs(vxr))**1.0) \
+                                        + vxr*((abs(vxl))**1.0)) \
+                                        /(((abs(vxl))**1.0) \
+                                            + ((abs(vxr))**1.0) + 1.0E-60))
         
     def push_status_along_t(self, number_mesh_points_before_hdt, mtx_q, mtx_qn):
         # hdt means 0.5*grid_size_t
