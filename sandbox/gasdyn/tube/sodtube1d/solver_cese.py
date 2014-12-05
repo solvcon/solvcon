@@ -94,7 +94,6 @@ class Solver():
         #                 mesh_x_start,
         #                 mesh_x_stop)
 
-        dt = grid_size_t
         # mesh point number along x
         mesh_pt_number_x_at_half_t = iteration + 1
         mesh_pt_number_x = iteration + 2
