@@ -43,7 +43,6 @@ a3 = a2/2.0
 a4 = 1.5*a1
 
 
-hdx = 0.0
 qdx = 0.0
 
 tt = 0.0
@@ -52,6 +51,14 @@ dtx = 0.0
 class Solver():
     """
     CESE method to generate the 1D Sod tube solution
+
+    TODO:
+        1. grid_size_x, mesh_x_start, and mesh_x_stop should be integer
+        for gmesh.gen_mesh method, which requires integer inputs to be easier
+        to generate mesh points along x. This should be smarter and allow user
+        to input their own numbers. Users' inputs are 10000 times as
+        the real inputs for CESE interation.
+
     """
     def __init__(self,
                  iteration = 100,
@@ -63,9 +70,12 @@ class Solver():
         self.iteration = iteration
         self.grid_size_t = grid_size_t
         self.mesh_t_stop = mesh_t_stop
-        self.grid_size_x = grid_size_x
         self.mesh_x_start = mesh_x_start
         self.mesh_x_stop = mesh_x_stop
+
+        gmesh.gen_mesh(grid_size_x, mesh_x_start, mesh_x_stop)
+        self.mesh_x = gmesh.get_mesh()
+        self.grid_size_x = grid_size_x / 10000.0
 
     def get_cese_solution(self):
         """
@@ -75,13 +85,14 @@ class Solver():
         iteration: int, please note n iteration will has n+2 mesh points.
         
         """
-        global hdx, qdx, tt, dtx 
+        global qdx, tt, dtx 
         iteration = self.iteration
         grid_size_t = self.grid_size_t
         mesh_t_stop = self.mesh_t_stop
         grid_size_x = self.grid_size_x
         mesh_x_start = self.mesh_x_start
         mesh_x_stop = self.mesh_x_stop
+        mesh_x = self.mesh_x
 
         #self.check_input(iteration,
         #                 grid_size_t,
@@ -90,12 +101,8 @@ class Solver():
         #                 mesh_x_start,
         #                 mesh_x_stop)
 
-        gmesh.gen_mesh(grid_size_x, mesh_x_start, mesh_x_stop)
-        mesh_x = gmesh.get_mesh()
-
         it = iteration # iteration, which is integer
         dt = grid_size_t
-        dx = grid_size_x / 10000.0
         # mesh point number along x
         mesh_pt_number_x_at_half_t = iteration + 1
         mesh_pt_number_x = iteration + 2
@@ -119,11 +126,10 @@ class Solver():
 
         mtx_f = np.asmatrix(np.zeros(shape=(3,3)))
         
-        hdx = dx/2.0
-        qdx = dx/4.0
+        qdx = self.grid_size_x/4.0
         
         tt = (grid_size_t/2.0)*it
-        dtx = dt/dx
+        dtx = dt/self.grid_size_x
         
         mtx_q[0][0] = rhol
         mtx_q[1][0] = rhol*ul
@@ -224,10 +230,10 @@ class Solver():
             # (4.27) and (4.36) in chang95
             vxl = np.asarray((mtx_qn[:,j+1] \
                               - mtx_q[:,j] - (self.grid_size_t/2.0)*mtx_qt[:,j]) \
-                              /hdx)
+                              /(self.grid_size_x/2.0))
             vxr = np.asarray((mtx_q[:,j+1] + (self.grid_size_t/2.0)*mtx_qt[:,j+1] \
                               - mtx_qn[:,j+1]) \
-                              /hdx)
+                              /(self.grid_size_x/2.0))
             # (4.39) in chang95
             mtx_qx[:,j+1] = np.asmatrix((vxl*((abs(vxr))**ia) \
                                         + vxr*((abs(vxl))**ia)) \
