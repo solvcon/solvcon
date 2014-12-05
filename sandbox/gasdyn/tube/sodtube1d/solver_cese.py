@@ -45,7 +45,7 @@ a4 = 1.5*a1
 class Solver():
     """
     CESE method to generate the 1D Sod tube solution
-
+    @iteration, which is integer
     TODO:
         1. grid_size_x, mesh_x_start, and mesh_x_stop should be integer
         for gmesh.gen_mesh method, which requires integer inputs to be easier
@@ -94,7 +94,6 @@ class Solver():
         #                 mesh_x_start,
         #                 mesh_x_stop)
 
-        it = iteration # iteration, which is integer
         dt = grid_size_t
         # mesh point number along x
         mesh_pt_number_x_at_half_t = iteration + 1
@@ -122,7 +121,7 @@ class Solver():
         mtx_q[0][0] = rhol
         mtx_q[1][0] = rhol*ul
         mtx_q[2][0] = pl/a1 + 0.5*rhol*ul**2.0
-        mesh_pt_number_x_at_half_t = it + 1
+        mesh_pt_number_x_at_half_t = iteration + 1
         # initialize the gas status before the diaphragm
         # was removed.
         for i in xrange(mesh_pt_number_x_at_half_t):
@@ -133,7 +132,7 @@ class Solver():
         # m is the number used to calculate the status before
         # the half delta t stepping is applied.
         m = 2 # move out from the diaphragm which the 0th grid.
-        for i in xrange(it):
+        for i in xrange(iteration):
             self.get_cese_status_before_half_dt(m, mtx_q, mtx_f, mtx_qt, mtx_qx, mtx_s)
             # stepping into the next halt delta t
             # m mesh points along t could introduce m - 1 mesh points along t + 0.5*dt
