@@ -148,6 +148,8 @@ class Solver():
                                     mesh_x_start = -0.5050,
                                     mesh_x_stop = 0.5050, 
                                     grid_x = 0.01):
+        # TODO: not complete!
+
         # iteration should be an even number to
         # make sure the grids return to the same
         # as the initial one.

@@ -1,4 +1,10 @@
 #!/usr/bin/python
+#
+# generator_mesh.py
+#
+# Description:
+#   a generator to help you to have a mesh.
+#
 
 from matplotlib.pyplot import scatter
 

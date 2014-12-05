@@ -1,23 +1,10 @@
 #!/usr/bin/python
 #
-# sodtube1d.py
+# handler_plot.py
 #
 # Description:
-#     1D Sod Tube Test
+#   provide many helper functions to plot and show the input solutions.
 #
-#     This program is implemented by OO style to be
-#     a part of ipython notebook demo materials.
-#
-#     The derivation of the equations for the analytic solution
-#     is based on the book,
-#     Principles of Computational Fluid Dynamics,
-#     written by Pieter Wesseling.
-#     Or, someone could refer to the solvcon website
-#     http://www.solvcon.net/en/latest/cese.html#sod-s-shock-tube-problem
-#
-#
-# DEBUG: search string 'DEBUG'
-# why: somewhere don't understand very much ...
 
 import sys
 import scipy.optimize as so

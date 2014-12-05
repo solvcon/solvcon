@@ -1,9 +1,9 @@
 #!/usr/bin/python
 #
-# sodtube1d.py
+# solver_analytic.py
 #
 # Description:
-#     1D Sod Tube Test
+#     1D Sod Tube analytic solution solver.
 #
 #     This program is implemented by OO style to be
 #     a part of ipython notebook demo materials.
@@ -12,12 +12,9 @@
 #     is based on the book,
 #     Principles of Computational Fluid Dynamics,
 #     written by Pieter Wesseling.
-#     Or, someone could refer to the solvcon website
+#     Or, people could refer to the solvcon website
 #     http://www.solvcon.net/en/latest/cese.html#sod-s-shock-tube-problem
 #
-#
-# DEBUG: search string 'DEBUG'
-# why: somewhere don't understand very much ...
 
 import sys
 import scipy.optimize as so
