@@ -24,7 +24,7 @@ gmesh = generator_mesh.Mesher()
 # a number to claim two floating number value are equal.
 delta_precision = 0.0000000000001
 
-ga = 1.4
+GAMMA = 1.4
 
 # Sod tube initial conditions of the left and right
 # of the diaphragm
@@ -37,8 +37,8 @@ pr = 0.1
 
 ia = 1
 
-a1 = ga - 1.0
-a2 = 3.0 - ga
+a1 = GAMMA - 1.0
+a2 = 3.0 - GAMMA
 a3 = a2/2.0
 a4 = 1.5*a1
 
@@ -188,10 +188,10 @@ class Solver():
             # f[0][2] = 0.0
             mtx_f[1,0] = -a3*w2**2
             mtx_f[1,1] = a2*w2
-            mtx_f[1,2] = ga - 1.0
-            mtx_f[2,0] = a1*w2**3 - ga*w2*w3
-            mtx_f[2,1] = ga*w3 - a1*w2**2
-            mtx_f[2,2] = ga*w2
+            mtx_f[1,2] = GAMMA - 1.0
+            mtx_f[2,0] = a1*w2**3 - GAMMA*w2*w3
+            mtx_f[2,1] = GAMMA*w3 - a1*w2**2
+            mtx_f[2,2] = GAMMA*w2
 
             # (4.17) in chang95
             mtx_qt[:,j] = -1.0*mtx_f*mtx_qx[:,j]
