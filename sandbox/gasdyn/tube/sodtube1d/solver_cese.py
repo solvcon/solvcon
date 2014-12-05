@@ -37,10 +37,6 @@ pr = 0.1
 
 ia = 1
 
-a2 = 3.0 - GAMMA
-a3 = a2/2.0
-a4 = 1.5*(GAMMA-1.0)
-
 class Solver():
     """
     CESE method to generate the 1D Sod tube solution
@@ -185,8 +181,8 @@ class Solver():
             # f[0][0] = 0.0
             mtx_f[0,1] = 1.0
             # f[0][2] = 0.0
-            mtx_f[1,0] = -a3*w2**2
-            mtx_f[1,1] = a2*w2
+            mtx_f[1,0] = -((3.0-GAMMA)/2.0)*w2**2
+            mtx_f[1,1] = (3.0-GAMMA)*w2
             mtx_f[1,2] = GAMMA - 1.0
             mtx_f[2,0] = (GAMMA-1.0)*w2**3 - GAMMA*w2*w3
             mtx_f[2,1] = GAMMA*w3 - (GAMMA-1.0)*w2**2
