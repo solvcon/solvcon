@@ -43,7 +43,6 @@ a3 = a2/2.0
 a4 = 1.5*a1
 
 
-hdt = 0.0
 hdx = 0.0
 qdx = 0.0
 
@@ -76,7 +75,7 @@ class Solver():
         iteration: int, please note n iteration will has n+2 mesh points.
         
         """
-        global hdt, hdx, qdx, tt, dtx 
+        global hdx, qdx, tt, dtx 
         iteration = self.iteration
         grid_size_t = self.grid_size_t
         mesh_t_stop = self.mesh_t_stop
@@ -120,11 +119,10 @@ class Solver():
 
         mtx_f = np.asmatrix(np.zeros(shape=(3,3)))
         
-        hdt = dt/2.0
         hdx = dx/2.0
         qdx = dx/4.0
         
-        tt = hdt*it
+        tt = (grid_size_t/2.0)*it
         dtx = dt/dx
         
         mtx_q[0][0] = rhol
@@ -225,9 +223,9 @@ class Solver():
                                 + mtx_s[:,j] - mtx_s[:,j+1])
             # (4.27) and (4.36) in chang95
             vxl = np.asarray((mtx_qn[:,j+1] \
-                              - mtx_q[:,j] - hdt*mtx_qt[:,j]) \
+                              - mtx_q[:,j] - (self.grid_size_t/2.0)*mtx_qt[:,j]) \
                               /hdx)
-            vxr = np.asarray((mtx_q[:,j+1] + hdt*mtx_qt[:,j+1] \
+            vxr = np.asarray((mtx_q[:,j+1] + (self.grid_size_t/2.0)*mtx_qt[:,j+1] \
                               - mtx_qn[:,j+1]) \
                               /hdx)
             # (4.39) in chang95
@@ -237,6 +235,7 @@ class Solver():
                                             + ((abs(vxr))**ia) + 1.0E-60))
         
     def push_status_along_t(self, number_mesh_points_before_hdt, mtx_q, mtx_qn):
+        # hdt means 0.5*grid_size_t
         for j in xrange(1,number_mesh_points_before_hdt):
             mtx_q[:,j] = mtx_qn[:,j]
         number_mesh_points_before_hdt_next_iter = number_mesh_points_before_hdt + 1
