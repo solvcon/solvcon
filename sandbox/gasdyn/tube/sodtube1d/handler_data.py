@@ -3,7 +3,6 @@
 # handler_data.py
 #
 # Description:
-#
 #   helper functions to handle, caculate the solutions.
 #
 

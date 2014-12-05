@@ -3,17 +3,20 @@
 # solver_analytic.py
 #
 # Description:
-#     1D Sod Tube analytic solution solver.
+#   1D Sod Tube analytic solution solver.
 #
-#     This program is implemented by OO style to be
-#     a part of ipython notebook demo materials.
+#   This program is implemented by OO style to be
+#   a part of ipython notebook demo materials.
 #
-#     The derivation of the equations for the analytic solution
-#     is based on the book,
-#     Principles of Computational Fluid Dynamics,
-#     written by Pieter Wesseling.
-#     Or, people could refer to the solvcon website
-#     http://www.solvcon.net/en/latest/cese.html#sod-s-shock-tube-problem
+#   The derivation of the equations for the analytic solution
+#   is based on the book,
+#   Principles of Computational Fluid Dynamics,
+#   written by Pieter Wesseling.
+#   Or, people could refer to the solvcon website
+#   http://www.solvcon.net/en/latest/cese.html#sod-s-shock-tube-problem
+#
+# TODO:
+#   The code is very dirty and there are many useless variables.
 #
 
 import sys
