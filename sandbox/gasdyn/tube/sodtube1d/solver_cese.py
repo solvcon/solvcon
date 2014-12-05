@@ -37,10 +37,9 @@ pr = 0.1
 
 ia = 1
 
-a1 = GAMMA - 1.0
 a2 = 3.0 - GAMMA
 a3 = a2/2.0
-a4 = 1.5*a1
+a4 = 1.5*(GAMMA-1.0)
 
 class Solver():
     """
@@ -119,14 +118,14 @@ class Solver():
         
         mtx_q[0][0] = rhol
         mtx_q[1][0] = rhol*ul
-        mtx_q[2][0] = pl/a1 + 0.5*rhol*ul**2.0
+        mtx_q[2][0] = pl/(GAMMA-1.0) + 0.5*rhol*ul**2.0
         mesh_pt_number_x_at_half_t = iteration + 1
         # initialize the gas status before the diaphragm
         # was removed.
         for i in xrange(mesh_pt_number_x_at_half_t):
             mtx_q[0,i+1] = rhor
             mtx_q[1,i+1] = rhor*ur
-            mtx_q[2,i+1] = pr/a1 + 0.5*rhor*ur**2.0
+            mtx_q[2,i+1] = pr/(GAMMA-1.0) + 0.5*rhor*ur**2.0
 
         # m is the number used to calculate the status before
         # the half delta t stepping is applied.
@@ -147,7 +146,7 @@ class Solver():
             x = solution_x
             solution_rho = mtx_q[0,i]
             solution_v = mtx_q[1,i]/mtx_q[0,i]
-            solution_p = a1*(mtx_q[2,i] - 0.5*(solution_v**2)*mtx_q[0,i])
+            solution_p = (GAMMA-1.0)*(mtx_q[2,i] - 0.5*(solution_v**2)*mtx_q[0,i])
             solution.append((solution_x, solution_rho, solution_v, solution_p))
         
         return solution
@@ -189,8 +188,8 @@ class Solver():
             mtx_f[1,0] = -a3*w2**2
             mtx_f[1,1] = a2*w2
             mtx_f[1,2] = GAMMA - 1.0
-            mtx_f[2,0] = a1*w2**3 - GAMMA*w2*w3
-            mtx_f[2,1] = GAMMA*w3 - a1*w2**2
+            mtx_f[2,0] = (GAMMA-1.0)*w2**3 - GAMMA*w2*w3
+            mtx_f[2,1] = GAMMA*w3 - (GAMMA-1.0)*w2**2
             mtx_f[2,2] = GAMMA*w2
 
             # (4.17) in chang95
