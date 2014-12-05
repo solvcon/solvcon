@@ -44,7 +44,6 @@ a4 = 1.5*a1
 
 
 hdt = 0.0
-qdt = 0.0 #q:quad
 hdx = 0.0
 qdx = 0.0
 
@@ -53,19 +52,23 @@ dtx = 0.0
 
 class Solver():
     """
-    The core to generate the 1D Sod tube test
+    CESE method to generate the 1D Sod tube solution
     """
-    def __init__(self):
-        # initial condition
-        pass
+    def __init__(self,
+                 iteration = 100,
+                 grid_size_t = 0.004,
+                 mesh_t_stop = 0.2,
+                 grid_size_x = 100,
+                 mesh_x_start = -10050,
+                 mesh_x_stop = 10050):
+        self.iteration = iteration
+        self.grid_size_t = grid_size_t
+        self.mesh_t_stop = mesh_t_stop
+        self.grid_size_x = grid_size_x
+        self.mesh_x_start = mesh_x_start
+        self.mesh_x_stop = mesh_x_stop
 
-    def get_cese_solution(self,
-                          iteration = 100,
-                          grid_size_t = 0.004,
-                          mesh_t_stop = 0.2,
-                          grid_size_x = 100,
-                          mesh_x_start = -10050,
-                          mesh_x_stop = 10050):
+    def get_cese_solution(self):
         """
         given the mesh size
         output the solution based on CESE method
@@ -73,7 +76,13 @@ class Solver():
         iteration: int, please note n iteration will has n+2 mesh points.
         
         """
-        global hdt, qdt, hdx, qdx, tt, dtx 
+        global hdt, hdx, qdx, tt, dtx 
+        iteration = self.iteration
+        grid_size_t = self.grid_size_t
+        mesh_t_stop = self.mesh_t_stop
+        grid_size_x = self.grid_size_x
+        mesh_x_start = self.mesh_x_start
+        mesh_x_stop = self.mesh_x_stop
 
         #self.check_input(iteration,
         #                 grid_size_t,
@@ -112,7 +121,6 @@ class Solver():
         mtx_f = np.asmatrix(np.zeros(shape=(3,3)))
         
         hdt = dt/2.0
-        qdt = dt/4.0 #q:quad
         hdx = dx/2.0
         qdx = dx/4.0
         
@@ -201,7 +209,7 @@ class Solver():
             # the n_(fmt)_j of the last term should be substitubed
             # by the other terms.
             mtx_s[:,j] = qdx*mtx_qx[:,j] + dtx*mtx_f*mtx_q[:,j] \
-                        - dtx*(dt/4.0)*mtx_f*mtx_f*mtx_qx[:,j]
+                        - dtx*(self.grid_size_t/4.0)*mtx_f*mtx_f*mtx_qx[:,j]
         return  m, mtx_q, mtx_f, mtx_qt, mtx_qx, mtx_s
 
     def get_cese_status_after_half_dt(self, m, mtx_q, mtx_qn, mtx_qt, mtx_qx, mtx_s):
