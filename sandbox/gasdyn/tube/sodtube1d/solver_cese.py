@@ -42,10 +42,6 @@ a2 = 3.0 - ga
 a3 = a2/2.0
 a4 = 1.5*a1
 
-
-tt = 0.0
-dtx = 0.0
-
 class Solver():
     """
     CESE method to generate the 1D Sod tube solution
@@ -83,7 +79,6 @@ class Solver():
         iteration: int, please note n iteration will has n+2 mesh points.
         
         """
-        global tt, dtx 
         iteration = self.iteration
         grid_size_t = self.grid_size_t
         mesh_t_stop = self.mesh_t_stop
@@ -123,9 +118,6 @@ class Solver():
         vxr = np.zeros(shape=(3,1))
 
         mtx_f = np.asmatrix(np.zeros(shape=(3,3)))
-        
-        tt = (grid_size_t/2.0)*it
-        dtx = dt/self.grid_size_x
         
         mtx_q[0][0] = rhol
         mtx_q[1][0] = rhol*ul
@@ -208,8 +200,8 @@ class Solver():
             # (4.25) in chang95
             # the n_(fmt)_j of the last term should be substitubed
             # by the other terms.
-            mtx_s[:,j] = (self.grid_size_x/4.0)*mtx_qx[:,j] + dtx*mtx_f*mtx_q[:,j] \
-                        - dtx*(self.grid_size_t/4.0)*mtx_f*mtx_f*mtx_qx[:,j]
+            mtx_s[:,j] = (self.grid_size_x/4.0)*mtx_qx[:,j] + (self.grid_size_t/self.grid_size_x)*mtx_f*mtx_q[:,j] \
+                        - (self.grid_size_t/self.grid_size_x)*(self.grid_size_t/4.0)*mtx_f*mtx_f*mtx_qx[:,j]
         return  m, mtx_q, mtx_f, mtx_qt, mtx_qx, mtx_s
 
     def get_cese_status_after_half_dt(self, m, mtx_q, mtx_qn, mtx_qt, mtx_qx, mtx_s):
