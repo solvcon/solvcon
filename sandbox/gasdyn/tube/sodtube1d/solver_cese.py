@@ -201,7 +201,7 @@ class Solver():
             # the n_(fmt)_j of the last term should be substitubed
             # by the other terms.
             mtx_s[:,j] = qdx*mtx_qx[:,j] + dtx*mtx_f*mtx_q[:,j] \
-                        - dtx*qdt*mtx_f*mtx_f*mtx_qx[:,j]
+                        - dtx*(dt/4.0)*mtx_f*mtx_f*mtx_qx[:,j]
         return  m, mtx_q, mtx_f, mtx_qt, mtx_qx, mtx_s
 
     def get_cese_status_after_half_dt(self, m, mtx_q, mtx_qn, mtx_qt, mtx_qx, mtx_s):
