@@ -25,12 +25,12 @@ GAMMA = 1.4
 
 # Sod tube initial conditions of the left and right
 # of the diaphragm
-rhol = 1.0
-ul = 0.0
-pl = 1.0
-rhor = 0.125
-ur = 0.0
-pr = 0.1
+RHO_LEFT = 1.0
+U_L = 0.0
+P_L = 1.0
+RHO_RIGHT = 0.125
+U_R = 0.0
+P_R = 0.1
 
 class Solver():
     """
@@ -107,16 +107,16 @@ class Solver():
 
         mtx_f = np.asmatrix(np.zeros(shape=(3,3)))
         
-        mtx_q[0][0] = rhol
-        mtx_q[1][0] = rhol*ul
-        mtx_q[2][0] = pl/(GAMMA-1.0) + 0.5*rhol*ul**2.0
+        mtx_q[0][0] = RHO_LEFT
+        mtx_q[1][0] = RHO_LEFT*U_L
+        mtx_q[2][0] = P_L/(GAMMA-1.0) + 0.5*RHO_LEFT*U_L**2.0
         mesh_pt_number_x_at_half_t = iteration + 1
         # initialize the gas status before the diaphragm
         # was removed.
         for i in xrange(mesh_pt_number_x_at_half_t):
-            mtx_q[0,i+1] = rhor
-            mtx_q[1,i+1] = rhor*ur
-            mtx_q[2,i+1] = pr/(GAMMA-1.0) + 0.5*rhor*ur**2.0
+            mtx_q[0,i+1] = RHO_RIGHT
+            mtx_q[1,i+1] = RHO_RIGHT*U_R
+            mtx_q[2,i+1] = P_R/(GAMMA-1.0) + 0.5*RHO_RIGHT*U_R**2.0
 
         # m is the number used to calculate the status before
         # the half delta t stepping is applied.
