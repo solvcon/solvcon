@@ -25,14 +25,19 @@ def show_mesh_physical_model(bound):
     fig = plt.figure()
     ax = axes3d.Axes3D(fig,azim=30,elev=30)
 
-    x = np.linspace(-1,1,50)
-    y = np.linspace(-1,1,50)
+    x = np.linspace(-1,1,30)
+    y = np.linspace(-1,1,30)
+    x_solution = np.zeros(shape=1)
+    y_solution = np.linspace(-1,1,30)
 
     X, Y = np.meshgrid(x,y)
+    X_solution, Y_solution = np.meshgrid(x_solution, y_solution)
+
     Z = np.sqrt(1-X**2)
 
     ax.plot_wireframe(X,Y,Z)
     ax.plot_wireframe(X,Y,-Z)
+    ax.scatter(X_solution,Y_solution,X_solution, marker="o")
 
     ax.set_xbound(lower=-bound, upper=bound)
     ax.set_zbound(lower=-bound, upper=bound)
