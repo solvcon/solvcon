@@ -25,19 +25,25 @@ def show_mesh_physical_model(bound):
     fig = plt.figure()
     ax = axes3d.Axes3D(fig,azim=30,elev=30)
 
-    x = np.linspace(-1,1,30)
-    y = np.linspace(-1,1,30)
+    # build the tube
+    # generate mesh points
+    x_tube = np.linspace(-1,1,30)
+    y_tube = np.linspace(-1,1,30)
+    x_tube_mesh, y_tube_mesh = np.meshgrid(x_tube,y_tube)
+    # build the tube as a cylinder
+    z_tube_mesh = np.sqrt(1-x_tube_mesh**2)
+    # show the tube as a wireframe
+    ax.plot_wireframe(x_tube_mesh ,y_tube_mesh , z_tube_mesh)
+    ax.plot_wireframe(x_tube_mesh ,y_tube_mesh ,-z_tube_mesh)
+
+    # build the diaphragm
+    #ax.plot_surfface()
+
+    # mark the CESE mesh points
     x_solution = np.zeros(shape=1)
     y_solution = np.linspace(-1,1,30)
-
-    X, Y = np.meshgrid(x,y)
-    X_solution, Y_solution = np.meshgrid(x_solution, y_solution)
-
-    Z = np.sqrt(1-X**2)
-
-    ax.plot_wireframe(X,Y,Z)
-    ax.plot_wireframe(X,Y,-Z)
-    ax.scatter(X_solution,Y_solution,X_solution, marker="o")
+    x_solution_mesh, y_solution_mesh = np.meshgrid(x_solution, y_solution)
+    ax.scatter(x_solution_mesh ,y_solution_mesh ,x_solution_mesh , marker="o")
 
     ax.set_xbound(lower=-bound, upper=bound)
     ax.set_zbound(lower=-bound, upper=bound)
