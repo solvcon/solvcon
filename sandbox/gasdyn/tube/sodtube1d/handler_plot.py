@@ -17,31 +17,40 @@ def show_mesh_physical_model(bound):
     """
     Show how 1D Sod tube may look like.
     TODO:
-        1. indicate the location of the diaphragm
+        1. make a interface for solution input
+        2. do not run this function immediately when importing this model. Too slow.
     """
     from mpl_toolkits.mplot3d import axes3d
     import numpy as np
+    # how many points you are going to use
+    # to visualize the model alone each axis
+    model_point_number = 30
 
     fig = plt.figure()
     ax = axes3d.Axes3D(fig,azim=30,elev=30)
 
     # build the tube
     # generate mesh points
-    x_tube = np.linspace(-1,1,30)
-    y_tube = np.linspace(-1,1,30)
-    x_tube_mesh, y_tube_mesh = np.meshgrid(x_tube,y_tube)
+    x_tube = np.linspace(-1, 1 ,model_point_number)
+    y_tube = np.linspace(-1, 1 ,model_point_number)
+    x_tube_mesh, y_tube_mesh = np.meshgrid(x_tube ,y_tube)
     # build the tube as a cylinder
-    z_tube_mesh = np.sqrt(1-x_tube_mesh**2)
+    z_tube_mesh = np.sqrt(1 - x_tube_mesh**2)
     # show the tube as a wireframe
     ax.plot_wireframe(x_tube_mesh ,y_tube_mesh , z_tube_mesh)
     ax.plot_wireframe(x_tube_mesh ,y_tube_mesh ,-z_tube_mesh)
 
     # build the diaphragm
-    #ax.plot_surfface()
+    x_diaphragm = np.linspace(-1, 1 ,model_point_number)
+    z_diaphragm = np.linspace(-1, 1 ,model_point_number)
+    x_diaphragm_mesh, z_diaphragm_mesh = np.meshgrid(x_diaphragm ,z_diaphragm)
+    y_diaphragm_mesh = np.zeros(shape=(model_point_number, model_point_number))
+    #ax.plot_surface(x_diaphragm_mesh, y_diaphragm_mesh, z_diaphragm_mesh)
+    ax.plot_wireframe(x_diaphragm_mesh, y_diaphragm_mesh, z_diaphragm_mesh, color='red')
 
     # mark the CESE mesh points
     x_solution = np.zeros(shape=1)
-    y_solution = np.linspace(-1,1,30)
+    y_solution = np.linspace(-1, 1, model_point_number)
     x_solution_mesh, y_solution_mesh = np.meshgrid(x_solution, y_solution)
     ax.scatter(x_solution_mesh ,y_solution_mesh ,x_solution_mesh , marker="o")
 
