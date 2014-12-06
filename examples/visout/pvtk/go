@@ -49,7 +49,7 @@ def pvtk_base(casename=None, meshname=None, psteps=None, ssteps=None,
     from solvcon.helper import search_in_parents
     from solvcon.conf import env
     from solvcon.boundcond import bctregy
-    from solvcon.solver import ALMOST_ZERO
+    from solvcon.solver_legacy import ALMOST_ZERO
     from solvcon import hook, anchor
     from solvcon.kerpak import cese
     # set flow properties (fp).

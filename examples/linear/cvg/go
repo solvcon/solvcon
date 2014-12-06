@@ -234,7 +234,8 @@ def cvg_base(casename=None, mtrlname='GaAs',
         cflmax=10.0, linewidth=ssteps/psteps)
     # initializer anchors.
     cse.runhooks.append(linear.FillAnchor,
-                        mappers={'soln': solver.ALMOST_ZERO, 'dsoln': 0})
+                        mappers={'soln': solver.MeshSolver.ALMOST_ZERO,
+                                 'dsoln': 0})
     ## plane wave solution.
     pws = list()
     for wvec, idx in wtests:

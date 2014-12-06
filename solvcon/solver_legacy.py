@@ -34,6 +34,7 @@ Definition of the structure of solvers.
 
 from ctypes import Structure
 from .gendata import TypeWithBinder
+from .solver_core import ALMOST_ZERO
 
 class BaseSolverExedata(Structure):
     """
@@ -517,7 +518,6 @@ class BlockSolver(BaseSolver):
         """
         Check and initialize BCs.
         """
-        from .solver_core import ALMOST_ZERO
         for arrname in self._solution_array_:
             arr = getattr(self, arrname)
             arr.fill(ALMOST_ZERO)   # prevent initializer forgets to set!

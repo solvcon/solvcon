@@ -2,6 +2,10 @@
 Bibliography
 ============
 
+.. [Anderson03] John David Anderson,
+   *Modern Compressible Flow: With Historical Perspective*,
+   McGraw-Hill, 2003.  `ISBN 0072424435 <http://www.worldcat.org/oclc/817879625>`__.
+
 .. [Chang95] Sin-Chung Chang, "The Method of Space-Time Conservation Element
   and Solution Element -- A New Approach for Solving the Navier-Stokes and
   Euler Equations", *Journal of Computational Physics*, Volume 119, Issue 2,

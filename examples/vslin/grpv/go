@@ -104,7 +104,7 @@ def grpv_base(casename=None, meshname=None, mtrlname='Beryl',
     from solvcon.conf import env
     from solvcon.boundcond import bctregy
     from solvcon import hook, anchor
-    from solvcon.solver import ALMOST_ZERO
+    from solvcon.solver_legacy import ALMOST_ZERO
     from solvcon.kerpak import cuse
     from solvcon.kerpak.vslin import mltregy
     # set up BCs.

@@ -30,6 +30,7 @@ import solvcon
 extensions = [
     'sphinx.ext.pngmath',
     'sphinx.ext.autodoc',
+    'sphinx.ext.intersphinx',
     'sphinx.ext.inheritance_diagram',
 ]
 try:
@@ -44,6 +45,9 @@ issuetracker = 'bitbucket'
 issuetracker_project = 'solvcon/solvcon'
 
 autoclass_content = 'class'
+
+# Intersphinx settings.
+intersphinx_mapping = {'python': ('http://docs.python.org/2.7', None)}
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']

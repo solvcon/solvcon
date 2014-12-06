@@ -307,7 +307,7 @@ class GasdynIAnchor(Anchor):
         self.gamma = float(kw.pop('gamma'))
         super(GasdynIAnchor, self).__init__(svr, **kw)
     def provide(self):
-        from solvcon.solver import ALMOST_ZERO
+        from solvcon.solver_legacy import ALMOST_ZERO
         svr = self.svr
         svr.amsca.fill(self.gamma)
         svr.sol.fill(ALMOST_ZERO)

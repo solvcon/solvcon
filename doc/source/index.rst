@@ -45,6 +45,7 @@ Applications
   :maxdepth: 2
 
   app_linear
+  gas/index
   bulk/index
   app_vewave
 

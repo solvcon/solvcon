@@ -43,7 +43,7 @@ from . import gendata
 from . import helper
 from . import boundcond
 
-from .solver_core import ALMOST_ZERO
+from . import solver_core
 
 # import legacy.
 from .solver_legacy import (
@@ -111,6 +111,8 @@ class MeshSolver(object):
     _interface_init_ = []
     _solution_array_ = []
 
+    ALMOST_ZERO = solver_core.ALMOST_ZERO
+
     def __init__(self, blk, time=0.0, time_increment=0.0, enable_mesg=False,
             debug=False, **kw):
         """
@@ -164,22 +166,9 @@ class MeshSolver(object):
         #: Total number of parallel solvers.
         self.nsvr = None
         # marching facilities.
-        #: Cached marching-method names.
         self._mmnames = None
-        #: This instance attribute is of type :py:class:`AnchorList
-        #: <solvcon.anchor.AnchorList>`, and the foundation of the anchor
-        #: mechanism of SOLVCON.  An :py:class:`AnchorList
-        #: <solvcon.anchor.AnchorList>` object like this collects a set of
-        #: :py:class:`Anchor <solver.anchor.Anchor>` #: objects, and is
-        #: callable.  When being called, :py:attr:`runanchors` iterates the
-        #: contained :py:class:`Anchor <solvcon.anchor.Anchor>` objects and
-        #: invokes the corresponding methods of the individual
-        #: :py:class:`Anchor <solvcon.anchor.Anchor>`.
-        self.runanchors = anchor.AnchorList(self)
-        #: Values to be returned by this solver.  It will be set to a
-        #: :py:class:`dict` in :py:meth:`march`.
+        self.runanchors = anchor.MeshAnchorList(self)
         self.marchret = None
-        #: Derived data container as a :py:class:`dict`.
         self.der = dict()
         # reporting facility.
         self.timer = gendata.Timer(vtype=float)
@@ -409,7 +398,7 @@ class MeshSolver(object):
         """
         for arrname in self._solution_array_:
             arr = getattr(self, arrname)
-            arr.fill(ALMOST_ZERO)   # prevent initializer forgets to set!
+            arr.fill(self.ALMOST_ZERO) # prevent initializer forgets to set!
         for bc in self.bclist:
             bc.init(**kw)
 

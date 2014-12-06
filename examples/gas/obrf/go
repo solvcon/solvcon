@@ -31,7 +31,7 @@
 
 
 """
-FIXME: I have NaN in physical quantities.  I am bad.
+This is a two-dimensional example of the reflection of oblique shock wave.
 """
 
 
@@ -45,99 +45,51 @@ from solvcon import helper
 from solvcon.parcel import gas
 
 
-class ObliqueShock(object):
-    """
-    Exact solution of oblique shock wave resulted from a ramp.
-    """
-    def __init__(self, ga, dta, M1, err=1.e-14, maxiter=100):
-        """
-        @param ga: specific heat ratio.
-        @type ga: float
-        @param dta: ramp deflection angle (in radius).
-        @type dta: float
-        @param M1: incoming Mach number.
-        @type M1: float
-        """
-        self._ga = ga
-        self._dta = dta
-        self._M1 = M1
-        self._err = err
-        self._maxiter = 100
-        self.bta = self._calc_shock_angle(self._dta, self._M1)
-        self.M2 = self._calc_behind_M(self.bta, self._dta, self._M1)
-        self.bta2 = self._calc_shock_angle(self._dta, self.M2)
-        self.M3 = self._calc_behind_M(self.bta2, self._dta, self.M2)
-
-    def _calc_shock_angle(self, dta, M):
-        ga = self._ga
-        # calculate.
-        bta = dta * 2
-        tand = np.tan(dta)
-        cnt = 0
-        while True:
-            cotb = 1.0/np.tan(bta)
-            sinb = np.sin(bta)
-            cosb = np.cos(bta)
-            cos2b = np.cos(2.0*bta)
-            f = 2*cotb*((M*sinb)**2-1) - tand*(2+M**2*(ga+cos2b))
-            fp = M**2*(4*cosb**2 + 4*tand*sinb*cosb - 2) + 2.0/sinb**2
-            diff = f/fp
-            bta -= diff
-            if abs(diff) < self._err or cnt >= self._maxiter:
-                break
-            cnt += 1
-        return bta
-    def _calc_behind_M(self, bta, dta, M):
-        ga = self._ga
-        # calculate.
-        sinb = np.sin(bta)
-        sinbd = np.sin(bta-dta)
-        nume = (M*sinb)**2 + 2.0/(ga-1)
-        deno = 2*ga*(M*sinb)**2/(ga-1) - 1.0
-        return np.sqrt(nume/(deno*sinbd**2))
-    def _calc_behind_p(self, bta, M):
-        ga = self._ga
-        # calculate.
-        sinb = np.sin(bta)
-        nume = 2*ga*(M*sinb)**2 - (ga-1)
-        deno = ga + 1
-        return nume / deno
-    def _calc_behind_rho(self, bta, M):
-        ga = self._ga
-        # calculate.
-        sinb = np.sin(bta)
-        nume = (ga+1) * (M*sinb)**2
-        deno = 2 + (ga-1) * (M*sinb)**2
-        return nume / deno
-    def _calc_behind_T(self, bta, M):
-        ga = self._ga
-        # calculate.
-        sinb = np.sin(bta)
-        nume = 2 + (ga-1)*(M*sinb)**2
-        nume *= 2*ga*(M*sinb)**2 - (ga-1)
-        deno = ((ga+1)*M*sinb)**2
-        return nume / deno
+class ObliqueShock(gas.ObliqueShockRelation):
+    def __init__(self, ga, dta, M1):
+        super(ObliqueShock, self).__init__(gamma=ga)
+        self.theta = dta
+        self.mach1 = M1
+        self.beta1 = self.calc_shock_angle(self.mach1, self.theta)
+        self.mach2 = self.calc_dmach(self.mach1, self.beta1)
+        self.beta2 = self.calc_shock_angle(self.mach2, self.theta)
+        self.mach3 = self.calc_dmach(self.mach2, self.beta2)
 
     @property
     def ga(self):
-        return self._ga
+        return self.gamma
     @property
     def dta(self):
-        return self._dta
+        return self.theta
     @property
     def M1(self):
-        return self._M1
+        return self.mach1
+    @property
+    def bta(self):
+        return self.beta1
+    @property
+    def M2(self):
+        return self.mach2
+    @property
+    def bta2(self):
+        return self.beta2
+    @property
+    def M3(self):
+        return self.mach3
+    @property
+    def bta3(self):
+        return self.beta3
 
     def calc_rho2(self, rho1):
-        return rho1 * self._calc_behind_rho(self.bta, self._M1)
+        return rho1 * self.calc_density_ratio(self.mach1, self.beta1)
     def calc_rho3(self, rho1):
         rho2 = self.calc_rho2(rho1)
-        return rho2 * self._calc_behind_rho(self.bta2, self.M2)
+        return rho2 * self.calc_density_ratio(self.mach2, self.beta2)
     def calc_p2(self, p1):
-        return p1 * self._calc_behind_p(self.bta, self._M1)
+        return p1 * self.calc_pressure_ratio(self.mach1, self.beta1)
     def calc_p3(self, p1):
         p2 = self.calc_p2(p1)
-        return p2 * self._calc_behind_p(self.bta2, self.M2)
+        return p2 * self.calc_pressure_ratio(self.mach2, self.beta2)
     def calc_a2(self, rho1, p1):
         rho2 = self.calc_rho2(rho1)
         p2 = self.calc_p2(p1)
@@ -147,10 +99,10 @@ class ObliqueShock(object):
         p3 = self.calc_p3(p1)
         return np.sqrt(self.ga*p3/rho3)
     def calc_T2(self, T1):
-        return T1 * self._calc_behind_T(self.bta, self._M1)
+        return T1 * self.calc_temperature_ratio(self.mach1, self.beta1)
     def calc_T3(self, T1):
         T2 = self.calc_T2(T1)
-        return T2 * self._calc_behind_T(self.bta2, self.M2)
+        return T2 * self.calc_temperature_ratio(self.mach2, self.beta2)
 
 
 class ExactObshockHook(sc.MeshHook):

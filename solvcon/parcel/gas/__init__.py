@@ -38,6 +38,7 @@ from .solver import GasSolver
 from .boundcond import GasBC, GasNonrefl
 from .case import GasCase
 from .probe import ProbeHook
+from .oblique_shock import ObliqueShockRelation
 from .physics import DensityInitAnchor, PhysicsAnchor
 from .inout import MeshInfoHook, ProgressHook, FillAnchor, CflHook, PMarchSave
 
@@ -51,6 +52,8 @@ __all__ = [
     'GasCase',
     # probe
     'ProbeHook',
+    # oblique_shock
+    'ObliqueShockRelation',
     # physics
     'DensityInitAnchor', 'PhysicsAnchor',
     # inout
