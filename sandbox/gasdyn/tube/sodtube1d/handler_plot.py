@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 # a number to claim two floating number value are equal.
 delta_precision = 0.0000000000001
 
-def show_mesh_physical_model(bound=1):
+def show_mesh_physical_model(bound=1, show_diaphragm=False, show_mesh=False):
     """
     Show how 1D Sod tube may look like.
     TODO:
@@ -40,19 +40,29 @@ def show_mesh_physical_model(bound=1):
     ax.plot_wireframe(x_tube_mesh ,y_tube_mesh , z_tube_mesh)
     ax.plot_wireframe(x_tube_mesh ,y_tube_mesh ,-z_tube_mesh)
 
-    # build the diaphragm
-    x_diaphragm = np.linspace(-1, 1 ,model_point_number)
-    z_diaphragm = np.linspace(-1, 1 ,model_point_number)
-    x_diaphragm_mesh, z_diaphragm_mesh = np.meshgrid(x_diaphragm ,z_diaphragm)
-    y_diaphragm_mesh = np.zeros(shape=(model_point_number, model_point_number))
-    #ax.plot_surface(x_diaphragm_mesh, y_diaphragm_mesh, z_diaphragm_mesh)
-    ax.plot_wireframe(x_diaphragm_mesh, y_diaphragm_mesh, z_diaphragm_mesh, color='red')
+    if show_diaphragm:
+        # build the diaphragm
+        x_diaphragm = np.linspace(-1, 1 ,model_point_number)
+        z_diaphragm = np.linspace(-1, 1 ,model_point_number)
+        x_diaphragm_mesh, z_diaphragm_mesh = \
+                np.meshgrid(x_diaphragm ,z_diaphragm)
+        y_diaphragm_mesh = \
+                np.zeros(shape=(model_point_number, model_point_number))
+        #ax.plot_surface(x_diaphragm_mesh, y_diaphragm_mesh, z_diaphragm_mesh)
+        ax.plot_wireframe(x_diaphragm_mesh,
+                          y_diaphragm_mesh,
+                          z_diaphragm_mesh,
+                          color='red')
 
-    # mark the CESE mesh points
-    x_solution = np.zeros(shape=1)
-    y_solution = np.linspace(-1, 1, model_point_number)
-    x_solution_mesh, y_solution_mesh = np.meshgrid(x_solution, y_solution)
-    ax.scatter(x_solution_mesh ,y_solution_mesh ,x_solution_mesh , marker="o")
+    if show_mesh:
+        # mark the CESE mesh points
+        x_solution = np.zeros(shape=1)
+        y_solution = np.linspace(-1, 1, model_point_number)
+        x_solution_mesh, y_solution_mesh = np.meshgrid(x_solution, y_solution)
+        ax.scatter(x_solution_mesh,
+                   y_solution_mesh,
+                   x_solution_mesh,
+                   marker="o")
 
     ax.set_xbound(lower=-bound, upper=bound)
     ax.set_zbound(lower=-bound, upper=bound)
