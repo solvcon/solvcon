@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 # a number to claim two floating number value are equal.
 delta_precision = 0.0000000000001
 
-def show_mesh_physical_model(bound):
+def show_mesh_physical_model(bound=1):
     """
     Show how 1D Sod tube may look like.
     TODO:
@@ -70,7 +70,7 @@ def interact_with_mesh_physical_model():
     the mesh physical model.
     """
     from IPython.html.widgets import interact
-    interact(show_mesh_physical_model, bound=(1,50))
+    interact(show_mesh_physical_model, bound=(1,10))
 
 class PlotManager():
     """
