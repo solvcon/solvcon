@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 # a number to claim two floating number value are equal.
 delta_precision = 0.0000000000001
 
-def show_mesh_physical_model(bound=1, show_diaphragm=False, show_mesh=False):
+def show_mesh_physical_model(bound=1, tube_radius=10, show_diaphragm=False, show_mesh=False):
     """
     Show how 1D Sod tube may look like.
     TODO:
@@ -26,24 +26,27 @@ def show_mesh_physical_model(bound=1, show_diaphragm=False, show_mesh=False):
     # to visualize the model alone each axis
     model_point_number = 30
 
+    # change unit
+    tube_radius = tube_radius*0.1
+
     fig = plt.figure()
     ax = axes3d.Axes3D(fig,azim=30,elev=30)
 
     # build the tube
     # generate mesh points
-    x_tube = np.linspace(-1, 1 ,model_point_number)
-    y_tube = np.linspace(-1, 1 ,model_point_number)
+    x_tube = np.linspace(-tube_radius, tube_radius, model_point_number)
+    y_tube = np.linspace(-1, 1, model_point_number)
     x_tube_mesh, y_tube_mesh = np.meshgrid(x_tube ,y_tube)
     # build the tube as a cylinder
-    z_tube_mesh = np.sqrt(1 - x_tube_mesh**2)
+    z_tube_mesh = np.sqrt(tube_radius**2 - x_tube_mesh**2)
     # show the tube as a wireframe
     ax.plot_wireframe(x_tube_mesh ,y_tube_mesh , z_tube_mesh)
     ax.plot_wireframe(x_tube_mesh ,y_tube_mesh ,-z_tube_mesh)
 
     if show_diaphragm:
         # build the diaphragm
-        x_diaphragm = np.linspace(-1, 1 ,model_point_number)
-        z_diaphragm = np.linspace(-1, 1 ,model_point_number)
+        x_diaphragm = np.linspace(-tube_radius, tube_radius, model_point_number)
+        z_diaphragm = np.linspace(-tube_radius, tube_radius, model_point_number)
         x_diaphragm_mesh, z_diaphragm_mesh = \
                 np.meshgrid(x_diaphragm ,z_diaphragm)
         y_diaphragm_mesh = \
@@ -62,6 +65,7 @@ def show_mesh_physical_model(bound=1, show_diaphragm=False, show_mesh=False):
         ax.scatter(x_solution_mesh,
                    y_solution_mesh,
                    x_solution_mesh,
+                   color='green',
                    marker="o")
 
     ax.set_xbound(lower=-bound, upper=bound)
@@ -80,7 +84,7 @@ def interact_with_mesh_physical_model():
     the mesh physical model.
     """
     from IPython.html.widgets import interact
-    interact(show_mesh_physical_model, bound=(1,10))
+    interact(show_mesh_physical_model, bound=(1, 10), tube_radius=(1, 10))
 
 class PlotManager():
     """
