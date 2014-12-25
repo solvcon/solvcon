@@ -1,4 +1,3 @@
-#!/usr/bin/python
 #
 # solver_porting.py
 #

@@ -1,4 +1,3 @@
-#!/usr/bin/python
 #
 # generator_mesh.py
 #

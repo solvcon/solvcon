@@ -1,4 +1,3 @@
-#!/usr/bin/python
 #
 # handler_plot.py
 #
