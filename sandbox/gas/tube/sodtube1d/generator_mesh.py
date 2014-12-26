@@ -16,7 +16,7 @@ class Mesher():
                  xstart = -5050,
                  xstop = 5050):
         factor = 10000.0
-        self.xstep = xstep/factor
+        self.xstep = float(xstep)/factor
         # TODO: you may use np.linspace
         mesh = []
         for x in range(xstart, xstop + xstep, xstep):
@@ -39,7 +39,8 @@ class Mesher():
                                 highlight=False,
                                 highlight_along_time=0,
                                 delta_t=0.004,
-                                bound=0.02):
+                                bound_x=0.5050,
+                                bound_t=0.02):
         """ 
         Show the mesh represented in time and space.
         @ highlight: a flag to highlight the grids or not
@@ -47,24 +48,35 @@ class Mesher():
             shown along specific time
         @ delta_t
         @ bound: |delta_t*N/2| <= bound
+
+        TODO:
+        bound_x
+        bound_t
+        to zoom in and out
         """
         # prepare the grid points at delta_t/2*n
-        mesh_for_loop = list(self.mesh)
+        # decide the region we want to show
+        mesh = list(self.mesh)
+        mesh_cut = self._get_cut_mesh_by_xbound(mesh, bound_x)
+        mesh_x_on_dt_n = mesh_cut
+        # generate grids along (dt/2)*n
+        mesh_for_loop = list(mesh_x_on_dt_n)
         mesh_x_on_dt_2_n = []
         for i in range((len(mesh_for_loop) - 1)):
-            mesh_x_on_dt_2_n.append(self.mesh[i] + self.xstep)
-            
-        N = int(bound/delta_t)
-        number_grid_x = len(self.mesh)
+            mesh_x_on_dt_2_n.append(mesh_x_on_dt_n[i] + self.xstep/2.0)
+
+        # associate each grids along t 
+        N = int(bound_t/delta_t)
         list_all_func = []
         step = delta_t/2
         for i in xrange(N):
             if i % 2 == 0:
-                list_all_func.append([i*step]*number_grid_x)
+                list_all_func.append([i*step]*len(mesh_x_on_dt_n))
             else:
-                list_all_func.append([i*step]*(number_grid_x - 1))
+                list_all_func.append([i*step]*len(mesh_x_on_dt_2_n))
 
-        # extend it to negavie values
+        # extend it to negavie values of time
+        number_of_one_side = len(list_all_func) - 1
         list_all_func_for_loop = list(list_all_func)
         for i in range(len(list_all_func_for_loop)):
             if not(i == 0):
@@ -73,9 +85,29 @@ class Mesher():
                     func_negative.append(-ele)
                 list_all_func.append(func_negative)
 
-        # now plot
+        # mesh is ready. now plot
         for i in range(len(list_all_func)):
-            if i % 2 == 0:
-                plt.scatter(self.mesh, list_all_func[i])
+            if number_of_one_side % 2 == 0:
+                if i % 2 == 0:
+                    plt.scatter(mesh_x_on_dt_n, list_all_func[i])
+                else:
+                    plt.scatter(mesh_x_on_dt_2_n, list_all_func[i])
             else:
-                plt.scatter(mesh_x_on_dt_2_n, list_all_func[i])
+                if i > number_of_one_side:
+                    if i % 2 == 0:
+                        plt.scatter(mesh_x_on_dt_2_n, list_all_func[i])
+                    else:
+                        plt.scatter(mesh_x_on_dt_n, list_all_func[i])
+                else:
+                    if i % 2 == 0:
+                        plt.scatter(mesh_x_on_dt_n, list_all_func[i])
+                    else:
+                        plt.scatter(mesh_x_on_dt_2_n, list_all_func[i])
+
+
+    def _get_cut_mesh_by_xbound(self, mesh, bound_x):
+        mesh_cut = []
+        for pt in mesh:
+            if abs(pt) < bound_x or abs(pt) == bound_x:
+                mesh_cut.append(pt)
+        return mesh_cut
