@@ -86,23 +86,29 @@ class Mesher():
                 list_all_func.append(func_negative)
 
         # mesh is ready. now plot
+        highlight_color = None # then matplotlib uses the default color
+        if highlight:
+            highlight_color = "green"
+
+        # TODO: These if statement is horrible. It may be fixed to be easier to understand
         for i in range(len(list_all_func)):
+            color = highlight_color if list_all_func[i][0] == highlight_along_time else None
             if number_of_one_side % 2 == 0:
                 if i % 2 == 0:
-                    plt.scatter(mesh_x_on_dt_n, list_all_func[i])
+                    plt.scatter(mesh_x_on_dt_n, list_all_func[i], color=color)
                 else:
-                    plt.scatter(mesh_x_on_dt_2_n, list_all_func[i])
+                    plt.scatter(mesh_x_on_dt_2_n, list_all_func[i], color=color)
             else:
                 if i > number_of_one_side:
                     if i % 2 == 0:
-                        plt.scatter(mesh_x_on_dt_2_n, list_all_func[i])
+                        plt.scatter(mesh_x_on_dt_2_n, list_all_func[i], color=color)
                     else:
-                        plt.scatter(mesh_x_on_dt_n, list_all_func[i])
+                        plt.scatter(mesh_x_on_dt_n, list_all_func[i], color=color)
                 else:
                     if i % 2 == 0:
-                        plt.scatter(mesh_x_on_dt_n, list_all_func[i])
+                        plt.scatter(mesh_x_on_dt_n, list_all_func[i], color=color)
                     else:
-                        plt.scatter(mesh_x_on_dt_2_n, list_all_func[i])
+                        plt.scatter(mesh_x_on_dt_2_n, list_all_func[i], color=color)
 
 
     def _get_cut_mesh_by_xbound(self, mesh, bound_x):
