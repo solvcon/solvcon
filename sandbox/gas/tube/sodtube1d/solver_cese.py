@@ -31,6 +31,45 @@ RHO_R = 0.125
 U_R = 0.0
 P_R = 0.1
 
+class Data(object):
+    """
+    a container of the data during the CESE iteration process
+    """
+    _excludes = ['__class__',
+                 '__delattr__',
+                 '__dict__',
+                 '__doc__',
+                 '__format__',
+                 '__getattribute__',
+                 '__hash__',
+                 '__init__',
+                 '__module__',
+                 '__new__',
+                 '__reduce__',
+                 '__reduce_ex__',
+                 '__repr__',
+                 '__setattr__',
+                 '__sizeof__',
+                 '__str__',
+                 '__subclasshook__',
+                 '__weakref__']
+
+    _includes = ['iteration',
+                 'grid_size_t',
+                 'grid_size_x',
+                 'mesh_t_stop',
+                 'mesh_x',
+                 'mesh_x_start',
+                 'mesh_x_stop',
+                 'mtx_q'
+                ]
+
+    def __init__(self, **kwargs):
+        for k,v in kwargs.items():
+            if k in self._excludes or k not in self._includes:
+                raise TypeError("{0} is not a valide keyword argument".format(k))
+            self.__dict__[k] = v
+
 class Solver():
     """
     CESE method to generate the 1D Sod tube solution
@@ -50,15 +89,18 @@ class Solver():
                  grid_size_x = 100,
                  mesh_x_start = -10050,
                  mesh_x_stop = 10050):
-        self.iteration = iteration
-        self.grid_size_t = grid_size_t
-        self.mesh_t_stop = mesh_t_stop
-        self.mesh_x_start = mesh_x_start
-        self.mesh_x_stop = mesh_x_stop
 
         gmesh.gen_mesh(grid_size_x, mesh_x_start, mesh_x_stop)
-        self.mesh_x = gmesh.get_mesh()
-        self.grid_size_x = grid_size_x / 10000.0
+        mesh_x = gmesh.get_mesh()
+        grid_size_x = grid_size_x / 10000.0
+        # introduce data object to contain data used during the CESE iteration
+        self.data = Data(iteration=iteration,
+                         grid_size_t=grid_size_t,
+                         mesh_t_stop=mesh_t_stop,
+                         mesh_x_start=mesh_x_start,
+                         mesh_x_stop=mesh_x_stop,
+                         mesh_x=mesh_x,
+                         grid_size_x=grid_size_x)
 
     def get_cese_solution(self):
         """
@@ -68,13 +110,13 @@ class Solver():
         iteration: int, please note n iteration will has n+2 mesh points.
         
         """
-        iteration = self.iteration
-        grid_size_t = self.grid_size_t
-        mesh_t_stop = self.mesh_t_stop
-        grid_size_x = self.grid_size_x
-        mesh_x_start = self.mesh_x_start
-        mesh_x_stop = self.mesh_x_stop
-        mesh_x = self.mesh_x
+        iteration = self.data.iteration
+        grid_size_t = self.data.grid_size_t
+        mesh_t_stop = self.data.mesh_t_stop
+        grid_size_x = self.data.grid_size_x
+        mesh_x_start = self.data.mesh_x_start
+        mesh_x_stop = self.data.mesh_x_stop
+        mesh_x = self.data.mesh_x
 
         #self.check_input(iteration,
         #                 grid_size_t,
@@ -92,6 +134,7 @@ class Solver():
         # on grids.
         # prefix mtx_ means 'matrix of sth.'
         mtx_q = np.asmatrix(np.zeros(shape=(3, mesh_pt_number_x)))
+        self.mtx_q = mtx_q
         # u_m, but means 'next' u_m
         # u_m at the next time step 
         mtx_qn = np.asmatrix(np.zeros(shape=(3, mesh_pt_number_x)))
@@ -183,8 +226,8 @@ class Solver():
             # (4.25) in chang95
             # the n_(fmt)_j of the last term should be substitubed
             # by the other terms.
-            mtx_s[:,j] = (self.grid_size_x/4.0)*mtx_qx[:,j] + (self.grid_size_t/self.grid_size_x)*mtx_f*mtx_q[:,j] \
-                        - (self.grid_size_t/self.grid_size_x)*(self.grid_size_t/4.0)*mtx_f*mtx_f*mtx_qx[:,j]
+            mtx_s[:,j] = (self.data.grid_size_x/4.0)*mtx_qx[:,j] + (self.data.grid_size_t/self.data.grid_size_x)*mtx_f*mtx_q[:,j] \
+                        - (self.data.grid_size_t/self.data.grid_size_x)*(self.data.grid_size_t/4.0)*mtx_f*mtx_f*mtx_qx[:,j]
         return  m, mtx_q, mtx_f, mtx_qt, mtx_qx, mtx_s
 
     def get_cese_status_after_half_dt(self, m, mtx_q, mtx_qn, mtx_qt, mtx_qx, mtx_s):
@@ -200,11 +243,11 @@ class Solver():
                                 + mtx_s[:,j] - mtx_s[:,j+1])
             # (4.27) and (4.36) in chang95
             vxl = np.asarray((mtx_qn[:,j+1] \
-                              - mtx_q[:,j] - (self.grid_size_t/2.0)*mtx_qt[:,j]) \
-                              /(self.grid_size_x/2.0))
-            vxr = np.asarray((mtx_q[:,j+1] + (self.grid_size_t/2.0)*mtx_qt[:,j+1] \
+                              - mtx_q[:,j] - (self.data.grid_size_t/2.0)*mtx_qt[:,j]) \
+                              /(self.data.grid_size_x/2.0))
+            vxr = np.asarray((mtx_q[:,j+1] + (self.data.grid_size_t/2.0)*mtx_qt[:,j+1] \
                               - mtx_qn[:,j+1]) \
-                              /(self.grid_size_x/2.0))
+                              /(self.data.grid_size_x/2.0))
             # (4.39) in chang95
             mtx_qx[:,j+1] = np.asmatrix((vxl*((abs(vxr))**1.0) \
                                         + vxr*((abs(vxl))**1.0)) \
