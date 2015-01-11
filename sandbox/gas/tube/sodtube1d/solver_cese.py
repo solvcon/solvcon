@@ -57,11 +57,20 @@ class Data(object):
     _includes = ['iteration',
                  'grid_size_t',
                  'grid_size_x',
+                 'mesh_pt_number_x',
+                 'mesh_pt_number_x_at_half_t',
                  'mesh_t_stop',
                  'mesh_x',
                  'mesh_x_start',
                  'mesh_x_stop',
-                 'mtx_q'
+                 'mtx_f',
+                 'mtx_q',
+                 'mtx_qn',
+                 'mtx_qx',
+                 'mtx_qt',
+                 'mtx_s',
+                 'vxl',
+                 'vxr'
                 ]
 
     def __init__(self, **kwargs):
@@ -93,30 +102,6 @@ class Solver():
         gmesh.gen_mesh(grid_size_x, mesh_x_start, mesh_x_stop)
         mesh_x = gmesh.get_mesh()
         grid_size_x = grid_size_x / 10000.0
-        # introduce data object to contain data used during the CESE iteration
-        self.data = Data(iteration=iteration,
-                         grid_size_t=grid_size_t,
-                         mesh_t_stop=mesh_t_stop,
-                         mesh_x_start=mesh_x_start,
-                         mesh_x_stop=mesh_x_stop,
-                         mesh_x=mesh_x,
-                         grid_size_x=grid_size_x)
-
-    def get_cese_solution(self):
-        """
-        given the mesh size
-        output the solution based on CESE method
-
-        iteration: int, please note n iteration will has n+2 mesh points.
-        
-        """
-        iteration = self.data.iteration
-        grid_size_t = self.data.grid_size_t
-        mesh_t_stop = self.data.mesh_t_stop
-        grid_size_x = self.data.grid_size_x
-        mesh_x_start = self.data.mesh_x_start
-        mesh_x_stop = self.data.mesh_x_stop
-        mesh_x = self.data.mesh_x
 
         #self.check_input(iteration,
         #                 grid_size_t,
@@ -134,7 +119,6 @@ class Solver():
         # on grids.
         # prefix mtx_ means 'matrix of sth.'
         mtx_q = np.asmatrix(np.zeros(shape=(3, mesh_pt_number_x)))
-        self.mtx_q = mtx_q
         # u_m, but means 'next' u_m
         # u_m at the next time step 
         mtx_qn = np.asmatrix(np.zeros(shape=(3, mesh_pt_number_x)))
@@ -149,31 +133,58 @@ class Solver():
 
         mtx_f = np.asmatrix(np.zeros(shape=(3,3)))
         
-        mesh_pt_number_x_at_half_t = iteration + 1
-        # initialize the gas status before the diaphragm
-        # was removed.
-        self.init_gas_status(mesh_pt_number_x_at_half_t, mtx_q)
+        # introduce data object to contain data used during the CESE iteration
+        self.data = Data(iteration=iteration,
+                         grid_size_t=grid_size_t,
+                         grid_size_x=grid_size_x,
+                         mesh_pt_number_x=mesh_pt_number_x,
+                         mesh_pt_number_x_at_half_t=mesh_pt_number_x_at_half_t,
+                         mesh_t_stop=mesh_t_stop,
+                         mesh_x=mesh_x,
+                         mesh_x_start=mesh_x_start,
+                         mesh_x_stop=mesh_x_stop,
+                         mtx_f=mtx_f,
+                         mtx_q=mtx_q,
+                         mtx_qn=mtx_qn,
+                         mtx_qx=mtx_qx,
+                         mtx_qt=mtx_qt,
+                         mtx_s=mtx_s,
+                         vxl=vxl,
+                         vxr=vxr
+                         )
+
+    def get_cese_solution(self):
+        """
+        given the mesh size
+        output the solution based on CESE method
+
+        iteration: int, please note n iteration will has n+2 mesh points.
+        
+        """
+        # initialize the gas status before the diaphragm was removed.
+        self.init_gas_status(self.data.mesh_pt_number_x_at_half_t,
+                             self.data.mtx_q)
 
         # m is the number used to calculate the status before
         # the half delta t stepping is applied.
         m = 2 # move out from the diaphragm which the 0th grid.
-        for i in xrange(iteration):
-            self.get_cese_status_before_half_dt(m, mtx_q, mtx_f, mtx_qt, mtx_qx, mtx_s)
+        for i in xrange(self.data.iteration):
+            self.get_cese_status_before_half_dt(m, self.data)
             # stepping into the next halt delta t
             # m mesh points along t could introduce m - 1 mesh points along t + 0.5*dt
-            self.get_cese_status_after_half_dt(m, mtx_q, mtx_qn, mtx_qt, mtx_qx, mtx_s)
+            self.get_cese_status_after_half_dt(m, self.data)
             #  ask the status at t + 0.5*dt to be the next status before the half delta t is applied
-            m = self.push_status_along_t(m, mtx_q, mtx_qn)
+            m = self.push_status_along_t(m, self.data)
             
         #solution__x_start_index = mesh_x.get_start_grid(mesh_pt_number_x)
         solution_x_start_index = 50
         solution = []
-        for i in range(mesh_pt_number_x):
-            solution_x = mesh_x[i + solution_x_start_index]
+        for i in range(self.data.mesh_pt_number_x):
+            solution_x = self.data.mesh_x[i + solution_x_start_index]
             x = solution_x
-            solution_rho = mtx_q[0,i]
-            solution_v = mtx_q[1,i]/mtx_q[0,i]
-            solution_p = (GAMMA-1.0)*(mtx_q[2,i] - 0.5*(solution_v**2)*mtx_q[0,i])
+            solution_rho = self.data.mtx_q[0,i]
+            solution_v = self.data.mtx_q[1,i]/self.data.mtx_q[0,i]
+            solution_p = (GAMMA-1.0)*(self.data.mtx_q[2,i] - 0.5*(solution_v**2)*self.data.mtx_q[0,i])
             solution.append((solution_x, solution_rho, solution_v, solution_p))
         
         return solution
@@ -204,10 +215,16 @@ class Solver():
     def cal_cese_solution(self, initcondition, mesh, ceseparameters):
         return self.solution
 
-    def get_cese_status_before_half_dt(self, m, mtx_q, mtx_f, mtx_qt, mtx_qx, mtx_s):
+    def get_cese_status_before_half_dt(self, m, data):
         """
-        the status is 
+        the gas current status
         """
+        mtx_q = data.mtx_q
+        mtx_f = data.mtx_f
+        mtx_qt = data.mtx_qt
+        mtx_qx = data.mtx_qx
+        mtx_s = data.mtx_s
+
         for j in xrange(m):
             w2 = mtx_q[1,j]/mtx_q[0,j]
             w3 = mtx_q[2,j]/mtx_q[0,j]
@@ -230,8 +247,16 @@ class Solver():
                         - (self.data.grid_size_t/self.data.grid_size_x)*(self.data.grid_size_t/4.0)*mtx_f*mtx_f*mtx_qx[:,j]
         return  m, mtx_q, mtx_f, mtx_qt, mtx_qx, mtx_s
 
-    def get_cese_status_after_half_dt(self, m, mtx_q, mtx_qn, mtx_qt, mtx_qx, mtx_s):
+    def get_cese_status_after_half_dt(self, m, data):
+        """
+        the gas status after half of dt
+        """
         mm = m - 1
+        mtx_q = data.mtx_q
+        mtx_qn = data.mtx_qn
+        mtx_qt = data.mtx_qt
+        mtx_qx = data.mtx_qx
+        mtx_s = data.mtx_s
         for j in xrange(mm):
             # (4.24) in chang95
             # Please note the j+1 on the left hand side addresses
@@ -254,8 +279,13 @@ class Solver():
                                         /(((abs(vxl))**1.0) \
                                             + ((abs(vxr))**1.0) + 1.0E-60))
         
-    def push_status_along_t(self, number_mesh_points_before_hdt, mtx_q, mtx_qn):
+    def push_status_along_t(self, number_mesh_points_before_hdt, data):
+        """
+        step into the next iteration status
+        """
         # hdt means 0.5*grid_size_t
+        mtx_q = data.mtx_q
+        mtx_qn = data.mtx_qn
         for j in xrange(1,number_mesh_points_before_hdt):
             mtx_q[:,j] = mtx_qn[:,j]
         number_mesh_points_before_hdt_next_iter = number_mesh_points_before_hdt + 1
