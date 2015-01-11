@@ -55,7 +55,7 @@ class Data(object):
                  '__weakref__']
 
     _includes = ['iteration',
-                 'it_nb', # the nth iteration number, it_nb <= iteration
+                 'it_nb', # the nth iteration number, 0 <= it_nb < iteration, -1 means the iteration does not begin
                  'it_pt_nb', # iteration point number at the it_nb
                  'grid_size_t',
                  'grid_size_x',
@@ -87,10 +87,23 @@ class Data(object):
         Use the latest mtx_q to caculate the associated rho, v and p.
         Also, apply physic meaning, e.g. location, according to the given parameters.
         """
-        #solution_x_start_index = mesh_x.get_start_grid(mesh_pt_number_x)
-        solution_x_start_index = 50
+        # TODO: warning or implementation for refreshing on odd iteration numbers (status at half t)
         solution = []
-        for i in range(self.mesh_pt_number_x):
+        # TODO: only for even iteration number status
+        #
+        # -1 : iteration does not begin (yet), there are two grid points with ready status,
+        # There are totally self.it_nb + 3 iterated grid points.
+        #
+        # Every two iteration steps gains one x step in lefthand and righthand side separately,
+        # and we begin the iteration by 2 grid points (it_pt_nb = 2 in the initialized state)
+        # For 100 iterations, totally 51 grid points are 'used' in the left hand side.
+        # There is len(solver_cese.data.mesh_x) /2 grid points ready in the left hand side,
+        # so we associate x mesh grid location index with the mtx_q by solution_x_start_index as
+        #solution_x_start_index = 50
+        #solution_x_start_index = len(self.mesh_x) /2 - (self.iteration + 2)/2
+        total_iterated_pt_nb = self.it_nb + 3
+        solution_x_start_index = (len(self.mesh_x)/2) - (total_iterated_pt_nb/2)
+        for i in range(total_iterated_pt_nb):
             solution_x = self.mesh_x[i + solution_x_start_index]
             x = solution_x
             solution_rho = self.mtx_q[0,i]
@@ -188,6 +201,7 @@ class Solver(object):
         # This means we begin the iteration process by two grid points.
         self._data.it_pt_nb = 2
         for i in xrange(self._data.iteration):
+            self._data.it_nb = i
             self.cal_cese_status_before_half_dt()
             self.cal_cese_status_after_half_dt()
             self.push_status_along_t()
@@ -326,4 +340,5 @@ class Solver(object):
             mtx_q[0,i+1] = rho_r
             mtx_q[1,i+1] = rho_r*u_r
             mtx_q[2,i+1] = p_r/(GAMMA-1.0) + 0.5*rho_r*u_r**2.0
+        self._data.it_nb = -1 # no CESE iteration begins
 
