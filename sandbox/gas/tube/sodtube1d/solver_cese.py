@@ -166,8 +166,7 @@ class Solver(object):
         
         """
         # initialize the gas status before the diaphragm was removed.
-        self.init_gas_status(self._data.mesh_pt_number_x_at_half_t,
-                             self._data.mtx_q)
+        self.init_gas_status()
 
         # m is the number used to calculate the status before
         # the half delta t stepping is applied.
@@ -293,8 +292,6 @@ class Solver(object):
         return number_mesh_points_before_hdt_next_iter
 
     def init_gas_status(self,
-                        mesh_pt_number_x_at_half_t,
-                        mtx_q,
                         rho_l=RHO_L,
                         u_l=U_L,
                         p_l=P_L,
@@ -302,12 +299,16 @@ class Solver(object):
                         u_r=U_R,
                         p_r=P_R
                         ):
+        # access necessary data member
+        mesh_pt_number_x_at_half_t = self._data.mesh_pt_number_x_at_half_t
+        mtx_q = self._data.mtx_q
+        # set up the status in the lefthand side
         mtx_q[0][0] = rho_l
         mtx_q[1][0] = rho_l*u_l
         mtx_q[2][0] = p_l/(GAMMA-1.0) + 0.5*rho_l*u_l**2.0
+        # set up the status in the righthand side
         for i in xrange(mesh_pt_number_x_at_half_t):
             mtx_q[0,i+1] = rho_r
             mtx_q[1,i+1] = rho_r*u_r
             mtx_q[2,i+1] = p_r/(GAMMA-1.0) + 0.5*rho_r*u_r**2.0
-        return mtx_q
 
