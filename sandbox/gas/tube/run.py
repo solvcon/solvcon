@@ -25,6 +25,7 @@ analytic_solver = analytic.Solver()
 solution_analytic = analytic_solver.get_analytic_solution(mesh)
 
 solver_cese = cese.Solver()
+solver_cese.run_cese_iteration()
 solution_cese = solver_cese.get_cese_solution()
 
 solution_porting = solver_porting.get_specific_solution_for_unit_test_high_precision()
