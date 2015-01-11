@@ -55,6 +55,8 @@ class Data(object):
                  '__weakref__']
 
     _includes = ['iteration',
+                 'it_nb', # the nth iteration number, it_nb <= iteration
+                 'it_pt_nb', # iteration point number at the it_nb
                  'grid_size_t',
                  'grid_size_x',
                  'mesh_pt_number_x',
@@ -181,17 +183,14 @@ class Solver(object):
         """
         # initialize the gas status before the diaphragm was removed.
         self.init_gas_status()
-
-        # m is the number used to calculate the status before
-        # the half delta t stepping is applied.
-        m = 2 # move out from the diaphragm which the 0th grid.
+        # The number used to calculate the status before
+        # the half delta t stepping is applied is 2.
+        # This means we begin the iteration process by two grid points.
+        self._data.it_pt_nb = 2
         for i in xrange(self._data.iteration):
-            self.cal_cese_status_before_half_dt(m, self._data)
-            # stepping into the next halt delta t
-            # m mesh points along t could introduce m - 1 mesh points along t + 0.5*dt
-            self.cal_cese_status_after_half_dt(m, self._data)
-            #  ask the status at t + 0.5*dt to be the next status before the half delta t is applied
-            m = self.push_status_along_t(m, self._data)
+            self.cal_cese_status_before_half_dt()
+            self.cal_cese_status_after_half_dt()
+            self.push_status_along_t()
         # this is not necessary
         # but it is not risk to refresh and make sure
         # our solution is up-to-date.
@@ -224,10 +223,12 @@ class Solver(object):
     def cal_cese_solution(self, initcondition, mesh, ceseparameters):
         return self.solution
 
-    def cal_cese_status_before_half_dt(self, m, data):
+    def cal_cese_status_before_half_dt(self):
         """
         the gas current status
         """
+        data = self._data
+        m = data.it_pt_nb
         mtx_q = data.mtx_q
         mtx_f = data.mtx_f
         mtx_qt = data.mtx_qt
@@ -255,10 +256,14 @@ class Solver(object):
             mtx_s[:,j] = (self._data.grid_size_x/4.0)*mtx_qx[:,j] + (self._data.grid_size_t/self._data.grid_size_x)*mtx_f*mtx_q[:,j] \
                         - (self._data.grid_size_t/self._data.grid_size_x)*(self._data.grid_size_t/4.0)*mtx_f*mtx_f*mtx_qx[:,j]
 
-    def cal_cese_status_after_half_dt(self, m, data):
+    def cal_cese_status_after_half_dt(self):
         """
         the gas status after half of dt
         """
+        # stepping into the next halt delta t
+        # m mesh points along t could introduce m - 1 mesh points along t + 0.5*dt
+        data = self._data
+        m = data.it_pt_nb
         mm = m - 1
         mtx_q = data.mtx_q
         mtx_qn = data.mtx_qn
@@ -287,17 +292,19 @@ class Solver(object):
                                         /(((abs(vxl))**1.0) \
                                             + ((abs(vxr))**1.0) + 1.0E-60))
         
-    def push_status_along_t(self, number_mesh_points_before_hdt, data):
+    def push_status_along_t(self):
         """
         step into the next iteration status
         """
+        #  ask the status at t + 0.5*dt to be the next status before the half delta t is applied
         # hdt means 0.5*grid_size_t
+        data = self._data
+        number_mesh_points_before_hdt = data.it_pt_nb
         mtx_q = data.mtx_q
         mtx_qn = data.mtx_qn
         for j in xrange(1,number_mesh_points_before_hdt):
             mtx_q[:,j] = mtx_qn[:,j]
-        number_mesh_points_before_hdt_next_iter = number_mesh_points_before_hdt + 1
-        return number_mesh_points_before_hdt_next_iter
+        data.it_pt_nb = number_mesh_points_before_hdt + 1
 
     def init_gas_status(self,
                         rho_l=RHO_L,

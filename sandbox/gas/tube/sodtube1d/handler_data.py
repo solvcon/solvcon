@@ -143,6 +143,7 @@ class DataManager():
         solution_deviation = self.get_deviation(solution_a, solution_b)
         for i in solution_deviation:
             if not (i[1] < dp and i[2] < dp and i[3] < dp):
+                print("ERROR: Two solutions are NOT identical.")
                 return False
 
         print("Two solutions are identical.")
