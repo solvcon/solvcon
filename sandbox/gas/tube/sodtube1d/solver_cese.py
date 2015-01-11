@@ -79,7 +79,7 @@ class Data(object):
                 raise TypeError("{0} is not a valide keyword argument".format(k))
             self.__dict__[k] = v
 
-class Solver():
+class Solver(object):
     """
     CESE method to generate the 1D Sod tube solution
     @iteration, which is integer
@@ -134,7 +134,7 @@ class Solver():
         mtx_f = np.asmatrix(np.zeros(shape=(3,3)))
         
         # introduce data object to contain data used during the CESE iteration
-        self.data = Data(iteration=iteration,
+        self._data = Data(iteration=iteration,
                          grid_size_t=grid_size_t,
                          grid_size_x=grid_size_x,
                          mesh_pt_number_x=mesh_pt_number_x,
@@ -153,6 +153,10 @@ class Solver():
                          vxr=vxr
                          )
 
+    @property
+    def data(self):
+        return self._data
+
     def get_cese_solution(self):
         """
         given the mesh size
@@ -162,29 +166,29 @@ class Solver():
         
         """
         # initialize the gas status before the diaphragm was removed.
-        self.init_gas_status(self.data.mesh_pt_number_x_at_half_t,
-                             self.data.mtx_q)
+        self.init_gas_status(self._data.mesh_pt_number_x_at_half_t,
+                             self._data.mtx_q)
 
         # m is the number used to calculate the status before
         # the half delta t stepping is applied.
         m = 2 # move out from the diaphragm which the 0th grid.
-        for i in xrange(self.data.iteration):
-            self.get_cese_status_before_half_dt(m, self.data)
+        for i in xrange(self._data.iteration):
+            self.get_cese_status_before_half_dt(m, self._data)
             # stepping into the next halt delta t
             # m mesh points along t could introduce m - 1 mesh points along t + 0.5*dt
-            self.get_cese_status_after_half_dt(m, self.data)
+            self.get_cese_status_after_half_dt(m, self._data)
             #  ask the status at t + 0.5*dt to be the next status before the half delta t is applied
-            m = self.push_status_along_t(m, self.data)
+            m = self.push_status_along_t(m, self._data)
             
         #solution__x_start_index = mesh_x.get_start_grid(mesh_pt_number_x)
         solution_x_start_index = 50
         solution = []
-        for i in range(self.data.mesh_pt_number_x):
-            solution_x = self.data.mesh_x[i + solution_x_start_index]
+        for i in range(self._data.mesh_pt_number_x):
+            solution_x = self._data.mesh_x[i + solution_x_start_index]
             x = solution_x
-            solution_rho = self.data.mtx_q[0,i]
-            solution_v = self.data.mtx_q[1,i]/self.data.mtx_q[0,i]
-            solution_p = (GAMMA-1.0)*(self.data.mtx_q[2,i] - 0.5*(solution_v**2)*self.data.mtx_q[0,i])
+            solution_rho = self._data.mtx_q[0,i]
+            solution_v = self._data.mtx_q[1,i]/self._data.mtx_q[0,i]
+            solution_p = (GAMMA-1.0)*(self._data.mtx_q[2,i] - 0.5*(solution_v**2)*self._data.mtx_q[0,i])
             solution.append((solution_x, solution_rho, solution_v, solution_p))
         
         return solution
@@ -208,9 +212,6 @@ class Solver():
         # the most left grid +
         # the most right grid
         mesh_pt_number_x = iteration + 2
-
-
-
 
     def cal_cese_solution(self, initcondition, mesh, ceseparameters):
         return self.solution
@@ -243,8 +244,8 @@ class Solver():
             # (4.25) in chang95
             # the n_(fmt)_j of the last term should be substitubed
             # by the other terms.
-            mtx_s[:,j] = (self.data.grid_size_x/4.0)*mtx_qx[:,j] + (self.data.grid_size_t/self.data.grid_size_x)*mtx_f*mtx_q[:,j] \
-                        - (self.data.grid_size_t/self.data.grid_size_x)*(self.data.grid_size_t/4.0)*mtx_f*mtx_f*mtx_qx[:,j]
+            mtx_s[:,j] = (self._data.grid_size_x/4.0)*mtx_qx[:,j] + (self._data.grid_size_t/self._data.grid_size_x)*mtx_f*mtx_q[:,j] \
+                        - (self._data.grid_size_t/self._data.grid_size_x)*(self._data.grid_size_t/4.0)*mtx_f*mtx_f*mtx_qx[:,j]
         return  m, mtx_q, mtx_f, mtx_qt, mtx_qx, mtx_s
 
     def get_cese_status_after_half_dt(self, m, data):
@@ -268,11 +269,11 @@ class Solver():
                                 + mtx_s[:,j] - mtx_s[:,j+1])
             # (4.27) and (4.36) in chang95
             vxl = np.asarray((mtx_qn[:,j+1] \
-                              - mtx_q[:,j] - (self.data.grid_size_t/2.0)*mtx_qt[:,j]) \
-                              /(self.data.grid_size_x/2.0))
-            vxr = np.asarray((mtx_q[:,j+1] + (self.data.grid_size_t/2.0)*mtx_qt[:,j+1] \
+                              - mtx_q[:,j] - (self._data.grid_size_t/2.0)*mtx_qt[:,j]) \
+                              /(self._data.grid_size_x/2.0))
+            vxr = np.asarray((mtx_q[:,j+1] + (self._data.grid_size_t/2.0)*mtx_qt[:,j+1] \
                               - mtx_qn[:,j+1]) \
-                              /(self.data.grid_size_x/2.0))
+                              /(self._data.grid_size_x/2.0))
             # (4.39) in chang95
             mtx_qx[:,j+1] = np.asmatrix((vxl*((abs(vxr))**1.0) \
                                         + vxr*((abs(vxl))**1.0)) \
