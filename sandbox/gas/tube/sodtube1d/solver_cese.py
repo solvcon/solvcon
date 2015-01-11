@@ -186,10 +186,10 @@ class Solver(object):
         # the half delta t stepping is applied.
         m = 2 # move out from the diaphragm which the 0th grid.
         for i in xrange(self._data.iteration):
-            self.get_cese_status_before_half_dt(m, self._data)
+            self.cal_cese_status_before_half_dt(m, self._data)
             # stepping into the next halt delta t
             # m mesh points along t could introduce m - 1 mesh points along t + 0.5*dt
-            self.get_cese_status_after_half_dt(m, self._data)
+            self.cal_cese_status_after_half_dt(m, self._data)
             #  ask the status at t + 0.5*dt to be the next status before the half delta t is applied
             m = self.push_status_along_t(m, self._data)
         # this is not necessary
@@ -224,7 +224,7 @@ class Solver(object):
     def cal_cese_solution(self, initcondition, mesh, ceseparameters):
         return self.solution
 
-    def get_cese_status_before_half_dt(self, m, data):
+    def cal_cese_status_before_half_dt(self, m, data):
         """
         the gas current status
         """
@@ -254,9 +254,8 @@ class Solver(object):
             # by the other terms.
             mtx_s[:,j] = (self._data.grid_size_x/4.0)*mtx_qx[:,j] + (self._data.grid_size_t/self._data.grid_size_x)*mtx_f*mtx_q[:,j] \
                         - (self._data.grid_size_t/self._data.grid_size_x)*(self._data.grid_size_t/4.0)*mtx_f*mtx_f*mtx_qx[:,j]
-        return  m, mtx_q, mtx_f, mtx_qt, mtx_qx, mtx_s
 
-    def get_cese_status_after_half_dt(self, m, data):
+    def cal_cese_status_after_half_dt(self, m, data):
         """
         the gas status after half of dt
         """
