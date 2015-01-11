@@ -70,7 +70,8 @@ class Data(object):
                  'mtx_qt',
                  'mtx_s',
                  'vxl',
-                 'vxr'
+                 'vxr',
+                 'solution'
                 ]
 
     def __init__(self, **kwargs):
@@ -78,6 +79,23 @@ class Data(object):
             if k in self._excludes or k not in self._includes:
                 raise TypeError("{0} is not a valide keyword argument".format(k))
             self.__dict__[k] = v
+
+    def refresh_solution(self):
+        """
+        Use the latest mtx_q to caculate the associated rho, v and p.
+        Also, apply physic meaning, e.g. location, according to the given parameters.
+        """
+        #solution_x_start_index = mesh_x.get_start_grid(mesh_pt_number_x)
+        solution_x_start_index = 50
+        solution = []
+        for i in range(self.mesh_pt_number_x):
+            solution_x = self.mesh_x[i + solution_x_start_index]
+            x = solution_x
+            solution_rho = self.mtx_q[0,i]
+            solution_v = self.mtx_q[1,i]/self.mtx_q[0,i]
+            solution_p = (GAMMA-1.0)*(self.mtx_q[2,i] - 0.5*(solution_v**2)*self.mtx_q[0,i])
+            solution.append((solution_x, solution_rho, solution_v, solution_p))
+        self.solution = solution
 
 class Solver(object):
     """
@@ -178,19 +196,10 @@ class Solver(object):
             self.get_cese_status_after_half_dt(m, self._data)
             #  ask the status at t + 0.5*dt to be the next status before the half delta t is applied
             m = self.push_status_along_t(m, self._data)
-            
-        #solution__x_start_index = mesh_x.get_start_grid(mesh_pt_number_x)
-        solution_x_start_index = 50
-        solution = []
-        for i in range(self._data.mesh_pt_number_x):
-            solution_x = self._data.mesh_x[i + solution_x_start_index]
-            x = solution_x
-            solution_rho = self._data.mtx_q[0,i]
-            solution_v = self._data.mtx_q[1,i]/self._data.mtx_q[0,i]
-            solution_p = (GAMMA-1.0)*(self._data.mtx_q[2,i] - 0.5*(solution_v**2)*self._data.mtx_q[0,i])
-            solution.append((solution_x, solution_rho, solution_v, solution_p))
         
-        return solution
+        self._data.refresh_solution()
+
+        return list(self._data.solution)
 
     def get_cese_solution_mesh_size(self,
                                     iteration = 100,
