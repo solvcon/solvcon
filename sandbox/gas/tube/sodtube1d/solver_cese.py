@@ -175,13 +175,9 @@ class Solver(object):
     def data(self):
         return self._data
 
-    def get_cese_solution(self):
+    def run_cese_iteration(self):
         """
-        given the mesh size
-        output the solution based on CESE method
-
-        iteration: int, please note n iteration will has n+2 mesh points.
-        
+        the whole CESE iteration process
         """
         # initialize the gas status before the diaphragm was removed.
         self.init_gas_status()
@@ -196,9 +192,13 @@ class Solver(object):
             self.get_cese_status_after_half_dt(m, self._data)
             #  ask the status at t + 0.5*dt to be the next status before the half delta t is applied
             m = self.push_status_along_t(m, self._data)
-        
+        # this is not necessary
+        # but it is not risk to refresh and make sure
+        # our solution is up-to-date.
         self._data.refresh_solution()
 
+    def get_cese_solution(self):
+        self._data.refresh_solution()
         return list(self._data.solution)
 
     def get_cese_solution_mesh_size(self,
