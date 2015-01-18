@@ -20,8 +20,9 @@ can be calculated with the following data:
    :py:meth:`ObliqueShockRelation.calc_shock_angle`.
 
 SOLVCON will be set up to solve this problem, and the simulated results will be
-compared with the analytical solution.  The relation of flow properties across
-each oblique shock can be analytically obtained [Anderson03]_.
+compared with the analytical solution.  The :ref:`shock relation
+<sec-oblique-shock-relation>` needs to be applied multiple times to obtain the
+flow properties in all the three zones.
 
 .. _fig-reflection:
 
@@ -34,11 +35,22 @@ each oblique shock can be analytically obtained [Anderson03]_.
   :math:`\theta` is the flow deflection angle.  :math:`\beta_{1,2}` are the
   oblique shock angle behind the first and the second zone, respectively.
 
-Relations across Oblique Shock
-==============================
+.. _sec-oblique-shock-relation:
 
-An oblique shock is resulted from a sudden change of flow direction, as shown
-in Figure :num:`fig-oblique-shock`.
+:py:class:`ObliqueShockRelation`
+================================
+
+An oblique shock results from a sudden change of direction of supersonic flow.
+The relations of density (:math:`\rho`), pressure (:math:`p`), and temprature
+(:math:`T`) across the shock can be obtained analytically [Anderson03]_.  In
+addition, two angles are defined:
+
+1. The angle of the oblique shock wave deflected from the upstream is
+   :math:`\beta`; the shock angle.
+2. The angle of the flow behind the shock wave deflected from the upstream is
+   :math:`\theta`; the flow angle.
+
+See Figure :num:`fig-oblique-shock` for the illustration of the two angles.
 
 .. _fig-oblique-shock:
 
@@ -50,22 +62,17 @@ in Figure :num:`fig-oblique-shock`.
   :math:`M` is Mach number.  :math:`\theta` is the flow deflection angle.
   :math:`\beta` is the oblique shock angle.
 
-The notation and derivations from Section 4.3 *Oblique Shock Relations* of
-[Anderson03]_ are used.  :math:`\square_1` denotes upstream properties and
-:math:`\square_2` denotes downstream properties.  Two important angles are
-defined:
-
-1. :math:`\beta`: The angle of the oblique shock wave deflected from the
-   upstream is :math:`\beta`; the shock angle.
-2. :math:`\theta`: The angle of the flow behind the shock wave deflected from
-   the upstream is :math:`\theta`; the flow angle.
-
 Methods of calculating the shock relations are organized in the class
-:py:class:`ObliqueShockRelation`.  Derivation of the relation uses a rotated
-coordinate system :math:`(n, t)` defined by the oblique shock, where
+:py:class:`ObliqueShockRelation`.  To obtain the relations of density
+(:math:`\rho`), pressure (:math:`p`), and temprature (:math:`T`), the control
+volume across the shock is emplyed, as shown in Figure
+:num:`fig-oblique-relation`.  In the figure and in
+:py:class:`ObliqueShockRelation`, subscript 1 denotes upstream properties and
+subscript 2 denotes downstream properties.  Derivation of the relation uses a
+rotated coordinate system :math:`(n, t)` defined by the oblique shock, where
 :math:`\hat{n}` is the unit vector normal to the shock, and :math:`\hat{t}` is
-the unit vector tangential to the shock.  Figure :num:`fig-oblique-relation` is
-useful in the derivation of the relations.
+the unit vector tangential to the shock.  But in this document we won't go into
+the detail.
 
 .. _fig-oblique-relation:
 
@@ -81,50 +88,66 @@ useful in the derivation of the relations.
 .. autoclass:: ObliqueShockRelation
 
   .. autoinstanceattribute:: gamma
+    :annotation:
 
-Density: :py:meth:`~ObliqueShockRelation.calc_density_ratio`
-++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+:py:class:`ObliqueShockRelation` provides three methods to calculate the ratio
+of flow properties across the shock.  :math:`M_1` and :math:`\beta` are
+required arguments:
+
+- :math:`\rho`: :py:meth:`~ObliqueShockRelation.calc_density_ratio`
+- :math:`p`: :py:meth:`~ObliqueShockRelation.calc_pressure_ratio`
+- :math:`T`: :py:meth:`~ObliqueShockRelation.calc_temperature_ratio`
+
+With :math:`M_1` available, the shock angle :math:`\beta` can be calculated
+from the flow angle :math:`\theta`, or vice versa, by using the following two
+methods:
+
+- :math:`\beta`: :py:meth:`ObliqueShockRelation.calc_shock_angle`
+- :math:`\theta`: :py:meth:`ObliqueShockRelation.calc_flow_angle`
+
+The following method calculates the downstream Mach number, with the upstream
+Mach number :math:`M_1` and either of :math:`\beta` or :math:`\theta` supplied:
+
+- :math:`M_2`: :py:meth:`~ObliqueShockRelation.calc_dmach`
+
+Numerical Simluation
+====================
+
+Reference to the Methods of :py:class:`ObliqueShockRelation`
+============================================================
+
+Listing of all methods:
+
+- :py:meth:`~ObliqueShockRelation.calc_density_ratio`
+- :py:meth:`~ObliqueShockRelation.calc_pressure_ratio`
+- :py:meth:`~ObliqueShockRelation.calc_temperature_ratio`
+- :py:meth:`~ObliqueShockRelation.calc_dmach`
+- :py:meth:`~ObliqueShockRelation.calc_normal_dmach`
+- :py:meth:`~ObliqueShockRelation.calc_flow_angle`
+- :py:meth:`~ObliqueShockRelation.calc_flow_tangent`
+- :py:meth:`~ObliqueShockRelation.calc_shock_angle`
+- :py:meth:`~ObliqueShockRelation.calc_shock_tangent`
+- :py:meth:`~ObliqueShockRelation.calc_shock_tangent_aux`
 
 .. automethod:: ObliqueShockRelation.calc_density_ratio
 
-Pressure: :py:meth:`~ObliqueShockRelation.calc_pressure_ratio`
-++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
 .. automethod:: ObliqueShockRelation.calc_pressure_ratio
-
-Temperature: :py:meth:`~ObliqueShockRelation.calc_temperature_ratio`
-++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 .. automethod:: ObliqueShockRelation.calc_temperature_ratio
 
-Mach Number: :py:meth:`~ObliqueShockRelation.calc_dmach`
-++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
 .. automethod:: ObliqueShockRelation.calc_dmach
 
-Normal Mach Number: :py:meth:`~ObliqueShockRelation.calc_normal_dmach`
-++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
 .. automethod:: ObliqueShockRelation.calc_normal_dmach
-
-Flow Angle: :py:meth:`~ObliqueShockRelation.calc_flow_angle`
-++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 .. automethod:: ObliqueShockRelation.calc_flow_angle
 
 .. automethod:: ObliqueShockRelation.calc_flow_tangent
-
-Shock Angle: :py:meth:`~ObliqueShockRelation.calc_shock_angle`
-++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 .. automethod:: ObliqueShockRelation.calc_shock_angle
 
 .. automethod:: ObliqueShockRelation.calc_shock_tangent
 
 .. automethod:: ObliqueShockRelation.calc_shock_tangent_aux
-
-Numerical Simluation
-====================
 
 .. attention::
 

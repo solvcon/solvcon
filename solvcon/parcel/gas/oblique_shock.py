@@ -41,8 +41,7 @@ class ObliqueShockRelation(object):
     r"""
     Calculators of oblique shock relations.
 
-    The ratio of specific heat should be given to the constructor before the
-    instance can be used:
+    The constructor must take the ratio of specific heat:
 
     >>> ObliqueShockRelation()
     Traceback (most recent call last):
@@ -50,19 +49,21 @@ class ObliqueShockRelation(object):
     TypeError: __init__() takes exactly 2 arguments (1 given)
     >>> ob = ObliqueShockRelation(gamma=1.4)
 
-    The specific heat can be accessed through the :py:attr:`gamma`
+    The ratio of specific heat can be accessed through the :py:attr:`gamma`
     attribute:
 
     >>> ob.gamma
     1.4
+
+    The object can be used to calculate shock relations.  For example,
+    :py:meth:`calc_density_ratio` returns the :math:`\rho_2/\rho_1`:
+
     >>> round(ob.calc_density_ratio(mach1=3, beta=37.8/180*np.pi), 10)
     2.4204302545
-    >>> ob.gamma = 1.2
-    >>> ob.gamma
-    1.2
 
     The solution changes as :py:attr:`gamma` changes:
 
+    >>> ob.gamma = 1.2
     >>> round(ob.calc_density_ratio(mach1=3, beta=37.8/180*np.pi), 10)
     2.7793244902
     """

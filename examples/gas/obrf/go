@@ -45,65 +45,35 @@ from solvcon import helper
 from solvcon.parcel import gas
 
 
-class ObliqueShock(gas.ObliqueShockRelation):
-    def __init__(self, ga, dta, M1):
-        super(ObliqueShock, self).__init__(gamma=ga)
-        self.theta = dta
-        self.mach1 = M1
-        self.beta1 = self.calc_shock_angle(self.mach1, self.theta)
-        self.mach2 = self.calc_dmach(self.mach1, self.beta1)
-        self.beta2 = self.calc_shock_angle(self.mach2, self.theta)
-        self.mach3 = self.calc_dmach(self.mach2, self.beta2)
+class ObliqueShockReflection(gas.ObliqueShockRelation):
+    def __init__(self, gamma, theta, mach1, rho1, p1, T1):
+        super(ObliqueShockReflection, self).__init__(gamma=gamma)
 
-    @property
-    def ga(self):
-        return self.gamma
-    @property
-    def dta(self):
-        return self.theta
-    @property
-    def M1(self):
-        return self.mach1
-    @property
-    def bta(self):
-        return self.beta1
-    @property
-    def M2(self):
-        return self.mach2
-    @property
-    def bta2(self):
-        return self.beta2
-    @property
-    def M3(self):
-        return self.mach3
-    @property
-    def bta3(self):
-        return self.beta3
+        # Angles and Mach numbers.
+        self.theta = theta
+        self.mach1 = mach1
+        self.beta1 = beta1 = self.calc_shock_angle(mach1, theta)
+        self.mach2 = mach2 = self.calc_dmach(mach1, beta1)
+        self.beta2 = beta2 = self.calc_shock_angle(mach2, theta)
+        self.mach3 = mach3 = self.calc_dmach(mach2, beta2)
 
-    def calc_rho2(self, rho1):
-        return rho1 * self.calc_density_ratio(self.mach1, self.beta1)
-    def calc_rho3(self, rho1):
-        rho2 = self.calc_rho2(rho1)
-        return rho2 * self.calc_density_ratio(self.mach2, self.beta2)
-    def calc_p2(self, p1):
-        return p1 * self.calc_pressure_ratio(self.mach1, self.beta1)
-    def calc_p3(self, p1):
-        p2 = self.calc_p2(p1)
-        return p2 * self.calc_pressure_ratio(self.mach2, self.beta2)
-    def calc_a2(self, rho1, p1):
-        rho2 = self.calc_rho2(rho1)
-        p2 = self.calc_p2(p1)
-        return np.sqrt(self.ga*p2/rho2)
-    def calc_a3(self, rho1, p1):
-        rho3 = self.calc_rho3(rho1)
-        p3 = self.calc_p3(p1)
-        return np.sqrt(self.ga*p3/rho3)
-    def calc_T2(self, T1):
-        return T1 * self.calc_temperature_ratio(self.mach1, self.beta1)
-    def calc_T3(self, T1):
-        T2 = self.calc_T2(T1)
-        return T2 * self.calc_temperature_ratio(self.mach2, self.beta2)
+        # Flow properties in the first zone.
+        self.rho1 = rho1
+        self.p1 = p1
+        self.T1 = T1
+        self.a1 = np.sqrt(gamma*p1/rho1)
 
+        # Flow properties in the second zone.
+        self.rho2 = rho2 = rho1 * self.calc_density_ratio(mach1, beta1)
+        self.p2 = p2 = p1 * self.calc_pressure_ratio(mach1, beta1)
+        self.T2 = T2 = T1 * self.calc_temperature_ratio(mach1, beta1)
+        self.a2 = np.sqrt(gamma*p2/rho2)
+
+        # Flow properties in the third zone.
+        self.rho3 = rho3 = rho2 * self.calc_density_ratio(mach2, beta2)
+        self.p3 = p3 = p2 * self.calc_pressure_ratio(mach2, beta2)
+        self.T3 = T3 = T2 * self.calc_temperature_ratio(mach2, beta2)
+        self.a3 = np.sqrt(gamma*p3/rho3)
 
 class ExactObshockHook(sc.MeshHook):
     """
@@ -111,29 +81,31 @@ class ExactObshockHook(sc.MeshHook):
     """
 
     def __init__(self, cse, **kw):
-        self.dta = kw.pop('dta')
-        self.M1 = kw.pop('M1')
-        self.ga = kw.pop('gamma')
+        self.theta = kw.pop('theta')
+        self.mach1 = kw.pop('mach1')
+        self.gamma = kw.pop('gamma')
         self.p1 = kw.pop('p')
         self.rho1 = kw.pop('rho')
         self.region = kw.pop('region', 2)
         super(ExactObshockHook, self).__init__(cse, **kw)
 
     def _calculate(self):
-        obs = ObliqueShock(ga=self.ga, dta=self.dta, M1=self.M1)
+        obs = ObliqueShockReflection(
+            gamma=self.gamma, theta=self.theta, mach1=self.mach1,
+            rho1=self.rho1, p1=self.p1, T1=1)
         self.info('Oblique shock relation (exact):\n')
-        self.info('  delta = %.3f deg (ramp angle)\n' % (obs.dta/np.pi*180))
-        self.info('  beta  = %.3f deg (shock angle)\n' % (obs.bta/np.pi*180))
-        self.info('  M2    = %.10f\n' % obs.M2)
-        self.info('  rho2  = %.10f\n' % obs.calc_rho2(self.rho1))
-        self.info('  p2    = %.10f\n' % obs.calc_p2(self.p1))
+        self.info('  theta = %.3f deg (flow angle)\n' % (obs.theta/np.pi*180))
+        self.info('  beta  = %.3f deg (shock angle)\n' % (obs.beta1/np.pi*180))
+        self.info('  mach2 = %.10f\n' % obs.mach2)
+        self.info('  rho2  = %.10f\n' % obs.rho2)
+        self.info('  p2    = %.10f\n' % obs.p2)
         if self.region >= 3:
-            self.info('  beta2 = %.3f deg (shock angle)\n' % (obs.bta2/np.pi*180))
-            self.info('  - dta = %.3f deg (shock-ramp angle)\n' % (
-                (obs.bta2-obs.dta)/np.pi*180))
-            self.info('  M3    = %.10f\n' % obs.M3)
-            self.info('  rho3  = %.10f\n' % obs.calc_rho3(self.rho1))
-            self.info('  p3    = %.10f\n' % obs.calc_p3(self.p1))
+            self.info('  beta2   = %.3f deg (shock angle)\n' % (obs.beta2/np.pi*180))
+            self.info('  - theta = %.3f deg (shock - flow angle)\n' % (
+                (obs.beta2-obs.theta)/np.pi*180))
+            self.info('  mach3   = %.10f\n' % obs.mach3)
+            self.info('  rho3    = %.10f\n' % obs.rho3)
+            self.info('  p3      = %.10f\n' % obs.p3)
 
     def preloop(self):
         self._calculate()
@@ -148,17 +120,18 @@ class ReflProbe(gas.ProbeHook):
     def __init__(self, cse, **kw):
         kw['speclst'] = ['M', 'rho', 'p']
         # calculate exact solution.
-        dta = kw.pop('dta')
-        M1 = kw.pop('M1')
-        ga = kw.pop('gamma')
+        theta = kw.pop('theta')
+        mach1 = kw.pop('mach1')
+        gamma = kw.pop('gamma')
         p1 = kw.pop('p')
         rho1 = kw.pop('rho')
-        obs = ObliqueShock(ga=ga, dta=dta, M1=M1)
-        self.M3 = obs.M3
-        self.rho3 = obs.calc_rho3(rho1)
-        self.p3 = obs.calc_p3(p1)
-        bta = obs.bta
-        bta2 = obs.bta2
+        obs = ObliqueShockReflection(gamma=gamma, theta=theta, mach1=mach1,
+                                     rho1=rho1, p1=p1, T1=1)
+        self.mach3 = obs.mach3
+        self.rho3 = obs.rho3
+        self.p3 = obs.p3
+        beta1 = obs.beta1
+        beta2 = obs.beta2
         # detemine location.
         x0 = kw.pop('x0')
         y0 = kw.pop('y0')
@@ -167,8 +140,8 @@ class ReflProbe(gas.ProbeHook):
         y1 = kw.pop('y1')
         z1 = kw.pop('z1', None)
         factor = kw.pop('factor', 0.9)
-        lgh = (y1-y0) / np.tan(bta)
-        hgt = factor * (x1-x0-lgh) * np.tan((bta2-dta)/2)
+        lgh = (y1-y0) / np.tan(beta1)
+        hgt = factor * (x1-x0-lgh) * np.tan((beta2-theta)/2)
         lgh = factor * (x1-x0-lgh) + lgh
         if None is not z0:
             poi = ('poi', lgh, hgt, (z1+z0)/2)
@@ -182,8 +155,8 @@ class ReflProbe(gas.ProbeHook):
         super(ReflProbe, self).postloop()
         self.info('Probe result at %s:\n' % self.points[0])
         M, rho, p = self.points[0].vals[-1][1:]
-        self.info('  M3   = %.3f/%.3f (error=%%%.2f)\n' % (M, self.M3,
-            abs((M-self.M3)/self.M3)*100))
+        self.info('  mach3   = %.3f/%.3f (error=%%%.2f)\n' % (M, self.mach3,
+            abs((M-self.mach3)/self.mach3)*100))
         self.info('  rho3 = %.3f/%.3f (error=%%%.2f)\n' % (rho, self.rho3,
             abs((rho-self.rho3)/self.rho3)*100))
         self.info('  p3   = %.3f/%.3f (error=%%%.2f)\n' % (p, self.p3,
@@ -204,7 +177,7 @@ def mesher(cse):
     return gmh.toblock(bcname_mapper=cse.condition.bcmap)
 
 def obrf_base(casename=None, meshname=None,
-    gamma=None, density=None, pressure=None, M=None, dta=None,
+    gamma=None, density=None, pressure=None, mach=None, theta=None,
     psteps=None, ssteps=None, **kw
 ):
     """
@@ -217,14 +190,15 @@ def obrf_base(casename=None, meshname=None,
     fpb = {
         'gamma': gamma, 'rho': density, 'v2': 0.0, 'v3': 0.0, 'p': pressure,
     }
-    fpb['v1'] = M*np.sqrt(gamma*fpb['p']/fpb['rho'])
+    fpb['v1'] = mach*np.sqrt(gamma*fpb['p']/fpb['rho'])
     fpt = fpb.copy()
-    ob = ObliqueShock(ga=gamma, dta=dta, M1=M)
-    fpt['rho'] = ob.calc_rho2(fpb['rho'])
-    fpt['p'] = ob.calc_p2(fpb['p'])
-    V2 = ob.M2 * ob.calc_a2(fpb['rho'], fpb['p']) 
-    fpt['v1'] = V2 * np.cos(dta)
-    fpt['v2'] = -V2 * np.sin(dta)
+    ob = ObliqueShockReflection(gamma=gamma, theta=theta, mach1=mach,
+                                rho1=density, p1=pressure, T1=1)
+    fpt['rho'] = ob.rho2
+    fpt['p'] = ob.p2
+    V2 = ob.mach2 * ob.a2
+    fpt['v1'] = V2 * np.cos(theta)
+    fpt['v2'] = -V2 * np.sin(theta)
     fpi = fpb.copy()
     # set up BCs.
     bcmap = {
@@ -255,8 +229,9 @@ def obrf_base(casename=None, meshname=None,
     cse.runhooks.append(gas.PhysicsAnchor, rsteps=ssteps)
     ## execution order is reversed for postloop.
     cse.runhooks.append(ReflProbe, psteps=ssteps,
-        x0=0, x1=4, y0=0, y1=1, z0=0, z1=0, dta=dta, M1=M, **fpb)
-    cse.runhooks.append(ExactObshockHook, region=3, dta=dta, M1=M, **fpb)
+        x0=0, x1=4, y0=0, y1=1, z0=0, z1=0, theta=theta, mach1=mach, **fpb)
+    cse.runhooks.append(ExactObshockHook, region=3, theta=theta, mach1=mach,
+                        **fpb)
     ## output.
     cse.runhooks.append(gas.PMarchSave, anames=[
             ('soln', False, -4),
@@ -270,7 +245,7 @@ def obrf(casename, **kw):
     The true arrangement which specifies necessary parameters for execution.
     """
     return obrf_base(casename, meshfn='100',
-        gamma=1.4, density=1.0, pressure=1.0, M=3.0, dta=10.0/180*np.pi,
+        gamma=1.4, density=1.0, pressure=1.0, mach=3.0, theta=10.0/180*np.pi,
         time_increment=7.e-3, steps_run=600, ssteps=100, psteps=2, **kw)
 
 
