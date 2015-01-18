@@ -4,33 +4,24 @@ Reflection of Oblique Shock Wave (Under Development)
 
 .. py:module:: solvcon.parcel.gas.oblique_shock
 
-Consider an oblique shock wave hits a solid wall and reflects.  The system will
-have two oblique shock waves and the relations of oblique shock will be applied
-twice to obtain the flow properties in the total 3 zones.  Each oblique shock
-is resulted from a sudden change of flow direction, such as Figure
-:num:`fig-oblique-shock`:
+This example solves a reflecting oblique shock wave, as shown in Figure
+:num:`fig-reflection`.  The system consists of two oblique shock waves, which
+separate the flow into three zones.  The incident shock results from a wedge.
+The second reflects from a plane wall.  Flow properties in all the three zones
+can be calculated with the following data:
 
-.. _fig-oblique-shock:
+1. The upstream (zone 1) Mach number :math:`M_1` and the flow properties
+   density, pressure, and temperature.
+2. The first oblique shock angle :math:`\beta_1` (between zone 1 and 2) or the
+   flow deflection angle :math:`\theta` (across zone 1/2 and zone 2/3).  Only
+   one of the angle is needed.  The other one can be calculated from the given
+   one and :math:`M_1`.  The calculation detail is in
+   :py:meth:`ObliqueShockRelation.calc_flow_angle` and
+   :py:meth:`ObliqueShockRelation.calc_shock_angle`.
 
-.. figure:: oblique_shock.png
-  :align: center
-
-  Oblique shock wave by a wedge
-
-  :math:`M` is Mach number.  :math:`\theta` is the flow deflection angle.
-  :math:`\beta` is the oblique shock angle.
-
-The given data include:
-
-1. The upstream (zone 1) Mach number :math:`M_1` and other flow properties
-   (density, pressure, and temperature).
-2. The first oblique shock angle :math:`\beta` (between zone 1 and 2) or the
-   flow deflection angle :math:`\theta` (across zone 1/2 and zone 2/3).
-   
-When :math:`M_1` and one of the angle :math:`\theta` or :math:`\beta` are
-given, the other angle can be calculated from
-:py:meth:`ObliqueShockRelation.calc_flow_angle` or
-:py:meth:`ObliqueShockRelation.calc_shock_angle`, respectively.
+SOLVCON will be set up to solve this problem, and the simulated results will be
+compared with the analytical solution.  The relation of flow properties across
+each oblique shock can be analytically obtained [Anderson03]_.
 
 .. _fig-reflection:
 
@@ -45,6 +36,19 @@ given, the other angle can be calculated from
 
 Relations across Oblique Shock
 ==============================
+
+An oblique shock is resulted from a sudden change of flow direction, as shown
+in Figure :num:`fig-oblique-shock`.
+
+.. _fig-oblique-shock:
+
+.. figure:: oblique_shock.png
+  :align: center
+
+  Oblique shock wave by a wedge
+
+  :math:`M` is Mach number.  :math:`\theta` is the flow deflection angle.
+  :math:`\beta` is the oblique shock angle.
 
 The notation and derivations from Section 4.3 *Oblique Shock Relations* of
 [Anderson03]_ are used.  :math:`\square_1` denotes upstream properties and
