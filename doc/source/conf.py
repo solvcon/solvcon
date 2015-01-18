@@ -12,7 +12,9 @@
 # serve to show the default.
 
 import sys, os
-sys.path.insert(0, os.path.abspath(os.path.join(*(['..']*2))))
+_fwd = os.path.dirname(__file__)
+sys.path.insert(0, os.path.abspath(os.path.join(_fwd, '..', 'ext')))
+sys.path.insert(0, os.path.abspath(os.path.join(_fwd, '..', '..')))
 import solvcon
 
 # If extensions (or modules to document with autodoc) are in another directory,
@@ -32,6 +34,7 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.intersphinx',
     'sphinx.ext.inheritance_diagram',
+    'numfig',
 ]
 try:
     from sphinxcontrib import issuetracker

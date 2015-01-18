@@ -8,9 +8,9 @@ Consider an oblique shock wave hits a solid wall and reflects.  The system will
 have two oblique shock waves and the relations of oblique shock will be applied
 twice to obtain the flow properties in the total 3 zones.  Each oblique shock
 is resulted from a sudden change of flow direction, such as Figure
-:ref:`fig_oblique_shock`:
+:num:`fig-oblique-shock`:
 
-.. _fig_oblique_shock:
+.. _fig-oblique-shock:
 
 .. figure:: oblique_shock.png
   :align: center
@@ -31,6 +31,8 @@ When :math:`M_1` and one of the angle :math:`\theta` or :math:`\beta` are
 given, the other angle can be calculated from
 :py:meth:`ObliqueShockRelation.calc_flow_angle` or
 :py:meth:`ObliqueShockRelation.calc_shock_angle`, respectively.
+
+.. _fig-reflection:
 
 .. figure:: reflection.png
   :align: center
@@ -58,10 +60,10 @@ Methods of calculating the shock relations are organized in the class
 :py:class:`ObliqueShockRelation`.  Derivation of the relation uses a rotated
 coordinate system :math:`(n, t)` defined by the oblique shock, where
 :math:`\hat{n}` is the unit vector normal to the shock, and :math:`\hat{t}` is
-the unit vector tangential to the shock.  Figure :ref:`fig_oblique_relation` is
+the unit vector tangential to the shock.  Figure :num:`fig-oblique-relation` is
 useful in the derivation of the relations.
 
-.. _fig_oblique_relation:
+.. _fig-oblique-relation:
 
 .. figure:: oblique_relation.png
   :align: center
