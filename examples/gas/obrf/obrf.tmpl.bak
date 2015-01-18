@@ -1,4 +1,6 @@
 /*
+ * XXX: I am not used for the simulation.  See the driving script go instead.
+ *
  * A Gmsh template file for a rectangle domain.
  */
 lc = %g;

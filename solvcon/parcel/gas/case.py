@@ -32,20 +32,19 @@
 The control interface.
 """
 
-
-from solvcon import case
-from solvcon import domain
+import solvcon as sc
 
 from . import solver as localsolver
 
 
-class GasCase(case.MeshCase):
+class GasCase(sc.MeshCase):
     """
     Simulation case for the Navier-Stokes solver based on the bulk modulus.
     """
+
     defdict = {
         'solver.solvertype': localsolver.GasSolver,
-        'solver.domaintype': domain.Domain,
+        'solver.domaintype': sc.Domain,
         'solver.alpha': 1,
         'solver.sigma0': 3.0,
         'solver.taylor': 1.0,
@@ -53,7 +52,9 @@ class GasCase(case.MeshCase):
         'solver.sftfac': 1.0,
         'solver.taumin': None,
         'solver.tauscale': None,
+        'io.rootdir': sc.env.projdir, # Different default to MeshCase.
     }
+
     def make_solver_keywords(self):
         kw = super(GasCase, self).make_solver_keywords()
         # time.

@@ -41,6 +41,7 @@ import time
 import gzip
 
 from . import hook
+from . import anchor
 from . import helper
 from . import domain
 from . import rpc
@@ -58,6 +59,181 @@ from . import case_core
 # import legacy.
 from .case_core import arrangements, CaseInfo
 from .case_legacy import BaseCase, BlockCase
+
+
+class MeshHookList(list):
+    """
+    Hook container and invoker.
+
+    :ivar cse: case object.
+    :type cse: solvcon.case.BaseCase
+
+    >>> MeshHookList()
+    Traceback (most recent call last):
+        ...
+    TypeError: __init__() takes at least 2 arguments (1 given)
+    >>> # Give the constructor a MeshCase.
+    >>> from solvcon.testing import create_trivial_2d_blk
+    >>> cse = MeshCase() # No arguments because of demonstration.
+    >>> hook_list = MeshHookList(cse)
+
+    The input *cse* will be kept in the list:
+
+    >>> cse is hook_list.cse
+    True
+    """
+
+    def __init__(self, cse, *args, **kw):
+        """
+        :py:class:`MeshHookList` requires an argument to :py:class:`MeshCase`:
+        """
+        self.cse = cse
+        super(MeshHookList, self).__init__(*args, **kw)
+
+    def append(self, obj, **kw):
+        """
+        The input :py:class:`~.hook.MeshHook` *obj* will be appended into the
+        list.  The *obj* argument is usually a :py:class:`~.hook.MeshHook` type
+        or a :py:class:`~.anchor.MeshAnchor` type, instead of an instance of
+        them.  The method will automatically create the necessary Hook object
+        when detect acceptable type object passed as the first argument.
+
+        See :py:meth:`sanitize` for conditions of the input *obj* and *kw*.
+
+        >>> import solvcon as sc
+        >>> from solvcon.testing import create_trivial_2d_blk
+        >>> cse = MeshCase() # No arguments because of demonstration.
+        >>> hook_list = MeshHookList(cse)
+        >>> len(hook_list)
+        0
+        >>> # Create two hooks of the same type and content.
+        >>> hook_list.append(sc.MeshHook, dummy="name")
+        >>> hook_list.append(sc.MeshHook, dummy="name")
+        >>> hook_list[0].kws['dummy'], hook_list[1].kws['dummy']
+        ('name', 'name')
+        >>> # The two hooks aren't identical.
+        >>> hook_list[0] is hook_list[1]
+        False
+        """
+        obj = self.sanitize(obj, **kw)
+        return super(MeshHookList, self).append(obj)
+
+    def replace(self, obj, **kw):
+        """
+        Replace the object if one of the same type already existed, otherwise,
+        call :py:meth:`append`.
+
+        See :py:meth:`sanitize` for conditions of the input *obj* and *kw*.
+
+        :return: Nothing.
+
+        >>> import solvcon as sc
+        >>> from solvcon.testing import create_trivial_2d_blk
+        >>> cse = MeshCase() # No arguments because of demonstration.
+        >>> hook_list = MeshHookList(cse)
+        >>> len(hook_list)
+        0
+        >>> # Create a hook.
+        >>> hook_list.replace(sc.MeshHook, dummy="name1")
+        >>> hook_list[0].kws['dummy']
+        'name1'
+        >>> # Create the second hook to replace the first one.
+        >>> hook_list.replace(sc.MeshHook, dummy="name2")
+        >>> hook_list[0].kws['dummy'] # Got replaced.
+        'name2'
+        >>> len(hook_list) # Still only one hook in the list.
+        1
+        """
+        # Check if there's an existed object of the same type.
+        index = None
+        for it, existed in enumerate(self):
+            good_types = [obj]
+            ankcls = getattr(existed, 'ankcls', None)
+            if ankcls:
+                good_types.append(ankcls)
+            if issubclass(type(existed), tuple(good_types)):
+                index = it
+                # If there area multiple matches, ignore them.
+                break
+        # Append if no match.
+        if None is index:
+            return self.append(obj, **kw)
+        # Replace if there's a match.
+        else:
+            obj = self.sanitize(obj, **kw)
+            self[index] = obj
+
+    def sanitize(self, obj, **kw):
+        """
+        All the keywords go to the creation of the :py:class:`~.hook.MeshHook`
+        object if the first argument is a type.  If the first argument is an
+        instantiated :py:class:`~.hook.MeshHook` object, the method accepts no
+        keywords.
+
+        :param obj: the hook object to be appended.
+        :type obj: solvcon.hook.MeshHook or solvcon.anchor.MeshAnchor
+        :return: The original or the newly instantiated
+                 :py:class:`~.hook.MeshHook` object.
+
+        The input *obj* is either a :py:class:`~.hook.MeshHook` or a
+        :py:class:`~.anchor.MeshAnchor` type.  Other input results into
+        TypeError.
+
+        >>> from solvcon.testing import create_trivial_2d_blk
+        >>> cse = MeshCase() # No arguments because of demonstration.
+        >>> hook_list = MeshHookList(cse)
+        >>> hook_list.sanitize(tuple)
+        Traceback (most recent call last):
+            ...
+        TypeError: not solvcon.MeshHook or solvcon.MeshAnchor
+        >>> import solvcon as sc
+        >>> type(hook_list.sanitize(sc.MeshHook)).__name__
+        'MeshHook'
+
+        When :py:class:`~.anchor.MeshAnchor` is given, the constructed
+        object will be a :py:class:`~.hook.MeshHook` used as a dummy.
+
+        >>> type(hook_list.sanitize(sc.MeshAnchor)).__name__
+        'MeshHook'
+
+        If the input *obj* is an instance, no *kw* can be given.
+
+        >>> hook_list.sanitize(sc.MeshHook(cse), dummy=None)
+        Traceback (most recent call last):
+            ...
+        AssertionError
+        >>> type(hook_list.sanitize(sc.MeshHook(cse))).__name__
+        'MeshHook'
+        """
+        if isinstance(obj, type):
+            if issubclass(obj, hook.MeshHook):
+                hookcls = obj
+            elif issubclass(obj, anchor.MeshAnchor):
+                kw['ankcls'] = obj
+                hookcls = hook.MeshHook # Use a dummy MeshHook.
+            else:
+                raise TypeError("not solvcon.MeshHook or solvcon.MeshAnchor")
+            obj = hookcls(self.cse, **kw)
+        else: # Got an instance.
+            assert len(kw) == 0
+        return obj
+
+    def __call__(self, method):
+        """
+        Invoke the specified method for each hook object.
+
+        :param method: name of the method to run.
+        :type method: str
+        """
+        runhooks = self
+        if method == 'postloop':
+            runhooks = reversed(runhooks)
+        for hook in runhooks:
+            getattr(hook, method)()
+
+    def drop_anchor(self, svr):
+        for hok in self:
+            hok.drop_anchor(svr)
 
 
 class MeshCase(case_core.CaseInfo):
@@ -121,7 +297,7 @@ class MeshCase(case_core.CaseInfo):
             if val is not None:
                 self._set_through(cinfok, val)
         # create runhooks.
-        self.runhooks = case_core.HookList(self)
+        self.runhooks = MeshHookList(self)
         # expand basedir.
         if self.io.abspath:
             self.io.basedir = os.path.abspath(self.io.basedir)
@@ -913,5 +1089,41 @@ for node in $nodes; do rsh $node killall %s; done
         cls.arrangements[casename] = arrangements[casename] = simu
         # return the simulation function.
         return simu
+
+    def defer(self, delayed, replace=False, **kw):
+        """
+        Insert (append or replace) hooks.
+
+        :param delayed: The delayed construct.
+        :type delayed: :py:class:`solvcon.MeshHook` or
+                       :py:class:`solvcon.MeshAnchor`.
+        :keyword replace: True if existing object should be replaced.
+        :type replace: bool
+        :return: Nothing.
+
+        >>> import solvcon as sc
+        >>> from solvcon.testing import create_trivial_2d_blk
+        >>> cse = MeshCase() # No arguments because of demonstration.
+        >>> len(cse.runhooks)
+        0
+        >>> # Insert a hook.
+        >>> cse.defer(sc.MeshHook, dummy='name1')
+        >>> cse.runhooks[0].kws['dummy']
+        'name1'
+        >>> # Insert the second hook to replace the first one.
+        >>> cse.defer(sc.MeshHook, replace=True, dummy='name2')
+        >>> cse.runhooks[0].kws['dummy'] # Got replaced.
+        'name2'
+        >>> len(cse.runhooks) # Still only one hook in the list.
+        1
+        >>> # Insert the third hook without replace.
+        >>> cse.defer(sc.MeshHook, dummy='name3')
+        >>> cse.runhooks[1].kws['dummy'] # Got replaced.
+        'name3'
+        """
+        if replace: # Intentional duplication.
+            self.runhooks.replace(delayed, **kw)
+        else: # Replace the original one.
+            self.runhooks.append(delayed, **kw)
 
 # vim: set ff=unix fenc=utf8 ft=python ai et sw=4 ts=4 tw=79:

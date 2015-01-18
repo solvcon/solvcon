@@ -62,7 +62,7 @@ __all__ = [
     # domain
     'Domain', 'Collective', 'Distributed',
     # helper
-    'helper',
+    'helper', 'Gmsh',
     # parcel
     'parcel',
 ]
@@ -76,8 +76,8 @@ from .anchor import MeshAnchor, MeshAnchorList
 from .hook import MeshHook
 from .boundcond import BC, bctregy
 from .domain import Domain, Collective, Distributed
-
 from . import helper
+from .helper import Gmsh
 from . import parcel
 
 if __name__ == '__main__':
