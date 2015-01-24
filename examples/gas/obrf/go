@@ -31,67 +31,14 @@
 
 
 """
-This is a two-dimensional example of the reflection of oblique shock wave.
+This is an example for solving the problem of oblique shock reflection.
 """
 
 
-import os
-
-import numpy as np
-
-import solvcon as sc
-
-from solvcon.parcel import gas
-
-
-class RectangleMesher(object):
-    """
-    :ivar lowerleft: (x0, y0) of the rectangle.
-    :type lowerleft: tuple
-    :ivar upperright: (x1, y1) of the rectangle.
-    :type upperright: tuple
-    :ivar edgelength: Length of each mesh cell edge.
-    :type edgelength: float
-    """
-
-    GMSH_SCRIPT = """
-    // vertices.
-    Point(1) = {%(x1)g,%(y1)g,0,%(edgelength)g};
-    Point(2) = {%(x0)g,%(y1)g,0,%(edgelength)g};
-    Point(3) = {%(x0)g,%(y0)g,0,%(edgelength)g};
-    Point(4) = {%(x1)g,%(y0)g,0,%(edgelength)g};
-    // lines.
-    Line(1) = {1,2};
-    Line(2) = {2,3};
-    Line(3) = {3,4};
-    Line(4) = {4,1};
-    // surface.
-    Line Loop(1) = {1,2,3,4};
-    Plane Surface(1) = {1};
-    // physics.
-    Physical Line("upper") = {1};
-    Physical Line("left") = {2};
-    Physical Line("lower") = {3};
-    Physical Line("right") = {4};
-    Physical Surface("domain") = {1};
-    """.strip()
-
-    def __init__(self, lowerleft, upperright, edgelength):
-        assert 2 == len(lowerleft)
-        self.lowerleft = tuple(float(val) for val in lowerleft)
-        assert 2 == len(upperright)
-        self.upperright = tuple(float(val) for val in upperright)
-        self.edgelength = float(edgelength)
-
-    def __call__(self, cse):
-        x0, y0 = self.lowerleft
-        x1, y1 = self.upperright
-        script_arguments = dict(
-            edgelength=self.edgelength, x0=x0, y0=y0, x1=x1, y1=y1)
-        cmds = self.GMSH_SCRIPT % script_arguments
-        cmds = [cmd.rstrip() for cmd in cmds.strip().split('\n')]
-        gmh = sc.Gmsh(cmds)()
-        return gmh.toblock(bcname_mapper=cse.condition.bcmap)
+import os # Python standard library
+import numpy as np # http://www.numpy.org
+import solvcon as sc # SOLVCON
+from solvcon.parcel import gas # A specific SOLVCON solver package we'll use
 
 
 class ObliqueShockReflection(gas.ObliqueShockRelation):
@@ -146,7 +93,83 @@ class ObliqueShockReflection(gas.ObliqueShockRelation):
         return _ShowRelation
 
 
-class ReflProbe(gas.ProbeHook):
+class RectangleMesher(object):
+    """
+    Representation of a rectangle and the Gmsh meshing helper.
+
+    :ivar lowerleft: (x0, y0) of the rectangle.
+    :type lowerleft: tuple
+    :ivar upperright: (x1, y1) of the rectangle.
+    :type upperright: tuple
+    :ivar edgelength: Length of each mesh cell edge.
+    :type edgelength: float
+    """
+
+    GMSH_SCRIPT = """
+    // vertices.
+    Point(1) = {%(x1)g,%(y1)g,0,%(edgelength)g};
+    Point(2) = {%(x0)g,%(y1)g,0,%(edgelength)g};
+    Point(3) = {%(x0)g,%(y0)g,0,%(edgelength)g};
+    Point(4) = {%(x1)g,%(y0)g,0,%(edgelength)g};
+    // lines.
+    Line(1) = {1,2};
+    Line(2) = {2,3};
+    Line(3) = {3,4};
+    Line(4) = {4,1};
+    // surface.
+    Line Loop(1) = {1,2,3,4};
+    Plane Surface(1) = {1};
+    // physics.
+    Physical Line("upper") = {1};
+    Physical Line("left") = {2};
+    Physical Line("lower") = {3};
+    Physical Line("right") = {4};
+    Physical Surface("domain") = {1};
+    """.strip()
+
+    def __init__(self, lowerleft, upperright, edgelength):
+        assert 2 == len(lowerleft)
+        self.lowerleft = tuple(float(val) for val in lowerleft)
+        assert 2 == len(upperright)
+        self.upperright = tuple(float(val) for val in upperright)
+        self.edgelength = float(edgelength)
+
+    def __call__(self, cse):
+        x0, y0 = self.lowerleft
+        x1, y1 = self.upperright
+        script_arguments = dict(
+            edgelength=self.edgelength, x0=x0, y0=y0, x1=x1, y1=y1)
+        cmds = self.GMSH_SCRIPT % script_arguments
+        cmds = [cmd.rstrip() for cmd in cmds.strip().split('\n')]
+        gmh = sc.Gmsh(cmds)()
+        return gmh.toblock(bcname_mapper=cse.condition.bcmap)
+
+
+def generate_bcmap(relation):
+    # Flow properties (fp).
+    fpb = {
+        'gamma': relation.gamma, 'rho': relation.rho1,
+        'v2': 0.0, 'v3': 0.0, 'p': relation.p1,
+    }
+    fpb['v1'] = relation.mach1*np.sqrt(relation.gamma*fpb['p']/fpb['rho'])
+    fpt = fpb.copy()
+    fpt['rho'] = relation.rho2
+    fpt['p'] = relation.p2
+    V2 = relation.mach2 * relation.a2
+    fpt['v1'] = V2 * np.cos(relation.theta)
+    fpt['v2'] = -V2 * np.sin(relation.theta)
+    fpi = fpb.copy()
+    # BC map.
+    bcmap = {
+        'upper': (sc.bctregy.GasInlet, fpt,),
+        'left': (sc.bctregy.GasInlet, fpb,),
+        'right': (sc.bctregy.GasNonrefl, {},),
+        'lower': (sc.bctregy.GasWall, {},),
+    }
+    return bcmap
+
+
+class ReflectionProbe(gas.ProbeHook):
     """
     Place a probe for the flow properties in the reflected region.
     """
@@ -174,10 +197,10 @@ class ReflProbe(gas.ProbeHook):
         # Call super.
         kw['coords'] = (poi,)
         kw['speclst'] = ['M', 'rho', 'p']
-        super(ReflProbe, self).__init__(cse, **kw)
+        super(ReflectionProbe, self).__init__(cse, **kw)
 
     def postloop(self):
-        super(ReflProbe, self).postloop()
+        super(ReflectionProbe, self).postloop()
         rel = self.relation
         self.info('Probe result at %s:\n' % self.points[0])
         M, rho, p = self.points[0].vals[-1][1:]
@@ -189,54 +212,48 @@ class ReflProbe(gas.ProbeHook):
             p, rel.p3, abs((p-rel.p3)/rel.p3)*100))
 
 
-def generate_bcmap(relation):
-    # Flow properties (fp).
-    fpb = {
-        'gamma': relation.gamma, 'rho': relation.rho1,
-        'v2': 0.0, 'v3': 0.0, 'p': relation.p1,
-    }
-    fpb['v1'] = relation.mach1*np.sqrt(relation.gamma*fpb['p']/fpb['rho'])
-    fpt = fpb.copy()
-    fpt['rho'] = relation.rho2
-    fpt['p'] = relation.p2
-    V2 = relation.mach2 * relation.a2
-    fpt['v1'] = V2 * np.cos(relation.theta)
-    fpt['v2'] = -V2 * np.sin(relation.theta)
-    fpi = fpb.copy()
-    # BC map.
-    bcmap = {
-        'upper': (sc.bctregy.GasInlet, fpt,),
-        'left': (sc.bctregy.GasInlet, fpb,),
-        'right': (sc.bctregy.GasNonrefl, {},),
-        'lower': (sc.bctregy.GasWall, {},),
-    }
-    return bcmap
-
-
 def obrf_base(
-    casename=None, psteps=None, ssteps=None,
+    casename=None, psteps=None, ssteps=None, edgelength=None,
     gamma=None, density=None, pressure=None, mach=None, theta=None, **kw):
     """
     Base configuration of the simulation and return the case object.
 
-    :return: the created Case object.
+    :return: The created Case object.
     :rtype: solvcon.parcel.gas.GasCase
     """
+
+    ############################################################################
+    # Step 1: Obtain the analytical solution.
+    ############################################################################
+
     # Calculate the flow properties in all zones separated by the shock.
     relation = ObliqueShockReflection(gamma=gamma, theta=theta, mach1=mach,
                                       rho1=density, p1=pressure, T1=1)
-    # Create the mesh generator.
-    mesher = RectangleMesher(lowerleft=(0,0), upperright=(4,1), edgelength=0.1)
-    # Create the BC mapper.
-    bcmap = generate_bcmap(relation)
+
+    ############################################################################
+    # Step 2: Instantiate the simulation case.
+    ############################################################################
+
+    # Create the mesh generator.  Keep it for later use.
+    mesher = RectangleMesher(lowerleft=(0,0), upperright=(4,1),
+                             edgelength=edgelength)
     # Set up case.
     cse = gas.GasCase(
+        # Mesh generator.
+        mesher=mesher,
+        # Mapping boundary-condition treatments.
+        bcmap=generate_bcmap(relation),
         # Use the case name to be the basename for all generated files.
         basefn=casename,
         # Use `cwd`/result to store all generated files.
         basedir=os.path.abspath(os.path.join(os.getcwd(), 'result')),
-        # Set up the rest and capture-all.
-        mesher=mesher, bcmap=bcmap, debug=False, **kw)
+        # Debug and capture-all.
+        debug=False, **kw)
+
+    ############################################################################
+    # Step 3: Set up delayed callbacks.
+    ############################################################################
+
     # Field initialization and derived calculations.
     cse.defer(gas.FillAnchor, mappers={'soln': gas.GasSolver.ALMOST_ZERO,
                                        'dsoln': 0.0, 'amsca': gamma})
@@ -247,23 +264,44 @@ def obrf_base(
     cse.defer(gas.ProgressHook, linewidth=ssteps/psteps, psteps=psteps)
     cse.defer(gas.CflHook, fullstop=False, cflmax=10.0, psteps=ssteps)
     cse.defer(gas.MeshInfoHook, psteps=ssteps)
-    cse.defer(ReflProbe, rect=mesher, relation=relation, psteps=ssteps)
+    cse.defer(ReflectionProbe, rect=mesher, relation=relation, psteps=ssteps)
     # Store data.
-    cse.defer(gas.PMarchSave, anames=[('soln', False, -4)], psteps=ssteps)
+    cse.defer(gas.PMarchSave,
+              anames=[('soln', False, -4),
+                      ('rho', True, 0),
+                      ('p', True, 0),
+                      ('T', True, 0),
+                      ('ke', True, 0),
+                      ('M', True, 0),
+                      ('sch', True, 0),
+                      ('v', True, 0.5)],
+              psteps=ssteps)
+
+    ############################################################################
+    # Final: Return the configured simulation case.
+    ############################################################################
     return cse
 
 
-@gas.GasCase.register_arrangement
+@gas.register_arrangement
 def obrf(casename, **kw):
-    """
-    The true arrangement which specifies necessary parameters for execution.
-    """
     return obrf_base(
+        # Required positional argument for the name of the simulation case.
+        casename,
         # Arguments to the base configuration.
-        casename, ssteps=100, psteps=2,
+        ssteps=200, psteps=4, edgelength=0.1,
         gamma=1.4, density=1.0, pressure=1.0, mach=3.0, theta=10.0/180*np.pi,
         # Arguments to GasCase.
         time_increment=7.e-3, steps_run=600, **kw)
+
+
+@gas.register_arrangement
+def obrf_fine(casename, **kw):
+    return obrf_base(
+        casename,
+        ssteps=200, psteps=4, edgelength=0.02,
+        gamma=1.4, density=1.0, pressure=1.0, mach=3.0, theta=10.0/180*np.pi,
+        time_increment=1.e-3, steps_run=4000, **kw)
 
 
 if __name__ == '__main__':

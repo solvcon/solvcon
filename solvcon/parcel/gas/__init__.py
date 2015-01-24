@@ -43,7 +43,11 @@ from .physics import DensityInitAnchor, PhysicsAnchor
 from .inout import MeshInfoHook, ProgressHook, FillAnchor, CflHook, PMarchSave
 
 
+register_arrangement = GasCase.register_arrangement
+
+
 __all__ = [
+    'register_arrangement',
     # solver
     'GasSolver',
     # boundcond

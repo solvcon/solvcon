@@ -806,6 +806,8 @@ subclassed.
 
   .. automethod:: cleanup
 
+  .. automethod:: defer
+
 Initialize
 ----------
 
@@ -981,7 +983,7 @@ Low-Level Interface to C for :py:class:`~solvcon.boundcond.BC`
 :py:class:`MeshHook <solvcon.hook.MeshHook>` performs custom operations at
 certain pre-defined stages.
 
-.. autoclass:: Hook
+.. autoclass:: MeshHook
 
 .. py:module:: solvcon.anchor
 
