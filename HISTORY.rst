@@ -9,6 +9,8 @@ Changes:
   ``$HOME/opt/scruntime`` to ``$root/opt``.
 - #77 SCons script should respect LIBPATH environment variable.
 - #95: Support anaconda/miniconda/conda for managing dependencies
+- #98: Migrate the old gas-dynamics solvers into the new MeshSolver system
+- #106: Add simulation results to gas/obrf.rst document
 
 Bug-fixes:
 
@@ -23,6 +25,10 @@ Bug-fixes:
 - #92: Clean up solvcon.parcel.bulk.solver.BulkSolver initial condition code
 - #93: http://ci.solvcon.net/job/examples.vewave_cvg/ fails around revision
   51e85bf107a3a85b9930b4cabc5f3aa13b9c59bf
+- #99: Move solvcon.solver.ALMOST_ZERO into
+  solvcon.solver.MeshSolver.ALMOST_ZERO
+- #100: The exception wrapper in solvcon.cmdutil.go is not useful
+- #101: MeshSolver should use MeshAnchorList instead of AnchorLIst (legacy)
 
 Version 0.1.2
 +++++++++++++
