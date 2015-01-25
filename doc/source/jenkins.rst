@@ -1,9 +1,8 @@
-============
-Verification
-============
+:orphan:
 
-Set up Jenkins Slave
-====================
+===================
+Jenkins Slave Setup
+===================
 
 If you have extra machines, we welcome you to set them up as Jenkins slaves for
 SOLVCON.  The first step is to contact the site admin to set up a node for you.
@@ -13,7 +12,7 @@ init script file `/etc/init.d/jenkins-slave`_ and (ii) the default file
 `/etc/default/jenkins-slave`_.  To run the slave, you need at least two
 prerequisite packages and they can be installed by::
 
-  apt-get install daemon sun-java6-jre
+  $ apt-get install daemon sun-java6-jre
 
 Before starting the slave, don't forget to supply the settings
 ``JENKINS_SLAVE_USER`` and ``JENKINS_SLAVE_HOME`` in the default file
@@ -21,7 +20,7 @@ Before starting the slave, don't forget to supply the settings
 
 If everything runs correctly, then you can install the init script to rc.d::
 
-  update-rc.d jenkins-slave defaults
+  $ update-rc.d jenkins-slave defaults
 
 so that the slave can automatically run on machine start-up.
 

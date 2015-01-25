@@ -1,21 +1,11 @@
-===================================
-The CESE Method (Under Development)
-===================================
+====================================
+Sod's Shock Tube (Under Development)
+====================================
 
-The space-time `Conservation Element and Solution Element (CESE) method
-<http://www.grc.nasa.gov/WWW/microbus/>`__ is a numerical method designed for
-solving linear and nonlinear first-order hyperbolic partial differential
-equations (PDEs).  The method was originally developed for solving aerodynamic
-problems [Chang95]_.
-
-Verification by the Euler Equations
-===================================
+.. py:module:: solvcon.parcel.gas.shocktube
 
 A classic example to verify whether a CFD algorithm the Sod shock tube problem
 [Sod78]_.  We will introduce this problem in what follows.
-
-Sod's Shock Tube Problem
-++++++++++++++++++++++++
 
 In short, a shock tube problem is a Riemann problem with the Euler equations.
 This is a good benchmark to compare different CFD algorithm results.
@@ -341,15 +331,5 @@ Now defining the Mach number :math:`M_1 = \frac{u_1}{c_1}` and
    \frac{(\gamma+1)}{2(\gamma-1)} \\
    & \frac{M^*_1}{M_1(\gamma-1)} + \frac{M^{*2}_{1}}{2} =
    \frac{{u_1}^2}{(c^2_{*})2}
-
-============
-Bibliography
-============
-
-.. [Sod78] Sod, G. A., "A Survey of Several Finite Difference Methods for
-  Systems of Nonlinear Hyperbolic Conservation Laws", *J. Comput. Phys.*,
-  27: 1–31.
-.. [Wesselling01] Pieter Wesseling,
-  "Principles of Computational Fluid Dynamics"
 
 .. vim: set spell ft=rst ff=unix fenc=utf8:

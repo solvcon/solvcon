@@ -1,13 +1,13 @@
-============================
-Solvers of Conservation Laws
-============================
+=======
+SOLVCON
+=======
 
 SOLVCON is a collection of `Python <http://www.python.org>`__-based
 conservation-law solvers that use the space-time `Conservation Element and
 Solution Element (CESE) method <http://www.grc.nasa.gov/WWW/microbus/>`__
-[Chang95]_.  SOLVCON targets at solving problems that can be formulated as a
-system of first-order, linear or non-linear partial differential equations
-(PDEs) [Lax73]_:
+[Chang95]_.  It targets at solving problems that can be formulated as a system
+of first-order, linear or non-linear partial differential equations (PDEs)
+[Lax73]_:
 
 .. math::
 
@@ -17,75 +17,60 @@ system of first-order, linear or non-linear partial differential equations
 
 where :math:`\bvec{u}` is the unknown vector, :math:`\mathrm{A}^{(1)}`,
 :math:`\mathrm{A}^{(2)}`, and :math:`\mathrm{A}^{(3)}` the Jacobian matrices,
-and :math:`\bvec{s}` the source term.  SOLVCON is designed to be a software
-framework to house various solvers.  The design of SOLVCON is discussed in
-[Chen11]_.
-
-- The project page https://bitbucket.org/solvcon/solvcon
-- Report bugs and request features at
-  https://bitbucket.org/solvcon/solvcon/issues?status=new&status=open
-- Ask questions in our `mailing list
-  <http://groups.google.com/group/solvcon>`__: solvcon@googlegroups.com
+and :math:`\bvec{s}` the source term.
 
 .. include:: ../../README.rst
   :start-line: 10
 
-Documentation
-=============
+Focus Applications
+==================
 
 .. toctree::
   :maxdepth: 2
 
-  tutorial
+  gas/index
 
-Applications
-++++++++++++
+Other Applications
+==================
 
 .. toctree::
-  :maxdepth: 2
+  :maxdepth: 1
 
   app_linear
-  gas/index
   bulk/index
   app_vewave
 
-Numerical Methods
-+++++++++++++++++
-
-.. toctree::
-  :maxdepth: 3
-
-  tdnum/index
-  cese
-
 Infrastructure
-++++++++++++++
+==============
 
 .. toctree::
   :maxdepth: 3
 
   architecture
   inout
-  system_modules
 
 Development Support
-+++++++++++++++++++
+===================
 
-.. toctree::
-  :maxdepth: 1
+- Issue tracker: https://bitbucket.org/solvcon/solvcon/issues
+- Users' mailing list: solvcon@googlegroups.com (or
+  http://groups.google.com/group/solvcon)
+- :doc:`python_style`
+- :doc:`jenkins`
 
-  python_style
-  verification
-
-Appendices
+References
 ==========
 
-Other Resources
-+++++++++++++++
-
+- :doc:`bibliography`
+- :doc:`history`
 - Papers and presentations:
 
   - :doc:`pub_app`
+  - Yung-Yu Chen,
+    *A Multi-Physics Software Framework on Hybrid Parallel Computing for
+    High-Fidelity Solutions of Conservation Laws*,
+    Ph.D. Thesis, The Ohio State University, United States, Aug. 2011.
+    (`OhioLINK <http://rave.ohiolink.edu/etdc/view?acc_num=osu1313000975>`__)
   - `PyCon US 2011 talk
     <http://us.pycon.org/2011/schedule/presentations/50/>`__: `slides
     <http://solvcon.net/slide/PyCon11_yyc.pdf>`__ and `video
@@ -121,36 +106,13 @@ Other Resources
 - :doc:`link`
 - :doc:`link_other`
 
-Copyright Notice
-++++++++++++++++
+.. rubric:: Copyright Notice
 
 .. include:: ../../COPYING
 
-Release History
-+++++++++++++++
-
-.. toctree::
-   :maxdepth: 2
-
-   history
-
-Contributors
-++++++++++++
+.. rubric:: Contributors
 
 .. include:: ../../CREDITS.rst
   :start-line: 3
-
-Bibliography
-++++++++++++
-
-.. include:: bibliography.rst_inc
-  :start-line: 3
-
-Indices and Tables
-++++++++++++++++++
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
 
 .. vim: set spell ft=rst ff=unix fenc=utf8:

@@ -4,104 +4,69 @@
 
 SOLVCON is a collection of `Python <http://www.python.org>`__-based
 conservation-law solvers that use the space-time `Conservation Element and
-Solution Element (CESE) method <http://www.grc.nasa.gov/WWW/microbus/>`__.
-SOLVCON targets at solving problems that can be formulated as a system of
-first-order, linear or non-linear partial differential equations (PDEs).
+Solution Element (CESE) method <http://www.grc.nasa.gov/WWW/microbus/>`__.  It
+targets at solving problems that can be formulated as a system of first-order,
+linear or non-linear partial differential equations (PDEs).
 
-Get the Code and the Dependencies
-=================================
+Install
+=======
 
-Please clone the development version from `BitBucket
-<https://bitbucket.org/solvcon/solvcon>`__ (using `Mercurial
-<http://mercurial.selenic.com/>`_)::
+Clone the `hg <http://mercurial.selenic.com/>`_ repository from
+https://bitbucket.org/solvcon/solvcon::
 
-  hg clone https://bitbucket.org/solvcon/solvcon
+  $ hg clone https://bitbucket.org/solvcon/solvcon
 
-SOLVCON has the following dependencies: `gcc <http://gcc.gnu.org/>`_ 4.3+,
-`SCons <http://www.scons.org/>`_ 2+, `Python <http://www.python.org/>`_ 2.7,
-`Cython <http://www.cython.org/>`_ 0.16+, `Numpy <http://www.numpy.org/>`_
-1.5+, `LAPACK <http://www.netlib.org/lapack/>`_, `NetCDF
+SOLVCON needs the following packages: `gcc <http://gcc.gnu.org/>`_ 4.3+ (clang
+on OSX works as well), `SCons <http://www.scons.org/>`_ 2+, `Python
+<http://www.python.org/>`_ 2.7, `Cython <http://www.cython.org/>`_ 0.16+,
+`Numpy <http://www.numpy.org/>`_ 1.5+, `LAPACK
+<http://www.netlib.org/lapack/>`_, `NetCDF
 <http://www.unidata.ucar.edu/software/netcdf/index.html>`_ 4+, `SCOTCH
 <http://www.labri.fr/perso/pelegrin/scotch/>`_ 6.0+, `Nose
 <https://nose.readthedocs.org/en/latest/>`_ 1.0+, `Paramiko
 <https://github.com/paramiko/paramiko>`_ 1.14+, `boto
 <http://boto.readthedocs.org/>`_ 2.29.1+, `gmsh <http://geuz.org/gmsh/>`_ 2.5+,
-and `VTK <http://vtk.org/>`_ 5.6+.  You can install them by running the scripts
-``aptget.*.sh`` (Debian/Ubuntu) or ``conda.sh`` (`Miniconda
-<http://conda.pydata.org/miniconda.html>`__/`Anaconda
-<https://store.continuum.io/cshop/anaconda/>`__) provided in the ``contrib/``
-directory.
+and `VTK <http://vtk.org/>`_ 5.6+.
 
-Build
-=====
+In the ``contrib/`` directory, you can find the scripts for installing these
+dependencies:
+
+- ``aptget.*.sh`` for Debian/Ubuntu
+- ``conda.sh`` for `Miniconda
+  <http://conda.pydata.org/miniconda.html>`__/`Anaconda
+  <https://store.continuum.io/cshop/anaconda/>`__
 
 The binary part of SOLVCON should be built with SCons_::
 
-  scons scmods
+  $ scons scmods
 
-After worth, it can be built with `distutils
-<https://docs.python.org/2/distutils/>`__::
+Then add the installation path to the environment variables ``$PATH`` and
+``$PYTHONPATH``.
 
-  python setup.py build_ext --inplace
+Additional build and tests:
 
-SOLVCON needs not explicit installation.  Setting the environment variables
-``$PATH`` and ``$PYTHONPATH`` is sufficient.
+- Building document requires `Sphinx <http://sphinx.pocoo.org/>`_ 1.1.2+,
+  `Sphinxcontrib issue tracker
+  <http://sphinxcontrib-issuetracker.readthedocs.org/>`__ 0.11, and `graphviz
+  <http://www.graphviz.org/>`_ 2.28+.  Once the binary of SOLVCON is built, the
+  following commands can build the document::
 
-Building document requires `Sphinx <http://sphinx.pocoo.org/>`_ 1.1.2+,
-`Sphinxcontrib issue tracker
-<http://sphinxcontrib-issuetracker.readthedocs.org/>`__ 0.11, and `graphviz
-<http://www.graphviz.org/>`_ 2.28+.  Once the binary of SOLVCON is built, the
-following commands can build the document:
+    $ cd doc
+    $ make html
 
-::
+  The built document will be available at ``doc/build/html/``.
 
-  cd doc
-  make html
+- Unit tests should be run with Nose_::
 
-The built document will be available at ``doc/build/html/``.
+    $ nosetests
 
-Run Tests
-=========
+- Another set of tests are collected in ``ftests/`` directory, and can be run
+  with::
 
-Tests should be run with Nose_::
+    $ nosetests ftests/*
 
-  nosetests
-
-Another set of tests are collected in ``ftests/`` directory, and can be run
-with::
-
-  nosetests ftests/*
-
-Some tests in ``ftests/`` involve remote procedure call (RPC) that uses `ssh
-<http://www.openssh.com/>`_.  You need to set up the public key authentication
-to properly run them.
-
-(Not Recommended) Build Dependencies from Source
-================================================
-
-A hard way to install the dependencies is to build everything from source with
-the scripts provided in the ``ground/`` directory::
-
-  cd ground
-  ../contrib/get
-  make all
-  cd ..
-  source opt/etc/scvars.sh
-
-A directory ``opt/`` will be created for the binaries.  The last line will
-enable the runtime environment.  It also export an environment variable
-``SCROOT`` that points to ``opt/``.
-  
-If we don't even have a compatible gcc_, scripts in the ``soil/`` directory can
-be used::
-
-  cd soil
-  ../contrib/get
-  make
-  cd ..
-  source opt/etc/scgccvars.sh
-
-``$SCROOT/etc/scvars.sh`` and ``$SCROOT/etc/scgccvars.sh`` must be separately
-sourced.  The two sets of packages reside in different directories.
+  Some tests in ``ftests/`` involve remote procedure call (RPC) that uses `ssh
+  <http://www.openssh.com/>`_.  You need to set up the public key
+  authentication to properly run them.
 
 .. vim: set ft=rst ff=unix fenc=utf8:

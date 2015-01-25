@@ -1,3 +1,5 @@
+:orphan:
+
 ============
 Bibliography
 ============
@@ -30,6 +32,12 @@ Bibliography
   1973.  `ISBN 0898711770
   <http://www.worldcat.org/title/hyperbolic-systems-of-conservation-laws-and-the-mathematical-theory-of-shock-waves/oclc/798365>`__.
 
+.. [Sod78] Sod, G. A.,
+  "A Survey of Several Finite Difference Methods for Systems of Nonlinear
+  Hyperbolic Conservation Laws",
+  *J. Comput. Phys.*, 27: 1–31.
+
+.. vim: set spell ft=rst ff=unix fenc=utf8:
 .. [Mavriplis97] D. J. Mavriplis, Unstructured grid techniques, Annual Review
   of Fluid Mechanics 29. (1997)
 
@@ -37,6 +45,9 @@ Bibliography
   and Simultaneous Symmetrization of the Gas-Dynamic Matrices", *Mathematics of
   Computation*, Volume 29, Issue 132, Oct. 1975, Page 1037-1045.
   http://www.jstor.org/stable/2005742
+
+.. [Wesselling01] Pieter Wesseling,
+  "Principles of Computational Fluid Dynamics".
 
 .. [Yang13] Lixiang Yang, Yung-Yu Chen, Sheng-Tao John Yu,
   "Viscoelasticity determined by measured wave absorption coefficient for
@@ -46,4 +57,3 @@ Bibliography
   `doi: 10.1016/j.wavemoti.2012.09.002
   <http://dx.doi.org/10.1016/j.wavemoti.2012.09.002>`__.
 
-.. vim: set spell ft=rst ff=unix fenc=utf8:

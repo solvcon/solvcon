@@ -1,5 +1,7 @@
-=====================
-All Previous Versions
-=====================
+:orphan:
+
+=======
+History
+=======
 
 .. include:: ../../HISTORY.rst

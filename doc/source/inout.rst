@@ -39,32 +39,46 @@ Input and Output Facilities
   .. rubric:: Mesh Definition and Data Attributes
 
   .. autoattribute:: ELMAP
+    :annotation:
 
   .. autoinstanceattribute:: stream
+    :annotation:
 
   .. autoinstanceattribute:: ndim
+    :annotation:
 
   .. autoinstanceattribute:: nodes
+    :annotation:
 
   .. autoinstanceattribute:: usnds
+    :annotation:
 
   .. autoinstanceattribute:: ndmap
+    :annotation:
 
   .. autoinstanceattribute:: cltpn
+    :annotation:
 
   .. autoinstanceattribute:: elgrp
+    :annotation:
 
   .. autoinstanceattribute:: elgeo
+    :annotation:
 
   .. autoinstanceattribute:: eldim
+    :annotation:
 
   .. autoinstanceattribute:: elems
+    :annotation:
 
   .. autoinstanceattribute:: intels
+    :annotation:
 
   .. autoinstanceattribute:: physics
+    :annotation:
 
   .. autoinstanceattribute:: periodics
+    :annotation:
 
 .. autoclass:: GmshIO
 
