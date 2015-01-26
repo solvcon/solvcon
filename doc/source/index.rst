@@ -2,25 +2,23 @@
 SOLVCON
 =======
 
-SOLVCON is a collection of `Python <http://www.python.org>`__-based
-conservation-law solvers that use the space-time `Conservation Element and
-Solution Element (CESE) method <http://www.grc.nasa.gov/WWW/microbus/>`__
-[Chang95]_.  It targets at solving problems that can be formulated as a system
-of first-order, linear or non-linear partial differential equations (PDEs)
-[Lax73]_:
+SOLVCON is a collection of conservation-law solvers that use the space-time
+`Conservation Element and Solution Element (CESE) method
+<http://www.grc.nasa.gov/WWW/microbus/>`__ [Chang95]_.  The equations to be
+solved are formulated as:
 
 .. math::
 
-  \dpd{\bvec{u}}{t}
-  + \sum_{k=1}^3 \mathrm{A}^{(k)}(\bvec{u})\dpd{\bvec{u}}{x_k}
-  = \bvec{s}(\bvec{u})
+  \dpd{\mathbf{u}}{t}
+  + \sum_{k=1}^3 \mathrm{A}^{(k)}(\mathbf{u})\dpd{\mathbf{u}}{x_k}
+  = \mathbf{s}(\mathbf{u})
 
-where :math:`\bvec{u}` is the unknown vector, :math:`\mathrm{A}^{(1)}`,
+where :math:`\mathbf{u}` is the unknown vector, :math:`\mathrm{A}^{(1)}`,
 :math:`\mathrm{A}^{(2)}`, and :math:`\mathrm{A}^{(3)}` the Jacobian matrices,
-and :math:`\bvec{s}` the source term.
+and :math:`\mathbf{s}` the source term.
 
 .. include:: ../../README.rst
-  :start-line: 10
+  :start-line: 8
 
 Focus Applications
 ==================
