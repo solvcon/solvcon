@@ -29,3 +29,24 @@ def show_gas_status(solution):
     plt.scatter(list_x, list_rho, color='y')
     plt.scatter(list_x, list_v, color='g')
     plt.scatter(list_x, list_p, color='b')
+
+
+def get_gas_status_plot(solution):
+    """
+    @ solution: a solution list, format [(x, rho, v, p)...]
+    """
+    # prepare list for x, rho, v and p
+    list_x = []
+    list_rho = []
+    list_v = []
+    list_p = []
+    for i in solution:
+        list_x.append(i[0])
+        list_rho.append(i[1])
+        list_v.append(i[2])
+        list_p.append(i[3])
+    # now plot
+    #return (plt.scatter(list_x, list_rho, color='y'),
+    #        plt.scatter(list_x, list_v, color='g'),
+    #        plt.scatter(list_x, list_p, color='b'))
+    return plt.scatter(list_x, list_rho, color='y')
