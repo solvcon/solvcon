@@ -5,12 +5,11 @@
 #   provide many helper functions to plot and show the input solutions.
 #
 
-import sys
-import scipy.optimize as so
 import matplotlib.pyplot as plt
 
 # a number to claim two floating number value are equal.
 delta_precision = 0.0000000000001
+
 
 def show_gas_status(solution):
     """
@@ -30,4 +29,3 @@ def show_gas_status(solution):
     plt.scatter(list_x, list_rho, color='y')
     plt.scatter(list_x, list_v, color='g')
     plt.scatter(list_x, list_p, color='b')
-
