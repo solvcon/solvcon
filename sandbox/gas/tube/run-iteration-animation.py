@@ -20,7 +20,7 @@ solver_cese.init_gas_status()
 solver_cese._data.it_pt_nb = 2
 
 fig = plt.figure()
-ims = []
+frame_seq = []
 # iterate
 for it_nb in range(0, 100):
     solver_cese._data.it_nb = it_nb
@@ -30,12 +30,14 @@ for it_nb in range(0, 100):
     # plot the status
     solver_cese.data.refresh_solution()
     solution = list(solver_cese.data.solution)
-    ims.append((helper_plot.get_gas_status_plot(solution), ))
+    # each element of frame_seq should be iterable.
+    # the bracket just want to make the artist iterable.
+    frame_seq.append((helper_plot.get_gas_status_plot(solution), ))
 
-im_ani = animation.ArtistAnimation(fig,
-                                   ims,
-                                   interval=25,
-                                   repeat_delay=3000,
-                                   blit=True)
+ani = animation.ArtistAnimation(fig,
+                                frame_seq,
+                                interval=25,
+                                repeat_delay=300,
+                                blit=True)
 
 plt.show()
