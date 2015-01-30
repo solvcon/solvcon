@@ -46,7 +46,10 @@ def get_gas_status_plot(solution):
         list_v.append(i[2])
         list_p.append(i[3])
     # now plot
-    #return (plt.scatter(list_x, list_rho, color='y'),
-    #        plt.scatter(list_x, list_v, color='g'),
-    #        plt.scatter(list_x, list_p, color='b'))
-    return plt.scatter(list_x, list_rho, color='y')
+    plt.subplot(311)
+    artist_rho = plt.scatter(list_x, list_rho, color='y')
+    plt.subplot(312)
+    artist_v = plt.scatter(list_x, list_v, color='g')
+    plt.subplot(313)
+    artist_p = plt.scatter(list_x, list_p, color='b')
+    return (artist_rho, artist_v, artist_p)
