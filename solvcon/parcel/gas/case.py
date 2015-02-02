@@ -34,17 +34,18 @@ The control interface.
 
 import solvcon as sc
 
-from . import solver as localsolver
+from . import solver as gassolver
 
 
 class GasCase(sc.MeshCase):
     """
-    Simulation case for the Navier-Stokes solver based on the bulk modulus.
+    Temporal loop for the gas-dynamic solver.
     """
 
     defdict = {
-        'solver.solvertype': localsolver.GasSolver,
+        'solver.solvertype': gassolver.GasSolver,
         'solver.domaintype': sc.Domain,
+        # Do no touch the following c-tau parameters.
         'solver.alpha': 1,
         'solver.sigma0': 3.0,
         'solver.taylor': 1.0,
@@ -52,6 +53,7 @@ class GasCase(sc.MeshCase):
         'solver.sftfac': 1.0,
         'solver.taumin': None,
         'solver.tauscale': None,
+        # End of c-taw parameters.
         'io.rootdir': sc.env.projdir, # Different default to MeshCase.
     }
 

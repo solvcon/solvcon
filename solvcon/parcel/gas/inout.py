@@ -37,7 +37,6 @@ import os
 import time
 import math
 import warnings
-import cPickle as pickle
 
 import numpy as np
 
@@ -47,11 +46,13 @@ from solvcon.io import vtkxml
 
 
 class MeshInfoHook(sc.MeshHook):
-    """Print mesh information.
+    """
+    Print mesh information.
     """
 
     def __init__(self, cse, show_bclist=False, perffn=None, **kw):
-        """If keyword psteps is None, postmarch method will not output
+        """
+        If keyword psteps is None, postmarch method will not output
         performance information.
         """
         #: Flag to show the list of boundary conditions.  Default is ``False``.
@@ -68,7 +69,8 @@ class MeshInfoHook(sc.MeshHook):
                 self.info("  %s\n" % bc)
 
     def _show_performance(self):
-        """Show and store performance information.
+        """
+        Show and store performance information.
         """
         ncell = self.blk.ncell
         time = self.cse.log.time['solver_march']
@@ -109,7 +111,8 @@ class MeshInfoHook(sc.MeshHook):
 
 
 class ProgressHook(sc.MeshHook):
-    """Print simulation progess.
+    """
+    Print simulation progess.
     """
 
     def __init__(self, cse, linewidth=50, **kw):
@@ -145,8 +148,9 @@ class ProgressHook(sc.MeshHook):
 
 
 class FillAnchor(sc.MeshAnchor):
-    """Fill the specified arrays of a :py:class:`GasSolver
-    <.solver.GasSolver>` with corresponding value.
+    """
+    Fill the specified arrays of a :py:class:`~.solver.GasSolver` with
+    corresponding value.
     """
 
     def __init__(self, svr, mappers=None, **kw):
@@ -165,9 +169,12 @@ class FillAnchor(sc.MeshAnchor):
 ################################################################################
 # Begin CFL evaluation.
 class CflAnchor(sc.MeshAnchor):
-    """Counting CFL numbers.  Use :py:attr:`MeshSolver.marchret
-    <solvcon.solver.MeshSolver.marchret>` to return results.  Implements
-    ``postmarch()`` method.
+    """
+    Counting CFL numbers.  Use :py:attr:`MeshSolver.marchret
+    <solvcon.solver.MeshSolver.marchret>` to return results.  Overrides
+    :py:meth:`~solvcon.anchor.MeshAnchor.postmarch` method.
+
+    Pair with :py:class:`CflHook`.
     """
 
     def __init__(self, svr, rsteps=None, **kw):
@@ -210,8 +217,11 @@ class CflAnchor(sc.MeshAnchor):
 class CflHook(sc.MeshHook):
     """
     Makes sure CFL number is bounded and print averaged CFL number over time.
-    Reports CFL information per time step and on finishing.  Implements (i)
-    postmarch() and (ii) postloop() methods.
+    Reports CFL information per time step and on finishing.  Overrides (i)
+    :py:meth:`~solvcon.hook.MeshHook.postmarch` and (ii)
+    :py:meth:`~solvocn.hook.MeshHook.postloop` methods.
+
+    Pair with :py:class:`CflAnchor`.
     """
 
     def __init__(self, cse,
@@ -299,7 +309,8 @@ class CflHook(sc.MeshHook):
 ################################################################################
 # Begin solution output.
 class MarchSaveAnchor(sc.MeshAnchor):
-    """Save solution data into VTK XML format for a solver.
+    """
+    Save solution data into VTK XML format for a solver.
     """
 
     def __init__(self, svr, anames=None, compressor=None, fpdtype=None,
@@ -364,7 +375,8 @@ class MarchSaveAnchor(sc.MeshAnchor):
 
 
 class PMarchSave(sc.MeshHook):
-    """Save the geometry and variables in a case when time marching in parallel
+    """
+    Save the geometry and variables in a case when time marching in parallel
     VTK XML format.
     """
 

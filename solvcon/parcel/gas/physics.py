@@ -55,10 +55,10 @@ class PhysicsAnchor(sc.MeshAnchor):
     Calculates physical quantities for output.  Implements (i) provide() and
     (ii) postfull() methods.
 
-    FIXME: I should be more integrated with :py:class:`~.GasSolver`.
+    FIXME: I should be more integrated with :py:class:`~.solver.GasSolver`.
 
-    @ivar gasconst: gas constant.
-    @itype gasconst: float.
+    :ivar gasconst: gas constant.
+    :type gasconst: float
     """
 
     _varlist_ = ['v', 'rho', 'p', 'T', 'ke', 'a', 'M', 'sch']

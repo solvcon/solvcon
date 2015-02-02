@@ -69,7 +69,7 @@ class Probe(object):
                 elif spec < 0 and -1-spec < svr.neq:
                     spec = -1-spec
                     arr = svr.sol[:,spec]
-            if arr == None:
+            if arr is None:
                 raise IndexError, 'spec %s incorrect'%str(spec)
             vlist.append(arr[ngstcell+self.pcl])
         self.vals.append(vlist)

@@ -37,8 +37,6 @@ import numpy as np
 
 import solvcon as sc
 
-from solvcon import solver
-
 try: # for readthedocs to work.
     from . import _algorithm
 except ImportError as e:
@@ -50,7 +48,7 @@ except ImportError as e:
 
 class GasSolver(sc.MeshSolver):
     """
-    Gas-dynamics solver.
+    Spatial loops for the gas-dynamics solver.
     """
 
     _interface_init_ = ['cecnd', 'cevol', 'sfmrc']
@@ -153,7 +151,7 @@ class GasSolver(sc.MeshSolver):
 
     ###########################################################################
     # Begin marching algorithm.
-    _MMNAMES = solver.MeshSolver.new_method_list()
+    _MMNAMES = sc.MeshSolver.new_method_list()
 
     @_MMNAMES.register
     def update(self, worker=None):
@@ -192,7 +190,6 @@ class GasSolver(sc.MeshSolver):
     @_MMNAMES.register
     def calccfl(self, worker=None):
         self._debug_check_array('sol', 'dsol')
-        # FIXME: must be something wrong here.
         self.alg.calc_cfl()
         self._debug_check_array('cfl', 'ocfl', 'soln', 'dsoln')
 
