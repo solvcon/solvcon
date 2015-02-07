@@ -241,7 +241,7 @@ The shock reflection problem uses three categories of callbacks.
 1. Initialization and calculation:
 
   - :py:class:`~solvcon.parcel.gas.FillAnchor`
-  - :py:class:`~solvcon.parcel.gas.DensityAnchor`
+  - :py:class:`~solvcon.parcel.gas.DensityInitAnchor`
   - :py:class:`~solvcon.parcel.gas.PhysicsAnchor`
 
 2. Reporting:
@@ -254,7 +254,7 @@ The shock reflection problem uses three categories of callbacks.
 
 3. Output:
 
-  - :py:class:`~solvcon.parcel.gas.PMarchSave`.
+  - :py:class:`~solvcon.parcel.gas.PMarchSave`
 
 The order of these callbacks is important.  Dependency between callbacks is
 allowed.

@@ -20,41 +20,26 @@ and :math:`\mathbf{s}` the source term.
 .. include:: ../../README.rst
   :start-line: 8
 
-Focus Applications
-==================
-
-.. toctree::
-  :maxdepth: 2
-
-  gas/index
-
-Other Applications
-==================
-
-.. toctree::
-  :maxdepth: 1
-
-  app_linear
-  bulk/index
-  app_vewave
-
-Infrastructure
-==============
+Documents
+=========
 
 .. toctree::
   :maxdepth: 3
 
   architecture
   inout
+  gas/index
 
-Development Support
-===================
+Development
+===========
 
 - Issue tracker: https://bitbucket.org/solvcon/solvcon/issues
 - Users' mailing list: solvcon@googlegroups.com (or
   http://groups.google.com/group/solvcon)
 - :doc:`python_style`
 - :doc:`jenkins`
+- :doc:`hidden_applications` contain documents of the parcels that are not
+  actively maintained at the time being.
 
 References
 ==========
@@ -103,8 +88,6 @@ References
       <http://dx.doi.org/10.1006/jcph.2001.6934>`_
 - :doc:`link`
 - :doc:`link_other`
-
-.. rubric:: Copyright Notice
 
 .. include:: ../../COPYING
 
