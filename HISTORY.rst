@@ -1,3 +1,12 @@
+Version 0.1.4
++++++++++++++
+
+Release date: 2015/2/9 (GMT+0800)
+
+This is released simply because PyPI doesn't allow re-uploading a file of the
+same name, and I didn't know it and deleted the file for version 0.1.3.  See
+https://mail.python.org/pipermail/distutils-sig/2015-January/025683.html.
+
 Version 0.1.3
 +++++++++++++
 
