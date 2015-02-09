@@ -38,7 +38,7 @@ first-order, linear or non-linear partial differential equations (PDEs).
 
 __docformat__ = 'restructuredtext en'
 
-__version__ = '0.1.4'
+__version__ = '0.1.4+'
 
 __description__ = "SOLVCON: Solvers of conservation laws"
 
