@@ -1,7 +1,7 @@
-Version 0.1.2+
-++++++++++++++
+Version 0.1.3
++++++++++++++
 
-Release date: Unknown
+Release date: 2015/2/9 (GMT+0800)
 
 Changes:
 
@@ -10,7 +10,7 @@ Changes:
 - #77 SCons script should respect LIBPATH environment variable.
 - #95: Support anaconda/miniconda/conda for managing dependencies
 - #98: Migrate the old gas-dynamics solvers into the new MeshSolver system
-- #106: Add simulation results to gas/obrf.rst document
+- #103, #106, #110: Improve documents
 
 Bug-fixes:
 
@@ -29,6 +29,8 @@ Bug-fixes:
   solvcon.solver.MeshSolver.ALMOST_ZERO
 - #100: The exception wrapper in solvcon.cmdutil.go is not useful
 - #101: MeshSolver should use MeshAnchorList instead of AnchorLIst (legacy)
+- #109: Add dependency package gmp (required by Gmsh) packaging
+- #114: Add missing package to dependency installation scripts packaging 
 
 Version 0.1.2
 +++++++++++++
