@@ -119,8 +119,11 @@ class converge(cmdutil.Command):
             sys.stdout.write('\n')
 
     def __call__(self):
-        self._convergence_test('cvg2d')
-        self._convergence_test('cvg3d')
+        ops, args = self.opargs
+        if not args:
+            args = 'cvg2d', 'cvg3d'
+        for mainfn in args:
+            self._convergence_test(mainfn)
 
 
 ################################################################################
