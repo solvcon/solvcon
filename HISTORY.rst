@@ -5,6 +5,8 @@ Release date:
 
 Changes:
 
+- #105: Split examples/run_linear_cvg.sh into two files 
+
 Bug-fixes:
 
 Version 0.1.4
