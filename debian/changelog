@@ -1,0 +1,5 @@
+solvcon (0.1.4-0ubuntu1) trusty; urgency=low
+
+  * Initialize debian package for Ubuntu
+
+ -- Taihsiang Ho (tai271828) <tai271828@gmail.com>  Sat, 17 Jan 2015 15:45:01 +0800

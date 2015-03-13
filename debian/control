@@ -1,0 +1,60 @@
+Source: solvcon
+Section: python
+Priority: optional
+Maintainer: Taihsiang Ho (tai271828) <tai271828@gmail.com>
+Build-Depends:
+ debhelper (>= 8.0.0),
+ python-support,
+ libffi6,
+ libscotch-5.1,
+ libgfortran3,
+ libblas3,
+ libpython2.7-minimal,
+ python-sphinxcontrib.issuetracker,
+ python-lazr.restfulclient,
+ python-setuptools,
+ liblapack3,
+ python-pkg-resources,
+ python-zope.interface,
+ python-ubuntu-sso-client,
+ python-lazr.uri,
+ locales,
+ python-numpy,
+ libscotch-dev,
+ libpython2.7-stdlib,
+ liblapack-dev,
+ libblas-dev,
+ libpython2.7-dev,
+ libreadline6,
+ cython,
+ libssl1.0.0,
+ python-matplotlib,
+ python-gobject-2,
+ python-imaging,
+ scons
+#nvidia-331-updates
+#libcuda1-331-updates
+#nvidia-cuda-dev
+Standards-Version: 3.9.4
+Homepage: http://www.solvcon.net/en/latest/
+Vcs-Hg: https://bitbucket.org/solvcon/solvcon
+Vcs-Browser: https://bitbucket.org/solvcon/solvcon/src
+
+Package: solvcon
+Architecture: any
+Depends:
+ ${shlibs:Depends},
+ ${misc:Depends},
+ python-numpy,
+ libnetcdf-dev,
+ gmsh,
+ python-boto,
+ python-paramiko
+Recommends:
+ python-nose
+Description: collection of Python-based conservation-law solvers
+ SOLVCON is a collection of Python-based conservation-law solvers that use
+ the space-time Conservation Element and Solution Element (CESE) method.
+ .
+ SOLVCON targets at solving problems that can be formulated as a system of
+ first-order, linear or non-linear partial differential equations.

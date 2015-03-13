@@ -1,0 +1,22 @@
+#!/usr/bin/make -f
+# -*- makefile -*-
+
+# Uncomment this to turn on verbose mode.
+#export DH_VERBOSE=1
+
+%:
+	dh $@ 
+
+override_dh_auto_build:
+	scons scmods
+
+override_dh_auto_clean:
+	scons --clean
+	rm -r ./build
+	find . -name "*.pyc" -exec rm {} +
+	rm -f solvcon/mesh.h
+	rm -f solvcon/parcel/bulk/_algorithm.h
+	rm -f solvcon/parcel/fake/_algorithm.h
+	rm -f solvcon/parcel/gas/_algorithm.h
+	rm -f solvcon/parcel/linear/_algorithm.h
+	rm -f solvcon/parcel/vewave/_algorithm.h

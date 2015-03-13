@@ -38,3 +38,6 @@ examples/*/*/mesh/
 sandbox/*/*/result/
 sandbox/*/result/
 sandbox/*/mesh/
+# debian packaging
+debian/files
+debian/solvcon*
