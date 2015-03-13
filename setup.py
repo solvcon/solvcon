@@ -88,6 +88,8 @@ def main():
         (lead, glob(os.path.join('test', 'data', '*.neu'))),
         (lead, glob(os.path.join('test', 'data', '*.blk'))),
         (lead, glob(os.path.join('test', 'data', '*.vtk'))),
+        (lead, glob(os.path.join('test', 'data', '*.msh.gz'))),
+        (lead, glob(os.path.join('test', 'data', '*.geo'))),
         (os.path.join(lead, 'sample.dom'),
             glob(os.path.join('test', 'data', 'sample.dom', '*')))])
     # examples.
@@ -124,6 +126,12 @@ def main():
             'solvcon.io.tests',
             'solvcon.kerpak',
             'solvcon.parcel',
+            'solvcon.parcel.bulk',
+            'solvcon.parcel.fake',
+            'solvcon.parcel.gas',
+            'solvcon.parcel.linear',
+            'solvcon.parcel.tests',
+            'solvcon.parcel.vewave',
             'solvcon.tests',
         ],
         ext_modules=[

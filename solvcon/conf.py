@@ -80,7 +80,9 @@ class Solvcon(object):
         ## data directory.
         paths = [os.path.join(self.pydir, '..', 'test', 'data')] + [
             os.path.join(root, 'share', 'solvcon', 'test') for root in (
-                os.path.join(os.environ['HOME'], '.local'), sys.prefix)]
+                os.path.join(os.environ['HOME'], '.local'),
+                os.path.join(self.pydir, '..'),
+                sys.prefix)]
         self.datadir = self._get_first_existing_path(paths)
         # configuration files.
         cfgdirs = list()
