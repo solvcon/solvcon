@@ -78,6 +78,15 @@ class Solvcon(object):
                 os.path.join(os.environ['HOME'], '.local'), sys.prefix)]
         self.libdir = self._get_first_existing_path(paths)
         ## data directory.
+        # path os.path.join(self.pydir, '..')
+        # is used to Debian/Ubuntu system specifically.
+        # python package solvcon will be deployed to
+        # /usr/lib/python2.7/dist-packages/solvcon/
+        # and solvcon-source/test/data/* will be deployed to
+        # /usr/lib/python2.7/dist-packages/share/solvcon/test/*
+        # when installing solvcon debian package.
+        # If not given correct path to find test data,
+        # nosetests will show many failed tests.
         paths = [os.path.join(self.pydir, '..', 'test', 'data')] + [
             os.path.join(root, 'share', 'solvcon', 'test') for root in (
                 os.path.join(os.environ['HOME'], '.local'),
