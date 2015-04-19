@@ -9,8 +9,9 @@ solved are formulated as:
 
 .. math::
 
-  \dpd{\mathbf{u}}{t}
-  + \sum_{k=1}^3 \mathrm{A}^{(k)}(\mathbf{u})\dpd{\mathbf{u}}{x_k}
+  \frac{\partial\mathbf{u}}{\partial t}
+  + \sum_{k=1}^3 \mathrm{A}^{(k)}(\mathbf{u})
+                 \frac{\partial\mathbf{u}}{\partial x_k}
   = 0
 
 where :math:`\mathbf{u}` is the unknown vector, :math:`\mathrm{A}^{(1)}`,
