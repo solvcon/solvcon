@@ -6,6 +6,7 @@ Release date:
 Changes:
 
 - #105: Split examples/run_linear_cvg.sh into two files 
+- #116: Update document to use top-level namespace solvcon
 
 Bug-fixes:
 
