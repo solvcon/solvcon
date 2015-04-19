@@ -1092,14 +1092,14 @@ for node in $nodes; do rsh $node killall %s; done
 
     def defer(self, delayed, replace=False, **kw):
         """
-        Insert (append or replace) hooks.
-
         :param delayed: The delayed construct.
         :type delayed: :py:class:`solvcon.MeshHook` or
                        :py:class:`solvcon.MeshAnchor`.
         :keyword replace: True if existing object should be replaced.
         :type replace: bool
         :return: Nothing.
+
+        Insert (append or replace) hooks.
 
         >>> import solvcon as sc
         >>> from solvcon.testing import create_trivial_2d_blk

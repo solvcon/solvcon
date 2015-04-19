@@ -11,23 +11,28 @@ solved are formulated as:
 
   \dpd{\mathbf{u}}{t}
   + \sum_{k=1}^3 \mathrm{A}^{(k)}(\mathbf{u})\dpd{\mathbf{u}}{x_k}
-  = \mathbf{s}(\mathbf{u})
+  = 0
 
 where :math:`\mathbf{u}` is the unknown vector, :math:`\mathrm{A}^{(1)}`,
 :math:`\mathrm{A}^{(2)}`, and :math:`\mathrm{A}^{(3)}` the Jacobian matrices,
 and :math:`\mathbf{s}` the source term.
 
 .. include:: ../../README.rst
-  :start-line: 8
+  :start-line: 9
 
 Documents
 =========
 
-.. toctree::
-  :maxdepth: 3
+The documents have two parts: infrastructure and application.  The
+infrastructure documents include the two keystones of SOLVCON: (i) :doc:`mesh`
+for spatial discretization and (ii) :doc:`nestedloop` structure for numerical
+methods.  The application documents currently contain only :doc:`gas/index`.
 
-  architecture
-  inout
+.. toctree::
+  :maxdepth: 2
+
+  mesh
+  nestedloop
   gas/index
 
 Development
@@ -38,6 +43,8 @@ Development
   http://groups.google.com/group/solvcon)
 - :doc:`python_style`
 - :doc:`jenkins`
+- :doc:`hidden_infrastructure` contain incomplete documents about additional
+  infrastructural features.
 - :doc:`hidden_applications` contain documents of the parcels that are not
   actively maintained at the time being.
 

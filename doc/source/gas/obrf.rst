@@ -160,7 +160,7 @@ There are three steps:
    the details.
 
 3. Configure callbacks for delayed operations by calling
-   :py:meth:`~solvcon.case.MeshCase.defer` of the constructed simulation
+   :py:meth:`~solvcon.MeshCase.defer` of the constructed simulation
    :py:class:`~solvcon.parcel.gas.GasCase` object.  Section `Callback
    Configuration`_ will explain these callbacks.
 

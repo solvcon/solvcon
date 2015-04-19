@@ -315,16 +315,6 @@ class Block(object):
     def build_interior(self):
         """
         :return: Nothing.
-
-        Building up a :py:class:`Block` object includes two steps.  First, the
-        method extracts arrays :py:attr:`clfcs`, :py:attr:`fctpn`,
-        :py:attr:`fcnds`, and :py:attr:`fccls` from the defined arrays
-        :py:attr:`cltpn` and :py:attr:`clnds`.  If the number of extracted
-        faces is not the same as that passed into the constructor, arrays
-        related to faces are recreated.
-
-        Second, the method calculates the geometry information and fills the
-        corresponding arrays.
         """
         from numpy import empty
         # prepare to build connectivity: calculate max number of faces.
@@ -366,16 +356,6 @@ class Block(object):
         :keyword unspec_name: Name for the unspecified BC.
         :type unspec_name: :py:class:`str`
         :return: Nothing.
-
-        This method iterates over each of the :py:class:`solvcon.boundcond.BC`
-        objects listed in :py:attr:`bclist` to collect boundary-condition
-        information and build boundary faces.  If a face belongs to only one
-        cell (i.e., has no neighboring cell), it is regarded as a boundary
-        face.
-        
-        Unspecified boundary faces will be collected to form an additional
-        :py:class:`solvcon.boundcond.BC` object.  It sets :py:attr:`bndfcs` for
-        later use by :py:meth:`build_ghost`.
         """
         from numpy import arange, empty, unique
         from .boundcond import bctregy
@@ -425,10 +405,6 @@ class Block(object):
     def build_ghost(self):
         """
         :return: Nothing.
-
-        This method creates the shared arrays, calculates the information for ghost
-        cells, and reassigns interior arrays as the right portions of the shared
-        arrays.
         """
         # initialize data structure (arrays) for ghost information.
         ngstnode, ngstface, ngstcell = self._count_ghost()

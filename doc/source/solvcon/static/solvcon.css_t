@@ -4,4 +4,5 @@ body {
   clear: both;
   margin: 0 auto;
   width: 1200px;
+  font-size: 13pt;
 }

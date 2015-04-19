@@ -1,6 +1,7 @@
 |build_status|
 
 .. |build_status| image:: https://drone.io/bitbucket.org/solvcon/solvcon/status.png
+  :target: https://drone.io/bitbucket.org/solvcon/solvcon
 
 SOLVCON is a collection of conservation-law solvers that use the space-time
 `Conservation Element and Solution Element (CESE) method
@@ -9,8 +10,7 @@ SOLVCON is a collection of conservation-law solvers that use the space-time
 Install
 =======
 
-Clone the `hg <http://mercurial.selenic.com/>`_ repository from
-https://bitbucket.org/solvcon/solvcon::
+Clone from https://bitbucket.org/solvcon/solvcon::
 
   $ hg clone https://bitbucket.org/solvcon/solvcon
 
