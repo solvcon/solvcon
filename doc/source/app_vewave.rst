@@ -18,6 +18,10 @@ of mass and momentum as follows,
 .. math::
   :label: vewave.model
 
+  \newcommand{\dpd}[3][]{\mathinner{
+  \dfrac{\partial{^{#1}}#2}{\partial{#3^{#1}}}
+  }}
+
   & \dpd{v_i}{t} - \frac{1}{\rho} \sum_{j=1}^3\dpd{\sigma_{ji}}{x_j} = 0 \\
   & \dpd{\sigma_{ij}}{t}
     - \delta_{ij} \left( G^{\psi}_e + \sum^L_{l=1} G^{\psi}_l \right)
@@ -47,6 +51,8 @@ Equation :eq:`vewave.model` can be further organized to a vector form:
 .. math::
   :label: vewave.gevec
 
+  \newcommand{\bvec}[1]{\mathbf{#1}}
+
   \dpd{\bvec{u}}{t} + \sum_{k=1}^3 \dpd{\bvec{f}^{(k)}}{x_k} = \bvec{s}
 
 where :math:`\bvec{u}` is the solution variable, :math:`\bvec{f}^{(1)}`,
@@ -71,6 +77,8 @@ matrices:
 
 .. math::
   :label: vewave.jacos
+
+  \newcommand{\defeq}{\buildrel{\text{def}}\over{=}}
 
   \mathrm{A}^{(i)} \defeq \dpd{\bvec{f}^{(i)}}{\bvec{u}}
   = \left( \begin{array}{c|c|c}
