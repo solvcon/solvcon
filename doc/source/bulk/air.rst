@@ -12,6 +12,8 @@ different Reynolds numbers
 .. math::
   :label: reynolds
 
+  \newcommand{\defeq}{\buildrel{\text{def}}\over{=}}
+
   \mathrm{Re} \defeq \frac{\rho vD}{\mu}
 
 The density of air is :math:`\rho = 1.2250 \,\mathrm{kg}/\mathrm{m}^3`.  The
