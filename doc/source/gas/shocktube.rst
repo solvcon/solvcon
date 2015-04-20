@@ -17,6 +17,10 @@ energy (Eq. :eq:`eular.gasdyn.energy`).
 .. math::
   :label: eular.gasdyn.mass
 
+  \newcommand{\dpd}[3][]{\mathinner{
+  \dfrac{\partial{^{#1}}#2}{\partial{#3^{#1}}}
+  }}
+
   \dpd{\rho}{t} + \dpd{{\rho}{v}}{x} = 0
 
 .. math::
@@ -35,6 +39,9 @@ By defining
 
 .. math::
   :label: eular.gasdyn.u
+
+  \newcommand{\bvec}[1]{\mathbf{#1}}
+  \newcommand{\defeq}{\buildrel{\text{def}}\over{=}}
 
   \bvec{u}
   =
