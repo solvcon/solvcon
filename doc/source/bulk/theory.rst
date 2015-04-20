@@ -10,6 +10,10 @@ equation
 .. math::
   :label: comass
 
+  \newcommand{\dpd}[3][]{\mathinner{
+  \dfrac{\partial{^{#1}}#2}{\partial{#3^{#1}}}
+  }}
+
   \dpd{\rho}{t} + \sum_{i=1}^3 \dpd{\rho v_i}{x_i} = 0
 
 and the momentum equations
@@ -71,6 +75,9 @@ We proceed to analyze the advective part of the governing equations
 
 .. math::
   :label: csvar
+
+  \newcommand{\bvec}[1]{\mathbf{#1}}
+  \newcommand{\defeq}{\buildrel{\text{def}}\over{=}}
 
   \bvec{u} \defeq \left(\begin{array}{c}
     \rho \\ \rho v_1 \\ \rho v_2 \\ \rho v_3
@@ -140,6 +147,10 @@ where the Jacobian matrices :math:`\mathrm{A}^{(1)}, \mathrm{A}^{(2)}`, and
 .. math::
   :label: jacogen
 
+  \newcommand{\pd}[3][]{
+  \tfrac{\partial{^{#1}}#2}{\partial{#3^{#1}}}
+  }
+
   \mathrm{A}^{(i)} \defeq \left(\begin{array}{cccc}
     \pd{f_1^{(i)}}{u_1} & \pd{f_1^{(i)}}{u_2} &
     \pd{f_1^{(i)}}{u_3} & \pd{f_1^{(i)}}{u_4} \\
@@ -157,7 +168,7 @@ be written out as
 .. math::
   :label: jaco.csvar
 
-  \mathrm{A}^{(1)} = \left(\begin{array}{cccc}
+  \mathrm{A}^{(1)} &= \left(\begin{array}{cccc}
     0 & 1 & 0 & 0 \\
     -\frac{u_2^2}{u_1^2} + \frac{K}{u_1} & 2\frac{u_2}{u_1} & 0 & 0 \\
     -\frac{u_2u_3}{u_1^2} & \frac{u_3}{u_1} & \frac{u_2}{u_1} & 0 \\
@@ -168,8 +179,8 @@ be written out as
     -\frac{u_2u_3}{u_1^2} & \frac{u_3}{u_1} & \frac{u_2}{u_1} & 0 \\
     -\frac{u_3^2}{u_1^2} + \frac{K}{u_1} & 0 & 2\frac{u_3}{u_1} & 0 \\
     -\frac{u_3u_4}{u_1^2} & 0 & \frac{u_4}{u_1} & \frac{u_3}{u_1}
-  \end{array}\right), \quad
-  \mathrm{A}^{(3)} = \left(\begin{array}{cccc}
+  \end{array}\right), \\
+  \mathrm{A}^{(3)} &= \left(\begin{array}{cccc}
     0 & 0 & 0 & 1 \\
     -\frac{u_2u_4}{u_1^2} & \frac{u_4}{u_1} & 0 & \frac{u_2}{u_1} \\
     -\frac{u_3u_4}{u_1^2} & 0 & \frac{u_4}{u_1} & \frac{u_3}{u_1} \\
@@ -287,7 +298,7 @@ To help obtaining the expression of :math:`\tilde{\mathrm{A}}^{(1)},
 .. math::
   :label: jaco.ovar
 
-  \mathrm{A}^{(1)} = \left(\begin{array}{cccc}
+  \mathrm{A}^{(1)} &= \left(\begin{array}{cccc}
     0 & 1 & 0 & 0 \\
     -v_1^2 + \frac{K}{\rho} & 2v_1 & 0 & 0 \\
     -v_1v_2 & v_2 & v_1 & 0 \\
@@ -298,8 +309,8 @@ To help obtaining the expression of :math:`\tilde{\mathrm{A}}^{(1)},
     -v_1v_2 & v_2 & v_1 & 0 \\
     -v_2^2 + \frac{K}{\rho} & 0 & 2v_2 & 0 \\
     -v_2v_3 & 0 & v_3 & v_2
-  \end{array}\right), \quad
-  \mathrm{A}^{(3)} = \left(\begin{array}{cccc}
+  \end{array}\right), \\
+  \mathrm{A}^{(3)} &= \left(\begin{array}{cccc}
     0 & 0 & 0 & 1 \\
     -v_1v_3 & v_3 & 0 & v_1 \\
     -v_2v_3 & 0 & v_3 & v_2 \\
