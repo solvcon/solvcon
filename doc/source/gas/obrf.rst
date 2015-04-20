@@ -21,7 +21,7 @@ can be calculated with the following data:
 
 .. _fig-reflection:
 
-.. figure:: reflection.png
+.. pstake:: reflection.tex
   :align: center
 
   Oblique shock reflected from a wall
@@ -297,7 +297,7 @@ See Figure :num:`fig-oblique-shock` for the illustration of the two angles.
 
 .. _fig-oblique-shock:
 
-.. figure:: oblique_shock.png
+.. pstake:: oblique_shock.tex
   :align: center
 
   Oblique shock wave by a wedge
@@ -319,7 +319,7 @@ the detail.
 
 .. _fig-oblique-relation:
 
-.. figure:: oblique_relation.png
+.. pstake:: oblique_relation.tex
   :align: center
 
   Properties across an oblique shock
