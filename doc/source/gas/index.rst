@@ -4,23 +4,14 @@ Gas Dynamics Parcel (Under Development)
 
 .. py:module:: solvcon.parcel.gas
 
+This parcel :py:mod:`solvcon.parcel.gas` is for gas dynamics.  It currently
+uses the Euler equations, but will be updated to use the Navier-Stokes
+equations.
+
 .. toctree::
-  :hidden:
 
-  equations
-  obrf
-  shocktube
-
-This parcel :py:mod:`solvcon.parcel.gas` contains code that performs
-computational fluid dynamics (CFD) for gas flows by using the CESE method.  The
-model equations currently are the Euler equations.  This parcel will be updated
-to use the Navier-Stokes equations in the future.  See :doc:`equations` for
-detail.
-
-This parcel has the following examples:
-
-1. :doc:`obrf`
-2. :doc:`shocktube`
+  euler
+  oblique_shock_reflection
 
 Simulation Settings
 ===================

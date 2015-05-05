@@ -50,6 +50,9 @@ issuetracker_project = 'solvcon/solvcon'
 
 autoclass_content = 'class'
 
+# pstake settings.
+pstake_cmdout = os.environ.get('PSTAKE_CMDOUT', None)
+
 # Intersphinx settings.
 intersphinx_mapping = {'python': ('http://docs.python.org/2.7', None)}
 

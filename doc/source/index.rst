@@ -24,11 +24,6 @@ matrices.
 Documents
 =========
 
-The documents have two parts: infrastructure and application.  The
-infrastructure documents include the two keystones of SOLVCON: (i) :doc:`mesh`
-for spatial discretization and (ii) :doc:`nestedloop` structure for numerical
-methods.  The application documents currently contain only :doc:`gas/index`.
-
 .. toctree::
   :maxdepth: 2
 

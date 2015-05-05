@@ -1,3 +1,5 @@
+:orphan:
+
 ====================================
 Sod's Shock Tube (Under Development)
 ====================================
@@ -155,8 +157,8 @@ then :math:`\bvec{u}_{\mathrm{III}}` and
 finally :math:`\bvec{u}_{\mathrm{II}}`.
 
 
-Derivation of :math:`\bvec{u}_{\mathrm{IV}}`
---------------------------------------------
+Derivation of :math:`\mathbf{u}_{\mathrm{IV}}`
+----------------------------------------------
 
 Rankine-Hugoniot conditions gives that the jump conditions must hold
 across a shock:

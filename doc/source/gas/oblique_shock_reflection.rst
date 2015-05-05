@@ -2,7 +2,7 @@
 Reflection of Oblique Shock Wave
 ================================
 
-.. py:module:: solvcon.parcel.gas.oblique_shock
+.. py:currentmodule:: solvcon.parcel.gas.oblique_shock
 
 This example solves a reflecting oblique shock wave, as shown in Figure
 :num:`fig-reflection`.  The system consists of two oblique shock waves, which
@@ -14,10 +14,10 @@ can be calculated with the following data:
    density, pressure, and temperature.
 2. The first oblique shock angle :math:`\beta_1` (between zone 1 and 2) or the
    flow deflection angle :math:`\theta` (across zone 1/2 and zone 2/3).  Only
-   one of the angle is needed.  The other one can be calculated from the given
-   one and :math:`M_1`.  The calculation detail is in
-   :py:meth:`ObliqueShockRelation.calc_flow_angle` and
-   :py:meth:`ObliqueShockRelation.calc_shock_angle`.
+   one of the angle needs to be known.
+   
+See :doc:`oblique_shock` for the detail of calculating the relations of oblique
+shock waves.
 
 .. _fig-reflection:
 
@@ -92,8 +92,8 @@ specifying parameters the calculation needs, and as a platform to conduct
 useful operations much more complex than settings.  Any Python module can be
 imported for use.
 
-See :ref:`obrfgo` for the driving script of this example:
-``$SCSRC/examples/gas/obrf/go``.  SOLVCON separates apart the configuration and
+See :download:`$SCSRC/examples/gas/obrf/go <../../../examples/gas/obrf/go>` for
+the driving script of this example.  SOLVCON separates the configuration and
 the execution of a simulation case.  The separation is necessary for
 distributed-memory parallel computing (e.g., MPI).  Everything run in the
 driving script is about the configuration.  The execution is conducted by code
@@ -186,8 +186,7 @@ creating a subclass of it:
   :linenos:
   :pyobject: ObliqueShockReflection
 
-For the detail of :py:class:`ObliqueShockRelation`, see
-:ref:`sec-oblique-shock-relation`.
+For the detail of :py:class:`ObliqueShockRelation`, see :doc:`oblique_shock`.
 
 Case Instantiation
 ++++++++++++++++++
@@ -197,8 +196,7 @@ simulation using the :py:class:`~solvcon.parcel.gas` module.  In addition to
 `Mesh Generation` and `BC Treatment Mapping`, other miscellaneous settings can
 be supplied through the :py:class:`~solvcon.parcel.gas.GasCase` constructor.
 
-Mesh Generation
----------------
+.. rubric:: Mesh Generation
 
 An unstructured mesh is required for a SOLVCON simulation.  A mesh file can be
 created beforehand or on-the-fly with the simulation.  The example uses the
@@ -210,8 +208,7 @@ calls `Gmsh <http://geuz.org/gmsh/>`__:
   :linenos:
   :pyobject: RectangleMesher
 
-BC Treatment Mapping
---------------------
+.. rubric:: BC Treatment Mapping
 
 Boundary-condition treatments are specified by creating a :py:class:`dict` to
 map the name of the boundary to a specific :py:class:`~solvcon.boundcond.BC`
@@ -277,111 +274,3 @@ number shown in Figure :num:`fig-obrf-fine-mach`.
 
 Both of Figures :num:`fig-obrf-fine-rho` and :num:`fig-obrf-fine-mach` are
 obtained with the arrangement ``obrf_fine``.
-
-.. _sec-oblique-shock-relation:
-
-Oblique Shock Relation
-======================
-
-An oblique shock results from a sudden change of direction of supersonic flow.
-The relations of density (:math:`\rho`), pressure (:math:`p`), and temprature
-(:math:`T`) across the shock can be obtained analytically [Anderson03]_.  In
-addition, two angles are defined:
-
-1. The angle of the oblique shock wave deflected from the upstream is
-   :math:`\beta`; the shock angle.
-2. The angle of the flow behind the shock wave deflected from the upstream is
-   :math:`\theta`; the flow angle.
-
-See Figure :num:`fig-oblique-shock` for the illustration of the two angles.
-
-.. _fig-oblique-shock:
-
-.. pstake:: oblique_shock.tex
-  :align: center
-
-  Oblique shock wave by a wedge
-
-  :math:`M` is Mach number.  :math:`\theta` is the flow deflection angle.
-  :math:`\beta` is the oblique shock angle.
-
-Methods of calculating the shock relations are organized in the class
-:py:class:`ObliqueShockRelation`.  To obtain the relations of density
-(:math:`\rho`), pressure (:math:`p`), and temprature (:math:`T`), the control
-volume across the shock is emplyed, as shown in Figure
-:num:`fig-oblique-relation`.  In the figure and in
-:py:class:`ObliqueShockRelation`, subscript 1 denotes upstream properties and
-subscript 2 denotes downstream properties.  Derivation of the relation uses a
-rotated coordinate system :math:`(n, t)` defined by the oblique shock, where
-:math:`\hat{n}` is the unit vector normal to the shock, and :math:`\hat{t}` is
-the unit vector tangential to the shock.  But in this document we won't go into
-the detail.
-
-.. _fig-oblique-relation:
-
-.. pstake:: oblique_relation.tex
-  :align: center
-
-  Properties across an oblique shock
-
-  The flow properties in the upstream zone of the oblique shock are :math:`v_1,
-  M_1, \rho_1, p_1, T_1`.  Those in the downstream zone of the shock are
-  :math:`v_2, M_2, \rho_2, p_2, T_2`.
-
-.. autoclass:: ObliqueShockRelation
-
-  .. autoinstanceattribute:: gamma
-    :annotation:
-
-:py:class:`ObliqueShockRelation` provides three methods to calculate the ratio
-of flow properties across the shock.  :math:`M_1` and :math:`\beta` are
-required arguments:
-
-- :math:`\rho`: :py:meth:`~ObliqueShockRelation.calc_density_ratio`
-- :math:`p`: :py:meth:`~ObliqueShockRelation.calc_pressure_ratio`
-- :math:`T`: :py:meth:`~ObliqueShockRelation.calc_temperature_ratio`
-
-With :math:`M_1` available, the shock angle :math:`\beta` can be calculated
-from the flow angle :math:`\theta`, or vice versa, by using the following two
-methods:
-
-- :math:`\beta`: :py:meth:`ObliqueShockRelation.calc_shock_angle`
-- :math:`\theta`: :py:meth:`ObliqueShockRelation.calc_flow_angle`
-
-The following method calculates the downstream Mach number, with the upstream
-Mach number :math:`M_1` and either of :math:`\beta` or :math:`\theta` supplied:
-
-- :math:`M_2`: :py:meth:`~ObliqueShockRelation.calc_dmach`
-
-Listing of all methods:
-
-- :py:meth:`~ObliqueShockRelation.calc_density_ratio`
-- :py:meth:`~ObliqueShockRelation.calc_pressure_ratio`
-- :py:meth:`~ObliqueShockRelation.calc_temperature_ratio`
-- :py:meth:`~ObliqueShockRelation.calc_dmach`
-- :py:meth:`~ObliqueShockRelation.calc_normal_dmach`
-- :py:meth:`~ObliqueShockRelation.calc_flow_angle`
-- :py:meth:`~ObliqueShockRelation.calc_flow_tangent`
-- :py:meth:`~ObliqueShockRelation.calc_shock_angle`
-- :py:meth:`~ObliqueShockRelation.calc_shock_tangent`
-- :py:meth:`~ObliqueShockRelation.calc_shock_tangent_aux`
-
-.. automethod:: ObliqueShockRelation.calc_density_ratio
-.. automethod:: ObliqueShockRelation.calc_pressure_ratio
-.. automethod:: ObliqueShockRelation.calc_temperature_ratio
-.. automethod:: ObliqueShockRelation.calc_dmach
-.. automethod:: ObliqueShockRelation.calc_normal_dmach
-.. automethod:: ObliqueShockRelation.calc_flow_angle
-.. automethod:: ObliqueShockRelation.calc_flow_tangent
-.. automethod:: ObliqueShockRelation.calc_shock_angle
-.. automethod:: ObliqueShockRelation.calc_shock_tangent
-.. automethod:: ObliqueShockRelation.calc_shock_tangent_aux
-
-.. _obrfgo:
-
-Full Listing of the Driving Script
-==================================
-
-.. literalinclude:: ../../../examples/gas/obrf/go
-  :language: python
-  :linenos:
