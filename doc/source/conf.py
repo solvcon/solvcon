@@ -67,7 +67,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'SOLVCON'
-copyright = u'2009-2014, SOLVCON Project'
+copyright = u'2009-2015, SOLVCON Project'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
