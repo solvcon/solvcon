@@ -14,9 +14,9 @@ solved are formulated as:
                  \frac{\partial\mathbf{u}}{\partial x_k}
   = 0
 
-where :math:`\mathbf{u}` is the unknown vector, :math:`\mathrm{A}^{(1)}`,
-:math:`\mathrm{A}^{(2)}`, and :math:`\mathrm{A}^{(3)}` the Jacobian matrices,
-and :math:`\mathbf{s}` the source term.
+where :math:`\mathbf{u}` is the unknown vector and :math:`\mathrm{A}^{(1)}`,
+:math:`\mathrm{A}^{(2)}`, and :math:`\mathrm{A}^{(3)}` are the Jacobian
+matrices.
 
 .. include:: ../../README.rst
   :start-line: 9

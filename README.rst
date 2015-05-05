@@ -43,8 +43,8 @@ Then add the installation path to the environment variables ``$PATH`` and
 
 Additional build and tests:
 
-- Building document requires `Sphinx <http://sphinx.pocoo.org/>`_ 1.1.2+,
-  `pstake <http://pstake.readthedocs.org/>`_ 0.3.3+, `Sphinxcontrib issue
+- Building document requires `Sphinx <http://sphinx.pocoo.org/>`_ 1.3.1+,
+  `pstake <http://pstake.readthedocs.org/>`_ 0.3.4+, `Sphinxcontrib issue
   tracker <http://sphinxcontrib-issuetracker.readthedocs.org/>`__ 0.11, and
   `graphviz <http://www.graphviz.org/>`_ 2.28+.  Once the binary of SOLVCON is
   built, the following commands can build the document::
