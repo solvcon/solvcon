@@ -262,7 +262,7 @@ defined as
 
 and tabulated in what follows.
 
-Constant components:
+Component group 1:
 
 .. math::
   :label: euler:jaco0
@@ -272,7 +272,7 @@ Constant components:
   f^{(3)}_{1,1} &= f^{(3)}_{1,2} = f^{(3)}_{1,3} = f^{(3)}_{1,5} = 0, \\
   f^{(1)}_{1,2} &= f^{(2)}_{1,3} = f^{(3)}_{1,4} = 1
 
-Non-constant components of :math:`A^{(1)}`:
+Component group 2 (for :math:`A^{(1)}`):
 
 .. math::
   :label: euler:jaco1
@@ -300,7 +300,7 @@ Non-constant components of :math:`A^{(1)}`:
   f^{(1)}_{5,4} = -(\gamma-1)\frac{u_2u_4}{u_1^2}, \quad
   f^{(1)}_{5,5} = \gamma\frac{u_2}{u_1}
 
-Non-constant components of :math:`A^{(2)}`:
+Component group 3 (for :math:`A^{(2)}`):
 
 .. math::
   :label: euler:jaco2
@@ -328,7 +328,7 @@ Non-constant components of :math:`A^{(2)}`:
   f^{(2)}_{5,4} = -(\gamma-1)\frac{u_3u_4}{u_1^2}, \quad
   f^{(2)}_{5,5} = \gamma\frac{u_3}{u_1}
 
-Non-constant components of :math:`A^{(3)}`:
+Component group 4 (for :math:`A^{(3)}`):
 
 .. math::
   :label: euler:jaco3
