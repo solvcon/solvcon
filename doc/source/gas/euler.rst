@@ -246,15 +246,21 @@ where :math:`\mu = 1, 2, 3,` and :math:`m, l = 1, 2, \ldots, 5`.
 Aided by the above definition, we rewrite the equation to a matrix-vector form:
 
 .. math::
-  :label: qliear
+  :label: euler:qlinear
 
   \dpd{\bvec{u}}{t} + \sum_{\mu=1}^3
                       \mathrm{A}^{(\mu)} \dpd{\bvec{u}}{x_{\mu}} = 0
 
 where :math:`\mathrm{A}^{(1)}`, :math:`\mathrm{A}^{(2)}`, and
-:math:`\mathrm{A}^{(3)}` are Jacobian matrices
-(:math:`\left[\mathrm{A}^{(\mu)}\right]_{ml} \defeq f^{(\mu)}_{m,l}`).
-Components of the Jacobian matrices are tabulated.
+:math:`\mathrm{A}^{(3)}` are the Jacobian matrices, of which the components are
+defined as
+
+.. math::
+
+  \left[\mathrm{A}^{(\mu)}\right]_{ml} \defeq f^{(\mu)}_{m,l}, 
+  \quad m, l = 1, \ldots, 5
+
+and tabulated in what follows.
 
 Constant components:
 
