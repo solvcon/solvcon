@@ -22,6 +22,8 @@ env.Depends(objs, pyx)
 pymod = env.PythonExtension([pyx] + objs)
 env.Depends(pymod, objs)
 
+Clean(pymod, "mesh.h")
+
 targets.setdefault('scmods', []).extend(pymod)
 
 SConscript(['parcel/SConscript'])
