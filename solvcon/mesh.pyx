@@ -26,9 +26,17 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from mesh cimport sc_mesh_t, FCMND, CLMND, CLMFC, FCREL, BFREL
+from __future__ import absolute_import, division, print_function
+
+from .mesh cimport sc_mesh_t, FCMND, CLMND, CLMFC, FCREL, BFREL
+from libc.stdint cimport intptr_t
+from libc.stdlib cimport malloc, free
 import numpy as np
 cimport numpy as cnp
+
+# Initialize NumPy.
+cnp.import_array()
+
 
 cdef extern:
     void sc_mesh_build_ghost(sc_mesh_t *msd, int *bndfcs)
@@ -42,12 +50,75 @@ cdef extern:
         int *adjwgt, int *wgtflag, int *numflag, int *nparts, int *options,
         int *edgecut, int *part)
 
-cdef extern from "stdlib.h":
-    void* malloc(size_t size)
-    void free(void* ptr)
 
-# initialize NumPy.
-cnp.import_array()
+cdef class Table:
+    """
+    Lookup table that allows ghost entity.
+    """
+
+    def __cinit__(self, *args, **kw):
+        self.nghost = -1 # Sentinel
+        self._body = <char*>(NULL) # Sentinel
+
+    def __init__(self, *args, **kw):
+        # Pop all custom keyword arguments.
+        self.nghost = kw.pop("nghost", 0)
+        creator_name = kw.pop("creation", "empty")
+        # Create the ndarray.
+        create = getattr(np, creator_name)
+        self._nda = create(*args, **kw)
+        if not self._nda.flags.c_contiguous:
+            raise ValueError("not C Contiguous")
+        ndim = len(self._nda.shape)
+        if ndim == 0:
+            raise ValueError("zero dimension is not allowed")
+        # Calculate offset.
+        cdef cnp.ndarray cnda = self._nda
+        self._body = <char*>(cnda.data)
+        offset = self._calc_offset(self._nda.shape, self.nghost)
+        self._body += self._nda.itemsize * offset
+
+    @staticmethod
+    def _calc_offset(shape, nghost):
+        second = 1 if 1 == len(shape) else np.multiply.reduce(shape[1:])
+        return nghost * second
+
+    def __getattr__(self, name):
+        return getattr(self._nda, name)
+
+    @property
+    def _ghostaddr(self):
+        cdef cnp.ndarray cnda = self._nda
+        return <intptr_t>(cnda.data)
+
+    @property
+    def _bodyaddr(self):
+        return <intptr_t>(self._body)
+
+    @property
+    def offset(self):
+        """
+        Element offset from the head of the ndarray to where the body starts.
+        """
+        return self._calc_offset(self._nda.shape, self.nghost)
+
+    @property
+    def F(self):
+        """Full array."""
+        return self._nda
+
+    @property
+    def G(self):
+        """Ghost-part array."""
+        return self._nda[self.nghost-1::-1,...]
+    _ghostpart = G # Descriptive name.
+
+    @property
+    def B(self):
+        """Body-part array."""
+        return self._nda[self.nghost:,...]
+    _bodypart = B # Descriptive name.
+
 
 cdef class Mesh:
     """
@@ -302,4 +373,4 @@ cdef class Bound:
         else:
             self._bcd.value = &value[0,0]
 
-# vim: set fenc=utf8 ft=pyrex ff=unix ai et nu sw=4 ts=4 tw=79:
+# vim: set fenc=utf8 ft=pyrex ff=unix nobomb ai et sw=4 ts=4 tw=79:

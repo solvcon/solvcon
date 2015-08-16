@@ -26,6 +26,8 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+from libc.stdint cimport intptr_t
+
 cdef public:
     ctypedef struct sc_mesh_t:
         int ndim, nnode, nface, ncell, nbound, ngstnode, ngstface, ngstcell
@@ -57,6 +59,11 @@ cdef public:
         CLMFC = 6
         FCREL = 4
         BFREL = 3
+
+cdef class Table:
+    cdef readonly intptr_t nghost
+    cdef readonly char *_body
+    cdef readonly object _nda
 
 cdef class Mesh:
     cdef sc_mesh_t *_msd
