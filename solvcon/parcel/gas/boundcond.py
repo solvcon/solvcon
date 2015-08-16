@@ -33,18 +33,13 @@ Boundary-condition treatments for :py:class:`~.solver.GasSolver`.
 """
 
 
-from solvcon import boundcond
+import solvcon as sc
 
-try: # for readthedocs to work.
-    from . import _algorithm
-except ImportError as e:
-    import warnings
-    warnings.warn(
-        "solvcon.parcel.gas._algorithm isn't built; %s" % str(e.args),
-        RuntimeWarning)
+# for readthedocs to work.
+sc.import_module_may_fail('._algorithm')
 
 
-class GasBC(boundcond.BC):
+class GasBC(sc.BC):
     """
     Base class for all boundary conditions of the gas solver.
     """

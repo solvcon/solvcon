@@ -37,11 +37,9 @@ defined here.
 
 import warnings
 
+from . import dependency
 from .gendata import TypeNameRegistry, TypeWithBinder
-try: # for readthedocs to work.
-    from . import mesh
-except ImportError:
-    warnings.warn("solvcon.mesh isn't built", RuntimeWarning)
+dependency.import_module_may_fail('.mesh')
 
 class Glue(object):
     """

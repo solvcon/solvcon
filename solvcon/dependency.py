@@ -32,6 +32,55 @@
 Logic for using external compiled libraries.
 """
 
+
+import warnings
+import importlib
+import inspect
+
+
+def import_module_may_fail(modname, asname=None):
+    """
+    :param modname: The name of the module to be imported.
+    :keyword asname: The name to be inserted into the caller's namespace.  When
+                     set to None (default), it is determined by *modname*.
+                     When set to '' (empty string), no insertion is made.
+    """
+    mod = None # If no module is loaded, return None.
+    cframe = inspect.currentframe().f_back # Caller's frame.
+    try:
+        cglobals = cframe.f_globals
+        # Determine package name for importlib.import_module().
+        if modname.startswith('.'):
+            package = cglobals['__name__']
+            if not cglobals['__file__'].split('.')[-2].endswith('__init__'):
+                package = '.'.join(package.split('.')[:-1])
+        else:
+            package = None
+        # Determine the name to be inserted into the caller's namespace.
+        if None is asname:
+            asname = modname.split('.')[-1]
+        # Try to import the module.
+        try:
+            mod = importlib.import_module(modname, package)
+            if '' != asname:
+                cframe.f_locals[asname] = mod
+        except ImportError as e:
+            name = modname
+            if name.startswith('.'):
+                level = 0
+                for character in name:
+                    if character != '.':
+                        break
+                    level += 1
+                name = importlib._resolve_name(name[level:], package, level)
+            msg = '; '.join(str(it) for it in e.args)
+            warnings.warn("%s isn't built; %s" % (name, msg),
+                          RuntimeWarning, stacklevel=2)
+    finally:
+        del cframe
+    return mod
+
+
 def str_of(dtype):
     """
     Determine the string representation of a dtype of floating-point.

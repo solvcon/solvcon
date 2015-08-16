@@ -35,14 +35,12 @@ import warnings
 
 import numpy as np
 
+import solvcon as sc
 from solvcon import solver
 from solvcon import boundcond
 
-try: # for readthedocs to work.
-    from . import _algorithm
-except ImportError:
-    warnings.warn("solvcon.parcel.bulk._algorithm isn't built",
-                  RuntimeWarning)
+# for readthedocs to work.
+sc.import_module_may_fail('._algorithm')
 
 
 class BulkSolver(solver.MeshSolver):

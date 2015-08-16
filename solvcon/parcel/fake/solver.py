@@ -37,13 +37,11 @@ import warnings
 
 import numpy as np
 
+import solvcon as sc
 from solvcon import solver
 
-try: # for readthedocs to work.
-    from . import _algorithm
-except ImportError:
-    warnings.warn("solvcon.parcel.fake._algorithm isn't built",
-                  RuntimeWarning)
+# for readthedocs to work.
+sc.import_module_may_fail('._algorithm')
 
 
 class FakeSolver(solver.MeshSolver):

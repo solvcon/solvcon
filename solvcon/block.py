@@ -30,9 +30,19 @@
 
 """Unstructured mesh definition."""
 
+
+import warnings
+import importlib
+
+import numpy as np
+
+from . import boundcond
+from . import dependency
+dependency.import_module_may_fail('.mesh')
+
+
 # metadata for unstructured mesh.
-from numpy import array
-elemtype = array([
+elemtype = np.array([
     # index, dim, node, edge, surface,    name
     [     0,   0,    1,    0,       0, ], # node/point/vertex
     [     1,   1,    2,    0,       0, ], # line/edge
@@ -43,11 +53,11 @@ elemtype = array([
     [     6,   3,    6,    9,       5, ], # prism/wedge
     [     7,   3,    5,    8,       5, ], # pyramid
 ], dtype='int32')
-del array
 MAX_FCNND = elemtype[elemtype[:,1]<3,2].max()
 MAX_CLNND = elemtype[:,2].max()
 MAX_CLNFC = max(elemtype[elemtype[:,1]==2,3].max(),
                 elemtype[elemtype[:,1]==3,4].max())
+
 
 class Block(object):
     """
@@ -136,7 +146,6 @@ class Block(object):
 
         Initialization.
         """
-        from numpy import empty
         # get rid of fpdtype setting.
         kw.pop('fpdtype', None)
         # get parameters.
@@ -150,63 +159,63 @@ class Block(object):
         self.blkn = None
         # boundary conditions and boundary faces information.
         self.bclist = list()
-        self.bndfcs = empty((nbound, 2), dtype='int32')
+        self.bndfcs = np.empty((nbound, 2), dtype='int32')
         # group names.
         self.grpnames = list()
         # interior data.
         ## metrics.
-        self.ndcrd = empty((nnode, ndim), dtype=self.fpdtype)
-        self.fccnd = empty((nface, ndim), dtype=self.fpdtype)
-        self.fcnml = empty((nface, ndim), dtype=self.fpdtype)
-        self.fcara = empty(nface, dtype=self.fpdtype)
-        self.clcnd = empty((ncell, ndim), dtype=self.fpdtype)
-        self.clvol = empty(ncell, dtype=self.fpdtype)
+        self.ndcrd = np.empty((nnode, ndim), dtype=self.fpdtype)
+        self.fccnd = np.empty((nface, ndim), dtype=self.fpdtype)
+        self.fcnml = np.empty((nface, ndim), dtype=self.fpdtype)
+        self.fcara = np.empty(nface, dtype=self.fpdtype)
+        self.clcnd = np.empty((ncell, ndim), dtype=self.fpdtype)
+        self.clvol = np.empty(ncell, dtype=self.fpdtype)
         ## type data.
-        self.fctpn = empty(nface, dtype='int32')
-        self.cltpn = empty(ncell, dtype='int32')
-        self.clgrp = empty(ncell, dtype='int32')
+        self.fctpn = np.empty(nface, dtype='int32')
+        self.cltpn = np.empty(ncell, dtype='int32')
+        self.clgrp = np.empty(ncell, dtype='int32')
         self.clgrp.fill(-1) # every cell should be in 0-th group by default.
         ## connectivities.
-        self.fcnds = empty((nface, self.FCMND+1), dtype='int32')
-        self.fccls = empty((nface, 4), dtype='int32')
-        self.clnds = empty((ncell, self.CLMND+1), dtype='int32')
-        self.clfcs = empty((ncell, self.CLMFC+1), dtype='int32')
+        self.fcnds = np.empty((nface, self.FCMND+1), dtype='int32')
+        self.fccls = np.empty((nface, 4), dtype='int32')
+        self.clnds = np.empty((ncell, self.CLMND+1), dtype='int32')
+        self.clfcs = np.empty((ncell, self.CLMFC+1), dtype='int32')
         for arr in self.clnds, self.clfcs, self.fcnds, self.fccls:
             arr.fill(-1)
         # ghost data.
         ## metrics. (placeholder)
-        self.gstndcrd = empty((0, ndim), dtype=self.fpdtype)
-        self.gstfccnd = empty((0, ndim), dtype=self.fpdtype)
-        self.gstfcnml = empty((0, ndim), dtype=self.fpdtype)
-        self.gstfcara = empty(0, dtype=self.fpdtype)
-        self.gstclcnd = empty((0, ndim), dtype=self.fpdtype)
-        self.gstclvol = empty(0, dtype=self.fpdtype)
+        self.gstndcrd = np.empty((0, ndim), dtype=self.fpdtype)
+        self.gstfccnd = np.empty((0, ndim), dtype=self.fpdtype)
+        self.gstfcnml = np.empty((0, ndim), dtype=self.fpdtype)
+        self.gstfcara = np.empty(0, dtype=self.fpdtype)
+        self.gstclcnd = np.empty((0, ndim), dtype=self.fpdtype)
+        self.gstclvol = np.empty(0, dtype=self.fpdtype)
         ## type data. (placeholder)
-        self.gstfctpn = empty(0, dtype='int32')
-        self.gstcltpn = empty(0, dtype='int32')
-        self.gstclgrp = empty(0, dtype='int32')
+        self.gstfctpn = np.empty(0, dtype='int32')
+        self.gstcltpn = np.empty(0, dtype='int32')
+        self.gstclgrp = np.empty(0, dtype='int32')
         ## connectivities. (placeholder)
-        self.gstfcnds = empty((0, self.FCMND+1), dtype='int32')
-        self.gstfccls = empty((0, 4), dtype='int32')
-        self.gstclnds = empty((0, self.CLMND+1), dtype='int32')
-        self.gstclfcs = empty((0, self.CLMFC+1), dtype='int32')
+        self.gstfcnds = np.empty((0, self.FCMND+1), dtype='int32')
+        self.gstfccls = np.empty((0, 4), dtype='int32')
+        self.gstclnds = np.empty((0, self.CLMND+1), dtype='int32')
+        self.gstclfcs = np.empty((0, self.CLMFC+1), dtype='int32')
         # shared (by interior/real and ghost).
         ## metrics. (placeholder)
-        self.shndcrd = empty((0, ndim), dtype=self.fpdtype)
-        self.shfccnd = empty((0, ndim), dtype=self.fpdtype)
-        self.shfcnml = empty((0, ndim), dtype=self.fpdtype)
-        self.shfcara = empty(0, dtype=self.fpdtype)
-        self.shclcnd = empty((0, ndim), dtype=self.fpdtype)
-        self.shclvol = empty(0, dtype=self.fpdtype)
+        self.shndcrd = np.empty((0, ndim), dtype=self.fpdtype)
+        self.shfccnd = np.empty((0, ndim), dtype=self.fpdtype)
+        self.shfcnml = np.empty((0, ndim), dtype=self.fpdtype)
+        self.shfcara = np.empty(0, dtype=self.fpdtype)
+        self.shclcnd = np.empty((0, ndim), dtype=self.fpdtype)
+        self.shclvol = np.empty(0, dtype=self.fpdtype)
         ## type data. (placeholder)
-        self.shfctpn = empty(0, dtype='int32')
-        self.shcltpn = empty(0, dtype='int32')
-        self.shclgrp = empty(0, dtype='int32')
+        self.shfctpn = np.empty(0, dtype='int32')
+        self.shcltpn = np.empty(0, dtype='int32')
+        self.shclgrp = np.empty(0, dtype='int32')
         ## connectivities. (placeholder)
-        self.shfcnds = empty((0, self.FCMND+1), dtype='int32')
-        self.shfccls = empty((0, 4), dtype='int32')
-        self.shclnds = empty((0, self.CLMND+1), dtype='int32')
-        self.shclfcs = empty((0, self.CLMFC+1), dtype='int32')
+        self.shfcnds = np.empty((0, self.FCMND+1), dtype='int32')
+        self.shfccls = np.empty((0, 4), dtype='int32')
+        self.shclnds = np.empty((0, self.CLMND+1), dtype='int32')
+        self.shclfcs = np.empty((0, self.CLMFC+1), dtype='int32')
         # keep initialization sequence.
         super(Block, self).__init__()
 
@@ -221,12 +230,10 @@ class Block(object):
 
     @property
     def fpdtype(self):
-        from numpy import float64
-        return float64
+        return np.float64
     @property
     def fpdtypestr(self):
-        from .dependency import str_of
-        return str_of(self.fpdtype)
+        return dependency.str_of(self.fpdtype)
 
     @property
     def ndim(self):
@@ -298,8 +305,7 @@ class Block(object):
         >>> # now the msh is valid for the blk is fully built-up.
         >>> msh = blk.create_msh()
         """
-        from .mesh import Mesh
-        msh = Mesh()
+        msh = mesh.Mesh()
         msh.setup_mesh(self)
         return msh
 
@@ -316,7 +322,6 @@ class Block(object):
         """
         :return: Nothing.
         """
-        from numpy import empty
         # prepare to build connectivity: calculate max number of faces.
         max_nfc = 0
         for sig in elemtype[1:2]:   # 1D cells.
@@ -333,12 +338,12 @@ class Block(object):
         # check for initialization of information for faces.
         if self.nface != nface:
             # connectivity, used in this method.
-            self.fctpn = empty(nface, dtype='int32')
-            self.fcnds = empty((nface, self.FCMND+1), dtype='int32')
-            self.fccls = empty((nface, 4), dtype='int32')
-            self.fccnd = empty((nface, self.ndim), dtype=self.fpdtype)
-            self.fcnml = empty((nface, self.ndim), dtype=self.fpdtype)
-            self.fcara = empty(nface, dtype=self.fpdtype)
+            self.fctpn = np.empty(nface, dtype='int32')
+            self.fcnds = np.empty((nface, self.FCMND+1), dtype='int32')
+            self.fccls = np.empty((nface, 4), dtype='int32')
+            self.fccnd = np.empty((nface, self.ndim), dtype=self.fpdtype)
+            self.fcnml = np.empty((nface, self.ndim), dtype=self.fpdtype)
+            self.fcara = np.empty(nface, dtype=self.fpdtype)
         # assign extracted data to block.
         self.clfcs[:,:] = clfcs[:,:]
         self.fctpn[:] = fctpn[:]
@@ -357,18 +362,16 @@ class Block(object):
         :type unspec_name: :py:class:`str`
         :return: Nothing.
         """
-        from numpy import arange, empty, unique
-        from .boundcond import bctregy
         if unspec_type == None:
-            unspec_type = bctregy.unspecified
+            unspec_type = boundcond.bctregy.unspecified
         # count all possible boundary faces.
         slct = self.fccls[:,1] < 0
         nbound = slct.sum()
-        allfacn = arange(self.nface, dtype='int32')[slct]
+        allfacn = np.arange(self.nface, dtype='int32')[slct]
         # collect type definition from bclist.
-        specified = empty(nbound, dtype='bool')
+        specified = np.empty(nbound, dtype='bool')
         specified.fill(False)
-        bndfcs = empty((nbound, 2), dtype='int32')
+        bndfcs = np.empty((nbound, 2), dtype='int32')
         ibfc = 0
         for bc in self.bclist:
             try:
@@ -376,7 +379,7 @@ class Block(object):
                 bndfcs[ibfc:ibfc+len(bc),0] = bc.facn[:,0]
                 bndfcs[ibfc:ibfc+len(bc),1] = bc.sern
                 # save bndfc indices back to bc object.
-                bc.facn[:,1] = arange(ibfc,ibfc+len(bc))
+                bc.facn[:,1] = np.arange(ibfc,ibfc+len(bc))
                 # mark specified indices.
                 slct = allfacn.searchsorted(bc.facn[:,0])
                 specified[slct] = True
@@ -393,9 +396,9 @@ class Block(object):
             bc.name = unspec_name
             bc.sern = len(self.bclist)
             bc.blk = self
-            bc.facn = empty((len(leftfcs),3), dtype='int32')
+            bc.facn = np.empty((len(leftfcs),3), dtype='int32')
             bc.facn[:,0] = leftfcs[:]
-            bc.facn[:,1] = arange(ibfc,ibfc+len(bc))
+            bc.facn[:,1] = np.arange(ibfc,ibfc+len(bc))
             self.bclist.append(bc)
             bndfcs[ibfc:,0] = bc.facn[:,0]
             bndfcs[ibfc:,1] = bc.sern
@@ -462,30 +465,29 @@ class Block(object):
         @type ngstcell: int
         @return: nothing.
         """
-        from numpy import empty
         ndim = self.ndim
         nnode = self.nnode
         nface = self.nface
         ncell = self.ncell
         # shared metrics.
-        self.shndcrd = empty((ngstnode+nnode, ndim), dtype=self.fpdtype)
-        self.shfccnd = empty((ngstface+nface, ndim), dtype=self.fpdtype)
-        self.shfcnml = empty((ngstface+nface,ndim), dtype=self.fpdtype)
-        self.shfcara = empty(ngstface+nface, dtype=self.fpdtype)
-        self.shclcnd = empty((ngstcell+ncell, ndim), dtype=self.fpdtype)
-        self.shclvol = empty(ngstcell+ncell, dtype=self.fpdtype)
+        self.shndcrd = np.empty((ngstnode+nnode, ndim), dtype=self.fpdtype)
+        self.shfccnd = np.empty((ngstface+nface, ndim), dtype=self.fpdtype)
+        self.shfcnml = np.empty((ngstface+nface,ndim), dtype=self.fpdtype)
+        self.shfcara = np.empty(ngstface+nface, dtype=self.fpdtype)
+        self.shclcnd = np.empty((ngstcell+ncell, ndim), dtype=self.fpdtype)
+        self.shclvol = np.empty(ngstcell+ncell, dtype=self.fpdtype)
         # shared type data.
-        self.shfctpn = empty(ngstface+nface, dtype='int32')
-        self.shcltpn = empty(ngstcell+ncell, dtype='int32')
+        self.shfctpn = np.empty(ngstface+nface, dtype='int32')
+        self.shcltpn = np.empty(ngstcell+ncell, dtype='int32')
         # shared connectivities.
-        self.shfcnds = empty((ngstface+nface, self.FCMND+1), dtype='int32')
-        self.shfccls = empty((ngstface+nface, 4), dtype='int32')
-        self.shclnds = empty((ngstcell+ncell, self.CLMND+1), dtype='int32')
-        self.shclfcs = empty((ngstcell+ncell, self.CLMFC+1), dtype='int32')
+        self.shfcnds = np.empty((ngstface+nface, self.FCMND+1), dtype='int32')
+        self.shfccls = np.empty((ngstface+nface, 4), dtype='int32')
+        self.shclnds = np.empty((ngstcell+ncell, self.CLMND+1), dtype='int32')
+        self.shclfcs = np.empty((ngstcell+ncell, self.CLMFC+1), dtype='int32')
         for arr in self.shclnds, self.shclfcs, self.shfcnds, self.shfccls:
             arr.fill(-1)
         # descriptive data.
-        self.shclgrp = empty(ngstcell+ncell, dtype='int32')
+        self.shclgrp = np.empty(ngstcell+ncell, dtype='int32')
 
     def _assign_ghost(self, ngstnode, ngstface, ngstcell):
         """

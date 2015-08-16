@@ -43,6 +43,8 @@ __version__ = '0.1.4+'
 __description__ = "SOLVCON: Solvers of conservation laws"
 
 __all__ = [
+    # dependency
+    'import_module_may_fail',
     # cmdutil
     'go', 'Command',
     # conf
@@ -67,6 +69,7 @@ __all__ = [
     'parcel',
 ]
 
+from .dependency import import_module_may_fail
 from .cmdutil import Command, go
 from .conf import env
 from .block import Block

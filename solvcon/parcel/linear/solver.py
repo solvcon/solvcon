@@ -39,15 +39,12 @@ import warnings
 
 import numpy as np
 
+import solvcon as sc
 from solvcon import solver
 from solvcon import boundcond
 
-try: # for readthedocs to work.
-    from . import _algorithm
-except ImportError as e:
-    warnings.warn(
-        "solvcon.parcel.linear._algorithm isn't built; %s" % str(e.args),
-        RuntimeWarning)
+# for readthedocs to work.
+sc.import_module_may_fail('._algorithm')
 
 
 class LinearSolver(solver.MeshSolver):

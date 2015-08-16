@@ -37,13 +37,8 @@ import numpy as np
 
 import solvcon as sc
 
-try: # for readthedocs to work.
-    from . import _algorithm
-except ImportError as e:
-    import warnings
-    warnings.warn(
-        "solvcon.parcel.gas._algorithm isn't built; %s" % str(e.args),
-        RuntimeWarning)
+# for readthedocs to work.
+sc.import_module_may_fail('._algorithm')
 
 
 class GasSolver(sc.MeshSolver):
