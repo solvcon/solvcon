@@ -38,23 +38,14 @@ from ..mesh import Table
 
 class TestTableCreation(unittest.TestCase):
     def test_nothing(self):
-        tbl = Table(0)
-
-    def test_scalar(self):
-        with self.assertRaises(ValueError) as cm:
-            tbl = Table(1, creation="array")
-        self.assertTrue(cm.exception.args[0], "zero dimension is not allowed")
+        tbl = Table(0, 1)
 
     def test_zeros(self):
-        tbl = Table(3, creation="zeros")
+        tbl = Table(0, 3, creation="zeros")
         self.assertEqual([0, 0, 0], list(tbl.F))
 
-    def test_arange(self):
-        tbl = Table(5, creation="arange")
-        self.assertEqual(list(range(5)), list(tbl.F))
-
     def test_override(self):
-        tbl = Table((3,4), nghost=1)
+        tbl = Table(1, 2, 4)
         # Make sure "nda" isn't writable.
         with self.assertRaises(AttributeError) as cm:
             tbl._nda = np.arange(12).reshape((3,4))
@@ -70,8 +61,22 @@ class TestTableCreation(unittest.TestCase):
 
 class TestTableParts(unittest.TestCase):
 
+    def test_setter(self):
+        tbl = Table(4, 8)
+        tbl.F = np.arange(12)
+        tbl.G = np.arange(4)
+        tbl.B = np.arange(8)
+
+    def test_no_setting_property(self):
+        tbl = Table(4, 8)
+        with self.assertRaisesRegexp(AttributeError, "can't set attribute"):
+            tbl._ghostpart = np.arange(4)
+        with self.assertRaisesRegexp(AttributeError, "can't set attribute"):
+            tbl._bodypart = np.arange(8)
+
     def test_1d(self):
-        tbl = Table(12, nghost=4, creation="arange")
+        tbl = Table(4, 8)
+        tbl.F = np.arange(tbl.size, dtype=tbl.dtype).reshape(tbl.shape)
         self.assertEqual(list(range(12)), list(tbl.F))
         self.assertEqual([3,2,1,0], list(tbl.G))
         self.assertEqual([3,2,1,0], list(tbl._ghostpart))
@@ -79,8 +84,8 @@ class TestTableParts(unittest.TestCase):
         self.assertEqual(list(range(4,12)), list(tbl._bodypart))
 
     def test_2d(self):
-        tbl = Table((3,4), nghost=1)
-        tbl.F[...] = np.arange(12).reshape((3,4))
+        tbl = Table(1, 2, 4)
+        tbl.F = np.arange(tbl.size, dtype=tbl.dtype).reshape(tbl.shape)
         # Make sure the above writing doesn't override the memory holder.
         self.assertEqual(tbl._bodyaddr,
                          tbl._ghostaddr + tbl.itemsize * tbl.offset)
@@ -93,5 +98,21 @@ class TestTableParts(unittest.TestCase):
         self.assertEqual((2,4), tbl._bodypart.shape)
         self.assertEqual(list(range(4,12)), list(tbl.B.ravel()))
         self.assertEqual(list(range(4,12)), list(tbl._bodypart.ravel()))
+
+    def test_3d(self):
+        tbl = Table(1, 2, 4, 5)
+        tbl.F = np.arange(tbl.size, dtype=tbl.dtype).reshape(tbl.shape)
+        # Make sure the above writing doesn't override the memory holder.
+        self.assertEqual(tbl._bodyaddr,
+                         tbl._ghostaddr + tbl.itemsize * tbl.offset)
+        # Check for value.
+        self.assertEqual((1,4,5), tbl.G.shape)
+        self.assertEqual((1,4,5), tbl._ghostpart.shape)
+        self.assertEqual(list(range(4*5)), list(tbl.G.ravel()))
+        self.assertEqual(list(range(4*5)), list(tbl._ghostpart.ravel()))
+        self.assertEqual((2,4,5), tbl.B.shape)
+        self.assertEqual((2,4,5), tbl._bodypart.shape)
+        self.assertEqual(list(range(4*5,3*4*5)), list(tbl.B.ravel()))
+        self.assertEqual(list(range(4*5,3*4*5)), list(tbl._bodypart.ravel()))
 
 # vim: set fenc=utf8 ff=unix nobomb ai et sw=4 ts=4 tw=79:

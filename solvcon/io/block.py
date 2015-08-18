@@ -141,11 +141,17 @@ class BlockFormat(Format):
         self._load_connectivity(meta, stream, blk)
         self._load_type(meta, stream, blk)
         self._load_geometry(meta, stream, blk)
+        for name in blk.TABLE_NAMES:
+            table = getattr(blk, 'tb'+name)
+            setattr(blk, name, table.B)
+            setattr(blk, 'gst'+name, table.G)
+            setattr(blk, 'sh'+name, table.F)
         self._load_boundcond(meta, bcsinfo, fpdtype, stream, blk)
         # conversion.
-        self._construct_subarrays(meta, blk)
         if bcmapper != None:
             self._convert_bc(bcmapper, blk)
+        # sanity check.
+        blk.check_sanity()
         return blk
 
     ############################################################################
@@ -253,14 +259,18 @@ class BlockFormat(Format):
         @type blk: solvcon.block.Block
         @return: nothing.
         """
-        blk.shfcnds = cls._read_array(meta.compressor,
-            (meta.ngstface+meta.nface, meta.FCMND+1), 'int32', stream)
-        blk.shfccls = cls._read_array(meta.compressor,
-            (meta.ngstface+meta.nface, 4), 'int32', stream)
-        blk.shclnds = cls._read_array(meta.compressor,
-            (meta.ngstcell+meta.ncell, meta.CLMND+1), 'int32', stream)
-        blk.shclfcs = cls._read_array(meta.compressor,
-            (meta.ngstcell+meta.ncell, meta.CLMFC+1), 'int32', stream)
+        blk.tbfcnds = cls._read_table(
+            meta.compressor, stream, 'int32',
+            meta.ngstface, meta.nface, meta.FCMND+1)
+        blk.tbfccls = cls._read_table(
+            meta.compressor, stream, 'int32',
+            meta.ngstface, meta.nface, 4)
+        blk.tbclnds = cls._read_table(
+            meta.compressor, stream, 'int32',
+            meta.ngstcell, meta.ncell, meta.CLMND+1)
+        blk.tbclfcs = cls._read_table(
+            meta.compressor, stream, 'int32',
+            meta.ngstcell, meta.ncell, meta.CLMFC+1)
     @classmethod
     def _load_type(cls, meta, stream, blk):
         """
@@ -272,14 +282,14 @@ class BlockFormat(Format):
         @type blk: solvcon.block.Block
         @return: nothing.
         """
-        blk.shfctpn = cls._read_array(meta.compressor,
-            (meta.ngstface+meta.nface,), 'int32', stream)
-        blk.shcltpn = cls._read_array(meta.compressor,
-            (meta.ngstcell+meta.ncell,), 'int32', stream)
-        blk.shclgrp = cls._read_array(meta.compressor,
-            (meta.ngstcell+meta.ncell,), 'int32', stream)
+        blk.tbfctpn = cls._read_table(
+            meta.compressor, stream, 'int32', meta.ngstface, meta.nface)
+        blk.tbcltpn = cls._read_table(
+            meta.compressor, stream, 'int32', meta.ngstcell, meta.ncell)
+        blk.tbclgrp = cls._read_table(
+            meta.compressor, stream, 'int32', meta.ngstcell, meta.ncell)
     @classmethod
-    def _load_geometry(cls, meta, stream, blk, extra=True):
+    def _load_geometry(cls, meta, stream, blk):
         """
         @param meta: meta information dictionary.
         @type meta: solvcon.gendata.AttributeDict
@@ -292,19 +302,24 @@ class BlockFormat(Format):
         @return: nothing.
         """
         fpdtype = blk.fpdtype
-        blk.shndcrd = cls._read_array(meta.compressor,
-            (meta.ngstnode+meta.nnode, meta.ndim), fpdtype, stream)
-        if extra:
-            blk.shfccnd = cls._read_array(meta.compressor,
-                (meta.ngstface+meta.nface, meta.ndim), fpdtype, stream)
-            blk.shfcnml = cls._read_array(meta.compressor,
-                (meta.ngstface+meta.nface, meta.ndim), fpdtype, stream)
-            blk.shfcara = cls._read_array(meta.compressor,
-                (meta.ngstface+meta.nface,), fpdtype, stream)
-            blk.shclcnd = cls._read_array(meta.compressor,
-                (meta.ngstcell+meta.ncell, meta.ndim), fpdtype, stream)
-            blk.shclvol = cls._read_array(meta.compressor,
-                (meta.ngstcell+meta.ncell,), fpdtype, stream)
+        blk.tbndcrd = cls._read_table(
+            meta.compressor, stream, fpdtype,
+            meta.ngstnode, meta.nnode, meta.ndim)
+        blk.tbfccnd = cls._read_table(
+            meta.compressor, stream, fpdtype,
+            meta.ngstface, meta.nface, meta.ndim)
+        blk.tbfcnml = cls._read_table(
+            meta.compressor, stream, fpdtype,
+            meta.ngstface, meta.nface, meta.ndim)
+        blk.tbfcara = cls._read_table(
+            meta.compressor, stream, fpdtype,
+            meta.ngstface, meta.nface)
+        blk.tbclcnd = cls._read_table(
+            meta.compressor, stream, fpdtype,
+            meta.ngstcell, meta.ncell, meta.ndim)
+        blk.tbclvol = cls._read_table(
+            meta.compressor, stream, fpdtype,
+            meta.ngstcell, meta.ncell)
     @classmethod
     def _load_boundcond(cls, meta, bcsinfo, fpdtype, stream, blk):
         """
@@ -399,49 +414,6 @@ class BlockFormat(Format):
             newbc.sern = bc.sern
             newbc.blk = blk
             blk.bclist[ibc] = newbc
-    @staticmethod
-    def _construct_subarrays(meta, blk):
-        """
-        @param meta: meta information dictionary.
-        @type meta: solvcon.gendata.AttributeDict
-        @param blk: block object to alter.
-        @type blk: solvcon.block.Block
-        @return: nothing.
-        """
-        # geometry.
-        blk.ndcrd = blk.shndcrd[meta.ngstnode:,:]
-        blk.fccnd = blk.shfccnd[meta.ngstface:,:]
-        blk.fcnml = blk.shfcnml[meta.ngstface:,:]
-        blk.fcara = blk.shfcara[meta.ngstface:]
-        blk.clcnd = blk.shclcnd[meta.ngstcell:,:]
-        blk.clvol = blk.shclvol[meta.ngstcell:]
-        # type data.
-        blk.fctpn = blk.shfctpn[meta.ngstface:]
-        blk.cltpn = blk.shcltpn[meta.ngstcell:]
-        # ghost connectivities.
-        blk.fcnds = blk.shfcnds[meta.ngstface:,:]
-        blk.fccls = blk.shfccls[meta.ngstface:,:]
-        blk.clnds = blk.shclnds[meta.ngstcell:,:]
-        blk.clfcs = blk.shclfcs[meta.ngstcell:,:]
-        # descriptive data.
-        blk.clgrp = blk.shclgrp[meta.ngstcell:]
-        # ghost metrics.
-        blk.gstndcrd = blk.shndcrd[meta.ngstnode-1::-1,:]
-        blk.gstfccnd = blk.shfccnd[meta.ngstface-1::-1,:]
-        blk.gstfcnml = blk.shfcnml[meta.ngstface-1::-1,:]
-        blk.gstfcara = blk.shfcara[meta.ngstface-1::-1]
-        blk.gstclcnd = blk.shclcnd[meta.ngstcell-1::-1,:]
-        blk.gstclvol = blk.shclvol[meta.ngstcell-1::-1]
-        # ghost type data.
-        blk.gstfctpn = blk.shfctpn[meta.ngstface-1::-1]
-        blk.gstcltpn = blk.shcltpn[meta.ngstcell-1::-1]
-        # ghost connectivities.
-        blk.gstfcnds = blk.shfcnds[meta.ngstface-1::-1,:]
-        blk.gstfccls = blk.shfccls[meta.ngstface-1::-1,:]
-        blk.gstclnds = blk.shclnds[meta.ngstcell-1::-1,:]
-        blk.gstclfcs = blk.shclfcs[meta.ngstcell-1::-1,:]
-        # ghost descriptive data.
-        blk.gstclgrp = blk.shclgrp[meta.ngstcell-1::-1]
 
 class OldTrivialBlockFormat(BlockFormat):
     """

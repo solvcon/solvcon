@@ -128,6 +128,11 @@ class Block(object):
     CLMND = MAX_CLNND
     CLMFC = MAX_CLNFC
 
+    TABLE_NAMES = (
+        'ndcrd', 'fccnd', 'fcnml', 'fcara', 'clcnd', 'clvol',
+        'fctpn', 'cltpn', 'clgrp', 'fcnds', 'fccls', 'clnds', 'clfcs',
+    )
+
     def __init__(self, *args, **kw):
         """
         :keyword fpdtype: dtype for the floating point data.  Deprecated.
@@ -162,62 +167,58 @@ class Block(object):
         self.bndfcs = np.empty((nbound, 2), dtype='int32')
         # group names.
         self.grpnames = list()
-        # interior data.
-        ## metrics.
-        self.ndcrd = np.empty((nnode, ndim), dtype=self.fpdtype)
-        self.fccnd = np.empty((nface, ndim), dtype=self.fpdtype)
-        self.fcnml = np.empty((nface, ndim), dtype=self.fpdtype)
-        self.fcara = np.empty(nface, dtype=self.fpdtype)
-        self.clcnd = np.empty((ncell, ndim), dtype=self.fpdtype)
-        self.clvol = np.empty(ncell, dtype=self.fpdtype)
-        ## type data.
-        self.fctpn = np.empty(nface, dtype='int32')
-        self.cltpn = np.empty(ncell, dtype='int32')
-        self.clgrp = np.empty(ncell, dtype='int32')
-        self.clgrp.fill(-1) # every cell should be in 0-th group by default.
-        ## connectivities.
-        self.fcnds = np.empty((nface, self.FCMND+1), dtype='int32')
-        self.fccls = np.empty((nface, 4), dtype='int32')
-        self.clnds = np.empty((ncell, self.CLMND+1), dtype='int32')
-        self.clfcs = np.empty((ncell, self.CLMFC+1), dtype='int32')
-        for arr in self.clnds, self.clfcs, self.fcnds, self.fccls:
-            arr.fill(-1)
-        # ghost data.
-        ## metrics. (placeholder)
-        self.gstndcrd = np.empty((0, ndim), dtype=self.fpdtype)
-        self.gstfccnd = np.empty((0, ndim), dtype=self.fpdtype)
-        self.gstfcnml = np.empty((0, ndim), dtype=self.fpdtype)
-        self.gstfcara = np.empty(0, dtype=self.fpdtype)
-        self.gstclcnd = np.empty((0, ndim), dtype=self.fpdtype)
-        self.gstclvol = np.empty(0, dtype=self.fpdtype)
-        ## type data. (placeholder)
-        self.gstfctpn = np.empty(0, dtype='int32')
-        self.gstcltpn = np.empty(0, dtype='int32')
-        self.gstclgrp = np.empty(0, dtype='int32')
-        ## connectivities. (placeholder)
-        self.gstfcnds = np.empty((0, self.FCMND+1), dtype='int32')
-        self.gstfccls = np.empty((0, 4), dtype='int32')
-        self.gstclnds = np.empty((0, self.CLMND+1), dtype='int32')
-        self.gstclfcs = np.empty((0, self.CLMFC+1), dtype='int32')
-        # shared (by interior/real and ghost).
-        ## metrics. (placeholder)
-        self.shndcrd = np.empty((0, ndim), dtype=self.fpdtype)
-        self.shfccnd = np.empty((0, ndim), dtype=self.fpdtype)
-        self.shfcnml = np.empty((0, ndim), dtype=self.fpdtype)
-        self.shfcara = np.empty(0, dtype=self.fpdtype)
-        self.shclcnd = np.empty((0, ndim), dtype=self.fpdtype)
-        self.shclvol = np.empty(0, dtype=self.fpdtype)
-        ## type data. (placeholder)
-        self.shfctpn = np.empty(0, dtype='int32')
-        self.shcltpn = np.empty(0, dtype='int32')
-        self.shclgrp = np.empty(0, dtype='int32')
-        ## connectivities. (placeholder)
-        self.shfcnds = np.empty((0, self.FCMND+1), dtype='int32')
-        self.shfccls = np.empty((0, 4), dtype='int32')
-        self.shclnds = np.empty((0, self.CLMND+1), dtype='int32')
-        self.shclfcs = np.empty((0, self.CLMFC+1), dtype='int32')
+        # all tables.
+        self._build_tables(ndim, nnode, nface, ncell, 0, 0, 0)
+        for name in self.TABLE_NAMES:
+            table = getattr(self, 'tb'+name)
+            setattr(self, name, table.B)
+            setattr(self, 'gst'+name, table.G)
+            setattr(self, 'sh'+name, table.F)
         # keep initialization sequence.
         super(Block, self).__init__()
+        # sanity check.
+        self.check_sanity()
+
+    def check_sanity(self):
+        self.create_msh()
+        # FIXME: all array should be hidden in properties (getter "+ setter")
+        # for access control!
+
+    def _build_tables(self, ndim, nnode, nface, ncell,
+                      ngstnode, ngstface, ngstcell):
+        """
+        Allocate memory by creating solvcon.mesh.Table objects.
+
+        This method alters content in self object.
+
+        :param ndim: number of dimensionality.
+        :param nnode: number of body nodes.
+        :param nface: number of body faces.
+        :param ncell: number of body cells.
+        :param ngstnode: number of nodes for ghost cells.
+        :param ngstcell: number of faces for ghost cells.
+        :param ngstcell: number of ghost cells.
+        :return: nothing.
+        """
+        # metrics.
+        self.tbndcrd = mesh.Table(ngstnode, nnode, ndim, dtype=self.fpdtype)
+        self.tbfccnd = mesh.Table(ngstface, nface, ndim, dtype=self.fpdtype)
+        self.tbfcnml = mesh.Table(ngstface, nface, ndim, dtype=self.fpdtype)
+        self.tbfcara = mesh.Table(ngstface, nface, dtype=self.fpdtype)
+        self.tbclcnd = mesh.Table(ngstcell, ncell, ndim, dtype=self.fpdtype)
+        self.tbclvol = mesh.Table(ngstcell, ncell, dtypes=self.fpdtype)
+        # meta/type.
+        self.tbfctpn = mesh.Table(ngstface, nface, dtype='int32')
+        self.tbcltpn = mesh.Table(ngstcell, ncell, dtype='int32')
+        self.tbclgrp = mesh.Table(ngstcell, ncell, dtype='int32')
+        self.tbclgrp.F.fill(-1)
+        # connectivities.
+        self.tbfcnds = mesh.Table(ngstface, nface, self.FCMND+1, dtype='int32')
+        self.tbfccls = mesh.Table(ngstface, nface, 4, dtype='int32')
+        self.tbclnds = mesh.Table(ngstcell, ncell, self.CLMND+1, dtype='int32')
+        self.tbclfcs = mesh.Table(ngstcell, ncell, self.CLMFC+1, dtype='int32')
+        for name in ('fcnds', 'fccls', 'clnds', 'clfcs'):
+            getattr(self, 'tb'+name).F.fill(-1)
 
     def __str__(self):
         return ', '.join([
@@ -337,13 +338,18 @@ class Block(object):
         nface = fctpn.shape[0]
         # check for initialization of information for faces.
         if self.nface != nface:
-            # connectivity, used in this method.
-            self.fctpn = np.empty(nface, dtype='int32')
-            self.fcnds = np.empty((nface, self.FCMND+1), dtype='int32')
-            self.fccls = np.empty((nface, 4), dtype='int32')
-            self.fccnd = np.empty((nface, self.ndim), dtype=self.fpdtype)
-            self.fcnml = np.empty((nface, self.ndim), dtype=self.fpdtype)
-            self.fcara = np.empty(nface, dtype=self.fpdtype)
+            # face arrays used in this method.
+            self.tbfctpn = mesh.Table(0, nface, dtype='int32')
+            self.tbfcnds = mesh.Table(0, nface, self.FCMND+1, dtype='int32')
+            self.tbfccls = mesh.Table(0, nface, 4, dtype='int32')
+            self.tbfccnd = mesh.Table(0, nface, self.ndim, dtype=self.fpdtype)
+            self.tbfcnml = mesh.Table(0, nface, self.ndim, dtype=self.fpdtype)
+            self.tbfcara = mesh.Table(0, nface, dtype=self.fpdtype)
+            for name in ('fctpn', 'fcnds', 'fccls', 'fccnd', 'fcnml', 'fcara'):
+                table = getattr(self, 'tb'+name)
+                setattr(self, name, table.B)
+                setattr(self, 'gst'+name, table.G)
+                setattr(self, 'sh'+name, table.F)
         # assign extracted data to block.
         self.clfcs[:,:] = clfcs[:,:]
         self.fctpn[:] = fctpn[:]
@@ -411,11 +417,20 @@ class Block(object):
         """
         # initialize data structure (arrays) for ghost information.
         ngstnode, ngstface, ngstcell = self._count_ghost()
-        self._init_shared(ngstnode, ngstface, ngstcell)
-        self._assign_ghost(ngstnode, ngstface, ngstcell)
-        self._reassign_interior(ngstnode, ngstface, ngstcell)
+        self._build_tables(self.ndim, self.nnode, self.nface, self.ncell,
+                           ngstnode, ngstface, ngstcell)
+        for name in self.TABLE_NAMES:
+            table = getattr(self, 'tb'+name)
+            # simply assign names of shared (full) and ghost arrays.
+            setattr(self, 'sh'+name, table.F)
+            setattr(self, 'gst'+name, table.G)
+            # reassign both names and contents of body arrays.
+            table.B = getattr(self, name)
+            setattr(self, name, table.B)
         # build ghost information, including connectivities and metrics.
         self.create_msh().build_ghost(self.bndfcs)
+        # to this point the object should be sane.
+        self.check_sanity()
 
     def _count_ghost(self):
         """
@@ -450,152 +465,6 @@ class Block(object):
         ngstnode = self.clnds[bcls,0].sum() - self.fcnds[bfcs,0].sum()
         # return result.
         return ngstnode, ngstface, ngstcell
-
-    def _init_shared(self, ngstnode, ngstface, ngstcell):
-        """
-        Allocate arrays to stored data both for ghost and real/interior cells.
-        
-        This method alters content in self object.
-
-        @param ngstnode: number of nodes for ghost cells.
-        @type ngstnode: int
-        @param ngstcell: number of faces for ghost cells.
-        @type ngstface: int
-        @param ngstcell: number of ghost cells.
-        @type ngstcell: int
-        @return: nothing.
-        """
-        ndim = self.ndim
-        nnode = self.nnode
-        nface = self.nface
-        ncell = self.ncell
-        # shared metrics.
-        self.shndcrd = np.empty((ngstnode+nnode, ndim), dtype=self.fpdtype)
-        self.shfccnd = np.empty((ngstface+nface, ndim), dtype=self.fpdtype)
-        self.shfcnml = np.empty((ngstface+nface,ndim), dtype=self.fpdtype)
-        self.shfcara = np.empty(ngstface+nface, dtype=self.fpdtype)
-        self.shclcnd = np.empty((ngstcell+ncell, ndim), dtype=self.fpdtype)
-        self.shclvol = np.empty(ngstcell+ncell, dtype=self.fpdtype)
-        # shared type data.
-        self.shfctpn = np.empty(ngstface+nface, dtype='int32')
-        self.shcltpn = np.empty(ngstcell+ncell, dtype='int32')
-        # shared connectivities.
-        self.shfcnds = np.empty((ngstface+nface, self.FCMND+1), dtype='int32')
-        self.shfccls = np.empty((ngstface+nface, 4), dtype='int32')
-        self.shclnds = np.empty((ngstcell+ncell, self.CLMND+1), dtype='int32')
-        self.shclfcs = np.empty((ngstcell+ncell, self.CLMFC+1), dtype='int32')
-        for arr in self.shclnds, self.shclfcs, self.shfcnds, self.shfccls:
-            arr.fill(-1)
-        # descriptive data.
-        self.shclgrp = np.empty(ngstcell+ncell, dtype='int32')
-
-    def _assign_ghost(self, ngstnode, ngstface, ngstcell):
-        """
-        Assign ghost arrays to lower portion of shared arrays.
-
-        This method alters content in self object.
-
-        @param ngstnode: number of nodes for ghost cells.
-        @type ngstnode: int
-        @param ngstcell: number of faces for ghost cells.
-        @type ngstface: int
-        @param ngstcell: number of ghost cells.
-        @type ngstcell: int
-        @return: nothing.
-        """
-        # ghost metrics.
-        self.gstndcrd = self.shndcrd[ngstnode-1::-1,:]
-        self.gstfccnd = self.shfccnd[ngstface-1::-1,:]
-        self.gstfcnml = self.shfcnml[ngstface-1::-1,:]
-        self.gstfcara = self.shfcara[ngstface-1::-1]
-        self.gstclcnd = self.shclcnd[ngstcell-1::-1,:]
-        self.gstclvol = self.shclvol[ngstcell-1::-1]
-        # ghost type data.
-        self.gstfctpn = self.shfctpn[ngstface-1::-1]
-        self.gstcltpn = self.shcltpn[ngstcell-1::-1]
-        # ghost connectivities.
-        self.gstfcnds = self.shfcnds[ngstface-1::-1,:]
-        self.gstfccls = self.shfccls[ngstface-1::-1,:]
-        self.gstclnds = self.shclnds[ngstcell-1::-1,:]
-        self.gstclfcs = self.shclfcs[ngstcell-1::-1,:]
-        # descriptive data.
-        self.gstclgrp = self.shclgrp[ngstcell-1::-1]
-
-    def _reassign_interior(self, ngstnode, ngstface, ngstcell):
-        """
-        Reassign interior data stored in standalone ndarray object to upper
-        portion of shared ndarray object.
-
-        This method alters content in self object.
-
-        @param ngstnode: number of nodes for ghost cells.
-        @type ngstnode: int
-        @param ngstcell: number of faces for ghost cells.
-        @type ngstface: int
-        @param ngstcell: number of ghost cells.
-        @type ngstcell: int
-        @return: nothing.
-        """
-        ndim = self.ndim
-        nnode = self.nnode
-        nface = self.nface
-        ncell = self.ncell
-        # reassign metrics.
-        ## node coordinate.
-        ndcrd = self.shndcrd[ngstnode:,:]
-        ndcrd[:,:] = self.ndcrd[:,:]
-        self.ndcrd = ndcrd
-        ## face center coordinate.
-        fccnd = self.shfccnd[ngstface:,:]
-        fccnd[:,:] = self.fccnd[:,:]
-        self.fccnd = fccnd
-        ## face unit normal vector.
-        fcnml = self.shfcnml[ngstface:,:]
-        fcnml[:,:] = self.fcnml[:,:]
-        self.fcnml = fcnml
-        ## face area.
-        fcara = self.shfcara[ngstface:]
-        fcara[:] = self.fcara[:]
-        self.fcara = fcara
-        ## cell center coordinate.
-        clcnd = self.shclcnd[ngstcell:,:]
-        clcnd[:,:] = self.clcnd[:,:]
-        self.clcnd = clcnd
-        ## cell volume.
-        clvol = self.shclvol[ngstcell:]
-        clvol[:] = self.clvol[:]
-        self.clvol = clvol
-        # reassign type data.
-        ## face type.
-        fctpn = self.shfctpn[ngstface:]
-        fctpn[:] = self.fctpn[:]
-        self.fctpn = fctpn
-        ## cell type.
-        cltpn = self.shcltpn[ngstcell:]
-        cltpn[:] = self.cltpn[:]
-        self.cltpn = cltpn
-        # reassign connectivities.
-        ## nodes in faces.
-        fcnds = self.shfcnds[ngstface:,:]
-        fcnds[:,:] = self.fcnds[:,:]
-        self.fcnds = fcnds
-        ## cells between faces.
-        fccls = self.shfccls[ngstface:,:]
-        fccls[:,:] = self.fccls[:,:]
-        self.fccls = fccls
-        ## nodes in cells.
-        clnds = self.shclnds[ngstcell:,:]
-        clnds[:,:] = self.clnds[:,:]
-        self.clnds = clnds
-        ## faces around cells.
-        clfcs = self.shclfcs[ngstcell:,:]
-        clfcs[:,:] = self.clfcs[:,:]
-        self.clfcs = clfcs
-        # reassign descriptive.
-        ## cell group.
-        clgrp = self.shclgrp[ngstcell:]
-        clgrp[:] = self.clgrp[:]
-        self.clgrp = clgrp
 
     def partition(self, npart):
         msh = self.create_msh()

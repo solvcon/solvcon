@@ -58,23 +58,27 @@ cdef class Table:
 
     def __cinit__(self, *args, **kw):
         self.nghost = -1 # Sentinel
+        self.nbody = -1 # Sentinel
+        self._full = <char*>(NULL) # Sentinel
         self._body = <char*>(NULL) # Sentinel
 
-    def __init__(self, *args, **kw):
+    def __init__(self, nghost, nbody, *args, **kw):
+        self.nghost = nghost
+        self.nbody = nbody
         # Pop all custom keyword arguments.
-        self.nghost = kw.pop("nghost", 0)
+        dtype = kw.pop("dtype", None)
         creator_name = kw.pop("creation", "empty")
         # Create the ndarray.
         create = getattr(np, creator_name)
-        self._nda = create(*args, **kw)
+        self._nda = create([nghost+nbody]+list(args), dtype=dtype)
         if not self._nda.flags.c_contiguous:
             raise ValueError("not C Contiguous")
         ndim = len(self._nda.shape)
         if ndim == 0:
             raise ValueError("zero dimension is not allowed")
-        # Calculate offset.
+        # Assign pointers.
         cdef cnp.ndarray cnda = self._nda
-        self._body = <char*>(cnda.data)
+        self._full = self._body = <char*>(cnda.data)
         offset = self._calc_offset(self._nda.shape, self.nghost)
         self._body += self._nda.itemsize * offset
 
@@ -102,22 +106,45 @@ cdef class Table:
         """
         return self._calc_offset(self._nda.shape, self.nghost)
 
-    @property
-    def F(self):
+    property F:
         """Full array."""
-        return self._nda
+        def __get__(self):
+            return self._nda[...]
+        def __set__(self, arr):
+            self._nda[...] = arr
 
-    @property
-    def G(self):
+    property G:
         """Ghost-part array."""
-        return self._nda[self.nghost-1::-1,...]
-    _ghostpart = G # Descriptive name.
+        def __get__(self):
+            if self.nghost:
+                return self._nda[self.nghost-1::-1,...]
+            else:
+                return self._nda[0:0,...]
+        def __set__(self, arr):
+            if self.nghost:
+                self._nda[self.nghost-1::-1,...] = arr
+            else:
+                raise IndexError('nghost is zero')
 
     @property
-    def B(self):
+    def _ghostpart(self):
+        """Ghost-part array without setter."""
+        if self.nghost:
+            return self._nda[self.nghost-1::-1,...]
+        else:
+            return self._nda[0:0,...]
+
+    property B:
         """Body-part array."""
+        def __get__(self):
+            return self._nda[self.nghost:,...]
+        def __set__(self, arr):
+            self._nda[self.nghost:,...] = arr
+
+    @property
+    def _bodypart(self):
+        """Body-part array without setter."""
         return self._nda[self.nghost:,...]
-    _bodypart = B # Descriptive name.
 
 
 cdef class Mesh:
@@ -148,74 +175,61 @@ cdef class Mesh:
         self._msd.ngstnode = blk.ngstnode
         self._msd.ngstface = blk.ngstface
         self._msd.ngstcell = blk.ngstcell
+        # before set array pointers, check them.
+        self._check_pointers(blk)
         # geometry arrays.
-        cdef cnp.ndarray[double, ndim=2, mode="c"] ndcrd = blk.ndcrd
-        if ndcrd.shape[0] * ndcrd.shape[1] == 0:
-            self._msd.ndcrd = NULL
-        else:
-            self._msd.ndcrd = &ndcrd[0,0]
-        cdef cnp.ndarray[double, ndim=2, mode="c"] fccnd = blk.fccnd
-        if fccnd.shape[0] * fccnd.shape[1] == 0:
-            self._msd.fccnd = NULL
-        else:
-            self._msd.fccnd = &fccnd[0,0]
-        cdef cnp.ndarray[double, ndim=2, mode="c"] fcnml = blk.fcnml
-        if fcnml.shape[0] * fcnml.shape[1] == 0:
-            self._msd.fcnml = NULL
-        else:
-            self._msd.fcnml = &fcnml[0,0]
-        cdef cnp.ndarray[double, ndim=1, mode="c"] fcara = blk.fcara
-        if fcara.shape[0] == 0:
-            self._msd.fcara = NULL
-        else:
-            self._msd.fcara = &fcara[0]
-        cdef cnp.ndarray[double, ndim=2, mode="c"] clcnd = blk.clcnd
-        if clcnd.shape[0] * clcnd.shape[1] == 0:
-            self._msd.clcnd = NULL
-        else:
-            self._msd.clcnd = &clcnd[0,0]
-        cdef cnp.ndarray[double, ndim=1, mode="c"] clvol = blk.clvol
-        if clvol.shape[0] == 0:
-            self._msd.clvol = NULL
-        else:
-            self._msd.clvol = &clvol[0]
+        self._msd.ndcrd = <double*>self._get_table_bodyaddr(blk.tbndcrd)
+        self._msd.fccnd = <double*>self._get_table_bodyaddr(blk.tbfccnd)
+        self._msd.fcnml = <double*>self._get_table_bodyaddr(blk.tbfcnml)
+        self._msd.fcara = <double*>self._get_table_bodyaddr(blk.tbfcara)
+        self._msd.clcnd = <double*>self._get_table_bodyaddr(blk.tbclcnd)
+        self._msd.clvol = <double*>self._get_table_bodyaddr(blk.tbclvol)
         # meta arrays.
-        cdef cnp.ndarray[int, ndim=1, mode="c"] fctpn = blk.fctpn
-        if fctpn.shape[0] == 0:
-            self._msd.fctpn = NULL
-        else:
-            self._msd.fctpn = &fctpn[0]
-        cdef cnp.ndarray[int, ndim=1, mode="c"] cltpn = blk.cltpn
-        if cltpn.shape[0] == 0:
-            self._msd.cltpn = NULL
-        else:
-            self._msd.cltpn = &cltpn[0]
-        cdef cnp.ndarray[int, ndim=1, mode="c"] clgrp = blk.clgrp
-        if clgrp.shape[0] == 0:
-            self._msd.clgrp = NULL
-        else:
-            self._msd.clgrp = &clgrp[0]
+        self._msd.fctpn = <int*>self._get_table_bodyaddr(blk.tbfctpn)
+        self._msd.cltpn = <int*>self._get_table_bodyaddr(blk.tbcltpn)
+        self._msd.clgrp = <int*>self._get_table_bodyaddr(blk.tbclgrp)
         # connectivity arrays.
-        cdef cnp.ndarray[int, ndim=2, mode="c"] fcnds = blk.fcnds
-        if fcnds.shape[0] * fcnds.shape[1] == 0:
-            self._msd.fcnds = NULL
+        self._msd.fcnds = <int*>self._get_table_bodyaddr(blk.tbfcnds)
+        self._msd.fccls = <int*>self._get_table_bodyaddr(blk.tbfccls)
+        self._msd.clnds = <int*>self._get_table_bodyaddr(blk.tbclnds)
+        self._msd.clfcs = <int*>self._get_table_bodyaddr(blk.tbclfcs)
+
+    @staticmethod
+    def _check_pointers(blk):
+        cdef Table _table
+        cdef cnp.ndarray _cnda
+        # not checking ghost arrays because they aren't contiguous and thus
+        # their addresses can't match.
+        cdef cnp.ndarray _sharr
+        cdef cnp.ndarray _arr
+        for name in blk.TABLE_NAMES:
+            table = getattr(blk, 'tb'+name)
+            sharr = getattr(blk, 'sh'+name)
+            assert sharr.flags.c_contiguous
+            arr = getattr(blk, name)
+            _table = table
+            _cnda = _table._nda
+            _sharr = sharr
+            _arr = arr
+            msgs = []
+            # shared.
+            vals = <size_t>(_cnda.data), <size_t>(_sharr.data)
+            if vals[0] != vals[1]:
+                msgs.append('shared(%d,%d)' % vals)
+            # body.
+            vals = <size_t>(_table._body), <size_t>(_arr.data)
+            if vals[0] != vals[1]:
+                msgs.append('body(%d,%d)' % vals)
+            if msgs:
+                tmpl = '%s array mismatch: %s'
+                raise AttributeError(tmpl % (name, ', '.join(msgs)))
+
+    cdef void* _get_table_bodyaddr(self, table):
+        cdef Table _table = table
+        if 0 == table.size:
+            return NULL
         else:
-            self._msd.fcnds = &fcnds[0,0]
-        cdef cnp.ndarray[int, ndim=2, mode="c"] fccls = blk.fccls
-        if fccls.shape[0] * fccls.shape[1] == 0:
-            self._msd.fccls = NULL
-        else:
-            self._msd.fccls = &fccls[0,0]
-        cdef cnp.ndarray[int, ndim=2, mode="c"] clnds = blk.clnds
-        if clnds.shape[0] * clnds.shape[1] == 0:
-            self._msd.clnds = NULL
-        else:
-            self._msd.clnds = &clnds[0,0]
-        cdef cnp.ndarray[int, ndim=2, mode="c"] clfcs = blk.clfcs
-        if clfcs.shape[0] * clfcs.shape[1] == 0:
-            self._msd.clfcs = NULL
-        else:
-            self._msd.clfcs = &clfcs[0,0]
+            return <void*>(_table._body)
 
     def build_ghost(self, cnp.ndarray[int, ndim=2, mode="c"] bndfcs):
         """

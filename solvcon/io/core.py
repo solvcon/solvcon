@@ -248,6 +248,16 @@ class Format(object):
         else:
             arr = np.frombuffer(buf, dtype=dtype).reshape(shape).copy()
         return arr
+    @classmethod
+    def _read_table(cls, compressor, stream, dtype, nghost, nbody, *args):
+        """
+        Read data from the input stream and convert it to
+        :py:mod:`solvcon.mesh.Table` with given shape and dtype.
+        """
+        from .. import mesh
+        table = mesh.Table(nghost, nbody, *args, dtype=dtype)
+        table.F = cls._read_array(compressor, table.shape, dtype, stream)
+        return table
 
 fioregy = TypeNameRegistry()    # registry singleton.
 class FormatIOMeta(type):

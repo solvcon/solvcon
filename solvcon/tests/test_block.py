@@ -73,6 +73,26 @@ class TestCreation(TestCase):
         self.assertEqual(blk.clvol[2], .5)
         self.assertEqual(blk.clvol.sum(), 2)
 
+    def test_insanity(self):
+        from ..block import Block
+        # build a simple 2D triangle with 4 subtriangles.
+        blk = Block(ndim=2, nnode=4, nface=6, ncell=3, nbound=3)
+        blk.ndcrd[0,:] = (0,0)
+        blk.ndcrd[1,:] = (-1,-1)
+        blk.ndcrd[2,:] = (1,-1)
+        blk.ndcrd[3,:] = (0,1)
+        blk.cltpn[:] = 3
+        blk.clnds[0,:4] = (3, 0,1,2)
+        blk.clnds[1,:4] = (3, 0,2,3)
+        blk.clnds[2,:4] = (3, 0,3,1)
+        blk.build_interior()
+        # reset an array
+        blk.check_sanity()
+        blk.ndcrd = blk.ndcrd.copy()
+        with self.assertRaisesRegexp(AttributeError,
+                                     "ndcrd array mismatch: body"):
+            blk.check_sanity()
+
 class GroupTest(TestCase):
     __test__ = False
     testblock = None
