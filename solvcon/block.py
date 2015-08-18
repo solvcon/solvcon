@@ -59,6 +59,62 @@ MAX_CLNFC = max(elemtype[elemtype[:,1]==2,3].max(),
                 elemtype[elemtype[:,1]==3,4].max())
 
 
+class _TableDescriptor(object):
+    """
+    Control the access of array attributes in :py:mod:`Block`.
+    """
+
+    def __init__(self, name, prefix, collector_name):
+        self.name = name
+        self.prefix = prefix
+        self.collector_name = collector_name
+
+    def _get_collector(self, ins):
+        """This indirection prevents cyclic reference to *ins*."""
+        if not hasattr(ins, self.collector_name):
+            setattr(ins, self.collector_name, dict())
+        return getattr(ins, self.collector_name)
+
+    def __get__(self, ins, cls):
+        if self.name not in ins.TABLE_NAMES:
+            raise AttributeError('"%s" is not in Block.TABLE_NAME'%self.name)
+        collector = self._get_collector(ins)
+        return collector[self.name]
+
+    def __set__(self, ins, val):
+        if not isinstance(val, (mesh.Table, np.ndarray)):
+            raise TypeError('only Table and ndarray are acceptable')
+        if self.name not in ins.TABLE_NAMES:
+            raise AttributeError('"%s" is not in Block.TABLE_NAME'%self.name)
+        collector = self._get_collector(ins)
+        collector[self.name] = val
+
+    def __delete__(self, ins):
+        raise AttributeError("can't delete attribute %s" % self.name)
+
+
+class BlockMeta(type):
+    def __new__(cls, name, bases, namespace):
+        # Table names.
+        namespace['GEOMETRY_TABLE_NAMES'] = (
+            'ndcrd', 'fccnd', 'fcnml', 'fcara', 'clcnd', 'clvol')
+        namespace['META_TABLE_NAMES'] = (
+            'fctpn', 'cltpn', 'clgrp')
+        namespace['CONNECTIVITY_TABLE_NAMES'] = (
+            'fcnds', 'fccls', 'clnds', 'clfcs')
+        namespace['TABLE_NAMES'] = TABLE_NAMES = (
+            namespace['GEOMETRY_TABLE_NAMES']
+          + namespace['META_TABLE_NAMES']
+          + namespace['CONNECTIVITY_TABLE_NAMES'])
+        # Table descriptors.
+        for cname, prefix in (('_tables','tb'), ('_shared_arrays','sh'),
+                              ('_body_arrays',''), ('_ghost_arrays','gst')):
+            for tname in TABLE_NAMES:
+                descr = _TableDescriptor(tname, prefix, cname)
+                namespace[prefix+tname] = descr
+        return super(BlockMeta, cls).__new__(cls, name, bases, namespace)
+
+
 class Block(object):
     """
     :ivar use_incenter: specify using incenter or not.
@@ -124,14 +180,11 @@ class Block(object):
     True
     """
 
+    __metaclass__ = BlockMeta
+
     FCMND = MAX_FCNND
     CLMND = MAX_CLNND
     CLMFC = MAX_CLNFC
-
-    TABLE_NAMES = (
-        'ndcrd', 'fccnd', 'fcnml', 'fcara', 'clcnd', 'clvol',
-        'fctpn', 'cltpn', 'clgrp', 'fcnds', 'fccls', 'clnds', 'clfcs',
-    )
 
     def __init__(self, *args, **kw):
         """
@@ -181,8 +234,6 @@ class Block(object):
 
     def check_sanity(self):
         self.create_msh()
-        # FIXME: all array should be hidden in properties (getter "+ setter")
-        # for access control!
 
     def _build_tables(self, ndim, nnode, nface, ncell,
                       ngstnode, ngstface, ngstcell):

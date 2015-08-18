@@ -2,11 +2,74 @@
 # Copyright (C) 2008-2012 by Yung-Yu Chen.  See LICENSE.txt for terms of usage.
 
 from unittest import TestCase
+
+import numpy as np
+
 from ..testing import get_blk_from_oblique_neu, get_blk_from_sample_neu
 
-class TestCreation(TestCase):
-    def test_import(self):
+class TestTableDescriptor(TestCase):
+    def test_contents(self):
         from ..block import Block
+        blk = Block()
+        self.assertEqual(list(sorted(blk.TABLE_NAMES)),
+                         list(sorted(blk._tables.keys())))
+        self.assertEqual(list(sorted(blk.TABLE_NAMES)),
+                         list(sorted(blk._shared_arrays.keys())))
+        self.assertEqual(list(sorted(blk.TABLE_NAMES)),
+                         list(sorted(blk._body_arrays.keys())))
+        self.assertEqual(list(sorted(blk.TABLE_NAMES)),
+                         list(sorted(blk._ghost_arrays.keys())))
+
+    def test_type(self):
+        from ..block import Block
+        blk = Block()
+        for tname in blk.TABLE_NAMES:
+            name = tname
+            # It shall pass, although causes sanity check failure.
+            oldarr = getattr(blk, name)
+            setattr(blk, name, np.empty_like(oldarr))
+            with self.assertRaisesRegexp(
+                AttributeError, '%s array mismatch: body'%name):
+                blk.check_sanity()
+            setattr(blk, name, oldarr) # Put it back for the next test in loop.
+            # It shall not be set to a incorrect type.
+            for wrong_typed in (None, 'string', 1, 3.5, list(oldarr)):
+                with self.assertRaisesRegexp(
+                    TypeError, 'only Table and ndarray are acceptable'):
+                    setattr(blk, name, wrong_typed)
+
+    def test_unacceptable_name(self):
+        from .. import block
+        from ..block import Block
+        class MyBlock(Block):
+            invalid = block._TableDescriptor('invalid', '', '_invalid_arrays')
+        blk = MyBlock()
+        # Make sure the collector dict for the "invalid" item is absent.
+        self.assertFalse(hasattr(MyBlock, '_invalid_arrays'))
+        # The "invalid" descriptor shouldn't work.
+        with self.assertRaisesRegexp(
+            AttributeError, '"invalid" is not in Block.TABLE_NAME'):
+            blk.invalid = np.empty(10)
+        # No collector is created.
+        self.assertFalse(hasattr(MyBlock, '_invalid_arrays'))
+
+class TestCreation(TestCase):
+    def test_table_names(self):
+        from ..block import Block
+        self.assertEqual(
+            ('ndcrd', 'fccnd', 'fcnml', 'fcara', 'clcnd', 'clvol'),
+            Block.GEOMETRY_TABLE_NAMES)
+        self.assertEqual(
+            ('fctpn', 'cltpn', 'clgrp'),
+            Block.META_TABLE_NAMES)
+        self.assertEqual(
+            ('fcnds', 'fccls', 'clnds', 'clfcs'),
+            Block.CONNECTIVITY_TABLE_NAMES)
+        self.assertEqual(
+            Block.GEOMETRY_TABLE_NAMES
+          + Block.META_TABLE_NAMES
+          + Block.CONNECTIVITY_TABLE_NAMES,
+            Block.TABLE_NAMES)
 
     def test_use_centroid_default(self):
         from ..block import Block
