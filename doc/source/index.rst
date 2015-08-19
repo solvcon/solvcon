@@ -19,7 +19,7 @@ where :math:`\mathbf{u}` is the unknown vector and :math:`\mathrm{A}^{(1)}`,
 matrices.
 
 .. include:: ../../README.rst
-  :start-line: 9
+  :start-line: 4
 
 Documents
 =========
