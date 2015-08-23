@@ -46,8 +46,8 @@ class GasSolver(sc.MeshSolver):
     Spatial loops for the gas-dynamics solver.
     """
 
-    _interface_init_ = ['cecnd', 'cevol', 'sfmrc']
-    _solution_array_ = ['solt', 'sol', 'soln', 'dsol', 'dsoln']
+    _interface_init_ = ('cecnd', 'cevol', 'sfmrc')
+    _solution_array_ = ('solt', 'sol', 'soln', 'dsol', 'dsoln')
 
     def __init__(self, blk, **kw):
         """
@@ -84,28 +84,30 @@ class GasSolver(sc.MeshSolver):
         self.taumin = float(kw.pop('taumin', 0.0))
         self.tauscale = float(kw.pop('tauscale', 1.0))
         # dual mesh.
-        self.cecnd = np.empty(
-            (ngstcell+ncell, blk.CLMFC+1, ndim), dtype=fpdtype)
-        self.cevol = np.empty(
-            (ngstcell+ncell, blk.CLMFC+1), dtype=fpdtype)
-        self.sfmrc = np.empty((ncell, blk.CLMFC, blk.FCMND, 2, ndim),
-            dtype=fpdtype)
+        self.tbcecnd = sc.Table(ngstcell, ncell, blk.CLMFC+1, ndim,
+                                dtype=fpdtype)
+        self.tbcevol = sc.Table(ngstcell, ncell, blk.CLMFC+1, dtype=fpdtype)
+        self.tbsfmrc = sc.Table(0, ncell, blk.CLMFC, blk.FCMND, 2, ndim,
+                                dtype=fpdtype)
         # parameters.
         self.grpda = np.empty((self.ngroup, 1), dtype=fpdtype)
         nsca = kw.pop('nsca', 1)
         nvec = kw.pop('nvec', 0)
-        self.amsca = np.empty((ngstcell+ncell, nsca), dtype=fpdtype)
-        self.amvec = np.empty((ngstcell+ncell, nvec, ndim), dtype=fpdtype)
+        self.tbamsca = sc.Table(ngstcell, ncell, nsca, dtype=fpdtype)
+        self.tbamvec = sc.Table(ngstcell, ncell, nvec, ndim, dtype=fpdtype)
         # solutions.
         neq = self.neq
-        self.sol = np.empty((ngstcell+ncell, neq), dtype=fpdtype)
-        self.soln = np.empty((ngstcell+ncell, neq), dtype=fpdtype)
-        self.solt = np.empty((ngstcell+ncell, neq), dtype=fpdtype)
-        self.dsol = np.empty((ngstcell+ncell, neq, ndim), dtype=fpdtype)
-        self.dsoln = np.empty((ngstcell+ncell, neq, ndim), dtype=fpdtype)
-        self.stm = np.empty((ngstcell+ncell, neq), dtype=fpdtype)
-        self.cfl = np.empty(ngstcell+ncell, dtype=fpdtype)
-        self.ocfl = np.empty(ngstcell+ncell, dtype=fpdtype)
+        self.tbsol = sc.Table(ngstcell, ncell, neq, dtype=fpdtype)
+        self.tbsoln = sc.Table(ngstcell, ncell, neq, dtype=fpdtype)
+        self.tbsolt = sc.Table(ngstcell, ncell, neq, dtype=fpdtype)
+        self.tbdsol = sc.Table(ngstcell, ncell, neq, ndim, dtype=fpdtype)
+        self.tbdsoln = sc.Table(ngstcell, ncell, neq, ndim, dtype=fpdtype)
+        self.tbstm = sc.Table(ngstcell, ncell, neq, dtype=fpdtype)
+        self.tbcfl = sc.Table(ngstcell, ncell, dtype=fpdtype)
+        self.tbocfl = sc.Table(ngstcell, ncell, dtype=fpdtype)
+        for name in (self._interface_init_ + ('amsca', 'amvec')
+                   + self._solution_array_ + ('stm', 'cfl', 'ocfl')):
+            setattr(self, name, getattr(self, 'tb'+name).F)
         # algorithm object.
         alg = _algorithm.GasAlgorithm()
         alg.setup_mesh(blk)
