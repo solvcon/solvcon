@@ -57,8 +57,7 @@ def import_module_may_fail(modname, asname=None):
         else:
             package = None
         # Determine the name to be inserted into the caller's namespace.
-        if None is asname:
-            asname = modname.split('.')[-1]
+        asname = modname.split('.')[-1] if None is asname else asname
         # Try to import the module.
         try:
             mod = importlib.import_module(modname, package)
@@ -79,6 +78,29 @@ def import_module_may_fail(modname, asname=None):
     finally:
         del cframe
     return mod
+
+
+def import_name(name, modname, asname=None, may_fail=False):
+    """
+    FIXME: combine *name* and *modname* into one argument.
+    """
+    mod = import_module_may_fail(modname, asname='')
+    if not hasattr(mod, name):
+        msg = "%s not found in %s" % (name, modname)
+        if may_fail:
+            warnings.warn(msg, RuntimeWarning, stacklevel=2)
+        else:
+            raise ImportError(msg)
+    obj = getattr(mod, name, None)
+    # Mangle caller's namespace.
+    asname = name if None is asname else asname
+    cframe = inspect.currentframe().f_back # Caller's frame.
+    try:
+        if '' != asname:
+            cframe.f_locals[asname] = obj
+    finally:
+        del cframe
+    return obj
 
 
 def str_of(dtype):

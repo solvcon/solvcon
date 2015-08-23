@@ -44,13 +44,15 @@ __description__ = "SOLVCON: Solvers of conservation laws"
 
 __all__ = [
     # dependency
-    'import_module_may_fail',
+    'import_module_may_fail', 'import_name',
     # cmdutil
     'go', 'Command',
     # conf
     'env',
     # block
     'Block',
+    # mesh
+    'Table',
     # solver
     'MeshSolver',
     # case
@@ -69,10 +71,11 @@ __all__ = [
     'parcel',
 ]
 
-from .dependency import import_module_may_fail
+from .dependency import import_module_may_fail, import_name
 from .cmdutil import Command, go
 from .conf import env
 from .block import Block
+import_name('Table', '.mesh')
 from .solver import MeshSolver
 from .case import MeshCase
 from .anchor import MeshAnchor, MeshAnchorList

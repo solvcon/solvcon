@@ -26,6 +26,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+from libc.stdlib cimport malloc, free
 from solvcon.mesh cimport sc_mesh_t, sc_bound_t, Mesh, Bound
 from ._algorithm cimport sc_gas_algorithm_t
 import numpy as np
@@ -109,16 +110,17 @@ cdef extern:
         sc_mesh_t *msd, sc_bound_t *bcd, sc_gas_algorithm_t *alg)
 
 
-cdef extern from "stdlib.h":
-    void* malloc(size_t size)
-
-
 cdef class GasAlgorithm(Mesh):
     """
     An algorithm class that does trivial calculation.
     """
     def __cinit__(self):
         self._alg = <sc_gas_algorithm_t *>malloc(sizeof(sc_gas_algorithm_t))
+
+    def __dealloc__(self):
+        if NULL != self._alg:
+            free(<void*>self._alg)
+            self._alg = NULL
 
     def setup_algorithm(self, svr):
         # equations number.
