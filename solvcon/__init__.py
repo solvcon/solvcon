@@ -75,7 +75,7 @@ from .dependency import import_module_may_fail, import_name
 from .cmdutil import Command, go
 from .conf import env
 from .block import Block
-import_name('Table', '.mesh')
+import_name('Table', '.mesh', may_fail=True)
 from .solver import MeshSolver
 from .case import MeshCase
 from .anchor import MeshAnchor, MeshAnchorList
