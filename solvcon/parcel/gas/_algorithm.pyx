@@ -142,53 +142,36 @@ cdef class GasAlgorithm(Mesh):
         self._setup_solutions(svr)
 
     def _setup_cese_metrics(self, svr):
-        cdef cnp.ndarray[double, ndim=3, mode="c"] cecnd = svr.cecnd
-        self._alg.cecnd = &cecnd[self._msd.ngstcell,0,0]
-        cdef cnp.ndarray[double, ndim=2, mode="c"] cevol = svr.cevol
-        self._alg.cevol = &cevol[self._msd.ngstcell,0]
-        cdef cnp.ndarray[double, ndim=5, mode="c"] sfmrc = svr.sfmrc
-        self._alg.sfmrc = &sfmrc[0,0,0,0,0]
+        self._alg.cecnd = <double*>self._get_table_bodyaddr(svr.tbcecnd)
+        self._alg.cevol = <double*>self._get_table_bodyaddr(svr.tbcevol)
+        self._alg.sfmrc = <double*>self._get_table_bodyaddr(svr.tbsfmrc)
 
     def _setup_parameters(self, svr):
         # group data.
         self._alg.ngroup = svr.ngroup
         self._alg.gdlen = svr.gdlen
-        cdef cnp.ndarray[double, ndim=2, mode="c"] grpda = svr.grpda
-        self._alg.grpda = &grpda[0,0]
+        cdef cnp.ndarray grpda = svr.grpda
+        self._alg.grpda = <double*>grpda.data
         # scalar parameters.
         self._alg.nsca = svr.amsca.shape[1]
-        cdef cnp.ndarray[double, ndim=2, mode="c"] amsca = svr.amsca
-        if 0 != svr.amsca.shape[1]:
-            self._alg.amsca = &amsca[self._msd.ngstcell,0]
-        else:
-            self._alg.amsca = NULL
+        self._alg.amsca = <double*>self._get_table_bodyaddr(svr.tbamsca)
         # vector parameters.
         self._alg.nvec = svr.amvec.shape[1]
-        cdef cnp.ndarray[double, ndim=3, mode="c"] amvec = svr.amvec
-        if 0 != svr.amvec.shape[1]:
-            self._alg.amvec = &amvec[self._msd.ngstcell,0,0]
-        else:
-            self._alg.amvec = NULL
+        self._alg.amvec = <double*>self._get_table_bodyaddr(svr.tbamvec)
 
     def _setup_solutions(self, svr):
-        cdef cnp.ndarray[double, ndim=2, mode="c"] sol = svr.sol
-        self._alg.sol = &sol[self._msd.ngstcell,0]
-        cdef cnp.ndarray[double, ndim=2, mode="c"] soln = svr.soln
-        self._alg.soln = &soln[self._msd.ngstcell,0]
-        cdef cnp.ndarray[double, ndim=2, mode="c"] solt = svr.solt
-        self._alg.solt = &solt[self._msd.ngstcell,0]
-        cdef cnp.ndarray[double, ndim=3, mode="c"] dsol = svr.dsol
-        self._alg.dsol = &dsol[self._msd.ngstcell,0,0]
-        cdef cnp.ndarray[double, ndim=3, mode="c"] dsoln = svr.dsoln
-        self._alg.dsoln = &dsoln[self._msd.ngstcell,0,0]
-        cdef cnp.ndarray[double, ndim=2, mode="c"] stm = svr.stm
-        self._alg.stm = &stm[self._msd.ngstcell,0]
-        cdef cnp.ndarray[double, ndim=1, mode="c"] cfl = svr.cfl
-        self._alg.cfl = &cfl[self._msd.ngstcell]
-        cdef cnp.ndarray[double, ndim=1, mode="c"] ocfl = svr.ocfl
-        self._alg.ocfl = &ocfl[self._msd.ngstcell]
+        self._alg.sol = <double*>self._get_table_bodyaddr(svr.tbsol)
+        self._alg.soln = <double*>self._get_table_bodyaddr(svr.tbsoln)
+        self._alg.solt = <double*>self._get_table_bodyaddr(svr.tbsolt)
+        self._alg.dsol = <double*>self._get_table_bodyaddr(svr.tbdsol)
+        self._alg.dsoln = <double*>self._get_table_bodyaddr(svr.tbdsoln)
+        self._alg.stm = <double*>self._get_table_bodyaddr(svr.tbstm)
+        self._alg.cfl = <double*>self._get_table_bodyaddr(svr.tbcfl)
+        self._alg.ocfl = <double*>self._get_table_bodyaddr(svr.tbocfl)
 
     def locate_point(self, crd):
+        # FIXME: Blindly taking an ndarray object is dangerous.  Use a local C
+        # array instead.
         cdef cnp.ndarray[double, ndim=1, mode="c"] _crd = crd
         cdef int icl, ifl, jcl, jfl
         if self._msd.ndim == 3:
@@ -202,6 +185,8 @@ cdef class GasAlgorithm(Mesh):
         return icl, ifl, jcl, jfl
 
     def process_physics(self, gasconst, v, w, wm, rho, p, T, ke, a, M):
+        # FIXME: Refactor this block of tedious and error-prone array address
+        # manipulations.
         cdef double _gasconst = gasconst
         cdef cnp.ndarray[double, ndim=2, mode="c"] _v = v
         assert self._msd.ncell + self._msd.ngstcell == _v.shape[0]
@@ -235,6 +220,7 @@ cdef class GasAlgorithm(Mesh):
                 &_rho[0], &_p[0], &_T[0], &_ke[0], &_a[0], &_M[0])
 
     def process_schlieren_rhog(self, sch):
+        # FIXME: Refactor this error-prone array address manipulation.
         cdef cnp.ndarray[double, ndim=1, mode="c"] _sch = sch
         assert self._msd.ncell + self._msd.ngstcell == _sch.shape[0]
         if self._msd.ndim == 3:
@@ -243,6 +229,7 @@ cdef class GasAlgorithm(Mesh):
             sc_gas_process_schlieren_rhog_2d(self._msd, self._alg, &_sch[0])
 
     def process_schlieren_sch(self, schk, schk0, schk1, sch):
+        # FIXME: Refactor this error-prone array address manipulation.
         cdef cnp.ndarray[double, ndim=1, mode="c"] _sch = sch
         assert self._msd.ncell + self._msd.ngstcell == _sch.shape[0]
         cdef double _schk = schk
