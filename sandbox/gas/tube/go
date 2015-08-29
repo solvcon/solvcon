@@ -1,0 +1,235 @@
+#!/usr/bin/env python2.7
+# -*- coding: UTF-8 -*-
+#
+# Copyright (c) 2015, Taihsiang Ho <tai271828@gmail.com>
+#
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# - Redistributions of source code must retain the above copyright notice, this
+#   list of conditions and the following disclaimer.
+# - Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+# - Neither the name of the SOLVCON nor the names of its contributors may be
+#   used to endorse or promote products derived from this software without
+#   specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+
+
+"""
+This is an example for solving the problem of 3D Sod tube problem.
+Please note it is incomplete because
+1. CFL is too small (averaged maximum CFL = 0.4192)
+2. it should be included in CI and unit tests.
+"""
+
+import os  # Python standard library
+import numpy as np  # http://www.numpy.org
+import solvcon as sc  # SOLVCON
+from solvcon.parcel import gas  # A specific SOLVCON solver package we'll use
+
+
+class DiaphragmIAnchor(sc.MeshAnchor):
+    """
+    diaphragm initialization
+    """
+    def __init__(self, svr, **kw):
+        self.rho1 = float(kw.pop('rho1'))
+        self.rho2 = float(kw.pop('rho2'))
+        self.p1 = float(kw.pop('p1'))
+        self.p2 = float(kw.pop('p2'))
+        self.gamma = float(kw.pop('gamma'))
+        super(DiaphragmIAnchor, self).__init__(svr, **kw)
+
+    def provide(self):
+        super(DiaphragmIAnchor, self).provide()
+        gamma = self.gamma
+        svr = self.svr
+        svr.soln[:,0].fill(self.rho1)
+        svr.soln[:,1].fill(0.0)
+        svr.soln[:,2].fill(0.0)
+        if svr.ndim == 3:
+            svr.soln[:,3].fill(0.0)
+        svr.soln[:,svr.ndim+1].fill(self.p1/(gamma-1))
+        # set.
+        slct_int = svr.blk.clcnd[:,2] > 0.5
+        slct_gst = svr.blk.gstclcnd[:,2] > 0.5
+        slct = np.concatenate((slct_gst, slct_int))
+        svr.soln[slct,0] = self.rho2
+        svr.soln[slct,svr.ndim+1] = self.p2/(gamma-1)
+        # update.
+        svr.sol[:] = svr.soln[:]
+
+
+class SodtubeMesher(object):
+    """
+    Representation of a Sod tube and the Gmsh meshing helper.
+
+    :ivar
+    :type
+    """
+
+    GMSH_SCRIPT = """
+    // draw a circle
+    // vertices.
+    // center of the circle
+    Point(1) = {0,0,0,%(edgelength)g};
+    // vertices on the arc
+    Point(2) = {%(radius)g,0,0,%(edgelength)g};
+    Point(3) = {0,%(radius)g,0,%(edgelength)g};
+    Point(4) = {-%(radius)g,0,0,%(edgelength)g};
+    Point(5) = {0,-%(radius)g,0,%(edgelength)g};
+    // lines.
+    // draw the arc
+    Circle(1) = {2,1,3};
+    Circle(2) = {3,1,4};
+    Circle(3) = {4,1,5};
+    Circle(4) = {5,1,2};
+    // connect the arc to get a circle  
+    Line Loop(5) = {1,2,3,4};
+
+    // surface.
+    Plane Surface(6) = {5};
+    // extude the surface toward z
+    // to get a cylinder with height 2
+    Extrude {0,0,%(height)g} {
+      Surface{6};
+    }
+    // physics.
+    Physical Surface("wall") = {15, 19, 23, 27};
+    Physical Surface("left") = {6};
+    Physical Surface("right") = {28};
+    Physical Volume("tube") = {1};
+    """.strip()
+
+    def __init__(self, center, radius, height, edgelength):
+        self.center = center
+        self.radius = radius
+        self.height = height
+        self.edgelength = edgelength
+
+    def __call__(self, cse):
+        script_arguments = dict(
+            radius=self.radius, height=self.height, edgelength=self.edgelength)
+        cmds = self.GMSH_SCRIPT % script_arguments
+        cmds = [cmd.rstrip() for cmd in cmds.strip().split('\n')]
+        gmh = sc.Gmsh(cmds)()
+        return gmh.toblock(bcname_mapper=cse.condition.bcmap)
+
+
+def generate_bcmap():
+    # BC map.
+    bcmap = {
+        'wall': (sc.bctregy.GasWall, {},),
+        'left': (sc.bctregy.GasNonrefl, {},),
+        'right': (sc.bctregy.GasNonrefl, {},),
+    }
+    return bcmap
+
+
+def tube_base(casename=None,
+              psteps=None, ssteps=None, edgelength=None,
+              gamma=None,
+              rho1=None, p1=None,
+              rho2=None, p2=None,
+              **kw):
+    """
+    Base configuration of the simulation and return the case object.
+
+    :return: The created Case object.
+    :rtype: solvcon.parcel.gas.GasCase
+    """
+    ############################################################################
+    # Step 1: Obtain the analytical solution.
+    ############################################################################
+
+    # Calculate the flow properties in all zones separated by the shock.
+    # relation = DiaphragmIAnchor(gamma=gamma,
+    #                            rho1=rho1, p1=p1, rho2=rho2, p2=p2)
+
+    ############################################################################
+    # Step 2: Instantiate the simulation case.
+    ############################################################################
+
+    # Create the mesh generator.  Keep it for later use.
+    mesher = SodtubeMesher(center=0.0, radius=0.05, height=1.0,
+                           edgelength=edgelength)
+    # Set up case.
+    cse = gas.GasCase(
+        # Mesh generator.
+        mesher=mesher,
+        # Mapping boundary-condition treatments.
+        bcmap=generate_bcmap(),
+        # Use the case name to be the basename for all generated files.
+        basefn=casename,
+        # Use `cwd`/result to store all generated files.
+        basedir=os.path.abspath(os.path.join(os.getcwd(), 'result')),
+        # Debug and capture-all.
+        debug=False, **kw)
+
+    ############################################################################
+    # Step 3: Set up delayed callbacks.
+    ############################################################################
+
+    # Field initialization and derived calculations.
+    cse.defer(gas.FillAnchor, mappers={'soln': gas.GasSolver.ALMOST_ZERO,
+                                       'dsoln': 0.0, 'amsca': gamma})
+    # cse.defer(gas.DensityInitAnchor, rho=density)
+    cse.defer(DiaphragmIAnchor,
+              gamma=gamma, rho1=rho1, p1=p1, rho2=rho2, p2=p2)
+    cse.defer(gas.PhysicsAnchor, rsteps=ssteps)
+    # Report information while calculating.
+    cse.defer(gas.ProgressHook, linewidth=ssteps / psteps, psteps=psteps)
+    cse.defer(gas.CflHook, fullstop=False, cflmax=10.0, psteps=ssteps)
+    cse.defer(gas.MeshInfoHook, psteps=ssteps)
+    # cse.defer(ReflectionProbe, rect=mesher, relation=relation, psteps=ssteps)
+    # Store data.
+    cse.defer(gas.PMarchSave,
+              anames=[('soln', False, -4),
+                      ('rho', True, 0),
+                      ('p', True, 0),
+                      ('T', True, 0),
+                      ('ke', True, 0),
+                      ('M', True, 0),
+                      ('sch', True, 0),
+                      ('v', True, 0.5)],
+              psteps=ssteps)
+
+    ############################################################################
+    # Final: Return the configured simulation case.
+    ############################################################################
+    return cse
+
+
+@gas.register_arrangement
+def tube(casename, **kw):
+    return tube_base(
+        # Required positional argument for the name of the simulation case.
+        casename,
+        # Arguments to the base configuration.
+        gamma=1.4,
+        ssteps=200, psteps=4, edgelength=0.02,
+        rho1=1.0, p1=1.0,
+        rho2=0.125, p2=0.1,
+        # Arguments to GasCase.
+        time_increment=7.e-4, steps_run=600, **kw)
+
+
+if __name__ == '__main__':
+    sc.go()
+
+# vim: set ff=unix fenc=utf8 ft=python ai et sw=4 ts=4 tw=79:
