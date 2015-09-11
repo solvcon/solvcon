@@ -1,7 +1,8 @@
 syntax: glob
 .DS_Store
 setup.cfg
-build*/
+build/
+build.dbg/
 .sconsign.dblite
 .coverage
 .ipynb_checkpoints/
