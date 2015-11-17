@@ -42,15 +42,27 @@ Programming Language :: Python
 Topic :: Scientific/Engineering
 Topic :: Software Development :: Libraries :: Application Frameworks"""
 
+
+import sys
+import os
+import glob
+
+# BEFORE importing distutils, remove MANIFEST. distutils doesn't properly
+# update it when the contents of directories change.
+if os.path.exists('MANIFEST'):
+    os.remove('MANIFEST')
+from numpy.distutils.core import setup, Extension
+from Cython.Build import cythonize
+
+import solvcon as sc
+
+
 def make_extension(name, c_subdirs, include_dirs=None, libraries=None):
-    import sys, os
-    from glob import glob
-    from numpy.distutils.core import Extension
     pak_dir = os.path.join(*name.split('.')[:-1])
-    files = [name.replace('.', os.sep) + '.c']
+    files = [name.replace('.', os.sep) + '.pyx']
     for c_subdir in sorted(c_subdirs):
         path = os.path.join(pak_dir, c_subdir, '*.c')
-        files += glob(path)
+        files += glob.glob(path)
     include_dirs = [] if None is include_dirs else include_dirs
     include_dirs.insert(0, 'solvcon')
     include_dirs.insert(0, os.path.join(pak_dir))
@@ -63,43 +75,61 @@ def make_extension(name, c_subdirs, include_dirs=None, libraries=None):
                      extra_link_args=[rpathflag])
 
 def main():
-    import os, sys
-    # BEFORE importing distutils, remove MANIFEST. distutils doesn't properly
-    # update it when the contents of directories change.
-    if os.path.exists('MANIFEST'):
-        os.remove('MANIFEST')
-    from glob import glob
-    from numpy.distutils.core import setup
-    import solvcon
-
     data_files = list()
     # includes.
     data_files.append((os.path.join('include', 'solvcon'),
-        glob(os.path.join('include', '*'))))
-    # libraries.  NOTE: this directory should be manually removed for sdist.
-    data_files.append((os.path.join('lib', 'solvcon'),
-        glob(os.path.join('lib', '*'))))
+                       glob.glob(os.path.join('include', '*'))))
     # test data.
     lead = os.path.join('share', 'solvcon', 'test')
     data_files.extend([
-        (lead, glob(os.path.join('test', 'data', '*.g'))),
-        (lead, glob(os.path.join('test', 'data', '*.jou'))),
-        (lead, glob(os.path.join('test', 'data', '*.nc'))),
-        (lead, glob(os.path.join('test', 'data', '*.neu'))),
-        (lead, glob(os.path.join('test', 'data', '*.blk'))),
-        (lead, glob(os.path.join('test', 'data', '*.vtk'))),
-        (lead, glob(os.path.join('test', 'data', '*.msh.gz'))),
-        (lead, glob(os.path.join('test', 'data', '*.geo'))),
+        (lead, glob.glob(os.path.join('test', 'data', '*.g'))),
+        (lead, glob.glob(os.path.join('test', 'data', '*.jou'))),
+        (lead, glob.glob(os.path.join('test', 'data', '*.nc'))),
+        (lead, glob.glob(os.path.join('test', 'data', '*.neu'))),
+        (lead, glob.glob(os.path.join('test', 'data', '*.blk'))),
+        (lead, glob.glob(os.path.join('test', 'data', '*.vtk'))),
+        (lead, glob.glob(os.path.join('test', 'data', '*.msh.gz'))),
+        (lead, glob.glob(os.path.join('test', 'data', '*.geo'))),
         (os.path.join(lead, 'sample.dom'),
-            glob(os.path.join('test', 'data', 'sample.dom', '*')))])
+         glob.glob(os.path.join('test', 'data', 'sample.dom', '*')))
+    ])
     # examples.
     lead = os.path.join('share', 'solvcon')
-    for edir in glob(os.path.join('examples', '*', '*')):
+    for edir in glob.glob(os.path.join('examples', '*', '*')):
         data_files.append(
             (os.path.join(lead, edir), [os.path.join(edir, 'go')]))
         for ext in ('tmpl', 'py', 'h'):
             data_files.append((os.path.join(lead, edir),
-                glob(os.path.join(edir, '*.%s'%ext))))
+                glob.glob(os.path.join(edir, '*.%s'%ext))))
+
+    # set up extension modules.
+    ext_modules = [
+        make_extension('solvcon.mesh', ['src']),
+        make_extension('solvcon.parcel.fake._algorithm', ['src']),
+        make_extension('solvcon.parcel.linear._algorithm', ['src'],
+                       libraries=['lapack', 'blas']),
+        make_extension('solvcon.parcel.bulk._algorithm', ['src']),
+        make_extension('solvcon.parcel.gas._algorithm', ['src']),
+        make_extension('solvcon.parcel.vewave._algorithm', ['src'],
+                       libraries=['lapack', 'blas']),
+    ]
+
+    # remove files when cleaning.
+    sidx = sys.argv.index('setup.py') if 'setup.py' in sys.argv else -1
+    cidx = sys.argv.index('clean') if 'clean' in sys.argv else -1
+    if cidx > sidx:
+        for mod in ext_modules:
+            pyx = mod.sources[0] # this must be the pyx file.
+            mainfn = os.path.splitext(pyx)[0]
+            derived = ['.'.join((mainfn, ext)) for ext in ('c', 'h', 'so')]
+            derived = [fn for fn in derived if os.path.exists(fn)]
+            sys.stdout.write('Removing in-place generated files')
+            for fn in derived:
+                os.remove(fn)
+                sys.stdout.write(' %s' % fn)
+            sys.stdout.write('\n')
+    else:
+        ext_modules = cythonize(ext_modules)
 
     setup(
         name='SOLVCON',
@@ -116,7 +146,7 @@ def main():
         platforms=[
             'Linux',
         ],
-        version=solvcon.__version__,
+        version=sc.__version__,
         scripts=[
             'scg',
         ],
@@ -134,16 +164,7 @@ def main():
             'solvcon.parcel.vewave',
             'solvcon.tests',
         ],
-        ext_modules=[
-            make_extension('solvcon.mesh', ['src']),
-            make_extension('solvcon.parcel.fake._algorithm', ['src']),
-            make_extension('solvcon.parcel.linear._algorithm', ['src'],
-                           libraries=['lapack', 'blas']),
-            make_extension('solvcon.parcel.bulk._algorithm', ['src']),
-            make_extension('solvcon.parcel.gas._algorithm', ['src']),
-            make_extension('solvcon.parcel.vewave._algorithm', ['src'],
-                           libraries=['lapack', 'blas']),
-        ],
+        ext_modules=ext_modules,
         data_files=data_files,
     )
     return
