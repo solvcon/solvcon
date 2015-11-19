@@ -71,31 +71,6 @@ class Genesis(NetCDF):
         # mapper.
         self.emap = None
 
-    def get_attr_text(self, name, varname):
-        """
-        Get the attribute text attached to an variable.
-
-        @param name: name of the attribute.
-        @type name: str
-        @param varname: name of the variable.
-        @type varname: str
-        @return: the text.
-        @rtype: str
-        """
-        from ctypes import POINTER, c_int, c_char, byref, create_string_buffer
-        # get value ID.
-        varid = c_int()
-        retval = self.nc_inq_varid(self.ncid, varname, byref(varid))
-        if retval != self.NC_NOERR:
-            raise IOError(self.nc_strerror(retval))
-        # get text.
-        slen = self.get_dim('len_string')
-        buf = create_string_buffer(slen)
-        retval = self.nc_get_att_text(self.ncid, varid, name, buf)
-        if retval != self.NC_NOERR:
-            raise IOError(self.nc_strerror(retval))
-        return buf.value
-
     def load(self):
         """
         Load mesh data.
@@ -128,10 +103,8 @@ class Genesis(NetCDF):
             side = self.get_array('side_ss%d'%(ibc+1), (nface,), 'int32')
             self.bcs[ibc] = (self.bcs[ibc], elem, side)
         # coordinate.
-        large = c_int()
-        self.nc_get_att_int(self.ncid, self.NC_GLOBAL, 'file_size',
-            byref(large))
-        if large.value:
+        large = self.get_attr_int('file_size', None)
+        if large:
             vnames = ['coord%s' % ('xyz'[idm]) for idm in range(ndim)]
             crds = [self.get_array(vn, nnode, 'float64') for vn in vnames]
             self.ndcrd = hstack([crd.reshape((nnode,1)) for crd in crds])
