@@ -78,7 +78,10 @@ def import_module_may_fail(modname, asname=None):
             if '' != asname:
                 cframe.f_locals[asname] = mod
         except ImportError as e:
-            name = resolve_name(modname, package)
+            if package is None:
+                name = modname
+            else:
+                name = resolve_name(modname, package)
             msg = '; '.join(str(it) for it in e.args)
             warnings.warn("%s isn't built; %s" % (name, msg),
                           RuntimeWarning, stacklevel=2)
