@@ -98,11 +98,12 @@ def main():
     # examples.
     lead = os.path.join('share', 'solvcon')
     for edir in glob.glob(os.path.join('examples', '*', '*')):
-        data_files.append(
-            (os.path.join(lead, edir), [os.path.join(edir, 'go')]))
-        for ext in ('tmpl', 'py', 'h'):
-            data_files.append((os.path.join(lead, edir),
-                glob.glob(os.path.join(edir, '*.%s'%ext))))
+        if os.path.isdir(edir):
+            data_files.append(
+                (os.path.join(lead, edir), [os.path.join(edir, 'go')]))
+            for ext in ('tmpl', 'py', 'h'):
+                data_files.append((os.path.join(lead, edir),
+                    glob.glob(os.path.join(edir, '*.%s'%ext))))
 
     # set up extension modules.
     ext_modules = [
