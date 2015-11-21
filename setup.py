@@ -133,7 +133,12 @@ def main():
                 sys.stdout.write('\n %s' % fn)
             sys.stdout.write('\n')
     else:
-        ext_modules = cythonize(ext_modules)
+        if "/home/docs/checkouts/readthedocs.org" in os.getcwd():
+            # Do not build extension modules if I am in readthedocs.org,
+            # because the dependency cannot be met.
+            ext_modules = list()
+        else:
+            ext_modules = cythonize(ext_modules)
 
     setup(
         name='SOLVCON',
