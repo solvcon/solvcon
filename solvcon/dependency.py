@@ -39,8 +39,8 @@ import inspect
 
 
 def resolve_name(name, package):
+    level = 0
     if name.startswith('.'):
-        level = 0
         for character in name:
             if character != '.':
                 break
