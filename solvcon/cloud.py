@@ -40,7 +40,7 @@ import functools
 import boto.ec2
 import paramiko as ssh
 
-import helper
+from . import helper
 
 
 __all__ = ['Host', 'AwsHost', 'AwsOperator', 'aoregy']

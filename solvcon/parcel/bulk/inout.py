@@ -37,7 +37,7 @@ import os
 import time
 import math
 import warnings
-import cPickle as pickle
+from solvcon.py3kcompat import pickle
 
 import numpy as np
 
@@ -157,10 +157,10 @@ class CflAnchor(anchor.MeshAnchor):
         >>> from solvcon.testing import create_trivial_2d_blk
         >>> from solvcon.solver import MeshSolver
         >>> svr = MeshSolver(create_trivial_2d_blk())
-        >>> ank = CflAnchor(svr)
+        >>> ank = CflAnchor(svr) # doctest: +ELLIPSIS
         Traceback (most recent call last):
             ...
-        TypeError: int() argument must be a string or a number, not 'NoneType'
+        TypeError: int() argument must be a string...
         >>> ank = CflAnchor(svr, 1)
         >>> ank.rsteps
         1

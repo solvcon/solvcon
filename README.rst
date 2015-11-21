@@ -10,10 +10,10 @@ Clone from https://bitbucket.org/solvcon/solvcon::
   $ hg clone https://bitbucket.org/solvcon/solvcon
 
 SOLVCON needs the following packages: `gcc <http://gcc.gnu.org/>`_ 4.3+ (clang
-on OSX works as well), `SCons <http://www.scons.org/>`_ 2+, `Python
-<http://www.python.org/>`_ 2.7, `Cython <http://www.cython.org/>`_ 0.16+,
-`Numpy <http://www.numpy.org/>`_ 1.5+, `LAPACK
-<http://www.netlib.org/lapack/>`_, `NetCDF
+on OSX works as well), `Python <http://www.python.org/>`_ 2.7/3.4, `six
+<https://pypi.python.org/pypi/six/>`_ 1.10.0, `Cython
+<http://www.cython.org/>`_ 0.16+, `Numpy <http://www.numpy.org/>`_ 1.5+,
+`LAPACK <http://www.netlib.org/lapack/>`_, `NetCDF
 <http://www.unidata.ucar.edu/software/netcdf/index.html>`_ 4+, `SCOTCH
 <http://www.labri.fr/perso/pelegrin/scotch/>`_ 6.0+, `Nose
 <https://nose.readthedocs.org/en/latest/>`_ 1.0+, `Paramiko
@@ -21,20 +21,12 @@ on OSX works as well), `SCons <http://www.scons.org/>`_ 2+, `Python
 <http://boto.readthedocs.org/>`_ 2.29.1+, `gmsh <http://geuz.org/gmsh/>`_ 2.5+,
 and `VTK <http://vtk.org/>`_ 5.6+.
 
-In the ``contrib/`` directory, you can find the scripts for installing these
-dependencies:
+A script at ``contrib/conda.sh`` is provided to install the dependency with
+`Anaconda <https://store.continuum.io/cshop/anaconda/>`__.
 
-- ``aptget.*.sh`` for Debian/Ubuntu
-- ``conda.sh`` for `Miniconda
-  <http://conda.pydata.org/miniconda.html>`__/`Anaconda
-  <https://store.continuum.io/cshop/anaconda/>`__
+The following command builds and installs SOLVCON::
 
-The binary part of SOLVCON should be built with SCons_::
-
-  $ scons scmods
-
-Then add the installation path to the environment variables ``$PATH`` and
-``$PYTHONPATH``.
+  $ python setup.py install
 
 Additional build and tests:
 
@@ -49,7 +41,11 @@ Additional build and tests:
 
   The built document will be available at ``doc/build/html/``.
 
-- Unit tests should be run with Nose_::
+- When building SOLVCON locally::
+
+    $ python setup.py build_ext --inplace
+
+  You can run unit tests with Nose_::
 
     $ nosetests
 

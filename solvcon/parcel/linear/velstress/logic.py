@@ -101,7 +101,7 @@ class VslinSolver(linear.LinearSolver):
         for grpname in grpnames:
             try:
                 mtrl = mtrldict.get(grpname, default_mtuple)
-            except KeyError, e:
+            except KeyError as e:
                 args = e.args[:]
                 args.append('no material named %s in mtrldict'%grpname)
                 e.args = args

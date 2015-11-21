@@ -136,7 +136,11 @@ class NetCDF(object):
             raise IndexError('array should have no more than two dimension')
         assert arr.shape == shape
         # Convert to list of strings.
-        lines = [''.join(line).strip() for line in arr]
+        lines = list()
+        for line in arr:
+            idx = np.argwhere(line == b'').min()
+            line = line[:idx].tobytes()
+            lines.append(line.decode())
         return lines
 
     def get_attr(self, name, varname=None):

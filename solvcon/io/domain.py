@@ -34,6 +34,8 @@ Intrinsic format mesh I/O.  Provides:
   - IncenterDomainFormat (revision 0.0.7).
 """
 
+from ..py3kcompat import with_metaclass, basestring
+
 from .core import FormatRegistry, FormatMeta, Format, FormatIO, strbool
 
 dmfregy = FormatRegistry() # registry singleton.
@@ -46,7 +48,7 @@ class DomainFormatMeta(FormatMeta):
         dmfregy.register(newcls)
         return newcls
 
-class DomainFormat(Format):
+class DomainFormat(with_metaclass(DomainFormatMeta, Format)):
     """
     @cvar META_GLOBAL: global meta entries.
     @ctype META_GLOBAL: tuple
@@ -58,8 +60,6 @@ class DomainFormat(Format):
     @ivar blk_format_rev: the format (revision) of block to be saved.
     @itype blk_format_rev: str
     """
-
-    __metaclass__ = DomainFormatMeta
 
     FILE_HEADER = '-*- solvcon dom file -*-'
     DOM_FILENAME = 'domain.dom'
@@ -109,11 +109,11 @@ class DomainFormat(Format):
         from .block import blfregy
         stream = open(os.path.join(dirname, self.DOM_FILENAME), 'wb')
         # text part.
-        stream.write(self.FILE_HEADER + '\n')
+        self._write_text(self.FILE_HEADER + '\n', stream)
         self._save_meta(dom, stream)
         self._save_idxinfo_shape(dom, stream)
         self._save_block_filenames(dirname, dom, stream)
-        stream.write(self.BINARY_MARKER + '\n')
+        self._write_text(self.BINARY_MARKER.decode() + '\n', stream)
         # binary part.
         self._write_array(self.compressor, dom.part, stream)
         self._write_array(self.compressor, dom.shapes, stream)
@@ -250,7 +250,7 @@ class DomainFormat(Format):
         while True:
             try:
                 stream = open(blkpath, 'rb')
-            except IOError, e:
+            except IOError as e:
                 if itry <= 1:
                     itry += 1
                     sleep(1.0+random())
@@ -284,32 +284,35 @@ class DomainFormat(Format):
         for secname in 'GLOBAL', 'SWITCH':
             for key in getattr(self, 'META_'+secname):
                 skey = key
-                if hasattr(key, '__iter__'):
+                if not isinstance(key, basestring):
                     key, skey = key
-                stream.write('%s = %s\n' % (key, str(getattr(self, key))))
+                self._write_text('%s = %s\n' % (key, str(getattr(self, key))),
+                                 stream)
         # shape.
-        stream.write('%s = %d\n' % ('edgecut', dom.edgecut))
-        stream.write('%s = %d\n' % ('nnode', dom.blk.nnode))
-        stream.write('%s = %d\n' % ('nface', dom.blk.nface))
-        stream.write('%s = %d\n' % ('ncell', dom.blk.ncell))
-        stream.write('%s = %d\n' % ('npart', len(dom)))
-        stream.write('%s = %d\n' % ('nifp', dom.ifparr.shape[0]))
+        self._write_text('%s = %d\n' % ('edgecut', dom.edgecut), stream)
+        self._write_text('%s = %d\n' % ('nnode', dom.blk.nnode), stream)
+        self._write_text('%s = %d\n' % ('nface', dom.blk.nface), stream)
+        self._write_text('%s = %d\n' % ('ncell', dom.blk.ncell), stream)
+        self._write_text('%s = %d\n' % ('npart', len(dom)), stream)
+        self._write_text('%s = %d\n' % ('nifp', dom.ifparr.shape[0]), stream)
         ndmaps, fcmaps, clmaps = dom.mappers
         assert ndmaps.shape[1]%2 == 1
-        stream.write('%s = %d\n' % ('ndmblk', (ndmaps.shape[1]-1)/2))
-    @staticmethod
-    def _save_idxinfo_shape(dom, stream):
+        self._write_text('%s = %d\n' % ('ndmblk', (ndmaps.shape[1]-1)/2),
+                         stream)
+    @classmethod
+    def _save_idxinfo_shape(cls, dom, stream):
         nblk = len(dom)
         for iblk in range(nblk):
             key = 'idxinfo%d' % iblk
             spe = ' '.join(['%d'%arr.shape[0] for arr in dom.idxinfo[iblk]])
-            stream.write('%s = %s\n' % (key, spe))
-    @staticmethod
-    def _save_block_filenames(dirname, dom, stream):
+            cls._write_text('%s = %s\n' % (key, spe), stream)
+    @classmethod
+    def _save_block_filenames(cls, dirname, dom, stream):
         import os
-        stream.write('%s = %s\n' % ('whole', 'whole.blk'))
+        cls._write_text('%s = %s\n' % ('whole', 'whole.blk'), stream)
         for iblk in range(len(dom)):
-            stream.write('%s = %s\n' % ('part%d'%iblk, 'part%d.blk'%iblk))
+            cls._write_text('%s = %s\n' % ('part%d'%iblk, 'part%d.blk'%iblk),
+                             stream)
 
     ############################################################################
     # Facilities for reading.

@@ -94,16 +94,16 @@ class CheckBlockIO(TestCase):
 
 class TestReloadOldTrivial(CheckBlockIO):
     def _check_reload(self, blk, compressor):
-        from cStringIO import StringIO
+        from io import BytesIO
         from ..block import BlockIO
         # save.
         bio = BlockIO(compressor=compressor, fmt='OldTrivialBlockFormat')
-        dataio = StringIO()
+        dataio = BytesIO()
         bio.save(blk=blk, stream=dataio)
         value = dataio.getvalue()
         # load.
         bio = BlockIO(fmt='OldTrivialBlockFormat')
-        dataio = StringIO(value)
+        dataio = BytesIO(value)
         newblk = bio.load(stream=dataio)
         # check
         self._check_shape(newblk, blk)
@@ -163,16 +163,16 @@ class TestLoadOldTrivial(CheckBlockIO):
 
 class TestReloadTrivial(CheckBlockIO):
     def _check_reload(self, blk, compressor):
-        from cStringIO import StringIO
+        from io import BytesIO
         from ..block import BlockIO
         # save.
         bio = BlockIO(compressor=compressor, fmt='TrivialBlockFormat')
-        dataio = StringIO()
+        dataio = BytesIO()
         bio.save(blk=blk, stream=dataio)
         value = dataio.getvalue()
         # load.
         bio = BlockIO(fmt='TrivialBlockFormat')
-        dataio = StringIO(value)
+        dataio = BytesIO(value)
         newblk = bio.load(stream=dataio)
         # check
         self._check_shape(newblk, blk)
@@ -232,16 +232,16 @@ class TestLoadTrivial(CheckBlockIO):
 
 class TestReloadIncenter(CheckBlockIO):
     def _check_reload(self, blk, compressor):
-        from cStringIO import StringIO
+        from io import BytesIO
         from ..block import BlockIO
         # save.
         bio = BlockIO(compressor=compressor, fmt='IncenterBlockFormat')
-        dataio = StringIO()
+        dataio = BytesIO()
         bio.save(blk=blk, stream=dataio)
         value = dataio.getvalue()
         # load.
         bio = BlockIO(fmt='IncenterBlockFormat')
-        dataio = StringIO(value)
+        dataio = BytesIO(value)
         newblk = bio.load(stream=dataio)
         # check
         self._check_shape(newblk, blk)

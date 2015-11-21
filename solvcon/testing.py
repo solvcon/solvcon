@@ -70,7 +70,9 @@ def loadfile(filename):
     @return: loaded data.
     @rtype: str
     """
-    return openfile(filename).read()
+    with openfile(filename) as fobj:
+        data = fobj.read()
+    return data
 
 def create_trivial_2d_blk():
     from solvcon.block import Block

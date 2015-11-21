@@ -16,8 +16,8 @@ class TestNdarray(TestCase):
                 j += 1
             i += 1
         # test that they share the same memory.
-        self.assert_((neg >= 0).all())
-        self.assert_((arr >= 0).all())
+        self.assertTrue((neg >= 0).all())
+        self.assertTrue((arr >= 0).all())
         tval = -1
         neg[1,2] = tval
         self.assertEqual(arr[3,2], tval)

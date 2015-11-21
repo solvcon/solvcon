@@ -7,7 +7,7 @@ from solvcon.conf import env
 class TestHelper(TestCase):
     def test_info(self):
         import sys
-        from cStringIO import StringIO
+        from ..py3kcompat import StringIO
         from ..helper import info
         stdout = sys.stdout
         sys.stdout = StringIO()
@@ -25,7 +25,7 @@ class TestHelper(TestCase):
 
 class TestPrinter(TestCase):
     def test_simple(self):
-        from cStringIO import StringIO
+        from ..py3kcompat import StringIO
         from ..helper import Printer
         stream = StringIO()
         p = Printer(stream)
@@ -33,7 +33,7 @@ class TestPrinter(TestCase):
         self.assertEqual(stream.getvalue(), 'test message')
 
     def test_prepost(self):
-        from cStringIO import StringIO
+        from ..py3kcompat import StringIO
         from ..helper import Printer
         stream = StringIO()
         p = Printer(stream, prefix='pre', postfix='post')
@@ -41,7 +41,7 @@ class TestPrinter(TestCase):
         self.assertEqual(stream.getvalue(), 'pretest messagepost')
 
     def test_multiple(self):
-        from cStringIO import StringIO
+        from ..py3kcompat import StringIO
         from ..helper import Printer
         stream1 = StringIO()
         stream2 = StringIO()
@@ -52,7 +52,7 @@ class TestPrinter(TestCase):
 
     def test_stdout(self):
         import sys
-        from cStringIO import StringIO
+        from ..py3kcompat import StringIO
         from ..helper import Printer
         stdout = sys.stdout
         sys.stdout = StringIO()
@@ -67,14 +67,16 @@ cblk = GmshIO().load(os.path.join(env.datadir, 'gmsh_cube.msh.gz'))
 class TestGmsh(TestCase):
     def testSquare(self):
         from ..helper import Gmsh
-        cmds = open(os.path.join(env.datadir, 'gmsh_square.geo')).read()
+        with open(os.path.join(env.datadir, 'gmsh_square.geo')) as fobj:
+            cmds = fobj.read()
         cmds = [cmd.strip() for cmd in cmds.strip().split('\n')]
         gmh = Gmsh(cmds)()
         blk = gmh.toblock()
         self.assertEqual(len(sblk.bclist), len(blk.bclist))
     def testCube(self):
         from ..helper import Gmsh
-        cmds = open(os.path.join(env.datadir, 'gmsh_cube.geo')).read()
+        with open(os.path.join(env.datadir, 'gmsh_cube.geo')) as fobj:
+            cmds = fobj.read()
         cmds = [cmd.strip() for cmd in cmds.strip().split('\n')]
         gmh = Gmsh(cmds)()
         blk = gmh.toblock()

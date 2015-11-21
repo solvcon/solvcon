@@ -45,7 +45,10 @@ class ThreadPool(object):
         @param nthread: number of threads for the pool.
         @type nthread: int
         """
-        from thread import allocate_lock, start_new_thread
+        try: # py3k compat.
+            from thread import allocate_lock, start_new_thread
+        except ImportError:
+            from _thread import allocate_lock, start_new_thread
         self.func = None
         self.nthread = nthread
         self.__threadids = [None] * nthread
@@ -62,7 +65,10 @@ class ThreadPool(object):
         """
         Event loop for the pre-created threads.
         """
-        from thread import exit
+        try: # py3k compat.
+            from thread import allocate_lock, start_new_thread
+        except ImportError:
+            from _thread import allocate_lock, start_new_thread
         while True:
             tdata[0].acquire()
             if tdata[2] == None:

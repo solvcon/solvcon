@@ -35,6 +35,8 @@ Intrinsic format mesh I/O.  Provides:
   - IncenterBlockFormat (revision 0.0.7).
 """
 
+from ..py3kcompat import with_metaclass, basestring
+
 from .core import FormatRegistry, FormatMeta, Format, FormatIO, strbool
 
 blfregy = FormatRegistry() # registry singleton.
@@ -47,7 +49,7 @@ class BlockFormatMeta(FormatMeta):
         blfregy.register(newcls)
         return newcls
 
-class BlockFormat(Format):
+class BlockFormat(with_metaclass(BlockFormatMeta, Format)):
     """
     A class for fundamental facilities for I/O intrinsic mesh format (blk).  A
     blk file is in general composed by (i) meta-data, (ii) group list, (iii)
@@ -71,8 +73,6 @@ class BlockFormat(Format):
     @itype fpdtype: numpy.dtype
     """
 
-    __metaclass__ = BlockFormatMeta
-
     FILE_HEADER = '-*- solvcon blk mesh file -*-'
 
     def __init__(self, **kw):
@@ -89,11 +89,11 @@ class BlockFormat(Format):
         @type stream: file or str
         """
         # text part.
-        stream.write(self.FILE_HEADER + '\n')
+        stream.write(self.FILE_HEADER.encode() + b'\n')
         self._save_meta(blk, stream)
         self._save_group(blk, stream)
         self._save_bclist(blk, stream)
-        stream.write(self.BINARY_MARKER+'\n')
+        stream.write(self.BINARY_MARKER + b'\n')
         # binary part.
         ## connectivity.
         for key in 'shfcnds', 'shfccls', 'shclnds', 'shclfcs':
@@ -167,7 +167,7 @@ class BlockFormat(Format):
         @return: nothing.
         """
         for ig in range(len(blk.grpnames)):
-            stream.write('group%d = %s\n' % (ig, blk.grpnames[ig]))
+            cls._write_text('group%d = %s\n' % (ig, blk.grpnames[ig]), stream)
     @classmethod
     def _save_bclist(cls, blk, stream):
         """
@@ -179,9 +179,9 @@ class BlockFormat(Format):
         """
         for ibc in range(len(blk.bclist)):
             bc = blk.bclist[ibc]
-            stream.write('bc%d = %s, %s, %d, %d\n' % (
+            cls._write_text('bc%d = %s, %s, %d, %d\n' % (
                 bc.sern, bc.name, str(bc.blkn), len(bc), bc.nvalue,
-            ))
+            ), stream)
     @classmethod
     def _save_boundcond(cls, compressor, blk, stream):
         """
@@ -447,18 +447,21 @@ class OldTrivialBlockFormat(BlockFormat):
         # global.
         for key in self.META_GLOBAL:
             skey = key
-            if hasattr(key, '__iter__'):
+            if not isinstance(key, basestring):
                 key, skey = key
-            stream.write('%s = %s\n' % (key, str(getattr(self, skey))))
+            self._write_text('%s = %s\n' % (key, str(getattr(self, skey))),
+                             stream)
         # special description and geometry.
         for key in self.META_DESC + self.META_GEOM:
-            stream.write('%s = %s\n' % (key, str(getattr(blk, key))))
+            self._write_text('%s = %s\n' % (key, str(getattr(blk, key))),
+                             stream)
         # optional switches.
         for key in self.META_SWITCH:
-            stream.write('%s = %s\n' % (key, str(getattr(self, key))))
+            self._write_text('%s = %s\n' % (key, str(getattr(self, key))),
+                             stream)
         # attached/META_ATT.
-        stream.write('ngroup = %d\n' % len(blk.grpnames))
-        stream.write('nbc = %d\n' % len(blk.bclist))
+        self._write_text('ngroup = %d\n' % len(blk.grpnames), stream)
+        self._write_text('nbc = %d\n' % len(blk.bclist), stream)
     @classmethod
     def _parse_meta(cls, lines):
         """
@@ -517,15 +520,17 @@ class TrivialBlockFormat(BlockFormat):
         for secname in 'GLOBAL', 'SWITCH':
             for key in getattr(self, 'META_'+secname):
                 skey = key
-                if hasattr(key, '__iter__'):
+                if not isinstance(key, basestring):
                     key, skey = key
-                stream.write('%s = %s\n' % (key, str(getattr(self, key))))
+                self._write_text('%s = %s\n' % (key, str(getattr(self, key))),
+                                 stream)
         # special description and geometry.
         for key in self.META_DESC + self.META_GEOM:
-            stream.write('%s = %s\n' % (key, str(getattr(blk, key))))
+            self._write_text('%s = %s\n' % (key, str(getattr(blk, key))),
+                             stream)
         # attached/META_ATT.
-        stream.write('ngroup = %d\n' % len(blk.grpnames))
-        stream.write('nbc = %d\n' % len(blk.bclist))
+        self._write_text('ngroup = %d\n' % len(blk.grpnames), stream)
+        self._write_text('nbc = %d\n' % len(blk.bclist), stream)
     @classmethod
     def _save_bclist(cls, blk, stream):
         """
@@ -542,7 +547,7 @@ class TrivialBlockFormat(BlockFormat):
                 bc.nvalue)
             if isinstance(bc, interface):
                 dat = ', '.join([dat, str(bc.rblkn)])
-            stream.write('bc%d = %s\n' % (bc.sern, dat))
+            cls._write_text('bc%d = %s\n' % (bc.sern, dat), stream)
     @classmethod
     def _save_boundcond(cls, compressor, blk, stream):
         """
@@ -685,15 +690,17 @@ class IncenterBlockFormat(TrivialBlockFormat):
         for secname in 'GLOBAL', 'SWITCH':
             for key in getattr(self, 'META_'+secname):
                 skey = key
-                if hasattr(key, '__iter__'):
+                if not isinstance(key, basestring):
                     key, skey = key
-                stream.write('%s = %s\n' % (key, str(getattr(self, key))))
+                self._write_text('%s = %s\n' % (key, str(getattr(self, key))),
+                                 stream)
         # special description and geometry.
         for key in self.META_DESC + self.META_GEOM + self.META_FEATURE:
-            stream.write('%s = %s\n' % (key, str(getattr(blk, key))))
+            self._write_text('%s = %s\n' % (key, str(getattr(blk, key))),
+                             stream)
         # attached/META_ATT.
-        stream.write('ngroup = %d\n' % len(blk.grpnames))
-        stream.write('nbc = %d\n' % len(blk.bclist))
+        self._write_text('ngroup = %d\n' % len(blk.grpnames), stream)
+        self._write_text('nbc = %d\n' % len(blk.bclist), stream)
 
 class BlockIO(FormatIO):
     """

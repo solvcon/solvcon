@@ -38,6 +38,20 @@ import importlib
 import inspect
 
 
+def resolve_name(name, package):
+    if name.startswith('.'):
+        level = 0
+        for character in name:
+            if character != '.':
+                break
+            level += 1
+    try: # py3k compat.
+        name = importlib._resolve_name(name[level:], package, level)
+    except AttributeError:
+        name = importlib.util.resolve_name(name, package)
+    return name
+
+
 def import_module_may_fail(modname, asname=None):
     """
     :param modname: The name of the module to be imported.
@@ -64,14 +78,7 @@ def import_module_may_fail(modname, asname=None):
             if '' != asname:
                 cframe.f_locals[asname] = mod
         except ImportError as e:
-            name = modname
-            if name.startswith('.'):
-                level = 0
-                for character in name:
-                    if character != '.':
-                        break
-                    level += 1
-                name = importlib._resolve_name(name[level:], package, level)
+            name = resolve_name(modname, package)
             msg = '; '.join(str(it) for it in e.args)
             warnings.warn("%s isn't built; %s" % (name, msg),
                           RuntimeWarning, stacklevel=2)

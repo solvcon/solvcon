@@ -40,9 +40,9 @@ import os
 import sys
 import time
 import traceback
-from cStringIO import StringIO
+from .py3kcompat import StringIO
 import signal
-import cPickle as pickle
+from .py3kcompat import pickle
 import gzip
 
 from . import conf
@@ -222,7 +222,7 @@ class BaseCase(case_core.CaseInfo):
                 f.close()
                 # run codes.
                 exec(codes)
-        except Exception, e:
+        except Exception as e:
             f = StringIO()
             f.write('\n@@@ dynamic execution at step %d @@@' %
                 self.execution.step_current)
@@ -380,7 +380,7 @@ class BlockCase(BaseCase):
             assert isinstance(self.execution.npart, int)
             flag_parallel = 2 # means network parallel.
         else:
-            raise TypeError, 'domaintype shouldn\'t be %s' % domaintype
+            raise TypeError('domaintype shouldn\'t be %s' % domaintype)
         return flag_parallel
 
     def dump(self):
@@ -684,8 +684,7 @@ class BlockCase(BaseCase):
         info = self.info
         authkey = rpc.DEFAULT_AUTHKEY
         paths = dict([(key, os.environ.get(key, '').split(':')) for key in
-            'LD_LIBRARY_PATH',
-            'PYTHONPATH',
+            ['LD_LIBRARY_PATH', 'PYTHONPATH']
         ])  # TODO: make sure VTK in LD_LIBRARY_PATH.
         paths['PYTHONPATH'].extend(self.pythonpaths)
         paths['PYTHONPATH'].insert(0, self.io.rootdir)

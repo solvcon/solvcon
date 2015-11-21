@@ -35,6 +35,7 @@ Material definition.
 
 import numpy as np
 
+from solvcon.py3kcompat import with_metaclass
 from solvcon import gendata
 
 
@@ -53,11 +54,9 @@ class MaterialMeta(type):
         return newcls
 
 
-class Material(object):
+class Material(with_metaclass(MaterialMeta)):
     """Material properties.  The constitutive relation needs not be symmetric.
     """
-
-    __metaclass__ = MaterialMeta
 
     #: :py:class:`list` of :py:class:`tuple` for indices where the content
     #: should be zero.

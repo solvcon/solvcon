@@ -528,8 +528,8 @@ class MeshSolver(object):
                 target = self.pullibc
                 args = arrname, bc, sendn
             else:
-                raise ValueError, 'bc.rblkn = %d != %d or %d' % (
-                    bc.rblkn, sendn, recvn) 
+                raise ValueError('bc.rblkn = %d != %d or %d' % (
+                    bc.rblkn, sendn, recvn))
             kwargs = {'worker': worker}
             # call to data transfer.
             target(*args, **kwargs)

@@ -27,7 +27,7 @@ class TestBc(TestCase):
         from ..boundcond import bctregy
         # check that the existance of the most generic abstract BC types.
         for key in 'BC', 'unspecified':
-            self.assert_(key in bctregy)
+            self.assertTrue(key in bctregy)
 
     def test_comprehension(self):
         from numpy import concatenate

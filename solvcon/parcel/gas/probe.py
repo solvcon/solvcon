@@ -70,7 +70,7 @@ class Probe(object):
                     spec = -1-spec
                     arr = svr.sol[:,spec]
             if arr is None:
-                raise IndexError, 'spec %s incorrect'%str(spec)
+                raise IndexError('spec %s incorrect'%str(spec))
             vlist.append(arr[ngstcell+self.pcl])
         self.vals.append(vlist)
 

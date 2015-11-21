@@ -70,7 +70,7 @@ def guess_address(family, localhost=True):
         strpart = ''.join(sample(string, strlen))
         address = r'\\.\pipe\srpc' + "%s%d"%(strpart, port)
     else:
-        raise ValueError, "family can't be %s" % family
+        raise ValueError("family can't be %s" % family)
     return address
 
 def guess_family(address):
@@ -108,11 +108,11 @@ class Credential(object):
         self.conn = conn
         self.authkey = authkey
     def question(self):
-        import os, hmac
+        import os, hmac, hashlib
         conn = self.conn
         msg = os.urandom(self.MSGLEN)
         conn.send_bytes(self.CHALLENGE+msg)
-        digest = hmac.new(self.authkey, msg).digest()
+        digest = hmac.new(self.authkey, msg, hashlib.md5).digest()
         res = conn.recv_bytes(self.MSGCAP)
         if res == digest:
             conn.send_bytes(self.SUCCESS)
@@ -120,12 +120,12 @@ class Credential(object):
             conn.send_bytes(self.FAILURE)
             raise IOError('digest received was wrong')
     def answer(self):
-        import hmac
+        import hmac, hashlib
         conn = self.conn
         msg = conn.recv_bytes(self.MSGCAP)
         assert msg[:len(self.CHALLENGE)] == self.CHALLENGE, 'msg = %r'%msg
         msg = msg[len(self.CHALLENGE):]
-        digest = hmac.new(self.authkey, msg).digest()
+        digest = hmac.new(self.authkey, msg, hashlib.md5).digest()
         conn.send_bytes(digest)
         res = conn.recv_bytes(self.MSGCAP)
         if res != self.SUCCESS:
@@ -133,7 +133,10 @@ class Credential(object):
 
 class SocketConnection(object):
     def __init__(self, *args, **kw):
-        from _multiprocessing import Connection
+        try: # py3k compat.
+            from _multiprocessing import Connection
+        except ImportError:
+            from multiprocessing.connection import Connection
         self.conn = Connection(*args, **kw)
     def send_bytes(self, *args, **kw):
         return self.conn.send_bytes(*args, **kw)
@@ -188,7 +191,7 @@ def Client(address, family=None, authkey=None):
     while True:
         try:
             skt.connect(address)
-        except socket.error, e:
+        except socket.error as e:
             if e.args[0] != errno.ECONNREFUSED or time.time() > timeout:
                 raise
             time.sleep(0.01)

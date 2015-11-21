@@ -38,6 +38,7 @@ Basic support for cluster batch systems.
 * Torque: The Torque batch system.
 """
 
+from .py3kcompat import with_metaclass
 from .gendata import TypeNameRegistry
 
 class Node(object):
@@ -66,7 +67,7 @@ class BatchMeta(type):
         batregy.register(newcls)
         return newcls
 
-class Batch(object):
+class Batch(with_metaclass(BatchMeta)):
     """
     Batch system submitter.
 
@@ -91,8 +92,6 @@ class Batch(object):
     @ivar resource: Specified resources.
     @itype resource: dict
     """
-
-    __metaclass__ = BatchMeta
 
     _subcmd_ = 'qsub'
 
@@ -326,7 +325,7 @@ class Batch(object):
         try:
             port = int(val)
         except ValueError:
-            raise IOError, 'remote port detection fails'
+            raise IOError('remote port detection fails')
         # create remote worker objects and return.
         pdata = str(profiler_data).replace("'", '"')
         remote([

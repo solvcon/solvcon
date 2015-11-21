@@ -568,7 +568,7 @@ class Collective(Domain, list):
             iflist = iflists[iblk]
             # assert the pair is for the blk.
             for pair in iflist:
-                if not pair < 0:
+                if isinstance(pair, int) and not pair < 0:
                     assert iblk in pair
         return iflists
 

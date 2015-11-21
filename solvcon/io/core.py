@@ -32,6 +32,7 @@
 Core I/O facilities for SOLVCON intrinsic constructs.
 """
 
+from ..py3kcompat import with_metaclass, basestring
 from ..gendata import TypeNameRegistry
 
 class FormatRegistry(TypeNameRegistry):
@@ -65,7 +66,7 @@ class FormatMeta(type):
         # recreate and return the class.
         return super(FormatMeta, cls).__new__(cls, name, bases, namespace)
 
-class Format(object):
+class Format(with_metaclass(FormatMeta)):
     """
     Abstract class for SOLVCON intrinsic I/O format Each of the concrete
     derived classes represents a version of format.  Public interface method is
@@ -96,11 +97,9 @@ class Format(object):
     @ctype meta_length: int
     """
 
-    __metaclass__ = FormatMeta
-
     READ_BLOCK = 1024
     FILE_HEADER = None
-    BINARY_MARKER = '-*- start of binary data -*-'
+    BINARY_MARKER = b'-*- start of binary data -*-'
     FORMAT_REV = None
     SPEC_OF_META = None
 
@@ -139,7 +138,19 @@ class Format(object):
             stream.write(struct.pack('q', len(data)))
         else:
             data = arr.data
+        if not isinstance(data, bytes):
+            data = bytes(data)
         stream.write(data)
+    @staticmethod
+    def _write_text(text, stream):
+        """
+        :param text: String to be written.
+        :type text: str
+        :param stream: Destination file.
+        :type stream: file
+        :return: Nothing.
+        """
+        stream.write(text.encode())
     ############################################################################
     # Facilities for reading.
     ############################################################################
@@ -153,10 +164,10 @@ class Format(object):
         @return: text lines and length of text part (including separator).
         @rtype: tuple
         """
-        buf = ''
+        buf = b''
         while cls.BINARY_MARKER not in buf:
             buf += stream.read(cls.READ_BLOCK)
-        buf = buf.split(cls.BINARY_MARKER)[0]
+        buf = buf.split(cls.BINARY_MARKER)[0].decode()
         lines = buf.split('\n')[:-1]
         textlen = len(buf) + len(cls.BINARY_MARKER) + 1
         # assert text format.
@@ -164,7 +175,7 @@ class Format(object):
         assert lines[0].strip()[-3:] == '-*-'
         # assert text end location.
         stream.seek(0)
-        assert stream.read(textlen)[-1] == '\n'
+        assert stream.read(textlen).decode()[-1] == '\n'
         stream.seek(0)
         return lines, textlen
     @classmethod
@@ -228,14 +239,14 @@ class Format(object):
             if seek_only:
                 stream.seek(stream.tell() + buflen)
             else:
-                buf = stream.read(buflen)
+                buf = stream.read(int(buflen))
                 buf = bz2.decompress(buf)
         elif compressor == 'gz':
             buflen = np.frombuffer(stream.read(8), dtype=np.int64)[0]
             if seek_only:
                 stream.seek(stream.tell() + buflen)
             else:
-                buf = stream.read(buflen)
+                buf = stream.read(int(buflen))
                 buf = zlib.decompress(buf)
         else:
             buflen = length * dobj.itemsize
@@ -271,11 +282,10 @@ class FormatIOMeta(type):
         # register.
         fioregy.register(newcls)
         return newcls
-class FormatIO(object):
+class FormatIO(with_metaclass(FormatIOMeta)):
     """
     Proxy to mesh format object.
     """
-    __metaclass__ = FormatIOMeta
     def save(self):
         """
         Save an object for mesh.

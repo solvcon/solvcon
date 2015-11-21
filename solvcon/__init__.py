@@ -69,6 +69,8 @@ __all__ = [
     'helper', 'Gmsh',
     # parcel
     'parcel',
+    # py3kcompat
+    'py3kcompat',
 ]
 
 from .dependency import import_module_may_fail, import_name
@@ -85,6 +87,7 @@ from .domain import Domain, Collective, Distributed
 from . import helper
 from .helper import Gmsh
 from . import parcel
+from . import py3kcompat
 
 if __name__ == '__main__':
     go()

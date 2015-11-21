@@ -63,8 +63,8 @@ cdef class Table:
         self._body = <char*>(NULL) # Sentinel
 
     def __init__(self, nghost, nbody, *args, **kw):
-        self.nghost = nghost
-        self.nbody = nbody
+        self.nghost = int(nghost)
+        self.nbody = int(nbody)
         # Pop all custom keyword arguments.
         dtype = kw.pop("dtype", None)
         creator_name = kw.pop("creation", "empty")

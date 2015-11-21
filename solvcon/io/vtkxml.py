@@ -165,7 +165,29 @@ class VtkXmlWriter(object):
             size = pack('i', len(data))
         if self.encoding == 'base64':
             size = standard_b64encode(size)
-        return ''.join([size, data])
+        return b''.join([size, data])
+
+    @staticmethod
+    def _write_text(text, stream):
+        """
+        :param text: String to be written.
+        :type text: str
+        :param stream: Destination file.
+        :type stream: file
+        :return: Nothing.
+        """
+        stream.write(text.encode())
+
+    @staticmethod
+    def _write_binary(binary, stream):
+        """
+        :param binary: Binary data to be written.
+        :type binary: bytes
+        :param stream: Destination file.
+        :type stream: file
+        :return: Nothing.
+        """
+        stream.write(binary)
 
     def _write_darr(self, arr, outf, aplist, attr):
         """
@@ -198,18 +220,19 @@ class VtkXmlWriter(object):
         attr = mattr
         # write.
         if self.binary:
-            outf.write(self._tag_open('DataArray', attr, close=True))
+            self._write_text(self._tag_open('DataArray', attr, close=True),
+                             outf)
             data = self._create_data(arr)
             if aplist is None:
-                outf.write(data)
-                outf.write('\n')
+                self._write_binary(data, outf)
+                self._write_text('\n', outf)
             else:
                 aplist.append(data)
         else:
-            outf.write(self._tag_open('DataArray', attr))
+            self._write_text(self._tag_open('DataArray', attr), outf)
             arr.tofile(outf, sep=' ')
-            outf.write('\n')
-            outf.write(self._tag_close('DataArray'))
+            self._write_text('\n', outf)
+            self._write_text(self._tag_close('DataArray'), outf)
 
     def _write_appended(self, aplist, outf):
         """
@@ -221,14 +244,14 @@ class VtkXmlWriter(object):
         @type outf: file
         @return: nothing
         """
-        outf.write(self._tag_open('AppendedData', [
+        self._write_text(self._tag_open('AppendedData', [
             ('encoding', self.encoding),
-        ]))
-        outf.write('_')
+        ]), outf)
+        self._write_text('_', outf)
         for data in aplist:
-            outf.write(data)
-        outf.write('\n')
-        outf.write(self._tag_close('AppendedData'))
+            self._write_binary(data, outf)
+        self._write_text('\n', outf)
+        self._write_text(self._tag_close('AppendedData'), outf)
 
 class VtkXmlUstGridWriter(VtkXmlWriter):
     """
@@ -264,11 +287,10 @@ class VtkXmlUstGridWriter(VtkXmlWriter):
         @return: nothing
         """
         if isinstance(outf, str):
-            mode = 'wb' if self.binary else 'w'
-            outf = open(outf, mode)
+            outf = open(outf, 'wb')
             close_on_finish = True
         # write header.
-        outf.write('<?xml version="1.0"?>\n')
+        self._write_text('<?xml version="1.0"?>\n', outf)
         attr = [
             ('type', 'UnstructuredGrid'),
             ('version', '0.1'),
@@ -276,15 +298,15 @@ class VtkXmlUstGridWriter(VtkXmlWriter):
         ]
         if self.compressor == 'gz':
             attr.append(('compressor', 'vtkZLibDataCompressor'))
-        outf.write(self._tag_open('VTKFile', attr))
-        outf.write(self._tag_open('UnstructuredGrid'))
-        outf.write(self._tag_open('Piece', [
+        self._write_text(self._tag_open('VTKFile', attr), outf)
+        self._write_text(self._tag_open('UnstructuredGrid'), outf)
+        self._write_text(self._tag_open('Piece', [
             ('NumberOfPoints', self.blk.nnode),
             ('NumberOfCells', self.blk.ncell),
-        ]))
+        ]), outf)
         aplist = list() if self.appended else None
         # data.
-        outf.write(self._tag_open('CellData'))
+        self._write_text(self._tag_open('CellData'), outf)
         for key in sorted(self.scalars.keys()):
             arr = self.scalars[key].astype(self.fpdtype)
             self._write_darr(arr, outf, aplist, [('Name', key)])
@@ -292,28 +314,28 @@ class VtkXmlUstGridWriter(VtkXmlWriter):
             arr = self._convert_varr(self.vectors[key].astype(self.fpdtype))
             self._write_darr(arr, outf, aplist, [
                 ('Name', key), ('NumberOfComponents', 3)])
-        outf.write(self._tag_close('CellData'))
+        self._write_text(self._tag_close('CellData'), outf)
         # write points.
-        outf.write(self._tag_open('Points'))
+        self._write_text(self._tag_open('Points'), outf)
         arr = self.blk.ndcrd.astype(self.fpdtype)
         self._write_darr(self._convert_varr(arr), outf, aplist, [
             ('NumberOfComponents', 3)])
-        outf.write(self._tag_close('Points'))
+        self._write_text(self._tag_close('Points'), outf)
         # write cells.
-        outf.write(self._tag_open('Cells'))
+        self._write_text(self._tag_open('Cells'), outf)
         self._write_darr(self._convert_clnds(self.blk.clnds), outf, aplist, [
             ('Name', 'connectivity')])
         self._write_darr(self.blk.clnds[:,0].cumsum(dtype='int32'), outf,
             aplist, [('Name', 'offsets')])
         self._write_darr(self.cltpn_map[self.blk.cltpn], outf, aplist, [
             ('Name', 'types')])
-        outf.write(self._tag_close('Cells'))
+        self._write_text(self._tag_close('Cells'), outf)
         # write footer.
-        outf.write(self._tag_close('Piece'))
-        outf.write(self._tag_close('UnstructuredGrid'))
+        self._write_text(self._tag_close('Piece'), outf)
+        self._write_text(self._tag_close('UnstructuredGrid'), outf)
         if aplist:
             self._write_appended(aplist, outf)
-        outf.write(self._tag_close('VTKFile'))
+        self._write_text(self._tag_close('VTKFile'), outf)
         if close_on_finish:
             outf.close()
         # discard griddata if not cached.
@@ -339,7 +361,7 @@ class VtkXmlUstGridWriter(VtkXmlWriter):
             arrn[:,2] = 0.0
             try:
                 arrn[:,:2] = arr[:,:]
-            except ValueError, e:
+            except ValueError as e:
                 args = [a for a in e.args]
                 args.append('arrn.shape=%s, arr.shape=%s' % (
                     str(arrn.shape), str(arr.shape)))
@@ -402,44 +424,44 @@ class PVtkXmlUstGridWriter(VtkXmlUstGridWriter):
         mainfn = os.path.splitext(outf)[0]
         outf = open(outf, 'w')
         # write header.
-        outf.write('<?xml version="1.0"?>\n')
+        self._write_text('<?xml version="1.0"?>\n', outf)
         attr = [
             ('type', 'PUnstructuredGrid'),
             ('version', '0.1'),
             ('byte_order', 'LittleEndian'),
         ]
-        outf.write(self._tag_open('VTKFile', attr))
-        outf.write(self._tag_open('PUnstructuredGrid', [
+        self._write_text(self._tag_open('VTKFile', attr), outf)
+        self._write_text(self._tag_open('PUnstructuredGrid', [
             ('GhostLevel', 0),
-        ]))
+        ]), outf)
         # data.
-        outf.write(self._tag_open('PCellData'))
+        self._write_text(self._tag_open('PCellData'), outf)
         for key in sorted(self.scalars.keys()):
             dtype = self.scalars[key]
             attr = [('type', self.dtype_map[str(dtype)]), ('Name', key)]
-            outf.write(self._tag_open('PDataArray', attr, close=True))
+            self._write_text(self._tag_open('PDataArray', attr, close=True), outf)
         for key in sorted(self.vectors.keys()):
             dtype = self.vectors[key]
             attr = [('type', self.dtype_map[str(dtype)]), ('Name', key),
                 ('NumberOfComponents', 3)]
-            outf.write(self._tag_open('PDataArray', attr, close=True))
-        outf.write(self._tag_close('PCellData'))
+            self._write_text(self._tag_open('PDataArray', attr, close=True), outf)
+        self._write_text(self._tag_close('PCellData'), outf)
         # write points.
-        outf.write(self._tag_open('PPoints'))
-        outf.write(self._tag_open('PDataArray', [
+        self._write_text(self._tag_open('PPoints'), outf)
+        self._write_text(self._tag_open('PDataArray', [
             ('type', self.dtype_map[str(self.fpdtype)]),
             ('NumberOfComponents', 3),
-        ], close=True))
-        outf.write(self._tag_close('PPoints'))
+        ], close=True), outf)
+        self._write_text(self._tag_close('PPoints'), outf)
         # write pieces.
         pfntmpl = os.path.basename(mainfn + self.pextmpl)
         for ipiece in range(self.npiece):
-            outf.write(self._tag_open('Piece', [
+            self._write_text(self._tag_open('Piece', [
                 ('Source', pfntmpl % ipiece),
-            ], close=True))
+            ], close=True), outf)
         # write footer.
-        outf.write(self._tag_close('PUnstructuredGrid'))
-        outf.write(self._tag_close('VTKFile'))
+        self._write_text(self._tag_close('PUnstructuredGrid'), outf)
+        self._write_text(self._tag_close('VTKFile'), outf)
         outf.close()
 
 class PVtkXmlPolyDataWriter(VtkXmlWriter):
@@ -478,40 +500,41 @@ class PVtkXmlPolyDataWriter(VtkXmlWriter):
         mainfn = os.path.splitext(outf)[0]
         outf = open(outf, 'w')
         # write header.
-        outf.write('<?xml version="1.0"?>\n')
+        self._write_text('<?xml version="1.0"?>\n', outf)
         attr = [
             ('type', 'PPolyData'),
             ('version', '0.1'),
             ('byte_order', 'LittleEndian'),
         ]
-        outf.write(self._tag_open('VTKFile', attr))
-        outf.write(self._tag_open('PPolyData', [
+        self._write_text(self._tag_open('VTKFile', attr), outf)
+        self._write_text(self._tag_open('PPolyData', [
             ('GhostLevel', 0),
-        ]))
+        ]), outf)
         # data.
-        outf.write(self._tag_open('PPointData'))
+        self._write_text(self._tag_open('PPointData'), outf)
         for key, dtype, isvec in self.arrs:
             attr = [('type', self.dtype_map[str(dtype)]), ('Name', key)]
             if isvec:
                 attr.append(('NumberOfComponents', 3))
-            outf.write(self._tag_open('PDataArray', attr, close=True))
-        outf.write(self._tag_close('PPointData'))
-        outf.write(self._tag_open('PCellData'))
-        outf.write(self._tag_close('PCellData'))
+            self._write_text(self._tag_open('PDataArray', attr, close=True),
+                             outf)
+        self._write_text(self._tag_close('PPointData'), outf)
+        self._write_text(self._tag_open('PCellData'), outf)
+        self._write_text(self._tag_close('PCellData'), outf)
         # write points.
-        outf.write(self._tag_open('PPoints'))
-        outf.write(self._tag_open('PDataArray', [
+        self._write_text(self._tag_open('PPoints'), outf)
+        self._write_text(self._tag_open('PDataArray', [
             ('type', self.dtype_map[str(self.fpdtype)]),
             ('NumberOfComponents', 3),
-        ], close=True))
-        outf.write(self._tag_close('PPoints'))
+        ], close=True), outf)
+        self._write_text(self._tag_close('PPoints'), outf)
         # write pieces.
         pfntmpl = os.path.basename(mainfn + self.pextmpl)
         for ipiece in range(self.npiece):
-            outf.write(self._tag_open('Piece', [
+            self._write_text(self._tag_open('Piece', [
                 ('Source', pfntmpl % ipiece),
-            ], close=True))
+            ], close=True), outf)
         # write footer.
-        outf.write(self._tag_close('PPolyData'))
-        outf.write(self._tag_close('VTKFile'))
+        self._write_text(self._tag_close('PPolyData'), outf)
+        self._write_text(self._tag_close('VTKFile'), outf)
         outf.close()

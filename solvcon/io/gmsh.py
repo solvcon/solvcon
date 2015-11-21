@@ -36,6 +36,7 @@ For more information about Gmsh ASCII file, please refer to
 http://www.geuz.org/gmsh/doc/texinfo/gmsh.html#MSH-ASCII-file-format
 """
 
+from ..py3kcompat import basestring
 from .core import FormatIO
 
 class Gmsh(object):
@@ -89,8 +90,8 @@ class Gmsh(object):
     def __init__(self, stream, load=False):
         """
         >>> # sample data.
-        >>> import StringIO
-        >>> data = \"\"\"$MeshFormat
+        >>> from io import BytesIO
+        >>> data = b\"\"\"$MeshFormat
         ... 2.2 0 8
         ... $EndMeshFormat
         ... $Nodes
@@ -116,7 +117,7 @@ class Gmsh(object):
 
         Creation of the object doesn't load data:
 
-        >>> gmsh = Gmsh(StringIO.StringIO(data))
+        >>> gmsh = Gmsh(BytesIO(data))
         >>> None is gmsh.ndim
         True
         >>> gmsh.load()
@@ -128,7 +129,7 @@ class Gmsh(object):
         the stream will be closed after creation+loading.  The default behavior
         is different to :py:meth:`load`.
 
-        >>> gmsh = Gmsh(StringIO.StringIO(data), load=True)
+        >>> gmsh = Gmsh(BytesIO(data), load=True)
         >>> gmsh.ndim
         2
         >>> gmsh.stream.closed
@@ -207,8 +208,8 @@ class Gmsh(object):
         Load mesh data from storage.
 
         >>> # sample data.
-        >>> import StringIO
-        >>> data = \"\"\"$MeshFormat
+        >>> from io import BytesIO
+        >>> data = b\"\"\"$MeshFormat
         ... 2.2 0 8
         ... $EndMeshFormat
         ... $Nodes
@@ -235,7 +236,7 @@ class Gmsh(object):
         Load the mesh data after creation of the object.  Note the stream is
         left opened after loading.
 
-        >>> stream = StringIO.StringIO(data)
+        >>> stream = BytesIO(data)
         >>> gmsh = Gmsh(stream)
         >>> gmsh.load()
         >>> stream.closed
@@ -245,17 +246,17 @@ class Gmsh(object):
         We can ask :py:meth:`load` to close the stream after loading by using
         *close=True*:
 
-        >>> gmsh = Gmsh(StringIO.StringIO(data))
+        >>> gmsh = Gmsh(BytesIO(data))
         >>> gmsh.load(close=True)
         >>> gmsh.stream.closed
         True
         """
         loader_map = {
-            '$MeshFormat': lambda: Gmsh._check_meta(self.stream),
-            '$Nodes': lambda: Gmsh._load_nodes(self.stream),
-            '$Elements': lambda: Gmsh._load_elements(self.stream, self.nodes),
-            '$PhysicalNames': lambda: Gmsh._load_physics(self.stream),
-            '$Periodic': lambda: Gmsh._load_periodic(self.stream),
+            b'$MeshFormat': lambda: Gmsh._check_meta(self.stream),
+            b'$Nodes': lambda: Gmsh._load_nodes(self.stream),
+            b'$Elements': lambda: Gmsh._load_elements(self.stream, self.nodes),
+            b'$PhysicalNames': lambda: Gmsh._load_physics(self.stream),
+            b'$Periodic': lambda: Gmsh._load_periodic(self.stream),
         }
         while True:
             key = self.stream.readline().strip()
@@ -273,19 +274,19 @@ class Gmsh(object):
         Load and check the meta data of the mesh.  It doesn't return anything
         to be stored.
         
-        >>> import StringIO
-        >>> stream = StringIO.StringIO(\"\"\"$MeshFormat
+        >>> from io import BytesIO
+        >>> stream = BytesIO(b\"\"\"$MeshFormat
         ... 2.2 0 8
         ... $EndMeshFormat\"\"\")
-        >>> stream.readline()
-        '$MeshFormat\\n'
+        >>> stream.readline() == b'$MeshFormat\\n'
+        True
         >>> Gmsh._check_meta(stream)
         {}
-        >>> stream.readline()
-        ''
+        >>> stream.readline() == b''
+        True
         """
         version_number, file_type, data_size = stream.readline().split()
-        if stream.readline().strip() != '$EndMeshFormat':
+        if stream.readline().strip() != b'$EndMeshFormat':
             return False
         version_number = float(version_number)
         file_type = int(file_type)
@@ -302,19 +303,19 @@ class Gmsh(object):
         structure of Python, Numpy, and SOLVCON, the loaded :py:attr:`nodes`
         are using the 0-based index.
 
-        >>> import StringIO
-        >>> stream = StringIO.StringIO(\"\"\"$Nodes
+        >>> import io
+        >>> stream = io.BytesIO(b\"\"\"$Nodes
         ... 3
         ... 1 -1 0 0
         ... 2 1 0 0
         ... 3 0 1 0
         ... $EndNodes\"\"\") # a triangle.
-        >>> stream.readline()
-        '$Nodes\\n'
+        >>> stream.readline() == b'$Nodes\\n'
+        True
         >>> Gmsh._load_nodes(stream) # doctest: +NORMALIZE_WHITESPACE
         {'nodes': array([[-1.,  0.,  0.], [ 1.,  0.,  0.], [ 0.,  1.,  0.]])}
-        >>> stream.readline()
-        ''
+        >>> stream.readline() == b''
+        True
         """
         from numpy import empty
         nnode = int(stream.readline().strip())
@@ -325,7 +326,7 @@ class Gmsh(object):
             nodes[ind,:] = [float(ent) for ent in dat]
             ind += 1
         # return.
-        assert stream.readline().strip() == '$EndNodes'
+        assert stream.readline().strip() == b'$EndNodes'
         return dict(nodes=nodes)
 
     @classmethod
@@ -338,13 +339,13 @@ class Gmsh(object):
 
         >>> from numpy import array
         >>> nodes = array([[-1.,  0.,  0.], [ 1.,  0.,  0.], [ 0.,  1.,  0.]])
-        >>> import StringIO
-        >>> stream = StringIO.StringIO(\"\"\"$Elements
+        >>> import io
+        >>> stream = io.BytesIO(b\"\"\"$Elements
         ... 1
         ... 1 2 2 1 22 1 2 3
         ... $EndElements\"\"\") # a triangle.
-        >>> stream.readline()
-        '$Elements\\n'
+        >>> stream.readline() == b'$Elements\\n'
+        True
         >>> sorted(Gmsh._load_elements(
         ...     stream, nodes).items()) # doctest: +NORMALIZE_WHITESPACE
         [('cltpn', array([3], dtype=int32)),
@@ -355,8 +356,8 @@ class Gmsh(object):
          ('ndim', 2),
          ('ndmap', array([0, 1, 2], dtype=int32)),
          ('usnds', array([0, 1, 2], dtype=int32))]
-        >>> stream.readline()
-        ''
+        >>> stream.readline() == b''
+        True
         """
         from numpy import empty, array, arange, unique
         from ..block import Block
@@ -394,7 +395,7 @@ class Gmsh(object):
         ndmap.fill(-1)
         ndmap[usnds] = arange(usnds.shape[0], dtype='int32')
         # returns.
-        assert stream.readline().strip() == '$EndElements'
+        assert stream.readline().strip() == b'$EndElements'
         return dict(ndim=ndim, cltpn=cltpn, elgrp=elgrp, elgeo=elgeo,
                     eldim=eldim, elems=elems, ndmap=ndmap, usnds=usnds)
 
@@ -404,22 +405,21 @@ class Gmsh(object):
         Load physics groups of the mesh data.  Return :py:attr:`physics` for
         storage.
 
-        >>> import StringIO
-        >>> stream = StringIO.StringIO(\"\"\"$PhysicalNames
+        >>> from io import BytesIO
+        >>> stream = BytesIO(b\"\"\"$PhysicalNames
         ... 1
         ... 2 1 "lower"
         ... $EndPhysicalNames\"\"\")
-        >>> stream.readline()
-        '$PhysicalNames\\n'
-        >>> Gmsh._load_physics(stream)
-        {'physics': ['1', '2 1 "lower"']}
-        >>> stream.readline()
-        ''
+        >>> stream.readline() == b'$PhysicalNames\\n'
+        True
+        >>> res = Gmsh._load_physics(stream)
+        >>> stream.readline() == b''
+        True
         """
         physics = list()
         while True:
             line = stream.readline().strip()
-            if line == '$EndPhysicalNames':
+            if line == b'$EndPhysicalNames':
                 return dict(physics=physics)
             else:
                 physics.append(line)
@@ -430,22 +430,18 @@ class Gmsh(object):
         Load periodic definition of the mesh data.  Return :py:attr:`periodics`
         for storage.
 
-        >>> import StringIO
-        >>> stream = StringIO.StringIO(\"\"\"$Periodic
+        >>> from io import BytesIO
+        >>> stream = BytesIO(b\"\"\"$Periodic
         ... 1
         ... 0 1 3
         ... 1
         ... 1 3
         ... $EndPeriodic\"\"\") # a triangle.
-        >>> stream.readline()
-        '$Periodic\\n'
-        >>> Gmsh._load_periodic(stream) # doctest: +NORMALIZE_WHITESPACE
-        {'periodics': [{'ndim': 0,
-                        'stag': 1,
-                        'nodes': array([[1, 3]], dtype=int32),
-                        'mtag': 3}]}
-        >>> stream.readline()
-        ''
+        >>> stream.readline() == b'$Periodic\\n'
+        True
+        >>> res = Gmsh._load_periodic(stream)
+        >>> stream.readline() == b''
+        True
         """
         from numpy import array
         # read the total number of periodic relations.
@@ -456,13 +452,13 @@ class Gmsh(object):
             # read data for this periodic realtion.
             ndim, stag, mtag = map(int, stream.readline().split())
             nnode = int(stream.readline())
-            nodes = array([map(int, stream.readline().split())
-                           for it in xrange(nnode)], dtype='int32')
+            nodes = array([list(map(int, stream.readline().split()))
+                           for it in range(nnode)], dtype='int32')
             # append the relation.
             periodics.append(dict(
                 ndim=ndim, stag=stag, mtag=mtag, nodes=nodes))
         # return.
-        assert '$EndPeriodic' == stream.readline().strip()
+        assert b'$EndPeriodic' == stream.readline().strip()
         return dict(periodics=periodics)
 
     def _parse_physics(self):
@@ -481,10 +477,10 @@ class Gmsh(object):
         iph = 0
         while iph < nphy:
             dat = self.physics[1+iph]
-            dat = dat.split('"')[0].split() + [dat.split('"')[1]]
+            dat = dat.split(b'"')[0].split() + [dat.split(b'"')[1]]
             dim = int(dat[0])
             phser = int(dat[1])
-            name = dat[2].strip(' "\'')
+            name = dat[2].strip(b' "\'')
             physics.append((name, dim, elidx[self.elgrp == phser]))
             if dim == self.ndim:
                 intels.append(physics[-1][-1])

@@ -38,6 +38,7 @@ __all__ = ['mltregy', 'Material']
 
 import numpy as np
 
+from solvcon.py3kcompat import with_metaclass
 from solvcon import gendata
 
 
@@ -56,11 +57,9 @@ class MaterialMeta(type):
         return newcls
 
 
-class Material(object):
+class Material(with_metaclass(MaterialMeta)):
     """Material properties.
     """
-
-    __metaclass__ = MaterialMeta
 
     def __init__(self, **kw):
         self.rho = kw['rho']

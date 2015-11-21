@@ -32,7 +32,7 @@
 Basic code for :py:mod:`solvcon.case`.
 """
 
-
+from .py3kcompat import with_metaclass
 from . import gendata
 from . import anchor
 from . import hook
@@ -49,10 +49,10 @@ class _ArrangementRegistry(gendata.SingleAssignDict, gendata.AttributeDict):
         >>> # assigning a key to a function is OK.
         >>> regy['func1'] = lambda a: a
         >>> # assigning a key to anything else isn't allowed.
-        >>> regy['func2'] = None
+        >>> regy['func2'] = None # doctest: +ELLIPSIS
         Traceback (most recent call last):
           ...
-        ValueError: None should be a callable, but a <type 'NoneType'> is got.
+        ValueError: None should be a callable, but a <... 'NoneType'> is got.
         """
         if not callable(value):
             raise ValueError("%s should be a callable, but a %s is got." % (
@@ -79,14 +79,12 @@ class CaseInfoMeta(type):
         return newcls
 
 
-class CaseInfo(dict):
+class CaseInfo(with_metaclass(CaseInfoMeta, dict)):
     """
     Generic case information abstract class.  It's the base class that all case
     information classes should subclass, to form hierarchical information 
     object.
     """
-
-    __metaclass__ = CaseInfoMeta
 
     defdict = {}
 

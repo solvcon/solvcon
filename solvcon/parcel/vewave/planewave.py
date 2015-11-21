@@ -37,7 +37,7 @@ __all__ = ['PlaneWaveSolution', 'PlaneWaveAnchor', 'PlaneWaveHook']
 
 import os
 import math
-import cPickle as pickle
+from solvcon.py3kcompat import pickle
 
 import numpy as np
 

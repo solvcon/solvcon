@@ -37,6 +37,7 @@ defined here.
 
 import warnings
 
+from .py3kcompat import with_metaclass
 from . import dependency
 from .gendata import TypeNameRegistry, TypeWithBinder
 dependency.import_module_may_fail('.mesh')
@@ -186,7 +187,7 @@ class BCMeta(TypeWithBinder):
         return newcls
 
 # Base/abstract BC type.
-class BC(object):
+class BC(with_metaclass(BCMeta)):
     """
     Generic boundary condition abstract class; the base class that all boundary
     condition classes should subclass.
@@ -196,8 +197,6 @@ class BC(object):
 
     #: Boundary face relation number.
     BFREL = 3
-
-    __metaclass__ = BCMeta
 
     #: Holding names as pointers.  Used for binder.
     _pointers_ = []

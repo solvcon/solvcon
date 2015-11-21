@@ -87,7 +87,7 @@ class VtkLegacyWriter(object):
         elif arr.dtype == float64:
             return 'double'
         else:
-            raise TypeError, 'type of arr has to be either float32 or float64'
+            raise TypeError('type of arr has to be either float32 or float64')
 
     def _make_file_header(self):
         """

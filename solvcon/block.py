@@ -36,6 +36,7 @@ import importlib
 
 import numpy as np
 
+from .py3kcompat import with_metaclass
 from . import boundcond
 from . import dependency
 dependency.import_module_may_fail('.mesh')
@@ -115,7 +116,7 @@ class BlockMeta(type):
         return super(BlockMeta, cls).__new__(cls, name, bases, namespace)
 
 
-class Block(object):
+class Block(with_metaclass(BlockMeta)):
     """
     :ivar use_incenter: specify using incenter or not.
     :itype use_incenter: bool
@@ -179,8 +180,6 @@ class Block(object):
     >>> (tblk.shfccls == blk.shfccls).all()
     True
     """
-
-    __metaclass__ = BlockMeta
 
     FCMND = MAX_FCNND
     CLMND = MAX_CLNND

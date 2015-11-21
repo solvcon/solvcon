@@ -36,13 +36,13 @@ class Printer(object):
     """
     Print message to a stream.
 
-    >>> import StringIO
-    >>> output = StringIO.StringIO()
+    >>> from .py3kcompat import StringIO
+    >>> output = StringIO()
     >>> mesg = Printer(output)
     >>> mesg('mesg')
     >>> mesg(int, float) # object
-    >>> output.getvalue()
-    "mesg<type 'int'> <type 'float'>"
+    >>> output.getvalue() # doctest: +ELLIPSIS
+    "mesg<... 'int'> <... 'float'>"
     """
 
     def __init__(self, streams, **kw):
@@ -60,6 +60,8 @@ class Printer(object):
             if isinstance(stream, str):
                 if stream == 'sys.stdout':
                     self._streams.append((sys.stdout, None))
+                elif stream == os.devnull:
+                    pass
                 else:
                     if not self.override and os.path.exists(stream):
                         warnings.warn('file %s overriden.' % stream,
@@ -293,13 +295,14 @@ class Gmsh(object):
             cli += ' %s' % options
         pobj = Popen(cli, shell=True, stdout=PIPE, stderr=STDOUT)
         self.stdout = pobj.stdout.read()
+        pobj.stdout.close()
         if not os.path.exists(mshp):
             raise OSError(
                 '%s not produced by gmsh command line, stdout:\n%s' % (mshp,
                     self.stdout))
         # get the data.
         try:
-            mshf = open(mshp)
+            mshf = open(mshp, 'rb')
             gmh = Gmsh(mshf)
             gmh.load()
             mshf.close()

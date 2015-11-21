@@ -118,7 +118,7 @@ class Hook(object):
         if verbose and msglst:
             info('\n'.join(msglst)+'\n')
         if stop_on_false and msglst:
-            raise RuntimeError, '\n'.join(msglst)
+            raise RuntimeError('\n'.join(msglst))
         # return.
         for met in metlst:
             if not met:
@@ -540,9 +540,8 @@ class MarchSave(VtkSave):
             elif len(arr.shape) == 2:
                 varrs[key] = arr
             else:
-                raise IndexError, \
-                  'the dimensions of case[\'%s\'] is %d > 2' % (
-                    key, len(arr.shape))
+                raise IndexError('the dimensions of case[\'%s\'] is %d > 2'%(
+                    key, len(arr.shape)))
         # put soln into scalars.
         soln = var['soln']
         for i in range(soln.shape[1]):

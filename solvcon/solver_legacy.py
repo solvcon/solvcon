@@ -33,6 +33,8 @@ Definition of the structure of solvers.
 """
 
 from ctypes import Structure
+
+from .py3kcompat import with_metaclass
 from .gendata import TypeWithBinder
 from .solver_core import ALMOST_ZERO
 
@@ -54,7 +56,7 @@ class BaseSolverExedata(Structure):
         for key in ('ncore', 'neq', 'time', 'time_increment'):
             setattr(self, key, getattr(svr, key))
 
-class BaseSolver(object):
+class BaseSolver(with_metaclass(TypeWithBinder)):
     """
     Generic solver definition.  It is an abstract class and should not be used
     to any concrete simulation case.  The concrete solver sub-classes should
@@ -100,7 +102,6 @@ class BaseSolver(object):
     @itype der: dict
     """
 
-    __metaclass__ = TypeWithBinder
     _pointers_ = ['exd', 'tpool', 'arglists']
 
     _exedatatype_ = BaseSolverExedata
@@ -651,8 +652,8 @@ class BlockSolver(BaseSolver):
                 target = self.pullibc
                 args = arrname, bc, sendn
             else:
-                raise ValueError, 'bc.rblkn = %d != %d or %d' % (
-                    bc.rblkn, sendn, recvn) 
+                raise ValueError('bc.rblkn = %d != %d or %d' % (
+                    bc.rblkn, sendn, recvn))
             kwargs = {'worker': worker}
             # call to data transfer.
             if self.ibcthread:

@@ -84,9 +84,9 @@ class FakeSolver(solver.MeshSolver):
 
         >>> [(type(getattr(svr, key)), getattr(svr, key).shape)
         ...     for key in ('sol', 'soln', 'dsol', 'dsoln')]
-        ...     # doctest: +NORMALIZE_WHITESPACE
-        [(<type 'numpy.ndarray'>, (6, 1)), (<type 'numpy.ndarray'>, (6, 1)),
-        (<type 'numpy.ndarray'>, (6, 1, 2)), (<type 'numpy.ndarray'>, (6, 1,
+        ...     # doctest: +NORMALIZE_WHITESPACE +ELLIPSIS
+        [(<... 'numpy.ndarray'>, (6, 1)), (<... 'numpy.ndarray'>, (6, 1)),
+        (<... 'numpy.ndarray'>, (6, 1, 2)), (<... 'numpy.ndarray'>, (6, 1,
         2))]
         """
         # meta data.

@@ -88,7 +88,7 @@ def valid_vector(arr):
         arrn[:,2] = 0.0
         try:
             arrn[:,:2] = arr[:,:]
-        except ValueError, e:
+        except ValueError as e:
             args = e.args[:]
             args.append('arrn.shape=%s, arr.shape=%s' % (
                 str(arrn.shape), str(arr.shape)))

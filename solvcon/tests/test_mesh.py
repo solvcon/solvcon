@@ -33,6 +33,7 @@ import unittest
 
 import numpy as np
 
+from .. import py3kcompat
 from ..mesh import Table
 
 
@@ -69,9 +70,11 @@ class TestTableParts(unittest.TestCase):
 
     def test_no_setting_property(self):
         tbl = Table(4, 8)
-        with self.assertRaisesRegexp(AttributeError, "can't set attribute"):
+        with py3kcompat.assertRaisesRegex(
+            self, AttributeError, "can't set attribute"):
             tbl._ghostpart = np.arange(4)
-        with self.assertRaisesRegexp(AttributeError, "can't set attribute"):
+        with py3kcompat.assertRaisesRegex(
+            self, AttributeError, "can't set attribute"):
             tbl._bodypart = np.arange(8)
 
     def test_1d(self):

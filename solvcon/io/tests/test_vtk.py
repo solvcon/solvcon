@@ -30,9 +30,9 @@ class WriteTest(TestCase):
             i += 1
  
     def test_legacy(self):
-        import StringIO
+        from ...py3kcompat import StringIO
         from .. import vtk
-        outf = StringIO.StringIO()
+        outf = StringIO()
         writer = vtk.VtkLegacyUstGridWriter(self.blk)
         writer.write(outf)
         str_blk_vtk = outf.getvalue()

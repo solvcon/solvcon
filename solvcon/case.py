@@ -36,7 +36,7 @@ Simulation cases.
 import os
 import sys
 import signal
-import cPickle as pickle
+from .py3kcompat import pickle
 import time
 import gzip
 
@@ -68,10 +68,10 @@ class MeshHookList(list):
     :ivar cse: case object.
     :type cse: solvcon.case.BaseCase
 
-    >>> MeshHookList()
+    >>> MeshHookList() # doctest: +ELLIPSIS
     Traceback (most recent call last):
         ...
-    TypeError: __init__() takes at least 2 arguments (1 given)
+    TypeError: __init__() ...
     >>> # Give the constructor a MeshCase.
     >>> from solvcon.testing import create_trivial_2d_blk
     >>> cse = MeshCase() # No arguments because of demonstration.
@@ -367,7 +367,7 @@ class MeshCase(case_core.CaseInfo):
             assert isinstance(self.execution.npart, int)
             flag_parallel = 2 # means network parallel.
         else:
-            raise TypeError, 'domaintype shouldn\'t be %s' % domaintype
+            raise TypeError('domaintype shouldn\'t be %s' % domaintype)
         return flag_parallel
 
     ############################################################################
@@ -392,10 +392,10 @@ class MeshCase(case_core.CaseInfo):
 
         >>> cse = MeshCase()
         >>> cse.info.muted = True
-        >>> cse.init()
+        >>> cse.init() # doctest: +ELLIPSIS
         Traceback (most recent call last):
             ...
-        TypeError: coercing to Unicode: need string or buffer, NoneType found
+        TypeError: ...
 
         #. Mesh information.  We can provide *meshfn* that specifying the path
            of a valid mesh file, or provide *mesher*, which is a function that
@@ -406,11 +406,10 @@ class MeshCase(case_core.CaseInfo):
             >>> blk = create_trivial_2d_blk()
             >>> cse = MeshCase(mesher=lambda *arg: blk)
             >>> cse.info.muted = True
-            >>> cse.init() # doctest: +NORMALIZE_WHITESPACE
+            >>> cse.init() # doctest: +ELLIPSIS
             Traceback (most recent call last):
                 ...
-            TypeError: isinstance() arg 2 must be a class, type, or tuple of
-            classes and types
+            TypeError: isinstance() arg 2 must be ...
 
         #. Type of the spatial domain.  This information is used for detemining
            sequential or parallel execution, and performing related operations:
@@ -430,10 +429,10 @@ class MeshCase(case_core.CaseInfo):
             ...                domaintype=domain.Domain,
             ...                solvertype=MeshSolver)
             >>> cse.info.muted = True
-            >>> cse.init()
+            >>> cse.init() # doctest: +ELLIPSIS
             Traceback (most recent call last):
                 ...
-            TypeError: cannot concatenate 'str' and 'NoneType' objects
+            TypeError: ...
 
         #. The base name.  It is used to name its output files:
 
@@ -701,9 +700,9 @@ class MeshCase(case_core.CaseInfo):
     def _create_workers_remote(self, dealer, nblk):
         info = self.info
         authkey = rpc.DEFAULT_AUTHKEY
-        paths = dict([(key, os.environ.get(key, '').split(':')) for key in
-            'LD_LIBRARY_PATH',
-            'PYTHONPATH',
+        paths = dict([
+           (key, os.environ.get(key, '').split(':')) for key in
+           ('LD_LIBRARY_PATH', 'PYTHONPATH')
         ])  # TODO: make sure VTK in LD_LIBRARY_PATH.
         paths['PYTHONPATH'].extend(self.pythonpaths)
         paths['PYTHONPATH'].insert(0, self.io.rootdir)
@@ -880,7 +879,8 @@ for node in $nodes; do rsh $node killall %s; done
         self.log.time['solver_march'] = 0.0
         self.info('\n')
         self._log_start('run_march')
-        while self.execution.step_current < self.execution.steps_run:
+        while (self.execution.steps_run is not None and
+               self.execution.step_current < self.execution.steps_run):
             if self.execution.stop: break
             # hook: premarch.
             self.runhooks('premarch')
@@ -1041,10 +1041,10 @@ for node in $nodes; do rsh $node killall %s; done
         The first example arrangement is a bad one, because it allows no
         argument:
 
-        >>> arrangements.arg1()
+        >>> arrangements.arg1() # doctest: +ELLIPSIS
         Traceback (most recent call last):
           ...
-        TypeError: arg1() takes no arguments (1 given)
+        TypeError: arg1() ...
 
         The second example arrangement is still a bad one, because although it
         has an argument, the name of the argument is incorrect:

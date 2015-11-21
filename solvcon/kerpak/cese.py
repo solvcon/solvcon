@@ -593,7 +593,7 @@ class Probe(object):
                     spec = -1-spec
                     arr = svr.sol[:,spec]
             if arr == None:
-                raise IndexError, 'spec %s incorrect'%str(spec)
+                raise IndexError('spec %s incorrect'%str(spec))
             vlist.append(arr[ngstcell+self.pcl])
         self.vals.append(vlist)
 
@@ -643,7 +643,7 @@ class CflHook(Hook):
     def _notify(self, msg):
         from warnings import warn
         if self.fullstop:
-            raise RuntimeError, msg
+            raise RuntimeError(msg)
         else:
             warn(msg)
     def postmarch(self):

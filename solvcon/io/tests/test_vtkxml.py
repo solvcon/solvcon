@@ -37,46 +37,46 @@ class VtkXmlTest(TestCase):
         self.assertEqual(dat.find('Float64'), -1)"""
 
     def test_xml_double(self):
-        import StringIO
+        from io import BytesIO
         from ...testing import loadfile
         from .. import gambit
         from .. import vtkxml
         blk = gambit.GambitNeutral(loadfile('sample.neu')).toblock(
             fpdtype='float64')
         wtr = vtkxml.VtkXmlUstGridWriter(blk, fpdtype='float64')
-        outf = StringIO.StringIO()
+        outf = BytesIO()
         wtr.write(outf)
         dat = outf.getvalue()
-        self.assertNotEqual(dat.find('Float64'), -1)
-        self.assertEqual(dat.find('Float32'), -1)
+        self.assertNotEqual(dat.find(b'Float64'), -1)
+        self.assertEqual(dat.find(b'Float32'), -1)
 
     def test_xml_appended(self):
-        import StringIO
+        from io import BytesIO
         from ...testing import loadfile
         from .. import gambit
         from .. import vtkxml
         blk = gambit.GambitNeutral(loadfile('sample.neu')).toblock(
             fpdtype='float64')
         wtr = vtkxml.VtkXmlUstGridWriter(blk, appended=True)
-        outf = StringIO.StringIO()
+        outf = BytesIO()
         wtr.write(outf)
         dat = outf.getvalue()
-        self.assertEqual(dat.find('ascii'), -1)
-        self.assertEqual(dat.find('binary'), -1)
+        self.assertEqual(dat.find(b'ascii'), -1)
+        self.assertEqual(dat.find(b'binary'), -1)
 
     def test_xml_binary(self):
-        import StringIO
+        from io import BytesIO
         from ...testing import loadfile
         from .. import gambit
         from .. import vtkxml
         blk = gambit.GambitNeutral(loadfile('sample.neu')).toblock(
             fpdtype='float64')
         wtr = vtkxml.VtkXmlUstGridWriter(blk, appended=False, binary=True)
-        outf = StringIO.StringIO()
+        outf = BytesIO()
         wtr.write(outf)
         dat = outf.getvalue()
-        self.assertEqual(dat.find('ascii'), -1)
-        self.assertEqual(dat.find('appended'), -1)
+        self.assertEqual(dat.find(b'ascii'), -1)
+        self.assertEqual(dat.find(b'appended'), -1)
 
     def test_xml_ascii(self):
         import os
@@ -89,7 +89,7 @@ class VtkXmlTest(TestCase):
             fpdtype='float64')
         wtr = vtkxml.VtkXmlUstGridWriter(blk, appended=False, binary=False)
         outfd, ofn = mkstemp(text=True)
-        outf = os.fdopen(outfd, 'w')
+        outf = os.fdopen(outfd, 'wb')
         wtr.write(outf)
         outf.close()
         outf = open(ofn)

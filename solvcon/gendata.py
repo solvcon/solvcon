@@ -32,6 +32,8 @@
 Generic data structures.
 """
 
+from .py3kcompat import with_metaclass
+
 class AttributeDict(dict):
     """
     Dictionary form which key can be assessed as attribute.

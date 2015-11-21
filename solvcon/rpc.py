@@ -36,7 +36,7 @@ Remote procedure call and inter-process communication.
 import sys, os
 
 
-DEFAULT_AUTHKEY = 'solvcon.rpc'
+DEFAULT_AUTHKEY = b'solvcon.rpc'
 DEFAULT_SLEEP = 0.1
 
 class Terminate(Exception):
@@ -77,10 +77,11 @@ class Worker(object):
         To create a :py:class:`Worker` object, give at least something for its
         muscle:
 
-        >>> Worker() # this fails because there must be one muscle given.
+        >>> # this fails because there must be one muscle given.
+        >>> Worker() # doctest: +ELLIPSIS
         Traceback (most recent call last):
             ...
-        TypeError: __init__() takes at least 2 arguments (1 given)
+        TypeError: __init__() ...
 
         By default the :py:class:`Worker` created is in non-debugging mode:
 

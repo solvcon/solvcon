@@ -773,7 +773,6 @@ class CudaUpDownAnchor(Anchor):
             self.svr.cumgr.arr_to_gpu(*self.uparrs)
     def _download(self):
         if self.svr.scu and self.downarrs:
-            print self.downarrs
             self.svr.cumgr.arr_from_gpu(*self.downarrs)
     def preloop(self):
         self._upload()
@@ -1099,7 +1098,7 @@ class Probe(object):
                     spec = -1-spec
                     arr = svr.sol[:,spec]
             if arr == None:
-                raise IndexError, 'spec %s incorrect'%str(spec)
+                raise IndexError('spec %s incorrect'%str(spec))
             vlist.append(arr[ngstcell+self.pcl])
         self.vals.append(vlist)
 

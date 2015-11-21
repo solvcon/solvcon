@@ -30,6 +30,8 @@
 
 """SOLVCON distribution script."""
 
+from __future__ import absolute_import, division, print_function
+
 CLASSIFIERS = """Development Status :: 3 - Alpha
 Intended Audience :: Developers
 Intended Audience :: Education

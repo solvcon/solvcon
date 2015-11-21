@@ -159,8 +159,8 @@ class BoundaryCondition(object):
                 (self.nentry, self.nvalues+3))
             self.values = (arr[:,3:]).copy()
         else:
-            raise ValueError, \
-                "itype has to be either 0/1, but get %d"%self.itype
+            raise ValueError("itype has to be either 0/1, but get %d" %
+                self.itype)
 
     # define map for clfcs (from block to neu).
     CLFCS_RMAP = {}
@@ -514,7 +514,7 @@ class GambitNeutralReader(object):
                     range(nval)]
                 ibfc += 1
         else:
-            raise ValueError, 'only 0/1 of itype is allowed'
+            raise ValueError('only 0/1 of itype is allowed')
         assert ibfc == nbfc
         # append.
         neu.bcs.append(bc)
@@ -543,7 +543,7 @@ class GambitNeutralReader(object):
         elif dtype.startswith('float'):
             vtype = float
         else:
-            raise TypeError, '%s not supported'%dtype
+            raise TypeError('%s not supported'%dtype)
         # allocate array.
         arr = empty(nval, dtype=dtype)
         # read.
@@ -556,8 +556,8 @@ class GambitNeutralReader(object):
             line = line.rstrip()
             nc = len(line)
             if nc%width != 0:
-                raise IndexError, 'not exact chars at line %d'%(ival/iline)
-            nt = nc/width
+                raise IndexError('not exact chars at line %d'%(ival/iline))
+            nt = nc//width
             arr[ival:ival+nt] = [vtype(line[8*it:8*(it+1)]) for it in range(nt)]
             ival += nt
         assert ival == nval
