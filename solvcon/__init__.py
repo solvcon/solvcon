@@ -71,6 +71,8 @@ __all__ = [
     'parcel',
     # py3kcompat
     'py3kcompat',
+    # N/A
+    'test',
 ]
 
 from .dependency import import_module_may_fail, import_name
@@ -88,6 +90,17 @@ from . import helper
 from .helper import Gmsh
 from . import parcel
 from . import py3kcompat
+
+def test():
+    """
+    Run everything in :py:mod:`solvcon.tests` and :py:mod:`solvcon.io.tests`.
+    """
+    import os
+    import nose
+    from . import tests
+    from .io import tests as iotests
+    paths = [os.path.dirname(mod.__file__) for mod in (tests, iotests)]
+    nose.main(argv=['nosetests', '--exe'] + paths)
 
 if __name__ == '__main__':
     go()

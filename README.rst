@@ -28,6 +28,10 @@ The following command builds and installs SOLVCON::
 
   $ python setup.py install
 
+After installed you can run the unit tests::
+
+  $ python -c 'import solvcon as sc; sc.test()'
+
 Additional build and tests:
 
 - Building document requires `Sphinx <http://sphinx.pocoo.org/>`_ 1.3.1+,
