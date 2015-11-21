@@ -38,9 +38,9 @@ http://www.unidata.ucar.edu/software/netcdf/index.html
 """
 
 import numpy as np
-import netCDF4
 
 import solvcon as sc
+sc.import_module_may_fail('netCDF4')
 
 class NetCDF(object):
     """
