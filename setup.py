@@ -118,15 +118,17 @@ def main():
     sidx = sys.argv.index('setup.py') if 'setup.py' in sys.argv else -1
     cidx = sys.argv.index('clean') if 'clean' in sys.argv else -1
     if cidx > sidx:
+        derived = list()
         for mod in ext_modules:
             pyx = mod.sources[0] # this must be the pyx file.
             mainfn = os.path.splitext(pyx)[0]
-            derived = ['.'.join((mainfn, ext)) for ext in ('c', 'h', 'so')]
-            derived = [fn for fn in derived if os.path.exists(fn)]
-            sys.stdout.write('Removing in-place generated files')
+            derived += ['.'.join((mainfn, ext)) for ext in ('c', 'h', 'so')]
+        derived = [fn for fn in derived if os.path.exists(fn)]
+        if derived:
+            sys.stdout.write('Removing in-place generated files:')
             for fn in derived:
                 os.remove(fn)
-                sys.stdout.write(' %s' % fn)
+                sys.stdout.write('\n %s' % fn)
             sys.stdout.write('\n')
     else:
         ext_modules = cythonize(ext_modules)
