@@ -32,4 +32,5 @@
 I/O facilities.
 """
 
-__all__ = ['block', 'core', 'domain', 'gambit', 'netcdf', 'vtk', 'vtkxml']
+__all__ = ['block', 'core', 'domain', 'gambit', 'netcdf', 'vtk', 'vtkxml',
+           'html']
