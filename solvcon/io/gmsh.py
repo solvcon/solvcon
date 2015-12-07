@@ -637,7 +637,7 @@ class GmshIO(FormatIO):
                 opener = gzip.open
             else:
                 opener = open
-            stream = opener(stream)
+            stream = opener(stream, 'rb')
         gmh = Gmsh(stream)
         gmh.load()
         stream.close()

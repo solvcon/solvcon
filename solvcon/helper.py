@@ -227,7 +227,7 @@ class Cubit(object):
         from subprocess import Popen, PIPE, STDOUT
         from .io.genesis import Genesis
         # prepare working directory.
-        wdir = mkdtemp()
+        wdir = mkdtemp() # FIXME: use TemporaryDirectory
         joup = os.path.join(wdir, 'jou.jou')
         gnp = os.path.join(wdir, 'gn.g')
         # prepare journaling file.
@@ -280,7 +280,7 @@ class Gmsh(object):
         from subprocess import Popen, PIPE, STDOUT
         from .io.gmsh import Gmsh
         # prepare working directory.
-        wdir = mkdtemp()
+        wdir = mkdtemp() # FIXME: use TemporaryDirectory.
         cmdp = os.path.join(wdir, 'gmsh.geo')
         mshp = os.path.join(wdir, 'gmsh.msh')
         # prepare journaling file.

@@ -2,9 +2,11 @@
 
 import os
 from unittest import TestCase
+import gzip
 
 import numpy as np
 
+from ...import py3kcompat
 from ...conf import env
 from .. import gmsh
 from ..gmsh import GmshIO
@@ -51,53 +53,71 @@ class TestGmshClass(TestCase):
         # Check trailing.
         self.assertEqual(stream.readline(), b'')
 
-sblk = GmshIO().load(os.path.join(env.datadir, 'gmsh_square.msh.gz'))
-cblk = GmshIO().load(os.path.join(env.datadir, 'gmsh_cube.msh.gz'))
+class TestGmshIO(TestCase):
+    def test_plaintext_file(self):
+        with py3kcompat.TemporaryDirectory() as wdir:
+            sfname = os.path.join(env.datadir, 'gmsh_square.msh.gz')
+            dfname = os.path.join(wdir, 'gmsh_square.msh')
+            with gzip.open(sfname) as sfobj:
+                data = sfobj.read()
+                with open(dfname, 'wb') as dfobj:
+                    dfobj.write(data)
+            sblk = GmshIO().load(dfname)
+
+    def test_gzip_file(self):
+        sfname = os.path.join(env.datadir, 'gmsh_square.msh.gz')
+        sblk = GmshIO().load(sfname)
 
 class TestGmshSquare(TestCase):
+    def setUp(self):
+        sfname = os.path.join(env.datadir, 'gmsh_square.msh.gz')
+        self.sblk = GmshIO().load(sfname)
     def test_area(self):
-        self.assertAlmostEqual(sblk.clvol.sum(), 4.0, 12)
+        self.assertAlmostEqual(self.sblk.clvol.sum(), 4.0, 12)
     def test_top(self):
-        bc = dict([(bc.name, bc) for bc in sblk.bclist])[b'top']
-        self.assertAlmostEqual(sblk.fcara[bc.facn[:,0]].sum(), 2.0, 12)
-        self.assertTrue((sblk.fccnd[bc.facn[:,0],1] == 1.0).all())
+        bc = dict([(bc.name, bc) for bc in self.sblk.bclist])[b'top']
+        self.assertAlmostEqual(self.sblk.fcara[bc.facn[:,0]].sum(), 2.0, 12)
+        self.assertTrue((self.sblk.fccnd[bc.facn[:,0],1] == 1.0).all())
     def test_left(self):
-        bc = dict([(bc.name, bc) for bc in sblk.bclist])[b'left']
-        self.assertAlmostEqual(sblk.fcara[bc.facn[:,0]].sum(), 2.0, 12)
-        self.assertTrue((sblk.fccnd[bc.facn[:,0],0] == -1.0).all())
+        bc = dict([(bc.name, bc) for bc in self.sblk.bclist])[b'left']
+        self.assertAlmostEqual(self.sblk.fcara[bc.facn[:,0]].sum(), 2.0, 12)
+        self.assertTrue((self.sblk.fccnd[bc.facn[:,0],0] == -1.0).all())
     def test_bottom(self):
-        bc = dict([(bc.name, bc) for bc in sblk.bclist])[b'bottom']
-        self.assertAlmostEqual(sblk.fcara[bc.facn[:,0]].sum(), 2.0, 12)
-        self.assertTrue((sblk.fccnd[bc.facn[:,0],1] == -1.0).all())
+        bc = dict([(bc.name, bc) for bc in self.sblk.bclist])[b'bottom']
+        self.assertAlmostEqual(self.sblk.fcara[bc.facn[:,0]].sum(), 2.0, 12)
+        self.assertTrue((self.sblk.fccnd[bc.facn[:,0],1] == -1.0).all())
     def test_right(self):
-        bc = dict([(bc.name, bc) for bc in sblk.bclist])[b'right']
-        self.assertAlmostEqual(sblk.fcara[bc.facn[:,0]].sum(), 2.0, 12)
-        self.assertTrue((sblk.fccnd[bc.facn[:,0],0] == 1.0).all())
+        bc = dict([(bc.name, bc) for bc in self.sblk.bclist])[b'right']
+        self.assertAlmostEqual(self.sblk.fcara[bc.facn[:,0]].sum(), 2.0, 12)
+        self.assertTrue((self.sblk.fccnd[bc.facn[:,0],0] == 1.0).all())
 
 class TestGmshCube(TestCase):
+    def setUp(self):
+        sfname = os.path.join(env.datadir, 'gmsh_cube.msh.gz')
+        self.cblk = GmshIO().load(sfname)
     def test_volume(self):
-        self.assertAlmostEqual(cblk.clvol.sum(), 8.0, 12)
+        self.assertAlmostEqual(self.cblk.clvol.sum(), 8.0, 12)
     def test_xnegative(self):
-        bc = dict([(bc.name, bc) for bc in cblk.bclist])[b'xnegative']
-        self.assertAlmostEqual(cblk.fcara[bc.facn[:,0]].sum(), 4.0, 12)
-        self.assertTrue((cblk.fccnd[bc.facn[:,0],0] == -1.0).all())
+        bc = dict([(bc.name, bc) for bc in self.cblk.bclist])[b'xnegative']
+        self.assertAlmostEqual(self.cblk.fcara[bc.facn[:,0]].sum(), 4.0, 12)
+        self.assertTrue((self.cblk.fccnd[bc.facn[:,0],0] == -1.0).all())
     def test_xpositive(self):
-        bc = dict([(bc.name, bc) for bc in cblk.bclist])[b'xpositive']
-        self.assertAlmostEqual(cblk.fcara[bc.facn[:,0]].sum(), 4.0, 12)
-        self.assertTrue((cblk.fccnd[bc.facn[:,0],0] == 1.0).all())
+        bc = dict([(bc.name, bc) for bc in self.cblk.bclist])[b'xpositive']
+        self.assertAlmostEqual(self.cblk.fcara[bc.facn[:,0]].sum(), 4.0, 12)
+        self.assertTrue((self.cblk.fccnd[bc.facn[:,0],0] == 1.0).all())
     def test_ynegative(self):
-        bc = dict([(bc.name, bc) for bc in cblk.bclist])[b'ynegative']
-        self.assertAlmostEqual(cblk.fcara[bc.facn[:,0]].sum(), 4.0, 12)
-        self.assertTrue((cblk.fccnd[bc.facn[:,0],1] == -1.0).all())
+        bc = dict([(bc.name, bc) for bc in self.cblk.bclist])[b'ynegative']
+        self.assertAlmostEqual(self.cblk.fcara[bc.facn[:,0]].sum(), 4.0, 12)
+        self.assertTrue((self.cblk.fccnd[bc.facn[:,0],1] == -1.0).all())
     def test_ypositive(self):
-        bc = dict([(bc.name, bc) for bc in cblk.bclist])[b'ypositive']
-        self.assertAlmostEqual(cblk.fcara[bc.facn[:,0]].sum(), 4.0, 12)
-        self.assertTrue((cblk.fccnd[bc.facn[:,0],1] == 1.0).all())
+        bc = dict([(bc.name, bc) for bc in self.cblk.bclist])[b'ypositive']
+        self.assertAlmostEqual(self.cblk.fcara[bc.facn[:,0]].sum(), 4.0, 12)
+        self.assertTrue((self.cblk.fccnd[bc.facn[:,0],1] == 1.0).all())
     def test_znegative(self):
-        bc = dict([(bc.name, bc) for bc in cblk.bclist])[b'znegative']
-        self.assertAlmostEqual(cblk.fcara[bc.facn[:,0]].sum(), 4.0, 12)
-        self.assertTrue((cblk.fccnd[bc.facn[:,0],2] == -1.0).all())
+        bc = dict([(bc.name, bc) for bc in self.cblk.bclist])[b'znegative']
+        self.assertAlmostEqual(self.cblk.fcara[bc.facn[:,0]].sum(), 4.0, 12)
+        self.assertTrue((self.cblk.fccnd[bc.facn[:,0],2] == -1.0).all())
     def test_zpositive(self):
-        bc = dict([(bc.name, bc) for bc in cblk.bclist])[b'zpositive']
-        self.assertAlmostEqual(cblk.fcara[bc.facn[:,0]].sum(), 4.0, 12)
-        self.assertTrue((cblk.fccnd[bc.facn[:,0],2] == 1.0).all())
+        bc = dict([(bc.name, bc) for bc in self.cblk.bclist])[b'zpositive']
+        self.assertAlmostEqual(self.cblk.fcara[bc.facn[:,0]].sum(), 4.0, 12)
+        self.assertTrue((self.cblk.fccnd[bc.facn[:,0],2] == 1.0).all())
