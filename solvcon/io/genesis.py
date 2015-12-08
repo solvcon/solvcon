@@ -32,6 +32,7 @@
 Adapter to Genesis/ExodusII format.
 """
 
+from ..py3kcompat import basestring
 from .core import FormatIO
 from .netcdf import NetCDF
 
