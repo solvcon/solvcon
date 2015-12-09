@@ -5,9 +5,9 @@ SOLVCON is a collection of conservation-law solvers that use the space-time
 Install
 =======
 
-Clone from https://bitbucket.org/solvcon/solvcon::
+Clone from https://github.com/solvcon/solvcon::
 
-  $ hg clone https://bitbucket.org/solvcon/solvcon
+  $ git clone https://github.com/solvcon/solvcon
 
 SOLVCON needs the following packages: `gcc <http://gcc.gnu.org/>`_ 4.3+ (clang
 on OSX works as well), `Python <http://www.python.org/>`_ 2.7/3.4, `six

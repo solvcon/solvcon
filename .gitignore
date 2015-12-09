@@ -1,0 +1,43 @@
+.DS_Store
+setup.cfg
+build/
+build.dbg/
+.sconsign.dblite
+.coverage
+.ipynb_checkpoints/
+scdata/
+doc/api/
+doc/source/_static/*.eps
+opt/
+tmp/
+dep/
+dist/
+ground/downloaded/
+soil/downloaded/
+MANIFEST
+solvcon.log
+# compiled files.
+*.pyc
+*.o
+*.so
+*.dylib
+*.os
+*.?os
+*.pyd
+*.dll
+*.def
+*.a
+# cython generated interface files.
+solvcon/*.c
+solvcon/*.h
+solvcon/parcel/*/*.c
+solvcon/parcel/*/*.h
+# examples.
+examples/*/*/result*/
+examples/*/*/mesh/
+sandbox/*/*/result/
+sandbox/*/result/
+sandbox/*/mesh/
+# debian packaging
+debian/files
+debian/solvcon*

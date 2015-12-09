@@ -45,7 +45,7 @@ else:
     extensions.append('sphinxcontrib.issuetracker')
 
 # issuetracker settings.
-issuetracker = 'bitbucket'
+issuetracker = 'github'
 issuetracker_project = 'solvcon/solvcon'
 
 autoclass_content = 'class'

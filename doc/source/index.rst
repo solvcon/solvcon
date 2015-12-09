@@ -34,7 +34,7 @@ Documents
 Development
 ===========
 
-- Issue tracker: https://bitbucket.org/solvcon/solvcon/issues
+- Issue tracker: https://github.com/solvcon/solvcon/issues
 - Users' mailing list: solvcon@googlegroups.com (or
   http://groups.google.com/group/solvcon)
 - :doc:`python_style`
