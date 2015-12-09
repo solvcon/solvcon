@@ -151,7 +151,7 @@ def main():
         long_description=''.join(open('README.rst').read()),
         license='BSD',
         url='http://solvcon.net/',
-        download_url='http://bitbucket.org/yungyuc/solvcon/downloads/',
+        download_url='https://github.com/solvcon/solvcon/releases',
         classifiers=[tok.strip() for tok in CLASSIFIERS.split('\n')],
         platforms=[
             'Linux',
