@@ -34,6 +34,10 @@ Intrinsic format mesh I/O.  Provides:
   - IncenterDomainFormat (revision 0.0.7).
 """
 
+
+from __future__ import absolute_import, division, print_function
+
+
 from ..py3kcompat import with_metaclass, basestring
 
 from .core import FormatRegistry, FormatMeta, Format, FormatIO, strbool

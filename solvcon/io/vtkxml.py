@@ -37,6 +37,10 @@ intranet/it-service/applications/paraview/vtk-file-formats/
 or http://j.mp/hkkON0
 """
 
+
+from __future__ import absolute_import, division, print_function
+
+
 class VtkXmlWriter(object):
     """
     Base class for VTK XML format data writer.

@@ -36,6 +36,10 @@ For more information about Gmsh ASCII file, please refer to
 http://www.geuz.org/gmsh/doc/texinfo/gmsh.html#MSH-ASCII-file-format
 """
 
+
+from __future__ import absolute_import, division, print_function
+
+
 from ..py3kcompat import basestring
 from .core import FormatIO
 
