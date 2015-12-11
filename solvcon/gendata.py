@@ -32,6 +32,10 @@
 Generic data structures.
 """
 
+
+from __future__ import absolute_import, division, print_function
+
+
 from .py3kcompat import with_metaclass
 
 class AttributeDict(dict):

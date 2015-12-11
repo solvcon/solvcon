@@ -35,6 +35,10 @@ Basic supportive logic for interface BCs, periodic BCs, and glued BCs is
 defined here.
 """
 
+
+from __future__ import absolute_import, division, print_function
+
+
 import warnings
 
 from .py3kcompat import with_metaclass

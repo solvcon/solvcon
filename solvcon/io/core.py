@@ -32,6 +32,10 @@
 Core I/O facilities for SOLVCON intrinsic constructs.
 """
 
+
+from __future__ import absolute_import, division, print_function
+
+
 from ..py3kcompat import with_metaclass, basestring
 from ..gendata import TypeNameRegistry
 

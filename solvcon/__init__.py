@@ -36,6 +36,10 @@ SOLVCON targets at solving problems that can be formulated as a system of
 first-order, linear or non-linear partial differential equations (PDEs).
 """
 
+
+from __future__ import absolute_import, division, print_function
+
+
 __docformat__ = 'restructuredtext en'
 
 __version__ = '0.1.4+'

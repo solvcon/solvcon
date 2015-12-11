@@ -32,6 +32,10 @@
 VTK legacy file.
 """
 
+
+from __future__ import absolute_import, division, print_function
+
+
 class VtkLegacyWriter(object):
     """
     Base class for VTK legacy format data writer.

@@ -1,6 +1,10 @@
 # -*- coding: UTF-8 -*-
 # Copyright (C) 2008-2012 by Yung-Yu Chen.  See LICENSE.txt for terms of usage.
 
+
+from __future__ import absolute_import, division, print_function
+
+
 from unittest import TestCase
 
 import numpy as np
