@@ -47,35 +47,37 @@ __version__ = '0.1.4+'
 __description__ = "SOLVCON: Solvers of conservation laws"
 
 __all__ = [
-    # dependency
+    # module: dependency
     'import_module_may_fail', 'import_name',
-    # cmdutil
+    # module: cmdutil
     'go', 'Command',
-    # conf
+    # module: conf
     'env',
-    # block
+    # module: block
     'Block',
-    # mesh
+    # module: mesh
     'Table',
-    # solver
+    # module: solver
     'MeshSolver',
-    # case
+    # module: case
     'MeshCase',
-    # anchor
+    # module: anchor
     'MeshAnchor', 'MeshAnchorList',
-    # hook
+    # module: hook
     'MeshHook',
-    # boundcond
+    # module: boundcond
     'BC', 'bctregy',
-    # domain
+    # module: domain
     'Domain', 'Collective', 'Distributed',
-    # helper
+    # module: helper
     'helper', 'Gmsh',
-    # parcel
+    # module: parcel
     'parcel',
-    # py3kcompat
+    # module: py3kcompat
     'py3kcompat',
-    # N/A
+    # module: exception
+    'exception',
+    # module: N/A
     'test',
 ]
 
@@ -94,6 +96,7 @@ from . import helper
 from .helper import Gmsh
 from . import parcel
 from . import py3kcompat
+from . import exception
 
 def test():
     """

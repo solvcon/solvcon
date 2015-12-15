@@ -132,7 +132,6 @@ function animate() {
 
 function render() {
     renderer.render( scene, camera );
-    stats.update();
 }
 
 // vim: set ff=unix fenc=utf8 nobomb et sw=4 ts=4:
