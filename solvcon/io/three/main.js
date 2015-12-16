@@ -28,13 +28,6 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-var camera, scene, renderer;
-var geometry, material, mesh;
-
-init();
-animate();
-//renderer.render(scene, camera);
-
 function init() {
 
     camera = new THREE.PerspectiveCamera(10, window.innerWidth / window.innerHeight, 1, 10000);
@@ -132,6 +125,15 @@ function animate() {
 
 function render() {
     renderer.render( scene, camera );
+}
+
+function main() {
+    var camera, scene, renderer;
+    var geometry, material, mesh;
+
+    init();
+    animate();
+    //renderer.render(scene, camera);
 }
 
 // vim: set ff=unix fenc=utf8 nobomb et sw=4 ts=4:

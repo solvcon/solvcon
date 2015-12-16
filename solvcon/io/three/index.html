@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+
+  <head>
+
+    <meta name="description" content="application/xhtml+xml" charset="UTF-8"/>
+
+    <title>{{ title }}</title>
+
+    <style>
+      body { margin: 0; }
+      canvas { width: 100%; height: 100% }
+    </style>
+
+    <!-- Configuration -->
+    <script>
+      var ball_radius = {{ ball_radius }};
+    </script>
+
+    <!-- Scripts -->
+    {% for script in scripts %}
+    <script src="{{ script }}"></script>
+    {% endfor %}
+
+  </head>
+
+  <body onload="main();"/>
+
+</html>
+
+<!-- vim: set ff=unix fenc=utf8 ft=htmljinja nobomb et sw=2 ts=2: -->

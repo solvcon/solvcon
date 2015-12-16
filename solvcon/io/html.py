@@ -43,6 +43,11 @@ import os
 import shutil
 import string
 
+try:
+    import jinja2
+except ImportError: # not requiring jinja2 for now.
+    pass
+
 from .. import exception
 
 from . import core as iocore
@@ -98,47 +103,39 @@ class HtmlIO(iocore.FormatIO):
         os.path.abspath(os.path.dirname(__file__)),
         'three')
 
-    HTML_HEADER_TEMPLATE = """<html>
-    <head>
-        <title>$title</title>
-        <style>
-            body { margin: 0; }
-            canvas { width: 100%; height: 100% }
-        </style>
-    </head>
-    <body>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r73/three.min.js"></script>
-"""
-    HTML_HEADER_TEMPLATE = string.Template(HTML_HEADER_TEMPLATE)
-
-    HTML_FOOTER = """    </body>
-</html>
-
-<!-- vim: set ff=unix fenc=utf8 nobomb et sw=4 ts=4: -->
-"""
-
     def __init__(self, **kw):
         self.blk = kw.pop('blk', None)
         super(HtmlIO, self).__init__()
 
     @classmethod
-    def _copy_basefile(cls, fname, stream, dirname):
-        stream.write(('<script src="%s"></script>\n' % fname).encode())
+    def _copy_basefile(cls, fname, dirname):
         shutil.copy(os.path.join(cls.BASEDIR, fname),
                     os.path.join(dirname, fname))
 
-    @staticmethod
-    def _write_config(stream, ball_radius):
-        stream.write(("""<!-- Configuration -->
-<script>
-var ball_radius = %g;
-</script>
-""" % ball_radius).encode())
-
-    def _generate_meshfile(self, fname, stream, dirname):
-        stream.write(('<script src="%s"></script>\n' % fname).encode())
+    def _generate_meshfile(self, fname, dirname):
         wv = WebVisual(self.blk)
         wv.write_jsfile(os.path.join(dirname, fname))
+
+    def _save_directory(self, dirname, ball_radius):
+        self._copy_basefile('TrackballControls.js', dirname)
+        self._generate_meshfile('mesh.js', dirname)
+        self._copy_basefile('main.js', dirname)
+
+        with open(os.path.join(self.BASEDIR, 'index.html')) as fobj:
+            template = jinja2.Template(fobj.read())
+        with open(os.path.join(dirname, 'index.html'), 'wb') as fobj:
+            htmldata = template.render(
+                title=os.path.split(dirname.strip('/'))[-1],
+                ball_radius=ball_radius,
+                scripts=[
+                    "https://cdnjs.cloudflare.com/ajax/libs/"
+                        "three.js/r73/three.min.js",
+                    "TrackballControls.js",
+                    "mesh.js",
+                    "main.js",
+                ],
+            )
+            fobj.write(htmldata.encode())
 
     def save(self, stream, ball_radius=0.0):
         if not isinstance(stream, str):
@@ -151,14 +148,4 @@ var ball_radius = %g;
                               exception.IOWarning)
         else:
             os.mkdir(stream)
-        dirname = stream
-        stream = os.path.join(dirname, 'index.html')
-        with open(stream, 'wb') as stream:
-            title = os.path.split(dirname.strip('/'))[-1]
-            html_header = self.HTML_HEADER_TEMPLATE.substitute(title=title)
-            stream.write(html_header.encode())
-            self._write_config(stream, ball_radius)
-            self._copy_basefile('TrackballControls.js', stream, dirname)
-            self._generate_meshfile('mesh.js', stream, dirname)
-            self._copy_basefile('main.js', stream, dirname)
-            stream.write(self.HTML_FOOTER.encode())
+        self._save_directory(stream, ball_radius=ball_radius)
