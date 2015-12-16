@@ -32,6 +32,7 @@
 Gambit Neutral file.
 """
 
+from ..py3kcompat import basestring
 from .core import FormatIO
 
 class ElementGroup(object):
