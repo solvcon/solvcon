@@ -28,6 +28,31 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+function make_geometry(ndcrd, fcnds) {
+    var geom = new THREE.Geometry();
+    var ndim = ndcrd[0].length;
+    if (2 == ndim) {
+        for (it = 0; it < ndcrd.length; it++) {
+            crd = ndcrd[it];
+            geom.vertices.push(new THREE.Vector3(crd[0], crd[1], 0));
+        }
+        for (it = 0; it < fcnds.length; it++) {
+            nds = fcnds[it];
+            geom.faces.push(new THREE.Face3(nds[1], nds[2], nds[3]));
+        }
+    } else { // 3 == ndim
+        for (it = 0; it < ndcrd.length; it++) {
+            crd = ndcrd[it];
+            geom.vertices.push(new THREE.Vector3(crd[0], crd[1], crd[2]));
+        }
+        for (it = 0; it < fcnds.length; it++) {
+            nds = fcnds[it];
+            geom.faces.push(new THREE.Face3(nds[1], nds[2], nds[3]));
+        }
+    }
+    return geom;
+}
+
 function init() {
 
     camera = new THREE.PerspectiveCamera(10, window.innerWidth / window.innerHeight, 1, 10000);
@@ -59,7 +84,7 @@ function init() {
         color: 0x00ffff,
         wireframe: true
     });
-    var triangle_geom = new get_geometry();
+    var triangle_geom = new make_geometry(ndcrd, fcnds);
 
     var ball_material = new THREE.MeshBasicMaterial({color: 0xffffff});
     for (it = 0; it < triangle_geom.vertices.length; it++) {

@@ -42,6 +42,7 @@ import warnings
 import os
 import shutil
 import string
+import json
 
 try:
     import jinja2
@@ -59,39 +60,17 @@ class WebVisual(object):
         self.blk = blk
         super(WebVisual, self).__init__()
 
-    def _get_vertex(self):
-        if self.blk.ndim == 2:
-            tmpl = "new THREE.Vector3(%g,%g,0)"
-        else:
-            tmpl = "new THREE.Vector3(%g,%g,%g)"
-        return ",\n".join(tmpl % tuple(pnt) for pnt in self.blk.ndcrd)
-
-    def _get_face(self):
-        tmpl = "new THREE.Face3(%d,%d,%d)"
-        if self.blk.ndim == 2:
-            return ",\n".join(
-                tmpl % tuple(nds[1:nds[0]+1]) for nds in self.blk.clnds)
-        else:
-            return ",\n".join(
-                tmpl % tuple(nds[1:nds[0]+1]) for nds in self.blk.fcnds)
-
     def write_jsfile(self, fname):
         with open(os.path.join(fname), 'w') as fobj:
-            fobj.write("""function get_geometry() {
-    var geom = new THREE.Geometry();
-    geom.vertices.push(
-""")
-            fobj.write(self._get_vertex())
-            fobj.write("""
-    );
-    geom.faces.push(
-""")
-            fobj.write(self._get_face())
-            fobj.write("""
-    );
-    return geom;
-}
-""")
+            fobj.write("var ndcrd = ")
+            fobj.write(json.dumps(self.blk.ndcrd.tolist()))
+            fobj.write(";\n")
+            fobj.write("var fcnds = ")
+            if self.blk.ndim == 2:
+                fobj.write(json.dumps(self.blk.clnds.tolist()))
+            else:
+                fobj.write(json.dumps(self.blk.fcnds.tolist()))
+            fobj.write(";")
 
 
 class HtmlIO(iocore.FormatIO):
