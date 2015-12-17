@@ -8,8 +8,20 @@
     <title>{{ title }}</title>
 
     <style>
+
       body { margin: 0; }
+
       canvas { width: 100%; height: 100% }
+
+      #information {
+        background-color: rgb(255,255,255);
+        width: 200px;
+        position: absolute;
+        left: 20px;
+        top: 20px;
+        padding: 5px;
+      }
+
     </style>
 
     <!-- Configuration -->
@@ -24,7 +36,12 @@
 
   </head>
 
-  <body onload="main();"/>
+  <body>
+    <div id="content"></div>
+    <script>
+      main();
+    </script>
+  </body>
 
 </html>
 

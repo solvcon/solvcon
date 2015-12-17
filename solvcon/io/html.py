@@ -108,7 +108,17 @@ class HtmlIO(iocore.FormatIO):
                 ball_radius=ball_radius,
                 scripts=[
                     "https://cdnjs.cloudflare.com/ajax/libs/"
-                        "three.js/r73/three.min.js",
+                        "three.js/r73/three.js",
+                    "https://cdnjs.cloudflare.com/ajax/libs/"
+                        "react/0.14.3/react.js",
+                    "https://cdnjs.cloudflare.com/ajax/libs/"
+                        "react/0.14.3/react-dom.js",
+                    "https://cdnjs.cloudflare.com/ajax/libs/"
+                        "babel-core/5.8.23/browser.min.js",
+                    "https://cdnjs.cloudflare.com/ajax/libs/"
+                        "jquery/2.1.1/jquery.min.js",
+                    "https://cdnjs.cloudflare.com/ajax/libs/"
+                        "marked/0.3.2/marked.min.js",
                     "TrackballControls.js",
                     "mesh.js",
                     "main.js",

@@ -28,137 +28,197 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-function make_geometry(ndcrd, fcnds) {
-    var geom = new THREE.Geometry();
-    var ndim = ndcrd[0].length;
-    if (2 == ndim) {
-        for (it = 0; it < ndcrd.length; it++) {
-            crd = ndcrd[it];
-            geom.vertices.push(new THREE.Vector3(crd[0], crd[1], 0));
-        }
-        for (it = 0; it < fcnds.length; it++) {
-            nds = fcnds[it];
-            geom.faces.push(new THREE.Face3(nds[1], nds[2], nds[3]));
-        }
-    } else { // 3 == ndim
-        for (it = 0; it < ndcrd.length; it++) {
-            crd = ndcrd[it];
-            geom.vertices.push(new THREE.Vector3(crd[0], crd[1], crd[2]));
-        }
-        for (it = 0; it < fcnds.length; it++) {
-            nds = fcnds[it];
-            geom.faces.push(new THREE.Face3(nds[1], nds[2], nds[3]));
-        }
+
+var SOLVCON = {
+  VERSION: '0.1.4+'
+}
+
+SOLVCON.Viewer = function(container) {
+
+  this.renderer = new THREE.WebGLRenderer();
+  this.container = container;
+  this.container.appendChild(this.renderer.domElement);
+
+  this.renderer.setSize(window.innerWidth, window.innerHeight);
+
+  this.scene = new THREE.Scene();
+  this.camera = this.make_camera(0, 0, 10);
+
+  this.controls = this.make_controls(this.camera);
+  this.controls.addEventListener('change', this.render.bind(this));
+
+}
+SOLVCON.Viewer.prototype = {};
+SOLVCON.Viewer.prototype.constructor = SOLVCON.Viewer;
+
+SOLVCON.Viewer.prototype.make_camera = function(xval, yval, zval) {
+
+  var camera = new THREE.PerspectiveCamera(
+    10, window.innerWidth / window.innerHeight, 1, 10000);
+  camera.position.x = xval;
+  camera.position.y = yval;
+  camera.position.z = zval;
+  return camera;
+
+}
+
+SOLVCON.Viewer.prototype.make_controls = function(camera) {
+
+  var controls = new THREE.TrackballControls(camera);
+
+  controls.rotateSpeed = 1.0;
+  controls.zoomSpeed = 1.2;
+  controls.panSpeed = 0.1;
+
+  controls.noZoom = false;
+  controls.noPan = false;
+
+  controls.staticMoving = true;
+  controls.dynamicDampingFactor = 0.3;
+
+  controls.keys = [ 65, 83, 68 ];
+
+  return controls;
+
+}
+
+SOLVCON.Viewer.prototype.animate = function() {
+
+  window.requestAnimationFrame(this.animate.bind(this));
+  this.controls.update();
+
+}
+
+SOLVCON.Viewer.prototype.render = function() {
+  this.renderer.render(this.scene, this.camera);
+}
+
+function make_coordinate() {
+
+  var xcoord_material = new THREE.LineBasicMaterial({
+      color: 0x0000ff
+  });
+  var xcoord_geom = new THREE.Geometry();
+  xcoord_geom.vertices.push(
+      new THREE.Vector3(0, 0, 0),
+      new THREE.Vector3(1, 0, 0)
+  );
+  var xcoord_line = new THREE.Line(xcoord_geom, xcoord_material);
+
+  var ycoord_material = new THREE.LineBasicMaterial({
+      color: 0x00ff00
+  });
+  var ycoord_geom = new THREE.Geometry();
+  ycoord_geom.vertices.push(
+      new THREE.Vector3(0, 0, 0),
+      new THREE.Vector3(0, 1, 0)
+  );
+  var ycoord_line = new THREE.Line(ycoord_geom, ycoord_material);
+
+  var zcoord_material = new THREE.LineBasicMaterial({
+      color: 0xffffff
+  });
+  var zcoord_geom = new THREE.Geometry();
+  zcoord_geom.vertices.push(
+      new THREE.Vector3(0, 0, 0),
+      new THREE.Vector3(0, 0, 1)
+  );
+  var zcoord_line = new THREE.Line(zcoord_geom, zcoord_material);
+
+  return [xcoord_line, ycoord_line, zcoord_line];
+}
+
+function make_mesh(ndcrd, fcnds) {
+
+  var mtrl = new THREE.MeshBasicMaterial({
+    color: 0x00ffff,
+    wireframe: true
+  });
+
+  var geom = new THREE.Geometry();
+  var ndim = ndcrd[0].length;
+  if (2 == ndim) {
+    for (it = 0; it < ndcrd.length; it++) {
+      crd = ndcrd[it];
+      geom.vertices.push(new THREE.Vector3(crd[0], crd[1], 0));
     }
-    return geom;
-}
-
-function init() {
-
-    camera = new THREE.PerspectiveCamera(10, window.innerWidth / window.innerHeight, 1, 10000);
-    var shift = 0;
-    camera.position.x = shift;
-    camera.position.y = shift;
-    camera.position.z = 50;
-    //camera = new THREE.OrthographicCamera(width / - 2, width / 2, height / 2, height / - 2, 1, 10000);
-    
-    controls = new THREE.TrackballControls(camera);
-
-    controls.rotateSpeed = 1.0;
-    controls.zoomSpeed = 1.2;
-    controls.panSpeed = 0.1;
-
-    controls.noZoom = false;
-    controls.noPan = false;
-
-    controls.staticMoving = true;
-    controls.dynamicDampingFactor = 0.3;
-
-    controls.keys = [ 65, 83, 68 ];
-
-    controls.addEventListener( 'change', render );    
-  
-    scene = new THREE.Scene();
-
-    var triangle_material = new THREE.MeshBasicMaterial({
-        color: 0x00ffff,
-        wireframe: true
-    });
-    var triangle_geom = new make_geometry(ndcrd, fcnds);
-
-    var ball_material = new THREE.MeshBasicMaterial({color: 0xffffff});
-    for (it = 0; it < triangle_geom.vertices.length; it++) {
-        var ball_geom = new THREE.SphereGeometry(ball_radius, 16, 16);
-        var ball = new THREE.Mesh(ball_geom, ball_material);
-        vec = triangle_geom.vertices[it];
-        ball.position.x = vec.x;
-        ball.position.y = vec.y;
-        ball.position.z = vec.z;
-        scene.add(ball);
+    for (it = 0; it < fcnds.length; it++) {
+      nds = fcnds[it];
+      geom.faces.push(new THREE.Face3(nds[1], nds[2], nds[3]));
     }
+  } else { // 3 == ndim
+    for (it = 0; it < ndcrd.length; it++) {
+      crd = ndcrd[it];
+      geom.vertices.push(new THREE.Vector3(crd[0], crd[1], crd[2]));
+    }
+    for (it = 0; it < fcnds.length; it++) {
+      nds = fcnds[it];
+      geom.faces.push(new THREE.Face3(nds[1], nds[2], nds[3]));
+    }
+  }
 
-    triangle_geom.computeBoundingSphere();
-    mesh = new THREE.Mesh(triangle_geom, triangle_material);
-    scene.add(mesh);
-    
-    var xcoord_material = new THREE.LineBasicMaterial({
-        color: 0x0000ff
-    });
-    var xcoord_geom = new THREE.Geometry();
-    xcoord_geom.vertices.push(
-        new THREE.Vector3(0, 0, 0),
-        new THREE.Vector3(1, 0, 0)
-    );
-    var xcoord_line = new THREE.Line(xcoord_geom, xcoord_material);
-    scene.add(xcoord_line);
+  var mesh = new THREE.Mesh(geom, mtrl);
 
-    var ycoord_material = new THREE.LineBasicMaterial({
-        color: 0x00ff00
-    });
-    var ycoord_geom = new THREE.Geometry();
-    ycoord_geom.vertices.push(
-        new THREE.Vector3(0, 0, 0),
-        new THREE.Vector3(0, 1, 0)
-    );
-    var ycoord_line = new THREE.Line(ycoord_geom, ycoord_material);
-    scene.add(ycoord_line);
+  return mesh;
 
-    var zcoord_material = new THREE.LineBasicMaterial({
-        color: 0xffffff
-    });
-    var zcoord_geom = new THREE.Geometry();
-    zcoord_geom.vertices.push(
-        new THREE.Vector3(0, 0, 0),
-        new THREE.Vector3(0, 0, 1)
-    );
-    var zcoord_line = new THREE.Line(zcoord_geom, zcoord_material);
-    
-    scene.add(zcoord_line);
-    
-    renderer = new THREE.WebGLRenderer();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-
-    document.body.appendChild(renderer.domElement);
-
-    renderer.render( scene, camera );
 }
 
-function animate() {
-    requestAnimationFrame( animate );
-    controls.update();
+function add_ball(mesh, radius, scene) {
+
+  var mtrl = new THREE.MeshBasicMaterial({color: 0xffffff});
+  for (it = 0; it < mesh.geometry.vertices.length; it++) {
+    var geom = new THREE.SphereGeometry(radius, 16, 16);
+    var ball = new THREE.Mesh(geom, mtrl);
+    vec = mesh.geometry.vertices[it];
+    ball.position.x = vec.x;
+    ball.position.y = vec.y;
+    ball.position.z = vec.z;
+    scene.add(ball);
+  }
+
 }
 
-function render() {
-    renderer.render( scene, camera );
-}
+var Viewer = React.createClass({
+
+  render: function() {
+
+    return React.createElement(
+      'div', {className: "container", ref: "container"},
+      React.createElement(
+        'div', {id: "information"},
+        React.createElement('span', null, "Sample Text")
+      )
+    );
+
+  },
+
+  componentDidMount: function() {
+
+    var viewer = new SOLVCON.Viewer(this.refs.container);
+    viewer.animate();
+
+    var coords = make_coordinate();
+    viewer.scene.add(coords[0]);
+    viewer.scene.add(coords[1]);
+    viewer.scene.add(coords[2]);
+
+    var mesh = make_mesh(ndcrd, fcnds);
+    viewer.scene.add(mesh);
+    add_ball(mesh, ball_radius, viewer.scene);
+
+    viewer.render();
+
+  }
+
+});
 
 function main() {
-    var camera, scene, renderer;
-    var geometry, material, mesh;
 
-    init();
-    animate();
-    //renderer.render(scene, camera);
+  ReactDOM.render(
+    React.createElement(Viewer, null),
+    document.getElementById('content')
+  );
+
 }
 
-// vim: set ff=unix fenc=utf8 nobomb et sw=4 ts=4:
+// vim: set ff=unix fenc=utf8 nobomb et sw=2 ts=2:
