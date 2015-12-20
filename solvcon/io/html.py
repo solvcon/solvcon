@@ -44,33 +44,18 @@ import shutil
 import string
 import json
 
+import numpy as np
+
 try:
     import jinja2
 except ImportError: # not requiring jinja2 for now.
     pass
 
 from .. import exception
+from .. import block
+from .. import visual
 
 from . import core as iocore
-
-
-class WebVisual(object):
-
-    def __init__(self, blk):
-        self.blk = blk
-        super(WebVisual, self).__init__()
-
-    def write_jsfile(self, fname):
-        with open(os.path.join(fname), 'w') as fobj:
-            fobj.write("var ndcrd = ")
-            fobj.write(json.dumps(self.blk.ndcrd.tolist()))
-            fobj.write(";\n")
-            fobj.write("var fcnds = ")
-            if self.blk.ndim == 2:
-                fobj.write(json.dumps(self.blk.clnds.tolist()))
-            else:
-                fobj.write(json.dumps(self.blk.fcnds.tolist()))
-            fobj.write(";")
 
 
 class HtmlIO(iocore.FormatIO):
@@ -78,63 +63,127 @@ class HtmlIO(iocore.FormatIO):
     Experimental HTML/THREE.js writer.
     """
 
-    BASEDIR = os.path.join(
+    HTMLDIR = os.path.join(
         os.path.abspath(os.path.dirname(__file__)),
-        'three')
+        'html'
+    )
+
+    JSDIR = os.path.join(
+        os.path.abspath(os.path.dirname(visual.__file__)),
+        'js'
+    )
+
+    EXTERNAL_SCRIPTS = [
+        "https://cdnjs.cloudflare.com/ajax/libs/"
+            "three.js/r73/three.js",
+        "https://cdnjs.cloudflare.com/ajax/libs/"
+            "react/0.14.3/react.js",
+        "https://cdnjs.cloudflare.com/ajax/libs/"
+            "react/0.14.3/react-dom.js",
+        "https://cdnjs.cloudflare.com/ajax/libs/"
+            "jquery/2.1.1/jquery.js",
+    ]
+
+    @property
+    def internal_scripts(self):
+        files = list()
+        for root, directory, fnames in os.walk(self.JSDIR):
+            common = os.path.commonprefix([root, self.JSDIR])
+            lead = root[len(common):].strip(os.path.sep)
+            files.extend(os.path.join(lead, fname) for fname in fnames)
+        return files
 
     def __init__(self, **kw):
         self.blk = kw.pop('blk', None)
         super(HtmlIO, self).__init__()
 
-    @classmethod
-    def _copy_basefile(cls, fname, dirname):
-        shutil.copy(os.path.join(cls.BASEDIR, fname),
-                    os.path.join(dirname, fname))
+    @staticmethod
+    def convert_js(input_data):
+        return "".join([
+            "var SOLVCON_input_data = ",
+            json.dumps(input_data, cls=block.BlockJSONEncoder),
+            "\n",
+        ])
 
-    def _generate_meshfile(self, fname, dirname):
-        wv = WebVisual(self.blk)
-        wv.write_jsfile(os.path.join(dirname, fname))
+    def get_input_data(self):
+        blk = self.blk
+        surfaces = list()
+        for bc in blk.bclist:
+            fcnds = blk.fcnds[bc.facn[:,0]]
+            nds = fcnds[:,1:].flatten()
+            nds.sort()
+            nds = np.unique(nds)
+            it = 0
+            while nds[it] < 0:
+                it += 1
+            nds = nds[it:].copy()
+            ndcrd = blk.ndcrd[nds]
+            ndmap = dict((val, it) for it, val in enumerate(nds))
+            it = 0
+            while it < fcnds.shape[0]:
+                jt = 1
+                while fcnds[it,jt] >= 0:
+                    fcnds[it,jt] = ndmap[fcnds[it,jt]]
+                    jt += 1
+                it += 1
+            surfaces.append(dict(
+                name=bc.name,
+                ndcrd=ndcrd.tolist(),
+                fcnds=fcnds.tolist(),
+            ))
+        return dict(
+            block=self.blk,
+            boundary_surfaces=surfaces,
+        )
 
-    def _save_directory(self, dirname, ball_radius):
-        self._copy_basefile('TrackballControls.js', dirname)
-        self._generate_meshfile('mesh.js', dirname)
-        self._copy_basefile('main.js', dirname)
+    def _save_directory(self, dirname):
+        for fname in self.internal_scripts:
+            shutil.copy(os.path.join(self.JSDIR, fname),
+                        os.path.join(dirname, fname))
+        mesh_blk_str = self.convert_js(self.get_input_data())
+        with open(os.path.join(dirname, 'input_data.js'), 'w') as fobj:
+            fobj.write(mesh_blk_str)
 
-        with open(os.path.join(self.BASEDIR, 'index.html')) as fobj:
+        with open(os.path.join(self.HTMLDIR, 'index.html')) as fobj:
             template = jinja2.Template(fobj.read())
-        with open(os.path.join(dirname, 'index.html'), 'wb') as fobj:
+        with open(os.path.join(dirname, 'index.html'), 'w') as fobj:
+            scripts = self.EXTERNAL_SCRIPTS + self.internal_scripts
+            scripts += ['input_data.js']
             htmldata = template.render(
                 title=os.path.split(dirname.strip('/'))[-1],
-                ball_radius=ball_radius,
-                scripts=[
-                    "https://cdnjs.cloudflare.com/ajax/libs/"
-                        "three.js/r73/three.js",
-                    "https://cdnjs.cloudflare.com/ajax/libs/"
-                        "react/0.14.3/react.js",
-                    "https://cdnjs.cloudflare.com/ajax/libs/"
-                        "react/0.14.3/react-dom.js",
-                    "https://cdnjs.cloudflare.com/ajax/libs/"
-                        "babel-core/5.8.23/browser.min.js",
-                    "https://cdnjs.cloudflare.com/ajax/libs/"
-                        "jquery/2.1.1/jquery.min.js",
-                    "https://cdnjs.cloudflare.com/ajax/libs/"
-                        "marked/0.3.2/marked.min.js",
-                    "TrackballControls.js",
-                    "mesh.js",
-                    "main.js",
-                ],
+                scripts=scripts,
             )
-            fobj.write(htmldata.encode())
+            fobj.write(htmldata)
 
-    def save(self, stream, ball_radius=0.0):
+    def _save_file(self, filename):
+        scripttexts = list()
+        for fname in self.internal_scripts:
+            with open(os.path.join(self.JSDIR, fname)) as fobj:
+                scripttexts.append(fobj.read())
+        scripttexts.append(self.convert_js(self.get_input_data()))
+
+        with open(os.path.join(self.HTMLDIR, 'index.html')) as fobj:
+            template = jinja2.Template(fobj.read())
+        with open(os.path.join(filename), 'w') as fobj:
+            htmldata = template.render(
+                title=os.path.split(filename)[-1],
+                scripts=self.EXTERNAL_SCRIPTS,
+                scripttexts=scripttexts,
+            )
+            fobj.write(htmldata)
+
+    def save(self, stream):
         if not isinstance(stream, str):
-            raise AssertionError("stream must be directory name")
+            raise AssertionError("stream must be a string")
         if os.path.exists(stream):
-            if not os.path.isdir(stream):
-                raise NotADirectoryError("stream is not a directory")
-            else:
-                warnings.warn("output directory (%s) already exists" % stream,
-                              exception.IOWarning)
+            otype = "directory" if os.path.isdir(stream) else "file"
+            warnings.warn("output %s (%s) already exists" % (otype, stream),
+                          exception.IOWarning)
         else:
-            os.mkdir(stream)
-        self._save_directory(stream, ball_radius=ball_radius)
+            otype = "directory" if stream.endswith(os.path.sep) else "file"
+            if "directory" == otype:
+                os.makedirs(stream)
+        if "file" == otype:
+            self._save_file(stream)
+        else:
+            self._save_directory(stream)

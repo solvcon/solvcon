@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+
+  <head>
+
+    <meta name="description" content="appbox/xhtml+xml" charset="UTF-8"/>
+
+    <title>{{ title }}</title>
+
+    <style>
+
+      body {
+        overflow: hidden;
+        margin: 0;
+      }
+
+      canvas {
+        width: 100%;
+        height: 100%;
+      }
+
+      div#appbox {
+        width: 100%;
+        height: 100%;
+        position: absolute;
+      }
+
+      div#content {
+        height: 100%;
+        margin-left: 200px;
+      }
+
+      div#container {
+        width: 100%;
+        height: 100%;
+        float: right;
+      }
+
+      div#elements {
+        width: 200px;
+        height: 100%;
+        margin-left: -200px;
+        float: left;
+        left: 0;
+        text-align: left;
+      }
+
+      div.element {
+        width: 100%;
+        left: 0;
+        background-color: rgb(255,255,255);
+        padding: 2px;
+        /* make unselectable */
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        -khtml-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+      }
+
+      div.element div {
+        padding-left: 10px;
+      }
+
+    </style>
+
+    <!-- Scripts -->
+    {% for script in scripts %}
+    <script src="{{ script }}" type="text/javascript"></script>
+    {% endfor %}
+
+    {% for scripttext in scripttexts %}
+    <script type="text/javascript">
+{{ scripttext }}
+    </script>
+    {% endfor %}
+
+  </head>
+
+  <body>
+
+    <div id="appbox"><div id="content"></div></div>
+
+    <script type="text/javascript">
+
+      var appbox = document.getElementById("appbox");
+      var canvas = new SOLVCON.Canvas(appbox);
+
+      canvas.add(new SOLVCON.Coordinate(0xff0000, 0x00ff00, 0x0000ff));
+
+      for (var it = 0; it < SOLVCON_input_data.boundary_surfaces.length; it++) {
+        var bc = SOLVCON_input_data.boundary_surfaces[it];
+        var surface = new SOLVCON.Surface(
+          "BC: " + bc.name, bc.ndcrd, bc.fcnds
+        );
+        canvas.add(surface);
+      }
+
+      var element = React.createElement(canvas.ReactClass, null);
+
+      // Main entry point.
+      appbox = ReactDOM.render(element, appbox);
+
+    </script>
+
+  </body>
+
+</html>
+
+<!-- vim: set ff=unix fenc=utf8 ft=htmljinja nobomb et sw=2 ts=2: -->

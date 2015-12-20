@@ -34,8 +34,15 @@
 from __future__ import absolute_import, division, print_function
 
 
+__all__ = [
+    'Block',
+    'BlockJSONEncoder',
+]
+
+
 import warnings
 import importlib
+import json
 
 import numpy as np
 
@@ -522,3 +529,52 @@ class Block(with_metaclass(BlockMeta)):
     def partition(self, npart):
         msh = self.create_msh()
         return msh.partition(npart)
+
+
+class BlockJSONEncoder(json.JSONEncoder):
+    """
+    JSON serialization helper for :py:class:`Block`.  Only interior data are
+    serialized.
+
+    >>> # build a 2D block.
+    >>> blk = Block(ndim=2, nnode=4, nface=6, ncell=3, nbound=3)
+    >>> blk.ndcrd[:,:] = (0,0), (-1,-1), (1,-1), (0,1)
+    >>> blk.cltpn[:] = 3
+    >>> blk.clnds[:,:4] = (3, 0,1,2), (3, 0,2,3), (3, 0,3,1)
+    >>> blk.build_interior()
+    >>> blk.build_boundary()
+    >>> blk.build_ghost()
+    >>> # without this encoder, Block isn't JSON serializable.
+    >>> import json
+    >>> json.dumps(blk) # doctest: +ELLIPSIS
+    Traceback (most recent call last):
+        ...
+    TypeError: ... is not JSON serializable
+    >>> # with the encoder, Block can be turned to a JSON string.
+    >>> import json
+    >>> line = json.dumps(blk, cls=BlockJSONEncoder)
+    >>> # what we serialized to JSON.
+    >>> sorted(json.loads(line).keys()) # doctest: +NORMALIZE_WHITESPACE
+    ['bndfcs',
+     'clcnd', 'clfcs', 'clgrp', 'clnds', 'cltpn', 'clvol',
+     'fcara', 'fccls', 'fccnd', 'fcnds', 'fcnml', 'fctpn',
+     'nbound', 'ncell', 'ndcrd', 'ndim', 'nface', 'nnode']
+    """
+
+    def default(self, blk):
+        # Let the base class to raise TypeError.
+        if not isinstance(blk, Block):
+            return super(BlockJSONEncoder, self).default(blk)
+        # Convert.
+        dataset = {
+            key: getattr(blk, key) for key in
+            ("ndim", "nnode", "nface", "ncell", "nbound")
+        }
+        dataset.update({
+            key: getattr(blk, key).tolist() for key in
+            ("ndcrd", "fccnd", "fcnml", "fcara", "clcnd", "clvol",
+             "fctpn", "cltpn", "clgrp",
+             "fcnds", "fccls", "clnds", "clfcs",
+             "bndfcs")
+        })
+        return dataset
