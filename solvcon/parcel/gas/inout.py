@@ -165,7 +165,7 @@ class FillAnchor(sc.MeshAnchor):
         super(FillAnchor, self).__init__(svr, **kw)
 
     def provide(self):
-        for key, value in self.mappers.iteritems():
+        for key, value in self.mappers.items():
             getattr(self.svr, key).fill(value)
 
 

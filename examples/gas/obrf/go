@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.7
+#!/usr/bin/env python
 # -*- coding: UTF-8 -*-
 #
 # Copyright (c) 2014, Yung-Yu Chen <yyc@solvcon.net>
@@ -74,7 +74,7 @@ class ObliqueShockReflection(gas.ObliqueShockRelation):
         msg += '- beta1 = %5.2f deg (shock angle)\n' % (self.beta2/np.pi*180)
         def property_string(zone):
             values = [getattr(self, '%s%d' % (key, zone))
-                      for key in 'mach', 'rho', 'p', 'T', 'a']
+                      for key in ('mach', 'rho', 'p', 'T', 'a')]
             messages = [' %6.3f' % val for val in values]
             return ''.join(messages)
         msg += '- mach, rho, p, T, a (1) =' + property_string(1) + '\n'
@@ -161,10 +161,10 @@ def generate_bcmap(relation):
     fpi = fpb.copy()
     # BC map.
     bcmap = {
-        'upper': (sc.bctregy.GasInlet, fpt,),
-        'left': (sc.bctregy.GasInlet, fpb,),
-        'right': (sc.bctregy.GasNonrefl, {},),
-        'lower': (sc.bctregy.GasWall, {},),
+        b'upper': (sc.bctregy.GasInlet, fpt,),
+        b'left': (sc.bctregy.GasInlet, fpb,),
+        b'right': (sc.bctregy.GasNonrefl, {},),
+        b'lower': (sc.bctregy.GasWall, {},),
     }
     return bcmap
 
