@@ -35,6 +35,7 @@ from __future__ import absolute_import, division, print_function
 __all__ = [
     'with_metaclass',
     'assertRaisesRegex',
+    'NotADirectoryError', # class
     'basestring', # class
     'StringIO', # class
     'ConfigParser', # class
@@ -48,6 +49,12 @@ from six import (
     assertRaisesRegex,
 )
 
+
+try: # py3k compat.
+    NotADirectoryError = NotADirectoryError
+except NameError:
+    class NotADirectoryError(OSError):
+        pass
 
 try: # py3k compat.
     basestring = basestring

@@ -37,7 +37,23 @@ Mesh I/O for HTML files based on THREE.js.
 from __future__ import absolute_import, division, print_function
 
 
+from ..py3kcompat import NotADirectoryError
+import warnings
 import os
+import shutil
+import string
+import json
+
+import numpy as np
+
+try:
+    import jinja2
+except ImportError: # not requiring jinja2 for now.
+    pass
+
+from .. import exception
+from .. import block
+from .. import visual
 
 from . import core as iocore
 
@@ -47,89 +63,127 @@ class HtmlIO(iocore.FormatIO):
     Experimental HTML/THREE.js writer.
     """
 
-    HTML_HEADER = b"""<html>
-    <head>
-        <title>Mesh</title>
-        <style>
-            body { margin: 0; }
-            canvas { width: 100%; height: 100% }
-        </style>
-    </head>
-    <body>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r73/three.min.js"></script>
-    """
+    HTMLDIR = os.path.join(
+        os.path.abspath(os.path.dirname(__file__)),
+        'html'
+    )
 
-    HTML_FOOTER = b"""    </body>
-</html>
+    JSDIR = os.path.join(
+        os.path.abspath(os.path.dirname(visual.__file__)),
+        'js'
+    )
 
-<!-- vim: set ff=unix fenc=utf8 nobomb et sw=4 ts=4: -->
-    """
+    EXTERNAL_SCRIPTS = [
+        "https://cdnjs.cloudflare.com/ajax/libs/"
+            "three.js/r73/three.js",
+        "https://cdnjs.cloudflare.com/ajax/libs/"
+            "react/0.14.3/react.js",
+        "https://cdnjs.cloudflare.com/ajax/libs/"
+            "react/0.14.3/react-dom.js",
+        "https://cdnjs.cloudflare.com/ajax/libs/"
+            "jquery/2.1.1/jquery.js",
+    ]
+
+    @property
+    def internal_scripts(self):
+        files = list()
+        for root, directory, fnames in os.walk(self.JSDIR):
+            common = os.path.commonprefix([root, self.JSDIR])
+            lead = root[len(common):].strip(os.path.sep)
+            files.extend(os.path.join(lead, fname) for fname in fnames)
+        return files
 
     def __init__(self, **kw):
         self.blk = kw.pop('blk', None)
         super(HtmlIO, self).__init__()
 
-    def _get_vertex_bytes(self):
-        if self.blk.ndim == 2:
-            tmpl = "new THREE.Vector3(%g,%g,0)"
+    @staticmethod
+    def convert_js(input_data):
+        return "".join([
+            "var SOLVCON_input_data = ",
+            json.dumps(input_data, cls=block.BlockJSONEncoder),
+            "\n",
+        ])
+
+    def get_input_data(self):
+        blk = self.blk
+        surfaces = list()
+        for bc in blk.bclist:
+            fcnds = blk.fcnds[bc.facn[:,0]]
+            nds = fcnds[:,1:].flatten()
+            nds.sort()
+            nds = np.unique(nds)
+            it = 0
+            while nds[it] < 0:
+                it += 1
+            nds = nds[it:].copy()
+            ndcrd = blk.ndcrd[nds]
+            ndmap = dict((val, it) for it, val in enumerate(nds))
+            it = 0
+            while it < fcnds.shape[0]:
+                jt = 1
+                while jt <= fcnds[it,0] and fcnds[it,jt] >= 0:
+                    fcnds[it,jt] = ndmap[fcnds[it,jt]]
+                    jt += 1
+                it += 1
+            surfaces.append(dict(
+                name=bc.name,
+                ndcrd=ndcrd.tolist(),
+                fcnds=fcnds.tolist(),
+            ))
+        return dict(
+            block=self.blk,
+            boundary_surfaces=surfaces,
+        )
+
+    def _save_directory(self, dirname):
+        for fname in self.internal_scripts:
+            shutil.copy(os.path.join(self.JSDIR, fname),
+                        os.path.join(dirname, fname))
+        mesh_blk_str = self.convert_js(self.get_input_data())
+        with open(os.path.join(dirname, 'input_data.js'), 'w') as fobj:
+            fobj.write(mesh_blk_str)
+
+        with open(os.path.join(self.HTMLDIR, 'index.html')) as fobj:
+            template = jinja2.Template(fobj.read())
+        with open(os.path.join(dirname, 'index.html'), 'w') as fobj:
+            scripts = self.EXTERNAL_SCRIPTS + self.internal_scripts
+            scripts += ['input_data.js']
+            htmldata = template.render(
+                title=os.path.split(dirname.strip('/'))[-1],
+                scripts=scripts,
+            )
+            fobj.write(htmldata)
+
+    def _save_file(self, filename):
+        scripttexts = list()
+        for fname in self.internal_scripts:
+            with open(os.path.join(self.JSDIR, fname)) as fobj:
+                scripttexts.append(fobj.read())
+        scripttexts.append(self.convert_js(self.get_input_data()))
+
+        with open(os.path.join(self.HTMLDIR, 'index.html')) as fobj:
+            template = jinja2.Template(fobj.read())
+        with open(os.path.join(filename), 'w') as fobj:
+            htmldata = template.render(
+                title=os.path.split(filename)[-1],
+                scripts=self.EXTERNAL_SCRIPTS,
+                scripttexts=scripttexts,
+            )
+            fobj.write(htmldata)
+
+    def save(self, stream):
+        if not isinstance(stream, str):
+            raise AssertionError("stream must be a string")
+        if os.path.exists(stream):
+            otype = "directory" if os.path.isdir(stream) else "file"
+            warnings.warn("output %s (%s) already exists" % (otype, stream),
+                          exception.IOWarning)
         else:
-            tmpl = "new THREE.Vector3(%g,%g,%g)"
-        return ",\n".join(tmpl % tuple(pnt) for pnt in self.blk.ndcrd)
-
-    def _get_face_bytes(self):
-        tmpl = "new THREE.Face3(%d,%d,%d)"
-        if self.blk.ndim == 2:
-            return ",\n".join(
-                tmpl % tuple(nds[1:nds[0]+1]) for nds in self.blk.clnds)
+            otype = "directory" if stream.endswith(os.path.sep) else "file"
+            if "directory" == otype:
+                os.makedirs(stream)
+        if "file" == otype:
+            self._save_file(stream)
         else:
-            return ",\n".join(
-                tmpl % tuple(nds[1:nds[0]+1]) for nds in self.blk.fcnds)
-
-    def save(self, stream, ball_radius=0.0):
-        if stream == None:
-            stream = open(self.filename, 'wb')
-        elif isinstance(stream, str):
-            stream = open(stream, 'wb')
-
-        basedir = os.path.abspath(os.path.dirname(__file__))
-        basedir = os.path.join(basedir, 'three')
-
-        stream.write(self.HTML_HEADER)
-
-        stream.write(b"<!-- Overall section -->\n")
-        stream.write(b"<script>\n")
-        rfn = os.path.join(basedir, 'TrackballControls.js')
-        with open(rfn, 'rb') as fobj:
-            stream.write(fobj.read())
-        stream.write(b"\n</script>\n")
-
-        stream.write(b"<!-- Mesh geometry section -->\n")
-        stream.write(b"<script>\n")
-        stream.write(b"""function get_geometry() {
-    var geom = new THREE.Geometry();
-    geom.vertices.push(
-""")
-        stream.write(self._get_vertex_bytes().encode())
-        stream.write(b"""
-    );
-    geom.faces.push(
-""")
-        stream.write(self._get_face_bytes().encode())
-        stream.write(("""
-    );
-    return geom;
-}
-var ball_radius = %g;
-""" % ball_radius).encode())
-        stream.write(b"\n</script>\n")
-
-        stream.write(b"<!-- Main program section -->\n")
-        stream.write(b"<script>\n")
-        rfn = os.path.join(basedir, 'main.js')
-        with open(rfn, 'rb') as fobj:
-            stream.write(fobj.read())
-        stream.write(b"\n</script>\n")
-
-        stream.write(self.HTML_FOOTER)
-
-        stream.close()
+            self._save_directory(stream)

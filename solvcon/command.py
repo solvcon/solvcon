@@ -619,7 +619,7 @@ class mesh(Command):
                     oio = 'VtkLegacy'
                 elif fn.endswith('.vtu'):
                     oio = 'VtkXml'
-                elif fn.endswith('.html'):
+                elif fn.rstrip(os.path.sep).endswith('.html'):
                     oio = 'HtmlIO'
             info('I/O formats are determined as: %s, %s.\n' % (iio, oio))
         iio = fioregy[iio]()
