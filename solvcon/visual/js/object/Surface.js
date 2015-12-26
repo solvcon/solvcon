@@ -32,13 +32,13 @@ SOLVCON.Surface = function(name, ndcrd, fcnds) {
   var faces = [];
   for (var it = 0; it < fcnds.length; it++) {
     var nds = fcnds[it];
-    if (2 === nds[0]) { // quadrilateral.
+    if (3 === nds[0]) { // triangle.
+      faces.push(new THREE.Face3(nds[1], nds[2], nds[3]));
+    } else if (4 === nds[0]) { // quadrilateral.
       faces.push(new THREE.Face3(nds[1], nds[2], nds[3]));
       faces.push(new THREE.Face3(nds[3], nds[4], nds[1]));
-    } else if (3 === nds[0]) { // triangle.
-      faces.push(new THREE.Face3(nds[1], nds[2], nds[3]));
     } else {
-      throw "wat?!"
+      throw new Error("allows only 3 or 4 points");
     }
   }
   geometry.faces = faces;
@@ -59,7 +59,14 @@ SOLVCON.Surface = function(name, ndcrd, fcnds) {
   for (var it = 0; it < fcnds.length; it++) {
     var nds = fcnds[it];
     var lineg = new THREE.Geometry();
-    if (2 === nds[0]) { // quadrilateral.
+    if (3 === nds[0]) { // triangle.
+      lineg.vertices.push(
+        this.vertices[nds[1]],
+        this.vertices[nds[2]],
+        this.vertices[nds[3]],
+        this.vertices[nds[1]]
+      );
+    } else if (4 === nds[0]) { // quadrilateral.
       lineg.vertices.push(
         this.vertices[nds[1]],
         this.vertices[nds[2]],
@@ -67,15 +74,8 @@ SOLVCON.Surface = function(name, ndcrd, fcnds) {
         this.vertices[nds[4]],
         this.vertices[nds[1]]
       );
-    } else if (3 === nds[0]) { // triangle.
-      lineg.vertices.push(
-        this.vertices[nds[1]],
-        this.vertices[nds[2]],
-        this.vertices[nds[3]],
-        this.vertices[nds[1]]
-      );
     } else {
-      throw "wat?!"
+      throw new Error("allows only 3 or 4 points");
     }
     this.wireframe.add(new THREE.Line(lineg, linem));
   }

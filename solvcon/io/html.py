@@ -122,7 +122,7 @@ class HtmlIO(iocore.FormatIO):
             it = 0
             while it < fcnds.shape[0]:
                 jt = 1
-                while fcnds[it,jt] >= 0:
+                while jt <= fcnds[it,0] and fcnds[it,jt] >= 0:
                     fcnds[it,jt] = ndmap[fcnds[it,jt]]
                     jt += 1
                 it += 1
