@@ -1,6 +1,6 @@
 # -*- coding: UTF-8 -*-
 #
-# Copyright (c) 2008, Yung-Yu Chen <yyc@solvcon.net>
+# Copyright (c) 2015, Yung-Yu Chen <yyc@solvcon.net>
 #
 # All rights reserved.
 #
@@ -28,8 +28,9 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+
 """
-I/O facilities.
+Visualization toolbox.
 """
 
 
@@ -37,12 +38,13 @@ from __future__ import absolute_import, division, print_function
 
 
 __all__ = [
-    # modules.
-    'core', 'block', 'domain', 'gambit', 'netcdf', 'vtk', 'vtkxml',
-    'html',
-    # module: core.
-    'fioregy',
+    # module: viewer
+    'Viewer',
+    # module: surface
+    'Surface',
 ]
 
 
-from .core import fioregy
+from . import _ipython_fix
+from .viewer import Viewer
+from .surface import Surface

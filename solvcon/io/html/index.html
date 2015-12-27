@@ -87,13 +87,11 @@
       var appbox = document.getElementById("appbox");
       var canvas = new SOLVCON.Canvas(appbox);
 
-      canvas.add(new SOLVCON.Coordinate(0xff0000, 0x00ff00, 0x0000ff));
+      canvas.add(new SOLVCON.Coordinate());
 
       for (var it = 0; it < SOLVCON_input_data.boundary_surfaces.length; it++) {
         var bc = SOLVCON_input_data.boundary_surfaces[it];
-        var surface = new SOLVCON.Surface(
-          "BC: " + bc.name, bc.ndcrd, bc.fcnds
-        );
+        var surface = new SOLVCON.Surface(bc);
         canvas.add(surface);
       }
 
