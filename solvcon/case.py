@@ -968,8 +968,7 @@ for node in $nodes; do rsh $node killall %s; done
         >>> cse = MeshCase(basefn='meshcase', mesher=lambda *arg: blk,
         ...                domaintype=domain.Domain, solvertype=MeshSolver)
         >>> cse.info.muted = True
-        >>> signal.signal(signal.SIGTERM, cse.cleanup)
-        0
+        >>> handler = signal.signal(signal.SIGTERM, cse.cleanup)
 
         An example to call this method explicitly:
 

@@ -36,9 +36,9 @@ The following example shows the content of this module:
 >>> from solvcon.parcel import gas
 >>> len(gas.__all__)
 16
->>> [getattr(gas, nm) for nm in gas.__all__] # doctest: +NORMALIZE_WHITESPACE
+>>> [getattr(gas, nm) for nm in gas.__all__] # doctest: +NORMALIZE_WHITESPACE +ELLIPSIS
 [<class 'solvcon.parcel.gas.case.GasCase'>,
- <bound method CaseInfoMeta.register_arrangement of
+ <bound method ....register_arrangement of
   <class 'solvcon.parcel.gas.case.GasCase'>>,
  <class 'solvcon.parcel.gas.solver.GasSolver'>,
  <class 'solvcon.parcel.gas.boundcond.GasBC'>,

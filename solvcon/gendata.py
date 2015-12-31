@@ -42,11 +42,15 @@ class AttributeDict(dict):
     """
     Dictionary form which key can be assessed as attribute.
     """
+    WHITELIST = ("__wrapped__",)
     def __getattr__(self, name):
         """
         Consult self dictionary for attribute.  It's a shorthand.
         """
-        return self[name]
+        if name not in self.WHITELIST:
+            return self[name]
+        else:
+            return super(AttributeDict, self).__getattr__(name)
     def __setattr__(self, name, value):
         """
         Save to self dictionary first, then self object table.
