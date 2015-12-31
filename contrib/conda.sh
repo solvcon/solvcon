@@ -1,8 +1,9 @@
 #!/bin/sh
-conda install -c https://conda.binstar.org/yungyuc/channel/solvcon \
-  six setuptools mercurial conda-build \
-  scons cython numpy netcdf4 scotch nose paramiko boto \
-  gmsh vtk sphinx graphviz
+conda install \
+  six setuptools sphinx ipython jupyter \
+  cython numpy netcdf4 nose paramiko boto
+conda install -c https://conda.anaconda.org/yungyuc \
+  gmsh graphviz scotch
 lret=$?; if [[ $lret != 0 ]] ; then exit $lret; fi
-easy_install -UZ sphinxcontrib-issuetracker
+pip install -U sphinxcontrib-issuetracker
 lret=$?; if [[ $lret != 0 ]] ; then exit $lret; fi
