@@ -110,7 +110,35 @@ class Data(object):
             solution_v = self.mtx_q[1,i]/self.mtx_q[0,i]
             solution_p = (GAMMA-1.0)*(self.mtx_q[2,i] - 0.5*(solution_v**2)*self.mtx_q[0,i])
             solution.append((solution_x, solution_rho, solution_v, solution_p))
-        self.solution = solution
+        self.solution = self.fill_solution(solution)
+
+
+    def fill_solution(self, solution_list):
+        """
+        fill solution array with initial values if there is without solution
+        """
+        solution_list_rtn = [0] * len(self.mesh_x)
+        solution_x_list = []
+
+        for solution in solution_list:
+            solution_x_list.append(solution[0])
+
+        for idx in range(len(self.mesh_x)):
+            location = self.mesh_x[idx]
+            # mapping known solutions
+            for solution in solution_list:
+                solution_x = solution[0]
+                if location == solution_x:
+                    solution_list_rtn[idx] = solution
+            # fill initial values for the remaining mesh points
+            if location not in solution_x_list:
+                if location < 0:
+                    solution_list_rtn[idx] = (location, RHO_L, U_L, P_L)
+                else:
+                    solution_list_rtn[idx] = (location, RHO_R, U_R, P_R)
+
+        return solution_list_rtn
+
 
 class Solver(object):
     """
