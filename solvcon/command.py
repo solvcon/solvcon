@@ -569,16 +569,6 @@ class mesh(Command):
         wtr.write(vtkfn)
         info('done. (%gs)\n' % (time()-timer))
     @staticmethod
-    def _save_html(ops, blk, htmlfn):
-        import time
-        from .io.html import HtmlIO
-        from .helper import info
-        timer = time.time()
-        writer = HtmlIO(blk=blk)
-        info('Save to file %s ... ' % htmlfn)
-        writer.save(htmlfn)
-        info('done. (%gs)\n' % (time.time()-timer))
-    @staticmethod
     def _determine_formats(ops, args):
         """
         Determine I/O formats based on arguments.
@@ -619,8 +609,6 @@ class mesh(Command):
                     oio = 'VtkLegacy'
                 elif fn.endswith('.vtu'):
                     oio = 'VtkXml'
-                elif fn.rstrip(os.path.sep).endswith('.html'):
-                    oio = 'HtmlIO'
             info('I/O formats are determined as: %s, %s.\n' % (iio, oio))
         iio = fioregy[iio]()
         return iio, oio
@@ -666,8 +654,6 @@ class mesh(Command):
             elif oio == 'VtkXml':
                 self._save_vtkxml(ops, blk, path, ops.appended, ops.binary,
                     ops.encoding, ops.compressor, ops.fpdtype)
-            elif oio == 'HtmlIO':
-                self._save_html(ops, blk, path)
 
 class SolverLog(Command):
     """
