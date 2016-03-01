@@ -178,10 +178,10 @@ def main():
             'solvcon.parcel.tests',
             'solvcon.parcel.vewave',
             'solvcon.tests',
-            'solvcon.visual',
+            'solvcon.vis',
         ],
         package_data={
-            'solvcon.visual': ["js/*"],
+            'solvcon.vis': ["js/*"],
         },
         ext_modules=ext_modules,
         data_files=data_files,
