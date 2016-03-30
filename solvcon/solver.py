@@ -38,9 +38,11 @@ from __future__ import absolute_import, division, print_function
 
 import os
 import time
+import itertools
 
 import numpy as np
 
+from .py3kcompat import with_metaclass
 from . import anchor
 from . import gendata
 from . import helper
@@ -53,27 +55,21 @@ from .solver_legacy import (
     BaseSolverExedata, BaseSolver, FakeBlockVtk, BlockSolver)
 
 
-class _MethodList(list):
-    """
-    A custom :py:class:`list` that provides a decorator for keeping names of
-    functions.
+class MeshSolverMeta(type):
+    def __new__(cls, name, bases, namespace):
+        newcls = super(MeshSolverMeta, cls).__new__(
+            cls, name, bases, namespace)
+        marchers = [it for it in namespace.items() if hasattr(it[1],
+                    "_marcher_order")]
+        marchers.sort(key=lambda it: it[1]._marcher_order)
+        if marchers:
+            newcls._MMNAMES = tuple(list(zip(*marchers))[0])
+        return newcls
 
-    >>> mmnames = _MethodList()
-    >>> @mmnames.register
-    ... def func_of_a_name():
-    ...     pass
-    >>> mmnames
-    ['func_of_a_name']
 
-    This class is a private helper and should only be used in
-    :py:mod:`solvcon.solver`.
-    """
+_marcher_counter = itertools.count()
 
-    def register(self, func):
-        self.append(func.__name__)
-        return func
-
-class MeshSolver(object):
+class MeshSolver(with_metaclass(MeshSolverMeta)):
     """
     Base class for all solving code that take :py:class:`Mesh
     <solvcon.mesh.Mesh>`, which is usually needed to write efficient C/C++ code
@@ -90,20 +86,11 @@ class MeshSolver(object):
         ...
     TypeError: 'NoneType' object ...
 
-    At minimal we need to override the :py:attr:`_MMNAMES` class attribute:
-
-    >>> class DerivedSolver(MeshSolver):
-    ...     _MMNAMES = MeshSolver.new_method_list()
-    >>> svr = DerivedSolver(testing.create_trivial_2d_blk())
-    >>> svr.march(0.0, 0.1, 1)
-    {}
-
-    Of course the above derived solver did nothing.  Let's see another example
-    solver that does non-trivial things:
+    Of course the above solver does nothing.  Let's see another example for a
+    non-trivial solver:
 
     >>> class ExampleSolver(MeshSolver):
-    ...     _MMNAMES = MeshSolver.new_method_list()
-    ...     @_MMNAMES.register
+    ...     @MeshSolver.register_marcher
     ...     def calcsomething(self, worker=None):
     ...         self.marchret['key'] = 'value'
     >>> svr = ExampleSolver(testing.create_trivial_2d_blk())
@@ -169,7 +156,6 @@ class MeshSolver(object):
         #: Total number of parallel solvers.
         self.nsvr = None
         # marching facilities.
-        self._mmnames = None
         self.runanchors = anchor.MeshAnchorList(self)
         self.marchret = None
         self.der = dict()
@@ -264,29 +250,27 @@ class MeshSolver(object):
             self._mesg = helper.Printer(dfn, prefix=dprefix, override=True)
         return self._mesg
 
-    #: This class attribute holds the names of the methods to be called in
-    #: :py:meth:`march`.  It is of type :py:class:`_MethodList`.  The default
-    #: value is ``None`` and must be reset in subclasses by calling
-    #: :py:meth:`new_method_list`.
+    # This class attribute holds the names of the methods to be called in
+    # :py:meth:`march`.  The default value is ``None`` as a placeholder, which
+    # will be replaced by the meta class.
     _MMNAMES = None
 
     @staticmethod
-    def new_method_list():
+    def register_marcher(func):
         """
-        :return: An object to be set to :py:attr:`_MMNAMES`.
-        :rtype: :py:class:`_MethodList`
-
-        In subclasses of :py:class:`MeshSolver`, implementors can use this
-        utility method to creates an instance of :py:class:`_MethodList`, which
-        should be set to :py:attr:`_MMNAMES`.
+        Any time-marching method in a derived class of :py:class:`MeshSolver`
+        should be decorated by this function.
         """
-        return _MethodList()
+        func._marcher_order = next(_marcher_counter)
+        return func
 
     @property
     def mmnames(self):
-        if not self._mmnames:
-            self._mmnames = self._MMNAMES[:]
-        return self._mmnames
+        """
+        Generator of time-marcher names.
+        """
+        for name in self._MMNAMES:
+            yield name
 
     ############################################################################
     # Anchors.

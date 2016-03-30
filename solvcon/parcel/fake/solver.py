@@ -140,10 +140,7 @@ class FakeSolver(solver.MeshSolver):
 
     ###########################################################################
     # begin marching algorithm.
-    #: See :py:attr:`solvcon.solver.MeshSolver._MMNAMES`.
-    _MMNAMES = solver.MeshSolver.new_method_list()
-
-    @_MMNAMES.register
+    @sc.MeshSolver.register_marcher
     def update(self, worker=None):
         """
         Update the present solution arrays (:py:attr:`sol` and :py:attr:`dsol`)
@@ -172,7 +169,7 @@ class FakeSolver(solver.MeshSolver):
         self.sol[:,:] = self.soln[:,:]
         self.dsol[:,:,:] = self.dsoln[:,:,:]
 
-    @_MMNAMES.register
+    @sc.MeshSolver.register_marcher
     def calcsoln(self, worker=None):
         """
         Advance :py:attr:`sol` to :py:attr:`soln`.  The calculation is
@@ -203,7 +200,7 @@ class FakeSolver(solver.MeshSolver):
         """
         self.create_alg().calc_soln()
 
-    @_MMNAMES.register
+    @sc.MeshSolver.register_marcher
     def ibcsoln(self, worker=None):
         """
         Interchange BC for the :py:attr:`soln` array.  Only used for parallel
@@ -211,7 +208,7 @@ class FakeSolver(solver.MeshSolver):
         """
         if worker: self.exchangeibc('soln', worker=worker)
 
-    @_MMNAMES.register
+    @sc.MeshSolver.register_marcher
     def calccfl(self, worker=None):
         """
         Calculate the CFL number.  For :py:class:`FakeSolver`, this method does
@@ -219,7 +216,7 @@ class FakeSolver(solver.MeshSolver):
         """
         self.marchret = -2.0
 
-    @_MMNAMES.register
+    @sc.MeshSolver.register_marcher
     def calcdsoln(self, worker=None):
         """
         Advance :py:attr:`dsol` to :py:attr:`dsoln`.  The calculation is
@@ -250,7 +247,7 @@ class FakeSolver(solver.MeshSolver):
         """
         self.create_alg().calc_dsoln()
 
-    @_MMNAMES.register
+    @sc.MeshSolver.register_marcher
     def ibcdsoln(self, worker=None):
         """
         Interchange BC for the :py:attr:`dsoln` array.  Only used for parallel
