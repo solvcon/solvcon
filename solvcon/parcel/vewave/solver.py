@@ -193,41 +193,39 @@ class VewaveSolver(solver.MeshSolver):
 
     ###########################################################################
     # Begin marching algorithm.
-    _MMNAMES = solver.MeshSolver.new_method_list()
-
-    @_MMNAMES.register
+    @sc.MeshSolver.register_marcher
     def update(self, worker=None):
         self.alg.update(self.time, self.time_increment)
         self.sol[:,:] = self.soln[:,:]
         self.dsol[:,:,:] = self.dsoln[:,:,:]
 
-    @_MMNAMES.register
+    @sc.MeshSolver.register_marcher
     def calcsolt(self, worker=None):
         #self.create_alg().calc_solt()
         self.alg.calc_solt()
 
-    @_MMNAMES.register
+    @sc.MeshSolver.register_marcher
     def calcsoln(self, worker=None):
         #self.create_alg().calc_soln()
         self.alg.calc_soln()
 
-    @_MMNAMES.register
+    @sc.MeshSolver.register_marcher
     def ibcsoln(self, worker=None):
         if worker: self.exchangeibc('soln', worker=worker)
 
-    @_MMNAMES.register
+    @sc.MeshSolver.register_marcher
     def bcsoln(self, worker=None):
         self.call_non_interface_bc('soln')
 
-    @_MMNAMES.register
+    @sc.MeshSolver.register_marcher
     def calcdsoln(self, worker=None):
         self.alg.calc_dsoln()
 
-    @_MMNAMES.register
+    @sc.MeshSolver.register_marcher
     def ibcdsoln(self, worker=None):
         if worker: self.exchangeibc('dsoln', worker=worker)
 
-    @_MMNAMES.register
+    @sc.MeshSolver.register_marcher
     def bcdsoln(self, worker=None):
         self.call_non_interface_bc('dsoln')
     # End marching algorithm.

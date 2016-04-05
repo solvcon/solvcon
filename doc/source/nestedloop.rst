@@ -83,13 +83,11 @@ The base class is defined as:
   
   .. autoinstanceattribute:: substep_current
 
-  Derived classes of :py:class:`MeshSolver` should use the following method
-  :py:meth:`new_method_list` to make a new class variable :py:attr:`_MMNAMES`
-  to define numerical methods:
+  Time-marchers:
 
-  .. automethod:: new_method_list
+  .. automethod:: register_marcher
 
-  .. autoinstanceattribute:: _MMNAMES
+  .. autoattribute:: mmnames
 
 Useful entities are attached to the class :py:class:`MeshSolver`:
 

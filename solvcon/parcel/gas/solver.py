@@ -151,9 +151,7 @@ class GasSolver(sc.MeshSolver):
 
     ###########################################################################
     # Begin marching algorithm.
-    _MMNAMES = sc.MeshSolver.new_method_list()
-
-    @_MMNAMES.register
+    @sc.MeshSolver.register_marcher
     def update(self, worker=None):
         self._debug_check_array('soln', 'dsoln')
         self.alg.update(self.time, self.time_increment)
@@ -161,13 +159,13 @@ class GasSolver(sc.MeshSolver):
         self.dsol[:,:,:] = self.dsoln[:,:,:]
         self._debug_check_array('sol', 'dsol')
 
-    @_MMNAMES.register
+    @sc.MeshSolver.register_marcher
     def calcsolt(self, worker=None):
         self._debug_check_array('sol', 'dsol')
         self.alg.calc_solt()
         self._debug_check_array('solt')
 
-    @_MMNAMES.register
+    @sc.MeshSolver.register_marcher
     def calcsoln(self, worker=None):
         self._debug_check_array('sol', 'dsol')
         self.alg.calc_soln()
@@ -175,11 +173,11 @@ class GasSolver(sc.MeshSolver):
             self._debug_check_array('soln', 'dsoln')
             self._debug_check_array(self.soln[self.ngstcell:,0]<=0)
 
-    @_MMNAMES.register
+    @sc.MeshSolver.register_marcher
     def ibcsoln(self, worker=None):
         if worker: self.exchangeibc('soln', worker=worker)
 
-    @_MMNAMES.register
+    @sc.MeshSolver.register_marcher
     def bcsoln(self, worker=None):
         self._debug_check_array('sol', 'dsol')
         self.call_non_interface_bc('soln')
@@ -187,23 +185,23 @@ class GasSolver(sc.MeshSolver):
             self._debug_check_array('soln', 'dsoln')
             self._debug_check_array(self.soln[self.ngstcell:,0]<=0)
 
-    @_MMNAMES.register
+    @sc.MeshSolver.register_marcher
     def calccfl(self, worker=None):
         self._debug_check_array('sol', 'dsol')
         self.alg.calc_cfl()
         self._debug_check_array('cfl', 'ocfl', 'soln', 'dsoln')
 
-    @_MMNAMES.register
+    @sc.MeshSolver.register_marcher
     def calcdsoln(self, worker=None):
         self._debug_check_array('sol', 'dsol')
         self.alg.calc_dsoln()
         self._debug_check_array('soln', 'dsoln')
 
-    @_MMNAMES.register
+    @sc.MeshSolver.register_marcher
     def ibcdsoln(self, worker=None):
         if worker: self.exchangeibc('dsoln', worker=worker)
 
-    @_MMNAMES.register
+    @sc.MeshSolver.register_marcher
     def bcdsoln(self, worker=None):
         self._debug_check_array('sol', 'dsol')
         self.call_non_interface_bc('dsoln')
