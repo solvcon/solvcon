@@ -634,6 +634,8 @@ class BlockCase(BaseCase):
         for sdw in dealer: sdw.cmd.remote_setattr('ibcthread',
             self.solver.ibcthread)
         for sdw in dealer: sdw.cmd.init()
+        self.info('validation of block object adderess ... ')
+        for sdw in dealer: sdw.cmd.check_blk_pointer()
         dealer.barrier()
         self.info('done.\n')
     def _remote_load_solver(self):

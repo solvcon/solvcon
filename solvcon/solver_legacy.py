@@ -42,6 +42,8 @@ from .py3kcompat import with_metaclass
 from .gendata import TypeWithBinder
 from .solver_core import ALMOST_ZERO
 
+import solvcon.mesh
+
 class BaseSolverExedata(Structure):
     """
     Execution information for BaseSolver.
@@ -285,6 +287,10 @@ class BaseSolver(with_metaclass(TypeWithBinder)):
         self.arglists = list()
         for it in range(self.ncore):
             self.arglists.append([byref(self.exd), c_int(0), c_int(0)])
+
+    def check_blk_pointer(self):
+        msh = solvcon.mesh.Mesh()
+        msh._check_pointers(self.blk)
 
     def init(self, **kw):
         pass
