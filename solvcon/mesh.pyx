@@ -221,6 +221,17 @@ cdef class Mesh:
             if vals[0] != vals[1]:
                 msgs.append('body(%d,%d)' % vals)
             if msgs:
+                f = open("/tmp/solvcon.debug.log", "a")
+                msgs.append("\n" + str(dir(_table)) + "\n")
+                msgs.append(str(_cnda))
+                msgs.append(str(_table._ghostaddr))
+                msgs.append(str(_table._bodyaddr))
+                msgs.append(str(_table.nghost))
+                msgs.append(str(_table.nbody))
+                #msgs.append(str(_table._full))
+                #msgs.append(str(_table._body))
+                f.write(','.join(msgs) + "\n")
+                f.close()
                 tmpl = '%s array mismatch: %s'
                 raise AttributeError(tmpl % (name, ', '.join(msgs)))
 
