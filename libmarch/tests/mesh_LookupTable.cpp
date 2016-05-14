@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2016, Yung-Yu Chen <yyc@solvcon.net>
+ * BSD 3-Clause License, see LICENSE.txt
+ */
+
 #include <gtest/gtest.h>
 
 #include "march/march.hpp"
@@ -5,10 +10,8 @@
 using namespace march;
 using namespace march::mesh;
 
-TEST(LookupTableTest, Sizeof) {
-    EXPECT_EQ(sizeof(LookupTable<index_type, 1>), 32);
+TEST(LookupTableTest, Size) {
     LookupTable<index_type, 1> tbl(10, 10);
-    EXPECT_EQ(sizeof(LookupTable<index_type, 1>), sizeof(tbl));
     EXPECT_EQ(tbl.nbyte(), 80);
     EXPECT_EQ(tbl.nelem(), 20);
     EXPECT_EQ(tbl.nbyte(), tbl.nelem() * sizeof(index_type));
@@ -20,6 +23,17 @@ TEST(LookupTableTest, Construction) {
     EXPECT_THROW(Type(-2, 4), std::invalid_argument);
     EXPECT_THROW(Type(2, -4), std::invalid_argument);
     EXPECT_THROW(Type(-2, -4), std::invalid_argument);
+}
+
+TEST(LookupTableTest, ConstructionNoOwn) {
+    /* When a data pointer is passed to the LookupTable constructor, its Buffer
+     * object doesn't manage its own memory! */
+    using Type = LookupTable<index_type, 1>;
+    char * data = new char[(2+4)*sizeof(index_type)];
+    EXPECT_NO_THROW(Type(2, 4));
+    delete[] data; // needs to explicitly free the memory.
+    // If free again, it should segfault.
+    //delete[] data;
 }
 
 TEST(LookupTableTest, OutOfRange) {

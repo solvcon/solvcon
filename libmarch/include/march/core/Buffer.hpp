@@ -10,23 +10,42 @@
 namespace march
 {
 
+/**
+ * Untyped and unresizeable memory buffer for data storage.
+ */
 class Buffer {
 
 private:
 
-    char * m_data = nullptr;
     size_t m_length = 0;
+    char * m_data = nullptr;
+    bool m_own_data = true;
 
 public:
 
-    Buffer() {}
+    Buffer() {
+        static_assert(sizeof(Buffer) == 24, "Buffer size changes");
+    }
 
-    Buffer(size_t length) : m_length(length) { m_data = new char[length]; }
+    /**
+     * \param[in] length Memory buffer length.
+     */
+    Buffer(size_t length) : m_length(length) { m_data = new char[length](); }
 
-    Buffer(char * data, size_t length) : m_data(data), m_length(length) {}
+    /**
+     * When given an allocated memory block (\p data) from outside, the
+     * constructed Buffer object doesn't manage its own memory.
+     *
+     * This constructor allows the ownership of the memory block can be
+     * transferred to an outside system, like NumPy.
+     *
+     * \param[in] length Memory buffer length.
+     * \param[in] data   The memory block.
+     */
+    Buffer(size_t length, char * data) : m_length(length), m_data(data), m_own_data(false) {}
 
     ~Buffer() {
-        if (nullptr != m_data) { delete m_data; }
+        if (m_own_data && nullptr != m_data) { delete m_data; }
         m_data = nullptr;
     }
 
@@ -37,6 +56,7 @@ public:
         m_data = other.m_data;
         other.m_data = nullptr;
         m_length = other.m_length;
+        m_own_data = other.m_own_data;
         return *this;
     }
 

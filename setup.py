@@ -53,13 +53,17 @@ import glob
 # update it when the contents of directories change.
 if os.path.exists('MANIFEST'):
     os.remove('MANIFEST')
-from numpy.distutils.core import setup, Extension
+from numpy.distutils.core import setup
 from Cython.Build import cythonize
+from Cython.Distutils import Extension
 
 import solvcon as sc
 
 
-def make_extension(name, c_subdirs, include_dirs=None, libraries=None):
+def make_extension(
+    name, c_subdirs, include_dirs=None, libraries=None,
+    extra_compile_args=None, language=None
+):
     pak_dir = os.path.join(*name.split('.')[:-1])
     files = [name.replace('.', os.sep) + '.pyx']
     for c_subdir in sorted(c_subdirs):
@@ -72,9 +76,19 @@ def make_extension(name, c_subdirs, include_dirs=None, libraries=None):
     libraries = (['scotchmetis', 'scotch', 'scotcherr', 'scotcherrexit']
                  + libraries)
     rpathflag = '-Wl,-rpath,%s/lib' % sys.exec_prefix
-    return Extension(name, files,
-                     include_dirs=include_dirs, libraries=libraries,
-                     extra_link_args=[rpathflag])
+    if extra_compile_args is None: extra_compile_args = []
+    extra_compile_args.extend([
+        "-Wno-unused-function",
+        "-Wno-unreachable-code",
+    ])
+    return Extension(
+        name, files,
+        language=language,
+        include_dirs=include_dirs,
+        libraries=libraries,
+        extra_compile_args=extra_compile_args,
+        extra_link_args=[rpathflag],
+    )
 
 def main():
     data_files = list()
@@ -112,6 +126,14 @@ def main():
 
     # set up extension modules.
     ext_modules = [
+        make_extension('solvcon.march', [],
+                       include_dirs=["libmarch/include"],
+                       extra_compile_args=['-std=c++14'],
+                       language='c++'),
+        make_extension('solvcon._march_bridge', [],
+                       include_dirs=["libmarch/include"],
+                       extra_compile_args=['-std=c++14'],
+                       language='c++'),
         make_extension('solvcon.mesh', ['src']),
         make_extension('solvcon.parcel.fake._algorithm', ['src']),
         make_extension('solvcon.parcel.linear._algorithm', ['src'],
