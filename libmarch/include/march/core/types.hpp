@@ -5,6 +5,11 @@
  * BSD 3-Clause License, see COPYING
  */
 
+/**
+ * \file
+ * Basic typedefs and constants for libmarch.
+ */
+
 #include <cstdint>
 
 namespace march

@@ -60,13 +60,6 @@ cdef public:
         FCREL = 4
         BFREL = 3
 
-cdef class Table:
-    cdef readonly intptr_t nghost
-    cdef readonly intptr_t nbody
-    cdef readonly char *_full
-    cdef readonly char *_body
-    cdef readonly object _nda
-
 cdef class Mesh:
     cdef sc_mesh_t *_msd
     cdef void* _get_table_bodyaddr(self, table)

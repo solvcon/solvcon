@@ -15,8 +15,7 @@ add_executable(test_libmarch
 )
 target_link_libraries(test_libmarch c++)
 
-add_custom_target(run_gtest test_libmarch
-    DEPENDS test_libmarch)
+add_custom_target(run_gtest test_libmarch DEPENDS test_libmarch)
 
 install(TARGETS test_libmarch DESTINATION ${CMAKE_BINARY_DIR})
 

@@ -8,9 +8,11 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 
 include_directories("include")
 
-set(CMAKE_CXX_FLAGS "-std=c++11 -Wall -Wno-unused-private-field -Werror")
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} -g -O0")
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -O3")
+set(NOWARN_MARCH "-Wno-unused-private-field")
+
+set(CMAKE_CXX_FLAGS "-std=c++14 -fPIC -Werror -Wall ${NOWARN_MARCH}")
+set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
 add_subdirectory(tests)
 
