@@ -12,16 +12,16 @@ namespace march
 
 class Buffer {
 
+private:
+
+    char * m_data = nullptr;
+    size_t m_length = 0;
+
 public:
 
-    Buffer() : m_data(nullptr) , m_length(0) {}
+    Buffer() {}
 
-    Buffer(size_t length)
-        : m_data(nullptr)
-        , m_length(length)
-    {
-        m_data = new char[length];
-    }
+    Buffer(size_t length) : m_length(length) { m_data = new char[length]; }
 
     Buffer(char * data, size_t length) : m_data(data), m_length(length) {}
 
@@ -42,7 +42,7 @@ public:
 
     explicit operator bool() const { return nullptr == m_data; }
 
-    size_t bytes() const { return m_length; }
+    size_t nbyte() const { return m_length; }
 
     template< typename T >
     size_t length() const {
@@ -64,11 +64,6 @@ public:
     /** Backdoor */
     template< typename T >
     T * data() const { return reinterpret_cast<T*>(m_data); }
-
-private:
-
-    char * m_data;
-    size_t m_length;
 
 }; /* end class Buffer */
 

@@ -15,6 +15,10 @@ TEST(BufferTest, Sizeof) {
     EXPECT_EQ(sizeof(Buffer), 16);
 }
 
+TEST(BufferTest, Nbyte) {
+    EXPECT_EQ(( Buffer(16).nbyte() ), 16);
+}
+
 TEST(BufferTest, Length) {
     EXPECT_EQ(( Buffer(16).length<int32_t>() ), 4);
     EXPECT_THROW(( Buffer(17).length<int32_t>() ), std::length_error);
