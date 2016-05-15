@@ -27,11 +27,6 @@ solvcon.log
 *.dll
 *.def
 *.a
-# cython generated interface files.
-solvcon/*.c
-solvcon/*.h
-solvcon/parcel/*/*.c
-solvcon/parcel/*/*.h
 # examples.
 examples/*/*/result*/
 examples/*/*/mesh/

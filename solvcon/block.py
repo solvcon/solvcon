@@ -49,6 +49,7 @@ from .py3kcompat import with_metaclass
 from . import boundcond
 from . import dependency
 dependency.import_module_may_fail('.mesh')
+dependency.import_module_may_fail('.march')
 
 
 # metadata for unstructured mesh.
@@ -141,7 +142,7 @@ class _TableDescriptor(object):
         return collector[self.name]
 
     def __set__(self, ins, val):
-        if not isinstance(val, (mesh.Table, np.ndarray)):
+        if not isinstance(val, (march.Table, np.ndarray)):
             raise TypeError('only Table and ndarray are acceptable')
         if self.name not in ins.TABLE_NAMES:
             raise AttributeError('"%s" is not in Block.TABLE_NAME'%self.name)
@@ -297,7 +298,7 @@ class Block(with_metaclass(BlockMeta)):
     def _build_tables(self, ndim, nnode, nface, ncell,
                       ngstnode, ngstface, ngstcell):
         """
-        Allocate memory by creating solvcon.mesh.Table objects.
+        Allocate memory by creating solvcon.march.Table objects.
 
         This method alters content in self object.
 
@@ -311,22 +312,22 @@ class Block(with_metaclass(BlockMeta)):
         :return: nothing.
         """
         # metrics.
-        self.tbndcrd = mesh.Table(ngstnode, nnode, ndim, dtype=self.fpdtype)
-        self.tbfccnd = mesh.Table(ngstface, nface, ndim, dtype=self.fpdtype)
-        self.tbfcnml = mesh.Table(ngstface, nface, ndim, dtype=self.fpdtype)
-        self.tbfcara = mesh.Table(ngstface, nface, dtype=self.fpdtype)
-        self.tbclcnd = mesh.Table(ngstcell, ncell, ndim, dtype=self.fpdtype)
-        self.tbclvol = mesh.Table(ngstcell, ncell, dtypes=self.fpdtype)
+        self.tbndcrd = march.Table(ngstnode, nnode, ndim, dtype=self.fpdtype)
+        self.tbfccnd = march.Table(ngstface, nface, ndim, dtype=self.fpdtype)
+        self.tbfcnml = march.Table(ngstface, nface, ndim, dtype=self.fpdtype)
+        self.tbfcara = march.Table(ngstface, nface, dtype=self.fpdtype)
+        self.tbclcnd = march.Table(ngstcell, ncell, ndim, dtype=self.fpdtype)
+        self.tbclvol = march.Table(ngstcell, ncell, dtype=self.fpdtype)
         # meta/type.
-        self.tbfctpn = mesh.Table(ngstface, nface, dtype='int32')
-        self.tbcltpn = mesh.Table(ngstcell, ncell, dtype='int32')
-        self.tbclgrp = mesh.Table(ngstcell, ncell, dtype='int32')
+        self.tbfctpn = march.Table(ngstface, nface, dtype='int32')
+        self.tbcltpn = march.Table(ngstcell, ncell, dtype='int32')
+        self.tbclgrp = march.Table(ngstcell, ncell, dtype='int32')
         self.tbclgrp.F.fill(-1)
         # connectivities.
-        self.tbfcnds = mesh.Table(ngstface, nface, self.FCMND+1, dtype='int32')
-        self.tbfccls = mesh.Table(ngstface, nface, 4, dtype='int32')
-        self.tbclnds = mesh.Table(ngstcell, ncell, self.CLMND+1, dtype='int32')
-        self.tbclfcs = mesh.Table(ngstcell, ncell, self.CLMFC+1, dtype='int32')
+        self.tbfcnds = march.Table(ngstface, nface, self.FCMND+1, dtype='int32')
+        self.tbfccls = march.Table(ngstface, nface, 4, dtype='int32')
+        self.tbclnds = march.Table(ngstcell, ncell, self.CLMND+1, dtype='int32')
+        self.tbclfcs = march.Table(ngstcell, ncell, self.CLMFC+1, dtype='int32')
         for name in ('fcnds', 'fccls', 'clnds', 'clfcs'):
             getattr(self, 'tb'+name).F.fill(-1)
 
@@ -341,7 +342,7 @@ class Block(with_metaclass(BlockMeta)):
 
     @property
     def fpdtype(self):
-        return np.float64
+        return np.dtype('float64')
     @property
     def fpdtypestr(self):
         return dependency.str_of(self.fpdtype)
@@ -449,12 +450,12 @@ class Block(with_metaclass(BlockMeta)):
         # check for initialization of information for faces.
         if self.nface != nface:
             # face arrays used in this method.
-            self.tbfctpn = mesh.Table(0, nface, dtype='int32')
-            self.tbfcnds = mesh.Table(0, nface, self.FCMND+1, dtype='int32')
-            self.tbfccls = mesh.Table(0, nface, 4, dtype='int32')
-            self.tbfccnd = mesh.Table(0, nface, self.ndim, dtype=self.fpdtype)
-            self.tbfcnml = mesh.Table(0, nface, self.ndim, dtype=self.fpdtype)
-            self.tbfcara = mesh.Table(0, nface, dtype=self.fpdtype)
+            self.tbfctpn = march.Table(0, nface, dtype='int32')
+            self.tbfcnds = march.Table(0, nface, self.FCMND+1, dtype='int32')
+            self.tbfccls = march.Table(0, nface, 4, dtype='int32')
+            self.tbfccnd = march.Table(0, nface, self.ndim, dtype=self.fpdtype)
+            self.tbfcnml = march.Table(0, nface, self.ndim, dtype=self.fpdtype)
+            self.tbfcara = march.Table(0, nface, dtype=self.fpdtype)
             for name in ('fctpn', 'fcnds', 'fccls', 'fccnd', 'fcnml', 'fcara'):
                 table = getattr(self, 'tb'+name)
                 setattr(self, name, table.B)

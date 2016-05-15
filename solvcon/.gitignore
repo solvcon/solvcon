@@ -1,0 +1,12 @@
+*.c
+*.cpp
+*.cxx
+*.h
+*.hpp
+*.hxx
+parcel/*/*.c
+parcel/*/*.cpp
+parcel/*/*.cxx
+parcel/*/*.h
+parcel/*/*.hpp
+parcel/*/*.hxx

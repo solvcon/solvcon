@@ -35,7 +35,7 @@ import unittest
 import numpy as np
 
 from .. import py3kcompat
-from ..mesh import Table
+from ..march import Table
 
 
 class TestTableCreation(unittest.TestCase):

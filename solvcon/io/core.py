@@ -236,8 +236,8 @@ class Format(with_metaclass(FormatMeta)):
         for dim in shape[1:]:
             length *= dim
         if isinstance(dtype, basestring):
-            dtype = getattr(np, dtype)
-        dobj = dtype()
+            dtype = np.dtype(dtype)
+        dobj = dtype
         if compressor == 'bz2':
             buflen = np.frombuffer(stream.read(8), dtype=np.int64)[0]
             if seek_only:
@@ -269,8 +269,8 @@ class Format(with_metaclass(FormatMeta)):
         Read data from the input stream and convert it to
         :py:mod:`solvcon.mesh.Table` with given shape and dtype.
         """
-        from .. import mesh
-        table = mesh.Table(nghost, nbody, *args, dtype=dtype)
+        from .. import march
+        table = march.Table(nghost, nbody, *args, dtype=dtype)
         table.F = cls._read_array(compressor, table.shape, dtype, stream)
         return table
 
