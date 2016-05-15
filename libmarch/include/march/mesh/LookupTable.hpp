@@ -5,6 +5,7 @@
  * BSD 3-Clause License, see COPYING
  */
 
+#include <cstdint>
 #include <stdexcept>
 
 #include "march/core/core.hpp"
@@ -15,6 +16,76 @@ namespace march
 namespace mesh
 {
 
+class LookupTableCore {
+
+private:
+
+    Buffer m_buffer;
+    index_type m_nghost = 0;
+    index_type m_nbody = 0;
+    index_type m_ncolumn = 0;
+    index_type m_elsize = 1; ///< Element size in bytes.
+
+protected:
+
+    const Buffer & buffer() const { return m_buffer; }
+
+public:
+
+    LookupTableCore() : m_buffer() {}
+
+    LookupTableCore(
+        index_type nghost
+      , index_type nbody
+      , index_type ncolumn
+      , index_type elsize
+    )
+        : m_buffer()
+        , m_nghost(nghost)
+        , m_nbody(nbody)
+        , m_ncolumn(ncolumn)
+        , m_elsize(elsize)
+    {
+        if (nghost < 0) { throw std::invalid_argument("negative nghost"); }
+        if (nbody < 0) { throw std::invalid_argument("negative nbody"); }
+        if (ncolumn < 0) { throw std::invalid_argument("negative ncolumn"); }
+        if (elsize < 0) { throw std::invalid_argument("negative elsize"); }
+        m_buffer = Buffer((nghost+nbody) * ncolumn * elsize);
+    }
+
+    LookupTableCore(const LookupTableCore &) = delete;
+
+    LookupTableCore(LookupTableCore &&) = delete;
+
+    LookupTableCore & operator=(const LookupTableCore &) = delete;
+
+    LookupTableCore & operator=(LookupTableCore &&) = delete;
+
+    index_type nghost() const { return m_nghost; }
+
+    index_type nbody() const { return m_nbody; }
+
+    index_type ncolumn() const { return m_ncolumn; }
+
+    index_type nelem() const { return (nghost()+nbody()) * ncolumn(); }
+
+    index_type elsize() const { return m_elsize; }
+
+    index_type nbyte() const { return m_buffer.nbyte(); }
+
+    char * row(index_type loc) {
+        return data()+(nghost()+loc)*ncolumn()*elsize();
+    }
+
+    const char * row(index_type loc) const {
+        return data()+(nghost()+loc)*ncolumn()*elsize();
+    }
+
+    /** Backdoor */
+    char * data() const { return buffer().template data<char>(); }
+
+}; /* end class LookupTableCore */
+
 /**
  * Two-dimensional array serving as a lookup table.
  */
@@ -22,77 +93,43 @@ template<
     typename ValueType,
     size_t NCOLUMN
 >
-class LookupTable
+class LookupTable: public LookupTableCore
 {
 
 public:
 
     using value_type = ValueType;
 
-    LookupTable(const index_type nghost, const index_type nbody)
-        : m_buffer()
-        , m_nghost(nghost)
-        , m_nbody(nbody)
-    {
-        check_negative(nghost, nbody);
-        m_buffer = Buffer((nghost+nbody) * NCOLUMN * sizeof(value_type));
+    LookupTable(index_type nghost, index_type nbody)
+        : LookupTableCore(nghost, nbody, NCOLUMN, sizeof(ValueType))
+    {}
+
+    value_type (& operator[](index_type loc)) [NCOLUMN] {
+        return *reinterpret_cast<value_type(*)[NCOLUMN]>(row(loc));
     }
 
-    LookupTable() = delete;
-    LookupTable(const LookupTable & other) = delete;
-    LookupTable & operator=(const LookupTable & other) = delete;
-
-    const index_type & nghost() const { return m_nghost; }
-    const index_type & nbody() const { return m_nbody; }
-    index_type nelem() const { return (nghost()+nbody()) * NCOLUMN; }
-
-    size_t bytes() const { return m_buffer.bytes(); }
-
-    const value_type (& row(const index_type loc) const) [NCOLUMN] {
-        return *reinterpret_cast<value_type(*)[NCOLUMN]>(data()+(m_nghost+loc)*NCOLUMN);
+    const value_type (& operator[](index_type loc) const) [NCOLUMN] {
+        return *reinterpret_cast<value_type(*)[NCOLUMN]>(row(loc));
     }
 
-    value_type (& row(const index_type loc)) [NCOLUMN] {
-        return *reinterpret_cast<value_type(*)[NCOLUMN]>(data()+(m_nghost+loc)*NCOLUMN);
+    value_type (& at(index_type loc)) [NCOLUMN] {
+        check_range(loc); return (*this)[loc];
     }
 
-    const value_type (& get_row(const index_type loc) const) [NCOLUMN] {
-        check_range(loc); return row(loc);
-    }
-
-    value_type (& get_row(const index_type loc)) [NCOLUMN] {
-        check_range(loc); return row(loc);
+    const value_type (& at(index_type loc) const ) [NCOLUMN] {
+        check_range(loc); return (*this)[loc];
     }
 
     /** Backdoor */
-    value_type * data() const { return m_buffer.data<value_type>(); }
+    value_type * data() const { return buffer().template data<value_type>(); }
 
 private:
 
-    void check_negative(const index_type nghost, const index_type nbody) const {
-        if (nghost < 0) {
-            if (nbody < 0) {
-                throw std::invalid_argument("negative nghost and nbody");
-            } else {
-                throw std::invalid_argument("negative nghost");
-            }
-        } else if (nbody < 0) {
-            throw std::invalid_argument("negative nbody");
-        }
-    }
-
-    void check_range(const index_type loc) const {
-        if (loc < -m_nghost || loc >= m_nbody) {
+    void check_range(index_type loc) const {
+        if (loc < -nghost() || loc >= nbody()) {
             throw std::out_of_range("LookupTable location out of range");
         }
     }
-
-    void check_range(const index_type loc) {
-        const_cast< const LookupTable< ValueType, NCOLUMN >* >(this)->check_range(loc);
-    }
-
-    Buffer m_buffer;
-    index_type m_nghost, m_nbody;
 
 }; /* end class LookupTable */
 
