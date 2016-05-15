@@ -1,5 +1,5 @@
 #!/bin/sh
-SCVER=`python -c 'import solvcon; print solvcon.__version__'`
+SCVER=`python -c 'import sys; import solvcon; sys.stdout.write("%s\\n" % solvcon.__version__)'`
 # build source distribution file.
 rm -rf dist/SOLVCON-${SCVAR}*
 python setup.py clean
