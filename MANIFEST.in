@@ -8,6 +8,7 @@ include site_scons/site_tools/*.py
 include ground/*
 include soil/*
 recursive-include libmarch *
+prune libmarch/build
 recursive-include solvcon SCons*
 recursive-include solvcon *.py
 recursive-include solvcon *.pyx
