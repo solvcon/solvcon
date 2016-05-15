@@ -7,6 +7,8 @@
 
 #include <stdexcept>
 
+#include "march/core/core.hpp"
+
 namespace march
 {
 
@@ -28,26 +30,12 @@ public:
     using value_type = ValueType;
 
     LookupTable(const index_type nghost, const index_type nbody)
-        : m_data(nullptr)
+        : m_buffer()
         , m_nghost(nghost)
         , m_nbody(nbody)
     {
-        if (nghost < 0) {
-            if (nbody < 0) {
-                throw std::invalid_argument("negative nghost and nbody");
-            } else {
-                throw std::invalid_argument("negative nghost");
-            }
-        } else if (nbody < 0) {
-            throw std::invalid_argument("negative nbody");
-        }
-        m_data = new value_type[(nghost+nbody)*NCOLUMN];
-    }
-
-    ~LookupTable() {
-        delete[] m_data;
-        m_data = nullptr;
-        m_nghost = m_nbody = 0;
+        check_negative(nghost, nbody);
+        m_buffer = Buffer((nghost+nbody) * NCOLUMN * sizeof(value_type));
     }
 
     LookupTable() = delete;
@@ -58,26 +46,40 @@ public:
     const index_type & nbody() const { return m_nbody; }
     index_type nelem() const { return (nghost()+nbody()) * NCOLUMN; }
 
+    size_t bytes() const { return m_buffer.bytes(); }
+
     const value_type (& row(const index_type loc) const) [NCOLUMN] {
-        return *reinterpret_cast<value_type(*)[NCOLUMN]>(m_data+(m_nghost+loc)*NCOLUMN);
+        return *reinterpret_cast<value_type(*)[NCOLUMN]>(data()+(m_nghost+loc)*NCOLUMN);
     }
 
     value_type (& row(const index_type loc)) [NCOLUMN] {
-        return *reinterpret_cast<value_type(*)[NCOLUMN]>(m_data+(m_nghost+loc)*NCOLUMN);
+        return *reinterpret_cast<value_type(*)[NCOLUMN]>(data()+(m_nghost+loc)*NCOLUMN);
     }
 
-    const value_type (& getRow(const index_type loc) const) [NCOLUMN] {
+    const value_type (& get_row(const index_type loc) const) [NCOLUMN] {
         check_range(loc); return row(loc);
     }
 
-    value_type (& getRow(const index_type loc)) [NCOLUMN] {
+    value_type (& get_row(const index_type loc)) [NCOLUMN] {
         check_range(loc); return row(loc);
     }
 
     /** Backdoor */
-    value_type * data() const { return m_data; }
+    value_type * data() const { return m_buffer.data<value_type>(); }
 
 private:
+
+    void check_negative(const index_type nghost, const index_type nbody) const {
+        if (nghost < 0) {
+            if (nbody < 0) {
+                throw std::invalid_argument("negative nghost and nbody");
+            } else {
+                throw std::invalid_argument("negative nghost");
+            }
+        } else if (nbody < 0) {
+            throw std::invalid_argument("negative nbody");
+        }
+    }
 
     void check_range(const index_type loc) const {
         if (loc < -m_nghost || loc >= m_nbody) {
@@ -89,7 +91,7 @@ private:
         const_cast< const LookupTable< ValueType, NCOLUMN >* >(this)->check_range(loc);
     }
 
-    value_type * m_data;
+    Buffer m_buffer;
     index_type m_nghost, m_nbody;
 
 }; /* end class LookupTable */
