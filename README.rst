@@ -9,8 +9,8 @@ Clone from https://github.com/solvcon/solvcon::
 
   $ git clone https://github.com/solvcon/solvcon
 
-SOLVCON needs the following packages: `gcc <http://gcc.gnu.org/>`_ 4.3+ (clang
-on OSX works as well), `Python <http://www.python.org/>`_ 2.7/3.4, `six
+SOLVCON needs the following packages: A C/C++ compiler supporting C++14,
+`Python <http://www.python.org/>`_ 2.7/3.4, `six
 <https://pypi.python.org/pypi/six/>`_ 1.10.0, `Cython
 <http://www.cython.org/>`_ 0.16+, `Numpy <http://www.numpy.org/>`_ 1.5+,
 `LAPACK <http://www.netlib.org/lapack/>`_, `NetCDF
