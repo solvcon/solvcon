@@ -700,7 +700,7 @@ class BlockCase(BaseCase):
         if conf.env.mpi:
             info(' (head excluded for MPI)')
         info(':\n')
-        iworker = 0 
+        iworker = 0
         for node in nodelist:
             info('  %s' % node.name)
             port = bat.create_worker(node, authkey,

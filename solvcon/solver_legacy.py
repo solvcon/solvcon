@@ -51,7 +51,7 @@ class BaseSolverExedata(Structure):
         ('ncore', c_int), ('neq', c_int),
         ('time', c_double), ('time_increment', c_double),
     ]
-    del c_int, c_double 
+    del c_int, c_double
     def __init__(self, *args, **kw):
         svr = kw.pop('svr', None)
         super(BaseSolverExedata, self).__init__(*args, **kw)
@@ -64,7 +64,7 @@ class BaseSolver(with_metaclass(TypeWithBinder)):
     """
     Generic solver definition.  It is an abstract class and should not be used
     to any concrete simulation case.  The concrete solver sub-classes should
-    override the empty init and final methods for initialization and 
+    override the empty init and final methods for initialization and
     finalization, respectively.
 
     @cvar _clib_solve: the external dll (accessible through ctypes) which do
@@ -477,7 +477,7 @@ class BlockSolver(BaseSolver):
         Bind all the boundary condition objects.
 
         @note: BC must be bound AFTER solver "pointers".  Overridders to the
-            method should firstly bind all pointers, secondly super binder, and 
+            method should firstly bind all pointers, secondly super binder, and
             then methods/subroutines.
         """
         super(BlockSolver, self).bind()
@@ -646,7 +646,7 @@ class BlockSolver(BaseSolver):
         for ibc in self.ibclist:
             # check if sleep or not.
             if ibc < 0:
-                continue 
+                continue
             bc, sendn, recvn = ibc
             # determine callable and arguments.
             if self.svrn == sendn:
