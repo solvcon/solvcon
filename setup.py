@@ -55,14 +55,15 @@ if os.path.exists('MANIFEST'):
     os.remove('MANIFEST')
 from numpy.distutils.core import setup
 from Cython.Build import cythonize
-from Cython.Distutils import Extension
+from Cython.Distutils import Extension as CyExtension
+from numpy.distutils.extension import Extension
+import pybind11
 
 import solvcon as sc
 
 
-def make_extension(
-    name, c_subdirs, include_dirs=None, libraries=None,
-    extra_compile_args=None, language=None
+def make_cython_extension(
+    name, c_subdirs, include_dirs=None, libraries=None, extra_compile_args=None
 ):
     pak_dir = os.path.join(*name.split('.')[:-1])
     files = [name.replace('.', os.sep) + '.pyx']
@@ -77,13 +78,38 @@ def make_extension(
                  + libraries)
     rpathflag = '-Wl,-rpath,%s/lib' % sys.exec_prefix
     if extra_compile_args is None: extra_compile_args = []
+    extra_compile_args = [
+        '-Werror',
+        '-Wno-cpp' if sys.platform != 'darwin' else '-Wno-#warnings',
+        '-Wno-unused-function',
+    ] + extra_compile_args
+    return CyExtension(
+        name, files,
+        include_dirs=include_dirs,
+        libraries=libraries,
+        extra_compile_args=extra_compile_args,
+        extra_link_args=[rpathflag],
+    )
+
+def make_pybind11_extension(
+    name, include_dirs=None, libraries=None, extra_compile_args=None
+):
+    files = [name.replace('.', os.sep) + '.cpp']
+    include_dirs = [] if None is include_dirs else include_dirs
+    libraries = [] if None is libraries else libraries
+    libraries = (['scotchmetis', 'scotch', 'scotcherr', 'scotcherrexit']
+                 + libraries)
+    rpathflag = '-Wl,-rpath,%s/lib' % sys.exec_prefix
+    if extra_compile_args is None: extra_compile_args = []
     extra_compile_args.extend([
-        "-Wno-unused-function",
-        "-Wno-unreachable-code",
+        '-Werror',
+        '-std=c++14',
+        '-Wno-unused-function',
+        '-Wno-unreachable-code',
     ])
     return Extension(
         name, files,
-        language=language,
+        language="c++",
         include_dirs=include_dirs,
         libraries=libraries,
         extra_compile_args=extra_compile_args,
@@ -124,24 +150,63 @@ def main():
                 data_files.append((os.path.join(lead, edir),
                     glob.glob(os.path.join(edir, '*.%s'%ext))))
 
+    turn_off_unused_warnings = '-Wno-unused-variable'
+    if sys.platform != 'darwin':
+        turn_off_unused_warnings += ' -Wno-unused-but-set-variable'
     # set up extension modules.
     ext_modules = [
-        make_extension('solvcon.march', [],
-                       include_dirs=["libmarch/include"],
-                       extra_compile_args=['-std=c++11'],
-                       language='c++'),
-        make_extension('solvcon._march_bridge', [],
-                       include_dirs=["libmarch/include"],
-                       extra_compile_args=['-std=c++11'],
-                       language='c++'),
-        make_extension('solvcon.mesh', ['src']),
-        make_extension('solvcon.parcel.fake._algorithm', ['src']),
-        make_extension('solvcon.parcel.linear._algorithm', ['src'],
-                       libraries=['lapack', 'blas']),
-        make_extension('solvcon.parcel.bulk._algorithm', ['src']),
-        make_extension('solvcon.parcel.gas._algorithm', ['src']),
-        make_extension('solvcon.parcel.vewave._algorithm', ['src'],
-                       libraries=['lapack', 'blas']),
+        make_pybind11_extension(
+            'solvcon.march',
+            include_dirs=['libmarch/include', pybind11.get_include()]
+        ),
+        make_cython_extension(
+            'solvcon._march_bridge', [],
+            include_dirs=['libmarch/include']
+        ),
+        make_cython_extension(
+            'solvcon.mesh',
+            ['src'],
+        ),
+        make_cython_extension(
+            'solvcon.parcel.fake._algorithm',
+            ['src'],
+            extra_compile_args=[
+                turn_off_unused_warnings,
+            ],
+        ),
+        make_cython_extension(
+            'solvcon.parcel.linear._algorithm', ['src'],
+            libraries=['lapack', 'blas'],
+            extra_compile_args=[
+                turn_off_unused_warnings,
+                '-Wno-unknown-pragmas',
+            ],
+        ),
+        make_cython_extension(
+            'solvcon.parcel.bulk._algorithm',
+            ['src'],
+            extra_compile_args=[
+                turn_off_unused_warnings,
+                '-Wno-unknown-pragmas',
+                '-Wno-uninitialized',
+            ],
+        ),
+        make_cython_extension(
+            'solvcon.parcel.gas._algorithm',
+            ['src'],
+            extra_compile_args=[
+                turn_off_unused_warnings,
+                '-Wno-unknown-pragmas',
+            ],
+        ),
+        make_cython_extension(
+            'solvcon.parcel.vewave._algorithm', ['src'],
+            libraries=['lapack', 'blas'],
+            extra_compile_args=[
+                turn_off_unused_warnings,
+                '-Wno-unknown-pragmas',
+            ],
+        ),
     ]
 
     # remove files when cleaning.
@@ -151,8 +216,10 @@ def main():
         derived = list()
         for mod in ext_modules:
             pyx = mod.sources[0] # this must be the pyx file.
-            mainfn = os.path.splitext(pyx)[0]
-            derived += ['.'.join((mainfn, ext)) for ext in ('c', 'h', 'so')]
+            mainfn, dotfn = os.path.splitext(pyx)
+            if '.pyx' == dotfn:
+                derived += ['.'.join((mainfn, ext)) for ext in ('c', 'h')]
+            derived += ['%s.so' % mainfn] + glob.glob('%s.*.so' % mainfn)
         derived = [fn for fn in derived if os.path.exists(fn)]
         if derived:
             sys.stdout.write('Removing in-place generated files:')

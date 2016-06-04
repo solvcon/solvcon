@@ -1,27 +1,57 @@
-language: python
-
-sudo: required
-
-dist: trusty
-
 cache:
   directory:
   - $HOME/miniconda
 
-env:
-  # Disable GCE boto plugin which is incompatible to Python 3, see
-  # https://github.com/travis-ci/travis-ci/issues/5246
-  - BOTO_CONFIG=/tmp/nowhere
+# Use C++11/14 http://genbattle.bitbucket.org/blog/2016/01/17/c++-travis-ci/
+addons:
+  apt:
+    sources:
+      # add PPAs with more up-to-date toolchains
+      - ubuntu-toolchain-r-test
+      #- llvm-toolchain-precise
+    packages:
+      # install toolchains
+      - gcc-6
+      - g++-6
+      #- clang-3.7
+      - liblapack-pic
+      - liblapack-dev
+      - libscotch-dev
+      - libscotchmetis-dev
+      - libscotch-5.1
+      - gmsh
 
-python:
-  - "2.7"
-  - "3.5"
+env:
+  global:
+    # Disable GCE boto plugin which is incompatible to Python 3, see
+    # https://github.com/travis-ci/travis-ci/issues/5246
+    - BOTO_CONFIG=/tmp/nowhere
+
+matrix:
+  include:
+    - os: linux
+      sudo: required
+      dist: trusty
+      language: cpp
+      compiler: gcc
+      env: TRAVIS_PYTHON_VERSION="2.7"
+    - os: linux
+      sudo: required
+      dist: trusty
+      language: cpp
+      compiler: gcc
+      env: TRAVIS_PYTHON_VERSION="3.5"
+    - os: osx
+      osx_image: xcode7.3
+      language: cpp
+      compiler: clang
+      env: TRAVIS_PYTHON_VERSION="3.5"
 
 before_install:
-  - sudo apt-get -qq update
-  - sudo apt-get install -y liblapack-pic liblapack-dev libscotch-dev libscotchmetis-dev libscotch-5.1 gmsh
   # Install minimal conda
-  - if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
+      wget https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -O miniconda.sh;
+    elif [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then
       wget https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh -O miniconda.sh;
     else
       wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
@@ -33,11 +63,19 @@ before_install:
   - conda update -q conda
   # Useful for debugging any issues with conda
   - conda info -a
+  # Debug information for tool chain
+  - if [[ "$CC" == "gcc" ]]; then export CC=gcc-6 CXX=g++-6; fi
+  - which $CXX; $CXX --version
+  - which $CC; $CC --version
 
 install:
-  - conda create -q -n solvcon-test-env python=$TRAVIS_PYTHON_VERSION six setuptools pip sphinx ipython jupyter cython numpy netcdf4 nose paramiko boto
+  - conda create -q -n solvcon-test-env python=$TRAVIS_PYTHON_VERSION six setuptools pip ipython jupyter cython numpy netcdf4 nose paramiko boto
   - source activate solvcon-test-env
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
+      conda install -c yungyuc scotch gmsh;
+    fi
   - pip install pythreejs>=0.2.0
+  - pip install https://github.com/pybind/pybind11/archive/master.zip
 
 script:
   - python setup.py build_ext --inplace
