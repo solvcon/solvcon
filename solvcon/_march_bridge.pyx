@@ -18,8 +18,8 @@ Allow the C-based :py:mod:`.mesh` module to call the C++ code in
 
 from __future__ import absolute_import, division, print_function
 
-from .march cimport Table
-from ._march_bridge cimport Table
+#from .march cimport Table
+#from ._march_bridge cimport Table
 import numpy as np
 cimport numpy as np
 
@@ -28,7 +28,6 @@ np.import_array()
 
 
 def check_block_pointers(blk):
-    cdef Table _table
     cdef np.ndarray _cnda
     # not checking ghost arrays because they aren't contiguous and thus
     # their addresses can't match.
@@ -39,8 +38,7 @@ def check_block_pointers(blk):
         sharr = getattr(blk, 'sh'+name)
         assert sharr.flags.c_contiguous
         arr = getattr(blk, name)
-        _table = table
-        _cnda = _table._nda
+        _cnda = table.F
         _sharr = sharr
         _arr = arr
         msgs = []
@@ -49,7 +47,7 @@ def check_block_pointers(blk):
         if vals[0] != vals[1]:
             msgs.append('shared(%d,%d)' % vals)
         # body.
-        vals = <size_t>(_table._core.row(0)), <size_t>(_arr.data)
+        vals = table._bodyaddr, <size_t>(_arr.data)
         if vals[0] != vals[1]:
             msgs.append('body(%d,%d)' % vals)
         if msgs:
@@ -57,10 +55,10 @@ def check_block_pointers(blk):
             raise AttributeError(tmpl % (name, ', '.join(msgs)))
 
 cdef void* get_table_bodyaddr(table):
-    cdef Table _table = table
-    if 0 == table.size:
+    cdef np.ndarray _cnda = table.B
+    if 0 == table.F.size:
         return NULL
     else:
-        return <void*>(_table._core.row(0))
+        return <void*>(_cnda.data)
 
 # vim: set fenc=utf8 ft=pyrex ff=unix nobomb et sw=4 ts=4 tw=79:

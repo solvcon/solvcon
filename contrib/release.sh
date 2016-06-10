@@ -11,4 +11,4 @@ tar xfz SOLVCON-${SCVER}.tar.gz
 cd SOLVCON-${SCVER}
 python setup.py build_ext --inplace
 # test.
-nosetests
+nosetests --with-doctest
