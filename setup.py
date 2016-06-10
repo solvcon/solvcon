@@ -128,11 +128,11 @@ def main():
     ext_modules = [
         make_extension('solvcon.march', [],
                        include_dirs=["libmarch/include"],
-                       extra_compile_args=['-std=c++14'],
+                       extra_compile_args=['-std=c++11'],
                        language='c++'),
         make_extension('solvcon._march_bridge', [],
                        include_dirs=["libmarch/include"],
-                       extra_compile_args=['-std=c++14'],
+                       extra_compile_args=['-std=c++11'],
                        language='c++'),
         make_extension('solvcon.mesh', ['src']),
         make_extension('solvcon.parcel.fake._algorithm', ['src']),

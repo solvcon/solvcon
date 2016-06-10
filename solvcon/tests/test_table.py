@@ -71,11 +71,9 @@ class TestTableParts(unittest.TestCase):
 
     def test_no_setting_property(self):
         tbl = Table(4, 8)
-        with py3kcompat.assertRaisesRegex(
-            self, AttributeError, "can't set attribute"):
+        with self.assertRaises(AttributeError):
             tbl._ghostpart = np.arange(4)
-        with py3kcompat.assertRaisesRegex(
-            self, AttributeError, "can't set attribute"):
+        with self.assertRaises(AttributeError):
             tbl._bodypart = np.arange(8)
 
     def test_1d(self):

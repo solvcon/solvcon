@@ -1,0 +1,45 @@
+language: python
+
+sudo: required
+
+dist: trusty
+
+cache:
+  directory:
+  - $HOME/miniconda
+
+env:
+  # Disable GCE boto plugin which is incompatible to Python 3, see
+  # https://github.com/travis-ci/travis-ci/issues/5246
+  - BOTO_CONFIG=/tmp/nowhere
+
+python:
+  - "2.7"
+  - "3.5"
+
+before_install:
+  - sudo apt-get -qq update
+  - sudo apt-get install -y liblapack-pic liblapack-dev libscotch-dev libscotchmetis-dev libscotch-5.1 gmsh
+  # Install minimal conda
+  - if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then
+      wget https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh -O miniconda.sh;
+    else
+      wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
+    fi
+  - bash miniconda.sh -b -p $HOME/miniconda
+  - export PATH="$HOME/miniconda/bin:$PATH"
+  - hash -r
+  - conda config --set always_yes yes --set changeps1 no
+  - conda update -q conda
+  # Useful for debugging any issues with conda
+  - conda info -a
+
+install:
+  - conda create -q -n solvcon-test-env python=$TRAVIS_PYTHON_VERSION six setuptools pip sphinx ipython jupyter cython numpy netcdf4 nose paramiko boto
+  - source activate solvcon-test-env
+  - pip install pythreejs>=0.2.0
+
+script:
+  - python setup.py build_ext --inplace
+  - nosetests --with-doctest
+  - contrib/release.sh

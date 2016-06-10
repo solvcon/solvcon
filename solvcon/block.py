@@ -92,8 +92,8 @@ class BlockJSONEncoder(json.JSONEncoder):
     >>> # with the encoder, Block can be turned to a JSON string.
     >>> import json
     >>> line = json.dumps(blk, cls=BlockJSONEncoder)
-    >>> # what we serialized to JSON.
-    >>> sorted(json.loads(line).keys()) # doctest: +NORMALIZE_WHITESPACE
+    >>> # what we serialized to JSON.  note 2/3 compatibility.
+    >>> sorted(str(key) for key in json.loads(line).keys()) # doctest: +NORMALIZE_WHITESPACE
     ['bndfcs',
      'clcnd', 'clfcs', 'clgrp', 'clnds', 'cltpn', 'clvol',
      'fcara', 'fccls', 'fccnd', 'fcnds', 'fcnml', 'fctpn',
