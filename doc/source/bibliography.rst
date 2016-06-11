@@ -4,6 +4,9 @@
 Bibliography
 ============
 
+SOLVCON and the CESE Method
+===========================
+
 - Papers and presentations:
 
   - :doc:`pub_app`
@@ -44,6 +47,9 @@ Bibliography
       Hexahedral Meshes", *Journal of Computational Physics*, Volume 175, Issue
       1, Jan. 2002, Pages 168-199.  `doi: 10.1006/jcph.2001.6934
       <http://dx.doi.org/10.1006/jcph.2001.6934>`_
+
+Others
+======
 
 .. [Anderson03] John David Anderson,
    *Modern Compressible Flow: With Historical Perspective*,
