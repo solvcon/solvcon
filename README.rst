@@ -1,6 +1,16 @@
-SOLVCON is a collection of conservation-law solvers that use the space-time
+SOLVCON implements conservation-law solvers that use the space-time
 `Conservation Element and Solution Element (CESE) method
 <http://www.grc.nasa.gov/WWW/microbus/>`__.
+
+|travis_status| |rtd_status|
+
+.. |travis_status| image:: https://travis-ci.org/solvcon/solvcon.svg?branch=master
+  :target: https://travis-ci.org/solvcon/solvcon
+  :alt: Travis-CI Status
+
+.. |rtd_status| image:: https://readthedocs.org/projects/solvcon/badge/?version=latest
+  :target: http://doc.solvcon.net/en/latest/
+  :alt: Documentation Status
 
 Install
 =======
@@ -62,5 +72,3 @@ Additional build and tests:
   Some tests in ``ftests/`` involve remote procedure call (RPC) that uses `ssh
   <http://www.openssh.com/>`_.  You need to set up the public key
   authentication to properly run them.
-
-.. vim: set ft=rst ff=unix fenc=utf8:
