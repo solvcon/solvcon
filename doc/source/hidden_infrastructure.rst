@@ -1,8 +1,8 @@
 :orphan:
 
-=====================
-Hidden Infrastructure
-=====================
+====================================
+Infrastructure Documents in Progress
+====================================
 
 .. toctree::
   :maxdepth: 1
