@@ -20,12 +20,11 @@ Clone from https://github.com/solvcon/solvcon::
   $ git clone https://github.com/solvcon/solvcon
 
 SOLVCON needs the following packages: A C/C++ compiler supporting C++14,
-`Python <http://www.python.org/>`_ 2.7/3.4, `six
-<https://pypi.python.org/pypi/six/>`_ 1.10.0, `pybind11
-<https://github.com/pybind/pybind11>`_ Git master, `Cython
-<http://www.cython.org/>`_ 0.16+, `Numpy <http://www.numpy.org/>`_ 1.5+,
-`LAPACK <http://www.netlib.org/lapack/>`_, `NetCDF
-<http://www.unidata.ucar.edu/software/netcdf/index.html>`_ 4+, `SCOTCH
+`pybind11 <https://github.com/pybind/pybind11>`_ Git master, `Python
+<http://www.python.org/>`_ 2.7/3.5, `six <https://pypi.python.org/pypi/six/>`_
+1.10.0, `Cython <http://www.cython.org/>`_ 0.16+, `Numpy
+<http://www.numpy.org/>`_ 1.5+, `LAPACK <http://www.netlib.org/lapack/>`_,
+`NetCDF <http://www.unidata.ucar.edu/software/netcdf/index.html>`_ 4+, `SCOTCH
 <http://www.labri.fr/perso/pelegrin/scotch/>`_ 6.0+, `Nose
 <https://nose.readthedocs.org/en/latest/>`_ 1.0+, `Paramiko
 <https://github.com/paramiko/paramiko>`_ 1.14+, `boto
@@ -39,11 +38,12 @@ The following command builds and installs SOLVCON::
 
   $ python setup.py install
 
-After installed you can run the unit tests::
+Additional notes:
 
-  $ python -c 'import solvcon as sc; sc.test()'
+- Unit tests need to be run with local build::
 
-Additional build and tests:
+    $ python setup.py build_ext --inplace
+    $ nosetests --with-doctest
 
 - Building document requires `Sphinx <http://sphinx.pocoo.org/>`_ 1.3.1+,
   `pstake <http://pstake.readthedocs.org/>`_ 0.3.4+, `Sphinxcontrib issue
@@ -51,24 +51,6 @@ Additional build and tests:
   `graphviz <http://www.graphviz.org/>`_ 2.28+.  Once the binary of SOLVCON is
   built, the following commands can build the document::
 
-    $ cd doc
-    $ make html
+    $ make -C doc html
 
-  The built document will be available at ``doc/build/html/``.
-
-- When building SOLVCON locally::
-
-    $ python setup.py build_ext --inplace
-
-  You can run unit tests with Nose_::
-
-    $ nosetests
-
-- Another set of tests are collected in ``ftests/`` directory, and can be run
-  with::
-
-    $ nosetests ftests/*
-
-  Some tests in ``ftests/`` involve remote procedure call (RPC) that uses `ssh
-  <http://www.openssh.com/>`_.  You need to set up the public key
-  authentication to properly run them.
+  The document will be available at ``doc/build/html/``.
