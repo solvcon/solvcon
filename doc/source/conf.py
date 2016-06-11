@@ -54,7 +54,10 @@ autoclass_content = 'class'
 pstake_cmdout = os.environ.get('PSTAKE_CMDOUT', None)
 
 # Intersphinx settings.
-intersphinx_mapping = {'python': ('http://docs.python.org/2.7', None)}
+intersphinx_mapping = {
+    'python': ('http://docs.python.org/', None),
+    'numpy': ('http://docs.scipy.org/doc/numpy/', None),
+}
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -256,8 +259,3 @@ man_pages = [
     ('index', 'solvcon', u'SOLVCON Documentation',
      [u'Yung-Yu Chen'], 1)
 ]
-
-intersphinx_mapping = {
-    'python': ('http://docs.python.org/2', None),
-    'numpy': ('http://docs.scipy.org/doc/numpy/', None),
-}
