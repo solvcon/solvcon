@@ -1,8 +1,8 @@
 :orphan:
 
-=====================
-Copyright Information
-=====================
+=========
+Copyright
+=========
 
 .. include:: ../../COPYING
 
