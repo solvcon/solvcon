@@ -6,6 +6,8 @@ from __future__ import absolute_import, division, print_function
 
 from unittest import TestCase
 
+import numpy as np
+
 def get_sample_neu():
     """
     Read data from oblique.neu file and convert it into Block.
@@ -43,10 +45,88 @@ class TestCollective(TestCase):
     def test_partition(self):
         self.assertEqual(len(self.dom.idxinfo), self.nblk)
 
+    def test_partition_edgecut(self):
+        """
+        To ensure the partitioner returns expected values.
+
+        SOLVCON uses METIS to be the partitioner,
+        and this could be replaced or change anytime.
+        Please refer to mesh.pyx:Mesh:partition for more details.
+
+        This test assumes two presumption:
+            1. partitioner is METIS.
+            2. sample is sample.neu
+        """
+        # hard-coded values returned based on METIS and sample.neu
+        self.assertEqual(self.dom.edgecut, 16)
+
+    def test_partition_part(self):
+        """
+        To ensure the partitioner returns expected values.
+
+        SOLVCON uses METIS to be the partitioner,
+        and this could be replaced or change anytime.
+        Please refer to mesh.pyx:Mesh:partition for more details.
+
+        This test assumes two presumption:
+            1. partitioner is METIS.
+            2. sample is sample.neu
+        """
+        # hard-coded values returned based on METIS and sample.neu
+        answer_part = np.array([
+            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1,
+            1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1,
+            0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0,
+            0], dtype=np.int32)
+        self.assertTrue(np.array_equal(self.dom.part, answer_part))
+
+    def test_splitted_ncell_by_clnds(self):
+        """
+        The number of cell of the block and sub-block checker.
+
+        clnds: cell nodes (vertices).
+            [[total number N of node share this cell,
+              node-1, node-2, ......, node-N]......]
+            The length of this array is equal to ncell,
+            and should be the sum of the ncell length of all sub-blocks.
+        """
+        iblk = 0
+        length_sum = 0
+        for blk in self.dom:
+            length_sum += len(blk.clnds)
+            iblk += 1
+        self.assertEqual(length_sum, self.dom.blk.ncell)
+
+    def test_splitted_ncell_by_clfcs(self):
+        """
+        The number of cell of the block and sub-block checker.
+
+        clfcs: cell faces.
+            [[total number N of face share this cell,
+              face-1, face-2, ......, face-N]......]
+            The length of this array is equal to ncell,
+            and should be the sum of the ncell length of all sub-blocks.
+        """
+        iblk = 0
+        length_sum = 0
+        for blk in self.dom:
+            length_sum += len(blk.clfcs)
+            iblk += 1
+        self.assertEqual(length_sum, self.dom.blk.ncell)
+
     def test_splitted_nodes(self):
+        """
+        Max node number checker.
+
+        Is the max node of each sub-block index - 1 equal to
+        the number of node of each sub-block?
+        """
         iblk = 0
         for blk in self.dom:
             self.assertEqual(blk.clnds[:,1:].max()+1, blk.nnode)
+            # next sub-block
             iblk += 1
 
     def test_splitted_faces(self):
@@ -56,12 +136,33 @@ class TestCollective(TestCase):
             iblk += 1
 
     def test_splitted_neiblk(self):
+        """
+        edgecut shoudl be double of ncut because nblk is 2 in 2D.
+
+        One cut gives 2 sub-blocks. The number of the cells along
+        the cut edges/faces are double of ncut when nblk is 2 in 2D.
+
+        face type:
+            0 - belong
+            1 - neibor
+            2 - neighbor block. Given -1 for no such block or int index of the block.
+            3 - neighbor block cell - cell index of the sub-block.
+        """
         ncut = 0
         for blk in self.dom:
             ncut += (blk.fccls[:,2]!=-1).sum()
         self.assertEqual(ncut, self.dom.edgecut*2)
 
     def test_splitted_neibcl(self):
+        """
+        if there is no neibor block, there should be no cell of neibor block.
+
+        face type:
+            0 - belong
+            1 - neibor
+            2 - neighbor block. Given -1 for no such block or int index of the block.
+            3 - neighbor block cell - cell index of the sub-block.
+        """
         for blk in self.dom:
             slct = (blk.fccls[:,2]==-1)
             self.assertTrue((blk.fccls[slct,3] == -1).all())
