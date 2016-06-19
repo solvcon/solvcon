@@ -272,7 +272,7 @@ class Collective(Domain, list):
             belong[notmine] = buf   [:]
             # Find out the faces with the non-ghost neibor which are not in the
             # current block.  Save neighboring block information (index) into
-            # neiblk.  
+            # neiblk.
             neiblk.fill(-1) # reset neiblk.
             notmine = myfcidx[(neibor>=0) & (part[neibor]!=iblk)]
             neiblk[notmine] = (part[neibor])[notmine]
@@ -403,7 +403,7 @@ class Collective(Domain, list):
                 continue
             # create BC objects for interfaces.
             for jblk in range(len(self)):
-                # take left faces connecting the current block (indexed with 
+                # take left faces connecting the current block (indexed with
                 # jblk).
                 slct = (neiblk==jblk)
                 leftj = leftfcs[slct]
