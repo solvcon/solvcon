@@ -6,7 +6,6 @@ from __future__ import absolute_import, division, print_function
 
 from unittest import TestCase
 
-import numpy as np
 
 def get_sample_neu():
     """
@@ -100,16 +99,17 @@ class TestCollective(TestCase):
 
     def test_splitted_neiblk(self):
         """
-        edgecut shoudl be double of ncut because nblk is 2 in 2D.
+        edgecut should be double of ncut because nblk is 2 in 2D.
 
         One cut gives 2 sub-blocks. The number of the cells along
         the cut edges/faces are double of ncut when nblk is 2 in 2D.
 
-        face type:
-            0 - belong
-            1 - neibor
-            2 - neighbor block. Given -1 for no such block or int index of the block.
-            3 - neighbor block cell - cell index of the sub-block.
+        Meanings of fccls columns:
+        * 0 - belong
+        * 1 - neibor
+        * 2 - neighboring block. Given -1 for no such block or int index of
+              the block.
+        * 3 - neighbor block cell - cell index of the sub-block.
         """
         ncut = 0
         for blk in self.dom:
@@ -118,13 +118,15 @@ class TestCollective(TestCase):
 
     def test_splitted_neibcl(self):
         """
-        if there is no neibor block, there should be no cell of neibor block.
+        If there is no neighboring block, there should be no cell of neibor
+        block.
 
-        face type:
-            0 - belong
-            1 - neibor
-            2 - neighbor block. Given -1 for no such block or int index of the block.
-            3 - neighbor block cell - cell index of the sub-block.
+        Meanings of fccls columns:
+        * 0 - belong
+        * 1 - neibor
+        * 2 - neighboring block. Given -1 for no such block or int index of
+              the block.
+        * 3 - neighbor block cell - cell index of the sub-block.
         """
         for blk in self.dom:
             slct = (blk.fccls[:,2]==-1)
