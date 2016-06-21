@@ -45,43 +45,6 @@ class TestCollective(TestCase):
     def test_partition(self):
         self.assertEqual(len(self.dom.idxinfo), self.nblk)
 
-    def test_partition_edgecut(self):
-        """
-        To ensure the partitioner returns expected values.
-
-        SOLVCON uses METIS to be the partitioner,
-        and this could be replaced or change anytime.
-        Please refer to mesh.pyx:Mesh:partition for more details.
-
-        This test assumes two presumption:
-            1. partitioner is METIS.
-            2. sample is sample.neu
-        """
-        # hard-coded values returned based on METIS and sample.neu
-        self.assertEqual(self.dom.edgecut, 16)
-
-    def test_partition_part(self):
-        """
-        To ensure the partitioner returns expected values.
-
-        SOLVCON uses METIS to be the partitioner,
-        and this could be replaced or change anytime.
-        Please refer to mesh.pyx:Mesh:partition for more details.
-
-        This test assumes two presumption:
-            1. partitioner is METIS.
-            2. sample is sample.neu
-        """
-        # hard-coded values returned based on METIS and sample.neu
-        answer_part = np.array([
-            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1,
-            1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1,
-            0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0,
-            0], dtype=np.int32)
-        self.assertTrue(np.array_equal(self.dom.part, answer_part))
-
     def test_splitted_ncell_by_clnds(self):
         """
         The number of cell of the block and sub-block checker.
