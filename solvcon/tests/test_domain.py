@@ -6,7 +6,6 @@ from __future__ import absolute_import, division, print_function
 
 from unittest import TestCase
 
-import numpy as np
 
 def get_sample_neu():
     """
@@ -100,7 +99,7 @@ class TestCollective(TestCase):
 
     def test_splitted_neiblk(self):
         """
-        edgecut shoudl be double of ncut because nblk is 2 in 2D.
+        edgecut should be double of ncut because nblk is 2 in 2D.
 
         One cut gives 2 sub-blocks. The number of the cells along
         the cut edges/faces are double of ncut when nblk is 2 in 2D.
