@@ -7,6 +7,7 @@
 #include <memory>
 #include <vector>
 #include <algorithm>
+#include <cstring>
 
 #include "march/march.hpp"
 
@@ -16,99 +17,99 @@ using namespace march;
 using namespace march::mesh;
 
 /**
- * Python wrapper for march::mesh::LookupTableCore.
+ * Helper class to convert march::mesh::LookupTableCore to pybind11::array.
  */
-class Table {
-
-private:
-
-    py::array m_nda;
-
-    std::unique_ptr<LookupTableCore> m_table;
+class make_array {
 
 public:
 
-    Table(
-        index_type nghost
-      , index_type nbody
-      , const std::vector<index_type> & dims
-      , PyArray_Descr * descr
-      , bool do_zeros
-    ) {
-        npy_intp shape[dims.size()];
-        std::copy_n(dims.begin(), dims.size(), shape);
-        PyArrayObject * arrptr = nullptr;
-        if (do_zeros) {
-            arrptr = (PyArrayObject *) PyArray_Zeros(dims.size(), shape, descr, 0);
-        } else {
-            arrptr = (PyArrayObject *) PyArray_Empty(dims.size(), shape, descr, 0);
-        }
-        m_nda = py::array((PyObject *) arrptr, false);
-        m_table.reset(new LookupTableCore(nghost, nbody, dims, PyArray_ITEMSIZE(arrptr), PyArray_BYTES(arrptr)));
-        if (static_cast<size_t>(PyArray_NBYTES(arrptr)) != m_table->nbyte()) {
-            throw py::value_error("nbyte mismatch");
-        }
+    enum array_flavor { FULL = 0, GHOST = 1, BODY = 2 };
+
+    make_array(array_flavor flavor) : m_flavor(flavor) {}
+
+    make_array() = delete;
+    make_array(const make_array &) = delete;
+    make_array(make_array &&) = delete;
+    make_array & operator=(const make_array &) = delete;
+    make_array & operator=(make_array &&) = delete;
+
+    static py::array full_from(LookupTableCore & tbl) {
+        static make_array worker(FULL);
+        return worker.from(tbl);
     }
 
-    index_type nghost() const { return m_table->nghost(); }
-
-    index_type nbody() const { return m_table->nbody(); }
-
-    index_type offset() const { return m_table->nghost() * m_table->ncolumn(); }
-
-    py::array get_full() const {
-        PyArrayObject * arr = (PyArrayObject *) m_nda.ptr();
-        return get_view(PyArray_SHAPE(arr)[0], PyArray_STRIDES(arr)[0], (void *) PyArray_BYTES(arr));
+    static py::array ghost_from(LookupTableCore & tbl) {
+        static make_array worker(GHOST);
+        return worker.from(tbl);
     }
 
-    py::array get_ghost() const {
-        PyArrayObject * arr = (PyArrayObject *) m_nda.ptr();
-        return get_view(m_table->nghost(), -PyArray_STRIDES(arr)[0],
-                        (void *) (m_table->nghost() > 0 ? m_table->row(-1) : m_table->row(0)));
+    static py::array body_from(LookupTableCore & tbl) {
+        static make_array worker(BODY);
+        return worker.from(tbl);
     }
-
-    py::array get_body() const {
-        PyArrayObject * arr = (PyArrayObject *) m_nda.ptr();
-        return get_view(m_table->nbody(), PyArray_STRIDES(arr)[0], (void *) m_table->row(0));
-    }
-
-    py::array nda() const { return m_nda; }
 
 private:
 
-    py::array get_view(npy_intp shape0, npy_intp strides0, void * data) const {
-        PyArrayObject * arr = (PyArrayObject *) m_nda.ptr();
-        npy_intp shape[PyArray_NDIM(arr)];
-        npy_intp strides[PyArray_NDIM(arr)];
-        shape[0] = shape0;
-        strides[0] = strides0;
-        std::copy_n(PyArray_SHAPE(arr)+1, PyArray_NDIM(arr)-1, shape+1);
-        std::copy_n(PyArray_STRIDES(arr)+1, PyArray_NDIM(arr)-1, strides+1);
-        Py_INCREF(PyArray_DESCR(arr));
+    /**
+     * \param tbl The input LookupTableCore.
+     * \return    ndarray object as a view to the input table.
+     */
+    py::array from(LookupTableCore & tbl) const {
+        npy_intp shape[tbl.ndim()];
+        std::copy(tbl.dims().begin(), tbl.dims().end(), shape);
+
+        npy_intp strides[tbl.ndim()];
+        strides[tbl.ndim()-1] = tbl.elsize();
+        for (ssize_t it = tbl.ndim()-2; it >= 0; --it) {
+            strides[it] = shape[it+1] * strides[it+1];
+        }
+
+        void * data = nullptr;
+        if        (FULL == m_flavor) {
+            data = tbl.data();
+        } else if (GHOST == m_flavor) {
+            shape[0] = tbl.nghost();
+            strides[0] = -strides[0];
+            data = tbl.nghost() > 0 ? tbl.row(-1) : tbl.row(0);
+        } else if (BODY == m_flavor) {
+            shape[0] = tbl.nbody();
+            data = tbl.row(0);
+        } else {
+            py::pybind11_fail("NumPy: invalid array type");
+        }
+
         py::object tmp(
-            PyArray_NewFromDescr(&PyArray_Type, PyArray_DESCR(arr),
-                                 PyArray_NDIM(arr), shape, strides,
-                                 data, PyArray_FLAGS(arr), nullptr),
+            PyArray_NewFromDescr(
+                &PyArray_Type, PyArray_DescrFromType(tbl.datatypeid()), tbl.ndim(),
+                shape, strides, data, NPY_ARRAY_WRITEABLE, nullptr),
             false);
-        if (!tmp) { py::pybind11_fail("NumPy: unable to create array view!"); }
+        if (!tmp) { py::pybind11_fail("NumPy: unable to create array view"); }
+
+        py::object buffer = py::cast(tbl.buffer());
         py::array ret;
-        m_nda.inc_ref();
-        if (PyArray_SetBaseObject((PyArrayObject *)tmp.ptr(), (PyObject *)m_nda.ptr()) == 0) {
+        buffer.inc_ref();
+        if (PyArray_SetBaseObject((PyArrayObject *)tmp.ptr(), buffer.ptr()) == 0) {
             ret = tmp;
         }
         return ret;
     }
 
-}; /* end class Table */
+    array_flavor m_flavor;
+
+}; /* end class make_array */
+
+PYBIND11_DECLARE_HOLDER_TYPE(T, std::shared_ptr<T>);
 
 PYBIND11_PLUGIN(march) {
-    py::module mod("march", "pybind11 example plugin");
+    py::module mod("march", "libmarch wrapper");
 
     import_array1(nullptr); // or numpy c api segfault.
 
-    py::class_< Table >(mod, "Table", "Lookup table that allows ghost entity.")
+    py::class_< Buffer, std::shared_ptr<Buffer> >(mod, "Buffer", "Internal data buffer");
+
+    py::class_< LookupTableCore >(mod, "Table", "Lookup table that allows ghost entity.")
         .def("__init__", [](py::args args, py::kwargs kwargs) {
-            Table & table = *(args[0].cast<Table*>());
+            LookupTableCore & table = *(args[0].cast<LookupTableCore*>());
 
             std::vector<index_type> dims(args.size()-2);
             index_type nghost = args[1].cast<index_type>();
@@ -118,19 +119,6 @@ PYBIND11_PLUGIN(march) {
                 dims[it] = args[it+2].cast<index_type>();
             }
 
-            std::string creation("empty");
-            if (kwargs["creation"]) {
-                creation = kwargs["creation"].cast<std::string>();
-            }
-            bool do_zeros;
-            if        ("zeros" == creation) {
-                do_zeros = true;
-            } else if ("empty" == creation) {
-                do_zeros = false;
-            } else {
-                throw py::value_error("invalid creation type");
-            }
-
             PyArray_Descr * descr = nullptr;
             if (kwargs["dtype"]) {
                 PyArray_DescrConverter(py::object(kwargs["dtype"]).ptr(), &descr);
@@ -138,54 +126,78 @@ PYBIND11_PLUGIN(march) {
             if (nullptr == descr) {
                 descr = PyArray_DescrFromType(NPY_INT);
             }
+            DataTypeId dtid = static_cast<DataTypeId>(descr->type_num);
+            Py_DECREF(descr);
 
-            new (&table) Table(nghost, nbody, dims, descr, do_zeros);
+            new (&table) LookupTableCore(nghost, nbody, dims, dtid);
+
+            std::string creation("empty");
+            if (kwargs["creation"]) {
+                creation = kwargs["creation"].cast<std::string>();
+            }
+            if        ("zeros" == creation) {
+                memset(table.buffer()->template data<char>(), 0, table.buffer()->nbyte());
+            } else if ("empty" == creation) {
+                // do nothing
+            } else {
+                throw py::value_error("invalid creation type");
+            }
         })
-        .def("__getattr__", [] (Table & tbl, py::object key) {
-            return py::object(tbl.nda().attr(key));
+        .def("__getattr__", [](LookupTableCore & tbl, py::object key) {
+            return py::object(make_array::full_from(tbl).attr(key));
         })
-        .def_property_readonly("_nda", &Table::nda)
-        .def_property_readonly("nghost", &Table::nghost)
-        .def_property_readonly("nbody", &Table::nbody)
-        .def_property_readonly("offset",  &Table::offset,
-                               "Element offset from the head of the ndarray to where the body starts.")
+        .def_property_readonly("_nda", [](LookupTableCore & tbl) {
+            return make_array::full_from(tbl);
+        })
+        .def_property_readonly("nghost", &LookupTableCore::nghost)
+        .def_property_readonly("nbody", &LookupTableCore::nbody)
+        .def_property_readonly(
+            "offset",
+            [](LookupTableCore & tbl){ return tbl.nghost() * tbl.ncolumn(); },
+            "Element offset from the head of the ndarray to where the body starts.")
         .def_property_readonly(
             "_ghostaddr",
-            [](Table & tbl) {
-                return (Py_intptr_t) PyArray_BYTES((PyArrayObject *) tbl.get_full().ptr());
+            [](LookupTableCore & tbl) {
+                return (Py_intptr_t) PyArray_BYTES((PyArrayObject *) make_array::full_from(tbl).ptr());
             })
         .def_property_readonly(
             "_bodyaddr",
-            [](Table & tbl) {
-                return (Py_intptr_t) PyArray_BYTES((PyArrayObject *) tbl.get_body().ptr());
+            [](LookupTableCore & tbl) {
+                return (Py_intptr_t) PyArray_BYTES((PyArrayObject *) make_array::body_from(tbl).ptr());
             })
         .def_property(
             "F",
-            &Table::get_full,
-            [](Table & tbl, py::array src) {
-                PyArray_CopyInto((PyArrayObject *) tbl.get_full().ptr(), (PyArrayObject *) src.ptr());
+            [](LookupTableCore & tbl) { return make_array::full_from(tbl); },
+            [](LookupTableCore & tbl, py::array src) {
+                PyArray_CopyInto((PyArrayObject *) make_array::full_from(tbl).ptr(), (PyArrayObject *) src.ptr());
             },
             "Full array.")
         .def_property(
             "G",
-            &Table::get_ghost,
-            [](Table & tbl, py::array src) {
+            [](LookupTableCore & tbl) { return make_array::ghost_from(tbl); },
+            [](LookupTableCore & tbl, py::array src) {
                 if (tbl.nghost()) {
-                    PyArray_CopyInto((PyArrayObject *) tbl.get_ghost().ptr(), (PyArrayObject *) src.ptr());
+                    PyArray_CopyInto((PyArrayObject *) make_array::ghost_from(tbl).ptr(), (PyArrayObject *) src.ptr());
                 } else {
                     throw py::index_error("ghost is zero");
                 }
             },
             "Ghost-part array.")
-        .def_property_readonly("_ghostpart", &Table::get_ghost, "Ghost-part array without setter.")
+        .def_property_readonly(
+            "_ghostpart",
+            [](LookupTableCore & tbl) { return make_array::ghost_from(tbl); },
+            "Ghost-part array without setter.")
         .def_property(
             "B",
-            &Table::get_body,
-            [](Table & tbl, py::array src) {
-                PyArray_CopyInto((PyArrayObject *) tbl.get_body().ptr(), (PyArrayObject *) src.ptr());
+            [](LookupTableCore & tbl) { return make_array::body_from(tbl); },
+            [](LookupTableCore & tbl, py::array src) {
+                PyArray_CopyInto((PyArrayObject *) make_array::body_from(tbl).ptr(), (PyArrayObject *) src.ptr());
             },
             "Body-part array.")
-        .def_property_readonly("_bodypart", &Table::get_body, "Body-part array without setter.")
+        .def_property_readonly(
+            "_bodypart",
+            [](LookupTableCore & tbl) { return make_array::body_from(tbl); },
+            "Body-part array without setter.")
     ;
 
     return mod.ptr();

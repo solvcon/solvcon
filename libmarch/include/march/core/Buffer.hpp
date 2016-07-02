@@ -6,59 +6,61 @@
  */
 
 #include <stdexcept>
+#include <memory>
 
 namespace march
 {
 
+namespace mesh { class LookupTableCore; }
+
 /**
  * Untyped and unresizeable memory buffer for data storage.
  */
-class Buffer {
+class Buffer: public std::enable_shared_from_this<Buffer> {
 
 private:
 
     size_t m_length = 0;
     char * m_data = nullptr;
-    bool m_own_data = true;
+
+    struct ctor_passkey {};
 
 public:
 
-    Buffer() {
-        static_assert(sizeof(Buffer) == 24, "Buffer size changes");
+    Buffer(const ctor_passkey &) { }
+
+    static std::shared_ptr<Buffer> construct() {
+        return std::make_shared<Buffer>(ctor_passkey());
     }
 
     /**
      * \param[in] length Memory buffer length.
      */
-    Buffer(size_t length) : m_length(length) { m_data = new char[length](); }
+    Buffer(size_t length, const ctor_passkey &) : m_length(length) { m_data = new char[length](); }
 
-    /**
-     * When given an allocated memory block (\p data) from outside, the
-     * constructed Buffer object doesn't manage its own memory.
-     *
-     * This constructor allows the ownership of the memory block can be
-     * transferred to an outside system, like NumPy.
-     *
-     * \param[in] length Memory buffer length.
-     * \param[in] data   The memory block.
-     */
-    Buffer(size_t length, char * data) : m_length(length), m_data(data), m_own_data(false) {}
+    static std::shared_ptr<Buffer> construct(size_t length) {
+        return std::make_shared<Buffer>(length, ctor_passkey());
+    }
 
     ~Buffer() {
-        if (m_own_data && nullptr != m_data) { delete m_data; }
+        delete[] m_data;
         m_data = nullptr;
     }
 
     Buffer(const Buffer &) = delete;
+
     Buffer(Buffer &&) = delete;
+
     Buffer & operator=(const Buffer &) = delete;
-    Buffer & operator=(Buffer && other) {
+
+    Buffer & operator=(Buffer &&) = delete;
+    /*Buffer & operator=(Buffer && other) {
         m_data = other.m_data;
-        other.m_data = nullptr;
+        m_data = nullptr;
         m_length = other.m_length;
         m_own_data = other.m_own_data;
         return *this;
-    }
+    }*/
 
     explicit operator bool() const { return nullptr == m_data; }
 

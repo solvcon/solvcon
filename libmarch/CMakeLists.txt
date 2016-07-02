@@ -6,9 +6,15 @@ project(libmarch)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 
+option(MARCH_RELAX_ERROR "Relax compiler error" OFF)
+
 include_directories("include")
 
 set(NOWARN_MARCH "-Wno-unused-private-field")
+
+if(MARCH_RELAX_ERROR)
+    set(NOWARN_MARCH "${NOWARN_MARCH} -Wno-error=unused-variable")
+endif()
 
 set(CMAKE_CXX_FLAGS "-std=c++14 -fPIC -Werror -Wall ${NOWARN_MARCH}")
 set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
