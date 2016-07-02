@@ -5,6 +5,8 @@
  * BSD 3-Clause License, see COPYING
  */
 
+#include <memory>
+#include <utility>
 #include <cstdint>
 #include <stdexcept>
 #include <iterator>
@@ -25,75 +27,41 @@ class LookupTableCore {
 
 private:
 
-    Buffer m_buffer;
+    std::shared_ptr<Buffer> m_buffer;
     std::vector<index_type> m_dims;
     index_type m_nghost = 0;
     index_type m_nbody = 0;
     index_type m_ncolumn = 1;
     index_type m_elsize = 1; ///< Element size in bytes.
-
-protected:
-
-    const Buffer & buffer() const { return m_buffer; }
+    DataTypeId m_datatypeid = MH_INT8;
 
 public:
 
-    LookupTableCore() : m_buffer(), m_dims() {
-        static_assert(sizeof(LookupTableCore) == 64, "LookupTableCore size changes");
-    }
+    LookupTableCore() : m_buffer(Buffer::construct()), m_dims() { }
 
     /**
      * \param[in] nghost  Number of ghost (negative index) rows.
      * \param[in] nbody   Number of body (non-negative index) rows.
      * \param[in] dims    The shape of the table, including the combined row
      *                    number.
-     * \param[in] elsize  Number of bytes per data element.
+     * \param[in] datatypeid
+     *  The libmarch ID of the data type.
      */
     LookupTableCore(
         index_type nghost
       , index_type nbody
       , const std::vector<index_type> & dims
-      , index_type elsize
+      , DataTypeId datatypeid
     )
         : m_buffer()
         , m_dims(dims)
         , m_nghost(nghost)
         , m_nbody(nbody)
-        , m_elsize(elsize)
+        , m_elsize(data_type_size(datatypeid))
+        , m_datatypeid(datatypeid)
     {
-        m_ncolumn = verify(nghost, nbody, dims, elsize);
-        m_buffer = Buffer((nghost+nbody) * m_ncolumn * elsize);
-    }
-
-    /**
-     * When given an allocated memory block (\p data) from outside, its Buffer
-     * object doesn't manage its own memory.
-     *
-     * This constructor allows the ownership of the memory block can be
-     * transferred to an outside system, like NumPy.
-     *
-     * \param[in] nghost  Number of ghost (negative index) rows.
-     * \param[in] nbody   Number of body (non-negative index) rows.
-     * \param[in] dims    The shape of the table, including the combined row
-     *                    number.
-     * \param[in] elsize  Number of bytes per data element.
-     * \param[in] data    The memory block.
-     */
-    LookupTableCore(
-        index_type nghost
-      , index_type nbody
-      , const std::vector<index_type> & dims
-      , index_type elsize
-      , char * data
-    )
-        : m_buffer()
-        , m_dims(dims)
-        , m_nghost(nghost)
-        , m_nbody(nbody)
-        , m_elsize(elsize)
-    {
-        m_ncolumn = verify(nghost, nbody, dims, elsize);
-        m_buffer = Buffer((nghost+nbody) * m_ncolumn * elsize, data);
+        m_ncolumn = verify(nghost, nbody, dims, m_elsize);
+        m_buffer = Buffer::construct((nghost+nbody) * m_ncolumn * m_elsize);
     }
 
     LookupTableCore(const LookupTableCore &) = delete;
@@ -118,7 +86,9 @@ public:
 
     index_type elsize() const { return m_elsize; }
 
-    size_t nbyte() const { return m_buffer.nbyte(); }
+    DataTypeId datatypeid() const { return m_datatypeid; }
+
+    size_t nbyte() const { return buffer()->nbyte(); }
 
     /**
      * Pointer at the beginning of the row.
@@ -134,8 +104,13 @@ public:
         return data()+(nghost()+loc)*ncolumn()*elsize();
     }
 
+    /**
+     * Internal data buffer.
+     */
+    const std::shared_ptr<Buffer> & buffer() const { return m_buffer; }
+
     /** Backdoor */
-    char * data() const { return buffer().template data<char>(); }
+    char * data() const { return buffer()->template data<char>(); }
 
 private:
 
@@ -171,11 +146,43 @@ private:
 
 }; /* end class LookupTableCore */
 
+namespace aux
+{
+
+/**
+ * Helper struct to assign all elements in a fixed-size 1D array.
+ */
+template < typename ElemType, size_t NCOLUMN, size_t INDEX >
+struct array_assign_ {
+    typedef ElemType (&array_type)[NCOLUMN];
+    typedef const ElemType (&const_array_type)[NCOLUMN];
+    static void act(array_type row_out, const_array_type row_in) {
+        array_assign_<ElemType, NCOLUMN, INDEX-1>::act(row_out, row_in);
+        row_out[INDEX] = row_in[INDEX];
+    }
+}; /* end struct array_assign_ */
+
+template < typename ElemType, size_t NCOLUMN >
+struct array_assign_< ElemType, NCOLUMN, 0 >  {
+    typedef ElemType (&array_type)[NCOLUMN];
+    typedef const ElemType (&const_array_type)[NCOLUMN];
+    static void act(array_type row_out, const_array_type row_in) {
+        row_out[0] = row_in[0];
+    }
+}; /* end struct array_assign_ specialization */
+
+template < typename ElemType, size_t NCOLUMN >
+void array_assign(ElemType (&row_out)[NCOLUMN], const ElemType (&row_in)[NCOLUMN]) {
+    array_assign_<ElemType, NCOLUMN, NCOLUMN-1>::act(row_out, row_in);
+}
+
+} /* end namespace aux */
+
 /**
  * Typed unresizeable lookup table.
  */
 template< 
-    typename ValueType,
+    typename ElemType,
     size_t NCOLUMN
 >
 class LookupTable: public LookupTableCore
@@ -183,30 +190,95 @@ class LookupTable: public LookupTableCore
 
 public:
 
-    using value_type = ValueType;
+    using elem_type = ElemType;
+
+    LookupTable() {}
 
     LookupTable(index_type nghost, index_type nbody)
-        : LookupTableCore(nghost, nbody, std::vector<index_type>({nghost+nbody, NCOLUMN}), sizeof(ValueType))
+        : LookupTableCore(nghost, nbody, std::vector<index_type>({nghost+nbody, NCOLUMN}), type_to<ElemType>::id)
     {}
 
-    value_type (& operator[](index_type loc)) [NCOLUMN] {
-        return *reinterpret_cast<value_type(*)[NCOLUMN]>(row(loc));
+    LookupTable(index_type nghost, index_type nbody, char * data)
+        : LookupTableCore(nghost, nbody, std::vector<index_type>({nghost+nbody, NCOLUMN}), type_to<ElemType>::id, data)
+    {}
+
+    elem_type (& operator[](index_type loc)) [NCOLUMN] {
+        return *reinterpret_cast<elem_type(*)[NCOLUMN]>(row(loc));
     }
 
-    const value_type (& operator[](index_type loc) const) [NCOLUMN] {
-        return *reinterpret_cast<value_type(*)[NCOLUMN]>(row(loc));
+    const elem_type (& operator[](index_type loc) const) [NCOLUMN] {
+        return *reinterpret_cast<const elem_type(*)[NCOLUMN]>(row(loc));
     }
 
-    value_type (& at(index_type loc)) [NCOLUMN] {
+    elem_type (& at(index_type loc)) [NCOLUMN] {
         check_range(loc); return (*this)[loc];
     }
 
-    const value_type (& at(index_type loc) const ) [NCOLUMN] {
+    const elem_type (& at(index_type loc) const ) [NCOLUMN] {
         check_range(loc); return (*this)[loc];
+    }
+
+    /**
+     * Return a std::vector at the input index location.
+     */
+    std::vector<elem_type> vat(index_type loc) const {
+        check_range(loc);
+        const elem_type (&row) [NCOLUMN] = (*this)[loc];
+        return std::vector<elem_type>(row, row+NCOLUMN);
     }
 
     /** Backdoor */
-    value_type * data() const { return buffer().template data<value_type>(); }
+    elem_type * data() const { return buffer()->template data<elem_type>(); }
+
+private:
+
+    template < size_t NARG >
+    void set_impl(elem_type (&row)[NCOLUMN], elem_type value) {
+        row[NARG - 1] = value;
+    }
+
+    template < size_t NARG, typename ... ArgTypes >
+    void set_impl(elem_type (&row)[NCOLUMN], elem_type value, ArgTypes ... args) {
+        row[NARG - 1 - sizeof...(args)] = value;
+        set_impl<NARG>(row, args...);
+    }
+
+public:
+
+    template < typename ... ArgTypes >
+    void set(index_type loc, ArgTypes ... args) {
+        static_assert(sizeof...(args) <= NCOLUMN, "too many arguments");
+        set_impl<sizeof...(args)>((*this)[loc], args...);
+    }
+
+    template < typename ... ArgTypes >
+    void set_at(index_type loc, ArgTypes ... args) {
+        static_assert(sizeof...(args) <= NCOLUMN, "too many arguments");
+        set_impl<sizeof...(args)>(this->at(loc), args...);
+    }
+
+    void set(index_type loc, const elem_type (&row_in)[NCOLUMN]) {
+        aux::array_assign((*this)[loc], row_in);
+    }
+
+    void set_at(index_type loc, const elem_type (&row_in)[NCOLUMN]) {
+        aux::array_assign(this->at(loc), row_in);
+    }
+
+    template < typename ... ArgTypes >
+    void fill(ArgTypes ... args) {
+        for (index_type it = -nghost(); it<nbody(); ++it) { set(it, args...); }
+    }
+
+    void fill(elem_type value) {
+        elem_type * ptr = data();
+        for (index_type it = -nghost(); it<nbody(); ++it) {
+            for (index_type jt = 0; jt<NCOLUMN; ++jt) {
+               ptr[0] = value;
+               ++ptr;
+            }
+        }
+    }
 
 private:
 
