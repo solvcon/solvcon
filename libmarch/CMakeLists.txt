@@ -16,7 +16,7 @@ if(MARCH_RELAX_ERROR)
     set(NOWARN_MARCH "${NOWARN_MARCH} -Wno-error=unused-variable")
 endif()
 
-set(CMAKE_CXX_FLAGS "-std=c++14 -fPIC -Werror -Wall ${NOWARN_MARCH}")
+set(CMAKE_CXX_FLAGS "-std=c++11 -fPIC -Werror -Wall ${NOWARN_MARCH}")
 set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 

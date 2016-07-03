@@ -14,7 +14,7 @@ add_executable(test_libmarch
     core_Buffer.cpp
     mesh_LookupTable.cpp
 )
-target_link_libraries(test_libmarch c++)
+target_link_libraries(test_libmarch stdc++ pthread)
 
 if (NOT TESTFILTER)
     set(TESTFILTER "*")

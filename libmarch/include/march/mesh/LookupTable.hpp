@@ -273,7 +273,7 @@ public:
     void fill(elem_type value) {
         elem_type * ptr = data();
         for (index_type it = -nghost(); it<nbody(); ++it) {
-            for (index_type jt = 0; jt<NCOLUMN; ++jt) {
+            for (index_type jt = 0; jt<static_cast<index_type>(NCOLUMN); ++jt) {
                ptr[0] = value;
                ++ptr;
             }

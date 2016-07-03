@@ -1,0 +1,25 @@
+export SCDEV_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+export SCSRC="$( cd ${SCDEV_ROOT}/../.. && pwd )"
+namemunge () {
+  if ! echo ${!1} | egrep -q "(^|:)$2($|:)" ; then
+    if [ -z "${!1}" ] ; then
+      eval "$1=$2"
+    else
+      if [ "$3" == "after" ] ; then
+        eval "$1=\$$1:$2"
+      else
+        eval "$1=$2:\$$1"
+      fi
+    fi
+  fi
+  eval "export $1"
+}
+#if [ `uname` == "Darwin" ]; then
+#  namemunge DYLD_LIBRARY_PATH $SCSRC
+#else
+#  namemunge LD_LIBRARY_PATH $SCSRC
+#fi
+namemunge PATH $SCSRC
+namemunge PYTHONPATH $SCSRC
+source activate ${SCDEV_ROOT}/install
+# vim: set ff=unix fenc=utf8 nobomb ft=sh:

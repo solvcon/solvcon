@@ -19,7 +19,7 @@ Clone from https://github.com/solvcon/solvcon::
 
   $ git clone https://github.com/solvcon/solvcon
 
-SOLVCON needs the following packages: A C/C++ compiler supporting C++14,
+SOLVCON needs the following packages: A C/C++ compiler supporting C++11,
 `pybind11 <https://github.com/pybind/pybind11>`_ Git master, `Python
 <http://www.python.org/>`_ 2.7/3.5, `six <https://pypi.python.org/pypi/six/>`_
 1.10.0, `Cython <http://www.cython.org/>`_ 0.16+, `Numpy

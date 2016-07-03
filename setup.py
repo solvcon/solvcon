@@ -103,7 +103,7 @@ def make_pybind11_extension(
     if extra_compile_args is None: extra_compile_args = []
     extra_compile_args.extend([
         '-Werror',
-        '-std=c++14',
+        '-std=c++11',
         '-Wno-unused-function',
         '-Wno-unreachable-code',
     ])
