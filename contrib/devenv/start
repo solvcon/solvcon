@@ -1,5 +1,5 @@
-export SCDEV_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-export SCSRC="$( cd ${SCDEV_ROOT}/../.. && pwd )"
+export SCDEVENV="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+export SCSRC="$( cd ${SCDEVENV}/../.. && pwd )"
 namemunge () {
   if ! echo ${!1} | egrep -q "(^|:)$2($|:)" ; then
     if [ -z "${!1}" ] ; then
@@ -21,5 +21,5 @@ namemunge () {
 #fi
 namemunge PATH $SCSRC
 namemunge PYTHONPATH $SCSRC
-source activate ${SCDEV_ROOT}/install
+source activate ${SCDEVENV}/install
 # vim: set ff=unix fenc=utf8 nobomb ft=sh:

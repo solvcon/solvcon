@@ -1,0 +1,21 @@
+startup_message off
+termcapinfo xterm*|Eterm|mlterm|rxvt 'hs:ts=\E]0;:fs=\007:ds=\E]0;screen\007'
+autodetach on
+shell -$SHELL
+caption always "%{= wk} %{= KY} [%n]%t @ %H %{-} %= %{= KR} %l %{-} | %{= KG} %Y-%m-%d %0c:%s %{-} "
+hardstatus lastline "%H [%-Lw%{= Bw}%n%f *%t%{-}%+Lw]"
+#hardstatus alwayslastline "%-w%{= Bw} %n %t %{-}%+w %=| %H "
+#caption always "%{=B BB}  %{=B KW}%-w%<%{=B WR}%n %t%{=B KW}%+w%-02=%{=B BB}  "
+#hardstatus alwayslastline "%-Lw%{= BW}%50>%n%f* %t%{-}%+Lw%<"
+#bindkey "^[[11~" select 1
+#bindkey "^[[12~" select 2
+#bindkey "^[[13~" select 3
+#bindkey "^[[14~" select 4
+#bindkey "^[[15~" select 5
+#bindkey "^[[17~" select 6
+#bindkey "^[[18~" select 7
+#bindkey "^[[19~" select 8
+#bindkey "^[[20~" select 9
+#bindkey "^[[21~" select 10
+bindkey "^[[23~" prev
+bindkey "^[[24~" next

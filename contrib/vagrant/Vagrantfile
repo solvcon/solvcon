@@ -1,0 +1,33 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+  config.vm.box = "ubuntu/trusty64"
+
+  config.ssh.forward_agent = true
+
+  config.vm.provider "virtualbox" do |vb|
+    vb.name = "solvcon_trusty64"
+    vb.memory = "2048"
+    if ENV["SC_VIRTUALBOX_DESKTOP"]
+      vb.gui = true
+      vb.customize ["modifyvm", :id, "--vram", "16"]
+      vb.customize ["modifyvm", :id, "--accelerate3d", "on"]
+      vb.customize ["modifyvm", :id, "--clipboard", "bidirectional"]
+    else
+      vb.gui = false
+    end
+  end
+
+  # expose for jupyter notebook
+  config.vm.network "forwarded_port", guest: 8888, host: 8888, host_ip: 'localhost', protocol: 'tcp', auto_correct: true
+
+  config.vm.provision :shell, path: "bootstrap.sh"
+  config.vm.provision :shell, path: "bootstrap-anaconda.sh", privileged: false
+  config.vm.provision :shell, path: "setup-dotfiles.sh", privileged: false
+  if ENV["SC_VIRTUALBOX_DESKTOP"]
+    config.vm.provision :shell, path: "bootstrap-desktop.sh"
+    config.vm.provision :shell, path: "setup-launcher.sh", privileged: false
+  end
+
+end
