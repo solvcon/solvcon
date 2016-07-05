@@ -48,8 +48,8 @@ class TestCollective(TestCase):
         """
         The number of cell of the block and sub-block checker.
 
-        clnds: cell nodes (vertices).
-            [[total number N of node share this cell,
+        clnds: nodes (vertices) of each cell.
+            [[total number N of the nodes share this cell,
               node-1, node-2, ......, node-N]......]
             The length of this array is equal to ncell,
             and should be the sum of the ncell length of all sub-blocks.
@@ -65,8 +65,8 @@ class TestCollective(TestCase):
         """
         The number of cell of the block and sub-block checker.
 
-        clfcs: cell faces.
-            [[total number N of face share this cell,
+        clfcs: faces of each cell.
+            [[total number N of the faces share this cell,
               face-1, face-2, ......, face-N]......]
             The length of this array is equal to ncell,
             and should be the sum of the ncell length of all sub-blocks.
@@ -133,6 +133,45 @@ class TestCollective(TestCase):
             self.assertTrue((blk.fccls[slct,3] == -1).all())
 
     def test_splitted_bnds(self):
+        """
+        splitted number of boundries.
+
+        self.dom is <class 'solvcon.domain.Collective'>.
+        self.dom.blk is the block before being splitted.
+        The elements of self.dom are the sub-blocks.
+
+        fccls: this face is
+            owned by this cell ("belong" type).
+                The index is the index of the cell.
+            not owned by this cell,
+                and this cell is alongside this face ("neibor" type)
+                The index is the index of the cell.
+            not owned by this cell,
+                and this cell is alongside this face.
+                Besides, this cell is owned by a block.
+                The index is the index of the block.
+            not owned by this cell,
+                and this cell is alongside this face.
+                Besides, this cell is owned by a block.
+                The index is the index of the cell.
+
+
+        Please recall the face types:
+            0 - belong
+            1 - neibor
+            2 - neighbor block.
+                Given -1 for no such block or int index of the block.
+            3 - neighbor block cell - cell index of the sub-block.
+
+        so blk.fccls[:,1]<0 means to ask whether this face has a "neibor type"
+        cell or not. A negative value means "no such cell."
+
+        After a block is splitted, the face without a neibor-type cell still
+        has no such cell. The face with a neibor-type cell will then has
+        one more extra face (in 2D, it is a edge.). The total number of such
+        faces without neibor-type cells should increase up to dom.edgecut*2
+        more, because one block is splitted into two sub-blocks.
+        """
         dom = self.dom
         nbndsp = sum([(blk.fccls[:,1]<0).sum() for blk in dom])
         self.assertEqual(
@@ -141,6 +180,19 @@ class TestCollective(TestCase):
         )
 
     def test_splitted_bcs(self):
+        """
+        check the boundary condition after splitting.
+
+        bc: boundary condition
+
+        boundary names:
+            element_side
+            upspec_orig
+            interface
+
+        The length of the boundary of the same type
+        should not change after splitting.
+        """
         dom = self.dom
         for bc in dom.blk.bclist:
             nfc = 0
@@ -152,6 +204,13 @@ class TestCollective(TestCase):
             self.assertEqual(nfc, len(bc))
 
     def test_splitted_interfaces(self):
+        """
+        check the number of interface objects.
+
+        total number of interface ojects should be the same as double as
+        edgecut, because two interface objects are for one interface.
+        iblk <--> iblk-jblk-interface and jblk-iblk-interface <--> jblk
+        """
         from ..boundcond import bctregy
         interface = bctregy.interface
         dom = self.dom
@@ -169,6 +228,9 @@ class TestCollective(TestCase):
                 self.assertEqual(blk, bc.blk)
 
     def test_interface_face(self):
+        """
+        boundary faces have no neighboring cell.
+        """
         from ..boundcond import bctregy
         for blk in self.dom:
             has_interface = False
@@ -180,6 +242,12 @@ class TestCollective(TestCase):
             self.assertTrue(has_interface)
 
     def test_interfaces_count(self):
+        """
+        similar to test_splitted_interfaces.
+
+        Please refer to domain.py:Collective.build_interface to see how
+        ifparr is built.
+        """
         from ..boundcond import bctregy
         dom = self.dom
         # count from blocks.
