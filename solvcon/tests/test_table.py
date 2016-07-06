@@ -106,6 +106,23 @@ class TestTableParts(unittest.TestCase):
         self.assertEqual(list(range(4,12)), list(tbl.B.ravel()))
         self.assertEqual(list(range(4,12)), list(tbl._bodypart.ravel()))
 
+    def test_2d_extra(self):
+        # similar to test_2d, but use a more complicated input case.
+        tbl = Table(2, 4, 5)
+        tbl.F = np.arange(tbl.size, dtype=tbl.dtype).reshape(tbl.shape)
+        # Make sure the above writing doesn't override the memory holder.
+        self.assertEqual(tbl._bodyaddr,
+                         tbl._ghostaddr + tbl.itemsize * tbl.offset)
+        # Check for value.
+        self.assertEqual((2,5), tbl.G.shape)
+        self.assertEqual((2,5), tbl._ghostpart.shape)
+        self.assertEqual(list(range(2*5)), sorted(list(tbl.G.ravel())))
+        self.assertEqual(list(range(2*5)), sorted(list(tbl._ghostpart.ravel())))
+        self.assertEqual((4,5), tbl.B.shape)
+        self.assertEqual((4,5), tbl._bodypart.shape)
+        self.assertEqual(list(range(2*5,(2+4)*5)), sorted(list(tbl.B.ravel())))
+        self.assertEqual(list(range(2*5,(2+4)*5)), sorted(list(tbl._bodypart.ravel())))
+
     def test_3d(self):
         tbl = Table(1, 2, 4, 5)
         tbl.F = np.arange(tbl.size, dtype=tbl.dtype).reshape(tbl.shape)
