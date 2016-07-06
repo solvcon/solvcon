@@ -64,6 +64,8 @@ class TestTableCreation(unittest.TestCase):
 class TestTableParts(unittest.TestCase):
 
     def test_setter(self):
+        # nghost is 4
+        # nbody is 8
         tbl = Table(4, 8)
         tbl.F = np.arange(12)
         tbl.G = np.arange(4)
@@ -79,9 +81,12 @@ class TestTableParts(unittest.TestCase):
     def test_1d(self):
         tbl = Table(4, 8)
         tbl.F = np.arange(tbl.size, dtype=tbl.dtype).reshape(tbl.shape)
+        # tbl.F should be the sum of nbody and nghost
+        # in this case, it is 4 + 8 = 12
         self.assertEqual(list(range(12)), list(tbl.F))
         self.assertEqual([3,2,1,0], list(tbl.G))
         self.assertEqual([3,2,1,0], list(tbl._ghostpart))
+        # by design the body cell indices are followed by the ghost cell indices.
         self.assertEqual(list(range(4,12)), list(tbl.B))
         self.assertEqual(list(range(4,12)), list(tbl._bodypart))
 
