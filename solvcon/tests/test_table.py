@@ -64,6 +64,8 @@ class TestTableCreation(unittest.TestCase):
 class TestTableParts(unittest.TestCase):
 
     def test_setter(self):
+        # nghost is 4
+        # nbody is 8
         tbl = Table(4, 8)
         tbl.F = np.arange(12)
         tbl.G = np.arange(4)
@@ -79,9 +81,12 @@ class TestTableParts(unittest.TestCase):
     def test_1d(self):
         tbl = Table(4, 8)
         tbl.F = np.arange(tbl.size, dtype=tbl.dtype).reshape(tbl.shape)
+        # tbl.F should be the sum of nbody and nghost
+        # in this case, it is 4 + 8 = 12
         self.assertEqual(list(range(12)), list(tbl.F))
         self.assertEqual([3,2,1,0], list(tbl.G))
         self.assertEqual([3,2,1,0], list(tbl._ghostpart))
+        # by design the body cell indices are followed by the ghost cell indices.
         self.assertEqual(list(range(4,12)), list(tbl.B))
         self.assertEqual(list(range(4,12)), list(tbl._bodypart))
 
@@ -100,6 +105,23 @@ class TestTableParts(unittest.TestCase):
         self.assertEqual((2,4), tbl._bodypart.shape)
         self.assertEqual(list(range(4,12)), list(tbl.B.ravel()))
         self.assertEqual(list(range(4,12)), list(tbl._bodypart.ravel()))
+
+    def test_2d_extra(self):
+        # similar to test_2d, but use a more complicated input case.
+        tbl = Table(2, 4, 5)
+        tbl.F = np.arange(tbl.size, dtype=tbl.dtype).reshape(tbl.shape)
+        # Make sure the above writing doesn't override the memory holder.
+        self.assertEqual(tbl._bodyaddr,
+                         tbl._ghostaddr + tbl.itemsize * tbl.offset)
+        # Check for value.
+        self.assertEqual((2,5), tbl.G.shape)
+        self.assertEqual((2,5), tbl._ghostpart.shape)
+        self.assertEqual(list(range(2*5)), sorted(list(tbl.G.ravel())))
+        self.assertEqual(list(range(2*5)), sorted(list(tbl._ghostpart.ravel())))
+        self.assertEqual((4,5), tbl.B.shape)
+        self.assertEqual((4,5), tbl._bodypart.shape)
+        self.assertEqual(list(range(2*5,(2+4)*5)), sorted(list(tbl.B.ravel())))
+        self.assertEqual(list(range(2*5,(2+4)*5)), sorted(list(tbl._bodypart.ravel())))
 
     def test_3d(self):
         tbl = Table(1, 2, 4, 5)
