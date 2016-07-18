@@ -6,6 +6,10 @@ from __future__ import absolute_import, division, print_function
 
 import os
 from unittest import TestCase
+
+import numpy as np
+ 
+from .. import py3kcompat
 from ..testing import loadfile
 from ..io import gambit
 
@@ -15,6 +19,10 @@ def test_load():
 class TestBc(TestCase):
     #__test__ = False    # temporarily turned off.
     blk = gambit.GambitNeutral(loadfile('sample.neu')).toblock()
+
+    def test_BFREL(self):
+        from ..boundcond import BC
+        self.assertEqual(3, BC.BFREL)
 
     def test_print_vanilla(self):
         from ..boundcond import BC
@@ -26,6 +34,38 @@ class TestBc(TestCase):
         obj = BC()
         obj.sern = 5
         self.assertEqual(str(obj), '[BC#5 "None": 0 faces with 0 values]')
+
+    def test_facn(self):
+        from ..boundcond import BC
+        obj = BC()
+        self.assertEqual((0, BC.BFREL), obj.facn.shape)
+        self.assertEqual(0, obj.facn.size)
+
+    def test_facn_set(self):
+        from ..boundcond import BC
+        obj = BC()
+        # fake input only to fit the shape
+        obj.facn = np.array([[10, 0, -1], [23, 1, -1]], dtype='int32')
+        self.assertEqual((2, BC.BFREL), obj.facn.shape)
+        self.assertEqual([10, 0, -1, 23, 1, -1], obj.facn.ravel().tolist())
+        # The second dimension must be BC.BFREL
+        with py3kcompat.assertRaisesRegex(
+            self, IndexError, "BoundaryData.facn second axis mismatch"
+        ):
+            obj.facn = np.array([[10, 0], [23, 1]], dtype='int32')
+
+    def test_value(self):
+        from ..boundcond import BC
+        obj = BC()
+        self.assertEqual((0, 0), obj.value.shape)
+        self.assertEqual(0, obj.value.size)
+
+    def test_value_set(self):
+        from ..boundcond import BC
+        obj = BC()
+        obj.value = np.array([[1, 2], [3, 4]], dtype='float64')
+        self.assertEqual((2, 2), obj.value.shape)
+        self.assertEqual([1, 2, 3, 4], obj.value.ravel().tolist())
 
     def test_certain_bct(self):
         from ..boundcond import bctregy

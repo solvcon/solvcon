@@ -87,8 +87,7 @@ private:
 
         py::object buffer = py::cast(tbl.buffer());
         py::array ret;
-        buffer.inc_ref();
-        if (PyArray_SetBaseObject((PyArrayObject *)tmp.ptr(), buffer.ptr()) == 0) {
+        if (PyArray_SetBaseObject((PyArrayObject *)tmp.ptr(), buffer.inc_ref().ptr()) == 0) {
             ret = tmp;
         }
         return ret;
@@ -198,6 +197,73 @@ PYBIND11_PLUGIN(march) {
             "_bodypart",
             [](LookupTableCore & tbl) { return make_array::body_from(tbl); },
             "Body-part array without setter.")
+    ;
+
+    py::class_< BoundaryData >(mod, "BoundaryData", "Data of a boundary condition.")
+        .def("__init__", [](BoundaryData *bnd) { new (bnd) BoundaryData(); })
+        .def("__init__", [](BoundaryData *bnd, index_type nvalue) { new (bnd) BoundaryData(nvalue); })
+        .def_property_readonly_static("BFREL", [](py::object /* self */) { return BoundaryData::BFREL; })
+        .def_property(
+            "facn",
+            [](BoundaryData & bnd) {
+                if (0 == bnd.facn().nbyte()) {
+                    npy_intp shape[2] = {0, BoundaryData::BFREL};
+                    return py::array(
+                        PyArray_NewFromDescr(
+                            &PyArray_Type, PyArray_DescrFromType(bnd.facn().datatypeid()), 2 /* nd */,
+                            shape, nullptr /* strides */, nullptr /* data */, 0 /* flags */, nullptr),
+                        false);
+                } else {
+                    return make_array::body_from(bnd.facn());
+                }
+            },
+            [](BoundaryData & bnd, py::array src) {
+                if (PyArray_NDIM((PyArrayObject *)src.ptr()) != 2) {
+                    throw py::index_error("BoundaryData.facn input array dimension isn't 2");
+                }
+                if (PyArray_DIMS((PyArrayObject *)src.ptr())[1] != BoundaryData::BFREL) {
+                    throw py::index_error("BoundaryData.facn second axis mismatch");
+                }
+                index_type nface = PyArray_DIMS((PyArrayObject *)src.ptr())[0];
+                if (nface != bnd.facn().nbody()) {
+                    bnd.facn() = std::remove_reference<decltype(bnd.facn())>::type(0, nface);
+                }
+                if (0 != bnd.facn().nbyte()) {
+                    PyArray_CopyInto((PyArrayObject *) make_array::body_from(bnd.facn()).ptr(), (PyArrayObject *) src.ptr());
+                }
+            },
+            "List of faces."
+        )
+        .def_property(
+            "values",
+            [](BoundaryData & bnd) {
+                if (0 == bnd.values().nbyte()) {
+                    npy_intp shape[2] = {0, bnd.nvalue()};
+                    return py::array(
+                        PyArray_NewFromDescr(
+                            &PyArray_Type, PyArray_DescrFromType(bnd.values().datatypeid()), 2 /* nd */,
+                            shape, nullptr /* strides */, nullptr /* data */, 0 /* flags */, nullptr),
+                        false);
+                } else {
+                    return make_array::body_from(bnd.values());
+                }
+            },
+            [](BoundaryData & bnd, py::array src) {
+                if (PyArray_NDIM((PyArrayObject *)src.ptr()) != 2) {
+                    throw py::index_error("BoundaryData.values input array dimension isn't 2");
+                }
+                index_type nface = PyArray_DIMS((PyArrayObject *)src.ptr())[0];
+                index_type nvalue = PyArray_DIMS((PyArrayObject *)src.ptr())[1];
+                if (nface != bnd.values().nbody() || nvalue != bnd.values().ncolumn()) {
+                    bnd.values() = std::remove_reference<decltype(bnd.values())>::type(0, nface, {nface, nvalue}, type_to<real_type>::id);
+                }
+                if (0 != bnd.values().nbyte()) {
+                    PyArray_CopyInto((PyArrayObject *) make_array::body_from(bnd.values()).ptr(), (PyArrayObject *) src.ptr());
+                }
+            },
+            "Attached (specified) value for each boundary face."
+        )
+        .def("good_shape", &BoundaryData::good_shape)
     ;
 
     return mod.ptr();
