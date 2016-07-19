@@ -54,13 +54,6 @@ public:
     Buffer & operator=(const Buffer &) = delete;
 
     Buffer & operator=(Buffer &&) = delete;
-    /*Buffer & operator=(Buffer && other) {
-        m_data = other.m_data;
-        m_data = nullptr;
-        m_length = other.m_length;
-        m_own_data = other.m_own_data;
-        return *this;
-    }*/
 
     explicit operator bool() const { return nullptr == m_data; }
 

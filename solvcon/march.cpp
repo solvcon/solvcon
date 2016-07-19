@@ -17,86 +17,91 @@ using namespace march;
 using namespace march::mesh;
 
 /**
- * Helper class to convert march::mesh::LookupTableCore to pybind11::array.
+ * Decorator of LookupTableCore to convert march::mesh::LookupTableCore to
+ * pybind11::array and help array operations.
  */
-class make_array {
+class Table {
 
-public:
+private:
 
     enum array_flavor { FULL = 0, GHOST = 1, BODY = 2 };
 
-    make_array(array_flavor flavor) : m_flavor(flavor) {}
+public:
 
-    make_array() = delete;
-    make_array(const make_array &) = delete;
-    make_array(make_array &&) = delete;
-    make_array & operator=(const make_array &) = delete;
-    make_array & operator=(make_array &&) = delete;
+    Table(LookupTableCore & table) : m_table(table) {}
 
-    static py::array full_from(LookupTableCore & tbl) {
-        static make_array worker(FULL);
-        return worker.from(tbl);
-    }
+    Table(const Table &) = delete;
 
-    static py::array ghost_from(LookupTableCore & tbl) {
-        static make_array worker(GHOST);
-        return worker.from(tbl);
-    }
+    Table(Table &&) = delete;
 
-    static py::array body_from(LookupTableCore & tbl) {
-        static make_array worker(BODY);
-        return worker.from(tbl);
+    Table & operator=(const Table &) = delete;
+
+    Table & operator=(Table &&) = delete;
+
+    py::array full() { return from(FULL); }
+
+    py::array ghost() { return from(GHOST); }
+
+    py::array body() { return from(BODY); }
+
+    static int NDIM(py::array arr) { return PyArray_NDIM((PyArrayObject *) arr.ptr()); }
+
+    static npy_intp * DIMS(py::array arr) { return PyArray_DIMS((PyArrayObject *) arr.ptr()); }
+
+    static char * BYTES(py::array arr) { return PyArray_BYTES((PyArrayObject *) arr.ptr()); }
+
+    static int CopyInto(py::array dst, py::array src) {
+        return PyArray_CopyInto((PyArrayObject *) dst.ptr(), (PyArrayObject *) src.ptr());
     }
 
 private:
 
     /**
-     * \param tbl The input LookupTableCore.
-     * \return    ndarray object as a view to the input table.
+     * \param flavor The requested type of array.
+     * \return       ndarray object as a view to the input table.
      */
-    py::array from(LookupTableCore & tbl) const {
-        npy_intp shape[tbl.ndim()];
-        std::copy(tbl.dims().begin(), tbl.dims().end(), shape);
+    py::array from(array_flavor flavor) {
+        npy_intp shape[m_table.ndim()];
+        std::copy(m_table.dims().begin(), m_table.dims().end(), shape);
 
-        npy_intp strides[tbl.ndim()];
-        strides[tbl.ndim()-1] = tbl.elsize();
-        for (ssize_t it = tbl.ndim()-2; it >= 0; --it) {
+        npy_intp strides[m_table.ndim()];
+        strides[m_table.ndim()-1] = m_table.elsize();
+        for (ssize_t it = m_table.ndim()-2; it >= 0; --it) {
             strides[it] = shape[it+1] * strides[it+1];
         }
 
         void * data = nullptr;
-        if        (FULL == m_flavor) {
-            data = tbl.data();
-        } else if (GHOST == m_flavor) {
-            shape[0] = tbl.nghost();
+        if        (FULL == flavor) {
+            data = m_table.data();
+        } else if (GHOST == flavor) {
+            shape[0] = m_table.nghost();
             strides[0] = -strides[0];
-            data = tbl.nghost() > 0 ? tbl.row(-1) : tbl.row(0);
-        } else if (BODY == m_flavor) {
-            shape[0] = tbl.nbody();
-            data = tbl.row(0);
+            data = m_table.nghost() > 0 ? m_table.row(-1) : m_table.row(0);
+        } else if (BODY == flavor) {
+            shape[0] = m_table.nbody();
+            data = m_table.row(0);
         } else {
             py::pybind11_fail("NumPy: invalid array type");
         }
 
         py::object tmp(
             PyArray_NewFromDescr(
-                &PyArray_Type, PyArray_DescrFromType(tbl.datatypeid()), tbl.ndim(),
+                &PyArray_Type, PyArray_DescrFromType(m_table.datatypeid()), m_table.ndim(),
                 shape, strides, data, NPY_ARRAY_WRITEABLE, nullptr),
             false);
         if (!tmp) { py::pybind11_fail("NumPy: unable to create array view"); }
 
-        py::object buffer = py::cast(tbl.buffer());
+        py::object buffer = py::cast(m_table.buffer());
         py::array ret;
-        buffer.inc_ref();
-        if (PyArray_SetBaseObject((PyArrayObject *)tmp.ptr(), buffer.ptr()) == 0) {
+        if (PyArray_SetBaseObject((PyArrayObject *)tmp.ptr(), buffer.inc_ref().ptr()) == 0) {
             ret = tmp;
         }
         return ret;
     }
 
-    array_flavor m_flavor;
+    LookupTableCore & m_table;
 
-}; /* end class make_array */
+};
 
 PYBIND11_DECLARE_HOLDER_TYPE(T, std::shared_ptr<T>);
 
@@ -144,10 +149,10 @@ PYBIND11_PLUGIN(march) {
             }
         })
         .def("__getattr__", [](LookupTableCore & tbl, py::object key) {
-            return py::object(make_array::full_from(tbl).attr(key));
+            return py::object(Table(tbl).full().attr(key));
         })
         .def_property_readonly("_nda", [](LookupTableCore & tbl) {
-            return make_array::full_from(tbl);
+            return Table(tbl).full();
         })
         .def_property_readonly("nghost", &LookupTableCore::nghost)
         .def_property_readonly("nbody", &LookupTableCore::nbody)
@@ -157,27 +162,21 @@ PYBIND11_PLUGIN(march) {
             "Element offset from the head of the ndarray to where the body starts.")
         .def_property_readonly(
             "_ghostaddr",
-            [](LookupTableCore & tbl) {
-                return (Py_intptr_t) PyArray_BYTES((PyArrayObject *) make_array::full_from(tbl).ptr());
-            })
+            [](LookupTableCore & tbl) { return (Py_intptr_t) Table::BYTES(Table(tbl).full()); })
         .def_property_readonly(
             "_bodyaddr",
-            [](LookupTableCore & tbl) {
-                return (Py_intptr_t) PyArray_BYTES((PyArrayObject *) make_array::body_from(tbl).ptr());
-            })
+            [](LookupTableCore & tbl) { return (Py_intptr_t) Table::BYTES(Table(tbl).body()); })
         .def_property(
             "F",
-            [](LookupTableCore & tbl) { return make_array::full_from(tbl); },
-            [](LookupTableCore & tbl, py::array src) {
-                PyArray_CopyInto((PyArrayObject *) make_array::full_from(tbl).ptr(), (PyArrayObject *) src.ptr());
-            },
+            [](LookupTableCore & tbl) { return Table(tbl).full(); },
+            [](LookupTableCore & tbl, py::array src) { Table::CopyInto(Table(tbl).full(), src); },
             "Full array.")
         .def_property(
             "G",
-            [](LookupTableCore & tbl) { return make_array::ghost_from(tbl); },
+            [](LookupTableCore & tbl) { return Table(tbl).ghost(); },
             [](LookupTableCore & tbl, py::array src) {
                 if (tbl.nghost()) {
-                    PyArray_CopyInto((PyArrayObject *) make_array::ghost_from(tbl).ptr(), (PyArrayObject *) src.ptr());
+                    Table::CopyInto(Table(tbl).ghost(), src);
                 } else {
                     throw py::index_error("ghost is zero");
                 }
@@ -185,19 +184,83 @@ PYBIND11_PLUGIN(march) {
             "Ghost-part array.")
         .def_property_readonly(
             "_ghostpart",
-            [](LookupTableCore & tbl) { return make_array::ghost_from(tbl); },
+            [](LookupTableCore & tbl) { return Table(tbl).ghost(); },
             "Ghost-part array without setter.")
         .def_property(
             "B",
-            [](LookupTableCore & tbl) { return make_array::body_from(tbl); },
-            [](LookupTableCore & tbl, py::array src) {
-                PyArray_CopyInto((PyArrayObject *) make_array::body_from(tbl).ptr(), (PyArrayObject *) src.ptr());
-            },
+            [](LookupTableCore & tbl) { return Table(tbl).body(); },
+            [](LookupTableCore & tbl, py::array src) { Table::CopyInto(Table(tbl).body(), src); },
             "Body-part array.")
         .def_property_readonly(
             "_bodypart",
-            [](LookupTableCore & tbl) { return make_array::body_from(tbl); },
+            [](LookupTableCore & tbl) { return Table(tbl).body(); },
             "Body-part array without setter.")
+    ;
+
+    py::class_< BoundaryData >(mod, "BoundaryData", "Data of a boundary condition.")
+        .def(py::init<index_type>())
+        .def_property_readonly_static("BFREL", [](py::object /* self */) { return BoundaryData::BFREL; })
+        .def_property(
+            "facn",
+            [](BoundaryData & bnd) {
+                if (0 == bnd.facn().nbyte()) {
+                    npy_intp shape[2] = {0, BoundaryData::BFREL};
+                    return py::array(
+                        PyArray_NewFromDescr(
+                            &PyArray_Type, PyArray_DescrFromType(bnd.facn().datatypeid()), 2 /* nd */,
+                            shape, nullptr /* strides */, nullptr /* data */, 0 /* flags */, nullptr),
+                        false);
+                } else {
+                    return Table(bnd.facn()).body();
+                }
+            },
+            [](BoundaryData & bnd, py::array src) {
+                if (Table::NDIM(src) != 2) {
+                    throw py::index_error("BoundaryData.facn input array dimension isn't 2");
+                }
+                if (Table::DIMS(src)[1] != BoundaryData::BFREL) {
+                    throw py::index_error("BoundaryData.facn second axis mismatch");
+                }
+                index_type nface = Table::DIMS(src)[0];
+                if (nface != bnd.facn().nbody()) {
+                    bnd.facn() = std::remove_reference<decltype(bnd.facn())>::type(0, nface);
+                }
+                if (0 != bnd.facn().nbyte()) {
+                    Table::CopyInto(Table(bnd.facn()).body(), src);
+                }
+            },
+            "List of faces."
+        )
+        .def_property(
+            "values",
+            [](BoundaryData & bnd) {
+                if (0 == bnd.values().nbyte()) {
+                    npy_intp shape[2] = {0, bnd.nvalue()};
+                    return py::array(
+                        PyArray_NewFromDescr(
+                            &PyArray_Type, PyArray_DescrFromType(bnd.values().datatypeid()), 2 /* nd */,
+                            shape, nullptr /* strides */, nullptr /* data */, 0 /* flags */, nullptr),
+                        false);
+                } else {
+                    return Table(bnd.values()).body();
+                }
+            },
+            [](BoundaryData & bnd, py::array src) {
+                if (Table::NDIM(src) != 2) {
+                    throw py::index_error("BoundaryData.values input array dimension isn't 2");
+                }
+                index_type nface = Table::DIMS(src)[0];
+                index_type nvalue = Table::DIMS(src)[1];
+                if (nface != bnd.values().nbody() || nvalue != bnd.values().ncolumn()) {
+                    bnd.values() = std::remove_reference<decltype(bnd.values())>::type(0, nface, {nface, nvalue}, type_to<real_type>::id);
+                }
+                if (0 != bnd.values().nbyte()) {
+                    Table::CopyInto(Table(bnd.values()).body(), src);
+                }
+            },
+            "Attached (specified) value for each boundary face."
+        )
+        .def("good_shape", &BoundaryData::good_shape)
     ;
 
     return mod.ptr();

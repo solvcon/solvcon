@@ -31,7 +31,7 @@ private:
     std::vector<index_type> m_dims;
     index_type m_nghost = 0;
     index_type m_nbody = 0;
-    index_type m_ncolumn = 1;
+    index_type m_ncolumn = 0;
     index_type m_elsize = 1; ///< Element size in bytes.
     DataTypeId m_datatypeid = MH_INT8;
 
@@ -70,7 +70,21 @@ public:
 
     LookupTableCore & operator=(const LookupTableCore &) = delete;
 
-    LookupTableCore & operator=(LookupTableCore &&) = delete;
+    LookupTableCore & operator=(LookupTableCore && other) {
+        m_buffer = other.m_buffer; other.m_buffer.reset();
+        m_dims.swap(other.m_dims);
+        m_nghost = other.m_nghost;
+        m_nbody = other.m_nbody;
+        m_ncolumn = other.m_ncolumn;
+        m_elsize = other.m_elsize;
+        // reset to initial state
+        other.m_nghost = 0;
+        other.m_nbody = 0;
+        other.m_ncolumn = 0;
+        other.m_elsize = 1;
+        m_datatypeid = other.m_datatypeid;
+        return *this;
+    }
 
     const std::vector<index_type> & dims() const { return m_dims; }
 

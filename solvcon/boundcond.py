@@ -45,6 +45,7 @@ from .py3kcompat import with_metaclass
 from . import dependency
 from .gendata import TypeNameRegistry, TypeWithBinder
 dependency.import_module_may_fail('.mesh')
+dependency.import_module_may_fail('.march')
 
 class Glue(object):
     """
@@ -185,10 +186,17 @@ class BCMeta(TypeWithBinder):
     """
     Meta class for boundary condition class.
     """
+
     def __new__(cls, name, bases, namespace):
         newcls = super(BCMeta, cls).__new__(cls, name, bases, namespace)
         bctregy.register(newcls)
         return newcls
+
+    @property
+    def BFREL(self):
+        """Boundary face relation number."""
+        return march.BoundaryData.BFREL
+
 
 # Base/abstract BC type.
 class BC(with_metaclass(BCMeta)):
@@ -198,9 +206,6 @@ class BC(with_metaclass(BCMeta)):
 
     FIXME: provide doctests as examples.
     """
-
-    #: Boundary face relation number.
-    BFREL = 3
 
     #: Holding names as pointers.  Used for binder.
     _pointers_ = []
@@ -247,14 +252,6 @@ class BC(with_metaclass(BCMeta)):
             #: Associated :py:class:`Glue` object gluing two collocated
             #: :py:class:`BC` objects.
             self.glue = None
-            #: An :py:class:`numpy.ndarray` as a list of faces.  First column
-            #: is the face index in block.  The second column is the face index
-            #: in bndfcs.  The third column is the face index of the related
-            #: block (if exists).
-            self.facn = empty((0,self.BFREL), dtype='int32')
-            #: An :py:class:`numpy.ndarray` for attached (specified) value for
-            #: each boundary face.
-            self.value = empty((0,self.nvalue), dtype=self.fpdtype)
         else:
             bc.cloneTo(self)
         super(BC, self).__init__()
@@ -274,6 +271,35 @@ class BC(with_metaclass(BCMeta)):
         FIXME: provide doctests.
         """
         return len(self.vnames)
+
+    @property
+    def _data(self):
+        if not hasattr(self, "_data_store"):
+            self._data_store = march.BoundaryData(self.nvalue)
+        return self._data_store
+
+    @property
+    def facn(self):
+        """
+        An :py:class:`numpy.ndarray` as a list of faces.  First column is the
+        face index in block.  The second column is the face index in bndfcs.
+        The third column is the face index of the related block (if exists).
+        """
+        return self._data.facn
+    @facn.setter
+    def facn(self, arr):
+        self._data.facn = arr
+
+    @property
+    def value(self):
+        """
+        An :py:class:`numpy.ndarray` for attached (specified) value for each
+        boundary face.
+        """
+        return self._data.values
+    @value.setter
+    def value(self, arr):
+        self._data.values = arr
 
     def __len__(self):
         """

@@ -6,5 +6,7 @@
  */
 
 #include "march/mesh/Block.hpp"
+#include "march/mesh/LookupTable.hpp"
+#include "march/mesh/BoundaryData.hpp"
 
 // vim: set ff=unix fenc=utf8 nobomb et sw=4 ts=4:
