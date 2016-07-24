@@ -43,17 +43,21 @@ public:
     }
 
     ~Buffer() {
-        delete[] m_data;
-        m_data = nullptr;
+        if (nullptr != m_data) {
+            delete[] m_data;
+            m_data = nullptr;
+        }
     }
 
-    Buffer(const Buffer &) = delete;
+    Buffer() = delete;
 
-    Buffer(Buffer &&) = delete;
+    Buffer(Buffer const & ) = delete;
 
-    Buffer & operator=(const Buffer &) = delete;
+    Buffer(Buffer       &&) = delete;
 
-    Buffer & operator=(Buffer &&) = delete;
+    Buffer & operator=(Buffer const & ) = delete;
+
+    Buffer & operator=(Buffer       &&) = delete;
 
     explicit operator bool() const { return nullptr == m_data; }
 

@@ -1,0 +1,513 @@
+#pragma once
+
+/*
+ * Copyright (c) 2016, Yung-Yu Chen <yyc@solvcon.net>
+ * BSD 3-Clause License, see COPYING
+ */
+
+#include <vector>
+#include <type_traits>
+#include <functional>
+#include <algorithm>
+#include <numeric>
+#include <tuple>
+
+#include "march/depend/scotch.hpp"
+
+#include "march/core/core.hpp"
+
+#include "march/mesh/LookupTable.hpp"
+#include "march/mesh/BoundaryData.hpp"
+
+namespace march
+{
+
+namespace mesh
+{
+
+/**
+ * SOLVCON legacy C interface for unstructured blocks.
+ */
+struct sc_mesh_t {
+    index_type ndim, nnode, nface, ncell, nbound, ngstnode, ngstface, ngstcell;
+    // geometry.
+    real_type *ndcrd;
+    real_type *fccnd;
+    real_type *fcnml;
+    real_type *fcara;
+    real_type *clcnd;
+    real_type *clvol;
+    // meta.
+    shape_type *fctpn;
+    shape_type *cltpn;
+    index_type *clgrp;
+    // connectivity.
+    index_type *fcnds;
+    index_type *fccls;
+    index_type *clnds;
+    index_type *clfcs;
+}; /* end struct sc_mesh_t */
+
+/**
+ * Unstructured mesh of mixed-type elements, optimized for reading.
+ */
+template< size_t NDIM >
+class UnstructuredBlock {
+
+public:
+
+    static constexpr index_type ELEM_DESCR[8 /* sentinel -> */ + 1][5] = {
+        // index, dim, node, edge, surface,      name
+        {      0,   0,    1,    0,       0 }, // node/point/vertex
+        {      1,   1,    2,    0,       0 }, // line/edge
+        {      2,   2,    4,    4,       0 }, // quadrilateral
+        {      3,   2,    3,    3,       0 }, // triangle
+        {      4,   3,    8,   12,       6 }, // hexahedron/brick
+        {      5,   3,    4,    6,       4 }, // tetrahedron
+        {      6,   3,    6,    9,       5 }, // prism/wedge
+        {      7,   3,    5,    8,       5 }, // pyramid
+        {     -1,  -1,   -1,   -1,      -1 }  // sentinel
+    };
+
+    /// Maximum number of nodes in a face.
+    static constexpr index_type MAX_FCNND = 4;
+    static constexpr index_type     FCMND = MAX_FCNND; // alias
+    /// Maximum number of nodes in a cell.
+    static constexpr index_type MAX_CLNND = 8;
+    static constexpr index_type     CLMND = MAX_CLNND; // alias
+    /// Maximum number of faces in a cell.
+    static constexpr index_type MAX_CLNFC = 6;
+    static constexpr index_type     CLMFC = MAX_CLNFC; // alias
+    static constexpr index_type     FCNCL = 4;
+    static constexpr index_type     FCREL = 4;
+    static constexpr index_type     BFREL = BoundaryData::BFREL;
+
+    static index_type calc_max_nface(const LookupTable<index_type, 0> & cltpn) {
+        index_type max_nfc = 0;
+        for (index_type it=0; it<cltpn.nbody(); ++it) {
+            const index_type (&elemline)[5] = ELEM_DESCR[cltpn[it]];
+            max_nfc += elemline[elemline[1]+1];
+        }
+        return max_nfc;
+    }
+
+/* data declaration */
+private:
+
+    // shape.
+    index_type m_nnode = 0; ///< Number of nodes (interior).
+    index_type m_nface = 0; ///< Number of faces (interior).
+    index_type m_ncell = 0; ///< Number of cells (interior).
+    index_type m_nbound = 0; ///< Number of boundary faces.
+    index_type m_ngstnode = 0; ///< Number of ghost nodes.
+    index_type m_ngstface = 0; ///< Number of ghost faces.
+    index_type m_ngstcell = 0; ///< Number of ghost cells.
+    // other block information.
+    bool m_use_incenter = false; ///< While true, m_clcnd uses in-center for simplices.
+    // geometry arrays.
+    LookupTable<real_type, NDIM> m_ndcrd; ///< Nodes' coordinates.
+    LookupTable<real_type, NDIM> m_fccnd; ///< Faces' centroids.
+    LookupTable<real_type, NDIM> m_fcnml; ///< Faces' unit normal vectors.
+    LookupTable<real_type,    0> m_fcara; ///< Faces' area.
+    LookupTable<real_type, NDIM> m_clcnd; ///< Cells's centers (centroids or in-centers).
+    LookupTable<real_type,    0> m_clvol; ///< Cells' volume.
+    // meta arrays.
+    LookupTable<shape_type, 0> m_fctpn; ///< Faces' type numbers.
+    LookupTable<shape_type, 0> m_cltpn; ///< Cells' type numbers.
+    LookupTable<index_type, 0> m_clgrp; ///< Cells' group numbers.
+    // connectivity arrays.
+    LookupTable<index_type, FCMND+1> m_fcnds; ///< Faces' nodes.
+    LookupTable<index_type, FCNCL  > m_fccls; ///< Faces' cells.
+    LookupTable<index_type, CLMND+1> m_clnds; ///< Cells' nodes.
+    LookupTable<index_type, CLMFC+1> m_clfcs; ///< Cells' faces.
+    // boundary information.
+    LookupTable<index_type, 2> m_bndfcs;
+    std::vector<BoundaryData> m_bndvec;
+
+/* end data declaration */
+
+/* constructors and desctructor */
+public:
+
+    UnstructuredBlock(
+        index_type nnode, index_type nface, index_type ncell, bool use_incenter
+    ): m_nnode(nnode), m_nface(nface), m_ncell(ncell), m_use_incenter(use_incenter)
+    {
+        static_assert(2 == NDIM || 3 == NDIM, "not 2 or 3 dimensional");
+        build_tables();
+    }
+
+    UnstructuredBlock(
+        index_type nnode, index_type nface, index_type ncell, index_type nbound
+      , index_type ngstnode, index_type ngstface, index_type ngstcell
+      , bool use_incenter
+    ): m_nnode(nnode), m_nface(nface), m_ncell(ncell), m_nbound(nbound)
+     , m_ngstnode(ngstnode), m_ngstface(ngstface), m_ngstcell(ngstcell)
+     , m_use_incenter(use_incenter)
+    {
+        static_assert(2 == NDIM || 3 == NDIM, "not 2 or 3 dimensional");
+        build_tables();
+    }
+
+    UnstructuredBlock() {}
+
+    UnstructuredBlock(const UnstructuredBlock &) = delete;
+
+    UnstructuredBlock(UnstructuredBlock &&) = delete;
+
+    UnstructuredBlock & operator=(const UnstructuredBlock &) = delete;
+
+    UnstructuredBlock & operator=(UnstructuredBlock && other) {
+        m_nnode = other.m_nnode;
+        m_nface = other.m_nface;
+        m_ncell = other.m_ncell;
+        m_nbound = other.m_nbound;
+        m_ngstnode = other.m_ngstnode;
+        m_ngstface = other.m_ngstface;
+        m_ngstcell = other.m_ngstcell;
+        m_use_incenter = other.m_use_incenter;
+        // reset to initial state
+        other.m_nnode = 0;
+        other.m_nface = 0;
+        other.m_ncell = 0;
+        other.m_nbound = 0;
+        other.m_ngstnode = 0;
+        other.m_ngstface = 0;
+        other.m_ngstcell = 0;
+        other.m_use_incenter = false;
+
+        m_ndcrd = std::move(other.m_ndcrd);
+        m_fccnd = std::move(other.m_fccnd);
+        m_fcnml = std::move(other.m_fcnml);
+        m_fcara = std::move(other.m_fcara);
+        m_clcnd = std::move(other.m_clcnd);
+        m_clvol = std::move(other.m_clvol);
+
+        m_fctpn = std::move(other.m_fctpn);
+        m_cltpn = std::move(other.m_cltpn);
+        m_clgrp = std::move(other.m_clgrp);
+
+        m_fcnds = std::move(other.m_fcnds);
+        m_fccls = std::move(other.m_fccls);
+        m_clnds = std::move(other.m_clnds);
+        m_clfcs = std::move(other.m_clfcs);
+
+        m_bndfcs = std::move(other.m_bndfcs);
+        m_bndvec = std::move(other.m_bndvec);
+
+        return *this;
+    }
+
+    ~UnstructuredBlock() { /* LookupTable destructor takes care of resource management */ }
+
+#undef MARCH_USTBLOCK_TABLE_DECL_SWAP
+
+/* end constructors and desctructor */
+
+/* block shape accessors */
+public:
+
+    index_type ndim() const { return NDIM; }
+
+#define MARCH_USTBLOCK_SHAPE_DECL_METHODS(NAME) \
+    \
+    index_type NAME() const { return m_##NAME; } \
+    \
+    void set_##NAME(index_type NAME##_in) { m_##NAME = NAME##_in; }
+    // end define MARCH_USTBLOCK_SHAPE_DECL_METHODS
+
+    MARCH_USTBLOCK_SHAPE_DECL_METHODS(nnode)
+    MARCH_USTBLOCK_SHAPE_DECL_METHODS(nface)
+    MARCH_USTBLOCK_SHAPE_DECL_METHODS(ncell)
+    MARCH_USTBLOCK_SHAPE_DECL_METHODS(nbound)
+    MARCH_USTBLOCK_SHAPE_DECL_METHODS(ngstnode)
+    MARCH_USTBLOCK_SHAPE_DECL_METHODS(ngstcell)
+    MARCH_USTBLOCK_SHAPE_DECL_METHODS(ngstface)
+
+#undef MARCH_USTBLOCK_SHAPE_DECL_METHODS
+
+/* end block shape accessors */
+
+/* other information */
+public:
+
+    bool use_incenter() const { return m_use_incenter; }
+    void set_use_incenter(bool use_incenter_in) { m_use_incenter = use_incenter_in; }
+/* end other information */
+
+/* table methods */
+public:
+
+#define MARCH_USTBLOCK_TABLE_DECL_METHODS(NAME, ELEMTYPE, NDIM) \
+    \
+public: \
+    \
+    LookupTable<ELEMTYPE, NDIM> const & NAME() const { return m_##NAME; } \
+    \
+    LookupTable<ELEMTYPE, NDIM>       & NAME()       { return m_##NAME; } \
+    \
+private: \
+    \
+    LookupTable<ELEMTYPE, NDIM> & create_##NAME( \
+        index_type nghost, index_type nbody \
+    ) { \
+        m_##NAME = LookupTable<ELEMTYPE, NDIM>(nghost, nbody); \
+        return m_##NAME; \
+    }
+    // end define MARCH_USTBLOCK_TABLE_DECL_METHODS
+
+    // geometry array accessors.
+    MARCH_USTBLOCK_TABLE_DECL_METHODS(ndcrd, real_type, NDIM)
+    MARCH_USTBLOCK_TABLE_DECL_METHODS(fccnd, real_type, NDIM)
+    MARCH_USTBLOCK_TABLE_DECL_METHODS(fcnml, real_type, NDIM)
+    MARCH_USTBLOCK_TABLE_DECL_METHODS(fcara, real_type,    0)
+    MARCH_USTBLOCK_TABLE_DECL_METHODS(clcnd, real_type, NDIM)
+    MARCH_USTBLOCK_TABLE_DECL_METHODS(clvol, real_type,    0)
+    // meta array accessors.
+    MARCH_USTBLOCK_TABLE_DECL_METHODS(fctpn, shape_type, 0)
+    MARCH_USTBLOCK_TABLE_DECL_METHODS(cltpn, shape_type, 0)
+    MARCH_USTBLOCK_TABLE_DECL_METHODS(clgrp, shape_type, 0)
+    // connectivity array accessors.
+    MARCH_USTBLOCK_TABLE_DECL_METHODS(fcnds, index_type, FCMND+1)
+    MARCH_USTBLOCK_TABLE_DECL_METHODS(fccls, index_type, FCNCL  )
+    MARCH_USTBLOCK_TABLE_DECL_METHODS(clnds, index_type, CLMND+1)
+    MARCH_USTBLOCK_TABLE_DECL_METHODS(clfcs, index_type, CLMFC+1)
+    // boundary information.
+    MARCH_USTBLOCK_TABLE_DECL_METHODS(bndfcs, index_type, 2)
+
+#undef MARCH_USTBLOCK_TABLE_DECL_METHODS
+
+/* end table methods */
+
+public:
+
+    std::vector<BoundaryData> const & bndvec() const { return m_bndvec; }
+    std::vector<BoundaryData>       & bndvec()       { return m_bndvec; }
+
+    /**
+     * Get the "self" cell number of the input face by index.  A shorthand of
+     * fccls()[ifc][0] .
+     *
+     * \param[in] ifc index of the face of interest.
+     * \return        index of the cell.
+     */
+    index_type fcicl(index_type ifc) const { return fccls()[ifc][0]; }
+
+    /**
+     * Get the "related" cell number of the input face by index.  A shorthand
+     * of fccls()[ifc][1] .
+     *
+     * \param[in] ifc index of the face of interest.
+     * \return        index of the cell.
+     */
+    index_type fcjcl(index_type ifc) const { return fccls()[ifc][1]; }
+
+/* data_processors */
+public:
+
+    void build_tables() {
+        // geometry arrays.
+        create_ndcrd(ngstnode(), nnode());
+        create_fccnd(ngstface(), nface());
+        create_fcnml(ngstface(), nface());
+        create_fcara(ngstface(), nface());
+        create_clcnd(ngstcell(), ncell());
+        create_clvol(ngstcell(), ncell());
+        // meta arrays.
+        create_fctpn(ngstface(), nface());
+        create_cltpn(ngstcell(), ncell());
+        create_clgrp(ngstcell(), ncell());
+        clgrp().fill(-1);
+        // connectivity arrays.
+        create_fcnds(ngstface(), nface());
+        create_fccls(ngstface(), nface());
+        create_clnds(ngstcell(), ncell());
+        create_clfcs(ngstcell(), ncell());
+        fcnds().fill(-1);
+        fccls().fill(-1);
+        clnds().fill(-1);
+        clfcs().fill(-1);
+        // boundary information.
+        create_bndfcs(0, nbound());
+    }
+
+    void calc_metric();
+
+    void build_interior() {
+        build_faces_from_cells();
+        calc_metric();
+    }
+
+    void build_boundary();
+
+    void build_ghost() {
+        std::tie(m_ngstnode, m_ngstface, m_ngstcell) = count_ghost();
+
+        // geometry arrays.
+        m_ndcrd.resize(ngstnode(), nnode());
+        m_fccnd.resize(ngstface(), nface());
+        m_fcnml.resize(ngstface(), nface());
+        m_fcara.resize(ngstface(), nface());
+        m_clcnd.resize(ngstcell(), ncell());
+        m_clvol.resize(ngstcell(), ncell());
+        // meta arrays.
+        m_fctpn.resize(ngstface(), nface());
+        m_cltpn.resize(ngstcell(), ncell());
+        m_clgrp.resize(ngstcell(), ncell(), -1);
+        // connectivity arrays.
+        m_fcnds.resize(ngstface(), nface(), -1);
+        m_fccls.resize(ngstface(), nface(), -1);
+        m_clnds.resize(ngstcell(), ncell(), -1);
+        m_clfcs.resize(ngstcell(), ncell(), -1);
+
+        fill_ghost();
+    }
+
+    std::tuple<march::depend::scotch::num_type, LookupTable<index_type, 0>>
+    partition(index_type npart) const;
+
+/* end data_processors */
+
+/* utility */
+private:
+
+    void build_faces_from_cells();
+
+    index_type calc_max_nface() const;
+
+    std::tuple<index_type, index_type, index_type> count_ghost() const {
+        std::vector<index_type> bcls(nbound());
+        index_type ngstface = 0;
+        index_type ngstnode = 0;
+        for (index_type ibfc=0; ibfc<nbound(); ++ibfc) {
+            const index_type ifc = bndfcs()[ibfc][0];
+            const index_type icl = fccls()[ifc][0];
+            const 
+            index_type dim = ELEM_DESCR[cltpn()[icl]][1];
+            index_type nfc = ELEM_DESCR[cltpn()[icl]][1+dim];
+            ngstface += nfc-1;
+            ngstnode += clnds()[icl][0] - fcnds()[ifc][0];
+        }
+        return std::make_tuple(ngstnode, ngstface, nbound());
+    }
+
+    void fill_ghost(/* sc_mesh_t *msd, int *bndfcs */);
+
+    void build_rcells(LookupTable<index_type, CLMFC> & rcells, LookupTable<index_type, 0> & rcellno) const;
+
+    void build_csr(const LookupTable<index_type, CLMFC> & rcells, LookupTable<index_type, 0> & adjncy) const;
+
+/* end utility */
+
+}; /* end class UnstructuredBlock */
+
+template< size_t NDIM >
+constexpr index_type UnstructuredBlock<NDIM>::ELEM_DESCR[8+1][5];
+
+template< size_t NDIM >
+void UnstructuredBlock<NDIM>::build_boundary() {
+    assert(0 == m_nbound); // nothing should touch m_nbound beforehand.
+    m_nbound = std::count_if(
+        &fccls()[0], &fccls()[fccls().nbody()],
+        [](const typename decltype(m_fccls)::row_type & row) { return row[1] < 0; });
+    m_bndfcs = LookupTable<index_type, 2>(0, m_nbound);
+
+    std::vector<index_type> allfacn(m_nbound);
+    index_type ait = 0;
+    for (index_type ifc=0; ifc<nface(); ++ifc) {
+        if (fcjcl(ifc) < 0) { allfacn.at(ait) = ifc; ++ait; }
+    }
+
+    std::vector<bool> specified(m_nbound, false);
+    index_type ibfc = 0;
+    index_type nleft = m_nbound;
+    for (index_type ibnd=0; ibnd<m_bndvec.size(); ++ibnd) {
+        BoundaryData & bnd = m_bndvec[ibnd];
+        auto & bfacn = bnd.facn();
+        for (index_type bfit=0; bfit<bfacn.nbody(); ++bfit) {
+            m_bndfcs.set_at(ibfc, bfacn[bfit][0], ibnd);
+            bfacn[bfit][1] = ibfc;
+            auto found = std::find(allfacn.begin(), allfacn.end(), bfacn[bfit][0]);
+            if (allfacn.end() != found) {
+                specified.at(found - allfacn.begin()) = true;
+                --nleft;
+            }
+            ++ibfc;
+        }
+    }
+    assert(nleft >= 0);
+
+    if (nleft != 0) {
+        BoundaryData bnd(0);
+        bnd.facn() = LookupTable<index_type, BoundaryData::BFREL>(0, nleft);
+        bnd.values() = LookupTableCore(0, nleft, {nleft, 0}, type_to<real_type>::id);
+        auto & bfacn = bnd.facn();
+        index_type bfit = 0;
+        index_type ibnd = m_bndvec.size();
+        for (index_type sit=0; sit<m_nbound; ++sit) { // Specified ITerator.
+            if (!specified[sit]) {
+                m_bndfcs.set_at(ibfc, allfacn[sit], ibnd);
+                bfacn[bfit][0] = allfacn[sit];
+                bfacn[bfit][1] = ibfc;
+                ++ibfc;
+                ++bfit;
+            }
+        }
+        m_bndvec.push_back(std::move(bnd));
+        assert(m_bndvec.size() == ibnd+1);
+    }
+    assert(ibfc == m_nbound);
+}
+
+template< size_t NDIM >
+std::tuple<march::depend::scotch::num_type, LookupTable<index_type, 0>>
+UnstructuredBlock<NDIM>::partition(index_type npart) const {
+    using num_type = march::depend::scotch::num_type;
+
+    LookupTable<index_type, CLMFC> rcells(0, ncell());
+    LookupTable<index_type, 0> rcellno(0, ncell());
+    build_rcells(rcells, rcellno);
+
+    LookupTable<index_type, 0> xadj(0, ncell()+1);
+    xadj[0] = 0;
+    for (index_type it=1; it<xadj.nbody(); ++it) {
+        xadj[it] = rcellno[it-1] + xadj[it-1];
+    }
+
+    index_type nitem = std::accumulate(rcellno.data(), rcellno.data()+rcellno.nelem(), (index_type)0);
+    LookupTable<index_type, 0> adjncy(0, nitem);
+    build_csr(rcells, adjncy);
+
+    static_assert(sizeof(index_type) == sizeof(num_type), "index_type differs from num_type");
+    num_type nedge = ncell();
+    num_type vwgt = 0;
+    num_type adjwgt = 0;
+    num_type wgtflag = 0;
+    num_type numflag = 0;
+    num_type options[5] = {0, 0, 0, 0, 0};
+    num_type edgecut = 0;
+    LookupTable<index_type, 0> part(0, ncell());
+
+    METIS_PartGraphKway(
+        &nedge,
+        xadj.data(),
+        adjncy.data(),
+        &vwgt,
+        &adjwgt,
+        &wgtflag,
+        &numflag,
+        &npart,
+        options,
+        // output.
+        &edgecut,
+        part.data()
+    );
+
+    return std::make_tuple(edgecut, part);
+}
+
+} /* end namespace mesh */
+
+} /* end namespace march */
+
+// vim: set ff=unix fenc=utf8 nobomb et sw=4 ts=4:

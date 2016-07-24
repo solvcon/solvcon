@@ -65,26 +65,30 @@ public:
         m_buffer = Buffer::construct((nghost+nbody) * m_ncolumn * m_elsize);
     }
 
-    LookupTableCore(const LookupTableCore &) = delete;
+    LookupTableCore(LookupTableCore const &  other)
+        : m_buffer(other.m_buffer), m_dims(other.m_dims)
+        , m_nghost(other.m_nghost), m_nbody(other.m_nbody), m_ncolumn(other.m_ncolumn)
+        , m_elsize(other.m_elsize), m_datatypeid(other.m_datatypeid)
+    {}
 
-    LookupTableCore(LookupTableCore &&) = delete;
+    LookupTableCore(LookupTableCore       && other)
+        : m_buffer(other.m_buffer), m_dims(other.m_dims)
+        , m_nghost(other.m_nghost), m_nbody(other.m_nbody), m_ncolumn(other.m_ncolumn)
+        , m_elsize(other.m_elsize), m_datatypeid(other.m_datatypeid)
+    { other.m_buffer = Buffer::construct(); }
 
-    LookupTableCore & operator=(const LookupTableCore &) = delete;
+    LookupTableCore & operator=(LookupTableCore const &  other) {
+        if (this != &other) {
+            assign(*this, other);
+        }
+        return *this;
+    }
 
-    LookupTableCore & operator=(LookupTableCore && other) {
-        if (this == &other) { return *this; }
-        m_buffer = other.m_buffer; other.m_buffer = Buffer::construct();
-        m_dims.swap(other.m_dims);
-        m_nghost = other.m_nghost;
-        m_nbody = other.m_nbody;
-        m_ncolumn = other.m_ncolumn;
-        m_elsize = other.m_elsize;
-        // reset to initial state
-        other.m_nghost = 0;
-        other.m_nbody = 0;
-        other.m_ncolumn = 0;
-        other.m_elsize = 1;
-        m_datatypeid = other.m_datatypeid;
+    LookupTableCore & operator=(LookupTableCore       && other) {
+        if (this != &other) {
+            assign(*this, other);
+            reset(other);
+        }
         return *this;
     }
 
@@ -108,15 +112,10 @@ public:
 
     size_t nbyte() const { return buffer()->nbyte(); }
 
-    void resize(index_type nghost, index_type nbody) {
-        std::vector<index_type> dims(m_dims);
-        dims[0] = nghost + nbody;
-        LookupTableCore newtable(nghost, nbody, dims, m_datatypeid);
-        auto nstart = std::min(newtable.nghost(), this->nghost());
-        auto nstop  = std::min(newtable.nbody (), this->nbody ());
-        std::copy_n(row(-nstart), (nstart+nstop)*ncolumn()*elsize(), newtable.row(-nstart));
-        *this = std::move(newtable);
-    }
+    void resize(index_type nghost, index_type nbody                   ) { *this = Resizer(*this)(nghost, nbody         ); }
+
+    template< class ValueType >
+    void resize(index_type nghost, index_type nbody, ValueType initial) { *this = Resizer(*this)(nghost, nbody, initial); }
 
     /**
      * Pointer at the beginning of the row.
@@ -171,6 +170,70 @@ private:
         if (elsize < 0) { throw std::invalid_argument("negative elsize"); }
         return ncolumn;
     }
+
+    /**
+     * Assign member data from src to dst.
+     */
+    static void assign(LookupTableCore & dst, const LookupTableCore & src) {
+        dst.m_buffer     = src.m_buffer;
+        dst.m_dims       = src.m_dims;
+        dst.m_nghost     = src.m_nghost;
+        dst.m_nbody      = src.m_nbody;
+        dst.m_ncolumn    = src.m_ncolumn;
+        dst.m_elsize     = src.m_elsize;
+        dst.m_datatypeid = src.m_datatypeid;
+    }
+
+    /**
+     * Reset member data to the default value.
+     */
+    static void reset(LookupTableCore & dst) {
+        dst.m_buffer     = Buffer::construct();
+        dst.m_dims.clear();
+        dst.m_nghost     = 0;
+        dst.m_nbody      = 0;
+        dst.m_ncolumn    = 0;
+        dst.m_elsize     = 1;
+        dst.m_datatypeid = MH_INT8;
+    }
+
+    /**
+     * Help resize a LookupTableCore.
+     */
+    class Resizer {
+    public:
+        Resizer(LookupTableCore & table) : m_table(table) {}
+        LookupTableCore operator()(index_type nghost, index_type nbody) {
+            LookupTableCore newtable = new_table(m_table, nghost, nbody);
+            copy(newtable, m_table);
+            return newtable;
+        }
+        template< class ValueType >
+        LookupTableCore operator()(index_type nghost, index_type nbody, ValueType initial) {
+            LookupTableCore newtable = new_table(m_table, nghost, nbody);
+            fill(newtable, initial);
+            copy(newtable, m_table);
+            return newtable;
+        }
+    private:
+        static LookupTableCore new_table(LookupTableCore const & src, index_type nghost, index_type nbody) {
+            std::vector<index_type> dims(src.m_dims);
+            dims[0] = nghost + nbody;
+            return LookupTableCore(nghost, nbody, dims, src.m_datatypeid);
+        }
+        template< class ValueType >
+        static void fill(LookupTableCore & dst, ValueType initial) {
+            assert(sizeof(ValueType) == dst.elsize());
+            std::fill_n(reinterpret_cast<ValueType *>(dst.data()), dst.nelem(), initial);
+        }
+        static void copy(LookupTableCore & dst, const LookupTableCore & src) {
+            auto   nstart = std::min(dst.nghost(), src.nghost());
+            auto   nstop  = std::min(dst.nbody (), src.nbody ());
+            size_t nbyte  = (nstart+nstop) * src.ncolumn() * src.elsize();
+            std::copy_n(src.row(-nstart), nbyte, dst.row(-nstart));
+        }
+        LookupTableCore const & m_table;
+    }; /* end class Resizer */
 
 }; /* end class LookupTableCore */
 
@@ -295,6 +358,69 @@ public:
     template < typename ... ArgTypes >
     void fill(ArgTypes ... args) {
         for (index_type it = -nghost(); it<nbody(); ++it) { set(it, args...); }
+    }
+
+    void fill(elem_type value) { std::fill(data(), data()+nelem(), value); }
+
+private:
+
+    void check_range(index_type loc) const {
+        if (loc < -nghost() || loc >= nbody()) {
+            throw std::out_of_range("LookupTable location out of range");
+        }
+    }
+
+}; /* end class LookupTable */
+
+/**
+ * One-dimensional, typed unresizeable lookup table.
+ */
+template< 
+    typename ElemType
+>
+class LookupTable<ElemType, 0>: public LookupTableCore
+{
+
+public:
+
+    using elem_type = ElemType;
+
+    typedef elem_type (&row_type);
+    typedef const elem_type (&const_row_type);
+
+    LookupTable() {}
+
+    LookupTable(index_type nghost, index_type nbody)
+        : LookupTableCore(nghost, nbody, std::vector<index_type>({nghost+nbody}), type_to<ElemType>::id)
+    {}
+
+    row_type operator[](index_type loc) {
+        return *reinterpret_cast<elem_type *>(row(loc));
+    }
+
+    const_row_type operator[](index_type loc) const {
+        return *reinterpret_cast<const elem_type *>(row(loc));
+    }
+
+    row_type at(index_type loc) {
+        check_range(loc); return (*this)[loc];
+    }
+
+    const_row_type at(index_type loc) const {
+        check_range(loc); return (*this)[loc];
+    }
+
+    /** Backdoor */
+    elem_type * data() const { return buffer()->template data<elem_type>(); }
+
+public:
+
+    void set(index_type loc, const elem_type & row_in) {
+        (*this)[loc] = row_in;
+    }
+
+    void set_at(index_type loc, const elem_type & row_in) {
+        this->at(loc) = row_in;
     }
 
     void fill(elem_type value) { std::fill(data(), data()+nelem(), value); }

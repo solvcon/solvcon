@@ -135,6 +135,8 @@ class BlockFormat(with_metaclass(BlockFormatMeta, Format)):
         kw = {'fpdtype': fpdtype}
         if 'use_incenter' in meta and meta['use_incenter'] is not None:
             kw['use_incenter'] = meta.use_incenter
+        if 'ndim' in meta and meta['ndim'] is not None:
+            kw['ndim'] = meta.ndim
         blk = Block(**kw)
         blk.blkn = meta.blkn
         # load group and BC list.
@@ -306,6 +308,13 @@ class BlockFormat(with_metaclass(BlockFormatMeta, Format)):
         @return: nothing.
         """
         fpdtype = blk.fpdtype
+        blk.nnode = meta.nnode
+        blk.nface = meta.nface
+        blk.ncell = meta.ncell
+        blk.nbound = meta.nbound
+        blk.ngstnode = meta.ngstnode
+        blk.ngstface = meta.ngstface
+        blk.ngstcell = meta.ngstcell
         blk.tbndcrd = cls._read_table(
             meta.compressor, stream, fpdtype,
             meta.ngstnode, meta.nnode, meta.ndim)

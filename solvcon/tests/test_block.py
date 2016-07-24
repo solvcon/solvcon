@@ -5,58 +5,17 @@
 from __future__ import absolute_import, division, print_function
 
 
+import unittest
 from unittest import TestCase
 
 import numpy as np
 
 from .. import py3kcompat
+from .. import dependency
+dependency.import_module_may_fail('..march')
+from .. import block
+from ..py3kcompat import pickle
 from ..testing import get_blk_from_oblique_neu, get_blk_from_sample_neu
-
-class TestTableDescriptor(TestCase):
-    def test_contents(self):
-        from ..block import Block
-        blk = Block()
-        self.assertEqual(list(sorted(blk.TABLE_NAMES)),
-                         list(sorted(blk._tables.keys())))
-        self.assertEqual(list(sorted(blk.TABLE_NAMES)),
-                         list(sorted(blk._shared_arrays.keys())))
-        self.assertEqual(list(sorted(blk.TABLE_NAMES)),
-                         list(sorted(blk._body_arrays.keys())))
-        self.assertEqual(list(sorted(blk.TABLE_NAMES)),
-                         list(sorted(blk._ghost_arrays.keys())))
-
-    def test_type(self):
-        from ..block import Block
-        blk = Block()
-        for tname in blk.TABLE_NAMES:
-            name = tname
-            # It shall pass, although causes sanity check failure.
-            oldarr = getattr(blk, name)
-            setattr(blk, name, np.empty_like(oldarr))
-            with py3kcompat.assertRaisesRegex(
-                self, AttributeError, '%s array mismatch: body'%name):
-                blk.check_sanity()
-            setattr(blk, name, oldarr) # Put it back for the next test in loop.
-            # It shall not be set to a incorrect type.
-            for wrong_typed in (None, 'string', 1, 3.5, list(oldarr)):
-                with py3kcompat.assertRaisesRegex(
-                    self, TypeError, 'only Table and ndarray are acceptable'):
-                    setattr(blk, name, wrong_typed)
-
-    def test_unacceptable_name(self):
-        from .. import block
-        from ..block import Block
-        class MyBlock(Block):
-            invalid = block._TableDescriptor('invalid', '', '_invalid_arrays')
-        blk = MyBlock()
-        # Make sure the collector dict for the "invalid" item is absent.
-        self.assertFalse(hasattr(MyBlock, '_invalid_arrays'))
-        # The "invalid" descriptor shouldn't work.
-        with py3kcompat.assertRaisesRegex(
-            self, AttributeError, '"invalid" is not in Block.TABLE_NAME'):
-            blk.invalid = np.empty(10)
-        # No collector is created.
-        self.assertFalse(hasattr(MyBlock, '_invalid_arrays'))
 
 class TestCreation(TestCase):
     def test_table_names(self):
@@ -108,12 +67,9 @@ class TestCreation(TestCase):
 
     def test_MAX(self):
         from .. import block
-        self.assertEqual(block.MAX_FCNND, 4)
-        self.assertEqual(block.MAX_CLNND, 8)
-        self.assertEqual(block.MAX_CLNFC, 6)
-        self.assertEqual(block.Block.FCMND, 4)
-        self.assertEqual(block.Block.CLMND, 8)
-        self.assertEqual(block.Block.CLMFC, 6)
+        self.assertEqual(block.UnstructuredBlock.FCMND, 4)
+        self.assertEqual(block.UnstructuredBlock.CLMND, 8)
+        self.assertEqual(block.UnstructuredBlock.CLMFC, 6)
 
     def test_metric(self):
         from ..block import Block
@@ -128,6 +84,7 @@ class TestCreation(TestCase):
         blk.clnds[1,:4] = (3, 0,2,3)
         blk.clnds[2,:4] = (3, 0,3,1)
         blk.build_interior()
+        self.assertEqual(blk.nface, 6)
         # test for volume (actually area in 2D).
         self.assertEqual(blk.clvol[0], 1)
         self.assertEqual(blk.clvol[1], .5)
@@ -140,26 +97,6 @@ class TestCreation(TestCase):
         self.assertEqual(blk.clvol[1], .5)
         self.assertEqual(blk.clvol[2], .5)
         self.assertEqual(blk.clvol.sum(), 2)
-
-    def test_insanity(self):
-        from ..block import Block
-        # build a simple 2D triangle with 4 subtriangles.
-        blk = Block(ndim=2, nnode=4, nface=6, ncell=3, nbound=3)
-        blk.ndcrd[0,:] = (0,0)
-        blk.ndcrd[1,:] = (-1,-1)
-        blk.ndcrd[2,:] = (1,-1)
-        blk.ndcrd[3,:] = (0,1)
-        blk.cltpn[:] = 3
-        blk.clnds[0,:4] = (3, 0,1,2)
-        blk.clnds[1,:4] = (3, 0,2,3)
-        blk.clnds[2,:4] = (3, 0,3,1)
-        blk.build_interior()
-        # reset an array
-        blk.check_sanity()
-        blk.ndcrd = blk.ndcrd.copy()
-        with py3kcompat.assertRaisesRegex(self, AttributeError,
-                                          "ndcrd array mismatch: body"):
-            blk.check_sanity()
 
 class GroupTest(TestCase):
     __test__ = False
@@ -499,3 +436,174 @@ class TestMeshData(TestCase):
     def test_simpex(self):
         self.assertTrue(self.oblique.check_simplex())
         self.assertFalse(self.sample.check_simplex())
+
+class PickleTC(TestCase):
+
+    def setUp(self):
+        self.blk = get_blk_from_oblique_neu()
+
+    def _check_shape(self, newblk, blk):
+        # shape.
+        self.assertEqual(newblk.ndim, blk.ndim)
+        self.assertEqual(newblk.nnode, blk.nnode)
+        self.assertEqual(newblk.nface, blk.nface)
+        self.assertEqual(newblk.ncell, blk.ncell)
+        self.assertEqual(newblk.nbound, blk.nbound)
+        self.assertEqual(newblk.ngstnode, blk.ngstnode)
+        self.assertEqual(newblk.ngstface, blk.ngstface)
+        self.assertEqual(newblk.ngstcell, blk.ngstcell)
+        # serial number.
+        self.assertEqual(newblk.blkn, blk.blkn)
+
+    def _check_group(self, newblk, blk):
+        # group names.
+        self.assertEqual(len(newblk.grpnames), len(blk.grpnames))
+        for igrp in range(len(blk.grpnames)):
+            self.assertEqual(newblk.grpnames[igrp], blk.grpnames[igrp])
+
+    def _check_bc(self, newblk, blk):
+        from ..boundcond import interface
+        self.assertTrue((newblk.bndfcs == blk.bndfcs).all())
+        self.assertEqual(len(newblk.bclist), len(blk.bclist))
+        for ibc in range(len(newblk.bclist)):
+            newbc = newblk.bclist[ibc]
+            bc = blk.bclist[ibc]
+            self.assertFalse(isinstance(newbc, interface))
+            self.assertFalse(isinstance(bc, interface))
+            # meta data.
+            self.assertEqual(newbc.sern, bc.sern)
+            self.assertEqual(newbc.name, bc.name)
+            self.assertNotEqual(newbc.blk, bc.blk)
+            self.assertEqual(newbc.blkn, bc.blkn)
+            self.assertTrue(newbc.svr == None)
+            # faces.
+            self.assertTrue((newbc.facn[:,:2] == bc.facn[:,:2]).all())
+            # values.
+            self.assertEqual(newbc.value.shape[1], bc.value.shape[1])
+            if newbc.value.shape[1] > 0:
+                self.assertTrue((newbc.value == bc.value).all())
+
+    def _check_array_shape(self, newblk, blk):
+        self.assertEqual(newblk.bndfcs.shape, blk.bndfcs.shape)
+        # metrics.
+        self.assertEqual(newblk.ndcrd.shape, blk.ndcrd.shape)
+        self.assertEqual(newblk.fccnd.shape, blk.fccnd.shape)
+        self.assertEqual(newblk.fcnml.shape, blk.fcnml.shape)
+        self.assertEqual(newblk.fcara.shape, blk.fcara.shape)
+        self.assertEqual(newblk.clcnd.shape, blk.clcnd.shape)
+        self.assertEqual(newblk.clvol.shape, blk.clvol.shape)
+        # type.
+        self.assertEqual(newblk.fctpn.shape, blk.fctpn.shape)
+        self.assertEqual(newblk.cltpn.shape, blk.cltpn.shape)
+        self.assertEqual(newblk.clgrp.shape, blk.clgrp.shape)
+        # connectivity.
+        self.assertEqual(newblk.fcnds.shape, blk.fcnds.shape)
+        self.assertEqual(newblk.fccls.shape, blk.fccls.shape)
+        self.assertEqual(newblk.clnds.shape, blk.clnds.shape)
+        self.assertEqual(newblk.clfcs.shape, blk.clfcs.shape)
+        # ghost metrics.
+        self.assertEqual(newblk.gstndcrd.shape, blk.gstndcrd.shape)
+        self.assertEqual(newblk.gstfccnd.shape, blk.gstfccnd.shape)
+        self.assertEqual(newblk.gstfcnml.shape, blk.gstfcnml.shape)
+        self.assertEqual(newblk.gstfcara.shape, blk.gstfcara.shape)
+        self.assertEqual(newblk.gstclcnd.shape, blk.gstclcnd.shape)
+        self.assertEqual(newblk.gstclvol.shape, blk.gstclvol.shape)
+        # ghost type.
+        self.assertEqual(newblk.gstfctpn.shape, blk.gstfctpn.shape)
+        self.assertEqual(newblk.gstcltpn.shape, blk.gstcltpn.shape)
+        self.assertEqual(newblk.gstclgrp.shape, blk.gstclgrp.shape)
+        # ghost connectivity.
+        self.assertEqual(newblk.gstfcnds.shape, blk.gstfcnds.shape)
+        self.assertEqual(newblk.gstfccls.shape, blk.gstfccls.shape)
+        self.assertEqual(newblk.gstclnds.shape, blk.gstclnds.shape)
+        self.assertEqual(newblk.gstclfcs.shape, blk.gstclfcs.shape)
+        # shared metrics.
+        self.assertEqual(newblk.shndcrd.shape, blk.shndcrd.shape)
+        self.assertEqual(newblk.shfccnd.shape, blk.shfccnd.shape)
+        self.assertEqual(newblk.shfcnml.shape, blk.shfcnml.shape)
+        self.assertEqual(newblk.shfcara.shape, blk.shfcara.shape)
+        self.assertEqual(newblk.shclcnd.shape, blk.shclcnd.shape)
+        self.assertEqual(newblk.shclvol.shape, blk.shclvol.shape)
+        # shared type.
+        self.assertEqual(newblk.shfctpn.shape, blk.shfctpn.shape)
+        self.assertEqual(newblk.shcltpn.shape, blk.shcltpn.shape)
+        self.assertEqual(newblk.shclgrp.shape, blk.shclgrp.shape)
+        # shared connectivity.
+        self.assertEqual(newblk.shfcnds.shape, blk.shfcnds.shape)
+        self.assertEqual(newblk.shfccls.shape, blk.shfccls.shape)
+        self.assertEqual(newblk.shclnds.shape, blk.shclnds.shape)
+        self.assertEqual(newblk.shclfcs.shape, blk.shclfcs.shape)
+
+    def _check_array_content(self, newblk, blk):
+        self.assertTrue((newblk.bndfcs == blk.bndfcs).all())
+        # metrics.
+        self.assertTrue((newblk.ndcrd == blk.ndcrd).all())
+        self.assertTrue((newblk.fccnd == blk.fccnd).all())
+        self.assertTrue((newblk.fcnml == blk.fcnml).all())
+        self.assertTrue((newblk.fcara == blk.fcara).all())
+        self.assertTrue((newblk.clcnd == blk.clcnd).all())
+        self.assertTrue((newblk.clvol == blk.clvol).all())
+        # type.
+        self.assertTrue((newblk.fctpn == blk.fctpn).all())
+        self.assertTrue((newblk.cltpn == blk.cltpn).all())
+        self.assertTrue((newblk.clgrp == blk.clgrp).all())
+        # connectivity.
+        self.assertTrue((newblk.fcnds == blk.fcnds).all())
+        self.assertTrue((newblk.fccls == blk.fccls).all())
+        self.assertTrue((newblk.clnds == blk.clnds).all())
+        self.assertTrue((newblk.clfcs == blk.clfcs).all())
+        # ghost metrics.
+        self.assertTrue((newblk.gstndcrd == blk.gstndcrd).all())
+        self.assertTrue((newblk.gstfccnd == blk.gstfccnd).all())
+        self.assertTrue((newblk.gstfcnml == blk.gstfcnml).all())
+        self.assertTrue((newblk.gstfcara == blk.gstfcara).all())
+        self.assertTrue((newblk.gstclcnd == blk.gstclcnd).all())
+        self.assertTrue((newblk.gstclvol == blk.gstclvol).all())
+        # ghost type.
+        self.assertTrue((newblk.gstfctpn == blk.gstfctpn).all())
+        self.assertTrue((newblk.gstcltpn == blk.gstcltpn).all())
+        self.assertTrue((newblk.gstclgrp == blk.gstclgrp).all())
+        # ghost connectivity.
+        self.assertTrue((newblk.gstfcnds == blk.gstfcnds).all())
+        self.assertTrue((newblk.gstfccls == blk.gstfccls).all())
+        self.assertTrue((newblk.gstclnds == blk.gstclnds).all())
+        self.assertTrue((newblk.gstclfcs == blk.gstclfcs).all())
+        # shared metrics.
+        self.assertTrue((newblk.shndcrd == blk.shndcrd).all())
+        self.assertTrue((newblk.shfccnd == blk.shfccnd).all())
+        self.assertTrue((newblk.shfcnml == blk.shfcnml).all())
+        self.assertTrue((newblk.shfcara == blk.shfcara).all())
+        self.assertTrue((newblk.shclcnd == blk.shclcnd).all())
+        self.assertTrue((newblk.shclvol == blk.shclvol).all())
+        # shared type.
+        self.assertTrue((newblk.shfctpn == blk.shfctpn).all())
+        self.assertTrue((newblk.shcltpn == blk.shcltpn).all())
+        self.assertTrue((newblk.shclgrp == blk.shclgrp).all())
+        # shared connectivity.
+        self.assertTrue((newblk.shfcnds == blk.shfcnds).all())
+        self.assertTrue((newblk.shfccls == blk.shfccls).all())
+        self.assertTrue((newblk.shclnds == blk.shclnds).all())
+        self.assertTrue((newblk.shclfcs == blk.shclfcs).all())
+
+    def test_dumps(self):
+        pickle.dumps(self.blk, 2)
+
+    def test_loads(self):
+        data = pickle.dumps(self.blk, 2)
+        lblk = pickle.loads(data)
+        self._check_shape(lblk, self.blk)
+        self._check_group(lblk, self.blk)
+        self._check_bc(lblk, self.blk)
+        self._check_array_shape(lblk, self.blk)
+        self._check_array_content(lblk, self.blk)
+
+class TestUnstructuredBlock2D(TestCase):
+
+    def test_init(self):
+        msh = march.UnstructuredBlock2D()
+        msh = march.UnstructuredBlock2D(4, 6, 3, False)
+        self.assertEqual(4, msh.nnode)
+        self.assertEqual(6, msh.nface)
+        self.assertEqual(3, msh.ncell)
+        self.assertEqual((4, 2), msh.ndcrd.shape)
+        self.assertEqual((6, 2), msh.fccnd.shape)

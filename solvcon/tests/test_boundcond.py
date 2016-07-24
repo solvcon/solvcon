@@ -12,6 +12,8 @@ import numpy as np
 from .. import py3kcompat
 from ..testing import loadfile
 from ..io import gambit
+from ..py3kcompat import pickle
+from ..boundcond import BC
 
 def test_load():
     from ..boundcond import BC
@@ -102,3 +104,25 @@ class TestBc(TestCase):
         for bc in self.blk.bclist:
             self.assertEqual(bc.fpdtype, env.fpdtype)
             self.assertEqual(bc.fpdtypestr, str_of(env.fpdtype))
+
+
+class PickleTC(TestCase):
+
+    def setUp(self):
+        self.bc = BC()
+        self.bc.facn = np.array([[10, 0, -1], [23, 1, -1]], dtype='int32')
+        self.bc.value = np.array([[1, 2], [3, 4]], dtype='float64')
+
+    def _check_content(self, bc):
+        self.assertEqual((2, BC.BFREL), bc.facn.shape)
+        self.assertEqual([10, 0, -1, 23, 1, -1], bc.facn.ravel().tolist())
+        self.assertEqual((2, 2), bc.value.shape)
+        self.assertEqual([1, 2, 3, 4], bc.value.ravel().tolist())
+
+    def test_dumps(self):
+        pickle.dumps(self.bc, 2)
+
+    def test_loads(self):
+        data = pickle.dumps(self.bc, 2)
+        bc = pickle.loads(data)
+        self._check_content(bc)
