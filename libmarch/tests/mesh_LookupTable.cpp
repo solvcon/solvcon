@@ -25,15 +25,56 @@ TEST(LookupTableTest, Construction) {
     EXPECT_THROW(Type(-2, -4), std::invalid_argument);
 }
 
-TEST(LookupTableTest, ConstructionNoOwn) {
-    /* When a data pointer is passed to the LookupTable constructor, its Buffer
-     * object doesn't manage its own memory! */
-    using Type = LookupTable<index_type, 1>;
-    char * data = new char[(2+4)*sizeof(index_type)];
-    EXPECT_NO_THROW(Type(2, 4));
-    delete[] data; // needs to explicitly free the memory.
-    // If free again, it should segfault.
-    //delete[] data;
+TEST(LookupTableTest, MoveAssign) {
+    LookupTable<index_type, 1> tbl(2, 4);
+    decltype(tbl) tblo;
+    EXPECT_EQ(2, tbl.nghost());
+    EXPECT_EQ(4, tbl.nbody());
+    EXPECT_NE(nullptr, tbl.data());
+    EXPECT_EQ(0, tblo.nghost());
+    EXPECT_EQ(0, tblo.nbody());
+    EXPECT_EQ(nullptr, tblo.data());
+    EXPECT_NO_THROW(tblo = std::move(tbl));
+    EXPECT_EQ(0, tbl.nghost());
+    EXPECT_EQ(0, tbl.nbody());
+    //EXPECT_EQ(nullptr, tbl.data());
+    EXPECT_EQ(2, tblo.nghost());
+    EXPECT_EQ(4, tblo.nbody());
+    EXPECT_NE(nullptr, tblo.data());
+}
+
+TEST(LookupTableTest, MoveAssignSelf) {
+    LookupTable<index_type, 1> tbl(2, 4);
+    decltype(tbl) & tblr = tbl;
+    EXPECT_EQ(2, tbl .nghost());
+    EXPECT_EQ(4, tbl .nbody());
+    EXPECT_EQ(2, tblr.nghost());
+    EXPECT_EQ(4, tblr.nbody());
+    EXPECT_EQ(tblr.data(), tbl.data());
+    EXPECT_NO_THROW(tblr = std::move(tbl));
+    EXPECT_EQ(2, tbl .nghost());
+    EXPECT_EQ(4, tbl .nbody());
+    EXPECT_EQ(2, tblr.nghost());
+    EXPECT_EQ(4, tblr.nbody());
+    EXPECT_EQ(tblr.data(), tbl.data());
+}
+
+TEST(LookupTableTest, Resize) {
+    LookupTable<index_type, 1> tbl(1, 5);
+    EXPECT_EQ(1, tbl.nghost());
+    EXPECT_EQ(5, tbl.nbody());
+    // first test
+    tbl.fill(-1);
+    tbl.resize(2, 6);
+    EXPECT_EQ(2, tbl.nghost());
+    EXPECT_EQ(6, tbl.nbody());
+    for (index_type it=-1; it<5; ++it) { EXPECT_EQ(-1, tbl[it][0]); }
+    // second test
+    tbl.fill(-2);
+    tbl.resize(1, 5);
+    EXPECT_EQ(1, tbl.nghost());
+    EXPECT_EQ(5, tbl.nbody());
+    for (index_type it=-1; it<5; ++it) { EXPECT_EQ(-2, tbl[it][0]); }
 }
 
 TEST(LookupTableTest, OutOfRange) {

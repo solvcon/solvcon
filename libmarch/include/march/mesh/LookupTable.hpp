@@ -11,6 +11,7 @@
 #include <stdexcept>
 #include <iterator>
 #include <vector>
+#include <algorithm>
 
 #include "march/core/core.hpp"
 
@@ -71,7 +72,8 @@ public:
     LookupTableCore & operator=(const LookupTableCore &) = delete;
 
     LookupTableCore & operator=(LookupTableCore && other) {
-        m_buffer = other.m_buffer; other.m_buffer.reset();
+        if (this == &other) { return *this; }
+        m_buffer = other.m_buffer; other.m_buffer = Buffer::construct();
         m_dims.swap(other.m_dims);
         m_nghost = other.m_nghost;
         m_nbody = other.m_nbody;
@@ -94,15 +96,27 @@ public:
 
     index_type nbody() const { return m_nbody; }
 
+    index_type nfull() const { return m_nghost + m_nbody; }
+
     index_type ncolumn() const { return m_ncolumn; }
 
-    index_type nelem() const { return (nghost()+nbody()) * ncolumn(); }
+    index_type nelem() const { return nfull() * ncolumn(); }
 
     index_type elsize() const { return m_elsize; }
 
     DataTypeId datatypeid() const { return m_datatypeid; }
 
     size_t nbyte() const { return buffer()->nbyte(); }
+
+    void resize(index_type nghost, index_type nbody) {
+        std::vector<index_type> dims(m_dims);
+        dims[0] = nghost + nbody;
+        LookupTableCore newtable(nghost, nbody, dims, m_datatypeid);
+        auto nstart = std::min(newtable.nghost(), this->nghost());
+        auto nstop  = std::min(newtable.nbody (), this->nbody ());
+        std::copy_n(row(-nstart), (nstart+nstop)*ncolumn()*elsize(), newtable.row(-nstart));
+        *this = std::move(newtable);
+    }
 
     /**
      * Pointer at the beginning of the row.
@@ -206,29 +220,28 @@ public:
 
     using elem_type = ElemType;
 
+    typedef elem_type (&row_type)[NCOLUMN];
+    typedef const elem_type (&const_row_type)[NCOLUMN];
+
     LookupTable() {}
 
     LookupTable(index_type nghost, index_type nbody)
         : LookupTableCore(nghost, nbody, std::vector<index_type>({nghost+nbody, NCOLUMN}), type_to<ElemType>::id)
     {}
 
-    LookupTable(index_type nghost, index_type nbody, char * data)
-        : LookupTableCore(nghost, nbody, std::vector<index_type>({nghost+nbody, NCOLUMN}), type_to<ElemType>::id, data)
-    {}
-
-    elem_type (& operator[](index_type loc)) [NCOLUMN] {
+    row_type operator[](index_type loc) {
         return *reinterpret_cast<elem_type(*)[NCOLUMN]>(row(loc));
     }
 
-    const elem_type (& operator[](index_type loc) const) [NCOLUMN] {
+    const_row_type operator[](index_type loc) const {
         return *reinterpret_cast<const elem_type(*)[NCOLUMN]>(row(loc));
     }
 
-    elem_type (& at(index_type loc)) [NCOLUMN] {
+    row_type at(index_type loc) {
         check_range(loc); return (*this)[loc];
     }
 
-    const elem_type (& at(index_type loc) const ) [NCOLUMN] {
+    const_row_type at(index_type loc) const {
         check_range(loc); return (*this)[loc];
     }
 
@@ -284,15 +297,7 @@ public:
         for (index_type it = -nghost(); it<nbody(); ++it) { set(it, args...); }
     }
 
-    void fill(elem_type value) {
-        elem_type * ptr = data();
-        for (index_type it = -nghost(); it<nbody(); ++it) {
-            for (index_type jt = 0; jt<static_cast<index_type>(NCOLUMN); ++jt) {
-               ptr[0] = value;
-               ++ptr;
-            }
-        }
-    }
+    void fill(elem_type value) { std::fill(data(), data()+nelem(), value); }
 
 private:
 
