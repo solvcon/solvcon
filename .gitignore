@@ -1,4 +1,5 @@
 .DS_Store
+tags
 setup.cfg
 build/
 build.dbg/
