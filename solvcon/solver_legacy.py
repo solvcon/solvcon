@@ -36,6 +36,7 @@ Definition of the structure of solvers.
 from __future__ import absolute_import, division, print_function
 
 
+from numbers import Number
 from ctypes import Structure
 
 from .py3kcompat import with_metaclass
@@ -624,7 +625,7 @@ class BlockSolver(BaseSolver):
         # grab peer index.
         ibclist = list()
         for pair in ifacelist:
-            if pair < 0:
+            if isinstance(pair, Number) and pair < 0:
                 ibclist.append(pair)
             else:
                 assert len(pair) == 2
@@ -645,7 +646,7 @@ class BlockSolver(BaseSolver):
         threads = list()
         for ibc in self.ibclist:
             # check if sleep or not.
-            if ibc < 0:
+            if isinstance(ibc, Number) and ibc < 0:
                 continue
             bc, sendn, recvn = ibc
             # determine callable and arguments.

@@ -27,7 +27,7 @@ class TestSecureShell(TestCase):
                 'import sys, os',
                 'sys.stdout.write(os.environ["A_TEST_ENV"])'
             ], envar={'A_TEST_ENV': 'A_TEST_VALUE'}, stdout=PIPE),
-            'A_TEST_VALUE'
+            b'A_TEST_VALUE'
         )
 
     def test_shell(self):
@@ -36,7 +36,7 @@ class TestSecureShell(TestCase):
         self.assertEqual(remote.shell([
                 'echo "A_TEST_VALUE"',
             ]),
-            'A_TEST_VALUE\n'
+            b'A_TEST_VALUE\n'
         )
 
 # vim: set ff=unix fenc=utf8 ft=python ai et sw=4 ts=4 tw=79:

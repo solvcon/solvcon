@@ -6,6 +6,8 @@ cache:
 addons:
   apt:
     packages:
+      - openssh-client
+      - openssh-server
       - liblapack-pic
       - liblapack-dev
 
@@ -36,6 +38,10 @@ matrix:
       env: TRAVIS_PYTHON_VERSION="3.5"
 
 before_install:
+  # Configure ssh
+  - ssh-keygen -t rsa -f ~/.ssh/id_rsa -N "" -q
+  - cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys
+  - ssh-keyscan -t rsa localhost >> ~/.ssh/known_hosts
   # Install minimal conda
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
       wget https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -O miniconda.sh;
@@ -78,6 +84,8 @@ script:
   - cd ${TRAVIS_BUILD_DIR}
   - python setup.py build_ext --inplace
   - nosetests --with-doctest
+  - nosetests ftests/parallel/test_builtin.py
+  - nosetests ftests/parallel/test_rpc.py
   # Package
   - cd ${TRAVIS_BUILD_DIR}
   - contrib/release.sh
