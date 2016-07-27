@@ -11,6 +11,6 @@ tar xfz SOLVCON-${SCVER}.tar.gz
 cd SOLVCON-${SCVER}
 python setup.py build_ext --inplace
 # test.
+PYTHONPATH=`pwd`
 nosetests --with-doctest
-nosetests ftests/parallel/test_builtin.py
-nosetests ftests/parallel/test_rpc.py
+nosetests ftests/parallel/*

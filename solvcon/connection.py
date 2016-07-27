@@ -191,8 +191,8 @@ def Client(address, family=None, authkey=None):
     timeout = time.time() + CLIENT_TIMEOUT
     family = family or guess_family(address)
     # create socket.
-    skt = socket.socket(getattr(socket, family))
     while True:
+        skt = socket.socket(getattr(socket, family))
         try:
             skt.connect(address)
         except socket.error as e:

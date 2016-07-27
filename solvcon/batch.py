@@ -332,12 +332,13 @@ class Batch(with_metaclass(BatchMeta)):
             raise IOError('remote port detection fails')
         # create remote worker objects and return.
         pdata = str(profiler_data).replace("'", '"')
+        authkeystr = authkey.decode("utf8")
         remote([
             'import os',
             'os.chdir("%s")' % os.path.abspath(os.getcwd()),
             'from solvcon.rpc import Worker',
             'wkr = Worker(None, profiler_data=%s)' % pdata,
-            'wkr.run(("%s", %d), "%s")' % (node.address, port, authkey),
+            'wkr.run(("%s", %d), b"%s")' % (node.address, port, authkeystr),
         ], envar=envar)
         return port
 

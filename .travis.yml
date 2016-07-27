@@ -84,8 +84,7 @@ script:
   - cd ${TRAVIS_BUILD_DIR}
   - python setup.py build_ext --inplace
   - nosetests --with-doctest
-  - nosetests ftests/parallel/test_builtin.py
-  - nosetests ftests/parallel/test_rpc.py
+  - nosetests ftests/parallel/*
   # Package
   - cd ${TRAVIS_BUILD_DIR}
   - contrib/release.sh
