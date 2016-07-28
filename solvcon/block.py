@@ -292,6 +292,17 @@ class Block(with_metaclass(BlockMeta)):
         # sanity check.
         self.check_sanity()
 
+    def __getstate__(self):
+        return self.__dict__
+
+    def __setstate__(self, state):
+        self.__dict__ = state
+        for name in self.TABLE_NAMES:
+            table = getattr(self, 'tb'+name)
+            setattr(self, name, table.B)
+            setattr(self, 'gst'+name, table.G)
+            setattr(self, 'sh'+name, table.F)
+
     def check_sanity(self):
         self.create_msh()
 

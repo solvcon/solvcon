@@ -12,3 +12,5 @@ cd SOLVCON-${SCVER}
 python setup.py build_ext --inplace
 # test.
 nosetests --with-doctest
+nosetests ftests/parallel/test_builtin.py
+nosetests ftests/parallel/test_rpc.py

@@ -195,6 +195,19 @@ PYBIND11_PLUGIN(march) {
             "_bodypart",
             [](LookupTableCore & tbl) { return Table(tbl).body(); },
             "Body-part array without setter.")
+        .def("__getstate__", [](LookupTableCore & tbl) {
+            return py::make_tuple(tbl.nghost(), tbl.nbody(), tbl.dims(), (long)tbl.datatypeid(), Table(tbl).full());
+        })
+        .def("__setstate__", [](LookupTableCore & tbl, py::tuple tpl) {
+            if (tpl.size() != 5) { throw std::runtime_error("Invalid state for Table (LookupTableCore)!"); }
+            index_type nghost = tpl[0].cast<index_type>();
+            index_type nbody  = tpl[1].cast<index_type>();
+            std::vector<index_type> dims = tpl[2].cast<std::vector<index_type>>();
+            DataTypeId datatypeid = static_cast<DataTypeId>(tpl[3].cast<long>());
+            py::array src = tpl[4].cast<py::array>();
+            new (&tbl) LookupTableCore(nghost, nbody, dims, datatypeid);
+            Table::CopyInto(Table(tbl).full(), src);
+        });
     ;
 
     py::class_< BoundaryData >(mod, "BoundaryData", "Data of a boundary condition.")

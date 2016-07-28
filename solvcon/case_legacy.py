@@ -43,6 +43,7 @@ import os
 import sys
 import time
 import traceback
+from numbers import Number
 from .py3kcompat import StringIO
 import signal
 from .py3kcompat import pickle
@@ -768,7 +769,7 @@ for node in $nodes; do rsh $node killall %s; done
             # print.
             self.info(('%%0%dd ->' % dwidth) % iblk)
             for pair in ifacelist:
-                if pair < 0:
+                if isinstance(pair, Number) and pair < 0:
                     stab = '-' * (2*dwidth+1)
                 else:
                     stab = '-'.join([('%%0%dd'%dwidth)%item for item in pair])

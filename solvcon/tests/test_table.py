@@ -31,10 +31,10 @@ from __future__ import absolute_import, division, print_function
 
 
 import unittest
+from ..py3kcompat import pickle
 
 import numpy as np
 
-from .. import py3kcompat
 from ..march import Table
 
 
@@ -138,5 +138,22 @@ class TestTableParts(unittest.TestCase):
         self.assertEqual((2,4,5), tbl._bodypart.shape)
         self.assertEqual(list(range(4*5,3*4*5)), list(tbl.B.ravel()))
         self.assertEqual(list(range(4*5,3*4*5)), list(tbl._bodypart.ravel()))
+
+
+class TestTablePickle(unittest.TestCase):
+
+    def test_dumps(self):
+        tbl = Table(2, 4, 5)
+        # pybind11 only supports protocol v2 (on 2016/7/26)!
+        pkl = pickle.dumps(tbl, 2)
+
+    def test_loads(self):
+        otbl = Table(2, 4, 5)
+        otbl.F = np.arange(otbl.F.size).reshape((6,5))
+        # pybind11 only supports protocol v2 (on 2016/7/26)!
+        pkl = pickle.dumps(otbl, 2)
+        # load it back
+        ltbl = pickle.loads(pkl)
+        self.assertEqual(np.arange(otbl.F.size).tolist(), ltbl.F.ravel().tolist())
 
 # vim: set fenc=utf8 ff=unix nobomb ai et sw=4 ts=4 tw=79:
