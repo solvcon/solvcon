@@ -31,7 +31,7 @@ class BoundaryData {
 
 public:
 
-    static constexpr size_t BFREL = 3;
+    static constexpr index_type BFREL = 3;
 
 private:
 
@@ -56,22 +56,44 @@ public:
         : m_values(0, 0, {0, nvalue}, type_to<real_type>::id)
     {}
 
-    BoundaryData(const BoundaryData &) = delete;
+    BoundaryData(index_type nbound, index_type nvalue)
+        : m_facn(0, nbound)
+        , m_values(0, nbound, {nbound, nvalue}, type_to<real_type>::id)
+    {}
 
-    BoundaryData(BoundaryData && other) {
-        m_facn = std::move(other.m_facn);
-        m_values = std::move(other.m_values);
+    BoundaryData(BoundaryData const &  other) {
+        if (this != &other) {
+            m_facn = other.m_facn;
+            m_values = other.m_values;
+        }
     }
 
-    BoundaryData & operator=(const BoundaryData &) = delete;
+    BoundaryData(BoundaryData       && other) {
+        if (this != &other) {
+            m_facn = std::move(other.m_facn);
+            m_values = std::move(other.m_values);
+        }
+    }
 
-    BoundaryData & operator=(BoundaryData && other) {
-        m_facn = std::move(other.m_facn);
-        m_values = std::move(other.m_values);
+    BoundaryData & operator=(BoundaryData const &  other) {
+        if (this != &other) {
+            m_facn = other.m_facn;
+            m_values = other.m_values;
+        }
+        return *this;
+    }
+
+    BoundaryData & operator=(BoundaryData       && other) {
+        if (this != &other) {
+            m_facn = std::move(other.m_facn);
+            m_values = std::move(other.m_values);
+        }
         return *this;
     }
 
     ~BoundaryData() = default;
+
+    index_type nbound() const { return m_facn.nbody(); }
 
     index_type nvalue() const { return m_values.ncolumn(); }
 

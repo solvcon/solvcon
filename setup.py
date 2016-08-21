@@ -53,6 +53,12 @@ import glob
 # update it when the contents of directories change.
 if os.path.exists('MANIFEST'):
     os.remove('MANIFEST')
+
+from distutils.ccompiler import CCompiler
+from numpy.distutils.ccompiler import replace_method
+from numpy.distutils.ccompiler import CCompiler_customize as numpy_CCompiler_customize
+from numpy.distutils import log
+
 from numpy.distutils.core import setup
 from Cython.Build import cythonize
 from Cython.Distutils import Extension as CyExtension
@@ -60,6 +66,22 @@ from numpy.distutils.extension import Extension
 import pybind11
 
 import solvcon as sc
+
+
+def CCompiler_customize(self, *args, **kw):
+    forbidden = kw.pop('forbidden', [])
+    numpy_CCompiler_customize(self, *args, **kw)
+    ccshared = ' '.join(set(self.compiler_so) - set(self.compiler))
+    compiler = ' '.join(it for it in self.compiler if it not in forbidden)
+    self.set_executables(
+        compiler=compiler,
+        compiler_so=compiler + ' ' + ccshared,
+    )
+    if hasattr(self, 'compiler'):
+        log.warn("#### %s #######" % (self.compiler,))
+    return
+
+replace_method(CCompiler, 'customize', CCompiler_customize)
 
 
 def make_cython_extension(
@@ -100,12 +122,16 @@ def make_pybind11_extension(
     libraries = (['scotchmetis', 'scotch', 'scotcherr', 'scotcherrexit']
                  + libraries)
     rpathflag = '-Wl,-rpath,%s/lib' % sys.exec_prefix
+    if "CONDA_PREFIX" in os.environ:
+        include_dirs.append(os.path.join(os.environ["CONDA_PREFIX"], "include"))
     if extra_compile_args is None: extra_compile_args = []
+    # FIXME: turn on -Wall and -Wextra
     extra_compile_args.extend([
         '-Werror',
         '-std=c++11',
         '-Wno-unused-function',
         '-Wno-unreachable-code',
+        '-Wno-sign-compare',
     ])
     return Extension(
         name, files,

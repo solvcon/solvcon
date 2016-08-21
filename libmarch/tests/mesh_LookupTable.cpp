@@ -63,13 +63,24 @@ TEST(LookupTableTest, Resize) {
     LookupTable<index_type, 1> tbl(1, 5);
     EXPECT_EQ(1, tbl.nghost());
     EXPECT_EQ(5, tbl.nbody());
-    // first test
+    // first expansion test
     tbl.fill(-1);
     tbl.resize(2, 6);
     EXPECT_EQ(2, tbl.nghost());
     EXPECT_EQ(6, tbl.nbody());
+    // NOTE: tbl[-2][0] and tbl[ 5][0] are not initialized.
     for (index_type it=-1; it<5; ++it) { EXPECT_EQ(-1, tbl[it][0]); }
-    // second test
+    // second expansion test
+    tbl.fill(-9);
+    tbl.resize(4, 8, 256); // specify the default value of the resized table.
+    EXPECT_EQ(4, tbl.nghost());
+    EXPECT_EQ(8, tbl.nbody());
+    EXPECT_EQ(256, tbl[-4][0]);
+    EXPECT_EQ(256, tbl[-3][0]);
+    EXPECT_EQ(256, tbl[ 6][0]);
+    EXPECT_EQ(256, tbl[ 7][0]);
+    for (index_type it=-2; it<6; ++it) { EXPECT_EQ(-9, tbl[it][0]); }
+    // finally, shrinking test
     tbl.fill(-2);
     tbl.resize(1, 5);
     EXPECT_EQ(1, tbl.nghost());

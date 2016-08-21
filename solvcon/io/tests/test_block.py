@@ -136,10 +136,10 @@ class TestLoadOldTrivial(CheckBlockIO):
         # load from steam.
         blkl = bio.load(stream=stream)
         # check.
-        self._check_shape(blk, blkl)
-        self._check_group(blk, blkl)
-        self._check_bc(blk, blkl)
-        self._check_array(blk, blkl)
+        self._check_shape(blkl, blk)
+        self._check_group(blkl, blk)
+        self._check_bc(blkl, blk)
+        self._check_array(blkl, blk)
     def test_load2d_raw(self):
         from ...testing import openfile
         self._check_load(get_blk_from_oblique_neu(), openfile(
@@ -205,10 +205,10 @@ class TestLoadTrivial(CheckBlockIO):
         # load from steam.
         blkl = bio.load(stream=stream)
         # check.
-        self._check_shape(blk, blkl)
-        self._check_group(blk, blkl)
-        self._check_bc(blk, blkl)
-        self._check_array(blk, blkl)
+        self._check_shape(blkl, blk)
+        self._check_group(blkl, blk)
+        self._check_bc(blkl, blk)
+        self._check_array(blkl, blk)
     def test_load2d_raw(self):
         from ...testing import openfile
         self._check_load(get_blk_from_oblique_neu(), openfile(

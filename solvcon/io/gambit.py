@@ -450,9 +450,9 @@ class GambitNeutralReader(object):
     @staticmethod
     def _elements_cells(neuf, neu):
         from numpy import empty
-        from ..block import MAX_CLNND
+        from .. import block
         ncell = neu.nelem
-        elems = empty((ncell, MAX_CLNND+2), dtype='int32')
+        elems = empty((ncell, block.UnstructuredBlock.CLMND+2), dtype='int32')
         icl = 0
         while icl < ncell:
             line = neuf.readline()

@@ -4,8 +4,6 @@
 cmake_minimum_required(VERSION 2.8.11)
 project(test_libmarch)
 
-link_directories(${libmarch_BINARY_DIR}/tests)
-
 include_directories(${test_libmarch_SOURCE_DIR})
 
 add_executable(test_libmarch
@@ -14,8 +12,9 @@ add_executable(test_libmarch
     core_Buffer.cpp
     mesh_LookupTable.cpp
     mesh_BoundaryData.cpp
+    mesh_UnstructuredBlock.cpp
 )
-target_link_libraries(test_libmarch stdc++ pthread)
+target_link_libraries(test_libmarch stdc++ pthread ${SCOTCH_LIBRARIES})
 
 if (NOT TESTFILTER)
     set(TESTFILTER "*")

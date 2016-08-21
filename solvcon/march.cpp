@@ -4,6 +4,7 @@
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #include <numpy/arrayobject.h>
 
+#include <utility>
 #include <memory>
 #include <vector>
 #include <algorithm>
@@ -30,28 +31,23 @@ public:
 
     Table(LookupTableCore & table) : m_table(table) {}
 
-    Table(const Table &) = delete;
+    Table(Table const & ) = delete;
+    Table(Table       &&) = delete;
+    Table & operator=(Table const & ) = delete;
+    Table & operator=(Table       &&) = delete;
 
-    Table(Table &&) = delete;
-
-    Table & operator=(const Table &) = delete;
-
-    Table & operator=(Table &&) = delete;
-
-    py::array full() { return from(FULL); }
-
+    py::array full () { return from(FULL ); }
     py::array ghost() { return from(GHOST); }
+    py::array body () { return from(BODY ); }
 
-    py::array body() { return from(BODY); }
-
-    static int NDIM(py::array arr) { return PyArray_NDIM((PyArrayObject *) arr.ptr()); }
-
-    static npy_intp * DIMS(py::array arr) { return PyArray_DIMS((PyArrayObject *) arr.ptr()); }
-
-    static char * BYTES(py::array arr) { return PyArray_BYTES((PyArrayObject *) arr.ptr()); }
-
-    static int CopyInto(py::array dst, py::array src) {
-        return PyArray_CopyInto((PyArrayObject *) dst.ptr(), (PyArrayObject *) src.ptr());
+    static int        NDIM (py::array arr) { return PyArray_NDIM ((PyArrayObject *) arr.ptr()); }
+    static npy_intp * DIMS (py::array arr) { return PyArray_DIMS ((PyArrayObject *) arr.ptr()); }
+    static char *     BYTES(py::array arr) { return PyArray_BYTES((PyArrayObject *) arr.ptr()); }
+    static void CopyInto(py::array dst, py::array src) {
+        if (0 != PyArray_SIZE((PyArrayObject *) dst.ptr()) && 0 != PyArray_SIZE((PyArrayObject *) src.ptr())) {
+            int ret = PyArray_CopyInto((PyArrayObject *) dst.ptr(), (PyArrayObject *) src.ptr());
+            if (-1 == ret) { throw py::error_already_set(); }
+        }
     }
 
 private:
@@ -101,19 +97,81 @@ private:
 
     LookupTableCore & m_table;
 
-};
+}; /* end class Table */
 
-PYBIND11_DECLARE_HOLDER_TYPE(T, std::shared_ptr<T>);
+/**
+ * Helper class for pybind11 class wrappers.
+ */
+template< class Wrapper, class Wrapped > class WrapBase {
 
-PYBIND11_PLUGIN(march) {
-    py::module mod("march", "libmarch wrapper");
+public:
 
-    import_array1(nullptr); // or numpy c api segfault.
+    typedef Wrapper wrapper_type;
+    typedef Wrapped wrapped_type;
+    typedef WrapBase< wrapper_type, wrapped_type > base_type;
 
-    py::class_< Buffer, std::shared_ptr<Buffer> >(mod, "Buffer", "Internal data buffer");
+    static wrapper_type & commit(py::module & mod, const char * pyname, const char * clsdoc) {
+        static wrapper_type derived(mod, pyname, clsdoc);
+        return derived;
+    }
 
-    py::class_< LookupTableCore >(mod, "Table", "Lookup table that allows ghost entity.")
-        .def("__init__", [](py::args args, py::kwargs kwargs) {
+    WrapBase() = delete;
+    WrapBase(WrapBase const & ) = default;
+    WrapBase(WrapBase       &&) = delete;
+    WrapBase & operator=(WrapBase const & ) = default;
+    WrapBase & operator=(WrapBase       &&) = delete;
+
+#define DECL_MARCH_PYBIND_CLASS_METHOD(METHOD) \
+    template< class... Args > \
+    wrapper_type & METHOD(Args&&... args) { \
+        m_cls.METHOD(std::forward<Args>(args)...); \
+        return *static_cast<wrapper_type*>(this); \
+    }
+
+    DECL_MARCH_PYBIND_CLASS_METHOD(def)
+    DECL_MARCH_PYBIND_CLASS_METHOD(def_property)
+    DECL_MARCH_PYBIND_CLASS_METHOD(def_property_readonly)
+    DECL_MARCH_PYBIND_CLASS_METHOD(def_property_readonly_static)
+
+#undef DECL_MARCH_PYBIND_CLASS_METHOD
+
+protected:
+
+    WrapBase(py::module & mod, const char * pyname, const char * clsdoc)
+        : m_cls(py::class_< wrapped_type >(mod, pyname, clsdoc))
+    {}
+
+    py::class_< wrapped_type > m_cls;
+
+}; /* end class WrapBase */
+
+class WrapLookupTableCore : public WrapBase< WrapLookupTableCore, LookupTableCore > {
+
+    friend base_type;
+
+    WrapLookupTableCore(py::module & mod, const char * pyname, const char * clsdoc)
+        : base_type(mod, pyname, clsdoc)
+    {
+        (*this)
+            .init()
+            .def_property_readonly("nghost", &LookupTableCore::nghost)
+            .def_property_readonly("nbody", &LookupTableCore::nbody)
+            .def_property_readonly("ncolumn", &LookupTableCore::ncolumn)
+            .array_readwrite()
+            .array_readonly()
+            .pickle()
+            .address()
+            .def("__getattr__", [](LookupTableCore & tbl, py::object key) {
+                return py::object(Table(tbl).full().attr(key));
+            })
+            .def_property_readonly("_nda", [](LookupTableCore & tbl) {
+                return Table(tbl).full();
+            })
+        ;
+    }
+
+    wrapper_type & init() {
+        return def("__init__", [](py::args args, py::kwargs kwargs) {
             LookupTableCore & table = *(args[0].cast<LookupTableCore*>());
 
             std::vector<index_type> dims(args.size()-2);
@@ -147,26 +205,11 @@ PYBIND11_PLUGIN(march) {
             } else {
                 throw py::value_error("invalid creation type");
             }
-        })
-        .def("__getattr__", [](LookupTableCore & tbl, py::object key) {
-            return py::object(Table(tbl).full().attr(key));
-        })
-        .def_property_readonly("_nda", [](LookupTableCore & tbl) {
-            return Table(tbl).full();
-        })
-        .def_property_readonly("nghost", &LookupTableCore::nghost)
-        .def_property_readonly("nbody", &LookupTableCore::nbody)
-        .def_property_readonly(
-            "offset",
-            [](LookupTableCore & tbl){ return tbl.nghost() * tbl.ncolumn(); },
-            "Element offset from the head of the ndarray to where the body starts.")
-        .def_property_readonly(
-            "_ghostaddr",
-            [](LookupTableCore & tbl) { return (Py_intptr_t) Table::BYTES(Table(tbl).full()); })
-        .def_property_readonly(
-            "_bodyaddr",
-            [](LookupTableCore & tbl) { return (Py_intptr_t) Table::BYTES(Table(tbl).body()); })
-        .def_property(
+        });
+    }
+
+    wrapper_type & array_readwrite() {
+        return def_property(
             "F",
             [](LookupTableCore & tbl) { return Table(tbl).full(); },
             [](LookupTableCore & tbl, py::array src) { Table::CopyInto(Table(tbl).full(), src); },
@@ -182,20 +225,28 @@ PYBIND11_PLUGIN(march) {
                 }
             },
             "Ghost-part array.")
-        .def_property_readonly(
-            "_ghostpart",
-            [](LookupTableCore & tbl) { return Table(tbl).ghost(); },
-            "Ghost-part array without setter.")
         .def_property(
             "B",
             [](LookupTableCore & tbl) { return Table(tbl).body(); },
             [](LookupTableCore & tbl, py::array src) { Table::CopyInto(Table(tbl).body(), src); },
             "Body-part array.")
+        ;
+    }
+
+    wrapper_type & array_readonly() {
+        return def_property_readonly(
+            "_ghostpart",
+            [](LookupTableCore & tbl) { return Table(tbl).ghost(); },
+            "Ghost-part array without setter.")
         .def_property_readonly(
             "_bodypart",
             [](LookupTableCore & tbl) { return Table(tbl).body(); },
             "Body-part array without setter.")
-        .def("__getstate__", [](LookupTableCore & tbl) {
+        ;
+    }
+
+    wrapper_type & pickle() {
+        return def("__getstate__", [](LookupTableCore & tbl) {
             return py::make_tuple(tbl.nghost(), tbl.nbody(), tbl.dims(), (long)tbl.datatypeid(), Table(tbl).full());
         })
         .def("__setstate__", [](LookupTableCore & tbl, py::tuple tpl) {
@@ -208,12 +259,43 @@ PYBIND11_PLUGIN(march) {
             new (&tbl) LookupTableCore(nghost, nbody, dims, datatypeid);
             Table::CopyInto(Table(tbl).full(), src);
         });
-    ;
+    }
 
-    py::class_< BoundaryData >(mod, "BoundaryData", "Data of a boundary condition.")
-        .def(py::init<index_type>())
-        .def_property_readonly_static("BFREL", [](py::object /* self */) { return BoundaryData::BFREL; })
-        .def_property(
+    wrapper_type & address() {
+        return def_property_readonly(
+            "offset",
+            [](LookupTableCore & tbl) { return tbl.nghost() * tbl.ncolumn(); },
+            "Element offset from the head of the ndarray to where the body starts.")
+        .def_property_readonly(
+            "_ghostaddr",
+            [](LookupTableCore & tbl) { return (Py_intptr_t) Table::BYTES(Table(tbl).full()); })
+        .def_property_readonly(
+            "_bodyaddr",
+            [](LookupTableCore & tbl) { return (Py_intptr_t) Table::BYTES(Table(tbl).body()); })
+        ;
+    }
+
+}; /* end class WrapLookupTableCore */
+
+class WrapBoundaryData : public WrapBase< WrapBoundaryData, BoundaryData > {
+
+    friend base_type;
+
+    WrapBoundaryData(py::module & mod, const char * pyname, const char * clsdoc)
+        : base_type(mod, pyname, clsdoc)
+    {
+        (*this)
+            .def(py::init<index_type>())
+            .def_property_readonly_static("BFREL", [](py::object const & /* self */) { return BoundaryData::BFREL; })
+            .facn()
+            .values()
+            .pickle()
+            .def("good_shape", &BoundaryData::good_shape)
+        ;
+    }
+
+    wrapper_type & facn() {
+        return def_property(
             "facn",
             [](BoundaryData & bnd) {
                 if (0 == bnd.facn().nbyte()) {
@@ -243,8 +325,11 @@ PYBIND11_PLUGIN(march) {
                 }
             },
             "List of faces."
-        )
-        .def_property(
+        );
+    }
+
+    wrapper_type & values() {
+        return def_property(
             "values",
             [](BoundaryData & bnd) {
                 if (0 == bnd.values().nbyte()) {
@@ -272,9 +357,267 @@ PYBIND11_PLUGIN(march) {
                 }
             },
             "Attached (specified) value for each boundary face."
-        )
-        .def("good_shape", &BoundaryData::good_shape)
-    ;
+        );
+    }
+
+    wrapper_type & pickle() {
+        return (*this)
+        .def("__getstate__", &getstate)
+        .def("__setstate__", &setstate)
+        ;
+    }
+
+public:
+
+    static py::object getstate(wrapped_type & bnd) {
+        return py::make_tuple(bnd.nbound(), bnd.nvalue(), Table(bnd.facn()).full(), Table(bnd.values()).full());
+    }
+
+    static void setstate(wrapped_type & bnd, py::tuple tpl) {
+        if (tpl.size() != 4) { throw std::runtime_error("Invalid state for BoundaryData!"); }
+        index_type nbound = tpl[0].cast<index_type>();
+        index_type nvalue = tpl[1].cast<index_type>();
+        py::array facn_farr   = tpl[2].cast<py::array>();
+        py::array values_farr = tpl[3].cast<py::array>();
+        new (&bnd) wrapped_type(nbound, nvalue);
+        Table::CopyInto(Table(bnd.facn()  ).full(), facn_farr  );
+        Table::CopyInto(Table(bnd.values()).full(), values_farr);
+    }
+
+}; /* end class WrapBoundaryData */
+
+template< size_t NDIM >
+class WrapUnstructuredBlock : public WrapBase< WrapUnstructuredBlock<NDIM>, UnstructuredBlock<NDIM> > {
+
+    /* I don't know why I need to duplicate these typedef's, but clang doesn't compile if I don't do it. */
+    typedef WrapUnstructuredBlock<NDIM> wrapper_type;
+    typedef UnstructuredBlock<NDIM> wrapped_type;
+    typedef WrapBase< wrapper_type, wrapped_type > base_type;
+
+    friend base_type;
+
+    WrapUnstructuredBlock(py::module & mod, const char * pyname, const char * clsdoc)
+        : base_type(mod, pyname, clsdoc)
+    {
+        (*this)
+            .def(py::init<>())
+            .def(py::init<index_type, index_type, index_type, bool>())
+            .shapes()
+            .def_property_readonly("use_incenter", &UnstructuredBlock<NDIM>::use_incenter)
+            .tables()
+            .arrays()
+            .def(
+                "set_bndvec",
+                [](UnstructuredBlock<NDIM> & blk, py::list bndlist) {
+                    std::vector<BoundaryData> bndvec;
+                    for (auto obj : bndlist) {
+                        bndvec.push_back(py::cast<BoundaryData>(obj));
+                    }
+                    blk.bndvec() = std::move(bndvec);
+                },
+                "Set boundary data; temporary workaround."
+            )
+            .def_property_readonly(
+                "_bndvec_size",
+                [](UnstructuredBlock<NDIM> & blk) { return blk.bndvec().size(); },
+                "Size of the boundary data vector; temporary workaround."
+            )
+            .def(
+                "get_bnddata",
+                [](UnstructuredBlock<NDIM> & blk, size_t idx) {
+                    return blk.bndvec().at(idx);
+                },
+                "Get boundary data; temporary workaround."
+            )
+            .def("calc_metric", &UnstructuredBlock<NDIM>::calc_metric)
+            .def("build_interior", &UnstructuredBlock<NDIM>::build_interior)
+            .def("build_boundary", &UnstructuredBlock<NDIM>::build_boundary)
+            .def("build_ghost", &UnstructuredBlock<NDIM>::build_ghost)
+            .def(
+                "partition",
+                [](UnstructuredBlock<NDIM> & blk, index_type npart) {
+                    int edgecut;
+                    LookupTable<index_type, 0> parts;
+                    std::tie(edgecut, parts) = blk.partition(npart);
+                    LookupTableCore parts_core = static_cast<LookupTableCore>(parts);
+                    return py::make_tuple(edgecut, Table(parts_core).full());
+                }
+            )
+            .pickle()
+            .def_property_readonly_static("FCMND", [](py::object const & /* self */) { return UnstructuredBlock<NDIM>::FCMND; })
+            .def_property_readonly_static("CLMND", [](py::object const & /* self */) { return UnstructuredBlock<NDIM>::CLMND; })
+            .def_property_readonly_static("CLMFC", [](py::object const & /* self */) { return UnstructuredBlock<NDIM>::CLMFC; })
+            .def_property_readonly_static("FCNCL", [](py::object const & /* self */) { return UnstructuredBlock<NDIM>::FCNCL; })
+            .def_property_readonly_static("FCREL", [](py::object const & /* self */) { return UnstructuredBlock<NDIM>::FCREL; })
+            .def_property_readonly_static("BFREL", [](py::object const & /* self */) { return UnstructuredBlock<NDIM>::BFREL; })
+        ;
+    }
+
+    wrapper_type & shapes() {
+        return (*this)
+        .def_property_readonly("ndim", &UnstructuredBlock<NDIM>::ndim)
+        .def_property_readonly("nnode", &UnstructuredBlock<NDIM>::nnode)
+        .def_property_readonly("nface", &UnstructuredBlock<NDIM>::nface)
+        .def_property_readonly("ncell", &UnstructuredBlock<NDIM>::ncell)
+        .def_property_readonly("nbound", &UnstructuredBlock<NDIM>::nbound)
+        .def_property_readonly("ngstnode", &UnstructuredBlock<NDIM>::ngstnode)
+        .def_property_readonly("ngstface", &UnstructuredBlock<NDIM>::ngstface)
+        .def_property_readonly("ngstcell", &UnstructuredBlock<NDIM>::ngstcell)
+        ;
+    }
+
+    wrapper_type & tables() {
+#define DECL_MARCH_PYBIND_USTBLOCK_TABLE(NAME, DOC) \
+        .def_property_readonly( \
+            "tb" #NAME, \
+            [](UnstructuredBlock<NDIM> & blk) { return static_cast<LookupTableCore>(blk.NAME()); }, \
+            #DOC " table")
+
+#define DECL_MARCH_PYBIND_USTBLOCK_TABLES \
+        DECL_MARCH_PYBIND_USTBLOCK_TABLE(ndcrd, "Node coordinates") \
+        DECL_MARCH_PYBIND_USTBLOCK_TABLE(fccnd, "Face center coordinates") \
+        DECL_MARCH_PYBIND_USTBLOCK_TABLE(fcnml, "Face center coordinates") \
+        DECL_MARCH_PYBIND_USTBLOCK_TABLE(fcara, "Face center coordinates") \
+        DECL_MARCH_PYBIND_USTBLOCK_TABLE(clcnd, "Cell center coordinates") \
+        DECL_MARCH_PYBIND_USTBLOCK_TABLE(clvol, "Cell volume") \
+        DECL_MARCH_PYBIND_USTBLOCK_TABLE(fctpn, "Face type number") \
+        DECL_MARCH_PYBIND_USTBLOCK_TABLE(cltpn, "Cell type number") \
+        DECL_MARCH_PYBIND_USTBLOCK_TABLE(clgrp, "Cell group number") \
+        DECL_MARCH_PYBIND_USTBLOCK_TABLE(fcnds, "Face nodes") \
+        DECL_MARCH_PYBIND_USTBLOCK_TABLE(fccls, "Face cells") \
+        DECL_MARCH_PYBIND_USTBLOCK_TABLE(clnds, "Cell nodes") \
+        DECL_MARCH_PYBIND_USTBLOCK_TABLE(clfcs, "Cell faces")
+
+        return (*this)
+        DECL_MARCH_PYBIND_USTBLOCK_TABLES
+        ;
+
+#undef DECL_MARCH_PYBIND_USTBLOCK_TABLES
+#undef DECL_MARCH_PYBIND_USTBLOCK_TABLE
+    }
+
+    wrapper_type & arrays() {
+#define DECL_MARCH_PYBIND_USTBLOCK_ARRAY(PREFIX, NAME, ARR, DOC) \
+        .def_property( \
+            #PREFIX #NAME, \
+            [](UnstructuredBlock<NDIM> & blk)                { return Table(blk.NAME()).ARR(); }, \
+            [](UnstructuredBlock<NDIM> & blk, py::array src) { Table::CopyInto(Table(blk.NAME()).ARR(), src); }, \
+            #DOC " " #ARR " array")
+
+#define DECL_MARCH_PYBIND_USTBLOCK_ARRAYS(PREFIX, ARR) \
+        DECL_MARCH_PYBIND_USTBLOCK_ARRAY(PREFIX, ndcrd, ARR, "Node coordinates") \
+        DECL_MARCH_PYBIND_USTBLOCK_ARRAY(PREFIX, fccnd, ARR, "Face center coordinates") \
+        DECL_MARCH_PYBIND_USTBLOCK_ARRAY(PREFIX, fcnml, ARR, "Face center coordinates") \
+        DECL_MARCH_PYBIND_USTBLOCK_ARRAY(PREFIX, fcara, ARR, "Face center coordinates") \
+        DECL_MARCH_PYBIND_USTBLOCK_ARRAY(PREFIX, clcnd, ARR, "Cell center coordinates") \
+        DECL_MARCH_PYBIND_USTBLOCK_ARRAY(PREFIX, clvol, ARR, "Cell volume") \
+        DECL_MARCH_PYBIND_USTBLOCK_ARRAY(PREFIX, fctpn, ARR, "Face type number") \
+        DECL_MARCH_PYBIND_USTBLOCK_ARRAY(PREFIX, cltpn, ARR, "Cell type number") \
+        DECL_MARCH_PYBIND_USTBLOCK_ARRAY(PREFIX, clgrp, ARR, "Cell group number") \
+        DECL_MARCH_PYBIND_USTBLOCK_ARRAY(PREFIX, fcnds, ARR, "Face nodes") \
+        DECL_MARCH_PYBIND_USTBLOCK_ARRAY(PREFIX, fccls, ARR, "Face cells") \
+        DECL_MARCH_PYBIND_USTBLOCK_ARRAY(PREFIX, clnds, ARR, "Cell nodes") \
+        DECL_MARCH_PYBIND_USTBLOCK_ARRAY(PREFIX, clfcs, ARR, "Cell faces")
+
+        return (*this)
+        DECL_MARCH_PYBIND_USTBLOCK_ARRAYS(, body)
+        DECL_MARCH_PYBIND_USTBLOCK_ARRAYS(gst, ghost)
+        DECL_MARCH_PYBIND_USTBLOCK_ARRAYS(sh, full)
+        DECL_MARCH_PYBIND_USTBLOCK_ARRAY(, bndfcs, full, "Boundary faces")
+        ;
+
+#undef DECL_MARCH_PYBIND_USTBLOCK_ARRAYS
+#undef DECL_MARCH_PYBIND_USTBLOCK_ARRAY
+    }
+
+    wrapper_type & pickle() {
+        return (*this)
+        .def("__getstate__", [](wrapped_type & blk) {
+            py::dict pickled;
+            // shapes.
+            pickled["nnode"   ] = py::cast(blk.nnode());
+            pickled["nface"   ] = py::cast(blk.nface());
+            pickled["ncell"   ] = py::cast(blk.ncell());
+            pickled["nbound"  ] = py::cast(blk.nbound());
+            pickled["ngstnode"] = py::cast(blk.ngstnode());
+            pickled["ngstface"] = py::cast(blk.ngstface());
+            pickled["ngstcell"] = py::cast(blk.ngstcell());
+            pickled["use_incenter"] = py::cast(blk.use_incenter());
+            // arrays.
+            pickled["ndcrd"] = py::cast(Table(blk.ndcrd()).full());
+            pickled["fccnd"] = py::cast(Table(blk.fccnd()).full());
+            pickled["fcnml"] = py::cast(Table(blk.fcnml()).full());
+            pickled["fcara"] = py::cast(Table(blk.fcara()).full());
+            pickled["clcnd"] = py::cast(Table(blk.clcnd()).full());
+            pickled["clvol"] = py::cast(Table(blk.clvol()).full());
+            pickled["fctpn"] = py::cast(Table(blk.fctpn()).full());
+            pickled["cltpn"] = py::cast(Table(blk.cltpn()).full());
+            pickled["clgrp"] = py::cast(Table(blk.clgrp()).full());
+            pickled["fcnds"] = py::cast(Table(blk.fcnds()).full());
+            pickled["fccls"] = py::cast(Table(blk.fccls()).full());
+            pickled["clnds"] = py::cast(Table(blk.clnds()).full());
+            pickled["clfcs"] = py::cast(Table(blk.clfcs()).full());
+            pickled["bndfcs"] = py::cast(Table(blk.bndfcs()).full());
+            // bndvec.
+            py::list bndlist;
+            for (auto & bnd : blk.bndvec()) {
+                bndlist.append(WrapBoundaryData::getstate(bnd));
+            }
+            pickled["bndvec"] = bndlist;
+            return pickled;
+        })
+        .def("__setstate__", [](wrapped_type & blk, py::dict pickled) {
+            // shapes.
+            index_type nnode    = pickled["nnode"   ].cast<index_type>();
+            index_type nface    = pickled["nface"   ].cast<index_type>();
+            index_type ncell    = pickled["ncell"   ].cast<index_type>();
+            index_type nbound   = pickled["nbound"  ].cast<index_type>();
+            index_type ngstnode = pickled["ngstnode"].cast<index_type>();
+            index_type ngstface = pickled["ngstface"].cast<index_type>();
+            index_type ngstcell = pickled["ngstcell"].cast<index_type>();
+            bool use_incenter   = pickled["use_incenter"].cast<bool>();
+            new (&blk) wrapped_type(nnode, nface, ncell, nbound, ngstnode, ngstface, ngstcell, use_incenter);
+            // arrays.
+            Table::CopyInto(Table(blk.ndcrd()).full(), py::array(pickled["ndcrd"]));
+            Table::CopyInto(Table(blk.fccnd()).full(), py::array(pickled["fccnd"]));
+            Table::CopyInto(Table(blk.fcnml()).full(), py::array(pickled["fcnml"]));
+            Table::CopyInto(Table(blk.fcara()).full(), py::array(pickled["fcara"]));
+            Table::CopyInto(Table(blk.clcnd()).full(), py::array(pickled["clcnd"]));
+            Table::CopyInto(Table(blk.clvol()).full(), py::array(pickled["clvol"]));
+            Table::CopyInto(Table(blk.fctpn()).full(), py::array(pickled["fctpn"]));
+            Table::CopyInto(Table(blk.cltpn()).full(), py::array(pickled["cltpn"]));
+            Table::CopyInto(Table(blk.clgrp()).full(), py::array(pickled["clgrp"]));
+            Table::CopyInto(Table(blk.fcnds()).full(), py::array(pickled["fcnds"]));
+            Table::CopyInto(Table(blk.fccls()).full(), py::array(pickled["fccls"]));
+            Table::CopyInto(Table(blk.clnds()).full(), py::array(pickled["clnds"]));
+            Table::CopyInto(Table(blk.clfcs()).full(), py::array(pickled["clfcs"]));
+            Table::CopyInto(Table(blk.bndfcs()).full(), py::array(pickled["bndfcs"]));
+            // bndvec.
+            py::list bndlist = static_cast<py::object>(pickled["bndvec"]);
+            BoundaryData bndstorage[1];
+            for (py::handle pybnd : bndlist) {
+                BoundaryData & bnd = *bndstorage;
+                WrapBoundaryData::setstate(bnd, py::tuple(pybnd, false));
+                blk.bndvec().push_back(std::move(bnd));
+            }
+            pickled["bndvec"] = bndlist;
+        });
+    }
+
+}; /* end class WrapUnstructuredBlock */
+
+PYBIND11_DECLARE_HOLDER_TYPE(T, std::shared_ptr<T>);
+
+PYBIND11_PLUGIN(march) {
+    py::module mod("march", "libmarch wrapper");
+
+    import_array1(nullptr); // or numpy c api segfault.
+
+    py::class_< Buffer, std::shared_ptr<Buffer> >(mod, "Buffer", "Internal data buffer");
+    WrapLookupTableCore::commit(mod, "Table", "Lookup table that allows ghost entity.");
+    WrapBoundaryData::commit(mod, "BoundaryData", "Data of a boundary condition.");
+    WrapUnstructuredBlock<2>::commit(mod, "UnstructuredBlock2D", "Two-dimensional unstructured mesh block.");
+    WrapUnstructuredBlock<3>::commit(mod, "UnstructuredBlock3D", "Three-dimensional unstructured mesh block.");
 
     return mod.ptr();
 }
