@@ -26,6 +26,9 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+# NOTE: This file is deprecated.  Use libmarch, pybind11, and march.cpp for
+# wrapping in the future.
+
 from libc.stdint cimport intptr_t
 
 cdef public:

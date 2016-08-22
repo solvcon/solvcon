@@ -4,16 +4,15 @@ Unstructured Meshes
 
 .. py:currentmodule:: solvcon
 
-We usually discretize the spatial domain of interest before solving PDEs with
-digital computers.  The discretized space is called a *mesh* [Mavriplis97]_.
-When discretization is done by exploiting regularity in space, like cutting
-along each of the Cartesian coordinate axes, the discretized space is called a
-*structured mesh*.  If the discretization does not follow any spatial order, we
-call the spatial domain an *unstructured mesh*.  Both meshing strategies have
-their strength and weakness.  Sometimes a structured mesh is also call a
-*grid*.  Numerical methods that rely on spatial discretization are called
-*mesh-based* or *grid-based*.  Most PDE-solving methods in production uses are
-mesh-based, but meshless methods have their advantages.
+We discretize the spatial domain of interest before solving PDEs.  The
+discretized space is called a *mesh* [Mavriplis97]_.  When discretization is
+done by exploiting regularity in space, like cutting along each of the
+Cartesian coordinate axes, the discretized space is called a *structured mesh*.
+If the discretization does not follow any spatial order, we call the spatial
+domain an *unstructured mesh*.  Both meshing strategies have their strength and
+weakness.  Sometimes a structured mesh is also call a *grid*.  Numerical
+methods that rely on spatial discretization are called *mesh-based* or
+*grid-based*.
 
 To accommodate complex geometry, SOLVCON chose to use unstructured meshes of
 mixed elements.  Because no structure is assumed for the geometry to be
@@ -69,7 +68,7 @@ three-dimensional mesh elements, *hexahedra*, *tetrahedra*, *prisms*, and
 
 The numbers annotated in the figures are the order of the vertices of the
 elements.  A SOLVCON mesh can be a mixture of elements of the same dimension,
-although it is often composed of one type of element.
+although it often only one element type.
 
 Entities
 ========
@@ -478,141 +477,7 @@ should be put in a continuous block of memory adjacent to its interior
 counterpart.  In SOLVCON, the ``sh`` arrays are the continuous memory blocks
 for both ghost and interior look-up tables, and a pair of ``gst`` and normal
 arrays is simply the views of two consecutive, non-overlapping sub-regions of a
-memory block.  More details of the technique of ghost cells will be given in
-`Low-Level C Helper Code`_.
-
-Low-Level C Helper Code
-=======================
-
-C helpers are implemented to speed up some :py:class:`Block` operations.
-`Cython <http://cython.org/>`__ is used to bridge Python and C.  A header file
-``mesh.h`` contains the essential declarations to use the mesh data.
-
-.. c:type:: sc_mesh_t
-
-  This ``struct`` is the counterpart of the Python class :py:class:`Block` in
-  C.  It contains four sections of fields in order.
-
-  .. rubric:: Shape
-
-  These fields correspond to the instance properties (attributes) in
-  :py:class:`solvcon.block.Block` of the same names:
-
-  .. c:member:: int ndim
-  .. c:member:: int nnode
-  .. c:member:: int nface
-  .. c:member:: int ncell
-  .. c:member:: int nbound
-  .. c:member:: int ngstnode
-  .. c:member:: int ngstface
-  .. c:member:: int ngstcell
-
-  .. rubric:: Geometry Tables
-
-  These fields correspond to the instance variables (attributes) in
-  :py:class:`solvcon.block.Block` of the same names:
-
-  .. note::
-
-    All arrays in :c:type:`sc_mesh_t` are shared arrays but the pointers point
-    to the start of their interior portion.  In this way, ghost information can
-    be accessed through negative indices of nodes, faces, and cells in the
-    first dimension of these arrays.  Negative indices in higher dimensions of
-    the arrays are meaningless.
-
-  .. c:member:: double* ndcrd
-  .. c:member:: double* fccnd
-  .. c:member:: double* fcnml
-  .. c:member:: double* fcara
-  .. c:member:: double* clcnd
-  .. c:member:: double* clvol
-
-  .. rubric:: Type Tables
-
-  These fields correspond to the instance variables (attributes) in
-  :py:class:`solvcon.block.Block` of the same names:
-
-  .. c:member:: int* fctpn
-  .. c:member:: int* cltpn
-  .. c:member:: int* clgrp
-
-  .. rubric:: Connectivity Tables
-
-  These fields correspond to the instance variables (attributes) in
-  :py:class:`solvcon.block.Block` of the same names:
-
-  .. c:member:: int* fcnds
-  .. c:member:: int* fccls
-  .. c:member:: int* clnds
-  .. c:member:: int* clfcs
-
-The SOLVCON C library (``libsolvcon.a``) contains five mesh-related functions
-that are used internally in :py:class:`Mesh`.  These functions are not meant to
-be part of the interface, but can be a reference about the usage of
-:c:type:`sc_mesh_t`:
-
-.. c:function:: int sc_mesh_extract_faces_from_cells(sc_mesh_t *msd, \
-  int mface, int *pnface, int *clfcs, int *fctpn, int *fcnds, int *fccls)
-
-This function extracts interior faces from the node lists of the cells given
-in the first argument ``msd``.  The second argument ``mface`` is also an
-input, which sets the maximum value of possible number of faces to be
-extracted.
-
-The rest of the arguments is outputs.  The arrays pointed by the last four
-arguments need to be pre-allocated with appropriate size or the memory will
-be corrupted.
-
-.. c:function:: int sc_mesh_calc_metric(sc_mesh_t *msd, int use_incenter)
-
-This function calculates the geometry information and stores the calculated
-values into the arrays specified in ``msd``.  The second argument
-``use_incenter`` is a flag.  When it is set to ``1``, the function calculates
-and stores the incenter of the cells.  Otherwise, the function calculates and
-stores the centroids of the cells.
-
-.. c:function:: void sc_mesh_build_ghost(sc_mesh_t *msd, int *bndfcs)
-
-Build all information for ghost cells by mirroring information from interior
-cells.  The arrays in the first argument ``msd`` will be altered, but data in
-the second argument ``bndfcs`` will remain intact.  The action includes:
-
-1. Define indices and build connectivities for ghost nodes, faces, 
-   and cells.  In the same loop, mirror the coordinates of interior 
-   nodes to ghost nodes.
-2. Compute center coordinates for faces for ghost cells.
-3. Compute normal vectors and areas for faces for ghost cells.
-4. Compute center coordinates for ghost cells.
-5. Compute volume for ghost cells.
-
-It should be noted that all the geometry, type/meta and connectivity data
-used in this function are SHARED arrays rather than interior arrays.  The
-indices for ghost information should be carefully treated.  All the ghost
-indices are negative in shared arrays.
-
-.. c:function:: int sc_mesh_build_rcells(sc_mesh_t *msd, \
-  int *rcells, int *rcellno)
-
-This is a utility function used by :py:meth:`Mesh.create_csr`.  The first
-argument ``msd`` is input and will not be changed, and the output will be
-write to the second and third arguments, ``rcells`` and ``rcellno``.
-Sufficient memory must be pre-allocated for the output arrays before calling
-or memory can be corrupted.
-
-.. c:function:: int sc_mesh_build_csr(sc_mesh_t *msd, int *rcells, int *adjncy)
-
-This is a utility function used by :py:meth:`Mesh.create_csr`.  The first
-argument ``msd`` and the second argument ``rcells`` are input and will not be
-changed, while the third argument ``adjncy`` is output.  Sufficient memory
-must be pre-allocated for the output array before calling or memory can be
-corrupted.
-
-A Python class :py:class:`Mesh` is written by using Cython to convert a
-Python-space :py:class:`solvcon.block.Block` object into a :c:type:`sc_mesh_t`
-``struct`` variable for use in C.  This class is meant to be subclassed to
-implement the core number-crunching algorithm of a numerical method.  In
-addition, this class also provides functionalities that need the C utility
-functions listed above.
+memory block.
 
 .. rubric:: Footnotes
 
