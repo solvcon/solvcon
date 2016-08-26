@@ -59,26 +59,36 @@ from numpy.distutils.ccompiler import replace_method
 from numpy.distutils.ccompiler import CCompiler_customize as numpy_CCompiler_customize
 from numpy.distutils import log
 
+from distutils.extension import Extension
 from numpy.distutils.core import setup
 from Cython.Build import cythonize
 from Cython.Distutils import Extension as CyExtension
-from numpy.distutils.extension import Extension
 import pybind11
 
 import solvcon as sc
 
 
 def CCompiler_customize(self, *args, **kw):
-    forbidden = kw.pop('forbidden', [])
+    need_cxx = kw.get('need_cxx', 0)
+
+    # list unwanted flags (e.g. '-g') here.
+    unwanted = []
+
+    # call the original method.
     numpy_CCompiler_customize(self, *args, **kw)
+
+    # update arguments.
     ccshared = ' '.join(set(self.compiler_so) - set(self.compiler))
-    compiler = ' '.join(it for it in self.compiler if it not in forbidden)
+    compiler = ' '.join(it for it in self.compiler if it not in unwanted)
+    old_compiler = self.compiler
     self.set_executables(
         compiler=compiler,
         compiler_so=compiler + ' ' + ccshared,
     )
-    if hasattr(self, 'compiler'):
-        log.warn("#### %s #######" % (self.compiler,))
+    modified = self.compiler != old_compiler
+    if modified and need_cxx and hasattr(self, 'compiler'):
+        log.warn("#### %s ####### %s removed" % (self.compiler, unwanted))
+
     return
 
 replace_method(CCompiler, 'customize', CCompiler_customize)
@@ -125,8 +135,9 @@ def make_pybind11_extension(
     if "CONDA_PREFIX" in os.environ:
         include_dirs.append(os.path.join(os.environ["CONDA_PREFIX"], "include"))
     if extra_compile_args is None: extra_compile_args = []
-    # FIXME: turn on -Wall and -Wextra
     extra_compile_args.extend([
+        '-Wall',
+        '-Wextra',
         '-Werror',
         '-std=c++11',
         '-Wno-unused-function',
