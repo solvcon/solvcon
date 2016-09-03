@@ -149,6 +149,33 @@ class TestRemoteParallel(TestBlockCaseRun):
         # compare.
         self.assertTrue((dsoln==clcnd).all())
 
+    def test_dsoln_cluster(self):
+        import sys
+        from nose.plugins.skip import SkipTest
+        if sys.platform.startswith('win'): raise SkipTest
+        from numpy import zeros
+        from solvcon.batch import Generic
+        from solvcon.domain import Distributed
+        localpath = os.path.abspath(os.path.dirname(__file__))
+        if 'PYTHONPATH' in os.environ:
+            os.environ['PYTHONPATH'] += ':%s' % localpath
+        else:
+            os.environ['PYTHONPATH'] = localpath
+        if "SOLVCON_NODELIST" not in os.environ:
+            raise SkipTest
+        case = self._get_case(npart=self.npart, domaintype=Distributed,
+            batch=Generic, rkillfn='')
+        case.run()
+        # get result.
+        dsoln = case.execution.var['dsoln'][:,0,:]
+        # calculate reference
+        blk = case.solver.domainobj.blk
+        clcnd = zeros(dsoln.shape, dtype=dsoln.dtype)
+        for iistep in range(self.nsteps*2):
+            clcnd += blk.clcnd*self.time_increment/2
+        # compare.
+        self.assertTrue((dsoln==clcnd).all())
+
 class SampleVtkAnchor(VtkAnchor):
     def process(self, istep):
         from solvcon.visual_vtk import Vop
