@@ -5,7 +5,6 @@
  * BSD 3-Clause License, see COPYING
  */
 
-#include "march/mesh/LookupTable.hpp"
 #include "march/mesh/BoundaryData.hpp"
 #include "march/mesh/UnstructuredBlock/UnstructuredBlock.hpp"
 

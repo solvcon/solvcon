@@ -10,8 +10,6 @@
 
 #include "march/core/core.hpp"
 
-#include "march/mesh/LookupTable.hpp"
-
 namespace march
 {
 

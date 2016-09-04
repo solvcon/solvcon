@@ -11,8 +11,6 @@
 namespace march
 {
 
-namespace mesh { class LookupTableCore; }
-
 /**
  * Untyped and unresizeable memory buffer for data storage.
  */

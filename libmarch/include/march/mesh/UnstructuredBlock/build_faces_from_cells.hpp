@@ -8,7 +8,6 @@
 #include <cmath>
 #include <stdlib.h>
 
-#include "march/mesh/LookupTable.hpp"
 #include "march/mesh/UnstructuredBlock/class.hpp"
 
 namespace march

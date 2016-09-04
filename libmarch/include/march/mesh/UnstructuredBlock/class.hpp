@@ -16,7 +16,6 @@
 
 #include "march/core/core.hpp"
 
-#include "march/mesh/LookupTable.hpp"
 #include "march/mesh/BoundaryData.hpp"
 
 namespace march
