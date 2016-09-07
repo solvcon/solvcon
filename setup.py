@@ -134,6 +134,9 @@ def make_pybind11_extension(
     rpathflag = '-Wl,-rpath,%s/lib' % sys.exec_prefix
     if "CONDA_PREFIX" in os.environ:
         include_dirs.append(os.path.join(os.environ["CONDA_PREFIX"], "include"))
+    else:
+        include_dirs.append(os.path.join("/usr/include/scotch"))
+        include_dirs.append(os.path.join("/usr/include/metis"))
     if extra_compile_args is None: extra_compile_args = []
     extra_compile_args.extend([
         '-Wall',
