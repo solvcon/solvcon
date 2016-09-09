@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <numeric>
 #include <tuple>
+#include <memory>
 
 #include "march/depend/scotch.hpp"
 
@@ -24,36 +25,24 @@ namespace march
 namespace mesh
 {
 
-/**
- * SOLVCON legacy C interface for unstructured blocks.
- */
-struct sc_mesh_t {
-    index_type ndim, nnode, nface, ncell, nbound, ngstnode, ngstface, ngstcell;
-    // geometry.
-    real_type *ndcrd;
-    real_type *fccnd;
-    real_type *fcnml;
-    real_type *fcara;
-    real_type *clcnd;
-    real_type *clvol;
-    // meta.
-    shape_type *fctpn;
-    shape_type *cltpn;
-    index_type *clgrp;
-    // connectivity.
-    index_type *fcnds;
-    index_type *fccls;
-    index_type *clnds;
-    index_type *clfcs;
-}; /* end struct sc_mesh_t */
+class UnstructuredBlockConstructorAgent; /* should only be defined once in Python wrapping code */
+
 
 /**
  * Unstructured mesh of mixed-type elements, optimized for reading.
+ *
+ * This class is managed using std::shared_ptr.  Consumers should get a const
+ * reference when a const object is desired, otherwise get a shared pointer of
+ * non-const.
  */
 template< size_t NDIM >
-class UnstructuredBlock {
+class UnstructuredBlock
+  : public std::enable_shared_from_this<UnstructuredBlock<NDIM>>
+{
 
 public:
+
+    static_assert(2 == NDIM || 3 == NDIM, "not 2 or 3 dimensional");
 
     static constexpr index_type ELEM_DESCR[8 /* sentinel -> */ + 1][5] = {
         // index, dim, node, edge, surface,      name
@@ -128,76 +117,53 @@ private:
 /* constructors and desctructor */
 public:
 
+    class ctor_passkey {
+    private:
+        ctor_passkey() = default;
+        friend UnstructuredBlock<NDIM>;
+        friend UnstructuredBlockConstructorAgent; /* backdoor for pybind11 */
+    };
+
     UnstructuredBlock(
-        index_type nnode, index_type nface, index_type ncell, bool use_incenter
-    ): m_nnode(nnode), m_nface(nface), m_ncell(ncell), m_use_incenter(use_incenter)
+        const ctor_passkey &
+      , index_type nnode, index_type nface, index_type ncell, index_type nbound
+      , index_type ngstnode, index_type ngstface, index_type ngstcell
+      , bool use_incenter
+    ) : std::enable_shared_from_this<UnstructuredBlock<NDIM>>()
+      , m_nnode(nnode), m_nface(nface), m_ncell(ncell), m_nbound(nbound)
+      , m_ngstnode(ngstnode), m_ngstface(ngstface), m_ngstcell(ngstcell)
+      , m_use_incenter(use_incenter)
     {
-        static_assert(2 == NDIM || 3 == NDIM, "not 2 or 3 dimensional");
         build_tables();
     }
 
-    UnstructuredBlock(
+    UnstructuredBlock() = delete;
+    UnstructuredBlock(UnstructuredBlock const & ) = delete;
+    UnstructuredBlock(UnstructuredBlock       &&) = delete;
+    UnstructuredBlock & operator=(UnstructuredBlock const & ) = delete;
+    UnstructuredBlock & operator=(UnstructuredBlock       &&) = delete;
+
+    ~UnstructuredBlock() { /* LookupTable destructor takes care of resource management */ }
+
+    static std::shared_ptr<UnstructuredBlock> construct(
         index_type nnode, index_type nface, index_type ncell, index_type nbound
       , index_type ngstnode, index_type ngstface, index_type ngstcell
       , bool use_incenter
-    ): m_nnode(nnode), m_nface(nface), m_ncell(ncell), m_nbound(nbound)
-     , m_ngstnode(ngstnode), m_ngstface(ngstface), m_ngstcell(ngstcell)
-     , m_use_incenter(use_incenter)
-    {
-        static_assert(2 == NDIM || 3 == NDIM, "not 2 or 3 dimensional");
-        build_tables();
+    ) {
+        return std::make_shared<UnstructuredBlock>(
+            ctor_passkey(), nnode, nface, ncell, nbound, ngstnode, ngstface, ngstcell, use_incenter
+        );
     }
 
-    UnstructuredBlock() {}
-
-    UnstructuredBlock(const UnstructuredBlock &) = delete;
-
-    UnstructuredBlock(UnstructuredBlock &&) = delete;
-
-    UnstructuredBlock & operator=(const UnstructuredBlock &) = delete;
-
-    UnstructuredBlock & operator=(UnstructuredBlock && other) {
-        m_nnode = other.m_nnode;
-        m_nface = other.m_nface;
-        m_ncell = other.m_ncell;
-        m_nbound = other.m_nbound;
-        m_ngstnode = other.m_ngstnode;
-        m_ngstface = other.m_ngstface;
-        m_ngstcell = other.m_ngstcell;
-        m_use_incenter = other.m_use_incenter;
-        // reset to initial state
-        other.m_nnode = 0;
-        other.m_nface = 0;
-        other.m_ncell = 0;
-        other.m_nbound = 0;
-        other.m_ngstnode = 0;
-        other.m_ngstface = 0;
-        other.m_ngstcell = 0;
-        other.m_use_incenter = false;
-
-        m_ndcrd = std::move(other.m_ndcrd);
-        m_fccnd = std::move(other.m_fccnd);
-        m_fcnml = std::move(other.m_fcnml);
-        m_fcara = std::move(other.m_fcara);
-        m_clcnd = std::move(other.m_clcnd);
-        m_clvol = std::move(other.m_clvol);
-
-        m_fctpn = std::move(other.m_fctpn);
-        m_cltpn = std::move(other.m_cltpn);
-        m_clgrp = std::move(other.m_clgrp);
-
-        m_fcnds = std::move(other.m_fcnds);
-        m_fccls = std::move(other.m_fccls);
-        m_clnds = std::move(other.m_clnds);
-        m_clfcs = std::move(other.m_clfcs);
-
-        m_bndfcs = std::move(other.m_bndfcs);
-        m_bndvec = std::move(other.m_bndvec);
-
-        return *this;
+    static std::shared_ptr<UnstructuredBlock> construct(
+        index_type nnode, index_type nface, index_type ncell, bool use_incenter
+    ) {
+        return construct(nnode, nface, ncell, 0, 0, 0, 0, use_incenter);
     }
 
-    ~UnstructuredBlock() { /* LookupTable destructor takes care of resource management */ }
+    static std::shared_ptr<UnstructuredBlock> construct() {
+        return construct(0, 0, 0, 0, 0, 0, 0, false);
+    }
 
 #undef MARCH_USTBLOCK_TABLE_DECL_SWAP
 
@@ -390,7 +356,7 @@ private:
         return std::make_tuple(ngstnode, ngstface, nbound());
     }
 
-    void fill_ghost(/* sc_mesh_t *msd, int *bndfcs */);
+    void fill_ghost();
 
     void build_rcells(LookupTable<index_type, CLMFC> & rcells, LookupTable<index_type, 0> & rcellno) const;
 

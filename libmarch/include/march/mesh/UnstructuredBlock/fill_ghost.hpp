@@ -33,7 +33,7 @@ namespace mesh
  * ghost indices are negative in shared arrays.
  */
 template< size_t NDIM >
-void UnstructuredBlock< NDIM >::fill_ghost(/* sc_mesh_t *msd, int *bndfcs */) {
+void UnstructuredBlock< NDIM >::fill_ghost() {
     int nnd, nfc;
     // pointers.
     int *pbndfcs;
