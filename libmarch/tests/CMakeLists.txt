@@ -10,7 +10,7 @@ add_executable(test_libmarch
     main.cpp gtest/gtest-all.cc
     core_types.cpp
     core_Buffer.cpp
-    mesh_LookupTable.cpp
+    core_LookupTable.cpp
     mesh_BoundaryData.cpp
     mesh_UnstructuredBlock.cpp
 )

@@ -17,14 +17,14 @@ using namespace march::mesh;
  */
 
 TEST(UnstructuredBlockBasicTest, Construction) {
-    UnstructuredBlock<2> blk(/* nnode */4, /* nface */6, /* ncell */3, /* use_incenter */false);
-    EXPECT_EQ(blk.nnode(), 4);
-    EXPECT_EQ(blk.nface(), 6);
-    EXPECT_EQ(blk.ncell(), 3);
-    EXPECT_EQ(blk.nbound(), 0);
-    EXPECT_EQ(blk.ngstnode(), 0);
-    EXPECT_EQ(blk.ngstface(), 0);
-    EXPECT_EQ(blk.ngstcell(), 0);
+    auto blk = UnstructuredBlock<2>::construct(/* nnode */4, /* nface */6, /* ncell */3, /* use_incenter */false);
+    EXPECT_EQ(blk->nnode(), 4);
+    EXPECT_EQ(blk->nface(), 6);
+    EXPECT_EQ(blk->ncell(), 3);
+    EXPECT_EQ(blk->nbound(), 0);
+    EXPECT_EQ(blk->ngstnode(), 0);
+    EXPECT_EQ(blk->ngstface(), 0);
+    EXPECT_EQ(blk->ngstcell(), 0);
 }
 
 /*
@@ -67,8 +67,8 @@ protected:
      *     (-1,-1)N1                                 (1,-1)N2
      */
     void fill_triangles() {
-        m_triangles = UnstructuredBlock<2>(/* nnode */4, /* nface */6, /* ncell */3, /* use_incenter */false);
-        UnstructuredBlock<2> & blk = m_triangles;
+        m_triangles = UnstructuredBlock<2>::construct(/* nnode */4, /* nface */6, /* ncell */3, /* use_incenter */false);
+        auto & blk = *m_triangles;
         blk.ndcrd().set_at(0,  0,  0);
         blk.ndcrd().set_at(1, -1, -1);
         blk.ndcrd().set_at(2,  1, -1);
@@ -79,14 +79,14 @@ protected:
         blk.clnds().set_at(2, 3, 0, 3, 1);
     }
 
-    UnstructuredBlock<2> m_triangles;
+    std::shared_ptr<UnstructuredBlock<2>> m_triangles;
 
 }; /* end class UnstructuredBlockDataTest */
 
 TEST_F(UnstructuredBlockDataTest, build_faces_from_cells) {
     typedef std::vector<index_type> ivtype;
 
-    UnstructuredBlock<2> & blk = m_triangles;
+    UnstructuredBlock<2> & blk = *m_triangles;
     blk.build_interior();
 
     // shape
@@ -136,7 +136,7 @@ TEST_F(UnstructuredBlockDataTest, build_faces_from_cells) {
 TEST_F(UnstructuredBlockDataTest, calc_metric) {
     typedef std::vector<real_type> rvtype;
 
-    UnstructuredBlock<2> & blk = m_triangles;
+    UnstructuredBlock<2> & blk = *m_triangles;
     blk.build_interior();
 
     // fccnd
@@ -184,7 +184,7 @@ TEST_F(UnstructuredBlockDataTest, calc_metric) {
 }
 
 TEST_F(UnstructuredBlockDataTest, build_boundary_unspecified) {
-    UnstructuredBlock<2> & blk = m_triangles;
+    UnstructuredBlock<2> & blk = *m_triangles;
     blk.build_interior();
     EXPECT_EQ(0, blk.nbound());
     blk.build_boundary();
@@ -197,7 +197,7 @@ TEST_F(UnstructuredBlockDataTest, build_boundary_unspecified) {
 }
 
 TEST_F(UnstructuredBlockDataTest, build_ghost_unspecified) {
-    UnstructuredBlock<2> & blk = m_triangles;
+    UnstructuredBlock<2> & blk = *m_triangles;
     blk.build_interior();
     blk.build_boundary();
     blk.build_ghost();
@@ -208,7 +208,7 @@ TEST_F(UnstructuredBlockDataTest, build_ghost_unspecified) {
 }
 
 TEST_F(UnstructuredBlockDataTest, partition) {
-    UnstructuredBlock<2> & blk = m_triangles;
+    UnstructuredBlock<2> & blk = *m_triangles;
     blk.build_interior();
     blk.build_boundary();
     blk.build_ghost();

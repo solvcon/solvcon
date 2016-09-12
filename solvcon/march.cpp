@@ -14,6 +14,8 @@
 
 namespace py = pybind11;
 
+PYBIND11_DECLARE_HOLDER_TYPE(T, std::shared_ptr<T>);
+
 using namespace march;
 using namespace march::mesh;
 
@@ -102,13 +104,14 @@ private:
 /**
  * Helper class for pybind11 class wrappers.
  */
-template< class Wrapper, class Wrapped > class WrapBase {
+template< class Wrapper, class Wrapped, class Holder = std::unique_ptr<Wrapped>> class WrapBase {
 
 public:
 
     typedef Wrapper wrapper_type;
     typedef Wrapped wrapped_type;
-    typedef WrapBase< wrapper_type, wrapped_type > base_type;
+    typedef Holder holder_type;
+    typedef WrapBase< wrapper_type, wrapped_type, holder_type > base_type;
 
     static wrapper_type & commit(py::module & mod, const char * pyname, const char * clsdoc) {
         static wrapper_type derived(mod, pyname, clsdoc);
@@ -138,10 +141,10 @@ public:
 protected:
 
     WrapBase(py::module & mod, const char * pyname, const char * clsdoc)
-        : m_cls(py::class_< wrapped_type >(mod, pyname, clsdoc))
+        : m_cls(py::class_< wrapped_type, holder_type >(mod, pyname, clsdoc))
     {}
 
-    py::class_< wrapped_type > m_cls;
+    py::class_< wrapped_type, holder_type > m_cls;
 
 }; /* end class WrapBase */
 
@@ -386,13 +389,40 @@ public:
 
 }; /* end class WrapBoundaryData */
 
+namespace march { namespace mesh {
+/**
+ * This is a workaround for the unability of pybind11 to initialize a
+ * shared_ptr using make_shared.
+ */
+class UnstructuredBlockConstructorAgent {
+
+public:
+
+    template< size_t NDIM >
+    static void placement_new(
+        UnstructuredBlock<NDIM> & blk
+      , index_type nnode, index_type nface, index_type ncell, index_type nbound
+      , index_type ngstnode, index_type ngstface, index_type ngstcell
+      , bool use_incenter
+    ) {
+        new (&blk) UnstructuredBlock<NDIM>(
+            typename UnstructuredBlock<NDIM>::ctor_passkey()
+          , nnode, nface, ncell, nbound, ngstnode, ngstface, ngstcell, use_incenter
+        );
+    }
+
+}; /* end class UnstructuredBlockConstructorAgent */ } /* end namespace mesh */ } /* end namespace march */
+
 template< size_t NDIM >
-class WrapUnstructuredBlock : public WrapBase< WrapUnstructuredBlock<NDIM>, UnstructuredBlock<NDIM> > {
+class WrapUnstructuredBlock
+  : public WrapBase< WrapUnstructuredBlock<NDIM>, UnstructuredBlock<NDIM>, std::shared_ptr<UnstructuredBlock<NDIM>> >
+{
 
     /* I don't know why I need to duplicate these typedef's, but clang doesn't compile if I don't do it. */
     typedef WrapUnstructuredBlock<NDIM> wrapper_type;
     typedef UnstructuredBlock<NDIM> wrapped_type;
-    typedef WrapBase< wrapper_type, wrapped_type > base_type;
+    typedef std::shared_ptr<UnstructuredBlock<NDIM>> holder_type;
+    typedef WrapBase< wrapper_type, wrapped_type, holder_type > base_type;
 
     friend base_type;
 
@@ -400,8 +430,12 @@ class WrapUnstructuredBlock : public WrapBase< WrapUnstructuredBlock<NDIM>, Unst
         : base_type(mod, pyname, clsdoc)
     {
         (*this)
-            .def(py::init<>())
-            .def(py::init<index_type, index_type, index_type, bool>())
+            .def("__init__", [](wrapped_type & self) {
+                UnstructuredBlockConstructorAgent::placement_new(self, 0, 0, 0, 0, 0, 0, 0, false);
+            })
+            .def("__init__", [](wrapped_type & self, index_type nnode, index_type nface, index_type ncell, bool use_incenter) {
+                UnstructuredBlockConstructorAgent::placement_new(self, nnode, nface, ncell, 0, 0, 0, 0, use_incenter);
+            })
             .shapes()
             .def_property_readonly("use_incenter", &UnstructuredBlock<NDIM>::use_incenter)
             .tables()
@@ -576,7 +610,7 @@ class WrapUnstructuredBlock : public WrapBase< WrapUnstructuredBlock<NDIM>, Unst
             index_type ngstface = pickled["ngstface"].cast<index_type>();
             index_type ngstcell = pickled["ngstcell"].cast<index_type>();
             bool use_incenter   = pickled["use_incenter"].cast<bool>();
-            new (&blk) wrapped_type(nnode, nface, ncell, nbound, ngstnode, ngstface, ngstcell, use_incenter);
+            UnstructuredBlockConstructorAgent::placement_new(blk, nnode, nface, ncell, nbound, ngstnode, ngstface, ngstcell, use_incenter);
             // arrays.
             Table::CopyInto(Table(blk.ndcrd()).full(), py::array(pickled["ndcrd"]));
             Table::CopyInto(Table(blk.fccnd()).full(), py::array(pickled["fccnd"]));
@@ -600,13 +634,11 @@ class WrapUnstructuredBlock : public WrapBase< WrapUnstructuredBlock<NDIM>, Unst
                 WrapBoundaryData::setstate(bnd, py::tuple(pybnd, false));
                 blk.bndvec().push_back(std::move(bnd));
             }
-            pickled["bndvec"] = bndlist;
-        });
+        })
+        ;
     }
 
 }; /* end class WrapUnstructuredBlock */
-
-PYBIND11_DECLARE_HOLDER_TYPE(T, std::shared_ptr<T>);
 
 PYBIND11_PLUGIN(march) {
     py::module mod("march", "libmarch wrapper");

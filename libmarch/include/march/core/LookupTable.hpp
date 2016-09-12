@@ -18,9 +18,6 @@
 namespace march
 {
 
-namespace mesh
-{
-
 /**
  * Untyped unresizeable lookup table.
  */
@@ -434,8 +431,6 @@ private:
     }
 
 }; /* end class LookupTable */
-
-} /* end namespace mesh */
 
 } /* end namespace march */
 
