@@ -12,9 +12,6 @@
 namespace march
 {
 
-namespace mesh
-{
-
 /**
  * \param[out] rcells
  * \param[out] rcellno
@@ -71,8 +68,6 @@ const {
         prcells += CLMFC;
     };
 }
-
-} /* end namespace mesh */
 
 } /* end namespace march */
 

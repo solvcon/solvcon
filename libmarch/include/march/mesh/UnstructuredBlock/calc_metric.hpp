@@ -12,9 +12,6 @@
 namespace march
 {
 
-namespace mesh
-{
-
 /**
  * Calculate all metric information, including:
  *
@@ -394,8 +391,6 @@ void UnstructuredBlock< NDIM >::calc_metric() {
         pclvol += 1;
     };
 };
-
-} /* end namespace mesh */
 
 } /* end namespace march */
 

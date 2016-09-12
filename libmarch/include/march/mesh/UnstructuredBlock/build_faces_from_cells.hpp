@@ -13,9 +13,6 @@
 namespace march
 {
 
-namespace mesh
-{
-
 /**
  * Extract interier faces from node list of cells.  Subroutine is designed to
  * handle all types of cells.
@@ -487,8 +484,6 @@ void UnstructuredBlock< NDIM >::build_faces_from_cells() {
     create_fcnml(0, nface());
     create_fcara(0, nface());
 }
-
-} /* end namespace mesh */
 
 } /* end namespace march */
 

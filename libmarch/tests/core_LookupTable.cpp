@@ -8,7 +8,6 @@
 #include "march/march.hpp"
 
 using namespace march;
-using namespace march::mesh;
 
 TEST(LookupTableTest, Size) {
     LookupTable<index_type, 1> tbl(10, 10);
