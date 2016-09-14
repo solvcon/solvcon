@@ -12,9 +12,6 @@
 namespace march
 {
 
-namespace mesh
-{
-
 /**
  * Build all information for ghost cells by mirroring information from interior
  * cells.  The action includes:
@@ -434,8 +431,6 @@ void UnstructuredBlock< NDIM >::fill_ghost() {
         pclvol -= 1;
     };
 }
-
-} /* end namespace mesh */
 
 } /* end namespace march */
 

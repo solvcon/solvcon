@@ -22,11 +22,7 @@
 namespace march
 {
 
-namespace mesh
-{
-
 class UnstructuredBlockConstructorAgent; /* should only be defined once in Python wrapping code */
-
 
 /**
  * Unstructured mesh of mixed-type elements, optimized for reading.
@@ -470,8 +466,6 @@ UnstructuredBlock<NDIM>::partition(index_type npart) const {
 
     return std::make_tuple(edgecut, part);
 }
-
-} /* end namespace mesh */
 
 } /* end namespace march */
 

@@ -12,9 +12,6 @@
 namespace march
 {
 
-namespace mesh
-{
-
 /**
  * \param[in]  rcells
  * \param[out] adjncy
@@ -41,8 +38,6 @@ const {
         prcells += CLMFC;
     };
 };
-
-} /* end namespace mesh */
 
 } /* end namespace march */
 

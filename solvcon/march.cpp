@@ -17,10 +17,9 @@ namespace py = pybind11;
 PYBIND11_DECLARE_HOLDER_TYPE(T, std::shared_ptr<T>);
 
 using namespace march;
-using namespace march::mesh;
 
 /**
- * Decorator of LookupTableCore to convert march::mesh::LookupTableCore to
+ * Decorator of LookupTableCore to convert march::LookupTableCore to
  * pybind11::array and help array operations.
  */
 class Table {
@@ -389,7 +388,7 @@ public:
 
 }; /* end class WrapBoundaryData */
 
-namespace march { namespace mesh {
+namespace march {
 /**
  * This is a workaround for the unability of pybind11 to initialize a
  * shared_ptr using make_shared.
@@ -411,7 +410,7 @@ public:
         );
     }
 
-}; /* end class UnstructuredBlockConstructorAgent */ } /* end namespace mesh */ } /* end namespace march */
+}; /* end class UnstructuredBlockConstructorAgent */ } /* end namespace march */
 
 template< size_t NDIM >
 class WrapUnstructuredBlock

@@ -10,7 +10,6 @@
 #include "march/march.hpp"
 
 using namespace march;
-using namespace march::mesh;
 
 /*
  * begin UnstructuredBlockBasicTest

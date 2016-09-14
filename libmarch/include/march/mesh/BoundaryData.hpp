@@ -13,18 +13,6 @@
 namespace march
 {
 
-namespace mesh
-{
-
-/**
- * SOLVCON legacy C interface for boundary conditions.
- */
-struct sc_bound_t {
-  index_type nbound, nvalue;
-  index_type *facn;
-  real_type *value;
-}; /* end struct sc_bound_t */
-
 class BoundaryData {
 
 public:
@@ -121,8 +109,6 @@ public:
     }
 
 }; /* end class BoundaryData */
-
-} /* end namespace mesh */
 
 } /* end namespace march */
 
