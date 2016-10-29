@@ -185,7 +185,7 @@ class WrapLookupTableCore : public WrapBase< WrapLookupTableCore, LookupTableCor
             }
 
             PyArray_Descr * descr = nullptr;
-            if (kwargs["dtype"]) {
+            if (kwargs && kwargs.contains("dtype")) {
                 PyArray_DescrConverter(py::object(kwargs["dtype"]).ptr(), &descr);
             }
             if (nullptr == descr) {
@@ -197,7 +197,7 @@ class WrapLookupTableCore : public WrapBase< WrapLookupTableCore, LookupTableCor
             new (&table) LookupTableCore(nghost, nbody, dims, dtid);
 
             std::string creation("empty");
-            if (kwargs["creation"]) {
+            if (kwargs && kwargs.contains("creation")) {
                 creation = kwargs["creation"].cast<std::string>();
             }
             if        ("zeros" == creation) {
