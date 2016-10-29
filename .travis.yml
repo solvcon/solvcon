@@ -65,7 +65,6 @@ install:
   - ${TRAVIS_BUILD_DIR}/contrib/devenv/create.sh
   - source ${TRAVIS_BUILD_DIR}/build/env/start
   - ${TRAVIS_BUILD_DIR}/contrib/conda.sh
-  - pip install -U https://github.com/pybind/pybind11/archive/master.zip
 
 script:
   # C++ debug build
