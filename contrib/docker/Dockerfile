@@ -1,5 +1,5 @@
 # This dockerfile builds a docker image containing the latest SOLVCON on git.
-# It be used to quickly set up SOLVCON in docker.
+# It can be used to quickly set up SOLVCON in docker.
 # 
 # Go to where this dockerfile is and run:
 # 
