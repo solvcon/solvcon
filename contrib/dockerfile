@@ -1,0 +1,57 @@
+# # Description
+# 
+# This dockerfile could build a docker image with SOLVCON by default. The
+# dockerfile could be used as a part of quick infrastructure to prepare SOLVCON
+# runtime or development environment, e.g. a container-based cluster.
+# 
+# # Test Case
+# 
+# Go to where this dockerfile is, and then run the command:
+# 
+# ```
+# docker build -t <your docker repository name>:<your docker tag name> .
+# ```
+# 
+# And then verify it with
+# 
+# ```
+# docker run <your docker repository name>:<your docker tag name> bash -c "source
+# /home/solvcon/miniconda/bin/activate; nosetests /home/solvcon/solvcon/"
+# ```
+# 
+# # Expected Result
+# 
+# docker should report the usual SOLVCON nosetests result like
+# 
+# ```
+# ..............................................................................
+# ..............................................................................
+# ..............................................................................
+# .........................................SSS
+# ----------------------------------------------------------------------
+# Ran 278 tests in 4.759s
+# 
+# OK (SKIP=3)
+# ```
+# 
+# Besides, you should have one more docker image. Confirm this by `docker images`.
+#
+FROM ubuntu:14.04
+MAINTAINER Taihsiang Ho <tai271828@gmail.com>
+RUN apt-get -qq update
+RUN apt-get -qqy install g++ liblapack-dev git wget
+RUN useradd -m solvcon
+USER solvcon
+ENV HOME="/home/solvcon"
+ENV PATH="$HOME/miniconda/bin:$PATH"
+ENV DOCKER_SCSRC="$HOME/solvcon"
+RUN cd $HOME; wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
+# miniconda installation only supports bash but not sh
+RUN bash $HOME/miniconda.sh -b -p $HOME/miniconda
+RUN conda config --set always_yes yes --set changeps1 no
+RUN conda update -q conda
+RUN cd $HOME; git clone https://github.com/solvcon/solvcon.git
+RUN ${DOCKER_SCSRC}/contrib/conda.sh
+# SOLVCON uses a lot of modern components like the latest Python 3.
+# We expect systems support them should also support bash.
+RUN cd ${DOCKER_SCSRC}; /bin/bash -c "source activate; python setup.py build_ext --inplace"
