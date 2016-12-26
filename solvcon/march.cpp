@@ -81,11 +81,10 @@ private:
             py::pybind11_fail("NumPy: invalid array type");
         }
 
-        py::object tmp(
+        py::object tmp = py::reinterpret_steal<py::object>(
             PyArray_NewFromDescr(
                 &PyArray_Type, PyArray_DescrFromType(m_table.datatypeid()), m_table.ndim(),
-                shape, strides, data, NPY_ARRAY_WRITEABLE, nullptr),
-            false);
+                shape, strides, data, NPY_ARRAY_WRITEABLE, nullptr));
         if (!tmp) { py::pybind11_fail("NumPy: unable to create array view"); }
 
         py::object buffer = py::cast(m_table.buffer());
@@ -141,6 +140,10 @@ protected:
 
     WrapBase(py::module & mod, const char * pyname, const char * clsdoc)
         : m_cls(py::class_< wrapped_type, holder_type >(mod, pyname, clsdoc))
+    {}
+
+    WrapBase(py::module & mod, const char * pyname, const py::metaclass & mtcls, const char * clsdoc)
+        : m_cls(py::class_< wrapped_type, holder_type >(mod, pyname, mtcls, clsdoc))
     {}
 
     py::class_< wrapped_type, holder_type > m_cls;
@@ -284,7 +287,7 @@ class WrapBoundaryData : public WrapBase< WrapBoundaryData, BoundaryData > {
     friend base_type;
 
     WrapBoundaryData(py::module & mod, const char * pyname, const char * clsdoc)
-        : base_type(mod, pyname, clsdoc)
+        : base_type(mod, pyname, py::metaclass(), clsdoc)
     {
         (*this)
             .def(py::init<index_type>())
@@ -302,11 +305,10 @@ class WrapBoundaryData : public WrapBase< WrapBoundaryData, BoundaryData > {
             [](BoundaryData & bnd) {
                 if (0 == bnd.facn().nbyte()) {
                     npy_intp shape[2] = {0, BoundaryData::BFREL};
-                    return py::array(
+                    return py::reinterpret_steal<py::array>(
                         PyArray_NewFromDescr(
                             &PyArray_Type, PyArray_DescrFromType(bnd.facn().datatypeid()), 2 /* nd */,
-                            shape, nullptr /* strides */, nullptr /* data */, 0 /* flags */, nullptr),
-                        false);
+                            shape, nullptr /* strides */, nullptr /* data */, 0 /* flags */, nullptr));
                 } else {
                     return Table(bnd.facn()).body();
                 }
@@ -336,11 +338,10 @@ class WrapBoundaryData : public WrapBase< WrapBoundaryData, BoundaryData > {
             [](BoundaryData & bnd) {
                 if (0 == bnd.values().nbyte()) {
                     npy_intp shape[2] = {0, bnd.nvalue()};
-                    return py::array(
+                    return py::reinterpret_steal<py::array>(
                         PyArray_NewFromDescr(
                             &PyArray_Type, PyArray_DescrFromType(bnd.values().datatypeid()), 2 /* nd */,
-                            shape, nullptr /* strides */, nullptr /* data */, 0 /* flags */, nullptr),
-                        false);
+                            shape, nullptr /* strides */, nullptr /* data */, 0 /* flags */, nullptr));
                 } else {
                     return Table(bnd.values()).body();
                 }
@@ -426,7 +427,7 @@ class WrapUnstructuredBlock
     friend base_type;
 
     WrapUnstructuredBlock(py::module & mod, const char * pyname, const char * clsdoc)
-        : base_type(mod, pyname, clsdoc)
+        : base_type(mod, pyname, py::metaclass(), clsdoc)
     {
         (*this)
             .def("__init__", [](wrapped_type & self) {
@@ -577,20 +578,20 @@ class WrapUnstructuredBlock
             pickled["ngstcell"] = py::cast(blk.ngstcell());
             pickled["use_incenter"] = py::cast(blk.use_incenter());
             // arrays.
-            pickled["ndcrd"] = py::cast(Table(blk.ndcrd()).full());
-            pickled["fccnd"] = py::cast(Table(blk.fccnd()).full());
-            pickled["fcnml"] = py::cast(Table(blk.fcnml()).full());
-            pickled["fcara"] = py::cast(Table(blk.fcara()).full());
-            pickled["clcnd"] = py::cast(Table(blk.clcnd()).full());
-            pickled["clvol"] = py::cast(Table(blk.clvol()).full());
-            pickled["fctpn"] = py::cast(Table(blk.fctpn()).full());
-            pickled["cltpn"] = py::cast(Table(blk.cltpn()).full());
-            pickled["clgrp"] = py::cast(Table(blk.clgrp()).full());
-            pickled["fcnds"] = py::cast(Table(blk.fcnds()).full());
-            pickled["fccls"] = py::cast(Table(blk.fccls()).full());
-            pickled["clnds"] = py::cast(Table(blk.clnds()).full());
-            pickled["clfcs"] = py::cast(Table(blk.clfcs()).full());
-            pickled["bndfcs"] = py::cast(Table(blk.bndfcs()).full());
+            pickled["ndcrd"] = Table(blk.ndcrd()).full();
+            pickled["fccnd"] = Table(blk.fccnd()).full();
+            pickled["fcnml"] = Table(blk.fcnml()).full();
+            pickled["fcara"] = Table(blk.fcara()).full();
+            pickled["clcnd"] = Table(blk.clcnd()).full();
+            pickled["clvol"] = Table(blk.clvol()).full();
+            pickled["fctpn"] = Table(blk.fctpn()).full();
+            pickled["cltpn"] = Table(blk.cltpn()).full();
+            pickled["clgrp"] = Table(blk.clgrp()).full();
+            pickled["fcnds"] = Table(blk.fcnds()).full();
+            pickled["fccls"] = Table(blk.fccls()).full();
+            pickled["clnds"] = Table(blk.clnds()).full();
+            pickled["clfcs"] = Table(blk.clfcs()).full();
+            pickled["bndfcs"] = Table(blk.bndfcs()).full();
             // bndvec.
             py::list bndlist;
             for (auto & bnd : blk.bndvec()) {
@@ -630,7 +631,7 @@ class WrapUnstructuredBlock
             BoundaryData bndstorage[1];
             for (py::handle pybnd : bndlist) {
                 BoundaryData & bnd = *bndstorage;
-                WrapBoundaryData::setstate(bnd, py::tuple(pybnd, false));
+                WrapBoundaryData::setstate(bnd, py::reinterpret_steal<py::tuple>(pybnd));
                 blk.bndvec().push_back(std::move(bnd));
             }
         })
