@@ -81,9 +81,10 @@ template< size_t NDIM > struct Matrix {
     /* accessors */
     constexpr size_type size() const { return NDIM; }
     constexpr size_type nelem() const { return NDIM*NDIM; }
-    reference                 operator[](size_type n)       { return data[n]; }
+    reference operator[](size_type n) { return data[n]; }
     constexpr const_reference operator[](size_type n) const { return data[n]; }
-    Vector<NDIM> column(size_t n) const {
+    Vector<NDIM> column(size_type n) const {
+        assert(n>=0 && n<=NDIM);
         Vector<NDIM> ret;
         for (size_t it=0; it<NDIM; ++it) { ret[it] = data[it][n]; }
         return ret;
@@ -139,6 +140,16 @@ template< size_t NDIM > struct Matrix {
         return *this;
     }
 
+    Matrix<NDIM> transpose() const {
+        Matrix<NDIM> ret;
+        for (index_type it = 0; it<NDIM; ++it) {
+            for (index_type jt = 0; jt<NDIM; ++jt) {
+                ret[jt][it] = (*this)[it][jt];
+            }
+        }
+        return ret;
+    }
+
 }; /* end struct Matrix */
 
 template< size_t NDIM >
@@ -161,6 +172,18 @@ template< size_t NDIM >
 Vector<NDIM> product(Matrix<NDIM> const & lhs, Vector<NDIM> const & rhs) {
     Vector<NDIM> ret;
     for (size_t it=0; it<NDIM; ++it) { ret[it] = lhs[it].dot(rhs); }
+    return ret;
+}
+
+template< size_t NDIM >
+Matrix<NDIM> product(Matrix<NDIM> const & lhs, Matrix<NDIM> const & rhs) {
+    Matrix<NDIM> ret;
+    for (size_t it=0; it<NDIM; ++it) {
+        for (size_t jt=0; jt<NDIM; ++jt) {
+            ret[it][jt] = 0;
+            ret[it][jt] += lhs[it][jt] * rhs[jt][it];
+        }
+    }
     return ret;
 }
 

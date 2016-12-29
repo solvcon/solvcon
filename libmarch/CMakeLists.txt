@@ -60,6 +60,14 @@ set(MARCH_HEADERS
     include/march/mesh/UnstructuredBlock/calc_sf.hpp
     include/march/mesh/UnstructuredBlock/calc_metric.hpp
     include/march/mesh/UnstructuredBlock/fill_ghost.hpp
+    # gas
+    include/march/gas/gas.hpp
+    include/march/gas/Jacobian.hpp
+    include/march/gas/Solver.hpp
+    include/march/gas/derivative.hpp
+    include/march/gas/calc_cfl.hpp
+    include/march/gas/calc_soln.hpp
+    include/march/gas/calc_solt.hpp
 )
 string(REPLACE "include/" "${CMAKE_CURRENT_SOURCE_DIR}/include/"
        MARCH_HEADERS "${MARCH_HEADERS}")

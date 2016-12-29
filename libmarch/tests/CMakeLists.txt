@@ -14,6 +14,7 @@ add_executable(test_libmarch
     core_Vector.cpp
     mesh_BoundaryData.cpp
     mesh_UnstructuredBlock.cpp
+    gas_main.cpp
     ${MARCH_HEADERS}
 )
 target_link_libraries(test_libmarch stdc++ pthread ${SCOTCH_LIBRARIES})

@@ -13,5 +13,6 @@
 #include "march/mesh/UnstructuredBlock/build_csr.hpp"
 #include "march/mesh/UnstructuredBlock/calc_ce.hpp"
 #include "march/mesh/UnstructuredBlock/calc_sf.hpp"
+#include "march/mesh/UnstructuredBlock/get_normal_matrix.hpp"
 
 // vim: set ff=unix fenc=utf8 nobomb et sw=4 ts=4:

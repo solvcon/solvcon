@@ -303,6 +303,14 @@ public:
         return tfccls[0] + tfccls[1] - icl;
     }
 
+    /**
+     * Get the rotation matrix in the face normal direction.
+     *
+     * @param[in] ifc index of the face of interest.
+     * @return        the rotation matrix.
+     */
+    Matrix<NDIM> get_normal_matrix(index_type const ifc) const;
+
 /* data_processors */
 public:
 
