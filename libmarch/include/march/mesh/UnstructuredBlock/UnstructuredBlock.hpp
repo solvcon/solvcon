@@ -11,5 +11,7 @@
 #include "march/mesh/UnstructuredBlock/fill_ghost.hpp"
 #include "march/mesh/UnstructuredBlock/build_rcells.hpp"
 #include "march/mesh/UnstructuredBlock/build_csr.hpp"
+#include "march/mesh/UnstructuredBlock/calc_ce.hpp"
+#include "march/mesh/UnstructuredBlock/calc_sf.hpp"
 
 // vim: set ff=unix fenc=utf8 nobomb et sw=4 ts=4:

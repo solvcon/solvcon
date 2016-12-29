@@ -19,8 +19,9 @@
 
 #include "march/mesh/BoundaryData.hpp"
 
-namespace march
-{
+namespace march {
+
+static constexpr size_t NCLTYPE=8;
 
 class UnstructuredBlockConstructorAgent; /* should only be defined once in Python wrapping code */
 
@@ -30,6 +31,9 @@ class UnstructuredBlockConstructorAgent; /* should only be defined once in Pytho
  * This class is managed using std::shared_ptr.  Consumers should get a const
  * reference when a const object is desired, otherwise get a shared pointer of
  * non-const.
+ *
+ * Question: Should I have the qualifier "unstructured"?  Will there ever be
+ * non-unstructured block?
  */
 template< size_t NDIM >
 class UnstructuredBlock
@@ -40,7 +44,7 @@ public:
 
     static_assert(2 == NDIM || 3 == NDIM, "not 2 or 3 dimensional");
 
-    static constexpr index_type ELEM_DESCR[8 /* sentinel -> */ + 1][5] = {
+    static constexpr index_type ELEM_DESCR[NCLTYPE /* sentinel -> */ + 1][5] = {
         // index, dim, node, edge, surface,      name
         {      0,   0,    1,    0,       0 }, // node/point/vertex
         {      1,   1,    2,    0,       0 }, // line/edge
@@ -65,6 +69,30 @@ public:
     static constexpr index_type     FCNCL = 4;
     static constexpr index_type     FCREL = 4;
     static constexpr index_type     BFREL = BoundaryData::BFREL;
+
+    /**
+     * The dual mesh of the conservation element.
+     */
+    struct CEMesh {
+    public:
+        LookupTable<real_type, (CLMFC+1)*NDIM> cecnd;
+        LookupTable<real_type, CLMFC+1> cevol;
+        LookupTable<real_type, CLMFC*FCMND*2*NDIM> sfmrc;
+        CEMesh() = delete;
+        CEMesh(CEMesh const & ) = delete;
+        CEMesh(CEMesh       &&) = delete;
+        CEMesh operator=(CEMesh const & ) = delete;
+        CEMesh operator=(CEMesh       &&) = delete;
+        CEMesh(const UnstructuredBlock<NDIM> & block)
+          : cecnd(block.ngstcell(), block.ncell()), cevol(block.ngstcell(), block.ncell()), sfmrc(0, block.ncell())
+        {
+            calc_ce(block);
+            calc_sf(block);
+        }
+    private:
+        void calc_ce(const UnstructuredBlock<NDIM> & block);
+        void calc_sf(const UnstructuredBlock<NDIM> & block);
+    }; /* end struct CEMesh */
 
     static index_type calc_max_nface(const LookupTable<index_type, 0> & cltpn) {
         index_type max_nfc = 0;
@@ -249,8 +277,8 @@ public:
      * Get the "self" cell number of the input face by index.  A shorthand of
      * fccls()[ifc][0] .
      *
-     * \param[in] ifc index of the face of interest.
-     * \return        index of the cell.
+     * @param[in] ifc index of the face of interest.
+     * @return        index of the cell.
      */
     index_type fcicl(index_type ifc) const { return fccls()[ifc][0]; }
 
@@ -258,10 +286,22 @@ public:
      * Get the "related" cell number of the input face by index.  A shorthand
      * of fccls()[ifc][1] .
      *
-     * \param[in] ifc index of the face of interest.
-     * \return        index of the cell.
+     * @param[in] ifc index of the face of interest.
+     * @return        index of the cell.
      */
     index_type fcjcl(index_type ifc) const { return fccls()[ifc][1]; }
+
+    /**
+     * Get the other cell number related by the input face.
+     *
+     * @param[in] ifc index of the face of interest.
+     * @param[in] icl index of the "self" cell of interest.
+     * @return        index of the cell.
+     */
+    index_type fcrcl(index_type ifc, index_type icl) const {
+        const auto & tfccls = fccls()[ifc];
+        return tfccls[0] + tfccls[1] - icl;
+    }
 
 /* data_processors */
 public:

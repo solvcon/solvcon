@@ -30,18 +30,7 @@ TEST(UnstructuredBlockBasicTest, Construction) {
  * end UnstructuredBlockBasicTest
  */
 
-/*
- * begin UnstructuredBlockDataTest
- */
-
-class UnstructuredBlockDataTest : public ::testing::Test {
-
-protected:
-
-    virtual void SetUp() {
-        fill_triangles();
-    }
-
+struct UnstructuredBlockFixture {
     /**
      * This is how the block looks like.  It composes of only triangles.  "N"
      * denotes node, and "C" denotes cell.
@@ -65,21 +54,30 @@ protected:
      *               *-----------------------------*
      *     (-1,-1)N1                                 (1,-1)N2
      */
-    void fill_triangles() {
-        m_triangles = UnstructuredBlock<2>::construct(/* nnode */4, /* nface */6, /* ncell */3, /* use_incenter */false);
-        auto & blk = *m_triangles;
-        blk.ndcrd().set_at(0,  0,  0);
-        blk.ndcrd().set_at(1, -1, -1);
-        blk.ndcrd().set_at(2,  1, -1);
-        blk.ndcrd().set_at(3,  0,  1);
-        blk.cltpn().fill(3);
-        blk.clnds().set_at(0, 3, 0, 1, 2);
-        blk.clnds().set_at(1, 3, 0, 2, 3);
-        blk.clnds().set_at(2, 3, 0, 3, 1);
+    static std::shared_ptr<UnstructuredBlock<2>> make_triangles() {
+        auto blk = UnstructuredBlock<2>::construct(/* nnode */4, /* nface */6, /* ncell */3, /* use_incenter */false);
+        blk->ndcrd().set_at(0,  0,  0);
+        blk->ndcrd().set_at(1, -1, -1);
+        blk->ndcrd().set_at(2,  1, -1);
+        blk->ndcrd().set_at(3,  0,  1);
+        blk->cltpn().fill(3);
+        blk->clnds().set_at(0, 3, 0, 1, 2);
+        blk->clnds().set_at(1, 3, 0, 2, 3);
+        blk->clnds().set_at(2, 3, 0, 3, 1);
+        return blk;
     }
+}; /* end struct UnstructuredBlockFixture */
 
+/*
+ * begin UnstructuredBlockDataTest
+ */
+
+class UnstructuredBlockDataTest : public ::testing::Test, public UnstructuredBlockFixture {
+protected:
+    virtual void SetUp() {
+        m_triangles = make_triangles();
+    }
     std::shared_ptr<UnstructuredBlock<2>> m_triangles;
-
 }; /* end class UnstructuredBlockDataTest */
 
 TEST_F(UnstructuredBlockDataTest, build_faces_from_cells) {
@@ -224,8 +222,42 @@ TEST_F(UnstructuredBlockDataTest, partition) {
     */
 }
 
+TEST_F(UnstructuredBlockDataTest, CEMesh) {
+    UnstructuredBlock<2> & blk = *m_triangles;
+    blk.build_interior();
+    blk.build_boundary();
+    blk.build_ghost();
+
+    UnstructuredBlock<2>::CEMesh cem(blk);
+}
+
 /*
  * end UnstructuredBlockDataTest
+ */
+
+/*
+ * begin CETest
+ */
+
+class CETest : public ::testing::Test, public UnstructuredBlockFixture {
+protected:
+    virtual void SetUp() {
+        m_triangles = make_triangles();
+    }
+    std::shared_ptr<UnstructuredBlock<2>> m_triangles;
+}; /* end class CETest */
+
+TEST_F(CETest, Construct) {
+    UnstructuredBlock<2> & blk = *m_triangles;
+    blk.build_interior();
+    blk.build_boundary();
+    blk.build_ghost();
+    BasicCE<2>(blk, 0, 0);
+    CompoundCE<2>(blk, 0);
+}
+
+/*
+ * end BasicCETest
  */
 
 // vim: set ff=unix fenc=utf8 nobomb et sw=4 ts=4:

@@ -48,12 +48,16 @@ set(MARCH_HEADERS
     include/march/core/utility.hpp
     # mesh
     include/march/mesh/mesh.hpp
+    include/march/mesh/BasicCE.hpp
     include/march/mesh/BoundaryData.hpp
+    include/march/mesh/CompoundCE.hpp
     include/march/mesh/UnstructuredBlock/UnstructuredBlock.hpp
     include/march/mesh/UnstructuredBlock/class.hpp
     include/march/mesh/UnstructuredBlock/build_csr.hpp
     include/march/mesh/UnstructuredBlock/build_faces_from_cells.hpp
     include/march/mesh/UnstructuredBlock/build_rcells.hpp
+    include/march/mesh/UnstructuredBlock/calc_ce.hpp
+    include/march/mesh/UnstructuredBlock/calc_sf.hpp
     include/march/mesh/UnstructuredBlock/calc_metric.hpp
     include/march/mesh/UnstructuredBlock/fill_ghost.hpp
 )
