@@ -99,7 +99,7 @@ class SodtubeMesher(object):
     Circle(2) = {3,1,4};
     Circle(3) = {4,1,5};
     Circle(4) = {5,1,2};
-    // connect the arc to get a circle  
+    // connect the arc to get a circle
     Line Loop(5) = {1,2,3,4};
 
     // surface.
