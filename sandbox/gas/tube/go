@@ -195,7 +195,7 @@ def tube_base(casename=None,
     # Report information while calculating.
     cse.defer(gas.ProgressHook, linewidth=ssteps / psteps, psteps=psteps)
     cse.defer(gas.CflHook, fullstop=False, cflmax=10.0, psteps=ssteps)
-    cse.defer(gas.MeshInfoHook, psteps=ssteps)
+    cse.defer(gas.MeshInfoHook, psteps=ssteps, show_bclist=True)
     # cse.defer(ReflectionProbe, rect=mesher, relation=relation, psteps=ssteps)
     # Store data.
     cse.defer(gas.PMarchSave,
