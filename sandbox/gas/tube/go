@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.7
+#!/usr/bin/env python3
 # -*- coding: UTF-8 -*-
 #
 # Copyright (c) 2015, Taihsiang Ho <tai271828@gmail.com>
@@ -99,7 +99,7 @@ class SodtubeMesher(object):
     Circle(2) = {3,1,4};
     Circle(3) = {4,1,5};
     Circle(4) = {5,1,2};
-    // connect the arc to get a circle  
+    // connect the arc to get a circle
     Line Loop(5) = {1,2,3,4};
 
     // surface.
@@ -134,9 +134,9 @@ class SodtubeMesher(object):
 def generate_bcmap():
     # BC map.
     bcmap = {
-        'wall': (sc.bctregy.GasWall, {},),
-        'left': (sc.bctregy.GasNonrefl, {},),
-        'right': (sc.bctregy.GasNonrefl, {},),
+        b'wall': (sc.bctregy.GasWall, {},),
+        b'left': (sc.bctregy.GasNonrefl, {},),
+        b'right': (sc.bctregy.GasNonrefl, {},),
     }
     return bcmap
 
@@ -195,7 +195,7 @@ def tube_base(casename=None,
     # Report information while calculating.
     cse.defer(gas.ProgressHook, linewidth=ssteps / psteps, psteps=psteps)
     cse.defer(gas.CflHook, fullstop=False, cflmax=10.0, psteps=ssteps)
-    cse.defer(gas.MeshInfoHook, psteps=ssteps)
+    cse.defer(gas.MeshInfoHook, psteps=ssteps, show_bclist=True)
     # cse.defer(ReflectionProbe, rect=mesher, relation=relation, psteps=ssteps)
     # Store data.
     cse.defer(gas.PMarchSave,

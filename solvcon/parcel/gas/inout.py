@@ -71,6 +71,11 @@ class MeshInfoHook(sc.MeshHook):
             for bc in blk.bclist:
                 self.info("  %s\n" % bc)
 
+        # explicit info to prompt users to watch out issues like issue #177
+        if any(bc.__class__ is sc.BC for bc in blk.bclist):
+            self.info("  One of the boundary conditions is generic boundary "
+                      "type.\n")
+
     def _show_performance(self):
         """
         Show and store performance information.
