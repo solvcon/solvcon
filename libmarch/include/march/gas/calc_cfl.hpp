@@ -45,57 +45,35 @@ void Solver<NDIM>::calc_cfl() {
     // references.
     auto & block = *m_block;
     auto & amsca = m_sup.amsca;
-    auto & soln = m_sol.soln;
-    auto & cfl = m_sol.cfl;
-    auto & ocfl = m_sol.ocfl;
-    auto & clfcs = block.clfcs();
-    // indices.
-    index_type clnfc;
-    // pointers.
-    index_type *pclfcs;
-    real_type *pamsca, *pcfl, *pocfl, *psoln;
-    // scalars.
-    real_type hdt, dist, wspd, ga, ga1, pr, ke;
-    // arrays.
-    vector_type vec;
-    hdt = m_state.time_increment / 2.0;
+    const real_type hdt = m_state.time_increment / 2.0;
     for (index_type icl=0; icl<block.ncell(); ++icl) {
-        pamsca = &amsca[icl][0];
-        pcfl = &cfl[icl];
-        pocfl = &ocfl[icl];
-        psoln = &soln[icl][0];
+        auto & cflc = m_sol.cflc(icl);
+        auto & cflo = m_sol.cflo(icl);
+        auto piso0n = m_sol.so0n(icl);
         const CompoundCE<NDIM> cce(block, icl);
-        pclfcs = &clfcs[icl][0];
+        const auto & tclfcs = block.clfcs()[icl];
         // estimate distance.
-        dist = DBL_MAX;
-        clnfc = pclfcs[0];
-        for (index_type ifl=0; ifl<clnfc; ++ifl) {
+        real_type dist = DBL_MAX;
+        for (index_type ifl=0; ifl<tclfcs[0]; ++ifl) {
             // distance.
-            vec = cce.bces[ifl].cnd - cce.cnd;
+            const auto vec = cce.bces[ifl].cnd - cce.cnd;
             // minimal value.
             dist = fmin(vec.length(), dist);
         };
         // wave speed.
-        ga = pamsca[0];
-        ga1 = ga - 1.0;
-        if (NDIM == 3) { wspd = psoln[1]*psoln[1] + psoln[2]*psoln[2] + psoln[3]*psoln[3]; }
-        else           { wspd = psoln[1]*psoln[1] + psoln[2]*psoln[2]; }
-        ke = wspd/(2.0*psoln[0]);
-        pr = ga1 * (psoln[1+NDIM] - ke);
+        const real_type ga = amsca[icl][0];
+        const real_type ga1 = ga - 1.0;
+        real_type wspd = piso0n.momentum().square();
+        const real_type ke = wspd/(2.0*piso0n.density());
+        real_type pr = ga1 * (piso0n.energy() - ke);
         pr = (pr+fabs(pr))/2.0;
-        wspd = sqrt(ga*pr/psoln[0]) + sqrt(wspd)/psoln[0];
+        wspd = sqrt(ga*pr/piso0n.density()) + sqrt(wspd)/piso0n.density();
         // CFL.
-        pocfl[0] = hdt*wspd/dist;
+        cflo = hdt*wspd/dist;
         // if pressure is null, make CFL to be 1.
-        pcfl[0] = (pocfl[0]-1.0) * pr/(pr+TINY) + 1.0;
+        cflc = (cflo-1.0) * pr/(pr+TINY) + 1.0;
         // correct negative pressure.
-        psoln[1+NDIM] = pr/ga1 + ke + TINY;
-        // advance.
-        pamsca += NSCA;
-        pcfl += 1;
-        pocfl += 1;
-        psoln += NEQ;
-        pclfcs += CLMFC+1;
+        piso0n.energy() = pr/ga1 + ke + TINY;
     }
 }
 

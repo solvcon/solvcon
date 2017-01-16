@@ -40,32 +40,21 @@ template< size_t NDIM >
 void Solver<NDIM>::calc_solt() {
     // references.
     auto & block = *m_block;
-    auto & solt = m_sol.solt;
-    auto & sol = m_sol.sol;
-    auto & dsol = m_sol.dsol;
     auto & amsca = m_sup.amsca;
-    // pointers.
-    real_type *psolt, *pidsol, *pdsol;
-    // scalars.
-    real_type val;
     // jacobian matrix.
     Jacobian<NEQ, NDIM> jaco;
-    // interators.
-    index_type icl, ieq, jeq, idm;
-    for (icl=0; icl<block.ncell(); ++icl) {
-        psolt = &solt[icl][0];
-        pidsol = &dsol[icl][0];
-        jaco(amsca[icl][0], sol[icl]);
-        for (ieq=0; ieq<NEQ; ieq++) {
-            psolt[ieq] = 0.0;
-            for (idm=0; idm<NDIM; idm++) {
-                val = 0.0;
-                pdsol = pidsol;
-                for (jeq=0; jeq<NEQ; jeq++) {
-                    val += jaco.jacos[ieq][jeq][idm]*pdsol[idm];
-                    pdsol += NDIM;
-                };
-                psolt[ieq] -= val;
+    for (index_type icl=0; icl<block.ncell(); ++icl) {
+        auto piso0t = m_sol.so0t(icl);
+        auto piso1c = m_sol.so1c(icl);
+        jaco.update(amsca[icl][0], *m_sol.so0c(icl));
+        for (index_type ieq=0; ieq<NEQ; ieq++) {
+            piso0t[ieq] = 0.0;
+            for (index_type idm=0; idm<NDIM; idm++) {
+                real_type val = 0.0;
+                for (index_type jeq=0; jeq<NEQ; jeq++) {
+                    val += jaco.jacos[ieq][jeq][idm]*piso1c[jeq][idm];
+                }
+                piso0t[ieq] -= val;
             }
         }
     }

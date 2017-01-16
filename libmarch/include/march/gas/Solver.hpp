@@ -23,8 +23,7 @@ template< size_t NDIM >
 void Solver<NDIM>::update(real_type time, real_type time_increment) {
     m_state.time = time;
     m_state.time_increment = time_increment;
-    std::swap(m_sol.sol, m_sol.soln);
-    std::swap(m_sol.dsol, m_sol.dsoln);
+    m_sol.update();
 }
 
 template< size_t NDIM >

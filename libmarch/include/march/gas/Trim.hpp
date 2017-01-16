@@ -6,6 +6,7 @@
  */
 
 #include <memory>
+#include <tuple>
 
 #include "march/core/core.hpp"
 #include "march/mesh/mesh.hpp"
@@ -16,6 +17,50 @@ namespace march {
 
 namespace gas {
 
+template< size_t NDIM >
+class TrimInternal {
+
+public:
+
+    using solver_type = Solver<NDIM>;
+    using block_type = typename solver_type::block_type;
+    using o0hand_type = Order0Hand<NDIM, solver_type::NEQ>;
+    using o1hand_type = Order1Hand<NDIM, solver_type::NEQ>;
+
+    constexpr static index_type FCNCL = block_type::FCNCL;
+
+    using fccls_row_const_reference = index_type const (&)[FCNCL];
+    template< size_t NVALUE >
+    using boundary_value_type = real_type[NVALUE];
+
+    TrimInternal(solver_type & solver, BoundaryData & boundary)
+      : m_solver(solver)
+      , m_block(*solver.block())
+      , m_boundary(boundary)
+    {}
+
+    index_type nbound() const { return m_boundary.nbound(); }
+    index_type iface(index_type ibnd) const { return m_boundary.facn()[ibnd][0]; }
+    fccls_row_const_reference tfccls(index_type ifc) const { return m_block.fccls()[ifc]; }
+    Matrix<NDIM> get_normal_matrix(index_type ifc) const { return m_block.get_normal_matrix(ifc); }
+    template< size_t NVALUE >
+    boundary_value_type<NVALUE> const & value(index_type ibnd) const { return m_boundary.template values<NVALUE>()[ibnd]; }
+
+    o0hand_type       so0n(index_type irow)       { return m_solver.sol().so0n(irow); }
+    o0hand_type const so0n(index_type irow) const { return m_solver.sol().so0n(irow); }
+    o1hand_type       so1c(index_type irow)       { return m_solver.sol().so1c(irow); }
+    o1hand_type const so1c(index_type irow) const { return m_solver.sol().so1c(irow); }
+    o1hand_type       so1n(index_type irow)       { return m_solver.sol().so1n(irow); }
+    o1hand_type const so1n(index_type irow) const { return m_solver.sol().so1n(irow); }
+
+private:
+
+    solver_type & m_solver;
+    block_type & m_block;
+    BoundaryData & m_boundary;
+
+}; /* end class TrimInternal */
+
 /**
  * Boundary-condition treatment.
  */
@@ -24,15 +69,13 @@ class TrimBase {
 
 public:
 
-    using solver_type = Solver<NDIM>;
-    using block_type = typename solver_type::block_type;
     using pointer = std::unique_ptr<TrimBase<NDIM>>;
 
-    TrimBase(solver_type & solver, BoundaryData & boundary)
-      : m_solver(solver)
-      , m_block(*solver.block())
-      , m_boundary(boundary)
-    {}
+    using internal_type = TrimInternal<NDIM>;
+    using solver_type = typename internal_type::solver_type;
+    using block_type = typename internal_type::block_type;
+
+    TrimBase(solver_type & solver, BoundaryData & boundary): m_internal(solver, boundary) {}
 
     TrimBase() = delete;
     TrimBase(TrimBase const & ) = delete;
@@ -42,23 +85,22 @@ public:
 
     virtual ~TrimBase() {}
 
-    virtual pointer clone() = 0;
-
     virtual void apply_do0() = 0;
     virtual void apply_do1() = 0;
 
-    solver_type const & solver() const { return m_solver; }
-    solver_type       & solver()       { return m_solver; }
-    block_type const & block() const { return m_block; }
-    block_type       & block()       { return m_block; }
-    BoundaryData const & boundary() const { return m_boundary; }
-    BoundaryData       & boundary()       { return m_boundary; }
+    internal_type       & internal()       { return m_internal; }
+    internal_type const & internal() const { return m_internal; }
+
+    solver_type       & solver()       { return m_internal.solver(); }
+    solver_type const & solver() const { return m_internal.solver(); }
+    block_type       & block()       { return m_internal.block(); }
+    block_type const & block() const { return m_internal.block(); }
+    BoundaryData       & boundary()       { return m_internal.boundary(); }
+    BoundaryData const & boundary() const { return m_internal.boundary(); }
 
 private:
 
-    solver_type & m_solver;
-    block_type & m_block;
-    BoundaryData & m_boundary;
+    TrimInternal<NDIM> m_internal;
 
 }; /* end class TrimBase */
 
@@ -73,16 +115,8 @@ public:
     using block_type = typename base_type::block_type;
     using pointer = typename base_type::pointer;
 
-    TrimNoOp(solver_type & solver, BoundaryData & boundary)
-      : base_type(solver, boundary)
-    {}
-
+    TrimNoOp(solver_type & solver, BoundaryData & boundary): base_type(solver, boundary) {}
     ~TrimNoOp() override {}
-
-    pointer clone() override {
-        return pointer(new TrimNoOp<NDIM>(this->solver(), this->boundary()));
-    }
-
     void apply_do0() override {}
     void apply_do1() override {}
 
@@ -95,19 +129,13 @@ class TrimNonRefl : public TrimBase<NDIM> {
 public:
 
     using base_type = TrimBase<NDIM>;
+    using pointer = typename base_type::pointer;
     using solver_type = typename base_type::solver_type;
     using block_type = typename base_type::block_type;
-    using pointer = typename base_type::pointer;
 
-    TrimNonRefl(solver_type & solver, BoundaryData & boundary)
-      : base_type(solver, boundary)
-    {}
+    TrimNonRefl(solver_type & solver, BoundaryData & boundary): base_type(solver, boundary) {}
 
     ~TrimNonRefl() override {}
-
-    pointer clone() override {
-        return pointer(new TrimNonRefl<NDIM>(this->solver(), this->boundary()));
-    }
 
     void apply_do0() override;
     void apply_do1() override;
@@ -116,46 +144,38 @@ public:
 
 template< size_t NDIM >
 void TrimNonRefl<NDIM>::apply_do0() {
-    auto & soln = this->solver().sol().soln;
-    index_type const nbnd = this->boundary().nbound();
+    auto & impl = this->internal();
+    index_type const nbnd = impl.nbound();
     for (index_type ibnd=0; ibnd<nbnd; ++ibnd) {
-        const index_type ifc = this->boundary().facn()[ibnd][0];
-        auto const & tfccls = this->block().fccls()[ifc];
-        const index_type icl = tfccls[0];
-        const index_type jcl = tfccls[1];
-        for (index_type ieq=0; ieq<solver_type::NEQ; ++ieq) {
-            soln[jcl][ieq] = soln[icl][ieq];
-        }
+        auto const & tfccls = impl.tfccls(impl.iface(ibnd));
+        impl.so0n(tfccls[0]) = impl.so0n(tfccls[1]);
     }
 }
 
 template< size_t NDIM >
 void TrimNonRefl<NDIM>::apply_do1() {
-    index_type const nbnd = this->boundary().nbound();
+    using row_type = typename base_type::internal_type::o1hand_type::row_type;
+    auto & impl = this->internal();
+    index_type const nbnd = impl.nbound();
     for (index_type ibnd=0; ibnd<nbnd; ++ibnd) {
-        const index_type ifc = this->boundary().facn()[ibnd][0];
-        auto const & tfccls = this->block().fccls()[ifc];
-        const index_type icl = tfccls[0];
-        const index_type jcl = tfccls[1];
-
-        auto const & tidsol  = reinterpret_cast<Vector<NDIM> const (&)[solver_type::NEQ]>(this->solver().sol().dsol [icl]);
-        auto       & tjdsoln = reinterpret_cast<Vector<NDIM>       (&)[solver_type::NEQ]>(this->solver().sol().dsoln[jcl]);
-
+        const index_type ifc = impl.iface(ibnd);
+        auto const & tfccls = impl.tfccls(ifc);
+        auto const tiso1c = impl.so1c(tfccls[0]);
+        auto       pjso1n = impl.so1n(tfccls[1]);
         // set perpendicular gradient to zero.
-        Matrix<NDIM> const mat = this->block().get_normal_matrix(ifc);
-        Vector<NDIM> vec[solver_type::NEQ];
+        Matrix<NDIM> const mat = impl.get_normal_matrix(ifc);
+        row_type vec;
         for (index_type ieq=0; ieq<solver_type::NEQ; ++ieq) {
             vec[ieq][0] = 0.0;
-            Vector<NDIM> dif = tidsol[ieq];
+            Vector<NDIM> dif = tiso1c[ieq];
             for (index_type it=1; it<NDIM; ++it) {
                 vec[ieq][it] = mat[it].dot(dif);
             }
         }
-
         // inversely transform the coordinate and set ghost gradient.
         Matrix<NDIM> const matinv = mat.transpose();
         for (index_type ieq=0; ieq<solver_type::NEQ; ++ieq) {
-            tjdsoln[ieq] = product(matinv, vec[ieq]);
+            pjso1n[ieq] = product(matinv, vec[ieq]);
         }
     }
 }
@@ -170,15 +190,9 @@ public:
     using block_type = typename base_type::block_type;
     using pointer = typename base_type::pointer;
 
-    TrimSlipWall(solver_type & solver, BoundaryData & boundary)
-      : base_type(solver, boundary)
-    {}
+    TrimSlipWall(solver_type & solver, BoundaryData & boundary): base_type(solver, boundary) {}
 
     ~TrimSlipWall() override {}
-
-    pointer clone() override {
-        return pointer(new TrimSlipWall<NDIM>(this->solver(), this->boundary()));
-    }
 
     void apply_do0() override;
     void apply_do1() override;
@@ -187,20 +201,15 @@ public:
 
 template< size_t NDIM >
 void TrimSlipWall<NDIM>::apply_do0() {
-    auto & soln = this->solver().sol().soln;
-    index_type const nbnd = this->boundary().nbound();
+    auto & impl = this->internal();
+    index_type const nbnd = impl.nbound();
     for (index_type ibnd=0; ibnd<nbnd; ++ibnd) {
-        const index_type ifc = this->boundary().facn()[ibnd][0];
-        auto const & tfccls = this->block().fccls()[ifc];
-        const index_type icl = tfccls[0];
-        const index_type jcl = tfccls[1];
-
-        // load the original momentum vector.
-        auto const & momi = *reinterpret_cast<Vector<NDIM> const *>(&soln[icl][1]);
-        auto       & momj = *reinterpret_cast<Vector<NDIM>       *>(&soln[jcl][1]);
-
+        const index_type ifc = impl.iface(ibnd);
+        auto const & tfccls = impl.tfccls(ifc);
+        auto const & momi = impl.so0n(tfccls[0]).momentum();
+        auto       & momj = impl.so0n(tfccls[1]).momentum();
         // get rotation matrix.
-        Matrix<NDIM> const mat = this->block().get_normal_matrix(ifc);
+        Matrix<NDIM> const mat = impl.get_normal_matrix(ifc);
         // calculate the rotated momentum vector.
         Vector<NDIM> mom = product(mat, momi);
         // negate the normal component of the momentum vector.
@@ -212,26 +221,19 @@ void TrimSlipWall<NDIM>::apply_do0() {
 
 template< size_t NDIM >
 void TrimSlipWall<NDIM>::apply_do1() {
-    index_type const nbnd = this->boundary().nbound();
+    auto & impl = this->internal();
+    index_type const nbnd = impl.nbound();
     for (index_type ibnd=0; ibnd<nbnd; ++ibnd) {
-        const index_type ifc = this->boundary().facn()[ibnd][0];
-        auto const & tfccls = this->block().fccls()[ifc];
-        const index_type icl = tfccls[0];
-        const index_type jcl = tfccls[1];
-
-        auto const & tidsoln = reinterpret_cast<Vector<NDIM> const (&)[solver_type::NEQ]>(this->solver().sol().dsoln[icl]);
-        auto       & tjdsoln = reinterpret_cast<Vector<NDIM>       (&)[solver_type::NEQ]>(this->solver().sol().dsoln[jcl]);
-        auto const & titen = *reinterpret_cast<Matrix<NDIM> const *>(&tidsoln[1]);
-        auto       & tjten = *reinterpret_cast<Matrix<NDIM>       *>(&tjdsoln[1]);
-
-        Matrix<NDIM> const mat = this->block().get_normal_matrix(ifc);
+        const index_type ifc = impl.iface(ibnd);
+        auto const & tfccls = impl.tfccls(ifc);
+        auto const piso1n = impl.so1c(tfccls[0]);
+        auto       pjso1n = impl.so1n(tfccls[1]);
+        Matrix<NDIM> const mat = impl.get_normal_matrix(ifc);
         Matrix<NDIM> const matinv = mat.transpose();
-
         // rotate the derivatives to the normal coordinate system.
-        Vector<NDIM> u1 = product(mat, tidsoln[0]);
-        Vector<NDIM> um = product(mat, tidsoln[NDIM+1]);
-        Matrix<NDIM> uv = product(product(mat, titen), matinv);
-
+        Vector<NDIM> u1 = product(mat, piso1n.density());
+        Vector<NDIM> um = product(mat, piso1n.energy());
+        Matrix<NDIM> uv = product(product(mat, piso1n.momentum()), matinv);
         // set wall condition in the rotated coordinate;
         u1[0] = -u1[0];
         um[0] = -um[0];
@@ -239,12 +241,10 @@ void TrimSlipWall<NDIM>::apply_do1() {
             uv[0][it] = -uv[0][it];
             uv[it][0] = -uv[it][0];
         }
-
         // rotate the derivatives back to the original coordinate system.
-        tjdsoln[0]      = product(matinv, u1);
-        tjdsoln[NDIM+1] = product(matinv, um);
-        tjten = product(product(matinv, uv), mat);
-
+        pjso1n.density() = product(matinv, u1);
+        pjso1n.energy() = product(matinv, um);
+        pjso1n.momentum() = product(product(matinv, uv), mat);
     }
 }
 
@@ -253,21 +253,15 @@ class TrimInlet : public TrimBase<NDIM> {
 
 public:
 
+    constexpr static size_t NVALUE = 6;
+
     using base_type = TrimBase<NDIM>;
     using solver_type = typename base_type::solver_type;
     using block_type = typename base_type::block_type;
     using pointer = typename base_type::pointer;
 
-    TrimInlet(solver_type & solver, BoundaryData & boundary)
-      : base_type(solver, boundary)
-    {}
-
+    TrimInlet(solver_type & solver, BoundaryData & boundary): base_type(solver, boundary) {}
     ~TrimInlet() override {}
-
-    pointer clone() override {
-        return pointer(new TrimInlet<NDIM>(this->solver(), this->boundary()));
-    }
-
     void apply_do0() override;
     void apply_do1() override;
 
@@ -275,44 +269,38 @@ public:
 
 template< size_t NDIM >
 void TrimInlet<NDIM>::apply_do0() {
-    auto & soln = this->solver().sol().soln;
-    index_type const nbnd = this->boundary().nbound();
-    const auto & values = this->boundary().template values<6>();
+    using boundary_value_type = typename base_type::internal_type::template boundary_value_type<NVALUE>;
+    using vector_type = Vector<NDIM>;
+    struct BoundaryValue {
+        BoundaryValue(boundary_value_type const & ref_in) : ref(ref_in) {}
+        boundary_value_type const & ref;
+        // translate the array.
+        real_type density() const { return ref[0]; }
+        vector_type const & velocity() const { return *reinterpret_cast<vector_type const *>(&ref[1]); }
+        real_type pressure() const { return ref[4]; }
+        real_type gamma() const { return ref[5]; }
+        real_type kinetic_energy() const { return velocity().square() * density() / 2; }
+    };
+
+    auto & impl = this->internal();
+    index_type const nbnd = impl.nbound();
     for (index_type ibnd=0; ibnd<nbnd; ++ibnd) {
-        // load the boundary value.
-        const auto & value = values[ibnd];
-        const real_type density = value[0];
-        const auto & vel = *reinterpret_cast<Vector<NDIM> const *>(&value[1]);
-        const real_type pressure = value[4];
-        const real_type gamma = value[5];
-        const real_type ke = vel.square() * density / 2;
-
-        // set the ghost value.
-        const index_type ifc = this->boundary().facn()[ibnd][0];
-        auto const & tfccls = this->block().fccls()[ifc];
-        const index_type jcl = tfccls[1];
-        auto & tjsoln = soln[jcl];
-
-        tjsoln[0] = density;
-        for (index_type it=0; it<NDIM; ++it) {
-            tjsoln[1+it] = vel[it] * density;
-        }
-        tjsoln[1+NDIM] = pressure/(gamma-1.0) + ke;
+        auto const & tfccls = impl.tfccls(impl.iface(ibnd));
+        auto pjso0n = impl.so0n(tfccls[1]);
+        BoundaryValue const val(impl.template value<NVALUE>(ibnd));
+        pjso0n.density() = val.density();
+        pjso0n.momentum() = val.velocity() * val.density();
+        pjso0n.energy() = val.pressure()/(val.gamma()-1.0) + val.kinetic_energy();
     }
 }
 
 template< size_t NDIM >
 void TrimInlet<NDIM>::apply_do1() {
-    index_type const nbnd = this->boundary().nbound();
+    auto & impl = this->internal();
+    index_type const nbnd = impl.nbound();
     for (index_type ibnd=0; ibnd<nbnd; ++ibnd) {
-        const index_type ifc = this->boundary().facn()[ibnd][0];
-        auto const & tfccls = this->block().fccls()[ifc];
-        const index_type jcl = tfccls[1];
-        auto & tjdsoln = reinterpret_cast<Vector<NDIM> (&)[solver_type::NEQ]>(this->solver().sol().dsoln[jcl]);
-        // set to zero gradient.
-        for (index_type it=0; it<solver_type::NEQ; ++it) {
-            tjdsoln[it] = 0;
-        }
+        auto const & tfccls = impl.tfccls(impl.iface(ibnd));
+        impl.so1n(tfccls[1]) = 0;
     }
 }
 

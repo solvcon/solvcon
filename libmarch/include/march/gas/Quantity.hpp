@@ -23,8 +23,12 @@ class Quantity {
 public:
 
     using solver_type = Solver<NDIM>;
+    using solution_type = typename solver_type::solution_type;
     using block_type = UnstructuredBlock<NDIM>;
     using vector_type = Vector<NDIM>;
+
+    using o0hand_type = typename solution_type::o0hand_type;
+    using o1hand_type = typename solution_type::o1hand_type;
 
     static_assert(solver_type::NSCA == 1, "gas solver scalar constant size not 1");
 
@@ -88,14 +92,16 @@ private:
         return ret;
     }
 
-    using solution_reference = real_type const (&)[solver_type::NEQ];
-    solution_reference get_soln(index_type const icl) {
-        return m_solver.sol().soln[icl];
+    /*using solution_reference = real_type const (&)[solver_type::NEQ];
+    solution_reference get_soln(index_type const icl) {*/
+    const o0hand_type so0n(index_type const icl) const {
+        return m_solver.sol().so0n(icl);
     }
 
-    using derivative_reference = vector_type const (&)[solver_type::NEQ];
-    derivative_reference get_dsoln(index_type const icl) {
-        return reinterpret_cast<derivative_reference>(m_solver.sol().dsoln[icl]);
+    /*using derivative_reference = vector_type const (&)[solver_type::NEQ];
+    derivative_reference get_dsoln(index_type const icl) {*/
+    const o1hand_type so1n(index_type const icl) const {
+        return m_solver.sol().so1n(icl);
     }
 
     void update_density();
@@ -124,7 +130,7 @@ namespace detail {
 template< size_t NDIM >
 Vector<NDIM>
 compute_vorticity(
-    Vector<NDIM> const (& deriv)[Solver<NDIM>::NEQ]
+    typename Solver<NDIM>::solution_type::o1hand_type const deriv
   , Vector<NDIM> const & vel
   , real_type const rho
 );
@@ -132,7 +138,7 @@ compute_vorticity(
 template<>
 Vector<2>
 compute_vorticity(
-    Vector<2> const (& deriv)[Solver<2>::NEQ]
+    typename Solver<2>::solution_type::o1hand_type const deriv
   , Vector<2> const & vel
   , real_type const rho
 ) {
@@ -146,7 +152,7 @@ compute_vorticity(
 template<>
 Vector<3>
 compute_vorticity(
-    Vector<3> const (& deriv)[Solver<3>::NEQ]
+    typename Solver<3>::solution_type::o1hand_type const deriv
   , Vector<3> const & vel
   , real_type rho
 ) {
@@ -165,7 +171,7 @@ compute_vorticity(
 template< size_t NDIM >
 void Quantity<NDIM>::update_density() {
     for (index_type icl=-m_block.ngstcell(); icl<m_block.ncell(); ++icl) {
-        m_density[icl] = get_soln(icl)[0] + get_dsoln(icl)[0].dot(get_shift(icl));
+        m_density[icl] = so0n(icl)[0] + so1n(icl)[0].dot(get_shift(icl));
     }
 }
 
@@ -174,8 +180,8 @@ void Quantity<NDIM>::update_velocity() {
     for (index_type icl=-m_block.ngstcell(); icl<m_block.ncell(); ++icl) {
         // input
         vector_type const sft = get_shift(icl);
-        auto const & soln = get_soln(icl);
-        auto const & dsoln = get_dsoln(icl);
+        auto const & soln = so0n(icl);
+        auto const & dsoln = so1n(icl);
         real_type const rho = m_density[icl];
         // output
         auto & tvel = reinterpret_cast<vector_type &>(m_velocity[icl]);
@@ -189,7 +195,7 @@ template< size_t NDIM >
 void Quantity<NDIM>::update_vorticity() {
     for (index_type icl=-m_block.ngstcell(); icl<m_block.ncell(); ++icl) {
         // input
-        auto const & dsoln = get_dsoln(icl);
+        auto const & dsoln = so1n(icl);
         // output
         auto & tvor = reinterpret_cast<vector_type &>(m_vorticity[icl]);
         auto & tvorm = m_vorticity_magnitude[icl];
@@ -207,7 +213,7 @@ void Quantity<NDIM>::update_schlieren(real_type const k, real_type const k0, rea
     real_type rhogmax = 0;
     for (index_type icl=-m_block.ngstcell(); icl<m_block.ncell(); ++icl) {
         // input
-        auto const & dsoln = get_dsoln(icl);
+        auto const & dsoln = so1n(icl);
         // output
         auto & tsch = m_schlieren[icl];
         tsch = dsoln[0].square();
@@ -227,8 +233,8 @@ void Quantity<NDIM>::update_misc(real_type const gasconst) {
     for (index_type icl=-m_block.ngstcell(); icl<m_block.ncell(); ++icl) {
         // input
         auto const sft = get_shift(icl);
-        auto const & soln = get_soln(icl);
-        auto const & dsoln = get_dsoln(icl);
+        auto const & soln = so0n(icl);
+        auto const & dsoln = so1n(icl);
         const real_type ga = amsca[icl][0];
         const real_type ga1 = ga - 1;
         auto const & tvel = reinterpret_cast<vector_type &>(m_velocity[icl]);

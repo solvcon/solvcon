@@ -217,7 +217,7 @@ struct GradientShape {
 template< size_t NDIM, size_t NEQ, int32_t ALPHA=0, bool TAYLOR=true >
 struct GradientWeigh {
 
-    typedef SolutionHouse<NDIM, NEQ> house_type;
+    typedef Solution<NDIM, NEQ> house_type;
     typedef GradientShape<NDIM, NEQ> shape_type;
 
     static constexpr size_t MFGE = GradientMeta::MFGE;
@@ -306,13 +306,13 @@ struct GradientWeigh {
     /**
      * @param[out] dsoln  The result derivative.
      */
-    void operator() (Vector<NDIM> (&dsoln)[NEQ]) const {
-        for (index_type ieq=0; ieq<NEQ; ++ieq) { dsoln[ieq] = 0; }
+    void operator() (Order1Hand<NDIM, NEQ> pso1n) const {
+        pso1n = 0;
         const auto ofg1 = gshape.meta.nsub_inverse;
         for (index_type isub=0; isub<gshape.meta.nsub; ++isub) {
             for (index_type ieq=0; ieq<NEQ; ++ieq) {
                 const real_type wgt = ofg1 + sigma_max[ieq] * widv[isub][ieq]; // FIXME: optimize
-                dsoln[ieq] += wgt * grad[isub][ieq];
+                pso1n[ieq] += wgt * grad[isub][ieq];
             }
         }
     }
@@ -330,18 +330,18 @@ private:
       , const real_type hdt
     ) const {
         std::array<Vector<NDIM>, NEQ> udf;
-        const auto & tisoln = shouse.sol[gshape.icl];
+        const auto piso0n = shouse.so0c(gshape.icl);
         for (index_type ivx=0; ivx<NDIM; ++ivx) {
             const index_type ifl = tface[ivx]-1;
             const auto jcl = gshape.rcls[ifl];
-            const auto & tjsol = shouse.sol[jcl];
-            const auto & tjsoln = shouse.soln[jcl];
-            const auto & tjsolt = shouse.solt[jcl];
-            auto tjdsol = reinterpret_cast<const Vector<NDIM> (&)[NEQ]>(shouse.dsoln[jcl]);
+            const auto pjso0c = shouse.so0c(jcl);
+            const auto pjso0n = shouse.so0n(jcl);
+            const auto pjso0t = shouse.so0t(jcl);
+            const auto pjso1c = shouse.so1n(jcl);
             for (index_type ieq=0; ieq<NEQ; ++ieq) {
-                if (TAYLOR) { udf[ieq][ivx] = tjsol[ieq] + hdt*tjsolt[ieq] - tisoln[ieq]; }
-                else        { udf[ieq][ivx] = tjsoln[ieq] - tisoln[ieq]; }
-                udf[ieq][ivx] += gshape.jdis[ifl].dot(tjdsol[ieq]);
+                if (TAYLOR) { udf[ieq][ivx] = pjso0c[ieq] + hdt*pjso0t[ieq] - piso0n[ieq]; }
+                else        { udf[ieq][ivx] = pjso0n[ieq] - piso0n[ieq]; }
+                udf[ieq][ivx] += gshape.jdis[ifl].dot(pjso1c[ieq]);
             }
         }
         return udf;
@@ -353,17 +353,16 @@ template< size_t NDIM >
 void Solver<NDIM>::calc_dsoln() {
     // references.
     const auto & block = *m_block;
-    const auto & cfl = m_sol.cfl;
-    auto & dsoln = m_sol.dsoln; // output.
     const real_type hdt = m_state.time_increment * 0.5;
     for (index_type icl=0; icl<block.ncell(); ++icl) {
         // determine sigma0 and tau.
-        const real_type sgm0 = m_param.sigma0 / fabs(cfl[icl]);
-        const real_type tau = m_param.taumin + fabs(cfl[icl]) * m_param.tauscale;
+        const real_type cfl = m_sol.cflc(icl);
+        const real_type sgm0 = m_param.sigma0 / fabs(cfl);
+        const real_type tau = m_param.taumin + fabs(cfl) * m_param.tauscale;
         // calculate gradient.
         const GradientShape<NDIM,NEQ> gshape(block, m_cecnd, icl, tau);
         const GradientWeigh<NDIM,NEQ> gweigh(gshape, m_sol, hdt, sgm0);
-        gweigh(reinterpret_cast<Vector<NDIM> (&)[NEQ]>(dsoln[icl]));
+        gweigh(m_sol.so1n(icl));
     }
 }
 

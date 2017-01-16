@@ -30,23 +30,26 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "march/core/core.hpp"
+
 namespace march {
 
 namespace gas {
 
 template< size_t NEQ, size_t NDIM >
 struct Jacobian {
-    typedef real_type matrix_type[NEQ][NEQ][NDIM];
-    typedef real_type flux_type[NEQ][NDIM];
-    typedef const real_type (&const_solution_reference)[NEQ];
+    using vector_type = Vector<NDIM>;
+    using matrix_type = vector_type[NEQ][NEQ];
+    using flux_type = vector_type[NEQ];
+    using const_solution_reference = const real_type (&)[NEQ];
     static constexpr real_type TINY=1.e-60;
-    void operator()(real_type gamma, const_solution_reference sol);
+    void update(real_type gamma, const_solution_reference sol);
     matrix_type jacos;
     flux_type fcn;
 }; /* end struct Jacobian */
 
 template<>
-void Jacobian<4, 2>::operator()(real_type gamma, const_solution_reference sol) {
+void Jacobian<4, 2>::update(real_type gamma, const_solution_reference sol) {
     // scalars.
     real_type ga, ga1, ga3, ga1h;
     real_type u1, u2, u3, u4;
@@ -111,7 +114,7 @@ void Jacobian<4, 2>::operator()(real_type gamma, const_solution_reference sol) {
 }
 
 template<>
-void Jacobian<5, 3>::operator()(real_type gamma, const_solution_reference sol) {
+void Jacobian<5, 3>::update(real_type gamma, const_solution_reference sol) {
     // scalars.
     real_type ga, ga1, ga3, ga1h;
     real_type u1, u2, u3, u4, u5;

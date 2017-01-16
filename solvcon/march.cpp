@@ -727,14 +727,14 @@ WrapGasSolver
             .def("calc_soln", &wrapped_type::calc_soln)
             .def("calc_dsoln", &wrapped_type::calc_dsoln)
             .def_property_readonly("amsca", [](wrapped_type & self) { return static_cast<LookupTableCore>(self.sup().amsca); })
-            .def_property_readonly("sol", [](wrapped_type & self) { return static_cast<LookupTableCore>(self.sol().sol); })
-            .def_property_readonly("soln", [](wrapped_type & self) { return static_cast<LookupTableCore>(self.sol().soln); })
-            .def_property_readonly("solt", [](wrapped_type & self) { return static_cast<LookupTableCore>(self.sol().solt); })
-            .def_property_readonly("dsol", [](wrapped_type & self) { return static_cast<LookupTableCore>(self.sol().dsol); })
-            .def_property_readonly("dsoln", [](wrapped_type & self) { return static_cast<LookupTableCore>(self.sol().dsoln); })
-            .def_property_readonly("stm", [](wrapped_type & self) { return static_cast<LookupTableCore>(self.sol().stm); })
-            .def_property_readonly("cfl", [](wrapped_type & self) { return static_cast<LookupTableCore>(self.sol().cfl); })
-            .def_property_readonly("ocfl", [](wrapped_type & self) { return static_cast<LookupTableCore>(self.sol().ocfl); })
+            .def_property_readonly("sol"  , [](wrapped_type & self) { return static_cast<LookupTableCore>(self.sol().arrays().so0c()); })
+            .def_property_readonly("soln" , [](wrapped_type & self) { return static_cast<LookupTableCore>(self.sol().arrays().so0n()); })
+            .def_property_readonly("solt" , [](wrapped_type & self) { return static_cast<LookupTableCore>(self.sol().arrays().so0t()); })
+            .def_property_readonly("dsol" , [](wrapped_type & self) { return static_cast<LookupTableCore>(self.sol().arrays().so1c()); })
+            .def_property_readonly("dsoln", [](wrapped_type & self) { return static_cast<LookupTableCore>(self.sol().arrays().so1n()); })
+            .def_property_readonly("stm"  , [](wrapped_type & self) { return static_cast<LookupTableCore>(self.sol().arrays().stm()); })
+            .def_property_readonly("cfl"  , [](wrapped_type & self) { return static_cast<LookupTableCore>(self.sol().arrays().cflc()); })
+            .def_property_readonly("ocfl" , [](wrapped_type & self) { return static_cast<LookupTableCore>(self.sol().arrays().cflo()); })
         ;
     }
 
