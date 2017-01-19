@@ -45,7 +45,7 @@ from solvcon.parcel import gas  # A specific SOLVCON solver package we'll use
 
 class DiaphragmIAnchor(sc.MeshAnchor):
     """
-    diaphragm initialization
+    diaphragm initialization anchor
     """
     def __init__(self, svr, **kw):
         self.rho1 = float(kw.pop('rho1'))
@@ -64,13 +64,17 @@ class DiaphragmIAnchor(sc.MeshAnchor):
         svr.soln[:,2].fill(0.0)
         if svr.ndim == 3:
             svr.soln[:,3].fill(0.0)
-        svr.soln[:,svr.ndim+1].fill(self.p1/(gamma-1))
+        # pressure
+        svr.soln[:,svr.ndim+1].fill(self.p1)
         # set.
+        # TODO: 0.5 is currently hard-coded for the half of the height of the tube.
+        # Make it more general by transfer the tube to locate the middle of the
+        # tube at the coordinate origin, or other ways.
         slct_int = svr.blk.clcnd[:,2] > 0.5
         slct_gst = svr.blk.gstclcnd[:,2] > 0.5
         slct = np.concatenate((slct_gst, slct_int))
         svr.soln[slct,0] = self.rho2
-        svr.soln[slct,svr.ndim+1] = self.p2/(gamma-1)
+        svr.soln[slct,svr.ndim+1] = self.p2
         # update.
         svr.sol[:] = svr.soln[:]
 
