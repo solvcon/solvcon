@@ -53,6 +53,7 @@ class DiaphragmIAnchor(sc.MeshAnchor):
         self.p1 = float(kw.pop('p1'))
         self.p2 = float(kw.pop('p2'))
         self.gamma = float(kw.pop('gamma'))
+        self.tube_height = float(kw.pop('tube_height'))
         super(DiaphragmIAnchor, self).__init__(svr, **kw)
 
     def provide(self):
@@ -67,11 +68,9 @@ class DiaphragmIAnchor(sc.MeshAnchor):
         # pressure
         svr.soln[:,svr.ndim+1].fill(self.p1)
         # set.
-        # TODO: 0.5 is currently hard-coded for the half of the height of the tube.
-        # Make it more general by transfer the tube to locate the middle of the
-        # tube at the coordinate origin, or other ways.
-        slct_int = svr.blk.clcnd[:,2] > 0.5
-        slct_gst = svr.blk.gstclcnd[:,2] > 0.5
+        tube_middle = self.tube_height / 2
+        slct_int = svr.blk.clcnd[:,2] > tube_middle
+        slct_gst = svr.blk.gstclcnd[:,2] > tube_middle
         slct = np.concatenate((slct_gst, slct_int))
         svr.soln[slct,0] = self.rho2
         svr.soln[slct,svr.ndim+1] = self.p2
@@ -170,7 +169,8 @@ def tube_base(casename=None,
     ############################################################################
 
     # Create the mesh generator.  Keep it for later use.
-    mesher = SodtubeMesher(center=0.0, radius=0.05, height=1.0,
+    tube_height = 1.0
+    mesher = SodtubeMesher(center=0.0, radius=0.05, height=tube_height,
                            edgelength=edgelength)
     # Set up case.
     cse = gas.GasCase(
@@ -194,7 +194,8 @@ def tube_base(casename=None,
                                        'dsoln': 0.0, 'amsca': gamma})
     # cse.defer(gas.DensityInitAnchor, rho=density)
     cse.defer(DiaphragmIAnchor,
-              gamma=gamma, rho1=rho1, p1=p1, rho2=rho2, p2=p2)
+              gamma=gamma, rho1=rho1, p1=p1, rho2=rho2, p2=p2,
+              tube_height=tube_height)
     cse.defer(gas.PhysicsAnchor, rsteps=ssteps)
     # Report information while calculating.
     cse.defer(gas.ProgressHook, linewidth=ssteps / psteps, psteps=psteps)
