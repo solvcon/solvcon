@@ -78,6 +78,33 @@ class DiaphragmIAnchor(sc.MeshAnchor):
         svr.sol[:] = svr.soln[:]
 
 
+class TubeProbe(gas.ProbeHook):
+    """
+    Place a probe for the flow properties in the tube.
+    """
+
+    def __init__(self, cse, **kw):
+        """
+        Provide basic information to the probe hook.
+        """
+        # define where to probe
+        poi = ('poi', 0.0, 0.0, 0.0)
+        # provide coordination and spec list information to the probe hook.
+        kw['coords'] = (poi,)
+        kw['speclst'] = ['rho', 'p']
+        super(TubeProbe, self).__init__(cse, **kw)
+
+    def postloop(self):
+        """
+        Dump the probe data in the end.
+        """
+        super(TubeProbe, self).postloop()
+        rho, p = self.points[0].vals[-1][1:]
+        self.info('Probe result at %s:\n' % self.points[0])
+        self.info('- rho = %.3f \n' % rho)
+        self.info('- p = %.3f \n' % p)
+
+
 class SodtubeMesher(object):
     """
     Representation of a Sod tube and the Gmsh meshing helper.
@@ -197,10 +224,14 @@ def tube_base(casename=None,
               gamma=gamma, rho1=rho1, p1=p1, rho2=rho2, p2=p2,
               tube_height=tube_height)
     cse.defer(gas.PhysicsAnchor, rsteps=ssteps)
+    # probe the data, so this anchor should follow gas.PhysicsAnchor
     # Report information while calculating.
     cse.defer(gas.ProgressHook, linewidth=ssteps / psteps, psteps=psteps)
     cse.defer(gas.CflHook, fullstop=False, cflmax=10.0, psteps=ssteps)
+    # save the info each psteps
     cse.defer(gas.MeshInfoHook, psteps=ssteps, show_bclist=True)
+    # summarize the data fetched by TubeAnchor
+    cse.defer(TubeProbe, psteps=ssteps)
     # cse.defer(ReflectionProbe, rect=mesher, relation=relation, psteps=ssteps)
     # Store data.
     cse.defer(gas.PMarchSave,
