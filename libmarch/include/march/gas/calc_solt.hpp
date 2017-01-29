@@ -42,16 +42,16 @@ void Solver<NDIM>::calc_solt() {
     auto & block = *m_block;
     auto & amsca = m_sup.amsca;
     // jacobian matrix.
-    Jacobian<NEQ, NDIM> jaco;
+    Jacobian<neq, ndim> jaco;
     for (index_type icl=0; icl<block.ncell(); ++icl) {
         auto piso0t = m_sol.so0t(icl);
         auto piso1c = m_sol.so1c(icl);
         jaco.update(amsca[icl][0], *m_sol.so0c(icl));
-        for (index_type ieq=0; ieq<NEQ; ieq++) {
+        for (index_type ieq=0; ieq<neq; ieq++) {
             piso0t[ieq] = 0.0;
             for (index_type idm=0; idm<NDIM; idm++) {
                 real_type val = 0.0;
-                for (index_type jeq=0; jeq<NEQ; jeq++) {
+                for (index_type jeq=0; jeq<neq; jeq++) {
                     val += jaco.jacos[ieq][jeq][idm]*piso1c[jeq][idm];
                 }
                 piso0t[ieq] -= val;

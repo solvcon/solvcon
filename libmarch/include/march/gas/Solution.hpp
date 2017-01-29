@@ -16,6 +16,42 @@ namespace march {
 
 namespace gas {
 
+template< size_t NDIM >
+struct SolutionTableTraits {
+    constexpr static size_t ndim = NDIM;
+    constexpr static size_t neq = NDIM+2;
+}; /* end struct SolutionTableTraits */
+
+template< size_t NDIM > class Order0Hand;
+
+template< typename ElemType, size_t NDIM >
+struct SolutionOrder0Table : public LookupTable< ElemType, SolutionTableTraits<NDIM>::neq >
+{
+    using table_traits = SolutionTableTraits<NDIM>;
+    constexpr static size_t ndim = table_traits::ndim;
+    constexpr static size_t neq = table_traits::neq;
+    using base_type = LookupTable<ElemType, neq>;
+    using hand_type = Order0Hand<ndim>;
+    SolutionOrder0Table(index_type nghost, index_type nbody) : base_type(nghost, nbody) {}
+    hand_type       hat(index_type irow)       { return hand_type(*this, irow); }
+    hand_type const hat(index_type irow) const { return hand_type(*this, irow); }
+}; /* end struct SolutionOrder0Table */
+
+template< size_t NDIM > class Order1Hand;
+
+template< typename ElemType, size_t NDIM >
+struct SolutionOrder1Table : public LookupTable< ElemType, NDIM*SolutionTableTraits<NDIM>::neq >
+{
+    using table_traits = SolutionTableTraits<NDIM>;
+    constexpr static size_t ndim = table_traits::ndim;
+    constexpr static size_t neq = table_traits::neq;
+    using base_type = LookupTable<ElemType, ndim*neq>;
+    using hand_type = Order1Hand<ndim>;
+    SolutionOrder1Table(index_type nghost, index_type nbody) : base_type(nghost, nbody) {}
+    hand_type       hat(index_type irow)       { return hand_type(*this, irow); }
+    hand_type const hat(index_type irow) const { return hand_type(*this, irow); }
+}; /* end struct SolutionOrder0Table */
+
 class HandBase {
 public:
     HandBase() : m_ptr(nullptr) {}
@@ -33,7 +69,7 @@ private:
  * the pointer inside the other object, but assignment operators deep copy the
  * contents of the array.
  */
-template< class Derived, class Traits, size_t NDIM, size_t NEQ >
+template< class Derived, class Traits >
 class HandCRTP : public HandBase {
 
 public:
@@ -41,8 +77,8 @@ public:
     using derived_type = Derived;
     using trait_type = Traits;
     using table_type = typename trait_type::table_type;
-    using elem_reference = typename trait_type::elem_reference;
-    using elem_const_reference = typename trait_type::elem_const_reference;
+    using item_reference = typename trait_type::item_reference;
+    using item_const_reference = typename trait_type::item_const_reference;
     using row_type = typename trait_type::row_type;
     using row_pointer = typename trait_type::row_pointer;
     using row_reference = typename trait_type::row_reference;
@@ -57,19 +93,19 @@ public:
     HandCRTP(HandCRTP const &  other) : HandCRTP(other.ptr()) {}
  
     HandCRTP & operator=(HandCRTP       && other) {
-        for (index_type it=0; it<NEQ; ++it) { (**this)[it] = (*other)[it]; }
+        for (index_type it=0; it<table_type::neq; ++it) { (**this)[it] = (*other)[it]; }
         return *this;
     }
     HandCRTP & operator=(HandCRTP const &  other) {
-        for (index_type it=0; it<NEQ; ++it) { (**this)[it] = (*other)[it]; }
+        for (index_type it=0; it<table_type::neq; ++it) { (**this)[it] = (*other)[it]; }
         return *this;
     }
 
     row_reference       operator*()       { return *ptr(); }
     row_const_reference operator*() const { return *ptr(); }
 
-    elem_reference       operator[](index_type it)       { return (*ptr())[it]; }
-    elem_const_reference operator[](index_type it) const { return (*ptr())[it]; }
+    item_reference       operator[](index_type it)       { return (*ptr())[it]; }
+    item_const_reference operator[](index_type it) const { return (*ptr())[it]; }
 
 private:
 
@@ -85,54 +121,30 @@ private:
 
 }; /* end class HandCRTP */
 
-template< class TableType, class ElemType, size_t NDIM, size_t NEQ >
+template< class TableType, class ItemType >
 struct HandTraits {
-    using vector_type = Vector<NDIM>;
-    using matrix_type = Matrix<NDIM>;
     using table_type = TableType;
-    using elem_type = ElemType;
-    using elem_reference = elem_type &;
-    using elem_const_reference = elem_type const &;
-    using row_type = elem_type[NEQ];
+    constexpr static size_t ndim = table_type::ndim;
+    constexpr static size_t neq = table_type::neq;
+    using item_type = ItemType;
+    using item_reference = item_type &;
+    using item_const_reference = item_type const &;
+    using row_type = item_type[neq];
     using row_pointer = row_type *;
     using row_reference = row_type &;
     using row_const_reference = row_type const &;
 }; /* end struct HandTraits */
 
-#define MARCH_DECL_HAND_TRAITS_BODY \
-    using vector_type = typename base_trait_t::vector_type; \
-    using matrix_type = typename base_trait_t::matrix_type; \
-    using table_type = typename base_trait_t::table_type; \
-    using elem_type = typename base_trait_t::elem_type; \
-    using elem_reference = typename base_trait_t::elem_reference; \
-    using elem_const_reference = typename base_trait_t::elem_const_reference; \
-    using row_type = typename base_trait_t::row_type; \
-    using row_pointer = typename base_trait_t::row_pointer; \
-    using row_reference = typename base_trait_t::row_reference; \
-    using row_const_reference = typename base_trait_t::row_const_reference;
-// end MARCH_DECL_HAND_TRAITS_BODY
-template< size_t NDIM, size_t NEQ >
-struct Order0HandTraits : HandTraits<LookupTable<real_type, NEQ>, real_type, NDIM, NEQ> {
-    using base_trait_t = HandTraits<LookupTable<real_type, NEQ>, real_type, NDIM, NEQ>;
-    MARCH_DECL_HAND_TRAITS_BODY
-}; /* end struct Order0HandTraits */
-template< size_t NDIM, size_t NEQ >
-struct Order1HandTraits : HandTraits<LookupTable<real_type, NEQ*NDIM>, Vector<NDIM>, NDIM, NEQ> {
-    using base_trait_t = HandTraits<LookupTable<real_type, NEQ*NDIM>, Vector<NDIM>, NDIM, NEQ>;
-    MARCH_DECL_HAND_TRAITS_BODY
-}; /* end struct Order1HandTraits */
-#undef MARCH_DECL_HAND_TRAITS_BODY
-
-template< size_t NDIM, size_t NEQ >
-class Order0Hand : public HandCRTP< Order0Hand<NDIM, NEQ>, Order0HandTraits<NDIM, NEQ>, NDIM, NEQ >
+template< size_t NDIM >
+class Order0Hand : public HandCRTP< Order0Hand<NDIM>, HandTraits<SolutionOrder0Table<real_type, NDIM>, real_type> >
 {
 public:
-    using base_type = HandCRTP< Order0Hand<NDIM, NEQ>, Order0HandTraits<NDIM, NEQ>, NDIM, NEQ >;
+    using base_type = HandCRTP< Order0Hand<NDIM>, HandTraits<SolutionOrder0Table<real_type, NDIM>, real_type> >;
     using base_type::base_type;
-    using trait_type = Order0HandTraits<NDIM, NEQ>;
-    using vector_type = typename trait_type::vector_type;
+    using trait_type = HandTraits<SolutionOrder0Table<real_type, NDIM>, real_type>;
+    using vector_type = Vector<NDIM>;
     Order0Hand & operator=(real_type value) {
-        for (index_type it=0; it<NEQ; ++it) { (**this)[it] = value; }
+        for (index_type it=0; it<trait_type::neq; ++it) { (**this)[it] = value; }
         return *this;
     }
     real_type       & density()       { return (**this)[0]; }
@@ -143,21 +155,21 @@ public:
     real_type const & energy() const { return (**this)[NDIM+1]; }
 }; /* end class Order0Hand */
 
-template< size_t NDIM, size_t NEQ >
-class Order1Hand : public HandCRTP< Order1Hand<NDIM, NEQ>, Order1HandTraits<NDIM, NEQ>, NDIM, NEQ >
+template< size_t NDIM >
+class Order1Hand : public HandCRTP< Order1Hand<NDIM>, HandTraits<SolutionOrder1Table<real_type, NDIM>, Vector<NDIM>> >
 {
 public:
-    using base_type = HandCRTP< Order1Hand<NDIM, NEQ>, Order1HandTraits<NDIM, NEQ>, NDIM, NEQ >;
+    using base_type = HandCRTP< Order1Hand<NDIM>, HandTraits<SolutionOrder1Table<real_type, NDIM>, Vector<NDIM>> >;
     using base_type::base_type;
-    using trait_type = Order1HandTraits<NDIM, NEQ>;
-    using vector_type = typename trait_type::vector_type;
-    using matrix_type = typename trait_type::matrix_type;
+    using trait_type = HandTraits<SolutionOrder1Table<real_type, NDIM>, Vector<NDIM>>;
+    using vector_type = Vector<NDIM>;
+    using matrix_type = Matrix<NDIM>;
     Order1Hand & operator=(vector_type const & value) {
-        for (index_type it=0; it<NEQ; ++it) { (**this)[it] = value; }
+        for (index_type it=0; it<trait_type::neq; ++it) { (**this)[it] = value; }
         return *this;
     }
     Order1Hand & operator=(real_type value) {
-        for (index_type it=0; it<NEQ; ++it) { (**this)[it] = value; }
+        for (index_type it=0; it<trait_type::neq; ++it) { (**this)[it] = value; }
         return *this;
     }
     vector_type       & density()       { return (**this)[0]; }
@@ -171,16 +183,19 @@ public:
 /**
  * Solution arrays.
  */
-template< size_t NDIM, size_t NEQ >
+template< size_t NDIM >
 class Solution {
 
 public:
 
-    Solution() = delete;
-    Solution(Solution const & ) = delete;
-    Solution(Solution       &&) = delete;
-    Solution operator=(Solution const & ) = delete;
-    Solution operator=(Solution       &&) = delete;
+    using table_traits = SolutionTableTraits<NDIM>;
+    static constexpr size_t ndim=table_traits::ndim;
+    static constexpr size_t neq=table_traits::neq;
+
+    using o0table_type = SolutionOrder0Table<real_type, ndim>;
+    using o1table_type = SolutionOrder1Table<real_type, ndim>;
+    using o0hand_type = typename o0table_type::hand_type;
+    using o1hand_type = typename o1table_type::hand_type;
 
     Solution(index_type ngstcell, index_type ncell)
       : m_so0c(ngstcell, ncell), m_so0n(ngstcell, ncell), m_so0t(ngstcell, ncell)
@@ -188,23 +203,27 @@ public:
       , m_stm(ngstcell, ncell), m_cflo(ngstcell, ncell), m_cflc(ngstcell, ncell)
     {}
 
-    using o0hand_type = Order0Hand<NDIM, NEQ>;
-    using o1hand_type = Order1Hand<NDIM, NEQ>;
+    Solution() = delete;
+    Solution(Solution const & ) = delete;
+    Solution(Solution       &&) = delete;
+    Solution operator=(Solution const & ) = delete;
+    Solution operator=(Solution       &&) = delete;
 
-    o0hand_type       so0c(index_type irow)       { return o0hand_type(m_so0c, irow); }
-    o0hand_type const so0c(index_type irow) const { return o0hand_type(m_so0c, irow); }
-    o0hand_type       so0n(index_type irow)       { return o0hand_type(m_so0n, irow); }
-    o0hand_type const so0n(index_type irow) const { return o0hand_type(m_so0n, irow); }
-    o0hand_type       so0t(index_type irow)       { return o0hand_type(m_so0t, irow); }
-    o0hand_type const so0t(index_type irow) const { return o0hand_type(m_so0t, irow); }
+    o0hand_type       so0c(index_type irow)       { return m_so0c.hat(irow); }
+    o0hand_type const so0c(index_type irow) const { return m_so0c.hat(irow); }
+    o0hand_type       so0n(index_type irow)       { return m_so0n.hat(irow); }
+    o0hand_type const so0n(index_type irow) const { return m_so0n.hat(irow); }
+    o0hand_type       so0t(index_type irow)       { return m_so0t.hat(irow); }
+    o0hand_type const so0t(index_type irow) const { return m_so0t.hat(irow); }
 
-    o1hand_type       so1c(index_type irow)       { return o1hand_type(m_so1c, irow); }
-    o1hand_type const so1c(index_type irow) const { return o1hand_type(m_so1c, irow); }
-    o1hand_type       so1n(index_type irow)       { return o1hand_type(m_so1n, irow); }
-    o1hand_type const so1n(index_type irow) const { return o1hand_type(m_so1n, irow); }
+    o1hand_type       so1c(index_type irow)       { return m_so1c.hat(irow); }
+    o1hand_type const so1c(index_type irow) const { return m_so1c.hat(irow); }
+    o1hand_type       so1n(index_type irow)       { return m_so1n.hat(irow); }
+    o1hand_type const so1n(index_type irow) const { return m_so1n.hat(irow); }
 
-    o0hand_type       stm(index_type irow)       { return o0hand_type(m_stm, irow); }
-    o0hand_type const stm(index_type irow) const { return o0hand_type(m_stm, irow); }
+    o0hand_type       stm(index_type irow)       { return m_stm.hat(irow); }
+    o0hand_type const stm(index_type irow) const { return m_stm.hat(irow); }
+
     real_type & cflo(index_type irow)       { return m_cflo[irow]; }
     real_type   cflo(index_type irow) const { return m_cflo[irow]; }
     real_type & cflc(index_type irow)       { return m_cflc[irow]; }
@@ -218,12 +237,12 @@ public:
     struct array_access {
         Solution & sol;
         array_access(Solution & sol_in) : sol(sol_in) {}
-        LookupTable<real_type, NEQ> so0c() { return sol.m_so0c; }
-        LookupTable<real_type, NEQ> so0n() { return sol.m_so0n; }
-        LookupTable<real_type, NEQ> so0t() { return sol.m_so0t; }
-        LookupTable<real_type, NEQ*NDIM> so1c() { return sol.m_so1c; }
-        LookupTable<real_type, NEQ*NDIM> so1n() { return sol.m_so1n; }
-        LookupTable<real_type, NEQ> stm() { return sol.m_stm; }
+        SolutionOrder0Table<real_type, NDIM> so0c() { return sol.m_so0c; }
+        SolutionOrder0Table<real_type, NDIM> so0n() { return sol.m_so0n; }
+        SolutionOrder0Table<real_type, NDIM> so0t() { return sol.m_so0t; }
+        SolutionOrder1Table<real_type, NDIM> so1c() { return sol.m_so1c; }
+        SolutionOrder1Table<real_type, NDIM> so1n() { return sol.m_so1n; }
+        SolutionOrder0Table<real_type, NDIM> stm() { return sol.m_stm; }
         LookupTable<real_type, 0> cflo() { return sol.m_cflo; }
         LookupTable<real_type, 0> cflc() { return sol.m_cflc; }
     };
@@ -232,12 +251,12 @@ public:
 
 private:
 
-    LookupTable<real_type, NEQ> m_so0c;
-    LookupTable<real_type, NEQ> m_so0n;
-    LookupTable<real_type, NEQ> m_so0t;
-    LookupTable<real_type, NEQ*NDIM> m_so1c;
-    LookupTable<real_type, NEQ*NDIM> m_so1n;
-    LookupTable<real_type, NEQ> m_stm;
+    SolutionOrder0Table<real_type, NDIM> m_so0c;
+    SolutionOrder0Table<real_type, NDIM> m_so0n;
+    SolutionOrder0Table<real_type, NDIM> m_so0t;
+    SolutionOrder1Table<real_type, NDIM> m_so1c;
+    SolutionOrder1Table<real_type, NDIM> m_so1n;
+    SolutionOrder0Table<real_type, NDIM> m_stm;
     LookupTable<real_type, 0> m_cflo;
     LookupTable<real_type, 0> m_cflc;
 

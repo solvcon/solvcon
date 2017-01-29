@@ -217,7 +217,7 @@ struct GradientShape {
 template< size_t NDIM, size_t NEQ, int32_t ALPHA=0, bool TAYLOR=true >
 struct GradientWeigh {
 
-    typedef Solution<NDIM, NEQ> house_type;
+    typedef Solution<NDIM> solution_type;
     typedef GradientShape<NDIM, NEQ> shape_type;
 
     static constexpr size_t MFGE = GradientMeta::MFGE;
@@ -225,7 +225,7 @@ struct GradientWeigh {
     static constexpr real_type ALMOST_ZERO=1.e-200;
 
     const shape_type & gshape;
-    const house_type & shouse;
+    const solution_type & shouse;
 
     /**
      * Gradient of each fundamental gradient element.
@@ -249,7 +249,7 @@ struct GradientWeigh {
      */
     GradientWeigh(
         const shape_type & gshape
-      , const house_type & shouse
+      , const solution_type & shouse
       , const real_type hdt
       , const real_type sgm0
     )
@@ -306,7 +306,7 @@ struct GradientWeigh {
     /**
      * @param[out] dsoln  The result derivative.
      */
-    void operator() (Order1Hand<NDIM, NEQ> pso1n) const {
+    void operator() (typename solution_type::o1hand_type pso1n) const {
         pso1n = 0;
         const auto ofg1 = gshape.meta.nsub_inverse;
         for (index_type isub=0; isub<gshape.meta.nsub; ++isub) {
@@ -360,8 +360,8 @@ void Solver<NDIM>::calc_dsoln() {
         const real_type sgm0 = m_param.sigma0 / fabs(cfl);
         const real_type tau = m_param.taumin + fabs(cfl) * m_param.tauscale;
         // calculate gradient.
-        const GradientShape<NDIM,NEQ> gshape(block, m_cecnd, icl, tau);
-        const GradientWeigh<NDIM,NEQ> gweigh(gshape, m_sol, hdt, sgm0);
+        const GradientShape<ndim,neq> gshape(block, m_cecnd, icl, tau);
+        const GradientWeigh<ndim,neq> gweigh(gshape, m_sol, hdt, sgm0);
         gweigh(m_sol.so1n(icl));
     }
 }

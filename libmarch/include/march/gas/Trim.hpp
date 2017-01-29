@@ -11,6 +11,7 @@
 #include "march/core/core.hpp"
 #include "march/mesh/mesh.hpp"
 
+#include "march/gas/Solution.hpp"
 #include "march/gas/Solver_decl.hpp"
 
 namespace march {
@@ -24,8 +25,8 @@ public:
 
     using solver_type = Solver<NDIM>;
     using block_type = typename solver_type::block_type;
-    using o0hand_type = Order0Hand<NDIM, solver_type::NEQ>;
-    using o1hand_type = Order1Hand<NDIM, solver_type::NEQ>;
+    using o0hand_type = typename Solution<NDIM>::o0hand_type;
+    using o1hand_type = typename Solution<NDIM>::o1hand_type;
 
     constexpr static index_type FCNCL = block_type::FCNCL;
 
@@ -165,7 +166,7 @@ void TrimNonRefl<NDIM>::apply_do1() {
         // set perpendicular gradient to zero.
         Matrix<NDIM> const mat = impl.get_normal_matrix(ifc);
         row_type vec;
-        for (index_type ieq=0; ieq<solver_type::NEQ; ++ieq) {
+        for (index_type ieq=0; ieq<solver_type::neq; ++ieq) {
             vec[ieq][0] = 0.0;
             Vector<NDIM> dif = tiso1c[ieq];
             for (index_type it=1; it<NDIM; ++it) {
@@ -174,7 +175,7 @@ void TrimNonRefl<NDIM>::apply_do1() {
         }
         // inversely transform the coordinate and set ghost gradient.
         Matrix<NDIM> const matinv = mat.transpose();
-        for (index_type ieq=0; ieq<solver_type::NEQ; ++ieq) {
+        for (index_type ieq=0; ieq<solver_type::neq; ++ieq) {
             pjso1n[ieq] = product(matinv, vec[ieq]);
         }
     }

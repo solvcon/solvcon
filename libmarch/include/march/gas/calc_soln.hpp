@@ -42,7 +42,7 @@ void Solver<NDIM>::calc_soln() {
     const auto & block = *m_block;
     const auto & amsca = m_sup.amsca;
     // buffers.
-    Jacobian<NEQ, NDIM> jaco;
+    Jacobian<neq, ndim> jaco;
 
     const real_type qdt = m_state.time_increment * 0.25;
     const real_type hdt = m_state.time_increment * 0.5;
@@ -63,7 +63,7 @@ void Solver<NDIM>::calc_soln() {
             const auto pjso1c = m_sol.so1c(jcl);
 
             // spatial flux (given time).
-            for (index_type ieq=0; ieq<NEQ; ++ieq) {
+            for (index_type ieq=0; ieq<neq; ++ieq) {
                 real_type fusp = pjso0c[ieq];
                 fusp += (ibce.cnd - jcecnd).dot(pjso1c[ieq]);
                 pisoln[ieq] += fusp * ibce.vol;
@@ -72,29 +72,29 @@ void Solver<NDIM>::calc_soln() {
             // temporal flux (given space).
             jaco.update(amsca[icl][0], *pjso0c);
             for (index_type inf=0; inf<tfcnds[0]; ++inf) {
-                real_type usfc[NEQ];
-                vector_type dfcn[NEQ];
+                real_type usfc[neq];
+                vector_type dfcn[neq];
                 // solution at sub-face center.
-                for (index_type ieq=0; ieq<NEQ; ++ieq) {
+                for (index_type ieq=0; ieq<neq; ++ieq) {
                     usfc[ieq] = qdt * pjso0t[ieq];
                     usfc[ieq] += (ibce.sfcnd[inf] - jcecnd).dot(pjso1c[ieq]);
                 }
                 // spatial derivatives.
-                for (index_type ieq=0; ieq<NEQ; ++ieq) {
+                for (index_type ieq=0; ieq<neq; ++ieq) {
                     dfcn[ieq] = jaco.fcn[ieq];
-                    for (index_type jeq=0; jeq<NEQ; ++jeq) {
+                    for (index_type jeq=0; jeq<neq; ++jeq) {
                         dfcn[ieq] += jaco.jacos[ieq][jeq] * usfc[jeq];
                     }
                 }
                 // temporal flux.
-                for (index_type ieq=0; ieq<NEQ; ++ieq) {
+                for (index_type ieq=0; ieq<neq; ++ieq) {
                     pisoln[ieq] -= hdt * dfcn[ieq].dot(ibce.sfnml[inf]);
                 }
             }
         }
 
         // update solutions.
-        for (index_type ieq=0; ieq<NEQ; ++ieq) {
+        for (index_type ieq=0; ieq<neq; ++ieq) {
             pisoln[ieq] /= icce.vol;
         }
     }

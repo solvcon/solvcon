@@ -13,7 +13,10 @@
 #include <vector>
 #include <algorithm>
 
-#include "march/core/core.hpp"
+#include "march/core/types.hpp"
+#include "march/core/utility.hpp"
+#include "march/core/Buffer.hpp"
+#include "march/core/Vector.hpp"
 
 namespace march
 {
@@ -269,10 +272,7 @@ void array_assign(ElemType (&row_out)[NCOLUMN], const ElemType (&row_in)[NCOLUMN
 /**
  * Typed unresizeable lookup table.
  */
-template< 
-    typename ElemType,
-    size_t NCOLUMN
->
+template< typename ElemType, size_t NCOLUMN >
 class LookupTable: public LookupTableCore
 {
 
@@ -372,9 +372,7 @@ private:
 /**
  * One-dimensional, typed unresizeable lookup table.
  */
-template< 
-    typename ElemType
->
+template< typename ElemType >
 class LookupTable<ElemType, 0>: public LookupTableCore
 {
 
