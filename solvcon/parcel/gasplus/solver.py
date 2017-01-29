@@ -131,9 +131,6 @@ class GasPlusSolver(sc.MeshSolver):
     def update(self, worker=None):
         self._debug_check_array('soln', 'dsoln')
         self.alg.update(self.time, self.time_increment)
-        if False:
-            self.sol[:,:] = self.soln[:,:]
-            self.dsol[:,:,:] = self.dsoln[:,:,:]
         self._debug_check_array('sol', 'dsol')
 
     @sc.MeshSolver.register_marcher

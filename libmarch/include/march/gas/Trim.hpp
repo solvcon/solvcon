@@ -116,7 +116,9 @@ public:
     using block_type = typename base_type::block_type;
     using pointer = typename base_type::pointer;
 
-    TrimNoOp(solver_type & solver, BoundaryData & boundary): base_type(solver, boundary) {}
+    TrimNoOp(solver_type & solver, BoundaryData & boundary): base_type(solver, boundary) {
+        static_assert(sizeof(TrimNoOp<NDIM>) == sizeof(base_type), "TrimNoOp size mismatch");
+    }
     ~TrimNoOp() override {}
     void apply_do0() override {}
     void apply_do1() override {}
@@ -149,7 +151,7 @@ void TrimNonRefl<NDIM>::apply_do0() {
     index_type const nbnd = impl.nbound();
     for (index_type ibnd=0; ibnd<nbnd; ++ibnd) {
         auto const & tfccls = impl.tfccls(impl.iface(ibnd));
-        impl.so0n(tfccls[0]) = impl.so0n(tfccls[1]);
+        impl.so0n(tfccls[1]) = impl.so0n(tfccls[0]);
     }
 }
 
@@ -207,8 +209,12 @@ void TrimSlipWall<NDIM>::apply_do0() {
     for (index_type ibnd=0; ibnd<nbnd; ++ibnd) {
         const index_type ifc = impl.iface(ibnd);
         auto const & tfccls = impl.tfccls(ifc);
-        auto const & momi = impl.so0n(tfccls[0]).momentum();
-        auto       & momj = impl.so0n(tfccls[1]).momentum();
+        auto const piso0n = impl.so0n(tfccls[0]);
+        auto       pjso0n = impl.so0n(tfccls[1]);
+        auto const & momi = piso0n.momentum();
+        auto       & momj = pjso0n.momentum();
+        pjso0n[0] = piso0n[0];
+        pjso0n[NDIM+1] = piso0n[NDIM+1];
         // get rotation matrix.
         Matrix<NDIM> const mat = impl.get_normal_matrix(ifc);
         // calculate the rotated momentum vector.

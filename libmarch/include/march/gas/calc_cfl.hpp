@@ -31,6 +31,7 @@
  */
 
 #include <cfloat>
+#include <stdexcept>
 
 #include "march/mesh/mesh.hpp"
 
@@ -65,15 +66,17 @@ void Solver<NDIM>::calc_cfl() {
         const real_type ga1 = ga - 1.0;
         real_type wspd = piso0n.momentum().square();
         const real_type ke = wspd/(2.0*piso0n.density());
-        real_type pr = ga1 * (piso0n.energy() - ke);
-        pr = (pr+fabs(pr))/2.0;
-        wspd = sqrt(ga*pr/piso0n.density()) + sqrt(wspd)/piso0n.density();
+        const real_type pr = ga1 * (piso0n.energy() - ke);
+        const real_type pr_adj = (pr+fabs(pr))/2.0;
+        wspd = sqrt(ga*pr_adj/piso0n.density()) + sqrt(wspd)/piso0n.density();
         // CFL.
         cflo = hdt*wspd/dist;
         // if pressure is null, make CFL to be 1.
-        cflc = (cflo-1.0) * pr/(pr+TINY) + 1.0;
+        cflc = (cflo-1.0) * pr_adj/(pr_adj+TINY) + 1.0;
+        throw_on_cfl_adjustment(__func__, icl);
+        throw_on_cfl_overflow(__func__, icl);
         // correct negative pressure.
-        piso0n.energy() = pr/ga1 + ke + TINY;
+        piso0n.energy() = pr_adj/ga1 + ke + TINY;
     }
 }
 

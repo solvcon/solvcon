@@ -13,6 +13,28 @@ import solvcon as sc
 from solvcon import march
 
 
+class InitByDensityTemperatureAnchor(sc.MeshAnchor):
+    """
+    Initialize using density and temperature.
+
+    FIXME: Give me doctests.
+    """
+
+    def __init__(self, svr, **kw):
+        self.gas_constant = kw.pop('gas_constant') 
+        self.gamma = kw.pop('gamma') 
+        self.density = kw.pop('density') 
+        self.temperature = kw.pop('temperature') 
+        super(InitByDensityTemperatureAnchor, self).__init__(svr, **kw)
+
+    def provide(self):
+        self.svr.alg.init_solution(
+            self.gas_constant,
+            self.gamma,
+            self.density,
+            self.temperature)
+
+
 class DensityInitAnchor(sc.MeshAnchor):
     """
     Initialize only density.
@@ -53,5 +75,7 @@ class PhysicsAnchor(sc.MeshAnchor):
 
     def postfull(self):
         self.svr.alg.qty.update(self.gasconst, self.schk, self.schk0, self.schk1)
+        minloc = np.argmin(self.svr.alg.qty.density)
+        maxloc = np.argmax(self.svr.alg.qty.density)
 
 # vim: set ff=unix fenc=utf8 ft=python nobomb et sw=4 ts=4 tw=79:

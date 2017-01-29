@@ -695,6 +695,13 @@ WrapGasSolver
     WrapGasSolver(py::module & mod, const char * pyname, const char * clsdoc)
         : base_type(mod, pyname, clsdoc)
     {
+#define DECL_MARCH_PYBIND_GAS_SOLVER_PARAMETER(TYPE, NAME) \
+            .def_property( \
+                #NAME, \
+                [](wrapped_type const & self)            { return self.param().NAME(); }, \
+                [](wrapped_type       & self, TYPE NAME) { self.param().NAME() = NAME; } \
+            )
+
         using quantity_reference = gas::Quantity<NDIM> &;
         (*this)
             .def("__init__", [](wrapped_type & self, block_type & block) {
@@ -706,26 +713,17 @@ WrapGasSolver
                 [](wrapped_type & self) -> quantity_reference { return self.qty(); },
                 py::return_value_policy::reference_internal // FIXME: if it's default, remove this line
             )
-            .def_property(
-                "sigma0",
-                [](wrapped_type const & self)                   { return self.param().sigma0;   },
-                [](wrapped_type       & self, real_type sigma0) { self.param().sigma0 = sigma0; }
-            )
-            .def_property(
-                "taumin",
-                [](wrapped_type const & self)                   { return self.param().taumin;   },
-                [](wrapped_type       & self, real_type taumin) { self.param().taumin = taumin; }
-            )
-            .def_property(
-                "tauscale",
-                [](wrapped_type const & self)                     { return self.param().tauscale;     },
-                [](wrapped_type       & self, real_type tauscale) { self.param().tauscale = tauscale; }
-            )
+            DECL_MARCH_PYBIND_GAS_SOLVER_PARAMETER(real_type, sigma0)
+            DECL_MARCH_PYBIND_GAS_SOLVER_PARAMETER(real_type, taumin)
+            DECL_MARCH_PYBIND_GAS_SOLVER_PARAMETER(real_type, tauscale)
+            DECL_MARCH_PYBIND_GAS_SOLVER_PARAMETER(real_type, stop_on_negative_density)
+            DECL_MARCH_PYBIND_GAS_SOLVER_PARAMETER(real_type, stop_on_negative_energy)
             .def("update", &wrapped_type::update)
             .def("calc_cfl", &wrapped_type::calc_cfl)
             .def("calc_solt", &wrapped_type::calc_solt)
             .def("calc_soln", &wrapped_type::calc_soln)
             .def("calc_dsoln", &wrapped_type::calc_dsoln)
+            .def("init_solution", &wrapped_type::init_solution)
             .def_property_readonly("amsca", [](wrapped_type & self) { return static_cast<LookupTableCore>(self.sup().amsca); })
             .def_property_readonly("sol"  , [](wrapped_type & self) { return static_cast<LookupTableCore>(self.sol().arrays().so0c()); })
             .def_property_readonly("soln" , [](wrapped_type & self) { return static_cast<LookupTableCore>(self.sol().arrays().so0n()); })
@@ -736,6 +734,8 @@ WrapGasSolver
             .def_property_readonly("cfl"  , [](wrapped_type & self) { return static_cast<LookupTableCore>(self.sol().arrays().cflc()); })
             .def_property_readonly("ocfl" , [](wrapped_type & self) { return static_cast<LookupTableCore>(self.sol().arrays().cflo()); })
         ;
+
+#undef DECL_MARCH_PYBIND_GAS_SOLVER_PARAMETER
     }
 
 }; /* end class WrapGasSolver */
@@ -831,6 +831,9 @@ void make_submodule_gas(py::module & upmod) {
 
 
 static PyObject *march_init(py::module & mod) {
+#if defined(Py_DEBUG)
+    march::setup_debug();
+#endif // Py_DEBUG
     import_array1(nullptr); // or numpy c api segfault.
     init_topmodule(mod);
     make_submodule_gas(mod);

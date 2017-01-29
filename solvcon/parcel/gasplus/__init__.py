@@ -48,7 +48,11 @@ _include(names=['GasPlusSolver'], frommod='.solver')
 _include(names=['GasPlusBC', 'GasPlusNonRefl', 'GasPlusSlipWall', 'GasPlusInlet'],
          frommod='.boundcond')
 _include(names=['ProbeHook'], frommod='.probe')
-_include(names=['DensityInitAnchor', 'PhysicsAnchor'], frommod='.physics')
+_include(
+    names=[
+        'InitByDensityTemperatureAnchor', 'DensityInitAnchor', 'PhysicsAnchor'
+    ],
+    frommod='.physics')
 _include(names=['MeshInfoHook', 'ProgressHook', 'FillAnchor', 'CflHook',
                 'PMarchSave'], frommod='.inout')
 _include(names=['ObliqueShockRelation'], frommod='.oblique_shock')

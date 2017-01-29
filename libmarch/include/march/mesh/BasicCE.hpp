@@ -41,7 +41,7 @@ struct BasicCECenterVolumeHelper {
         if (3 == NDIM) fcnd = block.fccnd()[ifc];
         // node coordinates.
         index_type inf;
-        for (inf=0; inf<tfcnds[0]; ++inf) crd[inf] = block.ndcrd()[tfcnds[inf]];
+        for (inf=0; inf<tfcnds[0]; ++inf) crd[inf] = block.ndcrd()[tfcnds[inf+1]];
         if (3 == NDIM) crd[inf] = crd[0];
     }
     void calc_cnd_vol(vector_type & cnd, real_type & vol) const;

@@ -147,12 +147,37 @@ public:
         for (index_type it=0; it<trait_type::neq; ++it) { (**this)[it] = value; }
         return *this;
     }
+    // accessors to solution quantities.
     real_type       & density()       { return (**this)[0]; }
     real_type const & density() const { return (**this)[0]; }
     vector_type       & momentum()       { return *reinterpret_cast<vector_type       *>(&(**this)[1]); }
     vector_type const & momentum() const { return *reinterpret_cast<vector_type const *>(&(**this)[1]); }
     real_type       & energy()       { return (**this)[NDIM+1]; }
     real_type const & energy() const { return (**this)[NDIM+1]; }
+    // accessors physics values.
+    real_type pressure(real_type gamma /* ratio of specific heat */) const {
+        const real_type ke = momentum().square()/(2.0*density());
+        return (gamma - 1.0) * (energy() - ke);
+    }
+    real_type max_wavespeed(real_type gamma /* ratio of specific heat */) const {
+        const real_type density = this->density();
+        const real_type momsq = momentum().square();
+        const real_type ke = momsq/(2.0*density);
+        real_type pr = (gamma - 1.0) * (energy() - ke);
+        pr = (pr+fabs(pr))/2.0; // make the sqrt happy even with negative pressure.
+        return sqrt(gamma*pr/density) + sqrt(momsq)/density;
+    }
+    Order0Hand set_by(
+        real_type gas_constant
+      , real_type gamma /* ratio of specific heat */
+      , real_type density
+      , real_type temperature
+    ) {
+        this->density() = density;
+        momentum() = 0;
+        energy() = density * gas_constant / (gamma-1) * temperature;
+        return *this;
+    }
 }; /* end class Order0Hand */
 
 template< size_t NDIM >

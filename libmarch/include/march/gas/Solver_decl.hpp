@@ -12,6 +12,7 @@
 #include "march/core/core.hpp"
 #include "march/mesh/mesh.hpp"
 
+#include "march/gas/Parameter.hpp"
 #include "march/gas/Solution.hpp"
 
 namespace march {
@@ -46,15 +47,16 @@ public:
     static constexpr index_type FCREL = block_type::FCREL;
     static constexpr index_type BFREL = block_type::BFREL;
 
-    struct Parameter {
-        int_type sigma0=3;
-        real_type taumin=0.0;
-        real_type tauscale=1.0;
-    }; /* end struct Parameter */
-
     struct State {
         real_type time=0.0;
         real_type time_increment=0.0;
+        int_type step_current=0;
+        int_type substep_run=2;
+        int_type substep_current=0;
+
+        std::string step_info_string() const {
+            return string_format("step=%d substep=%d", step_current, substep_current);
+        }
     }; /* end struct State */
 
     struct Supplement {
@@ -117,6 +119,20 @@ public:
     void calc_soln();
     void calc_dsoln();
     // @]
+
+    void init_solution(
+        real_type gas_constant
+      , real_type gamma
+      , real_type density
+      , real_type temperature
+    );
+
+private:
+
+    void throw_on_negative_density(const std::string & srcloc, index_type icl) const;
+    void throw_on_negative_energy(const std::string & srcloc, index_type icl) const;
+    void throw_on_cfl_adjustment(const std::string & srcloc, index_type icl) const;
+    void throw_on_cfl_overflow(const std::string & srcloc, index_type icl) const;
 
 private:
 

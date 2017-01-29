@@ -97,6 +97,9 @@ void Solver<NDIM>::calc_soln() {
         for (index_type ieq=0; ieq<neq; ++ieq) {
             pisoln[ieq] /= icce.vol;
         }
+
+        throw_on_negative_density(__func__, icl);
+        throw_on_negative_energy(__func__, icl);
     }
 }
 

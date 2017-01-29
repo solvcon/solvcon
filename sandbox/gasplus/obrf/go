@@ -160,11 +160,16 @@ def generate_bcmap(relation):
     fpt['v2'] = -V2 * np.sin(relation.theta)
     fpi = fpb.copy()
     # BC map.
+    test_bctype = sc.bctregy.GasPlusNonRefl
     bcmap = {
-        b'upper': (sc.bctregy.GasPlusInlet, fpt,),
-        b'left': (sc.bctregy.GasPlusInlet, fpb,),
-        b'right': (sc.bctregy.GasPlusNonRefl, {},),
-        b'lower': (sc.bctregy.GasPlusSlipWall, {},),
+        #b'upper': (sc.bctregy.GasPlusInlet, fpt,),
+        #b'left': (sc.bctregy.GasPlusInlet, fpb,),
+        #b'right': (sc.bctregy.GasPlusNonRefl, {},),
+        #b'lower': (sc.bctregy.GasPlusSlipWall, {},),
+        b'upper': (test_bctype, {},),
+        b'left': (test_bctype, {},),
+        b'right': (test_bctype, {},),
+        b'lower': (test_bctype, {},),
     }
     return bcmap
 
@@ -257,7 +262,12 @@ def obrf_base(
     # Field initialization and derived calculations.
     cse.defer(gp.FillAnchor, mappers={'soln': gp.GasPlusSolver.ALMOST_ZERO,
                                       'dsoln': 0.0, 'amsca': gamma})
-    cse.defer(gp.DensityInitAnchor, rho=density)
+    #cse.defer(gp.DensityInitAnchor, rho=density)
+    cse.defer(gp.InitByDensityTemperatureAnchor,
+              gas_constant=1,
+              gamma=gamma,
+              density=density,
+              temperature=1)
     cse.defer(gp.PhysicsAnchor, rsteps=ssteps)
     # Report information while calculating.
     cse.defer(relation.hookcls)
@@ -294,6 +304,18 @@ def obrf(casename, **kw):
         casename,
         # Arguments to the base configuration.
         ssteps=200, psteps=4, edgelength=0.1,
+        gamma=1.4, density=1.0, pressure=1.0, mach=3.0, theta=10.0/180*np.pi,
+        # Arguments to GasCase.
+        time_increment=7.e-3, steps_run=600, **kw)
+
+
+@gp.register_arrangement
+def obrf_debug(casename, **kw):
+    return obrf_base(
+        # Required positional argument for the name of the simulation case.
+        casename,
+        # Arguments to the base configuration.
+        ssteps=1, psteps=1, edgelength=0.1,
         gamma=1.4, density=1.0, pressure=1.0, mach=3.0, theta=10.0/180*np.pi,
         # Arguments to GasCase.
         time_increment=7.e-3, steps_run=600, **kw)

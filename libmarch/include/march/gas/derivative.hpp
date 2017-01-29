@@ -167,15 +167,15 @@ struct GradientShape {
         const auto & icecnd = reinterpret_cast<const Vector<NDIM> &>(cecnd[icl]);
 
         // Calculate gradient evaluation points by using tau.
-        assert(tau <= 1.0 && tau >= 0);
-        const auto tau1 = 1.0 - tau;
+        assert(tau >= 0);
+        assert(tau <= 1.0);
         for (index_type ifl=0; ifl<meta.clnfc; ++ifl) {
             const auto jcl = block.fcrcl(tclfcs[ifl+1], icl);
             rcls[ifl] = jcl;
             const auto & jcecnd = reinterpret_cast<const Vector<NDIM> &>(cecnd[jcl]);
-            const auto middle = (icecnd + jcecnd) / 2;
-            jdis[ifl] = (middle - jcecnd) * tau1;
-            idis[ifl] = jcecnd + jdis[ifl]; // At this point it's still an absolute coordinate.
+            const auto midpt = BasicCE<NDIM>(block, icl, ifl).cnd;
+            idis[ifl] = (jcecnd - midpt) * tau + midpt;
+            jdis[ifl] = idis[ifl] - jcecnd;
         }
 
         // Calculate average point.
@@ -286,8 +286,8 @@ struct GradientWeigh {
         real_type wpa[NEQ][2]; // W-3/4 parameter.
         for (index_type ieq=0; ieq<NEQ; ++ieq) { wpa[ieq][0] = wpa[ieq][1] = 0.0; }
         const auto ofg1 = gshape.meta.nsub_inverse;
-        for (index_type isub=0; isub<gshape.meta.nsub; isub++) {
-            for (index_type ieq=0; ieq<NEQ; ieq++) {
+        for (index_type isub=0; isub<gshape.meta.nsub; ++isub) {
+            for (index_type ieq=0; ieq<NEQ; ++ieq) {
                 const real_type wgt = widv[isub][ieq] / wacc[ieq] - ofg1;
                 widv[isub][ieq] = wgt;
                 wpa[ieq][0] = fmax(wpa[ieq][0], wgt);
@@ -357,12 +357,19 @@ void Solver<NDIM>::calc_dsoln() {
     for (index_type icl=0; icl<block.ncell(); ++icl) {
         // determine sigma0 and tau.
         const real_type cfl = m_sol.cflc(icl);
-        const real_type sgm0 = m_param.sigma0 / fabs(cfl);
-        const real_type tau = m_param.taumin + fabs(cfl) * m_param.tauscale;
+        const real_type sgm0 = m_param.sigma0() / fabs(cfl);
+        const real_type tau = m_param.taumin() + fabs(cfl) * m_param.tauscale();
         // calculate gradient.
         const GradientShape<ndim,neq> gshape(block, m_cecnd, icl, tau);
         const GradientWeigh<ndim,neq> gweigh(gshape, m_sol, hdt, sgm0);
         gweigh(m_sol.so1n(icl));
+    }
+
+    if (m_state.substep_current % 2) {
+        m_state.step_current += 1;
+        m_state.substep_current = 0;
+    } else {
+        m_state.substep_current += 1;
     }
 }
 

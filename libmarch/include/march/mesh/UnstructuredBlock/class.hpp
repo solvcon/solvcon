@@ -377,6 +377,29 @@ public:
 
 /* end data_processors */
 
+/* data_report */
+public:
+
+    std::string info_string() const {
+        return string_format(
+            "UnstructuredBlock<NDIM=%d>(nnode=%d ngstnode=%d, nface=%d ngstface=%d, ncell=%d ngstcell=%d)"
+          , NDIM
+          , nnode(), ngstnode()
+          , nface(), ngstface()
+          , ncell(), ngstcell()
+        );
+    }
+
+    std::string cell_info_string(index_type icl) const {
+        return string_format(
+            "Cell<NDIM=%d>(%d type=%d ncell=%d ngstcell=%d)"
+          , NDIM, icl, cltpn()[icl]
+          , ncell(), ngstcell()
+        );
+    }
+
+//* end data_report */
+
 /* utility */
 private:
 
