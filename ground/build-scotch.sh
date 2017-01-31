@@ -1,52 +1,52 @@
-#!/bin/sh
+#!/bin/bash
 #
 # Copyright (C) 2011 Yung-Yu Chen <yyc@solvcon.net>.
 #
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, write to the Free Software Foundation, Inc.,
-# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+# Consume external variables:
+# - SCDEP: installation destination
+# - SCDL: downloaded source package file
+# - NP: number of processors for compilation
+source $(dirname "${BASH_SOURCE[0]}")/scbuildtools.sh
 
-PKGNAME=$1
-if [ -z "$PKGNAME" ]
-  then
-    echo "PKGNAME (parameter 1) not set"
-    exit
-fi
-SCOTCHSO=libscotchmetis.so
+# download scotch
+pkgname=scotch
+pkgver=6.0.4
+pkgfull=${pkgname}_${pkgver}
+pkgloc=$SCDL/$pkgfull.tar.xz
+pkgurl=http://gforge.inria.fr/frs/download.php/file/34618/$pkgfull.tar.gz
+download $pkgloc $pkgurl d58b825eb95e1db77efe8c6ff42d329f
 
 # unpack.
-mkdir -p $TMPBLD
-cd $TMPBLD
-tar xfz ../$TMPDL/$PKGNAME.tar.gz
+mkdir -p $SCDEP/src
+cd $SCDEP/src
+tar xf $pkgloc
+cd $pkgfull
+cd src # this is the working directory.
 
 # patch.
-cd $PKGNAME
-patch -p1 < ../../scotch_darwin.patch
+if [ $(uname) == Darwin ]; then
+  patch -p1 < $SCGROUND/scotch_clock_gettime.patch
+fi
 
 # build.
-cd src
-if [ `uname` == "Darwin" ]; then
-  cp ../../../scotch_Makefile_darwin.inc Makefile.inc
-else
-  cp ../../../scotch_Makefile.inc Makefile.inc
+echo "prefix = $SCDEP" > Makefile.inc
+echo '' >> Makefile.inc
+if [ $(uname) == Darwin ]; then
+  cat $SCGROUND/scotch_Makefile_darwin.inc >> Makefile.inc
+elif [ $(uname) == Linux ]; then
+  cat Make.inc/Makefile.inc.x86-64_pc_linux2 | \
+    sed -e "s/= -O3/= -fPIC -O3/" >> \
+    Makefile.inc
 fi
-make > make.log 2>&1
+{ time make -j $NP ; } > make.log 2>&1
 cd ..
 
 # install.
-cp lib/* $SCLIB
-cp bin/* $SCBIN
-cp include/* $SCINC
-#gcc -shared -o $SCLIB/$SCOTCHSO -L../lib -lscotch libscotchmetis/*.o
+mkdir -p $SCDEP/lib
+cp lib/* $SCDEP/lib
+mkdir -p $SCDEP/bin
+cp bin/* $SCDEP/bin
+mkdir -p $SCDEP/include
+cp include/* $SCDEP/include
 
-# vim: set ai et nu:
+# vim: set et nobomb ff=unix fenc=utf8:

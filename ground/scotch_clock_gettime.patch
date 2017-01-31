@@ -1,5 +1,5 @@
---- scotch_6.0.0/src/libscotch/common.c	(revision 22563)
-+++ scotch_6.0.0/src/libscotch/common.c	(working copy)
+--- src/libscotch/common.c	(revision 22563)
++++ src/libscotch/common.c	(working copy)
 @@ -104,7 +104,14 @@
  #else /* COMMON_TIMING_OLD */
    struct timespec     tp;

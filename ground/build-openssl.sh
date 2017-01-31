@@ -3,19 +3,19 @@
 # Copyright (C) 2011 Yung-Yu Chen <yyc@solvcon.net>.
 #
 # Consume external variables:
-# - SCDEP: installation destination
 # - SCDL: downloaded source package file
+# - SCDEP: installation destination
 # - NP: number of processors for compilation
+
 source $(dirname "${BASH_SOURCE[0]}")/scbuildtools.sh
 
-# download cmake.
-pkgname=cmake
-pkgverprefix=3.7
-pkgver=$pkgverprefix.2
+# download openssl.
+pkgname=openssl
+pkgver=1.1.0d
 pkgfull=$pkgname-$pkgver
-pkgloc=$SCDL/$pkgfull.tar.xz
-pkgurl=https://cmake.org/files/v$pkgverprefix/$pkgfull.tar.gz
-download $pkgloc $pkgurl 82b143ebbf4514d7e05876bed7a6b1f5
+pkgloc=$SCDL/$pkgfull.tar.gz
+pkgurl=https://www.openssl.org/source/$pkgfull.tar.gz
+download $pkgloc $pkgurl 711ce3cd5f53a99c0e12a7d5804f0f63
 
 # unpack.
 mkdir -p $SCDEP/src
@@ -24,8 +24,10 @@ tar xf $pkgloc
 cd $pkgfull
 
 # build.
-{ time ./configure \
+{ time ./Configure \
   --prefix=$SCDEP \
+  darwin64-x86_64-cc \
+  -shared \
 ; } > configure.log 2>&1
 { time make -j $NP ; } > make.log 2>&1
 { time make install ; } > install.log 2>&1

@@ -8,14 +8,13 @@
 # - NP: number of processors for compilation
 source $(dirname "${BASH_SOURCE[0]}")/scbuildtools.sh
 
-# download cmake.
-pkgname=cmake
-pkgverprefix=3.7
-pkgver=$pkgverprefix.2
+# download netcdf.
+pkgname=hdf5
+pkgver=1.8.18
 pkgfull=$pkgname-$pkgver
-pkgloc=$SCDL/$pkgfull.tar.xz
-pkgurl=https://cmake.org/files/v$pkgverprefix/$pkgfull.tar.gz
-download $pkgloc $pkgurl 82b143ebbf4514d7e05876bed7a6b1f5
+pkgloc=$SCDL/$pkgfull.tar.bz2
+pkgurl=https://support.hdfgroup.org/ftp/HDF5/current18/src/$pkgfull.tar.bz2
+download $pkgloc $pkgurl 29117bf488887f89888f9304c8ebea0b
 
 # unpack.
 mkdir -p $SCDEP/src
@@ -26,6 +25,7 @@ cd $pkgfull
 # build.
 { time ./configure \
   --prefix=$SCDEP \
+  --enable-cxx \
 ; } > configure.log 2>&1
 { time make -j $NP ; } > make.log 2>&1
 { time make install ; } > install.log 2>&1

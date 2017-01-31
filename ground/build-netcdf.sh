@@ -1,43 +1,39 @@
-#!/bin/sh
+#!/bin/bash
 #
 # Copyright (C) 2011 Yung-Yu Chen <yyc@solvcon.net>.
 #
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, write to the Free Software Foundation, Inc.,
-# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+# Consume external variables:
+# - SCDEP: installation destination
+# - SCDL: downloaded source package file
+# - NP: number of processors for compilation
+source $(dirname "${BASH_SOURCE[0]}")/scbuildtools.sh
 
-PKGNAME=$1
-if [ -z "$PKGNAME" ]
-  then
-    echo "PKGNAME (parameter 1) not set"
-    exit
-fi
+# download netcdf.
+pkgname=netcdf
+pkgver=4.4.1.1
+pkgfull=$pkgname-$pkgver
+pkgloc=$SCDL/$pkgfull.tar.xz
+pkgurl=ftp://ftp.unidata.ucar.edu/pub/$pkgname/$pkgfull.tar.gz
+download $pkgloc $pkgurl 503a2d6b6035d116ed53b1d80c811bda
 
 # unpack.
-mkdir -p $TMPBLD
-cd $TMPBLD
-tar xfz ../$TMPDL/$PKGNAME.tar.gz
+mkdir -p $SCDEP/src
+cd $SCDEP/src
+tar xf $pkgloc
+cd $pkgfull
 
 # build.
-cd $PKGNAME
-./configure --prefix=$SCROOT \
-	--disable-fortran \
-	--disable-dap \
-	--enable-shared \
-> configure.log 2>&1
-	#--with-hdf5=$HDF5_HOME \
-	#--enable-netcdf4 \
-make -j $NP > make.log 2>&1
-make install > install.log 2>&1
+# --with-hdf5 doesn't work:
+# http://www.unidata.ucar.edu/support/help/MailArchives/netcdf/msg10457.html
+{ time LDFLAGS=-L$SCDEP/lib CPPFLAGS=-I$SCDEP/include ./configure \
+  --prefix=$SCDEP \
+  --enable-netcdf4 \
+  --disable-fortran \
+  --disable-dap \
+  --enable-shared \
+; } > configure.log 2>&1
+#  --with-hdf5=$SCDEP \
+{ time make -j $NP ; } > make.log 2>&1
+{ time make install ; } > install.log 2>&1
 
-# vim: set ai et nu:
+# vim: set et nobomb ff=unix fenc=utf8:

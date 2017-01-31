@@ -2,52 +2,46 @@
 #
 # Copyright (C) 2011 Yung-Yu Chen <yyc@solvcon.net>.
 #
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, write to the Free Software Foundation, Inc.,
-# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+# Consume external variables:
+# - SCDL: downloaded source package file
+# - SCDEP: installation destination
+# - NP: number of processors for compilation
 
-PKGNAME=$1
-if [ -z "$PKGNAME" ]
-  then
-    echo "PKGNAME (parameter 1) not set"
-    exit
-fi
-LAPACK=`pwd`/build/lapack-3.3.1/lapack_LINUX.a
-ATLAS_PLAT=ATLAS_LINUX
+source $(dirname "${BASH_SOURCE[0]}")/scbuildtools.sh
 
-# determine arch.
-if [ `uname -m` == 'x86_64' ]; then
-  BITS='-b 64'
-else
-  BITS='-b 32'
-fi
+# download lapack.
+lapackname=lapack
+lapackver=3.7.0
+lapackfull=$lapackname-$lapackver
+lapackloc=$SCDL/$lapackfull.tgz
+lapackurl=http://www.netlib.org/$lapackname/$lapackname-$lapackver.tgz
+download $lapackloc $lapackurl 697bb8d67c7d336a0f339cc9dd0fa72f
+
+# download atlas.
+atlasname=atlas
+atlasver=3.10.3
+atlasfull=$atlasname-$atlasver
+atlasloc=$SCDL/$atlasfull.tar.bz2
+atlasurl=https://sourceforge.net/projects/math-atlas/files/Stable/$atlasver/$atlasname$atlasver.tar.bz2/download
+download $atlasloc $atlasurl d6ce4f16c2ad301837cfb3dade2f7cef
 
 # unpack.
-mkdir -p $TMPBLD
-cd $TMPBLD
-tar xfj ../$TMPDL/$PKGNAME.tar.bz2
+mkdir -p $SCDEP/src
+cd $SCDEP/src
+tar xf $atlasloc
+rm -rf $atlasfull
+mv -f ATLAS $atlasfull
+cd $atlasfull
 
 # build.
-cd ATLAS
-mkdir -p $ATLAS_PLAT
-cd $ATLAS_PLAT
-../configure --prefix=$SCROOT \
-	-Si cputhrchk 0 \
-	$BITS \
-	-Fa alg -fPIC \
-	--with-netlib-lapack=$LAPACK \
-> configure.log 2>&1
-make > make.log 2>&1
-make install > install.log 2>&1
+mkdir -p build
+cd build
+{ time ../configure \
+  --prefix=$SCDEP \
+  --cflags='-fPIC' \
+  --with-netlib-lapack-tarfile=$lapackloc \
+; } > configure.log 2>&1
+{ time make ; } > make.log 2>&1
+{ time make install ; } > install.log 2>&1
 
-# vim: set ai et nu:
+# vim: set et nobomb ff=unix fenc=utf8:
