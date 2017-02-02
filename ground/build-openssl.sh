@@ -6,7 +6,6 @@
 # - SCDL: downloaded source package file
 # - SCDEP: installation destination
 # - NP: number of processors for compilation
-
 source $(dirname "${BASH_SOURCE[0]}")/scbuildtools.sh
 
 # download openssl.
@@ -31,5 +30,8 @@ cd $pkgfull
 ; } > configure.log 2>&1
 { time make -j $NP ; } > make.log 2>&1
 { time make install ; } > install.log 2>&1
+
+# finalize.
+finalize $pkgname
 
 # vim: set et nobomb ff=unix fenc=utf8:

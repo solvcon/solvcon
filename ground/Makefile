@@ -1,154 +1,175 @@
 # Copyright (C) 2011 Yung-Yu Chen <yyc@solvcon.net>.
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, write to the Free Software Foundation, Inc.,
-# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
+SHELL := /bin/bash
+
+
+export SCGROUND=$(shell pwd)
 export SCDEP?=$(shell cd .. ; pwd)/build/dep
 export SCDL?=$(SCDEP)/downloaded
 ifeq ($(shell uname), Darwin)
-export NP?=$(shell sysctl -n hw.ncpu)
+  export NP?=$(shell sysctl -n hw.ncpu)
 else ifeq ($(shell uname), Linux)
-export NP?=$(shell cat /proc/cpuinfo | grep processor | wc -l)
+  export NP?=$(shell cat /proc/cpuinfo | grep processor | wc -l)
 else
-export NP?=1
+  export NP?=1
 endif
 
 
 PYTHON=$(SCDEP)/bin/python
 PIP=$(SCDEP)/bin/pip
 
-.PHONY: $(ALIASES)
 
+.PHONY: default
 default: all
 
 
-ALIASES += openssl
 TARGET_openssl := $(SCDEP)/lib/libssl.a
 TARGETS += $(TARGET_openssl)
 
 $(TARGET_openssl): build-openssl.sh
-	./$<
+	time ./$<
+	cp -f $(SCGROUND)/start $(SCDEP)/start
 
+.PHONY: openssl
 openssl: $(TARGET_openssl)
 
 
-ALIASES += python
 TARGET_python := $(SCDEP)/bin/python3.6m
 TARGETS += $(TARGET_python)
 
-$(TARGET_python): build-python.sh openssl
-	./$<
+$(TARGET_python): build-python.sh $(TARGET_openssl)
+	time ./$<
+	cp -f $(SCGROUND)/start $(SCDEP)/start
 
+.PHONY: python
 python: $(TARGET_python)
 
 
-ALIASES += atlas
 TARGET_atlas := $(SCDEP)/lib/libatlas.a
 TARGETS += $(TARGET_atlas)
 
 $(TARGET_atlas): build-atlas.sh
-	./$<
+	time ./$<
+	cp -f $(SCGROUND)/start $(SCDEP)/start
 
+.PHONY: atlas
 atlas: $(TARGET_atlas)
 
 
-ALIASES += numpy
-TARGET_numpy := $(SCDEP)/lib/python3.6/site-packages/numpy/__init__.py
+TARGET_numpy := $(SCDEP)/lib/python3.6/site-packages/numpy-1.12.0-py3.6.egg-info/PKG-INFO
 TARGETS += $(TARGET_numpy)
 
-$(TARGET_numpy): build-numpy.sh atlas
-	./$<
+$(TARGET_numpy): build-numpy.sh $(TARGET_atlas)
+	time ./$<
+	cp -f $(SCGROUND)/start $(SCDEP)/start
 
+.PHONY: numpy
 numpy: $(TARGET_numpy)
 
 
-ALIASES += scotch
 TARGET_scotch := $(SCDEP)/lib/libscotch.a
 TARGETS += $(TARGET_scotch)
 
 $(TARGET_scotch): build-scotch.sh
-	./$<
+	time ./$<
+	cp -f $(SCGROUND)/start $(SCDEP)/start
 
+.PHONY: scotch
 scotch: $(TARGET_scotch)
 
 
-ALIASES += hdf
 TARGET_hdf := $(SCDEP)/bin/h5ls
 TARGETS += $(TARGET_hdf)
 
 $(TARGET_hdf): build-hdf.sh
-	./$<
+	time ./$<
+	cp -f $(SCGROUND)/start $(SCDEP)/start
 
+.PHONY: hdf
 hdf: $(TARGET_hdf)
 
 
-ALIASES += netcdf
 TARGET_netcdf := $(SCDEP)/bin/nc-config
 TARGETS += $(TARGET_netcdf)
 
-$(TARGET_netcdf): build-netcdf.sh hdf
-	./$<
+$(TARGET_netcdf): build-netcdf.sh $(TARGET_hdf)
+	time ./$<
+	cp -f $(SCGROUND)/start $(SCDEP)/start
 
+.PHONY: netcdf
 netcdf: $(TARGET_netcdf)
 
 
-ALIASES += cmake
 TARGET_cmake := $(SCDEP)/bin/cmake
 TARGETS += $(TARGET_cmake)
 
 $(TARGET_cmake): build-cmake.sh
-	./$<
+	time ./$<
+	cp -f $(SCGROUND)/start $(SCDEP)/start
 
+.PHONY: cmake
 cmake: $(TARGET_cmake)
 
 
-ALIASES += gmp
 TARGET_gmp := $(SCDEP)/lib/libgmp.a
 TARGETS += $(TARGET_gmp)
 
 $(TARGET_gmp): build-gmp.sh
-	./$<
+	time ./$<
+	cp -f $(SCGROUND)/start $(SCDEP)/start
 
+.PHONY: gmp
 gmp: $(TARGET_gmp)
 
 
-ALIASES += gmsh
 TARGET_gmsh := $(SCDEP)/bin/gmsh
 TARGETS += $(TARGET_gmsh)
 
-$(TARGET_gmsh): build-gmsh.sh cmake gmp numpy
-	./$<
+$(TARGET_gmsh): build-gmsh.sh $(TARGET_cmake} $(TARGET_gmp) $(TARGET_numpy)
+	time ./$<
+	cp -f $(SCGROUND)/start $(SCDEP)/start
 
+.PHONY: gmsh
 gmsh: $(TARGET_gmsh)
 
 
-ALIASES += vtk
+TARGET_graphviz := $(SCDEP)/bin/dot
+TARGETS += $(TARGET_graphviz)
+
+$(TARGET_graphviz): build-graphviz.sh
+	time ./$<
+	cp -f $(SCGROUND)/start $(SCDEP)/start
+
+.PHONY: graphviz
+graphviz: $(TARGET_graphviz)
+
+
 TARGET_vtk := $(SCDEP)/bin/vtkpython
 TARGETS += $(TARGET_vtk)
 
-$(TARGET_vtk): build-vtk.sh cmake
-	./$<
+$(TARGET_vtk): build-vtk.sh $(TARGET_cmake)
+	time ./$<
+	cp -f $(SCGROUND)/start $(SCDEP)/start
 
+.PHONY: vtk
 vtk: $(TARGET_vtk)
 
 
-ALIASES += pytools
-
+.PHONY: pytools
 pytools: python
-	$(PIP) install nose sphinx
+	$(PIP) install -U \
+		nose six paramiko boto cython \
+		ipython jupyter pythreejs \
+		sphinx sphinxcontrib-issuetracker \
+		https://github.com/pybind/pybind11/archive/master.zip
+	cp -f $(SCGROUND)/start $(SCDEP)/start
 
 
-all: $(ALIASES)
+.PHONY: all
+all: $(TARGETS)
+
+
+.PHONY: extra
+extra: pytools
 
 # vim: set noet nobomb ff=unix fenc=utf8:

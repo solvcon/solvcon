@@ -43,4 +43,7 @@ cd $pkgfull-build
 { time make -j $NP ; } > make.log 2>&1
 { time make install ; } > install.log 2>&1
 
+# finalize.
+finalize $pkgname
+
 # vim: set et nobomb ff=unix fenc=utf8:

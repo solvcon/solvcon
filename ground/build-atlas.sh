@@ -19,6 +19,7 @@ download $lapackloc $lapackurl 697bb8d67c7d336a0f339cc9dd0fa72f
 
 # download atlas.
 atlasname=atlas
+pkgname=atlas
 atlasver=3.10.3
 atlasfull=$atlasname-$atlasver
 atlasloc=$SCDL/$atlasfull.tar.bz2
@@ -43,5 +44,8 @@ cd build
 ; } > configure.log 2>&1
 { time make ; } > make.log 2>&1
 { time make install ; } > install.log 2>&1
+
+# finalize.
+finalize $pkgname
 
 # vim: set et nobomb ff=unix fenc=utf8:

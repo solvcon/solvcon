@@ -8,7 +8,6 @@
 # - NP: number of processors for compilation
 #
 # Note: also download and install pip.
-
 source $(dirname "${BASH_SOURCE[0]}")/scbuildtools.sh
 
 # download python and pip installation script.
@@ -60,5 +59,8 @@ ln -s $PREFIX/bin/python3.6 $PREFIX/bin/python
 ln -s $PREFIX/bin/pydoc3.6 $PREFIX/bin/pydoc
 
 $SCDEP/bin/python $SCDL/get-pip.py
+
+# finalize.
+finalize $pkgname
 
 # vim: set et nobomb ff=unix fenc=utf8:

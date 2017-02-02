@@ -1,0 +1,24 @@
+export SCDEP="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export SCSRC="$(cd ${SCDEP}/../.. && pwd)"
+namemunge () {
+  if ! echo ${!1} | egrep -q "(^|:)$2($|:)" ; then
+    if [ -z "${!1}" ] ; then
+      eval "$1=$2"
+    else
+      if [ "$3" == "after" ] ; then
+        eval "$1=\$$1:$2"
+      else
+        eval "$1=$2:\$$1"
+      fi
+    fi
+  fi
+  eval "export $1"
+}
+if [ $(uname) == Darwin ]; then
+  namemunge DYLD_LIBRARY_PATH $SCSRC:$SCDEP/lib
+elif [ $(uname) == Linux ]; then
+  namemunge LD_LIBRARY_PATH $SCSRC:$SCDEP/lib
+fi
+namemunge PATH $SCSRC:$SCDEP/bin
+namemunge PYTHONPATH $SCSRC
+# vim: set et nobomb ff=unix fenc=utf8 ft=sh:

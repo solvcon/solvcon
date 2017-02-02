@@ -12,7 +12,7 @@ source $(dirname "${BASH_SOURCE[0]}")/scbuildtools.sh
 pkgname=scotch
 pkgver=6.0.4
 pkgfull=${pkgname}_${pkgver}
-pkgloc=$SCDL/$pkgfull.tar.xz
+pkgloc=$SCDL/$pkgfull.tar.gz
 pkgurl=http://gforge.inria.fr/frs/download.php/file/34618/$pkgfull.tar.gz
 download $pkgloc $pkgurl d58b825eb95e1db77efe8c6ff42d329f
 
@@ -48,5 +48,8 @@ mkdir -p $SCDEP/bin
 cp bin/* $SCDEP/bin
 mkdir -p $SCDEP/include
 cp include/* $SCDEP/include
+
+# finalize.
+finalize $pkgname
 
 # vim: set et nobomb ff=unix fenc=utf8:

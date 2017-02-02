@@ -1,5 +1,18 @@
 # Copyright (C) 2017 Yung-Yu Chen <yyc@solvcon.net>.
 
+SCGROUND="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCDEP="$(cd "${SCDEP:=$HOME/tmp/scdep}" && pwd)"
+SCDL="$(cd "${SCDL:=$SCDEP/downloaded}" && pwd)"
+if [ $(uname) == Darwin ] ; then
+  SCDLLEXT=dylib
+  NP=${NP:=$(sysctl -n hw.ncpu)}
+elif [ $(uname) == Linux ] ; then
+  SCDLLEXT=so
+  NP=${NP:=$(cat /proc/cpuinfo | grep processor | wc -l)}
+else
+  NP=${NP:=1}
+fi
+
 download () {
   loc=$1
   url=$2
@@ -22,6 +35,10 @@ download () {
   fi
 }
 
+finalize () {
+  echo "$1 completed"
+}
+
 namemunge () {
   if ! echo ${!1} | egrep -q "(^|:)$2($|:)" ; then
     if [ -z "${!1}" ] ; then
@@ -40,21 +57,8 @@ namemunge () {
 namemunge PATH $SCDEP/bin
 if [ $(uname) == Darwin ] ; then
   namemunge DYLD_LIBRARY_PATH $SCDEP/lib
-  SCDLLEXT=dylib
 elif [ $(uname) == Linux ] ; then
   namemunge LD_LIBRARY_PATH $SCDEP/lib
-  SCDLLEXT=so
-fi
-
-SCGROUND="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCDEP=${SCDEP:=$HOME/tmp/scdep}
-SCDL=${SCDL:=$SCDEP/downloaded}
-if [ $(uname) == Darwin ] ; then
-  NP=${NP:=$(sysctl -n hw.ncpu)}
-elif [ $(uname) == Linux ] ; then
-  NP=${NP:=$(cat /proc/cpuinfo | grep processor | wc -l)}
-else
-  NP=${NP:=1}
 fi
 
 # vim: set et nobomb ff=unix fenc=utf8:
