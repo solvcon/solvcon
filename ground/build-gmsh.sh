@@ -1,44 +1,43 @@
-#!/bin/sh
+#!/bin/bash
 #
 # Copyright (C) 2011 Yung-Yu Chen <yyc@solvcon.net>.
 #
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, write to the Free Software Foundation, Inc.,
-# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+# Consume external variables:
+# - SCDEP: installation destination
+# - SCDL: downloaded source package file
+# - NP: number of processors for compilation
+source $(dirname "${BASH_SOURCE[0]}")/scbuildtools.sh
 
-PKGNAME=$1
-if [ -z "$PKGNAME" ]
-  then
-    echo "PKGNAME (parameter 1) not set"
-    exit
-fi
+# download gmsh.
+pkgname=gmsh
+pkgver=2.16.0
+pkgfull=${pkgname}-${pkgver}-source
+pkgloc=$SCDL/$pkgfull.tgz
+pkgurl=http://gmsh.info/src/$pkgfull.tgz
+download $pkgloc $pkgurl 762c10f159dab4b042e3140b1c348427
 
 # unpack.
-mkdir -p $TMPBLD
-cd $TMPBLD
-tar xfz ../$TMPDL/$PKGNAME.tgz
+mkdir -p $SCDEP/src
+cd $SCDEP/src
+tar xf $pkgloc
+cd $pkgfull
+mkdir -p build
+cd build
 
 # build.
-mkdir -p $PKGNAME/build
-cd $PKGNAME/build
-cmake \
-    -DCMAKE_INSTALL_PREFIX=$SCROOT \
-    -DCMAKE_EXE_LINKER_FLAGS=-lgfortran \
-    -DENABLE_MATCH=OFF \
-    -DENABLE_PETSC=OFF \
-    -DENABLE_SLEPC=OFF \
-    .. > cmake.log 2>&1
-make -j $NP > make.log 2>&1
-make install > install.log 2>&1
+{ time cmake \
+  -DCMAKE_PREFIX_PATH=$SCDEP \
+  -DCMAKE_INSTALL_PREFIX=$SCDEP \
+  -DENABLE_NUMPY=ON \
+  -DENABLE_OS_SPECIFIC_INSTALL=OFF \
+  -DENABLE_MATCH=OFF \
+  -DENABLE_PETSC=OFF \
+  -DENABLE_SLEPC=OFF \
+  .. ; } > cmake.log 2>&1
+{ make -j $NP ; } > make.log 2>&1
+{ make install ; } > install.log 2>&1
 
-# vim: set ai et nu:
+# finalize.
+finalize $pkgname
+
+# vim: set et nobomb ff=unix fenc=utf8:

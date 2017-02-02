@@ -1,246 +1,175 @@
 # Copyright (C) 2011 Yung-Yu Chen <yyc@solvcon.net>.
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, write to the Free Software Foundation, Inc.,
-# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-export SCROOT?=$(shell cd ../opt; pwd)
-export SCBIN=$(SCROOT)/bin
-export SCLIB=$(SCROOT)/lib
-export SCINC=$(SCROOT)/include
-export SCETC=$(SCROOT)/etc
-export TMPDL=downloaded/
-export TMPBLD=build/
-#export NP?=$(`cat /proc/cpuinfo | grep processor | wc -l`)
-export NP?=1
+SHELL := /bin/bash
 
-.PHONY: default basictool basiclib pybin numlib pylib pytool \
-	scvars
 
-default: basictool basiclib pybin numlib pylib pytool mesher
+export SCGROUND=$(shell pwd)
+export SCDEP?=$(shell cd .. ; pwd)/build/dep
+export SCDL?=$(SCDEP)/downloaded
+ifeq ($(shell uname), Darwin)
+  export NP?=$(shell sysctl -n hw.ncpu)
+else ifeq ($(shell uname), Linux)
+  export NP?=$(shell cat /proc/cpuinfo | grep processor | wc -l)
+else
+  export NP?=1
+endif
 
-all: default vislib
 
-scvars: $(SCETC)/scvars.sh
+PYTHON=$(SCDEP)/bin/python
+PIP=$(SCDEP)/bin/pip
 
-$(SCETC)/scvars.sh:
-	mkdir -p $(TMPBLD) $(SCBIN) $(SCLIB) $(SCINC) $(SCETC)
-	./create-scvars.sh
 
-################################################################################
-# Start basictool.
-################################################################################
+.PHONY: default
+default: all
 
-basictool: $(SCETC)/scvars.sh \
-	$(SCETC)/cmake-2.8.5
 
-$(SCETC)/cmake-2.8.5:
-	./build-cmake.sh cmake-2.8.5
-	touch $(SCETC)/cmake-2.8.5
+TARGET_openssl := $(SCDEP)/lib/libssl.a
+TARGETS += $(TARGET_openssl)
 
-################################################################################
-# End basictool.
-################################################################################
+$(TARGET_openssl): build-openssl.sh
+	time ./$<
+	cp -f $(SCGROUND)/start $(SCDEP)/start
 
-################################################################################
-# Begin basiclib.
-################################################################################
+.PHONY: openssl
+openssl: $(TARGET_openssl)
 
-basiclib: $(SCETC)/scvars.sh \
-	$(SCETC)/blas $(SCETC)/lapack-3.3.1
 
-$(SCETC)/blas:
-	./build-blas.sh blas
-	touch $(SCETC)/blas
+TARGET_python := $(SCDEP)/bin/python3.6m
+TARGETS += $(TARGET_python)
 
-$(SCETC)/lapack-3.3.1: $(SCETC)/blas
-	./build-lapack.sh lapack-3.3.1
-	touch $(SCETC)/lapack-3.3.1
+$(TARGET_python): build-python.sh $(TARGET_openssl)
+	time ./$<
+	cp -f $(SCGROUND)/start $(SCDEP)/start
 
-$(SCETC)/atlas3.8.4:
-	./build-atlas.sh atlas3.8.4
-	touch $(SCETC)/atlas3.8.4
+.PHONY: python
+python: $(TARGET_python)
 
-################################################################################
-# End basiclib.
-################################################################################
 
-################################################################################
-# Begin pybin.
-################################################################################
+TARGET_atlas := $(SCDEP)/lib/libatlas.a
+TARGETS += $(TARGET_atlas)
 
-pybin: $(SCETC)/scvars.sh \
-	$(SCETC)/Python-2.7.2
+$(TARGET_atlas): build-atlas.sh
+	time ./$<
+	cp -f $(SCGROUND)/start $(SCDEP)/start
 
-$(SCETC)/Python-2.7.2:
-	./build-python.sh Python-2.7.2
-	touch $(SCETC)/Python-2.7.2
+.PHONY: atlas
+atlas: $(TARGET_atlas)
 
-################################################################################
-# End pybin.
-################################################################################
 
-################################################################################
-# Start pylib.
-################################################################################
+TARGET_numpy := $(SCDEP)/lib/python3.6/site-packages/numpy-1.12.0-py3.6.egg-info/PKG-INFO
+TARGETS += $(TARGET_numpy)
 
-pylib: $(SCETC)/scvars.sh \
-	$(SCETC)/numpy-1.6.1 $(SCETC)/distribute-0.6.24
+$(TARGET_numpy): build-numpy.sh $(TARGET_atlas)
+	time ./$<
+	cp -f $(SCGROUND)/start $(SCDEP)/start
 
-$(SCETC)/numpy-1.6.1:
-	cd $(TMPBLD) && tar xfz ../$(TMPDL)/numpy-1.6.1.tar.gz
-	cd $(TMPBLD)/numpy-1.6.1 && ../../generate-numpy.py
-	cd $(TMPBLD)/numpy-1.6.1 && \
-		$(SCBIN)/python2.7 setup.py install > install2.7.log 2>&1
-	touch $(SCETC)/numpy-1.6.1
+.PHONY: numpy
+numpy: $(TARGET_numpy)
 
-$(SCETC)/distribute-0.6.24:
-	cd $(TMPBLD) && tar xfz ../$(TMPDL)/distribute-0.6.24.tar.gz
-	cd $(TMPBLD)/distribute-0.6.24 && \
-		$(SCBIN)/python2.7 setup.py install > install2.7.log 2>&1
-	touch $(SCETC)/distribute-0.6.24
 
-################################################################################
-# End pylib.
-################################################################################
+TARGET_scotch := $(SCDEP)/lib/libscotch.a
+TARGETS += $(TARGET_scotch)
 
-################################################################################
-# Begin numlib.
-################################################################################
+$(TARGET_scotch): build-scotch.sh
+	time ./$<
+	cp -f $(SCGROUND)/start $(SCDEP)/start
 
-numlib: $(SCETC)/scvars.sh \
-	$(SCETC)/netcdf-4.1.2 scotch
+.PHONY: scotch
+scotch: $(TARGET_scotch)
 
-netcdf: $(SCETC)/scvars.sh $(SCETC)/netcdf-4.1.2
 
-$(SCETC)/netcdf-4.1.2:
-	./build-netcdf.sh netcdf-4.1.2
-	touch $(SCETC)/netcdf-4.1.2
+TARGET_hdf := $(SCDEP)/bin/h5ls
+TARGETS += $(TARGET_hdf)
 
-scotch: $(SCETC)/scvars.sh $(SCETC)/scotch_6.0.0
+$(TARGET_hdf): build-hdf.sh
+	time ./$<
+	cp -f $(SCGROUND)/start $(SCDEP)/start
 
-$(SCETC)/scotch_6.0.0:
-	./build-scotch.sh scotch_6.0.0
-	touch $(SCETC)/scotch_6.0.0
+.PHONY: hdf
+hdf: $(TARGET_hdf)
 
-################################################################################
-# End numlib.
-################################################################################
 
-################################################################################
-# Start pytool.
-################################################################################
+TARGET_netcdf := $(SCDEP)/bin/nc-config
+TARGETS += $(TARGET_netcdf)
 
-pytool: $(SCETC)/scvars.sh \
-	$(SCETC)/mercurial-2.0.2 $(SCETC)/scons-2.1.0 $(SCETC)/Cython-0.17.1 \
-	$(SCETC)/nose-1.0.0 $(SCETC)/epydoc-3.0.1 $(SCETC)/docutils-0.8.1 \
-	$(SCETC)/Jinja2-2.6 $(SCETC)/Pygments-1.4 $(SCETC)/Sphinx-1.1.2
+$(TARGET_netcdf): build-netcdf.sh $(TARGET_hdf)
+	time ./$<
+	cp -f $(SCGROUND)/start $(SCDEP)/start
 
-$(SCETC)/mercurial-2.0.2:
-	cd $(TMPBLD) && tar xfz ../$(TMPDL)/mercurial-2.0.2.tar.gz
-	cd $(TMPBLD)/mercurial-2.0.2 && \
-		$(SCBIN)/python2.7 setup.py install > install2.7.log 2>&1
-	touch $(SCETC)/mercurial-2.0.2
+.PHONY: netcdf
+netcdf: $(TARGET_netcdf)
 
-scons: $(SCETC)/scvars.sh $(SCETC)/scons-2.1.0
 
-$(SCETC)/scons-2.1.0:
-	cd $(TMPBLD) && tar xfz ../$(TMPDL)/scons-2.1.0.tar.gz
-	cd $(TMPBLD)/scons-2.1.0 && \
-		$(SCBIN)/python2.7 setup.py install > install2.7.log 2>&1
-	$(SCBIN)/python2.7 modify-pyshebang.py $(SCBIN)/scons*
-	touch $(SCETC)/scons-2.1.0
+TARGET_cmake := $(SCDEP)/bin/cmake
+TARGETS += $(TARGET_cmake)
 
-$(SCETC)/Cython-0.17.1:
-	cd $(TMPBLD) && tar xfz ../$(TMPDL)/Cython-0.17.1.tar.gz
-	cd $(TMPBLD)/Cython-0.17.1 && \
-		$(SCBIN)/python2.7 setup.py install > install2.7.log 2>&1
-	$(SCBIN)/python2.7 modify-pyshebang.py $(SCBIN)/scons*
-	touch $(SCETC)/Cython-0.17.1
+$(TARGET_cmake): build-cmake.sh
+	time ./$<
+	cp -f $(SCGROUND)/start $(SCDEP)/start
 
-$(SCETC)/nose-1.0.0:
-	cd $(TMPBLD) && tar xfz ../$(TMPDL)/nose-1.0.0.tar.gz
-	cd $(TMPBLD)/nose-1.0.0 && \
-		$(SCBIN)/python2.7 setup.py install > install2.7.log 2>&1
-	$(SCBIN)/python2.7 modify-pyshebang.py $(SCBIN)/nosetests*
-	touch $(SCETC)/nose-1.0.0
+.PHONY: cmake
+cmake: $(TARGET_cmake)
 
-$(SCETC)/epydoc-3.0.1:
-	cd $(TMPBLD) && tar xfz ../$(TMPDL)/epydoc-3.0.1.tar.gz
-	cd $(TMPBLD)/epydoc-3.0.1 && \
-		$(SCBIN)/python2.7 setup.py install > install2.7.log 2>&1
-	$(SCBIN)/python2.7 modify-pyshebang.py $(SCBIN)/epydoc*
-	touch $(SCETC)/epydoc-3.0.1
 
-$(SCETC)/docutils-0.8.1:
-	cd $(TMPBLD) && tar xfz ../$(TMPDL)/docutils-0.8.1.tar.gz
-	cd $(TMPBLD)/docutils-0.8.1 && \
-		$(SCBIN)/python2.7 setup.py install > install2.7.log 2>&1
-	touch $(SCETC)/docutils-0.8.1
+TARGET_gmp := $(SCDEP)/lib/libgmp.a
+TARGETS += $(TARGET_gmp)
 
-$(SCETC)/Jinja2-2.6: $(SCETC)/distribute-0.6.24
-	cd $(TMPBLD) && tar xfz ../$(TMPDL)/Jinja2-2.6.tar.gz
-	cd $(TMPBLD)/Jinja2-2.6 && \
-		$(SCBIN)/python2.7 setup.py install > install2.7.log 2>&1
-	touch $(SCETC)/Jinja2-2.6
+$(TARGET_gmp): build-gmp.sh
+	time ./$<
+	cp -f $(SCGROUND)/start $(SCDEP)/start
 
-$(SCETC)/Pygments-1.4:
-	cd $(TMPBLD) && tar xfz ../$(TMPDL)/Pygments-1.4.tar.gz
-	cd $(TMPBLD)/Pygments-1.4 && \
-		$(SCBIN)/python2.7 setup.py install > install2.7.log 2>&1
-	touch $(SCETC)/Pygments-1.4
+.PHONY: gmp
+gmp: $(TARGET_gmp)
 
-$(SCETC)/Sphinx-1.1.2: $(SCETC)/docutils-0.8.1 $(SCETC)/Jinja2-2.6 \
-		$(SCETC)/Pygments-1.4
-	cd $(TMPBLD) && tar xfz ../$(TMPDL)/Sphinx-1.1.2.tar.gz
-	cd $(TMPBLD)/Sphinx-1.1.2 && \
-		$(SCBIN)/python2.7 setup.py install > install2.7.log 2>&1
-	touch $(SCETC)/Sphinx-1.1.2
 
-################################################################################
-# End pytool.
-################################################################################
+TARGET_gmsh := $(SCDEP)/bin/gmsh
+TARGETS += $(TARGET_gmsh)
 
-################################################################################
-# Start mesher.
-################################################################################
+$(TARGET_gmsh): build-gmsh.sh $(TARGET_cmake} $(TARGET_gmp) $(TARGET_numpy)
+	time ./$<
+	cp -f $(SCGROUND)/start $(SCDEP)/start
 
-mesher: $(SCETC)/scvars.sh \
-	$(SCETC)/gmsh-2.7.0-source
+.PHONY: gmsh
+gmsh: $(TARGET_gmsh)
 
-gmsh: $(SCETC)/scvars.sh $(SCETC)/gmsh-2.7.0-source
 
-$(SCETC)/gmsh-2.7.0-source:
-	./build-gmsh.sh gmsh-2.7.0-source
-	touch $(SCETC)/gmsh-2.7.0-source
+TARGET_graphviz := $(SCDEP)/bin/dot
+TARGETS += $(TARGET_graphviz)
 
-################################################################################
-# End mesher.
-################################################################################
+$(TARGET_graphviz): build-graphviz.sh
+	time ./$<
+	cp -f $(SCGROUND)/start $(SCDEP)/start
 
-################################################################################
-# Start vislib.
-################################################################################
+.PHONY: graphviz
+graphviz: $(TARGET_graphviz)
 
-vislib: $(SCETC)/scvars.sh \
-	$(SCETC)/vtk-5.6.1
 
-$(SCETC)/vtk-5.6.1:
-	./build-vtk.sh vtk-5.6.1 vtkdata-5.6.1
-	touch $(SCETC)/vtk-5.6.1
+TARGET_vtk := $(SCDEP)/bin/vtkpython
+TARGETS += $(TARGET_vtk)
 
-################################################################################
-# End vislib.
-################################################################################
+$(TARGET_vtk): build-vtk.sh $(TARGET_cmake)
+	time ./$<
+	cp -f $(SCGROUND)/start $(SCDEP)/start
 
-# vim: set ai noet nu:
+.PHONY: vtk
+vtk: $(TARGET_vtk)
+
+
+.PHONY: pytools
+pytools: python
+	$(PIP) install -U \
+		nose six paramiko boto cython \
+		ipython jupyter pythreejs \
+		sphinx sphinxcontrib-issuetracker \
+		https://github.com/pybind/pybind11/archive/master.zip
+	cp -f $(SCGROUND)/start $(SCDEP)/start
+
+
+.PHONY: all
+all: $(TARGETS)
+
+
+.PHONY: extra
+extra: pytools
+
+# vim: set noet nobomb ff=unix fenc=utf8:

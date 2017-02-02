@@ -9,12 +9,12 @@
 source $(dirname "${BASH_SOURCE[0]}")/scbuildtools.sh
 
 # download netcdf.
-pkgname=netcdf
-pkgver=4.4.1.1
+pkgname=hdf5
+pkgver=1.8.18
 pkgfull=$pkgname-$pkgver
-pkgloc=$SCDL/$pkgfull.tar.xz
-pkgurl=ftp://ftp.unidata.ucar.edu/pub/$pkgname/$pkgfull.tar.gz
-download $pkgloc $pkgurl 503a2d6b6035d116ed53b1d80c811bda
+pkgloc=$SCDL/$pkgfull.tar.bz2
+pkgurl=https://support.hdfgroup.org/ftp/HDF5/current18/src/$pkgfull.tar.bz2
+download $pkgloc $pkgurl 29117bf488887f89888f9304c8ebea0b
 
 # unpack.
 mkdir -p $SCDEP/src
@@ -23,16 +23,10 @@ tar xf $pkgloc
 cd $pkgfull
 
 # build.
-# --with-hdf5 doesn't work:
-# http://www.unidata.ucar.edu/support/help/MailArchives/netcdf/msg10457.html
-{ time LDFLAGS=-L$SCDEP/lib CPPFLAGS=-I$SCDEP/include ./configure \
+{ time ./configure \
   --prefix=$SCDEP \
-  --enable-netcdf4 \
-  --disable-fortran \
-  --disable-dap \
-  --enable-shared \
+  --enable-cxx \
 ; } > configure.log 2>&1
-#  --with-hdf5=$SCDEP \
 { time make -j $NP ; } > make.log 2>&1
 { time make install ; } > install.log 2>&1
 

@@ -3,18 +3,18 @@
 # Copyright (C) 2011 Yung-Yu Chen <yyc@solvcon.net>.
 #
 # Consume external variables:
-# - SCDEP: installation destination
 # - SCDL: downloaded source package file
+# - SCDEP: installation destination
 # - NP: number of processors for compilation
 source $(dirname "${BASH_SOURCE[0]}")/scbuildtools.sh
 
-# download netcdf.
-pkgname=netcdf
-pkgver=4.4.1.1
+# download openssl.
+pkgname=openssl
+pkgver=1.1.0d
 pkgfull=$pkgname-$pkgver
-pkgloc=$SCDL/$pkgfull.tar.xz
-pkgurl=ftp://ftp.unidata.ucar.edu/pub/$pkgname/$pkgfull.tar.gz
-download $pkgloc $pkgurl 503a2d6b6035d116ed53b1d80c811bda
+pkgloc=$SCDL/$pkgfull.tar.gz
+pkgurl=https://www.openssl.org/source/$pkgfull.tar.gz
+download $pkgloc $pkgurl 711ce3cd5f53a99c0e12a7d5804f0f63
 
 # unpack.
 mkdir -p $SCDEP/src
@@ -23,16 +23,11 @@ tar xf $pkgloc
 cd $pkgfull
 
 # build.
-# --with-hdf5 doesn't work:
-# http://www.unidata.ucar.edu/support/help/MailArchives/netcdf/msg10457.html
-{ time LDFLAGS=-L$SCDEP/lib CPPFLAGS=-I$SCDEP/include ./configure \
+{ time ./Configure \
   --prefix=$SCDEP \
-  --enable-netcdf4 \
-  --disable-fortran \
-  --disable-dap \
-  --enable-shared \
+  darwin64-x86_64-cc \
+  -shared \
 ; } > configure.log 2>&1
-#  --with-hdf5=$SCDEP \
 { time make -j $NP ; } > make.log 2>&1
 { time make install ; } > install.log 2>&1
 

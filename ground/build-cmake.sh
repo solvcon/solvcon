@@ -1,37 +1,36 @@
-#!/bin/sh
+#!/bin/bash
 #
 # Copyright (C) 2011 Yung-Yu Chen <yyc@solvcon.net>.
 #
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, write to the Free Software Foundation, Inc.,
-# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+# Consume external variables:
+# - SCDEP: installation destination
+# - SCDL: downloaded source package file
+# - NP: number of processors for compilation
+source $(dirname "${BASH_SOURCE[0]}")/scbuildtools.sh
 
-PKGNAME=$1
-if [ -z "$PKGNAME" ]
-  then
-    echo "PKGNAME (parameter 1) not set"
-    exit
-fi
+# download cmake.
+pkgname=cmake
+pkgverprefix=3.7
+pkgver=$pkgverprefix.2
+pkgfull=$pkgname-$pkgver
+pkgloc=$SCDL/$pkgfull.tar.xz
+pkgurl=https://cmake.org/files/v$pkgverprefix/$pkgfull.tar.gz
+download $pkgloc $pkgurl 82b143ebbf4514d7e05876bed7a6b1f5
 
 # unpack.
-mkdir -p $TMPBLD
-cd $TMPBLD
-tar xfz ../$TMPDL/$PKGNAME.tar.gz
+mkdir -p $SCDEP/src
+cd $SCDEP/src
+tar xf $pkgloc
+cd $pkgfull
 
 # build.
-cd $PKGNAME
-./configure --prefix=$SCROOT > configure.log 2>&1
-make -j $NP > make.log 2>&1
-make install > install.log 2>&1
+{ time ./configure \
+  --prefix=$SCDEP \
+; } > configure.log 2>&1
+{ time make -j $NP ; } > make.log 2>&1
+{ time make install ; } > install.log 2>&1
 
-# vim: set ai et nu:
+# finalize.
+finalize $pkgname
+
+# vim: set et nobomb ff=unix fenc=utf8:
