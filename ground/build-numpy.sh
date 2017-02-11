@@ -26,11 +26,16 @@ cd $pkgfull
 rm -f site.cfg
 cat > site.cfg << EOF
 [DEFAULT]
-library_dirs = /usr/local/lib:$SCDEP/lib
-include_dirs = /usr/local/include:$SCDEP/include:$SCDEP/include/atlas
+library_dirs = /usr/lib:/usr/local/lib:$SCDEP/lib
+include_dirs = /usr/lib:/usr/local/include:$SCDEP/include:$SCDEP/include/atlas
+EOF
+
+if [ $(uname) == Linux ] ; then
+cat >> site.cfg << EOF
 [atlas]
 atlas_libs = lapack, f77blas, cblas, atlas
 EOF
+fi
 
 rm -f setup.cfg
 cat > setup.cfg << EOF

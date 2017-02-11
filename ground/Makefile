@@ -23,7 +23,7 @@ PIP=$(SCDEP)/bin/pip
 default: all
 
 
-TARGET_openssl := $(SCDEP)/lib/libssl.a
+TARGET_openssl := $(SCDEP)/bin/openssl
 TARGETS += $(TARGET_openssl)
 
 $(TARGET_openssl): build-openssl.sh
