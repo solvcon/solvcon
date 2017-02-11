@@ -23,11 +23,12 @@ PIP=$(SCDEP)/bin/pip
 default: all
 
 
-TARGET_openssl := $(SCDEP)/lib/libssl.a
+TARGET_openssl := $(SCDEP)/bin/openssl
 TARGETS += $(TARGET_openssl)
 
 $(TARGET_openssl): build-openssl.sh
 	time ./$<
+	ls -al $@
 	cp -f $(SCGROUND)/start $(SCDEP)/start
 
 .PHONY: openssl
@@ -39,6 +40,7 @@ TARGETS += $(TARGET_python)
 
 $(TARGET_python): build-python.sh $(TARGET_openssl)
 	time ./$<
+	ls -al $@
 	cp -f $(SCGROUND)/start $(SCDEP)/start
 
 .PHONY: python
@@ -50,6 +52,7 @@ TARGETS += $(TARGET_atlas)
 
 $(TARGET_atlas): build-atlas.sh
 	time ./$<
+	ls -al $@
 	cp -f $(SCGROUND)/start $(SCDEP)/start
 
 .PHONY: atlas
@@ -61,6 +64,7 @@ TARGETS += $(TARGET_numpy)
 
 $(TARGET_numpy): build-numpy.sh $(TARGET_atlas)
 	time ./$<
+	ls -al $@
 	cp -f $(SCGROUND)/start $(SCDEP)/start
 
 .PHONY: numpy
@@ -72,6 +76,7 @@ TARGETS += $(TARGET_scotch)
 
 $(TARGET_scotch): build-scotch.sh
 	time ./$<
+	ls -al $@
 	cp -f $(SCGROUND)/start $(SCDEP)/start
 
 .PHONY: scotch
@@ -83,6 +88,7 @@ TARGETS += $(TARGET_hdf)
 
 $(TARGET_hdf): build-hdf.sh
 	time ./$<
+	ls -al $@
 	cp -f $(SCGROUND)/start $(SCDEP)/start
 
 .PHONY: hdf
@@ -94,6 +100,7 @@ TARGETS += $(TARGET_netcdf)
 
 $(TARGET_netcdf): build-netcdf.sh $(TARGET_hdf)
 	time ./$<
+	ls -al $@
 	cp -f $(SCGROUND)/start $(SCDEP)/start
 
 .PHONY: netcdf
@@ -105,6 +112,7 @@ TARGETS += $(TARGET_cmake)
 
 $(TARGET_cmake): build-cmake.sh
 	time ./$<
+	ls -al $@
 	cp -f $(SCGROUND)/start $(SCDEP)/start
 
 .PHONY: cmake
@@ -116,6 +124,7 @@ TARGETS += $(TARGET_gmp)
 
 $(TARGET_gmp): build-gmp.sh
 	time ./$<
+	ls -al $@
 	cp -f $(SCGROUND)/start $(SCDEP)/start
 
 .PHONY: gmp
@@ -127,6 +136,7 @@ TARGETS += $(TARGET_gmsh)
 
 $(TARGET_gmsh): build-gmsh.sh $(TARGET_cmake} $(TARGET_gmp) $(TARGET_numpy)
 	time ./$<
+	ls -al $@
 	cp -f $(SCGROUND)/start $(SCDEP)/start
 
 .PHONY: gmsh
@@ -138,6 +148,7 @@ TARGETS += $(TARGET_graphviz)
 
 $(TARGET_graphviz): build-graphviz.sh
 	time ./$<
+	ls -al $@
 	cp -f $(SCGROUND)/start $(SCDEP)/start
 
 .PHONY: graphviz
@@ -149,6 +160,7 @@ TARGETS += $(TARGET_vtk)
 
 $(TARGET_vtk): build-vtk.sh $(TARGET_cmake)
 	time ./$<
+	ls -al $@
 	cp -f $(SCGROUND)/start $(SCDEP)/start
 
 .PHONY: vtk

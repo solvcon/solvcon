@@ -38,6 +38,7 @@ fi
 . ~/.git-completion.bash
 . ~/.git-prompt.bash
 
+# path munge.
 namemunge () {
   if ! echo ${!1} | egrep -q "(^|:)$2($|:)" ; then
     if [ -z "${!1}" ] ; then
@@ -53,6 +54,10 @@ namemunge () {
   eval "export $1"
 }
 
+#if [ -d "${HOME}/opt/conda3/bin" ]; then
+#  namemunge PATH ${HOME}/opt/conda3/bin
+#fi
+
 alias j=jobs
 alias h=history
 
@@ -65,9 +70,4 @@ alias s='screen -r'
 alias sc=screen
 alias vi=vim
 
-alias use.conda2="namemunge PATH ${HOME}/opt/miniconda2/bin"
-alias use.conda3="namemunge PATH ${HOME}/opt/miniconda3/bin"
-
-if [ -d "${HOME}/opt/miniconda3/bin" ]; then use.conda3; fi
-
-# vim: sw=2 ts=2 tw=76 et nu ft=sh:
+# vim: set et nobomb fenc=utf8 ft=sh ff=unix sw=2 ts=2:

@@ -1,8 +1,12 @@
 # Copyright (C) 2017 Yung-Yu Chen <yyc@solvcon.net>.
 
 SCGROUND="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCDEP="$(cd "${SCDEP:=$HOME/tmp/scdep}" && pwd)"
-SCDL="$(cd "${SCDL:=$SCDEP/downloaded}" && pwd)"
+SCDEP=${SCDEP:=$HOME/tmp/scdep}
+mkdir -p $SCDEP
+SCDEP="$(cd $SCDEP && pwd)"
+SCDL="${SCDL:=$SCDEP/downloaded}"
+mkdir -p $SCDL
+SCDL="$(cd $SCDL && pwd)"
 if [ $(uname) == Darwin ] ; then
   SCDLLEXT=dylib
   NP=${NP:=$(sysctl -n hw.ncpu)}
@@ -22,13 +26,13 @@ download () {
   elif [ $(uname) == Linux ] ; then
     md5=md5sum
   fi
-  if [ ! -e $loc ] || [ $md5hash != `$md5 $loc` ] ; then
+  if [ ! -e $loc ] || [ $md5hash != `$md5 $loc | cut -d ' ' -f 1` ] ; then
     mkdir -p $(dirname $loc)
     rm -f $loc
     echo "Download from $url"
     curl -sSL -o $loc $url
   fi
-  if [ $md5hash != `$md5 $loc` ] ; then
+  if [ $md5hash != `$md5 $loc | cut -d ' ' -f 1` ] ; then
     echo "$(basename $loc) md5 hash $md5hash but got `$md5 $loc`"
   else
     echo "$(basename $loc) md5 hash $md5hash confirmed"

@@ -6,7 +6,6 @@
 # - SCDL: downloaded source package file
 # - SCDEP: installation destination
 # - NP: number of processors for compilation
-
 source $(dirname "${BASH_SOURCE[0]}")/scbuildtools.sh
 
 # download lapack.
@@ -39,7 +38,7 @@ mkdir -p build
 cd build
 { time ../configure \
   --prefix=$SCDEP \
-  --cflags='-fPIC' \
+  -Fa alg -fPIC \
   --with-netlib-lapack-tarfile=$lapackloc \
 ; } > configure.log 2>&1
 { time make ; } > make.log 2>&1

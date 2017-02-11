@@ -23,9 +23,14 @@ tar xf $pkgloc
 cd $pkgfull
 
 # build.
+if [ $(uname) == Darwin ] ; then
+  buildtype=darwin64-x86_64-cc
+elif [ $(uname) == Linux ] ; then
+  buildtype=linux-x86_64
+fi
 { time ./Configure \
   --prefix=$SCDEP \
-  darwin64-x86_64-cc \
+  $buildtype \
   -shared \
 ; } > configure.log 2>&1
 { time make -j $NP ; } > make.log 2>&1
