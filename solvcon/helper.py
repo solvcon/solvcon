@@ -280,7 +280,7 @@ class Gmsh(object):
         Launch Gmsh for generating mesh and then load the generated file.
         """
         from tempfile import mkdtemp
-        import os, shutil
+        import os, shutil, shlex
         from subprocess import Popen, PIPE, STDOUT
         from .io.gmsh import Gmsh
         # prepare working directory.
@@ -297,9 +297,10 @@ class Gmsh(object):
         cli = 'gmsh %s -3 -o %s' % (cmdp, mshp)
         if None is not options:
             cli += ' %s' % options
-        pobj = Popen(cli, shell=True, stdout=PIPE, stderr=STDOUT)
+        pobj = Popen(shlex.split(cli), stdout=PIPE, stderr=STDOUT)
         self.stdout = pobj.stdout.read()
         pobj.stdout.close()
+        pobj.wait()
         if not os.path.exists(mshp):
             raise OSError(
                 '%s not produced by gmsh command line, stdout:\n%s' % (mshp,
