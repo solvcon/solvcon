@@ -20,7 +20,7 @@ PIP=$(SCDEP)/bin/pip
 
 
 .PHONY: default
-default: all
+default: prerequisite_dev
 
 
 TARGET_openssl := $(SCDEP)/bin/openssl
@@ -37,6 +37,7 @@ openssl: $(TARGET_openssl)
 
 TARGET_python := $(SCDEP)/bin/python3.6m
 TARGETS += $(TARGET_python)
+PREREQUISITE_DEV += $(TARGET_python)
 
 $(TARGET_python): build-python.sh $(TARGET_openssl)
 	time ./$<
@@ -61,8 +62,14 @@ atlas: $(TARGET_atlas)
 
 TARGET_numpy := $(SCDEP)/lib/python3.6/site-packages/numpy-1.12.0-py3.6.egg-info/PKG-INFO
 TARGETS += $(TARGET_numpy)
+PREREQUISITE_DEV += $(TARGET_numpy)
 
-$(TARGET_numpy): build-numpy.sh $(TARGET_atlas)
+PROVIDE_numpy := build-numpy.sh $(TARGET_python)
+ifeq ($(shell uname), Linux)
+PROVIDE_numpy += $(TARGET_atlas)
+endif
+
+$(TARGET_numpy): $(PROVIDE_numpy)
 	time ./$<
 	ls -al $@
 	cp -f $(SCGROUND)/start $(SCDEP)/start
@@ -73,6 +80,7 @@ numpy: $(TARGET_numpy)
 
 TARGET_scotch := $(SCDEP)/lib/libscotch.a
 TARGETS += $(TARGET_scotch)
+PREREQUISITE_DEV += $(TARGET_scotch)
 
 $(TARGET_scotch): build-scotch.sh
 	time ./$<
@@ -97,6 +105,7 @@ hdf: $(TARGET_hdf)
 
 TARGET_netcdf := $(SCDEP)/bin/nc-config
 TARGETS += $(TARGET_netcdf)
+PREREQUISITE_DEV += $(TARGET_netcdf)
 
 $(TARGET_netcdf): build-netcdf.sh $(TARGET_hdf)
 	time ./$<
@@ -109,6 +118,7 @@ netcdf: $(TARGET_netcdf)
 
 TARGET_cmake := $(SCDEP)/bin/cmake
 TARGETS += $(TARGET_cmake)
+PREREQUISITE_DEV += $(TARGET_cmake)
 
 $(TARGET_cmake): build-cmake.sh
 	time ./$<
@@ -133,6 +143,7 @@ gmp: $(TARGET_gmp)
 
 TARGET_gmsh := $(SCDEP)/bin/gmsh
 TARGETS += $(TARGET_gmsh)
+PREREQUISITE_DEV += $(TARGET_gmsh)
 
 $(TARGET_gmsh): build-gmsh.sh $(TARGET_cmake} $(TARGET_gmp) $(TARGET_numpy)
 	time ./$<
@@ -145,6 +156,7 @@ gmsh: $(TARGET_gmsh)
 
 TARGET_graphviz := $(SCDEP)/bin/dot
 TARGETS += $(TARGET_graphviz)
+PREREQUISITE_DEV += $(TARGET_graphviz)
 
 $(TARGET_graphviz): build-graphviz.sh
 	time ./$<
@@ -157,6 +169,7 @@ graphviz: $(TARGET_graphviz)
 
 TARGET_vtk := $(SCDEP)/bin/vtkpython
 TARGETS += $(TARGET_vtk)
+PREREQUISITE_DEV += $(TARGET_vtk)
 
 $(TARGET_vtk): build-vtk.sh $(TARGET_cmake)
 	time ./$<
@@ -168,7 +181,7 @@ vtk: $(TARGET_vtk)
 
 
 .PHONY: pytools
-pytools: python
+pytools: $(TARGET_python)
 	$(PIP) install -U \
 		nose six paramiko boto cython \
 		ipython jupyter pythreejs \
@@ -180,6 +193,12 @@ pytools: python
 .PHONY: all
 all: $(TARGETS)
 
+.PHONY: prerequisite_dev
+prerequisite_dev: $(PREREQUISITE_DEV)
+
+.PHONY: touchall
+touchall:
+	touch $(TARGETS)
 
 .PHONY: extra
 extra: pytools

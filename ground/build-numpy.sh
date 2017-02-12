@@ -24,15 +24,17 @@ cd $pkgfull
 
 # build.
 rm -f site.cfg
+if [ $(uname) == Darwin ] ; then
 cat > site.cfg << EOF
-[DEFAULT]
+[atlas]
+library_dirs = /usr/lib:/usr/local/lib
+include_dirs = /usr/lib:/usr/local/include
+EOF
+elif [ $(uname) == Linux ] ; then
+cat > site.cfg << EOF
+[atlas]
 library_dirs = /usr/lib:/usr/local/lib:$SCDEP/lib
 include_dirs = /usr/lib:/usr/local/include:$SCDEP/include:$SCDEP/include/atlas
-EOF
-
-if [ $(uname) == Linux ] ; then
-cat >> site.cfg << EOF
-[atlas]
 atlas_libs = lapack, f77blas, cblas, atlas
 EOF
 fi
