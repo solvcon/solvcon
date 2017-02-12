@@ -183,7 +183,7 @@ vtk: $(TARGET_vtk)
 .PHONY: pytools
 pytools: $(TARGET_python)
 	$(PIP) install -U \
-		nose six paramiko boto cython \
+		nose six paramiko boto cython netcdf4 \
 		ipython jupyter pythreejs \
 		sphinx sphinxcontrib-issuetracker \
 		https://github.com/pybind/pybind11/archive/master.zip
