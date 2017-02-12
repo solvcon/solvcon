@@ -65,15 +65,19 @@ class DiaphragmIAnchor(sc.MeshAnchor):
         svr.soln[:,2].fill(0.0)
         if svr.ndim == 3:
             svr.soln[:,3].fill(0.0)
-        # pressure
-        svr.soln[:,svr.ndim+1].fill(self.p1)
-        # set.
+        # total energy of perfect gas without kinetic energy
+        svr.soln[:,svr.ndim+1].fill(self.p1/(gamma-1))
+        # the diaphragm localtion along the tube
         tube_middle = self.tube_height / 2
+        # get coordination of cells in one side of the tube
         slct_int = svr.blk.clcnd[:,2] > tube_middle
+        # get coordination of cells in one side of the tube
         slct_gst = svr.blk.gstclcnd[:,2] > tube_middle
         slct = np.concatenate((slct_gst, slct_int))
+        # initialize the data in one side of the tube
         svr.soln[slct,0] = self.rho2
-        svr.soln[slct,svr.ndim+1] = self.p2
+        # total energy of pergect gas without kinetic energy
+        svr.soln[slct,svr.ndim+1] = self.p2/(gamma-1)
         # update.
         svr.sol[:] = svr.soln[:]
 
