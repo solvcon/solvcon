@@ -35,7 +35,11 @@ $(TARGET_openssl): build-openssl.sh
 openssl: $(TARGET_openssl)
 
 
+ifeq ($(SCDEBUG), 1)
+TARGET_python := $(SCDEP)/bin/python3.6dm
+else
 TARGET_python := $(SCDEP)/bin/python3.6m
+endif
 TARGETS += $(TARGET_python)
 PREREQUISITE_DEV += $(TARGET_python)
 
