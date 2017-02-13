@@ -25,8 +25,15 @@ mkdir -p $pkgfull-build
 cd $pkgfull-build
 
 # build.
+if [ -n "$SCDEBUG" ] ; then
+  pybin=python3.6dm
+  buildtype=Debug
+else
+  pybin=python3.6m
+  buildtype=Release
+fi
 { time cmake \
-  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_BUILD_TYPE=$buildtype \
   -DCMAKE_PREFIX_PATH=$SCDEP \
   -DCMAKE_CXX_FLAGS="-O3 -DNDEBUG -fPIC" \
   -DCMAKE_C_FLAGS="-O3 -DNDEBUG -fPIC" \
@@ -36,8 +43,8 @@ cd $pkgfull-build
   -DVTK_WRAP_PYTHON=ON \
   -DVTK_USE_TK=OFF \
   -DPYTHON_EXECUTABLE=$SCDEP/bin/python3.6 \
-  -DPYTHON_INCLUDE_DIR=$SCDEP/include/python3.6m \
-  -DPYTHON_LIBRARY=$SCDEP/lib/libpython3.6m.$SCDLLEXT \
+  -DPYTHON_INCLUDE_DIR=$SCDEP/include/$pybin \
+  -DPYTHON_LIBRARY=$SCDEP/lib/lib$pybin.$SCDLLEXT \
   ../$pkgfull \
 ; } > cmake.log 2>&1
 { time make -j $NP ; } > make.log 2>&1

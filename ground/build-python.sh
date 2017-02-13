@@ -42,15 +42,20 @@ elif [ $(uname) == Linux ]; then
   export LDFLAGS="-L$PREFIX/lib -Wl,-rpath=$PREFIX/lib,--no-as-needed"
 fi
 
-{ time ./configure \
-  --prefix=$PREFIX \
-	--enable-shared \
-	--enable-ipv6 \
-  --with-ensurepip=no \
-  --with-tcltk-includes="-I$PREFIX/include" \
-  --with-tcltk-libs="-L$PREFIX/lib -ltcl8.5 -ltk8.5" \
-  --enable-loadable-sqlite-extensions \
-; } > configure.log 2>&1
+cfgcmd=("./configure")
+cfgcmd+=("--prefix=$PREFIX")
+cfgcmd+=("--enable-shared")
+cfgcmd+=("--enable-ipv6")
+cfgcmd+=("--with-ensurepip=no")
+cfgcmd+=("--with-tcltk-includes=-I$PREFIX/include")
+cfgcmd+=("--with-tcltk-libs=\"-L$PREFIX/lib -ltcl8.5 -ltk8.5\"")
+cfgcmd+=("--enable-loadable-sqlite-extensions")
+if [ -n "$SCDEBUG" ] ; then
+  cfgcmd+=("--with-pydebug")
+fi
+
+echo "${cfgcmd[@]}"
+{ time "${cfgcmd[@]}" ; } > configure.log 2>&1
 { time make -j $NP ; } > make.log 2>&1
 { time make install ; } > install.log 2>&1
 
