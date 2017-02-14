@@ -1,5 +1,10 @@
 export SCDEP="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export SCSRC="$(cd ${SCDEP}/../.. && pwd)"
+
+nameremove () {
+  eval "export $1=$(echo -n ${!1} | awk -v RS=: -v ORS=: -v var="$2" '$0 != var' | sed 's/:$//')"
+}
+
 namemunge () {
   if ! echo ${!1} | egrep -q "(^|:)$2($|:)" ; then
     if [ -z "${!1}" ] ; then
@@ -14,11 +19,50 @@ namemunge () {
   fi
   eval "export $1"
 }
-if [ $(uname) == Darwin ]; then
-  namemunge DYLD_LIBRARY_PATH $SCSRC:$SCDEP/lib
-elif [ $(uname) == Linux ]; then
-  namemunge LD_LIBRARY_PATH $SCSRC:$SCDEP/lib
-fi
-namemunge PATH $SCSRC:$SCDEP/bin
-namemunge PYTHONPATH $SCSRC
+
+activate () {
+  if [ -n "$SC_PS1_BACKUP" ] ; then
+    echo "already in activated environment"
+    return 0
+  fi
+
+  if [ $(uname) == Darwin ] ; then
+    namemunge DYLD_LIBRARY_PATH $SCSRC:$SCDEP/lib
+  elif [ $(uname) == Linux ] ; then
+    namemunge LD_LIBRARY_PATH $SCSRC:$SCDEP/lib
+  fi
+  namemunge PATH $SCSRC:$SCDEP/bin
+  namemunge PYTHONPATH $SCSRC
+
+  export SC_PS1_BACKUP="$PS1"
+  PS1="($SCDEP) $PS1"
+}
+
+deactivate () {
+  if [ -z "$SC_PS1_BACKUP" ] ; then
+    echo "no activated environment"
+    return 0
+  fi
+
+  if [ $(uname) == Darwin ] ; then
+    nameremove DYLD_LIBRARY_PATH $SCSRC
+    nameremove DYLD_LIBRARY_PATH $SCDEP/lib
+  elif [ $(uname) == Linux ] ; then
+    nameremove LD_LIBRARY_PATH $SCSRC
+    nameremove LD_LIBRARY_PATH $SCDEP/lib
+  fi
+  nameremove PATH $SCSRC
+  nameremove PATH $SCDEP/bin
+  nameremove PYTHONPATH $SCSRC
+
+  PS1=$SC_PS1_BACKUP
+  unset SC_PS1_BACKUP
+  unset SCDEP
+  unset SCSRC
+  unset activate
+  unset deactivate
+}
+
+activate
+
 # vim: set et nobomb ff=unix fenc=utf8 ft=sh:
