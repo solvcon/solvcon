@@ -142,10 +142,6 @@ protected:
         : m_cls(py::class_< wrapped_type, holder_type >(mod, pyname, clsdoc))
     {}
 
-    WrapBase(py::module & mod, const char * pyname, const py::metaclass & mtcls, const char * clsdoc)
-        : m_cls(py::class_< wrapped_type, holder_type >(mod, pyname, mtcls, clsdoc))
-    {}
-
     py::class_< wrapped_type, holder_type > m_cls;
 
 }; /* end class WrapBase */
@@ -287,7 +283,7 @@ class WrapBoundaryData : public WrapBase< WrapBoundaryData, BoundaryData > {
     friend base_type;
 
     WrapBoundaryData(py::module & mod, const char * pyname, const char * clsdoc)
-        : base_type(mod, pyname, py::metaclass(), clsdoc)
+        : base_type(mod, pyname, clsdoc)
     {
         (*this)
             .def(py::init<index_type>())
@@ -427,7 +423,7 @@ class WrapUnstructuredBlock
     friend base_type;
 
     WrapUnstructuredBlock(py::module & mod, const char * pyname, const char * clsdoc)
-        : base_type(mod, pyname, py::metaclass(), clsdoc)
+        : base_type(mod, pyname, clsdoc)
     {
         (*this)
             .def("__init__", [](wrapped_type & self) {
