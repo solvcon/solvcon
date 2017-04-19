@@ -11,7 +11,7 @@
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License along
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
@@ -129,15 +129,21 @@ class TestRemoteParallel(TestBlockCaseRun):
         from nose.plugins.skip import SkipTest
         if sys.platform.startswith('win'): raise SkipTest
         from numpy import zeros
-        from solvcon.batch import Localhost
         from solvcon.domain import Distributed
+        if "SOLVCON_NODELIST" in os.environ:
+            node_list = os.environ["SOLVCON_NODELIST"]
+            from solvcon.batch import Generic
+            batch_class = Generic
+        else:
+            from solvcon.batch import Localhost
+            batch_class = Localhost
         localpath = os.path.abspath(os.path.dirname(__file__))
         if 'PYTHONPATH' in os.environ:
             os.environ['PYTHONPATH'] += ':%s' % localpath
         else:
             os.environ['PYTHONPATH'] = localpath
         case = self._get_case(npart=self.npart, domaintype=Distributed,
-            batch=Localhost, rkillfn='')
+            batch=batch_class, rkillfn='')
         case.run()
         # get result.
         dsoln = case.execution.var['dsoln'][:,0,:]
