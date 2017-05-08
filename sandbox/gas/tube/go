@@ -92,10 +92,13 @@ class TubeProbe(gas.ProbeHook):
         Provide basic information to the probe hook.
         """
         # define where to probe
-        poi = ('poi', 0.0, 0.0, 0.0)
+        pois = []
+        for z_axis in range(99):
+            poi = (str(z_axis), 0.0, 0.0, z_axis/100.0)
+            pois.append(poi)
         # provide coordination and spec list information to the probe hook.
-        kw['coords'] = (poi,)
-        kw['speclst'] = ['rho', 'p']
+        kw['coords'] = pois
+        kw['speclst'] = ['rho', 'v', 'p']
         super(TubeProbe, self).__init__(cse, **kw)
 
     def postloop(self):
@@ -103,9 +106,10 @@ class TubeProbe(gas.ProbeHook):
         Dump the probe data in the end.
         """
         super(TubeProbe, self).postloop()
-        rho, p = self.points[0].vals[-1][1:]
+        rho, v, p = self.points[0].vals[-1][1:]
         self.info('Probe result at %s:\n' % self.points[0])
         self.info('- rho = %.3f \n' % rho)
+        self.info('- v = %.3f \n' % v)
         self.info('- p = %.3f \n' % p)
 
 
@@ -262,7 +266,7 @@ def tube(casename, **kw):
         casename,
         # Arguments to the base configuration.
         gamma=1.4,
-        ssteps=200, psteps=4, edgelength=0.02,
+        ssteps=8, psteps=4, edgelength=0.02,
         rho1=1.0, p1=1.0,
         rho2=0.125, p2=0.1,
         # Arguments to GasCase.
