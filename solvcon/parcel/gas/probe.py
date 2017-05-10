@@ -74,7 +74,10 @@ class Probe(object):
                     arr = svr.sol[:,spec]
             if arr is None:
                 raise IndexError('spec %s incorrect'%str(spec))
-            vlist.append(arr[ngstcell+self.pcl])
+            target_data = arr[ngstcell + self.pcl]
+            if isinstance(target_data, np.ndarray):
+                target_data = np.linalg.norm(target_data, ord=2)
+            vlist.append(target_data)
         self.vals.append(vlist)
 
 
