@@ -636,8 +636,8 @@ class WrapUnstructuredBlock
 
 }; /* end class WrapUnstructuredBlock */
 
-PYBIND11_PLUGIN(march) {
-    py::module mod("march", "libmarch wrapper");
+static PyObject *march_init(py::module & mod) {
+    mod.doc() = "libmarch wrapper";
 
     import_array1(nullptr); // or numpy c api segfault.
 
@@ -648,6 +648,10 @@ PYBIND11_PLUGIN(march) {
     WrapUnstructuredBlock<3>::commit(mod, "UnstructuredBlock3D", "Three-dimensional unstructured mesh block.");
 
     return mod.ptr();
+}
+
+PYBIND11_MODULE(march, mod) {
+    march_init(mod);
 }
 
 // vim: set ff=unix fenc=utf8 nobomb et sw=4 ts=4:
