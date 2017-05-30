@@ -7,7 +7,20 @@
 
 extern "C" {
 #include <scotch.h>
-#include <metis.h>
+
+void METIS_PartGraphKway(
+    const SCOTCH_Num * const
+  , const SCOTCH_Num * const
+  , const SCOTCH_Num * const
+  , const SCOTCH_Num * const
+  , const SCOTCH_Num * const
+  , const SCOTCH_Num * const
+  , const SCOTCH_Num * const
+  , const SCOTCH_Num * const
+  , const SCOTCH_Num * const
+  , SCOTCH_Num * const
+  , SCOTCH_Num * const
+);
 }
 
 namespace march {
@@ -16,7 +29,7 @@ namespace depend {
 
 namespace scotch {
 
-typedef SCOTCH_Num num_type;
+using num_type = SCOTCH_Num;
 
 } /* end namespace scotch */
 
