@@ -627,7 +627,7 @@ class WrapUnstructuredBlock
             BoundaryData bndstorage[1];
             for (py::handle pybnd : bndlist) {
                 BoundaryData & bnd = *bndstorage;
-                WrapBoundaryData::setstate(bnd, py::reinterpret_steal<py::tuple>(pybnd));
+                WrapBoundaryData::setstate(bnd, py::cast<py::tuple>(pybnd));
                 blk.bndvec().push_back(std::move(bnd));
             }
         })
