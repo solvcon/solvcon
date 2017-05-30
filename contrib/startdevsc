@@ -1,0 +1,58 @@
+# source this file to load the environment settings for development.
+
+export SCSRC="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
+
+# namemunge
+if [ -z "$(type -t namemunge)" ] ; then
+
+# path munge.
+namemunge () {
+  if ! echo ${!1} | egrep -q "(^|:)$2($|:)" ; then
+    if [ -z "${!1}" ] ; then
+      eval "$1=$2"
+    else
+      if [ "$3" == "after" ] ; then
+        eval "$1=\$$1:$2"
+      else
+        eval "$1=$2:\$$1"
+      fi
+    fi
+  fi
+  eval "export $1"
+}
+export -f namemunge
+
+fi # end namemunge
+
+# nameremove
+if [ -z "$(type -t nameremove)" ] ; then
+
+# see http://stackoverflow.com/a/370192/1805420
+nameremove () {
+  eval "export $1=$(echo -n ${!1} | awk -v RS=: -v ORS=: -v var="$2" '$0 != var' | sed 's/:*$//')"
+}
+export -f nameremove
+
+fi # end nameremove
+
+if [ $(uname) == "Darwin" ]; then
+  namemunge DYLD_LIBRARY_PATH $SCSRC
+else
+  namemunge LD_LIBRARY_PATH $SCSRC
+fi
+namemunge PATH $SCSRC
+namemunge PYTHONPATH $SCSRC
+
+# Remove the paths form environment.
+stopdevsc() {
+  nameremove PYTHONPATH $SCSRC
+  nameremove PATH $SCSRC
+  if [ "$(uname)" == "Darwin" ] ; then
+    nameremove DYLD_LIBRARY_PATH $SCSRC
+  elif [ "$(uname)" == "Linux" ] ; then
+    nameremove LD_LIBRARY_PATH $SCSRC
+  fi
+  unset SCSRC
+}
+
+# vim: set ff=unix fenc=utf8 nobomb ft=sh:
