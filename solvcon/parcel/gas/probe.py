@@ -149,9 +149,12 @@ class ProbeHook(sc.MeshHook):
         return True
 
     def postloop(self):
+        #format_character = "%0" + str(len(self.points)) + "s"
+        format_character = "%03d"
         for point in self.points:
+            point_name = format_character % int(point.name)
             ptfn = '%s_pt_%s_%s.npy' % (
-                self.cse.io.basefn, self.name, point.name)
+                self.cse.io.basefn, self.name, point_name)
             ptfn = os.path.join(self.cse.io.basedir, ptfn)
             np.save(ptfn, np.array(point.vals, dtype='float64'))
 
