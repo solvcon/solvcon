@@ -266,11 +266,11 @@ def tube(casename, **kw):
         casename,
         # Arguments to the base configuration.
         gamma=1.4,
-        ssteps=8, psteps=4, edgelength=0.02,
+        ssteps=8, psteps=4, edgelength=0.015,
         rho1=1.0, p1=1.0,
         rho2=0.125, p2=0.1,
         # Arguments to GasCase.
-        time_increment=7.e-4, steps_run=600, **kw)
+        time_increment=158000.e-8, steps_run=100, **kw)
 
 
 if __name__ == '__main__':
