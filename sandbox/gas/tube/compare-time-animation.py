@@ -114,8 +114,10 @@ def der_plot(step, der_index, base_subplot_idx):
 
     np_filenames = []
     locations = []
-    for idx in range(99):
-        np_filenames.append("tube_pt_ppank_" + str(idx) + ".npy")
+    format_character = "%03d"
+    for idx in range(1, 99):
+        point_name = format_character % idx
+        np_filenames.append("tube_pt_ppank_" + point_name + ".npy")
         locations.append(idx/100.0)
 
     data_der = []
