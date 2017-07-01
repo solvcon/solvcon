@@ -9,3 +9,4 @@ cython>=0.23.4
 pybind11>=1.7
 pythreejs>=0.2
 ipython>=4.2.0
+scipy
