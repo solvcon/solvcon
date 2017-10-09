@@ -71,6 +71,14 @@
 #include <xmmintrin.h>
 #endif // MH_OS
 
+
+#ifndef MH_DEBUG
+#ifndef NDEBUG
+#define MH_DEBUG
+#endif // NDEBUG
+#endif // MH_DEBUG
+
+
 namespace march {
 
 inline void setup_debug() {
@@ -91,6 +99,23 @@ std::string string_format(const std::string & format, Args ... args) {
     std::unique_ptr<char[]> buf(new char[size]); 
     std::snprintf(buf.get(), size, format.c_str(), args ...);
     return std::string(buf.get(), buf.get() + size - 1);
+}
+
+template<typename ElementType>
+void fill_sentinel(ElementType *arr, size_t nelem, ElementType sentinel) {
+    std::fill(arr, arr + nelem, sentinel);
+}
+
+template<typename ElementType>
+void fill_sentinel(ElementType *arr, size_t nelem) {
+    if (true == std::is_floating_point<ElementType>::value) {
+        fill_sentinel(arr, nelem, std::numeric_limits<ElementType>::quiet_NaN());
+    } else if (true == std::is_arithmetic<ElementType>::value) {
+        char * carr = reinterpret_cast<char *>(arr);
+        fill_sentinel(carr, nelem*sizeof(ElementType), static_cast<char>(-1));
+    } else {
+        throw std::runtime_error("cannot fill sentinel for unsupported type");
+    }
 }
 
 } /* end namespace march */

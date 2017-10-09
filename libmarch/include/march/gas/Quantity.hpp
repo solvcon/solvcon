@@ -246,7 +246,7 @@ void Quantity<NDIM>::update_misc(real_type const gasconst) {
         auto & tss = m_soundspeed[icl];
         auto & tmach = m_mach[icl];
         // kinetic energy.
-        tke = tvel.square() * rho;
+        tke = tvel.square() * rho / 2;
         // pressure.
         tpre = soln[NDIM+1] + dsoln[NDIM+1].dot(sft);
         tpre = (tpre - tke) * ga1;

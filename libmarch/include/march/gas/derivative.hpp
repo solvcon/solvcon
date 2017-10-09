@@ -163,6 +163,12 @@ struct GradientShape {
     )
       : meta(detail::GradientMetaGroup::get(block.cltpn()[icl])), icl(icl)
     {
+#ifdef MH_DEBUG
+        fill_sentinel(&rcls[0], block_type::CLMFC, std::numeric_limits<index_type>::min());
+        fill_sentinel(&idis[0][0], block_type::CLMFC * NDIM);
+        fill_sentinel(&jdis[0][0], block_type::CLMFC * NDIM);
+#endif // MH_DEBUG
+
         const auto & tclfcs = block.clfcs()[icl];
         const auto & icecnd = reinterpret_cast<const Vector<NDIM> &>(cecnd[icl]);
 
@@ -191,6 +197,7 @@ struct GradientShape {
             Matrix<NDIM> dst;
             for (index_type ivx=0; ivx<NDIM; ++ivx) {
                 const index_type ifl = meta.pface[isub][ivx]-1;
+                assert(ifl >= 0);
                 subcnd += idis[ifl];
                 dst[ivx] = idis[ifl] - crd;
             }
@@ -214,7 +221,7 @@ struct GradientShape {
 /**
  * Calculate the weight of gradient and the derivative.
  */
-template< size_t NDIM, size_t NEQ, int32_t ALPHA=0, bool TAYLOR=true >
+template< size_t NDIM, size_t NEQ, int32_t ALPHA=1, bool TAYLOR=true >
 struct GradientWeigh {
 
     typedef Solution<NDIM> solution_type;
@@ -256,6 +263,13 @@ struct GradientWeigh {
       : gshape(gshape)
       , shouse(shouse)
     {
+#ifdef MH_DEBUG
+        fill_sentinel(&grad[0][0][0], MFGE * NEQ * NDIM);
+        fill_sentinel(&widv[0][0], MFGE * NEQ);
+        fill_sentinel(&wacc[0], NEQ);
+        fill_sentinel(&sigma_max[0], NEQ);
+#endif // MH_DEBUG
+
         // calculate gradient and weighting delta.
         for (index_type ieq=0; ieq<NEQ; ++ieq) { wacc[ieq] = 0; }
         for (index_type isub=0; isub<gshape.meta.nsub; ++isub) {
@@ -263,19 +277,22 @@ struct GradientWeigh {
             const auto udf = interpolate_solution(gshape.meta.pface[isub], hdt);
             // displacement matrix
             const auto dst = get_displacement(gshape.meta.pface[isub]);
-            // inverse (unnormalized) dosplacement matrix
+            // inverse (unnormalized) displacement matrix
             const auto dnv = unnormalized_inverse(dst);
             real_type voc;
             if (NDIM == 3) { voc = dnv.column(2).dot(dst[2]); }
             else           { voc = dst[0][0]*dst[1][1] - dst[0][1]*dst[1][0]; }
-            // calculate grdient and weighting delta.
+            // calculate gradient and weighting delta.
             for (index_type ieq=0; ieq<NEQ; ++ieq) {
                 // store for later widv.
                 grad[isub][ieq] = product(dnv, udf[ieq]) / voc;
                 // W-1/2 weighting function.
                 real_type wgt = grad[isub][ieq].square();
-                if (0 == ALPHA) { wgt = 1.0 / sqrt(wgt+ALMOST_ZERO); }
-                else            { wgt = 1.0 / pow(sqrt(wgt+ALMOST_ZERO), ALPHA); }
+                if      (0 == ALPHA) { wgt = 1.0; }
+                else if (1 == ALPHA) { wgt = 1.0 / sqrt(wgt+ALMOST_ZERO); }
+                else if (2 == ALPHA) { wgt = 1.0 / (wgt+ALMOST_ZERO); }
+                else                 { wgt = 1.0 / pow(sqrt(wgt+ALMOST_ZERO), ALPHA); }
+                //wgt = 1.0 / pow(sqrt(wgt+ALMOST_ZERO), ALPHA); // may be useful for debugging.
                 // store and accumulate weighting function.
                 wacc[ieq] += wgt;
                 widv[isub][ieq] = wgt;
@@ -311,7 +328,7 @@ struct GradientWeigh {
         const auto ofg1 = gshape.meta.nsub_inverse;
         for (index_type isub=0; isub<gshape.meta.nsub; ++isub) {
             for (index_type ieq=0; ieq<NEQ; ++ieq) {
-                const real_type wgt = ofg1 + sigma_max[ieq] * widv[isub][ieq]; // FIXME: optimize
+                const real_type wgt = ofg1 + sigma_max[ieq] * widv[isub][ieq];
                 pso1n[ieq] += wgt * grad[isub][ieq];
             }
         }
@@ -330,14 +347,15 @@ private:
       , const real_type hdt
     ) const {
         std::array<Vector<NDIM>, NEQ> udf;
-        const auto piso0n = shouse.so0c(gshape.icl);
+        const auto piso0n = shouse.so0n(gshape.icl);
         for (index_type ivx=0; ivx<NDIM; ++ivx) {
             const index_type ifl = tface[ivx]-1;
+            assert(ifl >= 0);
             const auto jcl = gshape.rcls[ifl];
             const auto pjso0c = shouse.so0c(jcl);
             const auto pjso0n = shouse.so0n(jcl);
             const auto pjso0t = shouse.so0t(jcl);
-            const auto pjso1c = shouse.so1n(jcl);
+            const auto pjso1c = shouse.so1c(jcl);
             for (index_type ieq=0; ieq<NEQ; ++ieq) {
                 if (TAYLOR) { udf[ieq][ivx] = pjso0c[ieq] + hdt*pjso0t[ieq] - piso0n[ieq]; }
                 else        { udf[ieq][ivx] = pjso0n[ieq] - piso0n[ieq]; }
