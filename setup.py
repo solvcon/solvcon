@@ -272,6 +272,8 @@ def main():
         else:
             ext_modules = cythonize(ext_modules)
 
+    with open('README.rst') as fobj:
+        long_description = ''.join(fobj.read())
     setup(
         name='SOLVCON',
         maintainer='Yung-Yu Chen',
@@ -279,7 +281,7 @@ def main():
         maintainer_email='yyc@solvcon.net',
         author_email='yyc@solvcon.net',
         description='Solvers of Conservation Laws',
-        long_description=''.join(open('README.rst').read()),
+        long_description=long_description,
         license='BSD',
         url='http://solvcon.net/',
         download_url='https://github.com/solvcon/solvcon/releases',
