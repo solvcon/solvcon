@@ -99,10 +99,19 @@ private:
 
 }; /* end class Table */
 
+#ifdef __GNUG__
+#  define WRAPPER_VISIBILITY __attribute__((visibility("hidden")))
+#else
+#  define WRAPPER_VISIBILITY
+#endif
+
 /**
  * Helper class for pybind11 class wrappers.
  */
-template< class Wrapper, class Wrapped, class Holder = std::unique_ptr<Wrapped>> class WrapBase {
+template< class Wrapper, class Wrapped, class Holder = std::unique_ptr<Wrapped>>
+class
+WRAPPER_VISIBILITY
+WrapBase {
 
 public:
 
@@ -146,7 +155,11 @@ protected:
 
 }; /* end class WrapBase */
 
-class WrapLookupTableCore : public WrapBase< WrapLookupTableCore, LookupTableCore > {
+class
+WRAPPER_VISIBILITY
+WrapLookupTableCore
+  : public WrapBase< WrapLookupTableCore, LookupTableCore >
+{
 
     friend base_type;
 
@@ -278,7 +291,11 @@ class WrapLookupTableCore : public WrapBase< WrapLookupTableCore, LookupTableCor
 
 }; /* end class WrapLookupTableCore */
 
-class WrapBoundaryData : public WrapBase< WrapBoundaryData, BoundaryData > {
+class
+WRAPPER_VISIBILITY
+WrapBoundaryData
+  : public WrapBase< WrapBoundaryData, BoundaryData >
+{
 
     friend base_type;
 
@@ -410,7 +427,9 @@ public:
 }; /* end class UnstructuredBlockConstructorAgent */ } /* end namespace march */
 
 template< size_t NDIM >
-class WrapUnstructuredBlock
+class
+WRAPPER_VISIBILITY
+WrapUnstructuredBlock
   : public WrapBase< WrapUnstructuredBlock<NDIM>, UnstructuredBlock<NDIM>, std::shared_ptr<UnstructuredBlock<NDIM>> >
 {
 
