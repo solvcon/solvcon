@@ -51,7 +51,8 @@ def resolve_name(name, package):
     try: # py3k compat.
         name = importlib._resolve_name(name[level:], package, level)
     except AttributeError:
-        name = importlib.util.resolve_name(name, package)
+        from importlib import util
+        name = util.resolve_name(name, package)
     return name
 
 
