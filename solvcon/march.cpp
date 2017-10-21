@@ -701,6 +701,12 @@ WrapGasSolver
                 [](wrapped_type const & self)            { return self.param().NAME(); }, \
                 [](wrapped_type       & self, TYPE NAME) { self.param().NAME() = NAME; } \
             )
+#define DECL_MARCH_PYBIND_GAS_SOLVER_STATE(TYPE, NAME) \
+            .def_property( \
+                #NAME, \
+                [](wrapped_type const & self)            { return self.state().NAME; }, \
+                [](wrapped_type       & self, TYPE NAME) { self.state().NAME = NAME; } \
+            )
 
         using quantity_reference = gas::Quantity<NDIM> &;
         (*this)
@@ -718,6 +724,11 @@ WrapGasSolver
             DECL_MARCH_PYBIND_GAS_SOLVER_PARAMETER(real_type, tauscale)
             DECL_MARCH_PYBIND_GAS_SOLVER_PARAMETER(real_type, stop_on_negative_density)
             DECL_MARCH_PYBIND_GAS_SOLVER_PARAMETER(real_type, stop_on_negative_energy)
+            DECL_MARCH_PYBIND_GAS_SOLVER_STATE(real_type, time)
+            DECL_MARCH_PYBIND_GAS_SOLVER_STATE(real_type, time_increment)
+            DECL_MARCH_PYBIND_GAS_SOLVER_STATE(real_type, step_current)
+            DECL_MARCH_PYBIND_GAS_SOLVER_STATE(real_type, substep_run)
+            DECL_MARCH_PYBIND_GAS_SOLVER_STATE(real_type, substep_current)
             .def("update", &wrapped_type::update)
             .def("calc_cfl", &wrapped_type::calc_cfl)
             .def("calc_solt", &wrapped_type::calc_solt)
@@ -735,6 +746,7 @@ WrapGasSolver
             .def_property_readonly("ocfl" , [](wrapped_type & self) { return static_cast<LookupTableCore>(self.sol().arrays().cflo()); })
         ;
 
+#undef DECL_MARCH_PYBIND_GAS_SOLVER_STATE
 #undef DECL_MARCH_PYBIND_GAS_SOLVER_PARAMETER
     }
 

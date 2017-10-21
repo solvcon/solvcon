@@ -85,6 +85,7 @@ script:
   - cd ${TRAVIS_BUILD_DIR}
   - python setup.py build_ext --inplace
   - nosetests --with-doctest -v
+  - nosetests ftests/gasplus/* -v
   - nosetests ftests/parallel/* -v
   # Package
   - cd ${TRAVIS_BUILD_DIR}
