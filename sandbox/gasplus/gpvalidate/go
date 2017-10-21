@@ -1,0 +1,579 @@
+#!/usr/bin/env python
+# -*- coding: UTF-8 -*-
+#
+# Copyright (c) 2017, Yung-Yu Chen <yyc@solvcon.net>
+#
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# - Redistributions of source code must retain the above copyright notice, this
+#   list of conditions and the following disclaimer.
+# - Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+# - Neither the name of the SOLVCON nor the names of its contributors may be
+#   used to endorse or promote products derived from this software without
+#   specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+
+
+"""
+This script validates C++-based ``gasplus`` solver by comparing with the
+Cython-based ``gas`` solver.
+"""
+
+
+# Python standard library
+import os
+import math
+import numpy as np # http://www.numpy.org
+import solvcon as sc # SOLVCON
+from solvcon.parcel import gas as gas
+from solvcon.parcel import gasplus as gp
+
+
+class RandomMesher(object):
+    """
+    Representation of a rectangle and the Gmsh meshing helper.
+
+    :ivar lowerleft: (x0, y0) of the rectangle.
+    :type lowerleft: tuple
+    :ivar upperright: (x1, y1) of the rectangle.
+    :type upperright: tuple
+    :ivar edgelength: Length of each mesh cell edge.
+    :type edgelength: float
+    """
+
+    GMSH_SCRIPT = """
+    // vertices.
+    Point(1) = {%(x1)g,%(y1)g,0,%(edgelength)g};
+    Point(2) = {%(x0)g,%(y1)g,0,%(edgelength)g};
+    Point(3) = {%(x0)g,%(y0)g,0,%(edgelength)g};
+    Point(4) = {%(x1)g,%(y0)g,0,%(edgelength)g};
+    // lines.
+    Line(1) = {1,2};
+    Line(2) = {2,3};
+    Line(3) = {3,4};
+    Line(4) = {4,1};
+    // surface.
+    Line Loop(1) = {1,2,3,4};
+    Plane Surface(1) = {1};
+    // physics.
+    Physical Line("upper") = {1};
+    Physical Line("left") = {2};
+    Physical Line("lower") = {3};
+    Physical Line("right") = {4};
+    Physical Surface("domain") = {1};
+    """.strip()
+
+    def __init__(self, lowerleft, upperright, edgelength):
+        assert 2 == len(lowerleft)
+        self.lowerleft = tuple(float(val) for val in lowerleft)
+        assert 2 == len(upperright)
+        self.upperright = tuple(float(val) for val in upperright)
+        self.edgelength = float(edgelength)
+
+    def __call__(self, cse):
+        x0, y0 = self.lowerleft
+        x1, y1 = self.upperright
+        script_arguments = dict(
+            edgelength=self.edgelength, x0=x0, y0=y0, x1=x1, y1=y1)
+        cmds = self.GMSH_SCRIPT % script_arguments
+        cmds = [cmd.rstrip() for cmd in cmds.strip().split('\n')]
+        gmh = sc.Gmsh(cmds)()
+        return gmh.toblock(bcname_mapper=cse.condition.bcmap)
+
+
+class TriangularMesher(object):
+    """
+    Representation of a rectangle and the Gmsh meshing helper.
+
+    :ivar lowerleft: (x0, y0) of the rectangle.
+    :type lowerleft: tuple
+    :ivar upperright: (x1, y1) of the rectangle.
+    :type upperright: tuple
+    :ivar edgelength: Length of each mesh cell edge.
+    :type edgelength: float
+    """
+
+    def __init__(self, lowerleft, upperright, edgelength):
+        assert 2 == len(lowerleft)
+        self.lowerleft = tuple(float(val) for val in lowerleft)
+        assert 2 == len(upperright)
+        self.upperright = tuple(float(val) for val in upperright)
+        self.edgelength = float(edgelength)
+
+    def __call__(self, cse):
+        x0, y0 = self.lowerleft
+        x1, y1 = self.upperright
+        ndx = math.ceil((x1 - x0) / (self.edgelength*2))
+        ndy = math.ceil((y1 - y0) / (self.edgelength*2))
+        dx = (x1 - x0) / ndx
+        dy = (y1 - y0) / ndy
+        # mesh numbers.
+        nnode = (ndx*2+1)*ndy + ndx+1
+        nface = 6 * ndx * ndy + ndx + ndy
+        ncell = 4 * ndx * ndy
+        nbound = 2 * (ndx + ndy)
+        blk = sc.Block(ndim=2, nnode=nnode, nface=0, ncell=ncell, nbound=3)
+        # create nodes.
+        nodes = []
+        for iy, yloc in enumerate(np.arange(y0, y1+dy/4, dy/2)):
+            if iy % 2 == 0:
+                meshx = np.arange(x0, x1+dx/4, dx, dtype='float64')
+            else:
+                meshx = np.arange(x0+dx/2, x1-dx/4, dx, dtype='float64')
+            nodes.append(np.vstack([meshx, np.full_like(meshx, yloc)]).T)
+        nodes = np.vstack(nodes)
+        assert nodes.shape[0] == nnode
+        blk.ndcrd[:,:] = nodes
+        assert (blk.ndcrd == nodes).all()
+        # create cells.
+        skip_bottom = ndx + 1
+        skip_middle = ndx
+        skip_full = skip_bottom + skip_middle
+        for ilayer in range(ndy):
+            inref = ilayer * skip_full
+            icref = ilayer * 4 * ndx
+            for ic in range(ndx):
+                ictr = inref + skip_bottom + ic
+                ill = inref             + ic+0
+                ilr = inref             + ic+1
+                iul = inref + skip_full + ic+0
+                iur = inref + skip_full + ic+1
+                blk.clnds[icref+ic*4  ,:4] = (3, ictr, ill, ilr)
+                blk.clnds[icref+ic*4+1,:4] = (3, ictr, ilr, iur)
+                blk.clnds[icref+ic*4+2,:4] = (3, ictr, iur, iul)
+                blk.clnds[icref+ic*4+3,:4] = (3, ictr, iul, ill)
+        narr = np.unique(blk.clnds[:ncell,1:4].flatten())
+        narr.sort()
+        assert (narr == np.arange(nnode, dtype='int32')).all()
+        # build block.
+        blk.cltpn[:] = 3
+        blk.build_interior()
+        assert blk.nface == nface
+        assert (abs(blk.clvol - dx * dy / 4) < 1.e-10).all()
+        # build boundary
+        boundaries = dict(
+            left=np.arange(nface, dtype='int32')[blk.fccnd[:,0] == x0],
+            right=np.arange(nface, dtype='int32')[blk.fccnd[:,0] == x1],
+            lower=np.arange(nface, dtype='int32')[blk.fccnd[:,1] == y0],
+            upper=np.arange(nface, dtype='int32')[blk.fccnd[:,1] == y1],
+        )
+        for name in boundaries:
+            bndfcs = boundaries[name]
+            nameb = name.encode()
+            bct, vdict = cse.condition.bcmap.get(nameb, (sc.BC, dict()))
+            bc = bct(fpdtype=blk.fpdtype)
+            bc.name = name
+            bc.facn = np.empty((len(bndfcs), 3), dtype='int32')
+            bc.facn.fill(-1)
+            bc.facn[:,0] = bndfcs
+            bc.feedValue(vdict)
+            bc.sern = len(blk.bclist)
+            bc.blk = blk
+            blk.bclist.append(bc)
+        blk.build_boundary()
+        blk.build_ghost()
+        return blk
+
+
+class XDiaphragmAnchor(sc.MeshAnchor):
+    """
+    Set different density and pressure across a diaphragm along the x axis.
+    """
+
+    def __init__(self, svr, **kw):
+        self.xloc = float(kw.pop('xloc'))
+        self.gamma = float(kw.pop('gamma'))
+        self.rho1 = float(kw.pop('rho1'))
+        self.rho2 = float(kw.pop('rho2'))
+        self.p1 = float(kw.pop('p1'))
+        self.p2 = float(kw.pop('p2'))
+        super(XDiaphragmAnchor, self).__init__(svr, **kw)
+
+    def provide(self):
+        super(XDiaphragmAnchor, self).provide()
+        gamma = self.gamma
+        svr = self.svr
+        svr.soln[:,0].fill(self.rho1)
+        svr.soln[:,1].fill(0.0)
+        svr.soln[:,2].fill(0.0)
+        if svr.ndim == 3:
+            svr.soln[:,3].fill(0.0)
+        svr.soln[:,svr.ndim+1].fill(self.p1/(gamma-1))
+        # set.
+        slct = svr.blk.shclcnd[:,0] > self.xloc
+        svr.soln[slct,0] = self.rho2
+        svr.soln[slct,svr.ndim+1] = self.p2
+        # update.
+        svr.sol[:] = svr.soln[:]
+
+
+def gpvalidate_base(
+    casename=None, psteps=None, ssteps=None,
+    casecls=None, mesher=None, bcmap=None, init_hooks=None, report_hooks=None,
+    **kw
+):
+    """
+    Base configuration of the simulation and return the case object.
+
+    :return: The created Case object.
+    :rtype: solvcon.parcel.gasplus.GasPlusCase
+    """
+
+    assert issubclass(casecls, sc.MeshCase)
+    assert isinstance(mesher, (RandomMesher, TriangularMesher))
+    assert bcmap is not None
+    assert init_hooks is not None
+    assert report_hooks is not None
+
+    # Set up case.
+    cse = casecls(
+        # Mesh generator.
+        mesher=mesher,
+        # Mapping boundary-condition treatments.
+        bcmap=bcmap,
+        # Use the case name to be the basename for all generated files.
+        basefn=casename,
+        # Use `cwd`/result to store all generated files.
+        basedir=os.path.abspath(os.path.join(os.getcwd(), casename)),
+        # Debug and capture-all.
+        debug=False, **kw)
+
+    # Field initialization and derived calculations.
+    for hookcls, hookkws in init_hooks:
+        cse.defer(hookcls, **hookkws)
+    if isinstance(cse, gas.GasCase): # hackish
+        cse.defer(gas.PhysicsAnchor, rsteps=ssteps)
+    # Report information while calculating.
+    for hookcls, hookkws in report_hooks:
+        cse.defer(hookcls, **hookkws)
+    cse.defer(gp.ProgressHook, linewidth=ssteps/psteps, psteps=psteps)
+    cse.defer(gp.CflHook, fullstop=False, cflmax=10.0, psteps=ssteps)
+    cse.defer(gp.MeshInfoHook, psteps=ssteps)
+    # Store data.
+    if isinstance(cse, gp.GasPlusCase):
+        cse.defer(
+            gp.PMarchSave,
+            anames=[
+                ('soln', False, -4),
+                ('density', True, 0),
+                ('pressure', True, 0),
+                ('temperature', True, 0),
+                ('ke', True, 0),
+                ('mach', True, 0),
+                ('schlieren', True, 0),
+                ('velocity', True, 0.5),
+            ],
+            psteps=ssteps,
+        )
+    elif isinstance(cse, gas.GasCase):
+        cse.defer(
+            gas.PMarchSave,
+            anames=[
+                ('soln', False, -4),
+                ('rho', True, 0),
+                ('p', True, 0),
+                ('T', True, 0),
+                ('ke', True, 0),
+                ('M', True, 0),
+                ('sch', True, 0),
+                ('v', True, 0.5),
+            ],
+            psteps=ssteps,
+        )
+    else:
+        raise TypeError(type(cse))
+
+    return cse
+
+
+def tube_base(
+    casename, ssteps=1, psteps=1,
+    casecls=None, bcmap=None, # caller must set
+    gamma=1.4, rho1=1.0, p1=1.0, rho2=0.125, p2=0.25, **kw
+):
+    mesher = TriangularMesher(lowerleft=(0,0), upperright=(4,1),
+                              edgelength=0.1)
+    init_hooks = [
+        (
+            gp.FillAnchor,
+            dict(
+                mappers={'soln': gp.GasPlusSolver.ALMOST_ZERO,
+                         'dsoln': 0.0, 'amsca': gamma},
+            ),
+        ),
+        (
+            XDiaphragmAnchor,
+            dict(
+                xloc=(mesher.lowerleft[0]+mesher.upperright[0])/2,
+                gamma=gamma, rho1=rho1, p1=p1, rho2=rho2, p2=p2
+            ),
+        ),
+    ]
+
+    return gpvalidate_base(
+        # Required positional argument for the name of the simulation case.
+        casename,
+        # Arguments to the base configuration.
+        ssteps=ssteps, psteps=psteps,
+        casecls=casecls,
+        mesher=mesher, bcmap=bcmap, init_hooks=init_hooks, report_hooks=[],
+        # Arguments to case.
+        time_increment=30.e-3, steps_run=30, **kw)
+
+@gp.register_arrangement
+def tube_nonrefl_gasplus(casename, **kw):
+    bcmap = {
+        b'upper': (sc.bctregy.GasPlusNonRefl, {},),
+        b'left': (sc.bctregy.GasPlusNonRefl, {},),
+        b'right': (sc.bctregy.GasPlusNonRefl, {},),
+        b'lower': (sc.bctregy.GasPlusNonRefl, {},),
+    }
+    return tube_base(casename, casecls=gp.GasPlusCase, bcmap=bcmap)
+
+@gp.register_arrangement
+def tube_nonrefl_gas(casename, **kw):
+    bcmap = {
+        b'upper': (sc.bctregy.GasNonrefl, {},),
+        b'left': (sc.bctregy.GasNonrefl, {},),
+        b'right': (sc.bctregy.GasNonrefl, {},),
+        b'lower': (sc.bctregy.GasNonrefl, {},),
+    }
+    return tube_base(casename, casecls=gas.GasCase, bcmap=bcmap)
+
+@gp.register_arrangement
+def tube_wall_gasplus(casename, **kw):
+    bcmap = {
+        b'upper': (sc.bctregy.GasPlusSlipWall, {},),
+        b'left': (sc.bctregy.GasPlusNonRefl, {},),
+        b'right': (sc.bctregy.GasPlusNonRefl, {},),
+        b'lower': (sc.bctregy.GasPlusSlipWall, {},),
+    }
+    return tube_base(casename, casecls=gp.GasPlusCase, bcmap=bcmap)
+
+@gp.register_arrangement
+def tube_wall_gas(casename, **kw):
+    bcmap = {
+        b'upper': (sc.bctregy.GasWall, {},),
+        b'left': (sc.bctregy.GasNonrefl, {},),
+        b'right': (sc.bctregy.GasNonrefl, {},),
+        b'lower': (sc.bctregy.GasWall, {},),
+    }
+    return tube_base(casename, casecls=gas.GasCase, bcmap=bcmap)
+
+
+class ObliqueShockReflection(gp.ObliqueShockRelation):
+    def __init__(self, gamma, theta, mach1, rho1, p1, T1):
+        super(ObliqueShockReflection, self).__init__(gamma=gamma)
+        # Angles and Mach numbers.
+        self.theta = theta
+        self.mach1 = mach1
+        self.beta1 = beta1 = self.calc_shock_angle(mach1, theta)
+        self.mach2 = mach2 = self.calc_dmach(mach1, beta1)
+        self.beta2 = beta2 = self.calc_shock_angle(mach2, theta)
+        self.mach3 = mach3 = self.calc_dmach(mach2, beta2)
+        # Flow properties in the first zone.
+        self.rho1 = rho1
+        self.p1 = p1
+        self.T1 = T1
+        self.a1 = np.sqrt(gamma*p1/rho1)
+        # Flow properties in the second zone.
+        self.rho2 = rho2 = rho1 * self.calc_density_ratio(mach1, beta1)
+        self.p2 = p2 = p1 * self.calc_pressure_ratio(mach1, beta1)
+        self.T2 = T2 = T1 * self.calc_temperature_ratio(mach1, beta1)
+        self.a2 = np.sqrt(gamma*p2/rho2)
+        # Flow properties in the third zone.
+        self.rho3 = rho3 = rho2 * self.calc_density_ratio(mach2, beta2)
+        self.p3 = p3 = p2 * self.calc_pressure_ratio(mach2, beta2)
+        self.T3 = T3 = T2 * self.calc_temperature_ratio(mach2, beta2)
+        self.a3 = np.sqrt(gamma*p3/rho3)
+
+    def __str__(self):
+        msg = 'Relation of reflected oblique shock:\n'
+        msg += '- theta = %5.2f deg (flow angle)\n' % (self.theta/np.pi*180)
+        msg += '- beta1 = %5.2f deg (shock angle)\n' % (self.beta1/np.pi*180)
+        msg += '- beta1 = %5.2f deg (shock angle)\n' % (self.beta2/np.pi*180)
+        def property_string(zone):
+            values = [getattr(self, '%s%d' % (key, zone))
+                      for key in ('mach', 'rho', 'p', 'T', 'a')]
+            messages = [' %6.3f' % val for val in values]
+            return ''.join(messages)
+        msg += '- mach, rho, p, T, a (1) =' + property_string(1) + '\n'
+        msg += '- mach, rho, p, T, a (2) =' + property_string(2) + '\n'
+        msg += '- mach, rho, p, T, a (3) =' + property_string(3)
+        return msg
+
+    @property
+    def hookcls(self):
+        relation = self
+        class _ShowRelation(sc.MeshHook):
+            def preloop(self):
+                for msg in str(relation).split('\n'):
+                    self.info(msg + '\n')
+            postloop = preloop
+        return _ShowRelation
+
+    def generate_bcmap(self, casecls):
+        # Flow properties (fp).
+        fpb = {
+            'gamma': self.gamma, 'rho': self.rho1,
+            'v2': 0.0, 'v3': 0.0, 'p': self.p1,
+        }
+        fpb['v1'] = self.mach1*np.sqrt(self.gamma*fpb['p']/fpb['rho'])
+        fpt = fpb.copy()
+        fpt['rho'] = self.rho2
+        fpt['p'] = self.p2
+        V2 = self.mach2 * self.a2
+        fpt['v1'] = V2 * np.cos(self.theta)
+        fpt['v2'] = -V2 * np.sin(self.theta)
+        fpi = fpb.copy()
+        # BC map.
+        if casecls == gp.GasPlusCase:
+            bcmap = {
+                b'upper': (sc.bctregy.GasPlusInlet, fpt,),
+                #b'upper': (sc.bctregy.GasPlusSlipWall, {},),
+                #b'upper': (sc.bctregy.GasPlusNonRefl, {},),
+                b'left': (sc.bctregy.GasPlusInlet, fpb,),
+                #b'left': (sc.bctregy.GasPlusNonRefl, {},),
+                b'right': (sc.bctregy.GasPlusNonRefl, {},),
+                b'lower': (sc.bctregy.GasPlusSlipWall, {},),
+                #b'lower': (sc.bctregy.GasPlusNonRefl, {},),
+            }
+        elif casecls == gas.GasCase:
+            bcmap = {
+                b'upper': (sc.bctregy.GasInlet, fpt,),
+                #b'upper': (sc.bctregy.GasPlusSlipWall, {},),
+                #b'upper': (sc.bctregy.GasPlusNonRefl, {},),
+                b'left': (sc.bctregy.GasInlet, fpb,),
+                #b'left': (sc.bctregy.GasPlusNonRefl, {},),
+                b'right': (sc.bctregy.GasNonrefl, {},),
+                b'lower': (sc.bctregy.GasWall, {},),
+                #b'lower': (sc.bctregy.GasPlusNonRefl, {},),
+            }
+        return bcmap
+
+
+def obrf_base(
+    casename, ssteps=1, psteps=1,
+    casecls=None, mesher=None, time_increment=None, steps_run=None,
+    gamma=1.4, density=1.0, pressure=1.0, mach=3.0, theta=10.0/180*np.pi,
+    **kw
+):
+    relation = ObliqueShockReflection(gamma=gamma, theta=theta, mach1=mach,
+                                      rho1=density, p1=pressure, T1=1)
+    bcmap = relation.generate_bcmap(casecls)
+
+    init_hooks = [
+        (
+            gp.FillAnchor,
+            dict(
+                mappers={'soln': gp.GasPlusSolver.ALMOST_ZERO,
+                         'dsoln': 0.0, 'amsca': gamma},
+            ),
+        ),
+        (
+            gp.DensityInitAnchor,
+            dict(
+                rho=density,
+            ),
+        ),
+    ]
+    if casecls == gp.GasPlusCase:
+        init_hooks.extend([
+            (
+                gp.InitByDensityTemperatureAnchor,
+                dict(
+                    gas_constant=1,
+                    gamma=gamma,
+                    density=density,
+                    temperature=1,
+                ),
+            ),
+            (
+                gp.PhysicsAnchor,
+                dict(
+                    rsteps=ssteps,
+                ),
+            ),
+        ])
+    elif casecls == gas.GasCase:
+        init_hooks.extend([
+            (
+                gas.DensityInitAnchor,
+                dict(
+                    rho=density,
+                ),
+            ),
+        ])
+    else:
+        raise TypeError(casecls)
+
+    report_hooks = [
+        (
+            relation.hookcls,
+            dict(),
+        ),
+    ]
+
+    return gpvalidate_base(
+        # Required positional argument for the name of the simulation case.
+        casename,
+        # Arguments to the base configuration.
+        ssteps=ssteps, psteps=psteps,
+        casecls=casecls,
+        mesher=mesher, bcmap=bcmap, init_hooks=init_hooks, report_hooks=[],
+        # Arguments to case.
+        time_increment=time_increment, steps_run=steps_run, **kw)
+
+@gp.register_arrangement
+def obrf_tri_gasplus(casename, **kw):
+    mesher = TriangularMesher(lowerleft=(0,0), upperright=(4,1),
+                              edgelength=0.1)
+    return obrf_base(
+        casename, casecls=gp.GasPlusCase, mesher=mesher,
+        time_increment=15.e-3, steps_run=300, **kw)
+
+@gp.register_arrangement
+def obrf_tri_gas(casename, **kw):
+    mesher = TriangularMesher(lowerleft=(0,0), upperright=(4,1),
+                              edgelength=0.1)
+    return obrf_base(
+        casename, casecls=gas.GasCase, mesher=mesher,
+        time_increment=15.e-3, steps_run=300, **kw)
+
+@gp.register_arrangement
+def obrf_random_gasplus(casename, **kw):
+    mesher = RandomMesher(lowerleft=(0,0), upperright=(4,1),
+                          edgelength=0.1)
+    return obrf_base(
+        casename, casecls=gp.GasPlusCase, mesher=mesher,
+        time_increment=7.e-3, steps_run=600, **kw)
+
+@gp.register_arrangement
+def obrf_random_gas(casename, **kw):
+    mesher = RandomMesher(lowerleft=(0,0), upperright=(4,1),
+                          edgelength=0.1)
+    return obrf_base(
+        casename, casecls=gas.GasCase, mesher=mesher,
+        time_increment=7.e-3, steps_run=600, **kw)
+
+
+if __name__ == '__main__':
+    sc.go()
+
+# vim: set ff=unix fenc=utf8 ft=python ai et sw=4 ts=4 tw=79:
