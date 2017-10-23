@@ -66,19 +66,23 @@ install:
   - ${TRAVIS_BUILD_DIR}/contrib/devenv/create.sh
   - source ${TRAVIS_BUILD_DIR}/build/env/start
   - ${TRAVIS_BUILD_DIR}/contrib/conda.sh
-  - pip install -U https://github.com/pybind/pybind11/archive/master.zip
+  - ${TRAVIS_BUILD_DIR}/contrib/build-pybind11-in-conda.sh
+  - which python; python --version
+  - conda info -a
+  - set | grep SC
+  - set | grep CONDA
 
 script:
   # C++ debug build
   - mkdir -p ${TRAVIS_BUILD_DIR}/build/debug
   - cd ${TRAVIS_BUILD_DIR}/build/debug
-  - cmake -DTESTFILTER="*" -DCMAKE_BUILD_TYPE=Debug ${TRAVIS_BUILD_DIR}
+  - cmake -DPYTHON_EXECUTABLE:FILEPATH=`which python` -Dpybind11_DIR=${CONDA_PREFIX}/share/cmake/pybind11 -DTESTFILTER="*" -DCMAKE_BUILD_TYPE=Debug ${TRAVIS_BUILD_DIR}
   - cd ${TRAVIS_BUILD_DIR}
   - make -C build/debug run_gtest VERBOSE=1
   # C++ release build
   - mkdir -p ${TRAVIS_BUILD_DIR}/build/release
   - cd ${TRAVIS_BUILD_DIR}/build/release
-  - cmake -DTESTFILTER="*" -DCMAKE_BUILD_TYPE=Release ${TRAVIS_BUILD_DIR}
+  - cmake -DPYTHON_EXECUTABLE:FILEPATH=`which python` -Dpybind11_DIR=${CONDA_PREFIX}/share/cmake/pybind11 -DTESTFILTER="*" -DCMAKE_BUILD_TYPE=Release ${TRAVIS_BUILD_DIR}
   - cd ${TRAVIS_BUILD_DIR}
   - make -C build/release run_gtest VERBOSE=1
   # Build Python extension

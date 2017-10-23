@@ -14,20 +14,26 @@ cmake_minimum_required(VERSION 2.8.11)
 project(libmarch)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake/")
+include(FindPythonAnaconda)
 
 option(MARCH_RELAX_ERROR "Relax compiler error" OFF)
+option(SOLVCON_ROOT "SOLVCON root path" OFF)
 
 find_package(SCOTCH)
 
 include_directories("include" ${SCOTCH_INCLUDE_DIRS})
 
 set(MARCH_WARNOPT "-Werror -Wall -Wextra")
-set(MARCH_WARNOPT "${MARCH_WARNOPT} -Wno-unused-private-field -Wno-missing-braces -Wno-sign-compare")
+set(MARCH_WARNOPT "${MARCH_WARNOPT} -Wno-unused-function -Wno-unreachable-code -Wno-unused-private-field -Wno-missing-braces -Wno-sign-compare")
 # FIXME: remove after port all legacy C code.
 set(MARCH_WARNOPT "${MARCH_WARNOPT} -Wno-error=sign-compare")
 
 if(MARCH_RELAX_ERROR)
     set(MARCH_WARNOPT "${MARCH_WARNOPT} -Wno-error=unused-variable")
+endif()
+
+if(NOT SOLVCON_ROOT)
+    set(SOLVCON_ROOT ${CMAKE_INSTALL_PREFIX})
 endif()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -fPIC ${MARCH_WARNOPT}")
@@ -76,6 +82,7 @@ set(MARCH_HEADERS
 string(REPLACE "include/" "${CMAKE_CURRENT_SOURCE_DIR}/include/"
        MARCH_HEADERS "${MARCH_HEADERS}")
 
+add_subdirectory(src)
 add_subdirectory(tests)
 
 # vim: set ff=unix fenc=utf8 nobomb et sw=4 ts=4:
