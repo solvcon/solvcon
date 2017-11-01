@@ -1,3 +1,4 @@
+include CMakeLists.txt
 include MANIFEST.in
 include requirements.txt
 include README.rst HISTORY.rst CREDITS.rst COPYING

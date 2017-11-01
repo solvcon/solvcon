@@ -123,36 +123,6 @@ def make_cython_extension(
         extra_link_args=[rpathflag],
     )
 
-def make_pybind11_extension(
-    name, include_dirs=None, libraries=None, extra_compile_args=None
-):
-    files = [name.replace('.', os.sep) + '.cpp']
-    include_dirs = [] if None is include_dirs else include_dirs
-    libraries = [] if None is libraries else libraries
-    libraries = (['scotchmetis', 'scotch', 'scotcherr', 'scotcherrexit']
-                 + libraries)
-    rpathflag = '-Wl,-rpath,%s/lib' % sys.exec_prefix
-    if "CONDA_PREFIX" in os.environ:
-        include_dirs.append(os.path.join(os.environ["CONDA_PREFIX"], "include"))
-    if extra_compile_args is None: extra_compile_args = []
-    extra_compile_args.extend([
-        '-Wall',
-        '-Wextra',
-        '-Werror',
-        '-std=c++11',
-        '-Wno-unused-function',
-        '-Wno-unreachable-code',
-        '-Wno-sign-compare',
-    ])
-    return Extension(
-        name, files,
-        language="c++",
-        include_dirs=include_dirs,
-        libraries=libraries,
-        extra_compile_args=extra_compile_args,
-        extra_link_args=[rpathflag],
-    )
-
 def main():
     data_files = list()
     # includes.
@@ -192,10 +162,6 @@ def main():
         turn_off_unused_warnings += ' -Wno-unused-but-set-variable'
     # set up extension modules.
     ext_modules = [
-        make_pybind11_extension(
-            'solvcon.march',
-            include_dirs=['libmarch/include', pybind11.get_include()]
-        ),
         make_cython_extension(
             'solvcon._march_bridge', [],
             include_dirs=['libmarch/include']
@@ -271,6 +237,39 @@ def main():
             ext_modules = list()
         else:
             ext_modules = cythonize(ext_modules)
+
+    # call cmake.
+    if hasattr(sys, 'gettotalrefcount'):
+        cmake_build_dir = 'build/march_dbg'
+        cmake_build_type = 'Debug'
+    else:
+        cmake_build_dir = 'build/march_rel'
+        cmake_build_type = 'Release'
+    if cidx > sidx:
+        cmds = ['rm -rf %s' % cmake_build_dir,
+                'rm -f solvcon/march*.so']
+        sys.stdout.write('\n'.join(['[for cmake] '+cmd for cmd in cmds]))
+        sys.stdout.write('\n')
+        os.system(' ; '.join(cmds))
+    else:
+        if '--inplace' not in sys.argv:
+            sys.stdout.write(
+                "cmake extension can only be built inplace; "
+                "add --inplace argument\n")
+        if "CONDA_PREFIX" in os.environ:
+            conda_evars = "LIBRARY_PATH=%s" % os.path.join(
+                os.environ["CONDA_PREFIX"], "lib")
+        else:
+            conda_evars = ""
+        cmds = ['mkdir -p %s' % cmake_build_dir,
+                'cd %s' % cmake_build_dir,
+                'env %s cmake -DPYTHON_EXECUTABLE:FILEPATH=%s '
+                '-DCMAKE_BUILD_TYPE=%s ../..' % (
+                    conda_evars, sys.executable, cmake_build_type),
+                'env %s make install' % conda_evars]
+        sys.stdout.write('\n'.join(['[for cmake] '+cmd for cmd in cmds]))
+        sys.stdout.write('\n')
+        os.system(' ; '.join(cmds))
 
     with open('README.rst') as fobj:
         long_description = ''.join(fobj.read())

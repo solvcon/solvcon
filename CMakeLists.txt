@@ -3,6 +3,12 @@
 
 cmake_minimum_required(VERSION 2.8.11)
 project(solvcon)
+
+option(SOLVCON_ROOT "SOLVCON root path" OFF)
+if(NOT SOLVCON_ROOT)
+    get_filename_component(SOLVCON_ROOT "solvcon" ABSOLUTE)
+endif()
+
 add_subdirectory(libmarch)
 
 # vim: set ff=unix fenc=utf8 nobomb et sw=4 ts=4:

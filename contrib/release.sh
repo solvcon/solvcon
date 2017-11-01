@@ -13,4 +13,5 @@ python setup.py build_ext --inplace
 # test.
 PYTHONPATH=`pwd`
 nosetests --with-doctest
+nosetests ftests/gasplus/* -v
 nosetests ftests/parallel/*
