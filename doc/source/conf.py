@@ -34,15 +34,10 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.intersphinx',
     'sphinx.ext.inheritance_diagram',
+    'issuetracker',
     'pstake',
     'numfig',
 ]
-try:
-    from sphinxcontrib import issuetracker
-except ImportError:
-    pass
-else:
-    extensions.append('sphinxcontrib.issuetracker')
 
 # issuetracker settings.
 issuetracker = 'github'
