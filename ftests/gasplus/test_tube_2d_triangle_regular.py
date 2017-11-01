@@ -245,6 +245,11 @@ def create_case(
     gamma=1.4, rho1=1.0, p1=1.0, rho2=0.125, p2=0.25,
     **kw
 ):
+    if ssteps is not None and psteps is not None:
+        basedir = os.path.abspath(os.path.join(os.getcwd(), casename))
+    else:
+        basedir = None
+
     # Set up case.
     mesher = TriangularMesher(lowerleft=(0,0), upperright=(4,1),
                               edgelength=0.1)
@@ -261,8 +266,7 @@ def create_case(
         bcmap=bcmap,
         # Use the case name to be the basename for all generated files.
         basefn=casename,
-        # Use `cwd`/result to store all generated files.
-        basedir=os.path.abspath(os.path.join(os.getcwd(), casename)),
+        basedir=basedir,
         # Runstep.
         time_increment=30.e-3, steps_run=30,
         # Debug and capture-all.
