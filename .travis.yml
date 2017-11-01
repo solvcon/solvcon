@@ -79,18 +79,6 @@ script:
   - cmake -DPYTHON_EXECUTABLE:FILEPATH=`which python` -Dpybind11_DIR=${CONDA_PREFIX}/share/cmake/pybind11 -DTESTFILTER="*" -DCMAKE_BUILD_TYPE=Debug ${TRAVIS_BUILD_DIR}
   - cd ${TRAVIS_BUILD_DIR}
   - make -C build/debug run_gtest VERBOSE=1
-  # C++ release build
-  - mkdir -p ${TRAVIS_BUILD_DIR}/build/release
-  - cd ${TRAVIS_BUILD_DIR}/build/release
-  - cmake -DPYTHON_EXECUTABLE:FILEPATH=`which python` -Dpybind11_DIR=${CONDA_PREFIX}/share/cmake/pybind11 -DTESTFILTER="*" -DCMAKE_BUILD_TYPE=Release ${TRAVIS_BUILD_DIR}
-  - cd ${TRAVIS_BUILD_DIR}
-  - make -C build/release run_gtest VERBOSE=1
-  # Build Python extension
-  - cd ${TRAVIS_BUILD_DIR}
-  - python setup.py build_ext --inplace
-  - nosetests --with-doctest -v
-  - nosetests ftests/gasplus/* -v
-  - nosetests ftests/parallel/* -v
   # Package
   - cd ${TRAVIS_BUILD_DIR}
   - contrib/release.sh
