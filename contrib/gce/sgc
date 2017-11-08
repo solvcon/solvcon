@@ -1,0 +1,263 @@
+#!/usr/bin/env python
+# -*- coding: utf8 -*-
+
+
+from __future__ import absolute_import, division, print_function
+
+
+import sys
+import os
+import tempfile
+import argparse
+import subprocess
+
+
+def _search_file(filename, search_paths):
+    found_fn = None
+    for path in search_paths:
+        this_fn = os.path.join(path, filename)
+        if os.path.exists(this_fn):
+          found_fn = this_fn
+          break
+    return found_fn
+
+
+def _get_trunk(project, cmd):
+    trunk = _search_file("gcloud", os.environ["PATH"].split(":"))
+    if not trunk:
+        raise OSError("gcloud not found")
+    if project:
+        trunk += " --project=%s" % project
+    trunk += " " + cmd
+    return trunk
+
+
+def _call_command(tokens, verbose, dry_run):
+    cmd = " \\\n  ".join(tokens)
+    if verbose >= 0:
+        sys.stdout.write(cmd + "\n")
+    if not dry_run:
+        if verbose >= 0:
+            sys.stdout.write("sending command ... \n")
+        tokens = " ".join(tokens).split()
+        subprocess.check_call(tokens)
+
+
+class _SubCommandFormatter(argparse.ArgumentDefaultsHelpFormatter,
+                           argparse.RawDescriptionHelpFormatter):
+    pass
+
+
+class _CreateInstance(object):
+    def __init__(self, subparsers):
+        description = """Create instance. For example, to provision an instance from scratch:
+
+  %(prog)s instance_name --provision
+
+Use a provisioned image (e.g., solvcon-service/solvcon-ubuntu1404lts) to create
+an instance:
+
+  %(prog)s instance_name --image solvcon-service/solvcon-ubuntu1404lts
+"""
+        self.parser = pc = subparsers.add_parser(
+            "cinst",
+            formatter_class=_SubCommandFormatter,
+            description=description)
+        pc.add_argument("instance_name", type=str)
+        pc.add_argument("--boot-disk-size", type=str, default="10GB",
+                        help="Boot disk size.")
+        pc.add_argument("--machine-type", type=str, default="n1-standard-1",
+                        help="Machine type to use.")
+        pc.add_argument("--zone", type=str, default=None,
+                        help="Override the default zone.")
+        pcmg1 = pc.add_mutually_exclusive_group(required=True)
+        pcmg1.add_argument("--image", type=str, default=None,
+                           help="Image to use. (You need to have permission "
+                                "to access the image.) The format is "
+                                "image-project/image-family.")
+        pcmg1.add_argument("--provision", action="store_true", default=False,
+                           help="Use the default vanilla image to provision "
+                                "from scratch.")
+        pc.add_argument("--homedisk", type=str, default=None,
+                        help="Home disk name. It controls whether to mount an "
+                             "additional home disk.")
+        pc.add_argument("--shutdown", action="store_true", default=False,
+                        help="Shutdown instance after provision.")
+        pc.add_argument("--allow-password", action="store_true", default=False,
+                        help="Turn on ssh password login at startup.")
+        pc.set_defaults(func=self)
+
+    @staticmethod
+    def _get_ubuntu1404lts_startup(
+            provision=False,
+            shutdown=False,
+            homedisk=None,
+            allow_password=False):
+        provision_cmd = """# set time zone.
+timedatectl set-timezone Asia/Taipei
+# install essential packages.
+apt-get update -y
+apt-get install -y git unzip silversearcher-ag tmux screen \
+build-essential liblapack-pic liblapack-dev
+apt-get clean -y
+# install conda.
+conda_install() {
+  installdir=$1
+  pkgdir=$2
+  instfile=$3
+  if [[ ! -f $instfile ]]; then
+    wget --quiet http://repo.continuum.io/miniconda/$instfile
+  fi
+  bash $instfile -b -p $installdir
+  PATH=$installdir/bin:$PATH
+  conda install -y conda-build anaconda \\
+    cmake six setuptools pip sphinx ipython jupyter \\
+    cython numpy netcdf4 nose pytest paramiko boto graphviz
+  conda update -y conda
+  conda update -y --all
+  mkdir -p $pkgdir
+  cp -f $instfile $pkgdir/
+  mkdir -p $pkgdir/noarch
+  cd $pkgdir/noarch
+  conda index
+  mkdir -p $pkgdir/linux-64
+  cp -a $installdir/pkgs/*.tar.bz2 $pkgdir/linux-64
+  cd $pkgdir/linux-64
+  conda index
+  rm -rf $installdir
+}
+conda_install /var/opt/conda3/install /var/opt/conda3/packages Miniconda3-latest-Linux-x86_64.sh
+# set up ubuntu workspace.
+scratch=$(mktemp -d -t tmp.XXXXXXXXXX) || exit
+rm -rf $scratch
+git clone https://github.com/yungyuc/workspace $scratch
+mv $scratch/.git /home/ubuntu
+rm -rf $scratch
+cd /home/ubuntu
+git checkout -- .
+cd /root
+# clone solvcon.
+git clone https://github.com/solvcon/solvcon /var/opt/solvcon
+# finalize.
+chown -R ubuntu.ubuntu /home/ubuntu
+""" # provision_basic
+
+        shutdown_cmd="""# clean up and shutdown.
+rm -rf /home/*/.ssh
+shutdown -h now
+""" # shutdown_cmd
+
+        homedisk_cmd="""# mount workspace
+mount -o discard,defaults /dev/sdb /home
+""" # homedisk
+
+        allow_password_cmd="""# enable ssh password login
+sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
+/etc/init.d/ssh restart
+""" # allow_password
+
+        ret = ""
+        if provision:
+            ret += provision_cmd
+            if shutdown:
+                ret += shutdown_cmd
+        elif homedisk:
+            ret += homedisk_cmd
+        if allow_password:
+            ret += allow_password_cmd
+        return ret
+
+    def __call__(self, args):
+        if args.homedisk and args.provision:
+            self.parser.error('option --homedisk conflicts to --provision')
+        if args.shutdown and not args.provision:
+            self.parser.error('option --shutdown requires --provision')
+        if args.shutdown and args.allow_password:
+            self.parser.error('option --shutdown conflicts to --allow_password')
+
+        startup_fn = tempfile.mkstemp()[1]
+        with open(startup_fn, 'w') as fobj:
+            data = self._get_ubuntu1404lts_startup(
+                provision=args.provision,
+                shutdown=args.shutdown,
+                homedisk=args.homedisk,
+                allow_password=args.allow_password)
+            fobj.write(data)
+        if args.verbose >= 1 and data:
+            sys.stdout.write("Startup file:\n")
+            with open(startup_fn, 'r') as fobj:
+                lines = fobj.readlines()
+                sys.stdout.write("  " + "  ".join(lines))
+
+        tokens = [_get_trunk(args.project, "compute instances create")]
+        tokens[-1] += " %s" % args.instance_name
+        tokens.append("--machine-type %s" % args.machine_type)
+        if args.zone:
+            tokens.append("--zone %s" % args.zone)
+        tokens.append("--boot-disk-size %s" % args.boot_disk_size)
+        tokens.append("--scopes storage-ro")
+        tokens.append("--metadata-from-file startup-script=%s" % startup_fn)
+        if args.provision:
+            image = "ubuntu-os-cloud/ubuntu-1404-lts"
+        else:
+            image = args.image
+        image_project, image_family = image.split("/")
+        tokens.append("--image-project %s" % image_project)
+        tokens.append("--image-family %s" % image_family)
+        if args.homedisk:
+            tokens.append("--disk=device-name=sdb,mode=rw,name=%s"
+                          % args.homedisk)
+
+        _call_command(tokens, args.verbose, args.dry_run)
+
+        os.unlink(startup_fn)
+
+
+class _MakeImage(object):
+    def __init__(self, subparsers):
+        self.parser = pm = subparsers.add_parser(
+            "mimage",
+            formatter_class=_SubCommandFormatter,
+            description="Make image")
+        pm.add_argument("disk_name", type=str)
+        pm.add_argument("family_name", type=str)
+        pm.add_argument("--source-disk-zone", type=str, default=None,
+                        help="Override the default zone for the source disk.")
+        pm.set_defaults(func=self)
+
+    def __call__(self, args):
+        tokens = [_get_trunk(args.project, "compute images create")]
+        tokens[-1] += " %s" % args.disk_name
+        tokens.append("--source-disk %s" % args.disk_name)
+        tokens.append("--family %s" % args.family_name)
+        if args.source_disk_zone:
+            tokens.append("--source-disk-zone %s" % args.source_disk_zone)
+
+        _call_command(tokens, args.verbose, args.dry_run)
+
+
+def main():
+    description = ("Helper script to prepare environment on Google Compute "
+                   "Engine for SOLVCON")
+    p = argparse.ArgumentParser(
+            description=description,
+            formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    p.add_argument("--project", type=str, default=None,
+                   help="Override gcloud default project.")
+    p.add_argument("-n", "--dry-run", action="store_true", default=False,
+                   help="Do not execute gcloud.")
+    p.add_argument("-v", dest="verbose", action="count",
+                   help="Verbosity level.")
+    sp = p.add_subparsers(help="Sub-commands")
+
+    _CreateInstance(sp)
+    _MakeImage(sp)
+
+    args = p.parse_args()
+    if None is args.verbose:
+        args.verbose = 0
+    args.func(args)
+
+
+if __name__ == '__main__':
+    main()
