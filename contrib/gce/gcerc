@@ -1,0 +1,30 @@
+if [ "$(type -t namemunge)" != function ] ; then
+  namemunge () {
+    if ! echo ${!1} | egrep -q "(^|:)$2($|:)" ; then
+      if [ -z "${!1}" ] ; then
+        eval "$1=$2"
+      else
+        if [ "$3" == "after" ] ; then
+          eval "$1=\$$1:$2"
+        else
+          eval "$1=$2:\$$1"
+        fi
+      fi
+    fi
+    eval "export $1"
+  }
+fi
+
+alias gcessh="ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no"
+alias gcescp="scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no"
+
+alias install.conda3="bash \
+/var/opt/conda3/packages/Miniconda3-latest-Linux-x86_64.sh \
+-p ~/opt/conda3 ; \
+namemunge PATH ~/opt/conda3/bin ; \
+conda config --system --add channels file:///var/opt/conda3/packages"
+alias use.conda3="namemunge PATH ~/opt/conda3/bin"
+
+if [ -d ~/opt/conda3/bin ]; then namemunge PATH ~/opt/conda3/bin; fi
+
+# vim: set et nobomb fenc=utf8 ft=sh ff=unix sw=2 ts=2:
