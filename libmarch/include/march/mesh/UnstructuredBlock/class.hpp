@@ -23,8 +23,6 @@ namespace march {
 
 static constexpr size_t NCLTYPE=8;
 
-class UnstructuredBlockConstructorAgent; /* should only be defined once in Python wrapping code */
-
 /**
  * Unstructured mesh of mixed-type elements, optimized for reading.
  *
@@ -145,7 +143,6 @@ public:
     private:
         ctor_passkey() = default;
         friend UnstructuredBlock<NDIM>;
-        friend UnstructuredBlockConstructorAgent; /* backdoor for pybind11 */
     };
 
     UnstructuredBlock(
