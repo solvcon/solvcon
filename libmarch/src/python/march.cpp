@@ -186,15 +186,13 @@ WrapLookupTableCore
     }
 
     wrapper_type & init() {
-        return def("__init__", [](py::args args, py::kwargs kwargs) {
-            LookupTableCore & table = *(args[0].cast<LookupTableCore*>());
-
-            std::vector<index_type> dims(args.size()-2);
-            index_type nghost = args[1].cast<index_type>();
-            index_type nbody = args[2].cast<index_type>();
+        return def(py::init([](py::args args, py::kwargs kwargs) {
+            std::vector<index_type> dims(args.size()-1);
+            index_type nghost = args[0].cast<index_type>();
+            index_type nbody = args[1].cast<index_type>();
             dims[0] = nghost + nbody;
             for (size_t it=1; it<dims.size(); ++it) {
-                dims[it] = args[it+2].cast<index_type>();
+                dims[it] = args[it+1].cast<index_type>();
             }
 
             PyArray_Descr * descr = nullptr;
@@ -207,7 +205,7 @@ WrapLookupTableCore
             DataTypeId dtid = static_cast<DataTypeId>(descr->type_num);
             Py_DECREF(descr);
 
-            new (&table) LookupTableCore(nghost, nbody, dims, dtid);
+            LookupTableCore table(nghost, nbody, dims, dtid);
 
             std::string creation("empty");
             if (kwargs && kwargs.contains("creation")) {
@@ -220,7 +218,9 @@ WrapLookupTableCore
             } else {
                 throw py::value_error("invalid creation type");
             }
-        });
+
+            return table;
+        }));
     }
 
     wrapper_type & array_readwrite() {
@@ -261,19 +261,22 @@ WrapLookupTableCore
     }
 
     wrapper_type & pickle() {
-        return def("__getstate__", [](LookupTableCore & tbl) {
-            return py::make_tuple(tbl.nghost(), tbl.nbody(), tbl.dims(), (long)tbl.datatypeid(), Table(tbl).full());
-        })
-        .def("__setstate__", [](LookupTableCore & tbl, py::tuple tpl) {
-            if (tpl.size() != 5) { throw std::runtime_error("Invalid state for Table (LookupTableCore)!"); }
-            index_type nghost = tpl[0].cast<index_type>();
-            index_type nbody  = tpl[1].cast<index_type>();
-            std::vector<index_type> dims = tpl[2].cast<std::vector<index_type>>();
-            DataTypeId datatypeid = static_cast<DataTypeId>(tpl[3].cast<long>());
-            py::array src = tpl[4].cast<py::array>();
-            new (&tbl) LookupTableCore(nghost, nbody, dims, datatypeid);
-            Table::CopyInto(Table(tbl).full(), src);
-        });
+        return def(py::pickle(
+            [](LookupTableCore & tbl){
+                return py::make_tuple(tbl.nghost(), tbl.nbody(), tbl.dims(), (long)tbl.datatypeid(), Table(tbl).full());
+            },
+            [](py::tuple tpl){
+                if (tpl.size() != 5) { throw std::runtime_error("Invalid state for Table (LookupTableCore)!"); }
+                index_type nghost = tpl[0].cast<index_type>();
+                index_type nbody  = tpl[1].cast<index_type>();
+                std::vector<index_type> dims = tpl[2].cast<std::vector<index_type>>();
+                DataTypeId datatypeid = static_cast<DataTypeId>(tpl[3].cast<long>());
+                py::array src = tpl[4].cast<py::array>();
+                LookupTableCore tbl(nghost, nbody, dims, datatypeid);
+                Table::CopyInto(Table(tbl).full(), src);
+                return tbl;
+            }
+        ));
     }
 
     wrapper_type & address() {
@@ -379,53 +382,29 @@ WrapBoundaryData
 
     wrapper_type & pickle() {
         return (*this)
-        .def("__getstate__", &getstate)
-        .def("__setstate__", &setstate)
+        .def(py::pickle(&getstate, &setstate))
         ;
     }
 
 public:
 
-    static py::object getstate(wrapped_type & bnd) {
+    static py::tuple getstate(wrapped_type & bnd) {
         return py::make_tuple(bnd.nbound(), bnd.nvalue(), Table(bnd.facn()).full(), Table(bnd.values()).full());
     }
 
-    static void setstate(wrapped_type & bnd, py::tuple tpl) {
+    static wrapped_type setstate(py::tuple tpl) {
         if (tpl.size() != 4) { throw std::runtime_error("Invalid state for BoundaryData!"); }
         index_type nbound = tpl[0].cast<index_type>();
         index_type nvalue = tpl[1].cast<index_type>();
         py::array facn_farr   = tpl[2].cast<py::array>();
         py::array values_farr = tpl[3].cast<py::array>();
-        new (&bnd) wrapped_type(nbound, nvalue);
+        wrapped_type bnd(nbound, nvalue);
         Table::CopyInto(Table(bnd.facn()  ).full(), facn_farr  );
         Table::CopyInto(Table(bnd.values()).full(), values_farr);
+        return bnd;
     }
 
 }; /* end class WrapBoundaryData */
-
-namespace march {
-/**
- * This is a workaround for the unability of pybind11 to initialize a
- * shared_ptr using make_shared.
- */
-class UnstructuredBlockConstructorAgent {
-
-public:
-
-    template< size_t NDIM >
-    static void placement_new(
-        UnstructuredBlock<NDIM> & blk
-      , index_type nnode, index_type nface, index_type ncell, index_type nbound
-      , index_type ngstnode, index_type ngstface, index_type ngstcell
-      , bool use_incenter
-    ) {
-        new (&blk) UnstructuredBlock<NDIM>(
-            typename UnstructuredBlock<NDIM>::ctor_passkey()
-          , nnode, nface, ncell, nbound, ngstnode, ngstface, ngstcell, use_incenter
-        );
-    }
-
-}; /* end class UnstructuredBlockConstructorAgent */ } /* end namespace march */
 
 template< size_t NDIM >
 class
@@ -446,12 +425,12 @@ WrapUnstructuredBlock
         : base_type(mod, pyname, clsdoc)
     {
         (*this)
-            .def("__init__", [](wrapped_type & self) {
-                UnstructuredBlockConstructorAgent::placement_new(self, 0, 0, 0, 0, 0, 0, 0, false);
-            })
-            .def("__init__", [](wrapped_type & self, index_type nnode, index_type nface, index_type ncell, bool use_incenter) {
-                UnstructuredBlockConstructorAgent::placement_new(self, nnode, nface, ncell, 0, 0, 0, 0, use_incenter);
-            })
+            .def(py::init([]() {
+                return UnstructuredBlock<NDIM>::construct(0, 0, 0, 0, 0, 0, 0, false);
+            }))
+            .def(py::init([](index_type nnode, index_type nface, index_type ncell, bool use_incenter) {
+                return UnstructuredBlock<NDIM>::construct(nnode, nface, ncell, 0, 0, 0, 0, use_incenter);
+            }))
             .shapes()
             .def_property_readonly("use_incenter", &UnstructuredBlock<NDIM>::use_incenter)
             .tables()
@@ -582,75 +561,76 @@ WrapUnstructuredBlock
 
     wrapper_type & pickle() {
         return (*this)
-        .def("__getstate__", [](wrapped_type & blk) {
-            py::dict pickled;
-            // shapes.
-            pickled["nnode"   ] = py::cast(blk.nnode());
-            pickled["nface"   ] = py::cast(blk.nface());
-            pickled["ncell"   ] = py::cast(blk.ncell());
-            pickled["nbound"  ] = py::cast(blk.nbound());
-            pickled["ngstnode"] = py::cast(blk.ngstnode());
-            pickled["ngstface"] = py::cast(blk.ngstface());
-            pickled["ngstcell"] = py::cast(blk.ngstcell());
-            pickled["use_incenter"] = py::cast(blk.use_incenter());
-            // arrays.
-            pickled["ndcrd"] = Table(blk.ndcrd()).full();
-            pickled["fccnd"] = Table(blk.fccnd()).full();
-            pickled["fcnml"] = Table(blk.fcnml()).full();
-            pickled["fcara"] = Table(blk.fcara()).full();
-            pickled["clcnd"] = Table(blk.clcnd()).full();
-            pickled["clvol"] = Table(blk.clvol()).full();
-            pickled["fctpn"] = Table(blk.fctpn()).full();
-            pickled["cltpn"] = Table(blk.cltpn()).full();
-            pickled["clgrp"] = Table(blk.clgrp()).full();
-            pickled["fcnds"] = Table(blk.fcnds()).full();
-            pickled["fccls"] = Table(blk.fccls()).full();
-            pickled["clnds"] = Table(blk.clnds()).full();
-            pickled["clfcs"] = Table(blk.clfcs()).full();
-            pickled["bndfcs"] = Table(blk.bndfcs()).full();
-            // bndvec.
-            py::list bndlist;
-            for (auto & bnd : blk.bndvec()) {
-                bndlist.append(WrapBoundaryData::getstate(bnd));
-            }
-            pickled["bndvec"] = bndlist;
-            return pickled;
-        })
-        .def("__setstate__", [](wrapped_type & blk, py::dict pickled) {
-            // shapes.
-            index_type nnode    = pickled["nnode"   ].cast<index_type>();
-            index_type nface    = pickled["nface"   ].cast<index_type>();
-            index_type ncell    = pickled["ncell"   ].cast<index_type>();
-            index_type nbound   = pickled["nbound"  ].cast<index_type>();
-            index_type ngstnode = pickled["ngstnode"].cast<index_type>();
-            index_type ngstface = pickled["ngstface"].cast<index_type>();
-            index_type ngstcell = pickled["ngstcell"].cast<index_type>();
-            bool use_incenter   = pickled["use_incenter"].cast<bool>();
-            UnstructuredBlockConstructorAgent::placement_new(blk, nnode, nface, ncell, nbound, ngstnode, ngstface, ngstcell, use_incenter);
-            // arrays.
-            Table::CopyInto(Table(blk.ndcrd()).full(), py::array(pickled["ndcrd"]));
-            Table::CopyInto(Table(blk.fccnd()).full(), py::array(pickled["fccnd"]));
-            Table::CopyInto(Table(blk.fcnml()).full(), py::array(pickled["fcnml"]));
-            Table::CopyInto(Table(blk.fcara()).full(), py::array(pickled["fcara"]));
-            Table::CopyInto(Table(blk.clcnd()).full(), py::array(pickled["clcnd"]));
-            Table::CopyInto(Table(blk.clvol()).full(), py::array(pickled["clvol"]));
-            Table::CopyInto(Table(blk.fctpn()).full(), py::array(pickled["fctpn"]));
-            Table::CopyInto(Table(blk.cltpn()).full(), py::array(pickled["cltpn"]));
-            Table::CopyInto(Table(blk.clgrp()).full(), py::array(pickled["clgrp"]));
-            Table::CopyInto(Table(blk.fcnds()).full(), py::array(pickled["fcnds"]));
-            Table::CopyInto(Table(blk.fccls()).full(), py::array(pickled["fccls"]));
-            Table::CopyInto(Table(blk.clnds()).full(), py::array(pickled["clnds"]));
-            Table::CopyInto(Table(blk.clfcs()).full(), py::array(pickled["clfcs"]));
-            Table::CopyInto(Table(blk.bndfcs()).full(), py::array(pickled["bndfcs"]));
-            // bndvec.
-            py::list bndlist = static_cast<py::object>(pickled["bndvec"]);
-            BoundaryData bndstorage[1];
-            for (py::handle pybnd : bndlist) {
-                BoundaryData & bnd = *bndstorage;
-                WrapBoundaryData::setstate(bnd, py::cast<py::tuple>(pybnd));
-                blk.bndvec().push_back(std::move(bnd));
-            }
-        })
+        .def(py::pickle(
+            [](wrapped_type & blk) {
+                py::dict pickled;
+                // shapes.
+                pickled["nnode"   ] = py::cast(blk.nnode());
+                pickled["nface"   ] = py::cast(blk.nface());
+                pickled["ncell"   ] = py::cast(blk.ncell());
+                pickled["nbound"  ] = py::cast(blk.nbound());
+                pickled["ngstnode"] = py::cast(blk.ngstnode());
+                pickled["ngstface"] = py::cast(blk.ngstface());
+                pickled["ngstcell"] = py::cast(blk.ngstcell());
+                pickled["use_incenter"] = py::cast(blk.use_incenter());
+                // arrays.
+                pickled["ndcrd"] = Table(blk.ndcrd()).full();
+                pickled["fccnd"] = Table(blk.fccnd()).full();
+                pickled["fcnml"] = Table(blk.fcnml()).full();
+                pickled["fcara"] = Table(blk.fcara()).full();
+                pickled["clcnd"] = Table(blk.clcnd()).full();
+                pickled["clvol"] = Table(blk.clvol()).full();
+                pickled["fctpn"] = Table(blk.fctpn()).full();
+                pickled["cltpn"] = Table(blk.cltpn()).full();
+                pickled["clgrp"] = Table(blk.clgrp()).full();
+                pickled["fcnds"] = Table(blk.fcnds()).full();
+                pickled["fccls"] = Table(blk.fccls()).full();
+                pickled["clnds"] = Table(blk.clnds()).full();
+                pickled["clfcs"] = Table(blk.clfcs()).full();
+                pickled["bndfcs"] = Table(blk.bndfcs()).full();
+                // bndvec.
+                py::list bndlist;
+                for (auto & bnd : blk.bndvec()) {
+                    bndlist.append(WrapBoundaryData::getstate(bnd));
+                }
+                pickled["bndvec"] = bndlist;
+                return pickled;
+            },
+            [](py::dict pickled) {
+                // shapes.
+                index_type nnode    = pickled["nnode"   ].cast<index_type>();
+                index_type nface    = pickled["nface"   ].cast<index_type>();
+                index_type ncell    = pickled["ncell"   ].cast<index_type>();
+                index_type nbound   = pickled["nbound"  ].cast<index_type>();
+                index_type ngstnode = pickled["ngstnode"].cast<index_type>();
+                index_type ngstface = pickled["ngstface"].cast<index_type>();
+                index_type ngstcell = pickled["ngstcell"].cast<index_type>();
+                bool use_incenter   = pickled["use_incenter"].cast<bool>();
+                auto blk_holder = UnstructuredBlock<NDIM>::construct(nnode, nface, ncell, nbound, ngstnode, ngstface, ngstcell, use_incenter);
+                auto & blk = *blk_holder;
+                // arrays.
+                Table::CopyInto(Table(blk.ndcrd()).full(), py::array(pickled["ndcrd"]));
+                Table::CopyInto(Table(blk.fccnd()).full(), py::array(pickled["fccnd"]));
+                Table::CopyInto(Table(blk.fcnml()).full(), py::array(pickled["fcnml"]));
+                Table::CopyInto(Table(blk.fcara()).full(), py::array(pickled["fcara"]));
+                Table::CopyInto(Table(blk.clcnd()).full(), py::array(pickled["clcnd"]));
+                Table::CopyInto(Table(blk.clvol()).full(), py::array(pickled["clvol"]));
+                Table::CopyInto(Table(blk.fctpn()).full(), py::array(pickled["fctpn"]));
+                Table::CopyInto(Table(blk.cltpn()).full(), py::array(pickled["cltpn"]));
+                Table::CopyInto(Table(blk.clgrp()).full(), py::array(pickled["clgrp"]));
+                Table::CopyInto(Table(blk.fcnds()).full(), py::array(pickled["fcnds"]));
+                Table::CopyInto(Table(blk.fccls()).full(), py::array(pickled["fccls"]));
+                Table::CopyInto(Table(blk.clnds()).full(), py::array(pickled["clnds"]));
+                Table::CopyInto(Table(blk.clfcs()).full(), py::array(pickled["clfcs"]));
+                Table::CopyInto(Table(blk.bndfcs()).full(), py::array(pickled["bndfcs"]));
+                // bndvec.
+                py::list bndlist = static_cast<py::object>(pickled["bndvec"]);
+                for (py::handle pybnd : bndlist) {
+                    BoundaryData bnd = WrapBoundaryData::setstate(py::cast<py::tuple>(pybnd));
+                    blk.bndvec().push_back(std::move(bnd));
+                }
+                return blk_holder;
+            }))
         ;
     }
 
@@ -665,19 +645,6 @@ void init_topmodule(py::module & mod) {
     WrapUnstructuredBlock<3>::commit(mod, "UnstructuredBlock3D", "Three-dimensional unstructured mesh block.");
 }
 
-
-namespace march { namespace gas { class SolverConstructorAgent {
-
-public:
-
-    template< size_t NDIM >
-    static void placement_new(
-        Solver<NDIM> & svr, const std::shared_ptr<UnstructuredBlock<NDIM>> & block
-    ) {
-        new (&svr) Solver<NDIM>(typename Solver<NDIM>::ctor_passkey(), block);
-    }
-
-}; /* end class SolverConstructorAgent */ } /* end namespace gas */ } /* end namespace march */
 
 template< size_t NDIM >
 class
@@ -710,9 +677,9 @@ WrapGasSolver
 
         using quantity_reference = gas::Quantity<NDIM> &;
         (*this)
-            .def("__init__", [](wrapped_type & self, block_type & block) {
-                gas::SolverConstructorAgent::placement_new(self, block.shared_from_this());
-            })
+            .def(py::init([](block_type & block) {
+                return gas::Solver<NDIM>::construct(block.shared_from_this());
+            }))
             .def_property_readonly("block", &wrapped_type::block)
             .def_property_readonly(
                 "qty",

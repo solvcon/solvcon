@@ -21,8 +21,6 @@ namespace gas {
 
 template< size_t NDIM > class Quantity;
 
-class SolverConstructorAgent; /* backdoor for pybind11 */
-
 template< size_t NDIM >
 class Solver
   : public std::enable_shared_from_this<Solver<NDIM>>
@@ -75,7 +73,6 @@ public:
     private:
         ctor_passkey() = default;
         friend Solver<NDIM>;
-        friend SolverConstructorAgent; /* backdoor for pybind11 */
     };
 
     Solver(const ctor_passkey &, const std::shared_ptr<block_type> & block);
