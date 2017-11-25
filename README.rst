@@ -21,16 +21,17 @@ Clone from https://github.com/solvcon/solvcon::
 
 SOLVCON needs the following packages: A C/C++ compiler supporting C++11, `cmake
 <https://cmake.org>`_ 3.7+, `pybind11 <https://github.com/pybind/pybind11>`_
-Git master, `Python <http://www.python.org/>`_ 2.7/3.5, `six
-<https://pypi.python.org/pypi/six/>`_ 1.10.0+, `Cython
+Git master, `Python <http://www.python.org/>`_ 3.6+, `six
+<https://pypi.python.org/pypi/six/>`_ 1.10.0+ (to be dropped), `Cython
 <http://www.cython.org/>`_ 0.16+, `Numpy <http://www.numpy.org/>`_ 1.5+,
 `LAPACK <http://www.netlib.org/lapack/>`_, `NetCDF
 <http://www.unidata.ucar.edu/software/netcdf/index.html>`_ 4+, `SCOTCH
 <http://www.labri.fr/perso/pelegrin/scotch/>`_ 6.0+, `Nose
 <https://nose.readthedocs.org/en/latest/>`_ 1.0+, `Paramiko
 <https://github.com/paramiko/paramiko>`_ 1.14+, `boto
-<http://boto.readthedocs.org/>`_ 2.29.1+, `gmsh <http://geuz.org/gmsh/>`_ 2.5+,
-and `VTK <http://vtk.org/>`_ 5.6+.
+<http://boto.readthedocs.org/>`_ 2.29.1+, and `gmsh <http://geuz.org/gmsh/>`_
+3+.  Support for `VTK <http://vtk.org/>`_ is to be enabled for conda
+environment.
 
 To install the dependency, run the scripts ``contrib/conda.sh`` and
 ``contrib/build-pybind11-in-conda.sh`` (they use `Anaconda
