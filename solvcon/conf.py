@@ -70,7 +70,7 @@ class Solvcon(object):
     """
     def __init__(self):
         import os, sys
-        from .py3kcompat import ConfigParser
+        from configparser import ConfigParser
         from .mpy import MPI
         from .scuda import Scuda
         # directories.

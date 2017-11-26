@@ -44,9 +44,9 @@ import sys
 import time
 import traceback
 from numbers import Number
-from .py3kcompat import StringIO
+from io import StringIO
 import signal
-from .py3kcompat import pickle
+import pickle
 import gzip
 
 from . import conf

@@ -32,7 +32,6 @@
 Gambit Neutral file.
 """
 
-from ..py3kcompat import basestring
 from .core import FormatIO
 
 class ElementGroup(object):
@@ -806,7 +805,7 @@ class NeutralIO(FormatIO):
         """
         import gzip
         # load gambit neutral file.
-        if isinstance(stream, basestring):
+        if isinstance(stream, (bytes, str)):
             if stream.endswith('.gz'):
                 opener = gzip.open
             else:

@@ -6,15 +6,14 @@ from __future__ import absolute_import, division, print_function
 
 
 import unittest
+import pickle
 from unittest import TestCase
 
 import numpy as np
 
-from .. import py3kcompat
 from .. import dependency
 dependency.import_module_may_fail('..march')
 from .. import block
-from ..py3kcompat import pickle
 from ..testing import get_blk_from_oblique_neu, get_blk_from_sample_neu
 
 class TestCreation(TestCase):

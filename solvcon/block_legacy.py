@@ -49,7 +49,6 @@ import json
 
 import numpy as np
 
-from .py3kcompat import with_metaclass
 from . import boundcond
 from . import dependency
 dependency.import_module_may_fail('.mesh')
@@ -179,7 +178,7 @@ class BlockMeta(type):
         return super(BlockMeta, cls).__new__(cls, name, bases, namespace)
 
 # FIXME: Move this class to a standalone module in later refactoring.
-class LegacyBlock(with_metaclass(BlockMeta)):
+class LegacyBlock(metaclass=BlockMeta):
     """
     :ivar use_incenter: specify using incenter or not.
     :itype use_incenter: bool

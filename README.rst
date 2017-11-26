@@ -21,8 +21,7 @@ Clone from https://github.com/solvcon/solvcon::
 
 SOLVCON needs the following packages: A C/C++ compiler supporting C++11, `cmake
 <https://cmake.org>`_ 3.7+, `pybind11 <https://github.com/pybind/pybind11>`_
-Git master, `Python <http://www.python.org/>`_ 3.6+, `six
-<https://pypi.python.org/pypi/six/>`_ 1.10.0+ (to be dropped), `Cython
+Git master, `Python <http://www.python.org/>`_ 3.6+, `Cython
 <http://www.cython.org/>`_ 0.16+, `Numpy <http://www.numpy.org/>`_ 1.5+,
 `LAPACK <http://www.netlib.org/lapack/>`_, `NetCDF
 <http://www.unidata.ucar.edu/software/netcdf/index.html>`_ 4+, `SCOTCH

@@ -39,8 +39,6 @@ Intrinsic format mesh I/O.  Provides:
 from __future__ import absolute_import, division, print_function
 
 
-from ..py3kcompat import with_metaclass, basestring
-
 from .core import FormatRegistry, FormatMeta, Format, FormatIO, strbool
 
 blfregy = FormatRegistry() # registry singleton.
@@ -53,7 +51,7 @@ class BlockFormatMeta(FormatMeta):
         blfregy.register(newcls)
         return newcls
 
-class BlockFormat(with_metaclass(BlockFormatMeta, Format)):
+class BlockFormat(Format, metaclass=BlockFormatMeta):
     """
     A class for fundamental facilities for I/O intrinsic mesh format (blk).  A
     blk file is in general composed by (i) meta-data, (ii) group list, (iii)
@@ -460,7 +458,7 @@ class OldTrivialBlockFormat(BlockFormat):
         # global.
         for key in self.META_GLOBAL:
             skey = key
-            if not isinstance(key, basestring):
+            if not isinstance(key, (bytes, str)):
                 key, skey = key
             self._write_text('%s = %s\n' % (key, str(getattr(self, skey))),
                              stream)
@@ -533,7 +531,7 @@ class TrivialBlockFormat(BlockFormat):
         for secname in 'GLOBAL', 'SWITCH':
             for key in getattr(self, 'META_'+secname):
                 skey = key
-                if not isinstance(key, basestring):
+                if not isinstance(key, (bytes, str)):
                     key, skey = key
                 self._write_text('%s = %s\n' % (key, str(getattr(self, key))),
                                  stream)
@@ -703,7 +701,7 @@ class IncenterBlockFormat(TrivialBlockFormat):
         for secname in 'GLOBAL', 'SWITCH':
             for key in getattr(self, 'META_'+secname):
                 skey = key
-                if not isinstance(key, basestring):
+                if not isinstance(key, (bytes, str)):
                     key, skey = key
                 self._write_text('%s = %s\n' % (key, str(getattr(self, key))),
                                  stream)
@@ -814,7 +812,7 @@ class BlockIO(FormatIO):
         blf = self.blf
         if stream is None:
             stream = open(self.filename, 'rb')
-        elif isinstance(stream, basestring):
+        elif isinstance(stream, (bytes, str)):
             # guess for file format.
             fmt = self._peek_revision(stream)
             if fmt == None:

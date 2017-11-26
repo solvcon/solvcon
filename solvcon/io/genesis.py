@@ -36,7 +36,6 @@ Adapter to Genesis/ExodusII format.
 from __future__ import absolute_import, division, print_function
 
 
-from ..py3kcompat import basestring
 from .core import FormatIO
 from .netcdf import NetCDF
 
@@ -305,7 +304,7 @@ class GenesisIO(FormatIO):
         @rtype: solvcon.block.Block
         """
         # load file into memory.
-        assert isinstance(stream, basestring)
+        assert isinstance(stream, (bytes, str))
         gn = Genesis(stream)
         gn.load()
         gn.close_file()

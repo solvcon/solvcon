@@ -7,10 +7,10 @@ from __future__ import absolute_import, division, print_function
 import os
 from unittest import TestCase
 import gzip
+import tempfile
 
 import numpy as np
 
-from ...import py3kcompat
 from ...conf import env
 from .. import gmsh
 from ..gmsh import GmshIO
@@ -59,7 +59,7 @@ class TestGmshClass(TestCase):
 
 class TestGmshIO(TestCase):
     def test_plaintext_file(self):
-        with py3kcompat.TemporaryDirectory() as wdir:
+        with tempfile.TemporaryDirectory() as wdir:
             sfname = os.path.join(env.datadir, 'gmsh_square.msh.gz')
             dfname = os.path.join(wdir, 'gmsh_square.msh')
             with gzip.open(sfname) as sfobj:

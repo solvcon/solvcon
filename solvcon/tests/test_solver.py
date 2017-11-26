@@ -145,7 +145,7 @@ class TestBlock(TestCase):
 
     def test_debug(self):
         import sys
-        from ..py3kcompat import StringIO
+        from io import StringIO
         CustomBlockSolver.MESG_FILENAME_DEFAULT = 'sys.stdout'
         stdout = sys.stdout
         sys.stdout = StringIO()

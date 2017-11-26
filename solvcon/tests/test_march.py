@@ -10,7 +10,6 @@ from unittest import TestCase
 
 import numpy as np
 
-from .. import py3kcompat
 from .. import dependency
 dependency.import_module_may_fail('..march')
 from .. import block

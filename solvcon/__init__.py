@@ -75,8 +75,6 @@ __all__ = [
     'io',
     # module: parcel
     'parcel',
-    # module: py3kcompat
-    'py3kcompat',
     # module: exception
     'exception',
     # module: N/A
@@ -99,7 +97,6 @@ from .domain import Domain, Collective, Distributed
 from . import helper
 from .helper import Gmsh
 from . import parcel
-from . import py3kcompat
 from . import exception
 from . import vis
 

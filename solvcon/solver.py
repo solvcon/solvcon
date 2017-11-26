@@ -42,7 +42,6 @@ import itertools
 
 import numpy as np
 
-from .py3kcompat import with_metaclass
 from . import anchor
 from . import gendata
 from . import helper
@@ -69,7 +68,7 @@ class MeshSolverMeta(type):
 
 _marcher_counter = itertools.count()
 
-class MeshSolver(with_metaclass(MeshSolverMeta)):
+class MeshSolver(metaclass=MeshSolverMeta):
     """
     Base class for all solving code that take :py:class:`Mesh
     <solvcon.mesh.Mesh>`, which is usually needed to write efficient C/C++ code

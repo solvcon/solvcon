@@ -40,7 +40,6 @@ import os
 import time
 import math
 import warnings
-from solvcon.py3kcompat import pickle
 
 import numpy as np
 

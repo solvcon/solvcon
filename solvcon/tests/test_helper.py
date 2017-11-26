@@ -11,7 +11,7 @@ from solvcon.conf import env
 class TestHelper(TestCase):
     def test_info(self):
         import sys
-        from ..py3kcompat import StringIO
+        from io import StringIO
         from ..helper import info
         stdout = sys.stdout
         sys.stdout = StringIO()
@@ -29,7 +29,7 @@ class TestHelper(TestCase):
 
 class TestPrinter(TestCase):
     def test_simple(self):
-        from ..py3kcompat import StringIO
+        from io import StringIO
         from ..helper import Printer
         stream = StringIO()
         p = Printer(stream)
@@ -37,7 +37,7 @@ class TestPrinter(TestCase):
         self.assertEqual(stream.getvalue(), 'test message')
 
     def test_prepost(self):
-        from ..py3kcompat import StringIO
+        from io import StringIO
         from ..helper import Printer
         stream = StringIO()
         p = Printer(stream, prefix='pre', postfix='post')
@@ -45,7 +45,7 @@ class TestPrinter(TestCase):
         self.assertEqual(stream.getvalue(), 'pretest messagepost')
 
     def test_multiple(self):
-        from ..py3kcompat import StringIO
+        from io import StringIO
         from ..helper import Printer
         stream1 = StringIO()
         stream2 = StringIO()
@@ -56,7 +56,7 @@ class TestPrinter(TestCase):
 
     def test_stdout(self):
         import sys
-        from ..py3kcompat import StringIO
+        from io import StringIO
         from ..helper import Printer
         stdout = sys.stdout
         sys.stdout = StringIO()

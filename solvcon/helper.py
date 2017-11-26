@@ -40,7 +40,7 @@ class Printer(object):
     """
     Print message to a stream.
 
-    >>> from .py3kcompat import StringIO
+    >>> from io import StringIO
     >>> output = StringIO()
     >>> mesg = Printer(output)
     >>> mesg('mesg')
