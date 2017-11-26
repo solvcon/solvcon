@@ -27,11 +27,8 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 
-from __future__ import absolute_import, division, print_function
-
-
+import pickle
 import unittest
-from ..py3kcompat import pickle
 
 import numpy as np
 

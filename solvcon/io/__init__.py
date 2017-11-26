@@ -33,9 +33,6 @@ I/O facilities.
 """
 
 
-from __future__ import absolute_import, division, print_function
-
-
 __all__ = [
     # modules.
     'core', 'block', 'domain', 'gambit', 'netcdf', 'vtk', 'vtkxml',

@@ -33,10 +33,6 @@ Basic code for :py:mod:`solvcon.case`.
 """
 
 
-from __future__ import absolute_import, division, print_function
-
-
-from .py3kcompat import with_metaclass
 from . import gendata
 from . import anchor
 from . import hook
@@ -83,7 +79,7 @@ class CaseInfoMeta(type):
         return newcls
 
 
-class CaseInfo(with_metaclass(CaseInfoMeta, dict)):
+class CaseInfo(dict, metaclass=CaseInfoMeta):
     """
     Generic case information abstract class.  It's the base class that all case
     information classes should subclass, to form hierarchical information 

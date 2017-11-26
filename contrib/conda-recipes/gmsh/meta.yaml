@@ -1,11 +1,11 @@
 package:
   name: gmsh
-  version: "2.8.4"
+  version: "3.0.6"
 
 source:
-  fn: gmsh-2.8.4-source.tgz
-  url: http://geuz.org/gmsh/src/gmsh-2.8.4-source.tgz
-  md5: 1bb3ff743f3904fe2618211d9ce55e62
+  fn: gmsh-3.0.6-source.tgz
+  url: http://gmsh.info//src/gmsh-3.0.6-source.tgz
+  md5: 78bbfdd695b29cfef18a99f93226afc5
 
 build:
   number: 0

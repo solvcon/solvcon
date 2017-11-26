@@ -1,18 +1,14 @@
 # -*- coding: UTF-8 -*-
 
 
-from __future__ import absolute_import, division, print_function
-
-
 import os
+import pickle
 from unittest import TestCase
 
 import numpy as np
  
-from .. import py3kcompat
 from ..testing import loadfile
 from ..io import gambit
-from ..py3kcompat import pickle
 from ..boundcond import BC
 
 def test_load():
@@ -51,8 +47,8 @@ class TestBc(TestCase):
         self.assertEqual((2, BC.BFREL), obj.facn.shape)
         self.assertEqual([10, 0, -1, 23, 1, -1], obj.facn.ravel().tolist())
         # The second dimension must be BC.BFREL
-        with py3kcompat.assertRaisesRegex(
-            self, IndexError, "BoundaryData.facn second axis mismatch"
+        with self.assertRaisesRegex(
+            IndexError, "BoundaryData.facn second axis mismatch"
         ):
             obj.facn = np.array([[10, 0], [23, 1]], dtype='int32')
 

@@ -33,15 +33,11 @@ Material definition.
 """
 
 
-from __future__ import absolute_import, division, print_function
-
-
 __all__ = ['mltregy', 'Material']
 
 
 import numpy as np
 
-from solvcon.py3kcompat import with_metaclass
 from solvcon import gendata
 
 
@@ -60,7 +56,7 @@ class MaterialMeta(type):
         return newcls
 
 
-class Material(with_metaclass(MaterialMeta)):
+class Material(metaclass=MaterialMeta):
     """Material properties.
     """
 

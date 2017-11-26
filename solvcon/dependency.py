@@ -33,9 +33,6 @@ Logic for using external compiled libraries.
 """
 
 
-from __future__ import absolute_import, division, print_function
-
-
 import warnings
 import importlib
 import inspect

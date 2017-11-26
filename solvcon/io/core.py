@@ -33,10 +33,6 @@ Core I/O facilities for SOLVCON intrinsic constructs.
 """
 
 
-from __future__ import absolute_import, division, print_function
-
-
-from ..py3kcompat import with_metaclass, basestring
 from ..gendata import TypeNameRegistry
 
 class FormatRegistry(TypeNameRegistry):
@@ -70,7 +66,7 @@ class FormatMeta(type):
         # recreate and return the class.
         return super(FormatMeta, cls).__new__(cls, name, bases, namespace)
 
-class Format(with_metaclass(FormatMeta)):
+class Format(metaclass=FormatMeta):
     """
     Abstract class for SOLVCON intrinsic I/O format Each of the concrete
     derived classes represents a version of format.  Public interface method is
@@ -235,7 +231,7 @@ class Format(with_metaclass(FormatMeta)):
         length = shape[0]
         for dim in shape[1:]:
             length *= dim
-        if isinstance(dtype, basestring):
+        if isinstance(dtype, (bytes, str)):
             dtype = np.dtype(dtype)
         dobj = dtype
         if compressor == 'bz2':
@@ -286,7 +282,7 @@ class FormatIOMeta(type):
         # register.
         fioregy.register(newcls)
         return newcls
-class FormatIO(with_metaclass(FormatIOMeta)):
+class FormatIO(metaclass=FormatIOMeta):
     """
     Proxy to mesh format object.
     """

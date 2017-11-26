@@ -1,6 +1,6 @@
 #!/bin/bash
 conda install -y \
-  cmake six setuptools pip sphinx ipython jupyter \
+  cmake setuptools pip sphinx ipython jupyter \
   cython numpy hdf4 netcdf4 nose pytest paramiko boto graphviz
 lret=$?; if [[ $lret != 0 ]] ; then exit $lret; fi
 conda install -y -c https://conda.anaconda.org/yungyuc \

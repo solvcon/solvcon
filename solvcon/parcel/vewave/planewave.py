@@ -33,15 +33,12 @@ Plane wave solution and initializer.
 """
 
 
-from __future__ import absolute_import, division, print_function
-
-
 __all__ = ['PlaneWaveSolution', 'PlaneWaveAnchor', 'PlaneWaveHook']
 
 
 import os
 import math
-from solvcon.py3kcompat import pickle
+import pickle
 
 import numpy as np
 

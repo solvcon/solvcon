@@ -31,6 +31,3 @@
 """
 A fake parcel to demonstrate how to create a problem solver by using SOLVCON.
 """
-
-
-from __future__ import absolute_import, division, print_function

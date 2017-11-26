@@ -33,10 +33,6 @@ Supporting functionalities and structures for UI commands.
 """
 
 
-from __future__ import absolute_import, division, print_function
-
-
-from .py3kcompat import with_metaclass
 from .gendata import TypeNameRegistry
 
 class CommandRegistry(TypeNameRegistry):
@@ -55,7 +51,7 @@ class CommandMeta(type):
         cmdregy.register(newcls)
         return newcls
 
-class Command(with_metaclass(CommandMeta)):
+class Command(metaclass=CommandMeta):
     """
     Command line parameters.
 

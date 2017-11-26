@@ -9,9 +9,6 @@ Gas-dynamics solvers based on new C++ implementation.
 """
 
 
-from __future__ import absolute_import, division, print_function
-
-
 __all__ = []
 
 

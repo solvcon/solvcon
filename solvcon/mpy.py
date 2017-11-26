@@ -49,9 +49,6 @@ You can verify the "installation" of MPY by running::
 """
 
 
-from __future__ import absolute_import, division, print_function
-
-
 __version__ = '0.1+'
 
 __description__ = """MPI for Python."""

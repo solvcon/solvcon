@@ -33,9 +33,6 @@ Viscoelastic wave solver.
 """
 
 
-from __future__ import absolute_import, division, print_function
-
-
 __all__ = [
     # case.
     'VewaveCase',

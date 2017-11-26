@@ -39,10 +39,6 @@ Basic support for cluster batch systems.
 """
 
 
-from __future__ import absolute_import, division, print_function
-
-
-from .py3kcompat import with_metaclass
 from .gendata import TypeNameRegistry
 
 class Node(object):
@@ -71,7 +67,7 @@ class BatchMeta(type):
         batregy.register(newcls)
         return newcls
 
-class Batch(with_metaclass(BatchMeta)):
+class Batch(metaclass=BatchMeta):
     """
     Batch system submitter.
 

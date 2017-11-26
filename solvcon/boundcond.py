@@ -36,12 +36,8 @@ defined here.
 """
 
 
-from __future__ import absolute_import, division, print_function
-
-
 import warnings
 
-from .py3kcompat import with_metaclass
 from . import dependency
 from .gendata import TypeNameRegistry, TypeWithBinder
 dependency.import_module_may_fail('.mesh')
@@ -199,7 +195,7 @@ class BCMeta(TypeWithBinder):
 
 
 # Base/abstract BC type.
-class BC(with_metaclass(BCMeta)):
+class BC(metaclass=BCMeta):
     """
     Generic boundary condition abstract class; the base class that all boundary
     condition classes should subclass.

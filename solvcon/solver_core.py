@@ -33,7 +33,4 @@ Core definition for solvers.
 """
 
 
-from __future__ import absolute_import, division, print_function
-
-
 ALMOST_ZERO = 1.e-200

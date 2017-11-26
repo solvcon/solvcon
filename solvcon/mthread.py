@@ -33,9 +33,6 @@ Multi-threading.
 """
 
 
-from __future__ import absolute_import, division, print_function
-
-
 class ThreadPool(object):
     """
     A synchronized thread pool.  The number of pre-created threads is not

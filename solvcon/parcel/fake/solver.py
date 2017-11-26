@@ -33,9 +33,6 @@ The Python API for the fake solver.
 """
 
 
-from __future__ import absolute_import, division, print_function
-
-
 import warnings
 
 import numpy as np

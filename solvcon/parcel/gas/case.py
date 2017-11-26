@@ -33,9 +33,6 @@ The control interface.
 """
 
 
-from __future__ import absolute_import, division, print_function
-
-
 import solvcon as sc
 
 from . import solver as gassolver

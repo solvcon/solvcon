@@ -2,15 +2,11 @@
 # Copyright (C) 2016 by Yung-Yu Chen.  See LICENSE.txt for terms of usage.
 
 
-from __future__ import absolute_import, division, print_function
-
-
 import unittest
 from unittest import TestCase
 
 import numpy as np
 
-from .. import py3kcompat
 from .. import dependency
 dependency.import_module_may_fail('..march')
 from .. import block

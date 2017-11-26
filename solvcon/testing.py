@@ -33,9 +33,6 @@ Provide functionalities for unittests.
 """
 
 
-from __future__ import absolute_import, division, print_function
-
-
 import os
 from unittest import TestCase
 from .solver import BlockSolver

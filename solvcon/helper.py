@@ -33,14 +33,11 @@ Helping functionalities.
 """
 
 
-from __future__ import absolute_import, division, print_function
-
-
 class Printer(object):
     """
     Print message to a stream.
 
-    >>> from .py3kcompat import StringIO
+    >>> from io import StringIO
     >>> output = StringIO()
     >>> mesg = Printer(output)
     >>> mesg('mesg')

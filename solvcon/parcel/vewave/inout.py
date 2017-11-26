@@ -33,9 +33,6 @@ Input and output facilities.
 """
 
 
-from __future__ import absolute_import, division, print_function
-
-
 __all__ = [
     'AmscaAnchor', 'MeshInfoHook', 'ProgressHook', 'FillAnchor', 'CflAnchor',
     'CflHook', 'MarchSaveAnchor', 'PMarchSave',
@@ -46,7 +43,6 @@ import os
 import time
 import math
 import warnings
-from solvcon.py3kcompat import pickle
 
 import numpy as np
 

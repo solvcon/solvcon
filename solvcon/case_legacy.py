@@ -36,17 +36,14 @@ This module should not be imported directly.  Necessary interface is exposed in
 """
 
 
-from __future__ import absolute_import, division, print_function
-
-
 import os
 import sys
 import time
 import traceback
 from numbers import Number
-from .py3kcompat import StringIO
+from io import StringIO
 import signal
-from .py3kcompat import pickle
+import pickle
 import gzip
 
 from . import conf

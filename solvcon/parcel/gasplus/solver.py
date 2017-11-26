@@ -9,9 +9,6 @@ C++-based Gas-dynamics solver.
 """
 
 
-from __future__ import absolute_import, division, print_function
-
-
 import numpy as np
 
 import solvcon as sc

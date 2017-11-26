@@ -2,18 +2,13 @@
 # Copyright (C) 2008-2012 by Yung-Yu Chen.  See LICENSE.txt for terms of usage.
 
 
-from __future__ import absolute_import, division, print_function
-
-
 import unittest
 from unittest import TestCase
 
 import numpy as np
 
-from .. import py3kcompat
 from .. import dependency
 from .. import block_legacy
-from ..py3kcompat import pickle
 from ..testing import get_blk_from_oblique_neu, get_blk_from_sample_neu
 
 class TestTableDescriptor(TestCase):
@@ -35,14 +30,14 @@ class TestTableDescriptor(TestCase):
             # It shall pass, although causes sanity check failure.
             oldarr = getattr(blk, name)
             setattr(blk, name, np.empty_like(oldarr))
-            with py3kcompat.assertRaisesRegex(
-                self, AttributeError, '%s array mismatch: body'%name):
+            with self.assertRaisesRegex(
+                AttributeError, '%s array mismatch: body'%name):
                 blk.check_sanity()
             setattr(blk, name, oldarr) # Put it back for the next test in loop.
             # It shall not be set to a incorrect type.
             for wrong_typed in (None, 'string', 1, 3.5, list(oldarr)):
-                with py3kcompat.assertRaisesRegex(
-                    self, TypeError, 'only Table and ndarray are acceptable'):
+                with self.assertRaisesRegex(
+                    TypeError, 'only Table and ndarray are acceptable'):
                     setattr(blk, name, wrong_typed)
 
     def test_unacceptable_name(self):
@@ -52,8 +47,8 @@ class TestTableDescriptor(TestCase):
         # Make sure the collector dict for the "invalid" item is absent.
         self.assertFalse(hasattr(MyBlock, '_invalid_arrays'))
         # The "invalid" descriptor shouldn't work.
-        with py3kcompat.assertRaisesRegex(
-            self, AttributeError, '"invalid" is not in Block.TABLE_NAME'):
+        with self.assertRaisesRegex(
+            AttributeError, '"invalid" is not in Block.TABLE_NAME'):
             blk.invalid = np.empty(10)
         # No collector is created.
         self.assertFalse(hasattr(MyBlock, '_invalid_arrays'))
@@ -74,6 +69,6 @@ class TestCreation(TestCase):
         # reset an array
         blk.check_sanity()
         blk.ndcrd = blk.ndcrd.copy()
-        with py3kcompat.assertRaisesRegex(self, AttributeError,
-                                          "ndcrd array mismatch: body"):
+        with self.assertRaisesRegex(AttributeError,
+                                    "ndcrd array mismatch: body"):
             blk.check_sanity()

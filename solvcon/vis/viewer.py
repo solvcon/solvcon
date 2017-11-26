@@ -5,9 +5,6 @@
 # All rights reserved.
 
 
-from __future__ import absolute_import, division, print_function
-
-
 from traitlets import (Unicode, Int, Instance, Enum, List, Dict, Float,
                        Any, CFloat, Bool, This, CInt, TraitType)
 

@@ -35,11 +35,6 @@ Intrinsic format mesh I/O.  Provides:
 """
 
 
-from __future__ import absolute_import, division, print_function
-
-
-from ..py3kcompat import with_metaclass, basestring
-
 from .core import FormatRegistry, FormatMeta, Format, FormatIO, strbool
 
 dmfregy = FormatRegistry() # registry singleton.
@@ -52,7 +47,7 @@ class DomainFormatMeta(FormatMeta):
         dmfregy.register(newcls)
         return newcls
 
-class DomainFormat(with_metaclass(DomainFormatMeta, Format)):
+class DomainFormat(Format, metaclass=DomainFormatMeta):
     """
     @cvar META_GLOBAL: global meta entries.
     @ctype META_GLOBAL: tuple
@@ -288,7 +283,7 @@ class DomainFormat(with_metaclass(DomainFormatMeta, Format)):
         for secname in 'GLOBAL', 'SWITCH':
             for key in getattr(self, 'META_'+secname):
                 skey = key
-                if not isinstance(key, basestring):
+                if not isinstance(key, (bytes, str)):
                     key, skey = key
                 self._write_text('%s = %s\n' % (key, str(getattr(self, key))),
                                  stream)
@@ -480,7 +475,7 @@ class DomainIO(FormatIO):
         dirname = self.dirname if dirname == None else dirname
         if domaintype is None:
             domaintype = domain.Collective
-        elif isinstance(domaintype, basestring):
+        elif isinstance(domaintype, (bytes, str)):
             domiantype = getattr(domain, domaintype)
         return self.dmf.load(dirname, bcmapper, with_arrs, with_whole,
             with_split, return_filenames, domaintype)
