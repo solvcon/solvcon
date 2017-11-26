@@ -11,6 +11,14 @@ addons:
       - liblapack-pic
       - liblapack-dev
 
+notifications:
+  webhooks:
+    urls:
+      - https://webhooks.gitter.im/e/b446fff58c8ee17b216d
+    on_success: always  # options: [always|never|change] default: always
+    on_failure: always  # options: [always|never|change] default: always
+    on_start: never     # options: [always|never|change] default: always
+
 env:
   global:
     # Disable GCE boto plugin which is incompatible to Python 3, see
