@@ -33,9 +33,6 @@ Supporting functionalities and structures for UI commands.
 """
 
 
-from __future__ import absolute_import, division, print_function
-
-
 from .gendata import TypeNameRegistry
 
 class CommandRegistry(TypeNameRegistry):

@@ -2,9 +2,6 @@
 # Copyright (C) 2016 by Yung-Yu Chen.  See LICENSE.txt for terms of usage.
 
 
-from __future__ import absolute_import, division, print_function
-
-
 import unittest
 from unittest import TestCase
 

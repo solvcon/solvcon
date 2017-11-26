@@ -34,9 +34,6 @@ The family of :py:class:`MeshAnchor` classes are attached to
 """
 
 
-from __future__ import absolute_import, division, print_function
-
-
 # import legacy.
 from .anchor_legacy import(
     Anchor, AnchorList,

@@ -33,9 +33,6 @@ Boundary-condition treatments for :py:class:`~.solver.GasSolver`.
 """
 
 
-from __future__ import absolute_import, division, print_function
-
-
 import solvcon as sc
 
 # for readthedocs to work.

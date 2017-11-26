@@ -33,9 +33,6 @@ Core I/O facilities for SOLVCON intrinsic constructs.
 """
 
 
-from __future__ import absolute_import, division, print_function
-
-
 from ..gendata import TypeNameRegistry
 
 class FormatRegistry(TypeNameRegistry):

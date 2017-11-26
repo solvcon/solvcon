@@ -33,9 +33,6 @@ Basic code for :py:mod:`solvcon.case`.
 """
 
 
-from __future__ import absolute_import, division, print_function
-
-
 from . import gendata
 from . import anchor
 from . import hook

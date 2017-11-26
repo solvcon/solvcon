@@ -37,9 +37,6 @@ http://www.geuz.org/gmsh/doc/texinfo/gmsh.html#MSH-ASCII-file-format
 """
 
 
-from __future__ import absolute_import, division, print_function
-
-
 from .core import FormatIO
 
 class Gmsh(object):

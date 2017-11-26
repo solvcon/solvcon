@@ -33,9 +33,6 @@ A wrapper to CUDA shared library by using ctypes.
 """
 
 
-from __future__ import absolute_import, division, print_function
-
-
 _libs = dict()
 def get_lib(path):
     from ctypes import CDLL

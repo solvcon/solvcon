@@ -33,9 +33,6 @@ Generic data structures.
 """
 
 
-from __future__ import absolute_import, division, print_function
-
-
 class AttributeDict(dict):
     """
     Dictionary form which key can be assessed as attribute.
