@@ -36,7 +36,12 @@ Intrinsic format mesh I/O.  Provides:
 """
 
 
+from typing import Union, BinaryIO, Dict, Tuple, List
+
+from .. import block
+from .. import gendata
 from .core import FormatRegistry, FormatMeta, Format, FormatIO, strbool
+
 
 blfregy = FormatRegistry() # registry singleton.
 class BlockFormatMeta(FormatMeta):
@@ -729,6 +734,7 @@ class BlockIO(FormatIO):
     @ivar fpdtype: specified fpdtype for I/O.
     @itype fpdtype: numpy.dtype
     """
+
     def __init__(self, **kw):
         self.blk = kw.pop('blk', None)
         self.bcmapper = kw.pop('bcmapper', None)
@@ -743,6 +749,7 @@ class BlockIO(FormatIO):
         if fmt == None:
             fmt = 'IncenterBlockFormat'
         self.blf = blfregy[fmt](compressor=compressor, fpdtype=fpdtype)
+
     @staticmethod
     def _peek_revision(filename):
         from .core import Format
@@ -762,14 +769,19 @@ class BlockIO(FormatIO):
                 rev = line.split('=')[-1].strip()
                 break
         return rev
-    def save(self, blk=None, stream=None):
+
+    def save(
+        self,
+        blk: block.Block = None,
+        stream: Union[BinaryIO, str] = None,
+        close_stream: bool = False
+    ):
         """
         Save the block object into a file.
         
-        @keyword blk: to-be-written block object.
-        @type blk: solvcon.block.Block
-        @keyword stream: file object or file name to be read.
-        @type stream: file or str
+        :keyword blk: to-be-written block object.
+        :keyword stream: file object or file name to be read.
+        :keyword close_stream: file object or file name to be read.
         """
         if blk == None:
             blk = self.blk
@@ -778,31 +790,42 @@ class BlockIO(FormatIO):
         elif isinstance(stream, str):
             stream = open(stream, 'wb')
         self.blf.save(blk, stream)
-    def read_meta(self, stream=None):
+        if close_stream:
+            stream.close()
+
+    def read_meta(
+        self,
+        stream: Union[BinaryIO, str] = None,
+        close_stream: bool = False
+    ) -> Tuple[gendata.AttributeDict, List, int]:
         """
         Read meta-data of blk file from stream.
         
-        @keyword stream: file object or file name to be read.
-        @type stream: file or str
-        @return: meta-data, raw text lines of meta-data, and the length of
-            meta-data in bytes.
-        @rtype: solvcon.gendata.AttributeDict, list, int
+        :keyword stream: file object or file name to be read.
+        :return: meta-data, raw text lines of meta-data, and the length of
+                 meta-data in bytes.
         """
         if stream == None:
             stream = open(self.filename, 'rb')
         elif isinstance(stream, str):
             stream = open(stream, 'rb')
-        return self.blf.read_meta(stream)
-    def load(self, stream=None, bcmapper=None):
+        data = self.blf.read_meta(stream)
+        if close_stream:
+            stream.close()
+        return data
+
+    def load(
+        self,
+        stream: Union[BinaryIO, str] = None,
+        bcmapper: Dict = None,
+        close_stream: bool = False
+    ) -> block.Block:
         """
         Load block from stream with BC mapper applied.
         
-        @keyword stream: file object or file name to be read.
-        @type stream: file or str
-        @keyword bcmapper: BC type mapper.
-        @type bcmapper: dict
-        @return: the read block object.
-        @rtype: solvcon.block.Block
+        :keyword stream: file object or file name to be read.
+        :keyword bcmapper: BC type mapper.
+        :return: the read block object.
         """
         from ..block import Block
         bcmapper = bcmapper if bcmapper != None else self.bcmapper
@@ -816,4 +839,7 @@ class BlockIO(FormatIO):
                 fmt = 'IncenterBlockFormat'
             blf = blfregy[fmt]()
             stream = open(stream, 'rb')
-        return blf.load(stream, bcmapper)
+        data = blf.load(stream, bcmapper)
+        if close_stream:
+            stream.close()
+        return data

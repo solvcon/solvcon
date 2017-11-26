@@ -81,6 +81,8 @@ class TestNeutralDouble(NeutralTest):
 
 class TestNeutralReadDouble(NeutralTest):
     __test__ = True
-    neu = gambit.GambitNeutral(openfile('sample.neu'))
+    fobj = openfile('sample.neu')
+    neu = gambit.GambitNeutral(fobj)
+    fobj.close()
     blk = neu.toblock(fpdtype='float64')
     round_to = 15

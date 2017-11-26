@@ -124,9 +124,11 @@ class TestReloadOldTrivial(CheckBlockIO):
     def test_reload3d_bz2(self):
         self._check_reload(get_blk_from_sample_neu(), 'bz2')
 class TestLoadOldTrivial(CheckBlockIO):
-    def _check_load(self, blk, stream):
+    def _check_load(self, blk, fname):
         from ..block import BlockIO
+        from ...testing import openfile
         bio = BlockIO(fmt='OldTrivialBlockFormat')
+        stream = openfile(fname, 'rb')
         # check version of stream.
         meta = bio.read_meta(stream=stream)
         self.assertEqual(meta.FORMAT_REV, '0.0.0.1')
@@ -137,30 +139,25 @@ class TestLoadOldTrivial(CheckBlockIO):
         self._check_group(blkl, blk)
         self._check_bc(blkl, blk)
         self._check_array(blkl, blk)
+        stream.close()
     def test_load2d_raw(self):
-        from ...testing import openfile
-        self._check_load(get_blk_from_oblique_neu(), openfile(
-            'oblique_0.0.0.1.blk', 'rb'))
+        self._check_load(get_blk_from_oblique_neu(),
+                         'oblique_0.0.0.1.blk')
     def test_load2d_gz(self):
-        from ...testing import openfile
-        self._check_load(get_blk_from_oblique_neu(), openfile(
-            'oblique_0.0.0.1_gz.blk', 'rb'))
+        self._check_load(get_blk_from_oblique_neu(),
+                         'oblique_0.0.0.1_gz.blk')
     def test_load2d_bz2(self):
-        from ...testing import openfile
-        self._check_load(get_blk_from_oblique_neu(), openfile(
-            'oblique_0.0.0.1_bz2.blk', 'rb'))
+        self._check_load(get_blk_from_oblique_neu(),
+                         'oblique_0.0.0.1_bz2.blk')
     def test_load3d_raw(self):
-        from ...testing import openfile
-        self._check_load(get_blk_from_sample_neu(), openfile(
-            'sample_0.0.0.1.blk', 'rb'))
+        self._check_load(get_blk_from_sample_neu(),
+                         'sample_0.0.0.1.blk')
     def test_load3d_gz(self):
-        from ...testing import openfile
-        self._check_load(get_blk_from_sample_neu(), openfile(
-            'sample_0.0.0.1_gz.blk', 'rb'))
+        self._check_load(get_blk_from_sample_neu(),
+                         'sample_0.0.0.1_gz.blk')
     def test_load3d_bz2(self):
-        from ...testing import openfile
-        self._check_load(get_blk_from_sample_neu(), openfile(
-            'sample_0.0.0.1_bz2.blk', 'rb'))
+        self._check_load(get_blk_from_sample_neu(),
+                         'sample_0.0.0.1_bz2.blk')
 
 class TestReloadTrivial(CheckBlockIO):
     def _check_reload(self, blk, compressor):
@@ -193,9 +190,11 @@ class TestReloadTrivial(CheckBlockIO):
     def test_reload3d_bz2(self):
         self._check_reload(get_blk_from_sample_neu(), 'bz2')
 class TestLoadTrivial(CheckBlockIO):
-    def _check_load(self, blk, stream):
+    def _check_load(self, blk, fname):
         from ..block import BlockIO
+        from ...testing import openfile
         bio = BlockIO(fmt='TrivialBlockFormat')
+        stream = openfile(fname, 'rb')
         # check version of stream.
         meta = bio.read_meta(stream=stream)
         self.assertEqual(meta.FORMAT_REV, '0.0.1')
@@ -206,30 +205,25 @@ class TestLoadTrivial(CheckBlockIO):
         self._check_group(blkl, blk)
         self._check_bc(blkl, blk)
         self._check_array(blkl, blk)
+        stream.close()
     def test_load2d_raw(self):
-        from ...testing import openfile
-        self._check_load(get_blk_from_oblique_neu(), openfile(
-            'oblique_0.0.1.blk', 'rb'))
+        self._check_load(get_blk_from_oblique_neu(),
+                         'oblique_0.0.1.blk')
     def test_load2d_gz(self):
-        from ...testing import openfile
-        self._check_load(get_blk_from_oblique_neu(), openfile(
-            'oblique_0.0.1_gz.blk', 'rb'))
+        self._check_load(get_blk_from_oblique_neu(),
+                         'oblique_0.0.1_gz.blk')
     def test_load2d_bz2(self):
-        from ...testing import openfile
-        self._check_load(get_blk_from_oblique_neu(), openfile(
-            'oblique_0.0.1_bz2.blk', 'rb'))
+        self._check_load(get_blk_from_oblique_neu(),
+                         'oblique_0.0.1_bz2.blk')
     def test_load3d_raw(self):
-        from ...testing import openfile
-        self._check_load(get_blk_from_sample_neu(), openfile(
-            'sample_0.0.1.blk', 'rb'))
+        self._check_load(get_blk_from_sample_neu(),
+                         'sample_0.0.1.blk')
     def test_load3d_gz(self):
-        from ...testing import openfile
-        self._check_load(get_blk_from_sample_neu(), openfile(
-            'sample_0.0.1_gz.blk', 'rb'))
+        self._check_load(get_blk_from_sample_neu(),
+                         'sample_0.0.1_gz.blk')
     def test_load3d_bz2(self):
-        from ...testing import openfile
-        self._check_load(get_blk_from_sample_neu(), openfile(
-            'sample_0.0.1_bz2.blk', 'rb'))
+        self._check_load(get_blk_from_sample_neu(),
+                         'sample_0.0.1_bz2.blk')
 
 class TestReloadIncenter(CheckBlockIO):
     def _check_reload(self, blk, compressor):
@@ -269,9 +263,11 @@ class TestReloadIncenter(CheckBlockIO):
         self._check_reload(get_blk_from_sample_neu(use_incenter=False), 'bz2')
         self._check_reload(get_blk_from_sample_neu(use_incenter=True), 'bz2')
 class TestLoadIncenter(CheckBlockIO):
-    def _check_load(self, blk, stream):
+    def _check_load(self, blk, fname):
         from ..block import BlockIO
+        from ...testing import openfile
         bio = BlockIO(fmt='IncenterBlockFormat')
+        stream = openfile(fname, 'rb')
         # check version of stream.
         meta = bio.read_meta(stream=stream)
         self.assertEqual(meta.FORMAT_REV, '0.0.7')
@@ -283,30 +279,25 @@ class TestLoadIncenter(CheckBlockIO):
         self._check_bc(blk, blkl)
         self._check_array(blk, blkl)
         self.assertFalse(blk.use_incenter)
+        stream.close()
     def test_load2d_raw(self):
-        from ...testing import openfile
-        self._check_load(get_blk_from_oblique_neu(), openfile(
-            'oblique_0.0.7.blk', 'rb'))
+        self._check_load(get_blk_from_oblique_neu(),
+                         'oblique_0.0.7.blk')
     def test_load2d_gz(self):
-        from ...testing import openfile
-        self._check_load(get_blk_from_oblique_neu(), openfile(
-            'oblique_0.0.7_gz.blk', 'rb'))
+        self._check_load(get_blk_from_oblique_neu(),
+                         'oblique_0.0.7_gz.blk')
     def test_load2d_bz2(self):
-        from ...testing import openfile
-        self._check_load(get_blk_from_oblique_neu(), openfile(
-            'oblique_0.0.7_bz2.blk', 'rb'))
+        self._check_load(get_blk_from_oblique_neu(),
+                         'oblique_0.0.7_bz2.blk')
     def test_load3d_raw(self):
-        from ...testing import openfile
-        self._check_load(get_blk_from_sample_neu(), openfile(
-            'sample_0.0.7.blk', 'rb'))
+        self._check_load(get_blk_from_sample_neu(),
+                         'sample_0.0.7.blk')
     def test_load3d_gz(self):
-        from ...testing import openfile
-        self._check_load(get_blk_from_sample_neu(), openfile(
-            'sample_0.0.7_gz.blk', 'rb'))
+        self._check_load(get_blk_from_sample_neu(),
+                         'sample_0.0.7_gz.blk')
     def test_load3d_bz2(self):
-        from ...testing import openfile
-        self._check_load(get_blk_from_sample_neu(), openfile(
-            'sample_0.0.7_bz2.blk', 'rb'))
+        self._check_load(get_blk_from_sample_neu(),
+                         'sample_0.0.7_bz2.blk')
 
 class TestDetectLoad(CheckBlockIO):
     def test_load_oldtrivial2d(self):
@@ -318,9 +309,9 @@ class TestDetectLoad(CheckBlockIO):
         path = os.path.join(*path)
         # load block.
         bio = BlockIO(filename=path)
-        meta = bio.read_meta()
+        meta = bio.read_meta(close_stream=True)
         self.assertEqual(meta.FORMAT_REV, '0.0.0.1')
-        blkl = bio.load()
+        blkl = bio.load(close_stream=True)
         # check with neu block.
         blk = get_blk_from_oblique_neu()
         self._check_shape(blk, blkl)
@@ -336,9 +327,9 @@ class TestDetectLoad(CheckBlockIO):
         path = os.path.join(*path)
         # load block.
         bio = BlockIO(filename=path)
-        meta = bio.read_meta()
+        meta = bio.read_meta(close_stream=True)
         self.assertEqual(meta.FORMAT_REV, '0.0.0.1')
-        blkl = bio.load()
+        blkl = bio.load(close_stream=True)
         # check with neu block.
         blk = get_blk_from_sample_neu()
         self._check_shape(blk, blkl)
@@ -355,9 +346,9 @@ class TestDetectLoad(CheckBlockIO):
         path = os.path.join(*path)
         # load block.
         bio = BlockIO(filename=path)
-        meta = bio.read_meta()
+        meta = bio.read_meta(close_stream=True)
         self.assertEqual(meta.FORMAT_REV, '0.0.1')
-        blkl = bio.load()
+        blkl = bio.load(close_stream=True)
         # check with neu block.
         blk = get_blk_from_oblique_neu()
         self._check_shape(blk, blkl)
@@ -373,9 +364,9 @@ class TestDetectLoad(CheckBlockIO):
         path = os.path.join(*path)
         # load block.
         bio = BlockIO(filename=path)
-        meta = bio.read_meta()
+        meta = bio.read_meta(close_stream=True)
         self.assertEqual(meta.FORMAT_REV, '0.0.1')
-        blkl = bio.load()
+        blkl = bio.load(close_stream=True)
         # check with neu block.
         blk = get_blk_from_sample_neu()
         self._check_shape(blk, blkl)
