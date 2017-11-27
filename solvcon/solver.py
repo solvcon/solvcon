@@ -609,7 +609,13 @@ class MeshSolver(metaclass=MeshSolverMeta):
         >>> svr._debug_check_array('shclcnd')
         >>> svr.debug = True
         >>> # nothing should happen because shclcnd is int array.
-        >>> svr.shclnds[svr.ngstcell,:] = np.nan
+        >>> # but note, svr.shclnds[svr.ngstcell,:] = np.nan gets through
+        >>> # numpy value checking: https://github.com/numpy/numpy/issues/4592
+        >>> # and with debug Python, it results into segfault.
+        >>> svr.shclnds[svr.ngstcell,0] = np.nan
+        Traceback (most recent call last):
+            ...
+        ValueError: cannot convert float NaN to integer
         >>> svr._debug_check_array('shclnds') # doctest: +ELLIPSIS
         """
         # do nothing if not in debug mode.
