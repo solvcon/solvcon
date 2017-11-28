@@ -15,6 +15,9 @@ notifications:
   slack:
     rooms:
       secure: bW29JOqmFy0GnsX5epQDSA6vf4urxXTjxx+a7saHLKel3+VjBZvAUNRXC9tKNp6SkmIReuRAccCKe5XjWnadSxn6/mmUxWS/w+D95flTs8AFjycglr8rNLf8CQsjtg3IrcxuSoh9BJNbf7Ae/bqJ0LZSf8hdsQnSKHd7BxFuld8Pevtf2mwte97hVeO5xyCZH/dGvhTUzl8Ygzn+cZBNGwkh6rUwn2H2eIN9azoVzHVlvvPWg7IZC1L48CkijXqWgm1mhxQMRDyPw7UjABuORTCF3py7gUrib9AP67uSyU1oxIovehMtQ8WhbE7WXqX3RASm/NgP9dbXPo8nF5qe2vNzCVD1Y2y0EGVnvq38cLVIGS97NCm/Njnlb7nGqpWPhx1i0VnlxqD0uqmOxcolqnVQuw41+a+ZsH0OwCWg6xRJhSSdZxAZm8z88U1LhpJX5tfOlbV47ZoBA+0Gf+F3FFzu/k6TO8vdaeDrdBuzlaMrHZdVe42Wd0JGnvUToEzCRklvjMuPNGfsPrtAFfYzPhaZ53VGGW4nS1/x5bjTCN6BvFrSErFkUCrmfvee9+ltMovbw/b/wchnnyPX0X1qfseaDZIQ6860A7D6Tcv6DnrnflfbLLhZkfuGGkRhKAmASdB8gGBpgNJVoeAXbdJVJCJCSPCxMN1B15dZdHNvzfc=
+    on_success: always  # options: [always|never|change] default: always
+    on_failure: always  # options: [always|never|change] default: always
+    on_start: never     # options: [always|never|change] default: always
   webhooks:
     urls:
       - https://webhooks.gitter.im/e/b446fff58c8ee17b216d
