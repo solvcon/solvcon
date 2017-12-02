@@ -61,9 +61,9 @@ from numpy.distutils import log
 
 from distutils.extension import Extension
 from numpy.distutils.core import setup
+from numpy.distutils.command import build_ext as np_build_ext
 from Cython.Build import cythonize
 from Cython.Distutils import Extension as CyExtension
-import pybind11
 
 import solvcon as sc
 
@@ -122,6 +122,49 @@ def make_cython_extension(
         extra_compile_args=extra_compile_args,
         extra_link_args=[rpathflag],
     )
+
+
+class CmakeExtension(Extension):
+    pass
+
+
+class my_build_ext(np_build_ext.build_ext):
+
+    def _copy_cmake_extension(self, ext):
+        import shutil
+        from distutils.errors import DistutilsSetupError
+        from distutils.dep_util import newer_group
+
+        sources = ext.sources
+        if sources is None or not isinstance(sources, (list, tuple)):
+            raise DistutilsSetupError(
+                  "in 'ext_modules' option (extension '%s'), "
+                  "'sources' must be present and must be "
+                  "a list of source filenames" % ext.name)
+        sources = list(sources)
+
+        ext_path = self.get_ext_fullpath(ext.name)
+        depends = sources + ext.depends
+        if not (self.force or newer_group(depends, ext_path, 'newer')):
+            log.debug("skipping '%s' cmake extension (up-to-date)", ext.name)
+            return
+        else:
+            log.info("building '%s' cmake extension", ext.name)
+
+        extdir, extbase =  os.path.split(ext_path)
+        if not os.path.exists(extdir):
+            os.makedirs(extdir)
+        shutil.copyfile(
+            os.path.join('solvcon', extbase), ext_path)
+
+    def build_extension(self, ext):
+        ''' Copies the already-compiled pyd
+        '''
+        if isinstance(ext, CmakeExtension):
+            return self._copy_cmake_extension(ext)
+        else: # fallback
+            return np_build_ext.build_ext.build_extension(self, ext)
+
 
 def main():
     data_files = list()
@@ -210,6 +253,7 @@ def main():
                 '-Wno-unknown-pragmas',
             ],
         ),
+        CmakeExtension('solvcon.march', ['CMakeLists.txt']),
     ]
 
     # remove files when cleaning.
@@ -309,6 +353,9 @@ def main():
         ],
         package_data={
             'solvcon.vis': ["js/*"],
+        },
+        cmdclass={
+            'build_ext': my_build_ext,
         },
         ext_modules=ext_modules,
         data_files=data_files,

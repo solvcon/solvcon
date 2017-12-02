@@ -101,12 +101,15 @@ def test():
     """
     Run everything in :py:mod:`solvcon.tests` and :py:mod:`solvcon.io.tests`.
     """
+    import sys
     import os
-    import nose
+    from nose import run_exit
     from . import tests
     from .io import tests as iotests
     paths = [os.path.dirname(mod.__file__) for mod in (tests, iotests)]
-    nose.main(argv=['nosetests', '--exe'] + paths)
+    cmds = ['nosetests'] + paths
+    sys.argv = cmds
+    sys.exit(run_exit())
 
 if __name__ == '__main__':
     go()

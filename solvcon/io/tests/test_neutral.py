@@ -17,13 +17,13 @@ class NeutralTest(TestCase):
         Test reading functionality.
         """
         neu = self.neu
-        self.assert_(str(neu) == 
+        self.assertTrue(str(neu) ==
             '[Neutral (Example): 60 nodes, 116 elements, 1 groups, 2 bcs]')
-        self.assert_(str(neu.grps[0]) == 
+        self.assertTrue(str(neu.grps[0]) ==
             '[Group #1(fluid): 116 elements]')
-        self.assert_(str(neu.bcs[0]) == 
+        self.assertTrue(str(neu.bcs[0]) ==
             '[BC "element_side.1": 14 entries with 0 values]')
-        self.assert_(str(neu.bcs[1]) == 
+        self.assertTrue(str(neu.bcs[1]) ==
             '[BC "node.2": 16 entries with 0 values]')
 
     def test_blk_volume(self):
@@ -52,14 +52,14 @@ class NeutralTest(TestCase):
         self.assertEqual(blk.bndfcs.shape[0], 74)
         # extracted faces have only one related cell.
         exfcs = blk.bclist[0].facn[:,0]
-        self.assert_((blk.fccls[exfcs,1] < 0).all())
+        self.assertTrue((blk.fccls[exfcs,1] < 0).all())
         # mutual existance of original cell list and extract cell list.
         ocls = array([3,4,7,8,100,110,115,35,47,16,28,52,34,70], dtype='int32')-1
         ecls = blk.fccls[exfcs,0]
         for icl in ocls:
-            self.assert_(icl in ecls)
+            self.assertTrue(icl in ecls)
         for icl in ecls:
-            self.assert_(icl in ocls)
+            self.assertTrue(icl in ocls)
 
 """class TestNeutralSingle(NeutralTest):
     __test__ = True

@@ -271,16 +271,17 @@ class BulkSolver(solver.MeshSolver):
         ...     return svr
         >>> svr = get_solver(testing.create_trivial_2d_blk(), rho, vel)
         >>> # the return is a brand new array.
-        >>> BulkSolver.get_reynolds(svr.soln[1], dia, dvisco)
-        array([ 123550.17650025,  123550.17650025,  123550.17650025])
+        >>> ret = BulkSolver.get_reynolds(svr.soln[1], dia, dvisco)
+        >>> ret.tolist() # doctest: +NORMALIZE_WHITESPACE
+        [123550.17650025214, 123550.17650025214, 123550.17650025214]
 
         For memory efficiency, output array can be assigned:
 
         >>> svr = get_solver(testing.create_trivial_2d_blk(), rho, vel)
         >>> result = np.empty_like(svr.soln[1])
         >>> ret = BulkSolver.get_reynolds(svr.soln[1], dia, dvisco, out=result)
-        >>> ret
-        array([ 123550.17650025,  123550.17650025,  123550.17650025])
+        >>> ret.tolist() # doctest: +NORMALIZE_WHITESPACE
+        [123550.17650025214, 123550.17650025214, 123550.17650025214]
         >>> # the return is the preallocated array.
         >>> ret is result
         True
