@@ -5,10 +5,15 @@ Release date:
 
 Changes:
 
+- Port the gas-dynamics solver to use C++11 and interface with pybind11
 - #105: Split examples/run_linear_cvg.sh into two files 
 - #116: Update document to use top-level namespace solvcon
+- #192: Drop support for Python versions prior 3.6
 
-Bug-fixes:
+Bug fixes:
+
+- #145: system-wide installation did not deploy external build extensions
+  correctly
 
 Version 0.1.4
 +++++++++++++
