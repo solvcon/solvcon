@@ -45,9 +45,16 @@ matrix:
 
 before_install:
   # Configure ssh
-  - ssh-keygen -t rsa -f ~/.ssh/id_rsa -N "" -q
+  - ssh-keygen -t rsa -f ~/.ssh/id_rsa -N ""
+  - chmod 700 ~/.ssh/
   - cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys
+  - chmod 600 ~/.ssh/authorized_keys
   - ssh-keyscan -t rsa localhost >> ~/.ssh/known_hosts
+  - ssh-keyscan -t rsa 127.0.0.1 >> ~/.ssh/known_hosts
+  - chmod 600 ~/.ssh/known_hosts
+  - ls -al ~/.ssh/
+  - ssh localhost ls
+  - ssh 127.0.0.1 ls
   # Install minimal conda
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
       wget https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -O miniconda.sh;
