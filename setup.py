@@ -305,11 +305,14 @@ def main():
                 os.environ["CONDA_PREFIX"], "lib")
         else:
             conda_evars = ""
+        cmake_cmds = [
+            'env %s cmake' % conda_evars,
+            '-DPYTHON_EXECUTABLE:FILEPATH=%s' % sys.executable,
+            '-DCMAKE_BUILD_TYPE=%s ../..' % cmake_build_type,
+        ]
         cmds = ['mkdir -p %s' % cmake_build_dir,
                 'cd %s' % cmake_build_dir,
-                'env %s cmake -DPYTHON_EXECUTABLE:FILEPATH=%s '
-                '-DCMAKE_BUILD_TYPE=%s ../..' % (
-                    conda_evars, sys.executable, cmake_build_type),
+                ' '.join(cmake_cmds),
                 'env %s make install' % conda_evars]
         sys.stdout.write('\n'.join(['[for cmake] '+cmd for cmd in cmds]))
         sys.stdout.write('\n')

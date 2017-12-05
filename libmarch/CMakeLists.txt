@@ -25,6 +25,7 @@ include_directories("include" ${SCOTCH_INCLUDE_DIRS})
 
 set(MARCH_WARNOPT "-Werror -Wall -Wextra")
 set(MARCH_WARNOPT "${MARCH_WARNOPT} -Wno-unused-function -Wno-unreachable-code -Wno-unused-private-field -Wno-missing-braces -Wno-sign-compare")
+set(MARCH_WARNOPT "${MARCH_WARNOPT} -Wno-error=deprecated-declarations")
 # FIXME: remove after port all legacy C code.
 set(MARCH_WARNOPT "${MARCH_WARNOPT} -Wno-error=sign-compare")
 
