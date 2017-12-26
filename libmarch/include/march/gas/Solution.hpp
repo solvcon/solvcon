@@ -226,6 +226,7 @@ public:
       : m_so0c(ngstcell, ncell), m_so0n(ngstcell, ncell), m_so0t(ngstcell, ncell)
       , m_so1c(ngstcell, ncell), m_so1n(ngstcell, ncell)
       , m_stm(ngstcell, ncell), m_cflo(ngstcell, ncell), m_cflc(ngstcell, ncell)
+      , m_gamma(ngstcell, ncell)
     {}
 
     Solution() = delete;
@@ -254,6 +255,9 @@ public:
     real_type & cflc(index_type irow)       { return m_cflc[irow]; }
     real_type   cflc(index_type irow) const { return m_cflc[irow]; }
 
+    real_type & gamma(index_type irow)       { return m_gamma[irow]; }
+    real_type   gamma(index_type irow) const { return m_gamma[irow]; }
+
     void update() {
         std::swap(m_so0c, m_so0n);
         std::swap(m_so1c, m_so1n);
@@ -270,6 +274,7 @@ public:
         SolutionOrder0Table<real_type, NDIM> stm() { return sol.m_stm; }
         LookupTable<real_type, 0> cflo() { return sol.m_cflo; }
         LookupTable<real_type, 0> cflc() { return sol.m_cflc; }
+        LookupTable<real_type, 0> gamma() { return sol.m_gamma; }
     };
 
     array_access arrays() { return array_access(*this); }
@@ -284,6 +289,7 @@ private:
     SolutionOrder0Table<real_type, NDIM> m_stm;
     LookupTable<real_type, 0> m_cflo;
     LookupTable<real_type, 0> m_cflc;
+    LookupTable<real_type, 0> m_gamma; /* ratio of specific heat */
 
 }; /* end class Solution */
 

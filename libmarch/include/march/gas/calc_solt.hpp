@@ -40,13 +40,12 @@ template< size_t NDIM >
 void Solver<NDIM>::calc_solt() {
     // references.
     auto & block = *m_block;
-    auto & amsca = m_sup.amsca;
     // jacobian matrix.
     Jacobian<neq, ndim> jaco;
     for (index_type icl=0; icl<block.ncell(); ++icl) {
         auto piso0t = m_sol.so0t(icl);
         auto piso1c = m_sol.so1c(icl);
-        jaco.update(amsca[icl][0], *m_sol.so0c(icl));
+        jaco.update(m_sol.gamma(icl), *m_sol.so0c(icl));
         for (index_type ieq=0; ieq<neq; ieq++) {
             piso0t[ieq] = 0.0;
             for (index_type idm=0; idm<NDIM; idm++) {

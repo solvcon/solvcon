@@ -281,11 +281,10 @@ WrapUnstructuredBlock
   : public python::WrapBase< WrapUnstructuredBlock<NDIM>, UnstructuredBlock<NDIM>, std::shared_ptr<UnstructuredBlock<NDIM>> >
 {
 
-    /* FIXME: I don't know why I need to duplicate these typedef's, but clang doesn't compile if I don't do it. */
-    typedef WrapUnstructuredBlock<NDIM> wrapper_type;
-    typedef UnstructuredBlock<NDIM> wrapped_type;
-    typedef std::shared_ptr<UnstructuredBlock<NDIM>> holder_type;
-    typedef python::WrapBase< wrapper_type, wrapped_type, holder_type > base_type;
+    /* aliases for dependent type name lookup */
+    using base_type = python::WrapBase< WrapUnstructuredBlock<NDIM>, UnstructuredBlock<NDIM>, std::shared_ptr<UnstructuredBlock<NDIM>> >;
+    using wrapper_type = typename base_type::wrapper_type;
+    using wrapped_type = typename base_type::wrapped_type;
 
     friend base_type;
 

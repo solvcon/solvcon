@@ -30,6 +30,7 @@ WrapGasSolver
   : public python::WrapBase< WrapGasSolver<NDIM>, gas::Solver<NDIM>, std::shared_ptr<gas::Solver<NDIM>> >
 {
 
+    /* aliases for dependent type name lookup */
     using base_type = python::WrapBase< WrapGasSolver<NDIM>, gas::Solver<NDIM>, std::shared_ptr<gas::Solver<NDIM>> >;
     using wrapped_type = typename base_type::wrapped_type;
     using block_type = typename wrapped_type::block_type;
@@ -39,19 +40,6 @@ WrapGasSolver
     WrapGasSolver(py::module & mod, const char * pyname, const char * clsdoc)
         : base_type(mod, pyname, clsdoc)
     {
-#define DECL_MARCH_PYBIND_GAS_SOLVER_PARAMETER(TYPE, NAME) \
-            .def_property( \
-                #NAME, \
-                [](wrapped_type const & self)            { return self.param().NAME(); }, \
-                [](wrapped_type       & self, TYPE NAME) { self.param().NAME() = NAME; } \
-            )
-#define DECL_MARCH_PYBIND_GAS_SOLVER_STATE(TYPE, NAME) \
-            .def_property( \
-                #NAME, \
-                [](wrapped_type const & self)            { return self.state().NAME; }, \
-                [](wrapped_type       & self, TYPE NAME) { self.state().NAME = NAME; } \
-            )
-
         using quantity_reference = gas::Quantity<NDIM> &;
         (*this)
             .def(py::init([](block_type & block) {
@@ -59,48 +47,143 @@ WrapGasSolver
             }))
             .def_property_readonly("block", &wrapped_type::block)
             .def_property_readonly(
+                "param",
+                [](wrapped_type & self) -> gas::Parameter & { return self.param(); },
+                py::return_value_policy::reference_internal // FIXME: if it's default, remove this line
+            )
+            .def_property_readonly(
+                "state",
+                [](wrapped_type & self) -> gas::State & { return self.state(); },
+                py::return_value_policy::reference_internal // FIXME: if it's default, remove this line
+            )
+            .def_property_readonly(
+                "sol",
+                [](wrapped_type & self) -> typename wrapped_type::solution_type & { return self.sol(); },
+                py::return_value_policy::reference_internal // FIXME: if it's default, remove this line
+            )
+            .def_property_readonly(
                 "qty",
                 [](wrapped_type & self) -> quantity_reference { return self.qty(); },
                 py::return_value_policy::reference_internal // FIXME: if it's default, remove this line
             )
-            DECL_MARCH_PYBIND_GAS_SOLVER_PARAMETER(real_type, sigma0)
-            DECL_MARCH_PYBIND_GAS_SOLVER_PARAMETER(real_type, taumin)
-            DECL_MARCH_PYBIND_GAS_SOLVER_PARAMETER(real_type, tauscale)
-            DECL_MARCH_PYBIND_GAS_SOLVER_PARAMETER(real_type, stop_on_negative_density)
-            DECL_MARCH_PYBIND_GAS_SOLVER_PARAMETER(real_type, stop_on_negative_energy)
-            DECL_MARCH_PYBIND_GAS_SOLVER_STATE(real_type, time)
-            DECL_MARCH_PYBIND_GAS_SOLVER_STATE(real_type, time_increment)
-            DECL_MARCH_PYBIND_GAS_SOLVER_STATE(real_type, step_current)
-            DECL_MARCH_PYBIND_GAS_SOLVER_STATE(real_type, step_global)
-            DECL_MARCH_PYBIND_GAS_SOLVER_STATE(real_type, substep_run)
-            DECL_MARCH_PYBIND_GAS_SOLVER_STATE(real_type, substep_current)
             .def("update", &wrapped_type::update)
             .def("calc_cfl", &wrapped_type::calc_cfl)
             .def("calc_solt", &wrapped_type::calc_solt)
             .def("calc_soln", &wrapped_type::calc_soln)
             .def("calc_dsoln", &wrapped_type::calc_dsoln)
             .def("init_solution", &wrapped_type::init_solution)
-            .def_property_readonly("amsca", [](wrapped_type & self) { return static_cast<LookupTableCore>(self.sup().amsca); })
-            .def_property_readonly("sol"  , [](wrapped_type & self) { return static_cast<LookupTableCore>(self.sol().arrays().so0c()); })
-            .def_property_readonly("soln" , [](wrapped_type & self) { return static_cast<LookupTableCore>(self.sol().arrays().so0n()); })
-            .def_property_readonly("solt" , [](wrapped_type & self) { return static_cast<LookupTableCore>(self.sol().arrays().so0t()); })
-            .def_property_readonly("dsol" , [](wrapped_type & self) { return static_cast<LookupTableCore>(self.sol().arrays().so1c()); })
-            .def_property_readonly("dsoln", [](wrapped_type & self) { return static_cast<LookupTableCore>(self.sol().arrays().so1n()); })
-            .def_property_readonly("stm"  , [](wrapped_type & self) { return static_cast<LookupTableCore>(self.sol().arrays().stm()); })
-            .def_property_readonly("cfl"  , [](wrapped_type & self) { return static_cast<LookupTableCore>(self.sol().arrays().cflc()); })
-            .def_property_readonly("ocfl" , [](wrapped_type & self) { return static_cast<LookupTableCore>(self.sol().arrays().cflo()); })
         ;
 
         this->m_cls.attr("ALMOST_ZERO") = double(wrapped_type::ALMOST_ZERO);
         this->m_cls.attr("neq") = NDIM + 2;
         this->m_cls.attr("_interface_init_") = std::make_tuple("cecnd", "cevol", "sfmrc");
         this->m_cls.attr("_solution_array_") = std::make_tuple("solt", "sol", "soln", "dsol", "dsoln");
-
-#undef DECL_MARCH_PYBIND_GAS_SOLVER_STATE
-#undef DECL_MARCH_PYBIND_GAS_SOLVER_PARAMETER
     }
 
 }; /* end class WrapGasSolver */
+
+class
+MARCH_PYTHON_WRAPPER_VISIBILITY
+WrapGasParameter
+  : public python::WrapBase< WrapGasParameter, gas::Parameter >
+{
+
+    friend base_type;
+
+    WrapGasParameter(py::module & mod, const char * pyname, const char * clsdoc)
+        : base_type(mod, pyname, clsdoc)
+    {
+#define DECL_MARCH_PYBIND_GAS_PARAMETER(TYPE, NAME) \
+            .def_property( \
+                #NAME, \
+                [](wrapped_type const & self)            { return self.NAME(); }, \
+                [](wrapped_type       & self, TYPE NAME) { self.NAME() = NAME; } \
+            )
+
+        (*this)
+            DECL_MARCH_PYBIND_GAS_PARAMETER(real_type, sigma0)
+            DECL_MARCH_PYBIND_GAS_PARAMETER(real_type, taumin)
+            DECL_MARCH_PYBIND_GAS_PARAMETER(real_type, tauscale)
+            DECL_MARCH_PYBIND_GAS_PARAMETER(real_type, stop_on_negative_density)
+            DECL_MARCH_PYBIND_GAS_PARAMETER(real_type, stop_on_negative_energy)
+        ;
+
+#undef DECL_MARCH_PYBIND_GAS_PARAMETER
+    }
+
+}; /* end class WrapGasParameter */
+
+class
+MARCH_PYTHON_WRAPPER_VISIBILITY
+WrapGasState
+  : public python::WrapBase< WrapGasState, gas::State >
+{
+
+    friend base_type;
+
+    WrapGasState(py::module & mod, const char * pyname, const char * clsdoc)
+        : base_type(mod, pyname, clsdoc)
+    {
+#define DECL_MARCH_PYBIND_GAS_STATE(TYPE, NAME) \
+            .def_property( \
+                #NAME, \
+                [](wrapped_type const & self)            { return self.NAME; }, \
+                [](wrapped_type       & self, TYPE NAME) { self.NAME = NAME; } \
+            )
+
+        (*this)
+            DECL_MARCH_PYBIND_GAS_STATE(real_type, time)
+            DECL_MARCH_PYBIND_GAS_STATE(real_type, time_increment)
+            DECL_MARCH_PYBIND_GAS_STATE(gas::State::int_type, step_current)
+            DECL_MARCH_PYBIND_GAS_STATE(gas::State::int_type, step_global)
+            DECL_MARCH_PYBIND_GAS_STATE(gas::State::int_type, substep_run)
+            DECL_MARCH_PYBIND_GAS_STATE(gas::State::int_type, substep_current)
+        ;
+
+#undef DECL_MARCH_PYBIND_GAS_STATE
+    }
+
+}; /* end class WrapGasState */
+
+template< size_t NDIM >
+class
+MARCH_PYTHON_WRAPPER_VISIBILITY
+WrapGasSolution
+  : public python::WrapBase< WrapGasSolution<NDIM>, gas::Solution<NDIM> >
+{
+
+    /* aliases for dependent type name lookup */
+    using base_type = python::WrapBase< WrapGasSolution<NDIM>, gas::Solution<NDIM> >;
+    using wrapped_type = typename base_type::wrapped_type;
+
+    friend base_type;
+
+    WrapGasSolution(py::module & mod, const char * pyname, const char * clsdoc)
+        : base_type(mod, pyname, clsdoc)
+    {
+#define DECL_MARCH_PYBIND_GAS_SOLUTION(NAME) \
+            .def_property_readonly( \
+                #NAME, \
+                [](wrapped_type & self) { \
+                    return static_cast<LookupTableCore>(self.arrays().NAME()); \
+                })
+
+        (*this)
+            DECL_MARCH_PYBIND_GAS_SOLUTION(so0c)
+            DECL_MARCH_PYBIND_GAS_SOLUTION(so0n)
+            DECL_MARCH_PYBIND_GAS_SOLUTION(so0t)
+            DECL_MARCH_PYBIND_GAS_SOLUTION(so1c)
+            DECL_MARCH_PYBIND_GAS_SOLUTION(so1n)
+            DECL_MARCH_PYBIND_GAS_SOLUTION(stm)
+            DECL_MARCH_PYBIND_GAS_SOLUTION(cflc)
+            DECL_MARCH_PYBIND_GAS_SOLUTION(cflo)
+            DECL_MARCH_PYBIND_GAS_SOLUTION(gamma)
+        ;
+
+#undef DECL_MARCH_PYBIND_GAS_SOLUTION
+    }
+
+}; /* end class WrapGasSolution */
 
 template< size_t NDIM >
 class
@@ -109,6 +192,7 @@ WrapGasQuantity
   : public python::WrapBase< WrapGasQuantity<NDIM>, gas::Quantity<NDIM>, std::unique_ptr<gas::Quantity<NDIM>> >
 {
 
+    /* aliases for dependent type name lookup */
     using base_type = python::WrapBase< WrapGasQuantity<NDIM>, gas::Quantity<NDIM>, std::unique_ptr<gas::Quantity<NDIM>> >;
     using wrapped_type = typename base_type::wrapped_type;
     using solver_type = typename wrapped_type::solver_type;
@@ -152,6 +236,7 @@ WrapGasTrimBase
   : public python::WrapBase< WrapGasTrimBase<TrimType, NDIM>, TrimType, std::unique_ptr<TrimType> >
 {
 
+    /* aliases for dependent type name lookup */
     using base_type = python::WrapBase< WrapGasTrimBase<TrimType, NDIM>, TrimType, std::unique_ptr<TrimType> >;
     using wrapped_type = typename base_type::wrapped_type;
     using solver_type = typename wrapped_type::solver_type;
@@ -177,10 +262,16 @@ template< size_t NDIM > class MARCH_PYTHON_WRAPPER_VISIBILITY WrapGasTrimInlet :
 
 PyObject * python::ModuleInitializer::initialize_gas(py::module & upmod) {
     py::module gas = upmod.def_submodule("gas", "Gas dynamic solver");
+    // section: solver and associated data
     WrapGasSolver<2>::commit(gas, "Solver2D", "Gas-dynamic solver (2D).");
     WrapGasSolver<3>::commit(gas, "Solver3D", "Gas-dynamic solver (3D).");
+    WrapGasParameter::commit(gas, "Parameter", "Gas-dynamics solver parameters.");
+    WrapGasState::commit(gas, "State", "Gas-dynamics solver states.");
+    WrapGasSolution<2>::commit(gas, "Solution2D", "Gas-dynamic solution data (2D).");
+    WrapGasSolution<3>::commit(gas, "Solution3D", "Gas-dynamic solution data (3D).");
     WrapGasQuantity<2>::commit(gas, "Quantity2D", "Gas-dynamics quantities (2D).");
     WrapGasQuantity<3>::commit(gas, "Quantity3D", "Gas-dynamics quantities (3D).");
+    // section: boundary-condition treatments
     WrapGasTrimNoOp<2>::commit(gas, "TrimNoOp2D", "Gas-dynamics non-reflective trim (2D).");
     WrapGasTrimNoOp<3>::commit(gas, "TrimNoOp3D", "Gas-dynamics non-reflective trim (3D).");
     WrapGasTrimNonRefl<2>::commit(gas, "TrimNonRefl2D", "Gas-dynamics non-reflective trim (2D).");

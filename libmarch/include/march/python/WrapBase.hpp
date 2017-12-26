@@ -22,17 +22,17 @@ namespace python {
 /**
  * Helper class for pybind11 class wrappers.
  */
-template< class Wrapper, class Wrapped, class Holder = std::unique_ptr<Wrapped>>
+template< class Wrapper, class Wrapped, class Holder = std::unique_ptr<Wrapped> >
 class
 MARCH_PYTHON_WRAPPER_VISIBILITY
 WrapBase {
 
 public:
 
-    typedef Wrapper wrapper_type;
-    typedef Wrapped wrapped_type;
-    typedef Holder holder_type;
-    typedef WrapBase< wrapper_type, wrapped_type, holder_type > base_type;
+    using wrapper_type = Wrapper;
+    using wrapped_type = Wrapped;
+    using holder_type = Holder;
+    using base_type = WrapBase< wrapper_type, wrapped_type, holder_type >;
 
     static wrapper_type & commit(pybind11::module & mod, const char * pyname, const char * clsdoc) {
         static wrapper_type derived(mod, pyname, clsdoc);

@@ -32,10 +32,6 @@ class GasPlusSolver:
         # algorithm object.
         solver_type = getattr(march.gas, "Solver%dD"%blk.ndim)
         self.alg = solver_type(blk._ustblk)
-        # set arrays.
-        for name in (('amsca',)
-                   + self._solution_array_ + ('stm', 'cfl', 'ocfl')):
-            setattr(self, name, getattr(self, 'tb'+name).F)
         self.blk = blk
         for bc in self.blk.bclist:
             bc.svr = self
@@ -85,103 +81,115 @@ class GasPlusSolver:
         return self.alg.block.ngstcell
 
     @property
-    def time(self):
-        return self.alg.time
-    @time.setter
-    def time(self, value):
-        self.alg.time = value
-
-    @property
-    def time_increment(self):
-        return self.alg.time_increment
-    @time_increment.setter
-    def time_increment(self, value):
-        self.alg.time_increment = value
-
-    @property
-    def step_current(self):
-        return self.alg.step_current
-    @step_current.setter
-    def step_current(self, value):
-        self.alg.step_current = value
-
-    @property
-    def step_global(self):
-        return self.alg.step_global
-    @step_global.setter
-    def step_global(self, value):
-        self.alg.step_global = value
-
-    @property
-    def substep_run(self):
-        return self.alg.substep_run
-    @substep_run.setter
-    def substep_run(self, value):
-        self.alg.substep_run = value
-
-    @property
-    def step_current(self):
-        return self.alg.step_current
-    @step_current.setter
-    def step_current(self, value):
-        self.alg.step_current = value
+    def param(self):
+        return self.alg.param
 
     @property
     def sigma0(self):
-        return self.alg.sigma0
+        return self.alg.param.sigma0
     @sigma0.setter
     def sigma0(self, value):
-        self.alg.sigma0 = value
+        self.alg.param.sigma0 = value
 
     @property
     def taumin(self):
-        return self.alg.taumin
+        return self.alg.param.taumin
     @taumin.setter
     def taumin(self, value):
-        self.alg.taumin = value
+        self.alg.param.taumin = value
 
     @property
     def tauscale(self):
-        return self.alg.tauscale
+        return self.alg.param.tauscale
     @tauscale.setter
     def tauscale(self, value):
-        self.alg.tauscale = value
+        self.alg.param.tauscale = value
 
     @property
-    def tbamsca(self):
-        return self.alg.amsca
+    def state(self):
+        return self.alg.state
 
     @property
-    def tbsol(self):
+    def time(self):
+        return self.alg.state.time
+    @time.setter
+    def time(self, value):
+        self.alg.state.time = value
+
+    @property
+    def time_increment(self):
+        return self.alg.state.time_increment
+    @time_increment.setter
+    def time_increment(self, value):
+        self.alg.state.time_increment = value
+
+    @property
+    def step_current(self):
+        return self.alg.state.step_current
+    @step_current.setter
+    def step_current(self, value):
+        self.alg.state.step_current = value
+
+    @property
+    def step_global(self):
+        return self.alg.state.step_global
+    @step_global.setter
+    def step_global(self, value):
+        self.alg.state.step_global = value
+
+    @property
+    def substep_run(self):
+        return self.alg.state.substep_run
+    @substep_run.setter
+    def substep_run(self, value):
+        self.alg.state.substep_run = value
+
+    @property
+    def step_current(self):
+        return self.alg.state.step_current
+    @step_current.setter
+    def step_current(self, value):
+        self.alg.state.step_current = value
+
+    @property
+    def solution(self):
         return self.alg.sol
 
     @property
-    def tbsoln(self):
-        return self.alg.soln
+    def sol(self):
+        return self.alg.sol.so0c.F
 
     @property
-    def tbsolt(self):
-        return self.alg.solt
+    def soln(self):
+        return self.alg.sol.so0n.F
 
     @property
-    def tbdsol(self):
-        return self.alg.dsol
+    def solt(self):
+        return self.alg.sol.so0t.F
 
     @property
-    def tbdsoln(self):
-        return self.alg.dsoln
+    def dsol(self):
+        return self.alg.sol.so1c.F
 
     @property
-    def tbstm(self):
-        return self.alg.stm
+    def dsoln(self):
+        return self.alg.sol.so1n.F
 
     @property
-    def tbcfl(self):
-        return self.alg.cfl
+    def stm(self):
+        return self.alg.sol.stm.F
 
     @property
-    def tbocfl(self):
-        return self.alg.ocfl
+    def cfl(self):
+        return self.alg.sol.cflc.F
+
+    @property
+    def ocfl(self):
+        return self.alg.sol.cflo.F
+
+    @property
+    def gamma(self):
+        return self.alg.sol.gamma.F
 
    ############################################################################
     # Anchors.

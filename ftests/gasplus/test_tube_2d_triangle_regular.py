@@ -228,7 +228,7 @@ class YHomogeneityCheck(sc.MeshAnchor):
                         else:
                             self.hdata.append(hdatum)
 
-    def presub(self):
+    def prefull(self):
         self._check()
 
     def postloop(self):
@@ -272,7 +272,7 @@ def create_case(
     # Field initialization and derived calculations.
     cse.defer(gp.FillAnchor,
               mappers={'soln': gp.GasPlusSolver.ALMOST_ZERO,
-                       'dsoln': 0.0, 'amsca': gamma})
+                       'dsoln': 0.0, 'gamma': gamma})
     cse.defer(XDiaphragmAnchor,
               xloc=(mesher.lowerleft[0]+mesher.upperright[0])/2,
               gamma=gamma, rho1=rho1, p1=p1, rho2=rho2, p2=p2)

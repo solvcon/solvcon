@@ -45,7 +45,6 @@ template< size_t NDIM >
 void Solver<NDIM>::calc_cfl() {
     // references.
     auto & block = *m_block;
-    auto & amsca = m_sup.amsca;
     const real_type hdt = m_state.time_increment / 2.0;
     for (index_type icl=0; icl<block.ncell(); ++icl) {
         auto & cflc = m_sol.cflc(icl);
@@ -62,7 +61,7 @@ void Solver<NDIM>::calc_cfl() {
             dist = fmin(vec.length(), dist);
         };
         // wave speed.
-        const real_type ga = amsca[icl][0];
+        const real_type ga = m_sol.gamma(icl);
         const real_type ga1 = ga - 1.0;
         real_type wspd = piso0n.momentum().square();
         const real_type ke = wspd/(2.0*piso0n.density());

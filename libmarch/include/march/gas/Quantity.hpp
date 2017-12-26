@@ -30,8 +30,6 @@ public:
     using o0hand_type = typename solution_type::o0hand_type;
     using o1hand_type = typename solution_type::o1hand_type;
 
-    static_assert(solver_type::NSCA == 1, "gas solver scalar constant size not 1");
-
     static constexpr real_type ALMOST_ZERO = solver_type::ALMOST_ZERO;
 
     Quantity(solver_type const & solver)
@@ -231,13 +229,12 @@ void Quantity<NDIM>::update_schlieren(real_type const k, real_type const k0, rea
 
 template< size_t NDIM >
 void Quantity<NDIM>::update_misc(real_type const gasconst) {
-    auto const & amsca = m_solver.sup().amsca;
     for (index_type icl=-m_block.ngstcell(); icl<m_block.ncell(); ++icl) {
         // input
         auto const sft = get_shift(icl);
         auto const & soln = so0n(icl);
         auto const & dsoln = so1n(icl);
-        const real_type ga = amsca[icl][0];
+        const real_type ga = m_solver.sol().gamma(icl);
         const real_type ga1 = ga - 1;
         auto const & tvel = reinterpret_cast<vector_type &>(m_velocity[icl]);
         auto const rho = m_density[icl];

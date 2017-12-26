@@ -40,7 +40,6 @@ template< size_t NDIM >
 void Solver<NDIM>::calc_soln() {
     // references.
     const auto & block = *m_block;
-    const auto & amsca = m_sup.amsca;
     // buffers.
     Jacobian<neq, ndim> jaco;
 
@@ -70,7 +69,7 @@ void Solver<NDIM>::calc_soln() {
             }
 
             // temporal flux (given space).
-            jaco.update(amsca[icl][0], *pjso0c);
+            jaco.update(m_sol.gamma(icl), *pjso0c);
             for (index_type inf=0; inf<tfcnds[0]; ++inf) {
                 real_type usfc[neq];
                 vector_type dfcn[neq];

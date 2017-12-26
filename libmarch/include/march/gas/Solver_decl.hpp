@@ -21,6 +21,21 @@ namespace gas {
 
 template< size_t NDIM > class Quantity;
 
+struct State {
+    using int_type = int32_t;
+
+    real_type time=0.0;
+    real_type time_increment=0.0;
+    int_type step_current=0;
+    int_type step_global=0;
+    int_type substep_run=2;
+    int_type substep_current=0;
+
+    std::string step_info_string() const {
+        return string_format("step=%d substep=%d", step_current, substep_current);
+    }
+}; /* end struct State */
+
 template< size_t NDIM >
 class Solver
   : public std::enable_shared_from_this<Solver<NDIM>>
@@ -28,14 +43,13 @@ class Solver
 
 public:
 
-    using int_type = int32_t;
+    using int_type = State::int_type;
     using block_type = UnstructuredBlock<NDIM>;
     using vector_type = Vector<NDIM>;
     using solution_type = Solution<NDIM>;
 
     static constexpr size_t ndim = solution_type::ndim;
     static constexpr size_t neq = solution_type::neq;
-    static constexpr size_t NSCA = 1;
     static constexpr real_type TINY = 1.e-60;
     static constexpr real_type ALMOST_ZERO = 1.e-200;
 
@@ -45,31 +59,6 @@ public:
     static constexpr index_type FCNCL = block_type::FCNCL;
     static constexpr index_type FCREL = block_type::FCREL;
     static constexpr index_type BFREL = block_type::BFREL;
-
-    struct State {
-        real_type time=0.0;
-        real_type time_increment=0.0;
-        int_type step_current=0;
-        int_type step_global=0;
-        int_type substep_run=2;
-        int_type substep_current=0;
-
-        std::string step_info_string() const {
-            return string_format("step=%d substep=%d", step_current, substep_current);
-        }
-    }; /* end struct State */
-
-    struct Supplement {
-        LookupTable<real_type, NSCA> amsca;
-        Supplement() = delete;
-        Supplement(Supplement const & ) = delete;
-        Supplement(Supplement       &&) = delete;
-        Supplement operator=(Supplement const & ) = delete;
-        Supplement operator=(Supplement       &&) = delete;
-        Supplement(index_type ngstcell, index_type ncell)
-          : amsca(ngstcell, ncell)
-        {}
-    }; /* end struct Supplement */
 
     class ctor_passkey {
     private:
@@ -97,8 +86,6 @@ public:
     State       & state()       { return m_state; } 
     solution_type const & sol() const { return m_sol; }
     solution_type       & sol()       { return m_sol; }
-    Supplement const & sup() const { return m_sup; }
-    Supplement       & sup()       { return m_sup; }
     Quantity<NDIM> const & qty() const { return m_qty; }
     Quantity<NDIM>       & qty()       { return m_qty; }
 
@@ -140,7 +127,6 @@ private:
     Parameter m_param;
     State m_state;
     solution_type m_sol;
-    Supplement m_sup;
     Quantity<NDIM> m_qty;
 
 }; /* end class Solver */
