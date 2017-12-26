@@ -32,7 +32,7 @@ public:
 
     static_assert(solver_type::NSCA == 1, "gas solver scalar constant size not 1");
 
-    static constexpr real_type ALMOST_ZERO=1.e-200;
+    static constexpr real_type ALMOST_ZERO = solver_type::ALMOST_ZERO;
 
     Quantity(solver_type const & solver)
       : m_solver(solver)

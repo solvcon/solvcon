@@ -37,9 +37,6 @@ Validate C++-based ``gasplus`` solver.
 # Beware, it's full of hacks.
 
 
-from __future__ import absolute_import, division, print_function
-
-
 import os
 import math
 import collections

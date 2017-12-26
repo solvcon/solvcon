@@ -33,10 +33,11 @@ public:
     using vector_type = Vector<NDIM>;
     using solution_type = Solution<NDIM>;
 
-    static constexpr size_t ndim=solution_type::ndim;
-    static constexpr size_t neq=solution_type::neq;
-    static constexpr size_t NSCA=1;
-    static constexpr real_type TINY=1.e-60;
+    static constexpr size_t ndim = solution_type::ndim;
+    static constexpr size_t neq = solution_type::neq;
+    static constexpr size_t NSCA = 1;
+    static constexpr real_type TINY = 1.e-60;
+    static constexpr real_type ALMOST_ZERO = 1.e-200;
 
     static constexpr index_type FCMND = block_type::FCMND;
     static constexpr index_type CLMND = block_type::CLMND;
@@ -49,6 +50,7 @@ public:
         real_type time=0.0;
         real_type time_increment=0.0;
         int_type step_current=0;
+        int_type step_global=0;
         int_type substep_run=2;
         int_type substep_current=0;
 

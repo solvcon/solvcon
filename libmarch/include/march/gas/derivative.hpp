@@ -229,7 +229,7 @@ struct GradientWeigh {
 
     static constexpr size_t MFGE = GradientMeta::MFGE;
 
-    static constexpr real_type ALMOST_ZERO=1.e-200;
+    static constexpr real_type ALMOST_ZERO = Solver<NDIM>::ALMOST_ZERO;
 
     const shape_type & gshape;
     const solution_type & shouse;

@@ -694,6 +694,7 @@ WrapGasSolver
             DECL_MARCH_PYBIND_GAS_SOLVER_STATE(real_type, time)
             DECL_MARCH_PYBIND_GAS_SOLVER_STATE(real_type, time_increment)
             DECL_MARCH_PYBIND_GAS_SOLVER_STATE(real_type, step_current)
+            DECL_MARCH_PYBIND_GAS_SOLVER_STATE(real_type, step_global)
             DECL_MARCH_PYBIND_GAS_SOLVER_STATE(real_type, substep_run)
             DECL_MARCH_PYBIND_GAS_SOLVER_STATE(real_type, substep_current)
             .def("update", &wrapped_type::update)
@@ -712,6 +713,11 @@ WrapGasSolver
             .def_property_readonly("cfl"  , [](wrapped_type & self) { return static_cast<LookupTableCore>(self.sol().arrays().cflc()); })
             .def_property_readonly("ocfl" , [](wrapped_type & self) { return static_cast<LookupTableCore>(self.sol().arrays().cflo()); })
         ;
+
+        this->m_cls.attr("ALMOST_ZERO") = double(wrapped_type::ALMOST_ZERO);
+        this->m_cls.attr("neq") = NDIM + 2;
+        this->m_cls.attr("_interface_init_") = std::make_tuple("cecnd", "cevol", "sfmrc");
+        this->m_cls.attr("_solution_array_") = std::make_tuple("solt", "sol", "soln", "dsol", "dsoln");
 
 #undef DECL_MARCH_PYBIND_GAS_SOLVER_STATE
 #undef DECL_MARCH_PYBIND_GAS_SOLVER_PARAMETER

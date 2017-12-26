@@ -9,42 +9,122 @@ C++-based Gas-dynamics solver.
 """
 
 
+import time
+
 import numpy as np
 
 import solvcon as sc
 from solvcon import march
+from solvcon import boundcond
 
 
-class GasPlusSolver(sc.MeshSolver):
+class GasPlusSolver:
     """
     Spatial loops for the gas-dynamics solver.
     """
 
-    _interface_init_ = ('cecnd', 'cevol', 'sfmrc')
-    _solution_array_ = ('solt', 'sol', 'soln', 'dsol', 'dsoln')
+    ALMOST_ZERO = march.gas.Solver2D.ALMOST_ZERO
+
+    _interface_init_ = march.gas.Solver2D._interface_init_
+    _solution_array_ = march.gas.Solver2D._solution_array_
 
     def __init__(self, blk, **kw):
-        self.neq = blk.ndim + 2
-        super(GasPlusSolver, self).__init__(blk, **kw)
-        self.substep_run = 2
-        ndim = blk.ndim
-        ncell = blk.ncell
-        ngstcell = blk.ngstcell
-        fpdtype = 'float64'
         # algorithm object.
         solver_type = getattr(march.gas, "Solver%dD"%blk.ndim)
-        alg = solver_type(blk._ustblk)
-        self.alg = alg
-        # parameters.
-        self.grpda = np.empty((self.ngroup, 1), dtype=fpdtype)
+        self.alg = solver_type(blk._ustblk)
         # set arrays.
         for name in (('amsca',)
                    + self._solution_array_ + ('stm', 'cfl', 'ocfl')):
             setattr(self, name, getattr(self, 'tb'+name).F)
+        self.blk = blk
+        for bc in self.blk.bclist:
+            bc.svr = self
+        #: 0-based serial number of this solver in a parallel execution.
+        self.svrn = self.blk.blkn
+        #: Total number of parallel solvers.
+        self.nsvr = None
+        # marching facilities.
+        self.runanchors = sc.MeshAnchorList(self)
+        self.marchret = None
+        self.der = dict()
 
     @property
-    def gdlen(self):
-        return self.grpda.shape[1]
+    def bclist(self):
+        return self.blk.bclist
+
+    @property
+    def neq(self):
+        return self.alg.neq
+
+    @property
+    def ndim(self):
+        return self.alg.block.ndim
+
+    @property
+    def nnode(self):
+        return self.alg.block.nnode
+
+    @property
+    def nface(self):
+        return self.alg.block.nface
+
+    @property
+    def ncell(self):
+        return self.alg.block.ncell
+
+    @property
+    def ngstnode(self):
+        return self.alg.block.ngstnode
+
+    @property
+    def ngstface(self):
+        return self.alg.block.ngstface
+
+    @property
+    def ngstcell(self):
+        return self.alg.block.ngstcell
+
+    @property
+    def time(self):
+        return self.alg.time
+    @time.setter
+    def time(self, value):
+        self.alg.time = value
+
+    @property
+    def time_increment(self):
+        return self.alg.time_increment
+    @time_increment.setter
+    def time_increment(self, value):
+        self.alg.time_increment = value
+
+    @property
+    def step_current(self):
+        return self.alg.step_current
+    @step_current.setter
+    def step_current(self, value):
+        self.alg.step_current = value
+
+    @property
+    def step_global(self):
+        return self.alg.step_global
+    @step_global.setter
+    def step_global(self, value):
+        self.alg.step_global = value
+
+    @property
+    def substep_run(self):
+        return self.alg.substep_run
+    @substep_run.setter
+    def substep_run(self, value):
+        self.alg.substep_run = value
+
+    @property
+    def step_current(self):
+        return self.alg.step_current
+    @step_current.setter
+    def step_current(self, value):
+        self.alg.step_current = value
 
     @property
     def sigma0(self):
@@ -103,82 +183,179 @@ class GasPlusSolver(sc.MeshSolver):
     def tbocfl(self):
         return self.alg.ocfl
 
-    def init(self, **kw):
-        # super method.
-        super(GasPlusSolver, self).init(**kw)
-        self._debug_check_array('soln', 'dsoln')
-
+   ############################################################################
+    # Anchors.
     def provide(self):
-        # super method.
-        super(GasPlusSolver, self).provide()
-        self._debug_check_array('soln', 'dsoln')
-        # density should not be zero.
-        self._debug_check_array(np.abs(self.soln[:,0])<=self.ALMOST_ZERO)
-        # fill group data array.
-        self.grpda.fill(0)
+        self.runanchors('provide')
+
+    def preloop(self):
+        self.runanchors('preloop')
+
+    def postloop(self):
+        self.runanchors('postloop')
+
+    def exhaust(self):
+        self.runanchors('exhaust')
+    # Anchors.
+    ############################################################################
+
+    def march(self, time_current, time_increment, steps_run, worker=None):
+        """
+        :param time_current: Starting time of this set of marching steps.
+        :type time_current: float
+        :param time_increment: Temporal interval :math:`\Delta t` of the time
+            step.
+        :type time_increment: float
+        :param steps_run: The count of time steps to run.
+        :type steps_run: int
+        :return: :py:attr:`marchret`
+
+        This method performs time-marching.  The parameters *time_current* and
+        *time_increment* are used to reset the instance attributes
+        :py:attr:`time` and :py:attr:`time_increment`, respectively.  In each
+        invokation :py:attr:`step_current` is reset to 0.
+
+        There is a nested two-level loop in this method for time-marching.  The
+        outer loop iterates for time steps, and the inner loop iterates for sub
+        time steps.  The outer loop runs *steps_run* times, while the inner
+        loop runs :py:attr:`substep_run` times.  In total, the inner loop runs
+        *steps_run* \* :py:attr:`substep_run` times.  In each sub time step (in
+        the inner loop), the increment of the attribute :py:attr:`time` is
+        :py:attr:`time_increment`/:py:attr:`substep_run`.  The temporal
+        increment per time step is effectively :py:attr:`time_increment`, with
+        a slight error because of round-off.
+
+        Before entering and after leaving the outer loop, :py:meth:`premarch
+        <solvcon.anchor.Anchor.premarch>` and :py:meth:`postmarch
+        <solvcon.anchor.Anchor.postmarch>` anchors will be run (through the
+        attribute :py:attr:`runanchors`).  Similarly, before entering and after
+        leaving the inner loop, :py:meth:`prefull
+        <solvcon.anchor.Anchor.prefull>` and :py:meth:`postfull
+        <solvcon.anchor.Anchor.postfull>` anchors will be run.  Inside the
+        inner loop of sub steps, before and after executing all the marching
+        methods, :py:meth:`presub <solvcon.anchor.Anchor.presub>` and
+        :py:meth:`postsub <solvcon.anchor.Anchor.postsub>` anchors will be run.
+        Lastly, before and after invoking every marching method, a pair of
+        anchors will be run.  The anchors for a marching method are related to
+        the name of the marching method itself.  For example, if a marching
+        method is named "calcsome", anchor ``precalcsome`` will be run before
+        the invocation, and anchor ``postcalcsome`` will be run afterward.
+
+        Derived classes can set :py:attr:`marchret` dictionary, and
+        :py:meth:`march` will return the dictionary at the end of execution.
+        The dictionary is reset to empty at the begninning of the execution.
+        """
+        self.marchret = dict()
+        self.step_current = 0
+        self.runanchors('premarch')
+        while self.step_current < steps_run:
+            self.substep_current = 0
+            self.runanchors('prefull')
+            t0 = time.time()
+            while self.substep_current < self.substep_run:
+                # set up time.
+                self.time = time_current
+                self.time_increment = time_increment
+                self.runanchors('presub')
+                # run marching methods.
+                for mmname in self.mmnames:
+                    method = getattr(self, mmname)
+                    t1 = time.time()
+                    self.runanchors('pre'+mmname)
+                    t2 = time.time()
+                    method(worker=worker)
+                    self.runanchors('post'+mmname)
+                # increment time.
+                time_current += self.time_increment/self.substep_run
+                self.time = time_current
+                self.time_increment = time_increment
+                self.substep_current += 1
+                self.runanchors('postsub')
+            self.step_global += 1
+            self.step_current += 1
+            self.runanchors('postfull')
+        self.runanchors('postmarch')
+        if worker:
+            worker.conn.send(self.marchret)
+        return self.marchret
+
+    def init(self, **kw):
+        for arrname in self._solution_array_:
+            arr = getattr(self, arrname)
+            arr.fill(self.ALMOST_ZERO) # prevent initializer forgets to set!
+        for bc in self.bclist:
+            bc.init(**kw)
+
+    def final(self, **kw):
+        pass
 
     def apply_bc(self):
-        super(GasPlusSolver, self).apply_bc()
         self.call_non_interface_bc('soln')
         self.call_non_interface_bc('dsoln')
+
+    def call_non_interface_bc(self, name, *args, **kw):
+        """
+        :param name: Name of the method of BC to call.
+        :type name: str
+        :return: Nothing.
+
+        Call method of each of non-interface BC objects in my list.
+        """
+        bclist = [bc for bc in self.bclist
+            if not isinstance(bc, boundcond.interface)]
+        for bc in bclist:
+            try:
+                getattr(bc, name)(*args, **kw)
+            except Exception as e:
+                e.args = tuple([str(bc), name] + list(e.args))
+                raise
 
     ###########################################################################
     # Begin marching algorithm.
-    @sc.MeshSolver.register_marcher
+    @property
+    def mmnames(self):
+        """
+        Generator of time-marcher names.
+        """
+        for name in [
+            'update',
+            'calcsolt',
+            'calcsoln',
+            'ibcsoln',
+            'bcsoln',
+            'calccfl',
+            'calcdsoln',
+            'ibcdsoln',
+            'bcdsoln',
+        ]:
+            yield name
+
     def update(self, worker=None):
-        self._debug_check_array('soln', 'dsoln')
         self.alg.update(self.time, self.time_increment)
-        self._debug_check_array('sol', 'dsol')
 
-    @sc.MeshSolver.register_marcher
     def calcsolt(self, worker=None):
-        self._debug_check_array('sol', 'dsol')
         self.alg.calc_solt()
-        self._debug_check_array('solt')
 
-    @sc.MeshSolver.register_marcher
     def calcsoln(self, worker=None):
-        self._debug_check_array('sol', 'dsol')
         self.alg.calc_soln()
-        if self.debug:
-            self._debug_check_array('soln', 'dsoln')
-            self._debug_check_array(self.soln[self.ngstcell:,0]<=0)
 
-    @sc.MeshSolver.register_marcher
     def ibcsoln(self, worker=None):
         if worker: self.exchangeibc('soln', worker=worker)
 
-    @sc.MeshSolver.register_marcher
     def bcsoln(self, worker=None):
-        self._debug_check_array('sol', 'dsol')
         self.call_non_interface_bc('soln')
-        if self.debug:
-            self._debug_check_array('soln', 'dsoln')
-            self._debug_check_array(self.soln[self.ngstcell:,0]<=0)
 
-    @sc.MeshSolver.register_marcher
     def calccfl(self, worker=None):
-        self._debug_check_array('sol', 'dsol')
         self.alg.calc_cfl()
-        self._debug_check_array('cfl', 'ocfl', 'soln', 'dsoln')
 
-    @sc.MeshSolver.register_marcher
     def calcdsoln(self, worker=None):
-        self._debug_check_array('sol', 'dsol')
         self.alg.calc_dsoln()
-        self._debug_check_array('soln', 'dsoln')
 
-    @sc.MeshSolver.register_marcher
     def ibcdsoln(self, worker=None):
         if worker: self.exchangeibc('dsoln', worker=worker)
 
-    @sc.MeshSolver.register_marcher
     def bcdsoln(self, worker=None):
-        self._debug_check_array('sol', 'dsol')
         self.call_non_interface_bc('dsoln')
-        if self.debug:
-            self._debug_check_array('soln', 'dsoln')
-            self._debug_check_array(self.soln[self.ngstcell:,0]<=0)
     # End marching algorithm.
     ###########################################################################
 

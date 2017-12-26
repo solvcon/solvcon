@@ -19,3 +19,16 @@ class TestCreation(TestCase):
 
     def test_constructor(self):
         svr = march.gas.Solver2D(get_blk_from_oblique_neu()._ustblk)
+
+
+class TestGasSolver(TestCase):
+
+    def test_class_attributes(self):
+        from solvcon.march import gas
+        for cls in (gas.Solver2D, gas.Solver3D):
+            self.assertEqual(
+                getattr(cls, '_interface_init_'),
+                ('cecnd', 'cevol', 'sfmrc'))
+            self.assertEqual(
+                getattr(cls, '_solution_array_'),
+                ('solt', 'sol', 'soln', 'dsol', 'dsoln'))
