@@ -136,6 +136,7 @@ compute_vorticity(
 );
 
 template<>
+inline
 Vector<2>
 compute_vorticity(
     typename Solver<2>::solution_type::o1hand_type const deriv
@@ -150,6 +151,7 @@ compute_vorticity(
 }
 
 template<>
+inline
 Vector<3>
 compute_vorticity(
     typename Solver<3>::solution_type::o1hand_type const deriv

@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2017, Yung-Yu Chen <yyc@solvcon.net>
+ * BSD 3-Clause License, see COPYING
+ */
+
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <pybind11/numpy.h>
@@ -12,154 +17,17 @@
 
 #include "march/march.hpp"
 #include "march/gas/gas.hpp"
+#include "march/python/python.hpp"
 
 namespace py = pybind11;
 
-PYBIND11_DECLARE_HOLDER_TYPE(T, std::shared_ptr<T>);
-
 using namespace march;
-
-/**
- * Decorator of LookupTableCore to convert march::LookupTableCore to
- * pybind11::array and help array operations.
- */
-class Table {
-
-private:
-
-    enum array_flavor { FULL = 0, GHOST = 1, BODY = 2 };
-
-public:
-
-    Table(LookupTableCore & table) : m_table(table) {}
-
-    Table(Table const & ) = delete;
-    Table(Table       &&) = delete;
-    Table & operator=(Table const & ) = delete;
-    Table & operator=(Table       &&) = delete;
-
-    py::array full () { return from(FULL ); }
-    py::array ghost() { return from(GHOST); }
-    py::array body () { return from(BODY ); }
-
-    static int        NDIM (py::array arr) { return PyArray_NDIM ((PyArrayObject *) arr.ptr()); }
-    static npy_intp * DIMS (py::array arr) { return PyArray_DIMS ((PyArrayObject *) arr.ptr()); }
-    static char *     BYTES(py::array arr) { return PyArray_BYTES((PyArrayObject *) arr.ptr()); }
-    static void CopyInto(py::array dst, py::array src) {
-        if (0 != PyArray_SIZE((PyArrayObject *) dst.ptr()) && 0 != PyArray_SIZE((PyArrayObject *) src.ptr())) {
-            int ret = PyArray_CopyInto((PyArrayObject *) dst.ptr(), (PyArrayObject *) src.ptr());
-            if (-1 == ret) { throw py::error_already_set(); }
-        }
-    }
-
-private:
-
-    /**
-     * \param flavor The requested type of array.
-     * \return       ndarray object as a view to the input table.
-     */
-    py::array from(array_flavor flavor) {
-        npy_intp shape[m_table.ndim()];
-        std::copy(m_table.dims().begin(), m_table.dims().end(), shape);
-
-        npy_intp strides[m_table.ndim()];
-        strides[m_table.ndim()-1] = m_table.elsize();
-        for (ssize_t it = m_table.ndim()-2; it >= 0; --it) {
-            strides[it] = shape[it+1] * strides[it+1];
-        }
-
-        void * data = nullptr;
-        if        (FULL == flavor) {
-            data = m_table.data();
-        } else if (GHOST == flavor) {
-            shape[0] = m_table.nghost();
-            strides[0] = -strides[0];
-            data = m_table.nghost() > 0 ? m_table.row(-1) : m_table.row(0);
-        } else if (BODY == flavor) {
-            shape[0] = m_table.nbody();
-            data = m_table.row(0);
-        } else {
-            py::pybind11_fail("NumPy: invalid array type");
-        }
-
-        py::object tmp = py::reinterpret_steal<py::object>(
-            PyArray_NewFromDescr(
-                &PyArray_Type, PyArray_DescrFromType(m_table.datatypeid()), m_table.ndim(),
-                shape, strides, data, NPY_ARRAY_WRITEABLE, nullptr));
-        if (!tmp) { py::pybind11_fail("NumPy: unable to create array view"); }
-
-        py::object buffer = py::cast(m_table.buffer());
-        py::array ret;
-        if (PyArray_SetBaseObject((PyArrayObject *)tmp.ptr(), buffer.inc_ref().ptr()) == 0) {
-            ret = tmp;
-        }
-        return ret;
-    }
-
-    LookupTableCore & m_table;
-
-}; /* end class Table */
-
-#ifdef __GNUG__
-#  define WRAPPER_VISIBILITY __attribute__((visibility("hidden")))
-#else
-#  define WRAPPER_VISIBILITY
-#endif
-
-/**
- * Helper class for pybind11 class wrappers.
- */
-template< class Wrapper, class Wrapped, class Holder = std::unique_ptr<Wrapped>>
-class
-WRAPPER_VISIBILITY
-WrapBase {
-
-public:
-
-    typedef Wrapper wrapper_type;
-    typedef Wrapped wrapped_type;
-    typedef Holder holder_type;
-    typedef WrapBase< wrapper_type, wrapped_type, holder_type > base_type;
-
-    static wrapper_type & commit(py::module & mod, const char * pyname, const char * clsdoc) {
-        static wrapper_type derived(mod, pyname, clsdoc);
-        return derived;
-    }
-
-    WrapBase() = delete;
-    WrapBase(WrapBase const & ) = default;
-    WrapBase(WrapBase       &&) = delete;
-    WrapBase & operator=(WrapBase const & ) = default;
-    WrapBase & operator=(WrapBase       &&) = delete;
-
-#define DECL_MARCH_PYBIND_CLASS_METHOD(METHOD) \
-    template< class... Args > \
-    wrapper_type & METHOD(Args&&... args) { \
-        m_cls.METHOD(std::forward<Args>(args)...); \
-        return *static_cast<wrapper_type*>(this); \
-    }
-
-    DECL_MARCH_PYBIND_CLASS_METHOD(def)
-    DECL_MARCH_PYBIND_CLASS_METHOD(def_property)
-    DECL_MARCH_PYBIND_CLASS_METHOD(def_property_readonly)
-    DECL_MARCH_PYBIND_CLASS_METHOD(def_property_readonly_static)
-
-#undef DECL_MARCH_PYBIND_CLASS_METHOD
-
-protected:
-
-    WrapBase(py::module & mod, const char * pyname, const char * clsdoc)
-        : m_cls(py::class_< wrapped_type, holder_type >(mod, pyname, clsdoc))
-    {}
-
-    py::class_< wrapped_type, holder_type > m_cls;
-
-}; /* end class WrapBase */
+using Table = march::python::Table;
 
 class
-WRAPPER_VISIBILITY
+MARCH_PYTHON_WRAPPER_VISIBILITY
 WrapLookupTableCore
-  : public WrapBase< WrapLookupTableCore, LookupTableCore >
+  : public python::WrapBase< WrapLookupTableCore, LookupTableCore >
 {
 
     friend base_type;
@@ -296,9 +164,9 @@ WrapLookupTableCore
 }; /* end class WrapLookupTableCore */
 
 class
-WRAPPER_VISIBILITY
+MARCH_PYTHON_WRAPPER_VISIBILITY
 WrapBoundaryData
-  : public WrapBase< WrapBoundaryData, BoundaryData >
+  : public python::WrapBase< WrapBoundaryData, BoundaryData >
 {
 
     friend base_type;
@@ -408,16 +276,16 @@ public:
 
 template< size_t NDIM >
 class
-WRAPPER_VISIBILITY
+MARCH_PYTHON_WRAPPER_VISIBILITY
 WrapUnstructuredBlock
-  : public WrapBase< WrapUnstructuredBlock<NDIM>, UnstructuredBlock<NDIM>, std::shared_ptr<UnstructuredBlock<NDIM>> >
+  : public python::WrapBase< WrapUnstructuredBlock<NDIM>, UnstructuredBlock<NDIM>, std::shared_ptr<UnstructuredBlock<NDIM>> >
 {
 
     /* FIXME: I don't know why I need to duplicate these typedef's, but clang doesn't compile if I don't do it. */
     typedef WrapUnstructuredBlock<NDIM> wrapper_type;
     typedef UnstructuredBlock<NDIM> wrapped_type;
     typedef std::shared_ptr<UnstructuredBlock<NDIM>> holder_type;
-    typedef WrapBase< wrapper_type, wrapped_type, holder_type > base_type;
+    typedef python::WrapBase< wrapper_type, wrapped_type, holder_type > base_type;
 
     friend base_type;
 
@@ -636,197 +504,25 @@ WrapUnstructuredBlock
 
 }; /* end class WrapUnstructuredBlock */
 
-void init_topmodule(py::module & mod) {
+
+PyObject * python::ModuleInitializer::initialize_top(py::module & mod) {
+#if defined(Py_DEBUG)
+    march::setup_debug();
+#endif // Py_DEBUG
+    import_array1(nullptr); // or numpy c api segfault.
+
     mod.doc() = "libmarch wrapper";
     py::class_< Buffer, std::shared_ptr<Buffer> >(mod, "Buffer", "Internal data buffer");
     WrapLookupTableCore::commit(mod, "Table", "Lookup table that allows ghost entity.");
     WrapBoundaryData::commit(mod, "BoundaryData", "Data of a boundary condition.");
     WrapUnstructuredBlock<2>::commit(mod, "UnstructuredBlock2D", "Two-dimensional unstructured mesh block.");
     WrapUnstructuredBlock<3>::commit(mod, "UnstructuredBlock3D", "Three-dimensional unstructured mesh block.");
-}
 
-
-template< size_t NDIM >
-class
-WRAPPER_VISIBILITY
-WrapGasSolver
-  : public WrapBase< WrapGasSolver<NDIM>, gas::Solver<NDIM>, std::shared_ptr<gas::Solver<NDIM>> >
-{
-
-    using base_type = WrapBase< WrapGasSolver<NDIM>, gas::Solver<NDIM>, std::shared_ptr<gas::Solver<NDIM>> >;
-    using wrapped_type = typename base_type::wrapped_type;
-    using block_type = typename wrapped_type::block_type;
-
-    friend base_type;
-
-    WrapGasSolver(py::module & mod, const char * pyname, const char * clsdoc)
-        : base_type(mod, pyname, clsdoc)
-    {
-#define DECL_MARCH_PYBIND_GAS_SOLVER_PARAMETER(TYPE, NAME) \
-            .def_property( \
-                #NAME, \
-                [](wrapped_type const & self)            { return self.param().NAME(); }, \
-                [](wrapped_type       & self, TYPE NAME) { self.param().NAME() = NAME; } \
-            )
-#define DECL_MARCH_PYBIND_GAS_SOLVER_STATE(TYPE, NAME) \
-            .def_property( \
-                #NAME, \
-                [](wrapped_type const & self)            { return self.state().NAME; }, \
-                [](wrapped_type       & self, TYPE NAME) { self.state().NAME = NAME; } \
-            )
-
-        using quantity_reference = gas::Quantity<NDIM> &;
-        (*this)
-            .def(py::init([](block_type & block) {
-                return gas::Solver<NDIM>::construct(block.shared_from_this());
-            }))
-            .def_property_readonly("block", &wrapped_type::block)
-            .def_property_readonly(
-                "qty",
-                [](wrapped_type & self) -> quantity_reference { return self.qty(); },
-                py::return_value_policy::reference_internal // FIXME: if it's default, remove this line
-            )
-            DECL_MARCH_PYBIND_GAS_SOLVER_PARAMETER(real_type, sigma0)
-            DECL_MARCH_PYBIND_GAS_SOLVER_PARAMETER(real_type, taumin)
-            DECL_MARCH_PYBIND_GAS_SOLVER_PARAMETER(real_type, tauscale)
-            DECL_MARCH_PYBIND_GAS_SOLVER_PARAMETER(real_type, stop_on_negative_density)
-            DECL_MARCH_PYBIND_GAS_SOLVER_PARAMETER(real_type, stop_on_negative_energy)
-            DECL_MARCH_PYBIND_GAS_SOLVER_STATE(real_type, time)
-            DECL_MARCH_PYBIND_GAS_SOLVER_STATE(real_type, time_increment)
-            DECL_MARCH_PYBIND_GAS_SOLVER_STATE(real_type, step_current)
-            DECL_MARCH_PYBIND_GAS_SOLVER_STATE(real_type, step_global)
-            DECL_MARCH_PYBIND_GAS_SOLVER_STATE(real_type, substep_run)
-            DECL_MARCH_PYBIND_GAS_SOLVER_STATE(real_type, substep_current)
-            .def("update", &wrapped_type::update)
-            .def("calc_cfl", &wrapped_type::calc_cfl)
-            .def("calc_solt", &wrapped_type::calc_solt)
-            .def("calc_soln", &wrapped_type::calc_soln)
-            .def("calc_dsoln", &wrapped_type::calc_dsoln)
-            .def("init_solution", &wrapped_type::init_solution)
-            .def_property_readonly("amsca", [](wrapped_type & self) { return static_cast<LookupTableCore>(self.sup().amsca); })
-            .def_property_readonly("sol"  , [](wrapped_type & self) { return static_cast<LookupTableCore>(self.sol().arrays().so0c()); })
-            .def_property_readonly("soln" , [](wrapped_type & self) { return static_cast<LookupTableCore>(self.sol().arrays().so0n()); })
-            .def_property_readonly("solt" , [](wrapped_type & self) { return static_cast<LookupTableCore>(self.sol().arrays().so0t()); })
-            .def_property_readonly("dsol" , [](wrapped_type & self) { return static_cast<LookupTableCore>(self.sol().arrays().so1c()); })
-            .def_property_readonly("dsoln", [](wrapped_type & self) { return static_cast<LookupTableCore>(self.sol().arrays().so1n()); })
-            .def_property_readonly("stm"  , [](wrapped_type & self) { return static_cast<LookupTableCore>(self.sol().arrays().stm()); })
-            .def_property_readonly("cfl"  , [](wrapped_type & self) { return static_cast<LookupTableCore>(self.sol().arrays().cflc()); })
-            .def_property_readonly("ocfl" , [](wrapped_type & self) { return static_cast<LookupTableCore>(self.sol().arrays().cflo()); })
-        ;
-
-        this->m_cls.attr("ALMOST_ZERO") = double(wrapped_type::ALMOST_ZERO);
-        this->m_cls.attr("neq") = NDIM + 2;
-        this->m_cls.attr("_interface_init_") = std::make_tuple("cecnd", "cevol", "sfmrc");
-        this->m_cls.attr("_solution_array_") = std::make_tuple("solt", "sol", "soln", "dsol", "dsoln");
-
-#undef DECL_MARCH_PYBIND_GAS_SOLVER_STATE
-#undef DECL_MARCH_PYBIND_GAS_SOLVER_PARAMETER
-    }
-
-}; /* end class WrapGasSolver */
-
-template< size_t NDIM >
-class
-WRAPPER_VISIBILITY
-WrapGasQuantity
-  : public WrapBase< WrapGasQuantity<NDIM>, gas::Quantity<NDIM>, std::unique_ptr<gas::Quantity<NDIM>> >
-{
-
-    using base_type = WrapBase< WrapGasQuantity<NDIM>, gas::Quantity<NDIM>, std::unique_ptr<gas::Quantity<NDIM>> >;
-    using wrapped_type = typename base_type::wrapped_type;
-    using solver_type = typename wrapped_type::solver_type;
-
-    friend base_type;
-
-    WrapGasQuantity(py::module & mod, const char * pyname, const char * clsdoc)
-        : base_type(mod, pyname, clsdoc)
-    {
-
-#define DECL_MARCH_PYBIND_GAS_QUANTITY_ARRAY(NAME, ARR) \
-        .def_property( \
-            #NAME, \
-            [](wrapped_type & qty)                { return Table(qty.NAME()).ARR(); }, \
-            [](wrapped_type & qty, py::array src) { Table::CopyInto(Table(qty.NAME()).ARR(), src); }, \
-            #NAME " " #ARR " array")
-
-        (*this)
-            .def("update", &wrapped_type::update, "Update the physics")
-            DECL_MARCH_PYBIND_GAS_QUANTITY_ARRAY(density             , full)
-            DECL_MARCH_PYBIND_GAS_QUANTITY_ARRAY(velocity            , full)
-            DECL_MARCH_PYBIND_GAS_QUANTITY_ARRAY(vorticity           , full)
-            DECL_MARCH_PYBIND_GAS_QUANTITY_ARRAY(vorticity_magnitude , full)
-            DECL_MARCH_PYBIND_GAS_QUANTITY_ARRAY(ke                  , full)
-            DECL_MARCH_PYBIND_GAS_QUANTITY_ARRAY(pressure            , full)
-            DECL_MARCH_PYBIND_GAS_QUANTITY_ARRAY(temperature         , full)
-            DECL_MARCH_PYBIND_GAS_QUANTITY_ARRAY(soundspeed          , full)
-            DECL_MARCH_PYBIND_GAS_QUANTITY_ARRAY(mach                , full)
-            DECL_MARCH_PYBIND_GAS_QUANTITY_ARRAY(schlieren           , full)
-        ;
-
-#undef DECL_MARCH_PYBIND_GAS_QUANTITY_ARRAY
-    }
-
-}; /* end class WrapGasQuantity */
-
-template< class TrimType, size_t NDIM >
-class
-WRAPPER_VISIBILITY
-WrapGasTrimBase
-  : public WrapBase< WrapGasTrimBase<TrimType, NDIM>, TrimType, std::unique_ptr<TrimType> >
-{
-
-    using base_type = WrapBase< WrapGasTrimBase<TrimType, NDIM>, TrimType, std::unique_ptr<TrimType> >;
-    using wrapped_type = typename base_type::wrapped_type;
-    using solver_type = typename wrapped_type::solver_type;
-
-    friend base_type;
-
-    WrapGasTrimBase(py::module & mod, const char * pyname, const char * clsdoc)
-        : base_type(mod, pyname, clsdoc)
-    {
-        (*this)
-            .def(py::init<solver_type &, BoundaryData &>())
-            .def("apply_do0", &wrapped_type::apply_do0, "Apply to variables of 0th order derivative")
-            .def("apply_do1", &wrapped_type::apply_do1, "Apply to variables of 1st order derivative")
-        ;
-    }
-
-}; /* end class WrapGasTrimBase */
-
-template< size_t NDIM > class WRAPPER_VISIBILITY WrapGasTrimNoOp : public WrapGasTrimBase< gas::TrimNoOp<NDIM>, NDIM > {};
-template< size_t NDIM > class WRAPPER_VISIBILITY WrapGasTrimNonRefl : public WrapGasTrimBase< gas::TrimNonRefl<NDIM>, NDIM > {};
-template< size_t NDIM > class WRAPPER_VISIBILITY WrapGasTrimSlipWall : public WrapGasTrimBase< gas::TrimSlipWall<NDIM>, NDIM > {};
-template< size_t NDIM > class WRAPPER_VISIBILITY WrapGasTrimInlet : public WrapGasTrimBase< gas::TrimInlet<NDIM>, NDIM > {};
-
-void make_submodule_gas(py::module & upmod) {
-    py::module gas = upmod.def_submodule("gas", "Gas dynamic solver");
-    WrapGasSolver<2>::commit(gas, "Solver2D", "Gas-dynamic solver (2D).");
-    WrapGasSolver<3>::commit(gas, "Solver3D", "Gas-dynamic solver (3D).");
-    WrapGasQuantity<2>::commit(gas, "Quantity2D", "Gas-dynamics quantities (2D).");
-    WrapGasQuantity<3>::commit(gas, "Quantity3D", "Gas-dynamics quantities (3D).");
-    WrapGasTrimNoOp<2>::commit(gas, "TrimNoOp2D", "Gas-dynamics non-reflective trim (2D).");
-    WrapGasTrimNoOp<3>::commit(gas, "TrimNoOp3D", "Gas-dynamics non-reflective trim (3D).");
-    WrapGasTrimNonRefl<2>::commit(gas, "TrimNonRefl2D", "Gas-dynamics non-reflective trim (2D).");
-    WrapGasTrimNonRefl<3>::commit(gas, "TrimNonRefl3D", "Gas-dynamics non-reflective trim (3D).");
-    WrapGasTrimSlipWall<2>::commit(gas, "TrimSlipWall2D", "Gas-dynamics non-reflective trim (2D).");
-    WrapGasTrimSlipWall<3>::commit(gas, "TrimSlipWall3D", "Gas-dynamics non-reflective trim (3D).");
-    WrapGasTrimInlet<2>::commit(gas, "TrimInlet2D", "Gas-dynamics non-reflective trim (2D).");
-    WrapGasTrimInlet<3>::commit(gas, "TrimInlet3D", "Gas-dynamics non-reflective trim (3D).");
-}
-
-
-static PyObject *march_init(py::module & mod) {
-#if defined(Py_DEBUG)
-    march::setup_debug();
-#endif // Py_DEBUG
-    import_array1(nullptr); // or numpy c api segfault.
-    init_topmodule(mod);
-    make_submodule_gas(mod);
     return mod.ptr();
 }
 
 PYBIND11_MODULE(march, mod) {
-    march_init(mod);
+    python::ModuleInitializer::getInstance().initialize(mod);
 }
 
 // vim: set ff=unix fenc=utf8 nobomb et sw=4 ts=4:

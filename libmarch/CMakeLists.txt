@@ -79,6 +79,9 @@ set(MARCH_HEADERS
     include/march/gas/calc_solt.hpp
     include/march/gas/Quantity.hpp
     include/march/gas/Trim.hpp
+    # python
+    include/march/python/python.hpp
+    include/march/python/WrapBase.hpp
 )
 string(REPLACE "include/" "${CMAKE_CURRENT_SOURCE_DIR}/include/"
        MARCH_HEADERS "${MARCH_HEADERS}")
