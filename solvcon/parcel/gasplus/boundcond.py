@@ -28,7 +28,7 @@ class GasPlusBC(sc.BC):
     @property
     def trim(self):
         name = self.__class__.__name__.lstrip("GasPlus")
-        trim_type = getattr(march.gas, "Trim%s%dD" % (name, self.svr.ndim))
+        trim_type = getattr(march.gas, "Trim%s%dD" % (name, self.svr.block.ndim))
         return trim_type(self.alg, self._data)
 
     def soln(self):

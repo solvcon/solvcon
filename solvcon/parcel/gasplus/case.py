@@ -21,14 +21,8 @@ class GasPlusCase(sc.MeshCase):
     defdict = {
         'solver.solvertype': gpsolver.GasPlusSolver,
         'solver.domaintype': sc.Domain,
-        # Do no touch the following c-tau parameters.
-        'solver.alpha': 1,
+        # Do no touch the c-tau parameter.
         'solver.sigma0': 3.0,
-        'solver.taylor': 1.0,
-        'solver.cnbfac': 1.0,
-        'solver.sftfac': 1.0,
-        'solver.taumin': None,
-        'solver.tauscale': None,
         # End of c-taw parameters.
         'io.rootdir': sc.env.projdir, # Different default to MeshCase.
     }
@@ -36,16 +30,11 @@ class GasPlusCase(sc.MeshCase):
     def make_solver_keywords(self):
         kw = super(GasPlusCase, self).make_solver_keywords()
         # time.
-        neq = self.blk.ndim + 2
-        kw['neq'] = self.execution.neq = neq
+        self.execution.neq = self.blk.ndim + 2
         kw['time'] = self.execution.time
         kw['time_increment'] = self.execution.time_increment
         # c-tau scheme parameters.
-        kw['alpha'] = int(self.solver.alpha)
-        for key in ('sigma0', 'taylor', 'cnbfac', 'sftfac',
-                    'taumin', 'tauscale',):
-            val = self.solver.get(key)
-            if val != None: kw[key] = float(val)
+        kw['sigma0'] = int(self.solver.sigma0)
         return kw
 
 # vim: set ff=unix fenc=utf8 ft=python nobomb et sw=4 ts=4 tw=79:

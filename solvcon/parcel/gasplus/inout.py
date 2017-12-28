@@ -138,7 +138,11 @@ class FillAnchor(sc.MeshAnchor):
 
     def provide(self):
         for key, value in self.mappers.items():
-            getattr(self.svr, key).fill(value)
+            tokens = key.split(".")
+            obj = self.svr
+            for token in tokens:
+                obj = getattr(obj, token)
+            obj.fill(value)
 
 
 ################################################################################
@@ -171,16 +175,16 @@ class CflAnchor(sc.MeshAnchor):
 
     def postmarch(self):
         svr = self.svr
-        istep = svr.step_global
+        istep = svr.state.step_global
         rsteps = self.rsteps
         if istep > 0 and istep%rsteps == 0:
             # download data.
-            ocfl = svr.ocfl[svr.ngstcell:]
-            cfl = svr.cfl[svr.ngstcell:]
+            cflo = svr.sol.cflo.B
+            cflc = svr.sol.cflc.B
             # determine extremum.
-            mincfl = ocfl.min()
-            maxcfl = ocfl.max()
-            nadj = (cfl==1).sum()
+            mincfl = cflo.min()
+            maxcfl = cflo.max()
+            nadj = (cflc==1).sum()
             # store.
             lst = svr.marchret.setdefault('cfl', [0.0, 0.0, 0, 0])
             lst[0] = mincfl
@@ -309,26 +313,26 @@ class MarchSaveAnchor(sc.MeshAnchor):
         super(MarchSaveAnchor, self).__init__(svr, **kw)
 
     def _write(self, istep):
-        ngstcell = self.svr.ngstcell
+        ngstcell = self.svr.block.ngstcell
         sarrs = dict()
         varrs = dict()
         # collect data.
         for key in self.anames:
             # get the array.
             if self.anames[key]:
-                arr = getattr(self.svr.alg.qty, key)[ngstcell:]
+                arr = getattr(self.svr.qty, key)[ngstcell:]
             else:
-                arr = getattr(self.svr, key)[ngstcell:]
+                arr = getattr(self.svr.sol, key).B
             # put array in dict.
             if len(arr.shape) == 1:
                 sarrs[key] = arr
-            elif arr.shape[1] == self.svr.ndim:
+            elif arr.shape[1] == self.svr.block.ndim:
                 varrs[key] = arr
             else:
                 for it in range(arr.shape[1]):
                     sarrs['%s[%d]' % (key, it)] = arr[:,it]
         # write.
-        wtr = vtkxml.VtkXmlUstGridWriter(self.svr.blk, fpdtype=self.fpdtype,
+        wtr = vtkxml.VtkXmlUstGridWriter(self.svr.block, fpdtype=self.fpdtype,
             compressor=self.compressor, scalars=sarrs, vectors=varrs)
         svrn = self.svr.svrn
         wtr.write(self.vtkfn_tmpl % (istep if svrn is None else (istep, svrn)))
@@ -338,13 +342,13 @@ class MarchSaveAnchor(sc.MeshAnchor):
 
     def postmarch(self):
         psteps = self.psteps
-        istep = self.svr.step_global
+        istep = self.svr.state.step_global
         if istep%psteps == 0:
             self._write(istep)
 
     def postloop(self):
         psteps = self.psteps
-        istep = self.svr.step_global
+        istep = self.svr.state.step_global
         if istep%psteps != 0:
             self._write(istep)
 

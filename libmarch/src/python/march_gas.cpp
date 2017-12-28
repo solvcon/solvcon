@@ -203,6 +203,7 @@ WrapGasQuantity
         : base_type(mod, pyname, clsdoc)
     {
 
+// FIXME: change the properties to be like those of Solution
 #define DECL_MARCH_PYBIND_GAS_QUANTITY_ARRAY(NAME, ARR) \
         .def_property( \
             #NAME, \

@@ -14,7 +14,6 @@ import time
 import numpy as np
 
 import solvcon as sc
-from solvcon import march
 from solvcon import boundcond
 
 
@@ -23,173 +22,55 @@ class GasPlusSolver:
     Spatial loops for the gas-dynamics solver.
     """
 
-    ALMOST_ZERO = march.gas.Solver2D.ALMOST_ZERO
+    ALMOST_ZERO = sc.march.gas.Solver2D.ALMOST_ZERO
 
-    _interface_init_ = march.gas.Solver2D._interface_init_
-    _solution_array_ = march.gas.Solver2D._solution_array_
+    _interface_init_ = sc.march.gas.Solver2D._interface_init_
+    _solution_array_ = sc.march.gas.Solver2D._solution_array_
 
-    def __init__(self, blk, **kw):
-        # algorithm object.
-        solver_type = getattr(march.gas, "Solver%dD"%blk.ndim)
-        self.alg = solver_type(blk._ustblk)
-        self.blk = blk
-        for bc in self.blk.bclist:
+    def __init__(self, blk, sigma0, time, time_increment, **kw):
+        # BC objects. FIXME: renovate this using the new C++ Trim.
+        self.bclist = blk.bclist
+        for bc in self.bclist:
             bc.svr = self
         #: 0-based serial number of this solver in a parallel execution.
-        self.svrn = self.blk.blkn
+        self.svrn = blk.blkn
         #: Total number of parallel solvers.
         self.nsvr = None
+        # algorithm object.
+        solver_type = getattr(sc.march.gas, "Solver%dD"%blk.ndim)
+        self.alg = solver_type(blk._ustblk)
+        # parameters and state.
+        self.param.sigma0 = sigma0
+        self.state.time = time
+        self.state.time_increment = time_increment
         # marching facilities.
         self.runanchors = sc.MeshAnchorList(self)
         self.marchret = None
-        self.der = dict()
-
-    @property
-    def bclist(self):
-        return self.blk.bclist
+        self.der = dict() # FIXME: remove this dictionary
 
     @property
     def neq(self):
         return self.alg.neq
 
     @property
-    def ndim(self):
-        return self.alg.block.ndim
-
-    @property
-    def nnode(self):
-        return self.alg.block.nnode
-
-    @property
-    def nface(self):
-        return self.alg.block.nface
-
-    @property
-    def ncell(self):
-        return self.alg.block.ncell
-
-    @property
-    def ngstnode(self):
-        return self.alg.block.ngstnode
-
-    @property
-    def ngstface(self):
-        return self.alg.block.ngstface
-
-    @property
-    def ngstcell(self):
-        return self.alg.block.ngstcell
+    def block(self):
+        return self.alg.block
 
     @property
     def param(self):
         return self.alg.param
 
     @property
-    def sigma0(self):
-        return self.alg.param.sigma0
-    @sigma0.setter
-    def sigma0(self, value):
-        self.alg.param.sigma0 = value
-
-    @property
-    def taumin(self):
-        return self.alg.param.taumin
-    @taumin.setter
-    def taumin(self, value):
-        self.alg.param.taumin = value
-
-    @property
-    def tauscale(self):
-        return self.alg.param.tauscale
-    @tauscale.setter
-    def tauscale(self, value):
-        self.alg.param.tauscale = value
-
-    @property
     def state(self):
         return self.alg.state
 
     @property
-    def time(self):
-        return self.alg.state.time
-    @time.setter
-    def time(self, value):
-        self.alg.state.time = value
-
-    @property
-    def time_increment(self):
-        return self.alg.state.time_increment
-    @time_increment.setter
-    def time_increment(self, value):
-        self.alg.state.time_increment = value
-
-    @property
-    def step_current(self):
-        return self.alg.state.step_current
-    @step_current.setter
-    def step_current(self, value):
-        self.alg.state.step_current = value
-
-    @property
-    def step_global(self):
-        return self.alg.state.step_global
-    @step_global.setter
-    def step_global(self, value):
-        self.alg.state.step_global = value
-
-    @property
-    def substep_run(self):
-        return self.alg.state.substep_run
-    @substep_run.setter
-    def substep_run(self, value):
-        self.alg.state.substep_run = value
-
-    @property
-    def step_current(self):
-        return self.alg.state.step_current
-    @step_current.setter
-    def step_current(self, value):
-        self.alg.state.step_current = value
-
-    @property
-    def solution(self):
+    def sol(self):
         return self.alg.sol
 
     @property
-    def sol(self):
-        return self.alg.sol.so0c.F
-
-    @property
-    def soln(self):
-        return self.alg.sol.so0n.F
-
-    @property
-    def solt(self):
-        return self.alg.sol.so0t.F
-
-    @property
-    def dsol(self):
-        return self.alg.sol.so1c.F
-
-    @property
-    def dsoln(self):
-        return self.alg.sol.so1n.F
-
-    @property
-    def stm(self):
-        return self.alg.sol.stm.F
-
-    @property
-    def cfl(self):
-        return self.alg.sol.cflc.F
-
-    @property
-    def ocfl(self):
-        return self.alg.sol.cflo.F
-
-    @property
-    def gamma(self):
-        return self.alg.sol.gamma.F
+    def qty(self):
+        return self.alg.qty
 
    ############################################################################
     # Anchors.
@@ -254,16 +135,17 @@ class GasPlusSolver:
         The dictionary is reset to empty at the begninning of the execution.
         """
         self.marchret = dict()
-        self.step_current = 0
+        state = self.state
+        state.step_current = 0
         self.runanchors('premarch')
-        while self.step_current < steps_run:
-            self.substep_current = 0
+        while state.step_current < steps_run:
+            state.substep_current = 0
             self.runanchors('prefull')
             t0 = time.time()
-            while self.substep_current < self.substep_run:
+            while state.substep_current < state.substep_run:
                 # set up time.
-                self.time = time_current
-                self.time_increment = time_increment
+                state.time = time_current
+                state.time_increment = time_increment
                 self.runanchors('presub')
                 # run marching methods.
                 for mmname in self.mmnames:
@@ -274,13 +156,13 @@ class GasPlusSolver:
                     method(worker=worker)
                     self.runanchors('post'+mmname)
                 # increment time.
-                time_current += self.time_increment/self.substep_run
-                self.time = time_current
-                self.time_increment = time_increment
-                self.substep_current += 1
+                time_current += state.time_increment/state.substep_run
+                state.time = time_current
+                state.time_increment = time_increment
+                state.substep_current += 1
                 self.runanchors('postsub')
-            self.step_global += 1
-            self.step_current += 1
+            state.step_global += 1
+            state.step_current += 1
             self.runanchors('postfull')
         self.runanchors('postmarch')
         if worker:
@@ -288,8 +170,8 @@ class GasPlusSolver:
         return self.marchret
 
     def init(self, **kw):
-        for arrname in self._solution_array_:
-            arr = getattr(self, arrname)
+        for arrname in ("so0c", "so0n", "so0t", "so1c", "so1n"):
+            arr = getattr(self.sol, arrname)
             arr.fill(self.ALMOST_ZERO) # prevent initializer forgets to set!
         for bc in self.bclist:
             bc.init(**kw)
@@ -339,7 +221,7 @@ class GasPlusSolver:
             yield name
 
     def update(self, worker=None):
-        self.alg.update(self.time, self.time_increment)
+        self.alg.update(self.state.time, self.state.time_increment)
 
     def calcsolt(self, worker=None):
         self.alg.calc_solt()

@@ -363,6 +363,7 @@ WrapUnstructuredBlock
     }
 
     wrapper_type & tables() {
+// FIXME: in the future, remove "tb" from the "table" attributes
 #define DECL_MARCH_PYBIND_USTBLOCK_TABLE(NAME, DOC) \
         .def_property_readonly( \
             "tb" #NAME, \
@@ -393,6 +394,7 @@ WrapUnstructuredBlock
     }
 
     wrapper_type & arrays() {
+// FIXME: in the future, change the way to expose arrays
 #define DECL_MARCH_PYBIND_USTBLOCK_ARRAY(PREFIX, NAME, ARR, DOC) \
         .def_property( \
             #PREFIX #NAME, \

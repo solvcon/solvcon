@@ -382,13 +382,6 @@ void Solver<NDIM>::calc_dsoln() {
         const GradientWeigh<ndim,neq> gweigh(gshape, m_sol, hdt, sgm0);
         gweigh(m_sol.so1n(icl));
     }
-
-    if (m_state.substep_current % 2) {
-        m_state.step_current += 1;
-        m_state.substep_current = 0;
-    } else {
-        m_state.substep_current += 1;
-    }
 }
 
 } /* end namespace gas */
