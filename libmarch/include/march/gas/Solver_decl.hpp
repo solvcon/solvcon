@@ -21,6 +21,8 @@ namespace gas {
 
 template< size_t NDIM > class Quantity;
 
+template< size_t NDIM > class TrimBase;
+
 struct State {
     using int_type = int32_t;
 
@@ -88,6 +90,8 @@ public:
     solution_type       & sol()       { return m_sol; }
     Quantity<NDIM> const & qty() const { return m_qty; }
     Quantity<NDIM>       & qty()       { return m_qty; }
+    std::vector<std::unique_ptr<TrimBase<NDIM>>> const & trims() const { return m_trims; }
+    std::vector<std::unique_ptr<TrimBase<NDIM>>>       & trims()       { return m_trims; }
 
     // TODO: move to UnstructuredBlock.
     // @[
@@ -103,6 +107,8 @@ public:
     void calc_cfl();
     void calc_solt();
     void calc_soln();
+    void trim_do0();
+    void trim_do1();
     void calc_dsoln();
     // @]
 
@@ -128,6 +134,7 @@ private:
     State m_state;
     solution_type m_sol;
     Quantity<NDIM> m_qty;
+    std::vector<std::unique_ptr<TrimBase<NDIM>>> m_trims;
 
 }; /* end class Solver */
 

@@ -28,10 +28,6 @@ class GasPlusSolver:
     _solution_array_ = sc.march.gas.Solver2D._solution_array_
 
     def __init__(self, blk, sigma0, time, time_increment, **kw):
-        # BC objects. FIXME: renovate this using the new C++ Trim.
-        self.bclist = blk.bclist
-        for bc in self.bclist:
-            bc.svr = self
         #: 0-based serial number of this solver in a parallel execution.
         self.svrn = blk.blkn
         #: Total number of parallel solvers.
@@ -39,6 +35,14 @@ class GasPlusSolver:
         # algorithm object.
         solver_type = getattr(sc.march.gas, "Solver%dD"%blk.ndim)
         self.alg = solver_type(blk._ustblk)
+        # trims.
+        trims = []
+        for bc in blk.bclist:
+            name = bc.__class__.__name__.lstrip("GasPlus")
+            trim_type = getattr(sc.march.gas, "Trim%s%dD" % (name, blk.ndim))
+            trim = trim_type(self.alg, bc._data)
+            trims.append(trim)
+        self.trims = trims
         # parameters and state.
         self.param.sigma0 = sigma0
         self.state.time = time
@@ -55,6 +59,13 @@ class GasPlusSolver:
     @property
     def block(self):
         return self.alg.block
+
+    @property
+    def trims(self):
+        return self.alg.trims
+    @trims.setter
+    def trims(self, val):
+        self.alg.trims = val
 
     @property
     def param(self):
@@ -173,15 +184,13 @@ class GasPlusSolver:
         for arrname in ("so0c", "so0n", "so0t", "so1c", "so1n"):
             arr = getattr(self.sol, arrname)
             arr.fill(self.ALMOST_ZERO) # prevent initializer forgets to set!
-        for bc in self.bclist:
-            bc.init(**kw)
 
     def final(self, **kw):
         pass
 
     def apply_bc(self):
-        self.call_non_interface_bc('soln')
-        self.call_non_interface_bc('dsoln')
+        self.call_non_interface_bc('do0')
+        self.call_non_interface_bc('do1')
 
     def call_non_interface_bc(self, name, *args, **kw):
         """
@@ -189,15 +198,17 @@ class GasPlusSolver:
         :type name: str
         :return: Nothing.
 
-        Call method of each of non-interface BC objects in my list.
+        Call method of each of non-interface Trim objects in my list.
         """
-        bclist = [bc for bc in self.bclist
-            if not isinstance(bc, boundcond.interface)]
-        for bc in bclist:
+        iftype = getattr(sc.march.gas, "TrimInterface%dD" % (self.block.ndim))
+        for trim in self.trims:
+            if isinstance(trim, iftype):
+                continue
             try:
-                getattr(bc, name)(*args, **kw)
+                method = getattr(trim, "apply_"+name)
+                method(*args, **kw)
             except Exception as e:
-                e.args = tuple([str(bc), name] + list(e.args))
+                e.args = tuple([str(trim), name] + list(e.args))
                 raise
 
     ###########################################################################
@@ -233,7 +244,7 @@ class GasPlusSolver:
         if worker: self.exchangeibc('soln', worker=worker)
 
     def bcsoln(self, worker=None):
-        self.call_non_interface_bc('soln')
+        self.call_non_interface_bc('do0')
 
     def calccfl(self, worker=None):
         self.alg.calc_cfl()
@@ -245,7 +256,7 @@ class GasPlusSolver:
         if worker: self.exchangeibc('dsoln', worker=worker)
 
     def bcdsoln(self, worker=None):
-        self.call_non_interface_bc('dsoln')
+        self.call_non_interface_bc('do1')
     # End marching algorithm.
     ###########################################################################
 

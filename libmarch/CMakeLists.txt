@@ -17,6 +17,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake/")
 include(FindPythonAnaconda)
 
 option(MARCH_RELAX_ERROR "Relax compiler error" OFF)
+option(MARCH_NO_DEPRECATE_WARNING "Turn off deprecation warning" OFF)
 option(SOLVCON_ROOT "SOLVCON root path" OFF)
 
 find_package(SCOTCH)
@@ -28,6 +29,10 @@ set(MARCH_WARNOPT "${MARCH_WARNOPT} -Wno-unused-function -Wno-unreachable-code -
 set(MARCH_WARNOPT "${MARCH_WARNOPT} -Wno-error=deprecated-declarations")
 # FIXME: remove after port all legacy C code.
 set(MARCH_WARNOPT "${MARCH_WARNOPT} -Wno-error=sign-compare")
+
+if(MARCH_NO_DEPRECATE_WARNING)
+    set(MARCH_WARNOPT "${MARCH_WARNOPT} -Wno-deprecated-declarations")
+endif()
 
 if(MARCH_RELAX_ERROR)
     set(MARCH_WARNOPT "${MARCH_WARNOPT} -Wno-error=unused-variable")

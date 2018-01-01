@@ -31,8 +31,7 @@ public:
     constexpr static index_type FCNCL = block_type::FCNCL;
 
     using fccls_row_const_reference = index_type const (&)[FCNCL];
-    template< size_t NVALUE >
-    using boundary_value_type = real_type[NVALUE];
+    template< size_t NVALUE > using boundary_value_type = real_type[NVALUE];
 
     TrimInternal(solver_type & solver, BoundaryData & boundary)
       : m_solver(solver)
@@ -79,15 +78,15 @@ public:
     TrimBase(solver_type & solver, BoundaryData & boundary): m_internal(solver, boundary) {}
 
     TrimBase() = delete;
-    TrimBase(TrimBase const & ) = delete;
-    TrimBase(TrimBase       &&) = delete;
+    TrimBase(TrimBase const &  other) : m_internal(other.m_internal) {}
+    TrimBase(TrimBase       && other) : m_internal(other.m_internal) {}
     TrimBase & operator=(TrimBase const & ) = delete;
     TrimBase & operator=(TrimBase       &&) = delete;
 
     virtual ~TrimBase() {}
 
-    virtual void apply_do0() = 0;
-    virtual void apply_do1() = 0;
+    virtual void apply_do0() {}
+    virtual void apply_do1() {}
 
     internal_type       & internal()       { return m_internal; }
     internal_type const & internal() const { return m_internal; }
@@ -127,6 +126,26 @@ public:
 
 
 template< size_t NDIM >
+class TrimInterface : public TrimBase<NDIM> {
+
+public:
+
+    using base_type = TrimBase<NDIM>;
+    using solver_type = typename base_type::solver_type;
+    using block_type = typename base_type::block_type;
+    using pointer = typename base_type::pointer;
+
+    TrimInterface(solver_type & solver, BoundaryData & boundary): base_type(solver, boundary) {
+        static_assert(sizeof(TrimInterface<NDIM>) == sizeof(base_type), "TrimInterface size mismatch");
+    }
+    ~TrimInterface() override {}
+    void apply_do0() override { /* FIXME: add code */ }
+    void apply_do1() override { /* FIXME: add code */ }
+
+}; /* end class TrimInterface */
+
+
+template< size_t NDIM >
 class TrimNonRefl : public TrimBase<NDIM> {
 
 public:
@@ -136,7 +155,9 @@ public:
     using solver_type = typename base_type::solver_type;
     using block_type = typename base_type::block_type;
 
-    TrimNonRefl(solver_type & solver, BoundaryData & boundary): base_type(solver, boundary) {}
+    TrimNonRefl(solver_type & solver, BoundaryData & boundary): base_type(solver, boundary) {
+        static_assert(sizeof(TrimNonRefl<NDIM>) == sizeof(base_type), "TrimNonRefl size mismatch");
+    }
 
     ~TrimNonRefl() override {}
 
@@ -193,7 +214,9 @@ public:
     using block_type = typename base_type::block_type;
     using pointer = typename base_type::pointer;
 
-    TrimSlipWall(solver_type & solver, BoundaryData & boundary): base_type(solver, boundary) {}
+    TrimSlipWall(solver_type & solver, BoundaryData & boundary): base_type(solver, boundary) {
+        static_assert(sizeof(TrimSlipWall<NDIM>) == sizeof(base_type), "TrimSlipWall size mismatch");
+    }
 
     ~TrimSlipWall() override {}
 
@@ -267,8 +290,12 @@ public:
     using block_type = typename base_type::block_type;
     using pointer = typename base_type::pointer;
 
-    TrimInlet(solver_type & solver, BoundaryData & boundary): base_type(solver, boundary) {}
+    TrimInlet(solver_type & solver, BoundaryData & boundary): base_type(solver, boundary) {
+        static_assert(sizeof(TrimInlet<NDIM>) == sizeof(base_type), "TrimInlet size mismatch");
+    }
+
     ~TrimInlet() override {}
+
     void apply_do0() override;
     void apply_do1() override;
 
@@ -308,6 +335,20 @@ void TrimInlet<NDIM>::apply_do1() {
     for (index_type ibnd=0; ibnd<nbnd; ++ibnd) {
         auto const & tfccls = impl.tfccls(impl.iface(ibnd));
         impl.so1n(tfccls[1]) = 0;
+    }
+}
+
+template< size_t NDIM >
+void Solver<NDIM>::trim_do0() {
+    for (auto & trim : m_trims) {
+        trim->apply_do0();
+    }
+}
+
+template< size_t NDIM >
+void Solver<NDIM>::trim_do1() {
+    for (auto & trim : m_trims) {
+        trim->apply_do1();
     }
 }
 

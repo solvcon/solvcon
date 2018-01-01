@@ -66,10 +66,34 @@ WrapGasSolver
                 [](wrapped_type & self) -> quantity_reference { return self.qty(); },
                 py::return_value_policy::reference_internal // FIXME: if it's default, remove this line
             )
+            .def_property(
+                "trims",
+                [](wrapped_type & self) -> std::vector<gas::TrimBase<NDIM>*> {
+                    std::vector<gas::TrimBase<NDIM>*> ret;
+                    for (auto & trim : self.trims()) {
+                        ret.push_back(trim.get());
+                    }
+                    return ret;
+                },
+                [](wrapped_type & self, py::list in_trims) {
+                    using ptr_type = std::unique_ptr<gas::TrimBase<NDIM>>;
+                    std::vector<ptr_type> trims;
+                    for (auto obj : in_trims) {
+                        push_trim<gas::TrimInterface<NDIM>>(obj, trims);
+                        push_trim<gas::TrimNoOp<NDIM>>(obj, trims);
+                        push_trim<gas::TrimNonRefl<NDIM>>(obj, trims);
+                        push_trim<gas::TrimSlipWall<NDIM>>(obj, trims);
+                        push_trim<gas::TrimInlet<NDIM>>(obj, trims);
+                    }
+                    self.trims() = std::move(trims);
+                }
+            )
             .def("update", &wrapped_type::update)
             .def("calc_cfl", &wrapped_type::calc_cfl)
             .def("calc_solt", &wrapped_type::calc_solt)
             .def("calc_soln", &wrapped_type::calc_soln)
+            .def("trim_do0", &wrapped_type::trim_do0)
+            .def("trim_do1", &wrapped_type::trim_do1)
             .def("calc_dsoln", &wrapped_type::calc_dsoln)
             .def("init_solution", &wrapped_type::init_solution)
         ;
@@ -78,6 +102,15 @@ WrapGasSolver
         this->m_cls.attr("neq") = NDIM + 2;
         this->m_cls.attr("_interface_init_") = std::make_tuple("cecnd", "cevol", "sfmrc");
         this->m_cls.attr("_solution_array_") = std::make_tuple("solt", "sol", "soln", "dsol", "dsoln");
+    }
+
+    template < class TrimType > static
+    void push_trim(py::handle obj, std::vector<std::unique_ptr<gas::TrimBase<NDIM>>> & trims) {
+        py::detail::make_caster<TrimType> conv;
+        if (conv.load(obj, true)) {
+            auto * cobj = obj.cast<TrimType*>();
+            trims.push_back(make_unique<TrimType>(*cobj));
+        }
     }
 
 }; /* end class WrapGasSolver */
@@ -234,11 +267,11 @@ template< class TrimType, size_t NDIM >
 class
 MARCH_PYTHON_WRAPPER_VISIBILITY
 WrapGasTrimBase
-  : public python::WrapBase< WrapGasTrimBase<TrimType, NDIM>, TrimType, std::unique_ptr<TrimType> >
+  : public python::WrapBase< WrapGasTrimBase<TrimType, NDIM>, TrimType, std::unique_ptr<TrimType>, gas::TrimBase<NDIM> >
 {
 
     /* aliases for dependent type name lookup */
-    using base_type = python::WrapBase< WrapGasTrimBase<TrimType, NDIM>, TrimType, std::unique_ptr<TrimType> >;
+    using base_type = python::WrapBase< WrapGasTrimBase<TrimType, NDIM>, TrimType, std::unique_ptr<TrimType>, gas::TrimBase<NDIM> >;
     using wrapped_type = typename base_type::wrapped_type;
     using solver_type = typename wrapped_type::solver_type;
 
@@ -249,14 +282,27 @@ WrapGasTrimBase
     {
         (*this)
             .def(py::init<solver_type &, BoundaryData &>())
-            .def("apply_do0", &wrapped_type::apply_do0, "Apply to variables of 0th order derivative")
-            .def("apply_do1", &wrapped_type::apply_do1, "Apply to variables of 1st order derivative")
+            .def("apply_do0",
+                 // FIXME: This (and apply_do1 wrapper) requires "wrapped_type"
+                 // to be explicitly specified with a lambda.  Otherwise, it
+                 // calls the base method.  Polymorphism for
+                 // march::gas::Solver::m_trims works fine when caller is from
+                 // C++.  I don't know why it behaves like this.  Perhaps
+                 // pybind11 does something strange with the virtual function
+                 // table?  Before having time to investigate, I keep this
+                 // treatment as a workaround.
+                 [](wrapped_type & self) { self.wrapped_type::apply_do0(); },
+                 "Apply to variables of 0th order derivative")
+            .def("apply_do1",
+                 [](wrapped_type & self) { self.wrapped_type::apply_do1(); },
+                 "Apply to variables of 1st order derivative")
         ;
     }
 
 }; /* end class WrapGasTrimBase */
 
 template< size_t NDIM > class MARCH_PYTHON_WRAPPER_VISIBILITY WrapGasTrimNoOp : public WrapGasTrimBase< gas::TrimNoOp<NDIM>, NDIM > {};
+template< size_t NDIM > class MARCH_PYTHON_WRAPPER_VISIBILITY WrapGasTrimInterface : public WrapGasTrimBase< gas::TrimInterface<NDIM>, NDIM > {};
 template< size_t NDIM > class MARCH_PYTHON_WRAPPER_VISIBILITY WrapGasTrimNonRefl : public WrapGasTrimBase< gas::TrimNonRefl<NDIM>, NDIM > {};
 template< size_t NDIM > class MARCH_PYTHON_WRAPPER_VISIBILITY WrapGasTrimSlipWall : public WrapGasTrimBase< gas::TrimSlipWall<NDIM>, NDIM > {};
 template< size_t NDIM > class MARCH_PYTHON_WRAPPER_VISIBILITY WrapGasTrimInlet : public WrapGasTrimBase< gas::TrimInlet<NDIM>, NDIM > {};
@@ -273,14 +319,18 @@ PyObject * python::ModuleInitializer::initialize_gas(py::module & upmod) {
     WrapGasQuantity<2>::commit(gas, "Quantity2D", "Gas-dynamics quantities (2D).");
     WrapGasQuantity<3>::commit(gas, "Quantity3D", "Gas-dynamics quantities (3D).");
     // section: boundary-condition treatments
-    WrapGasTrimNoOp<2>::commit(gas, "TrimNoOp2D", "Gas-dynamics non-reflective trim (2D).");
-    WrapGasTrimNoOp<3>::commit(gas, "TrimNoOp3D", "Gas-dynamics non-reflective trim (3D).");
+    WrapGasTrimBase<gas::TrimBase<2>, 2>::commit(gas, "TrimBase2D", "Gas-dynamics trim base type (2D).");
+    WrapGasTrimBase<gas::TrimBase<3>, 3>::commit(gas, "TrimBase3D", "Gas-dynamics trim base type (3D).");
+    WrapGasTrimInterface<2>::commit(gas, "TrimInterface2D", "Gas-dynamics interface trim (2D).");
+    WrapGasTrimInterface<3>::commit(gas, "TrimInterface3D", "Gas-dynamics interface trim (3D).");
+    WrapGasTrimNoOp<2>::commit(gas, "TrimNoOp2D", "Gas-dynamics no-op trim (2D).");
+    WrapGasTrimNoOp<3>::commit(gas, "TrimNoOp3D", "Gas-dynamics no-op trim (3D).");
     WrapGasTrimNonRefl<2>::commit(gas, "TrimNonRefl2D", "Gas-dynamics non-reflective trim (2D).");
     WrapGasTrimNonRefl<3>::commit(gas, "TrimNonRefl3D", "Gas-dynamics non-reflective trim (3D).");
-    WrapGasTrimSlipWall<2>::commit(gas, "TrimSlipWall2D", "Gas-dynamics non-reflective trim (2D).");
-    WrapGasTrimSlipWall<3>::commit(gas, "TrimSlipWall3D", "Gas-dynamics non-reflective trim (3D).");
-    WrapGasTrimInlet<2>::commit(gas, "TrimInlet2D", "Gas-dynamics non-reflective trim (2D).");
-    WrapGasTrimInlet<3>::commit(gas, "TrimInlet3D", "Gas-dynamics non-reflective trim (3D).");
+    WrapGasTrimSlipWall<2>::commit(gas, "TrimSlipWall2D", "Gas-dynamics slip wall trim (2D).");
+    WrapGasTrimSlipWall<3>::commit(gas, "TrimSlipWall3D", "Gas-dynamics slip wall trim (3D).");
+    WrapGasTrimInlet<2>::commit(gas, "TrimInlet2D", "Gas-dynamics inlet trim (2D).");
+    WrapGasTrimInlet<3>::commit(gas, "TrimInlet3D", "Gas-dynamics inlet trim (3D).");
     return gas.ptr();
 }
 

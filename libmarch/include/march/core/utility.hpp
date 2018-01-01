@@ -10,9 +10,29 @@
  * Utilities.
  */
 
-#include <cstring>
+#include <utility>
+#include <memory>
+
+#if !defined(_MSC_VER) && !defined(__INTEL_COMPILER)
+#   if __cplusplus >= 201402L
+#       define MARCH_CPP14
+#   endif
+#elif defined(_MSC_VER)
+#   if _MSVC_LANG >= 201402L
+#       define MARCH_CPP14
+#   endif
+#endif
 
 namespace march {
+
+#ifdef MARCH_CPP14
+using std::make_unique;
+#else // MARCH_CPP14
+template<typename T, typename... Args>
+std::unique_ptr<T> make_unique(Args&&... args) {
+    return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
+}
+#endif // MARCH_CPP14
 
 namespace detail {
 

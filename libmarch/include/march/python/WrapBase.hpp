@@ -8,6 +8,7 @@
 #include <pybind11/pybind11.h>
 
 #include <memory>
+#include <type_traits>
 
 #ifdef __GNUG__
 #  define MARCH_PYTHON_WRAPPER_VISIBILITY __attribute__((visibility("hidden")))
@@ -22,7 +23,7 @@ namespace python {
 /**
  * Helper class for pybind11 class wrappers.
  */
-template< class Wrapper, class Wrapped, class Holder = std::unique_ptr<Wrapped> >
+template< class Wrapper, class Wrapped, class Holder = std::unique_ptr<Wrapped>, class WrappedBase = Wrapped >
 class
 MARCH_PYTHON_WRAPPER_VISIBILITY
 WrapBase {
@@ -31,8 +32,14 @@ public:
 
     using wrapper_type = Wrapper;
     using wrapped_type = Wrapped;
+    using wrapped_base_type = WrappedBase;
     using holder_type = Holder;
-    using base_type = WrapBase< wrapper_type, wrapped_type, holder_type >;
+    using base_type = WrapBase< wrapper_type, wrapped_type, holder_type, wrapped_base_type >;
+    using class_ = typename std::conditional<
+        std::is_same< Wrapped, WrappedBase >::value
+      , pybind11::class_< wrapped_type, holder_type >
+      , pybind11::class_< wrapped_type, wrapped_base_type, holder_type >
+    >::type;
 
     static wrapper_type & commit(pybind11::module & mod, const char * pyname, const char * clsdoc) {
         static wrapper_type derived(mod, pyname, clsdoc);
@@ -62,10 +69,10 @@ public:
 protected:
 
     WrapBase(pybind11::module & mod, const char * pyname, const char * clsdoc)
-        : m_cls(pybind11::class_< wrapped_type, holder_type >(mod, pyname, clsdoc))
+        : m_cls(mod, pyname, clsdoc)
     {}
 
-    pybind11::class_< wrapped_type, holder_type > m_cls;
+    class_ m_cls;
 
 }; /* end class WrapBase */
 
