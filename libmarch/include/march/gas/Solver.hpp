@@ -13,6 +13,7 @@
 #include "march/mesh/mesh.hpp"
 
 #include "march/gas/Solver_decl.hpp"
+#include "march/gas/Anchor.hpp"
 #include "march/gas/Quantity.hpp"
 
 namespace march {

@@ -142,24 +142,23 @@ class TriangularMesher(object):
         return blk
 
 
-class XDiaphragmAnchor(sc.MeshAnchor):
+class XDiaphragmAnchor(sc.march.gas.CommonAnchor):
     """
     Set different density and pressure across a diaphragm along the x axis.
     """
 
     def __init__(self, svr, **kw):
+        sc.march.gas.CommonAnchor.__init__(self, svr.solver)
         self.xloc = float(kw.pop('xloc'))
         self.gamma = float(kw.pop('gamma'))
         self.rho1 = float(kw.pop('rho1'))
         self.rho2 = float(kw.pop('rho2'))
         self.p1 = float(kw.pop('p1'))
         self.p2 = float(kw.pop('p2'))
-        super(XDiaphragmAnchor, self).__init__(svr, **kw)
 
     def provide(self):
-        super(XDiaphragmAnchor, self).provide()
         gamma = self.gamma
-        svr = self.svr
+        svr = self.solver
         so0n = svr.sol.so0n.F
         so0n[:,0].fill(self.rho1)
         so0n[:,1].fill(0.0)
@@ -179,19 +178,18 @@ _HeterogeneityData = collections.namedtuple(
     "_HeterogeneityData",
     ("step_current", "substep_current", "so0nidx", "xloc",
      "vmean", "vcov", "cov_threshold"))
-     
-class YHomogeneityCheck(sc.MeshAnchor):
+
+class YHomogeneityCheck(sc.march.gas.CommonAnchor):
     def __init__(self, svr, **kw):
+        sc.march.gas.CommonAnchor.__init__(self, svr.solver)
         # coefficient of variation
         self.instant_fail = kw.pop('instant_fail', False)
         self.cov_threshold = kw.pop('cov_threshold')
         self.columns = None
         self.hdata = list()
-        super(YHomogeneityCheck, self).__init__(svr, **kw)
 
     def provide(self):
-        super(YHomogeneityCheck, self).provide()
-        svr = self.svr
+        svr = self.solver
         self.hdata = list()
         # get rid of rounding error with 10 digits.
         roundx = svr.block.clcnd[:,0].round(decimals=10) # rounded x
@@ -208,7 +206,7 @@ class YHomogeneityCheck(sc.MeshAnchor):
         assert (indices == rebuilt).all()
 
     def _check(self):
-        so0n = self.svr.sol.so0n.B
+        so0n = self.solver.sol.so0n.B
         for xloc in self.columns:
             column = self.columns[xloc]
             for it in range(so0n.shape[1]):
@@ -221,8 +219,8 @@ class YHomogeneityCheck(sc.MeshAnchor):
                     vcov = vstd if vamean < 1.e-10 else vstd/vamean
                     if vcov >= cov_threshold:
                         hdatum = _HeterogeneityData(
-                            self.svr.state.step_current,
-                            self.svr.state.substep_current,
+                            self.solver.state.step_current,
+                            self.solver.state.substep_current,
                             it, xloc, vmean, vcov, cov_threshold)
                         if self.instant_fail:
                             raise AssertionError(hdatum)

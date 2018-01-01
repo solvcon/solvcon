@@ -94,7 +94,22 @@ class MeshHook(object):
         if isinstance(target, rpc.Shadow):
             target.drop_anchor(ankcls, ankkw)
         else:
-            target.runanchors.append(ankcls, **ankkw)
+            name = ankkw.pop('name', None)
+            if isinstance(name, int):
+                raise ValueError('name can\'t be integer')
+            obj = ankcls
+            if isinstance(obj, type):
+                obj = obj(target, **ankkw)
+            name = '' if not name else name
+            target.runanchors.append(obj, name=name)
+            # FIXME: to workaround
+            # https://github.com/pybind/pybind11/issues/1145, I hold
+            # Python-derived anchors in a Python list.  Maybe a better way
+            # (workaround) is to ask CommonAnchor to hold the
+            # PyObject while making the PyObject not hold CommonAnchor?
+            pycache = getattr(target, "_runanchors_pycache", list())
+            pycache.append(obj)
+            target._runanchors_pycache = pycache
 
     def drop_anchor(self, svr):
         """

@@ -84,6 +84,7 @@ set(MARCH_HEADERS
     include/march/gas/calc_solt.hpp
     include/march/gas/Quantity.hpp
     include/march/gas/Trim.hpp
+    include/march/gas/Anchor.hpp
     # python
     include/march/python/python.hpp
     include/march/python/WrapBase.hpp

@@ -23,6 +23,8 @@ template< size_t NDIM > class Quantity;
 
 template< size_t NDIM > class TrimBase;
 
+template< size_t NDIM > class AnchorChain;
+
 struct State {
     using int_type = int32_t;
 
@@ -47,6 +49,7 @@ public:
 
     using int_type = State::int_type;
     using block_type = UnstructuredBlock<NDIM>;
+    using anchor_chain_type = AnchorChain<NDIM>;
     using vector_type = Vector<NDIM>;
     using solution_type = Solution<NDIM>;
 
@@ -81,6 +84,11 @@ public:
     }
 
     std::shared_ptr<block_type> const & block() const { return m_block; }
+    std::vector<std::unique_ptr<TrimBase<NDIM>>> const & trims() const { return m_trims; }
+    std::vector<std::unique_ptr<TrimBase<NDIM>>>       & trims()       { return m_trims; }
+    AnchorChain<NDIM> const & anchors() const { return m_anchors; }
+    AnchorChain<NDIM>       & anchors()       { return m_anchors; }
+
     LookupTable<real_type, NDIM> const & cecnd() const { return m_cecnd; }
     Parameter const & param() const { return m_param; }
     Parameter       & param()       { return m_param; }
@@ -90,8 +98,6 @@ public:
     solution_type       & sol()       { return m_sol; }
     Quantity<NDIM> const & qty() const { return m_qty; }
     Quantity<NDIM>       & qty()       { return m_qty; }
-    std::vector<std::unique_ptr<TrimBase<NDIM>>> const & trims() const { return m_trims; }
-    std::vector<std::unique_ptr<TrimBase<NDIM>>>       & trims()       { return m_trims; }
 
     // TODO: move to UnstructuredBlock.
     // @[
@@ -129,12 +135,13 @@ private:
 private:
 
     std::shared_ptr<block_type> m_block;
+    std::vector<std::unique_ptr<TrimBase<NDIM>>> m_trims;
+    AnchorChain<NDIM> m_anchors;
     LookupTable<real_type, NDIM> m_cecnd;
     Parameter m_param;
     State m_state;
     solution_type m_sol;
     Quantity<NDIM> m_qty;
-    std::vector<std::unique_ptr<TrimBase<NDIM>>> m_trims;
 
 }; /* end class Solver */
 

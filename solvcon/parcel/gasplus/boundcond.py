@@ -10,7 +10,6 @@ Boundary-condition treatments for :py:class:`~.solver.GasPlusSolver`.
 
 
 import solvcon as sc
-from solvcon import march
 
 
 class GasPlusBC(sc.BC):

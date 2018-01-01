@@ -48,9 +48,16 @@ class GasPlusSolver:
         self.state.time = time
         self.state.time_increment = time_increment
         # marching facilities.
-        self.runanchors = sc.MeshAnchorList(self)
+        #self.runanchors = sc.MeshAnchorList(self)
         self.marchret = None
-        self.der = dict() # FIXME: remove this dictionary
+
+    @property
+    def solver(self):
+        return self.alg
+
+    @property
+    def runanchors(self):
+        return self.alg.anchors
 
     @property
     def neq(self):
@@ -86,16 +93,16 @@ class GasPlusSolver:
    ############################################################################
     # Anchors.
     def provide(self):
-        self.runanchors('provide')
+        self.runanchors.provide()
 
     def preloop(self):
-        self.runanchors('preloop')
+        self.runanchors.preloop()
 
     def postloop(self):
-        self.runanchors('postloop')
+        self.runanchors.postloop()
 
     def exhaust(self):
-        self.runanchors('exhaust')
+        self.runanchors.exhaust()
     # Anchors.
     ############################################################################
 
@@ -148,34 +155,30 @@ class GasPlusSolver:
         self.marchret = dict()
         state = self.state
         state.step_current = 0
-        self.runanchors('premarch')
+        self.runanchors.premarch()
         while state.step_current < steps_run:
             state.substep_current = 0
-            self.runanchors('prefull')
+            self.runanchors.prefull()
             t0 = time.time()
             while state.substep_current < state.substep_run:
                 # set up time.
                 state.time = time_current
                 state.time_increment = time_increment
-                self.runanchors('presub')
+                self.runanchors.presub()
                 # run marching methods.
                 for mmname in self.mmnames:
                     method = getattr(self, mmname)
-                    t1 = time.time()
-                    self.runanchors('pre'+mmname)
-                    t2 = time.time()
                     method(worker=worker)
-                    self.runanchors('post'+mmname)
                 # increment time.
                 time_current += state.time_increment/state.substep_run
                 state.time = time_current
                 state.time_increment = time_increment
                 state.substep_current += 1
-                self.runanchors('postsub')
+                self.runanchors.postsub()
             state.step_global += 1
             state.step_current += 1
-            self.runanchors('postfull')
-        self.runanchors('postmarch')
+            self.runanchors.postfull()
+        self.runanchors.postmarch()
         if worker:
             worker.conn.send(self.marchret)
         return self.marchret

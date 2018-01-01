@@ -21,7 +21,7 @@ namespace march {
 namespace python {
 
 /**
- * Helper class for pybind11 class wrappers.
+ * Helper template for pybind11 class wrappers.
  */
 template< class Wrapper, class Wrapped, class Holder = std::unique_ptr<Wrapped>, class WrappedBase = Wrapped >
 class
