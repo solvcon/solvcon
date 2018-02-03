@@ -116,10 +116,10 @@ public:
     // marching core.
     // @[
     void update(real_type time, real_type time_increment);
-    void calc_cfl();
     void calc_so0t();
     void calc_so0n();
     void trim_do0();
+    void calc_cfl();
     void trim_do1();
     void calc_so1n();
     // @]

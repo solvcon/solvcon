@@ -80,9 +80,6 @@ set(MARCH_HEADERS
     include/march/gas/Solver_decl.hpp
     include/march/gas/Solver.hpp
     include/march/gas/derivative.hpp
-    include/march/gas/calc_cfl.hpp
-    include/march/gas/calc_soln.hpp
-    include/march/gas/calc_solt.hpp
     include/march/gas/Quantity.hpp
     include/march/gas/Trim.hpp
     include/march/gas/Anchor.hpp

@@ -56,6 +56,133 @@ void Solver<NDIM>::update(real_type time , real_type time_increment)
 }
 
 template< size_t NDIM >
+void Solver<NDIM>::calc_so0t() {
+    // references.
+    auto & block = *m_block;
+    // jacobian matrix.
+    Jacobian<neq, ndim> jaco;
+    for (index_type icl=0; icl<block.ncell(); ++icl) {
+        auto piso0t = m_sol.so0t(icl);
+        auto piso1c = m_sol.so1c(icl);
+        jaco.update(m_sol.gamma(icl), *m_sol.so0c(icl));
+        for (index_type ieq=0; ieq<neq; ieq++) {
+            piso0t[ieq] = 0.0;
+            for (index_type idm=0; idm<NDIM; idm++) {
+                real_type val = 0.0;
+                for (index_type jeq=0; jeq<neq; jeq++) {
+                    val += jaco.jacos[ieq][jeq][idm]*piso1c[jeq][idm];
+                }
+                piso0t[ieq] -= val;
+            }
+        }
+    }
+}
+
+template< size_t NDIM >
+void Solver<NDIM>::calc_so0n() {
+    // references.
+    const auto & block = *m_block;
+    // buffers.
+    Jacobian<neq, ndim> jaco;
+
+    const real_type qdt = m_state.time_increment * 0.25;
+    const real_type hdt = m_state.time_increment * 0.5;
+    for (index_type icl=0; icl<block.ncell(); ++icl) {
+        const CompoundCE<NDIM> icce(block, icl);
+        auto pisoln = m_sol.so0n(icl);
+        pisoln = 0.0; // initialize fluxes.
+
+        const auto & tclfcs = block.clfcs()[icl];
+        for (index_type ifl=0; ifl<tclfcs[0]; ++ifl) {
+            const BasicCE<NDIM> & ibce = icce.bces[ifl];
+            const index_type ifc = tclfcs[ifl+1];
+            const auto & tfcnds = block.fcnds()[ifc];
+            const index_type jcl = block.fcrcl(ifc, icl); // neighboring cell.
+            const auto & jcecnd = reinterpret_cast<const Vector<NDIM> &>(m_cecnd[jcl]);
+            const auto pjso0c = m_sol.so0c(jcl);
+            const auto pjso0t = m_sol.so0t(jcl);
+            const auto pjso1c = m_sol.so1c(jcl);
+
+            // spatial flux (given time).
+            for (index_type ieq=0; ieq<neq; ++ieq) {
+                real_type fusp = pjso0c[ieq];
+                fusp += (ibce.cnd - jcecnd).dot(pjso1c[ieq]);
+                pisoln[ieq] += fusp * ibce.vol;
+            }
+
+            // temporal flux (given space).
+            jaco.update(m_sol.gamma(icl), *pjso0c);
+            for (index_type inf=0; inf<tfcnds[0]; ++inf) {
+                real_type usfc[neq];
+                vector_type dfcn[neq];
+                // solution at sub-face center.
+                for (index_type ieq=0; ieq<neq; ++ieq) {
+                    usfc[ieq] = qdt * pjso0t[ieq];
+                    usfc[ieq] += (ibce.sfcnd[inf] - jcecnd).dot(pjso1c[ieq]);
+                }
+                // spatial derivatives.
+                for (index_type ieq=0; ieq<neq; ++ieq) {
+                    dfcn[ieq] = jaco.fcn[ieq];
+                    for (index_type jeq=0; jeq<neq; ++jeq) {
+                        dfcn[ieq] += jaco.jacos[ieq][jeq] * usfc[jeq];
+                    }
+                }
+                // temporal flux.
+                for (index_type ieq=0; ieq<neq; ++ieq) {
+                    pisoln[ieq] -= hdt * dfcn[ieq].dot(ibce.sfnml[inf]);
+                }
+            }
+        }
+
+        // update solutions.
+        for (index_type ieq=0; ieq<neq; ++ieq) {
+            pisoln[ieq] /= icce.vol;
+        }
+
+        throw_on_negative_density(__func__, icl);
+        throw_on_negative_energy(__func__, icl);
+    }
+}
+
+template< size_t NDIM >
+void Solver<NDIM>::calc_cfl() {
+    // references.
+    auto & block = *m_block;
+    const real_type hdt = m_state.time_increment / 2.0;
+    for (index_type icl=0; icl<block.ncell(); ++icl) {
+        auto & cflc = m_sol.cflc(icl);
+        auto & cflo = m_sol.cflo(icl);
+        auto piso0n = m_sol.so0n(icl);
+        const CompoundCE<NDIM> cce(block, icl);
+        const auto & tclfcs = block.clfcs()[icl];
+        // estimate distance.
+        real_type dist = DBL_MAX;
+        for (index_type ifl=0; ifl<tclfcs[0]; ++ifl) {
+            // distance.
+            const auto vec = cce.bces[ifl].cnd - cce.cnd;
+            // minimal value.
+            dist = fmin(vec.length(), dist);
+        };
+        // wave speed.
+        const real_type ga = m_sol.gamma(icl);
+        const real_type ga1 = ga - 1.0;
+        real_type wspd = piso0n.momentum().square();
+        const real_type ke = wspd/(2.0*piso0n.density());
+        const real_type pr = ga1 * (piso0n.energy() - ke);
+        const real_type pr_adj = (pr+fabs(pr))/2.0;
+        wspd = sqrt(ga*pr_adj/piso0n.density()) + sqrt(wspd)/piso0n.density();
+        // CFL.
+        cflo = hdt*wspd/dist;
+        // if pressure is null, make CFL to be 1.
+        cflc = (cflo-1.0) * pr_adj/(pr_adj+TINY) + 1.0;
+        throw_on_cfl_adjustment(__func__, icl);
+        throw_on_cfl_overflow(__func__, icl);
+        // correct negative pressure.
+        piso0n.energy() = pr_adj/ga1 + ke + TINY;
+    }
+}
+
+template< size_t NDIM >
 void Solver<NDIM>::march(real_type time_current, real_type time_increment, Solver<NDIM>::int_type steps_run)
 {
     state().step_current = 0;
