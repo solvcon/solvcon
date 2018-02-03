@@ -102,14 +102,6 @@ class MeshHook(object):
                 obj = obj(target, **ankkw)
             name = '' if not name else name
             target.runanchors.append(obj, name=name)
-            # FIXME: to workaround
-            # https://github.com/pybind/pybind11/issues/1145, I hold
-            # Python-derived anchors in a Python list.  Maybe a better way
-            # (workaround) is to ask CommonAnchor to hold the
-            # PyObject while making the PyObject not hold CommonAnchor?
-            pycache = getattr(target, "_runanchors_pycache", list())
-            pycache.append(obj)
-            target._runanchors_pycache = pycache
 
     def drop_anchor(self, svr):
         """

@@ -156,7 +156,6 @@ class CflAnchor(sc.march.gas.CommonAnchor):
         sc.march.gas.CommonAnchor.__init__(self, svr.solver)
         #: Steps to run (:py:class:`int`).
         self.rsteps = int(rsteps)
-        self.svr = svr
 
     def postmarch(self):
         svr = self.solver
@@ -171,11 +170,13 @@ class CflAnchor(sc.march.gas.CommonAnchor):
             maxcfl = cflo.max()
             nadj = (cflc==1).sum()
             # store.
-            lst = self.svr.marchret.setdefault('cfl', [0.0, 0.0, 0, 0])
-            lst[0] = mincfl
-            lst[1] = maxcfl
-            lst[2] = nadj
-            lst[3] += nadj
+            svr.state.cfl_min = mincfl
+            svr.state.cfl_max = maxcfl
+            svr.state.cfl_nadjusted = nadj
+            if svr.state.cfl_nadjusted_accumulated < 0:
+                svr.state.cfl_nadjusted_accumulated = nadj
+            else:
+                svr.state.cfl_nadjusted_accumulated += nadj
 
 
 class CflHook(sc.MeshHook):

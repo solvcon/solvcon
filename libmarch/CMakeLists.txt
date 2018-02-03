@@ -53,6 +53,7 @@ set(MARCH_HEADERS
     include/march/depend/scotch.hpp
     # core
     include/march/core/core.hpp
+    include/march/core/memory.hpp
     include/march/core/Buffer.hpp
     include/march/core/LookupTable.hpp
     include/march/core/Vector.hpp

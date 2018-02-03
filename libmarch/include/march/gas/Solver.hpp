@@ -33,7 +33,8 @@ Solver<NDIM>::Solver(
     const Solver<NDIM>::ctor_passkey &
   , const std::shared_ptr<Solver<NDIM>::block_type> & block
 )
-  : m_block(block)
+  : InstanceCounter<Solver<NDIM>>()
+  , m_block(block)
   , m_cecnd(block->ngstcell(), block->ncell())
   , m_sol(block->ngstcell(), block->ncell())
   , m_qty(*this)

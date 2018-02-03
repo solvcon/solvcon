@@ -162,6 +162,11 @@ public:
     using anchor_type = Anchor<NDIM>;
     using anchor_ptr = std::shared_ptr<anchor_type>;
 
+    struct LifeManager { virtual ~LifeManager() {} };
+
+    std::unique_ptr<LifeManager>       & life_manager()       { return m_life_manager; }
+    std::unique_ptr<LifeManager> const & life_manager() const { return m_life_manager; }
+
     void push_back(anchor_ptr const & ptr) { m_anchors.push_back(ptr); }
     void append(anchor_ptr const & ptr, std::string const & name) {
         m_anchors.push_back(ptr);
@@ -199,6 +204,7 @@ private:
 
     std::vector<anchor_ptr> m_anchors;
     std::map<std::string, anchor_ptr> m_names;
+    std::unique_ptr<LifeManager> m_life_manager;
 
 }; /* end class AnchorChain */
 

@@ -268,6 +268,21 @@ WrapGasAnchor
 
 }; /* end class WrapGasAnchor */
 
+/* This is to workaround https://github.com/pybind/pybind11/issues/1145.  The
+ * lifecycle of the derived Python instances is kept in the manager. */
+template< size_t NDIM >
+class PythonAnchorManager : public gas::AnchorChain<NDIM>::LifeManager {
+
+public:
+
+    void append(py::object const & pyobj) { m_list.push_back(pyobj); }
+
+private:
+
+    std::list<py::object> m_list;
+
+}; /* class PythonAnchorManager */
+
 template< size_t NDIM >
 class
 MARCH_PYTHON_WRAPPER_VISIBILITY
@@ -282,13 +297,19 @@ WrapGasAnchorChain
     friend base_type;
 
     WrapGasAnchorChain(py::module & mod, const char * pyname, const char * clsdoc)
-        : base_type(mod, pyname, clsdoc)
+      : base_type(mod, pyname, clsdoc)
     {
         (*this)
             .def(
                 "append",
                 [](wrapped_type & self, std::shared_ptr<gas::CommonAnchor> const & ptr, std::string const & name) {
                     self.append(ptr->make_owner<NDIM>(), name);
+                    using mtype = PythonAnchorManager<NDIM>;
+                    if (!self.life_manager()) {
+                        self.life_manager() = make_unique<mtype>();
+                    }
+                    mtype & mgr = dynamic_cast<mtype &>(*self.life_manager());
+                    mgr.append(py::cast(ptr));
                 },
                 py::arg("obj"), py::arg("name") = ""
             )
@@ -317,7 +338,7 @@ WrapGasParameter
     friend base_type;
 
     WrapGasParameter(py::module & mod, const char * pyname, const char * clsdoc)
-        : base_type(mod, pyname, clsdoc)
+      : base_type(mod, pyname, clsdoc)
     {
 #define DECL_MARCH_PYBIND_GAS_PARAMETER(TYPE, NAME) \
             .def_property( \
@@ -348,7 +369,7 @@ WrapGasState
     friend base_type;
 
     WrapGasState(py::module & mod, const char * pyname, const char * clsdoc)
-        : base_type(mod, pyname, clsdoc)
+      : base_type(mod, pyname, clsdoc)
     {
 #define DECL_MARCH_PYBIND_GAS_STATE(TYPE, NAME) \
             .def_property( \
@@ -364,6 +385,10 @@ WrapGasState
             DECL_MARCH_PYBIND_GAS_STATE(gas::State::int_type, step_global)
             DECL_MARCH_PYBIND_GAS_STATE(gas::State::int_type, substep_run)
             DECL_MARCH_PYBIND_GAS_STATE(gas::State::int_type, substep_current)
+            DECL_MARCH_PYBIND_GAS_STATE(real_type, cfl_min)
+            DECL_MARCH_PYBIND_GAS_STATE(real_type, cfl_max)
+            DECL_MARCH_PYBIND_GAS_STATE(gas::State::int_type, cfl_nadjusted)
+            DECL_MARCH_PYBIND_GAS_STATE(gas::State::int_type, cfl_nadjusted_accumulated)
         ;
 
 #undef DECL_MARCH_PYBIND_GAS_STATE
@@ -385,7 +410,7 @@ WrapGasSolution
     friend base_type;
 
     WrapGasSolution(py::module & mod, const char * pyname, const char * clsdoc)
-        : base_type(mod, pyname, clsdoc)
+      : base_type(mod, pyname, clsdoc)
     {
 #define DECL_MARCH_PYBIND_GAS_SOLUTION(NAME) \
             .def_property_readonly( \
@@ -426,7 +451,7 @@ WrapGasQuantity
     friend base_type;
 
     WrapGasQuantity(py::module & mod, const char * pyname, const char * clsdoc)
-        : base_type(mod, pyname, clsdoc)
+      : base_type(mod, pyname, clsdoc)
     {
 
 // FIXME: change the properties to be like those of Solution
@@ -471,7 +496,7 @@ WrapGasTrimBase
     friend base_type;
 
     WrapGasTrimBase(py::module & mod, const char * pyname, const char * clsdoc)
-        : base_type(mod, pyname, clsdoc)
+      : base_type(mod, pyname, clsdoc)
     {
         (*this)
             .def(py::init<solver_type &, BoundaryData &>())

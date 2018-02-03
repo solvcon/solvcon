@@ -47,9 +47,6 @@ class GasPlusSolver:
         self.param.sigma0 = sigma0
         self.state.time = time
         self.state.time_increment = time_increment
-        # marching facilities.
-        #self.runanchors = sc.MeshAnchorList(self)
-        self.marchret = None
 
     @property
     def solver(self):
@@ -152,7 +149,6 @@ class GasPlusSolver:
         :py:meth:`march` will return the dictionary at the end of execution.
         The dictionary is reset to empty at the begninning of the execution.
         """
-        self.marchret = dict()
         state = self.state
         state.step_current = 0
         self.runanchors.premarch()
@@ -179,9 +175,11 @@ class GasPlusSolver:
             state.step_current += 1
             self.runanchors.postfull()
         self.runanchors.postmarch()
+        marchret = {'cfl': [state.cfl_min, state.cfl_max, state.cfl_nadjusted,
+                            state.cfl_nadjusted_accumulated]}
         if worker:
-            worker.conn.send(self.marchret)
-        return self.marchret
+            worker.conn.send(marchret)
+        return marchret
 
     def init(self, **kw):
         for arrname in ("so0c", "so0n", "so0t", "so1c", "so1n"):

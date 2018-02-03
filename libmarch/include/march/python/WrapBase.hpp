@@ -69,10 +69,24 @@ public:
 protected:
 
     WrapBase(pybind11::module & mod, const char * pyname, const char * clsdoc)
-        : m_cls(mod, pyname, clsdoc)
-    {}
+      : m_cls(mod, pyname, clsdoc)
+    {
+        expose_instance_count(typename std::is_base_of<InstanceCounter<wrapped_type>, wrapped_type>::type {});
+    }
 
     class_ m_cls;
+
+private:
+
+    void expose_instance_count(std::true_type const &) {
+        m_cls
+            .def_property_readonly_static(
+                "active_instance_count",
+                [](pybind11::object const & /* self */) { return wrapped_type::active_instance_count(); }
+            )
+        ;
+    }
+    void expose_instance_count(std::false_type const &) {}
 
 }; /* end class WrapBase */
 

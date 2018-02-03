@@ -35,6 +35,11 @@ struct State {
     int_type substep_run=2;
     int_type substep_current=0;
 
+    real_type cfl_min=std::numeric_limits<real_type>::quiet_NaN();
+    real_type cfl_max=std::numeric_limits<real_type>::quiet_NaN();
+    int_type cfl_nadjusted=-1;
+    int_type cfl_nadjusted_accumulated=-1;
+
     std::string step_info_string() const {
         return string_format("step=%d substep=%d", step_current, substep_current);
     }
@@ -42,7 +47,8 @@ struct State {
 
 template< size_t NDIM >
 class Solver
-  : public std::enable_shared_from_this<Solver<NDIM>>
+  : public InstanceCounter<Solver<NDIM>>
+  , public std::enable_shared_from_this<Solver<NDIM>>
 {
 
 public:

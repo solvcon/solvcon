@@ -6,6 +6,7 @@
  */
 
 #include "march/core/types.hpp"
+#include "march/core/memory.hpp"
 #include "march/core/utility.hpp"
 #include "march/core/Buffer.hpp"
 #include "march/core/LookupTable.hpp"
