@@ -81,22 +81,22 @@ TEST_F(GasSolverTest, CalcCfl) {
 TEST_F(GasSolverTest, CalcSolt) {
     auto svr_holder = Solver<2>::construct(m_triangles);
     auto & svr = *svr_holder;
-    svr.calc_solt(); // good as long as it doesn't crash.
+    svr.calc_so0t(); // good as long as it doesn't crash.
 }
 
 TEST_F(GasSolverTest, CalcSoln) {
     auto svr_holder = Solver<2>::construct(m_triangles);
     auto & svr = *svr_holder;
-    svr.calc_solt();
-    svr.calc_soln(); // good as long as it doesn't crash.
+    svr.calc_so0t();
+    svr.calc_so0n(); // good as long as it doesn't crash.
 }
 
 TEST_F(GasSolverTest, CalcDsoln) {
     auto svr_holder = Solver<2>::construct(m_triangles);
     auto & svr = *svr_holder;
-    svr.calc_solt();
-    svr.calc_soln();
-    svr.calc_dsoln(); // good as long as it doesn't crash.
+    svr.calc_so0t();
+    svr.calc_so0n();
+    svr.calc_so1n(); // good as long as it doesn't crash.
 }
 
 class GasQuantityTest : public GasTestBase {};
@@ -104,9 +104,9 @@ class GasQuantityTest : public GasTestBase {};
 TEST_F(GasQuantityTest, Update) {
     auto svr_holder = Solver<2>::construct(m_triangles);
     auto & svr = *svr_holder;
-    svr.calc_solt();
-    svr.calc_soln();
-    svr.calc_dsoln();
+    svr.calc_so0t();
+    svr.calc_so0n();
+    svr.calc_so1n();
     auto & qty = svr.qty();
     qty.update(1, 1, 1, 1); // good as long as it doesn't crash.
 }
@@ -120,9 +120,9 @@ protected:
         m_triangles_bound_0 = &m_triangles->bndvec().at(0);
         m_triangles_solver = Solver<2>::construct(m_triangles);
         auto & svr = *m_triangles_solver;
-        svr.calc_solt();
-        svr.calc_soln();
-        svr.calc_dsoln();
+        svr.calc_so0t();
+        svr.calc_so0n();
+        svr.calc_so1n();
     }
 
     template< class TrimType > std::unique_ptr<TrimType> get_trim() {

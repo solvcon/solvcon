@@ -8,7 +8,11 @@ project(march)
 find_package(pybind11 REQUIRED)
 find_package(NumPy REQUIRED)
 include_directories(${NUMPY_INCLUDE_DIR})
-pybind11_add_module(march march.cpp)
+set(MARCH_PY_SOURCES
+    march.cpp
+    march_gas.cpp
+)
+pybind11_add_module(march ${MARCH_PY_SOURCES})
 target_link_libraries(march PRIVATE scotchmetis scotch scotcherr scotcherrexit)
 install(TARGETS march DESTINATION ${SOLVCON_ROOT})
 

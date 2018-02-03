@@ -179,14 +179,10 @@ class MeshHookList(list):
         :py:class:`~.anchor.MeshAnchor` type.  Other input results into
         TypeError.
 
+        >>> import solvcon as sc
         >>> from solvcon.testing import create_trivial_2d_blk
         >>> cse = MeshCase() # No arguments because of demonstration.
         >>> hook_list = MeshHookList(cse)
-        >>> hook_list.sanitize(tuple)
-        Traceback (most recent call last):
-            ...
-        TypeError: not solvcon.MeshHook or solvcon.MeshAnchor
-        >>> import solvcon as sc
         >>> type(hook_list.sanitize(sc.MeshHook)).__name__
         'MeshHook'
 
@@ -208,11 +204,15 @@ class MeshHookList(list):
         if isinstance(obj, type):
             if issubclass(obj, hook.MeshHook):
                 hookcls = obj
-            elif issubclass(obj, anchor.MeshAnchor):
+            # FIXME: make C++ Anchor work with MeshAnchor
+            #elif issubclass(obj, anchor.MeshAnchor):
+            #    kw['ankcls'] = obj
+            #    hookcls = hook.MeshHook # Use a dummy MeshHook.
+            #else:
+            #    raise TypeError("not solvcon.MeshHook or solvcon.MeshAnchor")
+            else: # treat as Anchor
                 kw['ankcls'] = obj
                 hookcls = hook.MeshHook # Use a dummy MeshHook.
-            else:
-                raise TypeError("not solvcon.MeshHook or solvcon.MeshAnchor")
             obj = hookcls(self.cse, **kw)
         else: # Got an instance.
             assert len(kw) == 0

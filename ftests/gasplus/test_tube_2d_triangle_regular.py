@@ -37,9 +37,6 @@ Validate C++-based ``gasplus`` solver.
 # Beware, it's full of hacks.
 
 
-from __future__ import absolute_import, division, print_function
-
-
 import os
 import math
 import collections
@@ -145,59 +142,58 @@ class TriangularMesher(object):
         return blk
 
 
-class XDiaphragmAnchor(sc.MeshAnchor):
+class XDiaphragmAnchor(sc.march.gas.CommonAnchor):
     """
     Set different density and pressure across a diaphragm along the x axis.
     """
 
     def __init__(self, svr, **kw):
+        sc.march.gas.CommonAnchor.__init__(self, svr.solver)
         self.xloc = float(kw.pop('xloc'))
         self.gamma = float(kw.pop('gamma'))
         self.rho1 = float(kw.pop('rho1'))
         self.rho2 = float(kw.pop('rho2'))
         self.p1 = float(kw.pop('p1'))
         self.p2 = float(kw.pop('p2'))
-        super(XDiaphragmAnchor, self).__init__(svr, **kw)
 
     def provide(self):
-        super(XDiaphragmAnchor, self).provide()
         gamma = self.gamma
-        svr = self.svr
-        svr.soln[:,0].fill(self.rho1)
-        svr.soln[:,1].fill(0.0)
-        svr.soln[:,2].fill(0.0)
-        if svr.ndim == 3:
-            svr.soln[:,3].fill(0.0)
-        svr.soln[:,svr.ndim+1].fill(self.p1/(gamma-1))
+        svr = self.solver
+        so0n = svr.sol.so0n.F
+        so0n[:,0].fill(self.rho1)
+        so0n[:,1].fill(0.0)
+        so0n[:,2].fill(0.0)
+        if svr.block.ndim == 3:
+            so0n[:,3].fill(0.0)
+        so0n[:,svr.block.ndim+1].fill(self.p1/(gamma-1))
         # set.
-        slct = svr.blk.shclcnd[:,0] > self.xloc
-        svr.soln[slct,0] = self.rho2
-        svr.soln[slct,svr.ndim+1] = self.p2
+        slct = svr.block.tbclcnd.F[:,0] > self.xloc
+        so0n[slct,0] = self.rho2
+        so0n[slct,svr.block.ndim+1] = self.p2
         # update.
-        svr.sol[:] = svr.soln[:]
+        svr.sol.so0c.F[:] = so0n[:]
 
 
 _HeterogeneityData = collections.namedtuple(
     "_HeterogeneityData",
-    ("step_current", "substep_current", "solnidx", "xloc",
+    ("step_current", "substep_current", "so0nidx", "xloc",
      "vmean", "vcov", "cov_threshold"))
-     
-class YHomogeneityCheck(sc.MeshAnchor):
+
+class YHomogeneityCheck(sc.march.gas.CommonAnchor):
     def __init__(self, svr, **kw):
+        sc.march.gas.CommonAnchor.__init__(self, svr.solver)
         # coefficient of variation
         self.instant_fail = kw.pop('instant_fail', False)
         self.cov_threshold = kw.pop('cov_threshold')
         self.columns = None
         self.hdata = list()
-        super(YHomogeneityCheck, self).__init__(svr, **kw)
 
     def provide(self):
-        super(YHomogeneityCheck, self).provide()
-        blk = self.svr.blk
+        svr = self.solver
         self.hdata = list()
         # get rid of rounding error with 10 digits.
-        roundx = blk.clcnd[:,0].round(decimals=10) # rounded x
-        indices = np.arange(blk.ncell, dtype='int32')
+        roundx = svr.block.clcnd[:,0].round(decimals=10) # rounded x
+        indices = np.arange(svr.block.ncell, dtype='int32')
         xlocs = np.unique(roundx)
         xlocs.sort()
         # scan the X coordinates and fill indices.
@@ -210,12 +206,11 @@ class YHomogeneityCheck(sc.MeshAnchor):
         assert (indices == rebuilt).all()
 
     def _check(self):
-        alg = self.svr.alg
-        soln = self.svr.soln[self.svr.ngstcell:,:]
+        so0n = self.solver.sol.so0n.B
         for xloc in self.columns:
             column = self.columns[xloc]
-            for it in range(soln.shape[1]):
-                val = soln[column,it]
+            for it in range(so0n.shape[1]):
+                val = so0n[column,it]
                 cov_threshold = self.cov_threshold[it]
                 if cov_threshold:
                     vmean = abs(np.mean(val))
@@ -224,14 +219,15 @@ class YHomogeneityCheck(sc.MeshAnchor):
                     vcov = vstd if vamean < 1.e-10 else vstd/vamean
                     if vcov >= cov_threshold:
                         hdatum = _HeterogeneityData(
-                            alg.step_current, alg.substep_current,
+                            self.solver.state.step_current,
+                            self.solver.state.substep_current,
                             it, xloc, vmean, vcov, cov_threshold)
                         if self.instant_fail:
                             raise AssertionError(hdatum)
                         else:
                             self.hdata.append(hdatum)
 
-    def presub(self):
+    def prefull(self):
         self._check()
 
     def postloop(self):
@@ -274,8 +270,8 @@ def create_case(
 
     # Field initialization and derived calculations.
     cse.defer(gp.FillAnchor,
-              mappers={'soln': gp.GasPlusSolver.ALMOST_ZERO,
-                       'dsoln': 0.0, 'amsca': gamma})
+              mappers={'sol.so0n': gp.GasPlusSolver.ALMOST_ZERO,
+                       'sol.so1n': 0.0, 'sol.gamma': gamma})
     cse.defer(XDiaphragmAnchor,
               xloc=(mesher.lowerleft[0]+mesher.upperright[0])/2,
               gamma=gamma, rho1=rho1, p1=p1, rho2=rho2, p2=p2)
@@ -300,7 +296,7 @@ def create_case(
         cse.defer(
             gp.PMarchSave,
             anames=[
-                ('soln', False, -4),
+                ('so0n', False, -4),
             ],
             psteps=ssteps)
 

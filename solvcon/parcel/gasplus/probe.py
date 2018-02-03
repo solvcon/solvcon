@@ -37,13 +37,13 @@ class Probe(object):
         for spec in self.speclst:
             arr = None
             if isinstance(spec, str):
-                arr = svr.der[spec]
+                arr = svr.der[spec] # FIXME: translate to qty
             elif isinstance(spec, int):
                 if spec >= 0 and spec < svr.neq:
-                    arr = svr.soln[:,spec]
+                    arr = svr.sol.so0n.F[:,spec]
                 elif spec < 0 and -1-spec < svr.neq:
                     spec = -1-spec
-                    arr = svr.sol[:,spec]
+                    arr = svr.sol.so0c.F[:,spec]
             if arr is None:
                 raise IndexError('spec %s incorrect'%str(spec))
             vlist.append(arr[ngstcell+self.pcl])

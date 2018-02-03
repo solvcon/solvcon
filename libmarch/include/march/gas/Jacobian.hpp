@@ -49,6 +49,7 @@ struct Jacobian {
 }; /* end struct Jacobian */
 
 template<>
+inline
 void Jacobian<4, 2>::update(real_type gamma, const_solution_reference sol) {
     // scalars.
     real_type ga, ga1, ga3, ga1h;
@@ -114,6 +115,7 @@ void Jacobian<4, 2>::update(real_type gamma, const_solution_reference sol) {
 }
 
 template<>
+inline
 void Jacobian<5, 3>::update(real_type gamma, const_solution_reference sol) {
     // scalars.
     real_type ga, ga1, ga3, ga1h;

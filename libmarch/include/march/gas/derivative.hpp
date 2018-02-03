@@ -229,7 +229,7 @@ struct GradientWeigh {
 
     static constexpr size_t MFGE = GradientMeta::MFGE;
 
-    static constexpr real_type ALMOST_ZERO=1.e-200;
+    static constexpr real_type ALMOST_ZERO = Solver<NDIM>::ALMOST_ZERO;
 
     const shape_type & gshape;
     const solution_type & shouse;
@@ -368,7 +368,7 @@ private:
 }; /* end struct GradientWeigh */
 
 template< size_t NDIM >
-void Solver<NDIM>::calc_dsoln() {
+void Solver<NDIM>::calc_so1n() {
     // references.
     const auto & block = *m_block;
     const real_type hdt = m_state.time_increment * 0.5;
@@ -381,13 +381,6 @@ void Solver<NDIM>::calc_dsoln() {
         const GradientShape<ndim,neq> gshape(block, m_cecnd, icl, tau);
         const GradientWeigh<ndim,neq> gweigh(gshape, m_sol, hdt, sgm0);
         gweigh(m_sol.so1n(icl));
-    }
-
-    if (m_state.substep_current % 2) {
-        m_state.step_current += 1;
-        m_state.substep_current = 0;
-    } else {
-        m_state.substep_current += 1;
     }
 }
 

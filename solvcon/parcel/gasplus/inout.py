@@ -122,71 +122,61 @@ class ProgressHook(sc.MeshHook):
             info("\nStep %d/%d done\n" % (istep, nsteps))
 
 
-class FillAnchor(sc.MeshAnchor):
+class FillAnchor(sc.march.gas.CommonAnchor):
     """
     Fill the specified arrays of a :py:class:`~.solver.GasSolver` with
     corresponding value.
     """
 
     def __init__(self, svr, mappers=None, **kw):
-        assert None is not mappers
-        #: A :py:class:`dict` maps the names of attributes of the
-        #: :py:attr:`MeshAnchor.svr <solvcon.MeshAnchor.svr>` to the
-        #: filling value.
+        sc.march.gas.CommonAnchor.__init__(self, svr.solver)
+        if mappers is None:
+            raise ValueError("input mappers cannot be None")
         self.mappers = mappers if mappers else {}
-        super(FillAnchor, self).__init__(svr, **kw)
 
     def provide(self):
         for key, value in self.mappers.items():
-            getattr(self.svr, key).fill(value)
+            tokens = key.split(".")
+            obj = self.solver
+            for token in tokens:
+                obj = getattr(obj, token)
+            obj.fill(value)
 
 
 ################################################################################
 # Begin CFL evaluation.
-class CflAnchor(sc.MeshAnchor):
+class CflAnchor(sc.march.gas.CommonAnchor):
     """
-    Counting CFL numbers.  Use :py:attr:`MeshSolver.marchret
-    <solvcon.solver.MeshSolver.marchret>` to return results.  Overrides
-    :py:meth:`~solvcon.anchor.MeshAnchor.postmarch` method.
+    Counting CFL numbers.
 
     Pair with :py:class:`CflHook`.
     """
 
     def __init__(self, svr, rsteps=None, **kw):
-        """
-        >>> from solvcon.testing import create_trivial_2d_blk
-        >>> from solvcon.solver import MeshSolver
-        >>> svr = MeshSolver(create_trivial_2d_blk())
-        >>> ank = CflAnchor(svr) # doctest: +ELLIPSIS
-        Traceback (most recent call last):
-            ...
-        TypeError: int() argument must be a string...
-        >>> ank = CflAnchor(svr, 1)
-        >>> ank.rsteps
-        1
-        """
+        sc.march.gas.CommonAnchor.__init__(self, svr.solver)
         #: Steps to run (:py:class:`int`).
         self.rsteps = int(rsteps)
-        super(CflAnchor, self).__init__(svr, **kw)
 
     def postmarch(self):
-        svr = self.svr
-        istep = svr.step_global
+        svr = self.solver
+        istep = svr.state.step_global
         rsteps = self.rsteps
         if istep > 0 and istep%rsteps == 0:
             # download data.
-            ocfl = svr.ocfl[svr.ngstcell:]
-            cfl = svr.cfl[svr.ngstcell:]
+            cflo = svr.sol.cflo.B
+            cflc = svr.sol.cflc.B
             # determine extremum.
-            mincfl = ocfl.min()
-            maxcfl = ocfl.max()
-            nadj = (cfl==1).sum()
+            mincfl = cflo.min()
+            maxcfl = cflo.max()
+            nadj = (cflc==1).sum()
             # store.
-            lst = svr.marchret.setdefault('cfl', [0.0, 0.0, 0, 0])
-            lst[0] = mincfl
-            lst[1] = maxcfl
-            lst[2] = nadj
-            lst[3] += nadj
+            svr.state.cfl_min = mincfl
+            svr.state.cfl_max = maxcfl
+            svr.state.cfl_nadjusted = nadj
+            if svr.state.cfl_nadjusted_accumulated < 0:
+                svr.state.cfl_nadjusted_accumulated = nadj
+            else:
+                svr.state.cfl_nadjusted_accumulated += nadj
 
 
 class CflHook(sc.MeshHook):
@@ -283,7 +273,7 @@ class CflHook(sc.MeshHook):
 
 ################################################################################
 # Begin solution output.
-class MarchSaveAnchor(sc.MeshAnchor):
+class MarchSaveAnchor(sc.march.gas.CommonAnchor):
     """
     Save solution data into VTK XML format for a solver.
     """
@@ -294,6 +284,7 @@ class MarchSaveAnchor(sc.MeshAnchor):
         assert None is not fpdtype
         assert None is not psteps
         assert None is not vtkfn_tmpl
+        sc.march.gas.CommonAnchor.__init__(self, svr.solver)
         #: The arrays in :py:class:`GasSolver <.solver.GasSolver>` or
         #: :py:attr:`MeshSolver.der <solvcon.solver.MeshSolver.der>` to be
         #: saved.
@@ -306,31 +297,31 @@ class MarchSaveAnchor(sc.MeshAnchor):
         self.psteps = psteps
         #: The template string for the VTK file.
         self.vtkfn_tmpl = vtkfn_tmpl
-        super(MarchSaveAnchor, self).__init__(svr, **kw)
+        self.svrn = svr.svrn
 
     def _write(self, istep):
-        ngstcell = self.svr.ngstcell
+        ngstcell = self.solver.block.ngstcell
         sarrs = dict()
         varrs = dict()
         # collect data.
         for key in self.anames:
             # get the array.
             if self.anames[key]:
-                arr = getattr(self.svr.alg.qty, key)[ngstcell:]
+                arr = getattr(self.solver.qty, key)[ngstcell:]
             else:
-                arr = getattr(self.svr, key)[ngstcell:]
+                arr = getattr(self.solver.sol, key).B
             # put array in dict.
             if len(arr.shape) == 1:
                 sarrs[key] = arr
-            elif arr.shape[1] == self.svr.ndim:
+            elif arr.shape[1] == self.solver.block.ndim:
                 varrs[key] = arr
             else:
                 for it in range(arr.shape[1]):
                     sarrs['%s[%d]' % (key, it)] = arr[:,it]
         # write.
-        wtr = vtkxml.VtkXmlUstGridWriter(self.svr.blk, fpdtype=self.fpdtype,
+        wtr = vtkxml.VtkXmlUstGridWriter(self.solver.block, fpdtype=self.fpdtype,
             compressor=self.compressor, scalars=sarrs, vectors=varrs)
-        svrn = self.svr.svrn
+        svrn = self.svrn
         wtr.write(self.vtkfn_tmpl % (istep if svrn is None else (istep, svrn)))
 
     def preloop(self):
@@ -338,13 +329,13 @@ class MarchSaveAnchor(sc.MeshAnchor):
 
     def postmarch(self):
         psteps = self.psteps
-        istep = self.svr.step_global
+        istep = self.solver.state.step_global
         if istep%psteps == 0:
             self._write(istep)
 
     def postloop(self):
         psteps = self.psteps
-        istep = self.svr.step_global
+        istep = self.solver.state.step_global
         if istep%psteps != 0:
             self._write(istep)
 

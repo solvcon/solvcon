@@ -94,7 +94,14 @@ class MeshHook(object):
         if isinstance(target, rpc.Shadow):
             target.drop_anchor(ankcls, ankkw)
         else:
-            target.runanchors.append(ankcls, **ankkw)
+            name = ankkw.pop('name', None)
+            if isinstance(name, int):
+                raise ValueError('name can\'t be integer')
+            obj = ankcls
+            if isinstance(obj, type):
+                obj = obj(target, **ankkw)
+            name = '' if not name else name
+            target.runanchors.append(obj, name=name)
 
     def drop_anchor(self, svr):
         """

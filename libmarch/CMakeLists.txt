@@ -17,6 +17,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake/")
 include(FindPythonAnaconda)
 
 option(MARCH_RELAX_ERROR "Relax compiler error" OFF)
+option(MARCH_NO_DEPRECATE_WARNING "Turn off deprecation warning" OFF)
 option(SOLVCON_ROOT "SOLVCON root path" OFF)
 
 find_package(SCOTCH)
@@ -28,6 +29,10 @@ set(MARCH_WARNOPT "${MARCH_WARNOPT} -Wno-unused-function -Wno-unreachable-code -
 set(MARCH_WARNOPT "${MARCH_WARNOPT} -Wno-error=deprecated-declarations")
 # FIXME: remove after port all legacy C code.
 set(MARCH_WARNOPT "${MARCH_WARNOPT} -Wno-error=sign-compare")
+
+if(MARCH_NO_DEPRECATE_WARNING)
+    set(MARCH_WARNOPT "${MARCH_WARNOPT} -Wno-deprecated-declarations")
+endif()
 
 if(MARCH_RELAX_ERROR)
     set(MARCH_WARNOPT "${MARCH_WARNOPT} -Wno-error=unused-variable")
@@ -48,6 +53,7 @@ set(MARCH_HEADERS
     include/march/depend/scotch.hpp
     # core
     include/march/core/core.hpp
+    include/march/core/memory.hpp
     include/march/core/Buffer.hpp
     include/march/core/LookupTable.hpp
     include/march/core/Vector.hpp
@@ -74,11 +80,12 @@ set(MARCH_HEADERS
     include/march/gas/Solver_decl.hpp
     include/march/gas/Solver.hpp
     include/march/gas/derivative.hpp
-    include/march/gas/calc_cfl.hpp
-    include/march/gas/calc_soln.hpp
-    include/march/gas/calc_solt.hpp
     include/march/gas/Quantity.hpp
     include/march/gas/Trim.hpp
+    include/march/gas/Anchor.hpp
+    # python
+    include/march/python/python.hpp
+    include/march/python/WrapBase.hpp
 )
 string(REPLACE "include/" "${CMAKE_CURRENT_SOURCE_DIR}/include/"
        MARCH_HEADERS "${MARCH_HEADERS}")
