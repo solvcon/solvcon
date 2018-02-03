@@ -117,12 +117,14 @@ public:
     // @[
     void update(real_type time, real_type time_increment);
     void calc_cfl();
-    void calc_solt();
-    void calc_soln();
+    void calc_so0t();
+    void calc_so0n();
     void trim_do0();
     void trim_do1();
-    void calc_dsoln();
+    void calc_so1n();
     // @]
+
+    void march(real_type time_current, real_type time_increment, int_type steps_run);
 
     void init_solution(
         real_type gas_constant

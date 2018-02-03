@@ -37,7 +37,7 @@ namespace march {
 namespace gas {
 
 template< size_t NDIM >
-void Solver<NDIM>::calc_solt() {
+void Solver<NDIM>::calc_so0t() {
     // references.
     auto & block = *m_block;
     // jacobian matrix.

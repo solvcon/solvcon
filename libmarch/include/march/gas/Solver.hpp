@@ -21,14 +21,6 @@ namespace march {
 namespace gas {
 
 template< size_t NDIM >
-void Solver<NDIM>::update(real_type time , real_type time_increment)
-{
-    m_state.time = time;
-    m_state.time_increment = time_increment;
-    m_sol.update();
-}
-
-template< size_t NDIM >
 Solver<NDIM>::Solver(
     const Solver<NDIM>::ctor_passkey &
   , const std::shared_ptr<Solver<NDIM>::block_type> & block
@@ -53,6 +45,51 @@ Solver<NDIM>::Solver(
           , reinterpret_cast<const Vector<NDIM> &>(block->fcnml()[ifc])
         );
     }
+}
+
+template< size_t NDIM >
+void Solver<NDIM>::update(real_type time , real_type time_increment)
+{
+    m_state.time = time;
+    m_state.time_increment = time_increment;
+    m_sol.update();
+}
+
+template< size_t NDIM >
+void Solver<NDIM>::march(real_type time_current, real_type time_increment, Solver<NDIM>::int_type steps_run)
+{
+    state().step_current = 0;
+    anchors().premarch();
+    while (state().step_current < steps_run) {
+        state().substep_current = 0;
+        anchors().prefull();
+        while (state().substep_current < state().substep_run) {
+            // set up time
+            state().time = time_current;
+            state().time_increment = time_increment;
+            anchors().presub();
+            // marching methods
+            update(state().time, state().time_increment);
+            calc_so0t();
+            calc_so0n();
+            //ibcsoln(); // to be implemented
+            trim_do0();
+            calc_cfl();
+            calc_so1n();
+            //ibcdsoln(); // to be implemented
+            trim_do1();
+            // increment time
+            time_current += state().time_increment / state().substep_run;
+            state().time = time_current;
+            state().time_increment = time_increment;
+            state().substep_current += 1;
+            anchors().postsub();
+        }
+        state().step_global += 1;
+        state().step_current += 1;
+        anchors().postfull();
+    }
+    anchors().postmarch();
 }
 
 template< size_t NDIM >

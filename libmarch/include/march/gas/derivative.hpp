@@ -368,7 +368,7 @@ private:
 }; /* end struct GradientWeigh */
 
 template< size_t NDIM >
-void Solver<NDIM>::calc_dsoln() {
+void Solver<NDIM>::calc_so1n() {
     // references.
     const auto & block = *m_block;
     const real_type hdt = m_state.time_increment * 0.5;

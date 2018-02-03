@@ -93,13 +93,9 @@ WrapGasSolver
                 [](wrapped_type & self) -> quantity_reference { return self.qty(); },
                 py::return_value_policy::reference_internal // FIXME: if it's default, remove this line
             )
-            .def("update", &wrapped_type::update)
-            .def("calc_cfl", &wrapped_type::calc_cfl)
-            .def("calc_solt", &wrapped_type::calc_solt)
-            .def("calc_soln", &wrapped_type::calc_soln)
             .def("trim_do0", &wrapped_type::trim_do0)
             .def("trim_do1", &wrapped_type::trim_do1)
-            .def("calc_dsoln", &wrapped_type::calc_dsoln)
+            .def("march", &wrapped_type::march)
             .def("init_solution", &wrapped_type::init_solution)
         ;
 

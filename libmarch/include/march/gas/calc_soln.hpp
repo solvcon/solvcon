@@ -37,7 +37,7 @@ namespace march {
 namespace gas {
 
 template< size_t NDIM >
-void Solver<NDIM>::calc_soln() {
+void Solver<NDIM>::calc_so0n() {
     // references.
     const auto & block = *m_block;
     // buffers.
