@@ -104,11 +104,12 @@ class GasQuantityTest : public GasTestBase {};
 TEST_F(GasQuantityTest, Update) {
     auto svr_holder = Solver<2>::construct(m_triangles);
     auto & svr = *svr_holder;
+    svr.make_qty();
     svr.calc_so0t();
     svr.calc_so0n();
     svr.calc_so1n();
     auto & qty = svr.qty();
-    qty.update(1, 1, 1, 1); // good as long as it doesn't crash.
+    qty->update(); // good as long as it doesn't crash.
 }
 
 class GasTrimTest : public GasTestBase {

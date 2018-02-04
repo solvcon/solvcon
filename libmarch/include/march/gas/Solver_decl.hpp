@@ -12,18 +12,56 @@
 #include "march/core/core.hpp"
 #include "march/mesh/mesh.hpp"
 
-#include "march/gas/Parameter.hpp"
 #include "march/gas/Solution.hpp"
 
 namespace march {
 
 namespace gas {
 
-template< size_t NDIM > class Quantity;
+/**
+ * Parameters for the CESE method.  Don't change once set.
+ */
+class Parameter
+{
 
-template< size_t NDIM > class TrimBase;
+public:
 
-template< size_t NDIM > class AnchorChain;
+    using int_type = int32_t;
+
+    Parameter() = default;
+    Parameter(Parameter const & ) = default;
+    Parameter(Parameter       &&) = delete;
+    Parameter & operator=(Parameter const & ) = default;
+    Parameter & operator=(Parameter       &&) = delete;
+
+    real_type   sigma0() const { return m_sigma0; }
+    real_type & sigma0()       { return m_sigma0; }
+    real_type   taumin() const { return m_taumin; }
+    real_type & taumin()       { return m_taumin; }
+    real_type   tauscale() const { return m_tauscale; }
+    real_type & tauscale()       { return m_tauscale; }
+
+private:
+
+    real_type m_sigma0=3;
+    real_type m_taumin=0.0;
+    real_type m_tauscale=1.0;
+
+#define DECL_MARCH_DEBUG(TYPE, NAME, DEFAULT) \
+public: \
+    TYPE   NAME() const { return m_##NAME; } \
+    TYPE & NAME()       { return m_##NAME; } \
+private: \
+    TYPE m_##NAME = DEFAULT;
+
+DECL_MARCH_DEBUG(real_type, stop_on_negative_density, 1.e-50)
+DECL_MARCH_DEBUG(real_type, stop_on_negative_energy, 1.e-50)
+DECL_MARCH_DEBUG(bool, stop_on_cfl_adjustment, true)
+DECL_MARCH_DEBUG(bool, stop_on_cfl_overflow, true)
+
+#undef DECL_MARCH_DEBUG_BOOL
+
+}; /* end class Parameter */
 
 struct State {
     using int_type = int32_t;
@@ -34,6 +72,7 @@ struct State {
     int_type step_global=0;
     int_type substep_run=2;
     int_type substep_current=0;
+    int_type report_interval=0;
 
     real_type cfl_min=std::numeric_limits<real_type>::quiet_NaN();
     real_type cfl_max=std::numeric_limits<real_type>::quiet_NaN();
@@ -44,6 +83,12 @@ struct State {
         return string_format("step=%d substep=%d", step_current, substep_current);
     }
 }; /* end struct State */
+
+template< size_t NDIM > class Quantity;
+
+template< size_t NDIM > class TrimBase;
+
+template< size_t NDIM > class AnchorChain;
 
 template< size_t NDIM >
 class Solver
@@ -72,7 +117,6 @@ public:
     static constexpr index_type BFREL = block_type::BFREL;
 
     class ctor_passkey {
-    private:
         ctor_passkey() = default;
         friend Solver<NDIM>;
     };
@@ -102,8 +146,9 @@ public:
     State       & state()       { return m_state; } 
     solution_type const & sol() const { return m_sol; }
     solution_type       & sol()       { return m_sol; }
-    Quantity<NDIM> const & qty() const { return m_qty; }
-    Quantity<NDIM>       & qty()       { return m_qty; }
+    std::shared_ptr<Quantity<NDIM>> const & qty() const { return m_qty; }
+    /* no setter for m_qty */
+    std::shared_ptr<Quantity<NDIM>> const & make_qty(bool throw_on_exist=false);
 
     // TODO: move to UnstructuredBlock.
     // @[
@@ -149,7 +194,7 @@ private:
     Parameter m_param;
     State m_state;
     solution_type m_sol;
-    Quantity<NDIM> m_qty;
+    std::shared_ptr<Quantity<NDIM>> m_qty;
 
 }; /* end class Solver */
 

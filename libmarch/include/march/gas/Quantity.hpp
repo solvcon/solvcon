@@ -17,8 +17,14 @@ namespace march {
 
 namespace gas {
 
+/**
+ * Passive quantities that may be calculated from solution data.
+ */
 template< size_t NDIM >
-class Quantity {
+class Quantity
+  : public InstanceCounter<Quantity<NDIM>>
+  , public std::enable_shared_from_this<Quantity<NDIM>>
+{
 
 public:
 
@@ -32,19 +38,23 @@ public:
 
     static constexpr real_type ALMOST_ZERO = solver_type::ALMOST_ZERO;
 
-    Quantity(solver_type const & solver)
+    class ctor_passkey {
+        ctor_passkey() = default;
+        friend Quantity<NDIM>;
+    };
+
+    Quantity(ctor_passkey const &, solver_type const & solver)
       : m_solver(solver)
-      , m_block(*solver.block())
-      , m_density             (m_block.ngstcell(), m_block.ncell())
-      , m_velocity            (m_block.ngstcell(), m_block.ncell())
-      , m_vorticity           (m_block.ngstcell(), m_block.ncell())
-      , m_vorticity_magnitude (m_block.ngstcell(), m_block.ncell())
-      , m_ke                  (m_block.ngstcell(), m_block.ncell())
-      , m_pressure            (m_block.ngstcell(), m_block.ncell())
-      , m_temperature         (m_block.ngstcell(), m_block.ncell())
-      , m_soundspeed          (m_block.ngstcell(), m_block.ncell())
-      , m_mach                (m_block.ngstcell(), m_block.ncell())
-      , m_schlieren           (m_block.ngstcell(), m_block.ncell())
+      , m_density             (solver.block()->ngstcell(), solver.block()->ncell())
+      , m_velocity            (solver.block()->ngstcell(), solver.block()->ncell())
+      , m_vorticity           (solver.block()->ngstcell(), solver.block()->ncell())
+      , m_vorticity_magnitude (solver.block()->ngstcell(), solver.block()->ncell())
+      , m_ke                  (solver.block()->ngstcell(), solver.block()->ncell())
+      , m_pressure            (solver.block()->ngstcell(), solver.block()->ncell())
+      , m_temperature         (solver.block()->ngstcell(), solver.block()->ncell())
+      , m_soundspeed          (solver.block()->ngstcell(), solver.block()->ncell())
+      , m_mach                (solver.block()->ngstcell(), solver.block()->ncell())
+      , m_schlieren           (solver.block()->ngstcell(), solver.block()->ncell())
     {}
 
     Quantity() = delete;
@@ -53,15 +63,25 @@ public:
     Quantity & operator=(Quantity const & ) = delete;
     Quantity & operator=(Quantity       &&) = delete;
 
-    void update(
-        real_type const gasconst
-      , real_type const k, real_type const k0, real_type const k1
-    ) {
+    static std::shared_ptr<Quantity<NDIM>> construct(solver_type const & solver) {
+        return std::make_shared<Quantity<NDIM>>(ctor_passkey(), solver);
+    }
+
+    real_type const & gasconst() const { return m_gasconst; }
+    real_type       & gasconst()       { return m_gasconst; }
+    real_type const & schlieren_k() const { return m_schlieren_k; }
+    real_type       & schlieren_k()       { return m_schlieren_k; }
+    real_type const & schlieren_k0() const { return m_schlieren_k0; }
+    real_type       & schlieren_k0()       { return m_schlieren_k0; }
+    real_type const & schlieren_k1() const { return m_schlieren_k1; }
+    real_type       & schlieren_k1()       { return m_schlieren_k1; }
+
+    void update() {
         update_density();
         update_velocity();
         update_vorticity();
-        update_misc(gasconst);
-        update_schlieren(k, k0, k1);
+        update_misc();
+        update_schlieren();
     }
 
 #define MARCH_GAS_QUANTITY_TABLE_DECL_METHODS(NAME, ELEMTYPE, NDIM) \
@@ -81,11 +101,13 @@ public:
 
 private:
 
+    block_type const & block() const { return *m_solver.block(); }
+
     /**
      * Shift from solution point to cell center.
      */
     vector_type get_shift(index_type const icl) {
-        vector_type ret = reinterpret_cast<vector_type const &>(m_block.clcnd()[icl]);
+        vector_type ret = reinterpret_cast<vector_type const &>(block().clcnd()[icl]);
         ret -= reinterpret_cast<vector_type const &>(m_solver.cecnd()[icl]);
         return ret;
     }
@@ -105,11 +127,14 @@ private:
     void update_density();
     void update_velocity();
     void update_vorticity();
-    void update_misc(real_type const gasconst);
-    void update_schlieren(real_type const k, real_type const k0, real_type const k1);
+    void update_misc();
+    void update_schlieren();
 
     solver_type const & m_solver;
-    block_type const & m_block;
+    real_type m_gasconst = 1;
+    real_type m_schlieren_k = 1;
+    real_type m_schlieren_k0 = 0;
+    real_type m_schlieren_k1 = 1;
     LookupTable<real_type, 0> m_density;
     LookupTable<real_type, NDIM> m_velocity;
     LookupTable<real_type, NDIM> m_vorticity;
@@ -170,14 +195,14 @@ compute_vorticity(
 
 template< size_t NDIM >
 void Quantity<NDIM>::update_density() {
-    for (index_type icl=-m_block.ngstcell(); icl<m_block.ncell(); ++icl) {
+    for (index_type icl=-block().ngstcell(); icl<block().ncell(); ++icl) {
         m_density[icl] = so0n(icl)[0] + so1n(icl)[0].dot(get_shift(icl));
     }
 }
 
 template< size_t NDIM >
 void Quantity<NDIM>::update_velocity() {
-    for (index_type icl=-m_block.ngstcell(); icl<m_block.ncell(); ++icl) {
+    for (index_type icl=-block().ngstcell(); icl<block().ncell(); ++icl) {
         // input
         vector_type const sft = get_shift(icl);
         auto const & soln = so0n(icl);
@@ -193,7 +218,7 @@ void Quantity<NDIM>::update_velocity() {
 
 template< size_t NDIM >
 void Quantity<NDIM>::update_vorticity() {
-    for (index_type icl=-m_block.ngstcell(); icl<m_block.ncell(); ++icl) {
+    for (index_type icl=-block().ngstcell(); icl<block().ncell(); ++icl) {
         // input
         auto const & dsoln = so1n(icl);
         // output
@@ -209,9 +234,9 @@ void Quantity<NDIM>::update_vorticity() {
 }
 
 template< size_t NDIM >
-void Quantity<NDIM>::update_schlieren(real_type const k, real_type const k0, real_type const k1) {
+void Quantity<NDIM>::update_schlieren() {
     real_type rhogmax = 0;
-    for (index_type icl=-m_block.ngstcell(); icl<m_block.ncell(); ++icl) {
+    for (index_type icl=-block().ngstcell(); icl<block().ncell(); ++icl) {
         // input
         auto const & dsoln = so1n(icl);
         // output
@@ -219,17 +244,17 @@ void Quantity<NDIM>::update_schlieren(real_type const k, real_type const k0, rea
         tsch = dsoln[0].square();
         rhogmax = std::max(rhogmax, tsch);
     }
-    real_type const fac0 = k0 * rhogmax;
-    real_type const fac1 = -k / ((k1-k0) * rhogmax + ALMOST_ZERO);
-    for (index_type icl=-m_block.ngstcell(); icl<m_block.ncell(); ++icl) {
+    real_type const fac0 = schlieren_k0() * rhogmax;
+    real_type const fac1 = -schlieren_k() / ((schlieren_k1()-schlieren_k0()) * rhogmax + ALMOST_ZERO);
+    for (index_type icl=-block().ngstcell(); icl<block().ncell(); ++icl) {
         auto & tsch = m_schlieren[icl];
         tsch = std::exp((tsch-fac0)*fac1);
     }
 }
 
 template< size_t NDIM >
-void Quantity<NDIM>::update_misc(real_type const gasconst) {
-    for (index_type icl=-m_block.ngstcell(); icl<m_block.ncell(); ++icl) {
+void Quantity<NDIM>::update_misc() {
+    for (index_type icl=-block().ngstcell(); icl<block().ncell(); ++icl) {
         // input
         auto const sft = get_shift(icl);
         auto const & soln = so0n(icl);
@@ -251,13 +276,23 @@ void Quantity<NDIM>::update_misc(real_type const gasconst) {
         tpre = (tpre - tke) * ga1;
         tpre = (tpre + fabs(tpre)) / 2; // make sure it's positive.
         // temperature.
-        ttem = tpre / (rho*gasconst);
+        ttem = tpre / (rho*gasconst());
         // speed of sound.
         tss = sqrt(ga*tpre/rho);
         // Mach number.
         tmach = sqrt(tke/rho*2);
         tmach *= tss / (tss*tss + ALMOST_ZERO); // prevent nan/inf.
     }
+}
+
+template< size_t NDIM >
+std::shared_ptr<Quantity<NDIM>> const & Solver<NDIM>::make_qty(bool throw_on_exist) {
+    if (m_qty) {
+        if (throw_on_exist) { throw std::runtime_error("Quantity already exists"); }
+    } else {
+        m_qty = Quantity<NDIM>::construct(*this);
+    }
+    return m_qty;
 }
 
 } /* end namespace gas */

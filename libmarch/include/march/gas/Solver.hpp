@@ -29,7 +29,6 @@ Solver<NDIM>::Solver(
   , m_block(block)
   , m_cecnd(block->ngstcell(), block->ncell())
   , m_sol(block->ngstcell(), block->ncell())
-  , m_qty(*this)
 {
     for (index_type icl=0; icl<block->ncell(); ++icl) {
         reinterpret_cast<Vector<NDIM> &>(m_cecnd[icl]) = CompoundCE<NDIM>(*block, icl).cnd;
@@ -190,6 +189,7 @@ void Solver<NDIM>::march(real_type time_current, real_type time_increment, Solve
     while (state().step_current < steps_run) {
         state().substep_current = 0;
         anchors().prefull();
+        if (qty() && 0 != state().report_interval && 0 == state().step_global) { qty()->update(); }
         while (state().substep_current < state().substep_run) {
             // set up time
             state().time = time_current;
@@ -212,6 +212,10 @@ void Solver<NDIM>::march(real_type time_current, real_type time_increment, Solve
             state().substep_current += 1;
             anchors().postsub();
         }
+        if (
+            qty() && 0 != state().report_interval &&
+            ((0 != state().step_global) && (0 == state().step_global % state().report_interval))
+        ) { qty()->update(); }
         state().step_global += 1;
         state().step_current += 1;
         anchors().postfull();
