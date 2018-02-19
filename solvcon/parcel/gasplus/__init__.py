@@ -41,15 +41,9 @@ def _include(names=None, frommod=None, fromobj=None, toall=True):
 
 _include(names=['GasPlusCase'], frommod='.case')
 _include(names=['register_arrangement'], fromobj=GasPlusCase)
-_include(names=['GasPlusSolver'], frommod='.solver')
 _include(names=['GasPlusBC', 'GasPlusNonRefl', 'GasPlusSlipWall', 'GasPlusInlet'],
          frommod='.boundcond')
 _include(names=['ProbeHook'], frommod='.probe')
-_include(
-    names=[
-        'InitByDensityTemperatureAnchor', 'DensityInitAnchor', 'PhysicsAnchor'
-    ],
-    frommod='.physics')
 _include(names=['MeshInfoHook', 'ProgressHook', 'FillAnchor', 'CflHook',
                 'PMarchSave'], frommod='.inout')
 _include(names=['ObliqueShockRelation'], frommod='.oblique_shock')

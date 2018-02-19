@@ -40,11 +40,48 @@ WrapGasSolver
     WrapGasSolver(py::module & mod, const char * pyname, const char * clsdoc)
         : base_type(mod, pyname, clsdoc)
     {
-        using quantity_reference = gas::Quantity<NDIM> &;
         (*this)
-            .def(py::init([](block_type & block) {
-                return gas::Solver<NDIM>::construct(block.shared_from_this());
-            }))
+            .def(
+                py::init([](
+                    py::object pyblock
+                  , real_type sigma0
+                  , real_type time
+                  , real_type time_increment
+                  , typename wrapped_type::int_type report_interval
+                  , py::kwargs
+                ) {
+                    block_type * block = py::cast<block_type *>(pyblock.attr("_ustblk"));
+                    assert(block);
+                    std::shared_ptr<wrapped_type> svr = wrapped_type::construct(block->shared_from_this());
+                    py::list bclist = pyblock.attr("bclist"); // FIXME
+                    for (auto bc : bclist) {
+                        std::string name = py::str(bc.attr("__class__").attr("__name__").attr("lstrip")("GasPlus"));
+                        BoundaryData * data = py::cast<BoundaryData *>(bc.attr("_data"));
+                        std::unique_ptr<gas::TrimBase<NDIM>> trim;
+                        if        ("Interface" == name) {
+                            trim = make_unique<gas::TrimInterface<NDIM>>(*svr, *data);
+                        } else if ("NoOp"      == name) {
+                            trim = make_unique<gas::TrimNoOp<NDIM>>(*svr, *data);
+                        } else if ("NonRefl"   == name) {
+                            trim = make_unique<gas::TrimNonRefl<NDIM>>(*svr, *data);
+                        } else if ("SlipWall"  == name) {
+                            trim = make_unique<gas::TrimSlipWall<NDIM>>(*svr, *data);
+                        } else if ("Inlet"     == name) {
+                            trim = make_unique<gas::TrimInlet<NDIM>>(*svr, *data);
+                        } else {
+                            /* do nothing for now */ // throw std::runtime_error("BC type unknown");
+                        }
+                        svr->trims().push_back(std::move(trim));
+                    }
+                    svr->param().sigma0() = sigma0;
+                    svr->state().time = time;
+                    svr->state().time_increment = time_increment;
+                    svr->state().report_interval = report_interval;
+                    if (report_interval) { svr->make_qty(); }
+                    return svr;
+                }),
+                py::arg("block"), py::arg("sigma0"), py::arg("time"), py::arg("time_increment"), py::arg("report_interval")
+            )
             .def_property_readonly("block", &wrapped_type::block)
             .def_property(
                 "trims",
@@ -71,32 +108,82 @@ WrapGasSolver
             .def_property_readonly(
                 "anchors",
                 [](wrapped_type & self) -> typename wrapped_type::anchor_chain_type & { return self.anchors(); },
-                py::return_value_policy::reference_internal // FIXME: if it's default, remove this line
+                py::return_value_policy::reference_internal
             )
+            .def_property_readonly("runanchors", [](py::object self) { return self.attr("anchors"); }) // compatibility
+            .def("provide", [](wrapped_type & self) { self.anchors().provide(); })
+            .def("preloop", [](wrapped_type & self) { self.anchors().preloop(); })
+            .def("postloop", [](wrapped_type & self) { self.anchors().postloop(); })
+            .def("exhaust", [](wrapped_type & self) { self.anchors().exhaust(); })
             .def_property_readonly(
                 "param",
                 [](wrapped_type & self) -> gas::Parameter & { return self.param(); },
-                py::return_value_policy::reference_internal // FIXME: if it's default, remove this line
+                py::return_value_policy::reference_internal
             )
             .def_property_readonly(
                 "state",
                 [](wrapped_type & self) -> gas::State & { return self.state(); },
-                py::return_value_policy::reference_internal // FIXME: if it's default, remove this line
+                py::return_value_policy::reference_internal
             )
             .def_property_readonly(
                 "sol",
                 [](wrapped_type & self) -> typename wrapped_type::solution_type & { return self.sol(); },
-                py::return_value_policy::reference_internal // FIXME: if it's default, remove this line
+                py::return_value_policy::reference_internal
             )
-            .def_property_readonly(
-                "qty",
-                [](wrapped_type & self) -> quantity_reference { return self.qty(); },
-                py::return_value_policy::reference_internal // FIXME: if it's default, remove this line
-            )
+            .def_property_readonly("qty", [](wrapped_type const & self) { return self.qty(); }
+                                 , py::return_value_policy::reference_internal)
+            .def("make_qty", &wrapped_type::make_qty, py::arg("throw_on_exist") = false
+               , py::return_value_policy::reference_internal)
             .def("trim_do0", &wrapped_type::trim_do0)
             .def("trim_do1", &wrapped_type::trim_do1)
-            .def("march", &wrapped_type::march)
-            .def("init_solution", &wrapped_type::init_solution)
+            /* to be enabled */ //.def("init_solution", &wrapped_type::init_solution)
+            .def(
+                "march"
+              , [](wrapped_type & self
+                 , real_type time_current
+                 , real_type time_increment
+                 , typename wrapped_type::int_type steps_run
+                 , py::object worker
+                ) {
+                    using namespace pybind11::literals;
+                    self.march(time_current, time_increment, steps_run);
+                    py::list cfl;
+                    cfl.append(self.state().cfl_min);
+                    cfl.append(self.state().cfl_max);
+                    cfl.append(self.state().cfl_nadjusted);
+                    cfl.append(self.state().cfl_nadjusted_accumulated);
+                    py::dict marchret = py::dict("cfl"_a = cfl);
+                    if (worker.is(py::none())) { /* FIXME: message-pass marchret */ }
+                    return marchret;
+                }
+              , py::arg("time_current")
+              , py::arg("time_increment")
+              , py::arg("steps_run")
+              , py::arg("worker") = py::none()
+            )
+            .def(
+                "init"
+              , [](wrapped_type & self, py::kwargs const &) {
+                    self.sol().arrays().so0c().fill(wrapped_type::ALMOST_ZERO);
+                    self.sol().arrays().so0n().fill(wrapped_type::ALMOST_ZERO);
+                    self.sol().arrays().so0t().fill(wrapped_type::ALMOST_ZERO);
+                    self.sol().arrays().so1c().fill(wrapped_type::ALMOST_ZERO);
+                    self.sol().arrays().so1n().fill(wrapped_type::ALMOST_ZERO);
+                }
+            )
+            .def(
+                "final"
+              , [](wrapped_type &, py::kwargs const &) { /* do nothing */ }
+            )
+            .def(
+                "apply_bc"
+              , [](wrapped_type & self) {
+                    self.trim_do0();
+                    self.trim_do1();
+                }
+            )
+            .def_property_readonly("svrn", [](wrapped_type const &) { return py::none(); }) // TO BE UPDATED
+            .def_property_readonly("nsvr", [](wrapped_type const &) { return py::none(); }) // TO BE UPDATED
         ;
 
         this->m_cls.attr("ALMOST_ZERO") = double(wrapped_type::ALMOST_ZERO);
@@ -254,7 +341,7 @@ WrapGasAnchor
             .def_property_readonly(
                 "solver",
                 [](wrapped_type & self) -> typename wrapped_type::solver_type & { return self.solver(); },
-                py::return_value_policy::reference_internal // FIXME: if it's default, remove this line
+                py::return_value_policy::reference_internal
             )
         ;
         // FIXME: allow Python to extend from Anchor with both 2/3D
@@ -381,6 +468,7 @@ WrapGasState
             DECL_MARCH_PYBIND_GAS_STATE(gas::State::int_type, step_global)
             DECL_MARCH_PYBIND_GAS_STATE(gas::State::int_type, substep_run)
             DECL_MARCH_PYBIND_GAS_STATE(gas::State::int_type, substep_current)
+            DECL_MARCH_PYBIND_GAS_STATE(gas::State::int_type, report_interval)
             DECL_MARCH_PYBIND_GAS_STATE(real_type, cfl_min)
             DECL_MARCH_PYBIND_GAS_STATE(real_type, cfl_max)
             DECL_MARCH_PYBIND_GAS_STATE(gas::State::int_type, cfl_nadjusted)
@@ -436,11 +524,11 @@ template< size_t NDIM >
 class
 MARCH_PYTHON_WRAPPER_VISIBILITY
 WrapGasQuantity
-  : public python::WrapBase< WrapGasQuantity<NDIM>, gas::Quantity<NDIM>, std::unique_ptr<gas::Quantity<NDIM>> >
+  : public python::WrapBase< WrapGasQuantity<NDIM>, gas::Quantity<NDIM>, std::shared_ptr<gas::Quantity<NDIM>> >
 {
 
     /* aliases for dependent type name lookup */
-    using base_type = python::WrapBase< WrapGasQuantity<NDIM>, gas::Quantity<NDIM>, std::unique_ptr<gas::Quantity<NDIM>> >;
+    using base_type = python::WrapBase< WrapGasQuantity<NDIM>, gas::Quantity<NDIM>, std::shared_ptr<gas::Quantity<NDIM>> >;
     using wrapped_type = typename base_type::wrapped_type;
     using solver_type = typename wrapped_type::solver_type;
 
@@ -450,6 +538,12 @@ WrapGasQuantity
       : base_type(mod, pyname, clsdoc)
     {
 
+#define DECL_MARCH_PYBIND_GAS_QUANTITY_REAL(NAME) \
+        .def_property( \
+            #NAME, \
+            [](wrapped_type const & self               ) { return self.NAME(); }, \
+            [](wrapped_type       & self, real_type val) { return self.NAME() = val; } \
+        )
 // FIXME: change the properties to be like those of Solution
 #define DECL_MARCH_PYBIND_GAS_QUANTITY_ARRAY(NAME, ARR) \
         .def_property( \
@@ -459,6 +553,10 @@ WrapGasQuantity
             #NAME " " #ARR " array")
 
         (*this)
+            DECL_MARCH_PYBIND_GAS_QUANTITY_REAL(gasconst)
+            DECL_MARCH_PYBIND_GAS_QUANTITY_REAL(schlieren_k)
+            DECL_MARCH_PYBIND_GAS_QUANTITY_REAL(schlieren_k0)
+            DECL_MARCH_PYBIND_GAS_QUANTITY_REAL(schlieren_k1)
             .def("update", &wrapped_type::update, "Update the physics")
             DECL_MARCH_PYBIND_GAS_QUANTITY_ARRAY(density             , full)
             DECL_MARCH_PYBIND_GAS_QUANTITY_ARRAY(velocity            , full)
@@ -473,6 +571,7 @@ WrapGasQuantity
         ;
 
 #undef DECL_MARCH_PYBIND_GAS_QUANTITY_ARRAY
+#undef DECL_MARCH_PYBIND_GAS_QUANTITY_REAL
     }
 
 }; /* end class WrapGasQuantity */

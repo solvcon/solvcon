@@ -18,7 +18,13 @@ class TestCreation(TestCase):
         from solvcon.march import gas
 
     def test_constructor(self):
-        svr = march.gas.Solver2D(get_blk_from_oblique_neu()._ustblk)
+        svr = march.gas.Solver2D(
+            get_blk_from_oblique_neu(),
+            sigma0=3,
+            time=0,
+            time_increment=0.1,
+            report_interval=1,
+        )
 
 
 class TestGasSolver(TestCase):

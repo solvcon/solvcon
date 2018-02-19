@@ -613,8 +613,8 @@ class MeshCase(case_core.CaseInfo):
         """
         @return: nothing
         """
-        svr = self.solver.solvertype(
-            self.solver.domainobj.blk, **self.make_solver_keywords())
+        svrkw = self.make_solver_keywords() # may set solvertype
+        svr = self.solver.solvertype(self.solver.domainobj.blk, **svrkw)
         self.runhooks.drop_anchor(svr)
         svr.init()
         self.solver.solverobj = svr
@@ -623,11 +623,11 @@ class MeshCase(case_core.CaseInfo):
         @return: nothing
         """
         dealer = self.solver.dealer
+        svrkw = self.make_solver_keywords() # may set solvertype
         solvertype = self.solver.solvertype
         dom = self.solver.domainobj
         nblk = dom.nblk
         for iblk in range(nblk):
-            svrkw = self.make_solver_keywords()
             self.info('solver #%d/(%d-1): ' % (iblk, nblk))
             if dom.presplit:
                 dealer[iblk].create_solver(self.condition.bcmap,

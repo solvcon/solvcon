@@ -148,7 +148,7 @@ class XDiaphragmAnchor(sc.march.gas.CommonAnchor):
     """
 
     def __init__(self, svr, **kw):
-        sc.march.gas.CommonAnchor.__init__(self, svr.solver)
+        sc.march.gas.CommonAnchor.__init__(self, svr)
         self.xloc = float(kw.pop('xloc'))
         self.gamma = float(kw.pop('gamma'))
         self.rho1 = float(kw.pop('rho1'))
@@ -181,7 +181,7 @@ _HeterogeneityData = collections.namedtuple(
 
 class YHomogeneityCheck(sc.march.gas.CommonAnchor):
     def __init__(self, svr, **kw):
-        sc.march.gas.CommonAnchor.__init__(self, svr.solver)
+        sc.march.gas.CommonAnchor.__init__(self, svr)
         # coefficient of variation
         self.instant_fail = kw.pop('instant_fail', False)
         self.cov_threshold = kw.pop('cov_threshold')
@@ -265,12 +265,13 @@ def create_case(
         basedir=basedir,
         # Runstep.
         time_increment=30.e-3, steps_run=30,
+        report_interval=psteps if psteps else 0,
         # Debug and capture-all.
         debug=False, **kw)
 
     # Field initialization and derived calculations.
     cse.defer(gp.FillAnchor,
-              mappers={'sol.so0n': gp.GasPlusSolver.ALMOST_ZERO,
+              mappers={'sol.so0n': sc.march.gas.Solver2D.ALMOST_ZERO,
                        'sol.so1n': 0.0, 'sol.gamma': gamma})
     cse.defer(XDiaphragmAnchor,
               xloc=(mesher.lowerleft[0]+mesher.upperright[0])/2,

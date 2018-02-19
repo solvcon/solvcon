@@ -129,7 +129,7 @@ class FillAnchor(sc.march.gas.CommonAnchor):
     """
 
     def __init__(self, svr, mappers=None, **kw):
-        sc.march.gas.CommonAnchor.__init__(self, svr.solver)
+        sc.march.gas.CommonAnchor.__init__(self, svr)
         if mappers is None:
             raise ValueError("input mappers cannot be None")
         self.mappers = mappers if mappers else {}
@@ -153,7 +153,7 @@ class CflAnchor(sc.march.gas.CommonAnchor):
     """
 
     def __init__(self, svr, rsteps=None, **kw):
-        sc.march.gas.CommonAnchor.__init__(self, svr.solver)
+        sc.march.gas.CommonAnchor.__init__(self, svr)
         #: Steps to run (:py:class:`int`).
         self.rsteps = int(rsteps)
 
@@ -284,7 +284,7 @@ class MarchSaveAnchor(sc.march.gas.CommonAnchor):
         assert None is not fpdtype
         assert None is not psteps
         assert None is not vtkfn_tmpl
-        sc.march.gas.CommonAnchor.__init__(self, svr.solver)
+        sc.march.gas.CommonAnchor.__init__(self, svr)
         #: The arrays in :py:class:`GasSolver <.solver.GasSolver>` or
         #: :py:attr:`MeshSolver.der <solvcon.solver.MeshSolver.der>` to be
         #: saved.
