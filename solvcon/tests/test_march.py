@@ -32,9 +32,5 @@ class TestGasSolver(TestCase):
     def test_class_attributes(self):
         from solvcon.march import gas
         for cls in (gas.Solver2D, gas.Solver3D):
-            self.assertEqual(
-                getattr(cls, '_interface_init_'),
-                ('cecnd', 'cevol', 'sfmrc'))
-            self.assertEqual(
-                getattr(cls, '_solution_array_'),
-                ('solt', 'sol', 'soln', 'dsol', 'dsoln'))
+            self.assertEqual(getattr(cls, '_interface_init_'), ('cecnd',))
+            self.assertEqual(getattr(cls, '_solution_array_'), tuple())

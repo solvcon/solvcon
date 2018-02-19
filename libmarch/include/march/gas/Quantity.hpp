@@ -112,14 +112,10 @@ private:
         return ret;
     }
 
-    /*using solution_reference = real_type const (&)[solver_type::NEQ];
-    solution_reference get_soln(index_type const icl) {*/
     const o0hand_type so0n(index_type const icl) const {
         return m_solver.sol().so0n(icl);
     }
 
-    /*using derivative_reference = vector_type const (&)[solver_type::NEQ];
-    derivative_reference get_dsoln(index_type const icl) {*/
     const o1hand_type so1n(index_type const icl) const {
         return m_solver.sol().so1n(icl);
     }
