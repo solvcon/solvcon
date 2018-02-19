@@ -21,17 +21,17 @@
 namespace py = pybind11;
 
 using namespace march;
-using Table = march::python::Table;
+using namespace march::gas;
 
 template< size_t NDIM >
 class
 MARCH_PYTHON_WRAPPER_VISIBILITY
 WrapGasSolver
-  : public python::WrapBase< WrapGasSolver<NDIM>, gas::Solver<NDIM>, std::shared_ptr<gas::Solver<NDIM>> >
+  : public python::WrapBase< WrapGasSolver<NDIM>, Solver<NDIM>, std::shared_ptr<Solver<NDIM>> >
 {
 
     /* aliases for dependent type name lookup */
-    using base_type = python::WrapBase< WrapGasSolver<NDIM>, gas::Solver<NDIM>, std::shared_ptr<gas::Solver<NDIM>> >;
+    using base_type = python::WrapBase< WrapGasSolver<NDIM>, Solver<NDIM>, std::shared_ptr<Solver<NDIM>> >;
     using wrapper_type = typename base_type::wrapper_type;
     using wrapped_type = typename base_type::wrapped_type;
     using block_type = typename wrapped_type::block_type;
@@ -76,17 +76,17 @@ private:
                 for (auto bc : py::list(pyblock.attr("bclist"))) {
                     std::string name = py::str(bc.attr("__class__").attr("__name__").attr("lstrip")("GasPlus"));
                     BoundaryData * data = py::cast<BoundaryData *>(bc.attr("_data"));
-                    std::unique_ptr<gas::TrimBase<NDIM>> trim;
+                    std::unique_ptr<TrimBase<NDIM>> trim;
                     if        ("Interface" == name) {
-                        trim = make_unique<gas::TrimInterface<NDIM>>(*svr, *data);
+                        trim = make_unique<TrimInterface<NDIM>>(*svr, *data);
                     } else if ("NoOp"      == name) {
-                        trim = make_unique<gas::TrimNoOp<NDIM>>(*svr, *data);
+                        trim = make_unique<TrimNoOp<NDIM>>(*svr, *data);
                     } else if ("NonRefl"   == name) {
-                        trim = make_unique<gas::TrimNonRefl<NDIM>>(*svr, *data);
+                        trim = make_unique<TrimNonRefl<NDIM>>(*svr, *data);
                     } else if ("SlipWall"  == name) {
-                        trim = make_unique<gas::TrimSlipWall<NDIM>>(*svr, *data);
+                        trim = make_unique<TrimSlipWall<NDIM>>(*svr, *data);
                     } else if ("Inlet"     == name) {
-                        trim = make_unique<gas::TrimInlet<NDIM>>(*svr, *data);
+                        trim = make_unique<TrimInlet<NDIM>>(*svr, *data);
                     } else {
                         /* do nothing for now */ // throw std::runtime_error("BC type unknown");
                     }
@@ -108,8 +108,8 @@ private:
             .def_property_readonly("block", &wrapped_type::block)
             .def_property_readonly(
                 "trims"
-              , [](wrapped_type & self) -> std::vector<gas::TrimBase<NDIM>*> {
-                    std::vector<gas::TrimBase<NDIM>*> ret;
+              , [](wrapped_type & self) -> std::vector<TrimBase<NDIM>*> {
+                    std::vector<TrimBase<NDIM>*> ret;
                     for (auto & trim : self.trims()) {
                         ret.push_back(trim.get());
                     }
@@ -123,12 +123,12 @@ private:
             )
             .def_property_readonly(
                 "param"
-              , [](wrapped_type & self) -> gas::Parameter & { return self.param(); }
+              , [](wrapped_type & self) -> Parameter & { return self.param(); }
               , py::return_value_policy::reference_internal
             )
             .def_property_readonly(
                 "state"
-              , [](wrapped_type & self) -> gas::State & { return self.state(); }
+              , [](wrapped_type & self) -> State & { return self.state(); }
               , py::return_value_policy::reference_internal
             )
             .def_property_readonly(
@@ -149,7 +149,7 @@ private:
                , py::return_value_policy::reference_internal)
             .def("trim_do0", &wrapped_type::trim_do0)
             .def("trim_do1", &wrapped_type::trim_do1)
-            /* to be enabled */ //.def("init_solution", &wrapped_type::init_solution)
+            /* FIXME: to be enabled */ //.def("init_solution", &wrapped_type::init_solution)
         ;
     }
 
@@ -212,25 +212,24 @@ private:
 
 }; /* end class WrapGasSolver */
 
-// FIXME: Check if PythonAnchor results into cyclic reference to (Python
-// wrapped) Solver.  I may need an instance counting template.
-class PythonAnchor : public gas::CommonAnchor
+/* trampoline class */
+class PythonAnchor : public CommonAnchor
 {
 
 public:
 
     virtual ~PythonAnchor() {}
 
-    template <size_t NDIM> PythonAnchor(ctor_passkey const & pk, gas::Solver<NDIM> & svr)
-      : gas::CommonAnchor(pk, svr) {}
+    template <size_t NDIM> PythonAnchor(ctor_passkey const & pk, Solver<NDIM> & svr)
+      : CommonAnchor(pk, svr) {}
 
     template <size_t NDIM>
-    static std::shared_ptr<PythonAnchor> construct(gas::Solver<NDIM> & svr) {
+    static std::shared_ptr<PythonAnchor> construct(Solver<NDIM> & svr) {
         return std::make_shared<PythonAnchor>(ctor_passkey(), svr);
     }
 
 #define DECL_MARCH_GAS_PYTHON_ANCHOR_METHOD(NAME) \
-    void NAME() override { PYBIND11_OVERLOAD(void, gas::CommonAnchor, NAME); }
+    void NAME() override { PYBIND11_OVERLOAD(void, CommonAnchor, NAME); }
 
     DECL_MARCH_GAS_PYTHON_ANCHOR_METHOD(provide)
     DECL_MARCH_GAS_PYTHON_ANCHOR_METHOD(preloop)
@@ -250,7 +249,7 @@ public:
 class
 MARCH_PYTHON_WRAPPER_VISIBILITY
 WrapGasCommonAnchor
-  : public python::WrapBase< WrapGasCommonAnchor, gas::CommonAnchor, std::shared_ptr<gas::CommonAnchor>, PythonAnchor >
+  : public python::WrapBase< WrapGasCommonAnchor, CommonAnchor, std::shared_ptr<CommonAnchor>, PythonAnchor >
 {
 
     friend base_type;
@@ -263,10 +262,10 @@ WrapGasCommonAnchor
 
         (*this)
             .def(py::init(
-                [](gas::Solver<2> & svr) { return wrapped_base_type::construct(svr); }
+                [](Solver<2> & svr) { return wrapped_base_type::construct(svr); }
             ))
             .def(py::init(
-                [](gas::Solver<3> & svr) { return wrapped_base_type::construct(svr); }
+                [](Solver<3> & svr) { return wrapped_base_type::construct(svr); }
             ))
             .def_property_readonly(
                 "solver",
@@ -313,11 +312,11 @@ template< size_t NDIM >
 class
 MARCH_PYTHON_WRAPPER_VISIBILITY
 WrapGasAnchor
-  : public python::WrapBase< WrapGasAnchor<NDIM>, gas::Anchor<NDIM>, std::shared_ptr<gas::Anchor<NDIM>> >
+  : public python::WrapBase< WrapGasAnchor<NDIM>, Anchor<NDIM>, std::shared_ptr<Anchor<NDIM>> >
 {
 
     /* aliases for dependent type name lookup */
-    using base_type = python::WrapBase< WrapGasAnchor<NDIM>, gas::Anchor<NDIM>, std::shared_ptr<gas::Anchor<NDIM>> >;
+    using base_type = python::WrapBase< WrapGasAnchor<NDIM>, Anchor<NDIM>, std::shared_ptr<Anchor<NDIM>> >;
     using wrapped_type = typename base_type::wrapped_type;
 
     friend base_type;
@@ -353,7 +352,6 @@ WrapGasAnchor
                 py::return_value_policy::reference_internal
             )
         ;
-        // FIXME: allow Python to extend from Anchor with both 2/3D
 
 #undef DECL_MARCH_PYBIND_GAS_ANCHOR
     }
@@ -363,7 +361,7 @@ WrapGasAnchor
 /* This is to workaround https://github.com/pybind/pybind11/issues/1145.  The
  * lifecycle of the derived Python instances is kept in the manager. */
 template< size_t NDIM >
-class PythonAnchorManager : public gas::AnchorChain<NDIM>::LifeManager {
+class PythonAnchorManager : public AnchorChain<NDIM>::LifeManager {
 
 public:
 
@@ -379,11 +377,11 @@ template< size_t NDIM >
 class
 MARCH_PYTHON_WRAPPER_VISIBILITY
 WrapGasAnchorChain
-  : public python::WrapBase< WrapGasAnchorChain<NDIM>, gas::AnchorChain<NDIM> >
+  : public python::WrapBase< WrapGasAnchorChain<NDIM>, AnchorChain<NDIM> >
 {
 
     /* aliases for dependent type name lookup */
-    using base_type = python::WrapBase< WrapGasAnchorChain<NDIM>, gas::AnchorChain<NDIM> >;
+    using base_type = python::WrapBase< WrapGasAnchorChain<NDIM>, AnchorChain<NDIM> >;
     using wrapped_type = typename base_type::wrapped_type;
 
     friend base_type;
@@ -394,7 +392,7 @@ WrapGasAnchorChain
         (*this)
             .def(
                 "append",
-                [](wrapped_type & self, std::shared_ptr<gas::CommonAnchor> const & ptr, std::string const & name) {
+                [](wrapped_type & self, std::shared_ptr<CommonAnchor> const & ptr, std::string const & name) {
                     self.append(ptr->make_owner<NDIM>(), name);
                     using mtype = PythonAnchorManager<NDIM>;
                     if (!self.life_manager()) {
@@ -424,7 +422,7 @@ WrapGasAnchorChain
 class
 MARCH_PYTHON_WRAPPER_VISIBILITY
 WrapGasParameter
-  : public python::WrapBase< WrapGasParameter, gas::Parameter >
+  : public python::WrapBase< WrapGasParameter, Parameter >
 {
 
     friend base_type;
@@ -455,7 +453,7 @@ WrapGasParameter
 class
 MARCH_PYTHON_WRAPPER_VISIBILITY
 WrapGasState
-  : public python::WrapBase< WrapGasState, gas::State >
+  : public python::WrapBase< WrapGasState, State >
 {
 
     friend base_type;
@@ -473,15 +471,15 @@ WrapGasState
         (*this)
             DECL_MARCH_PYBIND_GAS_STATE(real_type, time)
             DECL_MARCH_PYBIND_GAS_STATE(real_type, time_increment)
-            DECL_MARCH_PYBIND_GAS_STATE(gas::State::int_type, step_current)
-            DECL_MARCH_PYBIND_GAS_STATE(gas::State::int_type, step_global)
-            DECL_MARCH_PYBIND_GAS_STATE(gas::State::int_type, substep_run)
-            DECL_MARCH_PYBIND_GAS_STATE(gas::State::int_type, substep_current)
-            DECL_MARCH_PYBIND_GAS_STATE(gas::State::int_type, report_interval)
+            DECL_MARCH_PYBIND_GAS_STATE(State::int_type, step_current)
+            DECL_MARCH_PYBIND_GAS_STATE(State::int_type, step_global)
+            DECL_MARCH_PYBIND_GAS_STATE(State::int_type, substep_run)
+            DECL_MARCH_PYBIND_GAS_STATE(State::int_type, substep_current)
+            DECL_MARCH_PYBIND_GAS_STATE(State::int_type, report_interval)
             DECL_MARCH_PYBIND_GAS_STATE(real_type, cfl_min)
             DECL_MARCH_PYBIND_GAS_STATE(real_type, cfl_max)
-            DECL_MARCH_PYBIND_GAS_STATE(gas::State::int_type, cfl_nadjusted)
-            DECL_MARCH_PYBIND_GAS_STATE(gas::State::int_type, cfl_nadjusted_accumulated)
+            DECL_MARCH_PYBIND_GAS_STATE(State::int_type, cfl_nadjusted)
+            DECL_MARCH_PYBIND_GAS_STATE(State::int_type, cfl_nadjusted_accumulated)
         ;
 
 #undef DECL_MARCH_PYBIND_GAS_STATE
@@ -493,11 +491,11 @@ template< size_t NDIM >
 class
 MARCH_PYTHON_WRAPPER_VISIBILITY
 WrapGasSolution
-  : public python::WrapBase< WrapGasSolution<NDIM>, gas::Solution<NDIM> >
+  : public python::WrapBase< WrapGasSolution<NDIM>, Solution<NDIM> >
 {
 
     /* aliases for dependent type name lookup */
-    using base_type = python::WrapBase< WrapGasSolution<NDIM>, gas::Solution<NDIM> >;
+    using base_type = python::WrapBase< WrapGasSolution<NDIM>, Solution<NDIM> >;
     using wrapped_type = typename base_type::wrapped_type;
 
     friend base_type;
@@ -533,11 +531,11 @@ template< size_t NDIM >
 class
 MARCH_PYTHON_WRAPPER_VISIBILITY
 WrapGasQuantity
-  : public python::WrapBase< WrapGasQuantity<NDIM>, gas::Quantity<NDIM>, std::shared_ptr<gas::Quantity<NDIM>> >
+  : public python::WrapBase< WrapGasQuantity<NDIM>, Quantity<NDIM>, std::shared_ptr<Quantity<NDIM>> >
 {
 
     /* aliases for dependent type name lookup */
-    using base_type = python::WrapBase< WrapGasQuantity<NDIM>, gas::Quantity<NDIM>, std::shared_ptr<gas::Quantity<NDIM>> >;
+    using base_type = python::WrapBase< WrapGasQuantity<NDIM>, Quantity<NDIM>, std::shared_ptr<Quantity<NDIM>> >;
     using wrapped_type = typename base_type::wrapped_type;
     using solver_type = typename wrapped_type::solver_type;
 
@@ -546,6 +544,7 @@ WrapGasQuantity
     WrapGasQuantity(py::module & mod, const char * pyname, const char * clsdoc)
       : base_type(mod, pyname, clsdoc)
     {
+        using Table = march::python::Table;
 
 #define DECL_MARCH_PYBIND_GAS_QUANTITY_REAL(NAME) \
         .def_property( \
@@ -589,11 +588,11 @@ template< class TrimType, size_t NDIM >
 class
 MARCH_PYTHON_WRAPPER_VISIBILITY
 WrapGasTrimBase
-  : public python::WrapBase< WrapGasTrimBase<TrimType, NDIM>, TrimType, std::unique_ptr<TrimType>, gas::TrimBase<NDIM> >
+  : public python::WrapBase< WrapGasTrimBase<TrimType, NDIM>, TrimType, std::unique_ptr<TrimType>, TrimBase<NDIM> >
 {
 
     /* aliases for dependent type name lookup */
-    using base_type = python::WrapBase< WrapGasTrimBase<TrimType, NDIM>, TrimType, std::unique_ptr<TrimType>, gas::TrimBase<NDIM> >;
+    using base_type = python::WrapBase< WrapGasTrimBase<TrimType, NDIM>, TrimType, std::unique_ptr<TrimType>, TrimBase<NDIM> >;
     using wrapped_type = typename base_type::wrapped_type;
     using solver_type = typename wrapped_type::solver_type;
 
@@ -623,11 +622,11 @@ WrapGasTrimBase
 
 }; /* end class WrapGasTrimBase */
 
-template< size_t NDIM > class MARCH_PYTHON_WRAPPER_VISIBILITY WrapGasTrimNoOp : public WrapGasTrimBase< gas::TrimNoOp<NDIM>, NDIM > {};
-template< size_t NDIM > class MARCH_PYTHON_WRAPPER_VISIBILITY WrapGasTrimInterface : public WrapGasTrimBase< gas::TrimInterface<NDIM>, NDIM > {};
-template< size_t NDIM > class MARCH_PYTHON_WRAPPER_VISIBILITY WrapGasTrimNonRefl : public WrapGasTrimBase< gas::TrimNonRefl<NDIM>, NDIM > {};
-template< size_t NDIM > class MARCH_PYTHON_WRAPPER_VISIBILITY WrapGasTrimSlipWall : public WrapGasTrimBase< gas::TrimSlipWall<NDIM>, NDIM > {};
-template< size_t NDIM > class MARCH_PYTHON_WRAPPER_VISIBILITY WrapGasTrimInlet : public WrapGasTrimBase< gas::TrimInlet<NDIM>, NDIM > {};
+template< size_t NDIM > class MARCH_PYTHON_WRAPPER_VISIBILITY WrapGasTrimNoOp : public WrapGasTrimBase< TrimNoOp<NDIM>, NDIM > {};
+template< size_t NDIM > class MARCH_PYTHON_WRAPPER_VISIBILITY WrapGasTrimInterface : public WrapGasTrimBase< TrimInterface<NDIM>, NDIM > {};
+template< size_t NDIM > class MARCH_PYTHON_WRAPPER_VISIBILITY WrapGasTrimNonRefl : public WrapGasTrimBase< TrimNonRefl<NDIM>, NDIM > {};
+template< size_t NDIM > class MARCH_PYTHON_WRAPPER_VISIBILITY WrapGasTrimSlipWall : public WrapGasTrimBase< TrimSlipWall<NDIM>, NDIM > {};
+template< size_t NDIM > class MARCH_PYTHON_WRAPPER_VISIBILITY WrapGasTrimInlet : public WrapGasTrimBase< TrimInlet<NDIM>, NDIM > {};
 
 PyObject * python::ModuleInitializer::initialize_gas(py::module & upmod) {
     py::module gas = upmod.def_submodule("gas", "Gas dynamic solver");
@@ -646,8 +645,8 @@ PyObject * python::ModuleInitializer::initialize_gas(py::module & upmod) {
     WrapGasQuantity<2>::commit(gas, "Quantity2D", "Gas-dynamics quantities (2D).");
     WrapGasQuantity<3>::commit(gas, "Quantity3D", "Gas-dynamics quantities (3D).");
     // section: boundary-condition treatments
-    WrapGasTrimBase<gas::TrimBase<2>, 2>::commit(gas, "TrimBase2D", "Gas-dynamics trim base type (2D).");
-    WrapGasTrimBase<gas::TrimBase<3>, 3>::commit(gas, "TrimBase3D", "Gas-dynamics trim base type (3D).");
+    WrapGasTrimBase<TrimBase<2>, 2>::commit(gas, "TrimBase2D", "Gas-dynamics trim base type (2D).");
+    WrapGasTrimBase<TrimBase<3>, 3>::commit(gas, "TrimBase3D", "Gas-dynamics trim base type (3D).");
     WrapGasTrimInterface<2>::commit(gas, "TrimInterface2D", "Gas-dynamics interface trim (2D).");
     WrapGasTrimInterface<3>::commit(gas, "TrimInterface3D", "Gas-dynamics interface trim (3D).");
     WrapGasTrimNoOp<2>::commit(gas, "TrimNoOp2D", "Gas-dynamics no-op trim (2D).");
