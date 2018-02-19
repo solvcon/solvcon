@@ -32,6 +32,7 @@ WrapGasSolver
 
     /* aliases for dependent type name lookup */
     using base_type = python::WrapBase< WrapGasSolver<NDIM>, gas::Solver<NDIM>, std::shared_ptr<gas::Solver<NDIM>> >;
+    using wrapper_type = typename base_type::wrapper_type;
     using wrapped_type = typename base_type::wrapped_type;
     using block_type = typename wrapped_type::block_type;
 
@@ -41,102 +42,126 @@ WrapGasSolver
         : base_type(mod, pyname, clsdoc)
     {
         (*this)
-            .def(
-                py::init([](
-                    py::object pyblock
-                  , real_type sigma0
-                  , real_type time
-                  , real_type time_increment
-                  , typename wrapped_type::int_type report_interval
-                  , py::kwargs
-                ) {
-                    block_type * block = py::cast<block_type *>(pyblock.attr("_ustblk"));
-                    assert(block);
-                    std::shared_ptr<wrapped_type> svr = wrapped_type::construct(block->shared_from_this());
-                    py::list bclist = pyblock.attr("bclist"); // FIXME
-                    for (auto bc : bclist) {
-                        std::string name = py::str(bc.attr("__class__").attr("__name__").attr("lstrip")("GasPlus"));
-                        BoundaryData * data = py::cast<BoundaryData *>(bc.attr("_data"));
-                        std::unique_ptr<gas::TrimBase<NDIM>> trim;
-                        if        ("Interface" == name) {
-                            trim = make_unique<gas::TrimInterface<NDIM>>(*svr, *data);
-                        } else if ("NoOp"      == name) {
-                            trim = make_unique<gas::TrimNoOp<NDIM>>(*svr, *data);
-                        } else if ("NonRefl"   == name) {
-                            trim = make_unique<gas::TrimNonRefl<NDIM>>(*svr, *data);
-                        } else if ("SlipWall"  == name) {
-                            trim = make_unique<gas::TrimSlipWall<NDIM>>(*svr, *data);
-                        } else if ("Inlet"     == name) {
-                            trim = make_unique<gas::TrimInlet<NDIM>>(*svr, *data);
-                        } else {
-                            /* do nothing for now */ // throw std::runtime_error("BC type unknown");
-                        }
-                        svr->trims().push_back(std::move(trim));
+            .wrap_class_attributes()
+            .wrap_constructors()
+            .wrap_attributes()
+            .wrap_methods()
+            .wrap_legacy()
+        ;
+    }
+
+private:
+
+    wrapper_type & wrap_class_attributes() {
+        this->m_cls.attr("ALMOST_ZERO") = double(wrapped_type::ALMOST_ZERO);
+        this->m_cls.attr("neq") = NDIM + 2;
+        this->m_cls.attr("_interface_init_") = std::make_tuple("cecnd");
+        this->m_cls.attr("_solution_array_") = std::make_tuple();
+        return *this;
+    }
+
+    wrapper_type & wrap_constructors() {
+        return this->def(
+            py::init([](
+                py::object pyblock
+              , real_type sigma0
+              , real_type time
+              , real_type time_increment
+              , typename wrapped_type::int_type report_interval
+              , py::kwargs
+            ) {
+                block_type * block = py::cast<block_type *>(pyblock.attr("_ustblk"));
+                assert(block);
+                std::shared_ptr<wrapped_type> svr = wrapped_type::construct(block->shared_from_this());
+                for (auto bc : py::list(pyblock.attr("bclist"))) {
+                    std::string name = py::str(bc.attr("__class__").attr("__name__").attr("lstrip")("GasPlus"));
+                    BoundaryData * data = py::cast<BoundaryData *>(bc.attr("_data"));
+                    std::unique_ptr<gas::TrimBase<NDIM>> trim;
+                    if        ("Interface" == name) {
+                        trim = make_unique<gas::TrimInterface<NDIM>>(*svr, *data);
+                    } else if ("NoOp"      == name) {
+                        trim = make_unique<gas::TrimNoOp<NDIM>>(*svr, *data);
+                    } else if ("NonRefl"   == name) {
+                        trim = make_unique<gas::TrimNonRefl<NDIM>>(*svr, *data);
+                    } else if ("SlipWall"  == name) {
+                        trim = make_unique<gas::TrimSlipWall<NDIM>>(*svr, *data);
+                    } else if ("Inlet"     == name) {
+                        trim = make_unique<gas::TrimInlet<NDIM>>(*svr, *data);
+                    } else {
+                        /* do nothing for now */ // throw std::runtime_error("BC type unknown");
                     }
-                    svr->param().sigma0() = sigma0;
-                    svr->state().time = time;
-                    svr->state().time_increment = time_increment;
-                    svr->state().report_interval = report_interval;
-                    if (report_interval) { svr->make_qty(); }
-                    return svr;
-                }),
-                py::arg("block"), py::arg("sigma0"), py::arg("time"), py::arg("time_increment"), py::arg("report_interval")
-            )
+                    svr->trims().push_back(std::move(trim));
+                }
+                svr->param().sigma0() = sigma0;
+                svr->state().time = time;
+                svr->state().time_increment = time_increment;
+                svr->state().report_interval = report_interval;
+                if (report_interval) { svr->make_qty(); }
+                return svr;
+            }),
+            py::arg("block"), py::arg("sigma0"), py::arg("time"), py::arg("time_increment"), py::arg("report_interval")
+        );
+    }
+
+    wrapper_type & wrap_attributes() {
+        return (*this)
             .def_property_readonly("block", &wrapped_type::block)
-            .def_property(
-                "trims",
-                [](wrapped_type & self) -> std::vector<gas::TrimBase<NDIM>*> {
+            .def_property_readonly(
+                "trims"
+              , [](wrapped_type & self) -> std::vector<gas::TrimBase<NDIM>*> {
                     std::vector<gas::TrimBase<NDIM>*> ret;
                     for (auto & trim : self.trims()) {
                         ret.push_back(trim.get());
                     }
                     return ret;
-                },
-                [](wrapped_type & self, py::list in_trims) {
-                    using ptr_type = std::unique_ptr<gas::TrimBase<NDIM>>;
-                    std::vector<ptr_type> trims;
-                    for (auto obj : in_trims) {
-                        push_trim<gas::TrimInterface<NDIM>>(obj, trims);
-                        push_trim<gas::TrimNoOp<NDIM>>(obj, trims);
-                        push_trim<gas::TrimNonRefl<NDIM>>(obj, trims);
-                        push_trim<gas::TrimSlipWall<NDIM>>(obj, trims);
-                        push_trim<gas::TrimInlet<NDIM>>(obj, trims);
-                    }
-                    self.trims() = std::move(trims);
                 }
             )
             .def_property_readonly(
-                "anchors",
-                [](wrapped_type & self) -> typename wrapped_type::anchor_chain_type & { return self.anchors(); },
-                py::return_value_policy::reference_internal
-            )
-            .def_property_readonly("runanchors", [](py::object self) { return self.attr("anchors"); }) // compatibility
-            .def("provide", [](wrapped_type & self) { self.anchors().provide(); })
-            .def("preloop", [](wrapped_type & self) { self.anchors().preloop(); })
-            .def("postloop", [](wrapped_type & self) { self.anchors().postloop(); })
-            .def("exhaust", [](wrapped_type & self) { self.anchors().exhaust(); })
-            .def_property_readonly(
-                "param",
-                [](wrapped_type & self) -> gas::Parameter & { return self.param(); },
-                py::return_value_policy::reference_internal
+                "anchors"
+              , [](wrapped_type & self) -> typename wrapped_type::anchor_chain_type & { return self.anchors(); }
+              , py::return_value_policy::reference_internal
             )
             .def_property_readonly(
-                "state",
-                [](wrapped_type & self) -> gas::State & { return self.state(); },
-                py::return_value_policy::reference_internal
+                "param"
+              , [](wrapped_type & self) -> gas::Parameter & { return self.param(); }
+              , py::return_value_policy::reference_internal
             )
             .def_property_readonly(
-                "sol",
-                [](wrapped_type & self) -> typename wrapped_type::solution_type & { return self.sol(); },
-                py::return_value_policy::reference_internal
+                "state"
+              , [](wrapped_type & self) -> gas::State & { return self.state(); }
+              , py::return_value_policy::reference_internal
             )
-            .def_property_readonly("qty", [](wrapped_type const & self) { return self.qty(); }
+            .def_property_readonly(
+                "sol"
+              , [](wrapped_type & self) -> typename wrapped_type::solution_type & { return self.sol(); }
+              , py::return_value_policy::reference_internal
+            )
+            .def_property_readonly("qty"
+                                 , [](wrapped_type const & self) { return self.qty(); }
                                  , py::return_value_policy::reference_internal)
-            .def("make_qty", &wrapped_type::make_qty, py::arg("throw_on_exist") = false
+        ;
+    }
+
+    wrapper_type & wrap_methods() {
+        return (*this)
+            .def("make_qty"
+               , &wrapped_type::make_qty, py::arg("throw_on_exist") = false
                , py::return_value_policy::reference_internal)
             .def("trim_do0", &wrapped_type::trim_do0)
             .def("trim_do1", &wrapped_type::trim_do1)
             /* to be enabled */ //.def("init_solution", &wrapped_type::init_solution)
+        ;
+    }
+
+    wrapper_type & wrap_legacy() {
+        return (*this)
+            .def_property_readonly("runanchors", [](py::object self) { return self.attr("anchors"); }) // compatibility
+            .def_property_readonly("svrn", [](wrapped_type const &) { return py::none(); }) // TO BE UPDATED
+            .def_property_readonly("nsvr", [](wrapped_type const &) { return py::none(); }) // TO BE UPDATED
+            .def("provide", [](wrapped_type & self) { self.anchors().provide(); })
+            .def("preloop", [](wrapped_type & self) { self.anchors().preloop(); })
+            .def("postloop", [](wrapped_type & self) { self.anchors().postloop(); })
+            .def("exhaust", [](wrapped_type & self) { self.anchors().exhaust(); })
             .def(
                 "march"
               , [](wrapped_type & self
@@ -182,23 +207,7 @@ WrapGasSolver
                     self.trim_do1();
                 }
             )
-            .def_property_readonly("svrn", [](wrapped_type const &) { return py::none(); }) // TO BE UPDATED
-            .def_property_readonly("nsvr", [](wrapped_type const &) { return py::none(); }) // TO BE UPDATED
         ;
-
-        this->m_cls.attr("ALMOST_ZERO") = double(wrapped_type::ALMOST_ZERO);
-        this->m_cls.attr("neq") = NDIM + 2;
-        this->m_cls.attr("_interface_init_") = std::make_tuple("cecnd", "cevol", "sfmrc");
-        this->m_cls.attr("_solution_array_") = std::make_tuple("solt", "sol", "soln", "dsol", "dsoln");
-    }
-
-    template < class TrimType > static
-    void push_trim(py::handle obj, std::vector<std::unique_ptr<gas::TrimBase<NDIM>>> & trims) {
-        py::detail::make_caster<TrimType> conv;
-        if (conv.load(obj, true)) {
-            auto * cobj = obj.cast<TrimType*>();
-            trims.push_back(make_unique<TrimType>(*cobj));
-        }
     }
 
 }; /* end class WrapGasSolver */
