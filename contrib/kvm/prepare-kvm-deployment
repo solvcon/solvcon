@@ -1,0 +1,67 @@
+#!/bin/bash
+#
+# This script will prepare a iso and a qcow disk image
+# so you could use these two files to create an
+# kvm instance
+#
+
+set +x
+
+readonly VIRTLIB_IMAGE_ROOT_PATH="/var/lib/libvirt/images"
+PATH=$(dirname $0):${PATH}
+
+function usage() {
+  local usage="Usage: `basename $0` [-c cache]"
+  echo $usage
+  exit
+}
+
+while [[ $# -gt 0  ]]; do
+  key="$1"
+  case $key in
+    -c|--cache)
+    CACHE=$2
+    readonly CACHE
+    shift
+    ;;
+    -h|--help)
+    help="1"
+    ;;
+  esac
+  # past argument or value
+  shift
+done
+
+if [[ -n "$help" ]]; then
+  usage
+  exit
+fi
+
+# automate an Ubuntu iso, returning the absolute path of the iso
+echo "Fetching the iso..."
+if [[ -f "$CACHE" ]]; then
+  echo "Try to use cache iso: $CACHE"
+  PATH_ISO="`automate-ubuntu -c $CACHE -q`"
+else
+  echo "Polling iso from the internet..."
+  PATH_ISO="`automate-ubuntu -q`"
+fi
+readonly PATH_ISO
+
+ISO_NAME="`basename ${PATH_ISO}`"
+ISO_PREFIX="${ISO_NAME%.*}"
+#ISO_EXT="${ISO_NAME##*.}"
+readonly ISO_NAME
+readonly ISO_PREFIX
+#readonly ISO_EXT
+
+VDA_QCOW2="${ISO_PREFIX}.qcow2"
+readonly VDA_QCOW2
+
+cp ${PATH_ISO} ${VIRTLIB_IMAGE_ROOT_PATH}
+echo "Fetching the iso... Done"
+echo "You iso is ${VIRTLIB_IMAGE_ROOT_PATH}/${ISO_NAME}"
+
+rm -f ${VIRTLIB_IMAGE_ROOT_PATH}/${VDA_QCOW2}
+qemu-img create ${VIRTLIB_IMAGE_ROOT_PATH}/${VDA_QCOW2} 15G
+echo "Your qcow2 disk is ${VIRTLIB_IMAGE_ROOT_PATH}/${VDA_QCOW2}"

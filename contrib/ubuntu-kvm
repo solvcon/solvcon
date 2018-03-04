@@ -1,0 +1,56 @@
+#!/bin/bash
+#
+# ./ubuntu-kvm
+#
+# This script is a wrapper of several scripts to
+#   - Download an Ubuntu image file.
+#   - Create a KVM domain
+#   - Install the Ubuntu image in the KVM domain
+#   - Install SOLVCON in the Ubuntu system installed in the KVM domain
+#
+
+SOLVCON_KVM_ROOT_DIR="$(dirname $0)"
+
+function usage() {
+  local usage="Usage: `basename $0` [-c cache]"
+  echo $usage
+  exit
+}
+
+while [[ $# -gt 0  ]]; do
+  key="$1"
+  case $key in
+    -c|--cache)
+    CACHE=$2
+    readonly CACHE
+    shift
+    ;;
+    -h|--help)
+    help="1"
+    ;;
+  esac
+  # past argument or value
+  shift
+done
+
+if [[ -n "$help" ]]; then
+  usage
+  exit
+fi
+pushd ${SOLVCON_KVM_ROOT_DIR}/kvm > /dev/null
+
+write-mime-multipart --output=/tmp/user-data-combined ./data/init_solvcon.sh:text/x-shellscript ./data/user-data
+cloud-localds /tmp/my-seed.img /tmp/user-data-combined
+sudo cp /tmp/my-seed.img /var/lib/libvirt/images/
+
+if [[ -f "$CACHE" ]]; then
+  echo "Will try to use cache iso: $CACHE"
+  sudo ./prepare-kvm-deployment -c $CACHE
+else
+  echo "Will poll iso from the internet..."
+  sudo ./prepare-kvm-deployment -c $CACHE
+fi
+
+./create-instance-kvm
+
+popd > /dev/null
