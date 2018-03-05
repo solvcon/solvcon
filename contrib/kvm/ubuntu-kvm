@@ -37,7 +37,7 @@ if [[ -n "$help" ]]; then
   usage
   exit
 fi
-pushd ${SOLVCON_KVM_ROOT_DIR}/kvm > /dev/null
+pushd ${SOLVCON_KVM_ROOT_DIR} > /dev/null
 
 write-mime-multipart --output=/tmp/user-data-combined ./data/init_solvcon.sh:text/x-shellscript ./data/user-data
 cloud-localds /tmp/my-seed.img /tmp/user-data-combined
