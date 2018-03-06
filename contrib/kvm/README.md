@@ -1,5 +1,6 @@
 # KVM-based Ubuntu Environment of SOLVCON
 To automate Ubuntu installlation to run [SOLVCON](https://github.com/solvcon/solvcon).
+
 # Getting Started
 
 ## Prerequisites
@@ -37,17 +38,15 @@ For most normal users, you may want to add yourself into the libvirt group. Ache
 
 Fetch the source. That's it!
 
-    git clone https://github.com/tai271828/ubuntu-setup-automation.git
-
 Remember to activate the virtual environment if you have not done it
 
     virtualenv -p python3 venv
     source venv/bin/activate
 
-If you want to connect the KVM system later over SSH, you need to paste your public ssh key [user-data](https://github.com/tai271828/ubuntu-setup-automation/blob/master/data/user-data)
+If you want to connect the KVM system later over SSH, you need to paste your public ssh key [user-data](https://github.com/solvcon/solvcon/tree/master/contrib/kvm/data/user-data)
 
     ssh_authorized_keys:
-     - @@my_ssh_public_key@@
+     - put_your_ssh_public_key replace_the_string
 
 For example, it could be
 
@@ -63,7 +62,7 @@ You may need to
 - Provide your sudo password to execute some commands of the scripts.
 - Make sure you are in the pre-requisites-ready working environment, e.g. a virtual Python environment installed necessary packages.
 
-This executable, [solvcon-kvm](https://github.com/tai271828/ubuntu-setup-automation/blob/master/bin/solvcon-kvm), is a wrapper of several scripts to
+This executable, [ubuntu-kvm](https://github.com/solvcon/solvcon/tree/master/contrib/ubuntu-kvm), is a wrapper of several scripts to
 - Download an Ubuntu image file.
 - Create a KVM domain
 - Install the Ubuntu image in the KVM domain
@@ -73,7 +72,7 @@ Once the installation completes, it will pop up IP information to access the KVM
 
     ssh ubuntu@<The IP shown on stdout>
 
-with password *passw0rd*, or your private key if you have pasted your public key in [user-data](https://github.com/tai271828/ubuntu-setup-automation/blob/master/data/user-data).
+with password *passw0rd*, or your private key if you have pasted your public key in [user-data](https://github.com/solvcon/solvcon/tree/master/contrib/kvm/data/user-data).
 
 After provisioning, you will get the files and folders shown below:
 
