@@ -7,11 +7,11 @@
 # Use -v to invoke quiet mode. This is useful for scripting.
 #
 #
-MIRROR_HOSTNAME=${MIRROR_HOSTNAME:-releases.ubuntu.com}
+MIRROR_HOSTNAME=${MIRROR_HOSTNAME:-old-releases.ubuntu.com}
 MIRROR_DIRECTORY=${MIRROR_DIRECTORY:-/releases}
 MIRROR_PREFIX="http://${MIRROR_HOSTNAME}${MIRROR_DIRECTORY}"
 
-DEFAULT_RELEASE="14.04.5"
+DEFAULT_RELEASE="16.04.1"
 DEFAULT_TYPE="desktop"
 DEFAULT_ARCHITECTURE="amd64"
 

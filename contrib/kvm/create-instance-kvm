@@ -4,7 +4,7 @@ import libvirt
 from libvirt import libvirtError
 xmlconfig = """
 <domain type='kvm' id='1'>
-    <name>ubuntu-14.04.5-desktop-unattended</name>
+    <name>ubuntu-16.04.1-desktop-unattended</name>
     <memory unit='KiB'>1048576</memory>
     <currentMemory unit='KiB'>1048576</currentMemory>
     <vcpu placement='static'>1</vcpu>
@@ -29,7 +29,7 @@ xmlconfig = """
         <emulator>/usr/bin/qemu-system-x86_64</emulator>
         <disk type='file' device='disk'>
             <driver name='qemu' type='raw'/>
-            <source file='/var/lib/libvirt/images/ubuntu-14.04.5-desktop-amd64-unattended.qcow2'/>
+            <source file='/var/lib/libvirt/images/ubuntu-16.04.1-desktop-amd64-unattended.qcow2'/>
             <backingStore/>
             <target dev='vda' bus='virtio'/>
             <address type='pci' domain='0x0000' bus='0x00' slot='0x07' function='0x0'/>
@@ -44,7 +44,7 @@ xmlconfig = """
         </disk>
         <disk type='file' device='cdrom'>
             <driver name='qemu' type='raw'/>
-            <source file='/var/lib/libvirt/images/ubuntu-14.04.5-desktop-amd64-unattended.iso'/>
+            <source file='/var/lib/libvirt/images/ubuntu-16.04.1-desktop-amd64-unattended.iso'/>
             <backingStore/>
             <target dev='hda' bus='ide'/>
             <alias name='ide0-0-0'/>
@@ -136,7 +136,7 @@ while (count < count_timeout + 1):
     count += 1
 
 guest_addrs = []
-for info in iface_addrs['eth0']['addrs']:
+for info in iface_addrs['ens3']['addrs']:
     if info.get('type') == 0:
         guest_addrs.append(info.get('addr'))
 # pick up one as a default
