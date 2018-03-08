@@ -1,0 +1,144 @@
+#!/bin/bash
+#
+#
+# This script will download a stock Ubuntu and make it
+# be able to automatically install by its associated preseed.
+#
+# Use -v to invoke quiet mode. This is useful for scripting.
+#
+#
+MIRROR_HOSTNAME=${MIRROR_HOSTNAME:-old-releases.ubuntu.com}
+MIRROR_DIRECTORY=${MIRROR_DIRECTORY:-/releases}
+MIRROR_PREFIX="http://${MIRROR_HOSTNAME}${MIRROR_DIRECTORY}"
+
+DEFAULT_RELEASE="16.04.1"
+DEFAULT_TYPE="desktop"
+DEFAULT_ARCHITECTURE="amd64"
+
+VERBOSE=true
+
+DATA_DIR="$(dirname $0)/data"
+
+PATH=$(dirname $0):$PATH
+
+function usage() {
+  local usage="Usage: `basename $0` [-r release] [-t server_desktop_type] [-a arch] [-c cache] [-q quiet]"
+  echo $usage
+  exit
+}
+
+function patch_iso() {
+  # patch iso so it could automate grub and preseed
+  cp ${DATA_DIR}/txt.cfg ${tempd}/${iso_prefix}/isolinux/txt.cfg
+  cp ${DATA_DIR}/patch.preseed ${tempd}/${iso_prefix}/preseed/
+}
+
+function rebuild_iso() {
+  # rebuild an iso from the extracted data
+  local iso_extract="${tempd}/${iso_prefix}"
+  local isolinux_dir="${iso_extract}/isolinux"
+  mkisofs -D -r -V "UNATTENDED_UBUNTU" -cache-inodes -J -l \
+          -b isolinux/isolinux.bin -c isolinux/boot.cat \
+          -no-emul-boot -boot-load-size 4 -boot-info-table \
+          -o ${tempd}/${iso_prefix}-unattended.iso \
+          ${iso_extract} > /dev/null 2>&1
+}
+
+function echo_message() {
+  if [[ ${VERBOSE} = true ]]; then
+    echo $1
+  fi
+}
+
+while [[ $# -gt 0  ]]; do
+  key="$1"
+  case $key in
+    -r|--release)
+    RELEASE="$2"
+    shift
+    ;;
+    -y|--release-type)
+    RELEASE_TYPE="$2"
+    shift
+    ;;
+    -a|--arch)
+    RELEASE_ARCH="$2"
+    shift
+    ;;
+    -c|--cache)
+    CACHE=$2
+    readonly CACHE
+    shift
+    ;;
+    -q|--quiet)
+    VERBOSE=false
+    shift
+    ;;
+    -h|--help)
+    help="1"
+    ;;
+  esac
+  # past argument or value
+  shift
+done
+
+if [[ -n "$help" ]]; then
+  usage
+  exit
+fi
+
+if [[ -z "$RELEASE" ]]; then
+  RELEASE=${DEFAULT_RELEASE}
+fi
+
+if [[ -z "$RELEASE_TYPE" ]]; then
+  RELEASE_TYPE=${DEFAULT_TYPE}
+fi
+
+if [[ -z "$RELEASE_ARCH" ]]; then
+  RELEASE_ARCH="amd64"
+fi
+
+iso_prefix="ubuntu-${RELEASE}-${RELEASE_TYPE}-${RELEASE_ARCH}"
+iso_ext="iso"
+iso_name="${iso_prefix}.${iso_ext}"
+iso_download_url=${MIRROR_PREFIX}/${RELEASE}/${iso_name}
+
+if [[ -f "$CACHE" ]]; then
+  echo_message "Try to use $CACHE"
+  tempd=$(dirname $CACHE)
+else
+  tempd=$(mktemp -d /tmp/automatic-ubuntu-XXXXXX)
+  echo_message "Begin to download image to $tempd"
+  wget -q -O $tempd/${iso_name} $iso_download_url
+  if [[ "$?" -ne 0 ]]; then
+    echo_message "Failed to download the image from ${iso_download_url}"
+    exit
+  fi
+  echo_message "${iso_download_url} is downloaded under ${tempd}"
+fi
+
+echo_message "Begin to patch the image"
+
+echo_message "Extracting data..."
+# Remove the temp working dir to refresh the updated files of the iso
+# when using cache option. This feature is useful for development
+# of new preseed files
+if [[ -d "${tempd}/${iso_prefix}" ]]; then
+  echo_message "Refreshing ${tempd}/${iso_prefix} ..."
+  rm -rf ${tempd}/${iso_prefix}
+  mkdir -p ${tempd}/${iso_prefix}
+else
+  mkdir -p ${tempd}/${iso_prefix}
+fi
+
+extract-iso ${tempd}/${iso_name} -d ${tempd}/${iso_prefix}
+
+echo_message "Patching..."
+patch_iso
+
+echo_message "Re-generate the iso"
+rebuild_iso
+
+echo_message "Done. Your new image is"
+echo "${tempd}/${iso_prefix}-unattended.iso"

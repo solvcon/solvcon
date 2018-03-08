@@ -1,0 +1,401 @@
+#!/usr/bin/python
+
+import os
+import re
+import sys
+import logging
+import posixpath
+import urllib
+
+from fnmatch import fnmatch
+from logging import StreamHandler, FileHandler, Formatter
+from optparse import OptionParser
+from stat import ST_MODE, S_IMODE
+
+from cStringIO import StringIO
+
+
+inode_info_types = {}
+
+
+class ValidationException(Exception):
+
+    pass
+
+
+def register_inode_info_type(info_class):
+    if "info_type" not in info_class.__dict__:
+        raise RuntimeError("%r didn't define info_type" % info_class)
+    if info_class.info_type is not None:
+        existent_info_type = inode_info_types.get(info_class.info_type)
+        if existent_info_type is not None:
+            raise RuntimeError("%r has the same info_type of %r" %
+                               (info_class, existent_info_type))
+        inode_info_types[info_class.info_type] = info_class
+
+
+class InodeMeta(type):
+
+    def __init__(cls, name, bases, dict):
+        super(InodeMeta, cls).__init__(name, bases, dict)
+        register_inode_info_type(cls)
+
+
+class InodeInfo(object):
+
+    __metaclass__ = InodeMeta
+
+    info_type = None
+
+    is_directory = False
+    is_file = False
+    is_link = False
+
+    def __init__(self, inode):
+        self.inode = inode
+
+    @classmethod
+    def load(cls, inode):
+        return cls(inode)
+
+
+class DirectoryInfo(InodeInfo):
+
+    __metaclass__ = InodeMeta
+
+    info_type = "d"
+
+    is_directory = True
+
+    def __init__(self, inode):
+        super(DirectoryInfo, self).__init__(inode)
+        self._children = {}
+
+    def add_child(self, inode):
+        if inode.name in self._children:
+            raise Exception, "Child already in directory: %s" \
+                % inode.name
+
+        self._children[inode.name] = inode
+
+    def remove_child(self, inode):
+        if inode.name not in self._children:
+            raise Exception, "Child not in directory: %s" \
+                % inode.name
+
+        del self._children[inode.name]
+
+    def get_child(self, *names):
+        if not names:
+            return self.inode
+
+        return self._children[names[0]].get_child(*names[1:])
+
+    def get_children(self):
+        children = [c for c in self._children.values()
+            if c.is_file]
+        children.extend([c for c in self._children.values()
+            if c.is_directory])
+        children.extend([c for c in self._children.values()
+            if c.is_link])
+
+        return children
+
+    def create(self, base=None):
+        path = posixpath.join(base, self.inode.path.strip(posixpath.sep))
+        logging.info("Creating directory: %s" % path)
+        new_mode = self.inode.decimal_mode
+        if posixpath.isdir(path):
+            if self.inode.iso.chmod:
+                old_mode = os.stat(path)[ST_MODE]
+                if new_mode != S_IMODE(old_mode):
+                    os.chmod(path, new_mode)
+        elif posixpath.exists(path):
+            raise Exception, "Path exists and is not a directory: %s" % path
+        else:
+            head, tail = posixpath.split(path)
+            if head and not posixpath.isdir(head):
+                raise Exception, "Parent directory does not exist: %s" % head
+            if tail:
+                os.mkdir(path, new_mode)
+                logging.debug("Creating directory: %s" % path)
+
+class FileInfo(InodeInfo):
+
+    __metaclass__ = InodeMeta
+
+    info_type = "-"
+
+    is_file = True
+
+    def __init__(self, inode):
+        super(FileInfo, self).__init__(inode)
+        self.reader = StringIO()
+
+    def create(self, base=None):
+        path = posixpath.join(base, self.inode.path.strip(posixpath.sep))
+        logging.info("Creating file: %s" % path)
+        if posixpath.exists(path) and not posixpath.isfile(path):
+            raise Exception, "Path exists and is not a file: %s" % path
+
+        file = open(path, "w")
+        try:
+            file.write(self.reader.read())
+        finally:
+            file.close()
+
+        if self.inode.iso.chmod:
+            new_mode = self.inode.decimal_mode
+            old_mode = os.stat(path)[ST_MODE]
+            if new_mode != S_IMODE(old_mode):
+                os.chmod(path, new_mode)
+
+
+class LinkInfo(InodeInfo):
+
+    __metaclass__ = InodeMeta
+
+    info_type = "l"
+
+    is_link = True
+
+    def create(self, base):
+        path = posixpath.join(base, self.inode.path.strip(posixpath.sep))
+        dst, src = path.split(" -> ")
+        logging.info("Creating link: %s -> %s" % (dst, src))
+        if posixpath.islink(dst):
+            realpath = posixpath.realpath(dst)
+            realsrc = posixpath.join(posixpath.dirname(dst), src)
+            if realpath != realsrc:
+                raise Exception, \
+                    "Link already points to a destination: %s" % realsrc
+        elif posixpath.exists(dst):
+            raise Exception, "Path exists and is not a link: %s" % dst
+        else:
+            os.symlink(src, dst)
+
+
+class Inode(object):
+
+    _info = None
+
+    def __init__(self, iso, name, textual_mode, parent=None):
+        self.iso = iso
+        self.name = name
+        self.textual_mode = textual_mode
+        self.parent = parent
+
+        if parent is not None:
+            parent.add_child(self)
+
+    def __getattr__(self, name):
+        return getattr(self.info, name)
+
+    @property
+    def info(self):
+        if self._info is None:
+            info_type = self.textual_mode[0]
+            self._info = inode_info_types[info_type].load(self)
+        return self._info
+
+    @property
+    def path(self):
+        paths = []
+        if self.parent is not None:
+            path = self.parent.path
+            paths.append(path)
+
+        paths.append(self.name)
+
+        return posixpath.sep.join(paths)
+
+    @property
+    def decimal_mode(self):
+        byte = 1
+        decimal = 0
+        # Skip first byte
+        for i in range(len(self.textual_mode) - 1, 0, -1):
+            if self.textual_mode[i] != "-":
+                decimal |= byte
+            byte <<= 1
+
+        return decimal | 0200
+
+    def create(self, base=None):
+        self.info.create(base)
+        if self.is_directory:
+            for child in self.get_children():
+                child.create(base)
+
+    def filter(self, patterns=[]):
+        is_match = any(fnmatch(self.path, p) for p in patterns)
+        if is_match:
+            return True
+
+        if self.is_directory:
+            has_matches = []
+            for child in self.get_children():
+                has_match = child.filter(patterns)
+                has_matches.append(has_match)
+
+            if any(has_matches):
+                return True
+
+        if self.parent:
+            self.parent.remove_child(self)
+
+        return False
+
+
+class Iso(object):
+
+    def __init__(self, iso, chmod=True):
+        self.iso = iso
+        self.chmod = chmod
+
+    def root(self):
+        root = None
+        command = "isoinfo -R -l -i %s" % self.iso
+        logging.info("Running command: %s" % command)
+        file = os.popen(command)
+
+        directory_re = re.compile("Directory listing of (?P<path>.*)")
+        file_re = re.compile(
+            "(?P<mode>[ldrwx-]{10})\s+\d+\s+\d+\s+\d+\s+\d+\s[A-Za-z]{3}"
+            + "\s+\d+\s\d+\s+\[\s+\d+\s\d\d\](\s\s(?P<name>.*))?")
+
+        name = ""
+        for line in [l.strip() for l in file.readlines()]:
+            if not line:
+                continue
+
+            match = directory_re.match(line)
+            if match:
+                path = match.group("path").strip(posixpath.sep)
+                continue
+
+            match = file_re.match(line)
+            if match:
+                textual_mode = match.group("mode")
+                previous_name = name
+                name = match.group("name")
+                if not name:
+                    name = "." if previous_name != "." else ".."
+
+                if name == ".":
+                    if root is None:
+                        logging.debug("Listing root directory: %s" % path)
+                        root = current = Inode(self, path, textual_mode)
+                    else:
+                        logging.debug("Listing current directory: %s" % path)
+                        try:
+                            names = path.split(posixpath.sep)
+                            current = root.get_child(*names)
+                        except KeyError:
+                            pass
+                elif name != "..":
+                    child_path = os.path.join(path, name).strip("/")
+                    logging.debug("Listing child: %s" % child_path)
+
+                    inode = Inode(self, name, textual_mode, current)
+                    if inode.is_file:
+                        inode.info.reader = IsoReader(self.iso, inode.path)
+
+                continue
+
+            raise Exception, "Failed to parse line: %s" % line
+
+        return root
+
+
+class IsoReader(object):
+
+    def __init__(self, iso, path):
+        self.iso = iso
+        self.path = path
+
+    def read(self):
+        command = "isoinfo -R -i %s -x %s" % (self.iso, self.path)
+        logging.info("Running command: %s" % command)
+        return os.popen(command).read()
+
+
+def run(isoimage, directory, chmod, patterns=[]):
+    directory = posixpath.expanduser(directory)
+    if not posixpath.exists(directory):
+        raise ValidationException, "Directory does not exist: %s" % directory
+
+    try:
+        (local_isoimage, h) = urllib.urlretrieve(isoimage)
+    except IOError:
+        raise ValidationException, "ISO image does not exist: %s" % isoimage
+
+    iso = Iso(local_isoimage, chmod)
+    root = iso.root()
+    if patterns:
+        root.filter(patterns)
+    root.create(directory)
+
+    # Remove the temporary file if it's a remote file
+    # urlretrieve returns the local filename if the url points to a local
+    # filename
+    if local_isoimage != isoimage:
+        os.unlink(local_isoimage)
+
+def main(args=sys.argv):
+    usage = "%prog [OPTIONS] ISOIMAGE [PATTERN...]"
+
+    default_directory = "."
+    default_log_level = "critical"
+
+    parser = OptionParser(usage=usage)
+    parser.add_option("-C", "--no-chmod",
+                      dest="no_chmod",
+                      action="store_true",
+                      default=False,
+                      help="suppress changing the mode bits")
+    parser.add_option("-d", "--directory",
+                      default=default_directory,
+                      help="directory where to extract the ISO")
+    parser.add_option("-l", "--log", metavar="FILE",
+                      help="log file where to send output")
+    parser.add_option("--log-level",
+                      default=default_log_level,
+                      help="one of debug, info, warning, error or critical")
+    (options, args) = parser.parse_args(args[1:])
+
+    # Set logging early
+    log_level = logging.getLevelName(options.log_level.upper())
+    log_handlers = []
+    log_handlers.append(StreamHandler())
+    if options.log:
+        log_filename = options.log
+        log_handlers.append(FileHandler(log_filename))
+
+    format = ("%(asctime)s %(levelname)-8s %(message)s")
+    if log_handlers:
+        for handler in log_handlers:
+            handler.setFormatter(Formatter(format))
+            logging.getLogger().addHandler(handler)
+        if log_level:
+            logging.getLogger().setLevel(log_level)
+    elif not logging.getLogger().handlers:
+        logging.disable(logging.CRITICAL)
+
+    if not args:
+        parser.error("Must specify an ISOIMAGE")
+    isoimage = args.pop(0)
+    patterns = args
+
+    try:
+        run(isoimage, options.directory, not options.no_chmod, patterns)
+    except ValidationException, e:
+        parser.error(e)
+    except Exception, e:
+        logging.critical(str(e))
+        sys.exit(1)
+
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main())

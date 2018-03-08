@@ -1,0 +1,13 @@
+#cloud-config
+password: passw0rd
+chpasswd: { expire: False }
+ssh_pwauth: True
+
+ssh_authorized_keys:
+ - put_your_ssh_public_key replace_the_string
+
+timezone: Asia/Taipei
+
+runcmd:
+ - chmod 777 bash /var/lib/cloud/instances/iid-local01/scripts/init_solvcon.sh
+ - su - ubuntu -c 'bash /var/lib/cloud/instances/iid-local01/scripts/init_solvcon.sh > /home/ubuntu/cloud-init-solvcon-output.log 2>&1'
