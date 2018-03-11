@@ -88,8 +88,8 @@ void Solver<NDIM>::calc_so0n() {
     const real_type hdt = m_state.time_increment * 0.5;
     for (index_type icl=0; icl<block.ncell(); ++icl) {
         const CompoundCE<NDIM> icce(block, icl);
-        auto pisoln = m_sol.so0n(icl);
-        pisoln = 0.0; // initialize fluxes.
+        auto piso0n = m_sol.so0n(icl);
+        piso0n = 0.0; // initialize fluxes.
 
         const auto & tclfcs = block.clfcs()[icl];
         for (index_type ifl=0; ifl<tclfcs[0]; ++ifl) {
@@ -106,7 +106,7 @@ void Solver<NDIM>::calc_so0n() {
             for (index_type ieq=0; ieq<neq; ++ieq) {
                 real_type fusp = pjso0c[ieq];
                 fusp += (ibce.cnd - jcecnd).dot(pjso1c[ieq]);
-                pisoln[ieq] += fusp * ibce.vol;
+                piso0n[ieq] += fusp * ibce.vol;
             }
 
             // temporal flux (given space).
@@ -128,14 +128,14 @@ void Solver<NDIM>::calc_so0n() {
                 }
                 // temporal flux.
                 for (index_type ieq=0; ieq<neq; ++ieq) {
-                    pisoln[ieq] -= hdt * dfcn[ieq].dot(ibce.sfnml[inf]);
+                    piso0n[ieq] -= hdt * dfcn[ieq].dot(ibce.sfnml[inf]);
                 }
             }
         }
 
         // update solutions.
         for (index_type ieq=0; ieq<neq; ++ieq) {
-            pisoln[ieq] /= icce.vol;
+            piso0n[ieq] /= icce.vol;
         }
 
         throw_on_negative_density(__func__, icl);
