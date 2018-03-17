@@ -63,6 +63,7 @@ set(MARCH_HEADERS
     include/march/mesh/mesh.hpp
     include/march/mesh/BasicCE.hpp
     include/march/mesh/BoundaryData.hpp
+    include/march/mesh/CellType.hpp
     include/march/mesh/CompoundCE.hpp
     include/march/mesh/UnstructuredBlock/UnstructuredBlock.hpp
     include/march/mesh/UnstructuredBlock/class.hpp

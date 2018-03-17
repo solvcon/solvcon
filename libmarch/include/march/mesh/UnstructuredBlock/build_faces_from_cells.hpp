@@ -35,9 +35,9 @@ void UnstructuredBlock< NDIM >::build_faces_from_cells() {
     index_type computed_nface = -1;
 
     // create temporary tables.
-    LookupTable<index_type, MAX_CLNFC+1> tclfcs(0, ncell());
+    LookupTable<index_type, CellType::CLNFC_MAX+1> tclfcs(0, ncell());
     LookupTable<index_type,           0> tfctpn(0, mface);
-    LookupTable<index_type, MAX_FCNND+1> tfcnds(0, mface);
+    LookupTable<index_type, CellType::FCNND_MAX+1> tfcnds(0, mface);
     LookupTable<index_type,     FCNCL  > tfccls(0, mface);
     tclfcs.fill(-1); tfcnds.fill(-1); tfccls.fill(-1);
     index_type * lclfcs = reinterpret_cast<index_type *>(tclfcs.row(0));
