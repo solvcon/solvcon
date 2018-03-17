@@ -9,8 +9,8 @@
 #include <limits>
 #include <memory>
 
-#include "march/core/core.hpp"
-#include "march/mesh/mesh.hpp"
+#include "march/core.hpp"
+#include "march/mesh.hpp"
 
 namespace march {
 

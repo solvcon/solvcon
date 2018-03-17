@@ -5,7 +5,7 @@
  * BSD 3-Clause License, see COPYING
  */
 
-#include "march/core/core.hpp"
-#include "march/mesh/mesh.hpp"
+#include "march/core.hpp"
+#include "march/mesh.hpp"
 
 // vim: set ff=unix fenc=utf8 nobomb et sw=4 ts=4:

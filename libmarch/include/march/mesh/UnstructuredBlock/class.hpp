@@ -15,7 +15,7 @@
 
 #include "march/depend/scotch.hpp"
 
-#include "march/core/core.hpp"
+#include "march/core.hpp"
 
 #include "march/mesh/BoundaryData.hpp"
 #include "march/mesh/CellType.hpp"
@@ -55,30 +55,6 @@ public:
     // moved to mesh: void prepare_ce();
     // moved to mesh: void prepare_sf();
     // @]
-
-    /**
-     * The dual mesh of the conservation element.
-     */
-    struct CEMesh {
-    public:
-        LookupTable<real_type, (CLMFC+1)*NDIM> cecnd;
-        LookupTable<real_type, CLMFC+1> cevol;
-        LookupTable<real_type, CLMFC*FCMND*2*NDIM> sfmrc;
-        CEMesh() = delete;
-        CEMesh(CEMesh const & ) = delete;
-        CEMesh(CEMesh       &&) = delete;
-        CEMesh operator=(CEMesh const & ) = delete;
-        CEMesh operator=(CEMesh       &&) = delete;
-        CEMesh(const UnstructuredBlock<NDIM> & block)
-          : cecnd(block.ngstcell(), block.ncell()), cevol(block.ngstcell(), block.ncell()), sfmrc(0, block.ncell())
-        {
-            calc_ce(block);
-            calc_sf(block);
-        }
-    private:
-        void calc_ce(const UnstructuredBlock<NDIM> & block);
-        void calc_sf(const UnstructuredBlock<NDIM> & block);
-    }; /* end struct CEMesh */
 
     static index_type calc_max_nface(const LookupTable<index_type, 0> & cltpn) {
         index_type max_nfc = 0;

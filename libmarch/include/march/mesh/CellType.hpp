@@ -5,7 +5,7 @@
  * BSD 3-Clause License, see COPYING
  */
 
-#include "march/core/core.hpp"
+#include "march/core.hpp"
 
 namespace march {
 

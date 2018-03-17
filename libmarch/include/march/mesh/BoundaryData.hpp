@@ -8,7 +8,7 @@
 #include <utility>
 #include <string>
 
-#include "march/core/core.hpp"
+#include "march/core.hpp"
 
 namespace march
 {

@@ -7,9 +7,9 @@
 
 #include <numeric>
 
-#include "march/mesh/UnstructuredBlock/UnstructuredBlock.hpp"
-#include "march/mesh/BasicCE.hpp"
-#include "march/mesh/CompoundCE.hpp"
+#include "march/mesh/UnstructuredBlock.hpp"
+
+#include "mesh_fixture.hpp"
 
 using namespace march;
 
@@ -39,42 +39,6 @@ TEST(UnstructuredBlockBasicTest, Construction) {
 class TriangleDataTest : public ::testing::Test {
 
 public:
-
-    /**
-     * This is a block composes of only triangles.  "N" denotes node, and "C"
-     * denotes cell.
-     *
-     *                                (0,1)N3
-     *                              *
-     *                             /|\
-     *                            / | \
-     *                           /  |  \
-     *                          /   |   \
-     *                         /    |    \
-     *                        /     |     \
-     *                       /  C2  *  C1  \
-     *                      /      /^\      \
-     *                     /     / N0  \     \
-     *                    /    /  (0,0)  \    \
-     *                   /   /             \   \
-     *                  /  /                 \  \
-     *                 / /         C0          \ \
-     *                //                         \\
-     *               *-----------------------------*
-     *     (-1,-1)N1                                 (1,-1)N2
-     */
-    static std::shared_ptr<UnstructuredBlock<2>> make_triangles() {
-        auto blk = UnstructuredBlock<2>::construct(/* nnode */4, /* nface */6, /* ncell */3, /* use_incenter */false);
-        blk->ndcrd().set_at(0,  0,  0);
-        blk->ndcrd().set_at(1, -1, -1);
-        blk->ndcrd().set_at(2,  1, -1);
-        blk->ndcrd().set_at(3,  0,  1);
-        blk->cltpn().fill(3);
-        blk->clnds().set_at(0, 3, 0, 1, 2);
-        blk->clnds().set_at(1, 3, 0, 2, 3);
-        blk->clnds().set_at(2, 3, 0, 3, 1);
-        return blk;
-    }
 
 protected:
 
@@ -230,24 +194,6 @@ TEST_F(TriangleDataTest, partition) {
     */
 }
 
-TEST_F(TriangleDataTest, CEMesh) {
-    auto & blk = *m_triangles;
-    blk.build_interior();
-    blk.build_boundary();
-    blk.build_ghost();
-
-    UnstructuredBlock<2>::CEMesh cem(blk);
-}
-
-TEST_F(TriangleDataTest, CEConstruct) {
-    auto & blk = *m_triangles;
-    blk.build_interior();
-    blk.build_boundary();
-    blk.build_ghost();
-    BasicCE<2>(blk, 0, 0);
-    CompoundCE<2>(blk, 0);
-}
-
 /*
  * end TriangleDataTest
  */
@@ -259,25 +205,6 @@ TEST_F(TriangleDataTest, CEConstruct) {
 class TetrahedralDataTest : public ::testing::Test {
 
 protected:
-
-    /**
-     * This is a block composes of only tetrahedra.  3D ascii art is beyond my
-     * skill.  Use imagination.
-     */
-    static std::shared_ptr<UnstructuredBlock<3>> make_tetrahedra() {
-        auto blk = UnstructuredBlock<3>::construct(/* nnode */5, /* nface */0, /* ncell */4, /* use_incenter */false);
-        blk->ndcrd().set_at(0,   0,  0,  0);
-        blk->ndcrd().set_at(1,  10,  0,  0);
-        blk->ndcrd().set_at(2,   0, 10,  0);
-        blk->ndcrd().set_at(3,   0,  0, 10);
-        blk->ndcrd().set_at(4,   1,  1,  1);
-        blk->cltpn().fill(5);
-        blk->clnds().set_at(0, 4, 0, 1, 2, 4);
-        blk->clnds().set_at(1, 4, 0, 2, 3, 4);
-        blk->clnds().set_at(2, 4, 0, 3, 1, 4);
-        blk->clnds().set_at(3, 4, 1, 2, 3, 4);
-        return blk;
-    }
 
     virtual void SetUp() {
         m_tetrahedra = make_tetrahedra();
@@ -459,24 +386,6 @@ TEST_F(TetrahedralDataTest, partition) {
     std::tie(edgecut, part) = blk.partition(2);
     EXPECT_EQ(4, edgecut);
     EXPECT_EQ(4, part.nbody());
-}
-
-TEST_F(TetrahedralDataTest, CEMesh) {
-    auto & blk = *m_tetrahedra;
-    blk.build_interior();
-    blk.build_boundary();
-    blk.build_ghost();
-
-    UnstructuredBlock<3>::CEMesh cem(blk);
-}
-
-TEST_F(TetrahedralDataTest, CEConstruct) {
-    auto & blk = *m_tetrahedra;
-    blk.build_interior();
-    blk.build_boundary();
-    blk.build_ghost();
-    BasicCE<3>(blk, 0, 0);
-    CompoundCE<3>(blk, 0);
 }
 
 /*

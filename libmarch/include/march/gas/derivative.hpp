@@ -15,8 +15,8 @@
 
 #include <cstdint>
 
-#include "march/core/core.hpp"
-#include "march/mesh/mesh.hpp"
+#include "march/core.hpp"
+#include "march/mesh.hpp"
 #include "march/gas/Solver_decl.hpp"
 
 namespace march {

@@ -7,9 +7,9 @@
 
 #include <array>
 
-#include "march/core/core.hpp"
+#include "march/core.hpp"
 
-#include "march/mesh/UnstructuredBlock/class.hpp"
+#include "march/mesh/UnstructuredBlock.hpp"
 
 namespace march {
 
