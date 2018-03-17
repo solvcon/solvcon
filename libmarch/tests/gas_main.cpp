@@ -5,7 +5,6 @@
 
 #include <gtest/gtest.h>
 
-#include "march/march.hpp"
 #include "march/gas/gas.hpp"
 
 using namespace march;

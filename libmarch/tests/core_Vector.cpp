@@ -8,7 +8,7 @@
 
 #include <gtest/gtest.h>
 
-#include "march/march.hpp"
+#include "march/core/Vector.hpp"
 
 using namespace march;
 

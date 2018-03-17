@@ -7,7 +7,7 @@
 
 #include <gtest/gtest.h>
 
-#include "march/march.hpp"
+#include "march/core/Buffer.hpp"
 
 using namespace march;
 
