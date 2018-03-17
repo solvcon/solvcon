@@ -108,7 +108,7 @@ private:
     /**
      * The meta data table indexed by using cell type number.
      */
-    GradientMeta metalist[NCLTYPE];
+    GradientMeta metalist[CellTypeGroup::NTYPE];
 
 }; /* end class GradientMetaGroup */
 
