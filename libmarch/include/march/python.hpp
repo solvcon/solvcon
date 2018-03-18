@@ -105,7 +105,7 @@ class ModuleInitializer {
 
 public:
 
-    static ModuleInitializer & getInstance() {
+    static ModuleInitializer & get_instance() {
         static ModuleInitializer inst;
         return inst;
     }

@@ -60,6 +60,7 @@ public:
     }
 
     DECL_MARCH_PYBIND_CLASS_METHOD(def)
+    DECL_MARCH_PYBIND_CLASS_METHOD(def_readwrite)
     DECL_MARCH_PYBIND_CLASS_METHOD(def_property)
     DECL_MARCH_PYBIND_CLASS_METHOD(def_property_readonly)
     DECL_MARCH_PYBIND_CLASS_METHOD(def_property_readonly_static)

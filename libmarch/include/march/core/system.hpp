@@ -10,12 +10,6 @@
  * Operation system setup.
  */
 
-#include <cstdint>
-#include <memory>
-#include <iostream>
-#include <string>
-#include <cstdio>
-
 // windows
 #define MH_WIN64 0x00000001
 #define MH_WIN32 0x00000002
@@ -91,31 +85,6 @@ inline void setup_debug() {
 }
 
 inline void setup_system() {
-}
-
-template<typename ... Args>
-std::string string_format(const std::string & format, Args ... args) {
-    size_t size = std::snprintf(nullptr, 0, format.c_str(), args ...) + 1;
-    std::unique_ptr<char[]> buf(new char[size]); 
-    std::snprintf(buf.get(), size, format.c_str(), args ...);
-    return std::string(buf.get(), buf.get() + size - 1);
-}
-
-template<typename ElementType>
-void fill_sentinel(ElementType *arr, size_t nelem, ElementType sentinel) {
-    std::fill(arr, arr + nelem, sentinel);
-}
-
-template<typename ElementType>
-void fill_sentinel(ElementType *arr, size_t nelem) {
-    if (true == std::is_floating_point<ElementType>::value) {
-        fill_sentinel(arr, nelem, std::numeric_limits<ElementType>::quiet_NaN());
-    } else if (true == std::is_arithmetic<ElementType>::value) {
-        char * carr = reinterpret_cast<char *>(arr);
-        fill_sentinel(carr, nelem*sizeof(ElementType), static_cast<char>(-1));
-    } else {
-        throw std::runtime_error("cannot fill sentinel for unsupported type");
-    }
 }
 
 } /* end namespace march */

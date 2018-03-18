@@ -56,14 +56,16 @@ set(MARCH_HEADERS
     include/march/core/memory.hpp
     include/march/core/Buffer.hpp
     include/march/core/LookupTable.hpp
-    include/march/core/Vector.hpp
+    include/march/core/Matrix.hpp
     include/march/core/types.hpp
     include/march/core/utility.hpp
+    include/march/core/Vector.hpp
     # mesh
     include/march/mesh.hpp
     include/march/mesh/BoundaryData.hpp
     include/march/mesh/CellType.hpp
     include/march/mesh/ConservationElement.hpp
+    include/march/mesh/ConservationElement/GradientElement.hpp
     include/march/mesh/ConservationElement/BasicCE.hpp
     include/march/mesh/UnstructuredBlock.hpp
     include/march/mesh/UnstructuredBlock/class.hpp

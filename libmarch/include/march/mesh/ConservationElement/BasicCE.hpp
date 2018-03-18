@@ -6,6 +6,8 @@
  */
 
 #include <array>
+#include <string>
+#include <ostream>
 
 #include "march/core.hpp"
 
@@ -140,20 +142,78 @@ struct BasicCE {
     typedef UnstructuredBlock<NDIM> block_type;
     typedef Vector<NDIM> vector_type;
 
-    vector_type cnd; // conservation element centroid.
-    real_type vol; // conservation element volume.
+    vector_type cnd; // basic conservation element centroid.
+    real_type vol; // basic conservation element volume.
     std::array<vector_type, block_type::FCMND> sfcnd; // sub-face centroids.
     std::array<vector_type, block_type::FCMND> sfnml; // sub-face normal.
 
-    BasicCE() = default;
+    BasicCE() {
+#ifdef MH_DEBUG
+        init_sentinel();
+#endif // MH_DEBUG
+    }
+
     BasicCE(const block_type & block, index_type icl, index_type ifl) {
+#ifdef MH_DEBUG
+        init_sentinel();
+#endif // MH_DEBUG
         detail::BasicCECenterVolumeHelper<NDIM> helper(block, icl, ifl);
         helper.calc_cnd_vol(cnd, vol);
         helper.calc_subface_cnd(sfcnd);
         helper.calc_subface_nml(sfnml);
     }
+
+    BasicCE(const block_type & block, index_type icl, index_type ifl, bool init_sentinel) {
+        if (init_sentinel) { this->init_sentinel(); }
+        detail::BasicCECenterVolumeHelper<NDIM> helper(block, icl, ifl);
+        helper.calc_cnd_vol(cnd, vol);
+        helper.calc_subface_cnd(sfcnd);
+        helper.calc_subface_nml(sfnml);
+    }
+
+    void init_sentinel() {
+        cnd = MH_REAL_SENTINEL;
+        vol = MH_REAL_SENTINEL;
+        for (size_t isf=0; isf<block_type::FCMND; ++isf) {
+            sfcnd[isf] = MH_REAL_SENTINEL;
+            sfnml[isf] = MH_REAL_SENTINEL;
+        }
+    }
+
+    std::string repr(size_t indent=0, size_t precision=0) const;
+
 }; /* end struct BasicCE */
 
+template< size_t NDIM > std::string BasicCE<NDIM>::repr(size_t indent, size_t precision) const {
+    std::string ret(string::format("BasicCE%ldD(", NDIM));
+    const std::string indented_newline = string::create_indented_newline(indent);
+    if (indent) { ret += indented_newline; }
+    ret += "cnd=" + cnd.repr(indent, precision) + ",";
+    ret += indent ? indented_newline : std::string(" ");
+    ret += "vol=" + string::from_double(vol, precision);
+    for (size_t isf=0; isf<block_type::FCMND; ++isf) {
+        ret += ",";
+        ret += indent ? indented_newline : std::string(" ");
+        ret += string::format("sfcnd[%d]=", isf) + sfcnd[isf].repr(indent, precision);
+    }
+    for (size_t isf=0; isf<block_type::FCMND; ++isf) {
+        ret += ",";
+        ret += indent ? indented_newline : std::string(" ");
+        ret += string::format("sfnml[%d]=", isf) + sfnml[isf].repr(indent, precision);
+    }
+    if (indent) { ret += "\n)"; }
+    else        { ret += ")"; }
+    return ret;
+}
+
 } /* end namespace march */
+
+template< size_t NDIM >
+std::ostream& operator<< (
+    std::ostream& stream, const march::BasicCE<NDIM> & bce
+) {
+    stream << bce.repr();
+    return stream;
+}
 
 // vim: set ff=unix fenc=utf8 nobomb et sw=4 ts=4:

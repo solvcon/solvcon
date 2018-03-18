@@ -16,7 +16,6 @@
 #include <cstring>
 
 #include "march.hpp"
-#include "march/gas.hpp"
 #include "march/python.hpp"
 
 namespace py = pybind11;
@@ -505,6 +504,156 @@ WrapUnstructuredBlock
 
 }; /* end class WrapUnstructuredBlock */
 
+template< size_t NDIM >
+class
+MARCH_PYTHON_WRAPPER_VISIBILITY
+WrapVector
+  : public python::WrapBase< WrapVector<NDIM>, Vector<NDIM> >
+{
+
+    /* aliases for dependent type name lookup */
+    using base_type = python::WrapBase< WrapVector<NDIM>, Vector<NDIM> >;
+    using wrapper_type = typename base_type::wrapper_type;
+    using wrapped_type = typename base_type::wrapped_type;
+
+    friend base_type;
+
+    WrapVector(py::module & mod, const char * pyname, const char * clsdoc)
+        : base_type(mod, pyname, clsdoc)
+    {
+        wrapped_type dummy;
+
+#define MARCH_PYBIND_VECTOR_SCALAR_OP(PYNAME, CXXOP) \
+            .def("__i" #PYNAME "__", [](wrapped_type & self, real_type v) { self CXXOP v; return self; }) \
+            .def("__" #PYNAME "__", [](wrapped_type & self, real_type v) { auto ret(self); ret CXXOP v; return ret; })
+
+#define MARCH_PYBIND_VECTOR_VECTOR_OP(PYNAME, CXXOP) \
+            .def("__i" #PYNAME "__", [](wrapped_type & self, wrapped_type const & v) { self CXXOP v; return self; }) \
+            .def("__" #PYNAME "__", [](wrapped_type & self, wrapped_type const & v) { auto ret(self); ret CXXOP v; return ret; })
+
+        (*this)
+            .def(py::init([]() { return wrapped_type(); }))
+            .def(py::init([](wrapped_type & other) { return wrapped_type(other); }))
+            .add_element_init(dummy)
+            .def("repr", &wrapped_type::repr, py::arg("indent")=0, py::arg("precision")=0)
+            .def("__repr__", [](wrapped_type & self){ return self.repr(); })
+            .def("__len__", &wrapped_type::size)
+            .def(
+                "__getitem__",
+                [](wrapped_type & self, index_type i) { return self.at(i); },
+                py::return_value_policy::copy
+            )
+            .def(
+                "__setitem__",
+                [](wrapped_type & self, index_type i, real_type v) { self.at(i) = v; }
+            )
+            MARCH_PYBIND_VECTOR_VECTOR_OP(add, +=)
+            MARCH_PYBIND_VECTOR_VECTOR_OP(sub, -=)
+            MARCH_PYBIND_VECTOR_SCALAR_OP(add, +=)
+            MARCH_PYBIND_VECTOR_SCALAR_OP(sub, -=)
+            MARCH_PYBIND_VECTOR_SCALAR_OP(mul, *=)
+            MARCH_PYBIND_VECTOR_SCALAR_OP(div, /=)
+            MARCH_PYBIND_VECTOR_SCALAR_OP(truediv, /=)
+            // FIXME: add other functions
+        ;
+
+#undef MARCH_PYBIND_VECTOR_SCALAR_OP
+#undef MARCH_PYBIND_VECTOR_VECTOR_OP
+    }
+
+    wrapper_type & add_element_init(Vector<3> const &) {
+        (*this)
+            .def(py::init([](real_type v0, real_type v1, real_type v2) { return wrapped_type(v0, v1, v2); }))
+        ;
+        return *this;
+    }
+
+    wrapper_type & add_element_init(Vector<2> const &) {
+        (*this)
+            .def(py::init([](real_type v0, real_type v1) { return wrapped_type(v0, v1); }))
+        ;
+        return *this;
+    }
+
+}; /* end class WrapVector */
+
+template< size_t NDIM >
+class
+MARCH_PYTHON_WRAPPER_VISIBILITY
+WrapBasicCE
+  : public python::WrapBase< WrapBasicCE<NDIM>, BasicCE<NDIM> >
+{
+
+    /* aliases for dependent type name lookup */
+    using base_type = python::WrapBase< WrapBasicCE<NDIM>, BasicCE<NDIM> >;
+    using wrapper_type = typename base_type::wrapper_type;
+    using wrapped_type = typename base_type::wrapped_type;
+
+    using block_type = UnstructuredBlock<NDIM>;
+
+    friend base_type;
+
+    WrapBasicCE(py::module & mod, const char * pyname, const char * clsdoc)
+        : base_type(mod, pyname, clsdoc)
+    {
+        (*this)
+            .def(
+                py::init([](block_type & block, index_type icl, index_type ifl, bool init_sentinel) {
+                    return wrapped_type(block, icl, ifl, init_sentinel);
+                }),
+                py::arg("block"), py::arg("icl"), py::arg("ifl"), py::arg("init_sentinel")=true
+            )
+            .def("repr", &wrapped_type::repr, py::arg("indent")=0, py::arg("precision")=0)
+            .def("__repr__", [](wrapped_type & self){ return self.repr(); })
+            .def("init_sentinel", &wrapped_type::init_sentinel)
+            .def_readwrite("cnd", &wrapped_type::cnd)
+            .def_readwrite("vol", &wrapped_type::vol)
+            .def_property_readonly("nsubface", [](wrapped_type &){ return index_type(block_type::FCMND); })
+            .def("get_sfcnd", [](wrapped_type & self, index_type isf){ return self.sfcnd.at(isf); })
+            .def("get_sfnml", [](wrapped_type & self, index_type isf){ return self.sfnml.at(isf); })
+        ;
+    }
+
+}; /* end class WrapBasicCE */
+
+template< size_t NDIM >
+class
+MARCH_PYTHON_WRAPPER_VISIBILITY
+WrapConservationElement
+  : public python::WrapBase< WrapConservationElement<NDIM>, ConservationElement<NDIM> >
+{
+
+    /* aliases for dependent type name lookup */
+    using base_type = python::WrapBase< WrapConservationElement<NDIM>, ConservationElement<NDIM> >;
+    using wrapper_type = typename base_type::wrapper_type;
+    using wrapped_type = typename base_type::wrapped_type;
+
+    using block_type = UnstructuredBlock<NDIM>;
+
+    friend base_type;
+
+    WrapConservationElement(py::module & mod, const char * pyname, const char * clsdoc)
+        : base_type(mod, pyname, clsdoc)
+    {
+        (*this)
+            .def(
+                py::init([](block_type & block, index_type icl, bool init_sentinel) {
+                    return wrapped_type(block, icl, init_sentinel);
+                }),
+                py::arg("block"), py::arg("icl"), py::arg("init_sentinel")=true
+            )
+            .def("repr", &wrapped_type::repr, py::arg("indent")=0, py::arg("precision")=0)
+            .def("__repr__", [](wrapped_type & self){ return self.repr(); })
+            .def("init_sentinel", &wrapped_type::init_sentinel)
+            .def_readwrite("cnd", &wrapped_type::cnd)
+            .def_readwrite("vol", &wrapped_type::vol)
+            .def_property_readonly("nbce", [](wrapped_type & self) { return self.bces.size(); })
+            .def("get_bce", [](wrapped_type & self, index_type ibce) { return self.bces.at(ibce); })
+        ;
+    }
+
+}; /* end class WrapConservationElement */
+
 
 PyObject * python::ModuleInitializer::initialize_top(py::module & mod) {
 #if defined(Py_DEBUG)
@@ -515,7 +664,13 @@ PyObject * python::ModuleInitializer::initialize_top(py::module & mod) {
     mod.doc() = "libmarch wrapper";
     py::class_< Buffer, std::shared_ptr<Buffer> >(mod, "Buffer", "Internal data buffer");
     WrapLookupTableCore::commit(mod, "Table", "Lookup table that allows ghost entity.");
+    WrapVector<2>::commit(mod, "Vector2D", "Two-dimensional Cartesian vector.");
+    WrapVector<3>::commit(mod, "Vector3D", "Three-dimensional Cartesian vector.");
     WrapBoundaryData::commit(mod, "BoundaryData", "Data of a boundary condition.");
+    WrapBasicCE<2>::commit(mod, "BasicCE2D", "Two-dimensional basic conservation element.");
+    WrapBasicCE<3>::commit(mod, "BasicCE3D", "Three-dimensional basic conservation element.");
+    WrapConservationElement<2>::commit(mod, "ConservationElement2D", "Two-dimensional conservation element.");
+    WrapConservationElement<3>::commit(mod, "ConservationElement3D", "Three-dimensional conservation element.");
     WrapUnstructuredBlock<2>::commit(mod, "UnstructuredBlock2D", "Two-dimensional unstructured mesh block.");
     WrapUnstructuredBlock<3>::commit(mod, "UnstructuredBlock3D", "Three-dimensional unstructured mesh block.");
 
@@ -523,7 +678,7 @@ PyObject * python::ModuleInitializer::initialize_top(py::module & mod) {
 }
 
 PYBIND11_MODULE(march, mod) {
-    python::ModuleInitializer::getInstance().initialize(mod);
+    python::ModuleInitializer::get_instance().initialize(mod);
 }
 
 // vim: set ff=unix fenc=utf8 nobomb et sw=4 ts=4:
