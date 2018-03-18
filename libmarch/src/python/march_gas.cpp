@@ -14,9 +14,9 @@
 #include <algorithm>
 #include <cstring>
 
-#include "march/march.hpp"
-#include "march/gas/gas.hpp"
-#include "march/python/python.hpp"
+#include "march.hpp"
+#include "march/gas.hpp"
+#include "march/python.hpp"
 
 namespace py = pybind11;
 

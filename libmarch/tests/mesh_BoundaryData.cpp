@@ -7,7 +7,7 @@
 
 #include <vector>
 
-#include "march/march.hpp"
+#include "march/mesh/BoundaryData.hpp"
 
 using namespace march;
 

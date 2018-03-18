@@ -48,11 +48,11 @@ set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
 
 set(MARCH_HEADERS
     # overall
-    include/march/march.hpp
+    include/march.hpp
     # dependency
     include/march/depend/scotch.hpp
     # core
-    include/march/core/core.hpp
+    include/march/core.hpp
     include/march/core/memory.hpp
     include/march/core/Buffer.hpp
     include/march/core/LookupTable.hpp
@@ -60,21 +60,20 @@ set(MARCH_HEADERS
     include/march/core/types.hpp
     include/march/core/utility.hpp
     # mesh
-    include/march/mesh/mesh.hpp
-    include/march/mesh/BasicCE.hpp
+    include/march/mesh.hpp
     include/march/mesh/BoundaryData.hpp
-    include/march/mesh/CompoundCE.hpp
-    include/march/mesh/UnstructuredBlock/UnstructuredBlock.hpp
+    include/march/mesh/CellType.hpp
+    include/march/mesh/ConservationElement.hpp
+    include/march/mesh/ConservationElement/BasicCE.hpp
+    include/march/mesh/UnstructuredBlock.hpp
     include/march/mesh/UnstructuredBlock/class.hpp
     include/march/mesh/UnstructuredBlock/build_csr.hpp
     include/march/mesh/UnstructuredBlock/build_faces_from_cells.hpp
     include/march/mesh/UnstructuredBlock/build_rcells.hpp
-    include/march/mesh/UnstructuredBlock/calc_ce.hpp
-    include/march/mesh/UnstructuredBlock/calc_sf.hpp
     include/march/mesh/UnstructuredBlock/calc_metric.hpp
     include/march/mesh/UnstructuredBlock/fill_ghost.hpp
     # gas
-    include/march/gas/gas.hpp
+    include/march/gas.hpp
     include/march/gas/Solution.hpp
     include/march/gas/Jacobian.hpp
     include/march/gas/Solver_decl.hpp
@@ -84,7 +83,7 @@ set(MARCH_HEADERS
     include/march/gas/Trim.hpp
     include/march/gas/Anchor.hpp
     # python
-    include/march/python/python.hpp
+    include/march/python.hpp
     include/march/python/WrapBase.hpp
 )
 string(REPLACE "include/" "${CMAKE_CURRENT_SOURCE_DIR}/include/"

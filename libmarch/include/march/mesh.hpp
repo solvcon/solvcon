@@ -6,8 +6,8 @@
  */
 
 #include "march/mesh/BoundaryData.hpp"
-#include "march/mesh/UnstructuredBlock/UnstructuredBlock.hpp"
-#include "march/mesh/BasicCE.hpp"
-#include "march/mesh/CompoundCE.hpp"
+#include "march/mesh/CellType.hpp"
+#include "march/mesh/UnstructuredBlock.hpp"
+#include "march/mesh/ConservationElement.hpp"
 
 // vim: set ff=unix fenc=utf8 nobomb et sw=4 ts=4:

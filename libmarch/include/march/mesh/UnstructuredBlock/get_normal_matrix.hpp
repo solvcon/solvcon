@@ -5,7 +5,7 @@
  * BSD 3-Clause License, see COPYING
  */
 
-#include "march/core/core.hpp"
+#include "march/core.hpp"
 #include "march/mesh/UnstructuredBlock/class.hpp"
 
 namespace march {

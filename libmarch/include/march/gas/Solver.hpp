@@ -9,8 +9,8 @@
 #include <limits>
 #include <memory>
 
-#include "march/core/core.hpp"
-#include "march/mesh/mesh.hpp"
+#include "march/core.hpp"
+#include "march/mesh.hpp"
 
 #include "march/gas/Solver_decl.hpp"
 #include "march/gas/Anchor.hpp"
@@ -31,14 +31,14 @@ Solver<NDIM>::Solver(
   , m_sol(block->ngstcell(), block->ncell())
 {
     for (index_type icl=0; icl<block->ncell(); ++icl) {
-        reinterpret_cast<Vector<NDIM> &>(m_cecnd[icl]) = CompoundCE<NDIM>(*block, icl).cnd;
+        reinterpret_cast<Vector<NDIM> &>(m_cecnd[icl]) = ConservationElement<NDIM>(*block, icl).cnd;
     }
     // the ghost CE centroid is initialized to the mirror image of the interior CE.
     for (index_type ibnd=0; ibnd<block->nbound(); ++ibnd) {
         const auto ifc = block->bndfcs()[ibnd][0];
         const auto icl = block->fccls()[ifc][0]; // interior cell
         const auto jcl = block->fccls()[ifc][1]; // ghost cell
-        const CompoundCE<NDIM> icce(*block, icl);
+        const ConservationElement<NDIM> icce(*block, icl);
         reinterpret_cast<Vector<NDIM> &>(m_cecnd[jcl]) = icce.mirror_centroid(
             reinterpret_cast<const Vector<NDIM> &>(block->fccnd()[ifc])
           , reinterpret_cast<const Vector<NDIM> &>(block->fcnml()[ifc])
@@ -87,7 +87,7 @@ void Solver<NDIM>::calc_so0n() {
     const real_type qdt = m_state.time_increment * 0.25;
     const real_type hdt = m_state.time_increment * 0.5;
     for (index_type icl=0; icl<block.ncell(); ++icl) {
-        const CompoundCE<NDIM> icce(block, icl);
+        const ConservationElement<NDIM> icce(block, icl);
         auto piso0n = m_sol.so0n(icl);
         piso0n = 0.0; // initialize fluxes.
 
@@ -152,10 +152,10 @@ void Solver<NDIM>::calc_cfl() {
         auto & cflc = m_sol.cflc(icl);
         auto & cflo = m_sol.cflo(icl);
         auto piso0n = m_sol.so0n(icl);
-        const CompoundCE<NDIM> cce(block, icl);
+        const ConservationElement<NDIM> cce(block, icl);
         const auto & tclfcs = block.clfcs()[icl];
         // estimate distance.
-        real_type dist = DBL_MAX;
+        real_type dist = std::numeric_limits<real_type>::max();
         for (index_type ifl=0; ifl<tclfcs[0]; ++ifl) {
             // distance.
             const auto vec = cce.bces[ifl].cnd - cce.cnd;

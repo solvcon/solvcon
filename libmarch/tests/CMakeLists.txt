@@ -13,6 +13,8 @@ add_executable(test_libmarch
     core_LookupTable.cpp
     core_Vector.cpp
     mesh_BoundaryData.cpp
+    mesh_CellType.cpp
+    mesh_ConservationElement.cpp
     mesh_UnstructuredBlock.cpp
     gas_main.cpp
     ${MARCH_HEADERS}

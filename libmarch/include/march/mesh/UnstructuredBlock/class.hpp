@@ -15,13 +15,12 @@
 
 #include "march/depend/scotch.hpp"
 
-#include "march/core/core.hpp"
+#include "march/core.hpp"
 
 #include "march/mesh/BoundaryData.hpp"
+#include "march/mesh/CellType.hpp"
 
 namespace march {
-
-static constexpr size_t NCLTYPE=8;
 
 /**
  * Unstructured mesh of mixed-type elements, optimized for reading.
@@ -42,61 +41,25 @@ public:
 
     static_assert(2 == NDIM || 3 == NDIM, "not 2 or 3 dimensional");
 
-    static constexpr index_type ELEM_DESCR[NCLTYPE /* sentinel -> */ + 1][5] = {
-        // index, dim, node, edge, surface,      name
-        {      0,   0,    1,    0,       0 }, // node/point/vertex
-        {      1,   1,    2,    0,       0 }, // line/edge
-        {      2,   2,    4,    4,       0 }, // quadrilateral
-        {      3,   2,    3,    3,       0 }, // triangle
-        {      4,   3,    8,   12,       6 }, // hexahedron/brick
-        {      5,   3,    4,    6,       4 }, // tetrahedron
-        {      6,   3,    6,    9,       5 }, // prism/wedge
-        {      7,   3,    5,    8,       5 }, // pyramid
-        {     -1,  -1,   -1,   -1,      -1 }  // sentinel
-    };
+    static constexpr index_type FCMND = CellType::FCNND_MAX;
+    static constexpr index_type CLMND = CellType::CLNND_MAX;
+    static constexpr index_type CLMFC = CellType::CLNFC_MAX;
+    static constexpr index_type FCNCL = 4;
+    static constexpr index_type FCREL = 4;
+    static constexpr index_type BFREL = BoundaryData::BFREL;
 
-    /// Maximum number of nodes in a face.
-    static constexpr index_type MAX_FCNND = 4;
-    static constexpr index_type     FCMND = MAX_FCNND; // alias
-    /// Maximum number of nodes in a cell.
-    static constexpr index_type MAX_CLNND = 8;
-    static constexpr index_type     CLMND = MAX_CLNND; // alias
-    /// Maximum number of faces in a cell.
-    static constexpr index_type MAX_CLNFC = 6;
-    static constexpr index_type     CLMFC = MAX_CLNFC; // alias
-    static constexpr index_type     FCNCL = 4;
-    static constexpr index_type     FCREL = 4;
-    static constexpr index_type     BFREL = BoundaryData::BFREL;
+    // TODO: move to UnstructuredBlock.
+    // @[
+    void locate_point(const real_type (& crd)[NDIM]) const;
 
-    /**
-     * The dual mesh of the conservation element.
-     */
-    struct CEMesh {
-    public:
-        LookupTable<real_type, (CLMFC+1)*NDIM> cecnd;
-        LookupTable<real_type, CLMFC+1> cevol;
-        LookupTable<real_type, CLMFC*FCMND*2*NDIM> sfmrc;
-        CEMesh() = delete;
-        CEMesh(CEMesh const & ) = delete;
-        CEMesh(CEMesh       &&) = delete;
-        CEMesh operator=(CEMesh const & ) = delete;
-        CEMesh operator=(CEMesh       &&) = delete;
-        CEMesh(const UnstructuredBlock<NDIM> & block)
-          : cecnd(block.ngstcell(), block.ncell()), cevol(block.ngstcell(), block.ncell()), sfmrc(0, block.ncell())
-        {
-            calc_ce(block);
-            calc_sf(block);
-        }
-    private:
-        void calc_ce(const UnstructuredBlock<NDIM> & block);
-        void calc_sf(const UnstructuredBlock<NDIM> & block);
-    }; /* end struct CEMesh */
+    // moved to mesh: void prepare_ce();
+    // moved to mesh: void prepare_sf();
+    // @]
 
     static index_type calc_max_nface(const LookupTable<index_type, 0> & cltpn) {
         index_type max_nfc = 0;
         for (index_type it=0; it<cltpn.nbody(); ++it) {
-            const index_type (&elemline)[5] = ELEM_DESCR[cltpn[it]];
-            max_nfc += elemline[elemline[1]+1];
+            max_nfc += celltype(cltpn[it]).nface();
         }
         return max_nfc;
     }
@@ -411,10 +374,7 @@ private:
         for (index_type ibfc=0; ibfc<nbound(); ++ibfc) {
             const index_type ifc = bndfcs()[ibfc][0];
             const index_type icl = fccls()[ifc][0];
-            const 
-            index_type dim = ELEM_DESCR[cltpn()[icl]][1];
-            index_type nfc = ELEM_DESCR[cltpn()[icl]][1+dim];
-            ngstface += nfc-1;
+            ngstface += celltype(cltpn()[icl]).nface() - 1;
             ngstnode += clnds()[icl][0] - fcnds()[ifc][0];
         }
         return std::make_tuple(ngstnode, ngstface, nbound());
@@ -429,9 +389,6 @@ private:
 /* end utility */
 
 }; /* end class UnstructuredBlock */
-
-template< size_t NDIM >
-constexpr index_type UnstructuredBlock<NDIM>::ELEM_DESCR[8+1][5];
 
 template< size_t NDIM >
 void UnstructuredBlock<NDIM>::build_boundary() {

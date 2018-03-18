@@ -5,7 +5,7 @@
 
 #include <gtest/gtest.h>
 
-#include "march/march.hpp"
+#include "march/core/LookupTable.hpp"
 
 using namespace march;
 

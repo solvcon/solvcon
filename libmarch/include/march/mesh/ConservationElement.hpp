@@ -7,10 +7,10 @@
 
 #include <array>
 
-#include "march/core/core.hpp"
+#include "march/core.hpp"
 
-#include "march/mesh/UnstructuredBlock/class.hpp"
-#include "march/mesh/BasicCE.hpp"
+#include "march/mesh/UnstructuredBlock.hpp"
+#include "march/mesh/ConservationElement/BasicCE.hpp"
 
 namespace march {
 
@@ -18,7 +18,7 @@ namespace march {
  * Geometry data for a compound conservation element (CCE).
  */
 template< size_t NDIM >
-struct CompoundCE {
+struct ConservationElement {
 
     typedef UnstructuredBlock<NDIM> block_type;
     typedef Vector<NDIM> vector_type;
@@ -27,8 +27,8 @@ struct CompoundCE {
     real_type vol; // CCE volume.
     std::array<BasicCE<NDIM>, block_type::FCMND> bces;
 
-    CompoundCE() = default;
-    CompoundCE(const block_type & block, index_type icl) {
+    ConservationElement() = default;
+    ConservationElement(const block_type & block, index_type icl) {
         const auto & tclfcs = block.clfcs()[icl];
         vol = 0;
         cnd = 0;
@@ -48,12 +48,7 @@ struct CompoundCE {
         return ret;
     }
 
-}; /* end struct CompoundCE */
-
-template< size_t NDIM >
-struct CompoundCEArray {
-
-};
+}; /* end struct ConservationElement */
 
 } /* end namespace march */
 
