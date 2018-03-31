@@ -85,8 +85,12 @@ set(MARCH_HEADERS
     include/march/gas/Trim.hpp
     include/march/gas/Anchor.hpp
     # python
-    include/march/python.hpp
+    include/march/python/common.hpp
     include/march/python/WrapBase.hpp
+    include/march/python/wrapper_core.hpp
+    include/march/python/wrapper_gas.hpp
+    include/march/python/wrapper_march.hpp
+    include/march/python/wrapper_mesh.hpp
 )
 string(REPLACE "include/" "${CMAKE_CURRENT_SOURCE_DIR}/include/"
        MARCH_HEADERS "${MARCH_HEADERS}")

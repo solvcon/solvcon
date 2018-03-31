@@ -7,6 +7,7 @@
 
 #include <memory>
 #include <vector>
+#include <map>
 
 #include "march/core.hpp"
 #include "march/mesh.hpp"
