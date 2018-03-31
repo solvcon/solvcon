@@ -113,7 +113,8 @@ template <> struct id_to<MH_CDOUBLE> { typedef std::complex<double> type; };
  * The primitive data type for lookup-table indices.
  */
 typedef int32_t index_type;
-static constexpr index_type INVALID_INDEX = INT32_MAX;
+static constexpr index_type MH_INDEX_SENTINEL = INT32_MAX;
+static constexpr index_type INVALID_INDEX = MH_INDEX_SENTINEL;
 
 /**
  * The primitive data type for element shape type.  May use only a single byte

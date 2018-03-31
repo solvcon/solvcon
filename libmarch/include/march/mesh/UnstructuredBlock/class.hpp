@@ -492,6 +492,105 @@ UnstructuredBlock<NDIM>::partition(index_type npart) const {
     return std::make_tuple(edgecut, part);
 }
 
+template< size_t NDIM >
+class CellHand {
+
+public:
+
+    using block_type = UnstructuredBlock<NDIM>;
+    using vector_type = Vector<NDIM>;
+
+    CellHand(block_type & block, index_type index) : m_block(&block), m_index(index) {}
+
+    block_type       & block()       { return *m_block; }
+    block_type const & block() const { return *m_block; }
+
+    index_type index() const { return m_index; }
+    void set_index(index_type index) { m_index = index; }
+
+    std::string repr(size_t indent=0, size_t precision=0) const;
+
+    CellType const & type() const { return celltype(block().cltpn()[index()]); }
+
+    vector_type const & cnd() const {
+        return *reinterpret_cast<vector_type const *>(&(block().clcnd()[index()][0]));
+    }
+
+    real_type vol() const { return block().clvol()[index()]; }
+
+    index_type nnd() const { return block().clnds()[index()][0]; }
+
+    struct boundcheck {};
+
+    /**
+     * Get the @a ind -th node index.  @a ind is 1-based.
+     */
+    index_type nds(index_type ind) const { return block().clnds()[index()][ind]; }
+    /**
+     * Get the @a ind -th node index.  @a ind is 1-based.  Bound checked.
+     */
+    index_type nds(index_type ind, boundcheck const &) const {
+        auto const & clnds = block().clnds();
+        if (ind >= clnds.ncolumn()) {
+            throw std::out_of_range(string::format(
+                "in cell %d, %d-th (1-based) node out of range (%d)",
+                index(), ind, clnds.ncolumn()));
+        }
+        return clnds.at(index())[ind];
+    }
+
+    index_type nfc() const { return block().clfcs()[index()][0]; }
+
+    /**
+     * Get the @a ifc -th face index.  @a ifc is 1-based.
+     */
+    index_type fcs(index_type ifc) const { return block().clfcs()[index()][ifc]; }
+    /**
+     * Get the @a ifc -th face index.  @a ifc is 1-based.  Bound checked.
+     */
+    index_type fcs(index_type ifc, boundcheck const &) const {
+        auto const & clfcs = block().clfcs();
+        if (ifc >= clfcs.ncolumn()) {
+            throw std::out_of_range(string::format(
+                "in cell %d, %d-th (1-based) face out of range (%d)",
+                index(), ifc, clfcs.ncolumn()));
+        }
+        return clfcs.at(index())[ifc];
+    }
+
+private:
+
+    block_type * m_block = nullptr;
+    index_type m_index = MH_INDEX_SENTINEL;
+
+}; /* end class CellHand */
+
+template< size_t NDIM >
+std::string CellHand<NDIM>::repr(size_t indent, size_t precision) const {
+    std::string ret(string::format("CellHand%ldD(", NDIM));
+    const std::string indented_newline = string::create_indented_newline(indent);
+    if (indent) { ret += indented_newline; }
+    ret += "cnd=" + cnd().repr(indent, precision) + ",";
+    ret += indent ? indented_newline : std::string(" ");
+    ret += "vol=" + string::from_double(vol(), precision) + ",";
+    ret += indent ? indented_newline : std::string(" ");
+    ret += "nds=[";
+    for (index_type ind=1; ind<=nnd(); ++ind) {
+        ret += string::format("%d", nds(ind));
+        ret += nnd() == ind ? "]" : ",";
+    }
+    ret += ",";
+    ret += indent ? indented_newline : std::string(" ");
+    ret += "fcs=[";
+    for (index_type ifc=1; ifc<=nfc(); ++ifc) {
+        ret += string::format("%d", fcs(ifc));
+        ret += nfc() == ifc ? "]" : ",";
+    }
+    if (indent) { ret += "\n)"; }
+    else        { ret += ")"; }
+    return ret;
+}
+
 } /* end namespace march */
 
 // vim: set ff=unix fenc=utf8 nobomb et sw=4 ts=4:

@@ -603,6 +603,9 @@ class TestUnstructuredBlock3D(TestCase):
     def test_default_constructor(self):
         march.UnstructuredBlock3D()
 
+# FIXME: the geometry in the tests below hasn't been verified by visualization.
+# It's kept here just to anchor what I developed in code.
+
 class TestTriangles(TestCase):
 
     def setUp(self):
@@ -626,6 +629,16 @@ class TestTriangles(TestCase):
         self.assertEqual(3, self.msh.ncell)
         self.assertEqual((4, 2), self.msh.ndcrd.shape)
         self.assertEqual((6, 2), self.msh.fccnd.shape)
+
+    def test_cell0(self):
+        cell = march.CellHand2D(self.msh, 0)
+        golden = """CellHand2D(
+  cnd=Vector2D(0.00000000000000000000e+00,-6.66666666666666740682e-01),
+  vol=1.00000000000000000000e+00,
+  nds=[0,1,2],
+  fcs=[0,1,2]
+)"""
+        self.assertEqual(golden, cell.repr(indent=2, precision=20))
 
     def test_ce0(self):
         ce = march.ConservationElement2D(self.msh, 0)
@@ -731,6 +744,16 @@ class TestTetrahedra(TestCase):
         self.assertEqual(4, self.msh.ncell)
         self.assertEqual((5, 3), self.msh.ndcrd.shape)
         self.assertEqual((10, 3), self.msh.fccnd.shape)
+
+    def test_cell0(self):
+        cell = march.CellHand3D(self.msh, 0)
+        golden = """CellHand3D(
+  cnd=Vector3D(2.74999999999999911182e+00,2.75000000000000000000e+00,2.50000000000000000000e-01),
+  vol=1.66666666666666678509e+01,
+  nds=[0,1,2,4],
+  fcs=[0,1,2,3]
+)"""
+        self.assertEqual(golden, cell.repr(indent=2, precision=20))
 
     def test_ce0(self):
         ce = march.ConservationElement3D(self.msh, 0)
