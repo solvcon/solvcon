@@ -493,14 +493,14 @@ UnstructuredBlock<NDIM>::partition(index_type npart) const {
 }
 
 template< size_t NDIM >
-class CellHand {
+class BlockHandBase {
 
 public:
 
     using block_type = UnstructuredBlock<NDIM>;
     using vector_type = Vector<NDIM>;
 
-    CellHand(block_type & block, index_type index) : m_block(&block), m_index(index) {}
+    BlockHandBase(block_type & block, index_type index) : m_block(&block), m_index(index) {}
 
     block_type       & block()       { return *m_block; }
     block_type const & block() const { return *m_block; }
@@ -508,60 +508,147 @@ public:
     index_type index() const { return m_index; }
     void set_index(index_type index) { m_index = index; }
 
-    std::string repr(size_t indent=0, size_t precision=0) const;
+protected:
 
-    CellType const & type() const { return celltype(block().cltpn()[index()]); }
-
-    vector_type const & cnd() const {
-        return *reinterpret_cast<vector_type const *>(&(block().clcnd()[index()][0]));
-    }
-
-    real_type vol() const { return block().clvol()[index()]; }
-
-    index_type nnd() const { return block().clnds()[index()][0]; }
-
-    struct boundcheck {};
-
-    /**
-     * Get the @a ind -th node index.  @a ind is 1-based.
-     */
-    index_type nds(index_type ind) const { return block().clnds()[index()][ind]; }
-    /**
-     * Get the @a ind -th node index.  @a ind is 1-based.  Bound checked.
-     */
-    index_type nds(index_type ind, boundcheck const &) const {
-        auto const & clnds = block().clnds();
-        if (ind >= clnds.ncolumn()) {
-            throw std::out_of_range(string::format(
-                "in cell %d, %d-th (1-based) node out of range (%d)",
-                index(), ind, clnds.ncolumn()));
-        }
-        return clnds.at(index())[ind];
-    }
-
-    index_type nfc() const { return block().clfcs()[index()][0]; }
-
-    /**
-     * Get the @a ifc -th face index.  @a ifc is 1-based.
-     */
-    index_type fcs(index_type ifc) const { return block().clfcs()[index()][ifc]; }
-    /**
-     * Get the @a ifc -th face index.  @a ifc is 1-based.  Bound checked.
-     */
-    index_type fcs(index_type ifc, boundcheck const &) const {
-        auto const & clfcs = block().clfcs();
-        if (ifc >= clfcs.ncolumn()) {
-            throw std::out_of_range(string::format(
-                "in cell %d, %d-th (1-based) face out of range (%d)",
-                index(), ifc, clfcs.ncolumn()));
-        }
-        return clfcs.at(index())[ifc];
+    template< class ROW >
+    vector_type const & row_as_vector(ROW const & r) const {
+        return *reinterpret_cast<vector_type const *>(&r[0]);
     }
 
 private:
 
     block_type * m_block = nullptr;
     index_type m_index = MH_INDEX_SENTINEL;
+
+}; /* end class BlockHandBase */
+
+template< size_t NDIM >
+class FaceHand : public BlockHandBase< NDIM > {
+
+public:
+
+    using base_type = BlockHandBase<NDIM>;
+    using base_type::base_type;
+
+    using block_type = UnstructuredBlock<NDIM>;
+    using vector_type = Vector<NDIM>;
+
+    std::string repr(size_t indent=0, size_t precision=0) const;
+
+    index_type tpn() const { return this->block().fctpn()[this->index()]; }
+
+    CellType const & type() const { return celltype(tpn()); }
+
+    vector_type const & cnd() const { return this->row_as_vector(this->block().fccnd()[this->index()]); }
+    vector_type const & nml() const { return this->row_as_vector(this->block().fcnml()[this->index()]); }
+    real_type ara() const { return this->block().fcara()[this->index()]; }
+
+    index_type nnd() const { return this->block().fcnds()[this->index()][0]; }
+
+    struct boundcheck {};
+
+    /**
+     * Get the @a ind -th node index.  @a ind is 1-based.
+     */
+    index_type nds(index_type ind) const { return this->block().fcnds()[this->index()][ind]; }
+    /**
+     * Get the @a ind -th node index.  @a ind is 1-based.  Bound checked.
+     */
+    index_type nds(index_type ind, boundcheck const &) const {
+        auto const & fcnds = this->block().fcnds();
+        if (ind >= fcnds.ncolumn()) {
+            throw std::out_of_range(string::format(
+                "in cell %d, %d-th (1-based) node out of range (%d)",
+                this->index(), ind, fcnds.ncolumn()));
+        }
+        return fcnds.at(this->index())[ind];
+    }
+
+}; /* end class FaceHand */
+
+template< size_t NDIM >
+std::string FaceHand<NDIM>::repr(size_t indent, size_t precision) const {
+    std::string ret(string::format("FaceHand%ldD(", NDIM));
+    const std::string indented_newline = string::create_indented_newline(indent);
+    if (indent) { ret += indented_newline; }
+    ret += "cnd=" + cnd().repr(indent, precision) + ",";
+    ret += indent ? indented_newline : std::string(" ");
+    ret += "nml=" + nml().repr(indent, precision) + ",";
+    ret += indent ? indented_newline : std::string(" ");
+    ret += "ara=" + string::from_double(ara(), precision) + ",";
+    ret += indent ? indented_newline : std::string(" ");
+    ret += "nds=[";
+    for (index_type ind=1; ind<=nnd(); ++ind) {
+        ret += string::format("%d", nds(ind));
+        ret += nnd() == ind ? "]" : ",";
+    }
+    if (indent) { ret += "\n)"; }
+    else        { ret += ")"; }
+    return ret;
+}
+
+template< size_t NDIM >
+class CellHand : public BlockHandBase< NDIM > {
+
+public:
+
+    using base_type = BlockHandBase<NDIM>;
+    using base_type::base_type;
+
+    using block_type = UnstructuredBlock<NDIM>;
+    using vector_type = Vector<NDIM>;
+
+    std::string repr(size_t indent=0, size_t precision=0) const;
+
+    index_type tpn() const { return this->block().cltpn()[this->index()]; }
+
+    CellType const & type() const { return celltype(tpn()); }
+
+    vector_type const & cnd() const {
+        return *reinterpret_cast<vector_type const *>(&(this->block().clcnd()[this->index()][0]));
+    }
+
+    real_type vol() const { return this->block().clvol()[this->index()]; }
+
+    index_type nnd() const { return this->block().clnds()[this->index()][0]; }
+
+    struct boundcheck {};
+
+    /**
+     * Get the @a ind -th node index.  @a ind is 1-based.
+     */
+    index_type nds(index_type ind) const { return this->block().clnds()[this->index()][ind]; }
+    /**
+     * Get the @a ind -th node index.  @a ind is 1-based.  Bound checked.
+     */
+    index_type nds(index_type ind, boundcheck const &) const {
+        auto const & clnds = this->block().clnds();
+        if (ind >= clnds.ncolumn()) {
+            throw std::out_of_range(string::format(
+                "in cell %d, %d-th (1-based) node out of range (%d)",
+                this->index(), ind, clnds.ncolumn()));
+        }
+        return clnds.at(this->index())[ind];
+    }
+
+    index_type nfc() const { return this->block().clfcs()[this->index()][0]; }
+
+    /**
+     * Get the @a ifc -th face index.  @a ifc is 1-based.
+     */
+    index_type fcs(index_type ifc) const { return this->block().clfcs()[this->index()][ifc]; }
+    /**
+     * Get the @a ifc -th face index.  @a ifc is 1-based.  Bound checked.
+     */
+    index_type fcs(index_type ifc, boundcheck const &) const {
+        auto const & clfcs = this->block().clfcs();
+        if (ifc >= clfcs.ncolumn()) {
+            throw std::out_of_range(string::format(
+                "in cell %d, %d-th (1-based) face out of range (%d)",
+                this->index(), ifc, clfcs.ncolumn()));
+        }
+        return clfcs.at(this->index())[ifc];
+    }
 
 }; /* end class CellHand */
 

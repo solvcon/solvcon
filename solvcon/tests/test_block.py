@@ -630,6 +630,16 @@ class TestTriangles(TestCase):
         self.assertEqual((4, 2), self.msh.ndcrd.shape)
         self.assertEqual((6, 2), self.msh.fccnd.shape)
 
+    def test_face0(self):
+        face = march.FaceHand2D(self.msh, 0)
+        golden = """FaceHand2D(
+  cnd=Vector2D(-5.00000000000000000000e-01,-5.00000000000000000000e-01),
+  nml=Vector2D(-7.07106781186547461715e-01,7.07106781186547461715e-01),
+  ara=1.41421356237309514547e+00,
+  nds=[0,1]
+)"""
+        self.assertEqual(golden, face.repr(indent=2, precision=20))
+
     def test_cell0(self):
         cell = march.CellHand2D(self.msh, 0)
         golden = """CellHand2D(
@@ -744,6 +754,16 @@ class TestTetrahedra(TestCase):
         self.assertEqual(4, self.msh.ncell)
         self.assertEqual((5, 3), self.msh.ndcrd.shape)
         self.assertEqual((10, 3), self.msh.fccnd.shape)
+
+    def test_face0(self):
+        face = march.FaceHand3D(self.msh, 0)
+        golden = """FaceHand3D(
+  cnd=Vector3D(3.33333333333333259318e+00,3.33333333333333259318e+00,0.00000000000000000000e+00),
+  nml=Vector3D(0.00000000000000000000e+00,0.00000000000000000000e+00,-1.00000000000000000000e+00),
+  ara=5.00000000000000000000e+01,
+  nds=[0,2,1]
+)"""
+        self.assertEqual(golden, face.repr(indent=2, precision=20))
 
     def test_cell0(self):
         cell = march.CellHand3D(self.msh, 0)

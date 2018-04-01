@@ -372,6 +372,40 @@ WrapUnstructuredBlock
 template< size_t NDIM >
 class
 MARCH_PYTHON_WRAPPER_VISIBILITY
+WrapFaceHand
+  : public WrapBase< WrapFaceHand<NDIM>, FaceHand<NDIM> >
+{
+
+    /* aliases for dependent type name lookup */
+    using base_type = WrapBase< WrapFaceHand<NDIM>, FaceHand<NDIM> >;
+    using wrapper_type = typename base_type::wrapper_type;
+    using wrapped_type = typename base_type::wrapped_type;
+
+    using block_type = UnstructuredBlock<NDIM>;
+
+    friend base_type;
+
+    WrapFaceHand(pybind11::module & mod, const char * pyname, const char * clsdoc)
+        : base_type(mod, pyname, clsdoc)
+    {
+        namespace py = pybind11;
+        (*this)
+            .def(
+                py::init([](block_type & block, index_type index) {
+                    return wrapped_type(block, index);
+                }),
+                py::arg("block"), py::arg("index")
+            )
+            .def("repr", &wrapped_type::repr, py::arg("indent")=0, py::arg("precision")=0)
+            .def("__repr__", [](wrapped_type & self){ return self.repr(); })
+        ;
+    }
+
+}; /* end class WrapFaceHand */
+
+template< size_t NDIM >
+class
+MARCH_PYTHON_WRAPPER_VISIBILITY
 WrapCellHand
   : public WrapBase< WrapCellHand<NDIM>, CellHand<NDIM> >
 {
