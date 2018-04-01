@@ -3,6 +3,8 @@
  * BSD 3-Clause License, see LICENSE.txt
  */
 
+#include <iostream>
+
 #include <gtest/gtest.h>
 
 #include "march/mesh/ConservationElement.hpp"

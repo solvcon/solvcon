@@ -6,8 +6,10 @@
  */
 
 #include <array>
+#include <string>
 
 #include "march/core/types.hpp"
+#include "march/core/utility.hpp"
 
 namespace march {
 
@@ -62,6 +64,14 @@ template< size_t NDIM > struct Vector {
     constexpr size_type size() const { return NDIM; }
     reference                 operator[](size_type n)       { return data[n]; }
     constexpr const_reference operator[](size_type n) const { return data[n]; }
+    reference       at(size_type n)       {
+        if (n < NDIM) { return data[n]; }
+        else          { throw std::out_of_range(string::format("Vector%ldD doesn't have %d-th element", NDIM, n)); }
+    }
+    const_reference at(size_type n) const {
+        if (n < NDIM) { return data[n]; }
+        else          { throw std::out_of_range(string::format("Vector%ldD doesn't have %d-th element", NDIM, n)); }
+    }
 
     /* arithmetic operators */
     Vector & operator+=(Vector const & other) {
@@ -98,7 +108,18 @@ template< size_t NDIM > struct Vector {
     }
     real_type length() const { return sqrt(square()); }
 
+    std::string repr(size_t indent=0, size_t precision=0) const;
+
 }; /* end struct Vector */
+
+template< size_t NDIM > std::string Vector<NDIM>::repr(size_t, size_t precision) const {
+    std::string ret(NDIM == 3 ? "Vector3D(" : "Vector2D(");
+    for (size_t it=0; it<NDIM; ++it) {
+        ret += string::from_double(data[it], precision);
+        ret += NDIM-1 == it ? ")" : ",";
+    }
+    return ret;
+}
 
 template< size_t NDIM >
 Vector<NDIM> operator+(Vector<NDIM> lhs, Vector<NDIM> const & rhs) { lhs += rhs; return lhs; }

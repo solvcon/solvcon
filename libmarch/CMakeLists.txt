@@ -56,14 +56,16 @@ set(MARCH_HEADERS
     include/march/core/memory.hpp
     include/march/core/Buffer.hpp
     include/march/core/LookupTable.hpp
-    include/march/core/Vector.hpp
+    include/march/core/Matrix.hpp
     include/march/core/types.hpp
     include/march/core/utility.hpp
+    include/march/core/Vector.hpp
     # mesh
     include/march/mesh.hpp
     include/march/mesh/BoundaryData.hpp
     include/march/mesh/CellType.hpp
     include/march/mesh/ConservationElement.hpp
+    include/march/mesh/ConservationElement/GradientElement.hpp
     include/march/mesh/ConservationElement/BasicCE.hpp
     include/march/mesh/UnstructuredBlock.hpp
     include/march/mesh/UnstructuredBlock/class.hpp
@@ -72,6 +74,7 @@ set(MARCH_HEADERS
     include/march/mesh/UnstructuredBlock/build_rcells.hpp
     include/march/mesh/UnstructuredBlock/calc_metric.hpp
     include/march/mesh/UnstructuredBlock/fill_ghost.hpp
+    include/march/mesh/UnstructuredBlock/hand.hpp
     # gas
     include/march/gas.hpp
     include/march/gas/Solution.hpp
@@ -83,8 +86,12 @@ set(MARCH_HEADERS
     include/march/gas/Trim.hpp
     include/march/gas/Anchor.hpp
     # python
-    include/march/python.hpp
+    include/march/python/common.hpp
     include/march/python/WrapBase.hpp
+    include/march/python/wrapper_core.hpp
+    include/march/python/wrapper_gas.hpp
+    include/march/python/wrapper_march.hpp
+    include/march/python/wrapper_mesh.hpp
 )
 string(REPLACE "include/" "${CMAKE_CURRENT_SOURCE_DIR}/include/"
        MARCH_HEADERS "${MARCH_HEADERS}")

@@ -80,7 +80,7 @@ struct State {
     int_type cfl_nadjusted_accumulated=-1;
 
     std::string step_info_string() const {
-        return string_format("step=%d substep=%d", step_current, substep_current);
+        return string::format("step=%d substep=%d", step_current, substep_current);
     }
 }; /* end struct State */
 

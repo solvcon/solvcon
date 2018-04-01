@@ -242,7 +242,7 @@ void Solver<NDIM>::throw_on_negative_density(const std::string & srcloc, index_t
      && pso0n.density() < 0
      && fabs(pso0n.density()) > m_param.stop_on_negative_density()
     ) {
-        throw std::runtime_error(string_format(
+        throw std::runtime_error(string::format(
             "negative density\n" "in function: %s\n" "%s\n" "%s\n" "%s\n"
             "density = %g (abs > %g)\n"
           , srcloc.c_str()
@@ -262,7 +262,7 @@ void Solver<NDIM>::throw_on_negative_energy(const std::string & srcloc, index_ty
      && pso0n.energy() < 0
      && fabs(pso0n.energy()) > m_param.stop_on_negative_energy()
     ) {
-        throw std::runtime_error(string_format(
+        throw std::runtime_error(string::format(
             "negative energy\n" "in function: %s\n" "%s\n" "%s\n" "%s\n"
             "energy = %g (abs > %g)\n"
           , srcloc.c_str()
@@ -278,7 +278,7 @@ void Solver<NDIM>::throw_on_negative_energy(const std::string & srcloc, index_ty
 template< size_t NDIM >
 void Solver<NDIM>::throw_on_cfl_adjustment(const std::string & srcloc, index_type icl) const {
     if (m_param.stop_on_cfl_adjustment() != 0 && m_sol.cflc(icl) == 1) {
-        throw std::runtime_error(string_format(
+        throw std::runtime_error(string::format(
             "cfl adjusted\n" "in function: %s\n" "%s\n" "%s\n" "%s\n"
             "energy = %g\n"
             "pressure = %g\n"
@@ -303,7 +303,7 @@ void Solver<NDIM>::throw_on_cfl_adjustment(const std::string & srcloc, index_typ
 template< size_t NDIM >
 void Solver<NDIM>::throw_on_cfl_overflow(const std::string & srcloc, index_type icl) const {
     if (m_param.stop_on_cfl_adjustment() != 0 && m_sol.cflc(icl) > 1) {
-        throw std::runtime_error(string_format(
+        throw std::runtime_error(string::format(
             "cfl overflow\n" "in function: %s\n" "%s\n" "%s\n" "%s\n"
             "energy = %g\n"
             "pressure = %g\n"

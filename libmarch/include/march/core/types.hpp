@@ -12,6 +12,7 @@
 
 #include <cstdint>
 #include <complex>
+#include <limits>
 
 #include "march/core/utility.hpp"
 
@@ -81,14 +82,14 @@ public:
     constexpr static DataTypeId id = ids[detail::log2(sizeof(T)) * 2 + (std::is_unsigned<T>::value ? 1 : 0)];
 };
 
-#define DECL_TYPEID(Type, ID) \
+#define MARCH_DECL_TYPEID(Type, ID) \
     template <> struct type_to<Type> { constexpr static DataTypeId id = ID; };
-DECL_TYPEID(bool, MH_BOOL)
-DECL_TYPEID(float, MH_FLOAT)
-DECL_TYPEID(double, MH_DOUBLE)
-DECL_TYPEID(std::complex<float>, MH_CFLOAT)
-DECL_TYPEID(std::complex<double>, MH_CDOUBLE)
-#undef DECL_TYPEID
+MARCH_DECL_TYPEID(bool, MH_BOOL)
+MARCH_DECL_TYPEID(float, MH_FLOAT)
+MARCH_DECL_TYPEID(double, MH_DOUBLE)
+MARCH_DECL_TYPEID(std::complex<float>, MH_CFLOAT)
+MARCH_DECL_TYPEID(std::complex<double>, MH_CDOUBLE)
+#undef MARCH_DECL_TYPEID
 
 /**
  * Convert ID to type.
@@ -112,7 +113,8 @@ template <> struct id_to<MH_CDOUBLE> { typedef std::complex<double> type; };
  * The primitive data type for lookup-table indices.
  */
 typedef int32_t index_type;
-static constexpr index_type INVALID_INDEX = INT32_MAX;
+static constexpr index_type MH_INDEX_SENTINEL = INT32_MAX;
+static constexpr index_type INVALID_INDEX = MH_INDEX_SENTINEL;
 
 /**
  * The primitive data type for element shape type.  May use only a single byte
@@ -121,6 +123,8 @@ static constexpr index_type INVALID_INDEX = INT32_MAX;
 typedef int32_t shape_type;
 
 typedef double real_type;
+
+constexpr static real_type MH_REAL_SENTINEL = -std::numeric_limits<real_type>::infinity();
 
 } /* end namespace march */
 
