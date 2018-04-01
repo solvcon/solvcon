@@ -369,21 +369,25 @@ WrapUnstructuredBlock
 
 }; /* end class WrapUnstructuredBlock */
 
-template< size_t NDIM, class Hand >
+// FIXME: no hand wrapper owns the block it points to!
+
+template< class WrapHand, class Hand >
 class
 MARCH_PYTHON_WRAPPER_VISIBILITY
 WrapBlockHand
-  : public WrapBase< WrapBlockHand<NDIM, Hand>, Hand >
+  : public WrapBase< WrapHand, Hand >
 {
 
     /* aliases for dependent type name lookup */
-    using base_type = WrapBase< WrapBlockHand<NDIM, Hand>, Hand >;
+    using base_type = WrapBase< WrapHand, Hand >;
     using wrapper_type = typename base_type::wrapper_type;
     using wrapped_type = typename base_type::wrapped_type;
 
     using block_type = typename wrapped_type::block_type;
 
     friend base_type;
+
+protected:
 
     WrapBlockHand(pybind11::module & mod, const char * pyname, const char * clsdoc)
         : base_type(mod, pyname, clsdoc)
@@ -398,6 +402,15 @@ WrapBlockHand
             )
             .def("repr", &wrapped_type::repr, py::arg("indent")=0, py::arg("precision")=0)
             .def("__repr__", [](wrapped_type & self){ return self.repr(); })
+            .def("__eq__", &wrapped_type::operator==)
+            .def(
+                "__hash__",
+                [](wrapped_type const & self) {
+                    auto obj = py::make_tuple(reinterpret_cast<intptr_t>(&self.block()), self.index());
+                    return py::hash(obj);
+                }
+            )
+            .def_property_readonly("ndim", [](wrapped_type const & self){ return self.block().ndim(); })
         ;
     }
 
@@ -407,10 +420,11 @@ template< size_t NDIM >
 class
 MARCH_PYTHON_WRAPPER_VISIBILITY
 WrapNodeHand
-  : public WrapBlockHand< NDIM, NodeHand<NDIM> >
+  : public WrapBlockHand< WrapNodeHand<NDIM>, NodeHand<NDIM> >
 {
+
     /* aliases for dependent type name lookup */
-    using base_type = WrapBase< WrapBlockHand<NDIM, NodeHand<NDIM>>, NodeHand<NDIM> >;
+    using base_type = WrapBase< WrapNodeHand<NDIM>, NodeHand<NDIM> >;
     using wrapper_type = typename base_type::wrapper_type;
     using wrapped_type = typename base_type::wrapped_type;
 
@@ -419,8 +433,12 @@ WrapNodeHand
     friend base_type;
 
     WrapNodeHand(pybind11::module & mod, const char * pyname, const char * clsdoc)
-        : WrapBlockHand< NDIM, NodeHand<NDIM> >(mod, pyname, clsdoc)
+        : WrapBlockHand< WrapNodeHand<NDIM>, NodeHand<NDIM> >(mod, pyname, clsdoc)
     {
+        namespace py = pybind11;
+        (*this)
+            .def_property_readonly("crd", &wrapped_type::crd, "Coordinate")
+        ;
     }
 
 }; /* end class WrapNodeHand */
@@ -429,7 +447,7 @@ template< size_t NDIM >
 class
 MARCH_PYTHON_WRAPPER_VISIBILITY
 WrapFaceHand
-  : public WrapBase< WrapFaceHand<NDIM>, FaceHand<NDIM> >
+  : public WrapBlockHand< WrapFaceHand<NDIM>, FaceHand<NDIM> >
 {
 
     /* aliases for dependent type name lookup */
@@ -442,18 +460,18 @@ WrapFaceHand
     friend base_type;
 
     WrapFaceHand(pybind11::module & mod, const char * pyname, const char * clsdoc)
-        : base_type(mod, pyname, clsdoc)
+        : WrapBlockHand< WrapFaceHand<NDIM>, FaceHand<NDIM> >(mod, pyname, clsdoc)
     {
         namespace py = pybind11;
         (*this)
-            .def(
-                py::init([](block_type & block, index_type index) {
-                    return wrapped_type(block, index);
-                }),
-                py::arg("block"), py::arg("index")
-            )
-            .def("repr", &wrapped_type::repr, py::arg("indent")=0, py::arg("precision")=0)
-            .def("__repr__", [](wrapped_type & self){ return self.repr(); })
+            .def_property_readonly("tpn", &wrapped_type::tpn, "Type number")
+            .def_property_readonly("cnd", &wrapped_type::cnd, "Centroid coordiate")
+            .def_property_readonly("nml", &wrapped_type::nml, "Unit normal vector")
+            .def_property_readonly("ara", &wrapped_type::ara, "Area")
+            .def_property_readonly("nnd", &wrapped_type::nnd, "Number of nodes")
+            .def("nds", &wrapped_type::nds_hand_bound, py::arg("ind"), "Get node by 1-based index")
+            .def_property_readonly("clb", &wrapped_type::clb_hand, "Cell that this face belongs to")
+            .def_property_readonly("cln", &wrapped_type::cln_hand, "Cell that this face is neighbor of")
         ;
     }
 
@@ -463,7 +481,7 @@ template< size_t NDIM >
 class
 MARCH_PYTHON_WRAPPER_VISIBILITY
 WrapCellHand
-  : public WrapBase< WrapCellHand<NDIM>, CellHand<NDIM> >
+  : public WrapBlockHand< WrapCellHand<NDIM>, CellHand<NDIM> >
 {
 
     /* aliases for dependent type name lookup */
@@ -476,18 +494,18 @@ WrapCellHand
     friend base_type;
 
     WrapCellHand(pybind11::module & mod, const char * pyname, const char * clsdoc)
-        : base_type(mod, pyname, clsdoc)
+        : WrapBlockHand< WrapCellHand<NDIM>, CellHand<NDIM> >(mod, pyname, clsdoc)
     {
         namespace py = pybind11;
         (*this)
-            .def(
-                py::init([](block_type & block, index_type index) {
-                    return wrapped_type(block, index);
-                }),
-                py::arg("block"), py::arg("index")
-            )
-            .def("repr", &wrapped_type::repr, py::arg("indent")=0, py::arg("precision")=0)
-            .def("__repr__", [](wrapped_type & self){ return self.repr(); })
+            .def_property_readonly("tpn", &wrapped_type::tpn, "Type number")
+            .def_property_readonly("cnd", &wrapped_type::cnd, "Center (may be centroid or in-center) coordiate")
+            .def_property_readonly("vol", &wrapped_type::vol, "Volume")
+            .def_property_readonly("nnd", &wrapped_type::nnd, "Number of nodes")
+            .def("nds", &wrapped_type::nds_hand_bound, py::arg("ind"), "Get node by 1-based index")
+            .def_property_readonly("nfc", &wrapped_type::nfc, "Number of faces")
+            .def("fcs", &wrapped_type::fcs_hand_bound, py::arg("ifc"), "Get face by 1-based index")
+            .def("cls", &wrapped_type::cls_hand_bound, py::arg("ifc"), "Get face by 1-based index")
         ;
     }
 

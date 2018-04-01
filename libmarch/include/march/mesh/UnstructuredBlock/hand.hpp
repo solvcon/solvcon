@@ -11,7 +11,7 @@
 
 namespace march {
 
-template< size_t NDIM >
+template< size_t NDIM, class HandType >
 class BlockHandBase {
 
 public:
@@ -26,6 +26,9 @@ public:
 
     index_type index() const { return m_index; }
     void set_index(index_type index) { m_index = index; }
+
+    bool operator==(HandType const & other) { return (m_block == other.m_block) && (m_index == other.m_index); }
+    bool operator!=(HandType const & other) { return (m_block != other.m_block) || (m_index == other.m_index); }
 
 protected:
 
@@ -42,11 +45,11 @@ private:
 }; /* end class BlockHandBase */
 
 template< size_t NDIM >
-class NodeHand : public BlockHandBase< NDIM > {
+class NodeHand : public BlockHandBase< NDIM, NodeHand<NDIM> > {
 
 public:
 
-    using base_type = BlockHandBase<NDIM>;
+    using base_type = BlockHandBase<NDIM, NodeHand<NDIM>>;
     using base_type::base_type;
 
     using block_type = UnstructuredBlock<NDIM>;
@@ -68,11 +71,11 @@ std::string NodeHand<NDIM>::repr(size_t indent, size_t precision) const {
 template< size_t NDIM > class CellHand;
 
 template< size_t NDIM >
-class FaceHand : public BlockHandBase< NDIM > {
+class FaceHand : public BlockHandBase< NDIM, FaceHand<NDIM> > {
 
 public:
 
-    using base_type = BlockHandBase<NDIM>;
+    using base_type = BlockHandBase<NDIM, FaceHand<NDIM>>;
     using base_type::base_type;
 
     using block_type = UnstructuredBlock<NDIM>;
@@ -88,14 +91,14 @@ public:
     vector_type const & nml() const { return this->row_as_vector(this->block().fcnml()[this->index()]); }
     real_type ara() const { return this->block().fcara()[this->index()]; }
 
-    index_type nnd() const { return this->block().fcnds()[this->index()][0]; }
-
     /// Cell that this face belongs to.
-    CellHand<NDIM> clb() const;
+    index_type clb() const { return this->block().fccls()[this->index()][0]; }
+    CellHand<NDIM> clb_hand() const;
     /// Cell that this face is neighbor of.
-    CellHand<NDIM> cln() const;
+    index_type cln() const { return this->block().fccls()[this->index()][1]; }
+    CellHand<NDIM> cln_hand() const;
 
-    struct boundcheck {};
+    index_type nnd() const { return this->block().fcnds()[this->index()][0]; }
 
     /**
      * Get the @a ind -th node index.  @a ind is 1-based.
@@ -104,9 +107,9 @@ public:
     /**
      * Get the @a ind -th node index.  @a ind is 1-based.  Bound checked.
      */
-    index_type nds(index_type ind, boundcheck const &) const {
+    index_type nds_bound(index_type ind) const {
         auto const & fcnds = this->block().fcnds();
-        if (ind >= fcnds.ncolumn()) {
+        if (ind >= fcnds.ncolumn() || ind < 1) {
             throw std::out_of_range(string::format(
                 "in cell %d, %d-th (1-based) node out of range (%d)",
                 this->index(), ind, fcnds.ncolumn()));
@@ -114,14 +117,24 @@ public:
         return fcnds.at(this->index())[ind];
     }
 
+    /**
+     * Get the @a ind -th node index.  @a ind is 1-based.  Return hand.
+     */
+    NodeHand<NDIM> nds_hand(index_type ind) const { return NodeHand<NDIM>(this->block(), nds(ind)); }
+
+    /**
+     * Get the @a ind -th node index.  @a ind is 1-based.  Return hand.  Bound checked.
+     */
+    NodeHand<NDIM> nds_hand_bound(index_type ind) const { return NodeHand<NDIM>(this->block(), nds_bound(ind)); }
+
 }; /* end class FaceHand */
 
 template< size_t NDIM >
-class CellHand : public BlockHandBase< NDIM > {
+class CellHand : public BlockHandBase< NDIM, CellHand<NDIM> > {
 
 public:
 
-    using base_type = BlockHandBase<NDIM>;
+    using base_type = BlockHandBase<NDIM, CellHand<NDIM>>;
     using base_type::base_type;
 
     using block_type = UnstructuredBlock<NDIM>;
@@ -141,18 +154,17 @@ public:
 
     index_type nnd() const { return this->block().clnds()[this->index()][0]; }
 
-    struct boundcheck {};
-
     /**
      * Get the @a ind -th node index.  @a ind is 1-based.
      */
     index_type nds(index_type ind) const { return this->block().clnds()[this->index()][ind]; }
+
     /**
      * Get the @a ind -th node index.  @a ind is 1-based.  Bound checked.
      */
-    index_type nds(index_type ind, boundcheck const &) const {
+    index_type nds_bound(index_type ind) const {
         auto const & clnds = this->block().clnds();
-        if (ind >= clnds.ncolumn()) {
+        if (ind >= clnds.ncolumn() || ind < 1) {
             throw std::out_of_range(string::format(
                 "in cell %d, %d-th (1-based) node out of range (%d)",
                 this->index(), ind, clnds.ncolumn()));
@@ -160,18 +172,29 @@ public:
         return clnds.at(this->index())[ind];
     }
 
+    /**
+     * Get the @a ind -th node index.  @a ind is 1-based.  Return hand.
+     */
+    NodeHand<NDIM> nds_hand(index_type ind) const { return NodeHand<NDIM>(this->block(), nds(ind)); }
+
+    /**
+     * Get the @a ind -th node index.  @a ind is 1-based.  Return hand.  Bound checked.
+     */
+    NodeHand<NDIM> nds_hand_bound(index_type ind) const { return NodeHand<NDIM>(this->block(), nds_bound(ind)); }
+
     index_type nfc() const { return this->block().clfcs()[this->index()][0]; }
 
     /**
      * Get the @a ifc -th face index.  @a ifc is 1-based.
      */
     index_type fcs(index_type ifc) const { return this->block().clfcs()[this->index()][ifc]; }
+
     /**
      * Get the @a ifc -th face index.  @a ifc is 1-based.  Bound checked.
      */
-    index_type fcs(index_type ifc, boundcheck const &) const {
+    index_type fcs_bound(index_type ifc) const {
         auto const & clfcs = this->block().clfcs();
-        if (ifc >= clfcs.ncolumn()) {
+        if (ifc >= clfcs.ncolumn() || ifc < 1) {
             throw std::out_of_range(string::format(
                 "in cell %d, %d-th (1-based) face out of range (%d)",
                 this->index(), ifc, clfcs.ncolumn()));
@@ -179,7 +202,55 @@ public:
         return clfcs.at(this->index())[ifc];
     }
 
+    /**
+     * Get the @a ifc -th face index.  @a ifc is 1-based.  Return hand.
+     */
+    FaceHand<NDIM> fcs_hand(index_type ifc) const { return FaceHand<NDIM>(this->block(), fcs(ifc)); }
+
+    /**
+     * Get the @a ifc -th face index.  @a ifc is 1-based.  Return hand.  Bound checked.
+     */
+    FaceHand<NDIM> fcs_hand_bound(index_type ifc) const { return FaceHand<NDIM>(this->block(), fcs_bound(ifc)); }
+
+    /**
+     * Get the @a ifc -th adjacent cell index.  @a ifc is 1-based.
+     */
+    index_type cls(index_type ifc) const {
+        auto const & block = this->block();
+        auto const & tfccls = block.fccls()[fcs(ifc)];
+        return tfccls[0] + tfccls[1] - this->index();
+    }
+
+    /**
+     * Get the @a ifc -th adjacent cell index.  @a ifc is 1-based.  Bound checked.
+     */
+    index_type cls_bound(index_type ifc) const {
+        auto const & block = this->block();
+        auto const & tfccls = block.fccls()[fcs_bound(ifc)];
+        return tfccls[0] + tfccls[1] - this->index();
+    }
+
+    /**
+     * Get the @a ifc -th adjacent cell index.  @a ifc is 1-based.  Return hand.
+     */
+    CellHand<NDIM> cls_hand(index_type ifc) const {
+        return CellHand<NDIM>(this->block(), cls(ifc));
+    }
+
+    /**
+     * Get the @a ifc -th adjacent cell index.  @a ifc is 1-based.  Return hand.  Bound checked.
+     */
+    CellHand<NDIM> cls_hand_bound(index_type ifc) const {
+        return CellHand<NDIM>(this->block(), cls(ifc));
+    }
+
 }; /* end class CellHand */
+
+template< size_t NDIM >
+CellHand<NDIM> FaceHand<NDIM>::clb_hand() const { return CellHand<NDIM>(this->block(), clb()); }
+
+template< size_t NDIM >
+CellHand<NDIM> FaceHand<NDIM>::cln_hand() const { return CellHand<NDIM>(this->block(), cln()); }
 
 template< size_t NDIM >
 std::string CellHand<NDIM>::repr(size_t indent, size_t precision) const {
@@ -217,22 +288,11 @@ std::string CellHand<NDIM>::repr(size_t indent, size_t precision) const {
             ret += string::format("%d", fc.nds(ind));
             ret += fc.nnd() == ind ? ")" : ",";
         }
+        ret += string::format(";%d", this->cls(ifc));
         ret += nfc() == ifc ? "]" : ", ";
     }
     ret += indent ? "\n)" : ")";
     return ret;
-}
-
-template< size_t NDIM >
-CellHand<NDIM> FaceHand<NDIM>::clb() const {
-    auto const & block = this->block();
-    return CellHand<NDIM>(block, block.fccls()[this->index()][0]);
-}
-
-template< size_t NDIM >
-CellHand<NDIM> FaceHand<NDIM>::cln() const {
-    auto const & block = this->block();
-    return CellHand<NDIM>(block, block.fccls()[this->index()][1]);
 }
 
 template< size_t NDIM >
@@ -245,10 +305,10 @@ std::string FaceHand<NDIM>::repr(size_t indent, size_t precision) const {
     ret += indent ? indented_newline : std::string(" ");
     ret += string::format("type=%d:%s,", tpn(), type().name());
     ret += indent ? indented_newline : std::string(" ");
-    auto const clb = this->clb();
+    auto const clb = this->clb_hand();
     ret += string::format("belong_cell=%d;%d:%s,", clb.index(), clb.tpn(), clb.type().name());
     ret += indent ? indented_newline : std::string(" ");
-    auto const cln = this->cln();
+    auto const cln = this->cln_hand();
     ret += string::format("neighbor_cell=%d;%d:%s,", cln.index(), cln.tpn(), cln.type().name());
     ret += indent ? indented_newline : std::string(" ");
     ret += "cnd=" + cnd().repr(indent, precision) + ",";
@@ -271,6 +331,11 @@ std::string FaceHand<NDIM>::repr(size_t indent, size_t precision) const {
     }
     ret += indent ? "\n)" : ")";
     return ret;
+}
+
+template< size_t NDIM >
+std::string UnstructuredBlock<NDIM>::cell_info_string(index_type icl, size_t indent, size_t precision) const {
+    return CellHand<NDIM>(*this, icl).repr(indent, precision);
 }
 
 } /* end namespace march */

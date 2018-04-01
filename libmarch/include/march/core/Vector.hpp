@@ -60,6 +60,21 @@ template< size_t NDIM > struct Vector {
         return *this;
     }
 
+    bool operator==(Vector const & other) {
+        for (size_t it=0; it<NDIM; ++it) { if (data[it] != other.data[it]) { return false; } }
+        return true;
+    }
+
+    bool operator!=(Vector const & other) {
+        for (size_t it=0; it<NDIM; ++it) { if (data[it] != other.data[it]) { return true; } }
+        return false;
+    }
+
+    bool is_close_to(Vector const & other, real_type epsilon) {
+        for (size_t it=0; it<NDIM; ++it) { if (std::abs(data[it] - other.data[it]) > epsilon) { return false; } }
+        return true;
+    }
+
     /* accessors */
     constexpr size_type size() const { return NDIM; }
     reference                 operator[](size_type n)       { return data[n]; }

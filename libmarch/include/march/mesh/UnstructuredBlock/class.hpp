@@ -350,13 +350,7 @@ public:
         );
     }
 
-    std::string cell_info_string(index_type icl) const {
-        return string::format(
-            "Cell<NDIM=%d>(%d type=%d ncell=%d ngstcell=%d)"
-          , NDIM, icl, cltpn()[icl]
-          , ncell(), ngstcell()
-        );
-    }
+    std::string cell_info_string(index_type icl, size_t indent=2, size_t precision=20) const;
 
 //* end data_report */
 

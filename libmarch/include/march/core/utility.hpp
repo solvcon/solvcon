@@ -97,8 +97,6 @@ inline std::string from_double(double value, size_t precision=0) {
     if (precision) {
         os.setf(std::ios::scientific);
         os.precision(precision);
-    } else {
-        os.setf(std::ios::fixed);
     }
     os << value;
     return os.str();
