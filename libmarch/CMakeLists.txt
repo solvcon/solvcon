@@ -74,6 +74,7 @@ set(MARCH_HEADERS
     include/march/mesh/UnstructuredBlock/build_rcells.hpp
     include/march/mesh/UnstructuredBlock/calc_metric.hpp
     include/march/mesh/UnstructuredBlock/fill_ghost.hpp
+    include/march/mesh/UnstructuredBlock/hand.hpp
     # gas
     include/march/gas.hpp
     include/march/gas/Solution.hpp

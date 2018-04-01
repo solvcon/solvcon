@@ -6,6 +6,7 @@
  */
 
 #include "march/mesh/UnstructuredBlock/class.hpp"
+#include "march/mesh/UnstructuredBlock/hand.hpp"
 #include "march/mesh/UnstructuredBlock/build_faces_from_cells.hpp"
 #include "march/mesh/UnstructuredBlock/calc_metric.hpp"
 #include "march/mesh/UnstructuredBlock/fill_ghost.hpp"
