@@ -630,23 +630,42 @@ class TestTriangles(TestCase):
         self.assertEqual((4, 2), self.msh.ndcrd.shape)
         self.assertEqual((6, 2), self.msh.fccnd.shape)
 
+    def test_node0(self):
+        node = march.NodeHand2D(self.msh, 0)
+        golden = "NodeHand2D(index=0, crd=Vector2D(0.00000000000000000000e+00,0.00000000000000000000e+00))"
+        self.assertEqual(golden, node.repr(indent=2, precision=20))
+
     def test_face0(self):
+        self.maxDiff = None
         face = march.FaceHand2D(self.msh, 0)
         golden = """FaceHand2D(
+  index=0,
+  type=1:line,
+  belong_cell=0;3:triangle,
+  neighbor_cell=2;3:triangle,
   cnd=Vector2D(-5.00000000000000000000e-01,-5.00000000000000000000e-01),
   nml=Vector2D(-7.07106781186547461715e-01,7.07106781186547461715e-01),
   ara=1.41421356237309514547e+00,
-  nds=[0,1]
+  nds=[
+    NodeHand2D(index=0, crd=Vector2D(0.00000000000000000000e+00,0.00000000000000000000e+00)),
+    NodeHand2D(index=1, crd=Vector2D(-1.00000000000000000000e+00,-1.00000000000000000000e+00))
+  ]
 )"""
         self.assertEqual(golden, face.repr(indent=2, precision=20))
 
     def test_cell0(self):
         cell = march.CellHand2D(self.msh, 0)
         golden = """CellHand2D(
+  index=0,
+  type=3:triangle,
   cnd=Vector2D(0.00000000000000000000e+00,-6.66666666666666740682e-01),
   vol=1.00000000000000000000e+00,
-  nds=[0,1,2],
-  fcs=[0,1,2]
+  nds=[
+    NodeHand2D(index=0, crd=Vector2D(0.00000000000000000000e+00,0.00000000000000000000e+00)),
+    NodeHand2D(index=1, crd=Vector2D(-1.00000000000000000000e+00,-1.00000000000000000000e+00)),
+    NodeHand2D(index=2, crd=Vector2D(1.00000000000000000000e+00,-1.00000000000000000000e+00))
+  ],
+  fcs=[0:(0,1), 1:(1,2), 2:(2,0)]
 )"""
         self.assertEqual(golden, cell.repr(indent=2, precision=20))
 
@@ -755,23 +774,45 @@ class TestTetrahedra(TestCase):
         self.assertEqual((5, 3), self.msh.ndcrd.shape)
         self.assertEqual((10, 3), self.msh.fccnd.shape)
 
+    def test_node0(self):
+        node = march.NodeHand3D(self.msh, 0)
+        golden = "NodeHand3D(index=0, crd=Vector3D(0.00000000000000000000e+00,0.00000000000000000000e+00,0.00000000000000000000e+00))"
+        self.assertEqual(golden, node.repr(indent=2, precision=20))
+
     def test_face0(self):
+        self.maxDiff = None
         face = march.FaceHand3D(self.msh, 0)
         golden = """FaceHand3D(
+  index=0,
+  type=3:triangle,
+  belong_cell=0;5:tetrahedron,
+  neighbor_cell=-1;5:tetrahedron,
   cnd=Vector3D(3.33333333333333259318e+00,3.33333333333333259318e+00,0.00000000000000000000e+00),
   nml=Vector3D(0.00000000000000000000e+00,0.00000000000000000000e+00,-1.00000000000000000000e+00),
   ara=5.00000000000000000000e+01,
-  nds=[0,2,1]
+  nds=[
+    NodeHand3D(index=0, crd=Vector3D(0.00000000000000000000e+00,0.00000000000000000000e+00,0.00000000000000000000e+00)),
+    NodeHand3D(index=2, crd=Vector3D(0.00000000000000000000e+00,1.00000000000000000000e+01,0.00000000000000000000e+00)),
+    NodeHand3D(index=1, crd=Vector3D(1.00000000000000000000e+01,0.00000000000000000000e+00,0.00000000000000000000e+00))
+  ]
 )"""
         self.assertEqual(golden, face.repr(indent=2, precision=20))
 
     def test_cell0(self):
+        self.maxDiff = None
         cell = march.CellHand3D(self.msh, 0)
         golden = """CellHand3D(
+  index=0,
+  type=5:tetrahedron,
   cnd=Vector3D(2.74999999999999911182e+00,2.75000000000000000000e+00,2.50000000000000000000e-01),
   vol=1.66666666666666678509e+01,
-  nds=[0,1,2,4],
-  fcs=[0,1,2,3]
+  nds=[
+    NodeHand3D(index=0, crd=Vector3D(0.00000000000000000000e+00,0.00000000000000000000e+00,0.00000000000000000000e+00)),
+    NodeHand3D(index=1, crd=Vector3D(1.00000000000000000000e+01,0.00000000000000000000e+00,0.00000000000000000000e+00)),
+    NodeHand3D(index=2, crd=Vector3D(0.00000000000000000000e+00,1.00000000000000000000e+01,0.00000000000000000000e+00)),
+    NodeHand3D(index=4, crd=Vector3D(1.00000000000000000000e+00,1.00000000000000000000e+00,1.00000000000000000000e+00))
+  ],
+  fcs=[0:(0,2,1), 1:(0,1,4), 2:(0,4,2), 3:(1,2,4)]
 )"""
         self.assertEqual(golden, cell.repr(indent=2, precision=20))
 

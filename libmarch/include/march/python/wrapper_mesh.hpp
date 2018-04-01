@@ -369,6 +369,62 @@ WrapUnstructuredBlock
 
 }; /* end class WrapUnstructuredBlock */
 
+template< size_t NDIM, class Hand >
+class
+MARCH_PYTHON_WRAPPER_VISIBILITY
+WrapBlockHand
+  : public WrapBase< WrapBlockHand<NDIM, Hand>, Hand >
+{
+
+    /* aliases for dependent type name lookup */
+    using base_type = WrapBase< WrapBlockHand<NDIM, Hand>, Hand >;
+    using wrapper_type = typename base_type::wrapper_type;
+    using wrapped_type = typename base_type::wrapped_type;
+
+    using block_type = typename wrapped_type::block_type;
+
+    friend base_type;
+
+    WrapBlockHand(pybind11::module & mod, const char * pyname, const char * clsdoc)
+        : base_type(mod, pyname, clsdoc)
+    {
+        namespace py = pybind11;
+        (*this)
+            .def(
+                py::init([](block_type & block, index_type index) {
+                    return wrapped_type(block, index);
+                }),
+                py::arg("block"), py::arg("index")
+            )
+            .def("repr", &wrapped_type::repr, py::arg("indent")=0, py::arg("precision")=0)
+            .def("__repr__", [](wrapped_type & self){ return self.repr(); })
+        ;
+    }
+
+}; /* end class WrapBlockHand */
+
+template< size_t NDIM >
+class
+MARCH_PYTHON_WRAPPER_VISIBILITY
+WrapNodeHand
+  : public WrapBlockHand< NDIM, NodeHand<NDIM> >
+{
+    /* aliases for dependent type name lookup */
+    using base_type = WrapBase< WrapBlockHand<NDIM, NodeHand<NDIM>>, NodeHand<NDIM> >;
+    using wrapper_type = typename base_type::wrapper_type;
+    using wrapped_type = typename base_type::wrapped_type;
+
+    using block_type = typename wrapped_type::block_type;
+
+    friend base_type;
+
+    WrapNodeHand(pybind11::module & mod, const char * pyname, const char * clsdoc)
+        : WrapBlockHand< NDIM, NodeHand<NDIM> >(mod, pyname, clsdoc)
+    {
+    }
+
+}; /* end class WrapNodeHand */
+
 template< size_t NDIM >
 class
 MARCH_PYTHON_WRAPPER_VISIBILITY

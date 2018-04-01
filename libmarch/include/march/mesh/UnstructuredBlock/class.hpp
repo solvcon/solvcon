@@ -500,7 +500,7 @@ public:
     using block_type = UnstructuredBlock<NDIM>;
     using vector_type = Vector<NDIM>;
 
-    BlockHandBase(block_type & block, index_type index) : m_block(&block), m_index(index) {}
+    BlockHandBase(block_type const & block, index_type index) : m_block(&block), m_index(index) {}
 
     block_type       & block()       { return *m_block; }
     block_type const & block() const { return *m_block; }
@@ -517,10 +517,36 @@ protected:
 
 private:
 
-    block_type * m_block = nullptr;
+    block_type const * m_block = nullptr;
     index_type m_index = MH_INDEX_SENTINEL;
 
 }; /* end class BlockHandBase */
+
+template< size_t NDIM >
+class NodeHand : public BlockHandBase< NDIM > {
+
+public:
+
+    using base_type = BlockHandBase<NDIM>;
+    using base_type::base_type;
+
+    using block_type = UnstructuredBlock<NDIM>;
+    using vector_type = Vector<NDIM>;
+
+    std::string repr(size_t indent=0, size_t precision=0) const;
+
+    vector_type const & crd() const { return this->row_as_vector(this->block().ndcrd()[this->index()]); }
+
+}; /* end class NodeHand */
+
+template< size_t NDIM >
+std::string NodeHand<NDIM>::repr(size_t indent, size_t precision) const {
+    std::string ret(string::format("NodeHand%ldD(index=%d", NDIM, this->index()));
+    ret += ", crd=" + crd().repr(indent, precision) + ")";
+    return ret;
+}
+
+template< size_t NDIM > class CellHand;
 
 template< size_t NDIM >
 class FaceHand : public BlockHandBase< NDIM > {
@@ -545,6 +571,11 @@ public:
 
     index_type nnd() const { return this->block().fcnds()[this->index()][0]; }
 
+    /// Cell that this face belongs to.
+    CellHand<NDIM> clb() const;
+    /// Cell that this face is neighbor of.
+    CellHand<NDIM> cln() const;
+
     struct boundcheck {};
 
     /**
@@ -565,27 +596,6 @@ public:
     }
 
 }; /* end class FaceHand */
-
-template< size_t NDIM >
-std::string FaceHand<NDIM>::repr(size_t indent, size_t precision) const {
-    std::string ret(string::format("FaceHand%ldD(", NDIM));
-    const std::string indented_newline = string::create_indented_newline(indent);
-    if (indent) { ret += indented_newline; }
-    ret += "cnd=" + cnd().repr(indent, precision) + ",";
-    ret += indent ? indented_newline : std::string(" ");
-    ret += "nml=" + nml().repr(indent, precision) + ",";
-    ret += indent ? indented_newline : std::string(" ");
-    ret += "ara=" + string::from_double(ara(), precision) + ",";
-    ret += indent ? indented_newline : std::string(" ");
-    ret += "nds=[";
-    for (index_type ind=1; ind<=nnd(); ++ind) {
-        ret += string::format("%d", nds(ind));
-        ret += nnd() == ind ? "]" : ",";
-    }
-    if (indent) { ret += "\n)"; }
-    else        { ret += ")"; }
-    return ret;
-}
 
 template< size_t NDIM >
 class CellHand : public BlockHandBase< NDIM > {
@@ -656,25 +666,91 @@ template< size_t NDIM >
 std::string CellHand<NDIM>::repr(size_t indent, size_t precision) const {
     std::string ret(string::format("CellHand%ldD(", NDIM));
     const std::string indented_newline = string::create_indented_newline(indent);
+    const std::string indented2_newline = string::create_indented_newline(indent*2);
     if (indent) { ret += indented_newline; }
+    ret += string::format("index=%d,", this->index());
+    ret += indent ? indented_newline : std::string(" ");
+    ret += string::format("type=%d:%s,", tpn(), type().name());
+    ret += indent ? indented_newline : std::string(" ");
     ret += "cnd=" + cnd().repr(indent, precision) + ",";
     ret += indent ? indented_newline : std::string(" ");
     ret += "vol=" + string::from_double(vol(), precision) + ",";
     ret += indent ? indented_newline : std::string(" ");
     ret += "nds=[";
+    if (indent) { ret += indented2_newline; }
     for (index_type ind=1; ind<=nnd(); ++ind) {
-        ret += string::format("%d", nds(ind));
-        ret += nnd() == ind ? "]" : ",";
+        ret += NodeHand<NDIM>(this->block(), nds(ind)).repr(indent, precision);
+        if (nnd() == ind) {
+            if (indent) { ret += indented_newline; }
+            ret += "]";
+        } else {
+            ret += ",";
+            ret += indent ? indented2_newline : std::string(" ");
+        }
     }
     ret += ",";
     ret += indent ? indented_newline : std::string(" ");
     ret += "fcs=[";
     for (index_type ifc=1; ifc<=nfc(); ++ifc) {
-        ret += string::format("%d", fcs(ifc));
-        ret += nfc() == ifc ? "]" : ",";
+        auto const fc = FaceHand<NDIM>(this->block(), fcs(ifc));
+        ret += string::format("%d:(", fc.index());
+        for (index_type ind=1; ind<=fc.nnd(); ++ind) {
+            ret += string::format("%d", fc.nds(ind));
+            ret += fc.nnd() == ind ? ")" : ",";
+        }
+        ret += nfc() == ifc ? "]" : ", ";
     }
-    if (indent) { ret += "\n)"; }
-    else        { ret += ")"; }
+    ret += indent ? "\n)" : ")";
+    return ret;
+}
+
+template< size_t NDIM >
+CellHand<NDIM> FaceHand<NDIM>::clb() const {
+    auto const & block = this->block();
+    return CellHand<NDIM>(block, block.fccls()[this->index()][0]);
+}
+
+template< size_t NDIM >
+CellHand<NDIM> FaceHand<NDIM>::cln() const {
+    auto const & block = this->block();
+    return CellHand<NDIM>(block, block.fccls()[this->index()][1]);
+}
+
+template< size_t NDIM >
+std::string FaceHand<NDIM>::repr(size_t indent, size_t precision) const {
+    std::string ret(string::format("FaceHand%ldD(", NDIM));
+    const std::string indented_newline = string::create_indented_newline(indent);
+    const std::string indented2_newline = string::create_indented_newline(indent*2);
+    if (indent) { ret += indented_newline; }
+    ret += string::format("index=%d,", this->index());
+    ret += indent ? indented_newline : std::string(" ");
+    ret += string::format("type=%d:%s,", tpn(), type().name());
+    ret += indent ? indented_newline : std::string(" ");
+    auto const clb = this->clb();
+    ret += string::format("belong_cell=%d;%d:%s,", clb.index(), clb.tpn(), clb.type().name());
+    ret += indent ? indented_newline : std::string(" ");
+    auto const cln = this->cln();
+    ret += string::format("neighbor_cell=%d;%d:%s,", cln.index(), cln.tpn(), cln.type().name());
+    ret += indent ? indented_newline : std::string(" ");
+    ret += "cnd=" + cnd().repr(indent, precision) + ",";
+    ret += indent ? indented_newline : std::string(" ");
+    ret += "nml=" + nml().repr(indent, precision) + ",";
+    ret += indent ? indented_newline : std::string(" ");
+    ret += "ara=" + string::from_double(ara(), precision) + ",";
+    ret += indent ? indented_newline : std::string(" ");
+    ret += "nds=[";
+    if (indent) { ret += indented2_newline; }
+    for (index_type ind=1; ind<=nnd(); ++ind) {
+        ret += NodeHand<NDIM>(this->block(), nds(ind)).repr(indent, precision);
+        if (nnd() == ind) {
+            if (indent) { ret += indented_newline; }
+            ret += "]";
+        } else {
+            ret += ",";
+            ret += indent ? indented2_newline : std::string(" ");
+        }
+    }
+    ret += indent ? "\n)" : ")";
     return ret;
 }
 

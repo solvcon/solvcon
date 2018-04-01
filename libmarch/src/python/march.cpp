@@ -39,8 +39,10 @@ PyObject * ModuleInitializer::initialize_march(pybind11::module & mod) {
     WrapBoundaryData::commit(mod, "BoundaryData", "Data of a boundary condition.");
     WrapUnstructuredBlock<2>::commit(mod, "UnstructuredBlock2D", "Unstructured mesh block (2D).");
     WrapUnstructuredBlock<3>::commit(mod, "UnstructuredBlock3D", "Unstructured mesh block (3D).");
-    WrapFaceHand<2>::commit(mod, "FaceHand2D", "Hand to a cell (2D).");
-    WrapFaceHand<3>::commit(mod, "FaceHand3D", "Hand to a cell (3D).");
+    WrapNodeHand<2>::commit(mod, "NodeHand2D", "Hand to a node (2D).");
+    WrapNodeHand<3>::commit(mod, "NodeHand3D", "Hand to a node (3D).");
+    WrapFaceHand<2>::commit(mod, "FaceHand2D", "Hand to a face (2D).");
+    WrapFaceHand<3>::commit(mod, "FaceHand3D", "Hand to a face (3D).");
     WrapCellHand<2>::commit(mod, "CellHand2D", "Hand to a cell (2D).");
     WrapCellHand<3>::commit(mod, "CellHand3D", "Hand to a cell (3D).");
     WrapBasicCE<2>::commit(mod, "BasicCE2D", "Basic conservation element (2D).");
