@@ -214,6 +214,18 @@ WrapVector
             .add_element_init(dummy)
             .def("repr", &wrapped_type::repr, py::arg("indent")=0, py::arg("precision")=0)
             .def("__repr__", [](wrapped_type & self){ return self.repr(); })
+            .def("__eq__", &wrapped_type::operator==)
+            .def(
+                "__hash__",
+                [](wrapped_type const & self) {
+                    py::list tmp;
+                    for (size_t it=0; it<self.size(); ++it) {
+                        tmp.append(self[it]);
+                    }
+                    return py::hash(tmp);
+                }
+            )
+            .def("is_close_to", &wrapped_type::is_close_to)
             .def("__len__", &wrapped_type::size)
             .def(
                 "__getitem__",
