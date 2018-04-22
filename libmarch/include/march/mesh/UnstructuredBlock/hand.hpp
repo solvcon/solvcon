@@ -127,6 +127,17 @@ public:
      */
     NodeHand<NDIM> nds_hand_bound(index_type ind) const { return NodeHand<NDIM>(this->block(), nds_bound(ind)); }
 
+    bool is_boundary() const { return cln() < 0; }
+
+    BoundaryData const * get_boundary_data() const {
+        for (BoundaryData const & bnd : this->block().bndvec()) {
+            for (index_type it=0; it < bnd.facn().nbody(); ++it) {
+                if (this->index() == bnd.facn()[it][0]) { return &bnd; }
+            }
+        }
+        return nullptr;
+    }
+
 }; /* end class FaceHand */
 
 template< size_t NDIM >
@@ -310,6 +321,10 @@ std::string FaceHand<NDIM>::repr(size_t indent, size_t precision) const {
     ret += indent ? indented_newline : std::string(" ");
     auto const cln = this->cln_hand();
     ret += string::format("neighbor_cell=%d;%d:%s,", cln.index(), cln.tpn(), cln.type().name());
+    ret += indent ? indented_newline : std::string(" ");
+    ret += string::format("is_boundary=%s", is_boundary() ? "true" : "false");
+    BoundaryData const * bnd = get_boundary_data();
+    ret += string::format(";name=%s,", bnd ? bnd->name().c_str() : "<NOTFOUND>");
     ret += indent ? indented_newline : std::string(" ");
     ret += "cnd=" + cnd().repr(indent, precision) + ",";
     ret += indent ? indented_newline : std::string(" ");

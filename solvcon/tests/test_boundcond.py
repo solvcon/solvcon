@@ -6,6 +6,8 @@ import pickle
 from unittest import TestCase
 
 import numpy as np
+
+import solvcon as sc
  
 from ..testing import loadfile
 from ..io import gambit
@@ -32,6 +34,17 @@ class TestBc(TestCase):
         obj = BC()
         obj.sern = 5
         self.assertEqual(str(obj), '[BC#5 "None": 0 faces with 0 values]')
+
+    def test_name(self):
+        from ..boundcond import BC
+        obj = BC()
+        self.assertTrue(obj.name is None)
+        obj.name = "set_a_name"
+        self.assertEqual(obj.name, "set_a_name")
+        obj.name = None
+        self.assertTrue(obj.name is None)
+        obj.name = sc.march.BoundaryData.NONAME
+        self.assertTrue(obj.name is None)
 
     def test_facn(self):
         from ..boundcond import BC

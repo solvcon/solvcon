@@ -31,11 +31,24 @@ WrapBoundaryData
     {
         namespace py = pybind11;
         (*this)
-            .def(py::init<index_type>())
+            .def(
+                py::init([] (index_type nvalue, const std::string & name) {
+                    return make_unique<BoundaryData>(nvalue, name);
+                }),
+                py::arg("nvalue"), py::arg("name")="None"
+            )
             .def_property_readonly_static("BFREL", [](py::object const & /* self */) { return BoundaryData::BFREL; })
+            .def_property_readonly_static("NONAME", [](py::object const & /* self */) { return BoundaryData::NONAME(); })
             .facn()
             .values()
             .pickle()
+            .def_property(
+                "name",
+                [](BoundaryData const & self) { return self.name(); },
+                [](BoundaryData       & self, py::object & val) {
+                    self.name() = val.is(py::none()) ? BoundaryData::NONAME() : py::cast<std::string>(val);
+                }
+            )
             .def("good_shape", &BoundaryData::good_shape)
         ;
     }
@@ -117,17 +130,18 @@ public:
 
     static pybind11::tuple getstate(wrapped_type & bnd) {
         namespace py = pybind11;
-        return py::make_tuple(bnd.nbound(), bnd.nvalue(), Table(bnd.facn()).full(), Table(bnd.values()).full());
+        return py::make_tuple(bnd.nbound(), bnd.nvalue(), bnd.name(), Table(bnd.facn()).full(), Table(bnd.values()).full());
     }
 
     static wrapped_type setstate(pybind11::tuple tpl) {
         namespace py = pybind11;
-        if (tpl.size() != 4) { throw std::runtime_error("Invalid state for BoundaryData!"); }
+        if (tpl.size() != 5) { throw std::runtime_error("Invalid state for BoundaryData!"); }
         index_type nbound = tpl[0].cast<index_type>();
         index_type nvalue = tpl[1].cast<index_type>();
-        py::array facn_farr   = tpl[2].cast<py::array>();
-        py::array values_farr = tpl[3].cast<py::array>();
-        wrapped_type bnd(nbound, nvalue);
+        std::string name = tpl[2].cast<std::string>();
+        py::array facn_farr   = tpl[3].cast<py::array>();
+        py::array values_farr = tpl[4].cast<py::array>();
+        wrapped_type bnd(nbound, nvalue, name);
         Table::CopyInto(Table(bnd.facn()  ).full(), facn_farr  );
         Table::CopyInto(Table(bnd.values()).full(), values_farr);
         return bnd;
@@ -472,6 +486,8 @@ WrapFaceHand
             .def("nds", &wrapped_type::nds_hand_bound, py::arg("ind"), "Get node by 1-based index")
             .def_property_readonly("clb", &wrapped_type::clb_hand, "Cell that this face belongs to")
             .def_property_readonly("cln", &wrapped_type::cln_hand, "Cell that this face is neighbor of")
+            .def_property_readonly("is_boundary", &wrapped_type::is_boundary, "Is at boundary")
+            .def("get_boundary_data", &wrapped_type::get_boundary_data, "BoundaryData")
         ;
     }
 

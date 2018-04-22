@@ -297,6 +297,20 @@ class BC(metaclass=BCMeta):
     def value(self, arr):
         self._data.values = arr
 
+    @property
+    def name(self):
+        """
+        Name of the boundary condition.
+        """
+        name = self._data.name
+        return None if march.BoundaryData.NONAME == name else name
+    @name.setter
+    def name(self, val):
+        if None is val:
+            self._data.name = march.BoundaryData.NONAME
+        else:
+            self._data.name = val
+
     def __len__(self):
         """
         Return the first shape element of :py:class:`facn`.

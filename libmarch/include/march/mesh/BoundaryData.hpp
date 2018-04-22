@@ -34,23 +34,36 @@ private:
      */
     LookupTableCore m_values;
 
+    /**
+     * Name of the boundary.
+     */
+    std::string m_name;
+
 public:
 
-    BoundaryData() {}
+    static const std::string & NONAME() {
+        static const std::string str("<NONAME>");
+        return str;
+    }
 
-    BoundaryData(index_type nvalue)
+    BoundaryData() : m_name(NONAME()) {}
+
+    BoundaryData(index_type nvalue, const std::string & name=NONAME())
         : m_values(0, 0, {0, nvalue}, type_to<real_type>::id)
+        , m_name(name)
     {}
 
-    BoundaryData(index_type nbound, index_type nvalue)
+    BoundaryData(index_type nbound, index_type nvalue, const std::string & name=NONAME())
         : m_facn(0, nbound)
         , m_values(0, nbound, {nbound, nvalue}, type_to<real_type>::id)
+        , m_name(name)
     {}
 
     BoundaryData(BoundaryData const &  other) {
         if (this != &other) {
             m_facn = other.m_facn;
             m_values = other.m_values;
+            m_name = other.m_name;
         }
     }
 
@@ -58,6 +71,7 @@ public:
         if (this != &other) {
             m_facn = std::move(other.m_facn);
             m_values = std::move(other.m_values);
+            m_name = other.m_name;
         }
     }
 
@@ -65,6 +79,7 @@ public:
         if (this != &other) {
             m_facn = other.m_facn;
             m_values = other.m_values;
+            m_name = other.m_name;
         }
         return *this;
     }
@@ -73,6 +88,7 @@ public:
         if (this != &other) {
             m_facn = std::move(other.m_facn);
             m_values = std::move(other.m_values);
+            m_name = other.m_name;
         }
         return *this;
     }
@@ -90,6 +106,10 @@ public:
     LookupTableCore const & values() const { return m_values; }
 
     LookupTableCore       & values()       { return m_values; }
+
+    std::string const & name() const { return m_name; }
+
+    std::string       & name()       { return m_name; }
 
     template< size_t NVALUE >
     LookupTable< real_type, NVALUE > const & values() const {

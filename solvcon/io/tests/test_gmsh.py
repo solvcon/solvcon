@@ -76,19 +76,19 @@ class TestGmshSquare(TestCase):
     def test_area(self):
         self.assertAlmostEqual(self.sblk.clvol.sum(), 4.0, 12)
     def test_top(self):
-        bc = dict([(bc.name, bc) for bc in self.sblk.bclist])[b'top']
+        bc = dict([(bc.name, bc) for bc in self.sblk.bclist])['top']
         self.assertAlmostEqual(self.sblk.fcara[bc.facn[:,0]].sum(), 2.0, 12)
         self.assertTrue((self.sblk.fccnd[bc.facn[:,0],1] == 1.0).all())
     def test_left(self):
-        bc = dict([(bc.name, bc) for bc in self.sblk.bclist])[b'left']
+        bc = dict([(bc.name, bc) for bc in self.sblk.bclist])['left']
         self.assertAlmostEqual(self.sblk.fcara[bc.facn[:,0]].sum(), 2.0, 12)
         self.assertTrue((self.sblk.fccnd[bc.facn[:,0],0] == -1.0).all())
     def test_bottom(self):
-        bc = dict([(bc.name, bc) for bc in self.sblk.bclist])[b'bottom']
+        bc = dict([(bc.name, bc) for bc in self.sblk.bclist])['bottom']
         self.assertAlmostEqual(self.sblk.fcara[bc.facn[:,0]].sum(), 2.0, 12)
         self.assertTrue((self.sblk.fccnd[bc.facn[:,0],1] == -1.0).all())
     def test_right(self):
-        bc = dict([(bc.name, bc) for bc in self.sblk.bclist])[b'right']
+        bc = dict([(bc.name, bc) for bc in self.sblk.bclist])['right']
         self.assertAlmostEqual(self.sblk.fcara[bc.facn[:,0]].sum(), 2.0, 12)
         self.assertTrue((self.sblk.fccnd[bc.facn[:,0],0] == 1.0).all())
 
@@ -99,26 +99,26 @@ class TestGmshCube(TestCase):
     def test_volume(self):
         self.assertAlmostEqual(self.cblk.clvol.sum(), 8.0, 12)
     def test_xnegative(self):
-        bc = dict([(bc.name, bc) for bc in self.cblk.bclist])[b'xnegative']
+        bc = dict([(bc.name, bc) for bc in self.cblk.bclist])['xnegative']
         self.assertAlmostEqual(self.cblk.fcara[bc.facn[:,0]].sum(), 4.0, 12)
         self.assertTrue((self.cblk.fccnd[bc.facn[:,0],0] == -1.0).all())
     def test_xpositive(self):
-        bc = dict([(bc.name, bc) for bc in self.cblk.bclist])[b'xpositive']
+        bc = dict([(bc.name, bc) for bc in self.cblk.bclist])['xpositive']
         self.assertAlmostEqual(self.cblk.fcara[bc.facn[:,0]].sum(), 4.0, 12)
         self.assertTrue((self.cblk.fccnd[bc.facn[:,0],0] == 1.0).all())
     def test_ynegative(self):
-        bc = dict([(bc.name, bc) for bc in self.cblk.bclist])[b'ynegative']
+        bc = dict([(bc.name, bc) for bc in self.cblk.bclist])['ynegative']
         self.assertAlmostEqual(self.cblk.fcara[bc.facn[:,0]].sum(), 4.0, 12)
         self.assertTrue((self.cblk.fccnd[bc.facn[:,0],1] == -1.0).all())
     def test_ypositive(self):
-        bc = dict([(bc.name, bc) for bc in self.cblk.bclist])[b'ypositive']
+        bc = dict([(bc.name, bc) for bc in self.cblk.bclist])['ypositive']
         self.assertAlmostEqual(self.cblk.fcara[bc.facn[:,0]].sum(), 4.0, 12)
         self.assertTrue((self.cblk.fccnd[bc.facn[:,0],1] == 1.0).all())
     def test_znegative(self):
-        bc = dict([(bc.name, bc) for bc in self.cblk.bclist])[b'znegative']
+        bc = dict([(bc.name, bc) for bc in self.cblk.bclist])['znegative']
         self.assertAlmostEqual(self.cblk.fcara[bc.facn[:,0]].sum(), 4.0, 12)
         self.assertTrue((self.cblk.fccnd[bc.facn[:,0],2] == -1.0).all())
     def test_zpositive(self):
-        bc = dict([(bc.name, bc) for bc in self.cblk.bclist])[b'zpositive']
+        bc = dict([(bc.name, bc) for bc in self.cblk.bclist])['zpositive']
         self.assertAlmostEqual(self.cblk.fcara[bc.facn[:,0]].sum(), 4.0, 12)
         self.assertTrue((self.cblk.fccnd[bc.facn[:,0],2] == 1.0).all())
