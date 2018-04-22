@@ -389,11 +389,11 @@ template< class WrapHand, class Hand >
 class
 MARCH_PYTHON_WRAPPER_VISIBILITY
 WrapBlockHand
-  : public WrapBase< WrapHand, Hand >
+  : public WrapBase< WrapHand, Hand, std::unique_ptr<Hand>, Hand >
 {
 
     /* aliases for dependent type name lookup */
-    using base_type = WrapBase< WrapHand, Hand >;
+    using base_type = WrapBase< WrapHand, Hand, std::unique_ptr<Hand>, Hand >;
     using wrapper_type = typename base_type::wrapper_type;
     using wrapped_type = typename base_type::wrapped_type;
 

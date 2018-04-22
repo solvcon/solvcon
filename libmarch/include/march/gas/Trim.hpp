@@ -39,6 +39,7 @@ public:
       , m_boundary(boundary)
     {}
 
+    const std::string & name() const { return m_boundary.name(); }
     index_type nbound() const { return m_boundary.nbound(); }
     index_type iface(index_type ibnd) const { return m_boundary.facn()[ibnd][0]; }
     fccls_row_const_reference tfccls(index_type ifc) const { return m_block.fccls()[ifc]; }
@@ -85,12 +86,15 @@ public:
 
     virtual ~TrimBase() {}
 
+    virtual std::string type_name() { return string::get_type_name(*this); }
+
     virtual void apply_do0() {}
     virtual void apply_do1() {}
 
     internal_type       & internal()       { return m_internal; }
     internal_type const & internal() const { return m_internal; }
 
+    std::string name() { return m_internal.name(); }
     solver_type       & solver()       { return m_internal.solver(); }
     solver_type const & solver() const { return m_internal.solver(); }
     block_type       & block()       { return m_internal.block(); }
@@ -119,6 +123,7 @@ public:
         static_assert(sizeof(TrimNoOp<NDIM>) == sizeof(base_type), "TrimNoOp size mismatch");
     }
     ~TrimNoOp() override {}
+    std::string type_name() override { return string::get_type_name(*this); }
     void apply_do0() override {}
     void apply_do1() override {}
 
@@ -139,6 +144,7 @@ public:
         static_assert(sizeof(TrimInterface<NDIM>) == sizeof(base_type), "TrimInterface size mismatch");
     }
     ~TrimInterface() override {}
+    std::string type_name() override { return string::get_type_name(*this); }
     void apply_do0() override { /* FIXME: add code */ }
     void apply_do1() override { /* FIXME: add code */ }
 
@@ -160,7 +166,7 @@ public:
     }
 
     ~TrimNonRefl() override {}
-
+    std::string type_name() override { return string::get_type_name(*this); }
     void apply_do0() override;
     void apply_do1() override;
 
@@ -219,7 +225,7 @@ public:
     }
 
     ~TrimSlipWall() override {}
-
+    std::string type_name() override { return string::get_type_name(*this); }
     void apply_do0() override;
     void apply_do1() override;
 
@@ -295,7 +301,7 @@ public:
     }
 
     ~TrimInlet() override {}
-
+    std::string type_name() override { return string::get_type_name(*this); }
     void apply_do0() override;
     void apply_do1() override;
 

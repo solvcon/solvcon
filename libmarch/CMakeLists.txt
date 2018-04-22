@@ -60,6 +60,8 @@ set(MARCH_HEADERS
     include/march/core/types.hpp
     include/march/core/utility.hpp
     include/march/core/Vector.hpp
+    include/march/core/string.hpp
+    include/march/core/system.hpp
     # mesh
     include/march/mesh.hpp
     include/march/mesh/BoundaryData.hpp

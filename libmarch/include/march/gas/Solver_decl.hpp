@@ -80,7 +80,7 @@ struct State {
     int_type cfl_nadjusted_accumulated=-1;
 
     std::string step_info_string() const {
-        return string::format("step=%d substep=%d", step_current, substep_current);
+        return string::format("global=%d step=%d substep=%d", step_global, step_current, substep_current);
     }
 }; /* end struct State */
 
@@ -180,10 +180,10 @@ public:
 
 private:
 
-    void throw_on_negative_density(const std::string & srcloc, index_type icl) const;
-    void throw_on_negative_energy(const std::string & srcloc, index_type icl) const;
-    void throw_on_cfl_adjustment(const std::string & srcloc, index_type icl) const;
-    void throw_on_cfl_overflow(const std::string & srcloc, index_type icl) const;
+    void throw_on_negative_density(const char * filename, int lineno, const char * funcname, index_type icl) const;
+    void throw_on_negative_energy(const char * filename, int lineno, const char * funcname, index_type icl) const;
+    void throw_on_cfl_adjustment(const char * filename, int lineno, const char * funcname, index_type icl) const;
+    void throw_on_cfl_overflow(const char * filename, int lineno, const char * funcname, index_type icl) const;
 
 private:
 

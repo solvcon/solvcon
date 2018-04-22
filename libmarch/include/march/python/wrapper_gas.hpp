@@ -610,20 +610,28 @@ WrapGasTrimBase
         namespace py = pybind11;
         (*this)
             .def(py::init<solver_type &, BoundaryData &>())
-            .def("apply_do0",
-                 // FIXME: This (and apply_do1 wrapper) requires "wrapped_type"
-                 // to be explicitly specified with a lambda.  Otherwise, it
-                 // calls the base method.  Polymorphism for
-                 // march::gas::Solver::m_trims works fine when caller is from
-                 // C++.  I don't know why it behaves like this.  Perhaps
-                 // pybind11 does something strange with the virtual function
-                 // table?  Before having time to investigate, I keep this
-                 // treatment as a workaround.
-                 [](wrapped_type & self) { self.wrapped_type::apply_do0(); },
-                 "Apply to variables of 0th order derivative")
-            .def("apply_do1",
-                 [](wrapped_type & self) { self.wrapped_type::apply_do1(); },
-                 "Apply to variables of 1st order derivative")
+            .def_property_readonly("name", &wrapped_type::name)
+            .def_property_readonly(
+                "type_name",
+                [](wrapped_type & self) { return self.wrapped_type::type_name(); },
+                "Trim type name"
+            )
+            .def(
+                "apply_do0",
+                // FIXME: This (and apply_do1 wrapper) requires a workaround
+                // for "wrapped_type" to be explicitly specified with a lambda.
+                // Otherwise, it calls the base method.  Polymorphism for
+                // march::gas::Solver::m_trims works fine when caller is from
+                // C++.  I probably get something wrong, or pybind11 does
+                // something strange with the virtual function table?
+                [](wrapped_type & self) { self.wrapped_type::apply_do0(); },
+                "Apply to variables of 0th order derivative"
+            )
+            .def(
+                "apply_do1",
+                [](wrapped_type & self) { self.wrapped_type::apply_do1(); },
+                "Apply to variables of 1st order derivative"
+            )
         ;
     }
 

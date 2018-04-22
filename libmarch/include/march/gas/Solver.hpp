@@ -138,8 +138,8 @@ void Solver<NDIM>::calc_so0n() {
             piso0n[ieq] /= icce.vol;
         }
 
-        throw_on_negative_density(__func__, icl);
-        throw_on_negative_energy(__func__, icl);
+        throw_on_negative_density(__FILE__, __LINE__, __func__, icl);
+        throw_on_negative_energy(__FILE__, __LINE__, __func__, icl);
     }
 }
 
@@ -174,8 +174,8 @@ void Solver<NDIM>::calc_cfl() {
         cflo = hdt*wspd/dist;
         // if pressure is null, make CFL to be 1.
         cflc = (cflo-1.0) * pr_adj/(pr_adj+TINY) + 1.0;
-        throw_on_cfl_adjustment(__func__, icl);
-        throw_on_cfl_overflow(__func__, icl);
+        throw_on_cfl_adjustment(__FILE__, __LINE__, __func__, icl);
+        throw_on_cfl_overflow(__FILE__, __LINE__, __func__, icl);
         // correct negative pressure.
         piso0n.energy() = pr_adj/ga1 + ke + TINY;
     }
@@ -236,16 +236,16 @@ void Solver<NDIM>::init_solution(
 }
 
 template< size_t NDIM >
-void Solver<NDIM>::throw_on_negative_density(const std::string & srcloc, index_type icl) const {
+void Solver<NDIM>::throw_on_negative_density(const char * filename, int lineno, const char * funcname, index_type icl) const {
     auto pso0n = m_sol.so0n(icl);
     if (m_param.stop_on_negative_density() != 0
      && pso0n.density() < 0
      && fabs(pso0n.density()) > m_param.stop_on_negative_density()
     ) {
         throw std::runtime_error(string::format(
-            "negative density\n" "in function: %s\n" "%s\n" "%s\n" "%s\n"
+            "negative density\n%s\n" "%s\n" "%s\n" "%s\n"
             "density = %g (abs > %g)\n"
-          , srcloc.c_str()
+          , error_location(filename, lineno, funcname).c_str()
           , m_block->info_string().c_str()
           , m_block->cell_info_string(icl).c_str()
           , m_state.step_info_string().c_str()
@@ -256,16 +256,16 @@ void Solver<NDIM>::throw_on_negative_density(const std::string & srcloc, index_t
 }
 
 template< size_t NDIM >
-void Solver<NDIM>::throw_on_negative_energy(const std::string & srcloc, index_type icl) const {
+void Solver<NDIM>::throw_on_negative_energy(const char * filename, int lineno, const char * funcname, index_type icl) const {
     auto pso0n = m_sol.so0n(icl);
     if (m_param.stop_on_negative_energy() != 0
      && pso0n.energy() < 0
      && fabs(pso0n.energy()) > m_param.stop_on_negative_energy()
     ) {
         throw std::runtime_error(string::format(
-            "negative energy\n" "in function: %s\n" "%s\n" "%s\n" "%s\n"
+            "negative energy\n%s\n" "%s\n" "%s\n" "%s\n"
             "energy = %g (abs > %g)\n"
-          , srcloc.c_str()
+          , error_location(filename, lineno, funcname).c_str()
           , m_block->info_string().c_str()
           , m_block->cell_info_string(icl).c_str()
           , m_state.step_info_string().c_str()
@@ -276,17 +276,17 @@ void Solver<NDIM>::throw_on_negative_energy(const std::string & srcloc, index_ty
 }
 
 template< size_t NDIM >
-void Solver<NDIM>::throw_on_cfl_adjustment(const std::string & srcloc, index_type icl) const {
+void Solver<NDIM>::throw_on_cfl_adjustment(const char * filename, int lineno, const char * funcname, index_type icl) const {
     if (m_param.stop_on_cfl_adjustment() != 0 && m_sol.cflc(icl) == 1) {
         throw std::runtime_error(string::format(
-            "cfl adjusted\n" "in function: %s\n" "%s\n" "%s\n" "%s\n"
+            "cfl adjusted\n%s\n" "%s\n" "%s\n" "%s\n"
             "energy = %g\n"
             "pressure = %g\n"
             "max_wavespeed = %g\n"
             "original cfl (cflo) = %g\n"
             "corrected cfl (cflc) = %g\n"
             "difference (cflc - cflo) = %g\n"
-          , srcloc.c_str()
+          , error_location(filename, lineno, funcname).c_str()
           , m_block->info_string().c_str()
           , m_block->cell_info_string(icl).c_str()
           , m_state.step_info_string().c_str()
@@ -301,17 +301,17 @@ void Solver<NDIM>::throw_on_cfl_adjustment(const std::string & srcloc, index_typ
 }
 
 template< size_t NDIM >
-void Solver<NDIM>::throw_on_cfl_overflow(const std::string & srcloc, index_type icl) const {
+void Solver<NDIM>::throw_on_cfl_overflow(const char * filename, int lineno, const char * funcname, index_type icl) const {
     if (m_param.stop_on_cfl_adjustment() != 0 && m_sol.cflc(icl) > 1) {
         throw std::runtime_error(string::format(
-            "cfl overflow\n" "in function: %s\n" "%s\n" "%s\n" "%s\n"
+            "cfl overflow\n%s\n" "%s\n" "%s\n" "%s\n"
             "energy = %g\n"
             "pressure = %g\n"
             "max_wavespeed = %g\n"
             "original cfl (cflo) = %g\n"
             "corrected cfl (cflc) = %g\n"
             "difference (cflc - cflo) = %g\n"
-          , srcloc.c_str()
+          , error_location(filename, lineno, funcname).c_str()
           , m_block->info_string().c_str()
           , m_block->cell_info_string(icl).c_str()
           , m_state.step_info_string().c_str()

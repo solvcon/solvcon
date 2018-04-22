@@ -16,6 +16,8 @@
 #include <iomanip>
 #include <string>
 
+#include <cxxabi.h>
+
 namespace march {
 
 namespace string {
@@ -52,13 +54,27 @@ inline std::string from_double(double value, size_t precision=0) {
     if (precision) {
         os.setf(std::ios::scientific);
         os.precision(precision);
-    } else {
-        os.setf(std::ios::fixed);
     }
     os << value;
     return os.str();
 }
 
+template <class T>
+std::string get_type_name(const T &) {
+    char * buf = abi::__cxa_demangle(typeid(T).name(), nullptr, nullptr, nullptr);
+    const std::string ret(buf);
+    free(buf);
+    return ret;
+}
+
 } /* end namespace string */
 
+inline std::string error_location(
+    const char * filename, int lineno, const char * funcname
+) {
+    return string::format("in file %s, line %d, function %s", filename, lineno, funcname);
+}
+
 } /* end namespace march */
+
+// vim: set ff=unix fenc=utf8 nobomb et sw=4 ts=4:

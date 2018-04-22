@@ -10,6 +10,7 @@
 
 #include "march/core/types.hpp"
 #include "march/core/utility.hpp"
+#include "march/core/string.hpp"
 
 namespace march {
 
