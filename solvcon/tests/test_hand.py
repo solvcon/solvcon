@@ -4,6 +4,67 @@ import math
 from .. import dependency
 dependency.import_module_may_fail('..march')
 
+class _TestLifeBase(object):
+
+    @property
+    def ndim(self):
+        return 3 if self.__class__.__name__.endswith("3D") else 2
+
+    NodeHand = property(lambda s: getattr(march, "NodeHand%dD" % s.ndim))
+    FaceHand = property(lambda s: getattr(march, "FaceHand%dD" % s.ndim))
+    CellHand = property(lambda s: getattr(march, "CellHand%dD" % s.ndim))
+
+    def test_node(self):
+        node = self.NodeHand(self.msh, 0)
+        self.msh = None
+        self.assertTrue(node.crd)
+
+    def test_face(self):
+        face = self.FaceHand(self.msh, 0)
+        self.msh = None
+        self.assertTrue(face.tpn)
+
+    def test_cell(self):
+        cell = self.CellHand(self.msh, 0)
+        self.msh = None
+        self.assertTrue(cell.tpn)
+
+class TestLife2D(unittest.TestCase, _TestLifeBase):
+
+    def setUp(self):
+        self.msh = march.UnstructuredBlock2D()
+        self.msh = march.UnstructuredBlock2D(4, 6, 3, False)
+        self.msh.ndcrd[0] = ( 0,  0)
+        self.msh.ndcrd[1] = (-1, -1)
+        self.msh.ndcrd[2] = ( 1, -1)
+        self.msh.ndcrd[3] = ( 0,  1)
+        self.msh.cltpn.fill(3)
+        self.msh.clnds[0,:4] = (3, 0, 1, 2)
+        self.msh.clnds[1,:4] = (3, 0, 2, 3)
+        self.msh.clnds[2,:4] = (3, 0, 3, 1)
+        self.msh.build_interior()
+        self.msh.build_boundary()
+        self.msh.build_ghost()
+
+class TestLife3D(unittest.TestCase, _TestLifeBase):
+
+     def setUp(self):
+        self.msh = march.UnstructuredBlock3D(5, 10, 4, False)
+        self.msh.ndcrd[0] = ( 0,  0,  0)
+        self.msh.ndcrd[1] = (10,  0,  0)
+        self.msh.ndcrd[2] = ( 0, 10,  0)
+        self.msh.ndcrd[3] = ( 0,  0, 10)
+        self.msh.ndcrd[4] = ( 1,  1,  1)
+        self.msh.cltpn.fill(5)
+        self.msh.clnds[0,:5] = (4, 0, 1, 2, 4)
+        self.msh.clnds[1,:5] = (4, 0, 2, 3, 4)
+        self.msh.clnds[2,:5] = (4, 0, 3, 1, 4)
+        self.msh.clnds[3,:5] = (4, 1, 2, 3, 4)
+        self.msh.build_interior()
+        self.msh.build_boundary()
+        self.msh.build_ghost()
+
+
 # FIXME: the geometry in the tests below hasn't been verified by visualization.
 # It's kept here just to anchor what I developed in code.
 

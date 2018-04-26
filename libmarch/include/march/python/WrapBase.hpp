@@ -16,6 +16,19 @@
 PYBIND11_DECLARE_HOLDER_TYPE(T, std::unique_ptr<T>);
 PYBIND11_DECLARE_HOLDER_TYPE(T, std::shared_ptr<T>);
 
+namespace march {
+namespace python {
+template <typename T> class unique_ptr_holding_block {
+    std::unique_ptr<T> ptr;
+    std::shared_ptr<typename T::block_type> block_ptr;
+public:
+    unique_ptr_holding_block(T *p) : ptr(p), block_ptr(p->block().shared_from_this()) {}
+    T *get() { return ptr.get(); }
+}; /* end class unique_ptr_holding_block */
+} /* end namespace python */
+} /* end namespace march */
+PYBIND11_DECLARE_HOLDER_TYPE(T, march::python::unique_ptr_holding_block<T>);
+
 #ifdef __GNUG__
 #  define MARCH_PYTHON_WRAPPER_VISIBILITY __attribute__((visibility("hidden")))
 #else

@@ -383,25 +383,23 @@ WrapUnstructuredBlock
 
 }; /* end class WrapUnstructuredBlock */
 
-// FIXME: no hand wrapper owns the block it points to!
-
 template< class WrapHand, class Hand >
 class
 MARCH_PYTHON_WRAPPER_VISIBILITY
 WrapBlockHand
-  : public WrapBase< WrapHand, Hand, std::unique_ptr<Hand>, Hand >
+  : public WrapBase< WrapHand, Hand, unique_ptr_holding_block<Hand> >
 {
 
+protected:
+
     /* aliases for dependent type name lookup */
-    using base_type = WrapBase< WrapHand, Hand, std::unique_ptr<Hand>, Hand >;
+    using base_type = WrapBase< WrapHand, Hand, unique_ptr_holding_block<Hand> >;
     using wrapper_type = typename base_type::wrapper_type;
     using wrapped_type = typename base_type::wrapped_type;
 
     using block_type = typename wrapped_type::block_type;
 
     friend base_type;
-
-protected:
 
     WrapBlockHand(pybind11::module & mod, const char * pyname, const char * clsdoc)
         : base_type(mod, pyname, clsdoc)
@@ -438,7 +436,7 @@ WrapNodeHand
 {
 
     /* aliases for dependent type name lookup */
-    using base_type = WrapBase< WrapNodeHand<NDIM>, NodeHand<NDIM> >;
+    using base_type = typename WrapBlockHand< WrapNodeHand<NDIM>, NodeHand<NDIM> >::base_type;
     using wrapper_type = typename base_type::wrapper_type;
     using wrapped_type = typename base_type::wrapped_type;
 
@@ -465,7 +463,7 @@ WrapFaceHand
 {
 
     /* aliases for dependent type name lookup */
-    using base_type = WrapBase< WrapFaceHand<NDIM>, FaceHand<NDIM> >;
+    using base_type = typename WrapBlockHand< WrapFaceHand<NDIM>, FaceHand<NDIM> >::base_type;
     using wrapper_type = typename base_type::wrapper_type;
     using wrapped_type = typename base_type::wrapped_type;
 
@@ -501,7 +499,7 @@ WrapCellHand
 {
 
     /* aliases for dependent type name lookup */
-    using base_type = WrapBase< WrapCellHand<NDIM>, CellHand<NDIM> >;
+    using base_type = typename WrapBlockHand< WrapCellHand<NDIM>, CellHand<NDIM> >::base_type;
     using wrapper_type = typename base_type::wrapper_type;
     using wrapped_type = typename base_type::wrapped_type;
 

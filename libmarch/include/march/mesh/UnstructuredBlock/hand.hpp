@@ -19,7 +19,10 @@ public:
     using block_type = UnstructuredBlock<NDIM>;
     using vector_type = Vector<NDIM>;
 
-    BlockHandBase(block_type const & block, index_type index) : m_block(&block), m_index(index) {}
+    BlockHandBase(block_type const & block, index_type index)
+      : m_block(&const_cast<block_type &>(block))
+      , m_index(index)
+    {}
 
     block_type       & block()       { return *m_block; }
     block_type const & block() const { return *m_block; }
@@ -39,7 +42,7 @@ protected:
 
 private:
 
-    block_type const * m_block = nullptr;
+    block_type * m_block = nullptr;
     index_type m_index = MH_INDEX_SENTINEL;
 
 }; /* end class BlockHandBase */
