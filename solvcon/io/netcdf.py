@@ -132,6 +132,8 @@ class NetCDF(object):
         # Load variable.
         var = self.root_group[name]
         arr = var[...]
+        if isinstance(arr, np.ma.MaskedArray): # issue #204
+            arr = arr.filled()
         assert isinstance(arr, np.ndarray)
         if len(shape) > 2:
             raise IndexError('array should have no more than two dimension')
