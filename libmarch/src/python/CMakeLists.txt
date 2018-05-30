@@ -13,7 +13,7 @@ set(MARCH_PY_SOURCES
     march_gas.cpp
 )
 pybind11_add_module(march ${MARCH_PY_SOURCES})
-target_link_libraries(march PRIVATE scotchmetis scotch scotcherr scotcherrexit)
+target_link_libraries(march PRIVATE ${SCOTCH_LIBRARIES})
 install(TARGETS march DESTINATION ${SOLVCON_ROOT})
 
 # vim: set ff=unix fenc=utf8 nobomb et sw=4 ts=4:

@@ -2,7 +2,7 @@
 # BSD 3-Clause License, see COPYING
 #
 # .. cmake_module:: SCOTCH
-# 
+#
 #    Simplistic cmake module for SCOTCH.  It sets the folllowing variables:
 #
 #    .. cmake_variable:: SCOTCH_INCLUDE_DIRS

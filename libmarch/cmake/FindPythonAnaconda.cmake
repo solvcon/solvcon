@@ -17,7 +17,7 @@ if(NOT CMAKE_FIND_ANACONDA_PYTHON_INCLUDED)
     OUTPUT_STRIP_TRAILING_WHITESPACE
     ERROR_STRIP_TRAILING_WHITESPACE
     )
-  
+
   if(ANACONDA_PYTHON_VERBOSE)
     message("Executing conda info --root")
     message("_r = ${_r}")
@@ -44,14 +44,14 @@ if(NOT CMAKE_FIND_ANACONDA_PYTHON_INCLUDED)
       OUTPUT_STRIP_TRAILING_WHITESPACE
       ERROR_STRIP_TRAILING_WHITESPACE
       )
-    
+
     if(ANACONDA_PYTHON_VERBOSE)
       message("Executing python --version")
       message("_r = ${_r}")
       message("_o = ${_o}")
       message("_e = ${_e}")
     endif()
-    
+
     string (REGEX MATCH "Python ([0-9]+)[.]([0-9]+)[.]([0-9]+)" _py_version_found "${_o}")
     #message("_py_version_found = ${_py_version_found}")
     #message("CMAKE_MATCH_0 = ${CMAKE_MATCH_0}")
@@ -60,7 +60,7 @@ if(NOT CMAKE_FIND_ANACONDA_PYTHON_INCLUDED)
     set( _py_version_patch ${CMAKE_MATCH_3} )
     set( ANACONDA_PYTHON_VERSION ${_py_version_major}.${_py_version_minor} )
 
-    
+
     if( ${_py_version_major} MATCHES 2 )
       set( _py_ext "")
     else()
@@ -68,7 +68,7 @@ if(NOT CMAKE_FIND_ANACONDA_PYTHON_INCLUDED)
     endif()
 
     set(_py_id "python${ANACONDA_PYTHON_VERSION}${_py_ext}")
-    
+
     if( NOT DEFINED ENV{CONDA_DEFAULT_ENV} )
       set( env_CONDA_DEFAULT_ENV "root" )
       message( WARNING "Could not find anaconda environment setting; using default root" )
@@ -84,17 +84,17 @@ if(NOT CMAKE_FIND_ANACONDA_PYTHON_INCLUDED)
       set(PYTHON_INCLUDE_DIR "${ANACONDA_PYTHON_DIR}/envs/${env_CONDA_DEFAULT_ENV}/include/${_py_id}" CACHE INTERNAL "")
       set(PYTHON_LIBRARY "${ANACONDA_PYTHON_DIR}/envs/${env_CONDA_DEFAULT_ENV}/lib/lib${_py_id}${CMAKE_SHARED_LIBRARY_SUFFIX}" CACHE INTERNAL "")
     endif()
-    
+
     set(PYTHON_INCLUDE_DIRS "${PYTHON_INCLUDE_DIR}")
     set(PYTHON_LIBRARIES "${PYTHON_LIBRARY}")
 
     set(FOUND_PYTHONLIBS TRUE)
   else()
-    message( "Not found: anaconda root directory..." )    
-    message( "Fall back to system python install..." )    
+    message( "Not found: anaconda root directory..." )
+    message( "Fall back to system python install..." )
     #FindPythonLibs()
   endif()
-  
+
   message( "PYTHON_INCLUDE_DIR = ${PYTHON_INCLUDE_DIR}")
   message( "PYTHON_LIBRARY = ${PYTHON_LIBRARY}")
 endif()
