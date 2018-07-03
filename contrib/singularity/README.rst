@@ -29,10 +29,12 @@ Use the container by
 
   $ singularity shell ./<name-of-the-image>.img
 
-You could find the built SOLVCON is under `/opt/solvcon/dist/SOLVCON-<Version Number>`.
-
 Activate the runtime by
 
-  [container] $ source contrib/singularity/activate.sh
+  [container] :SOLVCON-SRC-ROOT> source contrib/singularity/activate.sh
 
-So far the feature of single process run on the local container works only.
+You could find the built SOLVCON is under `/opt/solvcon/dist/SOLVCON-<Version Number>`. Go there and run some jobs
+
+  [container] :/opt/solvcon/dist/SOLVCON-0.1.4+> nosetests --with-doctest
+
+So far the feature of parallel mode does not work in the singularity container.
