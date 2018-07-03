@@ -1,0 +1,72 @@
+BootStrap: debootstrap
+OSVersion: xenial
+MirrorURL: http://us.archive.ubuntu.com/ubuntu/
+
+
+%runscript
+    echo "Welcome to SOLVCON singularity instance."
+
+%files
+    /tmp/host-username.txt /host-username.txt
+
+%post
+    echo "Prepare to build SOLVCON in singularity instance..."
+    sed -i 's/$/ universe/' /etc/apt/sources.list
+    apt-get update
+    # general tools
+    apt-get install vim git -y
+    # used for miniconda extraction
+    apt-get install bzip2
+    # SOLVCON build tools
+    apt-get install openssh-client openssh-server liblapack-pic liblapack-dev -y
+    apt-get install build-essential unzip -y
+    # it currently works in the root path
+    echo "Working location: " `pwd`
+    # it is /root
+    echo $HOME
+    apt-get clean
+
+    # I want solvcon source code and folder is managed by the same
+    # user who triggers the container execution
+    export TARGET_USERNAME=`cat /host-username.txt`
+    adduser --no-create-home --disabled-password --gecos "" $TARGET_USERNAME
+
+    export SOLVCON_BUILD_DIR=/opt
+    cd $SOLVCON_BUILD_DIR/
+    git clone https://github.com/solvcon/solvcon.git $SOLVCON_BUILD_DIR/solvcon
+
+    wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
+    ls ./
+    ls $SOLVCON_BUILD_DIR/
+    bash miniconda.sh -b -p $SOLVCON_BUILD_DIR/miniconda
+    export PATH="$SOLVCON_BUILD_DIR/miniconda/bin:$PATH"
+    conda update -q conda
+    which python; python --version
+    #which $CXX; $CXX --version
+    #which $CC; $CC --version
+
+    $SOLVCON_BUILD_DIR/solvcon/contrib/devenv/create.sh
+    bash -c "source $SOLVCON_BUILD_DIR/solvcon/build/env/start"
+    $SOLVCON_BUILD_DIR/solvcon/contrib/conda.sh
+    $SOLVCON_BUILD_DIR/solvcon/contrib/build-pybind11-in-conda.sh
+    #$SOLVCON_BUILD_DIR/solvcon/contrib/release.sh
+    SCVER=`cd $SOLVCON_BUILD_DIR/solvcon; python -c 'import sys; import solvcon; sys.stdout.write("%s\\n" % solvcon.__version__)'`
+
+    # package source distribution file.
+    cd $SOLVCON_BUILD_DIR/solvcon
+    ls
+    rm -rf dist/SOLVCON-${SCVER}*
+    python setup.py clean
+    python setup.py sdist
+
+    # unpack the distribution file.
+    cd dist
+    rm -rf SOLVCON-${SCVER}/
+    tar xfz SOLVCON-${SCVER}.tar.gz
+    cd SOLVCON-${SCVER}
+    ## build.
+    python setup.py build_ext --inplace
+    nosetests --with-doctest
+
+    # so the normal user could write SOLVCON folder
+    chown $TARGET_USERNAME -R $SOLVCON_BUILD_DIR/*
