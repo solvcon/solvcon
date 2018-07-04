@@ -1,5 +1,9 @@
 SOLVCON Singularity-based image build file.
 
+In short, run this command to get everything ready.
+
+  $ sudo singularity build ./ubuntu-xenial-singularity.img ./Singularity && singularity exec ubuntu-xenial-singularity.img /bin/bash -c 'source /opt/solvcon/dist/SOLVCON-0.1.4+/contrib/singularity/activate.sh; cd /opt/solvcon/dist/SOLVCON-0.1.4+/; nosetests --with-doctest
+
 Pre-requisite
 =============
 
