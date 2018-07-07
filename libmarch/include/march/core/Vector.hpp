@@ -14,6 +14,11 @@
 
 namespace march {
 
+#pragma GCC diagnostic push
+#ifndef __clang__
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif // __clang__
+
 /**
  * Cartesian vector in two or three dimensional space.
  */
@@ -164,6 +169,8 @@ inline real_type cross(Vector<2> const & lhs, Vector<2> const & rhs) {
 inline Vector<3> cross(Vector<3> const & lhs, Vector<3> const & rhs) {
     return Vector<3>(lhs[1]*rhs[2] - lhs[2]*rhs[1], lhs[2]*rhs[0] - lhs[0]*rhs[2], lhs[0]*rhs[1] - lhs[1]*rhs[0]);
 }
+
+#pragma GCC diagnostic pop
 
 } /* end namespace march */
 

@@ -1,0 +1,30 @@
+image: yungyuc/doriath_build:latest
+
+before_script:
+- which python; python --version
+- conda info -a
+- set | grep CONDA
+
+libmarch_opt_build:
+  script:
+  - mkdir -p ${CI_PROJECT_DIR}/libmarch/build/rel
+  - cd ${CI_PROJECT_DIR}/libmarch/build/rel
+  - cmake -DPYTHON_EXECUTABLE:FILEPATH=`which python`
+    -DCMAKE_BUILD_TYPE=Release
+    -Dpybind11_DIR=${CONDA_PREFIX}/share/cmake/pybind11
+    -DTESTFILTER="*"
+    ${CI_PROJECT_DIR}/libmarch
+  - cd ${CI_PROJECT_DIR}/libmarch
+  - make -C build/rel run_gtest VERBOSE=1
+
+libmarch_dbg_build:
+  script:
+  - mkdir -p ${CI_PROJECT_DIR}/libmarch/build/dbg
+  - cd ${CI_PROJECT_DIR}/libmarch/build/dbg
+  - cmake -DPYTHON_EXECUTABLE:FILEPATH=`which python`
+    -DCMAKE_BUILD_TYPE=Debug
+    -Dpybind11_DIR=${CONDA_PREFIX}/share/cmake/pybind11
+    -DTESTFILTER="*"
+    ${CI_PROJECT_DIR}/libmarch
+  - cd ${CI_PROJECT_DIR}/libmarch
+  - make -C build/dbg run_gtest VERBOSE=1
