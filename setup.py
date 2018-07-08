@@ -307,6 +307,7 @@ def main():
             conda_evars = ""
         cmake_cmds = [
             'env %s cmake' % conda_evars,
+            os.environ.get('CMAKE_PASSTHROUGH', ''),
             '-DPYTHON_EXECUTABLE:FILEPATH=%s' % sys.executable,
             '-DCMAKE_BUILD_TYPE=%s ../..' % cmake_build_type,
         ]
