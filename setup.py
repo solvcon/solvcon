@@ -204,6 +204,9 @@ def main():
     if sys.platform != 'darwin':
         turn_off_unused_warnings += ' -Wno-unused-but-set-variable'
     # set up extension modules.
+    lapack_libraries = ['lapack', 'blas']
+    if os.environ.get('LAPACK_GFORTRAN'):
+        lapack_libraries.append('gfortran')
     ext_modules = [
         make_cython_extension(
             'solvcon._march_bridge', [],
@@ -222,7 +225,7 @@ def main():
         ),
         make_cython_extension(
             'solvcon.parcel.linear._algorithm', ['src'],
-            libraries=['lapack', 'blas'],
+            libraries=lapack_libraries,
             extra_compile_args=[
                 turn_off_unused_warnings,
                 '-Wno-unknown-pragmas',
