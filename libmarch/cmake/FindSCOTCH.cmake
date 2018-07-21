@@ -22,7 +22,7 @@
 #    Additional search path for SCOTCH header and library files.
 
 find_path(SCOTCH_INCLUDE_DIRS NAMES scotch.h
-    PATHS ${SCOTCH_ROOT} #"$ENV{CONDA_PREFIX}"
+    PATHS ${SCOTCH_ROOT} /usr/include/scotch #"$ENV{CONDA_PREFIX}"
     PATH_SUFFIXES include
     DOC "Include directory of SCOTCH."
 )

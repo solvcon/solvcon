@@ -20,5 +20,5 @@ unzip pybind11.zip
 cd pybind11-master
 mkdir -p build
 cd build
-cmake -DPYTHON_EXECUTABLE:FILEPATH=`which python` -DCMAKE_INSTALL_PREFIX=${conda_root} ..
+cmake -DPYBIND11_TEST=OFF -DPYTHON_EXECUTABLE:FILEPATH=`which python` -DCMAKE_INSTALL_PREFIX=${conda_root} ..
 make install
