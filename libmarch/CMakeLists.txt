@@ -29,6 +29,9 @@ set(MARCH_WARNOPT "${MARCH_WARNOPT} -Wno-unused-function -Wno-unreachable-code -
 set(MARCH_WARNOPT "${MARCH_WARNOPT} -Wno-error=deprecated-declarations")
 # FIXME: remove after port all legacy C code.
 set(MARCH_WARNOPT "${MARCH_WARNOPT} -Wno-error=sign-compare")
+if(NOT CMAKE_CXX_COMPILER_ID MATCHES "^(Apple)?Clang$")
+    set(MARCH_WARNOPT "${MARCH_WARNOPT} -Wno-error=maybe-uninitialized")
+endif()
 
 if(MARCH_NO_DEPRECATE_WARNING)
     set(MARCH_WARNOPT "${MARCH_WARNOPT} -Wno-deprecated-declarations")

@@ -76,8 +76,6 @@ __all__ = [
     'exception',
     # module: N/A
     'test',
-    # module: vis
-    'vis',
 ]
 
 from .dependency import import_module_may_fail, import_name
@@ -95,7 +93,6 @@ from . import helper
 from .helper import Gmsh
 from . import parcel
 from . import exception
-from . import vis
 
 def test():
     """
