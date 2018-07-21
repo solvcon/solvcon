@@ -8,7 +8,7 @@ libmarch_opt_build:
   script:
   - mkdir -p ${CI_PROJECT_DIR}/libmarch/build/rel
   - cd ${CI_PROJECT_DIR}/libmarch/build/rel
-  - cmake -DPYTHON_EXECUTABLE:FILEPATH=`which python`
+  - cmake -DPYTHON_EXECUTABLE:FILEPATH=`which python3`
     -DCMAKE_BUILD_TYPE=Release
     -DTESTFILTER="*"
     ${CI_PROJECT_DIR}/libmarch
@@ -19,7 +19,7 @@ libmarch_dbg_build:
   script:
   - mkdir -p ${CI_PROJECT_DIR}/libmarch/build/dbg
   - cd ${CI_PROJECT_DIR}/libmarch/build/dbg
-  - cmake -DPYTHON_EXECUTABLE:FILEPATH=`which python`
+  - cmake -DPYTHON_EXECUTABLE:FILEPATH=`which python3`
     -DCMAKE_BUILD_TYPE=Debug
     -DTESTFILTER="*"
     ${CI_PROJECT_DIR}/libmarch
