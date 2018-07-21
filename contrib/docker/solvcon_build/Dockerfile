@@ -68,4 +68,3 @@ RUN \
 RUN useradd -m solvcon
 USER solvcon
 ENV HOME="/home/solvcon"
-RUN cd $HOME
