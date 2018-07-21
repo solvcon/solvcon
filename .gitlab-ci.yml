@@ -25,3 +25,9 @@ libmarch_dbg_build:
     ${CI_PROJECT_DIR}/libmarch
   - cd ${CI_PROJECT_DIR}/libmarch
   - make -C build/dbg run_gtest VERBOSE=1
+
+solvcon_opt_build:
+  script:
+  - make VERBOSE=1
+  - python3 setup.py build_ext --inplace
+  - nosetests3 --with-doctest

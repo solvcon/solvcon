@@ -18,7 +18,8 @@ include(FindPythonAnaconda)
 
 option(MARCH_RELAX_ERROR "Relax compiler error" OFF)
 option(MARCH_NO_DEPRECATE_WARNING "Turn off deprecation warning" OFF)
-option(SOLVCON_ROOT "SOLVCON root path" OFF)
+option(MARCH_DESTINATION "SOLVCON root path" OFF)
+option(MARCH_TEST "Build libmarch test cases" ON)
 
 find_package(SCOTCH)
 
@@ -41,8 +42,8 @@ if(MARCH_RELAX_ERROR)
     set(MARCH_WARNOPT "${MARCH_WARNOPT} -Wno-error=unused-variable")
 endif()
 
-if(NOT SOLVCON_ROOT)
-    set(SOLVCON_ROOT ${CMAKE_INSTALL_PREFIX})
+if(NOT MARCH_DESTINATION)
+    set(MARCH_DESTINATION ${CMAKE_INSTALL_PREFIX})
 endif()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -fPIC ${MARCH_WARNOPT}")
@@ -102,6 +103,8 @@ string(REPLACE "include/" "${CMAKE_CURRENT_SOURCE_DIR}/include/"
        MARCH_HEADERS "${MARCH_HEADERS}")
 
 add_subdirectory(src)
-add_subdirectory(tests)
+if (MARCH_TEST)
+    add_subdirectory(tests)
+endif()
 
 # vim: set ff=unix fenc=utf8 nobomb et sw=4 ts=4:

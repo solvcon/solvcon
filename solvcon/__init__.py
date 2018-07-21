@@ -94,6 +94,8 @@ from .helper import Gmsh
 from . import parcel
 from . import exception
 
+import_module_may_fail('.march')
+
 def test():
     """
     Run everything in :py:mod:`solvcon.tests` and :py:mod:`solvcon.io.tests`.

@@ -256,7 +256,7 @@ def main():
                 '-Wno-unknown-pragmas',
             ],
         ),
-        CmakeExtension('solvcon.march', ['CMakeLists.txt']),
+        #CmakeExtension('solvcon.march', ['CMakeLists.txt']),
     ]
 
     # remove files when cleaning.

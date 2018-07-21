@@ -57,7 +57,7 @@ PyObject * ModuleInitializer::initialize_march(pybind11::module & mod) {
 
 } /* end namespace march */
 
-PYBIND11_MODULE(march, mod) {
+PYBIND11_MODULE(libmarch, mod) {
     ::march::python::ModuleInitializer::get_instance().initialize(mod);
 }
 

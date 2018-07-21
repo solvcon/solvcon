@@ -32,7 +32,7 @@ import unittest
 
 import numpy as np
 
-from ..march import Table
+from solvcon import Table
 
 
 class TestTableCreation(unittest.TestCase):
