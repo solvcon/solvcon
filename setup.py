@@ -311,11 +311,7 @@ def main():
             'solvcon.parcel.tests',
             'solvcon.parcel.vewave',
             'solvcon.tests',
-            'solvcon.vis',
         ],
-        package_data={
-            'solvcon.vis': ["js/*"],
-        },
         cmdclass={
             'build_ext': my_build_ext,
         },
