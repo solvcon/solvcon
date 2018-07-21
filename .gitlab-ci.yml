@@ -1,4 +1,4 @@
-image: yungyuc/doriath_build:latest
+image: solvcon/solvcon_build:latest
 
 before_script:
 - which python; python --version
