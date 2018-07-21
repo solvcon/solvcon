@@ -1,9 +1,8 @@
 image: solvcon/solvcon_build:latest
 
 before_script:
+- which g++; g++ --version
 - which python3; python3 --version
-- conda info -a
-- set | grep CONDA
 
 libmarch_opt_build:
   script:
@@ -11,7 +10,6 @@ libmarch_opt_build:
   - cd ${CI_PROJECT_DIR}/libmarch/build/rel
   - cmake -DPYTHON_EXECUTABLE:FILEPATH=`which python`
     -DCMAKE_BUILD_TYPE=Release
-    -Dpybind11_DIR=${CONDA_PREFIX}/share/cmake/pybind11
     -DTESTFILTER="*"
     ${CI_PROJECT_DIR}/libmarch
   - cd ${CI_PROJECT_DIR}/libmarch
@@ -23,7 +21,6 @@ libmarch_dbg_build:
   - cd ${CI_PROJECT_DIR}/libmarch/build/dbg
   - cmake -DPYTHON_EXECUTABLE:FILEPATH=`which python`
     -DCMAKE_BUILD_TYPE=Debug
-    -Dpybind11_DIR=${CONDA_PREFIX}/share/cmake/pybind11
     -DTESTFILTER="*"
     ${CI_PROJECT_DIR}/libmarch
   - cd ${CI_PROJECT_DIR}/libmarch
