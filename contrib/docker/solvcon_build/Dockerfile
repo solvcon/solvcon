@@ -64,7 +64,22 @@ RUN \
   make install && \
   rm -rf /tmp/pybind11*
 
-# Set up user and environment.
-RUN useradd -m solvcon
-USER solvcon
-ENV HOME="/home/solvcon"
+# Python runtime dependencies.
+RUN \
+  apt-get -qq update && \
+  apt-get -qqy install openssh-client openssh-server && \
+  rm -rf /var/lib/apt/lists/*
+
+# Set up ssh.
+RUN \
+  service ssh restart && \
+  cd && \
+  mkdir -p ~/.ssh/ && \
+  ssh-keygen -t rsa -f ~/.ssh/id_rsa -N "" && \
+  chmod 700 ~/.ssh/ && \
+  cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys && \
+  chmod 600 ~/.ssh/authorized_keys && \
+  ssh-keyscan -t rsa localhost >> ~/.ssh/known_hosts && \
+  ssh-keyscan -t rsa 127.0.0.1 >> ~/.ssh/known_hosts && \
+  chmod 600 ~/.ssh/known_hosts
+ENTRYPOINT service ssh restart && bash
