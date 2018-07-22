@@ -108,8 +108,7 @@ script:
     $SCRIPT_RUN_PREFIX $CXX --version
     $SCRIPT_RUN_PREFIX which $CC
     $SCRIPT_RUN_PREFIX $CC --version
-  - $SCRIPT_RUN_PREFIX make
-  - $SCRIPT_RUN_PREFIX contrib/release.sh
+  - $SCRIPT_RUN_PREFIX env SC_PURE_PYTHON=1 contrib/release.sh
 
 after_script:
   - |

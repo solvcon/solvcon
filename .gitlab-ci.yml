@@ -41,6 +41,14 @@ solvcon:opt:
   artifacts:
     untracked: true
 
+solvcon:release:
+  stage: build
+  script:
+    - env SC_PURE_PYTHON=1 contrib/release.sh
+  artifacts:
+    paths:
+      - dist/SOLVCON*.tar.gz
+
 libmarch:opt:gtest:
   dependencies:
     - libmarch:opt

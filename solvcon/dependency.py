@@ -33,18 +33,42 @@ Logic for using external compiled libraries.
 """
 
 
+import os
+import types
 import warnings
 import importlib
 import inspect
 import re
 
 
+def _warn_import(msg):
+    if not bool(os.environ.get("SC_PURE_PYTHON")):
+        warnings.warn(msg, RuntimeWarning, stacklevel=3)
+
+
+class _RespondAllAttributeNamespace(types.ModuleType):
+
+    def __init__(self, name):
+        self.name = name
+
+    def __repr__(self):
+        return "_RespondAllAttributeNamespace(%s)" % self.name
+
+    def __hasattr__(self, name):
+        return True
+
+    def __getattr__(self, name):
+        return _RespondAllAttributeNamespace(name)
+
+
 def _import_libmarch():
     try:
         import libmarch
+        if not getattr(libmarch, '__file__', None):
+            raise ImportError('libmarch isn\'t a file')
     except ImportError:
-        libmarch = None
-        warnings.warn("libmarch not found", RuntimeWarning, stacklevel=2)
+        libmarch = _RespondAllAttributeNamespace('libmarch')
+        _warn_import("libmarch not found; create a dummy")
     return libmarch
 
 
@@ -100,8 +124,7 @@ def import_module_may_fail(modname, asname=None):
             else:
                 name = resolve_name(modname, package)
             msg = '; '.join(str(it) for it in e.args)
-            warnings.warn("%s isn't built; %s" % (name, msg),
-                          RuntimeWarning, stacklevel=2)
+            _warn_import("%s isn't built; %s" % (name, msg))
     finally:
         del cframe
     return mod
@@ -115,7 +138,7 @@ def import_name(name, modname, asname=None, may_fail=False):
     if not hasattr(mod, name):
         msg = "%s not found in %s" % (name, modname)
         if may_fail:
-            warnings.warn(msg, RuntimeWarning, stacklevel=2)
+            _warn_import(msg)
         else:
             raise ImportError(msg)
     obj = getattr(mod, name, None)

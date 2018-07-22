@@ -1,6 +1,6 @@
 #!/bin/bash -x
 
-SCVER=`python3 -c 'import sys; import solvcon; sys.stdout.write("%s\\n" % solvcon.__version__)'`
+SCVER=$(python3 -c 'import sys; import solvcon; sys.stdout.write("%s"%solvcon.__version__)')
 
 # package source distribution file.
 rm -rf dist/SOLVCON-${SCVER}*
