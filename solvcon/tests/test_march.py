@@ -15,7 +15,7 @@ from ..testing import get_blk_from_oblique_neu, get_blk_from_sample_neu
 class TestCreation(TestCase):
 
     def test_import(self):
-        from solvcon.march import gas
+        from libmarch import gas
 
     def test_constructor(self):
         svr = march.gas.Solver2D(
@@ -30,7 +30,6 @@ class TestCreation(TestCase):
 class TestGasSolver(TestCase):
 
     def test_class_attributes(self):
-        from solvcon.march import gas
-        for cls in (gas.Solver2D, gas.Solver3D):
+        for cls in (march.gas.Solver2D, march.gas.Solver3D):
             self.assertEqual(getattr(cls, '_interface_init_'), ('cecnd',))
             self.assertEqual(getattr(cls, '_solution_array_'), tuple())

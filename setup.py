@@ -124,10 +124,6 @@ def make_cython_extension(
     )
 
 
-class CmakeExtension(Extension):
-    pass
-
-
 class my_build_ext(np_build_ext.build_ext):
 
     def _copy_cmake_extension(self, ext):
@@ -160,10 +156,7 @@ class my_build_ext(np_build_ext.build_ext):
     def build_extension(self, ext):
         ''' Copies the already-compiled pyd
         '''
-        if isinstance(ext, CmakeExtension):
-            return self._copy_cmake_extension(ext)
-        else: # fallback
-            return np_build_ext.build_ext.build_extension(self, ext)
+        return np_build_ext.build_ext.build_extension(self, ext)
 
 
 def main():
@@ -256,7 +249,6 @@ def main():
                 '-Wno-unknown-pragmas',
             ],
         ),
-        CmakeExtension('solvcon.march', ['CMakeLists.txt']),
     ]
 
     # remove files when cleaning.
@@ -284,43 +276,6 @@ def main():
             ext_modules = list()
         else:
             ext_modules = cythonize(ext_modules)
-
-    # call cmake.
-    if hasattr(sys, 'gettotalrefcount'):
-        cmake_build_dir = 'build/march_dbg'
-        cmake_build_type = 'Debug'
-    else:
-        cmake_build_dir = 'build/march_rel'
-        cmake_build_type = 'Release'
-    if cidx > sidx:
-        cmds = ['rm -rf %s' % cmake_build_dir,
-                'rm -f solvcon/march*.so']
-        sys.stdout.write('\n'.join(['[for cmake] '+cmd for cmd in cmds]))
-        sys.stdout.write('\n')
-        os.system(' ; '.join(cmds))
-    else:
-        if '--inplace' not in sys.argv:
-            sys.stdout.write(
-                "cmake extension can only be built inplace; "
-                "add --inplace argument\n")
-        if "CONDA_PREFIX" in os.environ:
-            conda_evars = "LIBRARY_PATH=%s" % os.path.join(
-                os.environ["CONDA_PREFIX"], "lib")
-        else:
-            conda_evars = ""
-        cmake_cmds = [
-            'env %s cmake' % conda_evars,
-            os.environ.get('CMAKE_PASSTHROUGH', ''),
-            '-DPYTHON_EXECUTABLE:FILEPATH=%s' % sys.executable,
-            '-DCMAKE_BUILD_TYPE=%s ../..' % cmake_build_type,
-        ]
-        cmds = ['mkdir -p %s' % cmake_build_dir,
-                'cd %s' % cmake_build_dir,
-                ' '.join(cmake_cmds),
-                'env %s make install' % conda_evars]
-        sys.stdout.write('\n'.join(['[for cmake] '+cmd for cmd in cmds]))
-        sys.stdout.write('\n')
-        os.system(' ; '.join(cmds))
 
     with open('README.rst') as fobj:
         long_description = ''.join(fobj.read())
@@ -356,11 +311,7 @@ def main():
             'solvcon.parcel.tests',
             'solvcon.parcel.vewave',
             'solvcon.tests',
-            'solvcon.vis',
         ],
-        package_data={
-            'solvcon.vis': ["js/*"],
-        },
         cmdclass={
             'build_ext': my_build_ext,
         },

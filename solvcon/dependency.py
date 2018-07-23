@@ -33,9 +33,43 @@ Logic for using external compiled libraries.
 """
 
 
+import os
+import types
 import warnings
 import importlib
 import inspect
+import re
+
+
+def _warn_import(msg):
+    if not bool(os.environ.get("SC_PURE_PYTHON")):
+        warnings.warn(msg, RuntimeWarning, stacklevel=3)
+
+
+class _RespondAllAttributeNamespace(types.ModuleType):
+
+    def __init__(self, name):
+        self.name = name
+
+    def __repr__(self):
+        return "_RespondAllAttributeNamespace(%s)" % self.name
+
+    def __hasattr__(self, name):
+        return True
+
+    def __getattr__(self, name):
+        return _RespondAllAttributeNamespace(name)
+
+
+def _import_libmarch():
+    try:
+        import libmarch
+        if not getattr(libmarch, '__file__', None):
+            raise ImportError('libmarch isn\'t a file')
+    except ImportError:
+        libmarch = _RespondAllAttributeNamespace('libmarch')
+        _warn_import("libmarch not found; create a dummy")
+    return libmarch
 
 
 def resolve_name(name, package):
@@ -52,6 +86,7 @@ def resolve_name(name, package):
         name = util.resolve_name(name, package)
     return name
 
+_libmarch_name_pattern = re.compile(r'\.+march')
 
 def import_module_may_fail(modname, asname=None):
     """
@@ -64,8 +99,10 @@ def import_module_may_fail(modname, asname=None):
     cframe = inspect.currentframe().f_back # Caller's frame.
     try:
         cglobals = cframe.f_globals
-        # Determine package name for importlib.import_module().
-        if modname.startswith('.'):
+        if _libmarch_name_pattern.search(modname):
+            package = _import_libmarch # call this method later.
+        elif modname.startswith('.'):
+            # Determine package name for importlib.import_module().
             package = cglobals['__name__']
             if not cglobals['__file__'].split('.')[-2].endswith('__init__'):
                 package = '.'.join(package.split('.')[:-1])
@@ -75,7 +112,10 @@ def import_module_may_fail(modname, asname=None):
         asname = modname.split('.')[-1] if None is asname else asname
         # Try to import the module.
         try:
-            mod = importlib.import_module(modname, package)
+            if callable(package):
+                mod = package()
+            else:
+                mod = importlib.import_module(modname, package)
             if '' != asname:
                 cframe.f_locals[asname] = mod
         except ImportError as e:
@@ -84,8 +124,7 @@ def import_module_may_fail(modname, asname=None):
             else:
                 name = resolve_name(modname, package)
             msg = '; '.join(str(it) for it in e.args)
-            warnings.warn("%s isn't built; %s" % (name, msg),
-                          RuntimeWarning, stacklevel=2)
+            _warn_import("%s isn't built; %s" % (name, msg))
     finally:
         del cframe
     return mod
@@ -99,7 +138,7 @@ def import_name(name, modname, asname=None, may_fail=False):
     if not hasattr(mod, name):
         msg = "%s not found in %s" % (name, modname)
         if may_fail:
-            warnings.warn(msg, RuntimeWarning, stacklevel=2)
+            _warn_import(msg)
         else:
             raise ImportError(msg)
     obj = getattr(mod, name, None)

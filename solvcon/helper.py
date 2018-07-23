@@ -167,8 +167,13 @@ def get_username():
         username = os.getlogin()
     except:
         username = None
+    import getpass
+    try:
+        username = getpass.getuser()
+    except:
+        username = None
     if not username:
-        username = os.environ['LOGNAME']
+        username = os.environ.get('LOGNAME')
     return username
 
 def search_in_parents(loc, name):

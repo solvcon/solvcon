@@ -1,13 +1,17 @@
 #!/bin/bash -x
 
-SCVER=`python -c 'import sys; import solvcon; sys.stdout.write("%s\\n" % solvcon.__version__)'`
+SCVER=$(python3 -c 'import sys; import solvcon; sys.stdout.write("%s"%solvcon.__version__)')
 
 # package source distribution file.
 rm -rf dist/SOLVCON-${SCVER}*
-python setup.py clean
-python setup.py sdist
+python3 setup.py clean
+python3 setup.py sdist
 
 # unpack the distribution file.
+if [[ ! -d "dist" ]] ; then
+  echo "fatal error: dist doesn't exist"
+  exit 1
+fi
 cd dist
 rm -rf SOLVCON-${SCVER}/
 tar xfz SOLVCON-${SCVER}.tar.gz
@@ -16,21 +20,17 @@ cd SOLVCON-${SCVER}
 retval=0
 
 # build.
-python setup.py build_ext --inplace
+make
 lret=$?; if [[ $lret != 0 ]] ; then retval=$lret ; fi
 
-# test.
-PYTHONPATH=`pwd`
-nosetests --with-doctest ; lret=$?
-if [[ $lret != 0 ]] ; then retval=$lret ; fi
-nosetests ftests/gasplus/* -v ; lret=$?
-if [[ $lret != 0 ]] ; then retval=$lret ; fi
-nosetests ftests/parallel/* ; lret=$?
-if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
-  echo "As of 2017/12/6, travis osx image randomly fails tests related to rpc \
-with ssh.  Disregard the error report for now."
+# unit test.
+if [[ -n `which nosetests3` ]] ; then
+  NOSETESTS=nosetests3
 else
-  if [[ $lret != 0 ]] ; then retval=$lret ; fi
+  NOSETESTS=nosetests
 fi
+PYTHONPATH=`pwd`
+$NOSETESTS --with-doctest ; lret=$?
+if [[ $lret != 0 ]] ; then retval=$lret ; fi
 
 exit $retval

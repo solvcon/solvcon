@@ -1,15 +1,9 @@
+language: cpp
+dist: trusty
+
 cache:
   directory:
   - $HOME/miniconda
-
-# If using C++11/14 see http://genbattle.bitbucket.org/blog/2016/01/17/c++-travis-ci/
-addons:
-  apt:
-    packages:
-      - openssh-client
-      - openssh-server
-      - liblapack-pic
-      - liblapack-dev
 
 notifications:
   slack:
@@ -35,61 +29,90 @@ matrix:
   include:
     - os: linux
       sudo: required
-      dist: trusty
-      language: cpp
+      services: docker
+      env: RUNMODE=docker
+    - os: linux
+      sudo: required
       compiler: gcc
+      env: RUNMODE=travis
+      addons:
+        # If using C++11/14 see http://genbattle.bitbucket.org/blog/2016/01/17/c++-travis-ci/
+        apt:
+          packages: [ openssh-client, openssh-server, liblapack-pic, liblapack-dev ]
     - os: osx
       #osx_image: xcode7.3
-      language: cpp
       compiler: clang
+      env: RUNMODE=travis
 
 before_install:
-  # Configure ssh
-  - ssh-keygen -t rsa -f ~/.ssh/id_rsa -N ""
-  - chmod 700 ~/.ssh/
-  - cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys
-  - chmod 600 ~/.ssh/authorized_keys
-  - ssh-keyscan -t rsa localhost >> ~/.ssh/known_hosts
-  - ssh-keyscan -t rsa 127.0.0.1 >> ~/.ssh/known_hosts
-  - chmod 600 ~/.ssh/known_hosts
-  - ls -al ~/.ssh/
-  - ssh localhost ls
-  - ssh 127.0.0.1 ls
-  # Install minimal conda
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
-      wget https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -O miniconda.sh;
+  - |
+    if [[ "$RUNMODE" == "docker" ]] ; then
+      # Configure docker
+      DOCKER=solvcon/solvcon_build
+      docker pull $DOCKER
+
+      containerid=$(docker run --detach --tty \
+        --volume="${TRAVIS_BUILD_DIR}":${TRAVIS_BUILD_DIR} \
+        --workdir=${TRAVIS_BUILD_DIR} \
+        $DOCKER)
+
+      SCRIPT_RUN_PREFIX="docker exec --tty $containerid"
     else
-      wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
+      # Configure ssh
+      ssh-keygen -t rsa -f ~/.ssh/id_rsa -N ""
+      chmod 700 ~/.ssh/
+      cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys
+      chmod 600 ~/.ssh/authorized_keys
+      ssh-keyscan -t rsa localhost >> ~/.ssh/known_hosts
+      ssh-keyscan -t rsa 127.0.0.1 >> ~/.ssh/known_hosts
+      chmod 600 ~/.ssh/known_hosts
+      ls -al ~/.ssh/
+      ssh localhost ls
+      ssh 127.0.0.1 ls
+
+      SCRIPT_RUN_PREFIX=
     fi
-  - bash miniconda.sh -b -p $HOME/miniconda
-  - export PATH="$HOME/miniconda/bin:$PATH"
-  - hash -r
-  - conda config --set always_yes yes --set changeps1 no
-  - conda update -q conda
-  # Useful for debugging any issues with conda
-  - which python; python --version
-  - conda info -a
-  # Debug information of compiler
-  - which $CXX; $CXX --version
-  - which $CC; $CC --version
 
 install:
-  - ${TRAVIS_BUILD_DIR}/contrib/devenv/create.sh
-  - source ${TRAVIS_BUILD_DIR}/build/env/start
-  - ${TRAVIS_BUILD_DIR}/contrib/conda.sh
-  - ${TRAVIS_BUILD_DIR}/contrib/build-pybind11-in-conda.sh
-  - which python; python --version
-  - conda info -a
-  - set | grep SC
-  - set | grep CONDA
+  - |
+    if [[ "$RUNMODE" != "docker" ]] ; then
+      # Install minimal conda
+      if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
+        wget https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -O miniconda.sh;
+      else
+        wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
+      fi
+      bash miniconda.sh -b -p $HOME/miniconda
+      export PATH="$HOME/miniconda/bin:$PATH"
+      hash -r
+      conda config --set always_yes yes --set changeps1 no
+      conda update -q conda
+    fi
+  - |
+    if [[ "$RUNMODE" != "docker" ]] ; then
+      # Install conda packages
+      ${TRAVIS_BUILD_DIR}/contrib/devenv/create.sh
+      source ${TRAVIS_BUILD_DIR}/build/env/start
+      ${TRAVIS_BUILD_DIR}/contrib/conda.sh
+      ${TRAVIS_BUILD_DIR}/contrib/build-pybind11-in-conda.sh
+      # Debugging information
+      conda info -a
+    fi
 
 script:
-  # C++ debug build
-  - mkdir -p ${TRAVIS_BUILD_DIR}/build/debug
-  - cd ${TRAVIS_BUILD_DIR}/build/debug
-  - cmake -DPYTHON_EXECUTABLE:FILEPATH=`which python` -Dpybind11_DIR=${CONDA_PREFIX}/share/cmake/pybind11 -DTESTFILTER="*" -DCMAKE_BUILD_TYPE=Debug ${TRAVIS_BUILD_DIR}
-  - cd ${TRAVIS_BUILD_DIR}
-  - make -C build/debug run_gtest VERBOSE=1
-  # Package
-  - cd ${TRAVIS_BUILD_DIR}
-  - contrib/release.sh
+  # Debugging information
+  - |
+    $SCRIPT_RUN_PREFIX which python3
+    $SCRIPT_RUN_PREFIX python3 --version
+    $SCRIPT_RUN_PREFIX which $CXX
+    $SCRIPT_RUN_PREFIX $CXX --version
+    $SCRIPT_RUN_PREFIX which $CC
+    $SCRIPT_RUN_PREFIX $CC --version
+  - $SCRIPT_RUN_PREFIX env SC_PURE_PYTHON=1 contrib/release.sh
+
+after_script:
+  - |
+    if [[ "$RUNMODE" == "docker" ]] ; then
+      docker stop "$containerid"
+      docker rm "$containerid"
+    fi
