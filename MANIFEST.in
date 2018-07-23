@@ -5,26 +5,17 @@ include requirements.txt
 include README.rst HISTORY.rst CREDITS.rst COPYING
 include contrib/* contrib/*/*
 include doc/source/* doc/source/*/*
-include SCons* patch/*.patch
-include site_scons/site_tools/*.py
-include ground/*
-include soil/*
 recursive-include libmarch *
 prune libmarch/build
-recursive-include solvcon SCons*
 recursive-include solvcon *.py
 recursive-include solvcon *.pyx
 recursive-include solvcon *.pxd
 recursive-include solvcon *.h
 recursive-include solvcon *.c
 recursive-include solvcon *.c_body
-recursive-include include *
-recursive-include src *
 recursive-include test *
 include ftests/*/*.py
-include utests.legacy/*.py
 include examples/*/*/go
-include examples/*/*/SCons*
 include examples/*/*/*.tmpl
 include examples/*/*/*.py
 include examples/*/*/*.h
