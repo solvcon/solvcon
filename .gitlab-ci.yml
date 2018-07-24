@@ -40,6 +40,31 @@ solvcon:opt:
   artifacts:
     untracked: true
 
+solvcon:package:
+  stage: build
+  script:
+    - make SC_PURE_PYTHON=1 package
+    - make SC_PURE_PYTHON=1 build_from_package
+    - make VERBOSE=1 SC_PURE_PYTHON=1 test_from_package
+  artifacts:
+    paths:
+      - dist/SOLVCON*.tar.gz
+
+solvcon:deb:
+  stage: build
+  script:
+    - |
+      apt-get -qq update
+      apt-get -qqy install fakeroot debhelper locales \
+        libreadline7 libssl1.0.0 libffi6 \
+        liblapack3 liblapack-dev libhdf5-100 libhdf5-dev libnetcdf13 \
+        libnetcdf-dev libscotch-6.0 libscotch-dev cython3 python3 \
+        python3-numpy libpython3.6-dev python3-boto python3-paramiko graphviz
+    - make SC_PURE_PYTHON=1 deb
+  artifacts:
+    paths:
+      - dist/debbuild/*
+
 solvcon:opt:test:gasplus:
   dependencies:
     - solvcon:opt
@@ -54,12 +79,19 @@ solvcon:opt:test:parallel:
   script:
     - nosetests3 ftests/parallel/* -v
 
-solvcon:package:
-  stage: build
+solvcon:deb:test:
+  dependencies:
+    - solvcon:deb
+  stage: test
   script:
-    - make SC_PURE_PYTHON=1 package
-    - make SC_PURE_PYTHON=1 build_from_package
-    - make VERBOSE=1 SC_PURE_PYTHON=1 test_from_package
-  artifacts:
-    paths:
-      - dist/SOLVCON*.tar.gz
+    - |
+      apt-get -qq update
+      apt-get -qqy install \
+        libreadline7 libssl1.0.0 libffi6 \
+        liblapack3 liblapack-dev libhdf5-100 libhdf5-dev libnetcdf13 \
+        libnetcdf-dev libscotch-6.0 libscotch-dev cython3 python3 \
+        python3-numpy libpython3.6-dev python3-boto python3-paramiko graphviz
+    - dpkg -i dist/debbuild/*.deb
+    - cd /tmp
+    - python3 -c 'import solvcon ; print(solvcon)'
+    - python3 -c 'import solvcon ; solvcon.test()'

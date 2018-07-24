@@ -52,7 +52,7 @@ before_install:
       docker pull $DOCKER
 
       containerid=$(docker run --detach --tty \
-        --volume="${TRAVIS_BUILD_DIR}":${TRAVIS_BUILD_DIR} \
+        --volume=${TRAVIS_BUILD_DIR}:${TRAVIS_BUILD_DIR} \
         --workdir=${TRAVIS_BUILD_DIR} \
         $DOCKER)
 
@@ -97,6 +97,14 @@ install:
       ${TRAVIS_BUILD_DIR}/contrib/build-pybind11-in-conda.sh
       # Debugging information
       conda info -a
+    else
+      $SCRIPT_RUN_PREFIX id
+      $SCRIPT_RUN_PREFIX apt-get -qq update
+      $SCRIPT_RUN_PREFIX apt-get -qqy install fakeroot debhelper locales \
+        libreadline7 libssl1.0.0 libffi6 \
+        liblapack3 liblapack-dev libhdf5-100 libhdf5-dev libnetcdf13 \
+        libnetcdf-dev libscotch-6.0 libscotch-dev cython3 python3 \
+        python3-numpy libpython3.6-dev python3-boto python3-paramiko graphviz
     fi
 
 script:
@@ -109,6 +117,13 @@ script:
     $SCRIPT_RUN_PREFIX which $CC
     $SCRIPT_RUN_PREFIX $CC --version
   - $SCRIPT_RUN_PREFIX make SC_PURE_PYTHON=1 test_from_package
+  - |
+    if [[ "$RUNMODE" == "docker" ]] ; then
+      $SCRIPT_RUN_PREFIX make deb
+      $SCRIPT_RUN_PREFIX dpkg -i dist/debbuild/*.deb
+      $SCRIPT_RUN_PREFIX bash -c "cd /tmp ; python3 -c 'import solvcon ; print(solvcon)'"
+      $SCRIPT_RUN_PREFIX bash -c "cd /tmp ; python3 -c 'import solvcon ; solvcon.test()'"
+    fi
 
 after_script:
   - |

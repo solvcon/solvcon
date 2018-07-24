@@ -2,15 +2,19 @@
 # -*- makefile -*-
 
 # Uncomment this to turn on verbose mode.
-#export DH_VERBOSE=1
+export DH_VERBOSE=1
 
 %:
-	dh $@ 
+	dh $@
 
 override_dh_auto_build:
-	scons scmods
+	make SC_PURE_PYTHON=1 build
+
+override_dh_auto_install:
+	make SC_PURE_PYTHON=1 PREFIX=debian/solvcon/usr INSTALL_TO_DEBIAN=1 install
 
 override_dh_auto_clean:
-	scons --clean
-	rm -r ./build
+	make SC_PURE_PYTHON=1 clean
+	rm -rf ./build
+	find . -name "*.so" -exec rm {} +
 	find . -name "*.pyc" -exec rm {} +

@@ -1,3 +1,9 @@
+solvcon (0.1.4-dev0) bionic; urgency=low
+
+  * Update for Bionic
+
+ -- Yung-Yu Chen <yyc@solvcon.net>  Sat, 28 Jul 2018 16:44:27 +0800
+
 solvcon (0.1.4-0ubuntu1) trusty; urgency=low
 
   * Initialize debian package for Ubuntu
