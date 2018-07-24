@@ -18,8 +18,7 @@ libmarch:opt:
       -DTESTFILTER="*"
       ${CI_PROJECT_DIR}/libmarch
     - make -C ${CI_PROJECT_DIR}/libmarch/build/opt VERBOSE=1
-  artifacts:
-    untracked: true
+    - make -C ${CI_PROJECT_DIR}/libmarch/build/opt run_gtest VERBOSE=1
 
 libmarch:dbg:
   stage: build
@@ -31,36 +30,15 @@ libmarch:dbg:
       -DTESTFILTER="*"
       ${CI_PROJECT_DIR}/libmarch
     - make -C ${CI_PROJECT_DIR}/libmarch/build/dbg VERBOSE=1
-  artifacts:
-    untracked: true
+    - make -C ${CI_PROJECT_DIR}/libmarch/build/dbg run_gtest VERBOSE=1
 
 solvcon:opt:
   stage: build
   script:
     - make VERBOSE=1
+    - nosetests3 --with-doctest -v
   artifacts:
     untracked: true
-
-libmarch:opt:gtest:
-  dependencies:
-    - libmarch:opt
-  stage: test
-  script:
-    - make -C ${CI_PROJECT_DIR}/libmarch/build/opt run_gtest VERBOSE=1
-
-libmarch:dbg:gtest:
-  dependencies:
-    - libmarch:dbg
-  stage: test
-  script:
-    - make -C ${CI_PROJECT_DIR}/libmarch/build/dbg run_gtest VERBOSE=1
-
-solvcon:opt:unittest:
-  dependencies:
-    - solvcon:opt
-  stage: test
-  script:
-    - nosetests3 --with-doctest -v
 
 solvcon:opt:test:gasplus:
   dependencies:
