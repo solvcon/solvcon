@@ -5,6 +5,7 @@ include requirements.txt
 include README.rst HISTORY.rst CREDITS.rst COPYING
 include contrib/* contrib/*/*
 include doc/source/* doc/source/*/*
+recursive-include debian *
 recursive-include libmarch *
 prune libmarch/build
 recursive-include solvcon *.py

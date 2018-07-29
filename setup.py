@@ -161,14 +161,6 @@ class my_build_ext(np_build_ext.build_ext):
 
 def main():
     data_files = list()
-    # includes.
-    data_files.append((os.path.join('include', 'solvcon'),
-                       glob.glob(os.path.join('include', '*'))))
-    # javascript code.
-    lead = os.path.join('solvcon', 'visual', 'js')
-    for root, directory, files in os.walk(lead):
-        files = [(lead, os.path.join(root, fname)) for fname in files]
-        data_files.extend(files)
     # test data.
     lead = os.path.join('share', 'solvcon', 'test')
     data_files.extend([

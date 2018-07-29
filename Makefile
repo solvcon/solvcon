@@ -20,15 +20,24 @@ ifneq (${VERBOSE},)
 endif
 
 SCVER := $(shell env SC_PURE_PYTHON=1 ${PYTHON} -c 'import sys; import solvcon; sys.stdout.write("%s"%solvcon.__version__)')
+SCVER_NUMONLY := $(shell echo ${SCVER} | tr -dC '[.0-9]')
 PKGNAME := SOLVCON-${SCVER}
 
 BUILD_DIR := ${LIBMARCH_PATH}/build/${BUILD_DIR_NAME}
 
-.PHONY: default
-default: build legacy
+PREFIX ?= ./opt
+INSTALL_TO_DEBIAN ?=
+ifeq (${INSTALL_TO_DEBIAN},)
+	PYTHON_LIBRARY_DIR := ${PREFIX}/lib/$(shell ${PYTHON} -c "import sys; print('python%d.%d'%sys.version_info[:2])")/site-packages
+else
+	PYTHON_LIBRARY_DIR := ${PREFIX}/lib/$(shell ${PYTHON} -c "import sys; print('python%d'%sys.version_info[0])")/dist-packages
+endif
 
-.PHONY: everything
-everything: build legacy package
+.PHONY: default
+default: build
+
+.PHONY: build
+build: libmarch legacy
 
 ${BUILD_DIR}/Makefile:
 	mkdir -p ${BUILD_DIR}
@@ -47,8 +56,8 @@ cmake: ${BUILD_DIR}/Makefile
 clean_cmake:
 	rm -rf ${BUILD_DIR}
 
-.PHONY: build
-build: ${BUILD_DIR}/Makefile
+.PHONY: libmarch
+libmarch: ${BUILD_DIR}/Makefile
 	make -C ${BUILD_DIR} install VERBOSE=${VERBOSE}
 
 .PHONY: clean_build
@@ -97,6 +106,24 @@ test_from_package: dist/${PKGNAME}/make.log
 .PHONY: clean_package
 clean_package:
 	rm -rf dist/${PKGNAME}*
+
+.PHONY: install
+install: build
+	echo PREFIX=${PREFIX}
+	echo PYTHON_LIBRARY_DIR=${PYTHON_LIBRARY_DIR}
+	mkdir -p ${PYTHON_LIBRARY_DIR} ; cp libmarch.*.so ${PYTHON_LIBRARY_DIR}
+	${PYTHON} setup.py install \
+		--prefix=${PREFIX} \
+		--install-lib=${PYTHON_LIBRARY_DIR} \
+		--install-data=${PREFIX}
+
+.PHONY: deb
+deb: dist/${PKGNAME}.tar.gz
+	mkdir -p dist/debbuild ; cd dist/debbuild ; \
+	ln -s ../${PKGNAME}.tar.gz solvcon_${SCVER_NUMONLY}.orig.tar.gz ; \
+	tar xfz ../${PKGNAME}.tar.gz ; \
+	cd ${PKGNAME} ; \
+	dpkg-buildpackage -rfakeroot -uc -us 2>&1 | tee ../buildpackage.log
 
 .PHONY: clean
 clean: clean_legacy clean_current clean_package
