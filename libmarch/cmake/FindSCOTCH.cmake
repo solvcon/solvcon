@@ -21,6 +21,12 @@
 #
 #    Additional search path for SCOTCH header and library files.
 
+if(NOT DEFINED SCOTCH_ROOT AND DEFINED ENV{SCOTCH_ROOT})
+    set(SCOTCH_ROOT $ENV{SCOTCH_ROOT})
+endif()
+
+message("SCOTCH_ROOT is ${SCOTCH_ROOT}")
+
 find_path(SCOTCH_INCLUDE_DIRS NAMES scotch.h
     PATHS ${SCOTCH_ROOT} /usr/include/scotch #"$ENV{CONDA_PREFIX}"
     PATH_SUFFIXES include

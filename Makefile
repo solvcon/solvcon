@@ -1,6 +1,6 @@
 SHELL = /bin/bash
-PYTHON := $(shell which python3)
-NOSETESTS := $(shell which nosetests3)
+PYTHON := $(shell which python3 2>/dev/null)
+NOSETESTS := $(shell which nosetests3 2>/dev/null)
 ifeq (${NOSETESTS},)
 	NOSETESTS := $(shell which nosetests)
 endif
