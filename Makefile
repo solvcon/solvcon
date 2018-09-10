@@ -25,7 +25,7 @@ PKGNAME := SOLVCON-${SCVER}
 
 BUILD_DIR := ${LIBMARCH_PATH}/build/${BUILD_DIR_NAME}
 
-PREFIX ?= ./opt
+PREFIX ?= $(realpath $(dir ${PYTHON})/../)
 INSTALL_TO_DEBIAN ?=
 ifeq (${INSTALL_TO_DEBIAN},)
 	PYTHON_LIBRARY_DIR := ${PREFIX}/lib/$(shell ${PYTHON} -c "import sys; print('python%d.%d'%sys.version_info[:2])")/site-packages
