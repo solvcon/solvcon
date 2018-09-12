@@ -42,7 +42,11 @@ To install the dependency, run the scripts ``contrib/conda.sh`` and
 
 The development version of SOLVCON only supports local build::
 
-  $ python setup.py build_ext --inplace
+  $ make; python setup.py build_ext --inplace
+
+To build SOLVCON from source code and install it to your system::
+
+  $ make; make install
 
 Test the build::
 
