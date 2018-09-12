@@ -2,7 +2,7 @@ SOLVCON Singularity-based image build file.
 
 In short, run this command to get everything ready.
 
-  $ whoami > /tmp/host-username.txt; sudo singularity build ./solvcon.img ./Singularity && singularity exec solvcon.img /opt/solvcon/dist/SOLVCON-0.1.4+/contrib/singularity/nosetests-with-doctest
+  $ whoami > /tmp/host-username.txt; sudo singularity build ./solvcon.img ./Singularity && singularity exec solvcon.img /opt/solvcon/contrib/singularity/nosetests-with-doctest
 
 Pre-requisite
 =============
@@ -37,8 +37,8 @@ Activate the runtime by
 
   [container] :SOLVCON-SRC-ROOT> source contrib/singularity/activate.sh
 
-You could find the built SOLVCON is under `/opt/solvcon/dist/SOLVCON-<Version Number>`. Go there and run some jobs
+You could find the built SOLVCON is under `/opt/solvcon/`. Go there and run some jobs
 
-  [container] :/opt/solvcon/dist/SOLVCON-0.1.4+> nosetests --with-doctest
+  [container] :/opt/solvcon/> nosetests --with-doctest
 
 So far the feature of parallel mode does not work in the singularity container.

@@ -1,3 +1,3 @@
-export SOLVCON_BUILD_DIR=/opt
-export PATH="$SOLVCON_BUILD_DIR/miniconda/bin:$PATH"
-source $SOLVCON_BUILD_DIR/solvcon/build/env/start
+export SOLVCON_WORKING_DIR=/opt/solvcon-working
+export PATH="$SOLVCON_WORKING_DIR/miniconda/bin:$PATH"
+source activate $SOLVCON_WORKING_DIR/venv-conda
