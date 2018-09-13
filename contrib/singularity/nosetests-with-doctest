@@ -1,4 +1,0 @@
-#!/bin/bash
-source /opt/solvcon/contrib/singularity/activate.sh
-cd /opt/solvcon/
-nosetests --with-doctest

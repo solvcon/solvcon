@@ -1,0 +1,6 @@
+#!/bin/bash
+SHOME="${1:-/tmp/${USER}-singularity}"
+source /opt/solvcon/contrib/singularity/activate.sh
+cd ${SHOME}/tube
+./go run
+
