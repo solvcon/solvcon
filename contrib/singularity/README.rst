@@ -1,8 +1,8 @@
 SOLVCON Singularity-based image build file.
 
-In short, run this command to get everything ready.
+In short, run this command to get everything ready. You will get a SOLVCON singularity image `solvcon.img`.
 
-  $ whoami > /tmp/host-username.txt; sudo singularity build ./solvcon.img ./Singularity && singularity exec solvcon.img /opt/solvcon/contrib/singularity/nosetests-with-doctest
+  $ ./build-solvcon.sh
 
 Pre-requisite
 =============
@@ -31,14 +31,15 @@ Use the Container
 
 Use the container by
 
-  $ singularity shell ./<name-of-the-image>.img
+  $ singularity shell --home <your-directory-used-as-container-home> ./<name-of-the-image>.img
 
 Activate the runtime by
 
-  [container] :SOLVCON-SRC-ROOT> source contrib/singularity/activate.sh
+  [container] :SOLVCON-SRC-ROOT> source /opt/solvcon/contrib/singularity/activate.sh
 
-You could find the built SOLVCON is under `/opt/solvcon/`. Go there and run some jobs
+Now you can develop your driving script and use SOLVCON.
 
-  [container] :/opt/solvcon/> nosetests --with-doctest
+So far the feature of parallel mode does not work in the singularity container. Please note the option `--home` is recommended. To use a clean directory as your home in the container will help you to avoid many python virtual environment issues, e.g. conda is confused by your configuration files in your host home directory.
 
-So far the feature of parallel mode does not work in the singularity container.
+You could refer to `contrib/singularity/sod-tube` to see how a SOLVCON driving script works with the container, and how `build-solvcon.sh` leverages it.
+
