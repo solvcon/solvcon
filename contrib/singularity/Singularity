@@ -7,7 +7,6 @@ MirrorURL: http://us.archive.ubuntu.com/ubuntu/
     echo "Welcome to SOLVCON singularity instance."
 
 %files
-    /tmp/host-username.txt /host-username.txt
     prepare-solvcon-dev.sh /prepare-solvcon-dev.sh
 
 %post
@@ -27,14 +26,7 @@ MirrorURL: http://us.archive.ubuntu.com/ubuntu/
     echo $HOME
     apt-get clean
 
-    # I want solvcon source code and folder is managed by the same
-    # user who triggers the container execution
-    export TARGET_USERNAME=`cat /host-username.txt`
-    adduser --no-create-home --disabled-password --gecos "" $TARGET_USERNAME
-
     # start to build
     export SOLVCON_BUILD_DIR=/opt
     /bin/bash -c "source /prepare-solvcon-dev.sh $SOLVCON_BUILD_DIR"
 
-    # so the normal user could write SOLVCON folder
-    chown $TARGET_USERNAME -R $SOLVCON_BUILD_DIR/*

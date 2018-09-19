@@ -14,8 +14,6 @@ SIMAGE=solvcon.img
 SHOME=`mktemp -d /tmp/singularity-${USER}-XXX`
 EXAMPLE_TUBE=${SHOME}/tube
 mkdir ${EXAMPLE_TUBE}
-# FIXME: hostname workaround
-whoami > /tmp/host-username.txt
 
 # clean before re-building
 rm -f ${SIMAGE}
