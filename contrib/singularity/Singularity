@@ -3,6 +3,10 @@ OSVersion: xenial
 MirrorURL: http://us.archive.ubuntu.com/ubuntu/
 
 
+%environment
+    export SOLVCON_WORKING_DIR=/opt/solvcon-working
+    export PATH="$SOLVCON_WORKING_DIR/venv-conda/bin:$SOLVCON_WORKING_DIR/miniconda/bin:$PATH"
+
 %runscript
     echo "Welcome to SOLVCON singularity instance."
 

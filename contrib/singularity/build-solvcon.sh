@@ -26,7 +26,7 @@ cp ${SCSRC}/contrib/singularity/sod-tube ${EXAMPLE_TUBE}
 sudo singularity build $SIMAGE ./Singularity
 
 # run examples
-SJOB_COMMAND="singularity exec --home ${SHOME} ${SIMAGE} ${EXAMPLE_TUBE}/sod-tube ${SHOME}"
+SJOB_COMMAND="singularity exec --home ${SHOME} ${SIMAGE} ${EXAMPLE_TUBE}/sod-tube"
 
 echo ""
 echo "======================================================================"
