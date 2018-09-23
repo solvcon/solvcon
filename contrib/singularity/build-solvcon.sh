@@ -26,7 +26,8 @@ cp ${SCSRC}/contrib/singularity/sod-tube ${EXAMPLE_TUBE}
 sudo singularity build $SIMAGE ./Singularity
 
 # run examples
-SJOB_COMMAND="singularity exec --home ${SHOME} ${SIMAGE} ${EXAMPLE_TUBE}/sod-tube"
+SJOB_COMMAND="singularity exec --home ${SHOME} ${SIMAGE} tube/sod-tube"
+SJOB_COMMAND_ALT="singularity exec ${SIMAGE} go run"
 
 echo ""
 echo "======================================================================"
@@ -36,5 +37,12 @@ echo ""
 echo "${SJOB_COMMAND}"
 echo ""
 echo "The generated data will be in ${EXAMPLE_TUBE}/result"
+echo ""
+echo "Or, you could go to somewhere containing your driving script,"
+echo "and execute it like the follwing:"
+echo ""
+echo "${SJOB_COMMAND_ALT}"
+echo ""
+echo "The driving script, go, is executed along with its option, run."
 echo "======================================================================"
 

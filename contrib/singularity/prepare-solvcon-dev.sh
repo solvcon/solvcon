@@ -42,7 +42,9 @@ echo "======================================"
 echo "Start to unit tests and function tests"
 echo "======================================"
 nosetests --with-doctest
+test_result_nose_doctest=$?
 nosetests ftests/gasplus/*
+test_result_ftests_gasplus=$?
 
 # If unit tests and function tests are good
 # install SOLVCON and remove intermediate files
@@ -76,4 +78,19 @@ echo ${PYTHONPATH}
 which conda
 which python
 conda env list
+
+# -n is "if it is not 0"
+if [ -n "${test_result_nose_doctest}" ] && [ -n "${test_result_ftests_gasplus}" ]; then
+  echo ""
+  echo "========================="
+  echo "Build test is successful."
+  echo "========================="
+  echo ""
+else
+  echo ""
+  echo "=================="
+  echo "Build test failed."
+  echo "=================="
+  echo ""
+fi
 
