@@ -31,5 +31,5 @@ Now you can develop your driving script and use SOLVCON.
 
 So far the feature of parallel mode does not work in the singularity container.
 
-If you use `build-solvcon.sh` to build the image, you could follow the instruction of build message at the end of the build script to run an example.
+If you use `build-solvcon.sh` to build the image, you could follow the instruction of the build message at the end of the build script to run an example.
 
