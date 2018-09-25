@@ -1,0 +1,36 @@
+BootStrap: debootstrap
+OSVersion: xenial
+MirrorURL: http://us.archive.ubuntu.com/ubuntu/
+
+
+%environment
+    export SOLVCON_WORKING_DIR=/opt/solvcon-working
+    export PATH="$SOLVCON_WORKING_DIR/venv-conda/bin:$SOLVCON_WORKING_DIR/miniconda/bin:$PATH"
+
+%runscript
+    echo "Welcome to SOLVCON singularity instance."
+
+%files
+    prepare-solvcon-dev.sh /prepare-solvcon-dev.sh
+
+%post
+    echo "Prepare to build SOLVCON in singularity instance..."
+    sed -i 's/$/ universe/' /etc/apt/sources.list
+    apt-get update
+    # general tools
+    apt-get install vim git -y
+    # used for miniconda extraction
+    apt-get install bzip2
+    # SOLVCON build tools
+    apt-get install openssh-client openssh-server liblapack-pic liblapack-dev -y
+    apt-get install build-essential unzip -y
+    # it currently works in the root path
+    echo "Working location: " `pwd`
+    # it is /root
+    echo $HOME
+    apt-get clean
+
+    # start to build
+    export SOLVCON_BUILD_DIR=/opt
+    /bin/bash -c "source /prepare-solvcon-dev.sh $SOLVCON_BUILD_DIR"
+
