@@ -39,6 +39,13 @@ matrix:
         # If using C++11/14 see http://genbattle.bitbucket.org/blog/2016/01/17/c++-travis-ci/
         apt:
           packages: [ openssh-client, openssh-server, liblapack-pic, liblapack-dev ]
+    - os: linux
+      sudo: required
+      compiler: gcc
+      env: RUNMODE=singularity
+      addons:
+        apt:
+          packages: [ squashfs-tools, libarchive-dev, debootstrap ]
     - os: osx
       #osx_image: xcode7.3
       compiler: clang
@@ -57,6 +64,24 @@ before_install:
         $DOCKER)
 
       SCRIPT_RUN_PREFIX="docker exec --tty $containerid"
+    elif [[ "$RUNMODE" == "singularity" ]] ; then
+      # prepare Singularity
+      SHOME=`mktemp -d /tmp/singularity-${USER}-XXX`
+      SIMAGE="solvcon.img"
+      SRECIPE="Singularity"
+      SOLVCON_DRIVING="go"
+      mkdir $SHOME
+      pushd $SHOME
+      VERSION=2.5.1
+      wget https://github.com/singularityware/singularity/releases/download/$VERSION/singularity-$VERSION.tar.gz
+      tar xvf singularity-$VERSION.tar.gz
+      cd singularity-$VERSION
+      ./configure --prefix=/usr/local
+      make
+      sudo make install
+      VERSION=
+      popd
+      SCRIPT_RUN_PREFIX="singularity exec $SIMAGE"
     else
       # Configure ssh
       ssh-keygen -t rsa -f ~/.ssh/id_rsa -N ""
@@ -75,7 +100,7 @@ before_install:
 
 install:
   - |
-    if [[ "$RUNMODE" != "docker" ]] ; then
+    if [[ "$RUNMODE" != "docker" ]] && [[ "$RUNMODE" != "singularity" ]]; then
       # Install minimal conda
       if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
         wget https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -O miniconda.sh;
@@ -89,7 +114,7 @@ install:
       conda update -q conda
     fi
   - |
-    if [[ "$RUNMODE" != "docker" ]] ; then
+    if [[ "$RUNMODE" != "docker" ]] && [[ "$RUNMODE" != "singularity" ]]; then
       # Install conda packages
       ${TRAVIS_BUILD_DIR}/contrib/devenv/create.sh
       source ${TRAVIS_BUILD_DIR}/build/env/start
@@ -97,7 +122,7 @@ install:
       ${TRAVIS_BUILD_DIR}/contrib/build-pybind11-in-conda.sh
       # Debugging information
       conda info -a
-    else
+    elif [[ "$RUNMODE" == "docker"  ]]; then
       $SCRIPT_RUN_PREFIX id
       $SCRIPT_RUN_PREFIX apt-get -qq update
       $SCRIPT_RUN_PREFIX apt-get -qqy install fakeroot debhelper locales \
@@ -105,24 +130,47 @@ install:
         liblapack3 liblapack-dev libhdf5-100 libhdf5-dev libnetcdf13 \
         libnetcdf-dev libscotch-6.0 libscotch-dev cython3 python3 \
         python3-numpy libpython3.6-dev python3-boto python3-paramiko graphviz
+    elif [[ "$RUNMODE" == "singularity"  ]]; then
+      pushd ${SHOME}
+      cp ${TRAVIS_BUILD_DIR}/sandbox/gas/tube/${SOLVCON_DRIVING} ${SHOME}
+      cp ${TRAVIS_BUILD_DIR}/contrib/singularity/prepare-solvcon-dev.sh ${SHOME}
+      cp ${TRAVIS_BUILD_DIR}/contrib/singularity/${SRECIPE} ${SHOME}
+      sudo singularity build ${SIMAGE} ${SRECIPE}
+      ls
+      popd
     fi
 
 script:
   # Debugging information
   - |
-    $SCRIPT_RUN_PREFIX which python3
-    $SCRIPT_RUN_PREFIX python3 --version
-    $SCRIPT_RUN_PREFIX which $CXX
-    $SCRIPT_RUN_PREFIX $CXX --version
-    $SCRIPT_RUN_PREFIX which $CC
-    $SCRIPT_RUN_PREFIX $CC --version
-  - $SCRIPT_RUN_PREFIX make SC_PURE_PYTHON=1 test_from_package
+    # We do everything in the singularity container including unit tests. The
+    # external environment could be very simple and does not have python3, so
+    # we do not need to dump the following debugging information otherwise it
+    # causes none-zero exit return code.
+    if [[ "$RUNMODE" != "singularity" ]] ; then
+      $SCRIPT_RUN_PREFIX which python3
+      $SCRIPT_RUN_PREFIX python3 --version
+      $SCRIPT_RUN_PREFIX which $CXX
+      $SCRIPT_RUN_PREFIX $CXX --version
+      $SCRIPT_RUN_PREFIX which $CC
+      $SCRIPT_RUN_PREFIX $CC --version
+    fi
+  - |
+    if [[ "$RUNMODE" != "singularity" ]] ; then
+      $SCRIPT_RUN_PREFIX make SC_PURE_PYTHON=1 test_from_package
+    fi
   - |
     if [[ "$RUNMODE" == "docker" ]] ; then
       $SCRIPT_RUN_PREFIX make deb
       $SCRIPT_RUN_PREFIX dpkg -i dist/debbuild/*.deb
       $SCRIPT_RUN_PREFIX bash -c "cd /tmp ; python3 -c 'import solvcon ; print(solvcon)'"
       $SCRIPT_RUN_PREFIX bash -c "cd /tmp ; python3 -c 'import solvcon ; solvcon.test()'"
+    elif [[ "$RUNMODE" == "singularity" ]] ; then
+      pushd ${SHOME}
+      pwd
+      ls
+      $SCRIPT_RUN_PREFIX ./${SOLVCON_DRIVING} run tube
+      popd
     fi
 
 after_script:
@@ -130,4 +178,6 @@ after_script:
     if [[ "$RUNMODE" == "docker" ]] ; then
       docker stop "$containerid"
       docker rm "$containerid"
+    elif [[ "$RUNMODE" == "singularity" ]] ; then
+      rm -rf ${SHOME}
     fi
