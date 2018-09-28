@@ -37,3 +37,6 @@ sandbox/*/mesh/
 # debian packaging
 debian/files
 debian/solvcon*
+# Singularity images
+*.img
+*.simg
