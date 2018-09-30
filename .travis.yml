@@ -133,7 +133,11 @@ install:
     elif [[ "$RUNMODE" == "singularity"  ]]; then
       pushd ${SHOME}
       cp ${TRAVIS_BUILD_DIR}/sandbox/gas/tube/${SOLVCON_DRIVING} ${SHOME}
-      cp ${TRAVIS_BUILD_DIR}/contrib/singularity/prepare-solvcon-dev.sh ${SHOME}
+      # trick to inject TRAVIS_BRANCH and TRAVIS_REPO_SLUG
+      echo '#!/bin/bash' > ${SHOME}/prepare-solvcon-dev.sh
+      echo "export TRAVIS_BRANCH=${TRAVIS_BRANCH}" >> ${SHOME}/prepare-solvcon-dev.sh
+      echo "export TRAVIS_REPO_SLUG=${TRAVIS_REPO_SLUG}" >> ${SHOME}/prepare-solvcon-dev.sh
+      cat ${TRAVIS_BUILD_DIR}/contrib/singularity/prepare-solvcon-dev.sh >> ${SHOME}/prepare-solvcon-dev.sh
       cp ${TRAVIS_BUILD_DIR}/contrib/singularity/${SRECIPE} ${SHOME}
       sudo singularity build ${SIMAGE} ${SRECIPE}
       ls

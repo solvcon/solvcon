@@ -15,7 +15,17 @@ export PATH="${SCSRC}:${MINICONDA_DIR}/bin/:${PATH}"
 mkdir -p ${SCSRC_WORKING}
 
 # fetch SOLVCON source
-git clone https://github.com/solvcon/solvcon.git ${SCSRC}
+SCSRC_URL="https://github.com/solvcon/solvcon.git"
+if [[ -z "${TRAVIS_BRANCH}" ]] || [[ -z "${TRAVIS_REPO_SLUG}" ]]; then
+  echo "TRAVIS_BRANCH or TRAVIS_REPO_SLUG not found, fetch master branch from the upstream."
+  git clone ${SCSRC_URL} ${SCSRC}
+else
+  echo "Found TRAVIS_BRANCH and TRAVIS_REPO_SLUG, fetch the branch instead of master."
+  SCSRC_URL="https://github.com/${TRAVIS_REPO_SLUG}.git"
+  echo "SCSRC_URL is now ${SCSRC_URL}"
+  echo "TRAVIS_BRANCH is now ${TRAVIS_BRANCH}"
+  git clone -b ${TRAVIS_BRANCH} ${SCSRC_URL} ${SCSRC}
+fi
 
 # prepare miniconda
 wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ${SCSRC_WORKING}/miniconda.sh
