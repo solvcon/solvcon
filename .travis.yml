@@ -67,7 +67,7 @@ before_install:
     elif [[ "$RUNMODE" == "singularity" ]] ; then
       # prepare Singularity
       SHOME=`mktemp -d /tmp/singularity-${USER}-XXX`
-      SIMAGE="solvcon.img"
+      SIMAGE="${SHOME}/solvcon.img"
       SRECIPE="Singularity"
       SOLVCON_DRIVING="go"
       mkdir $SHOME
@@ -81,7 +81,7 @@ before_install:
       sudo make install
       VERSION=
       popd
-      SCRIPT_RUN_PREFIX="singularity exec $SIMAGE"
+      SCRIPT_RUN_PREFIX="singularity exec ${SIMAGE}"
     else
       # Configure ssh
       ssh-keygen -t rsa -f ~/.ssh/id_rsa -N ""
@@ -170,11 +170,7 @@ script:
       $SCRIPT_RUN_PREFIX bash -c "cd /tmp ; python3 -c 'import solvcon ; print(solvcon)'"
       $SCRIPT_RUN_PREFIX bash -c "cd /tmp ; python3 -c 'import solvcon ; solvcon.test()'"
     elif [[ "$RUNMODE" == "singularity" ]] ; then
-      pushd ${SHOME}
-      pwd
-      ls
-      $SCRIPT_RUN_PREFIX ./${SOLVCON_DRIVING} run tube
-      popd
+      $SCRIPT_RUN_PREFIX ${TRAVIS_BUILD_DIR}/sandbox/gas/tube/${SOLVCON_DRIVING} run tube
     fi
 
 after_script:

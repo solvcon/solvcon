@@ -27,7 +27,7 @@ sudo singularity build $SIMAGE ./Singularity
 
 # run examples
 SJOB_COMMAND="singularity exec --home ${SHOME} ${SIMAGE} tube/sod-tube"
-SJOB_COMMAND_ALT="singularity exec ${SIMAGE} ./go run"
+SJOB_COMMAND_ALT="singularity exec ${SIMAGE} ./go run tube"
 
 echo ""
 echo "======================================================================"
