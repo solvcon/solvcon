@@ -185,9 +185,9 @@ def main():
                 data_files.append((os.path.join(lead, edir),
                     glob.glob(os.path.join(edir, '*.%s'%ext))))
 
-    turn_off_unused_warnings = '-Wno-unused-variable'
+    turn_off_unused_warnings = ['-Wno-unused-variable']
     if sys.platform != 'darwin':
-        turn_off_unused_warnings += ' -Wno-unused-but-set-variable'
+        turn_off_unused_warnings += ['-Wno-unused-but-set-variable']
     # set up extension modules.
     lapack_libraries = ['lapack', 'blas']
     if os.environ.get('LAPACK_GFORTRAN'):
@@ -204,23 +204,19 @@ def main():
         make_cython_extension(
             'solvcon.parcel.fake._algorithm',
             ['src'],
-            extra_compile_args=[
-                turn_off_unused_warnings,
-            ],
+            extra_compile_args=turn_off_unused_warnings,
         ),
         make_cython_extension(
             'solvcon.parcel.linear._algorithm', ['src'],
             libraries=lapack_libraries,
-            extra_compile_args=[
-                turn_off_unused_warnings,
+            extra_compile_args=turn_off_unused_warnings + [
                 '-Wno-unknown-pragmas',
             ],
         ),
         make_cython_extension(
             'solvcon.parcel.bulk._algorithm',
             ['src'],
-            extra_compile_args=[
-                turn_off_unused_warnings,
+            extra_compile_args=turn_off_unused_warnings + [
                 '-Wno-unknown-pragmas',
                 '-Wno-uninitialized',
             ],
@@ -228,16 +224,14 @@ def main():
         make_cython_extension(
             'solvcon.parcel.gas._algorithm',
             ['src'],
-            extra_compile_args=[
-                turn_off_unused_warnings,
+            extra_compile_args=turn_off_unused_warnings + [
                 '-Wno-unknown-pragmas',
             ],
         ),
         make_cython_extension(
             'solvcon.parcel.vewave._algorithm', ['src'],
             libraries=['lapack', 'blas'],
-            extra_compile_args=[
-                turn_off_unused_warnings,
+            extra_compile_args=turn_off_unused_warnings + [
                 '-Wno-unknown-pragmas',
             ],
         ),
