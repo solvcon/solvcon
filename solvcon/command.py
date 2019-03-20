@@ -1033,7 +1033,6 @@ class run(ArrangementCommand):
         import os
         import cProfile
         import pstats
-        from socket import gethostname
         from .helper import info
         from .conf import env
         from . import domain
