@@ -1,5 +1,6 @@
 SHELL = /bin/bash
 PYTHON := $(shell which python3 2>/dev/null)
+PYTHON_VERSION_TO_MINOR := $(shell python3 -c 'from sys import version_info as v; print(str(v[0])+str(v[1]))')
 NOSETESTS := $(shell which nosetests3 2>/dev/null)
 ifeq (${NOSETESTS},)
 	NOSETESTS := $(shell which nosetests)
@@ -9,7 +10,7 @@ SC_PURE_PYTHON ?=
 export SC_PURE_PYTHON
 
 LIBMARCH_PATH ?= libmarch
-BUILD_DIR_NAME ?= opt_from_solvcon
+BUILD_DIR_NAME ?= opt_from_solvcon_py${PYTHON_VERSION_TO_MINOR}
 
 CMAKE_BUILD_TYPE ?= Release
 CMAKE_PASSTHROUGH ?=
