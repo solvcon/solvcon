@@ -54,6 +54,7 @@ solvcon:deb:
   stage: build
   script:
     - |
+      export DEBIAN_FRONTEND=noninteractive
       apt-get -qq update
       apt-get -qqy install fakeroot debhelper locales \
         libreadline7 libssl1.0.0 libffi6 \
@@ -85,6 +86,7 @@ solvcon:deb:test:
   stage: test
   script:
     - |
+      export DEBIAN_FRONTEND=noninteractive
       apt-get -qq update
       apt-get -qqy install \
         libreadline7 libssl1.0.0 libffi6 \
