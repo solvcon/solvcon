@@ -54,6 +54,7 @@ before_install:
       containerid=$(docker run --detach --tty \
         --volume=${TRAVIS_BUILD_DIR}:${TRAVIS_BUILD_DIR} \
         --workdir=${TRAVIS_BUILD_DIR} \
+        --env DEBIAN_FRONTEND=noninteractive \
         $DOCKER)
 
       SCRIPT_RUN_PREFIX="docker exec --tty $containerid"
