@@ -6,6 +6,7 @@ build.dbg/
 .sconsign.dblite
 .coverage
 .ipynb_checkpoints/
+.vscode
 scdata/
 doc/api/
 doc/source/_static/*.eps
