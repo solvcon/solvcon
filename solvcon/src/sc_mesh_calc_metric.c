@@ -53,7 +53,7 @@ int sc_mesh_calc_metric(sc_mesh_t *msd, int use_incenter) {
     double vol, vob, voc;
     double du0, du1, du2, dv0, dv1, dv2, dw0, dw1, dw2;
     // arrays.
-    int ndstf[FCMND];
+    int ndstf[FCMND] = {0};
     double cfd[FCMND+2][msd->ndim];
     double crd[msd->ndim];
     double radvec[FCMND][msd->ndim];
