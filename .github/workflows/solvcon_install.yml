@@ -1,0 +1,85 @@
+name: solvcon_install
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: '21 17 * * *'
+
+jobs:
+  build:
+
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+        matrix:
+          os: [ubuntu-18.04, macos-latest]
+
+        fail-fast: false
+
+    steps:
+
+    - uses: actions/checkout@v1
+      with:
+        fetch-depth: 1
+
+    - name: dependency (ubuntu)
+      if: matrix.os != 'macos-latest'
+      run: |
+        sudo apt-get -qqy install fakeroot debhelper locales \
+                libreadline7 libssl1.0.0 libffi6 \
+                liblapack3 liblapack-dev libhdf5-100 libhdf5-dev libnetcdf13 \
+                libnetcdf-dev libscotch-6.0 libscotch-dev cython3 python3 \
+                python3-numpy libpython3.6-dev python3-boto python3-paramiko graphviz
+
+    - name: dependency (conda)
+      run: |
+        if [[ "$(uname)" == "Darwin" ]]; then
+          wget https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -O miniconda.sh;
+        else
+          wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
+        fi
+        bash miniconda.sh -u -b -p $HOME/miniconda
+        export PATH="$HOME/miniconda/bin:$PATH"
+        echo "::set-env name=PATH::$PATH"
+        hash -r
+        conda config --set always_yes yes --set changeps1 no
+        conda update -q conda
+        # Install conda packages
+        ${GITHUB_WORKSPACE}/contrib/devenv/create.sh
+        source ${GITHUB_WORKSPACE}/build/env/start
+        ${GITHUB_WORKSPACE}/contrib/conda.sh
+        ${GITHUB_WORKSPACE}/contrib/build-pybind11-in-conda.sh
+        # Debugging information
+        conda info -a
+
+    - name: configure ssh
+      if: matrix.os == 'disable'
+      run: |
+        ssh-keygen -t rsa -f ~/.ssh/id_rsa -N ""
+        chmod 700 ~/.ssh/
+        cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys
+        chmod 600 ~/.ssh/authorized_keys
+        ssh-keyscan -t rsa localhost >> ~/.ssh/known_hosts
+        ssh-keyscan -t rsa 127.0.0.1 >> ~/.ssh/known_hosts
+        chmod 600 ~/.ssh/known_hosts
+        ls -al ~/.ssh/
+        ssh localhost ls
+        ssh 127.0.0.1 ls
+
+    - name: show dependency
+      run: |
+        source ${GITHUB_WORKSPACE}/build/env/start
+        export
+        which gcc
+        gcc --version
+        which cmake
+        cmake --version
+        which python3
+        python3 --version
+        python3 -c 'import numpy ; print("numpy.__version__:", numpy.__version__)'
+
+    - name: test from package
+      run: |
+        source ${GITHUB_WORKSPACE}/build/env/start
+        make SC_PURE_PYTHON=1 test_from_package
