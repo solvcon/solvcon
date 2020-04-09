@@ -116,9 +116,9 @@ class NetCDF(object):
             arr = np.zeros(shape, dtype=dtype)
         if not isinstance(arr, np.ndarray):
             raise TypeError("Expect ndarray but get {}".format(str(type(arr))))
-        if str(arr.dtype) != str(dtype):
+        if arr.dtype.name != str(dtype):
             raise ValueError("dtype mismatch: {} != {}".format(
-                str(arr.dtype), str(dtype)))
+                dtype.name, str(dtype)))
         return arr
 
     def get_lines(self, name, shape):
