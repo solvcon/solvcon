@@ -114,8 +114,11 @@ class NetCDF(object):
             sc.helper.info("Could not find the elem_map variable in the mesh file\n")
             sc.helper.info("Setting elem_map Array to 0\n")
             arr = np.zeros(shape, dtype=dtype)
-        assert isinstance(arr, np.ndarray)
-        assert str(arr.dtype) == str(dtype)
+        if not isinstance(arr, np.ndarray):
+            raise TypeError("Expect ndarray but get {}".format(str(type(arr))))
+        if arr.dtype.name != str(dtype):
+            raise ValueError("dtype mismatch: {} != {}".format(
+                dtype.name, str(dtype)))
         return arr
 
     def get_lines(self, name, shape):
