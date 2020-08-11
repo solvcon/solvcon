@@ -10,7 +10,7 @@
 #
 #   $ mkdir -p build/xcode; cd build/xcode; cmake -G Xcode ../..
 
-cmake_minimum_required(VERSION 2.8.11)
+cmake_minimum_required(VERSION 3.7)
 project(libmarch)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake/")
@@ -20,6 +20,8 @@ option(MARCH_RELAX_ERROR "Relax compiler error" OFF)
 option(MARCH_NO_DEPRECATE_WARNING "Turn off deprecation warning" OFF)
 option(MARCH_DESTINATION "SOLVCON root path" OFF)
 option(MARCH_TEST "Build libmarch test cases" ON)
+
+cmake_policy(SET CMP0074 NEW)
 
 find_package(SCOTCH)
 

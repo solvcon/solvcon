@@ -1,7 +1,7 @@
 # Copyright (c) 2016, Yung-Yu Chen <yyc@solvcon.net>
 # BSD 3-Clause License, see LICENSE.txt
 
-cmake_minimum_required(VERSION 2.8.11)
+cmake_minimum_required(VERSION 3.7)
 project(solvcon)
 
 option(SOLVCON_ROOT "SOLVCON root path" OFF)

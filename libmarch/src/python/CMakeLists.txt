@@ -1,8 +1,10 @@
 # Copyright (c) 2017, Yung-Yu Chen <yyc@solvcon.net>
 # BSD 3-Clause License, see COPYING
 
-cmake_minimum_required(VERSION 2.8.12)
+cmake_minimum_required(VERSION 3.7)
 project(march)
+
+cmake_policy(SET CMP0069 NEW)
 
 #add_subdirectory(pybind11)
 find_package(pybind11 REQUIRED)
