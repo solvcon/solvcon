@@ -270,7 +270,7 @@ def tube(casename, **kw):
         rho1=1.0, p1=1.0,
         rho2=0.125, p2=0.1,
         # Arguments to GasCase.
-        time_increment=7.e-4, steps_run=600, **kw)
+        time_increment=1.65e-3, steps_run=600, **kw)
 
 
 if __name__ == '__main__':
