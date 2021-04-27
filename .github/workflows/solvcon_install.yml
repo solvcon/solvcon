@@ -42,7 +42,7 @@ jobs:
         fi
         bash miniconda.sh -u -b -p $HOME/miniconda
         export PATH="$HOME/miniconda/bin:$PATH"
-        echo "::set-env name=PATH::$PATH"
+        echo "PATH=$PATH" >> $GITHUB_ENV
         hash -r
         conda config --set always_yes yes --set changeps1 no
         conda update -q conda
