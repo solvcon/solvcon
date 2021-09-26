@@ -296,7 +296,7 @@ class Gmsh(object):
         cmdf.write('\n')
         cmdf.close()
         # call Gmsh and get the data.
-        cli = 'gmsh %s -3 -o %s' % (cmdp, mshp)
+        cli = 'gmsh %s -3 -format msh22 -o %s' % (cmdp, mshp)
         if None is not options:
             cli += ' %s' % options
         pobj = Popen(shlex.split(cli), stdout=PIPE, stderr=STDOUT)
