@@ -32,7 +32,6 @@
 Remote connection and communication.
 """
 
-
 def pick_unused_port():
     """
     Use socket to find out a unused (inet) port.
@@ -193,6 +192,7 @@ def Client(address, family=None, authkey=None):
         try:
             skt.connect(address)
         except socket.error as e:
+            skt.close()
             if e.args[0] != errno.ECONNREFUSED or time.time() > timeout:
                 raise
             time.sleep(0.01)

@@ -1,9 +1,18 @@
+SETUP_FILE ?= ./setup.mk
+
+# The setup file may define RUNENV for runtime settings, e.g.
+# RUNENV ?= DYLD_FALLBACK_LIBRARY_PATH=${DEVENVPREFIX}/lib
+ifneq (,$(wildcard $(SETUP_FILE)))
+	include $(SETUP_FILE)
+endif
+
 SHELL = /bin/bash
-PYTHON := $(shell which python3 2>/dev/null)
+PYTHON_EXE := $(shell which python3 2>/dev/null)
+PYTHON := env ${RUNENV} ${PYTHON_EXE}
 PYTHON_VERSION_TO_MINOR := $(shell python3 -c 'from sys import version_info as v; print(str(v[0])+str(v[1]))')
 NOSETESTS := $(shell which nosetests3 2>/dev/null)
 ifeq (${NOSETESTS},)
-	NOSETESTS := $(shell which nosetests)
+	NOSETESTS := env ${RUNENV} PYTHONPATH=$(shell pwd) $(shell which python3 2>/dev/null) -m nose
 endif
 
 SC_PURE_PYTHON ?=
@@ -43,9 +52,10 @@ build: libmarch legacy
 ${BUILD_DIR}/Makefile:
 	mkdir -p ${BUILD_DIR}
 	cd ${BUILD_DIR} ; \
-	cmake ../.. \
+	env $(RUNENV) \
+		cmake ../.. \
 		-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
-		-DPYTHON_EXECUTABLE:FILEPATH=${PYTHON} \
+		-DPYTHON_EXECUTABLE:FILEPATH=${PYTHON_EXE} \
 		-DMARCH_TEST=OFF \
 		-DMARCH_DESTINATION=$(realpath .) \
 		${CMAKE_PASSTHROUGH}
@@ -59,7 +69,8 @@ clean_cmake:
 
 .PHONY: libmarch
 libmarch: ${BUILD_DIR}/Makefile
-	make -C ${BUILD_DIR} install VERBOSE=${VERBOSE}
+	env $(RUNENV) \
+		make -C ${BUILD_DIR} install VERBOSE=${VERBOSE}
 
 .PHONY: clean_build
 clean_build:
@@ -102,6 +113,10 @@ build_from_package: dist/${PKGNAME}/make.log
 test_from_package: dist/${PKGNAME}/make.log
 	cd dist/${PKGNAME} ; \
 	PYTHONPATH=`pwd` ; \
+	${NOSETESTS} --with-doctest
+
+.PHONY: test
+test:
 	${NOSETESTS} --with-doctest
 
 .PHONY: clean_package
