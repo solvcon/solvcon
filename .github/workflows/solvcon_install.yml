@@ -30,8 +30,18 @@ jobs:
         sudo apt-get -qqy install fakeroot debhelper locales \
                 libreadline7 libssl1.0.0 libffi6 \
                 liblapack3 liblapack-dev libhdf5-100 libhdf5-dev libnetcdf13 \
-                libnetcdf-dev libscotch-6.0 libscotch-dev cython3 python3 \
+                libnetcdf-dev libscotch-6.0 libscotch-dev python3 \
                 python3-numpy libpython3.6-dev python3-boto python3-paramiko graphviz
+
+    - name: dependency (devenv)
+      run: |
+        git clone https://github.com/solvcon/devenv.git
+        source ${GITHUB_WORKSPACE}/devenv/scripts/init
+        devenv add prime
+        devenv use prime
+        devenv show
+        mkdir -p ${GITHUB_WORKSPACE}/devenv/flavors/prime/usr/bin
+        devenv build gmsh
 
     - name: dependency (conda)
       run: |
@@ -53,6 +63,13 @@ jobs:
         ${GITHUB_WORKSPACE}/contrib/build-pybind11-in-conda.sh
         # Debugging information
         conda info -a
+        conda list
+
+        PYTHON_EXE=$(which python)
+        # specify python3
+        source ${GITHUB_WORKSPACE}/devenv/scripts/init
+        devenv use prime
+        PYTHON_EXE=${PYTHON_EXE} devenv build cython
 
     - name: configure ssh
       if: matrix.os == 'disable'
@@ -70,6 +87,9 @@ jobs:
 
     - name: show dependency
       run: |
+        source ${GITHUB_WORKSPACE}/devenv/scripts/init
+        devenv use prime
+        devenv show
         source ${GITHUB_WORKSPACE}/build/env/start
         export
         which gcc
@@ -79,8 +99,29 @@ jobs:
         which python3
         python3 --version
         python3 -c 'import numpy ; print("numpy.__version__:", numpy.__version__)'
+        which gmsh
+
+    - name: show python env
+      run: |
+        source ${GITHUB_WORKSPACE}/devenv/scripts/init
+        devenv use prime
+        devenv show
+        source ${GITHUB_WORKSPACE}/build/env/start
+        which python3
+        python3 --version
+        python3 -c 'import numpy ; print("numpy.__version__:", numpy.__version__)'
+        python3 -c 'import sys ; print(sys.path)'
+        echo "==============="
+        echo "python globals:"
+        python3 -c 'import numpy, solvcon ; print(globals())'
+        echo "==============="
+        echo "python locals:"
+        python3 -c 'import numpy, solvcon ; print(locals())'
 
     - name: test from package
       run: |
+        source ${GITHUB_WORKSPACE}/devenv/scripts/init
+        devenv use prime
+        devenv show
         source ${GITHUB_WORKSPACE}/build/env/start
         make SC_PURE_PYTHON=1 test_from_package
