@@ -112,6 +112,7 @@ def make_cython_extension(
     if extra_compile_args is None: extra_compile_args = []
     extra_compile_args = [
         '-Werror',
+        '-Wno-deprecated-declarations', # issue: 238
         '-Wno-cpp' if sys.platform != 'darwin' else '-Wno-#warnings',
         '-Wno-unused-function',
     ] + extra_compile_args
