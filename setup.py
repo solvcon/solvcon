@@ -116,8 +116,15 @@ def make_cython_extension(
         '-Wno-cpp' if sys.platform != 'darwin' else '-Wno-#warnings',
         '-Wno-unused-function',
     ] + extra_compile_args
+
+    if sys.platform == 'darwin':
+        lib_search_path = os.getenv("DYLD_LIBRARY_PATH", "/usr/lib")
+    else:
+        lib_search_path = os.getenv("LD_LIBRARY_PATH", "/usr/lib")
+
     return CyExtension(
         name, files,
+        library_dirs=lib_search_path.split(':'),
         include_dirs=include_dirs,
         libraries=libraries,
         extra_compile_args=extra_compile_args,
