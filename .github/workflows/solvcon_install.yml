@@ -1,4 +1,4 @@
-name: solvcon_install
+name: Build with Conda
 
 on:
   push:
