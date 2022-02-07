@@ -1,4 +1,5 @@
-name: Build with devenv
+# Build SOLVCON with devenv
+name: solvcon_install_devenv
 on:
   schedule:
     - cron: '21 18 * * 5'
