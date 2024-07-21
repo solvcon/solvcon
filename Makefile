@@ -44,7 +44,11 @@ else
 endif
 
 .PHONY: default
-default: build
+default: doc
+
+.PHONY: doc
+doc:
+	make -C doc html
 
 .PHONY: build
 build: libmarch legacy

@@ -1,10 +1,10 @@
 =======
-SOLVCON
+solvcon
 =======
 
-SOLVCON is a collection of conservation-law solvers that use the space-time
+solvcon is a collection of conservation-law solvers that use the space-time
 `Conservation Element and Solution Element (CESE) method
-<http://www.grc.nasa.gov/WWW/microbus/>`__ [Chang95]_.  The equations to be
+<https://yyc.solvcon.net/en/latest/cese/index.html>`__.  The equations to be
 solved are formulated as:
 
 .. math::
@@ -18,35 +18,18 @@ where :math:`\mathbf{u}` is the unknown vector and :math:`\mathrm{A}^{(1)}`,
 :math:`\mathrm{A}^{(2)}`, and :math:`\mathrm{A}^{(3)}` are the Jacobian
 matrices.
 
-.. include:: ../../README.rst
-  :start-line: 14
-
-Documents
-=========
+The code development has been moved in the repository
+https://github.com/solvcon/modmesh.  The code remaining in the old repository
+https://github.com/solvcon/solvcon will eventually be migrated.  The old
+repository will be updated to include setups for problems and solutions.
 
 .. toctree::
-  :maxdepth: 2
+  :maxdepth: 1
 
   mesh
   nestedloop
-
-Development
-===========
-
-- https://github.com/solvcon/solvcon/issues (issue tracker)
-- solvcon@googlegroups.com (mailing list; its web interface:
-  http://groups.google.com/group/solvcon)
-- :doc:`python_style`
-- :doc:`hidden_infrastructure`
-- :doc:`hidden_applications`
-
-References
-==========
-
-- :doc:`bibliography`
-- :doc:`history`
-- :doc:`copying`
-- :doc:`link`
-- :doc:`link_other`
+  python_style
+  history
+  copying
 
 .. vim: set spell ft=rst ff=unix fenc=utf8:
