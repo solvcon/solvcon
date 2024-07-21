@@ -286,7 +286,7 @@ def connect_builtin_tracker(app):
 
 
 def add_stylesheet(app):
-    app.add_stylesheet('issuetracker.css')
+    app.add_css_file('issuetracker.css')
 
 
 def init_cache(app):
