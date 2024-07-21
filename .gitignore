@@ -6,6 +6,7 @@ build/
 build.dbg/
 .sconsign.dblite
 .coverage
+.idea
 .ipynb_checkpoints/
 .vscode
 scdata/
