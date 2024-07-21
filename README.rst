@@ -1,6 +1,6 @@
 SOLVCON implements conservation-law solvers that use the space-time
 `Conservation Element and Solution Element (CESE) method
-<http://cesehub.org/>`__.
+<https://yyc.solvcon.net/en/latest/cese/index.html>`__.
 
 |rtd_status|
 
