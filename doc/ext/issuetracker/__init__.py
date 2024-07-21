@@ -302,12 +302,10 @@ def init_transformer(app):
 def copy_stylesheet(app, exception):
     if app.builder.name != 'html' or exception:
         return
-    app.info(bold('Copying issuetracker stylesheet... '), nonl=True)
     dest = path.join(app.builder.outdir, '_static', 'issuetracker.css')
     source = path.join(path.abspath(path.dirname(__file__)),
                        'issuetracker.css')
     copyfile(source, dest)
-    app.info('done')
 
 
 def setup(app):
