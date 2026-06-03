@@ -1047,6 +1047,37 @@ class SimpleArrayBasicTC(unittest.TestCase):
         ):
             sarr[::2, ::1, ...] = ndarr[...]
 
+        sarr = solvcon.SimpleArrayFloat64((2, 3, 4))
+        sarr[:, :, :, ...] = ndarr
+        np.testing.assert_array_equal(sarr.ndarray, ndarr)
+
+        with self.assertRaisesRegex(
+                RuntimeError,
+                r"syntax error\. dimensions mismatches"
+        ):
+            sarr[:, :, :, :] = np.zeros((2, 3, 4, 1), dtype='float64')
+
+    def test_SimpleArray_broadcast_slice_from_strided_ndarray(self):
+        ndarr_shape = (16, 18, 20, 22, 24)
+        ndarr = np.arange(np.prod(ndarr_shape), dtype='float64')
+        ndarr = ndarr.reshape(ndarr_shape)
+        sliced_ndarr = ndarr[15::-2, 1::2, 19::-2, 1::2, 23::-2]
+        expected = sliced_ndarr.copy()
+        sarr = solvcon.SimpleArrayFloat64(array=sliced_ndarr)
+        self.assertEqual(
+            sliced_ndarr[1, 2, 3, 4, 5],
+            sarr[1, 2, 3, 4, 5])
+
+        key = np.index_exp[::-2, 1:-1:2, -8:-1:2, 10:2:-3, ...]
+        value_shape = expected[key].shape
+        value = np.arange(np.prod(value_shape), dtype='float64')
+        value = value.reshape(value_shape) + 1000.0
+
+        sarr[key] = value
+        expected[key] = value
+
+        np.testing.assert_array_equal(sliced_ndarr, expected)
+
     def test_SimpleArray_broadcast_slice_ghost_1d(self):
         import math
         N = 13
@@ -1085,6 +1116,30 @@ class SimpleArrayBasicTC(unittest.TestCase):
             for j in range(3):
                 for k in range(4):
                     self.assertEqual(ndarr2[i, j, k], sarr[i - G, j, k])
+
+    def test_SimpleArray_broadcast_slice_negative_bounds(self):
+        ndarr_shape = (8, 9, 10, 11, 12)
+        ndarr = np.arange(np.prod(ndarr_shape), dtype='float64')
+        ndarr = ndarr.reshape(ndarr_shape)
+        expected = ndarr.copy()
+        sarr = solvcon.SimpleArrayFloat64(array=ndarr)
+
+        key = np.index_exp[-8:-1:2, 8:1:-2, 1:-1:3, ..., -2:-8:-2]
+        value_shape = expected[key].shape
+        value = np.arange(np.prod(value_shape), dtype='float64')
+        value = value.reshape(value_shape) + 1000.0
+
+        sarr[key] = value
+        expected[key] = value
+
+        np.testing.assert_array_equal(sarr.ndarray, expected)
+        np.testing.assert_array_equal(ndarr, expected)
+
+    def test_SimpleArray_broadcast_slice_zero_step(self):
+        ndarr = np.arange(4 * 5 * 6, dtype='float64').reshape((4, 5, 6))
+        sarr = solvcon.SimpleArrayFloat64(array=ndarr)
+        with self.assertRaisesRegex(ValueError, "slice step cannot be zero"):
+            sarr[::0, :, :] = np.zeros((4, 5, 6), dtype='float64')
 
     def test_SimpleArray_broadcast_from_list_list(self):
         sarr = solvcon.SimpleArrayFloat64((2, 3))
