@@ -67,6 +67,7 @@ def main():
         packages=[
             'solvcon',
             'solvcon.agent',
+            'solvcon.agent.draw',
             'solvcon.multidim',
             'solvcon.multidim.euler',
             'solvcon.onedim',

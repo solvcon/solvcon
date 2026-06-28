@@ -13,7 +13,7 @@ import solvcon
 from solvcon.agent import AgentSession
 
 try:
-    from solvcon.pilot import agentdraw  # noqa: F401
+    from solvcon.agent import draw as agentdraw  # noqa: F401
     HAS_AGENTDRAW = True
 except ImportError:
     HAS_AGENTDRAW = False

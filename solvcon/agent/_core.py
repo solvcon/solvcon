@@ -41,7 +41,7 @@ def _make_executor(world, renderer=None):
     """Build an Agent Draw ``Executor`` for ``world``."""
     # TODO: when the agentdraw package ships in-tree, import it at module
     # level (here and in tool_surface) and drop the empty-list fallback.
-    from solvcon.pilot import agentdraw
+    from solvcon.agent import draw as agentdraw
     return agentdraw.Executor(world, renderer)
 
 
@@ -49,7 +49,7 @@ def tool_surface():
     """The Agent Draw tool definitions for a backend, or ``[]`` if the
     ``agentdraw`` package is unavailable."""
     try:
-        from solvcon.pilot import agentdraw
+        from solvcon.agent import draw as agentdraw
     except ImportError:
         return []
     return agentdraw.tool_definitions()
