@@ -66,6 +66,7 @@ def main():
         version="0.0",
         packages=[
             'solvcon',
+            'solvcon.agent',
             'solvcon.multidim',
             'solvcon.multidim.euler',
             'solvcon.onedim',
