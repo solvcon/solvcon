@@ -46,10 +46,10 @@ struct KalmanStateInfo
 {
     using tuple_type = std::tuple<SimpleArray<T>, SimpleArray<T>, SimpleArray<T>, SimpleArray<T>>;
 
-    KalmanStateInfo(size_t observation_size, size_t state_size)
+    KalmanStateInfo(ssize_t observation_size, ssize_t state_size)
     {
-        small_vector<size_t> const xs_shape{observation_size, state_size};
-        small_vector<size_t> const ps_shape{observation_size, state_size, state_size};
+        small_vector<ssize_t> const xs_shape{observation_size, state_size};
+        small_vector<ssize_t> const ps_shape{observation_size, state_size, state_size};
         prior_states = SimpleArray<T>(xs_shape);
         prior_states_covariance = SimpleArray<T>(ps_shape);
         posterior_states = SimpleArray<T>(xs_shape);
@@ -89,9 +89,9 @@ public:
 
 private:
 
-    size_t m_state_size; // state dimension
-    size_t m_measurement_size; // measurement dimension
-    size_t m_control_size; // control dimension
+    ssize_t m_state_size; // state dimension
+    ssize_t m_measurement_size; // measurement dimension
+    ssize_t m_control_size; // control dimension
 
     array_type m_f; // state transition matrix (state_sizexstate_size)
     array_type m_q; // process noise covariance (state_sizexstate_size)
@@ -335,8 +335,8 @@ private:
     void update_covariance(array_type const & k);
 
     // Batch filter
-    void predict_and_update(array_type const & z, KalmanStateInfo<T> & bfs, size_t iter);
-    void predict_and_update(array_type const & z, array_type const & u, KalmanStateInfo<T> & bfs, size_t iter);
+    void predict_and_update(array_type const & z, KalmanStateInfo<T> & bfs, ssize_t iter);
+    void predict_and_update(array_type const & z, array_type const & u, KalmanStateInfo<T> & bfs, ssize_t iter);
 
 }; /* end class KalmanFilter */
 
@@ -601,14 +601,14 @@ void KalmanFilter<T>::update_covariance(array_type const & k)
 template <typename T>
 KalmanStateInfo<T> KalmanFilter<T>::batch_filter(array_type const & zs)
 {
-    size_t const z_m = zs.shape(0);
-    size_t const z_n = zs.shape(1);
-    array_type z(small_vector<size_t>{z_n});
+    ssize_t const z_m = zs.shape(0);
+    ssize_t const z_n = zs.shape(1);
+    array_type z(small_vector<ssize_t>{z_n});
     KalmanStateInfo<T> bfs(z_m, m_state_size);
 
-    for (size_t iter = 0; iter < z_m; ++iter)
+    for (ssize_t iter = 0; iter < z_m; ++iter)
     {
-        for (size_t j = 0; j < z_n; ++j)
+        for (ssize_t j = 0; j < z_n; ++j)
         {
             z(j) = zs(iter, j);
         }
@@ -618,7 +618,7 @@ KalmanStateInfo<T> KalmanFilter<T>::batch_filter(array_type const & zs)
 }
 
 template <typename T>
-void KalmanFilter<T>::predict_and_update(array_type const & z, KalmanStateInfo<T> & bfs, size_t iter)
+void KalmanFilter<T>::predict_and_update(array_type const & z, KalmanStateInfo<T> & bfs, ssize_t iter)
 {
     SimpleArray<T> & prior_state = bfs.prior_states;
     SimpleArray<T> & prior_state_covariance = bfs.prior_states_covariance;
@@ -626,20 +626,20 @@ void KalmanFilter<T>::predict_and_update(array_type const & z, KalmanStateInfo<T
     SimpleArray<T> & posterior_state_covariance = bfs.posterior_states_covariance;
 
     predict();
-    for (size_t j = 0; j < m_state_size; ++j)
+    for (ssize_t j = 0; j < m_state_size; ++j)
     {
         prior_state(iter, j) = m_x(j);
-        for (size_t k = 0; k < m_state_size; ++k)
+        for (ssize_t k = 0; k < m_state_size; ++k)
         {
             prior_state_covariance(iter, j, k) = m_p(j, k);
         }
     }
 
     update(z);
-    for (size_t j = 0; j < m_state_size; ++j)
+    for (ssize_t j = 0; j < m_state_size; ++j)
     {
         posterior_state(iter, j) = m_x(j);
-        for (size_t k = 0; k < m_state_size; ++k)
+        for (ssize_t k = 0; k < m_state_size; ++k)
         {
             posterior_state_covariance(iter, j, k) = m_p(j, k);
         }
@@ -649,29 +649,29 @@ void KalmanFilter<T>::predict_and_update(array_type const & z, KalmanStateInfo<T
 template <typename T>
 KalmanStateInfo<T> KalmanFilter<T>::batch_filter(array_type const & zs, array_type const & us)
 {
-    size_t const z_m = zs.shape(0);
-    size_t const z_n = zs.shape(1);
-    array_type z(small_vector<size_t>{z_n});
+    ssize_t const z_m = zs.shape(0);
+    ssize_t const z_n = zs.shape(1);
+    array_type z(small_vector<ssize_t>{z_n});
     KalmanStateInfo<T> bfs(z_m, m_state_size);
 
     array_type u;
-    size_t u_n = 0;
+    ssize_t u_n = 0;
 
-    size_t const u_m = us.shape(0);
+    ssize_t const u_m = us.shape(0);
     if (u_m != z_m)
     {
         throw std::invalid_argument("KalmanFilter::batch_filter: The number of control inputs must match the number of measurements.");
     }
     u_n = us.shape(1);
-    u = array_type(small_vector<size_t>{u_n});
+    u = array_type(small_vector<ssize_t>{u_n});
 
-    for (size_t iter = 0; iter < z_m; ++iter)
+    for (ssize_t iter = 0; iter < z_m; ++iter)
     {
-        for (size_t j = 0; j < z_n; ++j)
+        for (ssize_t j = 0; j < z_n; ++j)
         {
             z(j) = zs(iter, j);
         }
-        for (size_t j = 0; j < u_n; ++j)
+        for (ssize_t j = 0; j < u_n; ++j)
         {
             u(j) = us(iter, j);
         }
@@ -681,7 +681,7 @@ KalmanStateInfo<T> KalmanFilter<T>::batch_filter(array_type const & zs, array_ty
 }
 
 template <typename T>
-void KalmanFilter<T>::predict_and_update(array_type const & z, array_type const & u, KalmanStateInfo<T> & bfs, size_t iter)
+void KalmanFilter<T>::predict_and_update(array_type const & z, array_type const & u, KalmanStateInfo<T> & bfs, ssize_t iter)
 {
     SimpleArray<T> & prior_state = bfs.prior_states;
     SimpleArray<T> & prior_state_covariance = bfs.prior_states_covariance;
@@ -689,20 +689,20 @@ void KalmanFilter<T>::predict_and_update(array_type const & z, array_type const 
     SimpleArray<T> & posterior_state_covariance = bfs.posterior_states_covariance;
 
     predict(u);
-    for (size_t j = 0; j < m_state_size; ++j)
+    for (ssize_t j = 0; j < m_state_size; ++j)
     {
         prior_state(iter, j) = m_x(j);
-        for (size_t k = 0; k < m_state_size; ++k)
+        for (ssize_t k = 0; k < m_state_size; ++k)
         {
             prior_state_covariance(iter, j, k) = m_p(j, k);
         }
     }
 
     update(z);
-    for (size_t j = 0; j < m_state_size; ++j)
+    for (ssize_t j = 0; j < m_state_size; ++j)
     {
         posterior_state(iter, j) = m_x(j);
-        for (size_t k = 0; k < m_state_size; ++k)
+        for (ssize_t k = 0; k < m_state_size; ++k)
         {
             posterior_state_covariance(iter, j, k) = m_p(j, k);
         }

@@ -30,31 +30,32 @@ EulerCore::EulerCore(
 
 void EulerCore::initialize_arrays()
 {
-    size_t const total = static_cast<size_t>(m_ngstcell) + m_ncell;
+    ssize_t const total = m_ngstcell + m_ncell;
+    ssize_t const ndim = m_ndim;
 
     m_cevol = SimpleArray<real_type>(
-        std::vector<size_t>{total, StaticMesh::CLMFC + 1}, 0);
+        small_vector<ssize_t>{total, StaticMesh::CLMFC + 1}, 0);
     m_cevol.set_nghost(m_ngstcell);
 
     m_cecnd = SimpleArray<real_type>(
-        std::vector<size_t>{
+        small_vector<ssize_t>{
             total,
-            static_cast<size_t>((StaticMesh::CLMFC + 1) * m_ndim)},
+            (StaticMesh::CLMFC + 1) * ndim},
         0);
     m_cecnd.set_nghost(m_ngstcell);
 
     m_sfcnd = SimpleArray<real_type>(
-        std::vector<size_t>{
-            static_cast<size_t>(m_ncell),
+        small_vector<ssize_t>{
+            m_ncell,
             StaticMesh::CLMFC * StaticMesh::FCMND,
-            static_cast<size_t>(m_ndim)},
+            ndim},
         0);
 
     m_sfnml = SimpleArray<real_type>(
-        std::vector<size_t>{
-            static_cast<size_t>(m_ncell),
+        small_vector<ssize_t>{
+            m_ncell,
             StaticMesh::CLMFC * StaticMesh::FCMND,
-            static_cast<size_t>(m_ndim)},
+            ndim},
         0);
 }
 

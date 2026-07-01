@@ -145,11 +145,11 @@ inline solvcon::detail::shape_type make_shape(pybind11::object const & shape_in)
     solvcon::detail::shape_type shape;
     try
     {
-        shape.push_back(shape_in.cast<size_t>());
+        shape.push_back(shape_in.cast<ssize_t>());
     }
     catch (const pybind11::cast_error &)
     {
-        shape = shape_in.cast<std::vector<size_t>>();
+        shape = shape_in.cast<std::vector<ssize_t>>();
     }
     return shape;
 }
@@ -168,7 +168,7 @@ public:
 
         TypeBroadcast<T>::check_shape(arr_out, slices, arr_in);
 
-        const size_t nghost = arr_out.nghost();
+        const ssize_t nghost = arr_out.nghost();
         if (0 != nghost)
         {
             arr_out.set_nghost(0);
@@ -280,7 +280,7 @@ public:
             sizeof(T), /* Size of one scalar */
             format, /* Python struct-style format descriptor */
             array.ndim(), /* Number of dimensions */
-            std::vector<size_t>(array.shape().begin(), array.shape().end()), /* Buffer dimensions */
+            std::vector<pybind11::ssize_t>(array.shape().begin(), array.shape().end()), /* Buffer dimensions */
             stride /* Strides (in bytes) for each index */
         );
     }
@@ -341,12 +341,13 @@ private:
     static std::vector<sshape_type> make_default_slices(SimpleArray<T> const & arr)
     {
         std::vector<sshape_type> slices;
-        slices.reserve(arr.ndim());
-        for (size_t i = 0; i < arr.ndim(); ++i)
+        auto const & shape = arr.shape();
+        slices.reserve(shape.size());
+        for (ssize_t const dim : shape)
         {
             sshape_type default_slice(3);
             default_slice[0] = 0; // start
-            default_slice[1] = static_cast<ssize_t>(arr.shape(i)); // stop
+            default_slice[1] = dim; // stop
             default_slice[2] = 1; // step
             slices.push_back(std::move(default_slice));
         }
@@ -364,12 +365,12 @@ private:
         slice_out[2] = step == "None" ? slice_out[2] : std::stoi(step);
     }
 
-    static void slice_syntax_check(pybind11::tuple const & tuple, size_t ndim)
+    static void slice_syntax_check(pybind11::tuple const & tuple, ssize_t ndim)
     {
         namespace py = pybind11;
 
-        size_t ellipsis_cnt = 0;
-        size_t slice_cnt = 0;
+        ssize_t ellipsis_cnt = 0;
+        ssize_t slice_cnt = 0;
 
         for (auto it = tuple.begin(); it != tuple.end(); it++)
         {
@@ -400,7 +401,7 @@ private:
 
     static void process_slices(pybind11::tuple const & tuple,
                                std::vector<sshape_type> & slices,
-                               size_t ndim)
+                               ssize_t ndim)
     {
         namespace py = pybind11;
 
@@ -424,15 +425,16 @@ private:
         // copy slices from the back until an ellipsis
         if (ellipsis_flag)
         {
-            for (size_t size = 0; size < tuple.size(); size++)
+            ssize_t const tuple_size = tuple.size();
+            for (ssize_t offset = 0; offset < tuple_size; ++offset)
             {
-                auto it = tuple.end() - size - 1;
+                auto it = tuple.end() - offset - 1;
 
                 if (py::isinstance<py::ellipsis>(*it))
                 {
                     break;
                 }
-                auto & slice_out = slices[ndim - size - 1];
+                auto & slice_out = slices[ndim - offset - 1];
                 const auto slice_in = (*it).cast<py::slice>();
 
                 copy_slice(slice_out, slice_in);
@@ -446,7 +448,7 @@ private:
     {
         TypeBroadcast<T>::check_shape(arr_out, slices, arr_in);
 
-        const size_t nghost = arr_out.nghost();
+        const ssize_t nghost = arr_out.nghost();
         if (0 != nghost)
         {
             arr_out.set_nghost(0);

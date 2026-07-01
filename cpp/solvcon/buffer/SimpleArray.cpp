@@ -193,8 +193,8 @@ void SimpleArrayCopier::memcpy() const
  */
 void SimpleArrayCopier::tiled_2d() const
 {
-    auto const n0 = static_cast<ssize_t>(m_shape[0]);
-    auto const n1 = static_cast<ssize_t>(m_shape[1]);
+    ssize_t const n0 = m_shape[0];
+    ssize_t const n1 = m_shape[1];
     // Element strides scaled to byte strides once; the inner loop uses byte
     // arithmetic throughout.
     auto const itemsize = static_cast<ssize_t>(m_itemsize);
@@ -223,7 +223,7 @@ void SimpleArrayCopier::tiled_nd() const
     auto const itemsize = static_cast<ssize_t>(m_itemsize);
     if (ndim == 1)
     {
-        auto const n = static_cast<ssize_t>(m_shape[0]);
+        ssize_t const n = m_shape[0];
         ssize_t const ss = m_src_stride[0] * itemsize;
         ssize_t const os = m_dst_stride[0] * itemsize;
         for (ssize_t i = 0; i < n; ++i)
@@ -236,21 +236,21 @@ void SimpleArrayCopier::tiled_nd() const
     // See tiled_2d for the rationale behind the block size.
     size_t const ia = ndim - 2;
     size_t const ib = ndim - 1;
-    auto const n_a = static_cast<ssize_t>(m_shape[ia]);
-    auto const n_b = static_cast<ssize_t>(m_shape[ib]);
+    ssize_t const n_a = m_shape[ia];
+    ssize_t const n_b = m_shape[ib];
     ssize_t const ss_a = m_src_stride[ia] * itemsize;
     ssize_t const ss_b = m_src_stride[ib] * itemsize;
     ssize_t const os_a = m_dst_stride[ia] * itemsize;
     ssize_t const os_b = m_dst_stride[ib] * itemsize;
 
-    size_t outer_total = 1;
+    ssize_t outer_total = 1;
     for (size_t k = 0; k < ia; ++k)
     {
         outer_total *= m_shape[k];
     }
 
     detail::sshape_type outer_idx(ia, 0);
-    for (size_t step = 0; step < outer_total; ++step)
+    for (ssize_t step = 0; step < outer_total; ++step)
     {
         // Resolve outer-axis base offsets (in bytes) for this slab.
         ssize_t src_base = 0;
@@ -265,7 +265,7 @@ void SimpleArrayCopier::tiled_nd() const
         // Carry-propagating increment of the outer index.
         for (size_t i = ia; i-- > 0;)
         {
-            if (++outer_idx[i] < static_cast<ssize_t>(m_shape[i]))
+            if (++outer_idx[i] < m_shape[i])
             {
                 break;
             }
@@ -286,8 +286,8 @@ void SimpleArrayCopier::naive() const
     {
         return;
     }
-    size_t total = 1;
-    for (size_t const s : m_shape)
+    ssize_t total = 1;
+    for (ssize_t const s : m_shape)
     {
         total *= s;
     }
@@ -299,7 +299,7 @@ void SimpleArrayCopier::naive() const
     size_t const itemsize = m_itemsize;
     auto const signed_itemsize = static_cast<ssize_t>(itemsize);
     detail::sshape_type idx(ndim, 0);
-    for (size_t step = 0; step < total; ++step)
+    for (ssize_t step = 0; step < total; ++step)
     {
         ssize_t src_off = 0;
         ssize_t dst_off = 0;
@@ -316,7 +316,7 @@ void SimpleArrayCopier::naive() const
         // wrap to 0 and carry into the next-most-significant axis.
         for (size_t i = ndim; i-- > 0;)
         {
-            if (++idx[i] < static_cast<ssize_t>(m_shape[i]))
+            if (++idx[i] < m_shape[i])
             {
                 break;
             }
@@ -956,7 +956,7 @@ std::string format_shape(shape_type const & shape)
     return ret;
 }
 
-std::string format_flat_index(shape_type const & shape, size_t offset)
+std::string format_flat_index(shape_type const & shape, ssize_t offset)
 {
     if (shape.empty())
     {

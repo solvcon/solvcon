@@ -326,10 +326,10 @@ struct FaceBuilder
         , mface(nface)
         , cltpn(cltpn_in)
         , clnds(clnds_in)
-        , clfcs(small_vector<size_t>{cltpn.nbody(), CLMFC + 1}, -1)
-        , fctpn(small_vector<size_t>{mface}, -1)
-        , fcnds(small_vector<size_t>{mface, FCMND + 1}, -1)
-        , fccls(small_vector<size_t>{mface, FCREL}, -1)
+        , clfcs(shape_type{cltpn.nbody(), CLMFC + 1}, -1)
+        , fctpn(shape_type{static_cast<ssize_t>(mface)}, -1)
+        , fcnds(shape_type{static_cast<ssize_t>(mface), FCMND + 1}, -1)
+        , fccls(shape_type{static_cast<ssize_t>(mface), FCREL}, -1)
         , dedupmap(mface)
     {
         populate();
@@ -400,7 +400,7 @@ struct FaceBuilder
 
         // second pass: scan again to build hash table.
         size_t const ndmfc = *std::max_element(ndnfc.begin(), ndnfc.end());
-        SimpleArray<int_type> ndfcs(small_vector<size_t>{nnode, static_cast<size_t>(ndmfc) + 1});
+        SimpleArray<int_type> ndfcs(shape_type{static_cast<ssize_t>(nnode), static_cast<ssize_t>(ndmfc) + 1});
         for (size_t ind = 0; ind < nnode; ++ind)
         {
             ndfcs(ind, 0) = 0;
@@ -524,19 +524,19 @@ struct FaceBuilder
 
     void rebuild_fctpn(decltype(fctpn) & ofctpn)
     {
-        ofctpn.remake(small_vector<size_t>{nface});
+        ofctpn.remake(shape_type{static_cast<ssize_t>(nface)});
         std::copy(fctpn.vptr(0), fctpn.vptr(nface), ofctpn.vptr(0));
     }
 
     void rebuild_fcnds(decltype(fcnds) & ofcnds)
     {
-        ofcnds.remake(small_vector<size_t>{nface, FCMND+1});
+        ofcnds.remake(shape_type{static_cast<ssize_t>(nface), FCMND+1});
         std::copy(fcnds.vptr(0, 0), fcnds.vptr(nface, 0), ofcnds.vptr(0, 0));
     }
 
     void rebuild_fccls(decltype(fccls) & ofccls)
     {
-        ofccls.remake(small_vector<size_t>{nface, FCREL});
+        ofccls.remake(shape_type{static_cast<ssize_t>(nface), FCREL});
         std::copy(fccls.vptr(0, 0), fccls.vptr(nface, 0), ofccls.vptr(0, 0));
     }
 
@@ -557,9 +557,9 @@ void StaticMesh::build_faces_from_cells()
     fb.rebuild_fctpn(m_fctpn);
     fb.rebuild_fcnds(m_fcnds);
     fb.rebuild_fccls(m_fccls);
-    m_fccnd.remake(small_vector<size_t>{nface(), m_ndim}, 0);
-    m_fcnml.remake(small_vector<size_t>{nface(), m_ndim}, 0);
-    m_fcara.remake(small_vector<size_t>{nface()}, 0);
+    m_fccnd.remake(small_vector<ssize_t>{static_cast<ssize_t>(nface()), m_ndim}, 0);
+    m_fcnml.remake(small_vector<ssize_t>{static_cast<ssize_t>(nface()), m_ndim}, 0);
+    m_fcara.remake(small_vector<ssize_t>{static_cast<ssize_t>(nface())}, 0);
     std::copy(fb.clfcs.vptr(0, 0), fb.clfcs.vptr(m_ncell, 0), m_clfcs.vptr(0, 0));
 }
 
@@ -600,7 +600,7 @@ void StaticMesh::build_edge()
     }
 
     // Build the edge node array and populate.
-    m_ednds.remake(small_vector<size_t>{edges.size(), 2}, 0);
+    m_ednds.remake(small_vector<ssize_t>{static_cast<ssize_t>(edges.size()), 2}, 0);
     for (size_t ied = 0; ied < edges.size(); ++ied)
     {
         etype const edge = edges[ied];

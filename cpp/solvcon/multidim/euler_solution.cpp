@@ -18,14 +18,15 @@ namespace solvcon
 
 void EulerCore::initialize_solution()
 {
-    size_t const total = static_cast<size_t>(m_ngstcell) + m_ncell;
-    auto const neq = static_cast<size_t>(m_neq);
-    size_t const ndim = m_ndim;
+    ssize_t const total = m_ngstcell + m_ncell;
+    ssize_t const neq = m_neq;
+    ssize_t const ndim = m_ndim;
 
-    auto alloc = [this](SimpleArray<real_type> & arr, std::vector<size_t> const & shape)
+    auto alloc = [this](SimpleArray<real_type> & arr,
+                        small_vector<ssize_t> const & shape)
     {
         arr = SimpleArray<real_type>(shape, 0);
-        arr.set_nghost(static_cast<size_t>(m_ngstcell));
+        arr.set_nghost(m_ngstcell);
     };
 
     alloc(m_so0c, {total, neq});

@@ -282,6 +282,13 @@ class SimpleArrayBasicTC(unittest.TestCase):
         self.assertEqual((12, 2), sarr.reshape((12, 2)).shape)
         self.assertEqual((2, 2, 2, 3), sarr.reshape((2, 2, 2, 3)).shape)
 
+    def test_SimpleArray_negative_shape_raises(self):
+        with self.assertRaisesRegex(
+                IndexError,
+                "SimpleArray: shape dimension must be non-negative"
+        ):
+            solvcon.SimpleArrayFloat64((-1, 2))
+
     def test_SimpleArray_from_numpy_negative_stride(self):
         ndarr = np.arange(2 * 3, dtype='float64').reshape((2, 3))
         view = ndarr[::-1, ::-1]

@@ -172,7 +172,7 @@ private:
         std::getline(stream, line);
         auto nnode = std::stoul(line);
 
-        m_nds.remake(small_vector<size_t>{nnode, 3}, 0);
+        m_nds.remake(small_vector<ssize_t>{static_cast<ssize_t>(nnode), 3}, 0);
 
         while (std::getline(stream, line) && line.find('$') == std::string::npos)
         {
@@ -196,10 +196,10 @@ private:
         auto nelement = std::stoul(line);
         std::vector<uint_type> usnds;
 
-        m_cltpn.remake(small_vector<size_t>{nelement}, 0);
-        m_elgrp.remake(small_vector<size_t>{nelement}, 0);
-        m_elgeo.remake(small_vector<size_t>{nelement}, 0);
-        m_eldim.remake(small_vector<size_t>{nelement}, 0);
+        m_cltpn.remake(small_vector<ssize_t>{static_cast<ssize_t>(nelement)}, 0);
+        m_elgrp.remake(small_vector<ssize_t>{static_cast<ssize_t>(nelement)}, 0);
+        m_elgeo.remake(small_vector<ssize_t>{static_cast<ssize_t>(nelement)}, 0);
+        m_eldim.remake(small_vector<ssize_t>{static_cast<ssize_t>(nelement)}, 0);
 
         uint_type idx = 0;
 
@@ -254,7 +254,7 @@ private:
         usnds.erase(remove, usnds.end());
 
         // put used node id to m_ndmap
-        m_ndmap.remake(small_vector<size_t>{usnds.size()}, -1);
+        m_ndmap.remake(small_vector<ssize_t>{static_cast<ssize_t>(usnds.size())}, -1);
         for (size_t i = 0; i < usnds.size(); ++i)
         {
             m_ndmap(usnds[i]) = i;

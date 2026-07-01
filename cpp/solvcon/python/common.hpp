@@ -176,7 +176,7 @@ std::enable_if_t<is_simple_array_v<S>, pybind11::array> to_ndarray(S && sarr)
 {
     namespace py = pybind11;
     using T = typename std::remove_reference_t<S>::value_type;
-    std::vector<size_t> const shape(sarr.shape().begin(), sarr.shape().end());
+    std::vector<py::ssize_t> const shape(sarr.shape().begin(), sarr.shape().end());
     std::vector<py::ssize_t> stride;
     stride.reserve(sarr.stride().size());
     auto const itemsize = static_cast<py::ssize_t>(sarr.itemsize());

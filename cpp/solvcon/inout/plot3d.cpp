@@ -23,10 +23,10 @@ Plot3d::Plot3d(const std::string & data)
     std::getline(stream, line);
     nblocks = stoul(line);
 
-    m_x_shape.remake(small_vector<size_t>{nblocks}, 0);
-    m_y_shape.remake(small_vector<size_t>{nblocks}, 0);
-    m_z_shape.remake(small_vector<size_t>{nblocks}, 0);
-    m_blk_sizes.remake(small_vector<size_t>{nblocks}, 0);
+    m_x_shape.remake(small_vector<ssize_t>{static_cast<ssize_t>(nblocks)}, 0);
+    m_y_shape.remake(small_vector<ssize_t>{static_cast<ssize_t>(nblocks)}, 0);
+    m_z_shape.remake(small_vector<ssize_t>{static_cast<ssize_t>(nblocks)}, 0);
+    m_blk_sizes.remake(small_vector<ssize_t>{static_cast<ssize_t>(nblocks)}, 0);
 
     // parsing xyz dimension of each block
     for (auto i = 0; i < nblocks; ++i)
@@ -40,7 +40,7 @@ Plot3d::Plot3d(const std::string & data)
         total_blk_size += m_blk_sizes(i);
     }
 
-    m_nds.remake(small_vector<size_t>{total_blk_size, 3}, 0);
+    m_nds.remake(small_vector<ssize_t>{static_cast<ssize_t>(total_blk_size), 3}, 0);
 
     parseCoordinates(nblocks);
     buildHexahedronElements(nblocks);
@@ -131,7 +131,7 @@ std::shared_ptr<StaticMesh> Plot3d::to_block()
 void Plot3d::build_interior(const std::shared_ptr<StaticMesh> & blk)
 {
     SimpleArray<int_type> m_cltpn;
-    m_cltpn.remake(small_vector<size_t>{m_elems.size()}, 5);
+    m_cltpn.remake(small_vector<ssize_t>{static_cast<ssize_t>(m_elems.size())}, 5);
     blk->cltpn().swap(m_cltpn);
     blk->ndcrd().swap(m_nds);
 

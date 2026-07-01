@@ -34,7 +34,7 @@ Grid::Grid(real_type xmin, real_type xmax, size_t ncelm, ctor_passkey const &)
     }
     // Fill the array for CCE boundary.
     const real_type xspace = (xmax - xmin) / ncelm;
-    array_type xloc(std::vector<size_t>{ncelm + 1});
+    array_type xloc(small_vector<ssize_t>{static_cast<ssize_t>(ncelm + 1)});
     xloc[0] = xmin;
     for (size_t it = 1; it < ncelm; ++it)
     {
@@ -101,9 +101,9 @@ void Grid::init_from_array(array_type const & xloc)
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 Field::Field(std::shared_ptr<Grid> const & grid, Field::value_type time_increment, size_t nvar)
     : m_grid(grid)
-    , m_so0(array_type(std::vector<size_t>{grid->xsize(), nvar}))
-    , m_so1(array_type(std::vector<size_t>{grid->xsize(), nvar}))
-    , m_cfl(array_type(std::vector<size_t>{grid->xsize()}))
+    , m_so0(array_type(small_vector<ssize_t>{static_cast<ssize_t>(grid->xsize()), static_cast<ssize_t>(nvar)}))
+    , m_so1(array_type(small_vector<ssize_t>{static_cast<ssize_t>(grid->xsize()), static_cast<ssize_t>(nvar)}))
+    , m_cfl(array_type(small_vector<ssize_t>{static_cast<ssize_t>(grid->xsize())}))
 {
     set_time_increment(time_increment);
 }

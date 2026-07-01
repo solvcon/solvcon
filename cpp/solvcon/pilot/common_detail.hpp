@@ -30,12 +30,16 @@ namespace solvcon
  * @return A SimpleArray of the requested shape over the byte buffer.
  */
 template <typename T>
-SimpleArray<T> makeSimpleArray(QByteArray & qbarr, small_vector<size_t> shape, bool view = false)
+SimpleArray<T> makeSimpleArray(QByteArray & qbarr, small_vector<ssize_t> shape, bool view = false)
 {
     size_t nbytes = sizeof(T);
-    for (size_t v : shape)
+    for (ssize_t v : shape)
     {
-        nbytes *= v;
+        if (v < 0)
+        {
+            throw std::out_of_range("QByteArray shape cannot contain negative dimensions");
+        }
+        nbytes *= static_cast<size_t>(v);
     }
     if (0 == nbytes)
     {
@@ -58,7 +62,7 @@ SimpleArray<T> makeSimpleArray(QByteArray & qbarr, small_vector<size_t> shape, b
         std::copy_n(ptr, nbytes, cbuf->begin());
     }
 
-    return SimpleArray<T>(small_vector<size_t>(shape), cbuf);
+    return SimpleArray<T>(shape, cbuf);
 }
 
 /**

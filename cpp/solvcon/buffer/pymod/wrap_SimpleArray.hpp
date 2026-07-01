@@ -481,9 +481,9 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArray
                 "matmul_fast",
                 [](wrapped_type const & self,
                    wrapped_type const & other,
-                   size_t tile_x,
-                   size_t tile_y,
-                   size_t tile_z)
+                   ssize_t tile_x,
+                   ssize_t tile_y,
+                   ssize_t tile_z)
                 { return self.matmul_fast(other, tile_x, tile_y, tile_z); },
                 py::arg("other"),
                 py::arg("tile_x") = 16,
@@ -537,9 +537,9 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArray
                 "imatmul_fast",
                 [](wrapped_type & self,
                    wrapped_type const & other,
-                   size_t tile_x,
-                   size_t tile_y,
-                   size_t tile_z)
+                   ssize_t tile_x,
+                   ssize_t tile_y,
+                   ssize_t tile_z)
                 { self.imatmul_fast(other, tile_x, tile_y, tile_z); },
                 py::arg("other"),
                 py::arg("tile_x") = 16,

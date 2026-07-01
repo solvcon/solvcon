@@ -73,7 +73,7 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapKalmanFilter
                         array_type b_array;
                         if (b.is_none())
                         {
-                            b_array = array_type(small_vector<size_t>{x.shape(0), 0});
+                            b_array = array_type(small_vector<ssize_t>{x.shape(0), 0});
                         }
                         else
                         {
@@ -102,7 +102,7 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapKalmanFilter
                         array_type b_array;
                         if (b.is_none())
                         {
-                            b_array = array_type(small_vector<size_t>{x.shape(0), 0});
+                            b_array = array_type(small_vector<ssize_t>{x.shape(0), 0});
                         }
                         else
                         {
