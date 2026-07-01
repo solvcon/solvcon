@@ -3843,6 +3843,27 @@ class SimpleArraySearchTC(unittest.TestCase):
         self.assertEqual(sarr.argmax(), 9)
         self.assertEqual(narr.argmin(), sarr.argmin())
         self.assertEqual(narr.argmax(), sarr.argmax())
+    
+    def test_argwhere(self):
+        # test 1-D data
+        data = [1, 3, 5, 7, 9]
+        narr = np.array(data, dtype='uint64')
+        sarr = solvcon.SimpleArrayUint64(array=narr)
+
+        ret = sarr.eq(5).argwhere()
+        np.testing.assert_array_equal(ret.ndarray, np.argwhere(narr == 5))
+
+        # test N-D data
+        data = [
+            [1, 3, 5, 7, 9],
+            [2, 4, 6, 8, 10],
+            [1, 10, 1, 10, 1]
+        ]
+        narr = np.array(data, dtype='float64')
+        sarr = solvcon.SimpleArrayFloat64(array=narr)
+
+        ret = sarr.eq(10).argwhere()
+        np.testing.assert_array_equal(ret.ndarray, np.argwhere(narr == 10))
 
 
 class SimpleArrayPlexTC(unittest.TestCase):

@@ -1350,6 +1350,9 @@ public:
         }
         return max_index;
     }
+
+    SimpleArray<uint64_t> argwhere() const;
+
 }; /* end class SimpleArrayMixinSearch */
 
 template <typename A, typename T>
@@ -2634,6 +2637,42 @@ A detail::SimpleArrayMixinSort<A, T>::take_along_axis(SimpleArray<I> const & ind
         ++src;
     }
     return ret;
+}
+
+template <typename A, typename T>
+SimpleArray<uint64_t> detail::SimpleArrayMixinSearch<A, T>::argwhere() const
+{
+    auto athis = static_cast<A const *>(this);
+
+    size_t count = 0;
+    for (size_t i = 0; i < athis->size(); ++i)
+    {
+        if (athis->data(i) != value_type(0))
+        {
+            ++count;
+        }
+    }
+
+    size_t const ndim = athis->ndim();
+    shape_type res_shape{count, ndim};
+    SimpleArray<uint64_t> result(res_shape);
+
+    size_t idx = 0;
+    for (size_t i = 0; i < athis->size(); ++i)
+    {
+        if (athis->data(i) == value_type(0)) { continue; }
+
+        size_t offset = i;
+        for (size_t dim = 0; dim < ndim; ++dim)
+        {
+            size_t stride = athis->stride(dim);
+            result(idx, dim) = static_cast<uint64_t>(offset / stride);
+            offset %= stride;
+        }
+        ++idx;
+    }
+
+    return result;
 }
 
 // The declaration lives in namespace detail and is excluded from the API
