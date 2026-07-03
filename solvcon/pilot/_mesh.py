@@ -8,13 +8,14 @@ Show meshes.
 
 import os
 
-from PySide6 import QtCore, QtWidgets
+from PySide6 import QtCore, QtGui, QtWidgets
 
 from .. import core
 from . import _gui_common
 
 __all__ = [  # noqa: F822
     'SampleMesh',
+    'MeshStyleStatus',
     'GmshFileDialog',
 ]
 
@@ -349,6 +350,74 @@ class SampleMeshDialog(_gui_common.PilotFeature):
         func = item.data(0, QtCore.Qt.UserRole)
         if callable(func):
             func()
+
+
+class MeshStyleStatus(QtCore.QObject):
+    """Shared on/off state of the three mesh styles for the active viewer.
+    """
+
+    # (style name understood by RDomainWidget, human-readable label), in one
+    # canonical order shared by every mesh-style UI.
+    STYLES = (
+        ("surface", "Surface (lit shaded)"),
+        ("wireframe", "Wireframe"),
+        ("points", "Points"),
+    )
+    # The viewer default (wireframe only), reported when no viewer is active.
+    _DEFAULTS = {"surface": False, "wireframe": True, "points": False}
+
+    changed = QtCore.Signal()
+
+    def __init__(self, *args, **kw):
+        self._mgr = kw.pop('mgr')
+        super().__init__(*args, **kw)
+        self._actions = {}
+        mdi = self._mgr.mainWindow.centralWidget()
+        if mdi is not None:
+            # A newly activated viewer brings its own styles; refresh the UIs.
+            mdi.subWindowActivated.connect(lambda _sub: self.changed.emit())
+
+    def is_shown(self, name):
+        """Whether ``name`` is drawn in the active viewer, or its default."""
+        widget = self._mgr.currentR3DWidget()
+        if widget is None:
+            return self._DEFAULTS.get(name, False)
+        return widget.meshStyleShown(name)
+
+    def set_shown(self, name, shown):
+        """Show or hide ``name`` in the active viewer, then refresh the UIs."""
+        widget = self._mgr.currentR3DWidget()
+        if widget is None:
+            self._mgr.pycon.writeToHistory(
+                "No active 3D viewer to toggle the mesh style\n")
+        else:
+            widget.showMeshStyle(name, shown)
+        self.changed.emit()
+
+    def populate_menu(self):
+        """Add the View > Mesh styles submenu of independent check items."""
+        window = self._mgr.mainWindow
+        submenu = QtWidgets.QMenu("Mesh styles", window)
+        for name, label in self.STYLES:
+            act = QtGui.QAction(label, window)
+            act.setCheckable(True)
+            act.setChecked(self.is_shown(name))
+            act.setStatusTip(f"Show or hide the {label.lower()} mesh style")
+            act.toggled.connect(
+                lambda checked, n=name: self.set_shown(n, checked))
+            self._actions[name] = act
+            submenu.addAction(act)
+        self.changed.connect(self._sync_menu)
+        self._mgr.viewMenu.addMenu(submenu)
+
+    def _sync_menu(self):
+        """Match the menu check marks to the active viewer's styles."""
+        for name, act in self._actions.items():
+            shown = self.is_shown(name)
+            if act.isChecked() != shown:
+                blocked = act.blockSignals(True)
+                act.setChecked(shown)
+                act.blockSignals(blocked)
 
 
 class GmshFileDialog(_gui_common.PilotFeature):

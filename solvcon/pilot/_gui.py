@@ -59,6 +59,7 @@ class _Controller(metaclass=_Singleton):
         self.svg_dialog = None
         self.mesh_info = None
         self.sample_mesh = None
+        self.mesh_style_status = None
         self.oblique_shock = None
         self.oblique_solver = None
         self.naca4airfoil = None
@@ -91,8 +92,10 @@ class _Controller(metaclass=_Singleton):
         self.gmsh_dialog = _mesh.GmshFileDialog(mgr=self._rmgr)
         self.svg_dialog = _svg_gui.SVGFileDialog(mgr=self._rmgr)
         self.sample_mesh = _mesh.SampleMesh(mgr=self._rmgr)
-        self.mesh_info = _mesh_info.MeshInfo(mgr=self._rmgr,
-                                             menu=self.panels_menu)
+        self.mesh_style_status = _mesh.MeshStyleStatus(mgr=self._rmgr)
+        self.mesh_info = _mesh_info.MeshInfo(
+            mgr=self._rmgr, menu=self.panels_menu,
+            style_status=self.mesh_style_status)
         self.oblique_shock = _oblique.ObliqueShockMesh(mgr=self._rmgr)
         self.oblique_solver = _oblique.ObliqueShockSolver(mgr=self._rmgr)
         self.naca4airfoil = airfoil.Naca4Airfoil(mgr=self._rmgr)
@@ -142,6 +145,7 @@ class _Controller(metaclass=_Singleton):
         self.mesh_info.populate_menu()
         self.painter.populate_menu()
         self.mesh_sample_dialog.populate_menu()
+        self.mesh_style_status.populate_menu()
         self.oblique_solver.populate_menu()
         self.eulerone.populate_menu()
         self.burgers.populate_menu()
