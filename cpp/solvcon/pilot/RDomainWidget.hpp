@@ -201,6 +201,14 @@ public:
     /// Recenter and frame the whole scene (the selection once picking lands).
     void frameSelected();
 
+    /// Frame the current selection (from a pick), or the whole scene when
+    /// nothing is selected.
+    void zoomToSelection();
+
+    /// Reset the camera to the fit-to-scene default: auto projection,
+    /// turntable orbit, the whole scene framed.
+    void resetCamera();
+
     /// Choose the mouse navigation mapping: "default" (left rotates, other
     /// buttons pan) or "blender" (middle orbits; Shift+middle pans;
     /// Ctrl+middle zooms; Alt+middle recenters the pivot; Alt+left aliases the

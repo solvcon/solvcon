@@ -1284,6 +1284,56 @@ class RDomainWidgetNavMapTC(unittest.TestCase):
 
 
 @unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+class RDomainWidgetZoomTC(unittest.TestCase):
+    """Zoom to the selection and reset the camera."""
+
+    @classmethod
+    def setUpClass(cls):
+        pilot.RManager.instance.setUp()
+
+    def test_zoom_to_selection_frames_the_picked_cell(self):
+        """Picking the right-hand quad then zooming frames it: the camera
+        target moves to the picked cell centroid, off the scene center."""
+        widget = pilot.RDomainWidget()
+        widget.resize(320, 240)
+        widget.updateMesh(_make_2d_mesh())
+        widget.fitCameraToScene()
+        r = widget.pickCell(240, 120)
+        self.assertIsNotNone(r)
+        widget.zoomToSelection()
+        zoom_target = tuple(widget.cameraTarget)
+        self.assertAlmostEqual(zoom_target[0], r["centroid"][0], places=3)
+        widget.resetCamera()
+        reset_target = tuple(widget.cameraTarget)
+        self.assertNotAlmostEqual(zoom_target[0], reset_target[0], places=2)
+
+    def test_zoom_without_selection_frames_the_scene(self):
+        """With nothing selected, zoom-to-selection frames the whole scene
+        (its bounding-box center)."""
+        widget = pilot.RDomainWidget()
+        widget.resize(320, 240)
+        widget.updateMesh(_make_2d_mesh())
+        widget.fitCameraToScene()
+        widget.zoomToSelection()
+        target = tuple(widget.cameraTarget)
+        self.assertAlmostEqual(target[0], 1.0, places=3)
+        self.assertAlmostEqual(target[1], 0.5, places=3)
+
+    def test_reset_camera_restores_scene_framing(self):
+        """After a zoom, reset returns the camera to the whole-scene center."""
+        widget = pilot.RDomainWidget()
+        widget.resize(320, 240)
+        widget.updateMesh(_make_2d_mesh())
+        widget.fitCameraToScene()
+        widget.pickCell(240, 120)
+        widget.zoomToSelection()
+        widget.resetCamera()
+        target = tuple(widget.cameraTarget)
+        self.assertAlmostEqual(target[0], 1.0, places=3)
+        self.assertAlmostEqual(target[1], 0.5, places=3)
+
+
+@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
 class RDomainWidgetMeasureTC(unittest.TestCase):
     """Distance and angle measurement between world points."""
 

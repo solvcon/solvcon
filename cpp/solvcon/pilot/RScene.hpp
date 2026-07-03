@@ -105,8 +105,12 @@ public:
     RCameraController const & camera() const { return m_camera; }
 
     /// Frame the camera so the whole bounding box is in view at the given
-    /// viewport @p aspect (width / height).
+    /// viewport @p aspect (width / height). Resets any zoomed-in framing.
     void fitCameraToScene(float aspect);
+
+    /// Frame the camera on an arbitrary box [lo, hi] (a picked selection, say)
+    /// so the projection sizes to that box, not the whole scene.
+    void frameBox(QVector3D const & lo, QVector3D const & hi, float aspect);
 
     /// The model-view-projection for the framed scene at the given viewport.
     /// 2D domains use an orthographic projection, 3D domains a perspective
@@ -116,6 +120,9 @@ public:
 private:
 
     float boundingRadius() const;
+    /// Radius the projection sizes to: the zoomed framing box when one is set,
+    /// otherwise the whole-scene bounding box.
+    float framingRadius() const;
 
     std::vector<std::unique_ptr<RDrawable>> m_drawables;
 
@@ -124,6 +131,12 @@ private:
     bool m_has_bbox = false;
     uint32_t m_ndim = 0;
     Projection m_projection = Projection::Auto;
+
+    // A zoomed-in framing box (e.g. a picked selection); when set, the
+    // projection sizes to it instead of the whole scene.
+    QVector3D m_frame_lo;
+    QVector3D m_frame_hi;
+    bool m_has_frame_box = false;
 
     RCameraController m_camera;
 

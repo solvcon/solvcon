@@ -1273,8 +1273,26 @@ void RDomainWidget::setPivot(float x, float y, float z)
 
 void RDomainWidget::frameSelected()
 {
-    // No selection exists yet (it arrives with picking), so frame the whole
-    // scene.
+    zoomToSelection();
+}
+
+void RDomainWidget::zoomToSelection()
+{
+    if (m_has_selection)
+    {
+        m_scene.frameBox(m_selection_lo, m_selection_hi, viewportAspect());
+    }
+    else
+    {
+        m_scene.fitCameraToScene(viewportAspect());
+    }
+    update();
+}
+
+void RDomainWidget::resetCamera()
+{
+    m_scene.setProjection("auto");
+    m_scene.camera().setOrbitStyle(RCameraController::OrbitStyle::Turntable);
     m_scene.fitCameraToScene(viewportAspect());
     update();
 }

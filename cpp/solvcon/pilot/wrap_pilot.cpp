@@ -372,7 +372,17 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRDomainWidget
             .def(
                 "frameSelected",
                 &wrapped_type::frameSelected,
-                "Recenter and frame the whole scene.")
+                "Frame the current selection, or the whole scene when nothing "
+                "is selected.")
+            .def(
+                "zoomToSelection",
+                &wrapped_type::zoomToSelection,
+                "Frame the current selection (from a pick), or the whole scene "
+                "when nothing is selected.")
+            .def(
+                "resetCamera",
+                &wrapped_type::resetCamera,
+                "Reset the camera to the fit-to-scene default.")
             .def_property(
                 "navigationMapping",
                 [](wrapped_type & self)
