@@ -20,11 +20,116 @@
 #include <QWheelEvent>
 
 #include <algorithm>
+#include <cmath>
 #include <limits>
 #include <stdexcept>
+#include <vector>
 
 namespace solvcon
 {
+
+namespace
+{
+
+constexpr float PI = 3.14159265358979323846f;
+
+/// Per-cell value of the named geometric quality metric, over the SimpleArray
+/// mesh path. The angle-based metrics read the cell node polygon, so they are
+/// meaningful for 2D cells; "volume" and "aspect_ratio" work in any dimension.
+/// Throws std::invalid_argument for an unknown metric name.
+std::vector<float> cell_quality(StaticMesh const & mh, std::string const & metric)
+{
+    static char const * const known[] = {
+        "volume", "aspect_ratio", "skewness", "min_angle", "max_angle"};
+    if (std::none_of(std::begin(known), std::end(known), [&metric](char const * n)
+                     { return metric == n; }))
+    {
+        throw std::invalid_argument(
+            "RDomainWidget: unknown quality metric \"" + metric +
+            "\"; pick one of volume, aspect_ratio, skewness, min_angle, "
+            "max_angle");
+    }
+
+    uint32_t const ndim = mh.ndim();
+    uint32_t const ncell = mh.ncell();
+    auto coord = [&mh, ndim](int32_t ind, uint32_t d) -> float
+    { return (d < ndim) ? static_cast<float>(mh.ndcrd(ind, d)) : 0.0f; };
+
+    std::vector<float> out(ncell, 0.0f);
+    for (uint32_t icl = 0; icl < ncell; ++icl)
+    {
+        if ("volume" == metric)
+        {
+            out[icl] = static_cast<float>(mh.clvol(icl));
+            continue;
+        }
+
+        int32_t const nnd = mh.clnds(icl, 0);
+        std::vector<QVector3D> p(static_cast<size_t>(nnd));
+        for (int32_t k = 0; k < nnd; ++k)
+        {
+            int32_t const ind = mh.clnds(icl, k + 1);
+            p[k] = QVector3D(coord(ind, 0), coord(ind, 1), coord(ind, 2));
+        }
+
+        if ("aspect_ratio" == metric)
+        {
+            float dmin = std::numeric_limits<float>::max();
+            float dmax = 0.0f;
+            for (int32_t a = 0; a < nnd; ++a)
+            {
+                for (int32_t b = a + 1; b < nnd; ++b)
+                {
+                    float const d = (p[a] - p[b]).length();
+                    dmin = std::min(dmin, d);
+                    dmax = std::max(dmax, d);
+                }
+            }
+            out[icl] = (dmin > 0.0f) ? dmax / dmin : 0.0f;
+            continue;
+        }
+
+        // The remaining metrics read the interior angles of the node polygon.
+        float amin = 180.0f;
+        float amax = 0.0f;
+        for (int32_t k = 0; k < nnd; ++k)
+        {
+            QVector3D const a = p[(k + nnd - 1) % nnd] - p[k];
+            QVector3D const b = p[(k + 1) % nnd] - p[k];
+            float const la = a.length();
+            float const lb = b.length();
+            if (la <= 0.0f || lb <= 0.0f)
+            {
+                continue;
+            }
+            float const c = std::clamp(
+                QVector3D::dotProduct(a, b) / (la * lb), -1.0f, 1.0f);
+            float const ang = std::acos(c) * 180.0f / PI;
+            amin = std::min(amin, ang);
+            amax = std::max(amax, ang);
+        }
+
+        if ("min_angle" == metric)
+        {
+            out[icl] = amin;
+        }
+        else if ("max_angle" == metric)
+        {
+            out[icl] = amax;
+        }
+        else // skewness: the equiangle skew against the regular-polygon angle.
+        {
+            float const te = 180.0f * static_cast<float>(nnd - 2) / static_cast<float>(nnd);
+            float const skew = std::max(
+                (amax - te) / std::max(180.0f - te, 1.0e-3f),
+                (te - amin) / std::max(te, 1.0e-3f));
+            out[icl] = std::clamp(skew, 0.0f, 1.0f);
+        }
+    }
+    return out;
+}
+
+} /* end namespace */
 
 RDomainWidget::RDomainWidget(QWidget * parent)
     : QRhiWidget(parent)
@@ -378,41 +483,63 @@ void RDomainWidget::clearCellColoring()
     update();
 }
 
-void RDomainWidget::installCategoryField(
-    std::vector<int32_t> const & primitive_category, std::string const & title)
+void RDomainWidget::colorByQuality(std::string const & metric)
 {
     if (nullptr == m_mesh)
     {
         return;
     }
     StaticMesh const & mh = *m_mesh;
-    uint32_t const ndim = mh.ndim();
+    std::vector<float> const cellval = cell_quality(mh, metric);
 
-    // Dense-index the distinct categories so the colors pack from the palette
-    // start and the legend runs 0..ncat-1.
-    std::vector<int32_t> distinct(primitive_category);
-    std::sort(distinct.begin(), distinct.end());
-    distinct.erase(std::unique(distinct.begin(), distinct.end()), distinct.end());
-    if (distinct.empty())
+    // The 3D surface is the boundary shell, so a boundary face takes its owning
+    // cell's metric; a 2D cell takes its own.
+    std::vector<float> primitive;
+    if (3 == mh.ndim())
     {
-        return;
+        SimpleArray<int32_t> const & bndfcs = mh.bndfcs();
+        primitive.reserve(bndfcs.shape(0));
+        for (size_t ibnd = 0; ibnd < bndfcs.shape(0); ++ibnd)
+        {
+            primitive.push_back(cellval[mh.fcicl(bndfcs(ibnd, 0))]);
+        }
     }
-    int const ncat = static_cast<int>(distinct.size());
-    auto dense = [&distinct](int32_t v) -> float
+    else
     {
-        return static_cast<float>(
-            std::lower_bound(distinct.begin(), distinct.end(), v) - distinct.begin());
-    };
+        primitive = cellval;
+    }
+    installMetricField(primitive, metric);
+}
+
+std::pair<float, float> RDomainWidget::qualityRange(std::string const & metric) const
+{
+    if (nullptr == m_mesh)
+    {
+        return {0.0f, 0.0f};
+    }
+    std::vector<float> const v = cell_quality(*m_mesh, metric);
+    if (v.empty())
+    {
+        return {0.0f, 0.0f};
+    }
+    auto const mm = std::minmax_element(v.begin(), v.end());
+    return {*mm.first, *mm.second};
+}
+
+void RDomainWidget::collectSurfaceScalars(
+    std::vector<float> const & primitive_scalar,
+    std::vector<float> & verts,
+    std::vector<float> & scals,
+    std::vector<uint32_t> & tris) const
+{
+    StaticMesh const & mh = *m_mesh;
+    uint32_t const ndim = mh.ndim();
 
     auto node_coord = [&mh, ndim](int32_t ind, uint32_t dim) -> float
     { return (dim < ndim) ? static_cast<float>(mh.ndcrd(ind, dim)) : 0.0f; };
 
-    std::vector<float> verts; // x, y, z per vertex
-    std::vector<float> scals; // one category per vertex
-    std::vector<uint32_t> tris; // triangle indices
-
     // Fan-triangulate one surface polygon, giving every emitted vertex the
-    // primitive's category so the whole face reads one flat color.
+    // primitive's scalar so the whole face reads one value.
     auto add_polygon = [&](auto node, int32_t nnd, float scalar)
     {
         for (int32_t k = 1; k + 1 < nnd; ++k)
@@ -435,7 +562,7 @@ void RDomainWidget::installCategoryField(
     if (3 == ndim)
     {
         SimpleArray<int32_t> const & bndfcs = mh.bndfcs();
-        size_t const nprim = std::min(bndfcs.shape(0), primitive_category.size());
+        size_t const nprim = std::min(bndfcs.shape(0), primitive_scalar.size());
         for (size_t ibnd = 0; ibnd < nprim; ++ibnd)
         {
             int32_t const ifc = bndfcs(ibnd, 0);
@@ -443,32 +570,41 @@ void RDomainWidget::installCategoryField(
                 [&mh, ifc](int32_t k)
                 { return mh.fcnds(ifc, k + 1); },
                 mh.fcnds(ifc, 0),
-                dense(primitive_category[ibnd]));
+                primitive_scalar[ibnd]);
         }
     }
     else
     {
-        size_t const nprim = std::min(static_cast<size_t>(mh.ncell()), primitive_category.size());
+        size_t const nprim = std::min(static_cast<size_t>(mh.ncell()), primitive_scalar.size());
         for (uint32_t icl = 0; icl < nprim; ++icl)
         {
             add_polygon(
                 [&mh, icl](int32_t k)
                 { return mh.clnds(icl, k + 1); },
                 mh.clnds(icl, 0),
-                dense(primitive_category[icl]));
+                primitive_scalar[icl]);
         }
     }
+}
 
-    if (verts.empty())
-    {
-        return;
-    }
+namespace
+{
 
+/// Pack the collected interleaved arrays into the (nvert, 3), (nvert,), and
+/// (ntri, 3) SimpleArrays the scalar-field drawable expects.
+void pack_scalar_arrays(
+    std::vector<float> const & verts,
+    std::vector<float> const & scals,
+    std::vector<uint32_t> const & tris,
+    SimpleArray<float> & va,
+    SimpleArray<float> & sa,
+    SimpleArray<uint32_t> & ia)
+{
     size_t const nvert = verts.size() / 3;
     size_t const ntri = tris.size() / 3;
-    SimpleArray<float> va(std::vector<size_t>{nvert, 3});
-    SimpleArray<float> sa(std::vector<size_t>{nvert});
-    SimpleArray<uint32_t> ia(std::vector<size_t>{ntri, 3});
+    va = SimpleArray<float>(std::vector<size_t>{nvert, 3});
+    sa = SimpleArray<float>(std::vector<size_t>{nvert});
+    ia = SimpleArray<uint32_t>(std::vector<size_t>{ntri, 3});
     for (size_t i = 0; i < nvert; ++i)
     {
         va(i, 0) = verts[3 * i + 0];
@@ -482,6 +618,50 @@ void RDomainWidget::installCategoryField(
         ia(t, 1) = tris[3 * t + 1];
         ia(t, 2) = tris[3 * t + 2];
     }
+}
+
+} /* end namespace */
+
+void RDomainWidget::installCategoryField(
+    std::vector<int32_t> const & primitive_category, std::string const & title)
+{
+    if (nullptr == m_mesh)
+    {
+        return;
+    }
+
+    // Dense-index the distinct categories so the colors pack from the palette
+    // start and the legend runs 0..ncat-1.
+    std::vector<int32_t> distinct(primitive_category);
+    std::sort(distinct.begin(), distinct.end());
+    distinct.erase(std::unique(distinct.begin(), distinct.end()), distinct.end());
+    if (distinct.empty())
+    {
+        return;
+    }
+    int const ncat = static_cast<int>(distinct.size());
+
+    std::vector<float> primitive_scalar;
+    primitive_scalar.reserve(primitive_category.size());
+    for (int32_t const v : primitive_category)
+    {
+        primitive_scalar.push_back(static_cast<float>(
+            std::lower_bound(distinct.begin(), distinct.end(), v) - distinct.begin()));
+    }
+
+    std::vector<float> verts;
+    std::vector<float> scals;
+    std::vector<uint32_t> tris;
+    collectSurfaceScalars(primitive_scalar, verts, scals, tris);
+    if (verts.empty())
+    {
+        return;
+    }
+
+    SimpleArray<float> va;
+    SimpleArray<float> sa;
+    SimpleArray<uint32_t> ia;
+    pack_scalar_arrays(verts, scals, tris, va, sa, ia);
 
     m_colormap = RColormap::categorical();
     float const hi = (ncat > 1) ? static_cast<float>(ncat - 1) : 1.0f;
@@ -492,6 +672,47 @@ void RDomainWidget::installCategoryField(
     m_range_hi = hi;
     m_scalar_bar.setColormap(m_colormap);
     m_scalar_bar.setRange(0.0f, hi);
+    m_scalar_bar.setTitle(title);
+    m_scalar_bar.setVisible(true);
+    RScalarField * scalar_field = field.get();
+    installField(std::move(field));
+    m_scalar_field = (m_field == scalar_field) ? scalar_field : nullptr;
+}
+
+void RDomainWidget::installMetricField(
+    std::vector<float> const & primitive_value, std::string const & title)
+{
+    if (nullptr == m_mesh)
+    {
+        return;
+    }
+
+    std::vector<float> verts;
+    std::vector<float> scals;
+    std::vector<uint32_t> tris;
+    collectSurfaceScalars(primitive_value, verts, scals, tris);
+    if (verts.empty())
+    {
+        return;
+    }
+
+    SimpleArray<float> va;
+    SimpleArray<float> sa;
+    SimpleArray<uint32_t> ia;
+    pack_scalar_arrays(verts, scals, tris, va, sa, ia);
+
+    // A metric is continuous, so drop any categorical map left from a cell
+    // coloring and let the field auto-range over the metric values.
+    if ("categorical" == m_colormap.name())
+    {
+        m_colormap = RColormap::named("viridis");
+    }
+    m_range_pinned = false;
+    auto field = std::make_unique<RScalarField>(va, sa, ia, m_colormap);
+    m_range_lo = field->rangeLo();
+    m_range_hi = field->rangeHi();
+    m_scalar_bar.setColormap(m_colormap);
+    m_scalar_bar.setRange(m_range_lo, m_range_hi);
     m_scalar_bar.setTitle(title);
     m_scalar_bar.setVisible(true);
     RScalarField * scalar_field = field.get();

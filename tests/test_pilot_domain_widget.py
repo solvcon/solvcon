@@ -900,6 +900,79 @@ class RDomainWidgetCellColoringTC(unittest.TestCase):
         widget.clearCellColoring()
 
 
+def _make_quality_mesh():
+    """Two triangles, one well-shaped and one deliberately elongated, so the
+    quality metrics have a clear spread.
+
+    Cell 0 = (0,0),(1,0),(0,1): a unit right triangle, area 0.5, longest-to-
+    shortest node distance sqrt(2). Cell 1 = (1,0),(5,0),(0,1): area 2.0, node
+    distances 4, sqrt(2), sqrt(26), so aspect sqrt(26)/sqrt(2) = sqrt(13).
+    """
+    core = solvcon.core
+    T = core.StaticMesh.TRIANGLE
+    mh = core.StaticMesh(ndim=2, nnode=4, nface=0, ncell=2)
+    mh.ndcrd.ndarray[:, :] = [(0, 0), (1, 0), (0, 1), (5, 0)]
+    mh.cltpn.ndarray[:] = [T, T]
+    mh.clnds.ndarray[:, :5] = [(3, 0, 1, 2, -1), (3, 1, 3, 2, -1)]
+    mh.build_interior()
+    mh.build_boundary()
+    mh.build_ghost()
+    return mh
+
+
+@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+class RDomainWidgetQualityTC(unittest.TestCase):
+    """Per-cell quality metrics and their coloring."""
+
+    @classmethod
+    def setUpClass(cls):
+        pilot.RManager.instance.setUp()
+
+    def test_volume_range_matches_hand_computation(self):
+        """qualityRange("volume") returns the two cell areas, 0.5 and 2.0."""
+        import math
+        widget = pilot.RDomainWidget()
+        widget.updateMesh(_make_quality_mesh())
+        lo, hi = widget.qualityRange("volume")
+        self.assertTrue(math.isclose(lo, 0.5, rel_tol=1e-4))
+        self.assertTrue(math.isclose(hi, 2.0, rel_tol=1e-4))
+
+    def test_aspect_ratio_range_matches_hand_computation(self):
+        """The elongated cell sets the aspect-ratio maximum to sqrt(13)."""
+        import math
+        widget = pilot.RDomainWidget()
+        widget.updateMesh(_make_quality_mesh())
+        lo, hi = widget.qualityRange("aspect_ratio")
+        self.assertTrue(math.isclose(lo, math.sqrt(2.0), rel_tol=1e-4))
+        self.assertTrue(math.isclose(hi, math.sqrt(13.0), rel_tol=1e-4))
+
+    def test_color_by_quality_shows_a_gradient(self):
+        """Coloring by aspect ratio paints the two cells distinct colors: the
+        bad cell at the extreme of the map, the good one at the other end."""
+        widget = pilot.RDomainWidget()
+        widget.resize(320, 240)
+        widget.updateMesh(_make_quality_mesh())
+        widget.showMeshStyle("wireframe", False)
+        widget.colorByQuality("aspect_ratio")
+        image = _grab_or_skip(widget)
+        self.assertGreaterEqual(_distinct_field_colors(image), 2)
+
+    def test_unknown_metric_raises(self):
+        """An unknown metric name is rejected, not silently colored."""
+        widget = pilot.RDomainWidget()
+        widget.updateMesh(_make_quality_mesh())
+        with self.assertRaises(ValueError):
+            widget.qualityRange("bogus")
+        with self.assertRaises(ValueError):
+            widget.colorByQuality("bogus")
+
+    def test_color_by_quality_without_mesh_is_noop(self):
+        """Coloring by quality before a mesh loads does nothing, not crash."""
+        widget = pilot.RDomainWidget()
+        widget.colorByQuality("volume")
+        self.assertEqual(widget.qualityRange("volume"), (0.0, 0.0))
+
+
 @unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
 class RDomainWidgetSceneTC(unittest.TestCase):
     """Scene framing and the fit-to-scene camera (step 4)."""
