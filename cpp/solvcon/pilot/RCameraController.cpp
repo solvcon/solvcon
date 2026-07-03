@@ -122,54 +122,58 @@ QMatrix4x4 RCameraController::viewMatrix() const
     return view;
 }
 
-void RCameraController::rotate(float dx, float dy)
+void RCameraController::orbitBy(float yaw_deg, float pitch_deg)
 {
-    if (Mode::Orbit == m_mode && OrbitStyle::Trackball == m_orbit_style)
+    if (OrbitStyle::Trackball == m_orbit_style)
     {
         // Tumble freely: yaw about the current up axis and pitch about the
         // right axis, then roll the up axis with the same rotation so the
         // horizon is free to tilt. No pole guard, so the eye can pass over the
         // top and keep going, the way a virtual-trackball drag does.
         QVector3D const offset = m_position - m_target;
-        QQuaternion const yaw =
-            QQuaternion::fromAxisAndAngle(m_up, -dx * LOOK_DEGREES_PER_PIXEL);
+        QQuaternion const yaw = QQuaternion::fromAxisAndAngle(m_up, yaw_deg);
         QQuaternion const pitch =
-            QQuaternion::fromAxisAndAngle(rightAxis(), -dy * LOOK_DEGREES_PER_PIXEL);
+            QQuaternion::fromAxisAndAngle(rightAxis(), pitch_deg);
         QQuaternion const rot = yaw * pitch;
         m_position = m_target + rot.rotatedVector(offset);
         m_up = rot.rotatedVector(m_up).normalized();
+        return;
     }
-    else if (Mode::Orbit == m_mode)
+
+    // Turntable: swing the eye around the fixed target, up axis held so the
+    // horizon never rolls.
+    QVector3D const offset = m_position - m_target;
+    QQuaternion const yaw = QQuaternion::fromAxisAndAngle(m_up, yaw_deg);
+    QQuaternion const pitch = QQuaternion::fromAxisAndAngle(rightAxis(), pitch_deg);
+    QVector3D rotated = (yaw * pitch).rotatedVector(offset);
+    // Avoid gimbal lock: do not let the eye-to-target direction reach the up
+    // axis (which would degenerate the right axis and flip the view). Drop the
+    // pitch if it would push past the pole, but always ease away.
+    QVector3D const up = m_up.normalized();
+    float const limit = std::cos(qDegreesToRadians(1.0f));
+    float const aligned = std::abs(QVector3D::dotProduct(rotated.normalized(), up));
+    float const aligned0 = std::abs(QVector3D::dotProduct(offset.normalized(), up));
+    if (aligned > limit && aligned > aligned0)
     {
-        // Swing the eye around the fixed target (the pivot): yaw about the up
-        // axis and pitch about the right axis, applied to the eye offset with
-        // the target held put. The up axis stays fixed, so the horizon never
-        // rolls (a turntable orbit). This mirrors the FirstPerson rotation,
-        // which instead holds the eye and swings the target.
-        QVector3D const offset = m_position - m_target;
-        QQuaternion const yaw = QQuaternion::fromAxisAndAngle(m_up, -dx * LOOK_DEGREES_PER_PIXEL);
-        QQuaternion const pitch = QQuaternion::fromAxisAndAngle(rightAxis(), -dy * LOOK_DEGREES_PER_PIXEL);
-        QVector3D rotated = (yaw * pitch).rotatedVector(offset);
-        // Avoid gimbal lock: do not let the eye-to-target direction reach the
-        // up axis (which would degenerate the right axis and flip the view).
-        // Drop the pitch if it would push past the pole, but always ease away.
-        QVector3D const up = m_up.normalized();
-        float const limit = std::cos(qDegreesToRadians(1.0f));
-        float const aligned = std::abs(QVector3D::dotProduct(rotated.normalized(), up));
-        float const aligned0 = std::abs(QVector3D::dotProduct(offset.normalized(), up));
-        if (aligned > limit && aligned > aligned0)
-        {
-            rotated = yaw.rotatedVector(offset);
-        }
-        m_position = m_target + rotated;
+        rotated = yaw.rotatedVector(offset);
+    }
+    m_position = m_target + rotated;
+}
+
+void RCameraController::rotate(float dx, float dy)
+{
+    float const scale = LOOK_DEGREES_PER_PIXEL * m_orbit_sensitivity;
+    if (Mode::Orbit == m_mode)
+    {
+        orbitBy(-dx * scale, -dy * scale);
     }
     else if (Mode::FirstPerson == m_mode)
     {
         // Look around in place: yaw about the up axis, pitch about the right
         // axis, keeping the eye fixed and swinging the target.
         QVector3D const f0 = forward();
-        QQuaternion const yaw = QQuaternion::fromAxisAndAngle(m_up, -dx * LOOK_DEGREES_PER_PIXEL);
-        QQuaternion const pitch = QQuaternion::fromAxisAndAngle(rightAxis(), -dy * LOOK_DEGREES_PER_PIXEL);
+        QQuaternion const yaw = QQuaternion::fromAxisAndAngle(m_up, -dx * scale);
+        QQuaternion const pitch = QQuaternion::fromAxisAndAngle(rightAxis(), -dy * scale);
         QVector3D dir = (yaw * pitch).rotatedVector(f0).normalized();
         // Avoid gimbal lock: do not let the view direction reach the up axis
         // (which would degenerate the right axis and flip the view). Drop the

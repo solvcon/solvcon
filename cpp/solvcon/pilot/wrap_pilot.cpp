@@ -297,6 +297,34 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRDomainWidget
                 &wrapped_type::frameSelected,
                 "Recenter and frame the whole scene.")
             .def_property(
+                "navigationMapping",
+                [](wrapped_type & self)
+                {
+                    return self.navigationMapping();
+                },
+                [](wrapped_type & self, std::string const & name)
+                {
+                    self.setNavigationMapping(name);
+                },
+                "Mouse navigation mapping: \"default\" (left rotates) or "
+                "\"blender\" (middle orbits; Shift/Ctrl/Alt+middle pan/zoom/"
+                "pivot; Alt+left aliases middle).")
+            .def(
+                "setNavigationMapping",
+                &wrapped_type::setNavigationMapping,
+                py::arg("name"))
+            .def(
+                "setOrbitSensitivity",
+                &wrapped_type::setOrbitSensitivity,
+                py::arg("factor"),
+                "Scale the orbit/look drag speed.")
+            .def(
+                "orbitStep",
+                &wrapped_type::orbitStep,
+                py::arg("yaw_deg"),
+                py::arg("pitch_deg"),
+                "Orbit by a fixed number of degrees (a discrete step).")
+            .def_property(
                 "cameraMode",
                 [](wrapped_type & self)
                 {
