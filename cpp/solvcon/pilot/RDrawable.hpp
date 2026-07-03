@@ -23,6 +23,7 @@
 #include <QVector4D>
 
 #include <memory>
+#include <vector>
 
 namespace solvcon
 {
@@ -79,11 +80,11 @@ public:
         QRhiResourceUpdateBatch * batch);
 
     /// Drop all device resources (device lost or render target changed).
-    void release();
+    virtual void release();
 
     /// Write the current model-view-projection and color into the uniform
     /// buffer. The model transform is identity for now.
-    void updateUniform(QRhiResourceUpdateBatch * batch, QMatrix4x4 const & view_proj);
+    virtual void updateUniform(QRhiResourceUpdateBatch * batch, QMatrix4x4 const & view_proj);
 
     /// Record the draw call. Requires an active render pass and a viewport
     /// already set on the command buffer. A no-op while hidden or unprepared.
@@ -116,6 +117,14 @@ protected:
     /// cloud drawn over it is not lost to the depth test; the default is none.
     virtual int depthBias() const { return 0; }
     virtual float slopeScaledDepthBias() const { return 0.0f; }
+
+    /// Create and append shader resources past the shared uniform block
+    /// (e.g. a sampled texture). Called from prepare(); adds nothing by
+    /// default.
+    virtual void extendBindings(
+        QRhi * rhi,
+        QRhiResourceUpdateBatch * batch,
+        std::vector<QRhiShaderResourceBinding> & bindings);
 
     QVector4D m_color{1.0f, 1.0f, 1.0f, 1.0f};
     QVector3D m_light_dir{0.0f, 0.0f, 1.0f};

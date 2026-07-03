@@ -10,6 +10,7 @@
 #include <solvcon/pilot/RField.hpp>
 #include <solvcon/pilot/RMeshFrame.hpp>
 #include <solvcon/pilot/RNormals.hpp>
+#include <solvcon/pilot/RScalarField.hpp>
 
 #include <QGestureEvent>
 #include <QKeyEvent>
@@ -20,6 +21,7 @@
 
 #include <algorithm>
 #include <limits>
+#include <stdexcept>
 
 namespace solvcon
 {
@@ -105,10 +107,9 @@ void RDomainWidget::updateMesh(std::shared_ptr<StaticMesh> const & mesh)
         m_scene.extendBoundingBox(lo, hi);
     }
     // A field set earlier still draws, so keep it inside the framed box.
-    if (nullptr != m_field)
+    if (m_has_field_bbox)
     {
-        auto * field = static_cast<RField *>(m_field);
-        m_scene.extendBoundingBox(field->bboxLo(), field->bboxHi());
+        m_scene.extendBoundingBox(m_field_lo, m_field_hi);
     }
 
     m_scene.fitCameraToScene(viewportAspect());
@@ -200,28 +201,72 @@ void RDomainWidget::updateColorField(
     SimpleArray<float> const & colors,
     SimpleArray<uint32_t> const & indices)
 {
-    // Drop the previous field and replace it; the field is swappable.
-    m_scene.removeDrawable(m_field);
-    m_field = nullptr;
-
     auto field = std::make_unique<RField>(vertices, colors, indices);
-    if (field->hasGeometry())
-    {
-        QVector3D const lo = field->bboxLo();
-        QVector3D const hi = field->bboxHi();
-        // With no mesh to set the dimensionality, infer it: a field with no
-        // depth extent is viewed head-on like a 2D domain.
-        if (!m_scene.hasBoundingBox())
-        {
-            float const span = (hi - lo).length();
-            m_scene.setDimension(((hi.z() - lo.z()) > 1.0e-6f * span) ? 3 : 2);
-        }
-        m_scene.extendBoundingBox(lo, hi);
-        m_field = field.get();
-        m_scene.addDrawable(std::move(field));
-        m_scene.fitCameraToScene(viewportAspect());
-    }
+    installField(std::move(field));
+}
 
+void RDomainWidget::updateScalarField(
+    SimpleArray<float> const & vertices,
+    SimpleArray<float> const & scalars,
+    SimpleArray<uint32_t> const & indices)
+{
+    auto field = std::make_unique<RScalarField>(vertices, scalars, indices, m_colormap);
+    if (m_range_pinned)
+    {
+        field->setScalarRange(m_range_lo, m_range_hi);
+    }
+    m_scalar_bar.setRange(field->rangeLo(), field->rangeHi());
+    RScalarField * scalar_field = field.get();
+    installField(std::move(field));
+    m_scalar_field = (m_field == scalar_field) ? scalar_field : nullptr;
+}
+
+void RDomainWidget::setColormap(std::string const & name)
+{
+    m_colormap = RColormap::named(name);
+    if (nullptr != m_scalar_field)
+    {
+        m_scalar_field->setColormap(m_colormap);
+    }
+    m_scalar_bar.setColormap(m_colormap);
+    update();
+}
+
+void RDomainWidget::setScalarRange(float lo, float hi)
+{
+    if (hi < lo)
+    {
+        throw std::invalid_argument("RDomainWidget: scalar range must have hi >= lo");
+    }
+    m_range_pinned = true;
+    m_range_lo = lo;
+    m_range_hi = hi;
+    if (nullptr != m_scalar_field)
+    {
+        m_scalar_field->setScalarRange(lo, hi);
+    }
+    m_scalar_bar.setRange(lo, hi);
+    update();
+}
+
+std::pair<float, float> RDomainWidget::scalarRange() const
+{
+    if (nullptr != m_scalar_field)
+    {
+        return {m_scalar_field->rangeLo(), m_scalar_field->rangeHi()};
+    }
+    return {m_range_lo, m_range_hi};
+}
+
+void RDomainWidget::showScalarBar(bool show)
+{
+    m_scalar_bar.setVisible(show);
+    update();
+}
+
+void RDomainWidget::setScalarBarTitle(std::string const & title)
+{
+    m_scalar_bar.setTitle(title);
     update();
 }
 
@@ -472,6 +517,7 @@ void RDomainWidget::initialize(QRhiCommandBuffer *)
         // (the pipelines are tied to the render-pass descriptor).
         m_scene.releaseAll();
         m_gizmo.release();
+        m_scalar_bar.release();
         m_rhi = rhi();
         m_rpdesc = rpdesc;
         m_sample_count = sampleCount();
@@ -508,6 +554,7 @@ void RDomainWidget::render(QRhiCommandBuffer * cb)
     QVector3D const camera_forward = m_scene.camera().target() - m_scene.camera().position();
     m_gizmo.update(
         m_rhi, rpdesc, sampleCount(), pixel_size, camera_forward, m_scene.camera().up(), batch);
+    m_scalar_bar.update(m_rhi, rpdesc, sampleCount(), pixel_size, batch);
 
     QColor const clear_color = QColor::fromRgbF(1.0f, 1.0f, 1.0f, 1.0f);
     QRhiDepthStencilClearValue const ds_clear(1.0f, 0);
@@ -520,6 +567,7 @@ void RDomainWidget::render(QRhiCommandBuffer * cb)
         drawable->draw(cb);
     }
     m_gizmo.draw(cb);
+    m_scalar_bar.draw(cb);
     cb->endPass();
 }
 
@@ -527,6 +575,7 @@ void RDomainWidget::releaseResources()
 {
     m_scene.releaseAll();
     m_gizmo.release();
+    m_scalar_bar.release();
     m_rhi = nullptr;
     m_rpdesc = nullptr;
     m_sample_count = 0;

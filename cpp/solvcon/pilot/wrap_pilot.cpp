@@ -172,6 +172,41 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRDomainWidget
                 py::arg("vertices"),
                 py::arg("colors"),
                 py::arg("indices"))
+            .def(
+                "updateScalarField",
+                &wrapped_type::updateScalarField,
+                py::arg("vertices"),
+                py::arg("scalars"),
+                py::arg("indices"))
+            .def_property(
+                "colormap",
+                [](wrapped_type & self)
+                {
+                    return self.colormap();
+                },
+                [](wrapped_type & self, std::string const & name)
+                {
+                    self.setColormap(name);
+                },
+                "Named colormap for the scalar field and the scalar bar: "
+                "\"viridis\", \"coolwarm\", \"jet\", or \"grayscale\".")
+            .def(
+                "setScalarRange",
+                &wrapped_type::setScalarRange,
+                py::arg("lo"),
+                py::arg("hi"))
+            .def_property_readonly(
+                "scalarRange",
+                [](wrapped_type & self)
+                {
+                    auto const range = self.scalarRange();
+                    return py::make_tuple(range.first, range.second);
+                })
+            .def("showScalarBar", &wrapped_type::showScalarBar, py::arg("show"))
+            .def(
+                "setScalarBarTitle",
+                &wrapped_type::setScalarBarTitle,
+                py::arg("title"))
             .def("showBoundary", &wrapped_type::showBoundary, py::arg("ibc"), py::arg("show"))
             .def("showFeatureEdges", &wrapped_type::showFeatureEdges, py::arg("show"))
             .def("showNormals", &wrapped_type::showNormals, py::arg("show"))

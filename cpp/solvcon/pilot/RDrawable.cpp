@@ -32,13 +32,15 @@ void RDrawable::prepare(
     m_ubuf.reset(rhi->newBuffer(QRhiBuffer::Dynamic, QRhiBuffer::UniformBuffer, UBUF_SIZE));
     m_ubuf->create();
 
+    std::vector<QRhiShaderResourceBinding> bindings;
+    bindings.push_back(QRhiShaderResourceBinding::uniformBuffer(
+        0,
+        QRhiShaderResourceBinding::VertexStage | QRhiShaderResourceBinding::FragmentStage,
+        m_ubuf.get()));
+    extendBindings(rhi, batch, bindings);
+
     m_srb.reset(rhi->newShaderResourceBindings());
-    m_srb->setBindings({
-        QRhiShaderResourceBinding::uniformBuffer(
-            0,
-            QRhiShaderResourceBinding::VertexStage | QRhiShaderResourceBinding::FragmentStage,
-            m_ubuf.get()),
-    });
+    m_srb->setBindings(bindings.begin(), bindings.end());
     m_srb->create();
 
     m_material = std::make_unique<RMaterial>(materialKind());
@@ -49,6 +51,10 @@ void RDrawable::prepare(
         depthBias(),
         slopeScaledDepthBias()));
     m_ready = (nullptr != m_pipeline);
+}
+
+void RDrawable::extendBindings(QRhi *, QRhiResourceUpdateBatch *, std::vector<QRhiShaderResourceBinding> &)
+{
 }
 
 void RDrawable::release()
