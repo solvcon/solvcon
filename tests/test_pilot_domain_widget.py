@@ -1114,6 +1114,110 @@ class RDomainWidgetTrackballTC(unittest.TestCase):
         self.assertGreater(_count_foreground(_grab_or_skip(widget)), 0)
 
 
+def _make_single_quad_2d():
+    """A single unit quad filling [0, 1] x [0, 1], so the framed view center
+    lands squarely inside cell 0."""
+    core = solvcon.core
+    Q = core.StaticMesh.QUADRILATERAL
+    mh = core.StaticMesh(ndim=2, nnode=4, nface=0, ncell=1)
+    mh.ndcrd.ndarray[:, :] = [(0, 0), (1, 0), (1, 1), (0, 1)]
+    mh.cltpn.ndarray[:] = [Q]
+    mh.clnds.ndarray[:, :5] = [(4, 0, 1, 2, 3)]
+    mh.build_interior()
+    mh.build_boundary()
+    mh.build_ghost()
+    return mh
+
+
+@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+class RDomainWidgetPickTC(unittest.TestCase):
+    """Picking a cell, node, or face and reporting its geometry.
+
+    Picking back-projects the click through the same view-projection the
+    renderer uses, entirely on the CPU, so these tests are exact and need no
+    rendered frame.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        pilot.RManager.instance.setUp()
+
+    def test_pick_cell_returns_id_and_geometry(self):
+        """Clicking the framed view center of a unit quad picks cell 0 and
+        reports its type, area, and centroid."""
+        widget = pilot.RDomainWidget()
+        widget.resize(200, 200)
+        widget.updateMesh(_make_single_quad_2d())
+        widget.fitCameraToScene()
+        r = widget.pickCell(100, 100)
+        self.assertIsNotNone(r)
+        self.assertEqual(r["kind"], "cell")
+        self.assertEqual(r["id"], 0)
+        self.assertAlmostEqual(r["measure"], 1.0, places=4)
+        cx, cy, _cz = r["centroid"]
+        self.assertAlmostEqual(cx, 0.5, places=3)
+        self.assertAlmostEqual(cy, 0.5, places=3)
+        self.assertTrue(widget.hasSelection)
+
+    def test_pick_outside_returns_none(self):
+        """A click on the background (a corner, outside the framed quad) picks
+        nothing."""
+        widget = pilot.RDomainWidget()
+        widget.resize(200, 200)
+        widget.updateMesh(_make_single_quad_2d())
+        widget.fitCameraToScene()
+        self.assertIsNone(widget.pickCell(0, 0))
+
+    def test_pick_without_mesh_returns_none(self):
+        """Picking before a mesh loads returns None, not a crash."""
+        widget = pilot.RDomainWidget()
+        widget.resize(200, 200)
+        self.assertIsNone(widget.pickCell(100, 100))
+        self.assertIsNone(widget.pickNode(100, 100))
+        self.assertIsNone(widget.pickFace(100, 100))
+
+    def test_pick_node_returns_a_node(self):
+        """Picking near the view center returns the nearest node."""
+        widget = pilot.RDomainWidget()
+        widget.resize(200, 200)
+        widget.updateMesh(_make_single_quad_2d())
+        widget.fitCameraToScene()
+        r = widget.pickNode(100, 100)
+        self.assertIsNotNone(r)
+        self.assertEqual(r["kind"], "node")
+        self.assertIn(r["id"], (0, 1, 2, 3))
+
+    def test_pick_face_on_3d_mesh(self):
+        """A ray that meets the 3D shell picks a boundary face with an area."""
+        widget = pilot.RDomainWidget()
+        widget.resize(200, 200)
+        widget.updateMesh(_make_3d_mesh())
+        widget.fitCameraToScene()
+        hit = None
+        for yy in range(20, 200, 15):
+            for xx in range(20, 200, 15):
+                r = widget.pickFace(xx, yy)
+                if r is not None:
+                    hit = r
+                    break
+            if hit is not None:
+                break
+        self.assertIsNotNone(hit, "no boundary face was picked over the shell")
+        self.assertEqual(hit["kind"], "face")
+        self.assertGreater(hit["measure"], 0.0)
+
+    def test_clear_selection(self):
+        """clearSelection drops the pick and its highlight."""
+        widget = pilot.RDomainWidget()
+        widget.resize(200, 200)
+        widget.updateMesh(_make_single_quad_2d())
+        widget.fitCameraToScene()
+        widget.pickCell(100, 100)
+        self.assertTrue(widget.hasSelection)
+        widget.clearSelection()
+        self.assertFalse(widget.hasSelection)
+
+
 @unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
 class RDomainWidgetNavMapTC(unittest.TestCase):
     """Blender-style navigation mapping, discrete steps, and sensitivity.

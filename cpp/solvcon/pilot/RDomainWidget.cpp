@@ -17,6 +17,7 @@
 #include <QMouseEvent>
 #include <QNativeGestureEvent>
 #include <QPinchGesture>
+#include <QVector4D>
 #include <QWheelEvent>
 
 #include <algorithm>
@@ -778,6 +779,406 @@ void RDomainWidget::showNormals(bool show)
         }
     }
 
+    update();
+}
+
+namespace
+{
+
+/// Moeller-Trumbore ray/triangle intersection. On a hit, @p t is the ray
+/// parameter of the front-facing or back-facing intersection.
+bool ray_triangle(
+    QVector3D const & o,
+    QVector3D const & d,
+    QVector3D const & a,
+    QVector3D const & b,
+    QVector3D const & c,
+    float & t)
+{
+    QVector3D const e1 = b - a;
+    QVector3D const e2 = c - a;
+    QVector3D const pvec = QVector3D::crossProduct(d, e2);
+    float const det = QVector3D::dotProduct(e1, pvec);
+    if (std::abs(det) < 1.0e-12f)
+    {
+        return false;
+    }
+    float const inv = 1.0f / det;
+    QVector3D const tvec = o - a;
+    float const u = QVector3D::dotProduct(tvec, pvec) * inv;
+    if (u < 0.0f || u > 1.0f)
+    {
+        return false;
+    }
+    QVector3D const qvec = QVector3D::crossProduct(tvec, e1);
+    float const v = QVector3D::dotProduct(d, qvec) * inv;
+    if (v < 0.0f || u + v > 1.0f)
+    {
+        return false;
+    }
+    t = QVector3D::dotProduct(e2, qvec) * inv;
+    return t > 0.0f;
+}
+
+/// Even-odd point-in-polygon test in the xy plane.
+bool point_in_polygon(std::vector<QVector3D> const & poly, float px, float py)
+{
+    bool inside = false;
+    size_t const n = poly.size();
+    for (size_t i = 0, j = n - 1; i < n; j = i++)
+    {
+        float const yi = poly[i].y();
+        float const yj = poly[j].y();
+        if ((yi > py) != (yj > py))
+        {
+            float const xcross =
+                (poly[j].x() - poly[i].x()) * (py - yi) / (yj - yi) + poly[i].x();
+            if (px < xcross)
+            {
+                inside = !inside;
+            }
+        }
+    }
+    return inside;
+}
+
+} /* end namespace */
+
+bool RDomainWidget::computePickRay(int x, int y, QVector3D & origin, QVector3D & dir) const
+{
+    int const w = width();
+    int const h = height();
+    if (w <= 0 || h <= 0)
+    {
+        return false;
+    }
+    QMatrix4x4 const vp = m_scene.viewProjection(QSize(w, h), nullptr);
+    bool ok = false;
+    QMatrix4x4 const inv = vp.inverted(&ok);
+    if (!ok)
+    {
+        return false;
+    }
+    float const ndc_x = 2.0f * static_cast<float>(x) / static_cast<float>(w) - 1.0f;
+    float const ndc_y = 1.0f - 2.0f * static_cast<float>(y) / static_cast<float>(h);
+    QVector4D near_h = inv * QVector4D(ndc_x, ndc_y, -1.0f, 1.0f);
+    QVector4D far_h = inv * QVector4D(ndc_x, ndc_y, 1.0f, 1.0f);
+    if (qFuzzyIsNull(near_h.w()) || qFuzzyIsNull(far_h.w()))
+    {
+        return false;
+    }
+    origin = near_h.toVector3DAffine();
+    dir = (far_h.toVector3DAffine() - origin).normalized();
+    return true;
+}
+
+RDomainWidget::PickResult RDomainWidget::pickCell(int x, int y)
+{
+    PickResult result;
+    if (nullptr == m_mesh)
+    {
+        return result;
+    }
+    QVector3D origin;
+    QVector3D dir;
+    if (!computePickRay(x, y, origin, dir))
+    {
+        return result;
+    }
+    StaticMesh const & mh = *m_mesh;
+    uint32_t const ndim = mh.ndim();
+    auto coord = [&mh, ndim](int32_t ind, uint32_t dm) -> float
+    { return (dm < ndim) ? static_cast<float>(mh.ndcrd(ind, dm)) : 0.0f; };
+
+    int32_t hit_cell = -1;
+    if (3 == ndim)
+    {
+        SimpleArray<int32_t> const & bndfcs = mh.bndfcs();
+        float best = std::numeric_limits<float>::max();
+        for (size_t ibnd = 0; ibnd < bndfcs.shape(0); ++ibnd)
+        {
+            int32_t const ifc = bndfcs(ibnd, 0);
+            int32_t const nnd = mh.fcnds(ifc, 0);
+            QVector3D const a(
+                coord(mh.fcnds(ifc, 1), 0), coord(mh.fcnds(ifc, 1), 1), coord(mh.fcnds(ifc, 1), 2));
+            for (int32_t k = 1; k + 1 < nnd; ++k)
+            {
+                int32_t const nb = mh.fcnds(ifc, k + 1);
+                int32_t const nc = mh.fcnds(ifc, k + 2);
+                QVector3D const b(coord(nb, 0), coord(nb, 1), coord(nb, 2));
+                QVector3D const c(coord(nc, 0), coord(nc, 1), coord(nc, 2));
+                float t = 0.0f;
+                if (ray_triangle(origin, dir, a, b, c, t) && t < best)
+                {
+                    best = t;
+                    hit_cell = mh.fcicl(ifc);
+                }
+            }
+        }
+    }
+    else
+    {
+        if (std::abs(dir.z()) > 1.0e-9f)
+        {
+            float const t = -origin.z() / dir.z();
+            if (t >= 0.0f)
+            {
+                QVector3D const hit = origin + dir * t;
+                for (uint32_t icl = 0; icl < mh.ncell() && hit_cell < 0; ++icl)
+                {
+                    int32_t const nnd = mh.clnds(icl, 0);
+                    std::vector<QVector3D> poly(static_cast<size_t>(nnd));
+                    for (int32_t k = 0; k < nnd; ++k)
+                    {
+                        int32_t const nd = mh.clnds(icl, k + 1);
+                        poly[k] = QVector3D(coord(nd, 0), coord(nd, 1), 0.0f);
+                    }
+                    if (point_in_polygon(poly, hit.x(), hit.y()))
+                    {
+                        hit_cell = static_cast<int32_t>(icl);
+                    }
+                }
+            }
+        }
+    }
+
+    if (hit_cell < 0)
+    {
+        return result;
+    }
+    result.kind = "cell";
+    result.id = hit_cell;
+    result.type = mh.cltpn(hit_cell);
+    result.measure = static_cast<double>(mh.clvol(hit_cell));
+    result.centroid = QVector3D(
+        static_cast<float>(mh.clcnd(hit_cell, 0)),
+        static_cast<float>(mh.clcnd(hit_cell, 1)),
+        (3 == ndim) ? static_cast<float>(mh.clcnd(hit_cell, 2)) : 0.0f);
+
+    // The picked cell's bounding box, for framing and the highlight.
+    QVector3D lo(result.centroid);
+    QVector3D hi(result.centroid);
+    int32_t const nnd = mh.clnds(hit_cell, 0);
+    for (int32_t k = 0; k < nnd; ++k)
+    {
+        int32_t const nd = mh.clnds(hit_cell, k + 1);
+        QVector3D const p(coord(nd, 0), coord(nd, 1), coord(nd, 2));
+        lo = QVector3D(std::min(lo.x(), p.x()), std::min(lo.y(), p.y()), std::min(lo.z(), p.z()));
+        hi = QVector3D(std::max(hi.x(), p.x()), std::max(hi.y(), p.y()), std::max(hi.z(), p.z()));
+    }
+    setSelection("cell", hit_cell, lo, hi);
+    return result;
+}
+
+RDomainWidget::PickResult RDomainWidget::pickNode(int x, int y)
+{
+    PickResult result;
+    if (nullptr == m_mesh)
+    {
+        return result;
+    }
+    QVector3D origin;
+    QVector3D dir;
+    if (!computePickRay(x, y, origin, dir))
+    {
+        return result;
+    }
+    StaticMesh const & mh = *m_mesh;
+    uint32_t const ndim = mh.ndim();
+
+    float best = std::numeric_limits<float>::max();
+    int32_t hit = -1;
+    QVector3D hit_pos;
+    for (uint32_t ind = 0; ind < mh.nnode(); ++ind)
+    {
+        QVector3D const p(
+            static_cast<float>(mh.ndcrd(ind, 0)),
+            static_cast<float>(mh.ndcrd(ind, 1)),
+            (3 == ndim) ? static_cast<float>(mh.ndcrd(ind, 2)) : 0.0f);
+        // Perpendicular distance from the node to the pick ray.
+        QVector3D const w = p - origin;
+        QVector3D const closest = origin + dir * QVector3D::dotProduct(w, dir);
+        float const dist = (p - closest).length();
+        if (dist < best)
+        {
+            best = dist;
+            hit = static_cast<int32_t>(ind);
+            hit_pos = p;
+        }
+    }
+    if (hit < 0)
+    {
+        return result;
+    }
+    result.kind = "node";
+    result.id = hit;
+    result.centroid = hit_pos;
+    setSelection("node", hit, hit_pos, hit_pos);
+    return result;
+}
+
+RDomainWidget::PickResult RDomainWidget::pickFace(int x, int y)
+{
+    PickResult result;
+    if (nullptr == m_mesh)
+    {
+        return result;
+    }
+    QVector3D origin;
+    QVector3D dir;
+    if (!computePickRay(x, y, origin, dir))
+    {
+        return result;
+    }
+    StaticMesh const & mh = *m_mesh;
+    if (3 != mh.ndim())
+    {
+        // A 2D domain's faces are edges, not a ray-castable surface.
+        return result;
+    }
+    auto coord = [&mh](int32_t ind, uint32_t dm) -> float
+    { return static_cast<float>(mh.ndcrd(ind, dm)); };
+
+    SimpleArray<int32_t> const & bndfcs = mh.bndfcs();
+    float best = std::numeric_limits<float>::max();
+    int32_t hit_face = -1;
+    for (size_t ibnd = 0; ibnd < bndfcs.shape(0); ++ibnd)
+    {
+        int32_t const ifc = bndfcs(ibnd, 0);
+        int32_t const nnd = mh.fcnds(ifc, 0);
+        QVector3D const a(
+            coord(mh.fcnds(ifc, 1), 0), coord(mh.fcnds(ifc, 1), 1), coord(mh.fcnds(ifc, 1), 2));
+        for (int32_t k = 1; k + 1 < nnd; ++k)
+        {
+            int32_t const nb = mh.fcnds(ifc, k + 1);
+            int32_t const nc = mh.fcnds(ifc, k + 2);
+            QVector3D const b(coord(nb, 0), coord(nb, 1), coord(nb, 2));
+            QVector3D const c(coord(nc, 0), coord(nc, 1), coord(nc, 2));
+            float t = 0.0f;
+            if (ray_triangle(origin, dir, a, b, c, t) && t < best)
+            {
+                best = t;
+                hit_face = ifc;
+            }
+        }
+    }
+    if (hit_face < 0)
+    {
+        return result;
+    }
+    result.kind = "face";
+    result.id = hit_face;
+    result.measure = static_cast<double>(mh.fcara(hit_face));
+    result.centroid = QVector3D(
+        static_cast<float>(mh.fccnd(hit_face, 0)),
+        static_cast<float>(mh.fccnd(hit_face, 1)),
+        static_cast<float>(mh.fccnd(hit_face, 2)));
+    setSelection("face", hit_face, result.centroid, result.centroid);
+    return result;
+}
+
+void RDomainWidget::setSelection(
+    std::string const & kind, int id, QVector3D const & lo, QVector3D const & hi)
+{
+    m_scene.removeDrawable(m_selection);
+    m_selection = nullptr;
+    m_selection_kind = kind;
+    m_selection_id = id;
+    m_selection_lo = lo;
+    m_selection_hi = hi;
+    m_has_selection = true;
+
+    // A picked cell gets a bright surface highlight; a node or face records the
+    // selection point without one.
+    if ("cell" == kind && nullptr != m_mesh)
+    {
+        StaticMesh const & mh = *m_mesh;
+        uint32_t const ndim = mh.ndim();
+        auto coord = [&mh, ndim](int32_t ind, uint32_t dm) -> float
+        { return (dm < ndim) ? static_cast<float>(mh.ndcrd(ind, dm)) : 0.0f; };
+
+        std::vector<float> verts;
+        std::vector<uint32_t> tris;
+        auto add_polygon = [&](auto node, int32_t nnd)
+        {
+            for (int32_t k = 1; k + 1 < nnd; ++k)
+            {
+                int32_t const tri[3] = {node(0), node(k), node(k + 1)};
+                uint32_t const base = static_cast<uint32_t>(verts.size() / 3);
+                for (int32_t const ind : tri)
+                {
+                    verts.push_back(coord(ind, 0));
+                    verts.push_back(coord(ind, 1));
+                    verts.push_back(coord(ind, 2));
+                }
+                tris.push_back(base + 0);
+                tris.push_back(base + 1);
+                tris.push_back(base + 2);
+            }
+        };
+        if (3 == ndim)
+        {
+            SimpleArray<int32_t> const & bndfcs = mh.bndfcs();
+            for (size_t ibnd = 0; ibnd < bndfcs.shape(0); ++ibnd)
+            {
+                int32_t const ifc = bndfcs(ibnd, 0);
+                if (mh.fcicl(ifc) == id)
+                {
+                    add_polygon(
+                        [&mh, ifc](int32_t k)
+                        { return mh.fcnds(ifc, k + 1); },
+                        mh.fcnds(ifc, 0));
+                }
+            }
+        }
+        else
+        {
+            add_polygon(
+                [&mh, id](int32_t k)
+                { return mh.clnds(id, k + 1); },
+                mh.clnds(id, 0));
+        }
+
+        if (!verts.empty())
+        {
+            size_t const nvert = verts.size() / 3;
+            size_t const ntri = tris.size() / 3;
+            SimpleArray<float> va(std::vector<size_t>{nvert, 3});
+            SimpleArray<float> ca(std::vector<size_t>{nvert, 3});
+            SimpleArray<uint32_t> ia(std::vector<size_t>{ntri, 3});
+            for (size_t i = 0; i < nvert; ++i)
+            {
+                va(i, 0) = verts[3 * i + 0];
+                va(i, 1) = verts[3 * i + 1];
+                va(i, 2) = verts[3 * i + 2];
+                ca(i, 0) = 1.0f;
+                ca(i, 1) = 0.9f;
+                ca(i, 2) = 0.1f;
+            }
+            for (size_t t = 0; t < ntri; ++t)
+            {
+                ia(t, 0) = tris[3 * t + 0];
+                ia(t, 1) = tris[3 * t + 1];
+                ia(t, 2) = tris[3 * t + 2];
+            }
+            auto highlight = std::make_unique<RField>(va, ca, ia);
+            if (highlight->hasGeometry())
+            {
+                m_selection = highlight.get();
+                m_scene.addDrawable(std::move(highlight));
+            }
+        }
+    }
+    update();
+}
+
+void RDomainWidget::clearSelection()
+{
+    m_scene.removeDrawable(m_selection);
+    m_selection = nullptr;
+    m_has_selection = false;
+    m_selection_kind = "none";
+    m_selection_id = -1;
     update();
 }
 

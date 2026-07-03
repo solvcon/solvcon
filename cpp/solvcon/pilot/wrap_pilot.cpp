@@ -123,6 +123,23 @@ namespace solvcon
 namespace python
 {
 
+/// Convert a pick result to a Python dict, or None on a miss.
+static pybind11::object pick_to_py(RDomainWidget::PickResult const & r)
+{
+    namespace py = pybind11;
+    if (!r.hit())
+    {
+        return py::none();
+    }
+    py::dict d;
+    d["kind"] = r.kind;
+    d["id"] = r.id;
+    d["type"] = r.type;
+    d["measure"] = r.measure;
+    d["centroid"] = py::make_tuple(r.centroid.x(), r.centroid.y(), r.centroid.z());
+    return d;
+}
+
 class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRDomainWidget
     : public WrapBase<WrapRDomainWidget, RDomainWidget, QPointer<RDomainWidget>>
 {
@@ -210,6 +227,37 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRDomainWidget
             .def("showBoundary", &wrapped_type::showBoundary, py::arg("ibc"), py::arg("show"))
             .def("showFeatureEdges", &wrapped_type::showFeatureEdges, py::arg("show"))
             .def("showNormals", &wrapped_type::showNormals, py::arg("show"))
+            .def(
+                "pickCell",
+                [](wrapped_type & self, int x, int y)
+                {
+                    return pick_to_py(self.pickCell(x, y));
+                },
+                py::arg("x"),
+                py::arg("y"),
+                "Pick the cell under the pixel; a dict with id, type, measure, "
+                "and centroid, or None on a miss.")
+            .def(
+                "pickNode",
+                [](wrapped_type & self, int x, int y)
+                {
+                    return pick_to_py(self.pickNode(x, y));
+                },
+                py::arg("x"),
+                py::arg("y"),
+                "Pick the nearest node to the pixel ray; a dict or None.")
+            .def(
+                "pickFace",
+                [](wrapped_type & self, int x, int y)
+                {
+                    return pick_to_py(self.pickFace(x, y));
+                },
+                py::arg("x"),
+                py::arg("y"),
+                "Pick the boundary face under the pixel (3D only); a dict or "
+                "None.")
+            .def("clearSelection", &wrapped_type::clearSelection)
+            .def_property_readonly("hasSelection", &wrapped_type::hasSelection)
             .def(
                 "colorByCellType",
                 &wrapped_type::colorByCellType,
