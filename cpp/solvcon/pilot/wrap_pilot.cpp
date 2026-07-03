@@ -123,6 +123,13 @@ namespace solvcon
 namespace python
 {
 
+/// Convert a length-3 Python sequence to a QVector3D.
+static QVector3D seq_to_vec3(pybind11::sequence const & s)
+{
+    return QVector3D(
+        s[0].cast<float>(), s[1].cast<float>(), s[2].cast<float>());
+}
+
 /// Convert a pick result to a Python dict, or None on a miss.
 static pybind11::object pick_to_py(RDomainWidget::PickResult const & r)
 {
@@ -258,6 +265,28 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRDomainWidget
                 "None.")
             .def("clearSelection", &wrapped_type::clearSelection)
             .def_property_readonly("hasSelection", &wrapped_type::hasSelection)
+            .def(
+                "measureDistance",
+                [](wrapped_type & self, py::sequence p0, py::sequence p1)
+                {
+                    return self.measureDistance(seq_to_vec3(p0), seq_to_vec3(p1));
+                },
+                py::arg("p0"),
+                py::arg("p1"),
+                "Measure and draw the distance between two (x, y, z) points.")
+            .def(
+                "measureAngle",
+                [](wrapped_type & self, py::sequence p0, py::sequence p1, py::sequence p2)
+                {
+                    return self.measureAngle(
+                        seq_to_vec3(p0), seq_to_vec3(p1), seq_to_vec3(p2));
+                },
+                py::arg("p0"),
+                py::arg("p1"),
+                py::arg("p2"),
+                "Measure and draw the angle (degrees) at p1 between the arms "
+                "to p0 and p2.")
+            .def("clearMeasurements", &wrapped_type::clearMeasurements)
             .def(
                 "colorByCellType",
                 &wrapped_type::colorByCellType,

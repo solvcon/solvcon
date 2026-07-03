@@ -1284,6 +1284,54 @@ class RDomainWidgetNavMapTC(unittest.TestCase):
 
 
 @unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+class RDomainWidgetMeasureTC(unittest.TestCase):
+    """Distance and angle measurement between world points."""
+
+    @classmethod
+    def setUpClass(cls):
+        pilot.RManager.instance.setUp()
+
+    def test_measure_distance(self):
+        """A 3-4-5 right triangle gives distance 5."""
+        widget = pilot.RDomainWidget()
+        self.assertAlmostEqual(
+            widget.measureDistance((0, 0, 0), (3, 4, 0)), 5.0, places=4)
+
+    def test_measure_distance_between_mesh_nodes(self):
+        """Measuring between two known mesh nodes returns their distance."""
+        import math
+        mesh = _make_3d_mesh()
+        nd = mesh.ndcrd.ndarray
+        p0 = tuple(float(v) for v in nd[0])
+        p1 = tuple(float(v) for v in nd[3])
+        expected = math.sqrt(sum((a - b) ** 2 for a, b in zip(p0, p1)))
+        widget = pilot.RDomainWidget()
+        widget.updateMesh(mesh)
+        self.assertAlmostEqual(
+            widget.measureDistance(p0, p1), expected, places=4)
+
+    def test_measure_right_angle(self):
+        """The angle at the origin between +x and +y is 90 degrees."""
+        widget = pilot.RDomainWidget()
+        self.assertAlmostEqual(
+            widget.measureAngle((1, 0, 0), (0, 0, 0), (0, 1, 0)), 90.0,
+            places=3)
+
+    def test_measure_straight_angle(self):
+        """The angle between opposite arms is 180 degrees."""
+        widget = pilot.RDomainWidget()
+        self.assertAlmostEqual(
+            widget.measureAngle((1, 0, 0), (0, 0, 0), (-1, 0, 0)), 180.0,
+            places=3)
+
+    def test_clear_measurements_is_harmless(self):
+        """Clearing the ruler after a measurement does not crash."""
+        widget = pilot.RDomainWidget()
+        widget.measureDistance((0, 0, 0), (1, 1, 1))
+        widget.clearMeasurements()
+
+
+@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
 class RDomainWidgetSceneTC(unittest.TestCase):
     """Scene framing and the fit-to-scene camera (step 4)."""
 
