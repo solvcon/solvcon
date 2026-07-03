@@ -974,6 +974,78 @@ class RDomainWidgetQualityTC(unittest.TestCase):
 
 
 @unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+class RDomainWidgetViewPresetTC(unittest.TestCase):
+    """Axis-aligned view presets and the projection toggle."""
+
+    @classmethod
+    def setUpClass(cls):
+        pilot.RManager.instance.setUp()
+
+    def test_projection_round_trip(self):
+        """The projection defaults to auto and takes the forced values."""
+        widget = pilot.RDomainWidget()
+        self.assertEqual(widget.projection, "auto")
+        widget.projection = "parallel"
+        self.assertEqual(widget.projection, "parallel")
+        widget.projection = "perspective"
+        self.assertEqual(widget.projection, "perspective")
+        widget.projection = "auto"
+        self.assertEqual(widget.projection, "auto")
+
+    def test_unknown_projection_is_ignored(self):
+        """An unknown projection name leaves the current one untouched."""
+        widget = pilot.RDomainWidget()
+        widget.projection = "parallel"
+        widget.projection = "bogus"
+        self.assertEqual(widget.projection, "parallel")
+
+    def test_view_preset_frames_3d_mesh(self):
+        """Each preset frames a 3D mesh so it renders in view."""
+        for name in ("front", "top", "right", "iso"):
+            widget = pilot.RDomainWidget()
+            widget.resize(320, 240)
+            widget.updateMesh(_make_3d_mesh())
+            widget.setView(name)
+            self.assertGreater(
+                _count_foreground(_grab_or_skip(widget)), 0,
+                "preset %s drew nothing" % name)
+
+    def test_presets_view_from_different_directions(self):
+        """Front and top presets look from different directions, so they
+        rasterize a 3D mesh to different frames."""
+        front = pilot.RDomainWidget()
+        front.resize(320, 240)
+        front.updateMesh(_make_3d_mesh())
+        front.setView("front")
+        front_frame = _rgb_array(_grab_or_skip(front))
+
+        top = pilot.RDomainWidget()
+        top.resize(320, 240)
+        top.updateMesh(_make_3d_mesh())
+        top.setView("top")
+        top_frame = _rgb_array(_grab_or_skip(top))
+        self.assertTrue((front_frame != top_frame).any())
+
+    def test_projection_toggle_changes_the_frame(self):
+        """Forcing parallel versus perspective changes the rendered frame of a
+        3D mesh."""
+        para = pilot.RDomainWidget()
+        para.resize(320, 240)
+        para.updateMesh(_make_3d_mesh())
+        para.setView("iso")
+        para.projection = "parallel"
+        para_frame = _rgb_array(_grab_or_skip(para))
+
+        persp = pilot.RDomainWidget()
+        persp.resize(320, 240)
+        persp.updateMesh(_make_3d_mesh())
+        persp.setView("iso")
+        persp.projection = "perspective"
+        persp_frame = _rgb_array(_grab_or_skip(persp))
+        self.assertTrue((para_frame != persp_frame).any())
+
+
+@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
 class RDomainWidgetSceneTC(unittest.TestCase):
     """Scene framing and the fit-to-scene camera (step 4)."""
 

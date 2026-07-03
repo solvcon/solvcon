@@ -144,6 +144,16 @@ public:
     /// Frame the camera so the whole domain is in view.
     void fitCameraToScene();
 
+    /// Point the camera along a named view preset and frame the scene:
+    /// "front", "back", "left", "right", "top", "bottom", the axis names
+    /// "+x".."-z", or "iso".
+    void setView(std::string const & name);
+
+    /// Set the projection independently of the 2D/3D default: "auto",
+    /// "parallel", or "perspective".
+    void setProjection(std::string const & name);
+    std::string projection() const;
+
     /// Show or hide the orientation-guide triad in the corner.
     void showAxis(bool show);
 

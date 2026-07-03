@@ -248,6 +248,25 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRDomainWidget
                 "cells.")
             .def("showAxis", &wrapped_type::showAxis, py::arg("show"))
             .def("fitCameraToScene", &wrapped_type::fitCameraToScene)
+            .def(
+                "setView",
+                &wrapped_type::setView,
+                py::arg("name"),
+                "Point the camera along a view preset and frame the scene: "
+                "\"front\", \"back\", \"left\", \"right\", \"top\", "
+                "\"bottom\", \"+x\"..\"-z\", or \"iso\".")
+            .def_property(
+                "projection",
+                [](wrapped_type & self)
+                {
+                    return self.projection();
+                },
+                [](wrapped_type & self, std::string const & name)
+                {
+                    self.setProjection(name);
+                },
+                "Projection: \"auto\" (orthographic 2D, perspective 3D), "
+                "\"parallel\", or \"perspective\".")
             .def_property(
                 "cameraMode",
                 [](wrapped_type & self)

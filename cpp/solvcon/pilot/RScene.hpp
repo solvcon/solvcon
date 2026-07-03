@@ -26,6 +26,7 @@
 
 #include <functional>
 #include <memory>
+#include <string>
 #include <vector>
 
 namespace solvcon
@@ -78,6 +79,25 @@ public:
     void setDimension(uint32_t ndim) { m_ndim = ndim; }
     uint32_t dimension() const { return m_ndim; }
 
+    /// The projection selector. Auto picks orthographic for a 2D domain and
+    /// perspective for a 3D one; the others force the choice.
+    enum class Projection
+    {
+        Auto,
+        Parallel,
+        Perspective,
+    };
+
+    /// Override the projection: "auto", "parallel", or "perspective". An
+    /// unknown name is ignored.
+    void setProjection(std::string const & name);
+    std::string projectionName() const;
+
+    /// Point the camera along an axis-aligned or isometric preset and frame
+    /// the scene: "front", "back", "left", "right", "top", "bottom", the axis
+    /// names "+x".."-z", or "iso". An unknown name is ignored.
+    void setViewPreset(std::string const & name, float aspect);
+
     RCameraController & camera() { return m_camera; }
     RCameraController const & camera() const { return m_camera; }
 
@@ -100,6 +120,7 @@ private:
     QVector3D m_bbox_hi;
     bool m_has_bbox = false;
     uint32_t m_ndim = 0;
+    Projection m_projection = Projection::Auto;
 
     RCameraController m_camera;
 
