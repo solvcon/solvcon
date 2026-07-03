@@ -175,6 +175,24 @@ void RDomainWidget::applyMeshVisibility()
     }
 }
 
+void RDomainWidget::setMeshOpacity(float opacity)
+{
+    if (nullptr != m_mesh_frame)
+    {
+        m_mesh_frame->setOpacity(opacity);
+        update();
+    }
+}
+
+void RDomainWidget::setFieldOpacity(float opacity)
+{
+    if (nullptr != m_field)
+    {
+        m_field->setOpacity(opacity);
+        update();
+    }
+}
+
 void RDomainWidget::updateColorField(
     SimpleArray<float> const & vertices,
     SimpleArray<float> const & colors,

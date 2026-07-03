@@ -466,6 +466,55 @@ class RDomainWidgetFieldTC(unittest.TestCase):
 
 
 @unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+class RDomainWidgetOpacityTC(unittest.TestCase):
+    """Adjustable per-drawable opacity for the wireframe and the surface."""
+
+    @classmethod
+    def setUpClass(cls):
+        pilot.RManager.instance.setUp()
+
+    def test_field_opacity_fades_toward_background(self):
+        """Lowering the field opacity blends the shaded surface toward the
+        white background, so far fewer pixels stay strongly saturated."""
+        vertices, colors, indices = _make_color_field()
+
+        opaque = pilot.RDomainWidget()
+        opaque.resize(320, 240)
+        _update_field(opaque, vertices, colors, indices)
+        strong_opaque = _count_colored(_grab_or_skip(opaque), 100)
+        self.assertGreater(strong_opaque, 0)
+
+        faded = pilot.RDomainWidget()
+        faded.resize(320, 240)
+        _update_field(faded, vertices, colors, indices)
+        faded.setFieldOpacity(0.3)
+        strong_faded = _count_colored(_grab_or_skip(faded), 100)
+        self.assertLess(strong_faded, strong_opaque)
+
+    def test_mesh_opacity_fades_wireframe(self):
+        """A low mesh opacity fades the black wireframe toward white, so its
+        lines fall below the foreground threshold."""
+        opaque = pilot.RDomainWidget()
+        opaque.resize(320, 240)
+        opaque.updateMesh(_make_2d_mesh())
+        shown = _count_foreground(_grab_or_skip(opaque))
+        self.assertGreater(shown, 0)
+
+        faded = pilot.RDomainWidget()
+        faded.resize(320, 240)
+        faded.updateMesh(_make_2d_mesh())
+        faded.setMeshOpacity(0.2)
+        self.assertLess(_count_foreground(_grab_or_skip(faded)), shown)
+
+    def test_set_opacity_without_drawable_is_noop(self):
+        """Setting opacity before a mesh or field exists is a harmless no-op,
+        not a crash."""
+        widget = pilot.RDomainWidget()
+        widget.setMeshOpacity(0.5)
+        widget.setFieldOpacity(0.5)
+
+
+@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
 class RDomainWidgetSceneTC(unittest.TestCase):
     """Scene framing and the fit-to-scene camera (step 4)."""
 

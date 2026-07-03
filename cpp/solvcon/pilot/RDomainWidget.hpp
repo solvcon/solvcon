@@ -68,6 +68,13 @@ public:
     void showMeshStyle(std::string const & name, bool show);
     bool meshStyleShown(std::string const & name) const;
 
+    /// Set the mesh wireframe opacity, a [0, 1] fraction (1 opaque).
+    void setMeshOpacity(float opacity);
+
+    /// Set the color-field surface opacity, a [0, 1] fraction (1 opaque).
+    /// Lower it to read the wireframe drawn over the shaded surface.
+    void setFieldOpacity(float opacity);
+
     /// Replace the colored field: per-vertex-colored triangles from a vertex
     /// table (nvert, 3), a matching color table (nvert, 3), and a triangle
     /// index table (ntri, 3). Swappable at runtime.

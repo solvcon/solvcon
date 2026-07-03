@@ -62,6 +62,15 @@ public:
     /// ignored by the others. The widget refreshes it as the camera moves.
     void setLightDir(QVector3D const & dir) { m_light_dir = dir; }
 
+    /// Set the drawable opacity, a [0, 1] multiplier on the color alpha.
+    /// 1 is fully opaque, 0 fully transparent. Clamped to the range.
+    void setOpacity(float opacity)
+    {
+        m_opacity = (opacity < 0.0f) ? 0.0f : (opacity > 1.0f) ? 1.0f
+                                                               : opacity;
+    }
+    float opacity() const { return m_opacity; }
+
     /// Create the device resources if they do not exist yet. Idempotent.
     void prepare(
         QRhi * rhi,
@@ -110,6 +119,7 @@ protected:
 
     QVector4D m_color{1.0f, 1.0f, 1.0f, 1.0f};
     QVector3D m_light_dir{0.0f, 0.0f, 1.0f};
+    float m_opacity = 1.0f;
     bool m_visible = true;
 
     std::unique_ptr<QRhiBuffer> m_vbuf;
