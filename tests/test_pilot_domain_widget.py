@@ -140,6 +140,25 @@ def _count_reddish(image):
     return int(mask.sum())
 
 
+def _count_orange(image):
+    """Count strongly orange pixels (the feature-edge overlay color); the
+    white background, black wireframe, and saturated-red boundary highlight
+    all fail the mid-green band."""
+    array = _rgb_array(image)
+    mask = ((array[:, :, 0] > 180) & (array[:, :, 1] > 70)
+            & (array[:, :, 1] < 170) & (array[:, :, 2] < 90))
+    return int(mask.sum())
+
+
+def _count_green(image):
+    """Count strongly green pixels (the face-normal arrow color); the white
+    background and black wireframe both fail the low red/blue test."""
+    array = _rgb_array(image)
+    mask = ((array[:, :, 1] > 120) & (array[:, :, 0] < 120)
+            & (array[:, :, 2] < 120))
+    return int(mask.sum())
+
+
 def _count_axis_pixels(image, channel):
     """Count saturated axis-guide pixels of one channel (red X, green Y,
     blue Z); the black wireframe and white background both fail these
@@ -512,6 +531,78 @@ class RDomainWidgetOpacityTC(unittest.TestCase):
         widget = pilot.RDomainWidget()
         widget.setMeshOpacity(0.5)
         widget.setFieldOpacity(0.5)
+
+
+@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+class RDomainWidgetOverlayTC(unittest.TestCase):
+    """The feature-edge and face-normal overlays."""
+
+    @classmethod
+    def setUpClass(cls):
+        pilot.RManager.instance.setUp()
+
+    def test_feature_edges_draw_and_hide(self):
+        """showFeatureEdges draws the bold orange boundary outline and hides
+        it again. Each state grabs a freshly configured widget so the
+        offscreen capture is deterministic."""
+        base_widget = pilot.RDomainWidget()
+        base_widget.resize(320, 240)
+        base_widget.updateMesh(_make_2d_mesh())
+        base = _count_orange(_grab_or_skip(base_widget))
+
+        shown_widget = pilot.RDomainWidget()
+        shown_widget.resize(320, 240)
+        shown_widget.updateMesh(_make_2d_mesh())
+        shown_widget.showFeatureEdges(True)
+        shown = _count_orange(_grab_or_skip(shown_widget))
+        self.assertGreater(shown, base)
+
+        hidden_widget = pilot.RDomainWidget()
+        hidden_widget.resize(320, 240)
+        hidden_widget.updateMesh(_make_2d_mesh())
+        hidden_widget.showFeatureEdges(True)
+        hidden_widget.showFeatureEdges(False)
+        hidden = _count_orange(_grab_or_skip(hidden_widget))
+        self.assertLess(hidden, shown)
+
+    def test_feature_edges_without_mesh_is_noop(self):
+        """showFeatureEdges on a widget with no mesh does nothing, not
+        crash."""
+        widget = pilot.RDomainWidget()
+        widget.resize(160, 120)
+        widget.showFeatureEdges(True)
+        image = _grab_or_skip(widget)
+        self.assertLess(_count_orange(image), 5)
+
+    def test_normals_draw_and_hide(self):
+        """showNormals draws green face-normal arrows and hides them again."""
+        base_widget = pilot.RDomainWidget()
+        base_widget.resize(320, 240)
+        base_widget.updateMesh(_make_2d_mesh())
+        base = _count_green(_grab_or_skip(base_widget))
+
+        shown_widget = pilot.RDomainWidget()
+        shown_widget.resize(320, 240)
+        shown_widget.updateMesh(_make_2d_mesh())
+        shown_widget.showNormals(True)
+        shown = _count_green(_grab_or_skip(shown_widget))
+        self.assertGreater(shown, base)
+
+        hidden_widget = pilot.RDomainWidget()
+        hidden_widget.resize(320, 240)
+        hidden_widget.updateMesh(_make_2d_mesh())
+        hidden_widget.showNormals(True)
+        hidden_widget.showNormals(False)
+        hidden = _count_green(_grab_or_skip(hidden_widget))
+        self.assertLess(hidden, shown)
+
+    def test_normals_without_mesh_is_noop(self):
+        """showNormals on a widget with no mesh does nothing, not crash."""
+        widget = pilot.RDomainWidget()
+        widget.resize(160, 120)
+        widget.showNormals(True)
+        image = _grab_or_skip(widget)
+        self.assertLess(_count_green(image), 5)
 
 
 @unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")

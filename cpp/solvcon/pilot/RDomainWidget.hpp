@@ -86,6 +86,12 @@ public:
     /// Show or hide the highlight ribbon for boundary set @p ibc.
     void showBoundary(int ibc, bool show);
 
+    /// Show or hide the domain's boundary (feature) edges as one bold overlay.
+    void showFeatureEdges(bool show);
+
+    /// Show or hide a short arrow at every face center along its normal.
+    void showNormals(bool show);
+
     /// Frame the camera so the whole domain is in view.
     void fitCameraToScene();
 
