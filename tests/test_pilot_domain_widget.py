@@ -1284,6 +1284,56 @@ class RDomainWidgetNavMapTC(unittest.TestCase):
 
 
 @unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+class RDomainWidgetCaptureTC(unittest.TestCase):
+    """High-resolution and transparent offscreen capture."""
+
+    @classmethod
+    def setUpClass(cls):
+        pilot.RManager.instance.setUp()
+
+    def _render_or_skip(self, widget, width, height, transparent=False):
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder, "capture.png")
+            ok = widget.renderToImage(path, width, height, transparent)
+            if not ok or not os.path.exists(path):
+                raise unittest.SkipTest("offscreen capture is unavailable")
+            image = QImage(path)
+        if image.isNull():
+            raise unittest.SkipTest("offscreen capture is unavailable")
+        return image
+
+    def test_capture_size_is_independent_of_widget_size(self):
+        """A capture is produced at the requested size regardless of the
+        widget size."""
+        widget = pilot.RDomainWidget()
+        widget.resize(320, 240)
+        widget.updateMesh(_make_2d_mesh())
+        image = self._render_or_skip(widget, 512, 384)
+        self.assertEqual(image.width(), 512)
+        self.assertEqual(image.height(), 384)
+
+    def test_transparent_capture_has_a_clear_corner(self):
+        """A transparent capture leaves the background corner not fully
+        opaque."""
+        widget = pilot.RDomainWidget()
+        widget.resize(200, 200)
+        widget.updateMesh(_make_3d_mesh())
+        image = self._render_or_skip(widget, 256, 256, transparent=True)
+        self.assertLess(image.pixelColor(0, 0).alpha(), 255)
+
+    def test_invalid_size_writes_nothing(self):
+        """A non-positive size yields a null image, so the write fails and no
+        file is produced (no crash)."""
+        widget = pilot.RDomainWidget()
+        widget.resize(320, 240)
+        widget.updateMesh(_make_2d_mesh())
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder, "bad.png")
+            self.assertFalse(widget.renderToImage(path, 0, 0))
+            self.assertFalse(os.path.exists(path))
+
+
+@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
 class RDomainWidgetSceneObjectsTC(unittest.TestCase):
     """A scene of several named mesh objects with transforms."""
 

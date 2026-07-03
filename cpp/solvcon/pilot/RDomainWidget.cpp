@@ -157,6 +157,24 @@ QImage RDomainWidget::grabImage()
     return grabFramebuffer();
 }
 
+QImage RDomainWidget::renderToImage(int width, int height, bool transparent)
+{
+    if (width <= 0 || height <= 0)
+    {
+        return QImage();
+    }
+    // Render at the requested size by resizing the (possibly hidden) widget,
+    // grabbing, and restoring; the transparent flag clears the frame's alpha.
+    QSize const old_size = size();
+    bool const old_transparent = m_transparent_capture;
+    m_transparent_capture = transparent;
+    resize(width, height);
+    QImage const image = grabFramebuffer();
+    resize(old_size.width(), old_size.height());
+    m_transparent_capture = old_transparent;
+    return image;
+}
+
 void RDomainWidget::updateMesh(std::shared_ptr<StaticMesh> const & mesh)
 {
     // Drop the previous mesh drawables and replace them; a new mesh redefines
@@ -2037,7 +2055,9 @@ void RDomainWidget::render(QRhiCommandBuffer * cb)
     m_scalar_bar.update(m_rhi, rpdesc, sampleCount(), pixel_size, batch);
     m_title.update(m_rhi, rpdesc, sampleCount(), pixel_size, batch);
 
-    QColor const clear_color = QColor::fromRgbF(1.0f, 1.0f, 1.0f, 1.0f);
+    QColor const clear_color = m_transparent_capture
+                                   ? QColor::fromRgbF(1.0f, 1.0f, 1.0f, 0.0f)
+                                   : QColor::fromRgbF(1.0f, 1.0f, 1.0f, 1.0f);
     QRhiDepthStencilClearValue const ds_clear(1.0f, 0);
 
     cb->beginPass(renderTarget(), clear_color, ds_clear, batch);

@@ -555,6 +555,19 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRDomainWidget
                 },
                 py::arg("filename"))
             .def(
+                "renderToImage",
+                [](wrapped_type & self, std::string const & filename, int width, int height, bool transparent)
+                {
+                    return self.renderToImage(width, height, transparent).save(filename.c_str());
+                },
+                py::arg("path"),
+                py::arg("width"),
+                py::arg("height"),
+                py::arg("transparent") = false,
+                "Render the scene offscreen at width x height (independent of "
+                "the widget size), with an optional transparent background, "
+                "and save it to path; returns whether the write succeeded.")
+            .def(
                 "clipImage",
                 [](wrapped_type & self)
                 {

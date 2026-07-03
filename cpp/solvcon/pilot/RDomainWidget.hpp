@@ -291,6 +291,11 @@ public:
     /// wrapper over QRhiWidget::grabFramebuffer() for the Python control path.
     QImage grabImage();
 
+    /// Render the scene offscreen at a requested width and height, decoupled
+    /// from the widget size, optionally over a transparent background. The
+    /// widget size is restored afterward.
+    QImage renderToImage(int width, int height, bool transparent = false);
+
 protected:
 
     void initialize(QRhiCommandBuffer * cb) override;
@@ -406,6 +411,8 @@ private:
     bool m_has_field_bbox = false;
 
     std::shared_ptr<StaticMesh> m_mesh;
+
+    bool m_transparent_capture = false; ///< Clear alpha 0 for a capture.
 
     QPoint m_last_mouse_pos; ///< Last cursor position during a drag.
 
