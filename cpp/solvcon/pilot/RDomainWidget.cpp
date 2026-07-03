@@ -223,6 +223,128 @@ void RDomainWidget::updateMesh(std::shared_ptr<StaticMesh> const & mesh)
     update();
 }
 
+namespace
+{
+
+/// The axis-aligned node bounds of a mesh.
+void mesh_bounds(StaticMesh const & mh, QVector3D & lo, QVector3D & hi)
+{
+    bool const is_3d = (3 == mh.ndim());
+    lo = QVector3D(
+        std::numeric_limits<float>::max(),
+        std::numeric_limits<float>::max(),
+        std::numeric_limits<float>::max());
+    hi = QVector3D(
+        std::numeric_limits<float>::lowest(),
+        std::numeric_limits<float>::lowest(),
+        std::numeric_limits<float>::lowest());
+    for (uint32_t ind = 0; ind < mh.nnode(); ++ind)
+    {
+        float const x = static_cast<float>(mh.ndcrd(ind, 0));
+        float const y = static_cast<float>(mh.ndcrd(ind, 1));
+        float const z = is_3d ? static_cast<float>(mh.ndcrd(ind, 2)) : 0.0f;
+        lo = QVector3D(std::min(lo.x(), x), std::min(lo.y(), y), std::min(lo.z(), z));
+        hi = QVector3D(std::max(hi.x(), x), std::max(hi.y(), y), std::max(hi.z(), z));
+    }
+}
+
+} /* end namespace */
+
+void RDomainWidget::addObject(
+    std::string const & name, std::shared_ptr<StaticMesh> const & mesh)
+{
+    auto const it = m_objects.find(name);
+    if (it != m_objects.end())
+    {
+        m_scene.removeDrawable(it->second.drawable);
+        m_objects.erase(it);
+    }
+
+    auto surface = std::make_unique<RMeshFrame>(mesh, RMeshFrame::Style::Surface);
+    surface->setName(name);
+    RDrawable * const drawable = surface.get();
+    m_scene.addDrawable(std::move(surface));
+    m_objects[name] = ObjectEntry{drawable, mesh};
+
+    m_scene.setDimension(mesh->ndim());
+    QVector3D lo;
+    QVector3D hi;
+    mesh_bounds(*mesh, lo, hi);
+    if (mesh->nnode() > 0)
+    {
+        m_scene.extendBoundingBox(lo, hi);
+    }
+    m_scene.fitCameraToScene(viewportAspect());
+    update();
+}
+
+void RDomainWidget::setObjectTransform(
+    std::string const & name,
+    float tx,
+    float ty,
+    float tz,
+    float sx,
+    float sy,
+    float sz)
+{
+    auto const it = m_objects.find(name);
+    if (it == m_objects.end())
+    {
+        return;
+    }
+    QMatrix4x4 model;
+    model.translate(tx, ty, tz);
+    model.scale(sx, sy, sz);
+    it->second.drawable->setModel(model);
+
+    // Grow the framing box to include the transformed object corners.
+    QVector3D lo;
+    QVector3D hi;
+    mesh_bounds(*it->second.mesh, lo, hi);
+    for (int i = 0; i < 8; ++i)
+    {
+        QVector3D const corner(
+            (i & 1) ? hi.x() : lo.x(),
+            (i & 2) ? hi.y() : lo.y(),
+            (i & 4) ? hi.z() : lo.z());
+        QVector3D const mapped = model.map(corner);
+        m_scene.extendBoundingBox(mapped, mapped);
+    }
+    m_scene.fitCameraToScene(viewportAspect());
+    update();
+}
+
+void RDomainWidget::setObjectVisible(std::string const & name, bool visible)
+{
+    auto const it = m_objects.find(name);
+    if (it != m_objects.end())
+    {
+        it->second.drawable->setVisible(visible);
+        update();
+    }
+}
+
+void RDomainWidget::setObjectOpacity(std::string const & name, float opacity)
+{
+    auto const it = m_objects.find(name);
+    if (it != m_objects.end())
+    {
+        it->second.drawable->setOpacity(opacity);
+        update();
+    }
+}
+
+std::vector<std::string> RDomainWidget::objectNames() const
+{
+    std::vector<std::string> names;
+    names.reserve(m_objects.size());
+    for (auto const & entry : m_objects)
+    {
+        names.push_back(entry.first);
+    }
+    return names;
+}
+
 void RDomainWidget::showMesh(bool show)
 {
     m_mesh_shown = show;

@@ -31,11 +31,11 @@
 #include <QRhiWidget>
 #include <QVector3D>
 
+#include <map>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
-#include <utility>
 
 namespace solvcon
 {
@@ -65,6 +65,23 @@ public:
 
     /// Replace the rendered mesh with the wireframe of @p mesh.
     void updateMesh(std::shared_ptr<StaticMesh> const & mesh);
+
+    // A scene of several named mesh objects, each with its own model transform
+    // and visibility, listed by an outliner. addObject registers a mesh as a
+    // named, lit surface; the setters drive it by name (an unknown name is a
+    // no-op).
+    void addObject(std::string const & name, std::shared_ptr<StaticMesh> const & mesh);
+    void setObjectTransform(
+        std::string const & name,
+        float tx,
+        float ty,
+        float tz,
+        float sx,
+        float sy,
+        float sz);
+    void setObjectVisible(std::string const & name, bool visible);
+    void setObjectOpacity(std::string const & name, float opacity);
+    std::vector<std::string> objectNames() const;
 
     /// Show or hide the mesh, in whatever representation is active.
     void showMesh(bool show);
@@ -361,6 +378,15 @@ private:
     RDrawable * m_cube_axes = nullptr; ///< The bounding-box cube-axes grid.
     RDrawable * m_clip = nullptr; ///< The clipped surface drawable.
     RDrawable * m_slice = nullptr; ///< The slice cross-section outline.
+
+    /// A named scene object: its drawable (owned by the scene) and its mesh,
+    /// kept so a transform can re-extend the framing box.
+    struct ObjectEntry
+    {
+        RDrawable * drawable = nullptr;
+        std::shared_ptr<StaticMesh> mesh;
+    };
+    std::map<std::string, ObjectEntry> m_objects;
     std::vector<float> m_ticks_x; ///< Cube-axes tick coordinates per axis.
     std::vector<float> m_ticks_y;
     std::vector<float> m_ticks_z;

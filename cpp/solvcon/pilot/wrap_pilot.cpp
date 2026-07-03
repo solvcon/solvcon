@@ -175,6 +175,34 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRDomainWidget
                 py::arg("h"))
             .def_property_readonly("mesh", &wrapped_type::mesh)
             .def("updateMesh", &wrapped_type::updateMesh, py::arg("mesh"))
+            .def(
+                "addObject",
+                &wrapped_type::addObject,
+                py::arg("name"),
+                py::arg("mesh"),
+                "Register a mesh as a named, lit surface object in the scene.")
+            .def(
+                "setObjectTransform",
+                &wrapped_type::setObjectTransform,
+                py::arg("name"),
+                py::arg("tx"),
+                py::arg("ty"),
+                py::arg("tz"),
+                py::arg("sx") = 1.0f,
+                py::arg("sy") = 1.0f,
+                py::arg("sz") = 1.0f,
+                "Set a named object's translate and scale model transform.")
+            .def(
+                "setObjectVisible",
+                &wrapped_type::setObjectVisible,
+                py::arg("name"),
+                py::arg("visible"))
+            .def(
+                "setObjectOpacity",
+                &wrapped_type::setObjectOpacity,
+                py::arg("name"),
+                py::arg("opacity"))
+            .def("objectNames", &wrapped_type::objectNames)
             .def("showMesh", &wrapped_type::showMesh, py::arg("show"))
             .def("setMeshOpacity", &wrapped_type::setMeshOpacity, py::arg("opacity"))
             .def("setFieldOpacity", &wrapped_type::setFieldOpacity, py::arg("opacity"))

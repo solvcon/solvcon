@@ -1284,6 +1284,67 @@ class RDomainWidgetNavMapTC(unittest.TestCase):
 
 
 @unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+class RDomainWidgetSceneObjectsTC(unittest.TestCase):
+    """A scene of several named mesh objects with transforms."""
+
+    @classmethod
+    def setUpClass(cls):
+        pilot.RManager.instance.setUp()
+
+    def test_two_objects_register(self):
+        """Two named meshes both register in the scene."""
+        widget = pilot.RDomainWidget()
+        widget.addObject("left", _make_2d_mesh())
+        widget.addObject("right", _make_3d_mesh())
+        names = sorted(widget.objectNames())
+        self.assertEqual(names, ["left", "right"])
+
+    def test_readding_replaces_object(self):
+        """Adding a name that already exists replaces it, not duplicates."""
+        widget = pilot.RDomainWidget()
+        widget.addObject("m", _make_2d_mesh())
+        widget.addObject("m", _make_3d_mesh())
+        self.assertEqual(widget.objectNames(), ["m"])
+
+    def test_transform_and_visibility_setters_by_name(self):
+        """The transform, visibility, and opacity setters accept a known name
+        and ignore an unknown one, without crashing."""
+        widget = pilot.RDomainWidget()
+        widget.addObject("a", _make_2d_mesh())
+        widget.setObjectTransform("a", 3.0, 0.0, 0.0, 1.0, 1.0, 1.0)
+        widget.setObjectVisible("a", False)
+        widget.setObjectOpacity("a", 0.5)
+        widget.setObjectVisible("nope", True)  # unknown: no-op
+        self.assertEqual(widget.objectNames(), ["a"])
+
+    def test_two_objects_render_and_toggle(self):
+        """Two objects with distinct transforms both render; hiding one drops
+        drawn pixels.
+
+        Each state grabs a freshly configured widget: a second grab of a
+        mutated widget is unreliable on the headless software rasterizer.
+        _count_foreground keys on the difference from the frame's own
+        background, so a dark empty read-back still counts as nothing drawn.
+        """
+        both_widget = pilot.RDomainWidget()
+        both_widget.resize(320, 240)
+        both_widget.addObject("a", _make_2d_mesh())
+        both_widget.addObject("b", _make_2d_mesh())
+        both_widget.setObjectTransform("b", 4.0, 0.0, 0.0, 1.0, 1.0, 1.0)
+        both = _count_foreground(_grab_or_skip(both_widget))
+        self.assertGreater(both, 0)
+
+        one_widget = pilot.RDomainWidget()
+        one_widget.resize(320, 240)
+        one_widget.addObject("a", _make_2d_mesh())
+        one_widget.addObject("b", _make_2d_mesh())
+        one_widget.setObjectTransform("b", 4.0, 0.0, 0.0, 1.0, 1.0, 1.0)
+        one_widget.setObjectVisible("b", False)
+        one = _count_foreground(_grab_or_skip(one_widget))
+        self.assertLess(one, both)
+
+
+@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
 class RDomainWidgetFilterTC(unittest.TestCase):
     """Geometric slice and clip of the mesh."""
 

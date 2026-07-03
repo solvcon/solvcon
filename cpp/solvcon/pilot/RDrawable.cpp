@@ -76,7 +76,8 @@ void RDrawable::updateUniform(QRhiResourceUpdateBatch * batch, QMatrix4x4 const 
     {
         return;
     }
-    batch->updateDynamicBuffer(m_ubuf.get(), 0, 64, view_proj.constData());
+    QMatrix4x4 const mvp = view_proj * m_model;
+    batch->updateDynamicBuffer(m_ubuf.get(), 0, 64, mvp.constData());
     float const color[4] = {
         m_color.x(), m_color.y(), m_color.z(), m_color.w() * m_opacity};
     batch->updateDynamicBuffer(m_ubuf.get(), 64, 16, color);
