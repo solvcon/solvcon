@@ -1284,6 +1284,58 @@ class RDomainWidgetNavMapTC(unittest.TestCase):
 
 
 @unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+class RDomainWidgetCubeAxesTC(unittest.TestCase):
+    """Cube-axes grid, tick values, and the figure title."""
+
+    @classmethod
+    def setUpClass(cls):
+        pilot.RManager.instance.setUp()
+
+    def test_cube_axes_ticks_match_extent(self):
+        """The tick coordinates span the mesh extent per axis."""
+        widget = pilot.RDomainWidget()
+        widget.updateMesh(_make_2d_mesh())
+        widget.showCubeAxes(True)
+        tx = widget.cubeAxesTicks(0)
+        ty = widget.cubeAxesTicks(1)
+        self.assertEqual(len(tx), 5)
+        self.assertAlmostEqual(tx[0], 0.0, places=4)
+        self.assertAlmostEqual(tx[-1], 2.0, places=4)
+        self.assertAlmostEqual(ty[0], 0.0, places=4)
+        self.assertAlmostEqual(ty[-1], 1.0, places=4)
+
+    def test_hiding_cube_axes_clears_ticks(self):
+        """Hiding the cube axes drops the tick coordinates."""
+        widget = pilot.RDomainWidget()
+        widget.updateMesh(_make_2d_mesh())
+        widget.showCubeAxes(True)
+        widget.showCubeAxes(False)
+        self.assertEqual(list(widget.cubeAxesTicks(0)), [])
+
+    def test_title_round_trip(self):
+        """The title is settable and readable, and clears to empty."""
+        widget = pilot.RDomainWidget()
+        self.assertEqual(widget.title, "")
+        widget.title = "My Mesh"
+        self.assertEqual(widget.title, "My Mesh")
+        widget.setTitle("")
+        self.assertEqual(widget.title, "")
+
+    def test_cube_axes_draw_more_lines(self):
+        """Showing the cube axes adds drawn pixels over the plain wireframe."""
+        base_widget = pilot.RDomainWidget()
+        base_widget.resize(320, 240)
+        base_widget.updateMesh(_make_2d_mesh())
+        base = _count_foreground(_grab_or_skip(base_widget))
+
+        axes_widget = pilot.RDomainWidget()
+        axes_widget.resize(320, 240)
+        axes_widget.updateMesh(_make_2d_mesh())
+        axes_widget.showCubeAxes(True)
+        self.assertGreater(_count_foreground(_grab_or_skip(axes_widget)), base)
+
+
+@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
 class RDomainWidgetZoomTC(unittest.TestCase):
     """Zoom to the selection and reset the camera."""
 

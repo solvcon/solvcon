@@ -324,6 +324,33 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRDomainWidget
                 "The (min, max) range of the named quality metric over the "
                 "cells.")
             .def("showAxis", &wrapped_type::showAxis, py::arg("show"))
+            .def(
+                "showCubeAxes",
+                &wrapped_type::showCubeAxes,
+                py::arg("show"),
+                "Show or hide a bounding-box cube-axes grid with tick marks.")
+            .def(
+                "cubeAxesTicks",
+                &wrapped_type::cubeAxesTicks,
+                py::arg("axis"),
+                "The cube-axes tick coordinates for axis 0 (x), 1 (y), or "
+                "2 (z).")
+            .def_property(
+                "title",
+                [](wrapped_type & self)
+                {
+                    return self.title();
+                },
+                [](wrapped_type & self, std::string const & text)
+                {
+                    self.setTitle(text);
+                },
+                "The figure title drawn as a top overlay.")
+            .def(
+                "setTitle",
+                &wrapped_type::setTitle,
+                py::arg("text"),
+                "Set the figure title; an empty string clears it.")
             .def("fitCameraToScene", &wrapped_type::fitCameraToScene)
             .def(
                 "setView",

@@ -19,6 +19,7 @@
 #include <solvcon/pilot/RColormap.hpp>
 #include <solvcon/pilot/RScalarBar.hpp>
 #include <solvcon/pilot/RScene.hpp>
+#include <solvcon/pilot/RTextOverlay.hpp>
 #include <solvcon/pilot/RDrawable.hpp>
 
 #include <solvcon/solvcon.hpp>
@@ -225,6 +226,15 @@ public:
     /// Show or hide the orientation-guide triad in the corner.
     void showAxis(bool show);
 
+    /// Show or hide a bounding-box cube-axes grid with tick marks.
+    void showCubeAxes(bool show);
+    /// The cube-axes tick coordinates per axis (x, y, z), in mesh units.
+    std::vector<float> cubeAxesTicks(int axis) const;
+
+    /// Set the figure title drawn as a top overlay; an empty string clears it.
+    void setTitle(std::string const & text);
+    std::string title() const;
+
     /// Select the camera mode: "pan" (2D pan/zoom), "fps" (3D fly-through), or
     /// "orbit" (3D orbit around the target).
     void setCameraMode(std::string const & name);
@@ -336,6 +346,11 @@ private:
 
     RDrawable * m_selection = nullptr; ///< Highlight of the picked entity.
     RDrawable * m_ruler = nullptr; ///< The measurement ruler segments.
+    RDrawable * m_cube_axes = nullptr; ///< The bounding-box cube-axes grid.
+    std::vector<float> m_ticks_x; ///< Cube-axes tick coordinates per axis.
+    std::vector<float> m_ticks_y;
+    std::vector<float> m_ticks_z;
+    RTextOverlay m_title; ///< The figure-title overlay.
     bool m_has_selection = false;
     std::string m_selection_kind = "none";
     int m_selection_id = -1;
