@@ -3843,7 +3843,7 @@ class SimpleArraySearchTC(unittest.TestCase):
         self.assertEqual(sarr.argmax(), 9)
         self.assertEqual(narr.argmin(), sarr.argmin())
         self.assertEqual(narr.argmax(), sarr.argmax())
-    
+
     def test_argwhere(self):
         # test 1-D data
         data = [1, 3, 5, 7, 9]

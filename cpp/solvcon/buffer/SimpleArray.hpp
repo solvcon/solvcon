@@ -2660,7 +2660,10 @@ SimpleArray<uint64_t> detail::SimpleArrayMixinSearch<A, T>::argwhere() const
     size_t idx = 0;
     for (size_t i = 0; i < athis->size(); ++i)
     {
-        if (athis->data(i) == value_type(0)) { continue; }
+        if (athis->data(i) == value_type(0))
+        {
+            continue;
+        }
 
         size_t offset = i;
         for (size_t dim = 0; dim < ndim; ++dim)
