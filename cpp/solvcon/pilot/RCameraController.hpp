@@ -64,6 +64,27 @@ public:
     static Mode modeFromName(std::string const & name);
     static std::string modeName(Mode mode);
 
+    /**
+     * The orbit style. Turntable holds the up axis fixed so the horizon never
+     * rolls; Trackball tumbles freely, rolling the up axis with the drag.
+     *
+     * @ingroup group_domain
+     */
+    enum class OrbitStyle
+    {
+        Turntable,
+        Trackball,
+    };
+
+    void setOrbitStyle(OrbitStyle style) { m_orbit_style = style; }
+    OrbitStyle orbitStyle() const { return m_orbit_style; }
+    static OrbitStyle orbitStyleFromName(std::string const & name);
+    static std::string orbitStyleName(OrbitStyle style);
+
+    /// Set the orbit pivot: the point the Orbit mode swings the eye around.
+    /// The eye stays put, so the next drag rotates about the new center.
+    void setPivot(QVector3D const & pivot) { m_target = pivot; }
+
     /// Frame the camera onto the bounding box [lo, hi] for an @p ndim domain
     /// at the given viewport @p aspect (width / height).
     void fitToBoundingBox(QVector3D const & lo, QVector3D const & hi, uint32_t ndim, float aspect);
@@ -109,6 +130,7 @@ private:
     QVector3D rightAxis() const;
 
     Mode m_mode = Mode::Orbit; ///< Default; a 2D domain switches to PanZoom.
+    OrbitStyle m_orbit_style = OrbitStyle::Turntable; ///< Default orbit style.
 
     QVector3D m_position{0.0f, 0.0f, 1.0f};
     QVector3D m_target{0.0f, 0.0f, 0.0f};

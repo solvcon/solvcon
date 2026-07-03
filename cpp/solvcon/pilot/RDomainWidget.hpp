@@ -154,6 +154,17 @@ public:
     void setProjection(std::string const & name);
     std::string projection() const;
 
+    /// Select the orbit style: "turntable" (up axis fixed, horizon level) or
+    /// "trackball" (free tumble that can roll the horizon).
+    void setOrbitStyle(std::string const & name);
+    std::string orbitStyle() const;
+
+    /// Set the orbit pivot, the point the orbit swings the eye around.
+    void setPivot(float x, float y, float z);
+
+    /// Recenter and frame the whole scene (the selection once picking lands).
+    void frameSelected();
+
     /// Show or hide the orientation-guide triad in the corner.
     void showAxis(bool show);
 

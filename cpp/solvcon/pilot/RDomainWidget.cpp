@@ -804,6 +804,31 @@ std::string RDomainWidget::projection() const
     return m_scene.projectionName();
 }
 
+void RDomainWidget::setOrbitStyle(std::string const & name)
+{
+    m_scene.camera().setOrbitStyle(RCameraController::orbitStyleFromName(name));
+    update();
+}
+
+std::string RDomainWidget::orbitStyle() const
+{
+    return RCameraController::orbitStyleName(m_scene.camera().orbitStyle());
+}
+
+void RDomainWidget::setPivot(float x, float y, float z)
+{
+    m_scene.camera().setPivot(QVector3D(x, y, z));
+    update();
+}
+
+void RDomainWidget::frameSelected()
+{
+    // No selection exists yet (it arrives with picking), so frame the whole
+    // scene.
+    m_scene.fitCameraToScene(viewportAspect());
+    update();
+}
+
 void RDomainWidget::setCameraMode(std::string const & name)
 {
     m_scene.camera().setMode(RCameraController::modeFromName(name));

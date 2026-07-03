@@ -268,6 +268,35 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRDomainWidget
                 "Projection: \"auto\" (orthographic 2D, perspective 3D), "
                 "\"parallel\", or \"perspective\".")
             .def_property(
+                "orbitStyle",
+                [](wrapped_type & self)
+                {
+                    return self.orbitStyle();
+                },
+                [](wrapped_type & self, std::string const & name)
+                {
+                    self.setOrbitStyle(name);
+                },
+                "Orbit style: \"turntable\" (up axis fixed) or \"trackball\" "
+                "(free tumble that can roll the horizon).")
+            .def(
+                "setOrbitStyle",
+                &wrapped_type::setOrbitStyle,
+                py::arg("name"),
+                "Select the orbit style: \"turntable\" or \"trackball\".")
+            .def(
+                "setPivot",
+                &wrapped_type::setPivot,
+                py::arg("x"),
+                py::arg("y"),
+                py::arg("z"),
+                "Set the orbit pivot, the point the orbit swings the eye "
+                "around.")
+            .def(
+                "frameSelected",
+                &wrapped_type::frameSelected,
+                "Recenter and frame the whole scene.")
+            .def_property(
                 "cameraMode",
                 [](wrapped_type & self)
                 {
