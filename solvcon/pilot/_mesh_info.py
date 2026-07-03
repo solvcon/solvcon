@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QDockWidget,
 
 from .. import core
 from . import _gui_common
+from . import _mesh
 
 __all__ = [  # noqa: F822
     'MeshInfo',
@@ -20,12 +21,19 @@ __all__ = [  # noqa: F822
 
 
 class MeshInfoTree(QWidget):
-    """Widget that presents the mesh information tree inside the dock."""
+    """Widget that presents the mesh information tree inside the dock.
+
+    :ivar boundary_toggled:
+        Owner-supplied callback ``boundary_toggled(ibc, checked)`` that routes
+        a boundary set's check-box to the active viewer; ``None`` until wired.
+    :vartype boundary_toggled: callable or None
+    """
 
     # Data roles that route a tree item's check-box toggle; the boundary
-    # index rides in the role after the kind.
+    # index and the style name ride in the roles after the kind.
     _ROLE_KIND = Qt.UserRole
     _ROLE_IBC = Qt.UserRole + 1
+    _ROLE_STYLE = Qt.UserRole + 2
 
     # Map cell type numbers to human-readable names.
     CELL_TYPE_NAME = {
@@ -39,8 +47,12 @@ class MeshInfoTree(QWidget):
         core.StaticMesh.PYRAMID: "pyramid",
     }
 
-    def __init__(self, mh=None, parent=None):
+    def __init__(self, style_status=None, mh=None, parent=None):
         super().__init__(parent)
+        self.style_status = style_status
+        if self.style_status is not None:
+            self.style_status.changed.connect(self.refresh_style_checks)
+        self._style_items = {}
         self._tree = QTreeWidget()
         self._tree.setColumnCount(1)
         self._tree.setHeaderHidden(True)
@@ -50,12 +62,7 @@ class MeshInfoTree(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self._tree)
         self.setLayout(layout)
-        # Called when a check box flips; the owner wires these to the viewer.
-        # ``boundary_toggled(ibc, checked)`` follows a boundary set and
-        # ``mesh_toggled(checked)`` the wireframe.  ``_building`` suppresses
-        # the signal while ``set_mesh`` populates the check boxes.
         self.boundary_toggled = None
-        self.mesh_toggled = None
         self._building = False
         self._tree.itemChanged.connect(self._on_item_changed)
         self.set_mesh(mh)
@@ -126,9 +133,9 @@ class MeshInfoTree(QWidget):
                 QTreeWidgetItem(self._tree, ["No mesh loaded"])
                 return
             root = QTreeWidgetItem(self._tree, [f"StaticMesh ({mh.ndim}D)"])
-            # Keep the display toggles (wireframe, then boundaries) together
-            # at the top, above the read-only information sections.
-            self._add_mesh_toggle(root)
+            # Keep the display toggles (styles, then boundaries) together at
+            # the top, above the read-only information sections.
+            self._add_style_toggles(root)
             self._add_boundary_group(root, mh)
             for section, rows in self.make_mesh_info(mh):
                 group = QTreeWidgetItem(root, [section])
@@ -141,12 +148,35 @@ class MeshInfoTree(QWidget):
         finally:
             self._building = False
 
-    def _add_mesh_toggle(self, root):
-        """Add the wireframe on/off check box (default on)."""
-        item = QTreeWidgetItem(root, ["wireframe"])
-        item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
-        item.setData(0, self._ROLE_KIND, 'mesh')
-        item.setCheckState(0, Qt.Checked)
+    def _add_style_toggles(self, root):
+        """Add the mesh style on-off check boxes.
+
+        Each mirrors the active viewer's style through the shared status, so a
+        fresh viewer shows the wireframe checked and the other two clear.
+        """
+        self._style_items = {}
+        if self.style_status is None:
+            return
+        for name, label in _mesh.MeshStyleStatus.STYLES:
+            item = QTreeWidgetItem(root, [label])
+            item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+            item.setData(0, self._ROLE_KIND, 'style')
+            item.setData(0, self._ROLE_STYLE, name)
+            shown = self.style_status.is_shown(name)
+            item.setCheckState(0, Qt.Checked if shown else Qt.Unchecked)
+            self._style_items[name] = item
+
+    def refresh_style_checks(self):
+        """Match the style check boxes to the active viewer's styles."""
+        if self.style_status is None:
+            return
+        self._building = True
+        try:
+            for name, item in self._style_items.items():
+                shown = self.style_status.is_shown(name)
+                item.setCheckState(0, Qt.Checked if shown else Qt.Unchecked)
+        finally:
+            self._building = False
 
     def _add_boundary_group(self, root, mh):
         """Add the boundary sets as a group of check boxes (default off)."""
@@ -170,8 +200,9 @@ class MeshInfoTree(QWidget):
         kind = item.data(0, self._ROLE_KIND)
         if kind == 'boundary' and self.boundary_toggled is not None:
             self.boundary_toggled(item.data(0, self._ROLE_IBC), checked)
-        elif kind == 'mesh' and self.mesh_toggled is not None:
-            self.mesh_toggled(checked)
+        elif kind == 'style' and self.style_status is not None:
+            self.style_status.set_shown(
+                item.data(0, self._ROLE_STYLE), checked)
 
 
 class MeshInfo(_gui_common.PilotFeature):
@@ -184,6 +215,7 @@ class MeshInfo(_gui_common.PilotFeature):
 
     def __init__(self, *args, **kw):
         self._menu = kw.pop('menu')
+        self._status = kw.pop('style_status')
         super().__init__(*args, **kw)
         self._action = None
         self._dock = None
@@ -209,9 +241,8 @@ class MeshInfo(_gui_common.PilotFeature):
         """Build the dock lazily and follow sub-window activation."""
         if self._panel is not None:
             return
-        self._panel = MeshInfoTree()
+        self._panel = MeshInfoTree(self._status)
         self._panel.boundary_toggled = self._on_boundary_toggled
-        self._panel.mesh_toggled = self._on_mesh_toggled
         self._dock = QDockWidget("mesh")
         self._dock.setWidget(self._panel)
         self._mgr.mainWindow.addDockWidget(Qt.LeftDockWidgetArea,
@@ -233,7 +264,8 @@ class MeshInfo(_gui_common.PilotFeature):
             QTimer.singleShot(0, self._refresh)
 
     def _refresh(self):
-        """Show the active sub-window's mesh."""
+        """Show the active sub-window's mesh. The style boxes read the shared
+        status, so rebuilding the tree already reflects the active viewer."""
         self._panel.set_mesh(self._active_mesh())
 
     def _on_boundary_toggled(self, ibc, checked):
@@ -241,12 +273,6 @@ class MeshInfo(_gui_common.PilotFeature):
         widget = self._mgr.currentR3DWidget()
         if widget is not None:
             widget.showBoundary(ibc, checked)
-
-    def _on_mesh_toggled(self, checked):
-        """Show or hide the wireframe in the active viewer."""
-        widget = self._mgr.currentR3DWidget()
-        if widget is not None:
-            widget.showMesh(checked)
 
     def _mdi_area(self):
         return self._mainWindow.centralWidget()

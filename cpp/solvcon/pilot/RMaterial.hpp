@@ -48,6 +48,7 @@ public:
         FlatColor, ///< One uniform color for the whole primitive.
         VertexColor, ///< A per-vertex color attribute.
         Textured, ///< A sampled texture tinted by the uniform color.
+        Lit, ///< A per-vertex normal shaded by a directional light.
     };
 
     explicit RMaterial(Kind kind);
@@ -71,7 +72,9 @@ public:
         QRhiGraphicsPipeline::Topology topology,
         int sample_count,
         bool depth_test = true,
-        bool alpha_blend = false) const;
+        bool alpha_blend = false,
+        int depth_bias = 0,
+        float slope_scaled_depth_bias = 0.0f) const;
 
     /// Load a baked shader from the Qt resource system.
     static QShader loadShader(QString const & resource_path);

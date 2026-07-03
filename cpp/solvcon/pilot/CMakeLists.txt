@@ -61,6 +61,8 @@ set(SOLVCON_PILOT_SHADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/shaders/vcolor.vert
     ${CMAKE_CURRENT_SOURCE_DIR}/shaders/texture.vert
     ${CMAKE_CURRENT_SOURCE_DIR}/shaders/texture.frag
+    ${CMAKE_CURRENT_SOURCE_DIR}/shaders/lit.vert
+    ${CMAKE_CURRENT_SOURCE_DIR}/shaders/lit.frag
     CACHE FILEPATH "" FORCE)
 
 # vim: set ff=unix fenc=utf8 nobomb et sw=4 ts=4 sts=4:

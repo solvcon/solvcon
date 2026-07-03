@@ -55,6 +55,12 @@ def _make_3d_mesh():
     return mh
 
 
+def _show_only(widget, name):
+    """Draw only the named mesh style, hiding the other two."""
+    for style in ("surface", "wireframe", "points"):
+        widget.showMeshStyle(style, style == name)
+
+
 def _grab_or_skip(widget):
     """Render the widget offscreen and return a QImage.
 
@@ -252,6 +258,132 @@ class RDomainWidgetMeshTC(unittest.TestCase):
         widget.showMesh(True)
         restored = _count_foreground(_grab_or_skip(widget))
         self.assertGreater(restored, hidden)
+
+
+@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+class RDomainWidgetStyleTC(unittest.TestCase):
+    """Independently toggling the surface, wireframe, and points styles."""
+
+    @classmethod
+    def setUpClass(cls):
+        pilot.RManager.instance.setUp()
+
+    def test_2d_surface_renders_filled(self):
+        """A 2D mesh drawn as a lit surface fills the cells with color, not
+        just the black hairline the wireframe draws."""
+        widget = pilot.RDomainWidget()
+        widget.resize(320, 240)
+        widget.updateMesh(_make_2d_mesh())
+        _show_only(widget, "surface")
+        self.assertGreater(_count_colored(_grab_or_skip(widget)), 0)
+
+    def test_3d_surface_renders_filled(self):
+        """A 3D mesh drawn as a lit surface shades its boundary faces."""
+        widget = pilot.RDomainWidget()
+        widget.resize(320, 240)
+        widget.updateMesh(_make_3d_mesh())
+        _show_only(widget, "surface")
+        widget.fitCameraToScene()
+        self.assertGreater(_count_colored(_grab_or_skip(widget)), 0)
+
+    def test_surface_differs_from_wireframe(self):
+        """The surface fills the interior the wireframe leaves as background,
+        so the two styles rasterize to different frames."""
+        wire = pilot.RDomainWidget()
+        wire.resize(320, 240)
+        wire.updateMesh(_make_2d_mesh())
+        wire_frame = _rgb_array(_grab_or_skip(wire))
+
+        surf = pilot.RDomainWidget()
+        surf.resize(320, 240)
+        surf.updateMesh(_make_2d_mesh())
+        _show_only(surf, "surface")
+        surf_frame = _rgb_array(_grab_or_skip(surf))
+        self.assertTrue((wire_frame != surf_frame).any())
+
+    def test_points_render(self):
+        """A 2D mesh drawn as points marks its nodes: some foreground pixels
+        stand over the background."""
+        widget = pilot.RDomainWidget()
+        widget.resize(320, 240)
+        widget.updateMesh(_make_2d_mesh())
+        _show_only(widget, "points")
+        self.assertGreater(_count_foreground(_grab_or_skip(widget)), 0)
+
+    def test_show_mesh_hides_active_surface(self):
+        """showMesh(False) hides whichever styles are shown, and
+        showMesh(True) brings them back.
+
+        The count keys on the difference from the frame's own background (as in
+        the wireframe toggle test), so an empty scene that a software
+        rasterizer reads back as a uniformly dark frame still counts as
+        nothing drawn.
+        """
+        widget = pilot.RDomainWidget()
+        widget.resize(320, 240)
+        widget.updateMesh(_make_2d_mesh())
+        _show_only(widget, "surface")
+        shown = _count_foreground(_grab_or_skip(widget))
+        self.assertGreater(shown, 0)
+        widget.showMesh(False)
+        hidden = _count_foreground(_grab_or_skip(widget))
+        self.assertLess(hidden, shown * 0.5)
+        widget.showMesh(True)
+        self.assertGreater(_count_foreground(_grab_or_skip(widget)), hidden)
+
+    def test_styles_toggle_independently(self):
+        """Showing or hiding one style leaves the others as they were."""
+        widget = pilot.RDomainWidget()
+        self.assertTrue(widget.meshStyleShown("wireframe"))
+        self.assertFalse(widget.meshStyleShown("surface"))
+        self.assertFalse(widget.meshStyleShown("points"))
+        widget.showMeshStyle("surface", True)
+        self.assertTrue(widget.meshStyleShown("surface"))
+        self.assertTrue(widget.meshStyleShown("wireframe"))
+        widget.showMeshStyle("wireframe", False)
+        self.assertFalse(widget.meshStyleShown("wireframe"))
+        self.assertTrue(widget.meshStyleShown("surface"))
+
+    def test_unknown_style_is_ignored(self):
+        """An unknown style name toggles nothing and reads back false."""
+        widget = pilot.RDomainWidget()
+        before = [widget.meshStyleShown(n)
+                  for n in ("surface", "wireframe", "points")]
+        widget.showMeshStyle("bogus", True)
+        after = [widget.meshStyleShown(n)
+                 for n in ("surface", "wireframe", "points")]
+        self.assertEqual(before, after)
+        self.assertFalse(widget.meshStyleShown("bogus"))
+
+    def test_wireframe_over_surface_overlays(self):
+        """Adding the wireframe over the lit surface changes the frame: the
+        black edges the surface alone does not draw now appear over the
+        fill."""
+        surf = pilot.RDomainWidget()
+        surf.resize(320, 240)
+        surf.updateMesh(_make_2d_mesh())
+        _show_only(surf, "surface")
+        surf_frame = _rgb_array(_grab_or_skip(surf))
+
+        both = pilot.RDomainWidget()
+        both.resize(320, 240)
+        both.updateMesh(_make_2d_mesh())
+        _show_only(both, "surface")
+        both.showMeshStyle("wireframe", True)
+        both_frame = _rgb_array(_grab_or_skip(both))
+        self.assertTrue((surf_frame != both_frame).any())
+
+    def test_all_styles_off_draws_nothing(self):
+        """Turning every style off empties the scene."""
+        widget = pilot.RDomainWidget()
+        widget.resize(320, 240)
+        widget.updateMesh(_make_2d_mesh())
+        _show_only(widget, "surface")
+        shown = _count_foreground(_grab_or_skip(widget))
+        self.assertGreater(shown, 0)
+        for name in ("surface", "wireframe", "points"):
+            widget.showMeshStyle(name, False)
+        self.assertLess(_count_foreground(_grab_or_skip(widget)), shown * 0.5)
 
 
 @unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")

@@ -41,6 +41,10 @@ RMaterial::RMaterial(Kind kind)
         m_vert = loadShader(QStringLiteral(":/solvcon/pilot/shaders/texture.vert.qsb"));
         m_frag = loadShader(QStringLiteral(":/solvcon/pilot/shaders/texture.frag.qsb"));
         break;
+    case Kind::Lit:
+        m_vert = loadShader(QStringLiteral(":/solvcon/pilot/shaders/lit.vert.qsb"));
+        m_frag = loadShader(QStringLiteral(":/solvcon/pilot/shaders/lit.frag.qsb"));
+        break;
     }
 }
 
@@ -52,7 +56,9 @@ QRhiGraphicsPipeline * RMaterial::buildPipeline(
     QRhiGraphicsPipeline::Topology topology,
     int sample_count,
     bool depth_test,
-    bool alpha_blend) const
+    bool alpha_blend,
+    int depth_bias,
+    float slope_scaled_depth_bias) const
 {
     QRhiGraphicsPipeline * pipeline = rhi->newGraphicsPipeline();
     pipeline->setShaderStages({
@@ -66,6 +72,13 @@ QRhiGraphicsPipeline * RMaterial::buildPipeline(
     pipeline->setSampleCount(sample_count);
     pipeline->setDepthTest(depth_test);
     pipeline->setDepthWrite(depth_test);
+    if (0 != depth_bias || 0.0f != slope_scaled_depth_bias)
+    {
+        // Push these fragments away from the eye so coplanar geometry drawn
+        // later (a wireframe or points over a surface) wins the depth test.
+        pipeline->setDepthBias(depth_bias);
+        pipeline->setSlopeScaledDepthBias(slope_scaled_depth_bias);
+    }
     if (alpha_blend)
     {
         QRhiGraphicsPipeline::TargetBlend blend;
