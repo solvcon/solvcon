@@ -48,16 +48,29 @@ QImage RDomainWidget::grabImage()
 
 void RDomainWidget::updateMesh(std::shared_ptr<StaticMesh> const & mesh)
 {
-    // Drop the previous mesh wireframe and replace it; a new mesh redefines
+    // Drop the previous mesh drawables and replace them; a new mesh redefines
     // the framing, so the bounding box is recomputed from scratch.
+    m_scene.removeDrawable(m_mesh_surface);
     m_scene.removeDrawable(m_mesh_frame);
+    m_scene.removeDrawable(m_mesh_points);
+    m_mesh_surface = nullptr;
     m_mesh_frame = nullptr;
+    m_mesh_points = nullptr;
 
     m_mesh = mesh;
 
-    auto frame = std::make_unique<RMeshFrame>(mesh);
+    // Build one drawable per representation and switch between them by
+    // visibility; rebuilding on every toggle would be wasteful.
+    auto surface = std::make_unique<RMeshFrame>(mesh, RMeshFrame::Style::Surface);
+    m_mesh_surface = surface.get();
+    m_scene.addDrawable(std::move(surface));
+    auto frame = std::make_unique<RMeshFrame>(mesh, RMeshFrame::Style::Wireframe);
     m_mesh_frame = frame.get();
     m_scene.addDrawable(std::move(frame));
+    auto points = std::make_unique<RMeshFrame>(mesh, RMeshFrame::Style::Points);
+    m_mesh_points = points.get();
+    m_scene.addDrawable(std::move(points));
+    applyMeshVisibility();
 
     StaticMesh const & mh = *mesh;
     m_scene.setDimension(mh.ndim());
@@ -102,10 +115,63 @@ void RDomainWidget::updateMesh(std::shared_ptr<StaticMesh> const & mesh)
 
 void RDomainWidget::showMesh(bool show)
 {
+    m_mesh_shown = show;
+    applyMeshVisibility();
+    update();
+}
+
+void RDomainWidget::showMeshStyle(std::string const & name, bool show)
+{
+    if ("surface" == name)
+    {
+        m_show_surface = show;
+    }
+    else if ("wireframe" == name)
+    {
+        m_show_wireframe = show;
+    }
+    else if ("points" == name)
+    {
+        m_show_points = show;
+    }
+    else
+    {
+        return; // Ignore an unknown name.
+    }
+    applyMeshVisibility();
+    update();
+}
+
+bool RDomainWidget::meshStyleShown(std::string const & name) const
+{
+    if ("surface" == name)
+    {
+        return m_show_surface;
+    }
+    if ("wireframe" == name)
+    {
+        return m_show_wireframe;
+    }
+    if ("points" == name)
+    {
+        return m_show_points;
+    }
+    return false;
+}
+
+void RDomainWidget::applyMeshVisibility()
+{
+    if (nullptr != m_mesh_surface)
+    {
+        m_mesh_surface->setVisible(m_mesh_shown && m_show_surface);
+    }
     if (nullptr != m_mesh_frame)
     {
-        m_mesh_frame->setVisible(show);
-        update();
+        m_mesh_frame->setVisible(m_mesh_shown && m_show_wireframe);
+    }
+    if (nullptr != m_mesh_points)
+    {
+        m_mesh_points->setVisible(m_mesh_shown && m_show_points);
     }
 }
 
@@ -362,9 +428,19 @@ void RDomainWidget::render(QRhiCommandBuffer * cb)
     QMatrix4x4 const view_proj = m_scene.viewProjection(pixel_size, m_rhi);
     QRhiRenderPassDescriptor * const rpdesc = renderTarget()->renderPassDescriptor();
 
+    // A camera-following headlight: the lit surface faces toward the eye read
+    // brightest. Non-lit drawables ignore the direction.
+    QVector3D light_dir = m_scene.camera().position() - m_scene.camera().target();
+    if (light_dir.lengthSquared() <= 0.0f)
+    {
+        light_dir = QVector3D(0.0f, 0.0f, 1.0f);
+    }
+    light_dir.normalize();
+
     for (std::unique_ptr<RDrawable> const & drawable : m_scene.drawables())
     {
         drawable->prepare(m_rhi, rpdesc, sampleCount(), batch);
+        drawable->setLightDir(light_dir);
         drawable->updateUniform(batch, view_proj);
     }
 

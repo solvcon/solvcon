@@ -58,8 +58,15 @@ public:
     /// Replace the rendered mesh with the wireframe of @p mesh.
     void updateMesh(std::shared_ptr<StaticMesh> const & mesh);
 
-    /// Show or hide the mesh wireframe.
+    /// Show or hide the mesh, in whatever representation is active.
     void showMesh(bool show);
+
+    /// Show or hide one mesh style independently of the others, so any
+    /// combination can be drawn at once (a wireframe over a lit surface, say).
+    /// @p name is "surface" (lit shaded), "wireframe" (edges), or "points"
+    /// (nodes); an unknown name is ignored.
+    void showMeshStyle(std::string const & name, bool show);
+    bool meshStyleShown(std::string const & name) const;
 
     /// Replace the colored field: per-vertex-colored triangles from a vertex
     /// table (nvert, 3), a matching color table (nvert, 3), and a triangle
@@ -122,14 +129,28 @@ private:
 
     float viewportAspect() const;
 
+    /// Push the per-style show flags and the overall mesh-shown flag onto the
+    /// three mesh drawables' visibility.
+    void applyMeshVisibility();
+
     QRhi * m_rhi = nullptr; ///< Tracked to detect device changes.
     QRhiRenderPassDescriptor * m_rpdesc = nullptr; ///< Tracked to detect target changes.
     int m_sample_count = 0; ///< Tracked to detect MSAA changes.
 
     RScene m_scene;
     RAxisGizmo m_gizmo;
-    RDrawable * m_mesh_frame = nullptr; ///< Non-owning; lives in the scene.
-    RDrawable * m_field = nullptr; ///< Non-owning; lives in the scene.
+    // Non-owning; the drawables live in the scene. One per mesh representation.
+    RDrawable * m_mesh_surface = nullptr;
+    RDrawable * m_mesh_frame = nullptr;
+    RDrawable * m_mesh_points = nullptr;
+    RDrawable * m_field = nullptr;
+
+    // Per-style show flags; any combination may be on at once. Only the
+    // wireframe is on by default, so a fresh viewer looks unchanged.
+    bool m_show_surface = false;
+    bool m_show_wireframe = true;
+    bool m_show_points = false;
+    bool m_mesh_shown = true; ///< The showMesh toggle, applied atop the styles.
 
     std::shared_ptr<StaticMesh> m_mesh;
 

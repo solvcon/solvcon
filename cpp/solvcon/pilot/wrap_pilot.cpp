@@ -153,6 +153,18 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRDomainWidget
             .def("updateMesh", &wrapped_type::updateMesh, py::arg("mesh"))
             .def("showMesh", &wrapped_type::showMesh, py::arg("show"))
             .def(
+                "showMeshStyle",
+                &wrapped_type::showMeshStyle,
+                py::arg("name"),
+                py::arg("show"),
+                "Show or hide one mesh style (\"surface\", \"wireframe\", or "
+                "\"points\") independently, so any combination can be drawn.")
+            .def(
+                "meshStyleShown",
+                &wrapped_type::meshStyleShown,
+                py::arg("name"),
+                "Whether the named mesh style is currently shown.")
+            .def(
                 "updateColorField",
                 &wrapped_type::updateColorField,
                 py::arg("vertices"),
@@ -532,8 +544,8 @@ void wrap_pilot(pybind11::module & mod)
         mod,
         "RDomainWidget",
         "Interactive QRhi viewer for 2D and 3D unstructured-mesh domains and "
-        "fields. Drive it with updateMesh / showMesh, updateColorField, "
-        "showBoundary, and showAxis; navigate with cameraMode, the "
+        "fields. Drive it with updateMesh / showMesh / showMeshStyle, "
+        "updateColorField, showBoundary, and showAxis; navigate with cameraMode, the "
         "cameraPosition / cameraTarget / cameraUp pose, rotateCamera / "
         "panCamera / zoomCamera / pinchCamera, and fitCameraToScene; capture "
         "frames with "

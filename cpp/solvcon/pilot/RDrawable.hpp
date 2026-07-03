@@ -19,6 +19,7 @@
 #include <rhi/qrhi.h>
 
 #include <QMatrix4x4>
+#include <QVector3D>
 #include <QVector4D>
 
 #include <memory>
@@ -57,6 +58,10 @@ public:
     void setColor(QVector4D const & color) { m_color = color; }
     QVector4D color() const { return m_color; }
 
+    /// World-space direction toward the light, read by the lit material and
+    /// ignored by the others. The widget refreshes it as the camera moves.
+    void setLightDir(QVector3D const & dir) { m_light_dir = dir; }
+
     /// Create the device resources if they do not exist yet. Idempotent.
     void prepare(
         QRhi * rhi,
@@ -79,8 +84,10 @@ protected:
 
     RDrawable() = default;
 
-    /// std140 layout of the shared uniform block: mat4 mvp + vec4 color.
-    static constexpr int UBUF_SIZE = 64 + 16;
+    /// std140 layout of the shared uniform block: mat4 mvp + vec4 color +
+    /// vec4 lightDir. The trailing light direction is used only by the lit
+    /// material; the other shaders declare a shorter block over the same buffer.
+    static constexpr int UBUF_SIZE = 64 + 16 + 16;
 
     /// The shader variant this drawable renders with.
     virtual RMaterial::Kind materialKind() const = 0;
@@ -95,7 +102,14 @@ protected:
     /// m_vertex_count / m_index_count. Called once from prepare().
     virtual void createGeometry(QRhi * rhi, QRhiResourceUpdateBatch * batch) = 0;
 
+    /// Constant and slope-scaled depth bias for this drawable's pipeline. A
+    /// filled surface returns a positive bias so a coplanar wireframe or point
+    /// cloud drawn over it is not lost to the depth test; the default is none.
+    virtual int depthBias() const { return 0; }
+    virtual float slopeScaledDepthBias() const { return 0.0f; }
+
     QVector4D m_color{1.0f, 1.0f, 1.0f, 1.0f};
+    QVector3D m_light_dir{0.0f, 0.0f, 1.0f};
     bool m_visible = true;
 
     std::unique_ptr<QRhiBuffer> m_vbuf;

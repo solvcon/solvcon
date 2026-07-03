@@ -9,8 +9,9 @@ drives them.
 
 ## Showing a domain
 
-- **Mesh wireframe**: `updateMesh(mesh)` draws the unstructured mesh (2D faces
-  or 3D cells) as a wireframe; `showMesh(on)` toggles it.
+- **Mesh**: `updateMesh(mesh)` draws the unstructured mesh (2D cells or the 3D
+  boundary shell); `showMesh(on)` toggles it. Choose which styles are drawn
+  with the mesh styles (see below).
 - **Colored field**: `updateColorField(vertices, colors, indices)` draws
   per-vertex-colored triangles over the domain. The field is swappable at
   runtime: call it again to replace the previous one.
@@ -19,6 +20,34 @@ drives them.
 - **Orientation guide**: `showAxis(on)` shows a small axis triad in the corner,
   two axes for a 2D domain and three for a 3D one, oriented by the camera. It
   is hidden by default.
+
+## Mesh styles
+
+The mesh draws in three styles that toggle **independently**, so any
+combination shows at once, a wireframe over a lit surface for instance. Toggle
+each from the **View > Mesh styles** submenu or the mesh panel's check boxes,
+or from Python with `showMeshStyle(name, on)`; `meshStyleShown(name)` reads a
+style back.
+
+| Menu item | `name` | What it draws |
+| --- | --- | --- |
+| Surface (lit shaded) | `"surface"` | cell or boundary faces as a lit, shaded surface |
+| Wireframe | `"wireframe"` | mesh edges as hairlines (on by default) |
+| Points | `"points"` | mesh nodes as points |
+
+Only the wireframe is on by default, so a freshly loaded mesh looks unchanged.
+The surface is shaded by a camera-following headlight, so faces turned toward
+the eye read brightest and the facets stay legible as the camera moves. A 2D
+domain fills its cells in the plane; a 3D domain shades its boundary shell.
+`showMesh(on)` hides or shows the mesh as a whole, on top of the per-style
+toggles.
+
+```python
+viewer.updateMesh(mesh)                   # wireframe only, the default
+viewer.showMeshStyle("surface", True)     # add the lit shaded surface
+viewer.showMeshStyle("wireframe", False)  # drop the wireframe over it
+viewer.meshStyleShown("points")           # False
+```
 
 ## Camera navigation
 
