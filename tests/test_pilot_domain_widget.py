@@ -1284,6 +1284,50 @@ class RDomainWidgetNavMapTC(unittest.TestCase):
 
 
 @unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+class RDomainWidgetFilterTC(unittest.TestCase):
+    """Geometric slice and clip of the mesh."""
+
+    @classmethod
+    def setUpClass(cls):
+        pilot.RManager.instance.setUp()
+
+    def test_clip_keeps_one_side(self):
+        """A plane at x=1 keeps the two cells whose centroid is left of it and
+        drops the right-hand quad."""
+        widget = pilot.RDomainWidget()
+        widget.updateMesh(_make_2d_mesh())
+        kept = widget.addClip((1.0, 0.5, 0.0), (1.0, 0.0, 0.0))
+        self.assertEqual(kept, 2)
+
+    def test_clip_without_mesh_is_zero(self):
+        """Clipping before a mesh loads keeps nothing, no crash."""
+        widget = pilot.RDomainWidget()
+        self.assertEqual(widget.addClip((0, 0, 0), (1, 0, 0)), 0)
+
+    def test_slice_2d_cuts_cells(self):
+        """A vertical plane cutting the 2D mesh draws cross-section lines."""
+        widget = pilot.RDomainWidget()
+        widget.updateMesh(_make_2d_mesh())
+        self.assertGreater(
+            widget.addSlice((0.9, 0.5, 0.0), (1.0, 0.0, 0.0)), 0)
+
+    def test_slice_3d_cuts_the_tet(self):
+        """A horizontal plane through the tetrahedron outlines the cut."""
+        widget = pilot.RDomainWidget()
+        widget.updateMesh(_make_3d_mesh())
+        self.assertGreater(
+            widget.addSlice((0.0, 0.0, 0.5), (0.0, 0.0, 1.0)), 0)
+
+    def test_clear_filters_is_harmless(self):
+        """Clearing after a slice and clip does not crash."""
+        widget = pilot.RDomainWidget()
+        widget.updateMesh(_make_2d_mesh())
+        widget.addClip((1.0, 0.5, 0.0), (1.0, 0.0, 0.0))
+        widget.addSlice((0.9, 0.5, 0.0), (1.0, 0.0, 0.0))
+        widget.clearFilters()
+
+
+@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
 class RDomainWidgetCubeAxesTC(unittest.TestCase):
     """Cube-axes grid, tick values, and the figure title."""
 
