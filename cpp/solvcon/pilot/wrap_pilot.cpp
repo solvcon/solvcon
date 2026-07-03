@@ -210,6 +210,25 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRDomainWidget
             .def("showBoundary", &wrapped_type::showBoundary, py::arg("ibc"), py::arg("show"))
             .def("showFeatureEdges", &wrapped_type::showFeatureEdges, py::arg("show"))
             .def("showNormals", &wrapped_type::showNormals, py::arg("show"))
+            .def(
+                "colorByCellType",
+                &wrapped_type::colorByCellType,
+                "Color the mesh by the cell element type through a discrete "
+                "colormap with a legend.")
+            .def(
+                "colorByCellGroup",
+                &wrapped_type::colorByCellGroup,
+                "Color the mesh by the cell group (clgrp) through a discrete "
+                "colormap with a legend.")
+            .def(
+                "colorByBoundary",
+                &wrapped_type::colorByBoundary,
+                "Color the mesh by boundary set through a discrete colormap "
+                "with a legend.")
+            .def(
+                "clearCellColoring",
+                &wrapped_type::clearCellColoring,
+                "Remove the categorical cell coloring and its legend.")
             .def("showAxis", &wrapped_type::showAxis, py::arg("show"))
             .def("fitCameraToScene", &wrapped_type::fitCameraToScene)
             .def_property(

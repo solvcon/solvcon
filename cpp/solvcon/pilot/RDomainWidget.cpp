@@ -270,6 +270,235 @@ void RDomainWidget::setScalarBarTitle(std::string const & title)
     update();
 }
 
+void RDomainWidget::colorByCellType()
+{
+    if (nullptr == m_mesh)
+    {
+        return;
+    }
+    StaticMesh const & mh = *m_mesh;
+    std::vector<int32_t> category;
+    if (3 == mh.ndim())
+    {
+        SimpleArray<int32_t> const & bndfcs = mh.bndfcs();
+        category.reserve(bndfcs.shape(0));
+        for (size_t ibnd = 0; ibnd < bndfcs.shape(0); ++ibnd)
+        {
+            category.push_back(mh.cltpn(mh.fcicl(bndfcs(ibnd, 0))));
+        }
+    }
+    else
+    {
+        category.reserve(mh.ncell());
+        for (uint32_t icl = 0; icl < mh.ncell(); ++icl)
+        {
+            category.push_back(mh.cltpn(icl));
+        }
+    }
+    installCategoryField(category, "cell type");
+}
+
+void RDomainWidget::colorByCellGroup()
+{
+    if (nullptr == m_mesh)
+    {
+        return;
+    }
+    StaticMesh const & mh = *m_mesh;
+    std::vector<int32_t> category;
+    if (3 == mh.ndim())
+    {
+        SimpleArray<int32_t> const & bndfcs = mh.bndfcs();
+        category.reserve(bndfcs.shape(0));
+        for (size_t ibnd = 0; ibnd < bndfcs.shape(0); ++ibnd)
+        {
+            category.push_back(mh.clgrp(mh.fcicl(bndfcs(ibnd, 0))));
+        }
+    }
+    else
+    {
+        category.reserve(mh.ncell());
+        for (uint32_t icl = 0; icl < mh.ncell(); ++icl)
+        {
+            category.push_back(mh.clgrp(icl));
+        }
+    }
+    installCategoryField(category, "cell group");
+}
+
+void RDomainWidget::colorByBoundary()
+{
+    if (nullptr == m_mesh)
+    {
+        return;
+    }
+    StaticMesh const & mh = *m_mesh;
+    SimpleArray<int32_t> const & bndfcs = mh.bndfcs();
+    std::vector<int32_t> category;
+    if (3 == mh.ndim())
+    {
+        // The 3D surface is the boundary shell, one primitive per boundary
+        // face, so the boundary set is the face's own set.
+        category.reserve(bndfcs.shape(0));
+        for (size_t ibnd = 0; ibnd < bndfcs.shape(0); ++ibnd)
+        {
+            category.push_back(bndfcs(ibnd, 1));
+        }
+    }
+    else
+    {
+        // The 2D surface is the cells, so color each cell by a boundary set it
+        // owns; interior cells share one extra "none" category past the top set.
+        int32_t max_bc = -1;
+        for (size_t ibnd = 0; ibnd < bndfcs.shape(0); ++ibnd)
+        {
+            max_bc = std::max(max_bc, bndfcs(ibnd, 1));
+        }
+        category.assign(mh.ncell(), max_bc + 1);
+        for (size_t ibnd = 0; ibnd < bndfcs.shape(0); ++ibnd)
+        {
+            int32_t const icl = mh.fcicl(bndfcs(ibnd, 0));
+            if (icl >= 0 && static_cast<size_t>(icl) < category.size())
+            {
+                category[icl] = bndfcs(ibnd, 1);
+            }
+        }
+    }
+    installCategoryField(category, "boundary set");
+}
+
+void RDomainWidget::clearCellColoring()
+{
+    m_scene.removeDrawable(m_field);
+    m_field = nullptr;
+    m_scalar_field = nullptr;
+    m_has_field_bbox = false;
+    m_range_pinned = false;
+    m_scalar_bar.setVisible(false);
+    update();
+}
+
+void RDomainWidget::installCategoryField(
+    std::vector<int32_t> const & primitive_category, std::string const & title)
+{
+    if (nullptr == m_mesh)
+    {
+        return;
+    }
+    StaticMesh const & mh = *m_mesh;
+    uint32_t const ndim = mh.ndim();
+
+    // Dense-index the distinct categories so the colors pack from the palette
+    // start and the legend runs 0..ncat-1.
+    std::vector<int32_t> distinct(primitive_category);
+    std::sort(distinct.begin(), distinct.end());
+    distinct.erase(std::unique(distinct.begin(), distinct.end()), distinct.end());
+    if (distinct.empty())
+    {
+        return;
+    }
+    int const ncat = static_cast<int>(distinct.size());
+    auto dense = [&distinct](int32_t v) -> float
+    {
+        return static_cast<float>(
+            std::lower_bound(distinct.begin(), distinct.end(), v) - distinct.begin());
+    };
+
+    auto node_coord = [&mh, ndim](int32_t ind, uint32_t dim) -> float
+    { return (dim < ndim) ? static_cast<float>(mh.ndcrd(ind, dim)) : 0.0f; };
+
+    std::vector<float> verts; // x, y, z per vertex
+    std::vector<float> scals; // one category per vertex
+    std::vector<uint32_t> tris; // triangle indices
+
+    // Fan-triangulate one surface polygon, giving every emitted vertex the
+    // primitive's category so the whole face reads one flat color.
+    auto add_polygon = [&](auto node, int32_t nnd, float scalar)
+    {
+        for (int32_t k = 1; k + 1 < nnd; ++k)
+        {
+            int32_t const tri[3] = {node(0), node(k), node(k + 1)};
+            uint32_t const base = static_cast<uint32_t>(verts.size() / 3);
+            for (int32_t const ind : tri)
+            {
+                verts.push_back(node_coord(ind, 0));
+                verts.push_back(node_coord(ind, 1));
+                verts.push_back(node_coord(ind, 2));
+                scals.push_back(scalar);
+            }
+            tris.push_back(base + 0);
+            tris.push_back(base + 1);
+            tris.push_back(base + 2);
+        }
+    };
+
+    if (3 == ndim)
+    {
+        SimpleArray<int32_t> const & bndfcs = mh.bndfcs();
+        size_t const nprim = std::min(bndfcs.shape(0), primitive_category.size());
+        for (size_t ibnd = 0; ibnd < nprim; ++ibnd)
+        {
+            int32_t const ifc = bndfcs(ibnd, 0);
+            add_polygon(
+                [&mh, ifc](int32_t k)
+                { return mh.fcnds(ifc, k + 1); },
+                mh.fcnds(ifc, 0),
+                dense(primitive_category[ibnd]));
+        }
+    }
+    else
+    {
+        size_t const nprim = std::min(static_cast<size_t>(mh.ncell()), primitive_category.size());
+        for (uint32_t icl = 0; icl < nprim; ++icl)
+        {
+            add_polygon(
+                [&mh, icl](int32_t k)
+                { return mh.clnds(icl, k + 1); },
+                mh.clnds(icl, 0),
+                dense(primitive_category[icl]));
+        }
+    }
+
+    if (verts.empty())
+    {
+        return;
+    }
+
+    size_t const nvert = verts.size() / 3;
+    size_t const ntri = tris.size() / 3;
+    SimpleArray<float> va(std::vector<size_t>{nvert, 3});
+    SimpleArray<float> sa(std::vector<size_t>{nvert});
+    SimpleArray<uint32_t> ia(std::vector<size_t>{ntri, 3});
+    for (size_t i = 0; i < nvert; ++i)
+    {
+        va(i, 0) = verts[3 * i + 0];
+        va(i, 1) = verts[3 * i + 1];
+        va(i, 2) = verts[3 * i + 2];
+        sa(i) = scals[i];
+    }
+    for (size_t t = 0; t < ntri; ++t)
+    {
+        ia(t, 0) = tris[3 * t + 0];
+        ia(t, 1) = tris[3 * t + 1];
+        ia(t, 2) = tris[3 * t + 2];
+    }
+
+    m_colormap = RColormap::categorical();
+    float const hi = (ncat > 1) ? static_cast<float>(ncat - 1) : 1.0f;
+    auto field = std::make_unique<RScalarField>(va, sa, ia, m_colormap);
+    field->setScalarRange(0.0f, hi);
+    m_range_pinned = true;
+    m_range_lo = 0.0f;
+    m_range_hi = hi;
+    m_scalar_bar.setColormap(m_colormap);
+    m_scalar_bar.setRange(0.0f, hi);
+    m_scalar_bar.setTitle(title);
+    m_scalar_bar.setVisible(true);
+    RScalarField * scalar_field = field.get();
+    installField(std::move(field));
+    m_scalar_field = (m_field == scalar_field) ? scalar_field : nullptr;
+}
+
 void RDomainWidget::showBoundary(int ibc, bool show)
 {
     // Remove an existing highlight for this set so a re-show stays single and

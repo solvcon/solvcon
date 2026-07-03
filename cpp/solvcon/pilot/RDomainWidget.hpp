@@ -32,6 +32,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 #include <utility>
 
 namespace solvcon
@@ -122,6 +123,15 @@ public:
     /// Show or hide a short arrow at every face center along its normal.
     void showNormals(bool show);
 
+    // Color the mesh cells by a categorical attribute through the qualitative
+    // colormap with a legend: element type, cell group, or boundary set. Each
+    // replaces the field with a per-cell-colored surface; clearCellColoring
+    // drops it.
+    void colorByCellType();
+    void colorByCellGroup();
+    void colorByBoundary();
+    void clearCellColoring();
+
     /// Frame the camera so the whole domain is in view.
     void fitCameraToScene();
 
@@ -180,6 +190,15 @@ private:
     /// scene around its bounding box.
     template <typename FieldT>
     void installField(std::unique_ptr<FieldT> field);
+
+    /// Build a categorical scalar field over the mesh surface primitives (2D
+    /// cells, or 3D boundary faces) from a per-primitive category value, and
+    /// install it colored through the qualitative colormap with a legend
+    /// titled @p title. @p primitive_category is indexed in the surface build
+    /// order.
+    void installCategoryField(
+        std::vector<int32_t> const & primitive_category,
+        std::string const & title);
 
     QRhi * m_rhi = nullptr; ///< Tracked to detect device changes.
     QRhiRenderPassDescriptor * m_rpdesc = nullptr; ///< Tracked to detect target changes.

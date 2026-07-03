@@ -42,6 +42,10 @@ public:
     /// Throws std::invalid_argument for anything else.
     static RColormap named(std::string const & name);
 
+    /// A qualitative map for categorical coloring: a fixed set of visually
+    /// distinct colors. Used with an integer scalar over [0, ncat - 1].
+    static RColormap categorical();
+
     std::string const & name() const { return m_name; }
 
     /// Piecewise-linear sample of the ramp at @p t clamped to [0, 1].
