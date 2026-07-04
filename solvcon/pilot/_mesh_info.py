@@ -7,7 +7,6 @@
 import numpy as np
 
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QDockWidget,
                                QTreeWidget, QTreeWidgetItem, QFrame)
 
@@ -227,13 +226,12 @@ class MeshInfoTree(QWidget):
 class MeshInfo(_gui_common.PilotFeature):
     """Mesh information panel, toggled from the View "Panels" submenu.
 
-    The caller supplies the ``menu`` group the toggle item is added to. When
-    on, the panel shows the active sub-window's mesh and follows the active
+    The toggle item is placed under the "View/Panels" path. When on, the
+    panel shows the active sub-window's mesh and follows the active
     sub-window; sub-windows without a mesh show "No mesh loaded".
     """
 
     def __init__(self, *args, **kw):
-        self._menu = kw.pop('menu')
         self._status = kw.pop('style_status')
         super().__init__(*args, **kw)
         self._action = None
@@ -241,11 +239,10 @@ class MeshInfo(_gui_common.PilotFeature):
         self._panel = None
 
     def populate_menu(self):
-        self._action = QAction("Mesh", self._mainWindow)
-        self._action.setStatusTip("Toggle the mesh information panel")
-        self._action.setCheckable(True)
+        self._action = self.add_action(
+            "View/Panels", "Mesh", "Toggle the mesh information panel", None,
+            id="panel.mesh_info", weight=10, checkable=True)
         self._action.toggled.connect(self._on_toggled)
-        self._menu.addAction(self._action)
 
     def _on_toggled(self, checked):
         """Show or hide the panel."""

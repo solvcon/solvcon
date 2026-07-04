@@ -5,7 +5,7 @@
 Painter toolbox for the 2D canvas.
 """
 
-from PySide6 import QtCore, QtGui, QtWidgets
+from PySide6 import QtCore, QtWidgets
 
 from . import _gui_common
 from ._pilot_core import draw_tool_names, default_draw_tool_name
@@ -35,19 +35,17 @@ class Painter(_gui_common.PilotFeature):
     }
 
     def __init__(self, *args, **kw):
-        self._menu = kw.pop('menu', None)
         super(Painter, self).__init__(*args, **kw)
         self._action = None
         self._dock = None
         self._buttons = {}
 
     def populate_menu(self):
-        """Add a checkable "Painter" toggle to the supplied Panels menu."""
-        self._action = QtGui.QAction("Painter", self._mainWindow)
-        self._action.setStatusTip("Toggle the Painter toolbox")
-        self._action.setCheckable(True)
+        """Add a checkable "Painter" toggle under the View/Panels path."""
+        self._action = self.add_action(
+            "View/Panels", "Painter", "Toggle the Painter toolbox", None,
+            id="panel.painter", weight=20, checkable=True)
         self._action.toggled.connect(self._on_toggled)
-        self._menu.addAction(self._action)
 
     def _on_toggled(self, checked):
         """Show or hide the toolbox dock from the menu toggle."""

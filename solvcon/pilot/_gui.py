@@ -14,7 +14,6 @@ from . import airfoil
 
 if _pcore.enable:
     from PySide6.QtGui import QAction
-    from PySide6.QtWidgets import QMenu
     from . import _gui_common
     from . import _mesh
     from . import _mesh_info
@@ -51,7 +50,6 @@ class _Controller(metaclass=_Singleton):
         # Do not construct any Qt member objects before calling launch(), or
         # Windows may "exited with code -1073740791."
         self._rmgr = None
-        self.panels_menu = None
         self.mesh_sample_dialog = None
         self.gmsh_dialog = None
         self.svg_dialog = None
@@ -73,27 +71,28 @@ class _Controller(metaclass=_Singleton):
         return None if self._rmgr is None else getattr(self._rmgr, name)
 
     def launch(self, name="pilot", size=(1000, 600)):
+        self.build(name=name, size=size)
+        self._rmgr.show()
+        return self._rmgr.exec()
+
+    def build(self, name="pilot", size=(1000, 600)):
+        """Assemble the window, features, and menu bar without the event
+        loop, so the fully built bar can be exercised from a test."""
         self._rmgr = _pcore.RManager.instance
         self._rmgr.setUp()
         self._rmgr.windowTitle = name
         self._rmgr.resize(w=size[0], h=size[1])
 
-        # Add the "Panels" submenu as the first item in the View menu.
-        view = self._rmgr.viewMenu
-        self.panels_menu = QMenu("Panels", self._rmgr.mainWindow)
-        actions = view.actions()
-        if actions:
-            view.insertMenu(actions[0], self.panels_menu)
-        else:
-            view.addMenu(self.panels_menu)
+        # Declare the Panels submenu first on the View menu; features place
+        # their toggles under the "View/Panels" path.
+        self._rmgr.menu_model.menu("View/Panels", weight=0)
 
         self.gmsh_dialog = _mesh.GmshFileDialog(mgr=self._rmgr)
         self.svg_dialog = _svg_gui.SVGFileDialog(mgr=self._rmgr)
         self.sample_mesh = _mesh.SampleMesh(mgr=self._rmgr)
         self.mesh_style_status = _mesh.MeshStyleStatus(mgr=self._rmgr)
         self.mesh_info = _mesh_info.MeshInfo(
-            mgr=self._rmgr, menu=self.panels_menu,
-            style_status=self.mesh_style_status)
+            mgr=self._rmgr, style_status=self.mesh_style_status)
         self.oblique_shock = _oblique.ObliqueShockMesh(mgr=self._rmgr)
         self.oblique_solver = _oblique.ObliqueShockSolver(mgr=self._rmgr)
         self.naca4airfoil = airfoil.Naca4Airfoil(mgr=self._rmgr)
@@ -102,14 +101,12 @@ class _Controller(metaclass=_Singleton):
         self.eulerone = _euler1d.Euler1DApp(mgr=self._rmgr)
         self.burgers = _burgers1d.Burgers1DApp(mgr=self._rmgr)
         self.linear_wave = _linear_wave.LinearWave1DApp(mgr=self._rmgr)
-        self.painter = _painter_gui.Painter(mgr=self._rmgr,
-                                            menu=self.panels_menu)
+        self.painter = _painter_gui.Painter(mgr=self._rmgr)
         self.canvas = _canvas_gui.Canvas(mgr=self._rmgr, painter=self.painter)
         self.openprofiledata = _profiling.Profiling(mgr=self._rmgr)
         self.runprofiling = _profiling.RunProfiling(mgr=self._rmgr)
         self.populate_menu()
-        self._rmgr.show()
-        return self._rmgr.exec()
+        return self._rmgr
 
     def _mesh_sample_dialog_entries(self):
         """Every example mesh as ``(category, label, tip, func)``, in menu
