@@ -6,6 +6,31 @@ from . import _pilot_core as _pcore
 from PySide6 import QtCore, QtGui
 
 
+def build_action(parent, text, tip, func, *, id=None, checkable=False,
+                 checked=False, shortcut=None, menu_role=None):
+    """Build a QAction from one description, the single item builder.
+
+    The id becomes the action's objectName (its handle in the menu model and
+    in tests). A checkable action carries its initial check state; ``func``,
+    when given, runs on trigger. A checkable feature that needs the toggled
+    state wires ``toggled`` on the returned action itself.
+    """
+    act = QtGui.QAction(text, parent)
+    if id:
+        act.setObjectName(id)
+    act.setStatusTip(tip)
+    if shortcut is not None:
+        act.setShortcut(shortcut)
+    if menu_role is not None:
+        act.setMenuRole(menu_role)
+    if checkable:
+        act.setCheckable(True)
+        act.setChecked(checked)
+    if func is not None:
+        act.triggered.connect(lambda *a: func())
+    return act
+
+
 class PilotFeature(QtCore.QObject):
     """
     Base class to house common GUI code for prototyping pilot features.
@@ -41,6 +66,21 @@ class PilotFeature(QtCore.QObject):
         """
         return self._mgr.mainWindow
 
+    def add_action(self, path, text, tip, func, *, id, weight=50,
+                   checkable=False, checked=False, shortcut=None,
+                   menu_role=None):
+        """Build an action and place it in the menu at ``path`` by ``weight``.
+
+        This is the one Python item builder over the shared placement: it
+        returns the live action so a toggle feature can wire its own reverse
+        connections.
+        """
+        act = build_action(self._mainWindow, text, tip, func, id=id,
+                           checkable=checkable, checked=checked,
+                           shortcut=shortcut, menu_role=menu_role)
+        self._mgr.menu_model.place(path, act, weight)
+        return act
+
     def _add_menu_item(self, menu, text, tip, func):
         """
         Add an item to the corresponding menu.
@@ -53,10 +93,7 @@ class PilotFeature(QtCore.QObject):
 
         :return: None
         """
-        act = QtGui.QAction(text, self._mainWindow)
-        act.setStatusTip(tip)
-        act.triggered.connect(func)
-        menu.addAction(act)
+        menu.addAction(build_action(self._mainWindow, text, tip, func))
 
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
