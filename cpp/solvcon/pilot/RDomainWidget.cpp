@@ -11,6 +11,7 @@
 #include <solvcon/pilot/RMeshFrame.hpp>
 #include <solvcon/pilot/RNormals.hpp>
 #include <solvcon/pilot/RScalarField.hpp>
+#include <solvcon/pilot/RSegments.hpp>
 
 #include <QGestureEvent>
 #include <QKeyEvent>
@@ -1182,6 +1183,54 @@ void RDomainWidget::clearSelection()
     update();
 }
 
+double RDomainWidget::measureDistance(QVector3D const & p0, QVector3D const & p1)
+{
+    m_scene.removeDrawable(m_ruler);
+    m_ruler = nullptr;
+    auto ruler = std::make_unique<RSegments>(std::vector<QVector3D>{p0, p1});
+    if (ruler->hasGeometry())
+    {
+        m_ruler = ruler.get();
+        m_scene.addDrawable(std::move(ruler));
+    }
+    update();
+    return static_cast<double>((p1 - p0).length());
+}
+
+double RDomainWidget::measureAngle(
+    QVector3D const & p0, QVector3D const & p1, QVector3D const & p2)
+{
+    m_scene.removeDrawable(m_ruler);
+    m_ruler = nullptr;
+    // Two arms out of the vertex p1.
+    auto ruler = std::make_unique<RSegments>(
+        std::vector<QVector3D>{p1, p0, p1, p2});
+    if (ruler->hasGeometry())
+    {
+        m_ruler = ruler.get();
+        m_scene.addDrawable(std::move(ruler));
+    }
+    update();
+
+    QVector3D const a = p0 - p1;
+    QVector3D const b = p2 - p1;
+    float const la = a.length();
+    float const lb = b.length();
+    if (la <= 0.0f || lb <= 0.0f)
+    {
+        return 0.0;
+    }
+    float const c = std::clamp(QVector3D::dotProduct(a, b) / (la * lb), -1.0f, 1.0f);
+    return static_cast<double>(std::acos(c) * 180.0f / PI);
+}
+
+void RDomainWidget::clearMeasurements()
+{
+    m_scene.removeDrawable(m_ruler);
+    m_ruler = nullptr;
+    update();
+}
+
 void RDomainWidget::fitCameraToScene()
 {
     m_scene.fitCameraToScene(viewportAspect());
@@ -1224,8 +1273,26 @@ void RDomainWidget::setPivot(float x, float y, float z)
 
 void RDomainWidget::frameSelected()
 {
-    // No selection exists yet (it arrives with picking), so frame the whole
-    // scene.
+    zoomToSelection();
+}
+
+void RDomainWidget::zoomToSelection()
+{
+    if (m_has_selection)
+    {
+        m_scene.frameBox(m_selection_lo, m_selection_hi, viewportAspect());
+    }
+    else
+    {
+        m_scene.fitCameraToScene(viewportAspect());
+    }
+    update();
+}
+
+void RDomainWidget::resetCamera()
+{
+    m_scene.setProjection("auto");
+    m_scene.camera().setOrbitStyle(RCameraController::OrbitStyle::Turntable);
     m_scene.fitCameraToScene(viewportAspect());
     update();
 }

@@ -1284,6 +1284,104 @@ class RDomainWidgetNavMapTC(unittest.TestCase):
 
 
 @unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+class RDomainWidgetZoomTC(unittest.TestCase):
+    """Zoom to the selection and reset the camera."""
+
+    @classmethod
+    def setUpClass(cls):
+        pilot.RManager.instance.setUp()
+
+    def test_zoom_to_selection_frames_the_picked_cell(self):
+        """Picking the right-hand quad then zooming frames it: the camera
+        target moves to the picked cell centroid, off the scene center."""
+        widget = pilot.RDomainWidget()
+        widget.resize(320, 240)
+        widget.updateMesh(_make_2d_mesh())
+        widget.fitCameraToScene()
+        r = widget.pickCell(240, 120)
+        self.assertIsNotNone(r)
+        widget.zoomToSelection()
+        zoom_target = tuple(widget.cameraTarget)
+        self.assertAlmostEqual(zoom_target[0], r["centroid"][0], places=3)
+        widget.resetCamera()
+        reset_target = tuple(widget.cameraTarget)
+        self.assertNotAlmostEqual(zoom_target[0], reset_target[0], places=2)
+
+    def test_zoom_without_selection_frames_the_scene(self):
+        """With nothing selected, zoom-to-selection frames the whole scene
+        (its bounding-box center)."""
+        widget = pilot.RDomainWidget()
+        widget.resize(320, 240)
+        widget.updateMesh(_make_2d_mesh())
+        widget.fitCameraToScene()
+        widget.zoomToSelection()
+        target = tuple(widget.cameraTarget)
+        self.assertAlmostEqual(target[0], 1.0, places=3)
+        self.assertAlmostEqual(target[1], 0.5, places=3)
+
+    def test_reset_camera_restores_scene_framing(self):
+        """After a zoom, reset returns the camera to the whole-scene center."""
+        widget = pilot.RDomainWidget()
+        widget.resize(320, 240)
+        widget.updateMesh(_make_2d_mesh())
+        widget.fitCameraToScene()
+        widget.pickCell(240, 120)
+        widget.zoomToSelection()
+        widget.resetCamera()
+        target = tuple(widget.cameraTarget)
+        self.assertAlmostEqual(target[0], 1.0, places=3)
+        self.assertAlmostEqual(target[1], 0.5, places=3)
+
+
+@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+class RDomainWidgetMeasureTC(unittest.TestCase):
+    """Distance and angle measurement between world points."""
+
+    @classmethod
+    def setUpClass(cls):
+        pilot.RManager.instance.setUp()
+
+    def test_measure_distance(self):
+        """A 3-4-5 right triangle gives distance 5."""
+        widget = pilot.RDomainWidget()
+        self.assertAlmostEqual(
+            widget.measureDistance((0, 0, 0), (3, 4, 0)), 5.0, places=4)
+
+    def test_measure_distance_between_mesh_nodes(self):
+        """Measuring between two known mesh nodes returns their distance."""
+        import math
+        mesh = _make_3d_mesh()
+        nd = mesh.ndcrd.ndarray
+        p0 = tuple(float(v) for v in nd[0])
+        p1 = tuple(float(v) for v in nd[3])
+        expected = math.sqrt(sum((a - b) ** 2 for a, b in zip(p0, p1)))
+        widget = pilot.RDomainWidget()
+        widget.updateMesh(mesh)
+        self.assertAlmostEqual(
+            widget.measureDistance(p0, p1), expected, places=4)
+
+    def test_measure_right_angle(self):
+        """The angle at the origin between +x and +y is 90 degrees."""
+        widget = pilot.RDomainWidget()
+        self.assertAlmostEqual(
+            widget.measureAngle((1, 0, 0), (0, 0, 0), (0, 1, 0)), 90.0,
+            places=3)
+
+    def test_measure_straight_angle(self):
+        """The angle between opposite arms is 180 degrees."""
+        widget = pilot.RDomainWidget()
+        self.assertAlmostEqual(
+            widget.measureAngle((1, 0, 0), (0, 0, 0), (-1, 0, 0)), 180.0,
+            places=3)
+
+    def test_clear_measurements_is_harmless(self):
+        """Clearing the ruler after a measurement does not crash."""
+        widget = pilot.RDomainWidget()
+        widget.measureDistance((0, 0, 0), (1, 1, 1))
+        widget.clearMeasurements()
+
+
+@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
 class RDomainWidgetSceneTC(unittest.TestCase):
     """Scene framing and the fit-to-scene camera (step 4)."""
 

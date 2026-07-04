@@ -82,6 +82,16 @@ float RScene::boundingRadius() const
     return (radius > 0.0f) ? radius : 1.0f;
 }
 
+float RScene::framingRadius() const
+{
+    if (m_has_frame_box)
+    {
+        float const radius = (m_frame_hi - m_frame_lo).length() * 0.5f;
+        return (radius > 0.0f) ? radius : 1.0f;
+    }
+    return boundingRadius();
+}
+
 void RScene::fitCameraToScene(float aspect)
 {
     if (!m_has_bbox)
@@ -91,7 +101,16 @@ void RScene::fitCameraToScene(float aspect)
         m_camera.setUp(QVector3D(0.0f, 1.0f, 0.0f));
         return;
     }
+    m_has_frame_box = false;
     m_camera.fitToBoundingBox(m_bbox_lo, m_bbox_hi, m_ndim, aspect);
+}
+
+void RScene::frameBox(QVector3D const & lo, QVector3D const & hi, float aspect)
+{
+    m_frame_lo = lo;
+    m_frame_hi = hi;
+    m_has_frame_box = true;
+    m_camera.fitToBoundingBox(lo, hi, m_ndim, aspect);
 }
 
 void RScene::setProjection(std::string const & name)
@@ -195,7 +214,7 @@ QMatrix4x4 RScene::viewProjection(QSize pixel_size, QRhi * rhi) const
     }
 
     float const aspect = static_cast<float>(pixel_size.width()) / static_cast<float>(pixel_size.height());
-    float const radius = boundingRadius();
+    float const radius = framingRadius();
 
     QMatrix4x4 const view = m_camera.viewMatrix();
     float distance = (m_camera.position() - m_camera.target()).length();

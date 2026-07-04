@@ -149,6 +149,17 @@ public:
     void clearSelection();
     bool hasSelection() const { return m_has_selection; }
 
+    /// Measure and draw the distance between two world points; returns the
+    /// distance.
+    double measureDistance(QVector3D const & p0, QVector3D const & p1);
+
+    /// Measure and draw the angle at @p p1 between the arms to @p p0 and
+    /// @p p2; returns the angle in degrees.
+    double measureAngle(QVector3D const & p0, QVector3D const & p1, QVector3D const & p2);
+
+    /// Remove the measurement ruler.
+    void clearMeasurements();
+
     // Color the mesh cells by a categorical attribute through the qualitative
     // colormap with a legend: element type, cell group, or boundary set. Each
     // replaces the field with a per-cell-colored surface; clearCellColoring
@@ -189,6 +200,14 @@ public:
 
     /// Recenter and frame the whole scene (the selection once picking lands).
     void frameSelected();
+
+    /// Frame the current selection (from a pick), or the whole scene when
+    /// nothing is selected.
+    void zoomToSelection();
+
+    /// Reset the camera to the fit-to-scene default: auto projection,
+    /// turntable orbit, the whole scene framed.
+    void resetCamera();
 
     /// Choose the mouse navigation mapping: "default" (left rotates, other
     /// buttons pan) or "blender" (middle orbits; Shift+middle pans;
@@ -316,6 +335,7 @@ private:
     bool m_mesh_shown = true; ///< The showMesh toggle, applied atop the styles.
 
     RDrawable * m_selection = nullptr; ///< Highlight of the picked entity.
+    RDrawable * m_ruler = nullptr; ///< The measurement ruler segments.
     bool m_has_selection = false;
     std::string m_selection_kind = "none";
     int m_selection_id = -1;
