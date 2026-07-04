@@ -1115,6 +1115,71 @@ class RDomainWidgetTrackballTC(unittest.TestCase):
 
 
 @unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+class RDomainWidgetNavMapTC(unittest.TestCase):
+    """Blender-style navigation mapping, discrete steps, and sensitivity.
+
+    The button-to-action routing lives in the C++ mouse handlers; a
+    pybind-created widget is not a PySide QObject that ``sendEvent`` accepts,
+    so the routing is exercised live, and the selectable mapping, the discrete
+    orbit step, and the sensitivity scaling are covered here through the
+    Python API.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        pilot.RManager.instance.setUp()
+
+    def test_navigation_mapping_round_trip(self):
+        """The mapping defaults to blender and switches to default."""
+        widget = pilot.RDomainWidget()
+        self.assertEqual(widget.navigationMapping, "blender")
+        widget.navigationMapping = "default"
+        self.assertEqual(widget.navigationMapping, "default")
+        widget.setNavigationMapping("blender")
+        self.assertEqual(widget.navigationMapping, "blender")
+
+    def test_orbit_step_rotates_a_fixed_angle(self):
+        """A discrete orbit step swings the eye about the target by a fixed
+        angle, keeping the target and the eye-to-target distance."""
+        import math
+        widget = pilot.RDomainWidget()
+        widget.updateMesh(_make_3d_mesh())
+        widget.cameraMode = "orbit"
+
+        def radius():
+            p = tuple(widget.cameraPosition)
+            t = tuple(widget.cameraTarget)
+            return math.sqrt(sum((a - b) ** 2 for a, b in zip(p, t)))
+
+        t0 = tuple(widget.cameraTarget)
+        p0 = tuple(widget.cameraPosition)
+        r0 = radius()
+        widget.orbitStep(30.0, 0.0)
+        for a, b in zip(t0, tuple(widget.cameraTarget)):
+            self.assertAlmostEqual(a, b, places=4)
+        self.assertAlmostEqual(r0, radius(), places=4)
+        self.assertTrue(
+            any(abs(a - b) > 1e-3
+                for a, b in zip(p0, tuple(widget.cameraPosition))))
+
+    def test_orbit_sensitivity_scales_rotation(self):
+        """A higher sensitivity sweeps the eye further for the same drag."""
+        import math
+
+        def swept(factor):
+            widget = pilot.RDomainWidget()
+            widget.updateMesh(_make_3d_mesh())
+            widget.cameraMode = "orbit"
+            widget.setOrbitSensitivity(factor)
+            p0 = tuple(widget.cameraPosition)
+            widget.rotateCamera(20.0, 0.0)
+            p1 = tuple(widget.cameraPosition)
+            return math.sqrt(sum((a - b) ** 2 for a, b in zip(p0, p1)))
+
+        self.assertGreater(swept(2.0), swept(1.0))
+
+
+@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
 class RDomainWidgetSceneTC(unittest.TestCase):
     """Scene framing and the fit-to-scene camera (step 4)."""
 

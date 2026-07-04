@@ -85,6 +85,14 @@ public:
     /// The eye stays put, so the next drag rotates about the new center.
     void setPivot(QVector3D const & pivot) { m_target = pivot; }
 
+    /// Scale the rotate/look speed. A positive factor only; ignored otherwise.
+    void setOrbitSensitivity(float factor) { m_orbit_sensitivity = (factor > 0.0f) ? factor : m_orbit_sensitivity; }
+    float orbitSensitivity() const { return m_orbit_sensitivity; }
+
+    /// Orbit by a fixed number of degrees, a discrete step independent of the
+    /// per-pixel drag scaling (what a numpad-style fixed rotation drives).
+    void orbitStep(float yaw_deg, float pitch_deg) { orbitBy(yaw_deg, pitch_deg); }
+
     /// Frame the camera onto the bounding box [lo, hi] for an @p ndim domain
     /// at the given viewport @p aspect (width / height).
     void fitToBoundingBox(QVector3D const & lo, QVector3D const & hi, uint32_t ndim, float aspect);
@@ -128,9 +136,14 @@ private:
 
     QVector3D forward() const;
     QVector3D rightAxis() const;
+    /// Rotate the eye around the target by explicit degrees, honoring the
+    /// turntable/trackball style. Shared by the drag rotate and the discrete
+    /// step.
+    void orbitBy(float yaw_deg, float pitch_deg);
 
     Mode m_mode = Mode::Orbit; ///< Default; a 2D domain switches to PanZoom.
     OrbitStyle m_orbit_style = OrbitStyle::Turntable; ///< Default orbit style.
+    float m_orbit_sensitivity = 1.0f; ///< Rotate/look speed multiplier.
 
     QVector3D m_position{0.0f, 0.0f, 1.0f};
     QVector3D m_target{0.0f, 0.0f, 0.0f};

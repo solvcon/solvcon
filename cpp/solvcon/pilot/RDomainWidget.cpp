@@ -829,6 +829,30 @@ void RDomainWidget::frameSelected()
     update();
 }
 
+void RDomainWidget::setNavigationMapping(std::string const & name)
+{
+    if ("default" == name || "blender" == name)
+    {
+        m_nav_mapping = name;
+    }
+}
+
+std::string RDomainWidget::navigationMapping() const
+{
+    return m_nav_mapping;
+}
+
+void RDomainWidget::setOrbitSensitivity(float factor)
+{
+    m_scene.camera().setOrbitSensitivity(factor);
+}
+
+void RDomainWidget::orbitStep(float yaw_deg, float pitch_deg)
+{
+    m_scene.camera().orbitStep(yaw_deg, pitch_deg);
+    update();
+}
+
 void RDomainWidget::setCameraMode(std::string const & name)
 {
     m_scene.camera().setMode(RCameraController::modeFromName(name));
@@ -900,7 +924,55 @@ void RDomainWidget::pinchCamera(float factor)
 void RDomainWidget::mousePressEvent(QMouseEvent * event)
 {
     m_last_mouse_pos = event->position().toPoint();
-    m_panning = (event->button() != Qt::LeftButton);
+
+    Qt::MouseButton const btn = event->button();
+    Qt::KeyboardModifiers const mods = event->modifiers();
+
+    if ("blender" == m_nav_mapping)
+    {
+        // Middle drives navigation; Alt+left aliases it for a trackpad with no
+        // middle button. Shift pans, Ctrl zooms, Alt recenters the pivot, and
+        // a plain middle drag orbits. Left alone still orbits (a convenience
+        // over Blender's select), right pans.
+        bool const navigate = (Qt::MiddleButton == btn) ||
+                              (Qt::LeftButton == btn && (mods & Qt::AltModifier));
+        if (navigate)
+        {
+            if (mods & Qt::ShiftModifier)
+            {
+                m_drag_action = DragAction::Pan;
+            }
+            else if (mods & Qt::ControlModifier)
+            {
+                m_drag_action = DragAction::Zoom;
+            }
+            else if ((mods & Qt::AltModifier) && Qt::MiddleButton == btn)
+            {
+                // Recenter the orbit pivot on the scene, then orbit about it.
+                m_scene.camera().setPivot(m_scene.boundingBoxCenter());
+                m_drag_action = DragAction::Rotate;
+            }
+            else
+            {
+                m_drag_action = DragAction::Rotate;
+            }
+        }
+        else if (Qt::LeftButton == btn)
+        {
+            m_drag_action = DragAction::Rotate;
+        }
+        else
+        {
+            m_drag_action = DragAction::Pan;
+        }
+    }
+    else
+    {
+        // Default mapping: left rotates, other buttons pan.
+        m_drag_action = (Qt::LeftButton == btn) ? DragAction::Rotate
+                                                : DragAction::Pan;
+    }
+    update();
 }
 
 void RDomainWidget::mouseMoveEvent(QMouseEvent * event)
@@ -913,20 +985,25 @@ void RDomainWidget::mouseMoveEvent(QMouseEvent * event)
     float const dx = static_cast<float>(pos.x() - m_last_mouse_pos.x());
     float const dy = static_cast<float>(pos.y() - m_last_mouse_pos.y());
     m_last_mouse_pos = pos;
-    if (m_panning)
+    switch (m_drag_action)
     {
+    case DragAction::Pan:
         m_scene.camera().pan(dx, dy);
-    }
-    else
-    {
+        break;
+    case DragAction::Zoom:
+        // Dragging up zooms in; scale the pixel delta to wheel-notch units.
+        m_scene.camera().zoom(-dy * 0.05f);
+        break;
+    default:
         m_scene.camera().rotate(dx, dy);
+        break;
     }
     update();
 }
 
 void RDomainWidget::mouseReleaseEvent(QMouseEvent *)
 {
-    m_panning = false;
+    m_drag_action = DragAction::Rotate;
 }
 
 void RDomainWidget::wheelEvent(QWheelEvent * event)

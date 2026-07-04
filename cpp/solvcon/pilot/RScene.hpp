@@ -75,6 +75,9 @@ public:
     void extendBoundingBox(QVector3D const & lo, QVector3D const & hi);
 
     bool hasBoundingBox() const { return m_has_bbox; }
+    QVector3D boundingBoxLo() const { return m_bbox_lo; }
+    QVector3D boundingBoxHi() const { return m_bbox_hi; }
+    QVector3D boundingBoxCenter() const { return (m_bbox_lo + m_bbox_hi) * 0.5f; }
 
     void setDimension(uint32_t ndim) { m_ndim = ndim; }
     uint32_t dimension() const { return m_ndim; }

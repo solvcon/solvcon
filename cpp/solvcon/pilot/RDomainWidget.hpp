@@ -165,6 +165,19 @@ public:
     /// Recenter and frame the whole scene (the selection once picking lands).
     void frameSelected();
 
+    /// Choose the mouse navigation mapping: "default" (left rotates, other
+    /// buttons pan) or "blender" (middle orbits; Shift+middle pans;
+    /// Ctrl+middle zooms; Alt+middle recenters the pivot; Alt+left aliases the
+    /// middle button for trackpads without one).
+    void setNavigationMapping(std::string const & name);
+    std::string navigationMapping() const;
+
+    /// Scale the orbit/look speed for drags.
+    void setOrbitSensitivity(float factor);
+
+    /// Orbit by a fixed number of degrees, a discrete step.
+    void orbitStep(float yaw_deg, float pitch_deg);
+
     /// Show or hide the orientation-guide triad in the corner.
     void showAxis(bool show);
 
@@ -279,7 +292,17 @@ private:
     std::shared_ptr<StaticMesh> m_mesh;
 
     QPoint m_last_mouse_pos; ///< Last cursor position during a drag.
-    bool m_panning = false; ///< A non-left-button drag pans in both modes.
+
+    /// What the current drag does, chosen at press time from the button and
+    /// modifiers through the active navigation mapping.
+    enum class DragAction
+    {
+        Rotate,
+        Pan,
+        Zoom,
+    };
+    DragAction m_drag_action = DragAction::Rotate;
+    std::string m_nav_mapping = "blender"; ///< "default" or "blender".
 
 }; /* end class RDomainWidget */
 
