@@ -484,6 +484,217 @@ class RDomainWidgetFieldTC(unittest.TestCase):
             _update_field(widget, vertices, colors, indices)
 
 
+def _make_scalar_field():
+    """A quad (two triangles) with a left-to-right scalar ramp."""
+    import numpy as np
+    vertices = np.array([(0, 0, 0), (1, 0, 0), (1, 1, 0), (0, 1, 0)],
+                        dtype='float32')
+    scalars = np.array([0.0, 1.0, 1.0, 0.0], dtype='float32')
+    indices = np.array([(0, 1, 2), (0, 2, 3)], dtype='uint32')
+    return vertices, scalars, indices
+
+
+def _update_scalar_field(widget, vertices, scalars, indices):
+    """Wrap numpy tables in solvcon arrays and push them to the widget."""
+    core = solvcon.core
+    widget.updateScalarField(
+        core.SimpleArrayFloat32(array=vertices.astype('float32')),
+        core.SimpleArrayFloat32(array=scalars.astype('float32')),
+        core.SimpleArrayUint32(array=indices.astype('uint32')))
+
+
+def _count_saturated(image):
+    """Count strongly saturated pixels: a wide channel spread rejects the
+    white background, the black wireframe, and every gray."""
+    array = _rgb_array(image).astype('int16')
+    spread = array.max(axis=2) - array.min(axis=2)
+    return int((spread > 60).sum())
+
+
+def _count_dominant(image, channel):
+    """Count pixels where one channel dominates muted others; catches the
+    dark jet range ends ((0, 0, 0.5) and (0.5, 0, 0)) that the saturated
+    masks miss."""
+    array = _rgb_array(image)
+    others = [c for c in range(3) if c != channel]
+    mask = ((array[:, :, channel] > 100)
+            & (array[:, :, others[0]] < 80)
+            & (array[:, :, others[1]] < 80))
+    return int(mask.sum())
+
+
+@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+class RDomainWidgetScalarFieldTC(unittest.TestCase):
+    """GPU LUT scalar coloring and the scalar bar."""
+
+    @classmethod
+    def setUpClass(cls):
+        pilot.RManager.instance.setUp()
+
+    def test_scalar_field_renders(self):
+        """updateScalarField draws triangles colored through the LUT."""
+        widget = pilot.RDomainWidget()
+        widget.resize(320, 240)
+        vertices, scalars, indices = _make_scalar_field()
+        _update_scalar_field(widget, vertices, scalars, indices)
+        image = _grab_or_skip(widget)
+        self.assertGreater(_count_colored(image), 0)
+
+    def test_scalar_field_is_swappable(self):
+        """A second updateScalarField replaces the first and still
+        renders."""
+        widget = pilot.RDomainWidget()
+        widget.resize(320, 240)
+        vertices, scalars, indices = _make_scalar_field()
+        _update_scalar_field(widget, vertices, scalars, indices)
+        _update_scalar_field(widget, vertices, scalars * 0.5, indices)
+        self.assertGreater(_count_colored(_grab_or_skip(widget)), 0)
+
+    def test_colormap_round_trip(self):
+        """The colormap defaults to viridis and switches by name."""
+        widget = pilot.RDomainWidget()
+        self.assertEqual(widget.colormap, "viridis")
+        widget.colormap = "jet"
+        self.assertEqual(widget.colormap, "jet")
+
+    def test_colormap_rejects_unknown_name(self):
+        """An unknown colormap name raises instead of rendering garbage."""
+        widget = pilot.RDomainWidget()
+        with self.assertRaises(ValueError):
+            widget.colormap = "no-such-map"
+
+    def test_lut_matches_named_map_at_range_ends(self):
+        """With jet and a pinned [0, 2] range, a constant-0 field samples the
+        LUT start (dark blue) and a constant-2 field the LUT end (red)."""
+        import numpy as np
+        vertices, _, indices = _make_scalar_field()
+
+        low_widget = pilot.RDomainWidget()
+        low_widget.resize(320, 240)
+        low_widget.colormap = "jet"
+        low_widget.setScalarRange(0.0, 2.0)
+        _update_scalar_field(low_widget, vertices,
+                             np.zeros(4, dtype='float32'), indices)
+        low = _grab_or_skip(low_widget)
+        self.assertGreater(_count_dominant(low, 2), 100)
+        self.assertLess(_count_dominant(low, 0), 5)
+
+        high_widget = pilot.RDomainWidget()
+        high_widget.resize(320, 240)
+        high_widget.colormap = "jet"
+        high_widget.setScalarRange(0.0, 2.0)
+        _update_scalar_field(high_widget, vertices,
+                             np.full(4, 2.0, dtype='float32'), indices)
+        high = _grab_or_skip(high_widget)
+        self.assertGreater(_count_dominant(high, 0), 100)
+        self.assertLess(_count_dominant(high, 2), 5)
+
+    def test_grayscale_map_stays_gray(self):
+        """The grayscale map colors the ramp without any saturated pixel,
+        where a live swap to jet turns the quad saturated and red-ended.
+
+        Each state grabs a freshly configured widget once: a second grab
+        of a mutated widget is unreliable on the headless software
+        rasterizer (see test_color_field_is_swappable).
+        """
+        vertices, scalars, indices = _make_scalar_field()
+
+        gray_widget = pilot.RDomainWidget()
+        gray_widget.resize(320, 240)
+        gray_widget.colormap = "grayscale"
+        _update_scalar_field(gray_widget, vertices, scalars, indices)
+        gray_image = _grab_or_skip(gray_widget)
+        self.assertGreater(_count_colored(gray_image), 0)
+        self.assertLess(_count_saturated(gray_image), 5)
+
+        # Swap the map after the field exists so the grab exercises the
+        # live LUT re-upload; red-dominant pixels appear only under jet
+        # (the default viridis has none).
+        jet_widget = pilot.RDomainWidget()
+        jet_widget.resize(320, 240)
+        _update_scalar_field(jet_widget, vertices, scalars, indices)
+        jet_widget.colormap = "jet"
+        jet_image = _grab_or_skip(jet_widget)
+        self.assertGreater(_count_saturated(jet_image), 100)
+        self.assertGreater(_count_dominant(jet_image, 0), 50)
+
+    def test_scalar_range_defaults_to_data_range(self):
+        """Without setScalarRange the mapping spans the field data."""
+        import numpy as np
+        widget = pilot.RDomainWidget()
+        vertices, _, indices = _make_scalar_field()
+        scalars = np.array([2.0, 8.0, 8.0, 2.0], dtype='float32')
+        _update_scalar_field(widget, vertices, scalars, indices)
+        self.assertEqual(widget.scalarRange, (2.0, 8.0))
+
+    def test_scalar_range_pins_across_updates(self):
+        """setScalarRange overrides auto-ranging for later field updates."""
+        widget = pilot.RDomainWidget()
+        widget.setScalarRange(0.0, 10.0)
+        vertices, scalars, indices = _make_scalar_field()
+        _update_scalar_field(widget, vertices, scalars, indices)
+        self.assertEqual(widget.scalarRange, (0.0, 10.0))
+
+    def test_scalar_range_rejects_inverted_range(self):
+        """A hi below lo raises instead of feeding a negative span."""
+        widget = pilot.RDomainWidget()
+        with self.assertRaises(ValueError):
+            widget.setScalarRange(1.0, 0.0)
+
+    def test_scalar_field_rejects_mismatched_scalars(self):
+        """A scalar table shorter than the vertex table is rejected."""
+        import numpy as np
+        widget = pilot.RDomainWidget()
+        vertices, _, indices = _make_scalar_field()
+        with self.assertRaises(ValueError):
+            _update_scalar_field(widget, vertices,
+                                 np.zeros(3, dtype='float32'), indices)
+
+    def test_scalar_bar_hidden_by_default(self):
+        """Without showScalarBar an empty scene stays the white clear."""
+        widget = pilot.RDomainWidget()
+        widget.resize(320, 240)
+        image = _grab_or_skip(widget)
+        self.assertEqual(_count_foreground(image), 0)
+
+    def test_scalar_bar_renders_on_the_right(self):
+        """showScalarBar draws the colormap strip along the right edge."""
+        widget = pilot.RDomainWidget()
+        widget.resize(320, 240)
+        widget.colormap = "jet"
+        widget.setScalarBarTitle("density")
+        widget.showScalarBar(True)
+        image = _grab_or_skip(widget)
+        array = _rgb_array(image).astype('int16')
+        spread = array.max(axis=2) - array.min(axis=2)
+        left, right = spread[:, :160], spread[:, 160:]
+        self.assertGreater(int((right > 60).sum()), 100)
+        self.assertEqual(int((left > 60).sum()), 0)
+
+    def test_scalar_bar_toggles_off(self):
+        """showScalarBar(False) clears the overlay again.
+
+        Each state grabs a fresh widget once (the double-grab caveat of
+        test_grayscale_map_stays_gray), and saturated pixels stand in for
+        the bar: an emptied frame can read back from the software
+        rasterizer as uniformly dark, which a white-difference count
+        would mistake for content."""
+        shown_widget = pilot.RDomainWidget()
+        shown_widget.resize(320, 240)
+        shown_widget.colormap = "jet"
+        shown_widget.showScalarBar(True)
+        shown = _count_saturated(_grab_or_skip(shown_widget))
+        self.assertGreater(shown, 100)
+
+        hidden_widget = pilot.RDomainWidget()
+        hidden_widget.resize(320, 240)
+        hidden_widget.colormap = "jet"
+        hidden_widget.showScalarBar(True)
+        hidden_widget.showScalarBar(False)
+        hidden = _count_saturated(_grab_or_skip(hidden_widget))
+        self.assertLess(hidden, shown * 0.1)
+
+
 @unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
 class RDomainWidgetOpacityTC(unittest.TestCase):
     """Adjustable per-drawable opacity for the wireframe and the surface."""

@@ -49,6 +49,7 @@ public:
         VertexColor, ///< A per-vertex color attribute.
         Textured, ///< A sampled texture tinted by the uniform color.
         Lit, ///< A per-vertex normal shaded by a directional light.
+        ScalarColor, ///< A per-vertex scalar mapped through a LUT texture.
     };
 
     explicit RMaterial(Kind kind);

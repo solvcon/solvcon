@@ -16,6 +16,8 @@
 #include <solvcon/pilot/common_detail.hpp> // Must be the first include.
 
 #include <solvcon/pilot/RAxisGizmo.hpp>
+#include <solvcon/pilot/RColormap.hpp>
+#include <solvcon/pilot/RScalarBar.hpp>
 #include <solvcon/pilot/RScene.hpp>
 #include <solvcon/pilot/RDrawable.hpp>
 
@@ -30,9 +32,12 @@
 
 #include <memory>
 #include <string>
+#include <utility>
 
 namespace solvcon
 {
+
+class RScalarField;
 
 /**
  * @brief Interactive 2D/3D viewer for spatial domains and fields on
@@ -82,6 +87,31 @@ public:
         SimpleArray<float> const & vertices,
         SimpleArray<float> const & colors,
         SimpleArray<uint32_t> const & indices);
+
+    /// Replace the scalar field: triangles from a vertex table (nvert, 3), a
+    /// per-vertex scalar table (nvert,), and a triangle index table
+    /// (ntri, 3), colored on the GPU through the active colormap LUT.
+    /// Swappable at runtime.
+    void updateScalarField(
+        SimpleArray<float> const & vertices,
+        SimpleArray<float> const & scalars,
+        SimpleArray<uint32_t> const & indices);
+
+    /// Select the named colormap ("viridis", "coolwarm", "jet",
+    /// "grayscale") for the scalar field and the scalar bar.
+    void setColormap(std::string const & name);
+    std::string colormap() const { return m_colormap.name(); }
+
+    /// Pin the scalar-to-color mapping range. Until called, each
+    /// updateScalarField maps its own data min/max.
+    void setScalarRange(float lo, float hi);
+    std::pair<float, float> scalarRange() const;
+
+    /// Show or hide the on-screen scalar bar.
+    void showScalarBar(bool show);
+
+    /// Set the title text over the scalar bar.
+    void setScalarBarTitle(std::string const & title);
 
     /// Show or hide the highlight ribbon for boundary set @p ibc.
     void showBoundary(int ibc, bool show);
@@ -146,17 +176,24 @@ private:
     /// three mesh drawables' visibility.
     void applyMeshVisibility();
 
+    /// Swap in a new field drawable (color or scalar) and re-frame the
+    /// scene around its bounding box.
+    template <typename FieldT>
+    void installField(std::unique_ptr<FieldT> field);
+
     QRhi * m_rhi = nullptr; ///< Tracked to detect device changes.
     QRhiRenderPassDescriptor * m_rpdesc = nullptr; ///< Tracked to detect target changes.
     int m_sample_count = 0; ///< Tracked to detect MSAA changes.
 
     RScene m_scene;
     RAxisGizmo m_gizmo;
+    RScalarBar m_scalar_bar;
     // Non-owning; the drawables live in the scene. One per mesh representation.
     RDrawable * m_mesh_surface = nullptr;
     RDrawable * m_mesh_frame = nullptr;
     RDrawable * m_mesh_points = nullptr;
     RDrawable * m_field = nullptr;
+    RScalarField * m_scalar_field = nullptr; ///< m_field when it is scalar.
 
     // Per-style show flags; any combination may be on at once. Only the
     // wireframe is on by default, so a fresh viewer looks unchanged.
@@ -165,12 +202,52 @@ private:
     bool m_show_points = false;
     bool m_mesh_shown = true; ///< The showMesh toggle, applied atop the styles.
 
+    RColormap m_colormap = RColormap::named("viridis");
+    bool m_range_pinned = false; ///< setScalarRange overrides auto-ranging.
+    float m_range_lo = 0.0f;
+    float m_range_hi = 1.0f;
+    QVector3D m_field_lo; ///< Field bounding box, kept for re-framing.
+    QVector3D m_field_hi;
+    bool m_has_field_bbox = false;
+
     std::shared_ptr<StaticMesh> m_mesh;
 
     QPoint m_last_mouse_pos; ///< Last cursor position during a drag.
     bool m_panning = false; ///< A non-left-button drag pans in both modes.
 
 }; /* end class RDomainWidget */
+
+template <typename FieldT>
+void RDomainWidget::installField(std::unique_ptr<FieldT> field)
+{
+    // Drop the previous field and replace it; the field is swappable.
+    m_scene.removeDrawable(m_field);
+    m_field = nullptr;
+    m_scalar_field = nullptr;
+    m_has_field_bbox = false;
+
+    if (field->hasGeometry())
+    {
+        QVector3D const lo = field->bboxLo();
+        QVector3D const hi = field->bboxHi();
+        // With no mesh to set the dimensionality, infer it: a field with no
+        // depth extent is viewed head-on like a 2D domain.
+        if (!m_scene.hasBoundingBox())
+        {
+            float const span = (hi - lo).length();
+            m_scene.setDimension(((hi.z() - lo.z()) > 1.0e-6f * span) ? 3 : 2);
+        }
+        m_scene.extendBoundingBox(lo, hi);
+        m_field_lo = lo;
+        m_field_hi = hi;
+        m_has_field_bbox = true;
+        m_field = field.get();
+        m_scene.addDrawable(std::move(field));
+        m_scene.fitCameraToScene(viewportAspect());
+    }
+
+    update();
+}
 
 } /* end namespace solvcon */
 

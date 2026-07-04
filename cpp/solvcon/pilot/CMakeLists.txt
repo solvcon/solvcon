@@ -10,6 +10,9 @@ set(SOLVCON_PILOT_PYMODHEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/RDrawable.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RMeshFrame.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RField.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/RColormap.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/RScalarField.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/RScalarBar.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RBoundary.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/render_misc.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RFeatureEdges.hpp
@@ -34,6 +37,9 @@ set(SOLVCON_PILOT_PYMODSOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/RDrawable.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RMeshFrame.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RField.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/RColormap.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/RScalarField.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/RScalarBar.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RBoundary.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/render_misc.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RFeatureEdges.cpp
@@ -65,6 +71,8 @@ set(SOLVCON_PILOT_SHADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/shaders/color.vert
     ${CMAKE_CURRENT_SOURCE_DIR}/shaders/color.frag
     ${CMAKE_CURRENT_SOURCE_DIR}/shaders/vcolor.vert
+    ${CMAKE_CURRENT_SOURCE_DIR}/shaders/scalar.vert
+    ${CMAKE_CURRENT_SOURCE_DIR}/shaders/scalar.frag
     ${CMAKE_CURRENT_SOURCE_DIR}/shaders/texture.vert
     ${CMAKE_CURRENT_SOURCE_DIR}/shaders/texture.frag
     ${CMAKE_CURRENT_SOURCE_DIR}/shaders/lit.vert
