@@ -1046,6 +1046,75 @@ class RDomainWidgetViewPresetTC(unittest.TestCase):
 
 
 @unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+class RDomainWidgetTrackballTC(unittest.TestCase):
+    """Trackball orbit style and orbit pivot control."""
+
+    @classmethod
+    def setUpClass(cls):
+        pilot.RManager.instance.setUp()
+
+    def test_orbit_style_round_trip(self):
+        """The orbit style defaults to turntable and switches to trackball."""
+        widget = pilot.RDomainWidget()
+        self.assertEqual(widget.orbitStyle, "turntable")
+        widget.orbitStyle = "trackball"
+        self.assertEqual(widget.orbitStyle, "trackball")
+        widget.setOrbitStyle("turntable")
+        self.assertEqual(widget.orbitStyle, "turntable")
+
+    def test_turntable_keeps_the_horizon_level(self):
+        """Turntable orbit holds the up axis fixed through a drag."""
+        widget = pilot.RDomainWidget()
+        widget.updateMesh(_make_3d_mesh())
+        widget.cameraMode = "orbit"
+        widget.fitCameraToScene()
+        up0 = tuple(widget.cameraUp)
+        widget.rotateCamera(40.0, 30.0)
+        for a, b in zip(up0, tuple(widget.cameraUp)):
+            self.assertAlmostEqual(a, b, places=4)
+
+    def test_trackball_rolls_the_horizon(self):
+        """Trackball orbit rolls the up axis with the drag, so the horizon is
+        free to tilt (unlike the turntable)."""
+        widget = pilot.RDomainWidget()
+        widget.updateMesh(_make_3d_mesh())
+        widget.cameraMode = "orbit"
+        widget.fitCameraToScene()
+        widget.orbitStyle = "trackball"
+        up0 = tuple(widget.cameraUp)
+        widget.rotateCamera(40.0, 30.0)
+        up1 = tuple(widget.cameraUp)
+        self.assertTrue(any(abs(a - b) > 1e-3 for a, b in zip(up0, up1)))
+
+    def test_set_pivot_moves_the_center_of_rotation(self):
+        """Setting the pivot moves the orbit target there, and orbiting then
+        keeps the eye's distance to that new pivot."""
+        import math
+        widget = pilot.RDomainWidget()
+        widget.updateMesh(_make_3d_mesh())
+        widget.cameraMode = "orbit"
+        widget.setPivot(1.0, 2.0, 3.0)
+        self.assertEqual(tuple(widget.cameraTarget), (1.0, 2.0, 3.0))
+
+        def radius():
+            p = tuple(widget.cameraPosition)
+            t = tuple(widget.cameraTarget)
+            return math.sqrt(sum((a - b) ** 2 for a, b in zip(p, t)))
+
+        before = radius()
+        widget.rotateCamera(20.0, 10.0)
+        self.assertAlmostEqual(before, radius(), places=4)
+
+    def test_frame_selected_frames_the_scene(self):
+        """frameSelected recenters and frames the scene so it renders."""
+        widget = pilot.RDomainWidget()
+        widget.resize(320, 240)
+        widget.updateMesh(_make_3d_mesh())
+        widget.frameSelected()
+        self.assertGreater(_count_foreground(_grab_or_skip(widget)), 0)
+
+
+@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
 class RDomainWidgetSceneTC(unittest.TestCase):
     """Scene framing and the fit-to-scene camera (step 4)."""
 

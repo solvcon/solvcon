@@ -54,6 +54,20 @@ std::string RCameraController::modeName(Mode mode)
     }
 }
 
+RCameraController::OrbitStyle RCameraController::orbitStyleFromName(std::string const & name)
+{
+    if ("trackball" == name)
+    {
+        return OrbitStyle::Trackball;
+    }
+    return OrbitStyle::Turntable;
+}
+
+std::string RCameraController::orbitStyleName(OrbitStyle style)
+{
+    return (OrbitStyle::Trackball == style) ? "trackball" : "turntable";
+}
+
 QVector3D RCameraController::forward() const
 {
     QVector3D const dir = m_target - m_position;
@@ -110,7 +124,22 @@ QMatrix4x4 RCameraController::viewMatrix() const
 
 void RCameraController::rotate(float dx, float dy)
 {
-    if (Mode::Orbit == m_mode)
+    if (Mode::Orbit == m_mode && OrbitStyle::Trackball == m_orbit_style)
+    {
+        // Tumble freely: yaw about the current up axis and pitch about the
+        // right axis, then roll the up axis with the same rotation so the
+        // horizon is free to tilt. No pole guard, so the eye can pass over the
+        // top and keep going, the way a virtual-trackball drag does.
+        QVector3D const offset = m_position - m_target;
+        QQuaternion const yaw =
+            QQuaternion::fromAxisAndAngle(m_up, -dx * LOOK_DEGREES_PER_PIXEL);
+        QQuaternion const pitch =
+            QQuaternion::fromAxisAndAngle(rightAxis(), -dy * LOOK_DEGREES_PER_PIXEL);
+        QQuaternion const rot = yaw * pitch;
+        m_position = m_target + rot.rotatedVector(offset);
+        m_up = rot.rotatedVector(m_up).normalized();
+    }
+    else if (Mode::Orbit == m_mode)
     {
         // Swing the eye around the fixed target (the pivot): yaw about the up
         // axis and pitch about the right axis, applied to the eye offset with
