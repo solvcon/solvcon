@@ -12,7 +12,7 @@ try:
     from solvcon.pilot import _mesh_info
     from solvcon.pilot._mesh import MeshStyleStatus
     from PySide6.QtCore import Qt
-    from PySide6.QtWidgets import QApplication, QMenu
+    from PySide6.QtWidgets import QApplication
 except ImportError:
     pilot = None
 
@@ -107,8 +107,6 @@ class MakeMeshInfoTC(unittest.TestCase):
 class MeshInfoTC(unittest.TestCase):
     def setUp(self):
         self.mgr = pilot.RManager.instance.setUp()
-        # The "Panels" group is owned by the caller, not by MeshInfo.
-        self.menu = QMenu("Panels", self.mgr.mainWindow)
         # The View menu and the panel share one MeshStyleStatus.
         self.status = MeshStyleStatus(mgr=self.mgr)
 
@@ -125,10 +123,11 @@ class MeshInfoTC(unittest.TestCase):
     def test_panel_shows_active_mesh(self):
         widget = self.mgr.add3DWidget()
         widget.updateMesh(_make_sample_mesh())
-        feature = _mesh_info.MeshInfo(mgr=self.mgr, menu=self.menu,
+        feature = _mesh_info.MeshInfo(mgr=self.mgr,
                                       style_status=self.status)
         feature.populate_menu()
-        self.assertIn(feature._action, self.menu.actions())
+        panels = self.mgr.menu_model.menu("View/Panels")
+        self.assertIn(feature._action, panels.actions())
         feature._action.setChecked(True)
         sections = _tree_sections(feature._panel._tree)
         self.assertEqual(sections["Counts"]["cell"], "3")
@@ -137,7 +136,7 @@ class MeshInfoTC(unittest.TestCase):
     def test_boundary_toggle_drives_viewer(self):
         widget = self.mgr.add3DWidget()
         widget.updateMesh(_make_sample_mesh())
-        feature = _mesh_info.MeshInfo(mgr=self.mgr, menu=self.menu,
+        feature = _mesh_info.MeshInfo(mgr=self.mgr,
                                       style_status=self.status)
         feature.populate_menu()
         feature._action.setChecked(True)
@@ -163,7 +162,7 @@ class MeshInfoTC(unittest.TestCase):
     def test_style_toggle_drives_viewer(self):
         widget = self.mgr.add3DWidget()
         widget.updateMesh(_make_sample_mesh())
-        feature = _mesh_info.MeshInfo(mgr=self.mgr, menu=self.menu,
+        feature = _mesh_info.MeshInfo(mgr=self.mgr,
                                       style_status=self.status)
         feature.populate_menu()
         feature._action.setChecked(True)
@@ -197,7 +196,7 @@ class MeshInfoTC(unittest.TestCase):
     def test_menu_and_panel_stay_linked(self):
         widget = self.mgr.add3DWidget()
         widget.updateMesh(_make_sample_mesh())
-        panel_feature = _mesh_info.MeshInfo(mgr=self.mgr, menu=self.menu,
+        panel_feature = _mesh_info.MeshInfo(mgr=self.mgr,
                                             style_status=self.status)
         panel_feature.populate_menu()
         panel_feature._action.setChecked(True)
@@ -240,7 +239,7 @@ class MeshInfoTC(unittest.TestCase):
 
     def test_panel_without_mesh(self):
         self.mgr.add3DWidget()  # fresh viewer becomes current, no mesh
-        feature = _mesh_info.MeshInfo(mgr=self.mgr, menu=self.menu,
+        feature = _mesh_info.MeshInfo(mgr=self.mgr,
                                       style_status=self.status)
         feature.populate_menu()
         feature._action.setChecked(True)
@@ -251,7 +250,7 @@ class MeshInfoTC(unittest.TestCase):
     def test_panel_updates_on_menu_load(self):
         # Loading from a menu creates and activates the viewer before
         # updateMesh runs, so the refresh is deferred to the event loop.
-        feature = _mesh_info.MeshInfo(mgr=self.mgr, menu=self.menu,
+        feature = _mesh_info.MeshInfo(mgr=self.mgr,
                                       style_status=self.status)
         feature.populate_menu()
         feature._action.setChecked(True)
