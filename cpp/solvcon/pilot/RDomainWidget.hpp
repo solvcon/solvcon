@@ -124,6 +124,31 @@ public:
     /// Show or hide a short arrow at every face center along its normal.
     void showNormals(bool show);
 
+    /// The result of a pick: the entity kind ("cell", "node", "face", or
+    /// "none" for a miss), its id, its element type (for a cell), a measure
+    /// (cell volume or face area), and its centroid.
+    struct PickResult
+    {
+        std::string kind = "none";
+        int id = -1;
+        int type = -1;
+        double measure = 0.0;
+        QVector3D centroid;
+
+        bool hit() const { return "none" != kind; }
+    };
+
+    // Pick the entity under the widget pixel (x, y): a cell (by ray-cast
+    // against the surface), the nearest node, or the nearest boundary face.
+    // The picked entity is highlighted and kept as the selection.
+    PickResult pickCell(int x, int y);
+    PickResult pickNode(int x, int y);
+    PickResult pickFace(int x, int y);
+
+    /// Drop the current selection and its highlight.
+    void clearSelection();
+    bool hasSelection() const { return m_has_selection; }
+
     // Color the mesh cells by a categorical attribute through the qualitative
     // colormap with a legend: element type, cell group, or boundary set. Each
     // replaces the field with a per-cell-colored surface; clearCellColoring
@@ -260,6 +285,15 @@ private:
         std::vector<float> & scals,
         std::vector<uint32_t> & tris) const;
 
+    /// Back-project the widget pixel (x, y) to a world-space ray. Returns
+    /// false when the viewport or the view-projection is degenerate.
+    bool computePickRay(int x, int y, QVector3D & origin, QVector3D & dir) const;
+
+    /// Highlight the picked cell (its surface triangles) and record it as the
+    /// selection with its bounding box; a kind other than "cell" records the
+    /// selection point without a surface highlight.
+    void setSelection(std::string const & kind, int id, QVector3D const & lo, QVector3D const & hi);
+
     QRhi * m_rhi = nullptr; ///< Tracked to detect device changes.
     QRhiRenderPassDescriptor * m_rpdesc = nullptr; ///< Tracked to detect target changes.
     int m_sample_count = 0; ///< Tracked to detect MSAA changes.
@@ -280,6 +314,13 @@ private:
     bool m_show_wireframe = true;
     bool m_show_points = false;
     bool m_mesh_shown = true; ///< The showMesh toggle, applied atop the styles.
+
+    RDrawable * m_selection = nullptr; ///< Highlight of the picked entity.
+    bool m_has_selection = false;
+    std::string m_selection_kind = "none";
+    int m_selection_id = -1;
+    QVector3D m_selection_lo;
+    QVector3D m_selection_hi;
 
     RColormap m_colormap = RColormap::named("viridis");
     bool m_range_pinned = false; ///< setScalarRange overrides auto-ranging.
