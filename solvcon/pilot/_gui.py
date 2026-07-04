@@ -50,6 +50,7 @@ class _Controller(metaclass=_Singleton):
         # Do not construct any Qt member objects before calling launch(), or
         # Windows may "exited with code -1073740791."
         self._rmgr = None
+        self._built = False
         self.mesh_sample_dialog = None
         self.gmsh_dialog = None
         self.svg_dialog = None
@@ -77,7 +78,13 @@ class _Controller(metaclass=_Singleton):
 
     def build(self, name="pilot", size=(1000, 600)):
         """Assemble the window, features, and menu bar without the event
-        loop, so the fully built bar can be exercised from a test."""
+        loop, so the fully built bar can be exercised from a test.
+
+        Idempotent: the bar is populated once, so a second call (for example
+        from another test) returns the already-built manager unchanged.
+        """
+        if self._built:
+            return self._rmgr
         self._rmgr = _pcore.RManager.instance
         self._rmgr.setUp()
         self._rmgr.windowTitle = name
@@ -106,6 +113,7 @@ class _Controller(metaclass=_Singleton):
         self.openprofiledata = _profiling.Profiling(mgr=self._rmgr)
         self.runprofiling = _profiling.RunProfiling(mgr=self._rmgr)
         self.populate_menu()
+        self._built = True
         return self._rmgr
 
     def _mesh_sample_dialog_entries(self):

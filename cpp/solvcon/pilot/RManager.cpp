@@ -223,6 +223,17 @@ void RManager::setDrawTool(std::string const & name)
     }
     m_draw_tool = name;
     applyDrawTool();
+    // Keep the draw-tool action group in step, so scripting setDrawTool from
+    // the console checks the matching radio item and toolbox button. The
+    // action group's triggered wiring is unaffected because setChecked emits
+    // toggled, not triggered.
+    if (m_menuModel)
+    {
+        if (QAction * action = m_menuModel->action("draw.tool." + name))
+        {
+            action->setChecked(true);
+        }
+    }
 }
 
 void RManager::applyDrawTool()

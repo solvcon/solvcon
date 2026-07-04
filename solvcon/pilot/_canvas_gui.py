@@ -29,8 +29,11 @@ class Canvas(_gui_common.PilotFeature):
         self._blank_worlds = []
 
     def populate_menu(self):
+        # Group the geometry samples under their own submenu, leaving the
+        # working items at the Canvas top level.
+        self._mgr.menu_model.menu("Canvas/Samples", weight=20)
         self.add_action(
-            "Canvas",
+            "Canvas/Samples",
             text="Sample: Create ICCAD-2013",
             tip="Create ICCAD-2013 polygon examples",
             func=self.mesh_iccad_2013,
@@ -38,7 +41,7 @@ class Canvas(_gui_common.PilotFeature):
             weight=10,
         )
         self.add_action(
-            "Canvas",
+            "Canvas/Samples",
             text="Sample: Bezier S-curve",
             tip="Draw a sample S-shaped cubic Bezier curve with control "
                 "points",
@@ -47,7 +50,7 @@ class Canvas(_gui_common.PilotFeature):
             weight=20,
         )
         self.add_action(
-            "Canvas",
+            "Canvas/Samples",
             text="Sample: Bezier Arch",
             tip="Draw a sample arch-shaped cubic Bezier curve with control "
                 "points",
@@ -56,7 +59,7 @@ class Canvas(_gui_common.PilotFeature):
             weight=30,
         )
         self.add_action(
-            "Canvas",
+            "Canvas/Samples",
             text="Sample: Bezier Loop",
             tip="Draw a sample loop-like cubic Bezier curve with control "
                 "points",
@@ -65,7 +68,7 @@ class Canvas(_gui_common.PilotFeature):
             weight=40,
         )
         self.add_action(
-            "Canvas",
+            "Canvas/Samples",
             text="Sample: Ellipse",
             tip="Draw a sample ellipse (a=2, b=1)",
             func=self._ellipse,
@@ -73,7 +76,7 @@ class Canvas(_gui_common.PilotFeature):
             weight=50,
         )
         self.add_action(
-            "Canvas",
+            "Canvas/Samples",
             text="Sample: Parabola",
             tip="Draw a sample parabola (y = 0.5*x^2)",
             func=self._parabola,
@@ -81,7 +84,7 @@ class Canvas(_gui_common.PilotFeature):
             weight=60,
         )
         self.add_action(
-            "Canvas",
+            "Canvas/Samples",
             text="Sample: Hyperbola",
             tip="Draw a sample hyperbola (both branches)",
             func=self._hyperbola,
@@ -89,7 +92,7 @@ class Canvas(_gui_common.PilotFeature):
             weight=70,
         )
 
-        self._mgr.menu_model.place_separator("Canvas", weight=75)
+        self._mgr.menu_model.place_separator("Canvas", weight=30)
         self.add_action(
             "Canvas",
             text="Create blank 2D canvas",
