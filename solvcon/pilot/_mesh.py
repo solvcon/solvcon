@@ -399,7 +399,7 @@ class MeshStyleStatus(QtCore.QObject):
     def populate_menu(self):
         """Add the View > Mesh styles submenu of independent check items."""
         window = self._mgr.mainWindow
-        submenu = QtWidgets.QMenu("Mesh styles", window)
+        submenu = self._mgr.menu_model.menu("View/Mesh styles")
         for name, label in self.STYLES:
             act = QtGui.QAction(label, window)
             act.setCheckable(True)
@@ -410,7 +410,6 @@ class MeshStyleStatus(QtCore.QObject):
             self._actions[name] = act
             submenu.addAction(act)
         self.changed.connect(self._sync_menu)
-        self._mgr.viewMenu.addMenu(submenu)
 
     def _sync_menu(self):
         """Match the menu check marks to the active viewer's styles."""
