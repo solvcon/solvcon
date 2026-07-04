@@ -9,15 +9,13 @@ Graphical-user interface code
 # Use flake8 http://flake8.pycqa.org/en/latest/user/error-codes.html
 
 
-import sys
-import importlib
-
 from . import _pilot_core as _pcore
 from . import airfoil
 
 if _pcore.enable:
     from PySide6.QtGui import QAction
     from PySide6.QtWidgets import QMenu
+    from . import _gui_common
     from . import _mesh
     from . import _mesh_info
     from . import _oblique
@@ -125,21 +123,6 @@ class _Controller(metaclass=_Singleton):
     def populate_menu(self):
         wm = self._rmgr
 
-        def _addAction(menu, text, tip, func, checkable=False, checked=False):
-            act = QAction(text, wm.mainWindow)
-            act.setStatusTip(tip)
-            act.setCheckable(checkable)
-            if checkable:
-                act.setChecked(checked)
-            if callable(func):
-                act.triggered.connect(lambda *a: func())
-            elif func:
-                modname, funcname = func.rsplit('.', maxsplit=1)
-                mod = importlib.import_module(modname)
-                func = getattr(mod, funcname)
-                act.triggered.connect(lambda *a: func())
-            menu.addAction(act)
-
         self.gmsh_dialog.populate_menu()
         self.svg_dialog.populate_menu()
         self.mesh_info.populate_menu()
@@ -154,22 +137,22 @@ class _Controller(metaclass=_Singleton):
         self.openprofiledata.populate_menu()
         self.runprofiling.populate_menu()
 
-        if sys.platform != 'darwin':
-            _addAction(
-                menu=wm.fileMenu,
-                text="Exit",
-                tip="Exit the application",
-                func=lambda: wm.quit(),
-            )
-
-        _addAction(
-            menu=wm.windowMenu,
-            text="Console",
-            tip="Open / Close Console",
-            func=wm.toggleConsole,
-            checkable=True,
-            checked=True,
-        )
+        # An explicit QuitRole lets macOS relocate Exit into the application
+        # menu, so no platform special case is needed.
+        wm.menu_model.place(
+            "File",
+            _gui_common.build_action(
+                wm.mainWindow, "Exit", "Exit the application",
+                lambda: wm.quit(), id="file.exit",
+                menu_role=QAction.MenuRole.QuitRole),
+            100)
+        wm.menu_model.place(
+            "Window",
+            _gui_common.build_action(
+                wm.mainWindow, "Console", "Open / Close Console",
+                wm.toggleConsole, id="window.console",
+                checkable=True, checked=True),
+            50)
 
 
 controller = _Controller()
