@@ -5,6 +5,7 @@
 
 #include <solvcon/pilot/RManager.hpp> // Must be the first include.
 
+#include <functional>
 #include <stdexcept>
 #include <vector>
 
@@ -16,6 +17,7 @@
 #include <QMenu>
 #include <QAction>
 #include <QActionGroup>
+#include <QKeySequence>
 #include <QVBoxLayout>
 #include <QWidget>
 
@@ -110,6 +112,17 @@ RDomainWidget * RManager::add3DWidget()
         layout->setContentsMargins(0, 0, 0, 0);
         viewer = new RDomainWidget(/*parent*/ host);
         layout->addWidget(viewer);
+        // Associate the Escape reset shortcut with this viewer; a
+        // Qt::WidgetShortcut fires only while a widget it was added to has
+        // focus. The hidden RHI primer is created elsewhere and never reaches
+        // here, so it stays unbound.
+        if (m_menuModel)
+        {
+            if (QAction * reset = m_menuModel->action("camera.reset"))
+            {
+                viewer->addAction(reset);
+            }
+        }
         auto * subwin = this->addSubWindow(host);
         subwin->resize(400, 300);
     }
@@ -359,127 +372,98 @@ void RManager::setUpCameraControllersMenuItems() const
         }
     };
 
-    auto * use_pan_camera = new RAction(
-        QString("Pan / zoom camera (2D)"),
-        QString("Pan and zoom the domain in the plane"),
-        [set_mode]()
-        { set_mode("pan"); });
+    struct CameraMode
+    {
+        char const * id;
+        QString text;
+        QString tip;
+        std::string mode;
+    };
+    std::vector<CameraMode> const modes = {
+        {"camera.mode_orbit", QString("Orbit camera (3D)"), QString("Orbit the domain around its center"), "orbit"},
+        {"camera.mode_fps", QString("First-person camera (3D)"), QString("Fly through the domain in first person"), "fps"},
+        {"camera.mode_pan", QString("Pan / zoom camera (2D)"), QString("Pan and zoom the domain in the plane"), "pan"},
+    };
 
-    auto * use_fps_camera = new RAction(
-        QString("First-person camera (3D)"),
-        QString("Fly through the domain in first person"),
-        [set_mode]()
-        { set_mode("fps"); });
-
-    auto * use_orbit_camera = new RAction(
-        QString("Orbit camera (3D)"),
-        QString("Orbit the domain around its center"),
-        [set_mode]()
-        { set_mode("orbit"); });
-
-    auto * cameraGroup = new QActionGroup(m_mainWindow);
-    cameraGroup->addAction(use_orbit_camera);
-    cameraGroup->addAction(use_fps_camera);
-    cameraGroup->addAction(use_pan_camera);
-
-    use_orbit_camera->setCheckable(true);
-    use_fps_camera->setCheckable(true);
-    use_pan_camera->setCheckable(true);
-    use_orbit_camera->setChecked(true);
-
-    auto * cameraMenu = m_viewMenu->addMenu(QString("Camera"));
-    cameraMenu->addAction(use_orbit_camera);
-    cameraMenu->addAction(use_fps_camera);
-    cameraMenu->addAction(use_pan_camera);
+    // The group owns the exclusive mode, held by the model under a group id
+    // so Python can query the checked action.
+    auto * cameraGroup = m_menuModel->group("camera.mode");
+    int weight = 10;
+    for (auto const & item : modes)
+    {
+        auto * action = new RAction(
+            item.text, item.tip, [set_mode, mode = item.mode]()
+            { set_mode(mode); },
+            m_menuModel);
+        action->setObjectName(item.id);
+        action->setCheckable(true);
+        cameraGroup->addAction(action);
+        m_menuModel->place("View/Camera", action, weight);
+        weight += 10;
+    }
+    if (QAction * orbit = m_menuModel->action("camera.mode_orbit"))
+    {
+        orbit->setChecked(true);
+    }
 }
 
 void RManager::setUpCameraMovementMenuItems() const
 {
-    constexpr float pan_step = 40.0f;
-    constexpr float rotate_step = 30.0f;
-    constexpr float zoom_step = 1.0f;
+    static constexpr float pan_step = 40.0f;
+    static constexpr float rotate_step = 30.0f;
+    static constexpr float zoom_step = 1.0f;
 
-    auto * reset_camera = new RAction(
-        QString("Reset (esc)"),
-        QString("Reset (esc)"),
-        createCameraMovementItemHandler([](RDomainWidget * viewer)
-                                        { viewer->fitCameraToScene(); }));
+    struct CameraMove
+    {
+        char const * id;
+        QString text;
+        std::function<void(RDomainWidget *)> act;
+    };
+    // The keyboard hints the labels used to carry were wrong: those keys are
+    // handled in RDomainWidget::keyPressEvent with different behavior, so they
+    // are dropped here rather than advertised.
+    std::vector<CameraMove> const moves = {
+        {"camera.reset", QString("Reset camera"), [](RDomainWidget * v)
+         { v->fitCameraToScene(); }},
+        {"camera.move_up", QString("Move camera up"), [](RDomainWidget * v)
+         { v->panCamera(0.0f, pan_step); }},
+        {"camera.move_down", QString("Move camera down"), [](RDomainWidget * v)
+         { v->panCamera(0.0f, -pan_step); }},
+        {"camera.move_right", QString("Move camera right"), [](RDomainWidget * v)
+         { v->panCamera(-pan_step, 0.0f); }},
+        {"camera.move_left", QString("Move camera left"), [](RDomainWidget * v)
+         { v->panCamera(pan_step, 0.0f); }},
+        {"camera.move_forward", QString("Move camera forward"), [](RDomainWidget * v)
+         { v->zoomCamera(zoom_step); }},
+        {"camera.move_backward", QString("Move camera backward"), [](RDomainWidget * v)
+         { v->zoomCamera(-zoom_step); }},
+        {"camera.yaw_positive", QString("Rotate camera positive yaw"), [](RDomainWidget * v)
+         { v->rotateCamera(rotate_step, 0.0f); }},
+        {"camera.yaw_negative", QString("Rotate camera negative yaw"), [](RDomainWidget * v)
+         { v->rotateCamera(-rotate_step, 0.0f); }},
+        {"camera.pitch_positive", QString("Rotate camera positive pitch"), [](RDomainWidget * v)
+         { v->rotateCamera(0.0f, rotate_step); }},
+        {"camera.pitch_negative", QString("Rotate camera negative pitch"), [](RDomainWidget * v)
+         { v->rotateCamera(0.0f, -rotate_step); }},
+    };
 
-    auto * move_camera_up = new RAction(
-        QString("Move camera up (W/UP)"),
-        QString("Move camera up (W/UP)"),
-        createCameraMovementItemHandler([](RDomainWidget * viewer)
-                                        { viewer->panCamera(0.0f, pan_step); }));
+    int weight = 10;
+    for (auto const & item : moves)
+    {
+        auto * action = new RAction(
+            item.text, item.text, createCameraMovementItemHandler(item.act), m_menuModel);
+        action->setObjectName(item.id);
+        m_menuModel->place("View/Camera move", action, weight);
+        weight += 10;
+    }
 
-    auto * move_camera_down = new RAction(
-        QString("Move camera down (S/DOWN)"),
-        QString("Move camera down (S/DOWN)"),
-        createCameraMovementItemHandler([](RDomainWidget * viewer)
-                                        { viewer->panCamera(0.0f, -pan_step); }));
-
-    auto * move_camera_right = new RAction(
-        QString("Move camera right (D/RIGHT)"),
-        QString("Move camera right (D/RIGHT)"),
-        createCameraMovementItemHandler([](RDomainWidget * viewer)
-                                        { viewer->panCamera(-pan_step, 0.0f); }));
-
-    auto * move_camera_left = new RAction(
-        QString("Move camera left (A/LEFT)"),
-        QString("Move camera left (A/LEFT)"),
-        createCameraMovementItemHandler([](RDomainWidget * viewer)
-                                        { viewer->panCamera(pan_step, 0.0f); }));
-
-    auto * move_camera_forward = new RAction(
-        QString("Move camera forward (Ctrl+W/UP)"),
-        QString("Move camera forward (Ctrl+W/UP)"),
-        createCameraMovementItemHandler([](RDomainWidget * viewer)
-                                        { viewer->zoomCamera(zoom_step); }));
-
-    auto * move_camera_backward = new RAction(
-        QString("Move camera backward (Ctrl+S/DOWN)"),
-        QString("Move camera backward (Ctrl+S/DOWN)"),
-        createCameraMovementItemHandler([](RDomainWidget * viewer)
-                                        { viewer->zoomCamera(-zoom_step); }));
-
-    auto * rotate_camera_positive_yaw = new RAction(
-        QString("Rotate camera positive yaw"),
-        QString("Rotate camera positive yaw"),
-        createCameraMovementItemHandler([](RDomainWidget * viewer)
-                                        { viewer->rotateCamera(rotate_step, 0.0f); }));
-
-    auto * rotate_camera_negative_yaw = new RAction(
-        QString("Rotate camera negative yaw"),
-        QString("Rotate camera negative yaw"),
-        createCameraMovementItemHandler([](RDomainWidget * viewer)
-                                        { viewer->rotateCamera(-rotate_step, 0.0f); }));
-
-    auto * rotate_camera_positive_pitch = new RAction(
-        QString("Rotate camera positive pitch"),
-        QString("Rotate camera positive pitch"),
-        createCameraMovementItemHandler([](RDomainWidget * viewer)
-                                        { viewer->rotateCamera(0.0f, rotate_step); }));
-
-    auto * rotate_camera_negative_pitch = new RAction(
-        QString("Rotate camera negative pitch"),
-        QString("Rotate camera negative pitch"),
-        createCameraMovementItemHandler([](RDomainWidget * viewer)
-                                        { viewer->rotateCamera(0.0f, -rotate_step); }));
-
-    reset_camera->setShortcut(QKeySequence(Qt::Key_Escape));
-    reset_camera->setShortcutContext(Qt::WidgetShortcut);
-
-    auto cameraMoveSubmenu = m_viewMenu->addMenu("Camera move");
-    cameraMoveSubmenu->addAction(reset_camera);
-    cameraMoveSubmenu->addAction(move_camera_up);
-    cameraMoveSubmenu->addAction(move_camera_down);
-    cameraMoveSubmenu->addAction(move_camera_right);
-    cameraMoveSubmenu->addAction(move_camera_left);
-    cameraMoveSubmenu->addAction(move_camera_forward);
-    cameraMoveSubmenu->addAction(move_camera_backward);
-    cameraMoveSubmenu->addAction(rotate_camera_positive_yaw);
-    cameraMoveSubmenu->addAction(rotate_camera_negative_yaw);
-    cameraMoveSubmenu->addAction(rotate_camera_positive_pitch);
-    cameraMoveSubmenu->addAction(rotate_camera_negative_pitch);
+    // Escape resets the camera; add3DWidget attaches this action to each
+    // viewer so its Qt::WidgetShortcut context can fire.
+    if (QAction * reset = m_menuModel->action("camera.reset"))
+    {
+        reset->setShortcut(QKeySequence(Qt::Key_Escape));
+        reset->setShortcutContext(Qt::WidgetShortcut);
+    }
 }
 
 std::function<void()> RManager::createCameraMovementItemHandler(const std::function<void(RDomainWidget *)> & func) const
