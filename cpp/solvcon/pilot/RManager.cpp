@@ -299,44 +299,51 @@ void RManager::setUpMenu()
     // NOTE: All menus need to be populated or Windows may crash with
     // "exited with code -1073740791".  The reason is not yet clarified.
 
-    // The live menu model shares the same bar; consumers migrate onto it in
-    // later steps. Parent it to the main window so the widget tree owns it.
+    // Parent the model to the main window so the widget tree owns it.
     m_menuModel = new RMenuModel(m_mainWindow, m_mainWindow);
 
-    m_fileMenu = m_mainWindow->menuBar()->addMenu(QString("File"));
-    m_editMenu = m_mainWindow->menuBar()->addMenu(QString("Edit"));
+    // Seed the bar from one weighted table, the single source of truth for
+    // its order. The weight bands leave room to slot a menu between two
+    // others without renumbering. The members hold the model's menus until
+    // the getters become adapters over the model.
+    m_fileMenu = m_menuModel->menu("File", 0);
+    m_editMenu = m_menuModel->menu("Edit", 10);
+    m_viewMenu = m_menuModel->menu("View", 20);
+    m_oneMenu = m_menuModel->menu("One", 30);
+    m_meshMenu = m_menuModel->menu("Mesh", 40);
+    m_canvasMenu = m_menuModel->menu("Canvas", 50);
+    m_profilingMenu = m_menuModel->menu("Profiling", 60);
+    m_windowMenu = m_menuModel->menu("Window", 70);
+
     setUpEditMenuItems();
-    m_viewMenu = m_mainWindow->menuBar()->addMenu(QString("View"));
-    {
-        // Code for controlling camera is not exposed to Python yet
-        setUpCameraControllersMenuItems();
-        setUpCameraMovementMenuItems();
-    }
-    m_oneMenu = m_mainWindow->menuBar()->addMenu(QString("One"));
-    m_meshMenu = m_mainWindow->menuBar()->addMenu(QString("Mesh"));
-    m_canvasMenu = m_mainWindow->menuBar()->addMenu(QString("Canvas"));
-    m_profilingMenu = m_mainWindow->menuBar()->addMenu(QString("Profiling"));
-    m_windowMenu = m_mainWindow->menuBar()->addMenu(QString("Window"));
+    // Code for controlling camera is not exposed to Python yet.
+    setUpCameraControllersMenuItems();
+    setUpCameraMovementMenuItems();
 }
 
 void RManager::setUpEditMenuItems() const
 {
+    // Parent the actions to the model so they die with it instead of leaking.
     auto * undo_action = new RAction(
         QString("Undo"),
         QString("Undo the last change on the focused 2D canvas"),
         [this]()
-        { undoCanvas(); });
+        { undoCanvas(); },
+        m_menuModel);
+    undo_action->setObjectName("edit.undo");
     undo_action->setShortcut(QKeySequence::Undo);
 
     auto * redo_action = new RAction(
         QString("Redo"),
         QString("Redo the last undone change on the focused 2D canvas"),
         [this]()
-        { redoCanvas(); });
+        { redoCanvas(); },
+        m_menuModel);
+    redo_action->setObjectName("edit.redo");
     redo_action->setShortcut(QKeySequence::Redo);
 
-    m_editMenu->addAction(undo_action);
-    m_editMenu->addAction(redo_action);
+    m_menuModel->place("Edit", undo_action, 10);
+    m_menuModel->place("Edit", redo_action, 20);
 }
 
 void RManager::setUpCameraControllersMenuItems() const
