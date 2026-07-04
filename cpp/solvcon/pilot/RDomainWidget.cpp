@@ -787,6 +787,23 @@ void RDomainWidget::fitCameraToScene()
     update();
 }
 
+void RDomainWidget::setView(std::string const & name)
+{
+    m_scene.setViewPreset(name, viewportAspect());
+    update();
+}
+
+void RDomainWidget::setProjection(std::string const & name)
+{
+    m_scene.setProjection(name);
+    update();
+}
+
+std::string RDomainWidget::projection() const
+{
+    return m_scene.projectionName();
+}
+
 void RDomainWidget::setCameraMode(std::string const & name)
 {
     m_scene.camera().setMode(RCameraController::modeFromName(name));

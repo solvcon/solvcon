@@ -6,6 +6,7 @@
 #include <solvcon/pilot/RScene.hpp> // Must be the first include.
 
 #include <algorithm>
+#include <cmath>
 
 namespace solvcon
 {
@@ -93,6 +94,98 @@ void RScene::fitCameraToScene(float aspect)
     m_camera.fitToBoundingBox(m_bbox_lo, m_bbox_hi, m_ndim, aspect);
 }
 
+void RScene::setProjection(std::string const & name)
+{
+    if ("auto" == name)
+    {
+        m_projection = Projection::Auto;
+    }
+    else if ("parallel" == name)
+    {
+        m_projection = Projection::Parallel;
+    }
+    else if ("perspective" == name)
+    {
+        m_projection = Projection::Perspective;
+    }
+}
+
+std::string RScene::projectionName() const
+{
+    switch (m_projection)
+    {
+    case Projection::Parallel:
+        return "parallel";
+    case Projection::Perspective:
+        return "perspective";
+    default:
+        return "auto";
+    }
+}
+
+void RScene::setViewPreset(std::string const & name, float aspect)
+{
+    if (!m_has_bbox)
+    {
+        return;
+    }
+
+    // The preset direction points from the target toward the eye; the up axis
+    // is +z for the side views and +y when looking down or up the z axis.
+    QVector3D dir;
+    QVector3D up(0.0f, 0.0f, 1.0f);
+    if ("front" == name || "-y" == name)
+    {
+        dir = QVector3D(0.0f, -1.0f, 0.0f);
+    }
+    else if ("back" == name || "+y" == name)
+    {
+        dir = QVector3D(0.0f, 1.0f, 0.0f);
+    }
+    else if ("right" == name || "+x" == name)
+    {
+        dir = QVector3D(1.0f, 0.0f, 0.0f);
+    }
+    else if ("left" == name || "-x" == name)
+    {
+        dir = QVector3D(-1.0f, 0.0f, 0.0f);
+    }
+    else if ("top" == name || "+z" == name)
+    {
+        dir = QVector3D(0.0f, 0.0f, 1.0f);
+        up = QVector3D(0.0f, 1.0f, 0.0f);
+    }
+    else if ("bottom" == name || "-z" == name)
+    {
+        dir = QVector3D(0.0f, 0.0f, -1.0f);
+        up = QVector3D(0.0f, 1.0f, 0.0f);
+    }
+    else if ("iso" == name || "isometric" == name)
+    {
+        dir = QVector3D(1.0f, 1.0f, 1.0f);
+    }
+    else
+    {
+        return; // Ignore an unknown preset.
+    }
+
+    QVector3D const center = (m_bbox_lo + m_bbox_hi) * 0.5f;
+    float radius = boundingRadius();
+    if (radius <= 0.0f)
+    {
+        radius = 1.0f;
+    }
+    float const safe_aspect = (aspect > 0.0f) ? aspect : 1.0f;
+    float const deg2rad = 3.14159265358979323846f / 180.0f;
+    float const half_v = FOV_DEGREES * 0.5f * deg2rad;
+    float const half_h = std::atan(std::tan(half_v) * safe_aspect);
+    float const distance = radius / std::tan(std::min(half_v, half_h)) * 1.1f;
+
+    m_camera.setTarget(center);
+    m_camera.setPosition(center + dir.normalized() * distance);
+    m_camera.setUp(up.normalized());
+}
+
 QMatrix4x4 RScene::viewProjection(QSize pixel_size, QRhi * rhi) const
 {
     QMatrix4x4 clip = (nullptr != rhi) ? rhi->clipSpaceCorrMatrix() : QMatrix4x4();
@@ -111,8 +204,12 @@ QMatrix4x4 RScene::viewProjection(QSize pixel_size, QRhi * rhi) const
         distance = 2.0f * radius;
     }
 
+    bool const use_perspective =
+        (Projection::Perspective == m_projection) ||
+        (Projection::Auto == m_projection && 3 == m_ndim);
+
     QMatrix4x4 proj;
-    if (3 == m_ndim)
+    if (use_perspective)
     {
         proj.perspective(FOV_DEGREES, aspect, 0.01f * radius, distance + 3.0f * radius);
     }
