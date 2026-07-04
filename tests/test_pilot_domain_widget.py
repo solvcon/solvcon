@@ -816,6 +816,90 @@ class RDomainWidgetOverlayTC(unittest.TestCase):
         self.assertLess(_count_green(image), 5)
 
 
+def _distinct_field_colors(image):
+    """Count distinct saturated (non-black, non-white) colors, quantized.
+
+    The categorical coloring paints each cell category a distinct qualitative
+    color; this counts how many show. Near-white background and near-black
+    wireframe pixels are dropped so only the filled categories are counted.
+    """
+    import numpy as np
+    array = _rgb_array(image).astype('int16')
+    flat = array.reshape(-1, 3)
+    lo = flat.min(axis=1)
+    hi = flat.max(axis=1)
+    colored = flat[(hi < 230) & (lo > 25) & ((hi - lo) > 25)]
+    if colored.size == 0:
+        return 0
+    quant = colored // 40
+    return len(np.unique(quant, axis=0))
+
+
+@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+class RDomainWidgetCellColoringTC(unittest.TestCase):
+    """Categorical coloring of the mesh by a cell attribute."""
+
+    @classmethod
+    def setUpClass(cls):
+        pilot.RManager.instance.setUp()
+
+    def test_color_by_cell_type_shows_distinct_categories(self):
+        """The mixed 2D mesh (two triangles, one quad) colors its two element
+        types in distinct colors."""
+        widget = pilot.RDomainWidget()
+        widget.resize(320, 240)
+        widget.updateMesh(_make_2d_mesh())
+        widget.showMeshStyle("wireframe", False)
+        widget.colorByCellType()
+        image = _grab_or_skip(widget)
+        self.assertGreaterEqual(_distinct_field_colors(image), 2)
+
+    def test_color_by_cell_group_renders(self):
+        """Coloring by cell group fills the mesh with colored pixels."""
+        widget = pilot.RDomainWidget()
+        widget.resize(320, 240)
+        widget.updateMesh(_make_2d_mesh())
+        widget.showMeshStyle("wireframe", False)
+        widget.colorByCellGroup()
+        self.assertGreater(_count_colored(_grab_or_skip(widget)), 0)
+
+    def test_color_by_boundary_renders(self):
+        """Coloring by boundary set fills the mesh with colored pixels."""
+        widget = pilot.RDomainWidget()
+        widget.resize(320, 240)
+        widget.updateMesh(_make_2d_mesh())
+        widget.showMeshStyle("wireframe", False)
+        widget.colorByBoundary()
+        self.assertGreater(_count_colored(_grab_or_skip(widget)), 0)
+
+    def test_clear_cell_coloring_removes_the_field(self):
+        """clearCellColoring drops the categorical field, leaving far fewer
+        colored pixels than while it was shown."""
+        colored = pilot.RDomainWidget()
+        colored.resize(320, 240)
+        colored.updateMesh(_make_2d_mesh())
+        colored.showMeshStyle("wireframe", False)
+        colored.colorByCellType()
+        shown = _count_colored(_grab_or_skip(colored))
+        self.assertGreater(shown, 0)
+
+        cleared = pilot.RDomainWidget()
+        cleared.resize(320, 240)
+        cleared.updateMesh(_make_2d_mesh())
+        cleared.showMeshStyle("wireframe", False)
+        cleared.colorByCellType()
+        cleared.clearCellColoring()
+        self.assertLess(_count_colored(_grab_or_skip(cleared)), shown)
+
+    def test_color_by_cell_type_without_mesh_is_noop(self):
+        """Coloring before a mesh loads is a harmless no-op, not a crash."""
+        widget = pilot.RDomainWidget()
+        widget.colorByCellType()
+        widget.colorByCellGroup()
+        widget.colorByBoundary()
+        widget.clearCellColoring()
+
+
 @unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
 class RDomainWidgetSceneTC(unittest.TestCase):
     """Scene framing and the fit-to-scene camera (step 4)."""

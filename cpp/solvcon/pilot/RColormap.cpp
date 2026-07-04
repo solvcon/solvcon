@@ -67,6 +67,22 @@ constexpr float GRAYSCALE[] = {
     0.0f, 0.0f, 0.0f,
     1.0f, 1.0f, 1.0f};
 
+// A 12-color qualitative palette for categorical coloring: neighbors are
+// picked far apart in hue and value so adjacent categories stay distinct.
+constexpr float QUALITATIVE[] = {
+    0.90f, 0.10f, 0.10f,
+    0.12f, 0.47f, 0.71f,
+    0.17f, 0.63f, 0.17f,
+    1.00f, 0.50f, 0.05f,
+    0.58f, 0.40f, 0.74f,
+    0.55f, 0.34f, 0.29f,
+    0.89f, 0.47f, 0.76f,
+    0.50f, 0.50f, 0.50f,
+    0.74f, 0.74f, 0.13f,
+    0.09f, 0.75f, 0.81f,
+    0.10f, 0.10f, 0.55f,
+    0.60f, 0.85f, 0.20f};
+
 // clang-format on
 
 } /* end namespace */
@@ -99,6 +115,11 @@ RColormap RColormap::named(std::string const & name)
     throw std::invalid_argument(
         "RColormap: unknown colormap \"" + name +
         "\"; pick one of \"viridis\", \"coolwarm\", \"jet\", \"grayscale\"");
+}
+
+RColormap RColormap::categorical()
+{
+    return RColormap("categorical", QUALITATIVE, sizeof(QUALITATIVE) / sizeof(float) / 3);
 }
 
 QVector3D RColormap::sample(float t) const
