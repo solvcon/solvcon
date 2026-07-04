@@ -45,7 +45,7 @@ void RDrawable::prepare(
     m_pipeline.reset(m_material->buildPipeline(
         rhi, m_srb.get(), rpdesc, vertexInputLayout(), topology(), sample_count,
         /*depth_test*/ true,
-        /*alpha_blend*/ false,
+        /*alpha_blend*/ true,
         depthBias(),
         slopeScaledDepthBias()));
     m_ready = (nullptr != m_pipeline);
@@ -71,7 +71,8 @@ void RDrawable::updateUniform(QRhiResourceUpdateBatch * batch, QMatrix4x4 const 
         return;
     }
     batch->updateDynamicBuffer(m_ubuf.get(), 0, 64, view_proj.constData());
-    float const color[4] = {m_color.x(), m_color.y(), m_color.z(), m_color.w()};
+    float const color[4] = {
+        m_color.x(), m_color.y(), m_color.z(), m_color.w() * m_opacity};
     batch->updateDynamicBuffer(m_ubuf.get(), 64, 16, color);
     float const light[4] = {m_light_dir.x(), m_light_dir.y(), m_light_dir.z(), 0.0f};
     batch->updateDynamicBuffer(m_ubuf.get(), 80, 16, light);

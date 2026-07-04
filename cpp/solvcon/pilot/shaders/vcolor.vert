@@ -6,13 +6,13 @@ layout(location = 1) in vec3 vertexColor;
 layout(std140, binding = 0) uniform buf
 {
     mat4 mvp;
-    vec4 color; // unused by the per-vertex-color variant
+    vec4 color; // only the alpha (opacity) is used by this variant
 } ubuf;
 
 layout(location = 0) out vec4 v_color;
 
 void main()
 {
-    v_color = vec4(vertexColor, 1.0);
+    v_color = vec4(vertexColor, ubuf.color.a);
     gl_Position = ubuf.mvp * vec4(position, 1.0);
 }
