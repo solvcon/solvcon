@@ -288,6 +288,27 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRDomainWidget
                 "to p0 and p2.")
             .def("clearMeasurements", &wrapped_type::clearMeasurements)
             .def(
+                "addClip",
+                [](wrapped_type & self, py::sequence origin, py::sequence normal)
+                {
+                    return self.addClip(seq_to_vec3(origin), seq_to_vec3(normal));
+                },
+                py::arg("origin"),
+                py::arg("normal"),
+                "Clip the mesh by a plane; returns the number of surface "
+                "primitives kept.")
+            .def(
+                "addSlice",
+                [](wrapped_type & self, py::sequence origin, py::sequence normal)
+                {
+                    return self.addSlice(seq_to_vec3(origin), seq_to_vec3(normal));
+                },
+                py::arg("origin"),
+                py::arg("normal"),
+                "Slice the mesh by a plane, drawing the cross-section outline; "
+                "returns the number of segments.")
+            .def("clearFilters", &wrapped_type::clearFilters)
+            .def(
                 "colorByCellType",
                 &wrapped_type::colorByCellType,
                 "Color the mesh by the cell element type through a discrete "

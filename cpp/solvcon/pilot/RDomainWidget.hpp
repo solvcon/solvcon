@@ -161,6 +161,18 @@ public:
     /// Remove the measurement ruler.
     void clearMeasurements();
 
+    /// Clip the mesh by a plane, keeping the side the normal points away from
+    /// (the near half, toward the normal, is removed). Returns the number of
+    /// surface primitives kept.
+    int addClip(QVector3D const & origin, QVector3D const & normal);
+
+    /// Slice the mesh by a plane, drawing the cross-section outline where the
+    /// plane cuts the cells. Returns the number of segments drawn.
+    int addSlice(QVector3D const & origin, QVector3D const & normal);
+
+    /// Remove the slice and clip filters.
+    void clearFilters();
+
     // Color the mesh cells by a categorical attribute through the qualitative
     // colormap with a legend: element type, cell group, or boundary set. Each
     // replaces the field with a per-cell-colored surface; clearCellColoring
@@ -347,6 +359,8 @@ private:
     RDrawable * m_selection = nullptr; ///< Highlight of the picked entity.
     RDrawable * m_ruler = nullptr; ///< The measurement ruler segments.
     RDrawable * m_cube_axes = nullptr; ///< The bounding-box cube-axes grid.
+    RDrawable * m_clip = nullptr; ///< The clipped surface drawable.
+    RDrawable * m_slice = nullptr; ///< The slice cross-section outline.
     std::vector<float> m_ticks_x; ///< Cube-axes tick coordinates per axis.
     std::vector<float> m_ticks_y;
     std::vector<float> m_ticks_z;

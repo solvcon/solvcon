@@ -1231,6 +1231,220 @@ void RDomainWidget::clearMeasurements()
     update();
 }
 
+int RDomainWidget::addClip(QVector3D const & origin, QVector3D const & normal)
+{
+    m_scene.removeDrawable(m_clip);
+    m_clip = nullptr;
+    if (nullptr == m_mesh)
+    {
+        return 0;
+    }
+    StaticMesh const & mh = *m_mesh;
+    uint32_t const ndim = mh.ndim();
+    QVector3D const n = normal.normalized();
+    auto coord = [&mh, ndim](int32_t ind, uint32_t dm) -> float
+    { return (dm < ndim) ? static_cast<float>(mh.ndcrd(ind, dm)) : 0.0f; };
+    auto side = [&](QVector3D const & p) -> float
+    { return QVector3D::dotProduct(p - origin, n); };
+
+    std::vector<float> verts;
+    std::vector<float> cols;
+    std::vector<uint32_t> tris;
+    auto add_polygon = [&](auto node, int32_t nnd)
+    {
+        for (int32_t k = 1; k + 1 < nnd; ++k)
+        {
+            int32_t const tri[3] = {node(0), node(k), node(k + 1)};
+            uint32_t const base = static_cast<uint32_t>(verts.size() / 3);
+            for (int32_t const ind : tri)
+            {
+                verts.push_back(coord(ind, 0));
+                verts.push_back(coord(ind, 1));
+                verts.push_back(coord(ind, 2));
+                cols.push_back(0.55f);
+                cols.push_back(0.62f);
+                cols.push_back(0.75f);
+            }
+            tris.push_back(base + 0);
+            tris.push_back(base + 1);
+            tris.push_back(base + 2);
+        }
+    };
+
+    int kept = 0;
+    if (3 == ndim)
+    {
+        SimpleArray<int32_t> const & bndfcs = mh.bndfcs();
+        for (size_t ibnd = 0; ibnd < bndfcs.shape(0); ++ibnd)
+        {
+            int32_t const ifc = bndfcs(ibnd, 0);
+            QVector3D const centroid(
+                static_cast<float>(mh.fccnd(ifc, 0)),
+                static_cast<float>(mh.fccnd(ifc, 1)),
+                static_cast<float>(mh.fccnd(ifc, 2)));
+            if (side(centroid) <= 0.0f)
+            {
+                add_polygon(
+                    [&mh, ifc](int32_t k)
+                    { return mh.fcnds(ifc, k + 1); },
+                    mh.fcnds(ifc, 0));
+                ++kept;
+            }
+        }
+    }
+    else
+    {
+        for (uint32_t icl = 0; icl < mh.ncell(); ++icl)
+        {
+            QVector3D const centroid(
+                static_cast<float>(mh.clcnd(icl, 0)),
+                static_cast<float>(mh.clcnd(icl, 1)),
+                0.0f);
+            if (side(centroid) <= 0.0f)
+            {
+                add_polygon(
+                    [&mh, icl](int32_t k)
+                    { return mh.clnds(icl, k + 1); },
+                    mh.clnds(icl, 0));
+                ++kept;
+            }
+        }
+    }
+
+    if (!verts.empty())
+    {
+        size_t const nvert = verts.size() / 3;
+        size_t const ntri = tris.size() / 3;
+        SimpleArray<float> va(std::vector<size_t>{nvert, 3});
+        SimpleArray<float> ca(std::vector<size_t>{nvert, 3});
+        SimpleArray<uint32_t> ia(std::vector<size_t>{ntri, 3});
+        for (size_t i = 0; i < nvert; ++i)
+        {
+            va(i, 0) = verts[3 * i + 0];
+            va(i, 1) = verts[3 * i + 1];
+            va(i, 2) = verts[3 * i + 2];
+            ca(i, 0) = cols[3 * i + 0];
+            ca(i, 1) = cols[3 * i + 1];
+            ca(i, 2) = cols[3 * i + 2];
+        }
+        for (size_t t = 0; t < ntri; ++t)
+        {
+            ia(t, 0) = tris[3 * t + 0];
+            ia(t, 1) = tris[3 * t + 1];
+            ia(t, 2) = tris[3 * t + 2];
+        }
+        auto clip = std::make_unique<RField>(va, ca, ia);
+        if (clip->hasGeometry())
+        {
+            m_clip = clip.get();
+            m_scene.addDrawable(std::move(clip));
+        }
+    }
+    update();
+    return kept;
+}
+
+int RDomainWidget::addSlice(QVector3D const & origin, QVector3D const & normal)
+{
+    m_scene.removeDrawable(m_slice);
+    m_slice = nullptr;
+    if (nullptr == m_mesh)
+    {
+        return 0;
+    }
+    StaticMesh const & mh = *m_mesh;
+    uint32_t const ndim = mh.ndim();
+    QVector3D const n = normal.normalized();
+    auto pos = [&mh, ndim](int32_t ind) -> QVector3D
+    {
+        return QVector3D(
+            static_cast<float>(mh.ndcrd(ind, 0)),
+            static_cast<float>(mh.ndcrd(ind, 1)),
+            (3 == ndim) ? static_cast<float>(mh.ndcrd(ind, 2)) : 0.0f);
+    };
+    auto side = [&](QVector3D const & p) -> float
+    { return QVector3D::dotProduct(p - origin, n); };
+
+    std::vector<QVector3D> segments;
+    for (uint32_t icl = 0; icl < mh.ncell(); ++icl)
+    {
+        int32_t const nnd = mh.clnds(icl, 0);
+        std::vector<int32_t> nd(static_cast<size_t>(nnd));
+        for (int32_t k = 0; k < nnd; ++k)
+        {
+            nd[k] = mh.clnds(icl, k + 1);
+        }
+
+        // Candidate edges: the polygon rim in 2D, every node pair in 3D (exact
+        // for a simplex, an over-set for a hex but the crossings stay on real
+        // faces).
+        std::vector<QVector3D> cuts;
+        auto try_edge = [&](int32_t ia, int32_t ib)
+        {
+            QVector3D const pa = pos(ia);
+            QVector3D const pb = pos(ib);
+            float const sa = side(pa);
+            float const sb = side(pb);
+            if (sa * sb < 0.0f)
+            {
+                float const t = sa / (sa - sb);
+                cuts.push_back(pa + t * (pb - pa));
+            }
+        };
+        if (3 == ndim)
+        {
+            for (int32_t a = 0; a < nnd; ++a)
+            {
+                for (int32_t b = a + 1; b < nnd; ++b)
+                {
+                    try_edge(nd[a], nd[b]);
+                }
+            }
+        }
+        else
+        {
+            for (int32_t k = 0; k < nnd; ++k)
+            {
+                try_edge(nd[k], nd[(k + 1) % nnd]);
+            }
+        }
+
+        if (2 == cuts.size())
+        {
+            segments.push_back(cuts[0]);
+            segments.push_back(cuts[1]);
+        }
+        else if (cuts.size() > 2)
+        {
+            // Close the crossing points into a loop to outline the cut face.
+            for (size_t k = 0; k < cuts.size(); ++k)
+            {
+                segments.push_back(cuts[k]);
+                segments.push_back(cuts[(k + 1) % cuts.size()]);
+            }
+        }
+    }
+
+    auto slice = std::make_unique<RSegments>(segments);
+    slice->setColor(QVector4D(0.10f, 0.10f, 0.10f, 1.0f));
+    if (slice->hasGeometry())
+    {
+        m_slice = slice.get();
+        m_scene.addDrawable(std::move(slice));
+    }
+    update();
+    return static_cast<int>(segments.size() / 2);
+}
+
+void RDomainWidget::clearFilters()
+{
+    m_scene.removeDrawable(m_clip);
+    m_scene.removeDrawable(m_slice);
+    m_clip = nullptr;
+    m_slice = nullptr;
+    update();
+}
+
 void RDomainWidget::fitCameraToScene()
 {
     m_scene.fitCameraToScene(viewportAspect());
