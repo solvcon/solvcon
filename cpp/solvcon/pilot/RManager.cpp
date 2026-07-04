@@ -76,14 +76,6 @@ void RManager::reset()
     }
     m_core.reset();
     m_mainWindow = nullptr;
-    m_fileMenu = nullptr;
-    m_editMenu = nullptr;
-    m_viewMenu = nullptr;
-    m_oneMenu = nullptr;
-    m_meshMenu = nullptr;
-    m_canvasMenu = nullptr;
-    m_profilingMenu = nullptr;
-    m_windowMenu = nullptr;
     m_menuModel = nullptr;
     m_pycon = nullptr;
     m_mdiArea = nullptr;
@@ -328,16 +320,16 @@ void RManager::setUpMenu()
 
     // Seed the bar from one weighted table, the single source of truth for
     // its order. The weight bands leave room to slot a menu between two
-    // others without renumbering. The members hold the model's menus until
-    // the getters become adapters over the model.
-    m_fileMenu = m_menuModel->menu("File", 0);
-    m_editMenu = m_menuModel->menu("Edit", 10);
-    m_viewMenu = m_menuModel->menu("View", 20);
-    m_oneMenu = m_menuModel->menu("One", 30);
-    m_meshMenu = m_menuModel->menu("Mesh", 40);
-    m_canvasMenu = m_menuModel->menu("Canvas", 50);
-    m_profilingMenu = m_menuModel->menu("Profiling", 60);
-    m_windowMenu = m_menuModel->menu("Window", 70);
+    // others without renumbering. Consumers reach these menus through the
+    // model by path.
+    m_menuModel->menu("File", 0);
+    m_menuModel->menu("Edit", 10);
+    m_menuModel->menu("View", 20);
+    m_menuModel->menu("One", 30);
+    m_menuModel->menu("Mesh", 40);
+    m_menuModel->menu("Canvas", 50);
+    m_menuModel->menu("Profiling", 60);
+    m_menuModel->menu("Window", 70);
 
     setUpEditMenuItems();
     // Code for controlling camera is not exposed to Python yet.

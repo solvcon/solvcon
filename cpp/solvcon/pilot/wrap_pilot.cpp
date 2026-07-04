@@ -864,14 +864,6 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRManager
                 {
                     return self.mainWindow();
                 })
-            .def_property_readonly("fileMenu", &wrapped_type::fileMenu)
-            .def_property_readonly("editMenu", &wrapped_type::editMenu)
-            .def_property_readonly("viewMenu", &wrapped_type::viewMenu)
-            .def_property_readonly("oneMenu", &wrapped_type::oneMenu)
-            .def_property_readonly("meshMenu", &wrapped_type::meshMenu)
-            .def_property_readonly("canvasMenu", &wrapped_type::canvasMenu)
-            .def_property_readonly("profilingMenu", &wrapped_type::profilingMenu)
-            .def_property_readonly("windowMenu", &wrapped_type::windowMenu)
             .def_property_readonly(
                 "menu_model",
                 [](wrapped_type & self)
