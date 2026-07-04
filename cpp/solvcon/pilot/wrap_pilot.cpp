@@ -12,6 +12,8 @@
 #include <solvcon/pilot/RMenuModel.hpp>
 #include <solvcon/pilot/pilot.hpp>
 
+#include <QAction>
+#include <QActionGroup>
 #include <QClipboard>
 #include <QMenu>
 #include <QPixmap>
@@ -105,6 +107,8 @@ public:
     }
 
 QT_TYPE_CASTER(QWidget, _("QWidget"));
+QT_TYPE_CASTER(QAction, _("QAction"));
+QT_TYPE_CASTER(QActionGroup, _("QActionGroup"));
 QT_TYPE_CASTER(QMenu, _("QMenu"));
 QT_TYPE_CASTER(QCoreApplication, _("QCoreApplication"));
 QT_TYPE_CASTER(QApplication, _("QApplication"));
@@ -693,6 +697,51 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRMenuModel
                 "Resolve or create the menu at a slash-separated path, "
                 "creating ancestors on demand; weight orders the node among "
                 "its siblings.")
+            .def(
+                "place",
+                [](wrapped_type & self, std::string const & path, QAction * action, int weight)
+                {
+                    self.place(path, action, weight);
+                },
+                py::arg("path"),
+                py::arg("action"),
+                py::arg("weight") = 50,
+                "Place an action in the menu at a path, ordered by weight; the "
+                "action is registered under its objectName when set.")
+            .def(
+                "place_separator",
+                [](wrapped_type & self, std::string const & path, int weight)
+                {
+                    self.placeSeparator(path, weight);
+                },
+                py::arg("path"),
+                py::arg("weight") = 50)
+            .def(
+                "action",
+                [](wrapped_type & self, std::string const & id) -> py::object
+                {
+                    // The Qt caster dereferences the pointer to find its
+                    // PySide type, so an unknown id must return None here.
+                    QAction * found = self.action(id);
+                    return found ? py::cast(found) : py::none();
+                },
+                py::arg("id"),
+                "The action registered under an id, or None.")
+            .def(
+                "remove",
+                [](wrapped_type & self, std::string const & id)
+                {
+                    self.remove(id);
+                },
+                py::arg("id"))
+            .def(
+                "group",
+                [](wrapped_type & self, std::string const & id)
+                {
+                    return self.group(id);
+                },
+                py::arg("id"),
+                "The named QActionGroup, created on first use.")
             .def(
                 "clear",
                 [](wrapped_type & self)

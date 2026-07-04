@@ -9,6 +9,7 @@ import solvcon
 
 try:
     from solvcon import pilot
+    from PySide6 import QtGui
 except ImportError:
     pilot = None
 
@@ -86,6 +87,73 @@ class MenuModelTC(unittest.TestCase):
         self.assertIn("Temp", self._top_level())
         self.model.clear()
         self.assertNotIn("Temp", self._top_level())
+
+
+@unittest.skipIf(GITHUB_ACTIONS or not solvcon.HAS_PILOT,
+                 "GUI is not available in GitHub Actions")
+class MenuPlacementTC(unittest.TestCase):
+    def setUp(self):
+        self.mgr = pilot.RManager.instance.setUp()
+        self.model = self.mgr.menu_model
+        self.model.clear()
+
+    def _act(self, text, oid):
+        act = QtGui.QAction(text, self.mgr.mainWindow)
+        act.setObjectName(oid)
+        return act
+
+    def _items(self, path):
+        return [a.text() for a in self.model.menu(path).actions()]
+
+    def test_place_orders_items_by_weight(self):
+        self.model.place("Box", self._act("Later", "b.later"), weight=40)
+        self.model.place("Box", self._act("Early", "b.early"), weight=10)
+        self.model.place("Box", self._act("Middle", "b.middle"), weight=25)
+        self.assertEqual(self._items("Box"), ["Early", "Middle", "Later"])
+
+    def test_place_equal_weight_keeps_arrival_order(self):
+        self.model.place("Box", self._act("First", "b.1"), weight=10)
+        self.model.place("Box", self._act("Second", "b.2"), weight=10)
+        self.model.place("Box", self._act("Third", "b.3"), weight=10)
+        self.assertEqual(self._items("Box"), ["First", "Second", "Third"])
+
+    def test_items_and_submenu_interleave_by_weight(self):
+        self.model.place("Box", self._act("Top", "b.top"), weight=5)
+        self.model.menu("Box/Sub", weight=10)
+        self.model.place("Box", self._act("Bottom", "b.bottom"), weight=20)
+        self.assertEqual(self._items("Box"), ["Top", "Sub", "Bottom"])
+
+    def test_action_id_round_trip(self):
+        act = self._act("Named", "box.named")
+        self.model.place("Box", act, weight=10)
+        self.assertEqual(self.model.action("box.named"), act)
+        self.assertIsNone(self.model.action("box.missing"))
+
+    def test_remove_takes_item_out(self):
+        self.model.place("Box", self._act("Gone", "box.gone"), weight=10)
+        self.assertIn("Gone", self._items("Box"))
+        self.model.remove("box.gone")
+        self.assertIsNone(self.model.action("box.gone"))
+        self.assertNotIn("Gone", self._items("Box"))
+
+    def test_remove_finds_item_in_a_submenu(self):
+        self.model.place("Box/Sub", self._act("Deep", "box.deep"), weight=10)
+        self.assertIn("Deep", self._items("Box/Sub"))
+        self.model.remove("box.deep")
+        self.assertNotIn("Deep", self._items("Box/Sub"))
+
+    def test_place_separator(self):
+        self.model.place("Box", self._act("A", "box.a"), weight=10)
+        self.model.place_separator("Box", weight=15)
+        self.model.place("Box", self._act("B", "box.b"), weight=20)
+        actions = self.model.menu("Box").actions()
+        self.assertTrue(actions[1].isSeparator())
+        self.assertEqual([actions[0].text(), actions[2].text()], ["A", "B"])
+
+    def test_group_is_created_once(self):
+        first = self.model.group("modes")
+        second = self.model.group("modes")
+        self.assertEqual(first, second)
 
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
