@@ -216,7 +216,7 @@ class MeshInfoTC(unittest.TestCase):
     def test_overlay_toggles_drive_viewer(self):
         widget = self.mgr.add3DWidget()
         widget.updateMesh(_make_sample_mesh())
-        feature = _mesh_info.MeshInfo(mgr=self.mgr, menu=self.menu,
+        feature = _mesh_info.MeshInfo(mgr=self.mgr,
                                       style_status=self.status)
         feature.populate_menu()
         feature._action.setChecked(True)
