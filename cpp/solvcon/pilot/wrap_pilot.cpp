@@ -9,6 +9,7 @@
 #include <solvcon/python/common.hpp>
 
 #include <solvcon/pilot/R2DWidget.hpp>
+#include <solvcon/pilot/RMenuModel.hpp>
 #include <solvcon/pilot/pilot.hpp>
 
 #include <QClipboard>
@@ -668,6 +669,42 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRPythonConsoleDockWidget
 
 }; /* end class WrapRPythonConsoleDockWidget */
 
+class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRMenuModel
+    : public WrapBase<WrapRMenuModel, RMenuModel>
+{
+
+    friend root_base_type;
+
+    WrapRMenuModel(pybind11::module & mod, char const * pyname, char const * pydoc)
+        : root_base_type(mod, pyname, pydoc)
+    {
+
+        namespace py = pybind11;
+
+        (*this)
+            .def(
+                "menu",
+                [](wrapped_type & self, std::string const & path, int weight)
+                {
+                    return self.menu(path, weight);
+                },
+                py::arg("path"),
+                py::arg("weight") = -1,
+                "Resolve or create the menu at a slash-separated path, "
+                "creating ancestors on demand; weight orders the node among "
+                "its siblings.")
+            .def(
+                "clear",
+                [](wrapped_type & self)
+                {
+                    self.clear();
+                })
+            //
+            ;
+    }
+
+}; /* end class WrapRMenuModel */
+
 class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRManager
     : public WrapBase<WrapRManager, RManager>
 {
@@ -779,12 +816,19 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRManager
                     return self.mainWindow();
                 })
             .def_property_readonly("fileMenu", &wrapped_type::fileMenu)
+            .def_property_readonly("editMenu", &wrapped_type::editMenu)
             .def_property_readonly("viewMenu", &wrapped_type::viewMenu)
             .def_property_readonly("oneMenu", &wrapped_type::oneMenu)
             .def_property_readonly("meshMenu", &wrapped_type::meshMenu)
             .def_property_readonly("canvasMenu", &wrapped_type::canvasMenu)
             .def_property_readonly("profilingMenu", &wrapped_type::profilingMenu)
             .def_property_readonly("windowMenu", &wrapped_type::windowMenu)
+            .def_property_readonly(
+                "menu_model",
+                [](wrapped_type & self)
+                {
+                    return self.menuModel();
+                })
             .def(
                 "quit",
                 [](wrapped_type & self)
@@ -882,6 +926,12 @@ void wrap_pilot(pybind11::module & mod)
         "saveImage / clipImage.");
     WrapR2DWidget::commit(mod, "R2DWidget", "R2DWidget");
     WrapRPythonConsoleDockWidget::commit(mod, "RPythonConsoleDockWidget", "RPythonConsoleDockWidget");
+    WrapRMenuModel::commit(
+        mod,
+        "RMenuModel",
+        "Live model of the pilot menu bar. Address menus by a slash-separated "
+        "path with menu(path, weight); a smaller weight sits earlier and a "
+        "negative weight appends. clear() empties the bar.");
     WrapRManager::commit(mod, "RManager", "RManager");
     WrapRManagerProxy::commit(mod, "RManagerProxy", "RManagerProxy");
 

@@ -31,6 +31,8 @@
 namespace solvcon
 {
 
+class RMenuModel;
+
 /**
  * @brief Singleton that owns the pilot main window and coordinates its
  * widgets, menus, and the active canvas drawing tool.
@@ -87,6 +89,9 @@ public:
     QMenu * profilingMenu() { return m_profilingMenu; }
     QMenu * windowMenu() { return m_windowMenu; }
 
+    /// The live model of the menu bar, addressable by path from Python.
+    RMenuModel * menuModel() { return m_menuModel; }
+
     void quit() { m_core->quit(); }
 
     /// Only call reset() when the program is to be stopped.
@@ -137,6 +142,9 @@ private:
     QMenu * m_canvasMenu = nullptr;
     QMenu * m_profilingMenu = nullptr;
     QMenu * m_windowMenu = nullptr;
+
+    /// Live menu model owned by the widget tree (parented to the main window).
+    RMenuModel * m_menuModel = nullptr;
 
     RPythonConsoleDockWidget * m_pycon = nullptr;
     QMdiArea * m_mdiArea = nullptr;

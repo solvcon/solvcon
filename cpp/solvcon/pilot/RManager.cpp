@@ -10,6 +10,7 @@
 
 #include <solvcon/pilot/DrawTool.hpp>
 #include <solvcon/pilot/RAction.hpp>
+#include <solvcon/pilot/RMenuModel.hpp>
 #include <Qt>
 #include <QMenuBar>
 #include <QMenu>
@@ -65,6 +66,12 @@ void RManager::reset()
     // Qt's parent-child mechanism will delete widget children; we only
     // need to ensure our raw pointers don't dangle after the call.
     m_already_setup = false;
+    // Empty the menu model while the application (and its widgets) is still
+    // alive, so a repeated setUp on the singleton starts from a clean bar.
+    if (m_menuModel)
+    {
+        m_menuModel->clear();
+    }
     m_core.reset();
     m_mainWindow = nullptr;
     m_fileMenu = nullptr;
@@ -75,6 +82,7 @@ void RManager::reset()
     m_canvasMenu = nullptr;
     m_profilingMenu = nullptr;
     m_windowMenu = nullptr;
+    m_menuModel = nullptr;
     m_pycon = nullptr;
     m_mdiArea = nullptr;
     m_rhi_primer = nullptr;
@@ -290,6 +298,10 @@ void RManager::setUpMenu()
     m_mainWindow->setMenuBar(new QMenuBar(nullptr));
     // NOTE: All menus need to be populated or Windows may crash with
     // "exited with code -1073740791".  The reason is not yet clarified.
+
+    // The live menu model shares the same bar; consumers migrate onto it in
+    // later steps. Parent it to the main window so the widget tree owns it.
+    m_menuModel = new RMenuModel(m_mainWindow, m_mainWindow);
 
     m_fileMenu = m_mainWindow->menuBar()->addMenu(QString("File"));
     m_editMenu = m_mainWindow->menuBar()->addMenu(QString("Edit"));
