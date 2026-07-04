@@ -34,11 +34,13 @@ class LinearWave1DApp(_base_app.OneDimBaseApp):
         """
         Set menu item for GUI.
         """
-        self._add_menu_item(
-            menu=self._mgr.oneMenu,
+        self.add_action(
+            "One",
             text="Linear Wave",
             tip="",
             func=self.run,
+            id="one.linear_wave",
+            weight=30,
         )
 
     def init_solver_config(self):

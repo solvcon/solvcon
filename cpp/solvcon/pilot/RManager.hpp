@@ -80,15 +80,6 @@ public:
     template <typename... Args>
     QMdiSubWindow * addSubWindow(Args &&... args);
 
-    QMenu * fileMenu() { return m_fileMenu; }
-    QMenu * editMenu() { return m_editMenu; }
-    QMenu * viewMenu() { return m_viewMenu; }
-    QMenu * oneMenu() { return m_oneMenu; }
-    QMenu * meshMenu() { return m_meshMenu; }
-    QMenu * canvasMenu() { return m_canvasMenu; }
-    QMenu * profilingMenu() { return m_profilingMenu; }
-    QMenu * windowMenu() { return m_windowMenu; }
-
     /// The live model of the menu bar, addressable by path from Python.
     RMenuModel * menuModel() { return m_menuModel; }
 
@@ -133,15 +124,6 @@ private:
     std::unique_ptr<QCoreApplication> m_core = nullptr;
 
     QMainWindow * m_mainWindow = nullptr;
-
-    QMenu * m_fileMenu = nullptr;
-    QMenu * m_editMenu = nullptr;
-    QMenu * m_viewMenu = nullptr;
-    QMenu * m_oneMenu = nullptr;
-    QMenu * m_meshMenu = nullptr;
-    QMenu * m_canvasMenu = nullptr;
-    QMenu * m_profilingMenu = nullptr;
-    QMenu * m_windowMenu = nullptr;
 
     /// Live menu model owned by the widget tree (parented to the main window).
     RMenuModel * m_menuModel = nullptr;

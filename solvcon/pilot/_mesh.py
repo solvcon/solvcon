@@ -293,11 +293,13 @@ class SampleMeshDialog(_gui_common.PilotFeature):
         self._tree = None
 
     def populate_menu(self):
-        self._add_menu_item(
-            menu=self._mgr.meshMenu,
+        self.add_action(
+            "Mesh",
             text="Sample mesh dialog",
             tip="Choose an example mesh to create",
             func=self.open_dialog,
+            id="mesh.sample_dialog",
+            weight=10,
         )
 
     def open_dialog(self):
@@ -397,7 +399,7 @@ class MeshStyleStatus(QtCore.QObject):
     def populate_menu(self):
         """Add the View > Mesh styles submenu of independent check items."""
         window = self._mgr.mainWindow
-        submenu = QtWidgets.QMenu("Mesh styles", window)
+        submenu = self._mgr.menu_model.menu("View/Mesh styles")
         for name, label in self.STYLES:
             act = QtGui.QAction(label, window)
             act.setCheckable(True)
@@ -408,7 +410,6 @@ class MeshStyleStatus(QtCore.QObject):
             self._actions[name] = act
             submenu.addAction(act)
         self.changed.connect(self._sync_menu)
-        self._mgr.viewMenu.addMenu(submenu)
 
     def _sync_menu(self):
         """Match the menu check marks to the active viewer's styles."""
@@ -432,11 +433,13 @@ class GmshFileDialog(_gui_common.PilotFeature):
         self._diag.open(self, QtCore.SLOT('on_finished()'))
 
     def populate_menu(self):
-        self._add_menu_item(
-            menu=self._mgr.fileMenu,
+        self.add_action(
+            "File",
             text="Open Gmsh file",
             tip="Open Gmsh file",
             func=self.run,
+            id="file.gmsh",
+            weight=10,
         )
 
     @QtCore.Slot()
