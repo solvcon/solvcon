@@ -17,6 +17,14 @@ drives them.
   runtime: call it again to replace the previous one.
 - **Boundary highlight**: `showBoundary(ibc, on)` highlights boundary set
   `ibc`.
+- **Feature edges**: `showFeatureEdges(on)` draws the domain's boundary
+  (feature) edges as one bold orange overlay over the hairline wireframe. It
+  is the whole outline in a single color, distinct from the per-set boundary
+  highlight. Off by default.
+- **Face normals**: `showNormals(on)` draws a short green arrow at every face
+  center pointing along the face normal, for checking orientation. The arrows
+  are scaled to a small fraction of the mesh, so they read as short quills.
+  Off by default.
 - **Orientation guide**: `showAxis(on)` shows a small axis triad in the corner,
   two axes for a 2D domain and three for a 3D one, oriented by the camera. It
   is hidden by default.
@@ -116,6 +124,8 @@ mgr = pilot.RManager.instance.setUp()
 viewer = mgr.add3DWidget()
 
 viewer.updateMesh(mesh)             # show the wireframe
+viewer.showFeatureEdges(True)       # bold outline of the domain boundary
+viewer.showNormals(True)            # a short arrow per face normal
 viewer.cameraMode = "orbit"         # orbit a 3D domain (the default)
 viewer.fitCameraToScene()           # frame the whole domain
 

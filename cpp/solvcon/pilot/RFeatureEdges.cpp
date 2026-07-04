@@ -1,9 +1,9 @@
 /*
- * Copyright (c) 2025, solvcon team <contact@solvcon.net>
+ * Copyright (c) 2026, solvcon team <contact@solvcon.net>
  * BSD 3-Clause License, see COPYING
  */
 
-#include <solvcon/pilot/RBoundary.hpp> // Must be the first include.
+#include <solvcon/pilot/RFeatureEdges.hpp> // Must be the first include.
 
 #include <solvcon/pilot/render_misc.hpp>
 
@@ -15,49 +15,32 @@ namespace solvcon
 namespace
 {
 
-/// Pick a distinct, saturated color for a boundary set so neighboring sets
-/// stay tellable apart; the palette repeats for meshes with many sets.
-std::array<float, 3> boundary_color(int ibc)
-{
-    static const std::array<std::array<float, 3>, 6> palette{{
-        {1.0f, 0.20f, 0.20f}, // red
-        {0.20f, 0.60f, 1.0f}, // blue
-        {0.20f, 0.80f, 0.30f}, // green
-        {1.0f, 0.70f, 0.10f}, // amber
-        {0.80f, 0.30f, 0.90f}, // purple
-        {0.10f, 0.80f, 0.80f}, // teal
-    }};
-    return palette.at(static_cast<size_t>(ibc < 0 ? 0 : ibc) % palette.size());
-}
+// A bold orange, distinct from the black wireframe, the white background, and
+// the per-set boundary palette.
+constexpr std::array<float, 3> FEATURE_COLOR{0.95f, 0.45f, 0.05f};
 
 } /* end namespace */
 
-RBoundary::RBoundary(std::shared_ptr<StaticMesh> const & mesh, int ibc)
-    : m_ibc(ibc)
+RFeatureEdges::RFeatureEdges(std::shared_ptr<StaticMesh> const & mesh)
 {
-    build(*mesh, ibc);
+    build(*mesh);
 }
 
-void RBoundary::build(StaticMesh const & mh, int ibc)
+void RFeatureEdges::build(StaticMesh const & mh)
 {
-    // Gather the boundary-set edges as node-index pairs, then widen them into
-    // the colored ribbon.
+    // Every boundary face, across all sets, contributes its rim edges.
     SimpleCollector<uint32_t> ends;
     SimpleArray<int32_t> const & bndfcs = mh.bndfcs();
     for (size_t ibnd = 0; ibnd < bndfcs.shape(0); ++ibnd)
     {
-        if (bndfcs(ibnd, 1) == ibc)
-        {
-            append_face_edges(mh, bndfcs(ibnd, 0), ends);
-        }
+        append_face_edges(mh, bndfcs(ibnd, 0), ends);
     }
 
-    std::array<float, 3> const color = boundary_color(ibc);
-    append_edge_ribbons(mh, ends, color, m_interleaved, m_indices);
-    setColor(QVector4D(color[0], color[1], color[2], 1.0f));
+    append_edge_ribbons(mh, ends, FEATURE_COLOR, m_interleaved, m_indices);
+    setColor(QVector4D(FEATURE_COLOR[0], FEATURE_COLOR[1], FEATURE_COLOR[2], 1.0f));
 }
 
-QRhiVertexInputLayout RBoundary::vertexInputLayout() const
+QRhiVertexInputLayout RFeatureEdges::vertexInputLayout() const
 {
     QRhiVertexInputLayout layout;
     layout.setBindings({{6 * sizeof(float)}});
@@ -68,7 +51,7 @@ QRhiVertexInputLayout RBoundary::vertexInputLayout() const
     return layout;
 }
 
-void RBoundary::createGeometry(QRhi * rhi, QRhiResourceUpdateBatch * batch)
+void RFeatureEdges::createGeometry(QRhi * rhi, QRhiResourceUpdateBatch * batch)
 {
     if (0 == m_interleaved.size() || 0 == m_indices.size())
     {

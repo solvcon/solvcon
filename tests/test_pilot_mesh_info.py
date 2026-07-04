@@ -214,6 +214,30 @@ class MeshInfoTC(unittest.TestCase):
         self.assertTrue(widget.meshStyleShown("points"))
         self.assertTrue(self.status._actions["points"].isChecked())
 
+    def test_overlay_toggles_drive_viewer(self):
+        widget = self.mgr.add3DWidget()
+        widget.updateMesh(_make_sample_mesh())
+        feature = _mesh_info.MeshInfo(mgr=self.mgr, menu=self.menu,
+                                      style_status=self.status)
+        feature.populate_menu()
+        feature._action.setChecked(True)
+        root = feature._panel._tree.topLevelItem(0)
+        for label, attr in (("feature edges", "edges_toggled"),
+                            ("normals", "normals_toggled")):
+            calls = []
+            inner = getattr(feature._panel, attr)
+
+            def record(checked, calls=calls, inner=inner):
+                calls.append(checked)
+                inner(checked)
+            setattr(feature._panel, attr, record)
+            item = next(root.child(i) for i in range(root.childCount())
+                        if root.child(i).text(0) == label)
+            self.assertEqual(item.checkState(0), Qt.Unchecked)  # default off
+            item.setCheckState(0, Qt.Checked)
+            item.setCheckState(0, Qt.Unchecked)
+            self.assertEqual(calls, [True, False])
+
     def test_panel_without_mesh(self):
         self.mgr.add3DWidget()  # fresh viewer becomes current, no mesh
         feature = _mesh_info.MeshInfo(mgr=self.mgr, menu=self.menu,

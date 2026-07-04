@@ -6,8 +6,10 @@
 #include <solvcon/pilot/RDomainWidget.hpp> // Must be the first include.
 
 #include <solvcon/pilot/RBoundary.hpp>
+#include <solvcon/pilot/RFeatureEdges.hpp>
 #include <solvcon/pilot/RField.hpp>
 #include <solvcon/pilot/RMeshFrame.hpp>
+#include <solvcon/pilot/RNormals.hpp>
 
 #include <QGestureEvent>
 #include <QKeyEvent>
@@ -240,6 +242,44 @@ void RDomainWidget::showBoundary(int ibc, bool show)
         if (boundary->hasGeometry())
         {
             m_scene.addDrawable(std::move(boundary));
+        }
+    }
+
+    update();
+}
+
+void RDomainWidget::showFeatureEdges(bool show)
+{
+    // Drop any existing overlay so a re-show stays single and a hide leaves
+    // none behind.
+    m_scene.removeDrawableIf(
+        [](RDrawable const * d)
+        { return nullptr != dynamic_cast<RFeatureEdges const *>(d); });
+
+    if (show && nullptr != m_mesh)
+    {
+        auto edges = std::make_unique<RFeatureEdges>(m_mesh);
+        if (edges->hasGeometry())
+        {
+            m_scene.addDrawable(std::move(edges));
+        }
+    }
+
+    update();
+}
+
+void RDomainWidget::showNormals(bool show)
+{
+    m_scene.removeDrawableIf(
+        [](RDrawable const * d)
+        { return nullptr != dynamic_cast<RNormals const *>(d); });
+
+    if (show && nullptr != m_mesh)
+    {
+        auto normals = std::make_unique<RNormals>(m_mesh);
+        if (normals->hasGeometry())
+        {
+            m_scene.addDrawable(std::move(normals));
         }
     }
 
