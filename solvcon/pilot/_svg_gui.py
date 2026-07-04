@@ -35,11 +35,13 @@ class SVGFileDialog(_gui_common.PilotFeature):
         self._diag.open(self, QtCore.SLOT('on_finished()'))
 
     def populate_menu(self):
-        self._add_menu_item(
-            menu=self._mgr.fileMenu,
+        self.add_action(
+            "File",
             text="Open SVG file",
             tip="Open SVG file",
             func=self.run,
+            id="file.svg",
+            weight=20,
         )
 
     @QtCore.Slot()

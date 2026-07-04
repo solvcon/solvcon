@@ -46,11 +46,13 @@ class Profiling(_gui_common.PilotFeature):
         self._diag.setWindowTitle("Open profiling file")
 
     def populate_menu(self):
-        self._add_menu_item(
-            menu=self._mgr.profilingMenu,
+        self.add_action(
+            "Profiling",
             text="Open profiling result",
             tip="Open JSON file of profiling result",
             func=self.open_profiling_result,
+            id="profiling.open",
+            weight=10,
         )
 
     def open_profiling_result(self):
@@ -191,11 +193,13 @@ class RunProfiling(_gui_common.PilotFeature):
         self.prof_opt = {}
 
     def populate_menu(self):
-        self._add_menu_item(
-            menu=self._mgr.profilingMenu,
+        self.add_action(
+            "Profiling",
             text="Profiling script",
             tip="Run profiling from script",
             func=self.load_profile_util,
+            id="profiling.run",
+            weight=20,
         )
 
     def load_profile_util(self):

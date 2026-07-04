@@ -78,11 +78,13 @@ class Burgers1DApp(_base_app.OneDimBaseApp):
         """
         Set menu item for GUI.
         """
-        self._add_menu_item(
-            menu=self._mgr.oneMenu,
+        self.add_action(
+            "One",
             text="Burgers equation",
             tip="One-dimensional Burgers equation problem",
             func=self.run,
+            id="one.burgers",
+            weight=20,
         )
 
     def get_region_solver_config(self):

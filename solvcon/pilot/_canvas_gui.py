@@ -29,67 +29,84 @@ class Canvas(_gui_common.PilotFeature):
         self._blank_worlds = []
 
     def populate_menu(self):
-        self._add_menu_item(
-            menu=self._mgr.canvasMenu,
+        self.add_action(
+            "Canvas",
             text="Sample: Create ICCAD-2013",
             tip="Create ICCAD-2013 polygon examples",
             func=self.mesh_iccad_2013,
+            id="canvas.sample.iccad2013",
+            weight=10,
         )
-
-        tip = "Draw a sample S-shaped cubic Bezier curve with control points"
-        self._add_menu_item(
-            menu=self._mgr.canvasMenu,
+        self.add_action(
+            "Canvas",
             text="Sample: Bezier S-curve",
-            tip=tip,
+            tip="Draw a sample S-shaped cubic Bezier curve with control "
+                "points",
             func=self._bezier_s_curve,
+            id="canvas.sample.bezier_s",
+            weight=20,
         )
-        self._add_menu_item(
-            menu=self._mgr.canvasMenu,
+        self.add_action(
+            "Canvas",
             text="Sample: Bezier Arch",
             tip="Draw a sample arch-shaped cubic Bezier curve with control "
                 "points",
             func=self._bezier_arch,
+            id="canvas.sample.bezier_arch",
+            weight=30,
         )
-        self._add_menu_item(
-            menu=self._mgr.canvasMenu,
+        self.add_action(
+            "Canvas",
             text="Sample: Bezier Loop",
             tip="Draw a sample loop-like cubic Bezier curve with control "
                 "points",
             func=self._bezier_loop,
+            id="canvas.sample.bezier_loop",
+            weight=40,
         )
-        self._add_menu_item(
-            menu=self._mgr.canvasMenu,
+        self.add_action(
+            "Canvas",
             text="Sample: Ellipse",
             tip="Draw a sample ellipse (a=2, b=1)",
             func=self._ellipse,
+            id="canvas.sample.ellipse",
+            weight=50,
         )
-        self._add_menu_item(
-            menu=self._mgr.canvasMenu,
+        self.add_action(
+            "Canvas",
             text="Sample: Parabola",
             tip="Draw a sample parabola (y = 0.5*x^2)",
             func=self._parabola,
+            id="canvas.sample.parabola",
+            weight=60,
         )
-        self._add_menu_item(
-            menu=self._mgr.canvasMenu,
+        self.add_action(
+            "Canvas",
             text="Sample: Hyperbola",
             tip="Draw a sample hyperbola (both branches)",
             func=self._hyperbola,
+            id="canvas.sample.hyperbola",
+            weight=70,
         )
 
-        self._mgr.canvasMenu.addSeparator()
-        self._add_menu_item(
-            menu=self._mgr.canvasMenu,
+        self._mgr.menu_model.place_separator("Canvas", weight=75)
+        self.add_action(
+            "Canvas",
             text="Create blank 2D canvas",
             tip="Open an empty 2D canvas with the Painter toolbox for "
                 "drawing shapes",
             func=self._create_blank_2d_canvas,
+            id="canvas.blank_2d",
+            weight=80,
         )
-        self._add_menu_item(
-            menu=self._mgr.canvasMenu,
+        self.add_action(
+            "Canvas",
             text="View: Open canvas in 2D",
             tip="Show the current canvas world in a strictly-2D QPainter "
                 "widget; the same world also drives the 3D view",
             func=self._open_2d,
+            id="canvas.open_2d",
+            weight=90,
         )
 
     def _create_blank_2d_canvas(self):

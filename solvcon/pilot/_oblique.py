@@ -129,12 +129,14 @@ class ObliqueShockSolver(_gui_common.PilotFeature):
         super(ObliqueShockSolver, self).__init__(*args, **kw)
 
     def populate_menu(self):
-        self._add_menu_item(
-            menu=self._mgr.meshMenu,
+        self.add_action(
+            "Mesh",
             text="(WIP) Oblique-shock solution (density)",
             tip="March the oblique-shock Euler solver and draw the density "
                 "as a 2D color field",
             func=self._run,
+            id="mesh.oblique_solver",
+            weight=20,
         )
 
     def _run(self):

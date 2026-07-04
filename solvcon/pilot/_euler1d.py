@@ -16,11 +16,13 @@ class Euler1DApp(_base_app.OneDimBaseApp):
         """
         Set menu item for GUI.
         """
-        self._add_menu_item(
-            menu=self._mgr.oneMenu,
+        self.add_action(
+            "One",
             text="Euler solver",
             tip="One-dimensional shock-tube problem with Euler solver",
             func=self.run,
+            id="one.euler",
+            weight=10,
         )
 
     def init_solver_config(self):
