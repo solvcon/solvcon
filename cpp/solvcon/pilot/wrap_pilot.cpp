@@ -175,6 +175,34 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRDomainWidget
                 py::arg("h"))
             .def_property_readonly("mesh", &wrapped_type::mesh)
             .def("updateMesh", &wrapped_type::updateMesh, py::arg("mesh"))
+            .def(
+                "addObject",
+                &wrapped_type::addObject,
+                py::arg("name"),
+                py::arg("mesh"),
+                "Register a mesh as a named, lit surface object in the scene.")
+            .def(
+                "setObjectTransform",
+                &wrapped_type::setObjectTransform,
+                py::arg("name"),
+                py::arg("tx"),
+                py::arg("ty"),
+                py::arg("tz"),
+                py::arg("sx") = 1.0f,
+                py::arg("sy") = 1.0f,
+                py::arg("sz") = 1.0f,
+                "Set a named object's translate and scale model transform.")
+            .def(
+                "setObjectVisible",
+                &wrapped_type::setObjectVisible,
+                py::arg("name"),
+                py::arg("visible"))
+            .def(
+                "setObjectOpacity",
+                &wrapped_type::setObjectOpacity,
+                py::arg("name"),
+                py::arg("opacity"))
+            .def("objectNames", &wrapped_type::objectNames)
             .def("showMesh", &wrapped_type::showMesh, py::arg("show"))
             .def("setMeshOpacity", &wrapped_type::setMeshOpacity, py::arg("opacity"))
             .def("setFieldOpacity", &wrapped_type::setFieldOpacity, py::arg("opacity"))
@@ -526,6 +554,19 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRDomainWidget
                     self.grabImage().save(filename.c_str());
                 },
                 py::arg("filename"))
+            .def(
+                "renderToImage",
+                [](wrapped_type & self, std::string const & filename, int width, int height, bool transparent)
+                {
+                    return self.renderToImage(width, height, transparent).save(filename.c_str());
+                },
+                py::arg("path"),
+                py::arg("width"),
+                py::arg("height"),
+                py::arg("transparent") = false,
+                "Render the scene offscreen at width x height (independent of "
+                "the widget size), with an optional transparent background, "
+                "and save it to path; returns whether the write succeeded.")
             .def(
                 "clipImage",
                 [](wrapped_type & self)

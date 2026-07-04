@@ -23,6 +23,7 @@
 #include <QVector4D>
 
 #include <memory>
+#include <string>
 #include <vector>
 
 namespace solvcon
@@ -58,6 +59,15 @@ public:
 
     void setColor(QVector4D const & color) { m_color = color; }
     QVector4D color() const { return m_color; }
+
+    /// The model transform applied before the view-projection; identity by
+    /// default, so a single object renders where its geometry already sits.
+    void setModel(QMatrix4x4 const & model) { m_model = model; }
+    QMatrix4x4 model() const { return m_model; }
+
+    /// An optional name, used by the scene's named-object registry.
+    void setName(std::string const & name) { m_name = name; }
+    std::string const & name() const { return m_name; }
 
     /// World-space direction toward the light, read by the lit material and
     /// ignored by the others. The widget refreshes it as the camera moves.
@@ -128,6 +138,8 @@ protected:
 
     QVector4D m_color{1.0f, 1.0f, 1.0f, 1.0f};
     QVector3D m_light_dir{0.0f, 0.0f, 1.0f};
+    QMatrix4x4 m_model; ///< Per-object model transform (identity by default).
+    std::string m_name; ///< Optional name for the scene registry.
     float m_opacity = 1.0f;
     bool m_visible = true;
 

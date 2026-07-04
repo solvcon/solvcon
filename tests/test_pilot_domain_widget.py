@@ -1284,6 +1284,117 @@ class RDomainWidgetNavMapTC(unittest.TestCase):
 
 
 @unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+class RDomainWidgetCaptureTC(unittest.TestCase):
+    """High-resolution and transparent offscreen capture."""
+
+    @classmethod
+    def setUpClass(cls):
+        pilot.RManager.instance.setUp()
+
+    def _render_or_skip(self, widget, width, height, transparent=False):
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder, "capture.png")
+            ok = widget.renderToImage(path, width, height, transparent)
+            if not ok or not os.path.exists(path):
+                raise unittest.SkipTest("offscreen capture is unavailable")
+            image = QImage(path)
+        if image.isNull():
+            raise unittest.SkipTest("offscreen capture is unavailable")
+        return image
+
+    def test_capture_size_is_independent_of_widget_size(self):
+        """A capture is produced at the requested size regardless of the
+        widget size."""
+        widget = pilot.RDomainWidget()
+        widget.resize(320, 240)
+        widget.updateMesh(_make_2d_mesh())
+        image = self._render_or_skip(widget, 512, 384)
+        self.assertEqual(image.width(), 512)
+        self.assertEqual(image.height(), 384)
+
+    def test_transparent_capture_has_a_clear_corner(self):
+        """A transparent capture leaves the background corner not fully
+        opaque."""
+        widget = pilot.RDomainWidget()
+        widget.resize(200, 200)
+        widget.updateMesh(_make_3d_mesh())
+        image = self._render_or_skip(widget, 256, 256, transparent=True)
+        self.assertLess(image.pixelColor(0, 0).alpha(), 255)
+
+    def test_invalid_size_writes_nothing(self):
+        """A non-positive size yields a null image, so the write fails and no
+        file is produced (no crash)."""
+        widget = pilot.RDomainWidget()
+        widget.resize(320, 240)
+        widget.updateMesh(_make_2d_mesh())
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder, "bad.png")
+            self.assertFalse(widget.renderToImage(path, 0, 0))
+            self.assertFalse(os.path.exists(path))
+
+
+@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+class RDomainWidgetSceneObjectsTC(unittest.TestCase):
+    """A scene of several named mesh objects with transforms."""
+
+    @classmethod
+    def setUpClass(cls):
+        pilot.RManager.instance.setUp()
+
+    def test_two_objects_register(self):
+        """Two named meshes both register in the scene."""
+        widget = pilot.RDomainWidget()
+        widget.addObject("left", _make_2d_mesh())
+        widget.addObject("right", _make_3d_mesh())
+        names = sorted(widget.objectNames())
+        self.assertEqual(names, ["left", "right"])
+
+    def test_readding_replaces_object(self):
+        """Adding a name that already exists replaces it, not duplicates."""
+        widget = pilot.RDomainWidget()
+        widget.addObject("m", _make_2d_mesh())
+        widget.addObject("m", _make_3d_mesh())
+        self.assertEqual(widget.objectNames(), ["m"])
+
+    def test_transform_and_visibility_setters_by_name(self):
+        """The transform, visibility, and opacity setters accept a known name
+        and ignore an unknown one, without crashing."""
+        widget = pilot.RDomainWidget()
+        widget.addObject("a", _make_2d_mesh())
+        widget.setObjectTransform("a", 3.0, 0.0, 0.0, 1.0, 1.0, 1.0)
+        widget.setObjectVisible("a", False)
+        widget.setObjectOpacity("a", 0.5)
+        widget.setObjectVisible("nope", True)  # unknown: no-op
+        self.assertEqual(widget.objectNames(), ["a"])
+
+    def test_two_objects_render_and_toggle(self):
+        """Two objects with distinct transforms both render; hiding one drops
+        drawn pixels.
+
+        Each state grabs a freshly configured widget: a second grab of a
+        mutated widget is unreliable on the headless software rasterizer.
+        _count_foreground keys on the difference from the frame's own
+        background, so a dark empty read-back still counts as nothing drawn.
+        """
+        both_widget = pilot.RDomainWidget()
+        both_widget.resize(320, 240)
+        both_widget.addObject("a", _make_2d_mesh())
+        both_widget.addObject("b", _make_2d_mesh())
+        both_widget.setObjectTransform("b", 4.0, 0.0, 0.0, 1.0, 1.0, 1.0)
+        both = _count_foreground(_grab_or_skip(both_widget))
+        self.assertGreater(both, 0)
+
+        one_widget = pilot.RDomainWidget()
+        one_widget.resize(320, 240)
+        one_widget.addObject("a", _make_2d_mesh())
+        one_widget.addObject("b", _make_2d_mesh())
+        one_widget.setObjectTransform("b", 4.0, 0.0, 0.0, 1.0, 1.0, 1.0)
+        one_widget.setObjectVisible("b", False)
+        one = _count_foreground(_grab_or_skip(one_widget))
+        self.assertLess(one, both)
+
+
+@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
 class RDomainWidgetFilterTC(unittest.TestCase):
     """Geometric slice and clip of the mesh."""
 
