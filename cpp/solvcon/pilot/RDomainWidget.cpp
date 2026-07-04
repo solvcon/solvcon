@@ -1544,6 +1544,113 @@ void RDomainWidget::showAxis(bool show)
     update();
 }
 
+void RDomainWidget::showCubeAxes(bool show)
+{
+    m_scene.removeDrawable(m_cube_axes);
+    m_cube_axes = nullptr;
+    m_ticks_x.clear();
+    m_ticks_y.clear();
+    m_ticks_z.clear();
+    if (!show || !m_scene.hasBoundingBox())
+    {
+        update();
+        return;
+    }
+
+    QVector3D const lo = m_scene.boundingBoxLo();
+    QVector3D const hi = m_scene.boundingBoxHi();
+    constexpr int kTicks = 5;
+    auto ticks = [](float a, float b)
+    {
+        std::vector<float> t;
+        for (int i = 0; i < kTicks; ++i)
+        {
+            t.push_back(a + (b - a) * static_cast<float>(i) / static_cast<float>(kTicks - 1));
+        }
+        return t;
+    };
+    m_ticks_x = ticks(lo.x(), hi.x());
+    m_ticks_y = ticks(lo.y(), hi.y());
+    m_ticks_z = ticks(lo.z(), hi.z());
+
+    std::vector<QVector3D> pts;
+    QVector3D corner[8];
+    for (int i = 0; i < 8; ++i)
+    {
+        corner[i] = QVector3D(
+            (i & 1) ? hi.x() : lo.x(),
+            (i & 2) ? hi.y() : lo.y(),
+            (i & 4) ? hi.z() : lo.z());
+    }
+    // The 12 box edges connect corners that differ in exactly one axis bit.
+    for (int i = 0; i < 8; ++i)
+    {
+        for (int b = 0; b < 3; ++b)
+        {
+            int const j = i ^ (1 << b);
+            if (i < j)
+            {
+                pts.push_back(corner[i]);
+                pts.push_back(corner[j]);
+            }
+        }
+    }
+    // Short tick marks along the axes at the low corner.
+    float const step = 0.03f * (hi - lo).length();
+    for (float xv : m_ticks_x)
+    {
+        pts.push_back(QVector3D(xv, lo.y(), lo.z()));
+        pts.push_back(QVector3D(xv, lo.y() + step, lo.z()));
+    }
+    for (float yv : m_ticks_y)
+    {
+        pts.push_back(QVector3D(lo.x(), yv, lo.z()));
+        pts.push_back(QVector3D(lo.x() + step, yv, lo.z()));
+    }
+    if (3 == m_scene.dimension())
+    {
+        for (float zv : m_ticks_z)
+        {
+            pts.push_back(QVector3D(lo.x(), lo.y(), zv));
+            pts.push_back(QVector3D(lo.x() + step, lo.y(), zv));
+        }
+    }
+
+    auto axes = std::make_unique<RSegments>(pts);
+    axes->setColor(QVector4D(0.35f, 0.35f, 0.35f, 1.0f));
+    if (axes->hasGeometry())
+    {
+        m_cube_axes = axes.get();
+        m_scene.addDrawable(std::move(axes));
+    }
+    update();
+}
+
+std::vector<float> RDomainWidget::cubeAxesTicks(int axis) const
+{
+    if (0 == axis)
+    {
+        return m_ticks_x;
+    }
+    if (1 == axis)
+    {
+        return m_ticks_y;
+    }
+    return m_ticks_z;
+}
+
+void RDomainWidget::setTitle(std::string const & text)
+{
+    m_title.setText(text);
+    m_title.setVisible(!text.empty());
+    update();
+}
+
+std::string RDomainWidget::title() const
+{
+    return m_title.text();
+}
+
 void RDomainWidget::initialize(QRhiCommandBuffer *)
 {
     QRhiRenderPassDescriptor * const rpdesc = renderTarget()->renderPassDescriptor();
@@ -1592,6 +1699,7 @@ void RDomainWidget::render(QRhiCommandBuffer * cb)
     m_gizmo.update(
         m_rhi, rpdesc, sampleCount(), pixel_size, camera_forward, m_scene.camera().up(), batch);
     m_scalar_bar.update(m_rhi, rpdesc, sampleCount(), pixel_size, batch);
+    m_title.update(m_rhi, rpdesc, sampleCount(), pixel_size, batch);
 
     QColor const clear_color = QColor::fromRgbF(1.0f, 1.0f, 1.0f, 1.0f);
     QRhiDepthStencilClearValue const ds_clear(1.0f, 0);
@@ -1605,6 +1713,7 @@ void RDomainWidget::render(QRhiCommandBuffer * cb)
     }
     m_gizmo.draw(cb);
     m_scalar_bar.draw(cb);
+    m_title.draw(cb);
     cb->endPass();
 }
 
@@ -1613,6 +1722,7 @@ void RDomainWidget::releaseResources()
     m_scene.releaseAll();
     m_gizmo.release();
     m_scalar_bar.release();
+    m_title.release();
     m_rhi = nullptr;
     m_rpdesc = nullptr;
     m_sample_count = 0;
