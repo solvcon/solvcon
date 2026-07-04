@@ -229,6 +229,23 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRDomainWidget
                 "clearCellColoring",
                 &wrapped_type::clearCellColoring,
                 "Remove the categorical cell coloring and its legend.")
+            .def(
+                "colorByQuality",
+                &wrapped_type::colorByQuality,
+                py::arg("metric"),
+                "Color the mesh by a per-cell quality metric (\"volume\", "
+                "\"aspect_ratio\", \"skewness\", \"min_angle\", \"max_angle\") "
+                "through the continuous colormap and scalar bar.")
+            .def(
+                "qualityRange",
+                [](wrapped_type & self, std::string const & metric)
+                {
+                    auto const range = self.qualityRange(metric);
+                    return py::make_tuple(range.first, range.second);
+                },
+                py::arg("metric"),
+                "The (min, max) range of the named quality metric over the "
+                "cells.")
             .def("showAxis", &wrapped_type::showAxis, py::arg("show"))
             .def("fitCameraToScene", &wrapped_type::fitCameraToScene)
             .def_property(

@@ -32,6 +32,7 @@
 
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 #include <utility>
 
@@ -132,6 +133,14 @@ public:
     void colorByBoundary();
     void clearCellColoring();
 
+    /// Color the mesh by a per-cell geometric quality metric through the
+    /// continuous colormap and scalar bar. @p metric is one of "volume",
+    /// "aspect_ratio", "skewness", "min_angle", "max_angle".
+    void colorByQuality(std::string const & metric);
+
+    /// The (min, max) range of the named quality metric over the cells.
+    std::pair<float, float> qualityRange(std::string const & metric) const;
+
     /// Frame the camera so the whole domain is in view.
     void fitCameraToScene();
 
@@ -199,6 +208,23 @@ private:
     void installCategoryField(
         std::vector<int32_t> const & primitive_category,
         std::string const & title);
+
+    /// Install a continuous scalar field over the surface primitives from a
+    /// per-primitive value, colored through the current colormap and
+    /// auto-ranged, with a legend titled @p title.
+    void installMetricField(
+        std::vector<float> const & primitive_value,
+        std::string const & title);
+
+    /// Fan-triangulate the mesh surface primitives (2D cells, or 3D boundary
+    /// faces) into the interleaved position/scalar/index arrays, tagging every
+    /// vertex of a primitive with its @p primitive_scalar (indexed in build
+    /// order) so each face reads one value.
+    void collectSurfaceScalars(
+        std::vector<float> const & primitive_scalar,
+        std::vector<float> & verts,
+        std::vector<float> & scals,
+        std::vector<uint32_t> & tris) const;
 
     QRhi * m_rhi = nullptr; ///< Tracked to detect device changes.
     QRhiRenderPassDescriptor * m_rpdesc = nullptr; ///< Tracked to detect target changes.
