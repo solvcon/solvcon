@@ -206,6 +206,29 @@ std::vector<std::string> Interpreter::get_completions(std::string const & text)
     return result;
 }
 
+// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+std::string Interpreter::get_call_tip(std::string const & text)
+{
+    std::string result;
+    try
+    {
+        pybind11::gil_scoped_acquire const gil;
+        // NOLINTNEXTLINE(misc-const-correctness)
+        pybind11::object mod_sys = pybind11::module_::import("solvcon.system");
+        pybind11::object const py_result = mod_sys.attr("get_call_tip")(text);
+        result = py_result.cast<std::string>();
+    }
+    catch (const pybind11::error_already_set & e)
+    {
+        std::cerr << e.what() << std::endl;
+    }
+    catch (const std::exception & e)
+    {
+        std::cerr << "get_call_tip error: " << e.what() << std::endl;
+    }
+    return result;
+}
+
 PythonStreamRedirect & PythonStreamRedirect::activate()
 {
     if (is_enabled())

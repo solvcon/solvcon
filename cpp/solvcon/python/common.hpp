@@ -500,6 +500,7 @@ public:
     int enter_main();
     void exec_code(std::string const & code);
     std::vector<std::string> get_completions(std::string const & text);
+    std::string get_call_tip(std::string const & text);
 
 private:
 

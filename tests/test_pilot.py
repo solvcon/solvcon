@@ -151,6 +151,7 @@ class PilotNamespaceTC(unittest.TestCase):
         self.assertIsNone(g['viewer'])
         self.assertIsNone(g['mesh'])
         self.assertTrue(callable(g['show_mesh']))
+        self.assertTrue(callable(g['run_worker']))
         self.assertIn('mgr', banner)
         self.assertIn('show_mesh(m)', banner)
 
@@ -195,6 +196,86 @@ class HousekeepingTC(unittest.TestCase):
         self.assertIn(name, apputil.environ)
         apputil.stop_code(env)
         self.assertNotIn(name, apputil.environ)
+
+
+class CallTipTC(unittest.TestCase):
+    """
+    The call tip that the console shows when a ``(`` is typed.
+
+    Driven through solvcon.apputil directly, so it runs headlessly.
+    """
+
+    def setUp(self):
+        from solvcon.apputil import AppEnvironment
+        self.env = AppEnvironment("tip_{}".format(id(self)))
+
+    def test_builtin_signature_and_docstring(self):
+        from solvcon import apputil
+        tip = apputil.get_call_tip('range')
+        self.assertTrue(tip.startswith('range('))
+        self.assertIn('range', tip)
+
+    def test_seeded_callable_signature_and_first_paragraph(self):
+        from solvcon import apputil
+
+        def greet(name, count=1):
+            """Say hello to someone.
+
+            This second paragraph must not appear in the tip.
+            """
+            return name
+
+        self.env.seed(greet=greet)
+        tip = apputil.get_call_tip('greet')
+        self.assertIn('greet(name, count=1)', tip)
+        self.assertIn('Say hello to someone.', tip)
+        self.assertNotIn('second paragraph', tip)
+
+    def test_non_callable_returns_empty(self):
+        from solvcon import apputil
+        self.env.seed(value=42)
+        self.assertEqual(apputil.get_call_tip('value'), '')
+
+    def test_unknown_name_returns_empty(self):
+        from solvcon import apputil
+        self.assertEqual(apputil.get_call_tip('does_not_exist'), '')
+
+    def test_call_expression_is_not_evaluated(self):
+        from solvcon import apputil
+
+        def boom():
+            raise AssertionError("the call tip must not invoke the callable")
+
+        self.env.seed(boom=boom)
+        # 'boom()' is not a bare identifier chain, so it is rejected before
+        # any evaluation and boom is never called.
+        self.assertEqual(apputil.get_call_tip('boom()'), '')
+
+
+class WorkerTC(unittest.TestCase):
+    """The worker-thread helper for heavy console work."""
+
+    def test_runs_off_the_calling_thread(self):
+        import threading
+        from solvcon import apputil
+        caller = threading.get_ident()
+        future = apputil.run_worker(threading.get_ident)
+        self.assertNotEqual(future.result(timeout=5), caller)
+
+    def test_returns_the_result(self):
+        from solvcon import apputil
+        future = apputil.run_worker(lambda a, b: a + b, 2, 3)
+        self.assertEqual(future.result(timeout=5), 5)
+
+    def test_propagates_exceptions_through_the_future(self):
+        from solvcon import apputil
+
+        def boom():
+            raise ValueError("worker failed")
+
+        future = apputil.run_worker(boom)
+        with self.assertRaises(ValueError):
+            future.result(timeout=5)
 
 
 @unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")

@@ -53,6 +53,7 @@ public:
     void setCompleter(QCompleter * completer);
     QCompleter * completer() const { return m_completer; }
     QString completionPrefix() const;
+    QString callableExpression() const;
 
     void keyPressEvent(QKeyEvent * event) override;
 
@@ -63,6 +64,7 @@ signals:
     void completionRequested(const QString & prefix);
     void searchHistory();
     void searchHistoryReset();
+    void callTipRequested(const QString & expression);
 
 public slots:
 
@@ -142,6 +144,7 @@ public slots:
 
 private slots:
     void handleCompletionRequest(const QString & prefix);
+    void handleCallTipRequest(const QString & expression);
     void updateCompletionPrefix();
 
 private:

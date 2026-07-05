@@ -15,7 +15,10 @@ Tools to run applications
 
 
 import code
+import concurrent.futures
 import importlib
+import inspect
+import re
 import rlcompleter
 
 
@@ -24,12 +27,25 @@ __all__ = [
     'AppEnvironment',
     'get_current_appenv',
     'get_completions',
+    'get_call_tip',
     'run_code',
+    'run_worker',
     'stop_code',
     'build_pilot_namespace',
     'format_banner',
     'install_pilot_namespace',
 ]
+
+
+# A lazily created single-thread pool that backs run_worker.
+_worker_pool = None
+
+
+# A dotted identifier chain such as ``range`` or ``mgr.add3DWidget``. The
+# call tip only introspects such an expression, never one that calls or
+# subscripts, so evaluating it cannot run arbitrary user code.
+_IDENTIFIER_CHAIN = re.compile(
+    r'[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$')
 
 
 # All environment objects of this process.
@@ -159,9 +175,60 @@ def get_completions(text):
     return completions
 
 
+def get_call_tip(expr):
+    """
+    A signature and docstring summary for the callable named by ``expr``.
+
+    ``expr`` is a dotted identifier chain such as ``range`` or
+    ``mgr.add3DWidget``. It is resolved against the current namespace, so,
+    like the introspective completion, it can touch live objects. It is
+    never evaluated when it is anything other than an identifier chain, so
+    a call or subscript cannot run arbitrary code. Returns an empty string
+    when the expression does not resolve to a callable.
+    """
+    expr = expr.strip()
+    if not _IDENTIFIER_CHAIN.match(expr):
+        return ''
+    aenv = get_current_appenv()
+    namespace = {'__builtins__': __builtins__}
+    namespace.update(aenv.globals)
+    try:
+        obj = eval(expr, namespace)
+    except Exception:
+        return ''
+    if not callable(obj):
+        return ''
+    try:
+        signature = str(inspect.signature(obj))
+    except (TypeError, ValueError):
+        signature = '(...)'
+    tip = expr + signature
+    doc = inspect.getdoc(obj)
+    if doc:
+        tip += '\n' + doc.strip().split('\n\n')[0]
+    return tip
+
+
 def run_code(source):
     aenv = get_current_appenv()
     return aenv.run_code(source)
+
+
+def run_worker(func, *args, **kwargs):
+    """
+    Run ``func`` on a background worker thread and return its Future.
+
+    A command in the console runs on the GUI thread, so heavy work freezes
+    the window until it returns; the console cannot interrupt a running
+    command in-process. Hand such work to this helper instead: the solver
+    core releases the GIL while it computes, so the GUI stays responsive.
+    Poll the returned :class:`concurrent.futures.Future` for the result.
+    """
+    global _worker_pool
+    if _worker_pool is None:
+        _worker_pool = concurrent.futures.ThreadPoolExecutor(
+            max_workers=1, thread_name_prefix='solvcon-console-worker')
+    return _worker_pool.submit(func, *args, **kwargs)
 
 
 def stop_code(appenvobj=None):
@@ -205,6 +272,7 @@ def build_pilot_namespace(mgr):
         'show_mesh': show_mesh,
         'viewers': viewers,
         'meshes': meshes,
+        'run_worker': run_worker,
     }
     entries = [
         ('mgr', 'the running pilot manager'),
@@ -213,6 +281,7 @@ def build_pilot_namespace(mgr):
         ('show_mesh(m)', 'open a mesh in a fresh 3D viewer'),
         ('viewers()', 'list the open 3D viewers'),
         ('meshes()', 'list the loaded meshes'),
+        ('run_worker(f)', 'run f on a worker thread; returns a Future'),
         ('sc', 'the solvcon package'),
     ]
     return handles, entries
