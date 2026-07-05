@@ -15,10 +15,11 @@
 
 #include <solvcon/python/common.hpp> // must be first.
 
+#include <solvcon/pilot/RPythonConsoleHistory.hpp>
+
+#include <cstddef>
 #include <string>
-#include <deque>
 #include <stdexcept>
-#include <fstream>
 
 #include <Qt>
 #include <QCompleter>
@@ -59,6 +60,8 @@ signals:
     void execute();
     void navigate(int offset);
     void completionRequested(const QString & prefix);
+    void searchHistory();
+    void searchHistoryReset();
 
 private slots:
 
@@ -66,7 +69,10 @@ private slots:
 
 private:
 
+    static bool isModifierKey(int key);
+
     QCompleter * m_completer = nullptr;
+    bool m_searching = false;
 
 }; /* end class RPythonCommandTextEdit */
 
@@ -126,6 +132,8 @@ public:
 public slots:
     void executeCommand();
     void navigateCommand(int offset);
+    void searchHistoryBackward();
+    void endHistorySearch();
 
 private slots:
     void handleCompletionRequest(const QString & prefix);
@@ -141,9 +149,12 @@ private:
     RPythonHistoryTextEdit * m_history_edit = nullptr;
     RPythonCommandTextEdit * m_command_edit = nullptr;
     std::string m_draft_command;
-    std::deque<std::string> m_committed_commands;
-    size_t m_committed_commands_size_limit = 1024;
+    RPythonConsoleHistory m_history;
     int m_current_command_index = 0;
+
+    bool m_history_search_active = false;
+    std::string m_history_search_query;
+    std::size_t m_history_search_next = 0;
 
     python::PythonStreamRedirect m_python_redirect;
 

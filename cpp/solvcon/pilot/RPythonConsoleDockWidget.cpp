@@ -8,6 +8,7 @@
 #include <QAbstractItemView>
 #include <QKeyEvent>
 #include <QScrollBar>
+#include <QStandardPaths>
 #include <QTextBlock>
 #include <QVBoxLayout>
 
@@ -102,6 +103,11 @@ void RPythonCommandTextEdit::insertCompletion(const QString & completion)
 //    - Shows a QCompleter popup if there are multiple matches
 // 4. While the popup is visible, Enter/Tab accepts the selection, Escape dismisses,
 //    and typing continues to narrow the matches via updateCompletionPrefix()
+bool RPythonCommandTextEdit::isModifierKey(int key)
+{
+    return Qt::Key_Control == key || Qt::Key_Shift == key || Qt::Key_Alt == key || Qt::Key_Meta == key;
+}
+
 void RPythonCommandTextEdit::keyPressEvent(QKeyEvent * event)
 {
     const bool popup_visible = m_completer && m_completer->popup()->isVisible();
@@ -125,6 +131,21 @@ void RPythonCommandTextEdit::keyPressEvent(QKeyEvent * event)
         default:
             break;
         }
+    }
+
+    // Ctrl-R drives reverse incremental search over the command history.
+    // Repeated presses walk to older matches; any editing key ends the
+    // session, while a bare modifier keeps it alive.
+    if (Qt::Key_R == event->key() && (event->modifiers() & Qt::ControlModifier))
+    {
+        m_searching = true;
+        searchHistory();
+        return;
+    }
+    if (m_searching && !isModifierKey(event->key()))
+    {
+        m_searching = false;
+        searchHistoryReset();
     }
 
     const QTextCursor cursor = textCursor();
@@ -239,6 +260,18 @@ RPythonConsoleDockWidget::RPythonConsoleDockWidget(const QString & title, QWidge
         });
     connect(m_command_edit, &RPythonCommandTextEdit::execute, this, &RPythonConsoleDockWidget::executeCommand);
     connect(m_command_edit, &RPythonCommandTextEdit::navigate, this, &RPythonConsoleDockWidget::navigateCommand);
+    connect(m_command_edit, &RPythonCommandTextEdit::searchHistory, this, &RPythonConsoleDockWidget::searchHistoryBackward);
+    connect(m_command_edit, &RPythonCommandTextEdit::searchHistoryReset, this, &RPythonConsoleDockWidget::endHistorySearch);
+
+    // Persist the command history under the solvcon profile directory and
+    // restore it, so recall survives across pilot sessions.
+    QString const config_dir = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation);
+    if (!config_dir.isEmpty())
+    {
+        m_history.setFilePath((config_dir + "/solvcon/console_history").toStdString());
+        m_history.load();
+        m_current_command_index = static_cast<int>(m_history.size());
+    }
 
     m_completer_model = new QStringListModel(this);
     m_completer = new QCompleter(m_completer_model, this);
@@ -278,6 +311,7 @@ void RPythonConsoleDockWidget::executeCommand()
     }
 
     commitCommand(command);
+    endHistorySearch();
 
     // Echo the submitted command with the interpreter's prompts: ">>> " for
     // the first line and "... " for each continuation line, so the transcript
@@ -296,7 +330,7 @@ void RPythonConsoleDockWidget::executeCommand()
     }
 
     m_command_edit->clear();
-    m_current_command_index = static_cast<int>(m_committed_commands.size());
+    m_current_command_index = static_cast<int>(m_history.size());
 
     auto & interp = solvcon::python::Interpreter::instance();
     m_python_redirect.activate();
@@ -311,7 +345,7 @@ void RPythonConsoleDockWidget::executeCommand()
 
 void RPythonConsoleDockWidget::navigateCommand(int offset)
 {
-    int const commands_num = static_cast<int>(m_committed_commands.size()); // make msc happy.
+    int const commands_num = static_cast<int>(m_history.size()); // make msc happy.
     if (commands_num == m_current_command_index)
     {
         m_draft_command = m_command_edit->toPlainText().toStdString();
@@ -321,7 +355,7 @@ void RPythonConsoleDockWidget::navigateCommand(int offset)
 
     const std::string & command_to_show = new_index == commands_num
                                               ? m_draft_command
-                                              : m_committed_commands[new_index];
+                                              : m_history.at(new_index);
 
     m_current_command_index = new_index;
     setCommand(QString::fromStdString(command_to_show));
@@ -341,12 +375,44 @@ int RPythonConsoleDockWidget::calcHeightToFitContents(const QTextEdit * edit)
 
 void RPythonConsoleDockWidget::commitCommand(const std::string & command)
 {
-    m_committed_commands.push_back(command);
+    m_history.add(command);
+}
 
-    if (m_committed_commands.size() > m_committed_commands_size_limit)
+void RPythonConsoleDockWidget::searchHistoryBackward()
+{
+    if (m_history.empty())
     {
-        m_committed_commands.pop_front();
+        return;
     }
+    // A fresh session takes the current editor text as the query and starts
+    // at the newest entry; a continuing session resumes just past the last
+    // match so repeated Ctrl-R walks toward older commands.
+    if (!m_history_search_active)
+    {
+        m_history_search_active = true;
+        m_history_search_query = m_command_edit->toPlainText().toStdString();
+        m_history_search_next = m_history.size() - 1;
+    }
+    if (RPythonConsoleHistory::npos == m_history_search_next)
+    {
+        return;
+    }
+
+    std::size_t const found = m_history.searchBackward(m_history_search_query, m_history_search_next);
+    if (RPythonConsoleHistory::npos == found)
+    {
+        return;
+    }
+
+    setCommand(QString::fromStdString(m_history.at(found)));
+    m_history_search_next = (0 == found) ? RPythonConsoleHistory::npos : found - 1;
+}
+
+void RPythonConsoleDockWidget::endHistorySearch()
+{
+    m_history_search_active = false;
+    m_history_search_query.clear();
+    m_history_search_next = 0;
 }
 
 void RPythonConsoleDockWidget::printCommandStdout(const std::string & stdout_message) const
