@@ -16,6 +16,8 @@ Tools to run applications
 
 import code
 import importlib
+import inspect
+import re
 import rlcompleter
 
 
@@ -24,12 +26,20 @@ __all__ = [
     'AppEnvironment',
     'get_current_appenv',
     'get_completions',
+    'get_call_tip',
     'run_code',
     'stop_code',
     'build_pilot_namespace',
     'format_banner',
     'install_pilot_namespace',
 ]
+
+
+# A dotted identifier chain such as ``range`` or ``mgr.add3DWidget``. The
+# call tip only introspects such an expression, never one that calls or
+# subscripts, so evaluating it cannot run arbitrary user code.
+_IDENTIFIER_CHAIN = re.compile(
+    r'[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$')
 
 
 # All environment objects of this process.
@@ -157,6 +167,40 @@ def get_completions(text):
         completions.append(c)
         i += 1
     return completions
+
+
+def get_call_tip(expr):
+    """
+    A signature and docstring summary for the callable named by ``expr``.
+
+    ``expr`` is a dotted identifier chain such as ``range`` or
+    ``mgr.add3DWidget``. It is resolved against the current namespace, so,
+    like the introspective completion, it can touch live objects. It is
+    never evaluated when it is anything other than an identifier chain, so
+    a call or subscript cannot run arbitrary code. Returns an empty string
+    when the expression does not resolve to a callable.
+    """
+    expr = expr.strip()
+    if not _IDENTIFIER_CHAIN.match(expr):
+        return ''
+    aenv = get_current_appenv()
+    namespace = {'__builtins__': __builtins__}
+    namespace.update(aenv.globals)
+    try:
+        obj = eval(expr, namespace)
+    except Exception:
+        return ''
+    if not callable(obj):
+        return ''
+    try:
+        signature = str(inspect.signature(obj))
+    except (TypeError, ValueError):
+        signature = '(...)'
+    tip = expr + signature
+    doc = inspect.getdoc(obj)
+    if doc:
+        tip += '\n' + doc.strip().split('\n\n')[0]
+    return tip
 
 
 def run_code(source):

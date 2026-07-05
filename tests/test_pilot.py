@@ -197,6 +197,60 @@ class HousekeepingTC(unittest.TestCase):
         self.assertNotIn(name, apputil.environ)
 
 
+class CallTipTC(unittest.TestCase):
+    """
+    The call tip that the console shows when a ``(`` is typed.
+
+    Driven through solvcon.apputil directly, so it runs headlessly.
+    """
+
+    def setUp(self):
+        from solvcon.apputil import AppEnvironment
+        self.env = AppEnvironment("tip_{}".format(id(self)))
+
+    def test_builtin_signature_and_docstring(self):
+        from solvcon import apputil
+        tip = apputil.get_call_tip('range')
+        self.assertTrue(tip.startswith('range('))
+        self.assertIn('range', tip)
+
+    def test_seeded_callable_signature_and_first_paragraph(self):
+        from solvcon import apputil
+
+        def greet(name, count=1):
+            """Say hello to someone.
+
+            This second paragraph must not appear in the tip.
+            """
+            return name
+
+        self.env.seed(greet=greet)
+        tip = apputil.get_call_tip('greet')
+        self.assertIn('greet(name, count=1)', tip)
+        self.assertIn('Say hello to someone.', tip)
+        self.assertNotIn('second paragraph', tip)
+
+    def test_non_callable_returns_empty(self):
+        from solvcon import apputil
+        self.env.seed(value=42)
+        self.assertEqual(apputil.get_call_tip('value'), '')
+
+    def test_unknown_name_returns_empty(self):
+        from solvcon import apputil
+        self.assertEqual(apputil.get_call_tip('does_not_exist'), '')
+
+    def test_call_expression_is_not_evaluated(self):
+        from solvcon import apputil
+
+        def boom():
+            raise AssertionError("the call tip must not invoke the callable")
+
+        self.env.seed(boom=boom)
+        # 'boom()' is not a bare identifier chain, so it is rejected before
+        # any evaluation and boom is never called.
+        self.assertEqual(apputil.get_call_tip('boom()'), '')
+
+
 @unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
 class SetupProcessTC(unittest.TestCase):
 

@@ -13,6 +13,7 @@
 #include <QScrollBar>
 #include <QStandardPaths>
 #include <QTextBlock>
+#include <QToolTip>
 #include <QVBoxLayout>
 
 namespace solvcon
@@ -82,6 +83,40 @@ QString RPythonCommandTextEdit::completionPrefix() const
         prefix = prefix.mid(1);
     }
     return prefix;
+}
+
+QString RPythonCommandTextEdit::callableExpression() const
+{
+    QTextCursor const tc = textCursor();
+    QString const block_text = tc.block().text();
+    int const pos = tc.positionInBlock();
+
+    // The cursor sits just past the '(' that triggered the tip; the callable
+    // is the identifier chain immediately before that '('.
+    if (pos < 2 || block_text[pos - 1] != '(')
+    {
+        return QString();
+    }
+    int const end = pos - 1;
+    int start = end - 1;
+    while (start >= 0)
+    {
+        QChar const ch = block_text[start];
+        if (ch.isLetterOrNumber() || ch == '_' || ch == '.')
+        {
+            --start;
+        }
+        else
+        {
+            break;
+        }
+    }
+    QString expr = block_text.mid(start + 1, end - start - 1);
+    while (expr.startsWith('.'))
+    {
+        expr = expr.mid(1);
+    }
+    return expr;
 }
 
 void RPythonCommandTextEdit::insertCompletion(const QString & completion)
@@ -236,6 +271,15 @@ void RPythonCommandTextEdit::keyPressEvent(QKeyEvent * event)
     else
     {
         QTextEdit::keyPressEvent(event);
+        // A '(' just typed after a callable asks for its signature tip.
+        if (event->text() == "(")
+        {
+            QString const expr = callableExpression();
+            if (!expr.isEmpty())
+            {
+                callTipRequested(expr);
+            }
+        }
     }
 }
 
@@ -330,6 +374,7 @@ RPythonConsoleDockWidget::RPythonConsoleDockWidget(const QString & title, QWidge
     m_completer = new QCompleter(m_completer_model, this);
     m_command_edit->setCompleter(m_completer);
     connect(m_command_edit, &RPythonCommandTextEdit::completionRequested, this, &RPythonConsoleDockWidget::handleCompletionRequest);
+    connect(m_command_edit, &RPythonCommandTextEdit::callTipRequested, this, &RPythonConsoleDockWidget::handleCallTipRequest);
     connect(m_command_edit, &QTextEdit::textChanged, this, &RPythonConsoleDockWidget::updateCompletionPrefix);
 }
 
@@ -532,6 +577,19 @@ void RPythonConsoleDockWidget::handleCompletionRequest(const QString & prefix)
     cr.setWidth(
         m_completer->popup()->sizeHintForColumn(0) + m_completer->popup()->verticalScrollBar()->sizeHint().width());
     m_completer->complete(cr);
+}
+
+void RPythonConsoleDockWidget::handleCallTipRequest(const QString & expression)
+{
+    auto & interp = solvcon::python::Interpreter::instance();
+    std::string const tip = interp.get_call_tip(expression.toStdString());
+    if (tip.empty())
+    {
+        return;
+    }
+
+    QPoint const anchor = m_command_edit->mapToGlobal(m_command_edit->cursorRect().bottomRight());
+    QToolTip::showText(anchor, QString::fromStdString(tip), m_command_edit);
 }
 
 // Called on every textChanged signal while the popup is visible. As the user

@@ -22,6 +22,7 @@ __all__ = [
     'enter_main',
     'exec_code',
     'get_completions',
+    'get_call_tip',
 ]
 
 
@@ -143,5 +144,13 @@ def get_completions(text):
     except Exception as e:
         sys.stderr.write("get_completions error: {}\n".format(e))
         return []
+
+
+def get_call_tip(text):
+    try:
+        return apputil.get_call_tip(text)
+    except Exception as e:
+        sys.stderr.write("get_call_tip error: {}\n".format(e))
+        return ''
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
