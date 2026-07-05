@@ -185,6 +185,26 @@ R2DWidget * RManager::currentR2DWidget()
     return dynamic_cast<R2DWidget *>(subwin->widget());
 }
 
+std::vector<RDomainWidget *> RManager::list3DWidgets()
+{
+    std::vector<RDomainWidget *> widgets;
+    if (m_mdiArea == nullptr)
+    {
+        return widgets;
+    }
+
+    // A 3D viewer sits inside a host container subwindow, so resolve it
+    // through domainWidgetOf rather than casting the subwindow's widget.
+    for (auto subwin : m_mdiArea->subWindowList())
+    {
+        if (auto * viewer = domainWidgetOf(subwin))
+        {
+            widgets.push_back(viewer);
+        }
+    }
+    return widgets;
+}
+
 std::vector<R2DWidget *> RManager::list2DWidgets()
 {
     std::vector<R2DWidget *> widgets;

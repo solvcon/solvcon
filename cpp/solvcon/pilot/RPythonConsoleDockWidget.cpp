@@ -278,10 +278,22 @@ void RPythonConsoleDockWidget::executeCommand()
     }
 
     commitCommand(command);
-    ++m_last_command_serial;
 
-    const auto formatted_command = std::format("[{}] {}\n\n", m_last_command_serial, command);
-    writeToHistory(formatted_command);
+    // Echo the submitted command with the interpreter's prompts: ">>> " for
+    // the first line and "... " for each continuation line, so the transcript
+    // reads like a read-eval-print loop.
+    {
+        QStringList const lines = QString::fromStdString(command).split('\n');
+        QString echo;
+        for (int i = 0; i < lines.size(); ++i)
+        {
+            echo += (0 == i) ? ">>> " : "... ";
+            echo += lines[i];
+            echo += '\n';
+        }
+        echo += '\n';
+        writeToHistory(echo.toStdString());
+    }
 
     m_command_edit->clear();
     m_current_command_index = static_cast<int>(m_committed_commands.size());

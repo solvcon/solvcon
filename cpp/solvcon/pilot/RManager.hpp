@@ -63,6 +63,7 @@ public:
     R2DWidget * add2DWidget();
     RDomainWidget * currentR3DWidget();
     R2DWidget * currentR2DWidget();
+    std::vector<RDomainWidget *> list3DWidgets();
     std::vector<R2DWidget *> list2DWidgets();
 
     /// Name of the active canvas drawing tool.

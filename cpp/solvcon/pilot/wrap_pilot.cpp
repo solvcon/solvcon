@@ -828,6 +828,12 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRManager
                     return self.currentR2DWidget();
                 })
             .def(
+                "list3DWidgets",
+                [](wrapped_type & self)
+                {
+                    return self.list3DWidgets();
+                })
+            .def(
                 "list2DWidgets",
                 [](wrapped_type & self)
                 {

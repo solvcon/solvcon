@@ -11,7 +11,6 @@ import builtins
 import sys
 import os
 import argparse
-import traceback
 import warnings
 
 import solvcon
@@ -132,13 +131,10 @@ def enter_main(argv):
 
 
 def exec_code(code):
-    try:
-        apputil.run_code(code)
-    except Exception as e:
-        sys.stdout.write("code:\n{}\n".format(code))
-        sys.stdout.write("{}: {}\n".format(type(e).__name__, str(e)))
-        sys.stdout.write("traceback:\n")
-        traceback.print_stack()
+    # The persistent interpreter reports a user exception through its own
+    # showtraceback/showsyntaxerror, which format the traceback against the
+    # console input. Do not wrap it in the host call stack.
+    return apputil.run_code(code)
 
 
 def get_completions(text):
