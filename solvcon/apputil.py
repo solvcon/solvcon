@@ -16,10 +16,13 @@ Tools to run applications
 
 import code
 import concurrent.futures
+import contextlib
 import importlib
 import inspect
+import io
 import re
 import rlcompleter
+import sys
 
 
 __all__ = [
@@ -72,6 +75,25 @@ class _ConsoleInterpreter(code.InteractiveConsole):
             self.write("SystemExit: use the window controls to quit.\n")
             self.resetbuffer()
             return False
+
+
+@contextlib.contextmanager
+def _stdin_at_eof():
+    """
+    Present an exhausted ``sys.stdin`` for the duration of a command.
+
+    The embedded console has no interactive input. A command that reads
+    stdin, such as a bare ``help()`` that starts pydoc's interactive
+    browser, would otherwise block the GUI thread forever waiting for a
+    line that never arrives. An empty stream reads as immediate EOF, so
+    the read ends at once and the command returns.
+    """
+    saved = sys.stdin
+    sys.stdin = io.StringIO()
+    try:
+        yield
+    finally:
+        sys.stdin = saved
 
 
 class AppEnvironment:
@@ -128,10 +150,13 @@ class AppEnvironment:
         for refresh in self.namespace_refreshers:
             refresh(self.globals)
         more = False
-        for line in source.split('\n'):
-            more = self.console.push(line)
-        if more:
-            more = self.console.push('')
+        # The treatment is for the console UI that has I/O in separate text
+        # boxes. After having an alternate terminal UI, it will have stdio.
+        with _stdin_at_eof():
+            for line in source.split('\n'):
+                more = self.console.push(line)
+            if more:
+                more = self.console.push('')
         return more
 
 
