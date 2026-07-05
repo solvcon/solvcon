@@ -2,6 +2,9 @@
 # BSD 3-Clause License, see COPYING
 
 
+import contextlib
+import io
+import threading
 import unittest
 
 import solvcon
@@ -43,5 +46,49 @@ class AppenvTC(unittest.TestCase):
         # Try to reset the environment dictionary.
         solvcon.apputil.environ.clear()
         _check(0, basenum=0)
+
+
+class RunCodeStdinTC(unittest.TestCase):
+    """The embedded console has no interactive stdin, so a command that
+    reads it must hit EOF at once rather than block the GUI thread."""
+
+    def setUp(self):
+        self.envbak = solvcon.apputil.environ.copy()
+
+    def tearDown(self):
+        solvcon.apputil.environ.clear()
+        solvcon.apputil.environ = self.envbak.copy()
+
+    def _run_with_timeout(self, source, timeout=10):
+        env = solvcon.apputil.AppEnvironment('stdin-test')
+        done = threading.Event()
+
+        # Run on a daemon thread so a regression that hangs fails the
+        # assertion instead of stalling the whole test process.
+        def _run():
+            with contextlib.redirect_stdout(io.StringIO()):
+                env.run_code(source)
+            done.set()
+        threading.Thread(target=_run, daemon=True).start()
+        self.assertTrue(done.wait(timeout=timeout),
+                        "run_code blocked reading stdin")
+        return env
+
+    def test_help_does_not_hang(self):
+        self._run_with_timeout('help()')
+
+    def test_input_reads_eof(self):
+        env = self._run_with_timeout(
+            'got_eof = False\n'
+            'try:\n'
+            '    input()\n'
+            'except EOFError:\n'
+            '    got_eof = True\n')
+        self.assertTrue(env.globals['got_eof'])
+
+    def test_stdin_restored_after_run(self):
+        saved = solvcon.apputil.sys.stdin
+        self._run_with_timeout('pass')
+        self.assertIs(solvcon.apputil.sys.stdin, saved)
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
