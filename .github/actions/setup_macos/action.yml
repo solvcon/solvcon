@@ -17,15 +17,18 @@ runs:
         sudo mkdir -p /usr/local/include
         echo "::endgroup::"
 
-    - name: Use the offscreen Qt platform
+    - name: Choose the Qt platform
       if: "${{ inputs.workflow == 'lint' || inputs.workflow == 'build' }}"
       shell: bash
       run: |
-        echo "::group::Use the offscreen Qt platform"
-        # macOS runners are headless and ship no xcb plugin, so keep the
-        # offscreen QPA plugin. The job-level env no longer pins
-        # QT_QPA_PLATFORM; set it here for the rest of the job.
-        echo "QT_QPA_PLATFORM=offscreen" >> "${GITHUB_ENV}"
+        echo "::group::Choose the Qt platform"
+        # offscreen gives QRhi no Metal surface here, so the render tests
+        # skip; cocoa renders them for real. Lint has no render tests.
+        if [ "${{ inputs.workflow }}" = "build" ] ; then
+          echo "QT_QPA_PLATFORM=cocoa" >> "${GITHUB_ENV}"
+        else
+          echo "QT_QPA_PLATFORM=offscreen" >> "${GITHUB_ENV}"
+        fi
         echo "::endgroup::"
 
     - name: dependency by homebrew

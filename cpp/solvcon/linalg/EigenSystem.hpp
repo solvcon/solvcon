@@ -128,6 +128,8 @@ EigenSystem<T>::EigenSystem(array_type const & matrix, bool do_vl, bool do_vr, c
             format_shape(matrix)));
     }
 
+    // Result buffers stay uninitialized: *GEEV never reads them on entry and
+    // run() overwrites them, so their contents are unspecified until then.
     if (m_do_vl)
     {
         m_vl.transpose();
