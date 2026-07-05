@@ -15,6 +15,7 @@ Tools to run applications
 
 
 import code
+import concurrent.futures
 import importlib
 import inspect
 import re
@@ -28,11 +29,16 @@ __all__ = [
     'get_completions',
     'get_call_tip',
     'run_code',
+    'run_worker',
     'stop_code',
     'build_pilot_namespace',
     'format_banner',
     'install_pilot_namespace',
 ]
+
+
+# A lazily created single-thread pool that backs run_worker.
+_worker_pool = None
 
 
 # A dotted identifier chain such as ``range`` or ``mgr.add3DWidget``. The
@@ -208,6 +214,23 @@ def run_code(source):
     return aenv.run_code(source)
 
 
+def run_worker(func, *args, **kwargs):
+    """
+    Run ``func`` on a background worker thread and return its Future.
+
+    A command in the console runs on the GUI thread, so heavy work freezes
+    the window until it returns; the console cannot interrupt a running
+    command in-process. Hand such work to this helper instead: the solver
+    core releases the GIL while it computes, so the GUI stays responsive.
+    Poll the returned :class:`concurrent.futures.Future` for the result.
+    """
+    global _worker_pool
+    if _worker_pool is None:
+        _worker_pool = concurrent.futures.ThreadPoolExecutor(
+            max_workers=1, thread_name_prefix='solvcon-console-worker')
+    return _worker_pool.submit(func, *args, **kwargs)
+
+
 def stop_code(appenvobj=None):
     if None is appenvobj:
         environ.clear()
@@ -249,6 +272,7 @@ def build_pilot_namespace(mgr):
         'show_mesh': show_mesh,
         'viewers': viewers,
         'meshes': meshes,
+        'run_worker': run_worker,
     }
     entries = [
         ('mgr', 'the running pilot manager'),
@@ -257,6 +281,7 @@ def build_pilot_namespace(mgr):
         ('show_mesh(m)', 'open a mesh in a fresh 3D viewer'),
         ('viewers()', 'list the open 3D viewers'),
         ('meshes()', 'list the loaded meshes'),
+        ('run_worker(f)', 'run f on a worker thread; returns a Future'),
         ('sc', 'the solvcon package'),
     ]
     return handles, entries

@@ -8,6 +8,7 @@
 #include <solvcon/pilot/RPythonSyntaxRules.hpp>
 
 #include <QAbstractItemView>
+#include <QApplication>
 #include <QColor>
 #include <QKeyEvent>
 #include <QScrollBar>
@@ -430,6 +431,10 @@ void RPythonConsoleDockWidget::executeCommand()
     m_command_edit->clear();
     m_current_command_index = static_cast<int>(m_history.size());
 
+    // The command runs on the GUI thread, so a slow one freezes the window.
+    // Show a busy cursor for the duration; run_worker in the console offloads
+    // heavy work to a worker thread when responsiveness matters.
+    QApplication::setOverrideCursor(Qt::WaitCursor);
     auto & interp = solvcon::python::Interpreter::instance();
     m_python_redirect.activate();
     interp.exec_code(command);
@@ -439,6 +444,7 @@ void RPythonConsoleDockWidget::executeCommand()
         printCommandStderr(m_python_redirect.stderr_string());
     }
     m_python_redirect.deactivate();
+    QApplication::restoreOverrideCursor();
 }
 
 void RPythonConsoleDockWidget::navigateCommand(int offset)

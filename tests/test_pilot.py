@@ -151,6 +151,7 @@ class PilotNamespaceTC(unittest.TestCase):
         self.assertIsNone(g['viewer'])
         self.assertIsNone(g['mesh'])
         self.assertTrue(callable(g['show_mesh']))
+        self.assertTrue(callable(g['run_worker']))
         self.assertIn('mgr', banner)
         self.assertIn('show_mesh(m)', banner)
 
@@ -249,6 +250,32 @@ class CallTipTC(unittest.TestCase):
         # 'boom()' is not a bare identifier chain, so it is rejected before
         # any evaluation and boom is never called.
         self.assertEqual(apputil.get_call_tip('boom()'), '')
+
+
+class WorkerTC(unittest.TestCase):
+    """The worker-thread helper for heavy console work."""
+
+    def test_runs_off_the_calling_thread(self):
+        import threading
+        from solvcon import apputil
+        caller = threading.get_ident()
+        future = apputil.run_worker(threading.get_ident)
+        self.assertNotEqual(future.result(timeout=5), caller)
+
+    def test_returns_the_result(self):
+        from solvcon import apputil
+        future = apputil.run_worker(lambda a, b: a + b, 2, 3)
+        self.assertEqual(future.result(timeout=5), 5)
+
+    def test_propagates_exceptions_through_the_future(self):
+        from solvcon import apputil
+
+        def boom():
+            raise ValueError("worker failed")
+
+        future = apputil.run_worker(boom)
+        with self.assertRaises(ValueError):
+            future.result(timeout=5)
 
 
 @unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
