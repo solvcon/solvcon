@@ -144,7 +144,6 @@ private:
     std::deque<std::string> m_committed_commands;
     size_t m_committed_commands_size_limit = 1024;
     int m_current_command_index = 0;
-    int m_last_command_serial = 0;
 
     python::PythonStreamRedirect m_python_redirect;
 
