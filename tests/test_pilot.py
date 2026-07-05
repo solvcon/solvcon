@@ -97,6 +97,106 @@ class PythonConsoleBackendTC(unittest.TestCase):
         self.assertEqual(out.getvalue().strip(), '42')
 
 
+class _FakeViewer:
+    """A stand-in for a 3D viewer widget."""
+
+    def __init__(self):
+        self.mesh = None
+        self.axis = False
+
+    def updateMesh(self, mesh):
+        self.mesh = mesh
+
+    def showAxis(self, shown):
+        self.axis = shown
+
+
+class _FakeManager:
+    """A duck-typed stand-in for the pilot manager."""
+
+    def __init__(self):
+        self._viewers = []
+
+    def add3DWidget(self):
+        viewer = _FakeViewer()
+        self._viewers.append(viewer)
+        return viewer
+
+    def currentR3DWidget(self):
+        return self._viewers[-1] if self._viewers else None
+
+    def list3DWidgets(self):
+        return list(self._viewers)
+
+
+class PilotNamespaceTC(unittest.TestCase):
+    """
+    The curated console namespace and banner.
+
+    Driven with a stand-in manager, so it runs headlessly and does not
+    need the Qt pilot.
+    """
+
+    def setUp(self):
+        from solvcon.apputil import AppEnvironment
+        self.env = AppEnvironment("ns_{}".format(id(self)))
+        self.mgr = _FakeManager()
+
+    def test_curated_handles_are_seeded(self):
+        from solvcon import apputil
+        banner = apputil.install_pilot_namespace(self.mgr, self.env)
+        g = self.env.globals
+        self.assertIs(g['mgr'], self.mgr)
+        self.assertIn('sc', g)
+        self.assertIsNone(g['viewer'])
+        self.assertIsNone(g['mesh'])
+        self.assertTrue(callable(g['show_mesh']))
+        self.assertIn('mgr', banner)
+        self.assertIn('show_mesh(m)', banner)
+
+    def test_show_mesh_opens_a_viewer(self):
+        from solvcon import apputil
+        apputil.install_pilot_namespace(self.mgr, self.env)
+        sentinel = object()
+        viewer = self.env.globals['show_mesh'](sentinel)
+        self.assertIs(viewer.mesh, sentinel)
+        self.assertTrue(viewer.axis)
+        self.assertEqual(self.env.globals['viewers'](), [viewer])
+        self.assertEqual(self.env.globals['meshes'](), [sentinel])
+
+    def test_refresher_tracks_the_current_viewer(self):
+        from solvcon import apputil
+        apputil.install_pilot_namespace(self.mgr, self.env)
+        # No viewer is open yet, so a command leaves the handles empty.
+        self.env.run_code('pass')
+        self.assertIsNone(self.env.globals['viewer'])
+        # Opening a viewer must be reflected on the next command, not stay
+        # stale at the value captured when the namespace was seeded.
+        sentinel = object()
+        self.mgr.add3DWidget().updateMesh(sentinel)
+        self.env.run_code('pass')
+        self.assertIs(self.env.globals['mesh'], sentinel)
+
+
+class HousekeepingTC(unittest.TestCase):
+    """The two latent bugs in the environment bookkeeping."""
+
+    def test_get_current_appenv_returns_the_latest(self):
+        from solvcon import apputil
+        first = apputil.AppEnvironment("hk_first_{}".format(id(self)))
+        latest = apputil.AppEnvironment("hk_latest_{}".format(id(self)))
+        self.assertIsNot(first, latest)
+        self.assertIs(apputil.get_current_appenv(), latest)
+
+    def test_stop_code_removes_the_named_environment(self):
+        from solvcon import apputil
+        name = "hk_stop_{}".format(id(self))
+        env = apputil.AppEnvironment(name)
+        self.assertIn(name, apputil.environ)
+        apputil.stop_code(env)
+        self.assertNotIn(name, apputil.environ)
+
+
 @unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
 class SetupProcessTC(unittest.TestCase):
 

@@ -9,6 +9,7 @@ Graphical-user interface code
 # Use flake8 http://flake8.pycqa.org/en/latest/user/error-codes.html
 
 
+from .. import apputil
 from . import _pilot_core as _pcore
 from . import airfoil
 
@@ -113,8 +114,15 @@ class _Controller(metaclass=_Singleton):
         self.openprofiledata = _profiling.Profiling(mgr=self._rmgr)
         self.runprofiling = _profiling.RunProfiling(mgr=self._rmgr)
         self.populate_menu()
+        self._seed_console_namespace()
         self._built = True
         return self._rmgr
+
+    def _seed_console_namespace(self):
+        """Curate the console namespace and greet with a banner."""
+        appenv = apputil.get_current_appenv()
+        banner = apputil.install_pilot_namespace(self._rmgr, appenv)
+        self._rmgr.pycon.writeToHistory(banner)
 
     def _mesh_sample_dialog_entries(self):
         """Every example mesh as ``(category, label, tip, func)``, in menu
