@@ -36,11 +36,11 @@ class BarStructureTC(unittest.TestCase):
         self.assertIn("Sample mesh dialog",
                       [a.text() for a in model.menu("Mesh").actions()])
 
-        # Panels sits first in View and holds the two dock toggles.
+        # Panels sits first in View and holds the three dock toggles.
         view = [a.text() for a in model.menu("View").actions()]
         self.assertEqual(view[0], "Panels")
         panels = [a.text() for a in model.menu("View/Panels").actions()]
-        self.assertEqual(panels, ["Mesh", "Painter"])
+        self.assertEqual(panels, ["Mesh", "Painter", "Entity Tree"])
 
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
