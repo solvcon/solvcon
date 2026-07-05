@@ -5,7 +5,10 @@
 
 #include <solvcon/pilot/RPythonConsoleDockWidget.hpp>
 
+#include <solvcon/pilot/RPythonSyntaxRules.hpp>
+
 #include <QAbstractItemView>
+#include <QColor>
 #include <QKeyEvent>
 #include <QScrollBar>
 #include <QStandardPaths>
@@ -95,6 +98,45 @@ void RPythonCommandTextEdit::insertCompletion(const QString & completion)
     setTextCursor(tc);
 }
 
+void RPythonCommandTextEdit::highlightMatchingBracket()
+{
+    QList<QTextEdit::ExtraSelection> selections;
+    std::string const text = toPlainText().toStdString();
+    int const pos = textCursor().position();
+
+    auto addSelection = [&](int position)
+    {
+        QTextCursor cursor(document());
+        cursor.setPosition(position);
+        cursor.setPosition(position + 1, QTextCursor::KeepAnchor);
+        QTextEdit::ExtraSelection selection;
+        selection.cursor = cursor;
+        selection.format.setBackground(QColor(180, 180, 255));
+        selections.append(selection);
+    };
+
+    auto tryMatch = [&](int bracket_pos)
+    {
+        if (bracket_pos < 0 || bracket_pos >= static_cast<int>(text.size()))
+        {
+            return;
+        }
+        std::size_t const other = matchBracket(text, static_cast<std::size_t>(bracket_pos));
+        if (syntax_npos == other)
+        {
+            return;
+        }
+        addSelection(bracket_pos);
+        addSelection(static_cast<int>(other));
+    };
+
+    // The cursor sits between two characters; a bracket on either side is a
+    // candidate for matching.
+    tryMatch(pos);
+    tryMatch(pos - 1);
+    setExtraSelections(selections);
+}
+
 // Tab-triggered auto-completion workflow:
 // 1. Tab key extracts the identifier prefix behind the cursor (e.g., "os.pa")
 // 2. The prefix is sent to Python's rlcompleter via the completionRequested signal
@@ -172,7 +214,11 @@ void RPythonCommandTextEdit::keyPressEvent(QKeyEvent * event)
     {
         if (event->modifiers() & Qt::ShiftModifier)
         {
-            this->insertPlainText("\n");
+            // Open the next line at the same indentation, plus one level
+            // after a block-opening colon.
+            std::string const line = textCursor().block().text().toStdString();
+            std::string const indent = nextLineIndent(line);
+            insertPlainText(QString::fromStdString("\n" + indent));
         }
         else
         {
@@ -272,6 +318,13 @@ RPythonConsoleDockWidget::RPythonConsoleDockWidget(const QString & title, QWidge
         m_history.load();
         m_current_command_index = static_cast<int>(m_history.size());
     }
+
+    m_highlighter = new RPythonSyntaxHighlighter(m_command_edit->document());
+    connect(
+        m_command_edit,
+        &RPythonCommandTextEdit::cursorPositionChanged,
+        m_command_edit,
+        &RPythonCommandTextEdit::highlightMatchingBracket);
 
     m_completer_model = new QStringListModel(this);
     m_completer = new QCompleter(m_completer_model, this);

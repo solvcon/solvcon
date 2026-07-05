@@ -16,6 +16,7 @@
 #include <solvcon/python/common.hpp> // must be first.
 
 #include <solvcon/pilot/RPythonConsoleHistory.hpp>
+#include <solvcon/pilot/RPythonSyntaxHighlighter.hpp>
 
 #include <cstddef>
 #include <string>
@@ -62,6 +63,10 @@ signals:
     void completionRequested(const QString & prefix);
     void searchHistory();
     void searchHistoryReset();
+
+public slots:
+
+    void highlightMatchingBracket();
 
 private slots:
 
@@ -161,6 +166,7 @@ private:
     QCompleter * m_completer = nullptr;
     QStringListModel * m_completer_model = nullptr;
     QString m_completer_root_prefix;
+    RPythonSyntaxHighlighter * m_highlighter = nullptr;
 }; /* end class RPythonConsoleDockWidget */
 
 } /* end namespace solvcon */
