@@ -368,6 +368,13 @@ void RManager::setUpTerminal()
     // console shown first; the terminal is opened from the View menu.
     m_mainWindow->tabifyDockWidget(m_pycon, m_pyterm);
     m_pyterm->hide();
+
+    auto applyTerminalTheme = [this](ThemeVariant variant)
+    {
+        m_pyterm->applyTheme(syntaxColorsFor(m_themeManager->platform(), variant));
+    };
+    applyTerminalTheme(m_themeManager->currentVariant());
+    QObject::connect(m_themeManager, &RThemeManager::themeChanged, m_pyterm, applyTerminalTheme);
 }
 
 void RManager::setUpCentral()

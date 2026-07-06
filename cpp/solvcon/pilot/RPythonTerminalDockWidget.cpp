@@ -10,6 +10,7 @@
 #include <algorithm>
 
 #include <QAbstractItemView>
+#include <QApplication>
 #include <QColor>
 #include <QFont>
 #include <QKeyEvent>
@@ -81,6 +82,18 @@ void RPythonTerminalTextEdit::appendCommitted(QString const & text)
     QTextCursor cursor(document());
     cursor.movePosition(QTextCursor::End);
     cursor.insertText(text);
+}
+
+void RPythonTerminalTextEdit::appendOutput(QString const & text, bool is_error)
+{
+    QTextCursor cursor(document());
+    cursor.movePosition(QTextCursor::End);
+
+    QTextCharFormat format;
+    // stderr stands out in the theme's error red; stdout takes the theme's
+    // ordinary text color, so both follow a light or dark switch.
+    format.setForeground(is_error ? m_error_color : palette().color(QPalette::Text));
+    cursor.insertText(text, format);
 }
 
 bool RPythonTerminalTextEdit::cursorInInput() const
@@ -201,7 +214,7 @@ void RPythonTerminalTextEdit::highlightMatchingBracket()
         cursor.setPosition(position + 1, QTextCursor::KeepAnchor);
         QTextEdit::ExtraSelection selection;
         selection.cursor = cursor;
-        selection.format.setBackground(QColor(180, 180, 255));
+        selection.format.setBackground(m_bracket_match_color);
         selections.append(selection);
     };
 
@@ -382,10 +395,8 @@ RPythonTerminalDockWidget::RPythonTerminalDockWidget(
 {
     setWidget(m_edit);
 
-    QPalette palette;
-    palette.setColor(QPalette::Base, Qt::white);
-    palette.setColor(QPalette::Text, Qt::black);
-    m_edit->setPalette(palette);
+    // Leave the text colors to the application palette so the terminal follows
+    // the active light or dark theme instead of forcing black-on-white.
     m_edit->setFont(QFont("Courier New"));
     m_edit->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     m_edit->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
@@ -473,6 +484,14 @@ void RPythonTerminalDockWidget::writeToHistory(std::string const & data)
     m_edit->appendBeforePrompt(QString::fromStdString(data));
 }
 
+void RPythonTerminalDockWidget::applyTheme(SyntaxColors const & colors)
+{
+    m_highlighter->applyColors(colors);
+    m_edit->setBracketMatchColor(
+        QColor(colors.bracket_match.r, colors.bracket_match.g, colors.bracket_match.b));
+    m_edit->setErrorColor(QColor(colors.error.r, colors.error.g, colors.error.b));
+}
+
 void RPythonTerminalDockWidget::executeCommand()
 {
     // The command runs Python. When the Enter key arrives through the Qt
@@ -494,6 +513,11 @@ void RPythonTerminalDockWidget::executeCommand()
     bool more = false;
     std::string last_line;
     auto & interp = solvcon::python::Interpreter::instance();
+
+    // The command runs on the GUI thread, so a slow one freezes the window.
+    // Show a busy cursor for the duration; run_worker in the console offloads
+    // heavy work to a worker thread when responsiveness matters.
+    QApplication::setOverrideCursor(Qt::WaitCursor);
     m_python_redirect.activate();
     for (QString const & line : lines)
     {
@@ -510,14 +534,15 @@ void RPythonTerminalDockWidget::executeCommand()
         std::string const err = m_python_redirect.stderr_string();
         if (!out.empty())
         {
-            m_edit->appendCommitted(QString::fromStdString(out));
+            m_edit->appendOutput(QString::fromStdString(out), /*is_error=*/false);
         }
         if (!err.empty())
         {
-            m_edit->appendCommitted(QString::fromStdString(err));
+            m_edit->appendOutput(QString::fromStdString(err), /*is_error=*/true);
         }
     }
     m_python_redirect.deactivate();
+    QApplication::restoreOverrideCursor();
 
     if (!m_pending_statement.empty())
     {
