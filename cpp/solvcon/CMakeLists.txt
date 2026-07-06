@@ -35,6 +35,7 @@ endif () # BUILD_QT
 add_subdirectory(buffer)
 add_subdirectory(mesh)
 add_subdirectory(toggle)
+add_subdirectory(profiling)
 add_subdirectory(universe)
 add_subdirectory(onedim)
 add_subdirectory(oasis)
@@ -85,6 +86,7 @@ set(SOLVCON_TERMINAL_FILES
     ${SOLVCON_ROOT_SOURCES}
     ${SOLVCON_BUFFER_FILES}
     ${SOLVCON_TOGGLE_FILES}
+    ${SOLVCON_PROFILING_FILES}
     ${SOLVCON_UNIVERSE_FILES}
     ${SOLVCON_MESH_FILES}
     ${SOLVCON_MULTIDIM_FILES}

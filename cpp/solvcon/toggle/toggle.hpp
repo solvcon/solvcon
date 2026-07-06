@@ -14,8 +14,8 @@
 
 #include <solvcon/base.hpp>
 #include <solvcon/buffer/buffer.hpp>
-#include <solvcon/toggle/profile.hpp>
-#include <solvcon/toggle/RadixTree.hpp>
+#include <solvcon/profiling/profile.hpp>
+#include <solvcon/profiling/RadixTree.hpp>
 
 #include <string>
 #include <unordered_map>

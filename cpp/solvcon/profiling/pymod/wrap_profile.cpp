@@ -3,8 +3,8 @@
  * BSD 3-Clause License, see COPYING
  */
 
-#include <solvcon/toggle/pymod/toggle_pymod.hpp> // Must be the first include.
-#include <solvcon/toggle/SerializableProfiler.hpp>
+#include <solvcon/profiling/pymod/profiling_pymod.hpp> // Must be the first include.
+#include <solvcon/profiling/SerializableProfiler.hpp>
 #include <solvcon/solvcon.hpp>
 #include <queue>
 #include <unordered_map>

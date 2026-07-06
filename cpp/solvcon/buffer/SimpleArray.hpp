@@ -19,8 +19,8 @@
 
 // TODO: Solve circular include between <solvcon/toggle/toggle.hpp> and SimpleArray class.
 // Since it will happen circulate include when using <solvcon/toggle/toggle.hpp>,
-// I use <solvcon/toggle/RadixTree.hpp> instead.
-#include <solvcon/toggle/RadixTree.hpp>
+// I use <solvcon/profiling/RadixTree.hpp> instead.
+#include <solvcon/profiling/RadixTree.hpp>
 
 #include <algorithm>
 #include <array>

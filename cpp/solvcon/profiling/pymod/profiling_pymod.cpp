@@ -3,7 +3,7 @@
  * BSD 3-Clause License, see COPYING
  */
 
-#include <solvcon/toggle/pymod/toggle_pymod.hpp> // Must be the first include.
+#include <solvcon/profiling/pymod/profiling_pymod.hpp> // Must be the first include.
 #include <solvcon/buffer/pymod/buffer_pymod.hpp>
 
 namespace solvcon
@@ -12,23 +12,23 @@ namespace solvcon
 namespace python
 {
 
-struct toggle_pymod_tag;
+struct profiling_pymod_tag;
 
 template <>
-OneTimeInitializer<toggle_pymod_tag> & OneTimeInitializer<toggle_pymod_tag>::me()
+OneTimeInitializer<profiling_pymod_tag> & OneTimeInitializer<profiling_pymod_tag>::me()
 {
-    static OneTimeInitializer<toggle_pymod_tag> instance;
+    static OneTimeInitializer<profiling_pymod_tag> instance;
     return instance;
 }
 
-void initialize_toggle(pybind11::module & mod)
+void initialize_profiling(pybind11::module & mod)
 {
     auto initialize_impl = [](pybind11::module & mod)
     {
-        wrap_Toggle(mod);
+        wrap_profile(mod);
     };
 
-    OneTimeInitializer<toggle_pymod_tag>::me()(mod, initialize_impl);
+    OneTimeInitializer<profiling_pymod_tag>::me()(mod, initialize_impl);
 }
 
 } /* end namespace python */

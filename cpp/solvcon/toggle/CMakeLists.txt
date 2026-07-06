@@ -4,15 +4,11 @@
 cmake_minimum_required(VERSION 4.0.1)
 
 set(SOLVCON_TOGGLE_HEADERS
-    ${CMAKE_CURRENT_SOURCE_DIR}/profile.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RadixTree.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/toggle.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/SerializableProfiler.hpp
     CACHE FILEPATH "" FORCE)
 
 set(SOLVCON_TOGGLE_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/toggle.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RadixTree.cpp
     CACHE FILEPATH "" FORCE)
 
 set(SOLVCON_TOGGLE_PYMODHEADERS
@@ -21,7 +17,6 @@ set(SOLVCON_TOGGLE_PYMODHEADERS
 
 set(SOLVCON_TOGGLE_PYMODSOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/pymod/toggle_pymod.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/pymod/wrap_profile.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/pymod/wrap_Toggle.cpp
     CACHE FILEPATH "" FORCE)
 

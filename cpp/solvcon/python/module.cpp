@@ -12,6 +12,7 @@
 #include <solvcon/multidim/pymod/multidim_pymod.hpp>
 #include <solvcon/python/module.hpp>
 #include <solvcon/spacetime/pymod/spacetime_pymod.hpp>
+#include <solvcon/profiling/pymod/profiling_pymod.hpp>
 #include <solvcon/toggle/pymod/toggle_pymod.hpp>
 #include <solvcon/universe/pymod/universe_pymod.hpp>
 #include <solvcon/math/pymod/math_pymod.hpp>
@@ -32,6 +33,7 @@ namespace python
 void initialize(pybind11::module_ mod)
 {
     initialize_toggle(mod);
+    initialize_profiling(mod);
     initialize_buffer(mod);
     initialize_universe(mod);
     initialize_mesh(mod);
