@@ -18,11 +18,15 @@
 #include <solvcon/python/common.hpp> // must be first.
 
 #include <solvcon/pilot/RPythonConsoleHistory.hpp>
+#include <solvcon/pilot/RPythonSyntaxHighlighter.hpp>
 
+#include <cstddef>
 #include <string>
 
 #include <Qt>
+#include <QCompleter>
 #include <QDockWidget>
+#include <QStringListModel>
 #include <QTextEdit>
 #include <QWidget>
 
@@ -67,6 +71,16 @@ public:
 
     int inputStart() const { return m_input_start; }
 
+    void setCompleter(QCompleter * completer);
+    QCompleter * completer() const { return m_completer; }
+
+    /// The identifier prefix behind the caret, for completion.
+    QString completionPrefix() const;
+
+    /// The callable identifier chain just before a '(' at the caret, for a
+    /// call tip.
+    QString callableExpression() const;
+
     void keyPressEvent(QKeyEvent * event) override;
 
 protected:
@@ -77,8 +91,22 @@ signals:
 
     void execute();
     void navigate(int offset);
+    void completionRequested(QString const & prefix);
+    void callTipRequested(QString const & expression);
+    void searchHistory();
+    void searchHistoryReset();
+
+public slots:
+
+    void highlightMatchingBracket();
+
+private slots:
+
+    void insertCompletion(QString const & completion);
 
 private:
+
+    static bool isModifierKey(int key);
 
     /// True when the whole selection, or the bare caret, sits in the
     /// editable input region.
@@ -89,6 +117,9 @@ private:
 
     int m_prompt_start = 0;
     int m_input_start = 0;
+
+    QCompleter * m_completer = nullptr;
+    bool m_searching = false;
 
 }; /* end class RPythonTerminalTextEdit */
 
@@ -134,6 +165,13 @@ public slots:
     void executeCommand();
     void navigateCommand(int offset);
     void resetInput();
+    void searchHistoryBackward();
+    void endHistorySearch();
+
+private slots:
+    void handleCompletionRequest(QString const & prefix);
+    void handleCallTipRequest(QString const & expression);
+    void updateCompletionPrefix();
 
 private:
     RPythonTerminalTextEdit * m_edit = nullptr;
@@ -145,7 +183,16 @@ private:
     // continuation prompts until the interpreter reports it complete.
     std::string m_pending_statement;
 
+    bool m_history_search_active = false;
+    std::string m_history_search_query;
+    std::size_t m_history_search_next = 0;
+
     python::PythonStreamRedirect m_python_redirect;
+
+    QCompleter * m_completer = nullptr;
+    QStringListModel * m_completer_model = nullptr;
+    QString m_completer_root_prefix;
+    RPythonSyntaxHighlighter * m_highlighter = nullptr;
 }; /* end class RPythonTerminalDockWidget */
 
 } /* end namespace solvcon */
