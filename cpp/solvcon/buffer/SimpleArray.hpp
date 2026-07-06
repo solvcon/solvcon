@@ -2654,7 +2654,7 @@ SimpleArray<uint64_t> detail::SimpleArrayMixinSearch<A, T>::argwhere() const
     }
 
     size_t const ndim = athis->ndim();
-    shape_type res_shape{count, ndim};
+    shape_type const res_shape{count, ndim};
     SimpleArray<uint64_t> result(res_shape);
 
     size_t idx = 0;
@@ -2668,7 +2668,7 @@ SimpleArray<uint64_t> detail::SimpleArrayMixinSearch<A, T>::argwhere() const
         size_t offset = i;
         for (size_t dim = 0; dim < ndim; ++dim)
         {
-            size_t stride = athis->stride(dim);
+            size_t const stride = athis->stride(dim);
             result(idx, dim) = static_cast<uint64_t>(offset / stride);
             offset %= stride;
         }
