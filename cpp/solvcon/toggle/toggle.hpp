@@ -516,6 +516,15 @@ public:
         return ToggleSubscription(m_observers, key, id);
     }
 
+    // Drop every change callback. Used at interpreter shutdown so a callback
+    // holding a Python object is released while the interpreter is still
+    // alive, not when this store is destroyed after finalization.
+    void clear_observers()
+    {
+        std::scoped_lock const guard(m_observers->mutex);
+        m_observers->map.clear();
+    }
+
 private:
 
     DynamicToggleTable(DynamicToggleTable const & other, std::scoped_lock<std::mutex> const &)
@@ -888,6 +897,7 @@ public:
     {
         return m_dynamic_table.on_change(key, std::move(callback));
     }
+    void clear_change_observers() { m_dynamic_table.clear_observers(); }
 
     // The type-specific sentinel getters are gone; use get<T>/at<T>. The
     // set_TYPE writers remain as the mutating entry point that fires on_change.

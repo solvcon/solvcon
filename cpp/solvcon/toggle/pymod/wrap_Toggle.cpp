@@ -756,6 +756,14 @@ void wrap_Toggle(pybind11::module & mod)
         .value("Ops", ToggleCategory::Ops)
         .value("Experiment", ToggleCategory::Experiment);
 
+    // Release every change callback held by the global store at interpreter
+    // shutdown, while Python is still alive, so a callback holding a Python
+    // object (for example a pilot menu bridge) is not freed after
+    // finalization when the store's static destructor runs.
+    py::module_::import("atexit").attr("register")(
+        py::cpp_function([]()
+                         { Toggle::instance().clear_change_observers(); }));
+
     WrapSolidToggle::commit(mod, "SolidToggle", "SolidToggle");
     WrapFixedToggle::commit(mod, "FixedToggle", "FixedToggle");
     WrapHierarchicalToggleAccess::commit(mod, "HierarchicalToggleAccess", "HierarchicalToggleAccess");
