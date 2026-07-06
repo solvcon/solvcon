@@ -499,6 +499,40 @@ WrapToggle::WrapToggle(pybind11::module & mod, char const * pyname, char const *
         .def("declare_real", &detail::declare_toggle<double>, py::arg("key"), py::arg("default"))
         .def("declare_string", &detail::declare_toggle<std::string>, py::arg("key"), py::arg("default"))
         .def(
+            "on_change",
+            [](wrapped_type & self, std::string const & key, py::function const & callback)
+            {
+                // Run the Python callback under the GIL (it may fire from a
+                // solver thread that does not hold it) and never let it
+                // propagate a C++ exception out of the store.
+                // The whole body is wrapped so nothing escapes into the
+                // store's notify loop (which also guards callbacks); the
+                // analysis cannot always see that through the GIL guard.
+                // NOLINTNEXTLINE(bugprone-exception-escape)
+                auto wrapped = [callback]()
+                {
+                    try
+                    {
+                        py::gil_scoped_acquire const acquire;
+                        try
+                        {
+                            callback();
+                        }
+                        catch (py::error_already_set & e)
+                        {
+                            e.discard_as_unraisable("solvcon.Toggle on_change callback");
+                        }
+                    }
+                    // NOLINTNEXTLINE(bugprone-empty-catch)
+                    catch (...)
+                    {
+                    }
+                };
+                return self.on_change(key, std::move(wrapped));
+            },
+            py::arg("key"),
+            py::arg("callback"))
+        .def(
             "__getattr__",
             [](wrapped_type & self, std::string const & key)
             {
@@ -691,6 +725,14 @@ WrapProcessInfo::WrapProcessInfo(pybind11::module & mod, char const * pyname, ch
 
 void wrap_Toggle(pybind11::module & mod)
 {
+    namespace py = pybind11;
+
+    // The RAII subscription token returned by Toggle.on_change. Dropping the
+    // Python handle (or calling unsubscribe) removes the callback.
+    py::class_<ToggleSubscription>(mod, "ToggleSubscription")
+        .def("unsubscribe", &ToggleSubscription::reset)
+        .def_property_readonly("active", &ToggleSubscription::active);
+
     WrapSolidToggle::commit(mod, "SolidToggle", "SolidToggle");
     WrapFixedToggle::commit(mod, "FixedToggle", "FixedToggle");
     WrapHierarchicalToggleAccess::commit(mod, "HierarchicalToggleAccess", "HierarchicalToggleAccess");

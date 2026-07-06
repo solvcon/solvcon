@@ -17,10 +17,13 @@
 #include <solvcon/profiling/profile.hpp>
 #include <solvcon/profiling/RadixTree.hpp>
 
+#include <algorithm>
 #include <atomic>
+#include <bit>
 #include <cstdint>
 #include <deque>
 #include <format>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <stdexcept>
@@ -199,6 +202,117 @@ MM_TOGGLE_TYPE_TRAITS(double, TYPE_REAL)
 MM_TOGGLE_TYPE_TRAITS(std::string, TYPE_STRING)
 #undef MM_TOGGLE_TYPE_TRAITS
 
+namespace detail
+{
+
+/**
+ * Shared registry of change callbacks, keyed by toggle key.
+ *
+ * It is owned by a shared_ptr so a ToggleSubscription can hold a weak
+ * reference and unsubscribe safely even if the table is gone. Its own mutex
+ * guards the map and is never held while a callback runs.
+ *
+ * @ingroup group_core
+ */
+struct ToggleChangeObservers
+{
+    using callback_type = std::shared_ptr<std::function<void()>>;
+    std::mutex mutex;
+    uint64_t next_id = 0;
+    // The callback is held by shared_ptr so a firing thread can copy the
+    // pointer (a cheap atomic) rather than the std::function itself. Copying
+    // a std::function that wraps a Python callable would touch a Python
+    // refcount without the GIL, from a solver thread that does not hold it.
+    std::unordered_map<std::string, std::vector<std::pair<uint64_t, callback_type>>> map;
+}; /* end struct ToggleChangeObservers */
+
+} /* end namespace detail */
+
+/**
+ * RAII handle for one change subscription.
+ *
+ * Dropping it unsubscribes, so a callback never outlives the widget it
+ * belongs to. It is move-only and tolerates the table being destroyed first
+ * (the weak reference simply expires).
+ *
+ * @ingroup group_core
+ */
+class ToggleSubscription
+{
+
+public:
+
+    ToggleSubscription() = default;
+
+    ToggleSubscription(std::shared_ptr<detail::ToggleChangeObservers> const & observers, std::string key, uint64_t id)
+        : m_observers(observers)
+        , m_key(std::move(key))
+        , m_id(id)
+        , m_active(true)
+    {
+    }
+
+    ToggleSubscription(ToggleSubscription const &) = delete;
+    ToggleSubscription & operator=(ToggleSubscription const &) = delete;
+
+    ToggleSubscription(ToggleSubscription && other) noexcept { swap(other); }
+    ToggleSubscription & operator=(ToggleSubscription && other) noexcept
+    {
+        if (this != &other)
+        {
+            reset();
+            swap(other);
+        }
+        return *this;
+    }
+
+    ~ToggleSubscription() { reset(); }
+
+    bool active() const { return m_active; }
+
+    void reset()
+    {
+        if (!m_active)
+        {
+            return;
+        }
+        m_active = false;
+        if (std::shared_ptr<detail::ToggleChangeObservers> const obs = m_observers.lock())
+        {
+            std::scoped_lock const guard(obs->mutex);
+            auto it = obs->map.find(m_key);
+            if (it != obs->map.end())
+            {
+                auto & subs = it->second;
+                subs.erase(
+                    std::remove_if(subs.begin(), subs.end(), [this](auto const & pr)
+                                   { return pr.first == m_id; }),
+                    subs.end());
+                if (subs.empty())
+                {
+                    obs->map.erase(it);
+                }
+            }
+        }
+    }
+
+private:
+
+    void swap(ToggleSubscription & other) noexcept
+    {
+        m_observers.swap(other.m_observers);
+        m_key.swap(other.m_key);
+        std::swap(m_id, other.m_id);
+        std::swap(m_active, other.m_active);
+    }
+
+    std::weak_ptr<detail::ToggleChangeObservers> m_observers;
+    std::string m_key;
+    uint64_t m_id = 0;
+    bool m_active = false;
+
+}; /* end class ToggleSubscription */
+
 class DynamicToggleTable;
 
 /**
@@ -359,6 +473,23 @@ public:
     template <typename T>
     T at(std::string const & key) const;
 
+    /**
+     * Subscribe to changes of a key.
+     *
+     * The callback runs after the write lock is released, so it may call back
+     * into the store (including set) without deadlock, and firing outside the
+     * lock keeps a Python callback from inverting lock order against the GIL.
+     * A no-op write (setting the value already stored) does not fire. Dropping
+     * the returned token unsubscribes.
+     */
+    [[nodiscard]] ToggleSubscription on_change(std::string const & key, std::function<void()> callback)
+    {
+        std::scoped_lock const guard(m_observers->mutex);
+        uint64_t const id = m_observers->next_id++;
+        m_observers->map[key].emplace_back(id, std::make_shared<std::function<void()>>(std::move(callback)));
+        return ToggleSubscription(m_observers, key, id);
+    }
+
 private:
 
     DynamicToggleTable(DynamicToggleTable const & other, std::scoped_lock<std::mutex> const &)
@@ -379,6 +510,25 @@ private:
     template <typename T>
     ToggleRegisterColumn<T> const & column() const;
 
+    // Fire the change callbacks for a key, called after the write lock is
+    // released. A throwing callback is caught so the store is never corrupted.
+    void notify(std::string const & key) const;
+
+    // Equality used by the no-op-write guard. Doubles compare by bit pattern
+    // so NaN and -0.0 behave sanely under the load-compare-store.
+    template <typename T>
+    static bool value_equal(T const & lhs, T const & rhs)
+    {
+        if constexpr (std::is_same_v<T, double>)
+        {
+            return std::bit_cast<uint64_t>(lhs) == std::bit_cast<uint64_t>(rhs);
+        }
+        else
+        {
+            return lhs == rhs;
+        }
+    }
+
     mutable std::mutex m_mutex;
     keymap_type m_key2index;
     ToggleRegisterColumn<bool> m_column_bool;
@@ -389,6 +539,8 @@ private:
     ToggleRegisterColumn<double> m_column_real;
     ToggleRegisterColumn<std::string> m_column_string;
     std::atomic<uint64_t> m_generation{0};
+    // A fresh registry per table; a clone does not inherit subscriptions.
+    std::shared_ptr<detail::ToggleChangeObservers> m_observers = std::make_shared<detail::ToggleChangeObservers>();
 
 }; /* end class DynamicToggleTable */
 
@@ -721,6 +873,11 @@ public:
     T get(std::string const & key, T const & default_value) const { return m_dynamic_table.get<T>(key, default_value); }
     template <typename T>
     T at(std::string const & key) const { return m_dynamic_table.at<T>(key); }
+
+    [[nodiscard]] ToggleSubscription on_change(std::string const & key, std::function<void()> callback)
+    {
+        return m_dynamic_table.on_change(key, std::move(callback));
+    }
 
     bool get_bool(std::string const & key) const { return m_dynamic_table.get_bool(key); }
     void set_bool(std::string const & key, bool value) { m_dynamic_table.set_bool(key, value); }

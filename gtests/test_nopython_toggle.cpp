@@ -7,6 +7,8 @@
 #include <solvcon/toggle/toggle.hpp>
 
 #include <atomic>
+#include <limits>
+#include <stdexcept>
 #include <string>
 #include <thread>
 #include <vector>
@@ -109,6 +111,94 @@ TEST(ToggleRefTest, declare_idempotent_and_type_conflict)
 
     // A conflicting type is an error.
     EXPECT_THROW(table.declare<bool>("n", true), std::invalid_argument);
+}
+
+TEST(ToggleOnChangeTest, fires_once_per_real_change)
+{
+    DynamicToggleTable table;
+    table.declare<int32_t>("k", 1);
+
+    int fired = 0;
+    ToggleSubscription const tok = table.on_change("k", [&]
+                                                   { ++fired; });
+    table.set_int32("k", 2); // change
+    table.set_int32("k", 2); // no-op
+    table.set_int32("k", 3); // change
+    EXPECT_EQ(fired, 2);
+}
+
+TEST(ToggleOnChangeTest, double_noop_uses_bit_pattern)
+{
+    DynamicToggleTable table;
+    table.declare<double>("r", 0.0);
+
+    int fired = 0;
+    ToggleSubscription const tok = table.on_change("r", [&]
+                                                   { ++fired; });
+
+    table.set_real("r", 0.0); // same bits -> no fire
+    EXPECT_EQ(fired, 0);
+    table.set_real("r", -0.0); // different bits from +0.0 -> fire
+    EXPECT_EQ(fired, 1);
+
+    double const nan_value = std::numeric_limits<double>::quiet_NaN();
+    table.set_real("r", nan_value); // -0.0 -> NaN -> fire
+    EXPECT_EQ(fired, 2);
+    table.set_real("r", nan_value); // same NaN bits -> no fire
+    EXPECT_EQ(fired, 2);
+}
+
+TEST(ToggleOnChangeTest, coalesced_across_observers_and_reentrant)
+{
+    DynamicToggleTable table;
+    table.declare<int32_t>("k", 0);
+    table.declare<int32_t>("mirror", -1);
+
+    int a = 0;
+    int b = 0;
+    ToggleSubscription const t0 = table.on_change("k", [&]
+                                                  { ++a; });
+    // A reentrant observer writes another key from inside the callback.
+    ToggleSubscription const t1 = table.on_change("k", [&]
+                                                  { ++b; table.set_int32("mirror", table.at<int32_t>("k")); });
+
+    table.set_int32("k", 7);
+    EXPECT_EQ(a, 1);
+    EXPECT_EQ(b, 1);
+    EXPECT_EQ(table.at<int32_t>("mirror"), 7);
+}
+
+TEST(ToggleOnChangeTest, throwing_observer_is_contained)
+{
+    DynamicToggleTable table;
+    table.declare<int32_t>("k", 0);
+
+    int after = 0;
+    ToggleSubscription const t0 = table.on_change("k", []
+                                                  { throw std::runtime_error("boom"); });
+    ToggleSubscription const t1 = table.on_change("k", [&]
+                                                  { ++after; });
+
+    EXPECT_NO_THROW(table.set_int32("k", 1));
+    EXPECT_EQ(after, 1);
+    EXPECT_EQ(table.at<int32_t>("k"), 1);
+}
+
+TEST(ToggleOnChangeTest, dropped_subscription_stops_firing)
+{
+    DynamicToggleTable table;
+    table.declare<int32_t>("k", 0);
+
+    int fired = 0;
+    {
+        ToggleSubscription const tok = table.on_change("k", [&]
+                                                       { ++fired; });
+        table.set_int32("k", 1);
+        EXPECT_EQ(fired, 1);
+    }
+    // Token destroyed at scope exit -> unsubscribed.
+    table.set_int32("k", 2);
+    EXPECT_EQ(fired, 1);
 }
 
 TEST(ToggleRefTest, concurrent_readers_and_writers)
