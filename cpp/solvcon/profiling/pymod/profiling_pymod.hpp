@@ -17,8 +17,8 @@ namespace solvcon
 namespace python
 {
 
-void initialize_toggle(pybind11::module & mod);
-void wrap_Toggle(pybind11::module & mod);
+void initialize_profiling(pybind11::module & mod);
+void wrap_profile(pybind11::module & mod);
 
 } /* end namespace python */
 

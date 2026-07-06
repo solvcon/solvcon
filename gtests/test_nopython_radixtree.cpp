@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include <solvcon/toggle/RadixTree.hpp>
+#include <solvcon/profiling/RadixTree.hpp>
 
 #ifdef Py_PYTHON_H
 #error "Python.h should not be included."

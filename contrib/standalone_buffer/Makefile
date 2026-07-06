@@ -75,7 +75,7 @@ $(SETUPROOT)/simd_support.o: $(SETUPROOT)/solvcon/simd/simd_support.cpp Makefile
 $(SETUPROOT)/modbuf.o: modbuf.cpp
 	c++ $(CFLAGS) -c $< -o $@
 
-$(SETUPROOT)/radix_tree.o: $(SETUPROOT)/solvcon/toggle/RadixTree.cpp Makefile
+$(SETUPROOT)/radix_tree.o: $(SETUPROOT)/solvcon/profiling/RadixTree.cpp Makefile
 	c++ $(CFLAGS) -c $< -o $@
 
 OBJS = \
@@ -110,6 +110,8 @@ copy:
 	cp $(MMROOT)/cpp/solvcon/python/common.hpp $(SETUPROOT)/solvcon/python/common.hpp
 	cp -a $(MMROOT)/cpp/solvcon/toggle $(SETUPROOT)/solvcon/toggle
 	rm -rf $(SETUPROOT)/solvcon/toggle/pymod
+	cp -a $(MMROOT)/cpp/solvcon/profiling $(SETUPROOT)/solvcon/profiling
+	rm -rf $(SETUPROOT)/solvcon/profiling/pymod
 	cp -a $(MMROOT)/cpp/solvcon/math $(SETUPROOT)/solvcon/math
 	rm -rf $(SETUPROOT)/solvcon/math/pymod
 	cp -a $(MMROOT)/cpp/solvcon/simd $(SETUPROOT)/solvcon/simd

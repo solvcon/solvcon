@@ -19,7 +19,7 @@
 
 // TODO: Solve circular include between <solvcon/toggle/toggle.hpp> and SimpleArray class.
 // buffer/ (higher level) should depend on toggle/ (lower level).
-#include <solvcon/toggle/RadixTree.hpp>
+#include <solvcon/profiling/RadixTree.hpp>
 
 namespace solvcon
 {

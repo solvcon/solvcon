@@ -6,7 +6,7 @@
 #endif
 
 #define SOLVCON_PROFILE 1
-#include <solvcon/toggle/RadixTree.hpp>
+#include <solvcon/profiling/RadixTree.hpp>
 namespace solvcon
 {
 

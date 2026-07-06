@@ -3,7 +3,7 @@
  * BSD 3-Clause License, see COPYING
  */
 
-#include <solvcon/toggle/RadixTree.hpp>
+#include <solvcon/profiling/RadixTree.hpp>
 
 namespace solvcon
 {

@@ -12,7 +12,7 @@
  * @ingroup group_core
  */
 
-#include <solvcon/toggle/RadixTree.hpp>
+#include <solvcon/profiling/RadixTree.hpp>
 #include <solvcon/serialization/SerializableItem.hpp>
 
 namespace solvcon
