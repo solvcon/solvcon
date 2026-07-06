@@ -40,11 +40,6 @@ Toggle & Toggle::instance()
     return o;
 }
 
-SolidToggle::SolidToggle()
-    : m_use_pyside(true)
-{
-}
-
 // NOLINTNEXTLINE(bugprone-throwing-static-initialization,fuchsia-statically-constructed-objects,readability-redundant-string-init,cert-err58-cpp)
 std::string const DynamicToggleTable::sentinel_string = "";
 
@@ -162,6 +157,7 @@ void DynamicToggleTable::clear()
 {
     std::scoped_lock const guard(m_mutex);
     m_key2index.clear();
+    m_categories.clear();
     m_column_bool.clear();
     m_column_int8.clear();
     m_column_int16.clear();

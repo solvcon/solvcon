@@ -310,6 +310,19 @@ class ToggleTypedAccessTC(unittest.TestCase):
         with self.assertRaises(KeyError):
             tg.at("t.missing")
 
+    def test_category(self):
+        tg = solvcon.Toggle.instance.clone()
+        # The startup toggles are declared with the Ops category.
+        self.assertEqual(tg.category("python_redirect"),
+                         solvcon.ToggleCategory.Ops)
+        tg.dynamic_clear()
+        tg.declare_int32("t.count", 1)
+        self.assertEqual(tg.category("t.count"),
+                         solvcon.ToggleCategory.Ops)
+        # An undeclared key reports the default category.
+        self.assertEqual(tg.category("t.missing"),
+                         solvcon.ToggleCategory.Ops)
+
     def test_declare_is_idempotent(self):
         tg = solvcon.Toggle.instance.clone()
         tg.dynamic_clear()
@@ -499,19 +512,27 @@ class ToggleLoadTC(unittest.TestCase):
             toggle_instance=solvcon.Toggle.instance.clone())
         self.assertEqual(tg.apps.euler1d.use_sub, True)
 
-    @unittest.skip("the lifecycle issue may cause segfault")
     def test_load_bad_lifecycle(self):
+        # Chaining subkey access off a temporary Toggle used to dangle the raw
+        # table pointer the access holds and could segfault. keep_alive now
+        # keeps the owning Toggle alive through the whole chain.
         fixture = '''[{"fixed": {"show_axis": false}},
-{"dynamic": {"apps": {"euler1d": {"use_sub": false}}}}]'''
-        # TODO: Need to fix this later. It may be wrong lifecycle handling with
-        # WrapHierarchicalToggleAccess.
-        with self.assertRaisesRegex(
-                AttributeError,
-                r'Cannot get non-existing key "apps.euler1d"'
-        ):
-            solvcon.toggle.load(
-                fixture,
-                toggle_instance=solvcon.Toggle.instance.clone()).apps.euler1d
+{"dynamic": {"apps": {"euler1d": {"use_sub": true}}}}]'''
+        value = solvcon.toggle.load(
+            fixture,
+            toggle_instance=solvcon.Toggle.instance.clone()
+        ).apps.euler1d.use_sub
+        self.assertEqual(value, True)
+
+    def test_load_generic_app(self):
+        # load walks the dynamic tree for any app, not just euler1d.
+        fixture = '''[{"fixed": {}},
+{"dynamic": {"apps": {"myapp": {"count": 7, "name": "hi"}}}}]'''
+        tg = solvcon.toggle.load(
+            fixture,
+            toggle_instance=solvcon.Toggle.instance.clone())
+        self.assertEqual(tg.apps.myapp.count, 7)
+        self.assertEqual(tg.apps.myapp.name, "hi")
 
 
 class CommandLineInfoTC(unittest.TestCase):

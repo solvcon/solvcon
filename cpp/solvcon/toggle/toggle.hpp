@@ -16,6 +16,7 @@
 #include <solvcon/buffer/buffer.hpp>
 #include <solvcon/profiling/profile.hpp>
 #include <solvcon/profiling/RadixTree.hpp>
+#include <solvcon/toggle/build_config.hpp>
 
 #include <algorithm>
 #include <atomic>
@@ -36,6 +37,23 @@ namespace solvcon
 {
 
 int setenv(const char * name, const char * value, int overwrite);
+
+/**
+ * Lifecycle category of a toggle (Fowler's feature-flag categories).
+ *
+ * The category enforces nothing by itself; it records the expected lifetime
+ * so a lint or test can flag, for example, a release toggle that outlived its
+ * feature. Ops and UI settings are long-lived; a release toggle is removed
+ * once its feature lands.
+ *
+ * @ingroup group_core
+ */
+enum class ToggleCategory : uint8_t
+{
+    Release,
+    Ops,
+    Experiment,
+}; /* end enum class ToggleCategory */
 
 template <typename T>
 class ToggleRef;
@@ -450,14 +468,22 @@ public:
     uint64_t generation() const { return m_generation.load(std::memory_order_relaxed); }
 
     /**
-     * Create a toggle with a default and return a handle to it.
+     * Create a toggle with a default and a category, and return a handle.
      *
      * Re-declaring an existing key of the same type is idempotent and
      * returns a handle to the existing register. A conflicting type is an
      * error.
      */
     template <typename T>
-    ToggleRef<T> declare(std::string const & key, T const & default_value);
+    ToggleRef<T> declare(std::string const & key, T const & default_value, ToggleCategory category = ToggleCategory::Ops);
+
+    /// The category recorded for a key, or Ops if the key was never declared.
+    ToggleCategory category(std::string const & key) const
+    {
+        std::scoped_lock const guard(m_mutex);
+        auto it = m_categories.find(key);
+        return (it != m_categories.end()) ? it->second : ToggleCategory::Ops;
+    }
 
     /// Resolve an existing key to a handle; an invalid handle if it is
     /// missing or has a different type.
@@ -494,6 +520,7 @@ private:
 
     DynamicToggleTable(DynamicToggleTable const & other, std::scoped_lock<std::mutex> const &)
         : m_key2index(other.m_key2index)
+        , m_categories(other.m_categories)
         , m_column_bool(other.m_column_bool)
         , m_column_int8(other.m_column_int8)
         , m_column_int16(other.m_column_int16)
@@ -531,6 +558,7 @@ private:
 
     mutable std::mutex m_mutex;
     keymap_type m_key2index;
+    std::unordered_map<std::string, ToggleCategory> m_categories;
     ToggleRegisterColumn<bool> m_column_bool;
     ToggleRegisterColumn<int8_t> m_column_int8;
     ToggleRegisterColumn<int16_t> m_column_int16;
@@ -685,9 +713,10 @@ ToggleRegisterColumn<T> const & DynamicToggleTable::column() const
 }
 
 template <typename T>
-ToggleRef<T> DynamicToggleTable::declare(std::string const & key, T const & default_value)
+ToggleRef<T> DynamicToggleTable::declare(std::string const & key, T const & default_value, ToggleCategory category)
 {
     std::scoped_lock const guard(m_mutex);
+    m_categories[key] = category;
     auto it = m_key2index.find(key);
     if (it != m_key2index.end())
     {
@@ -741,19 +770,12 @@ T DynamicToggleTable::at(std::string const & key) const
     throw std::out_of_range(std::format("Toggle::at: key \"{}\" is missing or has a different type", key));
 }
 
-#define MM_TOGGLE_SOLID_BOOL(NAME)         \
-public:                                    \
-    bool NAME() const { return m_##NAME; } \
-                                           \
-private:                                   \
-    bool m_##NAME;
-
 /**
- * Toggles whose values are determined at compile time and read-only
- * during the process lifetime.
+ * Compatibility facade for the former compile-time solid toggles.
  *
- * Each accessor (for example use_pyside) returns a bool member that has
- * an address and cannot be optimized out, unlike a macro or constexpr.
+ * The one solid toggle, use_pyside, is now an inline constexpr build switch
+ * (see build_config.hpp) that the optimizer folds away. This stateless
+ * facade keeps the old accessor working until its callers move.
  *
  * @ingroup group_core
  */
@@ -762,27 +784,19 @@ class SolidToggle
 
 public:
 
-    SolidToggle();
-
-    MM_TOGGLE_SOLID_BOOL(use_pyside)
+    // Kept as an instance method for API compatibility with the old facade.
+    // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+    bool use_pyside() const { return build_config::use_pyside; }
 
 }; /* end class SolidToggle */
 
-#define MM_TOGGLE_FIXED_BOOL(NAME, DEFAULT)      \
-public:                                          \
-    bool get_##NAME() const { return m_##NAME; } \
-    void set_##NAME(bool v) { m_##NAME = v; }    \
-                                                 \
-private:                                         \
-    bool m_##NAME = DEFAULT;
-
 /**
- * Toggles whose names are fixed at compile time but whose bool values
- * can change at runtime.
+ * Compatibility facade for the former fixed toggles.
  *
- * Access needs no table lookup because the member addresses are known
- * to the compiler and linker (for example python_redirect and
- * show_axis).
+ * python_redirect and show_axis are now ordinary declared toggles in the
+ * store, so they gain change notification and serialization. This facade
+ * reads and writes them through the store (with their startup defaults),
+ * keeping the old get_/set_ accessors working until their callers move.
  *
  * @ingroup group_core
  */
@@ -791,8 +805,19 @@ class FixedToggle
 
 public:
 
-    MM_TOGGLE_FIXED_BOOL(python_redirect, true)
-    MM_TOGGLE_FIXED_BOOL(show_axis, false)
+    explicit FixedToggle(DynamicToggleTable & table)
+        : m_table(&table)
+    {
+    }
+
+    bool get_python_redirect() const { return m_table->get<bool>("python_redirect", true); }
+    void set_python_redirect(bool v) { m_table->set_bool("python_redirect", v); }
+    bool get_show_axis() const { return m_table->get<bool>("show_axis", false); }
+    void set_show_axis(bool v) { m_table->set_bool("show_axis", v); }
+
+private:
+
+    DynamicToggleTable * m_table = nullptr;
 
 }; /* end class FixedToggle */
 
@@ -852,10 +877,10 @@ public:
 
     ~Toggle() = default;
 
-    SolidToggle const & solid() const { return m_solid; }
+    // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+    SolidToggle solid() const { return SolidToggle{}; }
 
-    FixedToggle const & fixed() const { return m_fixed; }
-    FixedToggle & fixed() { return m_fixed; }
+    FixedToggle fixed() { return FixedToggle(m_dynamic_table); }
 
     DynamicToggleTable const & dynamic() const { return m_dynamic_table; }
     DynamicToggleTable & dynamic() { return m_dynamic_table; }
@@ -866,7 +891,11 @@ public:
     DynamicToggleIndex get_dynamic_index(std::string const & key) const { return m_dynamic_table.get_index(key); }
 
     template <typename T>
-    ToggleRef<T> declare(std::string const & key, T const & default_value) { return m_dynamic_table.declare<T>(key, default_value); }
+    ToggleRef<T> declare(std::string const & key, T const & default_value, ToggleCategory category = ToggleCategory::Ops)
+    {
+        return m_dynamic_table.declare<T>(key, default_value, category);
+    }
+    ToggleCategory category(std::string const & key) const { return m_dynamic_table.category(key); }
     template <typename T>
     ToggleRef<T> ref(std::string const & key) { return m_dynamic_table.ref<T>(key); }
     template <typename T>
@@ -905,11 +934,16 @@ public:
 
 private:
 
-    Toggle() = default;
+    // The formerly fixed toggles are now ordinary declared toggles with
+    // startup defaults and a category, so they carry notification and
+    // serialization like any other toggle.
+    Toggle()
+    {
+        m_dynamic_table.declare<bool>("python_redirect", true, ToggleCategory::Ops);
+        m_dynamic_table.declare<bool>("show_axis", false, ToggleCategory::Ops);
+    }
     Toggle(Toggle const &) = default;
 
-    SolidToggle m_solid;
-    FixedToggle m_fixed;
     DynamicToggleTable m_dynamic_table;
 
 }; /* end class Toggle */
