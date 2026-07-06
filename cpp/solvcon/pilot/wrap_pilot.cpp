@@ -1034,7 +1034,7 @@ void initialize_pilot(pybind11::module & mod)
         wrap_pilot(mod);
     };
 
-    if (Toggle::instance().solid().use_pyside())
+    if (build_config::use_pyside)
     {
         try
         {

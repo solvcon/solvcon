@@ -4,9 +4,7 @@
 
 import os
 import unittest
-import math
 import json
-import warnings
 
 import solvcon
 
@@ -50,12 +48,13 @@ class ToggleTC(unittest.TestCase):
         self.assertEqual(tg.dynamic_keys(), [])
 
         tg.set_bool("test_bool", True)
-        self.assertTrue(tg.get_bool("test_bool"))
+        self.assertTrue(tg.get("test_bool", False))
         self.assertEqual(tg.dynamic_keys(), ["test_bool"])
 
         tg1 = tg.clone()
         self.assertEqual(tg.dynamic_keys(), tg1.dynamic_keys())
-        self.assertEqual(tg.get_bool("test_bool"), tg1.get_bool("test_bool"))
+        self.assertEqual(tg.get("test_bool", False),
+                         tg1.get("test_bool", False))
 
 
 class ToggleDynamicTC(unittest.TestCase):
@@ -67,49 +66,44 @@ class ToggleDynamicTC(unittest.TestCase):
 
         # Add a key of Boolean.
         tg.set_bool("test_bool", True)
-        self.assertTrue(tg.get_bool("test_bool"))
+        self.assertTrue(tg.get("test_bool", False))
         # Make sure the key appears.
         self.assertEqual(tg.dynamic_keys(), ["test_bool"])
-        # Test sentinel.
-        self.assertEqual(tg.get_bool("test_no_bool"), False)
+        # A missing key returns the caller default and at() raises.
+        self.assertEqual(tg.get("test_no_bool", False), False)
+        with self.assertRaises(KeyError):
+            tg.at("test_no_bool")
 
         # Add a key of int8.
         tg.set_int8("test_int8", 23)
-        self.assertEqual(tg.get_int8("test_int8"), 23)
+        self.assertEqual(tg.get("test_int8", 0), 23)
         # Make sure the key appears
         self.assertEqual(sorted(tg.dynamic_keys()),
                          ["test_bool", "test_int8"])
-        # Test sentinel.
-        self.assertEqual(tg.get_int8("test_no_int8"), 0)
+        self.assertEqual(tg.get("test_no_int8", 0), 0)
 
         # Add a key of int16.
         tg.set_int16("test_int16", -46)
-        self.assertEqual(tg.get_int16("test_int16"), -46)
+        self.assertEqual(tg.get("test_int16", 0), -46)
         # Make sure the key appears
         self.assertEqual(sorted(tg.dynamic_keys()),
                          ["test_bool", "test_int16", "test_int8"])
-        # Test sentinel.
-        self.assertEqual(tg.get_int16("test_no_int16"), 0)
 
         # Add a key of int32.
         tg.set_int32("test_int32", 842)
-        self.assertEqual(tg.get_int32("test_int32"), 842)
+        self.assertEqual(tg.get("test_int32", 0), 842)
         # Make sure the key appears
         self.assertEqual(sorted(tg.dynamic_keys()),
                          ["test_bool", "test_int16", "test_int32",
                           "test_int8"])
-        # Test sentinel.
-        self.assertEqual(tg.get_int32("test_no_int32"), 0)
 
         # Add a key of int64.
         tg.set_int64("test_int64", -9912)
-        self.assertEqual(tg.get_int64("test_int64"), -9912)
+        self.assertEqual(tg.get("test_int64", 0), -9912)
         # Make sure the key appears
         self.assertEqual(sorted(tg.dynamic_keys()),
                          ["test_bool", "test_int16", "test_int32",
                           "test_int64", "test_int8"])
-        # Test sentinel.
-        self.assertEqual(tg.get_int64("test_no_int64"), 0)
 
         # Clear dynamic keys (and the values).
         tg.dynamic_clear()
@@ -117,20 +111,17 @@ class ToggleDynamicTC(unittest.TestCase):
 
         # Add a key of real.
         tg.set_real("test_real", 2.87)
-        self.assertEqual(tg.get_real("test_real"), 2.87)
+        self.assertEqual(tg.get("test_real", 0.0), 2.87)
         # Make sure the key appears
         self.assertEqual(sorted(tg.dynamic_keys()), ["test_real"])
-        # Test sentinel.
-        self.assertTrue(math.isnan(tg.get_real("test_no_real")))
 
         # Add a key of string.
         tg.set_string("test_string", "a random line")
-        self.assertEqual(tg.get_string("test_string"), "a random line")
+        self.assertEqual(tg.get("test_string", ""), "a random line")
         # Make sure the key appears
         self.assertEqual(sorted(tg.dynamic_keys()),
                          ["test_real", "test_string"])
-        # Test sentinel.
-        self.assertEqual(tg.get_string("test_no_string"), "")
+        self.assertEqual(tg.get("test_no_string", ""), "")
 
         # Clear dynamic keys (and the values) the second time.
         tg.dynamic_clear()
@@ -141,24 +132,24 @@ class ToggleDynamicTC(unittest.TestCase):
         tg.dynamic_clear()
         self.assertEqual(tg.dynamic_keys(), [])
 
-        # Test sentinel.
-        self.assertEqual(tg.get_bool("test_bool"), False)
+        # A missing key returns the caller default.
+        self.assertEqual(tg.get("test_bool", False), False)
 
         # Add a key of Boolean.
         tg.set_bool("test_bool", True)
-        self.assertTrue(tg.get_bool("test_bool"))
+        self.assertTrue(tg.get("test_bool", False))
         # Make sure the key appears.
         self.assertEqual(tg.dynamic_keys(), ["test_bool"])
 
         # Fatigue test.
         tg.set_bool("test_bool", False)
-        self.assertFalse(tg.get_bool("test_bool"))
+        self.assertFalse(tg.get("test_bool", True))
         tg.set_bool("test_bool", True)
-        self.assertTrue(tg.get_bool("test_bool"))
+        self.assertTrue(tg.get("test_bool", False))
         tg.set_bool("test_bool", False)
-        self.assertFalse(tg.get_bool("test_bool"))
+        self.assertFalse(tg.get("test_bool", True))
         tg.set_bool("test_bool", True)
-        self.assertTrue(tg.get_bool("test_bool"))
+        self.assertTrue(tg.get("test_bool", False))
 
         tg.dynamic_clear()
 
@@ -246,7 +237,7 @@ class ToggleHierarchicalTC(unittest.TestCase):
         self.assertIsInstance(tg.level1p.level2p,
                               solvcon.HierarchicalToggleAccess)
         tg.level1p.set_bool("test_bool", True)
-        self.assertEqual(tg.get_bool('level1p.test_bool'), True)
+        self.assertEqual(tg.get('level1p.test_bool', False), True)
         tg.set_int32('level1p.level2p.test_int32', -2132)
         self.assertEqual(tg.level1p.level2p.test_int32, -2132)
         self.assertEqual(sorted(tg.dynamic_keys()),
@@ -332,17 +323,12 @@ class ToggleTypedAccessTC(unittest.TestCase):
         tg.declare_int32("t.count", 100)
         self.assertEqual(tg.get("t.count", 0), 42)
 
-    def test_deprecated_getter_warns(self):
+    def test_sentinel_getters_removed(self):
         tg = solvcon.Toggle.instance.clone()
-        tg.dynamic_clear()
-        tg.set_bool("t.flag", True)
-
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            value = tg.get_bool("t.flag")
-        self.assertTrue(value)
-        self.assertEqual(len(caught), 1)
-        self.assertTrue(issubclass(caught[0].category, DeprecationWarning))
+        # The old silent-sentinel getters no longer exist on Toggle.
+        self.assertFalse(hasattr(tg, "get_bool"))
+        self.assertFalse(hasattr(tg, "get_int32"))
+        self.assertFalse(hasattr(tg, "get_string"))
 
 
 class ToggleOnChangeTC(unittest.TestCase):

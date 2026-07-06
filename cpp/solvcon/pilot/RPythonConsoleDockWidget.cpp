@@ -288,7 +288,7 @@ RPythonConsoleDockWidget::RPythonConsoleDockWidget(const QString & title, QWidge
     : QDockWidget(title, parent, flags)
     , m_history_edit(new RPythonHistoryTextEdit)
     , m_command_edit(new RPythonCommandTextEdit)
-    , m_python_redirect(Toggle::instance().fixed().get_python_redirect())
+    , m_python_redirect(Toggle::instance().get<bool>("python_redirect", true))
 {
     auto * container = new QWidget;
     auto * layout = new QVBoxLayout;

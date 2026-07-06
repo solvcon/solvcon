@@ -448,17 +448,6 @@ void declare_toggle(Toggle & self, std::string const & key, T const & value)
     self.declare<T>(key, value);
 }
 
-void warn_deprecated_getter(char const * name)
-{
-    PyErr_WarnEx(
-        PyExc_DeprecationWarning,
-        std::format("Toggle.{} returns a silent sentinel on a missing or wrong-typed "
-                    "key and is deprecated; use get(key, default) or at(key)",
-                    name)
-            .c_str(),
-        1);
-}
-
 } /* end namespace detail */
 
 WrapToggle::WrapToggle(pybind11::module & mod, char const * pyname, char const * pydoc)
@@ -629,27 +618,8 @@ WrapToggle::WrapToggle(pybind11::module & mod, char const * pyname, char const *
         //
         ;
 
-    // The type-specific getters return a silent sentinel on a missing or
-    // wrong-typed key. They are kept for compatibility but deprecated in
-    // favor of get(key, default) and at(key); each emits a
-    // DeprecationWarning.
-#define MM_PYTHON_TOGGLE_DEPRECATED_GET(MTYPE)             \
-    (*this).def(                                           \
-        "get_" #MTYPE,                                     \
-        [](wrapped_type & self, std::string const & key)   \
-        {                                                  \
-            detail::warn_deprecated_getter("get_" #MTYPE); \
-            return self.get_##MTYPE(key);                  \
-        },                                                 \
-        py::arg("key"));
-    MM_PYTHON_TOGGLE_DEPRECATED_GET(bool)
-    MM_PYTHON_TOGGLE_DEPRECATED_GET(int8)
-    MM_PYTHON_TOGGLE_DEPRECATED_GET(int16)
-    MM_PYTHON_TOGGLE_DEPRECATED_GET(int32)
-    MM_PYTHON_TOGGLE_DEPRECATED_GET(int64)
-    MM_PYTHON_TOGGLE_DEPRECATED_GET(real)
-    MM_PYTHON_TOGGLE_DEPRECATED_GET(string)
-#undef MM_PYTHON_TOGGLE_DEPRECATED_GET
+    // The type-specific sentinel getters (get_bool, get_int8, ...) have been
+    // removed in favor of get(key, default) and at(key).
 
     // Static properties.
     (*this)

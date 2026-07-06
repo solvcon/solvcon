@@ -822,47 +822,28 @@ private:
 }; /* end class FixedToggle */
 
 /**
- * The toggle system for solvcon. There are 3 types of toggles:
+ * The toggle system for solvcon.
  *
- * 1. solid toggles: managed by SolidToggle class. It is the toggles whose value
- *    is determined during compile time. The value is read-only (const) through
- *    out the program lifecycle (the process).
+ * All toggles now live in one store, the DynamicToggleTable of typed
+ * registers. A toggle is created and named once with declare<T>(key, default,
+ * category); a hot path binds a typed handle (ref<T>) and reads it with a
+ * single atomic load; the UI edits it by key and subscribes with on_change.
  *
- *    The solid toggles have address and can be referenced. They cannot be
- *    optimized out (unlike macros and constexpr). It could add overhead when
- *    used in tight loops. The overhead may usually be too low to be noticed,
- *    but sometimes one needs to be careful about it.
+ * Two access styles read the same store:
  *
- * 2. fixed toggles: managed by FixedToggle class. It is the toggles whose name
- *    is determined during compile time. The value can be changed during
- *    runtime.
- *
- *    Because the names are determined during compile time, when accessing the
- *    toggles, no table lookup is needed. The address of the toggle variables
- *    has been determined by the compiler and linker.
- *
- *    The runtime cost of fixed toggles is the same as solid toggles. It may
- *    be used in tight loops. Just becareful about the potential runtime
- *    overhead.
- *
- * 3. dynamic toggles: managed by DynamicToggleTable. The toggles are
- *    hierarchical and the names and values can be added, removed, and modified
- *    during runtime. The value needs to use limited data types: bool, int8,
- *    int16, int32, int64, real, and string. It is intentional not to support
- *    unsigned integers.
- *
- *    Accessing dynamic toggles requires table lookup and string comparison. It
- *    is slow but flexible.
- *
- *    To access the dynamic toggles from C++, the data type of the toggle
- *    The hierarchical access (from C++) uses ".", like:
- *
- *      tg.get_int8("top_level.second_level.key_name")
- *
- *    In Python, the wrapper can determine the type dynamically, and the
- *    hierarchical access may use attribute syntax:
+ * 1. Typed evaluation by key: get<T>(key, default) returns the caller default
+ *    on a missing or wrong-typed key, and at<T>(key) throws. From Python the
+ *    wrapper infers the type and the hierarchy uses dotted keys or attribute
+ *    syntax, for example:
  *
  *      tg.top_level.second_level.key_name = value
+ *
+ * 2. Hoisted handles: ToggleRef<T> resolves the key once and reads the atomic
+ *    register with no map lookup, for tight loops.
+ *
+ * The former solid and fixed toggles are compatibility facades: use_pyside is
+ * an inline constexpr build switch (see build_config.hpp), and python_redirect
+ * and show_axis are ordinary declared toggles in the store.
  *
  * @ingroup group_core
  */
@@ -908,19 +889,14 @@ public:
         return m_dynamic_table.on_change(key, std::move(callback));
     }
 
-    bool get_bool(std::string const & key) const { return m_dynamic_table.get_bool(key); }
+    // The type-specific sentinel getters are gone; use get<T>/at<T>. The
+    // set_TYPE writers remain as the mutating entry point that fires on_change.
     void set_bool(std::string const & key, bool value) { m_dynamic_table.set_bool(key, value); }
-    int8_t get_int8(std::string const & key) const { return m_dynamic_table.get_int8(key); }
     void set_int8(std::string const & key, int8_t value) { m_dynamic_table.set_int8(key, value); }
-    int16_t get_int16(std::string const & key) const { return m_dynamic_table.get_int16(key); }
     void set_int16(std::string const & key, int16_t value) { m_dynamic_table.set_int16(key, value); }
-    int32_t get_int32(std::string const & key) const { return m_dynamic_table.get_int32(key); }
     void set_int32(std::string const & key, int32_t value) { m_dynamic_table.set_int32(key, value); }
-    int64_t get_int64(std::string const & key) const { return m_dynamic_table.get_int64(key); }
     void set_int64(std::string const & key, int64_t value) { m_dynamic_table.set_int64(key, value); }
-    double get_real(std::string const & key) const { return m_dynamic_table.get_real(key); }
     void set_real(std::string const & key, double value) { m_dynamic_table.set_real(key, value); }
-    std::string const & get_string(std::string const & key) const { return m_dynamic_table.get_string(key); }
     void set_string(std::string const & key, std::string const & value) { m_dynamic_table.set_string(key, value); }
     HierarchicalToggleAccess get_subkey(std::string const & key) { return m_dynamic_table.get_subkey(key); }
     void add_subkey(std::string const & key) { m_dynamic_table.add_subkey(key); }
