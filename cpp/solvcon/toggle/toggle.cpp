@@ -58,7 +58,7 @@ std::string const DynamicToggleTable::sentinel_string = "";
         {                                                                      \
             if (it->second.is_##MTYPE())                                       \
             {                                                                  \
-                return m_vector_##MTYPE.at(it->second.index);                  \
+                return m_column_##MTYPE.at(it->second.index).value;            \
             }                                                                  \
         }                                                                      \
         return SENTINEL;                                                       \
@@ -87,7 +87,7 @@ MM_DECL_DYNGET(std::string const &, string, sentinel_string)
         {                                                                                                                      \
             if (it->second.is_##MTYPE())                                                                                       \
             {                                                                                                                  \
-                m_vector_##MTYPE.at(it->second.index) = value;                                                                 \
+                m_column_##MTYPE.at(it->second.index).value = value;                                                           \
             }                                                                                                                  \
             else                                                                                                               \
             {                                                                                                                  \
@@ -96,9 +96,9 @@ MM_DECL_DYNGET(std::string const &, string, sentinel_string)
         }                                                                                                                      \
         else                                                                                                                   \
         {                                                                                                                      \
-            DynamicToggleIndex const index{static_cast<uint32_t>(m_vector_##MTYPE.size()), DynamicToggleIndex::TYPE_##MTYPEC}; \
+            DynamicToggleIndex const index{static_cast<uint32_t>(m_column_##MTYPE.size()), DynamicToggleIndex::TYPE_##MTYPEC}; \
             m_key2index.insert({key, index});                                                                                  \
-            m_vector_##MTYPE.push_back(value);                                                                                 \
+            m_column_##MTYPE.append(value);                                                                                    \
         }                                                                                                                      \
     }                                                                                                                          \
     void HierarchicalToggleAccess::set_##MTYPE(std::string const & key, CTYPE value)                                           \
@@ -148,13 +148,14 @@ std::vector<std::string> DynamicToggleTable::keys() const
 void DynamicToggleTable::clear()
 {
     m_key2index.clear();
-    m_vector_bool.clear();
-    m_vector_int8.clear();
-    m_vector_int16.clear();
-    m_vector_int32.clear();
-    m_vector_int64.clear();
-    m_vector_real.clear();
-    m_vector_string.clear();
+    m_column_bool.clear();
+    m_column_int8.clear();
+    m_column_int16.clear();
+    m_column_int32.clear();
+    m_column_int64.clear();
+    m_column_real.clear();
+    m_column_string.clear();
+    ++m_generation;
 }
 
 // NOLINTNEXTLINE(modernize-use-equals-default) lack of SOLVCON_METAL

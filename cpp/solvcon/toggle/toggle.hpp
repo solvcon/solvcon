@@ -17,6 +17,8 @@
 #include <solvcon/profiling/profile.hpp>
 #include <solvcon/profiling/RadixTree.hpp>
 
+#include <cstdint>
+#include <deque>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -25,6 +27,59 @@ namespace solvcon
 {
 
 int setenv(const char * name, const char * value, int overwrite);
+
+/**
+ * A single stored toggle value.
+ *
+ * Named after the atomic register of shared-memory theory: a single-value
+ * shared location. For now it boxes a plain value; a later step makes the
+ * scalar read and write atomic without changing this shape.
+ *
+ * @ingroup group_core
+ */
+template <typename T>
+struct ToggleRegister
+{
+    T value;
+}; /* end struct ToggleRegister */
+
+/**
+ * Segmented column of ToggleRegister<T> with stable element addresses.
+ *
+ * Registers append into a std::deque, so a register keeps its address as
+ * the column grows, unlike a reallocating std::vector. A resolved handle
+ * can therefore keep pointing at its register while unrelated toggles are
+ * added. Indices are dense and start at zero, matching the offsets held by
+ * DynamicToggleIndex.
+ *
+ * @ingroup group_core
+ */
+template <typename T>
+class ToggleRegisterColumn
+{
+
+public:
+
+    size_t size() const { return m_registers.size(); }
+
+    ToggleRegister<T> & at(size_t index) { return m_registers.at(index); }
+    ToggleRegister<T> const & at(size_t index) const { return m_registers.at(index); }
+
+    size_t append(T const & value)
+    {
+        size_t const index = m_registers.size();
+        m_registers.emplace_back();
+        m_registers.back().value = value;
+        return index;
+    }
+
+    void clear() { m_registers.clear(); }
+
+private:
+
+    std::deque<ToggleRegister<T>> m_registers;
+
+}; /* end class ToggleRegisterColumn */
 
 /**
  * Index and type tag that locates a dynamic toggle value in its typed
@@ -184,16 +239,26 @@ public:
     std::vector<std::string> keys() const;
     void clear();
 
+    /**
+     * Monotonic stamp bumped on every clear.
+     *
+     * A handle resolved before a clear carries the old generation, so it
+     * can be detected as stale rather than aliasing a register reused
+     * after the clear.
+     */
+    uint64_t generation() const { return m_generation; }
+
 private:
 
     keymap_type m_key2index;
-    std::vector<bool> m_vector_bool;
-    std::vector<int8_t> m_vector_int8;
-    std::vector<int16_t> m_vector_int16;
-    std::vector<int32_t> m_vector_int32;
-    std::vector<int64_t> m_vector_int64;
-    std::vector<double> m_vector_real;
-    std::vector<std::string> m_vector_string;
+    ToggleRegisterColumn<bool> m_column_bool;
+    ToggleRegisterColumn<int8_t> m_column_int8;
+    ToggleRegisterColumn<int16_t> m_column_int16;
+    ToggleRegisterColumn<int32_t> m_column_int32;
+    ToggleRegisterColumn<int64_t> m_column_int64;
+    ToggleRegisterColumn<double> m_column_real;
+    ToggleRegisterColumn<std::string> m_column_string;
+    uint64_t m_generation = 0;
 
 }; /* end class DynamicToggleTable */
 
@@ -323,6 +388,7 @@ public:
 
     std::vector<std::string> dynamic_keys() const { return m_dynamic_table.keys(); }
     void dynamic_clear() { m_dynamic_table.clear(); }
+    uint64_t dynamic_generation() const { return m_dynamic_table.generation(); }
     DynamicToggleIndex get_dynamic_index(std::string const & key) const { return m_dynamic_table.get_index(key); }
 
     bool get_bool(std::string const & key) const { return m_dynamic_table.get_bool(key); }
