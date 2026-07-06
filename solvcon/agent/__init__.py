@@ -13,6 +13,7 @@ headless build.
 
 from . import _core  # noqa: F401
 from . import _backend  # noqa: F401
+from . import _backends_impl  # noqa: F401
 
 # _core.py
 list_of_core = [
@@ -31,13 +32,20 @@ list_of_backend = [
     'get_backend',
 ]
 
+# _backends_impl.py
+list_of_backends_impl = [
+    'SubprocessBackend',
+    'ClaudeCliBackend',
+    'parse_tool_calls',
+]
+
 # TODO: when the Qt dock module exists in solvcon.pilot, point this at its
 # Agent class, guarded by _pilot_core.enable like the airfoil sub-package.
 Agent = None
 
-__all__ = list_of_core + list_of_backend + [  # noqa: F822
-    'Agent',
-]
+__all__ = (  # noqa: F822
+    list_of_core + list_of_backend + list_of_backends_impl + ['Agent']
+)
 
 
 def _load(module, symbol_list):
@@ -47,6 +55,7 @@ def _load(module, symbol_list):
 
 _load(_core, list_of_core)
 _load(_backend, list_of_backend)
+_load(_backends_impl, list_of_backends_impl)
 
 del _load
 
