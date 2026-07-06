@@ -19,7 +19,10 @@
 
 #include <cstdint>
 #include <deque>
+#include <format>
+#include <stdexcept>
 #include <string>
+#include <type_traits>
 #include <unordered_map>
 #include <vector>
 
@@ -27,6 +30,9 @@ namespace solvcon
 {
 
 int setenv(const char * name, const char * value, int overwrite);
+
+template <typename T>
+class ToggleRef;
 
 /**
  * A single stored toggle value.
@@ -127,6 +133,33 @@ struct DynamicToggleIndex
     Type type = TYPE_NONE;
 
 }; /* end struct DynamicToggleIndex */
+
+/**
+ * Maps a C++ value type to its DynamicToggleIndex type tag.
+ *
+ * The primary template is left undefined so an unsupported type is a
+ * compile error rather than a silent mismatch.
+ *
+ * @ingroup group_core
+ */
+template <typename T>
+struct ToggleTypeTraits;
+
+#define MM_TOGGLE_TYPE_TRAITS(CTYPE, TAG)               \
+    template <>                                         \
+    struct ToggleTypeTraits<CTYPE>                      \
+    {                                                   \
+        static constexpr DynamicToggleIndex::Type tag = \
+            DynamicToggleIndex::TAG;                    \
+    };
+MM_TOGGLE_TYPE_TRAITS(bool, TYPE_BOOL)
+MM_TOGGLE_TYPE_TRAITS(int8_t, TYPE_INT8)
+MM_TOGGLE_TYPE_TRAITS(int16_t, TYPE_INT16)
+MM_TOGGLE_TYPE_TRAITS(int32_t, TYPE_INT32)
+MM_TOGGLE_TYPE_TRAITS(int64_t, TYPE_INT64)
+MM_TOGGLE_TYPE_TRAITS(double, TYPE_REAL)
+MM_TOGGLE_TYPE_TRAITS(std::string, TYPE_STRING)
+#undef MM_TOGGLE_TYPE_TRAITS
 
 class DynamicToggleTable;
 
@@ -248,7 +281,36 @@ public:
      */
     uint64_t generation() const { return m_generation; }
 
+    /**
+     * Create a toggle with a default and return a handle to it.
+     *
+     * Re-declaring an existing key of the same type is idempotent and
+     * returns a handle to the existing register. A conflicting type is an
+     * error.
+     */
+    template <typename T>
+    ToggleRef<T> declare(std::string const & key, T const & default_value);
+
+    /// Resolve an existing key to a handle; an invalid handle if it is
+    /// missing or has a different type.
+    template <typename T>
+    ToggleRef<T> ref(std::string const & key);
+
+    /// Typed read returning the caller default on a missing or wrong-typed
+    /// key (the OpenFeature contract).
+    template <typename T>
+    T get(std::string const & key, T const & default_value) const;
+
+    /// Strict typed read that throws on a missing or wrong-typed key.
+    template <typename T>
+    T at(std::string const & key) const;
+
 private:
+
+    template <typename T>
+    ToggleRegisterColumn<T> & column();
+    template <typename T>
+    ToggleRegisterColumn<T> const & column() const;
 
     keymap_type m_key2index;
     ToggleRegisterColumn<bool> m_column_bool;
@@ -265,6 +327,194 @@ private:
 inline DynamicToggleIndex HierarchicalToggleAccess::get_index(std::string const & key) const
 {
     return m_table->get_index(rekey(key));
+}
+
+/**
+ * A resolved, typed handle to one toggle register.
+ *
+ * It binds a key to its register once (table, index, and the table
+ * generation at resolution) so a hot path reads the value without touching
+ * the string map again. Because the storage keeps register addresses
+ * stable, the bound pointer survives unrelated toggles being added; because
+ * the handle stamps the table generation, a handle taken before a
+ * dynamic_clear is refused afterward instead of aliasing a reused register.
+ *
+ * @ingroup group_core
+ */
+template <typename T>
+class ToggleRef
+{
+
+public:
+
+    ToggleRef() = default;
+
+    /// True when the handle points at a live register in the current
+    /// generation (not default-constructed and not invalidated by a clear).
+    bool valid() const
+    {
+        return nullptr != m_register && nullptr != m_table && m_table->generation() == m_generation;
+    }
+    explicit operator bool() const { return valid(); }
+
+    T load() const
+    {
+        check();
+        return m_register->value;
+    }
+    void store(T const & value) const
+    {
+        check();
+        m_register->value = value;
+    }
+
+    uint32_t index() const { return m_index; }
+    uint64_t generation() const { return m_generation; }
+
+private:
+
+    friend class DynamicToggleTable;
+
+    ToggleRef(DynamicToggleTable * table, ToggleRegister<T> * reg, uint32_t index, uint64_t generation)
+        : m_table(table)
+        , m_register(reg)
+        , m_index(index)
+        , m_generation(generation)
+    {
+    }
+
+    void check() const
+    {
+        if (!valid())
+        {
+            throw std::out_of_range("ToggleRef: stale or invalid handle");
+        }
+    }
+
+    DynamicToggleTable * m_table = nullptr;
+    ToggleRegister<T> * m_register = nullptr;
+    uint32_t m_index = 0;
+    uint64_t m_generation = 0;
+
+}; /* end class ToggleRef */
+
+template <typename T>
+ToggleRegisterColumn<T> & DynamicToggleTable::column()
+{
+    if constexpr (std::is_same_v<T, bool>)
+    {
+        return m_column_bool;
+    }
+    else if constexpr (std::is_same_v<T, int8_t>)
+    {
+        return m_column_int8;
+    }
+    else if constexpr (std::is_same_v<T, int16_t>)
+    {
+        return m_column_int16;
+    }
+    else if constexpr (std::is_same_v<T, int32_t>)
+    {
+        return m_column_int32;
+    }
+    else if constexpr (std::is_same_v<T, int64_t>)
+    {
+        return m_column_int64;
+    }
+    else if constexpr (std::is_same_v<T, double>)
+    {
+        return m_column_real;
+    }
+    else
+    {
+        return m_column_string;
+    }
+}
+
+template <typename T>
+ToggleRegisterColumn<T> const & DynamicToggleTable::column() const
+{
+    if constexpr (std::is_same_v<T, bool>)
+    {
+        return m_column_bool;
+    }
+    else if constexpr (std::is_same_v<T, int8_t>)
+    {
+        return m_column_int8;
+    }
+    else if constexpr (std::is_same_v<T, int16_t>)
+    {
+        return m_column_int16;
+    }
+    else if constexpr (std::is_same_v<T, int32_t>)
+    {
+        return m_column_int32;
+    }
+    else if constexpr (std::is_same_v<T, int64_t>)
+    {
+        return m_column_int64;
+    }
+    else if constexpr (std::is_same_v<T, double>)
+    {
+        return m_column_real;
+    }
+    else
+    {
+        return m_column_string;
+    }
+}
+
+template <typename T>
+ToggleRef<T> DynamicToggleTable::declare(std::string const & key, T const & default_value)
+{
+    auto it = m_key2index.find(key);
+    if (it != m_key2index.end())
+    {
+        if (it->second.type != ToggleTypeTraits<T>::tag)
+        {
+            throw std::invalid_argument(
+                std::format("Toggle::declare: key \"{}\" already declared with a different type", key));
+        }
+        uint32_t const idx = it->second.index;
+        return ToggleRef<T>(this, &column<T>().at(idx), idx, m_generation);
+    }
+    auto const idx = static_cast<uint32_t>(column<T>().append(default_value));
+    m_key2index.insert({key, DynamicToggleIndex{idx, ToggleTypeTraits<T>::tag}});
+    return ToggleRef<T>(this, &column<T>().at(idx), idx, m_generation);
+}
+
+template <typename T>
+ToggleRef<T> DynamicToggleTable::ref(std::string const & key)
+{
+    auto it = m_key2index.find(key);
+    if (it != m_key2index.end() && it->second.type == ToggleTypeTraits<T>::tag)
+    {
+        uint32_t const idx = it->second.index;
+        return ToggleRef<T>(this, &column<T>().at(idx), idx, m_generation);
+    }
+    return ToggleRef<T>();
+}
+
+template <typename T>
+T DynamicToggleTable::get(std::string const & key, T const & default_value) const
+{
+    auto it = m_key2index.find(key);
+    if (it != m_key2index.end() && it->second.type == ToggleTypeTraits<T>::tag)
+    {
+        return column<T>().at(it->second.index).value;
+    }
+    return default_value;
+}
+
+template <typename T>
+T DynamicToggleTable::at(std::string const & key) const
+{
+    auto it = m_key2index.find(key);
+    if (it != m_key2index.end() && it->second.type == ToggleTypeTraits<T>::tag)
+    {
+        return column<T>().at(it->second.index).value;
+    }
+    throw std::out_of_range(std::format("Toggle::at: key \"{}\" is missing or has a different type", key));
 }
 
 #define MM_TOGGLE_SOLID_BOOL(NAME)         \
@@ -390,6 +640,15 @@ public:
     void dynamic_clear() { m_dynamic_table.clear(); }
     uint64_t dynamic_generation() const { return m_dynamic_table.generation(); }
     DynamicToggleIndex get_dynamic_index(std::string const & key) const { return m_dynamic_table.get_index(key); }
+
+    template <typename T>
+    ToggleRef<T> declare(std::string const & key, T const & default_value) { return m_dynamic_table.declare<T>(key, default_value); }
+    template <typename T>
+    ToggleRef<T> ref(std::string const & key) { return m_dynamic_table.ref<T>(key); }
+    template <typename T>
+    T get(std::string const & key, T const & default_value) const { return m_dynamic_table.get<T>(key, default_value); }
+    template <typename T>
+    T at(std::string const & key) const { return m_dynamic_table.at<T>(key); }
 
     bool get_bool(std::string const & key) const { return m_dynamic_table.get_bool(key); }
     void set_bool(std::string const & key, bool value) { m_dynamic_table.set_bool(key, value); }
