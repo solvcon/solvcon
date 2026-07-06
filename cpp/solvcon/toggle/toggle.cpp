@@ -53,12 +53,13 @@ std::string const DynamicToggleTable::sentinel_string = "";
 #define MM_DECL_DYNGET(CTYPE, MTYPE, SENTINEL)                                 \
     CTYPE DynamicToggleTable::get_##MTYPE(std::string const & key) const       \
     {                                                                          \
+        std::scoped_lock const guard(m_mutex);                                 \
         auto it = m_key2index.find(key);                                       \
         if (it != m_key2index.end())                                           \
         {                                                                      \
             if (it->second.is_##MTYPE())                                       \
             {                                                                  \
-                return m_column_##MTYPE.at(it->second.index).value;            \
+                return m_column_##MTYPE.at(it->second.index).get();            \
             }                                                                  \
         }                                                                      \
         return SENTINEL;                                                       \
@@ -82,12 +83,13 @@ MM_DECL_DYNGET(std::string const &, string, sentinel_string)
     /* NOLINTNEXTLINE(bugprone-easily-swappable-parameters) */                                                                 \
     void DynamicToggleTable::set_##MTYPE(std::string const & key, CTYPE value)                                                 \
     {                                                                                                                          \
+        std::scoped_lock const guard(m_mutex);                                                                                 \
         auto it = m_key2index.find(key);                                                                                       \
         if (it != m_key2index.end())                                                                                           \
         {                                                                                                                      \
             if (it->second.is_##MTYPE())                                                                                       \
             {                                                                                                                  \
-                m_column_##MTYPE.at(it->second.index).value = value;                                                           \
+                m_column_##MTYPE.at(it->second.index).set(value);                                                              \
             }                                                                                                                  \
             else                                                                                                               \
             {                                                                                                                  \
@@ -126,6 +128,7 @@ void HierarchicalToggleAccess::add_subkey(const std::string & key)
 
 void DynamicToggleTable::add_subkey(std::string const & key)
 {
+    std::scoped_lock const guard(m_mutex);
     auto it = m_key2index.find(key);
     if (it == m_key2index.end())
     {
@@ -136,6 +139,7 @@ void DynamicToggleTable::add_subkey(std::string const & key)
 
 std::vector<std::string> DynamicToggleTable::keys() const
 {
+    std::scoped_lock const guard(m_mutex);
     std::vector<std::string> ret;
     ret.reserve(m_key2index.size());
     for (auto const & it : m_key2index)
@@ -147,6 +151,7 @@ std::vector<std::string> DynamicToggleTable::keys() const
 
 void DynamicToggleTable::clear()
 {
+    std::scoped_lock const guard(m_mutex);
     m_key2index.clear();
     m_column_bool.clear();
     m_column_int8.clear();
@@ -155,7 +160,7 @@ void DynamicToggleTable::clear()
     m_column_int64.clear();
     m_column_real.clear();
     m_column_string.clear();
-    ++m_generation;
+    m_generation.fetch_add(1, std::memory_order_relaxed);
 }
 
 // NOLINTNEXTLINE(modernize-use-equals-default) lack of SOLVCON_METAL

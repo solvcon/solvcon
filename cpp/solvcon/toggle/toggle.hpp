@@ -17,9 +17,12 @@
 #include <solvcon/profiling/profile.hpp>
 #include <solvcon/profiling/RadixTree.hpp>
 
+#include <atomic>
 #include <cstdint>
 #include <deque>
 #include <format>
+#include <memory>
+#include <mutex>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
@@ -38,25 +41,46 @@ class ToggleRef;
  * A single stored toggle value.
  *
  * Named after the atomic register of shared-memory theory: a single-value
- * shared location. For now it boxes a plain value; a later step makes the
- * scalar read and write atomic without changing this shape.
+ * shared location. A scalar register holds a std::atomic so its read and
+ * write are lock-free and never torn; get and set use memory_order_relaxed
+ * because a toggle publishes nothing but itself.
  *
  * @ingroup group_core
  */
 template <typename T>
 struct ToggleRegister
 {
-    T value;
+    std::atomic<T> value;
+    T get() const { return value.load(std::memory_order_relaxed); }
+    void set(T v) { value.store(v, std::memory_order_relaxed); }
 }; /* end struct ToggleRegister */
 
 /**
- * Segmented column of ToggleRegister<T> with stable element addresses.
+ * String register.
  *
- * Registers append into a std::deque, so a register keeps its address as
- * the column grows, unlike a reallocating std::vector. A resolved handle
- * can therefore keep pointing at its register while unrelated toggles are
- * added. Indices are dense and start at zero, matching the offsets held by
- * DynamicToggleIndex.
+ * A string is not a hot-path value: it is read by the UI and config code
+ * only, never in a tight loop, so it is a plain std::string guarded by the
+ * table mutex rather than an atomic. get returns a reference that is valid
+ * only while no writer mutates the same key.
+ *
+ * @ingroup group_core
+ */
+template <>
+struct ToggleRegister<std::string>
+{
+    std::string value;
+    std::string const & get() const { return value; }
+    void set(std::string v) { value = std::move(v); }
+}; /* end struct ToggleRegister<std::string> */
+
+/**
+ * Column of ToggleRegister<T> with stable register addresses.
+ *
+ * Each register is heap-owned through a unique_ptr, so a register keeps its
+ * address for its lifetime even as the column grows, and a resolved handle
+ * stays valid. The heap box also lets a non-movable atomic register live in
+ * a standard container. Indices are dense and start at zero, matching the
+ * offsets held by DynamicToggleIndex.
  *
  * @ingroup group_core
  */
@@ -66,16 +90,30 @@ class ToggleRegisterColumn
 
 public:
 
+    ToggleRegisterColumn() = default;
+
+    ToggleRegisterColumn(ToggleRegisterColumn const & other)
+    {
+        for (auto const & reg : other.m_registers)
+        {
+            append(reg->get());
+        }
+    }
+    ToggleRegisterColumn(ToggleRegisterColumn &&) = default;
+    ToggleRegisterColumn & operator=(ToggleRegisterColumn const &) = delete;
+    ToggleRegisterColumn & operator=(ToggleRegisterColumn &&) = default;
+    ~ToggleRegisterColumn() = default;
+
     size_t size() const { return m_registers.size(); }
 
-    ToggleRegister<T> & at(size_t index) { return m_registers.at(index); }
-    ToggleRegister<T> const & at(size_t index) const { return m_registers.at(index); }
+    ToggleRegister<T> & at(size_t index) { return *m_registers.at(index); }
+    ToggleRegister<T> const & at(size_t index) const { return *m_registers.at(index); }
 
     size_t append(T const & value)
     {
         size_t const index = m_registers.size();
-        m_registers.emplace_back();
-        m_registers.back().value = value;
+        m_registers.push_back(std::make_unique<ToggleRegister<T>>());
+        m_registers.back()->set(value);
         return index;
     }
 
@@ -83,7 +121,7 @@ public:
 
 private:
 
-    std::deque<ToggleRegister<T>> m_registers;
+    std::deque<std::unique_ptr<ToggleRegister<T>>> m_registers;
 
 }; /* end class ToggleRegisterColumn */
 
@@ -241,6 +279,21 @@ public:
 
     static std::string const sentinel_string; // FIXME: NOLINT(readability-redundant-string-init)
 
+    DynamicToggleTable() = default;
+
+    // The atomic generation and the mutex are not copyable. Delegate to a
+    // private constructor that holds the source lock for the whole deep copy
+    // (the scoped_lock temporary outlives the delegated-to body) and starts a
+    // fresh mutex.
+    DynamicToggleTable(DynamicToggleTable const & other)
+        : DynamicToggleTable(other, std::scoped_lock<std::mutex>(other.m_mutex))
+    {
+    }
+    DynamicToggleTable(DynamicToggleTable &&) = delete;
+    DynamicToggleTable & operator=(DynamicToggleTable const &) = delete;
+    DynamicToggleTable & operator=(DynamicToggleTable &&) = delete;
+    ~DynamicToggleTable() = default;
+
     bool get_bool(std::string const & key) const;
     void set_bool(std::string const & key, bool value);
     int8_t get_int8(std::string const & key) const;
@@ -266,6 +319,7 @@ public:
     // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
     DynamicToggleIndex get_index(std::string const & key) const
     {
+        std::scoped_lock const guard(m_mutex);
         auto it = m_key2index.find(key);
         return (it != m_key2index.end()) ? it->second : DynamicToggleIndex{.index = 0, .type = DynamicToggleIndex::TYPE_NONE};
     }
@@ -279,7 +333,7 @@ public:
      * can be detected as stale rather than aliasing a register reused
      * after the clear.
      */
-    uint64_t generation() const { return m_generation; }
+    uint64_t generation() const { return m_generation.load(std::memory_order_relaxed); }
 
     /**
      * Create a toggle with a default and return a handle to it.
@@ -307,11 +361,25 @@ public:
 
 private:
 
+    DynamicToggleTable(DynamicToggleTable const & other, std::scoped_lock<std::mutex> const &)
+        : m_key2index(other.m_key2index)
+        , m_column_bool(other.m_column_bool)
+        , m_column_int8(other.m_column_int8)
+        , m_column_int16(other.m_column_int16)
+        , m_column_int32(other.m_column_int32)
+        , m_column_int64(other.m_column_int64)
+        , m_column_real(other.m_column_real)
+        , m_column_string(other.m_column_string)
+        , m_generation(other.m_generation.load(std::memory_order_relaxed))
+    {
+    }
+
     template <typename T>
     ToggleRegisterColumn<T> & column();
     template <typename T>
     ToggleRegisterColumn<T> const & column() const;
 
+    mutable std::mutex m_mutex;
     keymap_type m_key2index;
     ToggleRegisterColumn<bool> m_column_bool;
     ToggleRegisterColumn<int8_t> m_column_int8;
@@ -320,7 +388,7 @@ private:
     ToggleRegisterColumn<int64_t> m_column_int64;
     ToggleRegisterColumn<double> m_column_real;
     ToggleRegisterColumn<std::string> m_column_string;
-    uint64_t m_generation = 0;
+    std::atomic<uint64_t> m_generation{0};
 
 }; /* end class DynamicToggleTable */
 
@@ -360,12 +428,12 @@ public:
     T load() const
     {
         check();
-        return m_register->value;
+        return m_register->get();
     }
     void store(T const & value) const
     {
         check();
-        m_register->value = value;
+        m_register->set(value);
     }
 
     uint32_t index() const { return m_index; }
@@ -467,6 +535,7 @@ ToggleRegisterColumn<T> const & DynamicToggleTable::column() const
 template <typename T>
 ToggleRef<T> DynamicToggleTable::declare(std::string const & key, T const & default_value)
 {
+    std::scoped_lock const guard(m_mutex);
     auto it = m_key2index.find(key);
     if (it != m_key2index.end())
     {
@@ -476,21 +545,22 @@ ToggleRef<T> DynamicToggleTable::declare(std::string const & key, T const & defa
                 std::format("Toggle::declare: key \"{}\" already declared with a different type", key));
         }
         uint32_t const idx = it->second.index;
-        return ToggleRef<T>(this, &column<T>().at(idx), idx, m_generation);
+        return ToggleRef<T>(this, &column<T>().at(idx), idx, generation());
     }
     auto const idx = static_cast<uint32_t>(column<T>().append(default_value));
     m_key2index.insert({key, DynamicToggleIndex{idx, ToggleTypeTraits<T>::tag}});
-    return ToggleRef<T>(this, &column<T>().at(idx), idx, m_generation);
+    return ToggleRef<T>(this, &column<T>().at(idx), idx, generation());
 }
 
 template <typename T>
 ToggleRef<T> DynamicToggleTable::ref(std::string const & key)
 {
+    std::scoped_lock const guard(m_mutex);
     auto it = m_key2index.find(key);
     if (it != m_key2index.end() && it->second.type == ToggleTypeTraits<T>::tag)
     {
         uint32_t const idx = it->second.index;
-        return ToggleRef<T>(this, &column<T>().at(idx), idx, m_generation);
+        return ToggleRef<T>(this, &column<T>().at(idx), idx, generation());
     }
     return ToggleRef<T>();
 }
@@ -498,10 +568,11 @@ ToggleRef<T> DynamicToggleTable::ref(std::string const & key)
 template <typename T>
 T DynamicToggleTable::get(std::string const & key, T const & default_value) const
 {
+    std::scoped_lock const guard(m_mutex);
     auto it = m_key2index.find(key);
     if (it != m_key2index.end() && it->second.type == ToggleTypeTraits<T>::tag)
     {
-        return column<T>().at(it->second.index).value;
+        return column<T>().at(it->second.index).get();
     }
     return default_value;
 }
@@ -509,10 +580,11 @@ T DynamicToggleTable::get(std::string const & key, T const & default_value) cons
 template <typename T>
 T DynamicToggleTable::at(std::string const & key) const
 {
+    std::scoped_lock const guard(m_mutex);
     auto it = m_key2index.find(key);
     if (it != m_key2index.end() && it->second.type == ToggleTypeTraits<T>::tag)
     {
-        return column<T>().at(it->second.index).value;
+        return column<T>().at(it->second.index).get();
     }
     throw std::out_of_range(std::format("Toggle::at: key \"{}\" is missing or has a different type", key));
 }
@@ -667,13 +739,17 @@ public:
     HierarchicalToggleAccess get_subkey(std::string const & key) { return m_dynamic_table.get_subkey(key); }
     void add_subkey(std::string const & key) { m_dynamic_table.add_subkey(key); }
 
+    // The store holds an atomic and a mutex, so it is not movable or
+    // assignable, and neither is the Toggle that owns it. clone() still copies
+    // through the private copy constructor.
+    Toggle(Toggle &&) = delete;
+    Toggle & operator=(Toggle const &) = delete;
+    Toggle & operator=(Toggle &&) = delete;
+
 private:
 
     Toggle() = default;
     Toggle(Toggle const &) = default;
-    Toggle(Toggle &&) = default;
-    Toggle & operator=(Toggle const &) = default;
-    Toggle & operator=(Toggle &&) = default;
 
     SolidToggle m_solid;
     FixedToggle m_fixed;

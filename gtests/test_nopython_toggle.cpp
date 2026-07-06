@@ -6,7 +6,10 @@
 
 #include <solvcon/toggle/toggle.hpp>
 
+#include <atomic>
 #include <string>
+#include <thread>
+#include <vector>
 
 namespace solvcon
 {
@@ -106,6 +109,118 @@ TEST(ToggleRefTest, declare_idempotent_and_type_conflict)
 
     // A conflicting type is an error.
     EXPECT_THROW(table.declare<bool>("n", true), std::invalid_argument);
+}
+
+TEST(ToggleRefTest, concurrent_readers_and_writers)
+{
+    DynamicToggleTable table;
+    ToggleRef<int64_t> const r = table.declare<int64_t>("counter", 0);
+
+    constexpr int readers = 4;
+    constexpr int writers = 4;
+    constexpr int iters = 20000;
+    std::atomic<bool> start{false};
+    std::vector<std::thread> threads;
+
+    // Readers load through the handle and the typed getter; an atomic
+    // register is never torn, so every read is a value some writer stored.
+    for (int i = 0; i < readers; ++i)
+    {
+        threads.emplace_back(
+            [&]
+            {
+                while (!start.load())
+                {
+                }
+                int64_t sink = 0;
+                for (int k = 0; k < iters; ++k)
+                {
+                    sink += r.load();
+                    sink += table.get<int64_t>("counter", -1);
+                }
+                (void)sink;
+            });
+    }
+    // Writers store through the handle and through the table set path.
+    for (int w = 0; w < writers; ++w)
+    {
+        threads.emplace_back(
+            [&, w]
+            {
+                while (!start.load())
+                {
+                }
+                for (int k = 0; k < iters; ++k)
+                {
+                    r.store(static_cast<int64_t>(k));
+                    table.set_int64("counter", static_cast<int64_t>(w));
+                }
+            });
+    }
+
+    start.store(true);
+    for (auto & t : threads)
+    {
+        t.join();
+    }
+
+    int64_t const final_value = r.load();
+    EXPECT_GE(final_value, 0);
+    EXPECT_LT(final_value, iters);
+    EXPECT_TRUE(r.valid());
+}
+
+TEST(ToggleRefTest, concurrent_declare_and_read)
+{
+    DynamicToggleTable table;
+    ToggleRef<int32_t> const base = table.declare<int32_t>("base", 7);
+
+    std::atomic<bool> start{false};
+    std::atomic<bool> reads_ok{true};
+    std::vector<std::thread> threads;
+
+    // Writers declare distinct new keys, growing the map and columns under
+    // the table mutex.
+    for (int w = 0; w < 4; ++w)
+    {
+        threads.emplace_back(
+            [&, w]
+            {
+                while (!start.load())
+                {
+                }
+                for (int k = 0; k < 2000; ++k)
+                {
+                    table.declare<int32_t>("w" + std::to_string(w) + "_" + std::to_string(k), k);
+                }
+            });
+    }
+    // A reader hammers the base handle while the table grows; its register is
+    // heap-stable, so the lock-free load stays valid and correct.
+    threads.emplace_back(
+        [&]
+        {
+            while (!start.load())
+            {
+            }
+            for (int k = 0; k < 40000; ++k)
+            {
+                if (base.load() != 7)
+                {
+                    reads_ok.store(false);
+                }
+            }
+        });
+
+    start.store(true);
+    for (auto & t : threads)
+    {
+        t.join();
+    }
+
+    EXPECT_TRUE(reads_ok.load());
+    EXPECT_EQ(base.load(), 7);
+    EXPECT_TRUE(base.valid());
 }
 
 } /* end namespace detail */
