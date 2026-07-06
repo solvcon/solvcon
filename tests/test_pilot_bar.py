@@ -39,20 +39,22 @@ class BarStructureTC(unittest.TestCase):
         self.assertIn("Save 2D canvas",
                       [a.text() for a in model.menu("File").actions()])
 
-        # Panels sits first in View and holds the four dock toggles. Other
-        # tests build their own panel features on the shared singleton, so a
-        # toggle can repeat; assert the distinct entries in their declared
-        # order.
+        # Panels sits first in View and holds the dock toggles. Other tests
+        # build their own panel features on the shared singleton, so a toggle
+        # can repeat; assert the distinct entries in their declared order.
         view = [a.text() for a in model.menu("View").actions()]
         self.assertEqual(view[0], "Panels")
         panels = [a.text() for a in model.menu("View/Panels").actions()]
-        self.assertEqual(list(dict.fromkeys(panels)),
-                         ["Inspector", "Painter", "Console", "Agent Console"])
+        self.assertEqual(
+            list(dict.fromkeys(panels)),
+            ["Inspector", "Painter", "Console", "Terminal", "Agent Console"])
 
-        # The Console toggle lives with the other panel toggles; the Window
-        # menu holds only the dynamic sub-window list.
+        # The Console and Terminal toggles live with the other panel toggles;
+        # the Window menu holds only the dynamic sub-window list.
         self.assertIsNotNone(model.action("window.console"))
-        self.assertNotIn("Console",
-                         [a.text() for a in model.menu("Window").actions()])
+        self.assertIsNotNone(model.action("window.terminal"))
+        window_items = [a.text() for a in model.menu("Window").actions()]
+        self.assertNotIn("Console", window_items)
+        self.assertNotIn("Terminal", window_items)
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

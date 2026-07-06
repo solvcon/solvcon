@@ -129,10 +129,15 @@ class _Controller(metaclass=_Singleton):
         return self._rmgr
 
     def _seed_console_namespace(self):
-        """Curate the console namespace and greet with a banner."""
+        """Curate the console namespace and greet both consoles with a banner.
+
+        The two consoles share one interpreter, so the terminal opens with
+        the same handles-in-scope banner the two-pane console prints.
+        """
         appenv = apputil.get_current_appenv()
         banner = apputil.install_pilot_namespace(self._rmgr, appenv)
         self._rmgr.pycon.writeToHistory(banner)
+        self._rmgr.pyterm.writeToHistory(banner)
 
     def _mesh_sample_dialog_entries(self):
         """Every example mesh as ``(category, label, tip, func)``, in menu
@@ -177,6 +182,13 @@ class _Controller(metaclass=_Singleton):
                 wm.toggleConsole, id="window.console",
                 checkable=True, checked=True),
             30)
+        wm.menu_model.place(
+            "View/Panels",
+            _gui_common.build_action(
+                wm.mainWindow, "Terminal", "Open / Close Terminal",
+                wm.toggleTerminal, id="window.terminal",
+                checkable=True, checked=False),
+            35)
 
 
 controller = _Controller()

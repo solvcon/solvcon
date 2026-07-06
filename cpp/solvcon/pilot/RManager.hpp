@@ -19,6 +19,7 @@
 #include <solvcon/pilot/R2DWidget.hpp>
 #include <solvcon/pilot/RAction.hpp>
 #include <solvcon/pilot/RPythonConsoleDockWidget.hpp>
+#include <solvcon/pilot/RPythonTerminalDockWidget.hpp>
 
 #include <vector>
 
@@ -76,6 +77,8 @@ public:
 
     RPythonConsoleDockWidget * pycon() { return m_pycon; }
 
+    RPythonTerminalDockWidget * pyterm() { return m_pyterm; }
+
     QMainWindow * mainWindow() { return m_mainWindow; }
 
     QMdiArea * mdiArea() { return m_mdiArea; }
@@ -98,12 +101,14 @@ public:
     void reset();
 
     void toggleConsole();
+    void toggleTerminal();
 
 private:
 
     RManager();
 
     void setUpConsole();
+    void setUpTerminal();
     void setUpCentral();
     void setUpMenu();
 
@@ -161,6 +166,7 @@ private:
     RShortcutManager * m_shortcutManager = nullptr;
 
     RPythonConsoleDockWidget * m_pycon = nullptr;
+    RPythonTerminalDockWidget * m_pyterm = nullptr;
     QMdiArea * m_mdiArea = nullptr;
 
     /**

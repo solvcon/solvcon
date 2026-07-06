@@ -34,6 +34,7 @@ set(SOLVCON_PILOT_PYMODHEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/keymap.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RShortcutManager.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RPythonConsoleDockWidget.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/RPythonTerminalDockWidget.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RPythonConsoleHistory.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RPythonSyntaxHighlighter.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RPythonSyntaxRules.hpp
@@ -75,6 +76,7 @@ set(SOLVCON_PILOT_PYMODSOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/keymap.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RShortcutManager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RPythonConsoleDockWidget.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/RPythonTerminalDockWidget.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RPythonConsoleHistory.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RPythonSyntaxHighlighter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RPythonSyntaxRules.cpp
