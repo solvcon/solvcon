@@ -719,6 +719,7 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRPythonTerminalDockWidget
         (*this)
             .def("writeToHistory", &wrapped_type::writeToHistory)
             .def("executeCommand", &wrapped_type::executeCommand)
+            .def("resetInput", &wrapped_type::resetInput)
             .def_property_readonly(
                 "textEdit",
                 [](wrapped_type & self)

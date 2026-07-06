@@ -133,12 +133,17 @@ public:
 public slots:
     void executeCommand();
     void navigateCommand(int offset);
+    void resetInput();
 
 private:
     RPythonTerminalTextEdit * m_edit = nullptr;
     std::string m_draft_command;
     RPythonConsoleHistory m_history;
     int m_current_command_index = 0;
+
+    // The lines of the statement being entered, accumulated across
+    // continuation prompts until the interpreter reports it complete.
+    std::string m_pending_statement;
 
     python::PythonStreamRedirect m_python_redirect;
 }; /* end class RPythonTerminalDockWidget */

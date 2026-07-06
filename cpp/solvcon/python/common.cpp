@@ -184,6 +184,38 @@ void Interpreter::exec_code(std::string const & code)
 }
 
 // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+bool Interpreter::push_code(std::string const & line)
+{
+    try
+    {
+        // NOLINTNEXTLINE(misc-const-correctness)
+        pybind11::object mod_sys = pybind11::module_::import("solvcon.system");
+        pybind11::object const py_more = mod_sys.attr("push_code")(line);
+        return py_more.cast<bool>();
+    }
+    catch (const pybind11::error_already_set & e)
+    {
+        std::cerr << e.what() << std::endl;
+        return false;
+    }
+}
+
+// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+void Interpreter::reset_console()
+{
+    try
+    {
+        // NOLINTNEXTLINE(misc-const-correctness)
+        pybind11::object mod_sys = pybind11::module_::import("solvcon.system");
+        mod_sys.attr("reset_console")();
+    }
+    catch (const pybind11::error_already_set & e)
+    {
+        std::cerr << e.what() << std::endl;
+    }
+}
+
+// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
 std::vector<std::string> Interpreter::get_completions(std::string const & text)
 {
     std::vector<std::string> result;
