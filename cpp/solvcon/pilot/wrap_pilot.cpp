@@ -604,6 +604,7 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapR2DWidget
             .def("setViewTransform", &wrapped_type::setViewTransform, py::arg("v"))
             .def("resetView", &wrapped_type::resetView)
             .def("updateWorld", &wrapped_type::updateWorld, py::arg("world"))
+            .def_property_readonly("world", &wrapped_type::world)
             .def("requestRepaint", &wrapped_type::requestRepaint)
             .def("setDrawTool", &wrapped_type::setDrawTool, py::arg("name"))
             .def_property_readonly("drawTool", &wrapped_type::drawTool)
