@@ -3671,21 +3671,195 @@ class SimpleArrayCalculatorsTC(unittest.TestCase):
             self.assertEqual(sres_scalar[i], res_scalar[i])
             self.assertEqual(sres_scalar[i], nres_scalar[i])
 
-    def test_eq_does_not_bind_operator(self):
-        """__eq__ is intentionally left unbound (issue #810).
+    def test_ne_1d(self):
+        """Test 1D array element-wise inequality"""
+        def _check_ne_1d_type(type):
+            narr1 = np.array([1, 2, 3, 4, 5, 6, 7, 8], dtype=type)
+            narr2 = np.array([1, 0, 3, 0, 5, 0, 7, 0], dtype=type)
+            sarr1 = self.type_convertor(type)(array=narr1)
+            sarr2 = self.type_convertor(type)(array=narr2)
+            nres = np.not_equal(narr1, narr2)
+            sres = sarr1.ne(sarr2)
+            self.assertEqual(sres.ndarray.dtype, np.bool_)
+            np.testing.assert_array_equal(sres.ndarray, nres)
 
-        Python's == must therefore keep its default object-identity
-        behavior; element-wise comparison is reachable only through eq().
+        _check_ne_1d_type('int8')
+        _check_ne_1d_type('int16')
+        _check_ne_1d_type('int32')
+        _check_ne_1d_type('int64')
+        _check_ne_1d_type('uint8')
+        _check_ne_1d_type('uint16')
+        _check_ne_1d_type('uint32')
+        _check_ne_1d_type('uint64')
+        _check_ne_1d_type('float32')
+        _check_ne_1d_type('float64')
+
+        with self.assertRaisesRegex(
+            ValueError,
+            r"SimpleArray::ne\(\): shape mismatch: "
+            r"this=\(8\) other=\(3\)"
+        ):
+            sarr1 = solvcon.SimpleArrayInt32(array=np.arange(8, dtype='int32'))
+            sarr2 = solvcon.SimpleArrayInt32(array=np.arange(3, dtype='int32'))
+            sarr1.ne(sarr2)
+
+    def test_ne_2d(self):
+        """Test 2D array element-wise inequality"""
+        def _check_ne_2d_type(type):
+            narr1 = np.array([[1, 2, 3, 4],
+                              [5, 6, 7, 8],
+                              [9, 10, 11, 12]], dtype=type)
+            narr2 = np.array([[1, 0, 3, 0],
+                              [5, 0, 7, 0],
+                              [9, 0, 11, 0]], dtype=type)
+            sarr1 = self.type_convertor(type)(array=narr1)
+            sarr2 = self.type_convertor(type)(array=narr2)
+            nres = np.not_equal(narr1, narr2)
+            sres = sarr1.ne(sarr2)
+            self.assertEqual(sres.ndarray.dtype, np.bool_)
+            np.testing.assert_array_equal(sres.ndarray, nres)
+
+        _check_ne_2d_type('int8')
+        _check_ne_2d_type('int16')
+        _check_ne_2d_type('int32')
+        _check_ne_2d_type('int64')
+        _check_ne_2d_type('uint8')
+        _check_ne_2d_type('uint16')
+        _check_ne_2d_type('uint32')
+        _check_ne_2d_type('uint64')
+        _check_ne_2d_type('float32')
+        _check_ne_2d_type('float64')
+
+    def test_ne_scalar_1d(self):
+        """Test 1D array element-wise inequality against a scalar"""
+        def _check_ne_scalar_1d_type(type):
+            narr1 = np.array([1, 2, 3, 4, 5, 3, 7, 3], dtype=type)
+            scalar = 3
+            sarr1 = self.type_convertor(type)(array=narr1)
+            nres = np.not_equal(narr1, scalar)
+            sres = sarr1.ne(scalar)
+            self.assertEqual(sres.ndarray.dtype, np.bool_)
+            np.testing.assert_array_equal(sres.ndarray, nres)
+
+        _check_ne_scalar_1d_type('int8')
+        _check_ne_scalar_1d_type('int16')
+        _check_ne_scalar_1d_type('int32')
+        _check_ne_scalar_1d_type('int64')
+        _check_ne_scalar_1d_type('uint8')
+        _check_ne_scalar_1d_type('uint16')
+        _check_ne_scalar_1d_type('uint32')
+        _check_ne_scalar_1d_type('uint64')
+        _check_ne_scalar_1d_type('float32')
+        _check_ne_scalar_1d_type('float64')
+
+    def test_ne_scalar_2d(self):
+        """Test 2D array element-wise inequality against a scalar"""
+        def _check_ne_scalar_2d_type(type):
+            narr1 = np.array([[1, 5, 3, 5],
+                              [5, 6, 7, 5],
+                              [9, 5, 11, 12]], dtype=type)
+            scalar = 5
+            sarr1 = self.type_convertor(type)(array=narr1)
+            nres = np.not_equal(narr1, scalar)
+            sres = sarr1.ne(scalar)
+            self.assertEqual(sres.ndarray.dtype, np.bool_)
+            np.testing.assert_array_equal(sres.ndarray, nres)
+
+        _check_ne_scalar_2d_type('int8')
+        _check_ne_scalar_2d_type('int16')
+        _check_ne_scalar_2d_type('int32')
+        _check_ne_scalar_2d_type('int64')
+        _check_ne_scalar_2d_type('uint8')
+        _check_ne_scalar_2d_type('uint16')
+        _check_ne_scalar_2d_type('uint32')
+        _check_ne_scalar_2d_type('uint64')
+        _check_ne_scalar_2d_type('float32')
+        _check_ne_scalar_2d_type('float64')
+
+    def test_ne_3d(self):
+        """Test 3D array element-wise inequality preserves shape"""
+        def _check_ne_3d_type(type):
+            narr1 = np.arange(24, dtype=type).reshape(2, 3, 4)
+            narr2 = narr1.copy()
+            narr2[0, 1, 2] = 0
+            narr2[1, 2, 3] = 0
+            sarr1 = self.type_convertor(type)(array=narr1)
+            sarr2 = self.type_convertor(type)(array=narr2)
+            nres = np.not_equal(narr1, narr2)
+            sres = sarr1.ne(sarr2)
+            self.assertEqual(sres.ndarray.dtype, np.bool_)
+            self.assertEqual(list(sres.ndarray.shape), [2, 3, 4])
+            np.testing.assert_array_equal(sres.ndarray, nres)
+
+        _check_ne_3d_type('int32')
+        _check_ne_3d_type('uint8')
+        _check_ne_3d_type('float64')
+
+    def test_ne_bool(self):
+        """ne() on boolean source arrays still yields a boolean array"""
+        narr1 = np.array([True, True, False, False], dtype='bool')
+        narr2 = np.array([True, False, True, False], dtype='bool')
+        sarr1 = solvcon.SimpleArrayBool(array=narr1)
+        sarr2 = solvcon.SimpleArrayBool(array=narr2)
+
+        nres = np.not_equal(narr1, narr2)
+        sres = sarr1.ne(sarr2)
+        self.assertEqual(sres.ndarray.dtype, np.bool_)
+        np.testing.assert_array_equal(sres.ndarray, nres)
+
+        nres_scalar = np.not_equal(narr1, True)
+        sres_scalar = sarr1.ne(True)
+        self.assertEqual(sres_scalar.ndarray.dtype, np.bool_)
+        np.testing.assert_array_equal(sres_scalar.ndarray, nres_scalar)
+
+    def test_eq_operator(self):
+        """== performs element-wise comparison like numpy (issue #1034).
+
+        __eq__ maps to eq(), so == returns a boolean SimpleArray rather
+        than the default object-identity bool.
         """
-        narr = np.arange(4, dtype='int32')
-        sarr1 = solvcon.SimpleArrayInt32(array=narr)
-        sarr2 = solvcon.SimpleArrayInt32(array=narr.copy())
-        # Identity comparison returns a plain bool, not a SimpleArray.
-        self.assertIsInstance(sarr1 == sarr2, bool)
-        self.assertFalse(sarr1 == sarr2)
-        self.assertTrue(sarr1 == sarr1)
-        # The element-wise path is eq(), which returns a boolean array.
-        self.assertEqual(sarr1.eq(sarr2).ndarray.dtype, np.bool_)
+        narr1 = np.array([1, 2, 3, 3], dtype='int32')
+        narr2 = np.array([1, 0, 3, 9], dtype='int32')
+        sarr1 = solvcon.SimpleArrayInt32(array=narr1)
+        sarr2 = solvcon.SimpleArrayInt32(array=narr2)
+
+        sres = sarr1 == sarr2
+        self.assertEqual(sres.ndarray.dtype, np.bool_)
+        np.testing.assert_array_equal(sres.ndarray, np.equal(narr1, narr2))
+
+        sres_scalar = sarr1 == 3
+        self.assertEqual(sres_scalar.ndarray.dtype, np.bool_)
+        np.testing.assert_array_equal(sres_scalar.ndarray, np.equal(narr1, 3))
+
+    def test_ne_operator(self):
+        """!= performs element-wise comparison like numpy (issue #1034)."""
+        narr1 = np.array([1, 2, 3, 3], dtype='int32')
+        narr2 = np.array([1, 0, 3, 9], dtype='int32')
+        sarr1 = solvcon.SimpleArrayInt32(array=narr1)
+        sarr2 = solvcon.SimpleArrayInt32(array=narr2)
+
+        sres = sarr1 != sarr2
+        self.assertEqual(sres.ndarray.dtype, np.bool_)
+        np.testing.assert_array_equal(
+            sres.ndarray, np.not_equal(narr1, narr2))
+
+        sres_scalar = sarr1 != 3
+        self.assertEqual(sres_scalar.ndarray.dtype, np.bool_)
+        np.testing.assert_array_equal(
+            sres_scalar.ndarray, np.not_equal(narr1, 3))
+
+    def test_eq_ne_operator_incompatible_operand(self):
+        """Comparison against an unsupported operand falls back to identity.
+
+        Like numpy returning NotImplemented, == and != against an object
+        that is neither a matching SimpleArray nor a scalar leave Python's
+        default identity semantics in place instead of raising TypeError.
+        """
+        sarr = solvcon.SimpleArrayInt32(array=np.arange(3, dtype='int32'))
+        self.assertFalse(sarr == None)  # noqa: E711
+        self.assertTrue(sarr != None)  # noqa: E711
+        self.assertFalse(sarr == "not an array")
+        self.assertTrue(sarr != "not an array")
 
     def test_eye(self):
         """Test eye() static method for creating identity matrices"""
