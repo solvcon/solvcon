@@ -365,6 +365,34 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArray
                 "eq",
                 [](wrapped_type const & self, value_type scalar)
                 { return self.eq(scalar); })
+            .def(
+                "ne",
+                [](wrapped_type const & self, wrapped_type const & other)
+                { return self.ne(other); })
+            .def(
+                "ne",
+                [](wrapped_type const & self, value_type scalar)
+                { return self.ne(scalar); })
+            .def(
+                "__eq__",
+                [](wrapped_type const & self, wrapped_type const & other)
+                { return self.eq(other); },
+                py::is_operator())
+            .def(
+                "__eq__",
+                [](wrapped_type const & self, value_type scalar)
+                { return self.eq(scalar); },
+                py::is_operator())
+            .def(
+                "__ne__",
+                [](wrapped_type const & self, wrapped_type const & other)
+                { return self.ne(other); },
+                py::is_operator())
+            .def(
+                "__ne__",
+                [](wrapped_type const & self, value_type scalar)
+                { return self.ne(scalar); },
+                py::is_operator())
             .def("matmul", &wrapped_type::matmul)
             .def("matmul_blas", &wrapped_type::matmul_blas)
             .def(

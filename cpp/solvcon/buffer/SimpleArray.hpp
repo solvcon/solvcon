@@ -744,6 +744,9 @@ public:
     SimpleArray<bool> eq(A const & other) const;
     SimpleArray<bool> eq(value_type scalar) const;
 
+    SimpleArray<bool> ne(A const & other) const;
+    SimpleArray<bool> ne(value_type scalar) const;
+
     A & iadd(A const & other)
     {
         auto athis = static_cast<A *>(this);
@@ -2284,6 +2287,49 @@ SimpleArray<bool> detail::SimpleArrayMixinCalculators<A, T>::eq(value_type scala
     while (ptr < end)
     {
         *ret_ptr = (*ptr == scalar);
+        ++ptr;
+        ++ret_ptr;
+    }
+    return ret;
+}
+
+template <typename A, typename T>
+SimpleArray<bool> detail::SimpleArrayMixinCalculators<A, T>::ne(A const & other) const
+{
+    auto const * athis = static_cast<A const *>(this);
+    if (athis->shape() != other.shape())
+    {
+        throw std::invalid_argument(
+            std::format("SimpleArray::ne(): shape mismatch: this={} other={}",
+                        format_shape(athis->shape()),
+                        format_shape(other.shape())));
+    }
+    SimpleArray<bool> ret(athis->shape());
+    const value_type * ptr = athis->begin();
+    const value_type * const end = athis->end();
+    const value_type * other_ptr = other.begin();
+    bool * ret_ptr = ret.begin();
+    while (ptr < end)
+    {
+        *ret_ptr = (*ptr != *other_ptr);
+        ++ptr;
+        ++other_ptr;
+        ++ret_ptr;
+    }
+    return ret;
+}
+
+template <typename A, typename T>
+SimpleArray<bool> detail::SimpleArrayMixinCalculators<A, T>::ne(value_type scalar) const
+{
+    auto const * athis = static_cast<A const *>(this);
+    SimpleArray<bool> ret(athis->shape());
+    const value_type * ptr = athis->begin();
+    const value_type * const end = athis->end();
+    bool * ret_ptr = ret.begin();
+    while (ptr < end)
+    {
+        *ret_ptr = (*ptr != scalar);
         ++ptr;
         ++ret_ptr;
     }
