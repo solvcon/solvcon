@@ -392,7 +392,89 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArray
                 "__ne__",
                 [](wrapped_type const & self, value_type scalar)
                 { return self.ne(scalar); },
-                py::is_operator())
+                py::is_operator());
+
+        // Ordering comparisons are undefined for complex numbers, matching
+        // numpy. Leaving the operators unbound lets Python raise TypeError
+        // for <, <=, >, >= just as numpy does for a complex ndarray.
+        if constexpr (!is_complex_v<value_type>)
+        {
+            (*this)
+                .def(
+                    "lt",
+                    [](wrapped_type const & self, wrapped_type const & other)
+                    { return self.lt(other); })
+                .def(
+                    "lt",
+                    [](wrapped_type const & self, value_type scalar)
+                    { return self.lt(scalar); })
+                .def(
+                    "le",
+                    [](wrapped_type const & self, wrapped_type const & other)
+                    { return self.le(other); })
+                .def(
+                    "le",
+                    [](wrapped_type const & self, value_type scalar)
+                    { return self.le(scalar); })
+                .def(
+                    "gt",
+                    [](wrapped_type const & self, wrapped_type const & other)
+                    { return self.gt(other); })
+                .def(
+                    "gt",
+                    [](wrapped_type const & self, value_type scalar)
+                    { return self.gt(scalar); })
+                .def(
+                    "ge",
+                    [](wrapped_type const & self, wrapped_type const & other)
+                    { return self.ge(other); })
+                .def(
+                    "ge",
+                    [](wrapped_type const & self, value_type scalar)
+                    { return self.ge(scalar); })
+                .def(
+                    "__lt__",
+                    [](wrapped_type const & self, wrapped_type const & other)
+                    { return self.lt(other); },
+                    py::is_operator())
+                .def(
+                    "__lt__",
+                    [](wrapped_type const & self, value_type scalar)
+                    { return self.lt(scalar); },
+                    py::is_operator())
+                .def(
+                    "__le__",
+                    [](wrapped_type const & self, wrapped_type const & other)
+                    { return self.le(other); },
+                    py::is_operator())
+                .def(
+                    "__le__",
+                    [](wrapped_type const & self, value_type scalar)
+                    { return self.le(scalar); },
+                    py::is_operator())
+                .def(
+                    "__gt__",
+                    [](wrapped_type const & self, wrapped_type const & other)
+                    { return self.gt(other); },
+                    py::is_operator())
+                .def(
+                    "__gt__",
+                    [](wrapped_type const & self, value_type scalar)
+                    { return self.gt(scalar); },
+                    py::is_operator())
+                .def(
+                    "__ge__",
+                    [](wrapped_type const & self, wrapped_type const & other)
+                    { return self.ge(other); },
+                    py::is_operator())
+                .def(
+                    "__ge__",
+                    [](wrapped_type const & self, value_type scalar)
+                    { return self.ge(scalar); },
+                    py::is_operator());
+        }
+
+        (*this)
             .def("matmul", &wrapped_type::matmul)
             .def("matmul_blas", &wrapped_type::matmul_blas)
             .def(
