@@ -7,18 +7,20 @@
 import json
 
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QDockWidget,
-                               QButtonGroup, QRadioButton, QTreeWidget,
-                               QTreeWidgetItem, QFrame)
+from PySide6.QtWidgets import (QHBoxLayout, QDockWidget, QButtonGroup,
+                               QRadioButton, QTreeWidgetItem, QStackedWidget)
 
 from . import _gui_common
+from . import _mesh_info
+from . import _tree_panel
 
 __all__ = [  # noqa: F822
     'EntityTreePanel',
+    'TreePanel',
 ]
 
 
-class EntityTreeWidget(QWidget):
+class EntityTreeWidget(_tree_panel.TreePanelBase):
     """Widget that presents the entity tree inside the dock."""
 
     LEVELS = ("basic", "diagnostics")
@@ -28,17 +30,16 @@ class EntityTreeWidget(QWidget):
     _UNSET = object()
 
     def __init__(self, world=None, parent=None):
+        self._levels = {}
         super().__init__(parent)
         self._world = None
         self._fingerprint = self._UNSET
         self._cache = {}
         self._rendered_key = self._UNSET
-        self._tree = QTreeWidget()
-        self._tree.setColumnCount(1)
-        self._tree.setHeaderHidden(True)
-        self._tree.setFrameShape(QFrame.NoFrame)
+        self.set_world(world)
 
-        self._levels = {}
+    def _build_header(self, layout):
+        """Add the basic/diagnostics level selector above the tree."""
         level_row = QHBoxLayout()
         level_row.setContentsMargins(4, 2, 4, 2)
         group = QButtonGroup(self)
@@ -49,16 +50,9 @@ class EntityTreeWidget(QWidget):
             self._levels[level] = button
         level_row.addStretch(1)
         self._levels["diagnostics"].setChecked(True)
-
         for button in self._levels.values():
             button.toggled.connect(self._on_level_toggled)
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
         layout.addLayout(level_row)
-        layout.addWidget(self._tree)
-
-        self.setLayout(layout)
-        self.set_world(world)
 
     @classmethod
     def make_world_info(cls, state):
@@ -170,24 +164,18 @@ class EntityTreeWidget(QWidget):
         if key == self._rendered_key:
             return
         self._rendered_key = key
-        self._tree.clear()
         if key is None:
-            QTreeWidgetItem(self._tree, ["No world loaded"])
+            self._show_placeholder("No world loaded")
             return
+        self._tree.clear()
         state = json.loads(key)
         root = QTreeWidgetItem(self._tree, ["World (2D)"])
-        for section, rows in self.make_world_info(state):
-            group = QTreeWidgetItem(root, [section])
-            for prop, value in rows:
-                QTreeWidgetItem(group, [f"{prop}: {value}"])
-            group.setExpanded(True)
+        self._render_sections(root, self.make_world_info(state))
 
         if "diagnostics" in state:
             self._add_diagnostics(root, state)
 
-        root.setExpanded(True)
-        # Widen the column so long entries are not clipped.
-        self._tree.resizeColumnToContents(0)
+        self._finalize_root(root)
 
     def _add_diagnostics(self, root, state):
         """Add the crossings and degeneracies, each as a counted subgroup."""
@@ -277,5 +265,118 @@ class EntityTreePanel(_gui_common.PilotFeature):
         """Return the active 2D viewer's world, or ``None``."""
         widget = self._mgr.currentR2DWidget()
         return None if widget is None else widget.world
+
+
+class TreePanel(_gui_common.PilotFeature):
+    """Unified tree dock that follows the active sub-window.
+
+    One dock holds both trees in a stack. A 3D mesh viewer shows the mesh
+    information tree; the 2D canvas shows the world entity tree. The active
+    sub-window's type selects which tree is shown, so the two panels that
+    used to be separate now share one widget.
+    """
+
+    # Poll period in milliseconds while the panel is visible; the 2D canvas
+    # mutates its world in C++ without a change signal, so the shown tree is
+    # re-read on this cadence (an unchanged read is a no-op).
+    _POLL_MS = 500
+
+    def __init__(self, *args, **kw):
+        self._status = kw.pop('style_status')
+        super().__init__(*args, **kw)
+        self._action = None
+        self._dock = None
+        self._stack = None
+        self._mesh_tree = None
+        self._entity_tree = None
+        self._timer = None
+
+    def populate_menu(self):
+        self._action = self.add_action(
+            "View/Panels", "Entity Tree", "Toggle the entity tree panel",
+            None, id="panel.entity_tree", weight=10, checkable=True)
+        self._action.toggled.connect(self._on_toggled)
+
+    def _on_toggled(self, checked):
+        """Show or hide the panel."""
+        if checked:
+            self._ensure_panel()
+            self._sync()
+            self._dock.show()
+        elif self._dock is not None:
+            self._dock.hide()
+
+    def _ensure_panel(self):
+        """Build the dock lazily; poll it and follow sub-window changes."""
+        if self._stack is not None:
+            return
+        self._mesh_tree = _mesh_info.MeshInfoTree(self._status)
+        self._mesh_tree.boundary_toggled = self._on_boundary_toggled
+        self._mesh_tree.edges_toggled = self._on_edges_toggled
+        self._mesh_tree.normals_toggled = self._on_normals_toggled
+        self._entity_tree = EntityTreeWidget()
+        self._stack = QStackedWidget()
+        self._stack.addWidget(self._mesh_tree)
+        self._stack.addWidget(self._entity_tree)
+        self._dock = QDockWidget("entity tree")
+        self._dock.setWidget(self._stack)
+        self._mgr.mainWindow.addDockWidget(Qt.LeftDockWidgetArea,
+                                           self._dock)
+        self._dock.visibilityChanged.connect(self._action.setChecked)
+        self._timer = QTimer(self)
+        self._timer.setInterval(self._POLL_MS)
+        self._timer.timeout.connect(self._sync)
+        self._dock.visibilityChanged.connect(self._on_visibility_changed)
+        mdi = self._mdi_area()
+        if mdi is not None:
+            mdi.subWindowActivated.connect(self._on_subwindow_activated)
+
+    def _on_visibility_changed(self, visible):
+        """Run the poll timer only while the panel is on screen."""
+        if self._timer is None:
+            return
+        if visible:
+            self._timer.start()
+        else:
+            self._timer.stop()
+
+    def _on_subwindow_activated(self, _subwin):
+        """Re-select the tree when the active sub-window changes."""
+        if self._dock is not None and self._action.isChecked():
+            QTimer.singleShot(0, self._sync)
+
+    def _sync(self):
+        """Select the tree that matches the active sub-window.
+
+        A 3D viewer shows the mesh tree; the 2D canvas shows the world
+        tree. Detection keys on which viewer the manager reports active.
+        """
+        widget3d = self._mgr.currentR3DWidget()
+        if widget3d is not None:
+            self._stack.setCurrentWidget(self._mesh_tree)
+            self._mesh_tree.set_mesh(widget3d.mesh)
+            return
+        widget2d = self._mgr.currentR2DWidget()
+        if widget2d is not None:
+            self._stack.setCurrentWidget(self._entity_tree)
+            self._entity_tree.set_world(widget2d.world)
+
+    def _on_boundary_toggled(self, ibc, checked):
+        widget = self._mgr.currentR3DWidget()
+        if widget is not None:
+            widget.showBoundary(ibc, checked)
+
+    def _on_edges_toggled(self, checked):
+        widget = self._mgr.currentR3DWidget()
+        if widget is not None:
+            widget.showFeatureEdges(checked)
+
+    def _on_normals_toggled(self, checked):
+        widget = self._mgr.currentR3DWidget()
+        if widget is not None:
+            widget.showNormals(checked)
+
+    def _mdi_area(self):
+        return self._mainWindow.centralWidget()
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

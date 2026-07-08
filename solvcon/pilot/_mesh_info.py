@@ -7,19 +7,19 @@
 import numpy as np
 
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtWidgets import (QWidget, QVBoxLayout, QDockWidget,
-                               QTreeWidget, QTreeWidgetItem, QFrame)
+from PySide6.QtWidgets import QDockWidget, QTreeWidgetItem
 
 from .. import core
 from . import _gui_common
 from . import _mesh
+from . import _tree_panel
 
 __all__ = [  # noqa: F822
     'MeshInfo',
 ]
 
 
-class MeshInfoTree(QWidget):
+class MeshInfoTree(_tree_panel.TreePanelBase):
     """Widget that presents the mesh information tree inside the dock.
 
     :ivar boundary_toggled:
@@ -52,15 +52,6 @@ class MeshInfoTree(QWidget):
         if self.style_status is not None:
             self.style_status.changed.connect(self.refresh_style_checks)
         self._style_items = {}
-        self._tree = QTreeWidget()
-        self._tree.setColumnCount(1)
-        self._tree.setHeaderHidden(True)
-        # Drop the tree frame so its scroll bar sits flush in the panel.
-        self._tree.setFrameShape(QFrame.NoFrame)
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(self._tree)
-        self.setLayout(layout)
         self.boundary_toggled = None
         self.edges_toggled = None
         self.normals_toggled = None
@@ -129,24 +120,18 @@ class MeshInfoTree(QWidget):
         """Rebuild the tree from ``mh``, or show "No mesh loaded" when None."""
         self._building = True
         try:
-            self._tree.clear()
             if mh is None:
-                QTreeWidgetItem(self._tree, ["No mesh loaded"])
+                self._show_placeholder("No mesh loaded")
                 return
+            self._tree.clear()
             root = QTreeWidgetItem(self._tree, [f"StaticMesh ({mh.ndim}D)"])
             # Keep the display toggles (styles and overlays, then boundaries)
             # together at the top, above the read-only information sections.
             self._add_style_toggles(root)
             self._add_overlay_toggles(root)
             self._add_boundary_group(root, mh)
-            for section, rows in self.make_mesh_info(mh):
-                group = QTreeWidgetItem(root, [section])
-                for prop, value in rows:
-                    QTreeWidgetItem(group, [f"{prop}: {value}"])
-                group.setExpanded(True)
-            root.setExpanded(True)
-            # Widen the column so long entries are not clipped.
-            self._tree.resizeColumnToContents(0)
+            self._render_sections(root, self.make_mesh_info(mh))
+            self._finalize_root(root)
         finally:
             self._building = False
 
