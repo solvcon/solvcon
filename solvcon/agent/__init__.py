@@ -36,6 +36,7 @@ list_of_backend = [
 list_of_backends_impl = [
     'SubprocessBackend',
     'ClaudeCliBackend',
+    'OpenAIHttpBackend',
     'parse_tool_calls',
 ]
 

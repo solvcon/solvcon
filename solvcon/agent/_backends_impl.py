@@ -3,13 +3,14 @@
 
 
 """
-Concrete AI backends over external command-line tools.
+Concrete AI backends over external CLIs and HTTP APIs.
 
-This module holds the backends that shell out to an installed AI CLI, plus the
-shared plumbing they need: :class:`SubprocessBackend` (PATH discovery and a
-cancellable child process) and :func:`parse_tool_calls` (turn a model reply
-into Agent Draw command dicts).  Only the Claude CLI backend lives here for
-now; the Codex CLI and an HTTP backend are follow-ups that reuse the same base.
+This module holds the backends that talk to an installed AI CLI or an
+OpenAI-compatible HTTP server, plus the shared plumbing they need:
+:class:`SubprocessBackend` (PATH discovery and a cancellable child process),
+:class:`OpenAIHttpBackend` (stdlib ``http.client``, no SDK), and
+:func:`parse_tool_calls` (turn a model reply into Agent Draw command dicts).
+The Codex CLI backend is a follow-up that reuses :class:`SubprocessBackend`.
 
 The module imports no Qt and makes no network call at import time.  A backend
 registers itself only as a class instance in the shared registry, so a caller
@@ -17,25 +18,14 @@ lists it and probes :meth:`~solvcon.agent.AgentBackend.available` before use.
 """
 
 import abc
+import http.client
 import json
+import os
 import shutil
 import subprocess
+import urllib.parse
 
 from . import _backend
-
-
-# TODO: solvcon is an application platform for geometry-based computation:
-# editing graphics and geometry, visualizing, meshing, and solving
-# conservation laws.  These instructions frame the agent around the 2D
-# drawing canvas alone; reframe that as one capability among the platform's
-# rather than the agent's whole scope.  Related to #966.
-_INSTRUCTIONS = (
-    "You drive a 2D drawing canvas. Translate the user's request into a JSON "
-    "array of drawing commands. Each command is an object with an \"op\" key "
-    "naming the operation and the operation's arguments as sibling keys. "
-    "Reply with only the JSON array, no prose and no code fences. Use an "
-    "empty array when no drawing is needed."
-)
 
 
 def _tool_op_names(tool_surface):
@@ -67,8 +57,13 @@ def _strip_code_fences(text):
 
 def _load_json_payload(text):
     """Parse the first JSON array or object out of a model reply, tolerating a
-    code fence or surrounding prose.  Return the parsed value, or ``None`` when
-    nothing parses."""
+    code fence or surrounding prose.
+
+    Return the parsed value, or ``None`` when the reply has no JSON-looking
+    span (plain prose).  Raise :class:`ValueError` when a ``[``/``{`` span is
+    present but does not parse, so a truncated or invalid command batch is not
+    mistaken for an empty one.
+    """
     text = _strip_code_fences(text).strip()
     if not text:
         return None
@@ -76,14 +71,19 @@ def _load_json_payload(text):
         return json.loads(text)
     except json.JSONDecodeError:
         pass
+    saw_span = False
     for opener, closer in (("[", "]"), ("{", "}")):
         start = text.find(opener)
         end = text.rfind(closer)
-        if start != -1 and end > start:
-            try:
-                return json.loads(text[start:end + 1])
-            except json.JSONDecodeError:
-                continue
+        if start == -1 or end <= start:
+            continue
+        saw_span = True
+        try:
+            return json.loads(text[start:end + 1])
+        except json.JSONDecodeError:
+            continue
+    if saw_span or text[0] in "[{":
+        raise ValueError("model reply has malformed JSON")
     return None
 
 
@@ -93,7 +93,9 @@ def parse_tool_calls(text, tool_surface=None):
     Accept a JSON array, or a lone object treated as a one-command array.  Each
     command must be an object with an ``op``; when ``tool_surface`` names ops,
     an unknown op is rejected.  Raise :class:`ValueError` on a malformed reply
-    so the backend records it as an error rather than running a bad command.
+    (including invalid JSON that looks like a command batch) so the backend
+    records it as an error rather than running a bad command.  Plain prose with
+    no JSON yields an empty list.
     """
     data = _load_json_payload(text)
     if data is None:
@@ -156,16 +158,6 @@ class SubprocessBackend(_backend.AgentBackend):
         """Extract the assistant text from CLI ``stdout``.  The default treats
         stdout as the reply; override for a CLI that wraps it (JSON, etc.)."""
         return (stdout or "").strip()
-
-    @staticmethod
-    def _compose_prompt(prompt, scene_context, tool_surface):
-        """Fold the instructions, tool surface, scene, and user request into
-        one prompt string for a CLI that takes a single prompt argument."""
-        tools = json.dumps(tool_surface or [], indent=2)
-        return (
-            "%s\n\nAvailable operations (tool definitions):\n%s\n\n"
-            "Current scene:\n%s\n\nUser request:\n%s"
-            % (_INSTRUCTIONS, tools, scene_context, prompt))
 
     def send(self, prompt, scene_context, tool_surface):
         exe = self.executable()
@@ -246,5 +238,184 @@ class ClaudeCliBackend(SubprocessBackend):
 
 
 _backend.register(ClaudeCliBackend())
+
+
+class OpenAIHttpBackend(_backend.AgentBackend):
+    """Backend over an OpenAI-compatible Chat Completions HTTP API.
+
+    Uses only the stdlib (``http.client`` and ``urllib.parse``); no vendor
+    SDK.  Point ``base_url`` at OpenAI, Ollama's ``/v1`` endpoint, or any
+    compatible server.  Defaults and the optional API key come from the
+    constructor or the ``SOLVCON_OPENAI_BASE_URL``, ``SOLVCON_OPENAI_MODEL``,
+    and ``SOLVCON_OPENAI_API_KEY`` environment variables.  The in-flight
+    connection is kept on the instance so a driver thread can :meth:`cancel`.
+    """
+
+    # Local Ollama's OpenAI-compatible root; override for a remote provider.
+    _DEFAULT_BASE_URL = "http://127.0.0.1:11434/v1"
+    _DEFAULT_MODEL = "qwen2.5vl:7b"
+
+    def __init__(self, base_url=None, model=None, api_key=None, timeout=120):
+        self._base_url = base_url if base_url is not None else self._env_or(
+            "SOLVCON_OPENAI_BASE_URL", self._DEFAULT_BASE_URL)
+        self._model = model if model is not None else self._env_or(
+            "SOLVCON_OPENAI_MODEL", self._DEFAULT_MODEL)
+        self._api_key = api_key if api_key is not None else self._env_or(
+            "SOLVCON_OPENAI_API_KEY", "")
+        self._timeout = timeout
+        self._conn = None
+
+    @staticmethod
+    def _env_or(name, default):
+        """``os.environ[name]`` when set and non-empty, else ``default``."""
+        value = os.environ.get(name)
+        return value if value else default
+
+    @property
+    def name(self):
+        return "openai (http)"
+
+    @property
+    def base_url(self):
+        """API root including the ``/v1`` suffix, with no trailing slash."""
+        return (self._base_url or "").rstrip("/")
+
+    @property
+    def model(self):
+        return self._model
+
+    def available(self):
+        """True when both a base URL and a model name are configured."""
+        return bool(self.base_url) and bool(self._model)
+
+    def send(self, prompt, scene_context, tool_surface):
+        if not self.available():
+            return _backend.BackendResponse(
+                error="openai http backend needs base_url and model")
+        composed = self._compose_prompt(prompt, scene_context, tool_surface)
+        body = {
+            "model": self._model,
+            "stream": False,
+            "messages": [{"role": "user", "content": composed}],
+        }
+        try:
+            status, raw = self._post_chat(body)
+        except TimeoutError:
+            return _backend.BackendResponse(
+                error="openai http timed out")
+        except (OSError, http.client.HTTPException) as exc:
+            return _backend.BackendResponse(
+                error="openai http failed: %s" % exc)
+        if status != 200:
+            detail = (raw or b"").decode("utf-8", errors="replace").strip()
+            return _backend.BackendResponse(
+                error="openai http status %d: %s" % (status, detail))
+        try:
+            payload = json.loads(raw.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            return _backend.BackendResponse(
+                error="openai http bad JSON: %s" % exc)
+        text = self._parse_chat_payload(payload)
+        if text is None:
+            return _backend.BackendResponse(
+                error="openai http response missing assistant text")
+        try:
+            commands = parse_tool_calls(text, tool_surface)
+        except ValueError as exc:
+            return _backend.BackendResponse(text=text, error=str(exc))
+        return _backend.BackendResponse(text=text, commands=commands)
+
+    def cancel(self):
+        """Close the in-flight HTTP connection, if any.  Safe to call from
+        another thread while :meth:`send` blocks in :meth:`_post_chat`."""
+        conn = self._conn
+        if conn is not None:
+            try:
+                conn.close()
+            except OSError:
+                pass
+
+    @classmethod
+    def _parse_chat_payload(cls, payload):
+        """Assistant text from a Chat Completions JSON body, or ``None``."""
+        if not isinstance(payload, dict):
+            return None
+        choices = payload.get("choices")
+        if not isinstance(choices, list) or not choices:
+            return None
+        first = choices[0]
+        if not isinstance(first, dict):
+            return None
+        return cls._message_text(first.get("message") or {})
+
+    @staticmethod
+    def _message_text(message):
+        """Assistant text from an OpenAI-style ``message`` object.
+
+        Accept a plain string ``content``, or a list of content parts (the
+        multimodal shape) by joining the text pieces.
+        """
+        if not isinstance(message, dict):
+            return ""
+        content = message.get("content")
+        if isinstance(content, str):
+            return content
+        if isinstance(content, list):
+            parts = []
+            for part in content:
+                if isinstance(part, str):
+                    parts.append(part)
+                elif isinstance(part, dict):
+                    text = part.get("text")
+                    if isinstance(text, str):
+                        parts.append(text)
+            return "".join(parts)
+        return ""
+
+    def _post_chat(self, body):
+        """POST ``body`` to ``/chat/completions``; return ``(status, raw)``.
+
+        Builds an ``http.client`` connection from :attr:`base_url`, holds it
+        on ``self._conn`` for :meth:`cancel`, and always clears that slot.
+        """
+        parsed = urllib.parse.urlparse(self.base_url)
+        if parsed.scheme not in ("http", "https") or not parsed.netloc:
+            raise OSError("invalid base_url: %s" % self.base_url)
+        path = parsed.path.rstrip("/") + "/chat/completions"
+        if parsed.query:
+            path = "%s?%s" % (path, parsed.query)
+        host = parsed.hostname
+        if not host:
+            raise OSError("invalid base_url host: %s" % self.base_url)
+        port = parsed.port
+        if port is None:
+            port = 443 if parsed.scheme == "https" else 80
+        headers = {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        }
+        if self._api_key:
+            headers["Authorization"] = "Bearer %s" % self._api_key
+        payload = json.dumps(body).encode("utf-8")
+        if parsed.scheme == "https":
+            conn = http.client.HTTPSConnection(
+                host, port, timeout=self._timeout)
+        else:
+            conn = http.client.HTTPConnection(
+                host, port, timeout=self._timeout)
+        self._conn = conn
+        try:
+            conn.request("POST", path, body=payload, headers=headers)
+            response = conn.getresponse()
+            return response.status, response.read()
+        finally:
+            try:
+                conn.close()
+            except OSError:
+                pass
+            self._conn = None
+
+
+_backend.register(OpenAIHttpBackend())
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

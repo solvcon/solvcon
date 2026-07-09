@@ -15,6 +15,7 @@ default.
 
 import abc
 import dataclasses
+import json
 
 
 @dataclasses.dataclass
@@ -31,7 +32,23 @@ class BackendResponse:
 class AgentBackend(abc.ABC):
     """Interface every AI backend implements: a stable :attr:`name`, an
     :meth:`available` check, and :meth:`send`.  The tiny surface lets a caller
-    drive any backend from a background thread."""
+    drive any backend from a background thread.  Every backend also shares one
+    system instruction and one prompt layout through :meth:`_compose_prompt`,
+    so a CLI and an HTTP backend never drift apart in what they ask the model.
+    """
+
+    # TODO: solvcon is an application platform for geometry-based computation:
+    # editing graphics and geometry, visualizing, meshing, and solving
+    # conservation laws.  These instructions frame the agent around the 2D
+    # drawing canvas alone; reframe that as one capability among the platform's
+    # rather than the agent's whole scope.  Related to #966.
+    _INSTRUCTIONS = (
+        "You drive a 2D drawing canvas. Translate the user's request into a "
+        "JSON array of drawing commands. Each command is an object with an "
+        "\"op\" key naming the operation and the operation's arguments as "
+        "sibling keys. Reply with only the JSON array, no prose and no code "
+        "fences. Use an empty array when no drawing is needed."
+    )
 
     @property
     @abc.abstractmethod
@@ -51,6 +68,17 @@ class AgentBackend(abc.ABC):
         :param tool_surface: the Agent Draw tool definitions the model may
             call.
         """
+
+    @classmethod
+    def _compose_prompt(cls, prompt, scene_context, tool_surface):
+        """Fold the shared instruction, tool surface, scene, and user request
+        into one prompt string, so every backend sends the same thing whether
+        it is a CLI argument or an HTTP message body."""
+        tools = json.dumps(tool_surface or [], indent=2)
+        return (
+            "%s\n\nAvailable operations (tool definitions):\n%s\n\n"
+            "Current scene:\n%s\n\nUser request:\n%s"
+            % (cls._INSTRUCTIONS, tools, scene_context, prompt))
 
 
 _REGISTRY = []
