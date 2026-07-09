@@ -332,6 +332,96 @@ class ToggleTypedAccessTC(unittest.TestCase):
         self.assertTrue(issubclass(caught[0].category, DeprecationWarning))
 
 
+class ToggleOnChangeTC(unittest.TestCase):
+
+    def test_fires_on_real_change_only(self):
+        tg = solvcon.Toggle.instance.clone()
+        tg.dynamic_clear()
+        tg.declare_int32("k", 1)
+
+        seen = []
+        tok = tg.on_change("k", lambda: seen.append(tg.get("k", -1)))
+        self.assertTrue(tok.active)
+        tg.set_int32("k", 2)   # change -> fire
+        tg.set_int32("k", 2)   # no-op -> no fire
+        tg.set_int32("k", 3)   # change -> fire
+        self.assertEqual(seen, [2, 3])
+
+    def test_attribute_set_fires(self):
+        tg = solvcon.Toggle.instance.clone()
+        tg.dynamic_clear()
+        tg.declare_bool("flag", False)
+
+        seen = []
+        tok = tg.on_change("flag", lambda: seen.append(1))
+        tg.flag = True
+        self.assertEqual(seen, [1])
+        self.assertTrue(tok.active)
+
+    def test_multiple_observers_each_fire_once(self):
+        tg = solvcon.Toggle.instance.clone()
+        tg.dynamic_clear()
+        tg.declare_int32("k", 0)
+
+        counts = [0, 0]
+
+        def make(i):
+            def cb():
+                counts[i] += 1
+            return cb
+
+        t0 = tg.on_change("k", make(0))
+        t1 = tg.on_change("k", make(1))
+        tg.set_int32("k", 5)
+        self.assertEqual(counts, [1, 1])
+        self.assertTrue(t0.active and t1.active)
+
+    def test_reentrant_callback(self):
+        tg = solvcon.Toggle.instance.clone()
+        tg.dynamic_clear()
+        tg.declare_int32("k", 0)
+        tg.declare_int32("mirror", -1)
+
+        def mirror():
+            tg.set_int32("mirror", tg.get("k", -1))
+
+        tok = tg.on_change("k", mirror)
+        tg.set_int32("k", 42)
+        self.assertEqual(tg.get("mirror", -1), 42)
+        self.assertTrue(tok.active)
+
+    def test_dropping_token_unsubscribes(self):
+        tg = solvcon.Toggle.instance.clone()
+        tg.dynamic_clear()
+        tg.declare_int32("k", 0)
+
+        seen = []
+        tok = tg.on_change("k", lambda: seen.append(1))
+        tg.set_int32("k", 1)
+        tok.unsubscribe()
+        tg.set_int32("k", 2)
+        self.assertEqual(seen, [1])
+        self.assertFalse(tok.active)
+
+    def test_throwing_callback_is_contained(self):
+        tg = solvcon.Toggle.instance.clone()
+        tg.dynamic_clear()
+        tg.declare_int32("k", 0)
+
+        after = []
+
+        def boom():
+            raise ValueError("boom")
+
+        t0 = tg.on_change("k", boom)
+        t1 = tg.on_change("k", lambda: after.append(1))
+        # The throwing observer must not propagate nor stop the other one.
+        tg.set_int32("k", 1)
+        self.assertEqual(after, [1])
+        self.assertEqual(tg.get("k", -1), 1)
+        self.assertTrue(t0.active and t1.active)
+
+
 class ToggleSerializationTC(unittest.TestCase):
 
     def test_to_json(self):

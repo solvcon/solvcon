@@ -53,12 +53,13 @@ std::string const DynamicToggleTable::sentinel_string = "";
 #define MM_DECL_DYNGET(CTYPE, MTYPE, SENTINEL)                                 \
     CTYPE DynamicToggleTable::get_##MTYPE(std::string const & key) const       \
     {                                                                          \
+        std::scoped_lock const guard(m_mutex);                                 \
         auto it = m_key2index.find(key);                                       \
         if (it != m_key2index.end())                                           \
         {                                                                      \
             if (it->second.is_##MTYPE())                                       \
             {                                                                  \
-                return m_column_##MTYPE.at(it->second.index).value;            \
+                return m_column_##MTYPE.at(it->second.index).get();            \
             }                                                                  \
         }                                                                      \
         return SENTINEL;                                                       \
@@ -78,32 +79,42 @@ MM_DECL_DYNGET(std::string const &, string, sentinel_string)
 
 /* The macro gives debuggers a hard time. Manually expand it if you need to
  * step in a debugger. */
-#define MM_DECL_DYNSET(CTYPE, MTYPE, MTYPEC)                                                                                   \
-    /* NOLINTNEXTLINE(bugprone-easily-swappable-parameters) */                                                                 \
-    void DynamicToggleTable::set_##MTYPE(std::string const & key, CTYPE value)                                                 \
-    {                                                                                                                          \
-        auto it = m_key2index.find(key);                                                                                       \
-        if (it != m_key2index.end())                                                                                           \
-        {                                                                                                                      \
-            if (it->second.is_##MTYPE())                                                                                       \
-            {                                                                                                                  \
-                m_column_##MTYPE.at(it->second.index).value = value;                                                           \
-            }                                                                                                                  \
-            else                                                                                                               \
-            {                                                                                                                  \
-                /* do nothing */                                                                                               \
-            }                                                                                                                  \
-        }                                                                                                                      \
-        else                                                                                                                   \
-        {                                                                                                                      \
-            DynamicToggleIndex const index{static_cast<uint32_t>(m_column_##MTYPE.size()), DynamicToggleIndex::TYPE_##MTYPEC}; \
-            m_key2index.insert({key, index});                                                                                  \
-            m_column_##MTYPE.append(value);                                                                                    \
-        }                                                                                                                      \
-    }                                                                                                                          \
-    void HierarchicalToggleAccess::set_##MTYPE(std::string const & key, CTYPE value)                                           \
-    {                                                                                                                          \
-        m_table->set_##MTYPE(rekey(key), value);                                                                               \
+#define MM_DECL_DYNSET(CTYPE, MTYPE, MTYPEC)                                                                                     \
+    /* NOLINTNEXTLINE(bugprone-easily-swappable-parameters) */                                                                   \
+    void DynamicToggleTable::set_##MTYPE(std::string const & key, CTYPE value)                                                   \
+    {                                                                                                                            \
+        bool changed = false;                                                                                                    \
+        {                                                                                                                        \
+            std::scoped_lock const guard(m_mutex);                                                                               \
+            auto it = m_key2index.find(key);                                                                                     \
+            if (it != m_key2index.end())                                                                                         \
+            {                                                                                                                    \
+                if (it->second.is_##MTYPE())                                                                                     \
+                {                                                                                                                \
+                    auto & reg = m_column_##MTYPE.at(it->second.index);                                                          \
+                    if (!value_equal(reg.get(), value))                                                                          \
+                    {                                                                                                            \
+                        reg.set(value);                                                                                          \
+                        changed = true;                                                                                          \
+                    }                                                                                                            \
+                }                                                                                                                \
+            }                                                                                                                    \
+            else                                                                                                                 \
+            {                                                                                                                    \
+                DynamicToggleIndex const idx{static_cast<uint32_t>(m_column_##MTYPE.size()), DynamicToggleIndex::TYPE_##MTYPEC}; \
+                m_key2index.insert({key, idx});                                                                                  \
+                m_column_##MTYPE.append(value);                                                                                  \
+                changed = true;                                                                                                  \
+            }                                                                                                                    \
+        }                                                                                                                        \
+        if (changed)                                                                                                             \
+        {                                                                                                                        \
+            notify(key);                                                                                                         \
+        }                                                                                                                        \
+    }                                                                                                                            \
+    void HierarchicalToggleAccess::set_##MTYPE(std::string const & key, CTYPE value)                                             \
+    {                                                                                                                            \
+        m_table->set_##MTYPE(rekey(key), value);                                                                                 \
     }
 MM_DECL_DYNSET(bool, bool, BOOL)
 MM_DECL_DYNSET(int8_t, int8, INT8)
@@ -126,6 +137,7 @@ void HierarchicalToggleAccess::add_subkey(const std::string & key)
 
 void DynamicToggleTable::add_subkey(std::string const & key)
 {
+    std::scoped_lock const guard(m_mutex);
     auto it = m_key2index.find(key);
     if (it == m_key2index.end())
     {
@@ -136,6 +148,7 @@ void DynamicToggleTable::add_subkey(std::string const & key)
 
 std::vector<std::string> DynamicToggleTable::keys() const
 {
+    std::scoped_lock const guard(m_mutex);
     std::vector<std::string> ret;
     ret.reserve(m_key2index.size());
     for (auto const & it : m_key2index)
@@ -147,6 +160,7 @@ std::vector<std::string> DynamicToggleTable::keys() const
 
 void DynamicToggleTable::clear()
 {
+    std::scoped_lock const guard(m_mutex);
     m_key2index.clear();
     m_column_bool.clear();
     m_column_int8.clear();
@@ -155,7 +169,38 @@ void DynamicToggleTable::clear()
     m_column_int64.clear();
     m_column_real.clear();
     m_column_string.clear();
-    ++m_generation;
+    m_generation.fetch_add(1, std::memory_order_relaxed);
+}
+
+void DynamicToggleTable::notify(std::string const & key) const
+{
+    // Copy the callbacks out under the registry mutex, then run them with no
+    // lock held so a callback may re-enter the store or the registry.
+    std::vector<detail::ToggleChangeObservers::callback_type> callbacks;
+    {
+        std::scoped_lock const guard(m_observers->mutex);
+        auto it = m_observers->map.find(key);
+        if (it != m_observers->map.end())
+        {
+            for (auto const & pr : it->second)
+            {
+                callbacks.push_back(pr.second);
+            }
+        }
+    }
+    for (auto const & callback : callbacks)
+    {
+        try
+        {
+            (*callback)();
+        }
+        // A throwing observer must not corrupt the store or stop the other
+        // observers, so the exception is intentionally swallowed here.
+        // NOLINTNEXTLINE(bugprone-empty-catch)
+        catch (...)
+        {
+        }
+    }
 }
 
 // NOLINTNEXTLINE(modernize-use-equals-default) lack of SOLVCON_METAL
