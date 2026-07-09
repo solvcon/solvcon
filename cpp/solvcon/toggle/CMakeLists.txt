@@ -4,6 +4,7 @@
 cmake_minimum_required(VERSION 4.0.1)
 
 set(SOLVCON_TOGGLE_HEADERS
+    ${CMAKE_CURRENT_SOURCE_DIR}/build_config.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/toggle.hpp
     CACHE FILEPATH "" FORCE)
 

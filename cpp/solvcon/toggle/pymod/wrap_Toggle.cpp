@@ -16,6 +16,24 @@ namespace solvcon
 namespace python
 {
 
+namespace detail
+{
+
+// If child is a hierarchical access (a subkey view holding a raw table
+// pointer), tie its lifetime to parent so chaining off a temporary does not
+// dangle. A plain leaf value is returned unchanged, since it cannot carry a
+// keep_alive reference.
+inline pybind11::object tie_subkey_owner(pybind11::object child, pybind11::handle parent)
+{
+    if (pybind11::isinstance<HierarchicalToggleAccess>(child))
+    {
+        pybind11::detail::keep_alive_impl(child, parent);
+    }
+    return child;
+}
+
+} /* end namespace detail */
+
 class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSolidToggle
     : public WrapBase<WrapSolidToggle, SolidToggle>
 {
@@ -135,7 +153,18 @@ WrapHierarchicalToggleAccess::WrapHierarchicalToggleAccess(pybind11::module & mo
     // Dynamic properties.  Number of the properties can be freely changed
     // during runtime.
     (*this)
-        .def("__getattr__", getattr)
+        .def(
+            "__getattr__",
+            [](py::object const & self_obj, std::string const & key)
+            {
+                auto & self = self_obj.cast<wrapped_type &>();
+                // A subkey access holds a raw table pointer, so a chained
+                // access off a temporary must keep its owner alive.
+                // __getattr__ may also return a plain value (a leaf toggle),
+                // which cannot carry a keep_alive reference, so tie the parent
+                // only when the result is itself an access.
+                return detail::tie_subkey_owner(getattr(self, key), self_obj);
+            })
         .def("__setattr__", setattr)
         .def("get_bool", &wrapped_type::get_bool, py::arg("key"))
         .def("set_bool", &wrapped_type::set_bool, py::arg("key"), py::arg("value"))
@@ -151,7 +180,7 @@ WrapHierarchicalToggleAccess::WrapHierarchicalToggleAccess(pybind11::module & mo
         .def("set_real", &wrapped_type::set_real, py::arg("key"), py::arg("value"))
         .def("get_string", &wrapped_type::get_string, py::arg("key"))
         .def("set_string", &wrapped_type::set_string, py::arg("key"), py::arg("value"))
-        .def("get_subkey", &wrapped_type::get_subkey, py::arg("key"))
+        .def("get_subkey", &wrapped_type::get_subkey, py::arg("key"), py::keep_alive<0, 1>())
         .def("add_subkey", &wrapped_type::add_subkey, py::arg("key"))
         //
         ;
@@ -347,6 +376,13 @@ struct Toggle2Python
 
         for (auto const & fk : keys)
         {
+            // python_redirect and show_axis are declared toggles but are
+            // reported under the "fixed" section by the compatibility facade,
+            // so skip them here to avoid listing them twice.
+            if ("python_redirect" == fk || "show_axis" == fk)
+            {
+                continue;
+            }
             std::vector<std::string> const hk = split(fk);
             DynamicToggleIndex const index = table.get_index(fk);
             py::dict d = ret;
@@ -410,17 +446,6 @@ template <typename T>
 void declare_toggle(Toggle & self, std::string const & key, T const & value)
 {
     self.declare<T>(key, value);
-}
-
-void warn_deprecated_getter(char const * name)
-{
-    PyErr_WarnEx(
-        PyExc_DeprecationWarning,
-        std::format("Toggle.{} returns a silent sentinel on a missing or wrong-typed "
-                    "key and is deprecated; use get(key, default) or at(key)",
-                    name)
-            .c_str(),
-        1);
 }
 
 } /* end namespace detail */
@@ -498,6 +523,7 @@ WrapToggle::WrapToggle(pybind11::module & mod, char const * pyname, char const *
         .def("declare_int64", &detail::declare_toggle<int64_t>, py::arg("key"), py::arg("default"))
         .def("declare_real", &detail::declare_toggle<double>, py::arg("key"), py::arg("default"))
         .def("declare_string", &detail::declare_toggle<std::string>, py::arg("key"), py::arg("default"))
+        .def("category", &wrapped_type::category, py::arg("key"))
         .def(
             "on_change",
             [](wrapped_type & self, std::string const & key, py::function const & callback)
@@ -534,13 +560,15 @@ WrapToggle::WrapToggle(pybind11::module & mod, char const * pyname, char const *
             py::arg("callback"))
         .def(
             "__getattr__",
-            [](wrapped_type & self, std::string const & key)
+            [](py::object const & self_obj, std::string const & key)
             {
+                auto & self = self_obj.cast<wrapped_type &>();
                 HierarchicalToggleAccess access(self.dynamic());
                 py::object ret;
                 if (access.get_index(key).type != DynamicToggleIndex::TYPE_NONE) // dynamic
                 {
-                    ret = WrapHierarchicalToggleAccess::getattr(access, key);
+                    // Tie a returned subkey access to the owning Toggle.
+                    ret = detail::tie_subkey_owner(WrapHierarchicalToggleAccess::getattr(access, key), self_obj);
                 }
                 else if (key == "show_axis") // fixed
                 {
@@ -585,32 +613,13 @@ WrapToggle::WrapToggle(pybind11::module & mod, char const * pyname, char const *
         .def("set_int64", &wrapped_type::set_int64, py::arg("key"), py::arg("value"))
         .def("set_real", &wrapped_type::set_real, py::arg("key"), py::arg("value"))
         .def("set_string", &wrapped_type::set_string, py::arg("key"), py::arg("value"))
-        .def("get_subkey", &wrapped_type::get_subkey, py::arg("key"))
+        .def("get_subkey", &wrapped_type::get_subkey, py::arg("key"), py::keep_alive<0, 1>())
         .def("add_subkey", &wrapped_type::add_subkey, py::arg("key"))
         //
         ;
 
-    // The type-specific getters return a silent sentinel on a missing or
-    // wrong-typed key. They are kept for compatibility but deprecated in
-    // favor of get(key, default) and at(key); each emits a
-    // DeprecationWarning.
-#define MM_PYTHON_TOGGLE_DEPRECATED_GET(MTYPE)             \
-    (*this).def(                                           \
-        "get_" #MTYPE,                                     \
-        [](wrapped_type & self, std::string const & key)   \
-        {                                                  \
-            detail::warn_deprecated_getter("get_" #MTYPE); \
-            return self.get_##MTYPE(key);                  \
-        },                                                 \
-        py::arg("key"));
-    MM_PYTHON_TOGGLE_DEPRECATED_GET(bool)
-    MM_PYTHON_TOGGLE_DEPRECATED_GET(int8)
-    MM_PYTHON_TOGGLE_DEPRECATED_GET(int16)
-    MM_PYTHON_TOGGLE_DEPRECATED_GET(int32)
-    MM_PYTHON_TOGGLE_DEPRECATED_GET(int64)
-    MM_PYTHON_TOGGLE_DEPRECATED_GET(real)
-    MM_PYTHON_TOGGLE_DEPRECATED_GET(string)
-#undef MM_PYTHON_TOGGLE_DEPRECATED_GET
+    // The type-specific sentinel getters (get_bool, get_int8, ...) have been
+    // removed in favor of get(key, default) and at(key).
 
     // Static properties.
     (*this)
@@ -621,26 +630,35 @@ WrapToggle::WrapToggle(pybind11::module & mod, char const * pyname, char const *
         //
         ;
 
-    // Instance properties.
+    // Instance properties. The solid and fixed facades and the hierarchical
+    // access are lightweight views; keep_alive ties each returned view to the
+    // owning Toggle so the store it reads through never dangles.
+    // def_property_readonly does not accept a keep_alive policy, so wrap the
+    // getters that return a table-referencing view in a py::cpp_function that
+    // carries keep_alive<0, 1> (tie the view to the owning Toggle).
     (*this)
         .def_property_readonly(
             "solid",
-            [](wrapped_type & self) -> auto &
+            [](wrapped_type & self)
             {
                 return self.solid();
             })
         .def_property_readonly(
             "fixed",
-            [](wrapped_type & self) -> auto &
-            {
-                return self.fixed();
-            })
+            py::cpp_function(
+                [](wrapped_type & self)
+                {
+                    return self.fixed();
+                },
+                py::keep_alive<0, 1>()))
         .def_property_readonly(
             "dynamic",
-            [](wrapped_type & self)
-            {
-                return HierarchicalToggleAccess(self.dynamic());
-            })
+            py::cpp_function(
+                [](wrapped_type & self)
+                {
+                    return HierarchicalToggleAccess(self.dynamic());
+                },
+                py::keep_alive<0, 1>()))
         //
         ;
 }
@@ -732,6 +750,19 @@ void wrap_Toggle(pybind11::module & mod)
     py::class_<ToggleSubscription>(mod, "ToggleSubscription")
         .def("unsubscribe", &ToggleSubscription::reset)
         .def_property_readonly("active", &ToggleSubscription::active);
+
+    py::enum_<ToggleCategory>(mod, "ToggleCategory")
+        .value("Release", ToggleCategory::Release)
+        .value("Ops", ToggleCategory::Ops)
+        .value("Experiment", ToggleCategory::Experiment);
+
+    // Release every change callback held by the global store at interpreter
+    // shutdown, while Python is still alive, so a callback holding a Python
+    // object (for example a pilot menu bridge) is not freed after
+    // finalization when the store's static destructor runs.
+    py::module_::import("atexit").attr("register")(
+        py::cpp_function([]()
+                         { Toggle::instance().clear_change_observers(); }));
 
     WrapSolidToggle::commit(mod, "SolidToggle", "SolidToggle");
     WrapFixedToggle::commit(mod, "FixedToggle", "FixedToggle");

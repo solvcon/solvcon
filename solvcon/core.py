@@ -89,6 +89,8 @@ list_of_toggle = [
     'CallProfilerProbe',
     'HierarchicalToggleAccess',
     'Toggle',
+    'ToggleCategory',
+    'ToggleSubscription',
     'METAL_BUILT',
     'metal_running',
 ]

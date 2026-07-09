@@ -3,17 +3,70 @@
 
 
 from . import _pilot_core as _pcore
+from ..core import Toggle
 from PySide6 import QtCore, QtGui
 
 
+class ToggleActionBridge(QtCore.QObject):
+    """Two-way binding between a checkable QAction and a store toggle.
+
+    The action's ``toggled`` writes the toggle; the toggle's ``on_change``
+    re-checks the action. The change is delivered on the UI thread through a
+    queued signal, so a change from a solver thread is safe. The store's no-op
+    guard (a set to the value already stored fires no ``on_change``) plus Qt
+    emitting ``toggled`` only on a real change together stop the echo, so the
+    old ``blockSignals`` guard is not needed.
+
+    The bridge is parented to its action, so it and its subscription live
+    exactly as long as the action.
+    """
+
+    _store_changed = QtCore.Signal(bool)
+
+    def __init__(self, action, key):
+        super().__init__(action)
+        self._action = action
+        self._key = key
+        tg = Toggle.instance
+        tg.declare_bool(key, action.isChecked())
+        action.setChecked(tg.get(key, action.isChecked()))
+        action.toggled.connect(self._on_action_toggled)
+        # Deliver a store change to the UI thread, then re-check the action.
+        self._store_changed.connect(action.setChecked,
+                                    QtCore.Qt.QueuedConnection)
+        self._token = tg.on_change(key, self._on_store_changed)
+        # Drop the subscription when the action goes away, so a later store
+        # change never calls back into a destroyed widget.
+        action.destroyed.connect(self._release)
+
+    def _release(self, *args):
+        self._token = None
+
+    def _on_action_toggled(self, checked):
+        if self._token is None:
+            return
+        Toggle.instance.set_bool(self._key, checked)
+
+    def _on_store_changed(self):
+        if self._token is None:
+            return
+        tg = Toggle.instance
+        self._store_changed.emit(tg.get(self._key, self._action.isChecked()))
+
+
 def build_action(parent, text, tip, func, *, id=None, checkable=False,
-                 checked=False, shortcut=None, menu_role=None):
+                 checked=False, shortcut=None, menu_role=None,
+                 toggle_key=None):
     """Build a QAction from one description, the single item builder.
 
     The id becomes the action's objectName (its handle in the menu model and
     in tests). A checkable action carries its initial check state; ``func``,
     when given, runs on trigger. A checkable feature that needs the toggled
     state wires ``toggled`` on the returned action itself.
+
+    When ``toggle_key`` is given, the action is bound two-way to that store
+    toggle through a ToggleActionBridge, so its state persists, round-trips to
+    JSON, and can be observed by a solver or a second widget.
     """
     act = QtGui.QAction(text, parent)
     if id:
@@ -28,6 +81,8 @@ def build_action(parent, text, tip, func, *, id=None, checkable=False,
         act.setChecked(checked)
     if func is not None:
         act.triggered.connect(lambda *a: func())
+    if toggle_key is not None:
+        ToggleActionBridge(act, toggle_key)
     return act
 
 
@@ -68,16 +123,19 @@ class PilotFeature(QtCore.QObject):
 
     def add_action(self, path, text, tip, func, *, id, weight=50,
                    checkable=False, checked=False, shortcut=None,
-                   menu_role=None):
+                   menu_role=None, toggle_key=None):
         """Build an action and place it in the menu at ``path`` by ``weight``.
 
         This is the one Python item builder over the shared placement: it
         returns the live action so a toggle feature can wire its own reverse
-        connections.
+        connections. When ``toggle_key`` is given, the action is bound two-way
+        to that store toggle (see build_action), so RMenuModel stays the
+        placement layer and the Toggle store owns the value.
         """
         act = build_action(self._mainWindow, text, tip, func, id=id,
                            checkable=checkable, checked=checked,
-                           shortcut=shortcut, menu_role=menu_role)
+                           shortcut=shortcut, menu_role=menu_role,
+                           toggle_key=toggle_key)
         self._mgr.menu_model.place(path, act, weight)
         return act
 

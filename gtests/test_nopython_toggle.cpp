@@ -113,6 +113,23 @@ TEST(ToggleRefTest, declare_idempotent_and_type_conflict)
     EXPECT_THROW(table.declare<bool>("n", true), std::invalid_argument);
 }
 
+TEST(ToggleCategoryTest, records_and_defaults)
+{
+    DynamicToggleTable table;
+    table.declare<int32_t>("release_flag", 0, ToggleCategory::Release);
+    table.declare<int32_t>("ops_flag", 0, ToggleCategory::Ops);
+    table.declare<int32_t>("exp_flag", 0, ToggleCategory::Experiment);
+
+    EXPECT_EQ(table.category("release_flag"), ToggleCategory::Release);
+    EXPECT_EQ(table.category("ops_flag"), ToggleCategory::Ops);
+    EXPECT_EQ(table.category("exp_flag"), ToggleCategory::Experiment);
+    // An undeclared key reports the Ops default.
+    EXPECT_EQ(table.category("missing"), ToggleCategory::Ops);
+    // A clear forgets categories.
+    table.clear();
+    EXPECT_EQ(table.category("release_flag"), ToggleCategory::Ops);
+}
+
 TEST(ToggleOnChangeTest, fires_once_per_real_change)
 {
     DynamicToggleTable table;

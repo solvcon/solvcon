@@ -530,12 +530,12 @@ public:
 
     PythonStreamRedirect & set_enabled(bool enabled)
     {
-        Toggle::instance().fixed().set_python_redirect(enabled);
+        Toggle::instance().set_bool("python_redirect", enabled);
         return *this;
     }
 
     // FIXME: NOLINTNEXTLINE(readability-convert-member-functions-to-static)
-    bool is_enabled() const { return Toggle::instance().fixed().get_python_redirect(); }
+    bool is_enabled() const { return Toggle::instance().get<bool>("python_redirect", true); }
     bool is_disabled() const { return !is_enabled(); }
 
     PythonStreamRedirect & activate();
