@@ -6,6 +6,7 @@ import os
 import unittest
 import math
 import json
+import warnings
 
 import solvcon
 
@@ -275,6 +276,60 @@ class ToggleHierarchicalTC(unittest.TestCase):
                 r'Cannot get non-existing key "level1.non_exist"'
         ):
             self.assertEqual(tg.level1.non_exist, 21)
+
+
+class ToggleTypedAccessTC(unittest.TestCase):
+
+    def test_declare_and_typed_get(self):
+        tg = solvcon.Toggle.instance.clone()
+        tg.dynamic_clear()
+
+        tg.declare_bool("t.flag", True)
+        tg.declare_int32("t.count", 42)
+        tg.declare_real("t.ratio", 2.5)
+        tg.declare_string("t.name", "hello")
+
+        self.assertEqual(tg.get("t.flag", False), True)
+        self.assertEqual(tg.get("t.count", 0), 42)
+        self.assertEqual(tg.get("t.ratio", 0.0), 2.5)
+        self.assertEqual(tg.get("t.name", ""), "hello")
+
+    def test_get_returns_default_on_missing(self):
+        tg = solvcon.Toggle.instance.clone()
+        tg.dynamic_clear()
+
+        self.assertEqual(tg.get("nope", 99), 99)
+        self.assertEqual(tg.get("nope", default="fallback"), "fallback")
+
+    def test_at_raises_on_missing(self):
+        tg = solvcon.Toggle.instance.clone()
+        tg.dynamic_clear()
+
+        tg.declare_int32("t.count", 7)
+        self.assertEqual(tg.at("t.count"), 7)
+        with self.assertRaises(KeyError):
+            tg.at("t.missing")
+
+    def test_declare_is_idempotent(self):
+        tg = solvcon.Toggle.instance.clone()
+        tg.dynamic_clear()
+
+        tg.declare_int32("t.count", 42)
+        # Re-declaring the same key keeps the stored value.
+        tg.declare_int32("t.count", 100)
+        self.assertEqual(tg.get("t.count", 0), 42)
+
+    def test_deprecated_getter_warns(self):
+        tg = solvcon.Toggle.instance.clone()
+        tg.dynamic_clear()
+        tg.set_bool("t.flag", True)
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            value = tg.get_bool("t.flag")
+        self.assertTrue(value)
+        self.assertEqual(len(caught), 1)
+        self.assertTrue(issubclass(caught[0].category, DeprecationWarning))
 
 
 class ToggleSerializationTC(unittest.TestCase):

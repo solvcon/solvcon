@@ -27,6 +27,7 @@ add_executable(
     test_nopython_buffer.cpp
     test_nopython_solvcon.cpp
     test_nopython_inout.cpp
+    test_nopython_toggle.cpp
     test_nopython_radixtree.cpp
     test_nopython_callprofiler.cpp
     test_nopython_serializable.cpp

@@ -403,6 +403,28 @@ private:
 
 } /* end namespace detail */
 
+namespace detail
+{
+
+template <typename T>
+void declare_toggle(Toggle & self, std::string const & key, T const & value)
+{
+    self.declare<T>(key, value);
+}
+
+void warn_deprecated_getter(char const * name)
+{
+    PyErr_WarnEx(
+        PyExc_DeprecationWarning,
+        std::format("Toggle.{} returns a silent sentinel on a missing or wrong-typed "
+                    "key and is deprecated; use get(key, default) or at(key)",
+                    name)
+            .c_str(),
+        1);
+}
+
+} /* end namespace detail */
+
 WrapToggle::WrapToggle(pybind11::module & mod, char const * pyname, char const * pydoc)
     : base_type(mod, pyname, pydoc)
 {
@@ -444,6 +466,38 @@ WrapToggle::WrapToggle(pybind11::module & mod, char const * pyname, char const *
             },
             py::arg("key"),
             py::arg("default"))
+        .def(
+            "get",
+            [](wrapped_type & self, std::string const & key, py::object & obj)
+            {
+                HierarchicalToggleAccess access(self.dynamic());
+                if (access.get_index(key).type != DynamicToggleIndex::TYPE_NONE)
+                {
+                    return WrapHierarchicalToggleAccess::getattr(access, key);
+                }
+                return obj;
+            },
+            py::arg("key"),
+            py::arg("default"))
+        .def(
+            "at",
+            [](wrapped_type & self, std::string const & key)
+            {
+                HierarchicalToggleAccess access(self.dynamic());
+                if (access.get_index(key).type == DynamicToggleIndex::TYPE_NONE)
+                {
+                    throw py::key_error(std::format("Toggle.at: key \"{}\" is missing", key));
+                }
+                return WrapHierarchicalToggleAccess::getattr(access, key);
+            },
+            py::arg("key"))
+        .def("declare_bool", &detail::declare_toggle<bool>, py::arg("key"), py::arg("default"))
+        .def("declare_int8", &detail::declare_toggle<int8_t>, py::arg("key"), py::arg("default"))
+        .def("declare_int16", &detail::declare_toggle<int16_t>, py::arg("key"), py::arg("default"))
+        .def("declare_int32", &detail::declare_toggle<int32_t>, py::arg("key"), py::arg("default"))
+        .def("declare_int64", &detail::declare_toggle<int64_t>, py::arg("key"), py::arg("default"))
+        .def("declare_real", &detail::declare_toggle<double>, py::arg("key"), py::arg("default"))
+        .def("declare_string", &detail::declare_toggle<std::string>, py::arg("key"), py::arg("default"))
         .def(
             "__getattr__",
             [](wrapped_type & self, std::string const & key)
@@ -490,24 +544,39 @@ WrapToggle::WrapToggle(pybind11::module & mod, char const * pyname, char const *
             })
         .def("dynamic_keys", &wrapped_type::dynamic_keys)
         .def("dynamic_clear", &wrapped_type::dynamic_clear)
-        .def("get_bool", &wrapped_type::get_bool, py::arg("key"))
         .def("set_bool", &wrapped_type::set_bool, py::arg("key"), py::arg("value"))
-        .def("get_int8", &wrapped_type::get_int8, py::arg("key"))
         .def("set_int8", &wrapped_type::set_int8, py::arg("key"), py::arg("value"))
-        .def("get_int16", &wrapped_type::get_int16, py::arg("key"))
         .def("set_int16", &wrapped_type::set_int16, py::arg("key"), py::arg("value"))
-        .def("get_int32", &wrapped_type::get_int32, py::arg("key"))
         .def("set_int32", &wrapped_type::set_int32, py::arg("key"), py::arg("value"))
-        .def("get_int64", &wrapped_type::get_int64, py::arg("key"))
         .def("set_int64", &wrapped_type::set_int64, py::arg("key"), py::arg("value"))
-        .def("get_real", &wrapped_type::get_real, py::arg("key"))
         .def("set_real", &wrapped_type::set_real, py::arg("key"), py::arg("value"))
-        .def("get_string", &wrapped_type::get_string, py::arg("key"))
         .def("set_string", &wrapped_type::set_string, py::arg("key"), py::arg("value"))
         .def("get_subkey", &wrapped_type::get_subkey, py::arg("key"))
         .def("add_subkey", &wrapped_type::add_subkey, py::arg("key"))
         //
         ;
+
+    // The type-specific getters return a silent sentinel on a missing or
+    // wrong-typed key. They are kept for compatibility but deprecated in
+    // favor of get(key, default) and at(key); each emits a
+    // DeprecationWarning.
+#define MM_PYTHON_TOGGLE_DEPRECATED_GET(MTYPE)             \
+    (*this).def(                                           \
+        "get_" #MTYPE,                                     \
+        [](wrapped_type & self, std::string const & key)   \
+        {                                                  \
+            detail::warn_deprecated_getter("get_" #MTYPE); \
+            return self.get_##MTYPE(key);                  \
+        },                                                 \
+        py::arg("key"));
+    MM_PYTHON_TOGGLE_DEPRECATED_GET(bool)
+    MM_PYTHON_TOGGLE_DEPRECATED_GET(int8)
+    MM_PYTHON_TOGGLE_DEPRECATED_GET(int16)
+    MM_PYTHON_TOGGLE_DEPRECATED_GET(int32)
+    MM_PYTHON_TOGGLE_DEPRECATED_GET(int64)
+    MM_PYTHON_TOGGLE_DEPRECATED_GET(real)
+    MM_PYTHON_TOGGLE_DEPRECATED_GET(string)
+#undef MM_PYTHON_TOGGLE_DEPRECATED_GET
 
     // Static properties.
     (*this)
