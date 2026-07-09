@@ -117,6 +117,7 @@ if(APPLE)
     )
 endif()
 
+add_custom_target(run_pilot $<TARGET_FILE:pilot>)
 add_custom_target(run_pilot_pytest $<TARGET_FILE:pilot> --mode=pytest)
 
 if(DO_CLANG_TIDY_DIFF)
