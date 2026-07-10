@@ -9,11 +9,13 @@ import os
 import tempfile
 import unittest
 
+import numpy as np
+
 import solvcon
 
 try:
     from solvcon import pilot
-    from PySide6.QtGui import QGuiApplication
+    from PySide6.QtGui import QGuiApplication, QImage
 except ImportError:
     pilot = None
 
@@ -21,12 +23,70 @@ GITHUB_ACTIONS = os.getenv('GITHUB_ACTIONS', False)
 
 _PNG_MAGIC = b'\x89PNG\r\n\x1a\n'
 
+# The pixel helpers below classify colors that RWorldRenderer2d paints (see
+# RWorldRenderer2d.cpp). GEOMETRY (120, 180, 240) is the only strongly-blue
+# color: the backdrop, grid, axes, and origin marker all have blue <= 80, so
+# a blue-dominant pixel must be geometry. ORIGIN (220, 80, 80) is the only
+# red-dominant color, since the yellow axes have equal red and green, which
+# lets the origin marker be located on its own.
+
 
 def _png_size(data):
     """Return PNG width and height from IHDR (offsets 16 and 20)."""
     assert data[:8] == _PNG_MAGIC
     return (int.from_bytes(data[16:20], 'big'),
             int.from_bytes(data[20:24], 'big'))
+
+
+def _load_rgba(path):
+    """Load a PNG into an (height, width, 4) RGBA uint8 array of pixels.
+
+    The pixels are physical (device) pixels: a HiDPI capture is larger than
+    the widget's logical size by the device-pixel ratio.
+    """
+    img = QImage(path)
+    assert not img.isNull(), "QImage failed to load %s" % path
+    img = img.convertToFormat(QImage.Format.Format_RGBA8888)
+    width, height = img.width(), img.height()
+    # bytesPerLine may pad the scanline past width * 4, so reshape on the
+    # full stride (in pixels) and then slice the padding off.
+    stride = img.bytesPerLine() // 4
+    arr = np.frombuffer(bytes(img.constBits()), dtype='uint8')
+    return arr.reshape(height, stride, 4)[:, :width, :].copy()
+
+
+def _channels(arr):
+    """Return the R, G, B planes as signed ints for dominance comparisons."""
+    return (arr[:, :, 0].astype('int32'),
+            arr[:, :, 1].astype('int32'),
+            arr[:, :, 2].astype('int32'))
+
+
+def _geometry_mask(arr):
+    """Return the boolean mask of GEOMETRY-colored (blue-dominant) pixels."""
+    red, green, blue = _channels(arr)
+    return (blue >= 120) & (blue > red + 30) & (blue > green)
+
+
+def _origin_mask(arr):
+    """Return the boolean mask of ORIGIN-marker (red-dominant) pixels."""
+    red, green, blue = _channels(arr)
+    return (red >= 150) & (red > green + 40) & (red > blue + 40)
+
+
+def _has_geometry_near(mask, px, py, radius=4):
+    """Return whether a geometry pixel lies within radius of (px, py).
+
+    A point that rounds to outside the image has no geometry by definition,
+    so return False rather than sampling the clamped edge window.
+    """
+    col, row = int(round(px)), int(round(py))
+    height, width = mask.shape
+    if not (0 <= col < width and 0 <= row < height):
+        return False
+    window = mask[max(0, row - radius):row + radius + 1,
+                  max(0, col - radius):col + radius + 1]
+    return bool(window.any())
 
 
 def _build_world():
@@ -164,22 +224,115 @@ class R2DWidgetWorldTC(unittest.TestCase):
         self.widget.updateWorld(solvcon.WorldFp64())
         self.assertEqual(self.widget.selectedShape, -1)
 
-    @unittest.skip("TODO: pixel-level DEAD-shape culling assertions")
-    def test_dead_shape_culling_renders_pixels(self):
-        """Assert live geometry is painted and DEAD shapes are culled.
+    def _render_world(self, world, pan_x, pan_y, zoom):
+        """Render world under an explicit view; return (geometry_mask,
+        to_pixel).
 
-        saveImage captures the widget; pixel sampling helpers are still TODO.
+        An explicit transform also disables the widget's auto-centering, so
+        the world->screen mapping is fixed regardless of the widget's size.
+        ``to_pixel(world_x, world_y)`` maps a world point to its physical
+        (device) pixel. It folds in the device-pixel ratio recovered from
+        the rendered origin marker rather than an assumed one, so pixel
+        predictions hold on both standard and HiDPI displays.
         """
-        # w = solvcon.WorldFp64()
-        # live = w.add_rectangle(-3, -3, -1, -1)   # region A (lower-left)
-        # dead = w.add_rectangle(1, 1, 3, 3)       # region B (upper-right)
-        # w.remove_shape(dead)
-        # self.widget.setViewTransform(<fixed pan/zoom>)
-        # self.widget.saveImage(path)
-        # img = read_png(path)
-        # self.assertGreater(foreground_pixels(img, region_A), 0)
-        # self.assertEqual(foreground_pixels(img, region_B), 0)
-        raise NotImplementedError
+        self.widget.updateWorld(world)
+        view = solvcon.ViewTransform2dFp64()
+        view.pan_x = pan_x
+        view.pan_y = pan_y
+        view.zoom = zoom
+        self.widget.setViewTransform(view)
+
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder, "render.png")
+            self.widget.saveImage(path)
+            arr = _load_rgba(path)
+
+        # The origin marker sits at world (0, 0), which maps to screen
+        # (pan_x, pan_y); its physical-pixel center recovers the dpr.
+        rows, cols = np.where(_origin_mask(arr))
+        self.assertGreater(len(cols), 0, "origin marker was not rendered")
+        dpr = (cols.mean() / pan_x + rows.mean() / pan_y) / 2.0
+
+        def to_pixel(world_x, world_y):
+            screen_x, screen_y = view.screen_from_world(world_x, world_y)
+            return screen_x * dpr, screen_y * dpr
+
+        return _geometry_mask(arr), to_pixel
+
+    def test_known_world_renders_to_expected_pixels(self):
+        """Gate test: a known world renders to the expected pixels.
+
+        A single horizontal segment is rendered under an explicit view
+        transform. The render must be non-blank, the segment's two endpoints
+        must land where the view transform predicts, and a removed (DEAD)
+        rectangle must leave no pixels in its region.
+        """
+        point_a = (-1.5, 1.5)
+        point_b = (1.5, 1.5)
+        dead_rect = (1.2, -1.2, 2.0, -0.4)  # Well clear of the live segment.
+
+        world = solvcon.WorldFp64()
+        world.add_segment(
+            solvcon.Point3dFp64(point_a[0], point_a[1], 0.0),
+            solvcon.Point3dFp64(point_b[0], point_b[1], 0.0))
+        dead = world.add_rectangle(*dead_rect)
+        world.remove_shape(dead)
+
+        geometry, to_pixel = self._render_world(world, 110.0, 110.0, 24.0)
+
+        # Non-blank: the live segment painted real geometry pixels.
+        self.assertGreater(int(geometry.sum()), 0)
+
+        # Known endpoints map to the expected pixels under the view transform.
+        for label, (world_x, world_y) in (("A", point_a), ("B", point_b)):
+            self.assertTrue(
+                _has_geometry_near(geometry, *to_pixel(world_x, world_y)),
+                "no geometry at predicted endpoint %s" % label)
+
+        # The removed rectangle must be culled: no geometry anywhere in its
+        # screen bounding box. The mapping is separable, so the two opposite
+        # world corners bound that region.
+        px0, py0 = to_pixel(dead_rect[0], dead_rect[1])
+        px1, py1 = to_pixel(dead_rect[2], dead_rect[3])
+        x_lo, x_hi = sorted((px0, px1))
+        y_lo, y_hi = sorted((py0, py1))
+        region = geometry[max(0, int(y_lo) - 2):int(y_hi) + 3,
+                          max(0, int(x_lo) - 2):int(x_hi) + 3]
+        self.assertEqual(int(region.sum()), 0, "removed shape was painted")
+
+    def test_circle_renders_as_hollow_loop_on_locus(self):
+        """A circle renders as a closed, hollow ring on its locus.
+
+        add_circle builds the outline from four cubic Beziers, stroked and
+        not filled. Sampling the predicted ring at twelve angles checks the
+        loop is painted all the way around -- a dropped Bezier quadrant or an
+        open arc would leave a gap -- and that includes the four cardinal
+        points landing where the view transform predicts. The center and a
+        mid-radius point stay blank because the renderer strokes outlines
+        only.
+        """
+        center = (0.5, 0.3)
+        radius = 2.0
+
+        world = solvcon.WorldFp64()
+        world.add_circle(center[0], center[1], radius)
+
+        geometry, to_pixel = self._render_world(world, 160.0, 120.0, 30.0)
+
+        # The ring is painted all the way around, cardinal points included.
+        for degrees in range(0, 360, 30):
+            angle = np.radians(degrees)
+            world_x = center[0] + radius * np.cos(angle)
+            world_y = center[1] + radius * np.sin(angle)
+            self.assertTrue(
+                _has_geometry_near(geometry, *to_pixel(world_x, world_y)),
+                "no geometry on the ring at %d degrees" % degrees)
+
+        # Outlines only: the center and a mid-radius point stay blank.
+        for world_x, world_y in (center, (center[0] + radius / 2, center[1])):
+            self.assertFalse(
+                _has_geometry_near(geometry, *to_pixel(world_x, world_y)),
+                "circle interior should be hollow")
 
 
 @unittest.skipIf(GITHUB_ACTIONS or not solvcon.HAS_PILOT,
