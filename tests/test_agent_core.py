@@ -10,7 +10,7 @@ import json
 import unittest
 
 import solvcon
-from solvcon.agent import AgentSession
+from solvcon.agent import AgentSession, BackendResponse
 
 try:
     from solvcon.pilot import agentdraw  # noqa: F401
@@ -99,6 +99,95 @@ class ApplyCommandsTC(unittest.TestCase):
         session = AgentSession()
         self.assertEqual(session.apply_commands([]), [])
         self.assertEqual(session.transcript, [])
+
+
+class _FakeBackend:
+    """Backend stub returning a preset response and recording what it saw."""
+
+    def __init__(self, response):
+        self._response = response
+        self.seen = None
+
+    def send(self, prompt, scene_context, tool_surface):
+        self.seen = (prompt, scene_context, tool_surface)
+        return self._response
+
+
+class RunTurnTC(unittest.TestCase):
+    def test_records_user_and_agent_turns_and_runs_commands(self):
+        cmds = [{"op": "add_circle", "cx": 0.0, "cy": 0.0, "r": 1.0}]
+        backend = _FakeBackend(BackendResponse(text="drawing", commands=cmds))
+        runner = _RecordingRunner()
+        session = AgentSession(backend=backend, runner=runner)
+        turn = session.run_turn("draw a circle")
+        self.assertEqual(runner.commands, cmds)
+        self.assertEqual([t.role for t in session.transcript],
+                         ["user", "agent"])
+        self.assertEqual(session.transcript[0].text, "draw a circle")
+        self.assertIs(turn, session.transcript[1])
+        self.assertEqual(turn.text, "drawing")
+        self.assertTrue(turn.results[0].ok)
+
+    def test_no_backend_records_only_the_user_turn(self):
+        session = AgentSession()
+        self.assertIsNone(session.run_turn("hello"))
+        self.assertEqual([t.role for t in session.transcript], ["user"])
+
+    def test_empty_command_batch_builds_no_runner(self):
+        backend = _FakeBackend(BackendResponse(text="echo: hi", commands=[]))
+        session = AgentSession(backend=backend)  # no runner, no agentdraw
+        turn = session.run_turn("hi")
+        self.assertEqual(turn.text, "echo: hi")
+        self.assertEqual(turn.results, [])
+        # No commands must leave the runner unbuilt (no agentdraw import).
+        self.assertIsNone(session._runner)
+
+    def test_backend_exception_is_recorded_as_a_failed_turn(self):
+        class _Boom:
+            def send(self, *a):
+                raise RuntimeError("backend down")
+
+        session = AgentSession(backend=_Boom())
+        turn = session.run_turn("draw")
+        # The turn is recorded, not propagated, so a headless caller still
+        # gets a transcript with the failure.
+        self.assertEqual([t.role for t in session.transcript],
+                         ["user", "agent"])
+        self.assertIn("backend down", turn.text)
+
+    def test_runner_build_failure_yields_one_result_per_command(self):
+        class _Session(AgentSession):
+            @property
+            def runner(self):
+                raise ImportError("no agentdraw")
+
+        backend = _FakeBackend(BackendResponse(
+            commands=[{"op": "add_circle"}, {"op": "add_square"}]))
+        session = _Session(backend=backend)
+        turn = session.run_turn("draw two shapes")
+        # Results line up with commands even when the runner cannot be built.
+        self.assertEqual(len(turn.results), 2)
+        self.assertFalse(any(r.ok for r in turn.results))
+        self.assertEqual([r.op for r in turn.results],
+                         ["add_circle", "add_square"])
+
+    def test_backend_error_is_folded_into_the_reply(self):
+        backend = _FakeBackend(BackendResponse(error="claude timed out"))
+        session = AgentSession(backend=backend)
+        turn = session.run_turn("draw")
+        self.assertIn("claude timed out", turn.text)
+
+    def test_bind_world_drops_the_lazy_runner(self):
+        session = AgentSession(world=_FakeWorld(["circle"]))
+        session._runner = object()  # stand in for a built runner
+        session.bind_world(_FakeWorld([]))
+        self.assertIsNone(session._runner)
+
+    def test_bind_world_keeps_an_injected_runner(self):
+        runner = _RecordingRunner()
+        session = AgentSession(runner=runner)
+        session.bind_world(_FakeWorld([]))
+        self.assertIs(session._runner, runner)
 
 
 class SceneContextTC(unittest.TestCase):
