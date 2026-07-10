@@ -741,11 +741,34 @@ public:
         return A(*static_cast<A const *>(this)).idiv(scalar);
     }
 
+private:
+
+    // Element-wise comparison kernel shared by eq/ne/lt/le/gt/ge. The array
+    // overload requires matching shapes; both produce a bool per element.
+    template <typename Cmp>
+    SimpleArray<bool> compare_with(A const & other, Cmp cmp, char const * op) const;
+    template <typename Cmp>
+    SimpleArray<bool> compare_with(value_type scalar, Cmp cmp) const;
+
+public:
+
     SimpleArray<bool> eq(A const & other) const;
     SimpleArray<bool> eq(value_type scalar) const;
 
     SimpleArray<bool> ne(A const & other) const;
     SimpleArray<bool> ne(value_type scalar) const;
+
+    SimpleArray<bool> lt(A const & other) const;
+    SimpleArray<bool> lt(value_type scalar) const;
+
+    SimpleArray<bool> le(A const & other) const;
+    SimpleArray<bool> le(value_type scalar) const;
+
+    SimpleArray<bool> gt(A const & other) const;
+    SimpleArray<bool> gt(value_type scalar) const;
+
+    SimpleArray<bool> ge(A const & other) const;
+    SimpleArray<bool> ge(value_type scalar) const;
 
     A & iadd(A const & other)
     {
@@ -2251,15 +2274,18 @@ private:
 }; /* end class SimpleArray */
 
 template <typename A, typename T>
-SimpleArray<bool> detail::SimpleArrayMixinCalculators<A, T>::eq(A const & other) const
+template <typename Cmp>
+SimpleArray<bool> detail::SimpleArrayMixinCalculators<A, T>::compare_with(
+    A const & other, Cmp cmp, char const * op) const
 {
     auto const * athis = static_cast<A const *>(this);
     if (athis->shape() != other.shape())
     {
-        throw std::invalid_argument(
-            std::format("SimpleArray::eq(): shape mismatch: this={} other={}",
-                        format_shape(athis->shape()),
-                        format_shape(other.shape())));
+        throw std::invalid_argument(std::format(
+            "SimpleArray::{}(): shape mismatch: this={} other={}",
+            op,
+            format_shape(athis->shape()),
+            format_shape(other.shape())));
     }
     SimpleArray<bool> ret(athis->shape());
     const value_type * ptr = athis->begin();
@@ -2268,72 +2294,103 @@ SimpleArray<bool> detail::SimpleArrayMixinCalculators<A, T>::eq(A const & other)
     bool * ret_ptr = ret.begin();
     while (ptr < end)
     {
-        *ret_ptr = (*ptr == *other_ptr);
+        *ret_ptr = cmp(*ptr, *other_ptr);
         ++ptr;
         ++other_ptr;
         ++ret_ptr;
     }
     return ret;
+}
+
+template <typename A, typename T>
+template <typename Cmp>
+SimpleArray<bool> detail::SimpleArrayMixinCalculators<A, T>::compare_with(
+    value_type scalar, Cmp cmp) const
+{
+    auto const * athis = static_cast<A const *>(this);
+    SimpleArray<bool> ret(athis->shape());
+    const value_type * ptr = athis->begin();
+    const value_type * const end = athis->end();
+    bool * ret_ptr = ret.begin();
+    while (ptr < end)
+    {
+        *ret_ptr = cmp(*ptr, scalar);
+        ++ptr;
+        ++ret_ptr;
+    }
+    return ret;
+}
+
+template <typename A, typename T>
+SimpleArray<bool> detail::SimpleArrayMixinCalculators<A, T>::eq(A const & other) const
+{
+    return compare_with(other, std::equal_to<>{}, "eq");
 }
 
 template <typename A, typename T>
 SimpleArray<bool> detail::SimpleArrayMixinCalculators<A, T>::eq(value_type scalar) const
 {
-    auto const * athis = static_cast<A const *>(this);
-    SimpleArray<bool> ret(athis->shape());
-    const value_type * ptr = athis->begin();
-    const value_type * const end = athis->end();
-    bool * ret_ptr = ret.begin();
-    while (ptr < end)
-    {
-        *ret_ptr = (*ptr == scalar);
-        ++ptr;
-        ++ret_ptr;
-    }
-    return ret;
+    return compare_with(scalar, std::equal_to<>{});
 }
 
 template <typename A, typename T>
 SimpleArray<bool> detail::SimpleArrayMixinCalculators<A, T>::ne(A const & other) const
 {
-    auto const * athis = static_cast<A const *>(this);
-    if (athis->shape() != other.shape())
-    {
-        throw std::invalid_argument(
-            std::format("SimpleArray::ne(): shape mismatch: this={} other={}",
-                        format_shape(athis->shape()),
-                        format_shape(other.shape())));
-    }
-    SimpleArray<bool> ret(athis->shape());
-    const value_type * ptr = athis->begin();
-    const value_type * const end = athis->end();
-    const value_type * other_ptr = other.begin();
-    bool * ret_ptr = ret.begin();
-    while (ptr < end)
-    {
-        *ret_ptr = (*ptr != *other_ptr);
-        ++ptr;
-        ++other_ptr;
-        ++ret_ptr;
-    }
-    return ret;
+    return compare_with(other, std::not_equal_to<>{}, "ne");
 }
 
 template <typename A, typename T>
 SimpleArray<bool> detail::SimpleArrayMixinCalculators<A, T>::ne(value_type scalar) const
 {
-    auto const * athis = static_cast<A const *>(this);
-    SimpleArray<bool> ret(athis->shape());
-    const value_type * ptr = athis->begin();
-    const value_type * const end = athis->end();
-    bool * ret_ptr = ret.begin();
-    while (ptr < end)
-    {
-        *ret_ptr = (*ptr != scalar);
-        ++ptr;
-        ++ret_ptr;
-    }
-    return ret;
+    return compare_with(scalar, std::not_equal_to<>{});
+}
+
+template <typename A, typename T>
+SimpleArray<bool> detail::SimpleArrayMixinCalculators<A, T>::lt(A const & other) const
+{
+    return compare_with(other, std::less<>{}, "lt");
+}
+
+template <typename A, typename T>
+SimpleArray<bool> detail::SimpleArrayMixinCalculators<A, T>::lt(value_type scalar) const
+{
+    return compare_with(scalar, std::less<>{});
+}
+
+template <typename A, typename T>
+SimpleArray<bool> detail::SimpleArrayMixinCalculators<A, T>::le(A const & other) const
+{
+    return compare_with(other, std::less_equal<>{}, "le");
+}
+
+template <typename A, typename T>
+SimpleArray<bool> detail::SimpleArrayMixinCalculators<A, T>::le(value_type scalar) const
+{
+    return compare_with(scalar, std::less_equal<>{});
+}
+
+template <typename A, typename T>
+SimpleArray<bool> detail::SimpleArrayMixinCalculators<A, T>::gt(A const & other) const
+{
+    return compare_with(other, std::greater<>{}, "gt");
+}
+
+template <typename A, typename T>
+SimpleArray<bool> detail::SimpleArrayMixinCalculators<A, T>::gt(value_type scalar) const
+{
+    return compare_with(scalar, std::greater<>{});
+}
+
+template <typename A, typename T>
+SimpleArray<bool> detail::SimpleArrayMixinCalculators<A, T>::ge(A const & other) const
+{
+    return compare_with(other, std::greater_equal<>{}, "ge");
+}
+
+template <typename A, typename T>
+SimpleArray<bool> detail::SimpleArrayMixinCalculators<A, T>::ge(value_type scalar) const
+{
+    return compare_with(scalar, std::greater_equal<>{});
 }
 
 /**

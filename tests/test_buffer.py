@@ -2,6 +2,7 @@
 # BSD 3-Clause License, see COPYING
 
 
+import operator
 import unittest
 
 import numpy as np
@@ -3860,6 +3861,141 @@ class SimpleArrayCalculatorsTC(unittest.TestCase):
         self.assertTrue(sarr != None)  # noqa: E711
         self.assertFalse(sarr == "not an array")
         self.assertTrue(sarr != "not an array")
+
+    def _check_order_method(self, op_name, nfunc):
+        def _check_1d(type):
+            narr1 = np.array([1, 2, 3, 4, 5, 6, 7, 8], dtype=type)
+            narr2 = np.array([1, 0, 3, 9, 5, 0, 9, 8], dtype=type)
+            sarr1 = self.type_convertor(type)(array=narr1)
+            sarr2 = self.type_convertor(type)(array=narr2)
+            nres = nfunc(narr1, narr2)
+            sres = getattr(sarr1, op_name)(sarr2)
+            self.assertEqual(sres.ndarray.dtype, np.bool_)
+            np.testing.assert_array_equal(sres.ndarray, nres)
+
+        def _check_2d(type):
+            narr1 = np.array([[1, 2, 3, 4],
+                              [5, 6, 7, 8],
+                              [9, 10, 11, 12]], dtype=type)
+            narr2 = np.array([[1, 0, 3, 9],
+                              [5, 0, 9, 8],
+                              [9, 0, 11, 20]], dtype=type)
+            sarr1 = self.type_convertor(type)(array=narr1)
+            sarr2 = self.type_convertor(type)(array=narr2)
+            nres = nfunc(narr1, narr2)
+            sres = getattr(sarr1, op_name)(sarr2)
+            self.assertEqual(sres.ndarray.dtype, np.bool_)
+            np.testing.assert_array_equal(sres.ndarray, nres)
+
+        def _check_scalar(type):
+            narr1 = np.array([1, 2, 3, 4, 5, 3, 7, 3], dtype=type)
+            scalar = 3
+            sarr1 = self.type_convertor(type)(array=narr1)
+            nres = nfunc(narr1, scalar)
+            sres = getattr(sarr1, op_name)(scalar)
+            self.assertEqual(sres.ndarray.dtype, np.bool_)
+            np.testing.assert_array_equal(sres.ndarray, nres)
+
+        types = ('int8', 'int16', 'int32', 'int64', 'uint8', 'uint16',
+                 'uint32', 'uint64', 'float32', 'float64')
+
+        for type in types:
+            _check_1d(type)
+            _check_2d(type)
+            _check_scalar(type)
+
+        with self.assertRaisesRegex(
+            ValueError,
+            r"SimpleArray::" + op_name + r"\(\): shape mismatch: "
+            r"this=\(8\) other=\(3\)"
+        ):
+            sarr1 = solvcon.SimpleArrayInt32(array=np.arange(8, dtype='int32'))
+            sarr2 = solvcon.SimpleArrayInt32(array=np.arange(3, dtype='int32'))
+            getattr(sarr1, op_name)(sarr2)
+
+    def test_lt(self):
+        """Test element-wise less-than like numpy"""
+        self._check_order_method('lt', np.less)
+
+    def test_le(self):
+        """Test element-wise less-than-or-equal like numpy"""
+        self._check_order_method('le', np.less_equal)
+
+    def test_gt(self):
+        """Test element-wise greater-than like numpy"""
+        self._check_order_method('gt', np.greater)
+
+    def test_ge(self):
+        """Test element-wise greater-than-or-equal like numpy"""
+        self._check_order_method('ge', np.greater_equal)
+
+    def _check_order_operator(self, pyop, nfunc):
+        narr1 = np.array([1, 2, 3, 3], dtype='int32')
+        narr2 = np.array([1, 0, 3, 9], dtype='int32')
+        sarr1 = solvcon.SimpleArrayInt32(array=narr1)
+        sarr2 = solvcon.SimpleArrayInt32(array=narr2)
+
+        sres = pyop(sarr1, sarr2)
+        self.assertEqual(sres.ndarray.dtype, np.bool_)
+        np.testing.assert_array_equal(sres.ndarray, nfunc(narr1, narr2))
+
+        sres_scalar = pyop(sarr1, 3)
+        self.assertEqual(sres_scalar.ndarray.dtype, np.bool_)
+        np.testing.assert_array_equal(
+            sres_scalar.ndarray, nfunc(narr1, 3))
+
+    def test_lt_operator(self):
+        """< performs element-wise comparison like numpy"""
+        self._check_order_operator(operator.lt, np.less)
+
+    def test_le_operator(self):
+        """<= performs element-wise comparison like numpy"""
+        self._check_order_operator(operator.le, np.less_equal)
+
+    def test_gt_operator(self):
+        """> performs element-wise comparison like numpy"""
+        self._check_order_operator(operator.gt, np.greater)
+
+    def test_ge_operator(self):
+        """>= performs element-wise comparison like numpy"""
+        self._check_order_operator(operator.ge, np.greater_equal)
+
+    def test_order_operator_float_nan(self):
+        """NaN compares false in every direction, like numpy."""
+        narr1 = np.array([1.0, np.nan, 3.0, np.nan], dtype='float64')
+        narr2 = np.array([2.0, 1.0, 3.0, np.nan], dtype='float64')
+        sarr1 = solvcon.SimpleArrayFloat64(array=narr1)
+        sarr2 = solvcon.SimpleArrayFloat64(array=narr2)
+
+        for pyop, nfunc in (
+            (operator.lt, np.less),
+            (operator.le, np.less_equal),
+            (operator.gt, np.greater),
+            (operator.ge, np.greater_equal),
+        ):
+            sres = pyop(sarr1, sarr2)
+            np.testing.assert_array_equal(sres.ndarray, nfunc(narr1, narr2))
+
+    def test_order_operator_complex_unsupported(self):
+        """Ordering is undefined for complex, matching numpy
+
+        numpy raises TypeError for <, <=, >, >= on complex arrays. Leaving
+        those operators unbound makes SimpleArray behave the same way, while
+        equality (== and !=) stays element-wise.
+        """
+        narr = np.array([1 + 2j, 3 + 4j], dtype='complex128')
+        sarr = solvcon.SimpleArrayComplex128(array=narr)
+
+        for pyop in (operator.lt, operator.le, operator.gt, operator.ge):
+            with self.assertRaises(TypeError):
+                pyop(sarr, sarr)
+
+        self.assertFalse(hasattr(sarr, 'lt'))
+        self.assertFalse(hasattr(sarr, 'ge'))
+
+        sres = sarr == sarr
+        self.assertEqual(sres.ndarray.dtype, np.bool_)
+        np.testing.assert_array_equal(sres.ndarray, np.equal(narr, narr))
 
     def test_eye(self):
         """Test eye() static method for creating identity matrices"""
