@@ -174,6 +174,13 @@ pilot_clang_tidy_diff: cmake
 gtest: cmake
 	cmake --build $(BUILD_PATH) --target run_gtest VERBOSE=$(VERBOSE) $(MAKE_PARALLEL)
 
+# Build and launch the pilot GUI. PYTHONPATH is set via RUNENV so the
+# in-tree package is found; CMake resolves the platform binary path.
+.PHONY: run_pilot
+run_pilot: pilot
+	env $(RUNENV) \
+		cmake --build $(BUILD_PATH) --target $@ VERBOSE=$(VERBOSE)
+
 # Pass PYTEST_OPTS to forward arguments to the pytest harness running
 # inside the pilot binary.
 # Example for one file:
