@@ -5,6 +5,10 @@
 Canvas GUI feature for pilot.
 """
 
+import os
+
+from PySide6 import QtCore, QtWidgets
+
 from .. import core
 from ..plot import curve, plane_layer
 
@@ -12,7 +16,101 @@ from . import _gui_common
 
 __all__ = [
     'Canvas',
+    'Save2DCanvasDialog',
 ]
+
+_PNG_FILTER = "PNG image (*.png)"
+_JPG_FILTER = "JPEG image (*.jpg *.jpeg)"
+_ALLOWED_EXTS = (".png", ".jpg", ".jpeg")
+
+
+def resolve_save_path(path, name_filter):
+    """Force ``path`` to a png/jpg extension from the chosen name filter.
+
+    Returns the resolved path, or ``None`` when the result is not png/jpg.
+    """
+    if not path:
+        return None
+    root, ext = os.path.splitext(path)
+    ext = ext.lower()
+    filt = (name_filter or "").lower()
+    if "png" in filt:
+        if ext != ".png":
+            path = root + ".png"
+    elif "jpg" in filt or "jpeg" in filt:
+        if ext not in (".jpg", ".jpeg"):
+            path = root + ".jpg"
+    elif ext not in _ALLOWED_EXTS:
+        return None
+    return path
+
+
+class Save2DCanvasDialog(_gui_common.PilotFeature):
+    """
+    File-menu action that saves the focused 2D canvas via ``saveImage``.
+    """
+
+    def __init__(self, *args, **kw):
+        super().__init__(*args, **kw)
+        self._diag = QtWidgets.QFileDialog(self._mainWindow)
+        self._diag.setAcceptMode(QtWidgets.QFileDialog.AcceptSave)
+        self._diag.setFileMode(QtWidgets.QFileDialog.AnyFile)
+        self._diag.setNameFilters([_PNG_FILTER, _JPG_FILTER])
+        self._diag.setDefaultSuffix("png")
+        self._diag.setWindowTitle("Save 2D canvas")
+        self._diag.filterSelected.connect(self._on_filter_selected)
+
+    def populate_menu(self):
+        self.add_action(
+            "File",
+            text="Save 2D canvas",
+            tip="Save the focused 2D canvas as a PNG or JPEG image",
+            func=self.run,
+            id="file.save_2d_canvas",
+            weight=30,
+        )
+
+    def run(self):
+        if self._mgr.currentR2DWidget() is None:
+            self._pycon.writeToHistory(
+                "Save 2D canvas: no focused 2D canvas\n")
+            return False
+        self._on_filter_selected(self._diag.selectedNameFilter())
+        self._diag.open(self, QtCore.SLOT("on_finished()"))
+        return True
+
+    def _on_filter_selected(self, name_filter):
+        filt = (name_filter or "").lower()
+        if "jpg" in filt or "jpeg" in filt:
+            self._diag.setDefaultSuffix("jpg")
+        else:
+            self._diag.setDefaultSuffix("png")
+
+    @QtCore.Slot()
+    def on_finished(self):
+        selected = self._diag.selectedFiles()
+        if not selected:
+            return
+        path = resolve_save_path(selected[0], self._diag.selectedNameFilter())
+        if path is None:
+            self._pycon.writeToHistory(
+                "Save 2D canvas: only png or jpg is allowed\n")
+            return
+        self._save_current(path)
+
+    def _save_current(self, path):
+        widget = self._mgr.currentR2DWidget()
+        if widget is None:
+            self._pycon.writeToHistory(
+                "Save 2D canvas: no focused 2D canvas\n")
+            return False
+        ok = widget.saveImage(path)
+        if ok:
+            self._pycon.writeToHistory(f"Save 2D canvas: wrote {path}\n")
+        else:
+            self._pycon.writeToHistory(
+                f"Save 2D canvas: failed to write {path}\n")
+        return ok
 
 
 class Canvas(_gui_common.PilotFeature):

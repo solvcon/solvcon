@@ -413,7 +413,7 @@ class R2DWidgetScreenshotTC(unittest.TestCase):
         self.widget.resetView()
         with tempfile.TemporaryDirectory() as folder:
             path = os.path.join(folder, "widget.png")
-            self.widget.saveImage(path)
+            self.assertTrue(self.widget.saveImage(path))
             with open(path, 'rb') as stream:
                 data = stream.read()
         self.assertEqual(data[:8], _PNG_MAGIC)
@@ -431,7 +431,7 @@ class R2DWidgetScreenshotTC(unittest.TestCase):
         current.resetView()
         with tempfile.TemporaryDirectory() as folder:
             path = os.path.join(folder, "current.png")
-            current.saveImage(path)
+            self.assertTrue(current.saveImage(path))
             with open(path, 'rb') as stream:
                 data = stream.read()
         self.assertEqual(data[:8], _PNG_MAGIC)
@@ -454,7 +454,7 @@ class R2DWidgetScreenshotTC(unittest.TestCase):
         listed.resetView()
         with tempfile.TemporaryDirectory() as folder:
             path = os.path.join(folder, "listed.png")
-            listed.saveImage(path)
+            self.assertTrue(listed.saveImage(path))
             with open(path, 'rb') as stream:
                 data = stream.read()
         self.assertEqual(data[:8], _PNG_MAGIC)
@@ -473,6 +473,72 @@ class R2DWidgetScreenshotTC(unittest.TestCase):
         self.assertFalse(pixmap.isNull())
         self.assertGreater(pixmap.width(), 0)
         self.assertGreater(pixmap.height(), 0)
+
+
+@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+class Save2DCanvasDialogTC(unittest.TestCase):
+    """File -> Save 2D canvas dialog and path resolution."""
+
+    def test_resolve_save_path_forces_png_or_jpg(self):
+        from solvcon.pilot._canvas_gui import (
+            resolve_save_path, _PNG_FILTER, _JPG_FILTER)
+        self.assertEqual(
+            resolve_save_path("/tmp/a", _PNG_FILTER), "/tmp/a.png")
+        self.assertEqual(
+            resolve_save_path("/tmp/a.bmp", _PNG_FILTER), "/tmp/a.png")
+        self.assertEqual(
+            resolve_save_path("/tmp/a", _JPG_FILTER), "/tmp/a.jpg")
+        self.assertEqual(
+            resolve_save_path("/tmp/a.png", _JPG_FILTER), "/tmp/a.jpg")
+        self.assertEqual(
+            resolve_save_path("/tmp/a.jpeg", _JPG_FILTER), "/tmp/a.jpeg")
+        self.assertEqual(resolve_save_path("/tmp/a.png", ""), "/tmp/a.png")
+        self.assertIsNone(resolve_save_path("/tmp/a.bmp", ""))
+        self.assertIsNone(resolve_save_path("", _PNG_FILTER))
+
+    def test_menu_action_is_registered(self):
+        from solvcon.pilot import _gui
+        mgr = _gui.controller.build()
+        act = mgr.menu_model.action("file.save_2d_canvas")
+        self.assertIsNotNone(act)
+        self.assertEqual(act.text(), "Save 2D canvas")
+        self.assertIn(
+            "Save 2D canvas",
+            [a.text() for a in mgr.menu_model.menu("File").actions()])
+
+    def test_run_without_canvas_skips_dialog(self):
+        """Without a focused 2D canvas, run must not open the save dialog."""
+        from solvcon.pilot import _canvas_gui
+        mgr = pilot.RManager.instance.setUp()
+        # RManager is a process-wide singleton; earlier tests may leave a
+        # focused 2D subwindow, so clear the MDI before asserting the guard.
+        mgr.mdiArea.closeAllSubWindows()
+        feature = _canvas_gui.Save2DCanvasDialog(mgr=mgr)
+        opened = []
+        feature._diag.open = lambda *a, **k: opened.append(True)
+        self.assertIsNone(mgr.currentR2DWidget())
+        self.assertFalse(feature.run())
+        self.assertEqual(opened, [])
+
+    def test_save_current_reports_write_result(self):
+        """Menu save path returns saveImage's bool and only writes on
+        success."""
+        from solvcon.pilot import _canvas_gui
+        mgr = pilot.RManager.instance.setUp()
+        widget = mgr.add2DWidget()
+        widget.updateWorld(_build_world())
+        widget.resetView()
+        feature = _canvas_gui.Save2DCanvasDialog(mgr=mgr)
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder, "out.png")
+            self.assertTrue(feature._save_current(path))
+            self.assertTrue(os.path.isfile(path))
+            with open(path, 'rb') as stream:
+                data = stream.read()
+            bad = os.path.join(folder, "missing", "out.png")
+            self.assertFalse(feature._save_current(bad))
+            self.assertFalse(os.path.isfile(bad))
+        self.assertEqual(data[:8], _PNG_MAGIC)
 
 
 @unittest.skipIf(GITHUB_ACTIONS or not solvcon.HAS_PILOT,

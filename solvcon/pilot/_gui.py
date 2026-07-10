@@ -68,6 +68,7 @@ class _Controller(metaclass=_Singleton):
         self.linear_wave = None
         self.painter = None
         self.canvas = None
+        self.save_2d_canvas = None
         self.openprofiledata = None
         self.runprofiling = None
 
@@ -114,6 +115,7 @@ class _Controller(metaclass=_Singleton):
         self.linear_wave = _linear_wave.LinearWave1DApp(mgr=self._rmgr)
         self.painter = _painter_gui.Painter(mgr=self._rmgr)
         self.canvas = _canvas_gui.Canvas(mgr=self._rmgr, painter=self.painter)
+        self.save_2d_canvas = _canvas_gui.Save2DCanvasDialog(mgr=self._rmgr)
         self.openprofiledata = _profiling.Profiling(mgr=self._rmgr)
         self.runprofiling = _profiling.RunProfiling(mgr=self._rmgr)
         self.populate_menu()
@@ -141,6 +143,7 @@ class _Controller(metaclass=_Singleton):
 
         self.gmsh_dialog.populate_menu()
         self.svg_dialog.populate_menu()
+        self.save_2d_canvas.populate_menu()
         self.mesh_info.populate_menu()
         self.entity_tree.populate_menu()
         self.painter.populate_menu()

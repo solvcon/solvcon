@@ -556,9 +556,11 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRDomainWidget
                 "saveImage",
                 [](wrapped_type & self, std::string const & filename)
                 {
-                    self.grabImage().save(filename.c_str());
+                    return self.grabImage().save(filename.c_str());
                 },
-                py::arg("filename"))
+                py::arg("filename"),
+                "Grab the current on-screen frame and save it to filename; "
+                "returns whether the write succeeded.")
             .def(
                 "renderToImage",
                 [](wrapped_type & self, std::string const & filename, int width, int height, bool transparent)
@@ -625,9 +627,15 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapR2DWidget
                  {
                      QClipboard * clipboard = QGuiApplication::clipboard();
                      clipboard->setPixmap(self.grab()); })
-            .def("saveImage", [](wrapped_type & self, std::string const & filename)
-                 { self.grab().save(filename.c_str()); },
-                 py::arg("filename"))
+            .def(
+                "saveImage",
+                [](wrapped_type & self, std::string const & filename)
+                {
+                    return self.grab().save(filename.c_str());
+                },
+                py::arg("filename"),
+                "Grab the current on-screen frame and save it to filename; "
+                "returns whether the write succeeded.")
             //
             ;
     }

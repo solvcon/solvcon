@@ -35,6 +35,9 @@ class BarStructureTC(unittest.TestCase):
         self.assertIsNotNone(model.action("mesh.sample_dialog"))
         self.assertIn("Sample mesh dialog",
                       [a.text() for a in model.menu("Mesh").actions()])
+        self.assertIsNotNone(model.action("file.save_2d_canvas"))
+        self.assertIn("Save 2D canvas",
+                      [a.text() for a in model.menu("File").actions()])
 
         # Panels sits first in View and holds the three dock toggles.
         view = [a.text() for a in model.menu("View").actions()]
