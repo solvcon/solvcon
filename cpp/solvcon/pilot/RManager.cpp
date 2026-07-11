@@ -33,13 +33,19 @@ RManager & RManager::instance()
 RManager::RManager()
     : QObject()
 {
-    m_core.reset(QApplication::instance());
-    static int argc = 1;
-    static char exename[] = "pilot";
-    static char * argv[] = {exename};
-    if (!m_core)
+    if (QCoreApplication * const existing = QApplication::instance())
     {
-        m_core.reset(new QApplication(argc, argv));
+        // Borrow an application another runtime owns, for example the one
+        // PySide6 creates when the pilot is embedded in Python.
+        m_core = existing;
+    }
+    else
+    {
+        static int argc = 1;
+        static char exename[] = "pilot";
+        static char * argv[] = {exename};
+        m_owned_core = std::make_unique<QApplication>(argc, argv);
+        m_core = m_owned_core.get();
     }
 
     m_mainWindow = new QMainWindow;
@@ -74,7 +80,8 @@ void RManager::reset()
     {
         m_menuModel->clear();
     }
-    m_core.reset();
+    m_owned_core.reset(); // Deletes the application only if the pilot made it.
+    m_core = nullptr;
     m_mainWindow = nullptr;
     m_menuModel = nullptr;
     m_pycon = nullptr;

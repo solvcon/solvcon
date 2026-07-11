@@ -57,7 +57,7 @@ public:
 
     static RManager & instance();
 
-    QCoreApplication * core() { return m_core.get(); }
+    QCoreApplication * core() { return m_core; }
 
     RDomainWidget * add3DWidget();
     R2DWidget * add2DWidget();
@@ -122,7 +122,11 @@ private:
 
     bool m_already_setup = false;
 
-    std::unique_ptr<QCoreApplication> m_core = nullptr;
+    /// Non-owning handle, possibly borrowed from another runtime (PySide6).
+    QCoreApplication * m_core = nullptr;
+
+    /// Owns the application only when the pilot created it, null otherwise.
+    std::unique_ptr<QApplication> m_owned_core = nullptr;
 
     QMainWindow * m_mainWindow = nullptr;
 
