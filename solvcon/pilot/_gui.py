@@ -102,7 +102,7 @@ class _Controller(metaclass=_Singleton):
 
         self.gmsh_dialog = _mesh.GmshFileDialog(mgr=self._rmgr)
         self.svg_dialog = _svg_gui.SVGFileDialog(mgr=self._rmgr)
-        self.sample_mesh = _mesh.SampleMesh(mgr=self._rmgr)
+        self.sample_mesh = _mesh.SampleMeshFeature(mgr=self._rmgr)
         self.mesh_style_status = _mesh.MeshStyleStatus(mgr=self._rmgr)
         self.mesh_info = _mesh_info.MeshInfo(
             mgr=self._rmgr, style_status=self.mesh_style_status)

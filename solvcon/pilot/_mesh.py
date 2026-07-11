@@ -15,39 +15,30 @@ from . import _gui_common
 
 __all__ = [  # noqa: F822
     'SampleMesh',
+    'SampleMeshFeature',
     'MeshStyleStatus',
     'GmshFileDialog',
 ]
 
 
-class SampleMesh(_gui_common.PilotFeature):
+class SampleMesh:
     """
-    Create sample mesh windows.
+    The built-in sample meshes as data.
+
+    Each ``mesh_*`` method builds and returns a :class:`StaticMesh` with no
+    Qt, so the same example meshes serve the GUI feature and the console.
     """
 
-    def mesh_sample_dialog_entries(self):
-        """``(category, label, tip, func)`` for each sample this feature can
-        create; consumed by :class:`SampleMeshDialog`."""
-        return [
-            ("Basic shapes", "Triangle (2D)",
-             "Create a very simple sample mesh of a triangle",
-             self.mesh_triangle),
-            ("Basic shapes", "Tetrahedron (3D)",
-             "Create a very simple sample mesh of a tetrahedron",
-             self.mesh_tetrahedron),
-            ("Basic shapes", "\"solvcon\" text (2D)",
-             "Create a sample mesh drawing a text string of \"solvcon\"",
-             self.mesh_solvcon_2dtext),
-            ("Mixed elements", "Small (2D)",
-             "Create a small sample mesh of mixed elements in 2D",
-             self.mesh_2dmix_small),
-            ("Mixed elements", "Larger (2D)",
-             "Create a larger simple sample mesh of mixed elements in 2D",
-             self.mesh_2dmix_large),
-            ("Mixed elements", "3D",
-             "Create a very simple sample mesh of mixed elements in 3D",
-             self.mesh_3dmix),
-        ]
+    def make(self, name):
+        """Build and return the sample mesh named ``name``, e.g. 'tetrahedron'
+        for :meth:`mesh_tetrahedron`."""
+        return getattr(self, 'mesh_' + name)()
+
+    @classmethod
+    def names(cls):
+        """The sample-mesh names, in definition (menu) order."""
+        return tuple(name[len('mesh_'):] for name in vars(cls)
+                     if name.startswith('mesh_'))
 
     def mesh_triangle(self):
         mh = core.StaticMesh(ndim=2, nnode=4, nface=0, ncell=3)
@@ -57,10 +48,7 @@ class SampleMesh(_gui_common.PilotFeature):
         mh.build_interior()
         mh.build_boundary()
         mh.build_ghost()
-        w_tri = self._mgr.add3DWidget()
-        w_tri.updateMesh(mh)
-        w_tri.showAxis(True)
-        self._pycon.writeToHistory(f"tri nedge: {mh.nedge}\n")
+        return mh
 
     def mesh_tetrahedron(self):
         mh = core.StaticMesh(ndim=3, nnode=4, nface=4, ncell=1)
@@ -70,10 +58,7 @@ class SampleMesh(_gui_common.PilotFeature):
         mh.build_interior()
         mh.build_boundary()
         mh.build_ghost()
-        w_tet = self._mgr.add3DWidget()
-        w_tet.updateMesh(mh)
-        w_tet.showAxis(True)
-        self._pycon.writeToHistory(f"tet nedge: {mh.nedge}\n")
+        return mh
 
     def mesh_solvcon_2dtext(self):
         Q = core.StaticMesh.QUADRILATERAL
@@ -178,11 +163,7 @@ class SampleMesh(_gui_common.PilotFeature):
         mh.build_interior()
         mh.build_boundary()
         mh.build_ghost()
-        # Open a sub window for solvcon icon:
-        w_solvcon = self._mgr.add3DWidget()
-        w_solvcon.updateMesh(mh)
-        w_solvcon.showAxis(True)
-        self._pycon.writeToHistory(f"solvcon text nedge: {mh.nedge}\n")
+        return mh
 
     def mesh_2dmix_small(self):
         T = core.StaticMesh.TRIANGLE
@@ -201,12 +182,7 @@ class SampleMesh(_gui_common.PilotFeature):
         mh.build_interior()
         mh.build_boundary()
         mh.build_ghost()
-
-        # Open a sub window for small 2D mix mesh.
-        w_small2d = self._mgr.add3DWidget()
-        w_small2d.updateMesh(mh)
-        w_small2d.showAxis(True)
-        self._mgr.pycon.writeToHistory(f"2dmix large nedge: {mh.nedge}\n")
+        return mh
 
     def mesh_2dmix_large(self):
         T = core.StaticMesh.TRIANGLE
@@ -237,12 +213,7 @@ class SampleMesh(_gui_common.PilotFeature):
         mh.build_interior()
         mh.build_boundary()
         mh.build_ghost()
-
-        # Open a sub window for larger 2D mix mesh.
-        w_large2d = self._mgr.add3DWidget()
-        w_large2d.updateMesh(mh)
-        w_large2d.showAxis(True)
-        self._mgr.pycon.writeToHistory(f"2dmix large nedge: {mh.nedge}\n")
+        return mh
 
     def mesh_3dmix(self):
         HEX = core.StaticMesh.HEXAHEDRON
@@ -267,12 +238,68 @@ class SampleMesh(_gui_common.PilotFeature):
         mh.build_interior()
         mh.build_boundary()
         mh.build_ghost()
+        return mh
 
-        # Open a sub window for triangles and quadrilaterals:
-        w_3dmix = self._mgr.add3DWidget()
-        w_3dmix.updateMesh(mh)
-        w_3dmix.showAxis(True)
-        self._mgr.pycon.writeToHistory(f"3dmix nedge: {mh.nedge}\n")
+
+class SampleMeshFeature(_gui_common.PilotFeature):
+    """
+    Create sample mesh windows from the built-in example meshes.
+    """
+
+    def __init__(self, *args, **kw):
+        super().__init__(*args, **kw)
+        self._samples = SampleMesh()
+
+    def mesh_sample_dialog_entries(self):
+        """``(category, label, tip, func)`` for each sample this feature can
+        create; consumed by :class:`SampleMeshDialog`."""
+        return [
+            ("Basic shapes", "Triangle (2D)",
+             "Create a very simple sample mesh of a triangle",
+             self.mesh_triangle),
+            ("Basic shapes", "Tetrahedron (3D)",
+             "Create a very simple sample mesh of a tetrahedron",
+             self.mesh_tetrahedron),
+            ("Basic shapes", "\"solvcon\" text (2D)",
+             "Create a sample mesh drawing a text string of \"solvcon\"",
+             self.mesh_solvcon_2dtext),
+            ("Mixed elements", "Small (2D)",
+             "Create a small sample mesh of mixed elements in 2D",
+             self.mesh_2dmix_small),
+            ("Mixed elements", "Larger (2D)",
+             "Create a larger simple sample mesh of mixed elements in 2D",
+             self.mesh_2dmix_large),
+            ("Mixed elements", "3D",
+             "Create a very simple sample mesh of mixed elements in 3D",
+             self.mesh_3dmix),
+        ]
+
+    def _show(self, name):
+        """Build the sample mesh named ``name`` and open it in a fresh 3D
+        viewer, echoing its edge count to the console."""
+        mh = self._samples.make(name)
+        w = self._mgr.add3DWidget()
+        w.updateMesh(mh)
+        w.showAxis(True)
+        self._pycon.writeToHistory(f"{name} nedge: {mh.nedge}\n")
+
+    def mesh_triangle(self):
+        self._show('triangle')
+
+    def mesh_tetrahedron(self):
+        self._show('tetrahedron')
+
+    def mesh_solvcon_2dtext(self):
+        self._show('solvcon_2dtext')
+
+    def mesh_2dmix_small(self):
+        self._show('2dmix_small')
+
+    def mesh_2dmix_large(self):
+        self._show('2dmix_large')
+
+    def mesh_3dmix(self):
+        self._show('3dmix')
 
 
 class SampleMeshDialog(_gui_common.PilotFeature):
