@@ -17,7 +17,7 @@ if _pcore.enable:
     from PySide6.QtGui import QAction
     from . import _gui_common
     from . import _mesh
-    from . import _entity_tree
+    from . import _tree_panel
     from . import _oblique
     from . import _euler1d
     from . import _burgers1d
@@ -102,7 +102,7 @@ class _Controller(metaclass=_Singleton):
         self.svg_dialog = _svg_gui.SVGFileDialog(mgr=self._rmgr)
         self.sample_mesh = _mesh.SampleMeshFeature(mgr=self._rmgr)
         self.mesh_style_status = _mesh.MeshStyleStatus(mgr=self._rmgr)
-        self.tree_panel = _entity_tree.TreePanel(
+        self.tree_panel = _tree_panel.TreePanel(
             mgr=self._rmgr, style_status=self.mesh_style_status)
         self.oblique_shock = _oblique.ObliqueShockMesh(mgr=self._rmgr)
         self.oblique_solver = _oblique.ObliqueShockSolver(mgr=self._rmgr)
