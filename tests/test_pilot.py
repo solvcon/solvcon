@@ -151,9 +151,12 @@ class PilotNamespaceTC(unittest.TestCase):
         self.assertIsNone(g['viewer'])
         self.assertIsNone(g['mesh'])
         self.assertTrue(callable(g['show_mesh']))
+        self.assertTrue(callable(g['load_mesh']))
+        self.assertTrue(callable(g['sample_meshes']))
         self.assertTrue(callable(g['run_worker']))
         self.assertIn('mgr', banner)
         self.assertIn('show_mesh(m)', banner)
+        self.assertIn('load_mesh(name)', banner)
 
     def test_show_mesh_opens_a_viewer(self):
         from solvcon import apputil
@@ -177,6 +180,31 @@ class PilotNamespaceTC(unittest.TestCase):
         self.mgr.add3DWidget().updateMesh(sentinel)
         self.env.run_code('pass')
         self.assertIs(self.env.globals['mesh'], sentinel)
+
+    @unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+    def test_sample_meshes_lists_the_known_names(self):
+        from solvcon import apputil
+        apputil.install_pilot_namespace(self.mgr, self.env)
+        names = self.env.globals['sample_meshes']()
+        self.assertIn('tetrahedron', names)
+        self.assertIn('3dmix', names)
+
+    @unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+    def test_load_mesh_shows_a_named_sample(self):
+        from solvcon import apputil
+        apputil.install_pilot_namespace(self.mgr, self.env)
+        viewer = self.env.globals['load_mesh']('tetrahedron')
+        # A real StaticMesh is built and opened in a fresh viewer.
+        self.assertEqual(viewer.mesh.ndim, 3)
+        self.assertTrue(viewer.axis)
+        self.assertEqual(self.env.globals['viewers'](), [viewer])
+
+    @unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+    def test_load_mesh_rejects_an_unknown_name(self):
+        from solvcon import apputil
+        apputil.install_pilot_namespace(self.mgr, self.env)
+        with self.assertRaises(AttributeError):
+            self.env.globals['load_mesh']('no_such_mesh')
 
 
 class HousekeepingTC(unittest.TestCase):
