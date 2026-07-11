@@ -1381,6 +1381,9 @@ public:
 
     SimpleArray<uint64_t> argwhere() const;
 
+    template <typename U>
+    SimpleArray<U> where(SimpleArray<U> const & x, SimpleArray<U> const & y) const;
+
 }; /* end class SimpleArrayMixinSearch */
 
 template <typename A, typename T>
@@ -2788,6 +2791,32 @@ SimpleArray<uint64_t> detail::SimpleArrayMixinSearch<A, T>::argwhere() const
             offset %= stride;
         }
         ++idx;
+    }
+
+    return result;
+}
+
+template <typename A, typename T>
+template <typename U>
+SimpleArray<U> detail::SimpleArrayMixinSearch<A, T>::where(SimpleArray<U> const & x, SimpleArray<U> const & y) const
+{
+    auto athis = static_cast<A const *>(this);
+
+    static_assert(std::is_same_v<T, bool>, "SimpleArray::where() requires a boolean array");
+
+    if (athis->shape() != x.shape() || athis->shape() != y.shape())
+    {
+        throw std::invalid_argument(std::format(
+            "SimpleArray::where(): shape mismatch: condition={} x={} y={}",
+            format_shape(athis->shape()),
+            format_shape(x.shape()),
+            format_shape(y.shape())));
+    }
+
+    SimpleArray<U> result(athis->shape());
+    for (size_t i = 0; i < athis->size(); ++i)
+    {
+        result.data(i) = athis->data(i) ? x.data(i) : y.data(i);
     }
 
     return result;

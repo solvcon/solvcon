@@ -4182,6 +4182,49 @@ class SimpleArraySearchTC(unittest.TestCase):
         ret = sarr.eq(10).argwhere()
         np.testing.assert_array_equal(ret.ndarray, np.argwhere(narr == 10))
 
+    def test_where(self):
+        # test 1-D data
+        data = [1, 3, 5, 7, 9]
+        narr = np.array(data, dtype='uint64')
+        sarr = solvcon.SimpleArrayUint64(array=narr)
+
+        np.testing.assert_array_equal(
+            ((sarr < 5).where(sarr.add(1), sarr.mul(10))).ndarray,
+            np.where(narr < 5, narr + 1, narr * 10)
+        )
+
+        # test N-D data
+        data = [
+            [1, 3, 5, 7, 9],
+            [2, 4, 6, 8, 10],
+            [1, 10, 1, 10, 1]
+        ]
+        narr = np.array(data, dtype='float64')
+        sarr = solvcon.SimpleArrayFloat64(array=narr)
+
+        np.testing.assert_array_equal(
+            ((sarr == 10).where(sarr.add(1), sarr.mul(10))).ndarray,
+            np.where(narr == 10, narr + 1, narr * 10)
+        )
+
+        # test condition dtype is not bool
+        sarr1 = solvcon.SimpleArrayInt32((2, 3), value=1)
+        with self.assertRaisesRegex(
+            AttributeError, r"has no attribute 'where'"
+        ):
+            sarr1.where(sarr1, sarr1.add(1))
+
+        # test shape mismatch
+        cond = solvcon.SimpleArrayBool((1, 3), value=True)
+        sarr2 = solvcon.SimpleArrayInt32((1, 2), value=2)
+        sarr3 = solvcon.SimpleArrayInt32((1, 2), value=3)
+        with self.assertRaisesRegex(
+            ValueError,
+            r"SimpleArray::where\(\): shape mismatch: "
+            r"condition=\(1, 3\) x=\(1, 2\) y=\(1, 2\)"
+        ):
+            cond.where(sarr2, sarr3)
+
 
 class SimpleArrayPlexTC(unittest.TestCase):
 
