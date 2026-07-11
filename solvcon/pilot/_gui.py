@@ -27,6 +27,7 @@ if _pcore.enable:
     from . import _canvas_gui
     from . import _painter_gui
     from . import _profiling
+    from . import _agent_gui
 
 __all__ = [  # noqa: F822
     'controller',
@@ -71,6 +72,7 @@ class _Controller(metaclass=_Singleton):
         self.save_2d_canvas = None
         self.openprofiledata = None
         self.runprofiling = None
+        self.agent = None
 
     def __getattr__(self, name):
         return None if self._rmgr is None else getattr(self._rmgr, name)
@@ -118,6 +120,7 @@ class _Controller(metaclass=_Singleton):
         self.save_2d_canvas = _canvas_gui.Save2DCanvasDialog(mgr=self._rmgr)
         self.openprofiledata = _profiling.Profiling(mgr=self._rmgr)
         self.runprofiling = _profiling.RunProfiling(mgr=self._rmgr)
+        self.agent = _agent_gui.AgentPanel(mgr=self._rmgr)
         self.populate_menu()
         self._seed_console_namespace()
         self._built = True
@@ -156,6 +159,7 @@ class _Controller(metaclass=_Singleton):
         self.canvas.populate_menu()
         self.openprofiledata.populate_menu()
         self.runprofiling.populate_menu()
+        self.agent.populate_menu()
 
         # An explicit QuitRole lets macOS relocate Exit into the application
         # menu, so no platform special case is needed.

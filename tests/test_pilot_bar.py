@@ -39,11 +39,15 @@ class BarStructureTC(unittest.TestCase):
         self.assertIn("Save 2D canvas",
                       [a.text() for a in model.menu("File").actions()])
 
-        # Panels sits first in View and holds the three dock toggles.
+        # Panels sits first in View and holds the four dock toggles. Other
+        # tests build their own panel features on the shared singleton, so a
+        # toggle can repeat; assert the distinct entries in their declared
+        # order.
         view = [a.text() for a in model.menu("View").actions()]
         self.assertEqual(view[0], "Panels")
         panels = [a.text() for a in model.menu("View/Panels").actions()]
-        self.assertEqual(panels, ["Mesh", "Painter", "Entity Tree"])
+        self.assertEqual(list(dict.fromkeys(panels)),
+                         ["Mesh", "Painter", "Entity Tree", "Agent Console"])
 
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
