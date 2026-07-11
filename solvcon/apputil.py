@@ -289,6 +289,17 @@ def build_pilot_namespace(mgr):
         """List the meshes currently loaded in the 3D viewers."""
         return [w.mesh for w in mgr.list3DWidgets() if w.mesh is not None]
 
+    def load_mesh(name):
+        """Build a built-in sample mesh, show it in a fresh 3D viewer, and
+        return the viewer.  Call sample_meshes() for the available names."""
+        from .pilot import _mesh
+        return show_mesh(_mesh.SampleMesh().make(name))
+
+    def sample_meshes():
+        """List the names of the built-in sample meshes."""
+        from .pilot import _mesh
+        return list(_mesh.SampleMesh.names())
+
     viewer = mgr.currentR3DWidget()
     handles = {
         'mgr': mgr,
@@ -297,6 +308,8 @@ def build_pilot_namespace(mgr):
         'show_mesh': show_mesh,
         'viewers': viewers,
         'meshes': meshes,
+        'load_mesh': load_mesh,
+        'sample_meshes': sample_meshes,
         'run_worker': run_worker,
     }
     entries = [
@@ -306,6 +319,8 @@ def build_pilot_namespace(mgr):
         ('show_mesh(m)', 'open a mesh in a fresh 3D viewer'),
         ('viewers()', 'list the open 3D viewers'),
         ('meshes()', 'list the loaded meshes'),
+        ('load_mesh(name)', 'show a built-in sample mesh by name'),
+        ('sample_meshes()', 'list the built-in sample-mesh names'),
         ('run_worker(f)', 'run f on a worker thread; returns a Future'),
         ('sc', 'the solvcon package'),
     ]
