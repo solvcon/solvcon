@@ -49,10 +49,11 @@ class Save2DCanvasDialog(_gui_common.PilotFeature):
     """
     File-menu action that saves the focused 2D canvas via ``saveImage``.
 
-    The save dialog carries an "Include labels" switch and a normal/advanced
-    selector, so the exported image can bake in the annotation overlay
-    independent of what the canvas currently shows on screen. The controls
-    need custom widgets in the dialog, so it runs non-native.
+    The save dialog carries an "Include labels" switch with a normal/advanced
+    selector and an independent "Include coordinates" switch, so the exported
+    image can bake in the annotation overlay independent of what the canvas
+    currently shows on screen. The controls need custom widgets in the dialog,
+    so it runs non-native.
     """
 
     def __init__(self, *args, **kw):
@@ -68,7 +69,8 @@ class Save2DCanvasDialog(_gui_common.PilotFeature):
         self._build_label_controls()
 
     def _build_label_controls(self):
-        """Add the label switch and normal/advanced selector to the dialog."""
+        """Add the label switch, normal/advanced selector, and the independent
+        coordinate switch to the dialog."""
         self._labels_check = QtWidgets.QCheckBox("Include labels")
         self._normal_radio = QtWidgets.QRadioButton("normal")
         self._advanced_radio = QtWidgets.QRadioButton("advanced")
@@ -77,10 +79,12 @@ class Save2DCanvasDialog(_gui_common.PilotFeature):
         group.addButton(self._normal_radio)
         group.addButton(self._advanced_radio)
         self._label_group = group
+        self._coords_check = QtWidgets.QCheckBox("Include coordinates")
         row = QtWidgets.QHBoxLayout()
         row.addWidget(self._labels_check)
         row.addWidget(self._normal_radio)
         row.addWidget(self._advanced_radio)
+        row.addWidget(self._coords_check)
         row.addStretch(1)
         grid = self._diag.layout()
         grid.addLayout(row, grid.rowCount(), 0, 1, grid.columnCount())
@@ -119,8 +123,10 @@ class Save2DCanvasDialog(_gui_common.PilotFeature):
 
         The export defaults to matching what the canvas shows on screen.
         """
-        on, advanced = _gui_common.label_switch_and_mode(widget.overlay)
+        on, advanced, coords = _gui_common.label_switch_and_mode(
+            widget.overlay)
         self._labels_check.setChecked(on)
+        self._coords_check.setChecked(coords)
         radio = self._advanced_radio if advanced else self._normal_radio
         radio.setChecked(True)
         self._sync_label_radios()
@@ -152,7 +158,9 @@ class Save2DCanvasDialog(_gui_common.PilotFeature):
         """
         on = self._labels_check.isChecked()
         advanced = on and self._advanced_radio.isChecked()
-        return _gui_common.apply_label_mode(widget.overlay, on, advanced)
+        coords = self._coords_check.isChecked()
+        return _gui_common.apply_label_mode(
+            widget.overlay, on, advanced, coords)
 
     def _save_current(self, path):
         widget = self._mgr.currentR2DWidget()

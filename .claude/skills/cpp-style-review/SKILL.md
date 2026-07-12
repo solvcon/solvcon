@@ -61,6 +61,12 @@ it briefly but don't re-implement the check here.
 
 **Comments**
 - **Comments are very important.** Check all comments in the diff for clarity, accuracy, and relevance. Flag any comment that is unclear, misleading, trivial, or outdated.
+- **Doxygen markers (check every changed comment, not just its content).**
+  Per STYLE.md, use `/** ... */` for any block of two or more lines, `///`
+  for a one-line brief on a declaration, and `///<` for a trailing member or
+  enumerator brief. Flag a multi-line `///` block (two or more consecutive
+  `///` lines forming one brief) and tell the author to convert it to
+  `/** */`. Judging a comment's wording is not enough; verify the marker too.
 - Refer to "C++ Comment" in STYLE.md for what counts as a comment and how to judge it.
 
 **pybind11**

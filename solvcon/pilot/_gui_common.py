@@ -7,23 +7,20 @@ from ..core import Toggle
 from PySide6 import QtCore, QtGui
 
 
-def apply_label_mode(overlay, on, advanced):
-    """Pack the label switch and mode into the overlay's flags.
-
-    ``on`` adds a shape label; ``advanced`` selects the geometric labels over
-    the plain id label. Returns the same overlay for chaining.
-    """
+def apply_label_mode(overlay, on, advanced, coordinates):
+    """Pack the shape-label switch, its mode, and the coordinate switch into
+    an overlay's flags. The shape labels and the grid coordinate labels are
+    independent, so each switch owns its own flags."""
     overlay.shape_ids = on and not advanced
-    overlay.advanced_labels = advanced
-    # TODO(grid): overlay.coordinate_labels = on once grid labels land.
+    overlay.advanced_labels = on and advanced
+    overlay.coordinate_labels = coordinates
     return overlay
 
 
 def label_switch_and_mode(overlay):
-    """Return ``(on, advanced)`` for the overlay's current label state."""
-    # TODO(grid): OR in overlay.coordinate_labels.
+    """Return ``(on, advanced, coordinates)`` for an overlay's label state."""
     on = overlay.shape_ids or overlay.advanced_labels
-    return on, overlay.advanced_labels
+    return on, overlay.advanced_labels, overlay.coordinate_labels
 
 
 class ToggleActionBridge(QtCore.QObject):
