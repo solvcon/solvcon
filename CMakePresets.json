@@ -1,0 +1,41 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": { "major": 4, "minor": 0, "patch": 1 },
+  "configurePresets": [
+    {
+      "name": "win-base",
+      "hidden": true,
+      "generator": "Ninja",
+      "cacheVariables": {
+        "BUILD_QT": "ON",
+        "USE_GOOGLETEST": "OFF",
+        "BLA_VENDOR": "OpenBLAS",
+        "CMAKE_LIBRARY_OUTPUT_DIRECTORY": "${sourceDir}/solvcon"
+      }
+    },
+    {
+      "name": "win-rel",
+      "displayName": "Windows Release (Ninja, MSVC)",
+      "inherits": "win-base",
+      "binaryDir": "${sourceDir}/build/win-rel",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_RUNTIME_OUTPUT_DIRECTORY": "${sourceDir}/build/win-rel"
+      }
+    },
+    {
+      "name": "win-dbg",
+      "displayName": "Windows Debug (Ninja, MSVC)",
+      "inherits": "win-base",
+      "binaryDir": "${sourceDir}/build/win-dbg",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_RUNTIME_OUTPUT_DIRECTORY": "${sourceDir}/build/win-dbg"
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "win-rel", "configurePreset": "win-rel" },
+    { "name": "win-dbg", "configurePreset": "win-dbg" }
+  ]
+}
