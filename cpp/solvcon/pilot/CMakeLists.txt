@@ -30,6 +30,7 @@ set(SOLVCON_PILOT_PYMODHEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/RWindowsThemeBackend.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RLinuxThemeBackend.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RThemeManager.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/keymap.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RPythonConsoleDockWidget.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RPythonConsoleHistory.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RPythonSyntaxHighlighter.hpp
@@ -69,6 +70,7 @@ set(SOLVCON_PILOT_PYMODSOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/RWindowsThemeBackend.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RLinuxThemeBackend.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RThemeManager.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/keymap.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RPythonConsoleDockWidget.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RPythonConsoleHistory.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RPythonSyntaxHighlighter.cpp
