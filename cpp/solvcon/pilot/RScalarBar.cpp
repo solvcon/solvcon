@@ -7,7 +7,9 @@
 
 #include <QColor>
 #include <QFont>
+#include <QGuiApplication>
 #include <QPainter>
+#include <QPalette>
 
 #include <algorithm>
 #include <utility>
@@ -66,11 +68,15 @@ QImage RScalarBar::renderImage() const
     QPainter painter(&image);
     painter.setRenderHint(QPainter::Antialiasing, true);
 
+    // Follow the application palette so the labels and the strip border stay
+    // legible when the theme turns dark, instead of forcing black.
+    QColor const ink = QGuiApplication::palette().color(QPalette::WindowText);
+
     QFont font;
     font.setPixelSize(15);
     font.setBold(true);
     painter.setFont(font);
-    painter.setPen(Qt::black);
+    painter.setPen(ink);
     painter.drawText(QRect(0, 4, BAR_WIDTH, 20), Qt::AlignHCenter | Qt::AlignVCenter, m_title);
 
     font.setPixelSize(13);
@@ -90,7 +96,7 @@ QImage RScalarBar::renderImage() const
     painter.rotate(-90.0);
     painter.drawImage(QRect(0, 0, strip.height(), strip.width()), lut);
     painter.restore();
-    painter.setPen(Qt::black);
+    painter.setPen(ink);
     painter.drawRect(strip.adjusted(0, 0, -1, -1));
 
     int const label_left = strip.right() + 7;

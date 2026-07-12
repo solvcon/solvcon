@@ -11,7 +11,11 @@ try:
     from solvcon import pilot
     from solvcon.pilot import _gui
     from PySide6 import QtWidgets
+    from PySide6.QtCore import QSettings, QStandardPaths
     from PySide6.QtGui import QPalette
+    # Redirect QSettings to a throwaway location so the theme's persistence
+    # does not touch the developer's real configuration during the tests.
+    QStandardPaths.setTestModeEnabled(True)
 except ImportError:
     pilot = None
 
@@ -172,6 +176,42 @@ class ThemeLookTC(unittest.TestCase):
         group = self.model.group("theme.look")
         self.assertEqual(group.checkedAction().objectName(),
                          "theme.look_system")
+
+
+@unittest.skipIf(GITHUB_ACTIONS or not solvcon.HAS_PILOT,
+                 "GUI is not available in GitHub Actions")
+class ThemePolishTC(unittest.TestCase):
+    def setUp(self):
+        self.mgr = pilot.RManager.instance.setUp()
+        self.app = QtWidgets.QApplication.instance()
+
+    def tearDown(self):
+        self.mgr.set_look("curated")
+        self.mgr.set_theme("system")
+
+    def test_accent_role_matches_the_highlight(self):
+        self.mgr.set_look("curated")
+        self.mgr.set_theme("light")
+        pal = self.app.palette()
+        self.assertEqual(pal.color(QPalette.Accent),
+                         pal.color(QPalette.Highlight))
+
+    def test_curated_look_adds_a_supplemental_stylesheet(self):
+        self.mgr.set_look("curated")
+        self.assertIn("QToolTip", self.app.styleSheet())
+
+    def test_system_look_clears_the_stylesheet(self):
+        self.mgr.set_look("system")
+        self.assertEqual(self.app.styleSheet(), "")
+
+    def test_mode_and_look_persist_across_sessions(self):
+        self.mgr.set_theme("dark")
+        self.mgr.set_look("system")
+        # A new session reads these back through the same store to start on the
+        # last chosen theme.
+        settings = QSettings("solvcon", "pilot")
+        self.assertEqual(settings.value("theme/mode"), "dark")
+        self.assertEqual(settings.value("theme/look"), "system")
 
 
 @unittest.skipIf(GITHUB_ACTIONS or not solvcon.HAS_PILOT,

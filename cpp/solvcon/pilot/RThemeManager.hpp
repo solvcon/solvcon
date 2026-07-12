@@ -128,6 +128,17 @@ private:
     /// accent when the backend supplies one, and filling the disabled group.
     QPalette buildPalette(ThemePalette const & spec, ThemeVariant variant) const;
 
+    /// A thin stylesheet that adds what a QPalette cannot: a tooltip border and
+    /// a focus ring on text inputs, colored from @p pal. Applied under the
+    /// curated look and cleared under the system look, which stays native.
+    QString supplementalStyleSheet(QPalette const & pal) const;
+
+    /// Read the persisted mode and look, if any, into the current state.
+    void restorePersisted();
+
+    /// Write the current mode and look so the next session starts on them.
+    void persist() const;
+
     ThemeMode m_mode = ThemeMode::System;
 
     /// Where the colors come from. Curated is the controlled default; System is

@@ -8,6 +8,7 @@
 #include <QApplication>
 #include <QColor>
 #include <QGuiApplication>
+#include <QSettings>
 #include <QStyle>
 #include <QStyleFactory>
 #include <QStyleHints>
@@ -24,6 +25,10 @@ RThemeManager::RThemeManager(QObject * parent)
     : QObject(parent)
     , m_backend(makeThemeBackend())
 {
+    // Start on the mode and look the last session left behind, so a chosen
+    // theme carries across restarts.
+    restorePersisted();
+
     // Track live operating-system color-scheme changes while in System mode.
     // The style-hints object is owned by the application and outlives the
     // manager, so the connection stays valid for the manager's lifetime.
@@ -73,6 +78,8 @@ void RThemeManager::apply()
         QPalette const native = QApplication::style()->standardPalette();
         m_window_color = native.color(QPalette::Window);
         QApplication::setPalette(native);
+        // Leave the native look untouched, including any style the platform set.
+        qApp->setStyleSheet(QString());
     }
     else
     {
@@ -80,6 +87,7 @@ void RThemeManager::apply()
             buildPalette(themePaletteFor(m_backend->platform(), variant), variant);
         m_window_color = curated.color(QPalette::Window);
         QApplication::setPalette(curated);
+        qApp->setStyleSheet(supplementalStyleSheet(curated));
     }
     if (m_window != nullptr)
     {
@@ -100,6 +108,7 @@ void RThemeManager::setWindow(QWidget * window)
 void RThemeManager::setMode(ThemeMode mode)
 {
     m_mode = mode;
+    persist();
     syncOsColorScheme();
     apply();
 }
@@ -112,6 +121,7 @@ void RThemeManager::setModeById(std::string const & id)
 void RThemeManager::setLook(ThemeLook look)
 {
     m_look = look;
+    persist();
     apply();
 }
 
@@ -203,6 +213,11 @@ QPalette RThemeManager::buildPalette(ThemePalette const & spec, ThemeVariant var
     pal.setColor(QPalette::ButtonText, color(spec.button_text));
     pal.setColor(QPalette::BrightText, color(spec.bright_text));
     pal.setColor(QPalette::Highlight, highlight);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 6, 0)
+    // The dedicated Accent role (Qt 6.6+) lets widgets that want the platform
+    // accent, distinct from a selection highlight, pick it up from the palette.
+    pal.setColor(QPalette::Accent, highlight);
+#endif
     pal.setColor(QPalette::HighlightedText, color(spec.highlighted_text));
     pal.setColor(QPalette::ToolTipBase, color(spec.tool_tip_base));
     pal.setColor(QPalette::ToolTipText, color(spec.tool_tip_text));
@@ -218,6 +233,36 @@ QPalette RThemeManager::buildPalette(ThemePalette const & spec, ThemeVariant var
     pal.setColor(QPalette::Disabled, QPalette::HighlightedText, color(spec.disabled_text));
     pal.setColor(QPalette::Disabled, QPalette::Highlight, color(spec.disabled_highlight));
     return pal;
+}
+
+QString RThemeManager::supplementalStyleSheet(QPalette const & pal) const
+{
+    // A QPalette cannot draw a tooltip border or a focus ring, so add just
+    // those two, colored from the theme, and nothing more, so the native style
+    // keeps drawing everything else.
+    QColor const border = pal.color(QPalette::WindowText);
+    QColor const focus = pal.color(QPalette::Highlight);
+    return QStringLiteral(
+               "QToolTip { border: 1px solid %1; }\n"
+               "QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus"
+               " { border: 1px solid %2; }")
+        .arg(border.name(), focus.name());
+}
+
+void RThemeManager::restorePersisted()
+{
+    QSettings settings(QStringLiteral("solvcon"), QStringLiteral("pilot"));
+    m_mode = themeModeFromId(
+        settings.value(QStringLiteral("theme/mode")).toString().toUtf8().constData());
+    m_look = themeLookFromId(
+        settings.value(QStringLiteral("theme/look")).toString().toUtf8().constData());
+}
+
+void RThemeManager::persist() const
+{
+    QSettings settings(QStringLiteral("solvcon"), QStringLiteral("pilot"));
+    settings.setValue(QStringLiteral("theme/mode"), QString::fromStdString(modeId()));
+    settings.setValue(QStringLiteral("theme/look"), QString::fromStdString(lookId()));
 }
 
 } /* end namespace solvcon */

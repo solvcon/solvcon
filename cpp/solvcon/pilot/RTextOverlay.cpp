@@ -7,7 +7,9 @@
 
 #include <QColor>
 #include <QFont>
+#include <QGuiApplication>
 #include <QPainter>
+#include <QPalette>
 
 #include <algorithm>
 
@@ -46,7 +48,9 @@ QImage RTextOverlay::renderImage() const
     font.setPixelSize(28);
     font.setBold(true);
     painter.setFont(font);
-    painter.setPen(Qt::black);
+    // Follow the application palette so the label stays legible when the theme
+    // turns dark, instead of forcing black.
+    painter.setPen(QGuiApplication::palette().color(QPalette::WindowText));
     painter.drawText(image.rect(), Qt::AlignHCenter | Qt::AlignVCenter, m_text);
     painter.end();
     return image;
