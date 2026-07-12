@@ -66,6 +66,62 @@ static ThemePalette makeDarkPalette()
     return p;
 }
 
+// The macOS tables follow the Aqua conventions: a near-white light window and
+// a deep neutral dark window, both a touch cooler than the shared curated
+// greys, paired with the system blue the platform defaults to. A running mac
+// backend replaces the highlight with the user's chosen accent; these values
+// are the fallback when no accent is read.
+
+static ThemePalette makeMacLightPalette()
+{
+    ThemePalette p;
+    p.window = {0xec, 0xec, 0xec};
+    p.window_text = {0x1c, 0x1c, 0x1e};
+    p.base = {0xff, 0xff, 0xff};
+    p.alternate_base = {0xf4, 0xf5, 0xf5};
+    p.text = {0x1c, 0x1c, 0x1e};
+    p.button = {0xf6, 0xf6, 0xf6};
+    p.button_text = {0x1c, 0x1c, 0x1e};
+    p.bright_text = {0xff, 0x3b, 0x30};
+    p.highlight = {0x00, 0x7a, 0xff};
+    p.highlighted_text = {0xff, 0xff, 0xff};
+    p.tool_tip_base = {0xf9, 0xf9, 0xf9};
+    p.tool_tip_text = {0x1c, 0x1c, 0x1e};
+    p.placeholder_text = {0x9b, 0x9b, 0xa0};
+    p.link = {0x00, 0x66, 0xcc};
+    p.link_visited = {0x85, 0x4f, 0xd8};
+    p.disabled_text = {0xb0, 0xb0, 0xb4};
+    p.disabled_button_text = {0xb0, 0xb0, 0xb4};
+    p.disabled_window_text = {0xb0, 0xb0, 0xb4};
+    p.disabled_highlight = {0xc9, 0xc9, 0xcd};
+    return p;
+}
+
+static ThemePalette makeMacDarkPalette()
+{
+    ThemePalette p;
+    p.window = {0x28, 0x28, 0x2a};
+    p.window_text = {0xf2, 0xf2, 0xf7};
+    p.base = {0x1e, 0x1e, 0x1e};
+    p.alternate_base = {0x2a, 0x2a, 0x2c};
+    p.text = {0xf2, 0xf2, 0xf7};
+    p.button = {0x3a, 0x3a, 0x3c};
+    p.button_text = {0xf2, 0xf2, 0xf7};
+    p.bright_text = {0xff, 0x45, 0x3a};
+    p.highlight = {0x0a, 0x84, 0xff};
+    p.highlighted_text = {0xff, 0xff, 0xff};
+    p.tool_tip_base = {0x3a, 0x3a, 0x3c};
+    p.tool_tip_text = {0xf2, 0xf2, 0xf7};
+    p.placeholder_text = {0x8e, 0x8e, 0x93};
+    p.link = {0x41, 0x9c, 0xff};
+    p.link_visited = {0xbf, 0x5a, 0xf2};
+    p.disabled_text = {0x6b, 0x6b, 0x70};
+    p.disabled_button_text = {0x6b, 0x6b, 0x70};
+    p.disabled_window_text = {0x6b, 0x6b, 0x70};
+    p.disabled_highlight = {0x3a, 0x3a, 0x3c};
+    return p;
+}
+
 // The syntax colors keep the light table's familiar hues (a blue keyword, a
 // teal builtin, a red string, a magenta number) and lift each to a brighter,
 // lower-saturation tint for the dark table so the tokens read clearly on the
@@ -146,12 +202,32 @@ ThemePalette const & darkThemePalette()
     return palette;
 }
 
+static ThemePalette const & macLightThemePalette()
+{
+    static ThemePalette const palette = makeMacLightPalette();
+    return palette;
+}
+
+static ThemePalette const & macDarkThemePalette()
+{
+    static ThemePalette const palette = makeMacDarkPalette();
+    return palette;
+}
+
 ThemePalette const & themePaletteFor(PlatformId platform, ThemeVariant variant)
 {
-    // Every platform seeds from the curated tables; the platform rooms furnished
-    // in later steps replace this with their own tuned copies.
-    (void)platform;
-    return variant == ThemeVariant::Dark ? darkThemePalette() : lightThemePalette();
+    // macOS has its own room; the other platforms still draw from the shared
+    // curated tables until their rooms are furnished in later steps.
+    bool const dark = variant == ThemeVariant::Dark;
+    switch (platform)
+    {
+    case PlatformId::Mac:
+        return dark ? macDarkThemePalette() : macLightThemePalette();
+    case PlatformId::Windows:
+    case PlatformId::Linux:
+    default:
+        return dark ? darkThemePalette() : lightThemePalette();
+    }
 }
 
 SyntaxColors const & lightSyntaxColors()

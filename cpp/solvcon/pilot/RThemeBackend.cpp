@@ -7,6 +7,10 @@
 
 #include <QtGlobal>
 
+#if defined(Q_OS_MACOS)
+#include <solvcon/pilot/RMacThemeBackend.hpp>
+#endif
+
 namespace solvcon
 {
 
@@ -60,7 +64,7 @@ private:
 std::unique_ptr<RThemeBackend> makeThemeBackend()
 {
 #if defined(Q_OS_MACOS)
-    return std::make_unique<DefaultThemeBackend>(PlatformId::Mac);
+    return std::make_unique<RMacThemeBackend>();
 #elif defined(Q_OS_WIN)
     return std::make_unique<DefaultThemeBackend>(PlatformId::Windows);
 #else
