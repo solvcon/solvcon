@@ -541,6 +541,53 @@ class Save2DCanvasDialogTC(unittest.TestCase):
         self.assertEqual(data[:8], _PNG_MAGIC)
 
 
+@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+class InspectorLabelControlsTC(unittest.TestCase):
+    """Cover the inspector label controls' UI behavior only.
+
+    The entity tree presents the label switch and normal/advanced selector
+    inside collapsible sections. Driving the canvas overlay from them is
+    deferred to the labeling backend, so nothing here exercises the overlay.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.mgr = pilot.RManager.instance.setUp()
+
+    @staticmethod
+    def _tree(widget):
+        from solvcon.pilot._tree_panel import EntityTreeWidget
+        tree = EntityTreeWidget()
+        tree.set_canvas(widget)
+        return tree
+
+    def test_mode_radios_follow_switch(self):
+        widget = self.mgr.add2DWidget()
+        tree = self._tree(widget)
+        self.assertFalse(tree._label_modes["normal"].isEnabled())
+        tree._labels_check.setChecked(True)
+        self.assertTrue(tree._label_modes["normal"].isEnabled())
+
+    def test_world_tree_lives_in_entity_section(self):
+        widget = self.mgr.add2DWidget()
+        tree = self._tree(widget)
+        self.assertIs(tree._tree.parentWidget().parentWidget(),
+                      tree._tree_section)
+
+    def test_sections_collapse_independently(self):
+        widget = self.mgr.add2DWidget()
+        tree = self._tree(widget)
+        self.assertFalse(tree._tree_section.body().isHidden())
+        self.assertFalse(tree._label_section.body().isHidden())
+        tree._tree_section.set_expanded(False)
+        self.assertTrue(tree._tree_section.body().isHidden())
+        self.assertFalse(tree._label_section.body().isHidden())
+        tree._tree_section.set_expanded(True)
+        tree._label_section.set_expanded(False)
+        self.assertFalse(tree._tree_section.body().isHidden())
+        self.assertTrue(tree._label_section.body().isHidden())
+
+
 @unittest.skipIf(GITHUB_ACTIONS or not solvcon.HAS_PILOT,
                  "live-GUI interaction is unstable under GitHub Actions")
 class PainterToolboxTC(unittest.TestCase):

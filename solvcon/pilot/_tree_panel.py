@@ -9,11 +9,12 @@ import json
 
 import numpy as np
 
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QTreeWidget,
                                QTreeWidgetItem, QFrame, QDockWidget,
                                QStackedWidget, QHBoxLayout, QButtonGroup,
-                               QRadioButton)
+                               QRadioButton, QCheckBox, QPushButton,
+                               QSizePolicy)
 
 from .. import core
 from . import _gui_common
@@ -43,14 +44,20 @@ class TreePanelBase(QWidget):
         self._tree.setHeaderHidden(True)
         # Drop the tree frame so its scroll bar sits flush in the panel.
         self._tree.setFrameShape(QFrame.NoFrame)
+        # Keep the tree's content width from driving the dock width.
+        self._tree.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Expanding)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         self._build_header(layout)
-        layout.addWidget(self._tree)
+        self._build_body(layout)
         self.setLayout(layout)
 
     def _build_header(self, layout):
         """Add controls above the tree; the base panel adds none."""
+
+    def _build_body(self, layout):
+        """Place the tree below the header (EntityTreeWidget overrides it)."""
+        layout.addWidget(self._tree)
 
     def _show_placeholder(self, text):
         """Clear the tree and show a single ``text`` row."""
@@ -263,10 +270,76 @@ class MeshInfoTree(TreePanelBase):
             self.normals_toggled(checked)
 
 
+class _CollapsibleSection(QWidget):
+    """A titled block that folds to just its header when the header is clicked.
+
+    Toggling the header shows or hides the body and emits :attr:`toggled`. A
+    ``fill`` section gives its body the internal stretch, so height granted by
+    the owning panel grows the body rather than the header (see
+    :meth:`EntityTreeWidget._apply_tree_fill`).
+    """
+
+    toggled = Signal(bool)
+
+    _ARROW_OPEN = chr(0x25be)
+    _ARROW_SHUT = chr(0x25b8)
+
+    def __init__(self, title, body, fill=False, parent=None):
+        super().__init__(parent)
+        self._body = body
+        self._title = title
+        self._toggle = QPushButton()
+        self._toggle.setCheckable(True)
+        self._toggle.setChecked(True)
+        self._toggle.setFlat(True)
+        self._toggle.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        self._toggle.setStyleSheet(
+            """
+            QPushButton {
+                border: none;
+                font-weight: bold;
+                font-size: 14px;
+                padding: 4px 6px;
+                text-align: left;
+            }
+            QPushButton:hover {
+                background: rgba(127, 127, 127, 40);
+            }
+            """)
+        self._sync_toggle_text(True)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        layout.addWidget(self._toggle)
+        layout.addWidget(self._body, 1 if fill else 0)
+        self._toggle.toggled.connect(self._on_toggled)
+
+    def _sync_toggle_text(self, expanded):
+        arrow = self._ARROW_OPEN if expanded else self._ARROW_SHUT
+        self._toggle.setText(f"{arrow}   {self._title}")
+
+    def _on_toggled(self, expanded):
+        self._body.setVisible(expanded)
+        self._sync_toggle_text(expanded)
+        self.toggled.emit(expanded)
+
+    def body(self):
+        """The section's body widget, hidden while the section is folded."""
+        return self._body
+
+    def is_expanded(self):
+        return self._toggle.isChecked()
+
+    def set_expanded(self, expanded):
+        self._toggle.setChecked(expanded)
+
+
 class EntityTreeWidget(TreePanelBase):
     """Widget that presents the entity tree inside the dock."""
 
     LEVELS = ("basic", "diagnostics")
+
+    LABEL_MODES = ("normal", "advanced")
 
     # Poll period in milliseconds while the tree is on screen. The 2D canvas
     # mutates its world in C++ without a change signal, so the tree re-reads
@@ -280,6 +353,14 @@ class EntityTreeWidget(TreePanelBase):
 
     def __init__(self, world=None, parent=None):
         self._levels = {}
+        self._label_modes = {}
+        self._tree_section = None
+        self._label_section = None
+        self._panel_layout = None
+        self._tree_index = 0
+        self._tail_index = 0
+        self._canvas = None
+        self._syncing = False
         super().__init__(parent)
         self._world = None
         self._fingerprint = self._UNSET
@@ -301,9 +382,54 @@ class EntityTreeWidget(TreePanelBase):
         self._timer.stop()
 
     def _build_header(self, layout):
-        """Add the basic/diagnostics level selector above the tree."""
+        """Stack the labels section over the entity-tree section."""
+        self._panel_layout = layout
+        label_body = self._section_body()
+        self._build_label_controls(label_body.layout())
+        self._label_section = _CollapsibleSection("Labels", label_body)
+        layout.addWidget(self._label_section)
+        layout.addWidget(self._separator())
+        tree_body = self._section_body()
+        self._build_level_selector(tree_body.layout())
+        tree_body.layout().addWidget(self._tree, 1)
+        self._tree_section = _CollapsibleSection("Entity Tree", tree_body,
+                                                 fill=True)
+        layout.addWidget(self._tree_section)
+        self._tree_index = layout.count() - 1
+        layout.addStretch(0)
+        self._tail_index = layout.count() - 1
+        self._tree_section.toggled.connect(self._apply_tree_fill)
+        self._apply_tree_fill(self._tree_section.is_expanded())
+
+    def _apply_tree_fill(self, expanded):
+        """Give the spare height to the open tree, else to the tail stretch."""
+        self._panel_layout.setStretch(self._tree_index, 1 if expanded else 0)
+        self._panel_layout.setStretch(self._tail_index, 0 if expanded else 1)
+
+    def _build_body(self, layout):
+        """The tree is nested in the entity-tree section, not added here."""
+
+    @staticmethod
+    def _section_body():
+        """An empty container whose contents sit indented under the title."""
+        body = QWidget()
+        body_layout = QVBoxLayout(body)
+        body_layout.setContentsMargins(12, 2, 4, 6)
+        body_layout.setSpacing(2)
+        return body
+
+    @staticmethod
+    def _separator():
+        """A horizontal rule between two sections."""
+        line = QFrame()
+        line.setFrameShape(QFrame.HLine)
+        line.setFrameShadow(QFrame.Sunken)
+        return line
+
+    def _build_level_selector(self, layout):
+        """Add the basic/diagnostics level radios (the entity-tree block)."""
         level_row = QHBoxLayout()
-        level_row.setContentsMargins(4, 2, 4, 2)
+        level_row.setContentsMargins(0, 0, 0, 0)
         group = QButtonGroup(self)
         for level in self.LEVELS:
             button = QRadioButton(level)
@@ -315,6 +441,65 @@ class EntityTreeWidget(TreePanelBase):
         for button in self._levels.values():
             button.toggled.connect(self._on_level_toggled)
         layout.addLayout(level_row)
+
+    def _build_label_controls(self, layout):
+        """Add the canvas label switch and its normal/advanced selector.
+
+        Signals connect only after the defaults are set, so building the row
+        emits no stray toggles.
+        """
+        label_row = QHBoxLayout()
+        label_row.setContentsMargins(0, 0, 0, 0)
+        label_row.setSpacing(8)
+        self._labels_check = QCheckBox("show")
+        label_row.addWidget(self._labels_check)
+        mode_group = QButtonGroup(self)
+        for mode in self.LABEL_MODES:
+            button = QRadioButton(mode)
+            mode_group.addButton(button)
+            label_row.addWidget(button)
+            self._label_modes[mode] = button
+        label_row.addStretch(1)
+        self._label_modes["normal"].setChecked(True)
+        self._labels_check.setEnabled(False)
+        self._sync_label_controls_enabled()
+        self._labels_check.toggled.connect(self._on_labels_changed)
+        for button in self._label_modes.values():
+            button.toggled.connect(self._on_labels_changed)
+        layout.addLayout(label_row)
+
+    def _sync_label_controls_enabled(self):
+        """Enable the mode radios only when a canvas is bound and on."""
+        on = self._canvas is not None and self._labels_check.isChecked()
+        for button in self._label_modes.values():
+            button.setEnabled(on)
+
+    def _sync_label_controls(self):
+        """Reflect the bound canvas into the switch and selector."""
+        self._syncing = True
+        try:
+            self._labels_check.setEnabled(self._canvas is not None)
+            if self._canvas is None:
+                self._labels_check.setChecked(False)
+            # TODO(labeling): reflect the bound canvas's overlay (labels on,
+            # normal/advanced) into the switch and mode selector.
+            self._sync_label_controls_enabled()
+        finally:
+            self._syncing = False
+
+    def _on_labels_changed(self, _checked=False):
+        """Keep the mode selector's enabled state in step with the switch."""
+        self._sync_label_controls_enabled()
+        if self._syncing or self._canvas is None:
+            return
+        # TODO(labeling): push (labels on, normal/advanced) into the bound
+        # canvas's overlay so toggling draws the annotations.
+
+    def set_canvas(self, widget):
+        """Bind the active 2D canvas; ``None`` clears it."""
+        self._canvas = widget
+        self.set_world(widget.world if widget is not None else None)
+        self._sync_label_controls()
 
     @classmethod
     def make_world_info(cls, state):
@@ -523,9 +708,8 @@ class TreePanel(_gui_common.PilotFeature):
             self._mesh_tree.set_mesh(widget3d.mesh)
             return
         widget2d = self._mgr.currentR2DWidget()
-        if widget2d is not None:
-            self._stack.setCurrentWidget(self._entity_tree)
-            self._entity_tree.set_world(widget2d.world)
+        self._stack.setCurrentWidget(self._entity_tree)
+        self._entity_tree.set_canvas(widget2d)
 
     def _on_boundary_toggled(self, ibc, checked):
         widget = self._mgr.currentR3DWidget()
