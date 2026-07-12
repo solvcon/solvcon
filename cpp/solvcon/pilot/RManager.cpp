@@ -12,6 +12,7 @@
 #include <solvcon/pilot/DrawTool.hpp>
 #include <solvcon/pilot/RAction.hpp>
 #include <solvcon/pilot/RMenuModel.hpp>
+#include <solvcon/pilot/RThemeManager.hpp>
 #include <Qt>
 #include <QMenuBar>
 #include <QMenu>
@@ -50,6 +51,8 @@ RManager::RManager()
 
     m_mainWindow = new QMainWindow;
     m_mainWindow->setWindowIcon(QIcon(QString(":/icon.ico")));
+    // Parented to the manager to make color-scheme survive a window rebuild.
+    m_themeManager = new RThemeManager(this);
     // Do not call setUp() from the constructor.  Windows may crash with
     // "exited with code -1073740791".  The reason is not yet clarified.
 }
@@ -58,6 +61,13 @@ RManager & RManager::setUp()
 {
     if (!m_already_setup)
     {
+        if (m_themeManager == nullptr)
+        {
+            m_themeManager = new RThemeManager(this);
+        }
+        // Paint the style and palette for widgets to follow.
+        this->m_themeManager->setWindow(m_mainWindow);
+        this->m_themeManager->apply();
         this->setUpConsole();
         this->setUpCentral();
         this->primeRhiComposition();
@@ -80,6 +90,10 @@ void RManager::reset()
     {
         m_menuModel->clear();
     }
+    // Tear the theme controller down before the application it connected to, so
+    // its OS color-scheme connection unwinds while that application is alive.
+    delete m_themeManager;
+    m_themeManager = nullptr;
     m_owned_core.reset(); // Deletes the application only if the pilot made it.
     m_core = nullptr;
     m_mainWindow = nullptr;

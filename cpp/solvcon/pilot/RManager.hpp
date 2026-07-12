@@ -32,6 +32,7 @@ namespace solvcon
 {
 
 class RMenuModel;
+class RThemeManager;
 
 /**
  * @brief Singleton that owns the pilot main window and coordinates its
@@ -84,6 +85,9 @@ public:
     /// The live model of the menu bar, addressable by path from Python.
     RMenuModel * menuModel() { return m_menuModel; }
 
+    /// The application-wide theme controller, scriptable from Python.
+    RThemeManager * themeManager() { return m_themeManager; }
+
     void quit() { m_core->quit(); }
 
     /// Only call reset() when the program is to be stopped.
@@ -132,6 +136,10 @@ private:
 
     /// Live menu model owned by the widget tree (parented to the main window).
     RMenuModel * m_menuModel = nullptr;
+
+    /// Application-wide theme controller, parented to the manager so it and its
+    /// OS color-scheme connection outlive each rebuild of the main window.
+    RThemeManager * m_themeManager = nullptr;
 
     RPythonConsoleDockWidget * m_pycon = nullptr;
     QMdiArea * m_mdiArea = nullptr;
