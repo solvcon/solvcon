@@ -1,4 +1,3 @@
-
 # Copyright (c) 2026, solvcon team <contact@solvcon.net>
 # BSD 3-Clause License, see COPYING
 
@@ -24,17 +23,19 @@ from solvcon.track.kalmanfilter import (
 
 
 DT = 0.02
+ZERO3 = np.zeros(3, dtype='float64')
+EYE3 = np.eye(3, dtype='float64')
 
 
 def _rest_state():
-    state = np.zeros(10)
+    state = np.zeros(10, dtype='float64')
     state[0] = WGS84_SEMI_MAJOR
     state[9] = 1.0
     return state
 
 
 def _two_body_gravity(position):
-    position = np.asarray(position, dtype=float)
+    position = np.asarray(position, dtype='float64')
     r = float(np.linalg.norm(position))
     return -WGS84_GM * position / r ** 3
 
@@ -48,14 +49,14 @@ class _StubEvent:
 class QuaternionMathTC(unittest.TestCase):
 
     def test_skew_matches_cross_product(self):
-        v = np.array([0.3, -1.2, 2.5])
-        u = np.array([-0.7, 0.4, 1.1])
+        v = np.array([0.3, -1.2, 2.5], dtype='float64')
+        u = np.array([-0.7, 0.4, 1.1], dtype='float64')
         np.testing.assert_allclose(
             kalmanfilter._skew(v) @ u, np.cross(v, u), atol=1e-15,
         )
 
     def test_skew_antisymmetric(self):
-        m = kalmanfilter._skew(np.array([1.0, 2.0, 3.0]))
+        m = kalmanfilter._skew(np.array([1.0, 2.0, 3.0], dtype='float64'))
         np.testing.assert_array_equal(m.T, -m)
 
     def test_identity_value(self):
@@ -99,12 +100,12 @@ class QuaternionMathTC(unittest.TestCase):
 
     def test_dcm_of_identity(self):
         np.testing.assert_array_equal(
-            quat_to_dcm(quat_identity()), np.eye(3),
+            quat_to_dcm(quat_identity()), EYE3,
         )
 
     def test_dcm_orthonormal_proper(self):
         r = quat_to_dcm(rotvec_to_quat([0.4, -0.9, 1.3]))
-        np.testing.assert_allclose(r @ r.T, np.eye(3), atol=1e-12)
+        np.testing.assert_allclose(r @ r.T, EYE3, atol=1e-12)
         self.assertAlmostEqual(float(np.linalg.det(r)), 1.0, places=12)
 
     def test_dcm_quarter_turn_convention(self):
@@ -115,11 +116,11 @@ class QuaternionMathTC(unittest.TestCase):
 
     def test_rotvec_zero_gives_identity(self):
         np.testing.assert_array_equal(
-            rotvec_to_quat(np.zeros(3)), quat_identity(),
+            rotvec_to_quat(ZERO3), quat_identity(),
         )
 
     def test_rotvec_small_angle_series(self):
-        theta = np.array([1.0e-13, 0.0, 0.0])
+        theta = np.array([1.0e-13, 0.0, 0.0], dtype='float64')
         q = rotvec_to_quat(theta)
         np.testing.assert_allclose(
             q, [5.0e-14, 0.0, 0.0, 1.0], rtol=1e-6, atol=0.0,
@@ -133,11 +134,11 @@ class QuaternionMathTC(unittest.TestCase):
 
     def test_rotvec_dcm_matches_rodrigues(self):
         for theta in ([0.5, 0.0, 0.0], [0.1, -0.7, 0.4], [-1.2, 0.3, 2.1]):
-            theta = np.asarray(theta)
+            theta = np.asarray(theta, dtype='float64')
             angle = float(np.linalg.norm(theta))
             axis = theta / angle
             expected = (
-                np.cos(angle) * np.eye(3)
+                np.cos(angle) * EYE3
                 + (1.0 - np.cos(angle)) * np.outer(axis, axis)
                 - np.sin(angle) * kalmanfilter._skew(axis)
             )
@@ -150,7 +151,7 @@ class DlcImuConstantTC(unittest.TestCase):
 
     def test_dcm_con_imu_orthonormal(self):
         r = DLC_IMU_DCM_CON_IMU
-        np.testing.assert_allclose(r @ r.T, np.eye(3), atol=5e-4)
+        np.testing.assert_allclose(r @ r.T, EYE3, atol=5e-4)
 
     def test_dcm_con_imu_proper_rotation(self):
         det = float(np.linalg.det(DLC_IMU_DCM_CON_IMU))
@@ -167,7 +168,7 @@ class GravityModelTC(unittest.TestCase):
 
     def test_two_body_general_position(self):
         kf = InertialKalmanFilter(_rest_state(), dt=DT, use_j2=False)
-        p = np.array([3.0e6, -4.0e6, 2.5e6])
+        p = np.array([3.0e6, -4.0e6, 2.5e6], dtype='float64')
         np.testing.assert_allclose(
             kf.gravity(p), _two_body_gravity(p), rtol=1e-14,
         )
@@ -194,7 +195,7 @@ class GravityModelTC(unittest.TestCase):
 
     def test_zero_position_returns_zero(self):
         kf = InertialKalmanFilter(_rest_state(), dt=DT)
-        np.testing.assert_array_equal(kf.gravity(np.zeros(3)), np.zeros(3))
+        np.testing.assert_array_equal(kf.gravity(ZERO3), ZERO3)
 
 
 class FilterConstructionTC(unittest.TestCase):
@@ -203,11 +204,11 @@ class FilterConstructionTC(unittest.TestCase):
         with self.assertRaisesRegex(
             ValueError, "initial_state must have shape",
         ):
-            InertialKalmanFilter(np.zeros(9), dt=DT)
+            InertialKalmanFilter(np.zeros(9, dtype='float64'), dt=DT)
 
     def test_rejects_zero_quaternion(self):
         with self.assertRaisesRegex(ValueError, "zero norm"):
-            InertialKalmanFilter(np.zeros(10), dt=DT)
+            InertialKalmanFilter(np.zeros(10, dtype='float64'), dt=DT)
 
     def test_rejects_zero_dt(self):
         with self.assertRaisesRegex(ValueError, "strictly positive"):
@@ -235,6 +236,7 @@ class FilterConstructionTC(unittest.TestCase):
     def test_state_roundtrip(self):
         state = np.array(
             [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 0.0, 0.0, 0.0, 1.0],
+            dtype='float64',
         )
         kf = InertialKalmanFilter(state, dt=DT)
         np.testing.assert_array_equal(kf.position, [1.0, 2.0, 3.0])
@@ -243,10 +245,10 @@ class FilterConstructionTC(unittest.TestCase):
 
     def test_lever_arm_defaults_to_zero(self):
         kf = InertialKalmanFilter(_rest_state(), dt=DT)
-        np.testing.assert_array_equal(kf.lever_arm, np.zeros(3))
+        np.testing.assert_array_equal(kf.lever_arm, ZERO3)
 
     def test_lever_arm_stored_as_copy(self):
-        arm = np.array([0.1, 0.2, 0.3])
+        arm = np.array([0.1, 0.2, 0.3], dtype='float64')
         kf = InertialKalmanFilter(_rest_state(), dt=DT, lever_arm=arm)
         arm[0] = 99.0
         np.testing.assert_array_equal(kf.lever_arm, [0.1, 0.2, 0.3])
@@ -263,9 +265,9 @@ class FilterPredictTC(unittest.TestCase):
         p0 = kf.position
         dv = -kf.gravity(p0) * DT
         for _ in range(50):
-            kf.predict(dv, np.zeros(3))
+            kf.predict(dv, ZERO3)
         np.testing.assert_allclose(kf.position, p0, rtol=0.0, atol=1e-6)
-        np.testing.assert_allclose(kf.velocity, np.zeros(3), atol=1e-9)
+        np.testing.assert_allclose(kf.velocity, ZERO3, atol=1e-9)
         np.testing.assert_allclose(
             kf.quaternion, quat_identity(), atol=1e-15,
         )
@@ -276,7 +278,7 @@ class FilterPredictTC(unittest.TestCase):
         )
         p0 = kf.position
         g0 = _two_body_gravity(p0)
-        kf.predict(np.zeros(3), np.zeros(3))
+        kf.predict(ZERO3, ZERO3)
         np.testing.assert_allclose(kf.velocity, g0 * DT, rtol=1e-12)
         np.testing.assert_allclose(
             kf.position - p0, 0.5 * g0 * DT ** 2, rtol=1e-5, atol=1e-12,
@@ -293,8 +295,8 @@ class FilterPredictTC(unittest.TestCase):
         g1 = _two_body_gravity(p1)
         v2 = v1 + g1 * DT
         p2 = p1 + v1 * DT + 0.5 * g1 * DT ** 2
-        kf.predict(np.zeros(3), np.zeros(3))
-        kf.predict(np.zeros(3), np.zeros(3))
+        kf.predict(ZERO3, ZERO3)
+        kf.predict(ZERO3, ZERO3)
         np.testing.assert_allclose(kf.velocity, v2, rtol=1e-10)
         np.testing.assert_allclose(
             kf.position - p0, p2 - p0, rtol=1e-5, atol=1e-12,
@@ -303,9 +305,9 @@ class FilterPredictTC(unittest.TestCase):
     def test_commanded_acceleration_single_step(self):
         kf = InertialKalmanFilter(_rest_state(), dt=DT, earth_rate=0.0)
         p0 = kf.position
-        a_cmd = np.array([0.0, 2.5, 0.0])
+        a_cmd = np.array([0.0, 2.5, 0.0], dtype='float64')
         dv = (a_cmd - kf.gravity(p0)) * DT
-        kf.predict(dv, np.zeros(3))
+        kf.predict(dv, ZERO3)
         np.testing.assert_allclose(
             kf.velocity, a_cmd * DT, rtol=1e-9, atol=1e-15,
         )
@@ -315,15 +317,15 @@ class FilterPredictTC(unittest.TestCase):
 
     def test_pure_spin_integrates_attitude(self):
         kf = InertialKalmanFilter(_rest_state(), dt=DT, earth_rate=0.0)
-        dtheta = np.array([0.0, 0.0, 0.008])
+        dtheta = np.array([0.0, 0.0, 0.008], dtype='float64')
         nstep = 25
         for _ in range(nstep):
-            kf.predict(np.zeros(3), dtheta)
+            kf.predict(ZERO3, dtheta)
         total = dtheta * nstep
         angle = float(np.linalg.norm(total))
         axis = total / angle
         expected_dcm = (
-            np.cos(angle) * np.eye(3)
+            np.cos(angle) * EYE3
             + (1.0 - np.cos(angle)) * np.outer(axis, axis)
             + np.sin(angle) * kalmanfilter._skew(axis)
         )
@@ -333,9 +335,9 @@ class FilterPredictTC(unittest.TestCase):
 
     def test_quaternion_norm_preserved(self):
         kf = InertialKalmanFilter(_rest_state(), dt=DT, earth_rate=0.0)
-        dtheta = np.array([0.01, -0.02, 0.015])
+        dtheta = np.array([0.01, -0.02, 0.015], dtype='float64')
         for _ in range(200):
-            kf.predict(np.zeros(3), dtheta)
+            kf.predict(ZERO3, dtheta)
         norm = float(np.linalg.norm(kf.quaternion))
         self.assertAlmostEqual(norm, 1.0, places=12)
 
@@ -345,12 +347,12 @@ class FilterPredictTC(unittest.TestCase):
         g0 = kf.gravity(p0)
         centrifugal = np.array([
             EARTH_RATE ** 2 * p0[0], EARTH_RATE ** 2 * p0[1], 0.0,
-        ])
+        ], dtype='float64')
         dv = (-g0 - centrifugal) * DT
-        dtheta = np.array([0.0, 0.0, EARTH_RATE * DT])
+        dtheta = np.array([0.0, 0.0, EARTH_RATE * DT], dtype='float64')
         for _ in range(20):
             kf.predict(dv, dtheta)
-        np.testing.assert_allclose(kf.velocity, np.zeros(3), atol=1e-7)
+        np.testing.assert_allclose(kf.velocity, ZERO3, atol=1e-7)
         np.testing.assert_allclose(
             kf.quaternion, quat_identity(), atol=1e-12,
         )
@@ -362,7 +364,7 @@ class FilterPredictTC(unittest.TestCase):
         state[3:6] = [0.0, vel, 0.0]
         kf = InertialKalmanFilter(state, dt=DT, include_centrifugal=False)
         dv = -kf.gravity(kf.position) * DT
-        kf.predict(dv, np.zeros(3))
+        kf.predict(dv, ZERO3)
         expected_vx = 2.0 * EARTH_RATE * vel * DT
         np.testing.assert_allclose(
             kf.velocity, [expected_vx, vel, 0.0], rtol=1e-12, atol=1e-15,
@@ -374,28 +376,28 @@ class FilterPredictTC(unittest.TestCase):
             _rest_state(), dt=DT, include_centrifugal=False,
         )
         dv = -kf_on.gravity(kf_on.position) * DT
-        kf_on.predict(dv, np.zeros(3))
-        kf_off.predict(dv, np.zeros(3))
+        kf_on.predict(dv, ZERO3)
+        kf_off.predict(dv, ZERO3)
         diff = kf_on.velocity - kf_off.velocity
         expected = [EARTH_RATE ** 2 * WGS84_SEMI_MAJOR * DT, 0.0, 0.0]
         np.testing.assert_allclose(diff, expected, rtol=1e-12, atol=1e-15)
 
     def test_lever_arm_zero_equals_disabled(self):
         kf_zero = InertialKalmanFilter(
-            _rest_state(), dt=DT, earth_rate=0.0, lever_arm=np.zeros(3),
+            _rest_state(), dt=DT, earth_rate=0.0, lever_arm=ZERO3,
         )
         kf_none = InertialKalmanFilter(
             _rest_state(), dt=DT, earth_rate=0.0, lever_arm=None,
         )
-        dv = np.array([0.1, -0.2, 0.3])
-        dtheta = np.array([0.01, 0.02, -0.03])
+        dv = np.array([0.1, -0.2, 0.3], dtype='float64')
+        dtheta = np.array([0.01, 0.02, -0.03], dtype='float64')
         for _ in range(3):
             kf_zero.predict(dv, dtheta)
             kf_none.predict(dv, dtheta)
         np.testing.assert_array_equal(kf_zero.state, kf_none.state)
 
     def test_lever_arm_correction(self):
-        arm = np.array([0.1, -0.2, 0.5])
+        arm = np.array([0.1, -0.2, 0.5], dtype='float64')
         kf_arm = InertialKalmanFilter(
             _rest_state(), dt=DT, earth_rate=0.0, lever_arm=arm,
         )
@@ -403,13 +405,13 @@ class FilterPredictTC(unittest.TestCase):
             _rest_state(), dt=DT, earth_rate=0.0, lever_arm=None,
         )
 
-        kf_arm.predict(np.zeros(3), np.zeros(3))
-        kf_ref.predict(np.zeros(3), np.zeros(3))
+        kf_arm.predict(ZERO3, ZERO3)
+        kf_ref.predict(ZERO3, ZERO3)
         np.testing.assert_array_equal(kf_arm.state, kf_ref.state)
 
-        dtheta = np.array([0.02, 0.04, -0.06])
-        kf_arm.predict(np.zeros(3), dtheta)
-        kf_ref.predict(np.zeros(3), dtheta)
+        dtheta = np.array([0.02, 0.04, -0.06], dtype='float64')
+        kf_arm.predict(ZERO3, dtheta)
+        kf_ref.predict(ZERO3, dtheta)
         omega = dtheta / DT
         correction = (
             np.cross(omega, np.cross(omega, arm)) * DT
@@ -423,13 +425,13 @@ class FilterPredictTC(unittest.TestCase):
 
     def test_predict_returns_current_state(self):
         kf = InertialKalmanFilter(_rest_state(), dt=DT, earth_rate=0.0)
-        ret = kf.predict(np.zeros(3), np.zeros(3))
+        ret = kf.predict(ZERO3, ZERO3)
         np.testing.assert_array_equal(ret, kf.state)
 
     def test_covariance_trace_increases(self):
         kf = InertialKalmanFilter(_rest_state(), dt=DT, earth_rate=0.0)
         trace0 = float(np.trace(kf.covariance))
-        kf.predict(np.zeros(3), np.zeros(3))
+        kf.predict(ZERO3, ZERO3)
         self.assertGreater(float(np.trace(kf.covariance)), trace0)
 
     def test_accepts_python_lists(self):
@@ -469,11 +471,12 @@ class EventHelperTC(unittest.TestCase):
         for i in (1, 2, 3, 4):
             data[f"truth_quat_CON2ECEF[{i}]"] = float(6 + i)
         state = kalmanfilter._initial_state_from_event(_StubEvent(data))
-        np.testing.assert_array_equal(state, np.arange(1.0, 11.0))
+        expected = np.arange(1.0, 11.0, dtype='float64')
+        np.testing.assert_array_equal(state, expected)
 
     def test_imu_increments_rotate_into_con(self):
-        dv_imu = np.array([1.0, 2.0, 3.0])
-        da_imu = np.array([0.1, 0.2, 0.3])
+        dv_imu = np.array([1.0, 2.0, 3.0], dtype='float64')
+        da_imu = np.array([0.1, 0.2, 0.3], dtype='float64')
         data = {}
         for i in (1, 2, 3):
             data[f"DATA_DELTA_VEL[{i}]"] = dv_imu[i - 1]

@@ -29,7 +29,7 @@ Kalman filter for strapdown inertial navigation in the Earth-centered
 Earth-fixed (ECEF) frame.
 
 This module is tailored to the Blue Origin Deorbit, Descent, and Landing
-Tipping Point (BODDL-TP) NASA dataset:
+Tipping Point (BODDL-TP) NASA dataset.
 
 The propagated state vector is
 
@@ -73,10 +73,12 @@ DLC_IMU_DCM_CON_IMU = np.array([
     [-0.2477, -0.1673,  0.9543],
     [-0.0478,  0.9859,  0.1604],
     [-0.9677, -0.0059, -0.2522],
-])
+], dtype='float64')
 """DCM that rotates a vector in the DLC IMU frame into the CON frame."""
 
-DLC_IMU_LEVER_ARM_CON = np.array([-0.08035, 0.28390, -1.42333])
+DLC_IMU_LEVER_ARM_CON = np.array(
+    [-0.08035, 0.28390, -1.42333], dtype='float64',
+)
 """Position of the DLC IMU in the CON frame, relative to CON (m)."""
 
 STATE_DIM = 10
@@ -96,7 +98,7 @@ def _skew(v):
         [0.0, -v[2], v[1]],
         [v[2], 0.0, -v[0]],
         [-v[1], v[0], 0.0],
-    ])
+    ], dtype='float64')
 
 
 def quat_identity():
@@ -106,7 +108,7 @@ def quat_identity():
     :return: Array ``[0, 0, 0, 1]``.
     :rtype: numpy.ndarray
     """
-    return np.array([0.0, 0.0, 0.0, 1.0])
+    return np.array([0.0, 0.0, 0.0, 1.0], dtype='float64')
 
 
 def quat_multiply(q1, q2):
@@ -123,14 +125,14 @@ def quat_multiply(q1, q2):
     :return: Composed quaternion ``[v0, v1, v2, s]``.
     :rtype: numpy.ndarray
     """
-    v1 = np.asarray(q1[0:3], dtype=float)
+    v1 = np.asarray(q1[0:3], dtype='float64')
     s1 = float(q1[3])
-    v2 = np.asarray(q2[0:3], dtype=float)
+    v2 = np.asarray(q2[0:3], dtype='float64')
     s2 = float(q2[3])
 
     s = s1 * s2 - float(np.dot(v1, v2))
     v = s1 * v2 + s2 * v1 - np.cross(v1, v2)
-    return np.array([v[0], v[1], v[2], s])
+    return np.array([v[0], v[1], v[2], s], dtype='float64')
 
 
 def quat_to_dcm(q):
@@ -143,10 +145,11 @@ def quat_to_dcm(q):
     :return: 3x3 body-to-reference rotation matrix.
     :rtype: numpy.ndarray
     """
-    v = np.asarray(q[0:3], dtype=float)
+    v = np.asarray(q[0:3], dtype='float64')
     s = float(q[3])
     vv = float(np.dot(v, v))
-    return (s * s - vv) * np.eye(3) + 2.0 * np.outer(v, v) - 2.0 * s * _skew(v)
+    eye3 = np.eye(3, dtype='float64')
+    return (s * s - vv) * eye3 + 2.0 * np.outer(v, v) - 2.0 * s * _skew(v)
 
 
 def rotvec_to_quat(theta):
@@ -159,12 +162,14 @@ def rotvec_to_quat(theta):
     :return: Unit quaternion ``[v0, v1, v2, s]``.
     :rtype: numpy.ndarray
     """
-    theta = np.asarray(theta, dtype=float)
+    theta = np.asarray(theta, dtype='float64')
     angle = float(np.linalg.norm(theta))
     if angle < 1.0e-12:
         half = 0.5 * theta
         scalar = 1.0 - 0.125 * float(np.dot(theta, theta))
-        return np.array([half[0], half[1], half[2], scalar])
+        return np.array(
+            [half[0], half[1], half[2], scalar], dtype='float64',
+        )
     half = 0.5 * angle
     axis = theta / angle
     sin_half = np.sin(half)
@@ -173,7 +178,7 @@ def rotvec_to_quat(theta):
         axis[1] * sin_half,
         axis[2] * sin_half,
         np.cos(half),
-    ])
+    ], dtype='float64')
 
 
 class InertialKalmanFilter:
@@ -248,7 +253,7 @@ class InertialKalmanFilter:
             correction (default).
         :type lever_arm: numpy.ndarray or None
         """
-        state = np.asarray(initial_state, dtype=float).copy()
+        state = np.asarray(initial_state, dtype='float64').copy()
         if state.shape != (STATE_DIM,):
             raise ValueError(
                 f"initial_state must have shape ({STATE_DIM},), "
@@ -267,29 +272,30 @@ class InertialKalmanFilter:
         self.use_j2 = bool(use_j2)
         self.include_centrifugal = bool(include_centrifugal)
         if lever_arm is None:
-            self.lever_arm = np.zeros(3)
+            self.lever_arm = np.zeros(3, dtype='float64')
         else:
             self.lever_arm = np.asarray(
-                lever_arm, dtype=float,
+                lever_arm, dtype='float64',
             ).reshape(3).copy()
 
         self._prev_omega_body = None
 
         # Bake the dt-dependent linear pieces of the strapdown dynamics
         # into F now that dt is fixed
-        f_matrix = np.eye(STATE_DIM)
-        f_matrix[0:3, 3:6] = dt * np.eye(3)
+        f_matrix = np.eye(STATE_DIM, dtype='float64')
+        f_matrix[0:3, 3:6] = dt * np.eye(3, dtype='float64')
         omega_ie_skew = np.array([
             [0.0, -self.earth_rate, 0.0],
             [self.earth_rate, 0.0, 0.0],
             [0.0, 0.0, 0.0],
-        ])
+        ], dtype='float64')
         f_matrix[3:6, 3:6] += -2.0 * omega_ie_skew * dt
         if self.include_centrifugal:
             omega_sq = self.earth_rate * self.earth_rate
-            f_matrix[3:6, 0:3] += np.diag([omega_sq, omega_sq, 0.0]) * dt
+            cf = np.array([omega_sq, omega_sq, 0.0], dtype='float64')
+            f_matrix[3:6, 0:3] += np.diag(cf) * dt
         self._f_matrix = f_matrix
-        self._b_matrix = np.eye(STATE_DIM, CONTROL_DIM)
+        self._b_matrix = np.eye(STATE_DIM, CONTROL_DIM, dtype='float64')
 
         h_sa = SimpleArrayFloat64([1, STATE_DIM])
 
@@ -351,10 +357,10 @@ class InertialKalmanFilter:
         :return: Gravitational acceleration in ECEF (m/s^2).
         :rtype: numpy.ndarray
         """
-        position = np.asarray(position, dtype=float)
+        position = np.asarray(position, dtype='float64')
         r = float(np.linalg.norm(position))
         if r <= 0.0:
-            return np.zeros(3)
+            return np.zeros(3, dtype='float64')
 
         x, y, z = position
         base = -WGS84_GM / (r ** 3)
@@ -368,7 +374,7 @@ class InertialKalmanFilter:
             base * x * (1.0 - c * (5.0 * zr2 - 1.0)),
             base * y * (1.0 - c * (5.0 * zr2 - 1.0)),
             base * z * (1.0 - c * (5.0 * zr2 - 3.0)),
-        ])
+        ], dtype='float64')
 
     def predict(self, delta_vel_body, delta_angle_body):
         """
@@ -384,14 +390,18 @@ class InertialKalmanFilter:
         :rtype: numpy.ndarray
         """
         dt = self.dt
-        delta_vel_body = np.asarray(delta_vel_body, dtype=float).reshape(3)
-        delta_angle_body = np.asarray(delta_angle_body, dtype=float).reshape(3)
+        delta_vel_body = np.asarray(
+            delta_vel_body, dtype='float64',
+        ).reshape(3)
+        delta_angle_body = np.asarray(
+            delta_angle_body, dtype='float64',
+        ).reshape(3)
 
         # Lever-arm correction
         omega = delta_angle_body / dt
         if np.any(self.lever_arm):
             if self._prev_omega_body is None:
-                delta_omega = np.zeros(3)
+                delta_omega = np.zeros(3, dtype='float64')
             else:
                 delta_omega = omega - self._prev_omega_body
             centripetal = (
@@ -407,7 +417,7 @@ class InertialKalmanFilter:
 
         dcm_be = quat_to_dcm(q_k)
         dcm_eb = dcm_be.T
-        omega_ie = np.array([0.0, 0.0, self.earth_rate])
+        omega_ie = np.array([0.0, 0.0, self.earth_rate], dtype='float64')
 
         dv_ecef = dcm_be @ delta_vel_body
         g = self.gravity(p_k)
@@ -422,7 +432,7 @@ class InertialKalmanFilter:
         # ``v*dt``, Coriolis, and the linear centrifugal coupling are
         # already applied by ``F x_k``; ``u`` only carries the residual
         # state-dependent pieces.
-        u = np.zeros(CONTROL_DIM)
+        u = np.zeros(CONTROL_DIM, dtype='float64')
         u[0:3] = 0.5 * dt * dv_grav
         u[3:6] = dv_grav
         u[6:10] = q_new - q_k
@@ -452,7 +462,7 @@ def _initial_state_from_event(gt_event):
         data["truth_quat_CON2ECEF[2]"],
         data["truth_quat_CON2ECEF[3]"],
         data["truth_quat_CON2ECEF[4]"],
-    ], dtype=float)
+    ], dtype='float64')
 
 
 def _imu_increments(imu_event):
@@ -470,12 +480,12 @@ def _imu_increments(imu_event):
         data["DATA_DELTA_VEL[1]"],
         data["DATA_DELTA_VEL[2]"],
         data["DATA_DELTA_VEL[3]"],
-    ], dtype=float)
+    ], dtype='float64')
     da_imu = np.array([
         data["DATA_DELTA_ANGLE[1]"],
         data["DATA_DELTA_ANGLE[2]"],
         data["DATA_DELTA_ANGLE[3]"],
-    ], dtype=float)
+    ], dtype='float64')
     dv = DLC_IMU_DCM_CON_IMU @ dv_imu
     da = DLC_IMU_DCM_CON_IMU @ da_imu
     return dv, da
@@ -495,19 +505,19 @@ def _gt_pos_vel(gt_event):
         data["truth_pos_CON_ECEF_ECEF_M[1]"],
         data["truth_pos_CON_ECEF_ECEF_M[2]"],
         data["truth_pos_CON_ECEF_ECEF_M[3]"],
-    ], dtype=float)
+    ], dtype='float64')
     v = np.array([
         data["truth_vel_CON_ECEF_ECEF_MpS[1]"],
         data["truth_vel_CON_ECEF_ECEF_MpS[2]"],
         data["truth_vel_CON_ECEF_ECEF_MpS[3]"],
-    ], dtype=float)
+    ], dtype='float64')
     return p, v
 
 
 def _figure_path(prefix):
     """
-    Build the PNG output path by appending the fixed figure file name
-    ``kf_predict.png`` to the user-supplied path-and-file-name prefix.
+    Build the PNG output path by appending the fixed suffix
+    ``_kf_predict.png`` to the user-supplied path-and-file-name prefix.
 
     :param prefix: Output directory path plus file-name prefix.
     :type prefix: str
@@ -591,12 +601,12 @@ def _predict_flight():
             gt_p.append(p)
             gt_v.append(v)
 
-    pred_t = np.asarray(pred_t)
-    pred_p = np.asarray(pred_p)
-    pred_v = np.asarray(pred_v)
-    gt_t = np.asarray(gt_t)
-    gt_p = np.asarray(gt_p)
-    gt_v = np.asarray(gt_v)
+    pred_t = np.asarray(pred_t, dtype='float64')
+    pred_p = np.asarray(pred_p, dtype='float64')
+    pred_v = np.asarray(pred_v, dtype='float64')
+    gt_t = np.asarray(gt_t, dtype='float64')
+    gt_p = np.asarray(gt_p, dtype='float64')
+    gt_v = np.asarray(gt_v, dtype='float64')
 
     # Interpolation so the error is evaluated at the same
     # instants as the ground-truth samples.
@@ -626,10 +636,9 @@ def main(argv=None):
         "--save-fig-prefix",
         default=None,
         help="path plus file-name prefix for saving the results figure; "
-             "the fixed name 'kf_predict.png' is appended verbatim, so "
-             "'/tmp/run1_' gives /tmp/run1_kf_predict.png and '/tmp/out/' "
-             "gives /tmp/out/kf_predict.png; when omitted the figure is "
-             "shown in a window instead",
+             "the fixed suffix '_kf_predict.png' is appended, so "
+             "'/tmp/run1' gives /tmp/run1_kf_predict.png; when omitted "
+             "the figure is shown in a window instead",
     )
     args = parser.parse_args(argv)
 
