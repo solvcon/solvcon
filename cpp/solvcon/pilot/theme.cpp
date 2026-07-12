@@ -122,6 +122,61 @@ static ThemePalette makeMacDarkPalette()
     return p;
 }
 
+// The Windows tables follow the Fluent conventions of Windows 11: a light
+// neutral window and a near-black dark window, with the default system blue as
+// the fallback accent. A running Windows backend replaces the highlight with
+// the operating system accent when it reads one.
+
+static ThemePalette makeWindowsLightPalette()
+{
+    ThemePalette p;
+    p.window = {0xf3, 0xf3, 0xf3};
+    p.window_text = {0x1a, 0x1a, 0x1a};
+    p.base = {0xff, 0xff, 0xff};
+    p.alternate_base = {0xf5, 0xf5, 0xf5};
+    p.text = {0x1a, 0x1a, 0x1a};
+    p.button = {0xfb, 0xfb, 0xfb};
+    p.button_text = {0x1a, 0x1a, 0x1a};
+    p.bright_text = {0xc4, 0x2b, 0x1c};
+    p.highlight = {0x00, 0x67, 0xc0};
+    p.highlighted_text = {0xff, 0xff, 0xff};
+    p.tool_tip_base = {0xf9, 0xf9, 0xf9};
+    p.tool_tip_text = {0x1a, 0x1a, 0x1a};
+    p.placeholder_text = {0x8a, 0x8a, 0x8a};
+    p.link = {0x00, 0x5a, 0x9e};
+    p.link_visited = {0x74, 0x4d, 0xa9};
+    p.disabled_text = {0xa8, 0xa8, 0xa8};
+    p.disabled_button_text = {0xa8, 0xa8, 0xa8};
+    p.disabled_window_text = {0xa8, 0xa8, 0xa8};
+    p.disabled_highlight = {0xcc, 0xcc, 0xcc};
+    return p;
+}
+
+static ThemePalette makeWindowsDarkPalette()
+{
+    ThemePalette p;
+    p.window = {0x20, 0x20, 0x20};
+    p.window_text = {0xf0, 0xf0, 0xf0};
+    p.base = {0x2b, 0x2b, 0x2b};
+    p.alternate_base = {0x30, 0x30, 0x30};
+    p.text = {0xf0, 0xf0, 0xf0};
+    p.button = {0x33, 0x33, 0x33};
+    p.button_text = {0xf0, 0xf0, 0xf0};
+    p.bright_text = {0xff, 0x99, 0x8a};
+    p.highlight = {0x4c, 0xc2, 0xff};
+    p.highlighted_text = {0x00, 0x00, 0x00};
+    p.tool_tip_base = {0x2b, 0x2b, 0x2b};
+    p.tool_tip_text = {0xf0, 0xf0, 0xf0};
+    p.placeholder_text = {0x9a, 0x9a, 0x9a};
+    p.link = {0x60, 0xcd, 0xff};
+    p.link_visited = {0xc5, 0x9a, 0xf0};
+    p.disabled_text = {0x6e, 0x6e, 0x6e};
+    p.disabled_button_text = {0x6e, 0x6e, 0x6e};
+    p.disabled_window_text = {0x6e, 0x6e, 0x6e};
+    p.disabled_highlight = {0x3a, 0x3a, 0x3a};
+    return p;
+}
+
 // The syntax colors keep the light table's familiar hues (a blue keyword, a
 // teal builtin, a red string, a magenta number) and lift each to a brighter,
 // lower-saturation tint for the dark table so the tokens read clearly on the
@@ -214,16 +269,29 @@ static ThemePalette const & macDarkThemePalette()
     return palette;
 }
 
+static ThemePalette const & windowsLightThemePalette()
+{
+    static ThemePalette const palette = makeWindowsLightPalette();
+    return palette;
+}
+
+static ThemePalette const & windowsDarkThemePalette()
+{
+    static ThemePalette const palette = makeWindowsDarkPalette();
+    return palette;
+}
+
 ThemePalette const & themePaletteFor(PlatformId platform, ThemeVariant variant)
 {
-    // macOS has its own room; the other platforms still draw from the shared
-    // curated tables until their rooms are furnished in later steps.
+    // macOS and Windows have their own rooms; Linux still draws from the shared
+    // curated tables until its room is furnished.
     bool const dark = variant == ThemeVariant::Dark;
     switch (platform)
     {
     case PlatformId::Mac:
         return dark ? macDarkThemePalette() : macLightThemePalette();
     case PlatformId::Windows:
+        return dark ? windowsDarkThemePalette() : windowsLightThemePalette();
     case PlatformId::Linux:
     default:
         return dark ? darkThemePalette() : lightThemePalette();

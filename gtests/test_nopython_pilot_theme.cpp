@@ -97,15 +97,11 @@ TEST(PilotThemePalette, EveryPlatformSelectsTheVariantTable)
 
 TEST(PilotThemePalette, UnfurnishedPlatformsDrawFromTheCuratedTable)
 {
-    // Linux and Windows have no room yet, so they resolve to the shared curated
-    // tables. macOS is furnished, so it must not.
-    for (PlatformId platform : {PlatformId::Linux, PlatformId::Windows})
-    {
-        EXPECT_EQ(themePaletteFor(platform, ThemeVariant::Light).window.r,
-                  lightThemePalette().window.r);
-        EXPECT_EQ(themePaletteFor(platform, ThemeVariant::Dark).window.r,
-                  darkThemePalette().window.r);
-    }
+    // Linux has no room yet, so it resolves to the shared curated tables.
+    EXPECT_EQ(themePaletteFor(PlatformId::Linux, ThemeVariant::Light).window.r,
+              lightThemePalette().window.r);
+    EXPECT_EQ(themePaletteFor(PlatformId::Linux, ThemeVariant::Dark).window.r,
+              darkThemePalette().window.r);
 }
 
 TEST(PilotThemeMacRoom, HasItsOwnTableDistinctFromTheCurated)
@@ -120,6 +116,20 @@ TEST(PilotThemeMacRoom, HasItsOwnTableDistinctFromTheCurated)
     EXPECT_NE(mac_dark.window.r, darkThemePalette().window.r);
     EXPECT_GT(mac_light.window.g, mac_dark.window.g);
     EXPECT_LT(mac_light.text.g, mac_dark.text.g);
+}
+
+TEST(PilotThemeWindowsRoom, HasItsOwnTableDistinctFromTheCuratedAndMac)
+{
+    // The Windows room is tuned separately, so its dark window differs from both
+    // the curated and the macOS tables, and it stays a light-on-top pair.
+    auto const & win_light = themePaletteFor(PlatformId::Windows, ThemeVariant::Light);
+    auto const & win_dark = themePaletteFor(PlatformId::Windows, ThemeVariant::Dark);
+    auto const & mac_dark = themePaletteFor(PlatformId::Mac, ThemeVariant::Dark);
+
+    EXPECT_NE(win_dark.window.r, darkThemePalette().window.r);
+    EXPECT_NE(win_dark.window.r, mac_dark.window.r);
+    EXPECT_GT(win_light.window.g, win_dark.window.g);
+    EXPECT_LT(win_light.text.g, win_dark.text.g);
 }
 
 TEST(PilotThemeSyntax, DarkTokensAreBrighterAndSelectByVariant)

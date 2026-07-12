@@ -9,6 +9,8 @@
 
 #if defined(Q_OS_MACOS)
 #include <solvcon/pilot/RMacThemeBackend.hpp>
+#elif defined(Q_OS_WIN)
+#include <solvcon/pilot/RWindowsThemeBackend.hpp>
 #endif
 
 namespace solvcon
@@ -66,7 +68,7 @@ std::unique_ptr<RThemeBackend> makeThemeBackend()
 #if defined(Q_OS_MACOS)
     return std::make_unique<RMacThemeBackend>();
 #elif defined(Q_OS_WIN)
-    return std::make_unique<DefaultThemeBackend>(PlatformId::Windows);
+    return std::make_unique<RWindowsThemeBackend>();
 #else
     return std::make_unique<DefaultThemeBackend>(PlatformId::Linux);
 #endif

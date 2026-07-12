@@ -27,6 +27,7 @@ set(SOLVCON_PILOT_PYMODHEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/theme.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RThemeBackend.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RMacThemeBackend.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/RWindowsThemeBackend.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RThemeManager.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RPythonConsoleDockWidget.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RPythonConsoleHistory.hpp
@@ -64,6 +65,7 @@ set(SOLVCON_PILOT_PYMODSOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/theme.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RThemeBackend.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RMacThemeBackend.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/RWindowsThemeBackend.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RThemeManager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RPythonConsoleDockWidget.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RPythonConsoleHistory.cpp
