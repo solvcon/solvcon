@@ -28,20 +28,21 @@ namespace solvcon
 
 /**
  * Toggleable, legibility-only annotations over the 2D canvas: shape ids,
- * bounding boxes, and one highlighted shape id. Restates stored geometry only
- * (no derived diagnostics).
+ * bounding boxes, advanced geometric labels, and one highlighted shape id.
+ * Restates stored geometry only (no derived diagnostics).
  *
  * @ingroup group_domain
  */
 struct Overlay2dOptions
 {
-    bool shape_ids = false;
-    bool bounding_boxes = false;
+    bool shape_ids = false; ///< Label each live shape with its id and type.
+    bool bounding_boxes = false; ///< Draw each live shape's axis-aligned box.
+    bool advanced_labels = false; ///< More details than just the id.
     int32_t highlight_id = -1; ///< Emphasize this shape id; -1 draws none. Independent of selection.
 
     bool shape_annotations() const
     {
-        return shape_ids || bounding_boxes || highlight_id >= 0;
+        return shape_ids || bounding_boxes || advanced_labels || highlight_id >= 0;
     }
 
     bool any() const { return shape_annotations(); }

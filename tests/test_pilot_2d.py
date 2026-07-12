@@ -569,6 +569,7 @@ def _all_on_overlay(highlight_id=-1):
     overlay = pilot.Overlay2dOptions()
     overlay.shape_ids = True
     overlay.bounding_boxes = True
+    overlay.advanced_labels = True
     overlay.highlight_id = highlight_id
     return overlay
 
@@ -585,8 +586,8 @@ def _save_and_check_png(testcase, widget):
 
 @unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
 class R2DWidgetOverlayTC(unittest.TestCase):
-    """Annotation overlay: ids, bounding boxes, and highlight-by-id via
-    R2DWidget.overlay.
+    """Annotation overlay: ids, advanced geometric labels, bounding boxes,
+    and highlight-by-id via R2DWidget.overlay.
     """
 
     @classmethod
@@ -602,6 +603,27 @@ class R2DWidgetOverlayTC(unittest.TestCase):
         # to leave a clean slate for the next test.
         self.widget.overlay = pilot.Overlay2dOptions()
         self.widget.resetView()
+
+    def test_overlay_defaults_off(self):
+        """A fresh widget draws no annotations: every toggle is off and no
+        shape is highlighted.
+        """
+        overlay = self.widget.overlay
+        self.assertFalse(overlay.shape_ids)
+        self.assertFalse(overlay.bounding_boxes)
+        self.assertFalse(overlay.advanced_labels)
+        self.assertEqual(overlay.highlight_id, -1)
+
+    def test_overlay_options_round_trip(self):
+        """Assigning an Overlay2dOptions reads back field for field, so the
+        experiment can flip individual arms on the same widget.
+        """
+        self.widget.overlay = _all_on_overlay(highlight_id=2)
+        got = self.widget.overlay
+        self.assertTrue(got.shape_ids)
+        self.assertTrue(got.bounding_boxes)
+        self.assertTrue(got.advanced_labels)
+        self.assertEqual(got.highlight_id, 2)
 
     def test_overlay_render_is_crash_safe(self):
         """Every annotation on, over a world with a removed shape, and with a
@@ -634,13 +656,37 @@ class R2DWidgetOverlayTC(unittest.TestCase):
         annotated = _grab_foreground(self.widget)
         self.assertGreater(annotated, plain)
 
+    def test_advanced_labels_add_more_pixels_than_ids(self):
+        """Advanced labels paint geometric detail beyond the bare id/type
+        tag, so the annotated frame has strictly more foreground pixels.
+        """
+        world = solvcon.WorldFp64()
+        world.add_rectangle(-2, -1, 2, 1)
+        world.add_circle(-3, 2, 1.0)
+        world.add_triangle(0, 0, 1, 0, 0, 1)
+        self.widget.updateWorld(world)
+        self.widget.resetView()
+        basic = pilot.Overlay2dOptions()
+        basic.shape_ids = True
+        self.widget.overlay = basic
+        self.widget.requestRepaint()
+        plain = _grab_foreground(self.widget)
+        if not plain:
+            self.skipTest("offscreen grab reads back blank on this backend")
+        rich = pilot.Overlay2dOptions()
+        rich.advanced_labels = True
+        self.widget.overlay = rich
+        self.widget.requestRepaint()
+        annotated = _grab_foreground(self.widget)
+        self.assertGreater(annotated, plain)
+
 
 @unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
 class InspectorLabelControlsTC(unittest.TestCase):
     """Cover the inspector label controls driving the canvas overlay.
 
-    The inspector entity tree's label switch drives the bound canvas's
-    overlay, per canvas.
+    The inspector entity tree's label switch and normal/advanced selector
+    drive the bound canvas's overlay, per canvas.
     """
 
     @classmethod
@@ -661,6 +707,44 @@ class InspectorLabelControlsTC(unittest.TestCase):
         self.assertFalse(tree._label_modes["normal"].isEnabled())
         tree._labels_check.setChecked(True)
         self.assertTrue(tree._label_modes["normal"].isEnabled())
+
+    def test_switch_drives_normal_labels(self):
+        """The switch turns on the id label (normal mode) and clears it
+        again, so the inspector governs the canvas overlay.
+        """
+        widget = self.mgr.add2DWidget()
+        widget.overlay = pilot.Overlay2dOptions()
+        tree = self._tree(widget)
+        tree._labels_check.setChecked(True)
+        self.assertTrue(widget.overlay.shape_ids)
+        self.assertFalse(widget.overlay.advanced_labels)
+        tree._labels_check.setChecked(False)
+        self.assertFalse(widget.overlay.shape_ids)
+
+    def test_advanced_mode_swaps_id_for_geometry(self):
+        """Advanced mode drops the plain id label for the geometric labels
+        (which already carry the id/type line).
+        """
+        widget = self.mgr.add2DWidget()
+        widget.overlay = pilot.Overlay2dOptions()
+        tree = self._tree(widget)
+        tree._labels_check.setChecked(True)
+        tree._label_modes["advanced"].setChecked(True)
+        self.assertFalse(widget.overlay.shape_ids)
+        self.assertTrue(widget.overlay.advanced_labels)
+
+    def test_controls_reflect_bound_canvas(self):
+        """Binding a canvas whose overlay is already on advanced presets the
+        switch and selector, so the inspector shows that canvas's state
+        instead of resetting it.
+        """
+        widget = self.mgr.add2DWidget()
+        overlay = pilot.Overlay2dOptions()
+        overlay.advanced_labels = True
+        widget.overlay = overlay
+        tree = self._tree(widget)
+        self.assertTrue(tree._labels_check.isChecked())
+        self.assertTrue(tree._label_modes["advanced"].isChecked())
 
     def test_world_tree_lives_in_entity_section(self):
         widget = self.mgr.add2DWidget()
