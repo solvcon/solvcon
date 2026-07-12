@@ -15,13 +15,24 @@ namespace solvcon
 RPythonSyntaxHighlighter::RPythonSyntaxHighlighter(QTextDocument * parent)
     : QSyntaxHighlighter(parent)
 {
-    m_keyword_format.setForeground(QColor(0, 0, 180));
+    // The weight and slant are constant across themes; only the colors follow
+    // the light or dark table, so set them here and defer color to applyColors.
     m_keyword_format.setFontWeight(QFont::Bold);
-    m_builtin_format.setForeground(QColor(0, 110, 110));
-    m_string_format.setForeground(QColor(160, 0, 0));
-    m_comment_format.setForeground(QColor(128, 128, 128));
     m_comment_format.setFontItalic(true);
-    m_number_format.setForeground(QColor(140, 0, 140));
+    applyColors(lightSyntaxColors());
+}
+
+void RPythonSyntaxHighlighter::applyColors(SyntaxColors const & colors)
+{
+    auto qc = [](ThemeColor c)
+    { return QColor(c.r, c.g, c.b); };
+
+    m_keyword_format.setForeground(qc(colors.keyword));
+    m_builtin_format.setForeground(qc(colors.builtin));
+    m_string_format.setForeground(qc(colors.string));
+    m_comment_format.setForeground(qc(colors.comment));
+    m_number_format.setForeground(qc(colors.number));
+    rehighlight();
 }
 
 void RPythonSyntaxHighlighter::highlightBlock(QString const & text)

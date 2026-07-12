@@ -322,6 +322,13 @@ void RManager::setUpConsole()
     m_pycon = new RPythonConsoleDockWidget(QString("Console"), m_mainWindow);
     m_pycon->setAllowedAreas(Qt::AllDockWidgetAreas);
     m_mainWindow->addDockWidget(Qt::BottomDockWidgetArea, m_pycon);
+
+    auto applyConsoleTheme = [this](ThemeVariant variant)
+    {
+        m_pycon->applyTheme(syntaxColorsFor(m_themeManager->platform(), variant));
+    };
+    applyConsoleTheme(m_themeManager->currentVariant());
+    QObject::connect(m_themeManager, &RThemeManager::themeChanged, m_pycon, applyConsoleTheme);
 }
 
 void RManager::setUpCentral()

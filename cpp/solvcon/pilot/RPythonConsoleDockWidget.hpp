@@ -23,6 +23,7 @@
 #include <stdexcept>
 
 #include <Qt>
+#include <QColor>
 #include <QCompleter>
 #include <QDockWidget>
 #include <QStringListModel>
@@ -55,6 +56,10 @@ public:
     QString completionPrefix() const;
     QString callableExpression() const;
 
+    /// Set the wash painted behind a matched bracket pair and repaint it, so
+    /// the marker follows a light or dark theme switch.
+    void setBracketMatchColor(QColor const & color);
+
     void keyPressEvent(QKeyEvent * event) override;
 
 signals:
@@ -80,6 +85,10 @@ private:
 
     QCompleter * m_completer = nullptr;
     bool m_searching = false;
+
+    /// Background wash behind a matched bracket pair; the light table's value
+    /// until a theme is applied.
+    QColor m_bracket_match_color = QColor(180, 180, 255);
 
 }; /* end class RPythonCommandTextEdit */
 
@@ -135,6 +144,11 @@ public:
     }
 
     void writeToHistory(std::string const & data) const;
+
+    /// Point the syntax highlighter and the bracket marker at a theme's syntax
+    /// colors. The text itself follows the application palette; these are the
+    /// extra colors the palette does not cover.
+    void applyTheme(SyntaxColors const & colors);
 
 public slots:
     void executeCommand();
