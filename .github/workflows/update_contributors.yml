@@ -68,14 +68,16 @@ jobs:
               --base master \
               --head "$branch" \
               --title "Update contributor list" \
-              --body $'This pull request updates the contributor list from the commit history and source-file copyright headers. Please review the generated changes before merging.\n\nRelated to #912.')
+              --body 'This pull request updates the contributor list from the commit history and source-file copyright headers. Please review the generated changes before merging.')
           fi
 
           echo "changed=true" >> "$GITHUB_OUTPUT"
           echo "pull-request-url=$pr_url" >> "$GITHUB_OUTPUT"
 
       - name: Send contributor update notification
-        if: steps.contributor_pr.outputs.changed == 'true'
+        if: >-
+          steps.contributor_pr.outputs.changed == 'true' &&
+          github.repository == 'solvcon/solvcon'
         uses: dawidd6/action-send-mail@v6
         with:
           server_address: smtp.gmail.com
