@@ -9,8 +9,7 @@ import solvcon
 
 try:
     from solvcon import pilot
-    from solvcon.pilot import _mesh_info
-    from solvcon.pilot._mesh import MeshStyleStatus
+    from solvcon.pilot import _mesh, _tree_panel
     from PySide6.QtCore import Qt
     from PySide6.QtWidgets import QApplication
 except ImportError:
@@ -55,6 +54,14 @@ def _make_single_triangle():
     return mh
 
 
+def _crossing_world():
+    """Two lines crossing at (1, 1): shape 0 and shape 1."""
+    world = solvcon.WorldFp64()
+    world.add_line(0, 0, 2, 2)
+    world.add_line(0, 2, 2, 0)
+    return world
+
+
 def _section_map(sections):
     """Map each section name to its ``{property: value}`` dict.
 
@@ -78,11 +85,38 @@ def _tree_sections(tree):
     return result
 
 
+def _all_item_texts(tree):
+    """Every item's text in the tree, walked depth first."""
+    texts = []
+
+    def walk(item):
+        texts.append(item.text(0))
+        for it in range(item.childCount()):
+            walk(item.child(it))
+
+    for it in range(tree.topLevelItemCount()):
+        walk(tree.topLevelItem(it))
+    return texts
+
+
+class _CountingWorld:
+    """Wraps a real world, counting describe_state calls per level so a test
+    can assert the panel caches instead of resweeping on every poll."""
+
+    def __init__(self, real):
+        self._real = real
+        self.calls = {"basic": 0, "diagnostics": 0}
+
+    def describe_state(self, level="basic"):
+        self.calls[level] += 1
+        return self._real.describe_state(level=level)
+
+
 @unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
 class MakeMeshInfoTC(unittest.TestCase):
     def test_excludes_ghost_entities(self):
         info = _section_map(
-            _mesh_info.MeshInfoTree.make_mesh_info(_make_sample_mesh()))
+            _tree_panel.MeshInfoTree.make_mesh_info(_make_sample_mesh()))
         self.assertEqual(info["Counts"]["dim"], "2")
         self.assertEqual(info["Counts"]["node"], "6")
         self.assertEqual(info["Counts"]["cell"], "3")
@@ -95,7 +129,7 @@ class MakeMeshInfoTC(unittest.TestCase):
 
     def test_boundary_info_groups_every_face(self):
         mh = _make_sample_mesh()
-        binfo = _mesh_info.MeshInfoTree.make_boundary_info(mh)
+        binfo = _tree_panel.MeshInfoTree.make_boundary_info(mh)
         # With no add_bc, build_boundary gathers every boundary face into a
         # single catch-all set, so the one row must report all of them.
         self.assertGreater(mh.nbound, 0)
@@ -104,11 +138,74 @@ class MakeMeshInfoTC(unittest.TestCase):
 
 @unittest.skipIf(GITHUB_ACTIONS or not solvcon.HAS_PILOT,
                  "GUI is not available in GitHub Actions")
-class MeshInfoTC(unittest.TestCase):
+class MeshInfoTreeTC(unittest.TestCase):
     def setUp(self):
         self.mgr = pilot.RManager.instance.setUp()
         # The View menu and the panel share one MeshStyleStatus.
-        self.status = MeshStyleStatus(mgr=self.mgr)
+        self.status = _mesh.MeshStyleStatus(mgr=self.mgr)
+
+    def test_tree_holds_shared_style_status(self):
+        # MeshInfoTree keeps the injected MeshStyleStatus as a public
+        # attribute and reads its style rows from it, rather than owning a
+        # status of its own.
+        widget = self.mgr.add3DWidget()
+        widget.updateMesh(_make_sample_mesh())
+        tree = _tree_panel.MeshInfoTree(style_status=self.status,
+                                        mh=_make_sample_mesh())
+        self.assertIs(tree.style_status, self.status)
+        self.assertEqual(tree._style_items["wireframe"].checkState(0),
+                         Qt.Checked)
+
+
+@unittest.skipIf(GITHUB_ACTIONS or not solvcon.HAS_PILOT,
+                 "GUI is not available in GitHub Actions")
+class EntityTreeWidgetTC(unittest.TestCase):
+    def setUp(self):
+        self.mgr = pilot.RManager.instance.setUp()
+
+    def test_level_selector_gates_diagnostics(self):
+        tree = _tree_panel.EntityTreeWidget(_crossing_world())
+        self.assertIn("Diagnostics", _all_item_texts(tree._tree))
+        tree._levels["basic"].setChecked(True)
+        texts = _all_item_texts(tree._tree)
+        self.assertNotIn("Diagnostics", texts)
+        self.assertIn("shape: 2", texts)  # geometry stays
+
+    def test_diagnostics_cached_until_world_changes(self):
+        real = _crossing_world()
+        world = _CountingWorld(real)
+        tree = _tree_panel.EntityTreeWidget()
+        tree.set_world(world)
+        tree.set_world(world)  # unchanged poll reuses the cache
+        self.assertEqual(world.calls["diagnostics"], 1)
+        real.add_line(5, 5, 6, 6)  # a real edit flips the fingerprint
+        tree.set_world(world)
+        self.assertEqual(world.calls["diagnostics"], 2)
+
+    def test_poll_timer_runs_only_while_visible(self):
+        tree = _tree_panel.EntityTreeWidget(_crossing_world())
+        self.assertEqual(tree._timer.interval(), tree._POLL_MS)
+        tree.show()
+        QApplication.processEvents()
+        self.assertTrue(tree._timer.isActive())
+        tree.hide()
+        QApplication.processEvents()
+        self.assertFalse(tree._timer.isActive())
+
+
+@unittest.skipIf(GITHUB_ACTIONS or not solvcon.HAS_PILOT,
+                 "GUI is not available in GitHub Actions")
+class TreePanelTC(unittest.TestCase):
+    def setUp(self):
+        self.mgr = pilot.RManager.instance.setUp()
+        self.status = _mesh.MeshStyleStatus(mgr=self.mgr)
+
+    def _panel_on(self):
+        feature = _tree_panel.TreePanel(
+            mgr=self.mgr, style_status=self.status)
+        feature.populate_menu()
+        feature._action.setChecked(True)
+        return feature
 
     def test_current_r3dwidget_exposes_mesh(self):
         # The mesh must be reached through the pybind11 RDomainWidget rather
@@ -120,36 +217,71 @@ class MeshInfoTC(unittest.TestCase):
         self.assertIsNotNone(current.mesh)
         self.assertEqual(current.mesh.ncell, 3)
 
-    def test_panel_shows_active_mesh(self):
+    def test_mesh_viewer_shows_mesh_tree(self):
         widget = self.mgr.add3DWidget()
         widget.updateMesh(_make_sample_mesh())
-        feature = _mesh_info.MeshInfo(mgr=self.mgr,
-                                      style_status=self.status)
-        feature.populate_menu()
-        panels = self.mgr.menu_model.menu("View/Panels")
-        self.assertIn(feature._action, panels.actions())
-        feature._action.setChecked(True)
-        sections = _tree_sections(feature._panel._tree)
-        self.assertEqual(sections["Counts"]["cell"], "3")
-        self.assertEqual(sections["Cell types"]["triangle"], "2")
+        feature = self._panel_on()
+        self.assertIs(feature._stack.currentWidget(), feature._mesh_tree)
+        texts = _all_item_texts(feature._mesh_tree._tree)
+        self.assertIn("StaticMesh (2D)", texts)
+        self.assertIn("cell: 3", texts)
+
+    def test_canvas_shows_entity_tree(self):
+        widget = self.mgr.add2DWidget()
+        widget.updateWorld(_crossing_world())
+        feature = self._panel_on()
+        self.assertIs(feature._stack.currentWidget(), feature._entity_tree)
+        texts = _all_item_texts(feature._entity_tree._tree)
+        self.assertIn("World (2D)", texts)
+        self.assertIn("shape: 2", texts)
+
+    def test_canvas_shows_diagnostics(self):
+        # End to end: the active canvas's world reaches the panel through the
+        # R2DWidget.world binding and renders geometry plus diagnostics.
+        world = _crossing_world()
+        world.add_triangle(10, 0, 11, 0, 12, 0)  # collinear: a degeneracy
+        widget = self.mgr.add2DWidget()
+        widget.updateWorld(world)
+        feature = self._panel_on()
+        texts = _all_item_texts(feature._entity_tree._tree)
+        self.assertIn("shape: 3", texts)
+        self.assertIn("shape 0 crosses shape 1 at (1, 1)", texts)
+        self.assertIn("shape 2: triangle (collinear)", texts)
+
+    def test_follows_active_subwindow(self):
+        # With both a 3D viewer and a 2D canvas open, the panel shows the
+        # tree that matches whichever sub-window is active.
+        mdi = self.mgr.mainWindow.centralWidget()
+        w3 = self.mgr.add3DWidget()
+        w3.updateMesh(_make_sample_mesh())
+        sub3 = mdi.subWindowList()[-1]
+        w2 = self.mgr.add2DWidget()
+        w2.updateWorld(_crossing_world())
+        sub2 = mdi.subWindowList()[-1]
+        feature = self._panel_on()
+
+        mdi.setActiveSubWindow(sub2)
+        feature._sync()
+        self.assertIs(feature._stack.currentWidget(), feature._entity_tree)
+
+        mdi.setActiveSubWindow(sub3)
+        feature._sync()
+        self.assertIs(feature._stack.currentWidget(), feature._mesh_tree)
 
     def test_boundary_toggle_drives_viewer(self):
         widget = self.mgr.add3DWidget()
         widget.updateMesh(_make_sample_mesh())
-        feature = _mesh_info.MeshInfo(mgr=self.mgr,
-                                      style_status=self.status)
-        feature.populate_menu()
-        feature._action.setChecked(True)
+        feature = self._panel_on()
         # Record the routed (ibc, checked) while still driving the real
         # viewer hook, so the highlight build is exercised too.
         calls = []
-        inner = feature._panel.boundary_toggled
+        inner = feature._mesh_tree.boundary_toggled
 
         def record(ibc, checked):
             calls.append((ibc, checked))
             inner(ibc, checked)
-        feature._panel.boundary_toggled = record
-        root = feature._panel._tree.topLevelItem(0)
+        feature._mesh_tree.boundary_toggled = record
+        root = feature._mesh_tree._tree.topLevelItem(0)
         group = next(root.child(i) for i in range(root.childCount())
                      if root.child(i).text(0) == "Boundaries")
         item = group.child(0)
@@ -162,11 +294,7 @@ class MeshInfoTC(unittest.TestCase):
     def test_style_toggle_drives_viewer(self):
         widget = self.mgr.add3DWidget()
         widget.updateMesh(_make_sample_mesh())
-        feature = _mesh_info.MeshInfo(mgr=self.mgr,
-                                      style_status=self.status)
-        feature.populate_menu()
-        feature._action.setChecked(True)
-        panel = feature._panel
+        panel = self._panel_on()._mesh_tree
         # Wireframe is on by default; surface and points are off.
         self.assertEqual(panel._style_items["wireframe"].checkState(0),
                          Qt.Checked)
@@ -181,28 +309,12 @@ class MeshInfoTC(unittest.TestCase):
         self.assertFalse(widget.meshStyleShown("wireframe"))
         self.assertTrue(widget.meshStyleShown("surface"))
 
-    def test_tree_holds_shared_style_status(self):
-        # MeshInfoTree keeps the injected MeshStyleStatus as a public
-        # attribute and reads its style rows from it, rather than owning a
-        # status of its own.
-        widget = self.mgr.add3DWidget()
-        widget.updateMesh(_make_sample_mesh())
-        tree = _mesh_info.MeshInfoTree(style_status=self.status,
-                                       mh=_make_sample_mesh())
-        self.assertIs(tree.style_status, self.status)
-        self.assertEqual(tree._style_items["wireframe"].checkState(0),
-                         Qt.Checked)
-
     def test_menu_and_panel_stay_linked(self):
         widget = self.mgr.add3DWidget()
         widget.updateMesh(_make_sample_mesh())
-        panel_feature = _mesh_info.MeshInfo(mgr=self.mgr,
-                                            style_status=self.status)
-        panel_feature.populate_menu()
-        panel_feature._action.setChecked(True)
+        panel = self._panel_on()._mesh_tree
         # The status object owns the View menu now; build it too.
         self.status.populate_menu()
-        panel = panel_feature._panel
         # A toggle from the menu reaches the viewer and the panel check box.
         self.status._actions["surface"].setChecked(True)
         self.assertTrue(widget.meshStyleShown("surface"))
@@ -216,20 +328,17 @@ class MeshInfoTC(unittest.TestCase):
     def test_overlay_toggles_drive_viewer(self):
         widget = self.mgr.add3DWidget()
         widget.updateMesh(_make_sample_mesh())
-        feature = _mesh_info.MeshInfo(mgr=self.mgr,
-                                      style_status=self.status)
-        feature.populate_menu()
-        feature._action.setChecked(True)
-        root = feature._panel._tree.topLevelItem(0)
+        feature = self._panel_on()
+        root = feature._mesh_tree._tree.topLevelItem(0)
         for label, attr in (("feature edges", "edges_toggled"),
                             ("normals", "normals_toggled")):
             calls = []
-            inner = getattr(feature._panel, attr)
+            inner = getattr(feature._mesh_tree, attr)
 
             def record(checked, calls=calls, inner=inner):
                 calls.append(checked)
                 inner(checked)
-            setattr(feature._panel, attr, record)
+            setattr(feature._mesh_tree, attr, record)
             item = next(root.child(i) for i in range(root.childCount())
                         if root.child(i).text(0) == label)
             self.assertEqual(item.checkState(0), Qt.Unchecked)  # default off
@@ -237,27 +346,28 @@ class MeshInfoTC(unittest.TestCase):
             item.setCheckState(0, Qt.Unchecked)
             self.assertEqual(calls, [True, False])
 
-    def test_panel_without_mesh(self):
+    def test_mesh_viewer_without_mesh_shows_placeholder(self):
         self.mgr.add3DWidget()  # fresh viewer becomes current, no mesh
-        feature = _mesh_info.MeshInfo(mgr=self.mgr,
-                                      style_status=self.status)
-        feature.populate_menu()
-        feature._action.setChecked(True)
-        root = feature._panel._tree.topLevelItem(0)
+        feature = self._panel_on()
+        root = feature._mesh_tree._tree.topLevelItem(0)
         self.assertIn("No mesh", root.text(0))
+        self.assertEqual(root.childCount(), 0)
+
+    def test_canvas_without_world_shows_placeholder(self):
+        self.mgr.add2DWidget()  # fresh canvas becomes current, no world
+        feature = self._panel_on()
+        root = feature._entity_tree._tree.topLevelItem(0)
+        self.assertIn("No world", root.text(0))
         self.assertEqual(root.childCount(), 0)
 
     def test_panel_updates_on_menu_load(self):
         # Loading from a menu creates and activates the viewer before
-        # updateMesh runs, so the refresh is deferred to the event loop.
-        feature = _mesh_info.MeshInfo(mgr=self.mgr,
-                                      style_status=self.status)
-        feature.populate_menu()
-        feature._action.setChecked(True)
+        # updateMesh runs, so the re-select is deferred to the event loop.
+        feature = self._panel_on()
         widget = self.mgr.add3DWidget()
         widget.updateMesh(_make_single_triangle())
-        QApplication.processEvents()  # allow the deferred refresh to run
-        sections = _tree_sections(feature._panel._tree)
+        QApplication.processEvents()  # allow the deferred sync to run
+        sections = _tree_sections(feature._mesh_tree._tree)
         self.assertEqual(sections["Counts"]["cell"], "1")
         self.assertEqual(sections["Cell types"]["triangle"], "1")
 

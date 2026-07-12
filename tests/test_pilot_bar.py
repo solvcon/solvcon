@@ -47,7 +47,6 @@ class BarStructureTC(unittest.TestCase):
         self.assertEqual(view[0], "Panels")
         panels = [a.text() for a in model.menu("View/Panels").actions()]
         self.assertEqual(list(dict.fromkeys(panels)),
-                         ["Mesh", "Painter", "Entity Tree", "Agent Console"])
-
+                         ["Inspector", "Painter", "Agent Console"])
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
