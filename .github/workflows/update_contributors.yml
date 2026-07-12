@@ -1,0 +1,64 @@
+name: Update Contributors
+
+on:
+  schedule:
+    - cron: '17 8 1 * *'
+  workflow_dispatch:
+
+concurrency:
+  group: update-contributors
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: master
+          fetch-depth: 0
+
+      - name: Update contributor list
+        run: |
+          python3 contrib/lint/analyze-contributors.py \
+            --update-file CONTRIBUTORS.md
+
+      - name: Create contributor update pull request
+        id: contributor_pr
+        uses: peter-evans/create-pull-request@v8
+        with:
+          add-paths: CONTRIBUTORS.md
+          base: master
+          branch: automation/update-contributors
+          delete-branch: true
+          commit-message: Update contributor list
+          title: Update contributor list
+          body: |
+            This pull request updates the contributor list from the commit
+            history and source-file copyright headers. Please review the
+            generated changes before merging.
+
+            Related to #912.
+
+      - name: Send contributor update notification
+        if: >-
+          steps.contributor_pr.outputs.pull-request-operation == 'created' ||
+          steps.contributor_pr.outputs.pull-request-operation == 'updated'
+        uses: dawidd6/action-send-mail@v6
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: Contributor list update in ${{ github.repository }}
+          body: |
+            The contributor list has changed and is ready for human review.
+
+            ${{ steps.contributor_pr.outputs.pull-request-url }}
+          to: solvcon@googlegroups.com
+          from: solvcon_notification
