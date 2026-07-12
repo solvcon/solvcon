@@ -13,6 +13,7 @@ using solvcon::darkSyntaxColors;
 using solvcon::darkThemePalette;
 using solvcon::lightSyntaxColors;
 using solvcon::lightThemePalette;
+using solvcon::linuxDesktopHasNativeTheme;
 using solvcon::PlatformId;
 using solvcon::platformIdName;
 using solvcon::resolveThemeVariant;
@@ -156,6 +157,22 @@ TEST(PilotThemeSyntax, DarkTokensAreBrighterAndSelectByVariant)
         EXPECT_EQ(syntaxColorsFor(platform, ThemeVariant::Light).keyword.b, light.keyword.b);
         EXPECT_EQ(syntaxColorsFor(platform, ThemeVariant::Dark).keyword.b, dark.keyword.b);
     }
+}
+
+TEST(PilotThemeLinuxRoom, RecognizesGnomeAndKdeDesktops)
+{
+    // GNOME and KDE expose a Qt platform theme the room honors; the value may
+    // be a colon-separated, mixed-case list.
+    EXPECT_TRUE(linuxDesktopHasNativeTheme("GNOME"));
+    EXPECT_TRUE(linuxDesktopHasNativeTheme("ubuntu:GNOME"));
+    EXPECT_TRUE(linuxDesktopHasNativeTheme("KDE"));
+    EXPECT_TRUE(linuxDesktopHasNativeTheme("kde"));
+
+    // An unrecognized, empty, or missing desktop falls back to the curated
+    // palettes.
+    EXPECT_FALSE(linuxDesktopHasNativeTheme("XFCE"));
+    EXPECT_FALSE(linuxDesktopHasNativeTheme(""));
+    EXPECT_FALSE(linuxDesktopHasNativeTheme(nullptr));
 }
 
 TEST(PilotThemeCapabilities, DifferByPlatform)

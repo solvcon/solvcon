@@ -5,6 +5,8 @@
 
 #include <solvcon/pilot/RThemeBackend.hpp>
 
+#include <solvcon/pilot/RLinuxThemeBackend.hpp>
+
 #include <QtGlobal>
 
 #if defined(Q_OS_MACOS)
@@ -16,53 +18,6 @@
 namespace solvcon
 {
 
-namespace
-{
-
-/**
- * @brief The fallback backend: it keeps the platform's own default style and
- * pulls no native levers.
- *
- * Every platform starts here and is replaced by its furnished room in a later
- * step. Keeping the default style already gives each platform its native
- * widgets; the room adds the accent, the title bar, and an explicit style
- * choice on top.
- */
-class DefaultThemeBackend
-    : public RThemeBackend
-{
-
-public:
-
-    explicit DefaultThemeBackend(PlatformId platform)
-        : m_platform(platform)
-    {
-    }
-
-    PlatformId platform() const override { return m_platform; }
-
-    std::string styleName() const override { return {}; }
-
-    std::optional<ThemeColor> accentColor(ThemeVariant /*variant*/) const override
-    {
-        return std::nullopt;
-    }
-
-    void applyNativeChrome(QWidget * /*window*/, ThemeVariant /*variant*/) override {}
-
-    ThemeCapabilities capabilities() const override
-    {
-        return themeCapabilitiesFor(m_platform);
-    }
-
-private:
-
-    PlatformId m_platform;
-
-}; /* end class DefaultThemeBackend */
-
-} /* end namespace */
-
 std::unique_ptr<RThemeBackend> makeThemeBackend()
 {
 #if defined(Q_OS_MACOS)
@@ -70,7 +25,8 @@ std::unique_ptr<RThemeBackend> makeThemeBackend()
 #elif defined(Q_OS_WIN)
     return std::make_unique<RWindowsThemeBackend>();
 #else
-    return std::make_unique<DefaultThemeBackend>(PlatformId::Linux);
+    // Linux, and every other desktop without a room of its own, land here.
+    return std::make_unique<RLinuxThemeBackend>();
 #endif
 }
 

@@ -5,7 +5,9 @@
 
 #include <solvcon/pilot/theme.hpp>
 
+#include <cctype>
 #include <cstring>
+#include <string>
 
 namespace solvcon
 {
@@ -404,6 +406,24 @@ char const * platformIdName(PlatformId platform)
     default:
         return "linux";
     }
+}
+
+bool linuxDesktopHasNativeTheme(char const * xdg_current_desktop)
+{
+    if (xdg_current_desktop == nullptr)
+    {
+        return false;
+    }
+
+    // XDG_CURRENT_DESKTOP is a colon-separated, case-varying list such as
+    // "ubuntu:GNOME" or "KDE", so fold to lower case and look for a name whose
+    // Qt platform theme is worth honoring.
+    std::string desktop(xdg_current_desktop);
+    for (char & c : desktop)
+    {
+        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    }
+    return desktop.find("gnome") != std::string::npos || desktop.find("kde") != std::string::npos;
 }
 
 } /* end namespace solvcon */
