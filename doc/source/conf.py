@@ -44,6 +44,7 @@ extensions = [
     "sphinx.ext.mathjax",     # render LaTeX math
     "breathe",                # C++ via Doxygen XML
     "sphinxcontrib.bibtex",   # citations
+    "sphinxcontrib.mermaid",  # mermaid diagrams
     "pstake",                 # PSTricks .tex -> PNG at build time
 ]
 
@@ -55,6 +56,10 @@ myst_enable_extensions = [
     "colon_fence",
     "deflist",
 ]
+
+# Treat a ```mermaid fence as the mermaid directive, so the same fenced
+# block renders natively on GitHub and through sphinxcontrib.mermaid here.
+myst_fence_as_directive = ["mermaid"]
 
 autosummary_generate = True
 

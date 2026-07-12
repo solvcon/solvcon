@@ -890,7 +890,7 @@ scdv_time build_python python
 # Documentation toolchain (Sphinx-based; see doc/README.md). doxygen, the
 # system half of the C++ API path, is in scdv_apt_base_cmd above.
 "${PY}" -m pip install -U sphinx myst-parser pydata-sphinx-theme \
-  breathe sphinxcontrib-bibtex
+  breathe sphinxcontrib-bibtex sphinxcontrib-mermaid
 scdv_time build_pybind11 pybind11
 
 else
