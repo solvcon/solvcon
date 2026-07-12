@@ -2,14 +2,6 @@
 
 solvcon is made possible by the following contributors.
 
-To update this list, check out `master` with full Git history and run:
-
-```console
-python3 contrib/lint/analyze-contributors.py --update-file CONTRIBUTORS.md
-```
-
-Review the generated changes before submitting them for merge.
-
 - Buganini Chiu <buganini@b612.tw>
 - Chun-Hsu Lai <as2266317@gmail.com>
 - Chun-Shih Chang <austin20463@gmail.com> <sankagetsu.cs08@nycu.edu.tw>

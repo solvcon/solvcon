@@ -2,12 +2,13 @@ name: Update Contributors
 
 on:
   schedule:
+    # Run monthly on the first day at 08:17 UTC.
     - cron: '17 8 1 * *'
   workflow_dispatch:
 
 concurrency:
   group: update-contributors
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -30,25 +31,51 @@ jobs:
 
       - name: Create contributor update pull request
         id: contributor_pr
-        uses: peter-evans/create-pull-request@v8
-        with:
-          add-paths: CONTRIBUTORS.md
-          base: master
-          branch: automation/update-contributors
-          delete-branch: true
-          commit-message: Update contributor list
-          title: Update contributor list
-          body: |
-            This pull request updates the contributor list from the commit
-            history and source-file copyright headers. Please review the
-            generated changes before merging.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if git diff --quiet -- CONTRIBUTORS.md; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
 
-            Related to #912.
+          branch=automation/update-contributors
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+            git fetch origin "+$branch:refs/remotes/origin/$branch"
+          fi
+          if git rev-parse --verify "origin/$branch" >/dev/null 2>&1 && \
+              git diff --quiet "origin/$branch" -- CONTRIBUTORS.md; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git switch -C "$branch"
+          git add CONTRIBUTORS.md
+          git commit -m "Update contributor list"
+          git push --force-with-lease origin "HEAD:$branch"
+
+          pr_url=$(gh pr list \
+            --base master \
+            --head "$branch" \
+            --state open \
+            --json url \
+            --jq '.[0].url')
+
+          if [ -z "$pr_url" ]; then
+            pr_url=$(gh pr create \
+              --base master \
+              --head "$branch" \
+              --title "Update contributor list" \
+              --body $'This pull request updates the contributor list from the commit history and source-file copyright headers. Please review the generated changes before merging.\n\nRelated to #912.')
+          fi
+
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          echo "pull-request-url=$pr_url" >> "$GITHUB_OUTPUT"
 
       - name: Send contributor update notification
-        if: >-
-          steps.contributor_pr.outputs.pull-request-operation == 'created' ||
-          steps.contributor_pr.outputs.pull-request-operation == 'updated'
+        if: steps.contributor_pr.outputs.changed == 'true'
         uses: dawidd6/action-send-mail@v6
         with:
           server_address: smtp.gmail.com
