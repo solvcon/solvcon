@@ -1169,7 +1169,7 @@ try {
         & $Py -m pip install -U flake8 autopep8 black pytest jsonschema certifi
         Assert-LastExit 'pip install python-tools'
         & $Py -m pip install -U sphinx myst-parser pydata-sphinx-theme `
-            breathe sphinxcontrib-bibtex
+            breathe sphinxcontrib-bibtex sphinxcontrib-mermaid
         Assert-LastExit 'pip install doc-tools'
         Invoke-Timed { Build-Pybind11 } 'pybind11'
     } else {
