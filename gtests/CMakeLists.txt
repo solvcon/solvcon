@@ -38,8 +38,10 @@ add_executable(
     test_nopython_multidim.cpp
     test_nopython_pilot_history.cpp
     test_nopython_pilot_syntax.cpp
+    test_nopython_pilot_theme.cpp
     ${SOLVCON_INCLUDE_DIR}/solvcon/pilot/RPythonConsoleHistory.cpp
     ${SOLVCON_INCLUDE_DIR}/solvcon/pilot/RPythonSyntaxRules.cpp
+    ${SOLVCON_INCLUDE_DIR}/solvcon/pilot/theme.cpp
     ${SOLVCON_TOGGLE_SOURCES}
     ${SOLVCON_PROFILING_SOURCES}
     ${SOLVCON_BUFFER_SOURCES}
