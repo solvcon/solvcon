@@ -40,11 +40,19 @@ jobs:
           fi
 
           branch=automation/update-contributors
+          pr_url=$(gh pr list \
+            --base master \
+            --head "$branch" \
+            --state open \
+            --json url \
+            --jq '.[0].url')
+
           if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
             git fetch origin "+$branch:refs/remotes/origin/$branch"
           fi
           if git rev-parse --verify "origin/$branch" >/dev/null 2>&1 && \
-              git diff --quiet "origin/$branch" -- CONTRIBUTORS.md; then
+              git diff --quiet "origin/$branch" -- CONTRIBUTORS.md && \
+              [ -n "$pr_url" ]; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -55,13 +63,6 @@ jobs:
           git add CONTRIBUTORS.md
           git commit -m "Update contributor list"
           git push --force-with-lease origin "HEAD:$branch"
-
-          pr_url=$(gh pr list \
-            --base master \
-            --head "$branch" \
-            --state open \
-            --json url \
-            --jq '.[0].url')
 
           if [ -z "$pr_url" ]; then
             pr_url=$(gh pr create \
