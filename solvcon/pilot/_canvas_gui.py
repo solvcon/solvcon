@@ -48,17 +48,48 @@ def resolve_save_path(path, name_filter):
 class Save2DCanvasDialog(_gui_common.PilotFeature):
     """
     File-menu action that saves the focused 2D canvas via ``saveImage``.
+
+    The dialog allows the user to choose different file formats (PNG or JPEG)
+    and to include or exclude the label overlay.
     """
 
     def __init__(self, *args, **kw):
         super().__init__(*args, **kw)
         self._diag = QtWidgets.QFileDialog(self._mainWindow)
+        self._diag.setOption(QtWidgets.QFileDialog.DontUseNativeDialog, True)
         self._diag.setAcceptMode(QtWidgets.QFileDialog.AcceptSave)
         self._diag.setFileMode(QtWidgets.QFileDialog.AnyFile)
         self._diag.setNameFilters([_PNG_FILTER, _JPG_FILTER])
         self._diag.setDefaultSuffix("png")
         self._diag.setWindowTitle("Save 2D canvas")
         self._diag.filterSelected.connect(self._on_filter_selected)
+        self._build_label_controls()
+
+    def _build_label_controls(self):
+        """Add the label switch and normal/advanced selector to the dialog."""
+        self._labels_check = QtWidgets.QCheckBox("Include labels")
+        self._normal_radio = QtWidgets.QRadioButton("normal")
+        self._advanced_radio = QtWidgets.QRadioButton("advanced")
+        self._normal_radio.setChecked(True)
+        group = QtWidgets.QButtonGroup(self._diag)
+        group.addButton(self._normal_radio)
+        group.addButton(self._advanced_radio)
+        self._label_group = group
+        row = QtWidgets.QHBoxLayout()
+        row.addWidget(self._labels_check)
+        row.addWidget(self._normal_radio)
+        row.addWidget(self._advanced_radio)
+        row.addStretch(1)
+        grid = self._diag.layout()
+        grid.addLayout(row, grid.rowCount(), 0, 1, grid.columnCount())
+        self._labels_check.toggled.connect(self._sync_label_radios)
+        self._sync_label_radios()
+
+    def _sync_label_radios(self, _checked=False):
+        """Enable the mode radios only while labels are included."""
+        on = self._labels_check.isChecked()
+        self._normal_radio.setEnabled(on)
+        self._advanced_radio.setEnabled(on)
 
     def populate_menu(self):
         self.add_action(
@@ -71,13 +102,22 @@ class Save2DCanvasDialog(_gui_common.PilotFeature):
         )
 
     def run(self):
-        if self._mgr.currentR2DWidget() is None:
+        widget = self._mgr.currentR2DWidget()
+        if widget is None:
             self._pycon.writeToHistory(
                 "Save 2D canvas: no focused 2D canvas\n")
             return False
+        self._init_label_controls(widget)
         self._on_filter_selected(self._diag.selectedNameFilter())
         self._diag.open(self, QtCore.SLOT("on_finished()"))
         return True
+
+    def _init_label_controls(self, widget):
+        """Reset the label controls to their defaults for each open."""
+        # TODO(labeling): preset the switch and mode from widget.overlay.
+        self._labels_check.setChecked(False)
+        self._normal_radio.setChecked(True)
+        self._sync_label_radios()
 
     def _on_filter_selected(self, name_filter):
         filt = (name_filter or "").lower()
@@ -104,6 +144,8 @@ class Save2DCanvasDialog(_gui_common.PilotFeature):
             self._pycon.writeToHistory(
                 "Save 2D canvas: no focused 2D canvas\n")
             return False
+        # TODO(labeling): bake the dialog's chosen label overlay into the
+        # export (saveImage(path, overlay)) once the overlay backend lands.
         ok = widget.saveImage(path)
         if ok:
             self._pycon.writeToHistory(f"Save 2D canvas: wrote {path}\n")
