@@ -2,8 +2,10 @@
 # .claude/statusline.sh
 #
 # Status line for Claude Code. Reads the session JSON on stdin and
-# prints a single line with model, project name, branch (with `*`
-# if dirty), and (if available) context-window usage percentage.
+# prints a single line with model, project name, branch (with `*` if
+# dirty), context-window usage, token counts, estimated cost, and
+# Claude.ai subscription usage (5-hour and weekly windows) when the
+# account exposes them.
 # Falls back gracefully if `jq` is not installed.
 
 input=$(cat)
@@ -14,12 +16,16 @@ if command -v jq >/dev/null 2>&1; then
     used=$(printf '%s' "$input" | jq -r '.context_window.used_percentage // empty')
     total_in=$(printf '%s' "$input" | jq -r '.context_window.total_input_tokens // empty')
     total_out=$(printf '%s' "$input" | jq -r '.context_window.total_output_tokens // empty')
+    five=$(printf '%s' "$input" | jq -r '.rate_limits.five_hour.used_percentage // empty')
+    week=$(printf '%s' "$input" | jq -r '.rate_limits.seven_day.used_percentage // empty')
 else
     model="?"
     dir=""
     used=""
     total_in=""
     total_out=""
+    five=""
+    week=""
 fi
 
 [ -z "$dir" ] && dir="$PWD"
@@ -55,5 +61,13 @@ if [ -n "$total_in" ] && [ -n "$total_out" ]; then
     fi
 fi
 
-printf '%s | %s | %s%s%s%s%s' \
-    "$model" "$proj" "$branch" "$dirty" "$ctx_part" "$tok_part" "$cost_part"
+# Claude.ai subscription usage windows, appended after the estimated cost.
+# Each segment is shown only when the account exposes that window (present for
+# subscribers after the first API response); nothing is added when none are
+# set.
+usage_part=""
+[ -n "$five" ] && usage_part=$(printf '%s | 5h %s%%' "$usage_part" "$(printf '%.0f' "$five")")
+[ -n "$week" ] && usage_part=$(printf '%s | wk %s%%' "$usage_part" "$(printf '%.0f' "$week")")
+
+printf '%s | %s | %s%s%s%s%s%s' \
+    "$model" "$proj" "$branch" "$dirty" "$ctx_part" "$tok_part" "$cost_part" "$usage_part"
