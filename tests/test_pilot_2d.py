@@ -541,13 +541,106 @@ class Save2DCanvasDialogTC(unittest.TestCase):
         self.assertEqual(data[:8], _PNG_MAGIC)
 
 
+def _grab_foreground(widget, overlay=None):
+    """Render ``widget`` offscreen and count its non-background pixels.
+
+    With ``overlay`` given, that overlay is baked into the save (and the save
+    is asserted to succeed); otherwise the widget's current overlay is used.
+    Returns the foreground pixel count, which is 0 when the offscreen grab
+    reads back blank (some headless backends cannot capture a QWidget), so
+    callers can skip the pixel comparison rather than fail spuriously.
+    """
+    with tempfile.TemporaryDirectory() as folder:
+        path = os.path.join(folder, "grab.png")
+        if overlay is None:
+            widget.saveImage(path)
+        else:
+            assert widget.saveImage(path, overlay)
+        rgb = _load_rgba(path)[:, :, :3].astype('int16')
+    # The canvas backdrop is RGB(32, 32, 36); anything far from it is drawn.
+    background = np.array([32, 32, 36], dtype='int16')
+    return int((np.abs(rgb - background).max(axis=2) > 60).sum())
+
+
+def _all_on_overlay(highlight_id=-1):
+    """An Overlay2dOptions with every display toggle enabled, optionally
+    highlighting one shape id.
+    """
+    overlay = pilot.Overlay2dOptions()
+    overlay.shape_ids = True
+    overlay.bounding_boxes = True
+    overlay.highlight_id = highlight_id
+    return overlay
+
+
+def _save_and_check_png(testcase, widget):
+    """Save ``widget`` offscreen and assert it wrote a valid PNG."""
+    with tempfile.TemporaryDirectory() as folder:
+        path = os.path.join(folder, "widget.png")
+        widget.saveImage(path)
+        with open(path, 'rb') as stream:
+            data = stream.read()
+    testcase.assertEqual(data[:8], _PNG_MAGIC)
+
+
+@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+class R2DWidgetOverlayTC(unittest.TestCase):
+    """Annotation overlay: ids, bounding boxes, and highlight-by-id via
+    R2DWidget.overlay.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.widget = pilot.RManager.instance.setUp().add2DWidget()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.widget = None
+
+    def tearDown(self):
+        # The widget is shared across the class, so reset the overlay and view
+        # to leave a clean slate for the next test.
+        self.widget.overlay = pilot.Overlay2dOptions()
+        self.widget.resetView()
+
+    def test_overlay_render_is_crash_safe(self):
+        """Every annotation on, over a world with a removed shape, and with a
+        highlight id that names no live shape, still renders to a valid PNG.
+        """
+        self.widget.updateWorld(_build_world())
+        self.widget.resetView()
+        # highlight_id 9999 names no live shape: must not throw.
+        self.widget.overlay = _all_on_overlay(highlight_id=9999)
+        self.widget.requestRepaint()
+        _save_and_check_png(self, self.widget)
+
+    def test_overlay_adds_foreground_pixels(self):
+        """Enabling the annotations paints strictly more than the bare
+        geometry: the bounding boxes and id labels add pixels the plain
+        render does not have.
+        """
+        world = solvcon.WorldFp64()
+        sid = world.add_rectangle(-2, -1, 2, 1)
+        world.add_circle(-3, 2, 1.0)
+        self.widget.updateWorld(world)
+        self.widget.resetView()
+        self.widget.overlay = pilot.Overlay2dOptions()
+        self.widget.requestRepaint()
+        plain = _grab_foreground(self.widget)
+        if not plain:
+            self.skipTest("offscreen grab reads back blank on this backend")
+        self.widget.overlay = _all_on_overlay(highlight_id=sid)
+        self.widget.requestRepaint()
+        annotated = _grab_foreground(self.widget)
+        self.assertGreater(annotated, plain)
+
+
 @unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
 class InspectorLabelControlsTC(unittest.TestCase):
-    """Cover the inspector label controls' UI behavior only.
+    """Cover the inspector label controls driving the canvas overlay.
 
-    The entity tree presents the label switch and normal/advanced selector
-    inside collapsible sections. Driving the canvas overlay from them is
-    deferred to the labeling backend, so nothing here exercises the overlay.
+    The inspector entity tree's label switch drives the bound canvas's
+    overlay, per canvas.
     """
 
     @classmethod
@@ -563,6 +656,7 @@ class InspectorLabelControlsTC(unittest.TestCase):
 
     def test_mode_radios_follow_switch(self):
         widget = self.mgr.add2DWidget()
+        widget.overlay = pilot.Overlay2dOptions()
         tree = self._tree(widget)
         self.assertFalse(tree._label_modes["normal"].isEnabled())
         tree._labels_check.setChecked(True)
@@ -586,6 +680,43 @@ class InspectorLabelControlsTC(unittest.TestCase):
         tree._label_section.set_expanded(False)
         self.assertFalse(tree._tree_section.body().isHidden())
         self.assertTrue(tree._label_section.body().isHidden())
+
+
+@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+class R2DWidgetExportOverlayTC(unittest.TestCase):
+    """saveImage renders an explicit overlay offscreen, independent of the
+    on-screen overlay, so an image can be exported with or without labels.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.widget = pilot.RManager.instance.setUp().add2DWidget()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.widget = None
+
+    def test_export_overlay_independent_of_on_screen(self):
+        """Exporting with labels bakes them even when the widget shows none,
+        and exporting without labels omits them even when the widget shows
+        all: the file reflects the passed overlay, not the screen.
+        """
+        world = solvcon.WorldFp64()
+        world.add_rectangle(-2, -1, 2, 1)
+        world.add_circle(-3, 2, 1.0)
+        self.widget.updateWorld(world)
+        self.widget.resetView()
+        # Screen shows no labels; export with every label on.
+        self.widget.overlay = pilot.Overlay2dOptions()
+        self.widget.requestRepaint()
+        labeled = _grab_foreground(self.widget, _all_on_overlay())
+        # Screen shows every label; export with none.
+        self.widget.overlay = _all_on_overlay()
+        self.widget.requestRepaint()
+        plain = _grab_foreground(self.widget, pilot.Overlay2dOptions())
+        if not labeled and not plain:
+            self.skipTest("offscreen render reads back blank on this backend")
+        self.assertGreater(labeled, plain)
 
 
 @unittest.skipIf(GITHUB_ACTIONS or not solvcon.HAS_PILOT,

@@ -15,6 +15,7 @@ from ._pilot_core import (  # noqa: F401
     mgr,
     RDomainWidget,
     R2DWidget,
+    Overlay2dOptions,
     RPythonConsoleDockWidget,
     RManager,
 )

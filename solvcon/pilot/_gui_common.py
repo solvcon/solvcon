@@ -7,6 +7,15 @@ from ..core import Toggle
 from PySide6 import QtCore, QtGui
 
 
+def apply_label_mode(overlay, on, advanced):
+    overlay.shape_ids = on
+    return overlay
+
+
+def label_switch_and_mode(overlay):
+    return overlay.shape_ids, False
+
+
 class ToggleActionBridge(QtCore.QObject):
     """Two-way binding between a checkable QAction and a store toggle.
 

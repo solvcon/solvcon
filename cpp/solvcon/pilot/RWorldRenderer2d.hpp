@@ -17,6 +17,8 @@
 #include <solvcon/universe/ViewTransform2d.hpp>
 #include <solvcon/universe/World.hpp>
 
+#include <cstdint>
+
 #include <QPointF>
 
 class QPainter;
@@ -25,10 +27,31 @@ namespace solvcon
 {
 
 /**
+ * Toggleable, legibility-only annotations over the 2D canvas: shape ids,
+ * bounding boxes, and one highlighted shape id. Restates stored geometry only
+ * (no derived diagnostics).
+ *
+ * @ingroup group_domain
+ */
+struct Overlay2dOptions
+{
+    bool shape_ids = false;
+    bool bounding_boxes = false;
+    int32_t highlight_id = -1; ///< Emphasize this shape id; -1 draws none. Independent of selection.
+
+    bool shape_annotations() const
+    {
+        return shape_ids || bounding_boxes || highlight_id >= 0;
+    }
+
+    bool any() const { return shape_annotations(); }
+}; /* end struct Overlay2dOptions */
+
+/**
  * Renders a world's live points, segments, and curves into a QPainter in
  * screen space, mapping math-convention world coordinates through a 2D view
  * transform. paint() draws geometry only; paint_canvas() adds the backdrop
- * and optional grid/axes/origin chrome.
+ * and optional grid/axes/origin chrome, then the optional annotation overlay.
  * m_world is non-owning and may be null.
  *
  * @ingroup group_domain
@@ -36,13 +59,14 @@ namespace solvcon
 class RWorldRenderer2d
 {
 public:
-    RWorldRenderer2d(WorldFp64 const * world, ViewTransform2dFp64 const & view)
+    RWorldRenderer2d(WorldFp64 const * world, ViewTransform2dFp64 const & view, Overlay2dOptions const & overlay = {})
         : m_world(world)
         , m_view(view)
+        , m_overlay(overlay)
     {
     }
 
-    /// Paint backdrop, geometry, and optional chrome.
+    /// Paint backdrop, geometry, optional chrome, and the annotation overlay.
     /// @param painter Target painter in screen space.
     /// @param width Canvas width in pixels.
     /// @param height Canvas height in pixels.
@@ -52,11 +76,15 @@ public:
 private:
     void paint(QPainter & painter) const;
 
+    void paint_overlay(QPainter & painter, int width, int height) const;
+    void paint_shape_annotations(QPainter & painter, int width, int height) const;
+
     // Map math-convention world (x, y) to Qt screen pixels; z is dropped.
     QPointF map(double world_x, double world_y) const;
 
     WorldFp64 const * m_world;
     ViewTransform2dFp64 const & m_view;
+    Overlay2dOptions m_overlay;
 }; /* end class RWorldRenderer2d */
 
 } /* end namespace solvcon */
