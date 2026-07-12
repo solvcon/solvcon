@@ -170,13 +170,13 @@ class _Controller(metaclass=_Singleton):
                 menu_role=QAction.MenuRole.QuitRole),
             100)
         wm.menu_model.place(
-            "Window",
+            "View",
             _gui_common.build_action(
                 wm.mainWindow, "Appearance", "Manage the app's look and feel",
                 self._appearance_dialog.on_open_appearance,
-                id="window.appearance",
+                id="view.appearance",
                 checkable=False, checked=False),
-            40)
+            -1)
         wm.menu_model.place(
             "Window",
             _gui_common.build_action(

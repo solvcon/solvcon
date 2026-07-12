@@ -1,4 +1,4 @@
-# Copyright (c) 2025, solvcon team <contact@solvcon.net>
+# Copyright (c) 2026, solvcon team <contact@solvcon.net>
 # BSD 3-Clause License, see COPYING
 
 
