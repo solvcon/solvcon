@@ -147,7 +147,7 @@ void RPythonCommandTextEdit::highlightMatchingBracket()
         cursor.setPosition(position + 1, QTextCursor::KeepAnchor);
         QTextEdit::ExtraSelection selection;
         selection.cursor = cursor;
-        selection.format.setBackground(QColor(180, 180, 255));
+        selection.format.setBackground(m_bracket_match_color);
         selections.append(selection);
     };
 
@@ -171,6 +171,12 @@ void RPythonCommandTextEdit::highlightMatchingBracket()
     tryMatch(pos);
     tryMatch(pos - 1);
     setExtraSelections(selections);
+}
+
+void RPythonCommandTextEdit::setBracketMatchColor(QColor const & color)
+{
+    m_bracket_match_color = color;
+    highlightMatchingBracket();
 }
 
 // Tab-triggered auto-completion workflow:
@@ -297,16 +303,12 @@ RPythonConsoleDockWidget::RPythonConsoleDockWidget(const QString & title, QWidge
     container->setLayout(layout);
     setWidget(container);
 
-    QPalette palette = QPalette();
-    palette.setColor(QPalette::Base, Qt::white);
-    palette.setColor(QPalette::Text, Qt::black);
-    palette.setColor(QPalette::PlaceholderText, Qt::darkGray);
-
+    // Leave the text colors to the application palette so the console follows
+    // the active light or dark theme instead of forcing black-on-white.
     m_history_edit->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_history_edit->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     m_history_edit->setFont(QFont("Courier New"));
     m_history_edit->setReadOnly(true);
-    m_history_edit->setPalette(palette);
     layout->addWidget(m_history_edit, /*stretch=*/1);
 
     constexpr int commandEditMinHeight = 40;
@@ -314,7 +316,6 @@ RPythonConsoleDockWidget::RPythonConsoleDockWidget(const QString & title, QWidge
     m_command_edit->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_command_edit->setFont(QFont("Courier New"));
     m_command_edit->setFixedHeight(commandEditMinHeight);
-    m_command_edit->setPalette(palette);
     m_command_edit->setPlaceholderText("Shift+Enter to create new line. Enter to execute.");
     layout->addWidget(m_command_edit, /*stretch=*/0);
 
@@ -377,6 +378,13 @@ RPythonConsoleDockWidget::RPythonConsoleDockWidget(const QString & title, QWidge
     connect(m_command_edit, &RPythonCommandTextEdit::completionRequested, this, &RPythonConsoleDockWidget::handleCompletionRequest);
     connect(m_command_edit, &RPythonCommandTextEdit::callTipRequested, this, &RPythonConsoleDockWidget::handleCallTipRequest);
     connect(m_command_edit, &QTextEdit::textChanged, this, &RPythonConsoleDockWidget::updateCompletionPrefix);
+}
+
+void RPythonConsoleDockWidget::applyTheme(SyntaxColors const & colors)
+{
+    m_highlighter->applyColors(colors);
+    m_command_edit->setBracketMatchColor(
+        QColor(colors.bracket_match.r, colors.bracket_match.g, colors.bracket_match.b));
 }
 
 QString RPythonConsoleDockWidget::command() const

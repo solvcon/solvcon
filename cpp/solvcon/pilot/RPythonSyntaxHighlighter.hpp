@@ -13,6 +13,8 @@
  * @ingroup group_domain
  */
 
+#include <solvcon/pilot/theme.hpp>
+
 #include <QSyntaxHighlighter>
 #include <QTextCharFormat>
 
@@ -34,6 +36,10 @@ class RPythonSyntaxHighlighter
 public:
 
     explicit RPythonSyntaxHighlighter(QTextDocument * parent);
+
+    /// Recolor every token category from a theme's syntax table and repaint,
+    /// so the console highlighting follows a light or dark switch.
+    void applyColors(SyntaxColors const & colors);
 
 protected:
 

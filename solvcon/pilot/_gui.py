@@ -27,7 +27,7 @@ if _pcore.enable:
     from . import _painter_gui
     from . import _profiling
     from . import _agent_gui
-    from . import _appearance
+    from . import _theme
 
 __all__ = [  # noqa: F822
     'controller',
@@ -72,7 +72,7 @@ class _Controller(metaclass=_Singleton):
         self.openprofiledata = None
         self.runprofiling = None
         self.agent = None
-        self.appearance_dialog = None
+        self.theme_menu = None
 
     def __getattr__(self, name):
         return None if self._rmgr is None else getattr(self._rmgr, name)
@@ -120,7 +120,7 @@ class _Controller(metaclass=_Singleton):
         self.openprofiledata = _profiling.Profiling(mgr=self._rmgr)
         self.runprofiling = _profiling.RunProfiling(mgr=self._rmgr)
         self.agent = _agent_gui.AgentPanel(mgr=self._rmgr)
-        self._appearance_dialog = _appearance.AppearanceDialog(mgr=self._rmgr)
+        self.theme_menu = _theme.ThemeMenu(mgr=self._rmgr)
         self.populate_menu()
         self._seed_console_namespace()
         self._built = True
@@ -159,6 +159,7 @@ class _Controller(metaclass=_Singleton):
         self.openprofiledata.populate_menu()
         self.runprofiling.populate_menu()
         self.agent.populate_menu()
+        self.theme_menu.populate_menu()
 
         # An explicit QuitRole lets macOS relocate Exit into the application
         # menu, so no platform special case is needed.
@@ -169,14 +170,6 @@ class _Controller(metaclass=_Singleton):
                 lambda: wm.quit(), id="file.exit",
                 menu_role=QAction.MenuRole.QuitRole),
             100)
-        wm.menu_model.place(
-            "View",
-            _gui_common.build_action(
-                wm.mainWindow, "Appearance", "Manage the app's look and feel",
-                self._appearance_dialog.on_open_appearance,
-                id="view.appearance",
-                checkable=False, checked=False),
-            -1)
         wm.menu_model.place(
             "Window",
             _gui_common.build_action(
