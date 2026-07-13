@@ -4413,6 +4413,8 @@ class SimpleArrayPlexTC(unittest.TestCase):
         for dtype, (_, typed_name, _) in self._DTINFO.items():
             with self.subTest(dtype=dtype):
                 plex = solvcon.SimpleArray((2, 3, 4), dtype=dtype)
+                ndarr = np.array(plex, dtype=dtype, copy=False)
+                ndarr.flat[0] = 1
                 typed = plex.typed
                 plex2 = typed.plex
 
@@ -4423,11 +4425,10 @@ class SimpleArrayPlexTC(unittest.TestCase):
                 self.assertEqual(str(type(plex2)),
                                  "<class '_solvcon.SimpleArray'>")
 
-                # Verify data survives the roundtrip:
-                # write through typed, read back from plex2
-                ndarr = np.array(plex, copy=False)
-                ndarr.flat[0] = 1
-                self.assertEqual(plex2[0, 0, 0], typed[0, 0, 0])
+                self.assertEqual(
+                    1, np.array(typed, dtype=dtype, copy=False).flat[0])
+                self.assertEqual(
+                    1, np.array(plex2, dtype=dtype, copy=False).flat[0])
 
     def test_SimpleArrayPlex_typed_preserves_data(self):
         # Test non-complex dtypes using value= constructor
