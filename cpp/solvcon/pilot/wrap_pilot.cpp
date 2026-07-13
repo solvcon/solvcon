@@ -911,6 +911,18 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRManager
                 {
                     return std::string(platformIdName(self.themeManager()->platform()));
                 })
+            .def_property_readonly(
+                "theme_can_follow_system",
+                [](wrapped_type & self)
+                {
+                    return self.themeManager()->capabilities().can_follow_system;
+                })
+            .def_property_readonly(
+                "theme_can_force_variant",
+                [](wrapped_type & self)
+                {
+                    return self.themeManager()->capabilities().can_force_variant;
+                })
             .def(
                 "quit",
                 [](wrapped_type & self)

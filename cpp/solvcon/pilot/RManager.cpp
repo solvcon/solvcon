@@ -18,6 +18,7 @@
 #include <QMenu>
 #include <QAction>
 #include <QActionGroup>
+#include <QColor>
 #include <QKeySequence>
 #include <QVBoxLayout>
 #include <QWidget>
@@ -333,6 +334,20 @@ void RManager::setUpCentral()
     // single Painter toolbox always drives whichever canvas has focus.
     QObject::connect(m_mdiArea, &QMdiArea::subWindowActivated, m_mdiArea, [this](QMdiSubWindow *)
                      { applyDrawTool(); });
+
+    // The MDI area paints its own backdrop instead of reading the palette, so
+    // drive it from the theme's window color and follow theme changes;
+    // otherwise a stale slab shows through under the dark theme. Take the color
+    // from the theme model, not m_mainWindow->palette(): when themeChanged fires
+    // the freshly set application palette has not yet propagated to the window,
+    // so palette() would lag one switch behind.
+    auto paintBackdrop = [this](ThemeVariant variant)
+    {
+        ThemeColor const c = themePaletteFor(m_themeManager->platform(), variant).window;
+        m_mdiArea->setBackground(QColor(c.r, c.g, c.b));
+    };
+    paintBackdrop(m_themeManager->currentVariant());
+    QObject::connect(m_themeManager, &RThemeManager::themeChanged, m_mdiArea, paintBackdrop);
 }
 
 void RManager::primeRhiComposition()
@@ -373,6 +388,8 @@ void RManager::setUpMenu()
     m_menuModel->menu("Window", 70);
 
     setUpEditMenuItems();
+    // The View > Theme menu is built in Python; keep only its sync here.
+    connectThemeMenuSync();
     // Code for controlling camera is not exposed to Python yet.
     setUpCameraControllersMenuItems();
     setUpCameraMovementMenuItems();
@@ -401,6 +418,27 @@ void RManager::setUpEditMenuItems() const
 
     m_menuModel->place("Edit", undo_action, 10);
     m_menuModel->place("Edit", redo_action, 20);
+}
+
+void RManager::connectThemeMenuSync() const
+{
+    // The View > Theme menu is built from Python; the C++ side keeps only this
+    // one connection so the exclusive radios stay in step with the manager
+    // whenever the theme changes from outside the menu, a console set_theme()
+    // or an operating-system switch. The lookup is by object name, so it finds
+    // the Python-created actions once they are placed and does nothing before
+    // then. Parent the connection to the model so it dies with the menu.
+    QObject::connect(
+        m_themeManager,
+        &RThemeManager::themeChanged,
+        m_menuModel,
+        [this](ThemeVariant)
+        {
+            if (QAction * current = m_menuModel->action("theme.mode_" + m_themeManager->modeId()))
+            {
+                current->setChecked(true);
+            }
+        });
 }
 
 void RManager::setUpCameraControllersMenuItems() const
