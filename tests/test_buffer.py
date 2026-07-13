@@ -4410,11 +4410,19 @@ class SimpleArrayPlexTC(unittest.TestCase):
                     wrong_cls(array=ndarr)
 
     def test_SimpleArrayPlex_typed_roundtrip(self):
-        for dtype, (_, typed_name, _) in self._DTINFO.items():
+        # Seed values for each dtype to fill the SimpleArray with, so that
+        # we can check that the data survives the roundtrip.
+        seed = {
+            "bool": True,
+            "int8": 7, "int16": 7, "int32": 7, "int64": 7,
+            "uint8": 7, "uint16": 7, "uint32": 7, "uint64": 7,
+            "float32": 1.5, "float64": 1.5,
+            "complex64": 1.5 + 2.5j, "complex128": 1.5 + 2.5j,
+        }
+        for dtype, (_, typed_name, np_dtype) in self._DTINFO.items():
             with self.subTest(dtype=dtype):
-                plex = solvcon.SimpleArray((2, 3, 4), dtype=dtype)
-                ndarr = np.array(plex, dtype=dtype, copy=False)
-                ndarr.flat[0] = 1
+                source = np.full((2, 3, 4), seed[dtype], dtype=np_dtype)
+                plex = solvcon.SimpleArray(source)
                 typed = plex.typed
                 plex2 = typed.plex
 
@@ -4425,10 +4433,9 @@ class SimpleArrayPlexTC(unittest.TestCase):
                 self.assertEqual(str(type(plex2)),
                                  "<class '_solvcon.SimpleArray'>")
 
-                self.assertEqual(
-                    1, np.array(typed, dtype=dtype, copy=False).flat[0])
-                self.assertEqual(
-                    1, np.array(plex2, dtype=dtype, copy=False).flat[0])
+                # Data survives the SimpleArray -> typed -> SimpleArray
+                # roundtrip.
+                self.assertEqual(plex2[0, 0, 0], typed[0, 0, 0])
 
     def test_SimpleArrayPlex_typed_preserves_data(self):
         # Test non-complex dtypes using value= constructor
