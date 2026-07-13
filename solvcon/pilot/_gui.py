@@ -28,6 +28,7 @@ if _pcore.enable:
     from . import _profiling
     from . import _agent_gui
     from . import _theme
+    from . import _window_manager
 
 __all__ = [  # noqa: F822
     'controller',
@@ -73,6 +74,7 @@ class _Controller(metaclass=_Singleton):
         self.runprofiling = None
         self.agent = None
         self.theme_menu = None
+        self.window_manager = None
 
     def __getattr__(self, name):
         return None if self._rmgr is None else getattr(self._rmgr, name)
@@ -121,6 +123,7 @@ class _Controller(metaclass=_Singleton):
         self.runprofiling = _profiling.RunProfiling(mgr=self._rmgr)
         self.agent = _agent_gui.AgentPanel(mgr=self._rmgr)
         self.theme_menu = _theme.ThemeMenu(mgr=self._rmgr)
+        self.window_manager = _window_manager.WindowManager(mgr=self._rmgr)
         self.populate_menu()
         self._seed_console_namespace()
         self._built = True
@@ -160,6 +163,7 @@ class _Controller(metaclass=_Singleton):
         self.runprofiling.populate_menu()
         self.agent.populate_menu()
         self.theme_menu.populate_menu()
+        self.window_manager.populate_menu()
 
         # An explicit QuitRole lets macOS relocate Exit into the application
         # menu, so no platform special case is needed.
@@ -171,12 +175,12 @@ class _Controller(metaclass=_Singleton):
                 menu_role=QAction.MenuRole.QuitRole),
             100)
         wm.menu_model.place(
-            "Window",
+            "View/Panels",
             _gui_common.build_action(
                 wm.mainWindow, "Console", "Open / Close Console",
-                wm.toggleConsole, id="window.console",
+                wm.toggleConsole, id="panel.console",
                 checkable=True, checked=True),
-            50)
+            30)
 
 
 controller = _Controller()

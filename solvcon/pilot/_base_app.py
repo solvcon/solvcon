@@ -372,6 +372,9 @@ class OneDimBaseApp(_gui_common.PilotFeature):
     use_grid_layout: bool = False
     adjust_region: bool = False
 
+    #: Title of the plot sub-window; the Window menu lists windows by it.
+    TITLE = "Base Window"
+
     def populate_menu(self):
         """
         Set menu item for GUI.
@@ -394,6 +397,7 @@ class OneDimBaseApp(_gui_common.PilotFeature):
 
         # A new sub-window (`QMdiSubWindow`) for the plot area
         self._subwin = self._mgr.addSubWindow(QWidget())
+        self._subwin.setWindowTitle(self.TITLE)
         self._subwin.setWidget(PlotArea(self))
         self._subwin.showMaximized()
         self._subwin.show()

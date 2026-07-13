@@ -47,6 +47,12 @@ class BarStructureTC(unittest.TestCase):
         self.assertEqual(view[0], "Panels")
         panels = [a.text() for a in model.menu("View/Panels").actions()]
         self.assertEqual(list(dict.fromkeys(panels)),
-                         ["Inspector", "Painter", "Agent Console"])
+                         ["Inspector", "Painter", "Console", "Agent Console"])
+
+        # The Console toggle lives with the other panel toggles; the Window
+        # menu holds only the dynamic sub-window list.
+        self.assertIsNotNone(model.action("panel.console"))
+        self.assertNotIn("Console",
+                         [a.text() for a in model.menu("Window").actions()])
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

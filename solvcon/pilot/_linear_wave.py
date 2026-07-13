@@ -30,6 +30,8 @@ class LinearWave:
 
 class LinearWave1DApp(_base_app.OneDimBaseApp):
 
+    TITLE = "Linear Wave"
+
     def populate_menu(self):
         """
         Set menu item for GUI.
