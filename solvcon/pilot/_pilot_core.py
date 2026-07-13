@@ -28,6 +28,7 @@ list_of_rdomainwidget = [
 # R2DWidget.hpp/.cpp
 list_of_r2dwidget = [
     'R2DWidget',
+    'Overlay2dOptions',
 ]
 
 # RManager.hpp/.cpp

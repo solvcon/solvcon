@@ -16,6 +16,7 @@
 
 #include <solvcon/buffer/small_vector.hpp>
 #include <solvcon/pilot/DrawTool.hpp>
+#include <solvcon/pilot/RWorldRenderer2d.hpp>
 #include <solvcon/universe/ViewTransform2d.hpp>
 #include <solvcon/universe/World.hpp>
 
@@ -26,6 +27,7 @@
 #include <QPointF>
 #include <QWidget>
 
+class QImage;
 class QMouseEvent;
 class QPainter;
 class QPaintEvent;
@@ -91,6 +93,22 @@ public:
 
     /// Get the world currently being painted.
     std::shared_ptr<WorldFp64> const & world() const { return m_world; }
+
+    Overlay2dOptions const & overlayOptions() const { return m_overlay; }
+
+    void setOverlayOptions(Overlay2dOptions const & overlay)
+    {
+        m_overlay = overlay;
+        update();
+    }
+
+    /**
+     * Paint the world offscreen into an image at the widget's current size and
+     * view, using the given overlay instead of the on-screen one. Draws only
+     * the backdrop, chrome, and geometry overlay; the selection box and any
+     * in-progress rubber band stay out of the exported frame.
+     */
+    QImage renderImage(Overlay2dOptions const & overlay) const;
 
     /// Hook for subsequent stages; current implementation triggers a repaint.
     void requestRepaint() { update(); }
@@ -159,6 +177,7 @@ private:
 
     ViewTransform2dFp64 m_view;
     std::shared_ptr<WorldFp64> m_world;
+    Overlay2dOptions m_overlay;
     bool m_view_modified = false;
     QPointF m_last_mouse_pos;
 

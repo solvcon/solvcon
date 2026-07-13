@@ -5,12 +5,11 @@
 
 #include <solvcon/pilot/R2DWidget.hpp> // Must be the first include.
 
-#include <solvcon/pilot/RWorldRenderer2d.hpp>
-
 #include <array>
 #include <cmath>
 
 #include <QColor>
+#include <QImage>
 #include <QMouseEvent>
 #include <QPaintEvent>
 #include <QPainter>
@@ -135,8 +134,10 @@ void R2DWidget::updateWorld(std::shared_ptr<WorldFp64> const & world)
     // Close any edit gesture on the outgoing world before swapping it out.
     finishEdit();
     m_world = world;
-    // A new world invalidates any shape id we held selected.
+    // A new world invalidates any shape id we held selected or highlighted;
+    // the display toggles persist so the overlay mode carries across worlds.
     m_selected = -1;
+    m_overlay.highlight_id = -1;
     m_drag = EditDrag::None;
     update();
 }
@@ -151,13 +152,28 @@ void R2DWidget::paintEvent(QPaintEvent * /*event*/)
 {
     QPainter painter(this);
     constexpr bool full_canvas = true;
-    RWorldRenderer2d(m_world.get(), m_view).paint_canvas(painter, width(), height(), full_canvas);
+    RWorldRenderer2d(m_world.get(), m_view, m_overlay).paint_canvas(painter, width(), height(), full_canvas);
 
     // Rubber-band preview of the shape currently being dragged, if any.
     paintDrawPreview(painter);
 
     // Selection box and rotate handle for the pan tool, if any.
     paintSelection(painter);
+}
+
+QImage R2DWidget::renderImage(Overlay2dOptions const & overlay) const
+{
+    // Match grab()'s device-pixel-ratio-aware output: back the image with
+    // device pixels and paint in logical coordinates, so a high-DPI export
+    // keeps the same resolution as the on-screen frame.
+    double const dpr = devicePixelRatioF();
+    QImage image(size() * dpr, QImage::Format_ARGB32_Premultiplied);
+    image.setDevicePixelRatio(dpr);
+    QPainter painter(&image);
+    constexpr bool full_canvas = true;
+    RWorldRenderer2d(m_world.get(), m_view, overlay)
+        .paint_canvas(painter, width(), height(), full_canvas);
+    return image;
 }
 
 void R2DWidget::paintDrawPreview(QPainter & painter) const

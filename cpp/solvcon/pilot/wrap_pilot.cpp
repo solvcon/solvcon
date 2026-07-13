@@ -13,9 +13,12 @@
 #include <solvcon/pilot/RThemeManager.hpp>
 #include <solvcon/pilot/pilot.hpp>
 
+#include <optional>
+
 #include <QAction>
 #include <QActionGroup>
 #include <QClipboard>
+#include <QImage>
 #include <QMenu>
 #include <QPixmap>
 #include <QPointer>
@@ -609,6 +612,11 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapR2DWidget
             .def("updateWorld", &wrapped_type::updateWorld, py::arg("world"))
             .def_property_readonly("world", &wrapped_type::world)
             .def("requestRepaint", &wrapped_type::requestRepaint)
+            .def_property(
+                "overlay",
+                &wrapped_type::overlayOptions,
+                &wrapped_type::setOverlayOptions,
+                py::return_value_policy::copy)
             .def("setDrawTool", &wrapped_type::setDrawTool, py::arg("name"))
             .def_property_readonly("drawTool", &wrapped_type::drawTool)
             .def_property_readonly("selectedShape", &wrapped_type::selectedShape)
@@ -624,19 +632,31 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapR2DWidget
             ;
 
         (*this)
-            .def("clipImage", [](wrapped_type & self)
-                 {
-                     QClipboard * clipboard = QGuiApplication::clipboard();
-                     clipboard->setPixmap(self.grab()); })
+            .def(
+                "clipImage",
+                [](wrapped_type & self, std::optional<Overlay2dOptions> const & overlay)
+                {
+                    QClipboard * clipboard = QGuiApplication::clipboard();
+                    QPixmap const pixmap = overlay ? QPixmap::fromImage(self.renderImage(*overlay)) : self.grab();
+                    clipboard->setPixmap(pixmap);
+                },
+                py::arg("overlay") = py::none(),
+                "Copy the canvas to the clipboard. With no overlay, copies the "
+                "on-screen frame; with an Overlay2dOptions, renders that "
+                "annotation set offscreen instead.")
             .def(
                 "saveImage",
-                [](wrapped_type & self, std::string const & filename)
+                [](wrapped_type & self, std::string const & filename, std::optional<Overlay2dOptions> const & overlay)
                 {
-                    return self.grab().save(filename.c_str());
+                    QImage const image = overlay ? self.renderImage(*overlay) : self.grab().toImage();
+                    return image.save(filename.c_str());
                 },
                 py::arg("filename"),
-                "Grab the current on-screen frame and save it to filename; "
-                "returns whether the write succeeded.")
+                py::arg("overlay") = py::none(),
+                "Save the canvas to filename and return whether the write "
+                "succeeded. With no overlay, saves the on-screen frame; with "
+                "an Overlay2dOptions, renders that annotation set offscreen "
+                "instead, independent of what the widget currently shows.")
             //
             ;
     }
@@ -1037,6 +1057,17 @@ void wrap_pilot(pybind11::module & mod)
         "panCamera / zoomCamera / pinchCamera, and fitCameraToScene; capture "
         "frames with "
         "saveImage / clipImage.");
+    py::class_<Overlay2dOptions> overlay_options(
+        mod,
+        "Overlay2dOptions",
+        "Toggleable, legibility-only annotations for the 2D canvas: per-shape "
+        "ids and bounding boxes, and one highlighted shape id. Carries no "
+        "derived facts.");
+    overlay_options.def(py::init<>());
+    overlay_options
+        .def_readwrite("shape_ids", &Overlay2dOptions::shape_ids)
+        .def_readwrite("bounding_boxes", &Overlay2dOptions::bounding_boxes)
+        .def_readwrite("highlight_id", &Overlay2dOptions::highlight_id);
     WrapR2DWidget::commit(mod, "R2DWidget", "R2DWidget");
     WrapRPythonConsoleDockWidget::commit(mod, "RPythonConsoleDockWidget", "RPythonConsoleDockWidget");
     WrapRMenuModel::commit(

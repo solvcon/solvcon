@@ -445,8 +445,10 @@ class EntityTreeWidget(TreePanelBase):
     def _build_label_controls(self, layout):
         """Add the canvas label switch and its normal/advanced selector.
 
-        Signals connect only after the defaults are set, so building the row
-        emits no stray toggles.
+        The selector only makes sense while the switch is on, so it follows
+        the switch's enabled state. Both stay disabled until a canvas is
+        bound through :meth:`set_canvas`. Signals connect only after the
+        defaults are set, so building the row drives no overlay writes.
         """
         label_row = QHBoxLayout()
         label_row.setContentsMargins(0, 0, 0, 0)
@@ -475,28 +477,35 @@ class EntityTreeWidget(TreePanelBase):
             button.setEnabled(on)
 
     def _sync_label_controls(self):
-        """Reflect the bound canvas into the switch and selector."""
+        """Reflect the bound canvas's overlay into the controls."""
         self._syncing = True
         try:
             self._labels_check.setEnabled(self._canvas is not None)
             if self._canvas is None:
                 self._labels_check.setChecked(False)
-            # TODO(labeling): reflect the bound canvas's overlay (labels on,
-            # normal/advanced) into the switch and mode selector.
+            else:
+                on, advanced = _gui_common.label_switch_and_mode(
+                    self._canvas.overlay)
+                self._labels_check.setChecked(on)
+                mode = "advanced" if advanced else "normal"
+                self._label_modes[mode].setChecked(True)
             self._sync_label_controls_enabled()
         finally:
             self._syncing = False
 
     def _on_labels_changed(self, _checked=False):
-        """Keep the mode selector's enabled state in step with the switch."""
+        """Write the switch and mode to the bound canvas's overlay. """
         self._sync_label_controls_enabled()
         if self._syncing or self._canvas is None:
             return
-        # TODO(labeling): push (labels on, normal/advanced) into the bound
-        # canvas's overlay so toggling draws the annotations.
+        on = self._labels_check.isChecked()
+        advanced = on and self._label_modes["advanced"].isChecked()
+        overlay = self._canvas.overlay
+        _gui_common.apply_label_mode(overlay, on, advanced)
+        self._canvas.overlay = overlay
 
     def set_canvas(self, widget):
-        """Bind the active 2D canvas; ``None`` clears it."""
+        """Bind the active 2D canvas and show its world."""
         self._canvas = widget
         self.set_world(widget.world if widget is not None else None)
         self._sync_label_controls()

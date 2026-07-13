@@ -49,8 +49,10 @@ class Save2DCanvasDialog(_gui_common.PilotFeature):
     """
     File-menu action that saves the focused 2D canvas via ``saveImage``.
 
-    The dialog allows the user to choose different file formats (PNG or JPEG)
-    and to include or exclude the label overlay.
+    The save dialog carries an "Include labels" switch and a normal/advanced
+    selector, so the exported image can bake in the annotation overlay
+    independent of what the canvas currently shows on screen. The controls
+    need custom widgets in the dialog, so it runs non-native.
     """
 
     def __init__(self, *args, **kw):
@@ -113,10 +115,14 @@ class Save2DCanvasDialog(_gui_common.PilotFeature):
         return True
 
     def _init_label_controls(self, widget):
-        """Reset the label controls to their defaults for each open."""
-        # TODO(labeling): preset the switch and mode from widget.overlay.
-        self._labels_check.setChecked(False)
-        self._normal_radio.setChecked(True)
+        """Preset the label controls from the canvas's current overlay.
+
+        The export defaults to matching what the canvas shows on screen.
+        """
+        on, advanced = _gui_common.label_switch_and_mode(widget.overlay)
+        self._labels_check.setChecked(on)
+        radio = self._advanced_radio if advanced else self._normal_radio
+        radio.setChecked(True)
         self._sync_label_radios()
 
     def _on_filter_selected(self, name_filter):
@@ -138,15 +144,23 @@ class Save2DCanvasDialog(_gui_common.PilotFeature):
             return
         self._save_current(path)
 
+    def _export_overlay(self, widget):
+        """Build the overlay to bake into the export from the dialog controls.
+
+        Starts from the canvas's current overlay so a highlight or bounding
+        box set elsewhere survives the export.
+        """
+        on = self._labels_check.isChecked()
+        advanced = on and self._advanced_radio.isChecked()
+        return _gui_common.apply_label_mode(widget.overlay, on, advanced)
+
     def _save_current(self, path):
         widget = self._mgr.currentR2DWidget()
         if widget is None:
             self._pycon.writeToHistory(
                 "Save 2D canvas: no focused 2D canvas\n")
             return False
-        # TODO(labeling): bake the dialog's chosen label overlay into the
-        # export (saveImage(path, overlay)) once the overlay backend lands.
-        ok = widget.saveImage(path)
+        ok = widget.saveImage(path, self._export_overlay(widget))
         if ok:
             self._pycon.writeToHistory(f"Save 2D canvas: wrote {path}\n")
         else:
