@@ -79,7 +79,10 @@ class ThemeMenuTC(unittest.TestCase):
         return app.palette().color(QPalette.Window).lightness()
 
     def test_theme_menu_lists_the_three_modes(self):
-        items = [a.text() for a in self.model.menu("View/Theme").actions()]
+        # The Theme menu also carries the look choices, so filter to the mode
+        # actions by their object-name prefix.
+        items = [a.text() for a in self.model.menu("View/Theme").actions()
+                 if a.objectName().startswith("theme.mode_")]
         self.assertEqual(items, ["Follow system", "Light", "Dark"])
 
     def test_theme_group_is_exclusive_and_defaults_to_system(self):
@@ -116,6 +119,59 @@ class ThemeMenuTC(unittest.TestCase):
         # never disagrees with the applied palette.
         checked = group.checkedAction()
         self.assertEqual(checked.objectName(), "theme.mode_dark")
+
+
+@unittest.skipIf(GITHUB_ACTIONS or not solvcon.HAS_PILOT,
+                 "GUI is not available in GitHub Actions")
+class ThemeLookTC(unittest.TestCase):
+    def setUp(self):
+        # The theme menu is built in Python by the controller, so build the
+        # full bar rather than only the C++ manager.
+        self.mgr = _gui.controller.build()
+        self.model = self.mgr.menu_model
+        self.app = QtWidgets.QApplication.instance()
+
+    def tearDown(self):
+        # The manager is a shared singleton, so restore the controlled default
+        # to keep the tests independent of the order they run in.
+        self.mgr.set_look("curated")
+        self.mgr.set_theme("system")
+
+    def test_look_menu_lists_the_two_looks(self):
+        items = [a.text() for a in self.model.menu("View/Theme").actions()
+                 if a.objectName().startswith("theme.look_")]
+        self.assertEqual(items, ["System colors", "Curated colors"])
+
+    def test_look_group_is_exclusive_and_defaults_to_curated(self):
+        group = self.model.group("theme.look")
+        self.assertEqual(len(group.actions()), 2)
+        self.assertTrue(group.isExclusive())
+        self.assertEqual(group.checkedAction().objectName(),
+                         "theme.look_curated")
+
+    def test_both_looks_are_enabled_on_this_platform(self):
+        for look in ("system", "curated"):
+            self.assertTrue(
+                self.model.action("theme.look_" + look).isEnabled())
+
+    def test_curated_look_paints_the_curated_dark_window(self):
+        self.mgr.set_look("curated")
+        self.mgr.set_theme("dark")
+        self.assertEqual(self.mgr.theme_look, "curated")
+        self.assertLess(
+            self.app.palette().color(QPalette.Window).lightness(), 100)
+
+    def test_system_look_uses_the_native_style_palette(self):
+        self.mgr.set_look("system")
+        self.assertEqual(self.mgr.theme_look, "system")
+        native = self.app.style().standardPalette().color(QPalette.Window)
+        self.assertEqual(self.app.palette().color(QPalette.Window), native)
+
+    def test_look_menu_check_follows_scripting(self):
+        self.mgr.set_look("system")
+        group = self.model.group("theme.look")
+        self.assertEqual(group.checkedAction().objectName(),
+                         "theme.look_system")
 
 
 @unittest.skipIf(GITHUB_ACTIONS or not solvcon.HAS_PILOT,

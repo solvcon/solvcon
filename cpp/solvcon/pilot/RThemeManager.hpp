@@ -21,6 +21,7 @@
 #include <solvcon/pilot/theme.hpp>
 #include <solvcon/pilot/RThemeBackend.hpp>
 
+#include <QColor>
 #include <QObject>
 #include <QPalette>
 
@@ -71,7 +72,17 @@ public:
     /// falls back to System. Convenience for the Python console and menu.
     void setModeById(std::string const & id);
 
+    /// Switch where the colors come from and re-apply. System shows the
+    /// platform's own colors; Curated paints the plan's palettes over them.
+    void setLook(ThemeLook look);
+
+    /// Switch look by its string id ("system", "curated"); an unknown id falls
+    /// back to Curated.
+    void setLookById(std::string const & id);
+
     ThemeMode mode() const { return m_mode; }
+
+    ThemeLook look() const { return m_look; }
 
     /// The concrete variant the current mode resolves to right now.
     ThemeVariant currentVariant() const;
@@ -86,8 +97,16 @@ public:
     /// String id of the current mode, for the Python boundary.
     std::string modeId() const;
 
+    /// String id of the current look, for the Python boundary.
+    std::string lookId() const;
+
     /// "light" or "dark" for the current variant, for the Python boundary.
     std::string variantId() const;
+
+    /// The Window color of the palette in effect, whether curated or native, so
+    /// widgets that paint their own backdrop can match it without lagging a
+    /// switch behind the application palette.
+    QColor windowColor() const { return m_window_color; }
 
 signals:
 
@@ -110,6 +129,14 @@ private:
     QPalette buildPalette(ThemePalette const & spec, ThemeVariant variant) const;
 
     ThemeMode m_mode = ThemeMode::System;
+
+    /// Where the colors come from. Curated is the controlled default; System is
+    /// opted into for the platform's own colors.
+    ThemeLook m_look = ThemeLook::Curated;
+
+    /// The Window color of the palette last applied, cached so the backdrop can
+    /// read it without waiting for the application palette to propagate.
+    QColor m_window_color;
 
     /// The running platform's backend, the only object that touches native
     /// levers. Never null after construction.

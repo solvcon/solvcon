@@ -30,6 +30,18 @@ class ThemeMenu(_gui_common.PilotFeature):
             ],
             base_weight=10, setter=mgr.set_theme, current=mgr.theme_mode)
 
+        self._build_group(
+            "theme.look",
+            [
+                ("system", "System colors",
+                 "Show the platform's own colors through the native style",
+                 mgr.theme_has_native_style),
+                ("curated", "Curated colors",
+                 "Apply the curated palette for a look that travels between"
+                 " machines", True),
+            ],
+            base_weight=110, setter=mgr.set_look, current=mgr.theme_look)
+
     def _build_group(self, group_id, items, *, base_weight, setter, current):
         # The exclusive group lives in the C++ menu model under its id, so a
         # test and the manager's sync both reach the actions by that handle.

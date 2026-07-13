@@ -19,6 +19,10 @@ using solvcon::platformIdName;
 using solvcon::resolveThemeVariant;
 using solvcon::syntaxColorsFor;
 using solvcon::themeCapabilitiesFor;
+using solvcon::ThemeLook;
+using solvcon::themeLookFromId;
+using solvcon::themeLookId;
+using solvcon::themeLookLabel;
 using solvcon::ThemeMode;
 using solvcon::themeModeFromId;
 using solvcon::themeModeId;
@@ -62,6 +66,22 @@ TEST(PilotThemeId, EveryModeHasALabel)
     EXPECT_GT(std::string(themeModeLabel(ThemeMode::System)).size(), 0U);
     EXPECT_GT(std::string(themeModeLabel(ThemeMode::Light)).size(), 0U);
     EXPECT_GT(std::string(themeModeLabel(ThemeMode::Dark)).size(), 0U);
+}
+
+TEST(PilotThemeLook, RoundTripsThroughItsId)
+{
+    EXPECT_EQ(std::string("system"), themeLookId(ThemeLook::System));
+    EXPECT_EQ(std::string("curated"), themeLookId(ThemeLook::Curated));
+
+    EXPECT_EQ(themeLookFromId("system"), ThemeLook::System);
+    EXPECT_EQ(themeLookFromId("curated"), ThemeLook::Curated);
+
+    // An unknown look falls back to Curated, the controlled default.
+    EXPECT_EQ(themeLookFromId("native"), ThemeLook::Curated);
+    EXPECT_EQ(themeLookFromId(nullptr), ThemeLook::Curated);
+
+    EXPECT_GT(std::string(themeLookLabel(ThemeLook::System)).size(), 0U);
+    EXPECT_GT(std::string(themeLookLabel(ThemeLook::Curated)).size(), 0U);
 }
 
 TEST(PilotThemePlatform, EveryPlatformHasAName)

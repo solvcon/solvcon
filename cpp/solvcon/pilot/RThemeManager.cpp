@@ -8,6 +8,7 @@
 #include <QApplication>
 #include <QColor>
 #include <QGuiApplication>
+#include <QStyle>
 #include <QStyleFactory>
 #include <QStyleHints>
 #include <QString>
@@ -64,8 +65,22 @@ void RThemeManager::apply()
     }
 
     ThemeVariant const variant = currentVariant();
-    QApplication::setPalette(
-        buildPalette(themePaletteFor(m_backend->platform(), variant), variant));
+    if (m_look == ThemeLook::System)
+    {
+        // Let the platform's own colors show through the native style. The
+        // color-scheme hint has already steered the style toward the requested
+        // variant, so its standard palette carries the right light or dark set.
+        QPalette const native = QApplication::style()->standardPalette();
+        m_window_color = native.color(QPalette::Window);
+        QApplication::setPalette(native);
+    }
+    else
+    {
+        QPalette const curated =
+            buildPalette(themePaletteFor(m_backend->platform(), variant), variant);
+        m_window_color = curated.color(QPalette::Window);
+        QApplication::setPalette(curated);
+    }
     if (m_window != nullptr)
     {
         m_backend->applyNativeChrome(m_window, variant);
@@ -94,6 +109,17 @@ void RThemeManager::setModeById(std::string const & id)
     setMode(themeModeFromId(id.c_str()));
 }
 
+void RThemeManager::setLook(ThemeLook look)
+{
+    m_look = look;
+    apply();
+}
+
+void RThemeManager::setLookById(std::string const & id)
+{
+    setLook(themeLookFromId(id.c_str()));
+}
+
 ThemeVariant RThemeManager::currentVariant() const
 {
     return resolveThemeVariant(m_mode, osPrefersDark());
@@ -112,6 +138,11 @@ ThemeCapabilities RThemeManager::capabilities() const
 std::string RThemeManager::modeId() const
 {
     return themeModeId(m_mode);
+}
+
+std::string RThemeManager::lookId() const
+{
+    return themeLookId(m_look);
 }
 
 std::string RThemeManager::variantId() const
