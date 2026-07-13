@@ -1,0 +1,41 @@
+name: Update Contributors
+
+on:
+  schedule:
+    # Run monthly on the first day at 08:17 UTC.
+    - cron: '17 8 1 * *'
+  workflow_dispatch:
+
+concurrency:
+  group: update-contributors
+  cancel-in-progress: false
+
+permissions:
+  issues: write
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Create contributor update reminder
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          title='Update contributor list'
+          open_reminders=$(gh issue list \
+            --repo "$GITHUB_REPOSITORY" \
+            --state open \
+            --limit 100 \
+            --json title \
+            --jq "map(select(.title == \"$title\")) | length")
+
+          if [ "$open_reminders" -gt 0 ]; then
+            echo 'An open contributor update reminder already exists.'
+            exit 0
+          fi
+
+          gh issue create \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "$title" \
+            --body $'Please update `CONTRIBUTORS.md` and review the generated changes before committing them.\n\nRun:\n```console\npython3 contrib/lint/analyze-contributors.py --update-file CONTRIBUTORS.md\n```'
