@@ -5,7 +5,9 @@
 
 #include <solvcon/pilot/theme.hpp>
 
+#include <cctype>
 #include <cstring>
+#include <string>
 
 namespace solvcon
 {
@@ -63,6 +65,117 @@ static ThemePalette makeDarkPalette()
     p.disabled_button_text = {0x6b, 0x6e, 0x73};
     p.disabled_window_text = {0x6b, 0x6e, 0x73};
     p.disabled_highlight = {0x3a, 0x3d, 0x42};
+    return p;
+}
+
+// The macOS tables follow the Aqua conventions: a near-white light window and
+// a deep neutral dark window, both a touch cooler than the shared curated
+// greys, paired with the system blue the platform defaults to. A running mac
+// backend replaces the highlight with the user's chosen accent; these values
+// are the fallback when no accent is read.
+
+static ThemePalette makeMacLightPalette()
+{
+    ThemePalette p;
+    p.window = {0xec, 0xec, 0xec};
+    p.window_text = {0x1c, 0x1c, 0x1e};
+    p.base = {0xff, 0xff, 0xff};
+    p.alternate_base = {0xf4, 0xf5, 0xf5};
+    p.text = {0x1c, 0x1c, 0x1e};
+    p.button = {0xf6, 0xf6, 0xf6};
+    p.button_text = {0x1c, 0x1c, 0x1e};
+    p.bright_text = {0xff, 0x3b, 0x30};
+    p.highlight = {0x00, 0x7a, 0xff};
+    p.highlighted_text = {0xff, 0xff, 0xff};
+    p.tool_tip_base = {0xf9, 0xf9, 0xf9};
+    p.tool_tip_text = {0x1c, 0x1c, 0x1e};
+    p.placeholder_text = {0x9b, 0x9b, 0xa0};
+    p.link = {0x00, 0x66, 0xcc};
+    p.link_visited = {0x85, 0x4f, 0xd8};
+    p.disabled_text = {0xb0, 0xb0, 0xb4};
+    p.disabled_button_text = {0xb0, 0xb0, 0xb4};
+    p.disabled_window_text = {0xb0, 0xb0, 0xb4};
+    p.disabled_highlight = {0xc9, 0xc9, 0xcd};
+    return p;
+}
+
+static ThemePalette makeMacDarkPalette()
+{
+    ThemePalette p;
+    p.window = {0x28, 0x28, 0x2a};
+    p.window_text = {0xf2, 0xf2, 0xf7};
+    p.base = {0x1e, 0x1e, 0x1e};
+    p.alternate_base = {0x2a, 0x2a, 0x2c};
+    p.text = {0xf2, 0xf2, 0xf7};
+    p.button = {0x3a, 0x3a, 0x3c};
+    p.button_text = {0xf2, 0xf2, 0xf7};
+    p.bright_text = {0xff, 0x45, 0x3a};
+    p.highlight = {0x0a, 0x84, 0xff};
+    p.highlighted_text = {0xff, 0xff, 0xff};
+    p.tool_tip_base = {0x3a, 0x3a, 0x3c};
+    p.tool_tip_text = {0xf2, 0xf2, 0xf7};
+    p.placeholder_text = {0x8e, 0x8e, 0x93};
+    p.link = {0x41, 0x9c, 0xff};
+    p.link_visited = {0xbf, 0x5a, 0xf2};
+    p.disabled_text = {0x6b, 0x6b, 0x70};
+    p.disabled_button_text = {0x6b, 0x6b, 0x70};
+    p.disabled_window_text = {0x6b, 0x6b, 0x70};
+    p.disabled_highlight = {0x3a, 0x3a, 0x3c};
+    return p;
+}
+
+// The Windows tables follow the Fluent conventions of Windows 11: a light
+// neutral window and a near-black dark window, with the default system blue as
+// the fallback accent. A running Windows backend replaces the highlight with
+// the operating system accent when it reads one.
+
+static ThemePalette makeWindowsLightPalette()
+{
+    ThemePalette p;
+    p.window = {0xf3, 0xf3, 0xf3};
+    p.window_text = {0x1a, 0x1a, 0x1a};
+    p.base = {0xff, 0xff, 0xff};
+    p.alternate_base = {0xf5, 0xf5, 0xf5};
+    p.text = {0x1a, 0x1a, 0x1a};
+    p.button = {0xfb, 0xfb, 0xfb};
+    p.button_text = {0x1a, 0x1a, 0x1a};
+    p.bright_text = {0xc4, 0x2b, 0x1c};
+    p.highlight = {0x00, 0x67, 0xc0};
+    p.highlighted_text = {0xff, 0xff, 0xff};
+    p.tool_tip_base = {0xf9, 0xf9, 0xf9};
+    p.tool_tip_text = {0x1a, 0x1a, 0x1a};
+    p.placeholder_text = {0x8a, 0x8a, 0x8a};
+    p.link = {0x00, 0x5a, 0x9e};
+    p.link_visited = {0x74, 0x4d, 0xa9};
+    p.disabled_text = {0xa8, 0xa8, 0xa8};
+    p.disabled_button_text = {0xa8, 0xa8, 0xa8};
+    p.disabled_window_text = {0xa8, 0xa8, 0xa8};
+    p.disabled_highlight = {0xcc, 0xcc, 0xcc};
+    return p;
+}
+
+static ThemePalette makeWindowsDarkPalette()
+{
+    ThemePalette p;
+    p.window = {0x20, 0x20, 0x20};
+    p.window_text = {0xf0, 0xf0, 0xf0};
+    p.base = {0x2b, 0x2b, 0x2b};
+    p.alternate_base = {0x30, 0x30, 0x30};
+    p.text = {0xf0, 0xf0, 0xf0};
+    p.button = {0x33, 0x33, 0x33};
+    p.button_text = {0xf0, 0xf0, 0xf0};
+    p.bright_text = {0xff, 0x99, 0x8a};
+    p.highlight = {0x4c, 0xc2, 0xff};
+    p.highlighted_text = {0x00, 0x00, 0x00};
+    p.tool_tip_base = {0x2b, 0x2b, 0x2b};
+    p.tool_tip_text = {0xf0, 0xf0, 0xf0};
+    p.placeholder_text = {0x9a, 0x9a, 0x9a};
+    p.link = {0x60, 0xcd, 0xff};
+    p.link_visited = {0xc5, 0x9a, 0xf0};
+    p.disabled_text = {0x6e, 0x6e, 0x6e};
+    p.disabled_button_text = {0x6e, 0x6e, 0x6e};
+    p.disabled_window_text = {0x6e, 0x6e, 0x6e};
+    p.disabled_highlight = {0x3a, 0x3a, 0x3a};
     return p;
 }
 
@@ -146,12 +259,45 @@ ThemePalette const & darkThemePalette()
     return palette;
 }
 
+static ThemePalette const & macLightThemePalette()
+{
+    static ThemePalette const palette = makeMacLightPalette();
+    return palette;
+}
+
+static ThemePalette const & macDarkThemePalette()
+{
+    static ThemePalette const palette = makeMacDarkPalette();
+    return palette;
+}
+
+static ThemePalette const & windowsLightThemePalette()
+{
+    static ThemePalette const palette = makeWindowsLightPalette();
+    return palette;
+}
+
+static ThemePalette const & windowsDarkThemePalette()
+{
+    static ThemePalette const palette = makeWindowsDarkPalette();
+    return palette;
+}
+
 ThemePalette const & themePaletteFor(PlatformId platform, ThemeVariant variant)
 {
-    // Every platform seeds from the curated tables; the platform rooms furnished
-    // in later steps replace this with their own tuned copies.
-    (void)platform;
-    return variant == ThemeVariant::Dark ? darkThemePalette() : lightThemePalette();
+    // macOS and Windows have their own rooms; Linux still draws from the shared
+    // curated tables until its room is furnished.
+    bool const dark = variant == ThemeVariant::Dark;
+    switch (platform)
+    {
+    case PlatformId::Mac:
+        return dark ? macDarkThemePalette() : macLightThemePalette();
+    case PlatformId::Windows:
+        return dark ? windowsDarkThemePalette() : windowsLightThemePalette();
+    case PlatformId::Linux:
+    default:
+        return dark ? darkThemePalette() : lightThemePalette();
+    }
 }
 
 SyntaxColors const & lightSyntaxColors()
@@ -260,6 +406,24 @@ char const * platformIdName(PlatformId platform)
     default:
         return "linux";
     }
+}
+
+bool linuxDesktopHasNativeTheme(char const * xdg_current_desktop)
+{
+    if (xdg_current_desktop == nullptr)
+    {
+        return false;
+    }
+
+    // XDG_CURRENT_DESKTOP is a colon-separated, case-varying list such as
+    // "ubuntu:GNOME" or "KDE", so fold to lower case and look for a name whose
+    // Qt platform theme is worth honoring.
+    std::string desktop(xdg_current_desktop);
+    for (char & c : desktop)
+    {
+        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    }
+    return desktop.find("gnome") != std::string::npos || desktop.find("kde") != std::string::npos;
 }
 
 } /* end namespace solvcon */

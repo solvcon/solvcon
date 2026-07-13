@@ -201,6 +201,17 @@ ThemeMode themeModeFromId(char const * id);
 /// the Python boundary and in tests.
 char const * platformIdName(PlatformId platform);
 
+/**
+ * @brief Whether a Linux desktop names a theme the pilot recognizes.
+ *
+ * Reads the value of XDG_CURRENT_DESKTOP and reports true for GNOME or KDE,
+ * whose Qt platform themes expose a palette and an accent worth honoring. An
+ * empty or unrecognized value returns false, so the Linux room falls back to
+ * the curated palettes. The matching is Qt-free so it is tested on every
+ * runner.
+ */
+bool linuxDesktopHasNativeTheme(char const * xdg_current_desktop);
+
 } /* end namespace solvcon */
 
 // vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
