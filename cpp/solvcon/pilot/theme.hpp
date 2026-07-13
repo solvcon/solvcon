@@ -47,6 +47,20 @@ enum class ThemeVariant
 };
 
 /**
+ * @brief Where the pilot's colors come from, independent of the light or dark
+ * mode.
+ *
+ * System lets the running platform's own colors show through the native style
+ * untouched; Curated paints the plan's palettes over that style for a
+ * controlled look that travels between machines.
+ */
+enum class ThemeLook
+{
+    System,
+    Curated,
+};
+
+/**
  * @brief The platform a color table and a capability record are written for.
  *
  * The palette lookup carries this axis so each platform's look is tuned in its
@@ -196,6 +210,16 @@ char const * themeModeLabel(ThemeMode mode);
 
 /// The mode named by @p id, or ThemeMode::System when @p id matches none.
 ThemeMode themeModeFromId(char const * id);
+
+/// The stable identifier for a look ("system", "curated"), used as the menu
+/// action object name, at the Python boundary, and in tests.
+char const * themeLookId(ThemeLook look);
+
+/// The human-readable menu label for a look.
+char const * themeLookLabel(ThemeLook look);
+
+/// The look named by @p id, or ThemeLook::Curated when @p id matches none.
+ThemeLook themeLookFromId(char const * id);
 
 /// The stable identifier for a platform ("linux", "mac", "windows"), used at
 /// the Python boundary and in tests.

@@ -343,15 +343,11 @@ void RManager::setUpCentral()
                      { applyDrawTool(); });
 
     // The MDI area paints its own backdrop instead of reading the palette, so
-    // drive it from the theme's window color and follow theme changes;
-    // otherwise a stale slab shows through under the dark theme. Take the color
-    // from the theme model, not m_mainWindow->palette(): when themeChanged fires
-    // the freshly set application palette has not yet propagated to the window,
-    // so palette() would lag one switch behind.
-    auto paintBackdrop = [this](ThemeVariant variant)
+    // drive it from the theme's effective window color and follow theme
+    // changes; otherwise a stale slab shows through under the dark theme.
+    auto paintBackdrop = [this](ThemeVariant)
     {
-        ThemeColor const c = themePaletteFor(m_themeManager->platform(), variant).window;
-        m_mdiArea->setBackground(QColor(c.r, c.g, c.b));
+        m_mdiArea->setBackground(m_themeManager->windowColor());
     };
     paintBackdrop(m_themeManager->currentVariant());
     QObject::connect(m_themeManager, &RThemeManager::themeChanged, m_mdiArea, paintBackdrop);
@@ -442,6 +438,10 @@ void RManager::connectThemeMenuSync() const
         [this](ThemeVariant)
         {
             if (QAction * current = m_menuModel->action("theme.mode_" + m_themeManager->modeId()))
+            {
+                current->setChecked(true);
+            }
+            if (QAction * current = m_menuModel->action("theme.look_" + m_themeManager->lookId()))
             {
                 current->setChecked(true);
             }

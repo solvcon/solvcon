@@ -394,6 +394,25 @@ ThemeMode themeModeFromId(char const * id)
     return ThemeMode::System;
 }
 
+char const * themeLookId(ThemeLook look)
+{
+    return look == ThemeLook::System ? "system" : "curated";
+}
+
+char const * themeLookLabel(ThemeLook look)
+{
+    return look == ThemeLook::System ? "System colors" : "Curated colors";
+}
+
+ThemeLook themeLookFromId(char const * id)
+{
+    if (id != nullptr && 0 == std::strcmp(id, "system"))
+    {
+        return ThemeLook::System;
+    }
+    return ThemeLook::Curated;
+}
+
 char const * platformIdName(PlatformId platform)
 {
     switch (platform)
