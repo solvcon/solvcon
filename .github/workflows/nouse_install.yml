@@ -9,7 +9,10 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  # A push to master must never cancel an earlier master run, so every
+  # merge keeps its own CI result. Superseded pull request and branch
+  # runs still cancel.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
 
 jobs:
 
