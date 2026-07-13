@@ -8,12 +8,22 @@ from PySide6 import QtCore, QtGui
 
 
 def apply_label_mode(overlay, on, advanced):
-    overlay.shape_ids = on
+    """Pack the label switch and mode into the overlay's flags.
+
+    ``on`` adds a shape label; ``advanced`` selects the geometric labels over
+    the plain id label. Returns the same overlay for chaining.
+    """
+    overlay.shape_ids = on and not advanced
+    overlay.advanced_labels = advanced
+    # TODO(grid): overlay.coordinate_labels = on once grid labels land.
     return overlay
 
 
 def label_switch_and_mode(overlay):
-    return overlay.shape_ids, False
+    """Return ``(on, advanced)`` for the overlay's current label state."""
+    # TODO(grid): OR in overlay.coordinate_labels.
+    on = overlay.shape_ids or overlay.advanced_labels
+    return on, overlay.advanced_labels
 
 
 class ToggleActionBridge(QtCore.QObject):

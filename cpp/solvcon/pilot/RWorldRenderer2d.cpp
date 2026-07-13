@@ -108,6 +108,104 @@ void paint_chrome(QPainter & painter, ViewTransform2dFp64 const & view, int widt
     }
 }
 
+/// Compact number for shape annotations: enough digits to read, no trailing noise.
+QString format_measure(double value)
+{
+    return QString::number(value, 'g', 4);
+}
+
+QString format_point(double x, double y)
+{
+    return QStringLiteral("(%1, %2)").arg(format_measure(x), format_measure(y));
+}
+
+double segment_length(double x0, double y0, double x1, double y1)
+{
+    double const dx = x1 - x0;
+    double const dy = y1 - y0;
+    return std::sqrt(dx * dx + dy * dy);
+}
+
+/// Return a list of lines describing the shape's geometry, including the id/type line.
+QStringList advanced_shape_label(WorldFp64 const & world, int32_t id)
+{
+    ShapeType const type = world.shape_type_of(id);
+    QStringList lines;
+    lines << QStringLiteral("#%1 %2").arg(id).arg(QString::fromStdString(shape_type_name(type)));
+
+    switch (type)
+    {
+    case ShapeType::LINE:
+    {
+        auto const s = world.shape_segment(id, 0);
+        lines << format_point(s.x0(), s.y0());
+        lines << format_point(s.x1(), s.y1());
+        lines << QStringLiteral("len=%1").arg(format_measure(segment_length(s.x0(), s.y0(), s.x1(), s.y1())));
+        break;
+    }
+    case ShapeType::TRIANGLE:
+    {
+        auto const s0 = world.shape_segment(id, 0);
+        auto const s1 = world.shape_segment(id, 1);
+        double const x0 = s0.x0(), y0 = s0.y0();
+        double const x1 = s0.x1(), y1 = s0.y1();
+        double const x2 = s1.x1(), y2 = s1.y1();
+        lines << format_point(x0, y0);
+        lines << format_point(x1, y1);
+        lines << format_point(x2, y2);
+        lines << QStringLiteral("sides=%1, %2, %3")
+                     .arg(format_measure(segment_length(x0, y0, x1, y1)),
+                          format_measure(segment_length(x1, y1, x2, y2)),
+                          format_measure(segment_length(x2, y2, x0, y0)));
+        break;
+    }
+    case ShapeType::RECTANGLE:
+    case ShapeType::SQUARE:
+    {
+        auto const obb = world.shape_obb(id); // TL, TR, BR, BL as xy pairs
+        double const x0 = obb[0], y0 = obb[1];
+        double const x1 = obb[2], y1 = obb[3];
+        double const x2 = obb[4], y2 = obb[5];
+        double const w = segment_length(x0, y0, x1, y1);
+        double const h = segment_length(x1, y1, x2, y2);
+        lines << format_point(x0, y0) + QStringLiteral(" .. ") + format_point(x2, y2);
+        lines << QStringLiteral("w=%1 h=%2").arg(format_measure(w), format_measure(h));
+        break;
+    }
+    case ShapeType::CIRCLE:
+    {
+        auto const bb = world.shape_bbox(id);
+        double const cx = 0.5 * (bb[0] + bb[2]);
+        double const cy = 0.5 * (bb[1] + bb[3]);
+        double const r = 0.5 * (bb[2] - bb[0]);
+        lines << QStringLiteral("c=%1").arg(format_point(cx, cy));
+        lines << QStringLiteral("r=%1").arg(format_measure(r));
+        break;
+    }
+    case ShapeType::ELLIPSE:
+    {
+        auto const obb = world.shape_obb(id);
+        double const cx = 0.25 * (obb[0] + obb[2] + obb[4] + obb[6]);
+        double const cy = 0.25 * (obb[1] + obb[3] + obb[5] + obb[7]);
+        double const rx = 0.5 * segment_length(obb[0], obb[1], obb[2], obb[3]);
+        double const ry = 0.5 * segment_length(obb[2], obb[3], obb[4], obb[5]);
+        lines << QStringLiteral("c=%1").arg(format_point(cx, cy));
+        lines << QStringLiteral("rx=%1 ry=%2").arg(format_measure(rx), format_measure(ry));
+        break;
+    }
+    case ShapeType::BEZIER:
+    {
+        auto const c = world.shape_curve(id, 0);
+        lines << format_point(c.x0(), c.y0());
+        lines << format_point(c.x3(), c.y3());
+        break;
+    }
+    default:
+        break;
+    }
+    return lines;
+}
+
 /**
  * Uniform-grid index of screen rectangles a label must not overlap: placed
  * labels, each shape's padded bbox, and strips over the visible world axes.
@@ -370,7 +468,7 @@ void RWorldRenderer2d::paint_shape_annotations(QPainter & painter, int width, in
     highlight_pen.setWidthF(2.0);
     highlight_pen.setStyle(Qt::DashLine);
 
-    bool const place_labels = m_overlay.shape_ids;
+    bool const place_labels = m_overlay.advanced_labels || m_overlay.shape_ids;
     constexpr double PAD = 4.0;
     constexpr double AXIS_HALF = 5.0;
     LabelObstacles obstacles(static_cast<double>(width), static_cast<double>(height));
@@ -428,9 +526,16 @@ void RWorldRenderer2d::paint_shape_annotations(QPainter & painter, int width, in
         ++labels_drawn;
 
         QStringList rows;
-        rows << QStringLiteral("#%1 %2")
-                    .arg(id)
-                    .arg(QString::fromStdString(shape_type_name(m_world->shape_type_of(id))));
+        if (m_overlay.advanced_labels)
+        {
+            rows = advanced_shape_label(*m_world, id);
+        }
+        else
+        {
+            rows << QStringLiteral("#%1 %2")
+                        .arg(id)
+                        .arg(QString::fromStdString(shape_type_name(m_world->shape_type_of(id))));
+        }
         double widest = 0.0;
         for (QString const & row : rows)
         {

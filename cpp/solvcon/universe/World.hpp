@@ -435,6 +435,22 @@ public:
 
     ShapeType shape_type_of(int32_t shape_id) const { return find_shape_or_throw(shape_id).type; }
 
+    /// Segment ``i`` owned by a live shape (0-based within the shape).
+    segment_type shape_segment(int32_t shape_id, uint32_t i) const
+    {
+        ShapeRecord const & rec = find_shape_or_throw(shape_id);
+        check_size(i, rec.segment_count, "shape segment");
+        return m_segments->get(rec.segment_offset + i);
+    }
+
+    /// Curve ``i`` owned by a live shape (0-based within the shape).
+    bezier_type shape_curve(int32_t shape_id, uint32_t i) const
+    {
+        ShapeRecord const & rec = find_shape_or_throw(shape_id);
+        check_size(i, rec.curve_count, "shape curve");
+        return m_curves->get(rec.curve_offset + i);
+    }
+
     /**
      * Undo the most recent change. A change is any shape operation: creation,
      * deletion, move, rotate, or a future attribute edit. A no-op when nothing
