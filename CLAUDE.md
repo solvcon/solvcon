@@ -121,20 +121,8 @@ Any target whose tool (`clang-format`, `flake8`) is missing prints an install
 hint and exits 1. `make cformat` also warns when the local `clang-format` major
 version differs from the CI pin (`CLANG_FORMAT_CI_VERSION` in the Makefile).
 
-### Build Configuration
-
-Key build variables (set in `setup.mk` or as environment variables):
-- `CMAKE_BUILD_TYPE`: `Release` (default) or `Debug`
-- `BUILD_QT`: `ON` (default) or `OFF` - build Qt GUI components
-- `BUILD_METAL`: `OFF` (default) or `ON` - build Metal GPU support
-- `SOLVCON_PROFILE`: `OFF` (default) or `ON` - enable profiler
-- `USE_CLANG_TIDY`: `OFF` (default) or `ON` - use clang-tidy
-- `HIDE_SYMBOL`: `ON` (default) - hide Python wrapper symbols
-- `DEBUG_SYMBOL`: `ON` (default) - add debug information
-
-Build paths (`$(pyvminor)` is the active Python major+minor, e.g. `314`):
-- Release builds (default): `build/rel<pyvminor>` (e.g., `build/rel314`)
-- Debug builds: `build/dbg<pyvminor>` (e.g., `build/dbg314`)
+Build variables such as `CMAKE_BUILD_TYPE`, `BUILD_QT`, and `SOLVCON_PROFILE`
+are set in `setup.mk` or as environment variables.
 
 ## Architecture
 
@@ -152,36 +140,8 @@ solvcon uses a dual-layer hybrid architecture:
 
 ### C++ Component Structure
 
-C++ core lives in `cpp/solvcon/`. Load-bearing pieces:
-
-- `buffer/` -- `ConcreteBuffer`, `SimpleArray`, `BufferExpander`,
-  `small_vector`.
-- `mesh/` -- `StaticMesh` (unstructured meshes with mixed element types).
-- `pilot/` -- Qt GUI (entry point under `cpp/binary/pilot/`; needs Qt6
-  and PySide6).
-- `python/` -- `module.cpp` is the main pybind11 module.
-
-Other subdirectories cover what their names suggest: `linalg/`
-(BLAS/LAPACK wrappers), `inout/` (Gmsh, Plot3D), `onedim/` (1D CESE
-solvers), `profiling/` (runtime profiler), `simd/` (NEON/SSE/AVX),
-`transform/` (integral transform), `universe/` (3D geometry), `toggle/`
-(feature toggle), and per-component `pymod/` subdirs for pybind11
-wrappers. `spacetime/` is an old, incorrect CESE implementation kept
-for reference only -- do not extend it.
-
-See `cpp/solvcon/` for the current tree.
-
-### Python Package Structure
-
-Python interface in `solvcon/`:
-
-- `core.py`: Main Python API wrapping the C++ extension
-- `onedim/`: One-dimensional solver utilities
-- `pilot/`: GUI application Python components
-- `plot/`: Plotting utilities
-- `profiling/`: Profiling result analysis
-- `testing.py`: Test utilities
-- `toggle.py`: Feature toggle Python interface
+C++ core lives in `cpp/solvcon/`. `spacetime/` is an old, incorrect CESE
+implementation kept for reference only -- do not extend it.
 
 ### Testing Structure
 
@@ -261,27 +221,7 @@ messages, PR and issue descriptions and comments, and documentation.
 
 ## Development Workflow
 
-### Build System Notes
-
-- CMake is the primary build system (minimum version 3.27)
-- Makefile wraps CMake for convenience
-- Python extension built via setuptools with custom CMake integration
-- Build output: `_solvcon.cpython-<version>-<platform>.so` in `solvcon/`
-
 ### Dependencies
-
-Core dependencies:
-- Python 3 with development headers
-- pybind11 >= 2.12.0 (for NumPy 2.0 support)
-- NumPy
-- CMake >= 3.27
-- C++23 compiler (gcc, clang, or MSVC)
-
-Optional dependencies:
-- Qt6 and PySide6 (for GUI)
-- clang-tidy (for linting)
-- googletest (auto-fetched by CMake)
-- Metal (for macOS GPU support)
 
 Install scripts available in `contrib/dependency/`
 
