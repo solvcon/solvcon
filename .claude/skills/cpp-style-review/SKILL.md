@@ -59,6 +59,10 @@ it briefly but don't re-implement the check here.
   (separated by `;`) on one line. A single-statement inline accessor body
   is one statement, not two, and stays the preferred form.
 
+**Comments**
+- **Comments are very important.** Check all comments in the diff for clarity, accuracy, and relevance. Flag any comment that is unclear, misleading, trivial, or outdated.
+- Refer to "C++ Comment" in STYLE.md for what counts as a comment and how to judge it.
+
 **pybind11**
 - Split constructors from other bindings (methods, properties) into two
   distinct `(*this)` sections.

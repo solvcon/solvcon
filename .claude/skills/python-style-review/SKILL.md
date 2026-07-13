@@ -44,6 +44,10 @@ limit, flake8) are handled by `.claude/hooks/check-source.sh`
   statements (separated by `;`) on one line. (Line width is owned by the
   hooks; don't re-flag it here.)
 
+**Comments**
+- **Comments are very important.** Check all comments in the diff for clarity, accuracy, and relevance. Flag any comment that is unclear, misleading, trivial, or outdated.
+- Refer to "Python Comment" in STYLE.md for what counts as a comment and how to judge it.
+
 **Intent (Rule 9)**
 - Tests should encode why behavior matters, not just what. If a new test
   would still pass under an obvious bug in the code it exercises,
