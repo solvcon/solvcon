@@ -11,84 +11,31 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: write
-  pull-requests: write
+  issues: write
 
 jobs:
-  update:
+  remind:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v6
-        with:
-          ref: master
-          fetch-depth: 0
-
-      - name: Update contributor list
-        run: |
-          python3 contrib/lint/analyze-contributors.py \
-            --update-file CONTRIBUTORS.md
-
-      - name: Create contributor update pull request
-        id: contributor_pr
+      - name: Create contributor update reminder
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          if git diff --quiet -- CONTRIBUTORS.md; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          branch=automation/update-contributors
-          pr_url=$(gh pr list \
-            --base master \
-            --head "$branch" \
+          title='Update contributor list'
+          open_reminders=$(gh issue list \
+            --repo "$GITHUB_REPOSITORY" \
             --state open \
-            --json url \
-            --jq '.[0].url')
+            --limit 100 \
+            --json title \
+            --jq "map(select(.title == \"$title\")) | length")
 
-          if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
-            git fetch origin "+$branch:refs/remotes/origin/$branch"
-          fi
-          if git rev-parse --verify "origin/$branch" >/dev/null 2>&1 && \
-              git diff --quiet "origin/$branch" -- CONTRIBUTORS.md && \
-              [ -n "$pr_url" ]; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
+          if [ "$open_reminders" -gt 0 ]; then
+            echo 'An open contributor update reminder already exists.'
             exit 0
           fi
 
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git switch -C "$branch"
-          git add CONTRIBUTORS.md
-          git commit -m "Update contributor list"
-          git push --force-with-lease origin "HEAD:$branch"
-
-          if [ -z "$pr_url" ]; then
-            pr_url=$(gh pr create \
-              --base master \
-              --head "$branch" \
-              --title "Update contributor list" \
-              --body 'This pull request updates the contributor list from the commit history and source-file copyright headers. Please review the generated changes before merging.')
-          fi
-
-          echo "changed=true" >> "$GITHUB_OUTPUT"
-          echo "pull-request-url=$pr_url" >> "$GITHUB_OUTPUT"
-
-      - name: Send contributor update notification
-        if: >-
-          steps.contributor_pr.outputs.changed == 'true' &&
-          github.repository == 'solvcon/solvcon'
-        uses: dawidd6/action-send-mail@v6
-        with:
-          server_address: smtp.gmail.com
-          server_port: 465
-          username: ${{ secrets.EMAIL_USERNAME }}
-          password: ${{ secrets.EMAIL_PASSWORD }}
-          subject: Contributor list update in ${{ github.repository }}
-          body: |
-            The contributor list has changed and is ready for human review.
-
-            ${{ steps.contributor_pr.outputs.pull-request-url }}
-          to: solvcon@googlegroups.com
-          from: solvcon_notification
+          gh issue create \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "$title" \
+            --body $'Please update `CONTRIBUTORS.md` and review the generated changes before committing them.\n\nRun:\n```console\npython3 contrib/lint/analyze-contributors.py --update-file CONTRIBUTORS.md\n```'
