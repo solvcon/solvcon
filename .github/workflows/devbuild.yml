@@ -335,26 +335,28 @@ jobs:
           # cold).
           max-size: 500M
 
-      - name: Cache vcpkg (install artifacts)
-        uses: actions/cache@v4
-        with:
-          path: |
-            C:\vcpkg\installed
-            C:\vcpkg\downloads
-            C:\vcpkg\buildtrees
-            C:\vcpkg\packages
-          key: vcpkg-${{ runner.os }}-openblas-lapack
-          restore-keys: vcpkg-${{ runner.os }}-
-
-      - name: install BLAS and LAPACK
+      - name: install Intel MKL (vendor BLAS/LAPACK)
         run: |
-          echo "::group::install BLAS and LAPACK"
-          vcpkg install openblas:x64-windows lapack:x64-windows
-          $vcpkg_bin_path = @(
-            "C:\vcpkg\installed\x64-windows\bin",
-            "C:\vcpkg\installed\x64-windows\debug\bin"
-          ) -join ";"
-          echo "$vcpkg_bin_path" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          echo "::group::install Intel MKL"
+          # Pre-built vendor BLAS/LAPACK from Intel's official wheels, the same
+          # source build-scdv-windows.ps1 uses for SCDV_WIN_BLAS=mkl.
+          pip install mkl mkl-devel mkl-include intel-openmp
+          $prefix = python -c "import sys; sys.stdout.write(sys.prefix)"
+          # Locate the wheel-installed pieces by name (the layout varies across
+          # wheel versions) and hand CMake their dirs so find_path(mkl_cblas.h)
+          # and find_library(mkl_rt) succeed.
+          $mkl = Get-ChildItem -LiteralPath $prefix -Recurse -File -Include 'mkl_cblas.h', 'mkl_rt.lib', 'mkl_rt*.dll'
+          $hdr = $mkl | Where-Object Name -EQ 'mkl_cblas.h' | Select-Object -First 1
+          $lib = $mkl | Where-Object Name -EQ 'mkl_rt.lib' | Select-Object -First 1
+          $dll = $mkl | Where-Object Name -Like 'mkl_rt*.dll' | Select-Object -First 1
+          if (-not ($hdr -and $lib -and $dll)) {
+            throw "MKL pieces not found (hdr=$hdr lib=$lib dll=$dll)"
+          }
+          echo "MKL_INCLUDE_DIR=$($hdr.DirectoryName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          echo "MKL_LIBRARY_DIR=$($lib.DirectoryName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          # mkl_rt loads the mkl_* kernels and libiomp5md at runtime; put their
+          # dir on PATH so the test executables find them.
+          echo "$($dll.DirectoryName)" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           echo "::endgroup::"
 
       - name: dependency by pip
@@ -394,13 +396,16 @@ jobs:
           # Use the Ninja generator: CMAKE_<LANG>_COMPILER_LAUNCHER (the
           # sccache hook) is honored only by Ninja/Makefile generators, not
           # the Visual Studio (MSBuild) generator, which silently ignores it.
+          # No vcpkg toolchain: SOLVCON_USE_MKL makes solvcon link mkl_rt for
+          # both CBLAS and LAPACK, found via the CMAKE_*_PATH dirs above.
           cmake -GNinja `
             -DCMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} `
             -DCMAKE_C_COMPILER_LAUNCHER=sccache `
             -DCMAKE_CXX_COMPILER_LAUNCHER=sccache `
             -DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded `
-            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
-            -DVCPKG_TARGET_TRIPLET="x64-windows" `
+            -DSOLVCON_USE_MKL=ON `
+            -DCMAKE_INCLUDE_PATH="$env:MKL_INCLUDE_DIR" `
+            -DCMAKE_LIBRARY_PATH="$env:MKL_LIBRARY_DIR" `
             -Dpybind11_DIR="$(pybind11-config --cmakedir)" `
             -S${{ github.workspace }} `
             -B${{ github.workspace }}/build

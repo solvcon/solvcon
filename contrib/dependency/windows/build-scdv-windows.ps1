@@ -35,8 +35,9 @@
 #       build section.
 #   .\build-scdv-windows.ps1 -Skip PKG[,PKG...]
 #       Skip a package within whatever sections are otherwise selected.  PKG
-#       can be one of: zlib openssl sqlite python pybind11 cython numpy scipy
-#       qt pyside6.  Accepts a comma-separated list and may be repeated.
+#       can be one of: zlib openssl sqlite openblas mkl python pybind11 cython
+#       numpy scipy qt pyside6.  Accepts a comma-separated list and may be
+#       repeated.
 #   .\build-scdv-windows.ps1 -NoConfirm
 #       Skip the "Press Enter to start the build" prompt.  Use in
 #       non-interactive runs (CI, scripts).
@@ -64,6 +65,9 @@
 #     LIBCLANG_VERSION: Qt prebuilt libclang version for shiboken.
 #   Build settings:
 #     SCDV_NP: Parallel build jobs.
+#     SCDV_WIN_BLAS: LP64 BLAS/LAPACK provider for solvcon's matmul_blas() /
+#       EigenSystem: "mkl" (default, Intel oneAPI MKL, an optimized vendor
+#       library for x86) or "openblas" (the official OpenBLAS prebuilt).
 #     SCDV_PREFIX: Path prefix to SCDV_BASE.
 #     SCDV_BASE: Base directory holding the install prefix, including Python
 #       and Qt version.
@@ -120,7 +124,7 @@ function Get-EnvOrDefault {
 }
 
 $KnownPkgs = @(
-    'zlib', 'openssl', 'sqlite', 'openblas', 'python', 'pybind11',
+    'zlib', 'openssl', 'sqlite', 'openblas', 'mkl', 'python', 'pybind11',
     'cython', 'numpy', 'scipy', 'qt', 'pyside6'
 )
 
@@ -288,6 +292,14 @@ if ($NoSharedDownload -or $ScdvSharedDlDir -in @('none', '-')) {
 $ScdvSrcDir = Join-Path $ScdvBase 'src'
 # Install root (user-space).
 $ScdvUsrDir = Join-Path $ScdvBase 'usr'
+
+# LP64 BLAS/LAPACK provider solvcon links for SimpleArray::matmul_blas() and
+# EigenSystem: "mkl" (default) or "openblas".  Distinct from the ILP64
+# scipy-openblas64 wheel numpy links (see Get-OpenblasPkgConfig).
+$WinBlas = (Get-EnvOrDefault 'SCDV_WIN_BLAS' 'mkl').ToLower()
+if ($WinBlas -notin @('openblas', 'mkl')) {
+    throw "SCDV_WIN_BLAS='$WinBlas' is not valid (use 'openblas' or 'mkl')."
+}
 
 # Directories and the activation script are created below, after the
 # confirmation prompt, so aborting it leaves no trace.
@@ -522,6 +534,8 @@ $global:_SCDV_HAD_CMAKE_PREFIX_PATH = $null -ne $env:CMAKE_PREFIX_PATH
 $env:_SCDV_OLD_CMAKE_PREFIX_PATH = $env:CMAKE_PREFIX_PATH
 $global:_SCDV_HAD_PYTHONNOUSERSITE = $null -ne $env:PYTHONNOUSERSITE
 $env:_SCDV_OLD_PYTHONNOUSERSITE = $env:PYTHONNOUSERSITE
+$global:_SCDV_HAD_SOLVCON_USE_MKL = $null -ne $env:SOLVCON_USE_MKL
+$env:_SCDV_OLD_SOLVCON_USE_MKL = $env:SOLVCON_USE_MKL
 
 # Ignore the per-user site (%APPDATA%\Python\...); a stray pytest/numpy/PySide6
 # there would shadow this scdv (every same-version Python shares it).
@@ -536,11 +550,17 @@ $env:PATH = "$usr;$(Join-Path $usr 'Scripts');$(Join-Path $usr 'bin');" +
             $env:PATH
 $env:QT_PLUGIN_PATH = Join-Path $usr 'plugins'
 
-# So a downstream CMake build finds this scdv's Qt, pybind11, and OpenBLAS.
+# So a downstream CMake build finds this scdv's Qt, pybind11, and BLAS/LAPACK.
 if ($env:CMAKE_PREFIX_PATH) {
     $env:CMAKE_PREFIX_PATH = "$usr;$env:CMAKE_PREFIX_PATH"
 } else {
     $env:CMAKE_PREFIX_PATH = $usr
+}
+
+# An MKL scdv defaults the solvcon build to MKL: SOLVCON_USE_MKL in
+# cpp/solvcon/CMakeLists.txt honors this env var (overridable with -D).
+if ('__SCDV_WIN_BLAS__' -eq 'mkl') {
+    $env:SOLVCON_USE_MKL = 'ON'
 }
 
 # Headless CI wants the offscreen platform; leave an interactive desktop alone.
@@ -574,11 +594,17 @@ function global:scdv_deactivate {
     } else {
         Remove-Item Env:PYTHONNOUSERSITE -ErrorAction SilentlyContinue
     }
+    if ($global:_SCDV_HAD_SOLVCON_USE_MKL) {
+        $env:SOLVCON_USE_MKL = $env:_SCDV_OLD_SOLVCON_USE_MKL
+    } else {
+        Remove-Item Env:SOLVCON_USE_MKL -ErrorAction SilentlyContinue
+    }
     Remove-Item Env:_SCDV_OLD_PATH -ErrorAction SilentlyContinue
     Remove-Item Env:_SCDV_OLD_QT_QPA_PLATFORM -ErrorAction SilentlyContinue
     Remove-Item Env:_SCDV_OLD_QT_PLUGIN_PATH -ErrorAction SilentlyContinue
     Remove-Item Env:_SCDV_OLD_CMAKE_PREFIX_PATH -ErrorAction SilentlyContinue
     Remove-Item Env:_SCDV_OLD_PYTHONNOUSERSITE -ErrorAction SilentlyContinue
+    Remove-Item Env:_SCDV_OLD_SOLVCON_USE_MKL -ErrorAction SilentlyContinue
     Remove-Item Env:SCDV_BASE -ErrorAction SilentlyContinue
     Remove-Item Env:SCDV_USRDIR -ErrorAction SilentlyContinue
     Remove-Variable -Scope global -Name _SCDV_HAD_QT_QPA_PLATFORM `
@@ -589,9 +615,13 @@ function global:scdv_deactivate {
         -ErrorAction SilentlyContinue
     Remove-Variable -Scope global -Name _SCDV_HAD_PYTHONNOUSERSITE `
         -ErrorAction SilentlyContinue
+    Remove-Variable -Scope global -Name _SCDV_HAD_SOLVCON_USE_MKL `
+        -ErrorAction SilentlyContinue
     Remove-Item Function:scdv_deactivate -ErrorAction SilentlyContinue
 }
 '@
+    # Bake the provider so an MKL scdv turns on SOLVCON_USE_MKL on activation.
+    $body = $body -replace '__SCDV_WIN_BLAS__', $WinBlas
     Set-Content -LiteralPath $target -Value $body -Encoding ascii
     Write-Host "wrote activation script: $target"
 }
@@ -605,6 +635,7 @@ Write-Host "SCDV_DLDIR=$ScdvDlDir"
 Write-Host "SCDV_SHARED_DLDIR=$ScdvSharedDlDir"
 Write-Host "SCDV_SRCDIR=$ScdvSrcDir"
 Write-Host "SCDV_USRDIR=$ScdvUsrDir"
+Write-Host "SCDV_WIN_BLAS=$WinBlas"
 Write-Host "PYTHON_VERSION=$PythonVersion"
 if ($SkipList.Count -gt 0) {
     Write-Host "SCDV_SKIP_LIST=$($SkipList -join ' ')"
@@ -774,6 +805,47 @@ function Build-Openblas {
     # there at import.
     Copy-Item (Join-Path $dest 'bin\libopenblas.dll') $ScdvUsrDir -Force
     Copy-Item (Join-Path $dest 'include\*.h') $inc -Force
+}
+
+function Build-MklBlas {
+    if (Test-Skip 'mkl') { Write-Host 'skip: mkl'; return }
+    # Intel oneAPI MKL, the optimized vendor BLAS/LAPACK for x86, from its
+    # official wheels.  Lay the pieces out under the scdv usr tree the way
+    # Build-Openblas does, so solvcon's CMake finds mkl_rt + mkl_cblas.h.
+    & $Py -m pip install -U mkl mkl-devel mkl-include intel-openmp
+    Assert-LastExit 'pip install mkl'
+
+    $bin = Join-Path $ScdvUsrDir 'bin'
+    $lib = Join-Path $ScdvUsrDir 'lib'
+    $inc = Join-Path $ScdvUsrDir 'include'
+    foreach ($d in @($bin, $lib, $inc)) {
+        New-Item -ItemType Directory -Force -Path $d | Out-Null
+    }
+
+    # The wheels install under <prefix>\Library\{bin,lib,include}; find the
+    # pieces by name in a single recursive pass rather than hardcoding that
+    # layout or rescanning the whole (Python-laden) tree per piece.
+    $mkl = Get-ChildItem -LiteralPath $ScdvUsrDir -Recurse -File `
+        -Include 'mkl_cblas.h', 'mkl_rt.lib', 'mkl_rt*.dll' `
+        -ErrorAction SilentlyContinue
+    $hdr = $mkl | Where-Object Name -EQ 'mkl_cblas.h' | Select-Object -First 1
+    $implib = $mkl | Where-Object Name -EQ 'mkl_rt.lib' | Select-Object -First 1
+    $rtDll = $mkl | Where-Object Name -Like 'mkl_rt*.dll' | Select-Object -First 1
+    if (-not ($hdr -and $implib -and $rtDll)) {
+        throw ('Build-MklBlas: MKL not found after installing wheels ' +
+            "(header=$hdr implib=$implib runtime=$rtDll)")
+    }
+    Copy-Item (Join-Path $hdr.DirectoryName '*') $inc -Recurse -Force
+    Copy-Item (Join-Path $implib.DirectoryName 'mkl_*.lib') $lib -Force
+
+    # Runtime: mkl_rt dynamically loads the mkl_* kernel DLLs and libiomp5md,
+    # all installed beside it; copy that dir's DLLs to bin\ and next to
+    # python.exe (Windows does not search PATH for a .pyd's dependent DLLs since
+    # 3.8 but always searches the interpreter's own directory).
+    foreach ($d in Get-ChildItem (Join-Path $rtDll.DirectoryName '*.dll')) {
+        Copy-Item $d.FullName $bin -Force
+        Copy-Item $d.FullName $ScdvUsrDir -Force
+    }
 }
 
 function Build-Python {
@@ -1157,7 +1229,12 @@ try {
         Invoke-Timed { Build-Zlib } 'zlib'
         Invoke-Timed { Build-Openssl } 'openssl'
         Invoke-Timed { Build-Sqlite } 'sqlite'
-        Invoke-Timed { Build-Openblas } 'openblas'
+        # OpenBLAS is a self-contained prebuilt download and belongs here.  The
+        # MKL provider installs from wheels and so runs in the PYTHON section,
+        # once the scdv pip exists.
+        if ($WinBlas -eq 'openblas') {
+            Invoke-Timed { Build-Openblas } 'openblas'
+        }
     } else {
         Write-Host 'Set SCDVBUILD_ALL or SCDVBUILD_BASE to build BASE section'
     }
@@ -1166,6 +1243,10 @@ try {
     if ($BuildAll -eq '1' -or $BuildPython -eq '1') {
         Write-Host 'Python build uses PGO-free Release; expect several minutes'
         Invoke-Timed { Build-Python } 'python'
+        # MKL builds here rather than BASE: its wheels need the scdv pip.
+        if ($WinBlas -eq 'mkl') {
+            Invoke-Timed { Build-MklBlas } 'mkl'
+        }
         & $Py -m pip install -U flake8 autopep8 black pytest jsonschema certifi
         Assert-LastExit 'pip install python-tools'
         & $Py -m pip install -U sphinx myst-parser pydata-sphinx-theme `
