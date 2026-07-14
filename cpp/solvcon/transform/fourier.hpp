@@ -105,7 +105,7 @@ public:
     static void ifft(SimpleArray<T1<T2>> const & in, SimpleArray<T1<T2>> & out)
     {
         size_t const N = in.size();
-        SimpleArray<T1<T2>> in_conj{solvcon::small_vector<size_t>{N}, T1<T2>{0.0, 0.0}};
+        SimpleArray<T1<T2>> in_conj{solvcon::small_vector<ssize_t>{static_cast<ssize_t>(N)}, T1<T2>{0.0, 0.0}};
 
         for (size_t i = 0; i < N; ++i)
         {
@@ -149,10 +149,10 @@ void fft_bluestein(SimpleArray<T1<T2>> const & in, SimpleArray<T1<T2>> & out)
     // Calculate a length with power of 2 and at least 2N-1
     const size_t K = detail::next_power_of_two(2 * N - 1);
 
-    SimpleArray<T1<T2>> a{solvcon::small_vector<size_t>{K}, T1<T2>{0.0, 0.0}};
-    SimpleArray<T1<T2>> A{solvcon::small_vector<size_t>{K}, T1<T2>{0.0, 0.0}};
-    SimpleArray<T1<T2>> b{solvcon::small_vector<size_t>{K}, T1<T2>{0.0, 0.0}};
-    SimpleArray<T1<T2>> B{solvcon::small_vector<size_t>{K}, T1<T2>{0.0, 0.0}};
+    SimpleArray<T1<T2>> a{solvcon::small_vector<ssize_t>{static_cast<ssize_t>(K)}, T1<T2>{0.0, 0.0}};
+    SimpleArray<T1<T2>> A{solvcon::small_vector<ssize_t>{static_cast<ssize_t>(K)}, T1<T2>{0.0, 0.0}};
+    SimpleArray<T1<T2>> b{solvcon::small_vector<ssize_t>{static_cast<ssize_t>(K)}, T1<T2>{0.0, 0.0}};
+    SimpleArray<T1<T2>> B{solvcon::small_vector<ssize_t>{static_cast<ssize_t>(K)}, T1<T2>{0.0, 0.0}};
 
     // Calculate a[0], b[0] first, becuase it can avoid a branch in the following
     // for loop!

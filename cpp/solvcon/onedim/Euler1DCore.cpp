@@ -26,11 +26,12 @@ void Euler1DCore::initialize_data(size_t ncoord)
     {
         throw std::invalid_argument("ncoord cannot be even");
     }
+    auto const coord_count = static_cast<ssize_t>(ncoord);
     m_coord = SimpleArray<double>(/*length*/ ncoord);
     m_cfl = SimpleArray<double>(/*length*/ ncoord);
-    m_so0 = SimpleArray<double>(/*shape*/ small_vector<size_t>{ncoord, NVAR});
-    m_so1 = SimpleArray<double>(/*shape*/ small_vector<size_t>{ncoord, NVAR});
-    m_gamma = SimpleArray<double>(/*shape*/ small_vector<size_t>{ncoord}, /*value*/ 1.4);
+    m_so0 = SimpleArray<double>(/*shape*/ small_vector<ssize_t>{coord_count, NVAR});
+    m_so1 = SimpleArray<double>(/*shape*/ small_vector<ssize_t>{coord_count, NVAR});
+    m_gamma = SimpleArray<double>(/*shape*/ small_vector<ssize_t>{coord_count}, /*value*/ 1.4);
 }
 
 SimpleArray<double> Euler1DCore::density() const

@@ -35,15 +35,15 @@ class SimpleArrayMatmulHelper
 public:
 
     using value_type = T;
-    using shape_type = small_vector<size_t>;
+    using shape_type = typename A::shape_type;
 
     SimpleArrayMatmulHelper() = delete;
     SimpleArrayMatmulHelper(A const & lhs, A const & rhs);
     SimpleArrayMatmulHelper(A const & lhs,
                             A const & rhs,
-                            size_t tile_x,
-                            size_t tile_y,
-                            size_t tile_z);
+                            ssize_t tile_x,
+                            ssize_t tile_y,
+                            ssize_t tile_z);
     ~SimpleArrayMatmulHelper() = default;
 
     SimpleArrayMatmulHelper(SimpleArrayMatmulHelper const &) = delete;
@@ -69,22 +69,22 @@ private:
     A matmul_mat_vec_blas();
     A matmul_mat_mat();
     A matmul_mat_mat_blas();
-    A pack_rhs(size_t n, size_t k);
+    A pack_rhs(ssize_t n, ssize_t k);
     void accumulate_tile(A const & packed_rhs,
-                         size_t row_begin,
-                         size_t row_end,
-                         size_t col_begin,
-                         size_t col_end,
-                         size_t inner_begin,
-                         size_t inner_end);
+                         ssize_t row_begin,
+                         ssize_t row_end,
+                         ssize_t col_begin,
+                         ssize_t col_end,
+                         ssize_t inner_begin,
+                         ssize_t inner_end);
     A matmul_mat_mat_tiled();
 
     A const & m_lhs;
     A const & m_rhs;
     A m_result;
-    size_t m_tile_x;
-    size_t m_tile_y;
-    size_t m_tile_z;
+    ssize_t m_tile_x;
+    ssize_t m_tile_y;
+    ssize_t m_tile_z;
 
 }; /* end class SimpleArrayMatmulHelper */
 
@@ -97,9 +97,9 @@ SimpleArrayMatmulHelper<A, T>::SimpleArrayMatmulHelper(A const & lhs, A const & 
 template <typename A, typename T>
 SimpleArrayMatmulHelper<A, T>::SimpleArrayMatmulHelper(A const & lhs,
                                                        A const & rhs,
-                                                       size_t tile_x,
-                                                       size_t tile_y,
-                                                       size_t tile_z)
+                                                       ssize_t tile_x,
+                                                       ssize_t tile_y,
+                                                       ssize_t tile_z)
     : m_lhs(lhs)
     , m_rhs(rhs)
     , m_tile_x(tile_x)
@@ -278,9 +278,9 @@ void SimpleArrayMatmulHelper<A, T>::check_tiles() const
 template <typename A, typename T>
 A SimpleArrayMatmulHelper<A, T>::matmul_vec_vec()
 {
-    size_t const k = m_lhs.shape(0);
+    ssize_t const k = m_lhs.shape(0);
     value_type v = 0;
-    for (size_t i = 0; i < k; ++i)
+    for (ssize_t i = 0; i < k; ++i)
     {
         v += m_lhs(i) * m_rhs.data(i);
     }
@@ -298,7 +298,7 @@ A SimpleArrayMatmulHelper<A, T>::matmul_vec_vec_blas()
 
     if constexpr (can_matmul_blas_v<value_type>)
     {
-        size_t const k = m_lhs.shape(0);
+        ssize_t const k = m_lhs.shape(0);
         m_result.data(0) = dot_blas(k, m_lhs.data(), m_rhs.data());
         return std::move(m_result);
     }
@@ -311,12 +311,12 @@ A SimpleArrayMatmulHelper<A, T>::matmul_vec_vec_blas()
 template <typename A, typename T>
 A SimpleArrayMatmulHelper<A, T>::matmul_vec_mat()
 {
-    size_t const n = m_result.size();
-    size_t const k = m_lhs.shape(0);
-    for (size_t j = 0; j < n; ++j)
+    ssize_t const n = m_result.shape(0);
+    ssize_t const k = m_lhs.shape(0);
+    for (ssize_t j = 0; j < n; ++j)
     {
         value_type v = 0;
-        for (size_t l = 0; l < k; ++l)
+        for (ssize_t l = 0; l < k; ++l)
         {
             v += m_lhs(l) * m_rhs(l, j);
         }
@@ -335,8 +335,8 @@ A SimpleArrayMatmulHelper<A, T>::matmul_vec_mat_blas()
 
     if constexpr (can_matmul_blas_v<value_type>)
     {
-        size_t const k = m_rhs.shape(0);
-        size_t const n = m_rhs.shape(1);
+        ssize_t const k = m_rhs.shape(0);
+        ssize_t const n = m_rhs.shape(1);
         bool const transpose_matrix = true;
         gemv_blas(k,
                   n,
@@ -355,12 +355,12 @@ A SimpleArrayMatmulHelper<A, T>::matmul_vec_mat_blas()
 template <typename A, typename T>
 A SimpleArrayMatmulHelper<A, T>::matmul_mat_vec()
 {
-    size_t const m = m_result.size();
-    size_t const k = m_lhs.shape(1);
-    for (size_t i = 0; i < m; ++i)
+    ssize_t const m = m_result.shape(0);
+    ssize_t const k = m_lhs.shape(1);
+    for (ssize_t i = 0; i < m; ++i)
     {
         value_type v = 0;
-        for (size_t l = 0; l < k; ++l)
+        for (ssize_t l = 0; l < k; ++l)
         {
             v += m_lhs(i, l) * m_rhs(l);
         }
@@ -379,8 +379,8 @@ A SimpleArrayMatmulHelper<A, T>::matmul_mat_vec_blas()
 
     if constexpr (can_matmul_blas_v<value_type>)
     {
-        size_t const m = m_lhs.shape(0);
-        size_t const k = m_lhs.shape(1);
+        ssize_t const m = m_lhs.shape(0);
+        ssize_t const k = m_lhs.shape(1);
         bool const transpose_matrix = false;
         gemv_blas(m,
                   k,
@@ -399,15 +399,15 @@ A SimpleArrayMatmulHelper<A, T>::matmul_mat_vec_blas()
 template <typename A, typename T>
 A SimpleArrayMatmulHelper<A, T>::matmul_mat_mat()
 {
-    size_t const m = m_result.shape(0);
-    size_t const n = m_result.shape(1);
-    size_t const k = m_lhs.shape(1);
-    for (size_t i = 0; i < m; ++i)
+    ssize_t const m = m_result.shape(0);
+    ssize_t const n = m_result.shape(1);
+    ssize_t const k = m_lhs.shape(1);
+    for (ssize_t i = 0; i < m; ++i)
     {
-        for (size_t j = 0; j < n; ++j)
+        for (ssize_t j = 0; j < n; ++j)
         {
             value_type v = 0;
-            for (size_t l = 0; l < k; ++l)
+            for (ssize_t l = 0; l < k; ++l)
             {
                 v += m_lhs(i, l) * m_rhs(l, j);
             }
@@ -427,9 +427,9 @@ A SimpleArrayMatmulHelper<A, T>::matmul_mat_mat_blas()
 
     if constexpr (can_matmul_blas_v<value_type>)
     {
-        size_t const m = m_result.shape(0);
-        size_t const n = m_result.shape(1);
-        size_t const k = m_lhs.shape(1);
+        ssize_t const m = m_result.shape(0);
+        ssize_t const n = m_result.shape(1);
+        ssize_t const k = m_lhs.shape(1);
         gemm_blas(m, n, k, m_lhs.data(), m_rhs.data(), m_result.data());
         return std::move(m_result);
     }
@@ -440,13 +440,13 @@ A SimpleArrayMatmulHelper<A, T>::matmul_mat_mat_blas()
 }
 
 template <typename A, typename T>
-A SimpleArrayMatmulHelper<A, T>::pack_rhs(size_t n, size_t k)
+A SimpleArrayMatmulHelper<A, T>::pack_rhs(ssize_t n, ssize_t k)
 {
     shape_type const packing_shape{n, k};
     A packing(packing_shape);
-    for (size_t i = 0; i < n; ++i)
+    for (ssize_t i = 0; i < n; ++i)
     {
-        for (size_t j = 0; j < k; ++j)
+        for (ssize_t j = 0; j < k; ++j)
         {
             packing(i, j) = m_rhs(j, i);
         }
@@ -456,19 +456,19 @@ A SimpleArrayMatmulHelper<A, T>::pack_rhs(size_t n, size_t k)
 
 template <typename A, typename T>
 void SimpleArrayMatmulHelper<A, T>::accumulate_tile(A const & packed_rhs,
-                                                    size_t row_begin,
-                                                    size_t row_end,
-                                                    size_t col_begin,
-                                                    size_t col_end,
-                                                    size_t inner_begin,
-                                                    size_t inner_end)
+                                                    ssize_t row_begin,
+                                                    ssize_t row_end,
+                                                    ssize_t col_begin,
+                                                    ssize_t col_end,
+                                                    ssize_t inner_begin,
+                                                    ssize_t inner_end)
 {
-    for (size_t i = row_begin; i < row_end; ++i)
+    for (ssize_t i = row_begin; i < row_end; ++i)
     {
-        for (size_t j = col_begin; j < col_end; ++j)
+        for (ssize_t j = col_begin; j < col_end; ++j)
         {
             value_type v = m_result(i, j);
-            for (size_t l = inner_begin; l < inner_end; ++l)
+            for (ssize_t l = inner_begin; l < inner_end; ++l)
             {
                 v += m_lhs(i, l) * packed_rhs(j, l);
             }
@@ -480,23 +480,23 @@ void SimpleArrayMatmulHelper<A, T>::accumulate_tile(A const & packed_rhs,
 template <typename A, typename T>
 A SimpleArrayMatmulHelper<A, T>::matmul_mat_mat_tiled()
 {
-    size_t const m = m_result.shape(0);
-    size_t const n = m_result.shape(1);
-    size_t const k = m_lhs.shape(1);
+    ssize_t const m = m_result.shape(0);
+    ssize_t const n = m_result.shape(1);
+    ssize_t const k = m_lhs.shape(1);
     A packed_rhs = pack_rhs(n, k);
     for (size_t i = 0; i < m_result.size(); ++i)
     {
         m_result.data(i) = value_type{0};
     }
-    for (size_t row = 0; row < m; row += m_tile_x)
+    for (ssize_t row = 0; row < m; row += m_tile_x)
     {
-        size_t const row_end = std::min(row + m_tile_x, m);
-        for (size_t col = 0; col < n; col += m_tile_y)
+        ssize_t const row_end = std::min(row + m_tile_x, m);
+        for (ssize_t col = 0; col < n; col += m_tile_y)
         {
-            size_t const col_end = std::min(col + m_tile_y, n);
-            for (size_t inner = 0; inner < k; inner += m_tile_z)
+            ssize_t const col_end = std::min(col + m_tile_y, n);
+            for (ssize_t inner = 0; inner < k; inner += m_tile_z)
             {
-                size_t const inner_end = std::min(inner + m_tile_z, k);
+                ssize_t const inner_end = std::min(inner + m_tile_z, k);
                 accumulate_tile(packed_rhs, row, row_end, col, col_end, inner, inner_end);
             }
         }

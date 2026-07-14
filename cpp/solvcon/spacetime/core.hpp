@@ -820,7 +820,7 @@ inline typename SolverBase<ST, CE, SE>::array_type
 SolverBase<ST, CE, SE>::x(bool odd_plane) const
 {
     const uint_type nselm = static_cast<uint_type>(grid().nselm()) - static_cast<uint_type>(odd_plane);
-    array_type ret(std::vector<size_t>{nselm});
+    array_type ret(small_vector<ssize_t>{static_cast<ssize_t>(nselm)});
     for (uint_type it = 0; it < nselm; ++it) { ret[it] = selm(it, odd_plane).x(); }
     return ret;
 }
@@ -830,7 +830,7 @@ inline typename SolverBase<ST, CE, SE>::array_type
 SolverBase<ST, CE, SE>::xctr(bool odd_plane) const
 {
     const uint_type nselm = static_cast<uint_type>(grid().nselm()) - static_cast<uint_type>(odd_plane);
-    array_type ret(std::vector<size_t>{nselm});
+    array_type ret(small_vector<ssize_t>{static_cast<ssize_t>(nselm)});
     for (uint_type it = 0; it < nselm; ++it) { ret[it] = selm(it, odd_plane).xctr(); }
     return ret;
 }
@@ -844,7 +844,7 @@ SolverBase<ST, CE, SE>::get_so0p(size_t iv, bool odd_plane) const
         throw std::out_of_range("get_so0p(): out of nvar range");
     }
     const uint_type nselm = static_cast<uint_type>(grid().nselm()) - static_cast<uint_type>(odd_plane);
-    array_type ret(std::vector<size_t>{nselm});
+    array_type ret(small_vector<ssize_t>{static_cast<ssize_t>(nselm)});
     for (uint_type it = 0; it < nselm; ++it) { ret[it] = selm(it, odd_plane).so0p(iv); }
     return ret;
 }
@@ -858,7 +858,7 @@ SolverBase<ST, CE, SE>::get_so0(size_t iv, bool odd_plane) const
         throw std::out_of_range("get_so0(): out of nvar range");
     }
     const uint_type nselm = static_cast<uint_type>(grid().nselm()) - static_cast<uint_type>(odd_plane);
-    array_type ret(std::vector<size_t>{nselm});
+    array_type ret(small_vector<ssize_t>{static_cast<ssize_t>(nselm)});
     for (uint_type it = 0; it < nselm; ++it) { ret[it] = selm(it, odd_plane).so0(iv); }
     return ret;
 }
@@ -872,7 +872,7 @@ SolverBase<ST, CE, SE>::get_so1(size_t iv, bool odd_plane) const
         throw std::out_of_range("get_so1(): out of nvar range");
     }
     const uint_type nselm = static_cast<uint_type>(grid().nselm()) - static_cast<uint_type>(odd_plane);
-    array_type ret(std::vector<size_t>{nselm});
+    array_type ret(small_vector<ssize_t>{static_cast<ssize_t>(nselm)});
     for (uint_type it = 0; it < nselm; ++it) { ret[it] = selm(it, odd_plane).so1(iv); }
     return ret;
 }
@@ -922,7 +922,7 @@ inline typename SolverBase<ST, CE, SE>::array_type
 SolverBase<ST, CE, SE>::get_cfl(bool odd_plane) const
 {
     const uint_type nselm = static_cast<uint_type>(grid().nselm()) - static_cast<uint_type>(odd_plane);
-    array_type ret(std::vector<size_t>{nselm});
+    array_type ret(small_vector<ssize_t>{static_cast<ssize_t>(nselm)});
     for (uint_type it = 0; it < nselm; ++it) { ret[it] = selm(it, odd_plane).cfl(); }
     return ret;
 }

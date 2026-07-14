@@ -174,7 +174,7 @@ private:
      * index in bndfcs.  The third column is the face index of the related
      * block (if exists).
      */
-    SimpleArray<int_type> m_facn = SimpleArray<int_type>(std::vector<size_t>{0});
+    SimpleArray<int_type> m_facn = SimpleArray<int_type>(small_vector<ssize_t>{0});
 
 public:
 
@@ -186,8 +186,8 @@ public:
 
     StaticMeshBC() = default;
 
-    explicit StaticMeshBC(size_t nbound)
-        : m_facn(SimpleArray<int_type>(std::vector<size_t>{nbound, BFREL}))
+    explicit StaticMeshBC(ssize_t nbound)
+        : m_facn(SimpleArray<int_type>(small_vector<ssize_t>{nbound, BFREL}))
     {
     }
 
@@ -227,7 +227,7 @@ public:
 
     ~StaticMeshBC() = default;
 
-    size_t nbound() const { return m_facn.nbody(); }
+    ssize_t nbound() const { return m_facn.nbody(); }
 
     SimpleArray<int_type> const & facn() const { return m_facn; }
     SimpleArray<int_type> & facn() { return m_facn; }
@@ -276,21 +276,21 @@ public:
         , m_nnode(nnode)
         , m_nface(nface)
         , m_ncell(ncell)
-        , m_ndcrd(std::vector<size_t>{nnode, m_ndim}, 0)
-        , m_fccnd(std::vector<size_t>{nface, m_ndim}, 0)
-        , m_fcnml(std::vector<size_t>{nface, m_ndim}, 0)
-        , m_fcara(std::vector<size_t>{nface}, 0)
-        , m_clcnd(std::vector<size_t>{ncell, m_ndim}, 0)
-        , m_clvol(std::vector<size_t>{ncell}, 0)
-        , m_fctpn(std::vector<size_t>{nface})
-        , m_cltpn(std::vector<size_t>{ncell})
-        , m_clgrp(std::vector<size_t>{ncell})
-        , m_fcnds(std::vector<size_t>{nface, FCMND + 1})
-        , m_fccls(std::vector<size_t>{nface, FCREL})
-        , m_clnds(std::vector<size_t>{ncell, CLMND + 1})
-        , m_clfcs(std::vector<size_t>{ncell, CLMFC + 1})
-        , m_ednds(std::vector<size_t>{0, 2})
-        , m_bndfcs(std::vector<size_t>{0, StaticMeshBC::BFREL})
+        , m_ndcrd(small_vector<ssize_t>{static_cast<ssize_t>(nnode), m_ndim}, 0)
+        , m_fccnd(small_vector<ssize_t>{static_cast<ssize_t>(nface), m_ndim}, 0)
+        , m_fcnml(small_vector<ssize_t>{static_cast<ssize_t>(nface), m_ndim}, 0)
+        , m_fcara(small_vector<ssize_t>{static_cast<ssize_t>(nface)}, 0)
+        , m_clcnd(small_vector<ssize_t>{static_cast<ssize_t>(ncell), m_ndim}, 0)
+        , m_clvol(small_vector<ssize_t>{static_cast<ssize_t>(ncell)}, 0)
+        , m_fctpn(small_vector<ssize_t>{static_cast<ssize_t>(nface)})
+        , m_cltpn(small_vector<ssize_t>{static_cast<ssize_t>(ncell)})
+        , m_clgrp(small_vector<ssize_t>{static_cast<ssize_t>(ncell)})
+        , m_fcnds(small_vector<ssize_t>{static_cast<ssize_t>(nface), FCMND + 1})
+        , m_fccls(small_vector<ssize_t>{static_cast<ssize_t>(nface), FCREL})
+        , m_clnds(small_vector<ssize_t>{static_cast<ssize_t>(ncell), CLMND + 1})
+        , m_clfcs(small_vector<ssize_t>{static_cast<ssize_t>(ncell), CLMFC + 1})
+        , m_ednds(small_vector<ssize_t>{0, 2})
+        , m_bndfcs(small_vector<ssize_t>{0, StaticMeshBC::BFREL})
     {
     }
     StaticMesh() = delete;
@@ -372,7 +372,7 @@ public:
 
 private:
 
-    std::tuple<size_t, size_t, size_t> count_ghost() const;
+    std::tuple<ssize_t, ssize_t, ssize_t> count_ghost() const;
     void fill_ghost();
 
     // Shape data.

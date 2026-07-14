@@ -184,8 +184,8 @@ void EigenSystem<T>::run()
         // CGEEV/ZGEEV return eigenvalues as a single complex array and need a
         // real workspace rwork of length 2*n.  Compute into a local complex
         // buffer, then split it into the real m_wr/m_wi parts below.
-        array_type w(static_cast<size_t>(n));
-        real_array_type rwork(static_cast<size_t>(2 * n));
+        array_type w(static_cast<ssize_t>(n));
+        real_array_type rwork(static_cast<ssize_t>(2 * n));
         detail::lapack_geev(
             jobvl, jobvr, n, m_colmajor.data(), lda, w.data(), vl_ptr, ldvl, vr_ptr, ldvr, &work_query, lwork, rwork.data(), &info);
         if (info != 0)
@@ -197,7 +197,7 @@ void EigenSystem<T>::run()
 
         lapack_int_t const lwork_min = 2 * n;
         lwork = std::max<lapack_int_t>(static_cast<lapack_int_t>(work_query.real()), lwork_min);
-        array_type work(static_cast<size_t>(lwork));
+        array_type work(static_cast<ssize_t>(lwork));
         detail::lapack_geev(
             jobvl, jobvr, n, m_colmajor.data(), lda, w.data(), vl_ptr, ldvl, vr_ptr, ldvr, work.data(), lwork, rwork.data(), &info);
         for (lapack_int_t i = 0; i < n; ++i)
@@ -220,7 +220,7 @@ void EigenSystem<T>::run()
         // 4*n minimum when any eigenvectors requested, else 3*n.
         lapack_int_t const lwork_min = (m_do_vl || m_do_vr) ? 4 * n : 3 * n;
         lwork = std::max<lapack_int_t>(static_cast<lapack_int_t>(work_query), lwork_min);
-        array_type work(static_cast<size_t>(lwork));
+        array_type work(static_cast<ssize_t>(lwork));
         detail::lapack_geev(
             jobvl, jobvr, n, m_colmajor.data(), lda, m_wr.data(), m_wi.data(), vl_ptr, ldvl, vr_ptr, ldvr, work.data(), lwork, &info);
     }

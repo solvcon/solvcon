@@ -499,7 +499,7 @@ public:
     SimpleArray<T> pack_array() const
     {
         using shape_type = typename SimpleArray<T>::shape_type;
-        SimpleArray<T> ret(shape_type{m_p0->size(), static_cast<size_t>(ndim() * 4)});
+        SimpleArray<T> ret(shape_type{static_cast<ssize_t>(m_p0->size()), ndim() * 4});
         if (ndim() == 3)
         {
             for (size_t i = 0; i < m_p0->size(); ++i)
@@ -1699,7 +1699,7 @@ public:
     SimpleArray<T> pack_array() const
     {
         using shape_type = typename SimpleArray<T>::shape_type;
-        SimpleArray<T> ret(shape_type{m_p0->size(), static_cast<size_t>(ndim() * 3)});
+        SimpleArray<T> ret(shape_type{static_cast<ssize_t>(m_p0->size()), ndim() * 3});
         if (ndim() == 3)
         {
             for (size_t i = 0; i < m_p0->size(); ++i)

@@ -704,7 +704,7 @@ void RDomainWidget::collectSurfaceScalars(
     if (3 == ndim)
     {
         SimpleArray<int32_t> const & bndfcs = mh.bndfcs();
-        size_t const nprim = std::min(bndfcs.shape(0), primitive_scalar.size());
+        size_t const nprim = std::min(static_cast<size_t>(bndfcs.shape(0)), primitive_scalar.size());
         for (size_t ibnd = 0; ibnd < nprim; ++ibnd)
         {
             int32_t const ifc = bndfcs(ibnd, 0);
@@ -744,9 +744,9 @@ void pack_scalar_arrays(
 {
     size_t const nvert = verts.size() / 3;
     size_t const ntri = tris.size() / 3;
-    va = SimpleArray<float>(std::vector<size_t>{nvert, 3});
-    sa = SimpleArray<float>(std::vector<size_t>{nvert});
-    ia = SimpleArray<uint32_t>(std::vector<size_t>{ntri, 3});
+    va = SimpleArray<float>(small_vector<ssize_t>{static_cast<ssize_t>(nvert), 3});
+    sa = SimpleArray<float>(small_vector<ssize_t>{static_cast<ssize_t>(nvert)});
+    ia = SimpleArray<uint32_t>(small_vector<ssize_t>{static_cast<ssize_t>(ntri), 3});
     for (size_t i = 0; i < nvert; ++i)
     {
         va(i, 0) = verts[3 * i + 0];
@@ -1284,9 +1284,9 @@ void RDomainWidget::setSelection(
         {
             size_t const nvert = verts.size() / 3;
             size_t const ntri = tris.size() / 3;
-            SimpleArray<float> va(std::vector<size_t>{nvert, 3});
-            SimpleArray<float> ca(std::vector<size_t>{nvert, 3});
-            SimpleArray<uint32_t> ia(std::vector<size_t>{ntri, 3});
+            SimpleArray<float> va(small_vector<ssize_t>{static_cast<ssize_t>(nvert), 3});
+            SimpleArray<float> ca(small_vector<ssize_t>{static_cast<ssize_t>(nvert), 3});
+            SimpleArray<uint32_t> ia(small_vector<ssize_t>{static_cast<ssize_t>(ntri), 3});
             for (size_t i = 0; i < nvert; ++i)
             {
                 va(i, 0) = verts[3 * i + 0];
@@ -1455,9 +1455,9 @@ int RDomainWidget::addClip(QVector3D const & origin, QVector3D const & normal)
     {
         size_t const nvert = verts.size() / 3;
         size_t const ntri = tris.size() / 3;
-        SimpleArray<float> va(std::vector<size_t>{nvert, 3});
-        SimpleArray<float> ca(std::vector<size_t>{nvert, 3});
-        SimpleArray<uint32_t> ia(std::vector<size_t>{ntri, 3});
+        SimpleArray<float> va(small_vector<ssize_t>{static_cast<ssize_t>(nvert), 3});
+        SimpleArray<float> ca(small_vector<ssize_t>{static_cast<ssize_t>(nvert), 3});
+        SimpleArray<uint32_t> ia(small_vector<ssize_t>{static_cast<ssize_t>(ntri), 3});
         for (size_t i = 0; i < nvert; ++i)
         {
             va(i, 0) = verts[3 * i + 0];

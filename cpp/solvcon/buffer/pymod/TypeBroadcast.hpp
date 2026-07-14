@@ -38,7 +38,7 @@ struct TypeBroadcastImpl
         }
 
         auto const axis = static_cast<size_t>(dim);
-        auto const length = static_cast<ssize_t>(left_shape[axis]);
+        ssize_t const length = left_shape[axis];
         for (ssize_t i = 0; i < length; ++i)
         {
             sidx[axis] = i;
@@ -53,10 +53,12 @@ struct TypeBroadcastImpl
             const D * ptr_in = arr_in->data() + offset_in;
 
             ssize_t offset_out = 0;
-            for (size_t it = 0; it < arr_out.ndim(); ++it)
+            ssize_t const ndim = arr_out.ndim();
+            for (ssize_t it = 0; it < ndim; ++it)
             {
-                ssize_t const step = slices[it][2];
-                offset_out += arr_out.stride(it) * sidx[it] * step;
+                auto const axis_index = static_cast<size_t>(it);
+                ssize_t const step = slices[axis_index][2];
+                offset_out += arr_out.stride(it) * sidx[axis_index] * step;
             }
 
             constexpr bool valid_conversion = (!is_complex_v<T> && !is_complex_v<D>) || (is_complex_v<T> && is_complex_v<D> && std::is_same_v<T, D>);
@@ -84,23 +86,24 @@ struct TypeBroadcastImpl
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
         auto * arr_new = reinterpret_cast<pybind11::array_t<D> const *>(&arr_in);
 
-        shape_type left_shape(arr_out.ndim());
-        for (size_t i = 0; i < arr_out.ndim(); i++)
+        ssize_t const ndim = arr_out.ndim();
+        shape_type left_shape(ndim);
+        for (ssize_t axis = 0; axis < ndim; ++axis)
         {
-            sshape_type const & slice = slices[i];
+            sshape_type const & slice = slices[axis];
             if ((slice[1] - slice[0]) % slice[2] == 0)
             {
-                left_shape[i] = (slice[1] - slice[0]) / slice[2];
+                left_shape[axis] = (slice[1] - slice[0]) / slice[2];
             }
             else
             {
-                left_shape[i] = (slice[1] - slice[0]) / slice[2] + 1;
+                left_shape[axis] = (slice[1] - slice[0]) / slice[2] + 1;
             }
         }
 
-        sshape_type const sidx_init(arr_out.ndim(), 0);
+        sshape_type const sidx_init(ndim, 0);
 
-        copy_idx(arr_out, slices, arr_new, left_shape, sidx_init, static_cast<ssize_t>(arr_out.ndim()) - 1);
+        copy_idx(arr_out, slices, arr_new, left_shape, sidx_init, ndim - 1);
     }
 }; /* end struct TypeBroadcastImpl */
 
@@ -114,35 +117,37 @@ struct TypeBroadcast
                             std::vector<sshape_type> const & slices,
                             pybind11::array const & arr_in)
     {
-        shape_type right_shape(arr_in.ndim());
-        for (pybind11::ssize_t i = 0; i < arr_in.ndim(); i++)
+        pybind11::ssize_t const right_ndim = arr_in.ndim();
+        shape_type right_shape(right_ndim);
+        for (pybind11::ssize_t axis = 0; axis < right_ndim; ++axis)
         {
-            right_shape[i] = arr_in.shape(i);
+            right_shape[axis] = arr_in.shape(axis);
         }
 
-        shape_type left_shape(arr_out.ndim());
+        ssize_t const ndim = arr_out.ndim();
+        shape_type left_shape(ndim);
         // TODO: range check
-        for (size_t i = 0; i < arr_out.ndim(); i++)
+        for (ssize_t axis = 0; axis < ndim; ++axis)
         {
-            sshape_type const & slice = slices[i];
+            sshape_type const & slice = slices[axis];
             if ((slice[1] - slice[0]) % slice[2] == 0)
             {
-                left_shape[i] = (slice[1] - slice[0]) / slice[2];
+                left_shape[axis] = (slice[1] - slice[0]) / slice[2];
             }
             else
             {
-                left_shape[i] = (slice[1] - slice[0]) / slice[2] + 1;
+                left_shape[axis] = (slice[1] - slice[0]) / slice[2] + 1;
             }
         }
 
-        if (arr_out.ndim() != static_cast<size_t>(arr_in.ndim()))
+        if (arr_out.ndim() != arr_in.ndim())
         {
             throw_shape_error(left_shape, right_shape);
         }
 
-        for (size_t i = 0; i < left_shape.size(); ++i)
+        for (ssize_t i = 0; i < ndim; ++i)
         {
-            if (left_shape[i] != static_cast<size_t>(right_shape[i]))
+            if (left_shape[i] != right_shape[i])
             {
                 throw_shape_error(left_shape, right_shape);
             }

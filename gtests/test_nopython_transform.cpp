@@ -25,9 +25,9 @@ protected:
     static constexpr size_t VN = is_pow_2 ? 1024 : 1000;
 
     solvcon::SimpleArray<solvcon::Complex<T>> signal{
-        solvcon::small_vector<size_t>{VN}, solvcon::Complex<T>{0.0, 0.0}};
+        solvcon::small_vector<ssize_t>{static_cast<ssize_t>(VN)}, solvcon::Complex<T>{0.0, 0.0}};
     solvcon::SimpleArray<solvcon::Complex<T>> out{
-        solvcon::small_vector<size_t>{VN}, solvcon::Complex<T>{0.0, 0.0}};
+        solvcon::small_vector<ssize_t>{static_cast<ssize_t>(VN)}, solvcon::Complex<T>{0.0, 0.0}};
 
     // Set up the test fixture: generate the signal once
     void SetUp() override
@@ -74,9 +74,9 @@ protected:
     std::mt19937 rng{std::random_device{}()};
 
     solvcon::SimpleArray<solvcon::Complex<T>> signal{
-        solvcon::small_vector<size_t>{VN}, solvcon::Complex<T>{0.0, 0.0}};
+        solvcon::small_vector<ssize_t>{static_cast<ssize_t>(VN)}, solvcon::Complex<T>{0.0, 0.0}};
     solvcon::SimpleArray<solvcon::Complex<T>> out{
-        solvcon::small_vector<size_t>{VN}, solvcon::Complex<T>{0.0, 0.0}};
+        solvcon::small_vector<ssize_t>{static_cast<ssize_t>(VN)}, solvcon::Complex<T>{0.0, 0.0}};
 
     void SetUp() override
     {
@@ -108,11 +108,11 @@ protected:
     std::mt19937 rng{std::random_device{}()};
 
     solvcon::SimpleArray<solvcon::Complex<T>> signal{
-        solvcon::small_vector<size_t>{VN}, solvcon::Complex<T>{0.0, 0.0}};
+        solvcon::small_vector<ssize_t>{static_cast<ssize_t>(VN)}, solvcon::Complex<T>{0.0, 0.0}};
     solvcon::SimpleArray<solvcon::Complex<T>> freq_domain{
-        solvcon::small_vector<size_t>{VN}, solvcon::Complex<T>{0.0, 0.0}};
+        solvcon::small_vector<ssize_t>{static_cast<ssize_t>(VN)}, solvcon::Complex<T>{0.0, 0.0}};
     solvcon::SimpleArray<solvcon::Complex<T>> time_domain{
-        solvcon::small_vector<size_t>{VN}, solvcon::Complex<T>{0.0, 0.0}};
+        solvcon::small_vector<ssize_t>{static_cast<ssize_t>(VN)}, solvcon::Complex<T>{0.0, 0.0}};
 
     void SetUp() override
     {

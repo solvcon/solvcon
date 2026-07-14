@@ -22,14 +22,17 @@ namespace solvcon
 void StaticMesh::build_boundary()
 {
     assert(0 == m_nbound); // nothing should touch m_nbound beforehand.
-    for (size_t it = 0; it < fccls().shape(0); ++it)
+    for (ssize_t it = 0; it < fccls().shape(0); ++it)
     {
         if (fccls()(it, 1) < 0)
         {
             m_nbound += 1;
         }
     }
-    SimpleArray<int_type>(std::vector<size_t>{m_nbound, StaticMeshBC::BFREL}, -1).swap(m_bndfcs);
+    SimpleArray<int_type>(
+        small_vector<ssize_t>{static_cast<ssize_t>(m_nbound), StaticMeshBC::BFREL},
+        -1)
+        .swap(m_bndfcs);
 
     std::vector<int_type> allfacn(m_nbound);
     size_t ait = 0;
@@ -73,7 +76,7 @@ void StaticMesh::build_boundary()
 
     if (nleft != 0)
     {
-        StaticMeshBC bnd(static_cast<size_t>(nleft));
+        StaticMeshBC bnd(nleft);
         auto & bfacn = bnd.facn();
         size_t bfit = 0;
         size_t const ibnd = m_bcs.size();
@@ -104,30 +107,30 @@ void StaticMesh::build_ghost()
     m_ngstface = static_cast<uint_type>(std::get<1>(count_ghost_tuple));
     m_ngstcell = static_cast<uint_type>(std::get<2>(count_ghost_tuple));
 
-#define MM_DECL_GHOST_SWAP1(N, T, D1, I)                                  \
-    {                                                                     \
-        SimpleArray<T> arr(std::vector<size_t>{m_ngst##D1 + m_n##D1}, I); \
-        arr.set_nghost(m_ngst##D1);                                       \
-        for (int_type it = 0; it < static_cast<int_type>(m_n##D1); ++it)  \
-        {                                                                 \
-            arr(it) = m_##N(it);                                          \
-        }                                                                 \
-        arr.swap(m_##N);                                                  \
+#define MM_DECL_GHOST_SWAP1(N, T, D1, I)                                                          \
+    {                                                                                             \
+        SimpleArray<T> arr(small_vector<ssize_t>{static_cast<ssize_t>(m_ngst##D1 + m_n##D1)}, I); \
+        arr.set_nghost(m_ngst##D1);                                                               \
+        for (int_type it = 0; it < static_cast<int_type>(m_n##D1); ++it)                          \
+        {                                                                                         \
+            arr(it) = m_##N(it);                                                                  \
+        }                                                                                         \
+        arr.swap(m_##N);                                                                          \
     }
 
-#define MM_DECL_GHOST_SWAP2(N, T, D1, D2, I)                                  \
-    {                                                                         \
-        SimpleArray<T> arr(std::vector<size_t>{m_ngst##D1 + m_n##D1, D2}, I); \
-        arr.set_nghost(m_ngst##D1);                                           \
-        for (int_type it = 0; it < static_cast<int_type>(m_n##D1); ++it)      \
-        {                                                                     \
-            for (int_type jt = 0; jt < static_cast<int_type>(D2); ++jt)       \
-            {                                                                 \
-                arr(it, jt) = m_##N(it, jt);                                  \
-            }                                                                 \
-            arr(it) = m_##N(it);                                              \
-        }                                                                     \
-        arr.swap(m_##N);                                                      \
+#define MM_DECL_GHOST_SWAP2(N, T, D1, D2, I)                                                          \
+    {                                                                                                 \
+        SimpleArray<T> arr(small_vector<ssize_t>{static_cast<ssize_t>(m_ngst##D1 + m_n##D1), D2}, I); \
+        arr.set_nghost(m_ngst##D1);                                                                   \
+        for (int_type it = 0; it < static_cast<int_type>(m_n##D1); ++it)                              \
+        {                                                                                             \
+            for (int_type jt = 0; jt < static_cast<int_type>(D2); ++jt)                               \
+            {                                                                                         \
+                arr(it, jt) = m_##N(it, jt);                                                          \
+            }                                                                                         \
+            arr(it) = m_##N(it);                                                                      \
+        }                                                                                             \
+        arr.swap(m_##N);                                                                              \
     }
 
     // geometry arrays.
@@ -156,21 +159,22 @@ void StaticMesh::build_ghost()
 /**
  * @brief Count the number of ghost entities.
  *
- * @return std::tuple<size_t, size_t, size_t>
+ * @return std::tuple<ssize_t, ssize_t, ssize_t>
  *  ngstnode, ngstface, ngstcell
  */
-std::tuple<size_t, size_t, size_t> StaticMesh::count_ghost() const
+std::tuple<ssize_t, ssize_t, ssize_t> StaticMesh::count_ghost() const
 {
-    size_t ngstface = 0;
-    size_t ngstnode = 0;
+    ssize_t ngstface = 0;
+    ssize_t ngstnode = 0;
     for (size_t ibfc = 0; ibfc < m_nbound; ++ibfc)
     {
         const int_type ifc = m_bndfcs(ibfc, 0);
         const int_type icl = m_fccls(ifc, 0);
-        ngstface += static_cast<size_t>(CellType::by_id(static_cast<uint8_t>(m_cltpn(icl))).nface()) - 1;
+        ssize_t const nface = CellType::by_id(static_cast<uint8_t>(m_cltpn(icl))).nface();
+        ngstface += nface - 1;
         ngstnode += m_clnds(icl, 0) - m_fcnds(ifc, 0);
     }
-    return std::make_tuple(ngstnode, ngstface, static_cast<size_t>(m_nbound));
+    return std::make_tuple(ngstnode, ngstface, static_cast<ssize_t>(m_nbound));
 }
 
 /**
@@ -211,12 +215,12 @@ inline void StaticMesh::fill_ghost()
         {
             m_clnds(igcl, inl) = m_clnds(icl, inl);
         }
-        for (size_t inl = 1; inl <= static_cast<size_t>(m_clnds(icl, 0)); ++inl)
+        for (int_type inl = 1; inl <= m_clnds(icl, 0); ++inl)
         {
             int_type const ind = m_clnds(icl, inl);
             // try to find the node in the boundary face.
             bool mk_found = false;
-            for (size_t inf = 1; inf <= static_cast<size_t>(m_fcnds(ibfc, 0)); ++inf)
+            for (int_type inf = 1; inf <= m_fcnds(ibfc, 0); ++inf)
             {
                 if (ind == m_fcnds(ibfc, inf))
                 {
@@ -251,7 +255,7 @@ inline void StaticMesh::fill_ghost()
         {
             m_clfcs(igcl, ifl) = m_clfcs(icl, ifl); // copy in-face to ghost.
         }
-        for (size_t ifl = 1; ifl <= static_cast<size_t>(m_clfcs(icl, 0)); ++ifl)
+        for (int_type ifl = 1; ifl <= m_clfcs(icl, 0); ++ifl)
         {
             int_type const ifc = m_clfcs(icl, ifl); // the face to be processed.
             if (ifc == ibfc)
@@ -266,7 +270,7 @@ inline void StaticMesh::fill_ghost()
             {
                 m_fcnds(igfc, inf) = m_fcnds(ifc, inf);
             }
-            for (size_t inf = 1; inf <= static_cast<size_t>(m_fcnds(igfc, 0)); ++inf)
+            for (int_type inf = 1; inf <= m_fcnds(igfc, 0); ++inf)
             {
                 int_type const ind = m_fcnds(igfc, inf);
                 if (gstndmap[ind] != static_cast<int_type>(nnode()))
@@ -278,7 +282,7 @@ inline void StaticMesh::fill_ghost()
             igfc -= 1;
         }
         // erase node map record.
-        for (size_t inl = 1; inl <= static_cast<size_t>(m_clnds(icl, 0)); ++inl)
+        for (int_type inl = 1; inl <= m_clnds(icl, 0); ++inl)
         {
             gstndmap[m_clnds(icl, inl)] = nnode();
         }
@@ -508,7 +512,7 @@ inline void StaticMesh::fill_ghost()
     for (int_type icl = -1; icl >= -static_cast<int_type>(ngstcell()); --icl)
     {
         m_clvol(icl) = 0.0;
-        for (size_t it = 1; it <= static_cast<size_t>(m_clfcs(icl, 0)); ++it)
+        for (int_type it = 1; it <= m_clfcs(icl, 0); ++it)
         {
             int_type const ifc = m_clfcs(icl, it);
             // calculate volume associated with each face.

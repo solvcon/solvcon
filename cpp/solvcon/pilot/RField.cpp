@@ -31,8 +31,8 @@ RField::RField(
         throw std::invalid_argument("RField: indices must have shape (ntri, 3)");
     }
 
-    size_t const nvert = vertices.shape(0);
-    size_t const ntri = indices.shape(0);
+    size_t const nvert = static_cast<size_t>(vertices.shape(0));
+    size_t const ntri = static_cast<size_t>(indices.shape(0));
     if (0 == nvert || 0 == ntri)
     {
         return;
