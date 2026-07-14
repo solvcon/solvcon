@@ -72,6 +72,7 @@ class Profiling(_gui_common.PilotFeature):
 
     def _add_result_window(self, result: list[dict[str, typing.Any]]):
         self._table = self._mgr.addSubWindow(QWidget())
+        self._table.setWindowTitle("Profiling result")
         self._tree_view = QTreeView(self._table)
 
         self._model = QStandardItemModel(self._tree_view)
@@ -264,6 +265,7 @@ class RunProfiling(_gui_common.PilotFeature):
 
     def _add_result_window(self, result):
         self._table = self._mgr.addSubWindow(QWidget())
+        self._table.setWindowTitle("Profiling result")
         self._tree_view = QTreeView(self._table)
 
         self._model = QStandardItemModel(self._tree_view)

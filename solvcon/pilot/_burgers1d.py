@@ -70,6 +70,7 @@ class Burgers1DApp(_base_app.OneDimBaseApp):
     """
     Main application for Burgers' equation 1D solver.
     """
+    TITLE = "Burgers equation"
     num_region: int = 3
     region_x: list = [-10.0, 0.0, 2.0, 5.0]
     region_velocity: list = [-0.5, 1.0, 0.5]

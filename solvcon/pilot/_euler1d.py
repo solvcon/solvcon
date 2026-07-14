@@ -12,6 +12,8 @@ class Euler1DApp(_base_app.OneDimBaseApp):
     Main application for Euler 1D solver.
     """
 
+    TITLE = "Euler solver"
+
     def populate_menu(self):
         """
         Set menu item for GUI.
