@@ -413,20 +413,6 @@ ThemeLook themeLookFromId(char const * id)
     return ThemeLook::Curated;
 }
 
-char const * platformIdName(PlatformId platform)
-{
-    switch (platform)
-    {
-    case PlatformId::Mac:
-        return "mac";
-    case PlatformId::Windows:
-        return "windows";
-    case PlatformId::Linux:
-    default:
-        return "linux";
-    }
-}
-
 bool linuxDesktopHasNativeTheme(char const * xdg_current_desktop)
 {
     if (xdg_current_desktop == nullptr)

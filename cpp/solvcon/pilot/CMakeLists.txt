@@ -30,6 +30,7 @@ set(SOLVCON_PILOT_PYMODHEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/RWindowsThemeBackend.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RLinuxThemeBackend.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RThemeManager.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/platform.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/keymap.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RPythonConsoleDockWidget.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RPythonConsoleHistory.hpp

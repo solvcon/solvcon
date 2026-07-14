@@ -20,15 +20,10 @@
 #include <variant>
 #include <vector>
 
+#include <solvcon/pilot/platform.hpp>
+
 namespace solvcon
 {
-
-enum class PlatformId
-{
-    Linux,
-    Mac,
-    Windows
-};
 
 enum class ShortcutContext
 {

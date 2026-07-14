@@ -23,6 +23,8 @@
 
 #include <cstdint>
 
+#include <solvcon/pilot/platform.hpp>
+
 namespace solvcon
 {
 
@@ -58,21 +60,6 @@ enum class ThemeLook
 {
     System,
     Curated,
-};
-
-/**
- * @brief The platform a color table and a capability record are written for.
- *
- * The palette lookup carries this axis so each platform's look is tuned in its
- * own table without disturbing the others. Detecting the running platform is a
- * thin Qt call made in the adapter and passed in here, which keeps this
- * foundation free of Qt.
- */
-enum class PlatformId
-{
-    Linux,
-    Mac,
-    Windows,
 };
 
 /**
@@ -226,10 +213,6 @@ char const * themeLookLabel(ThemeLook look);
 
 /// The look named by @p id, or ThemeLook::Curated when @p id matches none.
 ThemeLook themeLookFromId(char const * id);
-
-/// The stable identifier for a platform ("linux", "mac", "windows"), used at
-/// the Python boundary and in tests.
-char const * platformIdName(PlatformId platform);
 
 /**
  * @brief Whether a Linux desktop names a theme the pilot recognizes.
