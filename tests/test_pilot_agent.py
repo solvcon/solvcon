@@ -9,8 +9,8 @@ import solvcon
 
 try:
     from solvcon import pilot
+    from solvcon import agent
     from solvcon.pilot import _agent_gui
-    from solvcon.agent import BackendResponse
     from PySide6.QtCore import Qt
 except ImportError:
     pilot = None
@@ -28,7 +28,7 @@ class _PingBackend:
         return True
 
     def send(self, prompt, scene_context, tool_surface):
-        return BackendResponse(text="pong", commands=[{"op": "ping"}])
+        return agent.BackendResponse(text="pong", commands=[{"op": "ping"}])
 
 
 @unittest.skipIf(GITHUB_ACTIONS or not solvcon.HAS_PILOT,

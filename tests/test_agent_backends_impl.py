@@ -16,14 +16,7 @@ import subprocess
 import unittest
 from unittest import mock
 
-from solvcon.agent import (
-    BackendResponse,
-    ClaudeCliBackend,
-    OpenAIHttpBackend,
-    SubprocessBackend,
-    get_backend,
-    parse_tool_calls,
-)
+from solvcon import agent
 
 
 _WHICH = "solvcon.agent._backends_impl.shutil.which"
@@ -38,77 +31,77 @@ class ParseToolCallsTC(unittest.TestCase):
     def test_plain_json_array(self):
         text = '[{"op": "add_circle", "r": 1.0}]'
         self.assertEqual(
-            parse_tool_calls(text, _TOOLS),
+            agent.parse_tool_calls(text, _TOOLS),
             [{"op": "add_circle", "r": 1.0}])
 
     def test_lone_object_becomes_one_command(self):
-        commands = parse_tool_calls('{"op": "add_line"}', _TOOLS)
+        commands = agent.parse_tool_calls('{"op": "add_line"}', _TOOLS)
         self.assertEqual(commands, [{"op": "add_line"}])
 
     def test_strips_code_fence(self):
         text = '```json\n[{"op": "add_circle"}]\n```'
-        self.assertEqual(parse_tool_calls(text, _TOOLS),
+        self.assertEqual(agent.parse_tool_calls(text, _TOOLS),
                          [{"op": "add_circle"}])
 
     def test_extracts_array_from_surrounding_prose(self):
         text = 'Sure! Here you go:\n[{"op": "add_circle"}]\nThanks.'
-        self.assertEqual(parse_tool_calls(text, _TOOLS),
+        self.assertEqual(agent.parse_tool_calls(text, _TOOLS),
                          [{"op": "add_circle"}])
 
     def test_empty_array_is_empty(self):
-        self.assertEqual(parse_tool_calls("[]", _TOOLS), [])
+        self.assertEqual(agent.parse_tool_calls("[]", _TOOLS), [])
 
     def test_no_json_yields_empty(self):
-        self.assertEqual(parse_tool_calls("I cannot help.", _TOOLS), [])
+        self.assertEqual(agent.parse_tool_calls("I cannot help.", _TOOLS), [])
 
     def test_malformed_json_rejected(self):
         # A JSON-looking but invalid payload must not become a successful
         # empty batch; send() should record a parser error instead.
         with self.assertRaises(ValueError):
-            parse_tool_calls('[{"op": "add_circle",}]', _TOOLS)
+            agent.parse_tool_calls('[{"op": "add_circle",}]', _TOOLS)
         with self.assertRaises(ValueError):
-            parse_tool_calls('[{"op": "add_circle"', _TOOLS)
+            agent.parse_tool_calls('[{"op": "add_circle"', _TOOLS)
 
     def test_unknown_op_rejected(self):
         with self.assertRaises(ValueError):
-            parse_tool_calls('[{"op": "delete_universe"}]', _TOOLS)
+            agent.parse_tool_calls('[{"op": "delete_universe"}]', _TOOLS)
 
     def test_missing_op_rejected(self):
         with self.assertRaises(ValueError):
-            parse_tool_calls('[{"r": 1.0}]', _TOOLS)
+            agent.parse_tool_calls('[{"r": 1.0}]', _TOOLS)
 
     def test_non_string_op_raises_valueerror_not_typeerror(self):
         # An unhashable op (list/object) must not blow past the ValueError
         # contract into a set-membership TypeError, or send() would crash
         # instead of recording an error.
         with self.assertRaises(ValueError):
-            parse_tool_calls('[{"op": {"nested": 1}}]', _TOOLS)
+            agent.parse_tool_calls('[{"op": {"nested": 1}}]', _TOOLS)
         with self.assertRaises(ValueError):
-            parse_tool_calls('[{"op": ["a", "b"]}]', _TOOLS)
+            agent.parse_tool_calls('[{"op": ["a", "b"]}]', _TOOLS)
 
     def test_no_tool_surface_skips_op_validation(self):
         # With no advertised ops (e.g. Agent Draw absent) any op is accepted,
         # so the pipeline still runs rather than rejecting everything.
-        commands = parse_tool_calls('[{"op": "anything"}]', [])
+        commands = agent.parse_tool_calls('[{"op": "anything"}]', [])
         self.assertEqual(commands, [{"op": "anything"}])
 
 
 class SubprocessBackendDiscoveryTC(unittest.TestCase):
     def test_available_true_when_on_path(self):
-        backend = ClaudeCliBackend()
+        backend = agent.ClaudeCliBackend()
         with mock.patch(_WHICH, lambda name: "/usr/bin/" + name):
             self.assertTrue(backend.available())
             self.assertEqual(backend.executable(), "/usr/bin/claude")
 
     def test_available_false_when_absent(self):
-        backend = ClaudeCliBackend()
+        backend = agent.ClaudeCliBackend()
         with mock.patch(_WHICH, lambda name: None):
             self.assertFalse(backend.available())
 
     def test_command_none_never_resolves(self):
         # A subclass that names no executable is never available even though
         # which() would answer for a real name.
-        class Nameless(SubprocessBackend):
+        class Nameless(agent.SubprocessBackend):
             def _build_argv(self, exe, prompt):
                 return [exe]
 
@@ -119,7 +112,7 @@ class SubprocessBackendDiscoveryTC(unittest.TestCase):
 
 class ClaudeCliSendTC(unittest.TestCase):
     def setUp(self):
-        self.backend = ClaudeCliBackend()
+        self.backend = agent.ClaudeCliBackend()
         patcher = mock.patch(_WHICH, lambda name: "/usr/bin/" + name)
         self.which = patcher.start()
         self.addCleanup(patcher.stop)
@@ -131,7 +124,7 @@ class ClaudeCliSendTC(unittest.TestCase):
         reply = self._envelope('[{"op": "add_circle", "r": 2.0}]')
         self.backend._communicate = lambda argv: (0, reply, "")
         response = self.backend.send("draw a circle", "empty world", _TOOLS)
-        self.assertIsInstance(response, BackendResponse)
+        self.assertIsInstance(response, agent.BackendResponse)
         self.assertIsNone(response.error)
         self.assertEqual(response.commands, [{"op": "add_circle", "r": 2.0}])
 
@@ -200,19 +193,19 @@ class ClaudeCliSendTC(unittest.TestCase):
 
 class RegistrationTC(unittest.TestCase):
     def test_claude_registers_on_import(self):
-        backend = get_backend("claude (cli)")
+        backend = agent.get_backend("claude (cli)")
         self.assertIsNotNone(backend)
-        self.assertIsInstance(backend, ClaudeCliBackend)
+        self.assertIsInstance(backend, agent.ClaudeCliBackend)
 
     def test_openai_http_registers_on_import(self):
-        backend = get_backend("openai (http)")
+        backend = agent.get_backend("openai (http)")
         self.assertIsNotNone(backend)
-        self.assertIsInstance(backend, OpenAIHttpBackend)
+        self.assertIsInstance(backend, agent.OpenAIHttpBackend)
 
 
 class OpenAIHttpBackendTC(unittest.TestCase):
     def setUp(self):
-        self.backend = OpenAIHttpBackend(
+        self.backend = agent.OpenAIHttpBackend(
             base_url="http://127.0.0.1:11434/v1",
             model="qwen2.5vl:7b",
             api_key="")
@@ -225,16 +218,16 @@ class OpenAIHttpBackendTC(unittest.TestCase):
 
     def test_available_needs_url_and_model(self):
         self.assertTrue(self.backend.available())
-        self.assertFalse(OpenAIHttpBackend(
+        self.assertFalse(agent.OpenAIHttpBackend(
             base_url="", model="m").available())
-        self.assertFalse(OpenAIHttpBackend(
+        self.assertFalse(agent.OpenAIHttpBackend(
             base_url="http://127.0.0.1:11434/v1", model="").available())
 
     def test_send_parses_commands(self):
         raw = self._chat_body('[{"op": "add_circle", "r": 2.0}]')
         self.backend._post_chat = lambda body: (200, raw)
         response = self.backend.send("draw a circle", "empty world", _TOOLS)
-        self.assertIsInstance(response, BackendResponse)
+        self.assertIsInstance(response, agent.BackendResponse)
         self.assertIsNone(response.error)
         self.assertEqual(response.commands, [{"op": "add_circle", "r": 2.0}])
 
@@ -293,7 +286,7 @@ class OpenAIHttpBackendTC(unittest.TestCase):
         self.assertEqual(response.commands, [])
 
     def test_parse_chat_payload_joins_content_parts(self):
-        text = OpenAIHttpBackend._parse_chat_payload({
+        text = agent.OpenAIHttpBackend._parse_chat_payload({
             "choices": [{
                 "message": {
                     "role": "assistant",
@@ -313,7 +306,7 @@ class OpenAIHttpBackendTC(unittest.TestCase):
             "SOLVCON_OPENAI_API_KEY": "secret",
         }
         with mock.patch.dict(os.environ, env, clear=False):
-            backend = OpenAIHttpBackend()
+            backend = agent.OpenAIHttpBackend()
         self.assertEqual(backend.base_url, "http://example.test/v1")
         self.assertEqual(backend.model, "demo-model")
         self.assertEqual(backend._api_key, "secret")
@@ -379,7 +372,7 @@ class ClaudeCliRealTC(unittest.TestCase):
     """
 
     def setUp(self):
-        self.backend = ClaudeCliBackend()
+        self.backend = agent.ClaudeCliBackend()
         if not self.backend.available():
             self.skipTest("claude CLI not found on PATH")
 
@@ -415,7 +408,7 @@ class OpenAIHttpRealTC(unittest.TestCase):
     """
 
     def setUp(self):
-        self.backend = OpenAIHttpBackend()
+        self.backend = agent.OpenAIHttpBackend()
         if not self.backend.available():
             self.skipTest("openai http backend not configured")
 
