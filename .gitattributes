@@ -1,0 +1,5 @@
+# Shell/agent tooling stays LF regardless of core.autocrlf.
+*.sh text eol=lf
+.claude/hooks/* text eol=lf
+.claude/statusline.sh text eol=lf
+.gitattributes text eol=lf
