@@ -18,8 +18,10 @@
 #include <solvcon/universe/World.hpp>
 
 #include <cstdint>
+#include <vector>
 
 #include <QPointF>
+#include <QRectF>
 
 class QPainter;
 
@@ -28,8 +30,9 @@ namespace solvcon
 
 /**
  * Toggleable, legibility-only annotations over the 2D canvas: shape ids,
- * bounding boxes, advanced geometric labels, and one highlighted shape id.
- * Restates stored geometry only (no derived diagnostics).
+ * bounding boxes, grid coordinate labels, advanced geometric labels, and one
+ * highlighted shape id. Draws only stored geometry and the view's own grid,
+ * never derived diagnostics.
  *
  * @ingroup group_domain
  */
@@ -37,6 +40,7 @@ struct Overlay2dOptions
 {
     bool shape_ids = false; ///< Label each live shape with its id and type.
     bool bounding_boxes = false; ///< Draw each live shape's axis-aligned box.
+    bool coordinate_labels = false; ///< Label grid lines with world coordinates.
     bool advanced_labels = false; ///< More details than just the id.
     int32_t highlight_id = -1; ///< Emphasize this shape id; -1 draws none. Independent of selection.
 
@@ -45,7 +49,7 @@ struct Overlay2dOptions
         return shape_ids || bounding_boxes || advanced_labels || highlight_id >= 0;
     }
 
-    bool any() const { return shape_annotations(); }
+    bool any() const { return coordinate_labels || shape_annotations(); }
 }; /* end struct Overlay2dOptions */
 
 /**
@@ -78,7 +82,7 @@ private:
     void paint(QPainter & painter) const;
 
     void paint_overlay(QPainter & painter, int width, int height) const;
-    void paint_shape_annotations(QPainter & painter, int width, int height) const;
+    void paint_shape_annotations(QPainter & painter, int width, int height, std::vector<QRectF> const & reserved) const;
 
     // Map math-convention world (x, y) to Qt screen pixels; z is dropped.
     QPointF map(double world_x, double world_y) const;

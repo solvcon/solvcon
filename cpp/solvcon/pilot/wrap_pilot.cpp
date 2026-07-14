@@ -1061,12 +1061,13 @@ void wrap_pilot(pybind11::module & mod)
         mod,
         "Overlay2dOptions",
         "Toggleable, legibility-only annotations for the 2D canvas: per-shape "
-        "ids and bounding boxes, advanced geometric labels, and one "
-        "highlighted shape id. Carries no derived facts.");
+        "ids and bounding boxes, world-coordinate labels, advanced geometric "
+        "labels, and one highlighted shape id. Carries no derived facts.");
     overlay_options.def(py::init<>());
     overlay_options
         .def_readwrite("shape_ids", &Overlay2dOptions::shape_ids)
         .def_readwrite("bounding_boxes", &Overlay2dOptions::bounding_boxes)
+        .def_readwrite("coordinate_labels", &Overlay2dOptions::coordinate_labels)
         .def_readwrite("advanced_labels", &Overlay2dOptions::advanced_labels)
         .def_readwrite("highlight_id", &Overlay2dOptions::highlight_id);
     WrapR2DWidget::commit(mod, "R2DWidget", "R2DWidget");

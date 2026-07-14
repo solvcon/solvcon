@@ -569,6 +569,7 @@ def _all_on_overlay(highlight_id=-1):
     overlay = pilot.Overlay2dOptions()
     overlay.shape_ids = True
     overlay.bounding_boxes = True
+    overlay.coordinate_labels = True
     overlay.advanced_labels = True
     overlay.highlight_id = highlight_id
     return overlay
@@ -587,7 +588,7 @@ def _save_and_check_png(testcase, widget):
 @unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
 class R2DWidgetOverlayTC(unittest.TestCase):
     """Annotation overlay: ids, advanced geometric labels, bounding boxes,
-    and highlight-by-id via R2DWidget.overlay.
+    coordinate labels, and highlight-by-id via R2DWidget.overlay.
     """
 
     @classmethod
@@ -611,6 +612,7 @@ class R2DWidgetOverlayTC(unittest.TestCase):
         overlay = self.widget.overlay
         self.assertFalse(overlay.shape_ids)
         self.assertFalse(overlay.bounding_boxes)
+        self.assertFalse(overlay.coordinate_labels)
         self.assertFalse(overlay.advanced_labels)
         self.assertEqual(overlay.highlight_id, -1)
 
@@ -622,6 +624,7 @@ class R2DWidgetOverlayTC(unittest.TestCase):
         got = self.widget.overlay
         self.assertTrue(got.shape_ids)
         self.assertTrue(got.bounding_boxes)
+        self.assertTrue(got.coordinate_labels)
         self.assertTrue(got.advanced_labels)
         self.assertEqual(got.highlight_id, 2)
 
@@ -636,10 +639,50 @@ class R2DWidgetOverlayTC(unittest.TestCase):
         self.widget.requestRepaint()
         _save_and_check_png(self, self.widget)
 
+    def test_overlay_extreme_zoom_labels_are_safe(self):
+        """Coordinate labels at a large zoom and offset render to a valid PNG.
+
+        Iterating grid lines in screen space bounds the label count to the
+        visible grid, so an extreme view cannot overflow a grid index.
+        """
+        world = solvcon.WorldFp64()
+        world.add_circle(1000.0, 1000.0, 1.0)
+        self.widget.updateWorld(world)
+        v = solvcon.ViewTransform2dFp64()
+        v.zoom = 1.0e6
+        v.pan(-1000.0e6, 1000.0e6)
+        self.widget.setViewTransform(v)
+        overlay = pilot.Overlay2dOptions()
+        overlay.coordinate_labels = True
+        self.widget.overlay = overlay
+        self.widget.requestRepaint()
+        _save_and_check_png(self, self.widget)
+
+    def test_coordinate_labels_add_foreground(self):
+        """Coordinate labels alone paint tick marks and numerals over the grid,
+        so the frame gains foreground with no shape annotation on. Isolating
+        them keeps the assertion from passing on bounding boxes alone.
+        """
+        world = solvcon.WorldFp64()
+        world.add_circle(0.0, 0.0, 1.0)
+        self.widget.updateWorld(world)
+        self.widget.resetView()
+        self.widget.overlay = pilot.Overlay2dOptions()
+        self.widget.requestRepaint()
+        plain = _grab_foreground(self.widget)
+        if not plain:
+            self.skipTest("offscreen grab reads back blank on this backend")
+        labeled = pilot.Overlay2dOptions()
+        labeled.coordinate_labels = True
+        self.widget.overlay = labeled
+        self.widget.requestRepaint()
+        annotated = _grab_foreground(self.widget)
+        self.assertGreater(annotated, plain)
+
     def test_overlay_adds_foreground_pixels(self):
         """Enabling the annotations paints strictly more than the bare
-        geometry: the bounding boxes and id labels add pixels the plain
-        render does not have.
+        geometry: the bounding boxes, id labels, and coordinate labels all add
+        pixels the plain render does not have.
         """
         world = solvcon.WorldFp64()
         sid = world.add_rectangle(-2, -1, 2, 1)
@@ -709,8 +752,8 @@ class InspectorLabelControlsTC(unittest.TestCase):
         self.assertTrue(tree._label_modes["normal"].isEnabled())
 
     def test_switch_drives_normal_labels(self):
-        """The switch turns on the id label (normal mode) and clears it
-        again, so the inspector governs the canvas overlay.
+        """The switch turns the id labels (normal mode) on and off, driving
+        the shape annotations without touching the coordinate grid labels.
         """
         widget = self.mgr.add2DWidget()
         widget.overlay = pilot.Overlay2dOptions()
@@ -718,8 +761,23 @@ class InspectorLabelControlsTC(unittest.TestCase):
         tree._labels_check.setChecked(True)
         self.assertTrue(widget.overlay.shape_ids)
         self.assertFalse(widget.overlay.advanced_labels)
+        self.assertFalse(widget.overlay.coordinate_labels)
         tree._labels_check.setChecked(False)
         self.assertFalse(widget.overlay.shape_ids)
+
+    def test_coordinates_switch_is_independent(self):
+        """The coordinates checkbox drives coordinate_labels on its own, with
+        the shape-label switch off, so the two are independent controls.
+        """
+        widget = self.mgr.add2DWidget()
+        widget.overlay = pilot.Overlay2dOptions()
+        tree = self._tree(widget)
+        tree._coords_check.setChecked(True)
+        self.assertTrue(widget.overlay.coordinate_labels)
+        self.assertFalse(widget.overlay.shape_ids)
+        self.assertFalse(widget.overlay.advanced_labels)
+        tree._coords_check.setChecked(False)
+        self.assertFalse(widget.overlay.coordinate_labels)
 
     def test_advanced_mode_swaps_id_for_geometry(self):
         """Advanced mode drops the plain id label for the geometric labels
@@ -741,10 +799,12 @@ class InspectorLabelControlsTC(unittest.TestCase):
         widget = self.mgr.add2DWidget()
         overlay = pilot.Overlay2dOptions()
         overlay.advanced_labels = True
+        overlay.coordinate_labels = True
         widget.overlay = overlay
         tree = self._tree(widget)
         self.assertTrue(tree._labels_check.isChecked())
         self.assertTrue(tree._label_modes["advanced"].isChecked())
+        self.assertTrue(tree._coords_check.isChecked())
 
     def test_world_tree_lives_in_entity_section(self):
         widget = self.mgr.add2DWidget()
@@ -765,6 +825,24 @@ class InspectorLabelControlsTC(unittest.TestCase):
         self.assertFalse(tree._tree_section.body().isHidden())
         self.assertTrue(tree._label_section.body().isHidden())
 
+    def test_labels_are_per_canvas(self):
+        """The inspector follows the active canvas: toggling labels drives
+        only the bound canvas, and rebinding reflects the other's own state,
+        so the two canvases stay independent.
+        """
+        first = self.mgr.add2DWidget()
+        second = self.mgr.add2DWidget()
+        first.overlay = pilot.Overlay2dOptions()
+        second.overlay = pilot.Overlay2dOptions()
+        tree = self._tree(first)
+        tree._coords_check.setChecked(True)
+        self.assertTrue(first.overlay.coordinate_labels)
+        self.assertFalse(second.overlay.coordinate_labels)
+        tree.set_canvas(second)
+        self.assertFalse(tree._coords_check.isChecked())
+        self.assertFalse(second.overlay.coordinate_labels)
+        self.assertTrue(first.overlay.coordinate_labels)
+
 
 @unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
 class R2DWidgetExportOverlayTC(unittest.TestCase):
@@ -783,8 +861,7 @@ class R2DWidgetExportOverlayTC(unittest.TestCase):
     def test_export_overlay_independent_of_on_screen(self):
         """Exporting with labels bakes them even when the widget shows none,
         and exporting without labels omits them even when the widget shows
-        all: the file reflects the passed overlay, not the screen.
-        """
+        all: the file reflects the passed overlay, not the screen."""
         world = solvcon.WorldFp64()
         world.add_rectangle(-2, -1, 2, 1)
         world.add_circle(-3, 2, 1.0)

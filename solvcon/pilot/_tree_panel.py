@@ -9,12 +9,13 @@ import json
 
 import numpy as np
 
-from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtCore import Qt, QTimer, Signal, QSize, QRectF
+from PySide6.QtGui import QColor, QPainter
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QTreeWidget,
                                QTreeWidgetItem, QFrame, QDockWidget,
                                QStackedWidget, QHBoxLayout, QButtonGroup,
                                QRadioButton, QCheckBox, QPushButton,
-                               QSizePolicy)
+                               QSizePolicy, QAbstractButton)
 
 from .. import core
 from . import _gui_common
@@ -334,6 +335,61 @@ class _CollapsibleSection(QWidget):
         self._toggle.setChecked(expanded)
 
 
+class _ToggleSwitch(QAbstractButton):
+    """A sliding on/off switch with a trailing text label."""
+
+    _TRACK_W = 34
+    _TRACK_H = 18
+    _MARGIN = 3
+
+    def __init__(self, text="", parent=None):
+        super().__init__(parent)
+        self.setText(text)
+        self.setCheckable(True)
+        self.setCursor(Qt.PointingHandCursor)
+
+    def sizeHint(self):
+        metrics = self.fontMetrics()
+        gap = 6 if self.text() else 0
+        text_w = metrics.horizontalAdvance(self.text())
+        return QSize(self._TRACK_W + gap + text_w,
+                     max(self._TRACK_H, metrics.height()))
+
+    def paintEvent(self, _event):
+        on = self.isChecked()
+        enabled = self.isEnabled()
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing, True)
+
+        top = 0.5 * (self.height() - self._TRACK_H)
+        track = QRectF(0, top, self._TRACK_W, self._TRACK_H)
+        if on:
+            fill = QColor(90, 160, 90) if enabled else QColor(70, 100, 70)
+        else:
+            fill = QColor(110, 110, 118) if enabled else QColor(70, 70, 74)
+        radius = self._TRACK_H / 2
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(fill)
+        painter.drawRoundedRect(track, radius, radius)
+
+        knob_d = self._TRACK_H - 2 * self._MARGIN
+        knob_x = (track.right() - self._MARGIN - knob_d if on
+                  else track.left() + self._MARGIN)
+        painter.setBrush(QColor(240, 240, 240) if enabled
+                         else QColor(180, 180, 180))
+        painter.drawEllipse(QRectF(knob_x, top + self._MARGIN,
+                                   knob_d, knob_d))
+
+        if self.text():
+            color = (self.palette().text().color() if enabled
+                     else QColor(140, 140, 140))
+            painter.setPen(color)
+            text_left = self._TRACK_W + 6
+            painter.drawText(
+                QRectF(text_left, 0, self.width() - text_left, self.height()),
+                Qt.AlignLeft | Qt.AlignVCenter, self.text())
+
+
 class EntityTreeWidget(TreePanelBase):
     """Widget that presents the entity tree inside the dock."""
 
@@ -443,32 +499,44 @@ class EntityTreeWidget(TreePanelBase):
         layout.addLayout(level_row)
 
     def _build_label_controls(self, layout):
-        """Add the canvas label switch and its normal/advanced selector.
+        """Add the shape-label switch with its normal/advanced selector on the
+        first row and the independent grid-coordinate switch on the second.
 
-        The selector only makes sense while the switch is on, so it follows
-        the switch's enabled state. Both stay disabled until a canvas is
-        bound through :meth:`set_canvas`. Signals connect only after the
-        defaults are set, so building the row drives no overlay writes.
+        The mode selector only makes sense while the shape-label switch is on,
+        so it follows the switch's enabled state. Every control stays disabled
+        until a canvas is bound through :meth:`set_canvas`. Signals connect
+        only after the defaults are set, so building the rows drives no overlay
+        writes.
         """
-        label_row = QHBoxLayout()
-        label_row.setContentsMargins(0, 0, 0, 0)
-        label_row.setSpacing(8)
+        shape_row = QHBoxLayout()
+        shape_row.setContentsMargins(0, 0, 0, 0)
+        shape_row.setSpacing(8)
         self._labels_check = QCheckBox("show")
-        label_row.addWidget(self._labels_check)
+        shape_row.addWidget(self._labels_check)
         mode_group = QButtonGroup(self)
         for mode in self.LABEL_MODES:
             button = QRadioButton(mode)
             mode_group.addButton(button)
-            label_row.addWidget(button)
+            shape_row.addWidget(button)
             self._label_modes[mode] = button
-        label_row.addStretch(1)
+        shape_row.addStretch(1)
+
+        coord_row = QHBoxLayout()
+        coord_row.setContentsMargins(0, 0, 0, 0)
+        self._coords_check = _ToggleSwitch("coordinates")
+        coord_row.addWidget(self._coords_check)
+        coord_row.addStretch(1)
+
         self._label_modes["normal"].setChecked(True)
         self._labels_check.setEnabled(False)
+        self._coords_check.setEnabled(False)
         self._sync_label_controls_enabled()
         self._labels_check.toggled.connect(self._on_labels_changed)
+        self._coords_check.toggled.connect(self._on_labels_changed)
         for button in self._label_modes.values():
             button.toggled.connect(self._on_labels_changed)
-        layout.addLayout(label_row)
+        layout.addLayout(shape_row)
+        layout.addLayout(coord_row)
 
     def _sync_label_controls_enabled(self):
         """Enable the mode radios only when a canvas is bound and on."""
@@ -480,13 +548,17 @@ class EntityTreeWidget(TreePanelBase):
         """Reflect the bound canvas's overlay into the controls."""
         self._syncing = True
         try:
-            self._labels_check.setEnabled(self._canvas is not None)
-            if self._canvas is None:
+            bound = self._canvas is not None
+            self._labels_check.setEnabled(bound)
+            self._coords_check.setEnabled(bound)
+            if not bound:
                 self._labels_check.setChecked(False)
+                self._coords_check.setChecked(False)
             else:
-                on, advanced = _gui_common.label_switch_and_mode(
+                on, advanced, coords = _gui_common.label_switch_and_mode(
                     self._canvas.overlay)
                 self._labels_check.setChecked(on)
+                self._coords_check.setChecked(coords)
                 mode = "advanced" if advanced else "normal"
                 self._label_modes[mode].setChecked(True)
             self._sync_label_controls_enabled()
@@ -494,14 +566,16 @@ class EntityTreeWidget(TreePanelBase):
             self._syncing = False
 
     def _on_labels_changed(self, _checked=False):
-        """Write the switch and mode to the bound canvas's overlay. """
+        """Write the switch, mode, and coordinate flag to the bound canvas's
+        overlay."""
         self._sync_label_controls_enabled()
         if self._syncing or self._canvas is None:
             return
         on = self._labels_check.isChecked()
         advanced = on and self._label_modes["advanced"].isChecked()
+        coords = self._coords_check.isChecked()
         overlay = self._canvas.overlay
-        _gui_common.apply_label_mode(overlay, on, advanced)
+        _gui_common.apply_label_mode(overlay, on, advanced, coords)
         self._canvas.overlay = overlay
 
     def set_canvas(self, widget):

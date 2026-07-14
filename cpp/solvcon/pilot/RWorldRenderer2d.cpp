@@ -40,17 +40,15 @@ QColor const OVERLAY_HIGHLIGHT(240, 180, 60);
 constexpr double BASE_GRID_SPACING_PX = 64.0;
 constexpr double MIN_GRID_SPACING_PX = 16.0;
 constexpr double MAX_GRID_SPACING_PX = 256.0;
+constexpr double COORD_TICK_PX = 6.0;
 
 // Cosmetic (zoom-independent) screen widths for world geometry.
 constexpr double GEOMETRY_LINE_WIDTH_PX = 1.5;
 constexpr int GEOMETRY_POINT_WIDTH_PX = 5;
 
-void paint_chrome(QPainter & painter, ViewTransform2dFp64 const & view, int width, int height)
+/// Return a grid spacing in world units that maps to a screen spacing in pixels.
+double grid_spacing_world(ViewTransform2dFp64 const & view)
 {
-    double const widget_w = static_cast<double>(width);
-    double const widget_h = static_cast<double>(height);
-
-    // Snap grid spacing to a power of ten times {1, 2, 5} for a readable band.
     double const target_world = BASE_GRID_SPACING_PX / view.zoom();
     double const exponent = std::floor(std::log10(target_world));
     double const base = std::pow(10.0, exponent);
@@ -61,12 +59,76 @@ void paint_chrome(QPainter & painter, ViewTransform2dFp64 const & view, int widt
         double const candidate_px = view.zoom() * candidate;
         if (candidate_px >= MIN_GRID_SPACING_PX && candidate_px <= MAX_GRID_SPACING_PX)
         {
-            spacing_world = candidate;
-            break;
+            return candidate;
         }
         spacing_world = candidate;
     }
-    double const spacing_px = view.zoom() * spacing_world;
+    return spacing_world;
+}
+
+/**
+ * Ascending screen coordinates of the visible grid lines on one axis, as a
+ * range so callers iterate with a for-loop instead of a visitor lambda. The
+ * grid chrome and the coordinate labels share it, so lines and labels never
+ * drift.
+ */
+class GridLineRange
+{
+public:
+    GridLineRange(double pan, double spacing_px, double extent)
+        : m_spacing(spacing_px)
+        , m_extent(extent)
+        , m_first(spacing_px > 0.0 ? first_line(pan, spacing_px) : extent)
+    {
+    }
+
+    class Iterator
+    {
+    public:
+        Iterator(double pos, double spacing)
+            : m_pos(pos)
+            , m_spacing(spacing)
+        {
+        }
+
+        double operator*() const { return m_pos; }
+        Iterator & operator++()
+        {
+            m_pos += m_spacing;
+            return *this;
+        }
+        bool operator!=(double extent) const { return m_pos < extent; }
+
+    private:
+        double m_pos;
+        double m_spacing;
+    };
+
+    Iterator begin() const { return Iterator(m_first, m_spacing); }
+    double end() const { return m_extent; }
+
+private:
+    static double first_line(double pan, double spacing_px)
+    {
+        double first = std::fmod(pan, spacing_px);
+        if (first < 0.0)
+        {
+            first += spacing_px;
+        }
+        return first;
+    }
+
+    double m_spacing;
+    double m_extent;
+    double m_first;
+};
+
+void paint_chrome(QPainter & painter, ViewTransform2dFp64 const & view, int width, int height)
+{
+    double const widget_w = static_cast<double>(width);
+    double const widget_h = static_cast<double>(height);
+
+    double const spacing_px = view.zoom() * grid_spacing_world(view);
 
     // Draw minor grid lines in screen space directly.
     QPen minor_pen(MINOR_GRID);
@@ -74,21 +136,11 @@ void paint_chrome(QPainter & painter, ViewTransform2dFp64 const & view, int widt
     minor_pen.setWidth(1);
     painter.setPen(minor_pen);
 
-    double const first_x = std::fmod(view.pan_x(), spacing_px);
-    for (double sx = first_x; sx < widget_w; sx += spacing_px)
+    for (double sx : GridLineRange(view.pan_x(), spacing_px, widget_w))
     {
         painter.drawLine(QPointF(sx, 0.0), QPointF(sx, widget_h));
     }
-    for (double sx = first_x - spacing_px; sx > 0.0; sx -= spacing_px)
-    {
-        painter.drawLine(QPointF(sx, 0.0), QPointF(sx, widget_h));
-    }
-    double const first_y = std::fmod(view.pan_y(), spacing_px);
-    for (double sy = first_y; sy < widget_h; sy += spacing_px)
-    {
-        painter.drawLine(QPointF(0.0, sy), QPointF(widget_w, sy));
-    }
-    for (double sy = first_y - spacing_px; sy > 0.0; sy -= spacing_px)
+    for (double sy : GridLineRange(view.pan_y(), spacing_px, widget_h))
     {
         painter.drawLine(QPointF(0.0, sy), QPointF(widget_w, sy));
     }
@@ -107,6 +159,178 @@ void paint_chrome(QPainter & painter, ViewTransform2dFp64 const & view, int widt
         painter.drawLine(QPointF(view.pan_x(), 0.0), QPointF(view.pan_x(), widget_h));
     }
 }
+
+/// Return the decimal places that keep adjacent grid labels distinct.
+int coordinate_decimals(double spacing_world)
+{
+    if (!std::isfinite(spacing_world) || spacing_world <= 0.0)
+    {
+        return 0;
+    }
+    double const places = std::ceil(-std::log10(spacing_world));
+    return std::clamp(static_cast<int>(places), 0, 12);
+}
+
+/// Format a grid coordinate at the grid's own precision, snapping away floating-point noise.
+QString format_coordinate(double value, double spacing_world, int decimals)
+{
+    double const snapped = std::round(value / spacing_world) * spacing_world;
+    return QString::number(snapped, 'f', decimals);
+}
+
+/**
+ * Labels the visible grid lines with their world coordinates and names the two
+ * axes. Numerals land on the same lines as paint_chrome's grid; each label,
+ * the numerals and the two axis letters alike, is drawn only where it stays on
+ * the canvas and clear of the labels already placed, so the set stays readable
+ * at any zoom. The per-frame state the placement steps share (metrics, the
+ * placed rectangles) lives in members rather than a web of captured lambdas.
+ */
+class CoordinateLabelPainter
+{
+public:
+    CoordinateLabelPainter(QPainter & painter, ViewTransform2dFp64 const & view, int width, int height)
+        : m_painter(painter)
+        , m_view(view)
+        , m_widget_w(static_cast<double>(width))
+        , m_widget_h(static_cast<double>(height))
+        , m_spacing_world(grid_spacing_world(view))
+        , m_spacing_px(view.zoom() * m_spacing_world)
+        , m_metrics(painter.font())
+        , m_decimals(coordinate_decimals(m_spacing_world))
+        , m_ascent(m_metrics.ascent())
+        , m_text_h(m_metrics.height())
+    {
+    }
+
+    void paint()
+    {
+        if (!(m_spacing_px > 0.0) || !std::isfinite(m_spacing_world))
+        {
+            return;
+        }
+        m_painter.setPen(OVERLAY_TEXT);
+        paint_x_row();
+        paint_y_column();
+        paint_axis_letters();
+    }
+
+    /// Screen rectangles of the labels drawn, for other overlays to avoid.
+    std::vector<QRectF> const & placed() const { return m_placed; }
+
+private:
+    /// On the canvas and clear of every label already placed.
+    bool fits(QRectF const & r) const
+    {
+        if (r.left() < 0.0 || r.top() < 0.0 || r.right() > m_widget_w || r.bottom() > m_widget_h)
+        {
+            return false;
+        }
+        for (QRectF const & other : m_placed)
+        {
+            if (r.intersects(other))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    void paint_x_row()
+    {
+        constexpr double PAD = 8.0;
+        double const x_baseline = m_widget_h - COORD_TICK_PX - 3.0;
+        double last_right = -1.0e300;
+        for (double sx : GridLineRange(m_view.pan_x(), m_spacing_px, m_widget_w))
+        {
+            if (sx <= last_right + PAD) // cheap necessary condition; the rect test refines it
+            {
+                continue;
+            }
+            double wx = 0.0, wy = 0.0;
+            m_view.world_from_screen(sx, 0.0, wx, wy);
+            QString const text = format_coordinate(wx, m_spacing_world, m_decimals);
+            double const half = 0.5 * m_metrics.horizontalAdvance(text);
+            QRectF const rect(sx - half, x_baseline - m_ascent, 2.0 * half, m_text_h);
+            if (!fits(rect))
+            {
+                continue;
+            }
+            m_painter.drawLine(QPointF(sx, m_widget_h), QPointF(sx, m_widget_h - COORD_TICK_PX));
+            m_painter.drawText(QPointF(sx - half, x_baseline), text);
+            m_placed.push_back(rect);
+            last_right = sx + half;
+        }
+    }
+
+    void paint_y_column()
+    {
+        double const y_shift = 0.5 * (m_ascent - m_metrics.descent());
+        double const min_dy = m_text_h + 4.0;
+        double const label_x = COORD_TICK_PX + 3.0;
+        double last_sy = -1.0e300;
+        for (double sy : GridLineRange(m_view.pan_y(), m_spacing_px, m_widget_h))
+        {
+            if (sy - last_sy < min_dy)
+            {
+                continue;
+            }
+            double wx = 0.0, wy = 0.0;
+            m_view.world_from_screen(0.0, sy, wx, wy);
+            // The x row already carries a 0 at the visible x=0 column, so drop
+            // the duplicate here only when that column is actually on screen.
+            if (std::round(wy / m_spacing_world) == 0.0 && m_view.pan_x() >= 0.0 && m_view.pan_x() <= m_widget_w)
+            {
+                continue;
+            }
+            QString const text = format_coordinate(wy, m_spacing_world, m_decimals);
+            QRectF const rect(label_x, sy + y_shift - m_ascent, m_metrics.horizontalAdvance(text), m_text_h);
+            if (!fits(rect))
+            {
+                continue;
+            }
+            m_painter.drawLine(QPointF(0.0, sy), QPointF(COORD_TICK_PX, sy));
+            m_painter.drawText(QPointF(label_x, sy + y_shift), text);
+            m_placed.push_back(rect);
+            last_sy = sy;
+        }
+    }
+
+    void paint_axis_letters()
+    {
+        if (m_view.pan_y() >= 0.0 && m_view.pan_y() <= m_widget_h)
+        {
+            place_letter(m_widget_w - 12.0, m_view.pan_y() - 4.0, QStringLiteral("x"));
+        }
+        if (m_view.pan_x() >= 0.0 && m_view.pan_x() <= m_widget_w)
+        {
+            // A full ascent below the top, so the box clears the top edge.
+            place_letter(m_view.pan_x() + 4.0, m_ascent + 2.0, QStringLiteral("y"));
+        }
+    }
+
+    void place_letter(double base_x, double base_y, QString const & text)
+    {
+        QRectF const rect(base_x, base_y - m_ascent, m_metrics.horizontalAdvance(text), m_text_h);
+        if (fits(rect))
+        {
+            m_painter.drawText(QPointF(base_x, base_y), text);
+            m_placed.push_back(rect);
+        }
+    }
+
+    QPainter & m_painter;
+    ViewTransform2dFp64 const & m_view;
+    double m_widget_w;
+    double m_widget_h;
+    double m_spacing_world;
+    double m_spacing_px;
+    QFontMetricsF m_metrics;
+    int m_decimals;
+    double m_ascent;
+    double m_text_h;
+    std::vector<QRectF> m_placed;
+};
 
 /// Compact number for shape annotations: enough digits to read, no trailing noise.
 QString format_measure(double value)
@@ -448,7 +672,8 @@ void RWorldRenderer2d::paint(QPainter & painter) const
     }
 }
 
-void RWorldRenderer2d::paint_shape_annotations(QPainter & painter, int width, int height) const
+void RWorldRenderer2d::paint_shape_annotations(
+    QPainter & painter, int width, int height, std::vector<QRectF> const & reserved) const
 {
     // Visible world rectangle from the two screen corners; world +Y is up, so
     // screen-top maps to the larger world y.
@@ -494,6 +719,13 @@ void RWorldRenderer2d::paint_shape_annotations(QPainter & painter, int width, in
     {
         obstacles.add(QRectF(
             m_view.pan_x() - AXIS_HALF, 0.0, 2.0 * AXIS_HALF, static_cast<double>(height)));
+    }
+    if (place_labels)
+    {
+        for (QRectF const & r : reserved)
+        {
+            obstacles.add(r);
+        }
     }
 
     // Cap how many shapes get a text label. Past this many visible shapes the
@@ -556,9 +788,19 @@ void RWorldRenderer2d::paint_shape_annotations(QPainter & painter, int width, in
 
 void RWorldRenderer2d::paint_overlay(QPainter & painter, int width, int height) const
 {
+    // Coordinate labels paint first, so shape labels (drawn last, on top) must
+    // treat their rectangles as obstacles or a gutter shape label lands over
+    // the coordinate text.
+    std::vector<QRectF> coord_labels;
+    if (m_overlay.coordinate_labels)
+    {
+        CoordinateLabelPainter labels(painter, m_view, width, height);
+        labels.paint();
+        coord_labels = labels.placed();
+    }
     if (m_world && m_overlay.shape_annotations())
     {
-        paint_shape_annotations(painter, width, height);
+        paint_shape_annotations(painter, width, height, coord_labels);
     }
 }
 
