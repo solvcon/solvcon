@@ -698,7 +698,69 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArray
             //
             ;
 
+        if constexpr (std::is_same_v<T, bool>)
+        {
+            (*this).def(
+                "where",
+                &where,
+                py::arg("x"),
+                py::arg("y"));
+        }
+
         return *this;
+    }
+
+    static pybind11::object where(wrapped_type const & self, pybind11::object const & x, pybind11::object const & y)
+    {
+
+        std::string py_typename_x(pybind11::detail::obj_class_name(x.ptr()));
+        std::string py_typename_y(pybind11::detail::obj_class_name(y.ptr()));
+        const std::size_t found_x = py_typename_x.find("_solvcon.SimpleArray");
+        const std::size_t found_y = py_typename_y.find("_solvcon.SimpleArray");
+
+        if (found_x == std::string::npos || found_y == std::string::npos)
+        {
+            throw std::invalid_argument(
+                "SimpleArray::where(): x and y must be SimpleArray");
+        }
+
+        py_typename_x.replace(0, strlen("_solvcon.SimpleArray"), "");
+        py_typename_y.replace(0, strlen("_solvcon.SimpleArray"), "");
+        py_typename_x[0] = tolower(py_typename_x[0]);
+        py_typename_y[0] = tolower(py_typename_y[0]);
+
+        const DataType dt_x(py_typename_x);
+        const DataType dt_y(py_typename_y);
+
+        if (dt_x != dt_y)
+        {
+            throw std::invalid_argument(
+                "SimpleArray::where(): x and y must have the same dtype");
+        }
+
+#define DECL_MM_WHERE_TYPED(DataTypeName) \
+    case DataType::DataTypeName:          \
+        return pybind11::cast(self.where(x.cast<SimpleArray##DataTypeName>(), y.cast<SimpleArray##DataTypeName>()));
+
+        switch (dt_x)
+        {
+            DECL_MM_WHERE_TYPED(Int8)
+            DECL_MM_WHERE_TYPED(Int16)
+            DECL_MM_WHERE_TYPED(Int32)
+            DECL_MM_WHERE_TYPED(Int64)
+            DECL_MM_WHERE_TYPED(Uint8)
+            DECL_MM_WHERE_TYPED(Uint16)
+            DECL_MM_WHERE_TYPED(Uint32)
+            DECL_MM_WHERE_TYPED(Uint64)
+            DECL_MM_WHERE_TYPED(Float32)
+            DECL_MM_WHERE_TYPED(Float64)
+        default:
+            break;
+        }
+
+#undef DECL_MM_WHERE_TYPED
+
+        throw std::invalid_argument("SimpleArray::where(): unsupported dtype");
     }
 }; /* end class WrapSimpleArray */
 

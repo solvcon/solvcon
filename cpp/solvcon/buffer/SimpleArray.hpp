@@ -1381,6 +1381,9 @@ public:
 
     SimpleArray<uint64_t> argwhere() const;
 
+    template <typename U>
+    SimpleArray<U> where(SimpleArray<U> const & x, SimpleArray<U> const & y) const;
+
 }; /* end class SimpleArrayMixinSearch */
 
 template <typename A, typename T>
@@ -2789,6 +2792,51 @@ SimpleArray<uint64_t> detail::SimpleArrayMixinSearch<A, T>::argwhere() const
         }
         ++idx;
     }
+
+    return result;
+}
+
+template <typename A, typename T>
+template <typename U>
+SimpleArray<U> detail::SimpleArrayMixinSearch<A, T>::where(SimpleArray<U> const & x, SimpleArray<U> const & y) const
+{
+    auto athis = static_cast<A const *>(this);
+
+    static_assert(std::is_same_v<T, bool>, "SimpleArray::where() requires a boolean array");
+
+    if (athis->shape() != x.shape() || athis->shape() != y.shape())
+    {
+        throw std::invalid_argument(std::format(
+            "SimpleArray::where(): shape mismatch: condition={} x={} y={}",
+            format_shape(athis->shape()),
+            format_shape(x.shape()),
+            format_shape(y.shape())));
+    }
+
+    if (athis->nghost() != x.nghost() || athis->nghost() != y.nghost())
+    {
+        throw std::invalid_argument(std::format(
+            "SimpleArray::where(): nghost mismatch: condition={} x={} y={}",
+            athis->nghost(),
+            x.nghost(),
+            y.nghost()));
+    }
+
+    SimpleArray<U> result(athis->shape());
+    result.set_nghost(athis->nghost());
+
+    if (athis->shape().empty() || athis->size() == 0)
+    {
+        return result;
+    }
+
+    auto const range = IndexRange(*athis);
+    sshape_type idx = range.first();
+
+    do
+    {
+        result.at(idx) = athis->at(idx) ? x.at(idx) : y.at(idx);
+    } while (range.next(idx));
 
     return result;
 }
