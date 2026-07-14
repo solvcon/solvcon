@@ -16,6 +16,9 @@
  * @ingroup group_domain
  */
 
+#include <array>
+#include <cstddef>
+#include <optional>
 #include <string_view>
 #include <variant>
 #include <vector>
@@ -117,6 +120,19 @@ struct ShortcutBinding
     MenuRole role = MenuRole::None;
 };
 
+/**
+ * Every command the vocabulary names, the single list the id lookups and their
+ * tests iterate. Adding a command here is what forces commandId and
+ * commandFromId to stay in step, so neither can silently miss one.
+ */
+inline constexpr auto ALL_SHORTCUT_COMMANDS = std::to_array<ShortcutCommand>(
+    {ShortcutCommand::Undo,
+     ShortcutCommand::Redo,
+     ShortcutCommand::CameraReset,
+     ShortcutCommand::Exit,
+     ShortcutCommand::Console,
+     ShortcutCommand::AgentPanel});
+
 struct ShortcutCapabilities
 {
     PlatformId platform;
@@ -131,6 +147,25 @@ struct ShortcutConflict
 };
 
 std::string_view commandId(ShortcutCommand command);
+
+/**
+ * The stable id of a context ("application", "window", "widget"), for the
+ * Python boundary and tests.
+ */
+std::string_view contextName(ShortcutContext context);
+
+/**
+ * The stable id of a menu role ("none", "quit", "preferences", "about"), for
+ * the Python boundary and tests.
+ */
+std::string_view roleName(MenuRole role);
+
+/**
+ * The command named by @p id (the action objectName), or an empty optional
+ * when no command carries that id. The inverse of commandId, so the Python
+ * layer can resolve a binding from an action's objectName.
+ */
+std::optional<ShortcutCommand> commandFromId(std::string_view id);
 
 std::vector<ShortcutBinding> const & bindingTable(PlatformId platform);
 
@@ -148,6 +183,41 @@ ShortcutCapabilities capabilitiesFor(PlatformId platform);
  * Widget overlaps Widget. Symmetric.
  */
 bool contextsOverlap(ShortcutContext lhs, ShortcutContext rhs);
+
+/**
+ * The pairwise-conflict skeleton over @p platform's binding table: a command
+ * pair collides when both indices are @p eligible, their contexts overlap, and
+ * @p equal reports their keys the same. The core injects a symbolic chord
+ * comparison; the Qt roof injects a resolved-sequence comparison, so the loop
+ * and the overlap rule live here once. Both predicates take table indices.
+ */
+template <typename Eligible, typename Equal>
+std::vector<ShortcutConflict>
+findConflicts(PlatformId platform, Eligible eligible, Equal equal)
+{
+    std::vector<ShortcutBinding> const & table = bindingTable(platform);
+
+    std::vector<ShortcutConflict> conflicts;
+    for (std::size_t i = 0; i < table.size(); ++i)
+    {
+        if (!eligible(i))
+        {
+            continue;
+        }
+        for (std::size_t j = i + 1; j < table.size(); ++j)
+        {
+            if (!eligible(j) || !contextsOverlap(table[i].context, table[j].context))
+            {
+                continue;
+            }
+            if (equal(i, j))
+            {
+                conflicts.push_back({table[i].command, table[j].command});
+            }
+        }
+    }
+    return conflicts;
+}
 
 std::vector<ShortcutConflict> findDeclaredConflicts(PlatformId platform);
 
