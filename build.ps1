@@ -27,6 +27,8 @@
 #   .\build.ps1 -Pilot                then launch the pilot GUI
 #   .\build.ps1 -PilotTest            then run "pilot.exe --mode=pytest" headless
 #   .\build.ps1 -Gtest                also build and run the C++ gtest suite
+#   .\build.ps1 -Sanitize             build and run the gtest suite under
+#                                     AddressSanitizer (implies -Gtest, -NoQt)
 #
 # Overridable variables:
 #   SCDV_VS_VERSION: vswhere -version range picking the VS whose cl/vcvars
@@ -43,6 +45,7 @@ param(
     [switch]$Test,
     [switch]$Pilot,
     [switch]$PilotTest,
+    [switch]$Sanitize,
     [switch]$Help
 )
 
@@ -59,6 +62,18 @@ if ($Help) {
         ForEach-Object { if ($_ -notmatch '^\s*$') { $_ -replace '^#\s?', '' } } |
         Select-Object -First 40
     exit 0
+}
+
+# The sanitizer build runs the C++ gtest binary under AddressSanitizer, the
+# Windows counterpart of the Linux "make gtest USE_SANITIZER=ON" job. It reuses
+# the -Gtest build-and-run path and forces BUILD_QT=OFF to stay headless.
+if ($Sanitize) {
+    if ($Pilot -or $PilotTest) {
+        throw '-Sanitize runs the gtest binary and cannot be combined ' +
+            'with -Pilot or -PilotTest'
+    }
+    $Gtest = $true
+    $NoQt = $true
 }
 
 # This script lives at the repo root; build that checkout by default.
@@ -169,7 +184,12 @@ $extra = @(
     "-DCMAKE_PREFIX_PATH=$usr"
 )
 if ($NoQt) { $extra += '-DBUILD_QT=OFF' }
+# -Gtest turns on the gtest binary (USE_GOOGLETEST is OFF in the preset), and
+# -Sanitize (which implies -Gtest) builds it under AddressSanitizer. The gtest
+# binary links the ASan runtime directly so ASan initializes at process start,
+# unlike loading an instrumented .pyd into a stock python.exe.
 if ($Gtest) { $extra += '-DUSE_GOOGLETEST=ON' }
+if ($Sanitize) { $extra += '-DUSE_SANITIZER=ON' }
 
 Push-Location $Repo
 try {
