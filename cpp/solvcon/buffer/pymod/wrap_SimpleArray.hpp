@@ -760,8 +760,7 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArray
 
 #undef DECL_MM_WHERE_TYPED
 
-        throw std::invalid_argument(
-            "SimpleArray::where(): unsupported dtype");
+        throw std::invalid_argument("SimpleArray::where(): unsupported dtype");
     }
 }; /* end class WrapSimpleArray */
 

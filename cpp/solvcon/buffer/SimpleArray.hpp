@@ -2813,11 +2813,30 @@ SimpleArray<U> detail::SimpleArrayMixinSearch<A, T>::where(SimpleArray<U> const 
             format_shape(y.shape())));
     }
 
-    SimpleArray<U> result(athis->shape());
-    for (size_t i = 0; i < athis->size(); ++i)
+    if (athis->nghost() != x.nghost() || athis->nghost() != y.nghost())
     {
-        result.data(i) = athis->data(i) ? x.data(i) : y.data(i);
+        throw std::invalid_argument(std::format(
+            "SimpleArray::where(): nghost mismatch: condition={} x={} y={}",
+            athis->nghost(),
+            x.nghost(),
+            y.nghost()));
     }
+
+    SimpleArray<U> result(athis->shape());
+    result.set_nghost(athis->nghost());
+
+    if (athis->shape().empty() || athis->size() == 0)
+    {
+        return result;
+    }
+
+    auto const range = IndexRange(*athis);
+    sshape_type idx = range.first();
+
+    do
+    {
+        result.at(idx) = athis->at(idx) ? x.at(idx) : y.at(idx);
+    } while (range.next(idx));
 
     return result;
 }
