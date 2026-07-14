@@ -514,11 +514,27 @@ class Save2DCanvasDialogTC(unittest.TestCase):
         # focused 2D subwindow, so clear the MDI before asserting the guard.
         mgr.mdiArea.closeAllSubWindows()
         feature = _canvas_gui.Save2DCanvasDialog(mgr=mgr)
-        opened = []
-        feature._diag.open = lambda *a, **k: opened.append(True)
         self.assertIsNone(mgr.currentR2DWidget())
         self.assertFalse(feature.run())
-        self.assertEqual(opened, [])
+        # The dialog is built lazily on first use, so a run with no focused
+        # canvas must not construct it at all.
+        self.assertIsNone(feature._diag)
+
+    def test_dialog_built_on_first_use(self):
+        """First use builds the dialog and its label controls; a second
+        build reuses the same dialog.
+        """
+        from PySide6 import QtWidgets
+        from solvcon.pilot import _canvas_gui
+        mgr = pilot.RManager.instance.setUp()
+        feature = _canvas_gui.Save2DCanvasDialog(mgr=mgr)
+        self.assertIsNone(feature._diag)
+        feature._ensure_dialog()
+        self.assertIsInstance(feature._diag, QtWidgets.QFileDialog)
+        self.assertIsNotNone(feature._labels_check)
+        built = feature._diag
+        feature._ensure_dialog()
+        self.assertIs(feature._diag, built)
 
     def test_save_current_reports_write_result(self):
         """Menu save path returns saveImage's bool and only writes on

@@ -822,12 +822,19 @@ function Build-Python {
     Copy-Item (Join-Path $ScdvUsrDir 'python.exe') `
         (Join-Path $ScdvUsrDir 'python3.exe') -Force
 
-    # A .pth (its "import" line runs at startup) adds bin/ to the DLL search
-    # path: PySide6 links this scdv's Qt DLLs in bin/, and Windows does not
-    # search PATH for a .pyd's dependencies (Python 3.8+).  Unix LD path analog.
+    # A .pth (its "import" line runs at startup) adds DLL search directories:
+    # Windows does not search PATH for a .pyd's dependencies (Python 3.8+), the
+    # Unix LD path analog.  bin/ holds this scdv's Qt DLLs; _solvcon.pyd also
+    # links pyside6.abi3.dll and shiboken6.abi3.dll directly, which live in
+    # their own site-packages dirs, so register those too (they load before
+    # PySide6's own __init__ runs its add_dll_directory).
     $pth = Join-Path $ScdvUsrDir 'Lib\site-packages\scdv_dll_directory.pth'
-    $pthline = 'import os, sys; _b = os.path.join(sys.prefix, ''bin''); ' +
-        'os.path.isdir(_b) and os.add_dll_directory(_b)'
+    $pthline = 'import os, sys, sysconfig; ' +
+        '_sp = sysconfig.get_paths().get(''purelib'') or ''''; ' +
+        '[os.add_dll_directory(_d) for _d in [' +
+        'os.path.join(sys.prefix, ''bin''), ' +
+        'os.path.join(_sp, ''PySide6''), ' +
+        'os.path.join(_sp, ''shiboken6'')] if os.path.isdir(_d)]'
     Set-Content -LiteralPath $pth -Value $pthline -Encoding ascii
 
     # The layout ships pip via --include-pip; bring setuptools/wheel/pip current

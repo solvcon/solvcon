@@ -6,6 +6,15 @@ project(solvcon)
 
 cmake_policy(SET CMP0148 OLD)
 
+if(MSVC)
+    # Use the release C runtime (/MD) in every config, matching the
+    # release-only Python, Qt6, and PySide6 we link. A Debug build would
+    # default to /MDd, whose different STL layout corrupts an std::string
+    # passed from a /MD dependency (e.g. QString::toStdString) and hangs the
+    # pilot at start-up. /Zi keeps the Debug build debuggable.
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDLL")
+endif()
+
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake/")
 
 if(NOT SKIP_PYTHON_EXECUTABLE)
