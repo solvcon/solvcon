@@ -10,6 +10,7 @@
 
 #include <solvcon/pilot/R2DWidget.hpp>
 #include <solvcon/pilot/RMenuModel.hpp>
+#include <solvcon/pilot/RShortcutManager.hpp>
 #include <solvcon/pilot/RThemeManager.hpp>
 #include <solvcon/pilot/pilot.hpp>
 
@@ -961,6 +962,39 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRManager
                 [](wrapped_type & self)
                 {
                     return self.themeManager()->capabilities().has_native_style;
+                })
+            .def_property_readonly(
+                "shortcut_platform",
+                [](wrapped_type & self)
+                {
+                    return std::string(platformIdName(self.shortcutManager()->platform()));
+                })
+            .def(
+                "resolve_shortcut",
+                [](wrapped_type & self, std::string const & command_id)
+                {
+                    ResolvedShortcut const r = self.shortcutManager()->resolveById(command_id);
+                    py::dict out;
+                    out["bound"] = r.bound;
+                    out["standard"] = r.standard;
+                    out["standard_key"] = r.standard_key;
+                    out["sequences"] = r.sequences;
+                    out["context"] = std::string(contextName(r.context));
+                    out["role"] = std::string(roleName(r.role));
+                    return out;
+                },
+                py::arg("command_id"))
+            .def(
+                "shortcut_conflicts",
+                [](wrapped_type & self)
+                {
+                    std::vector<std::pair<std::string, std::string>> pairs;
+                    for (auto const & conflict : self.shortcutManager()->findResolvedConflicts())
+                    {
+                        pairs.emplace_back(
+                            std::string(commandId(conflict.first)), std::string(commandId(conflict.second)));
+                    }
+                    return pairs;
                 })
             .def(
                 "quit",
