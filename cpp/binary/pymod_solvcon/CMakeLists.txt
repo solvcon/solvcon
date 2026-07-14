@@ -4,10 +4,20 @@
 cmake_minimum_required(VERSION 4.0.1)
 project(solvcon_pymod)
 
-pybind11_add_module(
-    _solvcon
-    module.cpp
-)
+# NO_EXTRAS under USE_SANITIZER turns off pybind11's link-time optimization
+# (/GL + /LTCG on MSVC), which AddressSanitizer cannot be combined with.
+if(USE_SANITIZER AND MSVC)
+    pybind11_add_module(
+        _solvcon
+        NO_EXTRAS
+        module.cpp
+    )
+else()
+    pybind11_add_module(
+        _solvcon
+        module.cpp
+    )
+endif()
 
 target_link_libraries(
     _solvcon PUBLIC
