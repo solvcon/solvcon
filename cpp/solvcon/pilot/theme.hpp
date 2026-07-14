@@ -171,8 +171,10 @@ struct ThemeCapabilities
     bool has_native_style = false;
 };
 
-/// The curated light palette, the shared fallback every platform table seeds
-/// from until its room is furnished.
+/**
+ * The curated light palette, the shared fallback every platform table seeds
+ * from until its room is furnished.
+ */
 ThemePalette const & lightThemePalette();
 
 /// The curated dark palette.
@@ -201,8 +203,10 @@ ThemeCapabilities const & themeCapabilitiesFor(PlatformId platform);
  */
 ThemeVariant resolveThemeVariant(ThemeMode mode, bool os_prefers_dark);
 
-/// The stable identifier for a mode, used as the menu action object name, at
-/// the Python boundary, and in tests ("system", "light", "dark").
+/**
+ * The stable identifier for a mode, used as the menu action object name, at
+ * the Python boundary, and in tests ("system", "light", "dark").
+ */
 char const * themeModeId(ThemeMode mode);
 
 /// The human-readable menu label for a mode.
@@ -211,8 +215,10 @@ char const * themeModeLabel(ThemeMode mode);
 /// The mode named by @p id, or ThemeMode::System when @p id matches none.
 ThemeMode themeModeFromId(char const * id);
 
-/// The stable identifier for a look ("system", "curated"), used as the menu
-/// action object name, at the Python boundary, and in tests.
+/**
+ * The stable identifier for a look ("system", "curated"), used as the menu
+ * action object name, at the Python boundary, and in tests.
+ */
 char const * themeLookId(ThemeLook look);
 
 /// The human-readable menu label for a look.
