@@ -23,6 +23,8 @@
 
 #include <cstdint>
 
+#include <solvcon/pilot/platform.hpp>
+
 namespace solvcon
 {
 
@@ -58,21 +60,6 @@ enum class ThemeLook
 {
     System,
     Curated,
-};
-
-/**
- * @brief The platform a color table and a capability record are written for.
- *
- * The palette lookup carries this axis so each platform's look is tuned in its
- * own table without disturbing the others. Detecting the running platform is a
- * thin Qt call made in the adapter and passed in here, which keeps this
- * foundation free of Qt.
- */
-enum class PlatformId
-{
-    Linux,
-    Mac,
-    Windows,
 };
 
 /**
@@ -171,8 +158,10 @@ struct ThemeCapabilities
     bool has_native_style = false;
 };
 
-/// The curated light palette, the shared fallback every platform table seeds
-/// from until its room is furnished.
+/**
+ * The curated light palette, the shared fallback every platform table seeds
+ * from until its room is furnished.
+ */
 ThemePalette const & lightThemePalette();
 
 /// The curated dark palette.
@@ -201,8 +190,10 @@ ThemeCapabilities const & themeCapabilitiesFor(PlatformId platform);
  */
 ThemeVariant resolveThemeVariant(ThemeMode mode, bool os_prefers_dark);
 
-/// The stable identifier for a mode, used as the menu action object name, at
-/// the Python boundary, and in tests ("system", "light", "dark").
+/**
+ * The stable identifier for a mode, used as the menu action object name, at
+ * the Python boundary, and in tests ("system", "light", "dark").
+ */
 char const * themeModeId(ThemeMode mode);
 
 /// The human-readable menu label for a mode.
@@ -211,8 +202,10 @@ char const * themeModeLabel(ThemeMode mode);
 /// The mode named by @p id, or ThemeMode::System when @p id matches none.
 ThemeMode themeModeFromId(char const * id);
 
-/// The stable identifier for a look ("system", "curated"), used as the menu
-/// action object name, at the Python boundary, and in tests.
+/**
+ * The stable identifier for a look ("system", "curated"), used as the menu
+ * action object name, at the Python boundary, and in tests.
+ */
 char const * themeLookId(ThemeLook look);
 
 /// The human-readable menu label for a look.
@@ -220,10 +213,6 @@ char const * themeLookLabel(ThemeLook look);
 
 /// The look named by @p id, or ThemeLook::Curated when @p id matches none.
 ThemeLook themeLookFromId(char const * id);
-
-/// The stable identifier for a platform ("linux", "mac", "windows"), used at
-/// the Python boundary and in tests.
-char const * platformIdName(PlatformId platform);
 
 /**
  * @brief Whether a Linux desktop names a theme the pilot recognizes.

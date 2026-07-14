@@ -103,12 +103,16 @@ private:
     void setUpCentral();
     void setUpMenu();
 
-    /// Park a hidden QRhiWidget in the main window so the top-level adopts
-    /// render-to-texture composition once, up front, before any user content.
+    /**
+     * Park a hidden QRhiWidget in the main window so the top-level adopts
+     * render-to-texture composition once, up front, before any user content.
+     */
     void primeRhiComposition();
 
-    /// Push the active draw tool onto the focused 2D canvas, if any. A
-    /// no-op when the focused subwindow is not a 2D canvas.
+    /**
+     * Push the active draw tool onto the focused 2D canvas, if any. A
+     * no-op when the focused subwindow is not a 2D canvas.
+     */
     void applyDrawTool();
 
     void setUpEditMenuItems() const;
@@ -116,8 +120,10 @@ private:
     void setUpCameraControllersMenuItems() const;
     void setUpCameraMovementMenuItems() const;
 
-    /// Undo or redo the most recent shape change on the focused 2D canvas,
-    /// then repaint it. A no-op when no 2D canvas is focused.
+    /**
+     * Undo or redo the most recent shape change on the focused 2D canvas,
+     * then repaint it. A no-op when no 2D canvas is focused.
+     */
     void undoCanvas() const;
     void redoCanvas() const;
 
@@ -138,19 +144,25 @@ private:
     /// Live menu model owned by the widget tree (parented to the main window).
     RMenuModel * m_menuModel = nullptr;
 
-    /// Application-wide theme controller, parented to the manager so it and its
-    /// OS color-scheme connection outlive each rebuild of the main window.
+    /**
+     * Application-wide theme controller, parented to the manager so it and its
+     * OS color-scheme connection outlive each rebuild of the main window.
+     */
     RThemeManager * m_themeManager = nullptr;
 
     RPythonConsoleDockWidget * m_pycon = nullptr;
     QMdiArea * m_mdiArea = nullptr;
 
-    /// Hidden QRhiWidget that keeps the main window in render-to-texture
-    /// composition mode for the whole session. Owned by the widget tree.
+    /**
+     * Hidden QRhiWidget that keeps the main window in render-to-texture
+     * composition mode for the whole session. Owned by the widget tree.
+     */
     RDomainWidget * m_rhi_primer = nullptr;
 
-    /// Active canvas drawing tool, shared by every 2D canvas. Starts on
-    /// the default tool (pan navigation).
+    /**
+     * Active canvas drawing tool, shared by every 2D canvas. Starts on
+     * the default tool (pan navigation).
+     */
     std::string m_draw_tool = default_draw_tool_name();
 }; /* end class RManager */
 

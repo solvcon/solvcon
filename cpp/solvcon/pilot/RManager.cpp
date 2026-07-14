@@ -168,9 +168,11 @@ RDomainWidget * RManager::currentR3DWidget()
     return domainWidgetOf(m_mdiArea->currentSubWindow());
 }
 
-/// The RDomainWidget hosted by @p subwin, or nullptr when @p subwin holds
-/// some other widget. The viewer sits inside a plain container widget, so
-/// reach through the subwindow's direct child to find it.
+/**
+ * The RDomainWidget hosted by @p subwin, or nullptr when @p subwin holds
+ * some other widget. The viewer sits inside a plain container widget, so
+ * reach through the subwindow's direct child to find it.
+ */
 RDomainWidget * RManager::domainWidgetOf(QMdiSubWindow * subwin)
 {
     if (subwin == nullptr)
