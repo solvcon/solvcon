@@ -169,9 +169,19 @@ QImage RDomainWidget::renderToImage(int width, int height, bool transparent)
     bool const old_transparent = m_transparent_capture;
     m_transparent_capture = transparent;
     resize(width, height);
-    QImage const image = grabFramebuffer();
+    QImage image = grabFramebuffer();
     resize(old_size.width(), old_size.height());
     m_transparent_capture = old_transparent;
+
+    // grabFramebuffer() returns physical pixels (logical size scaled by the
+    // screen's device pixel ratio), so on a HiDPI display the grab is larger
+    // than requested. Normalize to the requested pixel dimensions.
+    if (image.size() != QSize(width, height))
+    {
+        image = image.scaled(
+            width, height, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+    }
+    image.setDevicePixelRatio(1.0);
     return image;
 }
 
