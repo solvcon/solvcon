@@ -66,8 +66,8 @@ class WindowManager(_gui_common.PilotFeature):
             self._append_placeholder()
             return
 
-        for subwin in enumerate(subwins):
-            self._append_item(subwin, subwin is active)
+        for index, subwin in enumerate(subwins):
+            self._append_item(index, subwin, subwin is active)
 
     def _append_item(self, index, subwin, is_active):
         """Append one checkable action that activates ``subwin``."""
