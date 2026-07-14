@@ -16,6 +16,8 @@
       "Bash(make buildext:*)",
       "Bash(make install:*)",
       "Bash(cmake:*)",
+      "Bash(powershell.exe -NoProfile -File ./build.ps1:*)",
+      "Bash(powershell.exe -NoProfile -File build.ps1:*)",
       "Bash(ctest:*)",
       "Bash(pytest:*)",
       "Bash(python -m pytest:*)",
