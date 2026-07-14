@@ -218,6 +218,11 @@ messages, PR and issue descriptions and comments, and documentation.
   em-dash, en-dash, or "smart quotes" in them. The same restraint is expected
   in GitHub prose even though GitHub accepts Unicode.
 - Write plainly. Short sentences beat long ones strung together with dashes.
+- Do not hard-wrap GitHub prose. When you create, update, or comment on an
+  issue or pull request, write one line per paragraph and let it wrap on its
+  own. Manual line breaks mid-paragraph render as ragged text on GitHub. This
+  no-wrap rule is for GitHub prose only; source files keep their linting
+  line-width limits.
 
 ## Development Workflow
 
