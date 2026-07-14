@@ -9,6 +9,8 @@
 
 #include <solvcon/buffer/pymod/array_common.hpp>
 
+#include <cstdint>
+
 namespace solvcon
 {
 
@@ -24,9 +26,12 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArray
     using wrapped_type = typename root_base_type::wrapped_type;
     using wrapper_type = typename root_base_type::wrapper_type;
     using value_type = typename wrapped_type::value_type;
+    using array_order_type = typename wrapped_type::ArrayOrder;
     using property_helper = ArrayPropertyHelper<T>;
 
     friend root_base_type;
+
+    static wrapped_type make_array_from_numpy(pybind11::array & arr_in);
 
     WrapSimpleArray(pybind11::module & mod, char const * pyname, char const * pydoc)
         : root_base_type(mod, pyname, pydoc, pybind11::buffer_protocol())
@@ -58,74 +63,7 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArray
                 py::arg("shape"),
                 py::arg("value"),
                 py::arg("alignment"))
-            .def(
-                py::init(
-                    [](py::array & arr_in)
-                    {
-                        if (!dtype_is_type<T>(arr_in))
-                        {
-                            throw std::runtime_error("dtype mismatch");
-                        }
-
-                        solvcon::detail::shape_type shape;
-                        solvcon::detail::sshape_type stride;
-                        constexpr auto itemsize = static_cast<ssize_t>(wrapped_type::itemsize());
-                        constexpr size_t span = 0;
-                        for (ssize_t i = 0; i < arr_in.ndim(); ++i)
-                        {
-                            shape.push_back(arr_in.shape(i));
-                            stride.push_back(arr_in.strides(i) / itemsize);
-                        }
-
-                        const bool is_c_contiguous = (arr_in.flags() & py::array::c_style) == py::array::c_style;
-                        const bool is_f_contiguous = (arr_in.flags() & py::array::f_style) == py::array::f_style;
-
-                        py::array owner = arr_in;
-                        /*
-                         * In the following document, it introduces the base object in ndarray.
-                         * https://numpy.org/doc/2.2/reference/generated/numpy.ndarray.base.html
-                         * The `array.base` is base object if memory is from some other object.
-                         * If object owns its memory, base is None.
-                         */
-                        while (true)
-                        {
-                            const py::object b = owner.attr("base");
-                            if (b.is_none() || !py::isinstance<py::array>(b))
-                            {
-                                break;
-                            }
-                            auto next = b.cast<py::array>();
-                            /*
-                             * Prevent the infinite loop.
-                             * For example, the following code will create a loop:
-                             * nparr = np.arange(24, dtype='float64').reshape((2, 3, 4))
-                             * nparr = nparr[::2, ::2, ::2]
-                             */
-                            if (next.ptr() == owner.ptr())
-                            {
-                                break;
-                            }
-                            owner = next;
-                        }
-
-                        char const * base_ptr = static_cast<char *>(owner.mutable_data());
-                        char * view_ptr = static_cast<char *>(arr_in.mutable_data());
-                        const ptrdiff_t offset_bytes = view_ptr - base_ptr;
-                        if (offset_bytes < 0)
-                        {
-                            throw std::runtime_error("Unexpected negative offset!");
-                        }
-                        const size_t true_owner_nbytes = owner.nbytes();
-                        const size_t view_nbytes = true_owner_nbytes - static_cast<size_t>(offset_bytes);
-                        auto remover = std::make_unique<ConcreteBufferNdarrayRemover>(owner);
-                        const std::shared_ptr<ConcreteBuffer> buffer =
-                            ConcreteBuffer::construct(
-                                view_nbytes,
-                                view_ptr,
-                                std::move(remover));
-                        return wrapped_type(shape, stride, buffer, is_c_contiguous, is_f_contiguous);
-                    }),
-                py::arg("array"))
+            .def(py::init(&WrapSimpleArray::make_array_from_numpy), py::arg("array"))
             .def_buffer(&property_helper::get_buffer_info)
             .def("clone",
                  [](wrapped_type const & self)
@@ -763,6 +701,112 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArray
         throw std::invalid_argument("SimpleArray::where(): unsupported dtype");
     }
 }; /* end class WrapSimpleArray */
+
+template <typename T>
+typename WrapSimpleArray<T>::wrapped_type
+WrapSimpleArray<T>::make_array_from_numpy(pybind11::array & arr_in)
+{
+    namespace py = pybind11;
+
+    if (!dtype_is_type<T>(arr_in))
+    {
+        throw std::runtime_error("dtype mismatch");
+    }
+
+    solvcon::detail::shape_type shape;
+    solvcon::detail::sshape_type stride;
+    constexpr auto itemsize = static_cast<ssize_t>(sizeof(value_type));
+    ssize_t byte_span_begin = 0;
+    ssize_t byte_span_end = 0;
+    bool has_element = true;
+    for (ssize_t i = 0; i < arr_in.ndim(); ++i)
+    {
+        shape.push_back(arr_in.shape(i));
+        ssize_t const byte_stride = arr_in.strides(i);
+        if (byte_stride % itemsize != 0)
+        {
+            throw std::runtime_error(
+                std::format("NumPy byte stride {} in dimension {} is not divisible by item size {}",
+                            byte_stride,
+                            i,
+                            itemsize));
+        }
+        stride.push_back(byte_stride / itemsize);
+        if (shape[i] == 0)
+        {
+            has_element = false;
+            continue;
+        }
+        ssize_t const axis_byte_offset = (shape[i] - 1) * byte_stride;
+        if (axis_byte_offset < 0)
+        {
+            byte_span_begin += axis_byte_offset;
+        }
+        else
+        {
+            byte_span_end += axis_byte_offset;
+        }
+    }
+    if (!has_element)
+    {
+        byte_span_begin = 0;
+        byte_span_end = 0;
+    }
+
+    array_order_type array_order = array_order_type::Unspecified;
+    if ((arr_in.flags() & py::array::c_style) == py::array::c_style)
+    {
+        array_order |= array_order_type::CType;
+    }
+    if ((arr_in.flags() & py::array::f_style) == py::array::f_style)
+    {
+        array_order |= array_order_type::FType;
+    }
+
+    py::array owner = arr_in;
+    /*
+     * In the following document, it introduces the base object in ndarray.
+     * https://numpy.org/doc/2.2/reference/generated/numpy.ndarray.base.html
+     * The `array.base` is base object if memory is from some other object.
+     * If object owns its memory, base is None.
+     */
+    while (true)
+    {
+        const py::object b = owner.attr("base");
+        if (b.is_none() || !py::isinstance<py::array>(b))
+        {
+            break;
+        }
+        auto next = b.cast<py::array>();
+        /*
+         * Prevent the infinite loop.
+         * For example, the following code will create a loop:
+         * nparr = np.arange(24, dtype='float64').reshape((2, 3, 4))
+         * nparr = nparr[::2, ::2, ::2]
+         */
+        if (next.ptr() == owner.ptr())
+        {
+            break;
+        }
+        owner = next;
+    }
+
+    char * view_ptr = static_cast<char *>(arr_in.mutable_data());
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    if (reinterpret_cast<std::uintptr_t>(view_ptr) % alignof(value_type) != 0)
+    {
+        throw std::runtime_error(
+            std::format("NumPy data pointer is not aligned for item alignment {}", alignof(value_type)));
+    }
+    char * storage_ptr = view_ptr + byte_span_begin;
+    const size_t storage_nbytes = has_element
+                                      ? static_cast<size_t>(byte_span_end - byte_span_begin + itemsize)
+                                      : 0;
+    const auto data_offset = static_cast<size_t>(-byte_span_begin);
+    auto remover = std::make_unique<ConcreteBufferNdarrayRemover>(owner);
+    const auto buffer = ConcreteBuffer::construct(storage_nbytes, storage_ptr, std::move(remover));
+    return wrapped_type(shape, stride, buffer, data_offset, array_order);
+}
 
 template <typename T>
 class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleCollector

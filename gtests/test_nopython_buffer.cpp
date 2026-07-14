@@ -94,6 +94,44 @@ TEST(SimpleArray, iterator)
     }
 }
 
+TEST(SimpleArray, logical_data)
+{
+    using namespace solvcon;
+
+    auto buffer = ConcreteBuffer::construct(6 * sizeof(double));
+    double * const raw_data = buffer->data<double>();
+    for (ssize_t it = 0; it < 6; ++it)
+    {
+        raw_data[it] = static_cast<double>(it);
+    }
+
+    SimpleArray<double> array(
+        small_vector<ssize_t>{2, 3},
+        small_vector<ssize_t>{-3, -1},
+        buffer,
+        5 * sizeof(double));
+    EXPECT_EQ(raw_data, array.data());
+    EXPECT_EQ(raw_data + 5, array.logical_data());
+    EXPECT_EQ(5.0, array.at(small_vector<ssize_t>{0, 0}));
+    EXPECT_EQ(0.0, array.at(small_vector<ssize_t>{1, 2}));
+
+    SimpleArray<double> copy(array);
+    EXPECT_NE(array.data(), copy.data());
+    EXPECT_EQ(copy.data() + 5, copy.logical_data());
+    EXPECT_EQ(5.0, copy.at(small_vector<ssize_t>{0, 0}));
+    EXPECT_EQ(0.0, copy.at(small_vector<ssize_t>{1, 2}));
+
+    auto shifted_buffer = ConcreteBuffer::construct(6 * sizeof(double));
+    SimpleArray<double> shifted(
+        small_vector<ssize_t>{4},
+        shifted_buffer,
+        2 * sizeof(double));
+    SimpleArray<double> reshaped = shifted.reshape(
+        small_vector<ssize_t>{2, 2});
+    EXPECT_EQ(shifted.data(), reshaped.data());
+    EXPECT_EQ(shifted.logical_data(), reshaped.logical_data());
+}
+
 TEST(SimpleArray_DataType, from_type)
 {
     solvcon::DataType dt_double = solvcon::DataType::from<double>();
