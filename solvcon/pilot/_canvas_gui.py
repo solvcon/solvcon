@@ -58,6 +58,16 @@ class Save2DCanvasDialog(_gui_common.PilotFeature):
 
     def __init__(self, *args, **kw):
         super().__init__(*args, **kw)
+        # Build the dialog in run(), not here: parenting a QFileDialog to the
+        # main window before launch forces native window creation that aborts
+        # the Windows Debug CRT (exit 0xC0000409). Deferring keeps the parent
+        # (dialog stays window-modal) with no Qt window built before launch.
+        self._diag = None
+
+    def _ensure_dialog(self):
+        """Build the save dialog and its label controls on first use."""
+        if self._diag is not None:
+            return
         self._diag = QtWidgets.QFileDialog(self._mainWindow)
         self._diag.setOption(QtWidgets.QFileDialog.DontUseNativeDialog, True)
         self._diag.setAcceptMode(QtWidgets.QFileDialog.AcceptSave)
@@ -113,6 +123,7 @@ class Save2DCanvasDialog(_gui_common.PilotFeature):
             self._pycon.writeToHistory(
                 "Save 2D canvas: no focused 2D canvas\n")
             return False
+        self._ensure_dialog()
         self._init_label_controls(widget)
         self._on_filter_selected(self._diag.selectedNameFilter())
         self._diag.open(self, QtCore.SLOT("on_finished()"))
@@ -168,6 +179,8 @@ class Save2DCanvasDialog(_gui_common.PilotFeature):
             self._pycon.writeToHistory(
                 "Save 2D canvas: no focused 2D canvas\n")
             return False
+        # _export_overlay reads the dialog's label controls; build it first.
+        self._ensure_dialog()
         ok = widget.saveImage(path, self._export_overlay(widget))
         if ok:
             self._pycon.writeToHistory(f"Save 2D canvas: wrote {path}\n")
