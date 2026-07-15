@@ -14,7 +14,6 @@ from . import _pilot_core as _pcore
 from . import airfoil
 
 if _pcore.enable:
-    from PySide6.QtGui import QAction
     from . import _gui_common
     from . import _mesh
     from . import _tree_panel
@@ -165,20 +164,17 @@ class _Controller(metaclass=_Singleton):
         self.theme_menu.populate_menu()
         self.window_manager.populate_menu()
 
-        # An explicit QuitRole lets macOS relocate Exit into the application
-        # menu, so no platform special case is needed.
         wm.menu_model.place(
             "File",
             _gui_common.build_action(
                 wm.mainWindow, "Exit", "Exit the application",
-                lambda: wm.quit(), id="file.exit",
-                menu_role=QAction.MenuRole.QuitRole),
+                lambda: wm.quit(), id="file.exit"),
             100)
         wm.menu_model.place(
             "View/Panels",
             _gui_common.build_action(
                 wm.mainWindow, "Console", "Open / Close Console",
-                wm.toggleConsole, id="panel.console",
+                wm.toggleConsole, id="window.console",
                 checkable=True, checked=True),
             30)
 

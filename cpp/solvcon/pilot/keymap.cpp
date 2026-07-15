@@ -22,29 +22,48 @@ std::vector<ShortcutBinding> tableWith(std::vector<ShortcutBinding> extra)
         {ShortcutCommand::Undo, StandardAction::Undo, ShortcutContext::Window},
         {ShortcutCommand::Redo, StandardAction::Redo, ShortcutContext::Window},
         {ShortcutCommand::CameraReset, KeyChord{KeyMod::None, Key::Escape}, ShortcutContext::Widget},
+        // Primary+` toggles the console. Panel toggles use Primary+Shift
+        // chords and leave plain W/A/S/D and arrows to keyPressEvent.
+        {ShortcutCommand::Console, KeyChord{KeyMod::Primary, Key::Grave}, ShortcutContext::Window},
+        {ShortcutCommand::AgentPanel,
+         KeyChord{KeyMod::Primary | KeyMod::Shift, Key::A},
+         ShortcutContext::Window},
+        {ShortcutCommand::InspectorPanel,
+         KeyChord{KeyMod::Primary | KeyMod::Shift, Key::I},
+         ShortcutContext::Window},
+        {ShortcutCommand::PainterPanel,
+         KeyChord{KeyMod::Primary | KeyMod::Shift, Key::P},
+         ShortcutContext::Window},
+        {ShortcutCommand::New2DCanvas, StandardAction::New, ShortcutContext::Window},
     };
     rows.insert(rows.end(), extra.begin(), extra.end());
     return rows;
 }
 
+std::vector<ShortcutBinding> const & nonMacTable()
+{
+    static std::vector<ShortcutBinding> const table = tableWith(
+        {{ShortcutCommand::Exit, StandardAction::Quit, ShortcutContext::Application}});
+    return table;
+}
+
 std::vector<ShortcutBinding> const & linuxTable()
 {
-    static std::vector<ShortcutBinding> const table = tableWith({});
-    return table;
+    return nonMacTable();
 }
 
 std::vector<ShortcutBinding> const & windowsTable()
 {
-    static std::vector<ShortcutBinding> const table = tableWith({});
-    return table;
+    return nonMacTable();
 }
 
 std::vector<ShortcutBinding> const & macTable()
 {
-    // macOS carries the Quit role from the start; the key sequence for Quit
-    // is added when file.exit begins routing through the manager.
-    static std::vector<ShortcutBinding> const table =
-        tableWith({{ShortcutCommand::Exit, Unbound{}, ShortcutContext::Application, MenuRole::Quit}});
+    static std::vector<ShortcutBinding> const table = tableWith(
+        {{ShortcutCommand::Exit,
+          StandardAction::Quit,
+          ShortcutContext::Application,
+          MenuRole::Quit}});
     return table;
 }
 
@@ -66,6 +85,12 @@ std::string_view commandId(ShortcutCommand command)
         return "window.console";
     case ShortcutCommand::AgentPanel:
         return "panel.agent_console";
+    case ShortcutCommand::InspectorPanel:
+        return "panel.inspector";
+    case ShortcutCommand::PainterPanel:
+        return "panel.painter";
+    case ShortcutCommand::New2DCanvas:
+        return "canvas.blank_2d";
     }
     throw std::logic_error("Unexpected command");
 }

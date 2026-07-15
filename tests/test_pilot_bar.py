@@ -51,7 +51,7 @@ class BarStructureTC(unittest.TestCase):
 
         # The Console toggle lives with the other panel toggles; the Window
         # menu holds only the dynamic sub-window list.
-        self.assertIsNotNone(model.action("panel.console"))
+        self.assertIsNotNone(model.action("window.console"))
         self.assertNotIn("Console",
                          [a.text() for a in model.menu("Window").actions()])
 

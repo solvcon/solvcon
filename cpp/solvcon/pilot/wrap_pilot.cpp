@@ -973,8 +973,11 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRManager
                 "resolve_shortcut",
                 [](wrapped_type & self, std::string const & command_id)
                 {
-                    ResolvedShortcut const r = self.shortcutManager()->resolveById(command_id);
                     py::dict out;
+                    bool const known = commandFromId(command_id).has_value();
+                    ResolvedShortcut const r =
+                        self.shortcutManager()->resolveById(command_id);
+                    out["known"] = known;
                     out["bound"] = r.bound;
                     out["standard"] = r.standard;
                     out["standard_key"] = r.standard_key;
