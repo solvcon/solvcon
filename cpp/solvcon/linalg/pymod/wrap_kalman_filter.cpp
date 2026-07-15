@@ -47,7 +47,7 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapKalmanStateInfo
                 "posterior_states_covariance", &wrapped_type::posterior_states_covariance);
     }
 
-}; /* end class KalmanStateInfo */
+}; /* end class WrapKalmanStateInfo */
 
 template <typename T>
 class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapKalmanFilter

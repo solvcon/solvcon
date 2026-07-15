@@ -243,7 +243,7 @@ struct TypeBroadcast
 
         throw std::runtime_error(msg.str());
     }
-}; /* end struct TypeBroadCast */
+}; /* end struct TypeBroadcast */
 
 } /* end namespace python */
 } /* end namespace solvcon */

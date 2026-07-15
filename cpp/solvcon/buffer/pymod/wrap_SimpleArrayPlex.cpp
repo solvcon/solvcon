@@ -425,7 +425,7 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArrayPlex : public WrapBase<Wr
 
 #undef DECL_MM_EXECUTE_TYPED_ARRAY_METHOD
 
-}; /* end of class WrapSimpleArrayPlex*/
+}; /* end class WrapSimpleArrayPlex */
 
 void wrap_SimpleArrayPlex(pybind11::module & mod)
 {

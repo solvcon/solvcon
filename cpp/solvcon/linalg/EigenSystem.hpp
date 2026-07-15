@@ -58,7 +58,7 @@ private:
 
     struct ctor_passkey
     {
-    };
+    }; /* end struct ctor_passkey */
 
 public:
 

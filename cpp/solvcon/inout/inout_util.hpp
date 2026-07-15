@@ -21,8 +21,8 @@ namespace inout
 std::vector<std::string> tokenize(const std::string & str, const std::regex & regex_delim);
 std::vector<std::string> tokenize(const std::string & str, char delim);
 
-} // namespace inout
+} /* end namespace inout */
 
-} // namespace solvcon
+} /* end namespace solvcon */
 
 // vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

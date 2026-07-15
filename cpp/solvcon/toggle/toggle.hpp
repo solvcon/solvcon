@@ -210,7 +210,7 @@ struct ToggleTypeTraits;
     {                                                   \
         static constexpr DynamicToggleIndex::Type tag = \
             DynamicToggleIndex::TAG;                    \
-    };
+    }; /* end struct ToggleTypeTraits */
 MM_TOGGLE_TYPE_TRAITS(bool, TYPE_BOOL)
 MM_TOGGLE_TYPE_TRAITS(int8_t, TYPE_INT8)
 MM_TOGGLE_TYPE_TRAITS(int16_t, TYPE_INT16)
@@ -976,7 +976,7 @@ public:
     class PopulatePasskey
     {
         friend ProcessInfo;
-    };
+    }; /* end class PopulatePasskey */
 
     void populate(int argc, char ** argv, PopulatePasskey const &)
     {

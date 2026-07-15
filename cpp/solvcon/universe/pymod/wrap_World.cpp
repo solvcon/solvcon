@@ -40,8 +40,7 @@ protected:
     WrapWorld & wrap_segment();
     WrapWorld & wrap_bezier();
     WrapWorld & wrap_shape();
-};
-/* end class WrapWorld */
+}; /* end class WrapWorld */
 
 template <typename T>
 WrapWorld<T>::WrapWorld(pybind11::module & mod, const char * pyname, const char * pydoc)

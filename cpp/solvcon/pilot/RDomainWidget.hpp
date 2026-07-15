@@ -154,7 +154,7 @@ public:
         QVector3D centroid;
 
         bool hit() const { return "none" != kind; }
-    };
+    }; /* end struct PickResult */
 
     // Pick the entity under the widget pixel (x, y): a cell (by ray-cast
     // against the surface), the nearest node, or the nearest boundary face.
@@ -390,7 +390,7 @@ private:
     {
         RDrawable * drawable = nullptr;
         std::shared_ptr<StaticMesh> mesh;
-    };
+    }; /* end struct ObjectEntry */
     std::map<std::string, ObjectEntry> m_objects;
     std::vector<float> m_ticks_x; ///< Cube-axes tick coordinates per axis.
     std::vector<float> m_ticks_y;

@@ -23,7 +23,7 @@ struct Address : SerializableItem
         register_member("city", city);
         register_member("phone_numbers", phone_numbers);
         register_member("zip_codes", zip_codes);)
-}; // end struct Address
+}; /* end struct Address */
 
 struct Pet : SerializableItem
 {
@@ -37,7 +37,7 @@ struct Pet : SerializableItem
         register_member("age", age);
         register_member("is_dog", is_dog);
         register_member("is_cat", is_cat);)
-}; // end struct Pet
+}; /* end struct Pet */
 
 struct Person : SerializableItem
 {
@@ -53,7 +53,7 @@ struct Person : SerializableItem
         register_member("is_student", is_student);
         register_member("address", address);
         register_member("pets", pets);)
-}; // end struct Person
+}; /* end struct Person */
 
 Pet create_dog()
 {
@@ -101,7 +101,7 @@ public:
     MM_DECL_SERIALIZABLE(
         /* not expose public_info */
         register_member("private_info", private_info);)
-}; // end struct SecretItem
+}; /* end struct SecretItem */
 
 struct EscapeItem : SerializableItem
 {
@@ -109,7 +109,7 @@ struct EscapeItem : SerializableItem
 
     MM_DECL_SERIALIZABLE(
         register_member("escape_string", escape_string);)
-}; // end struct EscapeItem
+}; /* end struct EscapeItem */
 
 struct TestUnorderedMapItem : SerializableItem
 {
@@ -119,9 +119,9 @@ struct TestUnorderedMapItem : SerializableItem
     MM_DECL_SERIALIZABLE(
         register_member("numer_map", numer_map);
         register_member("pet_map", pet_map);)
-}; // end struct TestUnorderedMapItem
+}; /* end struct TestUnorderedMapItem */
 
-} // end namespace detail
+} /* end namespace detail */
 
 TEST(Json, serialize_private_member_partial_exposure)
 {
@@ -541,6 +541,6 @@ TEST(Json, round_trip_string_with_comma)
     EXPECT_EQ(restored.zip_codes.size(), 0);
 }
 
-} // namespace solvcon
+} /* end namespace solvcon */
 
 // vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

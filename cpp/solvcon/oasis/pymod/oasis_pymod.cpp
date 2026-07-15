@@ -16,7 +16,7 @@ namespace python
 
 struct oasis_pymod_tag
 {
-};
+}; /* end struct oasis_pymod_tag */
 
 template <>
 OneTimeInitializer<oasis_pymod_tag> & OneTimeInitializer<oasis_pymod_tag>::me()

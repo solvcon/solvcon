@@ -36,8 +36,8 @@ std::vector<std::string> tokenize(const std::string & str, const char delim)
     return output;
 }
 
-} // namespace inout
+} /* end namespace inout */
 
-} // namespace solvcon
+} /* end namespace solvcon */
 
 // vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

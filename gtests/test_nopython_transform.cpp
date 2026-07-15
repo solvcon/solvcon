@@ -12,7 +12,7 @@ struct FFTTestParams
 {
     using Type = T;
     static constexpr bool is_pow_2 = IsPow2;
-};
+}; /* end struct FFTTestParams */
 
 template <typename TestParam>
 class ParsevalTest : public ::testing::Test
@@ -59,7 +59,7 @@ protected:
         // Expect the total energy in the time and frequency domains to be equal
         EXPECT_NEAR(psd_sig, psd_out, (std::is_same<T, float>::value ? (T)1e-2 : (T)1e-10));
     }
-};
+}; /* end class ParsevalTest */
 
 template <typename TestParam>
 class DeltaFunctionTest : public ::testing::Test
@@ -93,7 +93,7 @@ protected:
             EXPECT_NEAR(mag, expected_mag, (std::is_same<T, float>::value ? (T)1e-2 : (T)1e-10));
         }
     }
-};
+}; /* end class DeltaFunctionTest */
 
 template <typename TestParam>
 class InverseTest : public ::testing::Test
@@ -133,7 +133,7 @@ protected:
             EXPECT_NEAR(signal[i].imag(), time_domain[i].imag(), (std::is_same<T, float>::value ? (T)1e-2 : (T)1e-10));
         }
     }
-};
+}; /* end class InverseTest */
 
 typedef ::testing::Types<
     FFTTestParams<float, true>,

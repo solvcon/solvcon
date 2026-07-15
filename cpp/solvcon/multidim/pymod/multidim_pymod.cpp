@@ -17,7 +17,7 @@ namespace python
 
 struct multidim_pymod_tag
 {
-};
+}; /* end struct multidim_pymod_tag */
 
 template <>
 OneTimeInitializer<multidim_pymod_tag> & OneTimeInitializer<multidim_pymod_tag>::me()

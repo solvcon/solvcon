@@ -78,10 +78,10 @@ private:
     SimpleArray<uint_type> m_blk_sizes;
 
     std::unordered_map<uint_type, small_vector<uint_type>> m_elems;
-};
+}; /* end class Plot3d */
 
-} // namespace inout
+} /* end namespace inout */
 
-} // namespace solvcon
+} /* end namespace solvcon */
 
 // vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

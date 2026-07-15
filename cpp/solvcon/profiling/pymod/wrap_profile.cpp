@@ -43,7 +43,7 @@ protected:
         mod.attr("wrapper_profiler_status") = mod.attr("WrapperProfilerStatus").attr("me");
     }
 
-}; /* end class WrapWrapperTimerStatus */
+}; /* end class WrapWrapperProfilerStatus */
 
 class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapStopWatch
     : public WrapBase<WrapStopWatch, StopWatch>

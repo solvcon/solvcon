@@ -97,7 +97,7 @@ private:
         QPointer<QAction> action; // the entry's QAction (item, separator, or
                                   // a submenu's menuAction)
         std::unique_ptr<Node> submenu; // non-null only for a submenu entry
-    };
+    }; /* end struct Entry */
 
     struct Node
     {
@@ -106,7 +106,7 @@ private:
         QPointer<QMenu> menu; // nullptr for the root, which stands for the bar
         Node * parent = nullptr;
         std::vector<Entry> entries;
-    };
+    }; /* end struct Node */
 
     Node * resolve(std::string const & path, int weight);
     Node * ensureChild(Node * parent, QString const & name, int weight);

@@ -81,22 +81,22 @@ struct vec_add
 {
     template <typename V>
     static auto operator()(V a, V b) -> decltype(vaddq(a, b)) { return vaddq(a, b); }
-};
+}; /* end struct vec_add */
 struct vec_sub
 {
     template <typename V>
     static auto operator()(V a, V b) -> decltype(vsubq(a, b)) { return vsubq(a, b); }
-};
+}; /* end struct vec_sub */
 struct vec_mul
 {
     template <typename V>
     static auto operator()(V a, V b) -> decltype(vmulq(a, b)) { return vmulq(a, b); }
-};
+}; /* end struct vec_mul */
 struct vec_div
 {
     template <typename V>
     static auto operator()(V a, V b) -> decltype(vdivq(a, b)) { return vdivq(a, b); }
-};
+}; /* end struct vec_div */
 // NOLINTEND(fuchsia-trailing-return)
 
 template <typename T, std::invocable<T, T> ScalarOp, typename VecOp>
@@ -277,10 +277,10 @@ void div(T * dest, T const * dest_end, T const * src1, T const * src2)
 
 #endif /* defined(__aarch64__) */
 
-} /* namespace neon */
+} /* end namespace neon */
 
-} /* namespace simd */
+} /* end namespace simd */
 
-} /* namespace solvcon */
+} /* end namespace solvcon */
 
 // vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

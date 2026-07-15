@@ -97,6 +97,6 @@ T max(T const * start, T const * end)
     return generic::max<T>(start, end);
 }
 
-} /* namespace simd */
+} /* end namespace simd */
 
-} /* namespace solvcon */
+} /* end namespace solvcon */

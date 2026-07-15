@@ -67,8 +67,8 @@ SimdFeature detect_simd()
     return CurrentFeature;
 }
 
-} /* namespace detail */
+} /* end namespace detail */
 
-} /* namespace simd */
+} /* end namespace simd */
 
-} /* namespace solvcon */
+} /* end namespace solvcon */

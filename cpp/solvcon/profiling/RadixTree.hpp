@@ -363,7 +363,7 @@ private:
     const char * m_caller_name;
     bool m_cancel = false;
     CallProfiler & m_profiler;
-}; /* end struct CallProfilerProbe */
+}; /* end class CallProfilerProbe */
 
 // TODO: https://github.com/solvcon/solvcon/pull/559
 #ifdef SOLVCON_PROFILE

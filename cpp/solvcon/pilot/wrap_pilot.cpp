@@ -35,7 +35,7 @@ namespace PySide
 PyTypeObject * getTypeForQObject(const QObject * cppSelf);
 PyObject * getWrapperForQObject(QObject * cppSelf, PyTypeObject * sbk_type);
 QObject * convertToQObject(PyObject * object, bool raiseError);
-} // end namespace PySide
+} /* end namespace PySide */
 #endif // SOLVCON_PYSIDE6_FULL
 
 namespace pybind11
@@ -102,14 +102,14 @@ public:
         }
         return pybind11::handle(p);
     }
-};
+}; /* end struct qt_type_caster */
 
 #define QT_TYPE_CASTER(type, py_name)                      \
     template <>                                            \
     struct type_caster<type> : public qt_type_caster<type> \
     {                                                      \
         static constexpr auto name = py_name;              \
-    }
+    } /* end struct type_caster */
 
 QT_TYPE_CASTER(QWidget, _("QWidget"));
 QT_TYPE_CASTER(QAction, _("QAction"));
@@ -1046,7 +1046,7 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRManager
 
 struct RManagerProxy
 {
-};
+}; /* end struct RManagerProxy */
 
 class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRManagerProxy
     : public WrapBase<WrapRManagerProxy, RManagerProxy>

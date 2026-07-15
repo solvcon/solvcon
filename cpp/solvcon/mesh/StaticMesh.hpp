@@ -255,7 +255,7 @@ private:
 
     class ctor_passkey
     {
-    };
+    }; /* end class ctor_passkey */
 
 public:
 

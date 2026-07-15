@@ -237,7 +237,7 @@ struct ShapeRecord
     bbox_array_type obb_x;
     /// OBB corner y's in world coordinates, ordered TL, TR, BR, BL.
     bbox_array_type obb_y;
-}; /* end of struct ShapeRecord */
+}; /* end struct ShapeRecord */
 
 /**
  * Entry stored in the R-tree: shape ID + bounding box.
@@ -250,7 +250,7 @@ struct ShapeEntry
     int32_t shape_id;
     BoundBox3d<T> bbox;
     bool operator==(ShapeEntry const & other) const { return shape_id == other.shape_id; }
-}; /* end of struct ShapeEntry */
+}; /* end struct ShapeEntry */
 
 /**
  * RTreeValueOps specialization that gives the R-tree the bounding box of a
@@ -262,7 +262,7 @@ template <typename T>
 struct RTreeValueOps<ShapeEntry<T>, BoundBox3d<T>>
 {
     static BoundBox3d<T> calc_bound_box(ShapeEntry<T> const & entry) { return entry.bbox; }
-}; /* end of struct RTreeValueOps */
+}; /* end struct RTreeValueOps */
 
 /**
  * Manage all geometry entities.
@@ -279,7 +279,7 @@ private:
 
     class ctor_passkey
     {
-    };
+    }; /* end class ctor_passkey */
 
 public:
 
@@ -708,7 +708,7 @@ private:
         value_type angle = 0; ///< Net angle of a ROTATE, in radians.
         value_type cx = 0; ///< Pivot x of a ROTATE.
         value_type cy = 0; ///< Pivot y of a ROTATE.
-    }; /* end of struct ShapeOperationRecord */
+    }; /* end struct ShapeOperationRecord */
 
     /// Translate a shape's geometry in place and reindex it.
     void apply_translate(int32_t shape_id, value_type dx, value_type dy);

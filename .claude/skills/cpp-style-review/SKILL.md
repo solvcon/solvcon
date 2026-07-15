@@ -1,6 +1,6 @@
 ---
 name: cpp-style-review
-description: Apply solvcon's judgment-call C++ style rules (m_ prefix, function-body placement, SimpleCollector preference, pybind11 binding split, const_cast) to changed lines in cpp/ or gtests/. Use after editing C++ sources.
+description: Apply solvcon's judgment-call C++ style rules (m_ prefix, class/struct/namespace ending marks, function-body placement, SimpleCollector preference, pybind11 binding split, const_cast) to changed lines in cpp/ or gtests/. Use after editing C++ sources.
 tools: Read, Grep, Glob, Edit, Bash
 ---
 
@@ -43,6 +43,21 @@ it briefly but don't re-implement the check here.
 - STL containers in non-prototype member data require a `TODO` comment plus a
   follow-up PR/issue link.
 - STL in local variables is tolerated but discouraged.
+
+**Ending marks (easy to forget -- check every class, struct, and namespace)**
+- Per STYLE.md "C++ Ending Mark", every class, struct, and namespace closing
+  brace carries a trailing comment naming what it closes:
+  `}; /* end class MyClass */`, `}; /* end struct MyStruct */`,
+  `} /* end namespace solvcon */` (anonymous: `} /* end namespace */`).
+- These are routinely omitted (by humans and by AI). If the diff adds or
+  changes a class, struct, or namespace, verify the closing brace has the mark
+  and that the name matches the declaration.
+- Flag: a missing mark; a wrong name; the wrong keyword (`class` vs `struct`
+  vs `namespace`); a `//` mark instead of `/* ... */`; and stale wording. The
+  form is exactly `end <keyword> <name>` -- not `end of ...`, and not
+  `/* namespace X */` with the word "end" dropped.
+- A single-line definition (open and close on one line, e.g.
+  `struct is_complex : std::false_type {};`) needs no mark.
 
 **Function-body placement**
 - Move non-accessor function bodies outside the class declaration when the body

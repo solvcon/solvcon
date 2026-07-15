@@ -21,7 +21,7 @@ struct Point2D
     {
         return x == other.x && y == other.y;
     }
-};
+}; /* end struct Point2D */
 
 using TestBoundBox3d = solvcon::BoundBox3d<double>;
 
@@ -48,7 +48,7 @@ struct Point2DValueOps
         }
         return TestBoundBox3d(min_x, min_y, 0.0, max_x, max_y, 0.0);
     }
-};
+}; /* end struct Point2DValueOps */
 
 struct Point3D
 {
@@ -60,7 +60,7 @@ struct Point3D
     {
         return x == other.x && y == other.y && z == other.z;
     }
-};
+}; /* end struct Point3D */
 
 struct Point3DValueOps
 {
@@ -89,7 +89,7 @@ struct Point3DValueOps
         }
         return TestBoundBox3d(min_x, min_y, min_z, max_x, max_y, max_z);
     }
-};
+}; /* end struct Point3DValueOps */
 
 TEST(RTree, basic_operations)
 {
