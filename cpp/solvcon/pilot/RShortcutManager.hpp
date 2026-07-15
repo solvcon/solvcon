@@ -41,7 +41,7 @@ namespace solvcon
  * binding names its Qt standard key so PySide can call setShortcuts with it;
  * a curated binding carries its resolved sequence strings. bound is false when
  * the command has no key on this platform, though role and context still apply
- * (macOS Quit is unbound but keeps its application-menu role).
+ * for an Unbound table entry.
  */
 struct ResolvedShortcut
 {

@@ -70,6 +70,50 @@ class ToggleActionBridge(QtCore.QObject):
         self._store_changed.emit(tg.get(self._key, self._action.isChecked()))
 
 
+_SHORTCUT_CONTEXTS = {
+    "application": QtCore.Qt.ApplicationShortcut,
+    "window": QtCore.Qt.WindowShortcut,
+    "widget": QtCore.Qt.WidgetShortcut,
+}
+
+_MENU_ROLES = {
+    "none": QtGui.QAction.NoRole,
+    "quit": QtGui.QAction.QuitRole,
+    "preferences": QtGui.QAction.PreferencesRole,
+    "about": QtGui.QAction.AboutRole,
+}
+
+
+def apply_shortcut(action, mgr=None):
+    """Apply the keymap binding for ``action``'s objectName from the roof.
+
+    Resolves the command id through ``RManager.resolve_shortcut`` and sets the
+    menu role, shortcut context, and sequences with PySide. Unknown ids are a
+    no-op so feature actions outside the vocabulary stay untouched. The role is
+    set first, as macOS requires before the action reaches a menu.
+    """
+    oid = action.objectName()
+    if not oid:
+        return
+    if mgr is None:
+        mgr = _pcore.RManager.instance
+    resolved = mgr.resolve_shortcut(oid)
+    if not resolved["known"]:
+        return
+
+    action.setMenuRole(_MENU_ROLES[resolved["role"]])
+    action.setShortcutContext(_SHORTCUT_CONTEXTS[resolved["context"]])
+    if resolved["standard"]:
+        standard = getattr(QtGui.QKeySequence.StandardKey,
+                           resolved["standard_key"])
+        action.setShortcuts(standard)
+    else:
+        action.setShortcuts([
+            QtGui.QKeySequence(s, QtGui.QKeySequence.PortableText)
+            for s in resolved["sequences"]
+        ])
+
+
 def build_action(parent, text, tip, func, *, id=None, checkable=False,
                  checked=False, shortcut=None, menu_role=None,
                  toggle_key=None):
@@ -83,6 +127,9 @@ def build_action(parent, text, tip, func, *, id=None, checkable=False,
     When ``toggle_key`` is given, the action is bound two-way to that store
     toggle through a ToggleActionBridge, so its state persists, round-trips to
     JSON, and can be observed by a solver or a second widget.
+
+    When ``id`` names a keymap command, ``apply_shortcut`` installs its
+    platform binding and overwrites any explicit ``shortcut`` or ``menu_role``.
     """
     act = QtGui.QAction(text, parent)
     if id:
@@ -99,6 +146,8 @@ def build_action(parent, text, tip, func, *, id=None, checkable=False,
         act.triggered.connect(lambda *a: func())
     if toggle_key is not None:
         ToggleActionBridge(act, toggle_key)
+    if id:
+        apply_shortcut(act)
     return act
 
 

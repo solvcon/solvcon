@@ -19,7 +19,7 @@ constexpr std::array<solvcon::PlatformId, 3> PLATFORMS = {
 
 } /* end namespace */
 
-TEST(PilotKeymapTable, SeedsUndoRedoAndResetOnEveryPlatform)
+TEST(PilotKeymapTable, SeedsSharedBindingsOnEveryPlatform)
 {
     for (auto platform : PLATFORMS)
     {
@@ -37,19 +37,54 @@ TEST(PilotKeymapTable, SeedsUndoRedoAndResetOnEveryPlatform)
         EXPECT_EQ(std::get<solvcon::KeyChord>(reset->key),
                   (solvcon::KeyChord{solvcon::KeyMod::None, solvcon::Key::Escape}));
         EXPECT_EQ(reset->context, solvcon::ShortcutContext::Widget);
+
+        auto const * console = solvcon::bindingFor(platform, solvcon::ShortcutCommand::Console);
+        ASSERT_NE(console, nullptr);
+        EXPECT_EQ(std::get<solvcon::KeyChord>(console->key),
+                  (solvcon::KeyChord{solvcon::KeyMod::Primary, solvcon::Key::Grave}));
+        EXPECT_EQ(console->context, solvcon::ShortcutContext::Window);
+
+        struct PanelChord
+        {
+            solvcon::ShortcutCommand command;
+            solvcon::Key key;
+        }; /* end struct PanelChord */
+        for (auto const & panel : {
+                 PanelChord{solvcon::ShortcutCommand::AgentPanel, solvcon::Key::A},
+                 PanelChord{solvcon::ShortcutCommand::InspectorPanel, solvcon::Key::I},
+                 PanelChord{solvcon::ShortcutCommand::PainterPanel, solvcon::Key::P},
+             })
+        {
+            auto const * binding = solvcon::bindingFor(platform, panel.command);
+            ASSERT_NE(binding, nullptr);
+            EXPECT_EQ(std::get<solvcon::KeyChord>(binding->key),
+                      (solvcon::KeyChord{solvcon::KeyMod::Primary | solvcon::KeyMod::Shift, panel.key}));
+        }
+
+        auto const * blank = solvcon::bindingFor(platform, solvcon::ShortcutCommand::New2DCanvas);
+        ASSERT_NE(blank, nullptr);
+        EXPECT_EQ(std::get<solvcon::StandardAction>(blank->key), solvcon::StandardAction::New);
+
+        auto const * exit = solvcon::bindingFor(platform, solvcon::ShortcutCommand::Exit);
+        ASSERT_NE(exit, nullptr);
+        EXPECT_EQ(std::get<solvcon::StandardAction>(exit->key), solvcon::StandardAction::Quit);
+        EXPECT_EQ(exit->context, solvcon::ShortcutContext::Application);
     }
 }
 
-TEST(PilotKeymapMac, AddsQuitRoleAndAppMenuOverTheSeed)
+TEST(PilotKeymapMac, AddsQuitRoleOverTheSharedExitBinding)
 {
     EXPECT_TRUE(solvcon::capabilitiesFor(solvcon::PlatformId::Mac).movesItemsToApplicationMenu);
     EXPECT_EQ(solvcon::bindingTable(solvcon::PlatformId::Mac).size(),
-              solvcon::bindingTable(solvcon::PlatformId::Linux).size() + 1);
+              solvcon::bindingTable(solvcon::PlatformId::Linux).size());
 
     auto const * exit = solvcon::bindingFor(solvcon::PlatformId::Mac, solvcon::ShortcutCommand::Exit);
     ASSERT_NE(exit, nullptr);
-    EXPECT_TRUE(std::holds_alternative<solvcon::Unbound>(exit->key));
+    EXPECT_EQ(std::get<solvcon::StandardAction>(exit->key), solvcon::StandardAction::Quit);
     EXPECT_EQ(exit->role, solvcon::MenuRole::Quit);
+
+    EXPECT_EQ(solvcon::bindingFor(solvcon::PlatformId::Linux, solvcon::ShortcutCommand::Exit)->role,
+              solvcon::MenuRole::None);
 }
 
 TEST(PilotKeymapCapabilities, OnlyMacMovesItemsToApplicationMenu)

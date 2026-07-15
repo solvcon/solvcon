@@ -89,10 +89,7 @@ public:
     /// The application-wide theme controller, scriptable from Python.
     RThemeManager * themeManager() { return m_themeManager; }
 
-    /**
-     * The keyboard-shortcut resolver, scriptable from Python. Nothing routes
-     * its bindings through the pilot yet; later steps adopt them.
-     */
+    /// Keyboard-shortcut resolver. C++ uses applyTo; Python uses apply_shortcut.
     RShortcutManager * shortcutManager() { return m_shortcutManager; }
 
     void quit() { m_core->quit(); }

@@ -46,14 +46,16 @@ enum class MenuRole
 enum class StandardAction
 {
     Undo,
-    Redo
+    Redo,
+    Quit,
+    New
 };
 
 /**
  * A modifier role, written against the command modifier rather than a
  * physical key: Primary is Command on macOS and Control elsewhere. A flag
- * set so a chord can name more than one modifier; the roof adds the bitwise
- * combine and test helpers when it resolves a chord into Qt modifiers.
+ * set so a chord can name more than one modifier via operator|; the roof
+ * maps each flag to a Qt keyboard modifier when it resolves a chord.
  */
 enum class KeyMod : unsigned
 {
@@ -63,15 +65,25 @@ enum class KeyMod : unsigned
     Alt = 1u << 2
 };
 
+constexpr KeyMod operator|(KeyMod lhs, KeyMod rhs)
+{
+    return static_cast<KeyMod>(static_cast<unsigned>(lhs) | static_cast<unsigned>(rhs));
+}
+
 /**
  * A physical key a curated chord names. The vocabulary stays small: only the
  * keys the pilot binds today, growing as later steps add curated chords.
  * Arrow keys are deliberately absent; they belong to
- * RDomainWidget::keyPressEvent, not the action system.
+ * RDomainWidget::keyPressEvent, not the action system. Plain W/A/S/D camera
+ * moves stay there too; letter keys here are only for Primary+Shift chords.
  */
 enum class Key
 {
-    Escape
+    Escape,
+    Grave,
+    A,
+    I,
+    P
 };
 
 struct KeyChord
@@ -109,7 +121,10 @@ enum class ShortcutCommand
     CameraReset,
     Exit,
     Console,
-    AgentPanel
+    AgentPanel,
+    InspectorPanel,
+    PainterPanel,
+    New2DCanvas
 };
 
 struct ShortcutBinding
@@ -131,7 +146,10 @@ inline constexpr auto ALL_SHORTCUT_COMMANDS = std::to_array<ShortcutCommand>(
      ShortcutCommand::CameraReset,
      ShortcutCommand::Exit,
      ShortcutCommand::Console,
-     ShortcutCommand::AgentPanel});
+     ShortcutCommand::AgentPanel,
+     ShortcutCommand::InspectorPanel,
+     ShortcutCommand::PainterPanel,
+     ShortcutCommand::New2DCanvas});
 
 struct ShortcutCapabilities
 {

@@ -46,6 +46,10 @@ QKeySequence::StandardKey toStandardKey(StandardAction action)
         return QKeySequence::Undo;
     case StandardAction::Redo:
         return QKeySequence::Redo;
+    case StandardAction::Quit:
+        return QKeySequence::Quit;
+    case StandardAction::New:
+        return QKeySequence::New;
     }
     throw std::logic_error("Unexpected standard action");
 }
@@ -58,6 +62,10 @@ std::string standardKeyName(StandardAction action)
         return "Undo";
     case StandardAction::Redo:
         return "Redo";
+    case StandardAction::Quit:
+        return "Quit";
+    case StandardAction::New:
+        return "New";
     }
     throw std::logic_error("Unexpected standard action");
 }
@@ -68,6 +76,14 @@ Qt::Key toQtKey(Key key)
     {
     case Key::Escape:
         return Qt::Key_Escape;
+    case Key::Grave:
+        return Qt::Key_QuoteLeft;
+    case Key::A:
+        return Qt::Key_A;
+    case Key::I:
+        return Qt::Key_I;
+    case Key::P:
+        return Qt::Key_P;
     }
     throw std::logic_error("Unexpected key");
 }

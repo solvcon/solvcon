@@ -54,8 +54,7 @@ RManager::RManager()
     m_mainWindow->setWindowIcon(QIcon(QString(":/icon.ico")));
     // Parented to the manager to make color-scheme survive a window rebuild.
     m_themeManager = new RThemeManager(this);
-    // The shortcut resolver is parented likewise. Undo, redo, and camera reset
-    // route through it; later steps adopt the remaining bindings.
+    // Shortcut resolver: C++ uses applyTo; Python uses apply_shortcut.
     m_shortcutManager = new RShortcutManager(this);
     // Do not call setUp() from the constructor.  Windows may crash with
     // "exited with code -1073740791".  The reason is not yet clarified.
