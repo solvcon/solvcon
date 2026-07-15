@@ -148,10 +148,24 @@ endif()
 
 if(USE_SANITIZER)
     message(STATUS "use sanitizer")
-    set(SANITIZER_LIST "undefined,leak,address")
-    add_compile_options(-fsanitize=${SANITIZER_LIST})
     add_compile_options(-DUSE_SANITIZER)
-    add_link_options(-fsanitize=${SANITIZER_LIST})
+    if(MSVC)
+        # MSVC ships only AddressSanitizer; it has no leak or undefined
+        # sanitizer, and it does not accept the GCC/Clang
+        # -fsanitize=undefined,leak,address spelling (it drops it with
+        # warning D9002). Use its own /fsanitize=address. ASan is incompatible
+        # with the /GL whole-program optimization that pybind11 turns on for
+        # the module (see cpp/binary/pymod_solvcon/CMakeLists.txt) and with
+        # incremental linking, so those are disabled alongside it. /Zi emits
+        # the compiler debug info ASan needs to symbolize its reports; without
+        # it MSVC raises warning C5072, which /WX turns into a build error.
+        add_compile_options(/fsanitize=address /Zi)
+        add_link_options(/INCREMENTAL:NO)
+    else()
+        set(SANITIZER_LIST "undefined,leak,address")
+        add_compile_options(-fsanitize=${SANITIZER_LIST})
+        add_link_options(-fsanitize=${SANITIZER_LIST})
+    endif()
 else()
     message(STATUS "not use sanitizer")
 endif()
