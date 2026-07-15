@@ -9,6 +9,7 @@ import solvcon
 
 try:
     from solvcon import pilot
+    from PySide6 import QtCore, QtGui
 except ImportError:
     pilot = None
 
@@ -19,7 +20,7 @@ GITHUB_ACTIONS = os.getenv('GITHUB_ACTIONS', False)
                  "GUI is not available in GitHub Actions")
 class ShortcutResolutionTC(unittest.TestCase):
     """The roof resolves a command id to portable values the Python layer can
-    apply. No action is routed through it yet; these check the resolution."""
+    apply."""
 
     def setUp(self):
         self.mgr = pilot.RManager.instance.setUp()
@@ -62,6 +63,40 @@ class ShortcutResolutionTC(unittest.TestCase):
 
     def test_resolved_bindings_do_not_collide(self):
         self.assertEqual(self.mgr.shortcut_conflicts(), [])
+
+
+@unittest.skipIf(GITHUB_ACTIONS or not solvcon.HAS_PILOT,
+                 "GUI is not available in GitHub Actions")
+class ShortcutTC(unittest.TestCase):
+    """Live QAction bindings for the commands routed through the roof."""
+
+    def setUp(self):
+        self.mgr = pilot.RManager.instance.setUp()
+        self.model = self.mgr.menu_model
+
+    def _live_sequences(self, action):
+        return [s.toString(QtGui.QKeySequence.PortableText)
+                for s in action.shortcuts()]
+
+    def _assert_action_matches_resolved(self, object_name, qt_context):
+        action = self.model.action(object_name)
+        self.assertIsNotNone(action)
+        resolved = self.mgr.resolve_shortcut(object_name)
+        self.assertTrue(resolved["bound"])
+        self.assertEqual(self._live_sequences(action), resolved["sequences"])
+        self.assertEqual(action.shortcutContext(), qt_context)
+
+    def test_undo_action_carries_the_resolved_binding(self):
+        self._assert_action_matches_resolved(
+            "edit.undo", QtCore.Qt.WindowShortcut)
+
+    def test_redo_action_carries_the_resolved_binding(self):
+        self._assert_action_matches_resolved(
+            "edit.redo", QtCore.Qt.WindowShortcut)
+
+    def test_camera_reset_action_carries_the_resolved_binding(self):
+        self._assert_action_matches_resolved(
+            "camera.reset", QtCore.Qt.WidgetShortcut)
 
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

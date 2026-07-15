@@ -20,7 +20,6 @@
 #include <QAction>
 #include <QActionGroup>
 #include <QColor>
-#include <QKeySequence>
 #include <QVBoxLayout>
 #include <QWidget>
 
@@ -55,8 +54,8 @@ RManager::RManager()
     m_mainWindow->setWindowIcon(QIcon(QString(":/icon.ico")));
     // Parented to the manager to make color-scheme survive a window rebuild.
     m_themeManager = new RThemeManager(this);
-    // The shortcut resolver is parented likewise. No action routes through it
-    // yet; later steps adopt its bindings on both the C++ and Python sides.
+    // The shortcut resolver is parented likewise. Undo, redo, and camera reset
+    // route through it; later steps adopt the remaining bindings.
     m_shortcutManager = new RShortcutManager(this);
     // Do not call setUp() from the constructor.  Windows may crash with
     // "exited with code -1073740791".  The reason is not yet clarified.
@@ -420,7 +419,7 @@ void RManager::setUpEditMenuItems() const
         { undoCanvas(); },
         m_menuModel);
     undo_action->setObjectName("edit.undo");
-    undo_action->setShortcut(QKeySequence::Undo);
+    m_shortcutManager->applyTo(undo_action, ShortcutCommand::Undo);
 
     auto * redo_action = new RAction(
         QString("Redo"),
@@ -429,7 +428,7 @@ void RManager::setUpEditMenuItems() const
         { redoCanvas(); },
         m_menuModel);
     redo_action->setObjectName("edit.redo");
-    redo_action->setShortcut(QKeySequence::Redo);
+    m_shortcutManager->applyTo(redo_action, ShortcutCommand::Redo);
 
     m_menuModel->place("Edit", undo_action, 10);
     m_menuModel->place("Edit", redo_action, 20);
@@ -559,11 +558,10 @@ void RManager::setUpCameraMovementMenuItems() const
     }
 
     // Escape resets the camera; add3DWidget attaches this action to each
-    // viewer so its Qt::WidgetShortcut context can fire.
+    // viewer so its WidgetShortcut context can fire.
     if (QAction * reset = m_menuModel->action("camera.reset"))
     {
-        reset->setShortcut(QKeySequence(Qt::Key_Escape));
-        reset->setShortcutContext(Qt::WidgetShortcut);
+        m_shortcutManager->applyTo(reset, ShortcutCommand::CameraReset);
     }
 }
 
