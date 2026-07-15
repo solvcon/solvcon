@@ -117,7 +117,7 @@ protected: \
       : base_type(mod, pyname, pydoc) \
     {} \
 \
-}
+} /* end class WrapStaticGrid##NDIM##d */
 // clang-format on
 
 MM_DECL_StaticGridMD(2);

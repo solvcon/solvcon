@@ -76,7 +76,7 @@ private:
         }
         return false;
     }
-};
+}; /* end struct npy_format_descriptor */
 
 template <>
 struct npy_format_descriptor<solvcon::Complex<float>>
@@ -128,7 +128,7 @@ private:
         }
         return false;
     }
-};
+}; /* end struct npy_format_descriptor */
 
 } /* end namespace detail */
 
@@ -461,7 +461,7 @@ private:
             arr_out.set_nghost(nghost);
         }
     }
-};
+}; /* end class ArrayPropertyHelper */
 
 } /* end namespace python */
 } /* end namespace solvcon */

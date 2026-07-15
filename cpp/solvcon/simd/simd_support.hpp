@@ -34,8 +34,8 @@ enum SimdFeature : std::uint8_t
 
 SimdFeature detect_simd();
 
-} /* namespace detail */
+} /* end namespace detail */
 
-} /* namespace simd */
+} /* end namespace simd */
 
-} /* namespace solvcon */
+} /* end namespace solvcon */

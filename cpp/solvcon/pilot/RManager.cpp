@@ -467,7 +467,7 @@ void RManager::setUpCameraControllersMenuItems() const
         QString text;
         QString tip;
         std::string mode;
-    };
+    }; /* end struct CameraMode */
     std::vector<CameraMode> const modes = {
         {"camera.mode_orbit", QString("Orbit camera (3D)"), QString("Orbit the domain around its center"), "orbit"},
         {"camera.mode_fps", QString("First-person camera (3D)"), QString("Fly through the domain in first person"), "fps"},
@@ -507,7 +507,7 @@ void RManager::setUpCameraMovementMenuItems() const
         char const * id;
         QString text;
         std::function<void(RDomainWidget *)> act;
-    };
+    }; /* end struct CameraMove */
     // The keyboard hints the labels used to carry were wrong: those keys are
     // handled in RDomainWidget::keyPressEvent with different behavior, so they
     // are dropped here rather than advertised.

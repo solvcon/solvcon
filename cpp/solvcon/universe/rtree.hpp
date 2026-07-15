@@ -114,7 +114,7 @@ public:
         m_max_y = std::max(m_max_y, other.m_max_y);
         m_max_z = std::max(m_max_z, other.m_max_z);
     }
-}; /* end of struct BoundBox3d */
+}; /* end class BoundBox3d */
 
 /**
  * Value operations traits for the R-tree.
@@ -132,7 +132,7 @@ struct RTreeValueOps
 
     /// Calculate bounding box for a group of items
     static B calc_group_bound_box(std::vector<E> const & items);
-}; /* end of struct RTreeValueOps */
+}; /* end struct RTreeValueOps */
 
 /**
  * R-tree node structure.
@@ -224,7 +224,7 @@ struct RTreeNode
 
         bbox = result_box;
     }
-}; /* end of struct RTreeNode */
+}; /* end struct RTreeNode */
 
 /**
  * R-tree spatial index based on Guttman's 1984 R-tree paper.
@@ -675,8 +675,8 @@ private:
         }
     }
 
-}; /* end of class RTree */
+}; /* end class RTree */
 
-} /* end of namespace solvcon */
+} /* end namespace solvcon */
 
 // vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

@@ -81,8 +81,8 @@ T max(T const * start, T const * end)
     return max_val;
 }
 
-} /* namespace generic */
+} /* end namespace generic */
 
-} /* namespace simd */
+} /* end namespace simd */
 
-} /* namespace solvcon */
+} /* end namespace solvcon */

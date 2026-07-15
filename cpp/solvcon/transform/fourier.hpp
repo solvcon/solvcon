@@ -136,7 +136,7 @@ public:
             }
         }
     }
-};
+}; /* end class FourierTransform */
 
 namespace detail
 {
@@ -188,7 +188,7 @@ void fft_bluestein(SimpleArray<T1<T2>> const & in, SimpleArray<T1<T2>> & out)
     }
 }
 
-} /* end of namespace detail */
+} /* end namespace detail */
 
 } /* end namespace solvcon */
 

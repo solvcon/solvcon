@@ -298,7 +298,7 @@ struct ToolEntry
 {
     char const * name;
     std::unique_ptr<DrawToolBase> (*make)();
-};
+}; /* end struct ToolEntry */
 
 ToolEntry const TOOL_TABLE[] = {
     {PanTool::NAME, []() -> std::unique_ptr<DrawToolBase>
@@ -315,7 +315,7 @@ ToolEntry const TOOL_TABLE[] = {
      { return std::make_unique<CircleTool>(); }},
 };
 
-} /* end anonymous namespace */
+} /* end namespace */
 
 std::vector<std::string> const & draw_tool_names()
 {

@@ -76,7 +76,7 @@ struct KeyChord
 {
     KeyMod mods;
     Key key;
-};
+}; /* end struct KeyChord */
 
 constexpr bool operator==(KeyChord lhs, KeyChord rhs)
 {
@@ -85,7 +85,7 @@ constexpr bool operator==(KeyChord lhs, KeyChord rhs)
 
 struct Unbound
 {
-};
+}; /* end struct Unbound */
 
 /// A key spelling is either a standard action, a curated chord, or unbound.
 /// Unbound is a placeholder for a command that has no binding on a platform yet.
@@ -112,20 +112,20 @@ struct ShortcutBinding
     KeySpelling key;
     ShortcutContext context;
     MenuRole role = MenuRole::None;
-};
+}; /* end struct ShortcutBinding */
 
 struct ShortcutCapabilities
 {
     PlatformId platform;
     bool movesItemsToApplicationMenu;
     std::vector<KeyChord> reservedSequences;
-};
+}; /* end struct ShortcutCapabilities */
 
 struct ShortcutConflict
 {
     ShortcutCommand first;
     ShortcutCommand second;
-};
+}; /* end struct ShortcutConflict */
 
 std::string_view commandId(ShortcutCommand command);
 

@@ -30,7 +30,7 @@ private:
 
     struct ctor_passkey
     {
-    };
+    }; /* end struct ctor_passkey */
 
 public:
 
@@ -173,7 +173,7 @@ private:
             std::free(ptr); // NOLINT(cppcoreguidelines-owning-memory,cppcoreguidelines-no-malloc)
 #endif
         }
-    };
+    }; /* end struct aligned_deleter */
 
     using unique_ptr_type = std::unique_ptr<int8_t, aligned_deleter>;
 

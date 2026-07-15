@@ -212,7 +212,7 @@ private:
 
     detail::Bezier3dData<T> m_data;
 
-}; // namespace solvcon
+}; /* end class Bezier3d */
 
 using Bezier3dFp32 = Bezier3d<float>;
 using Bezier3dFp64 = Bezier3d<double>;
@@ -233,7 +233,7 @@ private:
 
     struct ctor_passkey
     {
-    };
+    }; /* end struct ctor_passkey */
 
 public:
 

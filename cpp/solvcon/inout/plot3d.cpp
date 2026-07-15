@@ -148,8 +148,8 @@ void Plot3d::build_interior(const std::shared_ptr<StaticMesh> & blk)
     blk->build_ghost();
 }
 
-} // namespace inout
+} /* end namespace inout */
 
-} // namespace solvcon
+} /* end namespace solvcon */
 
 // vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

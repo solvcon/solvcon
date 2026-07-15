@@ -194,7 +194,7 @@ private:
     {
         return lower_bound(array, dim) + array.shape(dim);
     }
-};
+}; /* end class IndexRange */
 
 std::string format_shape(shape_type const & shape);
 std::string format_flat_index(shape_type const & shape, ssize_t offset);
@@ -206,7 +206,7 @@ struct SimpleArrayInternalTypes
     using shape_type = detail::shape_type;
     using sshape_type = detail::sshape_type;
     using buffer_type = ConcreteBuffer;
-}; /* end class SimpleArrayInternalType */
+}; /* end struct SimpleArrayInternalTypes */
 
 template <typename A, typename T>
 class SimpleArrayMixinModifiers
@@ -233,13 +233,13 @@ template <typename U>
 struct select_real_t
 {
     using type = U;
-};
+}; /* end struct select_real_t */
 
 template <typename U>
 struct select_real_t<Complex<U>>
 {
     using type = U;
-};
+}; /* end struct select_real_t */
 
 template <typename A, typename T>
 class SimpleArrayMixinSum
@@ -1579,7 +1579,7 @@ A SimpleArrayMixinMatrix<A, T>::pow(ssize_t n) const
 // Tag type for explicit alignment constructor
 struct with_alignment_t
 {
-};
+}; /* end struct with_alignment_t */
 
 /**
  * Simple array type for contiguous memory storage. Size does not change. The

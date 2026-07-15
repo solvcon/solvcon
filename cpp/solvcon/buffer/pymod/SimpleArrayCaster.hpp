@@ -62,7 +62,7 @@ namespace detail
         {                                                                                                                                                     \
             return base::cast(src, policy, parent);                                                                                                           \
         }                                                                                                                                                     \
-    }
+    } /* end struct type_caster */
 
 DECL_MM_SIMPLE_ARRAY_CASTER(Bool);
 DECL_MM_SIMPLE_ARRAY_CASTER(Int8);

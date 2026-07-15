@@ -274,6 +274,6 @@ void OasisDevice::append_record_bytes(std::vector<uint8_t> & bytes, const T & re
     bytes.insert(bytes.end(), rec_bytes.begin(), rec_bytes.end());
 }
 
-} // namespace solvcon
+} /* end namespace solvcon */
 
 // vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

@@ -95,7 +95,7 @@ struct ThemeColor
         , b(blue)
     {
     }
-};
+}; /* end struct ThemeColor */
 
 /**
  * @brief The colors a palette assigns to the widget roles the pilot uses.
@@ -126,7 +126,7 @@ struct ThemePalette
     ThemeColor disabled_button_text;
     ThemeColor disabled_window_text;
     ThemeColor disabled_highlight;
-};
+}; /* end struct ThemePalette */
 
 /**
  * @brief The colors the console's Python highlighter and its matching-bracket
@@ -146,7 +146,7 @@ struct SyntaxColors
     ThemeColor comment;
     ThemeColor number;
     ThemeColor bracket_match;
-};
+}; /* end struct SyntaxColors */
 
 /**
  * @brief What a platform's theme is able to honor.
@@ -169,7 +169,7 @@ struct ThemeCapabilities
     bool controls_titlebar = false;
     /// Installs a platform-native widget style rather than a portable one.
     bool has_native_style = false;
-};
+}; /* end struct ThemeCapabilities */
 
 /// The curated light palette, the shared fallback every platform table seeds
 /// from until its room is furnished.

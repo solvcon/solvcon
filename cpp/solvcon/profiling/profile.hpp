@@ -83,7 +83,7 @@ private:
     time_type m_start;
     time_type m_stop;
 
-}; /* end struct StopWatch */
+}; /* end class StopWatch */
 
 } /* end namespace solvcon */
 

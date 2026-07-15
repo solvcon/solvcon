@@ -37,7 +37,7 @@ struct SyntaxSpan
     std::size_t start;
     std::size_t length;
     SyntaxTokenKind kind;
-};
+}; /* end struct SyntaxSpan */
 
 constexpr std::size_t syntax_npos = static_cast<std::size_t>(-1);
 

@@ -129,7 +129,7 @@ private:
 
     struct ctor_passkey
     {
-    };
+    }; /* end struct ctor_passkey */
 
     using data_deleter_type = detail::ConcreteBufferDataDeleter;
 

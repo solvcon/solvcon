@@ -49,13 +49,13 @@ namespace detail
 template <template <typename...> class Template, typename T>
 struct is_specialization_of : std::false_type
 {
-};
+}; /* end struct is_specialization_of */
 
 /// Helper trait to check if a type is a specialization of a given template
 template <template <typename...> class Template, typename... Args>
 struct is_specialization_of<Template, Template<Args...>> : std::true_type
 {
-};
+}; /* end struct is_specialization_of */
 
 /// Helper trait to check if a type is a specialization of a given template
 template <template <typename...> class Template, typename T>

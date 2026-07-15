@@ -102,7 +102,7 @@ public:
     private:
         double m_pos;
         double m_spacing;
-    };
+    }; /* end class Iterator */
 
     Iterator begin() const { return Iterator(m_first, m_spacing); }
     double end() const { return m_extent; }
@@ -121,7 +121,7 @@ private:
     double m_spacing;
     double m_extent;
     double m_first;
-};
+}; /* end class GridLineRange */
 
 void paint_chrome(QPainter & painter, ViewTransform2dFp64 const & view, int width, int height)
 {
@@ -330,7 +330,7 @@ private:
     double m_ascent;
     double m_text_h;
     std::vector<QRectF> m_placed;
-};
+}; /* end class CoordinateLabelPainter */
 
 /// Compact number for shape annotations: enough digits to read, no trailing noise.
 QString format_measure(double value)
@@ -513,7 +513,7 @@ struct LabelObstacles
         }
         return false;
     }
-};
+}; /* end struct LabelObstacles */
 
 /**
  * Top-left for a block_w by block_h label placed outside `box`, on-canvas and
@@ -610,7 +610,7 @@ QPointF place_label_block(
     return have_fallback ? fallback : best;
 }
 
-} // anonymous namespace
+} /* end namespace */
 
 QPointF RWorldRenderer2d::map(double world_x, double world_y) const
 {

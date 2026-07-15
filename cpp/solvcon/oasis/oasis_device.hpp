@@ -118,6 +118,6 @@ private:
     int m_left, m_lower, m_w, m_h;
 }; /* end class OasisRecordRect */
 
-} // namespace solvcon
+} /* end namespace solvcon */
 
 // vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

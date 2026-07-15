@@ -34,8 +34,7 @@ protected:
     WrapPoint3d & wrap_operator();
     WrapPoint3d & wrap_accessor();
     WrapPoint3d & wrap_geometry();
-};
-/* end class WrapPoint3d */
+}; /* end class WrapPoint3d */
 
 template <typename T>
 WrapPoint3d<T>::WrapPoint3d(pybind11::module & mod, const char * pyname, const char * pydoc)

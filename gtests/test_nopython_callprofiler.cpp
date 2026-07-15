@@ -27,7 +27,7 @@ protected:
     }
 
     CallProfiler * pProfiler;
-};
+}; /* end class CallProfilerTest */
 
 constexpr int uniqueTime1 = 19;
 constexpr int uniqueTime2 = 35;
@@ -206,7 +206,7 @@ TEST_F(CallProfilerTest, cancel)
     EXPECT_EQ(radix_tree().get_unique_node(), 0);
 }
 
-} // namespace detail
-} // namespace solvcon
+} /* end namespace detail */
+} /* end namespace solvcon */
 
 // vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

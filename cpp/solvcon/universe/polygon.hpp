@@ -297,7 +297,7 @@ private:
 
     struct ctor_passkey
     {
-    };
+    }; /* end struct ctor_passkey */
 
 public:
 
@@ -1519,7 +1519,7 @@ private:
 
     struct ctor_passkey
     {
-    };
+    }; /* end struct ctor_passkey */
 
 public:
 
@@ -2068,7 +2068,7 @@ private:
 
     struct ctor_passkey
     {
-    };
+    }; /* end struct ctor_passkey */
 
 public:
 
@@ -2210,7 +2210,7 @@ private:
 
     struct ctor_passkey
     {
-    };
+    }; /* end struct ctor_passkey */
 
 public:
 
@@ -2501,7 +2501,7 @@ struct RTreeValueOps<Segment3d<T>, BoundBox3d<T>>
         }
         return result;
     }
-};
+}; /* end struct RTreeValueOps */
 
 template <typename T>
 Polygon3d<T> PolygonPad<T>::add_polygon(std::vector<point_type> const & nodes)

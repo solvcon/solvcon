@@ -87,7 +87,7 @@ private:
 
 struct mmtag
 {
-};
+}; /* end struct mmtag */
 
 } /* end namespace python */
 } /* end namespace solvcon */
@@ -125,7 +125,7 @@ private:
         function_record const & r = call.func;
         return std::string(str(r.scope.attr("__name__"))) + std::string(".") + r.name;
     }
-};
+}; /* end struct process_attribute */
 
 } /* end namespace detail */
 } /* end namespace pybind11 */

@@ -290,10 +290,10 @@ inline static type::vector_t<double> vdivq(type::vector_t<double> vec_a, type::v
 #undef stype_t
 #undef utype_t
 
-} // namespace neon
+} /* end namespace neon */
 
-} // namespace simd
+} /* end namespace simd */
 
-} /* namespace solvcon */
+} /* end namespace solvcon */
 
 #endif /* defined(__aarch64__) */

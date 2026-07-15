@@ -522,7 +522,7 @@ public:
 
 protected:
     WrapPolygon(pybind11::module & mod, char const * pyname, char const * pydoc);
-};
+}; /* end class WrapPolygon */
 
 template <typename T>
 WrapPolygon<T>::WrapPolygon(pybind11::module & mod, const char * pyname, const char * pydoc)
@@ -706,7 +706,7 @@ public:
 
 protected:
     WrapTrapezoidPad(pybind11::module & mod, char const * pyname, char const * pydoc);
-};
+}; /* end class WrapTrapezoidPad */
 
 template <typename T>
 WrapTrapezoidPad<T>::WrapTrapezoidPad(pybind11::module & mod, const char * pyname, const char * pydoc)
@@ -753,7 +753,7 @@ public:
 
 protected:
     WrapTrapezoidalDecomposer(pybind11::module & mod, char const * pyname, char const * pydoc);
-};
+}; /* end class WrapTrapezoidalDecomposer */
 
 template <typename T>
 WrapTrapezoidalDecomposer<T>::WrapTrapezoidalDecomposer(pybind11::module & mod, const char * pyname, const char * pydoc)

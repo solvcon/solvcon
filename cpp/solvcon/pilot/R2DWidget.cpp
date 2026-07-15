@@ -69,7 +69,7 @@ bool is_finite_view(ViewTransform2dFp64 const & v)
     return std::isfinite(v.pan_x()) && std::isfinite(v.pan_y()) && std::isfinite(v.zoom());
 }
 
-} // unnamed namespace
+} /* end namespace */
 
 R2DWidget::R2DWidget(QWidget * parent, Qt::WindowFlags f)
     : QWidget(parent, f)

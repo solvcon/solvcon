@@ -31,4 +31,4 @@ size_t next_power_of_two(size_t n)
 
 } /* end namespace detail */
 
-} // namespace solvcon
+} /* end namespace solvcon */
