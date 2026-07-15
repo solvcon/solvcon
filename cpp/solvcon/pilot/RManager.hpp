@@ -33,6 +33,7 @@ namespace solvcon
 
 class RMenuModel;
 class RThemeManager;
+class RShortcutManager;
 
 /**
  * @brief Singleton that owns the pilot main window and coordinates its
@@ -87,6 +88,12 @@ public:
 
     /// The application-wide theme controller, scriptable from Python.
     RThemeManager * themeManager() { return m_themeManager; }
+
+    /**
+     * The keyboard-shortcut resolver, scriptable from Python. Nothing routes
+     * its bindings through the pilot yet; later steps adopt them.
+     */
+    RShortcutManager * shortcutManager() { return m_shortcutManager; }
 
     void quit() { m_core->quit(); }
 
@@ -149,6 +156,12 @@ private:
      * OS color-scheme connection outlive each rebuild of the main window.
      */
     RThemeManager * m_themeManager = nullptr;
+
+    /**
+     * Keyboard-shortcut resolver, parented to the manager so it outlives each
+     * rebuild of the main window like the theme controller.
+     */
+    RShortcutManager * m_shortcutManager = nullptr;
 
     RPythonConsoleDockWidget * m_pycon = nullptr;
     QMdiArea * m_mdiArea = nullptr;

@@ -12,6 +12,7 @@
 #include <solvcon/pilot/DrawTool.hpp>
 #include <solvcon/pilot/RAction.hpp>
 #include <solvcon/pilot/RMenuModel.hpp>
+#include <solvcon/pilot/RShortcutManager.hpp>
 #include <solvcon/pilot/RThemeManager.hpp>
 #include <Qt>
 #include <QMenuBar>
@@ -54,6 +55,9 @@ RManager::RManager()
     m_mainWindow->setWindowIcon(QIcon(QString(":/icon.ico")));
     // Parented to the manager to make color-scheme survive a window rebuild.
     m_themeManager = new RThemeManager(this);
+    // The shortcut resolver is parented likewise. No action routes through it
+    // yet; later steps adopt its bindings on both the C++ and Python sides.
+    m_shortcutManager = new RShortcutManager(this);
     // Do not call setUp() from the constructor.  Windows may crash with
     // "exited with code -1073740791".  The reason is not yet clarified.
 }
@@ -65,6 +69,10 @@ RManager & RManager::setUp()
         if (m_themeManager == nullptr)
         {
             m_themeManager = new RThemeManager(this);
+        }
+        if (m_shortcutManager == nullptr)
+        {
+            m_shortcutManager = new RShortcutManager(this);
         }
         // Paint the style and palette for widgets to follow.
         this->m_themeManager->setWindow(m_mainWindow);
@@ -95,6 +103,8 @@ void RManager::reset()
     // its OS color-scheme connection unwinds while that application is alive.
     delete m_themeManager;
     m_themeManager = nullptr;
+    delete m_shortcutManager;
+    m_shortcutManager = nullptr;
     m_owned_core.reset(); // Deletes the application only if the pilot made it.
     m_core = nullptr;
     m_mainWindow = nullptr;

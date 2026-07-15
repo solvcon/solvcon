@@ -6,6 +6,7 @@
 #include <solvcon/pilot/keymap.hpp>
 
 #include <array>
+#include <optional>
 #include <variant>
 
 #include <gtest/gtest.h>
@@ -73,6 +74,26 @@ TEST(PilotKeymapConflicts, DefaultTablesHaveNoDeclaredConflicts)
     {
         EXPECT_TRUE(solvcon::findDeclaredConflicts(platform).empty());
     }
+}
+
+TEST(PilotKeymapId, CommandFromIdInvertsCommandId)
+{
+    for (auto command : solvcon::ALL_SHORTCUT_COMMANDS)
+    {
+        auto found = solvcon::commandFromId(solvcon::commandId(command));
+        ASSERT_TRUE(found.has_value());
+        EXPECT_EQ(*found, command);
+    }
+    EXPECT_FALSE(solvcon::commandFromId("no.such.command").has_value());
+}
+
+TEST(PilotKeymapId, ContextAndRoleHaveStableNames)
+{
+    EXPECT_EQ(solvcon::contextName(solvcon::ShortcutContext::Application), "application");
+    EXPECT_EQ(solvcon::contextName(solvcon::ShortcutContext::Window), "window");
+    EXPECT_EQ(solvcon::contextName(solvcon::ShortcutContext::Widget), "widget");
+    EXPECT_EQ(solvcon::roleName(solvcon::MenuRole::None), "none");
+    EXPECT_EQ(solvcon::roleName(solvcon::MenuRole::Quit), "quit");
 }
 
 // vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

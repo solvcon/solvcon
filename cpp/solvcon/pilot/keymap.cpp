@@ -5,6 +5,7 @@
 
 #include <solvcon/pilot/keymap.hpp>
 
+#include <array>
 #include <cstddef>
 #include <stdexcept>
 #include <variant>
@@ -69,6 +70,48 @@ std::string_view commandId(ShortcutCommand command)
     throw std::logic_error("Unexpected command");
 }
 
+std::string_view contextName(ShortcutContext context)
+{
+    switch (context)
+    {
+    case ShortcutContext::Application:
+        return "application";
+    case ShortcutContext::Window:
+        return "window";
+    case ShortcutContext::Widget:
+        return "widget";
+    }
+    throw std::logic_error("Unexpected context");
+}
+
+std::string_view roleName(MenuRole role)
+{
+    switch (role)
+    {
+    case MenuRole::None:
+        return "none";
+    case MenuRole::Quit:
+        return "quit";
+    case MenuRole::Preferences:
+        return "preferences";
+    case MenuRole::About:
+        return "about";
+    }
+    throw std::logic_error("Unexpected role");
+}
+
+std::optional<ShortcutCommand> commandFromId(std::string_view id)
+{
+    for (auto command : ALL_SHORTCUT_COMMANDS)
+    {
+        if (commandId(command) == id)
+        {
+            return command;
+        }
+    }
+    return std::nullopt;
+}
+
 std::vector<ShortcutBinding> const & bindingTable(PlatformId platform)
 {
     switch (platform)
@@ -121,29 +164,12 @@ bool contextsOverlap(ShortcutContext lhs, ShortcutContext rhs)
 
 std::vector<ShortcutConflict> findDeclaredConflicts(PlatformId platform)
 {
-    std::vector<ShortcutConflict> conflicts;
-    auto const & table = bindingTable(platform);
-    for (std::size_t i = 0; i < table.size(); ++i)
-    {
-        auto const * chord_i = std::get_if<KeyChord>(&table[i].key);
-        if (chord_i == nullptr)
-        {
-            continue;
-        }
-        for (std::size_t j = i + 1; j < table.size(); ++j)
-        {
-            auto const * chord_j = std::get_if<KeyChord>(&table[j].key);
-            if (chord_j == nullptr)
-            {
-                continue;
-            }
-            if (*chord_i == *chord_j && contextsOverlap(table[i].context, table[j].context))
-            {
-                conflicts.push_back({table[i].command, table[j].command});
-            }
-        }
-    }
-    return conflicts;
+    std::vector<ShortcutBinding> const & table = bindingTable(platform);
+    auto isChord = [&table](std::size_t i)
+    { return std::holds_alternative<KeyChord>(table[i].key); };
+    auto chordsEqual = [&table](std::size_t i, std::size_t j)
+    { return std::get<KeyChord>(table[i].key) == std::get<KeyChord>(table[j].key); };
+    return findConflicts(platform, isChord, chordsEqual);
 }
 
 } /* end namespace solvcon */
