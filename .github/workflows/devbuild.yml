@@ -554,8 +554,105 @@ jobs:
           CMAKE_ARGS="-DPYTHON_EXECUTABLE=$(which python3) -DUSE_SANITIZER=ON"
         echo "::endgroup::"
 
+  sanitizer_windows:
+
+    needs: [check_skip]
+
+    # The MSVC counterpart of the sanitizer job. MSVC implements only
+    # AddressSanitizer (no leak or undefined), and the instrumented gtest
+    # binary links the ASan runtime directly so ASan initializes at process
+    # start; a stock python.exe loading an instrumented .pyd cannot. It is
+    # slow, so it runs on the nightly schedule only.
+    if: |
+      needs.check_skip.outputs.skip != 'true' &&
+      github.event_name == 'schedule' && vars.MMGH_NIGHTLY == 'enable'
+
+    name: sanitizer_${{ matrix.os }}
+
+    runs-on: ${{ matrix.os }}
+
+    timeout-minutes: ${{ fromJSON(vars.MMGH_TIMEOUT_BUILD || '60') }}
+
+    strategy:
+      matrix:
+        os: [windows-2022]
+        cmake_build_type: [Release]
+
+      fail-fast: false
+
+    steps:
+
+    - uses: actions/checkout@v6
+      with:
+        fetch-depth: 1
+
+    - name: event name
+      run: |
+        echo "github.event_name: ${{ github.event_name }}"
+
+    - uses: TheMrMilchmann/setup-msvc-dev@v4
+      with:
+        arch: 'x64'
+
+    # CMake in the windows-2022 image is 3.31.6; solvcon needs >= 4.0.1.
+    - name: install CMake>4.0.1
+      uses: lukka/get-cmake@latest
+
+    - uses: actions/setup-python@v6
+      with:
+        python-version: '3.12'
+
+    - name: Cache vcpkg (install artifacts)
+      uses: actions/cache@v4
+      with:
+        path: |
+          C:\vcpkg\installed
+          C:\vcpkg\downloads
+          C:\vcpkg\buildtrees
+          C:\vcpkg\packages
+        key: vcpkg-${{ runner.os }}-openblas-lapack
+        restore-keys: vcpkg-${{ runner.os }}-
+
+    - name: install BLAS and LAPACK
+      run: |
+        echo "::group::install BLAS and LAPACK"
+        vcpkg install openblas:x64-windows lapack:x64-windows
+        $vcpkg_bin_path = @(
+          "C:\vcpkg\installed\x64-windows\bin",
+          "C:\vcpkg\installed\x64-windows\debug\bin"
+        ) -join ";"
+        echo "$vcpkg_bin_path" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        echo "::endgroup::"
+
+    - name: dependency by pip
+      run: |
+        echo "::group::dependency by pip"
+        pip3 install -U numpy pytest pybind11
+        echo "::endgroup::"
+
+    - name: cmake run_gtest USE_SANITIZER=ON
+      run: |
+        echo "::group::cmake run_gtest USE_SANITIZER=ON"
+        # AddressSanitizer over the C++ gtest binary. BUILD_QT=OFF keeps the
+        # run headless and USE_GOOGLETEST=ON overrides the Windows preset so
+        # the gtest binary is built. The MSVC toolset bin dir that
+        # setup-msvc-dev puts on PATH also carries the ASan runtime DLL that
+        # the instrumented binary loads at start.
+        cmake -GNinja `
+          -DCMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} `
+          -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
+          -DVCPKG_TARGET_TRIPLET="x64-windows" `
+          -Dpybind11_DIR="$(pybind11-config --cmakedir)" `
+          -DBUILD_QT=OFF `
+          -DUSE_GOOGLETEST=ON `
+          -DUSE_SANITIZER=ON `
+          -S${{ github.workspace }} `
+          -B${{ github.workspace }}/build
+        cmake --build ${{ github.workspace }}/build --target run_gtest
+        echo "::endgroup::"
+
   send_email_on_failure:
-    needs: [standalone_buffer, build, build_windows, sanitizer]
+    needs: [standalone_buffer, build, build_windows, sanitizer, sanitizer_windows]
     # Run if any of the dependencies failed in master branch
     if: ${{ always() && contains(needs.*.result, 'failure') && github.ref_name == 'master' && github.event.repository.fork == false }}
     uses: ./.github/workflows/send_email_on_fail.yml
@@ -565,6 +662,7 @@ jobs:
         - build: ${{ needs.build.result }}
         - build_windows: ${{ needs.build_windows.result }}
         - sanitizer: ${{ needs.sanitizer.result }}
+        - sanitizer_windows: ${{ needs.sanitizer_windows.result }}
     secrets:
       EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
       EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
