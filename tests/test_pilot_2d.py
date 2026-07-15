@@ -15,7 +15,7 @@ import solvcon
 
 try:
     from solvcon import pilot
-    from PySide6.QtGui import QGuiApplication, QImage
+    from PySide6.QtGui import QGuiApplication, QImage, QPixmap
 except ImportError:
     pilot = None
 
@@ -29,6 +29,20 @@ _PNG_MAGIC = b'\x89PNG\r\n\x1a\n'
 # a blue-dominant pixel must be geometry. ORIGIN (220, 80, 80) is the only
 # red-dominant color, since the yellow axes have equal red and green, which
 # lets the origin marker be located on its own.
+
+
+def _clipboard_can_hold_pixmap(clipboard):
+    """Whether the platform clipboard can store and return a pixmap.
+
+    A non-interactive Windows host (and some headless setups) hand out a
+    QClipboard whose set/get is a silent no-op: nothing round-trips, so an
+    on-screen clipboard test cannot tell a real regression from a clipboard it
+    was never allowed to touch. Probe with a sentinel and let the caller skip
+    when the round-trip is dead.
+    """
+    probe = QPixmap.fromImage(QImage(2, 2, QImage.Format.Format_RGB32))
+    clipboard.setPixmap(probe)
+    return not clipboard.pixmap().isNull()
 
 
 def _png_size(data):
@@ -464,6 +478,8 @@ class R2DWidgetScreenshotTC(unittest.TestCase):
         clipboard = QGuiApplication.clipboard()
         if clipboard is None:
             self.skipTest("no clipboard in this environment")
+        if not _clipboard_can_hold_pixmap(clipboard):
+            self.skipTest("clipboard cannot hold a pixmap in this environment")
         self.widget.updateWorld(_build_world())
         self.widget.resetView()
         clipboard.clear()

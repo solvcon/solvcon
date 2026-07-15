@@ -26,6 +26,7 @@
 #   .\build.ps1 -Test                 then run "pytest tests\" headless
 #   .\build.ps1 -Pilot                then launch the pilot GUI
 #   .\build.ps1 -PilotTest            then run "pilot.exe --mode=pytest" headless
+#   .\build.ps1 -Gtest                also build and run the C++ gtest suite
 #
 # Overridable variables:
 #   SCDV_VS_VERSION: vswhere -version range picking the VS whose cl/vcvars
@@ -38,6 +39,7 @@ param(
     [string]$Repo,
     [ValidateSet('Release', 'Debug')][string]$BuildType = 'Release',
     [switch]$NoQt,
+    [switch]$Gtest,
     [switch]$Test,
     [switch]$Pilot,
     [switch]$PilotTest,
@@ -167,6 +169,7 @@ $extra = @(
     "-DCMAKE_PREFIX_PATH=$usr"
 )
 if ($NoQt) { $extra += '-DBUILD_QT=OFF' }
+if ($Gtest) { $extra += '-DUSE_GOOGLETEST=ON' }
 
 Push-Location $Repo
 try {
@@ -176,6 +179,7 @@ try {
 
     $targets = @('_solvcon')
     if (-not $NoQt) { $targets += 'pilot' }
+    if ($Gtest) { $targets += 'test_nopython' }
     Write-Host "building targets: $($targets -join ', ')"
     & $cmake --build --preset $preset --target @targets
     Assert-LastExit 'cmake build'
@@ -198,7 +202,7 @@ if (-not $NoQt) {
 
 # --- Optional: run ----------------------------------------------------------
 
-if ($Test -or $PilotTest -or $Pilot) {
+if ($Gtest -or $Test -or $PilotTest -or $Pilot) {
     $env:PYTHONPATH = $Repo
     # Headless runs default to offscreen; -Pilot keeps the native platform.
     if (($Test -or $PilotTest) -and -not $Pilot -and -not $env:QT_QPA_PLATFORM) {
@@ -207,6 +211,13 @@ if ($Test -or $PilotTest -or $Pilot) {
     $pilotExe = Join-Path $bld 'pilot.exe'
     Push-Location $Repo
     try {
+        if ($Gtest) {
+            Write-Host '=== gtest (test_nopython) ==='
+            $gtestExe = Join-Path $bld 'test_nopython.exe'
+            Write-Host "run: $gtestExe"
+            & $gtestExe
+            Assert-LastExit 'test_nopython'
+        }
         if ($Test) {
             Write-Host '=== pytest tests ==='
             Write-Host "run: $py -m pytest tests"

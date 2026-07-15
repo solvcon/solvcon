@@ -128,7 +128,8 @@ jobs:
               p.startsWith('cpp/') || p.startsWith('gtests/') ||
               p.startsWith('thirdparty/') || p.startsWith('.github/') ||
               p.endsWith('CMakeLists.txt') || p.endsWith('.cmake') ||
-              p.endsWith('.mk') || p === 'Makefile' || p === 'setup.py';
+              p.endsWith('.mk') || p === 'Makefile' || p === 'setup.py' ||
+              p === 'CMakePresets.json' || p === 'build.ps1';
 
             if (paths.length && paths.every(isDoc)) {
               core.notice('CI skipped: documentation-only pull request.');
