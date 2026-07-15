@@ -14,6 +14,8 @@
 #endif
 #include <vecLib/cblas_new.h>
 
+#elifdef MM_HAS_MKL
+#include <mkl_cblas.h>
 #elifdef MM_HAS_CBLAS
 #include <cblas.h>
 #endif

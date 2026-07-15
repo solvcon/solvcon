@@ -202,47 +202,78 @@ if (APPLE)
 endif () # APPLE
 
 if (NOT APPLE)
-    # The CBLAS header is needed for SimpleArray::matmul_blas() to use
-    # the vendor BLAS backend.
-    # Linux OpenBLAS packages also ship LAPACK symbols for EigenSystem.
-    set(OPENBLAS_PATH_SUFFIXES
-        openblas
-        openblas-pthread
-        openblas-openmp
-        openblas-serial)
-    if (CMAKE_LIBRARY_ARCHITECTURE)
-        list(APPEND OPENBLAS_PATH_SUFFIXES
-            ${CMAKE_LIBRARY_ARCHITECTURE}/openblas
-            ${CMAKE_LIBRARY_ARCHITECTURE}/openblas-pthread
-            ${CMAKE_LIBRARY_ARCHITECTURE}/openblas-openmp
-            ${CMAKE_LIBRARY_ARCHITECTURE}/openblas-serial)
-    endif ()
-    find_library(OPENBLAS_LIB
-        NAMES openblas libopenblas
-        PATH_SUFFIXES ${OPENBLAS_PATH_SUFFIXES})
-    find_path(OPENBLAS_INCLUDE_DIR
-        NAMES cblas.h
-        PATH_SUFFIXES ${OPENBLAS_PATH_SUFFIXES} OpenBLAS)
-    if (OPENBLAS_LIB AND OPENBLAS_INCLUDE_DIR)
-        message(STATUS "Found OpenBLAS: ${OPENBLAS_LIB}")
-        target_include_directories(solvcon_primary PUBLIC ${OPENBLAS_INCLUDE_DIR})
-        target_link_libraries(solvcon_primary PUBLIC ${OPENBLAS_LIB})
-        target_compile_definitions(solvcon_primary PUBLIC MM_HAS_CBLAS)
-    else ()
-        message(STATUS "OpenBLAS/CBLAS not found; CBLAS matmul will not be built.")
+    # Default follows the SOLVCON_USE_MKL environment variable (unset -> empty
+    # -> OFF) so an MKL scdv, whose Activate.ps1 exports it, builds against MKL
+    # without an explicit flag; a -DSOLVCON_USE_MKL=... still wins.
+    option(SOLVCON_USE_MKL
+        "Use pre-built Intel oneAPI MKL for BLAS/LAPACK instead of OpenBLAS"
+        "$ENV{SOLVCON_USE_MKL}")
+
+    # Intel oneAPI MKL is an optimized, pre-built vendor BLAS/LAPACK for x86.
+    # Its single dynamic runtime (mkl_rt, LP64) exports both the reference CBLAS
+    # entry points and the Fortran LAPACK symbols declared in lapack_compat.hpp,
+    # so it feeds the same matmul_blas()/EigenSystem paths as OpenBLAS.
+    set(MM_BLAS_FOUND OFF)
+    if (SOLVCON_USE_MKL)
+        find_library(MKL_LIB NAMES mkl_rt)
+        find_path(MKL_INCLUDE_DIR NAMES mkl_cblas.h)
+        if (MKL_LIB AND MKL_INCLUDE_DIR)
+            message(STATUS "Found Intel MKL: ${MKL_LIB}")
+            target_include_directories(solvcon_primary PUBLIC ${MKL_INCLUDE_DIR})
+            target_link_libraries(solvcon_primary PUBLIC ${MKL_LIB})
+            target_compile_definitions(solvcon_primary PUBLIC
+                MM_HAS_CBLAS MM_HAS_MKL MM_HAS_VENDOR_LAPACK)
+            set(MM_BLAS_FOUND ON)
+        else ()
+            message(STATUS
+                "SOLVCON_USE_MKL is ON but Intel MKL was not found; "
+                "falling back to OpenBLAS.")
+        endif ()
     endif ()
 
-    if (WIN32)
-        find_package(LAPACK QUIET)
-        if (LAPACK_FOUND)
-            message(STATUS "Found LAPACK: ${LAPACK_LIBRARIES}")
-            target_link_libraries(solvcon_primary PUBLIC LAPACK::LAPACK)
-            target_compile_definitions(solvcon_primary PUBLIC MM_HAS_VENDOR_LAPACK)
-        else ()
-            message(STATUS "LAPACK not found; EigenSystem will not be built.")
+    if (NOT MM_BLAS_FOUND)
+        # The CBLAS header is needed for SimpleArray::matmul_blas() to use
+        # the vendor BLAS backend.
+        # Linux OpenBLAS packages also ship LAPACK symbols for EigenSystem.
+        set(OPENBLAS_PATH_SUFFIXES
+            openblas
+            openblas-pthread
+            openblas-openmp
+            openblas-serial)
+        if (CMAKE_LIBRARY_ARCHITECTURE)
+            list(APPEND OPENBLAS_PATH_SUFFIXES
+                ${CMAKE_LIBRARY_ARCHITECTURE}/openblas
+                ${CMAKE_LIBRARY_ARCHITECTURE}/openblas-pthread
+                ${CMAKE_LIBRARY_ARCHITECTURE}/openblas-openmp
+                ${CMAKE_LIBRARY_ARCHITECTURE}/openblas-serial)
         endif ()
-    elseif (OPENBLAS_LIB)
-        target_compile_definitions(solvcon_primary PUBLIC MM_HAS_VENDOR_LAPACK)
+        find_library(OPENBLAS_LIB
+            NAMES openblas libopenblas
+            PATH_SUFFIXES ${OPENBLAS_PATH_SUFFIXES})
+        find_path(OPENBLAS_INCLUDE_DIR
+            NAMES cblas.h
+            PATH_SUFFIXES ${OPENBLAS_PATH_SUFFIXES} OpenBLAS)
+        if (OPENBLAS_LIB AND OPENBLAS_INCLUDE_DIR)
+            message(STATUS "Found OpenBLAS: ${OPENBLAS_LIB}")
+            target_include_directories(solvcon_primary PUBLIC ${OPENBLAS_INCLUDE_DIR})
+            target_link_libraries(solvcon_primary PUBLIC ${OPENBLAS_LIB})
+            target_compile_definitions(solvcon_primary PUBLIC MM_HAS_CBLAS)
+        else ()
+            message(STATUS "OpenBLAS/CBLAS not found; CBLAS matmul will not be built.")
+        endif ()
+
+        if (WIN32)
+            find_package(LAPACK QUIET)
+            if (LAPACK_FOUND)
+                message(STATUS "Found LAPACK: ${LAPACK_LIBRARIES}")
+                target_link_libraries(solvcon_primary PUBLIC LAPACK::LAPACK)
+                target_compile_definitions(solvcon_primary PUBLIC MM_HAS_VENDOR_LAPACK)
+            else ()
+                message(STATUS "LAPACK not found; EigenSystem will not be built.")
+            endif ()
+        elseif (OPENBLAS_LIB)
+            target_compile_definitions(solvcon_primary PUBLIC MM_HAS_VENDOR_LAPACK)
+        endif ()
     endif ()
 endif () # NOT APPLE
 
