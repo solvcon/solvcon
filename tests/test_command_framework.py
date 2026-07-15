@@ -252,4 +252,182 @@ class CommandDispatcherTC(unittest.TestCase):
             self.dispatcher.run_script([{"op": "nope"}])
 
 
+class BadCount(agent.Command):
+    op = "bad_count"
+    category = "read"
+    summary = "Return a value that violates the result schema."
+    returns = {"n": {"type": "integer", "description": "Item count."}}
+
+    def apply(self, target, args, ctx):
+        return {"n": "not-an-integer"}
+
+
+class LogNote(agent.Command):
+    op = "note"
+    category = "log"
+    summary = "Record a note in the processor log."
+    arguments = {"text": {"type": "string", "description": "Note text."}}
+
+    def apply(self, target, args, ctx):
+        ctx.append_log(args["text"])
+        return {}
+
+
+class CommandRegistrationTC(unittest.TestCase):
+    """Guards that reject a malformed command declaration."""
+
+    def setUp(self):
+        self.family = agent.CommandSet("demo", "Demo.")
+
+    def test_rejects_command_without_an_op(self):
+        class NoOp(agent.Command):
+            category = "read"
+
+        with self.assertRaises(ValueError):
+            self.family.register(NoOp)
+
+    def test_rejects_a_duplicate_op(self):
+        self.family.register(AddItem)
+        with self.assertRaises(ValueError):
+            self.family.register(AddItem)
+
+    def test_rejects_optional_that_is_not_an_argument(self):
+        class Ghost(agent.Command):
+            op = "ghost"
+            category = "read"
+            optional = ("missing",)
+
+        with self.assertRaises(ValueError):
+            self.family.register(Ghost)
+
+    def test_rejects_a_defaulted_required_argument(self):
+        class Defaulted(agent.Command):
+            op = "defaulted"
+            category = "create"
+            arguments = {"x": {"type": "integer", "default": 1}}
+
+        with self.assertRaises(ValueError):
+            self.family.register(Defaulted)
+
+
+class ResultValidationTC(unittest.TestCase):
+    """The processor's optional result-schema check."""
+
+    def _family(self):
+        family = agent.CommandSet("demo", "Demo.")
+        family.register(BadCount)
+        return family
+
+    def test_off_by_default_lets_an_off_contract_result_through(self):
+        ex = agent.CommandProcessor(_Bag(), self._family())
+        self.assertTrue(ex.run({"op": "bad_count"}).ok)
+
+    def test_on_catches_an_off_contract_result(self):
+        ex = agent.CommandProcessor(_Bag(), self._family(),
+                                    validate_results=True)
+        res = ex.run({"op": "bad_count"})
+        self.assertFalse(res.ok)
+        self.assertEqual(res.op, "bad_count")
+
+    def test_on_accepts_a_conforming_result(self):
+        ex = agent.CommandProcessor(_Bag(), _family(),
+                                    validate_results=True)
+        self.assertTrue(ex.run({"op": "add_item", "name": "x"}).ok)
+
+
+class ProcessorLogTC(unittest.TestCase):
+    """The per-processor log the recording harness reads."""
+
+    def test_append_log_accumulates_and_log_returns_a_copy(self):
+        ex = agent.CommandProcessor(_Bag(), _family())
+        ex.append_log("a")
+        ex.append_log("b")
+        snapshot = ex.log
+        self.assertEqual(snapshot, ["a", "b"])
+        snapshot.append("c")
+        self.assertEqual(ex.log, ["a", "b"])
+
+    def test_a_command_logs_through_its_ctx(self):
+        family = agent.CommandSet("demo", "Demo.")
+        family.register(LogNote)
+        ex = agent.CommandProcessor(_Bag(), family)
+        ex.run({"op": "note", "text": "hello"})
+        self.assertEqual(ex.log, ["hello"])
+
+
+class ProcessorErrorCaptureTC(unittest.TestCase):
+    """A failing command becomes a failed result, never a raise."""
+
+    def setUp(self):
+        self.ex = agent.CommandProcessor(_Bag(), _family())
+
+    def test_a_plain_exception_is_captured_with_its_type(self):
+        res = self.ex.run({"op": "boom"})
+        self.assertFalse(res.ok)
+        self.assertIn("RuntimeError", res.error)
+
+    def test_a_non_dict_command_fails_with_a_placeholder_op(self):
+        res = self.ex.run("not a command")
+        self.assertFalse(res.ok)
+        self.assertEqual(res.op, "?")
+
+
+class ValidationRobustnessTC(unittest.TestCase):
+    """Friendly errors on structurally invalid input."""
+
+    def setUp(self):
+        self.family = _family()
+
+    def test_a_non_object_command_is_rejected(self):
+        with self.assertRaises(agent.CommandError):
+            self.family.validate_command(["op", "count"])
+
+    def test_a_command_without_a_string_op_is_rejected(self):
+        with self.assertRaises(agent.CommandError):
+            self.family.validate_command({"name": "x"})
+
+    def test_a_script_that_is_not_a_list_is_rejected(self):
+        with self.assertRaises(agent.CommandError):
+            self.family.validate_script({"op": "count"})
+
+
+class DerivedSchemaTC(unittest.TestCase):
+    """Behavior of the lazily derived, cached schema surface."""
+
+    def test_registration_invalidates_the_schema_cache(self):
+        family = _family()
+        self.assertNotIn("late", family.command_schemas)
+
+        class Late(agent.Command):
+            op = "late"
+            category = "read"
+
+            def apply(self, target, args, ctx):
+                return {}
+
+        family.register(Late)
+        self.assertIn("late", family.command_schemas)
+
+    def test_apply_defaults_does_not_mutate_its_input(self):
+        command = {"op": "style", "style": {"stroke": {"width": 2}}}
+        _family().apply_defaults(command)
+        self.assertEqual(command,
+                         {"op": "style", "style": {"stroke": {"width": 2}}})
+
+    def test_tool_definitions_drop_op_and_carry_the_output_schema(self):
+        tools = {t["name"]: t for t in _family().tool_definitions()}
+        add = tools["add_item"]
+        self.assertNotIn("op", add["inputSchema"]["properties"])
+        self.assertEqual(add["category"], "create")
+        self.assertIn("count", add["outputSchema"]["properties"])
+
+
+class CommandBaseTC(unittest.TestCase):
+    """The base command contract."""
+
+    def test_apply_is_not_implemented(self):
+        with self.assertRaises(NotImplementedError):
+            agent.Command().apply(None, {}, None)
+
+
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
