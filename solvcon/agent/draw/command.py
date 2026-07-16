@@ -5,8 +5,8 @@
 """
 The command vocabulary for driving a ``World`` from an AI agent.
 
-Each command is one ``Command`` subclass registered in ``DRAW``; the JSON
-Schema documents and validators are derived from them (see
+Each command is one ``Command`` subclass registered in the command set; the
+JSON Schema documents and validators are derived from them (see
 :mod:`solvcon.agent._command`). Only the ``World``-specific fragments and
 behavior live here, so a mesh or pilot family declares commands the same way.
 ``render_png`` returns a transport-ready image (base64 PNG), never raw bytes,
@@ -122,11 +122,11 @@ def _require_live(world, shape_id):
         raise _cmd.CommandError(f"no live shape with id {shape_id}")
 
 
-DRAW = _cmd.CommandSet("Agent Draw command",
-                       "Any single command in the Agent Draw schema.")
+_command_set = _cmd.CommandSet(
+    "Agent Draw command", "Any single command in the Agent Draw schema.")
 
 
-@DRAW.register
+@_command_set.register
 class AddPoint(_cmd.Command):
     op = "add_point"
     category = "create"
@@ -143,7 +143,7 @@ class AddPoint(_cmd.Command):
         return {"npoint": world.npoint}
 
 
-@DRAW.register
+@_command_set.register
 class AddSegment(_cmd.Command):
     op = "add_segment"
     category = "create"
@@ -159,7 +159,7 @@ class AddSegment(_cmd.Command):
         return {"nsegment": world.nsegment}
 
 
-@DRAW.register
+@_command_set.register
 class AddLine(_cmd.Command):
     op = "add_line"
     category = "create"
@@ -175,7 +175,7 @@ class AddLine(_cmd.Command):
             args["x0"], args["y0"], args["x1"], args["y1"])}
 
 
-@DRAW.register
+@_command_set.register
 class AddTriangle(_cmd.Command):
     op = "add_triangle"
     category = "create"
@@ -194,7 +194,7 @@ class AddTriangle(_cmd.Command):
             args["x2"], args["y2"])}
 
 
-@DRAW.register
+@_command_set.register
 class AddRectangle(_cmd.Command):
     op = "add_rectangle"
     category = "create"
@@ -210,7 +210,7 @@ class AddRectangle(_cmd.Command):
             args["x_min"], args["y_min"], args["x_max"], args["y_max"])}
 
 
-@DRAW.register
+@_command_set.register
 class AddSquare(_cmd.Command):
     op = "add_square"
     category = "create"
@@ -225,7 +225,7 @@ class AddSquare(_cmd.Command):
             args["x_min"], args["y_min"], args["size"])}
 
 
-@DRAW.register
+@_command_set.register
 class AddEllipse(_cmd.Command):
     op = "add_ellipse"
     category = "create"
@@ -240,7 +240,7 @@ class AddEllipse(_cmd.Command):
             args["cx"], args["cy"], args["rx"], args["ry"])}
 
 
-@DRAW.register
+@_command_set.register
 class AddCircle(_cmd.Command):
     op = "add_circle"
     category = "create"
@@ -254,7 +254,7 @@ class AddCircle(_cmd.Command):
             args["cx"], args["cy"], args["r"])}
 
 
-@DRAW.register
+@_command_set.register
 class AddBezier(_cmd.Command):
     op = "add_bezier"
     category = "create"
@@ -273,7 +273,7 @@ class AddBezier(_cmd.Command):
         return {"nbezier": world.nbezier}
 
 
-@DRAW.register
+@_command_set.register
 class AddBezierShape(_cmd.Command):
     op = "add_bezier_shape"
     category = "create"
@@ -290,7 +290,7 @@ class AddBezierShape(_cmd.Command):
             _world_point(args["p2"]), _world_point(args["p3"]))}
 
 
-@DRAW.register
+@_command_set.register
 class GetShape(_cmd.Command):
     op = "get_shape"
     category = "read"
@@ -308,7 +308,7 @@ class GetShape(_cmd.Command):
         raise _cmd.CommandError(f"no live shape with id {shape_id}")
 
 
-@DRAW.register
+@_command_set.register
 class ShapeTypeOf(_cmd.Command):
     op = "shape_type_of"
     category = "read"
@@ -322,7 +322,7 @@ class ShapeTypeOf(_cmd.Command):
         return {"type": world.shape_type_of(args["shape_id"])}
 
 
-@DRAW.register
+@_command_set.register
 class NShape(_cmd.Command):
     op = "nshape"
     category = "read"
@@ -333,7 +333,7 @@ class NShape(_cmd.Command):
         return {"nshape": world.nshape}
 
 
-@DRAW.register
+@_command_set.register
 class QueryVisible(_cmd.Command):
     op = "query_visible"
     category = "read"
@@ -351,7 +351,7 @@ class QueryVisible(_cmd.Command):
         return {"shape_ids": list(ids)}
 
 
-@DRAW.register
+@_command_set.register
 class DescribeState(_cmd.Command):
     op = "describe_state"
     category = "read"
@@ -366,7 +366,7 @@ class DescribeState(_cmd.Command):
         return {"state": json.loads(world.describe_state(level=args["level"]))}
 
 
-@DRAW.register
+@_command_set.register
 class RenderPng(_cmd.Command):
     op = "render_png"
     category = "read"
@@ -397,7 +397,7 @@ class RenderPng(_cmd.Command):
                           "width": args["width"], "height": args["height"]}}
 
 
-@DRAW.register
+@_command_set.register
 class TranslateShape(_cmd.Command):
     op = "translate_shape"
     category = "update"
@@ -412,7 +412,7 @@ class TranslateShape(_cmd.Command):
         return {}
 
 
-@DRAW.register
+@_command_set.register
 class RemoveShape(_cmd.Command):
     op = "remove_shape"
     category = "delete"
@@ -425,7 +425,7 @@ class RemoveShape(_cmd.Command):
         return {}
 
 
-@DRAW.register
+@_command_set.register
 class Clear(_cmd.Command):
     op = "clear"
     category = "delete"
@@ -436,7 +436,7 @@ class Clear(_cmd.Command):
         return {}
 
 
-@DRAW.register
+@_command_set.register
 class Log(_cmd.Command):
     op = "log"
     category = "log"
@@ -448,16 +448,5 @@ class Log(_cmd.Command):
         ctx.append_log(args["message"])
         return {}
 
-
-COMMANDS = DRAW.commands
-COMMAND_SCHEMAS = DRAW.command_schemas
-RESULT_SCHEMAS = DRAW.result_schemas
-SCHEMA = DRAW.schema
-validate_command = DRAW.validate_command
-validate_result = DRAW.validate_result
-validate_script = DRAW.validate_script
-apply_defaults = DRAW.apply_defaults
-tool_definitions = DRAW.tool_definitions
-commands_by_category = DRAW.commands_by_category
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
