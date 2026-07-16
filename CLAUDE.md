@@ -172,6 +172,8 @@ See "Build, Test, Lint, Format" above for the `make` invocations.
   Breathing Room".
 - **C++**: 4-space indent, `m_` prefix on member vars, angle-bracket includes,
   C++23, prefer `SimpleCollector` / `small_vector` over STL for fundamentals.
+  No hard line-width limit; a line up to ~120 chars is fine. Do not wrap C++
+  down to the Python 79/80 limit when generating or editing code.
 - **Python**: PEP-8, 79-char hard limit, flake8.
 - **Comments**: Default to none. Add one only for what the code cannot say
   (the why, units, invariants, a non-obvious algorithm). Never restate the

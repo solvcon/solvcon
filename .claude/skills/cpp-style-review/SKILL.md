@@ -66,6 +66,12 @@ it briefly but don't re-implement the check here.
 - Trivial bodies (single `return`, single assignment) as one-liners.
 
 **Line economy**
+- **Line width (C++).** STYLE.md sets no hard width limit for C++; a line is
+  fine up to ~120 characters. Do not wrap C++ down to the Python 79/80 limit,
+  and do not flag a line under ~120 for width. Prefer one readable statement
+  on one line over a split made only to satisfy a limit that does not apply to
+  C++. Wrap only when it genuinely aids readability. (This applies when you
+  generate or edit C++ too, not just when reviewing it.)
 - Prefer fewer lines per STYLE.md. Flag unnecessary blank lines inside
   short blocks and needlessly spread-out code. Do not flag structural
   blank lines (between functions, logical sections, access specifiers).
