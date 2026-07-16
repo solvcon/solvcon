@@ -32,6 +32,8 @@ __all__ = [
     'get_completions',
     'get_call_tip',
     'run_code',
+    'push_code',
+    'reset_console',
     'run_worker',
     'stop_code',
     'build_pilot_namespace',
@@ -159,6 +161,25 @@ class AppEnvironment:
                 more = self.console.push('')
         return more
 
+    def push_line(self, line):
+        """
+        Push a single line to the persistent interpreter, interactively.
+
+        Unlike :meth:`run_code`, this does not close an open block with a
+        trailing blank line: it hands the interpreter one line and reports
+        whether the statement is still incomplete, so a terminal UI can show
+        a continuation prompt and keep collecting input. The namespace is
+        refreshed once at the start of a statement, when no partial input is
+        buffered.
+
+        :return: True when the interpreter is waiting for more input.
+        """
+        if not self.console.buffer:
+            for refresh in self.namespace_refreshers:
+                refresh(self.globals)
+        with _stdin_at_eof():
+            return self.console.push(line)
+
 
 def get_appenv(name=None):
     if None is name:
@@ -237,6 +258,16 @@ def get_call_tip(expr):
 def run_code(source):
     aenv = get_current_appenv()
     return aenv.run_code(source)
+
+
+def push_code(line):
+    aenv = get_current_appenv()
+    return aenv.push_line(line)
+
+
+def reset_console():
+    """Abandon any partially entered statement in the current console."""
+    get_current_appenv().console.resetbuffer()
 
 
 def run_worker(func, *args, **kwargs):

@@ -138,6 +138,19 @@ def exec_code(code):
     return apputil.run_code(code)
 
 
+def push_code(line):
+    # Interactive per-line entry for the terminal console: feed one line and
+    # report whether the statement is still incomplete, so the terminal can
+    # switch between the primary and continuation prompts.
+    return apputil.push_code(line)
+
+
+def reset_console():
+    # Abandon a partially entered statement, so the terminal can return to
+    # the primary prompt without running the incomplete block.
+    return apputil.reset_console()
+
+
 def get_completions(text):
     try:
         return apputil.get_completions(text)

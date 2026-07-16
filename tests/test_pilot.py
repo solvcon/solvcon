@@ -67,6 +67,23 @@ class PythonConsoleBackendTC(unittest.TestCase):
             self.assertFalse(self.env.console.push(''))
         self.assertEqual(out.getvalue(), '0\n1\n2\n')
 
+    def test_push_line_drives_interactive_multiline(self):
+        # push_line feeds one line at a time and reports whether the
+        # statement is still open, without closing it on the caller's behalf,
+        # so a terminal can show a continuation prompt.
+        import io
+        from contextlib import redirect_stdout
+        # A complete statement closes at once.
+        self.assertFalse(self.env.push_line('total = 0'))
+        # An open block stays open until a blank line closes it.
+        self.assertTrue(self.env.push_line('for i in range(3):'))
+        self.assertTrue(self.env.push_line('    total += i'))
+        self.assertFalse(self.env.push_line(''))
+        out = io.StringIO()
+        with redirect_stdout(out):
+            self.assertFalse(self.env.push_line('total'))
+        self.assertEqual(out.getvalue().strip(), '3')
+
     def test_exception_reports_user_traceback(self):
         _, out, err = self._run('raise ValueError("boom")')
         self.assertIn('ValueError: boom', err)

@@ -5,6 +5,8 @@
 
 #include <solvcon/pilot/RPythonTerminalDockWidget.hpp>
 
+#include <solvcon/pilot/RPythonSyntaxRules.hpp>
+
 #include <algorithm>
 
 #include <QFont>
@@ -224,24 +226,34 @@ void RPythonTerminalDockWidget::writeToHistory(std::string const & data)
 
 void RPythonTerminalDockWidget::executeCommand()
 {
+    // The command runs Python. When the Enter key arrives through the Qt
+    // event dispatch, the caller may not hold the GIL, so take it here, the
+    // way the completion path does, before touching the interpreter.
+    pybind11::gil_scoped_acquire const gil;
+
     QString const input = m_edit->inputText();
-    std::string const command = input.trimmed().toStdString();
+    QStringList const lines = input.split('\n');
 
     // Freeze the typed line into the transcript by ending it.
     m_edit->appendCommitted("\n");
 
-    if (command.empty())
-    {
-        m_edit->startInput(">>> ");
-        return;
-    }
-
-    m_history.add(command);
-    m_current_command_index = static_cast<int>(m_history.size());
-
+    // Feed the input to the interpreter one line at a time. The last push
+    // reports whether the statement is still open, which drives the choice
+    // between the primary and continuation prompts. A single push runs the
+    // code and captures its output when the statement closes.
+    bool more = false;
+    std::string last_line;
     auto & interp = solvcon::python::Interpreter::instance();
     m_python_redirect.activate();
-    interp.exec_code(command);
+    for (QString const & line : lines)
+    {
+        last_line = line.toStdString();
+        // A whitespace-only line closes an open block, the way a blank line
+        // does in the interactive interpreter, so the pre-filled indent of a
+        // continuation line does not keep the block open by itself.
+        std::string const to_push = line.trimmed().isEmpty() ? std::string() : last_line;
+        more = interp.push_code(to_push);
+    }
     if (m_python_redirect.is_activated())
     {
         std::string const out = m_python_redirect.stdout_string();
@@ -257,11 +269,53 @@ void RPythonTerminalDockWidget::executeCommand()
     }
     m_python_redirect.deactivate();
 
+    if (!m_pending_statement.empty())
+    {
+        m_pending_statement += '\n';
+    }
+    m_pending_statement += input.toStdString();
+
+    if (more)
+    {
+        // The statement is open; continue it on a "... " line, carrying the
+        // block's indentation forward so the caret starts where the next
+        // line belongs.
+        m_edit->startInput("... ");
+        std::string const indent = nextLineIndent(last_line);
+        if (!indent.empty())
+        {
+            m_edit->setInputText(QString::fromStdString(indent));
+        }
+    }
+    else
+    {
+        m_history.add(m_pending_statement);
+        m_current_command_index = static_cast<int>(m_history.size());
+        m_pending_statement.clear();
+        m_edit->startInput(">>> ");
+    }
+}
+
+void RPythonTerminalDockWidget::resetInput()
+{
+    // Abandon a partly entered block and return to a fresh primary prompt.
+    pybind11::gil_scoped_acquire const gil;
+    solvcon::python::Interpreter::instance().reset_console();
+    m_pending_statement.clear();
+    m_edit->setInputText("");
+    m_edit->appendCommitted("\n");
     m_edit->startInput(">>> ");
 }
 
 void RPythonTerminalDockWidget::navigateCommand(int offset)
 {
+    // History recall replaces a whole statement, so it only applies at the
+    // primary prompt, not in the middle of a continuation block.
+    if (!m_pending_statement.empty())
+    {
+        return;
+    }
+
     int const commands_num = static_cast<int>(m_history.size());
     if (commands_num == m_current_command_index)
     {

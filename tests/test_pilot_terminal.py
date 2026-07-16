@@ -46,8 +46,9 @@ class TerminalWidgetTC(unittest.TestCase):
     def setUp(self):
         self.term = self.mgr.pyterm
         self.edit = self.term.textEdit
-        # Start each test from an empty input region after the prompt.
-        self.term.command = ""
+        # Start each test from a clean primary prompt, abandoning any block a
+        # previous test left open in the shared interpreter.
+        self.term.resetInput()
 
     def _type(self, text):
         for ch in text:
@@ -126,6 +127,40 @@ class TerminalWidgetTC(unittest.TestCase):
         self.assertEqual(self.term.command, "history_one = 1")
         self._key(QtCore.Qt.Key_Down)
         self.assertEqual(self.term.command, "history_two = 2")
+
+    def test_incomplete_statement_shows_continuation_prompt(self):
+        self._type("for i in range(2):")
+        self._key(QtCore.Qt.Key_Return)
+        # The current line carries the continuation prompt.
+        last_line = self.edit.toPlainText().split("\n")[-1]
+        self.assertTrue(last_line.startswith("... "))
+        # The next line is auto-indented into the block.
+        self.assertEqual(self.term.command, "    ")
+
+    def test_multiline_block_runs_when_closed(self):
+        self._type("for i in range(2):")
+        self._key(QtCore.Qt.Key_Return)
+        # Continue at the auto-indented continuation line.
+        self._type("print(i)")
+        self._key(QtCore.Qt.Key_Return)
+        # A blank line (the pre-filled indent alone) closes and runs it.
+        self._key(QtCore.Qt.Key_Return)
+        text = self.edit.toPlainText()
+        # The body was echoed on a continuation line and the block ran.
+        self.assertIn("print(i)", text)
+        self.assertRegex(text, r"\.\.\. +print\(i\)")
+        self.assertIn("0", text)
+        self.assertIn("1", text)
+        self.assertTrue(text.endswith(">>> "))
+
+    def test_up_does_not_recall_mid_block(self):
+        self.term.command = "recall_me = 1"
+        self.term.executeCommand()
+        self._type("while False:")
+        self._key(QtCore.Qt.Key_Return)
+        # Mid-continuation, Up must not overwrite the input with history.
+        self._key(QtCore.Qt.Key_Up)
+        self.assertEqual(self.term.command, "    ")
 
     def test_write_to_history_appends_above_the_prompt(self):
         self._type("keep")
