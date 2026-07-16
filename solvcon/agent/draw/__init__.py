@@ -9,6 +9,7 @@ The command vocabulary lives in ``command.py`` (one ``Command`` subclass per
 command); the schema documents, validators, and tool definitions are derived
 from one private command set. This module delegates its command-family API to
 that set, so the harness and MCP adapters ride on the same commands.
+``Executor`` applies validated commands to a ``World``.
 """
 
 from .._command import (  # noqa: F401
@@ -18,6 +19,7 @@ from .._command import (  # noqa: F401
     CommandResult,
 )
 from .command import _command_set
+from .executor import Executor  # noqa: F401
 
 _COMMAND_API = (
     "apply_defaults",
@@ -52,6 +54,7 @@ __all__ = (
     "Command",
     "CommandError",
     "CommandResult",
+    "Executor",
     *_COMMAND_API,
 )
 

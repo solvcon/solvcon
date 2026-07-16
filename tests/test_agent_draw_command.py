@@ -5,7 +5,7 @@
 """A basic go-through of the Agent Draw command vocabulary in
 solvcon.agent.draw, exercised end to end against a real WorldFp64 through the
 generic CommandProcessor. Only a representative slice is covered here; the
-comprehensive per-command suite lands in a later change."""
+comprehensive per-command suite lives in test_agent_draw_schema.py."""
 
 import unittest
 
