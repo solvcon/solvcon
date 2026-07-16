@@ -29,6 +29,9 @@
 #   .\build.ps1 -Gtest                also build and run the C++ gtest suite
 #   .\build.ps1 -Sanitize             build and run the gtest suite under
 #                                     AddressSanitizer (implies -Gtest, -NoQt)
+#   .\build.ps1 -Sanitize -PilotTest  instead build the pilot under
+#                                     AddressSanitizer and run its pytest suite
+#                                     (pilot.exe --mode=pytest) under it
 #
 # Overridable variables:
 #   SCDV_VS_VERSION: vswhere -version range picking the VS whose cl/vcvars
@@ -64,16 +67,26 @@ if ($Help) {
     exit 0
 }
 
-# The sanitizer build runs the C++ gtest binary under AddressSanitizer, the
-# Windows counterpart of the Linux "make gtest USE_SANITIZER=ON" job. It reuses
-# the -Gtest build-and-run path and forces BUILD_QT=OFF to stay headless.
+# The sanitizer build runs a solvcon-produced binary under AddressSanitizer.
+# By default it is the C++ gtest binary (the Windows counterpart of the Linux
+# "make gtest USE_SANITIZER=ON" job), built BUILD_QT=OFF to stay headless. With
+# -PilotTest it is pilot.exe running its pytest suite, built BUILD_QT=ON so the
+# Qt canvas code is instrumented. Either binary links the ASan runtime directly
+# so ASan starts with the process; a stock python.exe loading the instrumented
+# .pyd would start it too late and crash.
 if ($Sanitize) {
-    if ($Pilot -or $PilotTest) {
-        throw '-Sanitize runs the gtest binary and cannot be combined ' +
-            'with -Pilot or -PilotTest'
+    if ($Pilot) {
+        throw '-Sanitize cannot drive a live -Pilot window; use -PilotTest ' +
+            'to run the pilot pytest suite under AddressSanitizer'
     }
-    $Gtest = $true
-    $NoQt = $true
+    if ($BuildType -eq 'Debug') {
+        throw '-Sanitize needs the Release preset: MSVC ASan rejects the ' +
+            "Debug /RTC1 runtime checks. Drop -BuildType Debug."
+    }
+    if (-not $PilotTest) {
+        $Gtest = $true
+        $NoQt = $true
+    }
 }
 
 # This script lives at the repo root; build that checkout by default.
@@ -227,6 +240,13 @@ if ($Gtest -or $Test -or $PilotTest -or $Pilot) {
     # Headless runs default to offscreen; -Pilot keeps the native platform.
     if (($Test -or $PilotTest) -and -not $Pilot -and -not $env:QT_QPA_PLATFORM) {
         $env:QT_QPA_PLATFORM = 'offscreen'
+    }
+    if ($Sanitize -and -not $env:ASAN_OPTIONS) {
+        # Hook the RTL allocators so the uninstrumented Qt and PySide6 DLLs
+        # share ASan's heap (else a cross-module free reads as a false
+        # mismatch); fail the run on the first report. No LSan on Windows.
+        $env:ASAN_OPTIONS =
+            'windows_hook_rtl_allocators=1:abort_on_error=1:detect_leaks=0'
     }
     $pilotExe = Join-Path $bld 'pilot.exe'
     Push-Location $Repo
