@@ -311,7 +311,11 @@ jobs:
       - name: install qt
         uses: jurplel/install-qt-action@v4
         with:
-          version: '6.8.1'
+          # aqtinstall 3.3.0 cannot resolve Qt 6.11's new split Windows
+          # desktop repository, so Windows stays on 6.10.3 while Linux and
+          # macOS run 6.11.1.
+          # Ref: https://github.com/miurahr/aqtinstall/issues/1007
+          version: '6.10.3'
           host: 'windows'
           target: 'desktop'
           arch: 'win64_msvc2022_64'
@@ -610,7 +614,11 @@ jobs:
     - name: install qt
       uses: jurplel/install-qt-action@v4
       with:
-        version: '6.8.1'
+        # aqtinstall 3.3.0 cannot resolve Qt 6.11's new split Windows
+        # desktop repository, so Windows stays on 6.10.3 while Linux and
+        # macOS run 6.11.1.
+        # Ref: https://github.com/miurahr/aqtinstall/issues/1007
+        version: '6.10.3'
         host: 'windows'
         target: 'desktop'
         arch: 'win64_msvc2022_64'

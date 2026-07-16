@@ -43,10 +43,10 @@ runs:
         # The "-st" suffix tracks the qtshadertools addition; bumping it forces
         # a clean install so the new module is present rather than masked by a
         # stale cache.
-        key: ${{ runner.os }}-qt-6.8.1-st-linux_gcc_64
+        key: ${{ runner.os }}-qt-6.11.1-st-linux_gcc_64
         # fallback to any previous Qt cache on this OS
         restore-keys: |
-          ${{ runner.os }}-qt-6.8.1-st-
+          ${{ runner.os }}-qt-6.11.1-st-
 
     - name: dependency by apt
       shell: bash
@@ -121,7 +121,7 @@ runs:
       if: "${{ inputs.workflow == 'lint' || inputs.workflow == 'build' }}"
       uses: jurplel/install-qt-action@v4
       with:
-        version: '6.8.1'
+        version: '6.11.1'
         host: 'linux'
         target: 'desktop'
         arch: 'linux_gcc_64'
