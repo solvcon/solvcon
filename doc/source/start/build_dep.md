@@ -4,12 +4,13 @@ To build the dependencies from source and install them into user space rather
 than system-wide, use the standalone scdv build scripts in
 `contrib/dependency/` described below.
 
-For a complete, self-contained environment, the per-platform scripts
-`ubuntu2404/build-scdv-ubuntu24.sh` and `macos26/build-scdv-macos26.sh` build
-solvcon's full runtime stack from source -- zlib, OpenSSL, SQLite, CPython,
-pybind11, Cython, NumPy, SciPy, Qt, and PySide6 -- into a versioned prefix
-under your home directory (by default
-`${HOME}/var/scdv/<platform>-py<pyver>-qt<qtver>`).
+For a complete, self-contained environment, the single cross-platform script
+`build-scdv.sh` builds solvcon's full runtime stack from source -- zlib,
+OpenSSL, SQLite, CPython, pybind11, Cython, NumPy, SciPy, Qt, and PySide6 --
+into a versioned prefix under your home directory (by default
+`${HOME}/var/scdv/<platform>-py<pyver>-qt<qtver>`). The target platform is
+auto-detected from `uname -s` (Ubuntu 24.04 or macOS 26); set `SCDV_OS` to
+force it. Windows uses the separate `windows/build-scdv-windows.ps1`.
 
 The build is organized into four sections: `BASE`, `PYTHON`, `NUMPY`, and `QT`
 with the corresponding environment variables `SCDVBUILD_BASE`,
@@ -20,9 +21,9 @@ The script never runs `apt` or Homebrew itself. Print the prerequisite
 commands, review them, and run them yourself:
 
 ```sh
-cd contrib/dependency/ubuntu2404
-./build-scdv-ubuntu24.sh --print-apt   # review, then run the printed commands
-./build-scdv-ubuntu24.sh               # build the whole stack into the prefix
+cd contrib/dependency
+./build-scdv.sh --print-deps   # review, then run the printed commands
+./build-scdv.sh                # build the whole stack into the prefix
 ```
 
 Useful flags: `--print-prefix` reports the install prefix and exits;

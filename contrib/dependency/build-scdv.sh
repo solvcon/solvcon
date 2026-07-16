@@ -1,61 +1,69 @@
 #!/bin/bash
 #
-# Build solvcon's runtime dependencies from source on Ubuntu 24.04, with no
-# dependency on the devenv tool. The per-package build recipes here are inlined
+# Build solvcon's runtime dependencies from source into a user-space prefix,
+# with no dependency on the devenv tool. This is the cross-platform entrance:
+# it holds the shared build logic and dispatches the platform-specific parts to
+# a per-OS module it sources. The target platform is auto-detected from
+# `uname -s` (Linux -> ubuntu, Darwin -> macos) and can be forced with
+# SCDV_OS=ubuntu|macos.
+#
+#   contrib/dependency/build-scdv.sh            entrance (this file)
+#   contrib/dependency/ubuntu2404/platform.sh   Ubuntu 24.04 module
+#   contrib/dependency/macos26/platform.sh      macOS 26 module
+#   contrib/dependency/*/build-scdv-*.sh        thin wrappers that exec this
+#                                               entrance with SCDV_OS set
+#
+# The per-OS module defines SCDV_OS_TAG and the plat_* hook functions this
+# entrance calls (see "Platform module contract" below); it is sourced, not run
+# directly. Platform-specific notes (apt/brew prerequisites, libclang, etc.)
+# live in the module headers. The per-package build recipes are inlined
 # translations of the scripts under devenv/scripts/build.d/ (zlib, openssl,
 # sqlite, python, pybind11, cython, numpy, scipy, qt, pyside6).
 #
 # 4 sections (BASE, PYTHON, NUMPY, QT) are guarded by the corresponding
 # SCDVBUILD_* environment variables.
 #
-# Before running this script, install the apt prerequisites. The helper
-# functions below print the exact commands; copy and run them yourself (the
-# script never invokes apt). LLVM_INSTALL_DIR defaults to /usr/lib/llvm-22 (the
-# apt llvm-22-dev path); override if needed.
-#
-# LLVM 22 is the libclang shiboken parses Qt headers with on Ubuntu 24.04 with
-# GCC 16: clang-18 is too old (its parser chokes on libstdc++-16).  Override
-# LLVM_INSTALL_DIR for another.  The patchelf apt package is the same binary
-# the patchelf PyPI wheel ships; either works, the script installs the wheel
-# anyway as a safety net.  libreadline is intentionally not listed: Python is
-# built with --with-readline=editline, which uses libedit (libedit-dev).
-# libmpdec is not packaged on Ubuntu 24.04; Python is built with
-# --with-system-libmpdec=no to use its bundled copy.
+# Before running this script, install the system prerequisites. The script
+# never invokes the OS package manager itself; run it with --print-deps to see
+# the exact commands, review them, and run them yourself.
 #
 # Usage:
-#   ./build-scdv-ubuntu24.sh
+#   ./build-scdv.sh
 #       Builds everything (BASE + PYTHON + NUMPY + QT).  The default is "build
 #       all" when no SCDVBUILD_* env var is set.  To limit to a single section,
 #       set one of SCDVBUILD_BASE/PYTHON/NUMPY/QT=1 and leave the others unset.
 #       In addition, SCDVBUILD_ALL=1 works the same as the default invocation.
 #       Before any package is built the user is prompted with "Press Enter to
 #       start the build, Ctrl-C to abort"; pass --no-confirm to skip.
-#   ./build-scdv-ubuntu24.sh --write-activate-only
+#   ./build-scdv.sh --write-activate-only
 #       Write only ${SCDV_BASE}/activate and exit.  Useful for refreshing the
 #       activation script for an already-built scdv without triggering any
 #       build section.
-#   ./build-scdv-ubuntu24.sh --skip PKG [--skip PKG ...]
+#   ./build-scdv.sh --skip PKG [--skip PKG ...]
 #       Skip a package within whatever sections are otherwise selected.  PKG
 #       can be one of: zlib openssl sqlite python pybind11 cython numpy scipy
 #       qt pyside6.  The flag accepts a single name, a comma-separated list
 #       ("--skip openssl,sqlite"), and may be repeated.  The --skip=PKG form
 #       also works.
-#   ./build-scdv-ubuntu24.sh --no-confirm
+#   ./build-scdv.sh --no-confirm
 #       Skip the "Press Enter to start the build" prompt that fires after the
 #       startup echo block.  Use in non-interactive runs (CI, scripts).
-#   ./build-scdv-ubuntu24.sh --print-prefix
+#   ./build-scdv.sh --print-prefix
 #       Print SCDV_PREFIX (the path prefix that SCDV_BASE is derived from)
 #       to stdout and exit.  Nothing else is printed and no directories are
 #       created, so this is safe to capture: PREFIX=$(./script --print-prefix).
-#   ./build-scdv-ubuntu24.sh --print-apt
-#       Print the apt prerequisite commands (the BASE/PYTHON/NUMPY section,
-#       the QT section, and the LaTeX section for the doc/ pstake PSTricks
-#       figures) to stdout and exit.  Nothing is built and no directories are
-#       created.  The script never runs apt itself; copy the output, review
-#       it, and run it.
+#   ./build-scdv.sh --print-deps
+#       Print the system prerequisite commands for the detected platform (apt
+#       on Ubuntu, brew on macOS) to stdout and exit.  Nothing is built and no
+#       directories are created.  The script never runs the package manager
+#       itself; copy the output, review it, and run it.  --print-apt is a
+#       backward-compatible alias.
 #
-# Overridable variables (search in the script for their defaults and
-# descriptions; not repeating here):
+# Overridable variables (search here and in the platform module for defaults):
+#   Platform:
+#     SCDV_OS: Target platform, "ubuntu" or "macos".  Auto-detected from
+#       `uname -s`; set explicitly to override.
+#
 #   Package versions:
 #     PYTHON_VERSION: CPython release tag.
 #     QT_MAJOR_VER: Qt major.minor version.
@@ -71,15 +79,80 @@
 #       depending on SCDV_SHARED_DLDIR).
 #     SCDV_SHARED_DLDIR: Shared cache for downloaded tarballs across solvcon
 #       development environments (scdvs).
+#
+# Platform module contract. The sourced per-OS module must set the variable
+# SCDV_OS_TAG (the token baked into the default prefix, e.g. ubuntu2404) and
+# define these hook functions, which this entrance calls:
+#   plat_init                 One-time platform setup (e.g. detect BREW_PREFIX).
+#   plat_nproc                Echo the default parallel-job count.
+#   plat_print_deps           Print the OS package-manager prerequisite lines.
+#   plat_startup_echo         Echo any extra platform lines in the startup block.
+#   plat_write_activate TGT   Write the activation script to path TGT.
+#   plat_md5 FILE             Echo the md5 hash of FILE.
+#   plat_python_env           Export CPPFLAGS/LDFLAGS for the CPython build.
+#   plat_numpy_install        Run the numpy `pip install .` (BLAS choice).
+#   plat_scipy_install        Run the scipy `pip install .` (BLAS choice).
+#   plat_numpy_run            Env-prep + `scdv_time build_numpy numpy`.
+#   plat_qt_env_strip         Strip a stray Qt from the loader/PATH env.
+#   plat_qt_extra_cfg         Set array PLAT_QT_CFG with extra Qt cmake args.
+#   plat_qt_libclang_setup    Set LLVM_INSTALL_DIR for shiboken.
+#   plat_pyside6_cmake_opt    Set array PLAT_PYSIDE_CMAKE_OPT for setup.py.
 
 set -e
 # Without pipefail, exit codes are lost through the `tee` pipe in with_log,
 # so a failed build step would otherwise be silently ignored.
 set -o pipefail
 
+# Resolve this script's directory so the per-OS module can be sourced no matter
+# what the caller's working directory is.
+SCDV_SELFDIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+
+# Detect the target platform.
+SCDV_OS=${SCDV_OS:-}
+if [ -z "${SCDV_OS}" ] ; then
+  case "$(uname -s)" in
+    Linux)
+      SCDV_OS=ubuntu
+      # `uname -s` reports only "Linux", not the distribution, so every Linux
+      # host defaults to the Ubuntu 24.04 module (apt package names,
+      # /usr/lib/llvm-22, x86_64 openblas paths). Warn when /etc/os-release
+      # does not look like Ubuntu 24.04 so the assumption is visible; set
+      # SCDV_OS explicitly to silence this. The module is still used (as the
+      # per-OS Ubuntu script always did), just no longer silently.
+      if [ -r /etc/os-release ] ; then
+        _scdv_osrel=$(set +e ; . /etc/os-release 2>/dev/null ; \
+                      printf '%s:%s' "${ID:-}" "${VERSION_ID:-}")
+        if [ "${_scdv_osrel}" != "ubuntu:24.04" ] ; then
+          echo "warning: assuming the Ubuntu 24.04 build module on" \
+               "$(uname -sr) (/etc/os-release '${_scdv_osrel}'); set" \
+               "SCDV_OS=ubuntu|macos to override." >&2
+        fi
+        unset _scdv_osrel
+      fi
+      ;;
+    Darwin) SCDV_OS=macos ;;
+    *) echo "unsupported OS '$(uname -s)'; set SCDV_OS=ubuntu|macos" >&2
+       exit 1 ;;
+  esac
+fi
+
+# Source the per-OS module: it sets SCDV_OS_TAG and defines the plat_* hooks.
+case "${SCDV_OS}" in
+  ubuntu) SCDV_MODULE=${SCDV_SELFDIR}/ubuntu2404/platform.sh ;;
+  macos)  SCDV_MODULE=${SCDV_SELFDIR}/macos26/platform.sh ;;
+  *) echo "unknown SCDV_OS='${SCDV_OS}'; expected ubuntu or macos" >&2
+     exit 1 ;;
+esac
+if [ ! -r "${SCDV_MODULE}" ] ; then
+  echo "platform module not found or not readable: ${SCDV_MODULE}" >&2
+  exit 1
+fi
+# shellcheck source=/dev/null
+. "${SCDV_MODULE}"
+
 SCDV_WRITE_ACTIVATE_ONLY=0
 SCDV_PRINT_PREFIX_ONLY=0
-SCDV_PRINT_APT_ONLY=0
+SCDV_PRINT_DEPS_ONLY=0
 SCDV_NO_CONFIRM=0
 SCDV_SKIP_LIST=""
 SCDV_KNOWN_PKGS="zlib openssl sqlite python pybind11 cython numpy scipy qt pyside6"
@@ -112,8 +185,8 @@ while [ $# -gt 0 ] ; do
     --print-prefix)
       SCDV_PRINT_PREFIX_ONLY=1
       ;;
-    --print-apt)
-      SCDV_PRINT_APT_ONLY=1
+    --print-deps|--print-apt)
+      SCDV_PRINT_DEPS_ONLY=1
       ;;
     --no-confirm)
       SCDV_NO_CONFIRM=1
@@ -141,6 +214,17 @@ while [ $# -gt 0 ] ; do
   shift
 done
 
+# --print-deps needs only the sourced module (plat_print_deps). Exit before
+# plat_init / plat_nproc so SCDV_OS=<other> dry-runs work on this host (e.g.
+# SCDV_OS=macos --print-deps on Linux must not call macOS sysctl).
+if [ "${SCDV_PRINT_DEPS_ONLY}" = "1" ] ; then
+  plat_print_deps
+  exit 0
+fi
+
+# One-time platform setup (e.g. macOS BREW_PREFIX detection).
+plat_init
+
 # CPython release tag.
 PYTHON_VERSION=${PYTHON_VERSION:-3.14.5}
 # Qt major.minor version.
@@ -157,18 +241,20 @@ if [ -z "${SCDVBUILD_ALL:-}${SCDVBUILD_BASE:-}${SCDVBUILD_PYTHON:-}${SCDVBUILD_N
   SCDVBUILD_ALL=1
 fi
 
-# Parallel build jobs.
-SCDV_NP=${SCDV_NP:-$(nproc)}
 # Path prefix to SCDV_BASE.
-SCDV_PREFIX=${SCDV_PREFIX:-${HOME}/var/scdv/ubuntu2404}
+SCDV_PREFIX=${SCDV_PREFIX:-${HOME}/var/scdv/${SCDV_OS_TAG}}
 
 # --print-prefix is honored as soon as SCDV_PREFIX is resolved so the caller
 # can capture the value without triggering any side effects (mkdir,
-# activate-write, build).
+# activate-write, build). plat_nproc is deferred until after this exit for the
+# same cross-OS dry-run reason as --print-deps above.
 if [ "${SCDV_PRINT_PREFIX_ONLY}" = "1" ] ; then
   echo "SCDV_PREFIX=${SCDV_PREFIX}"
   exit 0
 fi
+
+# Parallel build jobs (platform-specific; only needed once we build).
+SCDV_NP=${SCDV_NP:-$(plat_nproc)}
 
 # Base directory holding the install prefix, including Python and Qt version.
 SCDV_BASE=${SCDV_BASE:-${SCDV_PREFIX}-py${PYTHON_VERSION}-qt${QT_MAJOR_VER}.${QT_SUB_VER}}
@@ -195,211 +281,13 @@ PY=${SCDV_USRDIR}/bin/python3
 # ${SCDV_USRDIR}/bin are found by downstream builders such as meson.
 export PATH="${SCDV_USRDIR}/bin:${PATH}"
 
-scdv_apt_base_cmd() {
-  # Print the apt command for the BASE/PYTHON/NUMPY sections. The script
-  # never runs apt itself; copy the output, review it, and run it. doxygen
-  # is the system half of the documentation C++ API path (see doc/README.md).
-  cat <<'EOF'
-sudo apt install -y \
-  build-essential gcc g++ make cmake ninja-build pkg-config \
-  git curl xz-utils gfortran libopenblas-dev \
-  libffi-dev libbz2-dev liblzma-dev libgdbm-dev \
-  libncurses-dev uuid-dev tk-dev libedit-dev libexpat1-dev \
-  doxygen
-EOF
-}
-
-scdv_apt_latex_cmd() {
-  # Print the apt command for the LaTeX toolchain the documentation needs.
-  # This is required by the ordinary HTML build (make html in doc/), not just
-  # a PDF: math is rendered client-side by MathJax (no TeX), but the pstake
-  # Sphinx extension (doc/ext/pstake.py) turns the ".. pstake::" PSTricks
-  # figures into PNG at build time by shelling out to latex -> dvips (EPS) ->
-  # ImageMagick convert (EPS -> PNG; Ghostscript is the fallback and also
-  # convert's EPS delegate).  pstake's TeX template needs pst-all/pst-3dplot/
-  # pst-eps/pst-coil/pst-bar/multido (texlive-pstricks), fancyvrb
-  # (texlive-latex-recommended), and optionally cmbright
-  # (texlive-fonts-extra); latex/dvips come from texlive-latex-base.
-  #
-  # The package set below is deliberately broad: texlive-latex-extra and
-  # texlive-pictures (TikZ/PGF and the pst-node family) catch any package a
-  # figure pulls in beyond the core pst-* styles, texlive-plain-generic
-  # covers generic (non-LaTeX) macros, and texlive-extra-utils plus
-  # texlive-font-utils supply helper binaries (epstopdf, dvips/dvipdf
-  # wrappers, font tools) used along the dvips/EPS path.
-  #
-  # Gotcha: Ubuntu's ImageMagick ships /etc/ImageMagick-6/policy.xml with the
-  # EPS/PS coders disabled by default, so convert fails on the generated .eps.
-  # The pstake input is locally built and trusted, so comment out the
-  # rights="none" lines for "EPS" and "PS" there (or rely on the Ghostscript
-  # fallback by not installing imagemagick).
-  cat <<'EOF'
-sudo apt install -y \
-  texlive-latex-base texlive-latex-recommended texlive-latex-extra \
-  texlive-pstricks texlive-pictures texlive-plain-generic \
-  texlive-fonts-recommended texlive-fonts-extra \
-  texlive-extra-utils texlive-font-utils \
-  ghostscript imagemagick
-EOF
-}
-
-scdv_apt_qt_cmd() {
-  # Print the apt command for the QT section (Qt + pyside6 build deps).
-  # The X11/XCB -dev packages are the full set Qt's xcb platform plugin
-  # needs at configure time. Without all of them Qt silently builds without
-  # the xcb QPA plugin, leaving only offscreen/minimal, so a real (or xvfb)
-  # X display cannot be used. build_qt force-enables FEATURE_xcb so a missing
-  # dependency fails the configure loudly instead of dropping the plugin.
-  # CI installs the runtime counterparts of these -dev packages in
-  # .github/actions/setup_linux/action.yml; keep the two sets in sync.
-  cat <<'EOF'
-sudo apt install -y \
-  llvm-22-dev clang-22 libclang-22-dev patchelf \
-  libxkbcommon-dev libxkbcommon-x11-dev libfontconfig1-dev \
-  libfreetype-dev libdbus-1-dev libgl1-mesa-dev libglu1-mesa-dev \
-  libx11-dev libx11-xcb-dev libxext-dev libxfixes-dev libxi-dev \
-  libxrender-dev libxcb1-dev libxcb-glx0-dev libxcb-cursor-dev \
-  libxcb-icccm4-dev libxcb-image0-dev libxcb-keysyms1-dev \
-  libxcb-randr0-dev libxcb-render0-dev libxcb-render-util0-dev \
-  libxcb-shape0-dev libxcb-shm0-dev libxcb-sync-dev libxcb-util-dev \
-  libxcb-xfixes0-dev libxcb-xinerama0-dev libxcb-xkb-dev
-EOF
-}
-
-# --print-apt prints both apt prerequisite commands and exits, before any
-# filesystem side effect (mkdir, activate-write, build). The apt helper
-# functions must be defined first, so this is honored here rather than
-# alongside --print-prefix above.
-if [ "${SCDV_PRINT_APT_ONLY}" = "1" ] ; then
-  scdv_apt_base_cmd
-  echo
-  scdv_apt_qt_cmd
-  echo
-  scdv_apt_latex_cmd
-  exit 0
-fi
-
 scdv_write_activate() {
-  # Write ${SCDV_BASE}/activate. The activation script is self-locating (reads
-  # its own path at source time) so the scdv directory can be moved without
-  # rewriting the file. Sourcing it prepends our bin to PATH and our lib to
-  # LD_LIBRARY_PATH, strips any leaked /var/Qt/ entries from both, and defines
-  # scdv_deactivate to restore the original environment.
-  local target=${SCDV_BASE}/activate
-  cat > "${target}" <<'ACTIVATE_EOF'
-# shellcheck shell=bash
-# Activate this SCDV: source this file (do not execute).
-#
-#   $ source <path-to-this-file>/activate
-#   $ scdv_deactivate   # to restore the original environment
-#
-# Compatible with bash and zsh.
-
-if [ -n "${SCDV_BASE:-}" ] ; then
-  echo "SCDV '${SCDV_BASE##*/}' is already active." \
-       "Run scdv_deactivate first." >&2
-  return 1 2>/dev/null || exit 1
-fi
-
-# Resolve the directory this file lives in SCDV_BASE.
-if [ -n "${BASH_VERSION:-}" ] ; then
-  _scdv_self=${BASH_SOURCE[0]}
-elif [ -n "${ZSH_VERSION:-}" ] ; then
-  _scdv_self=${(%):-%x}
-else
-  _scdv_self=$0
-fi
-SCDV_BASE=$(cd "$(dirname "${_scdv_self}")" && pwd)
-unset _scdv_self
-export SCDV_BASE
-export SCDV_USRDIR=${SCDV_BASE}/usr
-
-# Snapshot the current environment so scdv_deactivate can restore it.
-# These leading-underscore vars are private to the activation script.
-export _SCDV_OLD_PATH=${PATH}
-export _SCDV_OLD_LD_LIBRARY_PATH=${LD_LIBRARY_PATH-}
-export _SCDV_OLD_CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH-}
-export _SCDV_OLD_PS1=${PS1-}
-export _SCDV_OLD_QT_QPA_PLATFORM=${QT_QPA_PLATFORM-}
-export _SCDV_HAD_LD_LIBRARY_PATH=${LD_LIBRARY_PATH+1}
-export _SCDV_HAD_CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH+1}
-export _SCDV_HAD_QT_QPA_PLATFORM=${QT_QPA_PLATFORM+1}
-
-# A pre-existing Qt (e.g. /home/$USER/var/Qt/6.x) leaking through PATH or
-# LD_LIBRARY_PATH will be loaded ahead of this scdv's freshly built Qt and
-# break with "version `Qt_6.x' not found". Strip those.
-PATH=$(printf '%s' "${PATH}" | tr ':' '\n' | grep -v '/var/Qt/' | paste -sd: -)
-export PATH=${SCDV_USRDIR}/bin:${PATH}
-
-LD_LIBRARY_PATH=$(printf '%s' "${LD_LIBRARY_PATH-}" \
-  | tr ':' '\n' | grep -v '/var/Qt/' | paste -sd: -)
-if [ -n "${LD_LIBRARY_PATH}" ] ; then
-  export LD_LIBRARY_PATH=${SCDV_USRDIR}/lib:${LD_LIBRARY_PATH}
-else
-  export LD_LIBRARY_PATH=${SCDV_USRDIR}/lib
-fi
-
-if [ -n "${CMAKE_PREFIX_PATH-}" ] ; then
-  export CMAKE_PREFIX_PATH=${SCDV_USRDIR}:${CMAKE_PREFIX_PATH}
-else
-  export CMAKE_PREFIX_PATH=${SCDV_USRDIR}
-fi
-
-# solvcon's _solvcon module constructs a QApplication during PyInit__modmesh;
-# without a display or QT_QPA_PLATFORM Qt aborts in
-# QGuiApplicationPrivate::createPlatformIntegration. Default to the offscreen
-# platform when nothing is set and no display is available, so plain `import
-# solvcon` and `make pytest` work in headless shells.  If a real display
-# becomes available later the user can `export QT_QPA_PLATFORM=xcb` (or unset
-# it) without re-sourcing.
-if [ -z "${QT_QPA_PLATFORM-}" ] \
-   && [ -z "${DISPLAY:-}" ] \
-   && [ -z "${WAYLAND_DISPLAY:-}" ] ; then
-  export QT_QPA_PLATFORM=offscreen
-fi
-
-# Mark the prompt so the active scdv is visible.
-if [ -n "${BASH_VERSION:-}" ] || [ -n "${ZSH_VERSION:-}" ] ; then
-  PS1="(${SCDV_BASE##*/}) ${PS1-}"
-  export PS1
-fi
-
-scdv_deactivate() {
-  if [ -z "${SCDV_BASE:-}" ] ; then
-    echo "No active SCDV." >&2
-    return 1
-  fi
-  export PATH=${_SCDV_OLD_PATH}
-  if [ -n "${_SCDV_HAD_LD_LIBRARY_PATH:-}" ] ; then
-    export LD_LIBRARY_PATH=${_SCDV_OLD_LD_LIBRARY_PATH}
-  else
-    unset LD_LIBRARY_PATH
-  fi
-  if [ -n "${_SCDV_HAD_CMAKE_PREFIX_PATH:-}" ] ; then
-    export CMAKE_PREFIX_PATH=${_SCDV_OLD_CMAKE_PREFIX_PATH}
-  else
-    unset CMAKE_PREFIX_PATH
-  fi
-  if [ -n "${_SCDV_HAD_QT_QPA_PLATFORM:-}" ] ; then
-    export QT_QPA_PLATFORM=${_SCDV_OLD_QT_QPA_PLATFORM}
-  else
-    unset QT_QPA_PLATFORM
-  fi
-  PS1=${_SCDV_OLD_PS1}
-  export PS1
-  unset _SCDV_OLD_PATH _SCDV_OLD_LD_LIBRARY_PATH \
-        _SCDV_OLD_CMAKE_PREFIX_PATH _SCDV_OLD_PS1 \
-        _SCDV_OLD_QT_QPA_PLATFORM \
-        _SCDV_HAD_LD_LIBRARY_PATH _SCDV_HAD_CMAKE_PREFIX_PATH \
-        _SCDV_HAD_QT_QPA_PLATFORM
-  unset SCDV_BASE SCDV_USRDIR
-  unset -f scdv_deactivate
-}
-ACTIVATE_EOF
-  # Do not set the execution bit of "${target}"; it should be sourced.
-  echo "wrote activation script: ${target}"
+  # Delegate to the platform module, which writes the activation script (the
+  # dynamic-linker env vars and stray-Qt handling are fundamentally per-OS).
+  plat_write_activate "${SCDV_BASE}/activate"
 }
 
+echo "SCDV_OS=${SCDV_OS}"
 echo "SCDV_NP=${SCDV_NP}"
 echo "SCDV_PREFIX=${SCDV_PREFIX}"
 echo "SCDV_BASE=${SCDV_BASE}"
@@ -407,6 +295,7 @@ echo "SCDV_DLDIR=${SCDV_DLDIR}"
 echo "SCDV_SHARED_DLDIR=${SCDV_SHARED_DLDIR}"
 echo "SCDV_SRCDIR=${SCDV_SRCDIR}"
 echo "SCDV_USRDIR=${SCDV_USRDIR}"
+plat_startup_echo
 echo "PYTHON_VERSION=${PYTHON_VERSION}"
 if [ -n "${SCDV_SKIP_LIST# }" ] ; then
   echo "SCDV_SKIP_LIST=${SCDV_SKIP_LIST# }"
@@ -481,11 +370,11 @@ download_md5() {
   local fn=$1 url=$2 md5hash=${3:-}
   local loc=${SCDV_DLDIR}/${fn}
   local calc=""
-  [ -e "${loc}" ] && calc=$(md5sum "${loc}" | cut -d ' ' -f 1)
+  [ -e "${loc}" ] && calc=$(plat_md5 "${loc}")
   if [ ! -e "${loc}" ] || { [ -n "${md5hash}" ] && [ "${md5hash}" != "${calc}" ]; } ; then
     echo "Downloading ${url}"
     curl -fsSL -o "${loc}" "${url}"
-    calc=$(md5sum "${loc}" | cut -d ' ' -f 1)
+    calc=$(plat_md5 "${loc}")
   fi
   if [ -n "${md5hash}" ] && [ "${md5hash}" != "${calc}" ] ; then
     echo "${fn} md5 mismatch: expected ${md5hash} got ${calc} (continuing)"
@@ -578,7 +467,9 @@ scdv_print_timings() {
 trap scdv_print_timings EXIT
 
 ####
-# Build functions (translated from devenv/scripts/build.d/<pkg>)
+# Build functions (translated from devenv/scripts/build.d/<pkg>). The recipes
+# that are identical across platforms live here; the parts that diverge are
+# delegated to the plat_* hooks from the sourced module.
 ####
 
 build_zlib() {
@@ -638,13 +529,7 @@ build_python() {
     ""
   unpack "${fn}" "${full}"
   pushd "${SCDV_SRCDIR}/${full}" > /dev/null
-    export CPPFLAGS="-I${SCDV_USRDIR}/include ${CPPFLAGS:-}"
-    local ldflags="-Wl,--no-as-needed"
-    ldflags="${ldflags} -Wl,-rpath,${SCDV_USRDIR}/lib"
-    ldflags="${ldflags} -Wl,-rpath,${SCDV_USRDIR}/lib64"
-    ldflags="${ldflags} -L${SCDV_USRDIR}/lib"
-    ldflags="${ldflags} -L${SCDV_USRDIR}/lib64"
-    export LDFLAGS="${ldflags} ${LDFLAGS:-}"
+    plat_python_env
     with_log configure.log ./configure \
       --prefix="${SCDV_USRDIR}" \
       --enable-shared \
@@ -718,24 +603,8 @@ build_numpy() {
     56232f4a69b03dd7a87a55fffc5f2ebc
   unpack "${fn}" "${full}"
   pushd "${SCDV_SRCDIR}/${full}" > /dev/null
-    rm -f site.cfg
-    # Point numpy at apt's libopenblas-dev. NPY_BLAS_ORDER is honored by the
-    # meson build path; site.cfg is kept for older fallback paths.
-    export NPY_BLAS_ORDER=openblas
-    cat > site.cfg <<EOF
-[openblas]
-libraries = openblas
-library_dirs = /usr/lib/x86_64-linux-gnu:${SCDV_USRDIR}/lib
-include_dirs = /usr/include/x86_64-linux-gnu/openblas-pthread:/usr/include/openblas:${SCDV_USRDIR}/include
-runtime_library_dirs = /usr/lib/x86_64-linux-gnu
-EOF
     with_log dependency.log "${PY}" -m pip install -r requirements/build_requirements.txt
-    # GCC 16 trunk on Ubuntu 24.04 rejects the AVX512 `evex512` target
-    # attribute that numpy 2.2.x uses, so cap cpu-dispatch at AVX2 instead of
-    # MAX.  Pass via --config-settings so the pip-driven meson rebuild honors
-    # it (not just an out-of-tree `spin build`).
-    with_log install.log "${PY}" -m pip install . --no-build-isolation \
-      --config-settings="setup-args=-Dcpu-dispatch=SSE3 SSSE3 SSE41 POPCNT SSE42 AVX F16C FMA3 AVX2"
+    plat_numpy_install
   popd > /dev/null
   "${PY}" -c "import numpy as np ; np.show_config()"
 }
@@ -753,13 +622,7 @@ build_scipy() {
     # not subscriptable" when loading doit tasks, so bypass dev.py and let pip
     # drive the meson build directly.
     with_log dependency.log "${PY}" -m pip install -r requirements/build.txt
-    # Ubuntu's pybind11-dev (2.11) at /usr/include shadows our 2.13.6 and
-    # rejects scipy's 3-arg PYBIND11_MODULE. -isystem orders our headers ahead
-    # of /usr/include so scipy compiles against the right pybind11.
-    local saved_cxxflags=${CXXFLAGS:-}
-    export CXXFLAGS="-isystem ${SCDV_USRDIR}/include ${saved_cxxflags}"
-    with_log install.log "${PY}" -m pip install . --no-build-isolation
-    export CXXFLAGS="${saved_cxxflags}"
+    plat_scipy_install
   popd > /dev/null
 }
 
@@ -774,12 +637,12 @@ build_qt() {
   local url="https://download.qt.io/official_releases/qt/${major}"
   url="${url}/${ver}/single/qt-everywhere-src-${ver}.tar.xz"
   download_md5 "${fn}" "${url}" 25d4d1dd74c92b978f164e8f20805985
-  # A pre-existing Qt install may leak through LD_LIBRARY_PATH or
-  # CMAKE_PREFIX_PATH and cause the freshly built Qt 6.11.1 tools (rcc/moc/...)
-  # to load the older libQt6Core at runtime and fail with "version `Qt_6.11'
-  # not found".  Strip them out.
-  unset LD_LIBRARY_PATH CMAKE_PREFIX_PATH QT_ROOT QT_VER
-  PATH=$(printf '%s' "${PATH}" | tr ':' '\n' | grep -v '/var/Qt/' | paste -sd:)
+  # A pre-existing Qt may leak through the dynamic-linker / CMake search paths
+  # and cause the freshly built Qt tools (rcc/moc/...) to load the older
+  # libQt6Core at runtime and fail with "version `Qt_6.x' not found".  The
+  # module strips those from the environment (the vars and match pattern are
+  # per-OS).
+  plat_qt_env_strip
   if [ -d "${SCDV_SRCDIR}/${full}" ] ; then
     echo "Qt source already at ${SCDV_SRCDIR}/${full}; skipping extract"
   else
@@ -811,15 +674,9 @@ build_qt() {
              qtquickeffectmaker qtgrpc qtmultimedia ; do
       cfgcmd+=("-DBUILD_${m}=OFF")
     done
-    # Force the xcb (X11) platform plugin on. Qt otherwise silently drops it
-    # when an XCB dev dependency is missing, leaving only the offscreen and
-    # minimal QPA plugins and making a real (or xvfb) X display unusable.
-    # Force-enabling turns a missing dependency into a configure-time failure
-    # here instead of a runtime "Could not find the Qt platform plugin xcb".
-    # xcb_xlib is the Xlib/XCB interop the plugin relies on. The required
-    # -dev packages are listed in scdv_apt_qt_cmd above.
-    cfgcmd+=("-DFEATURE_xcb=ON")
-    cfgcmd+=("-DFEATURE_xcb_xlib=ON")
+    # Extra platform Qt cmake args (xcb on Ubuntu, Xcode-check skip on macOS).
+    plat_qt_extra_cfg
+    cfgcmd+=("${PLAT_QT_CFG[@]}")
     cfgcmd+=("-DQT_ALLOW_SYMLINK_IN_PATHS=ON")
     cfgcmd+=("-DCMAKE_PREFIX_PATH=${SCDV_USRDIR}")
     cfgcmd+=("-G" "Ninja")
@@ -829,7 +686,7 @@ build_qt() {
       with_log configure.log "${cfgcmd[@]}"
     fi
     if [ "${DVQT_NOBUILD:-}" != "1" ] ; then
-      with_log build.log cmake --build . --parallel
+      with_log build.log cmake --build . --parallel "${SCDV_NP}"
     fi
     if [ "${DVQT_NOINSTALL:-}" != "1" ] ; then
       with_log install.log cmake --install .
@@ -848,11 +705,14 @@ build_pyside6() {
   url="${url}/PySide6-${ver}-src/${fn}"
   download_md5 "${fn}" "${url}" a6fe3db5855d3cd09a381d0aca7d7f5e
   unpack "${fn}" "${full}"
+  # Extra setup.py options (macOS injects a cmake wrapper to hide brew's Qt).
+  plat_pyside6_cmake_opt
   pushd "${SCDV_SRCDIR}/${full}" > /dev/null
-    # pyside-setup 6.9.2 has a regression in _get_make: the "make" branch
+    # pyside-setup 6.11.1 has a regression in _get_make: the "make" branch
     # returns a str while others return Path, so a later .is_absolute() call
     # crashes.  Use ninja, which returns a Path.
     with_log install.log "${PY}" setup.py install \
+      "${PLAT_PYSIDE_CMAKE_OPT[@]}" \
       --qtpaths="${QTPATHS}" \
       --verbose-build \
       --ignore-git \
@@ -886,9 +746,8 @@ if [[ "${SCDVBUILD_ALL:-}" == "1" || "${SCDVBUILD_PYTHON:-}" == "1" ]] ; then
 echo "Python build uses PGO; expect ~20 min"
 scdv_time build_python python
 "${PY}" -m pip install -U flake8 autopep8 black pytest jsonschema certifi
-"${PY}" -m pip install -U nose boto paramiko
 # Documentation toolchain (Sphinx-based; see doc/README.md). doxygen, the
-# system half of the C++ API path, is in scdv_apt_base_cmd above.
+# system half of the C++ API path, is in the base prerequisites above.
 "${PY}" -m pip install -U sphinx myst-parser pydata-sphinx-theme \
   breathe sphinxcontrib-bibtex sphinxcontrib-mermaid
 scdv_time build_pybind11 pybind11
@@ -905,9 +764,9 @@ fi
 if [[ "${SCDVBUILD_ALL:-}" == "1" || "${SCDVBUILD_NUMPY:-}" == "1" ]] ; then
 
 scdv_time build_cython cython
-# NOFORTRAN mirrors the macOS reference; with apt's gfortran installed, scipy
-# below will still pick gfortran up via meson's compiler detection.
-NOFORTRAN=1 scdv_time build_numpy numpy
+# The numpy build differs in Fortran env prep per platform (NOFORTRAN on
+# Ubuntu, surfacing brew's gfortran on macOS), so the module drives the call.
+plat_numpy_run
 scdv_time build_scipy scipy
 
 CERT_PATH=$("${PY}" -m certifi)
@@ -926,16 +785,9 @@ fi
 ####
 if [[ "${SCDVBUILD_ALL:-}" == "1" || "${SCDVBUILD_QT:-}" == "1" ]] ; then
 
-# LLVM_INSTALL_DIR points at the libclang shiboken should use.  Defaults to the
-# apt path for llvm-22, the newest stable and supported by PySide 6.11.1 on
-# Ubuntu 24.04 (see the header comment); override if your llvm-22-dev install
-# lives elsewhere.
-LLVM_INSTALL_DIR=${LLVM_INSTALL_DIR:-/usr/lib/llvm-22}
-if [ ! -d "${LLVM_INSTALL_DIR}" ] ; then
-  echo "LLVM_INSTALL_DIR='${LLVM_INSTALL_DIR}' does not exist;" \
-       "install llvm-22-dev or set LLVM_INSTALL_DIR explicitly" >&2
-  exit 1
-fi
+# Point LLVM_INSTALL_DIR at the libclang shiboken should use (apt llvm-22 on
+# Ubuntu; Qt's prebuilt libclang fetched into the scdv tree on macOS).
+plat_qt_libclang_setup
 
 scdv_time build_qt qt
 

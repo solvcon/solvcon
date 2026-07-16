@@ -3,9 +3,9 @@
 # Warning: this script is still work in progress. Read carefully before using.
 #
 # Build solvcon's runtime dependencies from source on Windows.  Windows sibling
-# of contrib/dependency/{macos26,ubuntu2404}/build-scdv-*.sh: same BASE/PYTHON/
-# NUMPY/QT sections (guarded by SCDVBUILD_*), build functions, download/log/
-# timing helpers, and activate contract, in PowerShell + MSVC.
+# of contrib/dependency/build-scdv.sh: same BASE/PYTHON/NUMPY/QT sections
+# (guarded by SCDVBUILD_*), build functions, download/log/timing helpers, and
+# activate contract, in PowerShell + MSVC.
 #
 # Windows specifics (detailed at each build function, and in the devplan
 # doc/source/devplan/win-devenv/index.md): no ./configure (CMake+Ninja+MSVC;

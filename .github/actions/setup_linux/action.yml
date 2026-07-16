@@ -139,8 +139,8 @@ runs:
         # libgl1-mesa-dri provides the llvmpipe software rasterizer so the
         # pilot's OpenGL renders under the GPU-less Xvfb display. The X11/XCB
         # libraries are the runtime counterparts of the -dev packages the scdv
-        # build script installs (contrib/dependency/ubuntu2404/
-        # build-scdv-ubuntu24.sh, scdv_apt_qt_cmd); keep the two sets in sync.
+        # build installs (contrib/dependency/ubuntu2404/platform.sh,
+        # scdv_apt_qt_cmd); keep the two sets in sync.
         sudo apt-get -qy install \
             xvfb x11-utils \
             libgl1 libglx-mesa0 libgl1-mesa-dri libegl1 libopengl0 \
