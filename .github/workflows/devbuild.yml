@@ -558,20 +558,29 @@ jobs:
 
     needs: [check_skip]
 
-    # The MSVC counterpart of the sanitizer job. MSVC implements only
-    # AddressSanitizer (no leak or undefined), and the instrumented gtest
-    # binary links the ASan runtime directly so ASan initializes at process
-    # start; a stock python.exe loading an instrumented .pyd cannot. It is
-    # slow, so it runs on the nightly schedule only.
+    # The MSVC counterpart of the sanitizer job. MSVC ships only
+    # AddressSanitizer. The gtest binary and pilot.exe both link the ASan
+    # runtime directly, so it starts with the process and instruments the C++
+    # core and the Qt pilot. Slow, so nightly-only (set MMGH_FORCE_SANITIZER to
+    # force it on a fork).
     if: |
-      needs.check_skip.outputs.skip != 'true' &&
-      github.event_name == 'schedule' && vars.MMGH_NIGHTLY == 'enable'
+      needs.check_skip.outputs.skip != 'true' && (
+      (github.event_name == 'schedule' && vars.MMGH_NIGHTLY == 'enable') ||
+      vars.MMGH_FORCE_SANITIZER == 'enable')
 
     name: sanitizer_${{ matrix.os }}
 
     runs-on: ${{ matrix.os }}
 
     timeout-minutes: ${{ fromJSON(vars.MMGH_TIMEOUT_BUILD || '60') }}
+
+    env:
+      AQT_CONFIG: "thirdparty/aqt_settings.ini"
+      QSG_RHI_PREFER_SOFTWARE_RENDERER: "1"
+      QSG_INFO: "1"
+      # Hook the RTL allocators so the uninstrumented Qt and PySide6 DLLs share
+      # ASan's heap (else a cross-module free reads as a false mismatch).
+      ASAN_OPTIONS: "windows_hook_rtl_allocators=1:abort_on_error=1:detect_leaks=0"
 
     strategy:
       matrix:
@@ -597,6 +606,16 @@ jobs:
     # CMake in the windows-2022 image is 3.31.6; solvcon needs >= 4.0.1.
     - name: install CMake>4.0.1
       uses: lukka/get-cmake@latest
+
+    - name: install qt
+      uses: jurplel/install-qt-action@v4
+      with:
+        version: '6.8.1'
+        host: 'windows'
+        target: 'desktop'
+        arch: 'win64_msvc2022_64'
+        modules: 'qtshadertools'
+        cache: true
 
     - uses: actions/setup-python@v6
       with:
@@ -628,28 +647,45 @@ jobs:
       run: |
         echo "::group::dependency by pip"
         pip3 install -U numpy pytest pybind11
+        # For pilot GUI.
+        pip3 install -U matplotlib jsonschema flake8 pyside6==$(qmake -query QT_VERSION)
+        $pyside6_path = $(python3 -c "import sys, os, PySide6; sys.stdout.write(os.path.dirname(PySide6.__file__))")
+        $shiboken6_path = $(python3 -c "import sys, os, shiboken6; sys.stdout.write(os.path.dirname(shiboken6.__file__))")
+        echo "$pyside6_path;$shiboken6_path" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
         echo "::endgroup::"
 
-    - name: cmake run_gtest USE_SANITIZER=ON
+    - name: cmake ALL_BUILD USE_SANITIZER=ON
       run: |
-        echo "::group::cmake run_gtest USE_SANITIZER=ON"
-        # AddressSanitizer over the C++ gtest binary. BUILD_QT=OFF keeps the
-        # run headless and USE_GOOGLETEST=ON overrides the Windows preset so
-        # the gtest binary is built. The MSVC toolset bin dir that
-        # setup-msvc-dev puts on PATH also carries the ASan runtime DLL that
-        # the instrumented binary loads at start.
+        echo "::group::cmake ALL_BUILD USE_SANITIZER=ON"
+        # Instrument both the gtest binary and the Qt pilot: BUILD_QT=ON and
+        # USE_GOOGLETEST=ON build both, USE_SANITIZER=ON adds /fsanitize=address.
+        # The MSVC toolset bin dir that setup-msvc-dev puts on PATH also carries
+        # the ASan runtime DLL the instrumented binaries load at start.
         cmake -GNinja `
           -DCMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} `
           -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
           -DVCPKG_TARGET_TRIPLET="x64-windows" `
           -Dpybind11_DIR="$(pybind11-config --cmakedir)" `
-          -DBUILD_QT=OFF `
+          -DBUILD_QT=ON `
           -DUSE_GOOGLETEST=ON `
           -DUSE_SANITIZER=ON `
           -S${{ github.workspace }} `
           -B${{ github.workspace }}/build
+        cmake --build ${{ github.workspace }}/build
+        echo "::endgroup::"
+
+    - name: cmake run_gtest
+      run: |
+        echo "::group::cmake run_gtest"
         cmake --build ${{ github.workspace }}/build --target run_gtest
         echo "::endgroup::"
+
+    - name: cmake run_pilot_pytest
+      run: |
+        echo "::group::cmake run_pilot_pytest"
+        cmake --build ${{ github.workspace }}/build --target run_pilot_pytest
+        echo "::endgroup::"
+
 
   send_email_on_failure:
     needs: [standalone_buffer, build, build_windows, sanitizer, sanitizer_windows]
