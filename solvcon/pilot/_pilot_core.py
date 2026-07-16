@@ -42,6 +42,11 @@ list_of_rpythonconsole = [
     'RPythonConsoleDockWidget',
 ]
 
+# RPythonTerminalDockWidget.hpp/.cpp
+list_of_rpythonterminal = [
+    'RPythonTerminalDockWidget',
+]
+
 # DrawTool.hpp/.cpp
 list_of_drawtool = [
     'draw_tool_names',
@@ -54,6 +59,7 @@ _from_impl = (  # noqa: F822
     list_of_r2dwidget +
     list_of_rmanager +
     list_of_rpythonconsole +
+    list_of_rpythonterminal +
     list_of_drawtool
 )
 
@@ -75,6 +81,7 @@ _load(list_of_rdomainwidget)
 _load(list_of_r2dwidget)
 _load(list_of_rmanager)
 _load(list_of_rpythonconsole)
+_load(list_of_rpythonterminal)
 _load(list_of_drawtool)
 
 del _load
