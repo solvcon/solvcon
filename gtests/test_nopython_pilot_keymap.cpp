@@ -8,6 +8,7 @@
 #include <array>
 #include <optional>
 #include <variant>
+#include <vector>
 
 #include <gtest/gtest.h>
 
@@ -38,12 +39,6 @@ TEST(PilotKeymapTable, SeedsSharedBindingsOnEveryPlatform)
                   (solvcon::KeyChord{solvcon::KeyMod::None, solvcon::Key::Escape}));
         EXPECT_EQ(reset->context, solvcon::ShortcutContext::Widget);
 
-        auto const * console = solvcon::bindingFor(platform, solvcon::ShortcutCommand::Console);
-        ASSERT_NE(console, nullptr);
-        EXPECT_EQ(std::get<solvcon::KeyChord>(console->key),
-                  (solvcon::KeyChord{solvcon::KeyMod::Primary, solvcon::Key::Grave}));
-        EXPECT_EQ(console->context, solvcon::ShortcutContext::Window);
-
         struct PanelChord
         {
             solvcon::ShortcutCommand command;
@@ -72,9 +67,19 @@ TEST(PilotKeymapTable, SeedsSharedBindingsOnEveryPlatform)
     }
 }
 
+TEST(PilotKeymapTable, ConsoleSharesGraveAcrossPlatforms)
+{
+    for (auto platform : PLATFORMS)
+    {
+        auto const * console = solvcon::bindingFor(platform, solvcon::ShortcutCommand::Console);
+        ASSERT_NE(console, nullptr);
+        EXPECT_EQ(std::get<solvcon::KeyChord>(console->key),
+                  (solvcon::KeyChord{solvcon::KeyMod::Control, solvcon::Key::Grave}));
+    }
+}
+
 TEST(PilotKeymapMac, AddsQuitRoleOverTheSharedExitBinding)
 {
-    EXPECT_TRUE(solvcon::capabilitiesFor(solvcon::PlatformId::Mac).movesItemsToApplicationMenu);
     EXPECT_EQ(solvcon::bindingTable(solvcon::PlatformId::Mac).size(),
               solvcon::bindingTable(solvcon::PlatformId::Linux).size());
 
@@ -87,11 +92,57 @@ TEST(PilotKeymapMac, AddsQuitRoleOverTheSharedExitBinding)
               solvcon::MenuRole::None);
 }
 
-TEST(PilotKeymapCapabilities, OnlyMacMovesItemsToApplicationMenu)
+TEST(PilotKeymapCapabilities, AnnotatesReservedSequencesPerPlatform)
 {
-    EXPECT_TRUE(solvcon::capabilitiesFor(solvcon::PlatformId::Mac).movesItemsToApplicationMenu);
-    EXPECT_FALSE(solvcon::capabilitiesFor(solvcon::PlatformId::Linux).movesItemsToApplicationMenu);
-    EXPECT_FALSE(solvcon::capabilitiesFor(solvcon::PlatformId::Windows).movesItemsToApplicationMenu);
+    using solvcon::Key;
+    using solvcon::KeyChord;
+    using solvcon::KeyMod;
+
+    auto const linux = solvcon::capabilitiesFor(solvcon::PlatformId::Linux);
+    auto const mac = solvcon::capabilitiesFor(solvcon::PlatformId::Mac);
+    auto const windows = solvcon::capabilitiesFor(solvcon::PlatformId::Windows);
+
+    EXPECT_FALSE(linux.movesItemsToApplicationMenu);
+    EXPECT_TRUE(mac.movesItemsToApplicationMenu);
+    EXPECT_FALSE(windows.movesItemsToApplicationMenu);
+
+    std::vector<KeyChord> const wasd = {
+        {KeyMod::None, Key::W},
+        {KeyMod::None, Key::A},
+        {KeyMod::None, Key::S},
+        {KeyMod::None, Key::D},
+    };
+    std::vector<KeyChord> linux_reserved = wasd;
+    linux_reserved.push_back({KeyMod::Alt, Key::F4});
+    linux_reserved.push_back({KeyMod::Alt, Key::Tab});
+    EXPECT_EQ(linux.reservedSequences, linux_reserved);
+
+    std::vector<KeyChord> windows_reserved = linux_reserved;
+    windows_reserved.push_back({KeyMod::Alt, Key::Space});
+    EXPECT_EQ(windows.reservedSequences, windows_reserved);
+
+    std::vector<KeyChord> mac_reserved = wasd;
+    mac_reserved.push_back({KeyMod::Primary, Key::Tab});
+    mac_reserved.push_back({KeyMod::Primary, Key::Space});
+    mac_reserved.push_back({KeyMod::Primary, Key::Grave});
+    EXPECT_EQ(mac.reservedSequences, mac_reserved);
+}
+
+TEST(PilotKeymapCapabilities, CuratedChordsAvoidReservedSequences)
+{
+    for (auto platform : PLATFORMS)
+    {
+        for (auto const & binding : solvcon::bindingTable(platform))
+        {
+            auto const * chord = std::get_if<solvcon::KeyChord>(&binding.key);
+            if (chord == nullptr)
+            {
+                continue;
+            }
+            EXPECT_FALSE(solvcon::isReservedSequence(platform, *chord))
+                << solvcon::commandId(binding.command);
+        }
+    }
 }
 
 TEST(PilotKeymapContext, FollowsConservativeOverlapRule)
@@ -109,6 +160,23 @@ TEST(PilotKeymapConflicts, DefaultTablesHaveNoDeclaredConflicts)
     {
         EXPECT_TRUE(solvcon::findDeclaredConflicts(platform).empty());
     }
+}
+
+TEST(PilotKeymapConflicts, DeclaredCheckerReportsDuplicateCuratedChord)
+{
+    // A synthetic table where Console steals Undo's usual Primary+Z spelling.
+    std::vector<solvcon::ShortcutBinding> table = {
+        {solvcon::ShortcutCommand::Undo,
+         solvcon::KeyChord{solvcon::KeyMod::Primary, solvcon::Key::Z},
+         solvcon::ShortcutContext::Window},
+        {solvcon::ShortcutCommand::Console,
+         solvcon::KeyChord{solvcon::KeyMod::Primary, solvcon::Key::Z},
+         solvcon::ShortcutContext::Window},
+    };
+    auto const conflicts = solvcon::findDeclaredConflictsIn(table);
+    ASSERT_EQ(conflicts.size(), 1U);
+    EXPECT_EQ(conflicts[0].first, solvcon::ShortcutCommand::Undo);
+    EXPECT_EQ(conflicts[0].second, solvcon::ShortcutCommand::Console);
 }
 
 TEST(PilotKeymapId, CommandFromIdInvertsCommandId)

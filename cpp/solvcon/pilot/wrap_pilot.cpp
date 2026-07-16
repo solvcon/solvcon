@@ -157,6 +157,33 @@ static pybind11::object pick_to_py(RDomainWidget::PickResult const & r)
     return d;
 }
 
+/// Convert a resolved shortcut to a Python dict of its portable fields.
+static pybind11::dict resolved_shortcut_to_py(ResolvedShortcut const & r)
+{
+    namespace py = pybind11;
+    py::dict d;
+    d["bound"] = r.bound;
+    d["standard"] = r.standard;
+    d["standard_key"] = r.standard_key;
+    d["sequences"] = r.sequences;
+    d["context"] = std::string(contextName(r.context));
+    d["role"] = std::string(roleName(r.role));
+    return d;
+}
+
+/// Convert conflict rows to (command_id, command_id) string pairs.
+static std::vector<std::pair<std::string, std::string>>
+shortcut_conflicts_to_py(std::vector<ShortcutConflict> const & conflicts)
+{
+    std::vector<std::pair<std::string, std::string>> pairs;
+    for (ShortcutConflict const & conflict : conflicts)
+    {
+        pairs.emplace_back(
+            std::string(commandId(conflict.first)), std::string(commandId(conflict.second)));
+    }
+    return pairs;
+}
+
 class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRDomainWidget
     : public WrapBase<WrapRDomainWidget, RDomainWidget, QPointer<RDomainWidget>>
 {
@@ -833,6 +860,11 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRMenuModel
 
 }; /* end class WrapRMenuModel */
 
+// Keep these ordinals aligned with tests/test_pilot_shortcut.py so a reorder
+// fails the C++ build instead of silently rebinding the wrong chord.
+static_assert(static_cast<unsigned>(KeyMod::Primary) == 1);
+static_assert(static_cast<int>(Key::Z) == 11);
+
 class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRManager
     : public WrapBase<WrapRManager, RManager>
 {
@@ -1029,21 +1061,23 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRManager
                 {
                     return std::string(platformIdName(self.shortcutManager()->platform()));
                 })
+            .def_property_readonly(
+                "shortcut_capabilities",
+                [](wrapped_type & self)
+                {
+                    ShortcutCapabilities const caps = self.shortcutManager()->capabilities();
+                    py::dict out;
+                    out["moves_items_to_application_menu"] = caps.movesItemsToApplicationMenu;
+                    out["reserved_count"] = caps.reservedSequences.size();
+                    return out;
+                })
             .def(
                 "resolve_shortcut",
                 [](wrapped_type & self, std::string const & command_id)
                 {
-                    py::dict out;
-                    bool const known = commandFromId(command_id).has_value();
-                    ResolvedShortcut const r =
-                        self.shortcutManager()->resolveById(command_id);
-                    out["known"] = known;
-                    out["bound"] = r.bound;
-                    out["standard"] = r.standard;
-                    out["standard_key"] = r.standard_key;
-                    out["sequences"] = r.sequences;
-                    out["context"] = std::string(contextName(r.context));
-                    out["role"] = std::string(roleName(r.role));
+                    py::dict out = resolved_shortcut_to_py(
+                        self.shortcutManager()->resolveById(command_id));
+                    out["known"] = commandFromId(command_id).has_value();
                     return out;
                 },
                 py::arg("command_id"))
@@ -1051,14 +1085,44 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRManager
                 "shortcut_conflicts",
                 [](wrapped_type & self)
                 {
-                    std::vector<std::pair<std::string, std::string>> pairs;
-                    for (auto const & conflict : self.shortcutManager()->findResolvedConflicts())
-                    {
-                        pairs.emplace_back(
-                            std::string(commandId(conflict.first)), std::string(commandId(conflict.second)));
-                    }
-                    return pairs;
+                    return shortcut_conflicts_to_py(self.shortcutManager()->findResolvedConflicts());
                 })
+            .def(
+                "resolve_all_shortcuts",
+                [](wrapped_type & self)
+                {
+                    py::dict out;
+                    for (auto command : ALL_SHORTCUT_COMMANDS)
+                    {
+                        out[py::str(commandId(command))] =
+                            resolved_shortcut_to_py(self.shortcutManager()->resolve(command));
+                    }
+                    return out;
+                })
+            .def(
+                "shortcut_conflicts_rebinding",
+                [](wrapped_type & self, std::string const & command_id, unsigned mods, int key)
+                {
+                    auto const command = commandFromId(command_id);
+                    if (!command)
+                    {
+                        return std::vector<std::pair<std::string, std::string>>{};
+                    }
+                    std::vector<ShortcutBinding> table =
+                        bindingTable(self.shortcutManager()->platform());
+                    for (ShortcutBinding & binding : table)
+                    {
+                        if (binding.command == *command)
+                        {
+                            binding.key = KeyChord{static_cast<KeyMod>(mods), static_cast<Key>(key)};
+                        }
+                    }
+                    return shortcut_conflicts_to_py(
+                        self.shortcutManager()->findResolvedConflictsIn(table));
+                },
+                py::arg("command_id"),
+                py::arg("mods"),
+                py::arg("key"))
             .def(
                 "quit",
                 [](wrapped_type & self)

@@ -78,12 +78,26 @@ Qt::Key toQtKey(Key key)
         return Qt::Key_Escape;
     case Key::Grave:
         return Qt::Key_QuoteLeft;
+    case Key::Tab:
+        return Qt::Key_Tab;
+    case Key::Space:
+        return Qt::Key_Space;
+    case Key::F4:
+        return Qt::Key_F4;
     case Key::A:
         return Qt::Key_A;
+    case Key::D:
+        return Qt::Key_D;
     case Key::I:
         return Qt::Key_I;
     case Key::P:
         return Qt::Key_P;
+    case Key::S:
+        return Qt::Key_S;
+    case Key::W:
+        return Qt::Key_W;
+    case Key::Z:
+        return Qt::Key_Z;
     }
     throw std::logic_error("Unexpected key");
 }
@@ -143,10 +157,16 @@ QList<QKeySequence> RShortcutManager::sequencesForBinding(ShortcutBinding const 
     {
         // Qt maps ControlModifier to Command on macOS, so a Primary chord
         // pronounces itself on every platform without a native branch here.
+        // The physical Control key is a separate key on macOS, reached
+        // through MetaModifier because Qt swaps Control and Meta there.
         Qt::KeyboardModifiers mods = Qt::NoModifier;
         if (hasMod(chord->mods, KeyMod::Primary))
         {
             mods |= Qt::ControlModifier;
+        }
+        if (hasMod(chord->mods, KeyMod::Control))
+        {
+            mods |= m_platform == PlatformId::Mac ? Qt::MetaModifier : Qt::ControlModifier;
         }
         if (hasMod(chord->mods, KeyMod::Shift))
         {
@@ -233,8 +253,11 @@ ResolvedShortcut RShortcutManager::resolveById(std::string const & id) const
 
 std::vector<ShortcutConflict> RShortcutManager::findResolvedConflicts() const
 {
-    std::vector<ShortcutBinding> const & table = bindingTable(m_platform);
+    return findResolvedConflictsIn(bindingTable(m_platform));
+}
 
+std::vector<ShortcutConflict> RShortcutManager::findResolvedConflictsIn(std::vector<ShortcutBinding> const & table) const
+{
     std::vector<QList<QKeySequence>> resolved;
     resolved.reserve(table.size());
     for (ShortcutBinding const & binding : table)
@@ -255,7 +278,7 @@ std::vector<ShortcutConflict> RShortcutManager::findResolvedConflicts() const
         }
         return false;
     };
-    return findConflicts(m_platform, bound, sequencesClash);
+    return findConflictsIn(table, bound, sequencesClash);
 }
 
 } /* end namespace solvcon */

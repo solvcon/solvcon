@@ -52,17 +52,20 @@ enum class StandardAction
 };
 
 /**
- * A modifier role, written against the command modifier rather than a
- * physical key: Primary is Command on macOS and Control elsewhere. A flag
- * set so a chord can name more than one modifier via operator|; the roof
- * maps each flag to a Qt keyboard modifier when it resolves a chord.
+ * A modifier role a chord names, resolved to a Qt keyboard modifier when a
+ * chord is spelled. Primary is the command modifier: Command on macOS and
+ * Control elsewhere. Control is the physical Control key on every platform,
+ * which on macOS is a distinct key from Command (Qt reaches it through
+ * MetaModifier there). A flag set, so a chord can name more than one
+ * modifier via operator|.
  */
 enum class KeyMod : unsigned
 {
     None = 0,
     Primary = 1u << 0,
     Shift = 1u << 1,
-    Alt = 1u << 2
+    Alt = 1u << 2,
+    Control = 1u << 3
 };
 
 constexpr KeyMod operator|(KeyMod lhs, KeyMod rhs)
@@ -72,18 +75,25 @@ constexpr KeyMod operator|(KeyMod lhs, KeyMod rhs)
 
 /**
  * A physical key a curated chord names. The vocabulary stays small: only the
- * keys the pilot binds today, growing as later steps add curated chords.
- * Arrow keys are deliberately absent; they belong to
- * RDomainWidget::keyPressEvent, not the action system. Plain W/A/S/D camera
- * moves stay there too; letter keys here are only for Primary+Shift chords.
+ * keys the pilot binds or reserves today, growing as later steps add curated
+ * chords. Arrow keys are deliberately absent; they belong to
+ * RDomainWidget::keyPressEvent, not the action system. Plain W/A/S/D appear
+ * in reservedSequences so curated chords stay clear of those camera moves.
  */
 enum class Key
 {
     Escape,
     Grave,
+    Tab,
+    Space,
+    F4,
     A,
+    D,
     I,
-    P
+    P,
+    S,
+    W,
+    Z
 };
 
 struct KeyChord
@@ -203,18 +213,16 @@ ShortcutCapabilities capabilitiesFor(PlatformId platform);
 bool contextsOverlap(ShortcutContext lhs, ShortcutContext rhs);
 
 /**
- * The pairwise-conflict skeleton over @p platform's binding table: a command
- * pair collides when both indices are @p eligible, their contexts overlap, and
- * @p equal reports their keys the same. The core injects a symbolic chord
- * comparison; the Qt roof injects a resolved-sequence comparison, so the loop
- * and the overlap rule live here once. Both predicates take table indices.
+ * The pairwise-conflict skeleton over @p table: a command pair collides when
+ * both indices are @p eligible, their contexts overlap, and @p equal reports
+ * their keys the same. The core injects a symbolic chord comparison; the Qt
+ * roof injects a resolved-sequence comparison, so the loop and the overlap
+ * rule live here once. Both predicates take table indices.
  */
 template <typename Eligible, typename Equal>
 std::vector<ShortcutConflict>
-findConflicts(PlatformId platform, Eligible eligible, Equal equal)
+findConflictsIn(std::vector<ShortcutBinding> const & table, Eligible eligible, Equal equal)
 {
-    std::vector<ShortcutBinding> const & table = bindingTable(platform);
-
     std::vector<ShortcutConflict> conflicts;
     for (std::size_t i = 0; i < table.size(); ++i)
     {
@@ -238,6 +246,16 @@ findConflicts(PlatformId platform, Eligible eligible, Equal equal)
 }
 
 std::vector<ShortcutConflict> findDeclaredConflicts(PlatformId platform);
+
+/**
+ * Declared conflicts over an explicit table, so tests can prove the checker
+ * reports a clash without poisoning a platform phrasebook.
+ */
+std::vector<ShortcutConflict>
+findDeclaredConflictsIn(std::vector<ShortcutBinding> const & table);
+
+/// Whether @p chord is in the platform's reserved-sequence list.
+bool isReservedSequence(PlatformId platform, KeyChord chord);
 
 } /* end namespace solvcon */
 

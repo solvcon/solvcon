@@ -16,15 +16,16 @@ namespace solvcon
 namespace
 {
 
-std::vector<ShortcutBinding> tableWith(std::vector<ShortcutBinding> extra)
+/**
+ * Bindings shared by every platform. The per-platform tables append only
+ * their Exit accent on top of this seed.
+ */
+std::vector<ShortcutBinding> sharedSeed()
 {
-    std::vector<ShortcutBinding> rows = {
+    return {
         {ShortcutCommand::Undo, StandardAction::Undo, ShortcutContext::Window},
         {ShortcutCommand::Redo, StandardAction::Redo, ShortcutContext::Window},
         {ShortcutCommand::CameraReset, KeyChord{KeyMod::None, Key::Escape}, ShortcutContext::Widget},
-        // Primary+` toggles the console. Panel toggles use Primary+Shift
-        // chords and leave plain W/A/S/D and arrows to keyPressEvent.
-        {ShortcutCommand::Console, KeyChord{KeyMod::Primary, Key::Grave}, ShortcutContext::Window},
         {ShortcutCommand::AgentPanel,
          KeyChord{KeyMod::Primary | KeyMod::Shift, Key::A},
          ShortcutContext::Window},
@@ -35,35 +36,42 @@ std::vector<ShortcutBinding> tableWith(std::vector<ShortcutBinding> extra)
          KeyChord{KeyMod::Primary | KeyMod::Shift, Key::P},
          ShortcutContext::Window},
         {ShortcutCommand::New2DCanvas, StandardAction::New, ShortcutContext::Window},
+
+        // Like VSCode, the pilot binds Console to physical Ctrl+Grave on every platform.
+        {ShortcutCommand::Console, KeyChord{KeyMod::Control, Key::Grave}, ShortcutContext::Window},
     };
+}
+
+std::vector<ShortcutBinding> tableWith(std::vector<ShortcutBinding> extra)
+{
+    std::vector<ShortcutBinding> rows = sharedSeed();
     rows.insert(rows.end(), extra.begin(), extra.end());
     return rows;
 }
 
-std::vector<ShortcutBinding> const & nonMacTable()
-{
-    static std::vector<ShortcutBinding> const table = tableWith(
-        {{ShortcutCommand::Exit, StandardAction::Quit, ShortcutContext::Application}});
-    return table;
-}
-
 std::vector<ShortcutBinding> const & linuxTable()
 {
-    return nonMacTable();
+    static std::vector<ShortcutBinding> const table = tableWith({
+        {ShortcutCommand::Exit, StandardAction::Quit, ShortcutContext::Application},
+    });
+    return table;
 }
 
 std::vector<ShortcutBinding> const & windowsTable()
 {
-    return nonMacTable();
+    // Windows shares the Linux Control accent for curated chords.
+    return linuxTable();
 }
 
 std::vector<ShortcutBinding> const & macTable()
 {
-    static std::vector<ShortcutBinding> const table = tableWith(
-        {{ShortcutCommand::Exit,
-          StandardAction::Quit,
-          ShortcutContext::Application,
-          MenuRole::Quit}});
+    // macOS routes Quit through the application menu with its Quit role.
+    static std::vector<ShortcutBinding> const table = tableWith({
+        {ShortcutCommand::Exit,
+         StandardAction::Quit,
+         ShortcutContext::Application,
+         MenuRole::Quit},
+    });
     return table;
 }
 
@@ -165,8 +173,51 @@ ShortcutBinding const * bindingFor(PlatformId platform, ShortcutCommand command)
 
 ShortcutCapabilities capabilitiesFor(PlatformId platform)
 {
-    bool const appMenu = platform == PlatformId::Mac;
-    return {platform, appMenu, {}};
+    ShortcutCapabilities caps;
+    caps.platform = platform;
+    caps.movesItemsToApplicationMenu = platform == PlatformId::Mac;
+    // Plain W/A/S/D belong to RDomainWidget::keyPressEvent on every platform.
+    caps.reservedSequences = {
+        {KeyMod::None, Key::W},
+        {KeyMod::None, Key::A},
+        {KeyMod::None, Key::S},
+        {KeyMod::None, Key::D},
+    };
+
+    switch (platform)
+    {
+    case PlatformId::Linux:
+    case PlatformId::Windows:
+        // Window manager chords; curated bindings must stay clear of them.
+        caps.reservedSequences.push_back({KeyMod::Alt, Key::F4});
+        caps.reservedSequences.push_back({KeyMod::Alt, Key::Tab});
+        if (platform == PlatformId::Windows)
+        {
+            caps.reservedSequences.push_back({KeyMod::Alt, Key::Space});
+        }
+        break;
+    case PlatformId::Mac:
+        // App switcher, Spotlight, and the in-app window cycle. Console
+        // sits on physical Ctrl+Grave, so Cmd+Grave stays a system chord.
+        caps.reservedSequences.push_back({KeyMod::Primary, Key::Tab});
+        caps.reservedSequences.push_back({KeyMod::Primary, Key::Space});
+        caps.reservedSequences.push_back({KeyMod::Primary, Key::Grave});
+        break;
+    }
+    return caps;
+}
+
+bool isReservedSequence(PlatformId platform, KeyChord chord)
+{
+    ShortcutCapabilities const caps = capabilitiesFor(platform);
+    for (KeyChord const & reserved : caps.reservedSequences)
+    {
+        if (reserved == chord)
+        {
+            return true;
+        }
+    }
+    return false;
 }
 
 bool contextsOverlap(ShortcutContext lhs, ShortcutContext rhs)
@@ -187,14 +238,18 @@ bool contextsOverlap(ShortcutContext lhs, ShortcutContext rhs)
     return covers(lhs, rhs) || covers(rhs, lhs);
 }
 
-std::vector<ShortcutConflict> findDeclaredConflicts(PlatformId platform)
+std::vector<ShortcutConflict> findDeclaredConflictsIn(std::vector<ShortcutBinding> const & table)
 {
-    std::vector<ShortcutBinding> const & table = bindingTable(platform);
     auto isChord = [&table](std::size_t i)
     { return std::holds_alternative<KeyChord>(table[i].key); };
     auto chordsEqual = [&table](std::size_t i, std::size_t j)
     { return std::get<KeyChord>(table[i].key) == std::get<KeyChord>(table[j].key); };
-    return findConflicts(platform, isChord, chordsEqual);
+    return findConflictsIn(table, isChord, chordsEqual);
+}
+
+std::vector<ShortcutConflict> findDeclaredConflicts(PlatformId platform)
+{
+    return findDeclaredConflictsIn(bindingTable(platform));
 }
 
 } /* end namespace solvcon */

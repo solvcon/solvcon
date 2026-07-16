@@ -17,11 +17,23 @@ except ImportError:
 
 GITHUB_ACTIONS = os.getenv('GITHUB_ACTIONS', False)
 
+# KeyMod::Primary and Key::Z ordinals from keymap.hpp, passed to
+# shortcut_conflicts_rebinding; a static_assert in wrap_pilot.cpp pins them.
+_KEYMOD_PRIMARY = 1
+_KEY_Z = 11
+
 _PANEL_CHORDS = (
     ("panel.agent_console", ["Ctrl+Shift+A"]),
     ("panel.inspector", ["Ctrl+Shift+I"]),
     ("panel.painter", ["Ctrl+Shift+P"]),
 )
+
+_STANDARD_IDS = {
+    "edit.undo": QtGui.QKeySequence.StandardKey.Undo,
+    "edit.redo": QtGui.QKeySequence.StandardKey.Redo,
+    "file.exit": QtGui.QKeySequence.StandardKey.Quit,
+    "canvas.blank_2d": QtGui.QKeySequence.StandardKey.New,
+}
 
 
 def _live_sequences(action):
@@ -29,11 +41,15 @@ def _live_sequences(action):
             for s in action.shortcuts()]
 
 
-@unittest.skipIf(GITHUB_ACTIONS or not solvcon.HAS_PILOT,
-                 "GUI is not available in GitHub Actions")
+def _portable_standard_sequences(standard_key):
+    return [s.toString(QtGui.QKeySequence.PortableText)
+            for s in QtGui.QKeySequence.keyBindings(standard_key)]
+
+
+@unittest.skipIf(not solvcon.HAS_PILOT, "GUI is not available")
 class ShortcutResolutionTC(unittest.TestCase):
     """The roof resolves a command id to portable values the Python layer can
-    apply."""
+    apply. Runs under QT_QPA_PLATFORM=offscreen on CI when pilot is built."""
 
     def setUp(self):
         self.mgr = pilot.RManager.instance.setUp()
@@ -48,7 +64,8 @@ class ShortcutResolutionTC(unittest.TestCase):
         self.assertTrue(r["standard"])
         self.assertEqual(r["standard_key"], "Undo")
         self.assertEqual(r["context"], "window")
-        self.assertTrue(r["sequences"])
+        self.assertEqual(r["sequences"], _portable_standard_sequences(
+            QtGui.QKeySequence.StandardKey.Undo))
 
     def test_camera_reset_resolves_to_a_curated_chord(self):
         r = self.mgr.resolve_shortcut("camera.reset")
@@ -59,13 +76,19 @@ class ShortcutResolutionTC(unittest.TestCase):
         self.assertEqual(r["role"], "none")
         self.assertEqual(r["sequences"], ["Esc"])
 
-    def test_console_resolves_to_primary_grave(self):
+    def test_console_resolves_to_the_grave_toggle(self):
         r = self.mgr.resolve_shortcut("window.console")
         self.assertTrue(r["known"])
         self.assertTrue(r["bound"])
         self.assertFalse(r["standard"])
         self.assertEqual(r["context"], "window")
-        self.assertEqual(r["sequences"], ["Ctrl+`"])
+        # Physical Ctrl+` on every platform, matching VSCode's terminal
+        # toggle. Qt reaches the macOS Control key through Meta, so the
+        # portable text spells it "Meta+`" there.
+        if self.mgr.shortcut_platform == "mac":
+            self.assertEqual(r["sequences"], ["Meta+`"])
+        else:
+            self.assertEqual(r["sequences"], ["Ctrl+`"])
 
     def test_panel_chords_resolve(self):
         for oid, sequences in _PANEL_CHORDS:
@@ -81,6 +104,8 @@ class ShortcutResolutionTC(unittest.TestCase):
         self.assertTrue(r["bound"])
         self.assertTrue(r["standard"])
         self.assertEqual(r["standard_key"], "New")
+        self.assertEqual(r["sequences"], _portable_standard_sequences(
+            QtGui.QKeySequence.StandardKey.New))
 
     def test_exit_carries_quit_and_platform_role(self):
         r = self.mgr.resolve_shortcut("file.exit")
@@ -89,6 +114,8 @@ class ShortcutResolutionTC(unittest.TestCase):
         self.assertTrue(r["standard"])
         self.assertEqual(r["standard_key"], "Quit")
         self.assertEqual(r["context"], "application")
+        self.assertEqual(r["sequences"], _portable_standard_sequences(
+            QtGui.QKeySequence.StandardKey.Quit))
         if self.mgr.shortcut_platform == "mac":
             self.assertEqual(r["role"], "quit")
         else:
@@ -102,6 +129,47 @@ class ShortcutResolutionTC(unittest.TestCase):
 
     def test_resolved_bindings_do_not_collide(self):
         self.assertEqual(self.mgr.shortcut_conflicts(), [])
+
+    def test_every_vocabulary_command_resolves(self):
+        # Standard keys may be unbound on a platform (Quit has no chord on
+        # Windows); curated phrasebook rows must still carry a sequence.
+        all_bindings = self.mgr.resolve_all_shortcuts()
+        for oid, entry in all_bindings.items():
+            with self.subTest(oid=oid):
+                self.assertTrue(entry["bound"], oid)
+                if oid in _STANDARD_IDS:
+                    self.assertEqual(
+                        entry["sequences"],
+                        _portable_standard_sequences(_STANDARD_IDS[oid]),
+                        oid)
+                else:
+                    self.assertTrue(entry["sequences"], oid)
+
+    def test_capabilities_match_the_running_platform(self):
+        caps = self.mgr.shortcut_capabilities
+        self.assertEqual(caps["moves_items_to_application_menu"],
+                         self.mgr.shortcut_platform == "mac")
+        self.assertGreater(caps["reserved_count"], 0)
+
+    def test_primary_modifier_native_text_follows_platform(self):
+        # Qt PortableText spells the command modifier as Ctrl everywhere;
+        # NativeText carries the Command glyph on macOS.
+        r = self.mgr.resolve_shortcut("panel.agent_console")
+        self.assertEqual(r["sequences"], ["Ctrl+Shift+A"])
+        native = QtGui.QKeySequence(
+            r["sequences"][0], QtGui.QKeySequence.PortableText)
+        native_text = native.toString(QtGui.QKeySequence.NativeText)
+        if self.mgr.shortcut_platform == "mac":
+            self.assertIn(chr(0x2318), native_text)
+        else:
+            self.assertIn("Ctrl", native_text)
+
+    def test_resolved_checker_reports_curated_undo_clash(self):
+        # Rebind Console to Primary+Z; the resolved checker must see Undo.
+        conflicts = self.mgr.shortcut_conflicts_rebinding(
+            "window.console", _KEYMOD_PRIMARY, _KEY_Z)
+        pairs = {frozenset(pair) for pair in conflicts}
+        self.assertIn(frozenset({"edit.undo", "window.console"}), pairs)
 
 
 @unittest.skipIf(GITHUB_ACTIONS or not solvcon.HAS_PILOT,

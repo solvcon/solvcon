@@ -111,6 +111,12 @@ public:
      */
     std::vector<ShortcutConflict> findResolvedConflicts() const;
 
+    /**
+     * Same as findResolvedConflicts, but over an explicit table so a test can
+     * rebind one command and prove the resolved checker reports the clash.
+     */
+    std::vector<ShortcutConflict> findResolvedConflictsIn(std::vector<ShortcutBinding> const & table) const;
+
 signals:
 
     /**
