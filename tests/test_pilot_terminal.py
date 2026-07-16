@@ -46,6 +46,10 @@ class TerminalWidgetTC(unittest.TestCase):
     def setUp(self):
         self.term = self.mgr.pyterm
         self.edit = self.term.textEdit
+        # Pin a known variant so the syntax and output colors are
+        # deterministic, and restore the shared default afterward.
+        self.mgr.set_theme("light")
+        self.addCleanup(self.mgr.set_theme, "system")
         # Start each test from a clean primary prompt, abandoning any block a
         # previous test left open in the shared interpreter.
         self.term.resetInput()
@@ -206,6 +210,61 @@ class TerminalWidgetTC(unittest.TestCase):
         # The committed keyword carries no highlight after it scrolls up.
         pos = self.edit.toPlainText().find("pass")
         self.assertNotIn((0, 0, 180), self._layout_colors(pos))
+
+    def test_stderr_output_is_red(self):
+        self.term.command = "1 / 0"
+        self.term.executeCommand()
+        text = self.edit.toPlainText()
+        color = self._doc_color_at(text.find("ZeroDivisionError"))
+        # The light table's error red, red-dominant against the light base.
+        self.assertEqual((color.red(), color.green(), color.blue()),
+                         (170, 0, 0))
+
+    def test_stdout_output_uses_the_theme_text_color(self):
+        self.term.command = "print('marker_out')"
+        self.term.executeCommand()
+        text = self.edit.toPlainText()
+        # rfind lands on the captured output, not the input echo above it.
+        color = self._doc_color_at(text.rfind("marker_out"))
+        expected = self.edit.palette().color(QtGui.QPalette.Text)
+        self.assertEqual((color.red(), color.green(), color.blue()),
+                         (expected.red(), expected.green(), expected.blue()))
+
+    def test_output_colors_follow_a_dark_switch(self):
+        # Under the dark theme the captured stderr stays red-dominant but
+        # takes a distinct, brighter value than the light table's, and stdout
+        # takes the dark palette's text color.
+        self.mgr.set_theme("light")
+        self.term.command = "1 / 0"
+        self.term.executeCommand()
+        light_err = self._doc_color_at(
+            self.edit.toPlainText().find("ZeroDivisionError"))
+
+        self.mgr.set_theme("dark")
+        self.term.command = "1 / 0"
+        self.term.executeCommand()
+        dark_err = self._doc_color_at(
+            self.edit.toPlainText().rfind("ZeroDivisionError"))
+
+        for color in (light_err, dark_err):
+            self.assertGreater(color.red(), color.green())
+            self.assertGreater(color.red(), color.blue())
+        self.assertNotEqual(
+            (light_err.red(), light_err.green(), light_err.blue()),
+            (dark_err.red(), dark_err.green(), dark_err.blue()))
+
+        self.term.command = "print('dark_out')"
+        self.term.executeCommand()
+        out = self._doc_color_at(self.edit.toPlainText().rfind("dark_out"))
+        expected = self.edit.palette().color(QtGui.QPalette.Text)
+        self.assertEqual((out.red(), out.green(), out.blue()),
+                         (expected.red(), expected.green(), expected.blue()))
+
+    def _doc_color_at(self, index):
+        """The stored foreground of the character at ``index``."""
+        cursor = QtGui.QTextCursor(self.edit.document())
+        cursor.setPosition(index + 1)
+        return cursor.charFormat().foreground().color()
 
     def _layout_colors(self, index):
         """Foreground colors the highlighter laid on the block at ``index``."""

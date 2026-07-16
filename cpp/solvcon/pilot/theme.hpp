@@ -116,14 +116,17 @@ struct ThemePalette
 }; /* end struct ThemePalette */
 
 /**
- * @brief The colors the console's Python highlighter and its matching-bracket
- * marker draw with.
+ * @brief The colors the console's Python highlighter, its matching-bracket
+ * marker, and its captured error output draw with.
  *
  * These are not QPalette roles, so they live apart from ThemePalette; the
  * console reads them directly. Like the palette they come in a light and a
  * dark table so the highlighted code stays legible under either variant, which
  * the hardcoded single set could not do once the console followed the theme.
- * bracket_match is a background wash behind a matched pair of brackets.
+ * bracket_match is a background wash behind a matched pair of brackets, and
+ * error is the foreground the terminal paints captured stderr with, kept a
+ * distinct red in each variant. Ordinary stdout takes the palette text color
+ * rather than a field here.
  */
 struct SyntaxColors
 {
@@ -133,6 +136,7 @@ struct SyntaxColors
     ThemeColor comment;
     ThemeColor number;
     ThemeColor bracket_match;
+    ThemeColor error;
 }; /* end struct SyntaxColors */
 
 /**

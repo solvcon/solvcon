@@ -170,6 +170,7 @@ TEST(PilotThemeSyntax, DarkTokensAreBrighterAndSelectByVariant)
     EXPECT_GT(sum(dark.keyword), sum(light.keyword));
     EXPECT_GT(sum(dark.string), sum(light.string));
     EXPECT_GT(sum(dark.number), sum(light.number));
+    EXPECT_GT(sum(dark.error), sum(light.error));
 
     // syntaxColorsFor selects the matching table on every platform.
     for (PlatformId platform : {PlatformId::Linux, PlatformId::Mac, PlatformId::Windows})

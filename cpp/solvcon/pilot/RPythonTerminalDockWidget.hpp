@@ -19,11 +19,13 @@
 
 #include <solvcon/pilot/RPythonConsoleHistory.hpp>
 #include <solvcon/pilot/RPythonSyntaxHighlighter.hpp>
+#include <solvcon/pilot/theme.hpp>
 
 #include <cstddef>
 #include <string>
 
 #include <Qt>
+#include <QColor>
 #include <QCompleter>
 #include <QDockWidget>
 #include <QStringListModel>
@@ -68,6 +70,17 @@ public:
 
     /// Append @p text at the end of the committed transcript.
     void appendCommitted(QString const & text);
+
+    /// Append captured output at the end of the transcript, colored to tell
+    /// stderr from stdout.
+    void appendOutput(QString const & text, bool is_error);
+
+    /// Recolor the matched-bracket wash so it follows a light or dark switch.
+    void setBracketMatchColor(QColor const & color) { m_bracket_match_color = color; }
+
+    /// Recolor the stderr foreground so captured errors stay legible under
+    /// either variant.
+    void setErrorColor(QColor const & color) { m_error_color = color; }
 
     int inputStart() const { return m_input_start; }
 
@@ -121,6 +134,9 @@ private:
     QCompleter * m_completer = nullptr;
     bool m_searching = false;
 
+    QColor m_bracket_match_color = QColor(180, 180, 255);
+    QColor m_error_color = QColor(170, 0, 0);
+
 }; /* end class RPythonTerminalTextEdit */
 
 /**
@@ -160,6 +176,11 @@ public:
     }
 
     void writeToHistory(std::string const & data);
+
+    /// Point the input highlighter, the bracket marker, and the stderr color
+    /// at a theme's syntax table so the terminal follows a light or dark
+    /// switch, mirroring the two-pane console.
+    void applyTheme(SyntaxColors const & colors);
 
 public slots:
     void executeCommand();
