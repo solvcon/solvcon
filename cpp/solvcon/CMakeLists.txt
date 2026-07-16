@@ -293,4 +293,30 @@ else () # MSVC
     )
 endif () # MSVC
 
+# Only the caster-neutral pybind11 headers go into the PCH. Force-including
+# a caster-adding header (stl.h, functional.h, complex.h) would silently
+# change conversion semantics in translation units that deliberately omit
+# it.
+if (SOLVCON_USE_PCH)
+    target_precompile_headers(
+        solvcon_primary PRIVATE
+        <pybind11/pybind11.h>
+        <pybind11/numpy.h>
+        <pybind11/embed.h>
+    )
+    if (BUILD_QT)
+        target_precompile_headers(
+            solvcon_primary PRIVATE
+            <QtWidgets/QtWidgets>
+        )
+        # python/common.cpp includes the raw numpy C API headers, whose
+        # struct member named "slots" collides with the Qt keyword macro
+        # that the QtWidgets PCH force-includes.
+        set_source_files_properties(
+            ${CMAKE_CURRENT_SOURCE_DIR}/python/common.cpp
+            PROPERTIES SKIP_PRECOMPILE_HEADERS ON
+        )
+    endif () # BUILD_QT
+endif () # SOLVCON_USE_PCH
+
 # vim: set ff=unix fenc=utf8 nobomb et sw=4 ts=4 sts=4:

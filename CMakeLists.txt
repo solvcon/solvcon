@@ -199,6 +199,25 @@ if(SOLVCON_PROFILE)
     endif()
 endif()
 
+# Precompiled headers cut the repeated parse of the heavy third-party
+# headers (pybind11, Qt) in every translation unit. They do not compose
+# with compiler caches (ccache/sccache fall back to uncached real compiles
+# on PCH translation units) nor with clang-tidy (it cannot replay another
+# compiler's PCH), so force OFF whenever either is in play. The set()
+# shadows the cached option with a normal variable so the gate also holds
+# when an existing build tree is reconfigured into an incompatible mode.
+option(SOLVCON_USE_PCH "precompile heavy third-party headers" ON)
+file(REAL_PATH "${CMAKE_CXX_COMPILER}" SOLVCON_CXX_COMPILER_REALPATH)
+if(SOLVCON_USE_PCH
+   AND (USE_CLANG_TIDY
+        OR CMAKE_CXX_COMPILER_LAUNCHER
+        OR SOLVCON_CXX_COMPILER_REALPATH MATCHES "ccache|sccache"))
+    message(STATUS
+        "force SOLVCON_USE_PCH=OFF: clang-tidy or a compiler cache is on")
+    set(SOLVCON_USE_PCH OFF)
+endif()
+message(STATUS "SOLVCON_USE_PCH: ${SOLVCON_USE_PCH}")
+
 if(BUILD_METAL)
 include_directories(SYSTEM "${CMAKE_CURRENT_LIST_DIR}/thirdparty/install/metal-cpp")
 endif()
