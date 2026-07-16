@@ -61,7 +61,7 @@ runs:
       with:
         # Use a newer Qt build to avoid -framework AGL linker failures on Tahoe.
         # Ref: https://qt-project.atlassian.net/browse/QTBUG-137687
-        version: '6.9.2'
+        version: '6.11.1'
         host: 'mac'
         target: 'desktop'
         arch: 'clang_64'
