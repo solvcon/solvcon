@@ -170,6 +170,52 @@ class TerminalWidgetTC(unittest.TestCase):
         # The in-progress input survives the external write.
         self.assertEqual(self.term.command, "keep")
 
+    def test_tab_completes_a_single_match(self):
+        # A uniquely named handle leaves exactly one completion, which is
+        # inserted directly without a popup.
+        self.term.command = "terminal_unique_handle = 1"
+        self.term.executeCommand()
+        self._type("terminal_unique_han")
+        self._key(QtCore.Qt.Key_Tab)
+        self.assertEqual(self.term.command, "terminal_unique_handle")
+
+    def test_ctrl_r_recalls_a_matching_command(self):
+        self.term.command = "apricot_value = 1"
+        self.term.executeCommand()
+        self.term.command = "cherry_value = 2"
+        self.term.executeCommand()
+        self._type("apri")
+        _send_key(self.edit, QtCore.Qt.Key_R, "r",
+                  QtCore.Qt.ControlModifier)
+        self.assertEqual(self.term.command, "apricot_value = 1")
+
+    def test_call_tip_on_open_paren_does_not_disturb_input(self):
+        # Typing a call opening keeps the input intact; the tip is advisory.
+        self._type("range(")
+        self.assertEqual(self.term.command, "range(")
+
+    def test_input_is_highlighted(self):
+        self._type("while")
+        # The keyword blue defined by the highlighter paints the input block.
+        pos = self.edit.toPlainText().rfind("while")
+        self.assertIn((0, 0, 180), self._layout_colors(pos))
+
+    def test_committed_transcript_is_not_highlighted(self):
+        self.term.command = "pass"
+        self.term.executeCommand()
+        # The committed keyword carries no highlight after it scrolls up.
+        pos = self.edit.toPlainText().find("pass")
+        self.assertNotIn((0, 0, 180), self._layout_colors(pos))
+
+    def _layout_colors(self, index):
+        """Foreground colors the highlighter laid on the block at ``index``."""
+        block = self.edit.document().findBlock(index)
+        colors = []
+        for rng in block.layout().formats():
+            color = rng.format.foreground().color()
+            colors.append((color.red(), color.green(), color.blue()))
+        return colors
+
     def term_input_start(self):
         """Position just after the current prompt, read off the document."""
         text = self.edit.toPlainText()
