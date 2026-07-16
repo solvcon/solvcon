@@ -261,7 +261,8 @@ private:
         }
     }
 
-    void build_interior(const std::shared_ptr<StaticMesh> & blk);
+    void build_interior(
+        const std::shared_ptr<StaticMesh> & blk, std::vector<uint_type> const & cellmap);
 
     std::stringstream stream;
     FormatState last_fmt_state = FormatState::BEGIN;

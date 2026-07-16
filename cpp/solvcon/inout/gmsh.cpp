@@ -1,4 +1,5 @@
 #include <solvcon/inout/gmsh.hpp>
+#include <vector>
 #ifdef _WIN32
 #include <algorithm>
 #endif // _WIN32
@@ -69,25 +70,42 @@ Gmsh::Gmsh(const std::string & data)
 
 std::shared_ptr<StaticMesh> Gmsh::to_block()
 {
+    // Only the top-dimension elements are cells; a file's lower-dimension
+    // elements (points, boundary lines) merely tag physical groups. Taking
+    // them as cells builds degenerate cells that later read out of bounds.
+    uint_type const topdim = m_eldim.max();
+    std::vector<uint_type> cellmap;
+    cellmap.reserve(m_elems.size());
+    for (size_t iel = 0; iel < m_eldim.size(); ++iel)
+    {
+        if (m_eldim[iel] == topdim)
+        {
+            cellmap.push_back(static_cast<uint_type>(iel));
+        }
+    }
+
     std::shared_ptr<StaticMesh> block = StaticMesh::construct(
-        m_eldim.max(),
+        topdim,
         static_cast<StaticMesh::uint_type>(m_nds.shape(0)),
         0,
-        static_cast<StaticMesh::uint_type>(m_elems.size()));
-    build_interior(block);
+        static_cast<StaticMesh::uint_type>(cellmap.size()));
+    build_interior(block, cellmap);
     return block;
 }
 
-void Gmsh::build_interior(const std::shared_ptr<StaticMesh> & blk)
+void Gmsh::build_interior(
+    const std::shared_ptr<StaticMesh> & blk, std::vector<uint_type> const & cellmap)
 {
-    blk->cltpn().swap(m_cltpn);
     blk->ndcrd().swap(m_nds);
-    for (size_t i = 0; i < m_elems.size(); ++i)
+    for (size_t icl = 0; icl < cellmap.size(); ++icl)
     {
-        blk->clnds()(i, 0) = m_elems[i][0];
-        for (size_t j = 1; j <= m_elems[i][0]; ++j)
+        uint_type const iel = cellmap[icl];
+        blk->cltpn()(icl) = m_cltpn[iel];
+        small_vector<uint_type> const & nds = m_elems.at(iel);
+        blk->clnds()(icl, 0) = nds[0];
+        for (size_t j = 1; j <= nds[0]; ++j)
         {
-            blk->clnds()(i, j) = m_elems[i][j];
+            blk->clnds()(icl, j) = nds[j];
         }
     }
     blk->build_interior(true);
