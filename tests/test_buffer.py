@@ -4183,111 +4183,105 @@ class SimpleArraySearchTC(unittest.TestCase):
         np.testing.assert_array_equal(ret.ndarray, np.argwhere(narr == 10))
 
     def test_where(self):
-        # test 1-D contiguous array
-        narr = np.arange(10, dtype='uint64')
-        sarr = solvcon.SimpleArrayUint64(array=narr)
-        np.testing.assert_array_equal(
-            ((sarr < 5).where(sarr.add(1), sarr.mul(10))).ndarray,
-            np.where(narr < 5, narr + 1, narr * 10)
-        )
+        cases = [
+            ("1d_contiguous", solvcon.SimpleArrayUint64,
+             np.arange(10, dtype='uint64'), 5),
+            ('2d_contiguous', solvcon.SimpleArrayFloat64,
+             np.arange(12, dtype='float64').reshape(3, 4), 6),
+            ('3d_contiguous', solvcon.SimpleArrayInt32,
+             np.arange(24, dtype='int32').reshape(2, 3, 4), 12),
+            ('4d_contiguous', solvcon.SimpleArrayFloat32,
+             np.arange(120, dtype='float32').reshape(2, 3, 4, 5), 60)
+        ]
 
-        # test 2-D contiguous array
-        narr = np.arange(12, dtype='float64').reshape(3, 4)
-        sarr = solvcon.SimpleArrayFloat64(array=narr)
-        np.testing.assert_array_equal(
-            ((sarr < 6).where(sarr.add(1), sarr.mul(10))).ndarray,
-            np.where(narr < 6, narr + 1, narr * 10)
-        )
+        for name, sarr_type, narr, scalar in cases:
+            with self.subTest(name=name):
+                cond_narr = (narr < scalar)
+                x_narr = (narr + 1)
+                y_narr = (narr * 10)
 
-        # test 3-D contiguous array
-        narr = np.arange(24, dtype='int32').reshape(2, 3, 4)
-        sarr = solvcon.SimpleArrayInt32(array=narr)
-        np.testing.assert_array_equal(
-            ((sarr < 12).where(sarr.add(1), sarr.mul(10))).ndarray,
-            np.where(narr < 12, narr + 1, narr * 10)
-        )
+                cond_sarr = solvcon.SimpleArrayBool(array=cond_narr)
+                x_sarr = sarr_type(array=x_narr)
+                y_sarr = sarr_type(array=y_narr)
 
-        # test 4-D contiguous array
-        narr = np.arange(120, dtype='float32').reshape(2, 3, 4, 5)
-        sarr = solvcon.SimpleArrayFloat32(array=narr)
-        np.testing.assert_array_equal(
-            ((sarr < 60).where(sarr.add(1), sarr.mul(10))).ndarray,
-            np.where(narr < 60, narr + 1, narr * 10)
-        )
+                np.testing.assert_array_equal(
+                    ((cond_sarr).where(x_sarr, y_sarr)).ndarray,
+                    np.where(cond_narr, x_narr, y_narr)
+                )
 
-        # test non-contiguous array
-        narr = np.arange(24, dtype='float64').reshape(4, 6)
+        with self.subTest(name='non_contiguous'):
+            narr = np.arange(24, dtype='float64').reshape(4, 6)
 
-        cond_view = (narr < 12)[::2, ::2]
-        x_view = (narr + 1)[::2, ::2]
-        y_view = (narr * 10)[::2, ::2]
+            cond_view = (narr < 12)[::2, ::2]
+            x_view = (narr + 1)[::2, ::2]
+            y_view = (narr * 10)[::2, ::2]
 
-        cond_sarr = solvcon.SimpleArrayBool(array=cond_view)
-        x_sarr = solvcon.SimpleArrayFloat64(array=x_view)
-        y_sarr = solvcon.SimpleArrayFloat64(array=y_view)
+            cond_sarr = solvcon.SimpleArrayBool(array=cond_view)
+            x_sarr = solvcon.SimpleArrayFloat64(array=x_view)
+            y_sarr = solvcon.SimpleArrayFloat64(array=y_view)
 
-        np.testing.assert_array_equal(
-            ((cond_sarr).where(x_sarr, y_sarr)).ndarray,
-            np.where(cond_view, x_view, y_view)
-        )
+            np.testing.assert_array_equal(
+                ((cond_sarr).where(x_sarr, y_sarr)).ndarray,
+                np.where(cond_view, x_view, y_view)
+            )
 
-        # test c-contiguous and f-contiguous arrays
-        narr = np.arange(24, dtype='float32').reshape(4, 3, 2)
-        cond_narr = (narr < 12).copy(order='C')
-        x_narr = (narr + 1).copy(order='C')
-        y_narr = (narr * 10).copy(order='F')
+        with self.subTest(name='mixed_c_and_f_contiguous'):
+            narr = np.arange(24, dtype='float32').reshape(4, 3, 2)
+            cond_narr = (narr < 12).copy(order='C')
+            x_narr = (narr + 1).copy(order='C')
+            y_narr = (narr * 10).copy(order='F')
 
-        cond_sarr = solvcon.SimpleArrayBool(array=cond_narr)
-        x_sarr = solvcon.SimpleArrayFloat32(array=x_narr)
-        y_sarr = solvcon.SimpleArrayFloat32(array=y_narr)
+            cond_sarr = solvcon.SimpleArrayBool(array=cond_narr)
+            x_sarr = solvcon.SimpleArrayFloat32(array=x_narr)
+            y_sarr = solvcon.SimpleArrayFloat32(array=y_narr)
 
-        self.assertTrue(cond_sarr.is_c_contiguous)
-        self.assertTrue(x_sarr.is_c_contiguous)
-        self.assertTrue(y_sarr.is_f_contiguous)
-        self.assertFalse(x_sarr.is_f_contiguous)
-        self.assertFalse(y_sarr.is_c_contiguous)
+            self.assertTrue(cond_sarr.is_c_contiguous)
+            self.assertTrue(x_sarr.is_c_contiguous)
+            self.assertTrue(y_sarr.is_f_contiguous)
+            self.assertFalse(x_sarr.is_f_contiguous)
+            self.assertFalse(y_sarr.is_c_contiguous)
 
-        np.testing.assert_array_equal(
-            ((cond_sarr).where(x_sarr, y_sarr)).ndarray,
-            np.where(cond_narr, x_narr, y_narr)
-        )
+            np.testing.assert_array_equal(
+                ((cond_sarr).where(x_sarr, y_sarr)).ndarray,
+                np.where(cond_narr, x_narr, y_narr)
+            )
 
-        # test ghost array
-        narr = np.arange(24, dtype='float32').reshape(4, 3, 2)
-        cond_narr = (narr < 12)
-        x_narr = (narr + 1)
-        y_narr = (narr * 10)
+        with self.subTest(name='ghost'):
+            narr = np.arange(24, dtype='float32').reshape(4, 3, 2)
+            cond_narr = (narr < 12)
+            x_narr = (narr + 1)
+            y_narr = (narr * 10)
 
-        cond_sarr = solvcon.SimpleArrayBool(array=cond_narr)
-        x_sarr = solvcon.SimpleArrayFloat32(array=x_narr)
-        y_sarr = solvcon.SimpleArrayFloat32(array=y_narr)
+            cond_sarr = solvcon.SimpleArrayBool(array=cond_narr)
+            x_sarr = solvcon.SimpleArrayFloat32(array=x_narr)
+            y_sarr = solvcon.SimpleArrayFloat32(array=y_narr)
 
-        cond_sarr.nghost = 1
-        x_sarr.nghost = 1
-        y_sarr.nghost = 1
+            cond_sarr.nghost = 1
+            x_sarr.nghost = 1
+            y_sarr.nghost = 1
 
-        np.testing.assert_array_equal(
-            ((cond_sarr).where(x_sarr, y_sarr)).ndarray,
-            np.where(cond_narr, x_narr, y_narr)
-        )
+            np.testing.assert_array_equal(
+                ((cond_sarr).where(x_sarr, y_sarr)).ndarray,
+                np.where(cond_narr, x_narr, y_narr)
+            )
 
-        # test condition dtype is not bool
-        sarr1 = solvcon.SimpleArrayInt32((2, 3), value=1)
-        with self.assertRaisesRegex(
-            AttributeError, r"has no attribute 'where'"
-        ):
-            sarr1.where(sarr1, sarr1.add(1))
+        with self.subTest(name='non_bool_condition'):
+            sarr1 = solvcon.SimpleArrayInt32((2, 3), value=1)
+            with self.assertRaisesRegex(
+                AttributeError, r"has no attribute 'where'"
+            ):
+                sarr1.where(sarr1, sarr1.add(1))
 
-        # test shape mismatch
-        cond = solvcon.SimpleArrayBool((1, 3), value=True)
-        sarr2 = solvcon.SimpleArrayInt32((1, 2), value=2)
-        sarr3 = solvcon.SimpleArrayInt32((1, 2), value=3)
-        with self.assertRaisesRegex(
-            ValueError,
-            r"SimpleArray::where\(\): shape mismatch: "
-            r"condition=\(1, 3\) x=\(1, 2\) y=\(1, 2\)"
-        ):
-            cond.where(sarr2, sarr3)
+        with self.subTest(name='shape_mismatch'):
+            cond = solvcon.SimpleArrayBool((1, 3), value=True)
+            sarr2 = solvcon.SimpleArrayInt32((1, 2), value=2)
+            sarr3 = solvcon.SimpleArrayInt32((1, 2), value=3)
+            with self.assertRaisesRegex(
+                ValueError,
+                r"SimpleArray::where\(\): shape mismatch: "
+                r"condition=\(1, 3\) x=\(1, 2\) y=\(1, 2\)"
+            ):
+                cond.where(sarr2, sarr3)
 
 
 class SimpleArrayPlexTC(unittest.TestCase):
