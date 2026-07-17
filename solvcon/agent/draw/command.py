@@ -79,8 +79,11 @@ SHAPE = {"type": "object",
                       "description": "Lower-case shape type name."},
              "bbox": _BBOX,
              "segments": _SEG_LIST,
-             "curves": _CURVE_LIST},
-         "required": ["id", "type", "bbox", "segments", "curves"],
+             "curves": _CURVE_LIST,
+             "text": {**STRING,
+                      "description": "Label content; empty unless a text "
+                      "shape."}},
+         "required": ["id", "type", "bbox", "segments", "curves", "text"],
          "additionalProperties": False}
 
 # Mirrors WorldState in cpp/solvcon/universe/World.hpp.
@@ -324,6 +327,23 @@ class AddPolygon(_cmd.Command):
     def apply(self, world, args, ctx):
         verts = [[p[0], p[1]] for p in args["vertices"]]
         return {"shape_id": world.add_polygon(verts)}
+
+
+@_command_set.register
+class AddText(_cmd.Command):
+    op = "add_text"
+    category = "create"
+    summary = ("Add an upright text label with its baseline-left anchor at "
+               "(x, y) and the given world-space height.")
+    arguments = {"text": {**STRING, "description": "Label content."},
+                 "x": _num("Baseline-left anchor x."),
+                 "y": _num("Baseline-left anchor y (+Y up)."),
+                 "height": _pos("Cap height in world units; positive.")}
+    returns = {"shape_id": _int("Id of the new shape.")}
+
+    def apply(self, world, args, ctx):
+        return {"shape_id": world.add_text(
+            args["text"], args["x"], args["y"], args["height"])}
 
 
 @_command_set.register

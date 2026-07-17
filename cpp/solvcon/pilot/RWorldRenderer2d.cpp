@@ -13,6 +13,7 @@
 #include <vector>
 
 #include <QColor>
+#include <QFont>
 #include <QFontMetricsF>
 #include <QPainter>
 #include <QPainterPath>
@@ -669,6 +670,34 @@ void RWorldRenderer2d::paint(QPainter & painter) const
         {
             painter.drawPoint(map(points->x(i), points->y(i)));
         }
+    }
+
+    // Text labels, drawn upright with the anchor at the baseline left. The
+    // world-space height maps to a screen pixel font size through the zoom, so
+    // a label scales with the rest of the geometry.
+    std::vector<WorldText> const texts = m_world->collect_live_texts();
+    if (!texts.empty())
+    {
+        painter.setPen(GEOMETRY);
+        // Restore the painter font afterward so a label's pixel size does not
+        // leak into the overlay text drawn later in the same paint pass.
+        QFont const original_font = painter.font();
+        QFont font = original_font;
+        for (WorldText const & t : texts)
+        {
+            // Clamp before the cast so an extreme zoom * height cannot overflow
+            // int into a negative pixel size that Qt would reject.
+            long const px_l = std::min<long>(std::lround(m_view.zoom() * t.height), 16384);
+            int const px = static_cast<int>(px_l);
+            if (px < 1)
+            {
+                continue; // too small to render at this zoom
+            }
+            font.setPixelSize(px);
+            painter.setFont(font);
+            painter.drawText(map(t.x, t.y), QString::fromStdString(t.text));
+        }
+        painter.setFont(original_font);
     }
 }
 
