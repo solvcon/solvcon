@@ -332,6 +332,34 @@ class WorldShapeTC(unittest.TestCase):
         self.assertEqual(self.w.nsegment, 0)
 
 
+class WorldPrimitivesTC(unittest.TestCase):
+    """Polyline and polygon primitives."""
+
+    def setUp(self):
+        self.w = solvcon.WorldFp64()
+
+    def test_polyline_is_open(self):
+        sid = self.w.add_polyline([[0, 0], [1, 0], [1, 1]])
+        # An open chain of n vertices owns n-1 segments.
+        self.assertEqual(self.w.shape_type_of(sid), "polyline")
+        self.assertEqual(self.w.nsegment, 2)
+
+    def test_polygon_is_closed(self):
+        sid = self.w.add_polygon([[0, 0], [2, 0], [2, 2]])
+        # A closed chain of n vertices owns n segments; the last returns home.
+        self.assertEqual(self.w.shape_type_of(sid), "polygon")
+        self.assertEqual(self.w.nsegment, 3)
+        self.assertEqual(self.w.shape_bbox(sid), [0, 0, 2, 2])
+
+    def test_polyline_needs_two_vertices(self):
+        with self.assertRaises(ValueError):
+            self.w.add_polyline([[0, 0]])
+
+    def test_polygon_needs_three_vertices(self):
+        with self.assertRaises(ValueError):
+            self.w.add_polygon([[0, 0], [1, 1]])
+
+
 class WorldUndoRedoTC(unittest.TestCase):
     """Undo and redo of shape creation."""
 

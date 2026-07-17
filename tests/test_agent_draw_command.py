@@ -80,4 +80,34 @@ class DrawVocabularyGoThroughTC(unittest.TestCase):
         self.assertEqual(self.proc.log, ["hello"])
 
 
+class DrawPrimitiveCommandsTC(unittest.TestCase):
+    """The polyline and polygon commands end to end."""
+
+    def setUp(self):
+        self.world = solvcon.WorldFp64()
+        self.proc = CommandProcessor(self.world, draw)
+
+    def test_polyline_and_polygon_create_shapes(self):
+        line = self.proc.run(
+            {"op": "add_polyline", "vertices": [[0, 0], [1, 0], [1, 1]]})
+        self.assertTrue(line.ok)
+        self.assertEqual(
+            self.proc.run({"op": "shape_type_of",
+                           "shape_id": line.value["shape_id"]}).value,
+            {"type": "polyline"})
+        poly = self.proc.run(
+            {"op": "add_polygon", "vertices": [[0, 0], [2, 0], [2, 2]]})
+        self.assertTrue(poly.ok)
+        self.assertEqual(
+            self.proc.run({"op": "shape_type_of",
+                           "shape_id": poly.value["shape_id"]}).value,
+            {"type": "polygon"})
+
+    def test_polygon_too_short_is_a_schema_failure(self):
+        short = self.proc.run(
+            {"op": "add_polygon", "vertices": [[0, 0], [1, 1]]})
+        self.assertFalse(short.ok)
+        self.assertEqual(self.proc.run({"op": "nshape"}).value["nshape"], 0)
+
+
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

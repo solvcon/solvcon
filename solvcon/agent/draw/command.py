@@ -290,6 +290,42 @@ class AddBezierShape(_cmd.Command):
             _world_point(args["p2"]), _world_point(args["p3"]))}
 
 
+def _vertices(description, min_items):
+    return {"type": "array",
+            "items": {"type": "array", "items": {"type": "number"},
+                      "minItems": 2, "maxItems": 2},
+            "minItems": min_items, "description": description}
+
+
+@_command_set.register
+class AddPolyline(_cmd.Command):
+    op = "add_polyline"
+    category = "create"
+    summary = "Add an open polyline through a list of [x, y] vertices."
+    arguments = {"vertices": _vertices(
+        "Vertices as [x, y] pairs; at least two.", 2)}
+    returns = {"shape_id": _int("Id of the new shape.")}
+
+    def apply(self, world, args, ctx):
+        verts = [[p[0], p[1]] for p in args["vertices"]]
+        return {"shape_id": world.add_polyline(verts)}
+
+
+@_command_set.register
+class AddPolygon(_cmd.Command):
+    op = "add_polygon"
+    category = "create"
+    summary = "Add a closed polygon through a list of [x, y] vertices."
+    arguments = {"vertices": _vertices(
+        "Vertices as [x, y] pairs; at least three. The last connects "
+        "back to the first.", 3)}
+    returns = {"shape_id": _int("Id of the new shape.")}
+
+    def apply(self, world, args, ctx):
+        verts = [[p[0], p[1]] for p in args["vertices"]]
+        return {"shape_id": world.add_polygon(verts)}
+
+
 @_command_set.register
 class GetShape(_cmd.Command):
     op = "get_shape"
