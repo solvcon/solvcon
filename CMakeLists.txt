@@ -6,13 +6,31 @@ project(solvcon)
 
 cmake_policy(SET CMP0148 OLD)
 
+# The Python, Qt6, and PySide6 that MSVC links ship release binaries only, so a
+# Debug build must match their runtime and configuration or it corrupts the heap
+# (issue #1058). Both default on; turn one off to link debug dependencies when
+# they are available.
+option(SOLVCON_MSVC_FORCE_RELEASE_RUNTIME
+    "MSVC: use the release C runtime (/MD) in every config" ON)
+option(SOLVCON_MSVC_FORCE_RELEASE_IMPORTS
+    "MSVC: import dependencies from their release config in a Debug build" ON)
+
 if(MSVC)
-    # Use the release C runtime (/MD) in every config, matching the
-    # release-only Python, Qt6, and PySide6 we link. A Debug build would
-    # default to /MDd, whose different STL layout corrupts an std::string
-    # passed from a /MD dependency (e.g. QString::toStdString) and hangs the
-    # pilot at start-up. /Zi keeps the Debug build debuggable.
-    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDLL")
+    # "MultiThreadedDLL" selects /MD for linking. If not specifying it, a
+    # debug build will choose "MultiThreadedDebugDLL" for /MDd that uses a
+    # different STL layout and crashes the debug build. See
+    # https://cmake.org/cmake/help/latest/variable/CMAKE_MSVC_RUNTIME_LIBRARY.html
+    # The debug build will use /Zi to keep it still debuggable.
+    if(SOLVCON_MSVC_FORCE_RELEASE_RUNTIME)
+        set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDLL")
+    endif()
+
+    # Without this a Debug pilot links the debug Qt (Qt6Cored.dll) while PySide6
+    # loads the release Qt6Core.dll; two Qt runtimes then run at once and a
+    # QString freed across the /MDd and /MD split corrupts the heap.
+    if(SOLVCON_MSVC_FORCE_RELEASE_IMPORTS)
+        set(CMAKE_MAP_IMPORTED_CONFIG_DEBUG "Release;")
+    endif()
 endif()
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake/")
