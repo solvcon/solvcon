@@ -22,6 +22,7 @@
 #include <solvcon/universe/rtree.hpp>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <limits>
 #include <optional>
@@ -55,6 +56,8 @@ enum class ShapeType : uint8_t
     SQUARE = 6, ///< Specialization of RECTANGLE with equal side lengths.
     ELLIPSE = 7,
     CIRCLE = 8, ///< Specialization of ELLIPSE with equal radii.
+    POLYLINE = 9, ///< Open chain of straight segments.
+    POLYGON = 10, ///< Closed chain of straight segments.
 }; /* end of enum class ShapeType */
 
 inline std::string shape_type_name(ShapeType st)
@@ -70,6 +73,8 @@ inline std::string shape_type_name(ShapeType st)
     case ShapeType::SQUARE: return "square";
     case ShapeType::ELLIPSE: return "ellipse";
     case ShapeType::CIRCLE: return "circle";
+    case ShapeType::POLYLINE: return "polyline";
+    case ShapeType::POLYGON: return "polygon";
     default: return "unknown";
     }
 }
@@ -415,6 +420,18 @@ public:
      * Add a cubic Bezier from a bezier_type struct.
      */
     int32_t add_bezier_shape(bezier_type const & bezier);
+
+    /**
+     * Add an open chain of straight segments through the given vertices.
+     * Needs at least two vertices; consecutive vertices form one segment each.
+     */
+    int32_t add_polyline(std::vector<std::array<T, 2>> const & vertices);
+
+    /**
+     * Add a closed chain of straight segments through the given vertices, with
+     * a final segment back to the first. Needs at least three vertices.
+     */
+    int32_t add_polygon(std::vector<std::array<T, 2>> const & vertices);
 
     /**
      * Translate all segments and curves belonging to a shape by (dx, dy).
@@ -874,6 +891,41 @@ int32_t World<T>::add_bezier_shape(bezier_type const & bezier)
     size_t const offset = m_curves->size();
     m_curves->append(bezier);
     return register_shape(ShapeType::BEZIER, /*seg_off*/ 0, /*seg_cnt*/ 0, offset, 1);
+}
+
+template <typename T>
+int32_t World<T>::add_polyline(std::vector<std::array<T, 2>> const & vertices)
+{
+    if (vertices.size() < 2)
+    {
+        throw std::invalid_argument("World: add_polyline needs at least 2 vertices");
+    }
+    size_t const offset = m_segments->size();
+    for (size_t i = 0; i + 1 < vertices.size(); ++i)
+    {
+        m_segments->append(
+            point_type(vertices[i][0], vertices[i][1], 0),
+            point_type(vertices[i + 1][0], vertices[i + 1][1], 0));
+    }
+    return register_shape(ShapeType::POLYLINE, offset, vertices.size() - 1);
+}
+
+template <typename T>
+int32_t World<T>::add_polygon(std::vector<std::array<T, 2>> const & vertices)
+{
+    if (vertices.size() < 3)
+    {
+        throw std::invalid_argument("World: add_polygon needs at least 3 vertices");
+    }
+    size_t const offset = m_segments->size();
+    for (size_t i = 0; i < vertices.size(); ++i)
+    {
+        size_t const j = (i + 1) % vertices.size();
+        m_segments->append(
+            point_type(vertices[i][0], vertices[i][1], 0),
+            point_type(vertices[j][0], vertices[j][1], 0));
+    }
+    return register_shape(ShapeType::POLYGON, offset, vertices.size());
 }
 
 template <typename T>

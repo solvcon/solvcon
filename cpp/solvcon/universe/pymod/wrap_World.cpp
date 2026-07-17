@@ -368,6 +368,20 @@ WrapWorld<T> & WrapWorld<T>::wrap_shape()
                 return self.add_bezier_shape(bezier);
             },
             py::arg("b"))
+        .def(
+            "add_polyline",
+            [](wrapped_type & self, std::vector<std::array<value_type, 2>> const & vertices)
+            {
+                return self.add_polyline(vertices);
+            },
+            py::arg("vertices"))
+        .def(
+            "add_polygon",
+            [](wrapped_type & self, std::vector<std::array<value_type, 2>> const & vertices)
+            {
+                return self.add_polygon(vertices);
+            },
+            py::arg("vertices"))
         //
         ;
 
