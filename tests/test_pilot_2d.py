@@ -314,6 +314,28 @@ class R2DWidgetWorldTC(unittest.TestCase):
                           max(0, int(x_lo) - 2):int(x_hi) + 3]
         self.assertEqual(int(region.sum()), 0, "removed shape was painted")
 
+    def test_text_label_renders_glyph_pixels(self):
+        """A text label paints geometry-colored glyphs, so "draw solvcon"
+        yields legible text instead of nothing. The glyphs land inside the
+        label's screen bounding box (anchor rightward, cap height upward).
+        """
+        world = solvcon.WorldFp64()
+        world.add_text("SOLVCON", -40.0, -10.0, 20.0)
+
+        geometry, to_pixel = self._render_world(world, 200.0, 150.0, 2.0)
+        self.assertGreater(int(geometry.sum()), 0, "text did not render")
+
+        # The label spans from its anchor to about a 0.6-per-glyph advance and
+        # its cap height; the two opposite corners bound the screen region.
+        px0, py0 = to_pixel(-40.0, -10.0)
+        px1, py1 = to_pixel(44.0, 10.0)
+        x_lo, x_hi = sorted((px0, px1))
+        y_lo, y_hi = sorted((py0, py1))
+        region = geometry[max(0, int(y_lo)):int(y_hi) + 1,
+                          max(0, int(x_lo)):int(x_hi) + 1]
+        self.assertGreater(int(region.sum()), 0,
+                           "no glyph pixels inside the label box")
+
     def test_circle_renders_as_hollow_loop_on_locus(self):
         """A circle renders as a closed, hollow ring on its locus.
 

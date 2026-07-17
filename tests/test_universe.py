@@ -333,7 +333,7 @@ class WorldShapeTC(unittest.TestCase):
 
 
 class WorldPrimitivesTC(unittest.TestCase):
-    """Polyline and polygon primitives."""
+    """Polyline, polygon, and text primitives."""
 
     def setUp(self):
         self.w = solvcon.WorldFp64()
@@ -358,6 +358,36 @@ class WorldPrimitivesTC(unittest.TestCase):
     def test_polygon_needs_three_vertices(self):
         with self.assertRaises(ValueError):
             self.w.add_polygon([[0, 0], [1, 1]])
+
+    def test_text_anchor_and_height(self):
+        sid = self.w.add_text("SOLVCON", -5, -5, 2.0)
+        self.assertEqual(self.w.shape_type_of(sid), "text")
+        # No segments or curves; the label is boxed from its anchor, up by the
+        # height and down by a descender allowance (0.25 * height).
+        self.assertEqual(self.w.nsegment, 0)
+        bbox = self.w.shape_bbox(sid)
+        self.assertAlmostEqual(bbox[0], -5.0)
+        self.assertAlmostEqual(bbox[1], -5.5)  # anchor y - descender
+        self.assertAlmostEqual(bbox[3], -3.0)  # anchor y + height
+
+    def test_text_needs_positive_finite_height(self):
+        # The direct binding guards like add_polyline/add_polygon; a zero or
+        # non-finite height would render nothing and collapse the pick box.
+        with self.assertRaises(ValueError):
+            self.w.add_text("x", 0.0, 0.0, 0.0)
+        with self.assertRaises(ValueError):
+            self.w.add_text("x", 0.0, 0.0, float("nan"))
+
+    def test_text_obb_stays_axis_aligned_after_rotate(self):
+        # Glyphs never rotate, so a text label's oriented box must remain
+        # axis-aligned; otherwise the selection box would tilt off the text.
+        sid = self.w.add_text("hi", 0.0, 0.0, 2.0)
+        self.w.rotate_shape(sid, math.pi / 3, 0.0, 0.0)
+        obb = self.w.shape_obb(sid)  # TL, TR, BR, BL as x, y pairs
+        self.assertAlmostEqual(obb[1], obb[3])  # TL.y == TR.y
+        self.assertAlmostEqual(obb[5], obb[7])  # BR.y == BL.y
+        self.assertAlmostEqual(obb[0], obb[6])  # TL.x == BL.x
+        self.assertAlmostEqual(obb[2], obb[4])  # TR.x == BR.x
 
 
 class WorldUndoRedoTC(unittest.TestCase):

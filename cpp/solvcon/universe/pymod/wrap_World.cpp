@@ -382,6 +382,16 @@ WrapWorld<T> & WrapWorld<T>::wrap_shape()
                 return self.add_polygon(vertices);
             },
             py::arg("vertices"))
+        .def(
+            "add_text",
+            [](wrapped_type & self, std::string const & text, value_type x, value_type y, value_type height)
+            {
+                return self.add_text(text, x, y, height);
+            },
+            py::arg("text"),
+            py::arg("x"),
+            py::arg("y"),
+            py::arg("height"))
         //
         ;
 

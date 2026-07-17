@@ -26,6 +26,7 @@
 #include <cmath>
 #include <limits>
 #include <optional>
+#include <string>
 #include <vector>
 
 namespace solvcon
@@ -58,6 +59,7 @@ enum class ShapeType : uint8_t
     CIRCLE = 8, ///< Specialization of ELLIPSE with equal radii.
     POLYLINE = 9, ///< Open chain of straight segments.
     POLYGON = 10, ///< Closed chain of straight segments.
+    TEXT = 11, ///< A text label anchored in world space.
 }; /* end of enum class ShapeType */
 
 inline std::string shape_type_name(ShapeType st)
@@ -75,6 +77,7 @@ inline std::string shape_type_name(ShapeType st)
     case ShapeType::CIRCLE: return "circle";
     case ShapeType::POLYLINE: return "polyline";
     case ShapeType::POLYGON: return "polygon";
+    case ShapeType::TEXT: return "text";
     default: return "unknown";
     }
 }
@@ -147,14 +150,19 @@ public:
     curve_list_type const & curves() const { return m_curves; }
     curve_list_type & curves() { return m_curves; }
 
+    std::string const & text() const { return m_text; }
+    std::string & text() { return m_text; }
+
     // The shape type serializes to its lower-case name (e.g. "triangle") so
     // the rendered JSON stays human-readable; this is an output-only view.
+    // "text" is empty for every shape but a text label.
     MM_DECL_SERIALIZABLE(
         register_member("id", m_id);
         register_member("type", shape_type_name(m_type));
         register_member("bbox", m_bbox);
         register_member("segments", m_segments);
-        register_member("curves", m_curves);)
+        register_member("curves", m_curves);
+        register_member("text", m_text);)
 
 private:
 
@@ -163,6 +171,7 @@ private:
     coords_type m_bbox; ///< Bounding box as [min_x, min_y, max_x, max_y].
     segment_list_type m_segments; ///< Each segment as [x0, y0, x1, y1].
     curve_list_type m_curves; ///< Each curve as four [x, y] points.
+    std::string m_text; ///< Label content; empty unless the shape is TEXT.
 
 }; /* end class WorldShapeState */
 
@@ -222,9 +231,25 @@ private:
 }; /* end class WorldState */
 
 /**
- * Lightweight record mapping a shape ID to the segment and curve ranges
- * it owns in the world's pads. A shape may own segments only
- * (triangle, line, rectangle), curves only (ellipse, circle), or both.
+ * A text label anchored in world space. The anchor (x, y) is the left end of
+ * the baseline; height is the label's world-space cap height. Glyphs are
+ * drawn upright and never rotate, so only the anchor moves under a rotate.
+ *
+ * @ingroup group_geometry
+ */
+struct WorldText
+{
+    std::string text;
+    double x; ///< Baseline-left anchor x in world coordinates.
+    double y; ///< Baseline-left anchor y in world coordinates.
+    double height; ///< Cap height in world units.
+}; /* end struct WorldText */
+
+/**
+ * Lightweight record mapping a shape ID to the segment, curve, and text
+ * ranges it owns in the world's pads. A shape may own segments only
+ * (triangle, line, rectangle), curves only (ellipse, circle), both, or a
+ * single text item (text label).
  *
  * @ingroup group_geometry
  */
@@ -237,6 +262,8 @@ struct ShapeRecord
     size_t segment_count; ///< Number of segments this shape occupies.
     size_t curve_offset; ///< First index in CurvePad.
     size_t curve_count; ///< Number of cubic Beziers this shape occupies.
+    size_t text_offset; ///< First index in the text store.
+    size_t text_count; ///< Number of text items (0 or 1).
 
     /// OBB corner x's in world coordinates, ordered TL, TR, BR, BL.
     bbox_array_type obb_x;
@@ -434,7 +461,14 @@ public:
     int32_t add_polygon(std::vector<std::array<T, 2>> const & vertices);
 
     /**
-     * Translate all segments and curves belonging to a shape by (dx, dy).
+     * Add a text label with its baseline-left anchor at (x, y) and the given
+     * world-space height. Glyphs are drawn upright.
+     */
+    int32_t add_text(std::string text, T x, T y, T height);
+
+    /**
+     * Translate all segments, curves, and text belonging to a shape by
+     * (dx, dy).
      */
     void translate_shape(int32_t shape_id, value_type dx, value_type dy);
 
@@ -573,6 +607,12 @@ public:
     std::shared_ptr<curve_pad_type> collect_live_curves() const;
 
     /**
+     * Collect the text labels of every live TEXT shape, at their current
+     * anchors, for a renderer to draw.
+     */
+    std::vector<WorldText> collect_live_texts() const;
+
+    /**
      * Remove all geometry entities (points, segments, curves, shapes)
      * from the world. Rebuilds pads from scratch to reclaim memory.
      */
@@ -609,6 +649,14 @@ private:
     }
 
     bbox_type compute_shape_bbox(ShapeRecord const & rec) const;
+
+    /**
+     * Reset a shape's OBB to the corners of its axis-aligned bounding box,
+     * ordered TL, TR, BR, BL. Used at creation, and to keep an upright text
+     * label's box axis-aligned after a rotate that would otherwise tilt it
+     * away from the glyphs.
+     */
+    void seed_obb_from_bbox(ShapeRecord & rec) const;
 
     /**
      * Minimum distance from world point (px, py) to a shape's drawn geometry:
@@ -661,15 +709,31 @@ private:
 
     /**
      * Register a new shape owning [segment_offset, segment_offset +
-     * segment_count) in the segment pad and [curve_offset, curve_offset +
-     * curve_count) in the curve pad. Pushes into the registry and R-tree.
-     * Either range may be empty.
+     * segment_count) in the segment pad, [curve_offset, curve_offset +
+     * curve_count) in the curve pad, and [text_offset, text_offset +
+     * text_count) in the text store. Pushes into the registry and R-tree.
+     * Any range may be empty.
      */
     int32_t register_shape(ShapeType type,
                            size_t segment_offset,
                            size_t segment_count,
                            size_t curve_offset = 0,
-                           size_t curve_count = 0);
+                           size_t curve_count = 0,
+                           size_t text_offset = 0,
+                           size_t text_count = 0);
+
+    /**
+     * Approximate glyph advance as a fraction of the text height, so a text
+     * label gets a plausible bounding box without font metrics.
+     */
+    static constexpr double TEXT_ADVANCE_RATIO = 0.6;
+
+    /**
+     * Fraction of the text height that glyphs descend below the baseline
+     * (tails of g, y, p). Padding the box downward by this keeps a label's
+     * rendered pixels inside its bounds for picking and viewport queries.
+     */
+    static constexpr double TEXT_DESCENDER_RATIO = 0.25;
 
     /**
      * Check if shape_id is valid and not DEAD.
@@ -696,6 +760,10 @@ private:
     SimpleCollector<size_t> m_bare_segment_indices; ///< Indices of segments not owned by any shape.
 
     std::shared_ptr<curve_pad_type> m_curves;
+
+    // TODO: Replace std::vector with a text-aware pad, alongside the
+    // m_shape_registry SoA follow-up below.
+    std::vector<WorldText> m_texts; ///< Text labels, one per TEXT shape.
 
     // TODO: Replace std::vector with a custom SoA container and BoundBoxPad
     // auxiliary class. Consider moving the registry into the R-tree.
@@ -763,19 +831,25 @@ int32_t World<T>::register_shape(ShapeType type,
                                  size_t segment_offset,
                                  size_t segment_count,
                                  size_t curve_offset,
-                                 size_t curve_count)
+                                 size_t curve_count,
+                                 size_t text_offset,
+                                 size_t text_count)
 {
     auto shape_id = static_cast<int32_t>(m_shape_registry.size());
-    m_shape_registry.push_back(ShapeRecord{type, segment_offset, segment_count, curve_offset, curve_count}); // NOLINT(modernize-use-designated-initializers)
+    m_shape_registry.push_back(ShapeRecord{// NOLINT(modernize-use-designated-initializers)
+                                           type,
+                                           segment_offset,
+                                           segment_count,
+                                           curve_offset,
+                                           curve_count,
+                                           text_offset,
+                                           text_count});
     ++m_nshape;
-    bbox_type const bb = compute_shape_bbox(m_shape_registry[shape_id]);
 
     // Seed the oriented bounding box to the axis-aligned bbox corners.
     // TODO: store the OBB directly in ShapeRecord at construction.
-    ShapeRecord & seeded = m_shape_registry[shape_id];
-    seeded.obb_x = ShapeRecord::bbox_array_type{bb.min_x(), bb.max_x(), bb.max_x(), bb.min_x()};
-    seeded.obb_y = ShapeRecord::bbox_array_type{bb.max_y(), bb.max_y(), bb.min_y(), bb.min_y()};
-    m_rtree->insert(ShapeEntry<T>{shape_id, bb});
+    seed_obb_from_bbox(m_shape_registry[shape_id]);
+    m_rtree->insert(ShapeEntry<T>{shape_id, compute_shape_bbox(m_shape_registry[shape_id])});
 
     // Record the creation so undo removes the shape and redo brings it back
     // with the same type.
@@ -929,6 +1003,21 @@ int32_t World<T>::add_polygon(std::vector<std::array<T, 2>> const & vertices)
 }
 
 template <typename T>
+int32_t World<T>::add_text(std::string text, T x, T y, T height)
+{
+    if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(height) || height <= T(0))
+    {
+        throw std::invalid_argument("World: add_text needs a finite anchor and a positive height");
+    }
+    size_t const offset = m_texts.size();
+    m_texts.push_back(WorldText{std::move(text),
+                                static_cast<double>(x),
+                                static_cast<double>(y),
+                                static_cast<double>(height)});
+    return register_shape(ShapeType::TEXT, /*seg_off*/ 0, /*seg_cnt*/ 0, /*curve_off*/ 0, /*curve_cnt*/ 0, offset, 1);
+}
+
+template <typename T>
 void World<T>::apply_translate(int32_t shape_id, value_type dx, value_type dy)
 {
     ShapeRecord & rec = m_shape_registry[static_cast<size_t>(shape_id)];
@@ -953,6 +1042,12 @@ void World<T>::apply_translate(int32_t shape_id, value_type dx, value_type dy)
         m_curves->y2(idx) += dy;
         m_curves->x3(idx) += dx;
         m_curves->y3(idx) += dy;
+    }
+    for (uint32_t i = 0; i < rec.text_count; ++i)
+    {
+        WorldText & t = m_texts[rec.text_offset + i];
+        t.x += dx;
+        t.y += dy;
     }
     // The oriented bounding box rides along with the shape.
     for (uint32_t i = 0; i < 4; ++i)
@@ -1013,17 +1108,36 @@ void World<T>::apply_rotate(int32_t shape_id, value_type angle, value_type cx, v
         rotate(m_curves->x2(idx), m_curves->y2(idx));
         rotate(m_curves->x3(idx), m_curves->y3(idx));
     }
-
-    // Rotate the oriented bounding box about the same pivot so it stays
-    // fixed relative to the shape. Done in `double` to match its storage.
-    auto const dcos = static_cast<double>(cos_a);
-    auto const dsin = static_cast<double>(sin_a);
-    for (uint32_t i = 0; i < 4; ++i)
+    // Text anchors move with the shape, but glyphs are never re-oriented.
+    for (uint32_t i = 0; i < rec.text_count; ++i)
     {
-        double const ox = rec.obb_x[i] - cx;
-        double const oy = rec.obb_y[i] - cy;
-        rec.obb_x[i] = cx + dcos * ox - dsin * oy;
-        rec.obb_y[i] = cy + dsin * ox + dcos * oy;
+        WorldText & t = m_texts[rec.text_offset + i];
+        T tx = static_cast<T>(t.x);
+        T ty = static_cast<T>(t.y);
+        rotate(tx, ty);
+        t.x = static_cast<double>(tx);
+        t.y = static_cast<double>(ty);
+    }
+
+    if (rec.text_count > 0)
+    {
+        // Glyphs stay upright, so the box is always axis-aligned; a rotated
+        // OBB would tilt away from the text it is meant to frame.
+        seed_obb_from_bbox(rec);
+    }
+    else
+    {
+        // Rotate the oriented bounding box about the same pivot so it stays
+        // fixed relative to the shape. Done in `double` to match its storage.
+        auto const dcos = static_cast<double>(cos_a);
+        auto const dsin = static_cast<double>(sin_a);
+        for (uint32_t i = 0; i < 4; ++i)
+        {
+            double const ox = rec.obb_x[i] - cx;
+            double const oy = rec.obb_y[i] - cy;
+            rec.obb_x[i] = cx + dcos * ox - dsin * oy;
+            rec.obb_y[i] = cy + dsin * ox + dcos * oy;
+        }
     }
     // Reinsert with updated bounding box.
     m_rtree->insert(ShapeEntry<T>{shape_id, compute_shape_bbox(rec)});
@@ -1359,11 +1473,30 @@ std::shared_ptr<typename World<T>::curve_pad_type> World<T>::collect_live_curves
 }
 
 template <typename T>
+std::vector<WorldText> World<T>::collect_live_texts() const
+{
+    std::vector<WorldText> result;
+    for (auto const & rec : m_shape_registry)
+    {
+        if (rec.type == ShapeType::DEAD)
+        {
+            continue;
+        }
+        for (uint32_t i = 0; i < rec.text_count; ++i)
+        {
+            result.push_back(m_texts[rec.text_offset + i]);
+        }
+    }
+    return result;
+}
+
+template <typename T>
 void World<T>::clear()
 {
     m_points = point_pad_type::construct(/* ndim */ 3);
     m_segments = segment_pad_type::construct(/* ndim */ 3);
     m_curves = curve_pad_type::construct(/* ndim */ 3);
+    m_texts.clear();
     m_bare_segment_indices.clear();
     m_shape_registry.clear();
     m_nshape = 0;
@@ -1372,6 +1505,14 @@ void World<T>::clear()
     m_redo_stack.clear();
     m_in_operation = false;
     m_has_open = false;
+}
+
+template <typename T>
+void World<T>::seed_obb_from_bbox(ShapeRecord & rec) const
+{
+    bbox_type const bb = compute_shape_bbox(rec);
+    rec.obb_x = ShapeRecord::bbox_array_type{bb.min_x(), bb.max_x(), bb.max_x(), bb.min_x()};
+    rec.obb_y = ShapeRecord::bbox_array_type{bb.max_y(), bb.max_y(), bb.min_y(), bb.min_y()};
 }
 
 template <typename T>
@@ -1398,6 +1539,21 @@ typename World<T>::bbox_type World<T>::compute_shape_bbox(ShapeRecord const & re
         mn_y = std::min({mn_y, m_curves->y0(idx), m_curves->y1(idx), m_curves->y2(idx), m_curves->y3(idx)});
         mx_x = std::max({mx_x, m_curves->x0(idx), m_curves->x1(idx), m_curves->x2(idx), m_curves->x3(idx)});
         mx_y = std::max({mx_y, m_curves->y0(idx), m_curves->y1(idx), m_curves->y2(idx), m_curves->y3(idx)});
+    }
+    // A text label has no pad geometry; box it from the anchor and an
+    // approximate advance, since the world has no font metrics.
+    for (uint32_t i = 0; i < rec.text_count; ++i)
+    {
+        WorldText const & t = m_texts[rec.text_offset + i];
+        auto const glyphs = static_cast<double>(std::max<size_t>(t.text.size(), 1));
+        T const x0 = static_cast<T>(t.x);
+        T const y0 = static_cast<T>(t.y - TEXT_DESCENDER_RATIO * t.height);
+        T const x1 = static_cast<T>(t.x + TEXT_ADVANCE_RATIO * t.height * glyphs);
+        T const y1 = static_cast<T>(t.y + t.height);
+        mn_x = std::min({mn_x, x0, x1});
+        mn_y = std::min({mn_y, y0, y1});
+        mx_x = std::max({mx_x, x0, x1});
+        mx_y = std::max({mx_y, y0, y1});
     }
     return bbox_type(mn_x, mn_y, T(0), mx_x, mx_y, T(0));
 }
@@ -1453,6 +1609,10 @@ std::string World<T>::describe_state(DescribeLevel level) const
         for (uint32_t i = 0; i < rec.curve_count; ++i)
         {
             shape.curves().push_back(curve_coords(rec.curve_offset + i));
+        }
+        if (rec.text_count > 0)
+        {
+            shape.text() = m_texts[rec.text_offset].text;
         }
         state.shapes().push_back(std::move(shape));
     }

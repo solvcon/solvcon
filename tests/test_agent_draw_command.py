@@ -81,7 +81,7 @@ class DrawVocabularyGoThroughTC(unittest.TestCase):
 
 
 class DrawPrimitiveCommandsTC(unittest.TestCase):
-    """The polyline and polygon commands end to end."""
+    """The polyline, polygon, and text commands end to end."""
 
     def setUp(self):
         self.world = solvcon.WorldFp64()
@@ -108,6 +108,17 @@ class DrawPrimitiveCommandsTC(unittest.TestCase):
             {"op": "add_polygon", "vertices": [[0, 0], [1, 1]]})
         self.assertFalse(short.ok)
         self.assertEqual(self.proc.run({"op": "nshape"}).value["nshape"], 0)
+
+    def test_text_round_trips_through_describe_state(self):
+        made = self.proc.run(
+            {"op": "add_text", "text": "SOLVCON",
+             "x": -5.0, "y": -5.0, "height": 2.0})
+        self.assertTrue(made.ok)
+        shape = self.proc.run(
+            {"op": "get_shape",
+             "shape_id": made.value["shape_id"]}).value["shape"]
+        self.assertEqual(shape["type"], "text")
+        self.assertEqual(shape["text"], "SOLVCON")
 
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
