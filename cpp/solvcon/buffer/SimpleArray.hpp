@@ -2830,6 +2830,8 @@ SimpleArray<U> detail::SimpleArrayMixinSearch<A, T>::where(SimpleArray<U> const 
         return result;
     }
 
+    // Use logical indices here. Non-contiguous arrays need IndexRange and at()
+    // so each access follows the array's stride and ghost offset.
     auto const range = IndexRange(*athis);
     sshape_type idx = range.first();
 
