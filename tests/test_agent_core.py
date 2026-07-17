@@ -2,21 +2,15 @@
 # BSD 3-Clause License, see COPYING
 
 
-"""Tests for the headless AgentSession core (GUI-free); a fake runner and
-world cover the orchestration, and the Agent Draw integration cases require
-the ``agentdraw`` package."""
+"""Tests for the headless AgentSession core (GUI-free), with fake
+orchestration and in-tree Agent Draw integration."""
 
 import json
 import unittest
 
 import solvcon
 from solvcon import agent
-
-try:
-    from solvcon.pilot import agentdraw  # noqa: F401
-    HAS_AGENTDRAW = True
-except ImportError:
-    HAS_AGENTDRAW = False
+from solvcon.agent import draw
 
 
 class _FakeResult:
@@ -75,10 +69,10 @@ class ApplyCommandsTC(unittest.TestCase):
         self.assertEqual(turn.results, results)
 
     def test_failed_command_is_recorded_not_raised(self):
-        runner = _RecordingRunner(fail_ops={"remove_shape"})
+        runner = _RecordingRunner(fail_ops={"add_circle"})
         session = agent.AgentSession(runner=runner)
         results = session.apply_commands(
-            [{"op": "remove_shape", "shape_id": 99}])
+            [{"op": "add_circle", "cx": 0.0, "cy": 0.0, "r": 1.0}])
         self.assertFalse(results[0].ok)
         self.assertEqual(session.transcript[0].results[0].error,
                          "bad command")
@@ -99,6 +93,15 @@ class ApplyCommandsTC(unittest.TestCase):
         session = agent.AgentSession()
         self.assertEqual(session.apply_commands([]), [])
         self.assertEqual(session.transcript, [])
+
+    def test_one_shot_command_batch_is_executed_and_recorded(self):
+        runner = _RecordingRunner()
+        session = agent.AgentSession(runner=runner)
+        commands = ({"op": "add_circle", "cx": x, "cy": 0.0, "r": 1.0}
+                    for x in (0.0, 2.0))
+        results = session.apply_commands(commands)
+        self.assertEqual(len(results), 2)
+        self.assertEqual(session.transcript[0].commands, runner.commands)
 
 
 class _FakeBackend:
@@ -137,12 +140,10 @@ class RunTurnTC(unittest.TestCase):
     def test_empty_command_batch_builds_no_runner(self):
         backend = _FakeBackend(
             agent.BackendResponse(text="echo: hi", commands=[]))
-        # No runner, no agentdraw.
         session = agent.AgentSession(backend=backend)
         turn = session.run_turn("hi")
         self.assertEqual(turn.text, "echo: hi")
         self.assertEqual(turn.results, [])
-        # No commands must leave the runner unbuilt (no agentdraw import).
         self.assertIsNone(session._runner)
 
     def test_backend_exception_is_recorded_as_a_failed_turn(self):
@@ -162,7 +163,7 @@ class RunTurnTC(unittest.TestCase):
         class _Session(agent.AgentSession):
             @property
             def runner(self):
-                raise ImportError("no agentdraw")
+                raise ImportError("no command executor")
 
         backend = _FakeBackend(agent.BackendResponse(
             commands=[{"op": "add_circle"}, {"op": "add_square"}]))
@@ -206,7 +207,6 @@ class SceneContextTC(unittest.TestCase):
         self.assertIn("rectangle", context)
 
 
-@unittest.skipUnless(HAS_AGENTDRAW, "requires the agentdraw package")
 class AgentDrawIntegrationTC(unittest.TestCase):
     def test_default_runner_mutates_world(self):
         world = solvcon.WorldFp64()
@@ -217,9 +217,40 @@ class AgentDrawIntegrationTC(unittest.TestCase):
         self.assertTrue(all(r.ok for r in results))
         self.assertEqual(world.nshape, 2)
 
-    def test_tool_surface_matches_agentdraw(self):
-        self.assertEqual(agent.AgentSession().tool_surface(),
-                         agentdraw.tool_definitions())
+    def test_default_tool_surface_omits_delete_commands(self):
+        tools = agent.AgentSession().tool_surface()
+        self.assertEqual({tool["category"] for tool in tools},
+                         {"create", "read", "update", "log"})
+        self.assertNotIn("clear", {tool["name"] for tool in tools})
+        self.assertNotIn("remove_shape", {tool["name"] for tool in tools})
+
+    def test_destructive_commands_are_rejected_without_mutation(self):
+        world = solvcon.WorldFp64()
+        world.add_circle(0.0, 0.0, 1.0)
+        session = agent.AgentSession(world=world)
+        results = session.apply_commands([
+            {"op": "clear"},
+            {"op": "add_circle", "cx": 2.0, "cy": 0.0, "r": 1.0},
+            {"op": "remove_shape", "shape_id": 0},
+        ])
+        self.assertEqual([result.ok for result in results],
+                         [False, True, False])
+        self.assertIn("disabled", results[0].error)
+        self.assertIn("disabled", results[2].error)
+        self.assertEqual(world.nshape, 2)
+
+    def test_opt_in_allows_delete_commands(self):
+        world = solvcon.WorldFp64()
+        world.add_circle(0.0, 0.0, 1.0)
+        session = agent.AgentSession(world=world, allow_destructive=True)
+        result = session.apply_commands([{"op": "clear"}])[0]
+        self.assertTrue(result.ok, result.error)
+        self.assertEqual(world.nshape, 0)
+
+    def test_opt_in_tool_surface_matches_agent_draw(self):
+        session = agent.AgentSession(allow_destructive=True)
+        self.assertEqual(session.tool_surface(),
+                         draw.tool_definitions())
 
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

@@ -77,6 +77,7 @@ def main():
             'solvcon.profiling',
             'solvcon.track',
         ],
+        install_requires=['jsonschema>=4'],
         ext_modules=[CMakeExtension("_solvcon")],
         cmdclass={'build_ext': cmake_build_ext},
     )

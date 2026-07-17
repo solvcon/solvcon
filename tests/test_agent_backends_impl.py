@@ -80,8 +80,8 @@ class ParseToolCallsTC(unittest.TestCase):
             agent.parse_tool_calls('[{"op": ["a", "b"]}]', _TOOLS)
 
     def test_no_tool_surface_skips_op_validation(self):
-        # With no advertised ops (e.g. Agent Draw absent) any op is accepted,
-        # so the pipeline still runs rather than rejecting everything.
+        # With no advertised ops, any op is accepted, so the pipeline still
+        # runs rather than rejecting everything.
         commands = agent.parse_tool_calls('[{"op": "anything"}]', [])
         self.assertEqual(commands, [{"op": "anything"}])
 

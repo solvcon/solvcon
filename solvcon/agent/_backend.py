@@ -5,8 +5,8 @@
 """
 Pluggable AI backend abstraction for the Agent.
 
-A backend turns a prompt (plus scene context and the Agent Draw tool surface)
-into a :class:`BackendResponse`: prose and a list of Agent Draw command dicts.
+A backend turns a prompt (plus context and a command tool surface) into a
+:class:`BackendResponse`: prose and a list of command dicts.
 Backends register in a process-wide registry so a caller can list the usable
 ones and let the user pick.  The module imports no Qt.  The offline
 :class:`EchoBackend` keeps the registry non-empty so there is always a working
@@ -20,9 +20,8 @@ import json
 
 @dataclasses.dataclass
 class BackendResponse:
-    """One backend reply: ``text`` prose, the proposed ``commands`` (Agent
-    Draw dicts the session applies; empty means no drawing), and an ``error``
-    reason or ``None``."""
+    """One backend reply: ``text`` prose, the proposed ``commands`` the
+    session applies, and an ``error`` reason or ``None``."""
 
     text: str = ""
     commands: list = dataclasses.field(default_factory=list)
@@ -65,8 +64,7 @@ class AgentBackend(abc.ABC):
 
         :param prompt: the user's natural-language request.
         :param scene_context: a short text summary of the current world.
-        :param tool_surface: the Agent Draw tool definitions the model may
-            call.
+        :param tool_surface: the command tool definitions the model may call.
         """
 
     @classmethod
@@ -114,7 +112,7 @@ def get_backend(name):
 
 
 class EchoBackend(AgentBackend):
-    """Offline backend that proposes no drawing and echoes the prompt.
+    """Offline backend that proposes no commands and echoes the prompt.
 
     It is always :meth:`available` and fully deterministic, so a caller, the
     tests, and a no-key demo always have a backend that exercises the whole

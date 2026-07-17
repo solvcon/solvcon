@@ -18,17 +18,17 @@ except ImportError:
 GITHUB_ACTIONS = os.getenv('GITHUB_ACTIONS', False)
 
 
-class _PingBackend:
-    """Test backend that always emits the dummy ``ping`` command, so a GUI
-    test can drive a real command through the session without a live CLI."""
+class _CircleBackend:
+    """Test backend that emits one real Agent Draw command without a CLI."""
 
-    name = "ping (test)"
+    name = "circle (test)"
 
     def available(self):
         return True
 
     def send(self, prompt, scene_context, tool_surface):
-        return agent.BackendResponse(text="pong", commands=[{"op": "ping"}])
+        return agent.BackendResponse(text="circle added", commands=[
+            {"op": "add_circle", "cx": 0.0, "cy": 0.0, "r": 1.0}])
 
 
 @unittest.skipIf(GITHUB_ACTIONS or not solvcon.HAS_PILOT,
@@ -84,23 +84,24 @@ class AgentPanelTC(unittest.TestCase):
         self.assertTrue(widget._input.isEnabled())
 
     def test_drives_the_active_canvas_world(self):
-        # A real canvas world reaches the session and its command is executed
-        # and rendered. This pins the canvas-driving path (world binding plus
-        # command dispatch) that the echo round-trip cannot.
+        # A real draw command pins active-world binding and command dispatch,
+        # which the echo round-trip does not exercise.
         feature = self._panel_on()
         widget = self.mgr.add2DWidget()
-        widget.updateWorld(solvcon.WorldFp64())
+        world = solvcon.WorldFp64()
+        widget.updateWorld(world)
         panel = feature._panel
-        panel._backend_combo.addItem(_PingBackend().name, _PingBackend())
+        backend = _CircleBackend()
+        panel._backend_combo.addItem(backend.name, backend)
         panel._backend_combo.setCurrentIndex(panel._backend_combo.count() - 1)
-        panel._input.setText("do a ping")
+        panel._input.setText("draw a circle")
         panel._emit()
-        # The session bound the active canvas world, not None.
-        self.assertIsNotNone(feature._session.world)
+        self.assertIs(feature._session.world, world)
+        self.assertEqual(world.nshape, 1)
         text = panel._transcript.toPlainText()
-        self.assertIn("You: do a ping", text)
-        self.assertIn("pong", text)
-        self.assertIn("ping: ok", text)
+        self.assertIn("You: draw a circle", text)
+        self.assertIn("circle added", text)
+        self.assertIn("add_circle: ok", text)
 
     def test_blank_prompt_is_ignored(self):
         feature = self._panel_on()

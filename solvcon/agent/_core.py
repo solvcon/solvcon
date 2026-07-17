@@ -18,8 +18,8 @@ import dataclasses
 class TranscriptTurn:
     """One transcript entry: a ``role`` with its text, commands, and results.
 
-    ``results`` holds Agent Draw ``CommandResult`` objects (or any object with
-    an ``ok`` attribute).
+    ``results`` holds ``CommandResult`` objects (or any object with an ``ok``
+    attribute).
     """
 
     role: str
@@ -37,52 +37,43 @@ class _OutcomeStub:
     error: str = None
 
 
-_draw_module = None
-
-
-def _resolve_draw():
-    """The module supplying the command surface and runner: Agent Draw when it
-    is importable, else the built-in :mod:`_draw` bridge (#965).  Both expose
-    the same handles (``Executor``, ``tool_definitions``), so callers need not
-    know which won.  Resolved once per process."""
-    # TODO: when the agentdraw package ships in-tree, import it at module level
-    # and drop the _draw fallback and this selector.
-    global _draw_module
-    if _draw_module is None:
-        try:
-            from solvcon.pilot import agentdraw
-            _draw_module = agentdraw
-        except ImportError:
-            from . import _draw
-            _draw_module = _draw
-    return _draw_module
-
-
 def _make_executor(world, renderer=None):
-    """Build the command runner for ``world`` from the resolved draw module."""
-    return _resolve_draw().Executor(world, renderer)
+    """Build the current ``World`` command executor."""
+    from . import draw
+    return draw.Executor(world, renderer)
 
 
-def tool_surface():
-    """The tool definitions a backend proposes against, from the resolved draw
-    module."""
-    return _resolve_draw().tool_definitions()
+def tool_surface(allow_destructive=False):
+    """The command tools allowed for a backend."""
+    from . import draw
+    tools = draw.tool_definitions()
+    if allow_destructive:
+        return tools
+    return [tool for tool in tools if tool["category"] != "delete"]
+
+
+def _destructive_ops():
+    from . import draw
+    return set(draw.commands_by_category()["delete"])
 
 
 class AgentSession:
     """Bind a ``World``, a backend, and a runner; record a transcript.
 
     ``runner`` is any object exposing ``run(command) -> result``; it defaults
-    to a lazily built Agent Draw ``Executor(world, renderer)``.  ``backend`` is
-    an :class:`~solvcon.agent.AgentBackend` or ``None``.
+    to a lazily built command executor for ``world``.  ``backend`` is an
+    :class:`~solvcon.agent.AgentBackend` or ``None``.  Delete commands are
+    hidden from the backend and rejected unless ``allow_destructive`` is true.
     """
 
-    def __init__(self, world=None, backend=None, runner=None, renderer=None):
+    def __init__(self, world=None, backend=None, runner=None, renderer=None,
+                 allow_destructive=False):
         self.world = world
         self.backend = backend
         self._renderer = renderer
         self._runner = runner
         self._runner_injected = runner is not None
+        self.allow_destructive = allow_destructive
         self._transcript = []
 
     @property
@@ -92,7 +83,7 @@ class AgentSession:
 
     @property
     def runner(self):
-        """The command runner, built from ``agentdraw`` on first use."""
+        """The command runner, built on first use."""
         if self._runner is None:
             self._runner = _make_executor(self.world, self._renderer)
         return self._runner
@@ -106,8 +97,8 @@ class AgentSession:
             self._runner = None
 
     def tool_surface(self):
-        """The Agent Draw tool definitions to hand the backend."""
-        return tool_surface()
+        """The command tool definitions to hand the backend."""
+        return tool_surface(allow_destructive=self.allow_destructive)
 
     def scene_context(self, level="basic"):
         """A short text summary of the world for the model: the shape count
@@ -128,7 +119,10 @@ class AgentSession:
     @staticmethod
     def _op_of(command):
         """The command's declared ``op``, or ``"?"`` when it names none."""
-        return command.get("op", "?") if isinstance(command, dict) else "?"
+        if not isinstance(command, dict):
+            return "?"
+        op = command.get("op")
+        return op if isinstance(op, str) else "?"
 
     def _execute(self, commands):
         """Run each command in order and return one result per command.
@@ -136,11 +130,20 @@ class AgentSession:
         An empty batch builds no runner.  A runner that fails to build, or that
         raises on a command, becomes a failed :class:`_OutcomeStub` (one per
         command), so a bad runner or command never aborts the batch and the
-        results always line up with the commands.  This does not touch the
-        transcript.
+        results always line up with the commands.  Delete commands are rejected
+        before reaching the runner unless this session allows them.  This does
+        not touch the transcript.
         """
         if not commands:
             return []
+        blocked = set() if self.allow_destructive else _destructive_ops()
+        allowed = [command for command in commands
+                   if self._op_of(command) not in blocked]
+        if not allowed:
+            return [_OutcomeStub(
+                self._op_of(command),
+                error="destructive command %r is disabled for this session"
+                % self._op_of(command)) for command in commands]
         try:
             runner = self.runner
         except Exception as exc:
@@ -149,6 +152,12 @@ class AgentSession:
                     for c in commands]
         results = []
         for command in commands:
+            op = self._op_of(command)
+            if op in blocked:
+                results.append(_OutcomeStub(
+                    op, error="destructive command %r is disabled for this "
+                    "session" % op))
+                continue
             try:
                 results.append(runner.run(command))
             except Exception as exc:
@@ -168,6 +177,7 @@ class AgentSession:
     def apply_commands(self, commands):
         """Run each command, recording one agent turn.  An empty batch is a
         no-op that builds no runner and records nothing."""
+        commands = list(commands)
         if not commands:
             return []
         results = self._execute(commands)
@@ -197,8 +207,8 @@ class AgentSession:
         parts = [response.text] if response.text else []
         if response.error:
             parts.append("[error] %s" % response.error)
+        commands = list(response.commands)
         return self._record_agent(
-            "\n".join(parts), response.commands,
-            self._execute(response.commands))
+            "\n".join(parts), commands, self._execute(commands))
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
