@@ -31,9 +31,9 @@ from . import _backend
 def _tool_op_names(tool_surface):
     """The set of op names a tool surface advertises via each tool's ``name``.
 
-    Empty when the surface is empty or names nothing (for example when the
-    Agent Draw package is absent), which tells :func:`parse_tool_calls` to skip
-    op validation rather than reject everything.
+    Empty when the surface is empty or names nothing, which tells
+    :func:`parse_tool_calls` to skip op validation rather than reject
+    everything.
     """
     names = set()
     for tool in tool_surface or []:
@@ -88,7 +88,7 @@ def _load_json_payload(text):
 
 
 def parse_tool_calls(text, tool_surface=None):
-    """Turn a model reply into a list of Agent Draw command dicts.
+    """Turn a model reply into a list of command dicts.
 
     Accept a JSON array, or a lone object treated as a one-command array.  Each
     command must be an object with an ``op``; when ``tool_surface`` names ops,
@@ -215,7 +215,7 @@ class ClaudeCliBackend(SubprocessBackend):
 
     It runs the CLI in print mode with JSON output, folds the tool surface and
     scene context into the prompt, and parses the model's JSON reply into
-    Agent Draw commands.  No API key lives here: the CLI owns authentication.
+    commands.  No API key lives here: the CLI owns authentication.
     """
 
     command = "claude"

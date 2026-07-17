@@ -42,7 +42,7 @@ class EchoBackendTC(unittest.TestCase):
         second = backend.send("hello", "scene", [])
         self.assertEqual(first, second)
         self.assertIsInstance(first, agent.BackendResponse)
-        self.assertEqual(first.commands, [])  # no drawing: safe no-op
+        self.assertEqual(first.commands, [])
         self.assertIn("hello", first.text)
 
 
