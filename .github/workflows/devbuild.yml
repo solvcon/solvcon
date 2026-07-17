@@ -8,10 +8,14 @@ on:
     - cron: '34 17 * * *'
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  # A push to master must never cancel an earlier master run, so every
-  # merge keeps its own CI result. Superseded pull request and branch
-  # runs still cancel.
+  # Key each master push on its commit SHA so every merge lands in its own
+  # concurrency group. Sharing one group serializes master runs, and with
+  # cancel-in-progress disabled GitHub still cancels a pending run when the
+  # next merge queues behind the one in progress, so a later merge would
+  # drop an earlier merge's result. A unique group per SHA keeps every
+  # master run independent. Pull requests key on the PR number and other
+  # branches on the ref, so their superseded runs still cancel.
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || (github.ref == 'refs/heads/master' && github.sha) || github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
 
 jobs:
