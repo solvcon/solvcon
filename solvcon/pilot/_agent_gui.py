@@ -13,7 +13,7 @@ prompt is an independent single turn.
 
 from itertools import zip_longest
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, QCoreApplication, QThread, QTimer, Signal
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QDockWidget,
                                QLabel, QComboBox, QTextEdit, QLineEdit,
                                QPushButton)
@@ -22,9 +22,41 @@ from ..agent import AgentSession, available_backends
 from . import _gui_common
 
 __all__ = [  # noqa: F822
+    'AgentBackendWorker',
     'AgentConsoleWidget',
     'AgentPanel',
 ]
+
+
+class AgentBackendWorker(QThread):
+    """Run one backend call off the Qt thread.
+
+    Only the backend call runs here, the slow subprocess or HTTP round trip;
+    it reads neither Qt nor the world, so it is safe off the main thread.  The
+    reply returns through :attr:`succeeded` (a ``BackendResponse``) or
+    :attr:`failed` (an error string); the owning panel applies the commands and
+    repaints on the main thread, where the connected slots run.
+    """
+
+    succeeded = Signal(object)
+    failed = Signal(str)
+
+    def __init__(self, backend, prompt, scene_context, tool_surface,
+                 parent=None):
+        super().__init__(parent)
+        self._backend = backend
+        self._prompt = prompt
+        self._scene_context = scene_context
+        self._tool_surface = tool_surface
+
+    def run(self):
+        try:
+            response = self._backend.send(
+                self._prompt, self._scene_context, self._tool_surface)
+        except Exception as exc:
+            self.failed.emit("%s: %s" % (type(exc).__name__, exc))
+        else:
+            self.succeeded.emit(response)
 
 
 class AgentConsoleWidget(QWidget):
@@ -46,6 +78,9 @@ class AgentConsoleWidget(QWidget):
         self._transcript = QTextEdit()
         self._transcript.setReadOnly(True)
 
+        self._status = QLabel("")
+        self._status.setVisible(False)
+
         self._input = QLineEdit()
         self._input.setPlaceholderText("Ask the agent to draw...")
         self._send = QPushButton("Send")
@@ -64,7 +99,13 @@ class AgentConsoleWidget(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addLayout(selector)
         layout.addWidget(self._transcript, 1)
+        layout.addWidget(self._status)
         layout.addLayout(entry)
+
+        self._working_step = 0
+        self._working_timer = QTimer(self)
+        self._working_timer.setInterval(400)
+        self._working_timer.timeout.connect(self._tick_working)
 
         self._input.returnPressed.connect(self._emit)
         self._send.clicked.connect(self._emit)
@@ -87,6 +128,25 @@ class AgentConsoleWidget(QWidget):
         self._input.setEnabled(not busy)
         self._send.setEnabled(not busy)
 
+    def start_working(self):
+        """Show an animated ``working ...`` line while a turn runs, so a slow
+        backend reads as busy rather than as a frozen, silent console."""
+        self._working_step = 0
+        self._status.setText("Agent is working .")
+        self._status.setVisible(True)
+        self._working_timer.start()
+
+    def stop_working(self):
+        """Hide the working line once the turn has finished."""
+        self._working_timer.stop()
+        self._status.clear()
+        self._status.setVisible(False)
+
+    def _tick_working(self):
+        self._working_step = (self._working_step + 1) % 3
+        self._status.setText(
+            "Agent is working " + "." * (self._working_step + 1))
+
     def append_message(self, role, text):
         """Append one labelled block, e.g. ``You: ...`` or ``Agent: ...``."""
         label = {"user": "You", "agent": "Agent"}.get(role, role)
@@ -107,6 +167,17 @@ class AgentPanel(_gui_common.PilotFeature):
         self._dock = None
         self._panel = None
         self._session = AgentSession()
+        self._worker = None
+        self._active_widget = None
+        # Make sure the worker thread is joined before the main thread exits.
+        app = QCoreApplication.instance()
+        if app is not None:
+            app.aboutToQuit.connect(self._join_worker)
+
+    def _join_worker(self):
+        """Wait for the worker to finish before the main thread exits."""
+        if self._worker is not None:
+            self._worker.wait()
 
     def populate_menu(self):
         self._action = self.add_action(
@@ -147,26 +218,59 @@ class AgentPanel(_gui_common.PilotFeature):
         self._dock.visibilityChanged.connect(self._action.setChecked)
 
     def _on_submitted(self, prompt):
-        """Run one turn on the active canvas: rebind the session, send the
-        prompt, render the reply, and repaint the canvas the commands may have
-        changed."""
+        """Start one turn on the active canvas without blocking the GUI."""
+        if self._worker is not None:
+            return
         widget = self._mgr.currentR2DWidget()
         session = self._session
         session.backend = self._panel.selected_backend()
         session.bind_world(None if widget is None else widget.world)
         self._panel.append_message("user", prompt)
+        self._panel.clear_input()
+        session.record_prompt(prompt)
+        if session.backend is None:
+            self._panel.append_message("agent", self._format_turn(None))
+            return
+        self._active_widget = widget
         self._panel.set_busy(True)
-        try:
-            turn = session.run_turn(prompt)
-        except Exception as exc:
-            self._panel.append_message("agent", "[error] %s" % exc)
-        else:
-            self._panel.append_message("agent", self._format_turn(turn))
-            if widget is not None:
+        self._panel.start_working()
+        self._worker = AgentBackendWorker(
+            session.backend, prompt, session.scene_context(),
+            session.tool_surface(), parent=self._panel)
+        self._worker.succeeded.connect(self._on_backend_succeeded)
+        self._worker.failed.connect(self._on_backend_failed)
+        self._worker.finished.connect(self._on_worker_finished)
+        self._worker.start()
+
+    def _on_backend_succeeded(self, response):
+        """Apply the backend's commands to the world and repaint the canvas.
+        """
+        # TODO(#966): potential race condition here. capture a world revision
+        # at submit and skip by-id commands when the world advanced.
+        turn = self._session.complete_turn(response)
+        self._panel.append_message("agent", self._format_turn(turn))
+        widget = self._active_widget
+        if widget is not None:
+            try:
                 widget.requestRepaint()
-        finally:
-            self._panel.set_busy(False)
-            self._panel.clear_input()
+            except RuntimeError:
+                # TODO: the widget may have been deleted while the backend was
+                # running, so the repaint request fails. Need a better way to
+                # track the widget's lifetime and avoid this.
+                pass
+
+    def _on_backend_failed(self, error):
+        """Record a backend that raised as a failed agent turn."""
+        turn = self._session.fail_turn(error)
+        self._panel.append_message("agent", self._format_turn(turn))
+
+    def _on_worker_finished(self):
+        """Release the worker and re-enable the prompt for the next turn."""
+        self._worker.deleteLater()
+        self._worker = None
+        self._active_widget = None
+        self._panel.stop_working()
+        self._panel.set_busy(False)
 
     @staticmethod
     def _format_turn(turn):

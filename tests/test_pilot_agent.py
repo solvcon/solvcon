@@ -11,7 +11,7 @@ try:
     from solvcon import pilot
     from solvcon import agent
     from solvcon.pilot import _agent_gui
-    from PySide6.QtCore import Qt
+    from PySide6.QtCore import Qt, QCoreApplication
 except ImportError:
     pilot = None
 
@@ -29,6 +29,27 @@ class _CircleBackend:
     def send(self, prompt, scene_context, tool_surface):
         return agent.BackendResponse(text="circle added", commands=[
             {"op": "add_circle", "cx": 0.0, "cy": 0.0, "r": 1.0}])
+
+
+class _TranslateBackend:
+    """Test backend that asks to translate a fixed shape id, so a GUI test can
+    drive a by-id command whose target may have been removed meanwhile.  It
+    uses an update op, not a delete, so the session's destructive gating does
+    not intercept it before the shape-liveness check."""
+
+    name = "translate (test)"
+
+    def __init__(self, shape_id):
+        self._shape_id = shape_id
+
+    def available(self):
+        return True
+
+    def send(self, prompt, scene_context, tool_surface):
+        return agent.BackendResponse(
+            text="translating", commands=[
+                {"op": "translate_shape", "shape_id": self._shape_id,
+                 "dx": 1.0, "dy": 0.0}])
 
 
 @unittest.skipIf(GITHUB_ACTIONS or not solvcon.HAS_PILOT,
@@ -50,6 +71,19 @@ class AgentPanelTC(unittest.TestCase):
                 combo.setCurrentIndex(i)
                 return
         self.fail("echo backend is not in the selector")
+
+    def _select_backend(self, panel, backend):
+        panel._backend_combo.addItem(backend.name, backend)
+        panel._backend_combo.setCurrentIndex(panel._backend_combo.count() - 1)
+
+    def _finish_turn(self, feature):
+        """Drive the pending async turn to completion: wait for the backend
+        worker, then pump the event loop so its queued reply reaches the main
+        thread and finishes the turn."""
+        worker = feature._worker
+        if worker is not None:
+            self.assertTrue(worker.wait(5000))
+        QCoreApplication.processEvents()
 
     def test_toggle_is_placed_under_view_panels(self):
         feature = _agent_gui.AgentPanel(mgr=self.mgr)
@@ -76,6 +110,7 @@ class AgentPanelTC(unittest.TestCase):
         self._select_echo(widget)
         widget._input.setText("draw a circle")
         widget._emit()
+        self._finish_turn(feature)
         text = widget._transcript.toPlainText()
         self.assertIn("You: draw a circle", text)
         self.assertIn("Agent: echo: draw a circle", text)
@@ -91,17 +126,93 @@ class AgentPanelTC(unittest.TestCase):
         world = solvcon.WorldFp64()
         widget.updateWorld(world)
         panel = feature._panel
-        backend = _CircleBackend()
-        panel._backend_combo.addItem(backend.name, backend)
-        panel._backend_combo.setCurrentIndex(panel._backend_combo.count() - 1)
+        self._select_backend(panel, _CircleBackend())
         panel._input.setText("draw a circle")
         panel._emit()
         self.assertIs(feature._session.world, world)
+        self._finish_turn(feature)
         self.assertEqual(world.nshape, 1)
         text = panel._transcript.toPlainText()
         self.assertIn("You: draw a circle", text)
         self.assertIn("circle added", text)
         self.assertIn("add_circle: ok", text)
+
+    def test_turn_runs_off_the_main_thread(self):
+        feature = self._panel_on()
+        panel = feature._panel
+        self._select_echo(panel)
+        panel._input.setText("draw a circle")
+        panel._emit()
+        # A worker is live and the prompt is locked, but no reply has landed:
+        # the main thread was never blocked on the backend call.
+        self.assertIsNotNone(feature._worker)
+        self.assertFalse(panel._input.isEnabled())
+        self.assertNotIn("Agent:", panel._transcript.toPlainText())
+        self._finish_turn(feature)
+        self.assertIsNone(feature._worker)
+        self.assertTrue(panel._input.isEnabled())
+        self.assertIn("Agent: echo: draw a circle",
+                      panel._transcript.toPlainText())
+
+    def test_working_indicator_shows_while_a_turn_runs(self):
+        # Assert on the animation timer and text rather than isVisible(), which
+        # is false for an unshown dock in a headless test.
+        feature = self._panel_on()
+        panel = feature._panel
+        self._select_echo(panel)
+        panel._input.setText("draw a circle")
+        panel._emit()
+        self.assertTrue(panel._working_timer.isActive())
+        self.assertIn("working", panel._status.text())
+        self._finish_turn(feature)
+        self.assertFalse(panel._working_timer.isActive())
+        self.assertEqual(panel._status.text(), "")
+
+    def test_second_submit_is_dropped_while_a_turn_runs(self):
+        feature = self._panel_on()
+        panel = feature._panel
+        self._select_echo(panel)
+        panel._input.setText("first")
+        panel._emit()
+        running = feature._worker
+        panel.submitted.emit("second")
+        self.assertIs(feature._worker, running)
+        self._finish_turn(feature)
+        text = panel._transcript.toPlainText()
+        self.assertIn("You: first", text)
+        self.assertNotIn("You: second", text)
+
+    def test_shutdown_joins_the_running_worker(self):
+        # The teardown path waits for an in-flight worker so its QThread is
+        # never destroyed while still running (which would abort the process).
+        feature = self._panel_on()
+        panel = feature._panel
+        self._select_echo(panel)
+        panel._input.setText("draw a circle")
+        panel._emit()
+        worker = feature._worker
+        self.assertIsNotNone(worker)
+        feature._join_worker()
+        self.assertTrue(worker.isFinished())
+        QCoreApplication.processEvents()
+
+    def test_stale_by_id_command_fails_cleanly(self):
+        # The race workaround: a command that names a shape the user removed
+        # while the model was thinking fails as a not-live shape rather than
+        # crashing the turn.  The empty world stands in for that removal.
+        feature = self._panel_on()
+        widget = self.mgr.add2DWidget()
+        world = solvcon.WorldFp64()
+        widget.updateWorld(world)
+        panel = feature._panel
+        self._select_backend(panel, _TranslateBackend(4242))
+        panel._input.setText("move shape 4242 right")
+        panel._emit()
+        self._finish_turn(feature)
+        text = panel._transcript.toPlainText()
+        self.assertIn("translate_shape", text)
+        self.assertNotIn("ok", text.split("translate_shape", 1)[1])
+        self.assertTrue(panel._input.isEnabled())
 
     def test_blank_prompt_is_ignored(self):
         feature = self._panel_on()

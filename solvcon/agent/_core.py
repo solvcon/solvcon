@@ -184,6 +184,31 @@ class AgentSession:
         self._record_agent("", commands, results)
         return results
 
+    def record_prompt(self, prompt):
+        """Record the user's ``prompt`` as a turn.
+
+        Split out of :meth:`run_turn` so a GUI can record the prompt, run the
+        slow backend call off the main thread, and finish the turn later with
+        :meth:`complete_turn` or :meth:`fail_turn`.
+        """
+        self._transcript.append(TranscriptTurn(role="user", text=prompt))
+
+    def complete_turn(self, response):
+        """Finish a turn from a :class:`~solvcon.agent.BackendResponse`: run
+        its commands and record one agent turn carrying the reply, commands,
+        and results.  Any backend ``error`` is folded into the reply text."""
+        parts = [response.text] if response.text else []
+        if response.error:
+            parts.append("[error] %s" % response.error)
+        commands = list(response.commands)
+        return self._record_agent(
+            "\n".join(parts), commands, self._execute(commands))
+
+    def fail_turn(self, error):
+        """Record a failed agent turn for a backend that raised, so the turn
+        still lands in the transcript instead of propagating."""
+        return self._record_agent("[error] %s" % error)
+
     def run_turn(self, prompt):
         """Drive one request end to end for a single-turn chat.
 
@@ -195,20 +220,14 @@ class AgentSession:
         headless caller always gets a turn back.  No prior turns are replayed:
         multi-turn chat history is a later addition.
         """
-        self._transcript.append(TranscriptTurn(role="user", text=prompt))
+        self.record_prompt(prompt)
         if self.backend is None:
             return None
         try:
             response = self.backend.send(
                 prompt, self.scene_context(), self.tool_surface())
         except Exception as exc:
-            return self._record_agent(
-                "[error] %s: %s" % (type(exc).__name__, exc))
-        parts = [response.text] if response.text else []
-        if response.error:
-            parts.append("[error] %s" % response.error)
-        commands = list(response.commands)
-        return self._record_agent(
-            "\n".join(parts), commands, self._execute(commands))
+            return self.fail_turn("%s: %s" % (type(exc).__name__, exc))
+        return self.complete_turn(response)
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
