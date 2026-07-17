@@ -1,0 +1,71 @@
+name: pch_experiment
+
+# Temporary workflow to validate the SOLVCON_USE_PCH build-time effect on
+# the real CI runners. It runs the same dependency setup as devbuild but
+# deliberately omits the ccache step, because PR 1124 force-disables the
+# PCH whenever a compiler cache is present. Each configuration is built
+# from scratch so the only difference between them is the PCH itself.
+# Drop this file (and contrib/pch_experiment.py) before merging.
+
+on:
+  push:
+    branches:
+      - feat/build-pch
+  workflow_dispatch:
+
+concurrency:
+  group: pch_experiment-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+
+  pch:
+
+    name: pch_${{ matrix.os }}
+
+    runs-on: ${{ matrix.os }}
+
+    timeout-minutes: 300
+
+    strategy:
+      matrix:
+        os: [ubuntu-24.04, macos-26]
+      fail-fast: false
+
+    env:
+      PCH_REPS: '3'
+      PCH_PARALLEL: '2'
+      PIP_BREAK_SYSTEM_PACKAGES: 1
+      AQT_CONFIG: "thirdparty/aqt_settings.ini"
+
+    steps:
+
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: setup dependencies for Linux
+        if: runner.os == 'Linux'
+        uses: ./.github/actions/setup_linux
+        with:
+          workflow: 'build'
+
+      - name: setup dependencies for macOS
+        if: runner.os == 'macOS'
+        uses: ./.github/actions/setup_macos
+        with:
+          workflow: 'build'
+
+      - name: run pch experiment
+        run: |
+          echo "::group::run pch experiment"
+          python3 contrib/pch_experiment.py
+          echo "::endgroup::"
+
+      - name: upload result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pch-result-${{ matrix.os }}
+          path: pch_experiment_result.md
+          if-no-files-found: ignore
