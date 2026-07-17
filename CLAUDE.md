@@ -1,7 +1,7 @@
 # Agent Instructions
 
 This file provides guidance to AI coding agents working in this repository
-(Claude Code and Cursor). `AGENTS.md` at the repo root and
+(Claude Code, Codex, and Cursor). `AGENTS.md` at the repo root and
 `.cursor/AGENTS.md` are symlinks to this file.
 
 ## Project Overview
@@ -16,12 +16,23 @@ unstructured meshes. The codebase emphasizes:
 - Qt-based GUI (pilot) for spatial data visualization
 - Integrated runtime profiler for performance analysis
 
-## Agent Tooling (Claude Code and Cursor)
+## Agent Tooling (Claude Code, Codex, and Cursor)
 
-This repository ships `.claude/` and `.cursor/` directories with permissions,
-hooks, and skills tuned to this codebase. General behavioral rules live in
-`contrib/prompt/general-rule.md` (not auto-imported). This section indexes
-the tools.
+This repository ships `.claude/`, `.codex/`, `.agents/`, and `.cursor/`
+directories with hooks, skills, and settings tuned to this codebase. General
+behavioral rules live in `contrib/prompt/general-rule.md` (not auto-imported).
+This section indexes the tools.
+
+### Codex (`.codex/` and `.agents/`)
+
+- `AGENTS.md` at the repository root is a symlink to `CLAUDE.md`.
+- `.agents/skills/` is a symlink to `.claude/skills/`, the repository skill
+  location recognized by Codex.
+- `.codex/hooks.json` wires Codex `PreToolUse` and `PostToolUse` events to the
+  shared hook scripts.
+- `.codex/hooks/` is a symlink to `.claude/hooks/`.
+- Project hooks load only for a trusted repository. Review and trust them with
+  `/hooks` when Codex first discovers them.
 
 ### Cursor (`.cursor/`)
 
