@@ -16,11 +16,51 @@ namespace solvcon
 namespace python
 {
 
+namespace detail
+{
+
+inline solvcon::detail::shape_type shape_from_slices(
+    std::vector<solvcon::detail::sshape_type> const & slices)
+{
+    solvcon::detail::shape_type shape(slices.size());
+    for (size_t axis = 0; axis < slices.size(); ++axis)
+    {
+        shape[axis] = slices[axis][3];
+    }
+    return shape;
+}
+
+} /* end namespace detail */
+
 template <typename T /* original type */, typename D /* for destination type */>
 struct TypeBroadcastImpl
 {
     using shape_type = solvcon::detail::shape_type;
     using sshape_type = solvcon::detail::sshape_type;
+
+    static ssize_t input_offset(pybind11::array_t<D> const & arr_in,
+                                sshape_type const & sidx)
+    {
+        ssize_t offset = 0;
+        for (pybind11::ssize_t axis = 0; axis < arr_in.ndim(); ++axis)
+        {
+            offset += arr_in.strides(axis) / arr_in.itemsize() * sidx[axis];
+        }
+        return offset;
+    }
+
+    static ssize_t output_offset(SimpleArray<T> const & arr_out,
+                                 std::vector<sshape_type> const & slices,
+                                 sshape_type const & sidx)
+    {
+        ssize_t offset = 0;
+        for (ssize_t axis = 0; axis < arr_out.ndim(); ++axis)
+        {
+            ssize_t const index = slices[axis][0] + sidx[axis] * slices[axis][2];
+            offset += arr_out.stride(axis) * index;
+        }
+        return offset;
+    }
 
     // NOLINTNEXTLINE(misc-no-recursion)
     static void copy_idx(SimpleArray<T> & arr_out,
@@ -34,32 +74,8 @@ struct TypeBroadcastImpl
 
         if (dim < 0)
         {
-            return;
-        }
-
-        auto const axis = static_cast<size_t>(dim);
-        ssize_t const length = left_shape[axis];
-        for (ssize_t i = 0; i < length; ++i)
-        {
-            sidx[axis] = i;
-
-            ssize_t offset_in = 0;
-            pybind11::ssize_t const ndim_in = arr_in->ndim();
-            for (pybind11::ssize_t py_axis = 0; py_axis < ndim_in; ++py_axis)
-            {
-                auto const axis_in = static_cast<size_t>(py_axis);
-                offset_in += arr_in->strides(py_axis) / arr_in->itemsize() * sidx[axis_in];
-            }
-            const D * ptr_in = arr_in->data() + offset_in;
-
-            ssize_t offset_out = 0;
-            ssize_t const ndim = arr_out.ndim();
-            for (ssize_t it = 0; it < ndim; ++it)
-            {
-                auto const axis_index = static_cast<size_t>(it);
-                ssize_t const step = slices[axis_index][2];
-                offset_out += arr_out.stride(it) * sidx[axis_index] * step;
-            }
+            const D * ptr_in = arr_in->data() + input_offset(*arr_in, sidx);
+            ssize_t const offset_out = output_offset(arr_out, slices, sidx);
 
             constexpr bool valid_conversion = (!is_complex_v<T> && !is_complex_v<D>) || (is_complex_v<T> && is_complex_v<D> && std::is_same_v<T, D>);
 
@@ -73,8 +89,13 @@ struct TypeBroadcastImpl
             {
                 throw std::runtime_error("Cannot convert between complex and non-complex types");
             }
+            return;
+        }
 
-            // recursion here
+        auto const axis = static_cast<size_t>(dim);
+        for (ssize_t i = 0; i < left_shape[axis]; ++i)
+        {
+            sidx[axis] = i;
             copy_idx(arr_out, slices, arr_in, left_shape, sidx, dim - 1);
         }
     }
@@ -87,22 +108,8 @@ struct TypeBroadcastImpl
         auto * arr_new = reinterpret_cast<pybind11::array_t<D> const *>(&arr_in);
 
         ssize_t const ndim = arr_out.ndim();
-        shape_type left_shape(ndim);
-        for (ssize_t axis = 0; axis < ndim; ++axis)
-        {
-            sshape_type const & slice = slices[axis];
-            if ((slice[1] - slice[0]) % slice[2] == 0)
-            {
-                left_shape[axis] = (slice[1] - slice[0]) / slice[2];
-            }
-            else
-            {
-                left_shape[axis] = (slice[1] - slice[0]) / slice[2] + 1;
-            }
-        }
-
+        shape_type const left_shape = detail::shape_from_slices(slices);
         sshape_type const sidx_init(ndim, 0);
-
         copy_idx(arr_out, slices, arr_new, left_shape, sidx_init, ndim - 1);
     }
 }; /* end struct TypeBroadcastImpl */
@@ -125,20 +132,7 @@ struct TypeBroadcast
         }
 
         ssize_t const ndim = arr_out.ndim();
-        shape_type left_shape(ndim);
-        // TODO: range check
-        for (ssize_t axis = 0; axis < ndim; ++axis)
-        {
-            sshape_type const & slice = slices[axis];
-            if ((slice[1] - slice[0]) % slice[2] == 0)
-            {
-                left_shape[axis] = (slice[1] - slice[0]) / slice[2];
-            }
-            else
-            {
-                left_shape[axis] = (slice[1] - slice[0]) / slice[2] + 1;
-            }
-        }
+        shape_type const left_shape = detail::shape_from_slices(slices);
 
         if (arr_out.ndim() != arr_in.ndim())
         {
