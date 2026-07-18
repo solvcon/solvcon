@@ -235,6 +235,45 @@ class CommandSet:
         return grouped
 
 
+# CommandSet attributes a fronting module re-exports so it doubles as its set.
+COMMAND_API = (
+    "apply_defaults",
+    "categories",
+    "command_from_tool_call",
+    "command_schemas",
+    "commands",
+    "commands_by_category",
+    "description",
+    "result_schemas",
+    "schema",
+    "title",
+    "tool_definitions",
+    "validate_command",
+    "validate_result",
+    "validate_script",
+)
+
+
+def install_command_api(namespace, command_set):
+    """Wire a module to double as ``command_set``'s command API.
+
+    Pass the module's ``globals()`` as ``namespace``; installs
+    ``__getattr__``/``__dir__`` and returns the name tuple for ``__all__``.
+    """
+    def __getattr__(name):
+        if name in COMMAND_API:
+            return getattr(command_set, name)
+        raise AttributeError(
+            f"module {namespace['__name__']!r} has no attribute {name!r}")
+
+    def __dir__():
+        return sorted(set(namespace) | set(COMMAND_API))
+
+    namespace["__getattr__"] = __getattr__
+    namespace["__dir__"] = __dir__
+    return COMMAND_API
+
+
 @dataclasses.dataclass
 class CommandResult:
     """The outcome of applying one command."""

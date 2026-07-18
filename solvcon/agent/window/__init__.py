@@ -3,13 +3,7 @@
 
 
 """
-Agent Draw front-end for the ``World`` API.
-
-The command vocabulary lives in ``command.py`` (one ``Command`` subclass per
-command); the schema documents, validators, and tool definitions are derived
-from one private command set. This module delegates its command-family API to
-that set, so the harness and MCP adapters ride on the same commands.
-``Executor`` applies validated commands to a ``World``.
+Agent Window front-end for the pilot canvas windowing API.
 """
 
 from .. import _command as _cmd
@@ -21,7 +15,6 @@ from .._command import (  # noqa: F401
 )
 from .command import _command_set
 from .executor import Executor  # noqa: F401
-
 
 __all__ = (
     "CRUD_CATEGORIES",
