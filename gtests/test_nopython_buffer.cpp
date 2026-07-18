@@ -76,6 +76,42 @@ TEST(SimpleArray, abs)
     EXPECT_EQ(brr.sum(), 10.0);
 }
 
+TEST(SimpleArray, reshape_cross_type_preserves_logical_order)
+{
+    using namespace solvcon;
+
+    SimpleArray<int64_t> array(small_vector<ssize_t>{2, 3}, 0);
+    int64_t v = 0;
+    for (auto & it : array)
+    {
+        it = v++;
+    }
+
+    array.transpose(false);
+    auto result = array.reshape<uint64_t>(small_vector<ssize_t>{6});
+
+    const uint64_t expected[6] = {0, 3, 1, 4, 2, 5};
+    for (ssize_t i = 0; i < 6; ++i)
+    {
+        EXPECT_EQ(result(i), expected[i]);
+    }
+}
+
+TEST(SimpleArray, reshape_rejects_mismatched_size)
+{
+    using namespace solvcon;
+
+    SimpleArray<uint64_t> array(small_vector<ssize_t>{3}, 0);
+
+    // A cross-type reshape to a different item size has no well-defined
+    // element mapping and is rejected.
+    EXPECT_THROW(array.reshape<uint32_t>(small_vector<ssize_t>{6}), std::runtime_error);
+
+    // A same-type reshape must keep the element count.
+    EXPECT_THROW(array.reshape(small_vector<ssize_t>{5}), std::runtime_error);
+    EXPECT_THROW(array.reshape(small_vector<ssize_t>{}), std::runtime_error);
+}
+
 TEST(SimpleArray, iterator)
 {
     using namespace solvcon;
