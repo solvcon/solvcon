@@ -14,6 +14,7 @@ try:
     from PySide6 import QtCore, QtGui
 except ImportError:
     pilot = None
+    QtGui = None
 
 GITHUB_ACTIONS = os.getenv('GITHUB_ACTIONS', False)
 
@@ -28,12 +29,13 @@ _PANEL_CHORDS = (
     ("panel.painter", ["Ctrl+Shift+P"]),
 )
 
-_STANDARD_IDS = {
-    "edit.undo": QtGui.QKeySequence.StandardKey.Undo,
-    "edit.redo": QtGui.QKeySequence.StandardKey.Redo,
-    "file.exit": QtGui.QKeySequence.StandardKey.Quit,
-    "canvas.blank_2d": QtGui.QKeySequence.StandardKey.New,
-}
+if QtGui is not None:
+    _STANDARD_IDS = {
+        "edit.undo": QtGui.QKeySequence.StandardKey.Undo,
+        "edit.redo": QtGui.QKeySequence.StandardKey.Redo,
+        "file.exit": QtGui.QKeySequence.StandardKey.Quit,
+        "canvas.blank_2d": QtGui.QKeySequence.StandardKey.New,
+    }
 
 
 def _live_sequences(action):
