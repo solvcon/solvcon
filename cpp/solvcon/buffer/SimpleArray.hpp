@@ -2027,20 +2027,60 @@ public:
         }
     }
 
+    /**
+     * Reshape to a new shape, preserving the logical element order.
+     *
+     * Returns a zero-copy view when the source is C-contiguous and its
+     * buffer holds exactly the logical elements; otherwise copies them in
+     * C order into a new dense buffer, matching numpy's reshape(order='C').
+     * Rejects an array with ghost cells, whose ghost/body split has no
+     * well-defined element mapping.
+     *
+     * @param shape The new shape. A same-type reshape keeps the element
+     *              count; a cross-type reshape keeps the byte count.
+     * @return A view when zero-copy is possible, otherwise a copy.
+     */
     template <typename U>
     SimpleArray<U> reshape(shape_type const & shape) const
     {
-        return SimpleArray<U>(shape, m_buffer, logical_data_offset());
+        if (has_ghost())
+        {
+            throw std::runtime_error(
+                std::format("SimpleArray: cannot reshape an array with {} ghost cells", m_nghost));
+        }
+        validate_shape(shape);
+
+        // source and target shapes size must match
+        if constexpr (std::is_same_v<U, value_type>)
+        {
+            check_reshape_size(shape);
+        }
+        else
+        {
+            check_reshape_bytes(shape, sizeof(U));
+        }
+        // Reuse the buffer only when its logical region holds exactly the
+        // logical element and is C-contiguous; otherwise the buffer order
+        // differs from the logical order, so copy in C order instead.
+        const size_t offset = logical_data_offset();
+        const bool exact_buffer = m_buffer && m_buffer->nbytes() - offset == size() * ITEMSIZE;
+        if (is_c_contiguous() && exact_buffer)
+        {
+            return SimpleArray<U>(shape, m_buffer, offset);
+        }
+        SimpleArray row_major(m_shape);
+        copy_logical_into(row_major);
+        return SimpleArray<U>(shape, row_major.m_buffer);
     }
 
     SimpleArray reshape(shape_type const & shape) const
     {
-        return SimpleArray(shape, m_buffer, logical_data_offset());
+        return reshape<value_type>(shape);
     }
 
     SimpleArray reshape() const
     {
-        return SimpleArray(m_shape, m_buffer, logical_data_offset());
+        return reshape(m_shape);
     }
 
     void swap(SimpleArray & other) noexcept
@@ -2366,6 +2406,39 @@ private:
             return 0;
         }
         return shape[0] * stride[0];
+    }
+
+    /// Reject a target shape whose element count differs from the source.
+    void check_reshape_size(shape_type const & shape) const
+    {
+        ssize_t target = 1;
+        for (ssize_t const dim : shape)
+        {
+            target *= dim;
+        }
+        if (static_cast<size_t>(target) != size())
+        {
+            throw std::runtime_error(
+                std::format("SimpleArray: cannot reshape size {} into size {}", size(), target));
+        }
+    }
+
+    /// Reject a target shape whose byte count differs from the source, for
+    /// a reshape that reinterprets the buffer as a type of size out_itemsize.
+    void check_reshape_bytes(shape_type const & shape, size_t out_itemsize) const
+    {
+        size_t target = 1;
+        for (ssize_t const dim : shape)
+        {
+            target *= static_cast<size_t>(dim);
+        }
+        if (target * out_itemsize != size() * ITEMSIZE)
+        {
+            throw std::runtime_error(std::format(
+                "SimpleArray: cannot reshape {} bytes into {} bytes",
+                size() * ITEMSIZE,
+                target * out_itemsize));
+        }
     }
 
     /// Contiguous data buffer for the array.
