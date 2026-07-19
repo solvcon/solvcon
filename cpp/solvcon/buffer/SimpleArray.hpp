@@ -705,6 +705,7 @@ public:
 
     A add(A const & other) const
     {
+        validate_same_shape(other, "add");
         return A(*static_cast<A const *>(this)).iadd(other);
     }
 
@@ -715,6 +716,7 @@ public:
 
     A sub(A const & other) const
     {
+        validate_same_shape(other, "sub");
         return A(*static_cast<A const *>(this)).isub(other);
     }
 
@@ -725,6 +727,7 @@ public:
 
     A mul(A const & other) const
     {
+        validate_same_shape(other, "mul");
         return A(*static_cast<A const *>(this)).imul(other);
     }
 
@@ -735,6 +738,7 @@ public:
 
     A div(A const & other) const
     {
+        validate_same_shape(other, "div");
         return A(*static_cast<A const *>(this)).idiv(other);
     }
 
@@ -744,6 +748,8 @@ public:
     }
 
 private:
+
+    void validate_same_shape(A const & other, char const * op) const;
 
     // Element-wise comparison kernel shared by eq/ne/lt/le/gt/ge. The array
     // overload requires matching shapes; both produce a bool per element.
@@ -775,6 +781,7 @@ public:
     A & iadd(A const & other)
     {
         auto athis = static_cast<A *>(this);
+        validate_same_shape(other, "iadd");
         if constexpr (!std::is_same_v<bool, std::remove_const_t<value_type>>)
         {
             const value_type * const end = athis->end();
@@ -827,6 +834,7 @@ public:
     A & isub(A const & other)
     {
         auto athis = static_cast<A *>(this);
+        validate_same_shape(other, "isub");
         if constexpr (!std::is_same_v<bool, std::remove_const_t<value_type>>)
         {
             const value_type * const end = athis->end();
@@ -873,6 +881,7 @@ public:
     A & imul(A const & other)
     {
         auto athis = static_cast<A *>(this);
+        validate_same_shape(other, "imul");
         if constexpr (!std::is_same_v<bool, std::remove_const_t<value_type>>)
         {
             const value_type * const end = athis->end();
@@ -928,6 +937,7 @@ public:
     A & idiv(A const & other)
     {
         auto athis = static_cast<A *>(this);
+        validate_same_shape(other, "idiv");
         if constexpr (!std::is_same_v<bool, std::remove_const_t<value_type>>)
         {
             const value_type * const end = athis->end();
@@ -974,6 +984,7 @@ public:
     A add_simd(A const & other) const
     {
         A const * athis = static_cast<A const *>(this);
+        validate_same_shape(other, "add_simd");
         A ret(athis->shape());
 
         simd::add<T>(ret.begin(), ret.end(), athis->begin(), other.begin());
@@ -984,6 +995,7 @@ public:
     A sub_simd(A const & other) const
     {
         A const * athis = static_cast<A const *>(this);
+        validate_same_shape(other, "sub_simd");
         A ret(athis->shape());
 
         simd::sub<T>(ret.begin(), ret.end(), athis->begin(), other.begin());
@@ -994,6 +1006,7 @@ public:
     A mul_simd(A const & other) const
     {
         A const * athis = static_cast<A const *>(this);
+        validate_same_shape(other, "mul_simd");
         A ret(athis->shape());
 
         simd::mul<T>(ret.begin(), ret.end(), athis->begin(), other.begin());
@@ -1004,6 +1017,7 @@ public:
     A div_simd(A const & other) const
     {
         A const * athis = static_cast<A const *>(this);
+        validate_same_shape(other, "div_simd");
         A ret(athis->shape());
 
         simd::div<T>(ret.begin(), ret.end(), athis->begin(), other.begin());
@@ -1014,6 +1028,7 @@ public:
     A & iadd_simd(A const & other)
     {
         auto athis = static_cast<A *>(this);
+        validate_same_shape(other, "iadd_simd");
         if constexpr (!std::is_same_v<bool, std::remove_const_t<value_type>>)
         {
             simd::add<T>(athis->begin(), athis->end(), athis->begin(), other.begin());
@@ -1028,6 +1043,7 @@ public:
     A & isub_simd(A const & other)
     {
         auto athis = static_cast<A *>(this);
+        validate_same_shape(other, "isub_simd");
         if constexpr (!std::is_same_v<bool, std::remove_const_t<value_type>>)
         {
             simd::sub<T>(athis->begin(), athis->end(), athis->begin(), other.begin());
@@ -1042,6 +1058,7 @@ public:
     A & imul_simd(A const & other)
     {
         auto athis = static_cast<A *>(this);
+        validate_same_shape(other, "imul_simd");
         if constexpr (!std::is_same_v<bool, std::remove_const_t<value_type>>)
         {
             simd::mul<T>(athis->begin(), athis->end(), athis->begin(), other.begin());
@@ -1056,6 +1073,7 @@ public:
     A & idiv_simd(A const & other)
     {
         auto athis = static_cast<A *>(this);
+        validate_same_shape(other, "idiv_simd");
         if constexpr (!std::is_same_v<bool, std::remove_const_t<value_type>>)
         {
             simd::div<T>(athis->begin(), athis->end(), athis->begin(), other.begin());
@@ -2432,9 +2450,8 @@ void SimpleArray<T>::validate_layout(shape_type const & shape,
 }
 
 template <typename A, typename T>
-template <typename Cmp>
-SimpleArray<bool> detail::SimpleArrayMixinCalculators<A, T>::compare_with(
-    A const & other, Cmp cmp, char const * op) const
+void detail::SimpleArrayMixinCalculators<A, T>::validate_same_shape(
+    A const & other, char const * op) const
 {
     auto const * athis = static_cast<A const *>(this);
     if (athis->shape() != other.shape())
@@ -2445,6 +2462,15 @@ SimpleArray<bool> detail::SimpleArrayMixinCalculators<A, T>::compare_with(
             format_shape(athis->shape()),
             format_shape(other.shape())));
     }
+}
+
+template <typename A, typename T>
+template <typename Cmp>
+SimpleArray<bool> detail::SimpleArrayMixinCalculators<A, T>::compare_with(
+    A const & other, Cmp cmp, char const * op) const
+{
+    auto const * athis = static_cast<A const *>(this);
+    validate_same_shape(other, op);
     SimpleArray<bool> ret(athis->shape());
     const value_type * ptr = athis->begin();
     const value_type * const end = athis->end();
