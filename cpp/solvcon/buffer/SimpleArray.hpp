@@ -14,6 +14,7 @@
 
 #include <solvcon/buffer/ConcreteBuffer.hpp>
 #include <solvcon/buffer/matmul.hpp>
+#include <solvcon/buffer/signed_stride_layout.hpp>
 #include <solvcon/math/math.hpp>
 #include <solvcon/simd/simd.hpp>
 
@@ -2068,28 +2069,10 @@ public:
     }
 
     template <size_t N>
-    std::mdspan<value_type, std::dextents<ssize_t, N>, std::layout_stride> as_mdspan()
-    {
-        if (ndim() != N)
-        {
-            throw std::out_of_range(
-                std::format("SimpleArray::as_mdspan: rank {} does not match ndim() {}", N, ndim()));
-        }
-        return std::mdspan<value_type, std::dextents<ssize_t, N>, std::layout_stride>(
-            logical_data(), make_mdspan_mapping<N>());
-    }
+    std::mdspan<value_type, std::dextents<ssize_t, N>, detail::SignedStrideLayout> as_mdspan();
 
     template <size_t N>
-    std::mdspan<value_type const, std::dextents<ssize_t, N>, std::layout_stride> as_mdspan() const
-    {
-        if (ndim() != N)
-        {
-            throw std::out_of_range(
-                std::format("SimpleArray::as_mdspan: rank {} does not match ndim() {}", N, ndim()));
-        }
-        return std::mdspan<value_type const, std::dextents<ssize_t, N>, std::layout_stride>(
-            logical_data(), make_mdspan_mapping<N>());
-    }
+    std::mdspan<value_type const, std::dextents<ssize_t, N>, detail::SignedStrideLayout> as_mdspan() const;
 
     /* Backdoor */
     value_type const & data(size_t it) const { return data()[it]; }
@@ -2115,23 +2098,16 @@ private:
     void copy_logical_into(SimpleArray & out) const;
 
     template <size_t N, size_t... I>
-    std::layout_stride::mapping<std::dextents<ssize_t, N>> make_mdspan_mapping_impl(std::index_sequence<I...>) const
+    detail::SignedStrideLayout::mapping<std::dextents<ssize_t, N>> make_mdspan_mapping_impl(
+        std::index_sequence<I...>) const
     {
-        std::array<ssize_t, N> strides;
-        for (size_t i = 0; i < N; ++i)
-        {
-            if (stride(i) < 0)
-            {
-                throw std::runtime_error("SimpleArray::as_mdspan: negative stride is not supported");
-            }
-            strides[i] = stride(i);
-        }
-        return std::layout_stride::mapping<std::dextents<ssize_t, N>>(
-            std::dextents<ssize_t, N>(shape(I)...), strides);
+        return detail::SignedStrideLayout::mapping<std::dextents<ssize_t, N>>(
+            std::dextents<ssize_t, N>(shape(I)...),
+            std::array<ssize_t, N>{stride(I)...});
     }
 
     template <size_t N>
-    std::layout_stride::mapping<std::dextents<ssize_t, N>> make_mdspan_mapping() const
+    detail::SignedStrideLayout::mapping<std::dextents<ssize_t, N>> make_mdspan_mapping() const
     {
         return make_mdspan_mapping_impl<N>(std::make_index_sequence<N>{});
     }
@@ -2364,6 +2340,44 @@ private:
     ssize_t m_nghost = 0;
     value_type * m_body = nullptr;
 }; /* end class SimpleArray */
+
+template <typename T>
+template <size_t N>
+std::mdspan<typename SimpleArray<T>::value_type, std::dextents<ssize_t, N>, detail::SignedStrideLayout>
+SimpleArray<T>::as_mdspan()
+{
+    if (ndim() != N)
+    {
+        throw std::out_of_range(
+            std::format("SimpleArray::as_mdspan: rank {} does not match ndim() {}", N, ndim()));
+    }
+    auto const mapping = make_mdspan_mapping<N>();
+    value_type * data_handle = logical_data();
+    if (data_handle)
+    {
+        data_handle -= mapping.origin_offset();
+    }
+    return std::mdspan<value_type, std::dextents<ssize_t, N>, detail::SignedStrideLayout>(data_handle, mapping);
+}
+
+template <typename T>
+template <size_t N>
+std::mdspan<typename SimpleArray<T>::value_type const, std::dextents<ssize_t, N>, detail::SignedStrideLayout>
+SimpleArray<T>::as_mdspan() const
+{
+    if (ndim() != N)
+    {
+        throw std::out_of_range(
+            std::format("SimpleArray::as_mdspan: rank {} does not match ndim() {}", N, ndim()));
+    }
+    auto const mapping = make_mdspan_mapping<N>();
+    value_type const * data_handle = logical_data();
+    if (data_handle)
+    {
+        data_handle -= mapping.origin_offset();
+    }
+    return std::mdspan<value_type const, std::dextents<ssize_t, N>, detail::SignedStrideLayout>(data_handle, mapping);
+}
 
 template <typename T>
 size_t SimpleArray<T>::logical_data_offset() const

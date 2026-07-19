@@ -427,4 +427,122 @@ TEST(SimpleArray, mdspan_non_contiguous)
     EXPECT_EQ(csp[2 * 8 + 3], 99.0);
 }
 
+TEST(SimpleArray, mdspan_positive_strides_with_data_offset)
+{
+    namespace mm = solvcon;
+
+    auto buffer = mm::ConcreteBuffer::construct(6 * sizeof(double));
+    for (size_t i = 0; i < 6; ++i) { buffer->data<double>()[i] = static_cast<double>(i); }
+
+    mm::SimpleArray<double> arr(mm::small_vector<ssize_t>{4}, buffer, 2 * sizeof(double));
+    auto ms = arr.as_mdspan<1>();
+
+    static_assert(std::is_same_v<typename decltype(ms)::layout_type, mm::detail::SignedStrideLayout>);
+    EXPECT_EQ(ms.mapping().origin_offset(), 0);
+    EXPECT_EQ(&ms[0], arr.logical_data());
+    for (size_t i = 0; i < 4; ++i) { EXPECT_EQ(ms[i], arr(i)); }
+
+    ms[1] = 42.0;
+    EXPECT_EQ(arr(1), 42.0);
+    EXPECT_EQ(buffer->data<double>()[3], 42.0);
+}
+
+TEST(SimpleArray, mdspan_negative_strides)
+{
+    namespace mm = solvcon;
+
+    auto buffer = mm::ConcreteBuffer::construct(6 * sizeof(double));
+    for (size_t i = 0; i < 6; ++i) { buffer->data<double>()[i] = static_cast<double>(i); }
+
+    mm::SimpleArray<double> arr(
+        mm::small_vector<ssize_t>{2, 3},
+        mm::small_vector<ssize_t>{-3, -1},
+        buffer,
+        5 * sizeof(double));
+    auto ms = arr.as_mdspan<2>();
+
+    EXPECT_EQ(ms.mapping().origin_offset(), 5);
+    EXPECT_EQ(ms.mapping().required_span_size(), 6);
+    EXPECT_EQ(ms.mapping().stride(0), -3);
+    EXPECT_EQ(ms.mapping().stride(1), -1);
+    EXPECT_EQ((&ms[0, 0]), arr.logical_data());
+    EXPECT_EQ((&ms[1, 2]), arr.data());
+    for (size_t i = 0; i < 2; ++i)
+    {
+        for (size_t j = 0; j < 3; ++j)
+        {
+            EXPECT_EQ((ms[i, j]), arr(i, j));
+        }
+    }
+
+    ms[0, 1] = 42.0;
+    EXPECT_EQ(arr(0, 1), 42.0);
+    EXPECT_EQ(buffer->data<double>()[4], 42.0);
+
+    mm::SimpleArray<double> const & carr = arr;
+    auto cms = carr.as_mdspan<2>();
+    static_assert(std::is_same_v<typename decltype(cms)::element_type, double const>);
+    EXPECT_EQ((cms[0, 1]), 42.0);
+}
+
+TEST(SimpleArray, mdspan_mixed_strides_with_padding)
+{
+    namespace mm = solvcon;
+
+    auto buffer = mm::ConcreteBuffer::construct(72 * sizeof(double));
+    for (size_t i = 0; i < 72; ++i) { buffer->data<double>()[i] = static_cast<double>(i); }
+
+    mm::SimpleArray<double> arr(
+        mm::small_vector<ssize_t>{2, 3, 2, 4},
+        mm::small_vector<ssize_t>{-40, 10, -5, 1},
+        buffer,
+        47 * sizeof(double));
+    auto ms = arr.as_mdspan<4>();
+
+    EXPECT_EQ(ms.mapping().origin_offset(), 45);
+    EXPECT_EQ(ms.mapping().required_span_size(), 69);
+    EXPECT_FALSE(ms.mapping().is_exhaustive());
+    EXPECT_EQ((&ms[0, 0, 0, 0]), arr.logical_data());
+    EXPECT_EQ((&ms[1, 0, 1, 0]), buffer->data<double>() + 2);
+    EXPECT_EQ((&ms[0, 2, 0, 3]), buffer->data<double>() + 70);
+    for (size_t i = 0; i < 2; ++i)
+    {
+        for (size_t j = 0; j < 3; ++j)
+        {
+            for (size_t k = 0; k < 2; ++k)
+            {
+                for (size_t l = 0; l < 4; ++l)
+                {
+                    EXPECT_EQ((ms[i, j, k, l]), arr(i, j, k, l));
+                }
+            }
+        }
+    }
+
+    ms[1, 2, 1, 3] = 99.0;
+    EXPECT_EQ(arr(1, 2, 1, 3), 99.0);
+    EXPECT_EQ(buffer->data<double>()[25], 99.0);
+}
+
+TEST(SimpleArray, mdspan_empty_extent)
+{
+    namespace mm = solvcon;
+
+    mm::SimpleArray<double> arr(mm::small_vector<ssize_t>{2, 0, 3});
+    auto ms = arr.as_mdspan<3>();
+
+    EXPECT_EQ(ms.extent(0), 2);
+    EXPECT_EQ(ms.extent(1), 0);
+    EXPECT_EQ(ms.extent(2), 3);
+    EXPECT_EQ(ms.size(), 0);
+    EXPECT_EQ(ms.mapping().origin_offset(), 0);
+    EXPECT_EQ(ms.mapping().required_span_size(), 0);
+    EXPECT_EQ(ms.data_handle(), nullptr);
+
+    mm::SimpleArray<double> const & carr = arr;
+    auto cms = carr.as_mdspan<3>();
+    EXPECT_EQ(cms.size(), 0);
+    EXPECT_EQ(cms.data_handle(), nullptr);
+}
+
 // vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
