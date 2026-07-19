@@ -263,7 +263,8 @@ class SimpleArrayBasicTC(unittest.TestCase):
 
         with self.assertRaisesRegex(
                 RuntimeError,
-                "SimpleArray: shape byte count 184 differs from buffer 192"
+                "SimpleArray: shape byte count 184 differs from available "
+                "buffer byte count 192 at data offset 0"
         ):
             sarr.reshape(23)
 
@@ -337,8 +338,16 @@ class SimpleArrayBasicTC(unittest.TestCase):
         self.assertTrue(row_major.is_c_contiguous)
         np.testing.assert_array_equal(rhs, row_major.ndarray)
 
-        sarr.ndarray[0, 0] = 100
-        self.assertEqual(100, ndarr[1, 2])
+        transposed = sarr.transpose(inplace=False, copy=True)
+        np.testing.assert_array_equal(rhs.T, transposed.ndarray)
+
+        clone = sarr.clone()
+        self.assertFalse(clone.is_from_python)
+        np.testing.assert_array_equal(rhs, clone.ndarray)
+
+        sarr.ndarray[0, 0] = 200
+        self.assertEqual(200, ndarr[1, 2])
+        self.assertEqual(100, clone.ndarray[0, 0])
 
     def test_SimpleArray_clone(self):
         sarr = solvcon.SimpleArrayFloat64((2, 3, 4))
@@ -803,6 +812,27 @@ class SimpleArrayBasicTC(unittest.TestCase):
         self.assertTupleEqual(shape, py_sarr.shape)
         self.assertEqual(np_sarr.nbytes, py_sarr.nbytes)
         self.assertEqual(np_sarr.size, py_sarr.size)
+
+    def test_SimpleArray_from_ndarray_rejects_byte_stride(self):
+        ndarr = np.ndarray(
+            (3,), dtype='int32', buffer=bytearray(range(32)), strides=(1,))
+
+        with self.assertRaisesRegex(
+                RuntimeError,
+                "NumPy byte stride 1 in dimension 0 is not divisible by "
+                "item size 4"
+        ):
+            solvcon.SimpleArrayInt32(array=ndarr)
+
+    def test_SimpleArray_from_ndarray_rejects_unaligned_data(self):
+        ndarr = np.ndarray(
+            (3,), dtype='int32', buffer=bytearray(range(32)), offset=1)
+
+        with self.assertRaisesRegex(
+                RuntimeError,
+                "NumPy data pointer is not aligned for item alignment 4"
+        ):
+            solvcon.SimpleArrayInt32(array=ndarr)
 
     def test_SimpleArray_from_ndarray_content(self):
 

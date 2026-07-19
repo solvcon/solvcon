@@ -188,7 +188,7 @@ std::enable_if_t<is_simple_array_v<S>, pybind11::array> to_ndarray(S && sarr)
         py::detail::npy_format_descriptor<T>::dtype(), // Numpy dtype
         shape, // Buffer dimensions
         stride, // Strides (in bytes) for each index
-        sarr.data(), // Pointer to buffer
+        sarr.logical_data(), // Pointer to buffer
         py::cast(sarr.buffer().shared_from_this()) // Create the Python object owning the buffer
     );
 }

@@ -276,7 +276,7 @@ public:
         }
 
         return pybind11::buffer_info(
-            array.data(), /* Pointer to buffer */
+            array.logical_data(), /* Pointer to buffer */
             sizeof(T), /* Size of one scalar */
             format, /* Python struct-style format descriptor */
             array.ndim(), /* Number of dimensions */

@@ -270,7 +270,7 @@ public:
         {
             return sum_contiguous(athis->data(), n);
         }
-        return sum_strided(athis->data(), athis->shape(), athis->stride());
+        return sum_strided(athis->logical_data(), athis->shape(), athis->stride());
     }
 
 private:
@@ -1610,6 +1610,24 @@ public:
     using sshape_type = typename internal_types::sshape_type;
     using buffer_type = typename internal_types::buffer_type;
 
+    enum class ArrayOrder : std::uint8_t
+    {
+        Unspecified = 0,
+        CType = 1U << 0,
+        FType = 1U << 1,
+    };
+
+    friend constexpr ArrayOrder operator|(ArrayOrder lhs, ArrayOrder rhs) noexcept
+    {
+        return static_cast<ArrayOrder>(std::to_underlying(lhs) | std::to_underlying(rhs));
+    }
+
+    friend constexpr ArrayOrder & operator|=(ArrayOrder & lhs, ArrayOrder rhs) noexcept
+    {
+        lhs = lhs | rhs;
+        return lhs;
+    }
+
     static constexpr size_t ITEMSIZE = sizeof(value_type);
 
     static constexpr size_t itemsize() { return ITEMSIZE; }
@@ -1637,7 +1655,7 @@ public:
         if (!m_shape.empty())
         {
             m_buffer = buffer_type::construct(static_cast<size_t>(storage_size(m_shape, m_stride)) * ITEMSIZE, 0);
-            m_body = m_buffer->template data<T>();
+            update_data_pointers();
         }
     }
 
@@ -1649,7 +1667,7 @@ public:
         if (!m_shape.empty())
         {
             m_buffer = buffer_type::construct(static_cast<size_t>(storage_size(m_shape, m_stride)) * ITEMSIZE, alignment);
-            m_body = m_buffer->template data<T>();
+            update_data_pointers();
         }
     }
 
@@ -1697,7 +1715,7 @@ public:
             m_shape = shape_type{static_cast<ssize_t>(nitem)};
             m_stride = sshape_type{1};
             m_buffer = buffer;
-            m_body = m_buffer->template data<T>();
+            update_data_pointers();
         }
         else
         {
@@ -1706,6 +1724,13 @@ public:
     }
 
     explicit SimpleArray(shape_type const & shape, std::shared_ptr<buffer_type> const & buffer)
+        : SimpleArray(shape, buffer, 0)
+    {
+    }
+
+    explicit SimpleArray(shape_type const & shape,
+                         std::shared_ptr<buffer_type> const & buffer,
+                         size_t data_offset)
         : SimpleArray(buffer)
     {
         if (buffer)
@@ -1713,32 +1738,50 @@ public:
             m_shape = shape;
             m_stride = calc_stride(m_shape);
             const size_t nbytes = static_cast<size_t>(storage_size(m_shape, m_stride)) * ITEMSIZE;
-            if (nbytes != buffer->nbytes())
+            if (data_offset % ITEMSIZE != 0)
+            {
+                throw std::runtime_error("SimpleArray: data offset must be divisible by item size");
+            }
+            if (data_offset > buffer->nbytes())
             {
                 throw std::runtime_error(
-                    std::format("SimpleArray: shape byte count {} differs from buffer {}",
-                                nbytes,
+                    std::format("SimpleArray: data offset {} exceeds buffer byte count {}",
+                                data_offset,
                                 buffer->nbytes()));
             }
+            size_t const available_nbytes = buffer->nbytes() - data_offset;
+            if (nbytes != available_nbytes)
+            {
+                throw std::runtime_error(
+                    std::format("SimpleArray: shape byte count {} differs from available buffer byte count {} at data offset {}",
+                                nbytes,
+                                available_nbytes,
+                                data_offset));
+            }
+            update_data_pointers(data_offset);
         }
     }
 
     explicit SimpleArray(shape_type const & shape,
                          sshape_type const & stride,
                          std::shared_ptr<buffer_type> const & buffer,
-                         bool c_contiguous,
-                         bool f_contiguous)
-        : SimpleArray(shape, stride, buffer)
+                         ArrayOrder array_order)
+        : SimpleArray(shape, stride, buffer, 0, array_order)
     {
-        if (shape.size() != stride.size())
-        {
-            throw std::runtime_error("SimpleArray: shape and stride size mismatch");
-        }
-        if (c_contiguous)
+    }
+
+    explicit SimpleArray(shape_type const & shape,
+                         sshape_type const & stride,
+                         std::shared_ptr<buffer_type> const & buffer,
+                         size_t data_offset,
+                         ArrayOrder array_order)
+        : SimpleArray(shape, stride, buffer, data_offset)
+    {
+        if (has_order(array_order, ArrayOrder::CType))
         {
             check_c_contiguous(shape, stride);
         }
-        if (f_contiguous)
+        if (has_order(array_order, ArrayOrder::FType))
         {
             check_f_contiguous(shape, stride);
         }
@@ -1747,12 +1790,22 @@ public:
     explicit SimpleArray(shape_type const & shape,
                          sshape_type const & stride,
                          std::shared_ptr<buffer_type> const & buffer)
+        : SimpleArray(shape, stride, buffer, 0)
+    {
+    }
+
+    explicit SimpleArray(shape_type const & shape,
+                         sshape_type const & stride,
+                         std::shared_ptr<buffer_type> const & buffer,
+                         size_t data_offset)
         : SimpleArray(buffer)
     {
         if (buffer)
         {
+            validate_layout(shape, stride, buffer->nbytes(), data_offset);
             m_shape = shape;
             m_stride = stride;
+            update_data_pointers(data_offset);
         }
     }
 
@@ -1772,14 +1825,15 @@ public:
         , m_shape(other.m_shape)
         , m_stride(other.m_stride)
         , m_nghost(other.m_nghost)
-        , m_body(calc_body(m_buffer->template data<T>(), m_stride, other.m_nghost))
     {
+        update_data_pointers(other.logical_data_offset());
     }
 
     SimpleArray(SimpleArray && other) noexcept
         : m_buffer(std::move(other.m_buffer))
         , m_shape(std::move(other.m_shape))
         , m_stride(std::move(other.m_stride))
+        , m_logical_data(other.m_logical_data)
         , m_nghost(other.m_nghost)
         , m_body(other.m_body)
     {
@@ -1793,7 +1847,7 @@ public:
             m_shape = other.m_shape;
             m_stride = other.m_stride;
             m_nghost = other.m_nghost;
-            m_body = calc_body(m_buffer->template data<T>(), m_stride, other.m_nghost);
+            update_data_pointers(other.logical_data_offset());
         }
         return *this;
     }
@@ -1805,6 +1859,7 @@ public:
             m_buffer = std::move(other.m_buffer);
             m_shape = std::move(other.m_shape);
             m_stride = std::move(other.m_stride);
+            m_logical_data = other.m_logical_data;
             m_nghost = other.m_nghost;
             m_body = other.m_body;
         }
@@ -1889,13 +1944,13 @@ public:
     {
         sshape_type const idx{normalize_index(it)};
         ssize_t const offset = buffer_offset(m_stride, idx);
-        return *(data() + offset);
+        return *(logical_data() + offset);
     }
     value_type & at(ssize_t it)
     {
         sshape_type const idx{normalize_index(it)};
         ssize_t const offset = buffer_offset(m_stride, idx);
-        return *(data() + offset);
+        return *(logical_data() + offset);
     }
 
     value_type const & at(std::vector<ssize_t> const & idx) const { return at(sshape_type(idx)); }
@@ -1905,13 +1960,13 @@ public:
     {
         sshape_type const idx = normalize_index(sidx);
         ssize_t const offset = buffer_offset(m_stride, idx);
-        return *(data() + offset);
+        return *(logical_data() + offset);
     }
     value_type & at(sshape_type const & sidx)
     {
         sshape_type const idx = normalize_index(sidx);
         ssize_t const offset = buffer_offset(m_stride, idx);
-        return *(data() + offset);
+        return *(logical_data() + offset);
     }
 
     ssize_t ndim() const noexcept { return static_cast<ssize_t>(m_shape.size()); }
@@ -1950,24 +2005,24 @@ public:
         m_nghost = nghost;
         if (bool(*this))
         {
-            m_body = calc_body(m_buffer->template data<T>(), m_stride, m_nghost);
+            m_body = calc_body(logical_data(), m_stride, m_nghost);
         }
     }
 
     template <typename U>
     SimpleArray<U> reshape(shape_type const & shape) const
     {
-        return SimpleArray<U>(shape, m_buffer);
+        return SimpleArray<U>(shape, m_buffer, logical_data_offset());
     }
 
     SimpleArray reshape(shape_type const & shape) const
     {
-        return SimpleArray(shape, m_buffer);
+        return SimpleArray(shape, m_buffer, logical_data_offset());
     }
 
     SimpleArray reshape() const
     {
-        return SimpleArray(m_shape, m_buffer);
+        return SimpleArray(m_shape, m_buffer, logical_data_offset());
     }
 
     void swap(SimpleArray & other) noexcept
@@ -1977,6 +2032,7 @@ public:
             std::swap(m_buffer, other.m_buffer);
             std::swap(m_shape, other.m_shape);
             std::swap(m_stride, other.m_stride);
+            std::swap(m_logical_data, other.m_logical_data);
             std::swap(m_nghost, other.m_nghost);
             std::swap(m_body, other.m_body);
         }
@@ -2020,7 +2076,7 @@ public:
                 std::format("SimpleArray::as_mdspan: rank {} does not match ndim() {}", N, ndim()));
         }
         return std::mdspan<value_type, std::dextents<ssize_t, N>, std::layout_stride>(
-            data(), make_mdspan_mapping<N>());
+            logical_data(), make_mdspan_mapping<N>());
     }
 
     template <size_t N>
@@ -2032,7 +2088,7 @@ public:
                 std::format("SimpleArray::as_mdspan: rank {} does not match ndim() {}", N, ndim()));
         }
         return std::mdspan<value_type const, std::dextents<ssize_t, N>, std::layout_stride>(
-            data(), make_mdspan_mapping<N>());
+            logical_data(), make_mdspan_mapping<N>());
     }
 
     /* Backdoor */
@@ -2040,6 +2096,9 @@ public:
     value_type & data(size_t it) { return data()[it]; }
     value_type const * data() const { return buffer().template data<value_type>(); }
     value_type * data() { return buffer().template data<value_type>(); }
+
+    value_type const * logical_data() const { return m_logical_data; }
+    value_type * logical_data() { return m_logical_data; }
 
     buffer_type const & buffer() const { return *m_buffer; }
     buffer_type & buffer() { return *m_buffer; }
@@ -2051,6 +2110,8 @@ public:
     bool is_f_contiguous() const { return is_f_contiguous(m_shape, m_stride); }
 
 private:
+    size_t logical_data_offset() const;
+    void update_data_pointers(size_t data_offset = 0);
     void copy_logical_into(SimpleArray & out) const;
 
     template <size_t N, size_t... I>
@@ -2111,6 +2172,11 @@ private:
             expected *= shape[i];
         }
         return true;
+    }
+
+    static constexpr bool has_order(ArrayOrder orders, ArrayOrder order) noexcept
+    {
+        return (std::to_underlying(orders) & std::to_underlying(order)) != 0;
     }
 
     static void check_c_contiguous(shape_type const & shape,
@@ -2270,6 +2336,11 @@ private:
         }
     }
 
+    static void validate_layout(shape_type const & shape,
+                                sshape_type const & stride,
+                                size_t buffer_nbytes,
+                                size_t data_offset);
+
     static ssize_t storage_size(shape_type const & shape, sshape_type const & stride)
     {
         if (shape.empty())
@@ -2288,9 +2359,77 @@ private:
     /// bytes) to skip for advancing an index in the corresponding dimension.
     sshape_type m_stride;
 
+    /// Pointer to the array's logical origin within the buffer.
+    value_type * m_logical_data = nullptr;
     ssize_t m_nghost = 0;
     value_type * m_body = nullptr;
 }; /* end class SimpleArray */
+
+template <typename T>
+size_t SimpleArray<T>::logical_data_offset() const
+{
+    if (!m_logical_data)
+    {
+        return 0;
+    }
+    value_type const * data_ptr = m_buffer->template data<value_type>();
+    return static_cast<size_t>(m_logical_data - data_ptr) * ITEMSIZE;
+}
+
+template <typename T>
+void SimpleArray<T>::update_data_pointers(size_t data_offset)
+{
+    value_type * data_ptr = m_buffer ? m_buffer->template data<value_type>() : nullptr;
+    m_logical_data = data_ptr ? data_ptr + data_offset / ITEMSIZE : nullptr;
+    m_body = calc_body(m_logical_data, m_stride, m_nghost);
+}
+
+template <typename T>
+void SimpleArray<T>::validate_layout(shape_type const & shape,
+                                     sshape_type const & stride,
+                                     size_t buffer_nbytes,
+                                     size_t data_offset)
+{
+    validate_shape(shape);
+    if (shape.size() != stride.size())
+    {
+        throw std::runtime_error("SimpleArray: shape and stride size mismatch");
+    }
+    if (data_offset % ITEMSIZE != 0)
+    {
+        throw std::runtime_error("SimpleArray: data offset must be divisible by item size");
+    }
+    if (data_offset > buffer_nbytes)
+    {
+        throw std::runtime_error("SimpleArray: data offset exceeds buffer size");
+    }
+
+    ssize_t min_offset = 0;
+    ssize_t max_offset = 0;
+    for (size_t it = 0; it < shape.size(); ++it)
+    {
+        if (shape[it] == 0)
+        {
+            return;
+        }
+        ssize_t const axis_offset = (shape[it] - 1) * stride[it];
+        if (axis_offset < 0)
+        {
+            min_offset += axis_offset;
+        }
+        else
+        {
+            max_offset += axis_offset;
+        }
+    }
+
+    auto const data_item_offset = static_cast<ssize_t>(data_offset / ITEMSIZE);
+    auto const buffer_nitem = static_cast<ssize_t>(buffer_nbytes / ITEMSIZE);
+    if (data_item_offset + min_offset < 0 || data_item_offset + max_offset >= buffer_nitem)
+    {
+        throw std::runtime_error("SimpleArray: shape and stride exceed buffer storage");
+    }
+}
 
 template <typename A, typename T>
 template <typename Cmp>
@@ -2529,7 +2668,7 @@ void SimpleArray<T>::transpose(shape_type const & axis, bool copy)
         return;
     }
     // Deep-copy path: 1. stage a strided view with the permuted shape/stride.
-    SimpleArray const view(new_shape, new_stride, m_buffer);
+    SimpleArray const view(new_shape, new_stride, m_buffer, logical_data_offset());
     SimpleArray out(new_shape);
     // 2. Use the same helper to keep the iteration logic the same as the other
     // deep-copy variants.
