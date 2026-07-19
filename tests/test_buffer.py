@@ -999,6 +999,21 @@ class SimpleArrayBasicTC(unittest.TestCase):
                     self.assertEqual(v, sarr[i, j, k])
                     v += 1
 
+    def test_SimpleArray_broadcast_error_preserves_nghost(self):
+        sarr = solvcon.SimpleArrayFloat64(shape=(2, 2), value=0)
+        rhs = np.ones((2, 2), dtype='complex128')
+
+        for key in (Ellipsis, np.s_[:, :]):
+            with self.subTest(key=key):
+                sarr.nghost = 1
+                with self.assertRaisesRegex(
+                        RuntimeError,
+                        r"^Cannot convert between complex and "
+                        r"non-complex types$"
+                ):
+                    sarr[key] = rhs
+                self.assertEqual(1, sarr.nghost)
+
     def test_SimpleArray_broadcast_slice_basic(self):
         ndarr_input = np.arange(
             1 * 2 * 3 * 4 * 5, dtype='float64').reshape((1, 2, 3, 4, 5))
