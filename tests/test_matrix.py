@@ -176,6 +176,29 @@ class MatmulTestBase(sc.testing.TestBase):
         ):
             a.matmul_blas(b)
 
+    def test_non_positive_fast_tile_error(self):
+        cases = itertools.product(
+            ('matmul_fast', 'imatmul_fast'),
+            ('tile_x', 'tile_y', 'tile_z'),
+            (0, -1),
+        )
+        for method, tile_name, tile_size in cases:
+            with self.subTest(
+                    method=method, tile_name=tile_name,
+                    tile_size=tile_size):
+                lhs = self.SimpleArray((2,), value=1)
+                rhs = self.SimpleArray((2,), value=1)
+                tiles = {'tile_x': 1, 'tile_y': 1, 'tile_z': 1}
+                tiles[tile_name] = tile_size
+                message = (
+                    r"SimpleArray::matmul_fast\(\): tile sizes must "
+                    rf"be positive: tile_x={tiles['tile_x']} "
+                    rf"tile_y={tiles['tile_y']} "
+                    rf"tile_z={tiles['tile_z']}"
+                )
+                with self.assertRaisesRegex(IndexError, message):
+                    getattr(lhs, method)(rhs, **tiles)
+
     def test_compare_with_numpy(self):
         """Compare results with NumPy using fixed test data"""
 
