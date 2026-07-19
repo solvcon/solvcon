@@ -42,22 +42,20 @@ namespace solvcon
 enum class ShapeType : uint8_t
 {
     DEAD = 0, ///< Deleted or unused slot.
-
-    // 0D shapes
     POINT = 1,
 
-    // 1D shapes
+    // Rectilinear family (straight edges only).
     LINE = 2,
-    BEZIER = 3, ///< Single cubic Bezier curve.
+    POLYLINE = 3, ///< Open chain of straight segments.
+    POLYGON = 4, ///< Closed chain of straight segments.
+    TRIANGLE = 5,
+    RECTANGLE = 6,
+    SQUARE = 7, ///< Specialization of RECTANGLE with equal side lengths.
 
-    // 2D shapes
-    TRIANGLE = 4,
-    RECTANGLE = 5,
-    SQUARE = 6, ///< Specialization of RECTANGLE with equal side lengths.
-    ELLIPSE = 7,
-    CIRCLE = 8, ///< Specialization of ELLIPSE with equal radii.
-    POLYLINE = 9, ///< Open chain of straight segments.
-    POLYGON = 10, ///< Closed chain of straight segments.
+    // Curvilinear family (one or more curved edges).
+    BEZIER = 8, ///< Single cubic Bezier curve.
+    ELLIPSE = 9,
+    CIRCLE = 10, ///< Specialization of ELLIPSE with equal radii.
 }; /* end of enum class ShapeType */
 
 inline std::string shape_type_name(ShapeType st)
@@ -67,14 +65,14 @@ inline std::string shape_type_name(ShapeType st)
     case ShapeType::DEAD: return "DEAD";
     case ShapeType::POINT: return "point";
     case ShapeType::LINE: return "line";
-    case ShapeType::BEZIER: return "bezier";
+    case ShapeType::POLYLINE: return "polyline";
+    case ShapeType::POLYGON: return "polygon";
     case ShapeType::TRIANGLE: return "triangle";
     case ShapeType::RECTANGLE: return "rectangle";
     case ShapeType::SQUARE: return "square";
+    case ShapeType::BEZIER: return "bezier";
     case ShapeType::ELLIPSE: return "ellipse";
     case ShapeType::CIRCLE: return "circle";
-    case ShapeType::POLYLINE: return "polyline";
-    case ShapeType::POLYGON: return "polygon";
     default: return "unknown";
     }
 }
