@@ -262,7 +262,7 @@ void SimpleArrayMatmulHelper<A, T>::check_inner(size_t lhs_idx, size_t rhs_idx) 
 template <typename A, typename T>
 void SimpleArrayMatmulHelper<A, T>::check_tiles() const
 {
-    if (m_tile_x != 0 && m_tile_y != 0 && m_tile_z != 0)
+    if (m_tile_x > 0 && m_tile_y > 0 && m_tile_z > 0)
     {
         return;
     }
