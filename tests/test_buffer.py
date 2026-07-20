@@ -2492,6 +2492,30 @@ class SimpleArrayCalculatorsTC(unittest.TestCase):
             'float64': solvcon.SimpleArrayFloat64,
         }[dtype]
 
+    def test_binary_arithmetic_shape_mismatch(self):
+        operations = (
+            'add', 'sub', 'mul', 'div',
+            'iadd', 'isub', 'imul', 'idiv',
+            'add_simd', 'sub_simd', 'mul_simd', 'div_simd',
+            'iadd_simd', 'isub_simd', 'imul_simd', 'idiv_simd',
+        )
+
+        for other_shape in ((3, 2), (2, 2)):
+            other_shape_text = ", ".join(str(dim) for dim in other_shape)
+            for operation in operations:
+                with self.subTest(
+                        operation=operation, other_shape=other_shape):
+                    lhs = solvcon.SimpleArrayFloat64((2, 3), value=1)
+                    rhs = solvcon.SimpleArrayFloat64(other_shape, value=2)
+                    expected = lhs.ndarray.copy()
+                    message = (
+                        rf"SimpleArray::{operation}\(\): shape mismatch: "
+                        rf"this=\(2, 3\) other=\({other_shape_text}\)"
+                    )
+                    with self.assertRaisesRegex(ValueError, message):
+                        getattr(lhs, operation)(rhs)
+                    np.testing.assert_array_equal(expected, lhs.ndarray)
+
     def test_add(self):
         # test integer
         def _check_add_type(type):
