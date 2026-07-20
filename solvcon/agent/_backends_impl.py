@@ -23,6 +23,7 @@ import json
 import os
 import shutil
 import subprocess
+import tempfile
 import urllib.parse
 
 from . import _backend
@@ -134,6 +135,11 @@ class SubprocessBackend(_backend.AgentBackend):
     #: The executable name a subclass discovers on ``PATH``.
     command = None
 
+    #: The environment variables to pass through to the agent CLI.
+    env_passthrough = (
+        "HOME", "USER", "LOGNAME", "PATH", "TMPDIR",
+        "ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN", "CLAUDE_CONFIG_DIR")
+
     def __init__(self, timeout=120):
         self._timeout = timeout
         self._proc = None
@@ -196,18 +202,26 @@ class SubprocessBackend(_backend.AgentBackend):
 
         The child is held on ``self._proc`` so :meth:`cancel` can reach it, and
         killed if it outruns the timeout (then the timeout propagates)."""
-        proc = subprocess.Popen(
-            argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        self._proc = proc
+
+        env = {name: os.environ[name]
+               for name in self.env_passthrough if name in os.environ}
+        workdir = tempfile.mkdtemp(prefix="solvcon-agent-")
         try:
-            out, err = proc.communicate(timeout=self._timeout)
-        except subprocess.TimeoutExpired:
-            proc.kill()
-            proc.communicate()
-            raise
+            proc = subprocess.Popen(
+                argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                text=True, cwd=workdir, env=env)
+            self._proc = proc
+            try:
+                out, err = proc.communicate(timeout=self._timeout)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.communicate()
+                raise
+            finally:
+                self._proc = None
+            return proc.returncode, out, err
         finally:
-            self._proc = None
-        return proc.returncode, out, err
+            shutil.rmtree(workdir, ignore_errors=True)
 
 
 class ClaudeCliBackend(SubprocessBackend):
@@ -221,7 +235,16 @@ class ClaudeCliBackend(SubprocessBackend):
     command = "claude"
 
     def _build_argv(self, exe, prompt):
-        return [exe, "-p", prompt, "--output-format", "json"]
+        # TODO: provide more permission and config to the CLI sandbox later.
+        return [
+            exe, "-p", prompt, "--output-format", "json",
+            "--tools", "",
+            "--permission-mode", "dontAsk",  # no interactive prompts
+            "--setting-sources", "",  # no config files
+            "--strict-mcp-config",  # no mcp config files
+            "--disable-slash-commands",  # no interactive slash commands
+            "--no-session-persistence",  # no session files
+        ]
 
     def _parse_output(self, stdout):
         """Pull the assistant text out of ``claude --output-format json``
