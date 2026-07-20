@@ -13,6 +13,7 @@ from .._command import (  # noqa: F401
     CommandError,
     CommandResult,
 )
+from . import view  # noqa: F401
 from .command import _command_set
 from .executor import Executor  # noqa: F401
 
@@ -22,6 +23,7 @@ __all__ = (
     "CommandError",
     "CommandResult",
     "Executor",
+    "view",
     *_cmd.install_command_api(globals(), _command_set),
 )
 
