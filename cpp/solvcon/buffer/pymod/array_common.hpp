@@ -165,21 +165,7 @@ public:
     static void broadcast_array_using_ellipsis(SimpleArray<T> & arr_out, pybind11::array const & arr_in)
     {
         auto slices = make_default_slices(arr_out);
-
-        TypeBroadcast<T>::check_shape(arr_out, slices, arr_in);
-
-        const ssize_t nghost = arr_out.nghost();
-        if (0 != nghost)
-        {
-            arr_out.set_nghost(0);
-        }
-
-        TypeBroadcast<T>::broadcast(arr_out, slices, arr_in);
-
-        if (0 != nghost)
-        {
-            arr_out.set_nghost(nghost);
-        }
+        broadcast_array_using_slice(arr_out, slices, arr_in);
     }
 
     // FIXME: NOLINTNEXTLINE(readability-function-cognitive-complexity)
@@ -458,19 +444,7 @@ private:
                                             pybind11::array const & arr_in)
     {
         TypeBroadcast<T>::check_shape(arr_out, slices, arr_in);
-
-        const ssize_t nghost = arr_out.nghost();
-        if (0 != nghost)
-        {
-            arr_out.set_nghost(0);
-        }
-
         TypeBroadcast<T>::broadcast(arr_out, slices, arr_in);
-
-        if (0 != nghost)
-        {
-            arr_out.set_nghost(nghost);
-        }
     }
 }; /* end class ArrayPropertyHelper */
 
