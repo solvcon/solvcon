@@ -630,8 +630,32 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArray
         namespace py = pybind11; // NOLINT(misc-unused-alias-decls)
 
         (*this)
-            .def("argmin", &wrapped_type::argmin)
-            .def("argmax", &wrapped_type::argmax)
+            .def("argmin", [](wrapped_type const & self, py::object const & axis)
+                 {
+                    if (axis.is_none())
+                    {
+                        return py::cast(self.argmin());
+                    }
+                    auto const axis_value = axis.cast<ssize_t>();
+                    if (self.ndim() == 1 && (axis_value == 0 || axis_value == -1))
+                    {
+                        return py::cast(self.argmin());
+                    }
+                    return py::cast(self.argmin(axis_value)); },
+                 py::arg("axis") = py::none())
+            .def("argmax", [](wrapped_type const & self, py::object const & axis)
+                 {
+                    if (axis.is_none())
+                    {
+                        return py::cast(self.argmax());
+                    }
+                    auto const axis_value = axis.cast<ssize_t>();
+                    if (self.ndim() == 1 && (axis_value == 0 || axis_value == -1))
+                    {
+                        return py::cast(self.argmax());
+                    }
+                    return py::cast(self.argmax(axis_value)); },
+                 py::arg("axis") = py::none())
             .def("argwhere", &wrapped_type::argwhere)
             //
             ;

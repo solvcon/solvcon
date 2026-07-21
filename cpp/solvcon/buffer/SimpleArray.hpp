@@ -1361,42 +1361,21 @@ class SimpleArrayMixinSearch
 private:
 
     using internal_types = detail::SimpleArrayInternalTypes<T>;
+    using shape_type = typename internal_types::shape_type;
+    using sshape_type = typename internal_types::sshape_type;
+
+    ssize_t normalize_axis(ssize_t axis, char const * op) const;
+    shape_type reduced_shape(ssize_t axis) const;
 
 public:
 
     using value_type = typename internal_types::value_type;
 
-    size_t argmin() const
-    {
-        size_t min_index = 0;
-        value_type min_value = std::numeric_limits<value_type>::max();
-        auto athis = static_cast<A const *>(this);
-        for (size_t i = 0; i < athis->size(); ++i)
-        {
-            if (athis->data(i) < min_value)
-            {
-                min_value = athis->data(i);
-                min_index = i;
-            }
-        }
-        return min_index;
-    }
+    size_t argmin() const;
+    size_t argmax() const;
 
-    size_t argmax() const
-    {
-        size_t max_index = 0;
-        value_type max_value = std::numeric_limits<value_type>::lowest();
-        auto athis = static_cast<A const *>(this);
-        for (size_t i = 0; i < athis->size(); ++i)
-        {
-            if (athis->data(i) > max_value)
-            {
-                max_value = athis->data(i);
-                max_index = i;
-            }
-        }
-        return max_index;
-    }
+    SimpleArray<uint64_t> argmin(ssize_t axis) const;
+    SimpleArray<uint64_t> argmax(ssize_t axis) const;
 
     SimpleArray<uint64_t> argwhere() const;
 
@@ -2940,6 +2919,204 @@ A detail::SimpleArrayMixinSort<A, T>::take_along_axis(SimpleArray<I> const & ind
     return ret;
 }
 
+template <typename A, typename T>
+ssize_t detail::SimpleArrayMixinSearch<A, T>::normalize_axis(ssize_t axis, char const * op) const
+{
+    auto const * athis = static_cast<A const *>(this);
+    ssize_t const ndim = athis->ndim();
+
+    if (axis < 0)
+    {
+        axis += ndim;
+    }
+    if (axis < 0 || axis >= ndim)
+    {
+        throw std::invalid_argument(std::format(
+            "SimpleArray::{}(): axis {} is out of bounds for array of dimension {}",
+            op,
+            axis,
+            ndim));
+    }
+    if (athis->shape(axis) == 0)
+    {
+        throw std::invalid_argument(std::format(
+            "SimpleArray::{}(): axis {} has size 0, cannot compute",
+            op,
+            axis));
+    }
+
+    return axis;
+}
+
+template <typename A, typename T>
+typename detail::SimpleArrayMixinSearch<A, T>::shape_type
+detail::SimpleArrayMixinSearch<A, T>::reduced_shape(ssize_t axis) const
+{
+    auto const * athis = static_cast<A const *>(this);
+
+    shape_type result_shape;
+    for (ssize_t dim = 0; dim < athis->ndim(); ++dim)
+    {
+        if (dim != axis)
+        {
+            result_shape.push_back(athis->shape(dim));
+        }
+    }
+
+    return result_shape;
+}
+
+template <typename A, typename T>
+size_t detail::SimpleArrayMixinSearch<A, T>::argmin() const
+{
+    auto athis = static_cast<A const *>(this);
+
+    if (athis->size() == 0)
+    {
+        throw std::invalid_argument("SimpleArray::argmin(): "
+                                    "attempt to get argmin of an empty sequence");
+    }
+
+    auto const range = IndexRange(*athis);
+    sshape_type idx = range.first();
+
+    value_type min_value = athis->at(idx);
+    size_t min_index = 0;
+    size_t flat_index = 0;
+
+    do
+    {
+        value_type const current_value = athis->at(idx);
+        if (current_value < min_value)
+        {
+            min_value = current_value;
+            min_index = flat_index;
+        }
+        ++flat_index;
+    } while (range.next(idx));
+
+    return min_index;
+}
+
+template <typename A, typename T>
+size_t detail::SimpleArrayMixinSearch<A, T>::argmax() const
+{
+    auto athis = static_cast<A const *>(this);
+
+    if (athis->size() == 0)
+    {
+        throw std::invalid_argument("SimpleArray::argmax(): "
+                                    "attempt to get argmax of an empty sequence");
+    }
+
+    auto const range = IndexRange(*athis);
+    sshape_type idx = range.first();
+
+    value_type max_value = athis->at(idx);
+    size_t max_index = 0;
+    size_t flat_index = 0;
+
+    do
+    {
+        value_type const current_value = athis->at(idx);
+        if (current_value > max_value)
+        {
+            max_value = current_value;
+            max_index = flat_index;
+        }
+        ++flat_index;
+    } while (range.next(idx));
+
+    return max_index;
+}
+
+template <typename A, typename T>
+SimpleArray<uint64_t> detail::SimpleArrayMixinSearch<A, T>::argmin(ssize_t axis) const
+{
+    auto athis = static_cast<A const *>(this);
+
+    axis = normalize_axis(axis, "argmin");
+    SimpleArray<uint64_t> result(reduced_shape(axis));
+
+    auto const out_range = IndexRange(result);
+    sshape_type out_idx = out_range.first();
+
+    do
+    {
+        sshape_type in_idx(athis->ndim(), 0);
+
+        for (ssize_t dim = 0, out_dim = 0; dim < athis->ndim(); ++dim)
+        {
+            if (dim == axis)
+            {
+                continue;
+            }
+            in_idx[dim] = out_idx[out_dim++];
+        }
+
+        in_idx[axis] = 0;
+        value_type min_value = athis->at(in_idx);
+        uint64_t min_index = 0;
+
+        for (ssize_t i = 1; i < athis->shape(axis); ++i)
+        {
+            in_idx[axis] = i;
+            value_type const current_value = athis->at(in_idx);
+            if (current_value < min_value)
+            {
+                min_value = current_value;
+                min_index = static_cast<uint64_t>(i);
+            }
+        }
+        result.at(out_idx) = min_index;
+    } while (out_range.next(out_idx));
+
+    return result;
+}
+
+template <typename A, typename T>
+SimpleArray<uint64_t> detail::SimpleArrayMixinSearch<A, T>::argmax(ssize_t axis) const
+{
+    auto athis = static_cast<A const *>(this);
+
+    axis = normalize_axis(axis, "argmax");
+    SimpleArray<uint64_t> result(reduced_shape(axis));
+
+    auto const out_range = IndexRange(result);
+    sshape_type out_idx = out_range.first();
+
+    do
+    {
+        sshape_type in_idx(athis->ndim(), 0);
+
+        for (ssize_t dim = 0, out_dim = 0; dim < athis->ndim(); ++dim)
+        {
+            if (dim == axis)
+            {
+                continue;
+            }
+            in_idx[dim] = out_idx[out_dim++];
+        }
+
+        in_idx[axis] = 0;
+        value_type max_value = athis->at(in_idx);
+        uint64_t max_index = 0;
+
+        for (ssize_t i = 1; i < athis->shape(axis); ++i)
+        {
+            in_idx[axis] = i;
+            value_type const current_value = athis->at(in_idx);
+            if (current_value > max_value)
+            {
+                max_value = current_value;
+                max_index = static_cast<uint64_t>(i);
+            }
+        }
+        result.at(out_idx) = max_index;
+    } while (out_range.next(out_idx));
+
+    return result;
+}
 template <typename A, typename T>
 SimpleArray<uint64_t> detail::SimpleArrayMixinSearch<A, T>::argwhere() const
 {

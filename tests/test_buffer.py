@@ -4314,6 +4314,65 @@ class SimpleArraySearchTC(unittest.TestCase):
         self.assertEqual(narr.argmin(), sarr.argmin())
         self.assertEqual(narr.argmax(), sarr.argmax())
 
+        with self.subTest(name='empty_array'):
+            narr = np.array([], dtype='float64')
+            sarr = solvcon.SimpleArrayFloat64(array=narr)
+            with self.assertRaises(ValueError):
+                sarr.argmin()
+            with self.assertRaises(ValueError):
+                sarr.argmax()
+
+        with self.subTest(name='non_contiguous'):
+            data = np.zeros((4, 6), dtype='float64')
+            data[0, 0] = -1
+            data[0, 1] = 999
+            data[0, 3] = -999
+            data[2, 4] = 10
+            narr = data[::2, ::2]
+            sarr = solvcon.SimpleArrayFloat64(array=narr)
+            self.assertEqual(sarr.argmin(), 0)
+            self.assertEqual(sarr.argmax(), 5)
+            self.assertEqual(narr.argmin(), sarr.argmin())
+            self.assertEqual(narr.argmax(), sarr.argmax())
+
+    def test_argminmax_axis(self):
+        with self.subTest(name='1d_contiguous'):
+            narr = np.arange(10, dtype='uint64')
+            sarr = solvcon.SimpleArrayUint64(array=narr)
+            self.assertEqual(sarr.argmin(axis=0), 0)
+            self.assertEqual(sarr.argmax(axis=0), 9)
+            self.assertEqual(sarr.argmin(axis=0), np.argmin(narr, axis=0))
+            self.assertEqual(sarr.argmax(axis=0), np.argmax(narr, axis=0))
+
+        for name, sarr_type, narr, axis in [
+            ('2d_contiguous', solvcon.SimpleArrayFloat64,
+             np.arange(12, dtype='float64').reshape(3, 4), 1),
+            ('3d_contiguous', solvcon.SimpleArrayInt32,
+             np.arange(24, dtype='int32').reshape(2, 3, 4), 2),
+            ('4d_contiguous', solvcon.SimpleArrayFloat32,
+             np.arange(120, dtype='float32').reshape(2, 3, 4, 5), 3),
+            ('negative_axis', solvcon.SimpleArrayFloat32,
+             np.arange(120, dtype='float32').reshape(2, 3, 4, 5), -1)]:
+            with self.subTest(name=name):
+                sarr = sarr_type(array=narr)
+                np.testing.assert_array_equal(sarr.argmin(axis=axis).ndarray,
+                                              np.argmin(narr, axis=axis))
+                np.testing.assert_array_equal(sarr.argmax(axis=axis).ndarray,
+                                              np.argmax(narr, axis=axis))
+
+        with self.subTest(name='non_contiguous'):
+            data = np.zeros((4, 6), dtype='float64')
+            data[0, 0] = -1
+            data[0, 1] = 999
+            data[0, 3] = -999
+            data[2, 4] = 10
+            narr = data[::-1, ::-1]
+            sarr = solvcon.SimpleArrayFloat64(array=narr)
+            np.testing.assert_array_equal(sarr.argmin(axis=0).ndarray,
+                                          np.argmin(narr, axis=0))
+            np.testing.assert_array_equal(sarr.argmax(axis=1).ndarray,
+                                          np.argmax(narr, axis=1))
+
     def test_argwhere(self):
         # test 1-D data
         data = [1, 3, 5, 7, 9]
