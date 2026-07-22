@@ -73,6 +73,7 @@ def main():
             'solvcon.multidim.euler',
             'solvcon.onedim',
             'solvcon.pilot',
+            'solvcon.pilot._euler',
             'solvcon.pilot.airfoil',
             'solvcon.plot',
             'solvcon.profiling',
