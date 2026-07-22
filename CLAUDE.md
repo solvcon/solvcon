@@ -218,6 +218,19 @@ When opening a pull request, reference the related issue (e.g., "Related to
 "fixes #725". We do not let PR and commit log comments to mandate the
 management.
 
+Before pushing to a PR branch, run the tests and `make lint`, and invoke the
+matching style-review skill for the changed files. Report the actual results;
+never declare the branch clean without having run the checks.
+
+Write the PR subject and body against the real diff. Keep the body short and
+accurate; never describe changes the diff does not contain. When editing an
+existing PR (e.g. `gh pr edit`), change only what was asked and preserve the
+current title, including any prefix such as a series label.
+
+Keep every PR reviewable. When a change grows beyond roughly 500 changed
+lines, split it into stacked PRs, and present the split plan (branches and
+per-branch line counts) for confirmation before creating the branches.
+
 ## Writing Style for Prose
 
 This applies to every passage you write for humans: code comments, commit
@@ -235,7 +248,11 @@ messages, PR and issue descriptions and comments, and documentation.
   issue or pull request, write one line per paragraph and let it wrap on its
   own. Manual line breaks mid-paragraph render as ragged text on GitHub. This
   no-wrap rule is for GitHub prose only; source files keep their linting
-  line-width limits.
+  line-width limits. The source-file line limit is the opposite habit, so
+  check this deliberately: before you present or post any GitHub prose, verify
+  each paragraph is a single unbroken line. Two consecutive non-blank prose
+  lines mean a paragraph was wrapped; rejoin it. The `create-pr` skill has a
+  mechanical guardrail for this.
 
 ## Development Workflow
 

@@ -187,12 +187,40 @@ cross-reference; flag any drift between the two.
   closed/fix/fixes/fixed/resolve/resolves/resolved followed by `#nnn`).
   Rewrite the offending line to "Related to #xxx" or "For issue #xxx"
   and re-confirm with the user before retrying.
+- **Hard-wrapped prose.** The 79-char source limit does NOT apply to a
+  PR body; each paragraph must be one unbroken line. This is easy to
+  violate by reflex after editing wrapped source all session, so treat
+  it as a mechanical gate, not a preference. After writing `$body_file`
+  in step 4, but **before** `gh pr create`, scan for a paragraph split
+  across lines -- any two consecutive non-blank prose lines:
+
+  ```bash
+  awk '
+    /^```/            { fence = !fence; prev = 0; next }
+    fence             { next }
+    /^[[:space:]]*$/  { prev = 0; next }
+    /^[[:space:]]*([-*+>|]|[0-9]+\.)/ { prev = 0; next }
+    { if (prev) { print "hard-wrap at line " NR ": " $0; hit = 1 }
+      prev = 1 }
+    END { exit hit }
+  ' "$body_file"
+  ```
+
+  A non-zero exit means a paragraph was wrapped. Rejoin it into a single
+  line (fenced code blocks, list items, and table rows are exempt and
+  the check skips them) and re-run before creating the PR. Apply the
+  same one-line-per-paragraph rule to the draft shown in step 3, not
+  only to `$body_file`.
 - **Branch protection.** Never push directly to `master`/`main`, never
   `--no-verify`. If `gh pr create` fails, surface the error and stop --
   do not work around it.
 - **No fabricated context.** Do not invent benchmark numbers, test
   results, or verification claims. Only include what the user has stated
   or what is visible in the diff/commits.
+- **Diff accuracy.** Before presenting the draft, re-read
+  `git diff origin/master...HEAD` and confirm every claim in the subject
+  and body corresponds to a hunk in the diff. Drop claims about behavior
+  that already exists upstream or that the diff does not change.
 - **Trailers.** Do not append `Co-Authored-By:` or "Generated with Claude
   Code" trailers to the PR body. Commits in this project are
   human-authored by convention.

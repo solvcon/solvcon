@@ -67,4 +67,12 @@ in your verdict.
 "Completed" is wrong if anything was skipped silently. "Tests pass" is wrong if
 any were skipped. Default to surfacing uncertainty, not hiding it.
 
+## Rule 13 -- Verify against ground truth
+A claim is a hypothesis until checked against the actual codebase, the live
+system, or rendered output. Do not act on another agent's report, a stale
+summary, or a single suspicious tool reading (e.g. version-skewed CLI output);
+re-check with a direct command first. Before declaring a task blocked or
+impossible, try at least two different approaches and report exactly what was
+tried and the errors seen.
+
 <!-- vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79: -->

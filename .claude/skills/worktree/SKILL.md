@@ -21,4 +21,6 @@ Based on the agent type, do one of the following:
 
 Implement `<description>` in the worktree. Follow normal project rules. Stop when done; do not auto-commit, open a PR, or remove the worktree unless asked.
 
+Run every command from the worktree, never from the original checkout. Before the first build, test, edit, or git command (and after anything that may reset the shell's directory), confirm the working directory with `git rev-parse --show-toplevel` and expect the worktree path. If it points at the main checkout, change into the worktree before continuing.
+
 <!-- vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79: -->
