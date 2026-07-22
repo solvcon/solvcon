@@ -47,7 +47,8 @@ class BarStructureTC(unittest.TestCase):
         panels = [a.text() for a in model.menu("View/Panels").actions()]
         self.assertEqual(
             list(dict.fromkeys(panels)),
-            ["Inspector", "Painter", "Console", "Terminal", "Agent Console"])
+            ["Inspector", "Euler solver", "Painter", "Console", "Terminal",
+             "Agent Console"])
 
         # The Console and Terminal toggles live with the other panel toggles;
         # the Window menu holds only the dynamic sub-window list.
