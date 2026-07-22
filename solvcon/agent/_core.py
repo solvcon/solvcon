@@ -43,20 +43,6 @@ def _make_executor(world, renderer=None):
     return draw.Executor(world, renderer)
 
 
-def tool_surface(allow_destructive=False):
-    """The command tools allowed for a backend."""
-    from . import draw
-    tools = draw.tool_definitions()
-    if allow_destructive:
-        return tools
-    return [tool for tool in tools if tool["category"] != "delete"]
-
-
-def _destructive_ops():
-    from . import draw
-    return set(draw.commands_by_category()["delete"])
-
-
 class AgentSession:
     """Bind a ``World``, a backend, and a runner; record a transcript.
 
@@ -96,9 +82,29 @@ class AgentSession:
         if not self._runner_injected:
             self._runner = None
 
+    def _command_provider(self):
+        """What answers ``tool_definitions`` and ``commands_by_category``: the
+        bound runner if it carries that surface, else Agent Draw.  Reads
+        ``self._runner`` directly to avoid forcing a lazy build."""
+        runner = self._runner
+        if runner is not None and hasattr(runner, "tool_definitions"):
+            return runner
+        from . import draw
+        return draw
+
     def tool_surface(self):
-        """The command tool definitions to hand the backend."""
-        return tool_surface(allow_destructive=self.allow_destructive)
+        """The command tool definitions to hand the backend, with delete ops
+        dropped unless this session allows them."""
+        tools = self._command_provider().tool_definitions()
+        if self.allow_destructive:
+            return tools
+        return [tool for tool in tools if tool["category"] != "delete"]
+
+    def _gated_ops(self):
+        """Op names blocked while destructive commands are disabled: the
+        delete category across the provider's families."""
+        by_category = self._command_provider().commands_by_category()
+        return set(by_category.get("delete", ()))
 
     def scene_context(self, level="basic"):
         """A short text summary of the world for the model: the shape count
@@ -136,7 +142,7 @@ class AgentSession:
         """
         if not commands:
             return []
-        blocked = set() if self.allow_destructive else _destructive_ops()
+        blocked = set() if self.allow_destructive else self._gated_ops()
         allowed = [command for command in commands
                    if self._op_of(command) not in blocked]
         if not allowed:

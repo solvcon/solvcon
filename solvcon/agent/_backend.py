@@ -32,8 +32,9 @@ class AgentBackend(abc.ABC):
     """Interface every AI backend implements: a stable :attr:`name`, an
     :meth:`available` check, and :meth:`send`.  The tiny surface lets a caller
     drive any backend from a background thread.  Every backend also shares one
-    system instruction and one prompt layout through :meth:`_compose_prompt`,
-    so a CLI and an HTTP backend never drift apart in what they ask the model.
+    system instruction (:attr:`_INSTRUCTIONS`, sent as a real system prompt)
+    and one user-payload layout (:meth:`_compose_user`), so a CLI and an HTTP
+    backend never drift apart in what they ask the model.
     """
 
     # TODO: solvcon is an application platform for geometry-based computation:
@@ -42,11 +43,45 @@ class AgentBackend(abc.ABC):
     # drawing canvas alone; reframe that as one capability among the platform's
     # rather than the agent's whole scope.  Related to #966.
     _INSTRUCTIONS = (
-        "You drive a 2D drawing canvas. Translate the user's request into a "
-        "JSON array of drawing commands. Each command is an object with an "
-        "\"op\" key naming the operation and the operation's arguments as "
-        "sibling keys. Reply with only the JSON array, no prose and no code "
-        "fences. Use an empty array when no drawing is needed."
+        "You drive a 2D drawing canvas along with its windows and view. "
+        "Turn the user's request into a JSON array of commands chosen from "
+        "the operations below: draw on the canvas, open or arrange canvas "
+        "windows, and pan or zoom the view. Reply with only that array.\n"
+        "\n"
+        "Coordinate frame (canvas drawing). The canvas uses world "
+        "coordinates with the origin (0, 0) at the center and +Y pointing "
+        "up, so a larger y is higher on screen. The origin is always in "
+        "view; keep the whole subject centered on it and within about x in "
+        "[-180, 180] and y in [-130, 130] so nothing is clipped, letting it "
+        "span a couple hundred units to fill the canvas. Do not draw into a "
+        "small first-quadrant box such as x in [0, 100]: this is centered "
+        "world space, not screen or SVG pixels where (0, 0) is a corner and "
+        "y grows downward.\n"
+        "\n"
+        "Plan first. When drawing, break the subject into parts and choose "
+        "each part's size and position in world units before emitting "
+        "commands, so the parts line up and stay in frame. You may record "
+        "the plan as a leading \"log\" command.\n"
+        "\n"
+        "Compose cleanly. Keep repeated elements (wheels, petals, letters) "
+        "consistent in size and spacing, and add shapes back to front so "
+        "nearer parts are drawn last.\n"
+        "\n"
+        "Output contract. Each command is an object with an \"op\" key "
+        "naming the operation and the operation's arguments as sibling "
+        "keys. Reply with only the JSON array, no prose and no code fences. "
+        "Use an empty array when the request needs no action.\n"
+        "\n"
+        "Example, for \"draw a simple house\":\n"
+        "[\n"
+        "  {\"op\": \"log\", \"message\": \"body, roof, door\"},\n"
+        "  {\"op\": \"add_rectangle\", \"x_min\": -100, \"y_min\": -110, "
+        "\"x_max\": 100, \"y_max\": 40},\n"
+        "  {\"op\": \"add_triangle\", \"x0\": -125, \"y0\": 40, "
+        "\"x1\": 125, \"y1\": 40, \"x2\": 0, \"y2\": 125},\n"
+        "  {\"op\": \"add_rectangle\", \"x_min\": -25, \"y_min\": -110, "
+        "\"x_max\": 25, \"y_max\": -20}\n"
+        "]"
     )
 
     @property
@@ -68,15 +103,17 @@ class AgentBackend(abc.ABC):
         """
 
     @classmethod
-    def _compose_prompt(cls, prompt, scene_context, tool_surface):
-        """Fold the shared instruction, tool surface, scene, and user request
-        into one prompt string, so every backend sends the same thing whether
-        it is a CLI argument or an HTTP message body."""
+    def _compose_user(cls, prompt, scene_context, tool_surface):
+        """The user-role payload: the tool surface, scene, and request.  The
+        shared instruction rides separately as the system prompt
+        (:attr:`_INSTRUCTIONS`), so it stays a stable prefix a backend can hand
+        the model as a real system message rather than folding it into the
+        user turn."""
         tools = json.dumps(tool_surface or [], indent=2)
         return (
-            "%s\n\nAvailable operations (tool definitions):\n%s\n\n"
+            "Available operations (tool definitions):\n%s\n\n"
             "Current scene:\n%s\n\nUser request:\n%s"
-            % (cls._INSTRUCTIONS, tools, scene_context, prompt))
+            % (tools, scene_context, prompt))
 
 
 _REGISTRY = []

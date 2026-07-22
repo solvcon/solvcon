@@ -102,7 +102,7 @@ class SubprocessBackendDiscoveryTC(unittest.TestCase):
         # A subclass that names no executable is never available even though
         # which() would answer for a real name.
         class Nameless(agent.SubprocessBackend):
-            def _build_argv(self, exe, prompt):
+            def _build_argv(self, exe, user_prompt, system_prompt):
                 return [exe]
 
         with mock.patch(_WHICH, lambda name: "/usr/bin/" + str(name)):
@@ -189,6 +189,11 @@ class ClaudeCliSendTC(unittest.TestCase):
         self.assertIn("hello", prompt)
         self.assertIn("one shape", prompt)
         self.assertIn("add_circle", prompt)  # tool surface folded in
+        # The instruction rides as a real system prompt, not the user turn.
+        self.assertIn("--append-system-prompt", argv)
+        system = argv[argv.index("--append-system-prompt") + 1]
+        self.assertIn("drive a 2D drawing canvas", system)
+        self.assertNotIn("drive a 2D drawing canvas", prompt)
 
 
 class RegistrationTC(unittest.TestCase):
@@ -244,11 +249,16 @@ class OpenAIHttpBackendTC(unittest.TestCase):
         self.assertEqual(body["model"], "qwen2.5vl:7b")
         self.assertIs(body["stream"], False)
         messages = body["messages"]
-        self.assertEqual(len(messages), 1)
-        self.assertEqual(messages[0]["role"], "user")
-        self.assertIn("hello", messages[0]["content"])
-        self.assertIn("one shape", messages[0]["content"])
-        self.assertIn("add_circle", messages[0]["content"])
+        self.assertEqual(len(messages), 2)
+        # The instruction rides as a real system prompt, first; the user turn
+        # carries only the tools, scene, and request.
+        self.assertEqual(messages[0]["role"], "system")
+        self.assertIn("drive a 2D drawing canvas", messages[0]["content"])
+        self.assertEqual(messages[1]["role"], "user")
+        self.assertIn("hello", messages[1]["content"])
+        self.assertIn("one shape", messages[1]["content"])
+        self.assertIn("add_circle", messages[1]["content"])
+        self.assertNotIn("drive a 2D drawing canvas", messages[1]["content"])
 
     def test_send_http_error_status_is_error(self):
         self.backend._post_chat = lambda body: (500, b"boom")
