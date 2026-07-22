@@ -1171,6 +1171,49 @@ class SimpleArrayBasicTC(unittest.TestCase):
         for i in range(0, N, STEP):
             self.assertEqual(ndarr2[i], sarr[i - G])
 
+    def test_SimpleArray_broadcast_slice_ghost_logical_indices(self):
+        sarr = solvcon.SimpleArrayFloat64(shape=5, value=0)
+        sarr.nghost = 2
+
+        sarr[0] = 10
+        sarr[0:1] = np.array([20.0], dtype='float64')
+
+        np.testing.assert_array_equal(
+            sarr.ndarray, np.array([0, 0, 20, 0, 0], dtype='float64'))
+        self.assertEqual(20, sarr[0])
+        self.assertEqual(2, sarr.nghost)
+
+        cases = (
+            (np.s_[-2:0], [10, 11], [10, 11, 0, 0, 0]),
+            (np.s_[:0], [10, 11], [10, 11, 0, 0, 0]),
+            (np.s_[0:], [10, 11, 12], [0, 0, 10, 11, 12]),
+            (np.s_[::2], [10, 11, 12], [10, 0, 11, 0, 12]),
+            (np.s_[::-1], range(5), [4, 3, 2, 1, 0]),
+        )
+        for key, value, expected in cases:
+            with self.subTest(key=key):
+                sarr = solvcon.SimpleArrayFloat64(shape=5, value=0)
+                sarr.nghost = 2
+                sarr[key] = np.array(value, dtype='float64')
+                np.testing.assert_array_equal(sarr.ndarray, expected)
+                self.assertEqual(2, sarr.nghost)
+
+    def test_SimpleArray_broadcast_slice_ghost_logical_indices_md(self):
+        sarr = solvcon.SimpleArrayFloat64(shape=(5, 3), value=0)
+        sarr.nghost = 2
+        expected = np.zeros((5, 3), dtype='float64')
+
+        body_value = np.array([[10, 11]], dtype='float64')
+        sarr[0:1, 1:3] = body_value
+        expected[2:3, 1:3] = body_value
+
+        ghost_value = np.arange(6, dtype='float64').reshape((2, 3))
+        sarr[-2:0, ...] = ghost_value
+        expected[0:2, ...] = ghost_value
+
+        np.testing.assert_array_equal(sarr.ndarray, expected)
+        self.assertEqual(2, sarr.nghost)
+
     def test_SimpleArray_broadcast_slice_ghost_md(self):
         import math
         N = 5

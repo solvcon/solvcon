@@ -204,7 +204,7 @@ public:
                 const py::array arr_in = py_value;
 
                 auto slices = make_default_slices(arr_out);
-                process_slices(tuple_in, slices, arr_out.ndim());
+                process_slices(tuple_in, slices, arr_out);
 
                 broadcast_array_using_slice(arr_out, slices, arr_in);
                 return;
@@ -217,7 +217,7 @@ public:
                 const auto arr_in = py_value.cast<py::array>();
 
                 auto slices = make_default_slices(arr_out);
-                copy_slice(slices[0], slice_in, arr_out.shape(0));
+                copy_slice(slices[0], slice_in, arr_out.shape(0), arr_out.nghost());
 
                 broadcast_array_using_slice(arr_out, slices, arr_in);
                 return;
@@ -341,15 +341,26 @@ private:
         return slices;
     }
 
+    static pybind11::object shift_slice_bound(pybind11::handle bound, ssize_t offset);
+
     static void copy_slice(sshape_type & slice_out,
                            pybind11::slice const & slice_in,
-                           ssize_t length)
+                           ssize_t length,
+                           ssize_t offset)
     {
+        pybind11::slice normalized_slice = slice_in;
+        if (offset != 0)
+        {
+            pybind11::object start = shift_slice_bound(slice_in.attr("start"), offset);
+            pybind11::object stop = shift_slice_bound(slice_in.attr("stop"), offset);
+            normalized_slice = pybind11::slice(start, stop, slice_in.attr("step"));
+        }
+
         pybind11::ssize_t start = 0;
         pybind11::ssize_t stop = 0;
         pybind11::ssize_t step = 0;
         pybind11::ssize_t slicelength = 0;
-        if (!slice_in.compute(length, &start, &stop, &step, &slicelength))
+        if (!normalized_slice.compute(length, &start, &stop, &step, &slicelength))
         {
             throw pybind11::error_already_set();
         }
@@ -396,10 +407,11 @@ private:
 
     static void process_slices(pybind11::tuple const & tuple,
                                std::vector<sshape_type> & slices,
-                               ssize_t ndim)
+                               SimpleArray<T> const & arr)
     {
         namespace py = pybind11;
 
+        ssize_t const ndim = arr.ndim();
         slice_syntax_check(tuple, ndim);
 
         // copy slices from the front until an ellipsis
@@ -413,10 +425,12 @@ private:
                 break;
             }
 
-            auto & slice_out = slices[it - tuple.begin()];
+            ssize_t const axis = it - tuple.begin();
+            auto & slice_out = slices[axis];
             const auto slice_in = (*it).cast<py::slice>();
 
-            copy_slice(slice_out, slice_in, slice_out[3]);
+            ssize_t const bound_offset = axis == 0 ? arr.nghost() : 0;
+            copy_slice(slice_out, slice_in, arr.shape(axis), bound_offset);
         }
 
         // copy slices from the back until an ellipsis
@@ -431,10 +445,12 @@ private:
                 {
                     break;
                 }
-                auto & slice_out = slices[ndim - offset - 1];
+                ssize_t const axis = ndim - offset - 1;
+                auto & slice_out = slices[axis];
                 const auto slice_in = (*it).cast<py::slice>();
 
-                copy_slice(slice_out, slice_in, slice_out[3]);
+                ssize_t const bound_offset = axis == 0 ? arr.nghost() : 0;
+                copy_slice(slice_out, slice_in, arr.shape(axis), bound_offset);
             }
         }
     }
@@ -447,6 +463,23 @@ private:
         TypeBroadcast<T>::broadcast(arr_out, slices, arr_in);
     }
 }; /* end class ArrayPropertyHelper */
+
+template <typename T>
+pybind11::object ArrayPropertyHelper<T>::shift_slice_bound(
+    pybind11::handle bound, ssize_t offset)
+{
+    if (bound.is_none())
+    {
+        return pybind11::none();
+    }
+
+    PyObject * index = PyNumber_Index(bound.ptr());
+    if (index == nullptr)
+    {
+        throw pybind11::error_already_set();
+    }
+    return pybind11::reinterpret_steal<pybind11::object>(index) + pybind11::int_(offset);
+}
 
 } /* end namespace python */
 } /* end namespace solvcon */
