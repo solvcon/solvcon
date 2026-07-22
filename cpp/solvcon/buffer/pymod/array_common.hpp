@@ -351,8 +351,8 @@ private:
         pybind11::slice normalized_slice = slice_in;
         if (offset != 0)
         {
-            pybind11::object start = shift_slice_bound(slice_in.attr("start"), offset);
-            pybind11::object stop = shift_slice_bound(slice_in.attr("stop"), offset);
+            pybind11::object const start = shift_slice_bound(slice_in.attr("start"), offset);
+            pybind11::object const stop = shift_slice_bound(slice_in.attr("stop"), offset);
             normalized_slice = pybind11::slice(start, stop, slice_in.attr("step"));
         }
 
