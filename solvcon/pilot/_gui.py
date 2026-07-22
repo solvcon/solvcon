@@ -17,6 +17,7 @@ if _pcore.enable:
     from . import _gui_common
     from . import _mesh
     from . import _tree_panel
+    from ._euler import _solution_info
     from ._euler import _oblique
     from . import _euler1d
     from . import _burgers1d
@@ -58,6 +59,7 @@ class _Controller(metaclass=_Singleton):
         self.gmsh_dialog = None
         self.svg_dialog = None
         self.tree_panel = None
+        self.solution_info = None
         self.sample_mesh = None
         self.mesh_style_status = None
         self.oblique_shock = None
@@ -106,6 +108,8 @@ class _Controller(metaclass=_Singleton):
         self.mesh_style_status = _mesh.MeshStyleStatus(mgr=self._rmgr)
         self.tree_panel = _tree_panel.TreePanel(
             mgr=self._rmgr, style_status=self.mesh_style_status)
+        self.solution_info = _solution_info.SolutionInfo(mgr=self._rmgr)
+        self.solution_info.viewer_updated = self.tree_panel.resync
         self.oblique_shock = _oblique.ObliqueShockMesh(mgr=self._rmgr)
         self.naca4airfoil = airfoil.Naca4Airfoil(mgr=self._rmgr)
         self.mesh_sample_dialog = _mesh.SampleMeshDialog(
@@ -153,6 +157,7 @@ class _Controller(metaclass=_Singleton):
         self.svg_dialog.populate_menu()
         self.save_2d_canvas.populate_menu()
         self.tree_panel.populate_menu()
+        self.solution_info.populate_menu()
         self.painter.populate_menu()
         self.mesh_sample_dialog.populate_menu()
         self.mesh_style_status.populate_menu()

@@ -779,6 +779,15 @@ class TreePanel(_gui_common.PilotFeature):
         if self._dock is not None and self._action.isChecked():
             QTimer.singleShot(0, self._sync)
 
+    def resync(self):
+        """Refresh the shown tree for the active viewer.
+
+        A feature that rebuilds the active viewer's mesh in place raises no
+        activation, so it calls this to refresh the otherwise stale tree.
+        """
+        if self._stack is not None and self._action.isChecked():
+            self._sync()
+
     def _sync(self):
         """Select the tree that matches the active sub-window.
 
