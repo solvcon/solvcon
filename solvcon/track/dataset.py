@@ -155,7 +155,14 @@ class NasaDataset:
             print(f"{file_path} exists,skip download.")
             return
 
-        response = urllib.request.urlopen(self.url)
+        # The TechPort API rejects requests carrying Python's default
+        # ``Python-urllib`` User-Agent (HTTP 403 Forbidden), so wrap the
+        # call in a Request that advertises a project-identifying agent.
+        req = urllib.request.Request(
+            self.url,
+            headers={"User-Agent": "solvcon-track/1.0"},
+        )
+        response = urllib.request.urlopen(req)
         presigned_url = json.loads(response.read())["presignedUrl"]
         self.download_dir.mkdir(parents=True, exist_ok=True)
         urllib.request.urlretrieve(
