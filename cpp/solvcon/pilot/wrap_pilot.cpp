@@ -8,10 +8,10 @@
 #include <solvcon/pilot/wrap_pilot.hpp> // Must be the first include but give way to above.
 #include <solvcon/python/common.hpp>
 
-#include <solvcon/pilot/R2DWidget.hpp>
-#include <solvcon/pilot/RMenuModel.hpp>
-#include <solvcon/pilot/RShortcutManager.hpp>
-#include <solvcon/pilot/RThemeManager.hpp>
+#include <solvcon/pilot/canvas/R2DWidget.hpp>
+#include <solvcon/pilot/app/RMenuModel.hpp>
+#include <solvcon/pilot/app/RShortcutManager.hpp>
+#include <solvcon/pilot/theme/RThemeManager.hpp>
 #include <solvcon/pilot/pilot.hpp>
 
 #include <optional>

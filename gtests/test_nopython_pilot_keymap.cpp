@@ -3,7 +3,7 @@
  * BSD 3-Clause License, see COPYING
  */
 
-#include <solvcon/pilot/keymap.hpp>
+#include <solvcon/pilot/app/keymap.hpp>
 
 #include <array>
 #include <optional>
