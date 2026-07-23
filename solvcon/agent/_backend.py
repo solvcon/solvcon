@@ -108,8 +108,10 @@ class AgentBackend(abc.ABC):
         shared instruction rides separately as the system prompt
         (:attr:`_INSTRUCTIONS`), so it stays a stable prefix a backend can hand
         the model as a real system message rather than folding it into the
-        user turn."""
-        tools = json.dumps(tool_surface or [], indent=2)
+        user turn.  The tool dump is compact and key-sorted so the prefix stays
+        byte-stable for a prompt cache and does not vary run to run."""
+        tools = json.dumps(tool_surface or [], sort_keys=True,
+                           separators=(",", ":"))
         return (
             "Available operations (tool definitions):\n%s\n\n"
             "Current scene:\n%s\n\nUser request:\n%s"
