@@ -8,6 +8,7 @@ Tests for R2DWidget and its on-screen screenshot APIs.
 import os
 import tempfile
 import unittest
+from xml.etree import ElementTree
 
 import numpy as np
 
@@ -434,6 +435,41 @@ class R2DWidgetScreenshotTC(unittest.TestCase):
         width, height = _png_size(data)
         self.assertGreater(width, 0)
         self.assertGreater(height, 0)
+
+    def test_save_svg_writes_svg_file(self):
+        """saveSvg writes a well-formed, non-empty SVG of the widget."""
+        self.widget.updateWorld(_build_world())
+        self.widget.resetView()
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder, "widget.svg")
+            self.assertTrue(self.widget.saveSvg(path))
+            with open(path, 'rb') as stream:
+                data = stream.read()
+        self.assertGreater(len(data), 0)
+        root = ElementTree.fromstring(data)
+        self.assertTrue(root.tag.endswith("svg"))
+
+    def test_save_svg_honors_explicit_overlay(self):
+        """saveSvg bakes the given overlay regardless of what the widget
+        currently shows on screen, matching saveImage's export contract."""
+        self.widget.updateWorld(_build_world())
+        self.widget.resetView()
+        self.widget.overlay = pilot.Overlay2dOptions()
+        with tempfile.TemporaryDirectory() as folder:
+            labeled_path = os.path.join(folder, "labeled.svg")
+            self.assertTrue(
+                self.widget.saveSvg(labeled_path, _all_on_overlay()))
+            with open(labeled_path, 'rb') as stream:
+                labeled_data = stream.read()
+            plain_path = os.path.join(folder, "plain.svg")
+            self.widget.overlay = _all_on_overlay()
+            self.assertTrue(
+                self.widget.saveSvg(plain_path, pilot.Overlay2dOptions()))
+            with open(plain_path, 'rb') as stream:
+                plain_data = stream.read()
+        self.widget.overlay = pilot.Overlay2dOptions()
+        self.assertGreater(
+            labeled_data.count(b'<text'), plain_data.count(b'<text'))
 
     def test_current_2d_widget_exposes_screenshot_api(self):
         """currentR2DWidget returns the active 2D widget, API intact."""

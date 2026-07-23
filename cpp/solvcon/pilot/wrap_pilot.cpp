@@ -685,6 +685,18 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapR2DWidget
                 "succeeded. With no overlay, saves the on-screen frame; with "
                 "an Overlay2dOptions, renders that annotation set offscreen "
                 "instead, independent of what the widget currently shows.")
+            .def(
+                "saveSvg",
+                [](wrapped_type & self, std::string const & filename, std::optional<Overlay2dOptions> const & overlay)
+                {
+                    return self.saveSvg(filename, overlay.value_or(self.overlayOptions()));
+                },
+                py::arg("filename"),
+                py::arg("overlay") = py::none(),
+                "Save the canvas to filename as SVG and return whether the "
+                "write succeeded. With no overlay, uses the canvas's "
+                "current on-screen overlay; with an Overlay2dOptions, "
+                "renders that annotation set instead.")
             //
             ;
     }

@@ -16,6 +16,8 @@
 #include <QPen>
 #include <QPolygonF>
 #include <QResizeEvent>
+#include <QString>
+#include <QSvgGenerator>
 #include <QWheelEvent>
 
 namespace solvcon
@@ -174,6 +176,34 @@ QImage R2DWidget::renderImage(Overlay2dOptions const & overlay) const
     RWorldRenderer2d(m_world.get(), m_view, overlay)
         .paint_canvas(painter, width(), height(), full_canvas);
     return image;
+}
+
+bool R2DWidget::saveSvg(std::string const & filename, Overlay2dOptions const & overlay) const
+{
+    // SVG is resolution-independent: no devicePixelRatioF scaling here,
+    // unlike renderImage's raster output.
+    QSvgGenerator generator;
+    generator.setFileName(QString::fromStdString(filename));
+    generator.setSize(size());
+    // Without an explicit viewBox, renderers map the unitless drawing
+    // coordinates onto the physical size using the CSS 96-DPI convention,
+    // which does not match the DPI QSvgGenerator itself used to compute
+    // that physical size; the content then renders shrunk into a corner
+    // of the canvas, padded with blank space. An identity viewBox pins
+    // pixel coordinates 1:1 to the canvas regardless of DPI.
+    generator.setViewBox(QRect(QPoint(0, 0), size()));
+    generator.setTitle(QStringLiteral("solvcon 2D canvas"));
+
+    QPainter painter;
+    if (!painter.begin(&generator))
+    {
+        return false;
+    }
+    constexpr bool full_canvas = true;
+    RWorldRenderer2d(m_world.get(), m_view, overlay)
+        .paint_canvas(painter, width(), height(), full_canvas);
+    painter.end();
+    return true;
 }
 
 void R2DWidget::paintDrawPreview(QPainter & painter) const
