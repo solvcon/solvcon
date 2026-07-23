@@ -3,7 +3,7 @@
  * BSD 3-Clause License, see COPYING
  */
 
-#include <solvcon/pilot/RField.hpp> // Must be the first include.
+#include <solvcon/pilot/visual/RField.hpp> // Must be the first include.
 
 #include <limits>
 #include <stdexcept>

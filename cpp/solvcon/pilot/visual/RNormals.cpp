@@ -3,7 +3,7 @@
  * BSD 3-Clause License, see COPYING
  */
 
-#include <solvcon/pilot/RNormals.hpp> // Must be the first include.
+#include <solvcon/pilot/visual/RNormals.hpp> // Must be the first include.
 
 #include <QVector3D>
 

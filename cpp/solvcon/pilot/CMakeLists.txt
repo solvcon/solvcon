@@ -20,20 +20,21 @@ set(SOLVCON_PILOT_PYMODHEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/console/RPythonConsoleHistory.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/console/RPythonSyntaxHighlighter.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/console/RPythonSyntaxRules.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RDomainWidget.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RScene.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RCameraController.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RDrawable.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RMeshFrame.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RField.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RColormap.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RScalarField.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RScalarBar.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RBoundary.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RFeatureEdges.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RNormals.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RAxisGizmo.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RMaterial.hpp
+    # visual/
+    ${CMAKE_CURRENT_SOURCE_DIR}/visual/RDomainWidget.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/visual/RScene.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/visual/RCameraController.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/visual/RDrawable.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/visual/RMeshFrame.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/visual/RField.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/visual/RColormap.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/visual/RScalarField.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/visual/RScalarBar.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/visual/RBoundary.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/visual/RFeatureEdges.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/visual/RNormals.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/visual/RAxisGizmo.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/visual/RMaterial.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/R2DWidget.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/DrawTool.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RWorldRenderer2d.hpp
@@ -63,22 +64,23 @@ set(SOLVCON_PILOT_PYMODSOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/console/RPythonConsoleHistory.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/console/RPythonSyntaxHighlighter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/console/RPythonSyntaxRules.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RDomainWidget.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RScene.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RCameraController.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RDrawable.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RMeshFrame.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RField.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RColormap.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RScalarField.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RScalarBar.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RBoundary.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RFeatureEdges.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RNormals.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RSegments.cpp
+    # visual/
+    ${CMAKE_CURRENT_SOURCE_DIR}/visual/RDomainWidget.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/visual/RScene.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/visual/RCameraController.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/visual/RDrawable.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/visual/RMeshFrame.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/visual/RField.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/visual/RColormap.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/visual/RScalarField.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/visual/RScalarBar.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/visual/RBoundary.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/visual/RFeatureEdges.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/visual/RNormals.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/visual/RSegments.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/visual/RAxisGizmo.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/visual/RMaterial.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RTextOverlay.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RAxisGizmo.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RMaterial.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/R2DWidget.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/DrawTool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RWorldRenderer2d.cpp

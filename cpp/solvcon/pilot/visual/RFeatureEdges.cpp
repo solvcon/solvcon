@@ -3,7 +3,7 @@
  * BSD 3-Clause License, see COPYING
  */
 
-#include <solvcon/pilot/RFeatureEdges.hpp> // Must be the first include.
+#include <solvcon/pilot/visual/RFeatureEdges.hpp> // Must be the first include.
 
 #include <solvcon/pilot/common/render_misc.hpp>
 

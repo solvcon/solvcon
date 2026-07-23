@@ -15,12 +15,12 @@
 
 #include <solvcon/pilot/common/common_detail.hpp> // Must be the first include.
 
-#include <solvcon/pilot/RAxisGizmo.hpp>
-#include <solvcon/pilot/RColormap.hpp>
-#include <solvcon/pilot/RScalarBar.hpp>
-#include <solvcon/pilot/RScene.hpp>
+#include <solvcon/pilot/visual/RAxisGizmo.hpp>
+#include <solvcon/pilot/visual/RColormap.hpp>
+#include <solvcon/pilot/visual/RScalarBar.hpp>
+#include <solvcon/pilot/visual/RScene.hpp>
 #include <solvcon/pilot/RTextOverlay.hpp>
-#include <solvcon/pilot/RDrawable.hpp>
+#include <solvcon/pilot/visual/RDrawable.hpp>
 
 #include <solvcon/solvcon.hpp>
 

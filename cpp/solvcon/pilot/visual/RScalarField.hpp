@@ -15,8 +15,8 @@
 
 #include <solvcon/pilot/common/common_detail.hpp> // Must be the first include.
 
-#include <solvcon/pilot/RColormap.hpp>
-#include <solvcon/pilot/RDrawable.hpp>
+#include <solvcon/pilot/visual/RColormap.hpp>
+#include <solvcon/pilot/visual/RDrawable.hpp>
 
 #include <solvcon/solvcon.hpp>
 

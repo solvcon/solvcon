@@ -3,15 +3,15 @@
  * BSD 3-Clause License, see COPYING
  */
 
-#include <solvcon/pilot/RDomainWidget.hpp> // Must be the first include.
+#include <solvcon/pilot/visual/RDomainWidget.hpp> // Must be the first include.
 
-#include <solvcon/pilot/RBoundary.hpp>
-#include <solvcon/pilot/RFeatureEdges.hpp>
-#include <solvcon/pilot/RField.hpp>
-#include <solvcon/pilot/RMeshFrame.hpp>
-#include <solvcon/pilot/RNormals.hpp>
-#include <solvcon/pilot/RScalarField.hpp>
-#include <solvcon/pilot/RSegments.hpp>
+#include <solvcon/pilot/visual/RBoundary.hpp>
+#include <solvcon/pilot/visual/RFeatureEdges.hpp>
+#include <solvcon/pilot/visual/RField.hpp>
+#include <solvcon/pilot/visual/RMeshFrame.hpp>
+#include <solvcon/pilot/visual/RNormals.hpp>
+#include <solvcon/pilot/visual/RScalarField.hpp>
+#include <solvcon/pilot/visual/RSegments.hpp>
 
 #include <QGestureEvent>
 #include <QKeyEvent>

@@ -3,7 +3,7 @@
  * BSD 3-Clause License, see COPYING
  */
 
-#include <solvcon/pilot/RMeshFrame.hpp> // Must be the first include.
+#include <solvcon/pilot/visual/RMeshFrame.hpp> // Must be the first include.
 
 namespace solvcon
 {

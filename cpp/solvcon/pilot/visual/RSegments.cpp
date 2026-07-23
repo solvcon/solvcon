@@ -3,7 +3,7 @@
  * BSD 3-Clause License, see COPYING
  */
 
-#include <solvcon/pilot/RSegments.hpp> // Must be the first include.
+#include <solvcon/pilot/visual/RSegments.hpp> // Must be the first include.
 
 namespace solvcon
 {

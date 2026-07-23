@@ -15,7 +15,7 @@
 
 #include <solvcon/pilot/common/common_detail.hpp> // Must be the first include.
 
-#include <solvcon/pilot/RMaterial.hpp>
+#include <solvcon/pilot/visual/RMaterial.hpp>
 
 #include <rhi/qrhi.h>
 

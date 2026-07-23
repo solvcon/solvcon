@@ -3,7 +3,7 @@
  * BSD 3-Clause License, see COPYING
  */
 
-#include <solvcon/pilot/RColormap.hpp> // Must be the first include.
+#include <solvcon/pilot/visual/RColormap.hpp> // Must be the first include.
 
 #include <algorithm>
 #include <cmath>

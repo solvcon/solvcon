@@ -3,7 +3,7 @@
  * BSD 3-Clause License, see COPYING
  */
 
-#include <solvcon/pilot/RBoundary.hpp> // Must be the first include.
+#include <solvcon/pilot/visual/RBoundary.hpp> // Must be the first include.
 
 #include <solvcon/pilot/common/render_misc.hpp>
 

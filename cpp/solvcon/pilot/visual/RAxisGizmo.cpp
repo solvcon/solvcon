@@ -3,7 +3,7 @@
  * BSD 3-Clause License, see COPYING
  */
 
-#include <solvcon/pilot/RAxisGizmo.hpp> // Must be the first include.
+#include <solvcon/pilot/visual/RAxisGizmo.hpp> // Must be the first include.
 
 #include <QColor>
 #include <QFont>

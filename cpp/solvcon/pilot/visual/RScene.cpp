@@ -3,7 +3,7 @@
  * BSD 3-Clause License, see COPYING
  */
 
-#include <solvcon/pilot/RScene.hpp> // Must be the first include.
+#include <solvcon/pilot/visual/RScene.hpp> // Must be the first include.
 
 #include <algorithm>
 #include <cmath>

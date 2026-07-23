@@ -3,7 +3,7 @@
  * BSD 3-Clause License, see COPYING
  */
 
-#include <solvcon/pilot/RMaterial.hpp> // Must be the first include.
+#include <solvcon/pilot/visual/RMaterial.hpp> // Must be the first include.
 
 #include <QFile>
 
