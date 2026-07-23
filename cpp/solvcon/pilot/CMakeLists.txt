@@ -4,6 +4,9 @@
 cmake_minimum_required(VERSION 4.0.1)
 
 set(SOLVCON_PILOT_PYMODHEADERS
+    # common/
+    ${CMAKE_CURRENT_SOURCE_DIR}/common/platform.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/common/render_misc.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RDomainWidget.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RScene.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RCameraController.hpp
@@ -14,7 +17,6 @@ set(SOLVCON_PILOT_PYMODHEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/RScalarField.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RScalarBar.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RBoundary.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/render_misc.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RFeatureEdges.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RNormals.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RAxisGizmo.hpp
@@ -30,7 +32,6 @@ set(SOLVCON_PILOT_PYMODHEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/RWindowsThemeBackend.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RLinuxThemeBackend.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RThemeManager.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/platform.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/keymap.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RShortcutManager.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RPythonConsoleDockWidget.hpp
@@ -45,6 +46,8 @@ set(SOLVCON_PILOT_PYMODHEADERS
 )
 
 set(SOLVCON_PILOT_PYMODSOURCES
+    # common/
+    ${CMAKE_CURRENT_SOURCE_DIR}/common/render_misc.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RDomainWidget.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RScene.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RCameraController.cpp
@@ -55,7 +58,6 @@ set(SOLVCON_PILOT_PYMODSOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/RScalarField.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RScalarBar.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RBoundary.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/render_misc.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RFeatureEdges.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RNormals.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RSegments.cpp

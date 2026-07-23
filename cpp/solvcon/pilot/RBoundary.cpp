@@ -5,7 +5,7 @@
 
 #include <solvcon/pilot/RBoundary.hpp> // Must be the first include.
 
-#include <solvcon/pilot/render_misc.hpp>
+#include <solvcon/pilot/common/render_misc.hpp>
 
 #include <array>
 

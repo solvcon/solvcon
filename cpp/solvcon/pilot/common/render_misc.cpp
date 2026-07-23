@@ -3,7 +3,7 @@
  * BSD 3-Clause License, see COPYING
  */
 
-#include <solvcon/pilot/render_misc.hpp> // Must be the first include.
+#include <solvcon/pilot/common/render_misc.hpp> // Must be the first include.
 
 #include <algorithm>
 #include <cmath>

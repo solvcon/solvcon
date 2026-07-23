@@ -23,7 +23,7 @@
 #include <variant>
 #include <vector>
 
-#include <solvcon/pilot/platform.hpp>
+#include <solvcon/pilot/common/platform.hpp>
 
 namespace solvcon
 {
