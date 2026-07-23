@@ -54,31 +54,15 @@ Llt<T>::array_type Llt<T>::forward_substitution(array_type const & l, array_type
     if (l.ndim() != 2 || l.shape(0) != l.shape(1))
     {
         std::ostringstream oss;
-        oss << "Llt::forward_substitution: The first argument l must be a square 2D SimpleArray, but got shape (";
-        for (ssize_t i = 0; i < l.ndim(); ++i)
-        {
-            if (i > 0)
-            {
-                oss << ", ";
-            }
-            oss << l.shape(i);
-        }
-        oss << ")";
+        oss << "Llt::forward_substitution: The first argument l must be a square 2D SimpleArray, but got shape "
+            << detail::format_shape(l.shape());
         throw std::invalid_argument(oss.str());
     }
     if (b.ndim() != 2 || b.shape(0) != l.shape(0))
     {
         std::ostringstream oss;
-        oss << "Llt::forward_substitution: The second argument b must be a 2D SimpleArray with first dimension matching l, but got shape (";
-        for (ssize_t i = 0; i < b.ndim(); ++i)
-        {
-            if (i > 0)
-            {
-                oss << ", ";
-            }
-            oss << b.shape(i);
-        }
-        oss << ")";
+        oss << "Llt::forward_substitution: The second argument b must be a 2D SimpleArray with first dimension matching l, but got shape "
+            << detail::format_shape(b.shape());
         throw std::invalid_argument(oss.str());
     }
 
@@ -107,31 +91,15 @@ Llt<T>::array_type Llt<T>::backward_substitution(array_type const & l, array_typ
     if (l.ndim() != 2 || l.shape(0) != l.shape(1))
     {
         std::ostringstream oss;
-        oss << "Llt::backward_substitution: The first argument l must be a square 2D SimpleArray, but got shape (";
-        for (ssize_t i = 0; i < l.ndim(); ++i)
-        {
-            if (i > 0)
-            {
-                oss << ", ";
-            }
-            oss << l.shape(i);
-        }
-        oss << ")";
+        oss << "Llt::backward_substitution: The first argument l must be a square 2D SimpleArray, but got shape "
+            << detail::format_shape(l.shape());
         throw std::invalid_argument(oss.str());
     }
     if (y.ndim() != 2 || y.shape(0) != l.shape(0))
     {
         std::ostringstream oss;
-        oss << "Llt::backward_substitution: The second argument y must be a 2D SimpleArray with first dimension matching l, but got shape (";
-        for (ssize_t i = 0; i < y.ndim(); ++i)
-        {
-            if (i > 0)
-            {
-                oss << ", ";
-            }
-            oss << y.shape(i);
-        }
-        oss << ")";
+        oss << "Llt::backward_substitution: The second argument y must be a 2D SimpleArray with first dimension matching l, but got shape "
+            << detail::format_shape(y.shape());
         throw std::invalid_argument(oss.str());
     }
 
@@ -160,16 +128,8 @@ Llt<T>::array_type Llt<T>::factorize(array_type const & a)
     if (a.ndim() != 2 || a.shape(0) != a.shape(1))
     {
         std::ostringstream oss;
-        oss << "Llt::factorize: The first argument a must be a square 2D SimpleArray, but got shape (";
-        for (ssize_t i = 0; i < a.ndim(); ++i)
-        {
-            if (i > 0)
-            {
-                oss << ", ";
-            }
-            oss << a.shape(i);
-        }
-        oss << ")";
+        oss << "Llt::factorize: The first argument a must be a square 2D SimpleArray, but got shape "
+            << detail::format_shape(a.shape());
         throw std::invalid_argument(oss.str());
     }
 
@@ -211,16 +171,8 @@ Llt<T>::array_type Llt<T>::solve(array_type const & a, array_type const & b)
     if (a.ndim() != 2 || a.shape(0) != a.shape(1))
     {
         std::ostringstream oss;
-        oss << "Llt::solve: The first argument a must be a square 2D SimpleArray, but got shape (";
-        for (ssize_t i = 0; i < a.ndim(); ++i)
-        {
-            if (i > 0)
-            {
-                oss << ", ";
-            }
-            oss << a.shape(i);
-        }
-        oss << ")";
+        oss << "Llt::solve: The first argument a must be a square 2D SimpleArray, but got shape "
+            << detail::format_shape(a.shape());
         throw std::invalid_argument(oss.str());
     }
     if (a.shape(0) != b.shape(0))

@@ -134,8 +134,6 @@ public:
 
 private:
 
-    static std::string format_shape(array_type const & arr);
-
     // Validate that a is square and 2D; return its shape for member init.
     static small_vector<ssize_t> validate_shape(array_type const & a);
 
@@ -161,29 +159,13 @@ private:
 }; /* end class LuFactorization */
 
 template <typename T>
-std::string LuFactorization<T>::format_shape(array_type const & arr)
-{
-    std::string result = "(";
-    for (size_t i = 0; i < arr.ndim(); ++i)
-    {
-        if (i > 0)
-        {
-            result += ", ";
-        }
-        result += std::to_string(arr.shape(i));
-    }
-    result += ")";
-    return result;
-}
-
-template <typename T>
 small_vector<ssize_t> LuFactorization<T>::validate_shape(array_type const & a)
 {
     if (a.ndim() != 2 || a.shape(0) != a.shape(1))
     {
         throw std::invalid_argument(std::format(
             "LuFactorization: a must be a square 2D SimpleArray, but got shape {}",
-            format_shape(a)));
+            detail::format_shape(a.shape())));
     }
     return a.shape();
 }

@@ -95,8 +95,6 @@ public:
 
 private:
 
-    static std::string format_shape(array_type const & arr);
-
     array_type const & m_matrix;
     array_type m_colmajor;
     real_array_type m_wr;
@@ -125,7 +123,7 @@ EigenSystem<T>::EigenSystem(array_type const & matrix, bool do_vl, bool do_vr, c
     {
         throw std::invalid_argument(std::format(
             "EigenSystem: matrix must be a square 2D SimpleArray, but got shape {}",
-            format_shape(matrix)));
+            detail::format_shape(matrix.shape())));
     }
 
     // Result buffers stay uninitialized: *GEEV never reads them on entry and
@@ -284,22 +282,6 @@ EigenSystem<T>::array_type const & EigenSystem<T>::vr(bool suppress_exception) c
             "(do_vr=false)");
     }
     return m_vr;
-}
-
-template <typename T>
-std::string EigenSystem<T>::format_shape(array_type const & arr)
-{
-    std::string result = "(";
-    for (size_t i = 0; i < arr.ndim(); ++i)
-    {
-        if (i > 0)
-        {
-            result += ", ";
-        }
-        result += std::to_string(arr.shape(i));
-    }
-    result += ")";
-    return result;
 }
 
 /**

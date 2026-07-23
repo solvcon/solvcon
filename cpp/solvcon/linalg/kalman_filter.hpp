@@ -347,91 +347,43 @@ void KalmanFilter<T>::check_dimensions()
     if (m_f.ndim() != 2 || m_f.shape(0) != m_state_size || m_f.shape(1) != m_state_size)
     {
         std::ostringstream oss;
-        oss << "KalmanFilter::check_dimensions: The state transition SimpleArray f must be state_sizexstate_size, but got shape (";
-        for (ssize_t i = 0; i < m_f.ndim(); ++i)
-        {
-            if (i > 0)
-            {
-                oss << ", ";
-            }
-            oss << m_f.shape(i);
-        }
-        oss << ")";
+        oss << "KalmanFilter::check_dimensions: The state transition SimpleArray f must be state_sizexstate_size, but got shape "
+            << detail::format_shape(m_f.shape());
         throw std::invalid_argument(oss.str());
     }
     if (m_h.ndim() != 2 || m_h.shape(0) != m_measurement_size || m_h.shape(1) != m_state_size)
     {
         std::ostringstream oss;
-        oss << "KalmanFilter::check_dimensions: The measurement SimpleArray h must be measurement_sizexstate_size, but got shape (";
-        for (ssize_t i = 0; i < m_h.ndim(); ++i)
-        {
-            if (i > 0)
-            {
-                oss << ", ";
-            }
-            oss << m_h.shape(i);
-        }
-        oss << ")";
+        oss << "KalmanFilter::check_dimensions: The measurement SimpleArray h must be measurement_sizexstate_size, but got shape "
+            << detail::format_shape(m_h.shape());
         throw std::invalid_argument(oss.str());
     }
     if (m_q.ndim() != 2 || m_q.shape(0) != m_state_size || m_q.shape(1) != m_state_size)
     {
         std::ostringstream oss;
-        oss << "KalmanFilter::check_dimensions: The process noise covariance SimpleArray q must be state_sizexstate_size, but got shape (";
-        for (ssize_t i = 0; i < m_q.ndim(); ++i)
-        {
-            if (i > 0)
-            {
-                oss << ", ";
-            }
-            oss << m_q.shape(i);
-        }
-        oss << ")";
+        oss << "KalmanFilter::check_dimensions: The process noise covariance SimpleArray q must be state_sizexstate_size, but got shape "
+            << detail::format_shape(m_q.shape());
         throw std::invalid_argument(oss.str());
     }
     if (m_r.ndim() != 2 || m_r.shape(0) != m_measurement_size || m_r.shape(1) != m_measurement_size)
     {
         std::ostringstream oss;
-        oss << "KalmanFilter::check_dimensions: The measurement noise covariance SimpleArray r must be measurement_sizexmeasurement_size, but got shape (";
-        for (ssize_t i = 0; i < m_r.ndim(); ++i)
-        {
-            if (i > 0)
-            {
-                oss << ", ";
-            }
-            oss << m_r.shape(i);
-        }
-        oss << ")";
+        oss << "KalmanFilter::check_dimensions: The measurement noise covariance SimpleArray r must be measurement_sizexmeasurement_size, but got shape "
+            << detail::format_shape(m_r.shape());
         throw std::invalid_argument(oss.str());
     }
     if (m_p.ndim() != 2 || m_p.shape(0) != m_state_size || m_p.shape(1) != m_state_size)
     {
         std::ostringstream oss;
-        oss << "KalmanFilter::check_dimensions: The state covariance SimpleArray p must be state_sizexstate_size, but got shape (";
-        for (ssize_t i = 0; i < m_p.ndim(); ++i)
-        {
-            if (i > 0)
-            {
-                oss << ", ";
-            }
-            oss << m_p.shape(i);
-        }
-        oss << ")";
+        oss << "KalmanFilter::check_dimensions: The state covariance SimpleArray p must be state_sizexstate_size, but got shape "
+            << detail::format_shape(m_p.shape());
         throw std::invalid_argument(oss.str());
     }
     if (m_x.ndim() != 1 || m_x.shape(0) != m_state_size)
     {
         std::ostringstream oss;
-        oss << "KalmanFilter::check_dimensions: The state SimpleArray x must be 1D of length state_size, but got shape (";
-        for (ssize_t i = 0; i < m_x.ndim(); ++i)
-        {
-            if (i > 0)
-            {
-                oss << ", ";
-            }
-            oss << m_x.shape(i);
-        }
-        oss << ")";
+        oss << "KalmanFilter::check_dimensions: The state SimpleArray x must be 1D of length state_size, but got shape "
+            << detail::format_shape(m_x.shape());
         throw std::invalid_argument(oss.str());
     }
 
@@ -446,16 +398,8 @@ void KalmanFilter<T>::check_dimensions()
         if (m_b.shape(0) != m_state_size || m_b.shape(1) != m_control_size)
         {
             std::ostringstream oss;
-            oss << "KalmanFilter::check_dimensions: The control SimpleArray b must be state_sizexcontrol_size, but got shape (";
-            for (ssize_t i = 0; i < m_b.ndim(); ++i)
-            {
-                if (i > 0)
-                {
-                    oss << ", ";
-                }
-                oss << m_b.shape(i);
-            }
-            oss << ")";
+            oss << "KalmanFilter::check_dimensions: The control SimpleArray b must be state_sizexcontrol_size, but got shape "
+                << detail::format_shape(m_b.shape());
             throw std::invalid_argument(oss.str());
         }
     }
@@ -464,16 +408,8 @@ void KalmanFilter<T>::check_dimensions()
         if (m_b.ndim() != 2 || m_b.shape(1) != 0)
         {
             std::ostringstream oss;
-            oss << "KalmanFilter::check_dimensions: The control SimpleArray b must be state_sizex0 when control_size = 0, but got shape (";
-            for (ssize_t i = 0; i < m_b.ndim(); ++i)
-            {
-                if (i > 0)
-                {
-                    oss << ", ";
-                }
-                oss << m_b.shape(i);
-            }
-            oss << ")";
+            oss << "KalmanFilter::check_dimensions: The control SimpleArray b must be state_sizex0 when control_size = 0, but got shape "
+                << detail::format_shape(m_b.shape());
             throw std::invalid_argument(oss.str());
         }
     }
@@ -507,16 +443,8 @@ void KalmanFilter<T>::check_measurement(array_type const & z)
     if (z.ndim() != 1 || z.shape(0) != m_measurement_size)
     {
         std::ostringstream oss;
-        oss << "KalmanFilter::check_measurement: The measurement SimpleArray z must be 1D of length measurement_size (" << m_measurement_size << "), but got shape (";
-        for (ssize_t i = 0; i < z.ndim(); ++i)
-        {
-            if (i > 0)
-            {
-                oss << ", ";
-            }
-            oss << z.shape(i);
-        }
-        oss << ")";
+        oss << "KalmanFilter::check_measurement: The measurement SimpleArray z must be 1D of length measurement_size ("
+            << m_measurement_size << "), but got shape " << detail::format_shape(z.shape());
         throw std::invalid_argument(oss.str());
     }
 }
@@ -533,16 +461,8 @@ void KalmanFilter<T>::check_control(array_type const & u)
     if (u.ndim() != 1 || u.shape(0) != m_control_size)
     {
         std::ostringstream oss;
-        oss << "KalmanFilter::check_control: The control SimpleArray u must be 1D of length control_size (" << m_control_size << "), but got shape (";
-        for (ssize_t i = 0; i < u.ndim(); ++i)
-        {
-            if (i > 0)
-            {
-                oss << ", ";
-            }
-            oss << u.shape(i);
-        }
-        oss << ")";
+        oss << "KalmanFilter::check_control: The control SimpleArray u must be 1D of length control_size ("
+            << m_control_size << "), but got shape " << detail::format_shape(u.shape());
         throw std::invalid_argument(oss.str());
     }
 }
