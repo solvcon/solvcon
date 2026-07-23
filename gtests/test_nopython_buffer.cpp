@@ -76,6 +76,40 @@ TEST(SimpleArray, abs)
     EXPECT_EQ(brr.sum(), 10.0);
 }
 
+TEST(SimpleArray, reshape_cross_type_preserves_logical_order)
+{
+    using namespace solvcon;
+
+    SimpleArray<int64_t> array(small_vector<ssize_t>{2, 3}, 0);
+    int64_t v = 0;
+    for (auto & it : array)
+    {
+        it = v++;
+    }
+
+    array.transpose(false);
+    auto result = array.reshape<uint64_t>(small_vector<ssize_t>{6});
+
+    const uint64_t expected[6] = {0, 3, 1, 4, 2, 5};
+    for (ssize_t i = 0; i < 6; ++i)
+    {
+        EXPECT_EQ(result(i), expected[i]);
+    }
+}
+
+TEST(SimpleArray, reshape_cross_type_changes_count)
+{
+    using namespace solvcon;
+
+    SimpleArray<uint64_t> array(small_vector<ssize_t>{3}, 0);
+    auto result = array.reshape<uint32_t>(small_vector<ssize_t>{6});
+    EXPECT_EQ(result.size(), 6u);
+
+    // A byte-count mismatch is rejected instead of building an invalid array.
+    EXPECT_THROW(array.reshape<uint32_t>(small_vector<ssize_t>{5}), std::runtime_error);
+    EXPECT_THROW(array.reshape<uint32_t>(small_vector<ssize_t>{}), std::runtime_error);
+}
+
 TEST(SimpleArray, iterator)
 {
     using namespace solvcon;
