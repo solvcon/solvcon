@@ -11,7 +11,7 @@ the foreground when its entry is chosen.
 
 from PySide6 import QtGui
 
-from . import _gui_common
+from .. import _gui_common
 
 __all__ = [
     'WindowManager',

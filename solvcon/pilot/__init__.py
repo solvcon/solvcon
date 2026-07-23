@@ -26,7 +26,7 @@ if enable:
         launch,
     )
     from . import airfoil  # noqa: F401
-    from . import _canvas_gui  # noqa: F401
+    from . import canvas  # noqa: F401
 
 # NOTE: intentionally omit __all__ for now
 

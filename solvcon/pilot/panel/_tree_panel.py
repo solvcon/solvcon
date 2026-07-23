@@ -17,9 +17,9 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QTreeWidget,
                                QRadioButton, QCheckBox, QPushButton,
                                QSizePolicy, QAbstractButton)
 
-from .. import core
-from . import _gui_common
-from . import _mesh
+from ... import core
+from .. import _gui_common
+from ..visual import _mesh
 
 __all__ = [  # noqa: F822
     'TreePanelBase',

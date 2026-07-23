@@ -12,7 +12,7 @@ class SampleMeshTC(unittest.TestCase):
     """The non-GUI sample-mesh data class and its name discovery."""
 
     def setUp(self):
-        from solvcon.pilot import _mesh
+        from solvcon.pilot.visual import _mesh
         self.samples = _mesh.SampleMesh()
 
     def test_every_discovered_name_builds_a_mesh(self):

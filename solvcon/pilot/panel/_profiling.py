@@ -7,10 +7,10 @@ import functools
 import itertools
 import importlib.util
 
-from . import _gui_common
+from .. import _gui_common
 
-from .. import call_profiler
-from .. import apputil
+from ... import call_profiler
+from ... import apputil
 
 from PySide6 import QtCore, QtWidgets
 from PySide6.QtWidgets import (

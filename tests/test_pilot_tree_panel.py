@@ -9,7 +9,8 @@ import solvcon
 
 try:
     from solvcon import pilot
-    from solvcon.pilot import _mesh, _tree_panel
+    from solvcon.pilot.panel import _tree_panel
+    from solvcon.pilot.visual import _mesh
     from PySide6.QtCore import Qt
     from PySide6.QtWidgets import QApplication
 except ImportError:

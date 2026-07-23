@@ -496,7 +496,7 @@ class Save2DCanvasDialogTC(unittest.TestCase):
     """File -> Save 2D canvas dialog and path resolution."""
 
     def test_resolve_save_path_forces_png_or_jpg(self):
-        from solvcon.pilot._canvas_gui import (
+        from solvcon.pilot.canvas._canvas_gui import (
             resolve_save_path, _PNG_FILTER, _JPG_FILTER)
         self.assertEqual(
             resolve_save_path("/tmp/a", _PNG_FILTER), "/tmp/a.png")
@@ -524,7 +524,7 @@ class Save2DCanvasDialogTC(unittest.TestCase):
 
     def test_run_without_canvas_skips_dialog(self):
         """Without a focused 2D canvas, run must not open the save dialog."""
-        from solvcon.pilot import _canvas_gui
+        from solvcon.pilot.canvas import _canvas_gui
         mgr = pilot.RManager.instance.setUp()
         # RManager is a process-wide singleton; earlier tests may leave a
         # focused 2D subwindow, so clear the MDI before asserting the guard.
@@ -541,7 +541,7 @@ class Save2DCanvasDialogTC(unittest.TestCase):
         build reuses the same dialog.
         """
         from PySide6 import QtWidgets
-        from solvcon.pilot import _canvas_gui
+        from solvcon.pilot.canvas import _canvas_gui
         mgr = pilot.RManager.instance.setUp()
         feature = _canvas_gui.Save2DCanvasDialog(mgr=mgr)
         self.assertIsNone(feature._diag)
@@ -555,7 +555,7 @@ class Save2DCanvasDialogTC(unittest.TestCase):
     def test_save_current_reports_write_result(self):
         """Menu save path returns saveImage's bool and only writes on
         success."""
-        from solvcon.pilot import _canvas_gui
+        from solvcon.pilot.canvas import _canvas_gui
         mgr = pilot.RManager.instance.setUp()
         widget = mgr.add2DWidget()
         widget.updateWorld(_build_world())
@@ -770,7 +770,7 @@ class InspectorLabelControlsTC(unittest.TestCase):
 
     @staticmethod
     def _tree(widget):
-        from solvcon.pilot._tree_panel import EntityTreeWidget
+        from solvcon.pilot.panel._tree_panel import EntityTreeWidget
         tree = EntityTreeWidget()
         tree.set_canvas(widget)
         return tree
@@ -934,7 +934,7 @@ class PainterToolboxTC(unittest.TestCase):
         """'Create blank 2D canvas' opens an empty, focused canvas on the
         Pan tool and brings up the Painter toolbox.
         """
-        from solvcon.pilot import _canvas_gui, _painter_gui
+        from solvcon.pilot.canvas import _canvas_gui, _painter_gui
         painter = _painter_gui.Painter(mgr=self.mgr)
         canvas = _canvas_gui.Canvas(mgr=self.mgr, painter=painter)
         widget = canvas._create_blank_2d_canvas()
@@ -949,7 +949,7 @@ class PainterToolboxTC(unittest.TestCase):
         """
         import gc
         from PySide6 import QtWidgets
-        from solvcon.pilot import _canvas_gui, _painter_gui
+        from solvcon.pilot.canvas import _canvas_gui, _painter_gui
         painter = _painter_gui.Painter(mgr=self.mgr)
         canvas = _canvas_gui.Canvas(mgr=self.mgr, painter=painter)
         first = canvas._create_blank_2d_canvas()
@@ -981,7 +981,7 @@ class PainterToolboxTC(unittest.TestCase):
         moving then forcing a repaint triggered a null pointer dereference.
         """
         from PySide6 import QtWidgets
-        from solvcon.pilot import _canvas_gui, _painter_gui
+        from solvcon.pilot.canvas import _canvas_gui, _painter_gui
         painter = _painter_gui.Painter(mgr=self.mgr)
         canvas = _canvas_gui.Canvas(mgr=self.mgr, painter=painter)
         canvas._create_blank_2d_canvas()
@@ -1007,7 +1007,7 @@ class PainterToolboxTC(unittest.TestCase):
         that the headless round-trip test cannot reach.
         """
         from PySide6 import QtWidgets
-        from solvcon.pilot import _canvas_gui, _painter_gui
+        from solvcon.pilot.canvas import _canvas_gui, _painter_gui
         painter = _painter_gui.Painter(mgr=self.mgr)
         canvas = _canvas_gui.Canvas(mgr=self.mgr, painter=painter)
         canvas._create_blank_2d_canvas()

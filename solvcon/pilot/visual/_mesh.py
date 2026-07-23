@@ -10,8 +10,8 @@ import os
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from .. import core
-from . import _gui_common
+from ... import core
+from .. import _gui_common
 
 __all__ = [  # noqa: F822
     'SampleMesh',

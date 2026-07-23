@@ -15,20 +15,20 @@ from . import airfoil
 
 if _pcore.enable:
     from . import _gui_common
-    from . import _mesh
-    from . import _tree_panel
+    from .visual import _mesh
+    from .panel import _tree_panel
     from ._euler import _solution_info
     from ._euler import _oblique
     from .onedim import _euler1d
     from .onedim import _burgers1d
-    from . import _svg_gui
+    from .canvas import _svg_gui
     from .onedim import _linear_wave
-    from . import _canvas_gui
-    from . import _painter_gui
-    from . import _profiling
+    from .canvas import _canvas_gui
+    from .canvas import _painter_gui
+    from .panel import _profiling
     from .agent import _agent_gui
     from . import _theme
-    from . import _window_manager
+    from .panel import _window_manager
 
 __all__ = [  # noqa: F822
     'controller',

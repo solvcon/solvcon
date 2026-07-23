@@ -9,10 +9,10 @@ Show a SVG (scalleable vector graphic)
 import os
 from PySide6 import QtCore, QtWidgets
 
-from .. import core
-from .. import apputil
-from ..plot import svg
-from . import _gui_common
+from ... import core
+from ... import apputil
+from ...plot import svg
+from .. import _gui_common
 
 __all__ = [  # noqa: F822
     'SVGFileDialog',
