@@ -16,6 +16,6 @@
 
 #include <solvcon/pilot/RDomainWidget.hpp>
 #include <solvcon/pilot/RManager.hpp>
-#include <solvcon/pilot/RPythonConsoleDockWidget.hpp>
+#include <solvcon/pilot/console/RPythonConsoleDockWidget.hpp>
 
 // vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

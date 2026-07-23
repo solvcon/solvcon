@@ -3,7 +3,7 @@
  * BSD 3-Clause License, see COPYING
  */
 
-#include <solvcon/pilot/theme.hpp>
+#include <solvcon/pilot/theme/theme.hpp>
 
 #include <cctype>
 #include <cstring>

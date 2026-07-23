@@ -3,7 +3,7 @@
  * BSD 3-Clause License, see COPYING
  */
 
-#include <solvcon/pilot/RWindowsThemeBackend.hpp>
+#include <solvcon/pilot/theme/RWindowsThemeBackend.hpp>
 
 #include <QtGlobal>
 

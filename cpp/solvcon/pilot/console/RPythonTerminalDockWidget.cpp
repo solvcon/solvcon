@@ -3,9 +3,9 @@
  * BSD 3-Clause License, see COPYING
  */
 
-#include <solvcon/pilot/RPythonTerminalDockWidget.hpp>
+#include <solvcon/pilot/console/RPythonTerminalDockWidget.hpp>
 
-#include <solvcon/pilot/RPythonSyntaxRules.hpp>
+#include <solvcon/pilot/console/RPythonSyntaxRules.hpp>
 
 #include <algorithm>
 

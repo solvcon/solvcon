@@ -11,7 +11,7 @@
 #include <solvcon/pilot/R2DWidget.hpp>
 #include <solvcon/pilot/RMenuModel.hpp>
 #include <solvcon/pilot/RShortcutManager.hpp>
-#include <solvcon/pilot/RThemeManager.hpp>
+#include <solvcon/pilot/theme/RThemeManager.hpp>
 #include <solvcon/pilot/pilot.hpp>
 
 #include <optional>

@@ -7,18 +7,17 @@
 
 /**
  * @file
- * The Linux room: the native theme backend for Linux and other desktops.
+ * The Windows room: the native theme backend for Windows.
  *
- * Keeps the desktop's own Qt style, honors the desktop accent when a
- * recognized platform theme exposes one, and otherwise leans on the curated
- * palettes. It is the room with the most variety across desktops, so it leans
- * hardest on the shared fallback. This is also the factory's default, selected
- * for any platform without a room of its own.
+ * Installs the windows11 style (falling back to windowsvista), reads the
+ * operating system accent, and switches the title bar to its dark variant
+ * through the desktop window manager. Only linked into the Windows build; the
+ * factory in RThemeBackend.cpp is the sole site that selects it.
  *
  * @ingroup group_domain
  */
 
-#include <solvcon/pilot/RThemeBackend.hpp>
+#include <solvcon/pilot/theme/RThemeBackend.hpp>
 
 #include <optional>
 #include <string>
@@ -27,11 +26,11 @@ namespace solvcon
 {
 
 /**
- * @brief The Linux native theme backend.
+ * @brief The Windows native theme backend.
  *
  * @ingroup group_domain
  */
-class RLinuxThemeBackend
+class RWindowsThemeBackend
     : public RThemeBackend
 {
 
@@ -43,7 +42,7 @@ public:
     void applyNativeChrome(QWidget * window, ThemeVariant variant) override;
     ThemeCapabilities capabilities() const override;
 
-}; /* end class RLinuxThemeBackend */
+}; /* end class RWindowsThemeBackend */
 
 } /* end namespace solvcon */
 

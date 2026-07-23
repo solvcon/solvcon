@@ -13,7 +13,7 @@
 #include <solvcon/pilot/RAction.hpp>
 #include <solvcon/pilot/RMenuModel.hpp>
 #include <solvcon/pilot/RShortcutManager.hpp>
-#include <solvcon/pilot/RThemeManager.hpp>
+#include <solvcon/pilot/theme/RThemeManager.hpp>
 #include <Qt>
 #include <QMenuBar>
 #include <QMenu>

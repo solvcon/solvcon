@@ -3,7 +3,7 @@
  * BSD 3-Clause License, see COPYING
  */
 
-#include <solvcon/pilot/RPythonSyntaxRules.hpp>
+#include <solvcon/pilot/console/RPythonSyntaxRules.hpp>
 
 #include <cctype>
 #include <unordered_set>

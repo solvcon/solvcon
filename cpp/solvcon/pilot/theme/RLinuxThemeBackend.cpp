@@ -3,7 +3,7 @@
  * BSD 3-Clause License, see COPYING
  */
 
-#include <solvcon/pilot/RLinuxThemeBackend.hpp>
+#include <solvcon/pilot/theme/RLinuxThemeBackend.hpp>
 
 #include <cstdint>
 

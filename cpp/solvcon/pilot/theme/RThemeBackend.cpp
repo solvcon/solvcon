@@ -3,16 +3,16 @@
  * BSD 3-Clause License, see COPYING
  */
 
-#include <solvcon/pilot/RThemeBackend.hpp>
+#include <solvcon/pilot/theme/RThemeBackend.hpp>
 
-#include <solvcon/pilot/RLinuxThemeBackend.hpp>
+#include <solvcon/pilot/theme/RLinuxThemeBackend.hpp>
 
 #include <QtGlobal>
 
 #if defined(Q_OS_MACOS)
-#include <solvcon/pilot/RMacThemeBackend.hpp>
+#include <solvcon/pilot/theme/RMacThemeBackend.hpp>
 #elif defined(Q_OS_WIN)
-#include <solvcon/pilot/RWindowsThemeBackend.hpp>
+#include <solvcon/pilot/theme/RWindowsThemeBackend.hpp>
 #endif
 
 namespace solvcon

@@ -3,7 +3,7 @@
  * BSD 3-Clause License, see COPYING
  */
 
-#include <solvcon/pilot/RPythonConsoleHistory.hpp>
+#include <solvcon/pilot/console/RPythonConsoleHistory.hpp>
 
 #include <filesystem>
 #include <fstream>

@@ -20,7 +20,7 @@
  * @ingroup group_domain
  */
 
-#include <solvcon/pilot/theme.hpp>
+#include <solvcon/pilot/theme/theme.hpp>
 
 #include <memory>
 #include <optional>

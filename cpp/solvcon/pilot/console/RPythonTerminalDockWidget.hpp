@@ -17,9 +17,9 @@
 
 #include <solvcon/python/common.hpp> // must be first.
 
-#include <solvcon/pilot/RPythonConsoleHistory.hpp>
-#include <solvcon/pilot/RPythonSyntaxHighlighter.hpp>
-#include <solvcon/pilot/theme.hpp>
+#include <solvcon/pilot/console/RPythonConsoleHistory.hpp>
+#include <solvcon/pilot/console/RPythonSyntaxHighlighter.hpp>
+#include <solvcon/pilot/theme/theme.hpp>
 
 #include <cstddef>
 #include <string>

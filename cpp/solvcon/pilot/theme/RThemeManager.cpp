@@ -3,7 +3,7 @@
  * BSD 3-Clause License, see COPYING
  */
 
-#include <solvcon/pilot/RThemeManager.hpp> // Must be the first include.
+#include <solvcon/pilot/theme/RThemeManager.hpp> // Must be the first include.
 
 #include <QApplication>
 #include <QColor>

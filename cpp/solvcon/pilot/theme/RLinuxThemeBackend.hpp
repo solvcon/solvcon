@@ -7,17 +7,18 @@
 
 /**
  * @file
- * The macOS room: the native theme backend for macOS.
+ * The Linux room: the native theme backend for Linux and other desktops.
  *
- * Installs the native macos style, reads the user's system accent, and leans
- * on the color-scheme hint the manager sets to pin a variant, title bar
- * included, on Qt 6.8 and newer. Only linked into the macOS build; the factory
- * in RThemeBackend.cpp is the sole site that selects it.
+ * Keeps the desktop's own Qt style, honors the desktop accent when a
+ * recognized platform theme exposes one, and otherwise leans on the curated
+ * palettes. It is the room with the most variety across desktops, so it leans
+ * hardest on the shared fallback. This is also the factory's default, selected
+ * for any platform without a room of its own.
  *
  * @ingroup group_domain
  */
 
-#include <solvcon/pilot/RThemeBackend.hpp>
+#include <solvcon/pilot/theme/RThemeBackend.hpp>
 
 #include <optional>
 #include <string>
@@ -26,11 +27,11 @@ namespace solvcon
 {
 
 /**
- * @brief The macOS native theme backend.
+ * @brief The Linux native theme backend.
  *
  * @ingroup group_domain
  */
-class RMacThemeBackend
+class RLinuxThemeBackend
     : public RThemeBackend
 {
 
@@ -42,7 +43,7 @@ public:
     void applyNativeChrome(QWidget * window, ThemeVariant variant) override;
     ThemeCapabilities capabilities() const override;
 
-}; /* end class RMacThemeBackend */
+}; /* end class RLinuxThemeBackend */
 
 } /* end namespace solvcon */
 

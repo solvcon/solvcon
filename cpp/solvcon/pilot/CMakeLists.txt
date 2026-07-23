@@ -7,6 +7,19 @@ set(SOLVCON_PILOT_PYMODHEADERS
     # common/
     ${CMAKE_CURRENT_SOURCE_DIR}/common/platform.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/common/render_misc.hpp
+    # theme/
+    ${CMAKE_CURRENT_SOURCE_DIR}/theme/theme.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/theme/RThemeBackend.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/theme/RMacThemeBackend.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/theme/RWindowsThemeBackend.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/theme/RLinuxThemeBackend.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/theme/RThemeManager.hpp
+    # console/
+    ${CMAKE_CURRENT_SOURCE_DIR}/console/RPythonConsoleDockWidget.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/console/RPythonTerminalDockWidget.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/console/RPythonConsoleHistory.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/console/RPythonSyntaxHighlighter.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/console/RPythonSyntaxRules.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RDomainWidget.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RScene.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RCameraController.hpp
@@ -26,19 +39,8 @@ set(SOLVCON_PILOT_PYMODHEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/RWorldRenderer2d.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RManager.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RMenuModel.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/theme.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RThemeBackend.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RMacThemeBackend.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RWindowsThemeBackend.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RLinuxThemeBackend.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RThemeManager.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/keymap.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RShortcutManager.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RPythonConsoleDockWidget.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RPythonTerminalDockWidget.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RPythonConsoleHistory.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RPythonSyntaxHighlighter.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RPythonSyntaxRules.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RAction.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/pilot.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/wrap_pilot.hpp
@@ -48,6 +50,19 @@ set(SOLVCON_PILOT_PYMODHEADERS
 set(SOLVCON_PILOT_PYMODSOURCES
     # common/
     ${CMAKE_CURRENT_SOURCE_DIR}/common/render_misc.cpp
+    # theme/
+    ${CMAKE_CURRENT_SOURCE_DIR}/theme/theme.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/theme/RThemeBackend.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/theme/RMacThemeBackend.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/theme/RWindowsThemeBackend.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/theme/RLinuxThemeBackend.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/theme/RThemeManager.cpp
+    # console/
+    ${CMAKE_CURRENT_SOURCE_DIR}/console/RPythonConsoleDockWidget.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/console/RPythonTerminalDockWidget.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/console/RPythonConsoleHistory.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/console/RPythonSyntaxHighlighter.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/console/RPythonSyntaxRules.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RDomainWidget.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RScene.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RCameraController.cpp
@@ -69,19 +84,8 @@ set(SOLVCON_PILOT_PYMODSOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/RWorldRenderer2d.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RManager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RMenuModel.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/theme.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RThemeBackend.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RMacThemeBackend.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RWindowsThemeBackend.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RLinuxThemeBackend.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RThemeManager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/keymap.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RShortcutManager.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RPythonConsoleDockWidget.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RPythonTerminalDockWidget.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RPythonConsoleHistory.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RPythonSyntaxHighlighter.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RPythonSyntaxRules.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/RAction.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/wrap_pilot.cpp
     CACHE FILEPATH "" FORCE

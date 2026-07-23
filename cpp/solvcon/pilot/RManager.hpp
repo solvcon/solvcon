@@ -18,8 +18,8 @@
 #include <solvcon/pilot/RDomainWidget.hpp>
 #include <solvcon/pilot/R2DWidget.hpp>
 #include <solvcon/pilot/RAction.hpp>
-#include <solvcon/pilot/RPythonConsoleDockWidget.hpp>
-#include <solvcon/pilot/RPythonTerminalDockWidget.hpp>
+#include <solvcon/pilot/console/RPythonConsoleDockWidget.hpp>
+#include <solvcon/pilot/console/RPythonTerminalDockWidget.hpp>
 
 #include <vector>
 

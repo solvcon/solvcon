@@ -3,7 +3,7 @@
  * BSD 3-Clause License, see COPYING
  */
 
-#include <solvcon/pilot/RMacThemeBackend.hpp>
+#include <solvcon/pilot/theme/RMacThemeBackend.hpp>
 
 #include <QtGlobal>
 

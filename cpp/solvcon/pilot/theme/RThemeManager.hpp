@@ -18,8 +18,8 @@
 #include <memory>
 #include <string>
 
-#include <solvcon/pilot/theme.hpp>
-#include <solvcon/pilot/RThemeBackend.hpp>
+#include <solvcon/pilot/theme/theme.hpp>
+#include <solvcon/pilot/theme/RThemeBackend.hpp>
 
 #include <QColor>
 #include <QObject>

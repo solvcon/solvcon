@@ -7,17 +7,17 @@
 
 /**
  * @file
- * The Windows room: the native theme backend for Windows.
+ * The macOS room: the native theme backend for macOS.
  *
- * Installs the windows11 style (falling back to windowsvista), reads the
- * operating system accent, and switches the title bar to its dark variant
- * through the desktop window manager. Only linked into the Windows build; the
- * factory in RThemeBackend.cpp is the sole site that selects it.
+ * Installs the native macos style, reads the user's system accent, and leans
+ * on the color-scheme hint the manager sets to pin a variant, title bar
+ * included, on Qt 6.8 and newer. Only linked into the macOS build; the factory
+ * in RThemeBackend.cpp is the sole site that selects it.
  *
  * @ingroup group_domain
  */
 
-#include <solvcon/pilot/RThemeBackend.hpp>
+#include <solvcon/pilot/theme/RThemeBackend.hpp>
 
 #include <optional>
 #include <string>
@@ -26,11 +26,11 @@ namespace solvcon
 {
 
 /**
- * @brief The Windows native theme backend.
+ * @brief The macOS native theme backend.
  *
  * @ingroup group_domain
  */
-class RWindowsThemeBackend
+class RMacThemeBackend
     : public RThemeBackend
 {
 
@@ -42,7 +42,7 @@ public:
     void applyNativeChrome(QWidget * window, ThemeVariant variant) override;
     ThemeCapabilities capabilities() const override;
 
-}; /* end class RWindowsThemeBackend */
+}; /* end class RMacThemeBackend */
 
 } /* end namespace solvcon */
 
