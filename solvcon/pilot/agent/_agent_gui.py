@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QDockWidget,
                                QPushButton)
 
 from ...agent import AgentSession, available_backends
+from . import _agent_control
 from ..base import _gui_common
 
 __all__ = [  # noqa: F822
@@ -82,7 +83,8 @@ class AgentConsoleWidget(QWidget):
         self._status.setVisible(False)
 
         self._input = QLineEdit()
-        self._input.setPlaceholderText("Ask the agent to draw...")
+        self._input.setPlaceholderText(
+            "Ask the agent to draw, arrange windows, or aim the view...")
         self._send = QPushButton("Send")
 
         selector = QHBoxLayout()
@@ -158,7 +160,9 @@ class AgentPanel(_gui_common.PilotFeature):
 
     It holds one :class:`~solvcon.agent.AgentSession` reused across prompts
     (the "current session"), rebinding it to the active world and the selected
-    backend on each turn.
+    backend on each turn.  The session runs a dispatcher over the Agent Draw,
+    Agent Window, and Agent View families, so a prompt can draw on the canvas,
+    open or arrange windows, and aim the view through one tool surface.
     """
 
     def __init__(self, *args, **kw):
@@ -166,7 +170,8 @@ class AgentPanel(_gui_common.PilotFeature):
         self._action = None
         self._dock = None
         self._panel = None
-        self._session = AgentSession()
+        self._session = AgentSession(
+            runner=_agent_control.build_control_dispatcher(self._mgr))
         self._worker = None
         self._active_widget = None
         # Make sure the worker thread is joined before the main thread exits.
@@ -224,6 +229,8 @@ class AgentPanel(_gui_common.PilotFeature):
         widget = self._mgr.currentR2DWidget()
         session = self._session
         session.backend = self._panel.selected_backend()
+        # The draw, window, and view executors resolve the active canvas on
+        # their own; bind_world only keeps scene_context pointed at it.
         session.bind_world(None if widget is None else widget.world)
         self._panel.append_message("user", prompt)
         self._panel.clear_input()
@@ -234,8 +241,10 @@ class AgentPanel(_gui_common.PilotFeature):
         self._active_widget = widget
         self._panel.set_busy(True)
         self._panel.start_working()
+        scene = _agent_control.pilot_scene_context(
+            session.runner, session.scene_context())
         self._worker = AgentBackendWorker(
-            session.backend, prompt, session.scene_context(),
+            session.backend, prompt, scene,
             session.tool_surface(), parent=self._panel)
         self._worker.succeeded.connect(self._on_backend_succeeded)
         self._worker.failed.connect(self._on_backend_failed)

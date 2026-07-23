@@ -301,6 +301,15 @@ class CommandProcessor:
     def log(self):
         return list(self._log)
 
+    def tool_definitions(self):
+        """The tool definitions of the one family this processor runs."""
+        return self.command_set.tool_definitions()
+
+    def commands_by_category(self):
+        """The ops of the one family this processor runs, grouped by
+        category."""
+        return self.command_set.commands_by_category()
+
     def run(self, command):
         """Validate and apply one command, returning its ``CommandResult``."""
         op = command.get("op", "?") if isinstance(command, dict) else "?"
@@ -358,6 +367,15 @@ class CommandDispatcher:
         for executor in self.executors:
             tools.extend(executor.command_set.tool_definitions())
         return tools
+
+    def commands_by_category(self):
+        """Merge every member family's ops, grouped by category."""
+        merged = {}
+        for executor in self.executors:
+            grouped = executor.command_set.commands_by_category()
+            for category, ops in grouped.items():
+                merged.setdefault(category, []).extend(ops)
+        return merged
 
     def _route(self, command):
         if not isinstance(command, dict):

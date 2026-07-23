@@ -157,8 +157,10 @@ class SubprocessBackend(_backend.AgentBackend):
         return self.executable() is not None
 
     @abc.abstractmethod
-    def _build_argv(self, exe, prompt):
-        """The argv that runs ``exe`` on the composed ``prompt``."""
+    def _build_argv(self, exe, user_prompt, system_prompt):
+        """The argv that runs ``exe`` on the ``user_prompt``, passing
+        ``system_prompt`` through whatever system-prompt channel the CLI
+        offers."""
 
     def _parse_output(self, stdout):
         """Extract the assistant text from CLI ``stdout``.  The default treats
@@ -170,9 +172,10 @@ class SubprocessBackend(_backend.AgentBackend):
         if exe is None:
             return _backend.BackendResponse(
                 error="%s not found on PATH" % self.command)
-        composed = self._compose_prompt(prompt, scene_context, tool_surface)
+        user_prompt = self._compose_user(prompt, scene_context, tool_surface)
+        argv = self._build_argv(exe, user_prompt, self._INSTRUCTIONS)
         try:
-            code, out, err = self._communicate(self._build_argv(exe, composed))
+            code, out, err = self._communicate(argv)
         except subprocess.TimeoutExpired:
             return _backend.BackendResponse(
                 error="%s timed out" % self.command)
@@ -234,10 +237,11 @@ class ClaudeCliBackend(SubprocessBackend):
 
     command = "claude"
 
-    def _build_argv(self, exe, prompt):
+    def _build_argv(self, exe, user_prompt, system_prompt):
         # TODO: provide more permission and config to the CLI sandbox later.
         return [
-            exe, "-p", prompt, "--output-format", "json",
+            exe, "-p", user_prompt, "--output-format", "json",
+            "--append-system-prompt", system_prompt,
             "--tools", "",
             "--permission-mode", "dontAsk",  # no interactive prompts
             "--setting-sources", "",  # no config files
@@ -315,11 +319,14 @@ class OpenAIHttpBackend(_backend.AgentBackend):
         if not self.available():
             return _backend.BackendResponse(
                 error="openai http backend needs base_url and model")
-        composed = self._compose_prompt(prompt, scene_context, tool_surface)
+        user_prompt = self._compose_user(prompt, scene_context, tool_surface)
         body = {
             "model": self._model,
             "stream": False,
-            "messages": [{"role": "user", "content": composed}],
+            "messages": [
+                {"role": "system", "content": self._INSTRUCTIONS},
+                {"role": "user", "content": user_prompt},
+            ],
         }
         try:
             status, raw = self._post_chat(body)
