@@ -61,7 +61,17 @@ protected:
 
 private:
 
-    // Interleaved [x, y, z, r, g, b] per vertex, captured at construction.
+    /*
+     * The geometry is kept as one interleaved [x, y, z, r, g, b] vertex buffer
+     * plus a shared-vertex index buffer, the layout QRhi vertex input reads
+     * directly, so createGeometry() uploads it with no repack. This is
+     * deliberately not the universe TrianglePad: that container stores corners
+     * de-indexed in a structure-of-arrays layout and carries no color, so it
+     * cannot express the per-vertex color or the vertex sharing kept here, and
+     * it would force a gather into this buffer on every upload while pulling the
+     * geometry/boolean-ops module into the renderer. A TrianglePad is adapted
+     * into the (vertices, colors, indices) constructor arrays instead.
+     */
     SimpleCollector<float> m_interleaved;
     SimpleCollector<uint32_t> m_indices;
 
