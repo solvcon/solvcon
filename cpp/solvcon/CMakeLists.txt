@@ -30,6 +30,8 @@ if (BUILD_QT)
     find_package(Qt6 QUIET OPTIONAL_COMPONENTS GuiPrivate)
     # ShaderTools provides qt6_add_shaders() and the qsb tool.
     find_package(Qt6 REQUIRED COMPONENTS ShaderTools)
+    # Svg provides QSvgGenerator, used by R2DWidget::saveSvg.
+    find_package(Qt6 REQUIRED COMPONENTS Svg)
 endif () # BUILD_QT
 
 add_subdirectory(buffer)
@@ -120,6 +122,7 @@ if (BUILD_QT)
         Qt::Widgets
         Qt::Core
         Qt::Gui
+        Qt::Svg
     )
 
     # <rhi/qrhi.h> lives in the QtGui private headers. Prefer the GuiPrivate

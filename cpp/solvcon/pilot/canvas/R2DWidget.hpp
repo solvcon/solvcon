@@ -110,6 +110,16 @@ public:
      */
     QImage renderImage(Overlay2dOptions const & overlay) const;
 
+    /**
+     * Write the widget's current geometry, chrome, and given overlay to
+     * filename as SVG, sized to the widget's current logical width and
+     * height (no device-pixel scaling: SVG is resolution-independent).
+     * Returns whether the file was opened for writing successfully. Like
+     * renderImage, the selection box and any in-progress rubber band stay
+     * out of the exported frame.
+     */
+    bool saveSvg(std::string const & filename, Overlay2dOptions const & overlay) const;
+
     /// Hook for subsequent stages; current implementation triggers a repaint.
     void requestRepaint() { update(); }
 
