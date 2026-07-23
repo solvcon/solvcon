@@ -14,10 +14,10 @@
 
 #include <solvcon/pilot/common/common_detail.hpp> // Must be the first include.
 
-#include <solvcon/pilot/DrawTool.hpp>
+#include <solvcon/pilot/canvas/DrawTool.hpp>
 #include <solvcon/pilot/visual/RDomainWidget.hpp>
-#include <solvcon/pilot/R2DWidget.hpp>
-#include <solvcon/pilot/RAction.hpp>
+#include <solvcon/pilot/canvas/R2DWidget.hpp>
+#include <solvcon/pilot/app/RAction.hpp>
 #include <solvcon/pilot/console/RPythonConsoleDockWidget.hpp>
 #include <solvcon/pilot/console/RPythonTerminalDockWidget.hpp>
 

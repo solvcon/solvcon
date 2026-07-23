@@ -3,7 +3,7 @@
  * BSD 3-Clause License, see COPYING
  */
 
-#include <solvcon/pilot/RWorldRenderer2d.hpp> // Must be the first include.
+#include <solvcon/pilot/canvas/RWorldRenderer2d.hpp> // Must be the first include.
 
 #include <algorithm>
 #include <cmath>

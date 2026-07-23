@@ -3,7 +3,7 @@
  * BSD 3-Clause License, see COPYING
  */
 
-#include <solvcon/pilot/RAction.hpp> // Must be the first include.
+#include <solvcon/pilot/app/RAction.hpp> // Must be the first include.
 
 #include <functional>
 

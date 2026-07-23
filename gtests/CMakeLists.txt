@@ -43,7 +43,7 @@ add_executable(
     ${SOLVCON_INCLUDE_DIR}/solvcon/pilot/console/RPythonConsoleHistory.cpp
     ${SOLVCON_INCLUDE_DIR}/solvcon/pilot/console/RPythonSyntaxRules.cpp
     ${SOLVCON_INCLUDE_DIR}/solvcon/pilot/theme/theme.cpp
-    ${SOLVCON_INCLUDE_DIR}/solvcon/pilot/keymap.cpp
+    ${SOLVCON_INCLUDE_DIR}/solvcon/pilot/app/keymap.cpp
     ${SOLVCON_TOGGLE_SOURCES}
     ${SOLVCON_PROFILING_SOURCES}
     ${SOLVCON_BUFFER_SOURCES}

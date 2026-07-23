@@ -15,8 +15,8 @@
 #include <solvcon/pilot/common/common_detail.hpp> // Must be the first include.
 
 #include <solvcon/buffer/small_vector.hpp>
-#include <solvcon/pilot/DrawTool.hpp>
-#include <solvcon/pilot/RWorldRenderer2d.hpp>
+#include <solvcon/pilot/canvas/DrawTool.hpp>
+#include <solvcon/pilot/canvas/RWorldRenderer2d.hpp>
 #include <solvcon/universe/ViewTransform2d.hpp>
 #include <solvcon/universe/World.hpp>
 

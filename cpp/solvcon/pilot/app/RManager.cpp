@@ -3,16 +3,16 @@
  * BSD 3-Clause License, see COPYING
  */
 
-#include <solvcon/pilot/RManager.hpp> // Must be the first include.
+#include <solvcon/pilot/app/RManager.hpp> // Must be the first include.
 
 #include <functional>
 #include <stdexcept>
 #include <vector>
 
-#include <solvcon/pilot/DrawTool.hpp>
-#include <solvcon/pilot/RAction.hpp>
-#include <solvcon/pilot/RMenuModel.hpp>
-#include <solvcon/pilot/RShortcutManager.hpp>
+#include <solvcon/pilot/canvas/DrawTool.hpp>
+#include <solvcon/pilot/app/RAction.hpp>
+#include <solvcon/pilot/app/RMenuModel.hpp>
+#include <solvcon/pilot/app/RShortcutManager.hpp>
 #include <solvcon/pilot/theme/RThemeManager.hpp>
 #include <Qt>
 #include <QMenuBar>

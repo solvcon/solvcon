@@ -35,14 +35,16 @@ set(SOLVCON_PILOT_PYMODHEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/visual/RNormals.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/visual/RAxisGizmo.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/visual/RMaterial.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/R2DWidget.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/DrawTool.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RWorldRenderer2d.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RManager.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RMenuModel.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/keymap.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RShortcutManager.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RAction.hpp
+    # canvas/
+    ${CMAKE_CURRENT_SOURCE_DIR}/canvas/R2DWidget.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/canvas/DrawTool.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/canvas/RWorldRenderer2d.hpp
+    # app/
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/RManager.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/RMenuModel.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/keymap.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/RShortcutManager.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/RAction.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/pilot.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/wrap_pilot.hpp
     CACHE FILEPATH "" FORCE
@@ -80,15 +82,17 @@ set(SOLVCON_PILOT_PYMODSOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/visual/RSegments.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/visual/RAxisGizmo.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/visual/RMaterial.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RTextOverlay.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/R2DWidget.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/DrawTool.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RWorldRenderer2d.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RManager.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RMenuModel.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/keymap.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RShortcutManager.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/RAction.cpp
+    # canvas/
+    ${CMAKE_CURRENT_SOURCE_DIR}/canvas/RTextOverlay.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/canvas/R2DWidget.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/canvas/DrawTool.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/canvas/RWorldRenderer2d.cpp
+    # app/
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/RManager.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/RMenuModel.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/keymap.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/RShortcutManager.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/RAction.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/wrap_pilot.cpp
     CACHE FILEPATH "" FORCE
 )

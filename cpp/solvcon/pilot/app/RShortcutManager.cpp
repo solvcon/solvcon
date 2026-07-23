@@ -3,7 +3,7 @@
  * BSD 3-Clause License, see COPYING
  */
 
-#include <solvcon/pilot/RShortcutManager.hpp> // Must be the first include.
+#include <solvcon/pilot/app/RShortcutManager.hpp> // Must be the first include.
 
 #include <cstddef>
 #include <stdexcept>

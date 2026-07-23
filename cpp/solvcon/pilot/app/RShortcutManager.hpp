@@ -22,7 +22,7 @@
 #include <string>
 #include <vector>
 
-#include <solvcon/pilot/keymap.hpp>
+#include <solvcon/pilot/app/keymap.hpp>
 
 #include <QList>
 #include <QKeySequence>

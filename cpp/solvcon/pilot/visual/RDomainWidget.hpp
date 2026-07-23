@@ -19,7 +19,7 @@
 #include <solvcon/pilot/visual/RColormap.hpp>
 #include <solvcon/pilot/visual/RScalarBar.hpp>
 #include <solvcon/pilot/visual/RScene.hpp>
-#include <solvcon/pilot/RTextOverlay.hpp>
+#include <solvcon/pilot/canvas/RTextOverlay.hpp>
 #include <solvcon/pilot/visual/RDrawable.hpp>
 
 #include <solvcon/solvcon.hpp>

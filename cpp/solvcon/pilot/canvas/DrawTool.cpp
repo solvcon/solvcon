@@ -3,7 +3,7 @@
  * BSD 3-Clause License, see COPYING
  */
 
-#include <solvcon/pilot/DrawTool.hpp>
+#include <solvcon/pilot/canvas/DrawTool.hpp>
 
 #include <algorithm>
 #include <cmath>

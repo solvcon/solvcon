@@ -3,7 +3,7 @@
  * BSD 3-Clause License, see COPYING
  */
 
-#include <solvcon/pilot/RTextOverlay.hpp> // Must be the first include.
+#include <solvcon/pilot/canvas/RTextOverlay.hpp> // Must be the first include.
 
 #include <QColor>
 #include <QFont>
