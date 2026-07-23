@@ -10,7 +10,7 @@ import solvcon
 try:
     from solvcon import pilot
     from solvcon import agent
-    from solvcon.pilot import _agent_gui
+    from solvcon.pilot.agent import _agent_gui
     from PySide6.QtCore import Qt, QCoreApplication
 except ImportError:
     pilot = None

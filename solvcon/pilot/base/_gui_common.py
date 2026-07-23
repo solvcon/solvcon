@@ -2,8 +2,8 @@
 # BSD 3-Clause License, see COPYING
 
 
-from . import _pilot_core as _pcore
-from ..core import Toggle
+from .. import _pilot_core as _pcore
+from ...core import Toggle
 from PySide6 import QtCore, QtGui
 
 

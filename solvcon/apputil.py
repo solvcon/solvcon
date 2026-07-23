@@ -323,12 +323,12 @@ def build_pilot_namespace(mgr):
     def load_mesh(name):
         """Build a built-in sample mesh, show it in a fresh 3D viewer, and
         return the viewer.  Call sample_meshes() for the available names."""
-        from .pilot import _mesh
+        from .pilot.visual import _mesh
         return show_mesh(_mesh.SampleMesh().make(name))
 
     def sample_meshes():
         """List the names of the built-in sample meshes."""
-        from .pilot import _mesh
+        from .pilot.visual import _mesh
         return list(_mesh.SampleMesh.names())
 
     viewer = mgr.currentR3DWidget()

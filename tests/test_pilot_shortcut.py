@@ -9,8 +9,8 @@ import solvcon
 
 try:
     from solvcon import pilot
-    from solvcon.pilot import _gui
-    from solvcon.pilot import _gui_common
+    from solvcon.pilot.base import _gui
+    from solvcon.pilot.base import _gui_common
     from PySide6 import QtCore, QtGui
 except ImportError:
     pilot = None

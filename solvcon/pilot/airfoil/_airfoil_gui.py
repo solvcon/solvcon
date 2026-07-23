@@ -8,7 +8,7 @@ GUI for NACA airfoil shape
 
 from ... import core
 
-from .. import _gui_common
+from ..base import _gui_common
 from . import _naca
 
 
