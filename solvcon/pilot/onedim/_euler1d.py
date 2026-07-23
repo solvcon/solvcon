@@ -2,9 +2,9 @@
 # BSD 3-Clause License, see COPYING
 
 
-from ..onedim import euler1d
+from ...onedim import euler1d
 
-from . import _base_app
+from .. import _base_app
 
 
 class Euler1DApp(_base_app.OneDimBaseApp):

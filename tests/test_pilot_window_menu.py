@@ -17,7 +17,8 @@ import solvcon
 
 try:
     from solvcon import pilot
-    from solvcon.pilot import _euler1d, _gui
+    from solvcon.pilot import _gui
+    from solvcon.pilot.onedim import _euler1d
     from solvcon.pilot._window_manager import WindowManager
     from PySide6 import QtWidgets
 except ImportError:

@@ -19,14 +19,14 @@ if _pcore.enable:
     from . import _tree_panel
     from ._euler import _solution_info
     from ._euler import _oblique
-    from . import _euler1d
-    from . import _burgers1d
+    from .onedim import _euler1d
+    from .onedim import _burgers1d
     from . import _svg_gui
-    from . import _linear_wave
+    from .onedim import _linear_wave
     from . import _canvas_gui
     from . import _painter_gui
     from . import _profiling
-    from . import _agent_gui
+    from .agent import _agent_gui
     from . import _theme
     from . import _window_manager
 

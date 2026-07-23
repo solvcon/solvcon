@@ -4,7 +4,7 @@
 
 import numpy as np
 
-from . import _base_app
+from .. import _base_app
 
 
 class BurgersEquation:
