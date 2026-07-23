@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QFormLayout,
 from ... import core
 from ...multidim.euler import oblique
 from . import _field_render
-from .. import _gui_common
+from ..base import _gui_common
 
 __all__ = [  # noqa: F822
     'SolutionInfo',

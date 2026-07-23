@@ -12,7 +12,7 @@ from PySide6 import QtCore, QtWidgets
 from ... import core
 from ...plot import curve, plane_layer
 
-from .. import _gui_common
+from ..base import _gui_common
 
 __all__ = [
     'Canvas',

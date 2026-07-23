@@ -13,7 +13,7 @@ fields is handled by the interactive panel in :mod:`._solution_info`.
 """
 
 from ...multidim.euler import oblique
-from .. import _gui_common
+from ..base import _gui_common
 
 __all__ = [  # noqa: F822
     'ObliqueShockMesh',

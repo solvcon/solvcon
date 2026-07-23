@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QDockWidget,
                                QPushButton)
 
 from ...agent import AgentSession, available_backends
-from .. import _gui_common
+from ..base import _gui_common
 
 __all__ = [  # noqa: F822
     'AgentBackendWorker',

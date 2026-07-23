@@ -513,7 +513,7 @@ class Save2DCanvasDialogTC(unittest.TestCase):
         self.assertIsNone(resolve_save_path("", _PNG_FILTER))
 
     def test_menu_action_is_registered(self):
-        from solvcon.pilot import _gui
+        from solvcon.pilot.base import _gui
         mgr = _gui.controller.build()
         act = mgr.menu_model.action("file.save_2d_canvas")
         self.assertIsNotNone(act)

@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (QDockWidget, QLabel, QVBoxLayout, QHBoxLayout,
                                QComboBox, QPushButton, QSpacerItem, QMenu,
                                QSizePolicy, QDialog, QWidget, QTableView)
 
-from .. import core as mcore
+from ... import core as mcore
 
 from . import _gui_common
 

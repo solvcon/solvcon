@@ -7,7 +7,7 @@ Painter toolbox for the 2D canvas.
 
 from PySide6 import QtCore, QtWidgets
 
-from .. import _gui_common
+from ..base import _gui_common
 from .._pilot_core import draw_tool_names, default_draw_tool_name
 
 __all__ = [

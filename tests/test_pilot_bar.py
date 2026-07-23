@@ -9,7 +9,7 @@ import solvcon
 
 try:
     from solvcon import pilot
-    from solvcon.pilot import _gui
+    from solvcon.pilot.base import _gui
 except ImportError:
     pilot = None
 

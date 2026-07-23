@@ -7,7 +7,7 @@ import functools
 import itertools
 import importlib.util
 
-from .. import _gui_common
+from ..base import _gui_common
 
 from ... import call_profiler
 from ... import apputil

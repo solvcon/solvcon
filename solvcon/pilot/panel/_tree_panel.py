@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QTreeWidget,
                                QSizePolicy, QAbstractButton)
 
 from ... import core
-from .. import _gui_common
+from ..base import _gui_common
 from ..visual import _mesh
 
 __all__ = [  # noqa: F822

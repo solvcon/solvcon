@@ -9,7 +9,7 @@ import solvcon
 
 try:
     from solvcon import pilot
-    from solvcon.pilot import _gui
+    from solvcon.pilot.base import _gui
     from PySide6 import QtWidgets
     from PySide6.QtCore import QSettings, QStandardPaths
     from PySide6.QtGui import QPalette

@@ -9,7 +9,7 @@ import solvcon
 
 try:
     from solvcon import pilot
-    from solvcon.pilot import _gui
+    from solvcon.pilot.base import _gui
     from solvcon.pilot._pilot_core import draw_tool_names
 except ImportError:
     pilot = None

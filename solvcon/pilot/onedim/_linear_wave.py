@@ -4,7 +4,7 @@
 
 import numpy as np
 
-from .. import _base_app
+from ..base import _base_app
 from ...onedim import linear_scalar
 
 
