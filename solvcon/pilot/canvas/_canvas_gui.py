@@ -21,13 +21,16 @@ __all__ = [
 
 _PNG_FILTER = "PNG image (*.png)"
 _JPG_FILTER = "JPEG image (*.jpg *.jpeg)"
-_ALLOWED_EXTS = (".png", ".jpg", ".jpeg")
+_SVG_FILTER = "SVG image (*.svg)"
+_ALLOWED_EXTS = (".png", ".jpg", ".jpeg", ".svg")
 
 
 def resolve_save_path(path, name_filter):
-    """Force ``path`` to a png/jpg extension from the chosen name filter.
+    """Force ``path`` to a png/jpg/svg extension from the chosen name
+    filter.
 
-    Returns the resolved path, or ``None`` when the result is not png/jpg.
+    Returns the resolved path, or ``None`` when the result is not
+    png/jpg/svg.
     """
     if not path:
         return None
@@ -40,6 +43,9 @@ def resolve_save_path(path, name_filter):
     elif "jpg" in filt or "jpeg" in filt:
         if ext not in (".jpg", ".jpeg"):
             path = root + ".jpg"
+    elif "svg" in filt:
+        if ext != ".svg":
+            path = root + ".svg"
     elif ext not in _ALLOWED_EXTS:
         return None
     return path
@@ -47,7 +53,8 @@ def resolve_save_path(path, name_filter):
 
 class Save2DCanvasDialog(_gui_common.PilotFeature):
     """
-    File-menu action that saves the focused 2D canvas via ``saveImage``.
+    File-menu action that saves the focused 2D canvas via ``saveImage`` or,
+    for a chosen ``.svg`` path, ``saveSvg``.
 
     The save dialog carries an "Include labels" switch with a normal/advanced
     selector and an independent "Include coordinates" switch, so the exported
@@ -72,7 +79,7 @@ class Save2DCanvasDialog(_gui_common.PilotFeature):
         self._diag.setOption(QtWidgets.QFileDialog.DontUseNativeDialog, True)
         self._diag.setAcceptMode(QtWidgets.QFileDialog.AcceptSave)
         self._diag.setFileMode(QtWidgets.QFileDialog.AnyFile)
-        self._diag.setNameFilters([_PNG_FILTER, _JPG_FILTER])
+        self._diag.setNameFilters([_PNG_FILTER, _JPG_FILTER, _SVG_FILTER])
         self._diag.setDefaultSuffix("png")
         self._diag.setWindowTitle("Save 2D canvas")
         self._diag.filterSelected.connect(self._on_filter_selected)
@@ -111,7 +118,7 @@ class Save2DCanvasDialog(_gui_common.PilotFeature):
         self.add_action(
             "File",
             text="Save 2D canvas",
-            tip="Save the focused 2D canvas as a PNG or JPEG image",
+            tip="Save the focused 2D canvas as a PNG, JPEG, or SVG image",
             func=self.run,
             id="file.save_2d_canvas",
             weight=30,
@@ -146,6 +153,8 @@ class Save2DCanvasDialog(_gui_common.PilotFeature):
         filt = (name_filter or "").lower()
         if "jpg" in filt or "jpeg" in filt:
             self._diag.setDefaultSuffix("jpg")
+        elif "svg" in filt:
+            self._diag.setDefaultSuffix("svg")
         else:
             self._diag.setDefaultSuffix("png")
 
@@ -157,7 +166,7 @@ class Save2DCanvasDialog(_gui_common.PilotFeature):
         path = resolve_save_path(selected[0], self._diag.selectedNameFilter())
         if path is None:
             self._pycon.writeToHistory(
-                "Save 2D canvas: only png or jpg is allowed\n")
+                "Save 2D canvas: only png, jpg, or svg is allowed\n")
             return
         self._save_current(path)
 
@@ -181,7 +190,11 @@ class Save2DCanvasDialog(_gui_common.PilotFeature):
             return False
         # _export_overlay reads the dialog's label controls; build it first.
         self._ensure_dialog()
-        ok = widget.saveImage(path, self._export_overlay(widget))
+        overlay = self._export_overlay(widget)
+        if path.lower().endswith(".svg"):
+            ok = widget.saveSvg(path, overlay)
+        else:
+            ok = widget.saveImage(path, overlay)
         if ok:
             self._pycon.writeToHistory(f"Save 2D canvas: wrote {path}\n")
         else:

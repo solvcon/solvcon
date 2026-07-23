@@ -548,6 +548,17 @@ class Save2DCanvasDialogTC(unittest.TestCase):
         self.assertIsNone(resolve_save_path("/tmp/a.bmp", ""))
         self.assertIsNone(resolve_save_path("", _PNG_FILTER))
 
+    def test_resolve_save_path_forces_svg(self):
+        from solvcon.pilot.canvas._canvas_gui import (
+            resolve_save_path, _SVG_FILTER)
+        self.assertEqual(
+            resolve_save_path("/tmp/a", _SVG_FILTER), "/tmp/a.svg")
+        self.assertEqual(
+            resolve_save_path("/tmp/a.png", _SVG_FILTER), "/tmp/a.svg")
+        self.assertEqual(
+            resolve_save_path("/tmp/a.svg", _SVG_FILTER), "/tmp/a.svg")
+        self.assertEqual(resolve_save_path("/tmp/a.svg", ""), "/tmp/a.svg")
+
     def test_menu_action_is_registered(self):
         from solvcon.pilot.base import _gui
         mgr = _gui.controller.build()
@@ -588,6 +599,17 @@ class Save2DCanvasDialogTC(unittest.TestCase):
         feature._ensure_dialog()
         self.assertIs(feature._diag, built)
 
+    def test_dialog_offers_svg_filter_and_sets_suffix(self):
+        """The SVG filter is offered, and selecting it sets the default
+        suffix to svg, matching the existing png/jpg behavior."""
+        from solvcon.pilot.canvas import _canvas_gui
+        mgr = pilot.RManager.instance.setUp()
+        feature = _canvas_gui.Save2DCanvasDialog(mgr=mgr)
+        feature._ensure_dialog()
+        self.assertIn(_canvas_gui._SVG_FILTER, feature._diag.nameFilters())
+        feature._on_filter_selected(_canvas_gui._SVG_FILTER)
+        self.assertEqual(feature._diag.defaultSuffix(), "svg")
+
     def test_save_current_reports_write_result(self):
         """Menu save path returns saveImage's bool and only writes on
         success."""
@@ -607,6 +629,25 @@ class Save2DCanvasDialogTC(unittest.TestCase):
             self.assertFalse(feature._save_current(bad))
             self.assertFalse(os.path.isfile(bad))
         self.assertEqual(data[:8], _PNG_MAGIC)
+
+    def test_save_current_dispatches_to_save_svg(self):
+        """The menu save path writes SVG (not PNG) when the resolved path
+        ends in .svg."""
+        from solvcon.pilot.canvas import _canvas_gui
+        mgr = pilot.RManager.instance.setUp()
+        widget = mgr.add2DWidget()
+        widget.updateWorld(_build_world())
+        widget.resetView()
+        feature = _canvas_gui.Save2DCanvasDialog(mgr=mgr)
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder, "out.svg")
+            self.assertTrue(feature._save_current(path))
+            self.assertTrue(os.path.isfile(path))
+            with open(path, 'rb') as stream:
+                data = stream.read()
+        self.assertNotEqual(data[:8], _PNG_MAGIC)
+        root = ElementTree.fromstring(data)
+        self.assertTrue(root.tag.endswith("svg"))
 
 
 def _grab_foreground(widget, overlay=None):
