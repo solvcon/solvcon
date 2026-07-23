@@ -1,59 +1,47 @@
 #!/bin/bash
 #
-# Build solvcon's runtime dependencies from source into a user-space prefix,
-# with no dependency on the devenv tool. This is a single self-contained
-# cross-platform script: it holds the shared build logic and the
-# platform-specific parts for every supported OS inline, so nothing else in the
-# repository is sourced or called. The target platform is auto-detected from
-# `uname -s` (Linux -> ubuntu, Darwin -> macos) and can be forced with
-# SCDV_OS=ubuntu|macos.
+# Build solvcon's runtime dependencies from source into a user-space prefix.
+# This is a single self-contained cross-platform script: the shared build
+# logic and every per-OS part live inline, so nothing else is sourced or
+# called.  The platform is auto-detected from `uname -s` and can be forced
+# with SCDV_OS=ubuntu|macos.
 #
-# The platform-specific parts live in the per-OS `case` blocks below (search for
-# 'case "${SCDV_OS}"'). Each block sets SCDV_OS_TAG and the plat_* hook
-# functions this shared logic calls (see "Platform block contract" below), and
-# carries its own notes (apt/brew prerequisites, libclang, etc.). The
-# per-package build recipes are inlined translations of the scripts under
-# devenv/scripts/build.d/ (zlib, openssl, sqlite, python, pybind11, cython,
-# numpy, scipy, qt, pyside6).
+# The per-OS parts live in the `case "${SCDV_OS}"` blocks below; each sets
+# SCDV_OS_TAG and the plat_* hooks (see "Platform block contract") and
+# carries its own notes.  The build recipes are inlined translations of the
+# devenv/scripts/build.d/ scripts.
 #
-# 4 sections (BASE, PYTHON, NUMPY, QT) are guarded by the corresponding
-# SCDVBUILD_* environment variables.
-#
-# Before running this script, install the system prerequisites. The script
-# never invokes the OS package manager itself; run it with --print-deps to see
-# the exact commands, review them, and run them yourself.
+# 4 sections (BASE, PYTHON, NUMPY, QT) are guarded by the SCDVBUILD_*
+# environment variables.  Install the system prerequisites first: the script
+# never invokes the package manager; --print-deps shows the commands.
 #
 # Usage:
 #   ./build-scdv.sh
-#       Builds everything (BASE + PYTHON + NUMPY + QT).  The default is "build
-#       all" when no SCDVBUILD_* env var is set.  To limit to a single section,
-#       set one of SCDVBUILD_BASE/PYTHON/NUMPY/QT=1 and leave the others unset.
-#       In addition, SCDVBUILD_ALL=1 works the same as the default invocation.
-#       Before any package is built the user is prompted with "Press Enter to
-#       start the build, Ctrl-C to abort"; pass --no-confirm to skip.
+#       Build everything (BASE + PYTHON + NUMPY + QT) when no SCDVBUILD_* env
+#       var is set (SCDVBUILD_ALL=1 does the same); set one or more of
+#       SCDVBUILD_BASE/PYTHON/NUMPY/QT=1 to limit the sections.  Prompts
+#       before building; pass --no-confirm to skip.
 #   ./build-scdv.sh --write-activate-only
 #       Write only ${SCDV_BASE}/activate and exit.  Useful for refreshing the
 #       activation script for an already-built scdv without triggering any
 #       build section.
 #   ./build-scdv.sh --skip PKG [--skip PKG ...]
-#       Skip a package within whatever sections are otherwise selected.  PKG
-#       can be one of: zlib openssl sqlite python pybind11 cython numpy scipy
-#       qt pyside6.  The flag accepts a single name, a comma-separated list
-#       ("--skip openssl,sqlite"), and may be repeated.  The --skip=PKG form
-#       also works.
+#       Skip a package within the selected sections.  PKG is one of: zlib
+#       openssl sqlite python pybind11 cython numpy scipy qt pyside6.
+#       Accepts a comma-separated list, repetition, and the --skip=PKG form.
 #   ./build-scdv.sh --no-confirm
 #       Skip the "Press Enter to start the build" prompt that fires after the
 #       startup echo block.  Use in non-interactive runs (CI, scripts).
+#   ./build-scdv.sh --allow-write-to-active-env
+#       Proceed even when the shell has an activated scdv/mmdv environment.
+#       By default the build refuses to run then, because the activation
+#       exports SCDV_BASE and the build would install into the active tree.
 #   ./build-scdv.sh --print-prefix
-#       Print SCDV_PREFIX (the path prefix that SCDV_BASE is derived from)
-#       to stdout and exit.  Nothing else is printed and no directories are
-#       created, so this is safe to capture: PREFIX=$(./script --print-prefix).
+#       Print SCDV_PREFIX and exit, with no side effects; safe to capture.
 #   ./build-scdv.sh --print-deps
-#       Print the system prerequisite commands for the detected platform (apt
-#       on Ubuntu, brew on macOS) to stdout and exit.  Nothing is built and no
-#       directories are created.  The script never runs the package manager
-#       itself; copy the output, review it, and run it.  --print-apt is a
-#       backward-compatible alias.
+#       Print the system prerequisite commands (apt or brew) and exit.  The
+#       script never runs the package manager; copy, review, and run them
+#       yourself.  --print-apt is a backward-compatible alias.
 #
 # Overridable variables (search below for defaults):
 #   Platform:
@@ -105,12 +93,9 @@ if [ -z "${SCDV_OS}" ] ; then
   case "$(uname -s)" in
     Linux)
       SCDV_OS=ubuntu
-      # `uname -s` reports only "Linux", not the distribution, so every Linux
-      # host defaults to the Ubuntu 24.04 block (apt package names,
-      # /usr/lib/llvm-22, x86_64 openblas paths). Warn when /etc/os-release
-      # does not look like Ubuntu 24.04 so the assumption is visible; set
-      # SCDV_OS explicitly to silence this. The block is still used (as the
-      # per-OS Ubuntu script always did), just no longer silently.
+      # Every Linux host gets the Ubuntu 24.04 block; warn when
+      # /etc/os-release disagrees so the assumption is visible.  Set SCDV_OS
+      # explicitly to silence this.
       if [ -r /etc/os-release ] ; then
         _scdv_osrel=$(set +e ; . /etc/os-release 2>/dev/null ; \
                       printf '%s:%s' "${ID:-}" "${VERSION_ID:-}")
@@ -135,23 +120,15 @@ case "${SCDV_OS}" in
   ubuntu)
 
 #
-# Ubuntu 24.04 platform block: sets SCDV_OS_TAG and the plat_* hook functions
-# the shared build logic dispatches to.  Defined inline (only when
-# SCDV_OS=ubuntu); see the "Platform block contract" in the script header.
+# Ubuntu 24.04 platform block: sets SCDV_OS_TAG and the plat_* hooks (see the
+# "Platform block contract" in the script header).
 #
-# Before running the build, install the apt prerequisites. plat_print_deps
-# prints the exact commands; copy and run them yourself (the build never
-# invokes apt). LLVM_INSTALL_DIR defaults to /usr/lib/llvm-22 (the apt
-# llvm-22-dev path); override if needed.
-#
-# LLVM 22 is the libclang shiboken parses Qt headers with on Ubuntu 24.04 with
-# GCC 16: clang-18 is too old (its parser chokes on libstdc++-16).  Override
-# LLVM_INSTALL_DIR for another.  The patchelf apt package is the same binary
-# the patchelf PyPI wheel ships; either works, the build installs the wheel
-# anyway as a safety net.  libreadline is intentionally not listed: Python is
-# built with --with-readline=editline, which uses libedit (libedit-dev).
-# libmpdec is not packaged on Ubuntu 24.04; Python is built with
-# --with-system-libmpdec=no to use its bundled copy.
+# Install the apt prerequisites first; plat_print_deps prints them and the
+# build never invokes apt.  LLVM 22 is the libclang shiboken needs with GCC 16
+# (clang-18 chokes on libstdc++-16); override LLVM_INSTALL_DIR if it lives
+# elsewhere.  libreadline is not needed (Python builds with
+# --with-readline=editline against libedit-dev) and libmpdec is not packaged,
+# so Python bundles its own copy.
 
 # Token baked into the default prefix path (kept per-OS so existing installs
 # keep resolving).
@@ -190,28 +167,17 @@ EOF
 
 scdv_apt_latex_cmd() {
   # Print the apt command for the LaTeX toolchain the documentation needs.
-  # This is required by the ordinary HTML build (make html in doc/), not just
-  # a PDF: math is rendered client-side by MathJax (no TeX), but the pstake
-  # Sphinx extension (doc/ext/pstake.py) turns the ".. pstake::" PSTricks
-  # figures into PNG at build time by shelling out to latex -> dvips (EPS) ->
-  # ImageMagick convert (EPS -> PNG; Ghostscript is the fallback and also
-  # convert's EPS delegate).  pstake's TeX template needs pst-all/pst-3dplot/
-  # pst-eps/pst-coil/pst-bar/multido (texlive-pstricks), fancyvrb
-  # (texlive-latex-recommended), and optionally cmbright
-  # (texlive-fonts-extra); latex/dvips come from texlive-latex-base.
+  # Even the plain HTML build needs it: the pstake extension renders
+  # ".. pstake::" PSTricks figures via latex -> dvips -> ImageMagick convert
+  # (Ghostscript is the fallback and convert's EPS delegate).
+  # texlive-pstricks carries the pst-* styles; the other texlive packages
+  # cover whatever a figure pulls in beyond them plus the dvips/EPS helper
+  # binaries.
   #
-  # The package set below is deliberately broad: texlive-latex-extra and
-  # texlive-pictures (TikZ/PGF and the pst-node family) catch any package a
-  # figure pulls in beyond the core pst-* styles, texlive-plain-generic
-  # covers generic (non-LaTeX) macros, and texlive-extra-utils plus
-  # texlive-font-utils supply helper binaries (epstopdf, dvips/dvipdf
-  # wrappers, font tools) used along the dvips/EPS path.
-  #
-  # Gotcha: Ubuntu's ImageMagick ships /etc/ImageMagick-6/policy.xml with the
-  # EPS/PS coders disabled by default, so convert fails on the generated .eps.
-  # The pstake input is locally built and trusted, so comment out the
-  # rights="none" lines for "EPS" and "PS" there (or rely on the Ghostscript
-  # fallback by not installing imagemagick).
+  # Gotcha: Ubuntu's ImageMagick policy.xml disables the EPS/PS coders, so
+  # convert fails on the generated .eps.  The pstake input is locally built
+  # and trusted; comment out the rights="none" lines for EPS/PS, or skip
+  # imagemagick and rely on the Ghostscript fallback.
   cat <<'EOF'
 sudo apt install -y \
   texlive-latex-base texlive-latex-recommended texlive-latex-extra \
@@ -223,13 +189,10 @@ EOF
 }
 
 scdv_apt_qt_cmd() {
-  # Print the apt command for the QT section (Qt + pyside6 build deps).
-  # The X11/XCB -dev packages are the full set Qt's xcb platform plugin
-  # needs at configure time. Without all of them Qt silently builds without
-  # the xcb QPA plugin, leaving only offscreen/minimal, so a real (or xvfb)
-  # X display cannot be used. plat_qt_extra_cfg force-enables FEATURE_xcb so a
-  # missing dependency fails the configure loudly instead of dropping the
-  # plugin. CI installs the runtime counterparts of these -dev packages in
+  # Print the apt command for the QT section (Qt + pyside6 build deps).  The
+  # X11/XCB -dev list is the full set the xcb platform plugin needs at
+  # configure time; plat_qt_extra_cfg force-enables FEATURE_xcb so a missing
+  # one fails the configure loudly.  CI installs the runtime counterparts in
   # .github/actions/setup_linux/action.yml; keep the two sets in sync.
   cat <<'EOF'
 sudo apt install -y \
@@ -304,29 +267,21 @@ plat_numpy_run() {
 }
 
 plat_qt_env_strip() {
-  # A pre-existing Qt (e.g. /home/$USER/var/Qt/6.x) leaking through
-  # LD_LIBRARY_PATH or CMAKE_PREFIX_PATH would be loaded ahead of the freshly
-  # built Qt tools.  Strip them, plus any /var/Qt/ entries on PATH.
+  # Strip a pre-existing Qt from the loader/CMake env and from PATH.
   unset LD_LIBRARY_PATH CMAKE_PREFIX_PATH QT_ROOT QT_VER
   PATH=$(printf '%s' "${PATH}" | tr ':' '\n' | grep -v '/var/Qt/' | paste -sd:)
 }
 
 plat_qt_extra_cfg() {
-  # Force the xcb (X11) platform plugin on. Qt otherwise silently drops it when
-  # an XCB dev dependency is missing, leaving only the offscreen and minimal
-  # QPA plugins and making a real (or xvfb) X display unusable. Force-enabling
-  # turns a missing dependency into a configure-time failure here instead of a
-  # runtime "Could not find the Qt platform plugin xcb". xcb_xlib is the
-  # Xlib/XCB interop the plugin relies on. The required -dev packages are
-  # listed in scdv_apt_qt_cmd above.
+  # Force the xcb (X11) plugin on: Qt otherwise silently drops it when an XCB
+  # dev package is missing, leaving only offscreen/minimal QPA.  Forcing turns
+  # that into a configure-time failure.  The -dev list is in scdv_apt_qt_cmd.
   PLAT_QT_CFG=("-DFEATURE_xcb=ON" "-DFEATURE_xcb_xlib=ON")
 }
 
 plat_qt_libclang_setup() {
-  # LLVM_INSTALL_DIR points at the libclang shiboken should use.  Defaults to
-  # the apt path for llvm-22, the newest stable and supported by PySide 6.11.1
-  # on Ubuntu 24.04 (see the header comment); override if your llvm-22-dev
-  # install lives elsewhere.
+  # libclang for shiboken; defaults to the apt llvm-22 path (see the block
+  # header for the version rationale).
   LLVM_INSTALL_DIR=${LLVM_INSTALL_DIR:-/usr/lib/llvm-22}
   if [ ! -d "${LLVM_INSTALL_DIR}" ] ; then
     echo "LLVM_INSTALL_DIR='${LLVM_INSTALL_DIR}' does not exist;" \
@@ -341,11 +296,8 @@ plat_pyside6_cmake_opt() {
 }
 
 plat_write_activate() {
-  # Write the activation script to $1. Self-locating (reads its own path at
-  # source time) so the scdv directory can be moved without rewriting the file.
-  # Sourcing it prepends our bin to PATH and our lib to LD_LIBRARY_PATH, strips
-  # any leaked /var/Qt/ entries from both, and defines scdv_deactivate to
-  # restore the original environment.
+  # Write the activation script to $1.  Self-locating, so the scdv directory
+  # can be moved without rewriting the file.
   local target=$1
   cat > "${target}" <<'ACTIVATE_EOF'
 # shellcheck shell=bash
@@ -465,48 +417,30 @@ ACTIVATE_EOF
   macos)
 
 #
-# macOS 26 platform block: sets SCDV_OS_TAG and the plat_* hook functions the
-# shared build logic dispatches to.  Defined inline (only when SCDV_OS=macos);
-# see the "Platform block contract" in the script header.
+# macOS 26 platform block: sets SCDV_OS_TAG and the plat_* hooks (see the
+# "Platform block contract" in the script header).
 #
-# Before running the build, install the (Home)brew prerequisites.
-# plat_print_deps prints the exact command; copy and run it yourself (the build
-# never invokes brew).
+# Install the brew prerequisites first; plat_print_deps prints them and the
+# build never invokes brew.  Apple Silicon is the assumed default; Intel Macs
+# work but are unsupported.
 #
-# shiboken (the PySide6 binding generator) needs libclang, which Apple's
-# Command Line Tools clang does not ship.  Rather than depend on a Homebrew
-# llvm, the QT section downloads Qt's own prebuilt libclang into the scdv tree
-# (user-space, no system install) -- see fetch_libclang.  LIBCLANG_VERSION is
-# pinned to 21.x: unlike the Ubuntu block (which uses LLVM 22 against glibc's
-# headers), Qt's prebuilt libclang 22.x segfaults shiboken while parsing the Qt
-# headers on macOS, so 21.x stays the macOS sweet spot.  Set LLVM_INSTALL_DIR
-# to use an existing libclang (e.g. a brew llvm) instead of fetching.
+# shiboken needs libclang, which Apple's CLT clang does not ship, so the QT
+# section fetches Qt's prebuilt libclang into the scdv tree (see
+# fetch_libclang).  LIBCLANG_VERSION is pinned to 21.x: Qt's 22.x segfaults
+# shiboken on the Qt headers here, and <=18 is too old for the macOS 26 SDK.
+# Set LLVM_INSTALL_DIR to use an existing libclang instead.
 #
-# Apple Silicon (arm64) is the assumed default.  The build also runs on Intel
-# Macs, but solvcon does not plan to support Intel Macs.
-#
-# Python is built --enable-shared (matching the Ubuntu block) into
-# ${SCDV_USRDIR}, rather than --enable-framework.  Python.framework support
-# will be added in the future for bundling
-# (contrib/bundle/bundle-with-homebrew.sh).
-#
-# libreadline is intentionally not listed: Python is built with
-# --with-readline=editline, which uses macOS's built-in libedit.  libmpdec is
-# not packaged via brew by default; Python is built with
-# --with-system-libmpdec=no to use its bundled copy.  tk-dev / gdbm are not
-# included in the brew prereqs: tkinter and dbm.gnu are not load-bearing for
-# solvcon, and including them would force every user to install tcl-tk and gdbm
-# even when they will never import them.  xcb / X11 prereqs do not apply: Qt on
-# macOS uses the cocoa platform plugin, not xcb.
+# Python is built --enable-shared (not --enable-framework; framework support
+# is future work for bundling).  Readline uses macOS's libedit, libmpdec is
+# bundled, and tk/gdbm are omitted as not load-bearing.  xcb does not apply:
+# Qt on macOS uses cocoa.
 
 # Token baked into the default prefix path (kept per-OS so existing installs
 # keep resolving).
 SCDV_OS_TAG=macos26
 
-# Qt prebuilt libclang version for shiboken (see fetch_libclang).  Pinned to
-# 21.x on macOS: Qt's prebuilt libclang 22.1.2 segfaults shiboken while parsing
-# the Qt headers, while libclang <=18 is too old for the macOS 26 SDK's libc++
-# headers.
+# Qt prebuilt libclang version for shiboken (see the block header for the
+# 21.x pin rationale).
 LIBCLANG_VERSION=${LIBCLANG_VERSION:-21.1.2}
 
 plat_init() {
@@ -542,16 +476,11 @@ plat_md5() {
 }
 
 scdv_brew_base_cmd() {
-  # Print the brew command for the BASE/PYTHON/NUMPY sections.  The build never
-  # runs brew itself; copy the output, review it, and run it.  gcc is included
-  # for gfortran (scipy's Fortran sources); openblas is included as an optional
-  # fallback BLAS even though numpy/scipy default to Apple's Accelerate
-  # framework on macOS.  xz is included for Python's lzma module (Apple's
-  # Command Line Tools do not ship liblzma).  doxygen is the system half of the
-  # documentation C++ API path (see doc/README.md).  The QT section needs no
-  # brew packages beyond this base set: Qt is built with Apple clang, and
-  # shiboken's libclang is fetched from Qt's prebuilt packages (see
-  # fetch_libclang), not Homebrew.
+  # Print the brew command for the BASE/PYTHON/NUMPY sections.  gcc supplies
+  # gfortran for scipy, openblas is the fallback BLAS behind Accelerate, xz
+  # covers Python's lzma (Apple's CLT ships no liblzma), and doxygen feeds
+  # the documentation C++ API path.  The QT section needs nothing more: Qt
+  # builds with Apple clang and libclang is fetched (see fetch_libclang).
   cat <<'EOF'
 brew install \
   cmake ninja pkg-config xz gcc openblas doxygen
@@ -585,34 +514,28 @@ plat_python_env() {
 }
 
 plat_numpy_install() {
-  # Runs in the unpacked numpy source directory (the caller has pushd'd).
-  # Prefer macOS's built-in Accelerate framework over openblas; meson's
-  # blas-order/lapack-order accept a comma-separated fallback list, so the
-  # build still succeeds on Macs without Accelerate (very rare) by falling back
-  # to brew openblas.  The AVX2 cpu-dispatch cap that the Ubuntu block needs
-  # is GCC-16-specific; Apple clang on macOS handles the default
-  # cpu-dispatch=MAX fine.
+  # Runs in the unpacked numpy source directory.  Prefer Accelerate with brew
+  # openblas as the meson fallback.  The Ubuntu AVX2 cpu-dispatch cap is
+  # GCC-16-specific; Apple clang handles the default MAX fine.
   with_log install.log "${PY}" -m pip install . --no-build-isolation \
     --config-settings="setup-args=-Dblas-order=accelerate,openblas" \
     --config-settings="setup-args=-Dlapack-order=accelerate,openblas"
 }
 
 plat_scipy_install() {
-  # Runs in the unpacked scipy source directory (the caller has pushd'd).
-  # No -isystem CXXFLAGS workaround here: the Ubuntu block needs it to outrank
-  # apt's stale pybind11-dev at /usr/include, but macOS does not ship a system
-  # pybind11, so our header at ${SCDV_USRDIR}/include wins automatically. scipy
-  # autodetects Accelerate via meson on macOS, same as numpy above.
+  # Runs in the unpacked scipy source directory.  No -isystem CXXFLAGS
+  # workaround here: the Ubuntu block needs it to outrank apt's pybind11 at
+  # /usr/include, but macOS ships no system pybind11, so our header wins
+  # automatically.
   with_log install.log "${PY}" -m pip install . --no-build-isolation \
     --config-settings="setup-args=-Dblas=accelerate" \
     --config-settings="setup-args=-Dlapack=accelerate"
 }
 
 plat_numpy_run() {
-  # Surface brew's gfortran (installed by `brew install gcc`) so meson picks it
-  # up for scipy's Fortran sources.  On Apple Silicon the binary is
-  # /opt/homebrew/opt/gcc/bin/gfortran; on Intel /usr/local/opt/gcc/bin.  The
-  # PATH export persists into build_scipy, which is intended.
+  # Surface brew's gfortran for scipy's Fortran sources: on Apple Silicon it
+  # lives in /opt/homebrew/opt/gcc/bin, on Intel in /usr/local/opt/gcc/bin.
+  # The PATH export persisting into build_scipy is intended.
   if [ -n "${BREW_PREFIX}" ] && [ -d "${BREW_PREFIX}/opt/gcc/bin" ] ; then
     export PATH="${BREW_PREFIX}/opt/gcc/bin:${PATH}"
   fi
@@ -620,10 +543,7 @@ plat_numpy_run() {
 }
 
 plat_qt_env_strip() {
-  # A pre-existing brew Qt may leak through DYLD_LIBRARY_PATH /
-  # DYLD_FRAMEWORK_PATH / CMAKE_PREFIX_PATH and cause the freshly built Qt tools
-  # (rcc/moc/...) to load the older libQt6Core at runtime.  Strip them out,
-  # plus any /opt/homebrew/Cellar/qt or /opt/homebrew/opt/qt entries on PATH.
+  # Strip a pre-existing brew Qt from the loader/CMake env and from PATH.
   unset DYLD_LIBRARY_PATH DYLD_FRAMEWORK_PATH CMAKE_PREFIX_PATH QT_ROOT QT_VER
   PATH=$(printf '%s' "${PATH}" | tr ':' '\n' \
     | grep -vE '/(Cellar|opt)/qt(@|/|$)' | paste -sd: -)
@@ -642,20 +562,14 @@ plat_qt_extra_cfg() {
 }
 
 fetch_libclang() {
-  # Download Qt's prebuilt libclang and lay out a minimal LLVM_INSTALL_DIR for
-  # shiboken under ${SCDV_SRCDIR}/libclang.  The full archive is ~4 GB because
-  # it bundles the entire LLVM/clang command-line toolset under bin/ (clangd,
-  # llc, clang-tidy, ...) that shiboken never invokes; it loads libclang.dylib
-  # directly.  So extract only lib/ (the dylib, the LLVM/Clang CMake package
-  # config, static libs, and clang resource headers) and include/ -- ~1 GB.
-  # macOS bsdtar (libarchive + liblzma) reads 7-Zip natively, so no 7z/brew
-  # tool is needed.
+  # Download Qt's prebuilt libclang and lay out a minimal LLVM_INSTALL_DIR
+  # under ${SCDV_SRCDIR}/libclang.  Extract only lib/ and include/ (~1 GB):
+  # shiboken loads libclang.dylib directly and never invokes the ~3 GB of
+  # bin/ tools.  macOS bsdtar reads 7-Zip natively.
   #
-  # LLVMExports.cmake / ClangTargets.cmake assert that every exported target's
-  # file exists, including the bin/ tools we skipped, so find_package(Clang)
-  # would FATAL_ERROR.  Drop empty placeholders for exactly those referenced
-  # paths; shiboken never executes them, it only needs the existence check to
-  # pass and the real libclang.dylib in lib/.
+  # The exported CMake targets assert that every listed file exists,
+  # including the skipped bin/ tools, so drop empty placeholders for the
+  # referenced paths; only the existence check matters.
   local fn=libclang-release_${LIBCLANG_VERSION}-based-macos-universal.7z
   download_md5 "${fn}" \
     "https://download.qt.io/development_releases/prebuilt/libclang/${fn}" \
@@ -681,10 +595,8 @@ fetch_libclang() {
 }
 
 plat_qt_libclang_setup() {
-  # By default fetch Qt's prebuilt libclang into the scdv tree (user-space, no
-  # Homebrew) -- see fetch_libclang and the header comment for the version
-  # rationale.  Set LLVM_INSTALL_DIR to point at an existing libclang (e.g. a
-  # brew llvm) to skip the download.
+  # Fetch Qt's prebuilt libclang into the scdv tree (see fetch_libclang);
+  # set LLVM_INSTALL_DIR to an existing libclang to skip the download.
   if [ -z "${LLVM_INSTALL_DIR:-}" ] ; then
     scdv_time fetch_libclang libclang
     LLVM_INSTALL_DIR=${SCDV_SRCDIR}/libclang
@@ -698,22 +610,13 @@ plat_qt_libclang_setup() {
 }
 
 plat_pyside6_cmake_opt() {
-  # CMake 3.27+ auto-adds the Homebrew prefix to its system search path on
-  # macOS.  With brew's `qt` and `pyside` formulae installed (the solvcon macOS
-  # VM setup does `brew install ... qt pyside`), pyside-setup's find_package
-  # calls resolve Qt6 / Shiboken6 / PySide6 to brew's copies instead of the
-  # ones this scdv just built.  That mixes incompatible Qt versions (brew's
-  # Qt6UiTools pulls brew Qt6CoreTools, whose newer machinery aborts with
-  # Unknown CMake command "_qt_internal_should_include_targets") and trips over
-  # brew's broken ${BREW_PREFIX}/typesystems.  The clean global fix is
-  # -DCMAKE_IGNORE_PREFIX_PATH=${BREW_PREFIX}; scdv provides Qt, shiboken, and
-  # Python directly and libclang via LLVM_INSTALL_DIR, so nothing the pyside6
-  # build needs lives under the ignored brew prefix.  setup.py exposes no way
-  # to forward extra cmake -D args (and its --cmake-toolchain-file flag forces
-  # cross-compile mode), so point it at a wrapper cmake via --cmake= that
-  # injects the flag on configure invocations only -- build/install and
-  # cache-inspection (-L/-N) calls are passed through untouched.  Skipped
-  # entirely when no Homebrew is present (nothing to hide).
+  # CMake 3.27+ auto-searches the Homebrew prefix, so with brew's qt/pyside
+  # installed pyside-setup resolves Qt6/Shiboken6/PySide6 to brew's copies
+  # instead of this scdv's, mixing incompatible Qt versions.  Fix with
+  # -DCMAKE_IGNORE_PREFIX_PATH=${BREW_PREFIX}: nothing the pyside6 build
+  # needs lives under brew.  setup.py cannot forward extra cmake -D args, so
+  # inject the flag through a wrapper cmake (via --cmake=) on configure
+  # invocations only.  Skipped when no Homebrew is present.
   PLAT_PYSIDE_CMAKE_OPT=()
   if [ -n "${BREW_PREFIX}" ] ; then
     local realcmake cmwrap
@@ -722,10 +625,8 @@ plat_pyside6_cmake_opt() {
     mkdir -p "${cmwrap}"
     cat > "${cmwrap}/cmake" <<WRAP
 #!/bin/sh
-# Wrapper that hides the Homebrew prefix from CMake package discovery during
-# the pyside6 configure, so brew's Qt/PySide do not shadow this scdv's. Only
-# configure runs get the flag; --build / --install / -L / -N pass through.
-# Generated by build-scdv.sh.
+# Hide the Homebrew prefix from CMake package discovery during the pyside6
+# configure; other invocations pass through.  Generated by build-scdv.sh.
 for a in "\$@" ; do
   case "\$a" in
     --build|--install|--open|-E|-P|-N|-L|--version|--find-package)
@@ -740,11 +641,8 @@ WRAP
 }
 
 plat_write_activate() {
-  # Write the activation script to $1. Self-locating (reads its own path at
-  # source time) so the scdv directory can be moved without rewriting the file.
-  # Sourcing it prepends our bin to PATH and our lib to DYLD_LIBRARY_PATH,
-  # strips any leaked Homebrew Qt entries from both, and defines scdv_deactivate
-  # to restore the original environment.
+  # Write the activation script to $1.  Self-locating, so the scdv directory
+  # can be moved without rewriting the file.
   local target=$1
   cat > "${target}" <<'ACTIVATE_EOF'
 # shellcheck shell=bash
@@ -875,6 +773,7 @@ SCDV_WRITE_ACTIVATE_ONLY=0
 SCDV_PRINT_PREFIX_ONLY=0
 SCDV_PRINT_DEPS_ONLY=0
 SCDV_NO_CONFIRM=0
+SCDV_ALLOW_WRITE_TO_ACTIVE_ENV=0
 SCDV_SKIP_LIST=""
 SCDV_KNOWN_PKGS="zlib openssl sqlite python pybind11 cython numpy scipy qt pyside6"
 
@@ -912,6 +811,9 @@ while [ $# -gt 0 ] ; do
     --no-confirm)
       SCDV_NO_CONFIRM=1
       ;;
+    --allow-write-to-active-env)
+      SCDV_ALLOW_WRITE_TO_ACTIVE_ENV=1
+      ;;
     --skip)
       shift
       if [ $# -eq 0 ] ; then
@@ -935,9 +837,8 @@ while [ $# -gt 0 ] ; do
   shift
 done
 
-# --print-deps needs only plat_print_deps. Exit before
-# plat_init / plat_nproc so SCDV_OS=<other> dry-runs work on this host (e.g.
-# SCDV_OS=macos --print-deps on Linux must not call macOS sysctl).
+# Exit before plat_init/plat_nproc so cross-OS dry-runs work (SCDV_OS=macos
+# --print-deps on Linux must not call sysctl).
 if [ "${SCDV_PRINT_DEPS_ONLY}" = "1" ] ; then
   plat_print_deps
   exit 0
@@ -965,13 +866,30 @@ fi
 # Path prefix to SCDV_BASE.
 SCDV_PREFIX=${SCDV_PREFIX:-${HOME}/var/scdv/${SCDV_OS_TAG}}
 
-# --print-prefix is honored as soon as SCDV_PREFIX is resolved so the caller
-# can capture the value without triggering any side effects (mkdir,
-# activate-write, build). plat_nproc is deferred until after this exit for the
-# same cross-OS dry-run reason as --print-deps above.
+# Honor --print-prefix as soon as SCDV_PREFIX resolves, before any side
+# effect or further platform call.
 if [ "${SCDV_PRINT_PREFIX_ONLY}" = "1" ] ; then
   echo "SCDV_PREFIX=${SCDV_PREFIX}"
   exit 0
+fi
+
+# An activated scdv/mmdv exports SCDV_BASE, which the assignment below would
+# honor and install into the active tree.  The _SCDV_OLD_PATH/_MMDV_OLD_PATH
+# snapshot vars exist only after sourcing an activate, so a deliberate
+# SCDV_BASE override from a clean shell still passes.
+if [ -n "${_SCDV_OLD_PATH+1}${_MMDV_OLD_PATH+1}" ] ; then
+  if [ "${SCDV_ALLOW_WRITE_TO_ACTIVE_ENV}" = "1" ] ; then
+    echo "warning: activated environment detected" \
+         "(${SCDV_BASE:+SCDV_BASE=${SCDV_BASE}}${MMDV_BASE:+MMDV_BASE=${MMDV_BASE}});" \
+         "proceeding on --allow-write-to-active-env and possibly writing" \
+         "into the active tree." >&2
+  else
+    echo "activated environment detected" \
+         "(${SCDV_BASE:+SCDV_BASE=${SCDV_BASE}}${MMDV_BASE:+MMDV_BASE=${MMDV_BASE}});" \
+         "run scdv_deactivate (or mmdv_deactivate), or pass" \
+         "--allow-write-to-active-env to build into the active tree anyway." >&2
+    exit 1
+  fi
 fi
 
 # Parallel build jobs (platform-specific; only needed once we build).
@@ -992,10 +910,8 @@ SCDV_SRCDIR=${SCDV_BASE}/src
 # Install root (user-space).
 SCDV_USRDIR=${SCDV_BASE}/usr
 
-# Directories under ${SCDV_BASE} and the activation script are created below,
-# after the confirmation prompt (or immediately for the --write-activate-only
-# path). We deliberately do not touch the filesystem here so that aborting the
-# prompt leaves no trace.
+# Filesystem changes happen only after the confirmation prompt, so aborting
+# leaves no trace.
 
 PY=${SCDV_USRDIR}/bin/python3
 # Put our prefix on PATH so console scripts (cython, etc.) installed into
@@ -1031,10 +947,8 @@ if [ "${SCDV_WRITE_ACTIVATE_ONLY}" = "1" ] ; then
   exit 0
 fi
 
-# If SCDV_SHARED_DLDIR is configured, it must exist already.  The script never
-# auto-creates it.  Check before any filesystem change (mkdir, symlink, prompt)
-# so a typo or unmounted cache fails immediately instead of half-creating the
-# per-scdv tree.
+# A configured SCDV_SHARED_DLDIR must exist already; fail before any
+# filesystem change so a typo or unmounted cache leaves no half-created tree.
 if [ -n "${SCDV_SHARED_DLDIR}" ] && [ ! -d "${SCDV_SHARED_DLDIR}" ] ; then
   echo "SCDV_SHARED_DLDIR=${SCDV_SHARED_DLDIR} does not exist;" \
        "create it (e.g. \`mkdir -p ${SCDV_SHARED_DLDIR}\`)" \
@@ -1042,10 +956,8 @@ if [ -n "${SCDV_SHARED_DLDIR}" ] && [ ! -d "${SCDV_SHARED_DLDIR}" ] ; then
   exit 1
 fi
 
-# Final confirmation before any package is built. Skip with --no-confirm in
-# non-interactive contexts (CI, automated runs). No directory or activation
-# file is created until the user has confirmed, so aborting at the prompt
-# leaves the filesystem untouched.
+# Final confirmation before any package is built; --no-confirm skips it for
+# non-interactive runs.
 if [ "${SCDV_NO_CONFIRM}" != "1" ] ; then
   # `test -r /dev/tty` returns true even with no controlling terminal, so try
   # to actually open it; that fails with ENXIO when there is no controlling tty
@@ -1059,10 +971,8 @@ fi
 
 mkdir -p "${SCDV_USRDIR}" "${SCDV_SRCDIR}"
 if [ -n "${SCDV_SHARED_DLDIR}" ] ; then
-  # SCDV_SHARED_DLDIR is set: make SCDV_DLDIR a symlink into the shared cache.
-  # The shared directory's existence was verified above; we do not auto-create
-  # it.  Refuse to clobber a non-symlink directory at SCDV_DLDIR to avoid
-  # losing data; the caller has to move it (or unset SCDV_SHARED_DLDIR) first.
+  # Symlink SCDV_DLDIR into the shared cache; refuse to clobber a real
+  # directory there so data is not lost.
   if [ -L "${SCDV_DLDIR}" ] ; then
     if [ "$(readlink "${SCDV_DLDIR}")" != "${SCDV_SHARED_DLDIR}" ] ; then
       rm "${SCDV_DLDIR}"
@@ -1358,11 +1268,9 @@ build_qt() {
   local url="https://download.qt.io/official_releases/qt/${major}"
   url="${url}/${ver}/single/qt-everywhere-src-${ver}.tar.xz"
   download_md5 "${fn}" "${url}" 25d4d1dd74c92b978f164e8f20805985
-  # A pre-existing Qt may leak through the dynamic-linker / CMake search paths
-  # and cause the freshly built Qt tools (rcc/moc/...) to load the older
-  # libQt6Core at runtime and fail with "version `Qt_6.x' not found".  The
-  # platform block strips those from the environment (the vars and match
-  # pattern are per-OS).
+  # Strip a pre-existing Qt from the loader/CMake search paths (per-OS in the
+  # platform block) so the freshly built Qt tools do not load an older
+  # libQt6Core.
   plat_qt_env_strip
   if [ -d "${SCDV_SRCDIR}/${full}" ] ; then
     echo "Qt source already at ${SCDV_SRCDIR}/${full}; skipping extract"
@@ -1467,9 +1375,10 @@ if [[ "${SCDVBUILD_ALL:-}" == "1" || "${SCDVBUILD_PYTHON:-}" == "1" ]] ; then
 echo "Python build uses PGO; expect ~20 min"
 scdv_time build_python python
 "${PY}" -m pip install -U flake8 autopep8 black pytest jsonschema certifi
-# Documentation toolchain (Sphinx-based; see doc/README.md). doxygen, the
-# system half of the C++ API path, is in the base prerequisites above.
-"${PY}" -m pip install -U sphinx myst-parser pydata-sphinx-theme \
+# Documentation toolchain; keep in sync with doc/requirements.txt (the
+# self-contained script does not read it).  doxygen comes from the base
+# prerequisites.
+"${PY}" -m pip install -U sphinx myst-parser furo \
   breathe sphinxcontrib-bibtex sphinxcontrib-mermaid
 scdv_time build_pybind11 pybind11
 
