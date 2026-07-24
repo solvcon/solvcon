@@ -8,6 +8,9 @@ set(SOLVCON_BUFFER_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/BufferBase.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/small_vector.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/signed_stride_layout.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/execution/matmul_plan.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/execution/matmul.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/execution/SimpleArrayExecution.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ConcreteBuffer.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/BufferExpander.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/SimpleArray.hpp

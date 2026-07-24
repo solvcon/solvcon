@@ -7,6 +7,7 @@
 
 #include <solvcon/buffer/pymod/buffer_pymod.hpp> // Must be the first include.
 
+#include <solvcon/buffer/execution/SimpleArrayExecution.hpp>
 #include <solvcon/buffer/pymod/array_common.hpp>
 
 #include <cstdint>
@@ -28,6 +29,7 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArray
     using value_type = typename wrapped_type::value_type;
     using array_order_type = typename wrapped_type::ArrayOrder;
     using property_helper = ArrayPropertyHelper<T>;
+    using execution_type = solvcon::detail::SimpleArrayExecution<wrapped_type>;
 
     friend root_base_type;
 
@@ -414,6 +416,7 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArray
 
         (*this)
             .def("matmul", &wrapped_type::matmul)
+            .def("matmul_planned", &execution_type::matmul_planned, py::arg("other"))
             .def("matmul_blas", &wrapped_type::matmul_blas)
             .def(
                 "matmul_fast",
