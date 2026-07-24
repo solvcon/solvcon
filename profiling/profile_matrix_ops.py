@@ -39,6 +39,11 @@ def profile_matmul_blas_sa(lhs, rhs):
     return lhs.matmul_blas(rhs)
 
 
+@profile_function
+def profile_matmul_planned_sa(lhs, rhs):
+    return lhs.matmul_planned(rhs)
+
+
 def profile_matmul_fast_sa(lhs, rhs, tile_x, tile_y, tile_z):
     name = f"profile_matmul_fast_sa_{tile_x}_{tile_y}_{tile_z}"
     _ = solvcon.CallProfilerProbe(name)
@@ -65,6 +70,7 @@ def profile_matmul_operation(dtype, shapes, it=10):
             profile_matmul_np(lhs, rhs)
             profile_matmul_naive_sa(lhs_sa, rhs_sa)
             profile_matmul_blas_sa(lhs_sa, rhs_sa)
+            profile_matmul_planned_sa(lhs_sa, rhs_sa)
             for tile_x, tile_y, tile_z in tile_configs:
                 profile_matmul_fast_sa(lhs_sa, rhs_sa, tile_x, tile_y, tile_z)
 
@@ -85,7 +91,7 @@ def profile_matmul_operation(dtype, shapes, it=10):
         print_row("func", "per call (ms)", "cmp to np")
         print_row("-" * 20, "-" * 15, "-" * 15)
         npbase = out["np"]
-        keys = ["np", "naive_sa", "blas_sa"]
+        keys = ["np", "naive_sa", "blas_sa", "planned_sa"]
         keys += [
             f"fast_sa_{tile_x}_{tile_y}_{tile_z}"
             for tile_x, tile_y, tile_z in tile_configs

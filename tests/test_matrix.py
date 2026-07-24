@@ -306,6 +306,76 @@ class MatmulTestBase(sc.testing.TestBase):
                 self.assert_matmul_fast(a, b, expected, result)
                 self.assert_matmul_blas(a, b, expected, result)
 
+    def test_matmul_planned_matrix_layouts(self):
+        """Planned matmul supports signed-stride matrix operands."""
+        dtype = np.dtype(self.dtype).name
+
+        def make_layouts(data, axis):
+            storage_shape = list(data.shape)
+            storage_shape[axis] *= 2
+            storage = np.empty(storage_shape, dtype=dtype)
+            selection = [slice(None)] * data.ndim
+            selection[axis] = slice(None, None, 2)
+            step_two = storage[tuple(selection)]
+            step_two[...] = data
+            return {
+                'contiguous': data,
+                'transposed': np.ascontiguousarray(data.T).T,
+                'negative': np.flip(data, axis=axis),
+                'step_two': step_two,
+            }
+
+        lhs_layouts = make_layouts(
+            np.arange(12, dtype=dtype).reshape(3, 4), 1)
+        rhs_layouts = make_layouts(
+            np.arange(8, dtype=dtype).reshape(4, 2), 0)
+        for lhs_case, rhs_case in itertools.product(
+                lhs_layouts, rhs_layouts):
+            lhs_data = lhs_layouts[lhs_case]
+            rhs_data = rhs_layouts[rhs_case]
+            lhs = self.SimpleArray(array=lhs_data)
+            rhs = self.SimpleArray(array=rhs_data)
+            expected = np.matmul(lhs_data, rhs_data)
+
+            with self.subTest(lhs=lhs_case, rhs=rhs_case):
+                result = lhs.matmul_planned(rhs)
+                self.assertEqual(expected.shape, result.shape)
+                np.testing.assert_allclose(result.ndarray, expected)
+
+    def test_matmul_planned_empty_axes(self):
+        """Planned matmul preserves empty output and inner axes."""
+        dtype = np.dtype(self.dtype).name
+        shapes = (((0, 4), (4, 2)),
+                  ((3, 0), (0, 2)),
+                  ((3, 4), (4, 0)))
+        for lhs_shape, rhs_shape in shapes:
+            lhs_data = np.zeros(lhs_shape, dtype=dtype)
+            rhs_data = np.zeros(rhs_shape, dtype=dtype)
+            expected = np.matmul(lhs_data, rhs_data)
+            lhs = self.SimpleArray(shape=lhs_shape, value=0)
+            rhs = self.SimpleArray(shape=rhs_shape, value=0)
+
+            with self.subTest(lhs=lhs_shape, rhs=rhs_shape):
+                result = lhs.matmul_planned(rhs)
+                self.assertEqual(expected.shape, result.shape)
+                np.testing.assert_allclose(result.ndarray, expected)
+
+    def test_matmul_planned_validation(self):
+        """Planned matmul rejects unsupported ranks and inner axes."""
+        dtype = np.dtype(self.dtype).name
+        cases = (
+            (np.empty(4, dtype=dtype),
+             np.empty((4, 2), dtype=dtype)),
+            (np.empty((3, 4), dtype=dtype),
+             np.empty((3, 2), dtype=dtype)),
+        )
+        for lhs_data, rhs_data in cases:
+            lhs = self.SimpleArray(array=lhs_data)
+            rhs = self.SimpleArray(array=rhs_data)
+            with self.subTest(lhs=lhs_data.shape, rhs=rhs_data.shape):
+                with self.assertRaises(ValueError):
+                    lhs.matmul_planned(rhs)
+
     def test_wrong_shape_error(self):
         """Test error handling for wrong shapes"""
 
