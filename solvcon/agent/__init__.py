@@ -13,6 +13,8 @@ command family such as :mod:`solvcon.agent.draw` builds on the framework here.
 """
 
 from . import _command  # noqa: F401
+from . import _artifact  # noqa: F401
+from . import _observe  # noqa: F401
 from . import _core  # noqa: F401
 from . import _backend  # noqa: F401
 from . import _backends_impl  # noqa: F401
@@ -26,6 +28,21 @@ list_of_command = [
     'CommandProcessor',
     'CommandDispatcher',
     'CRUD_CATEGORIES',
+]
+
+# _artifact.py
+list_of_artifact = [
+    'ArtifactStore',
+    'ArtifactError',
+]
+
+# _observe.py
+list_of_observe = [
+    'format_scene',
+    'format_result',
+    'format_results',
+    'offload_blobs',
+    'has_blob',
 ]
 
 # _core.py
@@ -58,8 +75,8 @@ list_of_backends_impl = [
 Agent = None
 
 __all__ = (  # noqa: F822
-    list_of_command + list_of_core + list_of_backend
-    + list_of_backends_impl + ['Agent']
+    list_of_command + list_of_artifact + list_of_observe + list_of_core
+    + list_of_backend + list_of_backends_impl + ['Agent']
 )
 
 
@@ -69,6 +86,8 @@ def _load(module, symbol_list):
 
 
 _load(_command, list_of_command)
+_load(_artifact, list_of_artifact)
+_load(_observe, list_of_observe)
 _load(_core, list_of_core)
 _load(_backend, list_of_backend)
 _load(_backends_impl, list_of_backends_impl)
