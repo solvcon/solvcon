@@ -306,6 +306,30 @@ class MatmulTestBase(sc.testing.TestBase):
                 self.assert_matmul_fast(a, b, expected, result)
                 self.assert_matmul_blas(a, b, expected, result)
 
+    def test_matmul_with_strided_vectors(self):
+        """Matmul supports every pairing of contiguous and strided vectors."""
+        dtype = np.dtype(self.dtype).name
+        vectors = {
+            'contiguous': np.arange(8, dtype=dtype),
+            'negative': np.arange(8, dtype=dtype)[::-1],
+            'step_two': np.arange(16, dtype=dtype)[::2],
+        }
+        methods = ('matmul', 'matmul_fast', 'matmul_blas')
+
+        cases = itertools.product(vectors, vectors, methods)
+        for lhs_case, rhs_case, method in cases:
+            lhs_data = vectors[lhs_case]
+            rhs_data = vectors[rhs_case]
+            lhs = self.SimpleArray(array=lhs_data)
+            rhs = self.SimpleArray(array=rhs_data)
+            expected = np.matmul(lhs_data, rhs_data)
+
+            with self.subTest(
+                    lhs=lhs_case, rhs=rhs_case, method=method):
+                result = getattr(lhs, method)(rhs)
+                self.assertEqual((1,), result.shape)
+                np.testing.assert_allclose(result.ndarray[0], expected)
+
     def test_wrong_shape_error(self):
         """Test error handling for wrong shapes"""
 

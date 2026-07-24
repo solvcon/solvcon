@@ -282,7 +282,7 @@ A SimpleArrayMatmulHelper<A, T>::matmul_vec_vec()
     value_type v = 0;
     for (ssize_t i = 0; i < k; ++i)
     {
-        v += m_lhs(i) * m_rhs.data(i);
+        v += m_lhs(i) * m_rhs(i);
     }
     m_result.data(0) = v;
     return std::move(m_result);
