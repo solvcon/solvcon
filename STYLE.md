@@ -199,6 +199,8 @@ some_object.do_something(with_some_information)
 ### Acronym
 
 Treat acronyms like a word. Do not make them all-upper-cases in names.
+The rule holds in both C++ and Python, and applies no matter how short
+the acronym is or how habitually it is written in capitals elsewhere.
 
 ```cpp
 // "Http" is treated like a word in CamelCase.
@@ -207,6 +209,14 @@ class HttpRequest
     // "http" is treated like a word in snake_case.
     void update_http_header();
 } /* end class HttpRequest */
+```
+
+```python
+# "Ui" is treated like a word in CamelCase, so it is not "UIState".
+class UiState(object):
+    # "ui" is treated like a word in snake_case.
+    def apply_ui_section(self, section):
+        pass
 ```
 
 ### Qt
