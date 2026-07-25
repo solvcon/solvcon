@@ -252,6 +252,17 @@ TEST(small_vector, select_kth_random)
     }
 }
 
+TEST(small_vector, equality_requires_same_size)
+{
+    solvcon::small_vector<int> prefix{1, 2};
+    solvcon::small_vector<int> equal{1, 2};
+    solvcon::small_vector<int> longer{1, 2, 3};
+
+    EXPECT_TRUE(prefix == equal);
+    EXPECT_FALSE(prefix == longer);
+    EXPECT_FALSE(longer == prefix);
+}
+
 TEST(TakeAlongAxisSimd, basic_int32)
 {
     using namespace solvcon;

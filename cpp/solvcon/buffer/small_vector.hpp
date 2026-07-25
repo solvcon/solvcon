@@ -446,7 +446,8 @@ small_vector<T, N>::quick_select(iterator first, iterator last, size_t k)
 template <typename T>
 bool operator==(small_vector<T> const & lhs, small_vector<T> const & rhs)
 {
-    return std::equal(lhs.begin(), lhs.end(), rhs.begin());
+    return lhs.size() == rhs.size() &&
+           std::equal(lhs.begin(), lhs.end(), rhs.begin());
 }
 
 static_assert(sizeof(small_vector<size_t>) == 40, "small_vector<size_t> should use 40 bytes");
