@@ -2133,7 +2133,7 @@ private:
     static bool is_c_contiguous(shape_type const & shape,
                                 sshape_type const & stride)
     {
-        if (shape.empty())
+        if (std::ranges::contains(shape, 0))
         {
             return true;
         }
@@ -2152,7 +2152,7 @@ private:
     static bool is_f_contiguous(shape_type const & shape,
                                 sshape_type const & stride)
     {
-        if (shape.empty())
+        if (std::ranges::contains(shape, 0))
         {
             return true;
         }
