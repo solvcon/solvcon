@@ -61,31 +61,41 @@ class MatmulTestBase(sc.testing.TestBase):
     """Tests for matrix-matrix multiplication"""
 
     @staticmethod
-    def make_matrix_layouts(data, stride_axis):
+    def make_strided_layout(data, axis, step):
+        storage_shape = list(data.shape)
+        storage_shape[axis] *= abs(step)
+        storage = np.empty(storage_shape, dtype=data.dtype.name)
+        selection = [slice(None)] * data.ndim
+        selection[axis] = slice(None, None, step)
+        layout = storage[tuple(selection)]
+        layout[...] = data
+        return layout
+
+    @classmethod
+    def make_batch_layouts(cls, data):
+        layouts = [('c_contiguous', data)]
+        for axis in range(data.ndim - 2):
+            layouts.append((
+                f'negative_batch_axis_{axis}',
+                cls.make_strided_layout(data, axis, -1),
+            ))
+            layouts.append((
+                f'step_two_batch_axis_{axis}',
+                cls.make_strided_layout(data, axis, 2),
+            ))
+        return tuple(layouts)
+
+    @classmethod
+    def make_matrix_layouts(cls, data, stride_axis):
         f_contiguous = np.array(
             data, dtype=data.dtype.name, order='F', copy=True)
-
-        reversed_storage = np.array(
-            np.flip(data, axis=stride_axis),
-            dtype=data.dtype.name,
-            order='C',
-            copy=True,
-        )
-        negative_stride = np.flip(reversed_storage, axis=stride_axis)
-
-        step_two_shape = list(data.shape)
-        step_two_shape[stride_axis] *= 2
-        step_two_storage = np.empty(step_two_shape, dtype=data.dtype.name)
-        step_two_slices = [slice(None)] * data.ndim
-        step_two_slices[stride_axis] = slice(None, None, 2)
-        step_two = step_two_storage[tuple(step_two_slices)]
-        step_two[...] = data
 
         return (
             ('c_contiguous', data),
             ('f_contiguous', f_contiguous),
-            ('negative_stride', negative_stride),
-            ('step_two', step_two),
+            ('negative_stride',
+             cls.make_strided_layout(data, stride_axis, -1)),
+            ('step_two', cls.make_strided_layout(data, stride_axis, 2)),
         )
 
     def assert_matmul(self, lhs, rhs, expected):
@@ -369,12 +379,37 @@ class MatmulTestBase(sc.testing.TestBase):
             with self.subTest(lhs=lhs_case, rhs=rhs_case):
                 self.assert_matmul_planned(lhs, rhs, expected)
 
+    def test_equal_batch_layout_combinations(self):
+        """Equal matrix batches support runtime-rank strided traversal."""
+        dtype = np.dtype(self.dtype).name
+        shapes = (
+            ((3, 3, 4), (3, 4, 2)),
+            ((2, 3, 3, 4), (2, 3, 4, 2)),
+        )
+        for lhs_shape, rhs_shape in shapes:
+            lhs_data = np.arange(
+                np.prod(lhs_shape), dtype=dtype).reshape(lhs_shape)
+            rhs_data = np.arange(
+                np.prod(rhs_shape), dtype=dtype).reshape(rhs_shape)
+            lhs_layouts = self.make_batch_layouts(lhs_data)
+            rhs_layouts = self.make_batch_layouts(rhs_data)
+            layouts = itertools.product(lhs_layouts, rhs_layouts)
+            for (lhs_case, case_lhs), (rhs_case, case_rhs) in layouts:
+                lhs = self.SimpleArray(array=case_lhs)
+                rhs = self.SimpleArray(array=case_rhs)
+                expected = np.matmul(case_lhs, case_rhs)
+
+                with self.subTest(
+                        shape=lhs_shape, lhs=lhs_case, rhs=rhs_case):
+                    self.assert_matmul_planned(lhs, rhs, expected)
+
     def test_empty_matrix_dimensions(self):
         """Matrix multiplication preserves empty output and inner axes."""
         dtype = np.dtype(self.dtype).name
         shapes = (((0, 4), (4, 2)),
                   ((3, 0), (0, 2)),
-                  ((3, 4), (4, 0)))
+                  ((3, 4), (4, 0)),
+                  ((0, 3, 4), (0, 4, 2)))
         for lhs_shape, rhs_shape in shapes:
             lhs_data = np.zeros(lhs_shape, dtype=dtype)
             rhs_data = np.zeros(rhs_shape, dtype=dtype)

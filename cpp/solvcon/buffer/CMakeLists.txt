@@ -12,6 +12,7 @@ set(SOLVCON_BUFFER_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/BufferExpander.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/SimpleArray.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/SimpleCollector.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/loop.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/matmul.hpp
     CACHE FILEPATH "" FORCE)
 
