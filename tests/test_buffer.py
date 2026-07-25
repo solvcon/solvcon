@@ -290,13 +290,18 @@ class SimpleArrayBasicTC(unittest.TestCase):
         ):
             solvcon.SimpleArrayFloat64((-1, 2))
 
-    def test_SimpleArray_fortran_empty(self):
-        ndarr = np.empty((0, 0), order='F')
-        sarr = solvcon.SimpleArrayFloat64(array=ndarr)
+    def test_SimpleArray_from_zero_sized_ndarray(self):
+        for shape in ((0, 0), (3, 0), (0, 3), (2, 1, 0)):
+            for order in ('C', 'F'):
+                with self.subTest(shape=shape, order=order):
+                    ndarr = np.empty(shape, dtype='float64', order=order)
+                    sarr = solvcon.SimpleArrayFloat64(array=ndarr)
 
-        self.assertTrue(sarr.is_c_contiguous)
-        self.assertTrue(sarr.is_f_contiguous)
-        np.testing.assert_array_equal(ndarr, sarr.ndarray)
+                    self.assertEqual(shape, sarr.shape)
+                    self.assertEqual(tuple(0 for _ in shape), sarr.stride)
+                    self.assertTrue(sarr.is_c_contiguous)
+                    self.assertTrue(sarr.is_f_contiguous)
+                    np.testing.assert_array_equal(ndarr, sarr.ndarray)
 
     def test_SimpleArray_fortran_1x2(self):
         ndarr = np.asfortranarray([[1.0, 0.1]])
