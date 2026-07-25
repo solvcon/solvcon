@@ -518,7 +518,7 @@ TEST(SimpleArray, mdspan_non_contiguous)
     // array is neither C- nor F-contiguous over the underlying buffer.
     using array_type = mm::SimpleArray<double>;
     array_type::shape_type const shape{3, 4};
-    array_type::sshape_type const stride{8, 1};
+    array_type::shape_type const stride{8, 1};
     auto buffer = mm::ConcreteBuffer::construct(3 * 8 * sizeof(double));
     array_type arr(shape, stride, buffer);
     for (size_t i = 0; i < 24; ++i) { arr.data(i) = static_cast<double>(i); }
@@ -586,7 +586,7 @@ TEST(SimpleArray, mdspan_negative_strides)
 
     using array_type = mm::SimpleArray<double>;
     array_type::shape_type const shape{2, 3};
-    array_type::sshape_type const stride{-3, -1};
+    array_type::shape_type const stride{-3, -1};
     auto buffer = mm::ConcreteBuffer::construct(6 * sizeof(double));
     for (size_t i = 0; i < 6; ++i) { buffer->data<double>()[i] = static_cast<double>(i); }
 
@@ -623,7 +623,7 @@ TEST(SimpleArray, mdspan_mixed_strides_with_padding)
 
     using array_type = mm::SimpleArray<double>;
     array_type::shape_type const shape{2, 3, 2, 4};
-    array_type::sshape_type const stride{-40, 10, -5, 1};
+    array_type::shape_type const stride{-40, 10, -5, 1};
     auto buffer = mm::ConcreteBuffer::construct(72 * sizeof(double));
     for (size_t i = 0; i < 72; ++i) { buffer->data<double>()[i] = static_cast<double>(i); }
 

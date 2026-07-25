@@ -714,7 +714,7 @@ WrapSimpleArray<T>::make_array_from_numpy(pybind11::array & arr_in)
     }
 
     solvcon::detail::shape_type shape;
-    solvcon::detail::sshape_type stride;
+    solvcon::detail::shape_type stride;
     constexpr auto itemsize = static_cast<ssize_t>(sizeof(value_type));
     ssize_t byte_span_begin = 0;
     ssize_t byte_span_end = 0;
