@@ -21,6 +21,10 @@ class ConfigPathTC(unittest.TestCase):
     #: Every variable the resolution consults, saved and restored per test.
     VARIABLES = ("SOLVCON_CONFIG_HOME", "XDG_CONFIG_HOME")
 
+    #: Sentinel roots built from segments, so no test hard-codes a separator.
+    SC_HOME = os.path.join(os.sep, "sc", "here")
+    XDG_HOME = os.path.join(os.sep, "xdg", "here")
+
     def setUp(self):
         self._saved = {k: os.environ.get(k) for k in self.VARIABLES}
         for name in self.VARIABLES:
@@ -34,25 +38,30 @@ class ConfigPathTC(unittest.TestCase):
                 os.environ[name] = value
 
     def test_honors_solvcon_config_home(self):
-        os.environ["SOLVCON_CONFIG_HOME"] = "/sc/here"
-        self.assertEqual(Config.config_home(), "/sc/here")
-        self.assertEqual(Config.default_path(), "/sc/here/pilot.json")
+        os.environ["SOLVCON_CONFIG_HOME"] = self.SC_HOME
+        self.assertEqual(Config.config_home(), self.SC_HOME)
+        self.assertEqual(
+            Config.default_path(),
+            os.path.join(self.SC_HOME, Config.FILENAME))
 
     def test_solvcon_config_home_precedes_xdg(self):
-        os.environ["SOLVCON_CONFIG_HOME"] = "/sc/here"
-        os.environ["XDG_CONFIG_HOME"] = "/xdg/here"
-        self.assertEqual(Config.config_home(), "/sc/here")
+        os.environ["SOLVCON_CONFIG_HOME"] = self.SC_HOME
+        os.environ["XDG_CONFIG_HOME"] = self.XDG_HOME
+        self.assertEqual(Config.config_home(), self.SC_HOME)
 
     def test_empty_solvcon_config_home_falls_through(self):
         os.environ["SOLVCON_CONFIG_HOME"] = ""
-        os.environ["XDG_CONFIG_HOME"] = "/xdg/here"
-        self.assertEqual(Config.config_home(), "/xdg/here/solvcon")
+        os.environ["XDG_CONFIG_HOME"] = self.XDG_HOME
+        self.assertEqual(
+            Config.config_home(), os.path.join(self.XDG_HOME, "solvcon"))
 
     def test_honors_xdg_config_home(self):
-        os.environ["XDG_CONFIG_HOME"] = "/xdg/here"
-        self.assertEqual(Config.config_home(), "/xdg/here/solvcon")
+        os.environ["XDG_CONFIG_HOME"] = self.XDG_HOME
         self.assertEqual(
-            Config.default_path(), "/xdg/here/solvcon/pilot.json")
+            Config.config_home(), os.path.join(self.XDG_HOME, "solvcon"))
+        self.assertEqual(
+            Config.default_path(),
+            os.path.join(self.XDG_HOME, "solvcon", Config.FILENAME))
 
     def test_falls_back_to_dot_config(self):
         home = os.path.expanduser("~")
