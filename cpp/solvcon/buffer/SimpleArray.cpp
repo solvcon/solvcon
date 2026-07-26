@@ -159,10 +159,10 @@ static inline void dispatch_tile_inner(
 SimpleArrayCopier::SimpleArrayCopier(
     buffer_type const & src_buffer,
     ssize_t const src_body_offset,
-    sshape_type const & src_stride,
+    shape_type const & src_stride,
     buffer_type & dst_buffer,
     ssize_t const dst_body_offset,
-    sshape_type const & dst_stride,
+    shape_type const & dst_stride,
     shape_type const & shape,
     size_t const itemsize)
     : m_src(src_buffer.data<int8_t>() + src_body_offset)
@@ -249,7 +249,7 @@ void SimpleArrayCopier::tiled_nd() const
         outer_total *= m_shape[k];
     }
 
-    detail::sshape_type outer_idx(ia, 0);
+    detail::shape_type outer_idx(ia, 0);
     for (ssize_t step = 0; step < outer_total; ++step)
     {
         // Resolve outer-axis base offsets (in bytes) for this slab.
@@ -298,7 +298,7 @@ void SimpleArrayCopier::naive() const
     size_t const ndim = m_shape.size();
     size_t const itemsize = m_itemsize;
     auto const signed_itemsize = static_cast<ssize_t>(itemsize);
-    detail::sshape_type idx(ndim, 0);
+    detail::shape_type idx(ndim, 0);
     for (ssize_t step = 0; step < total; ++step)
     {
         ssize_t src_off = 0;

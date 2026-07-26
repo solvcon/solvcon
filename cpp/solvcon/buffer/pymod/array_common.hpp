@@ -160,7 +160,6 @@ class ArrayPropertyHelper
 {
 public:
     using shape_type = solvcon::detail::shape_type;
-    using sshape_type = solvcon::detail::sshape_type;
 
     static void broadcast_array_using_ellipsis(SimpleArray<T> & arr_out, pybind11::array const & arr_in)
     {
@@ -324,14 +323,14 @@ private:
         }
     }
 
-    static std::vector<sshape_type> make_default_slices(SimpleArray<T> const & arr)
+    static std::vector<shape_type> make_default_slices(SimpleArray<T> const & arr)
     {
-        std::vector<sshape_type> slices;
+        std::vector<shape_type> slices;
         auto const & shape = arr.shape();
         slices.reserve(shape.size());
         for (ssize_t const dim : shape)
         {
-            sshape_type default_slice(4);
+            shape_type default_slice(4);
             default_slice[0] = 0; // start
             default_slice[1] = dim; // stop
             default_slice[2] = 1; // step
@@ -343,7 +342,7 @@ private:
 
     static pybind11::object shift_slice_bound(pybind11::handle bound, ssize_t offset);
 
-    static void copy_slice(sshape_type & slice_out,
+    static void copy_slice(shape_type & slice_out,
                            pybind11::slice const & slice_in,
                            ssize_t length,
                            ssize_t offset)
@@ -406,7 +405,7 @@ private:
     }
 
     static void process_slices(pybind11::tuple const & tuple,
-                               std::vector<sshape_type> & slices,
+                               std::vector<shape_type> & slices,
                                SimpleArray<T> const & arr)
     {
         namespace py = pybind11;
@@ -456,7 +455,7 @@ private:
     }
 
     static void broadcast_array_using_slice(SimpleArray<T> & arr_out,
-                                            std::vector<sshape_type> const & slices,
+                                            std::vector<shape_type> const & slices,
                                             pybind11::array const & arr_in)
     {
         TypeBroadcast<T>::check_shape(arr_out, slices, arr_in);
