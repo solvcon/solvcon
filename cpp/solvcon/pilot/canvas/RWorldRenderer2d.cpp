@@ -12,6 +12,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include <solvcon/pilot/theme/theme_qt.hpp>
+
 #include <QColor>
 #include <QFontMetricsF>
 #include <QPainter>
@@ -27,15 +29,6 @@ namespace solvcon
 
 namespace
 {
-
-QColor const BACKGROUND(32, 32, 36);
-QColor const MINOR_GRID(64, 64, 70);
-QColor const AXIS(200, 200, 80);
-QColor const ORIGIN(220, 80, 80);
-QColor const GEOMETRY(120, 180, 240);
-QColor const OVERLAY_TEXT(225, 225, 230);
-QColor const OVERLAY_BBOX(150, 200, 150);
-QColor const OVERLAY_HIGHLIGHT(240, 180, 60);
 
 constexpr double BASE_GRID_SPACING_PX = 64.0;
 constexpr double MIN_GRID_SPACING_PX = 16.0;
@@ -123,7 +116,12 @@ private:
     double m_first;
 }; /* end class GridLineRange */
 
-void paint_chrome(QPainter & painter, ViewTransform2dFp64 const & view, int width, int height)
+void paint_chrome(
+    QPainter & painter,
+    ViewTransform2dFp64 const & view,
+    Canvas2dPalette const & palette,
+    int width,
+    int height)
 {
     double const widget_w = static_cast<double>(width);
     double const widget_h = static_cast<double>(height);
@@ -131,7 +129,7 @@ void paint_chrome(QPainter & painter, ViewTransform2dFp64 const & view, int widt
     double const spacing_px = view.zoom() * grid_spacing_world(view);
 
     // Draw minor grid lines in screen space directly.
-    QPen minor_pen(MINOR_GRID);
+    QPen minor_pen(qcolor(palette.minor_grid));
     minor_pen.setCosmetic(true);
     minor_pen.setWidth(1);
     painter.setPen(minor_pen);
@@ -146,7 +144,7 @@ void paint_chrome(QPainter & painter, ViewTransform2dFp64 const & view, int widt
     }
 
     // Draw the world axes through the origin, if visible.
-    QPen axis_pen(AXIS);
+    QPen axis_pen(qcolor(palette.axis));
     axis_pen.setCosmetic(true);
     axis_pen.setWidth(1);
     painter.setPen(axis_pen);
@@ -203,13 +201,13 @@ public:
     {
     }
 
-    void paint()
+    void paint(QColor const & overlay_text_color)
     {
         if (!(m_spacing_px > 0.0) || !std::isfinite(m_spacing_world))
         {
             return;
         }
-        m_painter.setPen(OVERLAY_TEXT);
+        m_painter.setPen(overlay_text_color);
         paint_x_row();
         paint_y_column();
         paint_axis_letters();
@@ -628,7 +626,7 @@ void RWorldRenderer2d::paint(QPainter & painter) const
     }
 
     // Segments and flattened curves share one cosmetic stroke pen.
-    QPen geom_pen(GEOMETRY);
+    QPen geom_pen(qcolor(m_palette.geometry));
     geom_pen.setCosmetic(true);
     geom_pen.setWidthF(GEOMETRY_LINE_WIDTH_PX);
     painter.setPen(geom_pen);
@@ -660,7 +658,7 @@ void RWorldRenderer2d::paint(QPainter & painter) const
     std::shared_ptr<PointPadFp64> const & points = m_world->points();
     if (points->size() > 0)
     {
-        QPen point_pen(GEOMETRY);
+        QPen point_pen(qcolor(m_palette.geometry));
         point_pen.setCosmetic(true);
         point_pen.setWidth(GEOMETRY_POINT_WIDTH_PX);
         point_pen.setCapStyle(Qt::RoundCap);
@@ -684,11 +682,14 @@ void RWorldRenderer2d::paint_shape_annotations(
     std::vector<int32_t> const ids = m_world->query_visible(
         std::min(left, right), std::min(top, bottom), std::max(left, right), std::max(top, bottom));
 
-    QPen bbox_pen(OVERLAY_BBOX);
+    QColor const label_text_color = qcolor(m_palette.overlay_text);
+    QColor const label_highlight_color = qcolor(m_palette.overlay_highlight);
+
+    QPen bbox_pen(qcolor(m_palette.overlay_bbox));
     bbox_pen.setCosmetic(true);
     bbox_pen.setWidthF(1.0);
     bbox_pen.setStyle(Qt::DashLine);
-    QPen highlight_pen(OVERLAY_HIGHLIGHT);
+    QPen highlight_pen(label_highlight_color);
     highlight_pen.setCosmetic(true);
     highlight_pen.setWidthF(2.0);
     highlight_pen.setStyle(Qt::DashLine);
@@ -781,7 +782,7 @@ void RWorldRenderer2d::paint_shape_annotations(
         QRectF const placed(tl.x(), tl.y(), block_w, block_h);
         obstacles.add(placed);
 
-        painter.setPen(highlighted ? OVERLAY_HIGHLIGHT : OVERLAY_TEXT);
+        painter.setPen(highlighted ? label_highlight_color : label_text_color);
         painter.drawText(placed, Qt::AlignLeft | Qt::AlignTop, rows.join(QChar('\n')));
     }
 }
@@ -795,7 +796,7 @@ void RWorldRenderer2d::paint_overlay(QPainter & painter, int width, int height) 
     if (m_overlay.coordinate_labels)
     {
         CoordinateLabelPainter labels(painter, m_view, width, height);
-        labels.paint();
+        labels.paint(qcolor(m_palette.overlay_text));
         coord_labels = labels.placed();
     }
     if (m_world && m_overlay.shape_annotations())
@@ -807,11 +808,11 @@ void RWorldRenderer2d::paint_overlay(QPainter & painter, int width, int height) 
 void RWorldRenderer2d::paint_canvas(QPainter & painter, int width, int height, bool full_canvas) const
 {
     painter.setRenderHint(QPainter::Antialiasing, true);
-    painter.fillRect(0, 0, width, height, BACKGROUND);
+    painter.fillRect(0, 0, width, height, qcolor(m_palette.background));
 
     if (full_canvas)
     {
-        paint_chrome(painter, m_view, width, height);
+        paint_chrome(painter, m_view, m_palette, width, height);
     }
 
     paint(painter);
@@ -819,7 +820,7 @@ void RWorldRenderer2d::paint_canvas(QPainter & painter, int width, int height, b
     if (full_canvas)
     {
         // Origin dot (cosmetic, fixed pixel size regardless of zoom).
-        QPen origin_pen(ORIGIN);
+        QPen origin_pen(qcolor(m_palette.origin));
         origin_pen.setCosmetic(true);
         origin_pen.setWidth(6);
         origin_pen.setCapStyle(Qt::RoundCap);

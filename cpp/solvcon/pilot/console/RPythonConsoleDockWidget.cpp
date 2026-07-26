@@ -6,6 +6,7 @@
 #include <solvcon/pilot/console/RPythonConsoleDockWidget.hpp>
 
 #include <solvcon/pilot/console/RPythonSyntaxRules.hpp>
+#include <solvcon/pilot/theme/theme_qt.hpp>
 
 #include <QAbstractItemView>
 #include <QApplication>
@@ -383,8 +384,7 @@ RPythonConsoleDockWidget::RPythonConsoleDockWidget(const QString & title, QWidge
 void RPythonConsoleDockWidget::applyTheme(SyntaxColors const & colors)
 {
     m_highlighter->applyColors(colors);
-    m_command_edit->setBracketMatchColor(
-        QColor(colors.bracket_match.r, colors.bracket_match.g, colors.bracket_match.b));
+    m_command_edit->setBracketMatchColor(qcolor(colors.bracket_match));
 }
 
 QString RPythonConsoleDockWidget::command() const

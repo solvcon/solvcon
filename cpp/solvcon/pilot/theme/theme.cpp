@@ -210,6 +210,45 @@ static SyntaxColors makeDarkSyntaxColors()
     return c;
 }
 
+// The canvas tables invert around the drawing surface: a white sheet with dark
+// chrome under the light variant, a near-black sheet with lifted chrome under
+// the dark one. The background, the geometry stroke, and the shared selection
+// accent are the design's own values; the rest are tuned to sit a readable
+// distance off whichever surface they land on. Grid lines stay the quietest
+// mark on the canvas and the origin the loudest, in both variants.
+
+static Canvas2dPalette makeLightCanvas2dPalette()
+{
+    Canvas2dPalette c;
+    c.background = {0xff, 0xff, 0xff};
+    c.minor_grid = {0xc9, 0xc9, 0xc9};
+    c.axis = {0x96, 0x8c, 0x28};
+    c.origin = {0xc8, 0x32, 0x32};
+    c.geometry = {0x3d, 0x86, 0xc6};
+    c.selection = {0x0d, 0x99, 0xff};
+    c.draw_preview = {0xa8, 0x8a, 0x2a};
+    c.overlay_text = {0x1c, 0x1e, 0x21};
+    c.overlay_bbox = {0x3c, 0x78, 0x3c};
+    c.overlay_highlight = {0xb0, 0x6e, 0x10};
+    return c;
+}
+
+static Canvas2dPalette makeDarkCanvas2dPalette()
+{
+    Canvas2dPalette c;
+    c.background = {0x1a, 0x1a, 0x1a};
+    c.minor_grid = {0x40, 0x40, 0x46};
+    c.axis = {0xc8, 0xc8, 0x50};
+    c.origin = {0xdc, 0x50, 0x50};
+    c.geometry = {0x5a, 0xa9, 0xe6};
+    c.selection = {0x0d, 0x99, 0xff};
+    c.draw_preview = {0xf0, 0xc8, 0x78};
+    c.overlay_text = {0xe1, 0xe1, 0xe6};
+    c.overlay_bbox = {0x96, 0xc8, 0x96};
+    c.overlay_highlight = {0xf0, 0xb4, 0x3c};
+    return c;
+}
+
 // The capability records state what each platform's theme can honor. macOS and
 // Windows own their title bar and pin a variant through the native color-scheme
 // hint, so both flags are set; Linux carries a pinned variant with the curated
@@ -318,6 +357,26 @@ SyntaxColors const & syntaxColorsFor(PlatformId platform, ThemeVariant variant)
 {
     (void)platform;
     return variant == ThemeVariant::Dark ? darkSyntaxColors() : lightSyntaxColors();
+}
+
+Canvas2dPalette const & lightCanvas2dPalette()
+{
+    static Canvas2dPalette const palette = makeLightCanvas2dPalette();
+    return palette;
+}
+
+Canvas2dPalette const & darkCanvas2dPalette()
+{
+    static Canvas2dPalette const palette = makeDarkCanvas2dPalette();
+    return palette;
+}
+
+Canvas2dPalette const & canvas2dPaletteFor(PlatformId platform, ThemeVariant variant)
+{
+    // A drawing surface is the pilot's own, not the platform's, so no room
+    // tunes it; the variant alone picks the table.
+    (void)platform;
+    return variant == ThemeVariant::Dark ? darkCanvas2dPalette() : lightCanvas2dPalette();
 }
 
 ThemeCapabilities const & themeCapabilitiesFor(PlatformId platform)

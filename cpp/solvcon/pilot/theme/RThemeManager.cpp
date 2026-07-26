@@ -5,6 +5,8 @@
 
 #include <solvcon/pilot/theme/RThemeManager.hpp> // Must be the first include.
 
+#include <solvcon/pilot/theme/theme_qt.hpp>
+
 #include <QApplication>
 #include <QColor>
 #include <QGuiApplication>
@@ -145,6 +147,14 @@ ThemeCapabilities RThemeManager::capabilities() const
     return m_backend->capabilities();
 }
 
+Canvas2dPalette const & RThemeManager::canvas2dPalette() const
+{
+    // The canvas keeps its curated tables under either look: the system look
+    // hands over the platform's widget colors, which say nothing about how a
+    // drawing surface should read.
+    return canvas2dPaletteFor(m_backend->platform(), currentVariant());
+}
+
 std::string RThemeManager::modeId() const
 {
     return themeModeId(m_mode);
@@ -192,46 +202,43 @@ void RThemeManager::syncOsColorScheme()
 
 QPalette RThemeManager::buildPalette(ThemePalette const & spec, ThemeVariant variant) const
 {
-    auto color = [](ThemeColor c)
-    { return QColor(c.r, c.g, c.b); };
-
     // A native accent, when the backend reads one, overrides the curated
     // highlight so the pilot picks up the user's chosen system color.
-    QColor highlight = color(spec.highlight);
+    QColor highlight = qcolor(spec.highlight);
     if (std::optional<ThemeColor> const accent = m_backend->accentColor(variant))
     {
-        highlight = color(*accent);
+        highlight = qcolor(*accent);
     }
 
     QPalette pal;
-    pal.setColor(QPalette::Window, color(spec.window));
-    pal.setColor(QPalette::WindowText, color(spec.window_text));
-    pal.setColor(QPalette::Base, color(spec.base));
-    pal.setColor(QPalette::AlternateBase, color(spec.alternate_base));
-    pal.setColor(QPalette::Text, color(spec.text));
-    pal.setColor(QPalette::Button, color(spec.button));
-    pal.setColor(QPalette::ButtonText, color(spec.button_text));
-    pal.setColor(QPalette::BrightText, color(spec.bright_text));
+    pal.setColor(QPalette::Window, qcolor(spec.window));
+    pal.setColor(QPalette::WindowText, qcolor(spec.window_text));
+    pal.setColor(QPalette::Base, qcolor(spec.base));
+    pal.setColor(QPalette::AlternateBase, qcolor(spec.alternate_base));
+    pal.setColor(QPalette::Text, qcolor(spec.text));
+    pal.setColor(QPalette::Button, qcolor(spec.button));
+    pal.setColor(QPalette::ButtonText, qcolor(spec.button_text));
+    pal.setColor(QPalette::BrightText, qcolor(spec.bright_text));
     pal.setColor(QPalette::Highlight, highlight);
 #if QT_VERSION >= QT_VERSION_CHECK(6, 6, 0)
     // The dedicated Accent role (Qt 6.6+) lets widgets that want the platform
     // accent, distinct from a selection highlight, pick it up from the palette.
     pal.setColor(QPalette::Accent, highlight);
 #endif
-    pal.setColor(QPalette::HighlightedText, color(spec.highlighted_text));
-    pal.setColor(QPalette::ToolTipBase, color(spec.tool_tip_base));
-    pal.setColor(QPalette::ToolTipText, color(spec.tool_tip_text));
-    pal.setColor(QPalette::PlaceholderText, color(spec.placeholder_text));
-    pal.setColor(QPalette::Link, color(spec.link));
-    pal.setColor(QPalette::LinkVisited, color(spec.link_visited));
+    pal.setColor(QPalette::HighlightedText, qcolor(spec.highlighted_text));
+    pal.setColor(QPalette::ToolTipBase, qcolor(spec.tool_tip_base));
+    pal.setColor(QPalette::ToolTipText, qcolor(spec.tool_tip_text));
+    pal.setColor(QPalette::PlaceholderText, qcolor(spec.placeholder_text));
+    pal.setColor(QPalette::Link, qcolor(spec.link));
+    pal.setColor(QPalette::LinkVisited, qcolor(spec.link_visited));
 
     // The disabled group keeps greyed-out controls legible instead of letting
     // the style derive a washed-out shade from the enabled colors.
-    pal.setColor(QPalette::Disabled, QPalette::Text, color(spec.disabled_text));
-    pal.setColor(QPalette::Disabled, QPalette::WindowText, color(spec.disabled_window_text));
-    pal.setColor(QPalette::Disabled, QPalette::ButtonText, color(spec.disabled_button_text));
-    pal.setColor(QPalette::Disabled, QPalette::HighlightedText, color(spec.disabled_text));
-    pal.setColor(QPalette::Disabled, QPalette::Highlight, color(spec.disabled_highlight));
+    pal.setColor(QPalette::Disabled, QPalette::Text, qcolor(spec.disabled_text));
+    pal.setColor(QPalette::Disabled, QPalette::WindowText, qcolor(spec.disabled_window_text));
+    pal.setColor(QPalette::Disabled, QPalette::ButtonText, qcolor(spec.disabled_button_text));
+    pal.setColor(QPalette::Disabled, QPalette::HighlightedText, qcolor(spec.disabled_text));
+    pal.setColor(QPalette::Disabled, QPalette::Highlight, qcolor(spec.disabled_highlight));
     return pal;
 }
 

@@ -6,12 +6,12 @@
 #include <solvcon/pilot/console/RPythonTerminalDockWidget.hpp>
 
 #include <solvcon/pilot/console/RPythonSyntaxRules.hpp>
+#include <solvcon/pilot/theme/theme_qt.hpp>
 
 #include <algorithm>
 
 #include <QAbstractItemView>
 #include <QApplication>
-#include <QColor>
 #include <QFont>
 #include <QKeyEvent>
 #include <QMimeData>
@@ -487,9 +487,8 @@ void RPythonTerminalDockWidget::writeToHistory(std::string const & data)
 void RPythonTerminalDockWidget::applyTheme(SyntaxColors const & colors)
 {
     m_highlighter->applyColors(colors);
-    m_edit->setBracketMatchColor(
-        QColor(colors.bracket_match.r, colors.bracket_match.g, colors.bracket_match.b));
-    m_edit->setErrorColor(QColor(colors.error.r, colors.error.g, colors.error.b));
+    m_edit->setBracketMatchColor(qcolor(colors.bracket_match));
+    m_edit->setErrorColor(qcolor(colors.error));
 }
 
 void RPythonTerminalDockWidget::executeCommand()

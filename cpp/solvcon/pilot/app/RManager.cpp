@@ -159,6 +159,16 @@ R2DWidget * RManager::add2DWidget()
     if (m_mdiArea)
     {
         viewer = new R2DWidget(/*parent*/ m_mdiArea);
+        // The canvas fills its own pixels, so it cannot inherit a theme switch
+        // from the application palette the way an ordinary widget does. Hand it
+        // the colors now and again on every switch, with the canvas itself as
+        // the connection context so the link dies with it.
+        auto applyCanvasPalette = [this, viewer](ThemeVariant)
+        {
+            viewer->setCanvasPalette(m_themeManager->canvas2dPalette());
+        };
+        applyCanvasPalette(m_themeManager->currentVariant());
+        QObject::connect(m_themeManager, &RThemeManager::themeChanged, viewer, applyCanvasPalette);
         viewer->setWindowTitle("2D canvas");
         viewer->show();
         auto * subwin = this->addSubWindow(viewer);

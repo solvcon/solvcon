@@ -140,6 +140,30 @@ struct SyntaxColors
 }; /* end struct SyntaxColors */
 
 /**
+ * @brief The colors the 2D canvas paints its own surface with.
+ *
+ * The canvas fills every pixel itself rather than letting the style paint a
+ * widget, so none of these are QPalette roles and they sit apart from
+ * ThemePalette. Like the syntax colors they come in a light and a dark table,
+ * which is what lets the canvas follow the theme instead of staying dark under
+ * a light window. selection is the same accent in both variants, so a selected
+ * shape reads as selected at a glance either way.
+ */
+struct Canvas2dPalette
+{
+    ThemeColor background;
+    ThemeColor minor_grid;
+    ThemeColor axis;
+    ThemeColor origin;
+    ThemeColor geometry;
+    ThemeColor selection;
+    ThemeColor draw_preview;
+    ThemeColor overlay_text;
+    ThemeColor overlay_bbox;
+    ThemeColor overlay_highlight;
+}; /* end struct Canvas2dPalette */
+
+/**
  * @brief What a platform's theme is able to honor.
  *
  * A plain record of yes-or-no facts, kept in the Qt-free core so it is data a
@@ -182,6 +206,15 @@ SyntaxColors const & darkSyntaxColors();
 
 /// The syntax colors a platform draws a resolved variant with.
 SyntaxColors const & syntaxColorsFor(PlatformId platform, ThemeVariant variant);
+
+/// The canvas colors for a white drawing surface.
+Canvas2dPalette const & lightCanvas2dPalette();
+
+/// The canvas colors for a near-black drawing surface.
+Canvas2dPalette const & darkCanvas2dPalette();
+
+/// The canvas colors a platform draws a resolved variant with.
+Canvas2dPalette const & canvas2dPaletteFor(PlatformId platform, ThemeVariant variant);
 
 /// The capability record for a platform.
 ThemeCapabilities const & themeCapabilitiesFor(PlatformId platform);
