@@ -20,7 +20,10 @@ try:
 except ImportError:
     pilot = None
 
-GITHUB_ACTIONS = os.getenv('GITHUB_ACTIONS', False)
+# The offscreen platform cannot back a live window; neither can the headless
+# Windows CI runner, whose WARP software rasterizer faults on one.
+NO_LIVE_WINDOW = ((os.getenv('QT_QPA_PLATFORM') or '').startswith('offscreen')
+                  or ('nt' == os.name and bool(os.getenv('GITHUB_ACTIONS'))))
 
 _PNG_MAGIC = b'\x89PNG\r\n\x1a\n'
 
@@ -350,8 +353,8 @@ class R2DWidgetWorldTC(unittest.TestCase):
                 "circle interior should be hollow")
 
 
-@unittest.skipIf(GITHUB_ACTIONS or not solvcon.HAS_PILOT,
-                 "live-GUI interaction is unstable under GitHub Actions")
+@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
+                 "live-GUI interaction needs a real window surface")
 class R2DWidgetPanSelectTC(unittest.TestCase):
     """Drive the pan tool through select, move, rotate, and deselect."""
 
@@ -989,8 +992,8 @@ class R2DWidgetExportOverlayTC(unittest.TestCase):
         self.assertGreater(labeled, plain)
 
 
-@unittest.skipIf(GITHUB_ACTIONS or not solvcon.HAS_PILOT,
-                 "live-GUI interaction is unstable under GitHub Actions")
+@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
+                 "live-GUI interaction needs a real window surface")
 class PainterToolboxTC(unittest.TestCase):
     """Run-through coverage of the Painter toolbox and the 'Create blank 2D
     canvas' flow.
@@ -998,9 +1001,10 @@ class PainterToolboxTC(unittest.TestCase):
     The painter is still a prototype, so these stay at the run-through
     level -- open the flow and drive it without crashing -- and leave
     detailed behavioral assertions for future work. They drive live widgets
-    (docks, focus changes, mouse gestures), so they are skipped on GitHub
-    Actions like the other interactive pilot tests; the draw-tool API itself
-    is covered headlessly by R2DWidgetWorldTC.test_draw_tool_round_trip.
+    (docks, focus changes, mouse gestures), so they are skipped under the
+    offscreen Qt platform like the other interactive pilot tests; the
+    draw-tool API itself is covered headlessly by
+    R2DWidgetWorldTC.test_draw_tool_round_trip.
     """
 
     @classmethod

@@ -15,7 +15,10 @@ try:
 except ImportError:
     pilot = None
 
-GITHUB_ACTIONS = os.getenv('GITHUB_ACTIONS', False)
+# The offscreen platform cannot back a live window; neither can the headless
+# Windows CI runner, whose WARP software rasterizer faults on one.
+NO_LIVE_WINDOW = ((os.getenv('QT_QPA_PLATFORM') or '').startswith('offscreen')
+                  or ('nt' == os.name and bool(os.getenv('GITHUB_ACTIONS'))))
 
 
 class _CircleBackend:
@@ -52,8 +55,8 @@ class _TranslateBackend:
                  "dx": 1.0, "dy": 0.0}])
 
 
-@unittest.skipIf(GITHUB_ACTIONS or not solvcon.HAS_PILOT,
-                 "GUI is not available in GitHub Actions")
+@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
+                 "pilot windows need a real window surface")
 class AgentPanelTC(unittest.TestCase):
     def setUp(self):
         self.mgr = pilot.RManager.instance.setUp()

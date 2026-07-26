@@ -16,7 +16,10 @@ try:
 except ImportError:
     pilot = None
 
-GITHUB_ACTIONS = os.getenv('GITHUB_ACTIONS', False)
+# The offscreen platform cannot back a live window; neither can the headless
+# Windows CI runner, whose WARP software rasterizer faults on one.
+NO_LIVE_WINDOW = ((os.getenv('QT_QPA_PLATFORM') or '').startswith('offscreen')
+                  or ('nt' == os.name and bool(os.getenv('GITHUB_ACTIONS'))))
 
 
 def _make_sample_mesh():
@@ -137,8 +140,8 @@ class MakeMeshInfoTC(unittest.TestCase):
         self.assertEqual(binfo, [[0, mh.nbound]])
 
 
-@unittest.skipIf(GITHUB_ACTIONS or not solvcon.HAS_PILOT,
-                 "GUI is not available in GitHub Actions")
+@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
+                 "pilot windows need a real window surface")
 class MeshInfoTreeTC(unittest.TestCase):
     def setUp(self):
         self.mgr = pilot.RManager.instance.setUp()
@@ -158,8 +161,8 @@ class MeshInfoTreeTC(unittest.TestCase):
                          Qt.Checked)
 
 
-@unittest.skipIf(GITHUB_ACTIONS or not solvcon.HAS_PILOT,
-                 "GUI is not available in GitHub Actions")
+@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
+                 "pilot windows need a real window surface")
 class EntityTreeWidgetTC(unittest.TestCase):
     def setUp(self):
         self.mgr = pilot.RManager.instance.setUp()
@@ -194,8 +197,8 @@ class EntityTreeWidgetTC(unittest.TestCase):
         self.assertFalse(tree._timer.isActive())
 
 
-@unittest.skipIf(GITHUB_ACTIONS or not solvcon.HAS_PILOT,
-                 "GUI is not available in GitHub Actions")
+@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
+                 "pilot windows need a real window surface")
 class TreePanelTC(unittest.TestCase):
     def setUp(self):
         self.mgr = pilot.RManager.instance.setUp()

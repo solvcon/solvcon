@@ -19,7 +19,10 @@ try:
 except ImportError:
     pilot = None
 
-GITHUB_ACTIONS = os.getenv('GITHUB_ACTIONS', False)
+# The offscreen platform cannot back a live window; neither can the headless
+# Windows CI runner, whose WARP software rasterizer faults on one.
+NO_LIVE_WINDOW = ((os.getenv('QT_QPA_PLATFORM') or '').startswith('offscreen')
+                  or ('nt' == os.name and bool(os.getenv('GITHUB_ACTIONS'))))
 
 
 @unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
@@ -67,8 +70,8 @@ class ComputeFieldTC(unittest.TestCase):
             density, svr.so0n.ndarray[svr.ngstcell:, 0])
 
 
-@unittest.skipIf(GITHUB_ACTIONS or not solvcon.HAS_PILOT,
-                 "GUI is not available in GitHub Actions")
+@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
+                 "pilot windows need a real window surface")
 class SolutionInfoTC(unittest.TestCase):
     def setUp(self):
         self.mgr = pilot.RManager.instance.setUp()
@@ -186,8 +189,8 @@ class SolutionInfoTC(unittest.TestCase):
         QApplication.processEvents()
 
 
-@unittest.skipIf(GITHUB_ACTIONS or not solvcon.HAS_PILOT,
-                 "GUI is not available in GitHub Actions")
+@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
+                 "pilot windows need a real window surface")
 class SolutionInspectorTC(unittest.TestCase):
     """The wired controller refreshes the inspector when a run sets the
     mesh."""
