@@ -26,6 +26,8 @@ protected:
         return pProfiler->m_radix_tree;
     }
 
+    size_t cancel_callback_count() const { return pProfiler->m_cancel_callbacks.size(); }
+
     CallProfiler * pProfiler;
 }; /* end class CallProfilerTest */
 
@@ -204,6 +206,30 @@ TEST_F(CallProfilerTest, cancel)
     test1();
 
     EXPECT_EQ(radix_tree().get_unique_node(), 0);
+}
+
+TEST_F(CallProfilerTest, retire_cancel_callbacks)
+{
+    pProfiler->reset();
+
+    {
+        CallProfilerProbe outer(*pProfiler, "outer");
+        EXPECT_EQ(cancel_callback_count(), 1);
+
+        {
+            CallProfilerProbe inner(*pProfiler, "inner");
+            EXPECT_EQ(cancel_callback_count(), 2);
+        }
+
+        EXPECT_EQ(cancel_callback_count(), 1);
+    }
+
+    EXPECT_EQ(cancel_callback_count(), 0);
+
+    CallProfilerProbe active(*pProfiler, "active");
+    EXPECT_EQ(cancel_callback_count(), 1);
+    pProfiler->cancel();
+    EXPECT_EQ(cancel_callback_count(), 0);
 }
 
 } /* end namespace detail */
