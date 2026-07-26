@@ -157,6 +157,27 @@ static pybind11::object pick_to_py(RDomainWidget::PickResult const & r)
     return d;
 }
 
+/// Convert a canvas palette to a Python dict of (r, g, b) tuples.
+static pybind11::dict canvas_palette_to_py(Canvas2dPalette const & p)
+{
+    namespace py = pybind11;
+    auto rgb = [](ThemeColor c)
+    { return py::make_tuple(c.r, c.g, c.b); };
+
+    py::dict d;
+    d["background"] = rgb(p.background);
+    d["minor_grid"] = rgb(p.minor_grid);
+    d["axis"] = rgb(p.axis);
+    d["origin"] = rgb(p.origin);
+    d["geometry"] = rgb(p.geometry);
+    d["selection"] = rgb(p.selection);
+    d["draw_preview"] = rgb(p.draw_preview);
+    d["overlay_text"] = rgb(p.overlay_text);
+    d["overlay_bbox"] = rgb(p.overlay_bbox);
+    d["overlay_highlight"] = rgb(p.overlay_highlight);
+    return d;
+}
+
 /// Convert a resolved shortcut to a Python dict of its portable fields.
 static pybind11::dict resolved_shortcut_to_py(ResolvedShortcut const & r)
 {
@@ -645,6 +666,14 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapR2DWidget
                 &wrapped_type::overlayOptions,
                 &wrapped_type::setOverlayOptions,
                 py::return_value_policy::copy)
+            .def_property_readonly(
+                "canvasPalette",
+                [](wrapped_type & self)
+                {
+                    return canvas_palette_to_py(self.canvasPalette());
+                },
+                "The colors this canvas paints with, as name -> (r, g, b). "
+                "Follows the application theme.")
             .def("setDrawTool", &wrapped_type::setDrawTool, py::arg("name"))
             .def_property_readonly("drawTool", &wrapped_type::drawTool)
             .def_property_readonly("selectedShape", &wrapped_type::selectedShape)

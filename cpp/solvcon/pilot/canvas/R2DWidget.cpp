@@ -8,6 +8,8 @@
 #include <array>
 #include <cmath>
 
+#include <solvcon/pilot/theme/theme_qt.hpp>
+
 #include <QColor>
 #include <QImage>
 #include <QMouseEvent>
@@ -46,8 +48,6 @@ constexpr double PICK_TOLERANCE_PX = 5.0;
 constexpr double ROTATE_HANDLE_GAP_PX = 16.0;
 constexpr double ROTATE_HANDLE_RADIUS_PX = 5.0;
 constexpr double ROTATE_HANDLE_HIT_PX = 9.0;
-
-QColor const SELECTION(120, 200, 255);
 
 double clamp_zoom(double zoom)
 {
@@ -154,7 +154,8 @@ void R2DWidget::paintEvent(QPaintEvent * /*event*/)
 {
     QPainter painter(this);
     constexpr bool full_canvas = true;
-    RWorldRenderer2d(m_world.get(), m_view, m_overlay).paint_canvas(painter, width(), height(), full_canvas);
+    RWorldRenderer2d(m_world.get(), m_view, m_palette, m_overlay)
+        .paint_canvas(painter, width(), height(), full_canvas);
 
     // Rubber-band preview of the shape currently being dragged, if any.
     paintDrawPreview(painter);
@@ -173,7 +174,7 @@ QImage R2DWidget::renderImage(Overlay2dOptions const & overlay) const
     image.setDevicePixelRatio(dpr);
     QPainter painter(&image);
     constexpr bool full_canvas = true;
-    RWorldRenderer2d(m_world.get(), m_view, overlay)
+    RWorldRenderer2d(m_world.get(), m_view, m_palette, overlay)
         .paint_canvas(painter, width(), height(), full_canvas);
     return image;
 }
@@ -200,7 +201,7 @@ bool R2DWidget::saveSvg(std::string const & filename, Overlay2dOptions const & o
         return false;
     }
     constexpr bool full_canvas = true;
-    RWorldRenderer2d(m_world.get(), m_view, overlay)
+    RWorldRenderer2d(m_world.get(), m_view, m_palette, overlay)
         .paint_canvas(painter, width(), height(), full_canvas);
     painter.end();
     return true;
@@ -218,7 +219,7 @@ void R2DWidget::paintDrawPreview(QPainter & painter) const
         return;
     }
     std::array<DrawPoint, 2> const points{{{m_draw_start_x, m_draw_start_y}, {m_draw_current_x, m_draw_current_y}}};
-    m_tool->paint_preview(painter, m_view, points);
+    m_tool->paint_preview(painter, m_view, qcolor(m_palette.draw_preview), points);
 }
 
 void R2DWidget::paintSelection(QPainter & painter) const
@@ -240,7 +241,8 @@ void R2DWidget::paintSelection(QPainter & painter) const
     }
 
     // Draw the box and the rotate handle knob.
-    QPen pen(SELECTION);
+    QColor const selection = qcolor(m_palette.selection);
+    QPen pen(selection);
     pen.setCosmetic(true);
     pen.setWidthF(1.5);
     pen.setStyle(Qt::DashLine);
@@ -253,7 +255,7 @@ void R2DWidget::paintSelection(QPainter & painter) const
     pen.setStyle(Qt::SolidLine);
     painter.setPen(pen);
     painter.drawLine(box.front(), handle);
-    painter.setBrush(SELECTION);
+    painter.setBrush(selection);
     painter.drawEllipse(handle, ROTATE_HANDLE_RADIUS_PX, ROTATE_HANDLE_RADIUS_PX);
 }
 

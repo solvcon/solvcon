@@ -17,6 +17,7 @@
 #include <solvcon/buffer/small_vector.hpp>
 #include <solvcon/pilot/canvas/DrawTool.hpp>
 #include <solvcon/pilot/canvas/RWorldRenderer2d.hpp>
+#include <solvcon/pilot/theme/theme.hpp>
 #include <solvcon/universe/ViewTransform2d.hpp>
 #include <solvcon/universe/World.hpp>
 
@@ -93,6 +94,19 @@ public:
 
     /// Get the world currently being painted.
     std::shared_ptr<WorldFp64> const & world() const { return m_world; }
+
+    Canvas2dPalette const & canvasPalette() const { return m_palette; }
+
+    /**
+     * Repaint the canvas with a new set of colors. The widget fills every
+     * pixel itself, so it cannot pick a theme switch up from the application
+     * palette; whoever owns the theme hands the new table down here instead.
+     */
+    void setCanvasPalette(Canvas2dPalette const & palette)
+    {
+        m_palette = palette;
+        update();
+    }
 
     Overlay2dOptions const & overlayOptions() const { return m_overlay; }
 
@@ -187,6 +201,14 @@ private:
 
     ViewTransform2dFp64 m_view;
     std::shared_ptr<WorldFp64> m_world;
+
+    /**
+     * The colors every paint reads from. Seeded dark so a canvas built
+     * without a theme owner still draws; RManager replaces it as the widget
+     * is created and again on each theme change.
+     */
+    Canvas2dPalette m_palette = darkCanvas2dPalette();
+
     Overlay2dOptions m_overlay;
     bool m_view_modified = false;
     QPointF m_last_mouse_pos;

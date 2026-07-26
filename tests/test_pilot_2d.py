@@ -27,12 +27,13 @@ NO_LIVE_WINDOW = ((os.getenv('QT_QPA_PLATFORM') or '').startswith('offscreen')
 
 _PNG_MAGIC = b'\x89PNG\r\n\x1a\n'
 
-# The pixel helpers below classify colors that RWorldRenderer2d paints (see
-# RWorldRenderer2d.cpp). GEOMETRY (120, 180, 240) is the only strongly-blue
-# color: the backdrop, grid, axes, and origin marker all have blue <= 80, so
-# a blue-dominant pixel must be geometry. ORIGIN (220, 80, 80) is the only
-# red-dominant color, since the yellow axes have equal red and green, which
-# lets the origin marker be located on its own.
+# The pixel helpers below classify colors that RWorldRenderer2d paints. Which
+# ones those are depends on the theme (Canvas2dPalette in theme.cpp), so the
+# masks key on dominance rather than on literal values: on a plain frame the
+# geometry stroke is the only blue-dominant mark and the origin marker the only
+# red-dominant one. Both canvas tables are held to that rule by the gtest
+# PilotCanvas2dPalette.OnAPlainFrameOnlyGeometryIsBlueAndTheOriginRed, so these
+# thresholds read the same under light and dark.
 
 
 def _clipboard_can_hold_pixmap(clipboard):
@@ -669,8 +670,8 @@ def _grab_foreground(widget, overlay=None):
         else:
             assert widget.saveImage(path, overlay)
         rgb = _load_rgba(path)[:, :, :3].astype('int16')
-    # The canvas backdrop is RGB(32, 32, 36); anything far from it is drawn.
-    background = np.array([32, 32, 36], dtype='int16')
+    # Anything far from the themed backdrop was drawn on top of it.
+    background = np.array(widget.canvasPalette["background"], dtype='int16')
     return int((np.abs(rgb - background).max(axis=2) > 60).sum())
 
 
@@ -990,6 +991,55 @@ class R2DWidgetExportOverlayTC(unittest.TestCase):
         if not labeled and not plain:
             self.skipTest("offscreen render reads back blank on this backend")
         self.assertGreater(labeled, plain)
+
+
+@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
+                 "theme switching needs a real window surface")
+class R2DWidgetThemeTC(unittest.TestCase):
+    """The painted frame follows the theme, not just the palette the widget
+    reports. Whether a canvas is themed can only be settled on the pixels.
+    """
+
+    def setUp(self):
+        self.mgr = pilot.RManager.instance.setUp()
+        self.widget = self.mgr.add2DWidget()
+
+    def tearDown(self):
+        # The manager is a shared singleton, so restore the default mode to
+        # keep the tests independent of the order they run in.
+        self.mgr.set_theme("system")
+
+    def _dominant_color(self):
+        """The most common color in an offscreen render of an empty canvas.
+
+        On a world with no geometry the backdrop covers nearly every pixel,
+        with only the grid, the axes, and the origin marker over it, so the
+        winner is the backdrop the renderer filled with. Reading the most
+        common color rather than a fixed pixel keeps the test off the grid
+        lines, whose spacing shifts with the view.
+        """
+        self.widget.updateWorld(solvcon.WorldFp64())
+        self.widget.resetView()
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder, "theme.png")
+            self.assertTrue(
+                self.widget.saveImage(path, pilot.Overlay2dOptions()))
+            pixels = _load_rgba(path)[:, :, :3].astype('uint32')
+        # Pack each pixel into one integer first: np.unique over a 1-D array
+        # is a plain sort, while over rows (axis=0) it takes a much slower
+        # void-dtype lexsort.
+        packed = ((pixels[:, :, 0] << 16)
+                  | (pixels[:, :, 1] << 8) | pixels[:, :, 2]).ravel()
+        values, counts = np.unique(packed, return_counts=True)
+        winner = int(values[counts.argmax()])
+        return (winner >> 16, (winner >> 8) & 0xff, winner & 0xff)
+
+    def test_the_rendered_backdrop_is_the_themed_one(self):
+        for mode in ("light", "dark"):
+            with self.subTest(mode=mode):
+                self.mgr.set_theme(mode)
+                self.assertEqual(self._dominant_color(),
+                                 self.widget.canvasPalette["background"])
 
 
 @unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,

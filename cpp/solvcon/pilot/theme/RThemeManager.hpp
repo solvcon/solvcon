@@ -108,6 +108,12 @@ public:
     /// switch behind the application palette.
     QColor windowColor() const { return m_window_color; }
 
+    /**
+     * The 2D canvas colors the current variant resolves to, for a canvas that
+     * fills its own pixels and so cannot pick the theme up from the palette.
+     */
+    Canvas2dPalette const & canvas2dPalette() const;
+
 signals:
 
     /// Emitted after a palette is applied, carrying the resolved variant.

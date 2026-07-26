@@ -22,6 +22,7 @@
 #include <string>
 #include <vector>
 
+class QColor;
 class QPainter;
 
 namespace solvcon
@@ -56,9 +57,14 @@ public:
     /// Wether this tool draws a shape or just navigates the view.
     virtual bool can_draw_shape() const = 0;
 
-    /// Paint the rubber-band preview of the gesture `points`. Sets the
-    /// shared preview pen, then defers to `paint_outline`.
-    void paint_preview(QPainter & painter, ViewTransform2dFp64 const & view, std::span<DrawPoint const> points) const;
+    /**
+     * Paint the rubber-band preview of the gesture `points` in `color`. Sets
+     * the shared preview pen, then defers to `paint_outline`.
+     */
+    void paint_preview(QPainter & painter,
+                       ViewTransform2dFp64 const & view,
+                       QColor const & color,
+                       std::span<DrawPoint const> points) const;
 
     /// Commit the shape described by the gesture `points` into `world`.
     virtual void commit(WorldFp64 & world, std::span<DrawPoint const> points) const = 0;

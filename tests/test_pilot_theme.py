@@ -12,7 +12,7 @@ try:
     from solvcon.pilot.base import _gui
     from PySide6 import QtWidgets
     from PySide6.QtCore import QSettings, QStandardPaths
-    from PySide6.QtGui import QPalette
+    from PySide6.QtGui import QColor, QPalette
     # Redirect QSettings to a throwaway location so the theme's persistence
     # does not touch the developer's real configuration during the tests.
     QStandardPaths.setTestModeEnabled(True)
@@ -215,6 +215,55 @@ class ThemePolishTC(unittest.TestCase):
         settings = QSettings("solvcon", "pilot")
         self.assertEqual(settings.value("theme/mode"), "dark")
         self.assertEqual(settings.value("theme/look"), "system")
+
+
+@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
+                 "pilot windows need a real window surface")
+class ThemeCanvasTC(unittest.TestCase):
+    """The 2D canvas fills every pixel itself instead of letting the style
+    paint a widget, so it follows the theme only because the manager hands it
+    the canvas colors on creation and again on each switch.
+    """
+
+    def setUp(self):
+        self.mgr = pilot.RManager.instance.setUp()
+        self.app = QtWidgets.QApplication.instance()
+
+    def tearDown(self):
+        # The manager is a shared singleton, so restore the default mode to
+        # keep the tests independent of the order they run in.
+        self.mgr.set_theme("system")
+
+    @staticmethod
+    def _backdrop_lightness(canvas):
+        return QColor(*canvas.canvasPalette["background"]).lightness()
+
+    def test_an_open_canvas_follows_a_later_switch(self):
+        # The canvas is opened first and the theme changed after, the path
+        # that used to leave a dark canvas sitting in a light window.
+        canvas = self.mgr.add2DWidget()
+        self.mgr.set_theme("dark")
+        self.assertLess(self._backdrop_lightness(canvas), 100)
+        self.mgr.set_theme("light")
+        self.assertGreater(self._backdrop_lightness(canvas), 150)
+
+    def test_a_new_canvas_starts_on_the_current_theme(self):
+        # A canvas opened after the switch must not wait for the next one.
+        self.mgr.set_theme("dark")
+        dark = self._backdrop_lightness(self.mgr.add2DWidget())
+        self.mgr.set_theme("light")
+        light = self._backdrop_lightness(self.mgr.add2DWidget())
+        self.assertLess(dark, light)
+
+    def test_the_canvas_is_a_sheet_rather_than_more_chrome(self):
+        # Under the light theme the drawing surface is brighter than the
+        # window around it, so the canvas reads as paper on a desk instead of
+        # merging into the panels.
+        self.mgr.set_theme("light")
+        canvas = self.mgr.add2DWidget()
+        self.assertGreater(
+            self._backdrop_lightness(canvas),
+            self.app.palette().color(QPalette.Window).lightness())
 
 
 @unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,

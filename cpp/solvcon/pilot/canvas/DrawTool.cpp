@@ -22,9 +22,10 @@ namespace solvcon
 void DrawToolBase::paint_preview(
     QPainter & painter,
     ViewTransform2dFp64 const & view,
+    QColor const & color,
     std::span<DrawPoint const> points) const
 {
-    QPen pen(QColor(240, 200, 120));
+    QPen pen(color);
     pen.setCosmetic(true);
     pen.setWidthF(1.5);
     pen.setStyle(Qt::DashLine);

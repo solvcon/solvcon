@@ -6,8 +6,8 @@
 #include <solvcon/pilot/console/RPythonSyntaxHighlighter.hpp>
 
 #include <solvcon/pilot/console/RPythonSyntaxRules.hpp>
+#include <solvcon/pilot/theme/theme_qt.hpp>
 
-#include <QColor>
 #include <QTextBlock>
 
 namespace solvcon
@@ -25,14 +25,11 @@ RPythonSyntaxHighlighter::RPythonSyntaxHighlighter(QTextDocument * parent)
 
 void RPythonSyntaxHighlighter::applyColors(SyntaxColors const & colors)
 {
-    auto qc = [](ThemeColor c)
-    { return QColor(c.r, c.g, c.b); };
-
-    m_keyword_format.setForeground(qc(colors.keyword));
-    m_builtin_format.setForeground(qc(colors.builtin));
-    m_string_format.setForeground(qc(colors.string));
-    m_comment_format.setForeground(qc(colors.comment));
-    m_number_format.setForeground(qc(colors.number));
+    m_keyword_format.setForeground(qcolor(colors.keyword));
+    m_builtin_format.setForeground(qcolor(colors.builtin));
+    m_string_format.setForeground(qcolor(colors.string));
+    m_comment_format.setForeground(qcolor(colors.comment));
+    m_number_format.setForeground(qcolor(colors.number));
     rehighlight();
 }
 

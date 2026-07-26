@@ -14,6 +14,7 @@
 
 #include <solvcon/pilot/common/common_detail.hpp> // Must be the first include.
 
+#include <solvcon/pilot/theme/theme.hpp>
 #include <solvcon/universe/ViewTransform2d.hpp>
 #include <solvcon/universe/World.hpp>
 
@@ -57,16 +58,22 @@ struct Overlay2dOptions
  * screen space, mapping math-convention world coordinates through a 2D view
  * transform. paint() draws geometry only; paint_canvas() adds the backdrop
  * and optional grid/axes/origin chrome, then the optional annotation overlay.
- * m_world is non-owning and may be null.
+ * Every color it paints with comes from the palette the caller hands in, so
+ * the canvas follows the theme. m_world is non-owning and may be null.
  *
  * @ingroup group_domain
  */
 class RWorldRenderer2d
 {
 public:
-    RWorldRenderer2d(WorldFp64 const * world, ViewTransform2dFp64 const & view, Overlay2dOptions const & overlay = {})
+    RWorldRenderer2d(
+        WorldFp64 const * world,
+        ViewTransform2dFp64 const & view,
+        Canvas2dPalette const & palette,
+        Overlay2dOptions const & overlay = {})
         : m_world(world)
         , m_view(view)
+        , m_palette(palette)
         , m_overlay(overlay)
     {
     }
@@ -89,6 +96,7 @@ private:
 
     WorldFp64 const * m_world;
     ViewTransform2dFp64 const & m_view;
+    Canvas2dPalette m_palette;
     Overlay2dOptions m_overlay;
 }; /* end class RWorldRenderer2d */
 

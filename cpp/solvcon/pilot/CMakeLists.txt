@@ -9,6 +9,7 @@ set(SOLVCON_PILOT_PYMODHEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/common/render_misc.hpp
     # theme/
     ${CMAKE_CURRENT_SOURCE_DIR}/theme/theme.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/theme/theme_qt.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/theme/RThemeBackend.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/theme/RMacThemeBackend.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/theme/RWindowsThemeBackend.hpp
