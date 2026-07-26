@@ -41,7 +41,9 @@
 #   ./build-scdv.sh --print-deps
 #       Print the system prerequisite commands (apt or brew) and exit.  The
 #       script never runs the package manager; copy, review, and run them
-#       yourself.  --print-apt is a backward-compatible alias.
+#       yourself.  --print-apt is a backward-compatible alias.  The output
+#       ends with the C++ lint tools `make lint` needs but no build section
+#       installs: clang-format and clang-tidy, both from LLVM 22.
 #
 # Overridable variables (search below for defaults):
 #   Platform:
@@ -208,13 +210,37 @@ sudo apt install -y \
 EOF
 }
 
+scdv_apt_clang_lint_cmd() {
+  # Print the apt command for the C++ lint tools: clang-format for
+  # `make cformat` and clang-tidy for `make USE_CLANG_TIDY=ON` and
+  # `make pilot_clang_tidy_diff`.  Both come from the one LLVM 22 in
+  # apt.llvm.org; noble's own are too old for C++23.  This is separate from
+  # the llvm-22-dev of the QT set, which is libclang for shiboken and ships
+  # neither tool.  The Makefile and CMake look the tools up by their bare
+  # names, hence the symlinks; CMake then resolves clang-tidy-diff.py
+  # relative to the symlink's real path, so /usr/lib/llvm-22/share/clang is
+  # still found.
+  cat <<'EOF'
+wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key \
+  | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
+echo "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-22 main" \
+  | sudo tee /etc/apt/sources.list.d/llvm.list
+sudo apt-get -qqy update
+sudo apt install -y clang-format-22 clang-tidy-22
+sudo ln -fs "$(which clang-format-22)" /usr/local/bin/clang-format
+sudo ln -fs "$(which clang-tidy-22)" /usr/local/bin/clang-tidy
+EOF
+}
+
 plat_print_deps() {
-  # Ubuntu prints the apt base/QT/LaTeX sets.
+  # Ubuntu prints the apt base/QT/LaTeX sets, then the lint toolchain.
   scdv_apt_base_cmd
   echo
   scdv_apt_qt_cmd
   echo
   scdv_apt_latex_cmd
+  echo
+  scdv_apt_clang_lint_cmd
 }
 
 plat_python_env() {
@@ -487,10 +513,33 @@ brew install \
 EOF
 }
 
+scdv_brew_clang_lint_cmd() {
+  # Print the brew command for the C++ lint tools: clang-format for
+  # `make cformat` and clang-tidy for `make USE_CLANG_TIDY=ON` and
+  # `make pilot_clang_tidy_diff`.  Both come from the one keg-only brew
+  # llvm@22.  Apple's CLT ships no clang-tidy, and the libclang fetched for
+  # shiboken is lib/ and include/ only (see fetch_libclang), so neither tool
+  # is available otherwise.  Symlink the two tools instead of putting the keg
+  # bin on PATH: that bin also holds clang and clang++, which would shadow the
+  # Apple toolchain the rest of the build uses.  The Makefile and CMake look
+  # the tools up by their bare names, and CMake resolves clang-tidy-diff.py
+  # relative to the symlink's real path, so the keg's share/clang is still
+  # found.
+  cat <<'EOF'
+brew install llvm@22
+sudo ln -sf "$(brew --prefix llvm@22)/bin/clang-format" \
+  /usr/local/bin/clang-format
+sudo ln -sf "$(brew --prefix llvm@22)/bin/clang-tidy" \
+  /usr/local/bin/clang-tidy
+EOF
+}
+
 plat_print_deps() {
   # macOS prints the brew base set (the QT and LaTeX toolchains need no extra
-  # brew packages).
+  # brew packages), then the lint toolchain.
   scdv_brew_base_cmd
+  echo
+  scdv_brew_clang_lint_cmd
 }
 
 plat_python_env() {

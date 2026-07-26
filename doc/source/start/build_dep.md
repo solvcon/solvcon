@@ -39,6 +39,14 @@ it to put the freshly built Python and Qt on your `PATH`, and run
 source ${HOME}/var/scdv/<platform>-py<pyver>-qt<qtver>/activate
 ```
 
+No build section installs the C++ lint tools `make lint` needs, so
+`--print-deps` ends with them. Both `clang-format` and `clang-tidy` come from
+the same LLVM 22 (`clang-format-22` and `clang-tidy-22` from apt.llvm.org on
+Ubuntu, `llvm@22` from Homebrew on macOS), symlinked under their bare names
+because that is how the `Makefile` and CMake look them up. Note that LLVM 22
+means `clang-format` is newer than the `CLANG_FORMAT_CI_VERSION` the `Makefile`
+pins, so `make cformat` prints a version-drift warning.
+
 Once the dependencies are in place, build solvcon as described in
 {doc}`build_solvcon`.
 
