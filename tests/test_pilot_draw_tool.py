@@ -28,6 +28,11 @@ class DrawToolTC(unittest.TestCase):
         self.model = self.mgr.menu_model
         self.painter = _gui.controller.painter
 
+    def _panel(self):
+        """The Painter dock body, building the dock on first use."""
+        self.painter._ensure_dock()
+        return self.painter.panel
+
     def test_one_radio_item_per_registered_tool(self):
         items = [a.text()
                  for a in self.model.menu("Canvas/Draw tool").actions()]
@@ -43,14 +48,14 @@ class DrawToolTC(unittest.TestCase):
         self.assertNotIn("Sample: Parabola", top)
 
     def test_menu_radio_drives_manager_and_toolbox(self):
-        self.painter._ensure_dock()
+        panel = self._panel()
         self.model.action("draw.tool.line").trigger()
         self.assertEqual(self.mgr.drawTool, "line")
         # The toolbox button is a view of the same action.
         self.assertTrue(
-            self.painter._buttons["line"].defaultAction().isChecked())
+            panel.tool_buttons["line"].defaultAction().isChecked())
         self.assertFalse(
-            self.painter._buttons["pan"].defaultAction().isChecked())
+            panel.tool_buttons["pan"].defaultAction().isChecked())
 
     def test_console_set_draw_tool_checks_the_menu(self):
         self.mgr.setDrawTool("rectangle")
@@ -59,6 +64,76 @@ class DrawToolTC(unittest.TestCase):
                          "draw.tool.rectangle")
         # The group is exclusive, so the previous choice clears.
         self.assertFalse(self.model.action("draw.tool.line").isChecked())
+
+    def test_dock_follows_the_panel_toggle(self):
+        action = self.model.action("panel.painter")
+        # The controller is a shared singleton, so drive the toggle from a
+        # known-off state rather than from whatever a previous test left.
+        action.setChecked(False)
+        action.setChecked(True)
+        self.assertIsNotNone(self.painter._dock)
+        # The main window is not shown in the test, so ask whether the dock
+        # is hidden rather than whether it is on screen.
+        self.assertFalse(self.painter._dock.isHidden())
+        action.setChecked(False)
+        self.assertTrue(self.painter._dock.isHidden())
+
+    def test_rail_holds_one_button_per_registered_tool(self):
+        panel = self._panel()
+        self.assertEqual(set(panel.tool_buttons), set(draw_tool_names()))
+
+    def test_inspector_stacks_one_page_per_tab(self):
+        panel = self._panel()
+        self.assertEqual(list(panel.tabs), ["Design", "Layers", "Canvas"])
+        self.assertEqual(panel._stack.count(), len(panel.PAGES))
+        self.assertEqual(panel.current_page(), "Design")
+
+    def test_inspector_tab_selects_its_page(self):
+        panel = self._panel()
+        panel.tabs["Canvas"].click()
+        self.assertEqual(panel.current_page(), "Canvas")
+        # The tabs are one exclusive group, so the previous choice clears.
+        self.assertFalse(panel.tabs["Design"].isChecked())
+        panel.show_page("Layers")
+        self.assertEqual(panel.current_page(), "Layers")
+        self.assertTrue(panel.tabs["Layers"].isChecked())
+        # The panel outlives the test, so leave it on the default page.
+        panel.show_page("Design")
+
+    def test_rail_shade_follows_the_theme(self):
+        # The rail paints its own shade of the panel colour. Reading it back
+        # from a grab is what catches a shade captured once and never
+        # refreshed, which is how a set-on-palette-change colour behaves.
+        rail = self._panel()._rail
+        try:
+            self.mgr.set_theme("light")
+            light = rail.grab().toImage().pixelColor(2, 2).lightness()
+            self.mgr.set_theme("dark")
+            dark = rail.grab().toImage().pixelColor(2, 2).lightness()
+        finally:
+            self.mgr.set_theme("system")
+        self.assertGreater(light, dark)
+
+    def test_widening_the_panel_grows_the_inspector(self):
+        # The rail keeps its designed width and the inspector takes the rest,
+        # so a dock wider than the design leaves no bands beside the panel.
+        panel = self._panel()
+        panel.resize(500, 400)
+        panel.layout().activate()
+        self.assertEqual(panel._rail.width(), 64)
+        self.assertGreater(panel._inspector.width(), 264)
+
+    def test_tab_row_restyles_with_the_theme(self):
+        tabs = self._panel()._tabs
+        try:
+            self.mgr.set_theme("light")
+            light = tabs.styleSheet()
+            self.mgr.set_theme("dark")
+            dark = tabs.styleSheet()
+        finally:
+            self.mgr.set_theme("system")
+        self.assertIn("border-radius", light)
+        self.assertNotEqual(light, dark)
 
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
