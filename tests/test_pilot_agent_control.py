@@ -24,11 +24,14 @@ try:
 except ImportError:
     pilot = None
 
-GITHUB_ACTIONS = os.getenv('GITHUB_ACTIONS', False)
+# The offscreen platform cannot back a live window; neither can the headless
+# Windows CI runner, whose WARP software rasterizer faults on one.
+NO_LIVE_WINDOW = ((os.getenv('QT_QPA_PLATFORM') or '').startswith('offscreen')
+                  or ('nt' == os.name and bool(os.getenv('GITHUB_ACTIONS'))))
 
 
-@unittest.skipIf(GITHUB_ACTIONS or not solvcon.HAS_PILOT,
-                 "GUI is not available in GitHub Actions")
+@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
+                 "pilot windows need a real window surface")
 class _PilotTC(unittest.TestCase):
     """Shared setup: a shown main window with an empty MDI area, so every
     freshly added sub-window reports visible and earlier tests' windows do

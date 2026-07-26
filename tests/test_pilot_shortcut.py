@@ -16,7 +16,10 @@ except ImportError:
     pilot = None
     QtGui = None
 
-GITHUB_ACTIONS = os.getenv('GITHUB_ACTIONS', False)
+# The offscreen platform cannot back a live window; neither can the headless
+# Windows CI runner, whose WARP software rasterizer faults on one.
+NO_LIVE_WINDOW = ((os.getenv('QT_QPA_PLATFORM') or '').startswith('offscreen')
+                  or ('nt' == os.name and bool(os.getenv('GITHUB_ACTIONS'))))
 
 # KeyMod::Primary and Key::Z ordinals from keymap.hpp, passed to
 # shortcut_conflicts_rebinding; a static_assert in wrap_pilot.cpp pins them.
@@ -174,8 +177,8 @@ class ShortcutResolutionTC(unittest.TestCase):
         self.assertIn(frozenset({"edit.undo", "window.console"}), pairs)
 
 
-@unittest.skipIf(GITHUB_ACTIONS or not solvcon.HAS_PILOT,
-                 "GUI is not available in GitHub Actions")
+@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
+                 "pilot windows need a real window surface")
 class ShortcutTC(unittest.TestCase):
     """Live QAction bindings for the commands routed through the roof."""
 
@@ -228,8 +231,8 @@ class ShortcutTC(unittest.TestCase):
             self.assertEqual(action.menuRole(), QtGui.QAction.NoRole)
 
 
-@unittest.skipIf(GITHUB_ACTIONS or not solvcon.HAS_PILOT,
-                 "GUI is not available in GitHub Actions")
+@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
+                 "pilot windows need a real window surface")
 class ApplyShortcutHelperTC(unittest.TestCase):
     """apply_shortcut installs a binding by objectName without hand wiring."""
 
