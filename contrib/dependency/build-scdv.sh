@@ -42,8 +42,9 @@
 #       Print the system prerequisite commands (apt or brew) and exit.  The
 #       script never runs the package manager; copy, review, and run them
 #       yourself.  --print-apt is a backward-compatible alias.  The output
-#       ends with the C++ lint tools `make lint` needs but no build section
-#       installs: clang-format and clang-tidy, both from LLVM 22.
+#       ends with the two toolchains no build section installs: LaTeX, which
+#       the documentation needs to render its figures, then clang-format and
+#       clang-tidy for `make lint`, both from LLVM 22.
 #
 # Overridable variables (search below for defaults):
 #   Platform:
@@ -534,10 +535,31 @@ sudo ln -sf "$(brew --prefix llvm@22)/bin/clang-tidy" \
 EOF
 }
 
+scdv_brew_latex_cmd() {
+  # Print the brew command for the LaTeX toolchain the documentation needs.
+  # Even the plain HTML build needs it: the pstake extension renders
+  # ".. pstake::" PSTricks figures via latex -> dvips -> ImageMagick convert
+  # (Ghostscript is the fallback and convert's EPS delegate).  macOS ships no
+  # TeX at all, so the cask is the whole toolchain.  mactex-no-gui is the full
+  # distribution without the GUI front ends, which already carries the pst-*
+  # styles and the dvips/EPS helper binaries.  The download is several
+  # gigabytes.
+  #
+  # Gotcha: the cask puts the binaries in /Library/TeX/texbin and reaches PATH
+  # only through /etc/paths.d, so a shell started before the install finds no
+  # latex until `eval "$(/usr/libexec/path_helper)"` or a new terminal.
+  cat <<'EOF'
+brew install --cask mactex-no-gui
+brew install ghostscript imagemagick
+EOF
+}
+
 plat_print_deps() {
-  # macOS prints the brew base set (the QT and LaTeX toolchains need no extra
-  # brew packages), then the lint toolchain.
+  # macOS prints the brew base set (the QT toolchain needs no extra brew
+  # packages), then the LaTeX and lint toolchains.
   scdv_brew_base_cmd
+  echo
+  scdv_brew_latex_cmd
   echo
   scdv_brew_clang_lint_cmd
 }
