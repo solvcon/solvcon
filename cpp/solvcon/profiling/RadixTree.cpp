@@ -41,6 +41,7 @@ void CallProfiler::end_caller()
     call_profile.stop_stopwatch(); // Update profiling information to the pending time and count
     m_pending_nodes.insert(m_radix_tree.get_current_node());
     m_radix_tree.move_current_to_parent(); // Pop the caller from the call stack
+    m_cancel_callbacks.pop_back();
 
     if (m_radix_tree.get_current_node() == m_radix_tree.get_root()) // If the root function ends, update all pending nodes and stable items
     {
