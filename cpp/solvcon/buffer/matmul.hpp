@@ -28,6 +28,170 @@ inline constexpr bool can_matmul_blas_v = std::is_same_v<T, float> ||
                                           std::is_same_v<T, Complex<float>> ||
                                           std::is_same_v<T, Complex<double>>;
 
+/**
+ * @brief Describe matmul operands as an execution-independent contraction.
+ *
+ * MatmulPlan interprets trailing axes as vector or matrix roles and leading
+ * axes as the batch domain. It validates the contracted dimension, derives
+ * the result shape, and records the signed-stride mappings used to locate
+ * operands in the result batch domain. Broadcast batch axes are represented
+ * by zero strides, so an executor can advance operand offsets without
+ * reinterpreting ranks or broadcasting rules.
+ *
+ * For `(2,1,3,4) @ (1,5,4,6)`, the plan records batch shape `(2,5)`, M=3,
+ * N=6, K=4, output shape `(2,5,3,6)`, and zero-stride batch mappings for
+ * the broadcast axes. It does not allocate the output or evaluate the ten
+ * matrix pairs.
+ *
+ * @note This implementation only plans rank-2 matrix-matrix operands. It
+ * validates K and records M, N, K, the output shape, and signed matrix
+ * strides. It does not have vector roles or a batch domain yet.
+ */
+class MatmulPlan
+{
+public:
+    using shape_type = small_vector<ssize_t>;
+
+    shape_type const & output_shape() const noexcept { return m_output_shape; }
+    ssize_t rows() const noexcept { return m_contraction.m_rows; }
+    ssize_t columns() const noexcept { return m_contraction.m_columns; }
+    ssize_t inner_size() const noexcept { return m_contraction.m_inner_size; }
+    ssize_t lhs_row_stride() const noexcept { return m_strides.m_lhs_row_stride; }
+    ssize_t lhs_inner_stride() const noexcept { return m_strides.m_lhs_inner_stride; }
+    ssize_t rhs_inner_stride() const noexcept { return m_strides.m_rhs_inner_stride; }
+    ssize_t rhs_column_stride() const noexcept { return m_strides.m_rhs_column_stride; }
+
+    template <typename Array>
+    static MatmulPlan make(Array const & lhs, Array const & rhs);
+
+private:
+    struct Contraction
+    {
+        ssize_t m_rows;
+        ssize_t m_columns;
+        ssize_t m_inner_size;
+    }; /* end struct Contraction */
+
+    struct MatrixStrides
+    {
+        ssize_t m_lhs_row_stride;
+        ssize_t m_lhs_inner_stride;
+        ssize_t m_rhs_inner_stride;
+        ssize_t m_rhs_column_stride;
+    }; /* end struct MatrixStrides */
+
+    MatmulPlan(shape_type output_shape, Contraction contraction, MatrixStrides strides);
+
+    shape_type m_output_shape;
+    Contraction m_contraction;
+    MatrixStrides m_strides;
+}; /* end class MatmulPlan */
+
+/**
+ * @brief Execute a MatmulPlan with a layout-appropriate contraction route.
+ *
+ * MatmulExecutor maps vector and matrix roles to DOT, GEMV, or GEMM, then
+ * selects generic, tiled, direct BLAS, or pack-once BLAS execution. It owns
+ * BLAS eligibility, packing reuse, and size thresholds; these decisions do
+ * not change the plan. The constructor only binds a plan and caller-owned
+ * arrays; execute() evaluates the plan.
+ *
+ * For `(2,1,3,4) @ (1,5,4,6)`, the executor visits ten batch offsets and
+ * evaluates one `(3,4) @ (4,6)` contraction at each offset. The results are
+ * written into the allocated `(2,5,3,6)` output.
+ *
+ * @note This implementation provides only the generic signed-stride
+ * matrix-matrix route. Optimized and vector routes are follow-up work.
+ */
+template <typename Array>
+class MatmulExecutor
+{
+public:
+    MatmulExecutor(MatmulPlan const & plan, Array & output, Array const & lhs, Array const & rhs);
+
+    void execute();
+
+private:
+    using value_type = typename Array::value_type;
+
+    MatmulPlan const & m_plan;
+    value_type * m_output_data;
+    value_type const * m_lhs_data;
+    value_type const * m_rhs_data;
+}; /* end class MatmulExecutor */
+
+inline MatmulPlan::MatmulPlan(shape_type output_shape, Contraction contraction, MatrixStrides strides)
+    : m_output_shape(std::move(output_shape))
+    , m_contraction(contraction)
+    , m_strides(strides)
+{
+}
+
+template <typename Array>
+MatmulPlan MatmulPlan::make(Array const & lhs, Array const & rhs)
+{
+    if (lhs.ndim() != 2 || rhs.ndim() != 2)
+    {
+        throw std::invalid_argument("planned matrix-matrix matmul requires rank-2 operands");
+    }
+    if (lhs.shape(1) != rhs.shape(0))
+    {
+        throw std::invalid_argument(
+            std::format("SimpleArray::matmul_planned(): shape mismatch: "
+                        "this=({},{}) other=({},{})",
+                        lhs.shape(0),
+                        lhs.shape(1),
+                        rhs.shape(0),
+                        rhs.shape(1)));
+    }
+
+    ssize_t const rows = lhs.shape(0);
+    ssize_t const columns = rhs.shape(1);
+    ssize_t const inner_size = lhs.shape(1);
+    return MatmulPlan{
+        shape_type{rows, columns},
+        Contraction{
+            .m_rows = rows,
+            .m_columns = columns,
+            .m_inner_size = inner_size,
+        },
+        MatrixStrides{
+            .m_lhs_row_stride = lhs.stride(0),
+            .m_lhs_inner_stride = lhs.stride(1),
+            .m_rhs_inner_stride = rhs.stride(0),
+            .m_rhs_column_stride = rhs.stride(1),
+        },
+    };
+}
+
+template <typename Array>
+MatmulExecutor<Array>::MatmulExecutor(MatmulPlan const & plan, Array & output, Array const & lhs, Array const & rhs)
+    : m_plan(plan)
+    , m_output_data(output.logical_data())
+    , m_lhs_data(lhs.logical_data())
+    , m_rhs_data(rhs.logical_data())
+{
+}
+
+template <typename Array>
+void MatmulExecutor<Array>::execute()
+{
+    for (ssize_t row = 0; row < m_plan.rows(); ++row)
+    {
+        for (ssize_t column = 0; column < m_plan.columns(); ++column)
+        {
+            value_type total{};
+            for (ssize_t inner = 0; inner < m_plan.inner_size(); ++inner)
+            {
+                ssize_t const lhs_offset = row * m_plan.lhs_row_stride() + inner * m_plan.lhs_inner_stride();
+                ssize_t const rhs_offset = inner * m_plan.rhs_inner_stride() + column * m_plan.rhs_column_stride();
+                total += m_lhs_data[lhs_offset] * m_rhs_data[rhs_offset];
+            }
+            m_output_data[row * m_plan.columns() + column] = total;
+        }
+    }
+}
+
 template <typename A, typename T>
 class SimpleArrayMatmulHelper
 {

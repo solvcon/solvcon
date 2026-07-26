@@ -39,6 +39,11 @@ def profile_matmul_blas_sa(lhs, rhs):
     return lhs.matmul_blas(rhs)
 
 
+@profile_function
+def profile_matmul_planned_sa(lhs, rhs):
+    return lhs.matmul_planned(rhs)
+
+
 def profile_matmul_fast_sa(lhs, rhs, tile_x, tile_y, tile_z):
     name = f"profile_matmul_fast_sa_{tile_x}_{tile_y}_{tile_z}"
     _ = solvcon.CallProfilerProbe(name)
@@ -47,6 +52,24 @@ def profile_matmul_fast_sa(lhs, rhs, tile_x, tile_y, tile_z):
 
 def make_data(dtype, shape):
     return np.random.rand(*shape).astype(dtype)
+
+
+def make_layout_cases(lhs, rhs):
+    return (
+        ("c_contiguous", lhs, rhs),
+        ("non_contiguous",
+         np.flip(lhs, axis=1),
+         np.flip(rhs, axis=0)),
+    )
+
+
+def element_strides(data):
+    return tuple(stride // data.itemsize for stride in data.strides)
+
+
+def print_profile_row(*columns):
+    print(str.format(
+        "| {:20s} | {:15s} | {:15s} |", *(columns[0:3])))
 
 
 def profile_matmul_operation(dtype, shapes, it=10):
@@ -58,42 +81,46 @@ def profile_matmul_operation(dtype, shapes, it=10):
     for m in shapes:
         lhs = make_data(dtype, (m, m))
         rhs = make_data(dtype, (m, m))
-        lhs_sa = make_container(lhs)
-        rhs_sa = make_container(rhs)
-        solvcon.call_profiler.reset()
-        for _ in range(it):
-            profile_matmul_np(lhs, rhs)
-            profile_matmul_naive_sa(lhs_sa, rhs_sa)
-            profile_matmul_blas_sa(lhs_sa, rhs_sa)
-            for tile_x, tile_y, tile_z in tile_configs:
-                profile_matmul_fast_sa(lhs_sa, rhs_sa, tile_x, tile_y, tile_z)
+        for layout, case_lhs, case_rhs in make_layout_cases(lhs, rhs):
+            lhs_sa = make_container(case_lhs)
+            rhs_sa = make_container(case_rhs)
+            solvcon.call_profiler.reset()
+            for _ in range(it):
+                profile_matmul_np(case_lhs, case_rhs)
+                profile_matmul_naive_sa(lhs_sa, rhs_sa)
+                profile_matmul_blas_sa(lhs_sa, rhs_sa)
+                profile_matmul_planned_sa(lhs_sa, rhs_sa)
+                for tile_x, tile_y, tile_z in tile_configs:
+                    profile_matmul_fast_sa(
+                        lhs_sa, rhs_sa, tile_x, tile_y, tile_z)
 
-        res = solvcon.call_profiler.result()["children"]
-        out = {}
-        for r in res:
-            name = r["name"].replace("profile_matmul_", "")
-            out[name] = r["total_time"] / r["count"]
+            res = solvcon.call_profiler.result()["children"]
+            out = {}
+            for r in res:
+                name = r["name"].replace("profile_matmul_", "")
+                out[name] = r["total_time"] / r["count"]
 
-        print(
-            f"## 2D x 2D shape: ({m}, {m}) x ({m}, {m}) dtype:"
-            f"`{np.dtype(dtype)}`\n"
-        )
+            print(f"## 2D x 2D layout: `{layout}` "
+                  f"dtype: `{np.dtype(dtype)}`\n")
+            print(f"- lhs shape: `{case_lhs.shape}`, element strides: "
+                  f"`{element_strides(case_lhs)}`")
+            print(f"- rhs shape: `{case_rhs.shape}`, element strides: "
+                  f"`{element_strides(case_rhs)}`\n")
 
-        def print_row(*cols):
-            print(str.format("| {:20s} | {:15s} | {:15s} |", *(cols[0:3])))
-
-        print_row("func", "per call (ms)", "cmp to np")
-        print_row("-" * 20, "-" * 15, "-" * 15)
-        npbase = out["np"]
-        keys = ["np", "naive_sa", "blas_sa"]
-        keys += [
-            f"fast_sa_{tile_x}_{tile_y}_{tile_z}"
-            for tile_x, tile_y, tile_z in tile_configs
-        ]
-        for key in keys:
-            value = out[key]
-            print_row(f"{key:8s}", f"{value:.3E}", f"{value / npbase:.3f}")
-        print()
+            print_profile_row("func", "per call (ms)", "cmp to np")
+            print_profile_row("-" * 20, "-" * 15, "-" * 15)
+            npbase = out["np"]
+            keys = ["np", "naive_sa", "blas_sa", "planned_sa"]
+            keys += [
+                f"fast_sa_{tile_x}_{tile_y}_{tile_z}"
+                for tile_x, tile_y, tile_z in tile_configs
+            ]
+            for key in keys:
+                value = out[key]
+                print_profile_row(
+                    f"{key:8s}", f"{value:.3E}",
+                    f"{value / npbase:.3f}")
+            print()
 
 
 def main():

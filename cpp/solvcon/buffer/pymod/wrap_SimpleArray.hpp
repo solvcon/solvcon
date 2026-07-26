@@ -414,6 +414,7 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArray
 
         (*this)
             .def("matmul", &wrapped_type::matmul)
+            .def("matmul_planned", &wrapped_type::matmul_planned)
             .def("matmul_blas", &wrapped_type::matmul_blas)
             .def(
                 "matmul_fast",
