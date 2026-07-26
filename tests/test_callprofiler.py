@@ -306,4 +306,19 @@ class CallProfilerTC(unittest.TestCase):
         self.assertEqual(2, clone_result["count"])
         self.assertGreater(clone_result["total_time"], 0)
 
+    def test_wrapper_exception_keeps_profiler_balanced(self):
+        solvcon.wrapper_profiler_status.enable()
+        solvcon.call_profiler.reset()
+
+        with self.assertRaisesRegex(
+                ValueError, "size 1 must be a multiple of alignment 16"):
+            solvcon.ConcreteBuffer(1, alignment=16)
+
+        solvcon.ConcreteBuffer(16, alignment=16)
+        result = solvcon.call_profiler.result()
+        constructor = result["children"][0]
+        self.assertNotIn("current_node", constructor)
+        self.assertEqual(constructor["count"], 2)
+        self.assertEqual(constructor["children"], [])
+
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

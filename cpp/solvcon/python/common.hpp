@@ -85,6 +85,37 @@ private:
 
 }; /* end class WrapperProfilerStatus */
 
+class WrapperProfilerGuard
+{
+
+public:
+
+    WrapperProfilerGuard()
+        : m_enabled(WrapperProfilerStatus::me().enabled())
+    {
+    }
+
+    WrapperProfilerGuard(WrapperProfilerGuard const &) = delete;
+    WrapperProfilerGuard(WrapperProfilerGuard &&) = delete;
+    WrapperProfilerGuard & operator=(WrapperProfilerGuard const &) = delete;
+    WrapperProfilerGuard & operator=(WrapperProfilerGuard &&) = delete;
+
+    // FIXME: Remove the suppression after CallProfiler::end_caller() becomes noexcept.
+    // NOLINTNEXTLINE(bugprone-exception-escape)
+    ~WrapperProfilerGuard()
+    {
+        if (m_enabled)
+        {
+            CallProfiler::instance().end_caller();
+        }
+    }
+
+private:
+
+    bool m_enabled;
+
+}; /* end class WrapperProfilerGuard */
+
 struct mmtag
 {
 }; /* end struct mmtag */
@@ -107,14 +138,6 @@ struct process_attribute<solvcon::python::mmtag>
         if (solvcon::python::WrapperProfilerStatus::me().enabled())
         {
             solvcon::CallProfiler::instance().start_caller(get_name(call), nullptr);
-        }
-    }
-
-    static void postcall(function_call &, handle &)
-    {
-        if (solvcon::python::WrapperProfilerStatus::me().enabled())
-        {
-            solvcon::CallProfiler::instance().end_caller();
         }
     }
 
@@ -281,11 +304,13 @@ public:
         return *static_cast<std::add_pointer_t<wrapper_type>>(this);          \
     }
 
+// ref: https://pybind11.readthedocs.io/en/stable/advanced/functions.html#call-guard
 #define DECL_MM_PYBIND_CLASS_METHOD_TIMED(METHOD)                             \
     template <class... Args> /* NOLINTNEXTLINE(bugprone-macro-parentheses) */ \
     wrapper_type & METHOD##_timed(Args &&... args)                            \
     {                                                                         \
-        m_cls.METHOD(std::forward<Args>(args)..., mmtag());                   \
+        using guard_type = pybind11::call_guard<WrapperProfilerGuard>;        \
+        m_cls.METHOD(std::forward<Args>(args)..., mmtag(), guard_type());     \
         return *static_cast<std::add_pointer_t<wrapper_type>>(this);          \
     }
 
