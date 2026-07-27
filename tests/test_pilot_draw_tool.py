@@ -11,6 +11,8 @@ try:
     from solvcon import pilot
     from solvcon.pilot.base import _gui
     from solvcon.pilot._pilot_core import draw_tool_names
+    from solvcon.pilot.canvas import _painter_icons
+    from PySide6 import QtGui, QtWidgets
 except ImportError:
     pilot = None
 
@@ -18,6 +20,50 @@ except ImportError:
 # Windows CI runner, whose WARP software rasterizer faults on one.
 NO_LIVE_WINDOW = ((os.getenv('QT_QPA_PLATFORM') or '').startswith('offscreen')
                   or ('nt' == os.name and bool(os.getenv('GITHUB_ACTIONS'))))
+
+
+def _drawn_pixels(image):
+    """The (x, y) of every pixel an icon actually painted."""
+    return [(x, y)
+            for x in range(image.width())
+            for y in range(image.height())
+            if image.pixelColor(x, y).alpha() > 0]
+
+
+@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+class PainterIconTC(unittest.TestCase):
+    """The tool icons rasterize to the box they are asked for.
+
+    An unscaled test screen reports ratio 1, which hides the viewport trap
+    ``render`` guards against, so the ratio is driven explicitly here rather
+    than taken from wherever the suite happens to run.
+    """
+
+    _SIZE = 17
+
+    def setUp(self):
+        # No window needed, only a live QGuiApplication to hold a QPixmap.
+        pilot.RManager.instance.setUp()
+
+    def _ink(self, name, ratio):
+        """The bounding box of an icon's drawn pixels as (x0, y0, x1, y1)."""
+        image = _painter_icons.render(
+            name, QtGui.QColor("black"), self._SIZE, ratio).toImage()
+        marks = _drawn_pixels(image)
+        return (min(x for x, _y in marks), min(y for _x, y in marks),
+                max(x for x, _y in marks), max(y for _x, y in marks))
+
+    def test_icon_scales_with_the_device_pixel_ratio(self):
+        for name in _painter_icons.ICONS:
+            with self.subTest(name=name):
+                plain = self._ink(name, 1.0)
+                scaled = self._ink(name, 2.0)
+                # An icon drawn too large loses its far side, so the edge
+                # checks below are the half that catches a bad viewport.
+                for flat, deep in zip(plain, scaled):
+                    self.assertAlmostEqual(deep, 2 * flat, delta=2)
+                self.assertLess(scaled[2], 2 * self._SIZE - 1)
+                self.assertLess(scaled[3], 2 * self._SIZE - 1)
 
 
 @unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
@@ -55,7 +101,7 @@ class DrawToolTC(unittest.TestCase):
         self.assertTrue(
             panel.tool_buttons["line"].defaultAction().isChecked())
         self.assertFalse(
-            panel.tool_buttons["pan"].defaultAction().isChecked())
+            panel.tool_buttons["select"].defaultAction().isChecked())
 
     def test_console_set_draw_tool_checks_the_menu(self):
         self.mgr.setDrawTool("rectangle")
@@ -99,6 +145,85 @@ class DrawToolTC(unittest.TestCase):
         self.assertTrue(panel.tabs["Layers"].isChecked())
         # The panel outlives the test, so leave it on the default page.
         panel.show_page("Design")
+
+    def test_selector_entries_carry_a_tinted_icon_and_the_short_name(self):
+        panel = self._panel()
+        selector = panel._tools
+        for tool, button in panel.tool_buttons.items():
+            with self.subTest(tool=tool):
+                self.assertFalse(button.icon().isNull())
+                self.assertEqual(button.iconSize().width(), selector._ICON_PX)
+                self.assertEqual(button.width(), selector._ENTRY_WIDTH)
+        # Select keeps its menu label because it fits; Triangle does not, and
+        # that is what the short name is for.
+        self.assertEqual(panel.tool_buttons["select"].text(), "Select")
+        self.assertEqual(
+            self.model.action("draw.tool.select").text(), "Select")
+        self.assertEqual(panel.tool_buttons["triangle"].text(), "Tri")
+        self.assertEqual(
+            self.model.action("draw.tool.triangle").text(), "Triangle")
+
+    def test_selector_entry_survives_a_tool_switch(self):
+        # Pins the icon and short name that _SelectorEntry restores after Qt
+        # re-reads them from the action.
+        panel = self._panel()
+        button = panel.tool_buttons["rectangle"]
+        self.model.action("draw.tool.rectangle").trigger()
+        QtWidgets.QApplication.processEvents()
+        self.assertEqual(button.text(), "Rect")
+        self.assertFalse(button.icon().isNull())
+
+    def test_selector_tip_names_the_tool_and_its_key(self):
+        panel = self._panel()
+        for tool, key in (("line", "L"), ("circle", "C")):
+            with self.subTest(tool=tool):
+                action = panel.tool_buttons[tool].defaultAction()
+                self.assertEqual(
+                    action.shortcut().toString(QtGui.QKeySequence.NativeText),
+                    key)
+                self.assertEqual(action.toolTip(), f"{action.text()}  {key}")
+
+    def test_tool_placeholders_are_visible_but_greyed_out(self):
+        # The Text entry and the Grid toggle hold their designed places so the
+        # column matches the design; their contents wait on the model.
+        panel = self._panel()
+        self.assertEqual(set(panel.tool_placeholders), {"text", "grid"})
+        for name, button in panel.tool_placeholders.items():
+            with self.subTest(name=name):
+                self.assertFalse(button.isEnabled())
+                self.assertFalse(button.icon().isNull())
+                self.assertIn("needs", button.toolTip())
+        self.assertEqual(panel.tool_placeholders["text"].text(), "Text")
+        self.assertEqual(panel.tool_placeholders["grid"].text(), "Grid")
+
+    def test_grid_toggle_is_pinned_below_the_tools(self):
+        # The design parks the Grid toggle at the column bottom, away from the
+        # tools, so it sits after the layout's stretch rather than under Text.
+        panel = self._panel()
+        layout = panel._tools.layout()
+        items = [layout.itemAt(i) for i in range(layout.count())]
+        self.assertIs(items[-1].widget(), panel.tool_placeholders["grid"])
+        self.assertIsNone(items[-2].widget())
+
+    def test_selector_icons_retint_with_the_theme(self):
+        # A colour captured once would survive a theme switch as is.
+        panel = self._panel()
+        button = panel.tool_buttons["circle"]
+        size = panel._tools._ICON_PX
+
+        def stroke():
+            image = button.icon().pixmap(size, size).toImage()
+            return max(image.pixelColor(x, y).lightness()
+                       for x, y in _drawn_pixels(image))
+
+        try:
+            self.mgr.set_theme("light")
+            light = stroke()
+            self.mgr.set_theme("dark")
+            dark = stroke()
+        finally:
+            self.mgr.set_theme("system")
+        self.assertGreater(dark, light)
 
     def test_selector_shade_follows_the_theme(self):
         # The selector paints its own shade of the panel colour. Reading it

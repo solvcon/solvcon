@@ -177,7 +177,7 @@ private:
 
     /**
      * Active canvas drawing tool, shared by every 2D canvas. Starts on
-     * the default tool (pan navigation).
+     * the default tool (select).
      */
     std::string m_draw_tool = default_draw_tool_name();
 }; /* end class RManager */

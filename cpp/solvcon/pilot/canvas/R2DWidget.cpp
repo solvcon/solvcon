@@ -40,7 +40,7 @@ constexpr double MAX_ZOOM = 1.0e6;
 // world.
 constexpr double MIN_DRAW_DRAG_PX = 2.0;
 
-// Screen-pixel slop for picking a shape with the pan tool. Converted to a
+// Screen-pixel slop for picking a shape with the select tool. Converted to a
 // world tolerance through the current zoom so thin shapes stay selectable.
 constexpr double PICK_TOLERANCE_PX = 5.0;
 
@@ -120,7 +120,7 @@ void R2DWidget::setDrawTool(std::string const & name)
     m_drawing = false;
     m_selected = -1;
     m_drag = EditDrag::None;
-    // A crosshair signals draw mode; the pan tool keeps the default arrow.
+    // A crosshair signals draw mode; the select tool keeps the default arrow.
     if (m_tool->can_draw_shape())
     {
         setCursor(Qt::CrossCursor);
@@ -176,7 +176,7 @@ void R2DWidget::paintEvent(QPaintEvent * /*event*/)
     // Rubber-band preview of the shape currently being dragged, if any.
     paintDrawPreview(painter);
 
-    // Selection box and rotate handle for the pan tool, if any.
+    // Selection box and rotate handle for the select tool, if any.
     paintSelection(painter);
 }
 
@@ -372,7 +372,7 @@ void R2DWidget::mousePressEvent(QMouseEvent * event)
             event->accept();
             return;
         }
-        // Pan tool: rotate the selection, move a picked shape, or fall
+        // Select tool: rotate the selection, move a picked shape, or fall
         // back to panning the view on empty space.
         if (isOnRotateHandle(pos))
         {

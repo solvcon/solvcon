@@ -46,13 +46,13 @@ QPointF to_screen_qpoint(ViewTransform2dFp64 const & view, DrawPoint const & p)
     return QPointF(sx, sy);
 }
 
-/// The default navigation tool: a left-button drag pans and zooms the view instead of drawing.
-class PanTool : public DrawToolBase
+/// The default tool: a drag selects and edits a shape, or pans and zooms the view on empty space.
+class SelectTool : public DrawToolBase
 {
 
 public:
 
-    static constexpr char const * NAME = "pan";
+    static constexpr char const * NAME = "select";
 
     std::string name() const override { return NAME; }
 
@@ -64,7 +64,7 @@ protected:
 
     void paint_outline(QPainter &, ViewTransform2dFp64 const &, std::span<DrawPoint const>) const override {}
 
-}; /* end class PanTool */
+}; /* end class SelectTool */
 
 /// Circle defined by two gesture points: the center and a point on the rim.
 class CircleTool : public DrawToolBase
@@ -302,8 +302,8 @@ struct ToolEntry
 }; /* end struct ToolEntry */
 
 ToolEntry const TOOL_TABLE[] = {
-    {PanTool::NAME, []() -> std::unique_ptr<DrawToolBase>
-     { return std::make_unique<PanTool>(); }},
+    {SelectTool::NAME, []() -> std::unique_ptr<DrawToolBase>
+     { return std::make_unique<SelectTool>(); }},
     {LineTool::NAME, []() -> std::unique_ptr<DrawToolBase>
      { return std::make_unique<LineTool>(); }},
     {TriangleTool::NAME, []() -> std::unique_ptr<DrawToolBase>

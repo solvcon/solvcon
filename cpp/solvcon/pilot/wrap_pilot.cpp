@@ -904,7 +904,7 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRMenuModel
 // Keep these ordinals aligned with tests/test_pilot_shortcut.py so a reorder
 // fails the C++ build instead of silently rebinding the wrong chord.
 static_assert(static_cast<unsigned>(KeyMod::Primary) == 1);
-static_assert(static_cast<int>(Key::Z) == 11);
+static_assert(static_cast<int>(Key::Z) == 17);
 
 class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRManager
     : public WrapBase<WrapRManager, RManager>

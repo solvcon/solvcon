@@ -11,10 +11,20 @@ try:
     from solvcon import pilot
     from solvcon.pilot.base import _gui
     from solvcon.pilot.base import _gui_common
-    from PySide6 import QtCore, QtGui
+    from PySide6 import QtCore, QtGui, QtWidgets
 except ImportError:
     pilot = None
     QtGui = None
+
+# QtTest is its own PySide6 extension, and the macOS CI job rewrites the Qt
+# rpath of QtCore, QtGui, and QtWidgets only, so importing it there fails.
+# Keeping it out of the block above stops that from unbinding pilot for the
+# whole module, which would fail every test in the file rather than skipping
+# the two that need live key delivery.
+try:
+    from PySide6.QtTest import QTest
+except ImportError:
+    QTest = None
 
 # The offscreen platform cannot back a live window; neither can the headless
 # Windows CI runner, whose WARP software rasterizer faults on one.
@@ -24,12 +34,21 @@ NO_LIVE_WINDOW = ((os.getenv('QT_QPA_PLATFORM') or '').startswith('offscreen')
 # KeyMod::Primary and Key::Z ordinals from keymap.hpp, passed to
 # shortcut_conflicts_rebinding; a static_assert in wrap_pilot.cpp pins them.
 _KEYMOD_PRIMARY = 1
-_KEY_Z = 11
+_KEY_Z = 17
 
 _PANEL_CHORDS = (
     ("panel.agent_console", ["Ctrl+Shift+A"]),
     ("panel.inspector", ["Ctrl+Shift+I"]),
     ("panel.painter", ["Ctrl+Shift+P"]),
+)
+
+_DRAW_TOOL_KEYS = (
+    ("select", "V"),
+    ("line", "L"),
+    ("triangle", "T"),
+    ("rectangle", "R"),
+    ("ellipse", "E"),
+    ("circle", "C"),
 )
 
 if QtGui is not None:
@@ -39,6 +58,20 @@ if QtGui is not None:
         "file.exit": QtGui.QKeySequence.StandardKey.Quit,
         "canvas.blank_2d": QtGui.QKeySequence.StandardKey.New,
     }
+
+
+def _can_take_keyboard(widget):
+    """Whether the platform will hand ``widget`` the keyboard.
+
+    A run whose terminal stays frontmost never gets an active window, and
+    activateWindow cannot argue with that. Probe it so a test needing real key
+    delivery skips instead of failing for a reason unrelated to the code.
+    """
+    widget.window().activateWindow()
+    widget.window().raise_()
+    widget.setFocus()
+    QtWidgets.QApplication.processEvents()
+    return widget.hasFocus() and widget.isActiveWindow()
 
 
 def _live_sequences(action):
@@ -102,6 +135,16 @@ class ShortcutResolutionTC(unittest.TestCase):
                 self.assertTrue(r["known"])
                 self.assertTrue(r["bound"])
                 self.assertEqual(r["sequences"], sequences)
+
+    def test_draw_tools_resolve_to_unmodified_letters(self):
+        for tool, key in _DRAW_TOOL_KEYS:
+            with self.subTest(tool=tool):
+                r = self.mgr.resolve_shortcut("draw.tool." + tool)
+                self.assertTrue(r["known"])
+                self.assertTrue(r["bound"])
+                self.assertFalse(r["standard"])
+                self.assertEqual(r["sequences"], [key])
+                self.assertEqual(r["context"], "widget")
 
     def test_new_2d_canvas_resolves_to_new(self):
         r = self.mgr.resolve_shortcut("canvas.blank_2d")
@@ -221,6 +264,12 @@ class ShortcutTC(unittest.TestCase):
         self._assert_action_matches_resolved(
             "canvas.blank_2d", QtCore.Qt.WindowShortcut)
 
+    def test_draw_tool_actions_carry_the_resolved_bindings(self):
+        for tool, _key in _DRAW_TOOL_KEYS:
+            with self.subTest(tool=tool):
+                self._assert_action_matches_resolved(
+                    "draw.tool." + tool, QtCore.Qt.WidgetShortcut)
+
     def test_exit_action_carries_quit_and_platform_role(self):
         self._assert_action_matches_resolved(
             "file.exit", QtCore.Qt.ApplicationShortcut)
@@ -259,6 +308,56 @@ class ApplyShortcutHelperTC(unittest.TestCase):
         self.assertEqual(act.shortcutContext(),
                          QtCore.Qt.ApplicationShortcut)
         self.assertEqual(act.menuRole(), QtGui.QAction.AboutRole)
+
+
+@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT or QTest is None,
+                 "live key delivery needs a real window surface and QtTest")
+class DrawToolShortcutTC(unittest.TestCase):
+    """The draw-tool letters reach a focused canvas and nothing else."""
+
+    def setUp(self):
+        self.mgr = _gui.controller.build()
+        self.mgr.add2DWidget()
+        self.mgr.show()
+        self.sub = self.mgr.mdiArea.subWindowList()[-1]
+        self.sub.show()
+        self.mgr.mdiArea.setActiveSubWindow(self.sub)
+        self.target = self.sub.widget()
+        self.mgr.setDrawTool("select")
+        QtWidgets.QApplication.processEvents()
+
+    def _type(self, widget, key):
+        if not _can_take_keyboard(widget):
+            self.skipTest("the platform did not grant the keyboard")
+        QTest.keyClick(widget, key)
+        QtWidgets.QApplication.processEvents()
+
+    def test_canvas_carries_every_draw_tool_action(self):
+        names = {a.objectName() for a in self.target.actions()}
+        for tool, _key in _DRAW_TOOL_KEYS:
+            self.assertIn("draw.tool." + tool, names)
+
+    def test_letter_on_a_focused_canvas_picks_its_tool(self):
+        for tool, key in _DRAW_TOOL_KEYS:
+            with self.subTest(tool=tool):
+                # Start from a tool the letter is not for, so a key that never
+                # arrived cannot pass by leaving the choice as it was.
+                self.mgr.setDrawTool(
+                    "select" if "circle" == tool else "circle")
+                self._type(self.target, getattr(QtCore.Qt, "Key_" + key))
+                self.assertEqual(self.mgr.drawTool, tool)
+
+    def test_letter_typed_in_a_text_field_stays_in_the_field(self):
+        edit = QtWidgets.QLineEdit(self.mgr.mainWindow)
+        edit.show()
+        try:
+            self.mgr.setDrawTool("line")
+            self._type(edit, QtCore.Qt.Key_R)
+            self.assertEqual(self.mgr.drawTool, "line")
+            self.assertEqual(edit.text(), "r")
+        finally:
+            edit.setParent(None)
+            edit.deleteLater()
 
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

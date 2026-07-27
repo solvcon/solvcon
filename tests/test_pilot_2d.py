@@ -222,21 +222,21 @@ class R2DWidgetWorldTC(unittest.TestCase):
     def test_draw_tool_round_trip(self):
         """setDrawTool selects the tool the Painter toolbox drives; every
         registered tool reads back through the drawTool property, the
-        default is pan, and an unknown name is rejected with ValueError.
+        default is select, and an unknown name is rejected with ValueError.
         """
         from solvcon.pilot import _pilot_core
         # The Painter toolbox exposes one button per registered shape tool.
         self.assertLessEqual(
-            {"pan", "line", "triangle", "rectangle", "ellipse", "circle"},
+            {"select", "line", "triangle", "rectangle", "ellipse", "circle"},
             set(_pilot_core.draw_tool_names()))
         for tool in _pilot_core.draw_tool_names():
             self.widget.setDrawTool(tool)
             self.assertEqual(self.widget.drawTool, tool)
-        self.widget.setDrawTool("pan")
+        self.widget.setDrawTool("select")
         with self.assertRaises(ValueError):
             self.widget.setDrawTool("no-such-tool")
         # An invalid request leaves the previous tool untouched.
-        self.assertEqual(self.widget.drawTool, "pan")
+        self.assertEqual(self.widget.drawTool, "select")
 
     def test_selected_shape_defaults_to_none(self):
         """A fresh canvas has nothing selected; selectedShape reads -1."""
@@ -356,8 +356,8 @@ class R2DWidgetWorldTC(unittest.TestCase):
 
 @unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
                  "live-GUI interaction needs a real window surface")
-class R2DWidgetPanSelectTC(unittest.TestCase):
-    """Drive the pan tool through select, move, rotate, and deselect."""
+class R2DWidgetSelectToolTC(unittest.TestCase):
+    """Drive the select tool through select, move, rotate, and deselect."""
 
     @classmethod
     def setUpClass(cls):
@@ -366,7 +366,7 @@ class R2DWidgetPanSelectTC(unittest.TestCase):
     def setUp(self):
         from PySide6 import QtWidgets
         self.widget = self.mgr.add2DWidget()
-        self.widget.setDrawTool("pan")
+        self.widget.setDrawTool("select")
         self.world = solvcon.WorldFp64()
         # A rectangle centered on the origin.
         self.sid = self.world.add_rectangle(-2, -1, 2, 1)
@@ -1063,14 +1063,14 @@ class PainterToolboxTC(unittest.TestCase):
 
     def test_create_blank_canvas_shows_toolbox(self):
         """'Create blank 2D canvas' opens an empty, focused canvas on the
-        Pan tool and brings up the Painter toolbox.
+        select tool and brings up the Painter toolbox.
         """
         from solvcon.pilot.canvas import _canvas_gui, _painter_gui
         painter = _painter_gui.Painter(mgr=self.mgr)
         canvas = _canvas_gui.Canvas(mgr=self.mgr, painter=painter)
         widget = canvas._create_blank_2d_canvas()
         self.assertIsNotNone(painter._dock)
-        self.assertEqual(widget.drawTool, "pan")
+        self.assertEqual(widget.drawTool, "select")
 
     def test_draw_across_blank_canvases(self):
         """The PR's manual test: create two blank canvases and rubber-band a
@@ -1104,7 +1104,8 @@ class PainterToolboxTC(unittest.TestCase):
                 _send_mouse(target, 'move', 110, 100)
                 _send_mouse(target, 'release', 110, 100)
                 QtWidgets.QApplication.processEvents()
-        self.assertIn(self.mgr.currentR2DWidget().drawTool, ("pan", "circle"))
+        self.assertIn(self.mgr.currentR2DWidget().drawTool,
+                      ("select", "circle"))
 
     def test_press_then_repaint_with_circle_tool_does_not_crash(self):
         """The zero-radius preview used to crash because the painter's pen
@@ -1149,7 +1150,7 @@ class PainterToolboxTC(unittest.TestCase):
         self.mgr.mdiArea.setActiveSubWindow(sub)
         target = sub.widget()
         QtWidgets.QApplication.processEvents()
-        # The non-pan tools, paired with the shape type each one commits.
+        # The shape tools, paired with the shape type each one commits.
         shapes = [("line", "line"), ("triangle", "triangle"),
                   ("rectangle", "rectangle"), ("ellipse", "ellipse"),
                   ("circle", "circle")]

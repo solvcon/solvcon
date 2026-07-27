@@ -89,7 +89,7 @@ std::vector<std::string> const & draw_tool_names();
 
 /**
  * Name of the default tool a fresh canvas starts with: the first
- * registered tool, which is the pan navigation tool.
+ * registered tool, which is the select tool.
  *
  * @return The default tool name.
  */

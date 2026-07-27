@@ -69,7 +69,7 @@ public:
     void setDrawTool(std::string const & name);
 
     /**
-     * Id of the shape selected with the pan tool, or -1 when none is selected.
+     * Id of the shape selected with the select tool, or -1 when none is selected.
      * Selection is cleared by switching tools or worlds.
      */
     int32_t selectedShape() const { return m_selected; }
@@ -162,13 +162,13 @@ private:
 
     /**
      * Paint the active tool's rubber-band preview while a drag is in progress;
-     * a no-op for the pan tool or when no drag is underway.
+     * a no-op for the select tool or when no drag is underway.
      */
     void paintDrawPreview(QPainter & painter) const;
 
     /**
      * Paint the selection box and rotate handle for the active selection; a
-     * no-op unless the pan tool has a live shape selected.
+     * no-op unless the select tool has a live shape selected.
      */
     void paintSelection(QPainter & painter) const;
 
@@ -200,7 +200,7 @@ private:
      */
     void finishEdit();
 
-    /// Which gesture the current pan-tool left-drag performs.
+    /// Which gesture the current select-tool left-drag performs.
     enum class EditDrag
     {
         None, ///< No left-drag in progress.
@@ -230,8 +230,8 @@ private:
     double m_draw_current_x = 0.0; ///< Live pointer, world coordinates.
     double m_draw_current_y = 0.0;
 
-    int32_t m_selected = -1; ///< Pan-tool selected shape id, or -1.
-    EditDrag m_drag = EditDrag::None; ///< Active pan-tool left-drag gesture.
+    int32_t m_selected = -1; ///< Select-tool selected shape id, or -1.
+    EditDrag m_drag = EditDrag::None; ///< Active select-tool left-drag gesture.
     double m_move_last_x = 0.0; ///< Previous pointer, world coordinates (Move).
     double m_move_last_y = 0.0;
     double m_rotate_cx = 0.0; ///< Rotation pivot, world coordinates (Rotate).
