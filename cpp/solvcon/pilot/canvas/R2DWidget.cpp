@@ -8,6 +8,7 @@
 #include <array>
 #include <cmath>
 
+#include <solvcon/pilot/theme/RThemeManager.hpp>
 #include <solvcon/pilot/theme/theme_qt.hpp>
 
 #include <QColor>
@@ -142,6 +143,21 @@ void R2DWidget::updateWorld(std::shared_ptr<WorldFp64> const & world)
     m_overlay.highlight_id = -1;
     m_drag = EditDrag::None;
     update();
+}
+
+void R2DWidget::followTheme(RThemeManager * manager)
+{
+    if (manager == nullptr)
+    {
+        return;
+    }
+
+    auto apply = [this, manager](ThemeVariant)
+    {
+        setCanvasPalette(manager->canvas2dPalette());
+    };
+    apply(manager->currentVariant());
+    connect(manager, &RThemeManager::themeChanged, this, apply);
 }
 
 void R2DWidget::centerViewOnOrigin()
