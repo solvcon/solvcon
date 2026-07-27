@@ -4463,6 +4463,28 @@ class SimpleArraySearchTC(unittest.TestCase):
             self.assertEqual(narr.argmin(), sarr.argmin())
             self.assertEqual(narr.argmax(), sarr.argmax())
 
+            narr_negative = data[::-1, ::-1]
+            sarr_negative = solvcon.SimpleArrayFloat64(array=narr_negative)
+            self.assertEqual(sarr_negative.argmin(), 20)
+            self.assertEqual(sarr_negative.argmax(), 22)
+            self.assertEqual(narr_negative.argmin(), sarr_negative.argmin())
+            self.assertEqual(narr_negative.argmax(), sarr_negative.argmax())
+
+        with self.subTest(name='nan_values'):
+            narr = np.array([[1.0, 0.0, np.nan]], dtype='float64')
+            sarr = solvcon.SimpleArrayFloat64(array=narr)
+            self.assertEqual(sarr.argmin(), 2)
+            self.assertEqual(sarr.argmax(), 2)
+            self.assertEqual(narr.argmin(), sarr.argmin())
+            self.assertEqual(narr.argmax(), sarr.argmax())
+
+            narr = narr[::-1, ::-1]
+            sarr = solvcon.SimpleArrayFloat64(array=narr)
+            self.assertEqual(sarr.argmin(), 0)
+            self.assertEqual(sarr.argmax(), 0)
+            self.assertEqual(narr.argmin(), sarr.argmin())
+            self.assertEqual(narr.argmax(), sarr.argmax())
+
     def test_argminmax_axis(self):
         with self.subTest(name='1d_contiguous'):
             narr = np.arange(10, dtype='uint64')
@@ -4483,6 +4505,16 @@ class SimpleArraySearchTC(unittest.TestCase):
              np.arange(120, dtype='float32').reshape(2, 3, 4, 5), -1)]:
             with self.subTest(name=name):
                 sarr = sarr_type(array=narr)
+
+                expected_shape = np.delete(narr.shape, axis)
+                expected_argmin = np.full(expected_shape, 0, dtype='uint64')
+                expected_argmax = np.full(
+                    expected_shape, narr.shape[axis] - 1, dtype='uint64')
+
+                np.testing.assert_array_equal(sarr.argmin(axis=axis).ndarray,
+                                              expected_argmin)
+                np.testing.assert_array_equal(sarr.argmax(axis=axis).ndarray,
+                                              expected_argmax)
                 np.testing.assert_array_equal(sarr.argmin(axis=axis).ndarray,
                                               np.argmin(narr, axis=axis))
                 np.testing.assert_array_equal(sarr.argmax(axis=axis).ndarray,
@@ -4494,10 +4526,83 @@ class SimpleArraySearchTC(unittest.TestCase):
             data[0, 1] = 999
             data[0, 3] = -999
             data[2, 4] = 10
+
             narr = data[::-1, ::-1]
             sarr = solvcon.SimpleArrayFloat64(array=narr)
+
+            expected_argmin_axis0 = np.array(
+                [0, 0, 3, 0, 0, 3], dtype='uint64')
+            expected_argmax_axis0 = np.array(
+                [0, 1, 0, 0, 3, 0], dtype='uint64')
+            expected_argmin_axis1 = np.array([0, 0, 0, 2], dtype='uint64')
+            expected_argmax_axis1 = np.array([0, 1, 0, 4], dtype='uint64')
+
+            np.testing.assert_array_equal(sarr.argmin(axis=0).ndarray,
+                                          expected_argmin_axis0)
+            np.testing.assert_array_equal(sarr.argmax(axis=0).ndarray,
+                                          expected_argmax_axis0)
+            np.testing.assert_array_equal(sarr.argmin(axis=1).ndarray,
+                                          expected_argmin_axis1)
+            np.testing.assert_array_equal(sarr.argmax(axis=1).ndarray,
+                                          expected_argmax_axis1)
             np.testing.assert_array_equal(sarr.argmin(axis=0).ndarray,
                                           np.argmin(narr, axis=0))
+            np.testing.assert_array_equal(sarr.argmax(axis=1).ndarray,
+                                          np.argmax(narr, axis=1))
+
+        with self.subTest(name='ghost'):
+            narr = np.array([
+                [9.0, 1.0, 8.0],
+                [7.0, 6.0, 0.0],
+                [5.0, 4.0, 3.0],
+            ], dtype='float64')
+            sarr = solvcon.SimpleArrayFloat64(array=narr)
+            sarr.nghost = 1
+
+            expected_argmin_axis0 = np.array([2, 0, 1], dtype='uint64')
+            expected_argmin_axis1 = np.array([1, 2, 2], dtype='uint64')
+            expected_argmax_axis0 = np.array([0, 1, 0], dtype='uint64')
+            expected_argmax_axis1 = np.array([0, 0, 0], dtype='uint64')
+
+            np.testing.assert_array_equal(sarr.argmin(axis=0).ndarray,
+                                          expected_argmin_axis0)
+            np.testing.assert_array_equal(sarr.argmin(axis=1).ndarray,
+                                          expected_argmin_axis1)
+            np.testing.assert_array_equal(sarr.argmax(axis=0).ndarray,
+                                          expected_argmax_axis0)
+            np.testing.assert_array_equal(sarr.argmax(axis=1).ndarray,
+                                          expected_argmax_axis1)
+            np.testing.assert_array_equal(sarr.argmin(axis=0).ndarray,
+                                          np.argmin(narr, axis=0))
+            np.testing.assert_array_equal(sarr.argmax(axis=1).ndarray,
+                                          np.argmax(narr, axis=1))
+
+        for name, shape, reduced_shape, axis in [
+            ('2d_zero_retained_axis', (0, 3), (0,), 1),
+            ('3d_zero_retained_axis', (2, 0, 3), (0, 3), 0),
+        ]:
+            with self.subTest(name=name):
+                sarr = solvcon.SimpleArrayFloat64(shape=shape, value=0.0)
+                expected_result = np.empty(reduced_shape, dtype='uint64')
+
+                np.testing.assert_array_equal(sarr.argmin(axis=axis).ndarray,
+                                              expected_result)
+                np.testing.assert_array_equal(sarr.argmax(axis=axis).ndarray,
+                                              expected_result)
+
+        with self.subTest(name='nan_values'):
+            narr = np.array([[1.0, np.nan, 0.0]], dtype='float64')
+            sarr = solvcon.SimpleArrayFloat64(array=narr)
+
+            expected_argmin = np.array([1], dtype='uint64')
+            expected_argmax = np.array([1], dtype='uint64')
+
+            np.testing.assert_array_equal(sarr.argmin(axis=1).ndarray,
+                                          expected_argmin)
+            np.testing.assert_array_equal(sarr.argmax(axis=1).ndarray,
+                                          expected_argmax)
+            np.testing.assert_array_equal(sarr.argmin(axis=1).ndarray,
+                                          np.argmin(narr, axis=1))
             np.testing.assert_array_equal(sarr.argmax(axis=1).ndarray,
                                           np.argmax(narr, axis=1))
 

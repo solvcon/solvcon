@@ -26,6 +26,7 @@
 #include <algorithm>
 #include <array>
 #include <concepts>
+#include <cmath>
 #include <format>
 #include <functional>
 #include <limits>
@@ -34,6 +35,7 @@
 #include <span>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
 #include <utility>
 
 #ifdef _MSC_VER
@@ -1370,10 +1372,11 @@ private:
 
     using internal_types = detail::SimpleArrayInternalTypes<T>;
     using shape_type = typename internal_types::shape_type;
-    using sshape_type = typename internal_types::sshape_type;
 
     ssize_t normalize_axis(ssize_t axis, char const * op) const;
     shape_type reduced_shape(ssize_t axis) const;
+    static ssize_t unchecked_logical_offset(A const & array,
+                                            shape_type const & idx);
 
 public:
 
@@ -3029,6 +3032,19 @@ detail::SimpleArrayMixinSearch<A, T>::reduced_shape(ssize_t axis) const
 }
 
 template <typename A, typename T>
+ssize_t detail::SimpleArrayMixinSearch<A, T>::unchecked_logical_offset(
+    A const & array, shape_type const & idx)
+{
+    ssize_t offset = 0;
+    for (ssize_t dim = 0; dim < array.ndim(); ++dim)
+    {
+        ssize_t const lower = IndexRange::index_from_offset(array, dim, 0);
+        offset += (idx[dim] - lower) * array.stride(dim);
+    }
+    return offset;
+}
+
+template <typename A, typename T>
 size_t detail::SimpleArrayMixinSearch<A, T>::argmin() const
 {
     auto athis = static_cast<A const *>(this);
@@ -3039,16 +3055,53 @@ size_t detail::SimpleArrayMixinSearch<A, T>::argmin() const
                                     "attempt to get argmin of an empty sequence");
     }
 
-    auto const range = IndexRange(*athis);
-    sshape_type idx = range.first();
+    if (athis->is_c_contiguous())
+    {
+        value_type const * ptr = athis->logical_data();
+        value_type min_value = ptr[0];
+        size_t min_index = 0;
+        size_t const size = athis->size();
 
-    value_type min_value = athis->at(idx);
+        for (size_t i = 1; i < size; ++i)
+        {
+            value_type const current_value = ptr[i];
+
+            if constexpr (std::is_floating_point_v<value_type>)
+            {
+                if (std::isnan(current_value))
+                {
+                    return i;
+                }
+            }
+            if (current_value < min_value)
+            {
+                min_value = current_value;
+                min_index = i;
+            }
+        }
+        return min_index;
+    }
+
+    auto const range = IndexRange(*athis);
+    shape_type idx = range.first();
+
+    value_type const * ptr = athis->logical_data();
+    value_type min_value = *(ptr + unchecked_logical_offset(*athis, idx));
     size_t min_index = 0;
     size_t flat_index = 0;
 
     do
     {
-        value_type const current_value = athis->at(idx);
+        value_type const current_value = *(
+            ptr + unchecked_logical_offset(*athis, idx));
+
+        if constexpr (std::is_floating_point_v<value_type>)
+        {
+            if (std::isnan(current_value))
+            {
+                return flat_index;
+            }
+        }
         if (current_value < min_value)
         {
             min_value = current_value;
@@ -3071,16 +3124,53 @@ size_t detail::SimpleArrayMixinSearch<A, T>::argmax() const
                                     "attempt to get argmax of an empty sequence");
     }
 
-    auto const range = IndexRange(*athis);
-    sshape_type idx = range.first();
+    if (athis->is_c_contiguous())
+    {
+        value_type const * ptr = athis->logical_data();
+        value_type max_value = ptr[0];
+        size_t max_index = 0;
+        size_t const size = athis->size();
 
-    value_type max_value = athis->at(idx);
+        for (size_t i = 1; i < size; ++i)
+        {
+            value_type const current_value = ptr[i];
+
+            if constexpr (std::is_floating_point_v<value_type>)
+            {
+                if (std::isnan(current_value))
+                {
+                    return i;
+                }
+            }
+            if (current_value > max_value)
+            {
+                max_value = current_value;
+                max_index = i;
+            }
+        }
+        return max_index;
+    }
+
+    auto const range = IndexRange(*athis);
+    shape_type idx = range.first();
+
+    value_type const * ptr = athis->logical_data();
+    value_type max_value = *(ptr + unchecked_logical_offset(*athis, idx));
     size_t max_index = 0;
     size_t flat_index = 0;
 
     do
     {
-        value_type const current_value = athis->at(idx);
+        value_type const current_value = *(
+            ptr + unchecked_logical_offset(*athis, idx));
+
+        if constexpr (std::is_floating_point_v<value_type>)
+        {
+            if (std::isnan(current_value))
+            {
+                return flat_index;
+            }
+        }
         if (current_value > max_value)
         {
             max_value = current_value;
@@ -3100,12 +3190,17 @@ SimpleArray<uint64_t> detail::SimpleArrayMixinSearch<A, T>::argmin(ssize_t axis)
     axis = normalize_axis(axis, "argmin");
     SimpleArray<uint64_t> result(reduced_shape(axis));
 
+    if (result.size() == 0)
+    {
+        return result;
+    }
+
     auto const out_range = IndexRange(result);
-    sshape_type out_idx = out_range.first();
+    shape_type out_idx = out_range.first();
 
     do
     {
-        sshape_type in_idx(athis->ndim(), 0);
+        shape_type in_idx(athis->ndim(), 0);
 
         for (ssize_t dim = 0, out_dim = 0; dim < athis->ndim(); ++dim)
         {
@@ -3113,17 +3208,26 @@ SimpleArray<uint64_t> detail::SimpleArrayMixinSearch<A, T>::argmin(ssize_t axis)
             {
                 continue;
             }
-            in_idx[dim] = out_idx[out_dim++];
+
+            in_idx[dim] = IndexRange::index_from_offset(*athis, dim, out_idx[out_dim++]);
         }
 
-        in_idx[axis] = 0;
+        in_idx[axis] = IndexRange::index_from_offset(*athis, axis, 0);
         value_type min_value = athis->at(in_idx);
         uint64_t min_index = 0;
 
         for (ssize_t i = 1; i < athis->shape(axis); ++i)
         {
-            in_idx[axis] = i;
+            in_idx[axis] = IndexRange::index_from_offset(*athis, axis, i);
             value_type const current_value = athis->at(in_idx);
+            if constexpr (std::is_floating_point_v<value_type>)
+            {
+                if (std::isnan(current_value))
+                {
+                    min_index = static_cast<uint64_t>(i);
+                    break;
+                }
+            }
             if (current_value < min_value)
             {
                 min_value = current_value;
@@ -3144,12 +3248,17 @@ SimpleArray<uint64_t> detail::SimpleArrayMixinSearch<A, T>::argmax(ssize_t axis)
     axis = normalize_axis(axis, "argmax");
     SimpleArray<uint64_t> result(reduced_shape(axis));
 
+    if (result.size() == 0)
+    {
+        return result;
+    }
+
     auto const out_range = IndexRange(result);
-    sshape_type out_idx = out_range.first();
+    shape_type out_idx = out_range.first();
 
     do
     {
-        sshape_type in_idx(athis->ndim(), 0);
+        shape_type in_idx(athis->ndim(), 0);
 
         for (ssize_t dim = 0, out_dim = 0; dim < athis->ndim(); ++dim)
         {
@@ -3157,17 +3266,26 @@ SimpleArray<uint64_t> detail::SimpleArrayMixinSearch<A, T>::argmax(ssize_t axis)
             {
                 continue;
             }
-            in_idx[dim] = out_idx[out_dim++];
+
+            in_idx[dim] = IndexRange::index_from_offset(*athis, dim, out_idx[out_dim++]);
         }
 
-        in_idx[axis] = 0;
+        in_idx[axis] = IndexRange::index_from_offset(*athis, axis, 0);
         value_type max_value = athis->at(in_idx);
         uint64_t max_index = 0;
 
         for (ssize_t i = 1; i < athis->shape(axis); ++i)
         {
-            in_idx[axis] = i;
+            in_idx[axis] = IndexRange::index_from_offset(*athis, axis, i);
             value_type const current_value = athis->at(in_idx);
+            if constexpr (std::is_floating_point_v<value_type>)
+            {
+                if (std::isnan(current_value))
+                {
+                    max_index = static_cast<uint64_t>(i);
+                    break;
+                }
+            }
             if (current_value > max_value)
             {
                 max_value = current_value;
