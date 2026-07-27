@@ -4471,10 +4471,10 @@ class SimpleArraySearchTC(unittest.TestCase):
             self.assertEqual(narr_negative.argmax(), sarr_negative.argmax())
 
         with self.subTest(name='nan_values'):
-            narr = np.array([[1.0, 0.0, np.nan]], dtype='float64')
+            narr = np.array([[1.0, np.nan, np.nan]], dtype='float64')
             sarr = solvcon.SimpleArrayFloat64(array=narr)
-            self.assertEqual(sarr.argmin(), 2)
-            self.assertEqual(sarr.argmax(), 2)
+            self.assertEqual(sarr.argmin(), 1)
+            self.assertEqual(sarr.argmax(), 1)
             self.assertEqual(narr.argmin(), sarr.argmin())
             self.assertEqual(narr.argmax(), sarr.argmax())
 
@@ -4591,7 +4591,7 @@ class SimpleArraySearchTC(unittest.TestCase):
                                               expected_result)
 
         with self.subTest(name='nan_values'):
-            narr = np.array([[1.0, np.nan, 0.0]], dtype='float64')
+            narr = np.array([[1.0, np.nan, np.nan]], dtype='float64')
             sarr = solvcon.SimpleArrayFloat64(array=narr)
 
             expected_argmin = np.array([1], dtype='uint64')

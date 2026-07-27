@@ -1377,6 +1377,8 @@ private:
     shape_type reduced_shape(ssize_t axis) const;
     static ssize_t unchecked_logical_offset(A const & array,
                                             shape_type const & idx);
+    static ssize_t unchecked_buffer_index(A const & array,
+                                          shape_type const & idx);
 
 public:
 
@@ -3045,6 +3047,15 @@ ssize_t detail::SimpleArrayMixinSearch<A, T>::unchecked_logical_offset(
 }
 
 template <typename A, typename T>
+ssize_t detail::SimpleArrayMixinSearch<A, T>::unchecked_buffer_index(
+    A const & array, shape_type const & idx)
+{
+    ssize_t const origin = static_cast<ssize_t>(
+        array.logical_data() - array.data());
+    return origin + unchecked_logical_offset(array, idx);
+}
+
+template <typename A, typename T>
 size_t detail::SimpleArrayMixinSearch<A, T>::argmin() const
 {
     auto athis = static_cast<A const *>(this);
@@ -3188,6 +3199,11 @@ SimpleArray<uint64_t> detail::SimpleArrayMixinSearch<A, T>::argmin(ssize_t axis)
     auto athis = static_cast<A const *>(this);
 
     axis = normalize_axis(axis, "argmin");
+    if (athis->ndim() == 1)
+    {
+        throw std::invalid_argument(
+            "SimpleArray::argmin(axis): use argmin() for a 1D array");
+    }
     SimpleArray<uint64_t> result(reduced_shape(axis));
 
     if (result.size() == 0)
@@ -3197,6 +3213,8 @@ SimpleArray<uint64_t> detail::SimpleArrayMixinSearch<A, T>::argmin(ssize_t axis)
 
     auto const out_range = IndexRange(result);
     shape_type out_idx = out_range.first();
+    ssize_t const axis_stride = athis->stride(axis);
+    size_t output_index = 0;
 
     do
     {
@@ -3213,13 +3231,14 @@ SimpleArray<uint64_t> detail::SimpleArrayMixinSearch<A, T>::argmin(ssize_t axis)
         }
 
         in_idx[axis] = IndexRange::index_from_offset(*athis, axis, 0);
-        value_type min_value = athis->at(in_idx);
+        ssize_t const input_index = unchecked_buffer_index(*athis, in_idx);
+        value_type min_value = (*athis)[static_cast<size_t>(input_index)];
         uint64_t min_index = 0;
 
         for (ssize_t i = 1; i < athis->shape(axis); ++i)
         {
-            in_idx[axis] = IndexRange::index_from_offset(*athis, axis, i);
-            value_type const current_value = athis->at(in_idx);
+            ssize_t const current_index = input_index + i * axis_stride;
+            value_type const current_value = (*athis)[static_cast<size_t>(current_index)];
             if constexpr (std::is_floating_point_v<value_type>)
             {
                 if (std::isnan(current_value))
@@ -3234,7 +3253,7 @@ SimpleArray<uint64_t> detail::SimpleArrayMixinSearch<A, T>::argmin(ssize_t axis)
                 min_index = static_cast<uint64_t>(i);
             }
         }
-        result.at(out_idx) = min_index;
+        result[output_index++] = min_index;
     } while (out_range.next(out_idx));
 
     return result;
@@ -3246,6 +3265,13 @@ SimpleArray<uint64_t> detail::SimpleArrayMixinSearch<A, T>::argmax(ssize_t axis)
     auto athis = static_cast<A const *>(this);
 
     axis = normalize_axis(axis, "argmax");
+
+    if (athis->ndim() == 1)
+    {
+        throw std::invalid_argument(
+            "SimpleArray::argmax(axis): use argmax() for a 1D array");
+    }
+
     SimpleArray<uint64_t> result(reduced_shape(axis));
 
     if (result.size() == 0)
@@ -3255,6 +3281,8 @@ SimpleArray<uint64_t> detail::SimpleArrayMixinSearch<A, T>::argmax(ssize_t axis)
 
     auto const out_range = IndexRange(result);
     shape_type out_idx = out_range.first();
+    ssize_t const axis_stride = athis->stride(axis);
+    size_t output_index = 0;
 
     do
     {
@@ -3271,13 +3299,14 @@ SimpleArray<uint64_t> detail::SimpleArrayMixinSearch<A, T>::argmax(ssize_t axis)
         }
 
         in_idx[axis] = IndexRange::index_from_offset(*athis, axis, 0);
-        value_type max_value = athis->at(in_idx);
+        ssize_t const input_index = unchecked_buffer_index(*athis, in_idx);
+        value_type max_value = (*athis)[static_cast<size_t>(input_index)];
         uint64_t max_index = 0;
 
         for (ssize_t i = 1; i < athis->shape(axis); ++i)
         {
-            in_idx[axis] = IndexRange::index_from_offset(*athis, axis, i);
-            value_type const current_value = athis->at(in_idx);
+            ssize_t const current_index = input_index + i * axis_stride;
+            value_type const current_value = (*athis)[static_cast<size_t>(current_index)];
             if constexpr (std::is_floating_point_v<value_type>)
             {
                 if (std::isnan(current_value))
@@ -3292,7 +3321,7 @@ SimpleArray<uint64_t> detail::SimpleArrayMixinSearch<A, T>::argmax(ssize_t axis)
                 max_index = static_cast<uint64_t>(i);
             }
         }
-        result.at(out_idx) = max_index;
+        result[output_index++] = max_index;
     } while (out_range.next(out_idx));
 
     return result;
