@@ -78,7 +78,7 @@ class DrawToolTC(unittest.TestCase):
         action.setChecked(False)
         self.assertTrue(self.painter._dock.isHidden())
 
-    def test_rail_holds_one_button_per_registered_tool(self):
+    def test_selector_holds_one_button_per_registered_tool(self):
         panel = self._panel()
         self.assertEqual(set(panel.tool_buttons), set(draw_tool_names()))
 
@@ -100,27 +100,27 @@ class DrawToolTC(unittest.TestCase):
         # The panel outlives the test, so leave it on the default page.
         panel.show_page("Design")
 
-    def test_rail_shade_follows_the_theme(self):
-        # The rail paints its own shade of the panel colour. Reading it back
-        # from a grab is what catches a shade captured once and never
+    def test_selector_shade_follows_the_theme(self):
+        # The selector paints its own shade of the panel colour. Reading it
+        # back from a grab is what catches a shade captured once and never
         # refreshed, which is how a set-on-palette-change colour behaves.
-        rail = self._panel()._rail
+        tools = self._panel()._tools
         try:
             self.mgr.set_theme("light")
-            light = rail.grab().toImage().pixelColor(2, 2).lightness()
+            light = tools.grab().toImage().pixelColor(2, 2).lightness()
             self.mgr.set_theme("dark")
-            dark = rail.grab().toImage().pixelColor(2, 2).lightness()
+            dark = tools.grab().toImage().pixelColor(2, 2).lightness()
         finally:
             self.mgr.set_theme("system")
         self.assertGreater(light, dark)
 
     def test_widening_the_panel_grows_the_inspector(self):
-        # The rail keeps its designed width and the inspector takes the rest,
-        # so a dock wider than the design leaves no bands beside the panel.
+        # The selector keeps its designed width and the inspector takes the
+        # rest, so a dock wider than the design leaves no bands beside it.
         panel = self._panel()
         panel.resize(500, 400)
         panel.layout().activate()
-        self.assertEqual(panel._rail.width(), 64)
+        self.assertEqual(panel._tools.width(), 64)
         self.assertGreater(panel._inspector.width(), 264)
 
     def test_tab_row_restyles_with_the_theme(self):

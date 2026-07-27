@@ -38,6 +38,8 @@ class QWheelEvent;
 namespace solvcon
 {
 
+class RThemeManager;
+
 /**
  * Strictly-2D drawing widget for the pilot. Paints the geometry of a
  * `World<double>` by mapping it to screen space through a 2D view
@@ -107,6 +109,14 @@ public:
         m_palette = palette;
         update();
     }
+
+    /**
+     * Take the colors from the theme manager now and again on every switch.
+     * The canvas fills its own pixels, so it cannot inherit a theme switch
+     * from the application palette the way an ordinary widget does. The
+     * canvas itself is the connection context, so the link dies with it.
+     */
+    void followTheme(RThemeManager * manager);
 
     Overlay2dOptions const & overlayOptions() const { return m_overlay; }
 
