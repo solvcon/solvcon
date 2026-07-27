@@ -39,6 +39,17 @@ std::vector<ShortcutBinding> sharedSeed()
 
         // Like VSCode, the pilot binds Console to physical Ctrl+Grave on every platform.
         {ShortcutCommand::Console, KeyChord{KeyMod::Control, Key::Grave}, ShortcutContext::Window},
+
+        // The draw tools take unmodified letters, as every drawing program
+        // does. Widget context is what makes that safe: the actions are added
+        // to each canvas, so a letter reaches a tool only while a canvas holds
+        // the keyboard and never while the user types in a field or a console.
+        {ShortcutCommand::DrawToolSelect, KeyChord{KeyMod::None, Key::V}, ShortcutContext::Widget},
+        {ShortcutCommand::DrawToolLine, KeyChord{KeyMod::None, Key::L}, ShortcutContext::Widget},
+        {ShortcutCommand::DrawToolTriangle, KeyChord{KeyMod::None, Key::T}, ShortcutContext::Widget},
+        {ShortcutCommand::DrawToolRectangle, KeyChord{KeyMod::None, Key::R}, ShortcutContext::Widget},
+        {ShortcutCommand::DrawToolEllipse, KeyChord{KeyMod::None, Key::E}, ShortcutContext::Widget},
+        {ShortcutCommand::DrawToolCircle, KeyChord{KeyMod::None, Key::C}, ShortcutContext::Widget},
     };
 }
 
@@ -99,6 +110,18 @@ std::string_view commandId(ShortcutCommand command)
         return "panel.painter";
     case ShortcutCommand::New2DCanvas:
         return "canvas.blank_2d";
+    case ShortcutCommand::DrawToolSelect:
+        return "draw.tool.select";
+    case ShortcutCommand::DrawToolLine:
+        return "draw.tool.line";
+    case ShortcutCommand::DrawToolTriangle:
+        return "draw.tool.triangle";
+    case ShortcutCommand::DrawToolRectangle:
+        return "draw.tool.rectangle";
+    case ShortcutCommand::DrawToolEllipse:
+        return "draw.tool.ellipse";
+    case ShortcutCommand::DrawToolCircle:
+        return "draw.tool.circle";
     }
     throw std::logic_error("Unexpected command");
 }

@@ -9,19 +9,20 @@
 #include <stdexcept>
 #include <vector>
 
-#include <solvcon/pilot/canvas/DrawTool.hpp>
-#include <solvcon/pilot/app/RAction.hpp>
-#include <solvcon/pilot/app/RMenuModel.hpp>
-#include <solvcon/pilot/app/RShortcutManager.hpp>
-#include <solvcon/pilot/theme/RThemeManager.hpp>
-#include <Qt>
-#include <QMenuBar>
-#include <QMenu>
 #include <QAction>
 #include <QActionGroup>
 #include <QColor>
+#include <QMenu>
+#include <QMenuBar>
 #include <QVBoxLayout>
 #include <QWidget>
+#include <Qt>
+
+#include <solvcon/pilot/app/RAction.hpp>
+#include <solvcon/pilot/app/RMenuModel.hpp>
+#include <solvcon/pilot/app/RShortcutManager.hpp>
+#include <solvcon/pilot/canvas/DrawTool.hpp>
+#include <solvcon/pilot/theme/RThemeManager.hpp>
 
 namespace solvcon
 {
@@ -160,6 +161,18 @@ R2DWidget * RManager::add2DWidget()
     {
         viewer = new R2DWidget(/*parent*/ m_mdiArea);
         viewer->followTheme(m_themeManager);
+
+        if (m_menuModel)
+        {
+            for (std::string const & tool : draw_tool_names())
+            {
+                if (QAction * act = m_menuModel->action("draw.tool." + tool))
+                {
+                    viewer->addAction(act);
+                }
+            }
+        }
+
         viewer->setWindowTitle("2D canvas");
         viewer->show();
         auto * subwin = this->addSubWindow(viewer);

@@ -7,6 +7,7 @@ Painter toolbox for the 2D canvas: the draw tool selector and the inspector.
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
+from . import _painter_icons
 from ..base import _gui_common
 from .._pilot_core import draw_tool_names, default_draw_tool_name
 
@@ -14,6 +15,11 @@ __all__ = [
     'PainterPanel',
     'Painter',
 ]
+
+
+# Qt 6.6 added this event, and the theme backends still guard for older Qt.
+# Naming it in a class body would fail the import of the whole pilot there.
+_DPR_CHANGE_EVENT = getattr(QtCore.QEvent, 'DevicePixelRatioChange', None)
 
 
 def _rule(shape):
@@ -71,28 +77,108 @@ class _PaletteStyled(QtWidgets.QWidget):
         raise NotImplementedError
 
 
+def _tool_tip(action):
+    """The design's hover tip for a tool: its name, then its shortcut key."""
+    key = action.shortcut().toString(QtGui.QKeySequence.NativeText)
+    return f"{action.text()}  {key}" if key else action.text()
+
+
+class _SelectorEntry(QtWidgets.QToolButton):
+    """One selector entry: a stroke icon over its short name.
+
+    Qt re-reads a default action's text, icon, and tip whenever that action
+    changes, and picking a tool changes one. The short name and the tip survive
+    that as the action's own icon text and tool tip, but the tinted icon has
+    nowhere on the action to live: the Canvas menu shows the same action and
+    would then carry the icon too. So the entry keeps its icon and puts it back
+    after Qt has taken it away.
+    """
+
+    def __init__(self, width, icon_px, parent=None):
+        super().__init__(parent)
+        self._icon = QtGui.QIcon()
+        self.setToolButtonStyle(QtCore.Qt.ToolButtonTextUnderIcon)
+        self.setIconSize(QtCore.QSize(icon_px, icon_px))
+        self.setFixedWidth(width)
+
+    def set_entry_icon(self, icon):
+        self._icon = icon
+        self.setIcon(icon)
+
+    def actionEvent(self, event):
+        super().actionEvent(event)
+        # setIcon always invalidates the layout, so only pay for it when Qt
+        # has actually replaced the icon.
+        if self.icon().cacheKey() != self._icon.cacheKey():
+            self.setIcon(self._icon)
+
+
+class _SelectorRule(QtWidgets.QWidget):
+    """A hairline grouping divider in the draw tool selector.
+
+    The design's breathing room above and below the line lives inside the
+    divider's own height, so the column layout keeps one spacing for every
+    child.
+    """
+
+    _WIDTH = 36
+    _MARGIN = 6
+    _MIX = 0.2
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedSize(self._WIDTH, 2 * self._MARGIN + 1)
+
+    def paintEvent(self, _event):
+        painter = QtGui.QPainter(self)
+        painter.fillRect(0, self._MARGIN, self.width(), 1,
+                         _shade(self, self._MIX))
+
+
 class _DrawToolSelector(_PaletteStyled):
     """The tool column: flat entries on a shade of the inspector panel.
 
     The shade is painted rather than written into the widget's palette, because
     a palette color set from a palette-change handler is overwritten again as
     Qt finishes propagating the new palette into this widget, while painting
-    always reads the color that is current. The entries lose their button
-    bezel and the active tool wears the accent pill the design gives it; the
-    icons and the 9px labels arrive with the tool box itself.
+    always reads the color that is current. The entries lose their button bezel
+    and the active tool wears the accent pill the design gives it. Every color,
+    the icon strokes included, comes from the palette, so the column follows a
+    light/dark switch.
     """
+
+    # A column slot the model cannot back yet, as ``{name: (label, what it
+    # waits for)}``: shown at its designed place and greyed out.
+    _PLACEHOLDERS = {
+        "text": ("Text", "the text shape"),
+        "grid": ("Grid", "grid and snap options"),
+    }
 
     # How far the column shade sits from the inspector panel color, and how
     # far a hovered entry sits from the column.
     _SHADE_MIX = 0.06
     _HOVER_MIX = 0.12
 
+    # How far an entry's label moves back toward the column.
+    _LABEL_MIX = 0.25
+    _MUTED_MIX = 0.55
+
     # Column and entry geometry from the design, in device-independent pixels.
     _WIDTH = 64
     _ENTRY_WIDTH = 52
+    _ICON_PX = 17
+    _FONT_PX = 9
     _RADIUS = 7
     _GAP = 2
     _PAD_Y = 8
+
+    # The icons rasterize for the screen they are on, so a move between screens
+    # of different scale has to re-render them just as a theme switch does.
+    # Where Qt cannot report that move, the icons keep the scale they were
+    # rendered at until the next palette change.
+    _RESTYLE_EVENTS = (
+        _PaletteStyled._RESTYLE_EVENTS
+        + ((_DPR_CHANGE_EVENT,) if _DPR_CHANGE_EVENT is not None else ()))
 
     def __init__(self, tool_actions, short_labels, parent=None):
         """
@@ -105,51 +191,96 @@ class _DrawToolSelector(_PaletteStyled):
         """
         super().__init__(parent)
         self.buttons = {}
+        self.placeholders = {}
         self.setFixedWidth(self._WIDTH)
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(0, self._PAD_Y, 0, self._PAD_Y)
         layout.setSpacing(self._GAP)
-        for tool, action in tool_actions.items():
-            button = QtWidgets.QToolButton(self)
-            # The default action drives the button and reflects its checked
-            # state, so a menu radio and a button stay one selection.
-            button.setDefaultAction(action)
-            # The action's menu text is too wide for the column, so the button
-            # shows the short name and keeps the menu text as its tip.
-            button.setText(short_labels.get(tool, action.text()))
-            button.setFixedWidth(self._ENTRY_WIDTH)
-            button.setCursor(QtCore.Qt.PointingHandCursor)
-            layout.addWidget(button, 0, QtCore.Qt.AlignHCenter)
-            self.buttons[tool] = button
+        for index, (tool, action) in enumerate(tool_actions.items()):
+            # The registry lists the select tool first and the shape tools
+            # after it, which is the grouping the design rules apart.
+            if index == 1:
+                self._add_rule(layout)
+            self.buttons[tool] = self._add_tool(
+                layout, tool, action, short_labels.get(tool))
 
+        self._add_rule(layout)
+        self.placeholders["text"] = self._add_placeholder(layout, "text")
         layout.addStretch(1)
+        self.placeholders["grid"] = self._add_placeholder(layout, "grid")
         self._apply_style()
 
     def paintEvent(self, _event):
         painter = QtGui.QPainter(self)
         painter.fillRect(self.rect(), _shade(self, self._SHADE_MIX))
 
+    def _new_entry(self):
+        return _SelectorEntry(self._ENTRY_WIDTH, self._ICON_PX, self)
+
+    def _add_rule(self, layout):
+        layout.addWidget(_SelectorRule(self), 0, QtCore.Qt.AlignHCenter)
+
+    def _add_tool(self, layout, tool, action, short_label):
+        """Add one entry as a view of the shared ``tool`` action."""
+        entry = self._new_entry()
+        if short_label:
+            action.setIconText(short_label)
+        action.setToolTip(_tool_tip(action))
+        entry.setDefaultAction(action)
+        entry.setCursor(QtCore.Qt.PointingHandCursor)
+        layout.addWidget(entry, 0, QtCore.Qt.AlignHCenter)
+        return entry
+
+    def _add_placeholder(self, layout, name):
+        label, waits_for = self._PLACEHOLDERS[name]
+        entry = self._new_entry()
+        entry.setText(label)
+        entry.setToolTip(f"{label}  (needs {waits_for})")
+        entry.setEnabled(False)
+        layout.addWidget(entry, 0, QtCore.Qt.AlignHCenter)
+        return entry
+
     def _apply_style(self):
-        """Color the entries from the current palette."""
+        """Color the entries and their icons from the current palette."""
         palette = self.palette()
-        accent = palette.color(QtGui.QPalette.Highlight)
+        text = palette.color(QtGui.QPalette.WindowText)
+        panel = palette.color(QtGui.QPalette.Window)
+        label = _blend(text, panel, self._LABEL_MIX)
+        muted = _blend(text, panel, self._MUTED_MIX)
         on_accent = palette.color(QtGui.QPalette.HighlightedText)
+        # The disabled rule comes last so a greyed entry keeps its color even
+        # under the pointer, where the hover rule would otherwise light it up.
         self.setStyleSheet(f"""
             QToolButton {{
                 border: none;
                 border-radius: {self._RADIUS}px;
-                padding: 4px 0;
+                padding: 7px 0 6px;
+                font-size: {self._FONT_PX}px;
                 background: transparent;
-                color: {palette.color(QtGui.QPalette.WindowText).name()};
+                color: {label.name()};
             }}
             QToolButton:hover {{
                 background: {_shade(self, self._HOVER_MIX).name()};
+                color: {text.name()};
             }}
             QToolButton:checked {{
-                background: {accent.name()};
+                background: {palette.color(QtGui.QPalette.Highlight).name()};
                 color: {on_accent.name()};
             }}
+            QToolButton:disabled {{
+                background: transparent;
+                color: {muted.name()};
+            }}
             """)
+        ratio = self.devicePixelRatioF()
+        for name, entry in self.buttons.items():
+            # A tool the icon set does not draw yet keeps its label alone.
+            if name in _painter_icons.ICONS:
+                entry.set_entry_icon(_painter_icons.tool_icon(
+                    name, self._ICON_PX, label, on_accent, ratio))
+        for name, entry in self.placeholders.items():
+            entry.set_entry_icon(_painter_icons.placeholder_icon(
+                name, self._ICON_PX, muted, ratio))
 
 
 class _SegmentedTabs(_PaletteStyled):
@@ -226,11 +357,12 @@ class PainterPanel(QtWidgets.QWidget):
     """The Painter dock body: the draw tool selector left of the inspector.
 
     The selector holds one button per draw tool, each a view of the shared
-    ``draw.tool`` action the Canvas menu also shows. The inspector stacks the
+    ``draw.tool`` action the Canvas menu also shows, plus the greyed-out Text
+    and Grid slots the model cannot back yet. The inspector stacks the
     Design, Layers, and Canvas pages under a segmented tab row that selects
-    among them. The frame is at its designed widths; the tool icons and the
-    page contents arrive with the later steps of the redesign, so every page
-    is a greyed-out placeholder naming what it will hold.
+    among them. The frame is at its designed widths; the page contents arrive
+    with the later steps of the redesign, so every page is a greyed-out
+    placeholder naming what it will hold.
     """
 
     # The design's inspector width, in device-independent pixels. It is the
@@ -271,6 +403,11 @@ class PainterPanel(QtWidgets.QWidget):
     def tool_buttons(self):
         """The selector buttons as ``{tool id: QToolButton}``."""
         return self._tools.buttons
+
+    @property
+    def tool_placeholders(self):
+        """The greyed-out entries as ``{slot name: QToolButton}``."""
+        return self._tools.placeholders
 
     @property
     def tabs(self):
@@ -328,7 +465,7 @@ class Painter(_gui_common.PilotFeature):
     # come from the C++ registry; this only supplies human-facing text.
     # A tool with no entry here falls back to its title-cased id.
     TOOL_LABELS = {
-        "pan": "Pan / Move",
+        "select": "Select",
         "line": "Line",
         "triangle": "Triangle",
         "rectangle": "Rectangle",
@@ -339,7 +476,6 @@ class Painter(_gui_common.PilotFeature):
     # Button text for a tool whose menu label overflows the 64px selector.
     # The names are the design's; a tool with no entry keeps its menu label.
     SHORT_LABELS = {
-        "pan": "Pan",
         "triangle": "Tri",
         "rectangle": "Rect",
     }

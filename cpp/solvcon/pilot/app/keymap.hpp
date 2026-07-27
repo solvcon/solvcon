@@ -88,10 +88,16 @@ enum class Key
     Space,
     F4,
     A,
+    C,
     D,
+    E,
     I,
+    L,
     P,
+    R,
     S,
+    T,
+    V,
     W,
     Z
 };
@@ -134,7 +140,13 @@ enum class ShortcutCommand
     AgentPanel,
     InspectorPanel,
     PainterPanel,
-    New2DCanvas
+    New2DCanvas,
+    DrawToolSelect,
+    DrawToolLine,
+    DrawToolTriangle,
+    DrawToolRectangle,
+    DrawToolEllipse,
+    DrawToolCircle
 };
 
 struct ShortcutBinding
@@ -159,7 +171,13 @@ inline constexpr auto ALL_SHORTCUT_COMMANDS = std::to_array<ShortcutCommand>(
      ShortcutCommand::AgentPanel,
      ShortcutCommand::InspectorPanel,
      ShortcutCommand::PainterPanel,
-     ShortcutCommand::New2DCanvas});
+     ShortcutCommand::New2DCanvas,
+     ShortcutCommand::DrawToolSelect,
+     ShortcutCommand::DrawToolLine,
+     ShortcutCommand::DrawToolTriangle,
+     ShortcutCommand::DrawToolRectangle,
+     ShortcutCommand::DrawToolEllipse,
+     ShortcutCommand::DrawToolCircle});
 
 struct ShortcutCapabilities
 {

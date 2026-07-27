@@ -18,6 +18,12 @@ namespace
 constexpr std::array<solvcon::PlatformId, 3> PLATFORMS = {
     solvcon::PlatformId::Linux, solvcon::PlatformId::Mac, solvcon::PlatformId::Windows};
 
+struct CommandChord
+{
+    solvcon::ShortcutCommand command;
+    solvcon::Key key;
+}; /* end struct CommandChord */
+
 } /* end namespace */
 
 TEST(PilotKeymapTable, SeedsSharedBindingsOnEveryPlatform)
@@ -39,15 +45,10 @@ TEST(PilotKeymapTable, SeedsSharedBindingsOnEveryPlatform)
                   (solvcon::KeyChord{solvcon::KeyMod::None, solvcon::Key::Escape}));
         EXPECT_EQ(reset->context, solvcon::ShortcutContext::Widget);
 
-        struct PanelChord
-        {
-            solvcon::ShortcutCommand command;
-            solvcon::Key key;
-        }; /* end struct PanelChord */
         for (auto const & panel : {
-                 PanelChord{solvcon::ShortcutCommand::AgentPanel, solvcon::Key::A},
-                 PanelChord{solvcon::ShortcutCommand::InspectorPanel, solvcon::Key::I},
-                 PanelChord{solvcon::ShortcutCommand::PainterPanel, solvcon::Key::P},
+                 CommandChord{solvcon::ShortcutCommand::AgentPanel, solvcon::Key::A},
+                 CommandChord{solvcon::ShortcutCommand::InspectorPanel, solvcon::Key::I},
+                 CommandChord{solvcon::ShortcutCommand::PainterPanel, solvcon::Key::P},
              })
         {
             auto const * binding = solvcon::bindingFor(platform, panel.command);
@@ -75,6 +76,28 @@ TEST(PilotKeymapTable, ConsoleSharesGraveAcrossPlatforms)
         ASSERT_NE(console, nullptr);
         EXPECT_EQ(std::get<solvcon::KeyChord>(console->key),
                   (solvcon::KeyChord{solvcon::KeyMod::Control, solvcon::Key::Grave}));
+    }
+}
+
+TEST(PilotKeymapTable, GivesEveryDrawToolAnUnmodifiedLetterInWidgetContext)
+{
+    for (auto platform : PLATFORMS)
+    {
+        for (auto const & tool : {
+                 CommandChord{solvcon::ShortcutCommand::DrawToolSelect, solvcon::Key::V},
+                 CommandChord{solvcon::ShortcutCommand::DrawToolLine, solvcon::Key::L},
+                 CommandChord{solvcon::ShortcutCommand::DrawToolTriangle, solvcon::Key::T},
+                 CommandChord{solvcon::ShortcutCommand::DrawToolRectangle, solvcon::Key::R},
+                 CommandChord{solvcon::ShortcutCommand::DrawToolEllipse, solvcon::Key::E},
+                 CommandChord{solvcon::ShortcutCommand::DrawToolCircle, solvcon::Key::C},
+             })
+        {
+            auto const * binding = solvcon::bindingFor(platform, tool.command);
+            ASSERT_NE(binding, nullptr) << solvcon::commandId(tool.command);
+            EXPECT_EQ(std::get<solvcon::KeyChord>(binding->key),
+                      (solvcon::KeyChord{solvcon::KeyMod::None, tool.key}));
+            EXPECT_EQ(binding->context, solvcon::ShortcutContext::Widget);
+        }
     }
 }
 

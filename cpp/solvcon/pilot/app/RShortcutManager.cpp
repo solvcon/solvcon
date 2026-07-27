@@ -86,14 +86,26 @@ Qt::Key toQtKey(Key key)
         return Qt::Key_F4;
     case Key::A:
         return Qt::Key_A;
+    case Key::C:
+        return Qt::Key_C;
     case Key::D:
         return Qt::Key_D;
+    case Key::E:
+        return Qt::Key_E;
     case Key::I:
         return Qt::Key_I;
+    case Key::L:
+        return Qt::Key_L;
     case Key::P:
         return Qt::Key_P;
+    case Key::R:
+        return Qt::Key_R;
     case Key::S:
         return Qt::Key_S;
+    case Key::T:
+        return Qt::Key_T;
+    case Key::V:
+        return Qt::Key_V;
     case Key::W:
         return Qt::Key_W;
     case Key::Z:
