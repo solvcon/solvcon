@@ -2,7 +2,7 @@
 # BSD 3-Clause License, see COPYING
 
 """
-Painter toolbox for the 2D canvas: the tool rail and the inspector.
+Painter toolbox for the 2D canvas: the draw tool selector and the inspector.
 """
 
 from PySide6 import QtCore, QtGui, QtWidgets
@@ -38,7 +38,8 @@ def _shade(widget, ratio):
 
     Blending toward the text is what makes a shade follow the theme: it steps
     darker under a light palette and lighter under a dark one, which is how the
-    design separates the rail from the inspector and the checked tab from both.
+    design separates the selector from the inspector and the checked tab from
+    both.
     """
     palette = widget.palette()
     return _blend(palette.color(QtGui.QPalette.Window),
@@ -70,7 +71,7 @@ class _PaletteStyled(QtWidgets.QWidget):
         raise NotImplementedError
 
 
-class _ToolRail(_PaletteStyled):
+class _DrawToolSelector(_PaletteStyled):
     """The tool column: flat entries on a shade of the inspector panel.
 
     The shade is painted rather than written into the widget's palette, because
@@ -81,26 +82,26 @@ class _ToolRail(_PaletteStyled):
     icons and the 9px labels arrive with the tool box itself.
     """
 
-    # How far the rail shade sits from the inspector panel color, and how far
-    # a hovered entry sits from the rail.
+    # How far the column shade sits from the inspector panel color, and how
+    # far a hovered entry sits from the column.
     _SHADE_MIX = 0.06
     _HOVER_MIX = 0.12
 
-    # Rail and entry geometry from the design, in device-independent pixels.
+    # Column and entry geometry from the design, in device-independent pixels.
     _WIDTH = 64
     _ENTRY_WIDTH = 52
     _RADIUS = 7
     _GAP = 2
     _PAD_Y = 8
 
-    def __init__(self, tool_actions, rail_labels, parent=None):
+    def __init__(self, tool_actions, short_labels, parent=None):
         """
-        :param tool_actions: The draw tools as ``{tool id: QAction}`` in rail
-            order; each becomes one entry's default action.
+        :param tool_actions: The draw tools as ``{tool id: QAction}`` in
+            column order; each becomes one entry's default action.
         :type tool_actions: dict
-        :param rail_labels: Short rail text per tool id, for the tools whose
-            menu label does not fit the narrow rail.
-        :type rail_labels: dict
+        :param short_labels: Short entry text per tool id, for the tools whose
+            menu label does not fit the narrow column.
+        :type short_labels: dict
         """
         super().__init__(parent)
         self.buttons = {}
@@ -113,9 +114,9 @@ class _ToolRail(_PaletteStyled):
             # The default action drives the button and reflects its checked
             # state, so a menu radio and a button stay one selection.
             button.setDefaultAction(action)
-            # The action's menu text is too wide for the rail, so the button
-            # shows the short rail name and keeps the menu text as its tip.
-            button.setText(rail_labels.get(tool, action.text()))
+            # The action's menu text is too wide for the column, so the button
+            # shows the short name and keeps the menu text as its tip.
+            button.setText(short_labels.get(tool, action.text()))
             button.setFixedWidth(self._ENTRY_WIDTH)
             button.setCursor(QtCore.Qt.PointingHandCursor)
             layout.addWidget(button, 0, QtCore.Qt.AlignHCenter)
@@ -222,12 +223,12 @@ class _SegmentedTabs(_PaletteStyled):
 
 
 class PainterPanel(QtWidgets.QWidget):
-    """The Painter dock body: the tool rail left of the inspector.
+    """The Painter dock body: the draw tool selector left of the inspector.
 
-    The rail holds one button per draw tool, each a view of the shared
+    The selector holds one button per draw tool, each a view of the shared
     ``draw.tool`` action the Canvas menu also shows. The inspector stacks the
     Design, Layers, and Canvas pages under a segmented tab row that selects
-    among them. The frame is at its designed widths; the rail icons and the
+    among them. The frame is at its designed widths; the tool icons and the
     page contents arrive with the later steps of the redesign, so every page
     is a greyed-out placeholder naming what it will hold.
     """
@@ -244,17 +245,17 @@ class PainterPanel(QtWidgets.QWidget):
         ("Canvas", "View, grid, axes, background, and units"),
     )
 
-    def __init__(self, tool_actions, rail_labels=None, parent=None):
+    def __init__(self, tool_actions, short_labels=None, parent=None):
         """
-        :param tool_actions: The draw tools as ``{tool id: QAction}`` in rail
-            order; each becomes one rail button's default action.
+        :param tool_actions: The draw tools as ``{tool id: QAction}`` in
+            selector order; each becomes one button's default action.
         :type tool_actions: dict
-        :param rail_labels: Short rail text per tool id, for the tools whose
-            menu label does not fit the narrow rail.
-        :type rail_labels: dict or None
+        :param short_labels: Short button text per tool id, for the tools
+            whose menu label does not fit the narrow selector.
+        :type short_labels: dict or None
         """
         super().__init__(parent)
-        self._rail = _ToolRail(tool_actions, rail_labels or {}, self)
+        self._tools = _DrawToolSelector(tool_actions, short_labels or {}, self)
         self._stack = QtWidgets.QStackedWidget()
         self._tabs = _SegmentedTabs([name for name, _text in self.PAGES])
         self._tabs.selected.connect(self.show_page)
@@ -262,14 +263,14 @@ class PainterPanel(QtWidgets.QWidget):
         layout = QtWidgets.QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
-        layout.addWidget(self._rail)
+        layout.addWidget(self._tools)
         layout.addWidget(_rule(QtWidgets.QFrame.VLine))
         layout.addWidget(self._inspector, 1)
 
     @property
     def tool_buttons(self):
-        """The rail buttons as ``{tool id: QToolButton}``."""
-        return self._rail.buttons
+        """The selector buttons as ``{tool id: QToolButton}``."""
+        return self._tools.buttons
 
     @property
     def tabs(self):
@@ -320,7 +321,7 @@ class Painter(_gui_common.PilotFeature):
     to the focused 2D canvas, not bound to any one canvas.
 
     The dock body is a :class:`PainterPanel`; this feature owns the dock, the
-    menu toggle, and the draw-tool actions the panel's rail shows.
+    menu toggle, and the draw-tool actions the panel's selector shows.
     """
 
     # Button label for a tool id. The ids, their order, and the default
@@ -335,9 +336,9 @@ class Painter(_gui_common.PilotFeature):
         "circle": "Circle",
     }
 
-    # Rail text for a tool whose menu label overflows the 64px rail. The
-    # names are the design's; a tool with no entry keeps its menu label.
-    RAIL_LABELS = {
+    # Button text for a tool whose menu label overflows the 64px selector.
+    # The names are the design's; a tool with no entry keeps its menu label.
+    SHORT_LABELS = {
         "pan": "Pan",
         "triangle": "Tri",
         "rectangle": "Rect",
@@ -366,7 +367,7 @@ class Painter(_gui_common.PilotFeature):
 
     def _build_tool_actions(self):
         """One exclusive checkable action per draw tool, the single source of
-        truth shared by the Canvas/Draw tool radio items and the rail
+        truth shared by the Canvas/Draw tool radio items and the selector
         buttons. Each action routes its own trigger to the manager.
 
         Idempotent: the tools are declared once on the model, so a second
@@ -406,7 +407,7 @@ class Painter(_gui_common.PilotFeature):
             self._dock.hide()
 
     def _ensure_dock(self):
-        """Create the dock once, its rail buttons views of the tool actions."""
+        """Create the dock once, its tool buttons views of the tool actions."""
         if self._dock is not None:
             return
         # A standalone Painter (used in tests) reaches the dock without
@@ -416,7 +417,7 @@ class Painter(_gui_common.PilotFeature):
         dock.setAllowedAreas(
             QtCore.Qt.LeftDockWidgetArea | QtCore.Qt.RightDockWidgetArea)
 
-        self._panel = PainterPanel(self._tool_actions, self.RAIL_LABELS, dock)
+        self._panel = PainterPanel(self._tool_actions, self.SHORT_LABELS, dock)
         dock.setWidget(self._panel)
         self._mainWindow.addDockWidget(QtCore.Qt.RightDockWidgetArea, dock)
         # Keep the menu check in sync when the dock is closed by its button.
