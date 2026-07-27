@@ -59,6 +59,35 @@ class MatrixFloat64TC(MatrixTestBase, unittest.TestCase):
 
 class MatmulTestBase(sc.testing.TestBase):
     """Tests for matrix-matrix multiplication"""
+
+    @staticmethod
+    def make_matrix_layouts(data, stride_axis):
+        f_contiguous = np.array(
+            data, dtype=data.dtype.name, order='F', copy=True)
+
+        reversed_storage = np.array(
+            np.flip(data, axis=stride_axis),
+            dtype=data.dtype.name,
+            order='C',
+            copy=True,
+        )
+        negative_stride = np.flip(reversed_storage, axis=stride_axis)
+
+        step_two_shape = list(data.shape)
+        step_two_shape[stride_axis] *= 2
+        step_two_storage = np.empty(step_two_shape, dtype=data.dtype.name)
+        step_two_slices = [slice(None)] * data.ndim
+        step_two_slices[stride_axis] = slice(None, None, 2)
+        step_two = step_two_storage[tuple(step_two_slices)]
+        step_two[...] = data
+
+        return (
+            ('c_contiguous', data),
+            ('f_contiguous', f_contiguous),
+            ('negative_stride', negative_stride),
+            ('step_two', step_two),
+        )
+
     def assert_matmul(self, lhs, rhs, expected):
         result = lhs.matmul(rhs)
 
@@ -83,6 +112,13 @@ class MatmulTestBase(sc.testing.TestBase):
         np.testing.assert_array_almost_equal(blas_result.ndarray,
                                              matmul_result.ndarray)
 
+    def assert_matmul_planned(self, lhs, rhs, expected):
+        result = lhs.matmul_planned(rhs)
+
+        self.assertEqual(list(result.shape), list(expected.shape))
+        np.testing.assert_array_almost_equal(result.ndarray, expected)
+        return result
+
     def test_square(self):
         """Test basic square matrix multiplication"""
         # Create 2x2 matrices
@@ -99,6 +135,7 @@ class MatmulTestBase(sc.testing.TestBase):
         result = self.assert_matmul(a, b, expected)
         self.assert_matmul_fast(a, b, expected, result)
         self.assert_matmul_blas(a, b, expected, result)
+        self.assert_matmul_planned(a, b, expected)
 
     def test_rectangular(self):
         """Test rectangular matrix multiplication"""
@@ -118,6 +155,7 @@ class MatmulTestBase(sc.testing.TestBase):
         result = self.assert_matmul(a, b, expected)
         self.assert_matmul_fast(a, b, expected, result)
         self.assert_matmul_blas(a, b, expected, result)
+        self.assert_matmul_planned(a, b, expected)
 
     def test_identity(self):
         """Test multiplication with identity matrix"""
@@ -131,6 +169,7 @@ class MatmulTestBase(sc.testing.TestBase):
         result = self.assert_matmul(a, identity, a_data)
         self.assert_matmul_fast(a, identity, a_data, result)
         self.assert_matmul_blas(a, identity, a_data, result)
+        self.assert_matmul_planned(a, identity, a_data)
 
     def test_zero(self):
         """Test multiplication with zero matrix"""
@@ -143,6 +182,7 @@ class MatmulTestBase(sc.testing.TestBase):
         result = self.assert_matmul(a, zero, zero_data)
         self.assert_matmul_fast(a, zero, zero_data, result)
         self.assert_matmul_blas(a, zero, zero_data, result)
+        self.assert_matmul_planned(a, zero, zero_data)
 
     def test_dimension_mismatch_error(self):
         """Test error handling for incompatible dimensions"""
@@ -175,6 +215,12 @@ class MatmulTestBase(sc.testing.TestBase):
             r"\(3,3\)"
         ):
             a.matmul_blas(b)
+        with self.assertRaisesRegex(
+            ValueError,
+            r"SimpleArray::matmul_planned\(\): shape mismatch: "
+            r"this=\(2,2\) other=\(3,3\)"
+        ):
+            a.matmul_planned(b)
 
     def test_non_positive_fast_tile_error(self):
         cases = itertools.product(
@@ -305,6 +351,39 @@ class MatmulTestBase(sc.testing.TestBase):
                 result = self.assert_matmul(a, b, expected)
                 self.assert_matmul_fast(a, b, expected, result)
                 self.assert_matmul_blas(a, b, expected, result)
+
+    def test_matrix_layout_combinations(self):
+        """Matrix multiplication supports signed-stride operand layouts."""
+        dtype = np.dtype(self.dtype).name
+
+        lhs_layouts = self.make_matrix_layouts(
+            np.arange(12, dtype=dtype).reshape(3, 4), 1)
+        rhs_layouts = self.make_matrix_layouts(
+            np.arange(8, dtype=dtype).reshape(4, 2), 0)
+        layouts = itertools.product(lhs_layouts, rhs_layouts)
+        for (lhs_case, lhs_data), (rhs_case, rhs_data) in layouts:
+            lhs = self.SimpleArray(array=lhs_data)
+            rhs = self.SimpleArray(array=rhs_data)
+            expected = np.matmul(lhs_data, rhs_data)
+
+            with self.subTest(lhs=lhs_case, rhs=rhs_case):
+                self.assert_matmul_planned(lhs, rhs, expected)
+
+    def test_empty_matrix_dimensions(self):
+        """Matrix multiplication preserves empty output and inner axes."""
+        dtype = np.dtype(self.dtype).name
+        shapes = (((0, 4), (4, 2)),
+                  ((3, 0), (0, 2)),
+                  ((3, 4), (4, 0)))
+        for lhs_shape, rhs_shape in shapes:
+            lhs_data = np.zeros(lhs_shape, dtype=dtype)
+            rhs_data = np.zeros(rhs_shape, dtype=dtype)
+            expected = np.matmul(lhs_data, rhs_data)
+            lhs = self.SimpleArray(shape=lhs_shape, value=0)
+            rhs = self.SimpleArray(shape=rhs_shape, value=0)
+
+            with self.subTest(lhs=lhs_shape, rhs=rhs_shape):
+                self.assert_matmul_planned(lhs, rhs, expected)
 
     def test_wrong_shape_error(self):
         """Test error handling for wrong shapes"""
