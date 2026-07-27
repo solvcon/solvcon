@@ -114,12 +114,14 @@ public:
     }
 
     MM_DECL_SERIALIZABLE(
+        register_member("time_unit", m_time_unit);
         register_member("radix_tree", m_root);
         register_member("id_map", m_id_map);
         register_member("unique_id", m_unique_id);)
 
 private:
 
+    std::string m_time_unit = "ns";
     SerializableRadixTreeNode m_root;
     std::unordered_map<std::string, key_type> m_id_map;
     key_type m_unique_id;

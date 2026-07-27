@@ -137,7 +137,7 @@ class ProfilingResultPrinter:
 
     Each dictionary must contain at least the following keys:
         - "name": Name of the function (str)
-        - "total_time": Total execution time in seconds (float)
+        - "total_time": Total execution time in milliseconds (float)
         - "count": Number of times the function was called (int)
         - "children": A list of child profiling results (list)
 
