@@ -3050,7 +3050,7 @@ template <typename A, typename T>
 ssize_t detail::SimpleArrayMixinSearch<A, T>::unchecked_buffer_index(
     A const & array, shape_type const & idx)
 {
-    ssize_t const origin = static_cast<ssize_t>(
+    auto const origin = static_cast<ssize_t>(
         array.logical_data() - array.data());
     return origin + unchecked_logical_offset(array, idx);
 }
