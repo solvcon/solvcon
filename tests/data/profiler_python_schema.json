@@ -1,6 +1,7 @@
 {
     "type": "object",
     "properties": {
+        "time_unit": {"const": "ms"},
         "name": {"type": "string"},
         "total_time": {"type": "number"},
         "count": {"type": "integer"},
@@ -22,7 +23,7 @@
             }
         }
     },
-    "required": ["name", "total_time", "count", "children"],
+    "required": ["time_unit", "name", "total_time", "count", "children"],
     "definitions": {
         "child": {
             "type": "object",

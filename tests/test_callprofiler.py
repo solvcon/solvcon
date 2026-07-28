@@ -58,6 +58,7 @@ class CallProfilerTC(unittest.TestCase):
         solvcon.call_profiler.reset()
         foo1()
         result = solvcon.call_profiler.result()
+        self.assertEqual(result["time_unit"], "ms")
 
         path = os.path.join(os.path.abspath(os.path.dirname(__file__)),
                             "data", "profiler_python_schema.json")
@@ -174,7 +175,7 @@ class CallProfilerTC(unittest.TestCase):
         solvcon.call_profiler.reset()
         sdict = json.loads(solvcon.call_profiler.serialize())
 
-        # There are 3 keys in the serialization_dict
+        self.assertEqual(sdict["time_unit"], "ns")
         self.assertEqual(sdict["id_map"], {})
         self.assertEqual(sdict["unique_id"], 0)
         self.assertIn("radix_tree", sdict)
@@ -200,9 +201,9 @@ class CallProfilerTC(unittest.TestCase):
         solvcon.call_profiler.reset()
         bar()
         foo()
+        result_children = solvcon.call_profiler.result()["children"]
         sdict = json.loads(solvcon.call_profiler.serialize())
 
-        # There are 3 keys in the serialization_dict
         self.assertEqual(sdict["id_map"], {'bar': 0, 'foo': 1})
         self.assertEqual(sdict["unique_id"], 3)
         self.assertIn("radix_tree", sdict)
@@ -222,6 +223,9 @@ class CallProfilerTC(unittest.TestCase):
         self.assertEqual(bar_child["name"], "bar")
         self.assertEqual(bar_child["call_count"], 1)
         self.assertGreaterEqual(bar_child["total_time"], 5e6)
+        self.assertEqual(
+            bar_child["total_time"] / 1e6,
+            result_children[0]["total_time"])
         self.assertEqual(bar_child["children"], [])
 
         foo_child = children[1]
@@ -250,7 +254,6 @@ class CallProfilerTC(unittest.TestCase):
             busy_loop(0.001)
             sdict = json.loads(solvcon.call_profiler.serialize())
 
-            # There are 3 keys in the serialization_dict
             self.assertEqual(sdict["id_map"], {})
             self.assertEqual(sdict["unique_id"], 0)
             self.assertIn("radix_tree", sdict)
@@ -305,5 +308,20 @@ class CallProfilerTC(unittest.TestCase):
         self.assertGreater(init_result["total_time"], 0)
         self.assertEqual(2, clone_result["count"])
         self.assertGreater(clone_result["total_time"], 0)
+
+    def test_wrapper_exception_keeps_profiler_balanced(self):
+        solvcon.wrapper_profiler_status.enable()
+        solvcon.call_profiler.reset()
+
+        with self.assertRaisesRegex(
+                ValueError, "size 1 must be a multiple of alignment 16"):
+            solvcon.ConcreteBuffer(1, alignment=16)
+
+        solvcon.ConcreteBuffer(16, alignment=16)
+        result = solvcon.call_profiler.result()
+        constructor = result["children"][0]
+        self.assertNotIn("current_node", constructor)
+        self.assertEqual(constructor["count"], 2)
+        self.assertEqual(constructor["children"], [])
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

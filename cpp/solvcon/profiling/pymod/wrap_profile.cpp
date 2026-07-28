@@ -114,6 +114,7 @@ pybind11::dict WrapCallProfiler::result(CallProfiler & profiler)
         return {};
     }
     py::dict result;
+    result["time_unit"] = "ms";
     std::queue<const RadixTreeNode<CallerProfile> *> node_queue;
     std::unordered_map<const RadixTreeNode<CallerProfile> *, py::dict> dict_storage;
 

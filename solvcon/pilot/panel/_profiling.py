@@ -76,7 +76,8 @@ class Profiling(_gui_common.PilotFeature):
         self._tree_view = QTreeView(self._table)
 
         self._model = QStandardItemModel(self._tree_view)
-        self._model.setHorizontalHeaderLabels(["Total Time", "Symbol Name"])
+        self._model.setHorizontalHeaderLabels(
+            ["Total Time (ms)", "Symbol Name"])
 
         def _recursive_add_item(
                 parent: QStandardItem,
@@ -270,7 +271,7 @@ class RunProfiling(_gui_common.PilotFeature):
 
         self._model = QStandardItemModel(self._tree_view)
         self._model.setHorizontalHeaderLabels(
-            ["Symbol Name", "Total Time", "Count"])
+            ["Symbol Name", "Total Time (ms)", "Count"])
 
         def _recursive_add_item(
                 parent: QStandardItem,
