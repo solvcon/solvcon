@@ -145,6 +145,81 @@ class TimeSeriesDataFrameTC(unittest.TestCase):
         nd_arr = np.genfromtxt(io.StringIO(self.dlc_data), delimiter=',')[1:]
         self.assertEqual(list(col_data), list(nd_arr[:, 1]))
 
+    def test_dataframe_reorder_columns_inplace(self):
+        tsdf = dataframe.DataFrame()
+        tsdf.read_from_text_file(io.StringIO(self.dlc_data))
+
+        col2 = list(tsdf['DELTA_VEL[2]'])
+        new_order = ['DELTA_VEL[3]', 'DELTA_VEL[1]', 'DELTA_VEL[2]']
+
+        ret = tsdf.reorder_columns(new_order)
+
+        self.assertIs(ret, tsdf)
+        self.assertEqual(tsdf.columns, new_order)
+        self.assertEqual(list(tsdf['DELTA_VEL[2]']), col2)
+
+    def test_dataframe_reorder_columns_out_of_place(self):
+        tsdf = dataframe.DataFrame()
+        tsdf.read_from_text_file(io.StringIO(self.dlc_data))
+
+        original_order = list(tsdf.columns)
+        new_order = ['DELTA_VEL[3]', 'DELTA_VEL[1]', 'DELTA_VEL[2]']
+
+        reordered = tsdf.reorder_columns(new_order, inplace=False)
+
+        self.assertIsNot(reordered, tsdf)
+        self.assertEqual(reordered.columns, new_order)
+        self.assertEqual(tsdf.columns, original_order)
+
+    def test_dataframe_reorder_columns_does_not_alias_input_list(self):
+        tsdf = dataframe.DataFrame()
+        tsdf.read_from_text_file(io.StringIO(self.dlc_data))
+
+        new_order = ['DELTA_VEL[3]', 'DELTA_VEL[1]', 'DELTA_VEL[2]']
+        tsdf.reorder_columns(new_order)
+        new_order.append('EXTRA')
+
+        self.assertEqual(
+            tsdf.columns, ['DELTA_VEL[3]', 'DELTA_VEL[1]', 'DELTA_VEL[2]']
+        )
+
+    def test_dataframe_reorder_columns_requires_permutation(self):
+        tsdf = dataframe.DataFrame()
+        tsdf.read_from_text_file(io.StringIO(self.dlc_data))
+
+        missing_pattern = re.escape(
+            "DataFrame: columns missing ['DELTA_VEL[3]'], unknown []"
+        )
+        with self.assertRaisesRegex(ValueError, missing_pattern):
+            tsdf.reorder_columns(['DELTA_VEL[1]', 'DELTA_VEL[2]'])
+
+        unknown_pattern = re.escape(
+            "DataFrame: columns missing [], unknown ['EXTRA']"
+        )
+        with self.assertRaisesRegex(ValueError, unknown_pattern):
+            tsdf.reorder_columns(
+                ['DELTA_VEL[1]', 'DELTA_VEL[2]', 'DELTA_VEL[3]', 'EXTRA']
+            )
+
+    def test_dataframe_reorder_columns_rejects_duplicates(self):
+        tsdf = dataframe.DataFrame()
+        tsdf.read_from_text_file(io.StringIO(self.dlc_data))
+
+        duplicate_pattern = re.escape("DataFrame: columns has duplicate names")
+        with self.assertRaisesRegex(ValueError, duplicate_pattern):
+            tsdf.reorder_columns(
+                ['DELTA_VEL[1]', 'DELTA_VEL[1]', 'DELTA_VEL[2]',
+                 'DELTA_VEL[3]']
+            )
+
+    def test_dataframe_reorder_columns_requires_columns(self):
+        tsdf = dataframe.DataFrame()
+        tsdf.read_from_text_file(io.StringIO(self.dlc_data))
+
+        empty_pattern = re.escape("DataFrame: provide columns to reorder")
+        with self.assertRaisesRegex(ValueError, empty_pattern):
+            tsdf.reorder_columns()
+
     def test_read_from_text_file_accepts_str_path(self):
         tsdf = dataframe.DataFrame()
         with tempfile.NamedTemporaryFile(
