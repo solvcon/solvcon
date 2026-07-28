@@ -268,7 +268,7 @@ include_dirs = /usr/include/x86_64-linux-gnu/openblas-pthread:/usr/include/openb
 runtime_library_dirs = /usr/lib/x86_64-linux-gnu
 EOF
   # GCC 16 trunk on Ubuntu 24.04 rejects the AVX512 `evex512` target attribute
-  # that numpy 2.2.x uses, so cap cpu-dispatch at AVX2 instead of MAX.  Pass
+  # that numpy 2.5.x uses, so cap cpu-dispatch at AVX2 instead of MAX.  Pass
   # via --config-settings so the pip-driven meson rebuild honors it (not just
   # an out-of-tree `spin build`).
   with_log install.log "${PY}" -m pip install . --no-build-isolation \
@@ -1298,11 +1298,11 @@ build_cython() {
 
 build_numpy() {
   scdv_skip_p numpy && { echo "skip: numpy" ; return 0 ; }
-  local ver=2.2.4 full fn
+  local ver=2.5.1 full fn
   full=numpy-${ver} ; fn=${full}.tar.gz
   download_md5 "${fn}" \
     "https://github.com/numpy/numpy/releases/download/v${ver}/${fn}" \
-    56232f4a69b03dd7a87a55fffc5f2ebc
+    d30277e8a19ff72d814ebb407125a2e8
   unpack "${fn}" "${full}"
   pushd "${SCDV_SRCDIR}/${full}" > /dev/null
     with_log dependency.log "${PY}" -m pip install -r requirements/build_requirements.txt
@@ -1313,16 +1313,13 @@ build_numpy() {
 
 build_scipy() {
   scdv_skip_p scipy && { echo "skip: scipy" ; return 0 ; }
-  local ver=1.15.2 full fn
+  local ver=1.17.1 full fn
   full=scipy-${ver} ; fn=${full}.tar.gz
   download_md5 "${fn}" \
     "https://github.com/scipy/scipy/releases/download/v${ver}/${fn}" \
-    515fc1544d7617b38fe5a9328538047b
+    d36aba61d4b01c50551efd38ca03752f
   unpack "${fn}" "${full}"
   pushd "${SCDV_SRCDIR}/${full}" > /dev/null
-    # dev.py 1.15.2 breaks on click/rich-click >=8.2 with "Sentinel object is
-    # not subscriptable" when loading doit tasks, so bypass dev.py and let pip
-    # drive the meson build directly.
     with_log dependency.log "${PY}" -m pip install -r requirements/build.txt
     plat_scipy_install
   popd > /dev/null
