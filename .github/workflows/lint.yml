@@ -151,6 +151,9 @@ jobs:
       run: |
         echo "::group::make run_pilot_pytest"
         export LD_LIBRARY_PATH=$(python3 -c "import sys, os, shiboken6; sys.stdout.write(os.path.dirname(shiboken6.__file__))")
+        # A runner has no desktop to take over, so let this job map its windows
+        # and keep the tests that need a live surface out of the skips.
+        export SOLVCON_TEST_SHOW_WINDOWS=ON
         make run_pilot_pytest \
           ${JOB_MAKE_ARGS} \
           CMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} \

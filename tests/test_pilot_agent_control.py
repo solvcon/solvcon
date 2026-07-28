@@ -5,7 +5,7 @@
 """The Agent Window and Agent View real-target suite: the command families
 driving live pilot windows and the active canvas view through the pilot
 RManager, its QMdiArea, and the R2DWidget. Skipped where no GUI is available;
-run with ``make run_pilot_pytest HEADLESS=1``."""
+run with ``make run_pilot_pytest``."""
 
 import os
 import tempfile

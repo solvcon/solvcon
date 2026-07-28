@@ -107,6 +107,10 @@ without installation, and works around macOS SIP stripping `DYLD_LIBRARY_PATH`.
   pytest.
 - `make run_pilot_pytest` -- Python tests that require the pilot GUI;
   accepts `PYTEST_OPTS` the same way.
+- The GUI tests build real windows but keep them off the screen, so a test run
+  does not take over the desktop (`tests/conftest.py`). Export
+  `SOLVCON_TEST_SHOW_WINDOWS=ON` to watch the windows instead, which hands
+  them the desktop and the keyboard for the length of the run.
 - `make gtest` -- build and run the full C++ test suite.
 - `./build/rel<pyvminor>/gtests/run_gtest --gtest_filter=Suite.Test` -- run a
   single gtest after `make gtest` has built the binary

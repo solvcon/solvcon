@@ -136,6 +136,8 @@ install: cmake
 #   make pytest PYTEST_OPTS='-k test_buffer.py'
 # Example for one class:
 #   make pytest PYTEST_OPTS='-v -k SimpleArrayBasicTC'
+# The GUI tests keep their windows off the screen (tests/conftest.py); export
+# SOLVCON_TEST_SHOW_WINDOWS=ON to watch them.
 .PHONY: pytest
 pytest: buildext
 	env $(RUNENV) \
@@ -187,6 +189,8 @@ run_pilot: pilot
 #   make run_pilot_pytest PYTEST_OPTS='-k test_buffer.py'
 # Example for one class:
 #   make run_pilot_pytest PYTEST_OPTS='-v -k SimpleArrayBasicTC'
+# The GUI tests keep their windows off the screen (tests/conftest.py); export
+# SOLVCON_TEST_SHOW_WINDOWS=ON to watch them.
 .PHONY: run_pilot_pytest
 run_pilot_pytest: pilot
 	env $(RUNENV) PYTEST_OPTS="$(PYTEST_OPTS)" \
