@@ -993,10 +993,10 @@ function Get-OpenblasPkgConfig {
 
 function Build-Numpy {
     if (Test-Skip 'numpy') { Write-Host 'skip: numpy'; return }
-    $ver = '2.2.4'; $full = "numpy-$ver"; $fn = "$full.tar.gz"
+    $ver = '2.5.1'; $full = "numpy-$ver"; $fn = "$full.tar.gz"
     Get-Download $fn `
         "https://github.com/numpy/numpy/releases/download/v$ver/$fn" `
-        '56232f4a69b03dd7a87a55fffc5f2ebc'
+        'd30277e8a19ff72d814ebb407125a2e8'
     Expand-Source $fn $full
     $pcdir = Get-OpenblasPkgConfig
     Push-Location (Join-Path $ScdvSrcDir $full)
@@ -1026,10 +1026,10 @@ function Build-Scipy {
     # or LLVM flang from PATH; install one of them (see -PrintPrereq).  This is
     # the least-exercised step on Windows and the most likely to need a local
     # tweak; the devplan tracks it.
-    $ver = '1.15.2'; $full = "scipy-$ver"; $fn = "$full.tar.gz"
+    $ver = '1.17.1'; $full = "scipy-$ver"; $fn = "$full.tar.gz"
     Get-Download $fn `
         "https://github.com/scipy/scipy/releases/download/v$ver/$fn" `
-        '515fc1544d7617b38fe5a9328538047b'
+        'd36aba61d4b01c50551efd38ca03752f'
     Expand-Source $fn $full
     $pcdir = Get-OpenblasPkgConfig
     Push-Location (Join-Path $ScdvSrcDir $full)
