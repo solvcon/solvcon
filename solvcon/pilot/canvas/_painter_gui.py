@@ -8,6 +8,8 @@ Painter toolbox for the 2D canvas: the draw tool selector and the inspector.
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from . import _painter_icons
+from ._painter_design import DesignPage
+from ._painter_style import blend, rule, shade, PaletteStyled
 from ..base import _gui_common
 from .._pilot_core import draw_tool_names, default_draw_tool_name
 
@@ -15,66 +17,6 @@ __all__ = [
     'PainterPanel',
     'Painter',
 ]
-
-
-# Qt 6.6 added this event, and the theme backends still guard for older Qt.
-# Naming it in a class body would fail the import of the whole pilot there.
-_DPR_CHANGE_EVENT = getattr(QtCore.QEvent, 'DevicePixelRatioChange', None)
-
-
-def _rule(shape):
-    """A hairline divider between two areas of the panel."""
-    line = QtWidgets.QFrame()
-    line.setFrameShape(shape)
-    line.setFrameShadow(QtWidgets.QFrame.Sunken)
-    return line
-
-
-def _blend(color, other, ratio):
-    """Mix ``ratio`` of ``other`` into ``color``."""
-    keep = 1.0 - ratio
-    return QtGui.QColor(
-        round(color.red() * keep + other.red() * ratio),
-        round(color.green() * keep + other.green() * ratio),
-        round(color.blue() * keep + other.blue() * ratio))
-
-
-def _shade(widget, ratio):
-    """The panel color of ``widget`` moved ``ratio`` toward its text color.
-
-    Blending toward the text is what makes a shade follow the theme: it steps
-    darker under a light palette and lighter under a dark one, which is how the
-    design separates the selector from the inspector and the checked tab from
-    both.
-    """
-    palette = widget.palette()
-    return _blend(palette.color(QtGui.QPalette.Window),
-                  palette.color(QtGui.QPalette.WindowText), ratio)
-
-
-class _PaletteStyled(QtWidgets.QWidget):
-    """A widget whose child controls are styled from the palette.
-
-    A subclass builds its style sheet in :meth:`_apply_style` and calls it once
-    its children exist; the base re-applies it whenever the application palette
-    changes, so the piece follows a light/dark switch.
-    """
-
-    # Both palette events matter. The theme manager pairs a new application
-    # palette with a fresh global style sheet, whose re-polish arrives here as
-    # PaletteChange; under the system look it sets the palette alone, and
-    # ApplicationPaletteChange is what carries that.
-    _RESTYLE_EVENTS = (QtCore.QEvent.PaletteChange,
-                       QtCore.QEvent.ApplicationPaletteChange)
-
-    def event(self, event):
-        if event.type() in self._RESTYLE_EVENTS:
-            self._apply_style()
-            self.update()
-        return super().event(event)
-
-    def _apply_style(self):
-        raise NotImplementedError
 
 
 def _tool_tip(action):
@@ -132,10 +74,10 @@ class _SelectorRule(QtWidgets.QWidget):
     def paintEvent(self, _event):
         painter = QtGui.QPainter(self)
         painter.fillRect(0, self._MARGIN, self.width(), 1,
-                         _shade(self, self._MIX))
+                         shade(self, self._MIX))
 
 
-class _DrawToolSelector(_PaletteStyled):
+class _DrawToolSelector(PaletteStyled):
     """The tool column: flat entries on a shade of the inspector panel.
 
     The shade is painted rather than written into the widget's palette, because
@@ -172,14 +114,6 @@ class _DrawToolSelector(_PaletteStyled):
     _GAP = 2
     _PAD_Y = 8
 
-    # The icons rasterize for the screen they are on, so a move between screens
-    # of different scale has to re-render them just as a theme switch does.
-    # Where Qt cannot report that move, the icons keep the scale they were
-    # rendered at until the next palette change.
-    _RESTYLE_EVENTS = (
-        _PaletteStyled._RESTYLE_EVENTS
-        + ((_DPR_CHANGE_EVENT,) if _DPR_CHANGE_EVENT is not None else ()))
-
     def __init__(self, tool_actions, short_labels, parent=None):
         """
         :param tool_actions: The draw tools as ``{tool id: QAction}`` in
@@ -212,7 +146,7 @@ class _DrawToolSelector(_PaletteStyled):
 
     def paintEvent(self, _event):
         painter = QtGui.QPainter(self)
-        painter.fillRect(self.rect(), _shade(self, self._SHADE_MIX))
+        painter.fillRect(self.rect(), shade(self, self._SHADE_MIX))
 
     def _new_entry(self):
         return _SelectorEntry(self._ENTRY_WIDTH, self._ICON_PX, self)
@@ -245,8 +179,8 @@ class _DrawToolSelector(_PaletteStyled):
         palette = self.palette()
         text = palette.color(QtGui.QPalette.WindowText)
         panel = palette.color(QtGui.QPalette.Window)
-        label = _blend(text, panel, self._LABEL_MIX)
-        muted = _blend(text, panel, self._MUTED_MIX)
+        label = blend(text, panel, self._LABEL_MIX)
+        muted = blend(text, panel, self._MUTED_MIX)
         on_accent = palette.color(QtGui.QPalette.HighlightedText)
         # The disabled rule comes last so a greyed entry keeps its color even
         # under the pointer, where the hover rule would otherwise light it up.
@@ -260,7 +194,7 @@ class _DrawToolSelector(_PaletteStyled):
                 color: {label.name()};
             }}
             QToolButton:hover {{
-                background: {_shade(self, self._HOVER_MIX).name()};
+                background: {shade(self, self._HOVER_MIX).name()};
                 color: {text.name()};
             }}
             QToolButton:checked {{
@@ -283,7 +217,7 @@ class _DrawToolSelector(_PaletteStyled):
                 name, self._ICON_PX, muted, ratio))
 
 
-class _SegmentedTabs(_PaletteStyled):
+class _SegmentedTabs(PaletteStyled):
     """The Design / Layers / Canvas selector as one segmented control.
 
     Qt has no segmented control, so the row is flat checkable buttons styled
@@ -332,7 +266,7 @@ class _SegmentedTabs(_PaletteStyled):
         palette = self.palette()
         panel = palette.color(QtGui.QPalette.Window)
         text = palette.color(QtGui.QPalette.WindowText)
-        pill = _shade(self, self._PILL_MIX)
+        pill = shade(self, self._PILL_MIX)
         self.setStyleSheet(f"""
             QPushButton {{
                 border: none;
@@ -340,7 +274,7 @@ class _SegmentedTabs(_PaletteStyled):
                 padding: 5px 0;
                 font-size: {self._FONT_PX}px;
                 background: transparent;
-                color: {_blend(text, panel, self._LABEL_MIX).name()};
+                color: {blend(text, panel, self._LABEL_MIX).name()};
             }}
             QPushButton:hover {{
                 color: {text.name()};
@@ -360,9 +294,9 @@ class PainterPanel(QtWidgets.QWidget):
     ``draw.tool`` action the Canvas menu also shows, plus the greyed-out Text
     and Grid slots the model cannot back yet. The inspector stacks the
     Design, Layers, and Canvas pages under a segmented tab row that selects
-    among them. The frame is at its designed widths; the page contents arrive
-    with the later steps of the redesign, so every page is a greyed-out
-    placeholder naming what it will hold.
+    among them, and hands the active canvas to whichever page reads one. The
+    Layers and Canvas pages arrive with the later steps of the redesign, so
+    each is still a greyed-out placeholder naming what it will hold.
     """
 
     # The design's inspector width, in device-independent pixels. It is the
@@ -370,12 +304,14 @@ class PainterPanel(QtWidgets.QWidget):
     # room to the inspector instead of leaving bands beside the panel.
     _INSPECTOR_WIDTH = 264
 
-    #: Inspector pages as ``(name, placeholder)``, in tab order.
-    PAGES = (
-        ("Design", "Selection, position, stroke, fill, and grid controls"),
-        ("Layers", "Object list, filters, and visibility"),
-        ("Canvas", "View, grid, axes, background, and units"),
-    )
+    #: Inspector page names, in tab order.
+    PAGES = ("Design", "Layers", "Canvas")
+
+    # What a page yet to be built says it will hold.
+    _PLACEHOLDERS = {
+        "Layers": "Object list, filters, and visibility",
+        "Canvas": "View, grid, axes, background, and units",
+    }
 
     def __init__(self, tool_actions, short_labels=None, parent=None):
         """
@@ -389,14 +325,15 @@ class PainterPanel(QtWidgets.QWidget):
         super().__init__(parent)
         self._tools = _DrawToolSelector(tool_actions, short_labels or {}, self)
         self._stack = QtWidgets.QStackedWidget()
-        self._tabs = _SegmentedTabs([name for name, _text in self.PAGES])
+        self._design = DesignPage(self._stack)
+        self._tabs = _SegmentedTabs(self.PAGES)
         self._tabs.selected.connect(self.show_page)
         self._inspector = self._build_inspector()
         layout = QtWidgets.QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
         layout.addWidget(self._tools)
-        layout.addWidget(_rule(QtWidgets.QFrame.VLine))
+        layout.addWidget(rule(QtWidgets.QFrame.VLine))
         layout.addWidget(self._inspector, 1)
 
     @property
@@ -414,17 +351,32 @@ class PainterPanel(QtWidgets.QWidget):
         """The inspector tab buttons as ``{page name: QPushButton}``."""
         return self._tabs.buttons
 
+    @property
+    def design(self):
+        """The Design page."""
+        return self._design
+
+    def set_canvas_source(self, source):
+        """Tell the inspector how to reach the active 2D canvas."""
+        self._design.set_canvas_source(source)
+
+    def refresh(self):
+        """Re-read the active canvas now, without waiting for a poll."""
+        self._design.refresh()
+
     def _build_inspector(self):
         """Build the tab row over the stack of pages."""
-        for _name, placeholder in self.PAGES:
-            self._stack.addWidget(self._build_page(placeholder))
+        for name in self.PAGES:
+            waiting = self._PLACEHOLDERS.get(name)
+            self._stack.addWidget(self._design if waiting is None
+                                  else self._build_page(waiting))
         inspector = QtWidgets.QWidget(self)
         inspector.setMinimumWidth(self._INSPECTOR_WIDTH)
         layout = QtWidgets.QVBoxLayout(inspector)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
         layout.addWidget(self._tabs)
-        layout.addWidget(_rule(QtWidgets.QFrame.HLine))
+        layout.addWidget(rule(QtWidgets.QFrame.HLine))
         layout.addWidget(self._stack, 1)
         return inspector
 
@@ -442,12 +394,11 @@ class PainterPanel(QtWidgets.QWidget):
 
     def current_page(self):
         """The name of the page the inspector shows."""
-        return self.PAGES[self._stack.currentIndex()][0]
+        return self.PAGES[self._stack.currentIndex()]
 
     def show_page(self, name):
         """Show the page named ``name`` and check its tab."""
-        names = [page for page, _text in self.PAGES]
-        self._stack.setCurrentIndex(names.index(name))
+        self._stack.setCurrentIndex(self.PAGES.index(name))
         self.tabs[name].setChecked(True)
 
 
@@ -560,6 +511,17 @@ class Painter(_gui_common.PilotFeature):
         if self._action is not None:
             dock.visibilityChanged.connect(self._action.setChecked)
         self._dock = dock
+        self._panel.set_canvas_source(self._mgr.currentR2DWidget)
+        mdi = self._mgr.mdiArea
+        if mdi is not None:
+            mdi.subWindowActivated.connect(self._on_subwindow_activated)
+
+    def _on_subwindow_activated(self, _subwin):
+        """Show the newly active canvas without waiting for the next poll."""
+        if self._panel is not None:
+            # The manager reports the active canvas once Qt has finished
+            # switching, which is after this signal.
+            QtCore.QTimer.singleShot(0, self._panel.refresh)
 
     def present(self):
         """Show the Painter dock and reset the focused canvas to the default
