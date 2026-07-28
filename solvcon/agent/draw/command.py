@@ -31,10 +31,6 @@ BOOLEAN = {"type": "boolean"}
 STRING = {"type": "string"}
 
 
-def _num(description):
-    return {**NUMBER, "description": description}
-
-
 def _pos(description):
     return {**POSITIVE, "description": description}
 
@@ -43,14 +39,19 @@ def _int(description):
     return {**INTEGER, "description": description}
 
 
-def _point(description):
-    return {"type": "array", "items": {"type": "number"},
-            "minItems": 2, "maxItems": 3, "description": description}
+def _point(description=None):
+    point = {"type": "array", "items": {"type": "number"},
+             "minItems": 2, "maxItems": 3}
+    return {**point, "description": description} if description else point
 
 
-# Mirrors ViewTransform2dFp64, math convention +Y up.
+# Mirrors ViewTransform2dFp64, math convention +Y up.  Every field is
+# optional, unlike the same object in the view family: this one is a
+# defaulted argument, and ``apply_defaults`` overlays whatever fields the
+# caller gives onto the default instead of demanding all three.
 VIEW = {"type": "object",
         "properties": {"pan_x": NUMBER, "pan_y": NUMBER, "zoom": POSITIVE},
+        "required": [],
         "additionalProperties": False}
 
 _BBOX = {"type": "array", "items": NUMBER, "minItems": 4, "maxItems": 4,
@@ -131,10 +132,8 @@ class AddPoint(_cmd.Command):
     op = "add_point"
     category = "create"
     summary = "Add a free point at world (x, y, z); z is dropped in 2D."
-    arguments = {"x": _num("World x of the point."),
-                 "y": _num("World y of the point (+Y up)."),
-                 "z": {**NUMBER, "default": 0.0,
-                       "description": "World z; ignored in 2D."}}
+    arguments = {"x": NUMBER, "y": NUMBER,
+                 "z": {**NUMBER, "default": 0.0}}
     optional = ("z",)
     returns = {"npoint": _int("Total free points after the add.")}
 
@@ -148,8 +147,7 @@ class AddSegment(_cmd.Command):
     op = "add_segment"
     category = "create"
     summary = "Add a bare line segment between two world points."
-    arguments = {"p0": _point("Start point [x, y] or [x, y, z]."),
-                 "p1": _point("End point [x, y] or [x, y, z].")}
+    arguments = {"p0": _point(), "p1": _point()}
     returns = {"nsegment": _int(
         "Total segments in the world after the add, "
         "including those owned by shapes.")}
@@ -164,10 +162,8 @@ class AddLine(_cmd.Command):
     op = "add_line"
     category = "create"
     summary = "Add a line shape from (x0, y0) to (x1, y1) in world coords."
-    arguments = {"x0": _num("World x of the start point."),
-                 "y0": _num("World y of the start point."),
-                 "x1": _num("World x of the end point."),
-                 "y1": _num("World y of the end point.")}
+    arguments = {"x0": NUMBER, "y0": NUMBER,
+                 "x1": NUMBER, "y1": NUMBER}
     returns = {"shape_id": _int("Id of the new shape.")}
 
     def apply(self, world, args, ctx):
@@ -180,12 +176,8 @@ class AddTriangle(_cmd.Command):
     op = "add_triangle"
     category = "create"
     summary = "Add a triangle shape through its three corners (+Y up)."
-    arguments = {"x0": _num("World x of corner 0."),
-                 "y0": _num("World y of corner 0."),
-                 "x1": _num("World x of corner 1."),
-                 "y1": _num("World y of corner 1."),
-                 "x2": _num("World x of corner 2."),
-                 "y2": _num("World y of corner 2.")}
+    arguments = {"x0": NUMBER, "y0": NUMBER, "x1": NUMBER,
+                 "y1": NUMBER, "x2": NUMBER, "y2": NUMBER}
     returns = {"shape_id": _int("Id of the new shape.")}
 
     def apply(self, world, args, ctx):
@@ -199,10 +191,8 @@ class AddRectangle(_cmd.Command):
     op = "add_rectangle"
     category = "create"
     summary = "Add an axis-aligned rectangle from lower-left to upper-right."
-    arguments = {"x_min": _num("Lower-left corner x."),
-                 "y_min": _num("Lower-left corner y."),
-                 "x_max": _num("Upper-right corner x."),
-                 "y_max": _num("Upper-right corner y.")}
+    arguments = {"x_min": NUMBER, "y_min": NUMBER,
+                 "x_max": NUMBER, "y_max": NUMBER}
     returns = {"shape_id": _int("Id of the new shape.")}
 
     def apply(self, world, args, ctx):
@@ -215,9 +205,8 @@ class AddSquare(_cmd.Command):
     op = "add_square"
     category = "create"
     summary = "Add an axis-aligned square from its lower-left corner."
-    arguments = {"x_min": _num("Lower-left corner x."),
-                 "y_min": _num("Lower-left corner y."),
-                 "size": _pos("Edge length; must be positive.")}
+    arguments = {"x_min": NUMBER, "y_min": NUMBER,
+                 "size": _pos("Edge length.")}
     returns = {"shape_id": _int("Id of the new shape.")}
 
     def apply(self, world, args, ctx):
@@ -230,9 +219,9 @@ class AddEllipse(_cmd.Command):
     op = "add_ellipse"
     category = "create"
     summary = "Add an ellipse shape centered at (cx, cy)."
-    arguments = {"cx": _num("Center x."), "cy": _num("Center y."),
-                 "rx": _pos("Semi-axis along x; must be positive."),
-                 "ry": _pos("Semi-axis along y; must be positive.")}
+    arguments = {"cx": NUMBER, "cy": NUMBER,
+                 "rx": _pos("Semi-axis along x."),
+                 "ry": _pos("Semi-axis along y.")}
     returns = {"shape_id": _int("Id of the new shape.")}
 
     def apply(self, world, args, ctx):
@@ -245,8 +234,7 @@ class AddCircle(_cmd.Command):
     op = "add_circle"
     category = "create"
     summary = "Add a circle shape centered at (cx, cy)."
-    arguments = {"cx": _num("Center x."), "cy": _num("Center y."),
-                 "r": _pos("Radius; must be positive.")}
+    arguments = {"cx": NUMBER, "cy": NUMBER, "r": _pos("Radius.")}
     returns = {"shape_id": _int("Id of the new shape.")}
 
     def apply(self, world, args, ctx):
@@ -259,7 +247,7 @@ class AddBezier(_cmd.Command):
     op = "add_bezier"
     category = "create"
     summary = "Add a bare cubic Bezier from four control points."
-    arguments = {"p0": _point("Start anchor [x, y] or [x, y, z]."),
+    arguments = {"p0": _point("Start anchor."),
                  "p1": _point("First control point."),
                  "p2": _point("Second control point."),
                  "p3": _point("End anchor.")}
@@ -278,7 +266,7 @@ class AddBezierShape(_cmd.Command):
     op = "add_bezier_shape"
     category = "create"
     summary = "Add a cubic Bezier shape from four control points."
-    arguments = {"p0": _point("Start anchor [x, y] or [x, y, z]."),
+    arguments = {"p0": _point("Start anchor."),
                  "p1": _point("First control point."),
                  "p2": _point("Second control point."),
                  "p3": _point("End anchor.")}
@@ -290,11 +278,12 @@ class AddBezierShape(_cmd.Command):
             _world_point(args["p2"]), _world_point(args["p3"]))}
 
 
-def _vertices(description, min_items):
-    return {"type": "array",
-            "items": {"type": "array", "items": {"type": "number"},
-                      "minItems": 2, "maxItems": 2},
-            "minItems": min_items, "description": description}
+def _vertices(min_items, description=None):
+    verts = {"type": "array",
+             "items": {"type": "array", "items": {"type": "number"},
+                       "minItems": 2, "maxItems": 2},
+             "minItems": min_items}
+    return {**verts, "description": description} if description else verts
 
 
 @_command_set.register
@@ -302,8 +291,7 @@ class AddPolyline(_cmd.Command):
     op = "add_polyline"
     category = "create"
     summary = "Add an open polyline through a list of [x, y] vertices."
-    arguments = {"vertices": _vertices(
-        "Vertices as [x, y] pairs; at least two.", 2)}
+    arguments = {"vertices": _vertices(2)}
     returns = {"shape_id": _int("Id of the new shape.")}
 
     def apply(self, world, args, ctx):
@@ -317,8 +305,7 @@ class AddPolygon(_cmd.Command):
     category = "create"
     summary = "Add a closed polygon through a list of [x, y] vertices."
     arguments = {"vertices": _vertices(
-        "Vertices as [x, y] pairs; at least three. The last connects "
-        "back to the first.", 3)}
+        3, "The last vertex connects back to the first.")}
     returns = {"shape_id": _int("Id of the new shape.")}
 
     def apply(self, world, args, ctx):
@@ -331,7 +318,7 @@ class GetShape(_cmd.Command):
     op = "get_shape"
     category = "read"
     summary = "Read one shape's id, type, bbox, and geometry by its id."
-    arguments = {"shape_id": _int("Id of the shape to read.")}
+    arguments = {"shape_id": INTEGER}
     returns = {"shape": SHAPE}
 
     def apply(self, world, args, ctx):
@@ -349,7 +336,7 @@ class ShapeTypeOf(_cmd.Command):
     op = "shape_type_of"
     category = "read"
     summary = "Name the type of the shape with the given id."
-    arguments = {"shape_id": _int("Id of the shape to inspect.")}
+    arguments = {"shape_id": INTEGER}
     returns = {"type": {**STRING,
                         "description": "Lower-case shape type."}}
 
@@ -374,10 +361,8 @@ class QueryVisible(_cmd.Command):
     op = "query_visible"
     category = "read"
     summary = "List the ids of shapes overlapping a query box."
-    arguments = {"min_x": _num("Query box lower-left x."),
-                 "min_y": _num("Query box lower-left y."),
-                 "max_x": _num("Query box upper-right x."),
-                 "max_y": _num("Query box upper-right y.")}
+    arguments = {"min_x": NUMBER, "min_y": NUMBER,
+                 "max_x": NUMBER, "max_y": NUMBER}
     returns = {"shape_ids": {"type": "array", "items": INTEGER,
                              "description": "Ids of shapes overlapping box."}}
 
@@ -393,8 +378,7 @@ class DescribeState(_cmd.Command):
     category = "read"
     summary = "Serialize the visible 2D geometry to a state object."
     arguments = {"level": {"type": "string", "enum": ["basic"],
-                           "default": "basic",
-                           "description": "Level of detail; only 'basic'."}}
+                           "default": "basic"}}
     optional = ("level",)
     returns = {"state": STATE}
 
@@ -412,10 +396,11 @@ class RenderPng(_cmd.Command):
                  "height": {**POSITIVE_INT,
                             "description": "Image height in pixels."},
                  "view": {**VIEW,
-                          "default": {"pan_x": 0.0, "pan_y": 0.0, "zoom": 1.0},
-                          "description": "2D view transform (+Y up)."},
-                 "antialiasing": {**BOOLEAN, "default": False,
-                                  "description": "Enable antialiased edges."}}
+                          "default": {"pan_x": 0.0, "pan_y": 0.0,
+                                      "zoom": 1.0},
+                          "description": "Screen-pixel pan and zoom, "
+                                         "not world units."},
+                 "antialiasing": {**BOOLEAN, "default": False}}
     optional = ("view", "antialiasing")
     returns = {"image": IMAGE}
 
@@ -438,9 +423,7 @@ class TranslateShape(_cmd.Command):
     op = "translate_shape"
     category = "update"
     summary = "Translate the shape with the given id by (dx, dy)."
-    arguments = {"shape_id": _int("Id of the shape to move."),
-                 "dx": _num("World displacement along x."),
-                 "dy": _num("World displacement along y.")}
+    arguments = {"shape_id": INTEGER, "dx": NUMBER, "dy": NUMBER}
 
     def apply(self, world, args, ctx):
         _require_live(world, args["shape_id"])
@@ -453,7 +436,7 @@ class RemoveShape(_cmd.Command):
     op = "remove_shape"
     category = "delete"
     summary = "Remove the shape with the given id."
-    arguments = {"shape_id": _int("Id of the shape to remove.")}
+    arguments = {"shape_id": INTEGER}
 
     def apply(self, world, args, ctx):
         _require_live(world, args["shape_id"])
@@ -477,8 +460,7 @@ class Log(_cmd.Command):
     op = "log"
     category = "log"
     summary = "Record a free-text note in the command log."
-    arguments = {"message": {**STRING,
-                             "description": "Free-text note to record."}}
+    arguments = {"message": STRING}
 
     def apply(self, world, args, ctx):
         ctx.append_log(args["message"])

@@ -9,7 +9,7 @@ This module holds the backends that talk to an installed AI CLI or an
 OpenAI-compatible HTTP server, plus the shared plumbing they need:
 :class:`SubprocessBackend` (PATH discovery and a cancellable child process),
 :class:`OpenAIHttpBackend` (stdlib ``http.client``, no SDK), and
-:func:`parse_tool_calls` (turn a model reply into Agent Draw command dicts).
+:class:`ToolCallParser` (turn a model reply into Agent Draw command dicts).
 The Codex CLI backend is a follow-up that reuses :class:`SubprocessBackend`.
 
 The module imports no Qt and makes no network call at import time.  A backend
@@ -29,94 +29,100 @@ import urllib.parse
 from . import _backend
 
 
-def _tool_op_names(tool_surface):
-    """The set of op names a tool surface advertises via each tool's ``name``.
+class ToolCallParser:
+    """Turns a model reply into the command dicts a session runs."""
 
-    Empty when the surface is empty or names nothing, which tells
-    :func:`parse_tool_calls` to skip op validation rather than reject
-    everything.
-    """
-    names = set()
-    for tool in tool_surface or []:
-        if isinstance(tool, dict) and isinstance(tool.get("name"), str):
-            names.add(tool["name"])
-    return names
+    @classmethod
+    def op_names(cls, tool_surface):
+        """The set of op names a tool surface advertises via each tool's
+        ``name``.
 
+        Empty when the surface is empty or names nothing, which tells
+        :meth:`parse` to skip op validation rather than reject everything.
+        """
+        names = set()
+        for tool in tool_surface or []:
+            if isinstance(tool, dict) and isinstance(tool.get("name"), str):
+                names.add(tool["name"])
+        return names
 
-def _strip_code_fences(text):
-    """Drop a surrounding triple-backtick fence (bare or tagged) if present."""
-    stripped = text.strip()
-    if not stripped.startswith("```"):
-        return text
-    lines = stripped.splitlines()
-    if lines and lines[0].startswith("```"):
-        lines = lines[1:]
-    if lines and lines[-1].strip() == "```":
-        lines = lines[:-1]
-    return "\n".join(lines)
+    @classmethod
+    def strip_code_fences(cls, text):
+        """Drop a surrounding triple-backtick fence (bare or tagged) if
+        present."""
+        stripped = text.strip()
+        if not stripped.startswith("```"):
+            return text
+        lines = stripped.splitlines()
+        if lines and lines[0].startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+        return "\n".join(lines)
 
+    @classmethod
+    def load_json_payload(cls, text):
+        """Parse the first JSON array or object out of a model reply,
+        tolerating a code fence or surrounding prose.
 
-def _load_json_payload(text):
-    """Parse the first JSON array or object out of a model reply, tolerating a
-    code fence or surrounding prose.
-
-    Return the parsed value, or ``None`` when the reply has no JSON-looking
-    span (plain prose).  Raise :class:`ValueError` when a ``[``/``{`` span is
-    present but does not parse, so a truncated or invalid command batch is not
-    mistaken for an empty one.
-    """
-    text = _strip_code_fences(text).strip()
-    if not text:
-        return None
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        pass
-    saw_span = False
-    for opener, closer in (("[", "]"), ("{", "}")):
-        start = text.find(opener)
-        end = text.rfind(closer)
-        if start == -1 or end <= start:
-            continue
-        saw_span = True
+        Return the parsed value, or ``None`` when the reply has no JSON-looking
+        span (plain prose).  Raise :class:`ValueError` when a ``[``/``{`` span
+        is present but does not parse, so a truncated or invalid command batch
+        is not mistaken for an empty one.
+        """
+        text = cls.strip_code_fences(text).strip()
+        if not text:
+            return None
         try:
-            return json.loads(text[start:end + 1])
+            return json.loads(text)
         except json.JSONDecodeError:
-            continue
-    if saw_span or text[0] in "[{":
-        raise ValueError("model reply has malformed JSON")
-    return None
+            pass
+        saw_span = False
+        for opener, closer in (("[", "]"), ("{", "}")):
+            start = text.find(opener)
+            end = text.rfind(closer)
+            if start == -1 or end <= start:
+                continue
+            saw_span = True
+            try:
+                return json.loads(text[start:end + 1])
+            except json.JSONDecodeError:
+                continue
+        if saw_span or text[0] in "[{":
+            raise ValueError("model reply has malformed JSON")
+        return None
 
+    @classmethod
+    def parse(cls, text, tool_surface=None):
+        """Turn a model reply into a list of command dicts.
 
-def parse_tool_calls(text, tool_surface=None):
-    """Turn a model reply into a list of command dicts.
-
-    Accept a JSON array, or a lone object treated as a one-command array.  Each
-    command must be an object with an ``op``; when ``tool_surface`` names ops,
-    an unknown op is rejected.  Raise :class:`ValueError` on a malformed reply
-    (including invalid JSON that looks like a command batch) so the backend
-    records it as an error rather than running a bad command.  Plain prose with
-    no JSON yields an empty list.
-    """
-    data = _load_json_payload(text)
-    if data is None:
-        return []
-    if isinstance(data, dict):
-        data = [data]
-    if not isinstance(data, list):
-        raise ValueError("model reply is not a JSON array of commands")
-    valid = _tool_op_names(tool_surface)
-    commands = []
-    for entry in data:
-        if not isinstance(entry, dict):
-            raise ValueError("command is not an object: %r" % (entry,))
-        op = entry.get("op")
-        if not isinstance(op, str):
-            raise ValueError("command needs a string \"op\": %r" % (entry,))
-        if valid and op not in valid:
-            raise ValueError("unknown op %r" % (op,))
-        commands.append(entry)
-    return commands
+        Accept a JSON array, or a lone object treated as a one-command array.
+        Each command must be an object with an ``op``; when ``tool_surface``
+        names ops, an unknown op is rejected.  Raise :class:`ValueError` on a
+        malformed reply (including invalid JSON that looks like a command
+        batch) so the backend records it as an error rather than running a bad
+        command.  Plain prose with no JSON yields an empty list.
+        """
+        data = cls.load_json_payload(text)
+        if data is None:
+            return []
+        if isinstance(data, dict):
+            data = [data]
+        if not isinstance(data, list):
+            raise ValueError("model reply is not a JSON array of commands")
+        valid = cls.op_names(tool_surface)
+        commands = []
+        for entry in data:
+            if not isinstance(entry, dict):
+                raise ValueError("command is not an object: %r" % (entry,))
+            op = entry.get("op")
+            if not isinstance(op, str):
+                raise ValueError(
+                    "command needs a string \"op\": %r" % (entry,))
+            if valid and op not in valid:
+                raise ValueError("unknown op %r" % (op,))
+            commands.append(entry)
+        return commands
 
 
 class SubprocessBackend(_backend.AgentBackend):
@@ -135,7 +141,9 @@ class SubprocessBackend(_backend.AgentBackend):
     #: The executable name a subclass discovers on ``PATH``.
     command = None
 
-    #: The environment variables to pass through to the agent CLI.
+    #: The only environment variables the agent CLI receives: the process
+    #: basics it needs to run, plus the credentials of the supported
+    #: authentication modes (see the class docstring).
     env_passthrough = (
         "HOME", "USER", "LOGNAME", "PATH", "TMPDIR",
         "ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN", "CLAUDE_CONFIG_DIR")
@@ -188,7 +196,7 @@ class SubprocessBackend(_backend.AgentBackend):
                 % (self.command, code, (err or "").strip()))
         text = self._parse_output(out)
         try:
-            commands = parse_tool_calls(text, tool_surface)
+            commands = ToolCallParser.parse(text, tool_surface)
         except ValueError as exc:
             return _backend.BackendResponse(text=text, error=str(exc))
         return _backend.BackendResponse(text=text, commands=commands)
@@ -264,7 +272,7 @@ class ClaudeCliBackend(SubprocessBackend):
         return stdout
 
 
-_backend.register(ClaudeCliBackend())
+_backend.BackendRegistry.register(ClaudeCliBackend())
 
 
 class OpenAIHttpBackend(_backend.AgentBackend):
@@ -350,7 +358,7 @@ class OpenAIHttpBackend(_backend.AgentBackend):
             return _backend.BackendResponse(
                 error="openai http response missing assistant text")
         try:
-            commands = parse_tool_calls(text, tool_surface)
+            commands = ToolCallParser.parse(text, tool_surface)
         except ValueError as exc:
             return _backend.BackendResponse(text=text, error=str(exc))
         return _backend.BackendResponse(text=text, commands=commands)
@@ -446,6 +454,6 @@ class OpenAIHttpBackend(_backend.AgentBackend):
             self._conn = None
 
 
-_backend.register(OpenAIHttpBackend())
+_backend.BackendRegistry.register(OpenAIHttpBackend())
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

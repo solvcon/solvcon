@@ -84,7 +84,7 @@ class ActivateWindow(_cmd.Command):
     op = "activate_window"
     category = "update"
     summary = "Make the canvas window with the given id the active one."
-    arguments = {"window_id": _int("Id of the window to activate.")}
+    arguments = {"window_id": INTEGER}
 
     def apply(self, manager, args, ctx):
         _require_window(manager, args["window_id"])
@@ -97,7 +97,7 @@ class CloseWindow(_cmd.Command):
     op = "close_window"
     category = "delete"
     summary = "Close the canvas window with the given id."
-    arguments = {"window_id": _int("Id of the window to close.")}
+    arguments = {"window_id": INTEGER}
 
     def apply(self, manager, args, ctx):
         _require_window(manager, args["window_id"])
@@ -110,10 +110,9 @@ class SaveImage(_cmd.Command):
     op = "save_image"
     category = "update"
     summary = "Save a canvas window's image to a file path."
-    arguments = {"window_id": _int("Id of the window to save."),
+    arguments = {"window_id": INTEGER,
                  "path": {**STRING,
-                          "description": "Filesystem path to write the image "
-                                         "to; the suffix picks the format."}}
+                          "description": "The suffix picks the format."}}
 
     def apply(self, manager, args, ctx):
         _require_window(manager, args["window_id"])

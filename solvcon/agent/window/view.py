@@ -91,8 +91,7 @@ class Pan(_cmd.Command):
     op = "pan"
     category = "update"
     summary = "Translate the view by a screen-pixel delta (dx, dy)."
-    arguments = {"dx_screen": _num("Screen-pixel delta along x."),
-                 "dy_screen": _num("Screen-pixel delta along y.")}
+    arguments = {"dx_screen": NUMBER, "dy_screen": NUMBER}
 
     def apply(self, view, args, ctx):
         view.pan(args["dx_screen"], args["dy_screen"])
@@ -105,9 +104,8 @@ class ZoomAt(_cmd.Command):
     category = "update"
     summary = ("Multiply zoom by factor, holding the world point under the "
                "screen anchor fixed.")
-    arguments = {"factor": _pos("Zoom multiplier; >1 zooms in, must be > 0."),
-                 "anchor_screen_x": _num("Screen x held fixed during zoom."),
-                 "anchor_screen_y": _num("Screen y held fixed during zoom.")}
+    arguments = {"factor": _pos("Zoom multiplier; >1 zooms in."),
+                 "anchor_screen_x": NUMBER, "anchor_screen_y": NUMBER}
 
     def apply(self, view, args, ctx):
         view.zoom_at(args["factor"], args["anchor_screen_x"],
@@ -121,11 +119,10 @@ class ZoomAtClamped(_cmd.Command):
     category = "update"
     summary = ("Anchored zoom that keeps the effective zoom within "
                "[min_zoom, max_zoom].")
-    arguments = {"factor": _pos("Zoom multiplier; must be > 0."),
-                 "anchor_screen_x": _num("Screen x held fixed during zoom."),
-                 "anchor_screen_y": _num("Screen y held fixed during zoom."),
-                 "min_zoom": _pos("Lower zoom bound; must be > 0."),
-                 "max_zoom": _pos("Upper zoom bound; must be >= min_zoom.")}
+    arguments = {"factor": _pos("Zoom multiplier; >1 zooms in."),
+                 "anchor_screen_x": NUMBER, "anchor_screen_y": NUMBER,
+                 "min_zoom": POSITIVE,
+                 "max_zoom": _pos("Must be >= min_zoom.")}
 
     def apply(self, view, args, ctx):
         # The schema bounds each limit above zero but cannot compare the two;
@@ -145,7 +142,7 @@ class SetView(_cmd.Command):
     summary = "Set the view transform directly from pan_x, pan_y, and zoom."
     arguments = {"pan_x": _num("Screen-pixel x offset."),
                  "pan_y": _num("Screen-pixel y offset."),
-                 "zoom": _pos("Screen pixels per world unit; must be > 0.")}
+                 "zoom": _pos("Screen pixels per world unit.")}
 
     def apply(self, view, args, ctx):
         view.pan_x = args["pan_x"]
