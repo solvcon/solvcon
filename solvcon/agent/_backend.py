@@ -8,9 +8,9 @@ Pluggable AI backend abstraction for the Agent.
 A backend turns a prompt (plus context and a command tool surface) into a
 :class:`BackendResponse`: prose and a list of command dicts.
 Backends register in a process-wide registry so a caller can list the usable
-ones and let the user pick.  The module imports no Qt.  The offline
-:class:`EchoBackend` keeps the registry non-empty so there is always a working
-default.
+ones and let the user pick.  The first registration is what a selector starts
+on.  The module imports no Qt.  The offline :class:`EchoBackend` stays out of
+the registry: it is a test and demo double, not a backend to offer a user.
 """
 
 import abc
@@ -136,7 +136,8 @@ def all_backends():
 
 
 def available_backends():
-    """Registered backends whose ``available()`` returns True."""
+    """Registered backends whose ``available()`` returns True, in registration
+    order, so the first entry is what a selector defaults to."""
     return [b for b in _REGISTRY if b.available()]
 
 
@@ -151,9 +152,10 @@ def get_backend(name):
 class EchoBackend(AgentBackend):
     """Offline backend that proposes no commands and echoes the prompt.
 
-    It is always :meth:`available` and fully deterministic, so a caller, the
-    tests, and a no-key demo always have a backend that exercises the whole
-    pipeline without any external process.
+    It is always :meth:`available` and fully deterministic, so the tests and a
+    no-key demo can exercise the whole pipeline without any external process.
+    It does not register itself: a user picks a real backend, and a caller that
+    wants this one instantiates or registers it explicitly.
     """
 
     name = "echo (offline)"
@@ -163,8 +165,5 @@ class EchoBackend(AgentBackend):
 
     def send(self, prompt, scene_context, tool_surface):
         return BackendResponse(text="echo: %s" % prompt, commands=[])
-
-
-register(EchoBackend())
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
