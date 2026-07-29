@@ -9,6 +9,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from . import _painter_icons
 from ._painter_design import DesignPage
+from ._painter_layers import LayersPage
 from ._painter_style import blend, rule, shade, PaletteStyled
 from ..base import _gui_common
 from .._pilot_core import draw_tool_names, default_draw_tool_name
@@ -295,8 +296,8 @@ class PainterPanel(QtWidgets.QWidget):
     and Grid slots the model cannot back yet. The inspector stacks the
     Design, Layers, and Canvas pages under a segmented tab row that selects
     among them, and hands the active canvas to whichever page reads one. The
-    Layers and Canvas pages arrive with the later steps of the redesign, so
-    each is still a greyed-out placeholder naming what it will hold.
+    Canvas page arrives with a later step of the redesign, so it is still a
+    greyed-out placeholder naming what it will hold.
     """
 
     # The design's inspector width, in device-independent pixels. It is the
@@ -309,7 +310,6 @@ class PainterPanel(QtWidgets.QWidget):
 
     # What a page yet to be built says it will hold.
     _PLACEHOLDERS = {
-        "Layers": "Object list, filters, and visibility",
         "Canvas": "View, grid, axes, background, and units",
     }
 
@@ -326,6 +326,7 @@ class PainterPanel(QtWidgets.QWidget):
         self._tools = _DrawToolSelector(tool_actions, short_labels or {}, self)
         self._stack = QtWidgets.QStackedWidget()
         self._design = DesignPage(self._stack)
+        self._layers = LayersPage(self._stack)
         self._tabs = _SegmentedTabs(self.PAGES)
         self._tabs.selected.connect(self.show_page)
         self._inspector = self._build_inspector()
@@ -356,20 +357,35 @@ class PainterPanel(QtWidgets.QWidget):
         """The Design page."""
         return self._design
 
+    @property
+    def layers(self):
+        """The Layers page."""
+        return self._layers
+
     def set_canvas_source(self, source):
         """Tell the inspector how to reach the active 2D canvas."""
-        self._design.set_canvas_source(source)
+        for page in (self._design, self._layers):
+            page.set_canvas_source(source)
 
     def refresh(self):
-        """Re-read the active canvas now, without waiting for a poll."""
-        self._design.refresh()
+        """Re-read the active canvas now, without waiting for a poll.
+
+        Only the page on show is re-read; a hidden one reads the canvas as it
+        comes back into view, so a canvas switch does not pay for pages the
+        user is not looking at.
+        """
+        for page in (self._design, self._layers):
+            if page.isVisible():
+                page.refresh()
 
     def _build_inspector(self):
         """Build the tab row over the stack of pages."""
+        pages = {"Design": self._design, "Layers": self._layers}
         for name in self.PAGES:
-            waiting = self._PLACEHOLDERS.get(name)
-            self._stack.addWidget(self._design if waiting is None
-                                  else self._build_page(waiting))
+            page = pages.get(name)
+            self._stack.addWidget(
+                self._build_page(self._PLACEHOLDERS[name])
+                if page is None else page)
         inspector = QtWidgets.QWidget(self)
         inspector.setMinimumWidth(self._INSPECTOR_WIDTH)
         layout = QtWidgets.QVBoxLayout(inspector)
