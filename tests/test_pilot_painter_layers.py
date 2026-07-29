@@ -5,6 +5,7 @@
 Tests for the Layers page of the Painter inspector.
 """
 
+import math
 import os
 import unittest
 
@@ -14,7 +15,7 @@ try:
     from solvcon import pilot
     from solvcon.pilot.base import _gui
     from solvcon.pilot.canvas import _painter_gui, _painter_layers
-    from PySide6 import QtGui, QtWidgets
+    from PySide6 import QtCore, QtGui, QtWidgets
 except ImportError:
     pilot = None
 
@@ -24,15 +25,31 @@ NO_LIVE_WINDOW = ((os.getenv('QT_QPA_PLATFORM') or '').startswith('offscreen')
                   or ('nt' == os.name and bool(os.getenv('GITHUB_ACTIONS'))))
 
 
-class _StubCanvas:
-    """Stand-in for the 2D canvas, so a test can hand the page a world.
+def _click(widget, x, y):
+    """Post a synthetic left-button press and release to ``widget``."""
+    pos = QtCore.QPointF(x, y)
+    glob = QtCore.QPointF(widget.mapToGlobal(pos.toPoint()))
+    for etype, button, buttons in (
+            (QtCore.QEvent.Type.MouseButtonPress,
+             QtCore.Qt.LeftButton, QtCore.Qt.LeftButton),
+            (QtCore.QEvent.Type.MouseButtonRelease,
+             QtCore.Qt.LeftButton, QtCore.Qt.NoButton)):
+        QtWidgets.QApplication.sendEvent(
+            widget,
+            QtGui.QMouseEvent(etype, pos, glob, button, buttons,
+                              QtCore.Qt.NoModifier))
 
-    The real canvas reaches the page through the manager, which
-    :class:`PainterLayersCanvasTC` covers.
+
+class _StubCanvas:
+    """Stand-in for the 2D canvas, so a test can set the selection directly.
+
+    The real canvas only changes it through a mouse gesture on a live window,
+    which :class:`PainterLayersCanvasTC` covers.
     """
 
     def __init__(self, world):
         self.world = world
+        self.selectedShape = -1
 
 
 @unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
@@ -52,8 +69,15 @@ class PainterLayersPageTC(unittest.TestCase):
         self.page = _painter_layers.LayersPage()
         self.page.set_canvas_source(lambda: self.canvas)
 
+    def _select(self, shape_id):
+        self.canvas.selectedShape = shape_id
+        self.page.refresh()
+
     def _names(self):
         return [row.name for row in self.page.shown_rows]
+
+    def _selected(self):
+        return [row.name for row in self.page.shown_rows if row.selected()]
 
     def test_every_object_gets_a_row_newest_first(self):
         # The world draws in registry order, so the last shape added is the
@@ -61,6 +85,63 @@ class PainterLayersPageTC(unittest.TestCase):
         self.assertEqual(self._names(),
                          [f"Circle {self.cid}", f"Rectangle {self.rid}"])
         self.assertTrue(self.page._empty.isHidden())
+
+    def test_the_metric_is_the_radius_or_the_size(self):
+        self.assertEqual([row.metric for row in self.page.shown_rows],
+                         ["r 3", "4 x 2"])
+
+    def test_a_rotated_shape_reports_its_own_size(self):
+        # A quarter turn leaves the rectangle 4 by 2; only the axis-aligned
+        # span it covers swaps, and that is not what the row shows.
+        self.world.rotate_shape(self.rid, 0.5 * math.pi, 0.0, 0.0)
+        self.page.refresh()
+        self.assertEqual(self.page.shown_rows[1].metric, "4 x 2")
+
+    def test_the_highlight_follows_the_selection(self):
+        # A pick moves no geometry, so a poll watching the world alone would
+        # miss it.
+        self.assertEqual(self._selected(), [])
+        self._select(self.cid)
+        self.assertEqual(self._selected(), [f"Circle {self.cid}"])
+        self._select(self.rid)
+        self.assertEqual(self._selected(), [f"Rectangle {self.rid}"])
+
+    def test_the_selected_row_is_drawn_apart(self):
+        self._select(self.cid)
+        selected, plain = self.page.shown_rows
+        self.assertNotEqual(selected.icon.toImage(), plain.icon.toImage())
+        # The metric is colored by a rule reading the row's own property, and
+        # a label Qt was not asked to polish again keeps the color it had.
+        self.assertNotEqual(selected.metric_color, plain.metric_color)
+        self._select(self.rid)
+        selected, plain = self.page.shown_rows[1], self.page.shown_rows[0]
+        self.assertNotEqual(selected.metric_color, plain.metric_color)
+
+    def test_a_dead_selection_highlights_nothing(self):
+        # The canvas keeps the id it stored, and a query on a dead one throws.
+        self._select(self.rid)
+        self.world.remove_shape(self.rid)
+        self.page.refresh()
+        self.assertEqual(self._selected(), [])
+        self.assertEqual(self._names(), [f"Circle {self.cid}"])
+
+    def test_a_canvas_of_the_same_boxes_still_redraws(self):
+        # A rotated shape covers a wider span than it measures, so a second
+        # canvas can serialize the very boxes of the first while its rows read
+        # differently. The poll compares the rows, not the boxes, or the page
+        # would keep showing the canvas it left.
+        other = solvcon.WorldFp64()
+        turned = other.add_rectangle(-1, -2, 1, 2)
+        other.rotate_shape(turned, 0.5 * math.pi, 0.0, 0.0)
+        other.add_circle(10, 10, 3)
+        for mine, theirs in zip(self.world.shape_bbox(self.rid),
+                                other.shape_bbox(turned)):
+            self.assertAlmostEqual(mine, theirs)
+
+        self.canvas = _StubCanvas(other)
+        self.page.refresh()
+        self.assertEqual([row.metric for row in self.page.shown_rows],
+                         ["r 3", "2 x 4"])
 
     def test_rows_track_adding_removing_and_undo(self):
         third = self.world.add_circle(0, 0, 1)
@@ -101,11 +182,13 @@ class PainterLayersPageTC(unittest.TestCase):
     def test_the_page_restyles_with_the_palette(self):
         # A color captured once would survive a theme switch as is, and the
         # rows hold the icons the page handed them.
+        self._select(self.cid)
         before = self.page.styleSheet()
         icon = self.page.shown_rows[0].icon.toImage()
         palette = QtGui.QPalette(self.page.palette())
         palette.setColor(QtGui.QPalette.Window, QtGui.QColor("black"))
         palette.setColor(QtGui.QPalette.WindowText, QtGui.QColor("white"))
+        palette.setColor(QtGui.QPalette.Highlight, QtGui.QColor("red"))
         self.page.setPalette(palette)
         self.assertNotEqual(self.page.styleSheet(), before)
         self.assertNotEqual(self.page.shown_rows[0].icon.toImage(), icon)
@@ -126,9 +209,16 @@ class PainterLayersCanvasTC(unittest.TestCase):
             subwin.close()
         QtWidgets.QApplication.processEvents()
         self.widget = self.mgr.add2DWidget()
+        self.widget.setDrawTool("select")
         self.world = solvcon.WorldFp64()
         self.sid = self.world.add_rectangle(-2, -1, 2, 1)
         self.widget.updateWorld(self.world)
+        view = solvcon.ViewTransform2dFp64()
+        view.pan(100.0, 100.0)
+        view.zoom = 20.0
+        # Set the view before showing so the resize auto-centering, which a
+        # well-formed transform disables, leaves the mapping deterministic.
+        self.widget.setViewTransform(view)
         self.mgr.show()
         self.sub = self.mgr.mdiArea.subWindowList()[-1]
         self.sub.show()
@@ -148,6 +238,15 @@ class PainterLayersCanvasTC(unittest.TestCase):
         page.refresh()
         self.assertEqual([row.name for row in page.shown_rows],
                          [f"Rectangle {self.sid}"])
+
+    def test_the_highlight_follows_a_pick_on_the_canvas(self):
+        page = self.painter.panel.layers
+        QtWidgets.QApplication.processEvents()
+        _click(self.sub.widget(), 100, 100)
+        self.assertEqual(self.widget.selectedShape, self.sid)
+        page.refresh()
+        selected = [row.name for row in page.shown_rows if row.selected()]
+        self.assertEqual(selected, [f"Rectangle {self.sid}"])
 
     def test_closing_the_canvas_leaves_the_list_standing(self):
         # The sub-window deletes the canvas on close, and a page that held it
