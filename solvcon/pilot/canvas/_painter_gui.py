@@ -323,10 +323,13 @@ class PainterPanel(QtWidgets.QWidget):
         :type short_labels: dict or None
         """
         super().__init__(parent)
+        self._tool_actions = tool_actions
+        self._source = None
         self._tools = _DrawToolSelector(tool_actions, short_labels or {}, self)
         self._stack = QtWidgets.QStackedWidget()
         self._design = DesignPage(self._stack)
         self._layers = LayersPage(self._stack)
+        self._layers.picked.connect(self._on_picked)
         self._tabs = _SegmentedTabs(self.PAGES)
         self._tabs.selected.connect(self.show_page)
         self._inspector = self._build_inspector()
@@ -364,8 +367,31 @@ class PainterPanel(QtWidgets.QWidget):
 
     def set_canvas_source(self, source):
         """Tell the inspector how to reach the active 2D canvas."""
+        self._source = source
         for page in (self._design, self._layers):
             page.set_canvas_source(source)
+
+    def _on_picked(self, shape_id):
+        """Select on the canvas the shape a Layers row names."""
+        widget = None if self._source is None else self._source()
+        select = self._tool_actions.get("select")
+        if widget is None or select is None:
+            return
+        world = widget.world
+        # The list polls, so a row can lag the active canvas by one tick; ids
+        # start over per world, and a stale row can name an unrelated live id.
+        if (world is None
+                or not self._layers.draws_world(world)
+                or not world.shape_is_live(shape_id)):
+            self._layers.refresh()
+            return
+        # Arm select through the shared action so the menu and rail follow;
+        # the canvas paints no selection under a draw tool.
+        select.trigger()
+        widget.selectedShape = shape_id
+        # Catch both pages up on this click rather than waiting on their polls.
+        for page in (self._design, self._layers):
+            page.refresh()
 
     def refresh(self):
         """Re-read the active canvas now, without waiting for a poll.

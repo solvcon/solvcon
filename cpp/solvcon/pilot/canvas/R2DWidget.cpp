@@ -132,6 +132,34 @@ void R2DWidget::setDrawTool(std::string const & name)
     update();
 }
 
+void R2DWidget::setSelectedShape(int32_t shape_id)
+{
+    // A draw tool paints no selection; accepting one would leave a rotate
+    // handle answering for a selection nothing draws.
+    if (m_tool->can_draw_shape())
+    {
+        return;
+    }
+    if (shape_id >= 0 && (!m_world || !m_world->shape_is_live(shape_id)))
+    {
+        return;
+    }
+    // Normalize every negative to the sentinel picking itself writes.
+    if (shape_id < 0)
+    {
+        shape_id = -1;
+    }
+    if (shape_id == m_selected)
+    {
+        return;
+    }
+    // End a gesture before the selection moves out from under its undo bracket.
+    endEditDrag();
+
+    m_selected = shape_id;
+    update();
+}
+
 void R2DWidget::updateWorld(std::shared_ptr<WorldFp64> const & world)
 {
     // Close any edit gesture on the outgoing world before swapping it out.
@@ -339,6 +367,17 @@ void R2DWidget::finishEdit()
     }
 }
 
+void R2DWidget::endEditDrag()
+{
+    if (m_drag == EditDrag::None)
+    {
+        return;
+    }
+    finishEdit();
+    m_drag = EditDrag::None;
+    unsetCursor();
+}
+
 void R2DWidget::wheelEvent(QWheelEvent * event)
 {
     QPointF const pos = event->position();
@@ -487,10 +526,7 @@ void R2DWidget::mouseReleaseEvent(QMouseEvent * event)
     }
     if (event->button() == Qt::LeftButton && m_drag != EditDrag::None)
     {
-        // A move or rotate gesture ends here; commit it as one undo step.
-        finishEdit();
-        m_drag = EditDrag::None;
-        unsetCursor();
+        endEditDrag();
         update();
         event->accept();
         return;

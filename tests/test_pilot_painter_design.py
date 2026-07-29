@@ -43,8 +43,8 @@ def _click(widget, x, y):
 class _StubCanvas:
     """Stand-in for the 2D canvas, so a test can set the selection directly.
 
-    The real canvas only changes it through a mouse gesture on a live window,
-    which :class:`PainterDesignCanvasTC` covers.
+    :class:`PainterDesignCanvasTC` covers the live canvas path, including
+    selection written from outside a mouse gesture.
     """
 
     def __init__(self, world):

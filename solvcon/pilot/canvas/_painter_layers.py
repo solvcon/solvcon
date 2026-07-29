@@ -138,15 +138,17 @@ class LayersPage(PaletteStyled):
     """The inspector's Layers page: one row per object the world holds.
 
     Like the Design page, the page reads the canvas it is bound to on a timer,
-    because the world changes in C++ without a change signal. What the poll
-    compares is the row content itself, which is both what the page shows and
-    the only fingerprint that cannot go stale: a coarser one, such as the
-    world's serialized boxes, reads the same for a shape lying along the axes
-    and one of the other proportions turned onto them.
+    because the world changes in C++ without a change signal. The poll
+    compares the world identity, the selection, and the world's state string;
+    segment coordinates ride in that string, so a rotate rebuilds the list,
+    while an unchanged tick skips the per-shape oriented boxes the rows show.
 
-    The rows are read-only: what a row shows comes from the world, and picking
-    an object stays the canvas's job until the list grows selection of its own.
+    What a row shows comes from the world alone. A press on one is reported
+    through :attr:`picked` rather than acted on here, so the page keeps
+    showing the selection the canvas reports and never one of its own.
     """
+
+    picked = QtCore.Signal(int)
 
     # Poll period in milliseconds. Between the entity tree's half second and
     # the Design page's 60ms: the whole world is serialized per tick, which is
@@ -176,7 +178,8 @@ class LayersPage(PaletteStyled):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._source = None
-        self._key = None
+        self._fingerprint = None
+        self._world_id = None
         self._pixmaps = {}
         self.rows = []
         self._build()
@@ -210,6 +213,10 @@ class LayersPage(PaletteStyled):
         """
         return [row for row in self.rows if not row.isHidden()]
 
+    def draws_world(self, world):
+        """Whether the rows were last drawn for ``world``."""
+        return world is not None and id(world) == self._world_id
+
     def set_canvas_source(self, source):
         """Bind the page to ``source``, a callable handing back the canvas.
 
@@ -223,8 +230,10 @@ class LayersPage(PaletteStyled):
         # Rendered rather than refreshed: two blank canvases show the same
         # nothing, so a refresh would take the page for unchanged and leave
         # the previous canvas's objects on screen.
-        self._key = self._content()
-        self._render(self._key)
+        fingerprint, content = self._snapshot()
+        self._fingerprint = fingerprint
+        self._world_id = None if fingerprint is None else fingerprint[0]
+        self._render(content)
 
     def showEvent(self, event):
         """Poll the bound canvas only while the page is on screen."""
@@ -239,10 +248,11 @@ class LayersPage(PaletteStyled):
 
     def refresh(self):
         """Redraw the list when the canvas it is bound to has changed."""
-        content = self._content()
-        if content == self._key:
+        fingerprint, content = self._snapshot()
+        if fingerprint == self._fingerprint:
             return
-        self._key = content
+        self._fingerprint = fingerprint
+        self._world_id = None if fingerprint is None else fingerprint[0]
         self._render(content)
 
     def _build(self):
@@ -297,35 +307,32 @@ class LayersPage(PaletteStyled):
         selected = widget.selectedShape
         return world, selected if world.shape_is_live(selected) else -1
 
-    @staticmethod
-    def _objects(world):
-        """Every live shape the world holds, as the world describes it.
+    def _snapshot(self):
+        """Fingerprint and row content for the bound canvas, one world read.
 
-        Newest first, which is the order the design lists: the world draws in
-        registry order, so the last shape added is the one on top of the
-        canvas and the one the list names first.
-        """
-        return json.loads(world.describe_state())["shapes"][::-1]
-
-    def _content(self):
-        """One entry per row, in list order, as the rows will show it.
-
-        This is what the poll compares and what :meth:`_render` draws, so the
-        world is read once per tick rather than once to decide and again to
-        draw.
+        The fingerprint is what the poll compares: the world identity, the
+        selection, and the world's own state string. Segment coordinates ride
+        in that string, so a rotate changes it and the list rebuilds; an
+        unchanged tick skips the per-shape oriented boxes the rows show.
         """
         world, selected = self._selection()
         if world is None:
-            return ()
-        return tuple((shape["type"], self._name_of(shape),
-                      self._metric_of(world, shape),
-                      shape["id"] == selected)
-                     for shape in self._objects(world))
+            return None, ()
+        state = world.describe_state()
+        # Newest first: the world draws in registry order, so the last shape
+        # added is on top of the canvas and the one the list names first.
+        shapes = json.loads(state)["shapes"][::-1]
+        content = tuple(
+            (shape["id"], shape["type"], self._name_of(shape),
+             self._metric_of(world, shape), shape["id"] == selected)
+            for shape in shapes)
+        return (id(world), selected, state), content
 
     def _render(self, content):
-        for index, (kind, name, metric, picked) in enumerate(content):
+        for index, entry in enumerate(content):
+            shape_id, kind, name, metric, chosen = entry
             self._row(index).show_object(
-                name, metric, self._icon_of(kind, picked), picked)
+                shape_id, name, metric, self._icon_of(kind, chosen), chosen)
         for row in self.rows[len(content):]:
             row.hide()
         self._empty.setVisible(not content)
@@ -336,6 +343,7 @@ class LayersPage(PaletteStyled):
         """The row at ``index``, built and shown if it is a new one."""
         while len(self.rows) <= index:
             row = _painter_rows.ObjectRow(self)
+            row.picked.connect(self.picked)
             # Above the trailing stretch, so the rows stay packed at the top.
             self._rows_layout.insertWidget(len(self.rows) + 1, row)
             self.rows.append(row)
@@ -433,7 +441,7 @@ class LayersPage(PaletteStyled):
         self._pixmaps.clear()
         # The rows hold the icons the cleared cache handed out, and a stale
         # one keeps the color it was rendered in through the theme switch.
-        self._key = None
+        self._fingerprint = None
         self.refresh()
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:
