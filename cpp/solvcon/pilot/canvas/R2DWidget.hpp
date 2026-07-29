@@ -74,6 +74,9 @@ public:
      */
     int32_t selectedShape() const { return m_selected; }
 
+    /// Select a shape from outside the canvas, such as a list that names it, or a negative id to drop the selection.
+    void setSelectedShape(int32_t shape_id);
+
     /**
      * Screen position [x, y] of the selection's rotate handle, or [-1, -1]
      * when nothing is selected. Exposed for tests and tooling.
@@ -199,6 +202,12 @@ private:
      * such drag is active; a no-op then.
      */
     void finishEdit();
+
+    /**
+     * End an active move or rotate drag the way a mouse release ends it:
+     * commit the undo bracket, clear the gesture, and restore the cursor.
+     */
+    void endEditDrag();
 
     /// Which gesture the current select-tool left-drag performs.
     enum class EditDrag

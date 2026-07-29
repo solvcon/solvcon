@@ -243,6 +243,41 @@ class R2DWidgetWorldTC(unittest.TestCase):
         self.widget.updateWorld(solvcon.WorldFp64())
         self.assertEqual(self.widget.selectedShape, -1)
 
+    def test_selecting_a_shape_from_outside_the_canvas(self):
+        """A list that names a shape can select it; the canvas turns away an
+        id it cannot draw a selection for."""
+        world = solvcon.WorldFp64()
+        sid = world.add_rectangle(-2, -1, 2, 1)
+        self.widget.updateWorld(world)
+        self.widget.setDrawTool("select")
+
+        self.widget.selectedShape = sid
+        self.assertEqual(self.widget.selectedShape, sid)
+        # Neither an id the world never held nor one it has buried moves the
+        # selection, because nothing would be drawn for either.
+        self.widget.selectedShape = sid + 100
+        self.assertEqual(self.widget.selectedShape, sid)
+
+        self.widget.selectedShape = -1
+        self.assertEqual(self.widget.selectedShape, -1)
+        # Any negative stands for no selection, and reads back as the one the
+        # canvas's own picking writes.
+        self.widget.selectedShape = -7
+        self.assertEqual(self.widget.selectedShape, -1)
+        world.remove_shape(sid)
+        self.widget.selectedShape = sid
+        self.assertEqual(self.widget.selectedShape, -1)
+
+        # Switching tools drops it, as a pick on the canvas would.
+        world.undo()
+        self.widget.selectedShape = sid
+        self.widget.setDrawTool("circle")
+        self.assertEqual(self.widget.selectedShape, -1)
+        # A draw tool paints no selection, so it accepts none either; an id
+        # written here would sit invisible until the next tool switch.
+        self.widget.selectedShape = sid
+        self.assertEqual(self.widget.selectedShape, -1)
+
     def _render_world(self, world, pan_x, pan_y, zoom):
         """Render world under an explicit view; return (geometry_mask,
         to_pixel).
@@ -384,6 +419,27 @@ class R2DWidgetSelectToolTC(unittest.TestCase):
         # The PySide6 widget wraps the same C++ object the handle above does.
         self.target = self.sub.widget()
         QtWidgets.QApplication.processEvents()
+
+    def test_selecting_from_outside_ends_an_active_drag(self):
+        """A caller that moves the selection mid-gesture leaves the canvas
+        holding a drag on a shape it no longer selects; the gesture ends the
+        way a release ends it."""
+        from PySide6 import QtCore
+        other = self.world.add_circle(20, 20, 2)
+        _send_mouse(self.target, 'press', 100, 100)
+        self.assertEqual(self.widget.selectedShape, self.sid)
+        held = self.world.segment(0).x0
+
+        self.widget.selectedShape = other
+        _send_mouse(self.target, 'move', 160, 100)
+        # The shape the gesture had hold of stays where the drag left it, and
+        # the cursor the drag put on comes off.
+        self.assertAlmostEqual(self.world.segment(0).x0, held)
+        self.assertEqual(self.target.cursor().shape(), QtCore.Qt.ArrowCursor)
+        _send_mouse(self.target, 'release', 160, 100)
+        # The undo bracket the press opened closed with the gesture, so the
+        # move is one step and the world is not left mid-operation.
+        self.assertTrue(self.world.can_undo)
 
     def test_select_move_rotate_run_through(self):
         orig_x0 = self.world.segment(0).x0

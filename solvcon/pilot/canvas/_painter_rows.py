@@ -9,7 +9,7 @@ list at the foot of the Design page, so the widget and the rules that color it
 live together here rather than in either page.
 """
 
-from PySide6 import QtGui, QtWidgets
+from PySide6 import QtCore, QtGui, QtWidgets
 
 from ._painter_style import blend, mono_font
 
@@ -43,12 +43,20 @@ class ObjectRow(QtWidgets.QFrame):
     The row wears the accent tint while the canvas has its object selected.
     That state is a Qt property rather than a second style sheet, so a page
     writes one sheet for every row and Qt re-reads it as the selection moves.
+
+    A press hands the shape it stands for to whoever owns the list; the row
+    neither reaches the canvas nor marks itself, so the selection it shows
+    stays the one the canvas reports.
     """
+
+    picked = QtCore.Signal(int)
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("row")
         self.setFixedHeight(HEIGHT)
+        self.setCursor(QtCore.Qt.PointingHandCursor)
+        self._shape_id = -1
         self._icon = QtWidgets.QLabel(self)
         self._icon.setFixedWidth(ICON_PX)
         self._name = QtWidgets.QLabel(self)
@@ -88,9 +96,10 @@ class ObjectRow(QtWidgets.QFrame):
         """Whether the row stands for the canvas's selection."""
         return bool(self.property("selected"))
 
-    def show_object(self, name, metric, icon, selected):
-        """Show one object, ``icon`` being its pixmap or ``None`` for a type
-        the icon set does not draw."""
+    def show_object(self, shape_id, name, metric, icon, selected):
+        """Show the shape ``shape_id``, ``icon`` being its pixmap or ``None``
+        for a type the icon set does not draw."""
+        self._shape_id = shape_id
         self._name.setText(name)
         self._metric.setText(metric)
         if icon is None:
@@ -107,6 +116,11 @@ class ObjectRow(QtWidgets.QFrame):
             for widget in (self, self._metric):
                 widget.style().unpolish(widget)
                 widget.style().polish(widget)
+
+    def mousePressEvent(self, event):
+        super().mousePressEvent(event)
+        if QtCore.Qt.LeftButton == event.button():
+            self.picked.emit(self._shape_id)
 
 
 def icon_color(widget, selected):

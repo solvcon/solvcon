@@ -676,7 +676,10 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapR2DWidget
                 "Follows the application theme.")
             .def("setDrawTool", &wrapped_type::setDrawTool, py::arg("name"))
             .def_property_readonly("drawTool", &wrapped_type::drawTool)
-            .def_property_readonly("selectedShape", &wrapped_type::selectedShape)
+            .def_property(
+                "selectedShape",
+                &wrapped_type::selectedShape,
+                &wrapped_type::setSelectedShape)
             .def_property_readonly(
                 "rotateHandleScreen",
                 [](wrapped_type & self)
