@@ -40,6 +40,9 @@ set(SOLVCON_PILOT_PYMODHEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/canvas/R2DWidget.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/canvas/DrawTool.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/canvas/RWorldRenderer2d.hpp
+    # plot/
+    ${CMAKE_CURRENT_SOURCE_DIR}/plot/plot_style.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/plot/RPlotSeries.hpp
     # app/
     ${CMAKE_CURRENT_SOURCE_DIR}/app/RManager.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/RMenuModel.hpp
@@ -88,6 +91,10 @@ set(SOLVCON_PILOT_PYMODSOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/canvas/R2DWidget.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/canvas/DrawTool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/canvas/RWorldRenderer2d.cpp
+    # plot/
+    ${CMAKE_CURRENT_SOURCE_DIR}/plot/plot_style.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/plot/RPlotSeries.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/plot/wrap_plot.cpp
     # app/
     ${CMAKE_CURRENT_SOURCE_DIR}/app/RManager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/RMenuModel.cpp

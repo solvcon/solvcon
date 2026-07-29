@@ -15,6 +15,7 @@ namespace python
 
 void initialize_pilot(pybind11::module & mod);
 void wrap_pilot(pybind11::module & mod);
+void wrap_plot(pybind11::module & mod);
 
 } /* end namespace python */
 
