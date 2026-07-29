@@ -2,12 +2,15 @@
 # BSD 3-Clause License, see COPYING
 
 """
-Palette-derived styling shared by the pieces of the Painter panel.
+Palette-derived styling shared by the pieces of the Painter panel, with the
+small conversions its pages share.
 
 The design's greys are all a step from the panel color toward the text color,
 so a piece that mixes its own shades follows a light/dark switch without
 naming a single hex value.
 """
+
+import math
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
@@ -15,6 +18,8 @@ __all__ = [
     'blend',
     'shade',
     'rule',
+    'mono_font',
+    'obb_metrics',
     'PaletteStyled',
 ]
 
@@ -30,6 +35,27 @@ def rule(shape):
     line.setFrameShape(shape)
     line.setFrameShadow(QtWidgets.QFrame.Sunken)
     return line
+
+
+def mono_font():
+    """The stand-in for the mono font the design gives every number."""
+    return QtGui.QFontDatabase.systemFont(QtGui.QFontDatabase.FixedFont)
+
+
+def obb_metrics(obb):
+    """Return the center, width, and height of an oriented bounding box.
+
+    The corners run top-left, top-right, bottom-right, bottom-left, so the two
+    sides give the shape's own width and height rather than the wider span a
+    rotated shape covers along the axes.
+    """
+    xs = obb[0::2]
+    ys = obb[1::2]
+    # Divided before summed: four corners far enough out add up past the
+    # double range, and the center would come back infinite.
+    return (sum(x / 4 for x in xs), sum(y / 4 for y in ys),
+            math.hypot(xs[1] - xs[0], ys[1] - ys[0]),
+            math.hypot(xs[3] - xs[0], ys[3] - ys[0]))
 
 
 def blend(color, other, ratio):

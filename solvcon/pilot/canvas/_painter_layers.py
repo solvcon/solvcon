@@ -11,7 +11,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from . import _painter_icons
 from . import _painter_rows
-from ._painter_style import blend, PaletteStyled
+from ._painter_style import blend, obb_metrics, PaletteStyled
 
 __all__ = [
     'LayersPage',
@@ -24,7 +24,9 @@ class LayersPage(PaletteStyled):
     Like the Design page, the page reads the canvas it is bound to on a timer,
     because the world changes in C++ without a change signal. What the poll
     compares is the row content itself, which is both what the page shows and
-    the only fingerprint that cannot go stale as the rows grow what they say.
+    the only fingerprint that cannot go stale: a coarser one, such as the
+    world's serialized boxes, reads the same for a shape lying along the axes
+    and one of the other proportions turned onto them.
 
     The rows are read-only: what a row shows comes from the world, and picking
     an object stays the canvas's job until the list grows selection of its own.
@@ -33,7 +35,7 @@ class LayersPage(PaletteStyled):
     # Poll period in milliseconds. Between the entity tree's half second and
     # the Design page's 60ms: the whole world is serialized per tick, which is
     # too much to pay at the faster rate, while the half second reads as lag
-    # against a canvas the user is drawing on.
+    # when a click moves the highlight from row to row.
     _POLL_MS = 250
 
     #: What the list says while the world holds nothing.
@@ -136,10 +138,20 @@ class LayersPage(PaletteStyled):
         """The 2D canvas to read, or ``None`` when none is active."""
         return None if self._source is None else self._source()
 
-    def _world(self):
-        """The active canvas's world, or ``None`` when it has none."""
+    def _selection(self):
+        """The active canvas's world and its live selection.
+
+        ``selectedShape`` hands back the stored id without checking it, so a
+        shape that was removed or undone away leaves a stale id behind and the
+        queries the page runs on it would throw. Such a selection reads here
+        as none at all.
+        """
         widget = self._canvas()
-        return None if widget is None else widget.world
+        world = None if widget is None else widget.world
+        if world is None:
+            return None, -1
+        selected = widget.selectedShape
+        return world, selected if world.shape_is_live(selected) else -1
 
     @staticmethod
     def _objects(world):
@@ -158,15 +170,18 @@ class LayersPage(PaletteStyled):
         world is read once per tick rather than once to decide and again to
         draw.
         """
-        world = self._world()
+        world, selected = self._selection()
         if world is None:
             return ()
-        return tuple((shape["type"], self._name_of(shape))
+        return tuple((shape["type"], self._name_of(shape),
+                      self._metric_of(world, shape),
+                      shape["id"] == selected)
                      for shape in self._objects(world))
 
     def _render(self, content):
-        for index, (kind, name) in enumerate(content):
-            self._row(index).show_object(name, self._icon_of(kind))
+        for index, (kind, name, metric, picked) in enumerate(content):
+            self._row(index).show_object(
+                name, metric, self._icon_of(kind, picked), picked)
         for row in self.rows[len(content):]:
             row.hide()
         self._empty.setVisible(not content)
@@ -189,24 +204,37 @@ class LayersPage(PaletteStyled):
         """
         return f"{shape['type'].title()} {shape['id']}"
 
-    def _icon_of(self, name):
+    @staticmethod
+    def _metric_of(world, shape):
+        """The one measurement the row shows: a circle's radius, or the
+        width and height of anything else.
+
+        Both come from the shape's own oriented box, because the serialized
+        box is axis-aligned and reads wider than a rotated shape really is.
+        """
+        width, height = obb_metrics(world.shape_obb(shape["id"]))[2:]
+        if "circle" == shape["type"]:
+            return f"r {0.5 * width:g}"
+        return f"{width:g} x {height:g}"
+
+    def _icon_of(self, name, selected):
         """The icon for the shape type ``name``, or ``None`` for a type the
         icon set does not draw yet.
 
-        The pixmaps are cached per type: a world of many objects would
-        otherwise rasterize the same handful of icons on every change. The
-        cache is dropped when the palette changes, and keyed by the scale it
-        rasterized for, because the move to a screen of another scale is not
-        reported on every Qt the pilot builds against.
+        The pixmaps are cached per type and appearance: a world of many
+        objects would otherwise rasterize the same handful of icons on every
+        change. The cache is dropped when the palette changes, and keyed by
+        the scale it rasterized for, because the move to a screen of another
+        scale is not reported on every Qt the pilot builds against.
         """
         if name not in _painter_icons.ICONS:
             return None
         ratio = self.devicePixelRatioF()
-        key = (name, ratio)
+        key = (name, selected, ratio)
         if key not in self._pixmaps:
             self._pixmaps[key] = _painter_icons.render(
-                name, _painter_rows.icon_color(self), _painter_rows.ICON_PX,
-                ratio)
+                name, _painter_rows.icon_color(self, selected),
+                _painter_rows.ICON_PX, ratio)
         return self._pixmaps[key]
 
     def _apply_style(self):
@@ -214,7 +242,7 @@ class LayersPage(PaletteStyled):
         palette = self.palette()
         text = palette.color(QtGui.QPalette.WindowText)
         panel = palette.color(QtGui.QPalette.Window)
-        self.setStyleSheet(_painter_rows.rules() + f"""
+        self.setStyleSheet(_painter_rows.rules(self) + f"""
             QLabel#empty {{
                 font-size: {self._EMPTY_PX}px;
                 color: {blend(text, panel, self._GREYED_MIX).name()};

@@ -10,37 +10,17 @@ import math
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from . import _painter_icons
-from ._painter_style import blend, rule, shade, PaletteStyled
+from ._painter_style import (blend, mono_font, obb_metrics, rule, shade,
+                             PaletteStyled)
 
 __all__ = [
     'DesignPage',
 ]
 
 
-def _mono_font():
-    """The stand-in for the mono font the design gives every number."""
-    return QtGui.QFontDatabase.systemFont(QtGui.QFontDatabase.FixedFont)
-
-
 def _format(value):
     """Return a world coordinate or length as the fields show it."""
     return f"{value:g}"
-
-
-def _obb_metrics(obb):
-    """Return the center, width, and height of an oriented bounding box.
-
-    The corners run top-left, top-right, bottom-right, bottom-left, so the two
-    sides give the shape's own width and height rather than the wider span a
-    rotated shape covers along the axes.
-    """
-    xs = obb[0::2]
-    ys = obb[1::2]
-    # Divided before summed: four corners far enough out add up past the
-    # double range, and the center would come back infinite.
-    return (sum(x / 4 for x in xs), sum(y / 4 for y in ys),
-            math.hypot(xs[1] - xs[0], ys[1] - ys[0]),
-            math.hypot(xs[3] - xs[0], ys[3] - ys[0]))
 
 
 def _lands_finite(obb, delta):
@@ -80,7 +60,7 @@ class _Field(QtWidgets.QFrame):
         label.setObjectName("axis")
         label.setFixedWidth(self._LETTER_WIDTH)
         self._edit = QtWidgets.QLineEdit(self)
-        self._edit.setFont(_mono_font())
+        self._edit.setFont(mono_font())
         self._edit.setReadOnly(not editable)
         # An editor asks for room for a line of text, and four of them would
         # open the dock wider than the inspector the design draws. The grid
@@ -310,7 +290,7 @@ class DesignPage(PaletteStyled):
         self._name.setObjectName("name")
         self._badge = QtWidgets.QLabel("1 selected", block)
         self._badge.setObjectName("badge")
-        self._badge.setFont(_mono_font())
+        self._badge.setFont(mono_font())
         layout = QtWidgets.QHBoxLayout()
         layout.setSpacing(self._HEADER_GAP)
         layout.addWidget(self._icon)
@@ -378,7 +358,7 @@ class DesignPage(PaletteStyled):
             self._icon_name = kind if kind in _painter_icons.ICONS else None
             self._name.setText(f"{kind.title()} {shape}")
             self._badge.setVisible(True)
-            metrics = _obb_metrics(world.shape_obb(shape))
+            metrics = obb_metrics(world.shape_obb(shape))
             for (letter, _editable), value in zip(self._POSITION, metrics):
                 self.fields[letter].setEnabled(True)
                 self.fields[letter].set_value(value)
@@ -401,7 +381,7 @@ class DesignPage(PaletteStyled):
         if world is None:
             return
         obb = world.shape_obb(shape)
-        center_x, center_y = _obb_metrics(obb)[:2]
+        center_x, center_y = obb_metrics(obb)[:2]
         if "X" == axis:
             delta = (value - center_x, 0.0)
         else:
