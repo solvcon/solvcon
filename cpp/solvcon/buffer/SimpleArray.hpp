@@ -3034,8 +3034,7 @@ detail::SimpleArrayMixinSearch<A, T>::reduced_shape(ssize_t axis) const
 }
 
 template <typename A, typename T>
-ssize_t detail::SimpleArrayMixinSearch<A, T>::unchecked_logical_offset(
-    A const & array, shape_type const & idx)
+ssize_t detail::SimpleArrayMixinSearch<A, T>::unchecked_logical_offset(A const & array, shape_type const & idx)
 {
     ssize_t offset = 0;
     for (ssize_t dim = 0; dim < array.ndim(); ++dim)
@@ -3047,11 +3046,9 @@ ssize_t detail::SimpleArrayMixinSearch<A, T>::unchecked_logical_offset(
 }
 
 template <typename A, typename T>
-ssize_t detail::SimpleArrayMixinSearch<A, T>::unchecked_buffer_index(
-    A const & array, shape_type const & idx)
+ssize_t detail::SimpleArrayMixinSearch<A, T>::unchecked_buffer_index(A const & array, shape_type const & idx)
 {
-    auto const origin = static_cast<ssize_t>(
-        array.logical_data() - array.data());
+    auto const origin = static_cast<ssize_t>(array.logical_data() - array.data());
     return origin + unchecked_logical_offset(array, idx);
 }
 
@@ -3103,8 +3100,7 @@ size_t detail::SimpleArrayMixinSearch<A, T>::argmin() const
 
     do
     {
-        value_type const current_value = *(
-            ptr + unchecked_logical_offset(*athis, idx));
+        value_type const current_value = *(ptr + unchecked_logical_offset(*athis, idx));
 
         if constexpr (std::is_floating_point_v<value_type>)
         {
@@ -3172,8 +3168,7 @@ size_t detail::SimpleArrayMixinSearch<A, T>::argmax() const
 
     do
     {
-        value_type const current_value = *(
-            ptr + unchecked_logical_offset(*athis, idx));
+        value_type const current_value = *(ptr + unchecked_logical_offset(*athis, idx));
 
         if constexpr (std::is_floating_point_v<value_type>)
         {
