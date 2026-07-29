@@ -68,12 +68,9 @@ class AgentPanelTC(unittest.TestCase):
         return feature
 
     def _select_echo(self, widget):
-        combo = widget._backend_combo
-        for i in range(combo.count()):
-            if combo.itemText(i).startswith("echo"):
-                combo.setCurrentIndex(i)
-                return
-        self.fail("echo backend is not in the selector")
+        """Add the offline echo double and pick it: the selector itself lists
+        only real backends, none of which a test may run."""
+        self._select_backend(widget, agent.EchoBackend())
 
     def _select_backend(self, panel, backend):
         panel._backend_combo.addItem(backend.name, backend)
