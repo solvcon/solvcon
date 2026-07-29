@@ -11,11 +11,127 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from . import _painter_icons
 from . import _painter_rows
-from ._painter_style import blend, obb_metrics, PaletteStyled
+from ._painter_style import (blend, mono_font, obb_metrics, rule, shade,
+                             PaletteStyled)
 
 __all__ = [
     'LayersPage',
 ]
+
+
+class _Filters(QtWidgets.QWidget):
+    """The greyed-out search field over the filter chips.
+
+    Both wait on the same follow-ups, object names and guides, and the design
+    draws them as one block above the list, so they are built together.
+    """
+
+    _SEARCH_MARGINS = (10, 10, 10, 8)
+    _SEARCH_HEIGHT = 28
+    _SEARCH_PADDING = (8, 0, 8, 0)
+    _SEARCH_GAP = 8
+    _CHIP_MARGINS = (10, 0, 10, 8)
+    _CHIP_GAP = 6
+    _ICON_PX = 12
+
+    #: The filter chips, in design order; the first is the one shown active.
+    CHIPS = ("All", "Shapes", "Guides")
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.chips = {}
+        layout = QtWidgets.QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        layout.addLayout(self._build_search())
+        layout.addLayout(self._build_chips())
+        self.setEnabled(False)
+
+    def set_icon(self, icon):
+        """Draw the search glass in ``icon``."""
+        self._glass.setPixmap(icon)
+
+    def _build_search(self):
+        self.search = QtWidgets.QFrame(self)
+        self.search.setObjectName("search")
+        self.search.setFixedHeight(self._SEARCH_HEIGHT)
+        self.search.setToolTip("Search objects  (needs object names)")
+        self._glass = QtWidgets.QLabel(self.search)
+        self._glass.setFixedWidth(self._ICON_PX)
+        edit = QtWidgets.QLineEdit(self.search)
+        edit.setObjectName("query")
+        edit.setPlaceholderText("Search objects")
+        inside = QtWidgets.QHBoxLayout(self.search)
+        inside.setContentsMargins(*self._SEARCH_PADDING)
+        inside.setSpacing(self._SEARCH_GAP)
+        inside.addWidget(self._glass)
+        inside.addWidget(edit, 1)
+        layout = QtWidgets.QHBoxLayout()
+        layout.setContentsMargins(*self._SEARCH_MARGINS)
+        layout.addWidget(self.search)
+        return layout
+
+    def _build_chips(self):
+        layout = QtWidgets.QHBoxLayout()
+        layout.setContentsMargins(*self._CHIP_MARGINS)
+        layout.setSpacing(self._CHIP_GAP)
+        for index, name in enumerate(self.CHIPS):
+            chip = QtWidgets.QPushButton(name, self)
+            chip.setObjectName("chip")
+            chip.setCheckable(True)
+            chip.setChecked(0 == index)
+            chip.setToolTip(f"{name}  (needs guides and object names)")
+            layout.addWidget(chip)
+            self.chips[name] = chip
+        layout.addStretch(1)
+        return layout
+
+
+class _Footer(QtWidgets.QWidget):
+    """The list footer: the greyed-out add and remove buttons, then a count."""
+
+    _MARGINS = (10, 8, 12, 8)
+    _GAP = 6
+    _BUTTON_SIZE = (26, 24)
+    _ICON_PX = 12
+
+    #: The greyed-out buttons, as ``(icon name, what the button does)``.
+    BUTTONS = (("plus", "Add object"), ("minus", "Remove object"))
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.buttons = {}
+        self.count = QtWidgets.QLabel(self)
+        self.count.setObjectName("count")
+        self.count.setFont(mono_font())
+        layout = QtWidgets.QHBoxLayout(self)
+        layout.setContentsMargins(*self._MARGINS)
+        layout.setSpacing(self._GAP)
+        for name, what in self.BUTTONS:
+            layout.addWidget(self._build_button(name, what))
+        layout.addStretch(1)
+        layout.addWidget(self.count)
+
+    def set_icons(self, ratio, color):
+        """Draw each button in ``color``, rasterized for ``ratio``.
+
+        The buttons are greyed out for good, so the icon is offered for the
+        disabled state alone and carries the greyed color the page mixed,
+        rather than whatever fade the style would apply to a normal one.
+        """
+        for name, button in self.buttons.items():
+            button.setIcon(_painter_icons.placeholder_icon(
+                name, self._ICON_PX, color, ratio))
+
+    def _build_button(self, name, what):
+        button = QtWidgets.QToolButton(self)
+        button.setObjectName("footer")
+        button.setFixedSize(*self._BUTTON_SIZE)
+        button.setIconSize(QtCore.QSize(self._ICON_PX, self._ICON_PX))
+        button.setToolTip(f"{what}  (needs editing from the list)")
+        button.setEnabled(False)
+        self.buttons[name] = button
+        return button
 
 
 class LayersPage(PaletteStyled):
@@ -41,12 +157,21 @@ class LayersPage(PaletteStyled):
     #: What the list says while the world holds nothing.
     EMPTY_TEXT = "No objects"
 
-    _LIST_MARGINS = (6, 8, 6, 8)
+    _LIST_MARGINS = (6, 0, 6, 0)
     _EMPTY_MARGINS = (12, 4, 12, 4)
     _EMPTY_PX = 12
+    _COUNT_PX = 10
+    _CHIP_PX = 10
+    _SEARCH_PX = 11
+    _RADIUS = 5
+    _CHIP_RADIUS = 11
+    _ICON_PX = 12
 
-    # How far the empty note sits from the panel color.
+    # How far each of these sits from the panel color.
+    _MUTED_MIX = 0.35
     _GREYED_MIX = 0.6
+    _CHIP_MIX = 0.15
+    _BORDER_MIX = 0.25
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -60,6 +185,20 @@ class LayersPage(PaletteStyled):
         self._timer.timeout.connect(self.refresh)
         self._apply_style()
         self._render(())
+
+    @property
+    def placeholders(self):
+        """The greyed-out controls as ``{name: widget}``."""
+        entries = {"Search": self._filters.search}
+        entries.update(self._filters.chips)
+        entries.update({what: self._footer.buttons[name]
+                        for name, what in _Footer.BUTTONS})
+        return entries
+
+    @property
+    def count(self):
+        """The footer's object count, as the footer words it."""
+        return self._footer.count.text()
 
     @property
     def shown_rows(self):
@@ -107,18 +246,23 @@ class LayersPage(PaletteStyled):
         self._render(content)
 
     def _build(self):
+        self._filters = _Filters(self)
         self._empty = QtWidgets.QLabel(self.EMPTY_TEXT, self)
         self._empty.setObjectName("empty")
+        self._footer = _Footer(self)
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
+        layout.addWidget(self._filters)
         layout.addWidget(self._build_list(), 1)
+        layout.addWidget(rule(QtWidgets.QFrame.HLine))
+        layout.addWidget(self._footer)
 
     def _build_list(self):
         """The scrolling column of rows, with the empty note above it.
 
-        A world of many objects would otherwise grow the page past the dock,
-        so the column scrolls inside the page rather than stretching it.
+        A world of many objects would otherwise push the footer off the dock,
+        so the column scrolls inside the page rather than growing it.
         """
         body = QtWidgets.QWidget()
         self._rows_layout = QtWidgets.QVBoxLayout(body)
@@ -185,6 +329,8 @@ class LayersPage(PaletteStyled):
         for row in self.rows[len(content):]:
             row.hide()
         self._empty.setVisible(not content)
+        self._footer.count.setText(
+            "1 shape" if 1 == len(content) else f"{len(content)} shapes")
 
     def _row(self, index):
         """The row at ``index``, built and shown if it is a new one."""
@@ -238,16 +384,52 @@ class LayersPage(PaletteStyled):
         return self._pixmaps[key]
 
     def _apply_style(self):
-        """Color the rows and the empty note from the palette."""
+        """Color the rows, the placeholders, and the footer from the
+        palette."""
         palette = self.palette()
         text = palette.color(QtGui.QPalette.WindowText)
         panel = palette.color(QtGui.QPalette.Window)
+        greyed = blend(text, panel, self._GREYED_MIX)
         self.setStyleSheet(_painter_rows.rules(self) + f"""
             QLabel#empty {{
                 font-size: {self._EMPTY_PX}px;
-                color: {blend(text, panel, self._GREYED_MIX).name()};
+                color: {greyed.name()};
+            }}
+            QLabel#count {{
+                font-size: {self._COUNT_PX}px;
+                color: {blend(text, panel, self._MUTED_MIX).name()};
+            }}
+            QFrame#search {{
+                border: 1px solid {shade(self, self._BORDER_MIX).name()};
+                border-radius: {self._RADIUS}px;
+                background: {palette.color(QtGui.QPalette.Base).name()};
+            }}
+            QLineEdit#query {{
+                border: none;
+                background: transparent;
+                font-size: {self._SEARCH_PX}px;
+            }}
+            QPushButton#chip {{
+                border: none;
+                border-radius: {self._CHIP_RADIUS}px;
+                padding: 3px 8px;
+                font-size: {self._CHIP_PX}px;
+                background: transparent;
+                color: {greyed.name()};
+            }}
+            QPushButton#chip:checked {{
+                background: {shade(self, self._CHIP_MIX).name()};
+            }}
+            QToolButton#footer {{
+                border: 1px solid {shade(self, self._BORDER_MIX).name()};
+                border-radius: {self._RADIUS}px;
+                background: {palette.color(QtGui.QPalette.Base).name()};
             }}
             """)
+        ratio = self.devicePixelRatioF()
+        self._filters.set_icon(
+            _painter_icons.render("search", greyed, self._ICON_PX, ratio))
+        self._footer.set_icons(ratio, greyed)
         self._pixmaps.clear()
         # The rows hold the icons the cleared cache handed out, and a stale
         # one keeps the color it was rendered in through the theme switch.
