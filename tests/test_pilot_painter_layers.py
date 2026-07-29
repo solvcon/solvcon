@@ -84,6 +84,7 @@ class PainterLayersPageTC(unittest.TestCase):
         # one on top of the canvas and the first the list names.
         self.assertEqual(self._names(),
                          [f"Circle {self.cid}", f"Rectangle {self.rid}"])
+        self.assertEqual(self.page.count, "2 shapes")
         self.assertTrue(self.page._empty.isHidden())
 
     def test_the_metric_is_the_radius_or_the_size(self):
@@ -147,14 +148,17 @@ class PainterLayersPageTC(unittest.TestCase):
         third = self.world.add_circle(0, 0, 1)
         self.page.refresh()
         self.assertEqual(self._names()[0], f"Circle {third}")
+        self.assertEqual(self.page.count, "3 shapes")
 
         self.world.remove_shape(self.rid)
         self.page.refresh()
         self.assertNotIn(f"Rectangle {self.rid}", self._names())
+        self.assertEqual(self.page.count, "2 shapes")
 
         self.world.undo()
         self.page.refresh()
         self.assertIn(f"Rectangle {self.rid}", self._names())
+        self.assertEqual(self.page.count, "3 shapes")
 
     def test_an_object_with_no_icon_still_gets_a_row(self):
         # The icon set draws the tools; the world holds shapes beyond them.
@@ -167,6 +171,7 @@ class PainterLayersPageTC(unittest.TestCase):
         self.canvas = _StubCanvas(solvcon.WorldFp64())
         self.page.refresh()
         self.assertEqual(self._names(), [])
+        self.assertEqual(self.page.count, "0 shapes")
         self.assertFalse(self.page._empty.isHidden())
 
     def test_closing_the_canvas_clears_the_list(self):
@@ -174,6 +179,16 @@ class PainterLayersPageTC(unittest.TestCase):
         self.canvas = None
         self.page.refresh()
         self.assertEqual(self._names(), [])
+        self.assertEqual(self.page.count, "0 shapes")
+
+    def test_controls_the_model_cannot_fill_are_greyed_out(self):
+        self.assertEqual(list(self.page.placeholders),
+                         ["Search", "All", "Shapes", "Guides",
+                          "Add object", "Remove object"])
+        for name, control in self.page.placeholders.items():
+            with self.subTest(name=name):
+                self.assertFalse(control.isEnabled())
+                self.assertIn("needs", control.toolTip())
 
     def test_the_page_fits_the_designed_inspector(self):
         self.assertLessEqual(self.page.sizeHint().width(),

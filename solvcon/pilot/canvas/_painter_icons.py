@@ -39,6 +39,9 @@ ICONS = {
     "text": '<path d="M3 4V2.8h10V4M8 2.8v10.4M6 13.2h4"/>',
     "grid": ('<path d="M2 2h12v12H2z"/>'
              '<path d="M2 6h12M6 2v12" opacity="0.6"/>'),
+    "search": '<circle cx="7" cy="7" r="4.5"/><path d="M10.4 10.4L14 14"/>',
+    "plus": '<path d="M8 3.5v9M3.5 8h9"/>',
+    "minus": '<path d="M3.5 8h9"/>',
 }
 
 
