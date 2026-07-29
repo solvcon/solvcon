@@ -280,6 +280,9 @@ public:
     /// Called when a function ends
     void end_caller();
 
+    /// Discard the most recent caller without recording it
+    void discard_caller(RadixTreeNode<CallerProfile> const * frame_node);
+
     /// Print the profiling information
     void print_profiling_result(std::ostream & outstream) const
     {
@@ -290,18 +293,12 @@ public:
     void reset();
 
     /// Cancel the profiling from all probes
-    void cancel()
-    {
-        for (auto & cancel_callback : m_cancel_callbacks)
-        {
-            cancel_callback();
-        }
-        reset();
-    }
+    void cancel() { reset(); }
 
     const RadixTree<CallerProfile> & radix_tree() const { return m_radix_tree; }
 
 private:
+    void pop_caller();
     void print_profiling_result(const RadixTreeNode<CallerProfile> & node, int depth, std::ostream & outstream) const;
     static void print_statistics(const RadixTreeNode<CallerProfile> & node, std::ostream & outstream);
 
@@ -335,9 +332,10 @@ public:
     {
         auto cancel_callback = [&]()
         {
-            cancel();
+            m_cancel = true;
         };
         m_profiler.start_caller(m_caller_name, cancel_callback);
+        m_frame_node = m_profiler.radix_tree().get_current_node();
     }
 
     CallProfilerProbe(CallProfilerProbe const &) = delete;
@@ -356,11 +354,16 @@ public:
 
     void cancel()
     {
-        m_cancel = true;
+        if (!m_cancel)
+        {
+            m_profiler.discard_caller(m_frame_node);
+            m_cancel = true;
+        }
     }
 
 private:
     const char * m_caller_name;
+    RadixTreeNode<CallerProfile> const * m_frame_node = nullptr;
     bool m_cancel = false;
     CallProfiler & m_profiler;
 }; /* end class CallProfilerProbe */
