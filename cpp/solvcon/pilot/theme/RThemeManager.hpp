@@ -16,6 +16,7 @@
 #include <solvcon/pilot/common/common_detail.hpp> // Must be the first include.
 
 #include <memory>
+#include <optional>
 #include <string>
 
 #include <solvcon/pilot/theme/theme.hpp>
@@ -24,6 +25,7 @@
 #include <QColor>
 #include <QObject>
 #include <QPalette>
+#include <QString>
 
 class QWidget;
 
@@ -134,6 +136,13 @@ private:
     /// accent when the backend supplies one, and filling the disabled group.
     QPalette buildPalette(ThemePalette const & spec, ThemeVariant variant) const;
 
+    /**
+     * Hand @p sheet to the application, skipping the call when it repeats the
+     * sheet already in force. The manager is the only writer of the
+     * application stylesheet, so the cached text cannot go stale.
+     */
+    void setApplicationStyleSheet(QString const & sheet);
+
     /// A thin stylesheet that adds what a QPalette cannot: a tooltip border and
     /// a focus ring on text inputs, colored from @p pal. Applied under the
     /// curated look and cleared under the system look, which stays native.
@@ -143,7 +152,7 @@ private:
     void restorePersisted();
 
     /// Write the current mode and look so the next session starts on them.
-    void persist() const;
+    void persist();
 
     ThemeMode m_mode = ThemeMode::System;
 
@@ -165,6 +174,16 @@ private:
     /// Guards the one-time style install, so repeated apply() calls do not
     /// rebuild the style object.
     bool m_style_installed = false;
+
+    /// The application stylesheet last handed out, empty under the system look.
+    QString m_style_sheet;
+
+    /**
+     * The mode and look last written to the store. Absent until the first
+     * write, so a session that never leaves the defaults still records them.
+     */
+    std::optional<ThemeMode> m_persisted_mode;
+    std::optional<ThemeLook> m_persisted_look;
 }; /* end class RThemeManager */
 
 } /* end namespace solvcon */
