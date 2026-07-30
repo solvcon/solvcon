@@ -226,9 +226,11 @@ jobs:
           install_name_tool -add_rpath $(qtpaths --install-prefix)/lib ${PYSIDE6_PATH}/QtCore.abi3.so
           JOB_MAKE_ARGS="${JOB_MAKE_ARGS} BUILD_METAL=ON" ; \
         fi
-        # Left at the default so one job runs the GUI tests with their windows
-        # off the screen; run_pilot_pytest below maps its windows.
-        make pytest ${JOB_MAKE_ARGS}
+        # A pull request skips tests/gui here, because run_pilot_pytest below
+        # runs it seconds later in the pilot binary. A push and the nightly
+        # schedule run the whole suite in both Qt hosts. SOLVCON_TEST_SHOW_WINDOWS
+        # is left at the default either way, so any window stays off the screen.
+        make ${{ github.event_name == 'pull_request' && 'pytest-fast' || 'pytest' }} ${JOB_MAKE_ARGS}
         echo "::endgroup::"
 
     - name: make pilot
