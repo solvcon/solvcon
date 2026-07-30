@@ -233,9 +233,25 @@ sudo ln -fs "$(which clang-tidy-22)" /usr/local/bin/clang-tidy
 EOF
 }
 
+scdv_apt_gcc_cmd() {
+    # Print the apt commands for installing GCC 16.
+    # The script never runs apt itself; copy the output, review it, and run it.
+   cat <<'EOF'
+sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+sudo apt-get -qqy update
+sudo apt-get -qy install gcc-16 g++-16
+sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-16 100
+sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-16 100
+sudo update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-16 100
+sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++-16 100
+EOF
+}
+
 plat_print_deps() {
-  # Ubuntu prints the apt base/QT/LaTeX sets, then the lint toolchain.
+  # Ubuntu prints the apt base/GCC/QT/LaTeX sets, then the lint toolchain.
   scdv_apt_base_cmd
+  echo
+  scdv_apt_gcc_cmd
   echo
   scdv_apt_qt_cmd
   echo
