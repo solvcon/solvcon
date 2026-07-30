@@ -65,6 +65,18 @@ TEST(SimpleArray, minmaxsum)
     EXPECT_EQ(arr_int.max(), 9);
 }
 
+TEST(SimpleArray, argminmax_axis_rejects_rank_zero_result)
+{
+    using namespace solvcon;
+
+    SimpleArray<double> array(small_vector<ssize_t>{3}, 0.0);
+
+    EXPECT_THROW(array.argmin(0), std::invalid_argument);
+    EXPECT_THROW(array.argmin(-1), std::invalid_argument);
+    EXPECT_THROW(array.argmax(0), std::invalid_argument);
+    EXPECT_THROW(array.argmax(-1), std::invalid_argument);
+}
+
 TEST(SimpleArray, abs)
 {
     using namespace solvcon;
