@@ -326,6 +326,7 @@ public:
     void add_point(point_type const & vertex)
     {
         m_points->append(vertex);
+        mark_changed();
     }
     void add_point(value_type x, value_type y, value_type z)
     {
@@ -344,6 +345,7 @@ public:
     {
         m_segments->append(segment);
         m_bare_segment_indices.push_back(m_segments->size() - 1);
+        mark_changed();
     }
     void add_segment(point_type const & p0, point_type const & p1)
     {
@@ -361,10 +363,12 @@ public:
     void add_bezier(bezier_type const & bezier)
     {
         m_curves->append(bezier);
+        mark_changed();
     }
     void add_bezier(point_type const & p0, point_type const & p1, point_type const & p2, point_type const & p3)
     {
         m_curves->append(p0, p1, p2, p3);
+        mark_changed();
     }
     size_t nbezier() const { return m_curves->size(); }
     bezier_type bezier(size_t i) const { return m_curves->get(i); }
@@ -502,6 +506,8 @@ public:
 
     size_t nshape() const { return m_nshape; }
 
+    uint64_t version() const { return m_version; }
+
     /**
      * True if `shape_id` refers to a live (non-DEAD) shape. Unlike the
      * accessors above this never throws, so callers can probe a stale id.
@@ -582,6 +588,9 @@ public:
     std::string describe_state(DescribeLevel level = DescribeLevel::BASIC) const;
 
 private:
+
+    /// Stamp the world as changed; see version().
+    void mark_changed() { ++m_version; }
 
     /// 2D endpoints of segment i, as [x0, y0, x1, y1].
     std::vector<double> segment_coords(size_t i) const
@@ -700,6 +709,7 @@ private:
     std::vector<ShapeRecord> m_shape_registry;
 
     size_t m_nshape = 0; ///< Count of live (non-DEAD) shapes.
+    uint64_t m_version = 0; ///< Moves on every change; see version().
     std::unique_ptr<rtree_type> m_rtree; ///< Spatial index for shapes for viewport query.
 
     /// The kind of an undoable shape change.
@@ -778,6 +788,7 @@ int32_t World<T>::register_shape(ShapeType type,
     // Record the creation so undo removes the shape and redo brings it back
     // with the same type.
     record_op({.op = ShapeOp::CREATE, .shape_id = shape_id, .type = type});
+    mark_changed();
 
     return shape_id;
 }
@@ -960,6 +971,7 @@ void World<T>::apply_translate(int32_t shape_id, value_type dx, value_type dy)
     }
     // Reinsert with updated bounding box.
     m_rtree->insert(ShapeEntry<T>{shape_id, compute_shape_bbox(rec)});
+    mark_changed();
 }
 
 template <typename T>
@@ -1025,6 +1037,7 @@ void World<T>::apply_rotate(int32_t shape_id, value_type angle, value_type cx, v
     }
     // Reinsert with updated bounding box.
     m_rtree->insert(ShapeEntry<T>{shape_id, compute_shape_bbox(rec)});
+    mark_changed();
 }
 
 template <typename T>
@@ -1128,6 +1141,7 @@ void World<T>::kill_shape(int32_t shape_id)
     m_rtree->remove(ShapeEntry<T>{shape_id, compute_shape_bbox(rec)});
     rec.type = ShapeType::DEAD;
     --m_nshape;
+    mark_changed();
 }
 
 template <typename T>
@@ -1139,6 +1153,7 @@ void World<T>::revive_shape(int32_t shape_id, ShapeType type)
     rec.type = type;
     ++m_nshape;
     m_rtree->insert(ShapeEntry<T>{shape_id, compute_shape_bbox(rec)});
+    mark_changed();
 }
 
 template <typename T>
@@ -1370,6 +1385,7 @@ void World<T>::clear()
     m_redo_stack.clear();
     m_in_operation = false;
     m_has_open = false;
+    mark_changed();
 }
 
 template <typename T>

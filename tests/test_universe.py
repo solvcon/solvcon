@@ -360,6 +360,90 @@ class WorldPrimitivesTC(unittest.TestCase):
             self.w.add_polygon([[0, 0], [1, 1]])
 
 
+class WorldVersionTC(unittest.TestCase):
+    """The stamp that tells a reader the world has changed."""
+
+    def setUp(self):
+        self.w = solvcon.WorldFp64()
+
+    def _changed_by(self, act):
+        """Return whether ``act`` moved the stamp."""
+        before = self.w.version
+        act()
+        return self.w.version != before
+
+    def test_every_way_of_adding_geometry_moves_it(self):
+        # A reader compares the stamp instead of the geometry, so anything the
+        # canvas would draw differently has to move it.
+        for name, act in (
+                ("point", lambda: self.w.add_point(0, 0, 0)),
+                ("segment", lambda: self.w.add_segment(
+                    solvcon.Point3dFp64(0, 0, 0),
+                    solvcon.Point3dFp64(1, 1, 0))),
+                ("bezier", lambda: self.w.add_bezier(
+                    solvcon.Point3dFp64(0, 0, 0),
+                    solvcon.Point3dFp64(1, 0, 0),
+                    solvcon.Point3dFp64(1, 1, 0),
+                    solvcon.Point3dFp64(0, 1, 0))),
+                ("line", lambda: self.w.add_line(0, 0, 1, 1)),
+                ("triangle", lambda: self.w.add_triangle(0, 0, 1, 0, 0, 1)),
+                ("rectangle", lambda: self.w.add_rectangle(0, 0, 1, 1)),
+                ("ellipse", lambda: self.w.add_ellipse(0, 0, 2, 1)),
+                ("circle", lambda: self.w.add_circle(0, 0, 1)),
+                ("polyline", lambda: self.w.add_polyline([[0, 0], [1, 1]])),
+                ("polygon", lambda: self.w.add_polygon(
+                    [[0, 0], [1, 0], [1, 1]]))):
+            with self.subTest(name=name):
+                self.assertTrue(self._changed_by(act))
+
+    def test_moving_and_removing_a_shape_moves_it(self):
+        sid = self.w.add_rectangle(0, 0, 2, 1)
+        self.assertTrue(self._changed_by(
+            lambda: self.w.translate_shape(sid, 1, 1)))
+        self.assertTrue(self._changed_by(
+            lambda: self.w.rotate_shape(sid, 0.5 * math.pi, 0, 0)))
+        self.assertTrue(self._changed_by(lambda: self.w.remove_shape(sid)))
+
+    def test_undo_and_redo_move_it(self):
+        # They change what is drawn as much as the edit they replay, and a
+        # reader that missed them would show a world that no longer exists.
+        sid = self.w.add_circle(0, 0, 1)
+        self.w.translate_shape(sid, 3, 0)
+        self.assertTrue(self._changed_by(self.w.undo))
+        self.assertTrue(self._changed_by(self.w.redo))
+        self.assertTrue(self._changed_by(self.w.clear))
+
+    def test_reading_the_world_leaves_it_alone(self):
+        # Only edits move the stamp; a query that moved it would have every
+        # reader redrawing on its own reads.
+        sid = self.w.add_circle(0, 0, 1)
+        before = self.w.version
+        self.w.describe_state()
+        self.w.shape_bbox(sid)
+        self.w.shape_obb(sid)
+        self.w.pick_shape(0, 0, 0.1)
+        self.w.shape_is_live(sid)
+        self.assertEqual(self.w.version, before)
+
+    def test_reaching_past_the_world_into_its_pads_is_not_seen(self):
+        # The stamp covers what goes through the world. A caller that writes
+        # into the pads it hands out moves geometry behind its back, which is
+        # what the accessors' own documentation warns of.
+        self.w.add_segment(solvcon.Point3dFp64(0, 0, 0),
+                           solvcon.Point3dFp64(1, 1, 0))
+        before = self.w.version
+        self.w.segments.set_at(0, 5.0, 5.0, 6.0, 6.0)
+        self.assertEqual(self.w.version, before)
+
+    def test_an_edit_that_changes_nothing_leaves_it_alone(self):
+        # A drag's first event often lands on the press point, and the world
+        # takes that as no move at all.
+        sid = self.w.add_rectangle(0, 0, 2, 1)
+        before = self.w.version
+        self.w.translate_shape(sid, 0, 0)
+        self.assertEqual(self.w.version, before)
+
+
 class WorldUndoRedoTC(unittest.TestCase):
     """Undo and redo of shape creation."""
 

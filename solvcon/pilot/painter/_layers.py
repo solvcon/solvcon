@@ -179,7 +179,7 @@ class LayersPage(PaletteStyled):
         super().__init__(parent)
         self._source = None
         self._fingerprint = None
-        self._world_id = None
+        self._drawn_world = None
         self._pixmaps = {}
         self.rows = []
         self._build()
@@ -215,7 +215,7 @@ class LayersPage(PaletteStyled):
 
     def draws_world(self, world):
         """Whether the rows were last drawn for ``world``."""
-        return world is not None and id(world) == self._world_id
+        return world is not None and world is self._drawn_world
 
     def set_canvas_source(self, source):
         """Bind the page to ``source``, a callable handing back the canvas.
@@ -230,10 +230,10 @@ class LayersPage(PaletteStyled):
         # Rendered rather than refreshed: two blank canvases show the same
         # nothing, so a refresh would take the page for unchanged and leave
         # the previous canvas's objects on screen.
-        fingerprint, content = self._snapshot()
+        fingerprint = self._state_key()
         self._fingerprint = fingerprint
-        self._world_id = None if fingerprint is None else fingerprint[0]
-        self._render(content)
+        self._drawn_world = None if fingerprint is None else fingerprint[0]
+        self._render(self._content())
 
     def showEvent(self, event):
         """Poll the bound canvas only while the page is on screen."""
@@ -248,12 +248,12 @@ class LayersPage(PaletteStyled):
 
     def refresh(self):
         """Redraw the list when the canvas it is bound to has changed."""
-        fingerprint, content = self._snapshot()
+        fingerprint = self._state_key()
         if fingerprint == self._fingerprint:
             return
         self._fingerprint = fingerprint
-        self._world_id = None if fingerprint is None else fingerprint[0]
-        self._render(content)
+        self._drawn_world = None if fingerprint is None else fingerprint[0]
+        self._render(self._content())
 
     def _build(self):
         self._filters = _Filters(self)
@@ -307,26 +307,25 @@ class LayersPage(PaletteStyled):
         selected = widget.selectedShape
         return world, selected if world.shape_is_live(selected) else -1
 
-    def _snapshot(self):
-        """Fingerprint and row content for the bound canvas, one world read.
-
-        The fingerprint is what the poll compares: the world identity, the
-        selection, and the world's own state string. Segment coordinates ride
-        in that string, so a rotate changes it and the list rebuilds; an
-        unchanged tick skips the per-shape oriented boxes the rows show.
+    def _state_key(self):
+        """What the list shows, as a value the poll can compare: the world it
+        draws, the selection it marks, and the world's change stamp.
         """
         world, selected = self._selection()
+        return None if world is None else (world, selected, world.version)
+
+    def _content(self):
+        """What the rows show, read from the world the page is bound to."""
+        world, selected = self._selection()
         if world is None:
-            return None, ()
-        state = world.describe_state()
+            return ()
         # Newest first: the world draws in registry order, so the last shape
         # added is on top of the canvas and the one the list names first.
-        shapes = json.loads(state)["shapes"][::-1]
-        content = tuple(
+        shapes = json.loads(world.describe_state())["shapes"][::-1]
+        return tuple(
             (shape["id"], shape["type"], self._name_of(shape),
              self._metric_of(world, shape), shape["id"] == selected)
             for shape in shapes)
-        return (id(world), selected, state), content
 
     def _render(self, content):
         for index, entry in enumerate(content):

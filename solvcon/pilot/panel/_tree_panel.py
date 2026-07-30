@@ -677,10 +677,10 @@ class EntityTreeWidget(TreePanelBase):
 
     def _describe(self, world, level):
         """Return the cached ``describe_state`` JSON for ``level``."""
-        fingerprint = world.describe_state(level="basic")
+        fingerprint = (world, world.version)
         if fingerprint != self._fingerprint:
             self._fingerprint = fingerprint
-            self._cache = {"basic": fingerprint}
+            self._cache = {}
         if level not in self._cache:
             self._cache[level] = world.describe_state(level=level)
         return self._cache[level]
