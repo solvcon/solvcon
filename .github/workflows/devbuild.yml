@@ -73,6 +73,7 @@ jobs:
           key: ${{ runner.os }}-standalone-buffer-${{ matrix.cmake_build_type }}
           restore-keys: ${{ runner.os }}-standalone-buffer-${{ matrix.cmake_build_type }}
           create-symlink: true
+          save: ${{ github.event_name != 'pull_request' }}
           # Bound the cache so it does not grow without limit across the rolling
           # key. A master push or nightly run saves this cache; pull requests
           # restore it (a PR on a non-default base branch cannot, so it runs
@@ -157,6 +158,7 @@ jobs:
         key: ${{ runner.os }}-${{ matrix.cmake_build_type }}
         restore-keys: ${{ runner.os }}-${{ matrix.cmake_build_type }}
         create-symlink: true
+        save: ${{ github.event_name != 'pull_request' }}
         # Bound the cache so it does not grow without limit across the rolling
         # key. A master push or nightly run saves this cache; pull requests
         # restore it (a PR on a non-default base branch cannot, so it runs
@@ -342,6 +344,7 @@ jobs:
           variant: sccache
           key: ${{ runner.os }}-sccache-${{ matrix.cmake_build_type }}
           restore-keys: ${{ runner.os }}-sccache-${{ matrix.cmake_build_type }}
+          save: ${{ github.event_name != 'pull_request' }}
           # Bound the cache so it does not grow without limit across the rolling
           # key. A master push or nightly run saves this cache; pull requests
           # restore it (a PR on a non-default base branch cannot, so it runs
@@ -533,6 +536,7 @@ jobs:
         key: ${{ runner.os }}-sanitizer-${{ matrix.cmake_build_type }}
         restore-keys: ${{ runner.os }}-sanitizer-${{ matrix.cmake_build_type }}
         create-symlink: true
+        save: ${{ github.event_name != 'pull_request' }}
         max-size: 1500M
 
     - name: make gtest USE_SANITIZER=ON
