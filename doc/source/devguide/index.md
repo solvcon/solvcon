@@ -5,6 +5,7 @@
 
 contributing
 testing
+cmake
 style
 ```
 

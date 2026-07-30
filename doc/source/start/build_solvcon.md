@@ -14,8 +14,15 @@ version, e.g. `314`.
 
 ## Build Options
 
-Key options can be set in `setup.mk` (which is read by `Makefile`) or as
-environment variables:
+The Makefile configures through `cmake --preset`, so the defaults are the ones
+in `CMakePresets.json`: `dev-rel` for a release build and `dev-dbg` for a debug
+one.  It adds only the ABI-tagged build directory, the generator, and whatever
+options are set below, each of which becomes a `-D` flag layered on the preset.
+Set `CMAKE_PRESET` to build a different preset, for instance one of your own
+from `CMakeUserPresets.json`.
+
+Key options can be set on the command line, in `setup.mk` (which is read by
+`Makefile`), or as environment variables:
 
 | Variable             | Default   | Purpose                          |
 |:---------------------|:----------|:---------------------------------|
@@ -24,6 +31,10 @@ environment variables:
 | `BUILD_METAL`        | `OFF`     | build Metal GPU support (macOS)  |
 | `SOLVCON_PROFILE`    | `OFF`     | enable the runtime profiler      |
 | `USE_CLANG_TIDY`     | `OFF`     | run clang-tidy during the build  |
+
+CMake itself is configured through `CMakePresets.json`; see
+{doc}`/devguide/cmake` for the preset a Windows build or an IDE selects, and
+for where the paths of a local dependency prefix belong.
 
 After building, run the tests as described in {doc}`/devguide/testing`.
 
