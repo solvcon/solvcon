@@ -18,8 +18,10 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QTreeWidget,
                                QSizePolicy, QAbstractButton)
 
 from ... import core
+from .._style import PaletteStyled
 from ..base import _gui_common
 from ..visual import _mesh
+from ._style import Rules
 
 __all__ = [  # noqa: F822
     'TreePanelBase',
@@ -271,7 +273,7 @@ class MeshInfoTree(TreePanelBase):
             self.normals_toggled(checked)
 
 
-class _CollapsibleSection(QWidget):
+class _CollapsibleSection(PaletteStyled):
     """A titled block that folds to just its header when the header is clicked.
 
     Toggling the header shows or hides the body and emits :attr:`toggled`. A
@@ -294,19 +296,7 @@ class _CollapsibleSection(QWidget):
         self._toggle.setChecked(True)
         self._toggle.setFlat(True)
         self._toggle.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
-        self._toggle.setStyleSheet(
-            """
-            QPushButton {
-                border: none;
-                font-weight: bold;
-                font-size: 14px;
-                padding: 4px 6px;
-                text-align: left;
-            }
-            QPushButton:hover {
-                background: rgba(127, 127, 127, 40);
-            }
-            """)
+        self._apply_style()
         self._sync_toggle_text(True)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -314,6 +304,9 @@ class _CollapsibleSection(QWidget):
         layout.addWidget(self._toggle)
         layout.addWidget(self._body, 1 if fill else 0)
         self._toggle.toggled.connect(self._on_toggled)
+
+    def _apply_style(self):
+        self._toggle.setStyleSheet(Rules.sheet(self, "fold"))
 
     def _sync_toggle_text(self, expanded):
         arrow = self._ARROW_OPEN if expanded else self._ARROW_SHUT

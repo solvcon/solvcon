@@ -7,11 +7,12 @@ Painter toolbox for the 2D canvas: the draw tool selector and the inspector.
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
+from .._style import PaletteStyled, Shades
 from . import _icons
 from ._canvas import CanvasPage
 from ._design import DesignPage
 from ._layers import LayersPage
-from ._style import blend, rule, shade, PaletteStyled
+from ._style import Parts, Rules
 from ..base import _gui_common
 from .._pilot_core import draw_tool_names, default_draw_tool_name
 
@@ -76,7 +77,7 @@ class _SelectorRule(QtWidgets.QWidget):
     def paintEvent(self, _event):
         painter = QtGui.QPainter(self)
         painter.fillRect(0, self._MARGIN, self.width(), 1,
-                         shade(self, self._MIX))
+                         Shades(self).raised(self._MIX))
 
 
 class _DrawToolSelector(PaletteStyled):
@@ -98,21 +99,13 @@ class _DrawToolSelector(PaletteStyled):
         "grid": ("Grid", "grid and snap options"),
     }
 
-    # How far the column shade sits from the inspector panel color, and how
-    # far a hovered entry sits from the column.
+    # How far the column shade sits from the inspector panel color.
     _SHADE_MIX = 0.06
-    _HOVER_MIX = 0.12
-
-    # How far an entry's label moves back toward the column.
-    _LABEL_MIX = 0.25
-    _MUTED_MIX = 0.55
 
     # Column and entry geometry from the design, in device-independent pixels.
     _WIDTH = 64
     _ENTRY_WIDTH = 52
     _ICON_PX = 17
-    _FONT_PX = 9
-    _RADIUS = 7
     _GAP = 2
     _PAD_Y = 8
 
@@ -148,7 +141,7 @@ class _DrawToolSelector(PaletteStyled):
 
     def paintEvent(self, _event):
         painter = QtGui.QPainter(self)
-        painter.fillRect(self.rect(), shade(self, self._SHADE_MIX))
+        painter.fillRect(self.rect(), Shades(self).raised(self._SHADE_MIX))
 
     def _new_entry(self):
         return _SelectorEntry(self._ENTRY_WIDTH, self._ICON_PX, self)
@@ -178,36 +171,8 @@ class _DrawToolSelector(PaletteStyled):
 
     def _apply_style(self):
         """Color the entries and their icons from the current palette."""
-        palette = self.palette()
-        text = palette.color(QtGui.QPalette.WindowText)
-        panel = palette.color(QtGui.QPalette.Window)
-        label = blend(text, panel, self._LABEL_MIX)
-        muted = blend(text, panel, self._MUTED_MIX)
-        on_accent = palette.color(QtGui.QPalette.HighlightedText)
-        # The disabled rule comes last so a greyed entry keeps its color even
-        # under the pointer, where the hover rule would otherwise light it up.
-        self.setStyleSheet(f"""
-            QToolButton {{
-                border: none;
-                border-radius: {self._RADIUS}px;
-                padding: 7px 0 6px;
-                font-size: {self._FONT_PX}px;
-                background: transparent;
-                color: {label.name()};
-            }}
-            QToolButton:hover {{
-                background: {shade(self, self._HOVER_MIX).name()};
-                color: {text.name()};
-            }}
-            QToolButton:checked {{
-                background: {palette.color(QtGui.QPalette.Highlight).name()};
-                color: {on_accent.name()};
-            }}
-            QToolButton:disabled {{
-                background: transparent;
-                color: {muted.name()};
-            }}
-            """)
+        self.setStyleSheet(Rules.sheet(self, "entry"))
+        label, disabled, on_accent = Rules.entry_icon_colors(self)
         ratio = self.devicePixelRatioF()
         for name, entry in self.buttons.items():
             # A tool the icon set does not draw yet keeps its label alone.
@@ -216,7 +181,7 @@ class _DrawToolSelector(PaletteStyled):
                     name, self._ICON_PX, label, on_accent, ratio))
         for name, entry in self.placeholders.items():
             entry.set_entry_icon(_icons.placeholder_icon(
-                name, self._ICON_PX, muted, ratio))
+                name, self._ICON_PX, disabled, ratio))
 
 
 class _SegmentedTabs(PaletteStyled):
@@ -235,13 +200,6 @@ class _SegmentedTabs(PaletteStyled):
     # Row and segment geometry from the design, in device-independent pixels.
     _MARGINS = (10, 8, 10, 8)
     _GAP = 4
-    _RADIUS = 5
-    _FONT_PX = 11
-
-    # How far the checked pill and the unchecked labels move toward the text
-    # color: enough for the pill to read as raised and the rest as secondary.
-    _PILL_MIX = 0.15
-    _LABEL_MIX = 0.45
 
     def __init__(self, names, parent=None):
         super().__init__(parent)
@@ -265,28 +223,7 @@ class _SegmentedTabs(PaletteStyled):
 
     def _apply_style(self):
         """Color the segments from the current palette."""
-        palette = self.palette()
-        panel = palette.color(QtGui.QPalette.Window)
-        text = palette.color(QtGui.QPalette.WindowText)
-        pill = shade(self, self._PILL_MIX)
-        self.setStyleSheet(f"""
-            QPushButton {{
-                border: none;
-                border-radius: {self._RADIUS}px;
-                padding: 5px 0;
-                font-size: {self._FONT_PX}px;
-                background: transparent;
-                color: {blend(text, panel, self._LABEL_MIX).name()};
-            }}
-            QPushButton:hover {{
-                color: {text.name()};
-            }}
-            QPushButton:checked {{
-                background: {pill.name()};
-                color: {text.name()};
-                font-weight: 500;
-            }}
-            """)
+        self.setStyleSheet(Rules.sheet(self, "tab"))
 
 
 class PainterPanel(QtWidgets.QWidget):
@@ -334,7 +271,7 @@ class PainterPanel(QtWidgets.QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
         layout.addWidget(self._tools)
-        layout.addWidget(rule(QtWidgets.QFrame.VLine))
+        layout.addWidget(Parts.rule(QtWidgets.QFrame.VLine))
         layout.addWidget(self._inspector, 1)
 
     @property
@@ -416,7 +353,7 @@ class PainterPanel(QtWidgets.QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
         layout.addWidget(self._tabs)
-        layout.addWidget(rule(QtWidgets.QFrame.HLine))
+        layout.addWidget(Parts.rule(QtWidgets.QFrame.HLine))
         layout.addWidget(self._stack, 1)
         return inspector
 

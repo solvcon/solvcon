@@ -5,20 +5,18 @@
 The object row the Painter inspector lists.
 
 The design draws the same row twice, filling the Layers page and the short
-list at the foot of the Design page, so the widget and the rules that color it
-live together here rather than in either page.
+list the Design page still stands in for, so the widget lives here rather
+than in either page.
 """
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from ._style import blend, mono_font
+from ._style import Parts
 
 __all__ = [
     'ICON_PX',
     'HEIGHT',
     'ObjectRow',
-    'icon_color',
-    'rules',
 ]
 
 #: The type icon's size and the row's own, in device-independent pixels.
@@ -27,14 +25,6 @@ HEIGHT = 30
 
 _MARGINS = (8, 0, 8, 0)
 _GAP = 8
-_NAME_PX = 12
-_METRIC_PX = 10
-_RADIUS = 5
-
-# How far the type icon and the metric sit from the panel color, and how far
-# the selected row's tint sits from it.
-_MUTED_MIX = 0.35
-_SELECTED_MIX = 0.15
 
 
 class ObjectRow(QtWidgets.QFrame):
@@ -63,7 +53,7 @@ class ObjectRow(QtWidgets.QFrame):
         self._name.setObjectName("name")
         self._metric = QtWidgets.QLabel(self)
         self._metric.setObjectName("metric")
-        self._metric.setFont(mono_font())
+        self._metric.setFont(Parts.mono_font())
         layout = QtWidgets.QHBoxLayout(self)
         layout.setContentsMargins(*_MARGINS)
         layout.setSpacing(_GAP)
@@ -121,45 +111,5 @@ class ObjectRow(QtWidgets.QFrame):
         super().mousePressEvent(event)
         if QtCore.Qt.LeftButton == event.button():
             self.picked.emit(self._shape_id)
-
-
-def icon_color(widget, selected):
-    """The color a row on ``widget`` strokes its type icon in."""
-    palette = widget.palette()
-    if selected:
-        return palette.color(QtGui.QPalette.Highlight)
-    return blend(palette.color(QtGui.QPalette.WindowText),
-                 palette.color(QtGui.QPalette.Window), _MUTED_MIX)
-
-
-def rules(widget):
-    """The style rules ``widget`` carries for the rows it holds.
-
-    They travel with the row rather than sitting in each page's own sheet, so
-    the two lists the design draws cannot drift apart. A page appends them to
-    its sheet, which keeps one sheet covering every row it holds.
-    """
-    palette = widget.palette()
-    text = palette.color(QtGui.QPalette.WindowText)
-    panel = palette.color(QtGui.QPalette.Window)
-    accent = palette.color(QtGui.QPalette.Highlight)
-    return f"""
-        QFrame#row {{
-            border-radius: {_RADIUS}px;
-        }}
-        QFrame#row[selected="true"] {{
-            background: {blend(panel, accent, _SELECTED_MIX).name()};
-        }}
-        QLabel#name {{
-            font-size: {_NAME_PX}px;
-        }}
-        QLabel#metric {{
-            font-size: {_METRIC_PX}px;
-            color: {blend(text, panel, _MUTED_MIX).name()};
-        }}
-        QFrame#row[selected="true"] QLabel#metric {{
-            color: {accent.name()};
-        }}
-        """
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:

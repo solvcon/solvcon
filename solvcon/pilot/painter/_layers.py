@@ -7,12 +7,12 @@ The Layers page of the Painter inspector: every object the world holds.
 
 import json
 
-from PySide6 import QtCore, QtGui, QtWidgets
+from PySide6 import QtCore, QtWidgets
 
+from .._style import PaletteStyled, Shades
 from . import _icons
 from . import _rows
-from ._style import (blend, mono_font, obb_metrics, rule, shade,
-                     PaletteStyled)
+from ._style import Parts, Rules
 
 __all__ = [
     'LayersPage',
@@ -59,7 +59,6 @@ class _Filters(QtWidgets.QWidget):
         self._glass = QtWidgets.QLabel(self.search)
         self._glass.setFixedWidth(self._ICON_PX)
         edit = QtWidgets.QLineEdit(self.search)
-        edit.setObjectName("query")
         edit.setPlaceholderText("Search objects")
         inside = QtWidgets.QHBoxLayout(self.search)
         inside.setContentsMargins(*self._SEARCH_PADDING)
@@ -103,7 +102,7 @@ class _Footer(QtWidgets.QWidget):
         self.buttons = {}
         self.count = QtWidgets.QLabel(self)
         self.count.setObjectName("count")
-        self.count.setFont(mono_font())
+        self.count.setFont(Parts.mono_font())
         layout = QtWidgets.QHBoxLayout(self)
         layout.setContentsMargins(*self._MARGINS)
         layout.setSpacing(self._GAP)
@@ -161,19 +160,7 @@ class LayersPage(PaletteStyled):
 
     _LIST_MARGINS = (6, 0, 6, 0)
     _EMPTY_MARGINS = (12, 4, 12, 4)
-    _EMPTY_PX = 12
-    _COUNT_PX = 10
-    _CHIP_PX = 10
-    _SEARCH_PX = 11
-    _RADIUS = 5
-    _CHIP_RADIUS = 11
     _ICON_PX = 12
-
-    # How far each of these sits from the panel color.
-    _MUTED_MIX = 0.35
-    _GREYED_MIX = 0.6
-    _CHIP_MIX = 0.15
-    _BORDER_MIX = 0.25
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -265,7 +252,7 @@ class LayersPage(PaletteStyled):
         layout.setSpacing(0)
         layout.addWidget(self._filters)
         layout.addWidget(self._build_list(), 1)
-        layout.addWidget(rule(QtWidgets.QFrame.HLine))
+        layout.addWidget(Parts.rule(QtWidgets.QFrame.HLine))
         layout.addWidget(self._footer)
 
     def _build_list(self):
@@ -365,7 +352,7 @@ class LayersPage(PaletteStyled):
         Both come from the shape's own oriented box, because the serialized
         box is axis-aligned and reads wider than a rotated shape really is.
         """
-        width, height = obb_metrics(world.shape_obb(shape["id"]))[2:]
+        width, height = Parts.obb_metrics(world.shape_obb(shape["id"]))[2:]
         if "circle" == shape["type"]:
             return f"r {0.5 * width:g}"
         return f"{width:g} x {height:g}"
@@ -386,53 +373,16 @@ class LayersPage(PaletteStyled):
         key = (name, selected, ratio)
         if key not in self._pixmaps:
             self._pixmaps[key] = _icons.render(
-                name, _rows.icon_color(self, selected),
+                name, Rules.row_icon_color(self, selected),
                 _rows.ICON_PX, ratio)
         return self._pixmaps[key]
 
     def _apply_style(self):
         """Color the rows, the placeholders, and the footer from the
         palette."""
-        palette = self.palette()
-        text = palette.color(QtGui.QPalette.WindowText)
-        panel = palette.color(QtGui.QPalette.Window)
-        greyed = blend(text, panel, self._GREYED_MIX)
-        self.setStyleSheet(_rows.rules(self) + f"""
-            QLabel#empty {{
-                font-size: {self._EMPTY_PX}px;
-                color: {greyed.name()};
-            }}
-            QLabel#count {{
-                font-size: {self._COUNT_PX}px;
-                color: {blend(text, panel, self._MUTED_MIX).name()};
-            }}
-            QFrame#search {{
-                border: 1px solid {shade(self, self._BORDER_MIX).name()};
-                border-radius: {self._RADIUS}px;
-                background: {palette.color(QtGui.QPalette.Base).name()};
-            }}
-            QLineEdit#query {{
-                border: none;
-                background: transparent;
-                font-size: {self._SEARCH_PX}px;
-            }}
-            QPushButton#chip {{
-                border: none;
-                border-radius: {self._CHIP_RADIUS}px;
-                padding: 3px 8px;
-                font-size: {self._CHIP_PX}px;
-                background: transparent;
-                color: {greyed.name()};
-            }}
-            QPushButton#chip:checked {{
-                background: {shade(self, self._CHIP_MIX).name()};
-            }}
-            QToolButton#footer {{
-                border: 1px solid {shade(self, self._BORDER_MIX).name()};
-                border-radius: {self._RADIUS}px;
-                background: {palette.color(QtGui.QPalette.Base).name()};
-            }}
-            """)
+        self.setStyleSheet(Rules.sheet(self, "row", "name", "empty",
+                                       "count", "box", "editor", "chip"))
+        greyed = Shades(self).greyed
         ratio = self.devicePixelRatioF()
         self._filters.set_icon(
             _icons.render("search", greyed, self._ICON_PX, ratio))

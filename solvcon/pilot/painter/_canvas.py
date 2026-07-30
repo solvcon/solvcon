@@ -8,10 +8,11 @@ The Canvas page of the Painter inspector: how the canvas shows the world.
 import json
 import math
 
-from PySide6 import QtCore, QtGui, QtWidgets
+from PySide6 import QtCore, QtWidgets
 
+from .._style import PaletteStyled
 from ._sections import Placeholder, Section
-from ._style import blend, mono_font, rule, shade, PaletteStyled
+from ._style import Parts, Rules
 from ..panel._tree_panel import EntityTreeWidget
 
 __all__ = [
@@ -49,10 +50,10 @@ class _Readout(QtWidgets.QFrame):
         self.setObjectName("box")
         self.setFixedHeight(self._HEIGHT)
         name = QtWidgets.QLabel(label, self)
-        name.setObjectName("name")
+        name.setObjectName("label")
         self._value = QtWidgets.QLabel(self)
         self._value.setObjectName("value")
-        self._value.setFont(mono_font())
+        self._value.setFont(Parts.mono_font())
         layout = QtWidgets.QHBoxLayout(self)
         layout.setContentsMargins(*self._MARGINS)
         layout.setSpacing(self._GAP)
@@ -98,16 +99,6 @@ class CanvasPage(PaletteStyled):
 
     _ACTION_HEIGHT = 26
     _ACTION_GAP = 5
-    _LABEL_PX = 10
-    _VALUE_PX = 11
-    _ACTION_PX = 11
-    _RADIUS = 5
-
-    # How far each of these sits from the panel color.
-    _MUTED_MIX = 0.35
-    _GREYED_MIX = 0.6
-    _BORDER_MIX = 0.25
-    _HOVER_MIX = 0.08
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -168,7 +159,7 @@ class CanvasPage(PaletteStyled):
         layout.setSpacing(0)
         layout.addWidget(self._build_view())
         for title, waits_for in self.PLACEHOLDERS:
-            layout.addWidget(rule(QtWidgets.QFrame.HLine))
+            layout.addWidget(Parts.rule(QtWidgets.QFrame.HLine))
             self.placeholders[title] = Placeholder(
                 title, waits_for, parent=self)
             layout.addWidget(self.placeholders[title])
@@ -317,44 +308,7 @@ class CanvasPage(PaletteStyled):
     def _apply_style(self):
         """Color the section heads, the readout, and the buttons from the
         palette."""
-        palette = self.palette()
-        text = palette.color(QtGui.QPalette.WindowText)
-        panel = palette.color(QtGui.QPalette.Window)
-        muted = blend(text, panel, self._MUTED_MIX)
-        greyed = blend(text, panel, self._GREYED_MIX)
-        border = shade(self, self._BORDER_MIX)
-        base = palette.color(QtGui.QPalette.Base)
-        self.setStyleSheet(f"""
-            QLabel#section {{
-                color: {muted.name()};
-            }}
-            QLabel#section:disabled {{
-                color: {greyed.name()};
-            }}
-            QFrame#box {{
-                border: 1px solid {border.name()};
-                border-radius: {self._RADIUS}px;
-                background: {base.name()};
-            }}
-            QLabel#name {{
-                font-size: {self._LABEL_PX}px;
-                color: {muted.name()};
-            }}
-            QLabel#value {{
-                font-size: {self._VALUE_PX}px;
-            }}
-            QPushButton#action {{
-                border: 1px solid {border.name()};
-                border-radius: {self._RADIUS}px;
-                font-size: {self._ACTION_PX}px;
-                background: {base.name()};
-            }}
-            QPushButton#action:hover {{
-                background: {shade(self, self._HOVER_MIX).name()};
-            }}
-            QPushButton#action:disabled {{
-                color: {greyed.name()};
-            }}
-            """)
+        self.setStyleSheet(
+            Rules.sheet(self, "section", "box", "readout", "action"))
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:
