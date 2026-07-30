@@ -8,6 +8,8 @@ import itertools
 import importlib.util
 
 from ..base import _gui_common
+from .._style import PaletteStyle
+from ._style import Rules
 
 from ... import call_profiler
 from ... import apputil
@@ -32,6 +34,18 @@ from PySide6.QtGui import (
 )
 
 __all__ = ["Profiling"]
+
+
+class _ResultTree(PaletteStyle, QTreeView):
+    """The tree a profiling result is listed in."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self._apply_style()
+
+    def _apply_style(self):
+        self.setStyleSheet(Rules.sheet(self, "tree"))
 
 
 class Profiling(_gui_common.PilotFeature):
@@ -73,7 +87,7 @@ class Profiling(_gui_common.PilotFeature):
     def _add_result_window(self, result: list[dict[str, typing.Any]]):
         self._table = self._mgr.addSubWindow(QWidget())
         self._table.setWindowTitle("Profiling result")
-        self._tree_view = QTreeView(self._table)
+        self._tree_view = _ResultTree(self._table)
 
         self._model = QStandardItemModel(self._tree_view)
         self._model.setHorizontalHeaderLabels(
@@ -106,30 +120,9 @@ class Profiling(_gui_common.PilotFeature):
             for child_data in data["children"]:
                 _recursive_add_item(first_item, child_data, data['total_time'])
 
-        self._tree_view.setStyleSheet(
-            """
-            QTreeView {
-                background-color: #2e2e2e;
-                color: #dcdcdc;
-                border: 1px solid #555555;
-            }
-            QTreeView::item {
-                border: 1px solid #3c3c3c;
-                border-right: none;
-                border-bottom: none;
-            }
-            QTreeView::item:selected {
-                background-color: #4f4f4f;
-                color: white;
-            }
-            """
-        )
-
         self._tree_view.setModel(self._model)
         self._tree_view.setColumnWidth(0, 400)
         self._tree_view.setColumnWidth(1, 200)
-        self._tree_view.setEditTriggers(
-            QAbstractItemView.NoEditTriggers)
 
         self._table.setWidget(self._tree_view)
         self._table.showMaximized()
@@ -267,7 +260,7 @@ class RunProfiling(_gui_common.PilotFeature):
     def _add_result_window(self, result):
         self._table = self._mgr.addSubWindow(QWidget())
         self._table.setWindowTitle("Profiling result")
-        self._tree_view = QTreeView(self._table)
+        self._tree_view = _ResultTree(self._table)
 
         self._model = QStandardItemModel(self._tree_view)
         self._model.setHorizontalHeaderLabels(
@@ -302,31 +295,10 @@ class RunProfiling(_gui_common.PilotFeature):
             for child_data in data["children"]:
                 _recursive_add_item(first, child_data, data['total_time'])
 
-        self._tree_view.setStyleSheet(
-            """
-            QTreeView {
-                background-color: #2e2e2e;
-                color: #dcdcdc;
-                border: 1px solid #555555;
-            }
-            QTreeView::item {
-                border: 1px solid #3c3c3c;
-                border-right: none;
-                border-bottom: none;
-            }
-            QTreeView::item:selected {
-                background-color: #4f4f4f;
-                color: white;
-            }
-            """
-        )
-
         self._tree_view.setModel(self._model)
         self._tree_view.setColumnWidth(0, 200)
         self._tree_view.setColumnWidth(1, 200)
         self._tree_view.setColumnWidth(1, 200)
-        self._tree_view.setEditTriggers(
-            QAbstractItemView.NoEditTriggers)
 
         self._table.setWidget(self._tree_view)
         self._table.show()

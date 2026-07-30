@@ -7,12 +7,12 @@ The Design page of the Painter inspector: what is selected and where it sits.
 
 import math
 
-from PySide6 import QtCore, QtGui, QtWidgets
+from PySide6 import QtCore, QtWidgets
 
+from .._style import PaletteStyled, Shades
 from . import _icons
 from ._sections import Placeholder
-from ._style import (blend, mono_font, obb_metrics, rule, shade,
-                     PaletteStyled)
+from ._style import Parts, Rules
 
 __all__ = [
     'DesignPage',
@@ -61,7 +61,7 @@ class _Field(QtWidgets.QFrame):
         label.setObjectName("axis")
         label.setFixedWidth(self._LETTER_WIDTH)
         self._edit = QtWidgets.QLineEdit(self)
-        self._edit.setFont(mono_font())
+        self._edit.setFont(Parts.mono_font())
         self._edit.setReadOnly(not editable)
         # An editor asks for room for a line of text, and four of them would
         # open the dock wider than the inspector the design draws. The grid
@@ -169,16 +169,6 @@ class DesignPage(PaletteStyled):
     _GAP = 10
     _HEADER_GAP = 8
     _GRID_GAP = 6
-    _NAME_PX = 12
-    _SMALL_PX = 10
-    _VALUE_PX = 11
-    _RADIUS = 5
-
-    # How far each of these sits from the panel color.
-    _MUTED_MIX = 0.35
-    _GREYED_MIX = 0.6
-    _BADGE_MIX = 0.15
-    _BORDER_MIX = 0.25
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -235,10 +225,10 @@ class DesignPage(PaletteStyled):
         layout.setSpacing(0)
         layout.addWidget(self._build_selection())
         for title, waits_for in self.PLACEHOLDERS:
-            layout.addWidget(rule(QtWidgets.QFrame.HLine))
+            layout.addWidget(Parts.rule(QtWidgets.QFrame.HLine))
             layout.addWidget(self._add_placeholder(title, waits_for))
 
-        layout.addWidget(rule(QtWidgets.QFrame.HLine))
+        layout.addWidget(Parts.rule(QtWidgets.QFrame.HLine))
         layout.addWidget(
             self._add_placeholder("Layers", "shape names", folded=False))
         layout.addStretch(1)
@@ -263,7 +253,7 @@ class DesignPage(PaletteStyled):
         self._name.setObjectName("name")
         self._badge = QtWidgets.QLabel("1 selected", block)
         self._badge.setObjectName("badge")
-        self._badge.setFont(mono_font())
+        self._badge.setFont(Parts.mono_font())
         layout = QtWidgets.QHBoxLayout()
         layout.setSpacing(self._HEADER_GAP)
         layout.addWidget(self._icon)
@@ -331,7 +321,7 @@ class DesignPage(PaletteStyled):
             self._icon_name = kind if kind in _icons.ICONS else None
             self._name.setText(f"{kind.title()} {shape}")
             self._badge.setVisible(True)
-            metrics = obb_metrics(world.shape_obb(shape))
+            metrics = Parts.obb_metrics(world.shape_obb(shape))
             for (letter, _editable), value in zip(self._POSITION, metrics):
                 self.fields[letter].setEnabled(True)
                 self.fields[letter].set_value(value)
@@ -344,7 +334,7 @@ class DesignPage(PaletteStyled):
             self._icon.setVisible(False)
             return
         self._icon.setPixmap(_icons.render(
-            self._icon_name, self.palette().color(QtGui.QPalette.Highlight),
+            self._icon_name, Shades(self).accent,
             self._ICON_PX, self.devicePixelRatioF()))
         self._icon.setVisible(True)
 
@@ -354,7 +344,7 @@ class DesignPage(PaletteStyled):
         if world is None:
             return
         obb = world.shape_obb(shape)
-        center_x, center_y = obb_metrics(obb)[:2]
+        center_x, center_y = Parts.obb_metrics(obb)[:2]
         if "X" == axis:
             delta = (value - center_x, 0.0)
         else:
@@ -377,43 +367,8 @@ class DesignPage(PaletteStyled):
 
     def _apply_style(self):
         """Color the header, the badge, and the fields from the palette."""
-        palette = self.palette()
-        text = palette.color(QtGui.QPalette.WindowText)
-        panel = palette.color(QtGui.QPalette.Window)
-        muted = blend(text, panel, self._MUTED_MIX)
-        greyed = blend(text, panel, self._GREYED_MIX)
-        self.setStyleSheet(f"""
-            QLabel#name {{
-                font-size: {self._NAME_PX}px;
-            }}
-            QLabel#axis {{
-                font-size: {self._SMALL_PX}px;
-                color: {muted.name()};
-            }}
-            QLabel#axis:disabled {{
-                color: {greyed.name()};
-            }}
-            QLabel#badge {{
-                border-radius: 4px;
-                padding: 2px 6px;
-                font-size: {self._SMALL_PX}px;
-                background: {shade(self, self._BADGE_MIX).name()};
-                color: {muted.name()};
-            }}
-            QFrame#field {{
-                border: 1px solid {shade(self, self._BORDER_MIX).name()};
-                border-radius: {self._RADIUS}px;
-                background: {palette.color(QtGui.QPalette.Base).name()};
-            }}
-            QLineEdit {{
-                border: none;
-                background: transparent;
-                font-size: {self._VALUE_PX}px;
-            }}
-            QLineEdit:read-only {{
-                color: {muted.name()};
-            }}
-            """)
+        self.setStyleSheet(
+            Rules.sheet(self, "name", "axis", "badge", "box", "editor"))
         self._show_icon()
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:
