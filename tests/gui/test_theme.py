@@ -3,6 +3,7 @@
 
 
 import os
+import re
 import unittest
 
 import solvcon
@@ -10,6 +11,7 @@ import solvcon
 try:
     from solvcon import pilot
     from solvcon.pilot.base import _gui
+    from solvcon.pilot.panel import _profiling
     from PySide6 import QtWidgets
     from PySide6.QtCore import QSettings, QStandardPaths
     from PySide6.QtGui import QColor, QPalette
@@ -319,6 +321,41 @@ class ThemeConsoleTC(unittest.TestCase):
         for edit in self._console_edits():
             self.assertLess(
                 edit.palette().color(QPalette.Text).lightness(), 100)
+
+
+@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
+                 "pilot windows need a real window surface")
+class ThemePanelTC(unittest.TestCase):
+    """A dock panel mixes the shades the palette does not give it into a
+    style sheet of its own, so it follows the theme only because the switch
+    reaches it as a palette change.
+
+    That the shades come off the palette at all is
+    ``tests/test_pilot_panel_style.py``'s subject; this is the switch.
+    """
+
+    def setUp(self):
+        self.mgr = pilot.RManager.instance.setUp()
+
+    def tearDown(self):
+        # The manager is a shared singleton, so restore the default mode to
+        # keep the tests independent of the order they run in.
+        self.mgr.set_theme("system")
+
+    @staticmethod
+    def _sheet_lightness(tree):
+        """The average lightness of the colors the tree's rules name."""
+        colors = re.findall(r"#[0-9a-fA-F]{6}", tree.styleSheet())
+        return sum(QColor(name).lightness() for name in colors) / len(colors)
+
+    def test_an_open_profiling_tree_follows_a_later_switch(self):
+        # The tree is built first and the theme changed after, the path that
+        # used to leave a dark tree sitting in a light panel.
+        tree = _profiling._ResultTree()
+        self.mgr.set_theme("dark")
+        dark = self._sheet_lightness(tree)
+        self.mgr.set_theme("light")
+        self.assertLess(dark, self._sheet_lightness(tree))
 
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
