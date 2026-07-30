@@ -10,6 +10,7 @@ import math
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from . import _icons
+from ._sections import Placeholder
 from ._style import (blend, mono_font, obb_metrics, rule, shade,
                      PaletteStyled)
 
@@ -133,34 +134,6 @@ class _Field(QtWidgets.QFrame):
             self.committed.emit(value)
 
 
-class _Placeholder(QtWidgets.QWidget):
-    """A greyed-out stand-in for a section the model cannot fill yet.
-
-    It carries the design's own title, so the page keeps its designed shape.
-    """
-
-    _ARROW = chr(0x25b8)
-    _MARGINS = (12, 11, 12, 11)
-    _FONT_PX = 10
-    _LETTER_SPACING = 110
-
-    def __init__(self, title, waits_for, folded=True, parent=None):
-        super().__init__(parent)
-        text = f"{self._ARROW}  {title.upper()}" if folded else title.upper()
-        label = QtWidgets.QLabel(text, self)
-        label.setObjectName("section")
-        font = label.font()
-        font.setPixelSize(self._FONT_PX)
-        font.setLetterSpacing(QtGui.QFont.PercentageSpacing,
-                              self._LETTER_SPACING)
-        label.setFont(font)
-        layout = QtWidgets.QHBoxLayout(self)
-        layout.setContentsMargins(*self._MARGINS)
-        layout.addWidget(label)
-        self.setToolTip(f"{title}  (needs {waits_for})")
-        self.setEnabled(False)
-
-
 class DesignPage(PaletteStyled):
     """The inspector's Design page: the selected shape and its position.
 
@@ -271,7 +244,7 @@ class DesignPage(PaletteStyled):
         layout.addStretch(1)
 
     def _add_placeholder(self, title, waits_for, folded=True):
-        self.placeholders[title] = _Placeholder(title, waits_for, folded, self)
+        self.placeholders[title] = Placeholder(title, waits_for, folded, self)
         return self.placeholders[title]
 
     def _build_selection(self):
