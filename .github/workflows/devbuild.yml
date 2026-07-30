@@ -224,8 +224,10 @@ jobs:
           install_name_tool -add_rpath $(qtpaths --install-prefix)/lib ${PYSIDE6_PATH}/QtCore.abi3.so
           JOB_MAKE_ARGS="${JOB_MAKE_ARGS} BUILD_METAL=ON" ; \
         fi
-        # Left at the default so one job runs the GUI tests with their windows
-        # off the screen; run_pilot_pytest below maps its windows.
+        # The live-window widget classes run once per OS, in run_pilot_pytest
+        # below; what stays here needs no window, so SOLVCON_TEST_SHOW_WINDOWS
+        # is left at the default. A schedule run leaves the guard empty.
+        export SOLVCON_SKIP_PILOT_WIDGET_TESTS=${{ github.event_name != 'schedule' && '1' || '' }}
         make pytest ${JOB_MAKE_ARGS}
         echo "::endgroup::"
 

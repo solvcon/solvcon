@@ -6,6 +6,7 @@ import os
 import unittest
 
 import solvcon
+from pilot_ci import SKIP_PILOT_WIDGETS
 
 try:
     from solvcon import pilot
@@ -22,7 +23,7 @@ BUILTINS = ["File", "Edit", "View", "One", "Mesh", "Canvas", "Profiling",
             "Window"]
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
+@unittest.skipIf(NO_LIVE_WINDOW or SKIP_PILOT_WIDGETS or not solvcon.HAS_PILOT,
                  "pilot windows need a real window surface")
 class BarStructureTC(unittest.TestCase):
     def test_full_bar_is_assembled_from_the_model(self):

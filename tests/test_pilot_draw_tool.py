@@ -6,6 +6,7 @@ import os
 import unittest
 
 import solvcon
+from pilot_ci import SKIP_PILOT_WIDGETS
 
 try:
     from solvcon import pilot
@@ -66,7 +67,7 @@ class PainterIconTC(unittest.TestCase):
                 self.assertLess(scaled[3], 2 * self._SIZE - 1)
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
+@unittest.skipIf(NO_LIVE_WINDOW or SKIP_PILOT_WIDGETS or not solvcon.HAS_PILOT,
                  "pilot windows need a real window surface")
 class DrawToolTC(unittest.TestCase):
     def setUp(self):

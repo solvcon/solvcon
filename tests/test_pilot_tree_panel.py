@@ -6,6 +6,7 @@ import os
 import unittest
 
 import solvcon
+from pilot_ci import SKIP_PILOT_WIDGETS
 
 try:
     from solvcon import pilot
@@ -140,7 +141,7 @@ class MakeMeshInfoTC(unittest.TestCase):
         self.assertEqual(binfo, [[0, mh.nbound]])
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
+@unittest.skipIf(NO_LIVE_WINDOW or SKIP_PILOT_WIDGETS or not solvcon.HAS_PILOT,
                  "pilot windows need a real window surface")
 class MeshInfoTreeTC(unittest.TestCase):
     def setUp(self):
@@ -161,7 +162,7 @@ class MeshInfoTreeTC(unittest.TestCase):
                          Qt.Checked)
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
+@unittest.skipIf(NO_LIVE_WINDOW or SKIP_PILOT_WIDGETS or not solvcon.HAS_PILOT,
                  "pilot windows need a real window surface")
 class EntityTreeWidgetTC(unittest.TestCase):
     def setUp(self):
@@ -197,7 +198,7 @@ class EntityTreeWidgetTC(unittest.TestCase):
         self.assertFalse(tree._timer.isActive())
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
+@unittest.skipIf(NO_LIVE_WINDOW or SKIP_PILOT_WIDGETS or not solvcon.HAS_PILOT,
                  "pilot windows need a real window surface")
 class TreePanelTC(unittest.TestCase):
     def setUp(self):

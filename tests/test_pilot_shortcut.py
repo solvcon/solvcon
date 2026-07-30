@@ -6,6 +6,7 @@ import os
 import unittest
 
 import solvcon
+from pilot_ci import SKIP_PILOT_WIDGETS
 
 try:
     from solvcon import pilot
@@ -220,7 +221,7 @@ class ShortcutResolutionTC(unittest.TestCase):
         self.assertIn(frozenset({"edit.undo", "window.console"}), pairs)
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
+@unittest.skipIf(NO_LIVE_WINDOW or SKIP_PILOT_WIDGETS or not solvcon.HAS_PILOT,
                  "pilot windows need a real window surface")
 class ShortcutTC(unittest.TestCase):
     """Live QAction bindings for the commands routed through the roof."""
@@ -280,7 +281,7 @@ class ShortcutTC(unittest.TestCase):
             self.assertEqual(action.menuRole(), QtGui.QAction.NoRole)
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
+@unittest.skipIf(NO_LIVE_WINDOW or SKIP_PILOT_WIDGETS or not solvcon.HAS_PILOT,
                  "pilot windows need a real window surface")
 class ApplyShortcutHelperTC(unittest.TestCase):
     """apply_shortcut installs a binding by objectName without hand wiring."""
@@ -310,7 +311,8 @@ class ApplyShortcutHelperTC(unittest.TestCase):
         self.assertEqual(act.menuRole(), QtGui.QAction.AboutRole)
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT or QTest is None,
+@unittest.skipIf(NO_LIVE_WINDOW or SKIP_PILOT_WIDGETS
+                 or not solvcon.HAS_PILOT or QTest is None,
                  "live key delivery needs a real window surface and QtTest")
 class DrawToolShortcutTC(unittest.TestCase):
     """The draw-tool letters reach a focused canvas and nothing else."""

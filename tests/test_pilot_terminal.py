@@ -14,6 +14,7 @@ events, so they need the Qt pilot but no on-screen rendering.
 import unittest
 
 import solvcon
+from pilot_ci import SKIP_PILOT_WIDGETS
 
 try:
     from solvcon import pilot
@@ -35,8 +36,9 @@ def _send_key(widget, key, text="", mod=None):
         QtWidgets.QApplication.sendEvent(widget, event)
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT and pilot is not None,
-                     "Qt pilot is not built")
+@unittest.skipUnless(solvcon.HAS_PILOT and pilot is not None
+                     and not SKIP_PILOT_WIDGETS,
+                     "Qt pilot is not built, or widget tests are skipped")
 class TerminalWidgetTC(unittest.TestCase):
 
     @classmethod

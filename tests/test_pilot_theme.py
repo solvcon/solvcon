@@ -6,6 +6,7 @@ import os
 import unittest
 
 import solvcon
+from pilot_ci import SKIP_PILOT_WIDGETS
 
 try:
     from solvcon import pilot
@@ -25,7 +26,7 @@ NO_LIVE_WINDOW = ((os.getenv('QT_QPA_PLATFORM') or '').startswith('offscreen')
                   or ('nt' == os.name and bool(os.getenv('GITHUB_ACTIONS'))))
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
+@unittest.skipIf(NO_LIVE_WINDOW or SKIP_PILOT_WIDGETS or not solvcon.HAS_PILOT,
                  "pilot windows need a real window surface")
 class ThemeManagerTC(unittest.TestCase):
     def setUp(self):
@@ -67,7 +68,7 @@ class ThemeManagerTC(unittest.TestCase):
         self.assertEqual(self.mgr.theme_mode, "system")
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
+@unittest.skipIf(NO_LIVE_WINDOW or SKIP_PILOT_WIDGETS or not solvcon.HAS_PILOT,
                  "pilot windows need a real window surface")
 class ThemeMenuTC(unittest.TestCase):
     def setUp(self):
@@ -128,7 +129,7 @@ class ThemeMenuTC(unittest.TestCase):
         self.assertEqual(checked.objectName(), "theme.mode_dark")
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
+@unittest.skipIf(NO_LIVE_WINDOW or SKIP_PILOT_WIDGETS or not solvcon.HAS_PILOT,
                  "pilot windows need a real window surface")
 class ThemeLookTC(unittest.TestCase):
     def setUp(self):
@@ -181,7 +182,7 @@ class ThemeLookTC(unittest.TestCase):
                          "theme.look_system")
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
+@unittest.skipIf(NO_LIVE_WINDOW or SKIP_PILOT_WIDGETS or not solvcon.HAS_PILOT,
                  "pilot windows need a real window surface")
 class ThemePolishTC(unittest.TestCase):
     def setUp(self):
@@ -217,7 +218,7 @@ class ThemePolishTC(unittest.TestCase):
         self.assertEqual(settings.value("theme/look"), "system")
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
+@unittest.skipIf(NO_LIVE_WINDOW or SKIP_PILOT_WIDGETS or not solvcon.HAS_PILOT,
                  "pilot windows need a real window surface")
 class ThemeCanvasTC(unittest.TestCase):
     """The 2D canvas fills every pixel itself instead of letting the style
@@ -266,7 +267,7 @@ class ThemeCanvasTC(unittest.TestCase):
             self.app.palette().color(QPalette.Window).lightness())
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
+@unittest.skipIf(NO_LIVE_WINDOW or SKIP_PILOT_WIDGETS or not solvcon.HAS_PILOT,
                  "pilot windows need a real window surface")
 class ThemeConsoleTC(unittest.TestCase):
     def setUp(self):

@@ -10,6 +10,7 @@ import os
 import unittest
 
 import solvcon
+from pilot_ci import SKIP_PILOT_WIDGETS
 
 try:
     from solvcon import pilot
@@ -240,7 +241,7 @@ class PainterDesignPageTC(unittest.TestCase):
         self.assertNotEqual(self.page._icon.pixmap().toImage(), icon)
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
+@unittest.skipIf(NO_LIVE_WINDOW or SKIP_PILOT_WIDGETS or not solvcon.HAS_PILOT,
                  "pilot windows need a real window surface")
 class PainterDesignCanvasTC(unittest.TestCase):
     """The page against a real canvas, bound by the Painter dock."""

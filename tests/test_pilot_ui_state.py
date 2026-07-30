@@ -12,6 +12,7 @@ import tempfile
 import unittest
 
 import solvcon
+from pilot_ci import SKIP_PILOT_WIDGETS
 
 try:
     from solvcon import pilot
@@ -45,7 +46,7 @@ class FakePart(object):
         return self.value
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
+@unittest.skipIf(NO_LIVE_WINDOW or SKIP_PILOT_WIDGETS or not solvcon.HAS_PILOT,
                  "pilot windows need a real window surface")
 class GeometrySeamTC(unittest.TestCase):
     """Drive the geometry policy against a hidden, fully controlled window.
@@ -109,7 +110,7 @@ class GeometrySeamTC(unittest.TestCase):
         self.assertEqual(part.capture()["height"], 420)
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
+@unittest.skipIf(NO_LIVE_WINDOW or SKIP_PILOT_WIDGETS or not solvcon.HAS_PILOT,
                  "pilot windows need a real window surface")
 class UiStateTC(unittest.TestCase):
     """UiState coordinates any number of named parts, not windows alone."""

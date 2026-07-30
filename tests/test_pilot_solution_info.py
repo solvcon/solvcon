@@ -9,6 +9,7 @@ import unittest
 import numpy as np
 
 import solvcon
+from pilot_ci import SKIP_PILOT_WIDGETS
 from solvcon.multidim.euler import oblique
 
 try:
@@ -70,7 +71,7 @@ class ComputeFieldTC(unittest.TestCase):
             density, svr.so0n.ndarray[svr.ngstcell:, 0])
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
+@unittest.skipIf(NO_LIVE_WINDOW or SKIP_PILOT_WIDGETS or not solvcon.HAS_PILOT,
                  "pilot windows need a real window surface")
 class SolutionInfoTC(unittest.TestCase):
     def setUp(self):
@@ -189,7 +190,7 @@ class SolutionInfoTC(unittest.TestCase):
         QApplication.processEvents()
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
+@unittest.skipIf(NO_LIVE_WINDOW or SKIP_PILOT_WIDGETS or not solvcon.HAS_PILOT,
                  "pilot windows need a real window surface")
 class SolutionInspectorTC(unittest.TestCase):
     """The wired controller refreshes the inspector when a run sets the

@@ -13,6 +13,7 @@ from xml.etree import ElementTree
 import numpy as np
 
 import solvcon
+from pilot_ci import SKIP_PILOT_WIDGETS
 
 try:
     from solvcon import pilot
@@ -389,7 +390,7 @@ class R2DWidgetWorldTC(unittest.TestCase):
                 "circle interior should be hollow")
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
+@unittest.skipIf(NO_LIVE_WINDOW or SKIP_PILOT_WIDGETS or not solvcon.HAS_PILOT,
                  "live-GUI interaction needs a real window surface")
 class R2DWidgetSelectToolTC(unittest.TestCase):
     """Drive the select tool through select, move, rotate, and deselect."""
@@ -1049,7 +1050,7 @@ class R2DWidgetExportOverlayTC(unittest.TestCase):
         self.assertGreater(labeled, plain)
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
+@unittest.skipIf(NO_LIVE_WINDOW or SKIP_PILOT_WIDGETS or not solvcon.HAS_PILOT,
                  "theme switching needs a real window surface")
 class R2DWidgetThemeTC(unittest.TestCase):
     """The painted frame follows the theme, not just the palette the widget
@@ -1098,7 +1099,7 @@ class R2DWidgetThemeTC(unittest.TestCase):
                                  self.widget.canvasPalette["background"])
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
+@unittest.skipIf(NO_LIVE_WINDOW or SKIP_PILOT_WIDGETS or not solvcon.HAS_PILOT,
                  "live-GUI interaction needs a real window surface")
 class PainterToolboxTC(unittest.TestCase):
     """Run-through coverage of the Painter toolbox and the 'Create blank 2D
