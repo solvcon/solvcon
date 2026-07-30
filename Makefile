@@ -301,6 +301,13 @@ checkascii:
 checktws:
 	$(WHICH_PYTHON) contrib/lint/check_ascii.py --check-tws
 
+# Keep the window tests under tests/gui and everything else out of it, so the
+# two CI lanes keep selecting what they mean to. tests/gui/README.md states
+# the rule.
+.PHONY: checktests
+checktests:
+	$(WHICH_PYTHON) contrib/lint/check_test_layout.py
+
 # Run the lint targets concurrently, scaled to the processor count, and keep
 # going on failure so every check reports before make exits non-zero.
 .PHONY: lint
@@ -308,7 +315,7 @@ lint:
 	@$(MAKE) --no-print-directory -j $(NPROC) -k lint_targets
 
 .PHONY: lint_targets
-lint_targets: cformat cinclude flake8 checkascii checktws
+lint_targets: cformat cinclude flake8 checkascii checktws checktests
 
 .PHONY: pyformat
 pyformat:

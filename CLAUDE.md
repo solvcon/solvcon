@@ -111,6 +111,12 @@ without installation, and works around macOS SIP stripping `DYLD_LIBRARY_PATH`.
   does not take over the desktop (`tests/conftest.py`). Export
   `SOLVCON_TEST_SHOW_WINDOWS=ON` to watch the windows instead, which hands
   them the desktop and the keyboard for the length of the run.
+- Tests that need a real top-level window live under `tests/gui/`;
+  everything else lives in `tests/`. CI selects between them by path, so a
+  new window test filed outside `tests/gui/` runs where no window can back
+  it. `make pytest` runs both, `make pytest-fast` skips `tests/gui/`, and
+  `make pytest-gui` runs only it. `tests/gui/README.md` states the rule and
+  `make checktests` enforces it.
 - `make gtest` -- build and run the full C++ test suite.
 - `./build/rel<pyvminor>/gtests/run_gtest --gtest_filter=Suite.Test` -- run a
   single gtest after `make gtest` has built the binary
@@ -118,7 +124,7 @@ without installation, and works around macOS SIP stripping `DYLD_LIBRARY_PATH`.
 - `make pyprof` -- run profiling benchmarks; results land in
   `profiling/results/`.
 
-**Lint** (`make lint` runs all five)
+**Lint** (`make lint` runs all six)
 
 - `make cformat` -- check C++ formatting (read-only; use
   `make FORCE_CLANG_FORMAT=inplace cformat` to fix).
@@ -126,6 +132,7 @@ without installation, and works around macOS SIP stripping `DYLD_LIBRARY_PATH`.
 - `make flake8` -- Python style and 79-char line limit.
 - `make checkascii` -- reject non-ASCII bytes in source.
 - `make checktws` -- reject trailing whitespace.
+- `make checktests` -- reject a test filed in the wrong lane (see below).
 
 **Format**
 
