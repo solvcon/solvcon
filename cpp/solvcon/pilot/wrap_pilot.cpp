@@ -658,6 +658,13 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapR2DWidget
                 py::return_value_policy::copy)
             .def("setViewTransform", &wrapped_type::setViewTransform, py::arg("v"))
             .def("resetView", &wrapped_type::resetView)
+            .def_property_readonly(
+                "viewportSize",
+                [](wrapped_type & self)
+                {
+                    return py::make_tuple(self.width(), self.height());
+                },
+                "The drawing area as (width, height) in device-independent pixels.")
             .def("updateWorld", &wrapped_type::updateWorld, py::arg("world"))
             .def_property_readonly("world", &wrapped_type::world)
             .def("requestRepaint", &wrapped_type::requestRepaint)
