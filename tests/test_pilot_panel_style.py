@@ -43,49 +43,41 @@ def _colors(sheet):
 
 @unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
 class ProfilingResultTreeTC(unittest.TestCase):
-    """That a profiling result is colored by the theme it is read under."""
+    """That a profiling result is colored by the palette it is read under.
+
+    The palette is set on the tree rather than switched on the application,
+    which would repaint the whole pilot window; on macOS the native style
+    faults painting one into a backing store that no screen is behind. What
+    a theme switch does to the application palette is
+    ``tests/gui/test_theme.py``'s subject.
+    """
 
     @classmethod
     def setUpClass(cls):
         # No window needed, only a live QGuiApplication to hold a widget.
         pilot.RManager.instance.setUp()
 
-    def setUp(self):
-        self.app = QtWidgets.QApplication.instance()
-        self.mgr = pilot.RManager.instance
-        self.addCleanup(self.mgr.set_theme, self.mgr.theme_mode)
-        self.tree = _profiling._ResultTree()
+    def _tree(self, palette):
+        """A tree wearing the ``palette``.
 
-    def _sheet(self, mode):
-        """The rules the tree wears under the ``mode`` theme."""
-        self.mgr.set_theme(mode)
-        self.app.processEvents()
-        return self.tree.styleSheet()
-
-    def _accents(self):
-        palette = self.app.palette()
-        return {palette.color(role).name().lower()
-                for role in (QtGui.QPalette.Highlight,
-                             QtGui.QPalette.HighlightedText)}
-
-    def _shades(self, mode):
-        """The colors the rules mix off the surface under ``mode``.
-
-        The accent pair is left out because the curated themes carry one
-        accent through a light/dark switch, so only a mixed shade has to
-        move.
+        A fresh one each time, because the style sheet a tree applies for its
+        first palette pins the colors Qt re-polishes it with, and a second
+        palette on the same tree snaps back to them.
         """
-        return _colors(self._sheet(mode)) - self._accents()
+        tree = _profiling._ResultTree()
+        tree.setPalette(_palette(*palette))
+        return tree
 
-    def test_the_tree_mixes_its_shades_from_the_theme(self):
-        # A color the rules name themselves survives a theme switch, so it
+    def test_the_tree_mixes_its_shades_from_the_palette(self):
+        # A color the rules name themselves survives both palettes, so it
         # shows up on both sides of this and the sets intersect.
-        self.assertFalse(self._shades("light") & self._shades("dark"))
+        self.assertFalse(_colors(self._tree(LIGHT).styleSheet())
+                         & _colors(self._tree(DARK).styleSheet()))
 
     def test_the_selected_row_wears_the_accent(self):
-        sheet = self._sheet("dark")
-        accent = self.app.palette().color(QtGui.QPalette.Highlight)
-        self.assertIn(accent.name().lower(), _colors(sheet))
+        tree = self._tree(DARK)
+        accent = tree.palette().color(QtGui.QPalette.Highlight)
+        self.assertIn(accent.name().lower(), _colors(tree.styleSheet()))
 
 
 @unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
