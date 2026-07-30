@@ -11,6 +11,7 @@ thirdparty/install/
 thirdparty/archive/
 tmp/
 setup.mk
+CMakeUserPresets.json
 *.egg-info/
 *.pyc
 *.pyo

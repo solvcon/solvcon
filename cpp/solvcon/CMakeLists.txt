@@ -212,6 +212,10 @@ if (NOT APPLE)
         "Use pre-built Intel oneAPI MKL for BLAS/LAPACK instead of OpenBLAS"
         "$ENV{SOLVCON_USE_MKL}")
 
+    # The find_package(LAPACK) below reads it, and MKL skips that branch, so
+    # report it here as well.
+    message(STATUS "BLA_VENDOR: ${BLA_VENDOR}")
+
     # Intel oneAPI MKL is an optimized, pre-built vendor BLAS/LAPACK for x86.
     # Its single dynamic runtime (mkl_rt, LP64) exports both the reference CBLAS
     # entry points and the Fortran LAPACK symbols declared in lapack_compat.hpp,
