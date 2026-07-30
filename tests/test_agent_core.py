@@ -5,6 +5,7 @@
 """Tests for the headless AgentSession core (GUI-free), with fake
 orchestration and in-tree Agent Draw integration."""
 
+import os
 import json
 import unittest
 
@@ -205,6 +206,81 @@ class SceneContextTC(unittest.TestCase):
         self.assertIn("2 shapes", context)
         self.assertIn("circle", context)
         self.assertIn("rectangle", context)
+
+    def test_lists_shapes_below_the_header(self):
+        session = agent.AgentSession(world=_FakeWorld(["circle"]))
+        lines = session.scene_context().splitlines()
+        self.assertEqual(lines[1], "  #0 circle")
+
+    def test_describe_state_failure_falls_back_to_a_plain_count(self):
+        class _BadWorld:
+            nshape = 3
+
+            def describe_state(self, level="basic"):
+                raise RuntimeError("no describe")
+
+        self.assertEqual(agent.AgentSession(world=_BadWorld()).scene_context(),
+                         "world with 3 shapes")
+
+
+class ArtifactOffloadTC(unittest.TestCase):
+    """The session moves render_png's base64 out of the result value and into
+    its artifact store, so the transcript never carries the bytes."""
+
+    @staticmethod
+    def _renderer(world, view, width, height, antialiasing):
+        return b"PNGBYTES"
+
+    def test_render_png_value_becomes_a_path_reference(self):
+        world = solvcon.WorldFp64()
+        session = agent.AgentSession(world=world, renderer=self._renderer)
+        self.addCleanup(session.close)
+        result = session.apply_commands(
+            [{"op": "render_png", "width": 8, "height": 8}])[0]
+        self.assertTrue(result.ok, result.error)
+        image = result.value["image"]
+        self.assertNotIn("data", image)
+        self.assertEqual(os.path.dirname(image["path"]),
+                         session.artifacts.root)
+        with open(image["path"], "rb") as fobj:
+            self.assertEqual(fobj.read(), b"PNGBYTES")
+        # The recorded turn holds the reference, not the base64 bytes.
+        turn_value = session.transcript[0].results[0].value
+        self.assertEqual(turn_value["image"], image)
+
+    def test_unstorable_render_annotates_the_reference(self):
+        # A blob that cannot be stored (here, an exhausted quota) is a harness
+        # storage problem, not a command failure: the render still reports ok,
+        # but its reference carries the error in place of data or a path.
+        world = solvcon.WorldFp64()
+        session = agent.AgentSession(world=world, renderer=self._renderer)
+        session._artifacts = agent.ArtifactStore(quota=1)
+        self.addCleanup(session.close)
+        result = session.apply_commands(
+            [{"op": "render_png", "width": 8, "height": 8}])[0]
+        self.assertTrue(result.ok)
+        image = result.value["image"]
+        self.assertNotIn("data", image)
+        self.assertNotIn("path", image)
+        self.assertIn("quota", image["error"])
+
+    def test_no_render_builds_no_store(self):
+        world = solvcon.WorldFp64()
+        session = agent.AgentSession(world=world)
+        self.addCleanup(session.close)
+        session.apply_commands(
+            [{"op": "add_circle", "cx": 0.0, "cy": 0.0, "r": 1.0}])
+        self.assertIsNone(session._artifacts)
+
+    def test_close_removes_the_store_directory(self):
+        world = solvcon.WorldFp64()
+        session = agent.AgentSession(world=world, renderer=self._renderer)
+        session.apply_commands(
+            [{"op": "render_png", "width": 8, "height": 8}])
+        root = session.artifacts.root
+        session.close()
+        self.assertFalse(os.path.exists(root))
+        self.assertIsNone(session._artifacts)
 
 
 class AgentDrawIntegrationTC(unittest.TestCase):

@@ -13,6 +13,8 @@ applied command into a transcript a caller can render.  No Qt is imported.
 import json
 import dataclasses
 
+from . import _observe
+
 
 @dataclasses.dataclass
 class TranscriptTurn:
@@ -61,11 +63,28 @@ class AgentSession:
         self._runner_injected = runner is not None
         self.allow_destructive = allow_destructive
         self._transcript = []
+        self._artifacts = None
 
     @property
     def transcript(self):
         """The recorded turns, oldest first (a copy)."""
         return list(self._transcript)
+
+    @property
+    def artifacts(self):
+        """The session artifact store, built on first use so a session that
+        never renders never creates a temp directory."""
+        if self._artifacts is None:
+            from ._artifact import ArtifactStore
+            self._artifacts = ArtifactStore()
+        return self._artifacts
+
+    def close(self):
+        """Release session resources: remove the artifact store directory.
+        Safe to call more than once."""
+        if self._artifacts is not None:
+            self._artifacts.close()
+            self._artifacts = None
 
     @property
     def runner(self):
@@ -107,9 +126,9 @@ class AgentSession:
         return set(by_category.get("delete", ()))
 
     def scene_context(self, level="basic"):
-        """A short text summary of the world for the model: the shape count
-        and distinct types from ``world.describe_state(...)`` (JSON), or a
-        plain count when it cannot be described."""
+        """A bounded scene snapshot for the model from
+        ``world.describe_state(...)`` (JSON), formatted per the composition
+        rules, or a plain count when the world cannot be described."""
         world = self.world
         if world is None:
             return "no active world"
@@ -117,10 +136,7 @@ class AgentSession:
             state = json.loads(world.describe_state(level=level))
         except Exception:
             return "world with %s shapes" % getattr(world, "nshape", "?")
-        shapes = state.get("shapes", [])
-        types = sorted({s["type"] for s in shapes if "type" in s})
-        kinds = ", ".join(types) if types else "none"
-        return "world with %d shapes (types: %s)" % (len(shapes), kinds)
+        return _observe.format_scene(state)
 
     @staticmethod
     def _op_of(command):
@@ -170,6 +186,21 @@ class AgentSession:
                 results.append(_OutcomeStub(
                     self._op_of(command),
                     error="%s: %s" % (type(exc).__name__, exc)))
+        return self._offload_results(results)
+
+    def _offload_results(self, results):
+        """Move any base64 blob in a result value into the artifact store,
+        leaving a path reference so the transcript and prompt never carry the
+        bytes.  A blob that cannot be stored (quota, bad base64, a filesystem
+        error) leaves an ``error`` in its reference rather than a path; the
+        command outcome is unchanged, since storing the artifact is the
+        harness's job, not the command's.  Builds no store until a blob
+        actually appears."""
+        for result in results:
+            value = getattr(result, "value", None)
+            if value is None or not _observe.has_blob(value):
+                continue
+            result.value = _observe.offload_blobs(value, self.artifacts)
         return results
 
     def _record_agent(self, text, commands=(), results=()):
