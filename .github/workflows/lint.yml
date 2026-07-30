@@ -131,6 +131,12 @@ jobs:
         make checktws
         echo "::endgroup::"
 
+    - name: make checktests (check test lane layout)
+      run: |
+        echo "::group::make checktests"
+        make checktests
+        echo "::endgroup::"
+
     - name: make flake8
       run: |
         echo "::group::make flake8"
