@@ -5,10 +5,14 @@
 The Canvas page of the Painter inspector: how the canvas shows the world.
 """
 
+import json
+import math
+
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from ._sections import Placeholder, Section
 from ._style import blend, mono_font, rule, shade, PaletteStyled
+from ..panel._tree_panel import EntityTreeWidget
 
 __all__ = [
     'CanvasPage',
@@ -19,9 +23,18 @@ def _format_zoom(zoom):
     """Return the zoom as the readout shows it, screen pixels per world unit
     read as a percentage."""
     percent = 100.0 * zoom
-    # Whole percents while the view is anywhere near its own scale, which is
-    # what the design shows; a far zoom out needs the digits below one.
     return f"{round(percent):g}%" if percent >= 1.0 else f"{percent:.3g}%"
+
+
+def _box_center(bounds):
+    """The middle of ``bounds`` as ``(min_x, min_y, max_x, max_y)``.
+
+    Halved before summed: two bounds far enough out add up past the double
+    range, and the middle between them would come back infinite though it lies
+    well inside.
+    """
+    min_x, min_y, max_x, max_y = bounds
+    return 0.5 * min_x + 0.5 * max_x, 0.5 * min_y + 0.5 * max_y
 
 
 class _Readout(QtWidgets.QFrame):
@@ -61,18 +74,14 @@ class CanvasPage(PaletteStyled):
     """The inspector's Canvas page: the view over the bound canvas.
 
     Like the other pages, this one reads the canvas it is bound to on a timer,
-    because the view carries no change signal. What the poll compares is the
-    zoom, which is what the View section reads; the pan is left out, since it
-    moves the view without changing that.
-
-    The buttons that act on the view, and the sections the model cannot back
-    yet, arrive with later steps of the redesign; they stand here as their
-    designed titles, greyed out.
+    because neither the world nor the view carries a change signal. What the
+    poll compares is the zoom, which the readout shows, and counts of what the
+    world holds, which say whether there is anything to fit. The pan is left
+    out: it moves the view without changing either.
     """
 
     # Poll period in milliseconds, the Design page's rate and for its reason:
-    # the reading is cheap enough to take this often, and a slower one reads as
-    # lag while the wheel moves the zoom under it.
+    # a slower one reads as lag while the wheel moves the zoom under it.
     _POLL_MS = 60
 
     #: The greyed-out sections, as ``(title, what the section waits for)``.
@@ -83,19 +92,28 @@ class CanvasPage(PaletteStyled):
         ("Units", "display units and precision"),
     )
 
+    _FIT_MARGIN = 0.9
+    # Stand-in span when content has no extent on either axis.
+    _MIN_SPAN = 1.0
+
+    _ACTION_HEIGHT = 26
+    _ACTION_GAP = 5
     _LABEL_PX = 10
     _VALUE_PX = 11
+    _ACTION_PX = 11
     _RADIUS = 5
 
     # How far each of these sits from the panel color.
     _MUTED_MIX = 0.35
     _GREYED_MIX = 0.6
     _BORDER_MIX = 0.25
+    _HOVER_MIX = 0.08
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self._source = None
-        self._key = None
+        self._key = (None, None)
+        self.buttons = {}
         self.placeholders = {}
         self._build()
         self._timer = QtCore.QTimer(self)
@@ -119,6 +137,9 @@ class CanvasPage(PaletteStyled):
         read walks freed memory.
         """
         self._source = source
+        # Rendered rather than refreshed: two canvases can share a zoom and the
+        # same empty-world counts, so a refresh would take the page for
+        # unchanged.
         self._key = self._state_key()
         self._render()
 
@@ -155,44 +176,165 @@ class CanvasPage(PaletteStyled):
         layout.addStretch(1)
 
     def _build_view(self):
-        """Build the View section, for now the zoom readout alone."""
+        """Build the View section: the zoom readout over the view buttons."""
         self._view = Section("View", parent=self)
         self._readout = _Readout("Zoom", self._view)
         self._view.body.addWidget(self._readout)
+        self._view.body.addLayout(self._build_actions())
         return self._view
+
+    def _build_actions(self):
+        """Build the view buttons, in design order."""
+        layout = QtWidgets.QHBoxLayout()
+        layout.setSpacing(self._ACTION_GAP)
+        for name, handler in (("Fit", self._on_fit),
+                              ("100%", self._on_actual),
+                              ("Center", self._on_center)):
+            button = QtWidgets.QPushButton(name, self._view)
+            button.setObjectName("action")
+            button.setFixedHeight(self._ACTION_HEIGHT)
+            button.setCursor(QtCore.Qt.PointingHandCursor)
+            button.clicked.connect(handler)
+            layout.addWidget(button)
+            self.buttons[name] = button
+        return layout
 
     def _canvas(self):
         """The 2D canvas to read, or ``None`` when none is active."""
         return None if self._source is None else self._source()
 
     def _state_key(self):
-        """What the page shows, as a value the poll can compare."""
+        """What the page reads off the canvas, as a value the poll can compare:
+        the zoom it shows, and counts of what the world holds.
+
+        The counts stand in for the world itself, which would cost a full
+        serialization every tick. They do not move when a shape is dragged, and
+        they need not: all the page shows of the world is whether it holds
+        anything, and Fit measures the geometry when it is pressed.
+        """
         widget = self._canvas()
-        return None if widget is None else widget.viewTransform.zoom
+        if widget is None:
+            return (None, None)
+        world = widget.world
+        return (widget.viewTransform.zoom,
+                None if world is None else (world.nshape, world.npoint,
+                                            world.nsegment, world.nbezier))
 
     def _render(self):
-        """Show the zoom of the canvas the page is bound to."""
-        self._readout.set_value(
-            "" if self._key is None else _format_zoom(self._key))
-        self._view.setEnabled(self._key is not None)
+        """Show the bound canvas's zoom and whether its world can be fitted."""
+        zoom, counts = self._key
+        self._readout.set_value("" if zoom is None else _format_zoom(zoom))
+        self._view.setEnabled(zoom is not None)
+        self.buttons["Fit"].setEnabled(self._can_fit(counts))
+
+    def _can_fit(self, counts):
+        """Whether the world reports anything Fit could frame.
+
+        Pad leftovers from a removed shape keep ``nsegment`` / ``nbezier``
+        non-zero, so Fit may stay enabled and no-op when bounds are empty.
+        """
+        return counts is not None and any(counts)
+
+    @staticmethod
+    def _content_bounds(widget):
+        """The extent of what ``widget`` draws, or ``None`` for nothing."""
+        world = widget.world
+        if world is None:
+            return None
+        return EntityTreeWidget.world_bounds(
+            json.loads(world.describe_state()))
+
+    def _on_fit(self):
+        """Frame everything the world draws, with a margin around it."""
+        widget = self._canvas()
+        if widget is None:
+            return
+        bounds = self._content_bounds(widget)
+        if bounds is None:
+            return
+        min_x, min_y, max_x, max_y = bounds
+        width, height = widget.viewportSize
+        zoom = self._fit_zoom(width, max_x - min_x, height, max_y - min_y)
+        self._show(widget, zoom, _box_center(bounds))
+
+    @classmethod
+    def _fit_zoom(cls, size_x, span_x, size_y, span_y):
+        """The zoom that frames ``span_x`` by ``span_y`` in a canvas ``size_x``
+        by ``size_y``.
+
+        Use the tightest positive-span axis; skip a flat axis so ``_MIN_SPAN``
+        does not shrink the other, and fall back to that span when both are
+        flat.
+        """
+        room = [size / span
+                for size, span in ((size_x, span_x), (size_y, span_y))
+                if span > 0.0]
+        return cls._FIT_MARGIN * min(
+            room or [min(size_x, size_y) / cls._MIN_SPAN])
+
+    def _on_actual(self):
+        """Zoom to one pixel per world unit, about the view's own middle."""
+        widget = self._canvas()
+        if widget is None:
+            return
+        width, height = widget.viewportSize
+        # Set zoom to 1; scaling by 1/zoom need not land exactly there.
+        self._show(widget, 1.0, widget.viewTransform.world_from_screen(
+            0.5 * width, 0.5 * height))
+
+    def _on_center(self):
+        """Put the content, or the origin, in the middle of the canvas."""
+        widget = self._canvas()
+        if widget is None:
+            return
+        bounds = self._content_bounds(widget)
+        self._show(widget, widget.viewTransform.zoom,
+                   (0.0, 0.0) if bounds is None else _box_center(bounds))
+
+    def _show(self, widget, zoom, center):
+        """Zoom ``widget`` to ``zoom`` with ``center`` in the middle of it.
+
+        Apply zoom first so the pan uses the clamped transform; on a
+        non-finite pan, restore the prior view so zoom is not left alone.
+        """
+        before = widget.viewTransform
+        # A second copy of the same transform: the first is the way back.
+        view = widget.viewTransform
+        view.zoom = zoom
+        widget.setViewTransform(view)
+        view = widget.viewTransform
+        width, height = widget.viewportSize
+        center_x, center_y = center
+        view.pan_x = 0.5 * width - view.zoom * center_x
+        view.pan_y = 0.5 * height + view.zoom * center_y
+        if not (math.isfinite(view.pan_x) and math.isfinite(view.pan_y)):
+            widget.setViewTransform(before)
+            return
+        widget.setViewTransform(view)
+        widget.requestRepaint()
+        self.refresh()
 
     def _apply_style(self):
-        """Color the section heads and the readout from the palette."""
+        """Color the section heads, the readout, and the buttons from the
+        palette."""
         palette = self.palette()
         text = palette.color(QtGui.QPalette.WindowText)
         panel = palette.color(QtGui.QPalette.Window)
         muted = blend(text, panel, self._MUTED_MIX)
+        greyed = blend(text, panel, self._GREYED_MIX)
+        border = shade(self, self._BORDER_MIX)
+        base = palette.color(QtGui.QPalette.Base)
         self.setStyleSheet(f"""
             QLabel#section {{
                 color: {muted.name()};
             }}
             QLabel#section:disabled {{
-                color: {blend(text, panel, self._GREYED_MIX).name()};
+                color: {greyed.name()};
             }}
             QFrame#box {{
-                border: 1px solid {shade(self, self._BORDER_MIX).name()};
+                border: 1px solid {border.name()};
                 border-radius: {self._RADIUS}px;
-                background: {palette.color(QtGui.QPalette.Base).name()};
+                background: {base.name()};
             }}
             QLabel#name {{
                 font-size: {self._LABEL_PX}px;
@@ -200,6 +342,18 @@ class CanvasPage(PaletteStyled):
             }}
             QLabel#value {{
                 font-size: {self._VALUE_PX}px;
+            }}
+            QPushButton#action {{
+                border: 1px solid {border.name()};
+                border-radius: {self._RADIUS}px;
+                font-size: {self._ACTION_PX}px;
+                background: {base.name()};
+            }}
+            QPushButton#action:hover {{
+                background: {shade(self, self._HOVER_MIX).name()};
+            }}
+            QPushButton#action:disabled {{
+                color: {greyed.name()};
             }}
             """)
 
