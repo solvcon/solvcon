@@ -133,6 +133,172 @@ class WindowMenuTC(unittest.TestCase):
         self.assertTrue(items[-1].text().endswith("Euler solver"))
 
 
+@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
+                 "pilot windows need a real window surface")
+class WindowLayoutTC(unittest.TestCase):
+    """Drive the layout actions in the "Window" menu."""
+
+    def setUp(self):
+        self.mgr = _gui.controller.build()
+        self.model = self.mgr.menu_model
+        self.area = self.mgr.mdiArea
+        self.mgr.show()
+        self.area.closeAllSubWindows()
+        QtWidgets.QApplication.processEvents()
+
+    def tearDown(self):
+        self.area.closeAllSubWindows()
+        QtWidgets.QApplication.processEvents()
+
+    def _show(self):
+        """Fire the real freshness hook that refreshes the menu."""
+        self.model.menu("Window").aboutToShow.emit()
+
+    def _layout_ids(self):
+        """Every arrangement action the menu is expected to carry.
+
+        Not a class attribute: ``WindowManager`` is unbound when the GUI
+        imports fail, and a class-body reference would then break
+        collection of this skipped module.
+        """
+        return (WindowManager.TILE_ID, WindowManager.CASCADE_ID,
+                WindowManager.HORIZONTAL_ID, WindowManager.VERTICAL_ID)
+
+    def test_layout_actions_precede_the_list(self):
+        # The arrangement actions sit above the first separator, ahead of
+        # the tabbed view toggle and the dynamic list.
+        acts = self.model.menu("Window").actions()
+        names = [a.objectName() for a in acts]
+        sep = [i for i, a in enumerate(acts) if a.isSeparator()]
+        self.assertEqual(len(sep), 2)
+        for aid in self._layout_ids():
+            self.assertLess(names.index(aid), sep[0])
+
+    def test_layout_actions_follow_open_windows(self):
+        self._show()
+        for aid in self._layout_ids():
+            self.assertFalse(self.model.action(aid).isEnabled())
+        self.mgr.add2DWidget()
+        self._show()
+        for aid in self._layout_ids():
+            self.assertTrue(self.model.action(aid).isEnabled())
+
+    def _two_stacked_windows(self):
+        """Open two sub-windows piled up, with the menu shown.
+
+        The MDI area spreads new sub-windows out on its own, so piling
+        them onto one rectangle leaves the arrangement as the only way
+        the geometries can separate. Showing the menu is what enables the
+        arrangement actions, exactly as a user reaches them; triggering a
+        disabled action would silently do nothing.
+        """
+        self.mgr.add2DWidget()
+        self.mgr.add3DWidget()
+        for subwin in self.area.subWindowList():
+            subwin.setGeometry(0, 0, 200, 150)
+        self._show()
+
+    def test_tile_separates_the_windows(self):
+        self._two_stacked_windows()
+        self.model.action(WindowManager.TILE_ID).trigger()
+        QtWidgets.QApplication.processEvents()
+        one, two = [s.geometry() for s in self.area.subWindowList()]
+        self.assertFalse(one.intersects(two))
+
+    def test_cascade_offsets_the_windows(self):
+        self._two_stacked_windows()
+        self.model.action(WindowManager.CASCADE_ID).trigger()
+        QtWidgets.QApplication.processEvents()
+        one, two = [s.geometry() for s in self.area.subWindowList()]
+        self.assertNotEqual(one.topLeft(), two.topLeft())
+
+    def test_horizontal_tiling_forms_a_single_row(self):
+        self._two_stacked_windows()
+        self.model.action(WindowManager.HORIZONTAL_ID).trigger()
+        QtWidgets.QApplication.processEvents()
+        one, two = [s.geometry() for s in self.area.subWindowList()]
+        self.assertFalse(one.intersects(two))
+        self.assertEqual(one.y(), two.y())
+        self.assertEqual(one.height(), two.height())
+        self.assertNotEqual(one.x(), two.x())
+
+    def test_vertical_tiling_forms_a_single_column(self):
+        self._two_stacked_windows()
+        self.model.action(WindowManager.VERTICAL_ID).trigger()
+        QtWidgets.QApplication.processEvents()
+        one, two = [s.geometry() for s in self.area.subWindowList()]
+        self.assertFalse(one.intersects(two))
+        self.assertEqual(one.x(), two.x())
+        self.assertEqual(one.width(), two.width())
+        self.assertNotEqual(one.y(), two.y())
+
+    def test_directional_tiling_restores_a_minimized_window(self):
+        self._two_stacked_windows()
+        minimized = self.area.subWindowList()[0]
+        minimized.showMinimized()
+        self.model.action(WindowManager.HORIZONTAL_ID).trigger()
+        QtWidgets.QApplication.processEvents()
+        self.assertFalse(minimized.isMinimized())
+        one, two = [s.geometry() for s in self.area.subWindowList()]
+        self.assertFalse(one.intersects(two))
+
+
+@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
+                 "pilot windows need a real window surface")
+class TabbedViewTC(unittest.TestCase):
+    """Drive the "Tabbed View" toggle in the "Window" menu."""
+
+    def setUp(self):
+        self.mgr = _gui.controller.build()
+        self.model = self.mgr.menu_model
+        self.area = self.mgr.mdiArea
+        self.mgr.show()
+        self.area.closeAllSubWindows()
+        QtWidgets.QApplication.processEvents()
+        # The MDI area outlives each case; put the view mode back so a
+        # leftover tab bar cannot leak into the next case.
+        self.addCleanup(self.model.action(WindowManager.TABBED_ID)
+                        .setChecked, False)
+
+    def tearDown(self):
+        self.area.closeAllSubWindows()
+        QtWidgets.QApplication.processEvents()
+
+    def _show(self):
+        """Fire the real freshness hook that refreshes the menu."""
+        self.model.menu("Window").aboutToShow.emit()
+
+    def test_toggle_switches_the_view_mode(self):
+        act = self.model.action(WindowManager.TABBED_ID)
+        Mode = QtWidgets.QMdiArea.ViewMode
+        self.assertEqual(self.area.viewMode(), Mode.SubWindowView)
+        act.setChecked(True)
+        self.assertEqual(self.area.viewMode(), Mode.TabbedView)
+        act.setChecked(False)
+        self.assertEqual(self.area.viewMode(), Mode.SubWindowView)
+
+    def test_tabs_are_closable_and_movable(self):
+        # Without these, a window opened in the tabbed view could never
+        # be closed or reordered from the tab bar.
+        self.model.action(WindowManager.TABBED_ID).setChecked(True)
+        self.assertTrue(self.area.tabsClosable())
+        self.assertTrue(self.area.tabsMovable())
+
+    def test_tabbed_view_disables_the_layout_actions(self):
+        self.mgr.add2DWidget()
+        act = self.model.action(WindowManager.TABBED_ID)
+        self._show()
+        self.assertTrue(self.model.action(WindowManager.TILE_ID)
+                        .isEnabled())
+        act.setChecked(True)
+        self.assertFalse(self.model.action(WindowManager.TILE_ID)
+                         .isEnabled())
+        self.assertTrue(act.isEnabled())
+        act.setChecked(False)
+        self.assertTrue(self.model.action(WindowManager.TILE_ID)
+                        .isEnabled())
+
+
 if __name__ == '__main__':
     unittest.main()
 
