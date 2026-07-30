@@ -3,32 +3,28 @@
 
 
 """
-The 2D drawing surface: the canvas window, the draw-tool painter, and the
-SVG import dialog.
+The 2D drawing surface: the canvas window and the SVG import dialog. The
+Painter that draws on it lives in :mod:`solvcon.pilot.painter`.
 """
 
 from .. import _pilot_core as _pcore
 
 if _pcore.enable:
     from . import _canvas_gui
-    from . import _painter_gui
     from . import _svg_gui
 
     Canvas = _canvas_gui.Canvas
     Save2DCanvasDialog = _canvas_gui.Save2DCanvasDialog
-    Painter = _painter_gui.Painter
     SVGFileDialog = _svg_gui.SVGFileDialog
 else:
     # Bind only the public names: a None module attribute would shadow the
     # real submodule import in no-GUI builds.
     Canvas = None
     Save2DCanvasDialog = None
-    Painter = None
     SVGFileDialog = None
 
 __all__ = [
     'Canvas',
-    'Painter',
     'SVGFileDialog',
     'Save2DCanvasDialog',
 ]

@@ -7,10 +7,10 @@ Painter toolbox for the 2D canvas: the draw tool selector and the inspector.
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from . import _painter_icons
-from ._painter_design import DesignPage
-from ._painter_layers import LayersPage
-from ._painter_style import blend, rule, shade, PaletteStyled
+from . import _icons
+from ._design import DesignPage
+from ._layers import LayersPage
+from ._style import blend, rule, shade, PaletteStyled
 from ..base import _gui_common
 from .._pilot_core import draw_tool_names, default_draw_tool_name
 
@@ -210,11 +210,11 @@ class _DrawToolSelector(PaletteStyled):
         ratio = self.devicePixelRatioF()
         for name, entry in self.buttons.items():
             # A tool the icon set does not draw yet keeps its label alone.
-            if name in _painter_icons.ICONS:
-                entry.set_entry_icon(_painter_icons.tool_icon(
+            if name in _icons.ICONS:
+                entry.set_entry_icon(_icons.tool_icon(
                     name, self._ICON_PX, label, on_accent, ratio))
         for name, entry in self.placeholders.items():
-            entry.set_entry_icon(_painter_icons.placeholder_icon(
+            entry.set_entry_icon(_icons.placeholder_icon(
                 name, self._ICON_PX, muted, ratio))
 
 

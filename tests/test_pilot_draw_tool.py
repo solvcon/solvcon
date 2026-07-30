@@ -11,7 +11,7 @@ try:
     from solvcon import pilot
     from solvcon.pilot.base import _gui
     from solvcon.pilot._pilot_core import draw_tool_names
-    from solvcon.pilot.canvas import _painter_icons
+    from solvcon.pilot.painter import _icons
     from PySide6 import QtGui, QtWidgets
 except ImportError:
     pilot = None
@@ -47,14 +47,14 @@ class PainterIconTC(unittest.TestCase):
 
     def _ink(self, name, ratio):
         """The bounding box of an icon's drawn pixels as (x0, y0, x1, y1)."""
-        image = _painter_icons.render(
+        image = _icons.render(
             name, QtGui.QColor("black"), self._SIZE, ratio).toImage()
         marks = _drawn_pixels(image)
         return (min(x for x, _y in marks), min(y for _x, y in marks),
                 max(x for x, _y in marks), max(y for _x, y in marks))
 
     def test_icon_scales_with_the_device_pixel_ratio(self):
-        for name in _painter_icons.ICONS:
+        for name in _icons.ICONS:
             with self.subTest(name=name):
                 plain = self._ink(name, 1.0)
                 scaled = self._ink(name, 2.0)

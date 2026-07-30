@@ -14,7 +14,8 @@ import solvcon
 try:
     from solvcon import pilot
     from solvcon.pilot.base import _gui
-    from solvcon.pilot.canvas import _painter_gui, _painter_layers
+    from solvcon.pilot import painter as _painter
+    from solvcon.pilot.painter import _layers
     from PySide6 import QtCore, QtGui, QtWidgets
 except ImportError:
     pilot = None
@@ -66,7 +67,7 @@ class PainterLayersPageTC(unittest.TestCase):
         self.rid = self.world.add_rectangle(-2, -1, 2, 1)
         self.cid = self.world.add_circle(10, 10, 3)
         self.canvas = _StubCanvas(self.world)
-        self.page = _painter_layers.LayersPage()
+        self.page = _layers.LayersPage()
         self.page.set_canvas_source(lambda: self.canvas)
 
     def _select(self, shape_id):
@@ -203,7 +204,7 @@ class PainterLayersPageTC(unittest.TestCase):
 
     def test_the_page_fits_the_designed_inspector(self):
         self.assertLessEqual(self.page.sizeHint().width(),
-                             _painter_gui.PainterPanel._INSPECTOR_WIDTH)
+                             _painter.PainterPanel._INSPECTOR_WIDTH)
 
     def test_the_page_restyles_with_the_palette(self):
         # A color captured once would survive a theme switch as is, and the

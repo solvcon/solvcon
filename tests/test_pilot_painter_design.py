@@ -14,7 +14,8 @@ import solvcon
 try:
     from solvcon import pilot
     from solvcon.pilot.base import _gui
-    from solvcon.pilot.canvas import _painter_design, _painter_gui
+    from solvcon.pilot import painter as _painter
+    from solvcon.pilot.painter import _design
     from PySide6 import QtCore, QtGui, QtWidgets
 except ImportError:
     pilot = None
@@ -70,7 +71,7 @@ class PainterDesignPageTC(unittest.TestCase):
         # A rectangle centered on the origin, 4 wide and 2 tall.
         self.sid = self.world.add_rectangle(-2, -1, 2, 1)
         self.canvas = _StubCanvas(self.world)
-        self.page = _painter_design.DesignPage()
+        self.page = _design.DesignPage()
         self.page.set_canvas_source(lambda: self.canvas)
 
     def _select(self, shape_id):
@@ -93,7 +94,7 @@ class PainterDesignPageTC(unittest.TestCase):
 
     def test_nothing_selected_leaves_the_page_empty(self):
         self.assertEqual(self._header(),
-                         _painter_design.DesignPage.EMPTY_TEXT)
+                         _design.DesignPage.EMPTY_TEXT)
         self.assertTrue(self.page._badge.isHidden())
         self.assertTrue(self.page._icon.isHidden())
         for letter, field in self.page.fields.items():
@@ -166,7 +167,7 @@ class PainterDesignPageTC(unittest.TestCase):
         # Four editors asking for a line of text each would open the dock
         # wider than the inspector the design draws.
         self.assertLessEqual(self.page.sizeHint().width(),
-                             _painter_gui.PainterPanel._INSPECTOR_WIDTH)
+                             _painter.PainterPanel._INSPECTOR_WIDTH)
 
     def test_leaving_a_field_untouched_moves_nothing(self):
         # The field shows a rounded value, so a focus change on a field nobody
@@ -206,7 +207,7 @@ class PainterDesignPageTC(unittest.TestCase):
         self.world.remove_shape(self.sid)
         self.page.refresh()
         self.assertEqual(self._header(),
-                         _painter_design.DesignPage.EMPTY_TEXT)
+                         _design.DesignPage.EMPTY_TEXT)
         self.assertFalse(self.page.fields["X"].isEnabled())
 
     def test_closing_the_canvas_clears_the_page(self):
@@ -215,7 +216,7 @@ class PainterDesignPageTC(unittest.TestCase):
         self.canvas = None
         self.page.refresh()
         self.assertEqual(self._header(),
-                         _painter_design.DesignPage.EMPTY_TEXT)
+                         _design.DesignPage.EMPTY_TEXT)
 
     def test_sections_the_model_cannot_fill_are_greyed_out(self):
         self.assertEqual(list(self.page.placeholders),
@@ -283,7 +284,7 @@ class PainterDesignCanvasTC(unittest.TestCase):
         QtWidgets.QApplication.processEvents()
         page.refresh()
         self.assertEqual(page._name.text(),
-                         _painter_design.DesignPage.EMPTY_TEXT)
+                         _design.DesignPage.EMPTY_TEXT)
 
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

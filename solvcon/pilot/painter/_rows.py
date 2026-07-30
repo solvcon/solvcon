@@ -11,7 +11,7 @@ live together here rather than in either page.
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from ._painter_style import blend, mono_font
+from ._style import blend, mono_font
 
 __all__ = [
     'ICON_PX',

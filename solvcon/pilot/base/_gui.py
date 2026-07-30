@@ -24,7 +24,9 @@ if _pcore.enable:
     from ..canvas import _svg_gui
     from ..onedim import _linear_wave
     from ..canvas import _canvas_gui
-    from ..canvas import _painter_gui
+    # Through the package rather than its module: a "from ..painter import
+    # _gui" would shadow this module's own name at every use site.
+    from .. import painter as _painter
     from ..panel import _profiling
     from ..agent import _agent_gui
     from . import _theme
@@ -119,7 +121,7 @@ class _Controller(metaclass=_Singleton):
         self.eulerone = _euler1d.Euler1DApp(mgr=self._rmgr)
         self.burgers = _burgers1d.Burgers1DApp(mgr=self._rmgr)
         self.linear_wave = _linear_wave.LinearWave1DApp(mgr=self._rmgr)
-        self.painter = _painter_gui.Painter(mgr=self._rmgr)
+        self.painter = _painter.Painter(mgr=self._rmgr)
         self.canvas = _canvas_gui.Canvas(mgr=self._rmgr, painter=self.painter)
         self.save_2d_canvas = _canvas_gui.Save2DCanvasDialog(mgr=self._rmgr)
         self.openprofiledata = _profiling.Profiling(mgr=self._rmgr)

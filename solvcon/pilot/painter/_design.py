@@ -9,9 +9,9 @@ import math
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from . import _painter_icons
-from ._painter_style import (blend, mono_font, obb_metrics, rule, shade,
-                             PaletteStyled)
+from . import _icons
+from ._style import (blend, mono_font, obb_metrics, rule, shade,
+                     PaletteStyled)
 
 __all__ = [
     'DesignPage',
@@ -355,7 +355,7 @@ class DesignPage(PaletteStyled):
                 field.set_value(None)
         else:
             kind = world.shape_type_of(shape)
-            self._icon_name = kind if kind in _painter_icons.ICONS else None
+            self._icon_name = kind if kind in _icons.ICONS else None
             self._name.setText(f"{kind.title()} {shape}")
             self._badge.setVisible(True)
             metrics = obb_metrics(world.shape_obb(shape))
@@ -370,7 +370,7 @@ class DesignPage(PaletteStyled):
             self._icon.clear()
             self._icon.setVisible(False)
             return
-        self._icon.setPixmap(_painter_icons.render(
+        self._icon.setPixmap(_icons.render(
             self._icon_name, self.palette().color(QtGui.QPalette.Highlight),
             self._ICON_PX, self.devicePixelRatioF()))
         self._icon.setVisible(True)

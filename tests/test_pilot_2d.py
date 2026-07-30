@@ -1121,8 +1121,9 @@ class PainterToolboxTC(unittest.TestCase):
         """'Create blank 2D canvas' opens an empty, focused canvas on the
         select tool and brings up the Painter toolbox.
         """
-        from solvcon.pilot.canvas import _canvas_gui, _painter_gui
-        painter = _painter_gui.Painter(mgr=self.mgr)
+        from solvcon.pilot.canvas import _canvas_gui
+        from solvcon.pilot import painter as _painter
+        painter = _painter.Painter(mgr=self.mgr)
         canvas = _canvas_gui.Canvas(mgr=self.mgr, painter=painter)
         widget = canvas._create_blank_2d_canvas()
         self.assertIsNotNone(painter._dock)
@@ -1136,8 +1137,9 @@ class PainterToolboxTC(unittest.TestCase):
         """
         import gc
         from PySide6 import QtWidgets
-        from solvcon.pilot.canvas import _canvas_gui, _painter_gui
-        painter = _painter_gui.Painter(mgr=self.mgr)
+        from solvcon.pilot.canvas import _canvas_gui
+        from solvcon.pilot import painter as _painter
+        painter = _painter.Painter(mgr=self.mgr)
         canvas = _canvas_gui.Canvas(mgr=self.mgr, painter=painter)
         first = canvas._create_blank_2d_canvas()
         second = canvas._create_blank_2d_canvas()
@@ -1169,8 +1171,9 @@ class PainterToolboxTC(unittest.TestCase):
         moving then forcing a repaint triggered a null pointer dereference.
         """
         from PySide6 import QtWidgets
-        from solvcon.pilot.canvas import _canvas_gui, _painter_gui
-        painter = _painter_gui.Painter(mgr=self.mgr)
+        from solvcon.pilot.canvas import _canvas_gui
+        from solvcon.pilot import painter as _painter
+        painter = _painter.Painter(mgr=self.mgr)
         canvas = _canvas_gui.Canvas(mgr=self.mgr, painter=painter)
         canvas._create_blank_2d_canvas()
         self.mgr.show()
@@ -1195,8 +1198,9 @@ class PainterToolboxTC(unittest.TestCase):
         that the headless round-trip test cannot reach.
         """
         from PySide6 import QtWidgets
-        from solvcon.pilot.canvas import _canvas_gui, _painter_gui
-        painter = _painter_gui.Painter(mgr=self.mgr)
+        from solvcon.pilot.canvas import _canvas_gui
+        from solvcon.pilot import painter as _painter
+        painter = _painter.Painter(mgr=self.mgr)
         canvas = _canvas_gui.Canvas(mgr=self.mgr, painter=painter)
         canvas._create_blank_2d_canvas()
         world = canvas._blank_worlds[-1]
