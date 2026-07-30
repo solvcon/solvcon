@@ -8,6 +8,7 @@ Painter toolbox for the 2D canvas: the draw tool selector and the inspector.
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from . import _icons
+from ._canvas import CanvasPage
 from ._design import DesignPage
 from ._layers import LayersPage
 from ._style import blend, rule, shade, PaletteStyled
@@ -295,9 +296,7 @@ class PainterPanel(QtWidgets.QWidget):
     ``draw.tool`` action the Canvas menu also shows, plus the greyed-out Text
     and Grid slots the model cannot back yet. The inspector stacks the
     Design, Layers, and Canvas pages under a segmented tab row that selects
-    among them, and hands the active canvas to whichever page reads one. The
-    Canvas page arrives with a later step of the redesign, so it is still a
-    greyed-out placeholder naming what it will hold.
+    among them, and hands the active canvas to every page.
     """
 
     # The design's inspector width, in device-independent pixels. It is the
@@ -307,11 +306,6 @@ class PainterPanel(QtWidgets.QWidget):
 
     #: Inspector page names, in tab order.
     PAGES = ("Design", "Layers", "Canvas")
-
-    # What a page yet to be built says it will hold.
-    _PLACEHOLDERS = {
-        "Canvas": "View, grid, axes, background, and units",
-    }
 
     def __init__(self, tool_actions, short_labels=None, parent=None):
         """
@@ -330,6 +324,9 @@ class PainterPanel(QtWidgets.QWidget):
         self._design = DesignPage(self._stack)
         self._layers = LayersPage(self._stack)
         self._layers.picked.connect(self._on_picked)
+        self._canvas = CanvasPage(self._stack)
+        # In tab order, so the stack and the tab row cannot drift apart.
+        self._pages = (self._design, self._layers, self._canvas)
         self._tabs = _SegmentedTabs(self.PAGES)
         self._tabs.selected.connect(self.show_page)
         self._inspector = self._build_inspector()
@@ -365,10 +362,15 @@ class PainterPanel(QtWidgets.QWidget):
         """The Layers page."""
         return self._layers
 
+    @property
+    def canvas(self):
+        """The Canvas page."""
+        return self._canvas
+
     def set_canvas_source(self, source):
         """Tell the inspector how to reach the active 2D canvas."""
         self._source = source
-        for page in (self._design, self._layers):
+        for page in self._pages:
             page.set_canvas_source(source)
 
     def _on_picked(self, shape_id):
@@ -400,18 +402,14 @@ class PainterPanel(QtWidgets.QWidget):
         comes back into view, so a canvas switch does not pay for pages the
         user is not looking at.
         """
-        for page in (self._design, self._layers):
+        for page in self._pages:
             if page.isVisible():
                 page.refresh()
 
     def _build_inspector(self):
         """Build the tab row over the stack of pages."""
-        pages = {"Design": self._design, "Layers": self._layers}
-        for name in self.PAGES:
-            page = pages.get(name)
-            self._stack.addWidget(
-                self._build_page(self._PLACEHOLDERS[name])
-                if page is None else page)
+        for page in self._pages:
+            self._stack.addWidget(page)
         inspector = QtWidgets.QWidget(self)
         inspector.setMinimumWidth(self._INSPECTOR_WIDTH)
         layout = QtWidgets.QVBoxLayout(inspector)
@@ -421,18 +419,6 @@ class PainterPanel(QtWidgets.QWidget):
         layout.addWidget(rule(QtWidgets.QFrame.HLine))
         layout.addWidget(self._stack, 1)
         return inspector
-
-    def _build_page(self, placeholder):
-        """Build one inspector page, for now just its greyed-out summary."""
-        page = QtWidgets.QWidget(self._stack)
-        layout = QtWidgets.QVBoxLayout(page)
-        layout.setContentsMargins(8, 8, 8, 8)
-        label = QtWidgets.QLabel(placeholder, page)
-        label.setWordWrap(True)
-        label.setEnabled(False)
-        layout.addWidget(label)
-        layout.addStretch(1)
-        return page
 
     def current_page(self):
         """The name of the page the inspector shows."""
