@@ -79,6 +79,7 @@ def main():
             'solvcon.pilot.base',
             'solvcon.pilot.canvas',
             'solvcon.pilot.onedim',
+            'solvcon.pilot.painter',
             'solvcon.pilot.panel',
             'solvcon.pilot.visual',
             'solvcon.plot',

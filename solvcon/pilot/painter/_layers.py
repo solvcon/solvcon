@@ -9,10 +9,10 @@ import json
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from . import _painter_icons
-from . import _painter_rows
-from ._painter_style import (blend, mono_font, obb_metrics, rule, shade,
-                             PaletteStyled)
+from . import _icons
+from . import _rows
+from ._style import (blend, mono_font, obb_metrics, rule, shade,
+                     PaletteStyled)
 
 __all__ = [
     'LayersPage',
@@ -120,7 +120,7 @@ class _Footer(QtWidgets.QWidget):
         rather than whatever fade the style would apply to a normal one.
         """
         for name, button in self.buttons.items():
-            button.setIcon(_painter_icons.placeholder_icon(
+            button.setIcon(_icons.placeholder_icon(
                 name, self._ICON_PX, color, ratio))
 
     def _build_button(self, name, what):
@@ -342,7 +342,7 @@ class LayersPage(PaletteStyled):
     def _row(self, index):
         """The row at ``index``, built and shown if it is a new one."""
         while len(self.rows) <= index:
-            row = _painter_rows.ObjectRow(self)
+            row = _rows.ObjectRow(self)
             row.picked.connect(self.picked)
             # Above the trailing stretch, so the rows stay packed at the top.
             self._rows_layout.insertWidget(len(self.rows) + 1, row)
@@ -381,14 +381,14 @@ class LayersPage(PaletteStyled):
         the scale it rasterized for, because the move to a screen of another
         scale is not reported on every Qt the pilot builds against.
         """
-        if name not in _painter_icons.ICONS:
+        if name not in _icons.ICONS:
             return None
         ratio = self.devicePixelRatioF()
         key = (name, selected, ratio)
         if key not in self._pixmaps:
-            self._pixmaps[key] = _painter_icons.render(
-                name, _painter_rows.icon_color(self, selected),
-                _painter_rows.ICON_PX, ratio)
+            self._pixmaps[key] = _icons.render(
+                name, _rows.icon_color(self, selected),
+                _rows.ICON_PX, ratio)
         return self._pixmaps[key]
 
     def _apply_style(self):
@@ -398,7 +398,7 @@ class LayersPage(PaletteStyled):
         text = palette.color(QtGui.QPalette.WindowText)
         panel = palette.color(QtGui.QPalette.Window)
         greyed = blend(text, panel, self._GREYED_MIX)
-        self.setStyleSheet(_painter_rows.rules(self) + f"""
+        self.setStyleSheet(_rows.rules(self) + f"""
             QLabel#empty {{
                 font-size: {self._EMPTY_PX}px;
                 color: {greyed.name()};
@@ -436,7 +436,7 @@ class LayersPage(PaletteStyled):
             """)
         ratio = self.devicePixelRatioF()
         self._filters.set_icon(
-            _painter_icons.render("search", greyed, self._ICON_PX, ratio))
+            _icons.render("search", greyed, self._ICON_PX, ratio))
         self._footer.set_icons(ratio, greyed)
         self._pixmaps.clear()
         # The rows hold the icons the cleared cache handed out, and a stale
