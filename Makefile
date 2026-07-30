@@ -139,6 +139,21 @@ pytest: buildext
 	env $(RUNENV) \
 		$(PYTEST) $(PYTEST_OPTS) tests/
 
+# The tests under tests/gui/ drive real top-level windows, so they are the
+# slow half of the suite and the half a headless machine cannot run at all.
+# pytest runs everything; these two run one side of that split. Use
+# pytest-fast while iterating on something that is not the GUI, and
+# pytest-gui when the change is.
+.PHONY: pytest-fast
+pytest-fast: buildext
+	env $(RUNENV) \
+		$(PYTEST) $(PYTEST_OPTS) tests/ --ignore=tests/gui
+
+.PHONY: pytest-gui
+pytest-gui: buildext
+	env $(RUNENV) \
+		$(PYTEST) $(PYTEST_OPTS) tests/gui/
+
 PROFFILES = $(shell find profiling -type f -name 'profile_*.py' | sort)
 PROFRESDIR = profiling/results
 
