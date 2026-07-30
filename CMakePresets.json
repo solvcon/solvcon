@@ -1,41 +1,496 @@
 {
-  "version": 6,
+  "version": 10,
+  "$schema": "https://json.schemastore.org/cmake-presets.json",
   "cmakeMinimumRequired": { "major": 4, "minor": 0, "patch": 1 },
   "configurePresets": [
     {
+      "name": "base",
+      "hidden": true,
+      "cacheVariables": {
+        "HIDE_SYMBOL": { "type": "BOOL", "value": "ON" },
+        "DEBUG_SYMBOL": { "type": "BOOL", "value": "ON" },
+        "LINT_AS_ERRORS": { "type": "BOOL", "value": "ON" },
+        "SKIP_PYTHON_EXECUTABLE": { "type": "BOOL", "value": "OFF" },
+        "SOLVCON_PROFILE": { "type": "BOOL", "value": "OFF" },
+        "USE_CLANG_TIDY": { "type": "BOOL", "value": "OFF" },
+        "USE_SANITIZER": { "type": "BOOL", "value": "OFF" },
+        "BUILD_METAL": { "type": "BOOL", "value": "OFF" },
+        "USE_GOOGLETEST": { "type": "BOOL", "value": "ON" },
+        "CMAKE_EXPORT_COMPILE_COMMANDS": { "type": "BOOL", "value": "ON" },
+        "CMAKE_LIBRARY_OUTPUT_DIRECTORY": {
+          "type": "PATH",
+          "value": "${sourceDir}/solvcon"
+        },
+        "CMAKE_INSTALL_PREFIX": {
+          "type": "PATH",
+          "value": "${sourceDir}/build/fakeinstall"
+        }
+      },
+      "environment": {
+        "PYTHONPATH": "${sourceDir}"
+      },
+      "vendor": {
+        "jetbrains.com/clion": { "enablePythonIntegration": true }
+      }
+    },
+    {
+      "name": "dev-base",
+      "hidden": true,
+      "inherits": "base",
+      "generator": "Ninja",
+      "condition": {
+        "type": "notEquals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "BUILD_QT": { "type": "BOOL", "value": "ON" }
+      },
+      "vendor": {
+        "jetbrains.com/clion": { "enablePythonIntegration": true },
+        "microsoft.com/VisualStudioSettings/CMake/1.0": {
+          "hostOS": ["Linux", "macOS"]
+        }
+      }
+    },
+    {
+      "name": "dev-rel",
+      "inherits": "dev-base",
+      "displayName": "Developer Release",
+      "description": "Optimized _solvcon and pilot for Linux and macOS.",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": { "type": "STRING", "value": "Release" }
+      }
+    },
+    {
+      "name": "dev-dbg",
+      "inherits": "dev-base",
+      "displayName": "Developer Debug",
+      "description": "Debuggable _solvcon and pilot for Linux and macOS.",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": { "type": "STRING", "value": "Debug" }
+      }
+    },
+    {
+      "name": "dev-noqt",
+      "inherits": "dev-base",
+      "displayName": "Developer Release, no Qt",
+      "description": "Optimized _solvcon without the pilot, for a headless host.",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": { "type": "STRING", "value": "Release" },
+        "BUILD_QT": { "type": "BOOL", "value": "OFF" }
+      }
+    },
+    {
       "name": "win-base",
       "hidden": true,
+      "inherits": "base",
       "generator": "Ninja",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "binaryDir": "${sourceDir}/build/${presetName}",
       "cacheVariables": {
-        "BUILD_QT": "ON",
-        "USE_GOOGLETEST": "OFF",
-        "BLA_VENDOR": "OpenBLAS",
-        "CMAKE_LIBRARY_OUTPUT_DIRECTORY": "${sourceDir}/solvcon"
+        "BUILD_QT": { "type": "BOOL", "value": "ON" },
+        "CMAKE_RUNTIME_OUTPUT_DIRECTORY": {
+          "type": "PATH",
+          "value": "${sourceDir}/build/${presetName}"
+        }
+      },
+      "vendor": {
+        "jetbrains.com/clion": { "enablePythonIntegration": true },
+        "microsoft.com/VisualStudioSettings/CMake/1.0": {
+          "hostOS": ["Windows"],
+          "intelliSenseMode": "windows-msvc-x64"
+        }
       }
     },
     {
       "name": "win-rel",
-      "displayName": "Windows Release (Ninja, MSVC)",
       "inherits": "win-base",
-      "binaryDir": "${sourceDir}/build/win-rel",
+      "displayName": "Windows Release (Ninja, MSVC)",
+      "description": "Optimized _solvcon and pilot built with MSVC through Ninja.",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
-        "CMAKE_RUNTIME_OUTPUT_DIRECTORY": "${sourceDir}/build/win-rel"
+        "CMAKE_BUILD_TYPE": { "type": "STRING", "value": "Release" },
+        "BLA_VENDOR": { "type": "STRING", "value": "OpenBLAS" }
       }
     },
     {
       "name": "win-dbg",
-      "displayName": "Windows Debug (Ninja, MSVC)",
       "inherits": "win-base",
-      "binaryDir": "${sourceDir}/build/win-dbg",
+      "displayName": "Windows Debug (Ninja, MSVC)",
+      "description": "Debuggable _solvcon and pilot built with MSVC through Ninja.",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_RUNTIME_OUTPUT_DIRECTORY": "${sourceDir}/build/win-dbg"
+        "CMAKE_BUILD_TYPE": { "type": "STRING", "value": "Debug" },
+        "BLA_VENDOR": { "type": "STRING", "value": "OpenBLAS" }
+      }
+    },
+    {
+      "name": "ci-win-base",
+      "hidden": true,
+      "inherits": "win-base",
+      "cacheVariables": {
+        "pybind11_DIR": "$env{PYBIND11_DIR}"
+      }
+    },
+    {
+      "name": "ci-win-mkl",
+      "hidden": true,
+      "inherits": "ci-win-base",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER_LAUNCHER": "sccache",
+        "CMAKE_CXX_COMPILER_LAUNCHER": "sccache",
+        "CMAKE_MSVC_DEBUG_INFORMATION_FORMAT": "Embedded",
+        "SOLVCON_USE_MKL": { "type": "BOOL", "value": "ON" },
+        "CMAKE_INCLUDE_PATH": "$env{MKL_INCLUDE_DIR}",
+        "CMAKE_LIBRARY_PATH": "$env{MKL_LIBRARY_DIR}"
+      }
+    },
+    {
+      "name": "ci-win-rel",
+      "inherits": "ci-win-mkl",
+      "displayName": "CI: Windows Release",
+      "description": "For the Windows CI job. A developer wants win-rel instead.",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": { "type": "STRING", "value": "Release" }
+      }
+    },
+    {
+      "name": "ci-win-dbg",
+      "inherits": "ci-win-mkl",
+      "displayName": "CI: Windows Debug",
+      "description": "For the Windows CI job. A developer wants win-dbg instead.",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": { "type": "STRING", "value": "Debug" }
+      }
+    },
+    {
+      "name": "ci-win-asan",
+      "inherits": "ci-win-base",
+      "displayName": "CI: Windows AddressSanitizer",
+      "description": "For the Windows sanitizer CI job. A developer wants win-rel instead.",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": { "type": "STRING", "value": "Release" },
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_TARGET_TRIPLET": "x64-windows",
+        "USE_SANITIZER": { "type": "BOOL", "value": "ON" }
       }
     }
   ],
   "buildPresets": [
-    { "name": "win-rel", "configurePreset": "win-rel" },
-    { "name": "win-dbg", "configurePreset": "win-dbg" }
+    {
+      "name": "dev-base",
+      "hidden": true,
+      "condition": {
+        "type": "notEquals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "vendor": {
+        "microsoft.com/VisualStudioSettings/CMake/1.0": {
+          "hostOS": ["Linux", "macOS"]
+        }
+      }
+    },
+    {
+      "name": "dev-rel",
+      "inherits": "dev-base",
+      "configurePreset": "dev-rel",
+      "displayName": "Developer Release",
+      "description": "Build the extension module and the pilot, Release.",
+      "targets": ["_solvcon_py", "pilot"]
+    },
+    {
+      "name": "dev-rel-module",
+      "inherits": "dev-base",
+      "configurePreset": "dev-rel",
+      "displayName": "Developer Release, module only",
+      "description": "Build the extension module alone, Release.",
+      "targets": ["_solvcon_py"]
+    },
+    {
+      "name": "dev-rel-gtest",
+      "inherits": "dev-base",
+      "configurePreset": "dev-rel",
+      "displayName": "Developer Release, C++ test binary",
+      "description": "Build the C++ gtest binary, Release.",
+      "targets": ["test_nopython"]
+    },
+    {
+      "name": "dev-dbg",
+      "inherits": "dev-base",
+      "configurePreset": "dev-dbg",
+      "displayName": "Developer Debug",
+      "description": "Build the extension module and the pilot, Debug.",
+      "targets": ["_solvcon_py", "pilot"]
+    },
+    {
+      "name": "dev-dbg-module",
+      "inherits": "dev-base",
+      "configurePreset": "dev-dbg",
+      "displayName": "Developer Debug, module only",
+      "description": "Build the extension module alone, Debug.",
+      "targets": ["_solvcon_py"]
+    },
+    {
+      "name": "dev-dbg-gtest",
+      "inherits": "dev-base",
+      "configurePreset": "dev-dbg",
+      "displayName": "Developer Debug, C++ test binary",
+      "description": "Build the C++ gtest binary, Debug.",
+      "targets": ["test_nopython"]
+    },
+    {
+      "name": "dev-noqt",
+      "inherits": "dev-base",
+      "configurePreset": "dev-noqt",
+      "displayName": "Developer Release, no Qt",
+      "description": "Build the extension module alone, without the pilot.",
+      "targets": ["_solvcon_py"]
+    },
+    {
+      "name": "dev-noqt-gtest",
+      "inherits": "dev-base",
+      "configurePreset": "dev-noqt",
+      "displayName": "Developer Release, no Qt, C++ test binary",
+      "description": "Build the C++ gtest binary, without the pilot.",
+      "targets": ["test_nopython"]
+    },
+    {
+      "name": "win-base",
+      "hidden": true,
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "vendor": {
+        "microsoft.com/VisualStudioSettings/CMake/1.0": {
+          "hostOS": ["Windows"]
+        }
+      }
+    },
+    {
+      "name": "win-rel",
+      "inherits": "win-base",
+      "configurePreset": "win-rel",
+      "displayName": "Windows Release",
+      "description": "Build the extension module and the pilot, Release.",
+      "targets": ["_solvcon", "pilot"]
+    },
+    {
+      "name": "win-rel-module",
+      "inherits": "win-base",
+      "configurePreset": "win-rel",
+      "displayName": "Windows Release, module only",
+      "description": "Build the extension module alone, Release.",
+      "targets": ["_solvcon"]
+    },
+    {
+      "name": "win-rel-gtest",
+      "inherits": "win-base",
+      "configurePreset": "win-rel",
+      "displayName": "Windows Release, C++ test binary",
+      "description": "Build the C++ gtest binary, Release.",
+      "targets": ["test_nopython"]
+    },
+    {
+      "name": "win-dbg",
+      "inherits": "win-base",
+      "configurePreset": "win-dbg",
+      "displayName": "Windows Debug",
+      "description": "Build the extension module and the pilot, Debug.",
+      "targets": ["_solvcon", "pilot"]
+    },
+    {
+      "name": "win-dbg-module",
+      "inherits": "win-base",
+      "configurePreset": "win-dbg",
+      "displayName": "Windows Debug, module only",
+      "description": "Build the extension module alone, Debug.",
+      "targets": ["_solvcon"]
+    },
+    {
+      "name": "win-dbg-gtest",
+      "inherits": "win-base",
+      "configurePreset": "win-dbg",
+      "displayName": "Windows Debug, C++ test binary",
+      "description": "Build the C++ gtest binary, Debug.",
+      "targets": ["test_nopython"]
+    },
+    {
+      "name": "ci-win-rel",
+      "inherits": "win-base",
+      "configurePreset": "ci-win-rel",
+      "displayName": "CI: Windows Release",
+      "description": "Build everything the Windows CI job builds."
+    },
+    {
+      "name": "ci-win-dbg",
+      "inherits": "win-base",
+      "configurePreset": "ci-win-dbg",
+      "displayName": "CI: Windows Debug",
+      "description": "Build everything the Windows CI job builds."
+    },
+    {
+      "name": "ci-win-asan",
+      "inherits": "win-base",
+      "configurePreset": "ci-win-asan",
+      "displayName": "CI: Windows AddressSanitizer",
+      "description": "Build everything the Windows sanitizer CI job builds."
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "dev-base",
+      "hidden": true,
+      "inherits": "base",
+      "condition": {
+        "type": "notEquals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
+    },
+    {
+      "name": "dev-rel",
+      "inherits": "dev-base",
+      "configurePreset": "dev-rel",
+      "displayName": "Developer Release, every suite",
+      "description": "Run the C++, Python, and pilot suites."
+    },
+    {
+      "name": "dev-rel-cpp",
+      "inherits": "dev-base",
+      "configurePreset": "dev-rel",
+      "displayName": "Developer Release, C++ suite",
+      "description": "Run the C++ cases alone.",
+      "filter": { "include": { "label": "cpp" } }
+    },
+    {
+      "name": "dev-rel-python",
+      "inherits": "dev-base",
+      "configurePreset": "dev-rel",
+      "displayName": "Developer Release, Python suite",
+      "description": "Run the Python suite alone.",
+      "filter": { "include": { "label": "python" } }
+    },
+    {
+      "name": "dev-rel-pilot",
+      "inherits": "dev-base",
+      "configurePreset": "dev-rel",
+      "displayName": "Developer Release, pilot suite",
+      "description": "Run the Python suite inside the pilot binary.",
+      "filter": { "include": { "label": "pilot" } }
+    },
+    {
+      "name": "dev-dbg",
+      "inherits": "dev-base",
+      "configurePreset": "dev-dbg",
+      "displayName": "Developer Debug, every suite",
+      "description": "Run the C++, Python, and pilot suites."
+    },
+    {
+      "name": "dev-noqt",
+      "inherits": "dev-base",
+      "configurePreset": "dev-noqt",
+      "displayName": "Developer Release, no Qt",
+      "description": "Run the C++ and Python suites; there is no pilot suite."
+    },
+    {
+      "name": "win-base",
+      "hidden": true,
+      "inherits": "base",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "vendor": {
+        "microsoft.com/VisualStudioSettings/CMake/1.0": {
+          "hostOS": ["Windows"]
+        }
+      }
+    },
+    {
+      "name": "win-rel",
+      "inherits": "win-base",
+      "configurePreset": "win-rel",
+      "displayName": "Windows Release, every suite",
+      "description": "Run the C++, Python, and pilot suites."
+    },
+    {
+      "name": "win-dbg",
+      "inherits": "win-base",
+      "configurePreset": "win-dbg",
+      "displayName": "Windows Debug, every suite",
+      "description": "Run the C++, Python, and pilot suites."
+    },
+    {
+      "name": "ci-win-base",
+      "hidden": true,
+      "inherits": "win-base",
+      "filter": { "include": { "label": "cpp|pilot" } }
+    },
+    {
+      "name": "ci-win-rel",
+      "inherits": "ci-win-base",
+      "configurePreset": "ci-win-rel",
+      "displayName": "CI: Windows Release",
+      "description": "Run the C++ and pilot suites."
+    },
+    {
+      "name": "ci-win-dbg",
+      "inherits": "ci-win-base",
+      "configurePreset": "ci-win-dbg",
+      "displayName": "CI: Windows Debug",
+      "description": "Run the C++ and pilot suites."
+    },
+    {
+      "name": "ci-win-asan",
+      "inherits": "ci-win-base",
+      "configurePreset": "ci-win-asan",
+      "displayName": "CI: Windows AddressSanitizer",
+      "description": "Run the C++ and pilot suites under AddressSanitizer."
+    }
+  ],
+  "workflowPresets": [
+    {
+      "name": "ci-win-rel",
+      "displayName": "CI: Windows Release",
+      "description": "Configure, build, and test the Windows Release CI job.",
+      "steps": [
+        { "type": "configure", "name": "ci-win-rel" },
+        { "type": "build", "name": "ci-win-rel" },
+        { "type": "test", "name": "ci-win-rel" }
+      ]
+    },
+    {
+      "name": "ci-win-dbg",
+      "displayName": "CI: Windows Debug",
+      "description": "Configure, build, and test the Windows Debug CI job.",
+      "steps": [
+        { "type": "configure", "name": "ci-win-dbg" },
+        { "type": "build", "name": "ci-win-dbg" },
+        { "type": "test", "name": "ci-win-dbg" }
+      ]
+    },
+    {
+      "name": "ci-win-asan",
+      "displayName": "CI: Windows AddressSanitizer",
+      "description": "Configure, build, and test the Windows sanitizer CI job.",
+      "steps": [
+        { "type": "configure", "name": "ci-win-asan" },
+        { "type": "build", "name": "ci-win-asan" },
+        { "type": "test", "name": "ci-win-asan" }
+      ]
+    }
   ]
 }
