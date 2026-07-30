@@ -890,6 +890,16 @@ Structure a message as a subject line, a blank line, and an optional body:
 - Separate the subject from the body with one blank line; many git tools rely
   on this split.
 - Wrap the body at 72 characters. Git does not wrap it for you.
+- Backtick-quote every token that is code rather than prose, in the subject as
+  well as the body: paths, `make` and CMake targets, identifiers, macros,
+  variables, flags, commands, and literal values. Write "Drop
+  `USE_GOOGLETEST` from the `ctest` wiring", never the same sentence
+  unquoted. A bare identifier reads as an ordinary word and hides where the
+  name starts and ends; the quoted form also renders monospaced on a forge
+  that formats Markdown. Ordinary nouns stay unquoted: the solver, the pilot,
+  and the mesh are prose. A subject has little room, so prefer wording that
+  needs no identifier, and name one only when the plain phrasing would be
+  vague.
 
 Use the body to explain what changed and why, not how -- the diff already
 shows how. Make it self-contained: a reader should judge the change without

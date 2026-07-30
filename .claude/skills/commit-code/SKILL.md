@@ -49,6 +49,9 @@ These contradict common defaults, so apply them deliberately:
   with ..." trailers; this project keeps commits human-authored (see
   `create-pr`).
 - **No semantic prefixes.** Never use `feat:`, `fix:`, `docs:`, etc.
+- **Backtick every code token.** Paths, `make` and CMake targets,
+  identifiers, macros, variables, flags, commands, and literal values
+  are quoted in the subject as well as the body.
 - **No closing keywords.** Never use `close`/`fixes`/`resolves #n`. Do
   not reference an issue unless explicitly instructed; when you are, end
   the body with "Related to #xxx" or "For issue #xxx".
