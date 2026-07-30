@@ -1,0 +1,41 @@
+{
+  "version": 10,
+  "$schema": "https://json.schemastore.org/cmake-presets.json",
+  "cmakeMinimumRequired": { "major": 4, "minor": 0, "patch": 1 },
+  "configurePresets": [
+    {
+      "name": "local",
+      "inherits": "dev-rel",
+      "displayName": "Local dependency prefix",
+      "description": "A checked-in preset plus the paths of a local dependency prefix.",
+      "cacheVariables": {
+        "PYTHON_EXECUTABLE": {
+          "type": "FILEPATH",
+          "value": "/path/to/prefix/bin/python3"
+        },
+        "pybind11_path": "/path/to/prefix/lib/python3.14/site-packages/pybind11/share/cmake/pybind11",
+        "CMAKE_PREFIX_PATH": "/path/to/prefix"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "local",
+      "inherits": "dev-rel",
+      "configurePreset": "local",
+      "displayName": "Local dependency prefix"
+    },
+    {
+      "name": "local-module",
+      "inherits": "dev-rel-module",
+      "configurePreset": "local",
+      "displayName": "Local dependency prefix, module only"
+    },
+    {
+      "name": "local-gtest",
+      "inherits": "dev-rel-gtest",
+      "configurePreset": "local",
+      "displayName": "Local dependency prefix, C++ test binary"
+    }
+  ]
+}

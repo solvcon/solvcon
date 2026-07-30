@@ -403,43 +403,21 @@ jobs:
           Get-Command flake8
           echo "::endgroup::"
 
-      - name: cmake ALL_BUILD
+      - name: cmake workflow
         run: |
-          echo "::group::cmake ALL_BUILD"
-          # Use the Ninja generator: CMAKE_<LANG>_COMPILER_LAUNCHER (the
-          # sccache hook) is honored only by Ninja/Makefile generators, not
-          # the Visual Studio (MSBuild) generator, which silently ignores it.
-          # No vcpkg toolchain: SOLVCON_USE_MKL makes solvcon link mkl_rt for
-          # both CBLAS and LAPACK, found via the CMAKE_*_PATH dirs above.
-          cmake -GNinja `
-            -DCMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} `
-            -DCMAKE_C_COMPILER_LAUNCHER=sccache `
-            -DCMAKE_CXX_COMPILER_LAUNCHER=sccache `
-            -DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded `
-            -DSOLVCON_USE_MKL=ON `
-            -DCMAKE_INCLUDE_PATH="$env:MKL_INCLUDE_DIR" `
-            -DCMAKE_LIBRARY_PATH="$env:MKL_LIBRARY_DIR" `
-            -Dpybind11_DIR="$(pybind11-config --cmakedir)" `
-            -S${{ github.workspace }} `
-            -B${{ github.workspace }}/build
-          cmake --build ${{ github.workspace }}/build
-          echo "::endgroup::"
-
-      - name: cmake run_gtest
-        run: |
-          echo "::group::cmake run_gtest"
-          cmake --build ${{ github.workspace }}/build `
-            --target run_gtest
-          echo "::endgroup::"
-
-      - name: cmake run_pilot_pytest
-        run: |
-          echo "::group::cmake run_pilot_pytest"
+          echo "::group::cmake workflow"
+          # The ci-win-* presets in CMakePresets.json state the whole
+          # configure.
+          $env:PYBIND11_DIR = "$(pybind11-config --cmakedir)"
           # A runner has no desktop to take over, so let this job map its
           # windows, the way it has always run them.
           $env:SOLVCON_TEST_SHOW_WINDOWS = "ON"
-          cmake --build ${{ github.workspace }}/build `
-            --target run_pilot_pytest
+          $preset = if ('${{ matrix.cmake_build_type }}' -eq 'Debug') {
+            'ci-win-dbg'
+          } else {
+            'ci-win-rel'
+          }
+          cmake --workflow --preset $preset
           echo "::endgroup::"
 
       - name: generate portable
@@ -483,14 +461,14 @@ jobs:
           # Remove redundant Qt DLLs from PySide6
           Remove-Item -Path $pyside6_path\Qt*.dll
 
-          # Configure and build the pilot. The build dir is already
-          # configured with the Ninja single-config generator above, so reuse
-          # it without --config and read pilot.exe from the non-config path.
-          cmake -Dpybind11_DIR="$(pybind11-config --cmakedir)" -S . -B build
-          cmake --build build --target pilot
+          # The workflow preset above already configured and built this tree
+          # with the Ninja single-config generator, so rebuild the pilot in
+          # place and read pilot.exe from the runtime output directory the
+          # preset names.
+          cmake --build --preset ci-win-rel --target pilot
 
           # Deploy the Qt environment for the pilot executable and copy necessary files
-          Copy-Item -Path ".\build\cpp\binary\pilot\pilot.exe" -Destination $destination
+          Copy-Item -Path ".\build\ci-win-rel\pilot.exe" -Destination $destination
           windeployqt --release "$destination\pilot.exe"
           Copy-Item -Path ".\solvcon" -Destination $destination -Recurse
           # Also include potential thirdparty
@@ -674,39 +652,19 @@ jobs:
         echo "$pyside6_path;$shiboken6_path" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
         echo "::endgroup::"
 
-    - name: cmake ALL_BUILD USE_SANITIZER=ON
+    - name: cmake workflow USE_SANITIZER=ON
       run: |
-        echo "::group::cmake ALL_BUILD USE_SANITIZER=ON"
-        # Instrument both the gtest binary and the Qt pilot: BUILD_QT=ON and
-        # USE_GOOGLETEST=ON build both, USE_SANITIZER=ON adds /fsanitize=address.
+        echo "::group::cmake workflow USE_SANITIZER=ON"
+        # The ci-win-asan preset instruments both the gtest binary and the Qt
+        # pilot: BUILD_QT and USE_GOOGLETEST build both, USE_SANITIZER adds
+        # /fsanitize=address, and the vcpkg toolchain supplies BLAS and LAPACK.
         # The MSVC toolset bin dir that setup-msvc-dev puts on PATH also carries
         # the ASan runtime DLL the instrumented binaries load at start.
-        cmake -GNinja `
-          -DCMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} `
-          -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
-          -DVCPKG_TARGET_TRIPLET="x64-windows" `
-          -Dpybind11_DIR="$(pybind11-config --cmakedir)" `
-          -DBUILD_QT=ON `
-          -DUSE_GOOGLETEST=ON `
-          -DUSE_SANITIZER=ON `
-          -S${{ github.workspace }} `
-          -B${{ github.workspace }}/build
-        cmake --build ${{ github.workspace }}/build
-        echo "::endgroup::"
-
-    - name: cmake run_gtest
-      run: |
-        echo "::group::cmake run_gtest"
-        cmake --build ${{ github.workspace }}/build --target run_gtest
-        echo "::endgroup::"
-
-    - name: cmake run_pilot_pytest
-      run: |
-        echo "::group::cmake run_pilot_pytest"
+        $env:PYBIND11_DIR = "$(pybind11-config --cmakedir)"
         # A runner has no desktop to take over, so let this job map its
         # windows, the way it has always run them.
         $env:SOLVCON_TEST_SHOW_WINDOWS = "ON"
-        cmake --build ${{ github.workspace }}/build --target run_pilot_pytest
+        cmake --workflow --preset ci-win-asan
         echo "::endgroup::"
 
 

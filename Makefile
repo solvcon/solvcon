@@ -22,25 +22,37 @@ BUILD_PATH_EXT ?=
 # Additional configuration can be loaded from SETUP_FILE.
 RUNENV += PYTHONPATH=$(SOLVCON_ROOT)
 
-SKIP_PYTHON_EXECUTABLE ?= OFF
-HIDE_SYMBOL ?= ON
-DEBUG_SYMBOL ?= ON
-SOLVCON_PROFILE ?= OFF
-BUILD_METAL ?= OFF
-BUILD_QT ?= ON
-USE_CLANG_TIDY ?= OFF
+# The configure knobs are written down once, in CMakePresets.json; see
+# doc/source/devguide/cmake.md. A knob set on the command line, in the
+# environment, or in setup.mk is layered on the selected preset as a -D flag,
+# and nothing else is passed, so a make build and a preset build stay the same
+# build. Setting a knob to its preset value therefore costs nothing.
+CMAKE_KNOBS = SKIP_PYTHON_EXECUTABLE HIDE_SYMBOL DEBUG_SYMBOL SOLVCON_PROFILE \
+	BUILD_METAL BUILD_QT USE_CLANG_TIDY LINT_AS_ERRORS USE_GOOGLETEST \
+	USE_SANITIZER CMAKE_INSTALL_PREFIX CMAKE_LIBRARY_OUTPUT_DIRECTORY \
+	CMAKE_PREFIX_PATH
+CMAKE_OVERRIDES = $(strip $(foreach knob,$(CMAKE_KNOBS), \
+	$(if $(filter-out undefined default,$(origin $(knob))),\
+	-D$(knob)=$($(knob)))))
+
 CMAKE_BUILD_TYPE ?= Release
+# The build type picks the preset, so it needs no -D of its own. Override
+# CMAKE_PRESET to build another one, for instance a preset of your own from
+# CMakeUserPresets.json.
+ifeq ($(CMAKE_BUILD_TYPE), Debug)
+	CMAKE_PRESET ?= dev-dbg
+else
+	CMAKE_PRESET ?= dev-rel
+endif
 # Number of online processors. Drives both build parallelism (MAKE_PARALLEL
 # below) and the lint targets. getconf works on both Linux and macOS; fall
 # back to 1 if unavailable. Override to cap parallelism, e.g. NPROC=2.
 NPROC ?= $(shell getconf _NPROCESSORS_ONLN 2>/dev/null || echo 1)
 MAKE_PARALLEL ?= -j $(NPROC)
 SOLVCON_ROOT ?= $(shell pwd)
-CMAKE_INSTALL_PREFIX ?= $(SOLVCON_ROOT)/build/fakeinstall
-CMAKE_LIBRARY_OUTPUT_DIRECTORY ?= $(SOLVCON_ROOT)/solvcon
-# Use CMAKE_PREFIX_PATH to make it easier to build with Qt, e.g.,
-# CMAKE_PREFIX_PATH=/path/to/qt/6.2.3/macos
-CMAKE_PREFIX_PATH ?=
+# Set CMAKE_PREFIX_PATH to make it easier to build with Qt, e.g.,
+# CMAKE_PREFIX_PATH=/path/to/qt/6.2.3/macos. It is one of the knobs above, so
+# it reaches CMake only when it is set.
 CMAKE_ARGS ?=
 VERBOSE ?=
 FORCE_CLANG_FORMAT ?=
@@ -69,8 +81,6 @@ WHICH_PYTHON := $(shell which python3)
 REALPATH_PYTHON := $(realpath $(WHICH_PYTHON))
 export DIRNAME_PYTHON := $(dir $(REALPATH_PYTHON))
 
-pyextsuffix := $(shell if [ -x "$(DIRNAME_PYTHON)/python3-config" ]; then \
-	$(DIRNAME_PYTHON)/python3-config --extension-suffix; fi)
 pyvminor := $(shell python3 -c 'import sys; print("%d%d" % sys.version_info[0:2])')
 
 ifeq ($(CMAKE_BUILD_TYPE), Debug)
@@ -98,30 +108,16 @@ cmake: $(BUILD_PATH)/Makefile
 .PHONY: xcode
 xcode: $(BUILD_PATH)_xcode/Makefile
 
-CMAKE_CMD = cmake $(SOLVCON_ROOT) \
-	-DCMAKE_PREFIX_PATH=$(CMAKE_PREFIX_PATH) \
-	-DCMAKE_INSTALL_PREFIX=$(CMAKE_INSTALL_PREFIX) \
-	-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=$(CMAKE_LIBRARY_OUTPUT_DIRECTORY) \
-	-DCMAKE_BUILD_TYPE=$(CMAKE_BUILD_TYPE) \
-	-DSKIP_PYTHON_EXECUTABLE=$(SKIP_PYTHON_EXECUTABLE) \
-	-DHIDE_SYMBOL=$(HIDE_SYMBOL) \
-	-DDEBUG_SYMBOL=$(DEBUG_SYMBOL) \
-	-DBUILD_METAL=$(BUILD_METAL) \
-	-DBUILD_QT=$(BUILD_QT) \
-	-DUSE_CLANG_TIDY=$(USE_CLANG_TIDY) \
-	-DLINT_AS_ERRORS=ON \
-	-DSOLVCON_PROFILE=$(SOLVCON_PROFILE) \
-	$(CMAKE_ARGS)
+# The preset carries the configure; -B and -G layer on top of it. The build
+# tree keeps its ABI tag, which a preset cannot compute, and the generator
+# stays the one the clean target and the workflows expect from a make build.
+CMAKE_CMD = cmake --preset $(CMAKE_PRESET) $(CMAKE_OVERRIDES) $(CMAKE_ARGS)
 
-$(BUILD_PATH)/Makefile: CMakeLists.txt Makefile
-	mkdir -p $(BUILD_PATH) ; \
-	cd $(BUILD_PATH) ; \
-	env $(RUNENV) $(CMAKE_CMD)
+$(BUILD_PATH)/Makefile: CMakeLists.txt CMakePresets.json Makefile
+	env $(RUNENV) $(CMAKE_CMD) -B $(BUILD_PATH) -G "Unix Makefiles"
 
-$(BUILD_PATH)_xcode/Makefile: CMakeLists.txt Makefile
-	mkdir -p $(BUILD_PATH)_xcode ; \
-	cd $(BUILD_PATH)_xcode ; \
-	env $(RUNENV) $(CMAKE_CMD) -G Xcode
+$(BUILD_PATH)_xcode/Makefile: CMakeLists.txt CMakePresets.json Makefile
+	env $(RUNENV) $(CMAKE_CMD) -B $(BUILD_PATH)_xcode -G Xcode
 
 .PHONY: buildext
 buildext: cmake
@@ -314,12 +310,12 @@ format: pyformat
 
 .PHONY: clean
 clean:
-	rm -f $(SOLVCON_ROOT)/solvcon/_solvcon$(pyextsuffix)
-	rm -f $(SOLVCON_ROOT)/_solvcon$(pyextsuffix)
+	cmake --build $(BUILD_PATH) --target remove_solvcon_py
 	make -C $(BUILD_PATH) clean
 
 .PHONY: cmakeclean
 cmakeclean:
-	rm -f $(SOLVCON_ROOT)/solvcon/_solvcon$(pyextsuffix)
-	rm -f $(SOLVCON_ROOT)/_solvcon$(pyextsuffix)
+	@if [ -f $(BUILD_PATH)/CMakeCache.txt ]; then \
+		cmake --build $(BUILD_PATH) --target remove_solvcon_py; \
+	fi
 	rm -rf $(BUILD_PATH)
