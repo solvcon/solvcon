@@ -34,6 +34,21 @@ def _click(widget, x, y):
                               QtCore.Qt.NoModifier))
 
 
+class _RecordingWorld:
+    """Wraps a world, noting every time it is asked to serialize itself."""
+
+    def __init__(self, real, reads):
+        self._real = real
+        self._reads = reads
+
+    def __getattr__(self, name):
+        return getattr(self._real, name)
+
+    def describe_state(self, *args, **kw):
+        self._reads.append(kw.get("level", "basic"))
+        return self._real.describe_state(*args, **kw)
+
+
 class _StubCanvas:
     """Stand-in for the 2D canvas, so a test can set the selection directly.
 
@@ -137,6 +152,23 @@ class PainterLayersPageTC(unittest.TestCase):
         self.page.refresh()
         self.assertEqual([row.metric for row in self.page.shown_rows],
                          ["r 3", "2 x 4"])
+
+    def test_a_quiet_tick_does_not_serialize_the_world(self):
+        # The list rebuilds from the world's serialized state, and the poll
+        # compares the change stamp instead of it, so a tick over an untouched
+        # world reads the stamp and stops there.
+        reads = []
+        real = self.world
+        self.canvas.world = _RecordingWorld(real, reads)
+        # Handing over another world is itself a change; let the list take it.
+        self.page.refresh()
+        reads.clear()
+        self.page.refresh()
+        self.assertEqual(reads, [])
+        real.add_circle(0, 0, 1)
+        self.page.refresh()
+        self.assertEqual(len(reads), 1)
+        self.assertEqual(len(self.page.shown_rows), 3)
 
     def test_rows_track_adding_removing_and_undo(self):
         third = self.world.add_circle(0, 0, 1)

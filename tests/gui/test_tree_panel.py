@@ -102,6 +102,9 @@ class _CountingWorld:
         self._real = real
         self.calls = {"basic": 0, "diagnostics": 0}
 
+    def __getattr__(self, name):
+        return getattr(self._real, name)
+
     def describe_state(self, level="basic"):
         self.calls[level] += 1
         return self._real.describe_state(level=level)
@@ -149,7 +152,10 @@ class EntityTreeWidgetTC(unittest.TestCase):
         tree.set_world(world)
         tree.set_world(world)  # unchanged poll reuses the cache
         self.assertEqual(world.calls["diagnostics"], 1)
-        real.add_line(5, 5, 6, 6)  # a real edit flips the fingerprint
+        # An untouched world is not serialized at all: the change stamp is
+        # what the poll compares, so no level is swept to notice a quiet tick.
+        self.assertEqual(world.calls["basic"], 0)
+        real.add_line(5, 5, 6, 6)  # a real edit moves the stamp
         tree.set_world(world)
         self.assertEqual(world.calls["diagnostics"], 2)
 
