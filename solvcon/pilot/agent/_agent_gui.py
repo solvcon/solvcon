@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QDockWidget,
                                QLabel, QComboBox, QTextEdit, QLineEdit,
                                QPushButton)
 
-from ...agent import AgentSession, available_backends
+from ...agent import AgentSession, BackendRegistry
 from . import _agent_control
 from ..base import _gui_common
 
@@ -214,7 +214,7 @@ class AgentPanel(_gui_common.PilotFeature):
         """
         if self._panel is not None:
             return
-        self._panel = AgentConsoleWidget(backends=available_backends())
+        self._panel = AgentConsoleWidget(backends=BackendRegistry.available())
         self._panel.submitted.connect(self._on_submitted)
         self._dock = QDockWidget("Agent")
         self._dock.setWidget(self._panel)

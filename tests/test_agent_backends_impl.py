@@ -27,62 +27,68 @@ _TOOLS = [
 ]
 
 
+def _envelope(result_text):
+    """A ``claude --output-format json`` reply carrying ``result_text``."""
+    return json.dumps({"type": "result", "result": result_text})
+
+
 class ParseToolCallsTC(unittest.TestCase):
     def test_plain_json_array(self):
         text = '[{"op": "add_circle", "r": 1.0}]'
         self.assertEqual(
-            agent.parse_tool_calls(text, _TOOLS),
+            agent.ToolCallParser.parse(text, _TOOLS),
             [{"op": "add_circle", "r": 1.0}])
 
     def test_lone_object_becomes_one_command(self):
-        commands = agent.parse_tool_calls('{"op": "add_line"}', _TOOLS)
+        commands = agent.ToolCallParser.parse('{"op": "add_line"}', _TOOLS)
         self.assertEqual(commands, [{"op": "add_line"}])
 
     def test_strips_code_fence(self):
         text = '```json\n[{"op": "add_circle"}]\n```'
-        self.assertEqual(agent.parse_tool_calls(text, _TOOLS),
+        self.assertEqual(agent.ToolCallParser.parse(text, _TOOLS),
                          [{"op": "add_circle"}])
 
     def test_extracts_array_from_surrounding_prose(self):
         text = 'Sure! Here you go:\n[{"op": "add_circle"}]\nThanks.'
-        self.assertEqual(agent.parse_tool_calls(text, _TOOLS),
+        self.assertEqual(agent.ToolCallParser.parse(text, _TOOLS),
                          [{"op": "add_circle"}])
 
     def test_empty_array_is_empty(self):
-        self.assertEqual(agent.parse_tool_calls("[]", _TOOLS), [])
+        self.assertEqual(agent.ToolCallParser.parse("[]", _TOOLS), [])
 
     def test_no_json_yields_empty(self):
-        self.assertEqual(agent.parse_tool_calls("I cannot help.", _TOOLS), [])
+        self.assertEqual(
+            agent.ToolCallParser.parse("I cannot help.", _TOOLS), [])
 
     def test_malformed_json_rejected(self):
         # A JSON-looking but invalid payload must not become a successful
         # empty batch; send() should record a parser error instead.
         with self.assertRaises(ValueError):
-            agent.parse_tool_calls('[{"op": "add_circle",}]', _TOOLS)
+            agent.ToolCallParser.parse('[{"op": "add_circle",}]', _TOOLS)
         with self.assertRaises(ValueError):
-            agent.parse_tool_calls('[{"op": "add_circle"', _TOOLS)
+            agent.ToolCallParser.parse('[{"op": "add_circle"', _TOOLS)
 
     def test_unknown_op_rejected(self):
         with self.assertRaises(ValueError):
-            agent.parse_tool_calls('[{"op": "delete_universe"}]', _TOOLS)
+            agent.ToolCallParser.parse('[{"op": "delete_universe"}]', _TOOLS)
 
     def test_missing_op_rejected(self):
         with self.assertRaises(ValueError):
-            agent.parse_tool_calls('[{"r": 1.0}]', _TOOLS)
+            agent.ToolCallParser.parse('[{"r": 1.0}]', _TOOLS)
 
     def test_non_string_op_raises_valueerror_not_typeerror(self):
         # An unhashable op (list/object) must not blow past the ValueError
         # contract into a set-membership TypeError, or send() would crash
         # instead of recording an error.
         with self.assertRaises(ValueError):
-            agent.parse_tool_calls('[{"op": {"nested": 1}}]', _TOOLS)
+            agent.ToolCallParser.parse('[{"op": {"nested": 1}}]', _TOOLS)
         with self.assertRaises(ValueError):
-            agent.parse_tool_calls('[{"op": ["a", "b"]}]', _TOOLS)
+            agent.ToolCallParser.parse('[{"op": ["a", "b"]}]', _TOOLS)
 
     def test_no_tool_surface_skips_op_validation(self):
         # With no advertised ops, any op is accepted, so the pipeline still
         # runs rather than rejecting everything.
-        commands = agent.parse_tool_calls('[{"op": "anything"}]', [])
+        commands = agent.ToolCallParser.parse('[{"op": "anything"}]', [])
         self.assertEqual(commands, [{"op": "anything"}])
 
 
@@ -117,11 +123,8 @@ class ClaudeCliSendTC(unittest.TestCase):
         self.which = patcher.start()
         self.addCleanup(patcher.stop)
 
-    def _envelope(self, result_text):
-        return json.dumps({"type": "result", "result": result_text})
-
     def test_send_parses_commands(self):
-        reply = self._envelope('[{"op": "add_circle", "r": 2.0}]')
+        reply = _envelope('[{"op": "add_circle", "r": 2.0}]')
         self.backend._communicate = lambda argv: (0, reply, "")
         response = self.backend.send("draw a circle", "empty world", _TOOLS)
         self.assertIsInstance(response, agent.BackendResponse)
@@ -148,7 +151,7 @@ class ClaudeCliSendTC(unittest.TestCase):
         self.assertIn("timed out", response.error)
 
     def test_send_unknown_op_reports_error_without_commands(self):
-        reply = self._envelope('[{"op": "delete_universe"}]')
+        reply = _envelope('[{"op": "delete_universe"}]')
         self.backend._communicate = lambda argv: (0, reply, "")
         response = self.backend.send("wreck it", "scene", _TOOLS)
         self.assertIsNotNone(response.error)
@@ -156,7 +159,7 @@ class ClaudeCliSendTC(unittest.TestCase):
 
     def test_send_malformed_json_is_error_not_empty_success(self):
         # Invalid JSON must surface as an error, not a silent empty batch.
-        reply = self._envelope('[{"op": "add_circle",}]')
+        reply = _envelope('[{"op": "add_circle",}]')
         self.backend._communicate = lambda argv: (0, reply, "")
         response = self.backend.send("draw", "scene", _TOOLS)
         self.assertIsNotNone(response.error)
@@ -165,7 +168,7 @@ class ClaudeCliSendTC(unittest.TestCase):
     def test_send_unhashable_op_is_error_not_crash(self):
         # A malformed reply must come back as an error result, never an
         # unhandled exception out of send().
-        reply = self._envelope('[{"op": {"nested": 1}}]')
+        reply = _envelope('[{"op": {"nested": 1}}]')
         self.backend._communicate = lambda argv: (0, reply, "")
         response = self.backend.send("break it", "scene", _TOOLS)
         self.assertIsNotNone(response.error)
@@ -176,7 +179,7 @@ class ClaudeCliSendTC(unittest.TestCase):
 
         def _capture(argv):
             seen["argv"] = argv
-            return 0, self._envelope("[]"), ""
+            return 0, _envelope("[]"), ""
 
         self.backend._communicate = _capture
         self.backend.send("hello", "one shape", _TOOLS)
@@ -196,14 +199,106 @@ class ClaudeCliSendTC(unittest.TestCase):
         self.assertNotIn("drive a 2D drawing canvas", prompt)
 
 
+class _FakeProc:
+    """Stand-in for the CLI child: records nothing, answers an empty batch."""
+
+    def __init__(self, stdout):
+        self._stdout = stdout
+        self.returncode = 0
+
+    def communicate(self, timeout=None):
+        return self._stdout, ""
+
+
+class SubprocessBackendPinningTC(unittest.TestCase):
+    """The child process runs pinned: a scratch cwd and an allowlisted env.
+
+    These assert the boundary the harness builds, by capturing the arguments
+    it hands ``Popen``.  They prove no unlisted variable is passed, not that
+    the CLI itself reads nothing else; proving that needs a live run against
+    the real binary.
+    """
+
+    _SECRETS = {"AWS_SECRET_ACCESS_KEY": "aws", "GITHUB_TOKEN": "gh",
+                "SSH_AUTH_SOCK": "/tmp/sock", "OPENAI_API_KEY": "oai"}
+
+    def setUp(self):
+        self.backend = agent.ClaudeCliBackend()
+        patcher = mock.patch(_WHICH, lambda name: "/usr/bin/" + name)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def _run(self, environ):
+        """Send one prompt under ``environ``; return the captured Popen
+        keyword arguments."""
+        seen = {}
+
+        def _popen(argv, **kwargs):
+            seen.update(kwargs)
+            seen["argv"] = argv
+            # Sampled here because send() removes the directory before
+            # returning, which is itself what the caller then asserts.
+            seen["cwd_exists"] = os.path.isdir(kwargs["cwd"])
+            return _FakeProc(_envelope("[]"))
+
+        with mock.patch.dict(os.environ, environ, clear=True):
+            with mock.patch("subprocess.Popen", _popen):
+                response = self.backend.send("draw", "scene", _TOOLS)
+        self.assertIsNone(response.error)
+        return seen
+
+    def test_child_env_is_exactly_the_allowlist(self):
+        environ = {"HOME": "/home/u", "USER": "u", "LOGNAME": "u",
+                   "PATH": "/bin", "TMPDIR": "/tmp",
+                   "ANTHROPIC_API_KEY": "key", **self._SECRETS}
+        seen = self._run(environ)
+        self.assertEqual(seen["env"], {
+            "HOME": "/home/u", "USER": "u", "LOGNAME": "u",
+            "PATH": "/bin", "TMPDIR": "/tmp", "ANTHROPIC_API_KEY": "key"})
+
+    def test_unset_allowlist_entries_are_not_invented(self):
+        # Only what the parent actually holds is forwarded, so an absent
+        # variable stays absent instead of arriving empty.
+        seen = self._run({"PATH": "/bin"})
+        self.assertEqual(seen["env"], {"PATH": "/bin"})
+
+    def test_each_supported_auth_mode_reaches_the_child(self):
+        base = {"HOME": "/home/u", "PATH": "/bin"}
+        modes = (
+            {"ANTHROPIC_API_KEY": "key"},
+            {"CLAUDE_CODE_OAUTH_TOKEN": "token"},
+            {"CLAUDE_CONFIG_DIR": "/home/u/.claude"},  # stored login
+        )
+        for mode in modes:
+            seen = self._run({**base, **mode, **self._SECRETS})
+            self.assertEqual(seen["env"], {**base, **mode})
+
+    def test_child_runs_in_a_scratch_directory_removed_afterwards(self):
+        seen = self._run({"PATH": "/bin"})
+        workdir = seen["cwd"]
+        self.assertTrue(seen["cwd_exists"])
+        self.assertNotEqual(workdir, os.getcwd())
+        self.assertIn("solvcon-agent-", os.path.basename(workdir))
+        self.assertFalse(os.path.exists(workdir))
+
+    def test_argv_pins_the_cli_sandbox(self):
+        argv = self._run({"PATH": "/bin"})["argv"]
+        self.assertEqual(argv[argv.index("--tools") + 1], "")
+        self.assertEqual(argv[argv.index("--setting-sources") + 1], "")
+        for flag in ("--strict-mcp-config", "--disable-slash-commands",
+                     "--no-session-persistence"):
+            self.assertIn(flag, argv)
+        self.assertEqual(argv[argv.index("--permission-mode") + 1], "dontAsk")
+
+
 class RegistrationTC(unittest.TestCase):
     def test_claude_registers_on_import(self):
-        backend = agent.get_backend("claude (cli)")
+        backend = agent.BackendRegistry.get("claude (cli)")
         self.assertIsNotNone(backend)
         self.assertIsInstance(backend, agent.ClaudeCliBackend)
 
     def test_openai_http_registers_on_import(self):
-        backend = agent.get_backend("openai (http)")
+        backend = agent.BackendRegistry.get("openai (http)")
         self.assertIsNotNone(backend)
         self.assertIsInstance(backend, agent.OpenAIHttpBackend)
 
