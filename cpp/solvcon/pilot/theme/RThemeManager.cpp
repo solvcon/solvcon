@@ -81,7 +81,7 @@ void RThemeManager::apply()
         m_window_color = native.color(QPalette::Window);
         QApplication::setPalette(native);
         // Leave the native look untouched, including any style the platform set.
-        qApp->setStyleSheet(QString());
+        setApplicationStyleSheet(QString());
     }
     else
     {
@@ -89,7 +89,7 @@ void RThemeManager::apply()
             buildPalette(themePaletteFor(m_backend->platform(), variant), variant);
         m_window_color = curated.color(QPalette::Window);
         QApplication::setPalette(curated);
-        qApp->setStyleSheet(supplementalStyleSheet(curated));
+        setApplicationStyleSheet(supplementalStyleSheet(curated));
     }
     if (m_window != nullptr)
     {
@@ -242,6 +242,19 @@ QPalette RThemeManager::buildPalette(ThemePalette const & spec, ThemeVariant var
     return pal;
 }
 
+void RThemeManager::setApplicationStyleSheet(QString const & sheet)
+{
+    // An application-wide stylesheet change unpolishes and repolishes every
+    // widget in the process, so pay for it only when the text really differs.
+    if (sheet == m_style_sheet)
+    {
+        return;
+    }
+
+    m_style_sheet = sheet;
+    qApp->setStyleSheet(sheet);
+}
+
 QString RThemeManager::supplementalStyleSheet(QPalette const & pal) const
 {
     // A QPalette cannot draw a tooltip border or a focus ring, so add just
@@ -265,11 +278,20 @@ void RThemeManager::restorePersisted()
         settings.value(QStringLiteral("theme/look")).toString().toUtf8().constData());
 }
 
-void RThemeManager::persist() const
+void RThemeManager::persist()
 {
+    // The store is only read when a session starts, so a write that repeats
+    // what was already written buys nothing and touches the disk.
+    if (m_persisted_mode == m_mode && m_persisted_look == m_look)
+    {
+        return;
+    }
+
     QSettings settings(QStringLiteral("solvcon"), QStringLiteral("pilot"));
     settings.setValue(QStringLiteral("theme/mode"), QString::fromStdString(modeId()));
     settings.setValue(QStringLiteral("theme/look"), QString::fromStdString(lookId()));
+    m_persisted_mode = m_mode;
+    m_persisted_look = m_look;
 }
 
 } /* end namespace solvcon */

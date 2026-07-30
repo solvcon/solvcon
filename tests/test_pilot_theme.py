@@ -278,14 +278,22 @@ class ThemeConsoleTC(unittest.TestCase):
         # keep the tests independent of the order they run in.
         self.mgr.set_theme("system")
 
+    def _console_dock(self):
+        for dock in self.mgr.mainWindow.findChildren(QtWidgets.QDockWidget):
+            if "Console" == dock.windowTitle():
+                return dock
+        self.fail("the console dock is not in the main window")
+
     def _console_edits(self):
         # The console's transcript and command editors are the QTextEdit
-        # instances in the pilot. Deliver the posted palette-change events and
-        # polish each so its palette resolves against the current application
-        # palette before it is read.
+        # instances under its dock. Deliver the posted palette-change events
+        # and polish each so its palette resolves against the current
+        # application palette before it is read. Polishing every text edit in
+        # the process instead would repolish widgets this test says nothing
+        # about, at the price of re-running their stylesheets.
         self.app.processEvents()
-        edits = [w for w in self.app.allWidgets()
-                 if isinstance(w, QtWidgets.QTextEdit)]
+        edits = self._console_dock().findChildren(QtWidgets.QTextEdit)
+        self.assertEqual(len(edits), 2)
         for edit in edits:
             edit.ensurePolished()
         return edits
