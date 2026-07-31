@@ -506,7 +506,7 @@ public:
 
     size_t nshape() const { return m_nshape; }
 
-    uint64_t version() const { return m_version; }
+    uint64_t state_stamp() const { return m_state_stamp; }
 
     /**
      * True if `shape_id` refers to a live (non-DEAD) shape. Unlike the
@@ -589,8 +589,8 @@ public:
 
 private:
 
-    /// Stamp the world as changed; see version().
-    void mark_changed() { ++m_version; }
+    /// Stamp the world as changed; see state_stamp().
+    void mark_changed() { ++m_state_stamp; }
 
     /// 2D endpoints of segment i, as [x0, y0, x1, y1].
     std::vector<double> segment_coords(size_t i) const
@@ -709,7 +709,7 @@ private:
     std::vector<ShapeRecord> m_shape_registry;
 
     size_t m_nshape = 0; ///< Count of live (non-DEAD) shapes.
-    uint64_t m_version = 0; ///< Moves on every change; see version().
+    uint64_t m_state_stamp = 0; ///< Moves on every change; see state_stamp().
     std::unique_ptr<rtree_type> m_rtree; ///< Spatial index for shapes for viewport query.
 
     /// The kind of an undoable shape change.

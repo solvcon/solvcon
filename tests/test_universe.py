@@ -360,7 +360,7 @@ class WorldPrimitivesTC(unittest.TestCase):
             self.w.add_polygon([[0, 0], [1, 1]])
 
 
-class WorldVersionTC(unittest.TestCase):
+class WorldStateStampTC(unittest.TestCase):
     """The stamp that tells a reader the world has changed."""
 
     def setUp(self):
@@ -368,9 +368,9 @@ class WorldVersionTC(unittest.TestCase):
 
     def _changed_by(self, act):
         """Return whether ``act`` moved the stamp."""
-        before = self.w.version
+        before = self.w.state_stamp
         act()
-        return self.w.version != before
+        return self.w.state_stamp != before
 
     def test_every_way_of_adding_geometry_moves_it(self):
         # A reader compares the stamp instead of the geometry, so anything the
@@ -417,13 +417,13 @@ class WorldVersionTC(unittest.TestCase):
         # Only edits move the stamp; a query that moved it would have every
         # reader redrawing on its own reads.
         sid = self.w.add_circle(0, 0, 1)
-        before = self.w.version
+        before = self.w.state_stamp
         self.w.describe_state()
         self.w.shape_bbox(sid)
         self.w.shape_obb(sid)
         self.w.pick_shape(0, 0, 0.1)
         self.w.shape_is_live(sid)
-        self.assertEqual(self.w.version, before)
+        self.assertEqual(self.w.state_stamp, before)
 
     def test_reaching_past_the_world_into_its_pads_is_not_seen(self):
         # The stamp covers what goes through the world. A caller that writes
@@ -431,17 +431,17 @@ class WorldVersionTC(unittest.TestCase):
         # what the accessors' own documentation warns of.
         self.w.add_segment(solvcon.Point3dFp64(0, 0, 0),
                            solvcon.Point3dFp64(1, 1, 0))
-        before = self.w.version
+        before = self.w.state_stamp
         self.w.segments.set_at(0, 5.0, 5.0, 6.0, 6.0)
-        self.assertEqual(self.w.version, before)
+        self.assertEqual(self.w.state_stamp, before)
 
     def test_an_edit_that_changes_nothing_leaves_it_alone(self):
         # A drag's first event often lands on the press point, and the world
         # takes that as no move at all.
         sid = self.w.add_rectangle(0, 0, 2, 1)
-        before = self.w.version
+        before = self.w.state_stamp
         self.w.translate_shape(sid, 0, 0)
-        self.assertEqual(self.w.version, before)
+        self.assertEqual(self.w.state_stamp, before)
 
 
 class WorldUndoRedoTC(unittest.TestCase):
