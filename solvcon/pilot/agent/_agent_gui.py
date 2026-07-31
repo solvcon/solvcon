@@ -7,8 +7,9 @@
 The console sits at the bottom-right, beside the Python console, and runs the
 selected AI backend on the active canvas world for one request at a time.  It
 reuses the headless :class:`~solvcon.agent.AgentSession`, so the drawing logic
-stays Qt-free and testable.  Multi-turn chat history is a later addition: each
-prompt is an independent single turn.
+stays Qt-free and testable.  The session keeps the conversation, so each
+request replays the turns before it; driving several backend steps within one
+request is a later addition.
 """
 
 from itertools import zip_longest
@@ -18,7 +19,7 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QDockWidget,
                                QLabel, QComboBox, QTextEdit, QLineEdit,
                                QPushButton)
 
-from ...agent import AgentSession, BackendRegistry
+from ...agent import AgentBackend, AgentSession, BackendRegistry, op_of
 from . import _agent_control
 from ..base import _gui_common
 
@@ -34,6 +35,8 @@ class AgentBackendWorker(QThread):
 
     Only the backend call runs here, the slow subprocess or HTTP round trip;
     it reads neither Qt nor the world, so it is safe off the main thread.  The
+    turns it replays are snapshotted on the main thread at construction, so a
+    turn recorded meanwhile cannot land in the request being composed.  The
     reply returns through :attr:`succeeded` (a ``BackendResponse``) or
     :attr:`failed` (an error string); the owning panel applies the commands and
     repaints on the main thread, where the connected slots run.
@@ -43,17 +46,19 @@ class AgentBackendWorker(QThread):
     failed = Signal(str)
 
     def __init__(self, backend, prompt, scene_context, tool_surface,
-                 parent=None):
+                 history=(), parent=None):
         super().__init__(parent)
         self._backend = backend
         self._prompt = prompt
         self._scene_context = scene_context
         self._tool_surface = tool_surface
+        self._history = list(history)
 
     def run(self):
         try:
             response = self._backend.send(
-                self._prompt, self._scene_context, self._tool_surface)
+                self._prompt, self._scene_context, self._tool_surface,
+                self._history)
         except Exception as exc:
             self.failed.emit("%s: %s" % (type(exc).__name__, exc))
         else:
@@ -241,11 +246,15 @@ class AgentPanel(_gui_common.PilotFeature):
         self._active_widget = widget
         self._panel.set_busy(True)
         self._panel.start_working()
+        history = session.history()
         scene = _agent_control.pilot_scene_context(
             session.runner, session.scene_context())
+        tool_surface = session.tool_surface()
+        self._write_history_payload(session.backend, prompt, scene,
+                                    tool_surface, history)
         self._worker = AgentBackendWorker(
-            session.backend, prompt, scene,
-            session.tool_surface(), parent=self._panel)
+            session.backend, prompt, scene, tool_surface,
+            history, parent=self._panel)
         self._worker.succeeded.connect(self._on_backend_succeeded)
         self._worker.failed.connect(self._on_backend_failed)
         self._worker.finished.connect(self._on_worker_finished)
@@ -281,22 +290,64 @@ class AgentPanel(_gui_common.PilotFeature):
         self._panel.stop_working()
         self._panel.set_busy(False)
 
+    def _write_history_payload(self, backend, prompt, scene, tool_surface,
+                               history):
+        """Log the conversation about to be replayed to the backend.
+
+        It goes to the Python console rather than the panel, whose transcript
+        already carries these turns.  The section is asked of ``backend``, not
+        of the base class, so a backend that composes its own payload logs the
+        section it will really send; a duck-typed backend that offers none
+        falls back to the standard layout.
+        """
+        compose = getattr(backend, "history_section",
+                          AgentBackend.history_section)
+        formatted = compose(prompt, scene, tool_surface, history)
+        if not formatted:
+            return
+        self._pycon.writeToHistory(
+            "History (before send):\n%s\n\n" % formatted)
+
+    @staticmethod
+    def _turn_log_messages(turn):
+        """The messages of the ``log`` commands that ran.
+
+        A log whose command failed is dropped: its message describes work the
+        turn went on to plan, and printing it as the reply would announce what
+        never happened.
+        """
+        messages = []
+        for command, result in zip_longest(turn.commands, turn.results):
+            if op_of(command) != "log" or not getattr(result, "ok", False):
+                continue
+            message = command.get("message")
+            if message is not None:
+                messages.append(str(message))
+        return messages
+
+    @staticmethod
+    def _turn_error_lines(turn):
+        """One indented line per command that failed or never ran.  A command
+        that worked stays silent: the canvas already shows it."""
+        lines = []
+        for command, result in zip_longest(turn.commands, turn.results):
+            if result is None:
+                lines.append("  - %s: not run" % op_of(command))
+            elif not getattr(result, "ok", False):
+                lines.append("  - %s: %s"
+                             % (op_of(command),
+                                getattr(result, "error", None) or "failed"))
+        return lines
+
     @staticmethod
     def _format_turn(turn):
-        """One block of reply text followed by an indented line per command,
-        marked ``ok`` or with its error."""
+        """The user-facing reply: the ``log`` messages that ran (else backend
+        prose), followed by a line per command that did not succeed, so a turn
+        whose commands all failed cannot read as a turn that worked."""
         if turn is None:
             return "(no backend selected)"
-        lines = [turn.text or "(no reply)"]
-        for command, result in zip_longest(turn.commands, turn.results):
-            op = command.get("op", "?") if isinstance(command, dict) else "?"
-            if result is None:
-                lines.append("  - %s" % op)
-            elif getattr(result, "ok", False):
-                lines.append("  - %s: ok" % op)
-            else:
-                lines.append(
-                    "  - %s: %s" % (op, getattr(result, "error", "failed")))
-        return "\n".join(lines)
+        logs = AgentPanel._turn_log_messages(turn)
+        lines = logs if logs else [turn.text or "(no reply)"]
+        return "\n".join(lines + AgentPanel._turn_error_lines(turn))
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

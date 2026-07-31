@@ -29,8 +29,9 @@ class _CircleBackend:
     def available(self):
         return True
 
-    def send(self, prompt, scene_context, tool_surface):
+    def send(self, prompt, scene_context, tool_surface, history=()):
         return agent.BackendResponse(text="circle added", commands=[
+            {"op": "log", "message": "Add a unit circle at the origin"},
             {"op": "add_circle", "cx": 0.0, "cy": 0.0, "r": 1.0}])
 
 
@@ -48,11 +49,77 @@ class _TranslateBackend:
     def available(self):
         return True
 
-    def send(self, prompt, scene_context, tool_surface):
+    def send(self, prompt, scene_context, tool_surface, history=()):
         return agent.BackendResponse(
             text="translating", commands=[
                 {"op": "translate_shape", "shape_id": self._shape_id,
                  "dx": 1.0, "dy": 0.0}])
+
+
+@unittest.skipIf(not solvcon.HAS_PILOT, "pilot is not built")
+class AgentTurnFormatTC(unittest.TestCase):
+    def test_log_messages_are_the_user_facing_reply(self):
+        turn = agent.TranscriptTurn(
+            role="agent", text="ignored prose",
+            commands=[{"op": "log", "message": "Shift car right by 25"},
+                      {"op": "translate_shape", "shape_id": 0,
+                       "dx": 25, "dy": 0}],
+            results=[agent.CommandResult("log", True),
+                     agent.CommandResult("translate_shape", True)])
+        self.assertEqual(
+            _agent_gui.AgentPanel._format_turn(turn),
+            "Shift car right by 25")
+
+    def test_a_failed_command_is_reported_under_the_reply(self):
+        turn = agent.TranscriptTurn(
+            role="agent", text="moving the car",
+            commands=[{"op": "translate_shape", "shape_id": 0,
+                       "dx": 25, "dy": 0}, {"op": "add_circle"}],
+            results=[agent.CommandResult(
+                "translate_shape", False, error="shape 0 is not live")])
+        self.assertEqual(
+            _agent_gui.AgentPanel._format_turn(turn).splitlines(),
+            ["moving the car",
+             "  - translate_shape: shape 0 is not live",
+             "  - add_circle: not run"])
+
+    def test_a_log_that_failed_is_not_announced_as_the_reply(self):
+        # The message describes work the turn went on to plan; with the batch
+        # dead it would announce something that never happened.
+        turn = agent.TranscriptTurn(
+            role="agent", text="drawing a car",
+            commands=[{"op": "log", "message": "body, roof, wheels"},
+                      {"op": "add_circle"}],
+            results=[agent.CommandResult("log", False, error="no canvas"),
+                     agent.CommandResult("add_circle", False,
+                                         error="no canvas")])
+        self.assertEqual(
+            _agent_gui.AgentPanel._format_turn(turn).splitlines()[0],
+            "drawing a car")
+
+    def test_successful_commands_stay_out_of_the_reply(self):
+        turn = agent.TranscriptTurn(
+            role="agent", text="drew it",
+            commands=[{"op": "add_line", "x0": 0, "y0": 0, "x1": 1, "y1": 1}],
+            results=[agent.CommandResult("add_line", True, {"shape_id": 0})])
+        self.assertEqual(_agent_gui.AgentPanel._turn_error_lines(turn), [])
+        self.assertEqual(_agent_gui.AgentPanel._format_turn(turn), "drew it")
+
+    def test_a_log_message_does_not_hide_a_later_failure(self):
+        turn = agent.TranscriptTurn(
+            role="agent", text="",
+            commands=[{"op": "log", "message": "Car plan"},
+                      {"op": "add_line"}],
+            results=[agent.CommandResult("log", True),
+                     agent.CommandResult("add_line", False,
+                                         error="x0 is required")])
+        self.assertEqual(
+            _agent_gui.AgentPanel._format_turn(turn).splitlines(),
+            ["Car plan", "  - add_line: x0 is required"])
+
+    def test_backend_prose_fills_in_when_there_is_no_log(self):
+        turn = agent.TranscriptTurn(role="agent", text="echo: hi")
+        self.assertEqual(_agent_gui.AgentPanel._format_turn(turn), "echo: hi")
 
 
 @unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
@@ -134,8 +201,8 @@ class AgentPanelTC(unittest.TestCase):
         self.assertEqual(world.nshape, 1)
         text = panel._transcript.toPlainText()
         self.assertIn("You: draw a circle", text)
-        self.assertIn("circle added", text)
-        self.assertIn("add_circle: ok", text)
+        self.assertIn("Add a unit circle at the origin", text)
+        self.assertNotIn("add_circle", text)
 
     def test_turn_runs_off_the_main_thread(self):
         feature = self._panel_on()
@@ -210,8 +277,8 @@ class AgentPanelTC(unittest.TestCase):
         panel._emit()
         self._finish_turn(feature)
         text = panel._transcript.toPlainText()
-        self.assertIn("translate_shape", text)
-        self.assertNotIn("ok", text.split("translate_shape", 1)[1])
+        self.assertIn("- translate_shape:", text)
+        self.assertIn("4242", text)
         self.assertTrue(panel._input.isEnabled())
 
     def test_blank_prompt_is_ignored(self):
