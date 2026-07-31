@@ -72,7 +72,8 @@ class SolutionPanel(QWidget):
         self._gamma = self._spin(1.4, 1.01, 3.0, 0.01, 3)
         self._density = self._spin(1.0, 1e-3, 1e6, 0.1, 3)
         self._pressure = self._spin(1.0, 1e-3, 1e6, 0.1, 3)
-        self._mach = self._spin(2.0, 0.1, 20.0, 0.1, 3)
+        self._mach = self._spin(3.0, 1.1, 20.0, 0.1, 3)
+        self._angle = self._spin(10.0, 0.5, 45.0, 0.5, 2)
         self._dt = self._spin(2e-3, 1e-6, 1.0, 1e-3, 6)
         self._steps = QSpinBox()
         self._steps.setRange(1, 1000)
@@ -88,6 +89,7 @@ class SolutionPanel(QWidget):
         form.addRow("density", self._density)
         form.addRow("pressure", self._pressure)
         form.addRow("mach", self._mach)
+        form.addRow("angle (deg)", self._angle)
         form.addRow("dt", self._dt)
         form.addRow("steps/frame", self._steps)
         form.addRow("cell type", self._cell_type)
@@ -140,6 +142,7 @@ class SolutionPanel(QWidget):
                     density=self._density.value(),
                     pressure=self._pressure.value(),
                     mach=self._mach.value(),
+                    angle=self._angle.value(),
                     time_increment=self._dt.value(),
                     cell_type=self._cell_type.currentText())
 
@@ -345,7 +348,8 @@ class SolutionInfo(_gui_common.PilotFeature):
         shock.build_constant(gamma=params['gamma'],
                              density=params['density'],
                              pressure=params['pressure'],
-                             mach=params['mach'])
+                             mach=params['mach'],
+                             angle=params['angle'])
         shock.build_numerical(cell_type=params['cell_type'],
                               time_increment=params['time_increment'])
         # Set the viewer mesh so the inspector can report it; reusing an open

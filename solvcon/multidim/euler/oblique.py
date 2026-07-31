@@ -4,15 +4,6 @@
 
 """
 Mesh, boundary tagging, and solver driver for the oblique-shock reflection.
-
-A uniform supersonic stream enters from the left over a slip wall whose
-bottom turns into a wedge inclined by a fixed angle.  The wedge deflects the
-flow, an oblique shock forms at the wedge tip and reflects off the flat top
-slip wall, and the flow leaves through the non-reflective outflow on the
-right.  This module owns the programmatic mesh builder, the geometric
-boundary classifier, and the :class:`ObliqueShock` driver that marches the
-CESE Euler solver over the mesh; all three are shared by the unit tests and
-the pilot GUI.
 """
 
 import math
@@ -29,33 +20,19 @@ __all__ = [
 class ObliqueShockMesher(object):
     """Generate the mesh for the oblique-shock reflection.
 
-    The rectangular-like domain runs from the lower-left corner ``ll`` to
-    the upper-right corner ``ur``.  The bottom edge is flat up to ``x_ramp``
-    and then ramps up at ``wedge_angle`` degrees.  The wedge top must stay
-    below the domain height (``ur[1] - ll[1]``); otherwise the grid columns
-    would invert and the mesh silently self-overlap, so the constructor
-    raises :class:`ValueError` instead.
+    The rectangular domain runs from the lower-left corner ``ll`` to the
+    upper-right corner ``ur`` and is divided into ``nx`` by ``ny`` grid
+    boxes.
     """
 
-    def __init__(self, nx=48, ny=16, ll=(0.0, 0.0), ur=(3.0, 1.0),
-                 x_ramp=1.5, wedge_angle=15.0):
+    def __init__(self, nx=64, ny=16, ll=(0.0, 0.0), ur=(4.0, 1.0)):
         self.nx = nx
         self.ny = ny
         (self.x0, self.y0), (self.x1, self.y1) = ll, ur
-        self.x_ramp = x_ramp
-        self.tan_theta = math.tan(math.radians(wedge_angle))
-        wedge_top = (self.x1 - x_ramp) * self.tan_theta
-        if wedge_top >= self.y1 - self.y0:
-            raise ValueError(
-                f"wedge top (ur[0] - x_ramp) * tan(wedge_angle) = "
-                f"{wedge_top:g} must stay below the domain height "
-                f"{self.y1 - self.y0:g}")
 
     def _node(self, it, jt):
-        x = self.x0 + it * (self.x1 - self.x0) / self.nx
-        yb = (self.y0 if x <= self.x_ramp
-              else self.y0 + (x - self.x_ramp) * self.tan_theta)
-        return x, yb + (self.y1 - yb) * jt / self.ny
+        return (self.x0 + it * (self.x1 - self.x0) / self.nx,
+                self.y0 + jt * (self.y1 - self.y0) / self.ny)
 
     def _nid(self, it, jt):
         return jt * (self.nx + 1) + it
@@ -258,35 +235,39 @@ class ObliqueShockMesher(object):
 
     @staticmethod
     def classify_boundary(mh, tol=1e-9):
-        """Bucket the boundary faces of ``mh`` by physical role.
+        """Bucket the boundary faces of ``mh`` by domain edge.
 
         A boundary face has no neighbour cell, i.e. ``fccls(ifc, 1) < 0``.
-        Each is classified by its face-centre ``fccnd`` x position and
-        outward ``fcnml`` direction: the left edge (``x == xmin``, normal
-        pointing in -x) is the supersonic inlet, the right edge
-        (``x == xmax``, normal in +x) is the non-reflective outflow, and
-        every remaining face -- the deflecting bottom wedge and the
-        reflecting top -- is a slip wall.  ``xmin``/``xmax`` come from the
-        boundary face centres because ``ndcrd`` also carries extrapolated
-        ghost-node coordinates that overshoot the real edges.
+        Each is classified by its face-centre ``fccnd`` position and
+        outward ``fcnml`` direction into the left (``x == xmin``, normal
+        in -x), top (``y == ymax``, normal in +y), bottom, and right
+        (``x == xmax``, normal in +x) edges.  The driver imposes the free
+        stream at the left, the post-shock state at the top, the slip wall
+        at the bottom, and the non-reflective outflow at the right.  The
+        edge extrema come from the boundary face centres because ``ndcrd``
+        also carries extrapolated ghost-node coordinates that overshoot
+        the real edges.
 
-        Returns ``(inlet, walls, outflow)`` as sorted face-index lists
+        Returns ``(left, top, bottom, right)`` as sorted face-index lists
         ready to feed ``add_inlet`` / ``add_slipwall`` / ``add_nonrefl``.
         """
         bfaces = [ifc for ifc in range(mh.nface) if mh.fccls[ifc, 1] < 0]
         xcs = [mh.fccnd[ifc, 0] for ifc in bfaces]
-        xmin, xmax = min(xcs), max(xcs)
-        inlet, walls, outflow = [], [], []
+        ycs = [mh.fccnd[ifc, 1] for ifc in bfaces]
+        xmin, xmax, ymax = min(xcs), max(xcs), max(ycs)
+        left, top, bottom, right = [], [], [], []
         for ifc in bfaces:
-            xc = mh.fccnd[ifc, 0]
-            nx = mh.fcnml[ifc, 0]
+            xc, yc = mh.fccnd[ifc, 0], mh.fccnd[ifc, 1]
+            nx, ny = mh.fcnml[ifc, 0], mh.fcnml[ifc, 1]
             if abs(xc - xmin) <= tol and nx < 0.0:
-                inlet.append(ifc)
+                left.append(ifc)
             elif abs(xc - xmax) <= tol and nx > 0.0:
-                outflow.append(ifc)
+                right.append(ifc)
+            elif abs(yc - ymax) <= tol and ny > 0.0:
+                top.append(ifc)
             else:
-                walls.append(ifc)
-        return sorted(inlet), sorted(walls), sorted(outflow)
+                bottom.append(ifc)
+        return sorted(left), sorted(top), sorted(bottom), sorted(right)
 
 
 class ObliqueShockRelation(object):
@@ -410,17 +391,28 @@ class ObliqueShock(object):
         self.mach = None
         self.speedofsound = None
         self.velocity = None
+        self.relation = None
+        self.theta = None
+        self.shock_angle = None
+        self.density2 = None
+        self.pressure2 = None
+        self.mach2 = None
+        self.velocity2 = None
         self.mesher = None
         self.mesh = None
         # Numerical solver core (EulerCore).
         self.svr = None
 
-    def build_constant(self, gamma=1.4, density=1.0, pressure=1.0, mach=2.0):
-        """Fix the supersonic free stream entering at the inlet.
+    def build_constant(self, gamma=1.4, density=1.0, pressure=1.0, mach=3.0,
+                       angle=10.0):
+        """Fix the flow states on the two sides of the incident shock.
 
-        The stream is horizontal; the bottom wedge of the phase-1 mesh
-        deflects it to form the oblique shock.  The flow speed follows from
-        the Mach number and the speed of sound of the given state.
+        The free stream (zone 1) enters horizontally at the given Mach
+        number; ``angle`` is the flow deflection across the incident shock
+        in degrees.  The oblique-shock relations give the post-shock state
+        (zone 2), whose velocity points ``angle`` below horizontal; the
+        driver imposes it at the top boundary to anchor the incident
+        shock.
         """
         self.gamma = gamma
         self.density = density
@@ -428,6 +420,16 @@ class ObliqueShock(object):
         self.mach = mach
         self.speedofsound = math.sqrt(gamma * pressure / density)
         self.velocity = mach * self.speedofsound
+        self.relation = ObliqueShockRelation(gamma=gamma)
+        self.theta = theta = math.radians(angle)
+        self.shock_angle = beta = self.relation.calc_shock_angle(mach, theta)
+        self.density2 = density * self.relation.calc_density_ratio(mach, beta)
+        self.pressure2 = (
+            pressure * self.relation.calc_pressure_ratio(mach, beta))
+        self.mach2 = self.relation.calc_dmach(mach, beta=beta)
+        speed2 = self.mach2 * math.sqrt(gamma * self.pressure2 / self.density2)
+        self.velocity2 = (speed2 * math.cos(theta),
+                          -speed2 * math.sin(theta))
 
     def build_numerical(self, cell_type='quad', time_increment=2.e-3,
                         sigma0=3.0, taumin=0.0, tauscale=1.0, **mesher_kw):
@@ -444,12 +446,15 @@ class ObliqueShock(object):
         svr.taumin = taumin
         svr.tauscale = tauscale
         svr.init_solution(gamma=self.gamma, rho=self.density,
-                          v=[0.0, 0.0], p=self.pressure)
-        inlet, walls, outflow = self.mesher.classify_boundary(self.mesh)
-        svr.add_inlet(inlet, value=[self.density, self.velocity, 0.0,
-                                    self.pressure, self.gamma])
-        svr.add_slipwall(walls)
-        svr.add_nonrefl(outflow)
+                          v=[self.velocity, 0.0], p=self.pressure)
+        left, top, bottom, right = self.mesher.classify_boundary(self.mesh)
+        svr.add_inlet(left, value=[self.density, self.velocity, 0.0,
+                                   self.pressure, self.gamma])
+        svr.add_inlet(top, value=[self.density2, self.velocity2[0],
+                                  self.velocity2[1], self.pressure2,
+                                  self.gamma])
+        svr.add_slipwall(bottom)
+        svr.add_nonrefl(right)
         # Prime the ghost rows from the initial interior state so the first
         # substep does not read zero-filled ghosts.
         svr.bc_soln()

@@ -3,8 +3,7 @@
 
 
 """
-Multi-dimensional Euler-equation solver; currently the mesh builder and
-boundary tagging for the oblique-shock reflection.
+Multi-dimensional Euler-equation solver.
 """
 
 from . import oblique
