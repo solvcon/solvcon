@@ -5,11 +5,21 @@
 
 #include <solvcon/profiling/RadixTree.hpp>
 
+#include <stdexcept>
+
 namespace solvcon
 {
 
 void CallProfiler::reset()
 {
+    for (auto & cancel_callback : m_cancel_callbacks)
+    {
+        if (cancel_callback)
+        {
+            cancel_callback();
+        }
+    }
+
     while (!m_radix_tree.is_root())
     {
         CallerProfile & profile = m_radix_tree.get_current_node()->data();
@@ -40,8 +50,7 @@ void CallProfiler::end_caller()
     CallerProfile & call_profile = m_radix_tree.get_current_node()->data();
     call_profile.stop_stopwatch(); // Update profiling information to the pending time and count
     m_pending_nodes.insert(m_radix_tree.get_current_node());
-    m_radix_tree.move_current_to_parent(); // Pop the caller from the call stack
-    m_cancel_callbacks.pop_back();
+    pop_caller();
 
     if (m_radix_tree.get_current_node() == m_radix_tree.get_root()) // If the root function ends, update all pending nodes and stable items
     {
@@ -49,6 +58,22 @@ void CallProfiler::end_caller()
         m_radix_tree.update_stable_items();
     }
 }
+
+void CallProfiler::discard_caller(RadixTreeNode<CallerProfile> const * frame_node)
+{
+    if (frame_node != m_radix_tree.get_current_node())
+    {
+        throw std::runtime_error("CallProfilerProbe::cancel: only the most recent active probe can be canceled");
+    }
+    pop_caller();
+}
+
+void CallProfiler::pop_caller()
+{
+    m_radix_tree.move_current_to_parent();
+    m_cancel_callbacks.pop_back();
+}
+
 // NOLINTNEXTLINE(misc-no-recursion)
 void CallProfiler::print_profiling_result(const RadixTreeNode<CallerProfile> & node, const int depth, std::ostream & outstream) const
 {

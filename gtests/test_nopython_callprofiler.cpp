@@ -232,6 +232,18 @@ TEST_F(CallProfilerTest, retire_cancel_callbacks)
     EXPECT_EQ(cancel_callback_count(), 0);
 }
 
+TEST_F(CallProfilerTest, reset_with_empty_cancel_callback)
+{
+    pProfiler->reset();
+    pProfiler->start_caller("wrapper", nullptr);
+
+    EXPECT_EQ(cancel_callback_count(), 1);
+    EXPECT_FALSE(radix_tree().is_root());
+    EXPECT_NO_THROW(pProfiler->reset());
+    EXPECT_EQ(cancel_callback_count(), 0);
+    EXPECT_TRUE(radix_tree().is_root());
+}
+
 } /* end namespace detail */
 } /* end namespace solvcon */
 

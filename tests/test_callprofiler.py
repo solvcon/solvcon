@@ -324,4 +324,50 @@ class CallProfilerTC(unittest.TestCase):
         self.assertEqual(constructor["count"], 2)
         self.assertEqual(constructor["children"], [])
 
+    def test_probe_cancel_is_lifo(self):
+        solvcon.call_profiler.reset()
+        outer = solvcon.CallProfilerProbe("outer")
+        inner = solvcon.CallProfilerProbe("inner")
+
+        with self.assertRaisesRegex(
+                RuntimeError, "only the most recent active probe"):
+            outer.cancel()
+
+        inner.cancel()
+        outer.cancel()
+        del inner
+        del outer
+
+        later = solvcon.CallProfilerProbe("later")
+        del later
+
+        result = solvcon.call_profiler.result()
+        outer_result, later_result = result["children"]
+        inner_result, = outer_result["children"]
+        self.assertEqual(outer_result["name"], "outer")
+        self.assertEqual(outer_result["count"], 0)
+        self.assertNotIn("current_node", outer_result)
+        self.assertEqual(inner_result["name"], "inner")
+        self.assertEqual(inner_result["count"], 0)
+        self.assertNotIn("current_node", inner_result)
+        self.assertEqual(later_result["name"], "later")
+        self.assertEqual(later_result["count"], 1)
+
+    def test_reset_invalidates_active_probes(self):
+        solvcon.call_profiler.reset()
+        outer = solvcon.CallProfilerProbe("outer")
+        inner = solvcon.CallProfilerProbe("inner")
+
+        solvcon.call_profiler.reset()
+        del inner
+        del outer
+
+        later = solvcon.CallProfilerProbe("later")
+        del later
+
+        result = solvcon.call_profiler.result()
+        later_result, = result["children"]
+        self.assertEqual(later_result["name"], "later")
+        self.assertEqual(later_result["count"], 1)
+
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
