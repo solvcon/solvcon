@@ -48,7 +48,9 @@ class _FakeWorld:
         return len(self._types)
 
     def describe_state(self, level="basic"):
-        shapes = [{"id": i, "type": t} for i, t in enumerate(self._types)]
+        shapes = [{"id": i, "type": t, "bbox": [i, 0, i + 1, 1],
+                   "segments": [[i, 0, i + 1, 1]], "curves": []}
+                  for i, t in enumerate(self._types)]
         return json.dumps({"shapes": shapes})
 
 
@@ -111,8 +113,8 @@ class _FakeBackend:
         self._response = response
         self.seen = None
 
-    def send(self, prompt, scene_context, tool_surface):
-        self.seen = (prompt, scene_context, tool_surface)
+    def send(self, prompt, scene_context, tool_surface, history=()):
+        self.seen = (prompt, scene_context, tool_surface, list(history))
         return self._response
 
 
@@ -206,6 +208,76 @@ class SceneContextTC(unittest.TestCase):
         self.assertIn("circle", context)
         self.assertIn("rectangle", context)
 
+    def test_inventory_lists_each_shape_by_id_type_and_box(self):
+        session = agent.AgentSession(world=_FakeWorld(["circle", "rectangle"]))
+        context = session.scene_context()
+        self.assertEqual(context.splitlines()[2:],
+                         ["  #0 circle [0, 0, 1, 1]",
+                          "  #1 rectangle [1, 0, 2, 1]"])
+        # describe_state also carries the geometry, which would swamp the
+        # prompt budget the inventory has to fit in.
+        self.assertNotIn("segments", context)
+
+    def test_empty_world_has_no_inventory(self):
+        session = agent.AgentSession(world=_FakeWorld([]))
+        self.assertEqual(session.scene_context(),
+                         "world with 0 shapes (types: none)")
+
+    def test_crowded_world_keeps_the_newest_shapes_and_counts_the_rest(self):
+        limit = agent.AgentSession.INVENTORY_LIMIT
+        world = _FakeWorld(["circle"] * (limit + 3))
+        lines = agent.AgentSession(world=world).scene_context().splitlines()
+        self.assertEqual(len(lines), limit + 3)
+        self.assertIn("%d shapes" % (limit + 3), lines[0])
+        self.assertEqual(lines[2], "  ... 3 earlier shapes")
+        self.assertEqual(lines[3], "  #3 circle [3, 0, 4, 1]")
+        self.assertEqual(lines[-1], "  #%d circle" % (limit + 2)
+                         + " [%d, 0, %d, 1]" % (limit + 2, limit + 3))
+
+    def test_shape_without_a_box_still_lists(self):
+        class _BoxlessWorld:
+            def describe_state(self, level="basic"):
+                return json.dumps({"shapes": [{"id": 7, "type": "blob"}]})
+
+        session = agent.AgentSession(world=_BoxlessWorld())
+        self.assertIn("  #7 blob [?]", session.scene_context())
+
+
+class HistoryTC(unittest.TestCase):
+    def test_trailing_user_turn_is_left_out(self):
+        # The composed request already carries the current prompt; replaying
+        # it would ask the model to answer the same thing twice.
+        session = agent.AgentSession()
+        session.record_prompt("draw a truck")
+        self.assertEqual(session.history(), [])
+
+    def test_a_canvas_switch_is_marked_in_the_replayed_turns(self):
+        # The ids in the earlier turns belong to the old world; unmarked they
+        # would read as shapes the new world's inventory should also list.
+        session = agent.AgentSession(world=_FakeWorld(["circle"]))
+        session.record_prompt("draw a circle")
+        session.bind_world(_FakeWorld(["rectangle"]))
+        session.bind_world(session.world)
+        self.assertEqual([turn.role for turn in session.transcript],
+                         ["user", "marker"])
+        self.assertIn("... canvas switched",
+                      agent.format_history(session.history()))
+
+    def test_the_first_world_is_not_a_switch(self):
+        session = agent.AgentSession()
+        session.bind_world(_FakeWorld(["circle"]))
+        self.assertEqual(session.transcript, [])
+
+    def test_run_turn_hands_the_earlier_turns_to_the_backend(self):
+        backend = _FakeBackend(agent.BackendResponse(text="ok"))
+        session = agent.AgentSession(backend=backend)
+        session.run_turn("draw a truck")
+        session.run_turn("move it right")
+        prompt, _, _, history = backend.seen
+        self.assertEqual(prompt, "move it right")
+        self.assertEqual([turn.text for turn in history],
+                         ["draw a truck", "ok"])
+
 
 class AgentDrawIntegrationTC(unittest.TestCase):
     def test_default_runner_mutates_world(self):
@@ -248,9 +320,21 @@ class AgentDrawIntegrationTC(unittest.TestCase):
         self.assertEqual(world.nshape, 0)
 
     def test_opt_in_tool_surface_matches_agent_draw(self):
+        hidden = agent.AgentSession.HIDDEN_OPS
         session = agent.AgentSession(allow_destructive=True)
         self.assertEqual(session.tool_surface(),
-                         draw.tool_definitions())
+                         [tool for tool in draw.tool_definitions()
+                          if tool["name"] not in hidden])
+
+    def test_render_png_is_hidden_unless_a_session_asks_for_it(self):
+        for session in (agent.AgentSession(),
+                        agent.AgentSession(allow_destructive=True)):
+            names = {tool["name"] for tool in session.tool_surface()}
+            self.assertNotIn("render_png", names)
+        self.assertIn("render_png", draw.commands)
+        opted_in = agent.AgentSession(hidden_ops=())
+        self.assertIn("render_png",
+                      {tool["name"] for tool in opted_in.tool_surface()})
 
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

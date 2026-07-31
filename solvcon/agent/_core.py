@@ -13,19 +13,24 @@ applied command into a transcript a caller can render.  No Qt is imported.
 import json
 import dataclasses
 
+from . import _backend
+from . import _command
+
 
 @dataclasses.dataclass
 class TranscriptTurn:
     """One transcript entry: a ``role`` with its text, commands, and results.
 
     ``results`` holds ``CommandResult`` objects (or any object with an ``ok``
-    attribute).
+    attribute).  ``failed`` marks a turn that went wrong before any command
+    ran, which no result can record.
     """
 
     role: str
     text: str = ""
     commands: list = dataclasses.field(default_factory=list)
     results: list = dataclasses.field(default_factory=list)
+    failed: bool = False
 
 
 @dataclasses.dataclass
@@ -50,22 +55,40 @@ class AgentSession:
     to a lazily built command executor for ``world``.  ``backend`` is an
     :class:`~solvcon.agent.AgentBackend` or ``None``.  Delete commands are
     hidden from the backend and rejected unless ``allow_destructive`` is true.
+    ``hidden_ops`` names the ops to keep off the tool surface, defaulting to
+    :attr:`HIDDEN_OPS`.
     """
 
+    INVENTORY_LIMIT = 40
+    HIDDEN_OPS = frozenset({"render_png"})
+
     def __init__(self, world=None, backend=None, runner=None, renderer=None,
-                 allow_destructive=False):
+                 allow_destructive=False, hidden_ops=None):
         self.world = world
         self.backend = backend
         self._renderer = renderer
         self._runner = runner
         self._runner_injected = runner is not None
         self.allow_destructive = allow_destructive
+        self.hidden_ops = frozenset(
+            self.HIDDEN_OPS if hidden_ops is None else hidden_ops)
         self._transcript = []
 
     @property
     def transcript(self):
         """The recorded turns, oldest first (a copy)."""
         return list(self._transcript)
+
+    def history(self):
+        """The turns to replay to the backend, oldest first.
+
+        Trailing user turns are left out: the composed request already carries
+        the current prompt.
+        """
+        end = len(self._transcript)
+        while end and self._transcript[end - 1].role == "user":
+            end -= 1
+        return self._transcript[:end]
 
     @property
     def runner(self):
@@ -77,10 +100,26 @@ class AgentSession:
     def bind_world(self, world):
         """Point the session at ``world`` for later turns, dropping a lazily
         built runner so the next command batch targets the new world.  A runner
-        passed to the constructor is kept."""
+        passed to the constructor is kept.
+
+        A switch to a different world marks the transcript.  The shape ids in
+        the turns before it name shapes in the world that was open then, so
+        replaying them unmarked beside the new world's inventory would invite
+        a command aimed at an id that now belongs to something else.
+        """
+        if world is not self.world and self._transcript:
+            self._mark("canvas switched")
         self.world = world
         if not self._runner_injected:
             self._runner = None
+
+    def _mark(self, text):
+        """Record ``text`` as a marker turn, unless one already closes the
+        transcript: consecutive markers say nothing the first did not."""
+        role = _backend.HistoryFormatter.MARKER_ROLE
+        if self._transcript[-1].role == role:
+            return
+        self._transcript.append(TranscriptTurn(role=role, text=text))
 
     def _command_provider(self):
         """What answers ``tool_definitions`` and ``commands_by_category``: the
@@ -94,8 +133,16 @@ class AgentSession:
 
     def tool_surface(self):
         """The command tool definitions to hand the backend, with delete ops
-        dropped unless this session allows them."""
-        tools = self._command_provider().tool_definitions()
+        dropped unless this session allows them and :attr:`hidden_ops` dropped
+        always.
+
+        ``render_png`` is hidden by default: a session with no renderer cannot
+        run it, and its inline base64 result fits no prompt budget.  A caller
+        that does inject a renderer passes its own ``hidden_ops`` to get the op
+        back.
+        """
+        tools = [tool for tool in self._command_provider().tool_definitions()
+                 if tool["name"] not in self.hidden_ops]
         if self.allow_destructive:
             return tools
         return [tool for tool in tools if tool["category"] != "delete"]
@@ -106,10 +153,37 @@ class AgentSession:
         by_category = self._command_provider().commands_by_category()
         return set(by_category.get("delete", ()))
 
+    @staticmethod
+    def _bbox_text(bbox):
+        """One shape's bounding box, or ``[?]`` when it has none to report."""
+        try:
+            x_min, y_min, x_max, y_max = bbox
+            return "[%g, %g, %g, %g]" % (x_min, y_min, x_max, y_max)
+        except (TypeError, ValueError):
+            return "[?]"
+
+    @classmethod
+    def _inventory(cls, shapes):
+        """Per-shape id, type, and bounding box; geometry from
+        ``describe_state`` is omitted for prompt size.  A crowded world keeps
+        the newest :attr:`INVENTORY_LIMIT` shapes and counts the rest."""
+        if not shapes:
+            return []
+        lines = ["shapes (#id type [x_min, y_min, x_max, y_max]):"]
+        hidden = len(shapes) - cls.INVENTORY_LIMIT
+        if hidden > 0:
+            lines.append("  ... %d earlier shapes" % hidden)
+        for shape in shapes[-cls.INVENTORY_LIMIT:]:
+            lines.append("  #%s %s %s"
+                         % (shape.get("id", "?"), shape.get("type", "?"),
+                            cls._bbox_text(shape.get("bbox"))))
+        return lines
+
     def scene_context(self, level="basic"):
-        """A short text summary of the world for the model: the shape count
-        and distinct types from ``world.describe_state(...)`` (JSON), or a
-        plain count when it cannot be described."""
+        """A text summary of the world for the model: the shape count and
+        distinct types from ``world.describe_state(...)`` (JSON) followed by
+        the per-shape inventory, or a plain count when it cannot be
+        described."""
         world = self.world
         if world is None:
             return "no active world"
@@ -120,15 +194,9 @@ class AgentSession:
         shapes = state.get("shapes", [])
         types = sorted({s["type"] for s in shapes if "type" in s})
         kinds = ", ".join(types) if types else "none"
-        return "world with %d shapes (types: %s)" % (len(shapes), kinds)
-
-    @staticmethod
-    def _op_of(command):
-        """The command's declared ``op``, or ``"?"`` when it names none."""
-        if not isinstance(command, dict):
-            return "?"
-        op = command.get("op")
-        return op if isinstance(op, str) else "?"
+        lines = ["world with %d shapes (types: %s)" % (len(shapes), kinds)]
+        lines.extend(self._inventory(shapes))
+        return "\n".join(lines)
 
     def _execute(self, commands):
         """Run each command in order and return one result per command.
@@ -144,21 +212,21 @@ class AgentSession:
             return []
         blocked = set() if self.allow_destructive else self._gated_ops()
         allowed = [command for command in commands
-                   if self._op_of(command) not in blocked]
+                   if _command.op_of(command) not in blocked]
         if not allowed:
             return [_OutcomeStub(
-                self._op_of(command),
+                _command.op_of(command),
                 error="destructive command %r is disabled for this session"
-                % self._op_of(command)) for command in commands]
+                % _command.op_of(command)) for command in commands]
         try:
             runner = self.runner
         except Exception as exc:
             error = "%s: %s" % (type(exc).__name__, exc)
-            return [_OutcomeStub(self._op_of(c), error=error)
+            return [_OutcomeStub(_command.op_of(c), error=error)
                     for c in commands]
         results = []
         for command in commands:
-            op = self._op_of(command)
+            op = _command.op_of(command)
             if op in blocked:
                 results.append(_OutcomeStub(
                     op, error="destructive command %r is disabled for this "
@@ -168,15 +236,15 @@ class AgentSession:
                 results.append(runner.run(command))
             except Exception as exc:
                 results.append(_OutcomeStub(
-                    self._op_of(command),
+                    _command.op_of(command),
                     error="%s: %s" % (type(exc).__name__, exc)))
         return results
 
-    def _record_agent(self, text, commands=(), results=()):
+    def _record_agent(self, text, commands=(), results=(), failed=False):
         """Append and return one agent turn."""
         turn = TranscriptTurn(
-            role="agent", text=text,
-            commands=list(commands), results=list(results))
+            role="agent", text=text, commands=list(commands),
+            results=list(results), failed=failed)
         self._transcript.append(turn)
         return turn
 
@@ -208,30 +276,31 @@ class AgentSession:
             parts.append("[error] %s" % response.error)
         commands = list(response.commands)
         return self._record_agent(
-            "\n".join(parts), commands, self._execute(commands))
+            "\n".join(parts), commands, self._execute(commands),
+            failed=bool(response.error))
 
     def fail_turn(self, error):
         """Record a failed agent turn for a backend that raised, so the turn
         still lands in the transcript instead of propagating."""
-        return self._record_agent("[error] %s" % error)
+        return self._record_agent("[error] %s" % error, failed=True)
 
     def run_turn(self, prompt):
-        """Drive one request end to end for a single-turn chat.
+        """Drive one user request end to end.
 
         Record the user's ``prompt``, ask the backend for commands against the
-        current scene and tool surface, run them, and record one agent turn
-        carrying the reply text, the commands, and their results.  With no
-        backend, record only the user turn and return ``None``.  A backend that
-        raises is recorded as a failed agent turn rather than propagated, so a
-        headless caller always gets a turn back.  No prior turns are replayed:
-        multi-turn chat history is a later addition.
+        current scene, tool surface, and the turns so far, run them, and record
+        one agent turn carrying the reply text, the commands, and their
+        results.  With no backend, record only the user turn and return
+        ``None``.  A backend that raises is recorded as a failed agent turn
+        rather than propagated, so a headless caller always gets a turn back.
         """
         self.record_prompt(prompt)
         if self.backend is None:
             return None
         try:
             response = self.backend.send(
-                prompt, self.scene_context(), self.tool_surface())
+                prompt, self.scene_context(), self.tool_surface(),
+                self.history())
         except Exception as exc:
             return self.fail_turn("%s: %s" % (type(exc).__name__, exc))
         return self.complete_turn(response)

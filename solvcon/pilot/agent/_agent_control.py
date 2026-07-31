@@ -209,11 +209,12 @@ def build_control_dispatcher(mgr, renderer=None):
 def pilot_scene_context(dispatcher, base):
     """Append a snapshot of the open windows and the active view to ``base``.
 
-    A one-shot backend never sees a command's result, so window ids stay
-    invisible unless the scene carries them; this lists every open window with
-    its id and the active view so the model can target ``activate_window``,
-    ``close_window``, or ``save_image`` without guessing.  The read commands
-    route through ``dispatcher`` so the ids match what the executors assign.
+    A window a request never touched leaves no result to learn its id from, so
+    the ids stay invisible unless the scene carries them; this lists every open
+    window with its id and the active view so the model can target
+    ``activate_window``, ``close_window``, or ``save_image`` without guessing.
+    The read commands route through ``dispatcher`` so the ids match what the
+    executors assign.
     """
     lines = [base]
     windows = dispatcher.run({"op": "list_windows"}).value["windows"]
