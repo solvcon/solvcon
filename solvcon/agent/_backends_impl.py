@@ -175,12 +175,13 @@ class SubprocessBackend(_backend.AgentBackend):
         stdout as the reply; override for a CLI that wraps it (JSON, etc.)."""
         return (stdout or "").strip()
 
-    def send(self, prompt, scene_context, tool_surface):
+    def send(self, prompt, scene_context, tool_surface, history=()):
         exe = self.executable()
         if exe is None:
             return _backend.BackendResponse(
                 error="%s not found on PATH" % self.command)
-        user_prompt = self._compose_user(prompt, scene_context, tool_surface)
+        user_prompt = self._compose_user(
+            prompt, scene_context, tool_surface, history)
         argv = self._build_argv(exe, user_prompt, self._INSTRUCTIONS)
         try:
             code, out, err = self._communicate(argv)
@@ -241,6 +242,10 @@ class ClaudeCliBackend(SubprocessBackend):
     It runs the CLI in print mode with JSON output, folds the tool surface and
     scene context into the prompt, and parses the model's JSON reply into
     commands.  No API key lives here: the CLI owns authentication.
+
+    The model is named explicitly because ``--setting-sources ""`` cuts the
+    CLI off from the config files it would otherwise pick one from, so the
+    same request would run on a different model as the CLI default moves.
     """
 
     command = "claude"
@@ -323,11 +328,12 @@ class OpenAIHttpBackend(_backend.AgentBackend):
         """True when both a base URL and a model name are configured."""
         return bool(self.base_url) and bool(self._model)
 
-    def send(self, prompt, scene_context, tool_surface):
+    def send(self, prompt, scene_context, tool_surface, history=()):
         if not self.available():
             return _backend.BackendResponse(
                 error="openai http backend needs base_url and model")
-        user_prompt = self._compose_user(prompt, scene_context, tool_surface)
+        user_prompt = self._compose_user(
+            prompt, scene_context, tool_surface, history)
         body = {
             "model": self._model,
             "stream": False,
