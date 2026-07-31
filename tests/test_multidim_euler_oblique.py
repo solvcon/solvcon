@@ -4,20 +4,23 @@
 
 """The oblique-shock reflection test.
 
-A uniform supersonic stream enters from the left over a slip wall whose bottom
-turns into a wedge inclined by a fixed angle.  The wedge deflects the flow, an
-oblique shock forms at the wedge tip and reflects off the flat top slip wall,
-and the flow leaves through the non-reflective outflow on the right.  The mesh
-comes in three element flavors: one quadrilateral per grid box, each box cut
-into two triangles, or a Delaunay triangulation of jittered interior points.
+The computing domain is a plain rectangle.  A uniform supersonic stream
+enters horizontally from the left, the top boundary holds the state behind
+an incident oblique shock, the bottom slip wall reflects the incident
+shock, and the flow leaves through the non-reflective outflow on the right.
+The mesh comes in three element flavors: one quadrilateral per grid box,
+each box cut into two triangles, or a Delaunay triangulation of jittered
+interior points.
 """
 
+import math
 import unittest
 
 from numpy.testing import assert_almost_equal
 
 import solvcon
-from solvcon.multidim.euler.oblique import ObliqueShock, ObliqueShockMesher
+from solvcon.multidim.euler.oblique import (ObliqueShock, ObliqueShockMesher,
+                                            ObliqueShockRelation)
 
 
 class _ObliqueMeshBase:
@@ -40,8 +43,7 @@ class _ObliqueMeshBase:
     @classmethod
     def setUpClass(cls):
         cls.mesher = ObliqueShockMesher(nx=cls.NX, ny=cls.NY, ll=cls.LL,
-                                        ur=cls.UR, x_ramp=0.5,
-                                        wedge_angle=15.0)
+                                        ur=cls.UR)
         cls.mesh = cls.mesher.make_mesh(cell_type=cls.CELL_TYPE)
 
     def _boundary_faces(self):
@@ -78,59 +80,46 @@ class _ObliqueMeshBase:
         self.assertEqual(2 * (self.NX + self.NY), len(self._boundary_faces()))
 
     def test_classification_partitions_boundary(self):
-        inlet, walls, outflow = self.mesher.classify_boundary(self.mesh)
-        # Every role is present.
-        self.assertTrue(inlet)
-        self.assertTrue(walls)
-        self.assertTrue(outflow)
-        si, sw, so = set(inlet), set(walls), set(outflow)
-        # The three roles are pairwise disjoint.
-        self.assertEqual(set(), si & sw)
-        self.assertEqual(set(), si & so)
-        self.assertEqual(set(), sw & so)
+        edges = self.mesher.classify_boundary(self.mesh)
+        # Every edge is present.
+        for faces in edges:
+            self.assertTrue(faces)
+        sets = [set(faces) for faces in edges]
+        # The four edges are pairwise disjoint.
+        for it in range(len(sets)):
+            for jt in range(it + 1, len(sets)):
+                self.assertEqual(set(), sets[it] & sets[jt])
         # Together they cover every boundary face and nothing else.
-        self.assertEqual(self._boundary_faces(), si | sw | so)
+        self.assertEqual(self._boundary_faces(),
+                         sets[0] | sets[1] | sets[2] | sets[3])
 
     def test_classification_counts(self):
-        inlet, walls, outflow = self.mesher.classify_boundary(self.mesh)
+        left, top, bottom, right = self.mesher.classify_boundary(self.mesh)
         # The left and right edges carry one face per cell row; the top and
         # bottom edges carry one per cell column.
-        self.assertEqual(self.NY, len(inlet))
-        self.assertEqual(self.NY, len(outflow))
-        self.assertEqual(2 * self.NX, len(walls))
+        self.assertEqual(self.NY, len(left))
+        self.assertEqual(self.NY, len(right))
+        self.assertEqual(self.NX, len(top))
+        self.assertEqual(self.NX, len(bottom))
 
-    def test_inlet_outflow_geometry(self):
+    def test_boundary_geometry(self):
         mh = self.mesh
-        inlet, walls, outflow = self.mesher.classify_boundary(mh)
-        # The real domain spans [LL[0], UR[0]]; ndcrd would include ghost-node
+        left, top, bottom, right = self.mesher.classify_boundary(mh)
+        # The real domain spans LL to UR; ndcrd would include ghost-node
         # coordinates that overshoot the edges, so use the construction
         # bounds.
-        xmin, xmax = self.LL[0], self.UR[0]
-        # Inlet faces sit on x == xmin with the outward normal pointing in -x.
-        for ifc in inlet:
-            assert_almost_equal(mh.fccnd[ifc, 0], xmin, decimal=12)
-            assert_almost_equal(
-                [mh.fcnml[ifc, 0], mh.fcnml[ifc, 1]], [-1.0, 0.0], decimal=12)
-        # Outflow faces sit on x == xmax with the normal pointing in +x.
-        for ifc in outflow:
-            assert_almost_equal(mh.fccnd[ifc, 0], xmax, decimal=12)
-            assert_almost_equal(
-                [mh.fcnml[ifc, 0], mh.fcnml[ifc, 1]], [1.0, 0.0], decimal=12)
-        # Wall faces are the top and bottom edges: their centres are strictly
-        # interior in x and their outward normals are vertical-dominant.
-        for ifc in walls:
-            xc = mh.fccnd[ifc, 0]
-            self.assertGreater(xc, xmin)
-            self.assertLess(xc, xmax)
-            self.assertGreater(abs(mh.fcnml[ifc, 1]), abs(mh.fcnml[ifc, 0]))
-
-    def test_wedge_is_present(self):
-        # The defining feature versus a plain channel: some slip-wall faces
-        # are inclined, so their outward normal has a non-zero x component.
-        mh = self.mesh
-        _, walls, _ = self.mesher.classify_boundary(mh)
-        inclined = [ifc for ifc in walls if abs(mh.fcnml[ifc, 0]) > 1e-6]
-        self.assertTrue(inclined)
+        (xmin, ymin), (xmax, ymax) = self.LL, self.UR
+        # Each edge sits on its domain boundary with the outward normal
+        # exactly axis-aligned; the wedge-free domain has no inclined face.
+        groups = [(left, 0, xmin, [-1.0, 0.0]),
+                  (right, 0, xmax, [1.0, 0.0]),
+                  (top, 1, ymax, [0.0, 1.0]),
+                  (bottom, 1, ymin, [0.0, -1.0])]
+        for faces, axis, coord, normal in groups:
+            for ifc in faces:
+                assert_almost_equal(mh.fccnd[ifc, axis], coord, decimal=12)
+                assert_almost_equal(
+                    [mh.fcnml[ifc, 0], mh.fcnml[ifc, 1]], normal, decimal=12)
 
     def test_cell_winding_and_volume(self):
         # clvol alone cannot pin the winding: build_interior repairs
@@ -195,9 +184,9 @@ class ObliqueShockTriangleMeshTC(_ObliqueMeshBase, _SingleBoundaryFaceTB,
 
 class ObliqueShockUnstructuredMeshTC(_ObliqueMeshBase, _SingleBoundaryFaceTB,
                                      unittest.TestCase):
-    """Delaunay triangulation of the wedge: the structured boundary layout
-    with jittered interior points.  The boundary tests of the base apply
-    unchanged because all flavors share the boundary node layout.
+    """Delaunay triangulation of the rectangle: the structured boundary
+    layout with jittered interior points.  The boundary tests of the base
+    apply unchanged because all flavors share the boundary node layout.
     """
 
     CELL_TYPE = 'unstructured'
@@ -249,14 +238,62 @@ class ObliqueShockMesherTC(unittest.TestCase):
         with self.assertRaises(ValueError):
             ObliqueShockMesher(nx=2, ny=2).make_mesh(cell_type='hexagon')
 
-    def test_wedge_top_must_stay_below_ly(self):
-        # Past atan(height / (ur[0] - x_ramp)) the grid columns invert and
-        # the mesh would silently self-overlap; the constructor refuses
-        # instead.  Here the limit is atan(1.0 / 2.5) ~ 21.8 degrees, so 30
-        # degrees overflows.
+
+class ObliqueShockRelationTC(unittest.TestCase):
+    """The oblique-shock relation reproduces the reference values carried
+    over from the doctests of the legacy solvcon gas parcel (Anderson,
+    Modern Compressible Flow, chapter 4).
+    """
+
+    def setUp(self):
+        self.ob = ObliqueShockRelation(gamma=1.4)
+
+    def test_ratios(self):
+        beta = math.radians(37.8)
+        self.assertAlmostEqual(
+            2.4204302545, self.ob.calc_density_ratio(3, beta), places=10)
+        self.assertAlmostEqual(
+            3.7777114257, self.ob.calc_pressure_ratio(3, beta), places=10)
+        self.assertAlmostEqual(
+            1.5607602899, self.ob.calc_temperature_ratio(3, beta), places=10)
+
+    def test_gamma_changes_solution(self):
+        self.ob.gamma = 1.2
+        self.assertAlmostEqual(
+            2.7793244902,
+            self.ob.calc_density_ratio(3, math.radians(37.8)), places=10)
+
+    def test_downstream_mach(self):
+        self.assertAlmostEqual(
+            0.4751909633, self.ob.calc_normal_dmach(3), places=10)
+        self.assertAlmostEqual(
+            1.9924827009,
+            self.ob.calc_dmach(3, beta=math.radians(37.8)), places=10)
+        self.assertAlmostEqual(
+            1.9941316656,
+            self.ob.calc_dmach(3, theta=math.radians(20)), places=10)
+
+    def test_dmach_needs_one_angle(self):
         with self.assertRaises(ValueError):
-            ObliqueShockMesher(nx=2, ny=2, ll=(0.0, 0.0), ur=(3.0, 1.0),
-                               x_ramp=0.5, wedge_angle=30.0)
+            self.ob.calc_dmach(3)
+        with self.assertRaises(ValueError):
+            self.ob.calc_dmach(3, beta=0.2, theta=0.1)
+
+    def test_detached_shock_is_rejected(self):
+        # 40 degrees of deflection exceeds the maximum attached-shock
+        # deflection at Mach 2 (about 23 degrees).
+        with self.assertRaises(ValueError):
+            self.ob.calc_shock_angle(2, math.radians(40))
+
+    def test_angles_invert_each_other(self):
+        # Example 4.6 of Anderson: M1 = 4 and theta = 32 degrees give a
+        # weak-shock angle of about 48.2585 degrees, and the flow-angle
+        # calculation inverts it.
+        theta = math.radians(32)
+        beta = self.ob.calc_shock_angle(4, theta, delta=1)
+        self.assertAlmostEqual(48.2584798722, math.degrees(beta), places=10)
+        self.assertAlmostEqual(
+            32.0, math.degrees(self.ob.calc_flow_angle(4, beta)), places=6)
 
 
 class _ObliqueShockDriverBase:
@@ -266,7 +303,7 @@ class _ObliqueShockDriverBase:
 
     CELL_TYPE = None
     # A coarse mesh keeps the driver tests fast.
-    MESHER_KW = dict(nx=24, ny=8, x_ramp=1.0)
+    MESHER_KW = dict(nx=24, ny=8)
 
     def test_build_and_march(self):
         shock = ObliqueShock()
@@ -305,6 +342,26 @@ class ObliqueShockDriverTC(unittest.TestCase):
     def test_numerical_requires_constants(self):
         with self.assertRaises(ValueError):
             ObliqueShock().build_numerical()
+
+    def test_constants_set_post_shock_state(self):
+        shock = ObliqueShock()
+        shock.build_constant(gamma=1.4, density=1.0, pressure=1.0, mach=3.0,
+                             angle=10.0)
+        relation = shock.relation
+        beta = relation.calc_shock_angle(3.0, math.radians(10.0))
+        self.assertAlmostEqual(beta, shock.shock_angle)
+        # The imposed zone-2 state carries the analytical jumps, and its
+        # velocity points 10 degrees below horizontal.
+        self.assertAlmostEqual(relation.calc_density_ratio(3.0, beta),
+                               shock.density2 / shock.density)
+        self.assertAlmostEqual(relation.calc_pressure_ratio(3.0, beta),
+                               shock.pressure2 / shock.pressure)
+        vx, vy = shock.velocity2
+        self.assertLess(vy, 0.0)
+        self.assertAlmostEqual(math.radians(10.0), math.atan2(-vy, vx))
+        speed2 = math.hypot(vx, vy)
+        sos2 = math.sqrt(1.4 * shock.pressure2 / shock.density2)
+        self.assertAlmostEqual(shock.mach2, speed2 / sos2)
 
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
