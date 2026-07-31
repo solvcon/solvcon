@@ -74,8 +74,8 @@ WrapWorld<T> & WrapWorld<T>::wrap_management()
     (*this)
         .def_property_readonly("nshape", &wrapped_type::nshape)
         .def_property_readonly(
-            "version",
-            &wrapped_type::version,
+            "state_stamp",
+            &wrapped_type::state_stamp,
             "A stamp that changes whenever what the world draws does. The "
             "number means nothing on its own; a different one is a different "
             "world.")

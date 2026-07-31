@@ -299,7 +299,7 @@ class LayersPage(PaletteStyled):
         draws, the selection it marks, and the world's change stamp.
         """
         world, selected = self._selection()
-        return None if world is None else (world, selected, world.version)
+        return None if world is None else (world, selected, world.state_stamp)
 
     def _content(self):
         """What the rows show, read from the world the page is bound to."""
