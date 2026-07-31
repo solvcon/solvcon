@@ -22,6 +22,7 @@ from ... import core
 __all__ = [
     'ObliqueShock',
     'ObliqueShockMesher',
+    'ObliqueShockRelation',
 ]
 
 
@@ -286,6 +287,116 @@ class ObliqueShockMesher(object):
             else:
                 walls.append(ifc)
         return sorted(inlet), sorted(walls), sorted(outflow)
+
+
+class ObliqueShockRelation(object):
+    """Calculate the flow-property jumps across an oblique shock.
+
+    (Not yet validated.)
+
+    ``beta`` is the shock angle and ``theta`` the flow-deflection angle,
+    both in radians and measured from the upstream flow direction; the
+    formulas follow chapter 4 of Anderson, Modern Compressible Flow (3rd
+    ed.).  Ported from the gas parcel of the legacy solvcon code base.
+
+    :ivar gamma: Ratio of specific heats.
+    """
+
+    def __init__(self, gamma):
+        self.gamma = gamma
+
+    def calc_density_ratio(self, mach1, beta):
+        """Return the density ratio rho2/rho1 across a shock of angle
+        ``beta`` at upstream Mach number ``mach1``."""
+        gamma = self.gamma
+        mn1sq = (mach1 * math.sin(beta)) ** 2
+        return (gamma + 1) * mn1sq / ((gamma - 1) * mn1sq + 2)
+
+    def calc_pressure_ratio(self, mach1, beta):
+        """Return the pressure ratio p2/p1 across a shock of angle ``beta``
+        at upstream Mach number ``mach1``."""
+        gamma = self.gamma
+        mn1sq = (mach1 * math.sin(beta)) ** 2
+        return 1 + 2 * gamma / (gamma + 1) * (mn1sq - 1)
+
+    def calc_temperature_ratio(self, mach1, beta):
+        """Return the temperature ratio T2/T1 across a shock of angle
+        ``beta`` at upstream Mach number ``mach1``."""
+        return (self.calc_pressure_ratio(mach1, beta)
+                / self.calc_density_ratio(mach1, beta))
+
+    def calc_normal_dmach(self, mach_n1):
+        """Return the downstream Mach number normal to the shock from the
+        normal upstream Mach number ``mach_n1``."""
+        gamma = self.gamma
+        mn1sq = mach_n1 * mach_n1
+        return math.sqrt(((gamma - 1) * mn1sq + 2)
+                         / (2 * gamma * mn1sq - (gamma - 1)))
+
+    def calc_dmach(self, mach1, beta=None, theta=None, delta=1):
+        """Return the downstream Mach number from the upstream Mach number
+        ``mach1`` and either the shock angle ``beta`` or the deflection
+        angle ``theta`` (with ``delta`` selecting the weak, 1, or strong,
+        0, shock branch)."""
+        if (beta is None) == (theta is None):
+            raise ValueError(
+                f"got (beta={beta}, theta={theta}), "
+                f"but I need to take either beta or theta")
+        if beta is None:
+            beta = self.calc_shock_angle(mach1, theta, delta=delta)
+        if theta is None:
+            theta = self.calc_flow_angle(mach1, beta)
+        mach_n1 = mach1 * math.sin(beta)
+        return self.calc_normal_dmach(mach_n1) / math.sin(beta - theta)
+
+    def calc_flow_angle(self, mach1, beta):
+        """Return the deflection angle theta from the upstream Mach number
+        ``mach1`` and the shock angle ``beta``."""
+        return math.atan(self.calc_flow_tangent(mach1, beta))
+
+    def calc_flow_tangent(self, mach1, beta):
+        """Return tan(theta) through the theta-beta-M relation."""
+        gamma = self.gamma
+        m1sq = mach1 * mach1
+        return (2 / math.tan(beta) * (m1sq * math.sin(beta) ** 2 - 1)
+                / (m1sq * (gamma + math.cos(2 * beta)) + 2))
+
+    def calc_shock_angle(self, mach1, theta, delta=1):
+        """Return the shock angle beta from the upstream Mach number
+        ``mach1`` and the deflection angle ``theta`` (with ``delta``
+        selecting the weak, 1, or strong, 0, shock branch)."""
+        return math.atan(self.calc_shock_tangent(mach1, theta, delta))
+
+    def calc_shock_tangent(self, mach1, theta, delta):
+        """Return tan(beta) through the closed-form inversion of the
+        theta-beta-M relation."""
+        gamma = self.gamma
+        m1sq = mach1 * mach1
+        lmbd, chi = self.calc_shock_tangent_aux(mach1, theta)
+        num = (m1sq - 1 + 2 * lmbd
+               * math.cos((4 * math.pi * delta + math.acos(chi)) / 3))
+        den = 3 * (1 + (gamma - 1) / 2 * m1sq) * math.tan(theta)
+        return num / den
+
+    def calc_shock_tangent_aux(self, mach1, theta):
+        """Return the (lambda, chi) auxiliary pair of the closed-form
+        theta-beta-M inversion used by :meth:`calc_shock_tangent`."""
+        gamma = self.gamma
+        m1sq = mach1 * mach1
+        tansq = math.tan(theta) ** 2
+        disc = ((m1sq - 1) ** 2
+                - 3 * (1 + (gamma - 1) / 2 * m1sq)
+                * (1 + (gamma + 1) / 2 * m1sq) * tansq)
+        if disc <= 0.0:
+            raise ValueError(
+                f"no attached shock for mach1={mach1:g} and "
+                f"theta={math.degrees(theta):g} deg")
+        lmbd = math.sqrt(disc)
+        chi = ((m1sq - 1) ** 3
+               - 9 * (1 + (gamma - 1) / 2 * m1sq)
+               * (1 + (gamma - 1) / 2 * m1sq + (gamma + 1) / 4 * m1sq * m1sq)
+               * tansq) / lmbd ** 3
+        return lmbd, chi
 
 
 class ObliqueShock(object):

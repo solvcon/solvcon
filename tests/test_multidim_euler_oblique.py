@@ -12,12 +12,14 @@ comes in three element flavors: one quadrilateral per grid box, each box cut
 into two triangles, or a Delaunay triangulation of jittered interior points.
 """
 
+import math
 import unittest
 
 from numpy.testing import assert_almost_equal
 
 import solvcon
-from solvcon.multidim.euler.oblique import ObliqueShock, ObliqueShockMesher
+from solvcon.multidim.euler.oblique import (ObliqueShock, ObliqueShockMesher,
+                                            ObliqueShockRelation)
 
 
 class _ObliqueMeshBase:
@@ -257,6 +259,63 @@ class ObliqueShockMesherTC(unittest.TestCase):
         with self.assertRaises(ValueError):
             ObliqueShockMesher(nx=2, ny=2, ll=(0.0, 0.0), ur=(3.0, 1.0),
                                x_ramp=0.5, wedge_angle=30.0)
+
+
+class ObliqueShockRelationTC(unittest.TestCase):
+    """The oblique-shock relation reproduces the reference values carried
+    over from the doctests of the legacy solvcon gas parcel (Anderson,
+    Modern Compressible Flow, chapter 4).
+    """
+
+    def setUp(self):
+        self.ob = ObliqueShockRelation(gamma=1.4)
+
+    def test_ratios(self):
+        beta = math.radians(37.8)
+        self.assertAlmostEqual(
+            2.4204302545, self.ob.calc_density_ratio(3, beta), places=10)
+        self.assertAlmostEqual(
+            3.7777114257, self.ob.calc_pressure_ratio(3, beta), places=10)
+        self.assertAlmostEqual(
+            1.5607602899, self.ob.calc_temperature_ratio(3, beta), places=10)
+
+    def test_gamma_changes_solution(self):
+        self.ob.gamma = 1.2
+        self.assertAlmostEqual(
+            2.7793244902,
+            self.ob.calc_density_ratio(3, math.radians(37.8)), places=10)
+
+    def test_downstream_mach(self):
+        self.assertAlmostEqual(
+            0.4751909633, self.ob.calc_normal_dmach(3), places=10)
+        self.assertAlmostEqual(
+            1.9924827009,
+            self.ob.calc_dmach(3, beta=math.radians(37.8)), places=10)
+        self.assertAlmostEqual(
+            1.9941316656,
+            self.ob.calc_dmach(3, theta=math.radians(20)), places=10)
+
+    def test_dmach_needs_one_angle(self):
+        with self.assertRaises(ValueError):
+            self.ob.calc_dmach(3)
+        with self.assertRaises(ValueError):
+            self.ob.calc_dmach(3, beta=0.2, theta=0.1)
+
+    def test_detached_shock_is_rejected(self):
+        # 40 degrees of deflection exceeds the maximum attached-shock
+        # deflection at Mach 2 (about 23 degrees).
+        with self.assertRaises(ValueError):
+            self.ob.calc_shock_angle(2, math.radians(40))
+
+    def test_angles_invert_each_other(self):
+        # Example 4.6 of Anderson: M1 = 4 and theta = 32 degrees give a
+        # weak-shock angle of about 48.2585 degrees, and the flow-angle
+        # calculation inverts it.
+        theta = math.radians(32)
+        beta = self.ob.calc_shock_angle(4, theta, delta=1)
+        self.assertAlmostEqual(48.2584798722, math.degrees(beta), places=10)
+        self.assertAlmostEqual(
+            32.0, math.degrees(self.ob.calc_flow_angle(4, beta)), places=6)
 
 
 class _ObliqueShockDriverBase:
