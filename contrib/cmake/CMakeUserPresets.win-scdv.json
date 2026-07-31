@@ -1,0 +1,44 @@
+{
+  "version": 10,
+  "$schema": "https://json.schemastore.org/cmake-presets.json",
+  "cmakeMinimumRequired": { "major": 4, "minor": 0, "patch": 1 },
+  "configurePresets": [
+    {
+      "name": "scdv-rel",
+      "inherits": "win-rel",
+      "displayName": "scdv dependency prefix",
+      "description": "A checked-in preset plus the paths of an scdv environment. Installing substitutes the prefix into SCDV_USRDIR below.",
+      "environment": {
+        "SCDV_USRDIR": "$penv{SCDV_USRDIR}"
+      },
+      "cacheVariables": {
+        "PYTHON_EXECUTABLE": {
+          "type": "FILEPATH",
+          "value": "$env{SCDV_USRDIR}/python.exe"
+        },
+        "pybind11_path": "$env{SCDV_USRDIR}/share/cmake/pybind11",
+        "CMAKE_PREFIX_PATH": "$env{SCDV_USRDIR}"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "scdv-rel",
+      "inherits": "win-rel",
+      "configurePreset": "scdv-rel",
+      "displayName": "scdv rel"
+    },
+    {
+      "name": "scdv-rel-module",
+      "inherits": "win-rel-module",
+      "configurePreset": "scdv-rel",
+      "displayName": "scdv rel module"
+    },
+    {
+      "name": "scdv-rel-gtest",
+      "inherits": "win-rel-gtest",
+      "configurePreset": "scdv-rel",
+      "displayName": "scdv rel gtest"
+    }
+  ]
+}

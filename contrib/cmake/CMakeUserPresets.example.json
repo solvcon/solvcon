@@ -4,7 +4,7 @@
   "cmakeMinimumRequired": { "major": 4, "minor": 0, "patch": 1 },
   "configurePresets": [
     {
-      "name": "local",
+      "name": "local-rel",
       "inherits": "dev-rel",
       "displayName": "Local dependency prefix",
       "description": "A checked-in preset plus the paths of a local dependency prefix.",
@@ -20,22 +20,22 @@
   ],
   "buildPresets": [
     {
-      "name": "local",
+      "name": "local-rel",
       "inherits": "dev-rel",
-      "configurePreset": "local",
-      "displayName": "Local dependency prefix"
+      "configurePreset": "local-rel",
+      "displayName": "local rel"
     },
     {
-      "name": "local-module",
+      "name": "local-rel-module",
       "inherits": "dev-rel-module",
-      "configurePreset": "local",
-      "displayName": "Local dependency prefix, module only"
+      "configurePreset": "local-rel",
+      "displayName": "local rel module"
     },
     {
-      "name": "local-gtest",
+      "name": "local-rel-gtest",
       "inherits": "dev-rel-gtest",
-      "configurePreset": "local",
-      "displayName": "Local dependency prefix, C++ test binary"
+      "configurePreset": "local-rel",
+      "displayName": "local rel gtest"
     }
   ]
 }
