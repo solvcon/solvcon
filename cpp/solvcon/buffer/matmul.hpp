@@ -5,12 +5,15 @@
  * BSD 3-Clause License, see COPYING
  */
 
+#include <solvcon/buffer/loop.hpp>
 #include <solvcon/buffer/small_vector.hpp>
 #include <solvcon/math/math.hpp>
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <format>
+#include <ranges>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
@@ -43,14 +46,18 @@ inline constexpr bool can_matmul_blas_v = std::is_same_v<T, float> ||
  * the broadcast axes. It does not allocate the output or evaluate the ten
  * matrix pairs.
  *
- * @note This implementation only plans rank-2 matrix-matrix operands. It
- * validates K and records M, N, K, the output shape, and signed matrix
- * strides. It does not have vector roles or a batch domain yet.
+ * @note This implementation plans matrix-matrix operands with equal ranks
+ * and equal leading batch shapes. It records the batch domain and mappings,
+ * M, N, K, the output shape, and signed matrix strides. Vector roles and
+ * broadcast batch axes are follow-up work.
  */
 class MatmulPlan
 {
 public:
     using shape_type = small_vector<ssize_t>;
+
+    template <typename Array>
+    static MatmulPlan make(Array const & lhs, Array const & rhs);
 
     shape_type const & output_shape() const noexcept { return m_output_shape; }
     ssize_t rows() const noexcept { return m_contraction.m_rows; }
@@ -61,10 +68,14 @@ public:
     ssize_t rhs_inner_stride() const noexcept { return m_strides.m_rhs_inner_stride; }
     ssize_t rhs_column_stride() const noexcept { return m_strides.m_rhs_column_stride; }
 
-    template <typename Array>
-    static MatmulPlan make(Array const & lhs, Array const & rhs);
+    bool has_batch_axes() const noexcept { return m_batch.m_domain.rank() != 0; }
+    MappedOffsetCursor batch_cursor() const & { return MappedOffsetCursor(m_batch.m_domain, m_batch.m_mappings); }
+    MappedOffsetCursor batch_cursor() const && = delete;
 
 private:
+    using batch_stride_type = OperandMapping::stride_type;
+    using mapping_type = MappedOffsetCursor::mapping_type;
+
     struct Contraction
     {
         ssize_t m_rows;
@@ -80,11 +91,29 @@ private:
         ssize_t m_rhs_column_stride;
     }; /* end struct MatrixStrides */
 
-    MatmulPlan(shape_type output_shape, Contraction contraction, MatrixStrides strides);
+    struct BatchMappings
+    {
+        LoopDomain m_domain;
+        mapping_type m_mappings;
+    }; /* end struct BatchMappings */
+
+    MatmulPlan(shape_type output_shape, Contraction contraction, MatrixStrides strides, BatchMappings batch);
+
+    template <typename Array>
+    static Contraction make_contraction(Array const & lhs, Array const & rhs);
+
+    template <typename Array>
+    static BatchMappings make_batch_mappings(Array const & lhs, Array const & rhs, ssize_t output_matrix_size);
+
+    static shape_type make_output_shape(BatchMappings const & batch, Contraction const & contraction);
+
+    template <typename Array>
+    static std::string shape_string(Array const & array);
 
     shape_type m_output_shape;
     Contraction m_contraction;
     MatrixStrides m_strides;
+    BatchMappings m_batch;
 }; /* end class MatmulPlan */
 
 /**
@@ -100,8 +129,9 @@ private:
  * evaluates one `(3,4) @ (4,6)` contraction at each offset. The results are
  * written into the allocated `(2,5,3,6)` output.
  *
- * @note This implementation provides only the generic signed-stride
- * matrix-matrix route. Optimized and vector routes are follow-up work.
+ * @note This implementation provides the generic signed-stride
+ * matrix-matrix route for equal batch shapes. Broadcast, optimized, and
+ * vector routes are follow-up work.
  */
 template <typename Array>
 class MatmulExecutor
@@ -114,54 +144,147 @@ public:
 private:
     using value_type = typename Array::value_type;
 
+    enum class MappingSlot : std::uint8_t
+    {
+        Output,
+        Lhs,
+        Rhs,
+    };
+
+    void execute_generic(ssize_t output_base, ssize_t lhs_base, ssize_t rhs_base);
+
     MatmulPlan const & m_plan;
     value_type * m_output_data;
     value_type const * m_lhs_data;
     value_type const * m_rhs_data;
 }; /* end class MatmulExecutor */
 
-inline MatmulPlan::MatmulPlan(shape_type output_shape, Contraction contraction, MatrixStrides strides)
+inline MatmulPlan::MatmulPlan(
+    shape_type output_shape,
+    Contraction contraction,
+    MatrixStrides strides,
+    BatchMappings batch)
     : m_output_shape(std::move(output_shape))
     , m_contraction(contraction)
     , m_strides(strides)
+    , m_batch(std::move(batch))
 {
 }
 
 template <typename Array>
 MatmulPlan MatmulPlan::make(Array const & lhs, Array const & rhs)
 {
-    if (lhs.ndim() != 2 || rhs.ndim() != 2)
+    Contraction const contraction = make_contraction(lhs, rhs);
+    size_t const lhs_matrix_axis = lhs.ndim() - 2;
+    size_t const rhs_matrix_axis = rhs.ndim() - 2;
+    MatrixStrides const strides{
+        .m_lhs_row_stride = lhs.stride(lhs_matrix_axis),
+        .m_lhs_inner_stride = lhs.stride(lhs_matrix_axis + 1),
+        .m_rhs_inner_stride = rhs.stride(rhs_matrix_axis),
+        .m_rhs_column_stride = rhs.stride(rhs_matrix_axis + 1),
+    };
+    BatchMappings batch = make_batch_mappings(lhs, rhs, contraction.m_rows * contraction.m_columns);
+    shape_type output_shape = make_output_shape(batch, contraction);
+    return MatmulPlan{
+        std::move(output_shape),
+        contraction,
+        strides,
+        std::move(batch),
+    };
+}
+
+template <typename Array>
+MatmulPlan::Contraction MatmulPlan::make_contraction(Array const & lhs, Array const & rhs)
+{
+    if (lhs.ndim() < 2 || rhs.ndim() < 2)
     {
-        throw std::invalid_argument("planned matrix-matrix matmul requires rank-2 operands");
+        throw std::invalid_argument(
+            "planned matrix-matrix matmul requires rank-2 or greater operands");
     }
-    if (lhs.shape(1) != rhs.shape(0))
+
+    size_t const lhs_matrix_axis = lhs.ndim() - 2;
+    size_t const rhs_matrix_axis = rhs.ndim() - 2;
+    if (lhs.shape(lhs_matrix_axis + 1) != rhs.shape(rhs_matrix_axis))
     {
         throw std::invalid_argument(
             std::format("SimpleArray::matmul_planned(): shape mismatch: "
-                        "this=({},{}) other=({},{})",
-                        lhs.shape(0),
-                        lhs.shape(1),
-                        rhs.shape(0),
-                        rhs.shape(1)));
+                        "this={} other={}",
+                        shape_string(lhs),
+                        shape_string(rhs)));
+    }
+    return Contraction{
+        .m_rows = lhs.shape(lhs_matrix_axis),
+        .m_columns = rhs.shape(rhs_matrix_axis + 1),
+        .m_inner_size = lhs.shape(lhs_matrix_axis + 1),
+    };
+}
+
+template <typename Array>
+MatmulPlan::BatchMappings MatmulPlan::make_batch_mappings(
+    Array const & lhs,
+    Array const & rhs,
+    ssize_t output_matrix_size)
+{
+    if (lhs.ndim() != rhs.ndim())
+    {
+        throw std::invalid_argument(
+            std::format("SimpleArray::matmul_planned(): batch shape "
+                        "mismatch: this={} other={}",
+                        shape_string(lhs),
+                        shape_string(rhs)));
     }
 
-    ssize_t const rows = lhs.shape(0);
-    ssize_t const columns = rhs.shape(1);
-    ssize_t const inner_size = lhs.shape(1);
-    return MatmulPlan{
-        shape_type{rows, columns},
-        Contraction{
-            .m_rows = rows,
-            .m_columns = columns,
-            .m_inner_size = inner_size,
-        },
-        MatrixStrides{
-            .m_lhs_row_stride = lhs.stride(0),
-            .m_lhs_inner_stride = lhs.stride(1),
-            .m_rhs_inner_stride = rhs.stride(0),
-            .m_rhs_column_stride = rhs.stride(1),
-        },
+    size_t const batch_rank = lhs.ndim() - 2;
+    shape_type batch_shape(lhs.shape().begin(), lhs.shape().begin() + batch_rank);
+    if (!std::equal(batch_shape.begin(), batch_shape.end(), rhs.shape().begin()))
+    {
+        throw std::invalid_argument(
+            std::format("SimpleArray::matmul_planned(): batch shape "
+                        "mismatch: this={} other={}",
+                        shape_string(lhs),
+                        shape_string(rhs)));
+    }
+
+    LoopDomain domain{std::move(batch_shape)};
+    batch_stride_type lhs_batch_strides(lhs.stride().begin(), lhs.stride().begin() + batch_rank);
+    batch_stride_type rhs_batch_strides(rhs.stride().begin(), rhs.stride().begin() + batch_rank);
+    mapping_type mappings{
+        OperandMapping::contiguous_blocks(domain, output_matrix_size),
+        OperandMapping(std::move(lhs_batch_strides)),
+        OperandMapping(std::move(rhs_batch_strides)),
     };
+    return BatchMappings{
+        .m_domain = std::move(domain),
+        .m_mappings = std::move(mappings),
+    };
+}
+
+inline MatmulPlan::shape_type MatmulPlan::make_output_shape(
+    BatchMappings const & batch,
+    Contraction const & contraction)
+{
+    size_t const batch_rank = batch.m_domain.rank();
+    shape_type output_shape(batch_rank + 2);
+    std::ranges::copy(batch.m_domain.shape(), output_shape.begin());
+    output_shape[batch_rank] = contraction.m_rows;
+    output_shape[batch_rank + 1] = contraction.m_columns;
+    return output_shape;
+}
+
+template <typename Array>
+std::string MatmulPlan::shape_string(Array const & array)
+{
+    std::string result = "(";
+    for (size_t axis = 0; axis < array.ndim(); ++axis)
+    {
+        if (axis > 0)
+        {
+            result += ",";
+        }
+        result += std::to_string(array.shape(axis));
+    }
+    result += ")";
+    return result;
 }
 
 template <typename Array>
@@ -176,18 +299,40 @@ MatmulExecutor<Array>::MatmulExecutor(MatmulPlan const & plan, Array & output, A
 template <typename Array>
 void MatmulExecutor<Array>::execute()
 {
+    if (!m_plan.has_batch_axes())
+    {
+        execute_generic(0, 0, 0);
+        return;
+    }
+
+    for (MappedOffsetCursor cursor = m_plan.batch_cursor(); cursor; cursor.advance())
+    {
+        execute_generic(
+            cursor.offset(MappingSlot::Output),
+            cursor.offset(MappingSlot::Lhs),
+            cursor.offset(MappingSlot::Rhs));
+    }
+}
+
+template <typename Array>
+void MatmulExecutor<Array>::execute_generic(ssize_t output_base, ssize_t lhs_base, ssize_t rhs_base)
+{
     for (ssize_t row = 0; row < m_plan.rows(); ++row)
     {
+        ssize_t const lhs_row_base = lhs_base + row * m_plan.lhs_row_stride();
+        ssize_t const output_row_base = output_base + row * m_plan.columns();
         for (ssize_t column = 0; column < m_plan.columns(); ++column)
         {
             value_type total{};
+            ssize_t lhs_offset = lhs_row_base;
+            ssize_t rhs_offset = rhs_base + column * m_plan.rhs_column_stride();
             for (ssize_t inner = 0; inner < m_plan.inner_size(); ++inner)
             {
-                ssize_t const lhs_offset = row * m_plan.lhs_row_stride() + inner * m_plan.lhs_inner_stride();
-                ssize_t const rhs_offset = inner * m_plan.rhs_inner_stride() + column * m_plan.rhs_column_stride();
                 total += m_lhs_data[lhs_offset] * m_rhs_data[rhs_offset];
+                lhs_offset += m_plan.lhs_inner_stride();
+                rhs_offset += m_plan.rhs_inner_stride();
             }
-            m_output_data[row * m_plan.columns() + column] = total;
+            m_output_data[output_row_base + column] = total;
         }
     }
 }
