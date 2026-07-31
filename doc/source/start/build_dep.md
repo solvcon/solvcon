@@ -39,6 +39,10 @@ it to put the freshly built Python and Qt on your `PATH`, and run
 source ${HOME}/var/scdv/<platform>-py<pyver>-qt<qtver>/activate
 ```
 
+The activation exports `SCDV_USRDIR`, the prefix that
+`contrib/cmake/CMakeUserPresets.scdv.json` is installed with; see
+{doc}`/devguide/cmake` for what that file is for.
+
 Two toolchains sit outside the build sections, so `--print-deps` ends with
 them. The first is LaTeX. Building the documentation needs it even for plain
 HTML, because the `pstake` extension renders the PSTricks figures through

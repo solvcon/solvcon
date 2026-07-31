@@ -4,14 +4,14 @@
   "cmakeMinimumRequired": { "major": 4, "minor": 0, "patch": 1 },
   "configurePresets": [
     {
-      "name": "local",
+      "name": "local-rel",
       "inherits": "win-rel",
       "displayName": "Local dependency prefix",
       "description": "A checked-in preset plus the paths of a local dependency prefix.",
       "cacheVariables": {
         "PYTHON_EXECUTABLE": {
           "type": "FILEPATH",
-          "value": "C:/path/to/prefix/python3.exe"
+          "value": "C:/path/to/prefix/python.exe"
         },
         "pybind11_path": "C:/path/to/prefix/Lib/site-packages/pybind11/share/cmake/pybind11",
         "CMAKE_PREFIX_PATH": "C:/path/to/prefix"
@@ -20,22 +20,22 @@
   ],
   "buildPresets": [
     {
-      "name": "local",
+      "name": "local-rel",
       "inherits": "win-rel",
-      "configurePreset": "local",
-      "displayName": "Local dependency prefix"
+      "configurePreset": "local-rel",
+      "displayName": "local rel"
     },
     {
-      "name": "local-module",
+      "name": "local-rel-module",
       "inherits": "win-rel-module",
-      "configurePreset": "local",
-      "displayName": "Local dependency prefix, module only"
+      "configurePreset": "local-rel",
+      "displayName": "local rel module"
     },
     {
-      "name": "local-gtest",
+      "name": "local-rel-gtest",
       "inherits": "win-rel-gtest",
-      "configurePreset": "local",
-      "displayName": "Local dependency prefix, C++ test binary"
+      "configurePreset": "local-rel",
+      "displayName": "local rel gtest"
     }
   ]
 }
