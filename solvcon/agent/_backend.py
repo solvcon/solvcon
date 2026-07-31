@@ -17,8 +17,29 @@ import abc
 import dataclasses
 import json
 
+from . import _command
 
-class ToolSurfaceFormatter:
+
+class TextFormatter:
+    """Rendering helpers every request section shares.
+
+    :meth:`one_line` is what keeps a foreign string on the line it was given:
+    tool descriptions, model prose, and error text all land in a line-oriented
+    payload, where an embedded newline would read as the next section.
+    """
+
+    @classmethod
+    def literal(cls, value):
+        # allow_nan=False: a non-finite float must raise rather than dump as
+        # the NaN and Infinity tokens no JSON reader accepts.
+        return json.dumps(value, separators=(",", ":"), allow_nan=False)
+
+    @classmethod
+    def one_line(cls, text):
+        return " ".join(str(text).split())
+
+
+class ToolSurfaceFormatter(TextFormatter):
     """The renderers that turn JSON Schema tool definitions into the compact
     per-op signatures the model reads."""
 
@@ -27,14 +48,6 @@ class ToolSurfaceFormatter:
 
     BOUNDS = (("minimum", ">="), ("exclusiveMinimum", ">"),
               ("maximum", "<="), ("exclusiveMaximum", "<"))
-
-    @classmethod
-    def literal(cls, value):
-        return json.dumps(value, separators=(",", ":"))
-
-    @classmethod
-    def one_line(cls, text):
-        return " ".join(str(text).split())
 
     @classmethod
     def array_type(cls, schema):
@@ -142,6 +155,176 @@ def format_tool_surface(tool_surface):
     return ToolSurfaceFormatter.render(tool_surface)
 
 
+class HistoryFormatter(TextFormatter):
+    """Replay recorded turns into a capped history section."""
+
+    #: The role of a turn that records a change in what the conversation is
+    #: about rather than something said; rendered as a bare ``... text`` line.
+    MARKER_ROLE = "marker"
+
+    TEXT_CAP = 400
+    PART_CAP = 240  # each half of a command line: the arguments, the outcome
+    TURN_CAP = 2000
+    REQUEST_CAP = 24000
+    GAP_ALLOWANCE = 120  # room for dropped-run announcements
+    PIN_REACH = 8  # turns back a failure may be pinned from
+
+    @classmethod
+    def clip(cls, text, cap):
+        """``text`` cut to ``cap`` characters, naming how many it lost so a
+        truncated payload never reads as a complete one."""
+        if len(text) <= cap:
+            return text
+        return "%s...(+%d chars)" % (text[:cap], len(text) - cap)
+
+    @classmethod
+    def value_text(cls, value):
+        """One JSON value, falling back to ``repr`` when it is not JSON
+        (nothing promises a foreign runner returns one).  Only the fallback
+        needs flattening: ``json.dumps`` escapes every control character, so a
+        dump cannot carry a raw newline."""
+        try:
+            return cls.literal(value)
+        except (TypeError, ValueError):
+            # An unserializable object raises the first; a circular reference
+            # or a non-finite float the second.
+            return cls.one_line(repr(value))
+
+    @classmethod
+    def outcome_text(cls, result):
+        if result is None:
+            return "not run"
+        if getattr(result, "ok", False):
+            value = getattr(result, "value", None)
+            if value is None:
+                return "ok"
+            return cls.clip("ok " + cls.value_text(value), cls.PART_CAP)
+        error = getattr(result, "error", None) or "failed"
+        return cls.clip("error: " + cls.one_line(error), cls.PART_CAP)
+
+    @classmethod
+    def command_line(cls, command, result):
+        arguments = ({name: value for name, value in command.items()
+                      if name != "op"}
+                     if isinstance(command, dict) else command)
+        return "  %s %s -> %s" % (
+            _command.op_of(command),
+            cls.clip(cls.value_text(arguments), cls.PART_CAP),
+            cls.outcome_text(result))
+
+    @classmethod
+    def turn(cls, turn):
+        """The role line always survives; excess commands are counted, not
+        rendered."""
+        role = cls.one_line(getattr(turn, "role", None) or "?")
+        text = cls.one_line(getattr(turn, "text", None) or "")
+        if role == cls.MARKER_ROLE:
+            return "... %s" % cls.clip(text or "context changed", cls.TEXT_CAP)
+        head = ("%s: %s" % (role, cls.clip(text, cls.TEXT_CAP)) if text
+                else "%s:" % role)
+        lines, used = [head], len(head) + 1
+        commands = list(getattr(turn, "commands", None) or ())
+        results = list(getattr(turn, "results", None) or ())
+        for index, command in enumerate(commands):
+            result = results[index] if index < len(results) else None
+            line = cls.command_line(command, result)
+            if used + len(line) + 1 > cls.TURN_CAP:
+                lines.append("  ... %d more commands"
+                             % (len(commands) - index))
+                break
+            lines.append(line)
+            used += len(line) + 1
+        return "\n".join(lines)
+
+    @classmethod
+    def failed(cls, turn):
+        """Whether ``turn`` went wrong, by a command that did or by the
+        ``failed`` flag a turn that never reached one carries: a backend that
+        timed out or replied with malformed JSON leaves no result to read, and
+        that is exactly the failure worth pinning."""
+        if getattr(turn, "failed", False):
+            return True
+        return any(not getattr(result, "ok", False)
+                   for result in getattr(turn, "results", None) or ())
+
+    @classmethod
+    def last_failure(cls, turns):
+        """The index of the newest turn carrying a failure, or ``None``.
+
+        Only the last :attr:`PIN_REACH` turns are searched.  A failure older
+        than that is one the conversation has moved past, and pinning it would
+        spend the budget contradicting the instruction to fix what failed
+        rather than repeat it.
+        """
+        for index in reversed(range(max(0, len(turns) - cls.PIN_REACH),
+                                    len(turns))):
+            if cls.failed(turns[index]):
+                return index
+        return None
+
+    @classmethod
+    def fit(cls, turn, room):
+        """``(block, room left)`` for ``turn``, or ``None`` when it does not
+        fit in ``room``."""
+        block = cls.turn(turn)
+        if len(block) + 1 > room:
+            return None
+        return block, room - len(block) - 1
+
+    @classmethod
+    def gap(cls, dropped):
+        return ["... %d turns dropped" % dropped] if dropped else []
+
+    @classmethod
+    def render(cls, history, used=0):
+        """The conversation section: the recorded turns, oldest first, that
+        fit in what ``used`` characters leave of :attr:`REQUEST_CAP`.
+
+        Turns are taken newest first, so growth drops the oldest, and a recent
+        turn carrying a failure (see :meth:`last_failure`) is taken before any
+        of them: the model has to keep seeing the error it is being asked to
+        fix even once the turn that raised it has aged out.  Every dropped run
+        is announced, including one after the last kept turn (which a pinned
+        failure can leave behind), so the model cannot read what is left as
+        one unbroken conversation.  At most two runs can be dropped, one on
+        each side of a pin, which is what :attr:`GAP_ALLOWANCE` holds room
+        for.
+
+        Only the history gives way here.  The tool surface and the scene are
+        never cut, so a payload whose fixed parts already exceed
+        :attr:`REQUEST_CAP` overshoots it with no history at all.
+        """
+        turns = list(history or ())
+        room = cls.REQUEST_CAP - used - cls.GAP_ALLOWANCE
+        blocks = {}
+        pinned = cls.last_failure(turns)
+        if pinned is not None:
+            fitted = cls.fit(turns[pinned], room)
+            if fitted is not None:
+                blocks[pinned], room = fitted
+        for index in reversed(range(len(turns))):
+            if index in blocks:
+                continue
+            fitted = cls.fit(turns[index], room)
+            if fitted is None:
+                break
+            blocks[index], room = fitted
+        if not blocks:
+            return ""
+        lines, previous = [], -1
+        for index in sorted(blocks):
+            lines.extend(cls.gap(index - previous - 1))
+            lines.append(blocks[index])
+            previous = index
+        lines.extend(cls.gap(len(turns) - previous - 1))
+        return "\n".join(lines)
+
+
+def format_history(history, used=0):
+    """Module-level entry to :meth:`HistoryFormatter.render`."""
+    return HistoryFormatter.render(history, used)
+
+
 @dataclasses.dataclass
 class BackendResponse:
     """One backend reply: ``text`` prose, the proposed ``commands`` the
@@ -185,6 +368,15 @@ class AgentBackend(abc.ABC):
         "allowed values. The indented lines under a signature describe the "
         "operation and then its arguments. Pass no key an operation does "
         "not list: an unlisted key is rejected, not ignored.\n"
+        "\n"
+        "Reading the scene and the conversation. The scene lists the shapes "
+        "already on the canvas as \"#id type [x_min, y_min, x_max, y_max]\"; "
+        "edit one through its id instead of drawing it again. Earlier turns "
+        "are replayed with each command's outcome, either ok and its result "
+        "or the error it failed with; build on what is already there, and "
+        "fix what failed rather than repeating it. Long text is cut short "
+        "and marked with the amount dropped, so ask for what you need again "
+        "rather than trusting a cut line.\n"
         "\n"
         "Coordinate frame (canvas drawing). The canvas uses world "
         "coordinates with the origin (0, 0) at the center and +Y pointing "
@@ -232,25 +424,57 @@ class AgentBackend(abc.ABC):
         """Whether this backend can run now (CLI on PATH, key set, ...)."""
 
     @abc.abstractmethod
-    def send(self, prompt, scene_context, tool_surface):
+    def send(self, prompt, scene_context, tool_surface, history=()):
         """Run the backend and return a :class:`BackendResponse`.
 
         :param prompt: the user's natural-language request.
         :param scene_context: a short text summary of the current world.
         :param tool_surface: the command tool definitions the model may call.
+        :param history: the recorded turns to replay, oldest first, each
+            exposing ``role``, ``text``, ``commands``, and ``results``.
         """
 
+    _SURFACE = "Available operations:\n%s\n\n"
+    _HEADER = "Conversation so far:\n"
+    _GAP = "\n\n"
+    _TAIL = "Current scene:\n%s\n\nUser request:\n%s"
+
     @classmethod
-    def _compose_user(cls, prompt, scene_context, tool_surface):
-        """The user-role payload: the tool surface, scene, and request.  The
-        shared instruction rides separately as the system prompt
-        (:attr:`_INSTRUCTIONS`), so it stays a stable prefix a backend can hand
-        the model as a real system message rather than folding it into the
-        user turn."""
-        return (
-            "Available operations:\n%s\n\n"
-            "Current scene:\n%s\n\nUser request:\n%s"
-            % (format_tool_surface(tool_surface), scene_context, prompt))
+    def _sections(cls, prompt, scene_context, tool_surface, history):
+        """The three pieces of the user payload: the rendered tool surface,
+        the conversation that fits beside it, and the scene-and-request
+        tail."""
+        surface = cls._SURFACE % format_tool_surface(tool_surface)
+        tail = cls._TAIL % (scene_context, prompt)
+        story = format_history(
+            history,
+            used=len(surface) + len(cls._HEADER) + len(cls._GAP) + len(tail))
+        return surface, story, tail
+
+    @classmethod
+    def history_section(cls, prompt, scene_context, tool_surface, history=()):
+        """The conversation section this request will carry, for a caller that
+        wants to show what was replayed.  It comes from the same
+        :meth:`_sections` the payload is built from, so what is shown and what
+        is sent cannot drift apart."""
+        return cls._sections(prompt, scene_context, tool_surface, history)[1]
+
+    @classmethod
+    def _compose_user(cls, prompt, scene_context, tool_surface, history=()):
+        """The user-role payload: the tool surface, the conversation so far,
+        the scene, and the request.  The shared instruction rides separately
+        as the system prompt (:attr:`_INSTRUCTIONS`), so it stays a stable
+        prefix a backend can hand the model as a real system message rather
+        than folding it into the user turn.
+
+        The scene and the request come last because they are what the model
+        answers.
+        """
+        surface, story, tail = cls._sections(
+            prompt, scene_context, tool_surface, history)
+        if not story:
+            return surface + tail
+        return surface + cls._HEADER + story + cls._GAP + tail
 
 
 class BackendRegistry:
@@ -308,7 +532,7 @@ class EchoBackend(AgentBackend):
     def available(self):
         return True
 
-    def send(self, prompt, scene_context, tool_surface):
+    def send(self, prompt, scene_context, tool_surface, history=()):
         return BackendResponse(text="echo: %s" % prompt, commands=[])
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

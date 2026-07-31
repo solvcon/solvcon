@@ -26,6 +26,7 @@ list_of_command = [
     'CommandProcessor',
     'CommandDispatcher',
     'CRUD_CATEGORIES',
+    'op_of',
 ]
 
 # _core.py
@@ -40,7 +41,9 @@ list_of_backend = [
     'BackendResponse',
     'EchoBackend',
     'ToolSurfaceFormatter',
+    'HistoryFormatter',
     'format_tool_surface',
+    'format_history',
     'BackendRegistry',
 ]
 

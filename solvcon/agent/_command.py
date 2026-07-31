@@ -23,6 +23,14 @@ class CommandError(ValueError):
 CRUD_CATEGORIES = ("create", "read", "update", "delete", "log")
 
 
+def op_of(command):
+    """The op a command declares, or ``"?"`` when it names none."""
+    if not isinstance(command, dict):
+        return "?"
+    op = command.get("op")
+    return op if isinstance(op, str) else "?"
+
+
 class Command:
     """One command: op name, JSON Schema, and behavior."""
 
@@ -312,7 +320,7 @@ class CommandProcessor:
 
     def run(self, command):
         """Validate and apply one command, returning its ``CommandResult``."""
-        op = command.get("op", "?") if isinstance(command, dict) else "?"
+        op = op_of(command)
         try:
             self.command_set.validate_command(command)
         except CommandError as exc:
@@ -393,9 +401,7 @@ class CommandDispatcher:
         try:
             executor = self._route(command)
         except CommandError as exc:
-            op = command.get("op") if isinstance(command, dict) else None
-            return CommandResult(op if isinstance(op, str) else "?",
-                                 False, error=str(exc))
+            return CommandResult(op_of(command), False, error=str(exc))
         return executor.run(command)
 
     def run_script(self, commands, stop_on_error=False):
