@@ -82,16 +82,20 @@ class AgentSession:
         """The recorded turns, oldest first (a copy)."""
         return list(self._transcript)
 
-    def history(self):
+    def history(self, skip=None):
         """The turns to replay to the backend, oldest first.
 
         Trailing user turns are left out: the composed request already carries
-        the current prompt.
+        the current prompt.  ``skip`` drops the turn at that index, which is
+        how a multi-step turn leaves out a prompt no longer trailing.
         """
         end = len(self._transcript)
         while end and self._transcript[end - 1].role == "user":
             end -= 1
-        return self._transcript[:end]
+        turns = self._transcript[:end]
+        if skip is not None and 0 <= skip < end:
+            del turns[skip]
+        return turns
 
     @property
     def runner(self):
@@ -111,16 +115,19 @@ class AgentSession:
         a command aimed at an id that now belongs to something else.
         """
         if world is not self.world and self._transcript:
-            self._mark("canvas switched")
+            self.mark("canvas switched")
         self.world = world
         if not self._runner_injected:
             self._runner = None
 
-    def _mark(self, text):
-        """Record ``text`` as a marker turn, unless one already closes the
-        transcript: consecutive markers say nothing the first did not."""
+    def mark(self, text):
+        """Record ``text`` as a marker turn.
+
+        A marker that would follow another is dropped; consecutive markers say
+        nothing the first did not.
+        """
         role = _backend.HistoryFormatter.MARKER_ROLE
-        if self._transcript[-1].role == role:
+        if self._transcript and self._transcript[-1].role == role:
             return
         self._transcript.append(TranscriptTurn(role=role, text=text))
 
@@ -267,11 +274,12 @@ class AgentSession:
     def record_prompt(self, prompt):
         """Record the user's ``prompt`` as a turn.
 
-        Split out of :meth:`run_turn` so a GUI can record the prompt, run the
-        slow backend call off the main thread, and finish the turn later with
-        :meth:`complete_turn` or :meth:`fail_turn`.
+        Split out so a caller can record the prompt, run the slow backend call
+        elsewhere, and finish with :meth:`complete_turn` or :meth:`fail_turn`.
+        Returns where the turn landed, which is what :meth:`history` skips.
         """
         self._transcript.append(TranscriptTurn(role="user", text=prompt))
+        return len(self._transcript) - 1
 
     def complete_turn(self, response):
         """Finish a turn from a :class:`~solvcon.agent.BackendResponse`: run
@@ -286,29 +294,8 @@ class AgentSession:
             failed=bool(response.error))
 
     def fail_turn(self, error):
-        """Record a failed agent turn for a backend that raised, so the turn
-        still lands in the transcript instead of propagating."""
+        """Record a failed agent turn for a transport or error outcome, so the
+        turn still lands in the transcript instead of propagating."""
         return self._record_agent("[error] %s" % error, failed=True)
-
-    def run_turn(self, prompt):
-        """Drive one user request end to end.
-
-        Record the user's ``prompt``, ask the backend for commands against the
-        current scene, tool surface, and the turns so far, run them, and record
-        one agent turn carrying the reply text, the commands, and their
-        results.  With no backend, record only the user turn and return
-        ``None``.  A backend that raises is recorded as a failed agent turn
-        rather than propagated, so a headless caller always gets a turn back.
-        """
-        self.record_prompt(prompt)
-        if self.backend is None:
-            return None
-        try:
-            response = self.backend.send(
-                prompt, self.scene_context(), self.tool_surface(),
-                self.history())
-        except Exception as exc:
-            return self.fail_turn("%s: %s" % (type(exc).__name__, exc))
-        return self.complete_turn(response)
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

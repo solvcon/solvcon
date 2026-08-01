@@ -7,14 +7,16 @@ Agent: drive the 2D ``World`` with an AI backend, with or without a GUI.
 
 This package lives outside :mod:`solvcon.pilot` so it can also drive pure
 computation that needs no graphics.  The headless core (:mod:`_core`), the
-backend abstraction (:mod:`_backend`), and the command framework
-(:mod:`_command`) load without Qt, so they run in CI and a headless build.  A
-command family such as :mod:`solvcon.agent.draw` builds on the framework here.
+turn loop (:mod:`_turn`), the backend abstraction (:mod:`_backend`), and the
+command framework (:mod:`_command`) load without Qt, so they run in CI and a
+headless build.  A command family such as :mod:`solvcon.agent.draw` builds on
+the framework here.
 """
 
 from . import _command  # noqa: F401
-from . import _core  # noqa: F401
 from . import _backend  # noqa: F401
+from . import _turn  # noqa: F401
+from . import _core  # noqa: F401
 from . import _backends_impl  # noqa: F401
 
 # _command.py
@@ -38,6 +40,7 @@ list_of_core = [
 # _backend.py
 list_of_backend = [
     'AgentBackend',
+    'TurnRequest',
     'BackendResponse',
     'BackendSetting',
     'TransportOutcome',
@@ -48,6 +51,15 @@ list_of_backend = [
     'format_tool_surface',
     'format_history',
     'BackendRegistry',
+]
+
+# _turn.py
+list_of_turn = [
+    'Turn',
+    'StopReason',
+    'run_turn',
+    'default_scene',
+    'default_token',
 ]
 
 # _backends_impl.py
@@ -65,7 +77,7 @@ list_of_backends_impl = [
 Agent = None
 
 __all__ = (  # noqa: F822
-    list_of_command + list_of_core + list_of_backend
+    list_of_command + list_of_core + list_of_backend + list_of_turn
     + list_of_backends_impl + ['Agent']
 )
 
@@ -78,6 +90,7 @@ def _load(module, symbol_list):
 _load(_command, list_of_command)
 _load(_core, list_of_core)
 _load(_backend, list_of_backend)
+_load(_turn, list_of_turn)
 _load(_backends_impl, list_of_backends_impl)
 
 del _load
