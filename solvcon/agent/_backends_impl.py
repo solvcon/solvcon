@@ -18,6 +18,7 @@ lists it and probes :meth:`~solvcon.agent.AgentBackend.available` before use.
 """
 
 import abc
+import dataclasses
 import http.client
 import json
 import os
@@ -29,22 +30,34 @@ import urllib.parse
 from . import _backend
 
 
+@dataclasses.dataclass
+class ParsedReply:
+    """Commands, parse ``status``, and ``error`` from one model reply."""
+
+    commands: list = dataclasses.field(default_factory=list)
+    status: _backend.ParseStatus = _backend.ParseStatus.EMPTY
+    error: str = None
+
+    def response(self, text):
+        return _backend.BackendResponse(
+            text=text, commands=self.commands, error=self.error,
+            status=self.status)
+
+
 class ToolCallParser:
-    """Turns a model reply into the command dicts a session runs."""
+    """Turns a model reply into the command dicts a session runs.
 
-    @classmethod
-    def op_names(cls, tool_surface):
-        """The set of op names a tool surface advertises via each tool's
-        ``name``.
+    :attr:`NO_JSON` is what says a reply carried no JSON at all, which a
+    reply of the literal ``null`` must not be mistaken for: the first is the
+    model talking, the second is the model answering with the wrong shape.
 
-        Empty when the surface is empty or names nothing, which tells
-        :meth:`parse` to skip op validation rather than reject everything.
-        """
-        names = set()
-        for tool in tool_surface or []:
-            if isinstance(tool, dict) and isinstance(tool.get("name"), str):
-                names.add(tool["name"])
-        return names
+    Op names are not checked here.  An op the tool surface does not advertise
+    is a command the runner rejects with its own error, which the model can
+    see and fix; rejecting it while parsing would throw away the whole batch
+    over one bad entry.
+    """
+
+    NO_JSON = object()
 
     @classmethod
     def strip_code_fences(cls, text):
@@ -65,14 +78,14 @@ class ToolCallParser:
         """Parse the first JSON array or object out of a model reply,
         tolerating a code fence or surrounding prose.
 
-        Return the parsed value, or ``None`` when the reply has no JSON-looking
-        span (plain prose).  Raise :class:`ValueError` when a ``[``/``{`` span
-        is present but does not parse, so a truncated or invalid command batch
-        is not mistaken for an empty one.
+        Return the parsed value, or :attr:`NO_JSON` when the reply has no
+        JSON-looking span (plain prose).  Raise :class:`ValueError` when a
+        ``[``/``{`` span is present but does not parse, so a truncated or
+        invalid command batch is not mistaken for an empty one.
         """
         text = cls.strip_code_fences(text).strip()
         if not text:
-            return None
+            return cls.NO_JSON
         try:
             return json.loads(text)
         except json.JSONDecodeError:
@@ -90,27 +103,20 @@ class ToolCallParser:
                 continue
         if saw_span or text[0] in "[{":
             raise ValueError("model reply has malformed JSON")
-        return None
+        return cls.NO_JSON
 
     @classmethod
-    def parse(cls, text, tool_surface=None):
-        """Turn a model reply into a list of command dicts.
+    def commands_of(cls, data):
+        """The command dicts in an already-parsed JSON payload.
 
-        Accept a JSON array, or a lone object treated as a one-command array.
-        Each command must be an object with an ``op``; when ``tool_surface``
-        names ops, an unknown op is rejected.  Raise :class:`ValueError` on a
-        malformed reply (including invalid JSON that looks like a command
-        batch) so the backend records it as an error rather than running a bad
-        command.  Plain prose with no JSON yields an empty list.
+        Accept an array, or a lone object treated as a one-command array.
+        Each command must be an object with a string ``op``; anything else
+        raises :class:`ValueError`.
         """
-        data = cls.load_json_payload(text)
-        if data is None:
-            return []
         if isinstance(data, dict):
             data = [data]
         if not isinstance(data, list):
             raise ValueError("model reply is not a JSON array of commands")
-        valid = cls.op_names(tool_surface)
         commands = []
         for entry in data:
             if not isinstance(entry, dict):
@@ -119,13 +125,77 @@ class ToolCallParser:
             if not isinstance(op, str):
                 raise ValueError(
                     "command needs a string \"op\": %r" % (entry,))
-            if valid and op not in valid:
-                raise ValueError("unknown op %r" % (op,))
             commands.append(entry)
         return commands
 
+    @classmethod
+    def parse(cls, text):
+        """Turn a model reply into a list of command dicts.
 
-class SubprocessBackend(_backend.AgentBackend):
+        Raise :class:`ValueError` on a malformed reply.  Plain prose yields an
+        empty list; :meth:`parse_reply` is what tells the two apart.
+        """
+        data = cls.load_json_payload(text)
+        return [] if data is cls.NO_JSON else cls.commands_of(data)
+
+    @classmethod
+    def parse_reply(cls, text):
+        """:meth:`parse` as a :class:`ParsedReply`.
+
+        A blank reply is :attr:`~ParseStatus.EMPTY` rather than prose: it
+        carries no text worth recording, and a loop should end on it like an
+        explicit ``[]``.
+        """
+        status = _backend.ParseStatus
+        if not (text or "").strip():
+            return ParsedReply(status=status.EMPTY)
+        try:
+            data = cls.load_json_payload(text)
+        except ValueError as exc:
+            return ParsedReply(status=status.MALFORMED, error=str(exc))
+        if data is cls.NO_JSON:
+            return ParsedReply(status=status.PROSE)
+        try:
+            commands = cls.commands_of(data)
+        except ValueError as exc:
+            return ParsedReply(status=status.MALFORMED, error=str(exc))
+        return ParsedReply(
+            commands, status.COMMANDS if commands else status.EMPTY)
+
+
+class CancellableBackend:
+    """The cancellation bookkeeping a backend with an in-flight call shares.
+
+    A cancelled call surfaces as an ordinary failure (a killed child, a closed
+    socket), so the flag is what lets :meth:`failure` report it as the
+    deliberate stop it was instead of a transport fault a caller might retry.
+    """
+
+    _cancelled = False
+
+    def begin(self):
+        self._cancelled = False
+
+    def failure(self, error, outcome=_backend.TransportOutcome.TRANSPORT):
+        """A failed response, or ``CANCELLED`` when this call was stopped."""
+        if self._cancelled:
+            outcome = _backend.TransportOutcome.CANCELLED
+        return _backend.BackendResponse(error=error, outcome=outcome)
+
+    def cancelled_reply(self):
+        """``CANCELLED`` response if this call was stopped, else ``None``.
+
+        A cancel that lands before the child or the connection is reachable
+        tears down nothing, so the call can still succeed.  That answer is
+        unwanted: returning it would let commands land after the user asked
+        for none.
+        """
+        if not self._cancelled:
+            return None
+        return self.failure("cancelled")
+
+
+class SubprocessBackend(CancellableBackend, _backend.AgentBackend):
     """Base for backends that shell out to an AI CLI found on ``PATH``.
 
     A subclass sets :attr:`command` to the executable name and implements
@@ -180,35 +250,33 @@ class SubprocessBackend(_backend.AgentBackend):
         return (stdout or "").strip()
 
     def send(self, prompt, scene_context, tool_surface, history=()):
+        self.begin()
         exe = self.executable()
         if exe is None:
-            return _backend.BackendResponse(
-                error="%s not found on PATH" % self.command)
+            return self.failure("%s not found on PATH" % self.command)
         user_prompt = self._compose_user(
             prompt, scene_context, tool_surface, history)
         argv = self._build_argv(exe, user_prompt, self._INSTRUCTIONS)
         try:
             code, out, err = self._communicate(argv)
         except subprocess.TimeoutExpired:
-            return _backend.BackendResponse(
-                error="%s timed out" % self.command)
+            return self.failure("%s timed out" % self.command,
+                                _backend.TransportOutcome.TIMEOUT)
         except OSError as exc:
-            return _backend.BackendResponse(
-                error="%s failed: %s" % (self.command, exc))
+            return self.failure("%s failed: %s" % (self.command, exc))
         if code != 0:
-            return _backend.BackendResponse(
-                error="%s exit %d: %s"
-                % (self.command, code, (err or "").strip()))
+            return self.failure(
+                "%s exit %d: %s" % (self.command, code, (err or "").strip()))
+        stopped = self.cancelled_reply()
+        if stopped is not None:
+            return stopped
         text = self._parse_output(out)
-        try:
-            commands = ToolCallParser.parse(text, tool_surface)
-        except ValueError as exc:
-            return _backend.BackendResponse(text=text, error=str(exc))
-        return _backend.BackendResponse(text=text, commands=commands)
+        return ToolCallParser.parse_reply(text).response(text)
 
     def cancel(self):
         """Terminate the in-flight child, if any.  Safe to call from another
         thread while :meth:`send` blocks in :meth:`_communicate`."""
+        self._cancelled = True
         proc = self._proc
         if proc is not None and proc.poll() is None:
             proc.terminate()
@@ -227,6 +295,10 @@ class SubprocessBackend(_backend.AgentBackend):
                 argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                 text=True, cwd=workdir, env=env)
             self._proc = proc
+            if self._cancelled:
+                # A cancel between spawning the child and publishing it here
+                # found nothing to terminate; act on it now.
+                proc.terminate()
             try:
                 out, err = proc.communicate(timeout=self._timeout)
             except subprocess.TimeoutExpired:
@@ -313,7 +385,7 @@ class ClaudeCliBackend(SubprocessBackend):
 _backend.BackendRegistry.register(ClaudeCliBackend())
 
 
-class OpenAIHttpBackend(_backend.AgentBackend):
+class OpenAIHttpBackend(CancellableBackend, _backend.AgentBackend):
     """Backend over an OpenAI-compatible Chat Completions HTTP API.
 
     Uses only the stdlib (``http.client`` and ``urllib.parse``); no vendor
@@ -363,9 +435,10 @@ class OpenAIHttpBackend(_backend.AgentBackend):
         return bool(self.base_url) and bool(self._model)
 
     def send(self, prompt, scene_context, tool_surface, history=()):
+        self.begin()
         if not self.available():
-            return _backend.BackendResponse(
-                error="openai http backend needs base_url and model")
+            return self.failure(
+                "openai http backend needs base_url and model")
         user_prompt = self._compose_user(
             prompt, scene_context, tool_surface, history)
         body = {
@@ -379,33 +452,31 @@ class OpenAIHttpBackend(_backend.AgentBackend):
         try:
             status, raw = self._post_chat(body)
         except TimeoutError:
-            return _backend.BackendResponse(
-                error="openai http timed out")
+            return self.failure("openai http timed out",
+                                _backend.TransportOutcome.TIMEOUT)
         except (OSError, http.client.HTTPException) as exc:
-            return _backend.BackendResponse(
-                error="openai http failed: %s" % exc)
+            return self.failure("openai http failed: %s" % exc)
         if status != 200:
             detail = (raw or b"").decode("utf-8", errors="replace").strip()
-            return _backend.BackendResponse(
-                error="openai http status %d: %s" % (status, detail))
+            return self.failure(
+                "openai http status %d: %s" % (status, detail))
         try:
             payload = json.loads(raw.decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-            return _backend.BackendResponse(
-                error="openai http bad JSON: %s" % exc)
+            return self.failure("openai http bad JSON: %s" % exc)
         text = self._parse_chat_payload(payload)
         if text is None:
-            return _backend.BackendResponse(
-                error="openai http response missing assistant text")
-        try:
-            commands = ToolCallParser.parse(text, tool_surface)
-        except ValueError as exc:
-            return _backend.BackendResponse(text=text, error=str(exc))
-        return _backend.BackendResponse(text=text, commands=commands)
+            return self.failure(
+                "openai http response missing assistant text")
+        stopped = self.cancelled_reply()
+        if stopped is not None:
+            return stopped
+        return ToolCallParser.parse_reply(text).response(text)
 
     def cancel(self):
         """Close the in-flight HTTP connection, if any.  Safe to call from
         another thread while :meth:`send` blocks in :meth:`_post_chat`."""
+        self._cancelled = True
         conn = self._conn
         if conn is not None:
             try:
@@ -483,6 +554,10 @@ class OpenAIHttpBackend(_backend.AgentBackend):
                 host, port, timeout=self._timeout)
         self._conn = conn
         try:
+            if self._cancelled:
+                # Cancel before publish: closing an unconnected conn does not
+                # stop request() from opening the socket.
+                raise OSError("cancelled before the request was sent")
             conn.request("POST", path, body=payload, headers=headers)
             response = conn.getresponse()
             return response.status, response.read()

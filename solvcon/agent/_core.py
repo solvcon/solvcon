@@ -55,8 +55,10 @@ class AgentSession:
     to a lazily built command executor for ``world``.  ``backend`` is an
     :class:`~solvcon.agent.AgentBackend` or ``None``.  Delete commands are
     hidden from the backend and rejected unless ``allow_destructive`` is true.
-    ``hidden_ops`` names the ops to keep off the tool surface, defaulting to
-    :attr:`HIDDEN_OPS`.
+    ``hidden_ops`` names the ops to keep off the tool surface and out of the
+    runner; it defaults to :attr:`HIDDEN_OPS`, or to nothing once a
+    ``renderer`` is injected, since what that renderer is for is the op
+    :attr:`HIDDEN_OPS` names.
     """
 
     INVENTORY_LIMIT = 40
@@ -70,8 +72,9 @@ class AgentSession:
         self._runner = runner
         self._runner_injected = runner is not None
         self.allow_destructive = allow_destructive
-        self.hidden_ops = frozenset(
-            self.HIDDEN_OPS if hidden_ops is None else hidden_ops)
+        if hidden_ops is None:
+            hidden_ops = () if renderer is not None else self.HIDDEN_OPS
+        self.hidden_ops = frozenset(hidden_ops)
         self._transcript = []
 
     @property
@@ -137,9 +140,7 @@ class AgentSession:
         always.
 
         ``render_png`` is hidden by default: a session with no renderer cannot
-        run it, and its inline base64 result fits no prompt budget.  A caller
-        that does inject a renderer passes its own ``hidden_ops`` to get the op
-        back.
+        run it, and its inline base64 result fits no prompt budget.
         """
         tools = [tool for tool in self._command_provider().tool_definitions()
                  if tool["name"] not in self.hidden_ops]
@@ -147,11 +148,17 @@ class AgentSession:
             return tools
         return [tool for tool in tools if tool["category"] != "delete"]
 
-    def _gated_ops(self):
-        """Op names blocked while destructive commands are disabled: the
-        delete category across the provider's families."""
-        by_category = self._command_provider().commands_by_category()
-        return set(by_category.get("delete", ()))
+    def _blocked_ops(self):
+        """Op names refused at execution: :attr:`hidden_ops` plus the delete
+        category while destructive commands are disabled.
+
+        An op kept off :meth:`tool_surface` is refused here rather than run.
+        """
+        blocked = set(self.hidden_ops)
+        if not self.allow_destructive:
+            by_category = self._command_provider().commands_by_category()
+            blocked |= set(by_category.get("delete", ()))
+        return blocked
 
     @staticmethod
     def _bbox_text(bbox):
@@ -204,20 +211,16 @@ class AgentSession:
         An empty batch builds no runner.  A runner that fails to build, or that
         raises on a command, becomes a failed :class:`_OutcomeStub` (one per
         command), so a bad runner or command never aborts the batch and the
-        results always line up with the commands.  Delete commands are rejected
-        before reaching the runner unless this session allows them.  This does
-        not touch the transcript.
+        results always line up with the commands.  Commands naming an op this
+        session keeps off the tool surface are rejected before reaching the
+        runner (see :meth:`_blocked_ops`).  This does not touch the transcript.
         """
         if not commands:
             return []
-        blocked = set() if self.allow_destructive else self._gated_ops()
-        allowed = [command for command in commands
-                   if _command.op_of(command) not in blocked]
-        if not allowed:
-            return [_OutcomeStub(
-                _command.op_of(command),
-                error="destructive command %r is disabled for this session"
-                % _command.op_of(command)) for command in commands]
+        blocked = self._blocked_ops()
+        gated = [_command.op_of(command) in blocked for command in commands]
+        if all(gated):
+            return [self._blocked_result(command) for command in commands]
         try:
             runner = self.runner
         except Exception as exc:
@@ -225,12 +228,9 @@ class AgentSession:
             return [_OutcomeStub(_command.op_of(c), error=error)
                     for c in commands]
         results = []
-        for command in commands:
-            op = _command.op_of(command)
-            if op in blocked:
-                results.append(_OutcomeStub(
-                    op, error="destructive command %r is disabled for this "
-                    "session" % op))
+        for command, is_gated in zip(commands, gated):
+            if is_gated:
+                results.append(self._blocked_result(command))
                 continue
             try:
                 results.append(runner.run(command))
@@ -239,6 +239,12 @@ class AgentSession:
                     _command.op_of(command),
                     error="%s: %s" % (type(exc).__name__, exc)))
         return results
+
+    @staticmethod
+    def _blocked_result(command):
+        op = _command.op_of(command)
+        return _OutcomeStub(
+            op, error="op %r is disabled for this session" % op)
 
     def _record_agent(self, text, commands=(), results=(), failed=False):
         """Append and return one agent turn."""

@@ -336,5 +336,18 @@ class AgentDrawIntegrationTC(unittest.TestCase):
         self.assertIn("render_png",
                       {tool["name"] for tool in opted_in.tool_surface()})
 
+    def test_a_renderer_brings_render_png_back(self):
+        session = agent.AgentSession(renderer=object())
+        self.assertIn("render_png",
+                      {tool["name"] for tool in session.tool_surface()})
+        self.assertNotIn("render_png", session.hidden_ops)
+
+    def test_a_hidden_op_is_refused_instead_of_run(self):
+        world = solvcon.WorldFp64()
+        session = agent.AgentSession(world=world)
+        result = session.apply_commands([{"op": "render_png"}])[0]
+        self.assertFalse(result.ok)
+        self.assertIn("disabled", result.error)
+
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
