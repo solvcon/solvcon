@@ -141,6 +141,9 @@ class SubprocessBackend(_backend.AgentBackend):
     #: The executable name a subclass discovers on ``PATH``.
     command = None
 
+    #: The selector label a subclass names itself with.
+    name = None
+
     #: The only environment variables the agent CLI receives: the process
     #: basics it needs to run, plus the credentials of the supported
     #: authentication modes (see the class docstring).
@@ -149,13 +152,14 @@ class SubprocessBackend(_backend.AgentBackend):
         "ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN", "CLAUDE_CONFIG_DIR")
 
     def __init__(self, timeout=120):
+        super().__init__()
+        # Naming itself is the one thing the base cannot do for a subclass, and
+        # a nameless backend would reach the selector and the configuration
+        # file as a null entry.
+        if not self.name:
+            raise TypeError("%s must set name" % type(self).__name__)
         self._timeout = timeout
         self._proc = None
-
-    @property
-    def name(self):
-        """Selector label derived from the CLI, e.g. ``claude (cli)``."""
-        return "%s (cli)" % self.command
 
     def executable(self):
         """The resolved path to :attr:`command`, or ``None`` if not on PATH."""
@@ -243,16 +247,37 @@ class ClaudeCliBackend(SubprocessBackend):
     scene context into the prompt, and parses the model's JSON reply into
     commands.  No API key lives here: the CLI owns authentication.
 
-    The model is named explicitly because ``--setting-sources ""`` cuts the
-    CLI off from the config files it would otherwise pick one from, so the
-    same request would run on a different model as the CLI default moves.
+    The model and the reasoning effort are settings the user picks; each maps
+    to a CLI flag.  Naming the model matters because ``--setting-sources ""``
+    cuts the CLI off from the config files it would otherwise pick one from,
+    so :attr:`DEFAULT_CHOICE` leaves the flag out and the request runs on
+    whatever the CLI itself defaults to, which moves over time.
     """
 
     command = "claude"
+    name = "Claude Code"
+
+    DEFAULT_CHOICE = "default"
+
+    SETTINGS = (
+        _backend.BackendSetting(
+            name="model", label="Model",
+            choices=(DEFAULT_CHOICE, "fable", "opus", "sonnet", "haiku"),
+            default=DEFAULT_CHOICE,
+            tooltip="Model alias passed to the CLI as --model."),
+        _backend.BackendSetting(
+            name="effort", label="Effort",
+            choices=(DEFAULT_CHOICE, "low", "medium", "high", "xhigh", "max"),
+            default=DEFAULT_CHOICE,
+            tooltip="Reasoning effort passed to the CLI as --effort."),
+    )
+
+    def settings_spec(self):
+        return self.SETTINGS
 
     def _build_argv(self, exe, user_prompt, system_prompt):
         # TODO: provide more permission and config to the CLI sandbox later.
-        return [
+        argv = [
             exe, "-p", user_prompt, "--output-format", "json",
             "--append-system-prompt", system_prompt,
             "--tools", "",
@@ -262,6 +287,14 @@ class ClaudeCliBackend(SubprocessBackend):
             "--disable-slash-commands",  # no interactive slash commands
             "--no-session-persistence",  # no session files
         ]
+        for setting, flag in (("model", "--model"), ("effort", "--effort")):
+            value = self.get_setting(setting)
+            if value and value != self.DEFAULT_CHOICE:
+                # Joined rather than two elements, so a value that happens to
+                # start with a dash reaches the CLI as this flag's value and
+                # never as another option.
+                argv.append("%s=%s" % (flag, value))
+        return argv
 
     def _parse_output(self, stdout):
         """Pull the assistant text out of ``claude --output-format json``
@@ -296,6 +329,7 @@ class OpenAIHttpBackend(_backend.AgentBackend):
     _DEFAULT_MODEL = "qwen2.5vl:7b"
 
     def __init__(self, base_url=None, model=None, api_key=None, timeout=120):
+        super().__init__()
         self._base_url = base_url if base_url is not None else self._env_or(
             "SOLVCON_OPENAI_BASE_URL", self._DEFAULT_BASE_URL)
         self._model = model if model is not None else self._env_or(

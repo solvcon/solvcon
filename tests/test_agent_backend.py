@@ -9,10 +9,14 @@ GUI-free: only the pure-Python backend module is imported, never an
 """
 
 import json
+import os
+import shutil
+import tempfile
 import unittest
 
 from solvcon import agent
 from solvcon.agent import draw
+from solvcon.config import Config
 
 _literal = agent.ToolSurfaceFormatter.literal
 
@@ -533,6 +537,45 @@ class RegistryTC(unittest.TestCase):
         finally:
             # Restore the default for other tests.
             agent.BackendRegistry.register(agent.ClaudeCliBackend())
+
+
+class BackendSettingsConfigTC(unittest.TestCase):
+    def setUp(self):
+        tmpdir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmpdir, True)
+        self.path = os.path.join(tmpdir, Config.FILENAME)
+        # The registry hands out one shared instance, so put the knob back.
+        self.backend = agent.BackendRegistry.get(
+            agent.ClaudeCliBackend().name)
+        for knob, value in self.backend.settings().items():
+            self.addCleanup(self.backend.set_setting, knob, value)
+
+    def test_settings_survive_a_config_round_trip(self):
+        # The whole path: an accepted edit is written to the file, and a
+        # later run reads it back onto the same backend.
+        self.backend.set_setting("model", "opus")
+        config = Config(self.path)
+        agent.BackendRegistry.save_settings(config)
+        config.save()
+        self.backend.set_setting(
+            "model", agent.ClaudeCliBackend.DEFAULT_CHOICE)
+        agent.BackendRegistry.load_settings(Config(self.path).load())
+        self.assertEqual(self.backend.get_setting("model"), "opus")
+
+    def test_a_stale_file_leaves_the_backend_alone(self):
+        # Every shape an older or newer version can leave behind: a backend,
+        # a knob, a value, and a payload the running code cannot use.  Each is
+        # dropped, and the good knob beside them still applies.
+        json.dump({agent.BackendRegistry.CONFIG_KEY: {
+            self.backend.name: {"model": "opus", "effort": "warp",
+                                "gone_knob": "x", "bad_type": 12},
+            "Ghost CLI": {"model": "opus"},
+            "Broken CLI": "not a mapping",
+        }}, open(self.path, "w"))
+        agent.BackendRegistry.load_settings(Config(self.path).load())
+        self.assertEqual(self.backend.get_setting("model"), "opus")
+        self.assertEqual(self.backend.get_setting("effort"),
+                         agent.ClaudeCliBackend.DEFAULT_CHOICE)
 
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

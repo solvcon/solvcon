@@ -20,7 +20,9 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QDockWidget,
                                QPushButton)
 
 from ...agent import AgentBackend, AgentSession, BackendRegistry, op_of
+from ...config import Config
 from . import _agent_control
+from ._agent_settings import AgentBackendSettingsDialog
 from ..base import _gui_common
 
 __all__ = [  # noqa: F822
@@ -68,18 +70,21 @@ class AgentBackendWorker(QThread):
 class AgentConsoleWidget(QWidget):
     """The console body: a backend selector, a transcript, and a prompt box.
 
-    Display-only.  It emits :attr:`submitted` with the typed prompt and exposes
-    the chosen backend; the owning feature runs the turn and calls back to
-    append the reply.
+    Display-only.  It emits :attr:`submitted` with the typed prompt and
+    :attr:`settings_requested` when the user asks to configure the selected
+    backend, and exposes the chosen backend; the owning feature runs the turn
+    and calls back to append the reply.
     """
 
     submitted = Signal(str)
+    settings_requested = Signal()
 
     def __init__(self, backends=(), parent=None):
         super().__init__(parent)
         self._backend_combo = QComboBox()
         for backend in backends:
             self._backend_combo.addItem(backend.name, backend)
+        self._settings = QPushButton("Settings")
 
         self._transcript = QTextEdit()
         self._transcript.setReadOnly(True)
@@ -96,6 +101,7 @@ class AgentConsoleWidget(QWidget):
         selector.setContentsMargins(4, 2, 4, 2)
         selector.addWidget(QLabel("Backend:"))
         selector.addWidget(self._backend_combo, 1)
+        selector.addWidget(self._settings)
 
         entry = QHBoxLayout()
         entry.setContentsMargins(4, 2, 4, 4)
@@ -116,6 +122,7 @@ class AgentConsoleWidget(QWidget):
 
         self._input.returnPressed.connect(self._emit)
         self._send.clicked.connect(self._emit)
+        self._settings.clicked.connect(self.settings_requested)
 
     def _emit(self):
         text = self._input.text().strip()
@@ -131,9 +138,12 @@ class AgentConsoleWidget(QWidget):
         self._input.clear()
 
     def set_busy(self, busy):
-        """Lock the prompt while a turn runs so a second one cannot overlap."""
+        """Lock the prompt and the settings button while a turn runs, so a
+        second turn cannot overlap and an edit cannot look like it reaches the
+        in-flight call, which already holds its configuration."""
         self._input.setEnabled(not busy)
         self._send.setEnabled(not busy)
+        self._settings.setEnabled(not busy)
 
     def start_working(self):
         """Show an animated ``working ...`` line while a turn runs, so a slow
@@ -177,6 +187,8 @@ class AgentPanel(_gui_common.PilotFeature):
         self._panel = None
         self._session = AgentSession(
             runner=_agent_control.build_control_dispatcher(self._mgr))
+        self._config = Config.instance()
+        BackendRegistry.load_settings(self._config)
         self._worker = None
         self._active_widget = None
         # Make sure the worker thread is joined before the main thread exits.
@@ -221,11 +233,33 @@ class AgentPanel(_gui_common.PilotFeature):
             return
         self._panel = AgentConsoleWidget(backends=BackendRegistry.available())
         self._panel.submitted.connect(self._on_submitted)
+        self._panel.settings_requested.connect(self._on_settings_requested)
         self._dock = QDockWidget("Agent")
         self._dock.setWidget(self._panel)
         self._mainWindow.addDockWidget(Qt.BottomDockWidgetArea, self._dock)
         # Keep the menu check in sync when the dock is closed by its button.
         self._dock.visibilityChanged.connect(self._action.setChecked)
+
+    def _on_settings_requested(self):
+        """Configure the selected backend.  The settings live on the registry's
+        backend instance, so an edit holds for every later turn, and the
+        accepted values go to the configuration file so they also outlive the
+        session."""
+        backend = self._panel.selected_backend()
+        if backend is None:
+            return
+        dialog = AgentBackendSettingsDialog(backend, parent=self._panel)
+        if not dialog.exec():
+            return
+        BackendRegistry.save_settings(self._config)
+        try:
+            self._config.save()
+        except OSError as exc:
+            # The edit still holds for this session; only the file is lost, and
+            # saying so beats a silent no-op the user finds out about later.
+            self._panel.append_message(
+                "agent", "settings not saved to %s: %s"
+                % (self._config.path, exc))
 
     def _on_submitted(self, prompt):
         """Start one turn on the active canvas without blocking the GUI."""

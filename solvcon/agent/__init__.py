@@ -39,6 +39,7 @@ list_of_core = [
 list_of_backend = [
     'AgentBackend',
     'BackendResponse',
+    'BackendSetting',
     'EchoBackend',
     'ToolSurfaceFormatter',
     'HistoryFormatter',
