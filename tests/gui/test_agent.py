@@ -11,6 +11,7 @@ try:
     from solvcon import pilot
     from solvcon import agent
     from solvcon.pilot.agent import _agent_gui
+    from solvcon.pilot.agent import _agent_settings
     from PySide6.QtCore import Qt, QCoreApplication
 except ImportError:
     pilot = None
@@ -287,6 +288,19 @@ class AgentPanelTC(unittest.TestCase):
         widget._input.setText("   ")
         widget._emit()
         self.assertEqual(widget._transcript.toPlainText(), "")
+
+    def test_backend_settings_reach_the_cli(self):
+        # The whole path in one go: the dialog is built from the backend's
+        # spec, accepting it stores the picks, and a later turn puts them on
+        # the CLI command line.
+        backend = agent.ClaudeCliBackend()
+        dialog = _agent_settings.AgentBackendSettingsDialog(backend)
+        dialog._editors["model"].setCurrentText("opus")
+        dialog._editors["effort"].setCurrentText("high")
+        dialog.accept()
+        argv = backend._build_argv("/usr/bin/claude", "draw", "system")
+        self.assertIn("--model=opus", argv)
+        self.assertIn("--effort=high", argv)
 
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

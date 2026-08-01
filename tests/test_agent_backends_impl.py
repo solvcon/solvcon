@@ -108,6 +108,8 @@ class SubprocessBackendDiscoveryTC(unittest.TestCase):
         # A subclass that names no executable is never available even though
         # which() would answer for a real name.
         class Nameless(agent.SubprocessBackend):
+            name = "nameless (test)"
+
             def _build_argv(self, exe, user_prompt, system_prompt):
                 return [exe]
 
@@ -293,7 +295,7 @@ class SubprocessBackendPinningTC(unittest.TestCase):
 
 class RegistrationTC(unittest.TestCase):
     def test_claude_registers_on_import(self):
-        backend = agent.BackendRegistry.get("claude (cli)")
+        backend = agent.BackendRegistry.get("Claude Code")
         self.assertIsNotNone(backend)
         self.assertIsInstance(backend, agent.ClaudeCliBackend)
 

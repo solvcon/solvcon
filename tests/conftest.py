@@ -3,7 +3,7 @@
 
 
 """
-Keep the pilot GUI tests off the screen.
+Keep the pilot GUI tests off the screen and out of the user's configuration.
 
 The GUI tests drive real top-level windows, and every one that maps takes the
 desktop and the keyboard away from whoever is running the suite. Marking a
@@ -13,10 +13,16 @@ keep running against a live window surface. That is what the offscreen QPA
 platform cannot offer: the suite skips its window tests there. Export
 ``SOLVCON_TEST_SHOW_WINDOWS=ON`` to watch the windows instead, which hands them
 the desktop and the keyboard for the length of the run.
+
+The suite also points ``SOLVCON_CONFIG_HOME`` at a scratch directory, so a test
+that reads or writes the application configuration neither picks up the
+settings of whoever is running it nor overwrites them.
 """
 
 
 import os
+import shutil
+import tempfile
 
 try:
     from PySide6 import QtCore, QtWidgets
@@ -57,6 +63,37 @@ def _hide_windows():
         return
     _hider = _build_hider()
     app.installEventFilter(_hider)
+
+
+_config_home = None
+_saved_config_home = None
+
+
+def pytest_configure(config):
+    """Send the application configuration to a scratch directory for the run.
+
+    Set before any test imports the pilot, which reads the configuration as it
+    builds its panels.
+    """
+    global _config_home, _saved_config_home
+    _saved_config_home = os.environ.get("SOLVCON_CONFIG_HOME")
+    _config_home = tempfile.mkdtemp(prefix="solvcon-test-config-")
+    os.environ["SOLVCON_CONFIG_HOME"] = _config_home
+
+
+def pytest_unconfigure(config):
+    """Remove the directory this file created, and only that one.
+
+    Deleting whatever the variable happens to point at would follow a test
+    that repointed it and failed before restoring, and recursively delete a
+    real directory such as the developer's own configuration.
+    """
+    if _saved_config_home is None:
+        os.environ.pop("SOLVCON_CONFIG_HOME", None)
+    else:
+        os.environ["SOLVCON_CONFIG_HOME"] = _saved_config_home
+    if _config_home:
+        shutil.rmtree(_config_home, ignore_errors=True)
 
 
 def pytest_collection_finish(session):

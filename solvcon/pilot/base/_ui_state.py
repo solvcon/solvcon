@@ -97,7 +97,7 @@ class UiState(_gui_common.PilotFeature):
         :type parts: iterable
         """
         super(UiState, self).__init__(*args, **kw)
-        self._config = Config() if config is None else config
+        self._config = Config.instance() if config is None else config
         if parts is None:
             parts = [WindowGeometry(self._mainWindow)]
         self._parts = list(parts)

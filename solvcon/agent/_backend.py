@@ -325,6 +325,19 @@ def format_history(history, used=0):
     return HistoryFormatter.render(history, used)
 
 
+@dataclasses.dataclass(frozen=True)
+class BackendSetting:
+    """One user-tunable knob a backend advertises to a settings editor.  An
+    empty ``choices`` means free text; otherwise the value must be one of the
+    listed strings."""
+
+    name: str
+    label: str
+    choices: tuple = ()
+    default: str = ""
+    tooltip: str = ""
+
+
 @dataclasses.dataclass
 class BackendResponse:
     """One backend reply: ``text`` prose, the proposed ``commands`` the
@@ -342,6 +355,10 @@ class AgentBackend(abc.ABC):
     system instruction (:attr:`_INSTRUCTIONS`, sent as a real system prompt)
     and one user-payload layout (:meth:`_compose_user`), so a CLI and an HTTP
     backend never drift apart in what they ask the model.
+
+    A backend may also advertise user-tunable knobs through
+    :meth:`settings_spec`; the base class stores and validates their values, so
+    a settings editor works the same for every backend.
     """
 
     # TODO: solvcon is an application platform for geometry-based computation:
@@ -419,6 +436,50 @@ class AgentBackend(abc.ABC):
     def name(self):
         """Short, stable identifier shown in the backend selector."""
 
+    def settings_spec(self):
+        """The knobs this backend exposes, as a sequence of
+        :class:`BackendSetting`.  Empty by default: a backend opts in."""
+        return ()
+
+    @property
+    def _settings(self):
+        """The stored values, filled with the declared defaults on first use.
+
+        Built on demand rather than in an ``__init__``, so a subclass that
+        writes its own constructor cannot lose the settings by forgetting to
+        chain up to this class.
+        """
+        values = self.__dict__.get("_setting_values")
+        if values is None:
+            values = {setting.name: setting.default
+                      for setting in self.settings_spec()}
+            self.__dict__["_setting_values"] = values
+        return values
+
+    def settings(self):
+        """The current value of every knob, as a ``name -> value`` dict."""
+        return dict(self._settings)
+
+    def get_setting(self, name):
+        return self._settings[name]
+
+    def set_setting(self, name, value):
+        """Store ``value`` for the knob ``name``, raising :class:`KeyError` for
+        an unknown knob and :class:`ValueError` for a value that is not a
+        string or falls outside the knob's choices."""
+        for setting in self.settings_spec():
+            if setting.name != name:
+                continue
+            if not isinstance(value, str):
+                raise ValueError(
+                    "%s: %s takes a string, not %r" % (self.name, name, value))
+            if setting.choices and value not in setting.choices:
+                raise ValueError(
+                    "%s: %r is not a valid %s" % (self.name, value, name))
+            self._settings[name] = value
+            return
+        raise KeyError("%s has no setting %r" % (self.name, name))
+
     @abc.abstractmethod
     def available(self):
         """Whether this backend can run now (CLI on PATH, key set, ...)."""
@@ -486,6 +547,10 @@ class BackendRegistry:
 
     _BACKENDS = []
 
+    #: The configuration key holding every backend's settings, as a
+    #: ``backend name -> {knob: value}`` mapping.
+    CONFIG_KEY = "agent_backend_settings"
+
     @classmethod
     def register(cls, backend):
         """Add a backend, replacing any with the same name (so a re-import does
@@ -516,6 +581,43 @@ class BackendRegistry:
             if backend.name == name:
                 return backend
         return None
+
+    @classmethod
+    def load_settings(cls, config):
+        """Apply the settings stored under :attr:`CONFIG_KEY` to the registered
+        backends.
+
+        An entry naming a backend, a knob, or a value the running code does not
+        know is dropped: the configuration file outlives any one version, and a
+        stale entry must not keep the console from starting.
+        """
+        stored = config.get(cls.CONFIG_KEY)
+        if not isinstance(stored, dict):
+            return
+        for backend in cls._BACKENDS:
+            values = stored.get(backend.name)
+            if not isinstance(values, dict):
+                continue
+            for name, value in values.items():
+                try:
+                    backend.set_setting(name, value)
+                except (KeyError, ValueError):
+                    continue
+
+    @classmethod
+    def save_settings(cls, config):
+        """Record every backend's settings under :attr:`CONFIG_KEY`.  Writing
+        the file is the caller's call, so a caller can batch several edits into
+        one :meth:`~solvcon.config.Config.save`."""
+        # Merge rather than replace: an entry belongs to a backend this process
+        # never registered (renamed, or from another build), and rewriting the
+        # key from the live list alone would delete settings the user still
+        # wants for it.
+        stored = config.get(cls.CONFIG_KEY)
+        stored = dict(stored) if isinstance(stored, dict) else {}
+        stored.update({backend.name: backend.settings()
+                       for backend in cls._BACKENDS if backend.settings()})
+        config.set(cls.CONFIG_KEY, stored)
 
 
 class EchoBackend(AgentBackend):

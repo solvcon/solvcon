@@ -34,9 +34,24 @@ class Config(object):
     #: Basename of the settings file, which holds the GUI's configuration.
     FILENAME = "pilot.json"
 
+    _INSTANCE = None
+
     def __init__(self, path=None):
         self.path = self.default_path() if path is None else path
         self._data = {}
+
+    @classmethod
+    def instance(cls):
+        """The process-wide configuration, read from the file on first use.
+
+        Every part of the application shares this one object because
+        :meth:`save` writes the whole file: two separately loaded copies would
+        each hold a snapshot of the other's keys, and whichever saved last
+        would put back the values the other had already replaced.
+        """
+        if cls._INSTANCE is None:
+            cls._INSTANCE = cls().load()
+        return cls._INSTANCE
 
     @staticmethod
     def config_home():
