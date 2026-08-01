@@ -931,6 +931,40 @@ if [ "${SCDV_PRINT_DEPS_ONLY}" = "1" ] ; then
   exit 0
 fi
 
+# The per-OS blocks assume x86_64 on Ubuntu and arm64 on macOS.
+case "$(uname -m)" in
+  x86_64|amd64) SCDV_ARCH=x86_64 ;;
+  arm64|aarch64) SCDV_ARCH=arm64 ;;
+  *)
+    echo "unsupported architecture '$(uname -m)'" >&2
+    exit 1
+    ;;
+esac
+
+case "${SCDV_OS}:${SCDV_ARCH}" in
+  ubuntu:x86_64|macos:arm64)
+    ;;
+  macos:x86_64)
+    # Intel Mac: some dependencies may not build. (e.g. numpy/scipy)
+    echo "warning: some dependencies may not build correctly on" \
+         "macos/x86_64 (Intel Mac)." >&2
+    if ! { : </dev/tty ; } 2>/dev/null ; then
+      echo "no controlling tty to confirm; rerun on a supported" \
+           "OS/architecture." >&2
+      exit 1
+    fi
+    read -r -p "Continue anyway? [y/N] " _ans </dev/tty
+    case "${_ans}" in
+      [Yy]*) ;;
+      *) echo "aborted." >&2 ; exit 1 ;;
+    esac
+    ;;
+  *)
+    echo "unsupported OS/architecture '${SCDV_OS}/${SCDV_ARCH}'" >&2
+    exit 1
+    ;;
+esac
+
 # One-time platform setup (e.g. macOS BREW_PREFIX detection).
 plat_init
 
