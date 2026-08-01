@@ -20,7 +20,10 @@ solvcon is made possible by the following contributors.
 - Tetsuo Koyama <tkoyama010@gmail.com>
 - Ting-Yu Chuang <tychuang.cs10@nycu.edu.tw> <33109379+tychuang1211@users.noreply.github.com> <polarbear.cs05@g2.nctu.edu.tw> <tychuang@citi.sinica.edu.tw>
 - Wayne Chou <ck10600760@gmail.com>
+- Yi-Tong, Deng <ytdeng.cs13@nycu.edu.tw>
 - Yung-Yu Chen <yyc@solvcon.net>
 - Zong-han, Xie <zonghanxie@proton.me>
+- arturict <arturict@users.noreply.github.com>
 - chestercheng <hi@chester.ch>
+- rockleona <34214497+rockleona@users.noreply.github.com>
 - yanagiragi <qaz90473@gmail.com>
