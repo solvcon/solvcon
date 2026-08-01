@@ -1210,9 +1210,9 @@ template <typename A, typename T>
 A SimpleArrayMixinCalculators<A, T>::matmul_planned(A const & other) const
 {
     auto const * athis = static_cast<A const *>(this);
-    MatmulPlan const plan = MatmulPlan::make(*athis, other);
+    MatmulPlan plan = MatmulPlan::make(*athis, other);
     A output(plan.output_shape());
-    MatmulExecutor<A> executor(plan, output, *athis, other);
+    MatmulExecutor<A> executor(std::move(plan), output, *athis, other);
     executor.execute();
     return output;
 }

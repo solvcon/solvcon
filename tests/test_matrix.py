@@ -437,21 +437,32 @@ class MatmulTestBase(sc.testing.TestBase):
                     self.assert_matmul_planned(lhs, rhs, expected)
 
     def test_broadcast_matrix_strides(self):
-        """Broadcasting preserves signed matrix strides."""
+        """Broadcast matrix strides work across generic and packed routes."""
         dtype = np.dtype(self.dtype).name
-        lhs_data = np.arange(24, dtype=dtype).reshape(2, 1, 3, 4)
-        rhs_data = np.arange(40, dtype=dtype).reshape(1, 5, 4, 2)
-        cases = itertools.product(
-            self.make_matrix_stride_cases(lhs_data, 3),
-            self.make_matrix_stride_cases(rhs_data, 2),
-        )
-        for (lhs_case, case_lhs), (rhs_case, case_rhs) in cases:
-            lhs = self.SimpleArray(array=case_lhs)
-            rhs = self.SimpleArray(array=case_rhs)
-            expected = np.matmul(case_lhs, case_rhs)
+        for m, k, n in ((3, 4, 2), (17, 18, 19)):
+            lhs_data = np.arange(2 * m * k, dtype=dtype).reshape(
+                2, 1, m, k)
+            rhs_data = np.arange(5 * k * n, dtype=dtype).reshape(
+                1, 5, k, n)
+            lhs_cases = self.make_matrix_stride_cases(lhs_data, 3) + ((
+                'negative_batch_and_matrix',
+                self.make_strided_view(
+                    self.make_strided_view(lhs_data, 0, -1), 3, -1),
+            ),)
+            rhs_cases = self.make_matrix_stride_cases(rhs_data, 2) + ((
+                'negative_batch_and_matrix',
+                self.make_strided_view(
+                    self.make_strided_view(rhs_data, 1, -1), 2, -1),
+            ),)
+            cases = itertools.product(lhs_cases, rhs_cases)
+            for (lhs_case, case_lhs), (rhs_case, case_rhs) in cases:
+                lhs = self.SimpleArray(array=case_lhs)
+                rhs = self.SimpleArray(array=case_rhs)
+                expected = np.matmul(case_lhs, case_rhs)
 
-            with self.subTest(lhs=lhs_case, rhs=rhs_case):
-                self.assert_matmul_planned(lhs, rhs, expected)
+                with self.subTest(
+                        shape=(m, k, n), lhs=lhs_case, rhs=rhs_case):
+                    self.assert_matmul_planned(lhs, rhs, expected)
 
     def test_vector_strides(self):
         """Vector roles preserve signed vector, matrix, and batch strides."""

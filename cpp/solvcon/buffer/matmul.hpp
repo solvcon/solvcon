@@ -75,6 +75,10 @@ public:
 
     bool lhs_is_vector() const noexcept { return m_contraction.m_lhs_vector; }
     bool rhs_is_vector() const noexcept { return m_contraction.m_rhs_vector; }
+    bool lhs_is_broadcast() const noexcept { return m_batch.m_lhs_is_broadcast; }
+    bool rhs_is_broadcast() const noexcept { return m_batch.m_rhs_is_broadcast; }
+    bool lhs_has_zero_batch_stride() const noexcept { return m_batch.m_lhs_has_zero_stride; }
+    bool rhs_has_zero_batch_stride() const noexcept { return m_batch.m_rhs_has_zero_stride; }
     bool has_batch_axes() const noexcept { return m_batch.m_domain.rank() != 0; }
     MappedOffsetCursor batch_cursor() const & { return MappedOffsetCursor(m_batch.m_domain, m_batch.m_mappings); }
     MappedOffsetCursor batch_cursor() const && = delete;
@@ -100,10 +104,21 @@ private:
         ssize_t m_rhs_column_stride;
     }; /* end struct ContractionStrides */
 
+    struct BatchOperand
+    {
+        OperandMapping m_mapping;
+        bool m_is_broadcast = false;
+        bool m_has_zero_stride = false;
+    }; /* end struct BatchOperand */
+
     struct BatchMappings
     {
         LoopDomain m_domain;
         mapping_type m_mappings;
+        bool m_lhs_is_broadcast;
+        bool m_rhs_is_broadcast;
+        bool m_lhs_has_zero_stride;
+        bool m_rhs_has_zero_stride;
     }; /* end struct BatchMappings */
 
     MatmulPlan(shape_type output_shape, Contraction contraction, ContractionStrides strides, BatchMappings batch);
@@ -124,7 +139,7 @@ private:
     static shape_type make_batch_shape(Array const & lhs, Array const & rhs);
 
     template <typename Array>
-    static OperandMapping make_batch_mapping(Array const & operand, LoopDomain const & domain);
+    static BatchOperand make_batch_operand(Array const & operand, LoopDomain const & domain);
 
     static shape_type make_output_shape(BatchMappings const & batch, Contraction const & contraction);
 
@@ -142,23 +157,31 @@ private:
  *
  * MatmulExecutor maps vector and matrix roles to DOT, GEMV, or GEMM, then
  * selects generic, tiled, direct BLAS, or pack-once BLAS execution. It owns
- * BLAS eligibility, packing reuse, and size thresholds; these decisions do
- * not change the plan. The constructor only binds a plan and caller-owned
- * arrays; execute() evaluates the plan.
+ * BLAS eligibility, packing reuse, and size thresholds. The executor stores
+ * its plan by value and binds caller-owned arrays. Packing rebuilds physical
+ * layout metadata without changing the contraction or result shape.
  *
  * For `(2,1,3,4) @ (1,5,4,6)`, the executor visits ten batch offsets and
  * evaluates one `(3,4) @ (4,6)` contraction at each offset. The results are
  * written into the allocated `(2,5,3,6)` output.
  *
- * @note This implementation provides generic signed-stride routes and direct
- * BLAS routes for unit-stride DOT, positive-increment GEMV and GEVM, and
- * C/F-compatible GEMM. Packing and batched-vector tuning are follow-up work.
+ * @note This implementation provides generic signed-stride routes, direct
+ * BLAS routes, and pack-once GEMM for reused matrix operands. Batched-vector
+ * tuning remains follow-up work. Pack-once applies when shape broadcasting
+ * reuses an unsupported layout. Unsupported equal-batch layouts remain
+ * generic.
  */
 template <typename Array>
 class MatmulExecutor
 {
 public:
-    MatmulExecutor(MatmulPlan const & plan, Array & output, Array const & lhs, Array const & rhs);
+    MatmulExecutor(MatmulPlan plan, Array & output, Array const & lhs, Array const & rhs);
+    ~MatmulExecutor() = default;
+
+    MatmulExecutor(MatmulExecutor const &) = delete;
+    MatmulExecutor(MatmulExecutor &&) = delete;
+    MatmulExecutor & operator=(MatmulExecutor const &) = delete;
+    MatmulExecutor & operator=(MatmulExecutor &&) = delete;
 
     void execute();
 
@@ -174,17 +197,31 @@ private:
         Rhs,
     };
 
+    struct PackingState
+    {
+        bool lhs = false;
+        bool rhs = false;
+
+        explicit operator bool() const noexcept { return lhs || rhs; }
+    }; /* end struct PackingState */
+
     static constexpr ssize_t BLAS_DOT_MIN_LENGTH = 128;
     static constexpr ssize_t BLAS_COMPACT_GEVM_MIN_ELEMENTS = 729;
     static constexpr ssize_t BLAS_GEMV_MIN_DIMENSION = 32;
     static constexpr ssize_t BLAS_GEMM_MIN_DIMENSION = 8;
+    static constexpr ssize_t BLAS_GEMM_PACK_MIN_DIMENSION = 16;
 
+    PackingState select_packing() const;
+    void pack(PackingState const & packing);
+    void execute_contractions();
     void execute_at(ssize_t output_base, ssize_t lhs_base, ssize_t rhs_base);
     bool try_execute_blas(ssize_t output_base, ssize_t lhs_base, ssize_t rhs_base);
     bool try_dot(value_type * output, value_type const * lhs_data, value_type const * rhs_data);
     bool try_gevm(value_type * output, value_type const * lhs_data, value_type const * rhs_data);
     bool try_gemv(value_type * output, value_type const * lhs_data, value_type const * rhs_data);
     bool try_gemm(value_type * output, value_type const * lhs_data, value_type const * rhs_data);
+    std::optional<matrix_view_type> lhs_matrix_view(value_type const * data) const;
+    std::optional<matrix_view_type> rhs_matrix_view(value_type const * data) const;
     static std::optional<matrix_view_type> make_matrix_view(
         value_type const * data,
         ssize_t row_stride,
@@ -193,7 +230,11 @@ private:
         ssize_t columns);
     void execute_generic(ssize_t output_base, ssize_t lhs_base, ssize_t rhs_base);
 
-    MatmulPlan const & m_plan;
+    MatmulPlan m_plan;
+    Array const & m_lhs;
+    Array const & m_rhs;
+    std::optional<Array> m_packed_lhs;
+    std::optional<Array> m_packed_rhs;
     value_type * m_output_data;
     value_type const * m_lhs_data;
     value_type const * m_rhs_data;
@@ -305,14 +346,20 @@ MatmulPlan::BatchMappings MatmulPlan::make_batch_mappings(
     ssize_t output_block_size)
 {
     LoopDomain domain{make_batch_shape(lhs, rhs)};
+    BatchOperand lhs_operand = make_batch_operand(lhs, domain);
+    BatchOperand rhs_operand = make_batch_operand(rhs, domain);
     mapping_type mappings{
         OperandMapping::contiguous_blocks(domain, output_block_size),
-        make_batch_mapping(lhs, domain),
-        make_batch_mapping(rhs, domain),
+        std::move(lhs_operand.m_mapping),
+        std::move(rhs_operand.m_mapping),
     };
     return BatchMappings{
         .m_domain = std::move(domain),
         .m_mappings = std::move(mappings),
+        .m_lhs_is_broadcast = lhs_operand.m_is_broadcast,
+        .m_rhs_is_broadcast = rhs_operand.m_is_broadcast,
+        .m_lhs_has_zero_stride = lhs_operand.m_has_zero_stride,
+        .m_rhs_has_zero_stride = rhs_operand.m_has_zero_stride,
     };
 }
 
@@ -351,7 +398,7 @@ MatmulPlan::shape_type MatmulPlan::make_batch_shape(Array const & lhs, Array con
 }
 
 template <typename Array>
-OperandMapping MatmulPlan::make_batch_mapping(Array const & operand, LoopDomain const & domain)
+MatmulPlan::BatchOperand MatmulPlan::make_batch_operand(Array const & operand, LoopDomain const & domain)
 {
     size_t batch_axis_count = 0;
     if (operand.ndim() > 1)
@@ -360,15 +407,34 @@ OperandMapping MatmulPlan::make_batch_mapping(Array const & operand, LoopDomain 
     }
     size_t const batch_axis_offset = domain.rank() - batch_axis_count;
     batch_stride_type strides(domain.rank(), 0);
-    for (size_t axis = 0; axis < batch_axis_count; ++axis)
+    bool is_broadcast = false;
+    bool has_zero_stride = false;
+    for (size_t domain_axis = 0; domain_axis < domain.rank(); ++domain_axis)
     {
-        size_t const domain_axis = batch_axis_offset + axis;
-        if (operand.shape(axis) == domain.extent(domain_axis))
+        if (domain_axis < batch_axis_offset)
         {
-            strides[domain_axis] = operand.stride(axis);
+            is_broadcast = is_broadcast || domain.extent(domain_axis) > 1;
+            continue;
         }
+
+        size_t const operand_axis = domain_axis - batch_axis_offset;
+        ssize_t const operand_extent = operand.shape(operand_axis);
+        ssize_t const operand_stride = operand.stride(operand_axis);
+        if (operand_extent == domain.extent(domain_axis))
+        {
+            strides[domain_axis] = operand_stride;
+        }
+        else if (domain.extent(domain_axis) > 1)
+        {
+            is_broadcast = true;
+        }
+        has_zero_stride = has_zero_stride || (operand_extent > 1 && operand_stride == 0);
     }
-    return OperandMapping(std::move(strides));
+    return BatchOperand{
+        .m_mapping = OperandMapping(std::move(strides)),
+        .m_is_broadcast = is_broadcast,
+        .m_has_zero_stride = has_zero_stride,
+    };
 }
 
 inline MatmulPlan::shape_type MatmulPlan::make_output_shape(
@@ -421,8 +487,10 @@ std::string MatmulPlan::shape_string(Array const & array)
 }
 
 template <typename Array>
-MatmulExecutor<Array>::MatmulExecutor(MatmulPlan const & plan, Array & output, Array const & lhs, Array const & rhs)
-    : m_plan(plan)
+MatmulExecutor<Array>::MatmulExecutor(MatmulPlan plan, Array & output, Array const & lhs, Array const & rhs)
+    : m_plan(std::move(plan))
+    , m_lhs(lhs)
+    , m_rhs(rhs)
     , m_output_data(output.logical_data())
     , m_lhs_data(lhs.logical_data())
     , m_rhs_data(rhs.logical_data())
@@ -431,6 +499,69 @@ MatmulExecutor<Array>::MatmulExecutor(MatmulPlan const & plan, Array & output, A
 
 template <typename Array>
 void MatmulExecutor<Array>::execute()
+{
+    PackingState const packing = select_packing();
+
+    if (packing)
+    {
+        pack(packing);
+    }
+
+    execute_contractions();
+}
+
+template <typename Array>
+typename MatmulExecutor<Array>::PackingState MatmulExecutor<Array>::select_packing() const
+{
+    PackingState packing;
+#if (defined(__APPLE__) && defined(__arm64__)) || defined(MM_HAS_CBLAS)
+    if constexpr (can_matmul_blas_v<value_type>)
+    {
+        if (m_plan.lhs_is_vector() || m_plan.rhs_is_vector() ||
+            std::min({m_plan.rows(), m_plan.columns(), m_plan.inner_size()}) < BLAS_GEMM_PACK_MIN_DIMENSION)
+        {
+            return packing;
+        }
+        if (!m_plan.lhs_is_broadcast() && !m_plan.rhs_is_broadcast())
+        {
+            return packing;
+        }
+        packing.lhs = !lhs_matrix_view(m_lhs_data);
+        packing.rhs = !rhs_matrix_view(m_rhs_data);
+        bool const lhs_supported =
+            !packing.lhs || (m_plan.lhs_is_broadcast() && !m_plan.lhs_has_zero_batch_stride());
+        bool const rhs_supported =
+            !packing.rhs || (m_plan.rhs_is_broadcast() && !m_plan.rhs_has_zero_batch_stride());
+        if (!lhs_supported || !rhs_supported)
+        {
+            return PackingState{};
+        }
+    }
+#endif
+    return packing;
+}
+
+template <typename Array>
+void MatmulExecutor<Array>::pack(PackingState const & packing)
+{
+    if (packing.lhs)
+    {
+        m_packed_lhs.emplace(m_lhs.to_row_major());
+    }
+    if (packing.rhs)
+    {
+        m_packed_rhs.emplace(m_rhs.to_row_major());
+    }
+
+    Array const & lhs = m_packed_lhs ? *m_packed_lhs : m_lhs;
+    Array const & rhs = m_packed_rhs ? *m_packed_rhs : m_rhs;
+    m_plan = MatmulPlan::make(lhs, rhs);
+    m_lhs_data = lhs.logical_data();
+    m_rhs_data = rhs.logical_data();
+}
+
+template <typename Array>
+void MatmulExecutor<Array>::execute_contractions()
 {
     if (!m_plan.has_batch_axes())
     {
@@ -515,8 +646,7 @@ template <typename Array>
 bool MatmulExecutor<Array>::try_gevm(value_type * output, value_type const * lhs_data, value_type const * rhs_data)
 {
     ssize_t const vector_stride = m_plan.lhs_inner_stride();
-    auto const matrix = make_matrix_view(
-        rhs_data, m_plan.rhs_inner_stride(), m_plan.rhs_column_stride(), m_plan.inner_size(), m_plan.columns());
+    auto const matrix = rhs_matrix_view(rhs_data);
     if (vector_stride <= 0 || !matrix)
     {
         return false;
@@ -538,8 +668,7 @@ bool MatmulExecutor<Array>::try_gevm(value_type * output, value_type const * lhs
 template <typename Array>
 bool MatmulExecutor<Array>::try_gemv(value_type * output, value_type const * lhs_data, value_type const * rhs_data)
 {
-    auto const matrix = make_matrix_view(
-        lhs_data, m_plan.lhs_row_stride(), m_plan.lhs_inner_stride(), m_plan.rows(), m_plan.inner_size());
+    auto const matrix = lhs_matrix_view(lhs_data);
     ssize_t const vector_stride = m_plan.rhs_inner_stride();
     if (std::min(m_plan.rows(), m_plan.inner_size()) < BLAS_GEMV_MIN_DIMENSION || !matrix || vector_stride <= 0)
     {
@@ -557,16 +686,30 @@ bool MatmulExecutor<Array>::try_gemm(value_type * output, value_type const * lhs
     {
         return false;
     }
-    auto const lhs = make_matrix_view(
-        lhs_data, m_plan.lhs_row_stride(), m_plan.lhs_inner_stride(), m_plan.rows(), m_plan.inner_size());
-    auto const rhs = make_matrix_view(
-        rhs_data, m_plan.rhs_inner_stride(), m_plan.rhs_column_stride(), m_plan.inner_size(), m_plan.columns());
+    auto const lhs = lhs_matrix_view(lhs_data);
+    auto const rhs = rhs_matrix_view(rhs_data);
     if (!lhs || !rhs)
     {
         return false;
     }
     gemm_blas(m_plan.rows(), m_plan.columns(), m_plan.inner_size(), *lhs, *rhs, output);
     return true;
+}
+
+template <typename Array>
+std::optional<typename MatmulExecutor<Array>::matrix_view_type> MatmulExecutor<Array>::lhs_matrix_view(
+    value_type const * data) const
+{
+    return make_matrix_view(
+        data, m_plan.lhs_row_stride(), m_plan.lhs_inner_stride(), m_plan.rows(), m_plan.inner_size());
+}
+
+template <typename Array>
+std::optional<typename MatmulExecutor<Array>::matrix_view_type> MatmulExecutor<Array>::rhs_matrix_view(
+    value_type const * data) const
+{
+    return make_matrix_view(
+        data, m_plan.rhs_inner_stride(), m_plan.rhs_column_stride(), m_plan.inner_size(), m_plan.columns());
 }
 
 template <typename Array>
