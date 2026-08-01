@@ -241,9 +241,11 @@ set(SOLVCON_INCLUDE_DIR "${CMAKE_CURRENT_LIST_DIR}/cpp" CACHE INTERNAL "")
 
 include_directories(${SOLVCON_INCLUDE_DIR})
 
+# Discovery has to use PYTHON_EXECUTABLE rather than a bare python3.
 execute_process(
-    COMMAND python3 -c "import sys, os, PySide6; sys.stdout.write(os.path.dirname(PySide6.__file__))"
+    COMMAND "${PYTHON_EXECUTABLE}" -c "import os, PySide6; print(os.path.dirname(PySide6.__file__))"
     OUTPUT_VARIABLE PYSIDE6_PYTHON_PACKAGE_PATH
+    OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 message(STATUS "PYSIDE6_PYTHON_PACKAGE_PATH: ${PYSIDE6_PYTHON_PACKAGE_PATH}")
 # Addressing an issue with the PySide6/Shiboken6 6.11 homebrew package:
@@ -252,25 +254,29 @@ message(STATUS "PYSIDE6_PYTHON_PACKAGE_PATH: ${PYSIDE6_PYTHON_PACKAGE_PATH}")
 # above the resolved package directory). Compute that fallback so the
 # homebrew layout can be supported in addition to the bundled PyPI layout.
 execute_process(
-    COMMAND python3 -c "import sys, os, PySide6; sys.stdout.write(os.path.join(os.path.dirname(os.path.realpath(PySide6.__file__)), '..', '..', '..'))"
+    COMMAND "${PYTHON_EXECUTABLE}" -c "import os, PySide6; print(os.path.join(os.path.dirname(os.path.realpath(PySide6.__file__)), '..', '..', '..'))"
     OUTPUT_VARIABLE PYSIDE6_FALLBACK_LIBDIR
+    OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 message(STATUS "PYSIDE6_FALLBACK_LIBDIR: ${PYSIDE6_FALLBACK_LIBDIR}")
 
 execute_process(
-    COMMAND python3 -c "import sys, os, shiboken6; sys.stdout.write(os.path.dirname(shiboken6.__file__))"
+    COMMAND "${PYTHON_EXECUTABLE}" -c "import os, shiboken6; print(os.path.dirname(shiboken6.__file__))"
     OUTPUT_VARIABLE SHIBOKEN6_PYTHON_PACKAGE_PATH
+    OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 message(STATUS "SHIBOKEN6_PYTHON_PACKAGE_PATH: ${SHIBOKEN6_PYTHON_PACKAGE_PATH}")
 # For PySide6/Shiboken6 homebrew package.
 execute_process(
-    COMMAND python3 -c "import sys, os, shiboken6; sys.stdout.write(os.path.join(os.path.dirname(os.path.realpath(shiboken6.__file__)), '..', '..', '..'))"
+    COMMAND "${PYTHON_EXECUTABLE}" -c "import os, shiboken6; print(os.path.join(os.path.dirname(os.path.realpath(shiboken6.__file__)), '..', '..', '..'))"
     OUTPUT_VARIABLE SHIBOKEN6_FALLBACK_LIBDIR
+    OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 message(STATUS "SHIBOKEN6_FALLBACK_LIBDIR: ${SHIBOKEN6_FALLBACK_LIBDIR}")
 execute_process(
-    COMMAND python3 -c "import sys, os, shiboken6_generator; sys.stdout.write(os.path.dirname(shiboken6_generator.__file__))"
+    COMMAND "${PYTHON_EXECUTABLE}" -c "import os, shiboken6_generator; print(os.path.dirname(shiboken6_generator.__file__))"
     OUTPUT_VARIABLE SHIBOKEN6_GENERATOR_PYTHON_PACKAGE_PATH
+    OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 message(STATUS "SHIBOKEN6_GENERATOR_PYTHON_PACKAGE_PATH: ${SHIBOKEN6_GENERATOR_PYTHON_PACKAGE_PATH}")
 
@@ -308,6 +314,15 @@ else()
 endif()
 message(STATUS "PYSIDE6_LIBFILE: ${PYSIDE6_LIBFILE}")
 message(STATUS "SHIBOKEN6_LIBFILE: ${SHIBOKEN6_LIBFILE}")
+
+# An empty PYSIDE6_LIBFILE links solvcon_primary against nothing and defers the
+# failure to an undefined PySide::getWrapperForQObject at link time.
+if(BUILD_QT AND "${PYSIDE6_LIBFILE}" STREQUAL "")
+    message(FATAL_ERROR
+        "libpyside6 not found through ${PYTHON_EXECUTABLE}. Point "
+        "PYTHON_EXECUTABLE at an interpreter that can import PySide6, or "
+        "configure with BUILD_QT=OFF.")
+endif()
 
 add_subdirectory(cpp/solvcon)
 
