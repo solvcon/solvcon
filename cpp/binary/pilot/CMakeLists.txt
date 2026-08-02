@@ -20,6 +20,10 @@ set(CMAKE_AUTOUIC ON)
 find_package(Qt6 COMPONENTS Core)
 find_package(Qt6 COMPONENTS Widgets)
 find_package(Qt6 COMPONENTS Gui)
+# Imported targets are directory-scoped, so finalizing pilot needs the two
+# components that solvcon_primary links declared here as well.
+find_package(Qt6 COMPONENTS Svg)
+find_package(Qt6 QUIET OPTIONAL_COMPONENTS GuiPrivate)
 
 if(APPLE)
     set(MACOSX_BUNDLE_ICON_FILE solvcon.icns)
