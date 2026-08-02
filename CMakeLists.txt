@@ -4,8 +4,6 @@
 cmake_minimum_required(VERSION 4.0.1)
 project(solvcon)
 
-cmake_policy(SET CMP0148 OLD)
-
 enable_testing()
 
 # The Python, Qt6, and PySide6 that MSVC links ship release binaries only, so a
@@ -35,15 +33,30 @@ if(MSVC)
     endif()
 endif()
 
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake/")
-
 if(NOT SKIP_PYTHON_EXECUTABLE)
     find_program(PYTHON_EXECUTABLE python3)
-    message(STATUS "use PYTHON_EXECUTABLE=${PYTHON_EXECUTABLE}")
+    set(Python_EXECUTABLE "${PYTHON_EXECUTABLE}")
 endif()
+
+# PYBIND11_FINDPYTHON makes pybind11 reuse this result instead of the retired
+# FindPythonLibs. Development.Embed is for the interpreter the pilot embeds.
+set(PYBIND11_FINDPYTHON ON)
+find_package(Python REQUIRED
+    COMPONENTS Interpreter Development.Module Development.Embed NumPy)
+
+# The PySide6 and shiboken6 discovery below needs an interpreter even under
+# SKIP_PYTHON_EXECUTABLE.
+if(NOT PYTHON_EXECUTABLE)
+    set(PYTHON_EXECUTABLE "${Python_EXECUTABLE}")
+endif()
+message(STATUS "use PYTHON_EXECUTABLE=${PYTHON_EXECUTABLE}")
 
 option(BUILD_QT "build with QT" ON)
 message(STATUS "BUILD_QT: ${BUILD_QT}")
+
+# The pilot renderer knowingly includes <rhi/qrhi.h> from the QtGui private
+# headers.
+set(QT_NO_PRIVATE_MODULE_WARNING ON)
 
 option(BUILD_METAL "build with Metal" OFF)
 message(STATUS "BUILD_METAL: ${BUILD_METAL}")
@@ -233,7 +246,7 @@ find_package(pybind11 2.12.0 REQUIRED PATHS ${pybind11_path})
 message(STATUS "pybind11_INCLUDE_DIRS: ${pybind11_INCLUDE_DIRS}")
 include_directories(${pybind11_INCLUDE_DIRS})
 
-find_package(NumPy REQUIRED)
+set(NUMPY_INCLUDE_DIR "${Python_NumPy_INCLUDE_DIRS}")
 message(STATUS "NUMPY_INCLUDE_DIR: ${NUMPY_INCLUDE_DIR}")
 include_directories(${NUMPY_INCLUDE_DIR})
 
