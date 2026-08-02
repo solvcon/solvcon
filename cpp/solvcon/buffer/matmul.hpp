@@ -13,6 +13,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <format>
+#include <optional>
 #include <ranges>
 #include <stdexcept>
 #include <string>
@@ -72,6 +73,8 @@ public:
     ssize_t rhs_inner_stride() const noexcept { return m_strides.m_rhs_inner_stride; }
     ssize_t rhs_column_stride() const noexcept { return m_strides.m_rhs_column_stride; }
 
+    bool lhs_is_vector() const noexcept { return m_contraction.m_lhs_vector; }
+    bool rhs_is_vector() const noexcept { return m_contraction.m_rhs_vector; }
     bool has_batch_axes() const noexcept { return m_batch.m_domain.rank() != 0; }
     MappedOffsetCursor batch_cursor() const & { return MappedOffsetCursor(m_batch.m_domain, m_batch.m_mappings); }
     MappedOffsetCursor batch_cursor() const && = delete;
@@ -147,9 +150,9 @@ private:
  * evaluates one `(3,4) @ (4,6)` contraction at each offset. The results are
  * written into the allocated `(2,5,3,6)` output.
  *
- * @note This implementation provides generic signed-stride DOT, GEMV, GEVM,
- * and GEMM routes with broadcast batch shapes. Optimized routes are
- * follow-up work.
+ * @note This implementation provides generic signed-stride routes and direct
+ * BLAS routes for unit-stride DOT, positive-increment GEMV and GEVM, and
+ * C/F-compatible GEMM. Packing and batched-vector tuning are follow-up work.
  */
 template <typename Array>
 class MatmulExecutor
@@ -161,6 +164,8 @@ public:
 
 private:
     using value_type = typename Array::value_type;
+    using matrix_view_type = BlasMatrixView<value_type>;
+    using vector_view_type = BlasVectorView<value_type>;
 
     enum class MappingSlot : std::uint8_t
     {
@@ -169,6 +174,23 @@ private:
         Rhs,
     };
 
+    static constexpr ssize_t BLAS_DOT_MIN_LENGTH = 128;
+    static constexpr ssize_t BLAS_COMPACT_GEVM_MIN_ELEMENTS = 729;
+    static constexpr ssize_t BLAS_GEMV_MIN_DIMENSION = 32;
+    static constexpr ssize_t BLAS_GEMM_MIN_DIMENSION = 8;
+
+    void execute_at(ssize_t output_base, ssize_t lhs_base, ssize_t rhs_base);
+    bool try_execute_blas(ssize_t output_base, ssize_t lhs_base, ssize_t rhs_base);
+    bool try_dot(value_type * output, value_type const * lhs_data, value_type const * rhs_data);
+    bool try_gevm(value_type * output, value_type const * lhs_data, value_type const * rhs_data);
+    bool try_gemv(value_type * output, value_type const * lhs_data, value_type const * rhs_data);
+    bool try_gemm(value_type * output, value_type const * lhs_data, value_type const * rhs_data);
+    static std::optional<matrix_view_type> make_matrix_view(
+        value_type const * data,
+        ssize_t row_stride,
+        ssize_t column_stride,
+        ssize_t rows,
+        ssize_t columns);
     void execute_generic(ssize_t output_base, ssize_t lhs_base, ssize_t rhs_base);
 
     MatmulPlan const & m_plan;
@@ -412,17 +434,158 @@ void MatmulExecutor<Array>::execute()
 {
     if (!m_plan.has_batch_axes())
     {
-        execute_generic(0, 0, 0);
+        execute_at(0, 0, 0);
         return;
     }
 
     for (MappedOffsetCursor cursor = m_plan.batch_cursor(); cursor; cursor.advance())
     {
-        execute_generic(
+        execute_at(
             cursor.offset(MappingSlot::Output),
             cursor.offset(MappingSlot::Lhs),
             cursor.offset(MappingSlot::Rhs));
     }
+}
+
+template <typename Array>
+void MatmulExecutor<Array>::execute_at(ssize_t output_base, ssize_t lhs_base, ssize_t rhs_base)
+{
+    if (!try_execute_blas(output_base, lhs_base, rhs_base))
+    {
+        execute_generic(output_base, lhs_base, rhs_base);
+    }
+}
+
+template <typename Array>
+bool MatmulExecutor<Array>::try_execute_blas(ssize_t output_base, ssize_t lhs_base, ssize_t rhs_base)
+{
+#if (defined(__APPLE__) && defined(__arm64__)) || defined(MM_HAS_CBLAS)
+    if constexpr (can_matmul_blas_v<value_type>)
+    {
+        value_type * output = m_output_data + output_base;
+        value_type const * lhs_data = m_lhs_data + lhs_base;
+        value_type const * rhs_data = m_rhs_data + rhs_base;
+        if (m_plan.lhs_is_vector() && m_plan.rhs_is_vector())
+        {
+            return try_dot(output, lhs_data, rhs_data);
+        }
+        if (m_plan.lhs_is_vector())
+        {
+            return !m_plan.has_batch_axes() && try_gevm(output, lhs_data, rhs_data);
+        }
+        if (m_plan.rhs_is_vector())
+        {
+            return !m_plan.has_batch_axes() && try_gemv(output, lhs_data, rhs_data);
+        }
+        return try_gemm(output, lhs_data, rhs_data);
+    }
+#endif
+    return false;
+}
+
+template <typename Array>
+bool MatmulExecutor<Array>::try_dot(value_type * output, value_type const * lhs_data, value_type const * rhs_data)
+{
+    if (m_plan.inner_size() < BLAS_DOT_MIN_LENGTH)
+    {
+        return false;
+    }
+
+    ssize_t lhs_stride = m_plan.lhs_inner_stride();
+    ssize_t rhs_stride = m_plan.rhs_inner_stride();
+    if (lhs_stride == -1 && rhs_stride == -1)
+    {
+        lhs_data += (m_plan.inner_size() - 1) * lhs_stride;
+        rhs_data += (m_plan.inner_size() - 1) * rhs_stride;
+        lhs_stride = -lhs_stride;
+        rhs_stride = -rhs_stride;
+    }
+    if (lhs_stride != 1 || rhs_stride != 1)
+    {
+        return false;
+    }
+
+    vector_view_type const lhs{lhs_data, lhs_stride};
+    vector_view_type const rhs{rhs_data, rhs_stride};
+    output[0] = dot_blas(m_plan.inner_size(), lhs, rhs);
+    return true;
+}
+
+template <typename Array>
+bool MatmulExecutor<Array>::try_gevm(value_type * output, value_type const * lhs_data, value_type const * rhs_data)
+{
+    ssize_t const vector_stride = m_plan.lhs_inner_stride();
+    auto const matrix = make_matrix_view(
+        rhs_data, m_plan.rhs_inner_stride(), m_plan.rhs_column_stride(), m_plan.inner_size(), m_plan.columns());
+    if (vector_stride <= 0 || !matrix)
+    {
+        return false;
+    }
+    bool const is_compact = matrix->m_transpose == BlasTranspose::None &&
+                            matrix->m_leading_dimension == m_plan.columns();
+    bool const is_large_enough = is_compact
+                                     ? m_plan.inner_size() * m_plan.columns() >= BLAS_COMPACT_GEVM_MIN_ELEMENTS
+                                     : std::min(m_plan.inner_size(), m_plan.columns()) >= BLAS_GEMV_MIN_DIMENSION;
+    if (!is_large_enough)
+    {
+        return false;
+    }
+    vector_view_type const vector{lhs_data, vector_stride};
+    gemv_blas(m_plan.inner_size(), m_plan.columns(), *matrix, vector, output, BlasTranspose::Transpose);
+    return true;
+}
+
+template <typename Array>
+bool MatmulExecutor<Array>::try_gemv(value_type * output, value_type const * lhs_data, value_type const * rhs_data)
+{
+    auto const matrix = make_matrix_view(
+        lhs_data, m_plan.lhs_row_stride(), m_plan.lhs_inner_stride(), m_plan.rows(), m_plan.inner_size());
+    ssize_t const vector_stride = m_plan.rhs_inner_stride();
+    if (std::min(m_plan.rows(), m_plan.inner_size()) < BLAS_GEMV_MIN_DIMENSION || !matrix || vector_stride <= 0)
+    {
+        return false;
+    }
+    vector_view_type const vector{rhs_data, vector_stride};
+    gemv_blas(m_plan.rows(), m_plan.inner_size(), *matrix, vector, output, BlasTranspose::None);
+    return true;
+}
+
+template <typename Array>
+bool MatmulExecutor<Array>::try_gemm(value_type * output, value_type const * lhs_data, value_type const * rhs_data)
+{
+    if (std::min({m_plan.rows(), m_plan.columns(), m_plan.inner_size()}) < BLAS_GEMM_MIN_DIMENSION)
+    {
+        return false;
+    }
+    auto const lhs = make_matrix_view(
+        lhs_data, m_plan.lhs_row_stride(), m_plan.lhs_inner_stride(), m_plan.rows(), m_plan.inner_size());
+    auto const rhs = make_matrix_view(
+        rhs_data, m_plan.rhs_inner_stride(), m_plan.rhs_column_stride(), m_plan.inner_size(), m_plan.columns());
+    if (!lhs || !rhs)
+    {
+        return false;
+    }
+    gemm_blas(m_plan.rows(), m_plan.columns(), m_plan.inner_size(), *lhs, *rhs, output);
+    return true;
+}
+
+template <typename Array>
+std::optional<typename MatmulExecutor<Array>::matrix_view_type> MatmulExecutor<Array>::make_matrix_view(
+    value_type const * data,
+    ssize_t row_stride,
+    ssize_t column_stride,
+    ssize_t rows,
+    ssize_t columns)
+{
+    if (column_stride == 1 && row_stride >= columns)
+    {
+        return BlasMatrixView<value_type>{data, row_stride, BlasTranspose::None};
+    }
+    if (row_stride == 1 && column_stride >= rows)
+    {
+        return BlasMatrixView<value_type>{data, column_stride, BlasTranspose::Transpose};
+    }
+    return std::nullopt;
 }
 
 template <typename Array>

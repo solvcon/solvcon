@@ -204,13 +204,12 @@ def iter_planned_cases(dtype):
         yield ("Batched GEMV", batch_matrix, vector, 15)
 
     for side in (*small_sides, 256):
-        samples = 5 if side == 256 else 15
         batch_lhs = make_data(dtype, (10, side, side))
         batch_rhs = make_data(dtype, (10, side, side))
         cross_lhs = make_data(dtype, (2, 1, side, side))
         cross_rhs = make_data(dtype, (1, 5, side, side))
-        yield ("Equal-batch GEMM", batch_lhs, batch_rhs, samples)
-        yield ("Cross-broadcast GEMM", cross_lhs, cross_rhs, samples)
+        yield ("Equal-batch GEMM", batch_lhs, batch_rhs, 15)
+        yield ("Cross-broadcast GEMM", cross_lhs, cross_rhs, 15)
 
 
 def profile_planned_suite(dtype, warmups, rounds):
