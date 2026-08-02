@@ -45,6 +45,10 @@ endif()
 option(BUILD_QT "build with QT" ON)
 message(STATUS "BUILD_QT: ${BUILD_QT}")
 
+# The pilot renderer knowingly includes <rhi/qrhi.h> from the QtGui private
+# headers.
+set(QT_NO_PRIVATE_MODULE_WARNING ON)
+
 option(BUILD_METAL "build with Metal" OFF)
 message(STATUS "BUILD_METAL: ${BUILD_METAL}")
 if(BUILD_METAL)
