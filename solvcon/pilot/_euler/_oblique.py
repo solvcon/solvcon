@@ -57,11 +57,18 @@ class ObliqueShockMesh(_gui_common.PilotFeature):
         w = self._mgr.add3DWidget()
         w.updateMesh(mh)
         w.showAxis(True)
+        # The mesher tags bndfcs with the domain edges, so each edge can be
+        # ribboned in its own boundary-set color.
+        for ibc in range(len(oblique.ObliqueShockMesher.BOUNDARY_NAMES)):
+            w.showBoundary(ibc, True)
         self._pycon.writeToHistory(
             f"oblique-shock {cell_type} mesh: {mh.ncell} cells, "
             f"{mh.nedge} edges\n"
-            f"boundary faces: {len(left)} left inlet, {len(top)} top inlet, "
-            f"{len(bottom)} bottom slip wall, {len(right)} right outflow\n")
+            "boundary ribbons: "
+            f"red left inlet ({len(left)} faces), "
+            f"blue top inlet ({len(top)} faces), "
+            f"green bottom slip wall ({len(bottom)} faces), "
+            f"amber right outflow ({len(right)} faces)\n")
 
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

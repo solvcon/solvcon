@@ -6,9 +6,11 @@
 Multi-dimensional Euler-equation solver.
 """
 
+from . import field
 from . import oblique
 
 __all__ = [
+    'field',
     'oblique',
 ]
 
