@@ -166,8 +166,9 @@ class SolutionPanel(QWidget):
         self._viewer_btn.setText("Close viewer" if open_ else "Open viewer")
         self._viewer_btn.blockSignals(False)
 
-    def set_status(self, step, vmin, vmax):
-        """Show the marched step count and the drawn field's value range."""
+    def set_status(self, step, vmin, vmax, targets=()):
+        """Show the marched step count, the drawn field's value range, and
+        the analytic zone values the steady solution has to reach."""
         self._tree.clear()
         if step is None:
             QTreeWidgetItem(self._tree, ["not started"])
@@ -176,6 +177,8 @@ class SolutionPanel(QWidget):
         QTreeWidgetItem(self._tree, [f"field: {self.field()}"])
         QTreeWidgetItem(self._tree, [f"min: {vmin:.4g}"])
         QTreeWidgetItem(self._tree, [f"max: {vmax:.4g}"])
+        for label, value in targets:
+            QTreeWidgetItem(self._tree, [f"{label}: {value:.4g}"])
 
     @staticmethod
     def compute_field(name, cons, gamma, ndim):
@@ -215,6 +218,23 @@ class SolutionPanel(QWidget):
         return cls.compute_field(name, svr.so0n.ndarray[ng:],
                                  svr.gamma.ndarray[ng:], svr.ndim)
 
+    @classmethod
+    def zone_field(cls, shock, name):
+        """Return the named field's analytic value in zones 1, 2, and 3.
+
+        The zone primitives from :meth:`ObliqueShock.zone_states` are packed
+        as one conserved row each, so the same :meth:`compute_field` that
+        derives the drawn field derives the values it has to converge to.
+        """
+        states = shock.zone_states()
+        cons = np.empty((len(states), 4), dtype='float64')
+        for it, (rho, vx, vy, p) in enumerate(states):
+            cons[it] = (rho, rho * vx, rho * vy,
+                        p / (shock.gamma - 1.0)
+                        + 0.5 * rho * (vx * vx + vy * vy))
+        gamma = np.full(len(states), shock.gamma, dtype='float64')
+        return cls.compute_field(name, cons, gamma, 2)
+
     def _on_viewer_toggled(self, open_):
         self._viewer_btn.setText("Close viewer" if open_ else "Open viewer")
         if self.viewer_toggled is not None:
@@ -250,6 +270,9 @@ class SolutionInfo(_gui_common.PilotFeature):
     MAX_STEPS = 2000
     #: Qt timer interval in milliseconds.
     INTERVAL_MS = 50
+    #: Lift the analytic shock overlay off the z = 0 field plane so it is
+    #: not z-fought away by the colored triangles.
+    PATH_LIFT = 0.01
 
     def __init__(self, *args, **kw):
         super().__init__(*args, **kw)
@@ -356,6 +379,7 @@ class SolutionInfo(_gui_common.PilotFeature):
         # viewer raises no activation, so nudge the inspector directly.
         if self._viewer is not None:
             self._viewer.updateMesh(shock.mesh)
+            self._draw_shock_path(shock)
             if self.viewer_updated is not None:
                 self.viewer_updated()
         fan, counts = _field_render.cell_triangulation(shock.mesh)
@@ -407,19 +431,40 @@ class SolutionInfo(_gui_common.PilotFeature):
         session['step'] += steps
         self._draw_frame()
 
+    def _draw_shock_path(self, shock):
+        """Overlay the analytic shock polyline on the viewer.
+
+        The two-arm measurement draws the incident and the reflected shock
+        as one path with the reflection angle annotated, so the computed
+        field can be judged against where the shocks have to stand.
+        """
+        path = [(x, y, self.PATH_LIFT) for x, y in shock.shock_path()]
+        if 3 == len(path):
+            self._viewer.measureAngle(path[0], path[1], path[2])
+        else:
+            self._viewer.measureDistance(path[0], path[1])
+
     def _draw_frame(self):
         if not self._viewer_alive():
             return
         session = self._session
-        field = SolutionPanel.solver_field(session['shock'].svr,
-                                           self._panel.field())
+        shock = session['shock']
+        name = self._panel.field()
+        field = SolutionPanel.solver_field(shock.svr, name)
         vmin, vmax = float(field.min()), float(field.max())
-        colors = _field_render.field_colors(field, session['counts'],
-                                            vmin, vmax)
+        # Scale the colors to the analytic range, not the frame's own, so a
+        # field stuck short of the target looks stuck instead of stretching
+        # to full color every frame.
+        zones = SolutionPanel.zone_field(shock, name)
+        lo = min(vmin, float(zones.min()))
+        hi = max(vmax, float(zones.max()))
+        colors = _field_render.field_colors(field, session['counts'], lo, hi)
         self._viewer.updateColorField(
             session['verts'], core.SimpleArrayFloat32(array=colors),
             session['indices'])
-        self._panel.set_status(session['step'], vmin, vmax)
+        targets = [(f"zone{it + 1} analytic", float(zones[it]))
+                   for it in range(len(zones))]
+        self._panel.set_status(session['step'], vmin, vmax, targets)
 
     def _stop_timer(self):
         if self._session is not None:
