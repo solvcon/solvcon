@@ -147,9 +147,8 @@ void EulerCore::prepare_ce_2d()
                 static_cast<size_t>(ifl - 1) * StaticMesh::FCMND;
 
             // Sub-face 0: from crde to crd1 (first face node).
-            bool const outward =
-                (msh.fccls(ifc, 0) == icl);
-            real_type const voe_sign = outward ? 1.0 : -1.0;
+            real_type const cross = (crd10 - crde0) * (crd21 - crde1) - (crd11 - crde1) * (crd20 - crde0);
+            real_type const voe_sign = (cross > 0.0) ? 1.0 : -1.0;
 
             // Sub-face centroid: midpoint of crde and the node.
             m_sfcnd(icl, sf_base + 0, 0) = (crde0 + crd10) / 2.0;

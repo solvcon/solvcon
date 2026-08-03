@@ -157,7 +157,7 @@ struct EulerJacobian<3>
     }
 }; /* end struct EulerJacobian<3> */
 
-// so0t = -(Jacobian . so1c), per real cell.
+// so0t = -(Jacobian . so1c) for both real and ghost cells.
 template <size_t NDIM>
 void calc_solt_impl(EulerCore & ec)
 {
@@ -168,7 +168,7 @@ void calc_solt_impl(EulerCore & ec)
     SimpleArray<double> & so1c = ec.so1c();
     SimpleArray<double> & gamma = ec.gamma();
     EulerJacobian<NDIM> jaco;
-    for (int32_t icl = 0; icl < ec.ncell(); ++icl)
+    for (int32_t icl = -ec.ngstcell(); icl < ec.ncell(); ++icl)
     {
         std::array<double, neq> sol = {};
         for (size_t ieq = 0; ieq < neq; ++ieq)
@@ -253,14 +253,14 @@ void calc_soln_impl(EulerCore & ec)
                 acc[ieq] += fusp * bvol;
             }
 
-            // Temporal flux (given space): Jacobian uses the self gamma and the
-            // neighbor conserved state.
+            // Temporal flux (given space): Jacobian of the neighbor state,
+            // with the neighbor gamma (ghost rows carry it too).
             std::array<double, neq> jsol = {};
             for (size_t ieq = 0; ieq < neq; ++ieq)
             {
                 jsol[ieq] = so0c(jcl, ieq);
             }
-            jaco.update(gamma(icl), jsol);
+            jaco.update(gamma(jcl), jsol);
 
             int32_t const fcnnd = msh.fcnds(ifc, 0);
             size_t const sf_base = static_cast<size_t>(ifl - 1) * fcmnd;
