@@ -100,7 +100,32 @@ class ObliqueShockMesher(object):
         mh.build_interior(do_metric=True)
         mh.build_boundary()
         mh.build_ghost()
+        self.tag_boundary(mh)
         return mh
+
+    #: Boundary-set id per domain edge written by :meth:`tag_boundary`, in
+    #: the order :meth:`classify_boundary` returns the edges.
+    BOUNDARY_NAMES = ('left', 'top', 'bottom', 'right')
+
+    @classmethod
+    def tag_boundary(cls, mh, tol=1e-9):
+        """Write the domain edge of each boundary face into ``bndfcs``.
+
+        ``build_boundary`` collects every unspecified boundary face into one
+        catch-all set, so viewers that color or toggle by boundary set (for
+        example the pilot's ``colorByBoundary``) cannot tell the edges
+        apart.  Overwrite the set column with the :meth:`classify_boundary`
+        edge, indexed per :attr:`BOUNDARY_NAMES`, purely as display
+        metadata: the solver takes its face lists directly and never reads
+        ``bndfcs``.
+        """
+        byface = dict()
+        for ibc, faces in enumerate(cls.classify_boundary(mh, tol=tol)):
+            for ifc in faces:
+                byface[ifc] = ibc
+        bndfcs = mh.bndfcs.ndarray
+        for ibnd in range(bndfcs.shape[0]):
+            bndfcs[ibnd, 1] = byface[bndfcs[ibnd, 0]]
 
     def _jitter_points(self):
         """Collect the unstructured point cloud in a :class:`PointPad`.
@@ -398,6 +423,11 @@ class ObliqueShock(object):
         self.pressure2 = None
         self.mach2 = None
         self.velocity2 = None
+        self.shock_angle2 = None
+        self.density3 = None
+        self.pressure3 = None
+        self.mach3 = None
+        self.velocity3 = None
         self.mesher = None
         self.mesh = None
         # Numerical solver core (EulerCore).
@@ -412,7 +442,10 @@ class ObliqueShock(object):
         in degrees.  The oblique-shock relations give the post-shock state
         (zone 2), whose velocity points ``angle`` below horizontal; the
         driver imposes it at the top boundary to anchor the incident
-        shock.
+        shock.  The reflected shock turns zone 2 back to horizontal, and
+        the same relations give the state behind it (zone 3), which the
+        steady solution has to reach; it is kept for validation and
+        display, not imposed anywhere.
         """
         self.gamma = gamma
         self.density = density
@@ -430,6 +463,16 @@ class ObliqueShock(object):
         speed2 = self.mach2 * math.sqrt(gamma * self.pressure2 / self.density2)
         self.velocity2 = (speed2 * math.cos(theta),
                           -speed2 * math.sin(theta))
+        mach2 = self.mach2
+        self.shock_angle2 = beta2 = self.relation.calc_shock_angle(
+            mach2, theta)
+        self.density3 = (
+            self.density2 * self.relation.calc_density_ratio(mach2, beta2))
+        self.pressure3 = (
+            self.pressure2 * self.relation.calc_pressure_ratio(mach2, beta2))
+        self.mach3 = self.relation.calc_dmach(mach2, beta=beta2)
+        speed3 = self.mach3 * math.sqrt(gamma * self.pressure3 / self.density3)
+        self.velocity3 = (speed3, 0.0)
 
     def build_numerical(self, cell_type='quad', time_increment=2.e-3,
                         sigma0=3.0, taumin=0.0, tauscale=1.0, **mesher_kw):
@@ -464,5 +507,43 @@ class ObliqueShock(object):
     def march(self, steps):
         """March the solver the requested number of full CESE steps."""
         self.svr.march(steps=steps)
+
+    def zone_states(self):
+        """Return the analytic ``(rho, vx, vy, p)`` of zones 1, 2, and 3.
+
+        Zone 1 is the free stream, zone 2 sits between the incident and the
+        reflected shock, and zone 3 sits behind the reflected shock.  The
+        steady solution has to hold these values; a display can derive any
+        scalar field from them for comparison against the computed field.
+        """
+        return [(self.density, self.velocity, 0.0, self.pressure),
+                (self.density2, self.velocity2[0], self.velocity2[1],
+                 self.pressure2),
+                (self.density3, self.velocity3[0], self.velocity3[1],
+                 self.pressure3)]
+
+    def shock_path(self):
+        """Return the analytic shock polyline over the built mesh.
+
+        Three corners: where the incident shock enters at the upper-left
+        corner, where it reflects off the bottom wall, and where the
+        reflected shock leaves the domain.  Needs :meth:`build_numerical`,
+        which sets the mesher whose extents the path is cut to.
+        """
+        if None is self.mesher:
+            raise ValueError("mesh is not built; call build_numerical()")
+        msh = self.mesher
+        xhit = msh.x0 + (msh.y1 - msh.y0) / math.tan(self.shock_angle)
+        if xhit >= msh.x1:
+            # The domain is too short for the reflection; the incident
+            # shock leaves through the outflow.
+            yout = msh.y1 - (msh.x1 - msh.x0) * math.tan(self.shock_angle)
+            return [(msh.x0, msh.y1), (msh.x1, yout)]
+        # The reflected shock runs at shock_angle2 from the zone-2 flow,
+        # which is already theta below horizontal.
+        slope = math.tan(self.shock_angle2 - self.theta)
+        xend = min(msh.x1, xhit + (msh.y1 - msh.y0) / slope)
+        return [(msh.x0, msh.y1), (xhit, msh.y0),
+                (xend, msh.y0 + (xend - xhit) * slope)]
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
