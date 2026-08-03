@@ -15,6 +15,7 @@ the registry: it is a test and demo double, not a backend to offer a user.
 
 import abc
 import dataclasses
+import enum
 import json
 
 from . import _command
@@ -338,14 +339,56 @@ class BackendSetting:
     tooltip: str = ""
 
 
+class TransportOutcome(enum.Enum):
+    """How the exchange that carried a request ended.
+
+    Only :attr:`OK` means the model answered; the rest say the reply never
+    arrived, which is what tells a loop to abort instead of retry.
+    """
+
+    OK = "ok"
+    TRANSPORT = "transport"
+    TIMEOUT = "timeout"
+    CANCELLED = "cancelled"
+
+
+class ParseStatus(enum.Enum):
+    """What a model reply turned out to be once parsed.
+
+    :attr:`EMPTY` and :attr:`PROSE` both yield no commands and must stay
+    distinct: an explicit ``[]`` is the model saying the request is done,
+    while prose is the model talking instead of acting.
+    """
+
+    COMMANDS = "commands"
+    EMPTY = "empty"
+    PROSE = "prose"
+    MALFORMED = "malformed"
+
+
 @dataclasses.dataclass
 class BackendResponse:
-    """One backend reply: ``text`` prose, the proposed ``commands`` the
-    session applies, and an ``error`` reason or ``None``."""
+    """One backend reply.
+
+    ``status`` defaults to what ``commands`` and ``text`` imply, so a backend
+    that only fills the older fields still reports a usable status.
+    """
 
     text: str = ""
     commands: list = dataclasses.field(default_factory=list)
     error: str = None
+    outcome: TransportOutcome = TransportOutcome.OK
+    status: ParseStatus = None
+
+    def __post_init__(self):
+        if self.status is not None:
+            return
+        if self.commands:
+            self.status = ParseStatus.COMMANDS
+        elif self.text:
+            self.status = ParseStatus.PROSE
+        else:
+            self.status = ParseStatus.EMPTY
 
 
 class AgentBackend(abc.ABC):

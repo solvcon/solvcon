@@ -40,6 +40,8 @@ list_of_backend = [
     'AgentBackend',
     'BackendResponse',
     'BackendSetting',
+    'TransportOutcome',
+    'ParseStatus',
     'EchoBackend',
     'ToolSurfaceFormatter',
     'HistoryFormatter',
@@ -51,9 +53,11 @@ list_of_backend = [
 # _backends_impl.py
 list_of_backends_impl = [
     'SubprocessBackend',
+    'CancellableBackend',
     'ClaudeCliBackend',
     'OpenAIHttpBackend',
     'ToolCallParser',
+    'ParsedReply',
 ]
 
 # TODO: when the Qt dock module exists in solvcon.pilot, point this at its
