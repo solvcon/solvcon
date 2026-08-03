@@ -501,25 +501,43 @@ class EntityTreeWidget(TreePanelBase):
         only after the defaults are set, so building the rows drives no overlay
         writes.
         """
+        # First row: a compact segmented-style mode selector followed by the
+        # labels on/off switch. Placing the mode controls just before the
+        # switch groups related label options together and makes toggling the
+        # mode less error-prone.
         shape_row = QHBoxLayout()
         shape_row.setContentsMargins(0, 0, 0, 0)
         shape_row.setSpacing(8)
-        self._labels_check = QCheckBox("show")
-        shape_row.addWidget(self._labels_check)
+
+        # Compact segmented buttons for "normal" / "advanced" mode.
         mode_group = QButtonGroup(self)
         for mode in self.LABEL_MODES:
-            button = QRadioButton(mode)
+            button = QPushButton(mode)
+            button.setCheckable(True)
+            # Keep the buttons visually small so they sit nicely beside the
+            # switch.
+            button.setFixedHeight(22)
             mode_group.addButton(button)
             shape_row.addWidget(button)
             self._label_modes[mode] = button
+
+        # Spacer between mode buttons and the switch.
+        shape_row.addSpacing(6)
+
+        # Replace the plain check box with the toggle switch used for
+        # coordinates, matching the UX requested.
+        self._labels_check = _ToggleSwitch("show")
+        shape_row.addWidget(self._labels_check)
         shape_row.addStretch(1)
 
+        # Second row: coordinates switch (unchanged visual style).
         coord_row = QHBoxLayout()
         coord_row.setContentsMargins(0, 0, 0, 0)
         self._coords_check = _ToggleSwitch("coordinates")
         coord_row.addWidget(self._coords_check)
         coord_row.addStretch(1)
 
+        # Defaults and wiring. Keep controls disabled until a canvas is bound.
         self._label_modes["normal"].setChecked(True)
         self._labels_check.setEnabled(False)
         self._coords_check.setEnabled(False)
