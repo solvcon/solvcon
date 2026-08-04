@@ -115,6 +115,12 @@ it is gitignored.  Both VS Code and CLion pick it up with no IDE settings at
 all, which is the only way a dependency prefix reaches an IDE build: there is
 no wrapper script to fall back on there.
 
+The file provides the information that can be used by the IDE, and its presets
+are named `ide-*`.  A shell build has no use for it, because an activated
+environment already exports `CMAKE_PREFIX_PATH` and `make` forwards it onto a
+checked-in preset.  Build from a shell with `make`, or with
+`make CMAKE_PRESET=<name>` to pick another checked-in preset.
+
 There is one template per host family, because the checked-in presets a user
 preset builds on are themselves split by host.  Copy the one for your host and
 edit the three paths:
@@ -126,18 +132,18 @@ cp contrib/cmake/CMakeUserPresets.example.json CMakeUserPresets.json
 cp contrib/cmake/CMakeUserPresets.win-example.json CMakeUserPresets.json
 ```
 
-Each defines a configure preset named `local-rel` that inherits a checked-in
-preset and adds the three variables, plus the three build presets that go with
-it:
+Each defines a configure preset named `ide-local-rel` that inherits a
+checked-in preset and adds the three variables, plus the three build presets
+that go with it:
 
 ```json
 {
   "version": 10,
   "configurePresets": [
     {
-      "name": "local-rel",
+      "name": "ide-local-rel",
       "inherits": "dev-rel",
-      "displayName": "Local dependency prefix",
+      "displayName": "IDE or manual use: local prefix",
       "cacheVariables": {
         "PYTHON_EXECUTABLE": {
           "type": "FILEPATH",
@@ -149,24 +155,23 @@ it:
     }
   ],
   "buildPresets": [
-    { "name": "local-rel", "inherits": "dev-rel",
-      "configurePreset": "local-rel" }
+    { "name": "ide-local-rel", "inherits": "dev-rel",
+      "configurePreset": "ide-local-rel" }
   ]
 }
 ```
 
 Every `inherits` in the file names a preset of one host family, and they have
 to stay a matched set.  A `dev-` build preset carries a condition that
-disables it on Windows and a `win-` one carries the opposite, so a `local-rel`
-that inherits a `win-` configure preset and `dev-` build presets configures
-and then refuses to build.  Change them together, or start from the template
-for the family you want.
+disables it on Windows and a `win-` one carries the opposite, so an
+`ide-local-rel` that inherits a `win-` configure preset and `dev-` build
+presets configures and then refuses to build.  Change them together, or start
+from the template for the family you want.
 
 `pybind11_path` names the directory holding `pybind11Config.cmake`, which is
 what `python3 -m pybind11 --cmakedir` prints for the interpreter named above
-it.  After that, `cmake --preset local-rel` configures from a bare checkout,
-and `local-rel` appears in the IDE preset pickers alongside the checked-in
-presets.
+it.  After that, `ide-local-rel` appears in the IDE preset pickers alongside
+the checked-in presets.
 
 In CLion the `enablePythonIntegration` key in the `jetbrains.com/clion` vendor
 map, already set in the checked-in presets, hands the IDE's selected
@@ -175,10 +180,10 @@ interpreter to the configure step.  A CLion user can therefore drop the
 
 `CMakeUserPresets.scdv.json` and `CMakeUserPresets.win-scdv.json` sit beside
 the two templates above for a prefix that `build-scdv.sh` built (see
-{doc}`/start/build_dep`).  Their configure preset is `scdv-rel`, and it names
-that prefix once rather than repeating it in three literal paths, so
+{doc}`/start/build_dep`).  Their configure preset is `ide-scdv-rel`, and it
+names that prefix once rather than repeating it in three literal paths, so
 installing one substitutes a single value instead of editing three.  The
-`cmake-user-presets` skill under `.claude/skills/` states the substitution and
+`ide-user-presets` skill under `.claude/skills/` states the substitution and
 what has to hold for it.
 
 ## IDE notes

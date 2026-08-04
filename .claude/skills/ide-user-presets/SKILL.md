@@ -1,30 +1,32 @@
 ---
-name: cmake-user-presets
-description: Install or refresh CMakeUserPresets.json from the checked-in template, substituting the scdv prefix so the `scdv-rel` preset carries a real path. Use in a fresh checkout or worktree, when `scdv-rel` is missing from `cmake --list-presets`, or after the template changes.
+name: ide-user-presets
+description: Install or refresh an IDE's CMakeUserPresets.json from the checked-in template, substituting the scdv prefix so the `ide-scdv-rel` preset carries a real path. Use when setting an IDE up on a checkout, when an IDE cannot find Qt6 or pybind11, or after the template changes. Not a build step; agents build with `make`.
 ---
 
-# CMake User Presets (solvcon)
+# IDE User Presets (solvcon)
 
-`CMakeUserPresets.json` is gitignored, so every fresh checkout and every new
-worktree starts without it and without the `scdv-rel` preset. The `scdv`
-templates in `contrib/cmake/` name the prefix once, as `$penv{SCDV_USRDIR}` in
-the preset's `environment` map, and the three cache variables read it back
-from there as `$env{SCDV_USRDIR}`. Installing one is a copy with that single
-occurrence replaced by the prefix it names.
+An IDE uses `CMakeUserPresets.json`. It is gitignored, it holds one machine's
+literal paths, and its presets are named `ide-*` to keep them apart from the
+shared presets in `CMakePresets.json`. Install it when an IDE needs it, never
+as preparation for a build: an agent builds with `make`, which selects a
+checked-in preset and layers the activated environment on top.
+
+The `scdv` templates in `contrib/cmake/` name the prefix once, as
+`$penv{SCDV_USRDIR}` in the preset's `environment` map, and the three cache
+variables read it back from there as `$env{SCDV_USRDIR}`. Installing one is a
+copy with that single occurrence replaced by the prefix it names.
 
 Substituting rather than leaving the expansion in place is the whole point.
 An IDE started from the desktop inherits the session environment, not the
 shell where an scdv was activated, so `$penv{SCDV_USRDIR}` would expand to
-nothing there and the preset would configure against empty paths. A real path
-in the installed file works in a shell, in a desktop IDE, and in an agent
-session alike.
+nothing there and the preset would configure against empty paths.
 
 ## When to use
 
-A checkout has no `CMakeUserPresets.json`, `cmake --list-presets` does not
-offer `scdv-rel`, an IDE cannot find Qt6 or pybind11, or the template in
-`contrib/cmake/` changed and the installed copy is stale. The `worktree` skill
-calls this after creating a worktree.
+The user is setting an IDE up on a checkout, an IDE cannot find Qt6 or
+pybind11, or the template in `contrib/cmake/` changed and the installed copy
+is stale. Nothing else triggers it. Entering a worktree does not, and neither
+does a task that happens to build.
 
 ## 1. Resolve the scdv prefix
 
@@ -87,10 +89,11 @@ test -d "$(sed -n 's/.*"SCDV_USRDIR": "\(.*\)".*/\1/p' CMakeUserPresets.json)"
 
 The remaining `$env{SCDV_USRDIR}` in the cache variables is correct, and
 resolves from the `environment` map above them. Then `cmake --list-presets`
-has to show `scdv-rel`, and `cmake --list-presets=build` has to show
-`scdv-rel`, `scdv-rel-module`, and `scdv-rel-gtest`. Report the preset names
-and the prefix they carry; do not configure or build unless the user asked for
-it.
+has to show `ide-scdv-rel`, and `cmake --list-presets=build` has to show
+`ide-scdv-rel`, `ide-scdv-rel-module`, and `ide-scdv-rel-gtest`. Report the
+preset names and the prefix they carry, then stop. Listing is the whole
+verification: configuring or building through an `ide-*` preset is the IDE's
+job, and a build of your own is `make`.
 
 Both listings have to work with the scdv deactivated, which is what an IDE
 sees. `env -u SCDV_USRDIR cmake --list-presets` is the cheap way to prove it.

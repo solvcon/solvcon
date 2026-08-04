@@ -17,11 +17,7 @@ Based on the agent type, do one of the following:
 - **Cursor:**  use Cursors's builtin `/worktree` command instead. If the built-in command is unavailable, fall back like Codex below.
 - **Codex, otherwise:** run `git worktree add -b worktree-<name> .claude/worktrees/<name> origin/master`, then run all commands from it.
 
-## 2. Seed the local CMake presets
-
-A new worktree is a fresh checkout, so it has no `CMakeUserPresets.json` and no `scdv-rel` preset. Install one with the `cmake-user-presets` skill before the first configure. Skip it when the task touches no build.
-
-## 3. Do the task
+## 2. Do the task
 
 Implement `<description>` in the worktree. Follow normal project rules. Stop when done; do not auto-commit, open a PR, or remove the worktree unless asked.
 

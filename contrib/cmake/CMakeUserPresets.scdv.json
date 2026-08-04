@@ -4,9 +4,9 @@
   "cmakeMinimumRequired": { "major": 4, "minor": 0, "patch": 1 },
   "configurePresets": [
     {
-      "name": "scdv-rel",
+      "name": "ide-scdv-rel",
       "inherits": "dev-rel",
-      "displayName": "scdv dependency prefix",
+      "displayName": "IDE or manual use: scdv prefix",
       "description": "A checked-in preset plus the paths of an scdv environment. Installing substitutes the prefix into SCDV_USRDIR below.",
       "environment": {
         "SCDV_USRDIR": "$penv{SCDV_USRDIR}"
@@ -23,22 +23,22 @@
   ],
   "buildPresets": [
     {
-      "name": "scdv-rel",
+      "name": "ide-scdv-rel",
       "inherits": "dev-rel",
-      "configurePreset": "scdv-rel",
-      "displayName": "scdv rel"
+      "configurePreset": "ide-scdv-rel",
+      "displayName": "ide scdv rel"
     },
     {
-      "name": "scdv-rel-module",
+      "name": "ide-scdv-rel-module",
       "inherits": "dev-rel-module",
-      "configurePreset": "scdv-rel",
-      "displayName": "scdv rel module"
+      "configurePreset": "ide-scdv-rel",
+      "displayName": "ide scdv rel module"
     },
     {
-      "name": "scdv-rel-gtest",
+      "name": "ide-scdv-rel-gtest",
       "inherits": "dev-rel-gtest",
-      "configurePreset": "scdv-rel",
-      "displayName": "scdv rel gtest"
+      "configurePreset": "ide-scdv-rel",
+      "displayName": "ide scdv rel gtest"
     }
   ]
 }

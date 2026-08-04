@@ -99,6 +99,16 @@ without installation, and works around macOS SIP stripping `DYLD_LIBRARY_PATH`.
 - `make pilot` -- build the Qt pilot GUI binary.
 - `make clean` / `make cmakeclean` -- remove build artifacts.
 
+Build through `make` unless you are instructed otherwise. The configure knobs
+live in `CMakePresets.json`, which is checked in and shared; `make` selects one
+and layers the environment on top of it, so an activated dependency environment
+already reaches the build. Select another with `make CMAKE_PRESET=<name>`.
+
+`CMakeUserPresets.json` belongs to the users (and IDE) for their manual
+operations, not to an agent. Its presets are named `ide-*`. Agents never
+configure, build, or test through an `ide-*` preset, and create the file only
+when asked to set an IDE up.
+
 **Test**
 
 - `make pytest` -- full Python test suite.
