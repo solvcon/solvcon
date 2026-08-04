@@ -6,7 +6,7 @@ losing high performance.
 ```{toctree}
 :maxdepth: 2
 
-buffer
+buffer/index
 numerics
 geometry
 inout
