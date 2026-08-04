@@ -43,6 +43,8 @@ list_of_buffer = [
     'SimpleCollectorUint64',
     'SimpleCollectorFloat32',
     'SimpleCollectorFloat64',
+    'SimpleCollectorComplex64',
+    'SimpleCollectorComplex128',
 ]
 
 # inout directory symbols
