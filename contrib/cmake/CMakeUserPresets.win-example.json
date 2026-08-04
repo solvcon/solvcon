@@ -4,9 +4,9 @@
   "cmakeMinimumRequired": { "major": 4, "minor": 0, "patch": 1 },
   "configurePresets": [
     {
-      "name": "local-rel",
+      "name": "ide-local-rel",
       "inherits": "win-rel",
-      "displayName": "Local dependency prefix",
+      "displayName": "IDE or manual use: local prefix",
       "description": "A checked-in preset plus the paths of a local dependency prefix.",
       "cacheVariables": {
         "PYTHON_EXECUTABLE": {
@@ -20,22 +20,22 @@
   ],
   "buildPresets": [
     {
-      "name": "local-rel",
+      "name": "ide-local-rel",
       "inherits": "win-rel",
-      "configurePreset": "local-rel",
-      "displayName": "local rel"
+      "configurePreset": "ide-local-rel",
+      "displayName": "ide local rel"
     },
     {
-      "name": "local-rel-module",
+      "name": "ide-local-rel-module",
       "inherits": "win-rel-module",
-      "configurePreset": "local-rel",
-      "displayName": "local rel module"
+      "configurePreset": "ide-local-rel",
+      "displayName": "ide local rel module"
     },
     {
-      "name": "local-rel-gtest",
+      "name": "ide-local-rel-gtest",
       "inherits": "win-rel-gtest",
-      "configurePreset": "local-rel",
-      "displayName": "local rel gtest"
+      "configurePreset": "ide-local-rel",
+      "displayName": "ide local rel gtest"
     }
   ]
 }
