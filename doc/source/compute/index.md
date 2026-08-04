@@ -7,7 +7,7 @@ losing high performance.
 :maxdepth: 2
 
 buffer/index
-numerics
+numerics/index
 geometry
 inout
 profiling
