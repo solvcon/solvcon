@@ -139,12 +139,12 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRPlotSeries
             .def_property_readonly("size", &wrapped_type::size)
             .def("__len__", &wrapped_type::size)
             .def(
-                "x_at",
+                "x",
                 [](wrapped_type const & self, std::int64_t index)
                 { return self.x_at(checked_index(index, self.size(), "RPlotSeries::x_at", "size")); },
                 py::arg("index"))
             .def(
-                "y_at",
+                "y",
                 [](wrapped_type const & self, std::int64_t index)
                 { return self.y_at(checked_index(index, self.size(), "RPlotSeries::y_at", "size")); },
                 py::arg("index"))
@@ -178,7 +178,7 @@ void wrap_plot(pybind11::module & mod)
         "RPlotSeries",
         "One xy data series: a copy of a contiguous SimpleArrayFloat64 pair "
         "plus the style used to stroke it. Samples are read through "
-        "size / x_at / y_at.");
+        "size / x / y.");
 
     mod.def(
         "plot_color_cycle",

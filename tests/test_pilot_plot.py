@@ -62,8 +62,8 @@ class PilotPlotTC(unittest.TestCase):
         self.assertEqual(4, ser.size)
         self.assertEqual(4, len(ser))
         for index in range(4):
-            self.assertEqual(float(index), ser.x_at(index))
-            self.assertEqual(10.0 + index, ser.y_at(index))
+            self.assertEqual(float(index), ser.x(index))
+            self.assertEqual(10.0 + index, ser.y(index))
 
     def test_set_data_copies_the_operand_buffer(self):
         samples = np.arange(4, dtype='float64')
@@ -72,7 +72,7 @@ class PilotPlotTC(unittest.TestCase):
                      solvcon.SimpleArrayFloat64(array=samples))
         limits = ser.data_limits()
         samples[0] = -100.0
-        self.assertEqual(0.0, ser.x_at(0))
+        self.assertEqual(0.0, ser.x(0))
         self.assertEqual(limits, ser.data_limits())
 
     def test_clear_data_empties_and_invalidates(self):
@@ -84,7 +84,7 @@ class PilotPlotTC(unittest.TestCase):
 
     def test_index_out_of_range_raises_index_error(self):
         ser = _series([0.0, 1.0, 2.0], [3.0, 4.0, 5.0])
-        for name in ('x_at', 'y_at'):
+        for name in ('x', 'y'):
             for index in (3, -1):
                 with self.subTest(accessor=name, index=index):
                     message = ('index %d is out of bounds with size 3'
@@ -132,7 +132,7 @@ class PilotPlotTC(unittest.TestCase):
         ser = pilot.RPlotSeries()
         ser.set_data(one, one)
         self.assertEqual(1, ser.size)
-        self.assertEqual(0.0, ser.x_at(0))
+        self.assertEqual(0.0, ser.x(0))
 
     def test_rejected_set_data_leaves_the_series_untouched(self):
         ser = _series([0.0, 1.0, 2.0], [3.0, 4.0, 5.0])
