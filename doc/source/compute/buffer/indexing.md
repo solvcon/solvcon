@@ -453,4 +453,283 @@ return the input unchanged when it already has the requested layout; always
 returning an independent copy diverges from numpy, keeping buffer ownership
 explicit per the design stance of {doc}`the family overview <index>`.
 
+(ghost-region)=
+## Ghost Region Support
+
+"Ghost" elements are the elements indexed with a negative integer, in contrast
+to the "body" elements indexed with a non-negative integer. The `nghost`
+property splits the first axis of an array into a ghost region and a body. The
+ghost elements hold the boundary (halo) data, which lives in the same storage
+as the interior of a physical computing domain. The feature is entirely
+solvcon-specific and numpy has no counterpart to it. The rules below extend
+the ghost-free semantics that the rest of this page defines.
+
+### The Partition Model
+
+Every array starts without a ghost region: `nghost` is 0 and `has_ghost` is
+`False`. Assigning a positive `nghost` designates the first `nghost` positions
+along the first axis as the ghost region and the remaining `nbody` positions
+as the body. No memory moves and the shape does not change; only the index
+origin shifts. Index 0 becomes the first body element, and the ghost elements
+sit at the negative indices `-nghost` through `-1`:
+
+```python
+sarr = solvcon.SimpleArrayFloat64(24)
+sarr.ndarray[:] = np.arange(24)
+sarr.nghost = 10
+
+assert sarr.has_ghost
+assert sarr.nbody == 14
+assert sarr.shape == (24,)   # the shape is unchanged
+assert sarr[-10] == 0.0      # first ghost element
+assert sarr[0] == 10.0       # first body element
+assert sarr[13] == 23.0      # last body element
+```
+
+Only the first axis carries the partition. On a multi-dimensional array the
+later axes keep the plain index arithmetic of the element-access rules above:
+
+```python
+sarr = solvcon.SimpleArrayFloat64((4, 3, 2))
+sarr.ndarray.flat[:] = range(24)
+sarr.nghost = 1
+
+assert sarr.nbody == 3
+assert sarr[-1, 0, 0] == 0.0    # the ghost row
+assert sarr[0, 0, 0] == 6.0     # the first body row
+assert sarr[0, -1, 0] == 10.0   # later axes wrap plainly
+```
+
+#### Valid Index Range and Wrapping
+
+The valid interval on the first axis is `[-(shape[0] + nghost), nbody)`.
+Indices in `[-nghost, nbody)` address the partition directly, as above. An
+index below `-nghost` wraps python-style over the storage: the ghost shift
+makes it negative relative to the start of storage, and the wrap adds
+`shape[0]`, so index `i` resolves to storage position `i + nghost + shape[0]`.
+In particular `sarr[-nghost - 1]` is the last storage element, mirroring how
+`sarr[-1]` on a ghost-free array is the last element:
+
+```python
+sarr = solvcon.SimpleArrayInt8(8)
+sarr.ndarray[:] = np.arange(8, dtype='int8')
+sarr.nghost = 3
+
+assert sarr[-3] == 0     # first ghost element
+assert sarr[-4] == 7     # wraps to the last storage element
+assert sarr[-11] == 0    # wraps to the first storage element
+sarr[-4] = 70
+assert sarr.ndarray[7] == 70
+```
+
+An index outside the interval raises `IndexError`, and the message carries the
+ghost arithmetic. The one-dimensional form:
+
+```python
+sarr = solvcon.SimpleArrayFloat64(24)
+sarr.nghost = 10
+sarr[14]
+# IndexError: SimpleArray: index 14 >= 14 (shape[0]: 24 - nghost: 10)
+sarr[-35]
+# IndexError: SimpleArray: index -35 < -nghost - shape[0]: -34
+```
+
+The multi-dimensional form names the offending dimension:
+
+```python
+sarr = solvcon.SimpleArrayFloat64((4, 3, 2))
+sarr.nghost = 1
+sarr[3, 0, 0]
+# IndexError: SimpleArray: dim 0 in [3, 0, 0] >= nbody: 3
+# (shape[0]: 4 - nghost: 1)
+sarr[-6, 0, 0]
+# IndexError: SimpleArray: dim 0 in [-6, 0, 0] < -nghost - shape[0]: -5
+```
+
+Both errors apply to reads and writes alike.
+
+### Setting the `nghost` Property
+
+The `nghost` setter accepts any value from 0 through `shape[0]`. Setting it
+back to 0 removes the region, and setting it to the full first-axis extent
+makes the whole axis ghost:
+
+```python
+sarr = solvcon.SimpleArrayInt8(10)
+sarr.nghost = 10            # the whole first axis may be ghost
+assert sarr.nbody == 0
+sarr.nghost = 0             # zero removes the region
+assert not sarr.has_ghost
+```
+
+Three violations raise `IndexError`. The value cannot exceed the first-axis
+extent, cannot be negative, and cannot be positive on a zero-dimensional array
+(which the message calls empty); an array whose first axis has zero extent
+falls under the `shape(0)` bound instead:
+
+```python
+sarr = solvcon.SimpleArrayInt8(10)
+sarr.nghost = 11
+# IndexError: SimpleArray: cannot set nghost 11 > shape(0) 10
+sarr.nghost = -1
+# IndexError: SimpleArray: cannot set negative nghost -1
+solvcon.SimpleArrayInt8(()).nghost = 1
+# IndexError: SimpleArray: cannot set nghost 1 > 0 to an empty array
+```
+
+### The `has_ghost` and `nbody` Properties
+
+`has_ghost` reports whether `nghost` is nonzero. `nbody` counts the body
+positions along the first axis, `shape[0] - nghost`; it is not an element
+count, so a ghost-free `(4, 3, 2)` array reports `nbody == 4` and the same
+array with `nghost = 1` reports 3. A zero-dimensional array reports 0. Neither
+`shape`, `size`, nor `len()` changes with the partition; they keep describing
+the full storage, as the layout properties above define.
+
+### Ghost-Shifted Slice Assignment
+
+The slice keys of `__setitem__` interpret their explicit bounds on the first
+axis in the logical, ghost-shifted coordinates of this page: the parser adds
+`nghost` to an explicit start or stop bound and then applies the ordinary
+Python slice rules over the full first-axis extent. An omitted bound is not
+shifted; it means the storage edge, so with a forward step an omitted start
+begins at the first ghost element and an omitted stop runs to the end of
+storage. The stop bound `0` therefore selects exactly the ghost region, and
+the start bound `0` selects the body:
+
+```python
+sarr = solvcon.SimpleArrayFloat64(shape=5, value=0)
+sarr.nghost = 2
+
+sarr[-2:0] = np.array([10.0, 11.0])        # the ghost region
+sarr[0:] = np.array([12.0, 13.0, 14.0])    # the body
+assert sarr.ndarray.tolist() == [10, 11, 12, 13, 14]
+
+sarr[:0] = np.array([20.0, 21.0])          # also the ghost region
+assert sarr.ndarray.tolist() == [20, 21, 12, 13, 14]
+```
+
+Because both bounds default to the storage edges, a bare slice, a stepped
+slice, or an ellipsis covers the whole storage including the ghost region, and
+a negative step reverses over it:
+
+```python
+sarr = solvcon.SimpleArrayFloat64(shape=5, value=0)
+sarr.nghost = 2
+sarr[::2] = np.array([10.0, 11.0, 12.0])
+assert sarr.ndarray.tolist() == [10, 0, 11, 0, 12]
+
+sarr[...] = np.arange(5, dtype='float64')
+assert sarr[-2] == 0.0 and sarr[2] == 4.0
+```
+
+In a tuple key only the first-axis slice is shifted; slices on the later axes
+keep the ghost-free semantics:
+
+```python
+sarr = solvcon.SimpleArrayFloat64(shape=(5, 3), value=0)
+sarr.nghost = 2
+sarr[-2:0, ...] = np.arange(6, dtype='float64').reshape((2, 3))
+assert (sarr.ndarray[0:2] == np.arange(6).reshape((2, 3))).all()
+```
+
+The accepted right-hand sides, the exact-shape check, and the dtype conversion
+rules are those of the assignment section above, unchanged by the partition.
+
+#### Failure Preserves the Partition
+
+A rejected assignment does not disturb the ghost setting. When the right-hand
+side fails the dtype conversion, the array keeps its `nghost` as before the
+statement:
+
+```python
+sarr = solvcon.SimpleArrayFloat64(shape=(2, 2), value=0)
+sarr.nghost = 1
+sarr[...] = np.ones((2, 2), dtype='complex128')
+# RuntimeError: Cannot convert between complex and non-complex types
+assert sarr.nghost == 1
+```
+
+### Ghost Regions on Strided Arrays
+
+The partition composes with the strided layouts of
+{doc}`Zero-Copy between C++ and Python <zerocopy>`. On an array wrapping a
+strided view, the ghost indices address the viewed elements, and a write
+through a ghost or wrapped index lands in the viewed region of the original
+memory:
+
+```python
+base = np.arange(12, dtype='float64')
+sarr = solvcon.SimpleArrayFloat64(array=base[::2])
+sarr.nghost = 2
+
+assert sarr[-2] == 0.0     # first viewed element
+assert sarr[-3] == 10.0    # wraps to the last viewed element
+sarr[-3] = 200.0
+assert base[10] == 200.0
+```
+
+### Ghost Regions and the Layout Operations
+
+`reshape` refuses a ghosted array outright. The split of the first axis has no
+well-defined image under a new shape, so both the typed classes and the
+dtype-erased `SimpleArray` raise `RuntimeError` naming the ghost count:
+
+```python
+sarr = solvcon.SimpleArrayFloat64(6)
+sarr.nghost = 2
+sarr.reshape((3, 2))
+# RuntimeError: SimpleArray: cannot reshape an array with 2 ghost cells
+```
+
+The layout operations of this page split into two groups by how they build
+their result. Those that duplicate the storage as it lies, `clone()`, the `T`
+property, and `to_row_major()` or `to_column_major()` on a receiver that
+already has the requested layout, copy the whole storage and carry `nghost` to
+the result. The in-place `transpose()` keeps `nghost` as well, since it only
+permutes the metadata.
+
+Those that physically rearrange the elements, `transpose_copy()`,
+`transpose(copy=True)`, and a `to_row_major()` or `to_column_major()` that
+must reorder, reset `nghost` to 0 in the result, and their read is defective
+under a ghost region: the rearranging loop walks the shape from the body
+pointer, which sits `nghost` positions above the start of the storage, so it
+skips the ghost region and runs the same number of positions past the end. The
+trailing rows of the result hold uninitialized values.
+
+```python
+sarr = solvcon.SimpleArrayFloat64((4, 3))
+sarr.nghost = 2
+assert sarr.clone().nghost == 2
+assert sarr.to_row_major().nghost == 2   # already row-major: a copy
+assert sarr.T.nghost == 2
+assert sarr.transpose_copy().nghost == 0
+```
+
+Carrying `nghost` through a transpose reattaches the partition to a different
+axis, because the count is kept while the axes are permuted: the region that
+split the old first axis now splits the new one. The count is not rechecked
+against the new first-axis extent, so a permutation onto a shorter axis leaves
+`nghost` above it and drives `nbody` negative:
+
+```python
+sarr = solvcon.SimpleArrayFloat64((4, 3))
+sarr.nghost = 4
+sarr.transpose()
+assert sarr.shape == (3, 4) and sarr.nghost == 4
+assert sarr.nbody == -1     # the partition no longer fits the axis
+```
+
+```{caution}
+The `nghost` setter refuses a count above `shape(0)`, so a transpose is
+the only way into that state.  The valid interval of this page,
+`[-(shape[0] + nghost), nbody)`, then lies entirely below zero: on the
+`(3, 4)` array above it is `[-7, -1)`, so every non-negative index
+raises and so does `-1`, which the ghost range nominally covers.
+Whether a transpose should permute the
+partition with the axes, drop it as the copying transposes do, or
+reject a ghosted receiver is an open decision; until it lands, set
+`nghost` after transposing rather than before.
+```
+
 <!-- vim: set ft=markdown ff=unix fenc=utf8 et sw=2 ts=2 sts=2 tw=79: -->
