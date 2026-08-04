@@ -6,8 +6,8 @@ losing high performance.
 ```{toctree}
 :maxdepth: 2
 
-buffer
-numerics
+buffer/index
+numerics/index
 geometry
 inout
 profiling

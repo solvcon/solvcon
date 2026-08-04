@@ -5245,6 +5245,22 @@ class SimpleCollectorTC(unittest.TestCase):
             ct[it] = it + 10
         self.assertEqual(list(it + 10 for it in range(6)), list(ct))
 
+    def test_construct_complex(self):
+        for cls, value_type in (
+                (solvcon.SimpleCollectorComplex64, solvcon.complex64),
+                (solvcon.SimpleCollectorComplex128, solvcon.complex128),
+        ):
+            ct = cls(2)
+            self.assertEqual(2, ct.capacity)
+            self.assertEqual(2, len(ct))
+
+            ct[0] = value_type(1.0, 2.0)
+            self.assertEqual(value_type(1.0, 2.0), ct[0])
+
+            ct.push_back(value_type(3.0, 4.0))
+            self.assertEqual(3, len(ct))
+            self.assertEqual(value_type(3.0, 4.0), ct[2])
+
     def test_push_back(self):
         # Starting from 0.
         ct = solvcon.SimpleCollectorFloat64()
