@@ -168,18 +168,20 @@ class MeshInfoTree(TreePanelBase):
 
     @classmethod
     def make_boundary_info(cls, mh):
-        """Return one ``[ibc, nface]`` row per boundary set.
+        """Return one ``[ibc, name, nface]`` row per boundary set.
 
         Each boundary face records its set index in column 1 of ``bndfcs``,
         so grouping the rows by that index yields the face count of every
         set, including the trailing catch-all set of unspecified faces.
+        The name comes from the set's boundary-condition group.
         """
         bnd = mh.bndfcs.ndarray
         if bnd.size:
             counts = np.bincount(bnd[:, 1], minlength=mh.nbcs)
         else:
             counts = np.zeros(mh.nbcs, dtype='int64')
-        return [[ibc, int(counts[ibc])] for ibc in range(mh.nbcs)]
+        return [[ibc, mh.bc(ibc).name, int(counts[ibc])]
+                for ibc in range(mh.nbcs)]
 
     def set_mesh(self, mh):
         """Rebuild the tree from ``mh``, or show "No mesh loaded" when None."""
@@ -248,8 +250,9 @@ class MeshInfoTree(TreePanelBase):
         if not binfo:
             return
         group = QTreeWidgetItem(root, ["Boundaries"])
-        for ibc, count in binfo:
-            item = QTreeWidgetItem(group, [f"bc {ibc}: {count} faces"])
+        for ibc, name, count in binfo:
+            item = QTreeWidgetItem(
+                group, [f"bc {ibc} ({name}): {count} faces"])
             item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
             item.setData(0, self._ROLE_KIND, 'boundary')
             item.setData(0, self._ROLE_IBC, ibc)

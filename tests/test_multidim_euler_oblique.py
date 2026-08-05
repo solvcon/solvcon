@@ -102,6 +102,20 @@ class _ObliqueMeshBase:
         self.assertEqual(self.NX, len(top))
         self.assertEqual(self.NX, len(bottom))
 
+    def test_named_boundary_groups(self):
+        mh = self.mesh
+        names = ObliqueShockMesher.BOUNDARY_NAMES
+        # One group per domain edge and no catch-all leftover.
+        self.assertEqual(list(names), [bnd.name for bnd in mh.bcs])
+        edges = self.mesher.classify_boundary(mh)
+        for name, faces in zip(names, edges):
+            self.assertEqual(faces, mh.bc(name).facn.ndarray[:, 0].tolist())
+        # Every boundary face carries its group index in bndfcs.
+        byface = {ifc: ibc for ibc, faces in enumerate(edges)
+                  for ifc in faces}
+        for ifc, ibc in mh.bndfcs.ndarray[:, :2].tolist():
+            self.assertEqual(byface[ifc], ibc)
+
     def test_boundary_geometry(self):
         mh = self.mesh
         left, top, bottom, right = self.mesher.classify_boundary(mh)
