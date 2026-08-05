@@ -17,6 +17,8 @@
 #include <solvcon/buffer/buffer.hpp>
 
 #include <cmath>
+#include <memory>
+#include <string>
 #include <vector>
 #include <numeric>
 
@@ -175,6 +177,7 @@ private:
      * block (if exists).
      */
     SimpleArray<int_type> m_facn = SimpleArray<int_type>(small_vector<ssize_t>{0});
+    std::string m_name = NONAME();
 
 public:
 
@@ -187,7 +190,13 @@ public:
     StaticMeshBc() = default;
 
     explicit StaticMeshBc(ssize_t nbound)
-        : m_facn(SimpleArray<int_type>(small_vector<ssize_t>{nbound, BFREL}))
+        : m_facn(SimpleArray<int_type>(small_vector<ssize_t>{nbound, BFREL}, -1))
+    {
+    }
+
+    StaticMeshBc(std::string name, ssize_t nbound)
+        : m_facn(SimpleArray<int_type>(small_vector<ssize_t>{nbound, BFREL}, -1))
+        , m_name(std::move(name))
     {
     }
 
@@ -196,6 +205,7 @@ public:
         if (this != &other)
         {
             m_facn = other.m_facn;
+            m_name = other.m_name;
         }
     }
 
@@ -204,6 +214,7 @@ public:
         if (this != &other)
         {
             m_facn = std::move(other.m_facn);
+            m_name = std::move(other.m_name);
         }
     }
 
@@ -212,6 +223,7 @@ public:
         if (this != &other)
         {
             m_facn = other.m_facn;
+            m_name = other.m_name;
         }
         return *this;
     }
@@ -221,6 +233,7 @@ public:
         if (this != &other)
         {
             m_facn = std::move(other.m_facn);
+            m_name = std::move(other.m_name);
         }
         return *this;
     }
@@ -228,6 +241,9 @@ public:
     ~StaticMeshBc() = default;
 
     ssize_t nbound() const { return m_facn.nbody(); }
+
+    std::string const & name() const { return m_name; }
+    void set_name(std::string name) { m_name = std::move(name); }
 
     SimpleArray<int_type> const & facn() const { return m_facn; }
     SimpleArray<int_type> & facn() { return m_facn; }
@@ -367,6 +383,18 @@ private:
     // Helpers for boundary data (as well as ghost).
 public:
 
+    /**
+     * Attach a boundary-condition group.
+     *
+     * The boundary-condition groups are used by build_boundary.
+     */
+    void add_bc(std::shared_ptr<StaticMeshBc> const & bnd);
+    std::shared_ptr<StaticMeshBc> add_bc(std::string const & name, std::vector<int_type> const & faces);
+
+    std::vector<std::shared_ptr<StaticMeshBc>> const & bcs() const { return m_bcs; }
+    std::shared_ptr<StaticMeshBc> const & bc(size_t ibc) const { return m_bcs.at(ibc); }
+    std::shared_ptr<StaticMeshBc> find_bc(std::string const & name) const;
+
     void build_boundary();
     void build_ghost();
 
@@ -421,7 +449,7 @@ private:                                                                \
     MM_DECL_StaticMesh_ARRAY(int_type, ednds);
     // boundary information.
     MM_DECL_StaticMesh_ARRAY(int_type, bndfcs);
-    std::vector<StaticMeshBc> m_bcs;
+    std::vector<std::shared_ptr<StaticMeshBc>> m_bcs;
 
 #undef MM_DECL_StaticMesh_ARRAY
 
