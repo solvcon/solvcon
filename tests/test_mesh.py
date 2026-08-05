@@ -207,4 +207,112 @@ class StaticMeshTC(unittest.TestCase):
         self._check_metric_trivial(mh)
         # TODO: Need to add build_boundary and build_ghost to make sure
         #       Line type behavior.
+
+
+class StaticMeshBcTC(unittest.TestCase):
+    """Populate boundary-condition groups from Python.
+
+    The three-triangle fan of StaticMeshTC has the boundary faces 1, 3,
+    and 5; the other faces are interior.
+    """
+
+    def _make_mesh(self):
+        mh = solvcon.StaticMesh(ndim=2, nnode=4, nface=0, ncell=3)
+        mh.ndcrd.ndarray[:, :] = (0, 0), (-1, -1), (1, -1), (0, 1)
+        mh.cltpn.ndarray[:] = solvcon.StaticMesh.TRIANGLE
+        mh.clnds.ndarray[:, :4] = (3, 0, 1, 2), (3, 0, 2, 3), (3, 0, 3, 1)
+        mh.build_interior()
+        return mh
+
+    def test_populate_and_build(self):
+        mh = self._make_mesh()
+        bottom = mh.add_bc('bottom', [1])
+        flank = mh.add_bc('flank', [3, 5])
+        self.assertEqual(2, mh.nbcs)
+        self.assertEqual('bottom', bottom.name)
+        self.assertEqual(1, bottom.nbound)
+        self.assertEqual(2, flank.nbound)
+
+        mh.build_boundary()
+        # No leftover face: no catch-all group is appended.
+        self.assertEqual(2, mh.nbcs)
+        # Column 1 carries the group index in attach order.
+        self.assertEqual(
+            [[1, 0, -1], [3, 1, -1], [5, 1, -1]],
+            mh.bndfcs.ndarray.tolist())
+        # Column 1 of facn is back-filled with the bndfcs row; column 2
+        # stays at its -1 idle value.
+        self.assertEqual([[1, 0, -1]], bottom.facn.ndarray.tolist())
+        self.assertEqual(
+            [[3, 1, -1], [5, 2, -1]], flank.facn.ndarray.tolist())
+
+    def test_catch_all_collects_leftover(self):
+        mh = self._make_mesh()
+        mh.add_bc('bottom', [1])
+        mh.build_boundary()
+        self.assertEqual(2, mh.nbcs)
+        leftover = mh.bc(1)
+        self.assertEqual(solvcon.StaticMeshBc.NONAME, leftover.name)
+        self.assertEqual(
+            [[3, 1, -1], [5, 2, -1]], leftover.facn.ndarray.tolist())
+        self.assertEqual(
+            [[1, 0, -1], [3, 1, -1], [5, 1, -1]],
+            mh.bndfcs.ndarray.tolist())
+
+    def test_read_back(self):
+        mh = self._make_mesh()
+        bottom = mh.add_bc('bottom', [1])
+        self.assertIs(bottom, mh.bc(0))
+        self.assertIs(bottom, mh.bc('bottom'))
+        self.assertEqual(1, len(mh.bcs))
+        self.assertIs(bottom, mh.bcs[0])
+
+    def test_rename(self):
+        mh = self._make_mesh()
+        mh.add_bc('bottom', [1])
+        mh.bc(0).name = 'floor'
+        self.assertEqual('floor', mh.bc('floor').name)
+        with self.assertRaises(KeyError):
+            mh.bc('bottom')
+
+    def test_add_bc_rejects_bad_faces(self):
+        mh = self._make_mesh()
+        with self.assertRaisesRegex(ValueError, 'not a boundary face'):
+            mh.add_bc('interior', [0])
+        with self.assertRaisesRegex(ValueError, 'out of range'):
+            mh.add_bc('outside', [99])
+        with self.assertRaisesRegex(ValueError, 'out of range'):
+            mh.add_bc('negative', [-1])
+        with self.assertRaisesRegex(ValueError, 'already claimed'):
+            mh.add_bc('doubled', [3, 3])
+        mh.add_bc('bottom', [1])
+        with self.assertRaisesRegex(ValueError, 'already claimed'):
+            mh.add_bc('again', [1])
+
+    def test_add_bc_rejects_bad_names(self):
+        mh = self._make_mesh()
+        mh.add_bc('bottom', [1])
+        with self.assertRaisesRegex(ValueError, 'duplicated name'):
+            mh.add_bc('bottom', [3])
+        with self.assertRaisesRegex(ValueError, 'empty name'):
+            mh.add_bc('', [3])
+
+    def test_add_bc_after_build_raises(self):
+        mh = self._make_mesh()
+        mh.build_boundary()
+        with self.assertRaisesRegex(RuntimeError, 'already built'):
+            mh.add_bc('late', [1])
+
+    def test_double_build_boundary_raises(self):
+        mh = self._make_mesh()
+        mh.build_boundary()
+        with self.assertRaisesRegex(RuntimeError, 'already built'):
+            mh.build_boundary()
+
+    def test_lookup_errors(self):
+        mh = self._make_mesh()
+        with self.assertRaises(IndexError):
+            mh.bc(0)
+        with self.assertRaises(KeyError):
+            mh.bc('absent')
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
