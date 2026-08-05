@@ -5,8 +5,89 @@
 
 #include <solvcon/mesh/StaticMesh.hpp>
 
+#include <format>
+#include <stdexcept>
+
 namespace solvcon
 {
+
+void StaticMesh::add_bc(std::shared_ptr<StaticMeshBc> const & bnd)
+{
+    if (0 != m_nbound)
+    {
+        throw std::runtime_error("StaticMesh::add_bc: boundary is already built");
+    }
+    if (!bnd)
+    {
+        throw std::invalid_argument("StaticMesh::add_bc: null boundary condition");
+    }
+    if (bnd->name().empty())
+    {
+        throw std::invalid_argument("StaticMesh::add_bc: empty name");
+    }
+    if (find_bc(bnd->name()))
+    {
+        throw std::invalid_argument(std::format(
+            "StaticMesh::add_bc: duplicated name \"{}\"", bnd->name()));
+    }
+
+    std::vector<bool> claimed(nface(), false);
+    for (auto const & prev : m_bcs)
+    {
+        auto const & pfacn = prev->facn();
+        for (size_t bfit = 0; bfit < pfacn.nbody(); ++bfit)
+        {
+            claimed[pfacn(bfit, 0)] = true;
+        }
+    }
+    auto const & bfacn = bnd->facn();
+    for (size_t bfit = 0; bfit < bfacn.nbody(); ++bfit)
+    {
+        int_type const ifc = bfacn(bfit, 0);
+        if (ifc < 0 || ifc >= static_cast<int_type>(nface()))
+        {
+            throw std::invalid_argument(std::format(
+                "StaticMesh::add_bc: face {} out of range [0, {})", ifc, nface()));
+        }
+        if (fcjcl(ifc) >= 0)
+        {
+            throw std::invalid_argument(std::format(
+                "StaticMesh::add_bc: face {} is not a boundary face", ifc));
+        }
+        if (claimed[ifc])
+        {
+            throw std::invalid_argument(std::format(
+                "StaticMesh::add_bc: face {} is already claimed", ifc));
+        }
+        claimed[ifc] = true;
+    }
+
+    m_bcs.push_back(bnd);
+}
+
+std::shared_ptr<StaticMeshBc> StaticMesh::add_bc(std::string const & name, std::vector<int_type> const & faces)
+{
+    auto bnd = std::make_shared<StaticMeshBc>(name, static_cast<ssize_t>(faces.size()));
+    auto & bfacn = bnd->facn();
+    for (size_t bfit = 0; bfit < faces.size(); ++bfit)
+    {
+        bfacn(bfit, 0) = faces[bfit];
+    }
+    add_bc(bnd);
+    return bnd;
+}
+
+std::shared_ptr<StaticMeshBc> StaticMesh::find_bc(std::string const & name) const
+{
+    for (auto const & bnd : m_bcs)
+    {
+        if (bnd->name() == name)
+        {
+            return bnd;
+        }
+    }
+    return nullptr;
+}
 
 /**
  * Calculate all metric information, including:
@@ -21,7 +102,10 @@ namespace solvcon
 /* NOLINTNEXTLINE(readability-function-cognitive-complexity) */
 void StaticMesh::build_boundary()
 {
-    assert(0 == m_nbound); // nothing should touch m_nbound beforehand.
+    if (0 != m_nbound)
+    {
+        throw std::runtime_error("StaticMesh::build_boundary: boundary is already built");
+    }
     for (ssize_t it = 0; it < fccls().shape(0); ++it)
     {
         if (fccls()(it, 1) < 0)
@@ -30,7 +114,7 @@ void StaticMesh::build_boundary()
         }
     }
     SimpleArray<int_type>(
-        small_vector<ssize_t>{static_cast<ssize_t>(m_nbound), StaticMeshBC::BFREL},
+        small_vector<ssize_t>{static_cast<ssize_t>(m_nbound), StaticMeshBc::BFREL},
         -1)
         .swap(m_bndfcs);
 
@@ -51,8 +135,7 @@ void StaticMesh::build_boundary()
     ssize_t nleft = m_nbound;
     for (size_t ibnd = 0; ibnd < m_bcs.size(); ++ibnd)
     {
-        StaticMeshBC & bnd = m_bcs[ibnd];
-        auto & bfacn = bnd.facn();
+        auto & bfacn = m_bcs[ibnd]->facn();
         for (size_t bfit = 0; bfit < bfacn.nbody(); ++bfit)
         {
             /**
@@ -76,8 +159,8 @@ void StaticMesh::build_boundary()
 
     if (nleft != 0)
     {
-        StaticMeshBC bnd(nleft);
-        auto & bfacn = bnd.facn();
+        auto bnd = std::make_shared<StaticMeshBc>(nleft);
+        auto & bfacn = bnd->facn();
         size_t bfit = 0;
         size_t const ibnd = m_bcs.size();
         for (size_t sit = 0; sit < m_nbound; ++sit) // Specified ITerator.

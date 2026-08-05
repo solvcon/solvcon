@@ -65,6 +65,7 @@ list_of_mesh = [
     'StaticGrid2d',
     'StaticGrid3d',
     'StaticMesh',
+    'StaticMeshBc',
 ]
 
 # multidim directory symbols

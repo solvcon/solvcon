@@ -3,7 +3,8 @@
 
 
 """
-Mesh, boundary tagging, and solver driver for the oblique-shock reflection.
+Mesh, boundary-condition groups, and solver driver for the oblique-shock
+reflection.
 """
 
 import math
@@ -58,8 +59,10 @@ class ObliqueShockMesher(object):
         which the corner ``'quad'`` cells cannot.  All flavors share the
         boundary layout (nx segments on the bottom and top, ny on the left
         and right) and produce counter-clockwise cells.  The returned mesh
-        has ``ndcrd``/``cltpn``/``clnds`` filled and ``build_interior`` /
-        ``build_boundary`` / ``build_ghost`` run.
+        has ``ndcrd``/``cltpn``/``clnds`` filled, carries one named
+        boundary-condition group per domain edge (:attr:`BOUNDARY_NAMES`),
+        and has ``build_interior`` / ``build_boundary`` / ``build_ghost``
+        run.
         """
         nx, ny = self.nx, self.ny
         if cell_type in ('quad', 'triangle'):
@@ -98,34 +101,16 @@ class ObliqueShockMesher(object):
         mh.cltpn.fill(tpn)
         mh.clnds[:, :len(cells[0])] = cells
         mh.build_interior(do_metric=True)
+        for name, faces in zip(self.BOUNDARY_NAMES,
+                               self.classify_boundary(mh)):
+            mh.add_bc(name, faces)
         mh.build_boundary()
         mh.build_ghost()
-        self.tag_boundary(mh)
         return mh
 
-    #: Boundary-set id per domain edge written by :meth:`tag_boundary`, in
-    #: the order :meth:`classify_boundary` returns the edges.
+    #: Boundary-condition group name per domain edge, in the order
+    #: :meth:`classify_boundary` returns the edges.
     BOUNDARY_NAMES = ('left', 'top', 'bottom', 'right')
-
-    @classmethod
-    def tag_boundary(cls, mh, tol=1e-9):
-        """Write the domain edge of each boundary face into ``bndfcs``.
-
-        ``build_boundary`` collects every unspecified boundary face into one
-        catch-all set, so viewers that color or toggle by boundary set (for
-        example the pilot's ``colorByBoundary``) cannot tell the edges
-        apart.  Overwrite the set column with the :meth:`classify_boundary`
-        edge, indexed per :attr:`BOUNDARY_NAMES`, purely as display
-        metadata: the solver takes its face lists directly and never reads
-        ``bndfcs``.
-        """
-        byface = dict()
-        for ibc, faces in enumerate(cls.classify_boundary(mh, tol=tol)):
-            for ifc in faces:
-                byface[ifc] = ibc
-        bndfcs = mh.bndfcs.ndarray
-        for ibnd in range(bndfcs.shape[0]):
-            bndfcs[ibnd, 1] = byface[bndfcs[ibnd, 0]]
 
     def _jitter_points(self):
         """Collect the unstructured point cloud in a :class:`PointPad`.
@@ -274,7 +259,7 @@ class ObliqueShockMesher(object):
         the real edges.
 
         Returns ``(left, top, bottom, right)`` as sorted face-index lists
-        ready to feed ``add_inlet`` / ``add_slipwall`` / ``add_nonrefl``.
+        ready to feed :meth:`~solvcon.core.StaticMesh.add_bc`.
         """
         bfaces = [ifc for ifc in range(mh.nface) if mh.fccls[ifc, 1] < 0]
         xcs = [mh.fccnd[ifc, 0] for ifc in bfaces]
@@ -490,7 +475,11 @@ class ObliqueShock(object):
         svr.tauscale = tauscale
         svr.init_solution(gamma=self.gamma, rho=self.density,
                           v=[self.velocity, 0.0], p=self.pressure)
-        left, top, bottom, right = self.mesher.classify_boundary(self.mesh)
+        # The mesher attached one named group per domain edge; read the
+        # face lists back from the mesh instead of re-classifying.
+        left, top, bottom, right = (
+            self.mesh.bc(name).facn.ndarray[:, 0].tolist()
+            for name in self.mesher.BOUNDARY_NAMES)
         svr.add_inlet(left, value=[self.density, self.velocity, 0.0,
                                    self.pressure, self.gamma])
         svr.add_inlet(top, value=[self.density2, self.velocity2[0],

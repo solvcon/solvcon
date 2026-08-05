@@ -12,6 +12,35 @@ namespace solvcon
 namespace python
 {
 
+class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapStaticMeshBc
+    : public WrapBase<WrapStaticMeshBc, StaticMeshBc, std::shared_ptr<StaticMeshBc>>
+{
+
+public:
+
+    using base_type = WrapBase<WrapStaticMeshBc, StaticMeshBc, std::shared_ptr<StaticMeshBc>>;
+    using wrapped_type = typename base_type::wrapped_type;
+
+    friend root_base_type;
+
+protected:
+
+    WrapStaticMeshBc(pybind11::module & mod, char const * pyname, char const * pydoc);
+
+}; /* end class WrapStaticMeshBc */
+
+WrapStaticMeshBc::WrapStaticMeshBc(pybind11::module & mod, char const * pyname, char const * pydoc)
+    : base_type(mod, pyname, pydoc)
+{
+    (*this)
+        .def_property("name", &wrapped_type::name, &wrapped_type::set_name)
+        .def_property_readonly("nbound", &wrapped_type::nbound)
+        .expose_SimpleArray("facn", [](wrapped_type & self) -> decltype(auto)
+                            { return self.facn(); });
+
+    this->cls().attr("NONAME") = wrapped_type::NONAME();
+}
+
 class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapStaticMesh
     : public WrapBase<WrapStaticMesh, StaticMesh, std::shared_ptr<StaticMesh>>
 {
@@ -34,6 +63,7 @@ WrapStaticMesh::WrapStaticMesh(pybind11::module & mod, char const * pyname, char
 {
     namespace py = pybind11;
 
+    using int_type = typename wrapped_type::int_type;
     using uint_type = typename wrapped_type::uint_type;
 
     (*this)
@@ -81,6 +111,33 @@ WrapStaticMesh::WrapStaticMesh(pybind11::module & mod, char const * pyname, char
         .def_timed("build_ghost", &wrapped_type::build_ghost)
         .def_timed("build_edge", &wrapped_type::build_edge);
 
+    (*this)
+        .def(
+            "add_bc",
+            [](wrapped_type & self, std::string const & name, std::vector<int_type> const & faces)
+            { return self.add_bc(name, faces); },
+            py::arg("name"),
+            py::arg("faces"))
+        .def(
+            "bc",
+            [](wrapped_type & self, size_t ibc)
+            { return self.bc(ibc); },
+            py::arg("ibc"))
+        .def(
+            "bc",
+            [](wrapped_type & self, std::string const & name)
+            {
+                auto bnd = self.find_bc(name);
+                if (!bnd)
+                {
+                    throw py::key_error(name);
+                }
+                return bnd;
+            },
+            py::arg("name"))
+        .def_property_readonly("bcs", [](wrapped_type & self)
+                               { return self.bcs(); });
+
 #define MM_DECL_ARRAY(NAME) \
     .expose_SimpleArray(#NAME, [](wrapped_type & self) -> decltype(auto) { return self.NAME(); })
 
@@ -119,6 +176,7 @@ WrapStaticMesh::WrapStaticMesh(pybind11::module & mod, char const * pyname, char
 
 void wrap_StaticMesh(pybind11::module & mod)
 {
+    WrapStaticMeshBc::commit(mod, "StaticMeshBc", "StaticMeshBc");
     WrapStaticMesh::commit(mod, "StaticMesh", "StaticMesh");
 }
 

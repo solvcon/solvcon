@@ -17,6 +17,8 @@
 #include <solvcon/buffer/buffer.hpp>
 
 #include <cmath>
+#include <memory>
+#include <string>
 #include <vector>
 #include <numeric>
 
@@ -153,8 +155,8 @@ struct StaticMeshConstant
  *
  * @ingroup group_mesh
  */
-// TODO: StaticMeshBC may use polymorphism.
-class StaticMeshBC
+// TODO: StaticMeshBc may use polymorphism.
+class StaticMeshBc
     : public NumberBase<int32_t, double>
     , public StaticMeshConstant
 {
@@ -175,6 +177,7 @@ private:
      * block (if exists).
      */
     SimpleArray<int_type> m_facn = SimpleArray<int_type>(small_vector<ssize_t>{0});
+    std::string m_name = NONAME();
 
 public:
 
@@ -184,55 +187,68 @@ public:
         return str;
     }
 
-    StaticMeshBC() = default;
+    StaticMeshBc() = default;
 
-    explicit StaticMeshBC(ssize_t nbound)
-        : m_facn(SimpleArray<int_type>(small_vector<ssize_t>{nbound, BFREL}))
+    explicit StaticMeshBc(ssize_t nbound)
+        : m_facn(SimpleArray<int_type>(small_vector<ssize_t>{nbound, BFREL}, -1))
     {
     }
 
-    StaticMeshBC(StaticMeshBC const & other)
+    StaticMeshBc(std::string name, ssize_t nbound)
+        : m_facn(SimpleArray<int_type>(small_vector<ssize_t>{nbound, BFREL}, -1))
+        , m_name(std::move(name))
     {
-        if (this != &other)
-        {
-            m_facn = other.m_facn;
-        }
     }
 
-    StaticMeshBC(StaticMeshBC && other) // FIXME: NOLINT(bugprone-exception-escape,cppcoreguidelines-noexcept-move-operations)
-    {
-        if (this != &other)
-        {
-            m_facn = std::move(other.m_facn);
-        }
-    }
-
-    StaticMeshBC & operator=(StaticMeshBC const & other)
+    StaticMeshBc(StaticMeshBc const & other)
     {
         if (this != &other)
         {
             m_facn = other.m_facn;
+            m_name = other.m_name;
         }
-        return *this;
     }
 
-    StaticMeshBC & operator=(StaticMeshBC && other) // FIXME: NOLINT(bugprone-exception-escape,cppcoreguidelines-noexcept-move-operations)
+    StaticMeshBc(StaticMeshBc && other) // FIXME: NOLINT(bugprone-exception-escape,cppcoreguidelines-noexcept-move-operations)
     {
         if (this != &other)
         {
             m_facn = std::move(other.m_facn);
+            m_name = std::move(other.m_name);
+        }
+    }
+
+    StaticMeshBc & operator=(StaticMeshBc const & other)
+    {
+        if (this != &other)
+        {
+            m_facn = other.m_facn;
+            m_name = other.m_name;
         }
         return *this;
     }
 
-    ~StaticMeshBC() = default;
+    StaticMeshBc & operator=(StaticMeshBc && other) // FIXME: NOLINT(bugprone-exception-escape,cppcoreguidelines-noexcept-move-operations)
+    {
+        if (this != &other)
+        {
+            m_facn = std::move(other.m_facn);
+            m_name = std::move(other.m_name);
+        }
+        return *this;
+    }
+
+    ~StaticMeshBc() = default;
 
     ssize_t nbound() const { return m_facn.nbody(); }
+
+    std::string const & name() const { return m_name; }
+    void set_name(std::string name) { m_name = std::move(name); }
 
     SimpleArray<int_type> const & facn() const { return m_facn; }
     SimpleArray<int_type> & facn() { return m_facn; }
 
-}; /* end class StaticMeshBC */
+}; /* end class StaticMeshBc */
 
 /**
  * Static unstructured mesh storing nodes, faces, and cells of mixed element
@@ -290,7 +306,7 @@ public:
         , m_clnds(small_vector<ssize_t>{static_cast<ssize_t>(ncell), CLMND + 1})
         , m_clfcs(small_vector<ssize_t>{static_cast<ssize_t>(ncell), CLMFC + 1})
         , m_ednds(small_vector<ssize_t>{0, 2})
-        , m_bndfcs(small_vector<ssize_t>{0, StaticMeshBC::BFREL})
+        , m_bndfcs(small_vector<ssize_t>{0, StaticMeshBc::BFREL})
     {
     }
     StaticMesh() = delete;
@@ -367,6 +383,18 @@ private:
     // Helpers for boundary data (as well as ghost).
 public:
 
+    /**
+     * Attach a boundary-condition group.
+     *
+     * The boundary-condition groups are used by build_boundary.
+     */
+    void add_bc(std::shared_ptr<StaticMeshBc> const & bnd);
+    std::shared_ptr<StaticMeshBc> add_bc(std::string const & name, std::vector<int_type> const & faces);
+
+    std::vector<std::shared_ptr<StaticMeshBc>> const & bcs() const { return m_bcs; }
+    std::shared_ptr<StaticMeshBc> const & bc(size_t ibc) const { return m_bcs.at(ibc); }
+    std::shared_ptr<StaticMeshBc> find_bc(std::string const & name) const;
+
     void build_boundary();
     void build_ghost();
 
@@ -421,7 +449,7 @@ private:                                                                \
     MM_DECL_StaticMesh_ARRAY(int_type, ednds);
     // boundary information.
     MM_DECL_StaticMesh_ARRAY(int_type, bndfcs);
-    std::vector<StaticMeshBC> m_bcs;
+    std::vector<std::shared_ptr<StaticMeshBc>> m_bcs;
 
 #undef MM_DECL_StaticMesh_ARRAY
 

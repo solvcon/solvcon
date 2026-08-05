@@ -60,9 +60,11 @@ class MakeMeshInfoTC(unittest.TestCase):
         mh = _make_sample_mesh()
         binfo = _tree_panel.MeshInfoTree.make_boundary_info(mh)
         # With no add_bc, build_boundary gathers every boundary face into a
-        # single catch-all set, so the one row must report all of them.
+        # single catch-all set, so the one row must report all of them
+        # under the placeholder name.
         self.assertGreater(mh.nbound, 0)
-        self.assertEqual(binfo, [[0, mh.nbound]])
+        self.assertEqual(
+            binfo, [[0, solvcon.StaticMeshBc.NONAME, mh.nbound]])
 
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

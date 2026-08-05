@@ -5,9 +5,9 @@
 """
 Example pilot apps for the oblique-shock reflection.
 
-The mesh construction, boundary tagging, and solver driver live in
-:mod:`solvcon.multidim.euler.oblique`.  :class:`ObliqueShockMesh` draws the
-mesh in a 3D widget and reports the boundary classification (left / top /
+The mesh construction, boundary-condition groups, and solver driver live
+in :mod:`solvcon.multidim.euler.oblique`.  :class:`ObliqueShockMesh` draws
+the mesh in a 3D widget and reports the boundary groups (left / top /
 bottom / right edges) to the console.  Running the solver and animating its
 solution fields is handled by the interactive panel in
 :mod:`._solution_info`.
@@ -23,7 +23,7 @@ __all__ = [  # noqa: F822
 
 class ObliqueShockMesh(_gui_common.PilotFeature):
     """
-    Draw the oblique-shock reflection mesh and tag its boundary.
+    Draw the oblique-shock reflection mesh and its boundary groups.
     """
 
     def mesh_sample_dialog_entries(self):
@@ -53,22 +53,21 @@ class ObliqueShockMesh(_gui_common.PilotFeature):
     def _draw_mesh(self, cell_type):
         mesher = oblique.ObliqueShockMesher()
         mh = mesher.make_mesh(cell_type=cell_type)
-        left, top, bottom, right = mesher.classify_boundary(mh)
         w = self._mgr.add3DWidget()
         w.updateMesh(mh)
         w.showAxis(True)
-        # The mesher tags bndfcs with the domain edges, so each edge can be
-        # ribboned in its own boundary-set color.
-        for ibc in range(len(oblique.ObliqueShockMesher.BOUNDARY_NAMES)):
+        # The mesher attaches one named group per domain edge, so each
+        # edge can be ribboned in its own boundary-set color.
+        for ibc in range(mh.nbcs):
             w.showBoundary(ibc, True)
         self._pycon.writeToHistory(
             f"oblique-shock {cell_type} mesh: {mh.ncell} cells, "
             f"{mh.nedge} edges\n"
             "boundary ribbons: "
-            f"red left inlet ({len(left)} faces), "
-            f"blue top inlet ({len(top)} faces), "
-            f"green bottom slip wall ({len(bottom)} faces), "
-            f"amber right outflow ({len(right)} faces)\n")
+            f"red left inlet ({mh.bc('left').nbound} faces), "
+            f"blue top inlet ({mh.bc('top').nbound} faces), "
+            f"green bottom slip wall ({mh.bc('bottom').nbound} faces), "
+            f"amber right outflow ({mh.bc('right').nbound} faces)\n")
 
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
