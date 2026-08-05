@@ -89,10 +89,18 @@ class MatmulTestBase(sc.testing.TestBase):
     def make_matrix_stride_cases(cls, data, axis):
         f_contiguous = np.array(
             data, dtype=data.dtype.name, order='F', copy=True)
+        storage_shape = list(data.shape)
+        storage_shape[-1] += 2
+        storage = np.empty(storage_shape, dtype=data.dtype.name)
+        selection = [slice(None)] * data.ndim
+        selection[-1] = slice(0, data.shape[-1])
+        padded = storage[tuple(selection)]
+        padded[...] = data
 
         return (
             ('c_contiguous', data),
             ('f_contiguous', f_contiguous),
+            ('padded', padded),
             ('negative_stride',
              cls.make_strided_view(data, axis, -1)),
             ('step_two', cls.make_strided_view(data, axis, 2)),
@@ -126,7 +134,9 @@ class MatmulTestBase(sc.testing.TestBase):
         result = lhs.matmul_planned(rhs)
 
         self.assertEqual(list(result.shape), list(expected.shape))
-        np.testing.assert_array_almost_equal(result.ndarray, expected)
+        tol = 64 * np.finfo(result.ndarray.real.dtype).eps
+        np.testing.assert_allclose(
+            result.ndarray, expected, rtol=tol, atol=tol)
         return result
 
     def test_square(self):
@@ -242,8 +252,9 @@ class MatmulTestBase(sc.testing.TestBase):
             with self.subTest(
                     method=method, tile_name=tile_name,
                     tile_size=tile_size):
-                lhs = self.SimpleArray((2,), value=1)
-                rhs = self.SimpleArray((2,), value=1)
+                data = np.ones((2,), dtype=np.dtype(self.dtype).name)
+                lhs = self.SimpleArray(array=data)
+                rhs = self.SimpleArray(array=data)
                 tiles = {'tile_x': 1, 'tile_y': 1, 'tile_z': 1}
                 tiles[tile_name] = tile_size
                 message = (
@@ -364,21 +375,22 @@ class MatmulTestBase(sc.testing.TestBase):
                 self.assert_matmul_planned(a, b, expected)
 
     def test_matrix_strides(self):
-        """Matrix axes support C, F, negative, and step-two strides."""
+        """Matrix axes support generic and BLAS-compatible layouts."""
         dtype = np.dtype(self.dtype).name
+        for m, k, n in ((3, 4, 2), (16, 17, 18)):
+            lhs_data = np.arange(m * k, dtype=dtype).reshape(m, k)
+            rhs_data = np.arange(k * n, dtype=dtype).reshape(k, n)
+            lhs_cases = self.make_matrix_stride_cases(lhs_data, 1)
+            rhs_cases = self.make_matrix_stride_cases(rhs_data, 0)
+            cases = itertools.product(lhs_cases, rhs_cases)
+            for (lhs_case, case_lhs), (rhs_case, case_rhs) in cases:
+                lhs = self.SimpleArray(array=case_lhs)
+                rhs = self.SimpleArray(array=case_rhs)
+                expected = np.matmul(case_lhs, case_rhs)
 
-        lhs_cases = self.make_matrix_stride_cases(
-            np.arange(12, dtype=dtype).reshape(3, 4), 1)
-        rhs_cases = self.make_matrix_stride_cases(
-            np.arange(8, dtype=dtype).reshape(4, 2), 0)
-        cases = itertools.product(lhs_cases, rhs_cases)
-        for (lhs_case, lhs_data), (rhs_case, rhs_data) in cases:
-            lhs = self.SimpleArray(array=lhs_data)
-            rhs = self.SimpleArray(array=rhs_data)
-            expected = np.matmul(lhs_data, rhs_data)
-
-            with self.subTest(lhs=lhs_case, rhs=rhs_case):
-                self.assert_matmul_planned(lhs, rhs, expected)
+                with self.subTest(
+                        shape=(m, k, n), lhs=lhs_case, rhs=rhs_case):
+                    self.assert_matmul_planned(lhs, rhs, expected)
 
     def test_batch_strides(self):
         """Batch axes support negative and step-two strides."""
@@ -405,21 +417,24 @@ class MatmulTestBase(sc.testing.TestBase):
                     self.assert_matmul_planned(lhs, rhs, expected)
 
     def test_broadcast_batch_strides(self):
-        """Broadcasting supports zero and signed batch strides."""
+        """Broadcast batch strides across generic and direct BLAS routes."""
         dtype = np.dtype(self.dtype).name
-        lhs_data = np.arange(24, dtype=dtype).reshape(2, 1, 3, 4)
-        rhs_data = np.arange(40, dtype=dtype).reshape(1, 5, 4, 2)
-        cases = itertools.product(
-            self.make_batch_stride_cases(lhs_data),
-            self.make_batch_stride_cases(rhs_data),
-        )
-        for (lhs_case, case_lhs), (rhs_case, case_rhs) in cases:
-            lhs = self.SimpleArray(array=case_lhs)
-            rhs = self.SimpleArray(array=case_rhs)
-            expected = np.matmul(case_lhs, case_rhs)
+        for m, k, n in ((3, 4, 2), (17, 18, 19)):
+            lhs_data = np.arange(2 * m * k, dtype=dtype).reshape(2, 1, m, k)
+            rhs_data = np.arange(5 * k * n, dtype=dtype).reshape(1, 5, k, n)
+            cases = itertools.product(
+                self.make_batch_stride_cases(lhs_data),
+                self.make_batch_stride_cases(rhs_data),
+            )
+            for (lhs_case, case_lhs), (rhs_case, case_rhs) in cases:
+                lhs = self.SimpleArray(array=case_lhs)
+                rhs = self.SimpleArray(array=case_rhs)
+                expected = np.matmul(case_lhs, case_rhs)
 
-            with self.subTest(lhs=lhs_case, rhs=rhs_case):
-                self.assert_matmul_planned(lhs, rhs, expected)
+                with self.subTest(
+                        shape=(m, k, n),
+                        lhs=lhs_case, rhs=rhs_case):
+                    self.assert_matmul_planned(lhs, rhs, expected)
 
     def test_broadcast_matrix_strides(self):
         """Broadcasting preserves signed matrix strides."""
@@ -474,6 +489,30 @@ class MatmulTestBase(sc.testing.TestBase):
                         role=role, lhs=lhs_case, rhs=rhs_case):
                     self.assert_matmul_planned(lhs, rhs, expected)
 
+        lhs_matrix = np.arange(64 * 512, dtype=dtype).reshape(64, 512)
+        rhs_matrix = np.arange(512 * 64, dtype=dtype).reshape(512, 64)
+        lhs_vector = np.empty(1024, dtype=dtype)[::2]
+        rhs_vector = np.empty(1024, dtype=dtype)[::2]
+        lhs_vector[...] = lhs_matrix[0]
+        rhs_vector[...] = rhs_matrix[:, 0]
+        contiguous_rhs = np.ascontiguousarray(rhs_matrix[:, 0], dtype=dtype)
+        cases = (
+            (lhs_matrix[0], contiguous_rhs),
+            (lhs_matrix[0, ::-1], contiguous_rhs[::-1]),
+            (lhs_matrix[0], rhs_matrix),
+            (lhs_matrix, contiguous_rhs),
+            (lhs_vector, np.asfortranarray(rhs_matrix, dtype=dtype)),
+            (np.asfortranarray(lhs_matrix, dtype=dtype), rhs_vector),
+        )
+        for lhs_data, rhs_data in cases:
+            lhs = self.SimpleArray(array=lhs_data)
+            rhs = self.SimpleArray(array=rhs_data)
+            with self.subTest(lhs=lhs_data.strides,
+                              rhs=rhs_data.strides):
+                expected = np.atleast_1d(np.matmul(lhs_data, rhs_data))
+                self.assert_matmul_planned(
+                    lhs, rhs, expected)
+
     def test_batch_axes_align_right(self):
         """Leading batch axes align from the right like NumPy matmul."""
         dtype = np.dtype(self.dtype).name
@@ -497,8 +536,11 @@ class MatmulTestBase(sc.testing.TestBase):
 
     def test_broadcast_batch_mismatch(self):
         """Incompatible leading batch axes report both operand shapes."""
-        lhs = self.SimpleArray(shape=(2, 3, 4), value=0)
-        rhs = self.SimpleArray(shape=(3, 4, 2), value=0)
+        dtype = np.dtype(self.dtype).name
+        lhs = self.SimpleArray(
+            array=np.zeros((2, 3, 4), dtype=dtype))
+        rhs = self.SimpleArray(
+            array=np.zeros((3, 4, 2), dtype=dtype))
         with self.assertRaisesRegex(
             ValueError,
             r"SimpleArray::matmul_planned\(\): batch shape mismatch: "
@@ -524,8 +566,8 @@ class MatmulTestBase(sc.testing.TestBase):
             lhs_data = np.zeros(lhs_shape, dtype=dtype)
             rhs_data = np.zeros(rhs_shape, dtype=dtype)
             expected = np.atleast_1d(np.matmul(lhs_data, rhs_data))
-            lhs = self.SimpleArray(shape=lhs_shape, value=0)
-            rhs = self.SimpleArray(shape=rhs_shape, value=0)
+            lhs = self.SimpleArray(array=lhs_data)
+            rhs = self.SimpleArray(array=rhs_data)
 
             with self.subTest(lhs=lhs_shape, rhs=rhs_shape):
                 self.assert_matmul_planned(lhs, rhs, expected)
@@ -873,5 +915,17 @@ class MatmulFloat64TC(MatmulTestBase, unittest.TestCase):
     def setUp(self):
         self.dtype = np.float64
         self.SimpleArray = sc.SimpleArrayFloat64
+
+
+class MatmulComplex64TC(MatmulTestBase, unittest.TestCase):
+    def setUp(self):
+        self.dtype = np.complex64
+        self.SimpleArray = sc.SimpleArrayComplex64
+
+
+class MatmulComplex128TC(MatmulTestBase, unittest.TestCase):
+    def setUp(self):
+        self.dtype = np.complex128
+        self.SimpleArray = sc.SimpleArrayComplex128
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
