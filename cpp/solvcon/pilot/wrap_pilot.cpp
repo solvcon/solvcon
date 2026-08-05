@@ -1294,6 +1294,8 @@ void wrap_pilot(pybind11::module & mod)
     WrapRManager::commit(mod, "RManager", "RManager");
     WrapRManagerProxy::commit(mod, "RManagerProxy", "RManagerProxy");
 
+    wrap_plot(mod);
+
     // The C++ tool registry is the single source of truth for drawing tools.
     mod.def("draw_tool_names", &draw_tool_names);
     mod.def("default_draw_tool_name", &default_draw_tool_name);
