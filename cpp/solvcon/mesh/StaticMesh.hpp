@@ -153,8 +153,8 @@ struct StaticMeshConstant
  *
  * @ingroup group_mesh
  */
-// TODO: StaticMeshBC may use polymorphism.
-class StaticMeshBC
+// TODO: StaticMeshBc may use polymorphism.
+class StaticMeshBc
     : public NumberBase<int32_t, double>
     , public StaticMeshConstant
 {
@@ -184,14 +184,14 @@ public:
         return str;
     }
 
-    StaticMeshBC() = default;
+    StaticMeshBc() = default;
 
-    explicit StaticMeshBC(ssize_t nbound)
+    explicit StaticMeshBc(ssize_t nbound)
         : m_facn(SimpleArray<int_type>(small_vector<ssize_t>{nbound, BFREL}))
     {
     }
 
-    StaticMeshBC(StaticMeshBC const & other)
+    StaticMeshBc(StaticMeshBc const & other)
     {
         if (this != &other)
         {
@@ -199,7 +199,7 @@ public:
         }
     }
 
-    StaticMeshBC(StaticMeshBC && other) // FIXME: NOLINT(bugprone-exception-escape,cppcoreguidelines-noexcept-move-operations)
+    StaticMeshBc(StaticMeshBc && other) // FIXME: NOLINT(bugprone-exception-escape,cppcoreguidelines-noexcept-move-operations)
     {
         if (this != &other)
         {
@@ -207,7 +207,7 @@ public:
         }
     }
 
-    StaticMeshBC & operator=(StaticMeshBC const & other)
+    StaticMeshBc & operator=(StaticMeshBc const & other)
     {
         if (this != &other)
         {
@@ -216,7 +216,7 @@ public:
         return *this;
     }
 
-    StaticMeshBC & operator=(StaticMeshBC && other) // FIXME: NOLINT(bugprone-exception-escape,cppcoreguidelines-noexcept-move-operations)
+    StaticMeshBc & operator=(StaticMeshBc && other) // FIXME: NOLINT(bugprone-exception-escape,cppcoreguidelines-noexcept-move-operations)
     {
         if (this != &other)
         {
@@ -225,14 +225,14 @@ public:
         return *this;
     }
 
-    ~StaticMeshBC() = default;
+    ~StaticMeshBc() = default;
 
     ssize_t nbound() const { return m_facn.nbody(); }
 
     SimpleArray<int_type> const & facn() const { return m_facn; }
     SimpleArray<int_type> & facn() { return m_facn; }
 
-}; /* end class StaticMeshBC */
+}; /* end class StaticMeshBc */
 
 /**
  * Static unstructured mesh storing nodes, faces, and cells of mixed element
@@ -290,7 +290,7 @@ public:
         , m_clnds(small_vector<ssize_t>{static_cast<ssize_t>(ncell), CLMND + 1})
         , m_clfcs(small_vector<ssize_t>{static_cast<ssize_t>(ncell), CLMFC + 1})
         , m_ednds(small_vector<ssize_t>{0, 2})
-        , m_bndfcs(small_vector<ssize_t>{0, StaticMeshBC::BFREL})
+        , m_bndfcs(small_vector<ssize_t>{0, StaticMeshBc::BFREL})
     {
     }
     StaticMesh() = delete;
@@ -421,7 +421,7 @@ private:                                                                \
     MM_DECL_StaticMesh_ARRAY(int_type, ednds);
     // boundary information.
     MM_DECL_StaticMesh_ARRAY(int_type, bndfcs);
-    std::vector<StaticMeshBC> m_bcs;
+    std::vector<StaticMeshBc> m_bcs;
 
 #undef MM_DECL_StaticMesh_ARRAY
 

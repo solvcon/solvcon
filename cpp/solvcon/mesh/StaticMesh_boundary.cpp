@@ -30,7 +30,7 @@ void StaticMesh::build_boundary()
         }
     }
     SimpleArray<int_type>(
-        small_vector<ssize_t>{static_cast<ssize_t>(m_nbound), StaticMeshBC::BFREL},
+        small_vector<ssize_t>{static_cast<ssize_t>(m_nbound), StaticMeshBc::BFREL},
         -1)
         .swap(m_bndfcs);
 
@@ -51,7 +51,7 @@ void StaticMesh::build_boundary()
     ssize_t nleft = m_nbound;
     for (size_t ibnd = 0; ibnd < m_bcs.size(); ++ibnd)
     {
-        StaticMeshBC & bnd = m_bcs[ibnd];
+        StaticMeshBc & bnd = m_bcs[ibnd];
         auto & bfacn = bnd.facn();
         for (size_t bfit = 0; bfit < bfacn.nbody(); ++bfit)
         {
@@ -76,7 +76,7 @@ void StaticMesh::build_boundary()
 
     if (nleft != 0)
     {
-        StaticMeshBC bnd(nleft);
+        StaticMeshBc bnd(nleft);
         auto & bfacn = bnd.facn();
         size_t bfit = 0;
         size_t const ibnd = m_bcs.size();
