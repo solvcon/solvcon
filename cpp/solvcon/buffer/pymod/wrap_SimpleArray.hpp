@@ -148,6 +148,13 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArray
                 "to_column_major",
                 [](wrapped_type const & self)
                 { return self.to_column_major(); })
+            .def(
+                "tolist",
+                [](wrapped_type & self)
+                { return to_ndarray(self).attr("tolist")(); },
+                "Returns the array as a Python list."
+            )
+            
             .def_property_readonly(
                 "is_c_contiguous",
                 [](wrapped_type const & self)
@@ -885,6 +892,12 @@ WrapSimpleCollector<T>::WrapSimpleCollector(pybind11::module & mod, char const *
             "push_back",
             [](wrapped_type & self, value_type value)
             { self.push_back(value); })
+        .def(
+            "tolist",
+            [](pybind11::object const & self)
+            { return self.attr("as_array")().attr("tolist")(); },
+            "Converts SimpleCollector to Python list.")
+            
         .def_timed("as_array", &wrapped_type::as_array)
         //
         ;
