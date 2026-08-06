@@ -7,13 +7,13 @@
 
 The mesh cells are triangulated once with :func:`cell_triangulation`; each
 frame then maps the scalar field to vertex colors with :func:`field_colors`
-over that fixed triangulation.  Shared by the oblique-shock sample and the
-solution panel so both read a 2D field the same way.
+over that fixed triangulation, so a running solver redraws without
+rebuilding the geometry.  The app in :mod:`._app` is the only caller.
 """
 
 import numpy as np
 
-from ... import core
+from .... import core
 
 
 def colormap(t):

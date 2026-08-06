@@ -17,8 +17,7 @@ if _pcore.enable:
     from . import _gui_common
     from ..visual import _mesh
     from ..panel import _tree_panel
-    from .._euler import _solution_info
-    from .._euler import _oblique
+    from ..apps import obsrefl
     from ..onedim import _euler1d
     from ..onedim import _burgers1d
     from ..canvas import _svg_gui
@@ -112,9 +111,9 @@ class _Controller(metaclass=_Singleton):
         self.mesh_style_status = _mesh.MeshStyleStatus(mgr=self._rmgr)
         self.tree_panel = _tree_panel.TreePanel(
             mgr=self._rmgr, style_status=self.mesh_style_status)
-        self.solution_info = _solution_info.SolutionInfo(mgr=self._rmgr)
+        self.solution_info = obsrefl.ObliqueShockApp(mgr=self._rmgr)
         self.solution_info.viewer_updated = self.tree_panel.resync
-        self.oblique_shock = _oblique.ObliqueShockMesh(mgr=self._rmgr)
+        self.oblique_shock = obsrefl.ObliqueShockMesh(mgr=self._rmgr)
         self.naca4airfoil = airfoil.Naca4Airfoil(mgr=self._rmgr)
         self.mesh_sample_dialog = _mesh.SampleMeshDialog(
             mgr=self._rmgr, entries=self._mesh_sample_dialog_entries())

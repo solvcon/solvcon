@@ -8,11 +8,11 @@ import unittest
 import numpy as np
 
 import solvcon
-from solvcon.multidim.euler import oblique
+from solvcon.pilot.apps import obsrefl
 
 try:
     from solvcon import pilot
-    from solvcon.pilot._euler import _solution_info
+    from solvcon.pilot.apps.obsrefl import _panel
 except ImportError:
     pilot = None
 
@@ -28,7 +28,7 @@ class ComputeFieldTC(unittest.TestCase):
 
     def _field(self, name):
         gamma = np.array([self.GAMMA], dtype='float64')
-        return _solution_info.SolutionPanel.compute_field(
+        return _panel.SolutionPanel.compute_field(
             name, self.CONS, gamma, ndim=2)[0]
 
     def test_primitive_fields(self):
@@ -51,12 +51,12 @@ class ComputeFieldTC(unittest.TestCase):
     def test_solver_field_excludes_ghost(self):
         # solver_field must slice off the ghost rows so the field spans only
         # the body cells, matching the raw density column.
-        shock = oblique.ObliqueShock()
+        shock = obsrefl.ObliqueShock()
         shock.build_constant()
         shock.build_numerical(cell_type='quad', nx=8, ny=4)
         shock.march(2)
         svr = shock.svr
-        density = _solution_info.SolutionPanel.solver_field(svr, 'density')
+        density = _panel.SolutionPanel.solver_field(svr, 'density')
         self.assertEqual(density.shape[0], svr.ncell)
         np.testing.assert_array_equal(
             density, svr.so0n.ndarray[svr.ngstcell:, 0])

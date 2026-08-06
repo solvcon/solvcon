@@ -3,18 +3,17 @@
 
 
 """
-Example pilot apps for the oblique-shock reflection.
+Sample-mesh entries for the oblique-shock reflection.
 
 The mesh construction, boundary-condition groups, and solver driver live
-in :mod:`solvcon.multidim.euler.oblique`.  :class:`ObliqueShockMesh` draws
-the mesh in a 3D widget and reports the boundary groups (left / top /
-bottom / right edges) to the console.  Running the solver and animating its
-solution fields is handled by the interactive panel in
-:mod:`._solution_info`.
+in :mod:`._driver`.  :class:`ObliqueShockMesh` draws the mesh in a 3D
+widget and reports the boundary groups (left / top / bottom / right edges)
+to the console.  Running the solver and animating its solution fields is
+handled by the interactive panel in :mod:`._app`.
 """
 
-from ...multidim.euler import oblique
-from ..base import _gui_common
+from . import _driver
+from ...base import _gui_common
 
 __all__ = [  # noqa: F822
     'ObliqueShockMesh',
@@ -51,7 +50,7 @@ class ObliqueShockMesh(_gui_common.PilotFeature):
         self._draw_mesh('unstructured')
 
     def _draw_mesh(self, cell_type):
-        mesher = oblique.ObliqueShockMesher()
+        mesher = _driver.ObliqueShockMesher()
         mh = mesher.make_mesh(cell_type=cell_type)
         w = self._mgr.add3DWidget()
         w.updateMesh(mh)
