@@ -8,7 +8,7 @@ import unittest
 import numpy as np
 
 import solvcon
-from solvcon.multidim.euler import oblique
+from solvcon.pilot.apps import obsrefl
 
 try:
     from solvcon import pilot
@@ -51,7 +51,7 @@ class ComputeFieldTC(unittest.TestCase):
     def test_solver_field_excludes_ghost(self):
         # solver_field must slice off the ghost rows so the field spans only
         # the body cells, matching the raw density column.
-        shock = oblique.ObliqueShock()
+        shock = obsrefl.ObliqueShock()
         shock.build_constant()
         shock.build_numerical(cell_type='quad', nx=8, ny=4)
         shock.march(2)

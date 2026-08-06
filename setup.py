@@ -76,6 +76,8 @@ def main():
             'solvcon.pilot._euler',
             'solvcon.pilot.agent',
             'solvcon.pilot.airfoil',
+            'solvcon.pilot.apps',
+            'solvcon.pilot.apps.obsrefl',
             'solvcon.pilot.base',
             'solvcon.pilot.canvas',
             'solvcon.pilot.onedim',

@@ -3,15 +3,16 @@
 
 
 """
-Multi-dimensional Euler-equation solver.
+Support for the multi-dimensional Euler-equation solver.
+
+The package stays free of any particular problem; a problem lives in its own
+application package under :mod:`solvcon.pilot.apps`.
 """
 
 from . import field
-from . import oblique
 
 __all__ = [
     'field',
-    'oblique',
 ]
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

@@ -19,8 +19,8 @@ import unittest
 from numpy.testing import assert_almost_equal
 
 import solvcon
-from solvcon.multidim.euler.oblique import (ObliqueShock, ObliqueShockMesher,
-                                            ObliqueShockRelation)
+from solvcon.pilot.apps.obsrefl import (ObliqueShock, ObliqueShockMesher,
+                                        ObliqueShockRelation)
 
 
 class _ObliqueMeshBase:

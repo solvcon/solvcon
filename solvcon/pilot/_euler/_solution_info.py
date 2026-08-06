@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QFormLayout,
                                QTreeWidgetItem, QFrame)
 
 from ... import core
-from ...multidim.euler import oblique
+from ..apps import obsrefl
 from . import _field_render
 from ..base import _gui_common
 
@@ -53,7 +53,7 @@ class SolutionPanel(QWidget):
     #: Derived scalar fields the viewer can color, in display order.
     FIELDS = ('density', 'velocity-x', 'velocity-y', 'speed',
               'pressure', 'mach', 'energy')
-    #: Mesh flavors offered by :class:`~solvcon.multidim.euler.oblique`.
+    #: Mesh flavors offered by :mod:`~solvcon.pilot.apps.obsrefl`.
     CELL_TYPES = ('quad', 'triangle', 'unstructured')
 
     def __init__(self, parent=None):
@@ -367,7 +367,7 @@ class SolutionInfo(_gui_common.PilotFeature):
         self._stop_timer()
         self._open_viewer()
         params = self._panel.params()
-        shock = oblique.ObliqueShock()
+        shock = obsrefl.ObliqueShock()
         shock.build_constant(gamma=params['gamma'],
                              density=params['density'],
                              pressure=params['pressure'],

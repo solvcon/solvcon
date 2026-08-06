@@ -32,6 +32,8 @@ if enable:
     from . import airfoil  # noqa: F401
     from . import canvas  # noqa: F401
 
+# The "apps" sub-package is deliberately absent from the imports above.
+
 # NOTE: intentionally omit __all__ for now
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

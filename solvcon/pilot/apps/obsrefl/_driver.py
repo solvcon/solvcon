@@ -9,7 +9,7 @@ reflection.
 
 import math
 
-from ... import core
+from .... import core
 
 __all__ = [
     'ObliqueShock',
