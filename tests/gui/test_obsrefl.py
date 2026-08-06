@@ -10,7 +10,7 @@ import solvcon
 try:
     from solvcon import pilot
     from solvcon.pilot.base import _gui
-    from solvcon.pilot._euler import _solution_info
+    from solvcon.pilot.apps.obsrefl import _app
     from PySide6.QtWidgets import QApplication
 except ImportError:
     pilot = None
@@ -23,12 +23,12 @@ NO_LIVE_WINDOW = ((os.getenv('QT_QPA_PLATFORM') or '').startswith('offscreen')
 
 @unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
                  "pilot windows need a real window surface")
-class SolutionInfoTC(unittest.TestCase):
+class ObliqueShockAppTC(unittest.TestCase):
     def setUp(self):
         self.mgr = pilot.RManager.instance.setUp()
 
     def _feature(self):
-        feature = _solution_info.SolutionInfo(mgr=self.mgr)
+        feature = _app.ObliqueShockApp(mgr=self.mgr)
         feature.populate_menu()
         feature._action.setChecked(True)  # builds the dock and panel
         return feature
