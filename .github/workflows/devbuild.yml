@@ -21,6 +21,9 @@ concurrency:
 jobs:
 
   check_skip:
+    # A fork inherits no MMGH_NIGHTLY, so this gate stops the nightly cron
+    # from allocating a runner there.
+    if: github.event_name != 'schedule' || vars.MMGH_NIGHTLY == 'enable'
     uses: ./.github/workflows/check_skip_ci.yml
     permissions:
       contents: read
