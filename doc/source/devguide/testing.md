@@ -112,6 +112,9 @@ Each is read with a default, so an unset variable keeps the default behavior.
   the ubuntu, macOS, and sanitizer builds (default 45) and the Windows build,
   which defaults to 60 because its vcpkg plus MSVC compile runs slower than the
   others.
+- `MMGH_REMIND_REPOSITORY` (`solvcon/solvcon`): the repository whose monthly
+  `Update Contributors` cron files its reminder issue. The job also requires a
+  non-fork repository, so a fork never files one whatever this is set to.
 
 ### Behavior on a forked repository
 
