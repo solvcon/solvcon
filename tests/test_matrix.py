@@ -376,9 +376,9 @@ class MatmulTestBase(sc.testing.TestBase):
                 self.assert_matmul_planned(a, b, expected)
 
     def test_matrix_strides(self):
-        """Matrix axes support generic and BLAS-compatible layouts."""
+        """Matrix layouts work across each GEMM route."""
         dtype = np.dtype(self.dtype).name
-        for m, k, n in ((3, 4, 2), (16, 17, 18)):
+        for m, k, n in ((3, 4, 2), (9, 9, 9), (16, 17, 18)):
             lhs_data = np.arange(m * k, dtype=dtype).reshape(m, k)
             rhs_data = np.arange(k * n, dtype=dtype).reshape(k, n)
             lhs_cases = self.make_matrix_stride_cases(lhs_data, 1)
@@ -438,9 +438,10 @@ class MatmulTestBase(sc.testing.TestBase):
                     self.assert_matmul_planned(lhs, rhs, expected)
 
     def test_broadcast_matrix_strides(self):
-        """Broadcast matrix strides work across generic and packed routes."""
+        """Broadcast matrix strides work across each GEMM route."""
         dtype = np.dtype(self.dtype).name
-        for m, k, n in ((3, 4, 2), (17, 18, 19)):
+        fixed_shapes = tuple((side, side, side) for side in range(8, 16))
+        for m, k, n in ((3, 4, 2), *fixed_shapes, (17, 18, 19)):
             lhs_data = np.arange(2 * m * k, dtype=dtype).reshape(
                 2, 1, m, k)
             rhs_data = np.arange(5 * k * n, dtype=dtype).reshape(
