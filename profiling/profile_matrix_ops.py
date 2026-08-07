@@ -1,10 +1,13 @@
 # Copyright (c) 2026, solvcon team <contact@solvcon.net>
 # BSD 3-Clause License, see COPYING
 
+import argparse
 import functools
 import itertools
 import statistics
+
 import numpy as np
+
 import solvcon
 
 
@@ -91,7 +94,7 @@ def profile_one_call(func, *args):
     return result[0]["total_time"]
 
 
-def profile_unbatched_gemm(dtype, sides, samples=10):
+def profile_unbatched_gemm(dtype, sides, samples=1):
     tile_configs = (
         (16, 16, 16),
         (32, 32, 32),
@@ -191,42 +194,68 @@ def iter_planned_cases(dtype):
             "DOT",
             make_data(dtype, (size,)),
             make_data(dtype, (size,)),
-            15,
         )
 
     for side in vector_sides:
         vector = make_data(dtype, (side,))
         matrix = make_data(dtype, (side, side))
         batch_matrix = make_data(dtype, (2, 5, side, side))
-        yield ("GEVM", vector, matrix, 15)
-        yield ("GEMV", matrix, vector, 15)
-        yield ("Batched GEVM", vector, batch_matrix, 15)
-        yield ("Batched GEMV", batch_matrix, vector, 15)
+        yield ("GEVM", vector, matrix)
+        yield ("GEMV", matrix, vector)
+        yield ("Batched GEVM", vector, batch_matrix)
+        yield ("Batched GEMV", batch_matrix, vector)
 
     for side in (*small_sides, 256):
         batch_lhs = make_data(dtype, (10, side, side))
         batch_rhs = make_data(dtype, (10, side, side))
         cross_lhs = make_data(dtype, (2, 1, side, side))
         cross_rhs = make_data(dtype, (1, 5, side, side))
-        yield ("Equal-batch GEMM", batch_lhs, batch_rhs, 15)
-        yield ("Cross-broadcast GEMM", cross_lhs, cross_rhs, 15)
+        yield ("Equal-batch GEMM", batch_lhs, batch_rhs)
+        yield ("Cross-broadcast GEMM", cross_lhs, cross_rhs)
 
 
-def profile_planned_suite(dtype, warmups, rounds):
-    for title, lhs, rhs, samples in iter_planned_cases(dtype):
+def profile_planned_suite(dtype, warmups=1, samples=1, rounds=3):
+    for title, lhs, rhs in iter_planned_cases(dtype):
         for case_name, case_lhs, case_rhs in iter_stride_cases(lhs, rhs):
             profile_planned_case(
                 title, dtype, case_name, case_lhs, case_rhs,
                 warmups, samples, rounds)
 
 
-def main():
+def parse_positive_count(value):
+    count = int(value)
+    if count < 1:
+        raise argparse.ArgumentTypeError("must be positive")
+    return count
+
+
+def parse_arguments(argv=None):
+    parser = argparse.ArgumentParser(
+        description="Profile matrix multiplication operations.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument(
+        "--warmups", type=parse_positive_count, default=1,
+        help="untimed planned calls before each round")
+    parser.add_argument(
+        "--samples", type=parse_positive_count, default=1,
+        help="timed calls per method in each round")
+    parser.add_argument(
+        "--rounds", type=parse_positive_count, default=3,
+        help="planned profiling rounds; use 5 or more for stable results")
+    return parser.parse_args(argv)
+
+
+def main(argv=None):
+    args = parse_arguments(argv)
+
     gemm_sides = (4, 9, 16, 27, 64, 81, 243, 256, 729, 1024)
     for dtype in (np.float32, np.float64):
-        profile_unbatched_gemm(dtype, gemm_sides)
+        profile_unbatched_gemm(dtype, gemm_sides, samples=args.samples)
 
     for dtype in (np.float32, np.float64):
-        profile_planned_suite(dtype, warmups=2, rounds=5)
+        profile_planned_suite(
+            dtype, warmups=args.warmups, samples=args.samples,
+            rounds=args.rounds)
 
 
 if __name__ == "__main__":
