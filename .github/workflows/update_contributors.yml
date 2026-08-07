@@ -15,6 +15,13 @@ permissions:
 
 jobs:
   remind:
+    # Only perform for the specific repository and make sure it is not a fork.
+    # Both conditions are required so that a non-fork copy of the repository
+    # respects the setting.
+    if: |
+      github.repository == (vars.MMGH_REMIND_REPOSITORY || 'solvcon/solvcon') &&
+      github.event.repository.fork == false
+
     runs-on: ubuntu-latest
 
     steps:

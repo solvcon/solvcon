@@ -21,6 +21,9 @@ concurrency:
 jobs:
 
   check_skip:
+    # A fork inherits no MMGH_NIGHTLY, so this gate stops the nightly cron
+    # from allocating a runner there.
+    if: github.event_name != 'schedule' || vars.MMGH_NIGHTLY == 'enable'
     uses: ./.github/workflows/check_skip_ci.yml
     permissions:
       contents: read
@@ -125,8 +128,14 @@ jobs:
 
   send_email_on_failure:
     needs: [nouse_install]
-    # Run if any of the dependencies failed in master branch
-    if: ${{ always() && contains(needs.*.result, 'failure') && github.ref_name == 'master' && github.event.repository.fork == false }}
+    # Run if any of the dependencies failed in master branch. A
+    # `timeout-minutes` kill reports `cancelled`, not `failure`.
+    if: |
+      always() &&
+      (contains(needs.*.result, 'failure') ||
+       contains(needs.*.result, 'cancelled')) &&
+      github.ref_name == 'master' &&
+      github.event.repository.fork == false
     uses: ./.github/workflows/send_email_on_fail.yml
     with:
       job_results: |

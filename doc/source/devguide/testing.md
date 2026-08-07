@@ -112,6 +112,9 @@ Each is read with a default, so an unset variable keeps the default behavior.
   the ubuntu, macOS, and sanitizer builds (default 45) and the Windows build,
   which defaults to 60 because its vcpkg plus MSVC compile runs slower than the
   others.
+- `MMGH_REMIND_REPOSITORY` (`solvcon/solvcon`): the repository whose monthly
+  `Update Contributors` cron files its reminder issue. The job also requires a
+  non-fork repository, so a fork never files one whatever this is set to.
 
 ### Behavior on a forked repository
 
@@ -119,6 +122,10 @@ Each is read with a default, so an unset variable keeps the default behavior.
   and `MMGH_PUSH_RUN_BRANCH` are unset there. By default only `pull_request`
   events run, so the fast set runs on a pull request opened in the fork, while
   pushes and the nightly schedule run nothing until the variables are set.
+- GitHub creates a run entry for the nightly cron in every fork that has
+  Actions enabled, and offers no way to suppress it. `MMGH_NIGHTLY` gates
+  `check_skip` as well as the heavy jobs, so that entry holds no job and
+  takes no runner.
 - Scheduled workflows run only on the default branch, and GitHub keeps Actions
   disabled on a new fork until it is enabled (a public fork's schedule also
   pauses after 60 days without activity).
