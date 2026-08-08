@@ -10,7 +10,7 @@ enters horizontally from the left, the top boundary holds the state behind
 an incident oblique shock, the bottom slip wall reflects that shock, and the
 flow leaves through the non-reflective outflow on the right.
 
-The driver and the analysis carry the problem itself and import
+The driver, the analysis, and the session carry the problem itself and import
 unconditionally, so a script or a no-Qt build runs and judges the reflection
 without the GUI that rides behind the pilot toggle.
 """
@@ -18,6 +18,7 @@ without the GUI that rides behind the pilot toggle.
 from ... import _pilot_core as _pcore
 from ._analytic import Reflection
 from ._driver import ObliqueShock, ObliqueShockMesher, ObliqueShockRelation
+from ._session import ReflectionSession
 
 if _pcore.enable:
     from ._app import ObliqueShockApp
@@ -37,6 +38,7 @@ __all__ = [
     'ObliqueShockMesher',
     'ObliqueShockRelation',
     'Reflection',
+    'ReflectionSession',
     'SolutionPanel',
 ]
 
