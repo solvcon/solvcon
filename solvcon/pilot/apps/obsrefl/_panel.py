@@ -6,10 +6,14 @@
 
 The controls set the free stream and the mesh, open or close the domain
 viewer sub-window, start / pause / step the march, and pick which derived
-field (density, velocity, pressure, Mach, ...) the viewer colors.  The
-widget only reports what its controls hold and calls back into its owner;
-the solver and the viewer belong to the feature in :mod:`._app`.
+field (density, velocity, pressure, Mach, ...) the viewer colors.  Below
+them the status tree reads out the run: how far it has come, and how far
+each zone stands from the analytic state it has to hold.  The widget only
+reports what its controls hold and calls back into its owner; the solver
+and the viewer belong to the feature in :mod:`._app`.
 """
+
+import math
 
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QFormLayout,
                                QComboBox, QDoubleSpinBox, QSpinBox,
@@ -30,6 +34,10 @@ class SolutionPanel(QWidget):
     FIELDS = EulerField.FIELDS
     #: Mesh flavors offered by :mod:`._driver`, the first being the default.
     CELL_TYPES = ('unstructured', 'quad', 'triangle')
+    #: What a :attr:`ReflectionSession.stop_reason` reads as in the tree.
+    RUN_STATES = {None: "running", 'cap': "step cap", 'stopped': "stopped"}
+    #: Headings of the status tree, whose first column carries the labels.
+    STATUS_COLUMNS = ("", "value", "analytic", "error")
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -94,10 +102,14 @@ class SolutionPanel(QWidget):
         self._layout.addLayout(buttons)
 
     def _build_status(self):
-        """Add the read-only step / value-range tree below the controls."""
+        """Add the read-only run readout below the controls.
+
+        The headings are what keep a zone's three numbers apart; only the
+        zone rows fill the last two columns, and the rest read as a plain
+        label / value list under them.
+        """
         self._tree = QTreeWidget()
-        self._tree.setColumnCount(1)
-        self._tree.setHeaderHidden(True)
+        self._tree.setHeaderLabels(self.STATUS_COLUMNS)
         self._tree.setFrameShape(QFrame.NoFrame)
         self._layout.addWidget(self._tree)
         self.set_status(None, None, None)
@@ -141,19 +153,51 @@ class SolutionPanel(QWidget):
         self._viewer_btn.setText("Close viewer" if open_ else "Open viewer")
         self._viewer_btn.blockSignals(False)
 
-    def set_status(self, step, vmin, vmax, targets=()):
-        """Show the marched step count, the drawn field's value range, and
-        the analytic zone values the steady solution has to reach."""
+    def set_status(self, session, vmin, vmax):
+        """Read one run out into the status tree.
+
+        ``session`` is the :class:`~._session.ReflectionSession` being
+        marched, or None before the first run; ``vmin`` and ``vmax`` bound
+        the field the viewer is drawing.
+
+        The zone rows are what judge the run.  Each carries its analytic
+        value beside the computed one, so the error in the last column is a
+        reading a user can check rather than take on faith, and the analytic
+        state is the only thing the field is measured against: how far a
+        march has come is the step count, not the size of what it last
+        changed.
+        """
         self._tree.clear()
-        if step is None:
+        if None is session:
             QTreeWidgetItem(self._tree, ["not started"])
             return
-        QTreeWidgetItem(self._tree, [f"step: {step}"])
-        QTreeWidgetItem(self._tree, [f"field: {self.field()}"])
-        QTreeWidgetItem(self._tree, [f"min: {vmin:.4g}"])
-        QTreeWidgetItem(self._tree, [f"max: {vmax:.4g}"])
-        for label, value in targets:
-            QTreeWidgetItem(self._tree, [f"{label}: {value:.4g}"])
+        name = self.field()
+        self._row("step", f"{session.step}")
+        self._row("run", self.RUN_STATES[session.stop_reason])
+        self._row("field", name)
+        self._row("min", self._number(vmin))
+        self._row("max", self._number(vmax))
+        for info in session.zone_info(name):
+            # A zone whose analytic value is zero, as the transverse
+            # velocity is in zones 1 and 3, has no error to be a percent of.
+            error = "" if math.isnan(info.error) else f"{info.error:+.2%}"
+            self._row(f"zone {info.zone}", self._number(info.computed),
+                      self._number(info.analytic), error)
+        for column in range(self._tree.columnCount() - 1):
+            self._tree.resizeColumnToContents(column)
+
+    @staticmethod
+    def _number(value):
+        """Format a readout number to four significant digits.
+
+        The alternate form keeps the trailing zeros a plain ``g`` drops, so
+        a column of values stays a column instead of ragged decimals.
+        """
+        return f"{value:#.4g}"
+
+    def _row(self, label, value, analytic="", error=""):
+        """Add one line to the status tree, under its column headings."""
+        QTreeWidgetItem(self._tree, [label, value, analytic, error])
 
     def _on_viewer_toggled(self, open_):
         self._viewer_btn.setText("Close viewer" if open_ else "Open viewer")
