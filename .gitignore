@@ -1,4 +1,5 @@
 CLAUDE.local.md
+.DS_Store
 .claude/worktrees/
 .vscode
 .vs
