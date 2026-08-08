@@ -1430,6 +1430,299 @@ class SimpleArrayBasicTC(unittest.TestCase):
         _check(test_data[3])
         _check(test_data[4], True)
 
+    def test_argsort_breaks_ties_by_position(self):
+        # Long enough to reach the unstable branch of std::sort; a handful of
+        # elements would be insertion-sorted and tie-break by accident.
+        data = np.array([i % 5 for i in range(300)], dtype='int32')
+        sarr = solvcon.SimpleArrayInt32(array=data)
+
+        args = sarr.argsort()
+        np.testing.assert_array_equal(args.ndarray,
+                                      np.argsort(data, kind='stable'))
+
+    def test_argsort_with_ghost(self):
+        data = np.array([40, 30, 20, 10], dtype='int32')
+        sarr = solvcon.SimpleArrayInt32(array=data)
+        sarr.nghost = 1
+
+        # The indices span the whole buffer, as they do for `sort()` and
+        # `take_along_axis()`. A basis that skips the ghost part instead reads
+        # past the end of the buffer and returns a different order every run.
+        np.testing.assert_array_equal(sarr.argsort().ndarray, [3, 2, 1, 0])
+
+    def test_sort_nan_goes_last(self):
+        # sort() and argsort() order through the same NaN-aware comparison as
+        # searchsorted(), so that a sorted array is one searchsorted() can
+        # search. The built-in `<` answers false in both directions for a NaN,
+        # which is not a strict ordering and leaves std::sort undefined.
+        nan = float('nan')
+        data = np.array([3.0, nan, 1.0, nan, 2.0], dtype='float64')
+
+        sarr = solvcon.SimpleArrayFloat64(array=data.copy())
+        sarr.sort()
+        np.testing.assert_array_equal(sarr.ndarray, np.sort(data))
+
+        sarr = solvcon.SimpleArrayFloat64(array=data.copy())
+        np.testing.assert_array_equal(sarr.argsort().ndarray,
+                                      np.argsort(data, kind='stable'))
+
+        sarr = solvcon.SimpleArrayFloat64(array=data.copy())
+        sarr.sort()
+        varr = solvcon.SimpleArrayFloat64(array=data)
+        for side in ('left', 'right'):
+            np.testing.assert_array_equal(
+                sarr.searchsorted(varr, side=side).ndarray,
+                np.searchsorted(np.sort(data), data, side=side))
+
+    def test_sort_complex_nan_goes_last(self):
+        nan = float('nan')
+        data = np.array([2 + 1j, complex(nan, 0), 1 + 5j,
+                         complex(0, nan), 0 + 0j], dtype='complex128')
+
+        sarr = solvcon.SimpleArrayComplex128(array=data.copy())
+        sarr.sort()
+        np.testing.assert_array_equal(sarr.ndarray, np.sort(data))
+
+        sarr = solvcon.SimpleArrayComplex128(array=data.copy())
+        np.testing.assert_array_equal(sarr.argsort().ndarray,
+                                      np.argsort(data, kind='stable'))
+
+    def test_sort_complex_is_lexicographic(self):
+        # sort(), argsort(), and searchsorted() all rest on ordering complex
+        # values, and each of them is undefined unless that order is strict.
+        data = np.array([2 + 1j, 1 + 5j, 2 - 1j, 1 + 5j, 0 + 0j],
+                        dtype='complex128')
+
+        sarr = solvcon.SimpleArrayComplex128(array=data.copy())
+        sarr.sort()
+        np.testing.assert_array_equal(sarr.ndarray, np.sort(data))
+
+        sarr = solvcon.SimpleArrayComplex128(array=data.copy())
+        np.testing.assert_array_equal(sarr.argsort().ndarray,
+                                      np.argsort(data, kind='stable'))
+
+    def test_complex_comparison_is_strict(self):
+        # `<` and `>` are bound on the complex scalar, so making the ordering
+        # strict changes what Python sees: a value used to compare less than
+        # itself. Ties in the reductions resolve to the first occurrence as a
+        # result, which is what numpy does.
+        value = solvcon.complex128(1.0, 2.0)
+        same = solvcon.complex128(1.0, 2.0)
+
+        self.assertFalse(value < same)
+        self.assertFalse(value > same)
+        self.assertTrue(value == same)
+
+        data = np.array([1 + 1j, 3 + 0j, 1 + 1j], dtype='complex128')
+        sarr = solvcon.SimpleArrayComplex128(array=data)
+        self.assertEqual(sarr.argmin(), np.argmin(data))
+        self.assertEqual(sarr.argmax(), np.argmax(data))
+
+    def test_searchsorted(self):
+        # A sorted run of values is searched forward from the previous answer,
+        # so the unsorted and the repeating cases are what keep that honest.
+        test_data = [
+            ([10, 20, 20, 20, 30, 40], [5, 10, 20, 25, 40, 45]),
+            ([10, 20, 20, 20, 30, 40], [45, 5, 25, 20, 40, 10]),
+            ([10, 20, 20, 20, 30, 40], [40, 30, 25, 20, 10, 5]),
+            ([10, 20, 20, 20, 30, 40], [20, 20, 20, 20]),
+            ([7, 7, 7, 7], [6, 7, 8]),
+            ([1, 2, 3], []),
+            ([], [1, 2, 3]),
+        ]
+
+        for data, values in test_data:
+            ndata = np.array(data, dtype='uint64')
+            nvalues = np.array(values, dtype='uint64')
+            sarr = solvcon.SimpleArrayUint64(array=ndata)
+            varr = solvcon.SimpleArrayUint64(array=nvalues)
+
+            for side in ('left', 'right'):
+                got = sarr.searchsorted(varr, side=side)
+                want = np.searchsorted(ndata, nvalues, side=side)
+                np.testing.assert_array_equal(got.ndarray, want)
+                for i, value in enumerate(values):
+                    self.assertEqual(sarr.searchsorted(int(value), side=side),
+                                     want[i])
+
+    def test_searchsorted_sorted_values_take_the_forward_path(self):
+        # A sorted value array is searched by stepping forward from the
+        # previous answer instead of over the whole array, which is a separate
+        # loop from the one an unsorted array takes. Long enough that the
+        # forward steps have somewhere to travel, and with ties, gaps, and both
+        # ends outside the data so the stepping has to stop in the right place.
+        rng = np.random.default_rng(20260808)
+        ndata = np.sort(rng.integers(0, 400, 500).astype('uint64'))
+        sarr = solvcon.SimpleArrayUint64(array=ndata)
+
+        # The last two drop out of order partway through, which ends the
+        # forward run and finishes the rest with a full search; the answers
+        # either side of that switch have to agree with numpy just the same.
+        late_drop = np.sort(rng.integers(0, 400, 700).astype('uint64'))
+        late_drop[600], late_drop[601] = late_drop[601], late_drop[600]
+        head_drop = np.sort(rng.integers(0, 400, 700).astype('uint64'))
+        head_drop[0], head_drop[1] = head_drop[1], head_drop[0]
+
+        for values in (np.sort(rng.integers(0, 400, 700).astype('uint64')),
+                       np.arange(500, dtype='uint64'),
+                       np.full(300, 7, dtype='uint64'),
+                       late_drop, head_drop):
+            varr = solvcon.SimpleArrayUint64(array=values)
+
+            for side in ('left', 'right'):
+                np.testing.assert_array_equal(
+                    sarr.searchsorted(varr, side=side).ndarray,
+                    np.searchsorted(ndata, values, side=side))
+
+    def test_searchsorted_default_side_is_left(self):
+        data = np.array([1.5, 2.5, 2.5, 4.0], dtype='float64')
+        sarr = solvcon.SimpleArrayFloat64(array=data)
+
+        self.assertEqual(sarr.searchsorted(2.5), 1)
+        self.assertEqual(sarr.searchsorted(2.5, side='right'), 3)
+
+        varr = solvcon.SimpleArrayFloat64(
+            array=np.array([2.5, 4.0], dtype='float64'))
+        got = sarr.searchsorted(varr)
+        np.testing.assert_array_equal(got.ndarray, [1, 3])
+
+    def test_searchsorted_nan(self):
+        nan = float('nan')
+        nvalues = np.array([2.0, nan, 1.0, nan, 3.0], dtype='float64')
+        varr = solvcon.SimpleArrayFloat64(array=nvalues)
+
+        # A NaN answers with the trailing run of NaN rather than the end of the
+        # array, so it must not bound the forward search of the value after it,
+        # and a number must not search into that run.
+        for data in ([1.0, 2.0, 3.0], [1.0, 2.0, nan],
+                     [1.0, nan, nan], [nan]):
+            ndata = np.array(data, dtype='float64')
+            sarr = solvcon.SimpleArrayFloat64(array=ndata)
+
+            for side in ('left', 'right'):
+                self.assertEqual(
+                    sarr.searchsorted(nan, side=side),
+                    np.searchsorted(ndata, nan, side=side))
+                np.testing.assert_array_equal(
+                    sarr.searchsorted(varr, side=side).ndarray,
+                    np.searchsorted(ndata, nvalues, side=side))
+
+    def test_searchsorted_complex_nan(self):
+        nan = float('nan')
+        # numpy sends a complex value carrying a NaN in either component past
+        # all the others as one group, whatever its other component holds, so
+        # a real part of 0 does not put `0+nanj` at the front.
+        values = [1 + 1j, 2 + 0j, complex(nan, 0),
+                  complex(0, nan), complex(nan, nan)]
+        nvalues = np.array(values, dtype='complex128')
+        varr = solvcon.SimpleArrayComplex128(array=nvalues)
+
+        for count in range(1, len(values) + 1):
+            ndata = np.sort(np.array(values[:count], dtype='complex128'))
+            sarr = solvcon.SimpleArrayComplex128(array=ndata)
+
+            for side in ('left', 'right'):
+                np.testing.assert_array_equal(
+                    sarr.searchsorted(varr, side=side).ndarray,
+                    np.searchsorted(ndata, nvalues, side=side),
+                    err_msg='count=%d side=%s' % (count, side))
+
+    def test_searchsorted_before_first_sample(self):
+        # The result is unsigned, so the zeroth-order-hold index
+        # `searchsorted(side="right") - 1` has no negative to land on. A query
+        # before the first sample answers 0, which the caller reads as "no
+        # preceding sample" instead of subtracting from it.
+        index = solvcon.SimpleArrayUint64(
+            array=np.array([10, 20, 30], dtype='uint64'))
+        grid = solvcon.SimpleArrayUint64(
+            array=np.array([5, 10, 25, 40], dtype='uint64'))
+
+        got = index.searchsorted(grid, side='right')
+        self.assertEqual(got.ndarray.dtype, np.uint64)
+        np.testing.assert_array_equal(got.ndarray, [0, 1, 2, 3])
+
+    SEARCHSORTED_DTYPES = (
+        'bool', 'int8', 'int16', 'int32', 'int64',
+        'uint8', 'uint16', 'uint32', 'uint64',
+        'float32', 'float64', 'complex64', 'complex128',
+    )
+
+    @staticmethod
+    def _searchsorted_sample(rng, dtype, size):
+        # A narrow range of values makes ties in every draw, and a tie is the
+        # only place where the two sides answer differently.
+        if dtype == 'bool':
+            return rng.integers(0, 2, size).astype(dtype)
+        elif dtype.startswith('uint'):
+            return rng.integers(0, 30, size).astype(dtype)
+        elif dtype.startswith('int'):
+            return rng.integers(-15, 15, size).astype(dtype)
+        elif dtype.startswith('float'):
+            return (rng.integers(-15, 15, size) / 2).astype(dtype)
+        else:
+            return (rng.integers(-4, 4, size)
+                    + 1j * rng.integers(-4, 4, size)).astype(dtype)
+
+    @staticmethod
+    def _searchsorted_scalar(dtype, value):
+        if dtype.startswith('complex'):
+            return getattr(solvcon, dtype)(value.real, value.imag)
+        return value.item()
+
+    def test_searchsorted_every_dtype(self):
+        rng = np.random.default_rng(20260806)
+
+        for dtype in self.SEARCHSORTED_DTYPES:
+            cls = getattr(solvcon, 'SimpleArray' + dtype.capitalize())
+            ndata = np.sort(self._searchsorted_sample(rng, dtype, 40))
+            nvalues = self._searchsorted_sample(rng, dtype, 25)
+            sarr = cls(array=ndata)
+            varr = cls(array=nvalues)
+
+            for side in ('left', 'right'):
+                msg = '%s side=%s' % (dtype, side)
+                want = np.searchsorted(ndata, nvalues, side=side)
+                np.testing.assert_array_equal(
+                    sarr.searchsorted(varr, side=side).ndarray, want,
+                    err_msg=msg)
+                for i, value in enumerate(nvalues):
+                    scalar = self._searchsorted_scalar(dtype, value)
+                    self.assertEqual(sarr.searchsorted(scalar, side=side),
+                                     want[i], msg)
+
+    def test_searchsorted_invalid_argument(self):
+        sarr = solvcon.SimpleArrayFloat64(
+            array=np.array([1.0, 2.0], dtype='float64'))
+
+        with self.assertRaisesRegex(
+            ValueError,
+            r"SimpleArray::searchsorted\(\): "
+            r'side must be "left" or "right" but got "middle"'
+        ):
+            sarr.searchsorted(1.0, side='middle')
+
+        arr2d = solvcon.SimpleArrayFloat64(
+            array=np.arange(6, dtype='float64').reshape((2, 3)))
+
+        with self.assertRaisesRegex(
+            RuntimeError,
+            r"SimpleArray::searchsorted\(\): currently only support 1D "
+            "array but the array is 2 dimension"
+        ):
+            arr2d.searchsorted(1.0)
+
+        # A zero-dimensional value array carries one element but no shape, so
+        # the result it asks for has no buffer to be written into.
+        arr0d = solvcon.SimpleArrayFloat64(
+            array=np.array(1.0, dtype='float64'))
+
+        with self.assertRaisesRegex(
+            RuntimeError,
+            r"SimpleArray::searchsorted\(\): currently only support 1D "
+            "array but the value array is 0 dimension"
+        ):
+            sarr.searchsorted(arr0d)
+
     def test_take_along_axis(self):
         data = [1, 5, 10, 2, 6, 9, 7, 8, 4, 3]
         narr = np.array(data, dtype='int32')

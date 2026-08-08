@@ -143,9 +143,9 @@ bool operator<(const ComplexImpl<T> & lhs, const ComplexImpl<T> & rhs)
 {
     if (lhs.real_v == rhs.real_v)
     {
-        return lhs.imag_v <= rhs.imag_v;
+        return lhs.imag_v < rhs.imag_v;
     }
-    return lhs.real_v <= rhs.real_v;
+    return lhs.real_v < rhs.real_v;
 }
 
 template <typename T>
