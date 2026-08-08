@@ -43,10 +43,10 @@ runs:
         # brew install llvm@21 qt6
         brew install llvm@22
         # The macos-26 runner ships with Homebrew llvm@20 linked into
-        # /usr/local/bin/ (clang, clang++, clang-format, clang-tidy, etc.).
-        # Use -sf to overwrite the existing clang-tidy with our llvm@22
-        # version, and remove clang/clang++ so that ccache-action
-        # (create-symlink: true) can create its own symlinks.
+        # /usr/local/bin/ (clang, clang++, clang-format, clang-tidy, etc.),
+        # which precedes /usr/bin on PATH. Use -sf to overwrite the existing
+        # clang-tidy with our llvm@22 version, and remove clang/clang++ so a
+        # bare clang or clang++ resolves to the Xcode toolchain.
         # clang-format is installed separately via pip (see below) so that
         # both CI platforms use the version pinned by
         # CLANG_FORMAT_CI_VERSION in the Makefile.

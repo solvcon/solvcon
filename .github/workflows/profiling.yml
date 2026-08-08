@@ -60,7 +60,6 @@ jobs:
         with:
           key: ${{ runner.os }}-Release
           restore-keys: ${{ runner.os }}-Release
-          create-symlink: true
           save: false
 
       - name: make buildext BUILD_QT=ON
