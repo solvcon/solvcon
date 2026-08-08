@@ -86,8 +86,12 @@ jobs:
       - name: ccache
         uses: hendrikmuhs/ccache-action@v1.2.23
         with:
-          key: ${{ runner.os }}-Release
-          restore-keys: ${{ runner.os }}-Release
+          # This job builds `BUILD_QT=OFF` under the `setup.py` build
+          # directory, so its objects match neither the flags nor the paths
+          # that the `build` job stores under the plain `<os>-Release` key.
+          # Sharing that key only restores a cache it cannot hit.
+          key: ${{ runner.os }}-nouse-Release
+          restore-keys: ${{ runner.os }}-nouse-Release
           save: ${{ github.event_name != 'pull_request' }}
           # Bound the cache so it does not grow without limit across the rolling
           # key. A master push or nightly run saves this cache; pull requests
