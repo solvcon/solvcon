@@ -21,9 +21,9 @@ concurrency:
 jobs:
 
   check_skip:
-    # A fork inherits no MMGH_NIGHTLY, so this gate stops the nightly cron
+    # A fork inherits no SCGH_NIGHTLY, so this gate stops the nightly cron
     # from allocating a runner there.
-    if: github.event_name != 'schedule' || vars.MMGH_NIGHTLY == 'enable'
+    if: github.event_name != 'schedule' || (vars.SCGH_NIGHTLY || vars.MMGH_NIGHTLY) == 'enable'
     uses: ./.github/workflows/check_skip_ci.yml
     permissions:
       contents: read
@@ -37,19 +37,19 @@ jobs:
     # The setup.py install path re-verifies packaging and duplicates the build
     # job's pytest. It does not gate correctness on a pull request, so it runs
     # on the nightly schedule and on release tag pushes only, not on pull
-    # requests or master pushes. Set the MMGH_FORCE_NOUSE_INSTALL variable to
+    # requests or master pushes. Set the SCGH_FORCE_NOUSE_INSTALL variable to
     # 'enable' to force it on a fork.
     if: |
       needs.check_skip.outputs.skip != 'true' && (
-      (github.event_name == 'schedule' && vars.MMGH_NIGHTLY == 'enable') ||
+      (github.event_name == 'schedule' && (vars.SCGH_NIGHTLY || vars.MMGH_NIGHTLY) == 'enable') ||
       (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) ||
-      vars.MMGH_FORCE_NOUSE_INSTALL == 'enable')
+      (vars.SCGH_FORCE_NOUSE_INSTALL || vars.MMGH_FORCE_NOUSE_INSTALL) == 'enable')
 
     name: nouse_install_${{ matrix.os }}_Release
 
     runs-on: ${{ matrix.os }}
 
-    timeout-minutes: ${{ fromJSON(vars.MMGH_TIMEOUT_NOUSE_INSTALL || '30') }}
+    timeout-minutes: ${{ fromJSON(vars.SCGH_TIMEOUT_NOUSE_INSTALL || vars.MMGH_TIMEOUT_NOUSE_INSTALL || '30') }}
 
     env:
       JOB_CMAKE_ARGS: -DBUILD_QT=OFF -DUSE_CLANG_TIDY=OFF -DCMAKE_BUILD_TYPE=Release

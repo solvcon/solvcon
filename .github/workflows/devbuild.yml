@@ -21,9 +21,9 @@ concurrency:
 jobs:
 
   check_skip:
-    # A fork inherits no MMGH_NIGHTLY, so this gate stops the nightly cron
+    # A fork inherits no SCGH_NIGHTLY, so this gate stops the nightly cron
     # from allocating a runner there.
-    if: github.event_name != 'schedule' || vars.MMGH_NIGHTLY == 'enable'
+    if: github.event_name != 'schedule' || (vars.SCGH_NIGHTLY || vars.MMGH_NIGHTLY) == 'enable'
     uses: ./.github/workflows/check_skip_ci.yml
     permissions:
       contents: read
@@ -38,15 +38,15 @@ jobs:
       needs.check_skip.outputs.skip != 'true' && (
       github.event_name == 'pull_request' ||
       (github.event_name == 'push' &&
-       (vars.MMGH_PUSH_RUN_BRANCH == '*' ||
-        contains(vars.MMGH_PUSH_RUN_BRANCH, github.ref_name))) ||
-      (github.event_name == 'schedule' && vars.MMGH_NIGHTLY == 'enable'))
+       ((vars.SCGH_PUSH_RUN_BRANCH || vars.MMGH_PUSH_RUN_BRANCH) == '*' ||
+        contains(vars.SCGH_PUSH_RUN_BRANCH || vars.MMGH_PUSH_RUN_BRANCH, github.ref_name))) ||
+      (github.event_name == 'schedule' && (vars.SCGH_NIGHTLY || vars.MMGH_NIGHTLY) == 'enable'))
 
     name: standalone_buffer_${{ matrix.os }}
 
     runs-on: ${{ matrix.os }}
 
-    timeout-minutes: ${{ fromJSON(vars.MMGH_TIMEOUT_STANDALONE_BUFFER || '10') }}
+    timeout-minutes: ${{ fromJSON(vars.SCGH_TIMEOUT_STANDALONE_BUFFER || vars.MMGH_TIMEOUT_STANDALONE_BUFFER || '10') }}
 
     strategy:
       matrix:
@@ -100,16 +100,16 @@ jobs:
       needs.check_skip.outputs.skip != 'true' && (
       github.event_name == 'pull_request' ||
       (github.event_name == 'push' &&
-       (vars.MMGH_PUSH_RUN_BRANCH == '*' ||
-        contains(vars.MMGH_PUSH_RUN_BRANCH, github.ref_name))) ||
+       ((vars.SCGH_PUSH_RUN_BRANCH || vars.MMGH_PUSH_RUN_BRANCH) == '*' ||
+        contains(vars.SCGH_PUSH_RUN_BRANCH || vars.MMGH_PUSH_RUN_BRANCH, github.ref_name))) ||
       (github.event_name == 'schedule' &&
-      vars.MMGH_NIGHTLY == 'enable'))
+      (vars.SCGH_NIGHTLY || vars.MMGH_NIGHTLY) == 'enable'))
 
     name: build_${{ matrix.os }}_${{ matrix.cmake_build_type }}
 
     runs-on: ${{ matrix.os }}
 
-    timeout-minutes: ${{ fromJSON(vars.MMGH_TIMEOUT_BUILD || '45') }}
+    timeout-minutes: ${{ fromJSON(vars.SCGH_TIMEOUT_BUILD || vars.MMGH_TIMEOUT_BUILD || '45') }}
 
     env:
       # Cap build parallelism. The github-hosted runners have only 3 (macOS)
@@ -272,16 +272,16 @@ jobs:
       needs.check_skip.outputs.cpp != 'false' && (
       github.event_name == 'pull_request' ||
       (github.event_name == 'push' &&
-       (vars.MMGH_PUSH_RUN_BRANCH == '*' ||
-        contains(vars.MMGH_PUSH_RUN_BRANCH, github.ref_name))) ||
+       ((vars.SCGH_PUSH_RUN_BRANCH || vars.MMGH_PUSH_RUN_BRANCH) == '*' ||
+        contains(vars.SCGH_PUSH_RUN_BRANCH || vars.MMGH_PUSH_RUN_BRANCH, github.ref_name))) ||
       (github.event_name == 'schedule' &&
-      vars.MMGH_NIGHTLY == 'enable'))
+      (vars.SCGH_NIGHTLY || vars.MMGH_NIGHTLY) == 'enable'))
 
     name: build_${{ matrix.os }}_${{ matrix.cmake_build_type }}
 
     runs-on: ${{ matrix.os }}
 
-    timeout-minutes: ${{ fromJSON(vars.MMGH_TIMEOUT_BUILD || '60') }}
+    timeout-minutes: ${{ fromJSON(vars.SCGH_TIMEOUT_BUILD || vars.MMGH_TIMEOUT_BUILD || '60') }}
 
     env:
       QT_DEBUG_PLUGINS: 1
@@ -301,7 +301,7 @@ jobs:
         # only Windows Debug compile (lint.yml has no Windows job), but it is
         # heavy and rarely breaks on its own, so it runs on the nightly
         # schedule only.
-        cmake_build_type: ${{ (github.event_name == 'schedule' && vars.MMGH_NIGHTLY == 'enable' && fromJSON('["Release", "Debug"]')) || fromJSON('["Release"]') }}
+        cmake_build_type: ${{ (github.event_name == 'schedule' && (vars.SCGH_NIGHTLY || vars.MMGH_NIGHTLY) == 'enable' && fromJSON('["Release", "Debug"]')) || fromJSON('["Release"]') }}
 
       fail-fast: false
 
@@ -429,7 +429,7 @@ jobs:
           echo "::endgroup::"
 
       - name: generate portable
-        if: ${{ matrix.cmake_build_type == 'Release' && github.event_name == 'schedule' && vars.MMGH_NIGHTLY == 'enable' }}
+        if: ${{ matrix.cmake_build_type == 'Release' && github.event_name == 'schedule' && (vars.SCGH_NIGHTLY || vars.MMGH_NIGHTLY) == 'enable' }}
         run: |
           echo "::group::generate portable"
           # Get the Python version installed and extract the major+minor version components
@@ -484,7 +484,7 @@ jobs:
           echo "::endgroup::"
 
       - name: archive portable artifacts
-        if: ${{ matrix.cmake_build_type == 'Release' && github.event_name == 'schedule' && vars.MMGH_NIGHTLY == 'enable' }}
+        if: ${{ matrix.cmake_build_type == 'Release' && github.event_name == 'schedule' && (vars.SCGH_NIGHTLY || vars.MMGH_NIGHTLY) == 'enable' }}
         uses: actions/upload-artifact@v7
         with:
           name: solvcon-pilot-win64
@@ -495,19 +495,19 @@ jobs:
     needs: [check_skip]
 
     # A genuine -DUSE_SANITIZER=ON ASAN/UBSAN build. It is slow, so it runs on
-    # the nightly schedule only (set MMGH_FORCE_SANITIZER to 'enable' to force
+    # the nightly schedule only (set SCGH_FORCE_SANITIZER to 'enable' to force
     # it on a fork). This restores the real sanitizer coverage that the build
     # job used to stub out by configuring -DUSE_SANITIZER=OFF.
     if: |
       needs.check_skip.outputs.skip != 'true' && (
-      (github.event_name == 'schedule' && vars.MMGH_NIGHTLY == 'enable') ||
-      vars.MMGH_FORCE_SANITIZER == 'enable')
+      (github.event_name == 'schedule' && (vars.SCGH_NIGHTLY || vars.MMGH_NIGHTLY) == 'enable') ||
+      (vars.SCGH_FORCE_SANITIZER || vars.MMGH_FORCE_SANITIZER) == 'enable')
 
     name: sanitizer_${{ matrix.os }}
 
     runs-on: ${{ matrix.os }}
 
-    timeout-minutes: ${{ fromJSON(vars.MMGH_TIMEOUT_BUILD || '45') }}
+    timeout-minutes: ${{ fromJSON(vars.SCGH_TIMEOUT_BUILD || vars.MMGH_TIMEOUT_BUILD || '45') }}
 
     env:
       MAKE_PARALLEL: -j2
@@ -564,18 +564,18 @@ jobs:
     # The MSVC counterpart of the sanitizer job. MSVC ships only
     # AddressSanitizer. The gtest binary and pilot.exe both link the ASan
     # runtime directly, so it starts with the process and instruments the C++
-    # core and the Qt pilot. Slow, so nightly-only (set MMGH_FORCE_SANITIZER to
+    # core and the Qt pilot. Slow, so nightly-only (set SCGH_FORCE_SANITIZER to
     # force it on a fork).
     if: |
       needs.check_skip.outputs.skip != 'true' && (
-      (github.event_name == 'schedule' && vars.MMGH_NIGHTLY == 'enable') ||
-      vars.MMGH_FORCE_SANITIZER == 'enable')
+      (github.event_name == 'schedule' && (vars.SCGH_NIGHTLY || vars.MMGH_NIGHTLY) == 'enable') ||
+      (vars.SCGH_FORCE_SANITIZER || vars.MMGH_FORCE_SANITIZER) == 'enable')
 
     name: sanitizer_${{ matrix.os }}
 
     runs-on: ${{ matrix.os }}
 
-    timeout-minutes: ${{ fromJSON(vars.MMGH_TIMEOUT_BUILD || '60') }}
+    timeout-minutes: ${{ fromJSON(vars.SCGH_TIMEOUT_BUILD || vars.MMGH_TIMEOUT_BUILD || '60') }}
 
     env:
       AQT_CONFIG: "thirdparty/aqt_settings.ini"
