@@ -3,18 +3,23 @@
 
 
 """
-Run the oblique-shock reflection to a steady state.
+Drive one oblique-shock reflection run.
 
-A reflection run is one long march that has to be watched: it is driven a
-chunk at a time so a caller stays responsive between chunks, it has to keep
-what each chunk measured, and it has to know when marching further buys
-nothing.  :class:`ReflectionSession` holds all three, so the GUI timer, a
+A reflection run is one long march that has to be watched, so it is driven a
+chunk at a time: a caller stays responsive between chunks and keeps what each
+one measured.  :class:`ReflectionSession` holds both, so the GUI timer, a
 script loop, and a test drive the same run the same way::
 
     sess = ReflectionSession(mach=3.0, angle=10.0)
     while not sess.finished:
         sess.advance()
     sess.zone_info()
+
+The march is time-accurate, and the session judges it against the analytic
+solution rather than against itself: what a run is worth is what
+:mod:`._analytic` measures of its field, not how little the field moved
+between two steps.  A run therefore ends on the step cap or on request, and
+how long to march is the caller's to choose.
 """
 
 import collections
@@ -26,13 +31,13 @@ __all__ = [
     'ReflectionSession',
     'RunHistory',
     'RunRecord',
-    'SteadyDetector',
 ]
 
 
-#: What one marched chunk leaves behind: the step it ended on, the density
-#: residual there, and the total mass, which flattens as the run settles.
-RunRecord = collections.namedtuple('RunRecord', ['step', 'residual', 'mass'])
+#: What one marched chunk leaves behind: the step it ended on and the mass the
+#: domain held there, which the inflow and the outflow move as the flow
+#: develops.
+RunRecord = collections.namedtuple('RunRecord', ['step', 'mass'])
 
 
 class RunHistory(object):
@@ -49,9 +54,9 @@ class RunHistory(object):
     def __len__(self):
         return len(self.records)
 
-    def append(self, step, residual, mass):
+    def append(self, step, mass):
         """Record one chunk; returns the new :class:`RunRecord`."""
-        record = RunRecord(step, residual, mass)
+        record = RunRecord(step, mass)
         self.records.append(record)
         return record
 
@@ -61,57 +66,9 @@ class RunHistory(object):
         return self.records[-1] if self.records else None
 
     @property
-    def residuals(self):
-        """The ``(step, residual)`` pairs, oldest first."""
-        return [(rec.step, rec.residual) for rec in self.records]
-
-    @property
     def masses(self):
         """The ``(step, mass)`` pairs, oldest first."""
         return [(rec.step, rec.mass) for rec in self.records]
-
-
-class SteadyDetector(object):
-    """Decide when a marching run has settled.
-
-    Two conditions have to hold together, because either alone misreads a
-    run.  The residual has to have fallen to :attr:`drop` times the largest
-    residual the run has seen, which keeps the slow start of a run that has
-    not built its shocks yet from passing for convergence.  It also has to
-    have stopped improving for :attr:`patience` consecutive chunks, which
-    keeps a transient dip from doing the same.  A chunk improves when it
-    lowers the best residual so far by more than :attr:`rtol`; anything less
-    counts as flat.
-
-    :ivar drop: Fraction of the peak residual a steady run reaches.
-    :ivar rtol: Relative fall that still counts as an improvement.
-    :ivar patience: Flat chunks a plateau takes to be believed.
-    :ivar peak: Largest residual seen.
-    :ivar best: Smallest residual seen.
-    :ivar flat: Chunks since the last improvement.
-    :ivar steady: Whether the newest chunk is steady.
-    """
-
-    def __init__(self, drop=1.e-2, rtol=1.e-3, patience=20):
-        self.drop = drop
-        self.rtol = rtol
-        self.patience = patience
-        self.peak = 0.0
-        self.best = float('inf')
-        self.flat = 0
-        self.steady = False
-
-    def update(self, residual):
-        """Fold one chunk's residual in; returns :attr:`steady`."""
-        self.peak = max(self.peak, residual)
-        if residual < self.best * (1.0 - self.rtol):
-            self.flat = 0
-        else:
-            self.flat += 1
-        self.best = min(self.best, residual)
-        self.steady = (self.flat >= self.patience
-                       and residual <= self.peak * self.drop)
-        return self.steady
 
 
 class ReflectionSession(object):
@@ -119,16 +76,14 @@ class ReflectionSession(object):
 
     Building the session builds the flow constants, the mesh, and the solver,
     so a session exists only around a run that is ready to march.  Each
-    :meth:`advance` marches a chunk and records what it measured; the run
-    ends on the steady state, on the step cap, or on :meth:`stop`, and
-    :attr:`stop_reason` says which.
+    :meth:`advance` marches a chunk and records what it measured; the run ends
+    on the step cap or on :meth:`stop`, and :attr:`stop_reason` says which.
 
     :ivar shock: The :class:`~._driver.ObliqueShock` being marched.
     :ivar analysis: The :class:`~._analytic.Reflection` of its field.
     :ivar history: The :class:`RunHistory` of the chunks marched so far.
-    :ivar detector: The :class:`SteadyDetector` ending the run.
     :ivar steps_per_chunk: Full CESE steps one :meth:`advance` marches.
-    :ivar max_steps: Steps after which the run ends whatever the residual.
+    :ivar max_steps: Steps after which the run ends.
     :ivar step: Steps marched so far.
     :ivar stop_reason: What ended the run, or None while it runs.
     """
@@ -150,7 +105,6 @@ class ReflectionSession(object):
                                    nx=nx, ny=ny)
         self.analysis = Reflection(self.shock)
         self.history = RunHistory()
-        self.detector = SteadyDetector()
         self.steps_per_chunk = steps_per_chunk
         self.max_steps = max_steps
         self.step = 0
@@ -166,11 +120,6 @@ class ReflectionSession(object):
         """Whether the run has ended."""
         return self.stop_reason is not None
 
-    @property
-    def steady(self):
-        """Whether the run ended on the steady state."""
-        return 'steady' == self.stop_reason
-
     def advance(self):
         """March the next chunk and record it.
 
@@ -182,11 +131,9 @@ class ReflectionSession(object):
         steps = min(self.steps_per_chunk, self.max_steps - self.step)
         self.shock.march(steps)
         self.step += steps
-        record = self.history.append(self.step, self.field.calc_residual(),
+        record = self.history.append(self.step,
                                      self.field.calc_overall_mass())
-        if self.detector.update(record.residual):
-            self.stop_reason = 'steady'
-        elif self.step >= self.max_steps:
+        if self.step >= self.max_steps:
             self.stop_reason = 'cap'
         return record
 
@@ -200,11 +147,6 @@ class ReflectionSession(object):
         """End the run where it stands, keeping the field and the history."""
         if not self.finished:
             self.stop_reason = 'stopped'
-
-    def residual(self):
-        """The residual of the newest chunk, or nan before the first."""
-        record = self.history.last
-        return record.residual if record else float('nan')
 
     def zone_info(self, name='density'):
         """See :meth:`Reflection.zone_info`."""

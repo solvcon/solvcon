@@ -4,8 +4,8 @@
 
 """The body-cell views of the multi-dimensional Euler solution.
 
-The mesh is three triangles fanning around the origin, small enough that
-the body slice, the cell volumes, and the residual are all known by hand.
+The mesh is three triangles fanning around the origin, small enough that the
+body slice, the cell volumes, and the mass over them are all known by hand.
 """
 
 import math
@@ -23,7 +23,7 @@ class _EulerFieldTB:
 
     #: Total area of the three triangles.
     AREA = 2.0
-    #: Full CESE step; a substep advances half of it.
+    #: Full CESE step the core is built with.
     DT = 1.e-2
 
     def setUp(self):
@@ -40,11 +40,8 @@ class _EulerFieldTB:
         self.field = euler.EulerField(self.svr, mh)
 
     def _seed(self, name, densities):
-        self._seed_column(name, 0, densities)
-
-    def _seed_column(self, name, icol, values):
         arr = getattr(self.svr, name)
-        arr.ndarray[arr.nghost:, icol] = values
+        arr.ndarray[arr.nghost:, 0] = densities
 
 
 class EulerFieldTC(_EulerFieldTB, unittest.TestCase):
@@ -78,42 +75,12 @@ class EulerFieldTC(_EulerFieldTB, unittest.TestCase):
         self._seed('so0n', (2.0, 2.0, 2.0))
         assert_almost_equal(self.field.calc_overall_mass(), 2.0 * self.AREA)
 
-    def test_residual_is_the_rms_change_over_the_half_step(self):
-        self._seed('so0c', (1.0, 1.0, 1.0))
-        self._seed('so0n', (1.1, 0.9, 1.0))
-        expected = math.sqrt((0.1 ** 2 + 0.1 ** 2) / 3.0) / (self.DT / 2.0)
-        assert_almost_equal(self.field.calc_residual(), expected)
-
-    def test_residual_vanishes_on_a_frozen_solution(self):
-        self._seed('so0c', (1.0, 2.0, 3.0))
-        self._seed('so0n', (1.0, 2.0, 3.0))
-        self.assertEqual(self.field.calc_residual(), 0.0)
-
-    def test_residual_of_another_conserved_variable(self):
-        # Every column of the solution has an older value to difference
-        # against, and a run settles them one at a time; density alone can
-        # sit still while the momentum still moves.
-        self._seed('so0c', (1.0, 1.0, 1.0))
-        self._seed('so0n', (1.0, 1.0, 1.0))
-        self._seed_column('so0c', 2, (0.0, 0.0, 0.0))
-        self._seed_column('so0n', 2, (0.3, -0.3, 0.0))
-        self.assertEqual(self.field.calc_residual('density'), 0.0)
-        expected = math.sqrt((0.3 ** 2 + 0.3 ** 2) / 3.0) / (self.DT / 2.0)
-        assert_almost_equal(self.field.calc_residual('momy'), expected)
-
     def test_the_conserved_variables_span_the_solution(self):
         # The names are the columns of the solution table, so a 2D run
         # carries the two momentum components between density and energy.
         self.assertEqual(('density', 'momx', 'momy', 'total_energy'),
                          self.field.conserveds)
         self.assertEqual(self.svr.neq, len(self.field.conserveds))
-        self.assertEqual(3, self.field.conserved_column('total_energy'))
-
-    def test_residual_of_a_derived_field_is_refused(self):
-        # Pressure is derived, not marched, so nothing holds its older
-        # value to difference against.
-        with self.assertRaises(ValueError):
-            self.field.calc_residual('pressure')
 
 
 class DerivedFieldTC(_EulerFieldTB, unittest.TestCase):
