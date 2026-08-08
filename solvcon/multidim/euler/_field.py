@@ -43,13 +43,6 @@ class EulerField(object):
         return (('density',) + self.MOMENTA[:self.svr.ndim]
                 + ('total_energy',))
 
-    def conserved_column(self, val):
-        """Return the column of :attr:`conserved` carrying ``val``."""
-        conserveds = self.conserveds
-        if val not in conserveds:
-            raise ValueError(f"unknown conserved variable '{val}'")
-        return conserveds.index(val)
-
     @property
     def conserved(self):
         """The newest order-0 solution, ``[ncell, neq]``.
@@ -134,33 +127,5 @@ class EulerField(object):
     def calc_overall_mass(self):
         """Return the density integrated over the whole domain."""
         return float(np.sum(self.density * self.volume))
-
-    def calc_residual(self, val='density'):
-        r"""Return the root-mean-square change of a conserved variable per
-        unit time.
-
-        .. math::
-
-            r = \frac{2}{\Delta t}
-                \sqrt{\frac{1}{N} \sum_{i=1}^{N}
-                      \left(u^{n}_{i} - u^{c}_{i}\right)^{2}}
-
-        ``val`` is one of :attr:`conserveds`.  Only a conserved variable
-        has an older value to difference against: a CESE substep advances
-        half a :attr:`EulerCore.time_increment` :math:`\Delta t` and leaves
-        the solution it started from in ``so0c``, so the change against
-        ``so0n`` spans that half step.  Averaging over the :math:`N` body
-        cells keeps meshes of different size comparable, and dividing by
-        the half step makes a rate, in the unit of :math:`u` per unit time,
-        that a run marching toward a steady state drives to zero.
-
-        Density is the default because it is the variable every wave of
-        the Euler system carries, so it settles last.
-        """
-        icol = self.conserved_column(val)
-        old = self.svr.so0c
-        change = self.conserved[:, icol] - old.ndarray[old.nghost:, icol]
-        return float(np.sqrt(np.mean(change * change))
-                     / (self.svr.time_increment / 2.0))
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
