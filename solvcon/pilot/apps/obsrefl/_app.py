@@ -18,6 +18,7 @@ from PySide6.QtWidgets import QDockWidget
 
 from .... import core
 from ...base import _gui_common
+from . import _analytic
 from . import _driver
 from . import _field_render
 from ._panel import SolutionPanel
@@ -177,7 +178,8 @@ class ObliqueShockApp(_gui_common.PilotFeature):
         timer = QTimer()
         timer.timeout.connect(self._advance)
         self._session = dict(
-            shock=shock, timer=timer, counts=counts,
+            shock=shock, analysis=_analytic.Reflection(shock),
+            timer=timer, counts=counts,
             verts=core.SimpleArrayFloat32(array=verts),
             indices=core.SimpleArrayUint32(array=indices), step=0)
         self._panel.set_paused(False)
@@ -234,14 +236,14 @@ class ObliqueShockApp(_gui_common.PilotFeature):
         if not self._viewer_alive():
             return
         session = self._session
-        shock = session['shock']
+        analysis = session['analysis']
         name = self._panel.field()
-        field = SolutionPanel.solver_field(shock.svr, name)
+        field = analysis.field.field(name)
         vmin, vmax = float(field.min()), float(field.max())
         # Scale the colors to the analytic range, not the frame's own, so a
         # field stuck short of the target looks stuck instead of stretching
         # to full color every frame.
-        zones = SolutionPanel.zone_field(shock, name)
+        zones = analysis.zone_field(name)
         lo = min(vmin, float(zones.min()))
         hi = max(vmax, float(zones.max()))
         colors = _field_render.field_colors(field, session['counts'], lo, hi)

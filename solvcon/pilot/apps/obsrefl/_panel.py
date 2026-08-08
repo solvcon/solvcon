@@ -11,12 +11,12 @@ widget only reports what its controls hold and calls back into its owner;
 the solver and the viewer belong to the feature in :mod:`._app`.
 """
 
-import numpy as np
-
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QFormLayout,
                                QComboBox, QDoubleSpinBox, QSpinBox,
                                QPushButton, QTreeWidget, QTreeWidgetItem,
                                QFrame)
+
+from ....multidim.euler import EulerField
 
 __all__ = [  # noqa: F822
     'SolutionPanel',
@@ -27,8 +27,7 @@ class SolutionPanel(QWidget):
     """Widget with the solver controls and a live solution-field readout."""
 
     #: Derived scalar fields the viewer can color, in display order.
-    FIELDS = ('density', 'velocity-x', 'velocity-y', 'speed',
-              'pressure', 'mach', 'energy')
+    FIELDS = EulerField.FIELDS
     #: Mesh flavors offered by :mod:`._driver`.
     CELL_TYPES = ('quad', 'triangle', 'unstructured')
 
@@ -155,61 +154,6 @@ class SolutionPanel(QWidget):
         QTreeWidgetItem(self._tree, [f"max: {vmax:.4g}"])
         for label, value in targets:
             QTreeWidgetItem(self._tree, [f"{label}: {value:.4g}"])
-
-    @staticmethod
-    def compute_field(name, cons, gamma, ndim):
-        """Derive the named scalar field from the conserved variables.
-
-        ``cons`` is the order-0 solution ``[ncell, neq]`` over the body cells
-        -- density, the ``ndim`` momentum components, then total energy -- and
-        ``gamma`` the matching per-cell ratio of specific heats.  Pressure
-        follows the ideal-gas relation and Mach divides the speed by the local
-        speed of sound.
-        """
-        rho = cons[:, 0]
-        energy = cons[:, 1 + ndim]
-        if name == 'density':
-            return rho
-        if name == 'energy':
-            return energy
-        vel = cons[:, 1:1 + ndim] / rho[:, None]
-        if name == 'velocity-x':
-            return vel[:, 0]
-        if name == 'velocity-y':
-            return vel[:, 1]
-        speed2 = (vel ** 2).sum(axis=1)
-        if name == 'speed':
-            return np.sqrt(speed2)
-        pressure = (gamma - 1.0) * (energy - 0.5 * rho * speed2)
-        if name == 'pressure':
-            return pressure
-        if name == 'mach':
-            return np.sqrt(speed2) / np.sqrt(gamma * pressure / rho)
-        raise ValueError(f"unknown field '{name}'")
-
-    @classmethod
-    def solver_field(cls, svr, name):
-        """Return the named field over ``svr``'s body (non-ghost) cells."""
-        ng = svr.ngstcell
-        return cls.compute_field(name, svr.so0n.ndarray[ng:],
-                                 svr.gamma.ndarray[ng:], svr.ndim)
-
-    @classmethod
-    def zone_field(cls, shock, name):
-        """Return the named field's analytic value in zones 1, 2, and 3.
-
-        The zone primitives from :meth:`ObliqueShock.zone_states` are packed
-        as one conserved row each, so the same :meth:`compute_field` that
-        derives the drawn field derives the values it has to converge to.
-        """
-        states = shock.zone_states()
-        cons = np.empty((len(states), 4), dtype='float64')
-        for it, (rho, vx, vy, p) in enumerate(states):
-            cons[it] = (rho, rho * vx, rho * vy,
-                        p / (shock.gamma - 1.0)
-                        + 0.5 * rho * (vx * vx + vy * vy))
-        gamma = np.full(len(states), shock.gamma, dtype='float64')
-        return cls.compute_field(name, cons, gamma, 2)
 
     def _on_viewer_toggled(self, open_):
         self._viewer_btn.setText("Close viewer" if open_ else "Open viewer")
