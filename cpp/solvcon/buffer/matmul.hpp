@@ -32,6 +32,102 @@ inline constexpr bool can_matmul_blas_v = std::is_same_v<T, float> ||
                                           std::is_same_v<T, Complex<float>> ||
                                           std::is_same_v<T, Complex<double>>;
 
+template <typename T>
+inline constexpr bool can_matmul_fixed_v = std::is_same_v<T, float> || std::is_same_v<T, double>;
+
+/**
+ * @brief Identify the contraction kernel selected before batch traversal.
+ */
+enum class MatmulKernel : std::uint8_t
+{
+    GenericIjk,
+    FixedIkj,
+    FixedJki,
+    BlasDot,
+    BlasGevm,
+    BlasGemv,
+    BlasGemm,
+}; /* end enum class MatmulKernel */
+
+/**
+ * @brief Identify operands that must be materialized into row-major storage.
+ */
+struct PackingState
+{
+    bool lhs = false;
+    bool rhs = false;
+
+    explicit operator bool() const noexcept { return lhs || rhs; }
+}; /* end struct PackingState */
+
+/**
+ * @brief Group measured thresholds by matmul dispatch decision.
+ *
+ * A tuning table supplies the workload boundaries used to compare generic,
+ * fixed-size IKJ, direct BLAS, and packing routes. Keeping the values separate
+ * from dispatch code allows a backend or value type to provide another table.
+ *
+ * @note MatmulExecutor currently uses one compile-time table for every
+ * supported backend and value type.
+ */
+struct MatmulTuning
+{
+    /**
+     * @brief Select BLAS when the supplied operands have compatible layouts.
+     */
+    struct DirectBlas
+    {
+        ssize_t dot_min_length;
+        ssize_t compact_gevm_min_elements;
+        ssize_t gemv_min_dimension;
+        ssize_t gemm_min_dimension;
+    }; /* end struct DirectBlas */
+
+    /**
+     * @brief Pack reused matrices that cannot be described directly to BLAS.
+     */
+    struct MatrixPacking
+    {
+        ssize_t gemm_min_dimension;
+    }; /* end struct MatrixPacking */
+
+    /**
+     * @brief Select fixed-size loop kernels for small square contractions.
+     */
+    struct FixedMatrix
+    {
+        ssize_t min_side;
+        ssize_t max_side;
+    }; /* end struct FixedMatrix */
+
+    /**
+     * @brief Select direct or packed BLAS for batched vector-matrix products.
+     */
+    struct BatchedVector
+    {
+        ssize_t direct_min_matrix_elements;
+        size_t always_pack_min_matrix_elements;
+        size_t pack_min_matrix_elements;
+        size_t pack_min_batch_size;
+        size_t reuse_min_matrix_elements;
+        size_t reuse_min_total_output_elements;
+    }; /* end struct BatchedVector */
+
+    DirectBlas direct_blas;
+    MatrixPacking matrix_packing;
+    FixedMatrix fixed_matrix;
+    BatchedVector batched_vector;
+}; /* end struct MatmulTuning */
+
+/**
+ * @brief Record the selected kernel and packing for one matmul call.
+ */
+struct MatmulSelection
+{
+    MatmulKernel kernel = MatmulKernel::GenericIjk;
+    PackingState packing;
+}; /* end struct MatmulSelection */
+
 /**
  * @brief Describe matmul operands as an execution-independent contraction.
  *
@@ -44,17 +140,12 @@ inline constexpr bool can_matmul_blas_v = std::is_same_v<T, float> ||
  *
  * For `(2,1,3,4) @ (1,5,4,6)`, the plan records batch shape `(2,5)`, M=3,
  * N=6, K=4, output shape `(2,5,3,6)`, and zero-stride batch mappings for
- * the broadcast axes. It does not allocate the output or evaluate the ten
- * matrix pairs.
+ * the broadcast axes.
  *
  * For `(K,) @ (B,K,N)`, the plan keeps a synthetic M=1 for execution but
  * omits that axis from the `(B,N)` output. Matrix-vector products similarly
  * omit synthetic N=1, while vector-vector products retain SimpleArray's
  * existing `(1,)` dot-result convention.
- *
- * @note This implementation plans vector and matrix operand roles with
- * broadcast leading batch shapes. It records the batch domain and mappings,
- * M, N, K, the output shape, and signed contraction strides.
  */
 class MatmulPlan
 {
@@ -80,6 +171,7 @@ public:
     bool lhs_has_zero_batch_stride() const noexcept { return m_batch.m_lhs_has_zero_stride; }
     bool rhs_has_zero_batch_stride() const noexcept { return m_batch.m_rhs_has_zero_stride; }
     bool has_batch_axes() const noexcept { return m_batch.m_domain.rank() != 0; }
+    size_t batch_size() const noexcept { return m_batch.m_domain.size(); }
     MappedOffsetCursor batch_cursor() const & { return MappedOffsetCursor(m_batch.m_domain, m_batch.m_mappings); }
     MappedOffsetCursor batch_cursor() const && = delete;
 
@@ -152,24 +244,50 @@ private:
     BatchMappings m_batch;
 }; /* end class MatmulPlan */
 
+void execute_fixed_ikj(
+    float * output,
+    float const * lhs,
+    float const * rhs,
+    MatmulPlan const & plan,
+    bool lhs_inner_is_unit_stride);
+
+void execute_fixed_ikj(
+    double * output,
+    double const * lhs,
+    double const * rhs,
+    MatmulPlan const & plan,
+    bool lhs_inner_is_unit_stride);
+
+void execute_fixed_jki(
+    float * output,
+    float const * lhs,
+    float const * rhs,
+    MatmulPlan const & plan);
+
+void execute_fixed_jki(
+    double * output,
+    double const * lhs,
+    double const * rhs,
+    MatmulPlan const & plan);
+
 /**
- * @brief Execute a MatmulPlan with a layout-appropriate contraction route.
+ * @brief Select and execute one contraction kernel for a MatmulPlan.
  *
- * MatmulExecutor maps vector and matrix roles to DOT, GEMV, or GEMM, then
- * selects generic, tiled, direct BLAS, or pack-once BLAS execution. It owns
- * BLAS eligibility, packing reuse, and size thresholds. The executor stores
- * its plan by value and binds caller-owned arrays. Packing rebuilds physical
- * layout metadata without changing the contraction or result shape.
+ * MatmulExecutor combines plan metadata with MatmulTuning to select a
+ * MatmulSelection. It applies the selected operand preparation, rebuilds the
+ * plan when a physical layout changes, and traverses every batch offset with
+ * the same kernel. The generic IJK kernel reads arbitrary signed strides.
+ * Fixed-size kernels select IKJ or JKI traversal from the matrix strides.
+ * BLAS kernels consume compatible vector and matrix descriptors.
  *
  * For `(2,1,3,4) @ (1,5,4,6)`, the executor visits ten batch offsets and
  * evaluates one `(3,4) @ (4,6)` contraction at each offset. The results are
  * written into the allocated `(2,5,3,6)` output.
  *
- * @note This implementation provides generic signed-stride routes, direct
- * BLAS routes, and pack-once GEMM for reused matrix operands. Batched-vector
- * tuning remains follow-up work. Pack-once applies when shape broadcasting
- * reuses an unsupported layout. Unsupported equal-batch layouts remain
- * generic.
+ * @note The current implementation selects generic or direct BLAS kernels for
+ * DOT, GEVM, GEMV, and GEMM. Small square matrix products may use fixed-size
+ * kernels. Packing materializes a reused broadcast operand once in row-major
+ * storage before traversal. Other unsupported matrix layouts remain generic.
  */
 template <typename Array>
 class MatmulExecutor
@@ -197,29 +315,51 @@ private:
         Rhs,
     };
 
-    struct PackingState
-    {
-        bool lhs = false;
-        bool rhs = false;
+    static constexpr MatmulTuning TUNING{
+        .direct_blas = {
+            .dot_min_length = 128,
+            .compact_gevm_min_elements = 729,
+            .gemv_min_dimension = 32,
+            .gemm_min_dimension = 8,
+        },
+        .matrix_packing = {
+            .gemm_min_dimension = 16,
+        },
+        .fixed_matrix = {
+            .min_side = 8,
+            .max_side = 15,
+        },
+        .batched_vector = {
+            .direct_min_matrix_elements = 512,
+            .always_pack_min_matrix_elements = 4096,
+            .pack_min_matrix_elements = 1024,
+            .pack_min_batch_size = 4,
+            .reuse_min_matrix_elements = 576,
+            .reuse_min_total_output_elements = 128,
+        },
+    };
 
-        explicit operator bool() const noexcept { return lhs || rhs; }
-    }; /* end struct PackingState */
-
-    static constexpr ssize_t BLAS_DOT_MIN_LENGTH = 128;
-    static constexpr ssize_t BLAS_COMPACT_GEVM_MIN_ELEMENTS = 729;
-    static constexpr ssize_t BLAS_GEMV_MIN_DIMENSION = 32;
-    static constexpr ssize_t BLAS_GEMM_MIN_DIMENSION = 8;
-    static constexpr ssize_t BLAS_GEMM_PACK_MIN_DIMENSION = 16;
-
-    PackingState select_packing() const;
+    MatmulSelection select_execution() const;
+    MatmulSelection select_dot() const;
+    MatmulSelection select_gevm() const;
+    MatmulSelection select_gemv() const;
+    MatmulSelection select_gemm() const;
+    PackingState select_matrix_packing(PackingState required) const;
+    PackingState select_vector_packing(PackingState required) const;
+    std::optional<MatmulSelection> select_fixed() const;
+    bool should_pack_vector() const;
     void pack(PackingState const & packing);
+
+    template <MatmulKernel Kernel>
     void execute_contractions();
+
+    template <MatmulKernel Kernel>
     void execute_at(ssize_t output_base, ssize_t lhs_base, ssize_t rhs_base);
-    bool try_execute_blas(ssize_t output_base, ssize_t lhs_base, ssize_t rhs_base);
-    bool try_dot(value_type * output, value_type const * lhs_data, value_type const * rhs_data);
-    bool try_gevm(value_type * output, value_type const * lhs_data, value_type const * rhs_data);
-    bool try_gemv(value_type * output, value_type const * lhs_data, value_type const * rhs_data);
-    bool try_gemm(value_type * output, value_type const * lhs_data, value_type const * rhs_data);
+
+    void execute_dot_blas(value_type * output, value_type const * lhs_data, value_type const * rhs_data);
+    void execute_gevm_blas(value_type * output, value_type const * lhs_data, value_type const * rhs_data);
+    void execute_gemv_blas(value_type * output, value_type const * lhs_data, value_type const * rhs_data);
+    void execute_gemm_blas(value_type * output, value_type const * lhs_data, value_type const * rhs_data);
     std::optional<matrix_view_type> lhs_matrix_view(value_type const * data) const;
     std::optional<matrix_view_type> rhs_matrix_view(value_type const * data) const;
     static std::optional<matrix_view_type> make_matrix_view(
@@ -228,7 +368,7 @@ private:
         ssize_t column_stride,
         ssize_t rows,
         ssize_t columns);
-    void execute_generic(ssize_t output_base, ssize_t lhs_base, ssize_t rhs_base);
+    void execute_generic_ijk(ssize_t output_base, ssize_t lhs_base, ssize_t rhs_base);
 
     MatmulPlan m_plan;
     Array const & m_lhs;
@@ -500,45 +640,264 @@ MatmulExecutor<Array>::MatmulExecutor(MatmulPlan plan, Array & output, Array con
 template <typename Array>
 void MatmulExecutor<Array>::execute()
 {
-    PackingState const packing = select_packing();
+    MatmulSelection const selection = select_execution();
 
-    if (packing)
+    if (selection.packing)
     {
-        pack(packing);
+        pack(selection.packing);
     }
 
-    execute_contractions();
+    switch (selection.kernel)
+    {
+    case MatmulKernel::GenericIjk:
+        execute_contractions<MatmulKernel::GenericIjk>();
+        return;
+    case MatmulKernel::FixedIkj:
+        execute_contractions<MatmulKernel::FixedIkj>();
+        return;
+    case MatmulKernel::FixedJki:
+        execute_contractions<MatmulKernel::FixedJki>();
+        return;
+    case MatmulKernel::BlasDot:
+        execute_contractions<MatmulKernel::BlasDot>();
+        return;
+    case MatmulKernel::BlasGevm:
+        execute_contractions<MatmulKernel::BlasGevm>();
+        return;
+    case MatmulKernel::BlasGemv:
+        execute_contractions<MatmulKernel::BlasGemv>();
+        return;
+    case MatmulKernel::BlasGemm:
+        execute_contractions<MatmulKernel::BlasGemm>();
+        return;
+    }
+    throw std::logic_error("MatmulExecutor::execute(): invalid kernel");
 }
 
 template <typename Array>
-typename MatmulExecutor<Array>::PackingState MatmulExecutor<Array>::select_packing() const
+MatmulSelection MatmulExecutor<Array>::select_execution() const
 {
-    PackingState packing;
 #if (defined(__APPLE__) && defined(__arm64__)) || defined(SC_HAS_CBLAS)
     if constexpr (can_matmul_blas_v<value_type>)
     {
-        if (m_plan.lhs_is_vector() || m_plan.rhs_is_vector() ||
-            std::min({m_plan.rows(), m_plan.columns(), m_plan.inner_size()}) < BLAS_GEMM_PACK_MIN_DIMENSION)
+        if (m_plan.lhs_is_vector() && m_plan.rhs_is_vector())
         {
-            return packing;
+            return select_dot();
         }
-        if (!m_plan.lhs_is_broadcast() && !m_plan.rhs_is_broadcast())
+        if (m_plan.lhs_is_vector())
         {
-            return packing;
+            return select_gevm();
         }
-        packing.lhs = !lhs_matrix_view(m_lhs_data);
-        packing.rhs = !rhs_matrix_view(m_rhs_data);
-        bool const lhs_supported =
-            !packing.lhs || (m_plan.lhs_is_broadcast() && !m_plan.lhs_has_zero_batch_stride());
-        bool const rhs_supported =
-            !packing.rhs || (m_plan.rhs_is_broadcast() && !m_plan.rhs_has_zero_batch_stride());
-        if (!lhs_supported || !rhs_supported)
+        if (m_plan.rhs_is_vector())
         {
-            return PackingState{};
+            return select_gemv();
+        }
+        MatmulSelection const selection = select_gemm();
+        if (selection.kernel != MatmulKernel::GenericIjk)
+        {
+            return selection;
         }
     }
 #endif
-    return packing;
+    if constexpr (can_matmul_fixed_v<value_type>)
+    {
+        bool const both_matrices = !m_plan.lhs_is_vector() && !m_plan.rhs_is_vector();
+        if (both_matrices)
+        {
+            std::optional<MatmulSelection> const selection = select_fixed();
+            if (selection)
+            {
+                return *selection;
+            }
+        }
+    }
+    return MatmulSelection{};
+}
+
+template <typename Array>
+MatmulSelection MatmulExecutor<Array>::select_dot() const
+{
+    ssize_t const lhs_stride = m_plan.lhs_inner_stride();
+    ssize_t const rhs_stride = m_plan.rhs_inner_stride();
+    bool const strides_supported = (lhs_stride == 1 && rhs_stride == 1) ||
+                                   (lhs_stride == -1 && rhs_stride == -1);
+    bool const use_blas = m_plan.inner_size() >= TUNING.direct_blas.dot_min_length && strides_supported;
+    return MatmulSelection{
+        .kernel = use_blas ? MatmulKernel::BlasDot : MatmulKernel::GenericIjk,
+        .packing = {},
+    };
+}
+
+template <typename Array>
+MatmulSelection MatmulExecutor<Array>::select_gevm() const
+{
+    auto const matrix = rhs_matrix_view(m_rhs_data);
+    if (!matrix)
+    {
+        return MatmulSelection{};
+    }
+    if (m_plan.has_batch_axes())
+    {
+        PackingState const required{.lhs = m_plan.lhs_inner_stride() <= 0};
+        PackingState const packing = select_vector_packing(required);
+        bool const use_blas = packing ||
+                              (m_plan.lhs_inner_stride() > 0 &&
+                               m_plan.inner_size() * m_plan.columns() >=
+                                   TUNING.batched_vector.direct_min_matrix_elements);
+        return MatmulSelection{
+            .kernel = use_blas ? MatmulKernel::BlasGevm : MatmulKernel::GenericIjk,
+            .packing = packing,
+        };
+    }
+    if (m_plan.lhs_inner_stride() <= 0)
+    {
+        return MatmulSelection{};
+    }
+
+    bool const is_compact = matrix->m_transpose == BlasTranspose::None &&
+                            matrix->m_leading_dimension == m_plan.columns();
+    bool const use_blas = is_compact
+                              ? m_plan.inner_size() * m_plan.columns() >=
+                                    TUNING.direct_blas.compact_gevm_min_elements
+                              : std::min(m_plan.inner_size(), m_plan.columns()) >=
+                                    TUNING.direct_blas.gemv_min_dimension;
+    return MatmulSelection{
+        .kernel = use_blas ? MatmulKernel::BlasGevm : MatmulKernel::GenericIjk,
+        .packing = {},
+    };
+}
+
+template <typename Array>
+MatmulSelection MatmulExecutor<Array>::select_gemv() const
+{
+    auto const matrix = lhs_matrix_view(m_lhs_data);
+    if (!matrix)
+    {
+        return MatmulSelection{};
+    }
+    if (m_plan.has_batch_axes())
+    {
+        PackingState const required{.rhs = m_plan.rhs_inner_stride() <= 0};
+        PackingState const packing = select_vector_packing(required);
+        bool const use_blas = packing ||
+                              (m_plan.rhs_inner_stride() > 0 &&
+                               m_plan.rows() * m_plan.inner_size() >=
+                                   TUNING.batched_vector.direct_min_matrix_elements);
+        return MatmulSelection{
+            .kernel = use_blas ? MatmulKernel::BlasGemv : MatmulKernel::GenericIjk,
+            .packing = packing,
+        };
+    }
+
+    bool const use_blas = m_plan.rhs_inner_stride() > 0 &&
+                          std::min(m_plan.rows(), m_plan.inner_size()) >= TUNING.direct_blas.gemv_min_dimension;
+    return MatmulSelection{
+        .kernel = use_blas ? MatmulKernel::BlasGemv : MatmulKernel::GenericIjk,
+        .packing = {},
+    };
+}
+
+template <typename Array>
+MatmulSelection MatmulExecutor<Array>::select_gemm() const
+{
+    ssize_t const minimum_dimension =
+        std::min({m_plan.rows(), m_plan.columns(), m_plan.inner_size()});
+    bool const lhs_blas_compatible = bool(lhs_matrix_view(m_lhs_data));
+    bool const rhs_blas_compatible = bool(rhs_matrix_view(m_rhs_data));
+    PackingState const blas_packing{
+        .lhs = !lhs_blas_compatible,
+        .rhs = !rhs_blas_compatible,
+    };
+    if (minimum_dimension >= TUNING.direct_blas.gemm_min_dimension && lhs_blas_compatible && rhs_blas_compatible)
+    {
+        return MatmulSelection{.kernel = MatmulKernel::BlasGemm, .packing = {}};
+    }
+    if (minimum_dimension >= TUNING.matrix_packing.gemm_min_dimension)
+    {
+        PackingState const packing = select_matrix_packing(blas_packing);
+        if (packing)
+        {
+            return MatmulSelection{.kernel = MatmulKernel::BlasGemm, .packing = packing};
+        }
+    }
+    return MatmulSelection{};
+}
+
+template <typename Array>
+PackingState MatmulExecutor<Array>::select_matrix_packing(PackingState required) const
+{
+    bool const lhs_supported =
+        !required.lhs || (m_plan.lhs_is_broadcast() && !m_plan.lhs_has_zero_batch_stride());
+    bool const rhs_supported =
+        !required.rhs || (m_plan.rhs_is_broadcast() && !m_plan.rhs_has_zero_batch_stride());
+    if (!required || !lhs_supported || !rhs_supported)
+    {
+        return PackingState{};
+    }
+    return required;
+}
+
+template <typename Array>
+PackingState MatmulExecutor<Array>::select_vector_packing(PackingState required) const
+{
+    if (!required)
+    {
+        return PackingState{};
+    }
+    bool const vector_reused = required.lhs ? m_plan.lhs_is_broadcast() : m_plan.rhs_is_broadcast();
+    return vector_reused && should_pack_vector() ? required : PackingState{};
+}
+
+template <typename Array>
+std::optional<MatmulSelection> MatmulExecutor<Array>::select_fixed() const
+{
+    bool const is_square = m_plan.rows() == m_plan.columns() && m_plan.rows() == m_plan.inner_size();
+    bool const side_supported = m_plan.rows() >= TUNING.fixed_matrix.min_side &&
+                                m_plan.rows() <= TUNING.fixed_matrix.max_side;
+    if (!is_square || !side_supported)
+    {
+        return std::nullopt;
+    }
+
+    if (m_plan.rhs_column_stride() == 1)
+    {
+        return MatmulSelection{.kernel = MatmulKernel::FixedIkj, .packing = {}};
+    }
+    if (m_plan.rhs_inner_stride() == 1)
+    {
+        return MatmulSelection{.kernel = MatmulKernel::FixedJki, .packing = {}};
+    }
+
+    bool const rhs_reused = m_plan.rhs_is_broadcast() && !m_plan.rhs_has_zero_batch_stride();
+    if (!rhs_reused)
+    {
+        return std::nullopt;
+    }
+    return MatmulSelection{.kernel = MatmulKernel::FixedIkj, .packing = {.rhs = true}};
+}
+
+template <typename Array>
+bool MatmulExecutor<Array>::should_pack_vector() const
+{
+    auto const output_size = static_cast<size_t>(
+        m_plan.lhs_is_vector() ? m_plan.columns() : m_plan.rows());
+    size_t const matrix_elements = static_cast<size_t>(m_plan.inner_size()) * output_size;
+    if (matrix_elements >= TUNING.batched_vector.always_pack_min_matrix_elements)
+    {
+        return true;
+    }
+    if (matrix_elements >= TUNING.batched_vector.pack_min_matrix_elements &&
+        m_plan.batch_size() >= TUNING.batched_vector.pack_min_batch_size)
+    {
+        return true;
+    }
+    if (matrix_elements < TUNING.batched_vector.reuse_min_matrix_elements || output_size == 0)
+    {
+        return false;
+    }
+    size_t const minimum_batch_size =
+        (TUNING.batched_vector.reuse_min_total_output_elements + output_size - 1) / output_size;
+    return m_plan.batch_size() >= minimum_batch_size;
 }
 
 template <typename Array>
@@ -561,17 +920,18 @@ void MatmulExecutor<Array>::pack(PackingState const & packing)
 }
 
 template <typename Array>
+template <MatmulKernel Kernel>
 void MatmulExecutor<Array>::execute_contractions()
 {
     if (!m_plan.has_batch_axes())
     {
-        execute_at(0, 0, 0);
+        execute_at<Kernel>(0, 0, 0);
         return;
     }
 
     for (MappedOffsetCursor cursor = m_plan.batch_cursor(); cursor; cursor.advance())
     {
-        execute_at(
+        execute_at<Kernel>(
             cursor.offset(MappingSlot::Output),
             cursor.offset(MappingSlot::Lhs),
             cursor.offset(MappingSlot::Rhs));
@@ -579,49 +939,78 @@ void MatmulExecutor<Array>::execute_contractions()
 }
 
 template <typename Array>
-void MatmulExecutor<Array>::execute_at(ssize_t output_base, ssize_t lhs_base, ssize_t rhs_base)
+template <MatmulKernel Kernel>
+void MatmulExecutor<Array>::execute_at(
+    ssize_t output_base,
+    ssize_t lhs_base,
+    ssize_t rhs_base)
 {
-    if (!try_execute_blas(output_base, lhs_base, rhs_base))
+    if constexpr (Kernel == MatmulKernel::GenericIjk)
     {
-        execute_generic(output_base, lhs_base, rhs_base);
+        execute_generic_ijk(output_base, lhs_base, rhs_base);
     }
-}
-
-template <typename Array>
-bool MatmulExecutor<Array>::try_execute_blas(ssize_t output_base, ssize_t lhs_base, ssize_t rhs_base)
-{
+    else if constexpr (Kernel == MatmulKernel::FixedIkj)
+    {
+        if constexpr (can_matmul_fixed_v<value_type>)
+        {
+            bool const lhs_inner_is_unit_stride = m_plan.lhs_inner_stride() == 1;
+            execute_fixed_ikj(
+                m_output_data + output_base,
+                m_lhs_data + lhs_base,
+                m_rhs_data + rhs_base,
+                m_plan,
+                lhs_inner_is_unit_stride);
+            return;
+        }
+        throw std::logic_error("MatmulExecutor::execute_at(): unavailable fixed IKJ kernel");
+    }
+    else if constexpr (Kernel == MatmulKernel::FixedJki)
+    {
+        if constexpr (can_matmul_fixed_v<value_type>)
+        {
+            execute_fixed_jki(
+                m_output_data + output_base,
+                m_lhs_data + lhs_base,
+                m_rhs_data + rhs_base,
+                m_plan);
+            return;
+        }
+        throw std::logic_error("MatmulExecutor::execute_at(): unavailable fixed JKI kernel");
+    }
+    else
+    {
 #if (defined(__APPLE__) && defined(__arm64__)) || defined(SC_HAS_CBLAS)
-    if constexpr (can_matmul_blas_v<value_type>)
-    {
-        value_type * output = m_output_data + output_base;
-        value_type const * lhs_data = m_lhs_data + lhs_base;
-        value_type const * rhs_data = m_rhs_data + rhs_base;
-        if (m_plan.lhs_is_vector() && m_plan.rhs_is_vector())
+        if constexpr (can_matmul_blas_v<value_type>)
         {
-            return try_dot(output, lhs_data, rhs_data);
+            value_type * output = m_output_data + output_base;
+            value_type const * lhs_data = m_lhs_data + lhs_base;
+            value_type const * rhs_data = m_rhs_data + rhs_base;
+            if constexpr (Kernel == MatmulKernel::BlasDot)
+            {
+                execute_dot_blas(output, lhs_data, rhs_data);
+            }
+            else if constexpr (Kernel == MatmulKernel::BlasGevm)
+            {
+                execute_gevm_blas(output, lhs_data, rhs_data);
+            }
+            else if constexpr (Kernel == MatmulKernel::BlasGemv)
+            {
+                execute_gemv_blas(output, lhs_data, rhs_data);
+            }
+            else if constexpr (Kernel == MatmulKernel::BlasGemm)
+            {
+                execute_gemm_blas(output, lhs_data, rhs_data);
+            }
+            return;
         }
-        if (m_plan.lhs_is_vector())
-        {
-            return !m_plan.has_batch_axes() && try_gevm(output, lhs_data, rhs_data);
-        }
-        if (m_plan.rhs_is_vector())
-        {
-            return !m_plan.has_batch_axes() && try_gemv(output, lhs_data, rhs_data);
-        }
-        return try_gemm(output, lhs_data, rhs_data);
-    }
 #endif
-    return false;
+        throw std::logic_error("MatmulExecutor::execute_at(): unavailable BLAS kernel");
+    }
 }
 
 template <typename Array>
-bool MatmulExecutor<Array>::try_dot(value_type * output, value_type const * lhs_data, value_type const * rhs_data)
+void MatmulExecutor<Array>::execute_dot_blas(value_type * output, value_type const * lhs_data, value_type const * rhs_data)
 {
-    if (m_plan.inner_size() < BLAS_DOT_MIN_LENGTH)
-    {
-        return false;
-    }
-
     ssize_t lhs_stride = m_plan.lhs_inner_stride();
     ssize_t rhs_stride = m_plan.rhs_inner_stride();
     if (lhs_stride == -1 && rhs_stride == -1)
@@ -631,69 +1020,34 @@ bool MatmulExecutor<Array>::try_dot(value_type * output, value_type const * lhs_
         lhs_stride = -lhs_stride;
         rhs_stride = -rhs_stride;
     }
-    if (lhs_stride != 1 || rhs_stride != 1)
-    {
-        return false;
-    }
 
     vector_view_type const lhs{lhs_data, lhs_stride};
     vector_view_type const rhs{rhs_data, rhs_stride};
     output[0] = dot_blas(m_plan.inner_size(), lhs, rhs);
-    return true;
 }
 
 template <typename Array>
-bool MatmulExecutor<Array>::try_gevm(value_type * output, value_type const * lhs_data, value_type const * rhs_data)
+void MatmulExecutor<Array>::execute_gevm_blas(value_type * output, value_type const * lhs_data, value_type const * rhs_data)
 {
-    ssize_t const vector_stride = m_plan.lhs_inner_stride();
-    auto const matrix = rhs_matrix_view(rhs_data);
-    if (vector_stride <= 0 || !matrix)
-    {
-        return false;
-    }
-    bool const is_compact = matrix->m_transpose == BlasTranspose::None &&
-                            matrix->m_leading_dimension == m_plan.columns();
-    bool const is_large_enough = is_compact
-                                     ? m_plan.inner_size() * m_plan.columns() >= BLAS_COMPACT_GEVM_MIN_ELEMENTS
-                                     : std::min(m_plan.inner_size(), m_plan.columns()) >= BLAS_GEMV_MIN_DIMENSION;
-    if (!is_large_enough)
-    {
-        return false;
-    }
-    vector_view_type const vector{lhs_data, vector_stride};
-    gemv_blas(m_plan.inner_size(), m_plan.columns(), *matrix, vector, output, BlasTranspose::Transpose);
-    return true;
+    matrix_view_type const matrix = rhs_matrix_view(rhs_data).value();
+    vector_view_type const vector{lhs_data, m_plan.lhs_inner_stride()};
+    gemv_blas(m_plan.inner_size(), m_plan.columns(), matrix, vector, output, BlasTranspose::Transpose);
 }
 
 template <typename Array>
-bool MatmulExecutor<Array>::try_gemv(value_type * output, value_type const * lhs_data, value_type const * rhs_data)
+void MatmulExecutor<Array>::execute_gemv_blas(value_type * output, value_type const * lhs_data, value_type const * rhs_data)
 {
-    auto const matrix = lhs_matrix_view(lhs_data);
-    ssize_t const vector_stride = m_plan.rhs_inner_stride();
-    if (std::min(m_plan.rows(), m_plan.inner_size()) < BLAS_GEMV_MIN_DIMENSION || !matrix || vector_stride <= 0)
-    {
-        return false;
-    }
-    vector_view_type const vector{rhs_data, vector_stride};
-    gemv_blas(m_plan.rows(), m_plan.inner_size(), *matrix, vector, output, BlasTranspose::None);
-    return true;
+    matrix_view_type const matrix = lhs_matrix_view(lhs_data).value();
+    vector_view_type const vector{rhs_data, m_plan.rhs_inner_stride()};
+    gemv_blas(m_plan.rows(), m_plan.inner_size(), matrix, vector, output, BlasTranspose::None);
 }
 
 template <typename Array>
-bool MatmulExecutor<Array>::try_gemm(value_type * output, value_type const * lhs_data, value_type const * rhs_data)
+void MatmulExecutor<Array>::execute_gemm_blas(value_type * output, value_type const * lhs_data, value_type const * rhs_data)
 {
-    if (std::min({m_plan.rows(), m_plan.columns(), m_plan.inner_size()}) < BLAS_GEMM_MIN_DIMENSION)
-    {
-        return false;
-    }
-    auto const lhs = lhs_matrix_view(lhs_data);
-    auto const rhs = rhs_matrix_view(rhs_data);
-    if (!lhs || !rhs)
-    {
-        return false;
-    }
-    gemm_blas(m_plan.rows(), m_plan.columns(), m_plan.inner_size(), *lhs, *rhs, output);
-    return true;
+    matrix_view_type const lhs = lhs_matrix_view(lhs_data).value();
+    matrix_view_type const rhs = rhs_matrix_view(rhs_data).value();
+    gemm_blas(m_plan.rows(), m_plan.columns(), m_plan.inner_size(), lhs, rhs, output);
 }
 
 template <typename Array>
@@ -732,7 +1086,7 @@ std::optional<typename MatmulExecutor<Array>::matrix_view_type> MatmulExecutor<A
 }
 
 template <typename Array>
-void MatmulExecutor<Array>::execute_generic(ssize_t output_base, ssize_t lhs_base, ssize_t rhs_base)
+void MatmulExecutor<Array>::execute_generic_ijk(ssize_t output_base, ssize_t lhs_base, ssize_t rhs_base)
 {
     for (ssize_t row = 0; row < m_plan.rows(); ++row)
     {
