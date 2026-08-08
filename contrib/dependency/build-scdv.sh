@@ -938,7 +938,7 @@ if [ "${SCDV_PRINT_DEPS_ONLY}" = "1" ] ; then
 fi
 
 # The per-OS blocks assume x86_64 on Ubuntu and arm64 on macOS.
-SCDV_ARCH=$(uname -m)
+SCDV_ARCH=${SCDV_ARCH:-$(uname -m)}
 
 if [ "${SCDV_ALLOW_UNSUPPORTED_PLATFORM}" = "1" ] ; then
   echo "warning: platform support check overridden for" \
