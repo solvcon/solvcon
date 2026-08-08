@@ -75,6 +75,24 @@ CMake itself is configured through `CMakePresets.json`; see
 {doc}`/devguide/cmake` for the preset a Windows build or an IDE selects, and
 for where the paths of a local dependency prefix belong.
 
+## Sharing ccache Between Checkouts
+
+A second checkout, such as a `git worktree` tree, reuses nothing from the
+first.  The compile line carries absolute paths, and ccache also hashes the
+working directory when the build carries debug information.  Two settings
+remove both:
+
+```sh
+ccache --set-config base_dir=$HOME
+printf 'hash_dir = false\n' > build/rel314/ccache.conf
+```
+
+The second file needs ccache 4.13 or newer, and `make cmakeclean` removes it
+along with the build tree.  ccache reads it from the compile directory and
+its parents, so write one into each tree meant to share, and leave it out of
+a debug tree: an object reused elsewhere records the source paths of the
+checkout that compiled it first.
+
 After building, run the tests as described in {doc}`/devguide/testing`.
 
 <!-- vim: set ft=markdown ff=unix fenc=utf8 et sw=2 ts=2 sts=2 tw=79: -->
