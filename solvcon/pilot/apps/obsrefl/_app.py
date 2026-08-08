@@ -7,9 +7,11 @@ selected solution field as a flat color map.
 
 The feature mirrors the mesh information panel: a toggle in the View
 "Panels" submenu owns the control widget from :mod:`._panel`, and the
-callbacks that widget fires build the driver, open the domain viewer
-sub-window, and march into it on a timer.
+callbacks that widget fires build the run session from :mod:`._session`,
+open the domain viewer sub-window, and pump the session into it on a timer.
 """
+
+import collections
 
 import numpy as np
 
@@ -18,14 +20,20 @@ from PySide6.QtWidgets import QDockWidget
 
 from .... import core
 from ...base import _gui_common
-from . import _analytic
-from . import _driver
 from . import _field_render
 from ._panel import SolutionPanel
+from ._session import ReflectionSession
 
 __all__ = [  # noqa: F822
     'ObliqueShockApp',
 ]
+
+
+#: What the viewer needs to recolor one run: the packed triangle vertices, the
+#: indices into them, and how many triangles each cell contributed.  It is cut
+#: from the mesh, so it outlives every frame of the run.
+FrameGeometry = collections.namedtuple('FrameGeometry',
+                                       ['verts', 'indices', 'counts'])
 
 
 class _SubWindowCloseFilter(QObject):
@@ -49,12 +57,14 @@ class ObliqueShockApp(_gui_common.PilotFeature):
     """Euler solver panel, toggled from the View "Panels" submenu.
 
     The panel owns one domain viewer sub-window and one solver run.  The viewer
-    control opens and closes the sub-window; starting marches the driver into
-    it on a timer; closing it stops the march.
+    control opens and closes the sub-window; starting marches the run into it
+    on a timer; closing it stops the march.
+
+    The run itself belongs to :class:`~._session.ReflectionSession`, which
+    decides how far a chunk marches and when the run is over.  This feature
+    only pumps it: one chunk per timer frame, one frame drawn after each.
     """
 
-    #: Stop the timer-driven march after this many steps.
-    MAX_STEPS = 2000
     #: Qt timer interval in milliseconds.
     INTERVAL_MS = 50
     #: Lift the analytic shock overlay off the z = 0 field plane so it is
@@ -69,6 +79,9 @@ class ObliqueShockApp(_gui_common.PilotFeature):
         self._dock = None
         self._panel = None
         self._session = None
+        self._frame = None
+        self._timer = QTimer()
+        self._timer.timeout.connect(self._advance)
         self._viewer = None
         self._subwin = None
         self._close_filter = None
@@ -149,19 +162,12 @@ class ObliqueShockApp(_gui_common.PilotFeature):
         return self._viewer is not None
 
     def _on_start(self):
-        """(Re)build the driver from the controls and march into the viewer,
-        opening the viewer sub-window first if it was closed."""
+        """(Re)build the run session from the controls and march it into the
+        viewer, opening the viewer sub-window first if it was closed."""
         self._stop_timer()
         self._open_viewer()
-        params = self._panel.params()
-        shock = _driver.ObliqueShock()
-        shock.build_constant(gamma=params['gamma'],
-                             density=params['density'],
-                             pressure=params['pressure'],
-                             mach=params['mach'],
-                             angle=params['angle'])
-        shock.build_numerical(cell_type=params['cell_type'],
-                              time_increment=params['time_increment'])
+        self._session = ReflectionSession(**self._panel.params())
+        shock = self._session.shock
         # Set the viewer mesh so the inspector can report it; reusing an open
         # viewer raises no activation, so nudge the inspector directly.
         if self._viewer is not None:
@@ -169,30 +175,18 @@ class ObliqueShockApp(_gui_common.PilotFeature):
             self._draw_shock_path(shock)
             if self.viewer_updated is not None:
                 self.viewer_updated()
-        fan, counts = _field_render.cell_triangulation(shock.mesh)
-        # updateColorField wants an indexed vertex soup; the fan already is
-        # one, so pack its vertices once (the geometry is fixed for the run)
-        # and index them sequentially.
-        verts = fan.pack_array().ndarray.reshape(-1, 3)
-        indices = np.arange(verts.shape[0], dtype='uint32').reshape(-1, 3)
-        timer = QTimer()
-        timer.timeout.connect(self._advance)
-        self._session = dict(
-            shock=shock, analysis=_analytic.Reflection(shock),
-            timer=timer, counts=counts,
-            verts=core.SimpleArrayFloat32(array=verts),
-            indices=core.SimpleArrayUint32(array=indices), step=0)
+        self._frame = self._build_frame(shock.mesh)
         self._panel.set_paused(False)
         self._draw_frame()
-        timer.start(self.INTERVAL_MS)
+        self._timer.start(self.INTERVAL_MS)
 
     def _on_pause(self, paused):
         if self._session is None:
             return
         if paused:
-            self._session['timer'].stop()
+            self._timer.stop()
         elif self._viewer_alive():
-            self._session['timer'].start(self.INTERVAL_MS)
+            self._timer.start(self.INTERVAL_MS)
 
     def _on_step(self):
         if self._session is not None and self._viewer_alive():
@@ -206,18 +200,35 @@ class ObliqueShockApp(_gui_common.PilotFeature):
         if not self._viewer_alive():
             self._stop_timer()
             return
-        if self._session['step'] >= self.MAX_STEPS:
-            self._session['timer'].stop()
+        if self._session.finished:
+            self._stop_timer()
             self._panel.set_paused(True)
             return
         self._march_frame()
 
     def _march_frame(self):
-        session = self._session
-        steps = self._panel.steps_per_frame()
-        session['shock'].march(steps)
-        session['step'] += steps
+        """March one chunk and draw what it left behind.
+
+        The chunk length is read from the control every frame, so turning
+        the dial mid-run takes effect on the next one.
+        """
+        self._session.steps_per_chunk = self._panel.steps_per_frame()
+        self._session.advance()
         self._draw_frame()
+
+    @staticmethod
+    def _build_frame(mesh):
+        """Cut the :class:`FrameGeometry` of a run from its mesh.
+
+        ``updateColorField`` wants an indexed vertex soup; the cell fan
+        already is one, so its vertices are packed once, the geometry being
+        fixed for the run, and indexed sequentially.
+        """
+        fan, counts = _field_render.cell_triangulation(mesh)
+        verts = fan.pack_array().ndarray.reshape(-1, 3)
+        indices = np.arange(verts.shape[0], dtype='uint32').reshape(-1, 3)
+        return FrameGeometry(core.SimpleArrayFloat32(array=verts),
+                             core.SimpleArrayUint32(array=indices), counts)
 
     def _draw_shock_path(self, shock):
         """Overlay the analytic shock polyline on the viewer.
@@ -236,26 +247,22 @@ class ObliqueShockApp(_gui_common.PilotFeature):
         if not self._viewer_alive():
             return
         session = self._session
-        analysis = session['analysis']
         name = self._panel.field()
-        field = analysis.field.field(name)
+        field = session.field.field(name)
         vmin, vmax = float(field.min()), float(field.max())
         # Scale the colors to the analytic range, not the frame's own, so a
         # field stuck short of the target looks stuck instead of stretching
         # to full color every frame.
-        zones = analysis.zone_field(name)
+        zones = session.analysis.zone_field(name)
         lo = min(vmin, float(zones.min()))
         hi = max(vmax, float(zones.max()))
-        colors = _field_render.field_colors(field, session['counts'], lo, hi)
-        self._viewer.updateColorField(
-            session['verts'], core.SimpleArrayFloat32(array=colors),
-            session['indices'])
-        targets = [(f"zone{it + 1} analytic", float(zones[it]))
-                   for it in range(len(zones))]
-        self._panel.set_status(session['step'], vmin, vmax, targets)
+        colors = _field_render.field_colors(field, self._frame.counts, lo, hi)
+        self._viewer.updateColorField(self._frame.verts,
+                                      core.SimpleArrayFloat32(array=colors),
+                                      self._frame.indices)
+        self._panel.set_status(session, vmin, vmax)
 
     def _stop_timer(self):
-        if self._session is not None:
-            self._session['timer'].stop()
+        self._timer.stop()
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

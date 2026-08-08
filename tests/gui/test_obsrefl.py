@@ -33,6 +33,17 @@ class ObliqueShockAppTC(unittest.TestCase):
         feature._action.setChecked(True)  # builds the dock and panel
         return feature
 
+    @staticmethod
+    def _items(feature):
+        tree = feature._panel._tree
+        return [tree.topLevelItem(it)
+                for it in range(tree.topLevelItemCount())]
+
+    @classmethod
+    def _status(cls, feature):
+        """The status tree's value column, as ``{label: value}``."""
+        return {item.text(0): item.text(1) for item in cls._items(feature)}
+
     def test_panel_starts_paused_without_session(self):
         feature = self._feature()
         # Before Start there is no run, and the status tree says so.
@@ -45,18 +56,17 @@ class ObliqueShockAppTC(unittest.TestCase):
         feature._panel._mach.setValue(2.5)
         feature._on_start()
         # Stop the timer so the heavy march does not run during the test.
-        feature._session['timer'].stop()
-        self.assertIsNotNone(feature._session)
-        self.assertEqual(feature._session['step'], 0)
+        feature._timer.stop()
+        self.assertIsInstance(feature._session, _app.ReflectionSession)
+        self.assertEqual(feature._session.step, 0)
+        self.assertEqual(feature._session.shock.mach, 2.5)
         self.assertIsNotNone(self.mgr.currentR3DWidget())
-        sections = [feature._panel._tree.topLevelItem(i).text(0)
-                    for i in range(feature._panel._tree.topLevelItemCount())]
-        self.assertTrue(any(s.startswith("step: 0") for s in sections))
+        self.assertEqual("0", self._status(feature)["step"])
 
     def test_start_sets_viewer_mesh_for_inspector(self):
         feature = self._feature()
         feature._on_start()
-        feature._session['timer'].stop()
+        feature._timer.stop()
         # The inspector reads the active viewer's mesh; the solver viewer must
         # carry the run's mesh so the mesh panel is not empty during a run.
         self.assertIsNotNone(self.mgr.currentR3DWidget().mesh)
@@ -70,39 +80,54 @@ class ObliqueShockAppTC(unittest.TestCase):
         # sub-window activation, so start must notify the inspector itself.
         feature._panel._viewer_btn.setChecked(True)
         feature._on_start()
-        feature._session['timer'].stop()
+        feature._timer.stop()
         self.assertEqual(len(calls), 1)
         QApplication.processEvents()
 
     def test_step_advances_one_frame(self):
         feature = self._feature()
         feature._on_start()
-        feature._session['timer'].stop()
+        feature._timer.stop()
         feature._panel.set_paused(True)
         feature._panel._steps.setValue(3)
         feature._on_step()
-        self.assertEqual(feature._session['step'], 3)
+        self.assertEqual(feature._session.step, 3)
+        status = self._status(feature)
+        self.assertEqual("3", status["step"])
+        self.assertEqual("running", status["run"])
+
+    def test_the_frame_timer_follows_the_session_to_its_end(self):
+        feature = self._feature()
+        feature._on_start()
+        # The frame timer stops on the session's decision instead of counting
+        # steps of its own.
+        feature._session.stop()
+        feature._advance()
+        self.assertFalse(feature._timer.isActive())
+        self.assertTrue(feature._panel._pause.isChecked())
+        feature._draw_frame()
+        self.assertEqual("stopped", self._status(feature)["run"])
+        QApplication.processEvents()
 
     def test_pause_toggle_controls_timer(self):
         feature = self._feature()
         feature._on_start()
         feature._panel._pause.setChecked(True)
-        self.assertFalse(feature._session['timer'].isActive())
+        self.assertFalse(feature._timer.isActive())
         feature._panel._pause.setChecked(False)
-        self.assertTrue(feature._session['timer'].isActive())
-        feature._session['timer'].stop()
+        self.assertTrue(feature._timer.isActive())
+        feature._timer.stop()
 
     def test_field_change_redraws_without_marching(self):
         feature = self._feature()
         feature._on_start()
-        feature._session['timer'].stop()
+        feature._timer.stop()
         feature._panel._pause.setChecked(True)
-        step = feature._session['step']
+        step = feature._session.step
         feature._panel._field.setCurrentText('pressure')
         # Picking a field recolors the current frame; it must not march.
-        self.assertEqual(feature._session['step'], step)
-        root = feature._panel._tree.topLevelItem(1)
-        self.assertIn("pressure", root.text(0))
+        self.assertEqual(feature._session.step, step)
+        self.assertEqual("pressure", self._status(feature)["field"])
 
     def test_viewer_button_opens_and_closes_subwindow(self):
         feature = self._feature()
@@ -121,12 +146,12 @@ class ObliqueShockAppTC(unittest.TestCase):
         # drawing into the freed widget.
         feature._close_viewer()
         self.assertIsNone(feature._viewer)
-        self.assertFalse(feature._session['timer'].isActive())
+        self.assertFalse(feature._timer.isActive())
         self.assertFalse(feature._panel._viewer_btn.isChecked())
-        step = feature._session['step']
+        step = feature._session.step
         feature._advance()
         feature._draw_frame()
-        self.assertEqual(feature._session['step'], step)
+        self.assertEqual(feature._session.step, step)
         QApplication.processEvents()
 
     def test_start_reopens_a_closed_viewer(self):
@@ -134,7 +159,7 @@ class ObliqueShockAppTC(unittest.TestCase):
         feature._on_start()
         feature._close_viewer()
         feature._on_start()
-        feature._session['timer'].stop()
+        feature._timer.stop()
         self.assertIsNotNone(feature._viewer)
         self.assertTrue(feature._panel._viewer_btn.isChecked())
         QApplication.processEvents()
@@ -150,7 +175,7 @@ class SolutionInspectorTC(unittest.TestCase):
         ctl = _gui.controller
         ctl.build()
         ctl.tree_panel._action.setChecked(True)
-        sol = ctl.solution_info
+        sol = ctl.obsrefl_app
         sol._action.setChecked(True)
         # Open the viewer first, then start: the reused viewer raises no
         # activation, so only the wired refresh keeps the inspector from
@@ -158,7 +183,7 @@ class SolutionInspectorTC(unittest.TestCase):
         sol._panel._viewer_btn.setChecked(True)
         QApplication.processEvents()
         sol._on_start()
-        sol._session['timer'].stop()
+        sol._timer.stop()
         QApplication.processEvents()
         root = ctl.tree_panel._mesh_tree._tree.topLevelItem(0)
         self.assertEqual(root.text(0), "StaticMesh (2D)")

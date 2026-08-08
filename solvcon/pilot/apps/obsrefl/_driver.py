@@ -53,8 +53,12 @@ class ObliqueShockMesher(object):
         return (self._nid(it, jt), self._nid(it + 1, jt),
                 self._nid(it + 1, jt + 1), self._nid(it, jt + 1))
 
-    def make_mesh(self, cell_type='quad'):
+    def make_mesh(self, cell_type='unstructured'):
         """Build a :class:`~solvcon.core.StaticMesh` of the selected flavor.
+
+        The unstructured flavor is the default because it is the one the
+        CESE scheme is meant for; the two structured flavors line their cells
+        up with the domain, which flatters a solver on a rectangle.
 
         ``cell_type`` selects the element shape:
 
@@ -470,7 +474,7 @@ class ObliqueShock(object):
         speed3 = self.mach3 * math.sqrt(gamma * self.pressure3 / self.density3)
         self.velocity3 = (speed3, 0.0)
 
-    def build_numerical(self, cell_type='quad', time_increment=2.e-3,
+    def build_numerical(self, cell_type='unstructured', time_increment=2.e-3,
                         sigma0=3.0, taumin=0.0, tauscale=1.0, **mesher_kw):
         """After :meth:`build_constant` is done, build the numerical solver
         :attr:`svr` over the selected mesh flavor.

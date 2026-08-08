@@ -94,7 +94,7 @@ class ReflectionSession(object):
     MAX_STEPS = 2000
 
     def __init__(self, gamma=1.4, density=1.0, pressure=1.0, mach=3.0,
-                 angle=10.0, cell_type='quad', time_increment=2.e-3,
+                 angle=10.0, cell_type='unstructured', time_increment=2.e-3,
                  nx=64, ny=16, steps_per_chunk=STEPS_PER_CHUNK,
                  max_steps=MAX_STEPS):
         self.shock = ObliqueShock()

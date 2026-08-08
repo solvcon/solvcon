@@ -276,6 +276,7 @@ public:
     void setCameraTarget(QVector3D const & target);
     QVector3D cameraUp() const;
     void setCameraUp(QVector3D const & up);
+    float cameraZoom() const;
 
     // Mode-aware interaction primitives (what the mouse and wheel drive).
     void rotateCamera(float dx, float dy);
@@ -317,8 +318,8 @@ private:
     /// three mesh drawables' visibility.
     void applyMeshVisibility();
 
-    /// Swap in a new field drawable (color or scalar) and re-frame the
-    /// scene around its bounding box.
+    /// Swap in a new field drawable, re-framing the scene only when the
+    /// field's bounding box moved.
     template <typename FieldT>
     void installField(std::unique_ptr<FieldT> field);
 
@@ -432,6 +433,12 @@ private:
 template <typename FieldT>
 void RDomainWidget::installField(std::unique_ptr<FieldT> field)
 {
+    // A run recolors one geometry frame after frame, so framing every install
+    // would undo the user's pan and zoom as fast as they are applied.
+    bool const framed = m_has_field_bbox;
+    QVector3D const framed_lo = m_field_lo;
+    QVector3D const framed_hi = m_field_hi;
+
     // Drop the previous field and replace it; the field is swappable.
     m_scene.removeDrawable(m_field);
     m_field = nullptr;
@@ -455,7 +462,10 @@ void RDomainWidget::installField(std::unique_ptr<FieldT> field)
         m_has_field_bbox = true;
         m_field = field.get();
         m_scene.addDrawable(std::move(field));
-        m_scene.fitCameraToScene(viewportAspect());
+        if (!framed || framed_lo != lo || framed_hi != hi)
+        {
+            m_scene.fitCameraToScene(viewportAspect());
+        }
     }
 
     update();
