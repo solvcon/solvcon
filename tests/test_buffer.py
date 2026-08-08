@@ -282,6 +282,27 @@ class SimpleArrayBasicTC(unittest.TestCase):
         self.assertEqual((12, 2), sarr.reshape((12, 2)).shape)
         self.assertEqual((2, 2, 2, 3), sarr.reshape((2, 2, 2, 3)).shape)
 
+    def test_tolist(self):
+        # 1D array
+        input_size = 10
+        arr = solvcon.SimpleArray(input_size, dtype='float64')
+        for i in range(input_size):
+            arr[i] = float(i)
+
+        res_list = arr.tolist()
+        self.assertIsInstance(res_list, list)
+        np_arr = np.array(arr, copy=False)
+        self.assertEqual(res_list, np_arr.tolist())
+
+        # Multi-dimensional shape (nested list verification)
+        arr_2d = solvcon.SimpleArray((2, 3), dtype='int32')
+        arr_2d.fill(1)
+        self.assertEqual(arr_2d.tolist(), [[1, 1, 1], [1, 1, 1]])
+
+        # Empty array
+        arr_empty = solvcon.SimpleArray(0, dtype='float64')
+        self.assertEqual(arr_empty.tolist(), [])
+
     def test_SimpleArray_reshape_transposed(self):
         ndarr = np.arange(6, dtype="float64").reshape((2, 3))
         view = ndarr.T
@@ -5296,6 +5317,23 @@ class SimpleCollectorTC(unittest.TestCase):
         self.assertEqual(20, ct.capacity)  # double capacity but not power of 2
         self.assertEqual(11, len(ct))
         self.assertEqual(ct[10], 3.14159 * 4)
+    
+    def test_tolist_all_types(self):
+        # Test across various collector types
+        test_cases = [
+            (solvcon.SimpleCollectorInt32, [1, 2, 3]),
+            (solvcon.SimpleCollectorFloat64, [1.0, 2.0, 3.0]),
+            (solvcon.SimpleCollectorBool, [True, False, True]),
+        ]
+
+        for collector_cls, expected_vals in test_cases:
+            collector = collector_cls()
+            for val in expected_vals:
+                collector.push_back(val)
+
+            res = collector.tolist()
+            self.assertIsInstance(res, list)
+            self.assertEqual(res, expected_vals)
 
     def test_alignment_validation(self):
         # Valid alignments: 0, 16, 32, 64

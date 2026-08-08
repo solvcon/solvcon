@@ -315,6 +315,7 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArrayPlex : public WrapBase<Wr
                        {
                         const auto shape = make_shape(py_shape);
                         return array.reshape(shape); }); })
+
             .def_property_readonly("has_ghost", DECL_MM_EXECUTE_TYPED_ARRAY_METHOD(has_ghost))
             .def_property(
                 "nghost",
@@ -356,6 +357,19 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArrayPlex : public WrapBase<Wr
                             array.fill(value);
                         }); },
                 py::arg("value"))
+
+            .def(
+                "tolist",
+                [](wrapped_type & self)
+                {
+                    return execute_callback_with_typed_array(
+                        self,
+                        [](auto & array)
+                        {
+                            return to_ndarray(array).attr("tolist")();
+                        });
+                },
+                "Returns the array as a Python list.")
             //
             ;
 
