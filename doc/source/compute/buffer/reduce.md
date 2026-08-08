@@ -2,8 +2,8 @@
 
 SimpleArray provides the reductions `min`, `max`, and `sum`, the statistics
 `mean`, `average`, `median`, `var`, and `std`, the sorting group `sort`,
-`argsort`, and `take_along_axis`, and the searching group `argmin`, `argmax`,
-and `argwhere`.
+`argsort`, `searchsorted`, and `take_along_axis`, and the searching group
+`argmin`, `argmax`, and `argwhere`.
 
 ## Whole-Array Reductions
 
@@ -164,6 +164,22 @@ sarr.sort()
 assert sarr.ndarray.tolist() == [1.0, 2.0, 3.0]
 ```
 
+The order is the numpy one rather than the one the built-in `<` gives. A NaN
+sorts after every number and counts equal to another NaN, and a complex value
+carrying a NaN in either component goes past all the others as one group,
+ordered lexicographically within it. `sort()`, `argsort()`, and
+`searchsorted()` share that order, so an array `sort()` has ordered is one
+`searchsorted()` can search. It covers those three only: the reductions and
+`argmin`/`argmax` order through the built-in comparison and so skip a NaN
+where numpy propagates it.
+
+```python
+narr = np.array([3.0, float('nan'), 1.0, 2.0])
+sarr = solvcon.SimpleArrayFloat64(array=narr)
+sarr.sort()
+assert np.array_equal(sarr.ndarray, np.sort(narr), equal_nan=True)
+```
+
 ### The `argsort` Method
 
 `argsort()` returns the indices that sort the receiver, under the same
@@ -177,6 +193,64 @@ args = sarr.argsort()
 assert type(args) is solvcon.SimpleArrayUint64
 assert args.ndarray.tolist() == [1, 2, 0]
 ```
+
+### The `searchsorted` Method
+
+`searchsorted(values, side="left")` returns the insertion points that keep a
+sorted one-dimensional receiver sorted, following `numpy.searchsorted`. The
+operand is either a scalar, giving a Python `int`, or a SimpleArray, giving a
+`SimpleArrayUint64` of the operand's shape. `side="left"` gives the first
+position where the value may be inserted and `side="right"` the position after
+the last equal element, so the two differ only where the receiver holds a run
+of equal values:
+
+```python
+sarr = solvcon.SimpleArrayFloat64(array=np.array([1.5, 2.5, 2.5, 4.0]))
+assert sarr.searchsorted(2.5) == 1
+assert sarr.searchsorted(2.5, side='right') == 3
+
+varr = solvcon.SimpleArrayFloat64(array=np.array([2.5, 4.0]))
+assert sarr.searchsorted(varr).ndarray.tolist() == [1, 3]
+```
+
+The receiver must already be sorted under the order described for `sort()`;
+searching an unsorted receiver returns unspecified indices rather than raising.
+A sorted operand is answered by stepping forward from the previous result
+rather than searching the whole receiver each time, which is the resampling
+case and the faster one; an unsorted operand costs a full search per value.
+Only one-dimensional arrays are supported, for both the receiver and the
+operand, and any other rank raises `RuntimeError`. A `side` that is neither
+`"left"` nor `"right"` raises `ValueError`.
+
+Two things diverge from numpy. The result is a `SimpleArrayUint64`, where
+numpy returns a signed `intp` array, and the array operand must be a
+SimpleArray of the same class as the receiver; a numpy array or another
+SimpleArray class raises `TypeError`.
+
+The unsigned result needs care in the zeroth-order-hold lookup
+`searchsorted(side="right") - 1`, the index of the last element at or before
+each query. Where numpy's signed result gives `-1` for a query before the
+first element, the unsigned one wraps to `2**64 - 1`, so subtract only after
+testing for 0:
+
+```python
+index = solvcon.SimpleArrayUint64(array=np.array([10, 20, 30],
+                                                 dtype='uint64'))
+grid = solvcon.SimpleArrayUint64(array=np.array([5, 10, 25, 40],
+                                                dtype='uint64'))
+found = index.searchsorted(grid, side='right').ndarray
+assert found.tolist() == [0, 1, 2, 3]
+assert (found - 1).tolist() == [2**64 - 1, 0, 1, 2]  # numpy: [-1, 0, 1, 2]
+
+held = found[found > 0] - 1                          # queries with a match
+assert held.tolist() == [0, 1, 2]
+```
+
+On a ghosted receiver the indices count from the start of the buffer and so
+include the ghost part, the same basis `argsort()` and `take_along_axis()` use.
+A ghosted operand is searched over its whole buffer for the same reason, and
+the result carries no ghost of its own, so it is not ghost-aligned with the
+operand.
 
 ### The `take_along_axis` Method
 
