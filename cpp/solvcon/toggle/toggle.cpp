@@ -45,7 +45,7 @@ std::string const DynamicToggleTable::sentinel_string = "";
 
 /* The macro gives debuggers a hard time. Manually expand it if you need to
  * step in a debugger. */
-#define MM_DECL_DYNGET(CTYPE, MTYPE, SENTINEL)                                 \
+#define SC_DECL_DYNGET(CTYPE, MTYPE, SENTINEL)                                 \
     CTYPE DynamicToggleTable::get_##MTYPE(std::string const & key) const       \
     {                                                                          \
         std::scoped_lock const guard(m_mutex);                                 \
@@ -63,18 +63,18 @@ std::string const DynamicToggleTable::sentinel_string = "";
     {                                                                          \
         return m_table->get_##MTYPE(rekey(key));                               \
     }
-MM_DECL_DYNGET(bool, bool, false)
-MM_DECL_DYNGET(int8_t, int8, 0)
-MM_DECL_DYNGET(int16_t, int16, 0)
-MM_DECL_DYNGET(int32_t, int32, 0)
-MM_DECL_DYNGET(int64_t, int64, 0)
-MM_DECL_DYNGET(double, real, std::nan("0"))
-MM_DECL_DYNGET(std::string const &, string, sentinel_string)
-#undef MM_DECL_DYNGET
+SC_DECL_DYNGET(bool, bool, false)
+SC_DECL_DYNGET(int8_t, int8, 0)
+SC_DECL_DYNGET(int16_t, int16, 0)
+SC_DECL_DYNGET(int32_t, int32, 0)
+SC_DECL_DYNGET(int64_t, int64, 0)
+SC_DECL_DYNGET(double, real, std::nan("0"))
+SC_DECL_DYNGET(std::string const &, string, sentinel_string)
+#undef SC_DECL_DYNGET
 
 /* The macro gives debuggers a hard time. Manually expand it if you need to
  * step in a debugger. */
-#define MM_DECL_DYNSET(CTYPE, MTYPE, MTYPEC)                                                                                     \
+#define SC_DECL_DYNSET(CTYPE, MTYPE, MTYPEC)                                                                                     \
     /* NOLINTNEXTLINE(bugprone-easily-swappable-parameters) */                                                                   \
     void DynamicToggleTable::set_##MTYPE(std::string const & key, CTYPE value)                                                   \
     {                                                                                                                            \
@@ -111,14 +111,14 @@ MM_DECL_DYNGET(std::string const &, string, sentinel_string)
     {                                                                                                                            \
         m_table->set_##MTYPE(rekey(key), value);                                                                                 \
     }
-MM_DECL_DYNSET(bool, bool, BOOL)
-MM_DECL_DYNSET(int8_t, int8, INT8)
-MM_DECL_DYNSET(int16_t, int16, INT16)
-MM_DECL_DYNSET(int32_t, int32, INT32)
-MM_DECL_DYNSET(int64_t, int64, INT64)
-MM_DECL_DYNSET(double, real, REAL)
-MM_DECL_DYNSET(std::string const &, string, STRING)
-#undef MM_DECL_DYNSET
+SC_DECL_DYNSET(bool, bool, BOOL)
+SC_DECL_DYNSET(int8_t, int8, INT8)
+SC_DECL_DYNSET(int16_t, int16, INT16)
+SC_DECL_DYNSET(int32_t, int32, INT32)
+SC_DECL_DYNSET(int64_t, int64, INT64)
+SC_DECL_DYNSET(double, real, REAL)
+SC_DECL_DYNSET(std::string const &, string, STRING)
+#undef SC_DECL_DYNSET
 
 HierarchicalToggleAccess HierarchicalToggleAccess::get_subkey(const std::string & key)
 {

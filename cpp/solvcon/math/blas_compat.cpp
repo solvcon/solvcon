@@ -14,9 +14,9 @@
 #endif
 #include <vecLib/cblas_new.h>
 
-#elifdef MM_HAS_MKL
+#elifdef SC_HAS_MKL
 #include <mkl_cblas.h>
-#elifdef MM_HAS_CBLAS
+#elifdef SC_HAS_CBLAS
 #include <cblas.h>
 #endif
 
@@ -28,7 +28,7 @@
 namespace solvcon
 {
 
-#if (defined(__APPLE__) && defined(__arm64__)) || defined(MM_HAS_CBLAS)
+#if (defined(__APPLE__) && defined(__arm64__)) || defined(SC_HAS_CBLAS)
 #if defined(__APPLE__) && defined(__arm64__)
 using blas_int_type = __LAPACK_int;
 #else

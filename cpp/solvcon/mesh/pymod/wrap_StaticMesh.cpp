@@ -78,20 +78,20 @@ WrapStaticMesh::WrapStaticMesh(pybind11::module & mod, char const * pyname, char
         //
         ;
 
-#define MM_DECL_STATIC(NAME) \
+#define SC_DECL_STATIC(NAME) \
     .def_property_readonly_static(#NAME, [](py::object const &) { return wrapped_type::NAME; })
 
     // clang-format off
         (*this)
-            MM_DECL_STATIC(FCMND)
-            MM_DECL_STATIC(CLMND)
-            MM_DECL_STATIC(CLMFC)
-            MM_DECL_STATIC(FCREL)
-            MM_DECL_STATIC(BFREL)
+            SC_DECL_STATIC(FCMND)
+            SC_DECL_STATIC(CLMND)
+            SC_DECL_STATIC(CLMFC)
+            SC_DECL_STATIC(FCREL)
+            SC_DECL_STATIC(BFREL)
         ;
     // clang-format on
 
-#undef MM_DECL_STATIC
+#undef SC_DECL_STATIC
 
     (*this)
         .def_property_readonly("ndim", &wrapped_type::ndim)
@@ -138,30 +138,30 @@ WrapStaticMesh::WrapStaticMesh(pybind11::module & mod, char const * pyname, char
         .def_property_readonly("bcs", [](wrapped_type & self)
                                { return self.bcs(); });
 
-#define MM_DECL_ARRAY(NAME) \
+#define SC_DECL_ARRAY(NAME) \
     .expose_SimpleArray(#NAME, [](wrapped_type & self) -> decltype(auto) { return self.NAME(); })
 
     // clang-format off
         (*this)
-            MM_DECL_ARRAY(ndcrd)
-            MM_DECL_ARRAY(fccnd)
-            MM_DECL_ARRAY(fcnml)
-            MM_DECL_ARRAY(fcara)
-            MM_DECL_ARRAY(clcnd)
-            MM_DECL_ARRAY(clvol)
-            MM_DECL_ARRAY(fctpn)
-            MM_DECL_ARRAY(cltpn)
-            MM_DECL_ARRAY(clgrp)
-            MM_DECL_ARRAY(fcnds)
-            MM_DECL_ARRAY(fccls)
-            MM_DECL_ARRAY(clnds)
-            MM_DECL_ARRAY(clfcs)
-            MM_DECL_ARRAY(ednds)
-            MM_DECL_ARRAY(bndfcs)
+            SC_DECL_ARRAY(ndcrd)
+            SC_DECL_ARRAY(fccnd)
+            SC_DECL_ARRAY(fcnml)
+            SC_DECL_ARRAY(fcara)
+            SC_DECL_ARRAY(clcnd)
+            SC_DECL_ARRAY(clvol)
+            SC_DECL_ARRAY(fctpn)
+            SC_DECL_ARRAY(cltpn)
+            SC_DECL_ARRAY(clgrp)
+            SC_DECL_ARRAY(fcnds)
+            SC_DECL_ARRAY(fccls)
+            SC_DECL_ARRAY(clnds)
+            SC_DECL_ARRAY(clfcs)
+            SC_DECL_ARRAY(ednds)
+            SC_DECL_ARRAY(bndfcs)
         ;
     // clang-format on
 
-#undef MM_DECL_ARRAY
+#undef SC_DECL_ARRAY
 
     this->cls().attr("NONCELLTYPE") = static_cast<uint8_t>(CellType::NONCELLTYPE);
     this->cls().attr("POINT") = static_cast<uint8_t>(CellType::POINT);

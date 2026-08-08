@@ -23,7 +23,7 @@ namespace neon
 #define utype_t(N) uint##N##_t
 #define stype_t(N) int##N##_t
 
-#define DECL_MM_IMPL_VGETQ(N)                               \
+#define SC_DECL_IMPL_VGETQ(N)                               \
     template <size_t n>                                     \
     static utype_t(N) vgetq(type::vector_t<utype_t(N)> vec) \
     {                                                       \
@@ -37,14 +37,14 @@ namespace neon
         return vgetq_lane_s##N(vec, n);                     \
     }
 
-DECL_MM_IMPL_VGETQ(8)
-DECL_MM_IMPL_VGETQ(16)
-DECL_MM_IMPL_VGETQ(32)
-DECL_MM_IMPL_VGETQ(64)
+SC_DECL_IMPL_VGETQ(8)
+SC_DECL_IMPL_VGETQ(16)
+SC_DECL_IMPL_VGETQ(32)
+SC_DECL_IMPL_VGETQ(64)
 
-#undef DECL_MM_IMPL_VGETQ
+#undef SC_DECL_IMPL_VGETQ
 
-#define DECL_MM_IMPL_VDUPQ(N)                                      \
+#define SC_DECL_IMPL_VDUPQ(N)                                      \
     inline static type::vector_t<utype_t(N)> vdupq(utype_t(N) val) \
     {                                                              \
         return vdupq_n_u##N(val);                                  \
@@ -54,12 +54,12 @@ DECL_MM_IMPL_VGETQ(64)
         return vdupq_n_s##N(val);                                  \
     }
 
-DECL_MM_IMPL_VDUPQ(8)
-DECL_MM_IMPL_VDUPQ(16)
-DECL_MM_IMPL_VDUPQ(32)
-DECL_MM_IMPL_VDUPQ(64)
+SC_DECL_IMPL_VDUPQ(8)
+SC_DECL_IMPL_VDUPQ(16)
+SC_DECL_IMPL_VDUPQ(32)
+SC_DECL_IMPL_VDUPQ(64)
 
-#undef DECL_MM_IMPL_VDUPQ
+#undef SC_DECL_IMPL_VDUPQ
 
 inline static type::vector_t<float> vdupq(float val)
 {
@@ -71,7 +71,7 @@ inline static type::vector_t<double> vdupq(double val)
     return vdupq_n_f64(val);
 }
 
-#define DECL_MM_IMPL_VLD1Q(N)                                              \
+#define SC_DECL_IMPL_VLD1Q(N)                                              \
     inline static type::vector_t<utype_t(N)> vld1q(utype_t(N) * ptr)       \
     {                                                                      \
         return vld1q_u##N(ptr);                                            \
@@ -89,12 +89,12 @@ inline static type::vector_t<double> vdupq(double val)
         return vld1q_s##N(ptr);                                            \
     }
 
-DECL_MM_IMPL_VLD1Q(8)
-DECL_MM_IMPL_VLD1Q(16)
-DECL_MM_IMPL_VLD1Q(32)
-DECL_MM_IMPL_VLD1Q(64)
+SC_DECL_IMPL_VLD1Q(8)
+SC_DECL_IMPL_VLD1Q(16)
+SC_DECL_IMPL_VLD1Q(32)
+SC_DECL_IMPL_VLD1Q(64)
 
-#undef DECL_MM_IMPL_VLD1Q
+#undef SC_DECL_IMPL_VLD1Q
 
 inline static type::vector_t<float> vld1q(float * ptr)
 {
@@ -116,7 +116,7 @@ inline static type::vector_t<double> vld1q(double const * ptr)
     return vld1q_f64(ptr);
 }
 
-#define DECL_MM_IMPL_VST1Q(N)                                                  \
+#define SC_DECL_IMPL_VST1Q(N)                                                  \
     inline static void vst1q(utype_t(N) * ptr, type::vector_t<utype_t(N)> vec) \
     {                                                                          \
         return vst1q_u##N(ptr, vec);                                           \
@@ -126,12 +126,12 @@ inline static type::vector_t<double> vld1q(double const * ptr)
         return vst1q_s##N(ptr, vec);                                           \
     }
 
-DECL_MM_IMPL_VST1Q(8)
-DECL_MM_IMPL_VST1Q(16)
-DECL_MM_IMPL_VST1Q(32)
-DECL_MM_IMPL_VST1Q(64)
+SC_DECL_IMPL_VST1Q(8)
+SC_DECL_IMPL_VST1Q(16)
+SC_DECL_IMPL_VST1Q(32)
+SC_DECL_IMPL_VST1Q(64)
 
-#undef DECL_MM_IMPL_VST1Q
+#undef SC_DECL_IMPL_VST1Q
 
 inline static void vst1q(float * ptr, type::vector_t<float> vec)
 {
@@ -143,7 +143,7 @@ inline static void vst1q(double * ptr, type::vector_t<double> vec)
     vst1q_f64(ptr, vec);
 }
 
-#define DECL_MM_IMPL_VCGEQ(N)                                                                                          \
+#define SC_DECL_IMPL_VCGEQ(N)                                                                                          \
     inline static type::vector_t<utype_t(N)> vcgeq(type::vector_t<utype_t(N)> vec_a, type::vector_t<utype_t(N)> vec_b) \
     {                                                                                                                  \
         return vcgeq_u##N(vec_a, vec_b);                                                                               \
@@ -153,12 +153,12 @@ inline static void vst1q(double * ptr, type::vector_t<double> vec)
         return vcgeq_s##N(vec_a, vec_b);                                                                               \
     }
 
-DECL_MM_IMPL_VCGEQ(8)
-DECL_MM_IMPL_VCGEQ(16)
-DECL_MM_IMPL_VCGEQ(32)
-DECL_MM_IMPL_VCGEQ(64)
+SC_DECL_IMPL_VCGEQ(8)
+SC_DECL_IMPL_VCGEQ(16)
+SC_DECL_IMPL_VCGEQ(32)
+SC_DECL_IMPL_VCGEQ(64)
 
-#undef DECL_MM_IMPL_VCGEQ
+#undef SC_DECL_IMPL_VCGEQ
 
 inline static type::vector_t<float> vcgeq(type::vector_t<float> vec_a, type::vector_t<float> vec_b)
 {
@@ -170,7 +170,7 @@ inline static type::vector_t<double> vcgeq(type::vector_t<double> vec_a, type::v
     return vcgeq_f64(vec_a, vec_b);
 }
 
-#define DECL_MM_IMPL_VCLTQ(N)                                                                                          \
+#define SC_DECL_IMPL_VCLTQ(N)                                                                                          \
     inline static type::vector_t<utype_t(N)> vcltq(type::vector_t<utype_t(N)> vec_a, type::vector_t<utype_t(N)> vec_b) \
     {                                                                                                                  \
         return vcltq_u##N(vec_a, vec_b);                                                                               \
@@ -180,12 +180,12 @@ inline static type::vector_t<double> vcgeq(type::vector_t<double> vec_a, type::v
         return vcltq_s##N(vec_a, vec_b);                                                                               \
     }
 
-DECL_MM_IMPL_VCLTQ(8)
-DECL_MM_IMPL_VCLTQ(16)
-DECL_MM_IMPL_VCLTQ(32)
-DECL_MM_IMPL_VCLTQ(64)
+SC_DECL_IMPL_VCLTQ(8)
+SC_DECL_IMPL_VCLTQ(16)
+SC_DECL_IMPL_VCLTQ(32)
+SC_DECL_IMPL_VCLTQ(64)
 
-#undef DECL_MM_IMPL_VCLTQ
+#undef SC_DECL_IMPL_VCLTQ
 
 inline static type::vector_t<float> vcltq(type::vector_t<float> vec_a, type::vector_t<float> vec_b)
 {
@@ -197,7 +197,7 @@ inline static type::vector_t<double> vcltq(type::vector_t<double> vec_a, type::v
     return vcltq_f64(vec_a, vec_b);
 }
 
-#define DECL_MM_IMPL_VADDQ(N)                                                                                          \
+#define SC_DECL_IMPL_VADDQ(N)                                                                                          \
     inline static type::vector_t<utype_t(N)> vaddq(type::vector_t<utype_t(N)> vec_a, type::vector_t<utype_t(N)> vec_b) \
     {                                                                                                                  \
         return vaddq_u##N(vec_a, vec_b);                                                                               \
@@ -207,12 +207,12 @@ inline static type::vector_t<double> vcltq(type::vector_t<double> vec_a, type::v
         return vaddq_s##N(vec_a, vec_b);                                                                               \
     }
 
-DECL_MM_IMPL_VADDQ(8)
-DECL_MM_IMPL_VADDQ(16)
-DECL_MM_IMPL_VADDQ(32)
-DECL_MM_IMPL_VADDQ(64)
+SC_DECL_IMPL_VADDQ(8)
+SC_DECL_IMPL_VADDQ(16)
+SC_DECL_IMPL_VADDQ(32)
+SC_DECL_IMPL_VADDQ(64)
 
-#undef DECL_MM_IMPL_VADDQ
+#undef SC_DECL_IMPL_VADDQ
 
 inline static type::vector_t<float> vaddq(type::vector_t<float> vec_a, type::vector_t<float> vec_b)
 {
@@ -224,7 +224,7 @@ inline static type::vector_t<double> vaddq(type::vector_t<double> vec_a, type::v
     return vaddq_f64(vec_a, vec_b);
 }
 
-#define DECL_MM_IMPL_VSUBQ(N)                                                                                          \
+#define SC_DECL_IMPL_VSUBQ(N)                                                                                          \
     inline static type::vector_t<utype_t(N)> vsubq(type::vector_t<utype_t(N)> vec_a, type::vector_t<utype_t(N)> vec_b) \
     {                                                                                                                  \
         return vsubq_u##N(vec_a, vec_b);                                                                               \
@@ -234,12 +234,12 @@ inline static type::vector_t<double> vaddq(type::vector_t<double> vec_a, type::v
         return vsubq_s##N(vec_a, vec_b);                                                                               \
     }
 
-DECL_MM_IMPL_VSUBQ(8)
-DECL_MM_IMPL_VSUBQ(16)
-DECL_MM_IMPL_VSUBQ(32)
-DECL_MM_IMPL_VSUBQ(64)
+SC_DECL_IMPL_VSUBQ(8)
+SC_DECL_IMPL_VSUBQ(16)
+SC_DECL_IMPL_VSUBQ(32)
+SC_DECL_IMPL_VSUBQ(64)
 
-#undef DECL_MM_IMPL_VSUBQ
+#undef SC_DECL_IMPL_VSUBQ
 
 inline static type::vector_t<float> vsubq(type::vector_t<float> vec_a, type::vector_t<float> vec_b)
 {
@@ -251,7 +251,7 @@ inline static type::vector_t<double> vsubq(type::vector_t<double> vec_a, type::v
     return vsubq_f64(vec_a, vec_b);
 }
 
-#define DECL_MM_IMPL_VMULQ(N)                                                                                          \
+#define SC_DECL_IMPL_VMULQ(N)                                                                                          \
     inline static type::vector_t<utype_t(N)> vmulq(type::vector_t<utype_t(N)> vec_a, type::vector_t<utype_t(N)> vec_b) \
     {                                                                                                                  \
         return vmulq_u##N(vec_a, vec_b);                                                                               \
@@ -261,11 +261,11 @@ inline static type::vector_t<double> vsubq(type::vector_t<double> vec_a, type::v
         return vmulq_s##N(vec_a, vec_b);                                                                               \
     }
 
-DECL_MM_IMPL_VMULQ(8)
-DECL_MM_IMPL_VMULQ(16)
-DECL_MM_IMPL_VMULQ(32)
+SC_DECL_IMPL_VMULQ(8)
+SC_DECL_IMPL_VMULQ(16)
+SC_DECL_IMPL_VMULQ(32)
 
-#undef DECL_MM_IMPL_VMULQ
+#undef SC_DECL_IMPL_VMULQ
 
 inline static type::vector_t<float> vmulq(type::vector_t<float> vec_a, type::vector_t<float> vec_b)
 {

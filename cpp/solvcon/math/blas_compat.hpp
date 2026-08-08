@@ -127,7 +127,7 @@ void gemm(ssize_t m, ssize_t n, ssize_t k, BlasMatrixView<Complex<double>> lhs, 
 template <typename T>
 T dot_blas(ssize_t size, BlasVectorView<T> lhs, BlasVectorView<T> rhs)
 {
-#if (defined(__APPLE__) && defined(__arm64__)) || defined(MM_HAS_CBLAS)
+#if (defined(__APPLE__) && defined(__arm64__)) || defined(SC_HAS_CBLAS)
     return detail::dot(size, lhs, rhs);
 #else
     throw std::runtime_error("solvcon BLAS wrapper: CBLAS backend is unavailable");
@@ -137,7 +137,7 @@ T dot_blas(ssize_t size, BlasVectorView<T> lhs, BlasVectorView<T> rhs)
 template <typename T>
 void gemv_blas(ssize_t m, ssize_t n, BlasMatrixView<T> matrix, BlasVectorView<T> vector, T * result, BlasTranspose requested_transpose)
 {
-#if (defined(__APPLE__) && defined(__arm64__)) || defined(MM_HAS_CBLAS)
+#if (defined(__APPLE__) && defined(__arm64__)) || defined(SC_HAS_CBLAS)
     detail::gemv(m, n, matrix, vector, result, requested_transpose);
 #else
     throw std::runtime_error("solvcon BLAS wrapper: CBLAS backend is unavailable");
@@ -147,7 +147,7 @@ void gemv_blas(ssize_t m, ssize_t n, BlasMatrixView<T> matrix, BlasVectorView<T>
 template <typename T>
 void gemm_blas(ssize_t m, ssize_t n, ssize_t k, BlasMatrixView<T> lhs, BlasMatrixView<T> rhs, T * result)
 {
-#if (defined(__APPLE__) && defined(__arm64__)) || defined(MM_HAS_CBLAS)
+#if (defined(__APPLE__) && defined(__arm64__)) || defined(SC_HAS_CBLAS)
     detail::gemm(m, n, k, lhs, rhs, result);
 #else
     throw std::runtime_error("solvcon BLAS wrapper: CBLAS backend is unavailable");

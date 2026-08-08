@@ -11,14 +11,14 @@
  * using LAPACK *GEEV: SGEEV (float), DGEEV (double), CGEEV (Complex<float>),
  * and ZGEEV (Complex<double>).
  *
- * The LAPACK backend is selected by the build system via MM_HAS_VENDOR_LAPACK:
+ * The LAPACK backend is selected by the build system via SC_HAS_VENDOR_LAPACK:
  * Apple's vecLib (Accelerate framework) on macOS and OpenBLAS on Linux.
  *
  * @ingroup group_numerics
  */
 
-#ifndef MM_HAS_VENDOR_LAPACK
-#error "solvcon/linalg/EigenSystem.hpp requires a vendor LAPACK (MM_HAS_VENDOR_LAPACK)."
+#ifndef SC_HAS_VENDOR_LAPACK
+#error "solvcon/linalg/EigenSystem.hpp requires a vendor LAPACK (SC_HAS_VENDOR_LAPACK)."
 #endif
 
 #include <algorithm>

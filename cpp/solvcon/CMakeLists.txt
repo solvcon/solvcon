@@ -198,9 +198,9 @@ if (APPLE)
         ${APPLE_FWK_METAL}
     )
     # Accelerate/vecLib provides BLAS + LAPACK.
-    target_compile_definitions(solvcon_primary PUBLIC MM_HAS_VENDOR_LAPACK)
+    target_compile_definitions(solvcon_primary PUBLIC SC_HAS_VENDOR_LAPACK)
     if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm64|aarch64)$")
-        target_compile_definitions(solvcon_primary PUBLIC MM_HAS_CBLAS)
+        target_compile_definitions(solvcon_primary PUBLIC SC_HAS_CBLAS)
     endif ()
 endif () # APPLE
 
@@ -220,7 +220,7 @@ if (NOT APPLE)
     # Its single dynamic runtime (mkl_rt, LP64) exports both the reference CBLAS
     # entry points and the Fortran LAPACK symbols declared in lapack_compat.hpp,
     # so it feeds the same matmul_blas()/EigenSystem paths as OpenBLAS.
-    set(MM_BLAS_FOUND OFF)
+    set(SC_BLAS_FOUND OFF)
     if (SOLVCON_USE_MKL)
         find_library(MKL_LIB NAMES mkl_rt)
         find_path(MKL_INCLUDE_DIR NAMES mkl_cblas.h)
@@ -229,8 +229,8 @@ if (NOT APPLE)
             target_include_directories(solvcon_primary PUBLIC ${MKL_INCLUDE_DIR})
             target_link_libraries(solvcon_primary PUBLIC ${MKL_LIB})
             target_compile_definitions(solvcon_primary PUBLIC
-                MM_HAS_CBLAS MM_HAS_MKL MM_HAS_VENDOR_LAPACK)
-            set(MM_BLAS_FOUND ON)
+                SC_HAS_CBLAS SC_HAS_MKL SC_HAS_VENDOR_LAPACK)
+            set(SC_BLAS_FOUND ON)
         else ()
             message(STATUS
                 "SOLVCON_USE_MKL is ON but Intel MKL was not found; "
@@ -238,7 +238,7 @@ if (NOT APPLE)
         endif ()
     endif ()
 
-    if (NOT MM_BLAS_FOUND)
+    if (NOT SC_BLAS_FOUND)
         # The CBLAS header is needed for SimpleArray::matmul_blas() to use
         # the vendor BLAS backend.
         # Linux OpenBLAS packages also ship LAPACK symbols for EigenSystem.
@@ -264,7 +264,7 @@ if (NOT APPLE)
             message(STATUS "Found OpenBLAS: ${OPENBLAS_LIB}")
             target_include_directories(solvcon_primary PUBLIC ${OPENBLAS_INCLUDE_DIR})
             target_link_libraries(solvcon_primary PUBLIC ${OPENBLAS_LIB})
-            target_compile_definitions(solvcon_primary PUBLIC MM_HAS_CBLAS)
+            target_compile_definitions(solvcon_primary PUBLIC SC_HAS_CBLAS)
         else ()
             message(STATUS "OpenBLAS/CBLAS not found; CBLAS matmul will not be built.")
         endif ()
@@ -274,12 +274,12 @@ if (NOT APPLE)
             if (LAPACK_FOUND)
                 message(STATUS "Found LAPACK: ${LAPACK_LIBRARIES}")
                 target_link_libraries(solvcon_primary PUBLIC LAPACK::LAPACK)
-                target_compile_definitions(solvcon_primary PUBLIC MM_HAS_VENDOR_LAPACK)
+                target_compile_definitions(solvcon_primary PUBLIC SC_HAS_VENDOR_LAPACK)
             else ()
                 message(STATUS "LAPACK not found; EigenSystem will not be built.")
             endif ()
         elseif (OPENBLAS_LIB)
-            target_compile_definitions(solvcon_primary PUBLIC MM_HAS_VENDOR_LAPACK)
+            target_compile_definitions(solvcon_primary PUBLIC SC_HAS_VENDOR_LAPACK)
         endif ()
     endif ()
 endif () # NOT APPLE

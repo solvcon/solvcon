@@ -41,6 +41,6 @@ PREDEFINED           = "PYBIND11_EXPORT=" \
                        "Q_INVOKABLE=" \
                        "Q_SIGNALS=signals" \
                        "Q_SLOTS=slots" \
-                       "MM_DECL_SERIALIZABLE(x)="
+                       "SC_DECL_SERIALIZABLE(x)="
 
 # vim: set ft=conf ff=unix fenc=utf8 et sw=2 ts=2 sts=2 tw=79:

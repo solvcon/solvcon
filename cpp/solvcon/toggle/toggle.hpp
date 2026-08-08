@@ -204,21 +204,21 @@ struct DynamicToggleIndex
 template <typename T>
 struct ToggleTypeTraits;
 
-#define MM_TOGGLE_TYPE_TRAITS(CTYPE, TAG)               \
+#define SC_TOGGLE_TYPE_TRAITS(CTYPE, TAG)               \
     template <>                                         \
     struct ToggleTypeTraits<CTYPE>                      \
     {                                                   \
         static constexpr DynamicToggleIndex::Type tag = \
             DynamicToggleIndex::TAG;                    \
     }; /* end struct ToggleTypeTraits */
-MM_TOGGLE_TYPE_TRAITS(bool, TYPE_BOOL)
-MM_TOGGLE_TYPE_TRAITS(int8_t, TYPE_INT8)
-MM_TOGGLE_TYPE_TRAITS(int16_t, TYPE_INT16)
-MM_TOGGLE_TYPE_TRAITS(int32_t, TYPE_INT32)
-MM_TOGGLE_TYPE_TRAITS(int64_t, TYPE_INT64)
-MM_TOGGLE_TYPE_TRAITS(double, TYPE_REAL)
-MM_TOGGLE_TYPE_TRAITS(std::string, TYPE_STRING)
-#undef MM_TOGGLE_TYPE_TRAITS
+SC_TOGGLE_TYPE_TRAITS(bool, TYPE_BOOL)
+SC_TOGGLE_TYPE_TRAITS(int8_t, TYPE_INT8)
+SC_TOGGLE_TYPE_TRAITS(int16_t, TYPE_INT16)
+SC_TOGGLE_TYPE_TRAITS(int32_t, TYPE_INT32)
+SC_TOGGLE_TYPE_TRAITS(int64_t, TYPE_INT64)
+SC_TOGGLE_TYPE_TRAITS(double, TYPE_REAL)
+SC_TOGGLE_TYPE_TRAITS(std::string, TYPE_STRING)
+#undef SC_TOGGLE_TYPE_TRAITS
 
 namespace detail
 {

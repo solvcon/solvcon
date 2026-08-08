@@ -71,7 +71,7 @@ std::string trim_string(const std::string & str)
     return (start == std::string::npos) ? "" : str.substr(start, end - start + 1);
 }
 
-#define MM_DECL_CACULATE_LINE_COLUMN(CH) \
+#define SC_DECL_CACULATE_LINE_COLUMN(CH) \
     if (CH == '\n')                      \
     {                                    \
         line += 1;                       \
@@ -132,7 +132,7 @@ inline void scan_balanced_expression(const std::string & json, size_t & index, c
             break;
         }
 
-        MM_DECL_CACULATE_LINE_COLUMN(json[index])
+        SC_DECL_CACULATE_LINE_COLUMN(json[index])
         index += 1;
     }
 
@@ -165,7 +165,7 @@ JsonArray JsonNode::parse_array(const std::string & json)
 
         if (is_whitespace(c))
         {
-            MM_DECL_CACULATE_LINE_COLUMN(c)
+            SC_DECL_CACULATE_LINE_COLUMN(c)
             continue;
         }
 
@@ -255,7 +255,7 @@ JsonArray JsonNode::parse_array(const std::string & json)
                         break;
                     }
 
-                    MM_DECL_CACULATE_LINE_COLUMN(json[index])
+                    SC_DECL_CACULATE_LINE_COLUMN(json[index])
                     index += 1;
                 }
 
@@ -363,7 +363,7 @@ JsonMap JsonNode::parse_object(const std::string & json)
 
         if (is_whitespace(c))
         {
-            MM_DECL_CACULATE_LINE_COLUMN(c)
+            SC_DECL_CACULATE_LINE_COLUMN(c)
             continue;
         }
 
@@ -405,7 +405,7 @@ JsonMap JsonNode::parse_object(const std::string & json)
                         break;
                     }
                     key.push_back(json[index]);
-                    MM_DECL_CACULATE_LINE_COLUMN(json[index])
+                    SC_DECL_CACULATE_LINE_COLUMN(json[index])
                     index += 1;
                 }
                 if (!close)
@@ -494,7 +494,7 @@ JsonMap JsonNode::parse_object(const std::string & json)
                         break;
                     }
 
-                    MM_DECL_CACULATE_LINE_COLUMN(json[index])
+                    SC_DECL_CACULATE_LINE_COLUMN(json[index])
                     index += 1;
                 }
 
@@ -572,7 +572,7 @@ JsonMap JsonNode::parse_object(const std::string & json)
 }
 // NOLINTEND(readability-function-cognitive-complexity)
 
-#undef MM_DECL_CACULATE_LINE_COLUMN
+#undef SC_DECL_CACULATE_LINE_COLUMN
 
 } /* end namespace detail */
 

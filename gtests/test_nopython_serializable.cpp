@@ -18,7 +18,7 @@ struct Address : SerializableItem
     std::vector<std::string> phone_numbers;
     std::vector<int> zip_codes;
 
-    MM_DECL_SERIALIZABLE(
+    SC_DECL_SERIALIZABLE(
         register_member("country", country);
         register_member("city", city);
         register_member("phone_numbers", phone_numbers);
@@ -32,7 +32,7 @@ struct Pet : SerializableItem
     bool is_dog;
     bool is_cat;
 
-    MM_DECL_SERIALIZABLE(
+    SC_DECL_SERIALIZABLE(
         register_member("name", name);
         register_member("age", age);
         register_member("is_dog", is_dog);
@@ -47,7 +47,7 @@ struct Person : SerializableItem
     Address address;
     std::vector<Pet> pets;
 
-    MM_DECL_SERIALIZABLE(
+    SC_DECL_SERIALIZABLE(
         register_member("name", name);
         register_member("age", age);
         register_member("is_student", is_student);
@@ -98,7 +98,7 @@ public:
         return private_info;
     }
 
-    MM_DECL_SERIALIZABLE(
+    SC_DECL_SERIALIZABLE(
         /* not expose public_info */
         register_member("private_info", private_info);)
 }; /* end struct SecretItem */
@@ -107,7 +107,7 @@ struct EscapeItem : SerializableItem
 {
     std::string escape_string = "\"\\/\b\f\n\r\t";
 
-    MM_DECL_SERIALIZABLE(
+    SC_DECL_SERIALIZABLE(
         register_member("escape_string", escape_string);)
 }; /* end struct EscapeItem */
 
@@ -116,7 +116,7 @@ struct TestUnorderedMapItem : SerializableItem
     std::unordered_map<std::string, int> numer_map;
     std::unordered_map<std::string, Pet> pet_map;
 
-    MM_DECL_SERIALIZABLE(
+    SC_DECL_SERIALIZABLE(
         register_member("numer_map", numer_map);
         register_member("pet_map", pet_map);)
 }; /* end struct TestUnorderedMapItem */

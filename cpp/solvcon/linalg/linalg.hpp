@@ -12,7 +12,7 @@
 #include <solvcon/linalg/factorization.hpp>
 #include <solvcon/linalg/lu_factorization.hpp>
 #include <solvcon/linalg/kalman_filter.hpp>
-#ifdef MM_HAS_VENDOR_LAPACK
+#ifdef SC_HAS_VENDOR_LAPACK
 #include <solvcon/linalg/EigenSystem.hpp>
 #endif
 

@@ -569,26 +569,26 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArray
         py_typename[0] = tolower(py_typename[0]);
         const DataType dt(py_typename);
 
-#define DECL_MM_TAKE_ALONG_AXIS_TYPED(IntDataType) \
+#define SC_DECL_TAKE_ALONG_AXIS_TYPED(IntDataType) \
     case DataType::IntDataType:                    \
         return pybind11::cast(self.take_along_axis(indices.cast<SimpleArray##IntDataType>()));
 
         switch (dt)
         {
-            DECL_MM_TAKE_ALONG_AXIS_TYPED(Int8)
-            DECL_MM_TAKE_ALONG_AXIS_TYPED(Int16)
-            DECL_MM_TAKE_ALONG_AXIS_TYPED(Int32)
-            DECL_MM_TAKE_ALONG_AXIS_TYPED(Int64)
-            DECL_MM_TAKE_ALONG_AXIS_TYPED(Uint8)
-            DECL_MM_TAKE_ALONG_AXIS_TYPED(Uint16)
-            DECL_MM_TAKE_ALONG_AXIS_TYPED(Uint32)
-            DECL_MM_TAKE_ALONG_AXIS_TYPED(Uint64)
+            SC_DECL_TAKE_ALONG_AXIS_TYPED(Int8)
+            SC_DECL_TAKE_ALONG_AXIS_TYPED(Int16)
+            SC_DECL_TAKE_ALONG_AXIS_TYPED(Int32)
+            SC_DECL_TAKE_ALONG_AXIS_TYPED(Int64)
+            SC_DECL_TAKE_ALONG_AXIS_TYPED(Uint8)
+            SC_DECL_TAKE_ALONG_AXIS_TYPED(Uint16)
+            SC_DECL_TAKE_ALONG_AXIS_TYPED(Uint32)
+            SC_DECL_TAKE_ALONG_AXIS_TYPED(Uint64)
         default:
             break;
         }
         return pybind11::cast(std::move(self));
 
-#undef DECL_MM_TAKE_ALONG_AXIS_TYPED
+#undef SC_DECL_TAKE_ALONG_AXIS_TYPED
     }
 
     static pybind11::object take_along_axis_simd(wrapped_type & self, pybind11::object const & indices)
@@ -604,26 +604,26 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArray
         py_typename[0] = tolower(py_typename[0]);
         const DataType dt(py_typename);
 
-#define DECL_MM_TAKE_ALONG_AXIS_SIMD_TYPED(IntDataType) \
+#define SC_DECL_TAKE_ALONG_AXIS_SIMD_TYPED(IntDataType) \
     case DataType::IntDataType:                         \
         return pybind11::cast(self.take_along_axis_simd(indices.cast<SimpleArray##IntDataType>()));
 
         switch (dt)
         {
-            DECL_MM_TAKE_ALONG_AXIS_SIMD_TYPED(Int8)
-            DECL_MM_TAKE_ALONG_AXIS_SIMD_TYPED(Int16)
-            DECL_MM_TAKE_ALONG_AXIS_SIMD_TYPED(Int32)
-            DECL_MM_TAKE_ALONG_AXIS_SIMD_TYPED(Int64)
-            DECL_MM_TAKE_ALONG_AXIS_SIMD_TYPED(Uint8)
-            DECL_MM_TAKE_ALONG_AXIS_SIMD_TYPED(Uint16)
-            DECL_MM_TAKE_ALONG_AXIS_SIMD_TYPED(Uint32)
-            DECL_MM_TAKE_ALONG_AXIS_SIMD_TYPED(Uint64)
+            SC_DECL_TAKE_ALONG_AXIS_SIMD_TYPED(Int8)
+            SC_DECL_TAKE_ALONG_AXIS_SIMD_TYPED(Int16)
+            SC_DECL_TAKE_ALONG_AXIS_SIMD_TYPED(Int32)
+            SC_DECL_TAKE_ALONG_AXIS_SIMD_TYPED(Int64)
+            SC_DECL_TAKE_ALONG_AXIS_SIMD_TYPED(Uint8)
+            SC_DECL_TAKE_ALONG_AXIS_SIMD_TYPED(Uint16)
+            SC_DECL_TAKE_ALONG_AXIS_SIMD_TYPED(Uint32)
+            SC_DECL_TAKE_ALONG_AXIS_SIMD_TYPED(Uint64)
         default:
             break;
         }
         return pybind11::cast(std::move(self));
 
-#undef DECL_MM_TAKE_ALONG_AXIS_SIMD_TYPED
+#undef SC_DECL_TAKE_ALONG_AXIS_SIMD_TYPED
     }
 
     wrapper_type & wrap_search()
@@ -701,27 +701,27 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArray
                 "SimpleArray::where(): x and y must have the same dtype");
         }
 
-#define DECL_MM_WHERE_TYPED(DataTypeName) \
+#define SC_DECL_WHERE_TYPED(DataTypeName) \
     case DataType::DataTypeName:          \
         return pybind11::cast(self.where(x.cast<SimpleArray##DataTypeName>(), y.cast<SimpleArray##DataTypeName>()));
 
         switch (dt_x)
         {
-            DECL_MM_WHERE_TYPED(Int8)
-            DECL_MM_WHERE_TYPED(Int16)
-            DECL_MM_WHERE_TYPED(Int32)
-            DECL_MM_WHERE_TYPED(Int64)
-            DECL_MM_WHERE_TYPED(Uint8)
-            DECL_MM_WHERE_TYPED(Uint16)
-            DECL_MM_WHERE_TYPED(Uint32)
-            DECL_MM_WHERE_TYPED(Uint64)
-            DECL_MM_WHERE_TYPED(Float32)
-            DECL_MM_WHERE_TYPED(Float64)
+            SC_DECL_WHERE_TYPED(Int8)
+            SC_DECL_WHERE_TYPED(Int16)
+            SC_DECL_WHERE_TYPED(Int32)
+            SC_DECL_WHERE_TYPED(Int64)
+            SC_DECL_WHERE_TYPED(Uint8)
+            SC_DECL_WHERE_TYPED(Uint16)
+            SC_DECL_WHERE_TYPED(Uint32)
+            SC_DECL_WHERE_TYPED(Uint64)
+            SC_DECL_WHERE_TYPED(Float32)
+            SC_DECL_WHERE_TYPED(Float64)
         default:
             break;
         }
 
-#undef DECL_MM_WHERE_TYPED
+#undef SC_DECL_WHERE_TYPED
 
         throw std::invalid_argument("SimpleArray::where(): unsupported dtype");
     }

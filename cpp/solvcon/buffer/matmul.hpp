@@ -514,7 +514,7 @@ template <typename Array>
 typename MatmulExecutor<Array>::PackingState MatmulExecutor<Array>::select_packing() const
 {
     PackingState packing;
-#if (defined(__APPLE__) && defined(__arm64__)) || defined(MM_HAS_CBLAS)
+#if (defined(__APPLE__) && defined(__arm64__)) || defined(SC_HAS_CBLAS)
     if constexpr (can_matmul_blas_v<value_type>)
     {
         if (m_plan.lhs_is_vector() || m_plan.rhs_is_vector() ||
@@ -590,7 +590,7 @@ void MatmulExecutor<Array>::execute_at(ssize_t output_base, ssize_t lhs_base, ss
 template <typename Array>
 bool MatmulExecutor<Array>::try_execute_blas(ssize_t output_base, ssize_t lhs_base, ssize_t rhs_base)
 {
-#if (defined(__APPLE__) && defined(__arm64__)) || defined(MM_HAS_CBLAS)
+#if (defined(__APPLE__) && defined(__arm64__)) || defined(SC_HAS_CBLAS)
     if constexpr (can_matmul_blas_v<value_type>)
     {
         value_type * output = m_output_data + output_base;

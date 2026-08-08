@@ -13,7 +13,7 @@ namespace solvcon
 namespace python
 {
 
-#ifdef MM_HAS_VENDOR_LAPACK
+#ifdef SC_HAS_VENDOR_LAPACK
 
 template <typename T>
 class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapEigenSystem
@@ -160,11 +160,11 @@ WrapEigenSystemPlex::WrapEigenSystemPlex(pybind11::module & mod, char const * py
         .def_property_readonly("done", &wrapped_type::done);
 }
 
-#endif /* MM_HAS_VENDOR_LAPACK */
+#endif /* SC_HAS_VENDOR_LAPACK */
 
 void wrap_EigenSystem(pybind11::module & mod)
 {
-#ifdef MM_HAS_VENDOR_LAPACK
+#ifdef SC_HAS_VENDOR_LAPACK
     WrapEigenSystem<float>::commit(mod, "EigenSystemFloat32", "Eigen problem solver (float32)");
     WrapEigenSystem<double>::commit(mod, "EigenSystemFloat64", "Eigen problem solver (float64)");
     WrapEigenSystem<Complex<float>>::commit(mod, "EigenSystemComplex64", "Eigen problem solver (complex64)");
@@ -172,13 +172,13 @@ void wrap_EigenSystem(pybind11::module & mod)
     // EigenSystem is the type-erased, general entry point that infers the
     // element type from a SimpleArrayPlex (C++ class: EigenSystemPlex).
     WrapEigenSystemPlex::commit(mod, "EigenSystem", "Type-erased eigen problem solver");
-#else // MM_HAS_VENDOR_LAPACK
+#else // SC_HAS_VENDOR_LAPACK
     mod.attr("EigenSystemFloat32") = pybind11::none();
     mod.attr("EigenSystemFloat64") = pybind11::none();
     mod.attr("EigenSystemComplex64") = pybind11::none();
     mod.attr("EigenSystemComplex128") = pybind11::none();
     mod.attr("EigenSystem") = pybind11::none();
-#endif // MM_HAS_VENDOR_LAPACK
+#endif // SC_HAS_VENDOR_LAPACK
 }
 
 } /* end namespace python */

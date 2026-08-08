@@ -98,7 +98,7 @@ WrapStaticGrid1d::WrapStaticGrid1d(pybind11::module & mod, char const * pyname, 
 }
 
 // clang-format off
-#define MM_DECL_StaticGridMD(NDIM) \
+#define SC_DECL_StaticGridMD(NDIM) \
 class \
 SOLVCON_PYTHON_WRAPPER_VISIBILITY \
 WrapStaticGrid ## NDIM ## d \
@@ -120,10 +120,10 @@ protected: \
 } /* end class WrapStaticGrid##NDIM##d */
 // clang-format on
 
-MM_DECL_StaticGridMD(2);
-MM_DECL_StaticGridMD(3);
+SC_DECL_StaticGridMD(2);
+SC_DECL_StaticGridMD(3);
 
-#undef MM_DECL_StaticGridMD
+#undef SC_DECL_StaticGridMD
 
 void wrap_StaticGrid(pybind11::module & mod)
 {

@@ -56,7 +56,7 @@ public:
     {
     }
 
-    MM_DECL_SERIALIZABLE(
+    SC_DECL_SERIALIZABLE(
         register_member("shapes", m_shapes);
         register_member("point", m_point);)
 
@@ -91,7 +91,7 @@ public:
     {
     }
 
-    MM_DECL_SERIALIZABLE(
+    SC_DECL_SERIALIZABLE(
         register_member("shape", m_shape);
         register_member("type", m_type);
         register_member("reason", m_reason);)
@@ -132,7 +132,7 @@ public:
         m_degeneracies.emplace_back(shape, std::move(type), std::move(reason));
     }
 
-    MM_DECL_SERIALIZABLE(
+    SC_DECL_SERIALIZABLE(
         register_member("intersections", m_intersections);
         register_member("degeneracies", m_degeneracies);)
 

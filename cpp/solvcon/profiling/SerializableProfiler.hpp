@@ -62,7 +62,7 @@ public:
     }
 
     // NOLINTNEXTLINE(misc-no-recursion)
-    MM_DECL_SERIALIZABLE(
+    SC_DECL_SERIALIZABLE(
         register_member("key", m_key);
         register_member("name", m_name);
         register_member("total_time", static_cast<double>(m_total_time.count()));
@@ -113,7 +113,7 @@ public:
     {
     }
 
-    MM_DECL_SERIALIZABLE(
+    SC_DECL_SERIALIZABLE(
         register_member("time_unit", m_time_unit);
         register_member("radix_tree", m_root);
         register_member("id_map", m_id_map);

@@ -587,7 +587,7 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRDomainWidget
                     self.pinchCamera(factor);
                 },
                 py::arg("factor"))
-#define MM_DECL_CAMERA_VECTOR(NAME, GETTER, SETTER)            \
+#define SC_DECL_CAMERA_VECTOR(NAME, GETTER, SETTER)            \
     .def_property(                                             \
         NAME,                                                  \
         [](wrapped_type & self)                                \
@@ -600,11 +600,11 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRDomainWidget
             self.SETTER(QVector3D(v.at(0), v.at(1), v.at(2))); \
         })
             // clang-format off
-            MM_DECL_CAMERA_VECTOR("cameraPosition", cameraPosition, setCameraPosition)
-            MM_DECL_CAMERA_VECTOR("cameraTarget", cameraTarget, setCameraTarget)
-            MM_DECL_CAMERA_VECTOR("cameraUp", cameraUp, setCameraUp)
+            SC_DECL_CAMERA_VECTOR("cameraPosition", cameraPosition, setCameraPosition)
+            SC_DECL_CAMERA_VECTOR("cameraTarget", cameraTarget, setCameraTarget)
+            SC_DECL_CAMERA_VECTOR("cameraUp", cameraUp, setCameraUp)
         // clang-format on
-#undef MM_DECL_CAMERA_VECTOR
+#undef SC_DECL_CAMERA_VECTOR
             .def(
                 "saveImage",
                 [](wrapped_type & self, std::string const & filename)

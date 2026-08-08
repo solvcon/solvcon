@@ -21,7 +21,7 @@ namespace detail
 {
 
 // Define the Pybind11 caster for SimpleArray<T>
-#define DECL_MM_SIMPLE_ARRAY_CASTER(DATATYPE)                                                                                                                 \
+#define SC_DECL_SIMPLE_ARRAY_CASTER(DATATYPE)                                                                                                                 \
     template <> /* NOLINTNEXTLINE(bugprone-macro-parentheses) */                                                                                              \
     struct type_caster<solvcon::SimpleArray##DATATYPE> : public type_caster_base<solvcon::SimpleArray##DATATYPE>                                              \
     {                                                                                                                                                         \
@@ -64,21 +64,21 @@ namespace detail
         }                                                                                                                                                     \
     } /* end struct type_caster */
 
-DECL_MM_SIMPLE_ARRAY_CASTER(Bool);
-DECL_MM_SIMPLE_ARRAY_CASTER(Int8);
-DECL_MM_SIMPLE_ARRAY_CASTER(Int16);
-DECL_MM_SIMPLE_ARRAY_CASTER(Int32);
-DECL_MM_SIMPLE_ARRAY_CASTER(Int64);
-DECL_MM_SIMPLE_ARRAY_CASTER(Uint8);
-DECL_MM_SIMPLE_ARRAY_CASTER(Uint16);
-DECL_MM_SIMPLE_ARRAY_CASTER(Uint32);
-DECL_MM_SIMPLE_ARRAY_CASTER(Uint64);
-DECL_MM_SIMPLE_ARRAY_CASTER(Float32);
-DECL_MM_SIMPLE_ARRAY_CASTER(Float64);
-DECL_MM_SIMPLE_ARRAY_CASTER(Complex64);
-DECL_MM_SIMPLE_ARRAY_CASTER(Complex128);
+SC_DECL_SIMPLE_ARRAY_CASTER(Bool);
+SC_DECL_SIMPLE_ARRAY_CASTER(Int8);
+SC_DECL_SIMPLE_ARRAY_CASTER(Int16);
+SC_DECL_SIMPLE_ARRAY_CASTER(Int32);
+SC_DECL_SIMPLE_ARRAY_CASTER(Int64);
+SC_DECL_SIMPLE_ARRAY_CASTER(Uint8);
+SC_DECL_SIMPLE_ARRAY_CASTER(Uint16);
+SC_DECL_SIMPLE_ARRAY_CASTER(Uint32);
+SC_DECL_SIMPLE_ARRAY_CASTER(Uint64);
+SC_DECL_SIMPLE_ARRAY_CASTER(Float32);
+SC_DECL_SIMPLE_ARRAY_CASTER(Float64);
+SC_DECL_SIMPLE_ARRAY_CASTER(Complex64);
+SC_DECL_SIMPLE_ARRAY_CASTER(Complex128);
 
-#undef DECL_MM_SIMPLE_ARRAY_CASTER
+#undef SC_DECL_SIMPLE_ARRAY_CASTER
 
 } /* end namespace detail */
 } /* end namespace pybind11 */
