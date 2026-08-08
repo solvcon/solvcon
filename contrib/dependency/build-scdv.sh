@@ -45,6 +45,8 @@
 #       ends with the two toolchains no build section installs: LaTeX, which
 #       the documentation needs to render its figures, then clang-format and
 #       clang-tidy for `make lint`, both from LLVM 22.
+#   ./build-scdv.sh --allow-unsupported-platform
+#       Proceed on an unsupported OS/architecture for platform testing.
 #
 # Overridable variables (search below for defaults):
 #   Platform:
@@ -861,6 +863,7 @@ SCDV_PRINT_PREFIX_ONLY=0
 SCDV_PRINT_DEPS_ONLY=0
 SCDV_NO_CONFIRM=0
 SCDV_ALLOW_WRITE_TO_ACTIVE_ENV=0
+SCDV_ALLOW_UNSUPPORTED_PLATFORM=${SCDV_ALLOW_UNSUPPORTED_PLATFORM:-0}
 SCDV_SKIP_LIST=""
 SCDV_KNOWN_PKGS="zlib openssl sqlite python pybind11 cython numpy scipy qt pyside6"
 
@@ -901,6 +904,9 @@ while [ $# -gt 0 ] ; do
     --allow-write-to-active-env)
       SCDV_ALLOW_WRITE_TO_ACTIVE_ENV=1
       ;;
+    --allow-unsupported-platform)
+      SCDV_ALLOW_UNSUPPORTED_PLATFORM=1
+      ;;
     --skip)
       shift
       if [ $# -eq 0 ] ; then
@@ -934,29 +940,56 @@ fi
 # The per-OS blocks assume x86_64 on Ubuntu and arm64 on macOS.
 SCDV_ARCH=$(uname -m)
 
-case "${SCDV_OS}:${SCDV_ARCH}" in
-  ubuntu:x86_64|macos:arm64)
-    ;;
-  macos:x86_64)
-    # Intel Mac: some dependencies may not build. (e.g. numpy/scipy)
-    echo "warning: some dependencies may not build correctly on" \
-         "macos/x86_64 (Intel Mac)." >&2
-    if ! { : </dev/tty ; } 2>/dev/null ; then
-      echo "no controlling tty to confirm; rerun on a supported" \
-           "OS/architecture." >&2
+if [ "${SCDV_ALLOW_UNSUPPORTED_PLATFORM}" = "1" ] ; then
+  echo "warning: platform support check overridden for" \
+       "'${SCDV_OS}/${SCDV_ARCH}'; continuing anyway." >&2
+else
+  case "${SCDV_OS}:${SCDV_ARCH}" in
+    ubuntu:x86_64|macos:arm64)
+      ;;
+
+    ubuntu:arm64)
+      echo "warning: some build settings currently assume x86_64 and" \
+           "may not work correctly on ubuntu/arm64." >&2
+
+      if ! { : </dev/tty ; } 2>/dev/null ; then
+        echo "no controlling tty to confirm; rerun on a supported" \
+             "OS/architecture." >&2
+        exit 1
+      fi
+
+      read -r -p "Continue anyway? [y/N] " _ans </dev/tty
+      case "${_ans}" in
+        [Yy]*) ;;
+        *) echo "aborted." >&2 ; exit 1 ;;
+      esac
+      ;;
+
+    macos:x86_64)
+      # Intel Mac: some dependencies may not build. (e.g. numpy/scipy)
+      echo "warning: some dependencies may not build correctly on macos/x86_64." >&2
+
+      if ! { : </dev/tty ; } 2>/dev/null ; then
+        echo "no controlling tty to confirm; rerun on a supported" \
+             "OS/architecture." >&2
+        exit 1
+      fi
+
+      read -r -p "Continue anyway? [y/N] " _ans </dev/tty
+      case "${_ans}" in
+        [Yy]*) ;;
+        *) echo "aborted." >&2 ; exit 1 ;;
+      esac
+      ;;
+
+    *)
+      echo "unsupported OS/architecture '${SCDV_OS}/${SCDV_ARCH}';" \
+           "use --allow-unsupported-platform or set" \
+           "SCDV_ALLOW_UNSUPPORTED_PLATFORM=1 to continue anyway." >&2
       exit 1
-    fi
-    read -r -p "Continue anyway? [y/N] " _ans </dev/tty
-    case "${_ans}" in
-      [Yy]*) ;;
-      *) echo "aborted." >&2 ; exit 1 ;;
-    esac
-    ;;
-  *)
-    echo "unsupported OS/architecture '${SCDV_OS}/${SCDV_ARCH}'" >&2
-    exit 1
-    ;;
-esac
+      ;;
+  esac
+fi
 
 # One-time platform setup (e.g. macOS BREW_PREFIX detection).
 plat_init
