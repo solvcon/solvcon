@@ -118,12 +118,10 @@ jobs:
     timeout-minutes: ${{ fromJSON(vars.SCGH_TIMEOUT_BUILD || vars.MMGH_TIMEOUT_BUILD || '45') }}
 
     env:
-      # Cap build parallelism. The github-hosted runners have only 3 (macOS)
-      # / 4 (ubuntu) virtual cores shared with co-tenant VMs, so the default
-      # unbounded `make -j` oversubscribes memory and CPU; on the 7 GB arm64
-      # macOS runner that swaps until the job hits its timeout. -j2 is the
-      # safe bet on both.
-      MAKE_PARALLEL: -j2
+      # A matrix entry naming no parallelism must fall back here rather than
+      # reach the Makefile empty: `MAKE_PARALLEL ?=` tests whether the
+      # variable is set, not whether it holds anything.
+      MAKE_PARALLEL: ${{ matrix.make_parallel || '-j2' }}
       # Every step in this job builds one build type, and the Makefile derives
       # the build tree from it. Setting it here rather than per step keeps a
       # bare `make buildext` on the tree the preceding `make cmake`
@@ -143,12 +141,17 @@ jobs:
           # One build type per host rather than the same one twice. macOS
           # takes RelWithDebInfo, which is what a bare `make` configures and
           # what no other job on a pull request builds; ubuntu and the
-          # Windows job cover Release.
+          # Windows job cover Release. Parallelism follows the host as well:
+          # ubuntu-24.04 has 4 virtual cores and 16 GB, while macos-26 has 3
+          # cores and 7 GB, where a third compiler swaps until the job hits
+          # its timeout.
           include:
             - os: ubuntu-24.04
               cmake_build_type: Release
+              make_parallel: -j4
             - os: macos-26
               cmake_build_type: RelWithDebInfo
+              make_parallel: -j2
 
         fail-fast: false
 
