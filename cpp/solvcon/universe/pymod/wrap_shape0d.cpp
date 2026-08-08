@@ -300,11 +300,21 @@ WrapPointPad<T> & WrapPointPad<T>::wrap_accessor_point()
     // Python dunder accessor.
     (*this)
         .def("__len__", &wrapped_type::size)
-        .def("__getitem__",
-             [](wrapped_type const & self, size_t it)
-             {
-                 return self.get_at(it);
-             })
+        .def(
+            "__getitem__",
+            [](wrapped_type const & self, ssize_t it)
+            {
+                return self.get_at(normalize_pad_index(it, self.size(), "PointPad"));
+            },
+            "Return the point at the index. A negative index counts from the end of the pad.")
+        .def(
+            "__getitem__",
+            [](wrapped_type const & self, py::slice const & key)
+            {
+                return copy_pad_slice(self, key);
+            },
+            "Return a new pad of the same ndim holding a copy of the selected points. "
+            "A write to the result does not reach the pad it was sliced from.")
         //
         ;
 
