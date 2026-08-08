@@ -5,6 +5,7 @@ set(SOLVCON_MATH_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/blas_compat.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/lapack_compat.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/Complex.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/Strassen.hpp
     CACHE FILEPATH "" FORCE)
 
 set(SOLVCON_MATH_SOURCES
