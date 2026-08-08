@@ -61,10 +61,10 @@ class _Controller(metaclass=_Singleton):
         self.gmsh_dialog = None
         self.svg_dialog = None
         self.tree_panel = None
-        self.solution_info = None
+        self.obsrefl_app = None
         self.sample_mesh = None
         self.mesh_style_status = None
-        self.oblique_shock = None
+        self.obsrefl_mesh = None
         self.naca4airfoil = None
         self.eulerone = None
         self.burgers = None
@@ -111,9 +111,9 @@ class _Controller(metaclass=_Singleton):
         self.mesh_style_status = _mesh.MeshStyleStatus(mgr=self._rmgr)
         self.tree_panel = _tree_panel.TreePanel(
             mgr=self._rmgr, style_status=self.mesh_style_status)
-        self.solution_info = obsrefl.ObliqueShockApp(mgr=self._rmgr)
-        self.solution_info.viewer_updated = self.tree_panel.resync
-        self.oblique_shock = obsrefl.ObliqueShockMesh(mgr=self._rmgr)
+        self.obsrefl_app = obsrefl.ObliqueShockApp(mgr=self._rmgr)
+        self.obsrefl_app.viewer_updated = self.tree_panel.resync
+        self.obsrefl_mesh = obsrefl.ObliqueShockMesh(mgr=self._rmgr)
         self.naca4airfoil = airfoil.Naca4Airfoil(mgr=self._rmgr)
         self.mesh_sample_dialog = _mesh.SampleMeshDialog(
             mgr=self._rmgr, entries=self._mesh_sample_dialog_entries())
@@ -151,7 +151,7 @@ class _Controller(metaclass=_Singleton):
         features stay live so the dialog can invoke their bound methods.
         """
         return (self.sample_mesh.mesh_sample_dialog_entries()
-                + self.oblique_shock.mesh_sample_dialog_entries()
+                + self.obsrefl_mesh.mesh_sample_dialog_entries()
                 + self.naca4airfoil.mesh_sample_dialog_entries())
 
     def populate_menu(self):
@@ -161,7 +161,7 @@ class _Controller(metaclass=_Singleton):
         self.svg_dialog.populate_menu()
         self.save_2d_canvas.populate_menu()
         self.tree_panel.populate_menu()
-        self.solution_info.populate_menu()
+        self.obsrefl_app.populate_menu()
         self.painter.populate_menu()
         self.mesh_sample_dialog.populate_menu()
         self.mesh_style_status.populate_menu()

@@ -150,7 +150,7 @@ class SolutionInspectorTC(unittest.TestCase):
         ctl = _gui.controller
         ctl.build()
         ctl.tree_panel._action.setChecked(True)
-        sol = ctl.solution_info
+        sol = ctl.obsrefl_app
         sol._action.setChecked(True)
         # Open the viewer first, then start: the reused viewer raises no
         # activation, so only the wired refresh keeps the inspector from
