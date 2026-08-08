@@ -31,6 +31,17 @@ class ObliqueShockMesher(object):
         self.ny = ny
         (self.x0, self.y0), (self.x1, self.y1) = ll, ur
 
+    @property
+    def cell_extent(self):
+        """The ``(width, height)`` of one grid box.
+
+        Each element flavor fills a box with one or two cells, so the box is
+        the resolution of the mesh whatever the flavor, and it is what a
+        measurement over the mesh has to be cut to.
+        """
+        return ((self.x1 - self.x0) / self.nx,
+                (self.y1 - self.y0) / self.ny)
+
     def _node(self, it, jt):
         return (self.x0 + it * (self.x1 - self.x0) / self.nx,
                 self.y0 + jt * (self.y1 - self.y0) / self.ny)
