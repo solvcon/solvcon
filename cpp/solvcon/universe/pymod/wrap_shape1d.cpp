@@ -742,8 +742,28 @@ WrapCurvePad<T> & WrapCurvePad<T>::wrap_accessor_bezier()
     // Python dunder accessor.
     (*this)
         .def("__len__", &wrapped_type::size)
-        .def("__getitem__", &wrapped_type::get_at)
-        .def("__setitem__", &wrapped_type::set_at)
+        .def(
+            "__getitem__",
+            [](wrapped_type const & self, ssize_t it)
+            {
+                return self.get_at(normalize_pad_index(it, self.size(), "CurvePad"));
+            },
+            "Return the curve at the index. A negative index counts from the end of the pad.")
+        .def(
+            "__getitem__",
+            [](wrapped_type const & self, py::slice const & key)
+            {
+                return copy_pad_slice(self, key);
+            },
+            "Return a new pad of the same ndim holding a copy of the selected curves. "
+            "A write to the result does not reach the pad it was sliced from.")
+        .def(
+            "__setitem__",
+            [](wrapped_type & self, ssize_t it, bezier_type const & c)
+            {
+                self.set_at(normalize_pad_index(it, self.size(), "CurvePad"), c);
+            },
+            "Write the curve at the index. A negative index counts from the end of the pad.")
         //
         ;
 
