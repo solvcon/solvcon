@@ -4,8 +4,8 @@
   "cmakeMinimumRequired": { "major": 4, "minor": 0, "patch": 1 },
   "configurePresets": [
     {
-      "name": "ide-local-rel",
-      "inherits": "win-rel",
+      "name": "ide-local-reldbg",
+      "inherits": "win-reldbg",
       "displayName": "IDE or manual use: local prefix",
       "description": "A checked-in preset plus the paths of a local dependency prefix.",
       "cacheVariables": {
@@ -20,21 +20,21 @@
   ],
   "buildPresets": [
     {
-      "name": "ide-local-rel",
-      "inherits": "win-rel",
-      "configurePreset": "ide-local-rel",
+      "name": "ide-local-reldbg",
+      "inherits": "win-reldbg",
+      "configurePreset": "ide-local-reldbg",
       "displayName": "ide local rel"
     },
     {
-      "name": "ide-local-rel-module",
-      "inherits": "win-rel-module",
-      "configurePreset": "ide-local-rel",
+      "name": "ide-local-reldbg-module",
+      "inherits": "win-reldbg-module",
+      "configurePreset": "ide-local-reldbg",
       "displayName": "ide local rel module"
     },
     {
-      "name": "ide-local-rel-gtest",
-      "inherits": "win-rel-gtest",
-      "configurePreset": "ide-local-rel",
+      "name": "ide-local-reldbg-gtest",
+      "inherits": "win-reldbg-gtest",
+      "configurePreset": "ide-local-reldbg",
       "displayName": "ide local rel gtest"
     }
   ]

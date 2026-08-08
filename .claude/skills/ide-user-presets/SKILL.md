@@ -1,6 +1,6 @@
 ---
 name: ide-user-presets
-description: Install or refresh an IDE's CMakeUserPresets.json from the checked-in template, substituting the scdv prefix so the `ide-scdv-rel` preset carries a real path. Use when setting an IDE up on a checkout, when an IDE cannot find Qt6 or pybind11, or after the template changes. Not a build step; agents build with `make`.
+description: Install or refresh an IDE's CMakeUserPresets.json from the checked-in template, substituting the scdv prefix so the `ide-scdv-reldbg` preset carries a real path. Use when setting an IDE up on a checkout, when an IDE cannot find Qt6 or pybind11, or after the template changes. Not a build step; agents build with `make`.
 ---
 
 # IDE User Presets (solvcon)
@@ -89,8 +89,8 @@ test -d "$(sed -n 's/.*"SCDV_USRDIR": "\(.*\)".*/\1/p' CMakeUserPresets.json)"
 
 The remaining `$env{SCDV_USRDIR}` in the cache variables is correct, and
 resolves from the `environment` map above them. Then `cmake --list-presets`
-has to show `ide-scdv-rel`, and `cmake --list-presets=build` has to show
-`ide-scdv-rel`, `ide-scdv-rel-module`, and `ide-scdv-rel-gtest`. Report the
+has to show `ide-scdv-reldbg`, and `cmake --list-presets=build` has to show
+`ide-scdv-reldbg`, `ide-scdv-reldbg-module`, and `ide-scdv-reldbg-gtest`. Report the
 preset names and the prefix they carry, then stop. Listing is the whole
 verification: configuring or building through an `ide-*` preset is the IDE's
 job, and a build of your own is `make`.

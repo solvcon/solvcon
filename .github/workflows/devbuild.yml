@@ -48,6 +48,10 @@ jobs:
 
     timeout-minutes: ${{ fromJSON(vars.SCGH_TIMEOUT_STANDALONE_BUFFER || vars.MMGH_TIMEOUT_STANDALONE_BUFFER || '10') }}
 
+    env:
+      # The build type names this job's scratch directory and its cache key.
+      CMAKE_BUILD_TYPE: ${{ matrix.cmake_build_type }}
+
     strategy:
       matrix:
         os: [ubuntu-24.04]
@@ -120,6 +124,12 @@ jobs:
       # macOS runner that swaps until the job hits its timeout. -j2 is the
       # safe bet on both.
       MAKE_PARALLEL: -j2
+      # Every step in this job builds one build type, and the Makefile derives
+      # the build tree from it. Setting it here rather than per step keeps a
+      # bare `make buildext` on the tree the preceding `make cmake`
+      # configured; naming it in only some of them splits the job across two
+      # trees, and the second one configures from the preset defaults.
+      CMAKE_BUILD_TYPE: ${{ matrix.cmake_build_type }}
       QT_DEBUG_PLUGINS: 1
       # QT_QPA_PLATFORM is set per-OS by the setup actions (xcb on Linux via
       # Xvfb, offscreen on macOS). Do not set it at the job level.
@@ -130,8 +140,15 @@ jobs:
 
     strategy:
         matrix:
-          os: [ubuntu-24.04, macos-26]
-          cmake_build_type: [Release]
+          # One build type per host rather than the same one twice. macOS
+          # takes RelWithDebInfo, which is what a bare `make` configures and
+          # what no other job on a pull request builds; ubuntu and the
+          # Windows job cover Release.
+          include:
+            - os: ubuntu-24.04
+              cmake_build_type: Release
+            - os: macos-26
+              cmake_build_type: RelWithDebInfo
 
         fail-fast: false
 
@@ -517,7 +534,9 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-24.04]
-        cmake_build_type: [Release]
+        # Sanitizer reports name a file and a line only when the binary
+        # carries debug symbols, so this job builds RelWithDebInfo.
+        cmake_build_type: [RelWithDebInfo]
 
       fail-fast: false
 
@@ -587,8 +606,9 @@ jobs:
 
     strategy:
       matrix:
+        # No build type here: this job configures through the ci-win-asan
+        # preset, which states its own.
         os: [windows-2022]
-        cmake_build_type: [Release]
 
       fail-fast: false
 

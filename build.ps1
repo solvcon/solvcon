@@ -7,10 +7,10 @@
 # contrib/dependency/windows/build-scdv-windows.ps1.  solvcon's Makefile and
 # setup.py shell out to "make", and its module-copy target runs
 # "python3-config"; neither exists on Windows.  This drives CMake directly
-# through the win-rel / win-dbg presets in CMakePresets.json, adding only the
-# scdv-specific cache variables, and places the module by hand.  Those three
-# path variables belong in CMakeUserPresets.json; pass -Preset <name> to build
-# such a preset and the script leaves them to it.  Start that file from
+# through the win-reldbg / win-rel / win-dbg presets in CMakePresets.json,
+# adding only the scdv-specific cache variables, and places the module by hand.
+# Those three path variables belong in CMakeUserPresets.json; pass -Preset
+# <name> to build such a preset and the script leaves them to it.  Start from
 # contrib/cmake/CMakeUserPresets.win-example.json: the other template inherits
 # presets that are disabled on Windows.
 #
@@ -22,9 +22,11 @@
 #
 # Usage:
 #   .\build.ps1
-#       Configure (preset win-rel) and build _solvcon and the pilot against the
-#       active scdv (or -ScdvBase), then place the module.
+#       Configure (preset win-reldbg) and build _solvcon and the pilot against
+#       the active scdv (or -ScdvBase), then place the module.
 #   .\build.ps1 -ScdvBase <dir>       activate the scdv at <dir> first
+#   .\build.ps1 -BuildType Release    use the win-rel preset, dropping the
+#                                     debug symbols to compile faster
 #   .\build.ps1 -BuildType Debug      use the win-dbg preset
 #   .\build.ps1 -Preset local         use a preset from CMakeUserPresets.json,
 #                                     which is expected to supply the
@@ -50,7 +52,8 @@
 param(
     [string]$ScdvBase,
     [string]$Repo,
-    [ValidateSet('Release', 'Debug')][string]$BuildType = 'Release',
+    [ValidateSet('RelWithDebInfo', 'Release', 'Debug')]
+    [string]$BuildType = 'RelWithDebInfo',
     [string]$Preset,
     [switch]$NoQt,
     [switch]$Gtest,
@@ -72,7 +75,7 @@ function Assert-LastExit {
 if ($Help) {
     Get-Content -LiteralPath $PSCommandPath | Select-Object -Skip 1 |
         ForEach-Object { if ($_ -notmatch '^\s*$') { $_ -replace '^#\s?', '' } } |
-        Select-Object -First 42
+        Select-Object -First 44
     exit 0
 }
 
@@ -89,7 +92,7 @@ if ($Sanitize) {
             'to run the pilot pytest suite under AddressSanitizer'
     }
     if ($BuildType -eq 'Debug') {
-        throw '-Sanitize needs the Release preset: MSVC ASan rejects the ' +
+        throw '-Sanitize cannot use the Debug preset: MSVC ASan rejects the ' +
             "Debug /RTC1 runtime checks. Drop -BuildType Debug."
     }
     if (-not $PilotTest) {
@@ -113,7 +116,11 @@ if ($Preset) {
     }
     $presetName = $Preset
 } else {
-    $presetName = if ($BuildType -eq 'Debug') { 'win-dbg' } else { 'win-rel' }
+    $presetName = switch ($BuildType) {
+        'Debug'   { 'win-dbg' }
+        'Release' { 'win-rel' }
+        default   { 'win-reldbg' }
+    }
 }
 
 function Get-ConfigurePresetBinaryDir {

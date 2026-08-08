@@ -7,6 +7,8 @@
 #   make VERBOSE=1
 # Build with clang-tidy
 #   make USE_CLANG_TIDY=ON
+# Build without debug symbols, which compiles faster:
+#   make CMAKE_BUILD_TYPE=Release
 
 SETUP_FILE ?= ./setup.mk
 
@@ -27,7 +29,7 @@ RUNENV += PYTHONPATH=$(SOLVCON_ROOT)
 # environment, or in setup.mk is layered on the selected preset as a -D flag,
 # and nothing else is passed, so a make build and a preset build stay the same
 # build. Setting a knob to its preset value therefore costs nothing.
-CMAKE_KNOBS = SKIP_PYTHON_EXECUTABLE HIDE_SYMBOL DEBUG_SYMBOL SOLVCON_PROFILE \
+CMAKE_KNOBS = SKIP_PYTHON_EXECUTABLE HIDE_SYMBOL SOLVCON_PROFILE \
 	BUILD_METAL BUILD_QT USE_CLANG_TIDY LINT_AS_ERRORS USE_GOOGLETEST \
 	USE_SANITIZER USE_CCACHE CMAKE_INSTALL_PREFIX \
 	CMAKE_LIBRARY_OUTPUT_DIRECTORY CMAKE_PREFIX_PATH
@@ -35,15 +37,24 @@ CMAKE_OVERRIDES = $(strip $(foreach knob,$(CMAKE_KNOBS), \
 	$(if $(filter-out undefined default,$(origin $(knob))),\
 	-D$(knob)=$($(knob)))))
 
-CMAKE_BUILD_TYPE ?= Release
-# The build type picks the preset, so it needs no -D of its own. Override
-# CMAKE_PRESET to build another one, for instance a preset of your own from
-# CMakeUserPresets.json.
-ifeq ($(CMAKE_BUILD_TYPE), Debug)
-	CMAKE_PRESET ?= dev-dbg
-else
-	CMAKE_PRESET ?= dev-rel
-endif
+# Debugging is the default story. Release drops the symbols for a session
+# that is not going to open a debugger.
+CMAKE_BUILD_TYPE ?= RelWithDebInfo
+# The build type picks the preset and the build tree, and it needs no -D of
+# its own because the preset states it. One table decides both, so the two
+# cannot drift apart. An unsupported build type leaves them empty, which the
+# configure rule below reports; the check waits until then so that a target
+# needing no build tree, `make lint` or `make cmakeclean`, still runs.
+CMAKE_PRESET_Debug = dev-dbg
+CMAKE_PRESET_Release = dev-rel
+CMAKE_PRESET_RelWithDebInfo = dev-reldbg
+BUILD_TAG_Debug = dbg
+BUILD_TAG_Release = rel
+BUILD_TAG_RelWithDebInfo = reldbg
+# Override CMAKE_PRESET to build another preset, for instance one of your own
+# from CMakeUserPresets.json. Set BUILD_PATH with it: the tree is named after
+# CMAKE_BUILD_TYPE, which a preset of another build type would contradict.
+CMAKE_PRESET ?= $(CMAKE_PRESET_$(CMAKE_BUILD_TYPE))
 # Number of online processors. Drives both build parallelism (MAKE_PARALLEL
 # below) and the lint targets. getconf works on both Linux and macOS; fall
 # back to 1 if unavailable. Override to cap parallelism, e.g. NPROC=2.
@@ -83,11 +94,7 @@ export DIRNAME_PYTHON := $(dir $(REALPATH_PYTHON))
 
 pyvminor := $(shell python3 -c 'import sys; print("%d%d" % sys.version_info[0:2])')
 
-ifeq ($(CMAKE_BUILD_TYPE), Debug)
-	BUILD_PATH ?= build/dbg$(pyvminor)$(BUILD_PATH_EXT)
-else
-	BUILD_PATH ?= build/rel$(pyvminor)$(BUILD_PATH_EXT)
-endif
+BUILD_PATH ?= build/$(BUILD_TAG_$(CMAKE_BUILD_TYPE))$(pyvminor)$(BUILD_PATH_EXT)
 export BUILD_PATH
 
 # Test with the build interpreter; an ABI-tagged _solvcon cannot load under a
@@ -113,10 +120,19 @@ xcode: $(BUILD_PATH)_xcode/Makefile
 # stays the one the clean target and the workflows expect from a make build.
 CMAKE_CMD = cmake --preset $(CMAKE_PRESET) $(CMAKE_OVERRIDES) $(CMAKE_ARGS)
 
+# The table above leaves CMAKE_PRESET empty for a build type it does not name.
+CHECK_BUILD_TYPE = test -n "$(CMAKE_PRESET)" || { \
+	echo "Error: CMAKE_BUILD_TYPE is '$(CMAKE_BUILD_TYPE)'."; \
+	echo "  Use RelWithDebInfo, Release, or Debug."; \
+	exit 1; \
+	}
+
 $(BUILD_PATH)/Makefile: CMakeLists.txt CMakePresets.json Makefile
+	@$(CHECK_BUILD_TYPE)
 	env $(RUNENV) $(CMAKE_CMD) -B $(BUILD_PATH) -G "Unix Makefiles"
 
 $(BUILD_PATH)_xcode/Makefile: CMakeLists.txt CMakePresets.json Makefile
+	@$(CHECK_BUILD_TYPE)
 	env $(RUNENV) $(CMAKE_CMD) -B $(BUILD_PATH)_xcode -G Xcode
 
 .PHONY: buildext

@@ -128,8 +128,8 @@ when asked to set an IDE up.
   `make pytest-gui` runs only it. `tests/gui/README.md` states the rule and
   `make checktests` enforces it.
 - `make gtest` -- build and run the full C++ test suite.
-- `./build/rel<pyvminor>/gtests/run_gtest --gtest_filter=Suite.Test` -- run a
-  single gtest after `make gtest` has built the binary
+- `./build/reldbg<pyvminor>/gtests/run_gtest --gtest_filter=Suite.Test` -- run
+  a single gtest after `make gtest` has built the binary
   (`<pyvminor>` is the Python major+minor, e.g. `314`).
 - `make pyprof` -- run profiling benchmarks; results land in
   `profiling/results/`.
