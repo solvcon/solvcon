@@ -605,6 +605,12 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRDomainWidget
             SC_DECL_CAMERA_VECTOR("cameraUp", cameraUp, setCameraUp)
         // clang-format on
 #undef SC_DECL_CAMERA_VECTOR
+            .def_property_readonly(
+                "cameraZoom",
+                &wrapped_type::cameraZoom,
+                "The 2D zoom factor, smaller meaning zoomed in. The pose "
+                "properties above carry pan but not zoom, which the 2D camera "
+                "keeps in its orthographic box.")
             .def(
                 "saveImage",
                 [](wrapped_type & self, std::string const & filename)

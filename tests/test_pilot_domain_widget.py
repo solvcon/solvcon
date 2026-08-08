@@ -433,6 +433,38 @@ class RDomainWidgetFieldTC(unittest.TestCase):
         _update_field(widget, vertices, colors * 0.5, indices)
         self.assertGreater(_count_colored(_grab_or_skip(widget)), 0)
 
+    def test_recoloring_the_same_field_keeps_the_view(self):
+        """A solver run recolors one geometry frame after frame, so the view
+        the user set has to survive the swap."""
+        widget = pilot.RDomainWidget()
+        widget.resize(320, 240)
+        vertices, colors, indices = _make_color_field()
+        _update_field(widget, vertices, colors, indices)
+        # A field carries no mesh to pick the mode from; a 2D domain runs the
+        # pan/zoom camera, which is the one that holds a zoom.
+        widget.cameraMode = "pan"
+        widget.zoomCamera(3.0)
+        widget.panCamera(20.0, 10.0)
+        zoom, target = widget.cameraZoom, widget.cameraTarget
+        self.assertNotAlmostEqual(1.0, zoom)
+        _update_field(widget, vertices, colors * 0.5, indices)
+        self.assertAlmostEqual(zoom, widget.cameraZoom)
+        self.assertEqual(target, widget.cameraTarget)
+
+    def test_a_field_that_moves_reframes_the_view(self):
+        """A field standing somewhere else is a new subject, not a new frame
+        of the old one, so it re-frames rather than keeping a view aimed at
+        where the previous one stood."""
+        widget = pilot.RDomainWidget()
+        widget.resize(320, 240)
+        vertices, colors, indices = _make_color_field()
+        _update_field(widget, vertices, colors, indices)
+        widget.cameraMode = "pan"
+        widget.zoomCamera(3.0)
+        self.assertNotAlmostEqual(1.0, widget.cameraZoom)
+        _update_field(widget, vertices + 5.0, colors, indices)
+        self.assertAlmostEqual(1.0, widget.cameraZoom)
+
     def test_show_boundary_highlights_set(self):
         """showBoundary draws the set's colored ribbon and hides it again.
 

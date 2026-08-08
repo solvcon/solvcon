@@ -1729,6 +1729,11 @@ void RDomainWidget::setCameraUp(QVector3D const & up)
     update();
 }
 
+float RDomainWidget::cameraZoom() const
+{
+    return m_scene.camera().orthoScale();
+}
+
 void RDomainWidget::rotateCamera(float dx, float dy)
 {
     m_scene.camera().rotate(dx, dy);
