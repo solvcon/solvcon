@@ -119,13 +119,13 @@ class _FakeBackend:
 
 
 class RunTurnTC(unittest.TestCase):
-    def test_records_user_and_agent_turns_and_runs_commands(self):
+    def test_one_step_records_user_and_agent_turns_and_runs_commands(self):
         cmds = [{"op": "add_circle", "cx": 0.0, "cy": 0.0, "r": 1.0}]
         backend = _FakeBackend(
             agent.BackendResponse(text="drawing", commands=cmds))
         runner = _RecordingRunner()
         session = agent.AgentSession(backend=backend, runner=runner)
-        turn = session.run_turn("draw a circle")
+        turn = agent.run_turn(session, "draw a circle", budget=1)
         self.assertEqual(runner.commands, cmds)
         self.assertEqual([t.role for t in session.transcript],
                          ["user", "agent"])
@@ -136,14 +136,14 @@ class RunTurnTC(unittest.TestCase):
 
     def test_no_backend_records_only_the_user_turn(self):
         session = agent.AgentSession()
-        self.assertIsNone(session.run_turn("hello"))
+        self.assertIsNone(agent.run_turn(session, "hello"))
         self.assertEqual([t.role for t in session.transcript], ["user"])
 
     def test_empty_command_batch_builds_no_runner(self):
         backend = _FakeBackend(
             agent.BackendResponse(text="echo: hi", commands=[]))
         session = agent.AgentSession(backend=backend)
-        turn = session.run_turn("hi")
+        turn = agent.run_turn(session, "hi")
         self.assertEqual(turn.text, "echo: hi")
         self.assertEqual(turn.results, [])
         self.assertIsNone(session._runner)
@@ -154,7 +154,7 @@ class RunTurnTC(unittest.TestCase):
                 raise RuntimeError("backend down")
 
         session = agent.AgentSession(backend=_Boom())
-        turn = session.run_turn("draw")
+        turn = agent.run_turn(session, "draw")
         # The turn is recorded, not propagated, so a headless caller still
         # gets a transcript with the failure.
         self.assertEqual([t.role for t in session.transcript],
@@ -170,7 +170,7 @@ class RunTurnTC(unittest.TestCase):
         backend = _FakeBackend(agent.BackendResponse(
             commands=[{"op": "add_circle"}, {"op": "add_square"}]))
         session = _Session(backend=backend)
-        turn = session.run_turn("draw two shapes")
+        turn = agent.run_turn(session, "draw two shapes", budget=1)
         # Results line up with commands even when the runner cannot be built.
         self.assertEqual(len(turn.results), 2)
         self.assertFalse(any(r.ok for r in turn.results))
@@ -180,7 +180,7 @@ class RunTurnTC(unittest.TestCase):
     def test_backend_error_is_folded_into_the_reply(self):
         backend = _FakeBackend(agent.BackendResponse(error="claude timed out"))
         session = agent.AgentSession(backend=backend)
-        turn = session.run_turn("draw")
+        turn = agent.run_turn(session, "draw")
         self.assertIn("claude timed out", turn.text)
 
     def test_bind_world_drops_the_lazy_runner(self):
@@ -271,8 +271,8 @@ class HistoryTC(unittest.TestCase):
     def test_run_turn_hands_the_earlier_turns_to_the_backend(self):
         backend = _FakeBackend(agent.BackendResponse(text="ok"))
         session = agent.AgentSession(backend=backend)
-        session.run_turn("draw a truck")
-        session.run_turn("move it right")
+        agent.run_turn(session, "draw a truck")
+        agent.run_turn(session, "move it right")
         prompt, _, _, history = backend.seen
         self.assertEqual(prompt, "move it right")
         self.assertEqual([turn.text for turn in history],

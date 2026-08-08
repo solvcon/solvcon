@@ -339,6 +339,24 @@ class BackendSetting:
     tooltip: str = ""
 
 
+@dataclasses.dataclass(frozen=True)
+class TurnRequest:
+    """The arguments of :meth:`AgentBackend.send` as one frozen object.
+
+    A driver composes it on its own thread and hands it to a worker, so what
+    the backend is asked cannot shift under it while the call runs.
+    """
+
+    prompt: str
+    scene_context: str = ""
+    tool_surface: list = dataclasses.field(default_factory=list)
+    history: list = dataclasses.field(default_factory=list)
+
+    def send_to(self, backend):
+        return backend.send(self.prompt, self.scene_context,
+                            self.tool_surface, self.history)
+
+
 class TransportOutcome(enum.Enum):
     """How the exchange that carried a request ended.
 
@@ -381,14 +399,19 @@ class BackendResponse:
     status: ParseStatus = None
 
     def __post_init__(self):
-        if self.status is not None:
-            return
-        if self.commands:
-            self.status = ParseStatus.COMMANDS
-        elif self.text:
-            self.status = ParseStatus.PROSE
-        else:
-            self.status = ParseStatus.EMPTY
+        if self.status is None:
+            if self.commands:
+                self.status = ParseStatus.COMMANDS
+            elif self.text:
+                self.status = ParseStatus.PROSE
+            else:
+                self.status = ParseStatus.EMPTY
+        if (self.error and self.status is ParseStatus.EMPTY
+                and self.outcome is TransportOutcome.OK):
+            # An error carrying nothing else is a backend reporting failure
+            # through the older field alone.  Left as ok it would be
+            # indistinguishable from the model answering that it is done.
+            self.outcome = TransportOutcome.TRANSPORT
 
 
 class AgentBackend(abc.ABC):
