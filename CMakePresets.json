@@ -12,6 +12,7 @@
         "LINT_AS_ERRORS": { "type": "BOOL", "value": "ON" },
         "SKIP_PYTHON_EXECUTABLE": { "type": "BOOL", "value": "OFF" },
         "SOLVCON_PROFILE": { "type": "BOOL", "value": "OFF" },
+        "USE_CCACHE": { "type": "BOOL", "value": "ON" },
         "USE_CLANG_TIDY": { "type": "BOOL", "value": "OFF" },
         "USE_SANITIZER": { "type": "BOOL", "value": "OFF" },
         "BUILD_METAL": { "type": "BOOL", "value": "OFF" },
