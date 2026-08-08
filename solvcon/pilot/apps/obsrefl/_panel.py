@@ -28,8 +28,8 @@ class SolutionPanel(QWidget):
 
     #: Derived scalar fields the viewer can color, in display order.
     FIELDS = EulerField.FIELDS
-    #: Mesh flavors offered by :mod:`._driver`.
-    CELL_TYPES = ('quad', 'triangle', 'unstructured')
+    #: Mesh flavors offered by :mod:`._driver`, the first being the default.
+    CELL_TYPES = ('unstructured', 'quad', 'triangle')
 
     def __init__(self, parent=None):
         super().__init__(parent)

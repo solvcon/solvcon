@@ -89,13 +89,14 @@ class AnalyticAgreementTC(unittest.TestCase):
     reaches has to be the analytic three-zone answer, with the shock standing
     where the relations put it.
 
-    Two things keep it to a few hundredths of a second.  The mesh is coarse,
-    and a coarse mesh takes a long step: the run below sits at a CFL of about
-    0.76 with a time increment twenty times the default, so it covers the same
-    flow time in a twentieth of the steps.  The cap is then set from
-    measurement rather than guessed: this case reaches its final field well
-    inside two hundred steps, and the errors below do not move when the cap is
-    raised to twelve hundred.
+    It runs on the default unstructured mesh, which is the one the case is
+    meant to be solved on; a structured flavor would let a uniform cell size
+    carry the check.  Two things keep it to a twentieth of a second.  The
+    mesh is coarse, at 102 cells, and a coarse mesh takes a long step: the
+    increment below is five times the default and still leaves the smallest
+    cell at a CFL of 0.67.  The cap is measured rather than guessed, this
+    case reaching its final field by four hundred steps and not moving when
+    the cap is raised to sixteen hundred.
 
     The errors are percents on a mesh this coarse.  They shrink with
     refinement, which is what a resolution control is for, and the bounds
@@ -103,11 +104,12 @@ class AnalyticAgreementTC(unittest.TestCase):
     """
 
     def test_a_coarse_run_reaches_the_analytic_answer(self):
-        sess = ReflectionSession(nx=12, ny=4, time_increment=4.e-2,
-                                 steps_per_chunk=20, max_steps=200)
+        sess = ReflectionSession(nx=12, ny=4, time_increment=1.e-2,
+                                 steps_per_chunk=20, max_steps=400)
         self.assertEqual('cap', sess.run())
         self.assertEqual(sess.max_steps // 20, len(sess.history))
-        # The long step is only legitimate below a CFL of one.
+        # The long step is only legitimate below a CFL of one, and an
+        # irregular mesh has no uniform cell to tune it against.
         cflc = sess.shock.svr.cflc
         self.assertLess(float(cflc.ndarray[cflc.nghost:].max()), 1.0)
         # Every zone holds its analytic state, and the shock stands where
