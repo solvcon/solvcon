@@ -98,6 +98,10 @@ jobs:
 
   build:
 
+    # The BUILD_QT=ON half of the build; build_noqt below is the other half,
+    # and the two run side by side. This job's name is load-bearing: the
+    # checks it reports are the ones branch protection can already name.
+    #
     # Gate the heavy build behind the fast standalone_buffer smoke compile so
     # a broken build short-circuits before the full matrix launches.
     needs: [check_skip, standalone_buffer]
@@ -189,41 +193,9 @@ jobs:
         # cold).
         max-size: 1500M
 
-    - name: make gtest BUILD_QT=OFF
-      run: |
-        echo "::group::make gtest BUILD_QT=OFF"
-        make gtest \
-          VERBOSE=1 USE_CLANG_TIDY=OFF \
-          BUILD_QT=OFF
-        echo "::endgroup::"
-
-    - name: make buildext BUILD_QT=OFF
-      run: |
-        echo "::group::make buildext BUILD_QT=OFF"
-        rm -f build/*/Makefile
-        make cmake \
-          VERBOSE=1 USE_CLANG_TIDY=OFF \
-          BUILD_QT=OFF \
-          CMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} \
-          CMAKE_ARGS="-DPYTHON_EXECUTABLE=$(which python3)"
-        make buildext VERBOSE=1
-        echo "::endgroup::"
-
-    - name: make pytest BUILD_QT=OFF
-      run: |
-        echo "::group::make pytest BUILD_QT=OFF"
-        python3 -c "import solvcon; assert solvcon.HAS_PILOT == False"
-        JOB_MAKE_ARGS="${JOB_MAKE_ARGS} VERBOSE=1"
-        if [ "${{ matrix.os }}" == "macos-26" ] ; then \
-          JOB_MAKE_ARGS="${JOB_MAKE_ARGS} BUILD_METAL=ON" ; \
-        fi
-        make pytest ${JOB_MAKE_ARGS}
-        echo "::endgroup::"
-
     - name: make buildext BUILD_QT=ON
       run: |
         echo "::group::make buildext BUILD_QT=ON"
-        rm -f build/*/Makefile
         make cmake \
           VERBOSE=1 USE_CLANG_TIDY=OFF \
           BUILD_QT=ON \
@@ -260,12 +232,9 @@ jobs:
     - name: make pilot
       run: |
         echo "::group::make pilot"
-        rm -f build/*/Makefile
-        make pilot \
-          VERBOSE=1 USE_CLANG_TIDY=OFF \
-          BUILD_QT=ON \
-          CMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} \
-          CMAKE_ARGS="-DPYTHON_EXECUTABLE=$(which python3)"
+        # The step above configured this tree; the configure knobs would land
+        # on a rule that no longer fires, so only the build flag is named.
+        make pilot VERBOSE=1
         echo "::endgroup::"
 
     - name: make run_pilot_pytest
@@ -276,6 +245,127 @@ jobs:
         # and keep the tests that need a live surface out of the skips.
         export SOLVCON_TEST_SHOW_WINDOWS=ON
         make run_pilot_pytest VERBOSE=1
+        echo "::endgroup::"
+
+  build_noqt:
+
+    # The BUILD_QT=OFF half of the build, running beside the build job above
+    # rather than after it: the C++ gtest binary, the extension module built
+    # without Qt, the assertion that HAS_PILOT is then False, and the Python
+    # suite against it.
+    #
+    # A required-status-check rule that names the build checks does not match
+    # this one. Add it there to make the Qt-free half blocking too.
+    needs: [check_skip, standalone_buffer]
+
+    if: |
+      needs.check_skip.outputs.skip != 'true' && (
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'push' &&
+       ((vars.SCGH_PUSH_RUN_BRANCH || vars.MMGH_PUSH_RUN_BRANCH) == '*' ||
+        contains(vars.SCGH_PUSH_RUN_BRANCH || vars.MMGH_PUSH_RUN_BRANCH, github.ref_name))) ||
+      (github.event_name == 'schedule' &&
+      (vars.SCGH_NIGHTLY || vars.MMGH_NIGHTLY) == 'enable'))
+
+    name: build_noqt_${{ matrix.os }}_${{ matrix.cmake_build_type }}
+
+    runs-on: ${{ matrix.os }}
+
+    timeout-minutes: ${{ fromJSON(vars.SCGH_TIMEOUT_BUILD || vars.MMGH_TIMEOUT_BUILD || '45') }}
+
+    env:
+      MAKE_PARALLEL: ${{ matrix.make_parallel || '-j2' }}
+      CMAKE_BUILD_TYPE: ${{ matrix.cmake_build_type }}
+      QT_DEBUG_PLUGINS: 1
+      PIP_BREAK_SYSTEM_PACKAGES: 1 # disabling PEP668 (for MacOS runner)
+      # Fix issue: https://github.com/solvcon/solvcon/issues/366
+      # Use custom config for jurplel/install-qt-action@v4
+      AQT_CONFIG: "thirdparty/aqt_settings.ini"
+
+    strategy:
+        matrix:
+          # The same hosts, build types, and parallelism as the build job, so
+          # the two halves cover one configuration each on both.
+          include:
+            - os: ubuntu-24.04
+              cmake_build_type: Release
+              make_parallel: -j4
+            - os: macos-26
+              cmake_build_type: RelWithDebInfo
+              make_parallel: -j2
+
+        fail-fast: false
+
+    steps:
+
+    - uses: actions/checkout@v6
+      with:
+        fetch-depth: 1
+
+    - name: event name
+      run: |
+        echo "github.event_name: ${{ github.event_name }}"
+
+    - name: setup dependencies for Linux
+      if: runner.os == 'Linux'
+      uses: ./.github/actions/setup_linux
+      with:
+        workflow: 'build'
+
+    - name: setup dependencies for macOS
+      if: runner.os == 'macOS'
+      uses: ./.github/actions/setup_macos
+      with:
+        workflow: 'build'
+
+    - name: ccache
+      uses: hendrikmuhs/ccache-action@v1.2.23
+      with:
+        # A key of its own. These objects are compiled without Qt, so they
+        # would evict the build job's on every save if the two shared one, and
+        # the profiling job reads that one.
+        key: ${{ runner.os }}-noqt-${{ matrix.cmake_build_type }}
+        restore-keys: ${{ runner.os }}-noqt-${{ matrix.cmake_build_type }}
+        save: ${{ github.event_name != 'pull_request' }}
+        # Smaller than the build job's bound: this half compiles the core and
+        # the gtest binary, not the pilot.
+        max-size: 800M
+
+    # `make cmake` is a rule on the generated makefile, so it configures only
+    # when that file is absent or stale. This job configures once, here, and
+    # the two build steps below inherit the tree; naming the knobs on a later
+    # step instead would leave them on a rule that no longer fires.
+    - name: make cmake BUILD_QT=OFF
+      run: |
+        echo "::group::make cmake BUILD_QT=OFF"
+        make cmake \
+          VERBOSE=1 USE_CLANG_TIDY=OFF \
+          BUILD_QT=OFF \
+          CMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} \
+          CMAKE_ARGS="-DPYTHON_EXECUTABLE=$(which python3)"
+        echo "::endgroup::"
+
+    - name: make gtest BUILD_QT=OFF
+      run: |
+        echo "::group::make gtest BUILD_QT=OFF"
+        make gtest VERBOSE=1
+        echo "::endgroup::"
+
+    - name: make buildext BUILD_QT=OFF
+      run: |
+        echo "::group::make buildext BUILD_QT=OFF"
+        make buildext VERBOSE=1
+        echo "::endgroup::"
+
+    - name: make pytest BUILD_QT=OFF
+      run: |
+        echo "::group::make pytest BUILD_QT=OFF"
+        python3 -c "import solvcon; assert solvcon.HAS_PILOT == False"
+        JOB_MAKE_ARGS="${JOB_MAKE_ARGS} VERBOSE=1"
+        if [ "${{ matrix.os }}" == "macos-26" ] ; then \
+          JOB_MAKE_ARGS="${JOB_MAKE_ARGS} BUILD_METAL=ON" ; \
+        fi
+        make pytest ${JOB_MAKE_ARGS}
         echo "::endgroup::"
 
   build_windows:
@@ -701,7 +791,7 @@ jobs:
 
 
   send_email_on_failure:
-    needs: [standalone_buffer, build, build_windows, sanitizer, sanitizer_windows]
+    needs: [standalone_buffer, build, build_noqt, build_windows, sanitizer, sanitizer_windows]
     # Run if any of the dependencies failed in master branch. A
     # `timeout-minutes` kill reports `cancelled`, not `failure`.
     if: |
@@ -715,6 +805,7 @@ jobs:
       job_results: |
         - standalone_buffer: ${{ needs.standalone_buffer.result }}
         - build: ${{ needs.build.result }}
+        - build_noqt: ${{ needs.build_noqt.result }}
         - build_windows: ${{ needs.build_windows.result }}
         - sanitizer: ${{ needs.sanitizer.result }}
         - sanitizer_windows: ${{ needs.sanitizer_windows.result }}
