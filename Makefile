@@ -236,9 +236,12 @@ bundle-test:
 standalone_buffer_setup:
 	$(MAKE) -C contrib/standalone_buffer copy
 
+# A recursive make inherits no job slots from a parent invoked without -j, so
+# the sub-make has to state its own. Under a parent that does carry -j, this
+# opts out of the jobserver and the two counts add up.
 .PHONY: standalone_buffer
 standalone_buffer:
-	$(MAKE) -C contrib/standalone_buffer build
+	$(MAKE) $(MAKE_PARALLEL) -C contrib/standalone_buffer build
 	$(MAKE) -C contrib/standalone_buffer run
 
 CLANG_FORMAT ?= clang-format
