@@ -15,10 +15,11 @@ be reached from Python.
 After `make gtest` has built the binary, a single C++ test can be run directly:
 
 ```sh
-./build/rel<pyvminor>/gtests/run_gtest --gtest_filter=Suite.Test
+./build/reldbg<pyvminor>/gtests/run_gtest --gtest_filter=Suite.Test
 ```
 
 where `<pyvminor>` is the active Python major and minor version, e.g. `314`.
+The directory follows `CMAKE_BUILD_TYPE`; see {doc}`/start/build_solvcon`.
 
 ## Through CTest
 
@@ -28,10 +29,10 @@ tree.  This is what an IDE drives, and it is how the C++ cases become
 individually selectable.
 
 ```sh
-ctest --preset dev-rel            # every suite
-ctest --preset dev-rel-cpp        # the C++ cases alone
-ctest --preset dev-rel-python     # the Python suite alone
-ctest --preset dev-rel-pilot      # the Python suite inside the pilot binary
+ctest --preset dev-reldbg         # every suite
+ctest --preset dev-reldbg-cpp     # the C++ cases alone
+ctest --preset dev-reldbg-python  # the Python suite alone
+ctest --preset dev-reldbg-pilot   # the Python suite inside the pilot binary
 ```
 
 The presets are described in {doc}`/devguide/cmake`.  Against a build tree

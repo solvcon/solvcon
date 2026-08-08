@@ -6,6 +6,16 @@ project(solvcon)
 
 enable_testing()
 
+# The presets and the Makefile always state a build type. A configure that
+# names neither, which is a bare `cmake -S . -B <dir>`, would otherwise get an
+# empty one and compile with no optimization, no NDEBUG, and no debug info.
+# A multi-config generator carries its types in CMAKE_CONFIGURATION_TYPES and
+# ignores this one.
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    set(CMAKE_BUILD_TYPE "RelWithDebInfo" CACHE STRING "build type" FORCE)
+endif()
+message(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
+
 # The Python, Qt6, and PySide6 that MSVC links ship release binaries only, so a
 # Debug build must match their runtime and configuration or it corrupts the heap
 # (issue #1058). Both default on; turn one off to link debug dependencies when
@@ -246,16 +256,6 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE BOOL "Export compile commands")
 
 option(HIDE_SYMBOL "hide the symbols of python wrapper" OFF)
 message(STATUS "HIDE_SYMBOL: ${HIDE_SYMBOL}")
-
-option(DEBUG_SYMBOL "add debug information" ON)
-message(STATUS "DEBUG_SYMBOL: ${DEBUG_SYMBOL}")
-if(DEBUG_SYMBOL)
-    if(MSVC)
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /DEBUG")
-    else()
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
-    endif()
-endif()
 
 option(SOLVCON_PROFILE "enable profiler" OFF)
 message(STATUS "SOLVCON_PROFILE: ${SOLVCON_PROFILE}")

@@ -4,8 +4,8 @@
   "cmakeMinimumRequired": { "major": 4, "minor": 0, "patch": 1 },
   "configurePresets": [
     {
-      "name": "ide-scdv-rel",
-      "inherits": "win-rel",
+      "name": "ide-scdv-reldbg",
+      "inherits": "win-reldbg",
       "displayName": "IDE or manual use: scdv prefix",
       "description": "A checked-in preset plus the paths of an scdv environment. Installing substitutes the prefix into SCDV_USRDIR below.",
       "environment": {
@@ -23,21 +23,21 @@
   ],
   "buildPresets": [
     {
-      "name": "ide-scdv-rel",
-      "inherits": "win-rel",
-      "configurePreset": "ide-scdv-rel",
+      "name": "ide-scdv-reldbg",
+      "inherits": "win-reldbg",
+      "configurePreset": "ide-scdv-reldbg",
       "displayName": "ide scdv rel"
     },
     {
-      "name": "ide-scdv-rel-module",
-      "inherits": "win-rel-module",
-      "configurePreset": "ide-scdv-rel",
+      "name": "ide-scdv-reldbg-module",
+      "inherits": "win-reldbg-module",
+      "configurePreset": "ide-scdv-reldbg",
       "displayName": "ide scdv rel module"
     },
     {
-      "name": "ide-scdv-rel-gtest",
-      "inherits": "win-rel-gtest",
-      "configurePreset": "ide-scdv-rel",
+      "name": "ide-scdv-reldbg-gtest",
+      "inherits": "win-reldbg-gtest",
+      "configurePreset": "ide-scdv-reldbg",
       "displayName": "ide scdv rel gtest"
     }
   ]

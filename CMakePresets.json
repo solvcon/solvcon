@@ -8,7 +8,6 @@
       "hidden": true,
       "cacheVariables": {
         "HIDE_SYMBOL": { "type": "BOOL", "value": "ON" },
-        "DEBUG_SYMBOL": { "type": "BOOL", "value": "ON" },
         "LINT_AS_ERRORS": { "type": "BOOL", "value": "ON" },
         "SKIP_PYTHON_EXECUTABLE": { "type": "BOOL", "value": "OFF" },
         "SOLVCON_PROFILE": { "type": "BOOL", "value": "OFF" },
@@ -46,7 +45,11 @@
       },
       "binaryDir": "${sourceDir}/build/${presetName}",
       "cacheVariables": {
-        "BUILD_QT": { "type": "BOOL", "value": "ON" }
+        "BUILD_QT": { "type": "BOOL", "value": "ON" },
+        "CMAKE_CXX_FLAGS_RELWITHDEBINFO": {
+          "type": "STRING",
+          "value": "-O3 -g -DNDEBUG"
+        }
       },
       "vendor": {
         "jetbrains.com/clion": { "enablePythonIntegration": true },
@@ -56,10 +59,19 @@
       }
     },
     {
+      "name": "dev-reldbg",
+      "inherits": "dev-base",
+      "displayName": "Developer Release with Debug Info",
+      "description": "Optimized _solvcon and pilot with debug symbols, for Linux and macOS.",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": { "type": "STRING", "value": "RelWithDebInfo" }
+      }
+    },
+    {
       "name": "dev-rel",
       "inherits": "dev-base",
       "displayName": "Developer Release",
-      "description": "Optimized _solvcon and pilot for Linux and macOS.",
+      "description": "Optimized _solvcon and pilot without debug symbols, for Linux and macOS.",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": { "type": "STRING", "value": "Release" }
       }
@@ -76,10 +88,10 @@
     {
       "name": "dev-noqt",
       "inherits": "dev-base",
-      "displayName": "Developer Release, no Qt",
+      "displayName": "Developer Release with Debug Info, no Qt",
       "description": "Optimized _solvcon without the pilot, for a headless host.",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": { "type": "STRING", "value": "Release" },
+        "CMAKE_BUILD_TYPE": { "type": "STRING", "value": "RelWithDebInfo" },
         "BUILD_QT": { "type": "BOOL", "value": "OFF" }
       }
     },
@@ -96,6 +108,10 @@
       "binaryDir": "${sourceDir}/build/${presetName}",
       "cacheVariables": {
         "BUILD_QT": { "type": "BOOL", "value": "ON" },
+        "CMAKE_CXX_FLAGS_RELWITHDEBINFO": {
+          "type": "STRING",
+          "value": "/O2 /Ob2 /DNDEBUG"
+        },
         "CMAKE_RUNTIME_OUTPUT_DIRECTORY": {
           "type": "PATH",
           "value": "${sourceDir}/build/${presetName}"
@@ -110,10 +126,20 @@
       }
     },
     {
+      "name": "win-reldbg",
+      "inherits": "win-base",
+      "displayName": "Windows Release with Debug Info (Ninja, MSVC)",
+      "description": "Optimized _solvcon and pilot with debug symbols, MSVC through Ninja.",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": { "type": "STRING", "value": "RelWithDebInfo" },
+        "BLA_VENDOR": { "type": "STRING", "value": "OpenBLAS" }
+      }
+    },
+    {
       "name": "win-rel",
       "inherits": "win-base",
       "displayName": "Windows Release (Ninja, MSVC)",
-      "description": "Optimized _solvcon and pilot built with MSVC through Ninja.",
+      "description": "Optimized _solvcon and pilot without debug symbols, MSVC through Ninja.",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": { "type": "STRING", "value": "Release" },
         "BLA_VENDOR": { "type": "STRING", "value": "OpenBLAS" }
@@ -172,9 +198,9 @@
       "name": "ci-win-asan",
       "inherits": "ci-win-base",
       "displayName": "CI: Windows AddressSanitizer",
-      "description": "For the Windows sanitizer CI job. A developer wants win-rel instead.",
+      "description": "For the Windows sanitizer CI job; RelWithDebInfo so a report names a file and a line. A developer wants win-reldbg instead.",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": { "type": "STRING", "value": "Release" },
+        "CMAKE_BUILD_TYPE": { "type": "STRING", "value": "RelWithDebInfo" },
         "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake",
         "VCPKG_TARGET_TRIPLET": "x64-windows",
         "USE_SANITIZER": { "type": "BOOL", "value": "ON" }
@@ -195,6 +221,30 @@
           "hostOS": ["Linux", "macOS"]
         }
       }
+    },
+    {
+      "name": "dev-reldbg",
+      "inherits": "dev-base",
+      "configurePreset": "dev-reldbg",
+      "displayName": "Developer Release with Debug Info",
+      "description": "Build the extension module and the pilot, RelWithDebInfo.",
+      "targets": ["_solvcon_py", "pilot"]
+    },
+    {
+      "name": "dev-reldbg-module",
+      "inherits": "dev-base",
+      "configurePreset": "dev-reldbg",
+      "displayName": "Developer Release with Debug Info, module only",
+      "description": "Build the extension module alone, RelWithDebInfo.",
+      "targets": ["_solvcon_py"]
+    },
+    {
+      "name": "dev-reldbg-gtest",
+      "inherits": "dev-base",
+      "configurePreset": "dev-reldbg",
+      "displayName": "Developer Release with Debug Info, C++ test binary",
+      "description": "Build the C++ gtest binary, RelWithDebInfo.",
+      "targets": ["test_nopython"]
     },
     {
       "name": "dev-rel",
@@ -248,7 +298,7 @@
       "name": "dev-noqt",
       "inherits": "dev-base",
       "configurePreset": "dev-noqt",
-      "displayName": "Developer Release, no Qt",
+      "displayName": "Developer Release with Debug Info, no Qt",
       "description": "Build the extension module alone, without the pilot.",
       "targets": ["_solvcon_py"]
     },
@@ -256,7 +306,7 @@
       "name": "dev-noqt-gtest",
       "inherits": "dev-base",
       "configurePreset": "dev-noqt",
-      "displayName": "Developer Release, no Qt, C++ test binary",
+      "displayName": "Developer Release with Debug Info, no Qt, C++ test binary",
       "description": "Build the C++ gtest binary, without the pilot.",
       "targets": ["test_nopython"]
     },
@@ -273,6 +323,30 @@
           "hostOS": ["Windows"]
         }
       }
+    },
+    {
+      "name": "win-reldbg",
+      "inherits": "win-base",
+      "configurePreset": "win-reldbg",
+      "displayName": "Windows Release with Debug Info",
+      "description": "Build the extension module and the pilot, RelWithDebInfo.",
+      "targets": ["_solvcon", "pilot"]
+    },
+    {
+      "name": "win-reldbg-module",
+      "inherits": "win-base",
+      "configurePreset": "win-reldbg",
+      "displayName": "Windows Release with Debug Info, module only",
+      "description": "Build the extension module alone, RelWithDebInfo.",
+      "targets": ["_solvcon"]
+    },
+    {
+      "name": "win-reldbg-gtest",
+      "inherits": "win-base",
+      "configurePreset": "win-reldbg",
+      "displayName": "Windows Release with Debug Info, C++ test binary",
+      "description": "Build the C++ gtest binary, RelWithDebInfo.",
+      "targets": ["test_nopython"]
     },
     {
       "name": "win-rel",
@@ -361,35 +435,42 @@
       }
     },
     {
+      "name": "dev-reldbg",
+      "inherits": "dev-base",
+      "configurePreset": "dev-reldbg",
+      "displayName": "Developer Release with Debug Info, every suite",
+      "description": "Run the C++, Python, and pilot suites."
+    },
+    {
+      "name": "dev-reldbg-cpp",
+      "inherits": "dev-base",
+      "configurePreset": "dev-reldbg",
+      "displayName": "Developer Release with Debug Info, C++ suite",
+      "description": "Run the C++ cases alone.",
+      "filter": { "include": { "label": "cpp" } }
+    },
+    {
+      "name": "dev-reldbg-python",
+      "inherits": "dev-base",
+      "configurePreset": "dev-reldbg",
+      "displayName": "Developer Release with Debug Info, Python suite",
+      "description": "Run the Python suite alone.",
+      "filter": { "include": { "label": "python" } }
+    },
+    {
+      "name": "dev-reldbg-pilot",
+      "inherits": "dev-base",
+      "configurePreset": "dev-reldbg",
+      "displayName": "Developer Release with Debug Info, pilot suite",
+      "description": "Run the Python suite inside the pilot binary.",
+      "filter": { "include": { "label": "pilot" } }
+    },
+    {
       "name": "dev-rel",
       "inherits": "dev-base",
       "configurePreset": "dev-rel",
       "displayName": "Developer Release, every suite",
       "description": "Run the C++, Python, and pilot suites."
-    },
-    {
-      "name": "dev-rel-cpp",
-      "inherits": "dev-base",
-      "configurePreset": "dev-rel",
-      "displayName": "Developer Release, C++ suite",
-      "description": "Run the C++ cases alone.",
-      "filter": { "include": { "label": "cpp" } }
-    },
-    {
-      "name": "dev-rel-python",
-      "inherits": "dev-base",
-      "configurePreset": "dev-rel",
-      "displayName": "Developer Release, Python suite",
-      "description": "Run the Python suite alone.",
-      "filter": { "include": { "label": "python" } }
-    },
-    {
-      "name": "dev-rel-pilot",
-      "inherits": "dev-base",
-      "configurePreset": "dev-rel",
-      "displayName": "Developer Release, pilot suite",
-      "description": "Run the Python suite inside the pilot binary.",
-      "filter": { "include": { "label": "pilot" } }
     },
     {
       "name": "dev-dbg",
@@ -402,7 +483,7 @@
       "name": "dev-noqt",
       "inherits": "dev-base",
       "configurePreset": "dev-noqt",
-      "displayName": "Developer Release, no Qt",
+      "displayName": "Developer Release with Debug Info, no Qt",
       "description": "Run the C++ and Python suites; there is no pilot suite."
     },
     {
@@ -419,6 +500,13 @@
           "hostOS": ["Windows"]
         }
       }
+    },
+    {
+      "name": "win-reldbg",
+      "inherits": "win-base",
+      "configurePreset": "win-reldbg",
+      "displayName": "Windows Release with Debug Info, every suite",
+      "description": "Run the C++, Python, and pilot suites."
     },
     {
       "name": "win-rel",

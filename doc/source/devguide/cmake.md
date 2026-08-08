@@ -23,11 +23,18 @@ Makefile adds the ABI-tagged build directory, the generator, and whatever
 
 | Configure preset | Host          | What it configures                    |
 |:-----------------|:--------------|:--------------------------------------|
-| `dev-rel`        | Linux, macOS  | optimized module and pilot            |
+| `dev-reldbg`     | Linux, macOS  | optimized module and pilot, symbols   |
+| `dev-rel`        | Linux, macOS  | optimized module and pilot, no symbols |
 | `dev-dbg`        | Linux, macOS  | debuggable module and pilot           |
 | `dev-noqt`       | Linux, macOS  | optimized module, no pilot            |
-| `win-rel`        | Windows       | optimized module and pilot, MSVC      |
+| `win-reldbg`     | Windows       | optimized module and pilot, symbols, MSVC |
+| `win-rel`        | Windows       | optimized module and pilot, no symbols, MSVC |
 | `win-dbg`        | Windows       | debuggable module and pilot, MSVC     |
+
+The `reldbg` presets configure `RelWithDebInfo` and are the default a make
+build selects; the `rel` ones configure `Release`, which drops the debug
+symbols and picks up the pybind11 extras, link-time optimization and a strip
+of the extension module.  See {doc}`/start/build_solvcon` for which to pick.
 
 Each configure preset comes with three build presets, one per thing that is
 actually built:
@@ -45,19 +52,19 @@ entries.
 The build tree is `build/<configure preset>`, named through the
 `${presetName}` macro so that a preset inheriting another gets its own tree
 rather than writing into its parent's.  It is one tree per preset, which is
-what both IDEs assume, and it is not the Makefile's `build/rel<pyvminor>`, so
-a preset build and a make build never share a cache.  They do share where the
-extension module lands, `solvcon/` and the repository root, so whichever built
-last is the one Python imports.
+what both IDEs assume, and it is not the Makefile's `build/reldbg<pyvminor>`,
+so a preset build and a make build never share a cache.  They do share where
+the extension module lands, `solvcon/` and the repository root, so whichever
+built last is the one Python imports.
 
 Test presets run the suites CTest has registered.  There is one per configure
-preset, plus label-filtered ones on `dev-rel`:
+preset, plus label-filtered ones on `dev-reldbg`:
 
 ```sh
-ctest --preset dev-rel            # every suite
-ctest --preset dev-rel-cpp        # the C++ cases alone
-ctest --preset dev-rel-python     # the Python suite alone
-ctest --preset dev-rel-pilot      # the Python suite inside the pilot binary
+ctest --preset dev-reldbg         # every suite
+ctest --preset dev-reldbg-cpp     # the C++ cases alone
+ctest --preset dev-reldbg-python  # the Python suite alone
+ctest --preset dev-reldbg-pilot   # the Python suite inside the pilot binary
 ```
 
 The C++ cases come from `gtest_discover_tests`, which enumerates them by
@@ -66,10 +73,10 @@ running the built binary, and the plain build preset does not build it.  Build
 placeholder case `test_nopython_NOT_BUILT` and fails:
 
 ```sh
-cmake --preset dev-rel
-cmake --build --preset dev-rel
-cmake --build --preset dev-rel-gtest
-ctest --preset dev-rel
+cmake --preset dev-reldbg
+cmake --build --preset dev-reldbg
+cmake --build --preset dev-reldbg-gtest
+ctest --preset dev-reldbg
 ```
 
 CLion reads no test presets, so a CLion user reaches the same suites through
@@ -96,7 +103,7 @@ different interpreter reuses a stale cache.  Reconfigure with `--fresh` after
 switching interpreters:
 
 ```bash
-cmake --preset dev-rel --fresh
+cmake --preset dev-reldbg --fresh
 ```
 
 ## Machine paths belong in `CMakeUserPresets.json`
@@ -132,7 +139,7 @@ cp contrib/cmake/CMakeUserPresets.example.json CMakeUserPresets.json
 cp contrib/cmake/CMakeUserPresets.win-example.json CMakeUserPresets.json
 ```
 
-Each defines a configure preset named `ide-local-rel` that inherits a
+Each defines a configure preset named `ide-local-reldbg` that inherits a
 checked-in preset and adds the three variables, plus the three build presets
 that go with it:
 
@@ -141,8 +148,8 @@ that go with it:
   "version": 10,
   "configurePresets": [
     {
-      "name": "ide-local-rel",
-      "inherits": "dev-rel",
+      "name": "ide-local-reldbg",
+      "inherits": "dev-reldbg",
       "displayName": "IDE or manual use: local prefix",
       "cacheVariables": {
         "PYTHON_EXECUTABLE": {
@@ -155,8 +162,8 @@ that go with it:
     }
   ],
   "buildPresets": [
-    { "name": "ide-local-rel", "inherits": "dev-rel",
-      "configurePreset": "ide-local-rel" }
+    { "name": "ide-local-reldbg", "inherits": "dev-reldbg",
+      "configurePreset": "ide-local-reldbg" }
   ]
 }
 ```
@@ -164,13 +171,13 @@ that go with it:
 Every `inherits` in the file names a preset of one host family, and they have
 to stay a matched set.  A `dev-` build preset carries a condition that
 disables it on Windows and a `win-` one carries the opposite, so an
-`ide-local-rel` that inherits a `win-` configure preset and `dev-` build
+`ide-local-reldbg` that inherits a `win-` configure preset and `dev-` build
 presets configures and then refuses to build.  Change them together, or start
 from the template for the family you want.
 
 `pybind11_path` names the directory holding `pybind11Config.cmake`, which is
 what `python3 -m pybind11 --cmakedir` prints for the interpreter named above
-it.  After that, `ide-local-rel` appears in the IDE preset pickers alongside
+it.  After that, `ide-local-reldbg` appears in the IDE preset pickers alongside
 the checked-in presets.
 
 In CLion the `enablePythonIntegration` key in the `jetbrains.com/clion` vendor
@@ -180,7 +187,7 @@ interpreter to the configure step.  A CLion user can therefore drop the
 
 `CMakeUserPresets.scdv.json` and `CMakeUserPresets.win-scdv.json` sit beside
 the two templates above for a prefix that `build-scdv.sh` built (see
-{doc}`/start/build_dep`).  Their configure preset is `ide-scdv-rel`, and it
+{doc}`/start/build_dep`).  Their configure preset is `ide-scdv-reldbg`, and it
 names that prefix once rather than repeating it in three literal paths, so
 installing one substitutes a single value instead of editing three.  The
 `ide-user-presets` skill under `.claude/skills/` states the substitution and

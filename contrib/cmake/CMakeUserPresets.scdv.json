@@ -4,8 +4,8 @@
   "cmakeMinimumRequired": { "major": 4, "minor": 0, "patch": 1 },
   "configurePresets": [
     {
-      "name": "ide-scdv-rel",
-      "inherits": "dev-rel",
+      "name": "ide-scdv-reldbg",
+      "inherits": "dev-reldbg",
       "displayName": "IDE or manual use: scdv prefix",
       "description": "A checked-in preset plus the paths of an scdv environment. Installing substitutes the prefix into SCDV_USRDIR below.",
       "environment": {
@@ -23,21 +23,21 @@
   ],
   "buildPresets": [
     {
-      "name": "ide-scdv-rel",
-      "inherits": "dev-rel",
-      "configurePreset": "ide-scdv-rel",
+      "name": "ide-scdv-reldbg",
+      "inherits": "dev-reldbg",
+      "configurePreset": "ide-scdv-reldbg",
       "displayName": "ide scdv rel"
     },
     {
-      "name": "ide-scdv-rel-module",
-      "inherits": "dev-rel-module",
-      "configurePreset": "ide-scdv-rel",
+      "name": "ide-scdv-reldbg-module",
+      "inherits": "dev-reldbg-module",
+      "configurePreset": "ide-scdv-reldbg",
       "displayName": "ide scdv rel module"
     },
     {
-      "name": "ide-scdv-rel-gtest",
-      "inherits": "dev-rel-gtest",
-      "configurePreset": "ide-scdv-rel",
+      "name": "ide-scdv-reldbg-gtest",
+      "inherits": "dev-reldbg-gtest",
+      "configurePreset": "ide-scdv-reldbg",
       "displayName": "ide scdv rel gtest"
     }
   ]

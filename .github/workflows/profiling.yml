@@ -20,6 +20,11 @@ jobs:
     timeout-minutes: ${{ fromJSON(vars.SCGH_TIMEOUT_PROFILE || vars.MMGH_TIMEOUT_PROFILE || '30') }}
 
     env:
+      # This job reads the compiler cache the devbuild build job saves and
+      # saves none of its own, so it has to compile what that job compiled on
+      # the same host. The matrix below mirrors that job's build type per
+      # host; the two have to move together or every object misses.
+      CMAKE_BUILD_TYPE: ${{ matrix.cmake_build_type }}
       QT_DEBUG_PLUGINS: 1
       # QT_QPA_PLATFORM is set per-OS by the setup actions (xcb on Linux via
       # Xvfb, offscreen on macOS). Do not set it at the job level.
@@ -30,7 +35,11 @@ jobs:
 
     strategy:
       matrix:
-        os: [ubuntu-24.04, macos-26]
+        include:
+          - os: ubuntu-24.04
+            cmake_build_type: Release
+          - os: macos-26
+            cmake_build_type: RelWithDebInfo
       fail-fast: false
 
     steps:
@@ -58,8 +67,8 @@ jobs:
       - name: ccache
         uses: hendrikmuhs/ccache-action@v1.2.23
         with:
-          key: ${{ runner.os }}-Release
-          restore-keys: ${{ runner.os }}-Release
+          key: ${{ runner.os }}-${{ matrix.cmake_build_type }}
+          restore-keys: ${{ runner.os }}-${{ matrix.cmake_build_type }}
           save: false
 
       - name: make buildext BUILD_QT=ON
