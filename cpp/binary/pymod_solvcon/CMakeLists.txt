@@ -22,7 +22,7 @@ endif()
 target_link_libraries(
     _solvcon PUBLIC
     pybind11::module
-    solvcon_primary
+    solvcon_entry
 )
 
 if (HIDE_SYMBOL)

@@ -362,7 +362,7 @@ endif()
 message(STATUS "PYSIDE6_LIBFILE: ${PYSIDE6_LIBFILE}")
 message(STATUS "SHIBOKEN6_LIBFILE: ${SHIBOKEN6_LIBFILE}")
 
-# An empty PYSIDE6_LIBFILE links solvcon_primary against nothing and defers the
+# An empty PYSIDE6_LIBFILE links solvcon_graphic against nothing and defers the
 # failure to an undefined PySide::getWrapperForQObject at link time.
 if(BUILD_QT AND "${PYSIDE6_LIBFILE}" STREQUAL "")
     message(FATAL_ERROR

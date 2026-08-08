@@ -21,7 +21,7 @@ find_package(Qt6 COMPONENTS Core)
 find_package(Qt6 COMPONENTS Widgets)
 find_package(Qt6 COMPONENTS Gui)
 # Imported targets are directory-scoped, so finalizing pilot needs the two
-# components that solvcon_primary links declared here as well.
+# components that solvcon_graphic links declared here as well.
 find_package(Qt6 COMPONENTS Svg)
 find_package(Qt6 QUIET OPTIONAL_COMPONENTS GuiPrivate)
 
@@ -46,7 +46,7 @@ endif()
 target_link_libraries(
     pilot PUBLIC
     pybind11::embed
-    solvcon_primary
+    solvcon_entry
 )
 if(WIN32)
     set_target_properties(
@@ -78,7 +78,7 @@ target_compile_options(
 if(APPLE)
     # pilot.cpp pulls in apple's accelerate/veclib headers, whose CF_ENUM
     # macros trip clang-diagnostic-elaborated-enum-base, and the lint job
-    # runs clang-tidy with -warnings-as-errors=*. solvcon_primary already
+    # runs clang-tidy with -warnings-as-errors=*. solvcon_graphic already
     # suppresses this; the pilot target needs it too. The library's other
     # -Wno flags are not needed here: pilot.cpp lints clean on Linux
     # without them, so this stays apple-only.
@@ -125,11 +125,17 @@ add_custom_target(run_pilot $<TARGET_FILE:pilot>)
 add_custom_target(run_pilot_pytest $<TARGET_FILE:pilot> --mode=pytest)
 
 if(DO_CLANG_TIDY_DIFF)
-    get_target_property(
-        SOLVCON_PRIMARY_FILES
-        solvcon_primary
-        SOURCES
-    )
+    # The core, the pilot, and the entry unit are three targets, and the diff
+    # has to span all of them: the pilot sources this target exists to lint
+    # live in solvcon_graphic. SOLVCON_LIBRARIES names them, so the list
+    # follows whatever cpp/solvcon built rather than restating it here.
+    set(SOLVCON_LINT_FILES)
+    foreach (SOLVCON_LIBRARY IN LISTS SOLVCON_LIBRARIES)
+        get_target_property(SOLVCON_LIBRARY_FILES ${SOLVCON_LIBRARY} SOURCES)
+        if (SOLVCON_LIBRARY_FILES)
+            list(APPEND SOLVCON_LINT_FILES ${SOLVCON_LIBRARY_FILES})
+        endif ()
+    endforeach ()
 
     string(
         CONCAT
@@ -137,7 +143,7 @@ if(DO_CLANG_TIDY_DIFF)
         "test -n \"$SOLVCON_DIFF_BASE\""
         " && "
         "git diff --no-color -U0 \"$SOLVCON_DIFF_BASE\" HEAD"
-        " -- $<JOIN:${SOLVCON_PRIMARY_FILES};${CMAKE_CURRENT_SOURCE_DIR}, >"
+        " -- $<JOIN:${SOLVCON_LINT_FILES};${CMAKE_CURRENT_SOURCE_DIR}, >"
         " | "
         "$<JOIN:${DO_CLANG_TIDY_DIFF}, > -path \"${CMAKE_BINARY_DIR}\""
     )

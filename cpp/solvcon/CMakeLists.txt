@@ -4,10 +4,6 @@
 cmake_minimum_required(VERSION 4.0.1)
 
 if (BUILD_QT)
-    set(CMAKE_AUTOMOC ON)
-    set(CMAKE_AUTORCC ON)
-    set(CMAKE_AUTOUIC ON)
-
     find_package(Qt6 QUIET)
     if(NOT Qt6_FOUND)
         if(MSVC)
@@ -109,16 +105,47 @@ set(SOLVCON_GRAPHIC_FILES
     ${SOLVCON_PILOT_FILES}
     CACHE FILEPATH "" FORCE)
 
+# Qt reaches only the pilot, so only the pilot is built against it. The two
+# settings of BUILD_QT used to produce one library each, over a source list
+# that differed by the pilot but a command line that differed everywhere:
+# linking Qt PUBLIC put its include directories and its QT_*_LIB definitions
+# on every unit in the core. A build that compiles both settings, which the
+# devbuild workflow does, therefore compiled the core twice over and shared
+# nothing between the passes, not even through ccache.
+#
+# Three libraries instead of one. `solvcon_primary` is the core and never sees
+# Qt. `solvcon_graphic` is the pilot and is the only target that does.
+# `solvcon_entry` is the single unit that has to know which of the two it was
+# built with. Only the last two are rebuilt when BUILD_QT changes.
+add_library(
+    solvcon_primary
+    STATIC
+    ${SOLVCON_TERMINAL_FILES}
+)
+
+set(SOLVCON_LIBRARIES solvcon_primary)
+
 if (BUILD_QT)
     qt_add_library(
-        solvcon_primary
+        solvcon_graphic
         STATIC
-        ${SOLVCON_TERMINAL_FILES}
         ${SOLVCON_GRAPHIC_FILES}
+    )
+    list(APPEND SOLVCON_LIBRARIES solvcon_graphic)
+
+    # The moc/rcc/uic passes belong to this target alone. As directory
+    # properties they also handed the core an autogen include directory, which
+    # is one more way for its command line to move with BUILD_QT.
+    set_target_properties(
+        solvcon_graphic PROPERTIES
+        AUTOMOC ON
+        AUTORCC ON
+        AUTOUIC ON
     )
 
     target_link_libraries(
-        solvcon_primary PUBLIC
+        solvcon_graphic PUBLIC
+        solvcon_primary
         Qt::Widgets
         Qt::Core
         Qt::Gui
@@ -129,13 +156,13 @@ if (BUILD_QT)
     # CMake target when present; otherwise add the private include directory
     # directly (the QRhi symbols themselves are exported from Qt::Gui).
     if (TARGET Qt6::GuiPrivate)
-        target_link_libraries(solvcon_primary PUBLIC Qt::GuiPrivate)
+        target_link_libraries(solvcon_graphic PUBLIC Qt::GuiPrivate)
     else ()
         get_target_property(SOLVCON_QTGUI_INCS Qt6::Gui INTERFACE_INCLUDE_DIRECTORIES)
         set(SOLVCON_FOUND_QRHI FALSE)
         foreach (SOLVCON_INC IN LISTS SOLVCON_QTGUI_INCS)
             if (EXISTS "${SOLVCON_INC}/${Qt6Gui_VERSION}/QtGui/rhi/qrhi.h")
-                target_include_directories(solvcon_primary PRIVATE
+                target_include_directories(solvcon_graphic PRIVATE
                     "${SOLVCON_INC}/${Qt6Gui_VERSION}/QtGui")
                 set(SOLVCON_FOUND_QRHI TRUE)
             endif ()
@@ -149,7 +176,7 @@ if (BUILD_QT)
 
     # Bake the pilot GLSL shaders to .qsb and embed them in the Qt resource
     # system under :/solvcon/pilot/shaders/. Loaded by RMaterial at runtime.
-    qt6_add_shaders(solvcon_primary "solvcon_pilot_shaders"
+    qt6_add_shaders(solvcon_graphic "solvcon_pilot_shaders"
         BATCHABLE
         PREFIX "/solvcon/pilot"
         BASE "${SOLVCON_PILOT_SHADERDIR}/.."
@@ -157,32 +184,51 @@ if (BUILD_QT)
     )
 
     target_link_libraries(
-        solvcon_primary PUBLIC
+        solvcon_graphic PUBLIC
         ${PYSIDE6_LIBFILE}
-    )
-else () # BUILD_QT
-    add_library(
-        solvcon_primary
-        STATIC
-        ${SOLVCON_TERMINAL_FILES}
     )
 endif () # BUILD_QT
 
-set_target_properties(solvcon_primary PROPERTIES POSITION_INDEPENDENT_CODE ON)
+add_library(
+    solvcon_entry
+    STATIC
+    ${SOLVCON_ENTRY_SOURCES}
+)
 
-if (CLANG_TIDY_EXE AND USE_CLANG_TIDY)
-    set_target_properties(
-        solvcon_primary PROPERTIES
-        CXX_CLANG_TIDY "${DO_CLANG_TIDY}"
-    )
-endif () # CLANG_TIDY
+# Everything that links the extension module or the pilot binary links this
+# one target and reaches the rest through it. Under BUILD_QT the Qt link is
+# what defines QT_CORE_LIB for `module.cpp`, which is how it decides whether
+# to register the pilot submodule; the macro is Qt's own, so nothing here has
+# to restate the setting.
+target_link_libraries(solvcon_entry PUBLIC ${SOLVCON_LIBRARIES})
+
+list(APPEND SOLVCON_LIBRARIES solvcon_entry)
+
+# `cpp/binary/pilot` is a sibling subtree and cannot see a normal variable set
+# here, so the list reaches `pilot_clang_tidy_diff` through the cache.
+set(SOLVCON_LIBRARIES "${SOLVCON_LIBRARIES}" CACHE STRING "" FORCE)
+
+foreach (SOLVCON_LIBRARY IN LISTS SOLVCON_LIBRARIES)
+    set_target_properties(${SOLVCON_LIBRARY} PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+    if (CLANG_TIDY_EXE AND USE_CLANG_TIDY)
+        set_target_properties(
+            ${SOLVCON_LIBRARY} PROPERTIES
+            CXX_CLANG_TIDY "${DO_CLANG_TIDY}"
+        )
+    endif () # CLANG_TIDY
+endforeach ()
 
 # Hack: add a .clang-tidy file in the generated .rcc directory.
 # See https://gitlab.kitware.com/cmake/cmake/-/merge_requests/777
-file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/.rcc/.clang-tidy" "---
+# Both directories are generated by solvcon_graphic, so neither exists, and
+# neither holds anything for clang-tidy to read, without BUILD_QT.
+if (BUILD_QT)
+    file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/.rcc/.clang-tidy" "---
 Checks: '-*,llvm-twine-local'")
-file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/solvcon_primary_autogen/.clang-tidy" "---
+    file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/solvcon_graphic_autogen/.clang-tidy" "---
 Checks: '-bugprone-suspicious-include,llvm-twine-local'")
+endif () # BUILD_QT
 
 if (APPLE)
     find_library(APPLE_FWK_FOUNDATION Foundation REQUIRED)
@@ -284,20 +330,26 @@ if (NOT APPLE)
     endif ()
 endif () # NOT APPLE
 
-if (MSVC)
-    target_compile_options(
-        solvcon_primary PRIVATE
-        ${COMMON_COMPILER_OPTIONS}
-        /bigobj # C1128: number of sections exceeded object file format limit
-    )
-else () # MSVC
-    target_compile_options(
-        solvcon_primary PRIVATE
-        ${COMMON_COMPILER_OPTIONS}
-        -Wno-unused-value # for PYBIND11_EXPAND_SIDE_EFFECTS in pybind11.h
-        -Wno-noexcept-type # GCC
-        -Wno-elaborated-enum-base # for apple accelerate/veclib
-    )
-endif () # MSVC
+# The three libraries were one, so what the one carried they all carry. The
+# pilot sources and `module.cpp` are the units that need the pybind11 and
+# Accelerate suppressions most, and `wrap_pilot.cpp` is the one most likely
+# to want /bigobj.
+foreach (SOLVCON_LIBRARY IN LISTS SOLVCON_LIBRARIES)
+    if (MSVC)
+        target_compile_options(
+            ${SOLVCON_LIBRARY} PRIVATE
+            ${COMMON_COMPILER_OPTIONS}
+            /bigobj # C1128: number of sections exceeded object file format limit
+        )
+    else () # MSVC
+        target_compile_options(
+            ${SOLVCON_LIBRARY} PRIVATE
+            ${COMMON_COMPILER_OPTIONS}
+            -Wno-unused-value # for PYBIND11_EXPAND_SIDE_EFFECTS in pybind11.h
+            -Wno-noexcept-type # GCC
+            -Wno-elaborated-enum-base # for apple accelerate/veclib
+        )
+    endif () # MSVC
+endforeach ()
 
 # vim: set ff=unix fenc=utf8 nobomb et sw=4 ts=4 sts=4:
