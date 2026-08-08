@@ -190,7 +190,7 @@ void StaticMesh::build_ghost()
     m_ngstface = static_cast<uint_type>(std::get<1>(count_ghost_tuple));
     m_ngstcell = static_cast<uint_type>(std::get<2>(count_ghost_tuple));
 
-#define MM_DECL_GHOST_SWAP1(N, T, D1, I)                                                          \
+#define SC_DECL_GHOST_SWAP1(N, T, D1, I)                                                          \
     {                                                                                             \
         SimpleArray<T> arr(small_vector<ssize_t>{static_cast<ssize_t>(m_ngst##D1 + m_n##D1)}, I); \
         arr.set_nghost(m_ngst##D1);                                                               \
@@ -201,7 +201,7 @@ void StaticMesh::build_ghost()
         arr.swap(m_##N);                                                                          \
     }
 
-#define MM_DECL_GHOST_SWAP2(N, T, D1, D2, I)                                                          \
+#define SC_DECL_GHOST_SWAP2(N, T, D1, D2, I)                                                          \
     {                                                                                                 \
         SimpleArray<T> arr(small_vector<ssize_t>{static_cast<ssize_t>(m_ngst##D1 + m_n##D1), D2}, I); \
         arr.set_nghost(m_ngst##D1);                                                                   \
@@ -217,24 +217,24 @@ void StaticMesh::build_ghost()
     }
 
     // geometry arrays.
-    MM_DECL_GHOST_SWAP2(ndcrd, real_type, node, m_ndim, 0)
-    MM_DECL_GHOST_SWAP2(fccnd, real_type, face, m_ndim, 0)
-    MM_DECL_GHOST_SWAP2(fcnml, real_type, face, m_ndim, 0)
-    MM_DECL_GHOST_SWAP1(fcara, real_type, face, 0)
-    MM_DECL_GHOST_SWAP2(clcnd, real_type, cell, m_ndim, 0)
-    MM_DECL_GHOST_SWAP1(clvol, real_type, cell, 0)
+    SC_DECL_GHOST_SWAP2(ndcrd, real_type, node, m_ndim, 0)
+    SC_DECL_GHOST_SWAP2(fccnd, real_type, face, m_ndim, 0)
+    SC_DECL_GHOST_SWAP2(fcnml, real_type, face, m_ndim, 0)
+    SC_DECL_GHOST_SWAP1(fcara, real_type, face, 0)
+    SC_DECL_GHOST_SWAP2(clcnd, real_type, cell, m_ndim, 0)
+    SC_DECL_GHOST_SWAP1(clvol, real_type, cell, 0)
     // meta arrays.
-    MM_DECL_GHOST_SWAP1(fctpn, int_type, face, 0)
-    MM_DECL_GHOST_SWAP1(cltpn, int_type, cell, 0)
-    MM_DECL_GHOST_SWAP1(clgrp, int_type, cell, -1)
+    SC_DECL_GHOST_SWAP1(fctpn, int_type, face, 0)
+    SC_DECL_GHOST_SWAP1(cltpn, int_type, cell, 0)
+    SC_DECL_GHOST_SWAP1(clgrp, int_type, cell, -1)
     // connectivity arrays.
-    MM_DECL_GHOST_SWAP2(fcnds, int_type, face, FCMND + 1, -1)
-    MM_DECL_GHOST_SWAP2(fccls, int_type, face, FCREL, -1)
-    MM_DECL_GHOST_SWAP2(clnds, int_type, cell, CLMND + 1, -1)
-    MM_DECL_GHOST_SWAP2(clfcs, int_type, cell, CLMFC + 1, -1)
+    SC_DECL_GHOST_SWAP2(fcnds, int_type, face, FCMND + 1, -1)
+    SC_DECL_GHOST_SWAP2(fccls, int_type, face, FCREL, -1)
+    SC_DECL_GHOST_SWAP2(clnds, int_type, cell, CLMND + 1, -1)
+    SC_DECL_GHOST_SWAP2(clfcs, int_type, cell, CLMFC + 1, -1)
 
-#undef MM_DECL_GHOST_SWAP1
-#undef MM_DECL_GHOST_SWAP2
+#undef SC_DECL_GHOST_SWAP1
+#undef SC_DECL_GHOST_SWAP2
 
     fill_ghost();
 }

@@ -26,7 +26,7 @@ requires solvcon::IsSameRemoveConstType<A, SimpleArrayPlex>
 static auto execute_callback_with_typed_array(A & arrayplex, C && callback)
 {
 // We get the typed array from the arrayplex and call the callback function with the typed array.
-#define DECL_MM_RUN_CALLBACK_WITH_TYPED_ARRAY(DataType, ArrayType)                                            \
+#define SC_DECL_RUN_CALLBACK_WITH_TYPED_ARRAY(DataType, ArrayType)                                            \
     case DataType:                                                                                            \
     {                                                                                                         \
         using ArrayTypePtr = typename std::conditional_t<std::is_const_v<A>, const ArrayType *, ArrayType *>; \
@@ -37,26 +37,26 @@ static auto execute_callback_with_typed_array(A & arrayplex, C && callback)
 
     switch (arrayplex.data_type())
     {
-        DECL_MM_RUN_CALLBACK_WITH_TYPED_ARRAY(DataType::Bool, SimpleArrayBool)
-        DECL_MM_RUN_CALLBACK_WITH_TYPED_ARRAY(DataType::Int8, SimpleArrayInt8)
-        DECL_MM_RUN_CALLBACK_WITH_TYPED_ARRAY(DataType::Int16, SimpleArrayInt16)
-        DECL_MM_RUN_CALLBACK_WITH_TYPED_ARRAY(DataType::Int32, SimpleArrayInt32)
-        DECL_MM_RUN_CALLBACK_WITH_TYPED_ARRAY(DataType::Int64, SimpleArrayInt64)
-        DECL_MM_RUN_CALLBACK_WITH_TYPED_ARRAY(DataType::Uint8, SimpleArrayUint8)
-        DECL_MM_RUN_CALLBACK_WITH_TYPED_ARRAY(DataType::Uint16, SimpleArrayUint16)
-        DECL_MM_RUN_CALLBACK_WITH_TYPED_ARRAY(DataType::Uint32, SimpleArrayUint32)
-        DECL_MM_RUN_CALLBACK_WITH_TYPED_ARRAY(DataType::Uint64, SimpleArrayUint64)
-        DECL_MM_RUN_CALLBACK_WITH_TYPED_ARRAY(DataType::Float32, SimpleArrayFloat32)
-        DECL_MM_RUN_CALLBACK_WITH_TYPED_ARRAY(DataType::Float64, SimpleArrayFloat64)
-        DECL_MM_RUN_CALLBACK_WITH_TYPED_ARRAY(DataType::Complex64, SimpleArrayComplex64)
-        DECL_MM_RUN_CALLBACK_WITH_TYPED_ARRAY(DataType::Complex128, SimpleArrayComplex128)
+        SC_DECL_RUN_CALLBACK_WITH_TYPED_ARRAY(DataType::Bool, SimpleArrayBool)
+        SC_DECL_RUN_CALLBACK_WITH_TYPED_ARRAY(DataType::Int8, SimpleArrayInt8)
+        SC_DECL_RUN_CALLBACK_WITH_TYPED_ARRAY(DataType::Int16, SimpleArrayInt16)
+        SC_DECL_RUN_CALLBACK_WITH_TYPED_ARRAY(DataType::Int32, SimpleArrayInt32)
+        SC_DECL_RUN_CALLBACK_WITH_TYPED_ARRAY(DataType::Int64, SimpleArrayInt64)
+        SC_DECL_RUN_CALLBACK_WITH_TYPED_ARRAY(DataType::Uint8, SimpleArrayUint8)
+        SC_DECL_RUN_CALLBACK_WITH_TYPED_ARRAY(DataType::Uint16, SimpleArrayUint16)
+        SC_DECL_RUN_CALLBACK_WITH_TYPED_ARRAY(DataType::Uint32, SimpleArrayUint32)
+        SC_DECL_RUN_CALLBACK_WITH_TYPED_ARRAY(DataType::Uint64, SimpleArrayUint64)
+        SC_DECL_RUN_CALLBACK_WITH_TYPED_ARRAY(DataType::Float32, SimpleArrayFloat32)
+        SC_DECL_RUN_CALLBACK_WITH_TYPED_ARRAY(DataType::Float64, SimpleArrayFloat64)
+        SC_DECL_RUN_CALLBACK_WITH_TYPED_ARRAY(DataType::Complex64, SimpleArrayComplex64)
+        SC_DECL_RUN_CALLBACK_WITH_TYPED_ARRAY(DataType::Complex128, SimpleArrayComplex128)
     default:
     {
         throw std::invalid_argument("Unsupported datatype");
     }
     }
 
-#undef DECL_MM_RUN_CALLBACK_WITH_TYPED_ARRAY
+#undef SC_DECL_RUN_CALLBACK_WITH_TYPED_ARRAY
 }
 
 /// Check the data type of the python value match the given data type. If not, throw a type error.
@@ -125,7 +125,7 @@ template <typename T>
 // NOLINTNEXTLINE(misc-use-anonymous-namespace)
 static pybind11::object get_typed_array_value(const SimpleArrayPlex & array_plex, T key)
 {
-#define DECL_MM_GET_TYPED_ARRAY_VALUE_BY_INDEX(DataType, ArrayType)                     \
+#define SC_DECL_GET_TYPED_ARRAY_VALUE_BY_INDEX(DataType, ArrayType)                     \
     case DataType:                                                                      \
     {                                                                                   \
         const auto * array = static_cast<const ArrayType *>(array_plex.instance_ptr()); \
@@ -134,32 +134,32 @@ static pybind11::object get_typed_array_value(const SimpleArrayPlex & array_plex
 
     switch (array_plex.data_type())
     {
-        DECL_MM_GET_TYPED_ARRAY_VALUE_BY_INDEX(DataType::Bool, SimpleArrayBool)
-        DECL_MM_GET_TYPED_ARRAY_VALUE_BY_INDEX(DataType::Int8, SimpleArrayInt8)
-        DECL_MM_GET_TYPED_ARRAY_VALUE_BY_INDEX(DataType::Int16, SimpleArrayInt16)
-        DECL_MM_GET_TYPED_ARRAY_VALUE_BY_INDEX(DataType::Int32, SimpleArrayInt32)
-        DECL_MM_GET_TYPED_ARRAY_VALUE_BY_INDEX(DataType::Int64, SimpleArrayInt64)
-        DECL_MM_GET_TYPED_ARRAY_VALUE_BY_INDEX(DataType::Uint8, SimpleArrayUint8)
-        DECL_MM_GET_TYPED_ARRAY_VALUE_BY_INDEX(DataType::Uint16, SimpleArrayUint16)
-        DECL_MM_GET_TYPED_ARRAY_VALUE_BY_INDEX(DataType::Uint32, SimpleArrayUint32)
-        DECL_MM_GET_TYPED_ARRAY_VALUE_BY_INDEX(DataType::Uint64, SimpleArrayUint64)
-        DECL_MM_GET_TYPED_ARRAY_VALUE_BY_INDEX(DataType::Float32, SimpleArrayFloat32)
-        DECL_MM_GET_TYPED_ARRAY_VALUE_BY_INDEX(DataType::Float64, SimpleArrayFloat64)
-        DECL_MM_GET_TYPED_ARRAY_VALUE_BY_INDEX(DataType::Complex64, SimpleArrayComplex64)
-        DECL_MM_GET_TYPED_ARRAY_VALUE_BY_INDEX(DataType::Complex128, SimpleArrayComplex128)
+        SC_DECL_GET_TYPED_ARRAY_VALUE_BY_INDEX(DataType::Bool, SimpleArrayBool)
+        SC_DECL_GET_TYPED_ARRAY_VALUE_BY_INDEX(DataType::Int8, SimpleArrayInt8)
+        SC_DECL_GET_TYPED_ARRAY_VALUE_BY_INDEX(DataType::Int16, SimpleArrayInt16)
+        SC_DECL_GET_TYPED_ARRAY_VALUE_BY_INDEX(DataType::Int32, SimpleArrayInt32)
+        SC_DECL_GET_TYPED_ARRAY_VALUE_BY_INDEX(DataType::Int64, SimpleArrayInt64)
+        SC_DECL_GET_TYPED_ARRAY_VALUE_BY_INDEX(DataType::Uint8, SimpleArrayUint8)
+        SC_DECL_GET_TYPED_ARRAY_VALUE_BY_INDEX(DataType::Uint16, SimpleArrayUint16)
+        SC_DECL_GET_TYPED_ARRAY_VALUE_BY_INDEX(DataType::Uint32, SimpleArrayUint32)
+        SC_DECL_GET_TYPED_ARRAY_VALUE_BY_INDEX(DataType::Uint64, SimpleArrayUint64)
+        SC_DECL_GET_TYPED_ARRAY_VALUE_BY_INDEX(DataType::Float32, SimpleArrayFloat32)
+        SC_DECL_GET_TYPED_ARRAY_VALUE_BY_INDEX(DataType::Float64, SimpleArrayFloat64)
+        SC_DECL_GET_TYPED_ARRAY_VALUE_BY_INDEX(DataType::Complex64, SimpleArrayComplex64)
+        SC_DECL_GET_TYPED_ARRAY_VALUE_BY_INDEX(DataType::Complex128, SimpleArrayComplex128)
     default:
     {
         throw std::runtime_error("Unsupported datatype");
     }
     }
-#undef DECL_MM_GET_TYPED_ARRAY_VALUE_BY_INDEX
+#undef SC_DECL_GET_TYPED_ARRAY_VALUE_BY_INDEX
 }
 
 /// Get the typed array from the arrayplex
 // NOLINTNEXTLINE(misc-use-anonymous-namespace)
 static pybind11::object get_typed_array(const SimpleArrayPlex & array_plex)
 {
-#define DECL_MM_GET_TYPED_ARRAY(DataType, ArrayType)                                    \
+#define SC_DECL_GET_TYPED_ARRAY(DataType, ArrayType)                                    \
     case DataType:                                                                      \
     {                                                                                   \
         const auto * array = static_cast<const ArrayType *>(array_plex.instance_ptr()); \
@@ -168,25 +168,25 @@ static pybind11::object get_typed_array(const SimpleArrayPlex & array_plex)
 
     switch (array_plex.data_type())
     {
-        DECL_MM_GET_TYPED_ARRAY(DataType::Bool, SimpleArrayBool)
-        DECL_MM_GET_TYPED_ARRAY(DataType::Int8, SimpleArrayInt8)
-        DECL_MM_GET_TYPED_ARRAY(DataType::Int16, SimpleArrayInt16)
-        DECL_MM_GET_TYPED_ARRAY(DataType::Int32, SimpleArrayInt32)
-        DECL_MM_GET_TYPED_ARRAY(DataType::Int64, SimpleArrayInt64)
-        DECL_MM_GET_TYPED_ARRAY(DataType::Uint8, SimpleArrayUint8)
-        DECL_MM_GET_TYPED_ARRAY(DataType::Uint16, SimpleArrayUint16)
-        DECL_MM_GET_TYPED_ARRAY(DataType::Uint32, SimpleArrayUint32)
-        DECL_MM_GET_TYPED_ARRAY(DataType::Uint64, SimpleArrayUint64)
-        DECL_MM_GET_TYPED_ARRAY(DataType::Float32, SimpleArrayFloat32)
-        DECL_MM_GET_TYPED_ARRAY(DataType::Float64, SimpleArrayFloat64)
-        DECL_MM_GET_TYPED_ARRAY(DataType::Complex64, SimpleArrayComplex64)
-        DECL_MM_GET_TYPED_ARRAY(DataType::Complex128, SimpleArrayComplex128)
+        SC_DECL_GET_TYPED_ARRAY(DataType::Bool, SimpleArrayBool)
+        SC_DECL_GET_TYPED_ARRAY(DataType::Int8, SimpleArrayInt8)
+        SC_DECL_GET_TYPED_ARRAY(DataType::Int16, SimpleArrayInt16)
+        SC_DECL_GET_TYPED_ARRAY(DataType::Int32, SimpleArrayInt32)
+        SC_DECL_GET_TYPED_ARRAY(DataType::Int64, SimpleArrayInt64)
+        SC_DECL_GET_TYPED_ARRAY(DataType::Uint8, SimpleArrayUint8)
+        SC_DECL_GET_TYPED_ARRAY(DataType::Uint16, SimpleArrayUint16)
+        SC_DECL_GET_TYPED_ARRAY(DataType::Uint32, SimpleArrayUint32)
+        SC_DECL_GET_TYPED_ARRAY(DataType::Uint64, SimpleArrayUint64)
+        SC_DECL_GET_TYPED_ARRAY(DataType::Float32, SimpleArrayFloat32)
+        SC_DECL_GET_TYPED_ARRAY(DataType::Float64, SimpleArrayFloat64)
+        SC_DECL_GET_TYPED_ARRAY(DataType::Complex64, SimpleArrayComplex64)
+        SC_DECL_GET_TYPED_ARRAY(DataType::Complex128, SimpleArrayComplex128)
     default:
     {
         throw std::runtime_error("Unsupported datatype");
     }
     }
-#undef DECL_MM_GET_TYPED_ARRAY
+#undef SC_DECL_GET_TYPED_ARRAY
 }
 
 class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArrayPlex : public WrapBase<WrapSimpleArrayPlex, SimpleArrayPlex>
@@ -197,7 +197,7 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArrayPlex : public WrapBase<Wr
 
     friend root_base_type;
 
-#define DECL_MM_EXECUTE_TYPED_ARRAY_METHOD(typed_array_method)          \
+#define SC_DECL_EXECUTE_TYPED_ARRAY_METHOD(typed_array_method)          \
     [](wrapped_type & self) { return execute_callback_with_typed_array( \
                                   self, [](auto & array) { return array.typed_array_method(); }); }
 
@@ -259,9 +259,9 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArrayPlex : public WrapBase<Wr
                             using data_type = typename std::remove_reference_t<decltype(array[0])>;
                             return ArrayPropertyHelper<data_type>::get_buffer_info(array); });
                 })
-            .def_property_readonly("nbytes", DECL_MM_EXECUTE_TYPED_ARRAY_METHOD(nbytes))
-            .def_property_readonly("size", DECL_MM_EXECUTE_TYPED_ARRAY_METHOD(size))
-            .def_property_readonly("itemsize", DECL_MM_EXECUTE_TYPED_ARRAY_METHOD(itemsize))
+            .def_property_readonly("nbytes", SC_DECL_EXECUTE_TYPED_ARRAY_METHOD(nbytes))
+            .def_property_readonly("size", SC_DECL_EXECUTE_TYPED_ARRAY_METHOD(size))
+            .def_property_readonly("itemsize", SC_DECL_EXECUTE_TYPED_ARRAY_METHOD(itemsize))
             .def_property_readonly("alignment", &wrapped_type::alignment)
             .def_property_readonly(
                 "shape",
@@ -293,7 +293,7 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArrayPlex : public WrapBase<Wr
                             return ret;
                         });
                 })
-            .def("__len__", DECL_MM_EXECUTE_TYPED_ARRAY_METHOD(size))
+            .def("__len__", SC_DECL_EXECUTE_TYPED_ARRAY_METHOD(size))
             .def("__getitem__", &get_typed_array_value<ssize_t>)
             .def("__getitem__", &get_typed_array_value<const std::vector<ssize_t> &>)
             .def("__setitem__",
@@ -315,11 +315,11 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArrayPlex : public WrapBase<Wr
                        {
                         const auto shape = make_shape(py_shape);
                         return array.reshape(shape); }); })
-            .def_property_readonly("has_ghost", DECL_MM_EXECUTE_TYPED_ARRAY_METHOD(has_ghost))
+            .def_property_readonly("has_ghost", SC_DECL_EXECUTE_TYPED_ARRAY_METHOD(has_ghost))
             .def_property(
                 "nghost",
                 // getter
-                DECL_MM_EXECUTE_TYPED_ARRAY_METHOD(nghost),
+                SC_DECL_EXECUTE_TYPED_ARRAY_METHOD(nghost),
                 // setter
                 [](wrapped_type & self, ssize_t nghost)
                 {
@@ -330,7 +330,7 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArrayPlex : public WrapBase<Wr
                             return array.set_nghost(nghost);
                         });
                 })
-            .def_property_readonly("nbody", DECL_MM_EXECUTE_TYPED_ARRAY_METHOD(nbody))
+            .def_property_readonly("nbody", SC_DECL_EXECUTE_TYPED_ARRAY_METHOD(nbody))
             .wrap_modifiers()
             .wrap_calculators()
             // ATTENTION: always keep the same interface between WrapSimpleArrayPlex and WrapSimpleArray
@@ -364,19 +364,19 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArrayPlex : public WrapBase<Wr
 
     wrapper_type & wrap_calculators()
     {
-#define DECL_MM_EXECUTE_TYPED_ARRAY_METHOD_RETUN_TYPED_VALUE(typed_array_method) \
+#define SC_DECL_EXECUTE_TYPED_ARRAY_METHOD_RETUN_TYPED_VALUE(typed_array_method) \
     [](wrapped_type & self) { return execute_callback_with_typed_array(          \
                                   self, [](auto & array) { return pybind11::cast(array.typed_array_method()); }); }
 
         (*this)
-            .def("min", DECL_MM_EXECUTE_TYPED_ARRAY_METHOD_RETUN_TYPED_VALUE(min))
-            .def("max", DECL_MM_EXECUTE_TYPED_ARRAY_METHOD_RETUN_TYPED_VALUE(max))
-            .def("sum", DECL_MM_EXECUTE_TYPED_ARRAY_METHOD_RETUN_TYPED_VALUE(sum))
-            .def("abs", DECL_MM_EXECUTE_TYPED_ARRAY_METHOD_RETUN_TYPED_VALUE(abs))
+            .def("min", SC_DECL_EXECUTE_TYPED_ARRAY_METHOD_RETUN_TYPED_VALUE(min))
+            .def("max", SC_DECL_EXECUTE_TYPED_ARRAY_METHOD_RETUN_TYPED_VALUE(max))
+            .def("sum", SC_DECL_EXECUTE_TYPED_ARRAY_METHOD_RETUN_TYPED_VALUE(sum))
+            .def("abs", SC_DECL_EXECUTE_TYPED_ARRAY_METHOD_RETUN_TYPED_VALUE(abs))
             //
             ;
 
-#undef DECL_MM_EXECUTE_TYPED_ARRAY_METHOD_RETUN_TYPED_VALUE
+#undef SC_DECL_EXECUTE_TYPED_ARRAY_METHOD_RETUN_TYPED_VALUE
         return *this;
     }
 
@@ -423,7 +423,7 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArrayPlex : public WrapBase<Wr
     }
     // NOLINTEND(bugprone-easily-swappable-parameters)
 
-#undef DECL_MM_EXECUTE_TYPED_ARRAY_METHOD
+#undef SC_DECL_EXECUTE_TYPED_ARRAY_METHOD
 
 }; /* end class WrapSimpleArrayPlex */
 

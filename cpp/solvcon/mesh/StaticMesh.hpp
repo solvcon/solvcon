@@ -106,27 +106,27 @@ static_assert(sizeof(CellType) == 4);
 inline CellType CellType::by_id(uint8_t id)
 {
 
-#define MM_DECL_SWITCH_CELL_TYPE(TYPE, NDIM, NNODE, NEDGE, NSURFACE) \
+#define SC_DECL_SWITCH_CELL_TYPE(TYPE, NDIM, NNODE, NEDGE, NSURFACE) \
     case TYPE: return CellType(TYPE, NDIM, NNODE, NEDGE, NSURFACE); break;
 
     switch (id)
     {
         // clang-format off
         //                        id, ndim, nnode, nedge, nsurface
-        MM_DECL_SWITCH_CELL_TYPE(  0,    0,     0,     0,        0 ) // non-type
-        MM_DECL_SWITCH_CELL_TYPE(  1,    0,     1,     0,        0 ) // point/node/vertex
-        MM_DECL_SWITCH_CELL_TYPE(  2,    1,     2,     0,        0 ) // line/edge
-        MM_DECL_SWITCH_CELL_TYPE(  3,    2,     4,     4,        0 ) // quadrilateral
-        MM_DECL_SWITCH_CELL_TYPE(  4,    2,     3,     3,        0 ) // triangle
-        MM_DECL_SWITCH_CELL_TYPE(  5,    3,     8,    12,        6 ) // hexahedron/brick
-        MM_DECL_SWITCH_CELL_TYPE(  6,    3,     4,     6,        4 ) // tetrahedron
-        MM_DECL_SWITCH_CELL_TYPE(  7,    3,     6,     9,        5 ) // prism
-        MM_DECL_SWITCH_CELL_TYPE(  8,    3,     5,     8,        5 ) // pyramid
+        SC_DECL_SWITCH_CELL_TYPE(  0,    0,     0,     0,        0 ) // non-type
+        SC_DECL_SWITCH_CELL_TYPE(  1,    0,     1,     0,        0 ) // point/node/vertex
+        SC_DECL_SWITCH_CELL_TYPE(  2,    1,     2,     0,        0 ) // line/edge
+        SC_DECL_SWITCH_CELL_TYPE(  3,    2,     4,     4,        0 ) // quadrilateral
+        SC_DECL_SWITCH_CELL_TYPE(  4,    2,     3,     3,        0 ) // triangle
+        SC_DECL_SWITCH_CELL_TYPE(  5,    3,     8,    12,        6 ) // hexahedron/brick
+        SC_DECL_SWITCH_CELL_TYPE(  6,    3,     4,     6,        4 ) // tetrahedron
+        SC_DECL_SWITCH_CELL_TYPE(  7,    3,     6,     9,        5 ) // prism
+        SC_DECL_SWITCH_CELL_TYPE(  8,    3,     5,     8,        5 ) // pyramid
         default: return CellType{}; break;
         // clang-format on
     }
 
-#undef MM_DECL_SWITCH_CELL_TYPE
+#undef SC_DECL_SWITCH_CELL_TYPE
 }
 
 /**
@@ -418,7 +418,7 @@ private:
     bool m_use_incenter = false; ///< While true, m_clcnd uses in-center for simplices.
 
 // Data arrays.
-#define MM_DECL_StaticMesh_ARRAY(TYPE, NAME)                            \
+#define SC_DECL_StaticMesh_ARRAY(TYPE, NAME)                            \
 public:                                                                 \
     SimpleArray<TYPE> const & NAME() const { return m_##NAME; }         \
     SimpleArray<TYPE> & NAME() { return m_##NAME; }                     \
@@ -431,27 +431,27 @@ private:                                                                \
     SimpleArray<TYPE> m_##NAME
 
     // geometry arrays.
-    MM_DECL_StaticMesh_ARRAY(real_type, ndcrd);
-    MM_DECL_StaticMesh_ARRAY(real_type, fccnd);
-    MM_DECL_StaticMesh_ARRAY(real_type, fcnml);
-    MM_DECL_StaticMesh_ARRAY(real_type, fcara);
-    MM_DECL_StaticMesh_ARRAY(real_type, clcnd);
-    MM_DECL_StaticMesh_ARRAY(real_type, clvol);
+    SC_DECL_StaticMesh_ARRAY(real_type, ndcrd);
+    SC_DECL_StaticMesh_ARRAY(real_type, fccnd);
+    SC_DECL_StaticMesh_ARRAY(real_type, fcnml);
+    SC_DECL_StaticMesh_ARRAY(real_type, fcara);
+    SC_DECL_StaticMesh_ARRAY(real_type, clcnd);
+    SC_DECL_StaticMesh_ARRAY(real_type, clvol);
     // meta arrays.
-    MM_DECL_StaticMesh_ARRAY(int_type, fctpn);
-    MM_DECL_StaticMesh_ARRAY(int_type, cltpn);
-    MM_DECL_StaticMesh_ARRAY(int_type, clgrp);
+    SC_DECL_StaticMesh_ARRAY(int_type, fctpn);
+    SC_DECL_StaticMesh_ARRAY(int_type, cltpn);
+    SC_DECL_StaticMesh_ARRAY(int_type, clgrp);
     // connectivity arrays.
-    MM_DECL_StaticMesh_ARRAY(int_type, fcnds);
-    MM_DECL_StaticMesh_ARRAY(int_type, fccls);
-    MM_DECL_StaticMesh_ARRAY(int_type, clnds);
-    MM_DECL_StaticMesh_ARRAY(int_type, clfcs);
-    MM_DECL_StaticMesh_ARRAY(int_type, ednds);
+    SC_DECL_StaticMesh_ARRAY(int_type, fcnds);
+    SC_DECL_StaticMesh_ARRAY(int_type, fccls);
+    SC_DECL_StaticMesh_ARRAY(int_type, clnds);
+    SC_DECL_StaticMesh_ARRAY(int_type, clfcs);
+    SC_DECL_StaticMesh_ARRAY(int_type, ednds);
     // boundary information.
-    MM_DECL_StaticMesh_ARRAY(int_type, bndfcs);
+    SC_DECL_StaticMesh_ARRAY(int_type, bndfcs);
     std::vector<std::shared_ptr<StaticMeshBc>> m_bcs;
 
-#undef MM_DECL_StaticMesh_ARRAY
+#undef SC_DECL_StaticMesh_ARRAY
 
 }; /* end class StaticMesh */
 

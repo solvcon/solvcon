@@ -21,9 +21,9 @@ concurrency:
 jobs:
 
   check_skip:
-    # A fork inherits no MMGH_NIGHTLY, so this gate stops the nightly cron
+    # A fork inherits no SCGH_NIGHTLY, so this gate stops the nightly cron
     # from allocating a runner there.
-    if: github.event_name != 'schedule' || vars.MMGH_NIGHTLY == 'enable'
+    if: github.event_name != 'schedule' || (vars.SCGH_NIGHTLY || vars.MMGH_NIGHTLY) == 'enable'
     uses: ./.github/workflows/check_skip_ci.yml
     permissions:
       contents: read
@@ -40,13 +40,13 @@ jobs:
       needs.check_skip.outputs.skip != 'true' && (
       github.event_name == 'pull_request' ||
       (github.event_name == 'push' &&
-       (vars.MMGH_PUSH_RUN_BRANCH == '*' ||
-        contains(vars.MMGH_PUSH_RUN_BRANCH, github.ref_name))) ||
-      (github.event_name == 'schedule' && vars.MMGH_NIGHTLY == 'enable'))
+       ((vars.SCGH_PUSH_RUN_BRANCH || vars.MMGH_PUSH_RUN_BRANCH) == '*' ||
+        contains(vars.SCGH_PUSH_RUN_BRANCH || vars.MMGH_PUSH_RUN_BRANCH, github.ref_name))) ||
+      (github.event_name == 'schedule' && (vars.SCGH_NIGHTLY || vars.MMGH_NIGHTLY) == 'enable'))
 
     runs-on: ${{ matrix.os }}
 
-    timeout-minutes: ${{ fromJSON(vars.MMGH_TIMEOUT_LINT || '45') }}
+    timeout-minutes: ${{ fromJSON(vars.SCGH_TIMEOUT_LINT || vars.MMGH_TIMEOUT_LINT || '45') }}
 
     env:
       JOB_MAKE_ARGS: VERBOSE=1 BUILD_QT=ON USE_CLANG_TIDY=ON LINT_AS_ERRORS=ON

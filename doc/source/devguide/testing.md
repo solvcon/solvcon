@@ -97,40 +97,40 @@ These variables tune the workflows. Set them as repository variables (under
 Settings, then Secrets and variables, then Actions, then the Variables tab).
 Each is read with a default, so an unset variable keeps the default behavior.
 
-- `MMGH_NIGHTLY`: set to `enable` to let the nightly schedule run its jobs.
+- `SCGH_NIGHTLY`: set to `enable` to let the nightly schedule run its jobs.
   Unset, every scheduled run is skipped.
-- `MMGH_PUSH_RUN_BRANCH`: which branches run the fast set on a `push`. Use `*`
+- `SCGH_PUSH_RUN_BRANCH`: which branches run the fast set on a `push`. Use `*`
   for all branches, or a branch name (matched as a substring). Unset, a push
   runs nothing.
-- `MMGH_FORCE_PROFILE`, `MMGH_FORCE_NOUSE_INSTALL`, `MMGH_FORCE_SANITIZER`: set
+- `SCGH_FORCE_PROFILE`, `SCGH_FORCE_NOUSE_INSTALL`, `SCGH_FORCE_SANITIZER`: set
   any to `enable` to force that nightly-only job to run on any event, so it can
   be exercised from a pull request.
-- `MMGH_TIMEOUT_BUILD` (45), `MMGH_TIMEOUT_LINT` (45),
-  `MMGH_TIMEOUT_STANDALONE_BUFFER` (10), `MMGH_TIMEOUT_NOUSE_INSTALL` (30),
-  `MMGH_TIMEOUT_PROFILE` (30): per-job `timeout-minutes`. The number is the
-  default used when the variable is unset. `MMGH_TIMEOUT_BUILD` is shared by
+- `SCGH_TIMEOUT_BUILD` (45), `SCGH_TIMEOUT_LINT` (45),
+  `SCGH_TIMEOUT_STANDALONE_BUFFER` (10), `SCGH_TIMEOUT_NOUSE_INSTALL` (30),
+  `SCGH_TIMEOUT_PROFILE` (30): per-job `timeout-minutes`. The number is the
+  default used when the variable is unset. `SCGH_TIMEOUT_BUILD` is shared by
   the ubuntu, macOS, and sanitizer builds (default 45) and the Windows build,
   which defaults to 60 because its vcpkg plus MSVC compile runs slower than the
   others.
-- `MMGH_REMIND_REPOSITORY` (`solvcon/solvcon`): the repository whose monthly
+- `SCGH_REMIND_REPOSITORY` (`solvcon/solvcon`): the repository whose monthly
   `Update Contributors` cron files its reminder issue. The job also requires a
   non-fork repository, so a fork never files one whatever this is set to.
 
 ### Behavior on a forked repository
 
-- A fork inherits neither these variables nor the secrets, so `MMGH_NIGHTLY`
-  and `MMGH_PUSH_RUN_BRANCH` are unset there. By default only `pull_request`
+- A fork inherits neither these variables nor the secrets, so `SCGH_NIGHTLY`
+  and `SCGH_PUSH_RUN_BRANCH` are unset there. By default only `pull_request`
   events run, so the fast set runs on a pull request opened in the fork, while
   pushes and the nightly schedule run nothing until the variables are set.
 - GitHub creates a run entry for the nightly cron in every fork that has
-  Actions enabled, and offers no way to suppress it. `MMGH_NIGHTLY` gates
+  Actions enabled, and offers no way to suppress it. `SCGH_NIGHTLY` gates
   `check_skip` as well as the heavy jobs, so that entry holds no job and
   takes no runner.
 - Scheduled workflows run only on the default branch, and GitHub keeps Actions
   disabled on a new fork until it is enabled (a public fork's schedule also
   pauses after 60 days without activity).
 - To exercise a single nightly-only job on a fork, set the matching
-  `MMGH_FORCE_*` variable and open a pull request.
+  `SCGH_FORCE_*` variable and open a pull request.
 - A fork pull request on a non-default base branch runs cold, since it cannot
   read the warmed caches. The failure-notification job is guarded by
   `github.event.repository.fork == false`, so it never runs on a fork (and the

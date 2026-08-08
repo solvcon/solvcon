@@ -109,20 +109,20 @@ WrapFixedToggle::WrapFixedToggle(pybind11::module & mod, const char * pyname, co
 
     std::list<std::string> names;
 
-#define MM_PYTHON_TOGGLE_FIXED(NAME)                                                   \
+#define SC_PYTHON_TOGGLE_FIXED(NAME)                                                   \
     (*this).def_property(#NAME, &wrapped_type::get_##NAME, &wrapped_type::set_##NAME); \
     names.emplace_back(#NAME);
 
     // Instance properties.
     // clang-format off
-    MM_PYTHON_TOGGLE_FIXED(python_redirect)
-    MM_PYTHON_TOGGLE_FIXED(show_axis)
+    SC_PYTHON_TOGGLE_FIXED(python_redirect)
+    SC_PYTHON_TOGGLE_FIXED(show_axis)
     // clang-format on
 
     names.sort();
     cls().attr("NAMES") = names;
 
-#undef MM_PYTHON_TOGGLE_FIXED
+#undef SC_PYTHON_TOGGLE_FIXED
 }
 
 class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapHierarchicalToggleAccess

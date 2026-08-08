@@ -9,7 +9,7 @@
 
 // EigenSystem.hpp requires a vendor LAPACK; only compile the surrogate's
 // out-of-line bodies when one is available.  Without it this is an empty TU.
-#ifdef MM_HAS_VENDOR_LAPACK
+#ifdef SC_HAS_VENDOR_LAPACK
 
 #include <solvcon/linalg/EigenSystem.hpp>
 
@@ -111,6 +111,6 @@ bool EigenSystemPlex::done() const
 
 } /* end namespace solvcon */
 
-#endif /* MM_HAS_VENDOR_LAPACK */
+#endif /* SC_HAS_VENDOR_LAPACK */
 
 // vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

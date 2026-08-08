@@ -19,7 +19,7 @@ jobs:
     # Both conditions are required so that a non-fork copy of the repository
     # respects the setting.
     if: |
-      github.repository == (vars.MMGH_REMIND_REPOSITORY || 'solvcon/solvcon') &&
+      github.repository == (vars.SCGH_REMIND_REPOSITORY || vars.MMGH_REMIND_REPOSITORY || 'solvcon/solvcon') &&
       github.event.repository.fork == false
 
     runs-on: ubuntu-latest

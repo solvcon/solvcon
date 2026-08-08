@@ -147,7 +147,7 @@ public:
 
     // The shape type serializes to its lower-case name (e.g. "triangle") so
     // the rendered JSON stays human-readable; this is an output-only view.
-    MM_DECL_SERIALIZABLE(
+    SC_DECL_SERIALIZABLE(
         register_member("id", m_id);
         register_member("type", shape_type_name(m_type));
         register_member("bbox", m_bbox);
@@ -202,7 +202,7 @@ public:
     std::optional<WorldDiagnostics> const & diagnostics() const { return m_diagnostics; }
     std::optional<WorldDiagnostics> & diagnostics() { return m_diagnostics; }
 
-    MM_DECL_SERIALIZABLE(
+    SC_DECL_SERIALIZABLE(
         register_member("shapes", m_shapes);
         register_member("segments", m_segments);
         register_member("curves", m_curves);

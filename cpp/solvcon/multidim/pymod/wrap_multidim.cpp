@@ -380,29 +380,29 @@ WrapEulerCore & WrapEulerCore::wrap_boundary()
 
 WrapEulerCore & WrapEulerCore::wrap_array()
 {
-#define MM_DECL_ARRAY(NAME) \
+#define SC_DECL_ARRAY(NAME) \
     .expose_SimpleArray(#NAME, [](wrapped_type & self) -> decltype(auto) { return self.NAME(); })
 
     // clang-format off
     (*this)
-        MM_DECL_ARRAY(cevol)
-        MM_DECL_ARRAY(cecnd)
-        MM_DECL_ARRAY(sfcnd)
-        MM_DECL_ARRAY(sfnml)
-        MM_DECL_ARRAY(so0c)
-        MM_DECL_ARRAY(so0n)
-        MM_DECL_ARRAY(so0t)
-        MM_DECL_ARRAY(so1c)
-        MM_DECL_ARRAY(so1n)
-        MM_DECL_ARRAY(stm)
-        MM_DECL_ARRAY(cflo)
-        MM_DECL_ARRAY(cflc)
-        MM_DECL_ARRAY(gamma)
+        SC_DECL_ARRAY(cevol)
+        SC_DECL_ARRAY(cecnd)
+        SC_DECL_ARRAY(sfcnd)
+        SC_DECL_ARRAY(sfnml)
+        SC_DECL_ARRAY(so0c)
+        SC_DECL_ARRAY(so0n)
+        SC_DECL_ARRAY(so0t)
+        SC_DECL_ARRAY(so1c)
+        SC_DECL_ARRAY(so1n)
+        SC_DECL_ARRAY(stm)
+        SC_DECL_ARRAY(cflo)
+        SC_DECL_ARRAY(cflc)
+        SC_DECL_ARRAY(gamma)
         //
         ;
     // clang-format on
 
-#undef MM_DECL_ARRAY
+#undef SC_DECL_ARRAY
 
     return *this;
 }

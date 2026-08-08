@@ -325,7 +325,7 @@ void JsonHelper::from_json_string(const std::unique_ptr<JsonNode> & node, std::v
 /// The order of members in the JSON string is based on the order of `register_member` calls.
 /// The access modifier of the members can be public or private.
 /// The access modifier will be changed to private after the macro.
-#define MM_DECL_SERIALIZABLE(...)                                                                   \
+#define SC_DECL_SERIALIZABLE(...)                                                                   \
 public:                                                                                             \
     /* FIXME: NOLINTNEXTLINE(misc-no-recursion) */                                                  \
     std::string to_json() const override                                                            \
@@ -385,7 +385,7 @@ private:                                                                        
             }                                                                                       \
         };                                                                                          \
         __VA_ARGS__                                                                                 \
-    } /* end MM_DECL_SERIALIZABLE*/
+    } /* end SC_DECL_SERIALIZABLE*/
 
 } /* end namespace solvcon */
 

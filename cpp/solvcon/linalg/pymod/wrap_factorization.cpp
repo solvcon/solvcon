@@ -55,7 +55,7 @@ void add_simple_array_lu_methods(pybind11::module & mod, char const * pyname)
 void wrap_factorization(pybind11::module & mod)
 {
     // clang-format off
-#define MM_DECL_LADEF(T)                                                     \
+#define SC_DECL_LADEF(T)                                                     \
     mod.def(                                                                 \
         "llt_factorization",                                                 \
         [](SimpleArray<T> const & a)                                         \
@@ -93,12 +93,12 @@ void wrap_factorization(pybind11::module & mod)
         pybind11::arg("a"));
     // clang-format on
 
-    MM_DECL_LADEF(float)
-    MM_DECL_LADEF(double)
-    MM_DECL_LADEF(Complex<float>)
-    MM_DECL_LADEF(Complex<double>)
+    SC_DECL_LADEF(float)
+    SC_DECL_LADEF(double)
+    SC_DECL_LADEF(Complex<float>)
+    SC_DECL_LADEF(Complex<double>)
 
-#undef MM_DECL_LADEF
+#undef SC_DECL_LADEF
 
     // Integer arrays are deliberately excluded: LU decomposition involves
     // division, which would silently truncate under integer arithmetic.

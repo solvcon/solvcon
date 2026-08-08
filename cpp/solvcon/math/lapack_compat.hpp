@@ -15,12 +15,12 @@
  *
  * Consumers should include this header and use `lapack_int_t` plus the
  * Fortran-named entry points (e.g. `dgeev_`) without conditional compilation.
- * The header itself requires `MM_HAS_VENDOR_LAPACK` to be defined by the build
+ * The header itself requires `SC_HAS_VENDOR_LAPACK` to be defined by the build
  * system.
  */
 
-#ifndef MM_HAS_VENDOR_LAPACK
-#error "solvcon/math/lapack_compat.hpp requires a vendor LAPACK (MM_HAS_VENDOR_LAPACK)."
+#ifndef SC_HAS_VENDOR_LAPACK
+#error "solvcon/math/lapack_compat.hpp requires a vendor LAPACK (SC_HAS_VENDOR_LAPACK)."
 #endif
 
 #include <solvcon/math/Complex.hpp>

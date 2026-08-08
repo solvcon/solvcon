@@ -456,7 +456,7 @@ DataType DataType::from<Complex<double>>()
 // According to the `DataType`, create the corresponding `SimpleArray<T>` instance
 // and assign it to `m_instance_ptr`. The `m_instance_ptr` is a void pointer, so
 // we need to use `reinterpret_cast` to convert the pointer of the array instance.
-#define DECL_MM_CREATE_SIMPLE_ARRAY(DataType, ArrayType, ...)                  \
+#define SC_DECL_CREATE_SIMPLE_ARRAY(DataType, ArrayType, ...)                  \
     case DataType:                                                             \
         /* NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast) */      \
         m_instance_ptr = reinterpret_cast<void *>(new ArrayType(__VA_ARGS__)); \
@@ -468,19 +468,19 @@ SimpleArrayPlex::SimpleArrayPlex(const shape_type & shape, const DataType data_t
 {
     switch (data_type)
     {
-        DECL_MM_CREATE_SIMPLE_ARRAY(DataType::Bool, SimpleArrayBool, shape)
-        DECL_MM_CREATE_SIMPLE_ARRAY(DataType::Int8, SimpleArrayInt8, shape)
-        DECL_MM_CREATE_SIMPLE_ARRAY(DataType::Int16, SimpleArrayInt16, shape)
-        DECL_MM_CREATE_SIMPLE_ARRAY(DataType::Int32, SimpleArrayInt32, shape)
-        DECL_MM_CREATE_SIMPLE_ARRAY(DataType::Int64, SimpleArrayInt64, shape)
-        DECL_MM_CREATE_SIMPLE_ARRAY(DataType::Uint8, SimpleArrayUint8, shape)
-        DECL_MM_CREATE_SIMPLE_ARRAY(DataType::Uint16, SimpleArrayUint16, shape)
-        DECL_MM_CREATE_SIMPLE_ARRAY(DataType::Uint32, SimpleArrayUint32, shape)
-        DECL_MM_CREATE_SIMPLE_ARRAY(DataType::Uint64, SimpleArrayUint64, shape)
-        DECL_MM_CREATE_SIMPLE_ARRAY(DataType::Float32, SimpleArrayFloat32, shape)
-        DECL_MM_CREATE_SIMPLE_ARRAY(DataType::Float64, SimpleArrayFloat64, shape)
-        DECL_MM_CREATE_SIMPLE_ARRAY(DataType::Complex64, SimpleArrayComplex64, shape)
-        DECL_MM_CREATE_SIMPLE_ARRAY(DataType::Complex128, SimpleArrayComplex128, shape)
+        SC_DECL_CREATE_SIMPLE_ARRAY(DataType::Bool, SimpleArrayBool, shape)
+        SC_DECL_CREATE_SIMPLE_ARRAY(DataType::Int8, SimpleArrayInt8, shape)
+        SC_DECL_CREATE_SIMPLE_ARRAY(DataType::Int16, SimpleArrayInt16, shape)
+        SC_DECL_CREATE_SIMPLE_ARRAY(DataType::Int32, SimpleArrayInt32, shape)
+        SC_DECL_CREATE_SIMPLE_ARRAY(DataType::Int64, SimpleArrayInt64, shape)
+        SC_DECL_CREATE_SIMPLE_ARRAY(DataType::Uint8, SimpleArrayUint8, shape)
+        SC_DECL_CREATE_SIMPLE_ARRAY(DataType::Uint16, SimpleArrayUint16, shape)
+        SC_DECL_CREATE_SIMPLE_ARRAY(DataType::Uint32, SimpleArrayUint32, shape)
+        SC_DECL_CREATE_SIMPLE_ARRAY(DataType::Uint64, SimpleArrayUint64, shape)
+        SC_DECL_CREATE_SIMPLE_ARRAY(DataType::Float32, SimpleArrayFloat32, shape)
+        SC_DECL_CREATE_SIMPLE_ARRAY(DataType::Float64, SimpleArrayFloat64, shape)
+        SC_DECL_CREATE_SIMPLE_ARRAY(DataType::Complex64, SimpleArrayComplex64, shape)
+        SC_DECL_CREATE_SIMPLE_ARRAY(DataType::Complex128, SimpleArrayComplex128, shape)
     default:
         throw std::invalid_argument("Unsupported datatype");
     }
@@ -492,55 +492,55 @@ SimpleArrayPlex::SimpleArrayPlex(const shape_type & shape, const std::shared_ptr
 {
     switch (data_type)
     {
-        DECL_MM_CREATE_SIMPLE_ARRAY(DataType::Bool, SimpleArrayBool, shape, buffer)
-        DECL_MM_CREATE_SIMPLE_ARRAY(DataType::Int8, SimpleArrayInt8, shape, buffer)
-        DECL_MM_CREATE_SIMPLE_ARRAY(DataType::Int16, SimpleArrayInt16, shape, buffer)
-        DECL_MM_CREATE_SIMPLE_ARRAY(DataType::Int32, SimpleArrayInt32, shape, buffer)
-        DECL_MM_CREATE_SIMPLE_ARRAY(DataType::Int64, SimpleArrayInt64, shape, buffer)
-        DECL_MM_CREATE_SIMPLE_ARRAY(DataType::Uint8, SimpleArrayUint8, shape, buffer)
-        DECL_MM_CREATE_SIMPLE_ARRAY(DataType::Uint16, SimpleArrayUint16, shape, buffer)
-        DECL_MM_CREATE_SIMPLE_ARRAY(DataType::Uint32, SimpleArrayUint32, shape, buffer)
-        DECL_MM_CREATE_SIMPLE_ARRAY(DataType::Uint64, SimpleArrayUint64, shape, buffer)
-        DECL_MM_CREATE_SIMPLE_ARRAY(DataType::Float32, SimpleArrayFloat32, shape, buffer)
-        DECL_MM_CREATE_SIMPLE_ARRAY(DataType::Float64, SimpleArrayFloat64, shape, buffer)
-        DECL_MM_CREATE_SIMPLE_ARRAY(DataType::Complex64, SimpleArrayComplex64, shape, buffer)
-        DECL_MM_CREATE_SIMPLE_ARRAY(DataType::Complex128, SimpleArrayComplex128, shape, buffer)
+        SC_DECL_CREATE_SIMPLE_ARRAY(DataType::Bool, SimpleArrayBool, shape, buffer)
+        SC_DECL_CREATE_SIMPLE_ARRAY(DataType::Int8, SimpleArrayInt8, shape, buffer)
+        SC_DECL_CREATE_SIMPLE_ARRAY(DataType::Int16, SimpleArrayInt16, shape, buffer)
+        SC_DECL_CREATE_SIMPLE_ARRAY(DataType::Int32, SimpleArrayInt32, shape, buffer)
+        SC_DECL_CREATE_SIMPLE_ARRAY(DataType::Int64, SimpleArrayInt64, shape, buffer)
+        SC_DECL_CREATE_SIMPLE_ARRAY(DataType::Uint8, SimpleArrayUint8, shape, buffer)
+        SC_DECL_CREATE_SIMPLE_ARRAY(DataType::Uint16, SimpleArrayUint16, shape, buffer)
+        SC_DECL_CREATE_SIMPLE_ARRAY(DataType::Uint32, SimpleArrayUint32, shape, buffer)
+        SC_DECL_CREATE_SIMPLE_ARRAY(DataType::Uint64, SimpleArrayUint64, shape, buffer)
+        SC_DECL_CREATE_SIMPLE_ARRAY(DataType::Float32, SimpleArrayFloat32, shape, buffer)
+        SC_DECL_CREATE_SIMPLE_ARRAY(DataType::Float64, SimpleArrayFloat64, shape, buffer)
+        SC_DECL_CREATE_SIMPLE_ARRAY(DataType::Complex64, SimpleArrayComplex64, shape, buffer)
+        SC_DECL_CREATE_SIMPLE_ARRAY(DataType::Complex128, SimpleArrayComplex128, shape, buffer)
     default:
         throw std::invalid_argument("Unsupported datatype");
     }
 }
 
-#undef DECL_MM_CREATE_SIMPLE_ARRAY
+#undef SC_DECL_CREATE_SIMPLE_ARRAY
 
 SimpleArrayPlex::SimpleArrayPlex(const shape_type & shape, const DataType data_type, size_t alignment)
     : m_data_type(data_type)
     , m_has_instance_ownership(true)
 {
-#define DECL_MM_CREATE_SIMPLE_ARRAY_WITH_ALIGNMENT(DataType, ArrayType)                            \
+#define SC_DECL_CREATE_SIMPLE_ARRAY_WITH_ALIGNMENT(DataType, ArrayType)                            \
     case DataType:                                                                                 \
         m_instance_ptr = static_cast<void *>(new ArrayType(shape, alignment, with_alignment_t{})); \
         break;
 
     switch (data_type)
     {
-        DECL_MM_CREATE_SIMPLE_ARRAY_WITH_ALIGNMENT(DataType::Bool, SimpleArrayBool)
-        DECL_MM_CREATE_SIMPLE_ARRAY_WITH_ALIGNMENT(DataType::Int8, SimpleArrayInt8)
-        DECL_MM_CREATE_SIMPLE_ARRAY_WITH_ALIGNMENT(DataType::Int16, SimpleArrayInt16)
-        DECL_MM_CREATE_SIMPLE_ARRAY_WITH_ALIGNMENT(DataType::Int32, SimpleArrayInt32)
-        DECL_MM_CREATE_SIMPLE_ARRAY_WITH_ALIGNMENT(DataType::Int64, SimpleArrayInt64)
-        DECL_MM_CREATE_SIMPLE_ARRAY_WITH_ALIGNMENT(DataType::Uint8, SimpleArrayUint8)
-        DECL_MM_CREATE_SIMPLE_ARRAY_WITH_ALIGNMENT(DataType::Uint16, SimpleArrayUint16)
-        DECL_MM_CREATE_SIMPLE_ARRAY_WITH_ALIGNMENT(DataType::Uint32, SimpleArrayUint32)
-        DECL_MM_CREATE_SIMPLE_ARRAY_WITH_ALIGNMENT(DataType::Uint64, SimpleArrayUint64)
-        DECL_MM_CREATE_SIMPLE_ARRAY_WITH_ALIGNMENT(DataType::Float32, SimpleArrayFloat32)
-        DECL_MM_CREATE_SIMPLE_ARRAY_WITH_ALIGNMENT(DataType::Float64, SimpleArrayFloat64)
-        DECL_MM_CREATE_SIMPLE_ARRAY_WITH_ALIGNMENT(DataType::Complex64, SimpleArrayComplex64)
-        DECL_MM_CREATE_SIMPLE_ARRAY_WITH_ALIGNMENT(DataType::Complex128, SimpleArrayComplex128)
+        SC_DECL_CREATE_SIMPLE_ARRAY_WITH_ALIGNMENT(DataType::Bool, SimpleArrayBool)
+        SC_DECL_CREATE_SIMPLE_ARRAY_WITH_ALIGNMENT(DataType::Int8, SimpleArrayInt8)
+        SC_DECL_CREATE_SIMPLE_ARRAY_WITH_ALIGNMENT(DataType::Int16, SimpleArrayInt16)
+        SC_DECL_CREATE_SIMPLE_ARRAY_WITH_ALIGNMENT(DataType::Int32, SimpleArrayInt32)
+        SC_DECL_CREATE_SIMPLE_ARRAY_WITH_ALIGNMENT(DataType::Int64, SimpleArrayInt64)
+        SC_DECL_CREATE_SIMPLE_ARRAY_WITH_ALIGNMENT(DataType::Uint8, SimpleArrayUint8)
+        SC_DECL_CREATE_SIMPLE_ARRAY_WITH_ALIGNMENT(DataType::Uint16, SimpleArrayUint16)
+        SC_DECL_CREATE_SIMPLE_ARRAY_WITH_ALIGNMENT(DataType::Uint32, SimpleArrayUint32)
+        SC_DECL_CREATE_SIMPLE_ARRAY_WITH_ALIGNMENT(DataType::Uint64, SimpleArrayUint64)
+        SC_DECL_CREATE_SIMPLE_ARRAY_WITH_ALIGNMENT(DataType::Float32, SimpleArrayFloat32)
+        SC_DECL_CREATE_SIMPLE_ARRAY_WITH_ALIGNMENT(DataType::Float64, SimpleArrayFloat64)
+        SC_DECL_CREATE_SIMPLE_ARRAY_WITH_ALIGNMENT(DataType::Complex64, SimpleArrayComplex64)
+        SC_DECL_CREATE_SIMPLE_ARRAY_WITH_ALIGNMENT(DataType::Complex128, SimpleArrayComplex128)
     default:
         throw std::invalid_argument("Unsupported datatype");
     }
 
-#undef DECL_MM_CREATE_SIMPLE_ARRAY_WITH_ALIGNMENT
+#undef SC_DECL_CREATE_SIMPLE_ARRAY_WITH_ALIGNMENT
 }
 
 SimpleArrayPlex::SimpleArrayPlex(SimpleArrayPlex const & other)

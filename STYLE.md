@@ -625,7 +625,7 @@ namespace detail
 
 ## C Pre-Processor Macro
 
-Prefix macros with `MM_DECL_`. If they are not supposed to be used as a
+Prefix macros with `SC_DECL_`. If they are not supposed to be used as a
 global helper, delete them after consumption.
 
 ## C++ Standard

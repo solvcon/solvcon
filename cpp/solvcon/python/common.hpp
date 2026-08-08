@@ -295,7 +295,7 @@ public:
     WrapBase & operator=(WrapBase &&) = delete;
     ~WrapBase() = default;
 
-#define DECL_MM_PYBIND_CLASS_METHOD_UNTIMED(METHOD)                           \
+#define SC_DECL_PYBIND_CLASS_METHOD_UNTIMED(METHOD)                           \
     template <class... Args> /* NOLINTNEXTLINE(bugprone-macro-parentheses) */ \
     wrapper_type & METHOD(Args &&... args)                                    \
     {                                                                         \
@@ -304,7 +304,7 @@ public:
     }
 
 // ref: https://pybind11.readthedocs.io/en/stable/advanced/functions.html#call-guard
-#define DECL_MM_PYBIND_CLASS_METHOD_TIMED(METHOD)                             \
+#define SC_DECL_PYBIND_CLASS_METHOD_TIMED(METHOD)                             \
     template <class... Args> /* NOLINTNEXTLINE(bugprone-macro-parentheses) */ \
     wrapper_type & METHOD##_timed(Args &&... args)                            \
     {                                                                         \
@@ -313,32 +313,32 @@ public:
         return *static_cast<std::add_pointer_t<wrapper_type>>(this);          \
     }
 
-#define DECL_MM_PYBIND_CLASS_METHOD(METHOD)     \
-    DECL_MM_PYBIND_CLASS_METHOD_UNTIMED(METHOD) \
-    DECL_MM_PYBIND_CLASS_METHOD_TIMED(METHOD)
+#define SC_DECL_PYBIND_CLASS_METHOD(METHOD)     \
+    SC_DECL_PYBIND_CLASS_METHOD_UNTIMED(METHOD) \
+    SC_DECL_PYBIND_CLASS_METHOD_TIMED(METHOD)
 
     // The args pack is forwarded inside the macro-generated bodies above;
     // clang-tidy misattributes the forwarding through the macro expansion.
     // NOLINTBEGIN(cppcoreguidelines-missing-std-forward)
-    DECL_MM_PYBIND_CLASS_METHOD(def)
-    DECL_MM_PYBIND_CLASS_METHOD(def_static)
+    SC_DECL_PYBIND_CLASS_METHOD(def)
+    SC_DECL_PYBIND_CLASS_METHOD(def_static)
 
-    DECL_MM_PYBIND_CLASS_METHOD(def_readwrite)
-    DECL_MM_PYBIND_CLASS_METHOD(def_readonly)
-    DECL_MM_PYBIND_CLASS_METHOD(def_readwrite_static)
-    DECL_MM_PYBIND_CLASS_METHOD(def_readonly_static)
+    SC_DECL_PYBIND_CLASS_METHOD(def_readwrite)
+    SC_DECL_PYBIND_CLASS_METHOD(def_readonly)
+    SC_DECL_PYBIND_CLASS_METHOD(def_readwrite_static)
+    SC_DECL_PYBIND_CLASS_METHOD(def_readonly_static)
 
-    DECL_MM_PYBIND_CLASS_METHOD(def_property)
-    DECL_MM_PYBIND_CLASS_METHOD(def_property_static)
-    DECL_MM_PYBIND_CLASS_METHOD(def_property_readonly)
-    DECL_MM_PYBIND_CLASS_METHOD(def_property_readonly_static)
+    SC_DECL_PYBIND_CLASS_METHOD(def_property)
+    SC_DECL_PYBIND_CLASS_METHOD(def_property_static)
+    SC_DECL_PYBIND_CLASS_METHOD(def_property_readonly)
+    SC_DECL_PYBIND_CLASS_METHOD(def_property_readonly_static)
 
-    DECL_MM_PYBIND_CLASS_METHOD_UNTIMED(def_buffer)
+    SC_DECL_PYBIND_CLASS_METHOD_UNTIMED(def_buffer)
     // NOLINTEND(cppcoreguidelines-missing-std-forward)
 
-#undef DECL_MM_PYBIND_CLASS_METHOD_UNTIMED
-#undef DECL_MM_PYBIND_CLASS_METHOD_TIMED
-#undef DECL_MM_PYBIND_CLASS_METHOD
+#undef SC_DECL_PYBIND_CLASS_METHOD_UNTIMED
+#undef SC_DECL_PYBIND_CLASS_METHOD_TIMED
+#undef SC_DECL_PYBIND_CLASS_METHOD
 
     wrapper_type & def_alias(char const * from_name, char const * to_name)
     {

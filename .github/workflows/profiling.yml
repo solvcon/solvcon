@@ -9,15 +9,15 @@ on:
 jobs:
   profile:
 
-    # Run profiling only on schedule or when MMGH_FORCE_PROFILE is set to 'enable'
-    # You can refer to https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-variables to set MMGH_FORCE_PROFILE in the fork repository settings for testing purposes.
-    if: ${{ (github.event_name == 'schedule' && vars.MMGH_NIGHTLY == 'enable') || vars.MMGH_FORCE_PROFILE == 'enable' }}
+    # Run profiling only on schedule or when SCGH_FORCE_PROFILE is set to 'enable'
+    # You can refer to https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-variables to set SCGH_FORCE_PROFILE in the fork repository settings for testing purposes.
+    if: ${{ (github.event_name == 'schedule' && (vars.SCGH_NIGHTLY || vars.MMGH_NIGHTLY) == 'enable') || (vars.SCGH_FORCE_PROFILE || vars.MMGH_FORCE_PROFILE) == 'enable' }}
 
     name: profile_${{ matrix.os }}
 
     runs-on: ${{ matrix.os }}
 
-    timeout-minutes: ${{ fromJSON(vars.MMGH_TIMEOUT_PROFILE || '30') }}
+    timeout-minutes: ${{ fromJSON(vars.SCGH_TIMEOUT_PROFILE || vars.MMGH_TIMEOUT_PROFILE || '30') }}
 
     env:
       QT_DEBUG_PLUGINS: 1
