@@ -31,6 +31,14 @@ Key options can be set on the command line, in `setup.mk` (which is read by
 | `BUILD_METAL`        | `OFF`     | build Metal GPU support (macOS)  |
 | `SOLVCON_PROFILE`    | `OFF`     | enable the runtime profiler      |
 | `USE_CLANG_TIDY`     | `OFF`     | run clang-tidy during the build  |
+| `USE_CCACHE`         | `ON`      | use ccache when it is installed  |
+
+Install `ccache` (`brew install ccache`, `apt install ccache`) to make a
+rebuild after `make cmakeclean` mostly cache hits; a host without it builds
+the same way as before, and an MSVC build skips the cache either way.  The
+configure log says `use ccache` or `not use ccache`.  An existing build tree
+picks up an install or an uninstall on its next configure, which
+`make cmakeclean` forces.
 
 CMake itself is configured through `CMakePresets.json`; see
 {doc}`/devguide/cmake` for the preset a Windows build or an IDE selects, and
