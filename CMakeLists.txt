@@ -36,10 +36,10 @@ endif()
 # ccache is detected here rather than named in the shared presets, so a host
 # without it configures and builds unchanged. The guard skips every case where
 # the wrap cannot pay: an explicit launcher, such as the sccache of the
-# ci-win-mkl preset; a compiler that is already ccache, which is how the Linux
-# and macOS CI jobs install it and where wrapping would hash ccache in place of
-# the real compiler; and MSVC, whose default debug information format ccache
-# refuses, leaving every unit to pay the wrap and return no hit.
+# ci-win-mkl preset; a compiler that is already ccache, as a masquerade symlink
+# ahead of the real one on PATH makes it, where wrapping would hash ccache in
+# place of the real compiler; and MSVC, whose default debug information format
+# ccache refuses, leaving every unit to pay the wrap and return no hit.
 option(USE_CCACHE "use ccache as the compiler launcher when it is available" ON)
 message(STATUS "USE_CCACHE: ${USE_CCACHE}")
 file(REAL_PATH "${CMAKE_CXX_COMPILER}" CCACHE_CXX_COMPILER_REALPATH)

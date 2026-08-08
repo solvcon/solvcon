@@ -75,6 +75,8 @@ jobs:
         with:
           key: ${{ runner.os }}-standalone-buffer-${{ matrix.cmake_build_type }}
           restore-keys: ${{ runner.os }}-standalone-buffer-${{ matrix.cmake_build_type }}
+          # contrib/standalone_buffer/Makefile compiles with a bare `c++`
+          # outside CMake, so the symlinks are this job's only route to ccache.
           create-symlink: true
           save: ${{ github.event_name != 'pull_request' }}
           # Bound the cache so it does not grow without limit across the rolling
@@ -160,7 +162,6 @@ jobs:
       with:
         key: ${{ runner.os }}-${{ matrix.cmake_build_type }}
         restore-keys: ${{ runner.os }}-${{ matrix.cmake_build_type }}
-        create-symlink: true
         save: ${{ github.event_name != 'pull_request' }}
         # Bound the cache so it does not grow without limit across the rolling
         # key. A master push or nightly run saves this cache; pull requests
@@ -540,7 +541,6 @@ jobs:
       with:
         key: ${{ runner.os }}-sanitizer-${{ matrix.cmake_build_type }}
         restore-keys: ${{ runner.os }}-sanitizer-${{ matrix.cmake_build_type }}
-        create-symlink: true
         save: ${{ github.event_name != 'pull_request' }}
         max-size: 1500M
 
