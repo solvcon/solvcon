@@ -26,7 +26,7 @@ __all__ = [
 ]
 
 
-class ModmeshArgumentParser(argparse.ArgumentParser):
+class SolvconArgumentParser(argparse.ArgumentParser):
     def __init__(self, *args, **kw):
         super().__init__(*args, **kw)
         self.exited = False
@@ -41,7 +41,7 @@ class ModmeshArgumentParser(argparse.ArgumentParser):
 
 
 def _parse_command_line(argv):
-    parser = ModmeshArgumentParser(description="Pilot")
+    parser = SolvconArgumentParser(description="Pilot")
     parser.add_argument('--mode', dest='mode', action='store',
                         default='pilot',
                         choices=['pilot', 'python', 'pytest'],

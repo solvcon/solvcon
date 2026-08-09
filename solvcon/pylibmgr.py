@@ -8,7 +8,7 @@ import importlib.abc
 import importlib.machinery
 
 
-class ModmeshPathFinder(importlib.abc.MetaPathFinder):
+class SolvconPathFinder(importlib.abc.MetaPathFinder):
     def __init__(self, lib_paths):
         self.lib_paths = lib_paths
 
@@ -46,8 +46,8 @@ class ModmeshPathFinder(importlib.abc.MetaPathFinder):
         return None
 
 
-def is_modmesh_meta_path_finder_registered():
-    return any(isinstance(finder, ModmeshPathFinder)
+def is_solvcon_meta_path_finder_registered():
+    return any(isinstance(finder, SolvconPathFinder)
                for finder in sys.meta_path)
 
 
@@ -90,6 +90,6 @@ def search_library_root(curr_path, lib_root_name, timeout=1.0):
         if os.path.isdir(os.path.join(_path, item)):
             lib_path[item] = os.path.join(_path, item)
 
-    if not is_modmesh_meta_path_finder_registered():
-        sys.meta_path.append(ModmeshPathFinder(lib_path))
+    if not is_solvcon_meta_path_finder_registered():
+        sys.meta_path.append(SolvconPathFinder(lib_path))
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

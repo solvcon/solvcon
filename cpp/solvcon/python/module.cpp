@@ -66,7 +66,7 @@ int program_entrance(int argc, char ** argv)
     // Initialize the Python interpreter.
     Interpreter::instance()
         .initialize()
-        .setup_modmesh_path()
+        .setup_solvcon_path()
         .setup_process();
 
     int ret = 0;
