@@ -3,7 +3,7 @@
 
 cmake_minimum_required(VERSION 4.0.1)
 
-set(SOLVCON_PYTYON_HEADERS
+set(SOLVCON_PYTHON_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/python.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/common.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/module.hpp
