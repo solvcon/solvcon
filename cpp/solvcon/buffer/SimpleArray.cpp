@@ -463,8 +463,8 @@ DataType DataType::from<Complex<double>>()
         break;
 
 SimpleArrayPlex::SimpleArrayPlex(const shape_type & shape, const DataType data_type)
-    : m_data_type(data_type)
-    , m_has_instance_ownership(true)
+    : m_has_instance_ownership(true)
+    , m_data_type(data_type)
 {
     switch (data_type)
     {
@@ -487,8 +487,8 @@ SimpleArrayPlex::SimpleArrayPlex(const shape_type & shape, const DataType data_t
 }
 
 SimpleArrayPlex::SimpleArrayPlex(const shape_type & shape, const std::shared_ptr<ConcreteBuffer> & buffer, const DataType data_type)
-    : m_data_type(data_type)
-    , m_has_instance_ownership(true)
+    : m_has_instance_ownership(true)
+    , m_data_type(data_type)
 {
     switch (data_type)
     {
@@ -513,8 +513,8 @@ SimpleArrayPlex::SimpleArrayPlex(const shape_type & shape, const std::shared_ptr
 #undef SC_DECL_CREATE_SIMPLE_ARRAY
 
 SimpleArrayPlex::SimpleArrayPlex(const shape_type & shape, const DataType data_type, size_t alignment)
-    : m_data_type(data_type)
-    , m_has_instance_ownership(true)
+    : m_has_instance_ownership(true)
+    , m_data_type(data_type)
 {
 #define SC_DECL_CREATE_SIMPLE_ARRAY_WITH_ALIGNMENT(DataType, ArrayType)                            \
     case DataType:                                                                                 \

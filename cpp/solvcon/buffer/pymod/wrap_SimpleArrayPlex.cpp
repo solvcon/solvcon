@@ -163,7 +163,7 @@ static pybind11::object get_typed_array(const SimpleArrayPlex & array_plex)
     case DataType:                                                                      \
     {                                                                                   \
         const auto * array = static_cast<const ArrayType *>(array_plex.instance_ptr()); \
-        return pybind11::cast(std::move(ArrayType(*array)));                            \
+        return pybind11::cast(ArrayType(*array));                                       \
     }
 
     switch (array_plex.data_type())

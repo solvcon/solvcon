@@ -89,7 +89,7 @@ void RMeshFrame::buildSurface(StaticMesh const & mh)
         // The visible surface of a 3D domain is its boundary shell; each
         // boundary face carries an outward normal from the metric.
         SimpleArray<int32_t> const & bndfcs = mh.bndfcs();
-        for (size_t ibnd = 0; ibnd < bndfcs.shape(0); ++ibnd)
+        for (ssize_t ibnd = 0; ibnd < bndfcs.shape(0); ++ibnd)
         {
             int32_t const ifc = bndfcs(ibnd, 0);
             int32_t const nnd = mh.fcnds(ifc, 0);

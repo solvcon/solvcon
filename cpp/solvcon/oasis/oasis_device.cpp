@@ -140,7 +140,7 @@ std::vector<uint8_t> OasisRecordPoly::to_bytes() const
     // Please refer Point-list in OASIS draft 7.7.
     std::vector<uint8_t> point_list;
 
-    for (int i = 0; i < m_vertices.size() - 1; i++)
+    for (size_t i = 0; i + 1 < m_vertices.size(); i++)
     {
         std::pair<int, int> const curr_v = m_vertices[i];
         std::pair<int, int> const next_v = m_vertices[i + 1];

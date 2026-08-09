@@ -282,7 +282,9 @@ include_directories(${pybind11_INCLUDE_DIRS})
 
 set(NUMPY_INCLUDE_DIR "${Python_NumPy_INCLUDE_DIRS}")
 message(STATUS "NUMPY_INCLUDE_DIR: ${NUMPY_INCLUDE_DIR}")
-include_directories(${NUMPY_INCLUDE_DIR})
+# SYSTEM keeps the core's warning flags off numpy's own headers, which do not
+# build clean under `/W4` and are not ours to fix.
+include_directories(SYSTEM ${NUMPY_INCLUDE_DIR})
 
 set(SOLVCON_INCLUDE_DIR "${CMAKE_CURRENT_LIST_DIR}/cpp" CACHE INTERNAL "")
 

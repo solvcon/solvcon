@@ -140,8 +140,6 @@ public:
     // It returns the json format of the CallProfiler.
     static std::string serialize(const CallProfiler & profiler)
     {
-        auto * radix_tree_curent_node = profiler.radix_tree().get_current_node();
-        auto * radix_tree_root = profiler.radix_tree().get_root();
         SerializableRadixTree const serializable_radix_tree(profiler.radix_tree());
         return serializable_radix_tree.to_json();
     }

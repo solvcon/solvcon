@@ -539,7 +539,7 @@ void RDomainWidget::colorByCellType()
     {
         SimpleArray<int32_t> const & bndfcs = mh.bndfcs();
         category.reserve(bndfcs.shape(0));
-        for (size_t ibnd = 0; ibnd < bndfcs.shape(0); ++ibnd)
+        for (ssize_t ibnd = 0; ibnd < bndfcs.shape(0); ++ibnd)
         {
             category.push_back(mh.cltpn(mh.fcicl(bndfcs(ibnd, 0))));
         }
@@ -567,7 +567,7 @@ void RDomainWidget::colorByCellGroup()
     {
         SimpleArray<int32_t> const & bndfcs = mh.bndfcs();
         category.reserve(bndfcs.shape(0));
-        for (size_t ibnd = 0; ibnd < bndfcs.shape(0); ++ibnd)
+        for (ssize_t ibnd = 0; ibnd < bndfcs.shape(0); ++ibnd)
         {
             category.push_back(mh.clgrp(mh.fcicl(bndfcs(ibnd, 0))));
         }
@@ -597,7 +597,7 @@ void RDomainWidget::colorByBoundary()
         // The 3D surface is the boundary shell, one primitive per boundary
         // face, so the boundary set is the face's own set.
         category.reserve(bndfcs.shape(0));
-        for (size_t ibnd = 0; ibnd < bndfcs.shape(0); ++ibnd)
+        for (ssize_t ibnd = 0; ibnd < bndfcs.shape(0); ++ibnd)
         {
             category.push_back(bndfcs(ibnd, 1));
         }
@@ -607,12 +607,12 @@ void RDomainWidget::colorByBoundary()
         // The 2D surface is the cells, so color each cell by a boundary set it
         // owns; interior cells share one extra "none" category past the top set.
         int32_t max_bc = -1;
-        for (size_t ibnd = 0; ibnd < bndfcs.shape(0); ++ibnd)
+        for (ssize_t ibnd = 0; ibnd < bndfcs.shape(0); ++ibnd)
         {
             max_bc = std::max(max_bc, bndfcs(ibnd, 1));
         }
         category.assign(mh.ncell(), max_bc + 1);
-        for (size_t ibnd = 0; ibnd < bndfcs.shape(0); ++ibnd)
+        for (ssize_t ibnd = 0; ibnd < bndfcs.shape(0); ++ibnd)
         {
             int32_t const icl = mh.fcicl(bndfcs(ibnd, 0));
             if (icl >= 0 && static_cast<size_t>(icl) < category.size())
@@ -651,7 +651,7 @@ void RDomainWidget::colorByQuality(std::string const & metric)
     {
         SimpleArray<int32_t> const & bndfcs = mh.bndfcs();
         primitive.reserve(bndfcs.shape(0));
-        for (size_t ibnd = 0; ibnd < bndfcs.shape(0); ++ibnd)
+        for (ssize_t ibnd = 0; ibnd < bndfcs.shape(0); ++ibnd)
         {
             primitive.push_back(cellval[mh.fcicl(bndfcs(ibnd, 0))]);
         }
@@ -1046,7 +1046,7 @@ RDomainWidget::PickResult RDomainWidget::pickCell(int x, int y)
     {
         SimpleArray<int32_t> const & bndfcs = mh.bndfcs();
         float best = std::numeric_limits<float>::max();
-        for (size_t ibnd = 0; ibnd < bndfcs.shape(0); ++ibnd)
+        for (ssize_t ibnd = 0; ibnd < bndfcs.shape(0); ++ibnd)
         {
             int32_t const ifc = bndfcs(ibnd, 0);
             int32_t const nnd = mh.fcnds(ifc, 0);
@@ -1193,7 +1193,7 @@ RDomainWidget::PickResult RDomainWidget::pickFace(int x, int y)
     SimpleArray<int32_t> const & bndfcs = mh.bndfcs();
     float best = std::numeric_limits<float>::max();
     int32_t hit_face = -1;
-    for (size_t ibnd = 0; ibnd < bndfcs.shape(0); ++ibnd)
+    for (ssize_t ibnd = 0; ibnd < bndfcs.shape(0); ++ibnd)
     {
         int32_t const ifc = bndfcs(ibnd, 0);
         int32_t const nnd = mh.fcnds(ifc, 0);
@@ -1270,7 +1270,7 @@ void RDomainWidget::setSelection(
         if (3 == ndim)
         {
             SimpleArray<int32_t> const & bndfcs = mh.bndfcs();
-            for (size_t ibnd = 0; ibnd < bndfcs.shape(0); ++ibnd)
+            for (ssize_t ibnd = 0; ibnd < bndfcs.shape(0); ++ibnd)
             {
                 int32_t const ifc = bndfcs(ibnd, 0);
                 if (mh.fcicl(ifc) == id)
@@ -1425,7 +1425,7 @@ int RDomainWidget::addClip(QVector3D const & origin, QVector3D const & normal)
     if (3 == ndim)
     {
         SimpleArray<int32_t> const & bndfcs = mh.bndfcs();
-        for (size_t ibnd = 0; ibnd < bndfcs.shape(0); ++ibnd)
+        for (ssize_t ibnd = 0; ibnd < bndfcs.shape(0); ++ibnd)
         {
             int32_t const ifc = bndfcs(ibnd, 0);
             QVector3D const centroid(

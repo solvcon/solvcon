@@ -35,13 +35,13 @@ void StaticMesh::add_bc(std::shared_ptr<StaticMeshBc> const & bnd)
     for (auto const & prev : m_bcs)
     {
         auto const & pfacn = prev->facn();
-        for (size_t bfit = 0; bfit < pfacn.nbody(); ++bfit)
+        for (ssize_t bfit = 0; bfit < pfacn.nbody(); ++bfit)
         {
             claimed[pfacn(bfit, 0)] = true;
         }
     }
     auto const & bfacn = bnd->facn();
-    for (size_t bfit = 0; bfit < bfacn.nbody(); ++bfit)
+    for (ssize_t bfit = 0; bfit < bfacn.nbody(); ++bfit)
     {
         int_type const ifc = bfacn(bfit, 0);
         if (ifc < 0 || ifc >= static_cast<int_type>(nface()))
@@ -136,7 +136,7 @@ void StaticMesh::build_boundary()
     for (size_t ibnd = 0; ibnd < m_bcs.size(); ++ibnd)
     {
         auto & bfacn = m_bcs[ibnd]->facn();
-        for (size_t bfit = 0; bfit < bfacn.nbody(); ++bfit)
+        for (ssize_t bfit = 0; bfit < bfacn.nbody(); ++bfit)
         {
             /**
              * First column is the face index in block.  The second column is the face

@@ -29,7 +29,7 @@ Plot3d::Plot3d(const std::string & data)
     m_blk_sizes.remake(small_vector<ssize_t>{static_cast<ssize_t>(nblocks)}, 0);
 
     // parsing xyz dimension of each block
-    for (auto i = 0; i < nblocks; ++i)
+    for (uint_type i = 0; i < nblocks; ++i)
     {
         std::getline(stream, line);
         auto tokens = tokenize(line, plot3d_block_delim);
@@ -54,11 +54,11 @@ void Plot3d::parseCoordinates(const uint_type nblocks)
     const std::regex plot3d_coord_delim(R"(-?\d+(\.\d+)?([eE][+-]?\d+)?|\b\d+\b)");
 
     // TODO: The nested for-loop needs to be enhanced
-    for (auto blk = 0; blk < nblocks; ++blk)
+    for (uint_type blk = 0; blk < nblocks; ++blk)
     {
         for (auto k = 0; k < 3; ++k)
         {
-            for (auto j = 0; j < m_blk_sizes(blk); ++j)
+            for (uint_type j = 0; j < m_blk_sizes(blk); ++j)
             {
                 if (parsing_q.empty())
                 {
@@ -96,13 +96,13 @@ void Plot3d::buildHexahedronElements(const uint_type nblocks)
 
     // TODO: The nested for-loop needs to be enhanced
     // build the hexahedron element from nodes
-    for (auto blk = 0; blk < nblocks; ++blk)
+    for (uint_type blk = 0; blk < nblocks; ++blk)
     {
-        for (auto k = 1; k < m_z_shape(blk); ++k)
+        for (uint_type k = 1; k < m_z_shape(blk); ++k)
         {
-            for (auto j = 1; j < m_y_shape(blk); ++j)
+            for (uint_type j = 1; j < m_y_shape(blk); ++j)
             {
-                for (auto i = 1; i < m_x_shape(blk); ++i)
+                for (uint_type i = 1; i < m_x_shape(blk); ++i)
                 {
                     nds_temp[0] = 8;
                     for (auto ii = 1; ii <= 8; ++ii)

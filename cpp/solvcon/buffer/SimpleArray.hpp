@@ -135,7 +135,7 @@ public:
         : m_lower(array.ndim(), 0)
         , m_upper(array.ndim(), 0)
     {
-        for (size_t dim = 0; dim < array.ndim(); ++dim)
+        for (ssize_t dim = 0; dim < array.ndim(); ++dim)
         {
             m_lower[dim] = lower_bound(array, dim);
             m_upper[dim] = upper_bound(array, dim);

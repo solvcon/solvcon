@@ -340,6 +340,15 @@ foreach (SOLVCON_LIBRARY IN LISTS SOLVCON_LIBRARIES)
             ${SOLVCON_LIBRARY} PRIVATE
             ${COMMON_COMPILER_OPTIONS}
             /bigobj # C1128: number of sections exceeded object file format limit
+            # TODO: fix the code and drop each of these; see issue #1324. They
+            # come from templates instantiated over every value type, so one
+            # line warns once per instantiation.
+            /wd4804 # bool in an arithmetic operation, from reductions over SimpleArray<bool>
+            /wd4244 # narrowing conversion
+            /wd4267 # narrowing conversion from size_t
+            /wd4458 # a declaration hides a class member
+            /wd4702 # unreachable code, after the `if constexpr` bool branches that throw
+            /external:W0 # do not apply /W4 to a SYSTEM include such as numpy
         )
     else () # MSVC
         target_compile_options(

@@ -83,7 +83,7 @@ public:
     using value_type = typename point_type::value_type;
 
     Trapezoid3d(point_type const & p0, point_type const & p1, point_type const & p2, point_type const & p3)
-        : m_data{p0.x(), p1.x(), p2.x(), p3.x(), p0.y(), p1.y(), p2.y(), p3.y(), p0.z(), p1.z(), p2.z(), p3.z()}
+        : m_data{{p0.x(), p1.x(), p2.x(), p3.x(), p0.y(), p1.y(), p2.y(), p3.y(), p0.z(), p1.z(), p2.z(), p3.z()}}
     {
     }
 
@@ -1324,7 +1324,7 @@ public:
     using value_type = typename point_type::value_type;
 
     Triangle3d(point_type const & p0, point_type const & p1, point_type const & p2)
-        : m_data{p0.x(), p1.x(), p2.x(), p0.y(), p1.y(), p2.y(), p0.z(), p1.z(), p2.z()}
+        : m_data{{p0.x(), p1.x(), p2.x(), p0.y(), p1.y(), p2.y(), p0.z(), p1.z(), p2.z()}}
     {
     }
 
