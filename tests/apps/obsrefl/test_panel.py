@@ -6,7 +6,7 @@
 
 The panel is a widget, not a window, so the readout is checked here rather
 than in the window lane: a `SolutionPanel` and a coarse session are all it
-takes to fill the tree and read the rows back.
+takes to fill the readout boxes and read the cells back.
 """
 
 import unittest
@@ -16,14 +16,15 @@ import solvcon
 try:
     from solvcon import pilot
     from solvcon.pilot.apps.obsrefl import ReflectionSession
+    from solvcon.pilot.apps.obsrefl import _panel
     from solvcon.pilot.apps.obsrefl._panel import SolutionPanel
 except ImportError:
     pilot = None
 
 
 @unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
-class StatusTreeTC(unittest.TestCase):
-    """What `set_status` puts in which column."""
+class StatusReadoutTC(unittest.TestCase):
+    """What `set_status` puts in which readout cell."""
 
     @classmethod
     def setUpClass(cls):
@@ -31,28 +32,49 @@ class StatusTreeTC(unittest.TestCase):
         pilot.RManager.instance.setUp()
 
     def _filled(self, name='density'):
-        """A panel showing one marched chunk of a coarse run."""
+        """A panel showing one marched chunk of a coarse run, with the run
+        and the drawn field range it was filled from."""
         panel = SolutionPanel()
-        panel._field.setCurrentText(name)
+        panel._field._selector.setCurrentText(name)
         sess = ReflectionSession(nx=8, ny=3, steps_per_chunk=3)
         sess.advance()
         field = sess.field.field(name)
-        panel.set_status(sess, float(field.min()), float(field.max()))
-        return panel
+        vmin, vmax = float(field.min()), float(field.max())
+        panel.set_status(sess, vmin, vmax)
+        return panel, sess, vmin, vmax
 
     @staticmethod
-    def _rows(panel):
-        tree = panel._tree
-        return [tuple(tree.topLevelItem(it).text(col) for col in range(4))
-                for it in range(tree.topLevelItemCount())]
+    def _zone_rows(panel):
+        grid = panel._zones._grid
+        rows = [tuple(grid.itemAtPosition(irow, col).widget().text()
+                      for col in range(len(panel._zones.HEADERS)))
+                for irow in range(1, grid.rowCount())]
+        return [row for row in rows if any(row)]
 
     def test_an_unstarted_panel_says_so(self):
         panel = SolutionPanel()
-        self.assertEqual("not started", panel._tree.topLevelItem(0).text(0))
+        self.assertEqual("not started", panel._run._state.text())
+        self.assertEqual("-", panel._run._progress.text())
+        self.assertEqual("-", panel._field._min.text())
+        self.assertEqual([], self._zone_rows(panel))
+
+    def test_the_run_box_reads_the_march(self):
+        panel, sess, _, _ = self._filled()
+        self.assertEqual(f"3 / {sess.max_steps}",
+                         panel._run._progress.text())
+        self.assertEqual("running", panel._run._state.text())
+        # One chunk is recorded, so the mass cell carries its measurement.
+        self.assertEqual(_panel._number(sess.history.last.mass),
+                         panel._run._mass.text())
+
+    def test_the_field_box_shows_the_drawn_range(self):
+        panel, _, vmin, vmax = self._filled()
+        self.assertEqual(_panel._number(vmin), panel._field._min.text())
+        self.assertEqual(_panel._number(vmax), panel._field._max.text())
 
     def test_the_zone_rows_carry_the_computed_analytic_and_error(self):
-        zones = [row for row in self._rows(self._filled())
-                 if row[0].startswith("zone")]
+        panel, _, _, _ = self._filled()
+        zones = self._zone_rows(panel)
         self.assertEqual(3, len(zones))
         # The density rises across each shock, so the analytic column has to
         # carry three ascending values rather than one repeated.
@@ -68,8 +90,8 @@ class StatusTreeTC(unittest.TestCase):
     def test_a_zone_with_no_analytic_value_shows_no_percent(self):
         # The transverse velocity is zero outside the wedge, and an error
         # relative to zero is not a percent of anything.
-        zones = [row for row in self._rows(self._filled('vely'))
-                 if row[0].startswith("zone")]
+        panel, _, _, _ = self._filled('vely')
+        zones = self._zone_rows(panel)
         self.assertEqual(["", ""], [zones[0][3], zones[2][3]])
         self.assertTrue(zones[1][3].endswith('%'))
 
