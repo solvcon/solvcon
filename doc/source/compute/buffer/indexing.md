@@ -1,24 +1,27 @@
 # Indexing, Shape, and Layout
 
-Every array in the SimpleArray family reads and writes single elements through
-the subscript operator, describes its layout through a set of properties, and
-manipulates its shape and memory order through `reshape` and the transpose
-family. This page defines those operations: which keys the subscript accepts,
-which right-hand sides assignment takes, what the layout properties report,
-and how the shape and layout of an array are changed. Arrays carrying a ghost
-region shift the index origin; the sections up to the layout conversions
-assume arrays without one, and
+Every array in the SimpleArray family reads and writes elements and regions
+through the subscript operator, describes its layout through a set of
+properties, and manipulates its shape and memory order through `reshape` and
+the transpose family. This page defines those operations: which keys the
+subscript accepts, which right-hand sides assignment takes, what the layout
+properties report, and how the shape and layout of an array are changed.
+Arrays carrying a ghost region shift the index origin; the sections up to the
+layout conversions assume arrays without one, and
 {ref}`the last section of this page <ghost-region>` defines the partition and
 every rule it changes.
 
 ## Element Access
 
-Element access matches numpy in the index arithmetic and the error behavior
-(negative wrapping and `IndexError`), and diverges from numpy in the subscript
-scope and the return type: a subscript must select exactly one element, and
-the result is a Python scalar, never a subarray or a view. A one-dimensional
-array takes a single integer, and a multi-dimensional array takes a full tuple
-with one integer per dimension:
+The subscript reads two families of keys. An integer key addresses exactly one
+element and returns a scalar, and that is what this section defines; a slice
+or an ellipsis selects a region and returns a view, which
+{ref}`the next section <slice-read>` defines. Element access matches numpy in
+the index arithmetic and the error behavior (negative wrapping and
+`IndexError`), and diverges from numpy in the return type, which is a Python
+scalar rather than a numpy one. A one-dimensional array takes a single
+integer, and a multi-dimensional array takes a full tuple with one integer per
+dimension:
 
 ```python
 sarr = solvcon.SimpleArrayFloat64((2, 3, 4))
@@ -38,8 +41,8 @@ plain Python scalar is the desired behavior.
 
 Partial indexing does not produce subarrays. Where numpy resolves `ndarr[0]`
 on a three-dimensional array to a two-dimensional view, the SimpleArray
-classes require the index to address one element and raise `IndexError`
-otherwise:
+classes require an integer key to address one element and raise `IndexError`
+otherwise; a subarray is named with explicit slices instead:
 
 ```python
 sarr = solvcon.SimpleArrayFloat64((2, 3, 4))
@@ -93,35 +96,87 @@ sarr[0, 3, 0]
 # IndexError: SimpleArray: dim 1 in [0, 3, 0] >= shape[1]: 3
 ```
 
-### No Slices on Read
+(slice-read)=
+## Region Access
 
-`__getitem__` accepts no slice and no ellipsis; only the integer and
-integer-tuple forms above exist. Passing a slice raises `TypeError` from the
-binding's argument matching:
+A slice, an ellipsis, or a tuple containing either selects a region, and the
+read returns an array of the same class holding that region. The key grammar
+is the one {ref}`the assignment section <region-assignment>` defines, so a key
+that writes a region reads the same region back:
 
 ```python
 sarr = solvcon.SimpleArrayFloat64(6)
-sarr[0:3]
-# TypeError: __getitem__(): incompatible function arguments. ...
+sarr[...] = np.arange(6, dtype='float64')
+
+sub = sarr[1:4]
+assert isinstance(sub, solvcon.SimpleArrayFloat64)
+assert sub.shape == (3,)
+assert sub.ndarray.tolist() == [1.0, 2.0, 3.0]
 ```
 
-This diverges from numpy, where a slice returns a view sharing the memory of
-the source. Whether the family should grow slice reads, and whether such a
-read would return a sharing view or a copy, is an open decision; this page
-records only the current behavior. Until the decision lands, the zero-copy
-path to sliced reads is the `ndarray` property: `sarr.ndarray[0:3]` is a numpy
-view over the array's memory.
+The result shares the memory of the source, matching numpy and the sharing
+`reshape` below: a write through either side is visible through the other.
+The `ndarray` property gives the same view as a numpy array, so
+`sarr[1:4].ndarray` and `sarr.ndarray[1:4]` describe the same memory.
 
+```python
+sub[0] = 100.0
+assert sarr[1] == 100.0
+sarr[3] = 200.0
+assert sub[2] == 200.0
+```
+
+Steps and negative bounds follow the Python slice rules. A step other than 1
+gives the view a strided layout, a negative step reverses it, and a key that
+selects nothing yields an array with a zero-length axis:
+
+```python
+sarr = solvcon.SimpleArrayFloat64(array=np.arange(6, dtype='float64'))
+assert sarr[::2].ndarray.tolist() == [0.0, 2.0, 4.0]
+assert sarr[::-1].ndarray.tolist() == [5.0, 4.0, 3.0, 2.0, 1.0, 0.0]
+assert sarr[3:3].shape == (0,)
+```
+
+A tuple key names one dimension per slice from the left, and an ellipsis
+stands for the full-extent slices of the dimensions it replaces. The syntax
+checks are those of the assignment section: more slices than dimensions raise
+`RuntimeError` ("syntax error. dimensions mismatches"), more than one ellipsis
+raises `RuntimeError` ("syntax error. no more than one ellipsis."), and a zero
+step raises `ValueError` ("slice step cannot be zero"):
+
+```python
+sarr = solvcon.SimpleArrayFloat64((2, 3, 4))
+sarr[...] = np.arange(24, dtype='float64').reshape((2, 3, 4))
+assert sarr[0:1, ::2, ...].shape == (1, 2, 4)
+assert sarr[..., ::2].shape == (2, 3, 2)
+```
+
+Mixing an integer with a slice in one tuple key is not accepted, so a region
+key cannot drop a dimension the way `ndarr[0, 1:3]` does in numpy. Such a key
+raises `RuntimeError` ("unsupported operation."), and a one-element slice is
+the working spelling: `sarr[0:1, 1:3]` keeps the first dimension with extent
+1. Chaining is the other route, since a view is itself subscriptable:
+
+```python
+sarr = solvcon.SimpleArrayFloat64(array=np.arange(12, dtype='float64'))
+assert sarr[2:10][::3].ndarray.tolist() == [2.0, 5.0, 8.0]
+```
+
+The dtype-erased `SimpleArray` reads a region the same way and returns another
+dtype-erased array over the shared memory, keeping its interface aligned with
+the typed classes.
+
+(region-assignment)=
 ## Element and Region Assignment
 
-`__setitem__` accepts two families of keys: the scalar keys of the read path,
-assigning one element, and slice or ellipsis keys, assigning a whole region
-from a sequence. A key and value combination outside the two families raises
-`RuntimeError`; in particular a scalar value cannot be assigned to a slice key
-(numpy would broadcast it over the region). The message depends on the
-rejection path: a scalar on a lone slice or an ellipsis reports "unsupported
-operation.", while a scalar on a tuple of slices fails earlier, in the key
-cast, with a pybind11 "Unable to cast" message.
+`__setitem__` accepts the same two families of keys as the read path: the
+integer keys, assigning one element, and slice or ellipsis keys, assigning a
+whole region from a sequence. A key and value combination outside the two
+families raises `RuntimeError`; in particular a scalar value cannot be
+assigned to a slice key (numpy would broadcast it over the region). The
+message depends on the rejection path: a scalar on a lone slice or an ellipsis
+reports "unsupported operation.", while a scalar on a tuple of slices fails
+earlier, in the key cast, with a pybind11 "Unable to cast" message.
 
 ### Scalar Assignment
 
@@ -586,14 +641,15 @@ array with `nghost = 1` reports 3. A zero-dimensional array reports 0. Neither
 `shape`, `size`, nor `len()` changes with the partition; they keep describing
 the full storage, as the layout properties above define.
 
-### Ghost-Shifted Slice Assignment
+### Ghost-Shifted Slice Bounds
 
-The slice keys of `__setitem__` interpret their explicit bounds on the first
-axis in the logical, ghost-shifted coordinates of this page: the parser adds
-`nghost` to an explicit start or stop bound and then applies the ordinary
-Python slice rules over the full first-axis extent. An omitted bound is not
-shifted; it means the storage edge, so with a forward step an omitted start
-begins at the first ghost element and an omitted stop runs to the end of
+Reads and writes parse a slice key the same way, so the bounds below name the
+same region on either side. The slice keys interpret their explicit bounds on
+the first axis in the logical, ghost-shifted coordinates of this page: the
+parser adds `nghost` to an explicit start or stop bound and then applies the
+ordinary Python slice rules over the full first-axis extent. An omitted bound
+is not shifted; it means the storage edge, so with a forward step an omitted
+start begins at the first ghost element and an omitted stop runs to the end of
 storage. The stop bound `0` therefore selects exactly the ghost region, and
 the start bound `0` selects the body:
 
@@ -605,8 +661,32 @@ sarr[-2:0] = np.array([10.0, 11.0])        # the ghost region
 sarr[0:] = np.array([12.0, 13.0, 14.0])    # the body
 assert sarr.ndarray.tolist() == [10, 11, 12, 13, 14]
 
+assert sarr[-2:0].ndarray.tolist() == [10, 11]      # read it back
+assert sarr[0:].ndarray.tolist() == [12, 13, 14]
+
 sarr[:0] = np.array([20.0, 21.0])          # also the ghost region
+assert sarr[:0].ndarray.tolist() == [20, 21]
 assert sarr.ndarray.tolist() == [20, 21, 12, 13, 14]
+```
+
+The read is a view of the same memory the write reaches, so the body region
+that `nghost` defines is addressable as an array in its own right, without
+leaving the class for `ndarray`:
+
+```python
+body = sarr[0:]
+body[0] = 120.0
+assert sarr[0] == 120.0
+```
+
+A region read does not carry the partition to its result. The view reports
+`nghost == 0`, because its first axis is the selected positions and they have
+no ghost and body split of their own; assign `nghost` on the view if the
+sub-array needs one:
+
+```python
+assert sarr[0:].nghost == 0
+assert sarr[...].nghost == 0     # even when the key covers the whole storage
 ```
 
 Because both bounds default to the storage edges, a bare slice, a stepped
@@ -621,6 +701,7 @@ assert sarr.ndarray.tolist() == [10, 0, 11, 0, 12]
 
 sarr[...] = np.arange(5, dtype='float64')
 assert sarr[-2] == 0.0 and sarr[2] == 4.0
+assert sarr[...].ndarray.tolist() == [0, 1, 2, 3, 4]
 ```
 
 In a tuple key only the first-axis slice is shifted; slices on the later axes
@@ -631,6 +712,7 @@ sarr = solvcon.SimpleArrayFloat64(shape=(5, 3), value=0)
 sarr.nghost = 2
 sarr[-2:0, ...] = np.arange(6, dtype='float64').reshape((2, 3))
 assert (sarr.ndarray[0:2] == np.arange(6).reshape((2, 3))).all()
+assert (sarr[-2:0, ...].ndarray == np.arange(6).reshape((2, 3))).all()
 ```
 
 The accepted right-hand sides, the exact-shape check, and the dtype conversion
@@ -697,6 +779,10 @@ pointer, which sits `nghost` positions above the start of the storage, so it
 skips the ghost region and runs the same number of positions past the end. The
 trailing rows of the result hold uninitialized values.
 
+A region read forms a third group. It neither duplicates nor rearranges the
+storage, and it re-bounds the first axis, so it drops `nghost` the way the
+rearranging operations do, as the slice section above states.
+
 ```python
 sarr = solvcon.SimpleArrayFloat64((4, 3))
 sarr.nghost = 2
@@ -704,6 +790,7 @@ assert sarr.clone().nghost == 2
 assert sarr.to_row_major().nghost == 2   # already row-major: a copy
 assert sarr.T.nghost == 2
 assert sarr.transpose_copy().nghost == 0
+assert sarr[...].nghost == 0
 ```
 
 Carrying `nghost` through a transpose reattaches the partition to a different
