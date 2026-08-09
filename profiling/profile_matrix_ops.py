@@ -214,8 +214,21 @@ def iter_planned_cases(dtype):
         yield ("Cross-broadcast GEMM", cross_lhs, cross_rhs)
 
 
+def iter_batched_vector_threshold_cases(dtype):
+    cases = ((24, 4), (24, 8), (32, 2), (32, 4), (64, 2))
+    for side, batch_size in cases:
+        vector = make_data(dtype, (side,))
+        matrix = make_data(dtype, (batch_size, side, side))
+        yield (f"Batched GEVM B={batch_size}", vector, matrix)
+        yield (f"Batched GEMV B={batch_size}", matrix, vector)
+
+
 def profile_planned_suite(dtype, warmups=1, samples=1, rounds=3):
-    for title, lhs, rhs in iter_planned_cases(dtype):
+    cases = itertools.chain(
+        iter_planned_cases(dtype),
+        iter_batched_vector_threshold_cases(dtype),
+    )
+    for title, lhs, rhs in cases:
         for case_name, case_lhs, case_rhs in iter_stride_cases(lhs, rhs):
             profile_planned_case(
                 title, dtype, case_name, case_lhs, case_rhs,

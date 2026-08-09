@@ -87,8 +87,9 @@ class MatmulTestBase(sc.testing.TestBase):
 
     @classmethod
     def make_matrix_stride_cases(cls, data, axis):
-        f_contiguous = np.array(
-            data, dtype=data.dtype.name, order='F', copy=True)
+        transposed = data.swapaxes(-1, -2)
+        f_contiguous = np.ascontiguousarray(
+            transposed, dtype=data.dtype.name).swapaxes(-1, -2)
         storage_shape = list(data.shape)
         storage_shape[-1] += 2
         storage = np.empty(storage_shape, dtype=data.dtype.name)
@@ -523,6 +524,40 @@ class MatmulTestBase(sc.testing.TestBase):
                 expected = np.atleast_1d(np.matmul(lhs_data, rhs_data))
                 self.assert_matmul_planned(
                     lhs, rhs, expected)
+
+    def test_large_batched_vector_strides(self):
+        """Batched vector roles preserve layouts across tuned sizes."""
+        dtype = np.dtype(self.dtype).name
+        for side, batch_size in ((24, 2), (24, 8), (32, 4)):
+            vector_data = np.arange(side, dtype=dtype)
+            vector_cases = (
+                ('contiguous', vector_data),
+                ('negative_stride',
+                 self.make_strided_view(vector_data, 0, -1)),
+                ('step_two', self.make_strided_view(vector_data, 0, 2)),
+            )
+            matrix_data = np.arange(
+                batch_size * side * side, dtype=dtype).reshape(
+                    batch_size, side, side)
+            role_cases = (
+                ('gevm', vector_cases,
+                 self.make_matrix_stride_cases(matrix_data, -2)[:2]),
+                ('gemv', self.make_matrix_stride_cases(
+                    matrix_data, -1)[:2], vector_cases),
+            )
+            for role, lhs_cases, rhs_cases in role_cases:
+                for lhs_case, rhs_case in itertools.product(
+                        lhs_cases, rhs_cases):
+                    lhs_name, lhs_data = lhs_case
+                    rhs_name, rhs_data = rhs_case
+                    lhs = self.SimpleArray(array=lhs_data)
+                    rhs = self.SimpleArray(array=rhs_data)
+                    expected = np.matmul(lhs_data, rhs_data)
+
+                    with self.subTest(
+                            role=role, side=side, batch=batch_size,
+                            lhs=lhs_name, rhs=rhs_name):
+                        self.assert_matmul_planned(lhs, rhs, expected)
 
     def test_batch_axes_align_right(self):
         """Leading batch axes align from the right like NumPy matmul."""
