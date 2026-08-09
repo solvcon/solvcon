@@ -371,12 +371,9 @@ if(BUILD_QT AND "${PYSIDE6_LIBFILE}" STREQUAL "")
         "configure with BUILD_QT=OFF.")
 endif()
 
-add_subdirectory(cpp/solvcon)
-
-include(GNUInstallDirs)
-
-set(SOLVCON_PY_DIR "${PROJECT_SOURCE_DIR}/solvcon")
-
+# add_subdirectory() copies this scope's variables into the subdirectory as it
+# is called, so this must stay above every add_subdirectory() that consumes it.
+# Set it below one and the subdirectory sees nothing, with no diagnostic.
 if(MSVC)
     set(COMMON_COMPILER_OPTIONS /W4 /bigobj /WX)
 else()
@@ -388,6 +385,12 @@ else()
         message(STATUS "Enable -Werror because clang-tidy (with lint as errors) is disabled")
     endif()
 endif()
+
+add_subdirectory(cpp/solvcon)
+
+include(GNUInstallDirs)
+
+set(SOLVCON_PY_DIR "${PROJECT_SOURCE_DIR}/solvcon")
 
 add_subdirectory(cpp/binary/pymod_solvcon)
 if(BUILD_QT)
