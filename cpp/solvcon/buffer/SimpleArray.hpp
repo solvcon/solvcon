@@ -108,10 +108,27 @@ inline ssize_t buffer_offset(small_vector<ssize_t> const & stride, small_vector<
     return offset;
 }
 
+/**
+ * @brief Resolved bounds of a Python slice on one array axis.
+ *
+ * The three fields are what `PySlice_GetIndicesEx` yields against the axis
+ * extent: the position of the first selected element, the signed multiplier
+ * applied to the axis stride, and the number of selected elements.
+ *
+ * @ingroup group_core
+ */
+struct AxisSlice
+{
+    ssize_t start = 0;
+    ssize_t step = 1;
+    ssize_t length = 0;
+}; /* end struct AxisSlice */
+
 namespace detail
 {
 
 using shape_type = small_vector<ssize_t>;
+using slice_type = small_vector<AxisSlice>;
 
 /**
  * @brief Enumerate SimpleArray indices with nghost included.
@@ -206,6 +223,7 @@ struct SimpleArrayInternalTypes
 {
     using value_type = T;
     using shape_type = detail::shape_type;
+    using slice_type = detail::slice_type;
     using buffer_type = ConcreteBuffer;
 }; /* end struct SimpleArrayInternalTypes */
 
@@ -1617,6 +1635,7 @@ public:
     using rebind = SimpleArray<U>;
     using value_type = typename internal_types::value_type;
     using shape_type = typename internal_types::shape_type;
+    using slice_type = typename internal_types::slice_type;
     using buffer_type = typename internal_types::buffer_type;
 
     enum class ArrayOrder : std::uint8_t
@@ -2076,6 +2095,18 @@ public:
         return reshape(m_shape);
     }
 
+    /**
+     * Select a sub-array along every axis and return it as a view.
+     *
+     * The result shares the buffer of the receiver, so a write through
+     * either side is visible through the other. Its ghost region is unset,
+     * because the selected positions carry no partition of their own.
+     *
+     * @param slices One resolved slice per axis, in storage coordinates.
+     * @return A view over the selected elements.
+     */
+    SimpleArray slice(slice_type const & slices) const;
+
     void swap(SimpleArray & other) noexcept
     {
         if (this != &other)
@@ -2508,6 +2539,40 @@ void SimpleArray<T>::validate_layout(shape_type const & shape,
     {
         throw std::runtime_error("SimpleArray: shape and stride exceed buffer storage");
     }
+}
+
+template <typename T>
+SimpleArray<T> SimpleArray<T>::slice(slice_type const & slices) const
+{
+    if (!m_buffer)
+    {
+        throw std::runtime_error("SimpleArray: cannot slice a zero-dimensional array");
+    }
+    if (slices.size() != m_shape.size())
+    {
+        throw std::runtime_error(
+            std::format("SimpleArray: {} slices do not match {} dimensions",
+                        slices.size(),
+                        m_shape.size()));
+    }
+
+    shape_type new_shape(m_shape.size());
+    shape_type new_stride(m_shape.size());
+    ssize_t item_offset = 0;
+    for (size_t axis = 0; axis < m_shape.size(); ++axis)
+    {
+        new_shape[axis] = slices[axis].length;
+        new_stride[axis] = m_stride[axis] * slices[axis].step;
+        // An empty axis addresses no element and its start may sit outside
+        // the storage, so it must not move the origin of the view.
+        if (0 != slices[axis].length)
+        {
+            item_offset += m_stride[axis] * slices[axis].start;
+        }
+    }
+
+    ssize_t const byte_offset = static_cast<ssize_t>(logical_data_offset()) + item_offset * static_cast<ssize_t>(ITEMSIZE);
+    return SimpleArray(new_shape, new_stride, m_buffer, static_cast<size_t>(byte_offset));
 }
 
 template <typename A, typename T>
@@ -3600,6 +3665,15 @@ public:
     {
     }
 
+    /**
+     * Take over a typed array instead of copying it, so that a plex built
+     * from a view keeps sharing the buffer of the viewed array. The
+     * converting constructor above duplicates the buffer, which a view
+     * cannot afford.
+     */
+    template <typename T>
+    static SimpleArrayPlex adopt(SimpleArray<T> && array);
+
     SimpleArrayPlex(SimpleArrayPlex const & other);
     SimpleArrayPlex(SimpleArrayPlex && other) noexcept;
     SimpleArrayPlex & operator=(SimpleArrayPlex const & other);
@@ -3633,6 +3707,17 @@ private:
     void * m_instance_ptr = nullptr; /// the pointer of the SimpleArray<T> instance
     DataType m_data_type = DataType::Undefined; /// the data type for array casting
 }; /* end class SimpleArrayPlex */
+
+template <typename T>
+SimpleArrayPlex SimpleArrayPlex::adopt(SimpleArray<T> && array)
+{
+    SimpleArrayPlex plex;
+    plex.m_has_instance_ownership = true;
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    plex.m_instance_ptr = reinterpret_cast<void *>(new SimpleArray<T>(std::move(array)));
+    plex.m_data_type = DataType::from<T>();
+    return plex;
+}
 
 } /* end namespace solvcon */
 
