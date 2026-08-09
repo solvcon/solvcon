@@ -45,15 +45,15 @@ std::string get_info(solvcon::RadixTreeNode<T> & r)
 
 TEST(RadixTree, construction)
 {
-    namespace mm = solvcon;
-    mm::RadixTree<TestedTimedEntry> radix_tree;
+    namespace sc = solvcon;
+    sc::RadixTree<TestedTimedEntry> radix_tree;
     EXPECT_EQ(radix_tree.get_unique_node(), 0);
 }
 
 TEST(RadixTree, single_insertion)
 {
-    namespace mm = solvcon;
-    mm::RadixTree<TestedTimedEntry> radix_tree;
+    namespace sc = solvcon;
+    sc::RadixTree<TestedTimedEntry> radix_tree;
     TestedTimedEntry & entry1 = radix_tree.entry("a");
     entry1.add_time(5.2);
 
@@ -61,41 +61,41 @@ TEST(RadixTree, single_insertion)
     EXPECT_DOUBLE_EQ(entry1.time(), 5.2);
     EXPECT_EQ(radix_tree.get_unique_node(), 1);
 
-    mm::RadixTreeNode<TestedTimedEntry> * node = radix_tree.get_current_node();
+    sc::RadixTreeNode<TestedTimedEntry> * node = radix_tree.get_current_node();
     EXPECT_EQ(node->name(), "a");
     EXPECT_EQ(get_info(*node), "a - Count: 1 - Time: 5.2");
 }
 
 TEST(RadixTree, multiple_insertion)
 {
-    namespace mm = solvcon;
-    mm::RadixTree<TestedTimedEntry> radix_tree;
+    namespace sc = solvcon;
+    sc::RadixTree<TestedTimedEntry> radix_tree;
     TestedTimedEntry & entry1 = radix_tree.entry("a");
     entry1.add_time(5.2);
-    const mm::RadixTreeNode<TestedTimedEntry> * const node1 = radix_tree.get_current_node();
+    const sc::RadixTreeNode<TestedTimedEntry> * const node1 = radix_tree.get_current_node();
 
     TestedTimedEntry & entry2 = radix_tree.entry("b");
     entry2.add_time(10.1);
 
     EXPECT_EQ(radix_tree.get_unique_node(), 2);
 
-    const mm::RadixTreeNode<TestedTimedEntry> * const node2 = radix_tree.get_current_node();
+    const sc::RadixTreeNode<TestedTimedEntry> * const node2 = radix_tree.get_current_node();
     EXPECT_EQ(node2->get_prev(), node1);
 }
 
 TEST(RadixTree, move_current_pointer)
 {
-    namespace mm = solvcon;
-    mm::RadixTree<TestedTimedEntry> radix_tree;
+    namespace sc = solvcon;
+    sc::RadixTree<TestedTimedEntry> radix_tree;
     TestedTimedEntry & entry1 = radix_tree.entry("a");
     entry1.add_time(5.2);
-    const mm::RadixTreeNode<TestedTimedEntry> * const node1 = radix_tree.get_current_node();
+    const sc::RadixTreeNode<TestedTimedEntry> * const node1 = radix_tree.get_current_node();
 
     TestedTimedEntry & entry2 = radix_tree.entry("b");
     entry2.add_time(10.1);
 
     radix_tree.move_current_to_parent();
-    const mm::RadixTreeNode<TestedTimedEntry> * const node2 = radix_tree.get_current_node();
+    const sc::RadixTreeNode<TestedTimedEntry> * const node2 = radix_tree.get_current_node();
 
     EXPECT_EQ(radix_tree.get_unique_node(), 2);
     EXPECT_EQ(node2->name(), "a");

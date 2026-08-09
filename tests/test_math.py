@@ -11,17 +11,17 @@ import solvcon as sc
 class ComplexTB(sc.testing.TestBase):
 
     def test_construct_default(self):
-        cplx = self.mm_complex()
+        cplx = self.sc_complex()
         self.assert_allclose(cplx.real, 0.0)
         self.assert_allclose(cplx.imag, 0.0)
 
     def test_construct_random(self):
-        cplx = self.mm_complex(self.real1, self.imag1)
+        cplx = self.sc_complex(self.real1, self.imag1)
         self.assert_allclose(cplx.real, self.real1)
         self.assert_allclose(cplx.imag, self.imag1)
 
     def test_operator_add(self):
-        cplx = self.mm_complex(self.real1, self.imag1)
+        cplx = self.sc_complex(self.real1, self.imag1)
         realv = self.np_float(2.0)
 
         result = cplx + realv
@@ -34,8 +34,8 @@ class ComplexTB(sc.testing.TestBase):
         self.assert_allclose(result.real, realv + cplx.real)
         self.assert_allclose(result.imag, cplx.imag)
 
-        cplx1 = self.mm_complex(self.real1, self.imag1)
-        cplx2 = self.mm_complex(self.real2, self.imag2)
+        cplx1 = self.sc_complex(self.real1, self.imag1)
+        cplx2 = self.sc_complex(self.real2, self.imag2)
 
         result = cplx1 + cplx2
 
@@ -46,7 +46,7 @@ class ComplexTB(sc.testing.TestBase):
         self.assert_allclose(result.imag, expected_imag)
 
     def test_operator_sub(self):
-        cplx = self.mm_complex(self.real1, self.imag1)
+        cplx = self.sc_complex(self.real1, self.imag1)
         realv = self.np_float(2.0)
 
         result = cplx - realv
@@ -59,8 +59,8 @@ class ComplexTB(sc.testing.TestBase):
         self.assert_allclose(result.real, realv - cplx.real)
         self.assert_allclose(result.imag, -cplx.imag)
 
-        cplx1 = self.mm_complex(self.real1, self.imag1)
-        cplx2 = self.mm_complex(self.real2, self.imag2)
+        cplx1 = self.sc_complex(self.real1, self.imag1)
+        cplx2 = self.sc_complex(self.real2, self.imag2)
 
         result = cplx1 - cplx2
 
@@ -71,7 +71,7 @@ class ComplexTB(sc.testing.TestBase):
         self.assert_allclose(result.imag, expected_imag)
 
     def test_operator_mul(self):
-        cplx = self.mm_complex(self.real1, self.imag1)
+        cplx = self.sc_complex(self.real1, self.imag1)
         realv = self.np_float(2.0)
 
         result = cplx * realv
@@ -80,13 +80,13 @@ class ComplexTB(sc.testing.TestBase):
         self.assert_allclose(result.imag, self.imag1 * realv)
 
         result = realv * cplx
-        golden = self.mm_complex(realv, 0.0) * cplx
+        golden = self.sc_complex(realv, 0.0) * cplx
 
         self.assert_allclose(result.real, golden.real)
         self.assert_allclose(result.imag, golden.imag)
 
-        cplx1 = self.mm_complex(self.real1, self.imag1)
-        cplx2 = self.mm_complex(self.real2, self.imag2)
+        cplx1 = self.sc_complex(self.real1, self.imag1)
+        cplx2 = self.sc_complex(self.real2, self.imag2)
 
         result = cplx1 * cplx2
 
@@ -99,7 +99,7 @@ class ComplexTB(sc.testing.TestBase):
         self.assert_allclose(result.imag, expected_imag)
 
     def test_operator_div(self):
-        cplx = self.mm_complex(self.real1, self.imag1)
+        cplx = self.sc_complex(self.real1, self.imag1)
         realv = self.np_float(2.0)
 
         result = cplx / realv
@@ -117,8 +117,8 @@ class ComplexTB(sc.testing.TestBase):
         self.assert_allclose(result.real, expected_real)
         self.assert_allclose(result.imag, expected_imag)
 
-        cplx1 = self.mm_complex(self.real1, self.imag1)
-        cplx2 = self.mm_complex(self.real2, self.imag2)
+        cplx1 = self.sc_complex(self.real1, self.imag1)
+        cplx2 = self.sc_complex(self.real2, self.imag2)
 
         result = cplx1 / cplx2
 
@@ -133,8 +133,8 @@ class ComplexTB(sc.testing.TestBase):
         self.assert_allclose(result.imag, expected_imag)
 
     def test_operator_comparison(self):
-        cplx1 = self.mm_complex(self.real1, self.imag1)
-        cplx2 = self.mm_complex(self.real2, self.imag2)
+        cplx1 = self.sc_complex(self.real1, self.imag1)
+        cplx2 = self.sc_complex(self.real2, self.imag2)
 
         # Numpy uses lexicographic ordering to compare complex numbers, as
         # documented in
@@ -150,7 +150,7 @@ class ComplexTB(sc.testing.TestBase):
         self.assertEqual(cplx1 < cplx2, compare())
 
     def test_norm(self):
-        cplx = self.mm_complex(self.real1, self.imag1)
+        cplx = self.sc_complex(self.real1, self.imag1)
 
         result = cplx.norm()
 
@@ -162,8 +162,8 @@ class ComplexTB(sc.testing.TestBase):
         self.assertEqual(self.dtype, self.expected_dtype)
 
     def test_complex_array(self):
-        cplx = self.mm_complex(self.real1, self.imag1)
-        sarr = self.mm_simplearraycomplex(10)
+        cplx = self.sc_complex(self.real1, self.imag1)
+        sarr = self.sc_simplearraycomplex(10)
         sarr.fill(cplx)
         ndarr = np.array(sarr, copy=False, dtype=self.dtype)
 
@@ -173,7 +173,7 @@ class ComplexTB(sc.testing.TestBase):
 
         self.assertEqual(ndarr.dtype, self.dtype)
 
-        sarr = self.mm_simplearraycomplex(array=ndarr)
+        sarr = self.sc_simplearraycomplex(array=ndarr)
 
         for i in range(10):
             self.assertEqual(sarr[i].real, self.real1)
@@ -183,8 +183,8 @@ class ComplexTB(sc.testing.TestBase):
         self.assertEqual(10 * self.esize, sarr.nbytes)
 
     def test_complex_conj(self):
-        cplx = self.mm_complex(self.real1, self.imag1)
-        cplx_conj = self.mm_complex(self.real1, -self.imag1)
+        cplx = self.sc_complex(self.real1, self.imag1)
+        cplx_conj = self.sc_complex(self.real1, -self.imag1)
 
         self.assertEqual(cplx.conj().real, cplx_conj.real)
         self.assertEqual(cplx.conj().imag, cplx_conj.imag)
@@ -197,13 +197,13 @@ class ComplexFp32TC(ComplexTB, unittest.TestCase):
             kw['rtol'] = 1.e-7
         return super().assert_allclose(*args, **kw)
 
-    def mm_complex(self, real=None, imag=None):
+    def sc_complex(self, real=None, imag=None):
         if real is not None and imag is not None:
             return sc.complex64(real, imag)
         else:
             return sc.complex64()
 
-    def mm_simplearraycomplex(self, size=None, array=None):
+    def sc_simplearraycomplex(self, size=None, array=None):
         if size is not None:
             return sc.SimpleArrayComplex64(size)
         if array is not None:
@@ -231,13 +231,13 @@ class ComplexFp64TC(ComplexTB, unittest.TestCase):
             kw['rtol'] = 1.e-15
         return super().assert_allclose(*args, **kw)
 
-    def mm_complex(self, real=None, imag=None):
+    def sc_complex(self, real=None, imag=None):
         if real is not None and imag is not None:
             return sc.complex128(real, imag)
         else:
             return sc.complex128()
 
-    def mm_simplearraycomplex(self, size=None, array=None):
+    def sc_simplearraycomplex(self, size=None, array=None):
         if size is not None:
             return sc.SimpleArrayComplex128(size)
         if array is not None:

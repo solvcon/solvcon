@@ -289,8 +289,8 @@ private:
 inline GmshElementDef GmshElementDef::by_id(uint16_t id)
 {
 #define VEC(...) __VA_ARGS__
-#define SC_DECL_SWITCH_ELEMENT_TYPE(ID, NDIM, NNDS, MMTPN, MMCL) \
-    case ID: return GmshElementDef(NDIM, NNDS, MMTPN, small_vector<uint8_t>{MMCL}); break;
+#define SC_DECL_SWITCH_ELEMENT_TYPE(ID, NDIM, NNDS, SCTPN, SCCL) \
+    case ID: return GmshElementDef(NDIM, NNDS, SCTPN, small_vector<uint8_t>{SCCL}); break;
     switch (id)
     {
         // clang-format off

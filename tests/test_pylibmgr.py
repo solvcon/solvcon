@@ -17,7 +17,7 @@ class pylibmgrTC(unittest.TestCase):
         # thirdparty, it is located at solvcon project root: /path/to/solvcon.
         pylibmgr.search_library_root(os.getcwd(), 'thirdparty')
         finder = next(finder for finder in sys.meta_path
-                      if isinstance(finder, pylibmgr.ModmeshPathFinder))
+                      if isinstance(finder, pylibmgr.SolvconPathFinder))
         self.assertNotEqual(finder.lib_paths, {})
 
         # Reset library patch record

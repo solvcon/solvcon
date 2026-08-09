@@ -401,7 +401,7 @@ else
   export CMAKE_PREFIX_PATH=${SCDV_USRDIR}
 fi
 
-# solvcon's _solvcon module constructs a QApplication during PyInit__modmesh;
+# solvcon's _solvcon module constructs a QApplication during PyInit__solvcon;
 # without a display or QT_QPA_PLATFORM Qt aborts in
 # QGuiApplicationPrivate::createPlatformIntegration. Default to the offscreen
 # platform when nothing is set and no display is available, so plain `import

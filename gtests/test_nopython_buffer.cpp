@@ -27,10 +27,10 @@ TEST(ConcreteBuffer, iterator)
 
 TEST(SimpleArray, construction)
 {
-    namespace mm = solvcon;
-    mm::SimpleArray<double> arr_double(10);
+    namespace sc = solvcon;
+    sc::SimpleArray<double> arr_double(10);
     EXPECT_EQ(arr_double.nbody(), 10);
-    mm::SimpleArray<int> arr_int(17);
+    sc::SimpleArray<int> arr_int(17);
     EXPECT_EQ(arr_int.nbody(), 17);
 }
 

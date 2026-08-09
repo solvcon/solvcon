@@ -63,10 +63,10 @@ Interpreter & Interpreter::finalize()
     return *this;
 }
 
-Interpreter & Interpreter::setup_modmesh_path()
+Interpreter & Interpreter::setup_solvcon_path()
 {
     // The hard-coded Python in C++ is difficult to debug. Any better way?
-    std::string const cmd = R""""(def _set_modmesh_path():
+    std::string const cmd = R""""(def _set_solvcon_path():
     import os
     import sys
     filename = os.path.join('solvcon', '__init__.py')
@@ -81,7 +81,7 @@ Interpreter & Interpreter::setup_modmesh_path()
             path = os.path.dirname(path)
     if path:
         sys.path.insert(0, path)
-_set_modmesh_path())"""";
+_set_solvcon_path())"""";
     try
     {
         pybind11::exec(cmd);

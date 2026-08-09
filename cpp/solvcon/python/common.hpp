@@ -518,7 +518,7 @@ public:
     void preload_module(std::string const & name);
     void preload_modules(std::vector<std::string> const & names);
 
-    Interpreter & setup_modmesh_path();
+    Interpreter & setup_solvcon_path();
     Interpreter & setup_process();
 
     int enter_main();
