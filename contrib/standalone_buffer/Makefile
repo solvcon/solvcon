@@ -1,8 +1,8 @@
 # Copyright (c) 2022, solvcon team <contact@solvcon.net>
 # BSD 3-Clause License, see COPYING
 
-MMROOT := $(realpath ../..)
-SETUPROOT ?= $(MMROOT)/$(BUILD_PATH)/standalone_buffer
+SCROOT := $(realpath ../..)
+SETUPROOT ?= $(SCROOT)/$(BUILD_PATH)/standalone_buffer
 
 ifeq ($(SETUPROOT),)
 	SETUPROOT := local_standalone_buffer
@@ -104,16 +104,16 @@ copy:
 	@echo "standalone buffer root": $(SETUPROOT)
 	rm -rf $(SETUPROOT)/solvcon
 	mkdir -p $(SETUPROOT)/solvcon
-	cp $(MMROOT)/cpp/solvcon/base.hpp $(SETUPROOT)/solvcon/base.hpp
-	cp -a $(MMROOT)/cpp/solvcon/buffer $(SETUPROOT)/solvcon/buffer
+	cp $(SCROOT)/cpp/solvcon/base.hpp $(SETUPROOT)/solvcon/base.hpp
+	cp -a $(SCROOT)/cpp/solvcon/buffer $(SETUPROOT)/solvcon/buffer
 	mkdir -p $(SETUPROOT)/solvcon/python
-	cp $(MMROOT)/cpp/solvcon/python/common.hpp $(SETUPROOT)/solvcon/python/common.hpp
-	cp -a $(MMROOT)/cpp/solvcon/toggle $(SETUPROOT)/solvcon/toggle
+	cp $(SCROOT)/cpp/solvcon/python/common.hpp $(SETUPROOT)/solvcon/python/common.hpp
+	cp -a $(SCROOT)/cpp/solvcon/toggle $(SETUPROOT)/solvcon/toggle
 	rm -rf $(SETUPROOT)/solvcon/toggle/pymod
-	cp -a $(MMROOT)/cpp/solvcon/profiling $(SETUPROOT)/solvcon/profiling
+	cp -a $(SCROOT)/cpp/solvcon/profiling $(SETUPROOT)/solvcon/profiling
 	rm -rf $(SETUPROOT)/solvcon/profiling/pymod
-	cp -a $(MMROOT)/cpp/solvcon/math $(SETUPROOT)/solvcon/math
+	cp -a $(SCROOT)/cpp/solvcon/math $(SETUPROOT)/solvcon/math
 	rm -rf $(SETUPROOT)/solvcon/math/pymod
-	cp -a $(MMROOT)/cpp/solvcon/simd $(SETUPROOT)/solvcon/simd
-	cp $(MMROOT)/cpp/solvcon/base.hpp $(SETUPROOT)/solvcon/
+	cp -a $(SCROOT)/cpp/solvcon/simd $(SETUPROOT)/solvcon/simd
+	cp $(SCROOT)/cpp/solvcon/base.hpp $(SETUPROOT)/solvcon/
 	find $(SETUPROOT) -name CMakeLists.txt -delete
