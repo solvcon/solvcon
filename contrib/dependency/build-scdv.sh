@@ -937,6 +937,16 @@ if [ "${SCDV_PRINT_DEPS_ONLY}" = "1" ] ; then
   exit 0
 fi
 
+# Path prefix to SCDV_BASE.
+SCDV_PREFIX=${SCDV_PREFIX:-${HOME}/var/scdv/${SCDV_OS_TAG}}
+
+# Honor --print-prefix as soon as SCDV_PREFIX resolves, before any side
+# effect or further platform call.
+if [ "${SCDV_PRINT_PREFIX_ONLY}" = "1" ] ; then
+  echo "SCDV_PREFIX=${SCDV_PREFIX}"
+  exit 0
+fi
+
 # The per-OS blocks assume x86_64 on Ubuntu and arm64 on macOS.
 SCDV_ARCH=${SCDV_ARCH:-$(uname -m)}
 
@@ -996,16 +1006,6 @@ PYSIDE_VERSION=${PYSIDE_VERSION:-${QT_MAJOR_VER}.${QT_SUB_VER}}
 # default and runs only the explicitly selected sections.
 if [ -z "${SCDVBUILD_ALL:-}${SCDVBUILD_BASE:-}${SCDVBUILD_PYTHON:-}${SCDVBUILD_NUMPY:-}${SCDVBUILD_QT:-}" ] ; then
   SCDVBUILD_ALL=1
-fi
-
-# Path prefix to SCDV_BASE.
-SCDV_PREFIX=${SCDV_PREFIX:-${HOME}/var/scdv/${SCDV_OS_TAG}}
-
-# Honor --print-prefix as soon as SCDV_PREFIX resolves, before any side
-# effect or further platform call.
-if [ "${SCDV_PRINT_PREFIX_ONLY}" = "1" ] ; then
-  echo "SCDV_PREFIX=${SCDV_PREFIX}"
-  exit 0
 fi
 
 # An activated scdv/mmdv exports SCDV_BASE, which the assignment below would
