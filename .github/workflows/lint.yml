@@ -97,16 +97,18 @@ jobs:
       with:
         workflow: 'lint'
 
+    # Only a push or a nightly run reaches this cache. A pull request builds
+    # no pilot and runs pilot_clang_tidy_diff instead, which drives clang-tidy
+    # and never the compiler, so it compiles nothing and would pull close to a
+    # gigabyte down for no hit at all.
     - name: ccache
+      if: github.event_name != 'pull_request'
       uses: hendrikmuhs/ccache-action@v1.2.23
       with:
         key: ${{ runner.os }}-tidy-${{ matrix.cmake_build_type }}
         restore-keys: ${{ runner.os }}-tidy-${{ matrix.cmake_build_type }}
-        save: ${{ github.event_name != 'pull_request' }}
         # Bound the cache so it does not grow without limit across the rolling
-        # key. A master push or nightly run saves this cache; pull requests
-        # restore it (a PR on a non-default base branch cannot, so it runs
-        # cold).
+        # key.
         max-size: 1500M
 
     - name: make cformat (clang-format check)
