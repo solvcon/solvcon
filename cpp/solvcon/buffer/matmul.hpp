@@ -315,6 +315,7 @@ private:
     void execute_gemm_blas(value_type * output, value_type const * lhs_data, value_type const * rhs_data);
     std::optional<matrix_view_type> lhs_matrix_view(value_type const * data) const;
     std::optional<matrix_view_type> rhs_matrix_view(value_type const * data) const;
+    static matrix_view_type require_matrix_view(std::optional<matrix_view_type> view);
     static std::optional<matrix_view_type> make_matrix_view(
         value_type const * data,
         ssize_t row_stride,
@@ -904,7 +905,7 @@ void MatmulExecutor<Array>::execute_dot_blas(value_type * output, value_type con
 template <typename Array>
 void MatmulExecutor<Array>::execute_gevm_blas(value_type * output, value_type const * lhs_data, value_type const * rhs_data)
 {
-    matrix_view_type const matrix = rhs_matrix_view(rhs_data).value();
+    matrix_view_type const matrix = require_matrix_view(rhs_matrix_view(rhs_data));
     vector_view_type const vector{lhs_data, m_plan.lhs_inner_stride()};
     gemv_blas(m_plan.inner_size(), m_plan.columns(), matrix, vector, output, BlasTranspose::Transpose);
 }
@@ -912,7 +913,7 @@ void MatmulExecutor<Array>::execute_gevm_blas(value_type * output, value_type co
 template <typename Array>
 void MatmulExecutor<Array>::execute_gemv_blas(value_type * output, value_type const * lhs_data, value_type const * rhs_data)
 {
-    matrix_view_type const matrix = lhs_matrix_view(lhs_data).value();
+    matrix_view_type const matrix = require_matrix_view(lhs_matrix_view(lhs_data));
     vector_view_type const vector{rhs_data, m_plan.rhs_inner_stride()};
     gemv_blas(m_plan.rows(), m_plan.inner_size(), matrix, vector, output, BlasTranspose::None);
 }
@@ -920,8 +921,8 @@ void MatmulExecutor<Array>::execute_gemv_blas(value_type * output, value_type co
 template <typename Array>
 void MatmulExecutor<Array>::execute_gemm_blas(value_type * output, value_type const * lhs_data, value_type const * rhs_data)
 {
-    matrix_view_type const lhs = lhs_matrix_view(lhs_data).value();
-    matrix_view_type const rhs = rhs_matrix_view(rhs_data).value();
+    matrix_view_type const lhs = require_matrix_view(lhs_matrix_view(lhs_data));
+    matrix_view_type const rhs = require_matrix_view(rhs_matrix_view(rhs_data));
     gemm_blas(m_plan.rows(), m_plan.columns(), m_plan.inner_size(), lhs, rhs, output);
 }
 
@@ -939,6 +940,17 @@ std::optional<typename MatmulExecutor<Array>::matrix_view_type> MatmulExecutor<A
 {
     return make_matrix_view(
         data, m_plan.rhs_inner_stride(), m_plan.rhs_column_stride(), m_plan.inner_size(), m_plan.columns());
+}
+
+template <typename Array>
+typename MatmulExecutor<Array>::matrix_view_type MatmulExecutor<Array>::require_matrix_view(
+    std::optional<matrix_view_type> view)
+{
+    if (!view)
+    {
+        throw std::logic_error("MatmulExecutor::require_matrix_view(): missing BLAS matrix view");
+    }
+    return *view;
 }
 
 template <typename Array>
