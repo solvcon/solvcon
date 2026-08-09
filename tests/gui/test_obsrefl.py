@@ -132,10 +132,10 @@ class ObliqueShockAppTC(unittest.TestCase):
     def test_viewer_button_opens_and_closes_subwindow(self):
         feature = self._feature()
         feature._panel._viewer_btn.setChecked(True)
-        self.assertIsNotNone(feature._viewer)
+        self.assertTrue(feature._viewer.is_open)
         self.assertIsNotNone(self.mgr.currentR3DWidget())
         feature._panel._viewer_btn.setChecked(False)
-        self.assertIsNone(feature._viewer)
+        self.assertFalse(feature._viewer.is_open)
         QApplication.processEvents()
 
     def test_closing_viewer_stops_run_without_drawing(self):
@@ -144,8 +144,8 @@ class ObliqueShockAppTC(unittest.TestCase):
         # Closing the domain sub-window while marching must stop the timer,
         # drop the viewer, and leave later frames as no-ops rather than
         # drawing into the freed widget.
-        feature._close_viewer()
-        self.assertIsNone(feature._viewer)
+        feature._viewer.close()
+        self.assertFalse(feature._viewer.is_open)
         self.assertFalse(feature._timer.isActive())
         self.assertFalse(feature._panel._viewer_btn.isChecked())
         step = feature._session.step
@@ -157,10 +157,10 @@ class ObliqueShockAppTC(unittest.TestCase):
     def test_start_reopens_a_closed_viewer(self):
         feature = self._feature()
         feature._on_start()
-        feature._close_viewer()
+        feature._viewer.close()
         feature._on_start()
         feature._timer.stop()
-        self.assertIsNotNone(feature._viewer)
+        self.assertTrue(feature._viewer.is_open)
         self.assertTrue(feature._panel._viewer_btn.isChecked())
         QApplication.processEvents()
 

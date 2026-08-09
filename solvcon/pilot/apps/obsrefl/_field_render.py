@@ -5,10 +5,11 @@
 """Turn a per-cell scalar field into the flat colored triangles that
 ``RDomainWidget.updateColorField`` draws.
 
-The mesh cells are triangulated once with :func:`cell_triangulation`; each
-frame then maps the scalar field to vertex colors with :func:`field_colors`
-over that fixed triangulation, so a running solver redraws without
-rebuilding the geometry.  The app in :mod:`._app` is the only caller.
+A run draws through one :class:`FieldPainter`: building it triangulates the
+mesh cells once with :func:`cell_triangulation`, and each frame then maps
+the scalar field to vertex colors with :func:`field_colors` over that fixed
+triangulation, so a running solver redraws without rebuilding the geometry.
+Everything here is numpy in and numpy out; no Qt enters the module.
 """
 
 import numpy as np
@@ -61,5 +62,30 @@ def field_colors(field, counts, vmin, vmax):
     span = vmax - vmin
     t = (field - vmin) / span if span > 0 else np.zeros_like(field)
     return np.repeat(colormap(t), counts, axis=0).astype('float32')
+
+
+class FieldPainter(object):
+    """Hold the fixed triangulation of one run and color its fields.
+
+    ``updateColorField`` wants an indexed vertex soup; the cell fan already
+    is one, so the vertices are packed once when the painter is built, the
+    geometry being fixed for the run, and indexed sequentially.  A frame
+    then costs only the color mapping of :meth:`colors`.
+
+    :ivar verts: The packed triangle vertices of the whole mesh.
+    :ivar indices: The sequential vertex indices, one row per triangle.
+    """
+
+    def __init__(self, mh):
+        fan, self._counts = cell_triangulation(mh)
+        verts = fan.pack_array().ndarray.reshape(-1, 3)
+        indices = np.arange(verts.shape[0], dtype='uint32').reshape(-1, 3)
+        self.verts = core.SimpleArrayFloat32(array=verts)
+        self.indices = core.SimpleArrayUint32(array=indices)
+
+    def colors(self, field, vmin, vmax):
+        """The vertex colors of one frame of ``field`` over the range."""
+        colors = field_colors(field, self._counts, vmin, vmax)
+        return core.SimpleArrayFloat32(array=colors)
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
