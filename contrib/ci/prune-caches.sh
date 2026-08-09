@@ -3,9 +3,10 @@
 # Copyright (c) 2026, solvcon team <contact@solvcon.net>
 # BSD 3-Clause License, see COPYING
 #
-# Delete the cache generations that GitHub keeps but no run can ever restore.
-# Driven by .github/workflows/cache_cleanup.yml, and runnable by hand against
-# any repository the local `gh` is authenticated for:
+# Delete the caches that GitHub keeps but no run can ever restore: the
+# generations a newer save superseded, and everything saved on a ref that is
+# gone. Driven by .github/workflows/cache_cleanup.yml, and runnable by hand
+# against any repository the local `gh` is authenticated for:
 #
 #   GITHUB_REPOSITORY=solvcon/solvcon DRY_RUN=true contrib/ci/prune-caches.sh
 #
@@ -65,6 +66,109 @@ if [ -s "$workdir/caches.tsv" ] \
   exit 1
 fi
 
+# `gh` says HTTP 404 for a branch that is gone and for a repository it cannot
+# read, and the second answers 404 for every branch alike. Fail early on a
+# repository that cannot be reached at all, so the common misconfiguration
+# stops here with something a reader can act on.
+if ! default_branch="$(gh api "repos/$GITHUB_REPOSITORY" --jq '.default_branch' \
+    2>"$workdir/probe.err")"; then
+  echo "::error::cannot read repository $GITHUB_REPOSITORY"
+  cat "$workdir/probe.err" >&2
+  exit 1
+fi
+
+# Checking that once would only cover the state before the loop, and access
+# can be lost while it runs: a repository made private, renamed, or a token
+# rotated away turns every later probe into a 404 and would condemn every
+# branch in one pass. So a 404 is read as death only while the default
+# branch, which cannot be missing, still answers for itself.
+probe_branch() {
+  if gh api "repos/$GITHUB_REPOSITORY/branches/$1" \
+      >/dev/null 2>"$workdir/probe.err"; then
+    echo live
+  elif ! grep -q 'HTTP 404' "$workdir/probe.err"; then
+    echo unknown
+  elif gh api "repos/$GITHUB_REPOSITORY/branches/$default_branch" >/dev/null 2>&1; then
+    echo dead
+  else
+    echo unknown
+  fi
+}
+
+# Death is established per ref rather than inferred from a listing. A
+# paginated listing that comes back short, whether truncated or reshuffled by
+# a concurrent push, drops a live ref, and an absence read as death takes
+# every cache on it at once. Asking about one ref answers about that ref, and
+# a ref the probe cannot settle stays live: it is recorded and reported, and
+# the sweep goes on to the generations that need no probe at all.
+: > "$workdir/dead-refs.txt"
+probed=0
+unjudged=0
+while read -r ref; do
+  case "$ref" in
+    refs/heads/*)
+      branch="${ref#refs/heads/}"
+      case "$branch" in
+        *['#%']*)
+          # A branch may legally carry these, and they do not survive the trip
+          # through the URL path: the fragment is cut and a percent escape is
+          # decoded, so the answer would be about some other name. Nothing is
+          # going to change that, so warn and leave the caches where they are
+          # rather than fail a daily job over it for good.
+          echo "::warning::cannot probe $ref, its name does not survive a URL path"
+          continue
+          ;;
+      esac
+      probed=$((probed + 1))
+      case "$(probe_branch "$branch")" in
+        dead)
+          echo "$ref" >> "$workdir/dead-refs.txt"
+          ;;
+        unknown)
+          echo "::warning::cannot determine whether $ref still exists"
+          cat "$workdir/probe.err" >&2
+          unjudged=$((unjudged + 1))
+          ;;
+      esac
+      ;;
+    refs/pull/*/merge)
+      number="${ref#refs/pull/}"
+      number="${number%/merge}"
+      # A closed pull request is the only death here. GitHub does not delete
+      # pull requests, and this ref is proof number existed, so a 404 says the
+      # probe cannot see them, which a token without pull-requests read also
+      # answers. Reading that as death would sweep every merge ref at once.
+      probed=$((probed + 1))
+      if state="$(gh api "repos/$GITHUB_REPOSITORY/pulls/$number" --jq '.state' \
+          2>"$workdir/probe.err")"; then
+        if [ "$state" = 'closed' ]; then
+          echo "$ref" >> "$workdir/dead-refs.txt"
+        fi
+      else
+        echo "::warning::cannot determine the state of pull request $number"
+        cat "$workdir/probe.err" >&2
+        unjudged=$((unjudged + 1))
+      fi
+      ;;
+  esac
+done < <(cut -f2 "$workdir/caches.tsv" | sort -u)
+
+# A cache on a deleted branch or a closed pull request can never be restored,
+# whatever its generation, so those go whole rather than by the keep rule
+# below. A ref the loop above did not judge, a tag say, stays live: it is not
+# something this script knows how to call dead.
+: > "$workdir/dead-entries.tsv"
+: > "$workdir/live-entries.tsv"
+# Keyed on FILENAME rather than NR == FNR, which reads the second file as the
+# first when no ref turned out to be dead and would classify every entry as a
+# ref name, sweeping nothing at all.
+awk -F'\t' -v refs="$workdir/dead-refs.txt" \
+    -v dead="$workdir/dead-entries.tsv" -v live="$workdir/live-entries.tsv" '
+    FILENAME == refs { gone[$0] = 1; next }
+    $2 in gone { print > dead; next }
+    { print > live }
+  ' "$workdir/dead-refs.txt" "$workdir/caches.tsv"
+
 # A cache is scoped to the ref that saved it, and the same key lives
 # independently on master, on a branch, and on a pull request merge ref. Group
 # by ref as well, or the newest entry across all of them wins and a branch push
@@ -78,39 +182,59 @@ fi
 # by lineage alone ranks all three together, so feature 12:00 takes first place
 # and master 11:00 is dropped as merely second newest, leaving every run that
 # reads master cold.
-sort -t"$(printf '\t')" -k1,1 -k2,2 -k3,3r "$workdir/caches.tsv" \
-  | awk -F'\t' -v keep="$KEEP" '
-      { group = $1 SUBSEP $2 }
-      { if (group == prev) { n += 1 } else { n = 1; prev = group } }
-      n > keep { print }
-    ' > "$workdir/stale.tsv"
+{
+  awk -F'\t' '{ print "dead ref\t" $0 }' "$workdir/dead-entries.tsv"
+  sort -t"$(printf '\t')" -k1,1 -k2,2 -k3,3r "$workdir/live-entries.tsv" \
+    | awk -F'\t' -v keep="$KEEP" '
+        { group = $1 SUBSEP $2 }
+        { if (group == prev) { n += 1 } else { n = 1; prev = group } }
+        n > keep { print "superseded\t" $0 }
+      '
+} > "$workdir/stale.tsv"
 
-deleted=0
+superseded=0
+dead=0
 failed=0
 total=0
-while IFS="$(printf '\t')" read -r lineage ref created id size key; do
+while IFS="$(printf '\t')" read -r reason lineage ref created id size key; do
   if [ "$DRY_RUN" = 'true' ]; then
-    echo "would delete $key ($ref, $((size / 1048576)) MB)"
+    echo "would delete $key ($ref, $reason, $((size / 1048576)) MB)"
   elif gh api -X DELETE "repos/$GITHUB_REPOSITORY/actions/caches/$id" >/dev/null; then
-    echo "deleted $key ($ref, $((size / 1048576)) MB)"
+    echo "deleted $key ($ref, $reason, $((size / 1048576)) MB)"
   else
-    echo "::warning::failed to delete $key ($ref)"
+    echo "::warning::failed to delete $key ($ref, $reason)"
     failed=$((failed + 1))
     continue
   fi
-  deleted=$((deleted + 1))
+  if [ "$reason" = 'dead ref' ]; then
+    dead=$((dead + 1))
+  else
+    superseded=$((superseded + 1))
+  fi
   total=$((total + size))
 done < "$workdir/stale.tsv"
 
+counts="$superseded superseded, $dead on dead refs, $((total / 1048576)) MB"
 if [ "$DRY_RUN" = 'true' ]; then
-  summary_line="dry run: $deleted superseded generations, $((total / 1048576)) MB"
+  summary_line="dry run: $counts"
 else
-  summary_line="$deleted superseded generations deleted, $((total / 1048576)) MB reclaimed"
+  summary_line="deleted $counts reclaimed"
 fi
 echo "$summary_line" >> "$summary"
 
 if [ "$failed" -gt 0 ]; then
   echo "::error::$failed cache deletions failed"
+fi
+# One ref going unjudged costs a little space and has already been warned
+# about per ref. Every one of them going unjudged is a different thing, a
+# repository the run could not read at all, and that is worth waking someone
+# for. Failing on the first blip instead would leave the daily job red often
+# enough that nobody reads it.
+if [ "$unjudged" -gt 0 ] && [ "$unjudged" -eq "$probed" ]; then
+  echo "::error::none of the $probed refs could be judged; nothing was swept on liveness"
+  exit 1
+fi
+if [ "$failed" -gt 0 ]; then
   exit 1
 fi
 
