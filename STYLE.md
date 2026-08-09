@@ -286,7 +286,7 @@ from matplotlib import figure
 from PySide6 import QtCore, QtWidgets, QtGui
 
 # Modules in the current project.
-import solvcon as mm
+import solvcon as sc
 from solvcon import onedim
 from solvcon.plot import svg
 
@@ -297,7 +297,7 @@ from . import _base_app
 
 > **Note:**
 >
-> `solvcon` can be shorthanded as `mm`.
+> `solvcon` can be shorthanded as `sc`.
 
 Do not import module content (classes, functions, or constants) directly.
 Always use the `foo.bar` pattern to access classes, functions, or constants:

@@ -22,75 +22,75 @@ class FourierTransformTB(sc.testing.TestBase):
     def test_numpy_dft_comparison(self):
         input_size = 100
 
-        mm_input = self.SimpleArray(input_size)
+        sc_input = self.SimpleArray(input_size)
         for i in range(input_size):
-            mm_input[i] = self.complex(self.real_rng(), self.imag_rng())
+            sc_input[i] = self.complex(self.real_rng(), self.imag_rng())
 
-        np_input = np.array(mm_input, copy=False)
+        np_input = np.array(sc_input, copy=False)
 
-        mm_output = self.SimpleArray(input_size, self.complex())
-        sc.FourierTransform.dft(mm_input, mm_output)
+        sc_output = self.SimpleArray(input_size, self.complex())
+        sc.FourierTransform.dft(sc_input, sc_output)
 
         np_output = np.fft.fft(np_input)
 
         for i in range(input_size):
-            self.assert_allclose(mm_output[i].real, np_output[i].real)
-            self.assert_allclose(mm_output[i].imag, np_output[i].imag)
+            self.assert_allclose(sc_output[i].real, np_output[i].real)
+            self.assert_allclose(sc_output[i].imag, np_output[i].imag)
 
     def test_numpy_duplicate_dft_comparison(self):
         input_size = 100
 
-        mm_input = self.SimpleArray(input_size)
+        sc_input = self.SimpleArray(input_size)
         for i in range(input_size):
-            mm_input[i] = self.complex(self.real_rng(), self.imag_rng())
+            sc_input[i] = self.complex(self.real_rng(), self.imag_rng())
 
-        np_input = np.array(mm_input, copy=False)
+        np_input = np.array(sc_input, copy=False)
 
-        mm_output = self.SimpleArray(input_size, self.complex())
-        sc.FourierTransform.dft(mm_input, mm_output)
-        sc.FourierTransform.dft(mm_input, mm_output)
+        sc_output = self.SimpleArray(input_size, self.complex())
+        sc.FourierTransform.dft(sc_input, sc_output)
+        sc.FourierTransform.dft(sc_input, sc_output)
 
         np_output = np.fft.fft(np_input)
 
         for i in range(input_size):
-            self.assert_allclose(mm_output[i].real, np_output[i].real)
-            self.assert_allclose(mm_output[i].imag, np_output[i].imag)
+            self.assert_allclose(sc_output[i].real, np_output[i].real)
+            self.assert_allclose(sc_output[i].imag, np_output[i].imag)
 
     def test_numpy_fft_comparison(self):
         input_size = 100
 
-        mm_input = self.SimpleArray(input_size)
+        sc_input = self.SimpleArray(input_size)
         for i in range(input_size):
-            mm_input[i] = self.complex(self.real_rng(), self.imag_rng())
+            sc_input[i] = self.complex(self.real_rng(), self.imag_rng())
 
-        np_input = np.array(mm_input, copy=False)
+        np_input = np.array(sc_input, copy=False)
 
-        mm_output = self.SimpleArray(input_size, self.complex())
-        sc.FourierTransform.fft(mm_input, mm_output)
+        sc_output = self.SimpleArray(input_size, self.complex())
+        sc.FourierTransform.fft(sc_input, sc_output)
 
         np_output = np.fft.fft(np_input)
 
         for i in range(input_size):
-            self.assert_allclose(mm_output[i].real, np_output[i].real)
-            self.assert_allclose(mm_output[i].imag, np_output[i].imag)
+            self.assert_allclose(sc_output[i].real, np_output[i].real)
+            self.assert_allclose(sc_output[i].imag, np_output[i].imag)
 
     def test_numpy_ifft_comparison(self):
         input_size = 100
 
-        mm_input = self.SimpleArray(input_size)
+        sc_input = self.SimpleArray(input_size)
         for i in range(input_size):
-            mm_input[i] = self.complex(self.real_rng(), self.imag_rng())
+            sc_input[i] = self.complex(self.real_rng(), self.imag_rng())
 
-        np_input = np.array(mm_input, copy=False)
+        np_input = np.array(sc_input, copy=False)
 
-        mm_output = self.SimpleArray(input_size, self.complex())
-        sc.FourierTransform.ifft(mm_input, mm_output)
+        sc_output = self.SimpleArray(input_size, self.complex())
+        sc.FourierTransform.ifft(sc_input, sc_output)
 
         np_output = np.fft.ifft(np_input)
 
         for i in range(input_size):
-            self.assert_allclose(mm_output[i].real, np_output[i].real)
-            self.assert_allclose(mm_output[i].imag, np_output[i].imag)
+            self.assert_allclose(sc_output[i].real, np_output[i].real)
+            self.assert_allclose(sc_output[i].imag, np_output[i].imag)
 
 
 class TransformFp32TC(FourierTransformTB, unittest.TestCase):
