@@ -33,6 +33,7 @@ add_executable(
     test_nopython_rtree.cpp
     test_nopython_formatter.cpp
     test_nopython_mdspan.cpp
+    test_nopython_strassen.cpp
     test_nopython_multidim.cpp
     test_nopython_pilot_history.cpp
     test_nopython_pilot_syntax.cpp
@@ -47,6 +48,7 @@ add_executable(
     ${SOLVCON_BUFFER_SOURCES}
     ${SOLVCON_SERIALIZATION_SOURCES}
     ${SOLVCON_TRANSFORM_SOURCES}
+    ${SOLVCON_MATH_SOURCES}
     ${SOLVCON_SIMD_SOURCES}
     ${SOLVCON_MESH_SOURCES}
     ${SOLVCON_MULTIDIM_SOURCES}
