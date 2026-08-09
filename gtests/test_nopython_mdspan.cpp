@@ -20,10 +20,10 @@
 
 TEST(SignedStrideLayout, positive_strides)
 {
-    namespace mm = solvcon;
+    namespace sc = solvcon;
 
     using extents_type = std::dextents<ssize_t, 2>;
-    using mapping_type = mm::detail::SignedStrideLayout::mapping<extents_type>;
+    using mapping_type = sc::detail::SignedStrideLayout::mapping<extents_type>;
 
     mapping_type const mapping(extents_type(2, 3), std::array<ssize_t, 2>{4, 1});
 
@@ -36,10 +36,10 @@ TEST(SignedStrideLayout, positive_strides)
 
 TEST(SignedStrideLayout, negative_strides)
 {
-    namespace mm = solvcon;
+    namespace sc = solvcon;
 
     using extents_type = std::dextents<ssize_t, 2>;
-    using layout_type = mm::detail::SignedStrideLayout;
+    using layout_type = sc::detail::SignedStrideLayout;
     using mapping_type = layout_type::mapping<extents_type>;
 
     static_assert(std::regular<mapping_type>);
@@ -62,10 +62,10 @@ TEST(SignedStrideLayout, negative_strides)
 
 TEST(SignedStrideLayout, mixed_strides_with_padding)
 {
-    namespace mm = solvcon;
+    namespace sc = solvcon;
 
     using extents_type = std::dextents<ssize_t, 3>;
-    using mapping_type = mm::detail::SignedStrideLayout::mapping<extents_type>;
+    using mapping_type = sc::detail::SignedStrideLayout::mapping<extents_type>;
 
     mapping_type const mapping(extents_type(2, 3, 4), std::array<ssize_t, 3>{-16, 4, -1});
 
@@ -80,10 +80,10 @@ TEST(SignedStrideLayout, mixed_strides_with_padding)
 
 TEST(SignedStrideLayout, empty_extent)
 {
-    namespace mm = solvcon;
+    namespace sc = solvcon;
 
     using extents_type = std::dextents<ssize_t, 3>;
-    using mapping_type = mm::detail::SignedStrideLayout::mapping<extents_type>;
+    using mapping_type = sc::detail::SignedStrideLayout::mapping<extents_type>;
 
     mapping_type const mapping(extents_type(2, 0, 3), std::array<ssize_t, 3>{-3, 3, 1});
 
@@ -94,10 +94,10 @@ TEST(SignedStrideLayout, empty_extent)
 
 TEST(SignedStrideLayout, scalar)
 {
-    namespace mm = solvcon;
+    namespace sc = solvcon;
 
     using extents_type = std::extents<ssize_t>;
-    using mapping_type = mm::detail::SignedStrideLayout::mapping<extents_type>;
+    using mapping_type = sc::detail::SignedStrideLayout::mapping<extents_type>;
 
     mapping_type const mapping;
 
@@ -109,10 +109,10 @@ TEST(SignedStrideLayout, scalar)
 
 TEST(SignedStrideLayout, mdspan_with_positive_strides)
 {
-    namespace mm = solvcon;
+    namespace sc = solvcon;
 
     using extents_type = std::dextents<ssize_t, 2>;
-    using layout_type = mm::detail::SignedStrideLayout;
+    using layout_type = sc::detail::SignedStrideLayout;
     using mapping_type = layout_type::mapping<extents_type>;
 
     mapping_type const mapping(extents_type(2, 3), std::array<ssize_t, 2>{4, 1});
@@ -127,10 +127,10 @@ TEST(SignedStrideLayout, mdspan_with_positive_strides)
 
 TEST(SignedStrideLayout, mdspan_with_negative_strides)
 {
-    namespace mm = solvcon;
+    namespace sc = solvcon;
 
     using extents_type = std::dextents<ssize_t, 2>;
-    using layout_type = mm::detail::SignedStrideLayout;
+    using layout_type = sc::detail::SignedStrideLayout;
     using mapping_type = layout_type::mapping<extents_type>;
 
     mapping_type const mapping(extents_type(3, 4), std::array<ssize_t, 2>{-4, 1});
@@ -145,9 +145,9 @@ TEST(SignedStrideLayout, mdspan_with_negative_strides)
 
 TEST(SimpleArray, mdspan_1d)
 {
-    namespace mm = solvcon;
+    namespace sc = solvcon;
 
-    mm::SimpleArray<double> arr(mm::small_vector<ssize_t>{6});
+    sc::SimpleArray<double> arr(sc::small_vector<ssize_t>{6});
     for (size_t i = 0; i < 6; ++i) { arr(i) = static_cast<double>(i); }
 
     auto ms = arr.as_mdspan<1>();
@@ -166,9 +166,9 @@ TEST(SimpleArray, mdspan_1d)
 
 TEST(SimpleArray, mdspan_1d_const)
 {
-    namespace mm = solvcon;
+    namespace sc = solvcon;
 
-    mm::SimpleArray<double> arr(mm::small_vector<ssize_t>{6}, 5.0);
+    sc::SimpleArray<double> arr(sc::small_vector<ssize_t>{6}, 5.0);
     const auto & carr = arr;
 
     auto ms = carr.as_mdspan<1>();
@@ -184,10 +184,10 @@ TEST(SimpleArray, mdspan_1d_const)
 
 TEST(SimpleArray, mdspan_1d_ghost)
 {
-    namespace mm = solvcon;
+    namespace sc = solvcon;
 
     // 1D array: 5 total elements, 1 ghost at the front.
-    mm::SimpleArray<double> arr(mm::small_vector<ssize_t>{5});
+    sc::SimpleArray<double> arr(sc::small_vector<ssize_t>{5});
     arr.set_nghost(1);
     for (size_t i = 0; i < 5; ++i) { arr.data(i) = static_cast<double>(i); }
 
@@ -203,9 +203,9 @@ TEST(SimpleArray, mdspan_1d_ghost)
 
 TEST(SimpleArray, mdspan_2d)
 {
-    namespace mm = solvcon;
+    namespace sc = solvcon;
 
-    mm::SimpleArray<double> arr(mm::small_vector<ssize_t>{3, 4});
+    sc::SimpleArray<double> arr(sc::small_vector<ssize_t>{3, 4});
     for (size_t i = 0; i < 3; ++i)
     {
         for (size_t j = 0; j < 4; ++j)
@@ -244,9 +244,9 @@ TEST(SimpleArray, mdspan_2d)
 
 TEST(SimpleArray, mdspan_2d_const)
 {
-    namespace mm = solvcon;
+    namespace sc = solvcon;
 
-    mm::SimpleArray<double> arr(mm::small_vector<ssize_t>{2, 3}, 7.0);
+    sc::SimpleArray<double> arr(sc::small_vector<ssize_t>{2, 3}, 7.0);
     const auto & carr = arr;
 
     auto ms = carr.as_mdspan<2>();
@@ -267,10 +267,10 @@ TEST(SimpleArray, mdspan_2d_const)
 
 TEST(SimpleArray, mdspan_2d_ghost)
 {
-    namespace mm = solvcon;
+    namespace sc = solvcon;
 
     // shape {5, 4}: 5 rows (1 ghost + 4 body), 4 columns.
-    mm::SimpleArray<double> arr(mm::small_vector<ssize_t>{5, 4});
+    sc::SimpleArray<double> arr(sc::small_vector<ssize_t>{5, 4});
     arr.set_nghost(1);
     for (size_t idx = 0; idx < arr.size(); ++idx) { arr.data(idx) = static_cast<double>(idx); }
 
@@ -303,9 +303,9 @@ TEST(SimpleArray, mdspan_2d_ghost)
 
 TEST(SimpleArray, mdspan_3d)
 {
-    namespace mm = solvcon;
+    namespace sc = solvcon;
 
-    mm::SimpleArray<double> arr(mm::small_vector<ssize_t>{2, 3, 4});
+    sc::SimpleArray<double> arr(sc::small_vector<ssize_t>{2, 3, 4});
     for (size_t i = 0; i < 2; ++i)
     {
         for (size_t j = 0; j < 3; ++j)
@@ -352,10 +352,10 @@ TEST(SimpleArray, mdspan_3d)
 
 TEST(SimpleArray, mdspan_3d_ghost)
 {
-    namespace mm = solvcon;
+    namespace sc = solvcon;
 
     // shape {4, 3, 2}: 4 slices (2 ghost + 2 body), 3 rows, 2 columns.
-    mm::SimpleArray<double> arr(mm::small_vector<ssize_t>{4, 3, 2});
+    sc::SimpleArray<double> arr(sc::small_vector<ssize_t>{4, 3, 2});
     arr.set_nghost(2);
     for (size_t idx = 0; idx < arr.size(); ++idx) { arr.data(idx) = static_cast<double>(idx); }
 
@@ -395,9 +395,9 @@ TEST(SimpleArray, mdspan_3d_ghost)
 
 TEST(SimpleArray, mdspan_4d)
 {
-    namespace mm = solvcon;
+    namespace sc = solvcon;
 
-    mm::SimpleArray<double> arr(mm::small_vector<ssize_t>{2, 3, 4, 5});
+    sc::SimpleArray<double> arr(sc::small_vector<ssize_t>{2, 3, 4, 5});
     for (size_t i = 0; i < 2; ++i)
     {
         for (size_t j = 0; j < 3; ++j)
@@ -454,10 +454,10 @@ TEST(SimpleArray, mdspan_4d)
 
 TEST(SimpleArray, mdspan_4d_ghost)
 {
-    namespace mm = solvcon;
+    namespace sc = solvcon;
 
     // shape {4, 3, 2, 2}: 4 slices (1 ghost + 3 body), 3 rows, 2 columns, 2 depth.
-    mm::SimpleArray<double> arr(mm::small_vector<ssize_t>{4, 3, 2, 2});
+    sc::SimpleArray<double> arr(sc::small_vector<ssize_t>{4, 3, 2, 2});
     arr.set_nghost(1);
     for (size_t idx = 0; idx < arr.size(); ++idx) { arr.data(idx) = static_cast<double>(idx); }
 
@@ -504,22 +504,22 @@ TEST(SimpleArray, mdspan_4d_ghost)
 
 TEST(SimpleArray, mdspan_rank_mismatch)
 {
-    namespace mm = solvcon;
+    namespace sc = solvcon;
 
-    mm::SimpleArray<double> arr(mm::small_vector<ssize_t>{3, 4});
+    sc::SimpleArray<double> arr(sc::small_vector<ssize_t>{3, 4});
     EXPECT_THROW(arr.as_mdspan<3>(), std::out_of_range);
 }
 
 TEST(SimpleArray, mdspan_non_contiguous)
 {
-    namespace mm = solvcon;
+    namespace sc = solvcon;
 
     // Build a 3x4 view whose stride differs from the row-major layout, so the
     // array is neither C- nor F-contiguous over the underlying buffer.
-    using array_type = mm::SimpleArray<double>;
+    using array_type = sc::SimpleArray<double>;
     array_type::shape_type const shape{3, 4};
     array_type::shape_type const stride{8, 1};
-    auto buffer = mm::ConcreteBuffer::construct(3 * 8 * sizeof(double));
+    auto buffer = sc::ConcreteBuffer::construct(3 * 8 * sizeof(double));
     array_type arr(shape, stride, buffer);
     for (size_t i = 0; i < 24; ++i) { arr.data(i) = static_cast<double>(i); }
 
@@ -562,15 +562,15 @@ TEST(SimpleArray, mdspan_non_contiguous)
 
 TEST(SimpleArray, mdspan_positive_strides_with_data_offset)
 {
-    namespace mm = solvcon;
+    namespace sc = solvcon;
 
-    auto buffer = mm::ConcreteBuffer::construct(6 * sizeof(double));
+    auto buffer = sc::ConcreteBuffer::construct(6 * sizeof(double));
     for (size_t i = 0; i < 6; ++i) { buffer->data<double>()[i] = static_cast<double>(i); }
 
-    mm::SimpleArray<double> arr(mm::small_vector<ssize_t>{4}, buffer, 2 * sizeof(double));
+    sc::SimpleArray<double> arr(sc::small_vector<ssize_t>{4}, buffer, 2 * sizeof(double));
     auto ms = arr.as_mdspan<1>();
 
-    static_assert(std::is_same_v<typename decltype(ms)::layout_type, mm::detail::SignedStrideLayout>);
+    static_assert(std::is_same_v<typename decltype(ms)::layout_type, sc::detail::SignedStrideLayout>);
     EXPECT_EQ(ms.mapping().origin_offset(), 0);
     EXPECT_EQ(&ms[0], arr.logical_data());
     for (size_t i = 0; i < 4; ++i) { EXPECT_EQ(ms[i], arr(i)); }
@@ -582,12 +582,12 @@ TEST(SimpleArray, mdspan_positive_strides_with_data_offset)
 
 TEST(SimpleArray, mdspan_negative_strides)
 {
-    namespace mm = solvcon;
+    namespace sc = solvcon;
 
-    using array_type = mm::SimpleArray<double>;
+    using array_type = sc::SimpleArray<double>;
     array_type::shape_type const shape{2, 3};
     array_type::shape_type const stride{-3, -1};
-    auto buffer = mm::ConcreteBuffer::construct(6 * sizeof(double));
+    auto buffer = sc::ConcreteBuffer::construct(6 * sizeof(double));
     for (size_t i = 0; i < 6; ++i) { buffer->data<double>()[i] = static_cast<double>(i); }
 
     array_type arr(shape, stride, buffer, 5 * sizeof(double));
@@ -611,7 +611,7 @@ TEST(SimpleArray, mdspan_negative_strides)
     EXPECT_EQ(arr(0, 1), 42.0);
     EXPECT_EQ(buffer->data<double>()[4], 42.0);
 
-    mm::SimpleArray<double> const & carr = arr;
+    sc::SimpleArray<double> const & carr = arr;
     auto cms = carr.as_mdspan<2>();
     static_assert(std::is_same_v<typename decltype(cms)::element_type, double const>);
     EXPECT_EQ((cms[0, 1]), 42.0);
@@ -619,12 +619,12 @@ TEST(SimpleArray, mdspan_negative_strides)
 
 TEST(SimpleArray, mdspan_mixed_strides_with_padding)
 {
-    namespace mm = solvcon;
+    namespace sc = solvcon;
 
-    using array_type = mm::SimpleArray<double>;
+    using array_type = sc::SimpleArray<double>;
     array_type::shape_type const shape{2, 3, 2, 4};
     array_type::shape_type const stride{-40, 10, -5, 1};
-    auto buffer = mm::ConcreteBuffer::construct(72 * sizeof(double));
+    auto buffer = sc::ConcreteBuffer::construct(72 * sizeof(double));
     for (size_t i = 0; i < 72; ++i) { buffer->data<double>()[i] = static_cast<double>(i); }
 
     array_type arr(shape, stride, buffer, 47 * sizeof(double));
@@ -657,9 +657,9 @@ TEST(SimpleArray, mdspan_mixed_strides_with_padding)
 
 TEST(SimpleArray, mdspan_empty_extent)
 {
-    namespace mm = solvcon;
+    namespace sc = solvcon;
 
-    mm::SimpleArray<double> arr(mm::small_vector<ssize_t>{2, 0, 3});
+    sc::SimpleArray<double> arr(sc::small_vector<ssize_t>{2, 0, 3});
     auto ms = arr.as_mdspan<3>();
 
     EXPECT_EQ(ms.extent(0), 2);
@@ -670,7 +670,7 @@ TEST(SimpleArray, mdspan_empty_extent)
     EXPECT_EQ(ms.mapping().required_span_size(), 0);
     EXPECT_EQ(ms.data_handle(), nullptr);
 
-    mm::SimpleArray<double> const & carr = arr;
+    sc::SimpleArray<double> const & carr = arr;
     auto cms = carr.as_mdspan<3>();
     EXPECT_EQ(cms.size(), 0);
     EXPECT_EQ(cms.data_handle(), nullptr);

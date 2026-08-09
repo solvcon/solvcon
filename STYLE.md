@@ -593,15 +593,15 @@ solvcon::real_type local_function(solvcon::int_type value);
 } /* end namespace */
 ```
 
-The namespace `solvcon` may be aliased to `mm` in a local scope. No alias
+The namespace `solvcon` may be aliased to `sc` in a local scope. No alias
 should be use outside a local scope.
 
 ```cpp
 solvcon::real_type local_function(solvcon::int_type value)
 {
-    // Alias the solvcon namespace to mm.
-    namespace mm = solvcon;
-    return mm::real_type(value); // Same as solvcon::real_type(value);
+    // Alias the solvcon namespace to sc.
+    namespace sc = solvcon;
+    return sc::real_type(value); // Same as solvcon::real_type(value);
 }
 ```
 
