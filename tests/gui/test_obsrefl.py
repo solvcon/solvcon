@@ -39,11 +39,19 @@ class ObliqueShockAppTC(unittest.TestCase):
         run = feature._panel._run
         return {"step": run._progress.text(), "state": run._state.text()}
 
-    def test_panel_starts_paused_without_session(self):
+    def test_panel_opens_with_a_paused_preview(self):
         feature = self._feature()
-        # Before Start there is no run, and the readout says so.
-        self.assertIsNone(feature._control.session)
-        self.assertEqual("not started", self._status(feature)["state"])
+        # Opening the panel opens the viewer on the configured run's
+        # initial state, and the march waits for Start, Resume, or Step.
+        sess = feature._control.session
+        self.assertIsNotNone(sess)
+        self.assertEqual(0, sess.step)
+        self.assertTrue(feature._viewer.is_open)
+        self.assertIsNotNone(self.mgr.currentR3DWidget())
+        self.assertFalse(feature._control._timer.isActive())
+        self.assertTrue(feature._panel._run._pause.isChecked())
+        self.assertEqual("paused", self._status(feature)["state"])
+        QApplication.processEvents()
 
     def test_start_builds_session_and_viewer(self):
         feature = self._feature()
@@ -90,7 +98,8 @@ class ObliqueShockAppTC(unittest.TestCase):
         status = self._status(feature)
         self.assertEqual(f"3 / {feature._control.session.max_steps}",
                          status["step"])
-        self.assertEqual("running", status["state"])
+        # The manual step happened under the pause, which still holds.
+        self.assertEqual("paused", status["state"])
 
     def test_the_frame_timer_follows_the_session_to_its_end(self):
         feature = self._feature()
@@ -105,13 +114,17 @@ class ObliqueShockAppTC(unittest.TestCase):
         self.assertEqual("stopped", self._status(feature)["state"])
         QApplication.processEvents()
 
-    def test_pause_toggle_controls_timer(self):
+    def test_pause_toggle_controls_timer_and_state(self):
         feature = self._feature()
         feature._control.start()
+        # Pausing stops the frames, so no redraw reports it; the state cell
+        # has to follow the button itself.
         feature._panel._run._pause.setChecked(True)
         self.assertFalse(feature._control._timer.isActive())
+        self.assertEqual("paused", self._status(feature)["state"])
         feature._panel._run._pause.setChecked(False)
         self.assertTrue(feature._control._timer.isActive())
+        self.assertEqual("running", self._status(feature)["state"])
         feature._control._timer.stop()
 
     def test_field_change_redraws_without_marching(self):
@@ -127,11 +140,14 @@ class ObliqueShockAppTC(unittest.TestCase):
 
     def test_viewer_button_opens_and_closes_subwindow(self):
         feature = self._feature()
+        # The preview already opened the viewer, and the button says so.
+        self.assertTrue(feature._panel._run._viewer_btn.isChecked())
+        self.assertTrue(feature._viewer.is_open)
+        feature._panel._run._viewer_btn.setChecked(False)
+        self.assertFalse(feature._viewer.is_open)
         feature._panel._run._viewer_btn.setChecked(True)
         self.assertTrue(feature._viewer.is_open)
         self.assertIsNotNone(self.mgr.currentR3DWidget())
-        feature._panel._run._viewer_btn.setChecked(False)
-        self.assertFalse(feature._viewer.is_open)
         QApplication.processEvents()
 
     def test_closing_viewer_stops_run_without_drawing(self):

@@ -32,7 +32,7 @@ class RunController(object):
     frame rate and no march outlives its viewer.
 
     :ivar session: The running :class:`~._session.ReflectionSession`, or
-        None before the first start.
+        None until the first :meth:`preview` or :meth:`start` builds one.
     """
 
     #: Qt timer interval in milliseconds.
@@ -52,9 +52,25 @@ class RunController(object):
         panel.field_changed = self._on_field
         viewer.closed = self._on_viewer_closed
 
+    def preview(self):
+        """Open the viewer on the initial state of the configured run.
+
+        The session is built and its step-zero field drawn, and the march
+        waits, paused, so the first thing on screen is the state a run
+        would start from; Start, Resume, and Step all proceed from it.
+        """
+        self._build()
+        self._panel.set_paused(True)
+
     def start(self):
         """(Re)build the run session from the controls and march it into the
         viewer, opening the viewer sub-window first if it was closed."""
+        self._build()
+        self._panel.set_paused(False)
+        self._timer.start(self.INTERVAL_MS)
+
+    def _build(self):
+        """Halt any march, then build and draw the configured run."""
         self._timer.stop()
         self._open_viewer()
         self.session = ReflectionSession(**self._panel.params())
@@ -62,9 +78,7 @@ class RunController(object):
         self._viewer.update_mesh(shock.mesh)
         self._viewer.draw_shock_path(shock)
         self._painter = FieldPainter(shock.mesh)
-        self._panel.set_paused(False)
         self._draw_frame()
-        self._timer.start(self.INTERVAL_MS)
 
     def _open_viewer(self):
         self._viewer.open()

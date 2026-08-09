@@ -66,6 +66,7 @@ class ObliqueShockApp(_gui_common.PilotFeature):
         self._dock.setWidget(self._panel)
         self._mgr.mainWindow.addDockWidget(Qt.LeftDockWidgetArea, self._dock)
         self._dock.visibilityChanged.connect(self._action.setChecked)
+        self._control.preview()
 
     def _notify_viewer_updated(self):
         if self.viewer_updated is not None:

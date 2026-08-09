@@ -16,11 +16,12 @@ surface, and the solver and the viewer belong to the controller in
 
 import math
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QFontDatabase
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QFormLayout,
-                               QGridLayout, QGroupBox, QLabel, QComboBox,
-                               QDoubleSpinBox, QSpinBox, QPushButton)
+                               QGridLayout, QLabel, QComboBox, QDoubleSpinBox,
+                               QSpinBox, QPushButton, QToolButton, QSizePolicy,
+                               QScrollArea, QFrame)
 
 from ....multidim.euler import EulerField
 
@@ -56,12 +57,82 @@ def _value_label():
     return label
 
 
-class FreeStreamBox(QGroupBox):
+def _reserve_width(button, texts):
+    """Reserve the width of the widest label a button swaps through, so the
+    swap cannot resize the button and jitter the panel around it."""
+    keep = button.text()
+    width = 0
+    for text in texts:
+        button.setText(text)
+        width = max(width, button.sizeHint().width())
+    button.setText(keep)
+    button.setMinimumWidth(width)
+
+
+class FoldBox(QWidget):
+    """A titled section that folds behind an arrow header.
+
+    Qt ships no folding section, so the header is the usual flat arrow
+    tool button over a content pane whose visibility it toggles; a folded
+    section gives its room back to the boxes below it.
+    """
+
+    def __init__(self, title, parent=None):
+        super().__init__(parent)
+        self._head = QToolButton()
+        self._head.setText(title)
+        self._head.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+        self._head.setArrowType(Qt.DownArrow)
+        self._head.setAutoRaise(True)
+        # Span the panel, so the whole header line takes the click.  The
+        # fold state lives here, not in a checkable button: a checked
+        # tool button draws pressed, which would box every open header.
+        self._head.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        font = self._head.font()
+        font.setBold(True)
+        self._head.setFont(font)
+        # Hold the header to the label's own height: the arrow follows the
+        # font instead of the default tool-button icon, whose padding made
+        # every header taller than its text.
+        metrics = self._head.fontMetrics()
+        self._head.setIconSize(QSize(metrics.ascent(), metrics.ascent()))
+        self._head.setFixedHeight(metrics.height())
+        self._open = True
+        self._head.clicked.connect(self._on_head_clicked)
+        self._content = QWidget()
+
+        box = QVBoxLayout(self)
+        box.setContentsMargins(0, 0, 0, 0)
+        box.addWidget(self._head)
+        box.addWidget(self._content)
+
+    def _on_head_clicked(self):
+        self._open = not self._open
+        self._head.setArrowType(Qt.DownArrow if self._open else Qt.RightArrow)
+        self._content.setVisible(self._open)
+
+    # A hidden widget drops out of the layout's size negotiation, so a
+    # fold would narrow the box to its header and shift the panel width
+    # with it.  Folding may only give back height: both hints keep
+    # answering for the content's width while it is hidden.
+
+    def sizeHint(self):
+        hint = super().sizeHint()
+        hint.setWidth(max(hint.width(), self._content.sizeHint().width()))
+        return hint
+
+    def minimumSizeHint(self):
+        hint = super().minimumSizeHint()
+        hint.setWidth(max(hint.width(),
+                          self._content.minimumSizeHint().width()))
+        return hint
+
+
+class FreeStreamBox(FoldBox):
     """The upstream state and the incident shock; read once at Start."""
 
     def __init__(self, parent=None):
         super().__init__("Free stream", parent)
-        self.setFlat(True)
         self._gamma = _spin(1.4, 1.01, 3.0, 0.01, 3)
         self._density = _spin(1.0, 1e-3, 1e6, 0.1, 3)
         self._pressure = _spin(1.0, 1e-3, 1e6, 0.1, 3)
@@ -69,7 +140,7 @@ class FreeStreamBox(QGroupBox):
         self._angle = _spin(10.0, 0.5, 45.0, 0.5, 2)
         self._angle.setSuffix(" deg")
 
-        form = QFormLayout(self)
+        form = QFormLayout(self._content)
         form.addRow("gamma", self._gamma)
         form.addRow("density", self._density)
         form.addRow("pressure", self._pressure)
@@ -84,7 +155,7 @@ class FreeStreamBox(QGroupBox):
                     angle=self._angle.value())
 
 
-class NumericsBox(QGroupBox):
+class NumericsBox(FoldBox):
     """The discretization of a run; read once at Start."""
 
     #: Mesh flavors offered by :mod:`._driver`, the first being the default.
@@ -92,12 +163,11 @@ class NumericsBox(QGroupBox):
 
     def __init__(self, parent=None):
         super().__init__("Numerics", parent)
-        self.setFlat(True)
         self._dt = _spin(2e-3, 1e-6, 1.0, 1e-3, 6)
         self._cell_type = QComboBox()
         self._cell_type.addItems(self.CELL_TYPES)
 
-        form = QFormLayout(self)
+        form = QFormLayout(self._content)
         form.addRow("time step", self._dt)
         form.addRow("cell type", self._cell_type)
 
@@ -106,7 +176,7 @@ class NumericsBox(QGroupBox):
                     cell_type=self._cell_type.currentText())
 
 
-class RunBox(QGroupBox):
+class RunBox(FoldBox):
     """The march controls and the live march readout, kept side by side.
 
     The readout is the run's own progress: how far the march has come of
@@ -114,17 +184,19 @@ class RunBox(QGroupBox):
     holds, which the inflow and the outflow move as the flow develops.
     """
 
-    #: What a :attr:`ReflectionSession.stop_reason` reads as in the readout.
-    RUN_STATES = {None: "running", 'cap': "step cap", 'stopped': "stopped"}
+    #: What ended a run reads as in the state cell; a live run reads as
+    #: "running" or "paused" from the Pause button instead.
+    STOP_STATES = {'cap': "step cap", 'stopped': "stopped"}
 
     def __init__(self, parent=None):
         super().__init__("Run", parent)
-        self.setFlat(True)
         # Owner-supplied callbacks that drive the solver from the controls.
         self.viewer_toggled = None
         self.start_requested = None
         self.pause_toggled = None
         self.step_requested = None
+        self._paused = False
+        self._live = False
 
         self._steps = QSpinBox()
         self._steps.setRange(1, 1000)
@@ -134,6 +206,7 @@ class RunBox(QGroupBox):
         self._viewer_btn = QPushButton("Open viewer")
         self._viewer_btn.setCheckable(True)
         self._viewer_btn.toggled.connect(self._on_viewer_toggled)
+        _reserve_width(self._viewer_btn, ("Open viewer", "Close viewer"))
 
         self._start = QPushButton("Start")
         self._start.clicked.connect(self._on_start_clicked)
@@ -142,6 +215,7 @@ class RunBox(QGroupBox):
         self._pause.toggled.connect(self._on_pause_toggled)
         self._step = QPushButton("Step")
         self._step.clicked.connect(self._on_step_clicked)
+        _reserve_width(self._pause, ("Pause", "Resume"))
         # Disabled, not hidden, until a run exists to pause or step.
         self._pause.setEnabled(False)
         self._step.setEnabled(False)
@@ -154,7 +228,7 @@ class RunBox(QGroupBox):
         self._state = _value_label()
         self._mass = _value_label()
 
-        form = QFormLayout(self)
+        form = QFormLayout(self._content)
         form.addRow("steps/frame", self._steps)
         form.addRow(self._viewer_btn)
         form.addRow(buttons)
@@ -169,8 +243,17 @@ class RunBox(QGroupBox):
         """Reflect the run state in the Pause button without re-firing it."""
         self._pause.blockSignals(True)
         self._pause.setChecked(paused)
-        self._pause.setText("Resume" if paused else "Pause")
         self._pause.blockSignals(False)
+        self._show_paused(paused)
+
+    def _show_paused(self, paused):
+        """Carry the pause into the button text and, while a live run is
+        showing, into the state cell, which no frame redraws on a pause
+        because pausing stops the frames."""
+        self._paused = paused
+        self._pause.setText("Resume" if paused else "Pause")
+        if self._live:
+            self._state.setText("paused" if paused else "running")
 
     def set_viewer_open(self, open_):
         """Reflect the viewer state in its button without re-firing it."""
@@ -182,12 +265,18 @@ class RunBox(QGroupBox):
     def show_run(self, session):
         """Read the march progress of one run, or the lack of a run."""
         if None is session:
+            self._live = False
             self._progress.setText("-")
             self._state.setText("not started")
             self._mass.setText("-")
             return
+        self._live = session.stop_reason is None
+        if self._live:
+            state = "paused" if self._paused else "running"
+        else:
+            state = self.STOP_STATES[session.stop_reason]
         self._progress.setText(f"{session.step} / {session.max_steps}")
-        self._state.setText(self.RUN_STATES[session.stop_reason])
+        self._state.setText(state)
         last = session.history.last
         self._mass.setText("-" if last is None else _number(last.mass))
         self._pause.setEnabled(True)
@@ -203,7 +292,7 @@ class RunBox(QGroupBox):
             self.start_requested()
 
     def _on_pause_toggled(self, paused):
-        self._pause.setText("Resume" if paused else "Pause")
+        self._show_paused(paused)
         if self.pause_toggled is not None:
             self.pause_toggled(paused)
 
@@ -212,7 +301,7 @@ class RunBox(QGroupBox):
             self.step_requested()
 
 
-class FieldBox(QGroupBox):
+class FieldBox(FoldBox):
     """Which derived field the viewer colors, and the range it spans."""
 
     #: Derived scalar fields the viewer can color, in display order.
@@ -220,7 +309,6 @@ class FieldBox(QGroupBox):
 
     def __init__(self, parent=None):
         super().__init__("Field", parent)
-        self.setFlat(True)
         self.field_changed = None
         self._selector = QComboBox()
         self._selector.addItems(self.FIELDS)
@@ -228,7 +316,7 @@ class FieldBox(QGroupBox):
         self._min = _value_label()
         self._max = _value_label()
 
-        form = QFormLayout(self)
+        form = QFormLayout(self._content)
         form.addRow("field", self._selector)
         form.addRow("min", self._min)
         form.addRow("max", self._max)
@@ -245,7 +333,7 @@ class FieldBox(QGroupBox):
             self.field_changed(name)
 
 
-class ZoneBox(QGroupBox):
+class ZoneBox(FoldBox):
     """The per-zone readout that judges the run.
 
     Each zone carries its analytic value beside the computed one, so the
@@ -259,8 +347,7 @@ class ZoneBox(QGroupBox):
 
     def __init__(self, parent=None):
         super().__init__("Zones", parent)
-        self.setFlat(True)
-        self._grid = QGridLayout(self)
+        self._grid = QGridLayout(self._content)
         for col, text in enumerate(self.HEADERS):
             label = QLabel(text)
             font = label.font()
@@ -292,12 +379,15 @@ class ZoneBox(QGroupBox):
             row[3].setText(error)
 
 
-class SolutionPanel(QWidget):
+class SolutionPanel(QScrollArea):
     """Widget with the solver controls and a live solution-field readout.
 
     The panel is pure composition: it stacks the boxes and forwards their
     callbacks and accessors as one flat surface, so the controller and the
-    tests see a single widget while every box stays its own concern.
+    tests see a single widget while every box stays its own concern.  The
+    stack scrolls vertically when the dock stands shorter than the boxes,
+    so nothing is ever cut off; it never scrolls sideways, and the dock
+    cannot be squeezed below the width the form needs.
     """
 
     def __init__(self, parent=None):
@@ -307,13 +397,20 @@ class SolutionPanel(QWidget):
         self._run = RunBox()
         self._field = FieldBox()
         self._zones = ZoneBox()
+        self._boxes = (self._freestream, self._numerics, self._run,
+                       self._field, self._zones)
 
-        layout = QVBoxLayout(self)
+        inner = QWidget()
+        layout = QVBoxLayout(inner)
         layout.setContentsMargins(4, 4, 4, 4)
-        for box in (self._freestream, self._numerics, self._run, self._field,
-                    self._zones):
+        for box in self._boxes:
             layout.addWidget(box)
         layout.addStretch(1)
+        self.setWidget(inner)
+        self.setWidgetResizable(True)
+        self.setFrameShape(QFrame.NoFrame)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setMinimumWidth(inner.minimumSizeHint().width())
         self.set_status(None, None, None)
 
     @property
