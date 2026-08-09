@@ -178,19 +178,15 @@ class Reflection(object):
                 core.Point3dFp64(head[0], head[1], 0.0),
                 core.Point3dFp64(tail[0], tail[1], 0.0)))
 
-    # TODO: SegmentPad has no __getitem__, so an arm is taken with get_at.
-    # Indexing would read as the container it is, and a slice would hand a
-    # plot the arms it wants without a loop.
-
     @property
     def incident(self):
         """The segment the incident shock runs along."""
-        return self.arms.get_at(0)
+        return self.arms[0]
 
     @property
     def reflected(self):
         """The segment the reflected shock runs along, or None."""
-        return self.arms.get_at(1) if self.has_reflection else None
+        return self.arms[1] if self.has_reflection else None
 
     @staticmethod
     def _relative(value, target):

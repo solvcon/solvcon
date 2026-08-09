@@ -580,6 +580,74 @@ class SegmentPadTB(testing.TestBase):
         self.assert_allclose(list(sp.y1), list(sp.p1.y))
         self.assert_allclose(list(sp.z1), list(sp.p1.z))
 
+    def test_getitem_index(self):
+        sp = self.SegmentPad(ndim=2)
+        for it in range(4):
+            sp.append(float(it), 0.0, float(it) + 1, 1.0)
+
+        self.assert_allclose(list(sp[0]), [[0, 0, 0], [1, 1, 0]])
+        self.assertEqual(sp[-1], sp[3])
+        self.assertEqual(sp[-4], sp[0])
+
+        with self.assertRaisesRegex(
+                IndexError,
+                "SegmentPad: index 4 is out of bounds with size 4"):
+            sp[4]
+        with self.assertRaisesRegex(
+                IndexError,
+                "SegmentPad: index -5 is out of bounds with size 4"):
+            sp[-5]
+
+        empty = self.SegmentPad(ndim=3)
+        with self.assertRaisesRegex(
+                IndexError,
+                "SegmentPad: index 0 is out of bounds with size 0"):
+            empty[0]
+        with self.assertRaisesRegex(
+                IndexError,
+                "SegmentPad: index -1 is out of bounds with size 0"):
+            empty[-1]
+
+    def test_getitem_slice(self):
+        sp = self.SegmentPad(ndim=3)
+        for it in range(4):
+            sp.append(float(it), 0.0, 0.0, float(it) + 1, 1.0, 1.0)
+
+        full = sp[:]
+        self.assertIsInstance(full, type(sp))
+        self.assertEqual(full.ndim, 3)
+        self.assertEqual(len(full), 4)
+        for it in range(4):
+            self.assertEqual(full[it], sp[it])
+
+        strided = sp[1::2]
+        self.assertEqual(strided.ndim, 3)
+        self.assertEqual(len(strided), 2)
+        self.assertEqual(strided[0], sp[1])
+        self.assertEqual(strided[1], sp[3])
+
+        flipped = sp[::-1]
+        self.assert_allclose(list(flipped.x0), [3, 2, 1, 0])
+
+        # A slice copies, so writing to it leaves the source alone.
+        part = sp[1:3]
+        part.set_at(0, -1.0, -2.0, -3.0, -4.0, -5.0, -6.0)
+        self.assert_allclose(part.x0_at(0), -1.0)
+        self.assert_allclose(sp.x0_at(1), 1.0)
+
+        # A 2D pad keeps its dimensionality and its empty z arrays.
+        sp2d = self.SegmentPad(ndim=2)
+        sp2d.append(1.0, 2.0, 3.0, 4.0)
+        sliced2d = sp2d[:]
+        self.assertEqual(sliced2d.ndim, 2)
+        self.assertEqual(len(sliced2d.z0), 0)
+        self.assertEqual(sliced2d[0], sp2d[0])
+
+        empty = self.SegmentPad(ndim=3)
+        self.assertEqual(len(empty[:]), 0)
+        self.assertEqual(empty[:].ndim, 3)
+        self.assertEqual(len(sp[3:1]), 0)
+
     def test_mirror_2d(self):
         SegmentPad = self.SegmentPad
 
@@ -910,6 +978,85 @@ class CurvePadTB(testing.TestBase):
                              [6.370370370370371, 0.6666666666666667, 0.0])
         self.assert_allclose(list(sp[9].p1),
                              [7.0, 0.0, 0.0])
+
+    def _make_curve_pad(self, ndim, ncurve):
+        cp = self.CurvePad(ndim=ndim)
+        for it in range(ncurve):
+            cp.append(self.Point(it, 0, 0), self.Point(it, 1, 0),
+                      self.Point(it, 2, 0), self.Point(it, 3, 0))
+        return cp
+
+    def test_getitem_index(self):
+        cp = self._make_curve_pad(2, 4)
+
+        self.assert_allclose(list(cp[0][0]), [0, 0, 0])
+        self.assertEqual(cp[-1], cp[3])
+        self.assertEqual(cp[-4], cp[0])
+
+        with self.assertRaisesRegex(
+                IndexError, "CurvePad: index 4 is out of bounds with size 4"):
+            cp[4]
+        with self.assertRaisesRegex(
+                IndexError, "CurvePad: index -5 is out of bounds with size 4"):
+            cp[-5]
+
+        empty = self.CurvePad(ndim=3)
+        with self.assertRaisesRegex(
+                IndexError, "CurvePad: index 0 is out of bounds with size 0"):
+            empty[0]
+        with self.assertRaisesRegex(
+                IndexError, "CurvePad: index -1 is out of bounds with size 0"):
+            empty[-1]
+
+    def test_setitem_index(self):
+        Point = self.Point
+        cp = self._make_curve_pad(3, 4)
+
+        c = self.Bezier(Point(9, 0, 0), Point(9, 1, 0),
+                        Point(9, 2, 0), Point(9, 3, 0))
+        cp[-1] = c
+        self.assertEqual(cp[3], c)
+
+        with self.assertRaisesRegex(
+                IndexError, "CurvePad: index -5 is out of bounds with size 4"):
+            cp[-5] = c
+
+    def test_getitem_slice(self):
+        cp = self._make_curve_pad(3, 4)
+
+        full = cp[:]
+        self.assertIsInstance(full, type(cp))
+        self.assertEqual(full.ndim, 3)
+        self.assertEqual(len(full), 4)
+        for it in range(4):
+            self.assertEqual(full[it], cp[it])
+
+        strided = cp[1::2]
+        self.assertEqual(strided.ndim, 3)
+        self.assertEqual(len(strided), 2)
+        self.assertEqual(strided[0], cp[1])
+        self.assertEqual(strided[1], cp[3])
+
+        flipped = cp[::-1]
+        self.assert_allclose(list(flipped.x0), [3, 2, 1, 0])
+
+        # A slice copies, so writing to it leaves the source alone.
+        part = cp[1:3]
+        part[0] = cp[0]
+        self.assertEqual(part[0], cp[0])
+        self.assert_allclose(cp.x0_at(1), 1.0)
+
+        # A 2D pad keeps its dimensionality and its empty z arrays.
+        cp2d = self._make_curve_pad(2, 1)
+        sliced2d = cp2d[:]
+        self.assertEqual(sliced2d.ndim, 2)
+        self.assertEqual(len(sliced2d.z0), 0)
+        self.assertEqual(sliced2d[0], cp2d[0])
+
+        empty = self.CurvePad(ndim=3)
+        self.assertEqual(len(empty[:]), 0)
+        self.assertEqual(empty[:].ndim, 3)
+        self.assertEqual(len(cp[3:1]), 0)
 
     def test_mirror(self):
         CurvePad = self.CurvePad

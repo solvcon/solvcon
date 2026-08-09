@@ -454,6 +454,71 @@ class PointPadTB(testing.TestBase):
         self.assert_allclose(pp.z_at(1), 8.23)
         self.assert_allclose(pp.z_at(2), 3.3 * 5.1)
 
+    def test_getitem_index(self):
+        pp = self.PointPad(ndim=2)
+        for it in range(4):
+            pp.append(float(it), float(it) * 10)
+
+        self.assert_allclose(list(pp[0]), (0, 0, 0))
+        self.assert_allclose(list(pp[-1]), (3, 30, 0))
+        self.assert_allclose(list(pp[-4]), (0, 0, 0))
+
+        with self.assertRaisesRegex(
+                IndexError, "PointPad: index 4 is out of bounds with size 4"):
+            pp[4]
+        with self.assertRaisesRegex(
+                IndexError, "PointPad: index -5 is out of bounds with size 4"):
+            pp[-5]
+
+        empty = self.PointPad(ndim=3)
+        with self.assertRaisesRegex(
+                IndexError, "PointPad: index 0 is out of bounds with size 0"):
+            empty[0]
+        with self.assertRaisesRegex(
+                IndexError, "PointPad: index -1 is out of bounds with size 0"):
+            empty[-1]
+
+    def test_getitem_slice(self):
+        pp = self.PointPad(ndim=3)
+        for it in range(4):
+            pp.append(float(it), float(it) * 10, float(it) * 100)
+
+        full = pp[:]
+        self.assertIsInstance(full, type(pp))
+        self.assertEqual(full.ndim, 3)
+        self.assertEqual(len(full), 4)
+        self.assert_allclose(full.x, [0, 1, 2, 3])
+        self.assert_allclose(full.y, [0, 10, 20, 30])
+        self.assert_allclose(full.z, [0, 100, 200, 300])
+
+        strided = pp[1::2]
+        self.assertEqual(strided.ndim, 3)
+        self.assert_allclose(strided.x, [1, 3])
+        self.assert_allclose(strided.y, [10, 30])
+        self.assert_allclose(strided.z, [100, 300])
+
+        flipped = pp[::-1]
+        self.assert_allclose(flipped.x, [3, 2, 1, 0])
+
+        # A slice copies, so writing to it leaves the source alone.
+        part = pp[1:3]
+        part.set_at(0, -1.0, -2.0, -3.0)
+        self.assert_allclose(list(part[0]), (-1, -2, -3))
+        self.assert_allclose(list(pp[1]), (1, 10, 100))
+
+        # A 2D pad keeps its dimensionality and its empty z array.
+        pp2d = self.PointPad(ndim=2)
+        pp2d.append(1.0, 2.0)
+        sliced2d = pp2d[:]
+        self.assertEqual(sliced2d.ndim, 2)
+        self.assertEqual(len(sliced2d.z), 0)
+        self.assert_allclose(list(sliced2d[0]), (1, 2, 0))
+
+        empty = self.PointPad(ndim=3)
+        self.assertEqual(len(empty[:]), 0)
+        self.assertEqual(empty[:].ndim, 3)
+        self.assertEqual(len(pp[3:1]), 0)
+
     def test_mirror_2d(self):
         PointPad = self.PointPad
 
