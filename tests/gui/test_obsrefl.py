@@ -34,22 +34,16 @@ class ObliqueShockAppTC(unittest.TestCase):
         return feature
 
     @staticmethod
-    def _items(feature):
-        tree = feature._panel._tree
-        return [tree.topLevelItem(it)
-                for it in range(tree.topLevelItemCount())]
-
-    @classmethod
-    def _status(cls, feature):
-        """The status tree's value column, as ``{label: value}``."""
-        return {item.text(0): item.text(1) for item in cls._items(feature)}
+    def _status(feature):
+        """The run readout of the panel, as ``{label: text}``."""
+        run = feature._panel._run
+        return {"step": run._progress.text(), "state": run._state.text()}
 
     def test_panel_starts_paused_without_session(self):
         feature = self._feature()
-        # Before Start there is no run, and the status tree says so.
+        # Before Start there is no run, and the readout says so.
         self.assertIsNone(feature._control.session)
-        root = feature._panel._tree.topLevelItem(0)
-        self.assertIn("not started", root.text(0))
+        self.assertEqual("not started", self._status(feature)["state"])
 
     def test_start_builds_session_and_viewer(self):
         feature = self._feature()
@@ -61,7 +55,8 @@ class ObliqueShockAppTC(unittest.TestCase):
         self.assertEqual(feature._control.session.step, 0)
         self.assertEqual(feature._control.session.shock.mach, 2.5)
         self.assertIsNotNone(self.mgr.currentR3DWidget())
-        self.assertEqual("0", self._status(feature)["step"])
+        self.assertEqual(f"0 / {feature._control.session.max_steps}",
+                         self._status(feature)["step"])
 
     def test_start_sets_viewer_mesh_for_inspector(self):
         feature = self._feature()
@@ -93,8 +88,9 @@ class ObliqueShockAppTC(unittest.TestCase):
         feature._control._on_step()
         self.assertEqual(feature._control.session.step, 3)
         status = self._status(feature)
-        self.assertEqual("3", status["step"])
-        self.assertEqual("running", status["run"])
+        self.assertEqual(f"3 / {feature._control.session.max_steps}",
+                         status["step"])
+        self.assertEqual("running", status["state"])
 
     def test_the_frame_timer_follows_the_session_to_its_end(self):
         feature = self._feature()
@@ -106,7 +102,7 @@ class ObliqueShockAppTC(unittest.TestCase):
         self.assertFalse(feature._control._timer.isActive())
         self.assertTrue(feature._panel._run._pause.isChecked())
         feature._control._draw_frame()
-        self.assertEqual("stopped", self._status(feature)["run"])
+        self.assertEqual("stopped", self._status(feature)["state"])
         QApplication.processEvents()
 
     def test_pause_toggle_controls_timer(self):
@@ -124,10 +120,10 @@ class ObliqueShockAppTC(unittest.TestCase):
         feature._control._timer.stop()
         feature._panel._run._pause.setChecked(True)
         step = feature._control.session.step
-        feature._panel._field.setCurrentText('pressure')
+        feature._panel._field._selector.setCurrentText('pressure')
         # Picking a field recolors the current frame; it must not march.
         self.assertEqual(feature._control.session.step, step)
-        self.assertEqual("pressure", self._status(feature)["field"])
+        self.assertEqual("pressure", feature._panel.field())
 
     def test_viewer_button_opens_and_closes_subwindow(self):
         feature = self._feature()
