@@ -107,13 +107,12 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArray
             .def("__len__", &wrapped_type::size)
             .def(
                 "__getitem__",
-                [](wrapped_type const & self, ssize_t key)
-                { return self.at(key); })
+                [](wrapped_type & self, py::object const & key)
+                { return property_helper(self).getitem(key); })
             .def(
-                "__getitem__",
-                [](wrapped_type const & self, std::vector<ssize_t> const & key)
-                { return self.at(key); })
-            .def("__setitem__", &property_helper::setitem_parser)
+                "__setitem__",
+                [](wrapped_type & self, py::object const & key, py::object const & value)
+                { property_helper(self).setitem(key, value); })
             .def(
                 "reshape",
                 [](wrapped_type const & self, py::object const & shape)

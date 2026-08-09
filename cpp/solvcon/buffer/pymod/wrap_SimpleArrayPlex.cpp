@@ -119,42 +119,6 @@ static void verify_python_value_datatype(pybind11::object const & value, DataTyp
     }
 }
 
-/// Get the typed array value by the key
-/// @tparam T the type of the key
-template <typename T>
-// NOLINTNEXTLINE(misc-use-anonymous-namespace)
-static pybind11::object get_typed_array_value(const SimpleArrayPlex & array_plex, T key)
-{
-#define SC_DECL_GET_TYPED_ARRAY_VALUE_BY_INDEX(DataType, ArrayType)                     \
-    case DataType:                                                                      \
-    {                                                                                   \
-        const auto * array = static_cast<const ArrayType *>(array_plex.instance_ptr()); \
-        return pybind11::cast(array->at(key));                                          \
-    }
-
-    switch (array_plex.data_type())
-    {
-        SC_DECL_GET_TYPED_ARRAY_VALUE_BY_INDEX(DataType::Bool, SimpleArrayBool)
-        SC_DECL_GET_TYPED_ARRAY_VALUE_BY_INDEX(DataType::Int8, SimpleArrayInt8)
-        SC_DECL_GET_TYPED_ARRAY_VALUE_BY_INDEX(DataType::Int16, SimpleArrayInt16)
-        SC_DECL_GET_TYPED_ARRAY_VALUE_BY_INDEX(DataType::Int32, SimpleArrayInt32)
-        SC_DECL_GET_TYPED_ARRAY_VALUE_BY_INDEX(DataType::Int64, SimpleArrayInt64)
-        SC_DECL_GET_TYPED_ARRAY_VALUE_BY_INDEX(DataType::Uint8, SimpleArrayUint8)
-        SC_DECL_GET_TYPED_ARRAY_VALUE_BY_INDEX(DataType::Uint16, SimpleArrayUint16)
-        SC_DECL_GET_TYPED_ARRAY_VALUE_BY_INDEX(DataType::Uint32, SimpleArrayUint32)
-        SC_DECL_GET_TYPED_ARRAY_VALUE_BY_INDEX(DataType::Uint64, SimpleArrayUint64)
-        SC_DECL_GET_TYPED_ARRAY_VALUE_BY_INDEX(DataType::Float32, SimpleArrayFloat32)
-        SC_DECL_GET_TYPED_ARRAY_VALUE_BY_INDEX(DataType::Float64, SimpleArrayFloat64)
-        SC_DECL_GET_TYPED_ARRAY_VALUE_BY_INDEX(DataType::Complex64, SimpleArrayComplex64)
-        SC_DECL_GET_TYPED_ARRAY_VALUE_BY_INDEX(DataType::Complex128, SimpleArrayComplex128)
-    default:
-    {
-        throw std::runtime_error("Unsupported datatype");
-    }
-    }
-#undef SC_DECL_GET_TYPED_ARRAY_VALUE_BY_INDEX
-}
-
 /// Get the typed array from the arrayplex
 // NOLINTNEXTLINE(misc-use-anonymous-namespace)
 static pybind11::object get_typed_array(const SimpleArrayPlex & array_plex)
@@ -294,17 +258,35 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArrayPlex : public WrapBase<Wr
                         });
                 })
             .def("__len__", SC_DECL_EXECUTE_TYPED_ARRAY_METHOD(size))
-            .def("__getitem__", &get_typed_array_value<ssize_t>)
-            .def("__getitem__", &get_typed_array_value<const std::vector<ssize_t> &>)
+            .def("__getitem__",
+                 [](wrapped_type & self, pybind11::object const & key)
+                 {
+                     return execute_callback_with_typed_array(
+                         self,
+                         // NOLINTNEXTLINE(fuchsia-trailing-return)
+                         [&key](auto & array) -> pybind11::object
+                         {
+                             using data_type = typename std::remove_reference_t<decltype(array[0])>;
+                             using helper_type = ArrayPropertyHelper<data_type>;
+                             const helper_type helper(array);
+                             // A region read must stay dtype-erased, and it must keep
+                             // sharing the buffer, so the view is adopted rather than copied.
+                             if (helper_type::is_region_key(key))
+                             {
+                                 return pybind11::cast(SimpleArrayPlex::adopt(helper.slice(key)));
+                             }
+                             return helper.getitem(key);
+                         });
+                 })
             .def("__setitem__",
-                 [](wrapped_type & self, pybind11::args const & args)
+                 [](wrapped_type & self, pybind11::object const & key, pybind11::object const & value)
                  {
                      execute_callback_with_typed_array(
                          self,
-                         [&args](auto & array)
+                         [&key, &value](auto & array)
                          {
                              using data_type = typename std::remove_reference_t<decltype(array[0])>;
-                             ArrayPropertyHelper<data_type>::setitem_parser(array, args);
+                             ArrayPropertyHelper<data_type>(array).setitem(key, value);
                          });
                  })
             .def("reshape", [](wrapped_type const & self, pybind11::object const & py_shape)
