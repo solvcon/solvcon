@@ -81,14 +81,14 @@ def _run_pytest(extra_args=None):
     # solvcon.
     import pytest
     import shlex
-    mmpath = os.path.join(os.path.dirname(solvcon.__file__), '..', 'tests')
-    mmpath = os.path.abspath(mmpath)
+    testpath = os.path.join(os.path.dirname(solvcon.__file__), '..', 'tests')
+    testpath = os.path.abspath(testpath)
     if extra_args:
         opts = list(extra_args)
     else:
         env_opts = os.environ.get('PYTEST_OPTS', '')
         opts = shlex.split(env_opts) if env_opts else ['-v', '-x']
-    return pytest.main(opts + [mmpath])
+    return pytest.main(opts + [testpath])
 
 
 def setup_process(argv):
