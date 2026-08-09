@@ -1,0 +1,54 @@
+name: cache cleanup
+
+on:
+  schedule:
+    # Run daily, after the nightly jobs have saved the generation to keep.
+    - cron: '41 5 * * *'
+  workflow_dispatch:
+    inputs:
+      keep:
+        description: 'Generations to keep per cache lineage'
+        default: '1'
+      dry_run:
+        description: 'List what would be deleted without deleting it'
+        type: boolean
+        default: false
+
+concurrency:
+  group: cache-cleanup
+  cancel-in-progress: false
+
+permissions:
+  # An explicit block sets every unlisted scope to none, so the checkout
+  # needs contents spelled out alongside the cache deletion.
+  actions: write
+  contents: read
+
+jobs:
+
+  prune:
+
+    # A fork carries its own cache quota but nothing there needs a scheduled
+    # sweep, so leave the cron to the upstream repository. A fork that wants
+    # one runs this by hand.
+    if: github.event_name == 'workflow_dispatch' || github.event.repository.fork == false
+
+    runs-on: ubuntu-24.04
+
+    timeout-minutes: 15
+
+    steps:
+
+      # A full tree costs more than the sweep itself, so take the one script
+      # and nothing else. Cone mode matches directories, not files, hence off.
+      - uses: actions/checkout@v6
+        with:
+          sparse-checkout: contrib/ci/prune-caches.sh
+          sparse-checkout-cone-mode: false
+
+      - name: Delete superseded cache generations
+        env:
+          GH_TOKEN: ${{ github.token }}
+          KEEP: ${{ inputs.keep || '1' }}
+          DRY_RUN: ${{ inputs.dry_run || 'false' }}
+        run: contrib/ci/prune-caches.sh
