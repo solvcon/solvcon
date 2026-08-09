@@ -67,6 +67,59 @@ class StatusReadoutTC(unittest.TestCase):
         self.assertEqual(_panel._number(sess.history.last.mass),
                          panel._run._mass.text())
 
+    def test_pausing_names_the_state(self):
+        panel, _, _, _ = self._filled()
+        panel.set_paused(True)
+        self.assertEqual("paused", panel._run._state.text())
+        panel.set_paused(False)
+        self.assertEqual("running", panel._run._state.text())
+
+    def test_pausing_does_not_rename_a_finished_state(self):
+        # What ended a run outranks the Pause button, which the controller
+        # checks when the march reaches its end.
+        panel, sess, vmin, vmax = self._filled()
+        sess.stop()
+        panel.set_status(sess, vmin, vmax)
+        panel.set_paused(True)
+        self.assertEqual("stopped", panel._run._state.text())
+
+    def test_folding_keeps_the_box_width(self):
+        # Folding gives back height only; a fold that narrowed the box
+        # would shift the width of the whole panel.
+        panel = SolutionPanel()
+        for box in panel._boxes:
+            unfolded = (box.minimumSizeHint().width(), box.sizeHint().width())
+            box._head.click()
+            folded = (box.minimumSizeHint().width(), box.sizeHint().width())
+            box._head.click()
+            self.assertEqual(unfolded, folded)
+
+    def test_every_box_folds_and_unfolds(self):
+        # A folded section keeps its header and hides its content, giving
+        # the room back to the boxes below it.
+        panel = SolutionPanel()
+        for box in panel._boxes:
+            self.assertTrue(box._content.isVisibleTo(panel))
+            box._head.click()
+            self.assertFalse(box._content.isVisibleTo(panel))
+            box._head.click()
+            self.assertTrue(box._content.isVisibleTo(panel))
+
+    def test_swapped_button_labels_keep_their_width(self):
+        # The Pause and viewer buttons swap labels; the reserved minimum
+        # holds the widest, so a click cannot resize the button, and with
+        # it the panel.
+        panel = SolutionPanel()
+        run = panel._run
+        for paused in (True, False):
+            panel.set_paused(paused)
+            self.assertLessEqual(run._pause.sizeHint().width(),
+                                 run._pause.minimumWidth())
+        for open_ in (True, False):
+            panel.set_viewer_open(open_)
+            self.assertLessEqual(run._viewer_btn.sizeHint().width(),
+                                 run._viewer_btn.minimumWidth())
+
     def test_the_field_box_shows_the_drawn_range(self):
         panel, _, vmin, vmax = self._filled()
         self.assertEqual(_panel._number(vmin), panel._field._min.text())
