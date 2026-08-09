@@ -7,7 +7,7 @@ echo "gcc path: $(which gcc)"
 echo "gcc version: $(gcc --version)"
 echo "g++ path: $(which g++ 2>/dev/null || echo not-installed)"
 echo "g++ version: $(g++ --version 2>/dev/null | head -1 || echo not-installed)"
-# modmesh's SimpleArray.hpp needs C++23 <mdspan> (GCC >= 14); flag a compiler
+# solvcon's SimpleArray.hpp needs C++23 <mdspan> (GCC >= 14); flag a compiler
 # too old to build it before the build itself does.
 echo "C++23 <mdspan>: $(echo '#include <mdspan>' \
   | ${CXX:-g++} -std=c++23 -x c++ -fsyntax-only - 2>/dev/null \
