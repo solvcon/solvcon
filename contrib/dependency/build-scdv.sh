@@ -948,21 +948,9 @@ else
     ubuntu:x86_64|macos:arm64)
       ;;
 
-    ubuntu:arm64)
+    ubuntu:aarch64)
       echo "warning: some build settings currently assume x86_64 and" \
-           "may not work correctly on ubuntu/arm64." >&2
-
-      if ! { : </dev/tty ; } 2>/dev/null ; then
-        echo "no controlling tty to confirm; rerun on a supported" \
-             "OS/architecture." >&2
-        exit 1
-      fi
-
-      read -r -p "Continue anyway? [y/N] " _ans </dev/tty
-      case "${_ans}" in
-        [Yy]*) ;;
-        *) echo "aborted." >&2 ; exit 1 ;;
-      esac
+          "may not work correctly on ubuntu/aarch64." >&2
       ;;
 
     macos:x86_64)
