@@ -53,7 +53,7 @@ class ObliqueShockAppTC(unittest.TestCase):
 
     def test_start_builds_session_and_viewer(self):
         feature = self._feature()
-        feature._panel._mach.setValue(2.5)
+        feature._panel._freestream._mach.setValue(2.5)
         feature._control.start()
         # Stop the timer so the heavy march does not run during the test.
         feature._control._timer.stop()
@@ -78,7 +78,7 @@ class ObliqueShockAppTC(unittest.TestCase):
         feature.viewer_updated = lambda: calls.append(1)
         # Opening the viewer first and then starting reuses it, which raises no
         # sub-window activation, so start must notify the inspector itself.
-        feature._panel._viewer_btn.setChecked(True)
+        feature._panel._run._viewer_btn.setChecked(True)
         feature._control.start()
         feature._control._timer.stop()
         self.assertEqual(len(calls), 1)
@@ -89,7 +89,7 @@ class ObliqueShockAppTC(unittest.TestCase):
         feature._control.start()
         feature._control._timer.stop()
         feature._panel.set_paused(True)
-        feature._panel._steps.setValue(3)
+        feature._panel._run._steps.setValue(3)
         feature._control._on_step()
         self.assertEqual(feature._control.session.step, 3)
         status = self._status(feature)
@@ -104,7 +104,7 @@ class ObliqueShockAppTC(unittest.TestCase):
         feature._control.session.stop()
         feature._control._advance()
         self.assertFalse(feature._control._timer.isActive())
-        self.assertTrue(feature._panel._pause.isChecked())
+        self.assertTrue(feature._panel._run._pause.isChecked())
         feature._control._draw_frame()
         self.assertEqual("stopped", self._status(feature)["run"])
         QApplication.processEvents()
@@ -112,9 +112,9 @@ class ObliqueShockAppTC(unittest.TestCase):
     def test_pause_toggle_controls_timer(self):
         feature = self._feature()
         feature._control.start()
-        feature._panel._pause.setChecked(True)
+        feature._panel._run._pause.setChecked(True)
         self.assertFalse(feature._control._timer.isActive())
-        feature._panel._pause.setChecked(False)
+        feature._panel._run._pause.setChecked(False)
         self.assertTrue(feature._control._timer.isActive())
         feature._control._timer.stop()
 
@@ -122,7 +122,7 @@ class ObliqueShockAppTC(unittest.TestCase):
         feature = self._feature()
         feature._control.start()
         feature._control._timer.stop()
-        feature._panel._pause.setChecked(True)
+        feature._panel._run._pause.setChecked(True)
         step = feature._control.session.step
         feature._panel._field.setCurrentText('pressure')
         # Picking a field recolors the current frame; it must not march.
@@ -131,10 +131,10 @@ class ObliqueShockAppTC(unittest.TestCase):
 
     def test_viewer_button_opens_and_closes_subwindow(self):
         feature = self._feature()
-        feature._panel._viewer_btn.setChecked(True)
+        feature._panel._run._viewer_btn.setChecked(True)
         self.assertTrue(feature._viewer.is_open)
         self.assertIsNotNone(self.mgr.currentR3DWidget())
-        feature._panel._viewer_btn.setChecked(False)
+        feature._panel._run._viewer_btn.setChecked(False)
         self.assertFalse(feature._viewer.is_open)
         QApplication.processEvents()
 
@@ -147,7 +147,7 @@ class ObliqueShockAppTC(unittest.TestCase):
         feature._viewer.close()
         self.assertFalse(feature._viewer.is_open)
         self.assertFalse(feature._control._timer.isActive())
-        self.assertFalse(feature._panel._viewer_btn.isChecked())
+        self.assertFalse(feature._panel._run._viewer_btn.isChecked())
         step = feature._control.session.step
         feature._control._advance()
         feature._control._draw_frame()
@@ -161,7 +161,7 @@ class ObliqueShockAppTC(unittest.TestCase):
         feature._control.start()
         feature._control._timer.stop()
         self.assertTrue(feature._viewer.is_open)
-        self.assertTrue(feature._panel._viewer_btn.isChecked())
+        self.assertTrue(feature._panel._run._viewer_btn.isChecked())
         QApplication.processEvents()
 
 
@@ -180,7 +180,7 @@ class SolutionInspectorTC(unittest.TestCase):
         # Open the viewer first, then start: the reused viewer raises no
         # activation, so only the wired refresh keeps the inspector from
         # standing on "No mesh loaded".
-        sol._panel._viewer_btn.setChecked(True)
+        sol._panel._run._viewer_btn.setChecked(True)
         QApplication.processEvents()
         sol._control.start()
         sol._control._timer.stop()
