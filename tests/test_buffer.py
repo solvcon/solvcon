@@ -2,6 +2,7 @@
 # BSD 3-Clause License, see COPYING
 
 
+import gc
 import operator
 import unittest
 
@@ -1378,6 +1379,151 @@ class SimpleArrayBasicTC(unittest.TestCase):
         sarr[:1, :2] = ((1, 2),)
         self.assertEqual(sarr[0, 0], 1)
         self.assertEqual(sarr[0, 1], 2)
+
+    def test_SimpleArray_getitem_scalar_keys(self):
+        sarr = solvcon.SimpleArrayFloat64((2, 3, 4))
+        sarr[...] = np.arange(24, dtype='float64').reshape((2, 3, 4))
+
+        self.assertEqual(6.0, sarr[0, 1, 2])
+        self.assertEqual(6.0, sarr[[0, 1, 2]])
+        self.assertEqual(6.0, sarr[np.int64(0), 1, 2])
+        self.assertEqual(19.0, sarr[-1, -2, -1])
+
+        flat = solvcon.SimpleArrayFloat64(6)
+        flat[...] = np.arange(6, dtype='float64')
+        self.assertEqual(3.0, flat[3])
+        self.assertEqual(3.0, flat[np.int64(3)])
+
+    def test_SimpleArray_getitem_slice_is_view(self):
+        sarr = solvcon.SimpleArrayFloat64(6)
+        sarr[...] = np.arange(6, dtype='float64')
+
+        sub = sarr[1:4]
+        self.assertEqual((3,), sub.shape)
+        np.testing.assert_array_equal(
+            sub.ndarray, np.arange(1, 4, dtype='float64'))
+
+        sub[0] = 100.0
+        self.assertEqual(100.0, sarr[1])
+        sarr[3] = 200.0
+        self.assertEqual(200.0, sub[2])
+
+    def test_SimpleArray_getitem_slice_steps(self):
+        ndarr = np.arange(6, dtype='float64')
+        sarr = solvcon.SimpleArrayFloat64(array=ndarr)
+
+        for key in (np.s_[::2], np.s_[::-1], np.s_[1:5:2], np.s_[-2:],
+                    np.s_[4:1:-1], np.s_[:], np.s_[...]):
+            with self.subTest(key=key):
+                np.testing.assert_array_equal(
+                    sarr[key].ndarray, ndarr[key])
+
+    def test_SimpleArray_getitem_slice_empty(self):
+        sarr = solvcon.SimpleArrayFloat64(6)
+
+        for key in (np.s_[3:3], np.s_[6:], np.s_[-10::-1]):
+            with self.subTest(key=key):
+                self.assertEqual((0,), sarr[key].shape)
+
+    def test_SimpleArray_getitem_slice_multidimensional(self):
+        ndarr = np.arange(2 * 3 * 4, dtype='float64').reshape((2, 3, 4))
+        sarr = solvcon.SimpleArrayFloat64(array=ndarr)
+
+        keys = (
+            np.index_exp[:, ::2, :],
+            np.index_exp[::-1, ...],
+            np.index_exp[..., ::2],
+            np.index_exp[1:2, ..., 1:3],
+            np.index_exp[...],
+        )
+        for key in keys:
+            with self.subTest(key=key):
+                sub = sarr[key]
+                self.assertEqual(ndarr[key].shape, sub.shape)
+                np.testing.assert_array_equal(sub.ndarray, ndarr[key])
+
+    def test_SimpleArray_getitem_slice_of_slice(self):
+        ndarr = np.arange(12, dtype='float64')
+        sarr = solvcon.SimpleArrayFloat64(array=ndarr)
+
+        sub = sarr[2:10][::3]
+        np.testing.assert_array_equal(sub.ndarray, ndarr[2:10][::3])
+
+        sub[1] = 500.0
+        self.assertEqual(500.0, ndarr[5])
+
+    def test_SimpleArray_getitem_slice_ghost(self):
+        # The read bounds are ghost-shifted the same way the write bounds
+        # are: stop 0 is the ghost region and start 0 is the body.
+        sarr = solvcon.SimpleArrayFloat64(shape=5, value=0.0)
+        sarr.nghost = 2
+        sarr[...] = np.arange(5, dtype='float64')
+
+        np.testing.assert_array_equal(sarr[-2:0].ndarray, [0.0, 1.0])
+        np.testing.assert_array_equal(sarr[:0].ndarray, [0.0, 1.0])
+        np.testing.assert_array_equal(sarr[0:].ndarray, [2.0, 3.0, 4.0])
+        np.testing.assert_array_equal(
+            sarr[...].ndarray, np.arange(5, dtype='float64'))
+
+        body = sarr[0:]
+        self.assertEqual(0, body.nghost)
+        self.assertFalse(body.has_ghost)
+        body[0] = 20.0
+        self.assertEqual(20.0, sarr[0])
+
+    def test_SimpleArray_getitem_slice_ghost_multidimensional(self):
+        sarr = solvcon.SimpleArrayFloat64(shape=(5, 3), value=0.0)
+        sarr.nghost = 2
+        expected = np.arange(15, dtype='float64').reshape((5, 3))
+        sarr[...] = expected
+
+        np.testing.assert_array_equal(sarr[0:, ...].ndarray, expected[2:])
+        np.testing.assert_array_equal(sarr[-2:0, ::2].ndarray,
+                                      expected[0:2, ::2])
+
+    def test_SimpleArray_getitem_slice_of_strided_array(self):
+        base = np.arange(24, dtype='float64').reshape((4, 6))
+        view = base[::2, 1::2]
+        sarr = solvcon.SimpleArrayFloat64(array=view)
+
+        sub = sarr[:, ::-1]
+        np.testing.assert_array_equal(sub.ndarray, view[:, ::-1])
+
+        sub[0, 0] = 300.0
+        self.assertEqual(300.0, base[0, 5])
+
+    def test_SimpleArray_getitem_slice_outlives_source(self):
+        # The view holds the buffer, so releasing the array it was taken
+        # from must not leave it pointing at freed memory.
+        def take_view():
+            sarr = solvcon.SimpleArrayFloat64(
+                array=np.arange(6, dtype='float64'))
+            return sarr[1:4]
+
+        sub = take_view()
+        gc.collect()
+        np.testing.assert_array_equal(
+            sub.ndarray, np.arange(1, 4, dtype='float64'))
+        sub[0] = 42.0
+        self.assertEqual(42.0, sub[0])
+
+    def test_SimpleArray_getitem_unsupported_key(self):
+        sarr = solvcon.SimpleArrayFloat64((2, 3))
+
+        with self.assertRaisesRegex(
+                RuntimeError, r"^syntax error\. dimensions mismatches$"):
+            sarr[:, :, :]
+        with self.assertRaisesRegex(
+                RuntimeError, r"^syntax error\. no more than one ellipsis\.$"):
+            sarr[..., ...]
+        with self.assertRaisesRegex(
+                RuntimeError, r"^unsupported operation\.$"):
+            sarr[0:1, 0]
+        with self.assertRaisesRegex(
+                RuntimeError, r"^unsupported operation\.$"):
+            sarr[None]
+        with self.assertRaisesRegex(ValueError, "slice step cannot be zero"):
+            sarr[::0]
 
     def test_SimpleArray_SimpleArrayPlex_type_switch(self):
         arrayplex_int32 = solvcon.SimpleArray((2, 3, 4), dtype="int32")
@@ -4813,6 +4959,21 @@ class SimpleArrayPlexTC(unittest.TestCase):
         sarr = solvcon.SimpleArray(
             (2, 3, 4), value=magic_number, dtype='float64')
         self.assertEqual(sarr[1, 2, 3], magic_number)
+
+    def test_SimpleArrayPlex_get_item_slice(self):
+        ndarr = np.arange(24, dtype='float64').reshape((2, 3, 4))
+        sarr = solvcon.SimpleArray(array=ndarr)
+
+        sub = sarr[0:1, ::2, ...]
+        self.assertEqual(
+            str(type(sub)), "<class '_solvcon.SimpleArray'>")
+        self.assertEqual((1, 2, 4), sub.shape)
+        np.testing.assert_array_equal(
+            np.array(sub, copy=False), ndarr[0:1, ::2, ...])
+
+        # The dtype-erased read shares memory the same way the typed one does.
+        sub[0, 0, 0] = 400.0
+        self.assertEqual(400.0, ndarr[0, 0, 0])
 
     def test_SimpleArrayPlex_properties(self):
         magic_number = 3.1415
