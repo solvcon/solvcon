@@ -2,7 +2,7 @@ name: cache cleanup
 
 on:
   schedule:
-    # Run daily, after the nightly jobs have saved the generation to keep.
+    # Run daily, after the nightly jobs have saved the generation to keep at 5:41 UTC.
     - cron: '41 5 * * *'
   workflow_dispatch:
     inputs:
@@ -19,10 +19,12 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  # An explicit block sets every unlisted scope to none, so the checkout
-  # needs contents spelled out alongside the cache deletion.
+  # An explicit block sets every unlisted scope to none. The checkout and the
+  # branch probe read contents, the pull request probe reads pull-requests,
+  # and the sweep itself writes actions.
   actions: write
   contents: read
+  pull-requests: read
 
 jobs:
 
@@ -46,7 +48,7 @@ jobs:
           sparse-checkout: contrib/ci/prune-caches.sh
           sparse-checkout-cone-mode: false
 
-      - name: Delete superseded cache generations
+      - name: Delete unrestorable caches
         env:
           GH_TOKEN: ${{ github.token }}
           KEEP: ${{ inputs.keep || '1' }}
