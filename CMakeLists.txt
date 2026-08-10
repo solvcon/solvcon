@@ -380,6 +380,13 @@ if(MSVC)
     set(COMMON_COMPILER_OPTIONS /W4 /bigobj /WX)
 else()
     set(COMMON_COMPILER_OPTIONS -Wall -Wextra)
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        # gcc computes -Wmaybe-uninitialized after inlining, so at -O3 -g it
+        # fires inside pybind11 on a tuple that is in fact initialized, and
+        # -O3 -g is what a bare `make` configures. Demote rather than disable,
+        # so a real uninitialized use still reaches the log.
+        set(COMMON_COMPILER_OPTIONS ${COMMON_COMPILER_OPTIONS} -Wno-error=maybe-uninitialized)
+    endif()
     if(USE_CLANG_TIDY AND LINT_AS_ERRORS)
         message(STATUS "Disable -Werror because clang-tidy (with lint as errors) is enabled")
     else()
