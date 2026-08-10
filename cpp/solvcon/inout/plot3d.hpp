@@ -76,7 +76,6 @@ private:
     SimpleArray<uint_type> m_y_shape;
     SimpleArray<uint_type> m_z_shape;
     SimpleArray<uint_type> m_blk_sizes;
-    /// Exclusive prefix sum of m_blk_sizes: the node-id base of each block.
     SimpleArray<uint_type> m_blk_offsets;
 
     std::unordered_map<uint_type, small_vector<uint_type>> m_elems;
