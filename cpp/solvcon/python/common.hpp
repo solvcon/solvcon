@@ -277,14 +277,12 @@ public:
     >;
     // clang-format on
 
-    template <class... Extra>
-    static wrapper_type & commit(pybind11::module & mod, char const * pyname, char const * pydoc, Extra &&... extra)
+    static wrapper_type & commit(pybind11::module & mod, char const * pyname, char const * pydoc)
     {
-        // The static local is constructed exactly once, on the first call, so
-        // only the first call's pyname/pydoc/extra take effect; later calls
-        // return the already-registered singleton. Existing three-argument call
-        // sites deduce an empty Extra pack and keep working unchanged.
-        static wrapper_type derived(mod, pyname, pydoc, std::forward<Extra>(extra)...);
+        // The static local is constructed exactly once, so only the first
+        // call's pyname and pydoc take effect; later calls return the
+        // already-registered singleton.
+        static wrapper_type derived(mod, pyname, pydoc);
         return derived;
     }
 
