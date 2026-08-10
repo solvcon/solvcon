@@ -568,7 +568,7 @@ template <typename Array>
 std::string MatmulPlan::shape_string(Array const & array)
 {
     std::string result = "(";
-    for (size_t axis = 0; axis < array.ndim(); ++axis)
+    for (ssize_t axis = 0; axis < array.ndim(); ++axis)
     {
         if (axis > 0)
         {
@@ -1183,7 +1183,7 @@ std::string SimpleArrayMatmulHelper<A, T>::shape_str(A const & arr)
     }
 
     std::string result = "(";
-    for (size_t i = 0; i < arr.ndim(); ++i)
+    for (ssize_t i = 0; i < arr.ndim(); ++i)
     {
         if (i > 0)
         {
@@ -1474,3 +1474,5 @@ A SimpleArrayMatmulHelper<A, T>::matmul_mat_mat_tiled()
 } /* end namespace detail */
 
 } /* end namespace solvcon */
+
+// vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

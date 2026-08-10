@@ -21,7 +21,7 @@
 namespace solvcon
 {
 
-void RPythonHistoryTextEdit::mouseDoubleClickEvent(QMouseEvent * mouse_event)
+void RPythonHistoryTextEdit::mouseDoubleClickEvent(QMouseEvent *)
 {
     // TODO: currently, it will select the whole content, could change the behavior
     QTextCursor cursor = textCursor();

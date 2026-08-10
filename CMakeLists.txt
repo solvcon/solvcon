@@ -282,7 +282,9 @@ include_directories(${pybind11_INCLUDE_DIRS})
 
 set(NUMPY_INCLUDE_DIR "${Python_NumPy_INCLUDE_DIRS}")
 message(STATUS "NUMPY_INCLUDE_DIR: ${NUMPY_INCLUDE_DIR}")
-include_directories(${NUMPY_INCLUDE_DIR})
+# SYSTEM keeps the core's warning flags off numpy's own headers, which do not
+# build clean under `/W4` and are not ours to fix.
+include_directories(SYSTEM ${NUMPY_INCLUDE_DIR})
 
 set(SOLVCON_INCLUDE_DIR "${CMAKE_CURRENT_LIST_DIR}/cpp" CACHE INTERNAL "")
 
@@ -371,12 +373,9 @@ if(BUILD_QT AND "${PYSIDE6_LIBFILE}" STREQUAL "")
         "configure with BUILD_QT=OFF.")
 endif()
 
-add_subdirectory(cpp/solvcon)
-
-include(GNUInstallDirs)
-
-set(SOLVCON_PY_DIR "${PROJECT_SOURCE_DIR}/solvcon")
-
+# add_subdirectory() copies this scope's variables into the subdirectory as it
+# is called, so this must stay above every add_subdirectory() that consumes it.
+# Set it below one and the subdirectory sees nothing, with no diagnostic.
 if(MSVC)
     set(COMMON_COMPILER_OPTIONS /W4 /bigobj /WX)
 else()
@@ -388,6 +387,12 @@ else()
         message(STATUS "Enable -Werror because clang-tidy (with lint as errors) is disabled")
     endif()
 endif()
+
+add_subdirectory(cpp/solvcon)
+
+include(GNUInstallDirs)
+
+set(SOLVCON_PY_DIR "${PROJECT_SOURCE_DIR}/solvcon")
 
 add_subdirectory(cpp/binary/pymod_solvcon)
 if(BUILD_QT)

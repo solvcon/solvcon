@@ -277,9 +277,9 @@ JsonArray JsonNode::parse_array(const std::string & json)
                 else
                 {
                     bool is_number = true;
-                    for (const char c : value_expression)
+                    for (const char digit : value_expression)
                     {
-                        if (!is_json_number(c))
+                        if (!is_json_number(digit))
                         {
                             is_number = false;
                             break;
@@ -516,9 +516,9 @@ JsonMap JsonNode::parse_object(const std::string & json)
                 else
                 {
                     bool is_number = true;
-                    for (const char c : value_expression)
+                    for (const char digit : value_expression)
                     {
-                        if (!is_json_number(c))
+                        if (!is_json_number(digit))
                         {
                             is_number = false;
                             break;

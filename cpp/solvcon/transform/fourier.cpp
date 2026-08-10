@@ -11,9 +11,9 @@ size_t bit_reverse(size_t n, const size_t bits)
     size_t reversed = 0;
     for (size_t i = 0; i < bits; i++)
     {
-        if (n & (1 << i))
+        if (n & (size_t{1} << i))
         {
-            reversed |= 1 << (bits - 1 - i);
+            reversed |= size_t{1} << (bits - 1 - i);
         }
     }
     return reversed;
@@ -32,3 +32,5 @@ size_t next_power_of_two(size_t n)
 } /* end namespace detail */
 
 } /* end namespace solvcon */
+
+// vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

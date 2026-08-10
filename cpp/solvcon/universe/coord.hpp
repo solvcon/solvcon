@@ -769,7 +769,7 @@ public:
     using value_type = typename point_type::value_type;
 
     Segment3d(point_type const & p0, point_type const & p1)
-        : m_data{p0.x(), p1.x(), p0.y(), p1.y(), p0.z(), p1.z()}
+        : m_data{{p0.x(), p1.x(), p0.y(), p1.y(), p0.z(), p1.z()}}
     {
     }
 

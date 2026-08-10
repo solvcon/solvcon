@@ -100,11 +100,11 @@ private:
     {
         if (type == JsonType::Object)
         {
-            value = std::move(parse_object(expression));
+            value = parse_object(expression);
         }
         else if (type == JsonType::Array)
         {
-            value = std::move(parse_array(expression));
+            value = parse_array(expression);
         }
         else
         {

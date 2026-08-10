@@ -271,7 +271,6 @@ private:
 
     uint_type msh_file_type = 0;
     uint_type msh_data_size = 0;
-    uint_type nnodes = 0;
 
     SimpleArray<int_type> m_cltpn;
 

@@ -31,7 +31,7 @@ void RFeatureEdges::build(StaticMesh const & mh)
     // Every boundary face, across all sets, contributes its rim edges.
     SimpleCollector<uint32_t> ends;
     SimpleArray<int32_t> const & bndfcs = mh.bndfcs();
-    for (size_t ibnd = 0; ibnd < bndfcs.shape(0); ++ibnd)
+    for (ssize_t ibnd = 0; ibnd < bndfcs.shape(0); ++ibnd)
     {
         append_face_edges(mh, bndfcs(ibnd, 0), ends);
     }

@@ -162,7 +162,6 @@ template <size_t NDIM>
 void calc_solt_impl(EulerCore & ec)
 {
     constexpr size_t neq = NDIM + 2;
-    auto const & msh = *ec.mesh();
     SimpleArray<double> & so0c = ec.so0c();
     SimpleArray<double> & so0t = ec.so0t();
     SimpleArray<double> & so1c = ec.so1c();

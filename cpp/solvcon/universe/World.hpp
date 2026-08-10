@@ -774,7 +774,7 @@ int32_t World<T>::register_shape(ShapeType type,
                                  size_t curve_count)
 {
     auto shape_id = static_cast<int32_t>(m_shape_registry.size());
-    m_shape_registry.push_back(ShapeRecord{type, segment_offset, segment_count, curve_offset, curve_count}); // NOLINT(modernize-use-designated-initializers)
+    m_shape_registry.push_back(ShapeRecord{type, segment_offset, segment_count, curve_offset, curve_count, {}, {}}); // NOLINT(modernize-use-designated-initializers)
     ++m_nshape;
     bbox_type const bb = compute_shape_bbox(m_shape_registry[shape_id]);
 
