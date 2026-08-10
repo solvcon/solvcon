@@ -1430,6 +1430,85 @@ class SimpleArrayBasicTC(unittest.TestCase):
         _check(test_data[3])
         _check(test_data[4], True)
 
+    def test_argsort_breaks_ties_by_position(self):
+        # Long enough to reach the unstable branch of std::sort; a handful of
+        # elements would be insertion-sorted and tie-break by accident.
+        data = np.array([i % 5 for i in range(300)], dtype='int32')
+        sarr = solvcon.SimpleArrayInt32(array=data)
+
+        args = sarr.argsort()
+        np.testing.assert_array_equal(args.ndarray,
+                                      np.argsort(data, kind='stable'))
+
+    def test_argsort_with_ghost(self):
+        data = np.array([40, 30, 20, 10], dtype='int32')
+        sarr = solvcon.SimpleArrayInt32(array=data)
+        sarr.nghost = 1
+
+        # The indices span the whole buffer, as they do for `sort()` and
+        # `take_along_axis()`. A basis that skips the ghost part instead reads
+        # past the end of the buffer and returns a different order every run.
+        np.testing.assert_array_equal(sarr.argsort().ndarray, [3, 2, 1, 0])
+
+    def test_sort_nan_goes_last(self):
+        # The built-in `<` answers false in both directions for a NaN, which
+        # is not a strict ordering and leaves std::sort undefined. sort() and
+        # argsort() order through the NaN-aware comparison instead.
+        nan = float('nan')
+        data = np.array([3.0, nan, 1.0, nan, 2.0], dtype='float64')
+
+        sarr = solvcon.SimpleArrayFloat64(array=data.copy())
+        sarr.sort()
+        np.testing.assert_array_equal(sarr.ndarray, np.sort(data))
+
+        sarr = solvcon.SimpleArrayFloat64(array=data.copy())
+        np.testing.assert_array_equal(sarr.argsort().ndarray,
+                                      np.argsort(data, kind='stable'))
+
+    def test_sort_complex_nan_goes_last(self):
+        nan = float('nan')
+        data = np.array([2 + 1j, complex(nan, 0), 1 + 5j,
+                         complex(0, nan), 0 + 0j], dtype='complex128')
+
+        sarr = solvcon.SimpleArrayComplex128(array=data.copy())
+        sarr.sort()
+        np.testing.assert_array_equal(sarr.ndarray, np.sort(data))
+
+        sarr = solvcon.SimpleArrayComplex128(array=data.copy())
+        np.testing.assert_array_equal(sarr.argsort().ndarray,
+                                      np.argsort(data, kind='stable'))
+
+    def test_sort_complex_is_lexicographic(self):
+        # sort() and argsort() both rest on ordering complex values, and
+        # neither is defined unless that order is strict.
+        data = np.array([2 + 1j, 1 + 5j, 2 - 1j, 1 + 5j, 0 + 0j],
+                        dtype='complex128')
+
+        sarr = solvcon.SimpleArrayComplex128(array=data.copy())
+        sarr.sort()
+        np.testing.assert_array_equal(sarr.ndarray, np.sort(data))
+
+        sarr = solvcon.SimpleArrayComplex128(array=data.copy())
+        np.testing.assert_array_equal(sarr.argsort().ndarray,
+                                      np.argsort(data, kind='stable'))
+
+    def test_complex_comparison_is_strict(self):
+        # `<` and `>` are bound on the complex scalar, so making the ordering
+        # strict changes what Python sees: a value used to compare less than
+        # itself. Ties in the reductions resolve to the first occurrence as a
+        # result, which is what numpy does.
+        value = solvcon.complex128(1.0, 2.0)
+        same = solvcon.complex128(1.0, 2.0)
+
+        self.assertFalse(value < same)
+        self.assertFalse(value > same)
+        self.assertTrue(value == same)
+
+        data = np.array([1 + 1j, 3 + 0j, 1 + 1j], dtype='complex128')
+        sarr = solvcon.SimpleArrayComplex128(array=data)
+        self.assertEqual(sarr.argmin(), np.argmin(data))
+        self.assertEqual(sarr.argmax(), np.argmax(data))
+
     def test_take_along_axis(self):
         data = [1, 5, 10, 2, 6, 9, 7, 8, 4, 3]
         narr = np.array(data, dtype='int32')

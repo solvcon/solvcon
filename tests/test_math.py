@@ -143,11 +143,25 @@ class ComplexTB(sc.testing.TestBase):
         # details:
         # 1. https://github.com/numpy/numpy/issues/12943
         # 2. https://stackoverflow.com/questions/52481376
-        def compare():
-            if self.real1 == self.real2:
-                return self.imag1 <= self.imag2
-            return self.real1 <= self.real2
-        self.assertEqual(cplx1 < cplx2, compare())
+        self.assertTrue(cplx1 < cplx2)
+        self.assertFalse(cplx2 < cplx1)
+        self.assertTrue(cplx2 > cplx1)
+        self.assertFalse(cplx1 > cplx2)
+
+        # The imaginary part decides only when the real parts are equal.
+        higher = self.sc_complex(self.real1, self.imag1 + 1)
+        self.assertTrue(cplx1 < higher)
+        self.assertFalse(higher < cplx1)
+
+        # Both relations are strict, so a value is neither less nor greater
+        # than an equal one. Spelling the expectation out rather than
+        # recomputing it here is what catches a `<=` written in place of `<`:
+        # the operands above never share a real part, so a mirrored comparison
+        # would agree with either relation.
+        same = self.sc_complex(self.real1, self.imag1)
+        self.assertFalse(cplx1 < same)
+        self.assertFalse(cplx1 > same)
+        self.assertTrue(cplx1 == same)
 
     def test_norm(self):
         cplx = self.sc_complex(self.real1, self.imag1)

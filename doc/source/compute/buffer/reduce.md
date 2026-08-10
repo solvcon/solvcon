@@ -164,6 +164,25 @@ sarr.sort()
 assert sarr.ndarray.tolist() == [1.0, 2.0, 3.0]
 ```
 
+NaN sorts last, as numpy sorts it: after every number, and equal to another
+NaN. `sort()` and `argsort()` share this order; the reductions and
+`argmin`/`argmax` do not, and still skip a NaN where numpy propagates it.
+
+A complex value compares by its real part, and by its imaginary part only when
+the real parts are equal. `2-1j` therefore sorts before `2+1j`, and both sort
+after every value with a smaller real part:
+
+```python
+narr = np.array([2 + 1j, 1 + 5j, 2 - 1j, 0 + 0j], dtype='complex128')
+sarr = solvcon.SimpleArrayComplex128(array=narr)
+sarr.sort()
+assert sarr.ndarray.tolist() == [0j, 1 + 5j, 2 - 1j, 2 + 1j]
+```
+
+A complex value carrying a NaN in either component sorts after all of them as
+one group, whatever its other component holds, so `nan+0j` and `0+nanj` both
+land at the end rather than where their finite component would put them.
+
 ### The `argsort` Method
 
 `argsort()` returns the indices that sort the receiver, under the same
@@ -177,6 +196,14 @@ args = sarr.argsort()
 assert type(args) is solvcon.SimpleArrayUint64
 assert args.ndarray.tolist() == [1, 2, 0]
 ```
+
+Equal values keep the order they were already in, matching
+`numpy.argsort(kind='stable')`.
+
+On an array carrying {ref}`a ghost region <ghost-region>` the indices count
+from the first ghost element, where a subscript counts from the first body
+element, so pass them to `take_along_axis()` rather than subscripting with
+them.
 
 ### The `take_along_axis` Method
 
