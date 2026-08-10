@@ -1439,8 +1439,8 @@ void SimpleArrayMixinSort<A, T>::sort()
     else if constexpr (std::is_floating_point_v<value_type>)
     {
         // Partition the array into two parts: non-NaN values and NaN values.
-        auto const mid = std::partition(athis->begin(), athis->end(), [](value_type const & v)
-                                        { return !std::isnan(v); });
+        auto * const mid = std::partition(athis->begin(), athis->end(), [](value_type const & v)
+                                          { return !std::isnan(v); });
         std::sort(athis->begin(), mid);
     }
     else
