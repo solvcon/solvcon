@@ -63,7 +63,7 @@ public:
 private:
     inline uint_type coordinate_to_node_id(uint_type blk, uint_type x, uint_type y, uint_type z)
     {
-        return blk > 0 ? m_blk_sizes(blk - 1) : 0 + x + y * m_x_shape(blk) + z * m_x_shape(blk) * m_y_shape(blk);
+        return m_blk_offsets(blk) + x + y * m_x_shape(blk) + z * m_x_shape(blk) * m_y_shape(blk);
     }
 
     void parseCoordinates(uint_type nblocks);
@@ -76,6 +76,8 @@ private:
     SimpleArray<uint_type> m_y_shape;
     SimpleArray<uint_type> m_z_shape;
     SimpleArray<uint_type> m_blk_sizes;
+    /// Exclusive prefix sum of m_blk_sizes: the node-id base of each block.
+    SimpleArray<uint_type> m_blk_offsets;
 
     std::unordered_map<uint_type, small_vector<uint_type>> m_elems;
 }; /* end class Plot3d */

@@ -27,6 +27,7 @@ Plot3d::Plot3d(const std::string & data)
     m_y_shape.remake(small_vector<ssize_t>{static_cast<ssize_t>(nblocks)}, 0);
     m_z_shape.remake(small_vector<ssize_t>{static_cast<ssize_t>(nblocks)}, 0);
     m_blk_sizes.remake(small_vector<ssize_t>{static_cast<ssize_t>(nblocks)}, 0);
+    m_blk_offsets.remake(small_vector<ssize_t>{static_cast<ssize_t>(nblocks)}, 0);
 
     // parsing xyz dimension of each block
     for (auto i = 0; i < nblocks; ++i)
@@ -37,6 +38,7 @@ Plot3d::Plot3d(const std::string & data)
         m_y_shape(i) = std::stoul(tokens[1]);
         m_z_shape(i) = std::stoul(tokens[2]);
         m_blk_sizes(i) = m_x_shape(i) * m_y_shape(i) * m_z_shape(i);
+        m_blk_offsets(i) = static_cast<uint_type>(total_blk_size);
         total_blk_size += m_blk_sizes(i);
     }
 
@@ -48,7 +50,6 @@ Plot3d::Plot3d(const std::string & data)
 
 void Plot3d::parseCoordinates(const uint_type nblocks)
 {
-    uint_type base_idx = 0;
     std::string line;
     std::queue<real_type> parsing_q;
     const std::regex plot3d_coord_delim(R"(-?\d+(\.\d+)?([eE][+-]?\d+)?|\b\d+\b)");
@@ -56,6 +57,7 @@ void Plot3d::parseCoordinates(const uint_type nblocks)
     // TODO: The nested for-loop needs to be enhanced
     for (auto blk = 0; blk < nblocks; ++blk)
     {
+        const uint_type base_idx = m_blk_offsets(blk);
         for (auto k = 0; k < 3; ++k)
         {
             for (auto j = 0; j < m_blk_sizes(blk); ++j)
@@ -72,7 +74,6 @@ void Plot3d::parseCoordinates(const uint_type nblocks)
                 parsing_q.pop();
             }
         }
-        base_idx += m_blk_sizes(blk);
     }
 }
 
