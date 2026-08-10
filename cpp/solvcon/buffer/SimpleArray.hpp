@@ -25,8 +25,8 @@
 
 #include <algorithm>
 #include <array>
-#include <concepts>
 #include <cmath>
+#include <concepts>
 #include <format>
 #include <functional>
 #include <limits>
@@ -1323,6 +1323,68 @@ void SimpleArrayMixinCalculators<A, T>::find_two_bins(const uint32_t * freq, siz
     }
 }
 
+/**
+ * Order one value the way numpy sorts and searches it: a NaN goes after every
+ * number and counts equal to another NaN, which the built-in comparison cannot
+ * express because it answers false in both directions for a NaN. A complex
+ * value carrying a NaN in either component goes past all the others as one
+ * group, whatever its other component holds, and orders within that group
+ * lexicographically like any other pair.
+ */
+template <typename V>
+bool nan_aware_less(V const & lhs, V const & rhs)
+{
+    if constexpr (is_complex_v<V>)
+    {
+        bool const lhs_nan = std::isnan(lhs.real()) || std::isnan(lhs.imag());
+        bool const rhs_nan = std::isnan(rhs.real()) || std::isnan(rhs.imag());
+        if (lhs_nan != rhs_nan)
+        {
+            return rhs_nan;
+        }
+        if (!lhs_nan)
+        {
+            return lhs < rhs;
+        }
+
+        if (nan_aware_less(lhs.real(), rhs.real()))
+        {
+            return true;
+        }
+        if (nan_aware_less(rhs.real(), lhs.real()))
+        {
+            return false;
+        }
+        return nan_aware_less(lhs.imag(), rhs.imag());
+    }
+    else if constexpr (std::is_floating_point_v<V>)
+    {
+        if (std::isnan(rhs))
+        {
+            return !std::isnan(lhs);
+        }
+        if (std::isnan(lhs))
+        {
+            return false;
+        }
+        return lhs < rhs;
+    }
+    else
+    {
+        return lhs < rhs;
+    }
+}
+
+struct NanAwareLess
+{
+    template <typename V>
+    bool operator()(V const & lhs, V const & rhs) const { return nan_aware_less(lhs, rhs); }
+}; /* end struct NanAwareLess */
+
+// TODO: every member here walks begin() to end() and so reads the buffer in
+// storage order, ignoring stride(). A strided one-dimensional view is accepted
+// and then sorted as the wrong span. Reject a non-contiguous receiver the way
+// argmin() already does, in a change that covers the whole mixin at once.
 template <typename A, typename T>
 class SimpleArrayMixinSort
 {
@@ -1342,20 +1404,50 @@ public:
     template <IntegralType I>
     A take_along_axis_simd(SimpleArray<I> const & indices);
 
+private:
+
+    void validate_1d(char const * op, char const * what = "array") const;
+
 }; /* end class SimpleArrayMixinSort */
+
+template <typename A, typename T>
+void SimpleArrayMixinSort<A, T>::validate_1d(char const * op, char const * what) const
+{
+    auto const * athis = static_cast<A const *>(this);
+    if (athis->ndim() != 1)
+    {
+        throw std::runtime_error(
+            std::format("SimpleArray::{}(): "
+                        "currently only support 1D array but the {} is {} dimension",
+                        op,
+                        what,
+                        athis->ndim()));
+    }
+}
 
 template <typename A, typename T>
 void SimpleArrayMixinSort<A, T>::sort()
 {
+    validate_1d("sort");
     auto athis = static_cast<A *>(this);
-    if (athis->ndim() != 1)
-    {
-        throw std::runtime_error(
-            std::format(
-                "SimpleArray::sort(): currently only support 1D array but the array is {} dimension", athis->ndim()));
-    }
 
-    std::sort(athis->begin(), athis->end());
+    if constexpr (is_complex_v<value_type>)
+    {
+        // Complex numbers are sorted lexicographically by real and then imaginary parts.
+        std::sort(athis->begin(), athis->end(), NanAwareLess{});
+    }
+    else if constexpr (std::is_floating_point_v<value_type>)
+    {
+        // Partition the array into two parts: non-NaN values and NaN values.
+        auto const mid = std::partition(athis->begin(), athis->end(), [](value_type const & v)
+                                        { return !std::isnan(v); });
+        std::sort(athis->begin(), mid);
+    }
+    else
+    {
+        // For integral types, we can use the default sort.
+        std::sort(athis->begin(), athis->end());
+    }
 }
 
 template <typename T, IntegralType I>
@@ -2913,14 +3005,8 @@ void SimpleArray<T>::copy_logical_into(SimpleArray & out) const
 template <typename A, typename T>
 SimpleArray<uint64_t> detail::SimpleArrayMixinSort<A, T>::argsort()
 {
+    validate_1d("argsort");
     auto athis = static_cast<A *>(this);
-    if (athis->ndim() != 1)
-    {
-        throw std::runtime_error(
-            std::format("SimpleArray::argsort(): "
-                        "currently only support 1D array but the array is {} dimension",
-                        athis->ndim()));
-    }
 
     SimpleArray<uint64_t> ret(athis->shape());
 
@@ -2930,10 +3016,22 @@ SimpleArray<uint64_t> detail::SimpleArrayMixinSort<A, T>::argsort()
                       { v = cnt++; });
     }
 
-    value_type const * buf = athis->body();
+    // Index from begin(), the range that sort() and take_along_axis() work on.
+    // body() skips the ghost part while the indices in ret do not, so a ghosted
+    // array would run past the buffer.
+    value_type const * buf = athis->begin();
+    // Break ties by position to keep the order of equal values deterministic.
     auto cmp = [buf](uint64_t a, uint64_t b)
     {
-        return buf[a] < buf[b];
+        if (nan_aware_less(buf[a], buf[b]))
+        {
+            return true;
+        }
+        if (nan_aware_less(buf[b], buf[a]))
+        {
+            return false;
+        }
+        return a < b;
     };
     std::sort(ret.begin(), ret.end(), cmp);
     return ret;
@@ -2943,14 +3041,8 @@ template <typename A, typename T>
 template <IntegralType I>
 A detail::SimpleArrayMixinSort<A, T>::take_along_axis(SimpleArray<I> const & indices)
 {
+    validate_1d("take_along_axis");
     auto athis = static_cast<A *>(this);
-    if (athis->ndim() != 1)
-    {
-        throw std::runtime_error(
-            std::format("SimpleArray::take_along_axis(): "
-                        "currently only support 1D array but the array is {} dimension",
-                        athis->ndim()));
-    }
 
     ssize_t const max_idx = athis->shape()[0];
     I const * src = indices.begin();
@@ -3446,14 +3538,8 @@ template <typename A, typename T>
 template <IntegralType I>
 A detail::SimpleArrayMixinSort<A, T>::take_along_axis_simd(SimpleArray<I> const & indices)
 {
+    validate_1d("take_along_axis_simd");
     auto athis = static_cast<A *>(this);
-    if (athis->ndim() != 1)
-    {
-        const auto err = std::format("SimpleArray::take_along_axis(): "
-                                     "currently only support 1D array but the array is {} dimension",
-                                     athis->ndim());
-        throw std::runtime_error(err);
-    }
 
     if (indices.size() == 0)
     {
