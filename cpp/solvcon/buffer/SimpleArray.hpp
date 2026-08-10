@@ -108,6 +108,27 @@ inline ssize_t buffer_offset(small_vector<ssize_t> const & stride, small_vector<
     return offset;
 }
 
+/// Which end of a run of equal values a search lands on.
+enum class SearchSide : uint8_t
+{
+    Left = 0, ///< The first position where the value may be inserted.
+    Right = 1, ///< The position after the last equal element.
+}; /* end enum class SearchSide */
+
+inline SearchSide search_side_from_string(std::string const & side, char const * op)
+{
+    if (side == "left")
+    {
+        return SearchSide::Left;
+    }
+    if (side == "right")
+    {
+        return SearchSide::Right;
+    }
+    throw std::invalid_argument(
+        std::format(R"(SimpleArray::{}(): side must be "left" or "right" but got "{}")", op, side));
+}
+
 namespace detail
 {
 
@@ -1433,10 +1454,42 @@ struct NanAwareLess
     bool operator()(V const & lhs, V const & rhs) const { return nan_aware_less(lhs, rhs); }
 }; /* end struct NanAwareLess */
 
-// TODO: every member here walks begin() to end() and so reads the buffer in
-// storage order, ignoring stride(). A strided one-dimensional view is accepted
-// and then sorted as the wrong span. Reject a non-contiguous receiver the way
-// argmin() already does, in a change that covers the whole mixin at once.
+template <typename V>
+size_t search_bound(V const * first, V const * last, V const & value, SearchSide side)
+{
+    V const * const pos = (side == SearchSide::Left)
+                              ? std::lower_bound(first, last, value, NanAwareLess{})
+                              : std::upper_bound(first, last, value, NanAwareLess{});
+    return static_cast<size_t>(pos - first);
+}
+
+/**
+ * Answer the bound for a value that cannot precede the one answered at lo,
+ * doubling the probe forward from there so the cost follows the distance
+ * travelled rather than the size of the array.
+ */
+template <typename V>
+size_t gallop_bound(V const * first, V const * last, V const & value, SearchSide side, size_t lo)
+{
+    auto const before_bound = [&value, side](V const & probe)
+    { return (side == SearchSide::Left) ? nan_aware_less(probe, value) : !nan_aware_less(value, probe); };
+
+    auto const size = static_cast<size_t>(last - first);
+    size_t step = 1;
+    size_t hi = lo;
+    while (hi < size && before_bound(first[hi]))
+    {
+        lo = hi + 1;
+        hi += step;
+        step *= 2;
+    }
+
+    return lo + search_bound(first + lo, first + std::min(hi, size), value, side);
+}
+
+// TODO: every member here walks begin() to end(), ignoring stride(), so a
+// strided view is sorted or searched as the wrong span. Reject a
+// non-contiguous receiver the way argmin() does, across the whole mixin.
 template <typename A, typename T>
 class SimpleArrayMixinSort
 {
@@ -1451,6 +1504,36 @@ public:
 
     void sort();
     SimpleArray<uint64_t> argsort();
+
+    /**
+     * Find the position at which a value keeps a sorted receiver sorted.
+     *
+     * The receiver must already be sorted under the order that sort() uses.
+     * An unsorted receiver gives an unspecified position and does not raise.
+     *
+     * @param value The value to place.
+     * @param side Left gives the first such position, Right the position
+     *      after the last equal element.
+     * @return The position, counted from begin().
+     */
+    size_t searchsorted(value_type const & value, SearchSide side = SearchSide::Left) const;
+
+    /**
+     * Find the position for every value of an operand array.
+     *
+     * The receiver must already be sorted under the order that sort() uses.
+     * An unsorted receiver gives unspecified positions and does not raise.
+     *
+     * Each value is placed independently, so the operand needs no order. A
+     * rising run only searches faster, by stepping forward from the previous
+     * result.
+     *
+     * @param values The values to place, in one dimension and of this class.
+     * @param side As for the scalar overload.
+     * @return One position per value, in the operand's shape.
+     */
+    SimpleArray<uint64_t> searchsorted(A const & values, SearchSide side = SearchSide::Left) const;
+
     template <IntegralType I>
     A take_along_axis(SimpleArray<I> const & indices);
     template <IntegralType I>
@@ -3086,6 +3169,47 @@ SimpleArray<uint64_t> detail::SimpleArrayMixinSort<A, T>::argsort()
         return a < b;
     };
     std::sort(ret.begin(), ret.end(), cmp);
+    return ret;
+}
+
+template <typename A, typename T>
+size_t detail::SimpleArrayMixinSort<A, T>::searchsorted(value_type const & value, SearchSide side) const
+{
+    validate_1d("searchsorted");
+    auto const * athis = static_cast<A const *>(this);
+    return search_bound(athis->begin(), athis->end(), value, side);
+}
+
+template <typename A, typename T>
+SimpleArray<uint64_t> detail::SimpleArrayMixinSort<A, T>::searchsorted(A const & values, SearchSide side) const
+{
+    validate_1d("searchsorted");
+    values.validate_1d("searchsorted", "value array");
+
+    value_type const * const first = static_cast<A const *>(this)->begin();
+    value_type const * const last = static_cast<A const *>(this)->end();
+    SimpleArray<uint64_t> ret(values.shape());
+    value_type const * src = values.begin();
+    uint64_t * dst = ret.begin();
+
+    // Values keep rising until the first drop, and both bounds rise with
+    // them, so each search can gallop forward from the previous result.
+    for (size_t lo = 0; src < values.end(); ++src, ++dst)
+    {
+        if (src != values.begin() && nan_aware_less(*src, src[-1]))
+        {
+            break;
+        }
+        lo = gallop_bound(first, last, *src, side, lo);
+        *dst = static_cast<uint64_t>(lo);
+    }
+
+    // The rising run has ended, so each remaining value takes a full binary
+    // search over the whole receiver.
+    for (; src < values.end(); ++src, ++dst)
+    {
+        *dst = static_cast<uint64_t>(search_bound(first, last, *src, side));
+    }
     return ret;
 }
 

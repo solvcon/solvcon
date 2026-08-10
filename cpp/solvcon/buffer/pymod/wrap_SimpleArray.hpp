@@ -561,6 +561,18 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArray
                 "argsort",
                 [](wrapped_type & self)
                 { return py::cast(self.argsort()); })
+            .def(
+                "searchsorted",
+                [](wrapped_type const & self, wrapped_type const & values, std::string const & side)
+                { return py::cast(self.searchsorted(values, search_side_from_string(side, "searchsorted"))); },
+                py::arg("values"),
+                py::arg("side") = "left")
+            .def(
+                "searchsorted",
+                [](wrapped_type const & self, value_type const & value, std::string const & side)
+                { return py::cast(self.searchsorted(value, search_side_from_string(side, "searchsorted"))); },
+                py::arg("values"),
+                py::arg("side") = "left")
             .def("take_along_axis", &take_along_axis)
             .def("take_along_axis_simd", &take_along_axis_simd)
             //
