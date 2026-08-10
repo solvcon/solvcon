@@ -65,6 +65,11 @@ list_of_rplotseries = [
     'RPlotSeries',
 ]
 
+# RPlotModel.hpp/.cpp
+list_of_rplotmodel = [
+    'RPlotModel',
+]
+
 
 _from_impl = (  # noqa: F822
     list_of_rdomainwidget +
@@ -74,7 +79,8 @@ _from_impl = (  # noqa: F822
     list_of_rpythonterminal +
     list_of_drawtool +
     list_of_plot_style +
-    list_of_rplotseries
+    list_of_rplotseries +
+    list_of_rplotmodel
 )
 
 __all__ = _from_impl + [  # noqa: F822
@@ -99,6 +105,7 @@ _load(list_of_rpythonterminal)
 _load(list_of_drawtool)
 _load(list_of_plot_style)
 _load(list_of_rplotseries)
+_load(list_of_rplotmodel)
 
 del _load
 
