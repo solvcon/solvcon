@@ -15,7 +15,7 @@ FORCE_BUILD ?=
 .PHONY: help html doxygen serve clean
 
 help:
-	@echo "make doxygen   generate C++ API XML (run before html for C++)"
+	@echo "make doxygen   generate C++ API XML (also run by html)"
 	@echo "make html      build the HTML site into $(BUILDDIR)/html"
 	@echo "make serve     build, then serve at http://localhost:$(PORT)/"
 	@echo "make clean     remove built docs and Doxygen output"
