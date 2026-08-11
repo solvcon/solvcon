@@ -577,5 +577,20 @@ class BackendSettingsConfigTC(unittest.TestCase):
         self.assertEqual(self.backend.get_setting("effort"),
                          agent.ClaudeCliBackend.DEFAULT_CHOICE)
 
+    def test_codex_settings_survive_a_config_round_trip(self):
+        backend = agent.BackendRegistry.get(agent.CodexCliBackend().name)
+        for knob, value in backend.settings().items():
+            self.addCleanup(backend.set_setting, knob, value)
+        backend.set_setting("model", "gpt-5.6-terra")
+        backend.set_setting("effort", "high")
+        config = Config(self.path)
+        agent.BackendRegistry.save_settings(config)
+        config.save()
+        backend.set_setting("model", agent.CodexCliBackend.DEFAULT_CHOICE)
+        backend.set_setting("effort", agent.CodexCliBackend.DEFAULT_CHOICE)
+        agent.BackendRegistry.load_settings(Config(self.path).load())
+        self.assertEqual(backend.get_setting("model"), "gpt-5.6-terra")
+        self.assertEqual(backend.get_setting("effort"), "high")
+
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

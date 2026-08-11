@@ -10,7 +10,7 @@ OpenAI-compatible HTTP server, plus the shared plumbing they need:
 :class:`SubprocessBackend` (PATH discovery and a cancellable child process),
 :class:`OpenAIHttpBackend` (stdlib ``http.client``, no SDK), and
 :class:`ToolCallParser` (turn a model reply into Agent Draw command dicts).
-The Codex CLI backend is a follow-up that reuses :class:`SubprocessBackend`.
+The Claude Code and Codex CLI backends reuse :class:`SubprocessBackend`.
 
 The module imports no Qt and makes no network call at import time.  A backend
 registers itself only as a class instance in the shared registry, so a caller
@@ -214,12 +214,10 @@ class SubprocessBackend(CancellableBackend, _backend.AgentBackend):
     #: The selector label a subclass names itself with.
     name = None
 
-    #: The only environment variables the agent CLI receives: the process
-    #: basics it needs to run, plus the credentials of the supported
-    #: authentication modes (see the class docstring).
+    #: The process basics every agent CLI receives.  A subclass extends this
+    #: with only its own authentication variables.
     env_passthrough = (
-        "HOME", "USER", "LOGNAME", "PATH", "TMPDIR",
-        "ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN", "CLAUDE_CONFIG_DIR")
+        "HOME", "USER", "LOGNAME", "PATH", "TMPDIR")
 
     def __init__(self, timeout=120):
         super().__init__()
@@ -292,8 +290,8 @@ class SubprocessBackend(CancellableBackend, _backend.AgentBackend):
         workdir = tempfile.mkdtemp(prefix="solvcon-agent-")
         try:
             proc = subprocess.Popen(
-                argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                text=True, cwd=workdir, env=env)
+                argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE, text=True, cwd=workdir, env=env)
             self._proc = proc
             if self._cancelled:
                 # A cancel between spawning the child and publishing it here
@@ -328,6 +326,8 @@ class ClaudeCliBackend(SubprocessBackend):
 
     command = "claude"
     name = "Claude Code"
+    env_passthrough = SubprocessBackend.env_passthrough + (
+        "ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN", "CLAUDE_CONFIG_DIR")
 
     DEFAULT_CHOICE = "default"
 
@@ -383,6 +383,71 @@ class ClaudeCliBackend(SubprocessBackend):
 
 
 _backend.BackendRegistry.register(ClaudeCliBackend())
+
+
+class CodexCliBackend(SubprocessBackend):
+    """Backend over OpenAI's ``codex`` command-line tool.
+
+    ``codex exec`` runs non-interactively in a fresh read-only workspace.  It
+    receives no user configuration, rules, shell, apps, or web-search tool,
+    and saves no session.  Authentication remains the CLI's concern: a stored
+    login comes through ``HOME`` or ``CODEX_HOME``, and automation can provide
+    ``CODEX_API_KEY`` for this child alone.
+
+    The user may leave the model and reasoning effort on the moving CLI
+    default or pin either setting.  The system prompt reaches Codex as
+    developer instructions, separate from the composed user prompt.
+    """
+
+    command = "codex"
+    name = "Codex"
+    env_passthrough = SubprocessBackend.env_passthrough + (
+        "CODEX_HOME", "CODEX_API_KEY")
+
+    DEFAULT_CHOICE = "default"
+
+    SETTINGS = (
+        _backend.BackendSetting(
+            name="model", label="Model",
+            choices=(DEFAULT_CHOICE, "gpt-5.6-sol", "gpt-5.6-terra",
+                     "gpt-5.6-luna"),
+            default=DEFAULT_CHOICE,
+            tooltip="Model passed to the CLI as --model."),
+        _backend.BackendSetting(
+            name="effort", label="Effort",
+            choices=(DEFAULT_CHOICE, "low", "medium", "high", "xhigh", "max"),
+            default=DEFAULT_CHOICE,
+            tooltip="Reasoning effort passed as model_reasoning_effort."),
+    )
+
+    def settings_spec(self):
+        return self.SETTINGS
+
+    @staticmethod
+    def _config(name, value):
+        """One joined ``--config`` override with a TOML string value."""
+        return "--config=%s=%s" % (name, json.dumps(value))
+
+    def _build_argv(self, exe, user_prompt, system_prompt):
+        argv = [
+            exe, "exec", "--sandbox=read-only", "--skip-git-repo-check",
+            "--ephemeral", "--ignore-user-config", "--ignore-rules",
+            "--strict-config", "--color=never", "--disable=shell_tool",
+            "--disable=apps",
+            self._config("web_search", "disabled"),
+            self._config("developer_instructions", system_prompt),
+        ]
+        model = self.get_setting("model")
+        if model and model != self.DEFAULT_CHOICE:
+            argv.append("--model=%s" % model)
+        effort = self.get_setting("effort")
+        if effort and effort != self.DEFAULT_CHOICE:
+            argv.append(self._config("model_reasoning_effort", effort))
+        argv.append(user_prompt)
+        return argv
+
+
+_backend.BackendRegistry.register(CodexCliBackend())
 
 
 class OpenAIHttpBackend(CancellableBackend, _backend.AgentBackend):

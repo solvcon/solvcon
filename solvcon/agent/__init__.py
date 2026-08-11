@@ -55,6 +55,7 @@ list_of_backends_impl = [
     'SubprocessBackend',
     'CancellableBackend',
     'ClaudeCliBackend',
+    'CodexCliBackend',
     'OpenAIHttpBackend',
     'ToolCallParser',
     'ParsedReply',

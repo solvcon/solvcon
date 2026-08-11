@@ -302,5 +302,15 @@ class AgentPanelTC(unittest.TestCase):
         self.assertIn("--model=opus", argv)
         self.assertIn("--effort=high", argv)
 
+    def test_codex_backend_settings_reach_the_cli(self):
+        backend = agent.CodexCliBackend()
+        dialog = _agent_settings.AgentBackendSettingsDialog(backend)
+        dialog._editors["model"].setCurrentText("gpt-5.6-sol")
+        dialog._editors["effort"].setCurrentText("high")
+        dialog.accept()
+        argv = backend._build_argv("/usr/bin/codex", "draw", "system")
+        self.assertIn("--model=gpt-5.6-sol", argv)
+        self.assertIn('--config=model_reasoning_effort="high"', argv)
+
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
