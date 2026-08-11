@@ -57,12 +57,18 @@ gh api --paginate "repos/$GITHUB_REPOSITORY/actions/caches?per_page=100" \
             .key ]
         | @tsv' > "$workdir/caches.tsv"
 
-# A silent no-op and a clean sweep look the same from the log, so refuse to
-# report success when the timestamp above stopped matching and every entry
-# became a lineage of one.
-if [ -s "$workdir/caches.tsv" ] \
-    && ! awk -F'\t' '$1 != $6 { found = 1 } END { exit !found }' "$workdir/caches.tsv"; then
-  echo "::error::no cache key carries the expected timestamp suffix; the key format changed"
+# Fail the sweep when ccache-action stopped timestamping the keys it saves,
+# which would leave every generation a lineage of one, superseding nothing,
+# so the run would delete nothing and still report success. Field 1 is the
+# key with the timestamp stripped and field 6 the raw key, so equal fields
+# mark such a key. awk exits zero when it printed one, hence the branch below.
+if awk -F'\t' '
+    $6 ~ /^s?ccache-/ && $1 == $6 {
+      print "::error::" $6 " carries no timestamp suffix; the key format changed"
+      found = 1
+    }
+    END { exit !found }
+  ' "$workdir/caches.tsv"; then
   exit 1
 fi
 
