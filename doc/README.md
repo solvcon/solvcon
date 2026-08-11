@@ -7,11 +7,11 @@ the Sphinx-based documentation.
 
 ```sh
 pip install -r requirements.txt   # Python deps
-make doxygen                      # optional: C++ API XML (needs doxygen)
-make html                         # -> build/html/index.html
+make html                         # needs Doxygen; -> build/html/index.html
 ```
 
-`make html` works without `make doxygen`; the C++ API page simply renders
-empty (a warning, not an error) until the XML exists.
+`make html` runs `make doxygen` first so that the C++ API is current. Install
+Doxygen before building. Run `make doxygen` by itself only to regenerate the
+XML under `build/doxygen` without rebuilding the HTML site.
 
 <!-- vim: set ft=markdown ff=unix fenc=utf8 et sw=2 ts=2 sts=2 tw=79: -->

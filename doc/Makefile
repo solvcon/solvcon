@@ -1,8 +1,7 @@
 # Minimal documentation build for solvcon.
 #
 # Quick start:
-#   pip install -r requirements.txt   # plus a system Doxygen for C++ docs
-#   make doxygen                      # C++ API XML (optional, run first)
+#   pip install -r requirements.txt   # plus a system Doxygen
 #   make html                         # site -> build/html/index.html
 
 SPHINXBUILD ?= sphinx-build
