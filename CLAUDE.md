@@ -28,6 +28,8 @@ This section indexes the tools.
 - `AGENTS.md` at the repository root is a symlink to `CLAUDE.md`.
 - `.agents/skills/` is a symlink to `.claude/skills/`, the repository skill
   location recognized by Codex.
+- `.codex/config.toml` configures the Codex TUI status line with the model,
+  project, branch, context, token, and subscription-usage fields.
 - `.codex/hooks.json` wires Codex `PreToolUse` and `PostToolUse` events to the
   shared hook scripts.
 - `.codex/hooks/` is a symlink to `.claude/hooks/`.

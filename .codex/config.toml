@@ -1,0 +1,15 @@
+#:schema https://developers.openai.com/codex/config-schema.json
+
+[tui]
+status_line = [
+    "model-with-reasoning",
+    "project-name",
+    "git-branch",
+    "context-used",
+    "total-input-tokens",
+    "total-output-tokens",
+    "five-hour-limit",
+    "weekly-limit",
+]
+
+# vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:
