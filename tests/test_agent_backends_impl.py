@@ -5,7 +5,7 @@
 """Tests for the concrete CLI/HTTP backends and tool-call parsing.
 
 GUI-free by default: PATH discovery is patched, the child process is replaced,
-and HTTP posts are stubbed, so no real ``claude`` CLI or network call runs.
+and HTTP posts are stubbed, so no real AI CLI or network call runs.
 These exercise the parsing contract, availability checks, and the ``send``
 pipeline.  Opt-in classes hit a live CLI or OpenAI-compatible server.
 """
@@ -132,6 +132,12 @@ class SubprocessBackendDiscoveryTC(unittest.TestCase):
         backend = agent.ClaudeCliBackend()
         with mock.patch(_WHICH, lambda name: None):
             self.assertFalse(backend.available())
+
+    def test_codex_resolves_its_own_executable(self):
+        backend = agent.CodexCliBackend()
+        with mock.patch(_WHICH, lambda name: "/usr/bin/" + name):
+            self.assertTrue(backend.available())
+            self.assertEqual(backend.executable(), "/usr/bin/codex")
 
     def test_command_none_never_resolves(self):
         # A subclass that names no executable is never available even though
@@ -284,6 +290,64 @@ class ClaudeCliSendTC(unittest.TestCase):
         self.assertNotIn("drive a 2D drawing canvas", prompt)
 
 
+class CodexCliSendTC(unittest.TestCase):
+    def setUp(self):
+        self.backend = agent.CodexCliBackend()
+        patcher = mock.patch(_WHICH, lambda name: "/usr/bin/" + name)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_send_parses_commands(self):
+        reply = '[{"op": "add_circle", "r": 2.0}]'
+        self.backend._communicate = lambda argv: (0, reply, "")
+        response = self.backend.send(
+            "draw a circle", "empty world", _TOOLS)
+        self.assertIsNone(response.error)
+        self.assertEqual(response.commands, [{"op": "add_circle", "r": 2.0}])
+
+    def test_send_passes_prompt_and_pins_the_cli(self):
+        seen = {}
+
+        def _capture(argv):
+            seen["argv"] = argv
+            return 0, "[]", ""
+
+        self.backend._communicate = _capture
+        self.backend.send("hello", "one shape", _TOOLS)
+        argv = seen["argv"]
+        self.assertEqual(argv[:2], ["/usr/bin/codex", "exec"])
+        for flag in ("--sandbox=read-only", "--skip-git-repo-check",
+                     "--ephemeral", "--ignore-user-config", "--ignore-rules",
+                     "--strict-config", "--color=never",
+                     "--disable=shell_tool", "--disable=apps"):
+            self.assertIn(flag, argv)
+        self.assertIn('--config=web_search="disabled"', argv)
+        prompt = argv[-1]
+        self.assertIn("hello", prompt)
+        self.assertIn("one shape", prompt)
+        self.assertIn("add_circle", prompt)
+        system_arg = next(
+            arg for arg in argv
+            if arg.startswith("--config=developer_instructions="))
+        system = json.loads(system_arg.split("=", 2)[2])
+        self.assertIn("drive a 2D drawing canvas", system)
+        self.assertNotIn("drive a 2D drawing canvas", prompt)
+
+    def test_settings_reach_the_cli(self):
+        self.backend.set_setting("model", "gpt-5.6-sol")
+        self.backend.set_setting("effort", "high")
+        argv = self.backend._build_argv(
+            "/usr/bin/codex", "draw", "system")
+        self.assertIn("--model=gpt-5.6-sol", argv)
+        self.assertIn('--config=model_reasoning_effort="high"', argv)
+
+    def test_default_settings_leave_the_cli_defaults_alone(self):
+        argv = self.backend._build_argv(
+            "/usr/bin/codex", "draw", "system")
+        self.assertFalse(any(arg.startswith("--model=") for arg in argv))
+        self.assertFalse(any("model_reasoning_effort" in arg for arg in argv))
+
+
 class _FakeProc:
     """Stand-in for the CLI child: records nothing, answers an empty batch."""
 
@@ -366,6 +430,10 @@ class SubprocessBackendPinningTC(unittest.TestCase):
         self.assertIn("solvcon-agent-", os.path.basename(workdir))
         self.assertFalse(os.path.exists(workdir))
 
+    def test_child_cannot_read_the_parent_stdin(self):
+        seen = self._run({"PATH": "/bin"})
+        self.assertEqual(seen["stdin"], subprocess.DEVNULL)
+
     def test_argv_pins_the_cli_sandbox(self):
         argv = self._run({"PATH": "/bin"})["argv"]
         self.assertEqual(argv[argv.index("--tools") + 1], "")
@@ -374,6 +442,31 @@ class SubprocessBackendPinningTC(unittest.TestCase):
                      "--no-session-persistence"):
             self.assertIn(flag, argv)
         self.assertEqual(argv[argv.index("--permission-mode") + 1], "dontAsk")
+
+
+class CodexCliPinningTC(unittest.TestCase):
+    def test_child_receives_only_codex_auth(self):
+        backend = agent.CodexCliBackend()
+        seen = {}
+
+        def _popen(argv, **kwargs):
+            seen.update(kwargs)
+            return _FakeProc("[]")
+
+        environ = {
+            "HOME": "/home/u", "PATH": "/bin",
+            "CODEX_HOME": "/home/u/.codex", "CODEX_API_KEY": "codex",
+            "ANTHROPIC_API_KEY": "anthropic", "GITHUB_TOKEN": "github",
+        }
+        with mock.patch(_WHICH, lambda name: "/usr/bin/" + name):
+            with mock.patch.dict(os.environ, environ, clear=True):
+                with mock.patch("subprocess.Popen", _popen):
+                    response = backend.send("draw", "scene", _TOOLS)
+        self.assertIsNone(response.error)
+        self.assertEqual(seen["env"], {
+            "HOME": "/home/u", "PATH": "/bin",
+            "CODEX_HOME": "/home/u/.codex", "CODEX_API_KEY": "codex",
+        })
 
 
 class RegistrationTC(unittest.TestCase):
@@ -386,6 +479,11 @@ class RegistrationTC(unittest.TestCase):
         backend = agent.BackendRegistry.get("openai (http)")
         self.assertIsNotNone(backend)
         self.assertIsInstance(backend, agent.OpenAIHttpBackend)
+
+    def test_codex_registers_on_import(self):
+        backend = agent.BackendRegistry.get("Codex")
+        self.assertIsNotNone(backend)
+        self.assertIsInstance(backend, agent.CodexCliBackend)
 
 
 class OpenAIHttpBackendTC(unittest.TestCase):
@@ -625,6 +723,32 @@ class ClaudeCliRealTC(unittest.TestCase):
         # A real reply must parse cleanly into circle-drawing commands; a
         # broken flag, envelope, or parser would surface as an error or an
         # empty batch here.
+        self.assertIsNone(response.error)
+        self.assertTrue(response.commands)
+        ops = {tool["name"] for tool in _TOOLS}
+        for command in response.commands:
+            self.assertIn(command.get("op"), ops)
+        self.assertIn("add_circle",
+                      [command["op"] for command in response.commands])
+
+
+_REAL_CODEX = "SOLVCON_TEST_REAL_CODEX"
+
+
+@unittest.skipUnless(os.environ.get(_REAL_CODEX) == "1",
+                     "set %s=1 to hit the installed codex CLI" % _REAL_CODEX)
+class CodexCliRealTC(unittest.TestCase):
+    """Opt-in end-to-end test against the installed Codex CLI."""
+
+    def setUp(self):
+        self.backend = agent.CodexCliBackend()
+        if not self.backend.available():
+            self.skipTest("codex CLI not found on PATH")
+
+    def test_draws_a_circle_end_to_end(self):
+        response = self.backend.send(
+            "Add exactly one circle of radius 1 at the origin.",
+            "empty world with 0 shapes", _TOOLS)
         self.assertIsNone(response.error)
         self.assertTrue(response.commands)
         ops = {tool["name"] for tool in _TOOLS}
