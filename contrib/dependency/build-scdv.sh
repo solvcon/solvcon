@@ -180,7 +180,8 @@ scdv_apt_latex_cmd() {
   # Gotcha: Ubuntu's ImageMagick policy.xml disables the EPS/PS coders, so
   # convert fails on the generated .eps.  The pstake input is locally built
   # and trusted; comment out the rights="none" lines for EPS/PS, or skip
-  # imagemagick and rely on the Ghostscript fallback.
+  # imagemagick and rely on the Ghostscript fallback.  The fallback uses
+  # Pillow, which `doc/requirements.txt` installs.
   cat <<'EOF'
 sudo apt install -y \
   texlive-latex-base texlive-latex-recommended texlive-latex-extra \

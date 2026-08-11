@@ -50,10 +50,11 @@ HTML, because the `pstake` extension renders the PSTricks figures through
 Ubuntu that is the `texlive-*` set led by `texlive-pstricks`, plus
 `ghostscript` and `imagemagick`; note that Ubuntu's ImageMagick disables the
 EPS and PS coders in `policy.xml`, so either allow them or drop `imagemagick`
-and let the Ghostscript fallback do the work. On macOS there is no system TeX
-at all, so it is the `mactex-no-gui` cask (a several-gigabyte download) plus
-`ghostscript` and `imagemagick`. The cask installs into `/Library/TeX/texbin`
-and reaches `PATH` through `/etc/paths.d`, so run
+and use the Ghostscript fallback. The fallback uses Pillow, which
+`doc/requirements.txt` installs. On macOS there is no system TeX at all, so it
+is the `mactex-no-gui` cask (a several-gigabyte download) plus `ghostscript`
+and `imagemagick`. The cask installs into `/Library/TeX/texbin` and reaches
+`PATH` through `/etc/paths.d`, so run
 `eval "$(/usr/libexec/path_helper)"` or open a new terminal before building
 the documentation.
 

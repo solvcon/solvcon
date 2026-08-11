@@ -4,6 +4,7 @@
 
 sphinx>=7.0
 numpy
+Pillow
 myst-parser>=2.0
 furo>=2024.1
 breathe>=4.35
