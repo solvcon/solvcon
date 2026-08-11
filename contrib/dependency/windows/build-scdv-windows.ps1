@@ -917,10 +917,10 @@ function Build-Python {
 
 function Build-Pybind11 {
     if (Test-Skip 'pybind11') { Write-Host 'skip: pybind11'; return }
-    $ver = '2.13.6'; $full = "pybind11-$ver"; $fn = "$full.tar.gz"
+    $ver = '3.1.0'; $full = "pybind11-$ver"; $fn = "$full.tar.gz"
     Get-Download $fn `
         "https://github.com/pybind/pybind11/archive/refs/tags/v$ver.tar.gz" `
-        'a04dead9c83edae6d84e2e343da7feeb'
+        '235664b4673257b80a9ab79f9b208e94'
     Expand-Source $fn $full
     $bld = Join-Path $ScdvSrcDir "$full\build"
     New-Item -ItemType Directory -Force -Path $bld | Out-Null
