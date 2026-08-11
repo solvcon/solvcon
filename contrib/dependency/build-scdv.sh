@@ -293,9 +293,9 @@ EOF
 
 plat_scipy_install() {
   # Runs in the unpacked scipy source directory (the caller has pushd'd).
-  # Ubuntu's pybind11-dev (2.11) at /usr/include shadows our 2.13.6 and
-  # rejects scipy's 3-arg PYBIND11_MODULE. -isystem orders our headers ahead
-  # of /usr/include so scipy compiles against the right pybind11.
+  # Ubuntu's pybind11-dev (2.11) at /usr/include shadows ours and rejects
+  # scipy's 3-arg PYBIND11_MODULE. -isystem orders our headers ahead of
+  # /usr/include so scipy compiles against the right pybind11.
   local saved_cxxflags=${CXXFLAGS:-}
   export CXXFLAGS="-isystem ${SCDV_USRDIR}/include ${saved_cxxflags}"
   with_log install.log "${PY}" -m pip install . --no-build-isolation
@@ -1277,11 +1277,11 @@ build_python() {
 
 build_pybind11() {
   scdv_skip_p pybind11 && { echo "skip: pybind11" ; return 0 ; }
-  local ver=2.13.6 full fn
+  local ver=3.1.0 full fn
   full=pybind11-${ver} ; fn=${full}.tar.gz
   download_md5 "${fn}" \
     "https://github.com/pybind/pybind11/archive/refs/tags/v${ver}.tar.gz" \
-    a04dead9c83edae6d84e2e343da7feeb
+    235664b4673257b80a9ab79f9b208e94
   unpack "${fn}" "${full}"
   mkdir -p "${SCDV_SRCDIR}/${full}/build"
   pushd "${SCDV_SRCDIR}/${full}/build" > /dev/null

@@ -278,7 +278,9 @@ endif()
 option(pybind11_path "pybind11 path")
 find_package(pybind11 2.12.0 REQUIRED PATHS ${pybind11_path})
 message(STATUS "pybind11_INCLUDE_DIRS: ${pybind11_INCLUDE_DIRS}")
-include_directories(${pybind11_INCLUDE_DIRS})
+# SYSTEM keeps the core's warning flags off pybind11's own headers, the same
+# reason numpy gets it below.
+include_directories(SYSTEM ${pybind11_INCLUDE_DIRS})
 
 set(NUMPY_INCLUDE_DIR "${Python_NumPy_INCLUDE_DIRS}")
 message(STATUS "NUMPY_INCLUDE_DIR: ${NUMPY_INCLUDE_DIR}")
