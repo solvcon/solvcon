@@ -143,7 +143,7 @@ public:
         return *this;
     }
 
-    void writeToHistory(std::string const & data) const;
+    void writeToHistory(std::string const & text) const;
 
     /// Point the syntax highlighter and the bracket marker at a theme's syntax
     /// colors. The text itself follows the application palette; these are the

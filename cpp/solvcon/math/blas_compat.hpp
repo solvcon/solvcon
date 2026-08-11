@@ -15,6 +15,20 @@ namespace solvcon
 {
 
 /**
+ * Whether this build has a BLAS backend behind the wrappers below.
+ *
+ * A constant rather than an `#if` at each call site, so a caller can discard
+ * its BLAS branch through `if constexpr` instead of having the preprocessor
+ * delete it. That leaves no unreachable statement behind the branch, which
+ * MSVC reports as C4702 from its code generator.
+ */
+#if (defined(__APPLE__) && defined(__arm64__)) || defined(SC_HAS_CBLAS)
+inline constexpr bool has_blas_backend = true;
+#else
+inline constexpr bool has_blas_backend = false;
+#endif
+
+/**
  * @brief Select whether BLAS reads a matrix descriptor as stored or transposed.
  */
 enum class BlasTranspose : std::uint8_t

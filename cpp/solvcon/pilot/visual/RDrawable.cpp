@@ -3,7 +3,20 @@
  * BSD 3-Clause License, see COPYING
  */
 
+// Qt's `qnumeric.h` is the only place C4702 still fires, from a dead branch
+// the optimizer finds after inlining `qAddOverflowGeneric`. MSVC raises C4702
+// from the code generator, so `/external:W0` does not reach it and marking the
+// Qt headers SYSTEM does not silence it. The state of a 4700-4999 warning at a
+// function's opening brace governs that function, so disabling it across the
+// include covers Qt's inline bodies and leaves C4702 in force below.
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4702) // unreachable code
+#endif
 #include <solvcon/pilot/visual/RDrawable.hpp> // Must be the first include.
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 namespace solvcon
 {

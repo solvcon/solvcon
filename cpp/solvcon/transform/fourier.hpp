@@ -38,7 +38,7 @@ void fft_radix_2(SimpleArray<T1<T2>> const & in, SimpleArray<T1<T2>> & out)
     for (size_t size = 2; size <= N; size *= 2)
     {
         size_t const half_size = size / 2;
-        T2 angle_inc = -2.0 * pi<T2> / static_cast<T2>(size);
+        auto angle_inc = static_cast<T2>(-2.0 * pi<T2> / static_cast<T2>(size));
 
         for (size_t i = 0; i < N; i += size)
         {
@@ -130,8 +130,8 @@ public:
             out[i] = 0;
             for (size_t j = 0; j < N; ++j)
             {
-                T2 tmp = -2.0 * pi<T2> * i * j / static_cast<T2>(N);
-                T1<T2> const twiddle_factor{std::cos(tmp), std::sin(tmp)};
+                auto const angle = static_cast<T2>(-2.0 * pi<T2> * i * j / static_cast<T2>(N));
+                T1<T2> const twiddle_factor{std::cos(angle), std::sin(angle)};
                 out[i] += in[j] * twiddle_factor;
             }
         }

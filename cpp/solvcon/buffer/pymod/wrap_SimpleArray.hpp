@@ -9,6 +9,7 @@
 
 #include <solvcon/buffer/pymod/array_common.hpp>
 
+#include <cctype>
 #include <cstdint>
 
 namespace solvcon
@@ -16,6 +17,18 @@ namespace solvcon
 
 namespace python
 {
+
+namespace detail
+{
+
+// std::tolower is specified in terms of unsigned char and returns int; the
+// casts keep a negative char out of it and the result inside char.
+inline char lower_ascii(char ch)
+{
+    return static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+}
+
+} /* end namespace detail */
 
 template <typename T>
 class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArray
@@ -566,7 +579,7 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArray
         }
 
         py_typename.replace(0, strlen("_solvcon.SimpleArray"), "");
-        py_typename[0] = tolower(py_typename[0]);
+        py_typename[0] = detail::lower_ascii(py_typename[0]);
         const DataType dt(py_typename);
 
 #define SC_DECL_TAKE_ALONG_AXIS_TYPED(IntDataType) \
@@ -601,7 +614,7 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArray
         }
 
         py_typename.replace(0, strlen("_solvcon.SimpleArray"), "");
-        py_typename[0] = tolower(py_typename[0]);
+        py_typename[0] = detail::lower_ascii(py_typename[0]);
         const DataType dt(py_typename);
 
 #define SC_DECL_TAKE_ALONG_AXIS_SIMD_TYPED(IntDataType) \
@@ -689,8 +702,8 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArray
 
         py_typename_x.replace(0, strlen("_solvcon.SimpleArray"), "");
         py_typename_y.replace(0, strlen("_solvcon.SimpleArray"), "");
-        py_typename_x[0] = tolower(py_typename_x[0]);
-        py_typename_y[0] = tolower(py_typename_y[0]);
+        py_typename_x[0] = detail::lower_ascii(py_typename_x[0]);
+        py_typename_y[0] = detail::lower_ascii(py_typename_y[0]);
 
         const DataType dt_x(py_typename_x);
         const DataType dt_y(py_typename_y);

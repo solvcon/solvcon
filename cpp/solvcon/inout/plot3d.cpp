@@ -136,12 +136,13 @@ void Plot3d::build_interior(const std::shared_ptr<StaticMesh> & blk)
     blk->cltpn().swap(m_cltpn);
     blk->ndcrd().swap(m_nds);
 
-    for (size_t i = 0; i < m_elems.size(); ++i)
+    for (uint_type i = 0; i < m_elems.size(); ++i)
     {
-        blk->clnds()(i, 0) = m_elems[i][0];
-        for (size_t j = 1; j <= m_elems[i][0]; ++j)
+        small_vector<uint_type> const & elem = m_elems[i];
+        blk->clnds()(i, 0) = elem[0];
+        for (size_t j = 1; j <= elem[0]; ++j)
         {
-            blk->clnds()(i, j) = m_elems[i][j];
+            blk->clnds()(i, j) = elem[j];
         }
     }
     blk->build_interior(true);
