@@ -975,9 +975,20 @@ void MatmulExecutor<Array>::execute_gemv_blas(value_type * output, value_type co
 template <typename Array>
 void MatmulExecutor<Array>::execute_gemm_blas(value_type * output, value_type const * lhs_data, value_type const * rhs_data)
 {
-    matrix_view_type const lhs = require_matrix_view(lhs_matrix_view(lhs_data));
-    matrix_view_type const rhs = require_matrix_view(rhs_matrix_view(rhs_data));
-    gemm_blas(m_plan.rows(), m_plan.columns(), m_plan.inner_size(), lhs, rhs, output);
+    BlasGemmOperation<value_type> const operation{
+        .rows = m_plan.rows(),
+        .columns = m_plan.columns(),
+        .inner_size = m_plan.inner_size(),
+        .lhs = require_matrix_view(lhs_matrix_view(lhs_data)),
+        .rhs = require_matrix_view(rhs_matrix_view(rhs_data)),
+        .output = {
+            .m_data = output,
+            .m_leading_dimension = m_plan.columns(),
+        },
+        .alpha = value_type{1},
+        .beta = value_type{0},
+    };
+    gemm_blas(operation);
 }
 
 template <typename Array>
@@ -1343,7 +1354,9 @@ A SimpleArrayMatmulHelper<A, T>::matmul_vec_vec_blas()
     if constexpr (can_matmul_blas_v<value_type>)
     {
         ssize_t const k = m_lhs.shape(0);
-        m_result.data(0) = dot_blas(k, m_lhs.data(), m_rhs.data());
+        BlasVectorView<value_type> const lhs{m_lhs.data(), 1};
+        BlasVectorView<value_type> const rhs{m_rhs.data(), 1};
+        m_result.data(0) = dot_blas(k, lhs, rhs);
         return std::move(m_result);
     }
     else
@@ -1381,13 +1394,9 @@ A SimpleArrayMatmulHelper<A, T>::matmul_vec_mat_blas()
     {
         ssize_t const k = m_rhs.shape(0);
         ssize_t const n = m_rhs.shape(1);
-        bool const transpose_matrix = true;
-        gemv_blas(k,
-                  n,
-                  m_rhs.data(),
-                  m_lhs.data(),
-                  m_result.data(),
-                  transpose_matrix);
+        BlasMatrixView<value_type> const matrix{m_rhs.data(), n, BlasTranspose::None};
+        BlasVectorView<value_type> const vector{m_lhs.data(), 1};
+        gemv_blas(k, n, matrix, vector, m_result.data(), BlasTranspose::Transpose);
         return std::move(m_result);
     }
     else
@@ -1425,13 +1434,9 @@ A SimpleArrayMatmulHelper<A, T>::matmul_mat_vec_blas()
     {
         ssize_t const m = m_lhs.shape(0);
         ssize_t const k = m_lhs.shape(1);
-        bool const transpose_matrix = false;
-        gemv_blas(m,
-                  k,
-                  m_lhs.data(),
-                  m_rhs.data(),
-                  m_result.data(),
-                  transpose_matrix);
+        BlasMatrixView<value_type> const matrix{m_lhs.data(), k, BlasTranspose::None};
+        BlasVectorView<value_type> const vector{m_rhs.data(), 1};
+        gemv_blas(m, k, matrix, vector, m_result.data(), BlasTranspose::None);
         return std::move(m_result);
     }
     else
@@ -1474,7 +1479,20 @@ A SimpleArrayMatmulHelper<A, T>::matmul_mat_mat_blas()
         ssize_t const m = m_result.shape(0);
         ssize_t const n = m_result.shape(1);
         ssize_t const k = m_lhs.shape(1);
-        gemm_blas(m, n, k, m_lhs.data(), m_rhs.data(), m_result.data());
+        BlasGemmOperation<value_type> const operation{
+            .rows = m,
+            .columns = n,
+            .inner_size = k,
+            .lhs = {m_lhs.data(), k, BlasTranspose::None},
+            .rhs = {m_rhs.data(), n, BlasTranspose::None},
+            .output = {
+                .m_data = m_result.data(),
+                .m_leading_dimension = n,
+            },
+            .alpha = value_type{1},
+            .beta = value_type{0},
+        };
+        gemm_blas(operation);
         return std::move(m_result);
     }
     else

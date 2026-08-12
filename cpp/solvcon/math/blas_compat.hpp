@@ -98,63 +98,6 @@ struct BlasGemmOperation
     T beta;
 }; /* end struct BlasGemmOperation */
 
-float dot_blas(ssize_t size, float const * lhs, float const * rhs);
-double dot_blas(ssize_t size, double const * lhs, double const * rhs);
-Complex<float> dot_blas(ssize_t size,
-                        Complex<float> const * lhs,
-                        Complex<float> const * rhs);
-Complex<double> dot_blas(ssize_t size,
-                         Complex<double> const * lhs,
-                         Complex<double> const * rhs);
-void gemv_blas(ssize_t m,
-               ssize_t n,
-               float const * matrix,
-               float const * vector,
-               float * result,
-               bool transpose_matrix);
-void gemv_blas(ssize_t m,
-               ssize_t n,
-               double const * matrix,
-               double const * vector,
-               double * result,
-               bool transpose_matrix);
-void gemv_blas(ssize_t m,
-               ssize_t n,
-               Complex<float> const * matrix,
-               Complex<float> const * vector,
-               Complex<float> * result,
-               bool transpose_matrix);
-void gemv_blas(ssize_t m,
-               ssize_t n,
-               Complex<double> const * matrix,
-               Complex<double> const * vector,
-               Complex<double> * result,
-               bool transpose_matrix);
-void gemm_blas(ssize_t m,
-               ssize_t n,
-               ssize_t k,
-               float const * lhs,
-               float const * rhs,
-               float * result);
-void gemm_blas(ssize_t m,
-               ssize_t n,
-               ssize_t k,
-               double const * lhs,
-               double const * rhs,
-               double * result);
-void gemm_blas(ssize_t m,
-               ssize_t n,
-               ssize_t k,
-               Complex<float> const * lhs,
-               Complex<float> const * rhs,
-               Complex<float> * result);
-void gemm_blas(ssize_t m,
-               ssize_t n,
-               ssize_t k,
-               Complex<double> const * lhs,
-               Complex<double> const * rhs,
-               Complex<double> * result);
-
 namespace detail
 {
 
@@ -172,10 +115,6 @@ void gemm(BlasGemmOperation<float> const & operation);
 void gemm(BlasGemmOperation<double> const & operation);
 void gemm(BlasGemmOperation<Complex<float>> const & operation);
 void gemm(BlasGemmOperation<Complex<double>> const & operation);
-void gemm(ssize_t m, ssize_t n, ssize_t k, BlasMatrixView<float> lhs, BlasMatrixView<float> rhs, float * result);
-void gemm(ssize_t m, ssize_t n, ssize_t k, BlasMatrixView<double> lhs, BlasMatrixView<double> rhs, double * result);
-void gemm(ssize_t m, ssize_t n, ssize_t k, BlasMatrixView<Complex<float>> lhs, BlasMatrixView<Complex<float>> rhs, Complex<float> * result);
-void gemm(ssize_t m, ssize_t n, ssize_t k, BlasMatrixView<Complex<double>> lhs, BlasMatrixView<Complex<double>> rhs, Complex<double> * result);
 
 } /* end namespace detail */
 
@@ -204,16 +143,6 @@ void gemm_blas(BlasGemmOperation<T> const & operation)
 {
 #if (defined(__APPLE__) && defined(__arm64__)) || defined(SC_HAS_CBLAS)
     detail::gemm(operation);
-#else
-    throw std::runtime_error("solvcon BLAS wrapper: CBLAS backend is unavailable");
-#endif
-}
-
-template <typename T>
-void gemm_blas(ssize_t m, ssize_t n, ssize_t k, BlasMatrixView<T> lhs, BlasMatrixView<T> rhs, T * result)
-{
-#if (defined(__APPLE__) && defined(__arm64__)) || defined(SC_HAS_CBLAS)
-    detail::gemm(m, n, k, lhs, rhs, result);
 #else
     throw std::runtime_error("solvcon BLAS wrapper: CBLAS backend is unavailable");
 #endif
