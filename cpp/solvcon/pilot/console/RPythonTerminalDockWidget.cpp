@@ -479,9 +479,9 @@ QWidget * RPythonTerminalDockWidget::textEdit() const
     return m_edit;
 }
 
-void RPythonTerminalDockWidget::writeToHistory(std::string const & data)
+void RPythonTerminalDockWidget::writeToHistory(std::string const & text)
 {
-    m_edit->appendBeforePrompt(QString::fromStdString(data));
+    m_edit->appendBeforePrompt(QString::fromStdString(text));
 }
 
 void RPythonTerminalDockWidget::applyTheme(SyntaxColors const & colors)

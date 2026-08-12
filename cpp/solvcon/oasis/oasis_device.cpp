@@ -28,7 +28,7 @@ void OasisDevice::append_unsigned_integer(std::vector<uint8_t> & segment, int va
     while (payload >= 1)
     {
         int const first_bit = payload >= 128 ? 1 : 0;
-        segment.push_back((first_bit << 7) | (payload % 128));
+        segment.push_back(static_cast<uint8_t>((first_bit << 7) | (payload % 128)));
         payload /= 128;
     }
 }
@@ -57,7 +57,7 @@ void OasisDevice::append_signed_integer(std::vector<uint8_t> & segment, int valu
     while (payload >= 1)
     {
         int const first_bit = payload >= 128 ? 1 : 0;
-        segment.push_back((first_bit << 7) | (payload % 128));
+        segment.push_back(static_cast<uint8_t>((first_bit << 7) | (payload % 128)));
         payload /= 128;
     }
 }
@@ -82,7 +82,7 @@ std::vector<uint8_t> OasisRecordRect::to_bytes() const
 
     const int INFO = (S << 7) | (W << 6) | (H << 5) |
                      (X << 4) | (Y << 3) | (R << 2) | (D << 1) | L;
-    segment.push_back(INFO);
+    segment.push_back(static_cast<uint8_t>(INFO));
 
     // Layer-num and datatype-num (0 in default).
     segment.push_back(0x00);
@@ -115,7 +115,7 @@ std::vector<uint8_t> OasisRecordPoly::to_bytes() const
     const int D = 1; // Have Datatype? (1 if yes, 0 if no)
     const int L = 1; // Have Layer? (1 if yes, 0 if no)
     const int INFO = (P << 5) | (X << 4) | (Y << 3) | (R << 2) | (D << 1) | L;
-    segment.push_back(INFO);
+    segment.push_back(static_cast<uint8_t>(INFO));
 
     // Layer-num and datatype-num (0 in default).
     segment.push_back(0x00);
@@ -134,7 +134,7 @@ std::vector<uint8_t> OasisRecordPoly::to_bytes() const
     }
 
     // The vertex count shoud be (vertex - 1)
-    segment.push_back(m_vertices.size() - 1);
+    segment.push_back(static_cast<uint8_t>(m_vertices.size() - 1));
 
     // In this implementation, point-list only support 1-delta format.
     // Please refer Point-list in OASIS draft 7.7.

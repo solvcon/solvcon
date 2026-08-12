@@ -175,7 +175,7 @@ public:
         return *this;
     }
 
-    void writeToHistory(std::string const & data);
+    void writeToHistory(std::string const & text);
 
     /// Point the input highlighter, the bracket marker, and the stderr color
     /// at a theme's syntax table so the terminal follows a light or dark

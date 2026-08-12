@@ -651,12 +651,12 @@ void RPythonConsoleDockWidget::updateCompletionPrefix()
     }
 }
 
-void RPythonConsoleDockWidget::writeToHistory(const std::string & data) const
+void RPythonConsoleDockWidget::writeToHistory(const std::string & text) const
 {
     QTextCursor cursor = m_history_edit->textCursor();
     cursor.movePosition(QTextCursor::End);
     m_history_edit->setTextCursor(cursor);
-    m_history_edit->insertPlainText(QString::fromStdString(data));
+    m_history_edit->insertPlainText(QString::fromStdString(text));
 }
 
 } /* end namespace solvcon */

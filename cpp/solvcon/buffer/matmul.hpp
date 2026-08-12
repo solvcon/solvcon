@@ -32,6 +32,11 @@ inline constexpr bool can_matmul_blas_v = std::is_same_v<T, float> ||
                                           std::is_same_v<T, Complex<float>> ||
                                           std::is_same_v<T, Complex<double>>;
 
+// Whether a matmul over T reaches BLAS at all: the type has to be one BLAS
+// takes and the build has to have a backend behind the wrappers.
+template <typename T>
+inline constexpr bool use_matmul_blas_v = has_blas_backend && can_matmul_blas_v<T>;
+
 /**
  * @brief Identify the contraction kernel fixed before batch traversal.
  */
@@ -601,32 +606,36 @@ void MatmulExecutor<Array>::execute()
         pack(selection.packing);
     }
 
-    switch (selection.kernel)
+    // `select_execution()` names a BLAS kernel only where one exists, so the
+    // dispatch stays uninstantiated for a value type that has none, and the
+    // generic kernel is the one path every instantiation keeps.
+    if constexpr (use_matmul_blas_v<value_type>)
     {
-    case MatmulKernel::Generic:
-        execute_contractions<MatmulKernel::Generic>();
-        return;
-    case MatmulKernel::BlasDot:
-        execute_contractions<MatmulKernel::BlasDot>();
-        return;
-    case MatmulKernel::BlasGevm:
-        execute_contractions<MatmulKernel::BlasGevm>();
-        return;
-    case MatmulKernel::BlasGemv:
-        execute_contractions<MatmulKernel::BlasGemv>();
-        return;
-    case MatmulKernel::BlasGemm:
-        execute_contractions<MatmulKernel::BlasGemm>();
-        return;
+        switch (selection.kernel)
+        {
+        case MatmulKernel::Generic:
+            break;
+        case MatmulKernel::BlasDot:
+            execute_contractions<MatmulKernel::BlasDot>();
+            return;
+        case MatmulKernel::BlasGevm:
+            execute_contractions<MatmulKernel::BlasGevm>();
+            return;
+        case MatmulKernel::BlasGemv:
+            execute_contractions<MatmulKernel::BlasGemv>();
+            return;
+        case MatmulKernel::BlasGemm:
+            execute_contractions<MatmulKernel::BlasGemm>();
+            return;
+        }
     }
-    throw std::logic_error("MatmulExecutor::execute(): invalid kernel");
+    execute_contractions<MatmulKernel::Generic>();
 }
 
 template <typename Array>
 MatmulSelection MatmulExecutor<Array>::select_execution() const
 {
-#if (defined(__APPLE__) && defined(__arm64__)) || defined(SC_HAS_CBLAS)
-    if constexpr (can_matmul_blas_v<value_type>)
+    if constexpr (use_matmul_blas_v<value_type>)
     {
         if (m_plan.lhs_is_vector() && m_plan.rhs_is_vector())
         {
@@ -642,8 +651,10 @@ MatmulSelection MatmulExecutor<Array>::select_execution() const
         }
         return select_gemm();
     }
-#endif
-    return MatmulSelection{};
+    else
+    {
+        return MatmulSelection{};
+    }
 }
 
 template <typename Array>
@@ -855,32 +866,27 @@ void MatmulExecutor<Array>::execute_at(
     }
     else
     {
-#if (defined(__APPLE__) && defined(__arm64__)) || defined(SC_HAS_CBLAS)
-        if constexpr (can_matmul_blas_v<value_type>)
+        static_assert(use_matmul_blas_v<value_type>,
+                      "execute() dispatches a BLAS kernel only where one exists");
+        value_type * output = m_output_data + output_base;
+        value_type const * lhs_data = m_lhs_data + lhs_base;
+        value_type const * rhs_data = m_rhs_data + rhs_base;
+        if constexpr (Kernel == MatmulKernel::BlasDot)
         {
-            value_type * output = m_output_data + output_base;
-            value_type const * lhs_data = m_lhs_data + lhs_base;
-            value_type const * rhs_data = m_rhs_data + rhs_base;
-            if constexpr (Kernel == MatmulKernel::BlasDot)
-            {
-                execute_dot_blas(output, lhs_data, rhs_data);
-            }
-            else if constexpr (Kernel == MatmulKernel::BlasGevm)
-            {
-                execute_gevm_blas(output, lhs_data, rhs_data);
-            }
-            else if constexpr (Kernel == MatmulKernel::BlasGemv)
-            {
-                execute_gemv_blas(output, lhs_data, rhs_data);
-            }
-            else if constexpr (Kernel == MatmulKernel::BlasGemm)
-            {
-                execute_gemm_blas(output, lhs_data, rhs_data);
-            }
-            return;
+            execute_dot_blas(output, lhs_data, rhs_data);
         }
-#endif
-        throw std::logic_error("MatmulExecutor::execute_at(): unavailable BLAS kernel");
+        else if constexpr (Kernel == MatmulKernel::BlasGevm)
+        {
+            execute_gevm_blas(output, lhs_data, rhs_data);
+        }
+        else if constexpr (Kernel == MatmulKernel::BlasGemv)
+        {
+            execute_gemv_blas(output, lhs_data, rhs_data);
+        }
+        else if constexpr (Kernel == MatmulKernel::BlasGemm)
+        {
+            execute_gemm_blas(output, lhs_data, rhs_data);
+        }
     }
 }
 

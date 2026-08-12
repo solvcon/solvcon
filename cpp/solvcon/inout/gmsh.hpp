@@ -208,7 +208,7 @@ private:
             auto tokens = tokenize(line, ' ');
 
             // parse element type
-            auto tpn = std::stoul(tokens[1]);
+            auto tpn = static_cast<uint16_t>(std::stoul(tokens[1]));
             auto eldef = GmshElementDef::by_id(tpn);
             // parse element tag
             std::vector<uint_type> tag;
@@ -238,7 +238,7 @@ private:
                 nds_temp[mmcl[i] + 1] = nds[i] - 1;
             }
             usnds.insert(usnds.end(), nds_temp.begin() + 1, nds_temp.end());
-            nds_temp[0] = mmcl.size();
+            nds_temp[0] = static_cast<uint_type>(mmcl.size());
             m_elems.insert(std::pair{idx, nds_temp});
             idx++;
         }
@@ -257,7 +257,7 @@ private:
         m_ndmap.remake(small_vector<ssize_t>{static_cast<ssize_t>(usnds.size())}, -1);
         for (size_t i = 0; i < usnds.size(); ++i)
         {
-            m_ndmap(usnds[i]) = i;
+            m_ndmap(usnds[i]) = static_cast<uint_type>(i);
         }
     }
 

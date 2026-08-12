@@ -59,7 +59,7 @@ private:
         return ptr;
     }
 
-    static bool direct_converter(PyObject * obj, void *& value)
+    static bool direct_converter(PyObject * obj, void *& storage)
     {
         auto & api = npy_api::get();
         if (!PyObject_TypeCheck(obj, api.PyVoidArrType_Type_))
@@ -70,7 +70,7 @@ private:
         {
             if (api.PyArray_EquivTypes_(dtype_ptr(), descr.ptr()))
             {
-                value = (reinterpret_cast<PyVoidScalarObject_Proxy *>(obj))->obval; // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+                storage = (reinterpret_cast<PyVoidScalarObject_Proxy *>(obj))->obval; // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
                 return true;
             }
         }
@@ -110,7 +110,7 @@ private:
         return ptr;
     }
 
-    static bool direct_converter(PyObject * obj, void *& value)
+    static bool direct_converter(PyObject * obj, void *& storage)
     {
         auto & api = npy_api::get();
         if (!PyObject_TypeCheck(obj, api.PyVoidArrType_Type_))
@@ -122,7 +122,7 @@ private:
             if (api.PyArray_EquivTypes_(dtype_ptr(), descr.ptr()))
             {
                 // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-                value = (reinterpret_cast<PyVoidScalarObject_Proxy *>(obj))->obval;
+                storage = (reinterpret_cast<PyVoidScalarObject_Proxy *>(obj))->obval;
                 return true;
             }
         }

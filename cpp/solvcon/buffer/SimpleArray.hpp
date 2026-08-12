@@ -230,6 +230,11 @@ public:
 
 }; /* end class SimpleArrayMixinModifiers */
 
+// SimpleArray<bool> reaches these mixins like any other value type, and the
+// operations that have no boolean meaning have to say so one by one.
+template <typename U>
+inline constexpr bool is_bool_v = std::is_same_v<bool, std::remove_const_t<U>>;
+
 template <typename U>
 struct select_real_t
 {
@@ -551,7 +556,7 @@ public:
         {
             sum += v;
         }
-        return sum / static_cast<value_type>(n);
+        return sum / convert_count(n);
     }
 
     A mean(const shape_type & axis) const
@@ -567,7 +572,7 @@ public:
         {
             throw std::runtime_error("SimpleArray::mean(): empty array");
         }
-        return athis->sum() / static_cast<value_type>(n);
+        return athis->sum() / convert_count(n);
     }
 
     real_type var_op(small_vector<value_type> & sv, size_t ddof) const
@@ -639,14 +644,18 @@ public:
         }
         else
         {
-            acc -= n * mu * mu;
+            // Cast the result, not the count: the compound assignment
+            // already performed this conversion, and narrowing `n` first
+            // would move the product into a signed type that overflows
+            // instead of the defined size_t wrap.
+            acc = static_cast<real_type>(acc - n * mu * mu);
         }
         return acc / static_cast<real_type>(n - ddof);
     }
 
     real_type std_op(small_vector<value_type> & sv, size_t ddof) const
     {
-        return std::sqrt(var_op(sv, ddof));
+        return static_cast<real_type>(std::sqrt(var_op(sv, ddof)));
     }
 
     auto std(const shape_type & axis, size_t ddof) const
@@ -657,7 +666,7 @@ public:
     real_type std(size_t ddof) const
     {
         auto athis = static_cast<A const *>(this);
-        return std::sqrt(athis->var(ddof));
+        return static_cast<real_type>(std::sqrt(athis->var(ddof)));
     }
 
     value_type min() const
@@ -696,7 +705,7 @@ public:
         {
             for (size_t i = 0; i < athis->size(); ++i)
             {
-                ret.data(i) = std::abs(athis->data(i));
+                ret.data(i) = static_cast<value_type>(std::abs(athis->data(i)));
             }
         }
         return ret;
@@ -716,12 +725,26 @@ public:
     A sub(A const & other) const
     {
         validate_same_shape(other, "sub");
-        return A(*static_cast<A const *>(this)).isub(other);
+        if constexpr (is_bool_v<value_type>)
+        {
+            reject_bool_operation("isub");
+        }
+        else
+        {
+            return A(*static_cast<A const *>(this)).isub(other);
+        }
     }
 
     A sub(value_type scalar) const
     {
-        return A(*static_cast<A const *>(this)).isub(scalar);
+        if constexpr (is_bool_v<value_type>)
+        {
+            reject_bool_operation("isub");
+        }
+        else
+        {
+            return A(*static_cast<A const *>(this)).isub(scalar);
+        }
     }
 
     A mul(A const & other) const
@@ -738,15 +761,48 @@ public:
     A div(A const & other) const
     {
         validate_same_shape(other, "div");
-        return A(*static_cast<A const *>(this)).idiv(other);
+        if constexpr (is_bool_v<value_type>)
+        {
+            reject_bool_operation("idiv");
+        }
+        else
+        {
+            return A(*static_cast<A const *>(this)).idiv(other);
+        }
     }
 
     A div(value_type scalar) const
     {
-        return A(*static_cast<A const *>(this)).idiv(scalar);
+        if constexpr (is_bool_v<value_type>)
+        {
+            reject_bool_operation("idiv");
+        }
+        else
+        {
+            return A(*static_cast<A const *>(this)).idiv(scalar);
+        }
     }
 
 private:
+
+    // Subtraction and division have no meaning on bool. Throwing from inside
+    // the `if constexpr` branch, instead of falling through to a shared
+    // `return`, keeps the bool instantiation free of a statement no execution
+    // can reach. The out-of-place `sub()` and `div()` pass the name of the
+    // in-place operation they delegate to, so the thrown message stays the one
+    // callers already see.
+    [[noreturn]] static void reject_bool_operation(char const * op)
+    {
+        throw std::runtime_error(
+            std::format("SimpleArray<bool>::{}(): boolean value doesn't support this operation", op));
+    }
+
+    // An element count is a size_t, and a Complex value_type converts from its
+    // real_type rather than from a size_t, so the conversion needs two steps.
+    static value_type convert_count(size_t count)
+    {
+        return static_cast<value_type>(static_cast<real_type>(count));
+    }
 
     void validate_same_shape(A const & other, char const * op) const;
 
@@ -832,10 +888,10 @@ public:
 
     A & isub(A const & other)
     {
-        auto athis = static_cast<A *>(this);
         validate_same_shape(other, "isub");
         if constexpr (!std::is_same_v<bool, std::remove_const_t<value_type>>)
         {
+            auto athis = static_cast<A *>(this);
             const value_type * const end = athis->end();
             value_type * ptr = athis->begin();
             const value_type * other_ptr = other.begin();
@@ -846,20 +902,19 @@ public:
                 ++ptr;
                 ++other_ptr;
             }
+            return *athis;
         }
         else
         {
-            throw std::runtime_error(
-                "SimpleArray<bool>::isub(): boolean value doesn't support this operation");
+            reject_bool_operation("isub");
         }
-        return *athis;
     }
 
     A & isub(value_type scalar)
     {
-        auto athis = static_cast<A *>(this);
         if constexpr (!std::is_same_v<bool, std::remove_const_t<value_type>>)
         {
+            auto athis = static_cast<A *>(this);
             const value_type * const end = athis->end();
             value_type * ptr = athis->begin();
 
@@ -868,13 +923,12 @@ public:
                 *ptr -= scalar;
                 ++ptr;
             }
+            return *athis;
         }
         else
         {
-            throw std::runtime_error(
-                "SimpleArray<bool>::isub(): boolean value doesn't support this operation");
+            reject_bool_operation("isub");
         }
-        return *athis;
     }
 
     A & imul(A const & other)
@@ -935,10 +989,10 @@ public:
 
     A & idiv(A const & other)
     {
-        auto athis = static_cast<A *>(this);
         validate_same_shape(other, "idiv");
         if constexpr (!std::is_same_v<bool, std::remove_const_t<value_type>>)
         {
+            auto athis = static_cast<A *>(this);
             const value_type * const end = athis->end();
             value_type * ptr = athis->begin();
             const value_type * other_ptr = other.begin();
@@ -949,20 +1003,19 @@ public:
                 ++ptr;
                 ++other_ptr;
             }
+            return *athis;
         }
         else
         {
-            throw std::runtime_error(
-                "SimpleArray<bool>::idiv(): boolean value doesn't support this operation");
+            reject_bool_operation("idiv");
         }
-        return *athis;
     }
 
     A & idiv(value_type scalar)
     {
-        auto athis = static_cast<A *>(this);
         if constexpr (!std::is_same_v<bool, std::remove_const_t<value_type>>)
         {
+            auto athis = static_cast<A *>(this);
             const value_type * const end = athis->end();
             value_type * ptr = athis->begin();
 
@@ -971,13 +1024,12 @@ public:
                 *ptr /= scalar;
                 ++ptr;
             }
+            return *athis;
         }
         else
         {
-            throw std::runtime_error(
-                "SimpleArray<bool>::idiv(): boolean value doesn't support this operation");
+            reject_bool_operation("idiv");
         }
-        return *athis;
     }
 
     A add_simd(A const & other) const

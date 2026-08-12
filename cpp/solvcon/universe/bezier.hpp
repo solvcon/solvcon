@@ -505,7 +505,7 @@ public:
     using value_type = typename bezier_type::value_type;
 
     explicit CubicBezierSampler(size_t ndim)
-        : m_segments(segment_pad_type::construct(ndim))
+        : m_segments(segment_pad_type::construct(static_cast<uint8_t>(ndim)))
     {
     }
 
@@ -554,8 +554,7 @@ size_t CubicBezierSampler<T>::sample_to(bezier_type const & c, segment_pad_type 
     size_t nseg = 0;
     for (size_t j = 1; j < nlocus - 1; ++j)
     {
-        value_type t = j;
-        t /= nlocus - 1;
+        value_type const t = static_cast<value_type>(j) / static_cast<value_type>(nlocus - 1);
         point_type thisp;
         for (size_t idim = 0; idim < 3; ++idim)
         {

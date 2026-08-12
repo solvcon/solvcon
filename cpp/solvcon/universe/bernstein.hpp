@@ -18,13 +18,13 @@ template <typename T>
 T calc_bernstein_polynomial_impl(T t, size_t i, size_t n)
 {
     T ret = 1.0;
+    if (i > 0)
     {
-        T const v = (i > 0) ? std::pow(t, i) : 1.0;
-        ret *= v;
+        ret *= static_cast<T>(std::pow(t, i));
     }
+    if (n > i)
     {
-        T const v = (n > i) ? std::pow(1.0 - t, n - i) : 1.0;
-        ret *= v;
+        ret *= static_cast<T>(std::pow(1.0 - t, n - i));
     }
     for (size_t it = n; it > 1; --it)
     {
@@ -47,7 +47,7 @@ T interpolate_bernstein_impl(T t, std::vector<T> const & values, size_t n)
     T ret = 0.0;
     for (size_t it = 0; it <= n; ++it)
     {
-        T v = (it >= values.size()) ? 1.0 : values[it];
+        T v = (it >= values.size()) ? T(1) : values[it];
         v *= calc_bernstein_polynomial_impl(t, it, n);
         ret += v;
     }

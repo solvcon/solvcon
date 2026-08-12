@@ -215,7 +215,7 @@ void JsonHelper::from_json_string(const std::unique_ptr<JsonNode> & node, T & va
         {
             throw std::runtime_error("Invalid JSON format: invalid integer type.");
         }
-        value = std::stoll(std::get<std::string>(node->value));
+        value = static_cast<T>(std::stoll(std::get<std::string>(node->value)));
     }
     else if constexpr (std::is_floating_point_v<T>)
     {
