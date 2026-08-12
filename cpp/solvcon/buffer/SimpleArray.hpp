@@ -222,6 +222,24 @@ private:
 std::string format_shape(shape_type const & shape);
 std::string format_flat_index(shape_type const & shape, ssize_t offset);
 
+/**
+ * Reject an array that is not one-dimensional. `op` names the calling
+ * operation and `what` the role the array plays in it, both for the message.
+ */
+template <typename A>
+void validate_1d(A const & array, char const * op, char const * what = "array")
+{
+    if (array.ndim() != 1)
+    {
+        throw std::runtime_error(
+            std::format("SimpleArray::{}(): "
+                        "currently only support 1D array but the {} is {} dimension",
+                        op,
+                        what,
+                        array.ndim()));
+    }
+}
+
 template <typename T>
 struct SimpleArrayInternalTypes
 {
@@ -732,6 +750,12 @@ public:
         return ret;
     }
 
+    /// Subtract every element of a one-dimensional receiver from the element after it.
+    A diff() const;
+
+    /// Accumulate a one-dimensional receiver into its running total.
+    A cumsum() const;
+
     A add(A const & other) const
     {
         validate_same_shape(other, "add");
@@ -824,6 +848,12 @@ private:
     {
         return static_cast<value_type>(static_cast<real_type>(count));
     }
+
+    static value_type wrapping_sub(value_type lhs, value_type rhs) { return wrapping_op(lhs, rhs, std::minus<>{}); }
+    static value_type wrapping_add(value_type lhs, value_type rhs) { return wrapping_op(lhs, rhs, std::plus<>{}); }
+
+    template <typename Op>
+    static value_type wrapping_op(value_type lhs, value_type rhs, Op op);
 
     void validate_same_shape(A const & other, char const * op) const;
 
@@ -1164,6 +1194,88 @@ private:
     static void find_two_bins(const uint32_t * freq, size_t n, int & bin1, int & bin2);
 }; /* end class SimpleArrayMixinCalculators */
 
+/**
+ * Signed overflow is undefined, so integer arithmetic goes through the unsigned
+ * counterpart, whose overflow wraps. Both conversions are modular, not magnitude:
+ * -1 converts to 2^N - 1, subtracting there carries the borrow the same way, and a
+ * result that fits the element type converts back unchanged. Only a boundary
+ * crossing wraps. The conversion back is defined since C++20; before that it was
+ * implementation-defined.
+ */
+template <typename A, typename T>
+template <typename Op>
+typename detail::SimpleArrayMixinCalculators<A, T>::value_type
+detail::SimpleArrayMixinCalculators<A, T>::wrapping_op(value_type lhs, value_type rhs, Op op)
+{
+    if constexpr (std::is_integral_v<value_type> && !is_bool_v<value_type>)
+    {
+        using unsigned_type = std::make_unsigned_t<value_type>;
+        return static_cast<value_type>(op(static_cast<unsigned_type>(lhs), static_cast<unsigned_type>(rhs)));
+    }
+    else
+    {
+        return static_cast<value_type>(op(lhs, rhs));
+    }
+}
+
+template <typename A, typename T>
+A detail::SimpleArrayMixinCalculators<A, T>::diff() const
+{
+    if constexpr (is_bool_v<value_type>)
+    {
+        reject_bool_operation("diff");
+    }
+    else
+    {
+        auto const * athis = static_cast<A const *>(this);
+        detail::validate_1d(*athis, "diff");
+
+        ssize_t const nelem = athis->shape(0);
+        shape_type const out_shape{std::max<ssize_t>(nelem - 1, 0)};
+        A ret(out_shape);
+
+        value_type const * const src = athis->logical_data();
+        ssize_t const step = athis->stride(0);
+        value_type * const dst = ret.begin();
+        for (ssize_t i = 1; i < nelem; ++i)
+        {
+            dst[i - 1] = wrapping_sub(src[i * step], src[(i - 1) * step]);
+        }
+
+        return ret;
+    }
+}
+
+template <typename A, typename T>
+A detail::SimpleArrayMixinCalculators<A, T>::cumsum() const
+{
+    auto const * athis = static_cast<A const *>(this);
+    detail::validate_1d(*athis, "cumsum");
+
+    ssize_t const nelem = athis->shape(0);
+    shape_type const out_shape{nelem};
+    A ret(out_shape);
+
+    value_type const * const src = athis->logical_data();
+    ssize_t const step = athis->stride(0);
+    value_type * const dst = ret.begin();
+    value_type acc{};
+    for (ssize_t i = 0; i < nelem; ++i)
+    {
+        if constexpr (is_bool_v<value_type>)
+        {
+            acc = acc | src[i * step];
+        }
+        else
+        {
+            acc = wrapping_add(acc, src[i * step]);
+        }
+        dst[i] = acc;
+    }
+
+    return ret;
+}
+
 template <typename A, typename T>
 typename detail::SimpleArrayMixinCalculators<A, T>::value_type
 detail::SimpleArrayMixinCalculators<A, T>::median_op(small_vector<value_type> & sv) const
@@ -1461,32 +1573,13 @@ public:
     template <IntegralType I>
     A take_along_axis_simd(SimpleArray<I> const & indices);
 
-private:
-
-    void validate_1d(char const * op, char const * what = "array") const;
-
 }; /* end class SimpleArrayMixinSort */
-
-template <typename A, typename T>
-void SimpleArrayMixinSort<A, T>::validate_1d(char const * op, char const * what) const
-{
-    auto const * athis = static_cast<A const *>(this);
-    if (athis->ndim() != 1)
-    {
-        throw std::runtime_error(
-            std::format("SimpleArray::{}(): "
-                        "currently only support 1D array but the {} is {} dimension",
-                        op,
-                        what,
-                        athis->ndim()));
-    }
-}
 
 template <typename A, typename T>
 void SimpleArrayMixinSort<A, T>::sort()
 {
-    validate_1d("sort");
     auto athis = static_cast<A *>(this);
+    detail::validate_1d(*athis, "sort");
 
     if constexpr (is_complex_v<value_type>)
     {
@@ -3062,8 +3155,8 @@ void SimpleArray<T>::copy_logical_into(SimpleArray & out) const
 template <typename A, typename T>
 SimpleArray<uint64_t> detail::SimpleArrayMixinSort<A, T>::argsort()
 {
-    validate_1d("argsort");
     auto athis = static_cast<A *>(this);
+    detail::validate_1d(*athis, "argsort");
 
     SimpleArray<uint64_t> ret(athis->shape());
 
@@ -3097,19 +3190,20 @@ SimpleArray<uint64_t> detail::SimpleArrayMixinSort<A, T>::argsort()
 template <typename A, typename T>
 size_t detail::SimpleArrayMixinSort<A, T>::searchsorted(value_type const & value, SearchSide side) const
 {
-    validate_1d("searchsorted");
     auto const * athis = static_cast<A const *>(this);
+    detail::validate_1d(*athis, "searchsorted");
     return search_bound(athis->begin(), athis->end(), value, side);
 }
 
 template <typename A, typename T>
 SimpleArray<uint64_t> detail::SimpleArrayMixinSort<A, T>::searchsorted(A const & values, SearchSide side) const
 {
-    validate_1d("searchsorted");
-    values.validate_1d("searchsorted", "value array");
+    auto const * athis = static_cast<A const *>(this);
+    detail::validate_1d(*athis, "searchsorted");
+    detail::validate_1d(values, "searchsorted", "value array");
 
-    value_type const * const first = static_cast<A const *>(this)->begin();
-    value_type const * const last = static_cast<A const *>(this)->end();
+    value_type const * const first = athis->begin();
+    value_type const * const last = athis->end();
     SimpleArray<uint64_t> ret(values.shape());
     value_type const * src = values.begin();
     uint64_t * dst = ret.begin();
@@ -3139,8 +3233,8 @@ template <typename A, typename T>
 template <IntegralType I>
 A detail::SimpleArrayMixinSort<A, T>::take_along_axis(SimpleArray<I> const & indices)
 {
-    validate_1d("take_along_axis");
     auto athis = static_cast<A *>(this);
+    detail::validate_1d(*athis, "take_along_axis");
 
     ssize_t const max_idx = athis->shape()[0];
     I const * src = indices.begin();
@@ -3636,8 +3730,8 @@ template <typename A, typename T>
 template <IntegralType I>
 A detail::SimpleArrayMixinSort<A, T>::take_along_axis_simd(SimpleArray<I> const & indices)
 {
-    validate_1d("take_along_axis_simd");
     auto athis = static_cast<A *>(this);
+    detail::validate_1d(*athis, "take_along_axis_simd");
 
     if (indices.size() == 0)
     {

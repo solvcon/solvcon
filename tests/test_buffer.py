@@ -10,6 +10,21 @@ import numpy as np
 import solvcon
 
 
+def dtype_sample(rng, dtype, size):
+    """Draw values small enough to be exact in every dtype, with ties."""
+    if dtype == 'bool':
+        return rng.integers(0, 2, size).astype(dtype)
+    elif dtype.startswith('uint'):
+        return rng.integers(0, 30, size).astype(dtype)
+    elif dtype.startswith('int'):
+        return rng.integers(-15, 15, size).astype(dtype)
+    elif dtype.startswith('float'):
+        return (rng.integers(-15, 15, size) / 2).astype(dtype)
+    else:
+        return (rng.integers(-4, 4, size)
+                + 1j * rng.integers(-4, 4, size)).astype(dtype)
+
+
 class ConcreteBufferBasicTC(unittest.TestCase):
 
     def test_ConcreteBuffer(self):
@@ -1637,21 +1652,6 @@ class SimpleArrayBasicTC(unittest.TestCase):
     )
 
     @staticmethod
-    def _searchsorted_sample(rng, dtype, size):
-        # Ties are the only place where the two sides differ.
-        if dtype == 'bool':
-            return rng.integers(0, 2, size).astype(dtype)
-        elif dtype.startswith('uint'):
-            return rng.integers(0, 30, size).astype(dtype)
-        elif dtype.startswith('int'):
-            return rng.integers(-15, 15, size).astype(dtype)
-        elif dtype.startswith('float'):
-            return (rng.integers(-15, 15, size) / 2).astype(dtype)
-        else:
-            return (rng.integers(-4, 4, size)
-                    + 1j * rng.integers(-4, 4, size)).astype(dtype)
-
-    @staticmethod
     def _searchsorted_scalar(dtype, value):
         if dtype.startswith('complex'):
             return getattr(solvcon, dtype)(value.real, value.imag)
@@ -1662,8 +1662,8 @@ class SimpleArrayBasicTC(unittest.TestCase):
 
         for dtype in self.SEARCHSORTED_DTYPES:
             cls = getattr(solvcon, 'SimpleArray' + dtype.capitalize())
-            ndata = np.sort(self._searchsorted_sample(rng, dtype, 40))
-            nvalues = self._searchsorted_sample(rng, dtype, 25)
+            ndata = np.sort(dtype_sample(rng, dtype, 40))
+            nvalues = dtype_sample(rng, dtype, 25)
             sarr = cls(array=ndata)
             varr = cls(array=nvalues)
 
@@ -2235,6 +2235,148 @@ class SimpleArrayCalculatorsTC(unittest.TestCase):
         self.assertEqual(sarr.sum(), True)
         sarr = sarr.abs()
         self.assertEqual(sarr.sum(), True)
+
+    SCAN_DTYPES = (
+        'int8', 'int16', 'int32', 'int64',
+        'uint8', 'uint16', 'uint32', 'uint64',
+        'float32', 'float64', 'complex64', 'complex128',
+    )
+
+    def test_diff_every_dtype(self):
+        rng = np.random.default_rng(20260811)
+
+        for dtype in self.SCAN_DTYPES:
+            cls = getattr(solvcon, 'SimpleArray' + dtype.capitalize())
+            ndata = dtype_sample(rng, dtype, 40)
+            sarr = cls(array=ndata)
+            sres = sarr.diff()
+
+            self.assertIs(type(sres), cls)
+            np.testing.assert_array_equal(sres.ndarray, np.diff(ndata),
+                                          err_msg=dtype)
+
+    def test_cumsum_every_dtype(self):
+        rng = np.random.default_rng(20260811)
+
+        for dtype in self.SCAN_DTYPES:
+            cls = getattr(solvcon, 'SimpleArray' + dtype.capitalize())
+            ndata = dtype_sample(rng, dtype, 40)
+            sarr = cls(array=ndata)
+            sres = sarr.cumsum()
+
+            self.assertIs(type(sres), cls)
+            # numpy accumulates a narrow integer array in the platform
+            # integer, so it is asked for the element type kept here.
+            np.testing.assert_array_equal(sres.ndarray,
+                                          np.cumsum(ndata, dtype=dtype),
+                                          err_msg=dtype)
+
+    def test_diff_length_edges(self):
+        for data in ([], [3.0], [3.0, 5.0]):
+            ndata = np.array(data, dtype='float64')
+            sarr = solvcon.SimpleArrayFloat64(array=ndata)
+            np.testing.assert_array_equal(sarr.diff().ndarray,
+                                          np.diff(ndata))
+
+    def test_cumsum_length_edges(self):
+        for data in ([], [3.0], [3.0, 5.0]):
+            ndata = np.array(data, dtype='float64')
+            sarr = solvcon.SimpleArrayFloat64(array=ndata)
+            np.testing.assert_array_equal(sarr.cumsum().ndarray,
+                                          np.cumsum(ndata))
+
+    def test_diff_unsigned_wraps(self):
+        # A difference is taken in the element type, so a falling unsigned
+        # signal wraps instead of going negative, as numpy wraps it. A
+        # difference that must stay negative needs a signed receiver.
+        ndata = np.array([5, 3, 9], dtype='uint64')
+        sarr = solvcon.SimpleArrayUint64(array=ndata)
+        self.assertEqual(sarr.diff().ndarray.tolist(), [2**64 - 2, 6])
+        np.testing.assert_array_equal(sarr.diff().ndarray, np.diff(ndata))
+
+    def test_diff_signed_wraps_at_the_boundary(self):
+        # The difference of the two extremes does not fit the element type.
+        # It is taken through the unsigned counterpart, where the wrap is
+        # defined, instead of overflowing a signed integer, which C++ leaves
+        # undefined.
+        ndata = np.array([-2**63, 2**63 - 1], dtype='int64')
+        sarr = solvcon.SimpleArrayInt64(array=ndata)
+        self.assertEqual(sarr.diff().ndarray.tolist(), [-1])
+
+    def test_cumsum_signed_wraps_at_the_boundary(self):
+        ndata = np.array([2**63 - 1, 1], dtype='int64')
+        sarr = solvcon.SimpleArrayInt64(array=ndata)
+        self.assertEqual(sarr.cumsum().ndarray.tolist(),
+                         [2**63 - 1, -2**63])
+
+    def test_cumsum_unsigned_wraps(self):
+        # The running total is accumulated in the element type and wraps
+        # where it exceeds the type. numpy would promote a narrow integer
+        # array to the platform integer and answer 300 here.
+        ndata = np.array([200, 100], dtype='uint8')
+        sarr = solvcon.SimpleArrayUint8(array=ndata)
+        self.assertEqual(sarr.cumsum().ndarray.tolist(), [200, 44])
+        np.testing.assert_array_equal(sarr.cumsum().ndarray,
+                                      np.cumsum(ndata, dtype='uint8'))
+
+    def test_diff_bool_raises(self):
+        sarr = solvcon.SimpleArrayBool(
+            array=np.array([False, True], dtype='bool'))
+
+        with self.assertRaisesRegex(
+            RuntimeError,
+            r"SimpleArray<bool>::diff\(\): "
+            "boolean value doesn't support this operation"
+        ):
+            sarr.diff()
+
+    def test_cumsum_bool_accumulates_with_or(self):
+        # sum() on SimpleArrayBool accumulates with logical or, so the
+        # running total answers whether any element up to here is true.
+        # numpy would count the true elements instead.
+        ndata = np.array([False, True, False, False], dtype='bool')
+        sarr = solvcon.SimpleArrayBool(array=ndata)
+        self.assertEqual(sarr.cumsum().ndarray.tolist(),
+                         [False, True, True, True])
+
+    def test_diff_cumsum_reject_multi_dimension(self):
+        sarr = solvcon.SimpleArrayFloat64(
+            array=np.arange(6, dtype='float64').reshape((2, 3)))
+
+        for op in ('diff', 'cumsum'):
+            with self.assertRaisesRegex(
+                RuntimeError,
+                r"SimpleArray::%s\(\): currently only support 1D "
+                "array but the array is 2 dimension" % op
+            ):
+                getattr(sarr, op)()
+
+    def test_diff_cumsum_strided(self):
+        # A strided view is read in array order, so the result follows the
+        # logical elements and not the buffer they sit in.
+        ndata = np.arange(10, dtype='float64')[::3]
+        sarr = solvcon.SimpleArrayFloat64(array=ndata)
+        np.testing.assert_array_equal(sarr.diff().ndarray, np.diff(ndata))
+        np.testing.assert_array_equal(sarr.cumsum().ndarray,
+                                      np.cumsum(ndata))
+
+    def test_diff_cumsum_ghost(self):
+        # The ghost part is read too, as argsort() and searchsorted() read
+        # it, so the result counts from the first ghost element.
+        ndata = np.array([1.0, 2.0, 4.0, 8.0], dtype='float64')
+        sarr = solvcon.SimpleArrayFloat64(array=ndata)
+        sarr.nghost = 2
+        self.assertEqual(sarr.diff().ndarray.tolist(), [1.0, 2.0, 4.0])
+        self.assertEqual(sarr.cumsum().ndarray.tolist(),
+                         [1.0, 3.0, 7.0, 15.0])
+
+    def test_cumsum_of_diff_rebuilds_the_signal(self):
+        # The two are inverse, which is what lets a time-series kernel
+        # difference a signal and integrate it back.
+        ndata = np.array([1.5, 2.5, 2.0, 7.0], dtype='float64')
+        sarr = solvcon.SimpleArrayFloat64(array=ndata)
+        rebuilt = sarr.diff().cumsum().add(ndata[0])
+        np.testing.assert_array_equal(rebuilt.ndarray, ndata[1:])
 
     def test_median(self):
         nparr = np.arange(24, dtype='float64')
