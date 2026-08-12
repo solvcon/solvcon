@@ -49,6 +49,11 @@ def profile_matmul_planned_sa(lhs, rhs):
     return lhs.matmul_planned(rhs)
 
 
+@profile_function
+def profile_matmul_packing_sa(lhs, rhs, streamed):
+    return lhs._matmul_planned_with_packing(rhs, streamed=streamed)
+
+
 def profile_matmul_fast_sa(lhs, rhs, tile_x, tile_y, tile_z):
     name = f"profile_matmul_fast_sa_{tile_x}_{tile_y}_{tile_z}"
     _ = solvcon.CallProfilerProbe(name)
@@ -74,6 +79,69 @@ def iter_stride_cases(lhs, rhs):
         rhs_name, case_rhs = rhs_case
         name = f"lhs_{lhs_name}_rhs_{rhs_name}"
         yield name, case_lhs, case_rhs
+
+
+def make_strided_view(data, axis, step):
+    storage_shape = list(data.shape)
+    storage_shape[axis] *= abs(step)
+    storage = np.empty(storage_shape, dtype=data.dtype.name)
+    selection = [slice(None)] * data.ndim
+    selection[axis] = slice(None, None, step)
+    view = storage[tuple(selection)]
+    view[...] = data
+    return view
+
+
+def make_incompatible_matrix_view(data, operand, layout):
+    if layout == "negative":
+        axis = -1 if operand == "lhs" else -2
+        return make_strided_view(data, axis, -1)
+    if layout == "step_two":
+        return make_strided_view(data, -1, 2)
+    raise ValueError(f"Unsupported matrix layout: {layout}")
+
+
+def make_zero_batch_stride(data, batch_size):
+    # The NumPy caster requests writable storage, but matmul only reads it.
+    return np.lib.stride_tricks.as_strided(
+        data,
+        shape=(batch_size, *data.shape),
+        strides=(0, *data.strides),
+        writeable=True,
+    )
+
+
+def make_packing_operands(
+        dtype, topology, packing_role, layout, batch_size, side):
+    lhs_requires_packing = packing_role in ("lhs", "both")
+    rhs_requires_packing = packing_role in ("rhs", "both")
+    batch_shape = (batch_size, side, side)
+
+    if topology == "unique":
+        lhs = make_data(dtype, batch_shape)
+        rhs = make_data(dtype, batch_shape)
+    elif topology == "zero_stride_reuse":
+        lhs_shape = (side, side) if lhs_requires_packing else batch_shape
+        rhs_shape = (side, side) if rhs_requires_packing else batch_shape
+        lhs = make_data(dtype, lhs_shape)
+        rhs = make_data(dtype, rhs_shape)
+    elif topology == "cross_broadcast":
+        lhs = make_data(dtype, (2, 1, side, side))
+        rhs = make_data(dtype, (1, 5, side, side))
+    else:
+        raise ValueError(f"Unsupported packing topology: {topology}")
+
+    if lhs_requires_packing:
+        lhs = make_incompatible_matrix_view(lhs, "lhs", layout)
+    if rhs_requires_packing:
+        rhs = make_incompatible_matrix_view(rhs, "rhs", layout)
+
+    if topology == "zero_stride_reuse":
+        if lhs_requires_packing:
+            lhs = make_zero_batch_stride(lhs, batch_size)
+        if rhs_requires_packing:
+            rhs = make_zero_batch_stride(rhs, batch_size)
+    return lhs, rhs
 
 
 def element_strides(data):
@@ -184,6 +252,85 @@ def profile_planned_case(
     print()
 
 
+def profile_packing_case(
+        title, dtype, case_name, lhs, rhs, warmups, samples, rounds):
+    lhs_sa = make_container(lhs)
+    rhs_sa = make_container(rhs)
+    routes = (("complete", False), ("streamed", True), ("planned", None))
+    timings = {name: [] for name, _ in routes}
+    raw_samples = []
+
+    expected = np.matmul(lhs, rhs)
+    tolerance = 64 * np.finfo(np.dtype(dtype)).eps
+    for _, streamed in routes:
+        if streamed is None:
+            result = lhs_sa.matmul_planned(rhs_sa)
+        else:
+            result = lhs_sa._matmul_planned_with_packing(
+                rhs_sa, streamed=streamed)
+        np.testing.assert_allclose(
+            result.ndarray, expected, rtol=tolerance, atol=tolerance)
+
+    for round_index in range(rounds):
+        offset = round_index % len(routes)
+        round_routes = routes[offset:] + routes[:offset]
+        for _ in range(warmups):
+            for _, streamed in round_routes:
+                if streamed is None:
+                    lhs_sa.matmul_planned(rhs_sa)
+                else:
+                    lhs_sa._matmul_planned_with_packing(
+                        rhs_sa, streamed=streamed)
+
+        for sample_index in range(samples):
+            offset = sample_index % len(routes)
+            sample_routes = round_routes[offset:] + round_routes[:offset]
+            sample = {}
+            for name, streamed in sample_routes:
+                if streamed is None:
+                    value = profile_one_call(
+                        profile_matmul_planned_sa, lhs_sa, rhs_sa)
+                else:
+                    value = profile_one_call(
+                        profile_matmul_packing_sa,
+                        lhs_sa, rhs_sa, streamed)
+                timings[name].append(value)
+                sample[name] = value
+            order = "/".join(name for name, _ in sample_routes)
+            raw_samples.append((order, sample))
+
+    medians = {
+        name: statistics.median(timings[name])
+        for name, _ in routes
+    }
+
+    print(f"## Packing schedule: `{title}`, case: `{case_name}`, "
+          f"dtype: `{np.dtype(dtype)}`")
+    print(f"- lhs shape: `{lhs.shape}`, element strides: "
+          f"`{element_strides(lhs)}`")
+    print(f"- rhs shape: `{rhs.shape}`, element strides: "
+          f"`{element_strides(rhs)}`\n")
+
+    print_profile_row("schedule", "median (ms)", "cmp to complete")
+    print_profile_row("-" * 20, "-" * 15, "-" * 15)
+    complete_time = medians["complete"]
+    for name, _ in routes:
+        value = medians[name]
+        print_profile_row(name, f"{value:.3E}",
+                          f"{value / complete_time:.3f}")
+    print()
+    for sample_index, (order, sample) in enumerate(raw_samples, start=1):
+        streamed_ratio = sample["streamed"] / sample["complete"]
+        planned_ratio = sample["planned"] / sample["complete"]
+        print(f"- sample {sample_index} raw (ms), order={order}: "
+              f"complete={sample['complete']:.6E}, "
+              f"streamed={sample['streamed']:.6E}, "
+              f"planned={sample['planned']:.6E}, "
+              f"streamed/complete={streamed_ratio:.3f}, "
+              f"planned/complete={planned_ratio:.3f}")
+    print()
+
+
 def iter_planned_cases(dtype):
     small_sides = (4, 9, 16, 27, 64, 81)
     vector_sides = (*small_sides, 256, 1024)
@@ -223,6 +370,40 @@ def iter_batched_vector_threshold_cases(dtype):
         yield (f"Batched GEMV B={batch_size}", matrix, vector)
 
 
+def iter_packing_cases(dtype):
+    dtype_name = np.dtype(dtype).name
+    lower_side = {"float32": 24, "float64": 16}[dtype_name]
+    packing_roles = ("lhs", "rhs", "both")
+
+    for topology, packing_role, layout in itertools.product(
+            ("unique", "zero_stride_reuse", "cross_broadcast"),
+            packing_roles,
+            ("negative", "step_two")):
+        lhs, rhs = make_packing_operands(
+            dtype, topology, packing_role, layout,
+            batch_size=10, side=64)
+        yield (
+            f"{topology} B=10, S=64",
+            f"{packing_role}_{layout}", lhs, rhs)
+
+    for side in (lower_side, 256):
+        for packing_role in packing_roles:
+            lhs, rhs = make_packing_operands(
+                dtype, "unique", packing_role, "negative",
+                batch_size=10, side=side)
+            yield (
+                f"unique B=10, S={side}",
+                f"{packing_role}_negative", lhs, rhs)
+
+    for batch_size, side in ((2, lower_side), (32, lower_side), (10, 32)):
+        lhs, rhs = make_packing_operands(
+            dtype, "unique", "both", "negative",
+            batch_size=batch_size, side=side)
+        yield (
+            f"unique B={batch_size}, S={side}",
+            "both_negative", lhs, rhs)
+
+
 def profile_planned_suite(dtype, warmups=1, samples=1, rounds=3):
     cases = itertools.chain(
         iter_planned_cases(dtype),
@@ -233,6 +414,13 @@ def profile_planned_suite(dtype, warmups=1, samples=1, rounds=3):
             profile_planned_case(
                 title, dtype, case_name, case_lhs, case_rhs,
                 warmups, samples, rounds)
+
+
+def profile_packing_suite(dtype, warmups=1, samples=1, rounds=3):
+    for title, case_name, lhs, rhs in iter_packing_cases(dtype):
+        profile_packing_case(
+            title, dtype, case_name, lhs, rhs,
+            warmups, samples, rounds)
 
 
 def profile_winograd_boundary(dtype, side, rng):
@@ -301,6 +489,11 @@ def main(argv=None):
 
     for dtype in (np.float32, np.float64):
         profile_planned_suite(
+            dtype, warmups=args.warmups, samples=args.samples,
+            rounds=args.rounds)
+
+    for dtype in (np.float32, np.float64):
+        profile_packing_suite(
             dtype, warmups=args.warmups, samples=args.samples,
             rounds=args.rounds)
 

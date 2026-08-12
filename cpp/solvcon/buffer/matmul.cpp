@@ -5,8 +5,12 @@
 
 #include <solvcon/buffer/matmul.hpp>
 
+#include <solvcon/buffer/ConcreteBuffer.hpp>
+
 #include <algorithm>
 #include <array>
+#include <limits>
+#include <memory>
 #include <stdexcept>
 
 namespace solvcon
@@ -246,6 +250,177 @@ template void execute_fixed_gemm<float>(MatmulKernel, float *, float const *, fl
 template void execute_fixed_gemm<double>(MatmulKernel, double *, double const *, double const *, MatmulPlan const &);
 template void execute_fixed_gemm<Complex<float>>(
     MatmulKernel, Complex<float> *, Complex<float> const *, Complex<float> const *, MatmulPlan const &);
+
+template <typename T>
+static void copy_matrix_to_row_major(
+    T const * source,
+    T * destination,
+    ssize_t rows,
+    ssize_t columns,
+    ssize_t row_stride,
+    ssize_t column_stride)
+{
+    for (ssize_t row = 0; row < rows; ++row)
+    {
+        T const * source_row = source + row * row_stride;
+        T * destination_row = destination + row * columns;
+        if (column_stride == 1)
+        {
+            std::copy_n(source_row, static_cast<size_t>(columns), destination_row);
+            continue;
+        }
+        for (ssize_t column = 0; column < columns; ++column)
+        {
+            destination_row[column] = source_row[column * column_stride];
+        }
+    }
+}
+
+template <typename T>
+static size_t checked_matrix_nbytes(ssize_t rows, ssize_t columns)
+{
+    if (rows < 0 || columns < 0)
+    {
+        throw std::length_error(
+            "execute_streamed_gemm(): scratch size overflows size_t");
+    }
+
+    auto const unsigned_rows = static_cast<size_t>(rows);
+    auto const unsigned_columns = static_cast<size_t>(columns);
+    size_t constexpr maximum = std::numeric_limits<size_t>::max();
+    if (unsigned_columns != 0 && unsigned_rows > maximum / unsigned_columns)
+    {
+        throw std::length_error(
+            "execute_streamed_gemm(): scratch size overflows size_t");
+    }
+
+    size_t const elements = unsigned_rows * unsigned_columns;
+    if (elements > maximum / sizeof(T))
+    {
+        throw std::length_error(
+            "execute_streamed_gemm(): scratch size overflows size_t");
+    }
+    return elements * sizeof(T);
+}
+
+template <typename T>
+void execute_streamed_gemm(
+    T * output,
+    T const * lhs,
+    T const * rhs,
+    MatmulPlan const & plan,
+    std::optional<BlasMatrixView<T>> lhs_view,
+    std::optional<BlasMatrixView<T>> rhs_view)
+{
+    bool const pack_lhs = !lhs_view;
+    bool const pack_rhs = !rhs_view;
+    if (!pack_lhs && !pack_rhs)
+    {
+        throw std::logic_error("execute_streamed_gemm(): packing is not required");
+    }
+
+    std::shared_ptr<ConcreteBuffer> lhs_scratch;
+    std::shared_ptr<ConcreteBuffer> rhs_scratch;
+    T * packed_lhs = nullptr;
+    T * packed_rhs = nullptr;
+    if (pack_lhs)
+    {
+        size_t const nbytes = checked_matrix_nbytes<T>(plan.rows(), plan.inner_size());
+        lhs_scratch = ConcreteBuffer::construct(nbytes);
+        packed_lhs = lhs_scratch->data<T>();
+        lhs_view = BlasMatrixView<T>{
+            .m_data = packed_lhs,
+            .m_leading_dimension = plan.inner_size(),
+            .m_transpose = BlasTranspose::None,
+        };
+    }
+    if (pack_rhs)
+    {
+        size_t const nbytes = checked_matrix_nbytes<T>(plan.inner_size(), plan.columns());
+        rhs_scratch = ConcreteBuffer::construct(nbytes);
+        packed_rhs = rhs_scratch->data<T>();
+        rhs_view = BlasMatrixView<T>{
+            .m_data = packed_rhs,
+            .m_leading_dimension = plan.columns(),
+            .m_transpose = BlasTranspose::None,
+        };
+    }
+
+    BlasGemmOperation<T> operation{
+        .rows = plan.rows(),
+        .columns = plan.columns(),
+        .inner_size = plan.inner_size(),
+        .lhs = *lhs_view,
+        .rhs = *rhs_view,
+        .output = {
+            .m_data = output,
+            .m_leading_dimension = plan.columns(),
+        },
+        .alpha = T{1},
+        .beta = T{},
+    };
+    for (MappedOffsetCursor cursor = plan.batch_cursor(); cursor; cursor.advance())
+    {
+        T const * lhs_matrix = lhs + cursor.offset(MatmulPlan::Operand::Lhs);
+        T const * rhs_matrix = rhs + cursor.offset(MatmulPlan::Operand::Rhs);
+        if (pack_lhs)
+        {
+            copy_matrix_to_row_major(
+                lhs_matrix,
+                packed_lhs,
+                plan.rows(),
+                plan.inner_size(),
+                plan.lhs_row_stride(),
+                plan.lhs_inner_stride());
+            lhs_matrix = packed_lhs;
+        }
+        if (pack_rhs)
+        {
+            copy_matrix_to_row_major(
+                rhs_matrix,
+                packed_rhs,
+                plan.inner_size(),
+                plan.columns(),
+                plan.rhs_inner_stride(),
+                plan.rhs_column_stride());
+            rhs_matrix = packed_rhs;
+        }
+
+        operation.lhs.m_data = lhs_matrix;
+        operation.rhs.m_data = rhs_matrix;
+        operation.output.m_data = output + cursor.offset(MatmulPlan::Operand::Output);
+        gemm_blas(operation);
+    }
+}
+
+template void execute_streamed_gemm<float>(
+    float *,
+    float const *,
+    float const *,
+    MatmulPlan const &,
+    std::optional<BlasMatrixView<float>>,
+    std::optional<BlasMatrixView<float>>);
+template void execute_streamed_gemm<double>(
+    double *,
+    double const *,
+    double const *,
+    MatmulPlan const &,
+    std::optional<BlasMatrixView<double>>,
+    std::optional<BlasMatrixView<double>>);
+template void execute_streamed_gemm<Complex<float>>(
+    Complex<float> *,
+    Complex<float> const *,
+    Complex<float> const *,
+    MatmulPlan const &,
+    std::optional<BlasMatrixView<Complex<float>>>,
+    std::optional<BlasMatrixView<Complex<float>>>);
+template void execute_streamed_gemm<Complex<double>>(
+    Complex<double> *,
+    Complex<double> const *,
+    Complex<double> const *,
+    MatmulPlan const &,
+    std::optional<BlasMatrixView<Complex<double>>>,
+    std::optional<BlasMatrixView<Complex<double>>>);
 
 } /* end namespace detail */
 

@@ -60,6 +60,15 @@ enum class MatmulKernel : std::uint8_t
 }; /* end enum class MatmulKernel */
 
 /**
+ * @brief Select when BLAS-incompatible matrix operands are packed.
+ */
+enum class PackingSchedule : std::uint8_t
+{
+    Complete,
+    Streamed,
+}; /* end enum class PackingSchedule */
+
+/**
  * @brief Identify operands that must be materialized into row-major storage.
  */
 struct PackingState
@@ -78,8 +87,9 @@ struct PackingState
  * separate from dispatch code allows a backend or value type to provide
  * another table.
  *
- * @note MatmulExecutor currently shares one compile-time table across
- * supported CBLAS backends.
+ * @note Common kernel thresholds are shared by supported CBLAS backends.
+ * Streamed packing remains disabled unless a backend and value type provide
+ * measured thresholds.
  */
 struct MatmulTuning
 {
@@ -101,6 +111,19 @@ struct MatmulTuning
     {
         ssize_t gemm_min_dimension;
     }; /* end struct MatrixPacking */
+
+    /**
+     * @brief Select matrix-at-a-time packing for batched GEMM.
+     */
+    struct StreamedPacking
+    {
+        bool require_square = false;
+        ssize_t minimum_dimension = 0;
+        size_t minimum_batch_size = 0;
+        bool lhs_only = false;
+        bool rhs_only = false;
+        bool both_operands = false;
+    }; /* end struct StreamedPacking */
 
     /**
      * @brief Select fixed-size loop kernels for small square contractions.
@@ -135,6 +158,7 @@ struct MatmulTuning
 
     DirectBlas direct_blas;
     MatrixPacking matrix_packing;
+    StreamedPacking streamed_packing;
     FixedMatrix fixed_matrix;
     BatchedVector batched_vector;
     Winograd winograd;
@@ -157,12 +181,89 @@ inline constexpr MatmulTuning::Winograd WINOGRAD_TUNING{
 };
 
 /**
+ * @brief Return measured streamed-packing thresholds for the build backend.
+ *
+ * @tparam T Matrix element type.
+ * @return Backend and value-type tuning, or disabled tuning when unmeasured.
+ */
+template <typename T>
+constexpr MatmulTuning::StreamedPacking streamed_packing_tuning() noexcept
+{
+#ifdef SC_HAS_OPENBLAS
+    if constexpr (std::is_same_v<T, float>)
+    {
+        return {
+            .require_square = true,
+            .minimum_dimension = 24,
+            .minimum_batch_size = 2,
+            .both_operands = true,
+        };
+    }
+    else if constexpr (std::is_same_v<T, double>)
+    {
+        return {
+            .require_square = true,
+            .minimum_dimension = 16,
+            .minimum_batch_size = 2,
+            .both_operands = true,
+        };
+    }
+#endif
+    return {};
+}
+
+/**
+ * @brief Select the packing schedule for one packed-GEMM workload.
+ *
+ * @param tuning Backend and value-type tuning.
+ * @param packing Operands that need row-major materialization.
+ * @param packed_operands_are_unique Whether packed operands are unique in the
+ * batch.
+ * @param is_square Whether M, N, and K are equal.
+ * @param minimum_dimension Minimum of M, N, and K.
+ * @param batch_size Number of output batch matrices.
+ * @return Streamed in a measured region, or Complete otherwise.
+ */
+constexpr PackingSchedule select_packing_schedule(
+    MatmulTuning::StreamedPacking const & tuning,
+    PackingState packing,
+    bool packed_operands_are_unique,
+    bool is_square,
+    ssize_t minimum_dimension,
+    size_t batch_size) noexcept
+{
+    if (!packed_operands_are_unique ||
+        (tuning.require_square && !is_square) ||
+        minimum_dimension < tuning.minimum_dimension ||
+        batch_size < tuning.minimum_batch_size)
+    {
+        return PackingSchedule::Complete;
+    }
+
+    bool use_streamed = false;
+    if (packing.lhs && packing.rhs)
+    {
+        use_streamed = tuning.both_operands;
+    }
+    else if (packing.lhs)
+    {
+        use_streamed = tuning.lhs_only;
+    }
+    else if (packing.rhs)
+    {
+        use_streamed = tuning.rhs_only;
+    }
+    return use_streamed ? PackingSchedule::Streamed : PackingSchedule::Complete;
+}
+
+/**
  * @brief Record the selected kernel and packing for one matmul call.
  */
 struct MatmulSelection
 {
     MatmulKernel kernel = MatmulKernel::Generic;
     PackingState packing;
+    PackingSchedule packing_schedule = PackingSchedule::Complete;
 }; /* end struct MatmulSelection */
 
 /**
@@ -306,6 +407,31 @@ void execute_fixed_gemm(
     MatmulPlan const & plan);
 
 /**
+ * @brief Execute batched GEMM with reusable row-major packing scratch.
+ *
+ * An empty operand view requests row-major scratch and a signed-stride copy
+ * immediately before each GEMM. A populated view reads the original operand.
+ *
+ * @tparam T Matrix element type.
+ * @param output Logical start of the output array.
+ * @param lhs Logical start of the original LHS array.
+ * @param rhs Logical start of the original RHS array.
+ * @param plan Contraction geometry and signed batch mappings.
+ * @param lhs_view BLAS-compatible LHS view, or empty to stream-pack LHS.
+ * @param rhs_view BLAS-compatible RHS view, or empty to stream-pack RHS.
+ * @throws std::logic_error if neither operand requires packing.
+ * @throws std::length_error if the scratch byte count overflows size_t.
+ */
+template <typename T>
+void execute_streamed_gemm(
+    T * output,
+    T const * lhs,
+    T const * rhs,
+    MatmulPlan const & plan,
+    std::optional<BlasMatrixView<T>> lhs_view,
+    std::optional<BlasMatrixView<T>> rhs_view);
+
+/**
  * @brief Select and execute one contraction kernel for a MatmulPlan.
  *
  * MatmulExecutor combines plan metadata with MatmulTuning to select a
@@ -320,12 +446,13 @@ void execute_fixed_gemm(
  * evaluates one `(3,4) @ (4,6)` contraction at each offset. The results are
  * written into the allocated `(2,5,3,6)` output.
  *
- * When a strided `(10,M,K)` operand requires packing, the complete supplied
- * batch is materialized once and the plan is rebuilt before traversal.
+ * Complete packing materializes every required matrix before traversal and
+ * rebuilds the plan. Streamed packing instead copies one batch core into
+ * reusable row-major scratch immediately before its GEMM call.
  *
  * @note The current implementation selects generic, fixed-size, direct BLAS,
- * or Winograd kernels using measured thresholds. BLAS-incompatible operands
- * may be materialized once in row-major storage before traversal.
+ * or Winograd kernels using measured thresholds. BLAS-incompatible GEMM
+ * operands may use complete or streamed row-major packing.
  */
 template <typename Array>
 class MatmulExecutor
@@ -340,6 +467,13 @@ public:
     MatmulExecutor & operator=(MatmulExecutor &&) = delete;
 
     void execute();
+
+    /**
+     * @brief Execute the selected packed GEMM with a forced packing schedule.
+     * @param packing_schedule Complete or Streamed packing for this call.
+     * @throws std::invalid_argument if the selected route is not packed GEMM.
+     */
+    void execute(PackingSchedule packing_schedule);
 
 private:
     using value_type = typename Array::value_type;
@@ -362,6 +496,7 @@ private:
         .matrix_packing = {
             .gemm_min_dimension = is_complex_v<value_type> ? 8 : 16,
         },
+        .streamed_packing = streamed_packing_tuning<value_type>(),
         .fixed_matrix = {
             .min_side = 8,
             .ikj_max_side = std::is_same_v<value_type, float> ? 20 : 15,
@@ -387,9 +522,11 @@ private:
     MatmulSelection select_gemv() const;
     MatmulSelection select_gemm() const;
     std::optional<MatmulSelection> select_fixed_gemm() const;
+    PackingSchedule select_packing(PackingState required) const;
     PackingState select_vector_packing(PackingState required) const;
     bool should_pack_vector() const;
     void pack(PackingState const & packing);
+    void execute_selection(MatmulSelection selection);
 
     template <MatmulKernel Kernel>
     void execute_contractions();
@@ -685,7 +822,45 @@ MatmulExecutor<Array>::MatmulExecutor(MatmulPlan plan, Array & output, Array con
 template <typename Array>
 void MatmulExecutor<Array>::execute()
 {
-    MatmulSelection const selection = select_execution();
+    execute_selection(select_execution());
+}
+
+template <typename Array>
+void MatmulExecutor<Array>::execute(PackingSchedule packing_schedule)
+{
+    MatmulSelection selection = select_execution();
+    if (selection.kernel != MatmulKernel::BlasGemm || !selection.packing)
+    {
+        throw std::invalid_argument(
+            "forced packing schedule requires a BLAS-incompatible GEMM "
+            "eligible for packed BLAS");
+    }
+    selection.packing_schedule = packing_schedule;
+    execute_selection(selection);
+}
+
+template <typename Array>
+void MatmulExecutor<Array>::execute_selection(MatmulSelection selection)
+{
+    if (selection.packing_schedule == PackingSchedule::Streamed)
+    {
+        if (selection.kernel != MatmulKernel::BlasGemm || !selection.packing)
+        {
+            throw std::logic_error(
+                "MatmulExecutor::execute_selection(): invalid streamed packing");
+        }
+        if constexpr (use_matmul_blas_v<value_type>)
+        {
+            execute_streamed_gemm(
+                m_output_data,
+                m_lhs_data,
+                m_rhs_data,
+                m_plan,
+                lhs_matrix_view(m_lhs_data),
+                rhs_matrix_view(m_rhs_data));
+            return;
+        }
+    }
 
     if (selection.packing)
     {
@@ -741,7 +916,7 @@ void MatmulExecutor<Array>::execute()
         }
         break;
     }
-    throw std::logic_error("MatmulExecutor::execute(): invalid kernel");
+    throw std::logic_error("MatmulExecutor::execute_selection(): invalid kernel");
 }
 
 template <typename Array>
@@ -899,10 +1074,40 @@ MatmulSelection MatmulExecutor<Array>::select_gemm() const
     {
         if (minimum_dimension >= TUNING.matrix_packing.gemm_min_dimension && required_packing)
         {
-            return MatmulSelection{.kernel = MatmulKernel::BlasGemm, .packing = required_packing};
+            return MatmulSelection{
+                .kernel = MatmulKernel::BlasGemm,
+                .packing = required_packing,
+                .packing_schedule = select_packing(required_packing),
+            };
         }
     }
     return MatmulSelection{};
+}
+
+template <typename Array>
+PackingSchedule MatmulExecutor<Array>::select_packing(PackingState required) const
+{
+    bool const lhs_is_unique = !required.lhs ||
+                               (!m_plan.lhs_is_broadcast() &&
+                                !m_plan.lhs_has_zero_batch_stride());
+    bool const rhs_is_unique = !required.rhs ||
+                               (!m_plan.rhs_is_broadcast() &&
+                                !m_plan.rhs_has_zero_batch_stride());
+    bool const packed_operands_are_unique = m_plan.has_batch_axes() &&
+                                            m_plan.batch_size() > 1 &&
+                                            lhs_is_unique &&
+                                            rhs_is_unique;
+    size_t const batch_size = m_plan.batch_size();
+    ssize_t const minimum_dimension =
+        std::min({m_plan.rows(), m_plan.columns(), m_plan.inner_size()});
+    return select_packing_schedule(
+        TUNING.streamed_packing,
+        required,
+        packed_operands_are_unique,
+        m_plan.rows() == m_plan.columns() &&
+            m_plan.columns() == m_plan.inner_size(),
+        minimum_dimension,
+        batch_size);
 }
 
 template <typename Array>

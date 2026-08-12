@@ -33,6 +33,7 @@ add_executable(
     test_nopython_rtree.cpp
     test_nopython_formatter.cpp
     test_nopython_mdspan.cpp
+    test_nopython_matmul.cpp
     test_nopython_winograd.cpp
     test_nopython_multidim.cpp
     test_nopython_pilot_history.cpp

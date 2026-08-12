@@ -45,6 +45,10 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArray
     friend root_base_type;
 
     static wrapped_type make_array_from_numpy(pybind11::array & arr_in);
+    static wrapped_type matmul_planned_with_packing(
+        wrapped_type const & lhs,
+        wrapped_type const & rhs,
+        solvcon::detail::PackingSchedule packing_schedule);
 
     WrapSimpleArray(pybind11::module & mod, char const * pyname, char const * pydoc)
         : root_base_type(mod, pyname, pydoc, pybind11::buffer_protocol())
@@ -427,7 +431,27 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArray
 
         (*this)
             .def("matmul", &wrapped_type::matmul)
-            .def("matmul_planned", &wrapped_type::matmul_planned)
+            .def("matmul_planned", &wrapped_type::matmul_planned);
+
+        if constexpr (solvcon::detail::can_matmul_blas_v<value_type>)
+        {
+            (*this).def(
+                "_matmul_planned_with_packing",
+                [](wrapped_type const & self,
+                   wrapped_type const & other,
+                   bool streamed)
+                {
+                    return matmul_planned_with_packing(
+                        self,
+                        other,
+                        streamed ? solvcon::detail::PackingSchedule::Streamed
+                                 : solvcon::detail::PackingSchedule::Complete);
+                },
+                py::arg("other"),
+                py::arg("streamed"));
+        }
+
+        (*this)
             .def("matmul_blas", &wrapped_type::matmul_blas)
             .def(
                 "matmul_fast",
@@ -751,6 +775,30 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArray
         throw std::invalid_argument("SimpleArray::where(): unsupported dtype");
     }
 }; /* end class WrapSimpleArray */
+
+template <typename T>
+typename WrapSimpleArray<T>::wrapped_type
+WrapSimpleArray<T>::matmul_planned_with_packing(
+    wrapped_type const & lhs,
+    wrapped_type const & rhs,
+    solvcon::detail::PackingSchedule packing_schedule)
+{
+    if constexpr (solvcon::detail::use_matmul_blas_v<value_type>)
+    {
+        solvcon::detail::MatmulPlan plan = solvcon::detail::MatmulPlan::make(lhs, rhs);
+        wrapped_type output(plan.output_shape());
+        solvcon::detail::MatmulExecutor<wrapped_type> executor(
+            std::move(plan), output, lhs, rhs);
+        executor.execute(packing_schedule);
+        return output;
+    }
+    else
+    {
+        throw std::invalid_argument(
+            "forced packing schedule requires a BLAS-incompatible GEMM "
+            "eligible for packed BLAS");
+    }
+}
 
 template <typename T>
 typename WrapSimpleArray<T>::wrapped_type

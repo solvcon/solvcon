@@ -60,13 +60,18 @@ class MatrixFloat64TC(MatrixTestBase, unittest.TestCase):
 class MatmulTestBase(sc.testing.TestBase):
     """Tests for SimpleArray matrix multiplication roles."""
 
+    @classmethod
+    def make_strided_view(cls, data, axis, step):
+        return cls.make_multi_axis_strided_view(data, ((axis, step),))
+
     @staticmethod
-    def make_strided_view(data, axis, step):
+    def make_multi_axis_strided_view(data, axis_steps):
         storage_shape = list(data.shape)
-        storage_shape[axis] *= abs(step)
-        storage = np.empty(storage_shape, dtype=data.dtype.name)
         selection = [slice(None)] * data.ndim
-        selection[axis] = slice(None, None, step)
+        for axis, step in axis_steps:
+            storage_shape[axis] *= abs(step)
+            selection[axis] = slice(None, None, step)
+        storage = np.empty(storage_shape, dtype=data.dtype.name)
         view = storage[tuple(selection)]
         view[...] = data
         return view
@@ -106,6 +111,124 @@ class MatmulTestBase(sc.testing.TestBase):
              cls.make_strided_view(data, axis, -1)),
             ('step_two', cls.make_strided_view(data, axis, 2)),
         )
+
+    @classmethod
+    def make_packing_operand(
+            cls, data, reuse, core_axis=None, core_step=-1,
+            batch_step=-1):
+        batch_size = data.shape[0]
+        if reuse != 'unique':
+            data = data[0]
+        axis_steps = []
+        if core_axis is not None:
+            axis_steps.append((core_axis, core_step))
+        if reuse == 'unique':
+            axis_steps.append((0, batch_step))
+        if axis_steps:
+            data = cls.make_multi_axis_strided_view(data, axis_steps)
+        if reuse == 'unique':
+            return data
+        if reuse == 'shape_broadcast':
+            return data[np.newaxis, ...]
+        return np.lib.stride_tricks.as_strided(
+            data,
+            shape=(batch_size, *data.shape),
+            strides=(0, *data.strides),
+            writeable=True,
+        )
+
+    @classmethod
+    def iter_forced_packing_cases(cls, lhs_data, rhs_data):
+        for reuse in ('unique', 'shape_broadcast', 'zero_stride'):
+            for layout, step in (('negative', -1), ('step_two', 2)):
+                rhs_axis = -2 if layout == 'negative' else -1
+                unique_lhs = cls.make_packing_operand(lhs_data, 'unique')
+                unique_rhs = cls.make_packing_operand(rhs_data, 'unique')
+                yield (
+                    f'{reuse}_lhs_only_{layout}',
+                    cls.make_packing_operand(
+                        lhs_data, reuse, -1, step, step),
+                    unique_rhs,
+                )
+                yield (
+                    f'{reuse}_rhs_only_{layout}',
+                    unique_lhs,
+                    cls.make_packing_operand(
+                        rhs_data, reuse, rhs_axis, step, step),
+                )
+                topology = (
+                    'lhs_shape_broadcast'
+                    if reuse == 'shape_broadcast'
+                    else reuse
+                )
+                yield (
+                    f'{topology}_both_packed_{layout}',
+                    cls.make_packing_operand(
+                        lhs_data, reuse, -1, step, step),
+                    cls.make_packing_operand(
+                        rhs_data,
+                        'unique' if reuse == 'shape_broadcast' else reuse,
+                        rhs_axis,
+                        step,
+                        step,
+                    ),
+                )
+
+        lhs_layouts = dict(cls.make_matrix_stride_cases(lhs_data, -1))
+        rhs_layouts = dict(cls.make_matrix_stride_cases(rhs_data, -2))
+        packed_lhs = cls.make_packing_operand(lhs_data, 'unique', -1)
+        packed_rhs = cls.make_packing_operand(rhs_data, 'unique', -2)
+        for layout in ('f_contiguous', 'padded'):
+            yield (
+                f'lhs_only_rhs_{layout}',
+                packed_lhs,
+                rhs_layouts[layout],
+            )
+            yield (
+                f'rhs_only_lhs_{layout}',
+                lhs_layouts[layout],
+                packed_rhs,
+            )
+
+        cross_lhs = lhs_data[:, np.newaxis, ...]
+        cross_rhs = np.stack(
+            tuple(rhs_data[0] * (index + 1) for index in range(5)),
+            axis=0,
+        )[np.newaxis, ...]
+        for packing_role in ('lhs', 'rhs', 'both'):
+            for layout, step in (('negative', -1), ('step_two', 2)):
+                lhs = cross_lhs
+                rhs = cross_rhs
+                if packing_role in ('lhs', 'both'):
+                    lhs = cls.make_strided_view(lhs, -1, step)
+                if packing_role in ('rhs', 'both'):
+                    rhs_axis = -2 if layout == 'negative' else -1
+                    rhs = cls.make_strided_view(rhs, rhs_axis, step)
+                yield f'cross_{packing_role}_{layout}', lhs, rhs
+
+    def assert_forced_packing_schedule(
+            self, lhs_values, rhs_values, streamed):
+        lhs = self.SimpleArray(array=lhs_values)
+        rhs = self.SimpleArray(array=rhs_values)
+        result = lhs._matmul_planned_with_packing(
+            rhs, streamed=streamed)
+        expected = np.matmul(lhs_values, rhs_values)
+        self.assertEqual(tuple(result.shape), expected.shape)
+        tol = 64 * np.finfo(result.ndarray.real.dtype).eps
+        np.testing.assert_allclose(
+            result.ndarray, expected, rtol=tol, atol=tol)
+
+    def has_blas_backend(self):
+        identity = np.eye(2, dtype=np.dtype(self.dtype).name)
+        array = self.SimpleArray(array=identity)
+        try:
+            array.matmul_blas(array)
+        except RuntimeError as exc:
+            self.assertEqual(
+                str(exc),
+                'solvcon BLAS wrapper: CBLAS backend is unavailable')
+            return False
+        return True
 
     def assert_matmul(self, lhs, rhs, expected):
         result = lhs.matmul(rhs)
@@ -416,6 +539,78 @@ class MatmulTestBase(sc.testing.TestBase):
                 with self.subTest(
                         shape=lhs_shape, lhs=lhs_case, rhs=rhs_case):
                     self.assert_matmul_planned(lhs, rhs, expected)
+
+    def test_forced_matrix_packing_schedules(self):
+        """Complete and streamed packing preserve reuse and signed strides."""
+        dtype = np.dtype(self.dtype).name
+        batch_size = 2
+        rows, inner_size, columns = 17, 18, 19
+        lhs_data = np.arange(
+            batch_size * rows * inner_size,
+            dtype=dtype,
+        ).reshape(batch_size, rows, inner_size)
+        rhs_data = np.arange(
+            batch_size * inner_size * columns,
+            dtype=dtype,
+        ).reshape(batch_size, inner_size, columns)
+        lhs_data /= lhs_data.size
+        rhs_data /= rhs_data.size
+        if np.issubdtype(self.dtype, np.complexfloating):
+            lhs_data.imag[...] = np.flip(lhs_data.real, axis=-1)
+            rhs_data.imag[...] = np.flip(rhs_data.real, axis=-2)
+
+        cases = tuple(self.iter_forced_packing_cases(lhs_data, rhs_data))
+
+        unavailable = (
+            'forced packing schedule requires a BLAS-incompatible GEMM '
+            'eligible for packed BLAS'
+        )
+        compatible_lhs = self.SimpleArray(array=lhs_data)
+        compatible_rhs = self.SimpleArray(array=rhs_data)
+        for streamed in (False, True):
+            with self.assertRaises(ValueError) as caught:
+                compatible_lhs._matmul_planned_with_packing(
+                    compatible_rhs, streamed=streamed)
+            self.assertEqual(str(caught.exception), unavailable)
+
+        if not self.has_blas_backend():
+            _, lhs_values, rhs_values = cases[0]
+            for streamed in (False, True):
+                with self.assertRaises(ValueError) as caught:
+                    self.assert_forced_packing_schedule(
+                        lhs_values, rhs_values, streamed)
+                self.assertEqual(str(caught.exception), unavailable)
+            return
+
+        for case, lhs_values, rhs_values in cases:
+            for streamed in (False, True):
+                with self.subTest(case=case, streamed=streamed):
+                    self.assert_forced_packing_schedule(
+                        lhs_values, rhs_values, streamed)
+
+    def test_planned_packing_boundary(self):
+        """The planned path preserves values at measured packing boundaries."""
+        if self.dtype not in (np.float32, np.float64):
+            return
+        if not self.has_blas_backend():
+            return
+
+        side = 24 if self.dtype == np.float32 else 16
+        batch_size = 2
+        dtype = np.dtype(self.dtype).name
+        lhs_values = np.arange(
+            batch_size * side * side,
+            dtype=dtype,
+        ).reshape(batch_size, side, side)
+        rhs_values = np.flip(lhs_values, axis=-2).copy()
+        lhs_values = self.make_packing_operand(
+            lhs_values, 'unique', -1)
+        rhs_values = self.make_packing_operand(
+            rhs_values, 'unique', -2)
+        lhs = self.SimpleArray(array=lhs_values)
+        rhs = self.SimpleArray(array=rhs_values)
+        self.assert_matmul_planned(
+            lhs, rhs, np.matmul(lhs_values, rhs_values))
 
     def test_fixed_sides(self):
         """Configured fixed sides preserve broadcast strided values."""
