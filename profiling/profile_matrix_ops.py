@@ -235,6 +235,40 @@ def profile_planned_suite(dtype, warmups=1, samples=1, rounds=3):
                 warmups, samples, rounds)
 
 
+def profile_winograd_boundary(dtype, side, rng):
+    dtype = np.dtype(dtype)
+    shape = (side, side)
+    lhs = rng.random(shape, dtype=dtype.name)
+    rhs = rng.random(shape, dtype=dtype.name)
+    lhs_sa = make_container(lhs)
+    rhs_sa = make_container(rhs)
+    routes = (
+        ("blas_sa", profile_matmul_blas_sa),
+        ("planned_sa", profile_matmul_planned_sa),
+    )
+
+    for _, func in routes:
+        func(lhs_sa, rhs_sa)
+
+    timings = {
+        name: profile_one_call(func, lhs_sa, rhs_sa)
+        for name, func in routes
+    }
+
+    print(f"## Winograd boundary: `{side} x {side} x {side}`, "
+          f"dtype: `{dtype.name}`\n")
+    print_profile_row("func", "per call (ms)", "cmp to BLAS")
+    print_profile_row("-" * 20, "-" * 15, "-" * 15)
+    blas_time = timings["blas_sa"]
+    for name, value in timings.items():
+        ratio = value / blas_time
+        print_profile_row(name, f"{value:.3E}", f"{ratio:.3f}")
+    print()
+    for name, value in timings.items():
+        print(f"- {name} raw (ms): {value:.6E}")
+    print()
+
+
 def parse_positive_count(value):
     count = int(value)
     if count < 1:
@@ -269,6 +303,10 @@ def main(argv=None):
         profile_planned_suite(
             dtype, warmups=args.warmups, samples=args.samples,
             rounds=args.rounds)
+
+    rng = np.random.default_rng(20260812)
+    for dtype in (np.float32, np.float64):
+        profile_winograd_boundary(dtype, side=16_384, rng=rng)
 
 
 if __name__ == "__main__":

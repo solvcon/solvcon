@@ -5,8 +5,10 @@
  * BSD 3-Clause License, see COPYING
  */
 
+#include <solvcon/base.hpp>
 #include <solvcon/buffer/loop.hpp>
 #include <solvcon/buffer/small_vector.hpp>
+#include <solvcon/math/Winograd.hpp>
 #include <solvcon/math/math.hpp>
 
 #include <algorithm>
@@ -47,6 +49,7 @@ enum class MatmulKernel : std::uint8_t
     BlasGevm,
     BlasGemv,
     BlasGemm,
+    Winograd,
 }; /* end enum class MatmulKernel */
 
 /**
@@ -67,8 +70,8 @@ struct PackingState
  * direct BLAS, and packing routes. Keeping the values separate from dispatch
  * code allows a backend or value type to provide another table.
  *
- * @note MatmulExecutor currently uses one compile-time table for every
- * supported BLAS backend and value type.
+ * @note MatmulExecutor currently shares one compile-time table across
+ * supported CBLAS backends.
  */
 struct MatmulTuning
 {
@@ -104,10 +107,35 @@ struct MatmulTuning
         size_t reuse_min_total_output_elements;
     }; /* end struct BatchedVector */
 
+    /**
+     * @brief Configure one-level Winograd dispatch for square GEMMs.
+     */
+    struct Winograd
+    {
+        ssize_t minimum_side;
+    }; /* end struct Winograd */
+
     DirectBlas direct_blas;
     MatrixPacking matrix_packing;
     BatchedVector batched_vector;
+    Winograd winograd;
 }; /* end struct MatmulTuning */
+
+constexpr bool meets_winograd_threshold(
+    MatmulTuning::Winograd const & tuning,
+    ssize_t rows,
+    ssize_t columns,
+    ssize_t inner_size) noexcept
+{
+    return rows == columns &&
+           columns == inner_size &&
+           rows >= tuning.minimum_side &&
+           rows % 2 == 0;
+}
+
+inline constexpr MatmulTuning::Winograd WINOGRAD_TUNING{
+    .minimum_side = 16384,
+};
 
 /**
  * @brief Record the fixed kernel and packing for one matmul call.
@@ -241,16 +269,17 @@ private:
  * MatmulSelection. It applies the selected operand preparation, rebuilds the
  * plan when a physical layout changes, and traverses every batch offset with
  * the same kernel. Generic kernels read signed strides directly, while BLAS
- * kernels consume compatible vector and matrix descriptors.
+ * kernels consume compatible vector and matrix descriptors. Eligible compact
+ * square GEMMs may use one-level Winograd multiplication.
  *
  * For `(2,1,3,4) @ (1,5,4,6)`, the executor visits ten batch offsets and
  * evaluates one `(3,4) @ (4,6)` contraction at each offset. The results are
  * written into the allocated `(2,5,3,6)` output.
  *
- * @note The current implementation selects generic or direct BLAS kernels for
- * DOT, GEVM, GEMV, and GEMM. Packing materializes a reused broadcast matrix or
- * vector once in row-major storage before traversal. Unsupported equal-batch
- * matrix layouts remain generic.
+ * @note The current implementation selects generic, direct BLAS, or Winograd
+ * kernels using measured thresholds. Packing materializes a reused broadcast
+ * matrix or vector once in row-major storage before traversal. Unsupported
+ * equal-batch matrix layouts remain generic.
  */
 template <typename Array>
 class MatmulExecutor
@@ -296,6 +325,7 @@ private:
             .reuse_min_matrix_elements = 576,
             .reuse_min_total_output_elements = 128,
         },
+        .winograd = WINOGRAD_TUNING,
     };
 
     MatmulSelection select_execution() const;
@@ -318,6 +348,9 @@ private:
     void execute_gevm_blas(value_type * output, value_type const * lhs_data, value_type const * rhs_data);
     void execute_gemv_blas(value_type * output, value_type const * lhs_data, value_type const * rhs_data);
     void execute_gemm_blas(value_type * output, value_type const * lhs_data, value_type const * rhs_data);
+
+    void execute_winograd();
+
     std::optional<matrix_view_type> lhs_matrix_view(value_type const * data) const;
     std::optional<matrix_view_type> rhs_matrix_view(value_type const * data) const;
     static matrix_view_type require_matrix_view(std::optional<matrix_view_type> view);
@@ -627,6 +660,9 @@ void MatmulExecutor<Array>::execute()
         case MatmulKernel::BlasGemm:
             execute_contractions<MatmulKernel::BlasGemm>();
             return;
+        case MatmulKernel::Winograd:
+            execute_winograd();
+            return;
         }
     }
     execute_contractions<MatmulKernel::Generic>();
@@ -743,6 +779,18 @@ MatmulSelection MatmulExecutor<Array>::select_gemv() const
 template <typename Array>
 MatmulSelection MatmulExecutor<Array>::select_gemm() const
 {
+    bool const compact_row_major = !m_plan.has_batch_axes() &&
+                                   m_plan.lhs_row_stride() == m_plan.inner_size() &&
+                                   m_plan.lhs_inner_stride() == 1 &&
+                                   m_plan.rhs_inner_stride() == m_plan.columns() &&
+                                   m_plan.rhs_column_stride() == 1;
+    if (compact_row_major &&
+        meets_winograd_threshold(
+            TUNING.winograd, m_plan.rows(), m_plan.columns(), m_plan.inner_size()))
+    {
+        return MatmulSelection{.kernel = MatmulKernel::Winograd, .packing = {}};
+    }
+
     ssize_t const minimum_dimension =
         std::min({m_plan.rows(), m_plan.columns(), m_plan.inner_size()});
     bool const lhs_blas_compatible = bool(lhs_matrix_view(m_lhs_data));
@@ -930,6 +978,29 @@ void MatmulExecutor<Array>::execute_gemm_blas(value_type * output, value_type co
     matrix_view_type const lhs = require_matrix_view(lhs_matrix_view(lhs_data));
     matrix_view_type const rhs = require_matrix_view(rhs_matrix_view(rhs_data));
     gemm_blas(m_plan.rows(), m_plan.columns(), m_plan.inner_size(), lhs, rhs, output);
+}
+
+template <typename Array>
+void MatmulExecutor<Array>::execute_winograd()
+{
+#if (defined(__APPLE__) && defined(__arm64__)) || defined(SC_HAS_CBLAS)
+    if constexpr (can_matmul_blas_v<value_type>)
+    {
+        BlasOutputView<value_type> const output{
+            .m_data = m_output_data,
+            .m_leading_dimension = m_plan.columns(),
+        };
+        gemm_winograd(
+            m_plan.rows(),
+            m_plan.columns(),
+            m_plan.inner_size(),
+            require_matrix_view(lhs_matrix_view(m_lhs_data)),
+            require_matrix_view(rhs_matrix_view(m_rhs_data)),
+            output);
+        return;
+    }
+#endif
+    throw std::logic_error("MatmulExecutor::execute_winograd(): unavailable Winograd kernel");
 }
 
 template <typename Array>

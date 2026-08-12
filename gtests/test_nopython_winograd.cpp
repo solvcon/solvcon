@@ -3,6 +3,7 @@
  * BSD 3-Clause License, see COPYING
  */
 
+#include <solvcon/buffer/matmul.hpp>
 #include <solvcon/math/Winograd.hpp>
 
 #include <algorithm>
@@ -337,6 +338,19 @@ TEST(WinogradKernel, blas_products)
         run_winograd,
         testing::ThrowsMessage<std::runtime_error>("solvcon BLAS wrapper: CBLAS backend is unavailable"));
 #endif
+}
+
+TEST(WinogradDispatch, selects_square_threshold)
+{
+    auto const & tuning = WINOGRAD_TUNING;
+
+    EXPECT_FALSE(meets_winograd_threshold(tuning, 16382, 16382, 16382));
+    EXPECT_TRUE(meets_winograd_threshold(tuning, 16384, 16384, 16384));
+    EXPECT_FALSE(meets_winograd_threshold(tuning, 16385, 16385, 16385));
+    EXPECT_TRUE(meets_winograd_threshold(tuning, 16386, 16386, 16386));
+    EXPECT_FALSE(meets_winograd_threshold(tuning, 16386, 16384, 16384));
+    EXPECT_FALSE(meets_winograd_threshold(tuning, 16384, 16386, 16384));
+    EXPECT_FALSE(meets_winograd_threshold(tuning, 16384, 16384, 16386));
 }
 
 } /* end namespace winograd */
