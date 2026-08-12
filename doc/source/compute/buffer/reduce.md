@@ -2,8 +2,8 @@
 
 SimpleArray provides the reductions `min`, `max`, and `sum`, the statistics
 `mean`, `average`, `median`, `var`, and `std`, the sorting group `sort`,
-`argsort`, and `take_along_axis`, and the searching group `argmin`, `argmax`,
-and `argwhere`.
+`argsort`, `searchsorted`, and `take_along_axis`, and the searching group
+`argmin`, `argmax`, and `argwhere`.
 
 ## Whole-Array Reductions
 
@@ -165,7 +165,8 @@ assert sarr.ndarray.tolist() == [1.0, 2.0, 3.0]
 ```
 
 NaN sorts last, as numpy sorts it: after every number, and equal to another
-NaN. `sort()` and `argsort()` share this order; the reductions and
+NaN. `sort()`, `argsort()`, and `searchsorted()` share this order, so an array
+`sort()` has ordered is one `searchsorted()` can search; the reductions and
 `argmin`/`argmax` do not, and still skip a NaN where numpy propagates it.
 
 A complex value compares by its real part, and by its imaginary part only when
@@ -204,6 +205,29 @@ On an array carrying {ref}`a ghost region <ghost-region>` the indices count
 from the first ghost element, where a subscript counts from the first body
 element, so pass them to `take_along_axis()` rather than subscripting with
 them.
+
+### The `searchsorted` Method
+
+`searchsorted(values, side="left")` returns the insertion points that keep a
+sorted one-dimensional receiver sorted, following `numpy.searchsorted`. The
+operand is either a scalar, giving a Python `int`, or a SimpleArray, giving a
+`SimpleArrayUint64` of the operand's shape. `side="left"` gives the first
+position where the value may be inserted and `side="right"` the position after
+the last equal element, so the two differ only where the receiver holds a run
+of equal values:
+
+```python
+sarr = solvcon.SimpleArrayFloat64(array=np.array([1.5, 2.5, 2.5, 4.0]))
+assert sarr.searchsorted(2.5) == 1
+assert sarr.searchsorted(2.5, side='right') == 3
+
+varr = solvcon.SimpleArrayFloat64(array=np.array([2.5, 4.0]))
+assert sarr.searchsorted(varr).ndarray.tolist() == [1, 3]
+```
+
+On a ghosted receiver the indices count from the first ghost element, as
+`argsort()` returns them. A ghosted operand is searched over its whole buffer
+as well, and the result carries no ghost of its own.
 
 ### The `take_along_axis` Method
 
