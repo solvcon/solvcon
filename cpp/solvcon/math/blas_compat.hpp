@@ -61,6 +61,43 @@ struct BlasMatrixView
     BlasTranspose m_transpose;
 }; /* end struct BlasMatrixView */
 
+/**
+ * @brief Describe a non-owning writable row-major BLAS matrix view.
+ *
+ * The leading dimension is measured in elements.
+ *
+ * @tparam T Element type.
+ */
+template <typename T>
+struct BlasOutputView
+{
+    T * m_data;
+    ssize_t m_leading_dimension;
+}; /* end struct BlasOutputView */
+
+/**
+ * @brief Describe one non-owning row-major GEMM operation.
+ *
+ * The operation evaluates `output = alpha * lhs * rhs + beta * output`.
+ * The logical shapes of `lhs`, `rhs`, and `output` are `(rows, inner_size)`,
+ * `(inner_size, columns)`, and `(rows, columns)`. All views must remain valid
+ * until evaluation completes.
+ *
+ * @tparam T Element type.
+ */
+template <typename T>
+struct BlasGemmOperation
+{
+    ssize_t rows;
+    ssize_t columns;
+    ssize_t inner_size;
+    BlasMatrixView<T> lhs;
+    BlasMatrixView<T> rhs;
+    BlasOutputView<T> output;
+    T alpha;
+    T beta;
+}; /* end struct BlasGemmOperation */
+
 float dot_blas(ssize_t size, float const * lhs, float const * rhs);
 double dot_blas(ssize_t size, double const * lhs, double const * rhs);
 Complex<float> dot_blas(ssize_t size,
@@ -131,6 +168,10 @@ void gemv(ssize_t m, ssize_t n, BlasMatrixView<double> matrix, BlasVectorView<do
 void gemv(ssize_t m, ssize_t n, BlasMatrixView<Complex<float>> matrix, BlasVectorView<Complex<float>> vector, Complex<float> * result, BlasTranspose requested_transpose);
 void gemv(ssize_t m, ssize_t n, BlasMatrixView<Complex<double>> matrix, BlasVectorView<Complex<double>> vector, Complex<double> * result, BlasTranspose requested_transpose);
 
+void gemm(BlasGemmOperation<float> const & operation);
+void gemm(BlasGemmOperation<double> const & operation);
+void gemm(BlasGemmOperation<Complex<float>> const & operation);
+void gemm(BlasGemmOperation<Complex<double>> const & operation);
 void gemm(ssize_t m, ssize_t n, ssize_t k, BlasMatrixView<float> lhs, BlasMatrixView<float> rhs, float * result);
 void gemm(ssize_t m, ssize_t n, ssize_t k, BlasMatrixView<double> lhs, BlasMatrixView<double> rhs, double * result);
 void gemm(ssize_t m, ssize_t n, ssize_t k, BlasMatrixView<Complex<float>> lhs, BlasMatrixView<Complex<float>> rhs, Complex<float> * result);
@@ -153,6 +194,16 @@ void gemv_blas(ssize_t m, ssize_t n, BlasMatrixView<T> matrix, BlasVectorView<T>
 {
 #if (defined(__APPLE__) && defined(__arm64__)) || defined(SC_HAS_CBLAS)
     detail::gemv(m, n, matrix, vector, result, requested_transpose);
+#else
+    throw std::runtime_error("solvcon BLAS wrapper: CBLAS backend is unavailable");
+#endif
+}
+
+template <typename T>
+void gemm_blas(BlasGemmOperation<T> const & operation)
+{
+#if (defined(__APPLE__) && defined(__arm64__)) || defined(SC_HAS_CBLAS)
+    detail::gemm(operation);
 #else
     throw std::runtime_error("solvcon BLAS wrapper: CBLAS backend is unavailable");
 #endif
