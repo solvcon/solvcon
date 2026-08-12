@@ -5,6 +5,7 @@
  * BSD 3-Clause License, see COPYING
  */
 
+#include <solvcon/base.hpp>
 #include <solvcon/buffer/small_vector.hpp>
 
 #include <algorithm>

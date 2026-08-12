@@ -376,9 +376,9 @@ class MatmulTestBase(sc.testing.TestBase):
                 self.assert_matmul_planned(a, b, expected)
 
     def test_matrix_strides(self):
-        """Matrix axes support generic and BLAS-compatible layouts."""
+        """Matrix strides work with generic, fixed-size, and BLAS routes."""
         dtype = np.dtype(self.dtype).name
-        for m, k, n in ((3, 4, 2), (16, 17, 18)):
+        for m, k, n in ((3, 4, 2), (9, 9, 9), (16, 17, 18)):
             lhs_data = np.arange(m * k, dtype=dtype).reshape(m, k)
             rhs_data = np.arange(k * n, dtype=dtype).reshape(k, n)
             lhs_cases = self.make_matrix_stride_cases(lhs_data, 1)
@@ -417,6 +417,30 @@ class MatmulTestBase(sc.testing.TestBase):
                         shape=lhs_shape, lhs=lhs_case, rhs=rhs_case):
                     self.assert_matmul_planned(lhs, rhs, expected)
 
+    def test_fixed_sides(self):
+        """Configured fixed sides preserve broadcast strided values."""
+        dtype = np.dtype(self.dtype).name
+        fixed_sides = {
+            np.dtype("float32"): range(8, 21),
+            np.dtype("float64"): range(8, 16),
+        }.get(np.dtype(self.dtype), ())
+        for side in fixed_sides:
+            lhs_data = np.arange(
+                2 * side * side, dtype=dtype).reshape(
+                    2, 1, side, side)
+            rhs_data = np.arange(
+                5 * side * side, dtype=dtype).reshape(
+                    1, 5, side, side)
+            lhs_data = self.make_strided_view(lhs_data, 3, -1)
+            rhs_cases = self.make_matrix_stride_cases(rhs_data, 2)[:2]
+            for rhs_case, case_rhs in rhs_cases:
+                lhs = self.SimpleArray(array=lhs_data)
+                rhs = self.SimpleArray(array=case_rhs)
+                expected = np.matmul(lhs_data, case_rhs)
+
+                with self.subTest(side=side, rhs=rhs_case):
+                    self.assert_matmul_planned(lhs, rhs, expected)
+
     def test_broadcast_batch_strides(self):
         """Broadcast batch strides across generic and direct BLAS routes."""
         dtype = np.dtype(self.dtype).name
@@ -438,9 +462,9 @@ class MatmulTestBase(sc.testing.TestBase):
                     self.assert_matmul_planned(lhs, rhs, expected)
 
     def test_broadcast_matrix_strides(self):
-        """Broadcast matrix strides work across generic and packed routes."""
+        """Broadcast strides work with generic, fixed, and packed routes."""
         dtype = np.dtype(self.dtype).name
-        for m, k, n in ((3, 4, 2), (17, 18, 19)):
+        for m, k, n in ((3, 4, 2), (9, 9, 9), (17, 18, 19)):
             lhs_data = np.arange(2 * m * k, dtype=dtype).reshape(
                 2, 1, m, k)
             rhs_data = np.arange(5 * k * n, dtype=dtype).reshape(

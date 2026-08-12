@@ -39,12 +39,19 @@ inline constexpr bool can_matmul_blas_v = std::is_same_v<T, float> ||
 template <typename T>
 inline constexpr bool use_matmul_blas_v = has_blas_backend && can_matmul_blas_v<T>;
 
+template <typename T>
+inline constexpr bool can_matmul_fixed_v = std::is_same_v<T, float> ||
+                                           std::is_same_v<T, double> ||
+                                           std::is_same_v<T, Complex<float>>;
+
 /**
- * @brief Identify the contraction kernel fixed before batch traversal.
+ * @brief Identify the contraction kernel selected before batch traversal.
  */
 enum class MatmulKernel : std::uint8_t
 {
     Generic,
+    FixedIkj,
+    FixedJki,
     BlasDot,
     BlasGevm,
     BlasGemv,
@@ -67,8 +74,9 @@ struct PackingState
  * @brief Group measured thresholds by matmul dispatch decision.
  *
  * A tuning table supplies the workload boundaries used to compare generic,
- * direct BLAS, and packing routes. Keeping the values separate from dispatch
- * code allows a backend or value type to provide another table.
+ * fixed-size, direct BLAS, packing, and Winograd routes. Keeping the values
+ * separate from dispatch code allows a backend or value type to provide
+ * another table.
  *
  * @note MatmulExecutor currently shares one compile-time table across
  * supported CBLAS backends.
@@ -87,12 +95,22 @@ struct MatmulTuning
     }; /* end struct DirectBlas */
 
     /**
-     * @brief Pack reused matrices that cannot be described directly to BLAS.
+     * @brief Materialize supplied matrix operands for BLAS execution.
      */
     struct MatrixPacking
     {
         ssize_t gemm_min_dimension;
     }; /* end struct MatrixPacking */
+
+    /**
+     * @brief Select fixed-size loop kernels for small square contractions.
+     */
+    struct FixedMatrix
+    {
+        ssize_t min_side;
+        ssize_t ikj_max_side;
+        ssize_t jki_max_side;
+    }; /* end struct FixedMatrix */
 
     /**
      * @brief Select direct or packed BLAS for batched vector-matrix products.
@@ -117,6 +135,7 @@ struct MatmulTuning
 
     DirectBlas direct_blas;
     MatrixPacking matrix_packing;
+    FixedMatrix fixed_matrix;
     BatchedVector batched_vector;
     Winograd winograd;
 }; /* end struct MatmulTuning */
@@ -138,7 +157,7 @@ inline constexpr MatmulTuning::Winograd WINOGRAD_TUNING{
 };
 
 /**
- * @brief Record the fixed kernel and packing for one matmul call.
+ * @brief Record the selected kernel and packing for one matmul call.
  */
 struct MatmulSelection
 {
@@ -169,6 +188,16 @@ class MatmulPlan
 {
 public:
     using shape_type = small_vector<ssize_t>;
+
+    /**
+     * @brief Identify each operand mapping in the result batch domain.
+     */
+    enum class Operand : std::uint8_t
+    {
+        Output,
+        Lhs,
+        Rhs,
+    }; /* end enum class Operand */
 
     template <typename Array>
     static MatmulPlan make(Array const & lhs, Array const & rhs);
@@ -262,24 +291,41 @@ private:
     BatchMappings m_batch;
 }; /* end class MatmulPlan */
 
+inline constexpr ssize_t FIXED_GEMM_COMPILED_MIN_SIDE = 8;
+inline constexpr ssize_t FIXED_GEMM_COMPILED_MAX_SIDE = 20;
+
+/**
+ * @brief Execute a selected fixed-size GEMM kernel over the result batch domain.
+ */
+template <typename T>
+void execute_fixed_gemm(
+    MatmulKernel kernel,
+    T * output,
+    T const * lhs,
+    T const * rhs,
+    MatmulPlan const & plan);
+
 /**
  * @brief Select and execute one contraction kernel for a MatmulPlan.
  *
  * MatmulExecutor combines plan metadata with MatmulTuning to select a
  * MatmulSelection. It applies the selected operand preparation, rebuilds the
  * plan when a physical layout changes, and traverses every batch offset with
- * the same kernel. Generic kernels read signed strides directly, while BLAS
- * kernels consume compatible vector and matrix descriptors. Eligible compact
- * square GEMMs may use one-level Winograd multiplication.
+ * the same kernel. The generic kernel reads arbitrary signed strides.
+ * Fixed-size kernels select IKJ or JKI traversal from the matrix strides.
+ * BLAS kernels consume compatible vector and matrix descriptors. Eligible
+ * compact square GEMMs may use one-level Winograd multiplication.
  *
  * For `(2,1,3,4) @ (1,5,4,6)`, the executor visits ten batch offsets and
  * evaluates one `(3,4) @ (4,6)` contraction at each offset. The results are
  * written into the allocated `(2,5,3,6)` output.
  *
- * @note The current implementation selects generic, direct BLAS, or Winograd
- * kernels using measured thresholds. Packing materializes a reused broadcast
- * matrix or vector once in row-major storage before traversal. Unsupported
- * equal-batch matrix layouts remain generic.
+ * When a strided `(10,M,K)` operand requires packing, the complete supplied
+ * batch is materialized once and the plan is rebuilt before traversal.
+ *
+ * @note The current implementation selects generic, fixed-size, direct BLAS,
+ * or Winograd kernels using measured thresholds. BLAS-incompatible operands
+ * may be materialized once in row-major storage before traversal.
  */
 template <typename Array>
 class MatmulExecutor
@@ -300,13 +346,12 @@ private:
     using matrix_view_type = BlasMatrixView<value_type>;
     using vector_view_type = BlasVectorView<value_type>;
 
-    enum class MappingSlot : std::uint8_t
-    {
-        Output,
-        Lhs,
-        Rhs,
-    };
-
+    /**
+     * @brief Store compile-time fallback thresholds.
+     *
+     * Matrix packing and fixed-kernel thresholds were measured separately by
+     * value type on a MacBook Air M1 with Accelerate.
+     */
     static constexpr MatmulTuning TUNING = {
         .direct_blas = {
             .dot_min_length = 128,
@@ -315,7 +360,12 @@ private:
             .gemm_min_dimension = 8,
         },
         .matrix_packing = {
-            .gemm_min_dimension = 16,
+            .gemm_min_dimension = is_complex_v<value_type> ? 8 : 16,
+        },
+        .fixed_matrix = {
+            .min_side = 8,
+            .ikj_max_side = std::is_same_v<value_type, float> ? 20 : 15,
+            .jki_max_side = 15,
         },
         .batched_vector = {
             .direct_min_matrix_elements = 512,
@@ -327,13 +377,16 @@ private:
         },
         .winograd = WINOGRAD_TUNING,
     };
+    static_assert(TUNING.fixed_matrix.min_side >= FIXED_GEMM_COMPILED_MIN_SIDE);
+    static_assert(TUNING.fixed_matrix.ikj_max_side <= FIXED_GEMM_COMPILED_MAX_SIDE);
+    static_assert(TUNING.fixed_matrix.jki_max_side <= FIXED_GEMM_COMPILED_MAX_SIDE);
 
     MatmulSelection select_execution() const;
     MatmulSelection select_dot() const;
     MatmulSelection select_gevm() const;
     MatmulSelection select_gemv() const;
     MatmulSelection select_gemm() const;
-    PackingState select_matrix_packing(PackingState required) const;
+    std::optional<MatmulSelection> select_fixed_gemm() const;
     PackingState select_vector_packing(PackingState required) const;
     bool should_pack_vector() const;
     void pack(PackingState const & packing);
@@ -639,38 +692,66 @@ void MatmulExecutor<Array>::execute()
         pack(selection.packing);
     }
 
-    // `select_execution()` names a BLAS kernel only where one exists, so the
-    // dispatch stays uninstantiated for a value type that has none, and the
-    // generic kernel is the one path every instantiation keeps.
-    if constexpr (use_matmul_blas_v<value_type>)
+    switch (selection.kernel)
     {
-        switch (selection.kernel)
+    case MatmulKernel::Generic:
+        execute_contractions<MatmulKernel::Generic>();
+        return;
+    case MatmulKernel::FixedIkj:
+    case MatmulKernel::FixedJki:
+        if constexpr (can_matmul_fixed_v<value_type>)
         {
-        case MatmulKernel::Generic:
-            break;
-        case MatmulKernel::BlasDot:
+            execute_fixed_gemm(selection.kernel, m_output_data, m_lhs_data, m_rhs_data, m_plan);
+            return;
+        }
+        break;
+    case MatmulKernel::BlasDot:
+        if constexpr (use_matmul_blas_v<value_type>)
+        {
             execute_contractions<MatmulKernel::BlasDot>();
             return;
-        case MatmulKernel::BlasGevm:
+        }
+        break;
+    case MatmulKernel::BlasGevm:
+        if constexpr (use_matmul_blas_v<value_type>)
+        {
             execute_contractions<MatmulKernel::BlasGevm>();
             return;
-        case MatmulKernel::BlasGemv:
+        }
+        break;
+    case MatmulKernel::BlasGemv:
+        if constexpr (use_matmul_blas_v<value_type>)
+        {
             execute_contractions<MatmulKernel::BlasGemv>();
             return;
-        case MatmulKernel::BlasGemm:
+        }
+        break;
+    case MatmulKernel::BlasGemm:
+        if constexpr (use_matmul_blas_v<value_type>)
+        {
             execute_contractions<MatmulKernel::BlasGemm>();
             return;
-        case MatmulKernel::Winograd:
+        }
+        break;
+    case MatmulKernel::Winograd:
+        if constexpr (use_matmul_blas_v<value_type>)
+        {
             execute_winograd();
             return;
         }
+        break;
     }
-    execute_contractions<MatmulKernel::Generic>();
+    throw std::logic_error("MatmulExecutor::execute(): invalid kernel");
 }
 
 template <typename Array>
 MatmulSelection MatmulExecutor<Array>::select_execution() const
 {
+    if (!m_plan.lhs_is_vector() && !m_plan.rhs_is_vector())
+    {
+        return select_gemm();
+    }
+
     if constexpr (use_matmul_blas_v<value_type>)
     {
         if (m_plan.lhs_is_vector() && m_plan.rhs_is_vector())
@@ -685,12 +766,8 @@ MatmulSelection MatmulExecutor<Array>::select_execution() const
         {
             return select_gemv();
         }
-        return select_gemm();
     }
-    else
-    {
-        return MatmulSelection{};
-    }
+    return MatmulSelection{};
 }
 
 template <typename Array>
@@ -779,53 +856,81 @@ MatmulSelection MatmulExecutor<Array>::select_gemv() const
 template <typename Array>
 MatmulSelection MatmulExecutor<Array>::select_gemm() const
 {
-    bool const compact_row_major = !m_plan.has_batch_axes() &&
-                                   m_plan.lhs_row_stride() == m_plan.inner_size() &&
-                                   m_plan.lhs_inner_stride() == 1 &&
-                                   m_plan.rhs_inner_stride() == m_plan.columns() &&
-                                   m_plan.rhs_column_stride() == 1;
-    if (compact_row_major &&
-        meets_winograd_threshold(
-            TUNING.winograd, m_plan.rows(), m_plan.columns(), m_plan.inner_size()))
-    {
-        return MatmulSelection{.kernel = MatmulKernel::Winograd, .packing = {}};
-    }
-
     ssize_t const minimum_dimension =
         std::min({m_plan.rows(), m_plan.columns(), m_plan.inner_size()});
-    bool const lhs_blas_compatible = bool(lhs_matrix_view(m_lhs_data));
-    bool const rhs_blas_compatible = bool(rhs_matrix_view(m_rhs_data));
-    if (minimum_dimension >= TUNING.direct_blas.gemm_min_dimension && lhs_blas_compatible && rhs_blas_compatible)
+    PackingState required_packing;
+    if constexpr (use_matmul_blas_v<value_type>)
     {
-        return MatmulSelection{.kernel = MatmulKernel::BlasGemm, .packing = {}};
-    }
-    if (minimum_dimension >= TUNING.matrix_packing.gemm_min_dimension)
-    {
-        PackingState const required{
+        bool const compact_row_major = !m_plan.has_batch_axes() &&
+                                       m_plan.lhs_row_stride() == m_plan.inner_size() &&
+                                       m_plan.lhs_inner_stride() == 1 &&
+                                       m_plan.rhs_inner_stride() == m_plan.columns() &&
+                                       m_plan.rhs_column_stride() == 1;
+        if (compact_row_major &&
+            meets_winograd_threshold(
+                TUNING.winograd, m_plan.rows(), m_plan.columns(), m_plan.inner_size()))
+        {
+            return MatmulSelection{.kernel = MatmulKernel::Winograd, .packing = {}};
+        }
+
+        bool const lhs_blas_compatible = bool(lhs_matrix_view(m_lhs_data));
+        bool const rhs_blas_compatible = bool(rhs_matrix_view(m_rhs_data));
+        if (minimum_dimension >= TUNING.direct_blas.gemm_min_dimension &&
+            lhs_blas_compatible && rhs_blas_compatible)
+        {
+            return MatmulSelection{.kernel = MatmulKernel::BlasGemm, .packing = {}};
+        }
+        required_packing = PackingState{
             .lhs = !lhs_blas_compatible,
             .rhs = !rhs_blas_compatible,
         };
-        PackingState const packing = select_matrix_packing(required);
-        if (packing)
+    }
+
+    if constexpr (can_matmul_fixed_v<value_type>)
+    {
+        std::optional<MatmulSelection> const fixed = select_fixed_gemm();
+        if (fixed)
         {
-            return MatmulSelection{.kernel = MatmulKernel::BlasGemm, .packing = packing};
+            return *fixed;
+        }
+    }
+
+    if constexpr (use_matmul_blas_v<value_type>)
+    {
+        if (minimum_dimension >= TUNING.matrix_packing.gemm_min_dimension && required_packing)
+        {
+            return MatmulSelection{.kernel = MatmulKernel::BlasGemm, .packing = required_packing};
         }
     }
     return MatmulSelection{};
 }
 
 template <typename Array>
-PackingState MatmulExecutor<Array>::select_matrix_packing(PackingState required) const
+std::optional<MatmulSelection> MatmulExecutor<Array>::select_fixed_gemm() const
 {
-    bool const lhs_supported =
-        !required.lhs || (m_plan.lhs_is_broadcast() && !m_plan.lhs_has_zero_batch_stride());
-    bool const rhs_supported =
-        !required.rhs || (m_plan.rhs_is_broadcast() && !m_plan.rhs_has_zero_batch_stride());
-    if (!required || !lhs_supported || !rhs_supported)
+    bool const is_square = m_plan.rows() == m_plan.columns() && m_plan.rows() == m_plan.inner_size();
+    if (!is_square || m_plan.rows() < TUNING.fixed_matrix.min_side)
     {
-        return PackingState{};
+        return std::nullopt;
     }
-    return required;
+
+    if (m_plan.rows() <= TUNING.fixed_matrix.ikj_max_side &&
+        m_plan.rhs_column_stride() == 1)
+    {
+        return MatmulSelection{.kernel = MatmulKernel::FixedIkj, .packing = {}};
+    }
+    if (m_plan.rows() <= TUNING.fixed_matrix.jki_max_side &&
+        m_plan.rhs_inner_stride() == 1)
+    {
+        return MatmulSelection{.kernel = MatmulKernel::FixedJki, .packing = {}};
+    }
+
+    bool const rhs_reused = m_plan.rhs_is_broadcast() && !m_plan.rhs_has_zero_batch_stride();
+    if (m_plan.rows() > TUNING.fixed_matrix.ikj_max_side || !rhs_reused)
+    {
+        return std::nullopt;
+    }
+    return MatmulSelection{.kernel = MatmulKernel::FixedIkj, .packing = {.rhs = true}};
 }
 
 template <typename Array>
@@ -895,9 +1000,9 @@ void MatmulExecutor<Array>::execute_contractions()
     for (MappedOffsetCursor cursor = m_plan.batch_cursor(); cursor; cursor.advance())
     {
         execute_at<Kernel>(
-            cursor.offset(MappingSlot::Output),
-            cursor.offset(MappingSlot::Lhs),
-            cursor.offset(MappingSlot::Rhs));
+            cursor.offset(MatmulPlan::Operand::Output),
+            cursor.offset(MatmulPlan::Operand::Lhs),
+            cursor.offset(MatmulPlan::Operand::Rhs));
     }
 }
 
