@@ -465,6 +465,43 @@ class MatmulTestBase(sc.testing.TestBase):
                         shape=(m, k, n), lhs=lhs_case, rhs=rhs_case):
                     self.assert_matmul_planned(lhs, rhs, expected)
 
+    def test_large_batched_matrix_strides(self):
+        """Batched matrices preserve unique, broadcast, and zero strides."""
+        dtype = np.dtype(self.dtype).name
+        batch, m, k, n = 3, 16, 17, 18
+        lhs_data = np.arange(
+            batch * m * k, dtype=dtype).reshape(batch, m, k)
+        rhs_data = np.arange(
+            batch * k * n, dtype=dtype).reshape(batch, k, n)
+        rhs_unique = rhs_data[::-1, ::-1, :]
+        lhs_zero_batch = np.lib.stride_tricks.as_strided(
+            lhs_data[:1],
+            shape=(batch, m, k),
+            strides=(0, lhs_data.strides[1], lhs_data.strides[2]),
+            writeable=True,
+        )[:, :, ::-1]
+        rhs_zero_batch = np.lib.stride_tricks.as_strided(
+            rhs_data[:1],
+            shape=(batch, k, n),
+            strides=(0, rhs_data.strides[1], rhs_data.strides[2]),
+            writeable=True,
+        )[:, ::-1, :]
+        lhs_unique = lhs_data[::-1, :, ::-1]
+        cases = (
+            ('equal_batch', lhs_unique, rhs_unique),
+            ('lhs_broadcast', lhs_data[:1, :, ::-1], rhs_unique),
+            ('rhs_broadcast', lhs_unique, rhs_data[:1, ::-1, :]),
+            ('lhs_zero_batch_stride', lhs_zero_batch, rhs_unique),
+            ('rhs_zero_batch_stride', lhs_unique, rhs_zero_batch),
+        )
+        for name, case_lhs, case_rhs in cases:
+            lhs = self.SimpleArray(array=case_lhs)
+            rhs = self.SimpleArray(array=case_rhs)
+            expected = np.matmul(case_lhs, case_rhs)
+
+            with self.subTest(case=name):
+                self.assert_matmul_planned(lhs, rhs, expected)
+
     def test_vector_strides(self):
         """Vector roles preserve signed vector, matrix, and batch strides."""
         dtype = np.dtype(self.dtype).name
