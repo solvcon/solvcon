@@ -427,20 +427,6 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArray
 
         (*this)
             .def("matmul", &wrapped_type::matmul)
-            .def("matmul_planned", &wrapped_type::matmul_planned)
-            .def("matmul_blas", &wrapped_type::matmul_blas)
-            .def(
-                "matmul_fast",
-                [](wrapped_type const & self,
-                   wrapped_type const & other,
-                   ssize_t tile_x,
-                   ssize_t tile_y,
-                   ssize_t tile_z)
-                { return self.matmul_fast(other, tile_x, tile_y, tile_z); },
-                py::arg("other"),
-                py::arg("tile_x") = 16,
-                py::arg("tile_y") = 16,
-                py::arg("tile_z") = 16)
             .def("__matmul__", &wrapped_type::matmul)
             // TODO: In-place operation should return reference to self to support function chaining
             /*
@@ -483,20 +469,6 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArray
                 { self.idiv(scalar); })
             .def("imatmul", [](wrapped_type & self, wrapped_type const & other)
                  { self.imatmul(other); })
-            .def("imatmul_blas", [](wrapped_type & self, wrapped_type const & other)
-                 { self.imatmul_blas(other); })
-            .def(
-                "imatmul_fast",
-                [](wrapped_type & self,
-                   wrapped_type const & other,
-                   ssize_t tile_x,
-                   ssize_t tile_y,
-                   ssize_t tile_z)
-                { self.imatmul_fast(other, tile_x, tile_y, tile_z); },
-                py::arg("other"),
-                py::arg("tile_x") = 16,
-                py::arg("tile_y") = 16,
-                py::arg("tile_z") = 16)
             .def("__imatmul__", [](wrapped_type & self, wrapped_type const & other)
                  {
                      self.imatmul(other);

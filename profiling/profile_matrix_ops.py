@@ -35,24 +35,8 @@ def profile_matmul_np(lhs, rhs):
 
 
 @profile_function
-def profile_matmul_naive_sa(lhs, rhs):
+def profile_matmul_sa(lhs, rhs):
     return lhs.matmul(rhs)
-
-
-@profile_function
-def profile_matmul_blas_sa(lhs, rhs):
-    return lhs.matmul_blas(rhs)
-
-
-@profile_function
-def profile_matmul_planned_sa(lhs, rhs):
-    return lhs.matmul_planned(rhs)
-
-
-def profile_matmul_fast_sa(lhs, rhs, tile_x, tile_y, tile_z):
-    name = f"profile_matmul_fast_sa_{tile_x}_{tile_y}_{tile_z}"
-    _ = solvcon.CallProfilerProbe(name)
-    return lhs.matmul_fast(rhs, tile_x=tile_x, tile_y=tile_y, tile_z=tile_z)
 
 
 def make_data(dtype, shape):
@@ -95,11 +79,6 @@ def profile_one_call(func, *args):
 
 
 def profile_unbatched_gemm(dtype, sides, samples=1):
-    tile_configs = (
-        (16, 16, 16),
-        (32, 32, 32),
-        (64, 64, 64),
-    )
     for side in sides:
         lhs = make_data(dtype, (side, side))
         rhs = make_data(dtype, (side, side))
@@ -109,12 +88,7 @@ def profile_unbatched_gemm(dtype, sides, samples=1):
             solvcon.call_profiler.reset()
             for _ in range(samples):
                 profile_matmul_np(case_lhs, case_rhs)
-                profile_matmul_naive_sa(lhs_sa, rhs_sa)
-                profile_matmul_blas_sa(lhs_sa, rhs_sa)
-                profile_matmul_planned_sa(lhs_sa, rhs_sa)
-                for tile_x, tile_y, tile_z in tile_configs:
-                    profile_matmul_fast_sa(
-                        lhs_sa, rhs_sa, tile_x, tile_y, tile_z)
+                profile_matmul_sa(lhs_sa, rhs_sa)
 
             result = solvcon.call_profiler.result()["children"]
             timings = {}
@@ -132,12 +106,7 @@ def profile_unbatched_gemm(dtype, sides, samples=1):
             print_profile_row("func", "per call (ms)", "cmp to np")
             print_profile_row("-" * 20, "-" * 15, "-" * 15)
             numpy_time = timings["np"]
-            methods = ["np", "naive_sa", "blas_sa", "planned_sa"]
-            methods += [
-                f"fast_sa_{tile_x}_{tile_y}_{tile_z}"
-                for tile_x, tile_y, tile_z in tile_configs
-            ]
-            for method in methods:
+            for method in ("np", "sa"):
                 value = timings[method]
                 print_profile_row(
                     f"{method:8s}", f"{value:.3E}",
@@ -145,23 +114,23 @@ def profile_unbatched_gemm(dtype, sides, samples=1):
             print()
 
 
-def profile_planned_case(
+def profile_matmul_case(
         title, dtype, case_name, lhs, rhs, warmups, samples, rounds):
     lhs_sa = make_container(lhs)
     rhs_sa = make_container(rhs)
-    timings = {"np": [], "planned_sa": []}
+    timings = {"np": [], "sa": []}
     for _ in range(rounds):
         for _ in range(warmups):
             np.matmul(lhs, rhs)
-            lhs_sa.matmul_planned(rhs_sa)
+            lhs_sa.matmul(rhs_sa)
 
         for _ in range(samples):
             timings["np"].append(profile_one_call(
                 profile_matmul_np, lhs, rhs))
-            timings["planned_sa"].append(profile_one_call(
-                profile_matmul_planned_sa, lhs_sa, rhs_sa))
+            timings["sa"].append(profile_one_call(
+                profile_matmul_sa, lhs_sa, rhs_sa))
 
-    methods = ("np", "planned_sa")
+    methods = ("np", "sa")
     timings = {
         method: statistics.median(timings[method])
         for method in methods
@@ -184,7 +153,7 @@ def profile_planned_case(
     print()
 
 
-def iter_planned_cases(dtype):
+def iter_matmul_cases(dtype):
     small_sides = (4, 9, 16, 27, 64, 81)
     vector_sides = (*small_sides, 256, 1024)
     dot_sizes = (*vector_sides, 16_384, 1_048_576)
@@ -223,14 +192,14 @@ def iter_batched_vector_threshold_cases(dtype):
         yield (f"Batched GEMV B={batch_size}", matrix, vector)
 
 
-def profile_planned_suite(dtype, warmups=1, samples=1, rounds=3):
+def profile_matmul_suite(dtype, warmups=1, samples=1, rounds=3):
     cases = itertools.chain(
-        iter_planned_cases(dtype),
+        iter_matmul_cases(dtype),
         iter_batched_vector_threshold_cases(dtype),
     )
     for title, lhs, rhs in cases:
         for case_name, case_lhs, case_rhs in iter_stride_cases(lhs, rhs):
-            profile_planned_case(
+            profile_matmul_case(
                 title, dtype, case_name, case_lhs, case_rhs,
                 warmups, samples, rounds)
 
@@ -243,25 +212,25 @@ def profile_winograd_boundary(dtype, side, rng):
     lhs_sa = make_container(lhs)
     rhs_sa = make_container(rhs)
     routes = (
-        ("blas_sa", profile_matmul_blas_sa),
-        ("planned_sa", profile_matmul_planned_sa),
+        ("np", profile_matmul_np, lhs, rhs),
+        ("sa", profile_matmul_sa, lhs_sa, rhs_sa),
     )
 
-    for _, func in routes:
-        func(lhs_sa, rhs_sa)
+    for _, func, route_lhs, route_rhs in routes:
+        func(route_lhs, route_rhs)
 
     timings = {
-        name: profile_one_call(func, lhs_sa, rhs_sa)
-        for name, func in routes
+        name: profile_one_call(func, route_lhs, route_rhs)
+        for name, func, route_lhs, route_rhs in routes
     }
 
     print(f"## Winograd boundary: `{side} x {side} x {side}`, "
           f"dtype: `{dtype.name}`\n")
-    print_profile_row("func", "per call (ms)", "cmp to BLAS")
+    print_profile_row("func", "per call (ms)", "cmp to NumPy")
     print_profile_row("-" * 20, "-" * 15, "-" * 15)
-    blas_time = timings["blas_sa"]
+    numpy_time = timings["np"]
     for name, value in timings.items():
-        ratio = value / blas_time
+        ratio = value / numpy_time
         print_profile_row(name, f"{value:.3E}", f"{ratio:.3f}")
     print()
     for name, value in timings.items():
@@ -282,13 +251,13 @@ def parse_arguments(argv=None):
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument(
         "--warmups", type=parse_positive_count, default=1,
-        help="untimed planned calls before each round")
+        help="untimed matmul calls before each round")
     parser.add_argument(
         "--samples", type=parse_positive_count, default=1,
         help="timed calls per method in each round")
     parser.add_argument(
         "--rounds", type=parse_positive_count, default=3,
-        help="planned profiling rounds; use 5 or more for stable results")
+        help="matmul profiling rounds; use 5 or more for stable results")
     return parser.parse_args(argv)
 
 
@@ -300,7 +269,7 @@ def main(argv=None):
         profile_unbatched_gemm(dtype, gemm_sides, samples=args.samples)
 
     for dtype in (np.float32, np.float64):
-        profile_planned_suite(
+        profile_matmul_suite(
             dtype, warmups=args.warmups, samples=args.samples,
             rounds=args.rounds)
 

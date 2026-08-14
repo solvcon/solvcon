@@ -265,7 +265,7 @@ if (NOT APPLE)
     # Intel oneAPI MKL is an optimized, pre-built vendor BLAS/LAPACK for x86.
     # Its single dynamic runtime (mkl_rt, LP64) exports both the reference CBLAS
     # entry points and the Fortran LAPACK symbols declared in lapack_compat.hpp,
-    # so it feeds the same matmul_blas()/EigenSystem paths as OpenBLAS.
+    # so it feeds the same matmul()/EigenSystem paths as OpenBLAS.
     set(SC_BLAS_FOUND OFF)
     if (SOLVCON_USE_MKL)
         find_library(MKL_LIB NAMES mkl_rt)
@@ -285,7 +285,7 @@ if (NOT APPLE)
     endif ()
 
     if (NOT SC_BLAS_FOUND)
-        # The CBLAS header is needed for SimpleArray::matmul_blas() to use
+        # The CBLAS header is needed for SimpleArray::matmul() to use
         # the vendor BLAS backend.
         # Linux OpenBLAS packages also ship LAPACK symbols for EigenSystem.
         set(OPENBLAS_PATH_SUFFIXES

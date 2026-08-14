@@ -1158,18 +1158,7 @@ public:
     }
 
     A matmul(A const & other) const;
-    A matmul_planned(A const & other) const;
     A & imatmul(A const & other);
-    A matmul_blas(A const & other) const;
-    A & imatmul_blas(A const & other);
-    A matmul_fast(A const & other,
-                  ssize_t tile_x,
-                  ssize_t tile_y,
-                  ssize_t tile_z) const;
-    A & imatmul_fast(A const & other,
-                     ssize_t tile_x,
-                     ssize_t tile_y,
-                     ssize_t tile_z);
 
 private:
     static void find_two_bins(const uint32_t * freq, size_t n, int & bin1, int & bin2);
@@ -1269,18 +1258,10 @@ detail::SimpleArrayMixinCalculators<A, T>::median_freq(small_vector<value_type> 
 
 /**
  * Perform matrix multiplication for SimpleArrays.
- * This implementation supports 1D x 1D, 1D x 2D, 2D x 1D, and 2D x 2D matrix multiplication.
+ * Leading batch axes follow NumPy broadcasting rules.
  */
 template <typename A, typename T>
 A SimpleArrayMixinCalculators<A, T>::matmul(A const & other) const
-{
-    auto const * athis = static_cast<A const *>(this);
-    SimpleArrayMatmulHelper<A, T> helper(*athis, other);
-    return helper.matmul();
-}
-
-template <typename A, typename T>
-A SimpleArrayMixinCalculators<A, T>::matmul_planned(A const & other) const
 {
     auto const * athis = static_cast<A const *>(this);
     MatmulPlan plan = MatmulPlan::make(*athis, other);
@@ -1292,7 +1273,6 @@ A SimpleArrayMixinCalculators<A, T>::matmul_planned(A const & other) const
 
 /**
  * Perform in-place matrix multiplication for SimpleArrays.
- * This implementation supports 1D x 1D, 1D x 2D, 2D x 1D, and 2D x 2D matrix multiplication.
  * The result replaces the content of the current array.
  */
 template <typename A, typename T>
@@ -1300,64 +1280,6 @@ A & SimpleArrayMixinCalculators<A, T>::imatmul(A const & other)
 {
     auto athis = static_cast<A *>(this);
     A result = athis->matmul(other);
-    *athis = std::move(result);
-
-    return *athis;
-}
-
-/**
- * Perform matrix multiplication using vendor BLAS when available.
- */
-template <typename A, typename T>
-A SimpleArrayMixinCalculators<A, T>::matmul_blas(A const & other) const
-{
-    auto const * athis = static_cast<A const *>(this);
-    SimpleArrayMatmulHelper<A, T> helper(*athis, other);
-    return helper.matmul_blas();
-}
-
-/**
- * Perform in-place matrix multiplication using vendor BLAS when available.
- * The result replaces the content of the current array.
- */
-template <typename A, typename T>
-A & SimpleArrayMixinCalculators<A, T>::imatmul_blas(A const & other)
-{
-    auto athis = static_cast<A *>(this);
-    A result = athis->matmul_blas(other);
-    *athis = std::move(result);
-
-    return *athis;
-}
-
-/**
- * Perform fast matrix multiplication for SimpleArrays.
- * This implementation supports 1D x 1D, 1D x 2D, 2D x 1D, and 2D x 2D matrix multiplication.
- */
-template <typename A, typename T>
-A SimpleArrayMixinCalculators<A, T>::matmul_fast(A const & other,
-                                                 ssize_t tile_x,
-                                                 ssize_t tile_y,
-                                                 ssize_t tile_z) const
-{
-    auto const * athis = static_cast<A const *>(this);
-    SimpleArrayMatmulHelper<A, T> helper(*athis, other, tile_x, tile_y, tile_z);
-    return helper.matmul_fast();
-}
-
-/**
- * Perform in-place fast matrix multiplication for SimpleArrays.
- * This implementation supports 1D x 1D, 1D x 2D, 2D x 1D, and 2D x 2D matrix multiplication.
- * The result replaces the content of the current array.
- */
-template <typename A, typename T>
-A & SimpleArrayMixinCalculators<A, T>::imatmul_fast(A const & other,
-                                                    ssize_t tile_x,
-                                                    ssize_t tile_y,
-                                                    ssize_t tile_z)
-{
-    auto athis = static_cast<A *>(this);
-    A result = athis->matmul_fast(other, tile_x, tile_y, tile_z);
     *athis = std::move(result);
 
     return *athis;
