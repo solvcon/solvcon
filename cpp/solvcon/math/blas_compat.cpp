@@ -35,7 +35,7 @@ using blas_int_type = __LAPACK_int;
 using blas_int_type = int;
 #endif
 
-static blas_int_type to_blas_int(ssize_t value, char const * name)
+[[noreturn]] static void throw_blas_int_range_error(ssize_t value, char const * name)
 {
     if (value < 0)
     {
@@ -44,15 +44,20 @@ static blas_int_type to_blas_int(ssize_t value, char const * name)
                         name,
                         value));
     }
-    if (value <= static_cast<ssize_t>(std::numeric_limits<blas_int_type>::max()))
-    {
-        return static_cast<blas_int_type>(value);
-    }
 
     throw std::out_of_range(
         std::format("solvcon BLAS wrapper: {}={} exceeds BLAS integer range",
                     name,
                     value));
+}
+
+static blas_int_type to_blas_int(ssize_t value, char const * name)
+{
+    if (value < 0 || value > static_cast<ssize_t>(std::numeric_limits<blas_int_type>::max()))
+    {
+        throw_blas_int_range_error(value, name);
+    }
+    return static_cast<blas_int_type>(value);
 }
 
 static CBLAS_TRANSPOSE to_cblas_transpose(BlasTranspose transpose)

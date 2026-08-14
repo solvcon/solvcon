@@ -12,9 +12,11 @@
 #include <solvcon/math/math.hpp>
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <format>
+#include <limits>
 #include <optional>
 #include <ranges>
 #include <stdexcept>
@@ -87,7 +89,7 @@ struct MatmulTuning
     }; /* end struct DirectBlas */
 
     /**
-     * @brief Pack reused matrices that cannot be described directly to BLAS.
+     * @brief Set the GEMM crossover for packing BLAS-incompatible matrices.
      */
     struct MatrixPacking
     {
@@ -276,10 +278,10 @@ private:
  * evaluates one `(3,4) @ (4,6)` contraction at each offset. The results are
  * written into the allocated `(2,5,3,6)` output.
  *
- * @note The current implementation selects generic, direct BLAS, or Winograd
- * kernels using measured thresholds. Packing materializes a reused broadcast
- * matrix or vector once in row-major storage before traversal. Unsupported
- * equal-batch matrix layouts remain generic.
+ * @note The current implementation selects generic, BLAS, or Winograd kernels
+ * using measured thresholds. Packing materializes reused broadcast operands
+ * once and streams the remaining operands one matrix at a time through
+ * bounded row-major scratch.
  */
 template <typename Array>
 class MatmulExecutor
@@ -315,10 +317,10 @@ private:
             .gemm_min_dimension = 8,
         },
         .matrix_packing = {
-            .gemm_min_dimension = 16,
+            .gemm_min_dimension = is_complex_v<value_type> ? 8 : 16,
         },
         .batched_vector = {
-            .direct_min_matrix_elements = 512,
+            .direct_min_matrix_elements = 256,
             .always_pack_min_matrix_elements = 4096,
             .pack_min_matrix_elements = 1024,
             .pack_min_batch_size = 4,
@@ -327,6 +329,9 @@ private:
         },
         .winograd = WINOGRAD_TUNING,
     };
+    static constexpr size_t MAX_SCRATCH_ELEMENTS = std::min(
+        std::numeric_limits<size_t>::max() / sizeof(value_type),
+        static_cast<size_t>(std::numeric_limits<ssize_t>::max()));
 
     MatmulSelection select_execution() const;
     MatmulSelection select_dot() const;
@@ -347,7 +352,18 @@ private:
     void execute_dot_blas(value_type * output, value_type const * lhs_data, value_type const * rhs_data);
     void execute_gevm_blas(value_type * output, value_type const * lhs_data, value_type const * rhs_data);
     void execute_gemv_blas(value_type * output, value_type const * lhs_data, value_type const * rhs_data);
+    void prepare_gemm_scratch();
     void execute_gemm_blas(value_type * output, value_type const * lhs_data, value_type const * rhs_data);
+
+    static size_t checked_scratch_elements(ssize_t rows, ssize_t columns);
+    static matrix_view_type pack_matrix_to_scratch(
+        value_type const * source,
+        value_type * scratch,
+        value_type const *& cached_source,
+        ssize_t rows,
+        ssize_t columns,
+        ssize_t row_stride,
+        ssize_t column_stride);
 
     void execute_winograd();
 
@@ -360,6 +376,8 @@ private:
         ssize_t column_stride,
         ssize_t rows,
         ssize_t columns);
+    template <size_t ColumnBlock>
+    void multiply_generic_column_block(value_type * output, value_type const * lhs, value_type const * rhs);
     void execute_generic(ssize_t output_base, ssize_t lhs_base, ssize_t rhs_base);
 
     MatmulPlan m_plan;
@@ -367,6 +385,10 @@ private:
     Array const & m_rhs;
     std::optional<Array> m_packed_lhs;
     std::optional<Array> m_packed_rhs;
+    std::optional<Array> m_gemm_scratch;
+    size_t m_lhs_scratch_elements = 0;
+    value_type const * m_cached_lhs_source = nullptr;
+    value_type const * m_cached_rhs_source = nullptr;
     value_type * m_output_data;
     value_type const * m_lhs_data;
     value_type const * m_rhs_data;
@@ -632,6 +654,11 @@ MatmulExecutor<Array>::MatmulExecutor(MatmulPlan plan, Array & output, Array con
 template <typename Array>
 void MatmulExecutor<Array>::execute()
 {
+    if (m_plan.batch_size() == 0)
+    {
+        return;
+    }
+
     MatmulSelection const selection = select_execution();
 
     if (selection.packing)
@@ -658,6 +685,7 @@ void MatmulExecutor<Array>::execute()
             execute_contractions<MatmulKernel::BlasGemv>();
             return;
         case MatmulKernel::BlasGemm:
+            prepare_gemm_scratch();
             execute_contractions<MatmulKernel::BlasGemm>();
             return;
         case MatmulKernel::Winograd:
@@ -805,11 +833,10 @@ MatmulSelection MatmulExecutor<Array>::select_gemm() const
             .lhs = !lhs_blas_compatible,
             .rhs = !rhs_blas_compatible,
         };
-        PackingState const packing = select_matrix_packing(required);
-        if (packing)
-        {
-            return MatmulSelection{.kernel = MatmulKernel::BlasGemm, .packing = packing};
-        }
+        return MatmulSelection{
+            .kernel = MatmulKernel::BlasGemm,
+            .packing = select_matrix_packing(required),
+        };
     }
     return MatmulSelection{};
 }
@@ -817,15 +844,10 @@ MatmulSelection MatmulExecutor<Array>::select_gemm() const
 template <typename Array>
 PackingState MatmulExecutor<Array>::select_matrix_packing(PackingState required) const
 {
-    bool const lhs_supported =
-        !required.lhs || (m_plan.lhs_is_broadcast() && !m_plan.lhs_has_zero_batch_stride());
-    bool const rhs_supported =
-        !required.rhs || (m_plan.rhs_is_broadcast() && !m_plan.rhs_has_zero_batch_stride());
-    if (!required || !lhs_supported || !rhs_supported)
-    {
-        return PackingState{};
-    }
-    return required;
+    return PackingState{
+        .lhs = required.lhs && m_plan.lhs_is_broadcast() && !m_plan.lhs_has_zero_batch_stride(),
+        .rhs = required.rhs && m_plan.rhs_is_broadcast() && !m_plan.rhs_has_zero_batch_stride(),
+    };
 }
 
 template <typename Array>
@@ -973,14 +995,66 @@ void MatmulExecutor<Array>::execute_gemv_blas(value_type * output, value_type co
 }
 
 template <typename Array>
+void MatmulExecutor<Array>::prepare_gemm_scratch()
+{
+    if (m_gemm_scratch)
+    {
+        m_cached_lhs_source = nullptr;
+        m_cached_rhs_source = nullptr;
+        return;
+    }
+
+    std::optional<matrix_view_type> const lhs_view = lhs_matrix_view(m_lhs_data);
+    std::optional<matrix_view_type> const rhs_view = rhs_matrix_view(m_rhs_data);
+    if (lhs_view && rhs_view)
+    {
+        return;
+    }
+
+    m_lhs_scratch_elements = lhs_view ? 0 : checked_scratch_elements(m_plan.rows(), m_plan.inner_size());
+    size_t const rhs_elements = rhs_view ? 0 : checked_scratch_elements(m_plan.inner_size(), m_plan.columns());
+    if (m_lhs_scratch_elements > MAX_SCRATCH_ELEMENTS - rhs_elements)
+    {
+        throw std::length_error("MatmulExecutor::prepare_gemm_scratch(): scratch size overflows");
+    }
+    typename Array::shape_type const scratch_shape{static_cast<ssize_t>(m_lhs_scratch_elements + rhs_elements)};
+    m_gemm_scratch.emplace(scratch_shape);
+}
+
+template <typename Array>
 void MatmulExecutor<Array>::execute_gemm_blas(value_type * output, value_type const * lhs_data, value_type const * rhs_data)
 {
+    std::optional<matrix_view_type> lhs_view = lhs_matrix_view(lhs_data);
+    std::optional<matrix_view_type> rhs_view = rhs_matrix_view(rhs_data);
+    if (!lhs_view)
+    {
+        lhs_view = pack_matrix_to_scratch(
+            lhs_data,
+            m_gemm_scratch.value().data(),
+            m_cached_lhs_source,
+            m_plan.rows(),
+            m_plan.inner_size(),
+            m_plan.lhs_row_stride(),
+            m_plan.lhs_inner_stride());
+    }
+    if (!rhs_view)
+    {
+        rhs_view = pack_matrix_to_scratch(
+            rhs_data,
+            m_gemm_scratch.value().data() + m_lhs_scratch_elements,
+            m_cached_rhs_source,
+            m_plan.inner_size(),
+            m_plan.columns(),
+            m_plan.rhs_inner_stride(),
+            m_plan.rhs_column_stride());
+    }
+
     BlasGemmOperation<value_type> const operation{
         .rows = m_plan.rows(),
         .columns = m_plan.columns(),
         .inner_size = m_plan.inner_size(),
-        .lhs = require_matrix_view(lhs_matrix_view(lhs_data)),
-        .rhs = require_matrix_view(rhs_matrix_view(rhs_data)),
+        .lhs = require_matrix_view(lhs_view),
+        .rhs = require_matrix_view(rhs_view),
         .output = {
             .m_data = output,
             .m_leading_dimension = m_plan.columns(),
@@ -989,6 +1063,66 @@ void MatmulExecutor<Array>::execute_gemm_blas(value_type * output, value_type co
         .beta = value_type{0},
     };
     gemm_blas(operation);
+}
+
+template <typename Array>
+size_t MatmulExecutor<Array>::checked_scratch_elements(ssize_t rows, ssize_t columns)
+{
+    if (rows < 0 || columns < 0)
+    {
+        throw std::length_error("MatmulExecutor::prepare_gemm_scratch(): scratch size overflows");
+    }
+    auto const unsigned_rows = static_cast<size_t>(rows);
+    auto const unsigned_columns = static_cast<size_t>(columns);
+    if (unsigned_columns != 0 && unsigned_rows > MAX_SCRATCH_ELEMENTS / unsigned_columns)
+    {
+        throw std::length_error("MatmulExecutor::prepare_gemm_scratch(): scratch size overflows");
+    }
+    return unsigned_rows * unsigned_columns;
+}
+
+template <typename Array>
+typename MatmulExecutor<Array>::matrix_view_type MatmulExecutor<Array>::pack_matrix_to_scratch(
+    value_type const * source,
+    value_type * scratch,
+    value_type const *& cached_source,
+    ssize_t rows,
+    ssize_t columns,
+    ssize_t row_stride,
+    ssize_t column_stride)
+{
+    matrix_view_type const view{
+        .m_data = scratch,
+        .m_leading_dimension = columns,
+        .m_transpose = BlasTranspose::None,
+    };
+    if (source == cached_source)
+    {
+        return view;
+    }
+
+    for (ssize_t row = 0; row < rows; ++row)
+    {
+        value_type const * source_row = source + row * row_stride;
+        value_type * scratch_row = scratch + row * columns;
+        if (column_stride == 1)
+        {
+            std::copy_n(source_row, static_cast<size_t>(columns), scratch_row);
+        }
+        else if (column_stride == -1)
+        {
+            std::reverse_copy(source_row - columns + 1, source_row + 1, scratch_row);
+        }
+        else
+        {
+            for (ssize_t column = 0; column < columns; ++column)
+            {
+                scratch_row[column] = source_row[column * column_stride];
+            }
+        }
+    }
+    cached_source = source;
+    return view;
 }
 
 template <typename Array>
@@ -1061,13 +1195,64 @@ std::optional<typename MatmulExecutor<Array>::matrix_view_type> MatmulExecutor<A
 }
 
 template <typename Array>
+template <size_t ColumnBlock>
+void MatmulExecutor<Array>::multiply_generic_column_block(
+    value_type * output,
+    value_type const * lhs,
+    value_type const * rhs)
+{
+    std::array<value_type, ColumnBlock> totals{};
+    ssize_t lhs_offset = 0;
+    ssize_t rhs_inner_offset = 0;
+    for (ssize_t inner = 0; inner < m_plan.inner_size(); ++inner)
+    {
+        value_type const lhs_value = lhs[lhs_offset];
+        ssize_t rhs_column_offset = rhs_inner_offset;
+        for (value_type & total : totals)
+        {
+            total += lhs_value * rhs[rhs_column_offset];
+            rhs_column_offset += m_plan.rhs_column_stride();
+        }
+        lhs_offset += m_plan.lhs_inner_stride();
+        rhs_inner_offset += m_plan.rhs_inner_stride();
+    }
+    std::ranges::copy(totals, output);
+}
+
+template <typename Array>
 void MatmulExecutor<Array>::execute_generic(ssize_t output_base, ssize_t lhs_base, ssize_t rhs_base)
 {
+    constexpr ssize_t LARGE_COLUMN_BLOCK = 8;
+    constexpr ssize_t SMALL_COLUMN_BLOCK = 4;
+    bool const block_columns = m_plan.columns() >= SMALL_COLUMN_BLOCK &&
+                               m_plan.inner_size() != 0 &&
+                               (m_plan.rhs_column_stride() == 1 || m_plan.rhs_column_stride() == -1);
+
     for (ssize_t row = 0; row < m_plan.rows(); ++row)
     {
         ssize_t const lhs_row_base = lhs_base + row * m_plan.lhs_row_stride();
         ssize_t const output_row_base = output_base + row * m_plan.columns();
-        for (ssize_t column = 0; column < m_plan.columns(); ++column)
+        ssize_t column = 0;
+        if (block_columns)
+        {
+            value_type const * lhs = m_lhs_data + lhs_row_base;
+            for (; column + LARGE_COLUMN_BLOCK <= m_plan.columns(); column += LARGE_COLUMN_BLOCK)
+            {
+                multiply_generic_column_block<LARGE_COLUMN_BLOCK>(
+                    m_output_data + output_row_base + column,
+                    lhs,
+                    m_rhs_data + rhs_base + column * m_plan.rhs_column_stride());
+            }
+            if (column + SMALL_COLUMN_BLOCK <= m_plan.columns())
+            {
+                multiply_generic_column_block<SMALL_COLUMN_BLOCK>(
+                    m_output_data + output_row_base + column,
+                    lhs,
+                    m_rhs_data + rhs_base + column * m_plan.rhs_column_stride());
+                column += SMALL_COLUMN_BLOCK;
+            }
+        }
+        for (; column < m_plan.columns(); ++column)
         {
             value_type total{};
             ssize_t lhs_offset = lhs_row_base;
