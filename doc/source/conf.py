@@ -71,6 +71,7 @@ autodoc_mock_imports = ["_solvcon"]
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
     "numpy": ("https://numpy.org/doc/stable", None),
+    "pybind11": ("https://pybind11.readthedocs.io/en/stable", None),
 }
 
 # -- Breathe (C++ bridge) ---------------------------------------------------

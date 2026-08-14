@@ -6,6 +6,7 @@
 contributing
 testing
 cmake
+binding
 style
 ```
 
