@@ -994,8 +994,7 @@ void MatmulExecutor<Array>::execute_gemm_blas(value_type * output, value_type co
 template <typename Array>
 void MatmulExecutor<Array>::execute_winograd()
 {
-#if (defined(__APPLE__) && defined(__arm64__)) || defined(SC_HAS_CBLAS)
-    if constexpr (can_matmul_blas_v<value_type>)
+    if constexpr (use_matmul_blas_v<value_type>)
     {
         BlasOutputView<value_type> const output{
             .m_data = m_output_data,
@@ -1008,10 +1007,11 @@ void MatmulExecutor<Array>::execute_winograd()
             require_matrix_view(lhs_matrix_view(m_lhs_data)),
             require_matrix_view(rhs_matrix_view(m_rhs_data)),
             output);
-        return;
     }
-#endif
-    throw std::logic_error("MatmulExecutor::execute_winograd(): unavailable Winograd kernel");
+    else
+    {
+        throw std::logic_error("MatmulExecutor::execute_winograd(): unavailable Winograd kernel");
+    }
 }
 
 template <typename Array>
