@@ -386,6 +386,7 @@ private:
     std::optional<Array> m_packed_lhs;
     std::optional<Array> m_packed_rhs;
     std::optional<Array> m_gemm_scratch;
+    value_type * m_gemm_scratch_data = nullptr;
     size_t m_lhs_scratch_elements = 0;
     value_type const * m_cached_lhs_source = nullptr;
     value_type const * m_cached_rhs_source = nullptr;
@@ -999,6 +1000,7 @@ void MatmulExecutor<Array>::prepare_gemm_scratch()
 {
     if (m_gemm_scratch)
     {
+        m_gemm_scratch_data = m_gemm_scratch->data();
         m_cached_lhs_source = nullptr;
         m_cached_rhs_source = nullptr;
         return;
@@ -1018,7 +1020,7 @@ void MatmulExecutor<Array>::prepare_gemm_scratch()
         throw std::length_error("MatmulExecutor::prepare_gemm_scratch(): scratch size overflows");
     }
     typename Array::shape_type const scratch_shape{static_cast<ssize_t>(m_lhs_scratch_elements + rhs_elements)};
-    m_gemm_scratch.emplace(scratch_shape);
+    m_gemm_scratch_data = m_gemm_scratch.emplace(scratch_shape).data();
 }
 
 template <typename Array>
@@ -1030,7 +1032,7 @@ void MatmulExecutor<Array>::execute_gemm_blas(value_type * output, value_type co
     {
         lhs_view = pack_matrix_to_scratch(
             lhs_data,
-            m_gemm_scratch.value().data(),
+            m_gemm_scratch_data,
             m_cached_lhs_source,
             m_plan.rows(),
             m_plan.inner_size(),
@@ -1041,7 +1043,7 @@ void MatmulExecutor<Array>::execute_gemm_blas(value_type * output, value_type co
     {
         rhs_view = pack_matrix_to_scratch(
             rhs_data,
-            m_gemm_scratch.value().data() + m_lhs_scratch_elements,
+            m_gemm_scratch_data + m_lhs_scratch_elements,
             m_cached_rhs_source,
             m_plan.inner_size(),
             m_plan.columns(),
