@@ -34,6 +34,10 @@ enum class Axis : uint8_t
 /**
  * Point in three-dimensional space.
  *
+ * A pad of ndim 2 stores and reports z as zero, and a segment or point read
+ * back from it carries that zero. 2-dimensional code is meant to ignore it, not
+ * to work around it.
+ *
  * @tparam T floating-point type
  *
  * @ingroup group_geometry
@@ -271,6 +275,10 @@ using Point3dFp64 = Point3d<double>;
  * Coordinates are stored as separate per-axis arrays (x, y, and, for
  * three dimensions, z), so the layout is structure-of-arrays. The
  * dimensionality (2 or 3) is fixed at construction and cannot change.
+ *
+ * A pad of ndim 2 stores and reports z as zero, and a segment or point read
+ * back from it carries that zero. 2-dimensional code is meant to ignore it, not
+ * to work around it.
  *
  * @tparam T floating-point type
  *
@@ -752,6 +760,10 @@ union Segment3dData
 /**
  * Segment in three-dimensional space.
  *
+ * A pad of ndim 2 stores and reports z as zero, and a segment or point read
+ * back from it carries that zero. 2-dimensional code is meant to ignore it, not
+ * to work around it.
+ *
  * @tparam T floating-point type
  *
  * @ingroup group_geometry
@@ -770,6 +782,16 @@ public:
 
     Segment3d(point_type const & p0, point_type const & p1)
         : m_data{{p0.x(), p1.x(), p0.y(), p1.y(), p0.z(), p1.z()}}
+    {
+    }
+
+    Segment3d(T x0, T y0, T x1, T y1)
+        : m_data{{x0, x1, y0, y1, /*z0*/ 0.0, /*z1*/ 0.0}}
+    {
+    }
+
+    Segment3d(T x0, T y0, T z0, T x1, T y1, T z1)
+        : m_data{{x0, x1, y0, y1, z0, z1}}
     {
     }
 
@@ -907,6 +929,10 @@ using Segment3dFp64 = Segment3d<double>;
  * Each segment is stored as a pair of endpoints, held in two PointPad
  * objects (one for each endpoint). The dimensionality (2 or 3) comes
  * from the underlying point pads.
+ *
+ * A pad of ndim 2 stores and reports z as zero, and a segment or point read
+ * back from it carries that zero. 2-dimensional code is meant to ignore it, not
+ * to work around it.
  *
  * @tparam T floating-point type
  *

@@ -21,6 +21,20 @@ class Segment3dTB(testing.TestBase):
         self.assertEqual(tuple(s.p0), (0.0, 0.0, 0.0))
         self.assertEqual(tuple(s.p1), (1.0, 1.0, 1.0))
 
+        # Test six-scalar construcotr
+        s = Segment(p0=Point(x=1, y=2, z=3), p1=Point(x=4, y=5, z=6))
+        s_6scalar = Segment(x0=1, y0=2, z0=3, x1=4, y1=5, z1=6)
+        self.assertEqual(s_6scalar, s)
+        s_6scalar = Segment(1, 2, 3, 4, 5, 6)
+        self.assertEqual(s_6scalar, s)
+
+        # Test four-scalar construcotr
+        s = Segment(p0=Point(x=1, y=2), p1=Point(x=4, y=5))
+        s_4scalar = Segment(x0=1, y0=2, x1=4, y1=5)
+        self.assertEqual(s_4scalar, s)
+        s_4scalar = Segment(1, 2, 4, 5)
+        self.assertEqual(s_4scalar, s)
+
         s.p0 = Point(x=3, y=7, z=0)
         s.p1 = Point(x=-1, y=-4, z=9)
         self.assertEqual(s.x0, 3)

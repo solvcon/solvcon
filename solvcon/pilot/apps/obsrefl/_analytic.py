@@ -165,18 +165,10 @@ class Reflection(object):
         self.margin = margin
         # The analytic path is fixed once the mesh is built, so its corners
         # are walked once into the segments the measurements read.
-        # TODO: SegmentPad takes a Segment3d built from two Point3d, unlike
-        # PointPad, which appends loose coordinates.  An append(x0, y0, x1,
-        # y1) overload would drop the two constructions per arm.
         self.arms = core.SegmentPadFp64(ndim=2)
         path = shock.shock_path()
         for head, tail in zip(path[:-1], path[1:]):
-            # TODO: the endpoints are 3D even on a 2D pad, so a plane user
-            # pins z twice per segment.  A Segment2d, or a pad that carries
-            # only ndim coordinates per point, would take the zeros away.
-            self.arms.append(core.Segment3dFp64(
-                core.Point3dFp64(head[0], head[1], 0.0),
-                core.Point3dFp64(tail[0], tail[1], 0.0)))
+            self.arms.append(head[0], head[1], tail[0], tail[1])
 
     @property
     def incident(self):
