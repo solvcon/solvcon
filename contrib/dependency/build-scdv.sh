@@ -947,7 +947,22 @@ elif [ "${SCDV_ALLOW_UNSUPPORTED_PLATFORM}" = "1" ] ; then
        "'${SCDV_OS}/${SCDV_ARCH}'; continuing anyway." >&2
 else
   case "${SCDV_OS}:${SCDV_ARCH}" in
-    ubuntu:x86_64|macos:arm64)
+    macos:arm64)
+      ;;
+
+    ubuntu:x86_64)
+      # SCDV_OS=ubuntu covers every Linux (uname -s is just "Linux"), so
+      # confirm this is actually Ubuntu; other distros lack apt and the
+      # Debian/Ubuntu paths the recipes assume. Warn and proceed.
+      _scdv_id=""
+      if [ -r /etc/os-release ] ; then
+        _scdv_id=$(set +e ; . /etc/os-release 2>/dev/null ; printf '%s' "${ID:-}")
+      fi
+      if [ "${_scdv_id}" != "ubuntu" ] ; then
+        echo "warning: non-Ubuntu Linux (os-release ID='${_scdv_id:-unknown}');" \
+             ""the build assumes apt and Ubuntu-specific paths and may fail."" >&2
+      fi
+      unset _scdv_id
       ;;
 
     ubuntu:aarch64)
@@ -958,18 +973,6 @@ else
     macos:x86_64)
       # Intel Mac: some dependencies may not build. (e.g. numpy/scipy)
       echo "warning: some dependencies may not build correctly on macos/x86_64." >&2
-
-      if ! { : </dev/tty ; } 2>/dev/null ; then
-        echo "no controlling tty to confirm; rerun on a supported" \
-             "OS/architecture." >&2
-        exit 1
-      fi
-
-      read -r -p "Continue anyway? [y/N] " _ans </dev/tty
-      case "${_ans}" in
-        [Yy]*) ;;
-        *) echo "aborted." >&2 ; exit 1 ;;
-      esac
       ;;
 
     *)
