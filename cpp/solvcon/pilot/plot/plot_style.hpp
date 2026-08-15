@@ -49,6 +49,12 @@ struct PlotColor
 inline constexpr double PLOT_DEFAULT_LINE_WIDTH = 1.5;
 
 /**
+ * Default autoscale margin as a fraction of the data span on each side;
+ * matplotlib's axes.xmargin and axes.ymargin.
+ */
+inline constexpr double PLOT_DEFAULT_MARGIN = 0.05;
+
+/**
  * The matplotlib C0-C9 categorical cycle, in order. Exactly ten entries over
  * storage of static lifetime, so the span outlives any caller.
  */

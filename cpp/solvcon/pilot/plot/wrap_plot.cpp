@@ -13,6 +13,7 @@
 #include <solvcon/buffer/pymod/SimpleArrayCaster.hpp>
 
 #include <solvcon/pilot/plot/plot_style.hpp>
+#include <solvcon/pilot/plot/RPlotModel.hpp>
 #include <solvcon/pilot/plot/RPlotSeries.hpp>
 
 #include <array>
@@ -164,6 +165,66 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRPlotSeries
 
 }; /* end class WrapRPlotSeries */
 
+class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRPlotModel
+    : public WrapBase<WrapRPlotModel, RPlotModel, std::shared_ptr<RPlotModel>>
+{
+
+    friend root_base_type;
+
+    WrapRPlotModel(pybind11::module & mod, char const * pyname, char const * pydoc)
+        : root_base_type(mod, pyname, pydoc)
+    {
+        namespace py = pybind11;
+
+        (*this)
+            .def(py::init<>())
+            //
+            ;
+
+        (*this)
+            .def(
+                "add_series",
+                [](wrapped_type & self)
+                { return self.add_series(); })
+            .def(
+                "add_series",
+                [](wrapped_type & self, std::shared_ptr<RPlotSeries> const & series)
+                { return self.add_series(series); },
+                py::arg("series"))
+            .def_property_readonly("size", &wrapped_type::size)
+            .def("__len__", &wrapped_type::size)
+            .def(
+                "series",
+                [](wrapped_type const & self, std::int64_t index)
+                { return self.series(checked_index(index, self.size(), "RPlotModel::series", "size")); },
+                py::arg("index"))
+            .def(
+                "data_limits",
+                [](wrapped_type const & self)
+                { return limits_to_python(self.data_limits()); })
+            .def_property("margin", &wrapped_type::margin, &wrapped_type::set_margin)
+            .def(
+                "view_limits",
+                [](wrapped_type const & self)
+                {
+                    std::array<double, 4> const lim = self.view_limits();
+                    return py::make_tuple(lim[0], lim[1], lim[2], lim[3]);
+                })
+            .def(
+                "set_view_limits",
+                &wrapped_type::set_view_limits,
+                py::arg("xmin"),
+                py::arg("xmax"),
+                py::arg("ymin"),
+                py::arg("ymax"))
+            .def("autoscale", &wrapped_type::autoscale)
+            .def("view", &wrapped_type::view, py::arg("width"), py::arg("height"))
+            //
+            ;
+    }
+
+}; /* end class WrapRPlotModel */
+
 void wrap_plot(pybind11::module & mod)
 {
     namespace py = pybind11;
@@ -179,6 +240,13 @@ void wrap_plot(pybind11::module & mod)
         "One xy data series: a copy of a contiguous SimpleArrayFloat64 pair "
         "plus the style used to stroke it. Samples are read through "
         "size / x / y.");
+    WrapRPlotModel::commit(
+        mod,
+        "RPlotModel",
+        "The series list of one xy plot: the color cycle a new series draws "
+        "from, the aggregate data limits, and the view limits that "
+        "autoscale derives and view(width, height) maps onto the screen as "
+        "a ViewTransform2dFp64.");
 
     mod.def(
         "plot_color_cycle",

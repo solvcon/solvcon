@@ -43,6 +43,7 @@ set(SOLVCON_PILOT_PYMODHEADERS
     # plot/
     ${CMAKE_CURRENT_SOURCE_DIR}/plot/plot_style.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/plot/RPlotSeries.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/plot/RPlotModel.hpp
     # app/
     ${CMAKE_CURRENT_SOURCE_DIR}/app/RManager.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/RMenuModel.hpp
@@ -94,6 +95,7 @@ set(SOLVCON_PILOT_PYMODSOURCES
     # plot/
     ${CMAKE_CURRENT_SOURCE_DIR}/plot/plot_style.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/plot/RPlotSeries.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/plot/RPlotModel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/plot/wrap_plot.cpp
     # app/
     ${CMAKE_CURRENT_SOURCE_DIR}/app/RManager.cpp

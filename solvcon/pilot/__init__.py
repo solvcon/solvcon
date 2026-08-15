@@ -21,6 +21,7 @@ from ._pilot_core import (  # noqa: F401
     RManager,
     PlotColor,
     RPlotSeries,
+    RPlotModel,
     plot_color_cycle,
     plot_cycle_color,
 )
