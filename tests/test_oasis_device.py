@@ -45,6 +45,14 @@ class OasisRecordPolyTC(unittest.TestCase):
 
         self.assertEqual(record_bytes, list(map(ord, expected_record_bytes)))
 
+    def test_empty_vertex_to_byte(self):
+        with self.assertRaisesRegex(RuntimeError, "Not enough vertices"):
+            solvcon.OasisRecordPoly([])
+
+    def test_one_vertex_to_byte(self):
+        with self.assertRaisesRegex(RuntimeError, "Not enough vertices"):
+            solvcon.OasisRecordPoly([[0, 0]])
+
 
 # For OASIS format, refer solvcon::OasisDevice comment in oasis_device.cpp
 class OasisDeviceTC(unittest.TestCase):
