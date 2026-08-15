@@ -3,11 +3,11 @@
 
 """Acceptance checks that the vendor BLAS/LAPACK backend computes correctly.
 
-SimpleArray.matmul_blas() calls CBLAS ?gemm and EigenSystem calls LAPACK
-?geev.  These cross-check both against NumPy's own LAPACK rather than against
-another solvcon path, so a miscompiled or ABI-mismatched vendor library (a bad
-OpenBLAS or MKL link) surfaces as wrong numbers instead of passing
-consistently-wrong values.
+SimpleArray.matmul() dispatches eligible products to CBLAS ?gemm, and
+EigenSystem calls LAPACK ?geev. These cross-check both against NumPy rather
+than against another solvcon path, so a miscompiled or ABI-mismatched vendor
+library surfaces as wrong numbers instead of passing consistently-wrong
+values.
 """
 
 import unittest
@@ -17,6 +17,8 @@ import numpy as np
 import solvcon as sc
 
 
+# CI runs this table with OpenBLAS on Ubuntu, Accelerate on macOS arm64,
+# and MKL on Windows. The four types exercise s/d/c/zgemm.
 # name -> (SimpleArray class, numpy dtype, tolerance)
 _DTYPES = {
     "float32": (sc.SimpleArrayFloat32, np.float32, 1e-4),
@@ -26,24 +28,27 @@ _DTYPES = {
 }
 
 
-class MatmulBlasTC(unittest.TestCase):
-    """SimpleArray.matmul_blas() (CBLAS ?gemm) must match NumPy."""
+class MatmulBackendTC(unittest.TestCase):
+    """SimpleArray.matmul() must match NumPy in the direct CBLAS region."""
 
     def _operands(self, dtype):
         rng = np.random.default_rng(20260714)
-        a = rng.standard_normal((5, 4))
-        b = rng.standard_normal((4, 6))
+        dtype_name = np.dtype(dtype).name
+        # With a linked backend, this contiguous 17x18 @ 18x19 product
+        # selects direct CBLAS for every type in _DTYPES.
+        a = rng.standard_normal((17, 18), dtype='float64')
+        b = rng.standard_normal((18, 19), dtype='float64')
         if np.issubdtype(dtype, np.complexfloating):
-            a = a + 1j * rng.standard_normal((5, 4))
-            b = b + 1j * rng.standard_normal((4, 6))
-        return (np.ascontiguousarray(a, dtype=dtype),
-                np.ascontiguousarray(b, dtype=dtype))
+            a = a + 1j * rng.standard_normal((17, 18), dtype='float64')
+            b = b + 1j * rng.standard_normal((18, 19), dtype='float64')
+        return (np.ascontiguousarray(a, dtype=dtype_name),
+                np.ascontiguousarray(b, dtype=dtype_name))
 
     def test_matches_numpy(self):
         for name, (arr_cls, dtype, tol) in _DTYPES.items():
             with self.subTest(dtype=name):
                 a_np, b_np = self._operands(dtype)
-                got = arr_cls(array=a_np).matmul_blas(
+                got = arr_cls(array=a_np).matmul(
                     arr_cls(array=b_np)).ndarray
                 want = a_np @ b_np
                 self.assertEqual(got.shape, want.shape)

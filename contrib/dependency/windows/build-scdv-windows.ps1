@@ -65,7 +65,7 @@
 #     LIBCLANG_VERSION: Qt prebuilt libclang version for shiboken.
 #   Build settings:
 #     SCDV_NP: Parallel build jobs.
-#     SCDV_WIN_BLAS: LP64 BLAS/LAPACK provider for solvcon's matmul_blas() /
+#     SCDV_WIN_BLAS: LP64 BLAS/LAPACK provider for solvcon's matmul() /
 #       EigenSystem: "mkl" (default, Intel oneAPI MKL, an optimized vendor
 #       library for x86) or "openblas" (the official OpenBLAS prebuilt).
 #     SCDV_PREFIX: Path prefix to SCDV_BASE.
@@ -293,7 +293,7 @@ $ScdvSrcDir = Join-Path $ScdvBase 'src'
 # Install root (user-space).
 $ScdvUsrDir = Join-Path $ScdvBase 'usr'
 
-# LP64 BLAS/LAPACK provider solvcon links for SimpleArray::matmul_blas() and
+# LP64 BLAS/LAPACK provider solvcon links for SimpleArray::matmul() and
 # EigenSystem: "mkl" (default) or "openblas".  Distinct from the ILP64
 # scipy-openblas64 wheel numpy links (see Get-OpenblasPkgConfig).
 $WinBlas = (Get-EnvOrDefault 'SCDV_WIN_BLAS' 'mkl').ToLower()

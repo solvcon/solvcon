@@ -111,30 +111,6 @@ class MatmulTestBase(sc.testing.TestBase):
         result = lhs.matmul(rhs)
 
         self.assertEqual(list(result.shape), list(expected.shape))
-        np.testing.assert_array_almost_equal(result.ndarray, expected)
-        return result
-
-    def assert_matmul_fast(self, lhs, rhs, expected, matmul_result):
-        fast_result = lhs.matmul_fast(rhs)
-
-        self.assertEqual(list(fast_result.shape), list(expected.shape))
-        np.testing.assert_array_almost_equal(fast_result.ndarray, expected)
-        np.testing.assert_array_almost_equal(fast_result.ndarray,
-                                             matmul_result.ndarray)
-        return fast_result
-
-    def assert_matmul_blas(self, lhs, rhs, expected, matmul_result):
-        blas_result = lhs.matmul_blas(rhs)
-
-        self.assertEqual(list(blas_result.shape), list(expected.shape))
-        np.testing.assert_array_almost_equal(blas_result.ndarray, expected)
-        np.testing.assert_array_almost_equal(blas_result.ndarray,
-                                             matmul_result.ndarray)
-
-    def assert_matmul_planned(self, lhs, rhs, expected):
-        result = lhs.matmul_planned(rhs)
-
-        self.assertEqual(list(result.shape), list(expected.shape))
         tol = 64 * np.finfo(result.ndarray.real.dtype).eps
         np.testing.assert_allclose(
             result.ndarray, expected, rtol=tol, atol=tol)
@@ -152,11 +128,7 @@ class MatmulTestBase(sc.testing.TestBase):
         # Expected result: [[19, 22], [43, 50]]
         expected = np.array([[19.0, 22.0], [43.0, 50.0]], dtype=self.dtype)
 
-        # Test matrix multiplication
-        result = self.assert_matmul(a, b, expected)
-        self.assert_matmul_fast(a, b, expected, result)
-        self.assert_matmul_blas(a, b, expected, result)
-        self.assert_matmul_planned(a, b, expected)
+        self.assert_matmul(a, b, expected)
 
     def test_rectangular(self):
         """Test rectangular matrix multiplication"""
@@ -173,10 +145,7 @@ class MatmulTestBase(sc.testing.TestBase):
         expected = np.array([[58.0, 64.0], [139.0, 154.0]],
                             dtype=self.dtype)
 
-        result = self.assert_matmul(a, b, expected)
-        self.assert_matmul_fast(a, b, expected, result)
-        self.assert_matmul_blas(a, b, expected, result)
-        self.assert_matmul_planned(a, b, expected)
+        self.assert_matmul(a, b, expected)
 
     def test_identity(self):
         """Test multiplication with identity matrix"""
@@ -187,10 +156,7 @@ class MatmulTestBase(sc.testing.TestBase):
         a = self.SimpleArray(array=a_data)
         identity = self.SimpleArray.eye(3)
 
-        result = self.assert_matmul(a, identity, a_data)
-        self.assert_matmul_fast(a, identity, a_data, result)
-        self.assert_matmul_blas(a, identity, a_data, result)
-        self.assert_matmul_planned(a, identity, a_data)
+        self.assert_matmul(a, identity, a_data)
 
     def test_zero(self):
         """Test multiplication with zero matrix"""
@@ -200,10 +166,7 @@ class MatmulTestBase(sc.testing.TestBase):
         a = self.SimpleArray(array=a_data)
         zero = self.SimpleArray(array=zero_data)
 
-        result = self.assert_matmul(a, zero, zero_data)
-        self.assert_matmul_fast(a, zero, zero_data, result)
-        self.assert_matmul_blas(a, zero, zero_data, result)
-        self.assert_matmul_planned(a, zero, zero_data)
+        self.assert_matmul(a, zero, zero_data)
 
     def test_dimension_mismatch_error(self):
         """Test error handling for incompatible dimensions"""
@@ -216,56 +179,12 @@ class MatmulTestBase(sc.testing.TestBase):
         a = self.SimpleArray(array=a_data)
         b = self.SimpleArray(array=b_data)
 
-        # Should raise error: 2x2 cannot multiply with 3x3
-        # (incompatible inner dimensions: 2 != 3)
-        with self.assertRaisesRegex(
-            IndexError,
-            r"SimpleArray::matmul\(\): shape mismatch: this=\(2,2\) other="
-            r"\(3,3\)"
-        ):
-            a.matmul(b)
-        with self.assertRaisesRegex(
-            IndexError,
-            r"SimpleArray::matmul\(\): shape mismatch: this=\(2,2\) other="
-            r"\(3,3\)"
-        ):
-            a.matmul_fast(b)
-        with self.assertRaisesRegex(
-            IndexError,
-            r"SimpleArray::matmul\(\): shape mismatch: this=\(2,2\) other="
-            r"\(3,3\)"
-        ):
-            a.matmul_blas(b)
         with self.assertRaisesRegex(
             ValueError,
-            r"SimpleArray::matmul_planned\(\): shape mismatch: "
+            r"SimpleArray::matmul\(\): shape mismatch: "
             r"this=\(2,2\) other=\(3,3\)"
         ):
-            a.matmul_planned(b)
-
-    def test_non_positive_fast_tile_error(self):
-        cases = itertools.product(
-            ('matmul_fast', 'imatmul_fast'),
-            ('tile_x', 'tile_y', 'tile_z'),
-            (0, -1),
-        )
-        for method, tile_name, tile_size in cases:
-            with self.subTest(
-                    method=method, tile_name=tile_name,
-                    tile_size=tile_size):
-                data = np.ones((2,), dtype=np.dtype(self.dtype).name)
-                lhs = self.SimpleArray(array=data)
-                rhs = self.SimpleArray(array=data)
-                tiles = {'tile_x': 1, 'tile_y': 1, 'tile_z': 1}
-                tiles[tile_name] = tile_size
-                message = (
-                    r"SimpleArray::matmul_fast\(\): tile sizes must "
-                    rf"be positive: tile_x={tiles['tile_x']} "
-                    rf"tile_y={tiles['tile_y']} "
-                    rf"tile_z={tiles['tile_z']}"
-                )
-                with self.assertRaisesRegex(IndexError, message):
-                    getattr(lhs, method)(rhs, **tiles)
+            a.matmul(b)
 
     def test_compare_with_numpy(self):
         """Compare results with NumPy using fixed test data"""
@@ -369,11 +288,7 @@ class MatmulTestBase(sc.testing.TestBase):
                 np_result = np.matmul(a_data, b_data)
                 np.testing.assert_array_almost_equal(expected, np_result)
 
-                # Compare our result with expected
-                result = self.assert_matmul(a, b, expected)
-                self.assert_matmul_fast(a, b, expected, result)
-                self.assert_matmul_blas(a, b, expected, result)
-                self.assert_matmul_planned(a, b, expected)
+                self.assert_matmul(a, b, expected)
 
     def test_matrix_strides(self):
         """Matrix axes support generic and BLAS-compatible layouts."""
@@ -391,7 +306,7 @@ class MatmulTestBase(sc.testing.TestBase):
 
                 with self.subTest(
                         shape=(m, k, n), lhs=lhs_case, rhs=rhs_case):
-                    self.assert_matmul_planned(lhs, rhs, expected)
+                    self.assert_matmul(lhs, rhs, expected)
 
     def test_batch_strides(self):
         """Batch axes support negative and step-two strides."""
@@ -415,7 +330,7 @@ class MatmulTestBase(sc.testing.TestBase):
 
                 with self.subTest(
                         shape=lhs_shape, lhs=lhs_case, rhs=rhs_case):
-                    self.assert_matmul_planned(lhs, rhs, expected)
+                    self.assert_matmul(lhs, rhs, expected)
 
     def test_broadcast_batch_strides(self):
         """Broadcast batch strides across generic and direct BLAS routes."""
@@ -435,7 +350,7 @@ class MatmulTestBase(sc.testing.TestBase):
                 with self.subTest(
                         shape=(m, k, n),
                         lhs=lhs_case, rhs=rhs_case):
-                    self.assert_matmul_planned(lhs, rhs, expected)
+                    self.assert_matmul(lhs, rhs, expected)
 
     def test_broadcast_matrix_strides(self):
         """Broadcast matrix strides work across generic and packed routes."""
@@ -463,7 +378,7 @@ class MatmulTestBase(sc.testing.TestBase):
 
                 with self.subTest(
                         shape=(m, k, n), lhs=lhs_case, rhs=rhs_case):
-                    self.assert_matmul_planned(lhs, rhs, expected)
+                    self.assert_matmul(lhs, rhs, expected)
 
     def test_large_batched_matrix_strides(self):
         """Batched matrices preserve unique, broadcast, and zero strides."""
@@ -500,7 +415,7 @@ class MatmulTestBase(sc.testing.TestBase):
             expected = np.matmul(case_lhs, case_rhs)
 
             with self.subTest(case=name):
-                self.assert_matmul_planned(lhs, rhs, expected)
+                self.assert_matmul(lhs, rhs, expected)
 
     def test_vector_strides(self):
         """Vector roles preserve signed vector, matrix, and batch strides."""
@@ -536,7 +451,7 @@ class MatmulTestBase(sc.testing.TestBase):
 
                 with self.subTest(
                         role=role, lhs=lhs_case, rhs=rhs_case):
-                    self.assert_matmul_planned(lhs, rhs, expected)
+                    self.assert_matmul(lhs, rhs, expected)
 
         lhs_matrix = np.arange(64 * 512, dtype=dtype).reshape(64, 512)
         rhs_matrix = np.arange(512 * 64, dtype=dtype).reshape(512, 64)
@@ -559,7 +474,7 @@ class MatmulTestBase(sc.testing.TestBase):
             with self.subTest(lhs=lhs_data.strides,
                               rhs=rhs_data.strides):
                 expected = np.atleast_1d(np.matmul(lhs_data, rhs_data))
-                self.assert_matmul_planned(
+                self.assert_matmul(
                     lhs, rhs, expected)
 
     def test_large_batched_vector_strides(self):
@@ -594,7 +509,7 @@ class MatmulTestBase(sc.testing.TestBase):
                     with self.subTest(
                             role=role, side=side, batch=batch_size,
                             lhs=lhs_name, rhs=rhs_name):
-                        self.assert_matmul_planned(lhs, rhs, expected)
+                        self.assert_matmul(lhs, rhs, expected)
 
     def test_batch_axes_align_right(self):
         """Leading batch axes align from the right like NumPy matmul."""
@@ -614,7 +529,7 @@ class MatmulTestBase(sc.testing.TestBase):
             rhs = self.SimpleArray(array=rhs_data)
 
             with self.subTest(lhs=lhs_shape, rhs=rhs_shape):
-                self.assert_matmul_planned(
+                self.assert_matmul(
                     lhs, rhs, np.matmul(lhs_data, rhs_data))
 
     def test_broadcast_batch_mismatch(self):
@@ -626,10 +541,10 @@ class MatmulTestBase(sc.testing.TestBase):
             array=np.zeros((3, 4, 2), dtype=dtype))
         with self.assertRaisesRegex(
             ValueError,
-            r"SimpleArray::matmul_planned\(\): batch shape mismatch: "
+            r"SimpleArray::matmul\(\): batch shape mismatch: "
             r"this=\(2,3,4\) other=\(3,4,2\)"
         ):
-            lhs.matmul_planned(rhs)
+            lhs.matmul(rhs)
 
     def test_empty_dimensions(self):
         """Matmul preserves empty output and inner axes."""
@@ -653,7 +568,7 @@ class MatmulTestBase(sc.testing.TestBase):
             rhs = self.SimpleArray(array=rhs_data)
 
             with self.subTest(lhs=lhs_shape, rhs=rhs_shape):
-                self.assert_matmul_planned(lhs, rhs, expected)
+                self.assert_matmul(lhs, rhs, expected)
 
     def test_matmul_with_strided_vectors(self):
         """Matmul supports every pairing of contiguous and strided vectors."""
@@ -663,160 +578,56 @@ class MatmulTestBase(sc.testing.TestBase):
             'negative': np.arange(8, dtype=dtype)[::-1],
             'step_two': np.arange(16, dtype=dtype)[::2],
         }
-        methods = ('matmul', 'matmul_fast', 'matmul_blas', 'matmul_planned')
-
-        cases = itertools.product(vectors, vectors, methods)
-        for lhs_case, rhs_case, method in cases:
+        for lhs_case, rhs_case in itertools.product(vectors, repeat=2):
             lhs_data = vectors[lhs_case]
             rhs_data = vectors[rhs_case]
             lhs = self.SimpleArray(array=lhs_data)
             rhs = self.SimpleArray(array=rhs_data)
             expected = np.matmul(lhs_data, rhs_data)
 
-            with self.subTest(
-                    lhs=lhs_case, rhs=rhs_case, method=method):
-                result = getattr(lhs, method)(rhs)
+            with self.subTest(lhs=lhs_case, rhs=rhs_case):
+                result = lhs.matmul(rhs)
                 self.assertEqual((1,), result.shape)
                 np.testing.assert_allclose(result.ndarray[0], expected)
 
     def test_wrong_shape_error(self):
-        """Test error handling for wrong shapes"""
-
-        a_3d_data = np.array([[[1.0, 2.0], [3.0, 4.0]],
-                              [[5.0, 6.0], [7.0, 8.0]]], dtype=self.dtype)
-        b_3d_data = np.array([[[1.0, 0.0], [0.0, 1.0]],
-                              [[2.0, 0.0], [0.0, 2.0]]], dtype=self.dtype)
-        a_3d = self.SimpleArray(array=a_3d_data)
-        b_3d = self.SimpleArray(array=b_3d_data)
-
-        with self.assertRaisesRegex(
-            IndexError,
-            r"SimpleArray::matmul\(\): unsupported dimensions: "
-            r"this=\(2,2,2\) other=\(2,2,2\)\. SimpleArray must be 1D or 2D."
-        ):
-            a_3d.matmul(b_3d)
-        with self.assertRaisesRegex(
-            IndexError,
-            r"SimpleArray::matmul\(\): unsupported dimensions: "
-            r"this=\(2,2,2\) other=\(2,2,2\)\. SimpleArray must be 1D or 2D."
-        ):
-            a_3d.matmul_fast(b_3d)
-        with self.assertRaisesRegex(
-            IndexError,
-            r"SimpleArray::matmul\(\): unsupported dimensions: "
-            r"this=\(2,2,2\) other=\(2,2,2\)\. SimpleArray must be 1D or 2D."
-        ):
-            a_3d.matmul_blas(b_3d)
-
-        a = np.zeros((3, 3), dtype=self.dtype)
-        b = np.zeros((2, 3), dtype=self.dtype)
-        a = self.SimpleArray(array=a)
-        b = self.SimpleArray(array=b)
-        with self.assertRaisesRegex(
-            IndexError,
-            r"SimpleArray::matmul\(\): shape mismatch: "
-            r"this=\(3,3\) other=\(2,3\)"
-        ):
-            a.matmul(b)
-        with self.assertRaisesRegex(
-            IndexError,
-            r"SimpleArray::matmul\(\): shape mismatch: "
-            r"this=\(3,3\) other=\(2,3\)"
-        ):
-            a.matmul_fast(b)
-        with self.assertRaisesRegex(
-            IndexError,
-            r"SimpleArray::matmul\(\): shape mismatch: "
-            r"this=\(3,3\) other=\(2,3\)"
-        ):
-            a.matmul_blas(b)
-
-        a = np.zeros((3, 3), dtype=self.dtype)
-        b = np.zeros((2), dtype=self.dtype)
-        a = self.SimpleArray(array=a)
-        b = self.SimpleArray(array=b)
-        with self.assertRaisesRegex(
-            IndexError,
-            r"SimpleArray::matmul\(\): shape mismatch: "
-            r"this=\(3,3\) other=\(2\)"
-        ):
-            a.matmul(b)
-        with self.assertRaisesRegex(
-            IndexError,
-            r"SimpleArray::matmul\(\): shape mismatch: "
-            r"this=\(3,3\) other=\(2\)"
-        ):
-            a.matmul_fast(b)
-        with self.assertRaisesRegex(
-            IndexError,
-            r"SimpleArray::matmul\(\): shape mismatch: "
-            r"this=\(3,3\) other=\(2\)"
-        ):
-            a.matmul_blas(b)
-
-        a = np.zeros((2), dtype=self.dtype)
-        b = np.zeros((3, 3), dtype=self.dtype)
-        a = self.SimpleArray(array=a)
-        b = self.SimpleArray(array=b)
-        with self.assertRaisesRegex(
-            IndexError,
-            r"SimpleArray::matmul\(\): shape mismatch: "
-            r"this=\(2\) other=\(3,3\)"
-        ):
-            a.matmul(b)
-        with self.assertRaisesRegex(
-            IndexError,
-            r"SimpleArray::matmul\(\): shape mismatch: "
-            r"this=\(2\) other=\(3,3\)"
-        ):
-            a.matmul_fast(b)
-        with self.assertRaisesRegex(
-            IndexError,
-            r"SimpleArray::matmul\(\): shape mismatch: "
-            r"this=\(2\) other=\(3,3\)"
-        ):
-            a.matmul_blas(b)
-
-        a = np.zeros((2), dtype=self.dtype)
-        b = np.zeros((3), dtype=self.dtype)
-        a = self.SimpleArray(array=a)
-        b = self.SimpleArray(array=b)
-        with self.assertRaisesRegex(
-            IndexError,
-            r"SimpleArray::matmul\(\): shape mismatch: "
-            r"this=\(2\) other=\(3\)"
-        ):
-            a.matmul(b)
-        with self.assertRaisesRegex(
-            IndexError,
-            r"SimpleArray::matmul\(\): shape mismatch: "
-            r"this=\(2\) other=\(3\)"
-        ):
-            a.matmul_fast(b)
-        with self.assertRaisesRegex(
-            IndexError,
-            r"SimpleArray::matmul\(\): shape mismatch: "
-            r"this=\(2\) other=\(3\)"
-        ):
-            a.matmul_blas(b)
+        """Every operand role reports mismatched contraction dimensions."""
+        dtype = np.dtype(self.dtype).name
+        shapes = (
+            ((3, 3), (2, 3)),
+            ((3, 3), (2,)),
+            ((2,), (3, 3)),
+            ((2,), (3,)),
+        )
+        for lhs_shape, rhs_shape in shapes:
+            lhs = self.SimpleArray(
+                array=np.zeros(lhs_shape, dtype=dtype))
+            rhs = self.SimpleArray(
+                array=np.zeros(rhs_shape, dtype=dtype))
+            lhs_text = ','.join(str(extent) for extent in lhs_shape)
+            rhs_text = ','.join(str(extent) for extent in rhs_shape)
+            message = (
+                rf"SimpleArray::matmul\(\): shape mismatch: "
+                rf"this=\({lhs_text}\) other=\({rhs_text}\)"
+            )
+            with self.subTest(lhs=lhs_shape, rhs=rhs_shape):
+                with self.assertRaisesRegex(ValueError, message):
+                    lhs.matmul(rhs)
 
     def test_matmul_operator(self):
-        """Test @ operator for matrix multiplication"""
-        # Create 2x2 matrices
-        a_data = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=self.dtype)
-        b_data = np.array([[5.0, 6.0], [7.0, 8.0]], dtype=self.dtype)
+        """The @ operator supports broadcast batch axes."""
+        dtype = np.dtype(self.dtype).name
+        a_data = np.arange(2 * 1 * 3 * 4, dtype=dtype).reshape(2, 1, 3, 4)
+        b_data = np.arange(1 * 5 * 4 * 2, dtype=dtype).reshape(1, 5, 4, 2)
 
         a = self.SimpleArray(array=a_data)
         b = self.SimpleArray(array=b_data)
 
-        # Expected result: [[19, 22], [43, 50]]
-        expected = np.array([[19.0, 22.0], [43.0, 50.0]], dtype=self.dtype)
-
-        # Test @ operator
+        expected = np.matmul(a_data, b_data)
         result = a @ b
 
-        self.assertEqual(list(result.shape), [2, 2])
-        np.testing.assert_array_almost_equal(result.ndarray, expected)
+        self.assertEqual(list(result.shape), [2, 5, 3, 2])
+        np.testing.assert_allclose(result.ndarray, expected)
 
     def test_imatmul_method(self):
         """Test imatmul() method for in-place matrix multiplication"""
@@ -825,29 +636,15 @@ class MatmulTestBase(sc.testing.TestBase):
         b_data = np.array([[5.0, 6.0], [7.0, 8.0]], dtype=self.dtype)
 
         a = self.SimpleArray(array=a_data)
-        a_fast = self.SimpleArray(array=a_data)
-        a_blas = self.SimpleArray(array=a_data)
         b = self.SimpleArray(array=b_data)
 
         # Expected result: [[19, 22], [43, 50]]
         expected = np.array([[19.0, 22.0], [43.0, 50.0]], dtype=self.dtype)
 
-        # Test imatmul() method
         a.imatmul(b)
-        # Test imatmul_blas() method
-        a_blas.imatmul_blas(b)
-        # Test imatmul_fast() method
-        a_fast.imatmul_fast(b)
 
-        # Verify the result
         self.assertEqual(list(a.shape), [2, 2])
         np.testing.assert_array_almost_equal(a.ndarray, expected)
-        self.assertEqual(list(a_blas.shape), [2, 2])
-        np.testing.assert_array_almost_equal(a_blas.ndarray, expected)
-        self.assertEqual(list(a_fast.shape), [2, 2])
-        np.testing.assert_array_almost_equal(a_fast.ndarray, expected)
-        np.testing.assert_array_almost_equal(a_blas.ndarray, a.ndarray)
-        np.testing.assert_array_almost_equal(a_fast.ndarray, a.ndarray)
 
     def test_imatmul_operator(self):
         """Test @= operator for in-place matrix multiplication"""
