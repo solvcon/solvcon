@@ -45,6 +45,8 @@
 #       ends with the two toolchains no build section installs: LaTeX, which
 #       the documentation needs to render its figures, then clang-format and
 #       clang-tidy for `make lint`, both from LLVM 22.
+#   ./build-scdv.sh --allow-unsupported-platform
+#       Proceed on an unsupported OS/architecture for platform testing.
 #
 # Overridable variables (search below for defaults):
 #   Platform:
@@ -861,6 +863,7 @@ SCDV_PRINT_PREFIX_ONLY=0
 SCDV_PRINT_DEPS_ONLY=0
 SCDV_NO_CONFIRM=0
 SCDV_ALLOW_WRITE_TO_ACTIVE_ENV=0
+SCDV_ALLOW_UNSUPPORTED_PLATFORM=${SCDV_ALLOW_UNSUPPORTED_PLATFORM:-0}
 SCDV_SKIP_LIST=""
 SCDV_KNOWN_PKGS="zlib openssl sqlite python pybind11 cython numpy scipy qt pyside6"
 
@@ -901,6 +904,9 @@ while [ $# -gt 0 ] ; do
     --allow-write-to-active-env)
       SCDV_ALLOW_WRITE_TO_ACTIVE_ENV=1
       ;;
+    --allow-unsupported-platform)
+      SCDV_ALLOW_UNSUPPORTED_PLATFORM=1
+      ;;
     --skip)
       shift
       if [ $# -eq 0 ] ; then
@@ -929,6 +935,53 @@ done
 if [ "${SCDV_PRINT_DEPS_ONLY}" = "1" ] ; then
   plat_print_deps
   exit 0
+fi
+
+# The per-OS blocks assume x86_64 on Ubuntu and arm64 on macOS.
+SCDV_ARCH=${SCDV_ARCH:-$(uname -m)}
+
+if [ "${SCDV_PRINT_PREFIX_ONLY}" = "1" ] ; then
+  :
+elif [ "${SCDV_ALLOW_UNSUPPORTED_PLATFORM}" = "1" ] ; then
+  echo "warning: platform support check overridden for" \
+       "'${SCDV_OS}/${SCDV_ARCH}'; continuing anyway." >&2
+else
+  case "${SCDV_OS}:${SCDV_ARCH}" in
+    macos:arm64)
+      ;;
+
+    ubuntu:x86_64)
+      # SCDV_OS=ubuntu covers every Linux (uname -s is just "Linux"), so
+      # confirm this is actually Ubuntu; other distros lack apt and the
+      # Debian/Ubuntu paths the recipes assume. Warn and proceed.
+      _scdv_id=""
+      if [ -r /etc/os-release ] ; then
+        _scdv_id=$(set +e ; . /etc/os-release 2>/dev/null ; printf '%s' "${ID:-}")
+      fi
+      if [ "${_scdv_id}" != "ubuntu" ] ; then
+        echo "warning: non-Ubuntu Linux (os-release ID='${_scdv_id:-unknown}');" \
+             ""the build assumes apt and Ubuntu-specific paths and may fail."" >&2
+      fi
+      unset _scdv_id
+      ;;
+
+    ubuntu:aarch64)
+      echo "warning: some build settings currently assume x86_64 and" \
+          "may not work correctly on ubuntu/aarch64." >&2
+      ;;
+
+    macos:x86_64)
+      # Intel Mac: some dependencies may not build. (e.g. numpy/scipy)
+      echo "warning: some dependencies may not build correctly on macos/x86_64." >&2
+      ;;
+
+    *)
+      echo "unsupported OS/architecture '${SCDV_OS}/${SCDV_ARCH}';" \
+           "use --allow-unsupported-platform or set" \
+           "SCDV_ALLOW_UNSUPPORTED_PLATFORM=1 to continue anyway." >&2
+      exit 1
+      ;;
+  esac
 fi
 
 # One-time platform setup (e.g. macOS BREW_PREFIX detection).
