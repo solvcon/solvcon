@@ -1026,11 +1026,20 @@ void MatmulExecutor<Array>::execute_gemm_blas(value_type * output, value_type co
 {
     std::optional<matrix_view_type> lhs_view = lhs_matrix_view(lhs_data);
     std::optional<matrix_view_type> rhs_view = rhs_matrix_view(rhs_data);
+    value_type * scratch = nullptr;
+    if (!lhs_view || !rhs_view)
+    {
+        if (!m_gemm_scratch)
+        {
+            throw std::logic_error("MatmulExecutor::execute_gemm_blas(): missing GEMM scratch");
+        }
+        scratch = m_gemm_scratch->data();
+    }
     if (!lhs_view)
     {
         lhs_view = pack_matrix_to_scratch(
             lhs_data,
-            m_gemm_scratch.value().data(),
+            scratch,
             m_cached_lhs_source,
             m_plan.rows(),
             m_plan.inner_size(),
@@ -1041,7 +1050,7 @@ void MatmulExecutor<Array>::execute_gemm_blas(value_type * output, value_type co
     {
         rhs_view = pack_matrix_to_scratch(
             rhs_data,
-            m_gemm_scratch.value().data() + m_lhs_scratch_elements,
+            scratch + m_lhs_scratch_elements,
             m_cached_rhs_source,
             m_plan.inner_size(),
             m_plan.columns(),
