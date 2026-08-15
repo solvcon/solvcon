@@ -454,37 +454,37 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArray
             .def(
                 "iadd",
                 [](wrapped_type & self, wrapped_type const & other)
-                { self.iadd(other); })
+                { return py::cast(std::move(self.iadd(other))); })
             .def(
                 "iadd",
                 [](wrapped_type & self, value_type scalar)
-                { self.iadd(scalar); })
+                { return py::cast(std::move(self.iadd(scalar))); })
             .def(
                 "isub",
                 [](wrapped_type & self, wrapped_type const & other)
-                { self.isub(other); })
+                { return py::cast(std::move(self.isub(other))); })
             .def(
                 "isub",
                 [](wrapped_type & self, value_type scalar)
-                { self.isub(scalar); })
+                { return py::cast(std::move(self.isub(scalar))); })
             .def(
                 "imul",
                 [](wrapped_type & self, wrapped_type const & other)
-                { self.imul(other); })
+                { return py::cast(std::move(self.imul(other))); })
             .def(
                 "imul",
                 [](wrapped_type & self, value_type scalar)
-                { self.imul(scalar); })
+                { return py::cast(std::move(self.imul(scalar))); })
             .def("idiv", [](wrapped_type & self, wrapped_type const & other)
-                 { self.idiv(other); })
+                 { return py::cast(std::move(self.idiv(other))); })
             .def(
                 "idiv",
                 [](wrapped_type & self, value_type scalar)
-                { self.idiv(scalar); })
+                { return py::cast(std::move(self.idiv(scalar))); })
             .def("imatmul", [](wrapped_type & self, wrapped_type const & other)
-                 { self.imatmul(other); })
+                 { return py::cast(std::move(self.imatmul(other))); })
             .def("imatmul_blas", [](wrapped_type & self, wrapped_type const & other)
-                 { self.imatmul_blas(other); })
+                 { return py::cast(std::move(self.imatmul_blas(other))); })
             .def(
                 "imatmul_fast",
                 [](wrapped_type & self,
@@ -492,7 +492,7 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArray
                    ssize_t tile_x,
                    ssize_t tile_y,
                    ssize_t tile_z)
-                { self.imatmul_fast(other, tile_x, tile_y, tile_z); },
+                { return py::cast(std::move(self.imatmul_fast(other, tile_x, tile_y, tile_z))); },
                 py::arg("other"),
                 py::arg("tile_x") = 16,
                 py::arg("tile_y") = 16,
@@ -506,13 +506,13 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArray
             .def("mul_simd", &wrapped_type::mul_simd)
             .def("div_simd", &wrapped_type::div_simd)
             .def("iadd_simd", [](wrapped_type & self, wrapped_type const & other)
-                 { self.iadd_simd(other); })
+                 { return py::cast(std::move(self.iadd_simd(other))); })
             .def("isub_simd", [](wrapped_type & self, wrapped_type const & other)
-                 { self.isub_simd(other); })
+                 { return py::cast(std::move(self.isub_simd(other))); })
             .def("imul_simd", [](wrapped_type & self, wrapped_type const & other)
-                 { self.imul_simd(other); })
+                 { return py::cast(std::move(self.imul_simd(other))); })
             .def("idiv_simd", [](wrapped_type & self, wrapped_type const & other)
-                 { self.idiv_simd(other); })
+                 { return py::cast(std::move(self.idiv_simd(other))); })
             //
             ;
 
