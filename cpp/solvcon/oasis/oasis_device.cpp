@@ -11,6 +11,19 @@ namespace solvcon
 {
 
 /*
+ * OasisRecordPoly constructor to move vertices parameter to m_vertices.
+ * Point and line is unsupport.
+ */
+OasisRecordPoly::OasisRecordPoly(std::vector<std::pair<int, int>> vertices)
+    : m_vertices(std::move(vertices))
+{
+    if (m_vertices.size() < 3)
+    {
+        throw std::runtime_error("Not enough vertices");
+    }
+}
+
+/*
  * Convert value to OASIS unsigned integer bytes and append to segment array.
  * Encodes payload as a base-128 variable-length sequence, emitting 7 data
  * bits per byte and using the MSB as a continuation flag.
@@ -128,7 +141,7 @@ std::vector<uint8_t> OasisRecordPoly::to_bytes() const
     {
         segment.push_back(0x00);
     }
-    else if (m_vertices[0].first == m_vertices[0].first)
+    else if (m_vertices[0].first == m_vertices[1].first)
     {
         segment.push_back(0x01);
     }

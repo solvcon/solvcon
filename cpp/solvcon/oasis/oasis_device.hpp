@@ -15,6 +15,7 @@
 #include <solvcon/base.hpp>
 
 #include <cstdint>
+#include <stdexcept>
 #include <utility>
 #include <vector>
 
@@ -75,8 +76,7 @@ class OasisRecordPoly
 {
 
 public:
-    explicit OasisRecordPoly(std::vector<std::pair<int, int>> vertices)
-        : m_vertices(std::move(vertices)) {};
+    explicit OasisRecordPoly(std::vector<std::pair<int, int>>);
     OasisRecordPoly() = delete;
     OasisRecordPoly(OasisRecordPoly const &) = default;
     OasisRecordPoly(OasisRecordPoly &&) = default;
