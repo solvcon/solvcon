@@ -34,10 +34,9 @@ const T * check_between(T const * start, T const * end, T const & min_val, T con
 template <typename T>
 void add(T * dest, T const * dest_end, T const * src1, T const * src2)
 {
-    using namespace detail; // FIXME: NOLINT(google-build-using-namespace)
-    switch (detect_simd())
+    switch (detail::detect_simd())
     {
-    case SIMD_NEON:
+    case detail::SIMD_NEON:
         return neon::add<T>(dest, dest_end, src1, src2);
         break;
 
@@ -49,10 +48,9 @@ void add(T * dest, T const * dest_end, T const * src1, T const * src2)
 template <typename T>
 void sub(T * dest, T const * dest_end, T const * src1, T const * src2)
 {
-    using namespace detail; // FIXME: NOLINT(google-build-using-namespace)
-    switch (detect_simd())
+    switch (detail::detect_simd())
     {
-    case SIMD_NEON:
+    case detail::SIMD_NEON:
         return neon::sub<T>(dest, dest_end, src1, src2);
         break;
 
@@ -64,10 +62,9 @@ void sub(T * dest, T const * dest_end, T const * src1, T const * src2)
 template <typename T>
 void mul(T * dest, T const * dest_end, T const * src1, T const * src2)
 {
-    using namespace detail; // FIXME: NOLINT(google-build-using-namespace)
-    switch (detect_simd())
+    switch (detail::detect_simd())
     {
-    case SIMD_NEON:
+    case detail::SIMD_NEON:
         return neon::mul<T>(dest, dest_end, src1, src2);
         break;
 
@@ -79,10 +76,9 @@ void mul(T * dest, T const * dest_end, T const * src1, T const * src2)
 template <typename T>
 void div(T * dest, T const * dest_end, T const * src1, T const * src2)
 {
-    using namespace detail; // FIXME: NOLINT(google-build-using-namespace)
-    switch (detect_simd())
+    switch (detail::detect_simd())
     {
-    case SIMD_NEON:
+    case detail::SIMD_NEON:
         return neon::div<T>(dest, dest_end, src1, src2);
         break;
 
@@ -100,3 +96,5 @@ T max(T const * start, T const * end)
 } /* end namespace simd */
 
 } /* end namespace solvcon */
+
+// vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
