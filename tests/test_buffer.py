@@ -3234,6 +3234,62 @@ class SimpleArrayCalculatorsTC(unittest.TestCase):
                         getattr(lhs, operation)(rhs)
                     np.testing.assert_array_equal(expected, lhs.ndarray)
 
+    def test_inplace_arithmetic_returns_self(self):
+        # In-place methods must return the same Python object as the
+        # receiver (not a copy) so that calls can be chained fluently.
+        sarr1 = solvcon.SimpleArrayFloat64((3,), value=4)
+        sarr2 = solvcon.SimpleArrayFloat64((3,), value=2)
+        self.assertIs(sarr1.iadd(sarr2), sarr1)
+
+        sarr1 = solvcon.SimpleArrayFloat64((3,), value=4)
+        sarr2 = solvcon.SimpleArrayFloat64((3,), value=2)
+        self.assertIs(sarr1.isub(sarr2), sarr1)
+
+        sarr1 = solvcon.SimpleArrayFloat64((3,), value=4)
+        sarr2 = solvcon.SimpleArrayFloat64((3,), value=2)
+        self.assertIs(sarr1.imul(sarr2), sarr1)
+
+        sarr1 = solvcon.SimpleArrayFloat64((3,), value=4)
+        sarr2 = solvcon.SimpleArrayFloat64((3,), value=2)
+        self.assertIs(sarr1.idiv(sarr2), sarr1)
+
+        sarr1 = solvcon.SimpleArrayFloat64((3,), value=4)
+        self.assertIs(sarr1.iadd(2.0), sarr1)
+
+        sarr1 = solvcon.SimpleArrayFloat64((3,), value=4)
+        self.assertIs(sarr1.isub(2.0), sarr1)
+
+        sarr1 = solvcon.SimpleArrayFloat64((3,), value=4)
+        self.assertIs(sarr1.imul(2.0), sarr1)
+
+        sarr1 = solvcon.SimpleArrayFloat64((3,), value=4)
+        self.assertIs(sarr1.idiv(2.0), sarr1)
+
+    def test_inplace_arithmetic_fluent_chaining(self):
+        # Chaining relies on each in-place call returning self, so the
+        # chained result must equal applying the operations sequentially.
+        narr1 = np.array([8.0, 12.0, 16.0], dtype='float64')
+        narr2 = np.array([2.0, 3.0, 4.0], dtype='float64')
+        sarr1 = solvcon.SimpleArrayFloat64(array=narr1.copy())
+        sarr2 = solvcon.SimpleArrayFloat64(array=narr2.copy())
+
+        chained = sarr1.iadd(sarr2).isub(sarr2).imul(sarr2).idiv(sarr2)
+
+        expected = narr1.copy()
+        expected = expected + narr2
+        expected = expected - narr2
+        expected = expected * narr2
+        expected = expected / narr2
+
+        self.assertIs(chained, sarr1)
+        np.testing.assert_array_equal(sarr1.ndarray, expected)
+
+        sarr3 = solvcon.SimpleArrayFloat64(array=narr1.copy())
+        chained_scalar = sarr3.iadd(1.0).imul(2.0).isub(3.0)
+        expected_scalar = ((narr1.copy() + 1.0) * 2.0) - 3.0
+        self.assertIs(chained_scalar, sarr3)
+        np.testing.assert_array_equal(sarr3.ndarray, expected_scalar)
+
     def test_add(self):
         # test integer
         def _check_add_type(type):
