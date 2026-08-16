@@ -115,10 +115,11 @@ hands `FetchContent` the local file.  One download per machine serves every
 build tree and every worktree.
 
 `SOLVCON_DEPS_CACHE` names the directory.  It takes the environment variable
-of the same name, and otherwise defaults to `%LOCALAPPDATA%\solvcon\deps` on
-Windows and `$XDG_CACHE_HOME/solvcon/deps` or `$HOME/.cache/solvcon/deps`
-elsewhere.  Name another directory, or set it empty to keep the download
-inside the build tree:
+of the same name, which an activated scdv sets to its own `downloaded`
+directory (see {doc}`/start/build_dep`), and otherwise defaults to
+`%LOCALAPPDATA%\solvcon\deps` on Windows and `$XDG_CACHE_HOME/solvcon/deps`
+or `$HOME/.cache/solvcon/deps` elsewhere.  Name another directory, or set it
+empty to keep the download inside the build tree:
 
 ```bash
 make SOLVCON_DEPS_CACHE=/path/to/cache

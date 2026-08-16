@@ -536,6 +536,8 @@ $global:_SCDV_HAD_PYTHONNOUSERSITE = $null -ne $env:PYTHONNOUSERSITE
 $env:_SCDV_OLD_PYTHONNOUSERSITE = $env:PYTHONNOUSERSITE
 $global:_SCDV_HAD_SOLVCON_USE_MKL = $null -ne $env:SOLVCON_USE_MKL
 $env:_SCDV_OLD_SOLVCON_USE_MKL = $env:SOLVCON_USE_MKL
+$global:_SCDV_HAD_SOLVCON_DEPS_CACHE = $null -ne $env:SOLVCON_DEPS_CACHE
+$env:_SCDV_OLD_SOLVCON_DEPS_CACHE = $env:SOLVCON_DEPS_CACHE
 
 # Ignore the per-user site (%APPDATA%\Python\...); a stray pytest/numpy/PySide6
 # there would shadow this scdv (every same-version Python shares it).
@@ -555,6 +557,16 @@ if ($env:CMAKE_PREFIX_PATH) {
     $env:CMAKE_PREFIX_PATH = "$usr;$env:CMAKE_PREFIX_PATH"
 } else {
     $env:CMAKE_PREFIX_PATH = $usr
+}
+
+# Point the build's dependency archive cache (see gtests/CMakeLists.txt) at
+# this scdv's tarball directory, so the two hold one set of tarballs.  A value
+# the caller already chose wins, and a missing directory is left to
+# build-scdv-windows.ps1, which makes it a junction into the shared cache.
+$_dl = Join-Path $env:SCDV_BASE 'downloaded'
+if (-not $env:SOLVCON_DEPS_CACHE -and
+        (Test-Path -LiteralPath $_dl -PathType Container)) {
+    $env:SOLVCON_DEPS_CACHE = $_dl
 }
 
 # An MKL scdv defaults the solvcon build to MKL: SOLVCON_USE_MKL in
@@ -599,12 +611,18 @@ function global:scdv_deactivate {
     } else {
         Remove-Item Env:SOLVCON_USE_MKL -ErrorAction SilentlyContinue
     }
+    if ($global:_SCDV_HAD_SOLVCON_DEPS_CACHE) {
+        $env:SOLVCON_DEPS_CACHE = $env:_SCDV_OLD_SOLVCON_DEPS_CACHE
+    } else {
+        Remove-Item Env:SOLVCON_DEPS_CACHE -ErrorAction SilentlyContinue
+    }
     Remove-Item Env:_SCDV_OLD_PATH -ErrorAction SilentlyContinue
     Remove-Item Env:_SCDV_OLD_QT_QPA_PLATFORM -ErrorAction SilentlyContinue
     Remove-Item Env:_SCDV_OLD_QT_PLUGIN_PATH -ErrorAction SilentlyContinue
     Remove-Item Env:_SCDV_OLD_CMAKE_PREFIX_PATH -ErrorAction SilentlyContinue
     Remove-Item Env:_SCDV_OLD_PYTHONNOUSERSITE -ErrorAction SilentlyContinue
     Remove-Item Env:_SCDV_OLD_SOLVCON_USE_MKL -ErrorAction SilentlyContinue
+    Remove-Item Env:_SCDV_OLD_SOLVCON_DEPS_CACHE -ErrorAction SilentlyContinue
     Remove-Item Env:SCDV_BASE -ErrorAction SilentlyContinue
     Remove-Item Env:SCDV_USRDIR -ErrorAction SilentlyContinue
     Remove-Variable -Scope global -Name _SCDV_HAD_QT_QPA_PLATFORM `
@@ -616,6 +634,8 @@ function global:scdv_deactivate {
     Remove-Variable -Scope global -Name _SCDV_HAD_PYTHONNOUSERSITE `
         -ErrorAction SilentlyContinue
     Remove-Variable -Scope global -Name _SCDV_HAD_SOLVCON_USE_MKL `
+        -ErrorAction SilentlyContinue
+    Remove-Variable -Scope global -Name _SCDV_HAD_SOLVCON_DEPS_CACHE `
         -ErrorAction SilentlyContinue
     Remove-Item Function:scdv_deactivate -ErrorAction SilentlyContinue
 }

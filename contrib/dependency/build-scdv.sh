@@ -379,9 +379,11 @@ export _SCDV_OLD_LD_LIBRARY_PATH=${LD_LIBRARY_PATH-}
 export _SCDV_OLD_CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH-}
 export _SCDV_OLD_PS1=${PS1-}
 export _SCDV_OLD_QT_QPA_PLATFORM=${QT_QPA_PLATFORM-}
+export _SCDV_OLD_SOLVCON_DEPS_CACHE=${SOLVCON_DEPS_CACHE-}
 export _SCDV_HAD_LD_LIBRARY_PATH=${LD_LIBRARY_PATH+1}
 export _SCDV_HAD_CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH+1}
 export _SCDV_HAD_QT_QPA_PLATFORM=${QT_QPA_PLATFORM+1}
+export _SCDV_HAD_SOLVCON_DEPS_CACHE=${SOLVCON_DEPS_CACHE+1}
 
 # A pre-existing Qt (e.g. /home/$USER/var/Qt/6.x) leaking through PATH or
 # LD_LIBRARY_PATH will be loaded ahead of this scdv's freshly built Qt and
@@ -401,6 +403,15 @@ if [ -n "${CMAKE_PREFIX_PATH-}" ] ; then
   export CMAKE_PREFIX_PATH=${SCDV_USRDIR}:${CMAKE_PREFIX_PATH}
 else
   export CMAKE_PREFIX_PATH=${SCDV_USRDIR}
+fi
+
+# Point the build's dependency archive cache (see gtests/CMakeLists.txt) at
+# this scdv's tarball directory, so the two hold one set of tarballs. A value
+# the caller already chose wins, including an empty one that turns the cache
+# off, and a missing directory is left to build-scdv.sh, which makes it a
+# symlink into the shared cache.
+if [ -z "${SOLVCON_DEPS_CACHE+1}" ] && [ -d "${SCDV_BASE}/downloaded" ] ; then
+  export SOLVCON_DEPS_CACHE=${SCDV_BASE}/downloaded
 fi
 
 # solvcon's _solvcon module constructs a QApplication during PyInit__solvcon;
@@ -443,13 +454,18 @@ scdv_deactivate() {
   else
     unset QT_QPA_PLATFORM
   fi
+  if [ -n "${_SCDV_HAD_SOLVCON_DEPS_CACHE:-}" ] ; then
+    export SOLVCON_DEPS_CACHE=${_SCDV_OLD_SOLVCON_DEPS_CACHE}
+  else
+    unset SOLVCON_DEPS_CACHE
+  fi
   PS1=${_SCDV_OLD_PS1}
   export PS1
   unset _SCDV_OLD_PATH _SCDV_OLD_LD_LIBRARY_PATH \
         _SCDV_OLD_CMAKE_PREFIX_PATH _SCDV_OLD_PS1 \
-        _SCDV_OLD_QT_QPA_PLATFORM \
+        _SCDV_OLD_QT_QPA_PLATFORM _SCDV_OLD_SOLVCON_DEPS_CACHE \
         _SCDV_HAD_LD_LIBRARY_PATH _SCDV_HAD_CMAKE_PREFIX_PATH \
-        _SCDV_HAD_QT_QPA_PLATFORM
+        _SCDV_HAD_QT_QPA_PLATFORM _SCDV_HAD_SOLVCON_DEPS_CACHE
   unset SCDV_BASE SCDV_USRDIR
   unset -f scdv_deactivate
 }
@@ -768,9 +784,11 @@ export _SCDV_OLD_DYLD_LIBRARY_PATH=${DYLD_LIBRARY_PATH-}
 export _SCDV_OLD_DYLD_FRAMEWORK_PATH=${DYLD_FRAMEWORK_PATH-}
 export _SCDV_OLD_CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH-}
 export _SCDV_OLD_PS1=${PS1-}
+export _SCDV_OLD_SOLVCON_DEPS_CACHE=${SOLVCON_DEPS_CACHE-}
 export _SCDV_HAD_DYLD_LIBRARY_PATH=${DYLD_LIBRARY_PATH+1}
 export _SCDV_HAD_DYLD_FRAMEWORK_PATH=${DYLD_FRAMEWORK_PATH+1}
 export _SCDV_HAD_CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH+1}
+export _SCDV_HAD_SOLVCON_DEPS_CACHE=${SOLVCON_DEPS_CACHE+1}
 
 # A pre-existing Homebrew Qt (kegs under /opt/homebrew/Cellar/qt or
 # /opt/homebrew/opt/qt, or the Intel-Mac equivalents under /usr/local) can
@@ -803,6 +821,15 @@ if [ -n "${CMAKE_PREFIX_PATH-}" ] ; then
   export CMAKE_PREFIX_PATH=${SCDV_USRDIR}:${CMAKE_PREFIX_PATH}
 else
   export CMAKE_PREFIX_PATH=${SCDV_USRDIR}
+fi
+
+# Point the build's dependency archive cache (see gtests/CMakeLists.txt) at
+# this scdv's tarball directory, so the two hold one set of tarballs. A value
+# the caller already chose wins, including an empty one that turns the cache
+# off, and a missing directory is left to build-scdv.sh, which makes it a
+# symlink into the shared cache.
+if [ -z "${SOLVCON_DEPS_CACHE+1}" ] && [ -d "${SCDV_BASE}/downloaded" ] ; then
+  export SOLVCON_DEPS_CACHE=${SCDV_BASE}/downloaded
 fi
 
 # Note on macOS and DYLD_*: SIP strips DYLD_* when a shell spawns a system
@@ -838,13 +865,19 @@ scdv_deactivate() {
   else
     unset CMAKE_PREFIX_PATH
   fi
+  if [ -n "${_SCDV_HAD_SOLVCON_DEPS_CACHE:-}" ] ; then
+    export SOLVCON_DEPS_CACHE=${_SCDV_OLD_SOLVCON_DEPS_CACHE}
+  else
+    unset SOLVCON_DEPS_CACHE
+  fi
   PS1=${_SCDV_OLD_PS1}
   export PS1
   unset _SCDV_OLD_PATH _SCDV_OLD_DYLD_LIBRARY_PATH \
         _SCDV_OLD_DYLD_FRAMEWORK_PATH \
         _SCDV_OLD_CMAKE_PREFIX_PATH _SCDV_OLD_PS1 \
+        _SCDV_OLD_SOLVCON_DEPS_CACHE \
         _SCDV_HAD_DYLD_LIBRARY_PATH _SCDV_HAD_DYLD_FRAMEWORK_PATH \
-        _SCDV_HAD_CMAKE_PREFIX_PATH
+        _SCDV_HAD_CMAKE_PREFIX_PATH _SCDV_HAD_SOLVCON_DEPS_CACHE
   unset SCDV_BASE SCDV_USRDIR
   unset -f scdv_deactivate
 }
