@@ -26,7 +26,7 @@ class EulerField(object):
     """
 
     FIELDS = ('density', 'velx', 'vely', 'speed', 'pressure', 'mach',
-              'total_energy')
+              'total_energy', 'cfl')
 
     #: Momentum components in axis order; the solution table carries the
     #: first ``ndim`` of them.
@@ -113,6 +113,17 @@ class EulerField(object):
         """The Mach number against the local speed of sound, ``[ncell]``."""
         return self.speed / np.sqrt(self.gamma * self.pressure / self.density)
 
+    @property
+    def cfl(self):
+        """The CFL number the last step ran at, ``[ncell]``.
+
+        The solver's unclamped ``cflo``: the wave speed over half a step
+        against the shortest distance out of the cell.  Above 1 a cell
+        marched past its own domain of dependence.
+        """
+        arr = self.svr.cflo
+        return arr.ndarray[arr.nghost:]
+
     def field(self, name):
         """Return the scalar field named by one of :attr:`FIELDS`.
 
@@ -127,5 +138,13 @@ class EulerField(object):
     def calc_overall_mass(self):
         """Return the density integrated over the whole domain."""
         return float(np.sum(self.density * self.volume))
+
+    def calc_cfl_range(self):
+        """Return the smallest and the largest CFL number in the domain.
+
+        A mean would hide the one cell that outran the stable step.
+        """
+        cfl = self.cfl
+        return float(cfl.min()), float(cfl.max())
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

@@ -51,12 +51,31 @@ class StatusReadoutTC(unittest.TestCase):
                 for irow in range(1, grid.rowCount())]
         return [row for row in rows if any(row)]
 
+    @staticmethod
+    def _enabled(panel):
+        run = panel._run
+        return dict(pause=run._pause.isEnabled(), step=run._step.isEnabled(),
+                    stop=run._stop.isEnabled(), reset=run._reset.isEnabled())
+
     def test_an_unstarted_panel_says_so(self):
         panel = SolutionPanel()
         self.assertEqual("not started", panel._run._state.text())
         self.assertEqual("-", panel._run._progress.text())
         self.assertEqual("-", panel._field._min.text())
         self.assertEqual([], self._zone_rows(panel))
+
+    def test_the_buttons_follow_what_the_run_can_still_do(self):
+        panel = SolutionPanel()
+        self.assertEqual(dict(pause=False, step=False, stop=False,
+                              reset=False), self._enabled(panel))
+        panel, sess, vmin, vmax = self._filled()
+        self.assertEqual(dict(pause=True, step=True, stop=True, reset=True),
+                         self._enabled(panel))
+        sess.stop()
+        panel.set_status(sess, vmin, vmax)
+        # An ended run can still be dropped, but not marched.
+        self.assertEqual(dict(pause=False, step=False, stop=False,
+                              reset=True), self._enabled(panel))
 
     def test_the_run_box_reads_the_march(self):
         panel, sess, _, _ = self._filled()
@@ -74,6 +93,34 @@ class StatusReadoutTC(unittest.TestCase):
         panel.set_paused(False)
         self.assertEqual("running", panel._run._state.text())
 
+    def test_the_cfl_readout_bounds_the_last_chunk(self):
+        # Read off the chunk record beside the mass, so the panel says what
+        # the march ran at.
+        panel, sess, _, _ = self._filled()
+        last = sess.history.last
+        self.assertEqual(f"{_panel._number(last.cfl_min)} / "
+                         f"{_panel._number(last.cfl_max)}",
+                         panel._run._cfl.text())
+        panel.set_status(None, None, None)
+        self.assertEqual("-", panel._run._cfl.text())
+
+    def test_the_cfl_field_colors_without_an_analytic_column(self):
+        # The zone table judges a field against the analytic answer, which
+        # a CFL number has none of, so its rows stay empty.
+        self.assertIn('cfl', _panel.FieldBox.FIELDS)
+        panel, _, vmin, _ = self._filled('cfl')
+        self.assertEqual([], self._zone_rows(panel))
+        self.assertEqual(_panel._number(vmin), panel._field._min.text())
+
+    def test_remesh_asks_its_owner_to_cut_the_domain_again(self):
+        # The button belongs to the numerics box whose values it applies.
+        panel = SolutionPanel()
+        asked = []
+        panel.remesh_requested = lambda: asked.append(panel.params())
+        panel._numerics._nx.setValue(21)
+        panel._numerics._remesh.click()
+        self.assertEqual([21], [params['nx'] for params in asked])
+
     def test_pausing_does_not_rename_a_finished_state(self):
         # What ended a run outranks the Pause button, which the controller
         # checks when the march reaches its end.
@@ -82,6 +129,18 @@ class StatusReadoutTC(unittest.TestCase):
         panel.set_status(sess, vmin, vmax)
         panel.set_paused(True)
         self.assertEqual("stopped", panel._run._state.text())
+
+    def test_every_box_pads_its_content_the_same(self):
+        # A layout built on the content pane directly takes the style's
+        # dialog margins instead, which are meant for a whole dialog.
+        panel = SolutionPanel()
+        for box in panel._boxes:
+            margins = box._content.layout().contentsMargins()
+            self.assertEqual(_panel.FoldBox.CONTENT_MARGINS,
+                             (margins.left(), margins.top(),
+                              margins.right(), margins.bottom()))
+            # The gap over the content is the top margin and nothing else.
+            self.assertEqual(0, box.layout().spacing())
 
     def test_folding_keeps_the_box_width(self):
         # Folding gives back height only; a fold that narrowed the box

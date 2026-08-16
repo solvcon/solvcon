@@ -66,6 +66,137 @@ class ObliqueShockAppTC(unittest.TestCase):
         self.assertEqual(f"0 / {feature._control.session.max_steps}",
                          self._status(feature)["step"])
 
+    @staticmethod
+    def _coarsen(feature, nx=10, ny=4):
+        """Cut the mesh down to what a window test can march quickly."""
+        feature._panel._numerics._nx.setValue(nx)
+        feature._panel._numerics._ny.setValue(ny)
+
+    def test_the_resolution_reaches_the_mesh(self):
+        feature = self._feature()
+        self._coarsen(feature)
+        feature._control.start()
+        feature._control._timer.stop()
+        mesher = feature._control.session.shock.mesher
+        self.assertEqual((10, 4), (mesher.nx, mesher.ny))
+        # The viewer draws the mesh the spin boxes asked for, not the one
+        # the preview was built on.
+        self.assertEqual(feature._control.session.shock.mesh.ncell,
+                         self.mgr.currentR3DWidget().mesh.ncell)
+        QApplication.processEvents()
+
+    def test_remesh_rebuilds_the_run_at_the_new_resolution(self):
+        feature = self._feature()
+        self._coarsen(feature)
+        feature._control.start()
+        feature._control._on_step()
+        self.assertGreater(feature._control.session.step, 0)
+        self._coarsen(feature, nx=14, ny=6)
+        feature._panel._numerics._remesh.click()
+        # The mesh is fixed when a session is built, so a new resolution is
+        # a new run: it waits on its initial state instead of marching on.
+        mesher = feature._control.session.shock.mesher
+        self.assertEqual((14, 6), (mesher.nx, mesher.ny))
+        self.assertEqual(0, feature._control.session.step)
+        self.assertFalse(feature._control._timer.isActive())
+        self.assertTrue(feature._panel._run._pause.isChecked())
+        self.assertEqual(feature._control.session.shock.mesh.ncell,
+                         self.mgr.currentR3DWidget().mesh.ncell)
+        QApplication.processEvents()
+
+    def test_stop_ends_the_run_and_keeps_the_field(self):
+        feature = self._feature()
+        self._coarsen(feature)
+        feature._control.start()
+        feature._control._timer.stop()
+        feature._control._on_step()
+        step = feature._control.session.step
+        feature._panel._run._stop.click()
+        sess = feature._control.session
+        self.assertEqual('stopped', sess.stop_reason)
+        self.assertEqual(step, sess.step)
+        self.assertFalse(feature._control._timer.isActive())
+        # The field the march reached is still on screen to be read.
+        self.assertTrue(feature._viewer.is_open)
+        self.assertEqual("stopped", self._status(feature)["state"])
+        QApplication.processEvents()
+
+    def test_reset_drops_the_run_and_the_viewer(self):
+        feature = self._feature()
+        self._coarsen(feature)
+        feature._control.start()
+        feature._panel._run._reset.click()
+        self.assertIsNone(feature._control.session)
+        self.assertFalse(feature._viewer.is_open)
+        self.assertFalse(feature._control._timer.isActive())
+        self.assertFalse(feature._panel._run._viewer_btn.isChecked())
+        self.assertEqual("not started", self._status(feature)["state"])
+        # What was dropped is built again from the controls.
+        feature._control.start()
+        feature._control._timer.stop()
+        self.assertIsNotNone(feature._control.session)
+        self.assertTrue(feature._viewer.is_open)
+        QApplication.processEvents()
+
+    def test_reopening_the_viewer_draws_the_run_back(self):
+        feature = self._feature()
+        self._coarsen(feature)
+        feature._control.start()
+        feature._control._timer.stop()
+        feature._control._on_step()
+        sess = feature._control.session
+        feature._viewer.close()
+        # Closing deletes the sub-window and the viewer inside it.  The run
+        # is not the viewer's, so reopening has to draw it again.
+        self.assertFalse(feature._viewer.is_open)
+        self.assertIs(sess, feature._control.session)
+        drawn = []
+        real = feature._viewer.draw_field
+
+        def spy(*args):
+            drawn.append(args)
+            real(*args)
+
+        feature._viewer.draw_field = spy
+        feature._panel._run._viewer_btn.click()
+        self.assertTrue(feature._viewer.is_open)
+        self.assertEqual(sess.shock.mesh.ncell,
+                         self.mgr.currentR3DWidget().mesh.ncell)
+        self.assertEqual(1, len(drawn))
+        self.assertEqual(sess.step, feature._control.session.step)
+        QApplication.processEvents()
+
+    def test_a_closed_viewer_still_reports_the_run(self):
+        feature = self._feature()
+        self._coarsen(feature)
+        feature._control.start()
+        feature._control._timer.stop()
+        feature._viewer.close()
+        feature._panel._run._stop.click()
+        # The readout belongs to the run, not to the viewer that was drawing
+        # it, so closing the viewer does not leave the panel stale.
+        self.assertEqual("stopped", self._status(feature)["state"])
+        QApplication.processEvents()
+
+    def test_running_keeps_the_view_the_user_set(self):
+        feature = self._feature()
+        self._coarsen(feature)
+        feature._control.start()
+        feature._control._timer.stop()
+        viewer = self.mgr.currentR3DWidget()
+        viewer.zoomCamera(3.0)
+        zoom = viewer.cameraZoom
+        self.assertNotAlmostEqual(1.0, zoom)
+        # Neither marching a frame nor restarting the run at another
+        # resolution may pull the view back to where it was framed.
+        feature._control._on_step()
+        self.assertAlmostEqual(zoom, viewer.cameraZoom)
+        self._coarsen(feature, nx=12, ny=5)
+        feature._control.start()
+        feature._control._timer.stop()
+        self.assertAlmostEqual(zoom, self.mgr.currentR3DWidget().cameraZoom)
+        QApplication.processEvents()
+
     def test_start_sets_viewer_mesh_for_inspector(self):
         feature = self._feature()
         feature._control.start()

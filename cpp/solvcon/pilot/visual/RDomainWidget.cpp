@@ -236,6 +236,13 @@ void RDomainWidget::updateMesh(std::shared_ptr<StaticMesh> const & mesh)
         lo = QVector3D(std::min(lo.x(), x), std::min(lo.y(), y), std::min(lo.z(), z));
         hi = QVector3D(std::max(hi.x(), x), std::max(hi.y(), y), std::max(hi.z(), z));
     }
+    // Remember the framed box. A mesh spanning the same domain is the same
+    // subject at another resolution, and reframing it would throw away the
+    // pan and zoom the user set.
+    bool const framed = m_scene.hasBoundingBox();
+    QVector3D const framed_lo = m_scene.boundingBoxLo();
+    QVector3D const framed_hi = m_scene.boundingBoxHi();
+
     m_scene.resetBoundingBox();
     if (mh.nnode() > 0)
     {
@@ -247,7 +254,13 @@ void RDomainWidget::updateMesh(std::shared_ptr<StaticMesh> const & mesh)
         m_scene.extendBoundingBox(m_field_lo, m_field_hi);
     }
 
-    m_scene.fitCameraToScene(viewportAspect());
+    QVector3D const box_lo = m_scene.boundingBoxLo();
+    QVector3D const box_hi = m_scene.boundingBoxHi();
+    bool const same_box = framed && m_scene.hasBoundingBox() && framed_lo == box_lo && framed_hi == box_hi;
+    if (!same_box)
+    {
+        m_scene.fitCameraToScene(viewportAspect());
+    }
     update();
 }
 

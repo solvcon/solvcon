@@ -63,7 +63,10 @@ public:
     explicit RDomainWidget(QWidget * parent = nullptr);
     ~RDomainWidget() override;
 
-    /// Replace the rendered mesh with the wireframe of @p mesh.
+    /**
+     * Replace the rendered mesh with the wireframe of @p mesh. The camera is
+     * reframed only when the new mesh spans a different domain.
+     */
     void updateMesh(std::shared_ptr<StaticMesh> const & mesh);
 
     // A scene of several named mesh objects, each with its own model transform

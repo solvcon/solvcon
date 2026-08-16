@@ -49,6 +49,9 @@ class RunController(object):
         panel.start_requested = self.start
         panel.pause_toggled = self._on_pause
         panel.step_requested = self._on_step
+        panel.stop_requested = self.stop
+        panel.reset_requested = self.reset
+        panel.remesh_requested = self.remesh
         panel.field_changed = self._on_field
         viewer.closed = self._on_viewer_closed
 
@@ -69,20 +72,50 @@ class RunController(object):
         self._panel.set_paused(False)
         self._timer.start(self.INTERVAL_MS)
 
-    def _build(self):
-        """Halt any march, then build and draw the configured run."""
+    def remesh(self):
+        """Rebuild the run at the resolution the controls now hold.
+
+        A session owns its mesh, so a new resolution means a new session and
+        a march that starts over, waiting on its initial state.
+        """
+        self.preview()
+
+    def stop(self):
+        """End the run where it stands, leaving its field on screen."""
         self._timer.stop()
-        self._open_viewer()
-        self.session = ReflectionSession(**self._panel.params())
-        shock = self.session.shock
-        self._viewer.update_mesh(shock.mesh)
-        self._viewer.draw_shock_path(shock)
-        self._painter = FieldPainter(shock.mesh)
+        if self.session is not None:
+            self.session.stop()
+            self._draw_frame()
+
+    def reset(self):
+        """Drop the run and its viewer, back to where the panel started."""
+        self._timer.stop()
+        self.session = None
+        self._painter = None
+        self._viewer.close()
+        self._panel.set_paused(False)
         self._draw_frame()
 
+    def _build(self):
+        """Halt any march, then build the configured run and draw it."""
+        self._timer.stop()
+        self.session = ReflectionSession(**self._panel.params())
+        self._painter = FieldPainter(self.session.shock.mesh)
+        self._open_viewer()
+
     def _open_viewer(self):
+        """Open the sub-window and draw the standing run into it.
+
+        Closing deletes the sub-window, so what opens is always an empty
+        viewer and every layer of the run has to go in again.
+        """
         self._viewer.open()
         self._panel.set_viewer_open(True)
+        if self.session is not None:
+            shock = self.session.shock
+            self._viewer.update_mesh(shock.mesh)
+            self._viewer.draw_shock_path(shock)
+        self._draw_frame()
 
     def _on_viewer(self, open_):
         if open_:
@@ -125,29 +158,32 @@ class RunController(object):
     def _march_frame(self):
         """March one chunk and draw what it left behind.
 
-        The chunk length is read from the control every frame, so turning
-        the dial mid-run takes effect on the next one.
+        The chunk length is read every frame, so changing it mid-run takes
+        effect on the next one.
         """
         self.session.steps_per_chunk = self._panel.steps_per_frame()
         self.session.advance()
         self._draw_frame()
 
     def _draw_frame(self):
-        if not self._viewer.is_open:
-            return
+        """Read the run out into the panel, and into the viewer if it is
+        open.
+
+        The readout belongs to the run, so a closed viewer leaves the panel
+        current rather than stale.
+        """
         session = self.session
+        if None is session:
+            self._panel.set_status(None, None, None)
+            return
         name = self._panel.field()
         field = session.field.field(name)
         vmin, vmax = float(field.min()), float(field.max())
-        # Scale the colors to the analytic range, not the frame's own, so a
-        # field stuck short of the target looks stuck instead of stretching
-        # to full color every frame.
-        zones = session.analysis.zone_field(name)
-        lo = min(vmin, float(zones.min()))
-        hi = max(vmax, float(zones.max()))
-        self._viewer.draw_field(self._painter.verts,
-                                self._painter.colors(field, lo, hi),
-                                self._painter.indices)
+        if self._viewer.is_open:
+            lo, hi = session.analysis.color_range(name, vmin, vmax)
+            self._viewer.draw_field(self._painter.verts,
+                                    self._painter.colors(field, lo, hi),
+                                    self._painter.indices)
         self._panel.set_status(session, vmin, vmax)
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

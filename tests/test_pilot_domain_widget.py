@@ -20,8 +20,9 @@ import solvcon
 
 try:
     from solvcon import pilot
-    from PySide6.QtGui import QImage
-    from PySide6.QtWidgets import QWidget
+    from PySide6.QtCore import QEvent, QPoint, QPointF, Qt
+    from PySide6.QtGui import QImage, QMouseEvent
+    from PySide6.QtWidgets import QApplication, QSizeGrip, QWidget
 except ImportError:
     pilot = None
 
@@ -257,6 +258,33 @@ class RDomainWidgetMeshTC(unittest.TestCase):
         widget.updateMesh(_make_3d_mesh())
         image = _grab_or_skip(widget)
         self.assertGreater(_count_foreground(image), 0)
+
+    def test_a_mesh_over_the_framed_domain_keeps_the_view(self):
+        """A run restarted at another resolution cuts the same domain again,
+        so the view the user set has to survive the rebuild."""
+        widget = pilot.RDomainWidget()
+        widget.resize(320, 240)
+        widget.updateMesh(_make_2d_mesh())
+        widget.zoomCamera(3.0)
+        widget.panCamera(20.0, 10.0)
+        zoom, target = widget.cameraZoom, widget.cameraTarget
+        self.assertNotAlmostEqual(1.0, zoom)
+        widget.updateMesh(_make_2d_mesh())
+        self.assertAlmostEqual(zoom, widget.cameraZoom)
+        self.assertEqual(target, widget.cameraTarget)
+
+    def test_a_mesh_over_another_domain_reframes_the_view(self):
+        """A mesh standing somewhere else is a new subject, not the old one
+        cut again, so it frames the camera onto itself."""
+        widget = pilot.RDomainWidget()
+        widget.resize(320, 240)
+        widget.updateMesh(_make_2d_mesh())
+        widget.zoomCamera(3.0)
+        self.assertNotAlmostEqual(1.0, widget.cameraZoom)
+        moved = _make_2d_mesh()
+        moved.ndcrd.ndarray[:, :] += 5.0
+        widget.updateMesh(moved)
+        self.assertAlmostEqual(1.0, widget.cameraZoom)
 
     def test_show_mesh_toggles_visibility(self):
         """showMesh(False) hides the wireframe; showMesh(True) restores it.
@@ -1880,6 +1908,33 @@ class RDomainWidgetManagerTC(unittest.TestCase):
         current = mgr.currentR3DWidget()
         self.assertIsNotNone(current)
         self.assertEqual(current.mesh.ncell, 3)
+
+    def test_the_subwindow_is_resized_by_its_grip(self):
+        """The sub-window carries a size grip and the grip resizes it.
+
+        The sub-window frame is a few pixels wide, too little to aim a drag
+        at.
+        """
+        mgr = pilot.RManager.instance.setUp()
+        mgr.add3DWidget()
+        # The mdiArea wrapper is thrown away right after use, taking any
+        # sub-window handle reached through it, so it is held here.
+        mdi = mgr.mdiArea
+        subwin = mdi.activeSubWindow()
+        grip = subwin.findChild(QSizeGrip)
+        self.assertIsNotNone(grip)
+        before = subwin.size()
+        start = grip.rect().center()
+        end = start + QPoint(60, 40)
+        for kind, pos, buttons in (
+                (QEvent.Type.MouseButtonPress, start, Qt.LeftButton),
+                (QEvent.Type.MouseMove, end, Qt.LeftButton),
+                (QEvent.Type.MouseButtonRelease, end, Qt.NoButton)):
+            QApplication.sendEvent(grip, QMouseEvent(
+                kind, QPointF(pos), QPointF(grip.mapToGlobal(pos)),
+                Qt.LeftButton, buttons, Qt.NoModifier))
+        self.assertGreater(subwin.width(), before.width())
+        self.assertGreater(subwin.height(), before.height())
 
     def test_factory_widget_screenshot(self):
         """The screenshot path of a factory-hosted widget routes through

@@ -251,12 +251,15 @@ class Reflection(object):
                 reflected < -gap]
 
     def zone_fields(self):
-        """Return every :attr:`EulerField.FIELDS` value of zones 1, 2, and 3.
+        """Return the flow-state value of zones 1, 2, and 3, by field name.
 
         The states of :meth:`ObliqueShock.zone_states` are primitives, so
         the four they carry need no work and the other three follow from
         the same ideal-gas relations the field reader applies to the
         computed solution.
+
+        The CFL number belongs to the discretization and not to the flow, so
+        it is not among them.
         """
         gamma = self.shock.gamma
         rho, velx, vely, pressure = np.array(
@@ -273,6 +276,19 @@ class Reflection(object):
         if name not in fields:
             raise ValueError(f"unknown field '{name}'")
         return fields[name]
+
+    def color_range(self, name, vmin, vmax):
+        """Widen ``(vmin, vmax)`` to cover the analytic zone values.
+
+        The color then says how far the field has come, instead of every
+        frame stretching to the full scale.  A field with no analytic value
+        keeps the range it came with.
+        """
+        fields = self.zone_fields()
+        if name not in fields:
+            return vmin, vmax
+        zones = fields[name]
+        return min(vmin, float(zones.min())), max(vmax, float(zones.max()))
 
     def zone_conserved(self):
         """Return the analytic zone states as conserved rows, ``[3, neq]``.
@@ -291,10 +307,16 @@ class Reflection(object):
 
         Each :class:`ZoneInfo` holds the mean of the computed field over
         the zone's cells against the analytic value the steady solution has
-        to reach.  A zone the margin leaves empty reports ``nan``.
+        to reach.  A zone the margin leaves empty reports ``nan``; a field
+        with no analytic value reports no zones.
         """
+        # Read the field first: an unknown name is an error, a known one
+        # without an analytic value is not.
         values = self.field.field(name)
-        analytic = self.zone_field(name)
+        fields = self.zone_fields()
+        if name not in fields:
+            return []
+        analytic = fields[name]
         report = []
         for it, mask in enumerate(self.zone_masks()):
             count = int(mask.sum())

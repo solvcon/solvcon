@@ -100,17 +100,33 @@ class AnalyticFieldTC(unittest.TestCase):
     def test_zone_info_recovers_every_analytic_state(self):
         # The seeded field is the analytic answer, so each zone average has
         # to reproduce its state to the last bit for every derived field.
-        for name in EulerField.FIELDS:
+        for name in self.analysis.zone_fields():
             for record in self.analysis.zone_info(name):
                 self.assertGreater(record.count, 0)
                 assert_almost_equal(record.computed, record.analytic,
                                     decimal=12)
 
-    def test_the_analytic_side_answers_every_field(self):
+    def test_a_field_with_no_analytic_value_reports_no_zones(self):
+        # A CFL number has no analytic value to be held against.
+        self.assertEqual([], self.analysis.zone_info('cfl'))
+        with self.assertRaises(ValueError):
+            self.analysis.zone_info('nonesuch')
+
+    def test_the_color_range_reaches_the_analytic_values(self):
+        # A field short of its analytic range still colors against that
+        # range; one the reflection cannot answer for keeps its own.
+        rho = self.analysis.zone_field('density')
+        self.assertEqual((float(rho.min()), float(rho.max())),
+                         self.analysis.color_range('density', 1e9, -1e9))
+        self.assertEqual((0.2, 0.7),
+                         self.analysis.color_range('cfl', 0.2, 0.7))
+
+    def test_the_analytic_side_answers_every_flow_field(self):
         # The computed and the analytic side are compared field by field, so
-        # the analysis has to derive everything the field reader does, and
-        # the primitives have to come back as the driver states them.
-        self.assertEqual(set(EulerField.FIELDS),
+        # the analysis has to derive every flow quantity the field reader
+        # does, and the primitives have to come back as the driver states
+        # them.  The CFL number is the one field it answers nothing for.
+        self.assertEqual(set(EulerField.FIELDS) - {'cfl'},
                          set(self.analysis.zone_fields()))
         states = self.shock.zone_states()
         assert_almost_equal(self.analysis.zone_field('density'),

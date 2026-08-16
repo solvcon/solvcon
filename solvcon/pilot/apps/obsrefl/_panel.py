@@ -20,8 +20,8 @@ from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QFontDatabase
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QFormLayout,
                                QGridLayout, QLabel, QComboBox, QDoubleSpinBox,
-                               QSpinBox, QPushButton, QToolButton, QSizePolicy,
-                               QScrollArea, QFrame)
+                               QSpinBox, QPushButton, QToolButton,
+                               QSizePolicy, QScrollArea, QFrame)
 
 from ....multidim.euler import EulerField
 
@@ -35,6 +35,13 @@ def _spin(value, low, high, step, decimals):
     box.setDecimals(decimals)
     box.setRange(low, high)
     box.setSingleStep(step)
+    box.setValue(value)
+    return box
+
+
+def _count(value, low, high):
+    box = QSpinBox()
+    box.setRange(low, high)
     box.setValue(value)
     return box
 
@@ -77,6 +84,12 @@ class FoldBox(QWidget):
     section gives its room back to the boxes below it.
     """
 
+    #: Room around the content pane, as (left, top, right, bottom).  The
+    #: left inset indents the rows under their header, the small top keeps
+    #: the header reading as their label, and the bottom holds one box off
+    #: the next.
+    CONTENT_MARGINS = (12, 3, 12, 12)
+
     def __init__(self, title, parent=None):
         super().__init__(parent)
         self._head = QToolButton()
@@ -103,8 +116,18 @@ class FoldBox(QWidget):
 
         box = QVBoxLayout(self)
         box.setContentsMargins(0, 0, 0, 0)
+        box.setSpacing(0)
         box.addWidget(self._head)
         box.addWidget(self._content)
+
+    def set_content_layout(self, layout):
+        """Fill the content pane with ``layout``.
+
+        The padding belongs to the section rather than to what it holds, so
+        every box takes it from here instead of from the style.
+        """
+        layout.setContentsMargins(*self.CONTENT_MARGINS)
+        self._content.setLayout(layout)
 
     def _on_head_clicked(self):
         self._open = not self._open
@@ -140,12 +163,13 @@ class FreeStreamBox(FoldBox):
         self._angle = _spin(10.0, 0.5, 45.0, 0.5, 2)
         self._angle.setSuffix(" deg")
 
-        form = QFormLayout(self._content)
+        form = QFormLayout()
         form.addRow("gamma", self._gamma)
         form.addRow("density", self._density)
         form.addRow("pressure", self._pressure)
         form.addRow("Mach", self._mach)
         form.addRow("shock angle", self._angle)
+        self.set_content_layout(form)
 
     def params(self):
         return dict(gamma=self._gamma.value(),
@@ -156,32 +180,55 @@ class FreeStreamBox(FoldBox):
 
 
 class NumericsBox(FoldBox):
-    """The discretization of a run; read once at Start."""
+    """The discretization of a run: how finely the domain is cut and how far
+    a step carries it; read at Start and at Remesh.
+
+    The mesh is ``nx`` by ``ny`` boxes over a domain four units long and one
+    tall, so ``nx = 4 * ny`` keeps the cells square.  A finer mesh also holds
+    a shorter stable step, which the time step has to follow.
+    """
 
     #: Mesh flavors offered by :mod:`._driver`, the first being the default.
     CELL_TYPES = ('unstructured', 'quad', 'triangle')
 
     def __init__(self, parent=None):
         super().__init__("Numerics", parent)
+        # Owner-supplied callback that rebuilds the run.
+        self.remesh_requested = None
+        self._nx = _count(64, 4, 1024)
+        self._ny = _count(16, 2, 256)
         self._dt = _spin(2e-3, 1e-6, 1.0, 1e-3, 6)
         self._cell_type = QComboBox()
         self._cell_type.addItems(self.CELL_TYPES)
+        # Apply a new resolution without marching it.
+        self._remesh = QPushButton("Remesh")
+        self._remesh.clicked.connect(self._on_remesh_clicked)
 
-        form = QFormLayout(self._content)
+        form = QFormLayout()
+        form.addRow("nx", self._nx)
+        form.addRow("ny", self._ny)
         form.addRow("time step", self._dt)
         form.addRow("cell type", self._cell_type)
+        form.addRow(self._remesh)
+        self.set_content_layout(form)
 
     def params(self):
-        return dict(time_increment=self._dt.value(),
+        return dict(nx=self._nx.value(), ny=self._ny.value(),
+                    time_increment=self._dt.value(),
                     cell_type=self._cell_type.currentText())
+
+    def _on_remesh_clicked(self):
+        if self.remesh_requested is not None:
+            self.remesh_requested()
 
 
 class RunBox(FoldBox):
     """The march controls and the live march readout, kept side by side.
 
-    The readout is the run's own progress: how far the march has come of
-    the steps it may take, what ended it, and the overall mass the domain
-    holds, which the inflow and the outflow move as the flow develops.
+    The buttons stand in the order a run is used: started, held (paused,
+    stepped), and ended (stopped where it stands, or dropped).  The readout
+    beneath them carries the step count, what ended the run, the mass the
+    domain holds, and the CFL bounds of the last chunk.
     """
 
     #: What ended a run reads as in the state cell; a live run reads as
@@ -195,12 +242,12 @@ class RunBox(FoldBox):
         self.start_requested = None
         self.pause_toggled = None
         self.step_requested = None
+        self.stop_requested = None
+        self.reset_requested = None
         self._paused = False
         self._live = False
 
-        self._steps = QSpinBox()
-        self._steps.setRange(1, 1000)
-        self._steps.setValue(5)
+        self._steps = _count(5, 1, 1000)
 
         # Opens and closes the one domain viewer the run buttons draw into.
         self._viewer_btn = QPushButton("Open viewer")
@@ -216,25 +263,34 @@ class RunBox(FoldBox):
         self._step = QPushButton("Step")
         self._step.clicked.connect(self._on_step_clicked)
         _reserve_width(self._pause, ("Pause", "Resume"))
-        # Disabled, not hidden, until a run exists to pause or step.
-        self._pause.setEnabled(False)
-        self._step.setEnabled(False)
-        buttons = QHBoxLayout()
-        buttons.addWidget(self._start)
-        buttons.addWidget(self._pause)
-        buttons.addWidget(self._step)
+        self._stop = QPushButton("Stop")
+        self._stop.clicked.connect(self._on_stop_clicked)
+        self._reset = QPushButton("Reset")
+        self._reset.clicked.connect(self._on_reset_clicked)
+        marching = QHBoxLayout()
+        marching.addWidget(self._start)
+        marching.addWidget(self._pause)
+        marching.addWidget(self._step)
+        ending = QHBoxLayout()
+        ending.addWidget(self._stop)
+        ending.addWidget(self._reset)
 
         self._progress = _value_label()
         self._state = _value_label()
         self._mass = _value_label()
+        self._cfl = _value_label()
 
-        form = QFormLayout(self._content)
+        form = QFormLayout()
         form.addRow("steps/frame", self._steps)
         form.addRow(self._viewer_btn)
-        form.addRow(buttons)
+        form.addRow(marching)
+        form.addRow(ending)
         form.addRow("step", self._progress)
         form.addRow("state", self._state)
         form.addRow("mass", self._mass)
+        form.addRow("cfl min/max", self._cfl)
+        self.set_content_layout(form)
+        self.show_run(None)
 
     def steps_per_frame(self):
         return self._steps.value()
@@ -264,13 +320,17 @@ class RunBox(FoldBox):
 
     def show_run(self, session):
         """Read the march progress of one run, or the lack of a run."""
+        self._live = session is not None and session.stop_reason is None
+        # A run that has ended can still be dropped, but not marched.
+        for button in (self._pause, self._step, self._stop):
+            button.setEnabled(self._live)
+        self._reset.setEnabled(session is not None)
         if None is session:
-            self._live = False
             self._progress.setText("-")
             self._state.setText("not started")
             self._mass.setText("-")
+            self._cfl.setText("-")
             return
-        self._live = session.stop_reason is None
         if self._live:
             state = "paused" if self._paused else "running"
         else:
@@ -279,8 +339,9 @@ class RunBox(FoldBox):
         self._state.setText(state)
         last = session.history.last
         self._mass.setText("-" if last is None else _number(last.mass))
-        self._pause.setEnabled(True)
-        self._step.setEnabled(True)
+        self._cfl.setText("-" if last is None else
+                          f"{_number(last.cfl_min)} / "
+                          f"{_number(last.cfl_max)}")
 
     def _on_viewer_toggled(self, open_):
         self._viewer_btn.setText("Close viewer" if open_ else "Open viewer")
@@ -300,6 +361,14 @@ class RunBox(FoldBox):
         if self.step_requested is not None:
             self.step_requested()
 
+    def _on_stop_clicked(self):
+        if self.stop_requested is not None:
+            self.stop_requested()
+
+    def _on_reset_clicked(self):
+        if self.reset_requested is not None:
+            self.reset_requested()
+
 
 class FieldBox(FoldBox):
     """Which derived field the viewer colors, and the range it spans."""
@@ -316,10 +385,11 @@ class FieldBox(FoldBox):
         self._min = _value_label()
         self._max = _value_label()
 
-        form = QFormLayout(self._content)
+        form = QFormLayout()
         form.addRow("field", self._selector)
         form.addRow("min", self._min)
         form.addRow("max", self._max)
+        self.set_content_layout(form)
 
     def field(self):
         return self._selector.currentText()
@@ -347,7 +417,7 @@ class ZoneBox(FoldBox):
 
     def __init__(self, parent=None):
         super().__init__("Zones", parent)
-        self._grid = QGridLayout(self._content)
+        self._grid = QGridLayout()
         for col, text in enumerate(self.HEADERS):
             label = QLabel(text)
             font = label.font()
@@ -356,6 +426,7 @@ class ZoneBox(FoldBox):
             if col:
                 label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
             self._grid.addWidget(label, 0, col)
+        self.set_content_layout(self._grid)
         self._rows = []
 
     def show_zones(self, infos):
@@ -444,6 +515,30 @@ class SolutionPanel(QScrollArea):
     @step_requested.setter
     def step_requested(self, callback):
         self._run.step_requested = callback
+
+    @property
+    def stop_requested(self):
+        return self._run.stop_requested
+
+    @stop_requested.setter
+    def stop_requested(self, callback):
+        self._run.stop_requested = callback
+
+    @property
+    def reset_requested(self):
+        return self._run.reset_requested
+
+    @reset_requested.setter
+    def reset_requested(self, callback):
+        self._run.reset_requested = callback
+
+    @property
+    def remesh_requested(self):
+        return self._numerics.remesh_requested
+
+    @remesh_requested.setter
+    def remesh_requested(self, callback):
+        self._numerics.remesh_requested = callback
 
     @property
     def field_changed(self):
