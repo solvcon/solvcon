@@ -41,7 +41,10 @@ source ${HOME}/var/scdv/<platform>-py<pyver>-qt<qtver>/activate
 
 The activation exports `SCDV_USRDIR`, the prefix that
 `contrib/cmake/CMakeUserPresets.scdv.json` is installed with; see
-{doc}`/devguide/cmake` for what that file is for.
+{doc}`/devguide/cmake` for what that file is for.  It also points
+`SOLVCON_DEPS_CACHE` at the prefix's `downloaded` directory, so a solvcon
+build caches the archives it fetches beside the ones this script downloaded.
+A value you set yourself is left alone.
 
 Two toolchains sit outside the build sections, so `--print-deps` ends with
 them. The first is LaTeX. Building the documentation needs it even for plain
