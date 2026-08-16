@@ -106,6 +106,27 @@ switching interpreters:
 cmake --preset dev-reldbg --fresh
 ```
 
+## Dependency archives are cached outside the build tree
+
+`gtests/CMakeLists.txt` fetches googletest from a source archive.  The
+configure downloads that archive into one directory shared by every build
+tree, verifies it against the SHA256 written down beside the version, and
+hands `FetchContent` the local file.  One download per machine serves every
+build tree and every worktree.
+
+`SOLVCON_DEPS_CACHE` names the directory.  It takes the environment variable
+of the same name, and otherwise defaults to `%LOCALAPPDATA%\solvcon\deps` on
+Windows and `$XDG_CACHE_HOME/solvcon/deps` or `$HOME/.cache/solvcon/deps`
+elsewhere.  Name another directory, or set it empty to keep the download
+inside the build tree:
+
+```bash
+make SOLVCON_DEPS_CACHE=/path/to/cache
+```
+
+It is a machine path, which is why it is computed at configure time rather
+than written into `CMakePresets.json`.
+
 ## Machine paths belong in `CMakeUserPresets.json`
 
 Three cache variables name directories that exist on one machine only:

@@ -12,6 +12,44 @@ set(SOLVCON_GTEST_SHA256 "65fab701d9829d38cb77c14acdc431d2108bfdbf8979e40eb8ae56
 set(SOLVCON_GTEST_URL
     "https://github.com/google/googletest/archive/refs/tags/v${SOLVCON_GTEST_VERSION}.tar.gz")
 
+# FetchContent keeps its download inside the build tree, and a worktree brings
+# a build tree of its own, so the archive is fetched again for every one of
+# them. Keep a single copy outside them all and let each build tree extract
+# that file. Set the variable empty to turn the cache off.
+if(NOT DEFINED SOLVCON_DEPS_CACHE)
+    if(DEFINED ENV{SOLVCON_DEPS_CACHE})
+        set(SOLVCON_DEPS_CACHE_DEFAULT "$ENV{SOLVCON_DEPS_CACHE}")
+    elseif(WIN32 AND DEFINED ENV{LOCALAPPDATA})
+        set(SOLVCON_DEPS_CACHE_DEFAULT "$ENV{LOCALAPPDATA}/solvcon/deps")
+    elseif(DEFINED ENV{XDG_CACHE_HOME})
+        set(SOLVCON_DEPS_CACHE_DEFAULT "$ENV{XDG_CACHE_HOME}/solvcon/deps")
+    elseif(DEFINED ENV{HOME})
+        set(SOLVCON_DEPS_CACHE_DEFAULT "$ENV{HOME}/.cache/solvcon/deps")
+    endif()
+endif()
+set(SOLVCON_DEPS_CACHE "${SOLVCON_DEPS_CACHE_DEFAULT}" CACHE PATH
+    "directory holding downloaded dependency archives, shared across build trees")
+message(STATUS "SOLVCON_DEPS_CACHE: ${SOLVCON_DEPS_CACHE}")
+
+if(SOLVCON_DEPS_CACHE)
+    set(SOLVCON_GTEST_ARCHIVE
+        "${SOLVCON_DEPS_CACHE}/googletest-${SOLVCON_GTEST_VERSION}.tar.gz")
+    if(NOT EXISTS "${SOLVCON_GTEST_ARCHIVE}")
+        # Download under a name no other build tree writes and move it into
+        # place only once it verifies, so a tree configuring at the same time
+        # never reads a half-written archive.
+        string(SHA256 SOLVCON_BUILD_TREE_TAG "${CMAKE_CURRENT_BINARY_DIR}")
+        string(SUBSTRING "${SOLVCON_BUILD_TREE_TAG}" 0 12 SOLVCON_BUILD_TREE_TAG)
+        set(SOLVCON_GTEST_PARTIAL "${SOLVCON_GTEST_ARCHIVE}.${SOLVCON_BUILD_TREE_TAG}.part")
+        message(STATUS "download googletest archive to ${SOLVCON_GTEST_ARCHIVE}")
+        file(DOWNLOAD "${SOLVCON_GTEST_URL}" "${SOLVCON_GTEST_PARTIAL}"
+            EXPECTED_HASH SHA256=${SOLVCON_GTEST_SHA256}
+            TLS_VERIFY ON)
+        file(RENAME "${SOLVCON_GTEST_PARTIAL}" "${SOLVCON_GTEST_ARCHIVE}")
+    endif()
+    set(SOLVCON_GTEST_URL "${SOLVCON_GTEST_ARCHIVE}")
+endif()
+
 FetchContent_Declare(
     googletest
     URL ${SOLVCON_GTEST_URL}
