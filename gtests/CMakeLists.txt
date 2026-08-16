@@ -6,9 +6,16 @@ cmake_minimum_required(VERSION 4.0.1)
 # See https://google.github.io/googletest/quickstart-cmake.html for the
 # recommended cmake configuration
 include(FetchContent)
+
+set(SOLVCON_GTEST_VERSION "1.17.0")
+set(SOLVCON_GTEST_SHA256 "65fab701d9829d38cb77c14acdc431d2108bfdbf8979e40eb8ae567edf10b27c")
+set(SOLVCON_GTEST_URL
+    "https://github.com/google/googletest/archive/refs/tags/v${SOLVCON_GTEST_VERSION}.tar.gz")
+
 FetchContent_Declare(
     googletest
-    URL https://github.com/google/googletest/archive/refs/tags/v1.17.0.tar.gz
+    URL ${SOLVCON_GTEST_URL}
+    URL_HASH SHA256=${SOLVCON_GTEST_SHA256}
     DOWNLOAD_EXTRACT_TIMESTAMP ON
 )
 # For Windows: Prevent overriding the parent project's compiler/linker settings
