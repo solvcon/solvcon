@@ -13,6 +13,8 @@
 #include <solvcon/pilot/visual/RScalarField.hpp>
 #include <solvcon/pilot/visual/RSegments.hpp>
 
+#include <solvcon/math/math.hpp>
+
 #include <QGestureEvent>
 #include <QKeyEvent>
 #include <QMouseEvent>
@@ -32,8 +34,6 @@ namespace solvcon
 
 namespace
 {
-
-constexpr float PI = 3.14159265358979323846f;
 
 /// Per-cell value of the named geometric quality metric, over the SimpleArray
 /// mesh path. The angle-based metrics read the cell node polygon, so they are
@@ -106,7 +106,7 @@ std::vector<float> cell_quality(StaticMesh const & mh, std::string const & metri
             }
             float const c = std::clamp(
                 QVector3D::dotProduct(a, b) / (la * lb), -1.0f, 1.0f);
-            float const ang = std::acos(c) * 180.0f / PI;
+            float const ang = std::acos(c) * 180.0f / pi<float>;
             amin = std::min(amin, ang);
             amax = std::max(amax, ang);
         }
@@ -1371,7 +1371,7 @@ double RDomainWidget::measureAngle(
         return 0.0;
     }
     float const c = std::clamp(QVector3D::dotProduct(a, b) / (la * lb), -1.0f, 1.0f);
-    return static_cast<double>(std::acos(c) * 180.0f / PI);
+    return static_cast<double>(std::acos(c) * 180.0f / pi<float>);
 }
 
 void RDomainWidget::clearMeasurements()
