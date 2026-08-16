@@ -121,4 +121,21 @@ class DerivedFieldTC(_EulerFieldTB, unittest.TestCase):
         with self.assertRaises(ValueError):
             self.field.field('nonesuch')
 
+
+class CflReadoutTC(_EulerFieldTB, unittest.TestCase):
+    """The CFL number the solver writes as it marches."""
+
+    def test_the_cfl_view_reads_the_solver_table(self):
+        # The reader only has to drop the ghost rows.
+        arr = self.svr.cflo
+        arr.ndarray[arr.nghost:] = (0.25, 0.5, 0.75)
+        assert_almost_equal(self.field.cfl, (0.25, 0.5, 0.75))
+
+    def test_the_range_bounds_every_cell(self):
+        # An average would hide the one cell over the limit.
+        arr = self.svr.cflo
+        arr.ndarray[arr.nghost:] = (0.25, 1.5, 0.75)
+        self.assertEqual((0.25, 1.5), self.field.calc_cfl_range())
+
+
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

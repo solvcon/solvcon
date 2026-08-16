@@ -158,8 +158,8 @@ class RunController(object):
     def _march_frame(self):
         """March one chunk and draw what it left behind.
 
-        The chunk length is read from the control every frame, so turning
-        the dial mid-run takes effect on the next one.
+        The chunk length is read every frame, so changing it mid-run takes
+        effect on the next one.
         """
         self.session.steps_per_chunk = self._panel.steps_per_frame()
         self.session.advance()
@@ -180,12 +180,7 @@ class RunController(object):
         field = session.field.field(name)
         vmin, vmax = float(field.min()), float(field.max())
         if self._viewer.is_open:
-            # Scale the colors to the analytic range, not the frame's own, so
-            # a field stuck short of the target looks stuck instead of
-            # stretching to full color every frame.
-            zones = session.analysis.zone_field(name)
-            lo = min(vmin, float(zones.min()))
-            hi = max(vmax, float(zones.max()))
+            lo, hi = session.analysis.color_range(name, vmin, vmax)
             self._viewer.draw_field(self._painter.verts,
                                     self._painter.colors(field, lo, hi),
                                     self._painter.indices)

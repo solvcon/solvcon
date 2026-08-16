@@ -34,10 +34,10 @@ __all__ = [
 ]
 
 
-#: What one marched chunk leaves behind: the step it ended on and the mass the
-#: domain held there, which the inflow and the outflow move as the flow
-#: develops.
-RunRecord = collections.namedtuple('RunRecord', ['step', 'mass'])
+#: What one marched chunk leaves behind: the step it ended on, the mass the
+#: domain held there, and the CFL numbers it ran at.
+RunRecord = collections.namedtuple('RunRecord',
+                                   ['step', 'mass', 'cfl_min', 'cfl_max'])
 
 
 class RunHistory(object):
@@ -54,9 +54,9 @@ class RunHistory(object):
     def __len__(self):
         return len(self.records)
 
-    def append(self, step, mass):
+    def append(self, step, mass, cfl_min, cfl_max):
         """Record one chunk; returns the new :class:`RunRecord`."""
-        record = RunRecord(step, mass)
+        record = RunRecord(step, mass, cfl_min, cfl_max)
         self.records.append(record)
         return record
 
@@ -131,8 +131,10 @@ class ReflectionSession(object):
         steps = min(self.steps_per_chunk, self.max_steps - self.step)
         self.shock.march(steps)
         self.step += steps
+        cfl_min, cfl_max = self.field.calc_cfl_range()
         record = self.history.append(self.step,
-                                     self.field.calc_overall_mass())
+                                     self.field.calc_overall_mass(),
+                                     cfl_min, cfl_max)
         if self.step >= self.max_steps:
             self.stop_reason = 'cap'
         return record

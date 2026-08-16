@@ -209,8 +209,8 @@ class RunBox(FoldBox):
 
     The buttons stand in the order a run is used: started, held (paused,
     stepped), and ended (stopped where it stands, or dropped).  The readout
-    beneath them carries the step count, what ended the run, and the mass
-    the domain holds.
+    beneath them carries the step count, what ended the run, the mass the
+    domain holds, and the CFL bounds of the last chunk.
     """
 
     #: What ended a run reads as in the state cell; a live run reads as
@@ -260,6 +260,7 @@ class RunBox(FoldBox):
         self._progress = _value_label()
         self._state = _value_label()
         self._mass = _value_label()
+        self._cfl = _value_label()
 
         form = QFormLayout(self._content)
         form.addRow("steps/frame", self._steps)
@@ -269,6 +270,7 @@ class RunBox(FoldBox):
         form.addRow("step", self._progress)
         form.addRow("state", self._state)
         form.addRow("mass", self._mass)
+        form.addRow("cfl min/max", self._cfl)
         self.show_run(None)
 
     def steps_per_frame(self):
@@ -308,6 +310,7 @@ class RunBox(FoldBox):
             self._progress.setText("-")
             self._state.setText("not started")
             self._mass.setText("-")
+            self._cfl.setText("-")
             return
         if self._live:
             state = "paused" if self._paused else "running"
@@ -317,6 +320,9 @@ class RunBox(FoldBox):
         self._state.setText(state)
         last = session.history.last
         self._mass.setText("-" if last is None else _number(last.mass))
+        self._cfl.setText("-" if last is None else
+                          f"{_number(last.cfl_min)} / "
+                          f"{_number(last.cfl_max)}")
 
     def _on_viewer_toggled(self, open_):
         self._viewer_btn.setText("Close viewer" if open_ else "Open viewer")

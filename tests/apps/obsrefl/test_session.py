@@ -25,7 +25,7 @@ class RunHistoryTC(unittest.TestCase):
         history = RunHistory(length=3)
         self.assertIsNone(history.last)
         for step in range(1, 6):
-            history.append(step, 1.0 / step)
+            history.append(step, 1.0 / step, 0.1 * step, 0.2 * step)
         self.assertEqual(3, len(history))
         self.assertEqual([(3, 1 / 3), (4, 0.25), (5, 0.2)], history.masses)
         self.assertEqual(5, history.last.step)
@@ -56,6 +56,10 @@ class ReflectionSessionTC(unittest.TestCase):
         self.assertEqual(3, record.step)
         self.assertAlmostEqual(record.mass, sess.field.calc_overall_mass())
         self.assertEqual([(3, record.mass)], sess.history.masses)
+        # The record carries the CFL bounds of its own chunk.
+        self.assertEqual(sess.field.calc_cfl_range(),
+                         (record.cfl_min, record.cfl_max))
+        self.assertGreater(record.cfl_min, 0.0)
         self.assertFalse(sess.finished)
 
     def test_the_last_chunk_lands_on_the_step_cap(self):

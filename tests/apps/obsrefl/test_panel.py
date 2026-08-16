@@ -93,6 +93,25 @@ class StatusReadoutTC(unittest.TestCase):
         panel.set_paused(False)
         self.assertEqual("running", panel._run._state.text())
 
+    def test_the_cfl_readout_bounds_the_last_chunk(self):
+        # Read off the chunk record beside the mass, so the panel says what
+        # the march ran at.
+        panel, sess, _, _ = self._filled()
+        last = sess.history.last
+        self.assertEqual(f"{_panel._number(last.cfl_min)} / "
+                         f"{_panel._number(last.cfl_max)}",
+                         panel._run._cfl.text())
+        panel.set_status(None, None, None)
+        self.assertEqual("-", panel._run._cfl.text())
+
+    def test_the_cfl_field_colors_without_an_analytic_column(self):
+        # The zone table judges a field against the analytic answer, which
+        # a CFL number has none of, so its rows stay empty.
+        self.assertIn('cfl', _panel.FieldBox.FIELDS)
+        panel, _, vmin, _ = self._filled('cfl')
+        self.assertEqual([], self._zone_rows(panel))
+        self.assertEqual(_panel._number(vmin), panel._field._min.text())
+
     def test_remesh_asks_its_owner_to_cut_the_domain_again(self):
         # The button belongs to the numerics box whose values it applies.
         panel = SolutionPanel()
