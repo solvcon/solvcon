@@ -39,6 +39,13 @@ def _spin(value, low, high, step, decimals):
     return box
 
 
+def _count(value, low, high):
+    box = QSpinBox()
+    box.setRange(low, high)
+    box.setValue(value)
+    return box
+
+
 def _number(value):
     """Format a readout number to four significant digits.
 
@@ -156,24 +163,45 @@ class FreeStreamBox(FoldBox):
 
 
 class NumericsBox(FoldBox):
-    """The discretization of a run; read once at Start."""
+    """The discretization of a run: how finely the domain is cut and how far
+    a step carries it; read at Start and at Remesh.
+
+    The mesh is ``nx`` by ``ny`` boxes over a domain four units long and one
+    tall, so ``nx = 4 * ny`` keeps the cells square.  A finer mesh also holds
+    a shorter stable step, which the time step has to follow.
+    """
 
     #: Mesh flavors offered by :mod:`._driver`, the first being the default.
     CELL_TYPES = ('unstructured', 'quad', 'triangle')
 
     def __init__(self, parent=None):
         super().__init__("Numerics", parent)
+        # Owner-supplied callback that rebuilds the run.
+        self.remesh_requested = None
+        self._nx = _count(64, 4, 1024)
+        self._ny = _count(16, 2, 256)
         self._dt = _spin(2e-3, 1e-6, 1.0, 1e-3, 6)
         self._cell_type = QComboBox()
         self._cell_type.addItems(self.CELL_TYPES)
+        # Apply a new resolution without marching it.
+        self._remesh = QPushButton("Remesh")
+        self._remesh.clicked.connect(self._on_remesh_clicked)
 
         form = QFormLayout(self._content)
+        form.addRow("nx", self._nx)
+        form.addRow("ny", self._ny)
         form.addRow("time step", self._dt)
         form.addRow("cell type", self._cell_type)
+        form.addRow(self._remesh)
 
     def params(self):
-        return dict(time_increment=self._dt.value(),
+        return dict(nx=self._nx.value(), ny=self._ny.value(),
+                    time_increment=self._dt.value(),
                     cell_type=self._cell_type.currentText())
+
+    def _on_remesh_clicked(self):
+        if self.remesh_requested is not None:
+            self.remesh_requested()
 
 
 class RunBox(FoldBox):
@@ -444,6 +472,14 @@ class SolutionPanel(QScrollArea):
     @step_requested.setter
     def step_requested(self, callback):
         self._run.step_requested = callback
+
+    @property
+    def remesh_requested(self):
+        return self._numerics.remesh_requested
+
+    @remesh_requested.setter
+    def remesh_requested(self, callback):
+        self._numerics.remesh_requested = callback
 
     @property
     def field_changed(self):

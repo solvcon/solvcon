@@ -49,6 +49,7 @@ class RunController(object):
         panel.start_requested = self.start
         panel.pause_toggled = self._on_pause
         panel.step_requested = self._on_step
+        panel.remesh_requested = self.remesh
         panel.field_changed = self._on_field
         viewer.closed = self._on_viewer_closed
 
@@ -68,6 +69,14 @@ class RunController(object):
         self._build()
         self._panel.set_paused(False)
         self._timer.start(self.INTERVAL_MS)
+
+    def remesh(self):
+        """Rebuild the run at the resolution the controls now hold.
+
+        A session owns its mesh, so a new resolution means a new session and
+        a march that starts over, waiting on its initial state.
+        """
+        self.preview()
 
     def _build(self):
         """Halt any march, then build and draw the configured run."""

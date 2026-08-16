@@ -258,6 +258,33 @@ class RDomainWidgetMeshTC(unittest.TestCase):
         image = _grab_or_skip(widget)
         self.assertGreater(_count_foreground(image), 0)
 
+    def test_a_mesh_over_the_framed_domain_keeps_the_view(self):
+        """A run restarted at another resolution cuts the same domain again,
+        so the view the user set has to survive the rebuild."""
+        widget = pilot.RDomainWidget()
+        widget.resize(320, 240)
+        widget.updateMesh(_make_2d_mesh())
+        widget.zoomCamera(3.0)
+        widget.panCamera(20.0, 10.0)
+        zoom, target = widget.cameraZoom, widget.cameraTarget
+        self.assertNotAlmostEqual(1.0, zoom)
+        widget.updateMesh(_make_2d_mesh())
+        self.assertAlmostEqual(zoom, widget.cameraZoom)
+        self.assertEqual(target, widget.cameraTarget)
+
+    def test_a_mesh_over_another_domain_reframes_the_view(self):
+        """A mesh standing somewhere else is a new subject, not the old one
+        cut again, so it frames the camera onto itself."""
+        widget = pilot.RDomainWidget()
+        widget.resize(320, 240)
+        widget.updateMesh(_make_2d_mesh())
+        widget.zoomCamera(3.0)
+        self.assertNotAlmostEqual(1.0, widget.cameraZoom)
+        moved = _make_2d_mesh()
+        moved.ndcrd.ndarray[:, :] += 5.0
+        widget.updateMesh(moved)
+        self.assertAlmostEqual(1.0, widget.cameraZoom)
+
     def test_show_mesh_toggles_visibility(self):
         """showMesh(False) hides the wireframe; showMesh(True) restores it.
 

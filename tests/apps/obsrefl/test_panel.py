@@ -74,6 +74,15 @@ class StatusReadoutTC(unittest.TestCase):
         panel.set_paused(False)
         self.assertEqual("running", panel._run._state.text())
 
+    def test_remesh_asks_its_owner_to_cut_the_domain_again(self):
+        # The button belongs to the numerics box whose values it applies.
+        panel = SolutionPanel()
+        asked = []
+        panel.remesh_requested = lambda: asked.append(panel.params())
+        panel._numerics._nx.setValue(21)
+        panel._numerics._remesh.click()
+        self.assertEqual([21], [params['nx'] for params in asked])
+
     def test_pausing_does_not_rename_a_finished_state(self):
         # What ended a run outranks the Pause button, which the controller
         # checks when the march reaches its end.
