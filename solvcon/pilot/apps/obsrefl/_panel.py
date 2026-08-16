@@ -20,8 +20,8 @@ from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QFontDatabase
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QFormLayout,
                                QGridLayout, QLabel, QComboBox, QDoubleSpinBox,
-                               QSpinBox, QPushButton, QToolButton, QSizePolicy,
-                               QScrollArea, QFrame)
+                               QSpinBox, QPushButton, QToolButton,
+                               QSizePolicy, QScrollArea, QFrame)
 
 from ....multidim.euler import EulerField
 
@@ -84,6 +84,12 @@ class FoldBox(QWidget):
     section gives its room back to the boxes below it.
     """
 
+    #: Room around the content pane, as (left, top, right, bottom).  The
+    #: left inset indents the rows under their header, the small top keeps
+    #: the header reading as their label, and the bottom holds one box off
+    #: the next.
+    CONTENT_MARGINS = (12, 3, 12, 12)
+
     def __init__(self, title, parent=None):
         super().__init__(parent)
         self._head = QToolButton()
@@ -110,8 +116,18 @@ class FoldBox(QWidget):
 
         box = QVBoxLayout(self)
         box.setContentsMargins(0, 0, 0, 0)
+        box.setSpacing(0)
         box.addWidget(self._head)
         box.addWidget(self._content)
+
+    def set_content_layout(self, layout):
+        """Fill the content pane with ``layout``.
+
+        The padding belongs to the section rather than to what it holds, so
+        every box takes it from here instead of from the style.
+        """
+        layout.setContentsMargins(*self.CONTENT_MARGINS)
+        self._content.setLayout(layout)
 
     def _on_head_clicked(self):
         self._open = not self._open
@@ -147,12 +163,13 @@ class FreeStreamBox(FoldBox):
         self._angle = _spin(10.0, 0.5, 45.0, 0.5, 2)
         self._angle.setSuffix(" deg")
 
-        form = QFormLayout(self._content)
+        form = QFormLayout()
         form.addRow("gamma", self._gamma)
         form.addRow("density", self._density)
         form.addRow("pressure", self._pressure)
         form.addRow("Mach", self._mach)
         form.addRow("shock angle", self._angle)
+        self.set_content_layout(form)
 
     def params(self):
         return dict(gamma=self._gamma.value(),
@@ -187,12 +204,13 @@ class NumericsBox(FoldBox):
         self._remesh = QPushButton("Remesh")
         self._remesh.clicked.connect(self._on_remesh_clicked)
 
-        form = QFormLayout(self._content)
+        form = QFormLayout()
         form.addRow("nx", self._nx)
         form.addRow("ny", self._ny)
         form.addRow("time step", self._dt)
         form.addRow("cell type", self._cell_type)
         form.addRow(self._remesh)
+        self.set_content_layout(form)
 
     def params(self):
         return dict(nx=self._nx.value(), ny=self._ny.value(),
@@ -262,7 +280,7 @@ class RunBox(FoldBox):
         self._mass = _value_label()
         self._cfl = _value_label()
 
-        form = QFormLayout(self._content)
+        form = QFormLayout()
         form.addRow("steps/frame", self._steps)
         form.addRow(self._viewer_btn)
         form.addRow(marching)
@@ -271,6 +289,7 @@ class RunBox(FoldBox):
         form.addRow("state", self._state)
         form.addRow("mass", self._mass)
         form.addRow("cfl min/max", self._cfl)
+        self.set_content_layout(form)
         self.show_run(None)
 
     def steps_per_frame(self):
@@ -366,10 +385,11 @@ class FieldBox(FoldBox):
         self._min = _value_label()
         self._max = _value_label()
 
-        form = QFormLayout(self._content)
+        form = QFormLayout()
         form.addRow("field", self._selector)
         form.addRow("min", self._min)
         form.addRow("max", self._max)
+        self.set_content_layout(form)
 
     def field(self):
         return self._selector.currentText()
@@ -397,7 +417,7 @@ class ZoneBox(FoldBox):
 
     def __init__(self, parent=None):
         super().__init__("Zones", parent)
-        self._grid = QGridLayout(self._content)
+        self._grid = QGridLayout()
         for col, text in enumerate(self.HEADERS):
             label = QLabel(text)
             font = label.font()
@@ -406,6 +426,7 @@ class ZoneBox(FoldBox):
             if col:
                 label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
             self._grid.addWidget(label, 0, col)
+        self.set_content_layout(self._grid)
         self._rows = []
 
     def show_zones(self, infos):

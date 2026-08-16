@@ -12,8 +12,13 @@
 #include <QAction>
 #include <QActionGroup>
 #include <QColor>
+#include <QEvent>
+#include <QLayout>
+#include <QMdiSubWindow>
 #include <QMenu>
 #include <QMenuBar>
+#include <QSize>
+#include <QSizeGrip>
 #include <QVBoxLayout>
 #include <QWidget>
 #include <Qt>
@@ -26,6 +31,74 @@
 
 namespace solvcon
 {
+
+namespace
+{
+
+/**
+ * A size grip over the bottom-right corner of an MDI sub-window.
+ *
+ * QMdiSubWindow adopts a QSizeGrip child into the layout that holds its
+ * hosted widget, where the grip would claim a row of the height. Removing it
+ * from that layout leaves the whole height to the widget, and placing the
+ * grip becomes this class's job. The grip stays a child of the sub-window
+ * because the macOS style draws one only there.
+ */
+class SubWindowGrip : public QObject
+{
+
+public:
+
+    explicit SubWindowGrip(QMdiSubWindow * subwin);
+
+protected:
+
+    bool eventFilter(QObject * watched, QEvent * event) override;
+
+private:
+
+    void place();
+
+    QMdiSubWindow * m_subwin;
+    QSizeGrip * m_grip;
+
+}; /* end class SubWindowGrip */
+
+SubWindowGrip::SubWindowGrip(QMdiSubWindow * subwin)
+    : QObject(subwin)
+    , m_subwin(subwin)
+    , m_grip(new QSizeGrip(subwin))
+{
+    // Adoption happens on polish, so force it before removing the grip.
+    m_grip->ensurePolished();
+    if (QLayout * layout = m_subwin->layout())
+    {
+        layout->removeWidget(m_grip);
+    }
+    m_grip->show();
+    place();
+    m_subwin->installEventFilter(this);
+}
+
+bool SubWindowGrip::eventFilter(QObject * watched, QEvent * event)
+{
+    if (QEvent::Resize == event->type())
+    {
+        place();
+    }
+    return QObject::eventFilter(watched, event);
+}
+
+void SubWindowGrip::place()
+{
+    QSize const hint = m_grip->sizeHint();
+    m_grip->resize(hint);
+    m_grip->move(m_subwin->width() - hint.width(), m_subwin->height() - hint.height());
+    // Stay above the hosted widget, which spans the corner.
+    m_grip->raise();
+}
+
+} /* end namespace */
 
 RManager & RManager::instance()
 {
@@ -150,6 +223,9 @@ RDomainWidget * RManager::add3DWidget()
         }
         auto * subwin = this->addSubWindow(host);
         subwin->resize(400, 300);
+        // The sub-window frame is a few pixels wide, too little to aim a drag
+        // at.
+        new SubWindowGrip(subwin);
     }
     return viewer;
 }

@@ -20,8 +20,9 @@ import solvcon
 
 try:
     from solvcon import pilot
-    from PySide6.QtGui import QImage
-    from PySide6.QtWidgets import QWidget
+    from PySide6.QtCore import QEvent, QPoint, QPointF, Qt
+    from PySide6.QtGui import QImage, QMouseEvent
+    from PySide6.QtWidgets import QApplication, QSizeGrip, QWidget
 except ImportError:
     pilot = None
 
@@ -1907,6 +1908,33 @@ class RDomainWidgetManagerTC(unittest.TestCase):
         current = mgr.currentR3DWidget()
         self.assertIsNotNone(current)
         self.assertEqual(current.mesh.ncell, 3)
+
+    def test_the_subwindow_is_resized_by_its_grip(self):
+        """The sub-window carries a size grip and the grip resizes it.
+
+        The sub-window frame is a few pixels wide, too little to aim a drag
+        at.
+        """
+        mgr = pilot.RManager.instance.setUp()
+        mgr.add3DWidget()
+        # The mdiArea wrapper is thrown away right after use, taking any
+        # sub-window handle reached through it, so it is held here.
+        mdi = mgr.mdiArea
+        subwin = mdi.activeSubWindow()
+        grip = subwin.findChild(QSizeGrip)
+        self.assertIsNotNone(grip)
+        before = subwin.size()
+        start = grip.rect().center()
+        end = start + QPoint(60, 40)
+        for kind, pos, buttons in (
+                (QEvent.Type.MouseButtonPress, start, Qt.LeftButton),
+                (QEvent.Type.MouseMove, end, Qt.LeftButton),
+                (QEvent.Type.MouseButtonRelease, end, Qt.NoButton)):
+            QApplication.sendEvent(grip, QMouseEvent(
+                kind, QPointF(pos), QPointF(grip.mapToGlobal(pos)),
+                Qt.LeftButton, buttons, Qt.NoModifier))
+        self.assertGreater(subwin.width(), before.width())
+        self.assertGreater(subwin.height(), before.height())
 
     def test_factory_widget_screenshot(self):
         """The screenshot path of a factory-hosted widget routes through

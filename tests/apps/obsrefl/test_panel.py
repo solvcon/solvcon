@@ -51,18 +51,18 @@ class StatusReadoutTC(unittest.TestCase):
                 for irow in range(1, grid.rowCount())]
         return [row for row in rows if any(row)]
 
+    @staticmethod
+    def _enabled(panel):
+        run = panel._run
+        return dict(pause=run._pause.isEnabled(), step=run._step.isEnabled(),
+                    stop=run._stop.isEnabled(), reset=run._reset.isEnabled())
+
     def test_an_unstarted_panel_says_so(self):
         panel = SolutionPanel()
         self.assertEqual("not started", panel._run._state.text())
         self.assertEqual("-", panel._run._progress.text())
         self.assertEqual("-", panel._field._min.text())
         self.assertEqual([], self._zone_rows(panel))
-
-    @staticmethod
-    def _enabled(panel):
-        run = panel._run
-        return dict(pause=run._pause.isEnabled(), step=run._step.isEnabled(),
-                    stop=run._stop.isEnabled(), reset=run._reset.isEnabled())
 
     def test_the_buttons_follow_what_the_run_can_still_do(self):
         panel = SolutionPanel()
@@ -129,6 +129,18 @@ class StatusReadoutTC(unittest.TestCase):
         panel.set_status(sess, vmin, vmax)
         panel.set_paused(True)
         self.assertEqual("stopped", panel._run._state.text())
+
+    def test_every_box_pads_its_content_the_same(self):
+        # A layout built on the content pane directly takes the style's
+        # dialog margins instead, which are meant for a whole dialog.
+        panel = SolutionPanel()
+        for box in panel._boxes:
+            margins = box._content.layout().contentsMargins()
+            self.assertEqual(_panel.FoldBox.CONTENT_MARGINS,
+                             (margins.left(), margins.top(),
+                              margins.right(), margins.bottom()))
+            # The gap over the content is the top margin and nothing else.
+            self.assertEqual(0, box.layout().spacing())
 
     def test_folding_keeps_the_box_width(self):
         # Folding gives back height only; a fold that narrowed the box
