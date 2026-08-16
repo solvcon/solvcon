@@ -58,6 +58,25 @@ class StatusReadoutTC(unittest.TestCase):
         self.assertEqual("-", panel._field._min.text())
         self.assertEqual([], self._zone_rows(panel))
 
+    @staticmethod
+    def _enabled(panel):
+        run = panel._run
+        return dict(pause=run._pause.isEnabled(), step=run._step.isEnabled(),
+                    stop=run._stop.isEnabled(), reset=run._reset.isEnabled())
+
+    def test_the_buttons_follow_what_the_run_can_still_do(self):
+        panel = SolutionPanel()
+        self.assertEqual(dict(pause=False, step=False, stop=False,
+                              reset=False), self._enabled(panel))
+        panel, sess, vmin, vmax = self._filled()
+        self.assertEqual(dict(pause=True, step=True, stop=True, reset=True),
+                         self._enabled(panel))
+        sess.stop()
+        panel.set_status(sess, vmin, vmax)
+        # An ended run can still be dropped, but not marched.
+        self.assertEqual(dict(pause=False, step=False, stop=False,
+                              reset=True), self._enabled(panel))
+
     def test_the_run_box_reads_the_march(self):
         panel, sess, _, _ = self._filled()
         self.assertEqual(f"3 / {sess.max_steps}",

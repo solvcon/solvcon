@@ -207,9 +207,10 @@ class NumericsBox(FoldBox):
 class RunBox(FoldBox):
     """The march controls and the live march readout, kept side by side.
 
-    The readout is the run's own progress: how far the march has come of
-    the steps it may take, what ended it, and the overall mass the domain
-    holds, which the inflow and the outflow move as the flow develops.
+    The buttons stand in the order a run is used: started, held (paused,
+    stepped), and ended (stopped where it stands, or dropped).  The readout
+    beneath them carries the step count, what ended the run, and the mass
+    the domain holds.
     """
 
     #: What ended a run reads as in the state cell; a live run reads as
@@ -223,12 +224,12 @@ class RunBox(FoldBox):
         self.start_requested = None
         self.pause_toggled = None
         self.step_requested = None
+        self.stop_requested = None
+        self.reset_requested = None
         self._paused = False
         self._live = False
 
-        self._steps = QSpinBox()
-        self._steps.setRange(1, 1000)
-        self._steps.setValue(5)
+        self._steps = _count(5, 1, 1000)
 
         # Opens and closes the one domain viewer the run buttons draw into.
         self._viewer_btn = QPushButton("Open viewer")
@@ -244,13 +245,17 @@ class RunBox(FoldBox):
         self._step = QPushButton("Step")
         self._step.clicked.connect(self._on_step_clicked)
         _reserve_width(self._pause, ("Pause", "Resume"))
-        # Disabled, not hidden, until a run exists to pause or step.
-        self._pause.setEnabled(False)
-        self._step.setEnabled(False)
-        buttons = QHBoxLayout()
-        buttons.addWidget(self._start)
-        buttons.addWidget(self._pause)
-        buttons.addWidget(self._step)
+        self._stop = QPushButton("Stop")
+        self._stop.clicked.connect(self._on_stop_clicked)
+        self._reset = QPushButton("Reset")
+        self._reset.clicked.connect(self._on_reset_clicked)
+        marching = QHBoxLayout()
+        marching.addWidget(self._start)
+        marching.addWidget(self._pause)
+        marching.addWidget(self._step)
+        ending = QHBoxLayout()
+        ending.addWidget(self._stop)
+        ending.addWidget(self._reset)
 
         self._progress = _value_label()
         self._state = _value_label()
@@ -259,10 +264,12 @@ class RunBox(FoldBox):
         form = QFormLayout(self._content)
         form.addRow("steps/frame", self._steps)
         form.addRow(self._viewer_btn)
-        form.addRow(buttons)
+        form.addRow(marching)
+        form.addRow(ending)
         form.addRow("step", self._progress)
         form.addRow("state", self._state)
         form.addRow("mass", self._mass)
+        self.show_run(None)
 
     def steps_per_frame(self):
         return self._steps.value()
@@ -292,13 +299,16 @@ class RunBox(FoldBox):
 
     def show_run(self, session):
         """Read the march progress of one run, or the lack of a run."""
+        self._live = session is not None and session.stop_reason is None
+        # A run that has ended can still be dropped, but not marched.
+        for button in (self._pause, self._step, self._stop):
+            button.setEnabled(self._live)
+        self._reset.setEnabled(session is not None)
         if None is session:
-            self._live = False
             self._progress.setText("-")
             self._state.setText("not started")
             self._mass.setText("-")
             return
-        self._live = session.stop_reason is None
         if self._live:
             state = "paused" if self._paused else "running"
         else:
@@ -307,8 +317,6 @@ class RunBox(FoldBox):
         self._state.setText(state)
         last = session.history.last
         self._mass.setText("-" if last is None else _number(last.mass))
-        self._pause.setEnabled(True)
-        self._step.setEnabled(True)
 
     def _on_viewer_toggled(self, open_):
         self._viewer_btn.setText("Close viewer" if open_ else "Open viewer")
@@ -327,6 +335,14 @@ class RunBox(FoldBox):
     def _on_step_clicked(self):
         if self.step_requested is not None:
             self.step_requested()
+
+    def _on_stop_clicked(self):
+        if self.stop_requested is not None:
+            self.stop_requested()
+
+    def _on_reset_clicked(self):
+        if self.reset_requested is not None:
+            self.reset_requested()
 
 
 class FieldBox(FoldBox):
@@ -472,6 +488,22 @@ class SolutionPanel(QScrollArea):
     @step_requested.setter
     def step_requested(self, callback):
         self._run.step_requested = callback
+
+    @property
+    def stop_requested(self):
+        return self._run.stop_requested
+
+    @stop_requested.setter
+    def stop_requested(self, callback):
+        self._run.stop_requested = callback
+
+    @property
+    def reset_requested(self):
+        return self._run.reset_requested
+
+    @reset_requested.setter
+    def reset_requested(self, callback):
+        self._run.reset_requested = callback
 
     @property
     def remesh_requested(self):

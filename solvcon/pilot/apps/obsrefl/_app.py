@@ -30,7 +30,7 @@ class ObliqueShockApp(_gui_common.PilotFeature):
     """Euler solver panel, toggled from the View "Panels" submenu.
 
     The panel owns one domain viewer sub-window and one solver run; the
-    controller between them starts, pauses, steps, and stops the march.
+    controller between them starts, pauses, steps, and ends the march.
     """
 
     def __init__(self, *args, **kw):

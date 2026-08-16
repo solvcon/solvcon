@@ -104,6 +104,80 @@ class ObliqueShockAppTC(unittest.TestCase):
                          self.mgr.currentR3DWidget().mesh.ncell)
         QApplication.processEvents()
 
+    def test_stop_ends_the_run_and_keeps_the_field(self):
+        feature = self._feature()
+        self._coarsen(feature)
+        feature._control.start()
+        feature._control._timer.stop()
+        feature._control._on_step()
+        step = feature._control.session.step
+        feature._panel._run._stop.click()
+        sess = feature._control.session
+        self.assertEqual('stopped', sess.stop_reason)
+        self.assertEqual(step, sess.step)
+        self.assertFalse(feature._control._timer.isActive())
+        # The field the march reached is still on screen to be read.
+        self.assertTrue(feature._viewer.is_open)
+        self.assertEqual("stopped", self._status(feature)["state"])
+        QApplication.processEvents()
+
+    def test_reset_drops_the_run_and_the_viewer(self):
+        feature = self._feature()
+        self._coarsen(feature)
+        feature._control.start()
+        feature._panel._run._reset.click()
+        self.assertIsNone(feature._control.session)
+        self.assertFalse(feature._viewer.is_open)
+        self.assertFalse(feature._control._timer.isActive())
+        self.assertFalse(feature._panel._run._viewer_btn.isChecked())
+        self.assertEqual("not started", self._status(feature)["state"])
+        # What was dropped is built again from the controls.
+        feature._control.start()
+        feature._control._timer.stop()
+        self.assertIsNotNone(feature._control.session)
+        self.assertTrue(feature._viewer.is_open)
+        QApplication.processEvents()
+
+    def test_reopening_the_viewer_draws_the_run_back(self):
+        feature = self._feature()
+        self._coarsen(feature)
+        feature._control.start()
+        feature._control._timer.stop()
+        feature._control._on_step()
+        sess = feature._control.session
+        feature._viewer.close()
+        # Closing deletes the sub-window and the viewer inside it.  The run
+        # is not the viewer's, so reopening has to draw it again.
+        self.assertFalse(feature._viewer.is_open)
+        self.assertIs(sess, feature._control.session)
+        drawn = []
+        real = feature._viewer.draw_field
+
+        def spy(*args):
+            drawn.append(args)
+            real(*args)
+
+        feature._viewer.draw_field = spy
+        feature._panel._run._viewer_btn.click()
+        self.assertTrue(feature._viewer.is_open)
+        self.assertEqual(sess.shock.mesh.ncell,
+                         self.mgr.currentR3DWidget().mesh.ncell)
+        self.assertEqual(1, len(drawn))
+        self.assertEqual(sess.step, feature._control.session.step)
+        QApplication.processEvents()
+
+    def test_a_closed_viewer_still_reports_the_run(self):
+        feature = self._feature()
+        self._coarsen(feature)
+        feature._control.start()
+        feature._control._timer.stop()
+        feature._viewer.close()
+        feature._panel._run._stop.click()
+        # The readout belongs to the run, not to the viewer that was drawing
+        # it, so closing the viewer does not leave the panel stale.
+        self.assertEqual("stopped", self._status(feature)["state"])
+        QApplication.processEvents()
+
     def test_running_keeps_the_view_the_user_set(self):
         feature = self._feature()
         self._coarsen(feature)
