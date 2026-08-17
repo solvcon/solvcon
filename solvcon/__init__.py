@@ -15,6 +15,7 @@ from .core import *  # noqa: F401, F403
 from . import apputil  # noqa: F401
 from . import spacetime  # noqa: F401
 from . import onedim  # noqa: F401
+from . import timeseries  # noqa: F401
 from . import multidim  # noqa: F401
 from . import system  # noqa: F401
 from . import testing  # noqa: F401

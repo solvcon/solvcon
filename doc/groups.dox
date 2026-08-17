@@ -16,7 +16,8 @@
  */
 
 /** @defgroup group_numerics Numerics
- *  BLAS and LAPACK wrappers, dense factorizations, and integral transforms.
+ *  BLAS and LAPACK wrappers, dense factorizations, integral transforms, and
+ *  time-series kernels.
  */
 
 /** @defgroup group_geometry Geometry
