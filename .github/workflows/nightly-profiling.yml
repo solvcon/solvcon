@@ -1,17 +1,18 @@
-name: profiling
+name: nightly-profiling
 
 on:
   push:
   pull_request:
   schedule:
     - cron: '34 17 * * *'
+  workflow_dispatch:
 
 jobs:
   profile:
 
-    # Run profiling only on schedule or when SCGH_FORCE_PROFILE is set to 'enable'
+    # Run profiling only on schedule, on a manual run, or when SCGH_FORCE_PROFILE is set to 'enable'
     # You can refer to https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-variables to set SCGH_FORCE_PROFILE in the fork repository settings for testing purposes.
-    if: ${{ (github.event_name == 'schedule' && (vars.SCGH_NIGHTLY || vars.MMGH_NIGHTLY) == 'enable') || (vars.SCGH_FORCE_PROFILE || vars.MMGH_FORCE_PROFILE) == 'enable' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && (vars.SCGH_NIGHTLY || vars.MMGH_NIGHTLY) == 'enable') || (vars.SCGH_FORCE_PROFILE || vars.MMGH_FORCE_PROFILE) == 'enable' }}
 
     name: profile_${{ matrix.os }}
 
@@ -89,13 +90,13 @@ jobs:
 
   send_email_on_failure:
     needs: [profile]
-    # Run if any of the dependencies failed in master branch. A
-    # `timeout-minutes` kill reports `cancelled`, not `failure`.
+    # Mail a nightly failure only, not one a force variable drove from a pull
+    # request. A `timeout-minutes` kill reports `cancelled`, not `failure`.
     if: |
       always() &&
       (contains(needs.*.result, 'failure') ||
        contains(needs.*.result, 'cancelled')) &&
-      github.ref_name == 'master' &&
+      github.event_name == 'schedule' &&
       github.event.repository.fork == false
     uses: ./.github/workflows/send_email_on_fail.yml
     with:

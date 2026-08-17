@@ -19,7 +19,7 @@ name: check_skip_ci
 # request activity types in addition to the defaults.
 #
 # The "skip" output is "true" only for pull_request events; it is empty for
-# push and schedule events, which keeps their existing gating untouched.
+# push events, which keeps their existing gating untouched.
 
 on:
   workflow_call:

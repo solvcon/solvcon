@@ -4,8 +4,6 @@ on:
   push:
   pull_request:
     types: [opened, reopened, synchronize]
-  schedule:
-    - cron: '34 17 * * *'
 
 concurrency:
   # Key each master push on its commit SHA so every merge lands in its own
@@ -21,9 +19,6 @@ concurrency:
 jobs:
 
   check_skip:
-    # A fork inherits no SCGH_NIGHTLY, so this gate stops the nightly cron
-    # from allocating a runner there.
-    if: github.event_name != 'schedule' || (vars.SCGH_NIGHTLY || vars.MMGH_NIGHTLY) == 'enable'
     uses: ./.github/workflows/check_skip_ci.yml
     permissions:
       contents: read
@@ -41,8 +36,7 @@ jobs:
       github.event_name == 'pull_request' ||
       (github.event_name == 'push' &&
        ((vars.SCGH_PUSH_RUN_BRANCH || vars.MMGH_PUSH_RUN_BRANCH) == '*' ||
-        contains(vars.SCGH_PUSH_RUN_BRANCH || vars.MMGH_PUSH_RUN_BRANCH, github.ref_name))) ||
-      (github.event_name == 'schedule' && (vars.SCGH_NIGHTLY || vars.MMGH_NIGHTLY) == 'enable'))
+        contains(vars.SCGH_PUSH_RUN_BRANCH || vars.MMGH_PUSH_RUN_BRANCH, github.ref_name))))
 
     runs-on: ${{ matrix.os }}
 
@@ -97,10 +91,10 @@ jobs:
       with:
         workflow: 'lint'
 
-    # Only a push or a nightly run reaches this cache. A pull request builds
-    # no pilot and runs pilot_clang_tidy_diff instead, which drives clang-tidy
-    # and never the compiler, so it compiles nothing and would pull close to a
-    # gigabyte down for no hit at all.
+    # Only a push reaches this cache. A pull request builds no pilot and runs
+    # pilot_clang_tidy_diff instead, which drives clang-tidy and never the
+    # compiler, so it compiles nothing and would pull close to a gigabyte down
+    # for no hit at all.
     - name: ccache
       if: github.event_name != 'pull_request'
       uses: hendrikmuhs/ccache-action@v1.2.23
@@ -189,21 +183,3 @@ jobs:
           CMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} \
           CMAKE_ARGS="-DPYTHON_EXECUTABLE=$(which python3) -DCMAKE_EXPORT_COMPILE_COMMANDS=ON" \
           SOLVCON_DIFF_BASE=${{ github.event.pull_request.base.sha }}
-
-  send_email_on_failure:
-    needs: [lint]
-    # Run if any of the dependencies failed in master branch. A
-    # `timeout-minutes` kill reports `cancelled`, not `failure`.
-    if: |
-      always() &&
-      (contains(needs.*.result, 'failure') ||
-       contains(needs.*.result, 'cancelled')) &&
-      github.ref_name == 'master' &&
-      github.event.repository.fork == false
-    uses: ./.github/workflows/send_email_on_fail.yml
-    with:
-      job_results: |
-        - lint: ${{ needs.lint.result }}
-    secrets:
-      EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
-      EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}

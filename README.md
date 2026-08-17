@@ -22,11 +22,10 @@ developed by using C++ and Python to provide:
 10. A graphical user interface (GUI) application based on Qt for the spatial
     data and analysis.
 
-An experimental Windows binary (portable) can be downloaded from the [devbuild
-GitHub
-Action](https://github.com/solvcon/solvcon/actions/workflows/devbuild.yml?query=event%3Aschedule+is%3Asuccess+branch%3Amaster).
-Click the Windows release run and scroll down to the "artifacts" section to
-download the zip file (login to [GitHub](https://github.com/) is required).  A
-direct download link can be found in https://doc.solvcon.net/.
+The [nightly-build_windows GitHub
+Action](https://github.com/solvcon/solvcon/actions/workflows/nightly-build_windows.yml?query=event%3Aschedule+is%3Asuccess+branch%3Amaster)
+builds an experimental portable Windows binary. Open the newest successful run
+and scroll down to the "artifacts" section to download the zip file. You need a
+[GitHub](https://github.com/) login.
 
 <!-- vim: set ft=markdown ff=unix fenc=utf8 et sw=2 ts=2 sts=2 tw=79: -->
