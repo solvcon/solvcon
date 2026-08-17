@@ -1,9 +1,9 @@
-# Reductions, Statistics, Sorting, and Searching
+# Reductions, Statistics, Scans, Sorting, and Searching
 
 SimpleArray provides the reductions `min`, `max`, and `sum`, the statistics
-`mean`, `average`, `median`, `var`, and `std`, the sorting group `sort`,
-`argsort`, `searchsorted`, and `take_along_axis`, and the searching group
-`argmin`, `argmax`, and `argwhere`.
+`mean`, `average`, `median`, `var`, and `std`, the sequential scans `diff` and
+`cumsum`, the sorting group `sort`, `argsort`, `searchsorted`, and
+`take_along_axis`, and the searching group `argmin`, `argmax`, and `argwhere`.
 
 ## Whole-Array Reductions
 
@@ -149,6 +149,78 @@ classes, plus the boolean and 8-bit median; the integer truncation is
 established from the kernel source and the bound signatures. Whether the
 integer statistics should promote to a floating-point result as numpy does is
 an open decision; this page records the truncating behavior as fact.
+
+## Sequential Scans
+
+`diff()` and `cumsum()` scan a one-dimensional array from its first element to
+its last. Both take no argument. Both return a new array of the receiver's
+class and leave the receiver unchanged.
+
+An array of any other rank raises `RuntimeError`, as the sorting group does.
+For a two-dimensional receiver the message is `SimpleArray::diff(): currently
+only support 1D array but the array is 2 dimension`.
+
+Both scans compute in the element type, as the statistics do. Integer
+arithmetic wraps at the numeric boundary instead of overflowing. The kernels
+take a signed class through its unsigned counterpart, because C++ defines the
+wrap only for the unsigned types.
+
+### The `diff` Method
+
+`diff()` subtracts each element from the element after it. The result is one
+element shorter than the receiver. An empty receiver and a one-element
+receiver both give an empty result:
+
+```python
+sarr = solvcon.SimpleArrayFloat64(array=np.array([1.5, 2.5, 2.0, 7.0]))
+assert sarr.diff().ndarray.tolist() == [1.0, -0.5, 5.0]
+```
+
+A difference on an unsigned class wraps where the signal falls, and
+`numpy.diff` wraps in the same way.
+
+Subtraction has no meaning on bool. `SimpleArrayBool` raises `RuntimeError`
+with the message `SimpleArray<bool>::diff(): boolean value doesn't support
+this operation`, as `sub()` refuses the same class.
+
+### The `cumsum` Method
+
+`cumsum()` accumulates the running total and keeps the length of the receiver:
+
+```python
+sarr = solvcon.SimpleArrayFloat64(array=np.array([1.5, 2.5, 2.0, 7.0]))
+assert sarr.cumsum().ndarray.tolist() == [1.5, 4.0, 6.0, 13.0]
+```
+
+The total wraps where it exceeds the element type. numpy diverges here,
+because it promotes a narrow integer array to the platform integer:
+
+```python
+sarr = solvcon.SimpleArrayUint8(array=np.array([200, 100], dtype='uint8'))
+assert sarr.cumsum().ndarray.tolist() == [200, 44]   # numpy: [200, 300]
+```
+
+On `SimpleArrayBool` the accumulation is a logical or, as `sum()` accumulates.
+The result answers whether any element up to this position is true. numpy
+counts the true elements instead:
+
+```python
+sarr = solvcon.SimpleArrayBool(array=np.array([False, True, False]))
+assert sarr.cumsum().ndarray.tolist() == [False, True, True]
+```
+
+`cumsum()` inverts `diff()`. The expression
+`sarr.diff().cumsum().add(sarr[0])` gives the receiver without its first
+element.
+
+### Scans Read the Logical Elements
+
+Both methods read the logical elements. They therefore read a strided view in
+array order, not in buffer order.
+
+A {ref}`ghost region <ghost-region>` belongs to the array that a scan reads.
+The first difference is the difference between the first two ghost elements,
+and the running total starts at the first ghost element.
 
 ## Sorting and Gathering
 

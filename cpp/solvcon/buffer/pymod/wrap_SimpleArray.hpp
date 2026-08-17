@@ -276,6 +276,8 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArray
             .def("max", &wrapped_type::max)
             .def("sum", &wrapped_type::sum)
             .def("abs", &wrapped_type::abs)
+            .def("diff", &wrapped_type::diff)
+            .def("cumsum", &wrapped_type::cumsum)
             .def(
                 "add",
                 [](wrapped_type const & self, wrapped_type const & other)
