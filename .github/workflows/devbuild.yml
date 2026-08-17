@@ -4,8 +4,6 @@ on:
   push:
   pull_request:
     types: [opened, reopened, synchronize]
-  schedule:
-    - cron: '34 17 * * *'
 
 concurrency:
   # Key each master push on its commit SHA so every merge lands in its own
@@ -21,9 +19,6 @@ concurrency:
 jobs:
 
   check_skip:
-    # A fork inherits no SCGH_NIGHTLY, so this gate stops the nightly cron
-    # from allocating a runner there.
-    if: github.event_name != 'schedule' || (vars.SCGH_NIGHTLY || vars.MMGH_NIGHTLY) == 'enable'
     uses: ./.github/workflows/check_skip_ci.yml
     permissions:
       contents: read
@@ -39,8 +34,7 @@ jobs:
       github.event_name == 'pull_request' ||
       (github.event_name == 'push' &&
        ((vars.SCGH_PUSH_RUN_BRANCH || vars.MMGH_PUSH_RUN_BRANCH) == '*' ||
-        contains(vars.SCGH_PUSH_RUN_BRANCH || vars.MMGH_PUSH_RUN_BRANCH, github.ref_name))) ||
-      (github.event_name == 'schedule' && (vars.SCGH_NIGHTLY || vars.MMGH_NIGHTLY) == 'enable'))
+        contains(vars.SCGH_PUSH_RUN_BRANCH || vars.MMGH_PUSH_RUN_BRANCH, github.ref_name))))
 
     name: standalone_buffer_${{ matrix.os }}
 
@@ -84,9 +78,8 @@ jobs:
           create-symlink: true
           save: ${{ github.event_name != 'pull_request' }}
           # Bound the cache so it does not grow without limit across the rolling
-          # key. A master push or nightly run saves this cache; pull requests
-          # restore it (a PR on a non-default base branch cannot, so it runs
-          # cold).
+          # key. A master push saves this cache; pull requests restore it (a PR
+          # on a non-default base branch cannot, so it runs cold).
           max-size: 500M
 
       - name: make standalone_buffer
@@ -107,9 +100,7 @@ jobs:
       github.event_name == 'pull_request' ||
       (github.event_name == 'push' &&
        ((vars.SCGH_PUSH_RUN_BRANCH || vars.MMGH_PUSH_RUN_BRANCH) == '*' ||
-        contains(vars.SCGH_PUSH_RUN_BRANCH || vars.MMGH_PUSH_RUN_BRANCH, github.ref_name))) ||
-      (github.event_name == 'schedule' &&
-      (vars.SCGH_NIGHTLY || vars.MMGH_NIGHTLY) == 'enable'))
+        contains(vars.SCGH_PUSH_RUN_BRANCH || vars.MMGH_PUSH_RUN_BRANCH, github.ref_name))))
 
     name: build_${{ matrix.os }}_${{ matrix.cmake_build_type }}
 
@@ -184,9 +175,8 @@ jobs:
         restore-keys: ${{ runner.os }}-${{ matrix.cmake_build_type }}
         save: ${{ github.event_name != 'pull_request' }}
         # Bound the cache so it does not grow without limit across the rolling
-        # key. A master push or nightly run saves this cache; pull requests
-        # restore it (a PR on a non-default base branch cannot, so it runs
-        # cold).
+        # key. A master push saves this cache; pull requests restore it (a PR
+        # on a non-default base branch cannot, so it runs cold).
         max-size: 1500M
 
     - name: make gtest BUILD_QT=OFF
@@ -251,9 +241,9 @@ jobs:
           JOB_MAKE_ARGS="${JOB_MAKE_ARGS} BUILD_METAL=ON" ; \
         fi
         # A pull request skips tests/gui here, because run_pilot_pytest below
-        # runs it seconds later in the pilot binary. A push and the nightly
-        # schedule run the whole suite in both Qt hosts. SOLVCON_TEST_SHOW_WINDOWS
-        # is left at the default either way, so any window stays off the screen.
+        # runs it seconds later in the pilot binary. A push runs the whole
+        # suite in both Qt hosts. SOLVCON_TEST_SHOW_WINDOWS is left at the
+        # default either way, so any window stays off the screen.
         make ${{ github.event_name == 'pull_request' && 'pytest-fast' || 'pytest' }} ${JOB_MAKE_ARGS}
         echo "::endgroup::"
 
@@ -287,16 +277,17 @@ jobs:
     needs: [check_skip, standalone_buffer]
 
     # cpp != 'false' keeps the expensive Windows build off pull requests that
-    # touch no C++ or build files (it is empty, so truthy, for push/schedule).
+    # touch no C++ or build files (it is empty, so truthy, for a push).
+    # The cron is absent here on purpose. nightly-build_windows.yml builds
+    # Windows in Release and Debug, and packages the portable artifact from
+    # the Release tree.
     if: |
       needs.check_skip.outputs.skip != 'true' &&
       needs.check_skip.outputs.cpp != 'false' && (
       github.event_name == 'pull_request' ||
       (github.event_name == 'push' &&
        ((vars.SCGH_PUSH_RUN_BRANCH || vars.MMGH_PUSH_RUN_BRANCH) == '*' ||
-        contains(vars.SCGH_PUSH_RUN_BRANCH || vars.MMGH_PUSH_RUN_BRANCH, github.ref_name))) ||
-      (github.event_name == 'schedule' &&
-      (vars.SCGH_NIGHTLY || vars.MMGH_NIGHTLY) == 'enable'))
+        contains(vars.SCGH_PUSH_RUN_BRANCH || vars.MMGH_PUSH_RUN_BRANCH, github.ref_name))))
 
     name: build_${{ matrix.os }}_${{ matrix.cmake_build_type }}
 
@@ -318,11 +309,10 @@ jobs:
     strategy:
       matrix:
         os: [windows-2022]
-        # Release runs on every pull request and master push. Debug is the
-        # only Windows Debug compile (lint.yml has no Windows job), but it is
-        # heavy and rarely breaks on its own, so it runs on the nightly
-        # schedule only.
-        cmake_build_type: ${{ (github.event_name == 'schedule' && (vars.SCGH_NIGHTLY || vars.MMGH_NIGHTLY) == 'enable' && fromJSON('["Release", "Debug"]')) || fromJSON('["Release"]') }}
+        # Release runs on every pull request and master push. Debug is heavy
+        # and rarely breaks on its own, so nightly-build_windows.yml carries
+        # it instead.
+        cmake_build_type: [Release]
 
       fail-fast: false
 
@@ -372,9 +362,9 @@ jobs:
           restore-keys: ${{ runner.os }}-sccache-${{ matrix.cmake_build_type }}
           save: ${{ github.event_name != 'pull_request' }}
           # Bound the cache so it does not grow without limit across the rolling
-          # key. A master push or nightly run saves this cache; pull requests
-          # restore it (a PR on a non-default base branch cannot, so it runs
-          # cold).
+          # key. A master push here and the nightly Release leg both save under
+          # this key; pull requests restore it (a PR on a non-default base
+          # branch cannot, so it runs cold).
           max-size: 500M
 
       - name: install Intel MKL (vendor BLAS/LAPACK)
@@ -435,289 +425,11 @@ jobs:
       - name: cmake workflow
         run: |
           echo "::group::cmake workflow"
-          # The ci-win-* presets in CMakePresets.json state the whole
+          # The ci-win-rel preset in CMakePresets.json states the whole
           # configure.
           $env:PYBIND11_DIR = "$(pybind11-config --cmakedir)"
           # A runner has no desktop to take over, so let this job map its
           # windows, the way it has always run them.
           $env:SOLVCON_TEST_SHOW_WINDOWS = "ON"
-          $preset = if ('${{ matrix.cmake_build_type }}' -eq 'Debug') {
-            'ci-win-dbg'
-          } else {
-            'ci-win-rel'
-          }
-          cmake --workflow --preset $preset
+          cmake --workflow --preset ci-win-rel
           echo "::endgroup::"
-
-      - name: generate portable
-        if: ${{ matrix.cmake_build_type == 'Release' && github.event_name == 'schedule' && (vars.SCGH_NIGHTLY || vars.MMGH_NIGHTLY) == 'enable' }}
-        run: |
-          echo "::group::generate portable"
-          # Get the Python version installed and extract the major+minor version components
-          $py_ver=$(python3 -V | awk '{print $2}')
-          $py_main_ver=$(echo $py_ver | awk -F. '{print $1$2}')
-          $destination=".\solvcon-pilot-win64\solvcon-pilot-win64"
-          $py_exec="$destination\python.exe"
-
-          # Create the destination directory
-          New-Item -ItemType Directory -Path $destination
-
-          # Download and extract the Python embeddable package
-          $pyembed_url="https://www.python.org/ftp/python/$py_ver/python-$py_ver-embed-amd64.zip"
-          $pyembed_dl="python-$py_ver-embed-amd64.zip"
-          Invoke-WebRequest -Uri $pyembed_url -OutFile $pyembed_dl
-          Expand-Archive -Path $pyembed_dl -DestinationPath $destination
-
-          # Patch the .pth file to enable 'site' package (required for using pip)
-          $pth_file="$destination\python$py_main_ver._pth"
-          (Get-Content $pth_file) -replace '#import site', 'import site' | Set-Content $pth_file
-
-          # Download and setup pip installation script
-          $get_pip_url="https://bootstrap.pypa.io/get-pip.py"
-          $get_pip_script="$destination\get-pip.py"
-          Invoke-WebRequest -Uri $get_pip_url -OutFile $get_pip_script
-          & $py_exec $get_pip_script
-
-          # Install necessary packages for the pilot
-          $qt_ver=$(qmake -query QT_VERSION)
-          & $py_exec -m pip install numpy matplotlib PySide6==$qt_ver shiboken6-generator==$qt_ver
-
-          # Copy pyside6 and shiboken6 DLLs alongside the pilot executable
-          $pyside6_path=$(& $py_exec -c "import sys, os, PySide6; sys.stdout.write(os.path.dirname(PySide6.__file__))")
-          $shiboken6_path=$(& $py_exec -c "import sys, os, shiboken6; sys.stdout.write(os.path.dirname(shiboken6.__file__))")
-          copy "$pyside6_path\pyside6.abi3.dll" $destination
-          copy "$shiboken6_path\shiboken6.abi3.dll" $destination
-          # Remove redundant Qt DLLs from PySide6
-          Remove-Item -Path $pyside6_path\Qt*.dll
-
-          # The workflow preset above already configured and built this tree
-          # with the Ninja single-config generator, so rebuild the pilot in
-          # place and read pilot.exe from the runtime output directory the
-          # preset names.
-          cmake --build --preset ci-win-rel --target pilot
-
-          # Deploy the Qt environment for the pilot executable and copy necessary files
-          Copy-Item -Path ".\build\ci-win-rel\pilot.exe" -Destination $destination
-          windeployqt --release "$destination\pilot.exe"
-          Copy-Item -Path ".\solvcon" -Destination $destination -Recurse
-          # Also include potential thirdparty
-          Copy-Item -Path ".\thirdparty" -Destination $destination -Recurse
-          echo "::endgroup::"
-
-      - name: archive portable artifacts
-        if: ${{ matrix.cmake_build_type == 'Release' && github.event_name == 'schedule' && (vars.SCGH_NIGHTLY || vars.MMGH_NIGHTLY) == 'enable' }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: solvcon-pilot-win64
-          path: solvcon-pilot-win64/
-
-  sanitizer:
-
-    needs: [check_skip]
-
-    # A genuine -DUSE_SANITIZER=ON ASAN/UBSAN build. It is slow, so it runs on
-    # the nightly schedule only (set SCGH_FORCE_SANITIZER to 'enable' to force
-    # it on a fork). This restores the real sanitizer coverage that the build
-    # job used to stub out by configuring -DUSE_SANITIZER=OFF.
-    if: |
-      needs.check_skip.outputs.skip != 'true' && (
-      (github.event_name == 'schedule' && (vars.SCGH_NIGHTLY || vars.MMGH_NIGHTLY) == 'enable') ||
-      (vars.SCGH_FORCE_SANITIZER || vars.MMGH_FORCE_SANITIZER) == 'enable')
-
-    name: sanitizer_${{ matrix.os }}
-
-    runs-on: ${{ matrix.os }}
-
-    timeout-minutes: ${{ fromJSON(vars.SCGH_TIMEOUT_BUILD || vars.MMGH_TIMEOUT_BUILD || '45') }}
-
-    env:
-      MAKE_PARALLEL: -j2
-      PIP_BREAK_SYSTEM_PACKAGES: 1
-
-    strategy:
-      matrix:
-        os: [ubuntu-24.04]
-        # Sanitizer reports name a file and a line only when the binary
-        # carries debug symbols, so this job builds RelWithDebInfo.
-        cmake_build_type: [RelWithDebInfo]
-
-      fail-fast: false
-
-    steps:
-
-    - uses: actions/checkout@v6
-      with:
-        fetch-depth: 1
-
-    - name: event name
-      run: |
-        echo "github.event_name: ${{ github.event_name }}"
-
-    - name: setup dependencies for Linux
-      uses: ./.github/actions/setup_linux
-      with:
-        workflow: 'build'
-
-    - name: ccache
-      uses: hendrikmuhs/ccache-action@v1.2.23
-      with:
-        key: ${{ runner.os }}-sanitizer-${{ matrix.cmake_build_type }}
-        restore-keys: ${{ runner.os }}-sanitizer-${{ matrix.cmake_build_type }}
-        save: ${{ github.event_name != 'pull_request' }}
-        max-size: 1500M
-
-    - name: make gtest USE_SANITIZER=ON
-      run: |
-        echo "::group::make gtest USE_SANITIZER=ON"
-        # Run ASAN/UBSAN over the C++ gtest binary rather than pytest. The
-        # gtest executable is linked directly against the sanitizer runtime,
-        # so ASan initializes first and intercepts every allocation.
-        make gtest \
-          VERBOSE=1 USE_CLANG_TIDY=OFF \
-          BUILD_QT=OFF \
-          CMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} \
-          CMAKE_ARGS="-DPYTHON_EXECUTABLE=$(which python3) -DUSE_SANITIZER=ON"
-        echo "::endgroup::"
-
-  sanitizer_windows:
-
-    needs: [check_skip]
-
-    # The MSVC counterpart of the sanitizer job. MSVC ships only
-    # AddressSanitizer. The gtest binary and pilot.exe both link the ASan
-    # runtime directly, so it starts with the process and instruments the C++
-    # core and the Qt pilot. Slow, so nightly-only (set SCGH_FORCE_SANITIZER to
-    # force it on a fork).
-    if: |
-      needs.check_skip.outputs.skip != 'true' && (
-      (github.event_name == 'schedule' && (vars.SCGH_NIGHTLY || vars.MMGH_NIGHTLY) == 'enable') ||
-      (vars.SCGH_FORCE_SANITIZER || vars.MMGH_FORCE_SANITIZER) == 'enable')
-
-    name: sanitizer_${{ matrix.os }}
-
-    runs-on: ${{ matrix.os }}
-
-    timeout-minutes: ${{ fromJSON(vars.SCGH_TIMEOUT_BUILD || vars.MMGH_TIMEOUT_BUILD || '60') }}
-
-    env:
-      AQT_CONFIG: "thirdparty/aqt_settings.ini"
-      QSG_RHI_PREFER_SOFTWARE_RENDERER: "1"
-      QSG_INFO: "1"
-      # Hook the RTL allocators so the uninstrumented Qt and PySide6 DLLs share
-      # ASan's heap (else a cross-module free reads as a false mismatch).
-      ASAN_OPTIONS: "windows_hook_rtl_allocators=1:abort_on_error=1:detect_leaks=0"
-
-    strategy:
-      matrix:
-        # No build type here: this job configures through the ci-win-asan
-        # preset, which states its own.
-        os: [windows-2022]
-
-      fail-fast: false
-
-    steps:
-
-    - uses: actions/checkout@v6
-      with:
-        fetch-depth: 1
-
-    - name: event name
-      run: |
-        echo "github.event_name: ${{ github.event_name }}"
-
-    - uses: TheMrMilchmann/setup-msvc-dev@v4
-      with:
-        arch: 'x64'
-
-    # CMake in the windows-2022 image is 3.31.6; solvcon needs >= 4.0.1.
-    - name: install CMake>4.0.1
-      uses: lukka/get-cmake@latest
-
-    - name: install qt
-      uses: jurplel/install-qt-action@v4
-      with:
-        # aqtinstall 3.3.0 cannot resolve Qt 6.11's new split Windows
-        # desktop repository, so Windows stays on 6.10.3 while Linux and
-        # macOS run 6.11.1.
-        # Ref: https://github.com/miurahr/aqtinstall/issues/1007
-        version: '6.10.3'
-        host: 'windows'
-        target: 'desktop'
-        arch: 'win64_msvc2022_64'
-        modules: 'qtshadertools'
-        cache: true
-
-    - uses: actions/setup-python@v6
-      with:
-        python-version: '3.12'
-
-    - name: Cache vcpkg (install artifacts)
-      uses: actions/cache@v4
-      with:
-        path: |
-          C:\vcpkg\installed
-          C:\vcpkg\downloads
-          C:\vcpkg\buildtrees
-          C:\vcpkg\packages
-        key: vcpkg-${{ runner.os }}-openblas-lapack
-        restore-keys: vcpkg-${{ runner.os }}-
-
-    - name: install BLAS and LAPACK
-      run: |
-        echo "::group::install BLAS and LAPACK"
-        vcpkg install openblas:x64-windows lapack:x64-windows
-        $vcpkg_bin_path = @(
-          "C:\vcpkg\installed\x64-windows\bin",
-          "C:\vcpkg\installed\x64-windows\debug\bin"
-        ) -join ";"
-        echo "$vcpkg_bin_path" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-        echo "::endgroup::"
-
-    - name: dependency by pip
-      run: |
-        echo "::group::dependency by pip"
-        pip3 install -U numpy pytest pybind11
-        # For pilot GUI.
-        pip3 install -U matplotlib jsonschema flake8 pyside6==$(qmake -query QT_VERSION)
-        $pyside6_path = $(python3 -c "import sys, os, PySide6; sys.stdout.write(os.path.dirname(PySide6.__file__))")
-        $shiboken6_path = $(python3 -c "import sys, os, shiboken6; sys.stdout.write(os.path.dirname(shiboken6.__file__))")
-        echo "$pyside6_path;$shiboken6_path" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-        echo "::endgroup::"
-
-    - name: cmake workflow USE_SANITIZER=ON
-      run: |
-        echo "::group::cmake workflow USE_SANITIZER=ON"
-        # The ci-win-asan preset instruments both the gtest binary and the Qt
-        # pilot: BUILD_QT and USE_GOOGLETEST build both, USE_SANITIZER adds
-        # /fsanitize=address, and the vcpkg toolchain supplies BLAS and LAPACK.
-        # The MSVC toolset bin dir that setup-msvc-dev puts on PATH also carries
-        # the ASan runtime DLL the instrumented binaries load at start.
-        $env:PYBIND11_DIR = "$(pybind11-config --cmakedir)"
-        # A runner has no desktop to take over, so let this job map its
-        # windows, the way it has always run them.
-        $env:SOLVCON_TEST_SHOW_WINDOWS = "ON"
-        cmake --workflow --preset ci-win-asan
-        echo "::endgroup::"
-
-
-  send_email_on_failure:
-    needs: [standalone_buffer, build, build_windows, sanitizer, sanitizer_windows]
-    # Run if any of the dependencies failed in master branch. A
-    # `timeout-minutes` kill reports `cancelled`, not `failure`.
-    if: |
-      always() &&
-      (contains(needs.*.result, 'failure') ||
-       contains(needs.*.result, 'cancelled')) &&
-      github.ref_name == 'master' &&
-      github.event.repository.fork == false
-    uses: ./.github/workflows/send_email_on_fail.yml
-    with:
-      job_results: |
-        - standalone_buffer: ${{ needs.standalone_buffer.result }}
-        - build: ${{ needs.build.result }}
-        - build_windows: ${{ needs.build_windows.result }}
-        - sanitizer: ${{ needs.sanitizer.result }}
-        - sanitizer_windows: ${{ needs.sanitizer_windows.result }}
-    secrets:
-      EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
-      EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}

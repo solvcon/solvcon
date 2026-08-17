@@ -1,0 +1,231 @@
+name: nightly-sanitizer
+
+on:
+  push:
+  pull_request:
+    types: [opened, reopened, synchronize]
+  schedule:
+    - cron: '34 17 * * *'
+  workflow_dispatch:
+
+concurrency:
+  # Key each master push on its commit SHA so every merge lands in its own
+  # concurrency group. Sharing one group serializes master runs, and with
+  # cancel-in-progress disabled GitHub still cancels a pending run when the
+  # next merge queues behind the one in progress, so a later merge would
+  # drop an earlier merge's result. A unique group per SHA keeps every
+  # master run independent. Pull requests key on the PR number and other
+  # branches on the ref, so their superseded runs still cancel.
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || (github.ref == 'refs/heads/master' && github.sha) || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
+
+# The push and pull_request triggers exist only so that SCGH_FORCE_SANITIZER
+# can drive this workflow from a fork's pull request. That force variable is
+# the opposite of a skip-ci request, so no check_skip call gates it.
+jobs:
+
+  sanitizer:
+
+    # A genuine -DUSE_SANITIZER=ON ASAN/UBSAN build. It is slow, so it runs on
+    # the nightly schedule only (set SCGH_FORCE_SANITIZER to 'enable' to force
+    # it on a fork). This is the real sanitizer coverage that devbuild's build
+    # job used to stub out by configuring -DUSE_SANITIZER=OFF.
+    #
+    # A fork inherits no SCGH_NIGHTLY, so this gate also stops the nightly cron
+    # from allocating a runner there.
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'schedule' && (vars.SCGH_NIGHTLY || vars.MMGH_NIGHTLY) == 'enable') ||
+      (vars.SCGH_FORCE_SANITIZER || vars.MMGH_FORCE_SANITIZER) == 'enable'
+
+    name: sanitizer_${{ matrix.os }}
+
+    runs-on: ${{ matrix.os }}
+
+    timeout-minutes: ${{ fromJSON(vars.SCGH_TIMEOUT_BUILD || vars.MMGH_TIMEOUT_BUILD || '45') }}
+
+    env:
+      MAKE_PARALLEL: -j2
+      PIP_BREAK_SYSTEM_PACKAGES: 1
+
+    strategy:
+      matrix:
+        os: [ubuntu-24.04]
+        # Sanitizer reports name a file and a line only when the binary
+        # carries debug symbols, so this job builds RelWithDebInfo.
+        cmake_build_type: [RelWithDebInfo]
+
+      fail-fast: false
+
+    steps:
+
+    - uses: actions/checkout@v6
+      with:
+        fetch-depth: 1
+
+    - name: event name
+      run: |
+        echo "github.event_name: ${{ github.event_name }}"
+
+    - name: setup dependencies for Linux
+      uses: ./.github/actions/setup_linux
+      with:
+        workflow: 'build'
+
+    - name: ccache
+      uses: hendrikmuhs/ccache-action@v1.2.23
+      with:
+        key: ${{ runner.os }}-sanitizer-${{ matrix.cmake_build_type }}
+        restore-keys: ${{ runner.os }}-sanitizer-${{ matrix.cmake_build_type }}
+        save: ${{ github.event_name != 'pull_request' }}
+        max-size: 1500M
+
+    - name: make gtest USE_SANITIZER=ON
+      run: |
+        echo "::group::make gtest USE_SANITIZER=ON"
+        # Run ASAN/UBSAN over the C++ gtest binary rather than pytest. The
+        # gtest executable is linked directly against the sanitizer runtime,
+        # so ASan initializes first and intercepts every allocation.
+        make gtest \
+          VERBOSE=1 USE_CLANG_TIDY=OFF \
+          BUILD_QT=OFF \
+          CMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} \
+          CMAKE_ARGS="-DPYTHON_EXECUTABLE=$(which python3) -DUSE_SANITIZER=ON"
+        echo "::endgroup::"
+
+  sanitizer_windows:
+
+    # The MSVC counterpart of the sanitizer job. MSVC ships only
+    # AddressSanitizer. The gtest binary and pilot.exe both link the ASan
+    # runtime directly, so it starts with the process and instruments the C++
+    # core and the Qt pilot. Slow, so nightly-only (set SCGH_FORCE_SANITIZER to
+    # force it on a fork).
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'schedule' && (vars.SCGH_NIGHTLY || vars.MMGH_NIGHTLY) == 'enable') ||
+      (vars.SCGH_FORCE_SANITIZER || vars.MMGH_FORCE_SANITIZER) == 'enable'
+
+    name: sanitizer_${{ matrix.os }}
+
+    runs-on: ${{ matrix.os }}
+
+    timeout-minutes: ${{ fromJSON(vars.SCGH_TIMEOUT_BUILD || vars.MMGH_TIMEOUT_BUILD || '60') }}
+
+    env:
+      AQT_CONFIG: "thirdparty/aqt_settings.ini"
+      QSG_RHI_PREFER_SOFTWARE_RENDERER: "1"
+      QSG_INFO: "1"
+      # Hook the RTL allocators so the uninstrumented Qt and PySide6 DLLs share
+      # ASan's heap (else a cross-module free reads as a false mismatch).
+      ASAN_OPTIONS: "windows_hook_rtl_allocators=1:abort_on_error=1:detect_leaks=0"
+
+    strategy:
+      matrix:
+        # No build type here: this job configures through the ci-win-asan
+        # preset, which states its own.
+        os: [windows-2022]
+
+      fail-fast: false
+
+    steps:
+
+    - uses: actions/checkout@v6
+      with:
+        fetch-depth: 1
+
+    - name: event name
+      run: |
+        echo "github.event_name: ${{ github.event_name }}"
+
+    - uses: TheMrMilchmann/setup-msvc-dev@v4
+      with:
+        arch: 'x64'
+
+    # CMake in the windows-2022 image is 3.31.6; solvcon needs >= 4.0.1.
+    - name: install CMake>4.0.1
+      uses: lukka/get-cmake@latest
+
+    - name: install qt
+      uses: jurplel/install-qt-action@v4
+      with:
+        # aqtinstall 3.3.0 cannot resolve Qt 6.11's new split Windows
+        # desktop repository, so Windows stays on 6.10.3 while Linux and
+        # macOS run 6.11.1.
+        # Ref: https://github.com/miurahr/aqtinstall/issues/1007
+        version: '6.10.3'
+        host: 'windows'
+        target: 'desktop'
+        arch: 'win64_msvc2022_64'
+        modules: 'qtshadertools'
+        cache: true
+
+    - uses: actions/setup-python@v6
+      with:
+        python-version: '3.12'
+
+    - name: Cache vcpkg (install artifacts)
+      uses: actions/cache@v4
+      with:
+        path: |
+          C:\vcpkg\installed
+          C:\vcpkg\downloads
+          C:\vcpkg\buildtrees
+          C:\vcpkg\packages
+        key: vcpkg-${{ runner.os }}-openblas-lapack
+        restore-keys: vcpkg-${{ runner.os }}-
+
+    - name: install BLAS and LAPACK
+      run: |
+        echo "::group::install BLAS and LAPACK"
+        vcpkg install openblas:x64-windows lapack:x64-windows
+        $vcpkg_bin_path = @(
+          "C:\vcpkg\installed\x64-windows\bin",
+          "C:\vcpkg\installed\x64-windows\debug\bin"
+        ) -join ";"
+        echo "$vcpkg_bin_path" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        echo "::endgroup::"
+
+    - name: dependency by pip
+      run: |
+        echo "::group::dependency by pip"
+        pip3 install -U numpy pytest pybind11
+        # For pilot GUI.
+        pip3 install -U matplotlib jsonschema flake8 pyside6==$(qmake -query QT_VERSION)
+        $pyside6_path = $(python3 -c "import sys, os, PySide6; sys.stdout.write(os.path.dirname(PySide6.__file__))")
+        $shiboken6_path = $(python3 -c "import sys, os, shiboken6; sys.stdout.write(os.path.dirname(shiboken6.__file__))")
+        echo "$pyside6_path;$shiboken6_path" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        echo "::endgroup::"
+
+    - name: cmake workflow USE_SANITIZER=ON
+      run: |
+        echo "::group::cmake workflow USE_SANITIZER=ON"
+        # The ci-win-asan preset instruments both the gtest binary and the Qt
+        # pilot: BUILD_QT and USE_GOOGLETEST build both, USE_SANITIZER adds
+        # /fsanitize=address, and the vcpkg toolchain supplies BLAS and LAPACK.
+        # The MSVC toolset bin dir that setup-msvc-dev puts on PATH also carries
+        # the ASan runtime DLL the instrumented binaries load at start.
+        $env:PYBIND11_DIR = "$(pybind11-config --cmakedir)"
+        # A runner has no desktop to take over, so let this job map its
+        # windows, the way it has always run them.
+        $env:SOLVCON_TEST_SHOW_WINDOWS = "ON"
+        cmake --workflow --preset ci-win-asan
+        echo "::endgroup::"
+
+  send_email_on_failure:
+    needs: [sanitizer, sanitizer_windows]
+    # Mail a nightly failure only, not one a force variable drove from a pull
+    # request. A `timeout-minutes` kill reports `cancelled`, not `failure`.
+    if: |
+      always() &&
+      (contains(needs.*.result, 'failure') ||
+       contains(needs.*.result, 'cancelled')) &&
+      github.event_name == 'schedule' &&
+      github.event.repository.fork == false
+    uses: ./.github/workflows/send_email_on_fail.yml
+    with:
+      job_results: |
+        - sanitizer: ${{ needs.sanitizer.result }}
+        - sanitizer_windows: ${{ needs.sanitizer_windows.result }}
+    secrets:
+      EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
+      EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}

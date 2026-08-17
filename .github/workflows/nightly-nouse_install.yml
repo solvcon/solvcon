@@ -1,4 +1,4 @@
-name: nouse_install
+name: nightly-nouse_install
 
 on:
   push:
@@ -6,6 +6,7 @@ on:
     types: [opened, reopened, synchronize]
   schedule:
     - cron: '34 17 * * *'
+  workflow_dispatch:
 
 concurrency:
   # Key each master push on its commit SHA so every merge lands in its own
@@ -18,21 +19,14 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || (github.ref == 'refs/heads/master' && github.sha) || github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
 
+# The push and pull_request triggers exist for the release-tag push and so
+# that SCGH_FORCE_NOUSE_INSTALL can drive this workflow from a fork's pull
+# request. That force variable is the opposite of a skip-ci request, so no
+# check_skip call gates it, which matches nightly-sanitizer and
+# nightly-profiling.
 jobs:
 
-  check_skip:
-    # A fork inherits no SCGH_NIGHTLY, so this gate stops the nightly cron
-    # from allocating a runner there.
-    if: github.event_name != 'schedule' || (vars.SCGH_NIGHTLY || vars.MMGH_NIGHTLY) == 'enable'
-    uses: ./.github/workflows/check_skip_ci.yml
-    permissions:
-      contents: read
-      pull-requests: read
-      issues: read
-
   nouse_install:
-
-    needs: [check_skip]
 
     # The setup.py install path re-verifies packaging and duplicates the build
     # job's pytest. It does not gate correctness on a pull request, so it runs
@@ -40,10 +34,10 @@ jobs:
     # requests or master pushes. Set the SCGH_FORCE_NOUSE_INSTALL variable to
     # 'enable' to force it on a fork.
     if: |
-      needs.check_skip.outputs.skip != 'true' && (
+      github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'schedule' && (vars.SCGH_NIGHTLY || vars.MMGH_NIGHTLY) == 'enable') ||
       (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) ||
-      (vars.SCGH_FORCE_NOUSE_INSTALL || vars.MMGH_FORCE_NOUSE_INSTALL) == 'enable')
+      (vars.SCGH_FORCE_NOUSE_INSTALL || vars.MMGH_FORCE_NOUSE_INSTALL) == 'enable'
 
     name: nouse_install_${{ matrix.os }}_Release
 
@@ -94,9 +88,9 @@ jobs:
           restore-keys: ${{ runner.os }}-nouse-Release
           save: ${{ github.event_name != 'pull_request' }}
           # Bound the cache so it does not grow without limit across the rolling
-          # key. A master push or nightly run saves this cache; pull requests
-          # restore it (a PR on a non-default base branch cannot, so it runs
-          # cold).
+          # key. A nightly run, a manual run, or a release-tag push saves this
+          # cache; a forced pull request restores it (a PR on a non-default
+          # base branch cannot, so it runs cold).
           max-size: 1500M
 
       - name: setup.py install build_ext
@@ -131,13 +125,13 @@ jobs:
 
   send_email_on_failure:
     needs: [nouse_install]
-    # Run if any of the dependencies failed in master branch. A
-    # `timeout-minutes` kill reports `cancelled`, not `failure`.
+    # Mail a nightly failure only, not one a force variable drove from a pull
+    # request. A `timeout-minutes` kill reports `cancelled`, not `failure`.
     if: |
       always() &&
       (contains(needs.*.result, 'failure') ||
        contains(needs.*.result, 'cancelled')) &&
-      github.ref_name == 'master' &&
+      github.event_name == 'schedule' &&
       github.event.repository.fork == false
     uses: ./.github/workflows/send_email_on_fail.yml
     with:
