@@ -31,7 +31,7 @@ namespace detail
 {
 
 template <typename T>
-inline constexpr bool can_matmul_blas_v = std::is_same_v<T, float> ||
+inline constexpr bool is_blas_element_v = std::is_same_v<T, float> ||
                                           std::is_same_v<T, double> ||
                                           std::is_same_v<T, Complex<float>> ||
                                           std::is_same_v<T, Complex<double>>;
@@ -39,7 +39,7 @@ inline constexpr bool can_matmul_blas_v = std::is_same_v<T, float> ||
 // Whether a matmul over T reaches BLAS at all: the type has to be one BLAS
 // takes and the build has to have a backend behind the wrappers.
 template <typename T>
-inline constexpr bool use_matmul_blas_v = has_blas_backend && can_matmul_blas_v<T>;
+inline constexpr bool use_matmul_blas_v = has_blas_backend && is_blas_element_v<T>;
 
 /**
  * @brief Identify the contraction kernel fixed before batch traversal.
