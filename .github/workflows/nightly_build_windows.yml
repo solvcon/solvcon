@@ -1,4 +1,4 @@
-name: nightly-build_windows
+name: nightly_build_windows
 
 on:
   schedule:
@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: nightly-build-windows
+  group: nightly_build_windows
   cancel-in-progress: false
 
 jobs:

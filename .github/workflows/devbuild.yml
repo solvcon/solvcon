@@ -278,7 +278,7 @@ jobs:
 
     # cpp != 'false' keeps the expensive Windows build off pull requests that
     # touch no C++ or build files (it is empty, so truthy, for a push).
-    # The cron is absent here on purpose. nightly-build_windows.yml builds
+    # The cron is absent here on purpose. nightly_build_windows.yml builds
     # Windows in Release and Debug, and packages the portable artifact from
     # the Release tree.
     if: |
@@ -310,7 +310,7 @@ jobs:
       matrix:
         os: [windows-2022]
         # Release runs on every pull request and master push. Debug is heavy
-        # and rarely breaks on its own, so nightly-build_windows.yml carries
+        # and rarely breaks on its own, so nightly_build_windows.yml carries
         # it instead.
         cmake_build_type: [Release]
 

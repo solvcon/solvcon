@@ -52,10 +52,10 @@ forward `PYTEST_OPTS` to a subset.
 ## Automatic Testing on GitHub Actions
 
 Continuous integration runs on GitHub Actions. The workflows live in
-`.github/workflows/` and form two sets. Only a `nightly-` workflow runs tests
+`.github/workflows/` and form two sets. Only a `nightly_` workflow runs tests
 on a cron, so the name states which set a workflow belongs to. (Two crons
-outside those workflows do maintenance rather than testing: `cache cleanup`
-sweeps stale caches daily, and `Update Contributors` files a monthly issue.)
+outside those workflows do maintenance rather than testing: `cache_cleanup`
+sweeps stale caches daily, and `update_contributors` files a monthly issue.)
 Each job drives the `make` targets above, so you can reproduce a failure
 locally.
 
@@ -73,16 +73,16 @@ The fast set runs on every pull request and `master` push:
 
 The heavy set runs on the cron, one workflow per concern:
 
-- `nightly-build_windows`: the Windows build in Release and Debug, and the
+- `nightly_build_windows`: the Windows build in Release and Debug, and the
   portable artifact packaged from the Release tree.
-- `nightly-nouse_install`: the `setup.py install` packaging path.
-- `nightly-sanitizer`: the ASAN/UBSAN build on ubuntu (`-DUSE_SANITIZER=ON`
+- `nightly_nouse_install`: the `setup.py install` packaging path.
+- `nightly_sanitizer`: the ASAN/UBSAN build on ubuntu (`-DUSE_SANITIZER=ON`
   over the gtest suite), and the MSVC ASan build on Windows.
-- `nightly-profiling`: the benchmark suite.
+- `nightly_profiling`: the benchmark suite.
 
 The two sets are disjoint, so a nightly result states nothing about the fast
 set. Three other events reach a heavy workflow: `workflow_dispatch` on any of
-them, a release-tag push for `nightly-nouse_install`, and a `SCGH_FORCE_*`
+them, a release-tag push for `nightly_nouse_install`, and a `SCGH_FORCE_*`
 variable (see below).
 
 Only a nightly workflow mails a failure. Each `send_email_on_failure` job calls
@@ -116,7 +116,7 @@ Each is read with a default, so an unset variable keeps the default behavior.
   runs nothing.
 - `SCGH_FORCE_PROFILE`, `SCGH_FORCE_NOUSE_INSTALL`, `SCGH_FORCE_SANITIZER`: set
   any to `enable` to run that nightly job on any event, so a pull request can
-  exercise it. `nightly-build_windows` reads no such variable, so use
+  exercise it. `nightly_build_windows` reads no such variable, so use
   `workflow_dispatch` for it. Every nightly workflow accepts a manual run.
 - `SCGH_TIMEOUT_BUILD` (45), `SCGH_TIMEOUT_LINT` (45),
   `SCGH_TIMEOUT_STANDALONE_BUFFER` (10), `SCGH_TIMEOUT_NOUSE_INSTALL` (30),
@@ -125,7 +125,7 @@ Each is read with a default, so an unset variable keeps the default behavior.
   the ubuntu sanitizer at 45, and the slower Windows builds, MSVC ASan
   included, at 60.
 - `SCGH_REMIND_REPOSITORY` (`solvcon/solvcon`): the repository whose monthly
-  `Update Contributors` cron files its reminder issue. The job also requires a
+  `update_contributors` cron files its reminder issue. The job also requires a
   non-fork repository, so a fork never files one whatever this is set to.
 
 ### Behavior on a forked repository
@@ -140,7 +140,7 @@ Each is read with a default, so an unset variable keeps the default behavior.
   off on a new fork until someone enables it, and pauses a public fork's cron
   after 60 days without activity.
 - To exercise one nightly job on a fork, set the matching `SCGH_FORCE_*`
-  variable and open a pull request. `nightly-build_windows` has no such
+  variable and open a pull request. `nightly_build_windows` has no such
   variable; run it from the Actions tab instead.
 - A fork pull request on a non-default base branch runs cold, because it cannot
   read the warm caches. The failure mail requires

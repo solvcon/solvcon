@@ -1,4 +1,4 @@
-name: nightly-nouse_install
+name: nightly_nouse_install
 
 on:
   push:
@@ -22,8 +22,8 @@ concurrency:
 # The push and pull_request triggers exist for the release-tag push and so
 # that SCGH_FORCE_NOUSE_INSTALL can drive this workflow from a fork's pull
 # request. That force variable is the opposite of a skip-ci request, so no
-# check_skip call gates it, which matches nightly-sanitizer and
-# nightly-profiling.
+# check_skip call gates it, which matches nightly_sanitizer and
+# nightly_profiling.
 jobs:
 
   nouse_install:

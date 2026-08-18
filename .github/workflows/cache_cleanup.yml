@@ -1,4 +1,4 @@
-name: cache cleanup
+name: cache_cleanup
 
 on:
   schedule:

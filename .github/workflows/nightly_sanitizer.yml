@@ -1,4 +1,4 @@
-name: nightly-sanitizer
+name: nightly_sanitizer
 
 on:
   push:
