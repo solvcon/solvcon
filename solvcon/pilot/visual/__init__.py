@@ -3,19 +3,21 @@
 
 
 """
-The mesh view: sample meshes, the Gmsh file dialog, and the mesh style
-status helpers.
+The visual pieces of the pilot: sample meshes, the Gmsh file dialog, the
+mesh style status helpers, and the viewer movie recorder.
 """
 
 from .. import _pilot_core as _pcore
 
 if _pcore.enable:
     from . import _mesh
+    from . import _movie
 
     SampleMesh = _mesh.SampleMesh
     SampleMeshFeature = _mesh.SampleMeshFeature
     MeshStyleStatus = _mesh.MeshStyleStatus
     GmshFileDialog = _mesh.GmshFileDialog
+    MovieRecorder = _movie.MovieRecorder
 else:
     # Bind only the public names: a None module attribute would shadow the
     # real submodule import in no-GUI builds.
@@ -23,10 +25,12 @@ else:
     SampleMeshFeature = None
     MeshStyleStatus = None
     GmshFileDialog = None
+    MovieRecorder = None
 
 __all__ = [
     'GmshFileDialog',
     'MeshStyleStatus',
+    'MovieRecorder',
     'SampleMesh',
     'SampleMeshFeature',
 ]
