@@ -9,6 +9,10 @@ The recorder grabs whatever widget it is handed, so a stub widget covers the
 frame bookkeeping and the movie assembly with no graphics surface at all.
 One class hands it a real Qt widget, which is the only way to say that what
 a live grab returns is what lands in the movie.
+
+Every image read back here is closed before the folder holding it goes.
+PIL keeps the file open for as long as the image lives, and Windows refuses
+to remove a file that anything still holds open.
 """
 
 import os
@@ -88,7 +92,8 @@ class MovieRecorderTC(unittest.TestCase):
         self.assertTrue(os.path.exists(path))
         # The frame is the widget's own, not a size asked of it, so
         # nothing of what the widget shows is cropped away.
-        self.assertEqual(self.viewer.size, Image.open(path).size)
+        with Image.open(path) as frame:
+            self.assertEqual(self.viewer.size, frame.size)
 
     def test_capture_reports_a_viewer_that_grabs_nothing(self):
         # A viewer with nothing to show hands back an empty pixmap; holding
@@ -106,11 +111,11 @@ class MovieRecorderTC(unittest.TestCase):
                 with self.subTest(suffix=suffix):
                     path = os.path.join(folder, f"movie{suffix}")
                     self.assertEqual(self.recorder.write(path), 3)
-                    movie = Image.open(path)
-                    self.assertEqual(movie.format, suffix[1:].upper())
-                    self.assertEqual(movie.n_frames, 3)
-                    self.assertEqual(movie.size, self.viewer.size)
-                    self.assertEqual(movie.info['loop'], 0)
+                    with Image.open(path) as movie:
+                        self.assertEqual(movie.format, suffix[1:].upper())
+                        self.assertEqual(movie.n_frames, 3)
+                        self.assertEqual(movie.size, self.viewer.size)
+                        self.assertEqual(movie.info['loop'], 0)
 
     def test_webp_keeps_the_rendered_colors(self):
         # The point of WebP over GIF: no palette, so every frame keeps the
@@ -120,11 +125,11 @@ class MovieRecorderTC(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             path = os.path.join(folder, "movie.webp")
             self.recorder.write(path)
-            movie = Image.open(path)
             colors = []
-            for iframe in range(movie.n_frames):
-                movie.seek(iframe)
-                colors.append(movie.convert('RGB').getpixel((0, 0)))
+            with Image.open(path) as movie:
+                for iframe in range(movie.n_frames):
+                    movie.seek(iframe)
+                    colors.append(movie.convert('RGB').getpixel((0, 0)))
         for got, rendered in zip(colors, _StubViewer.COLORS):
             for channel, want in zip(got, rendered):
                 self.assertLessEqual(abs(channel - want), 8)
@@ -139,11 +144,11 @@ class MovieRecorderTC(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             path = os.path.join(folder, "movie.gif")
             self.recorder.write(path)
-            movie = Image.open(path)
             durations = []
-            for iframe in range(movie.n_frames):
-                movie.seek(iframe)
-                durations.append(movie.info['duration'])
+            with Image.open(path) as movie:
+                for iframe in range(movie.n_frames):
+                    movie.seek(iframe)
+                    durations.append(movie.info['duration'])
         self.assertEqual(durations, [40, 500])
 
     def test_write_makes_the_output_folder(self):
@@ -194,12 +199,12 @@ class WidgetMovieTC(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             path = os.path.join(folder, "widget.webp")
             self.assertEqual(recorder.write(path), 2)
-            movie = Image.open(path)
-            self.assertEqual(2, movie.n_frames)
-            # A movie that changes size partway is not one a player can
-            # show, so it keeps the shape of its first frame, whatever the
-            # widget does afterwards.
-            self.assertEqual((shape.width(), shape.height()), movie.size)
+            with Image.open(path) as movie:
+                self.assertEqual(2, movie.n_frames)
+                # A movie that changes size partway is not one a player can
+                # show, so it keeps the shape of its first frame, whatever
+                # the widget does afterwards.
+                self.assertEqual((shape.width(), shape.height()), movie.size)
 
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
