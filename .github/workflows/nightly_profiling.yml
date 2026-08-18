@@ -1,4 +1,4 @@
-name: nightly-profiling
+name: nightly_profiling
 
 on:
   push:

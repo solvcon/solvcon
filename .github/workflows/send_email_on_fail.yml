@@ -1,4 +1,4 @@
-name: Send Email on Failure
+name: send_email_on_fail
 
 on:
   workflow_call:

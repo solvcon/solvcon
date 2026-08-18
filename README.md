@@ -22,8 +22,8 @@ developed by using C++ and Python to provide:
 10. A graphical user interface (GUI) application based on Qt for the spatial
     data and analysis.
 
-The [nightly-build_windows GitHub
-Action](https://github.com/solvcon/solvcon/actions/workflows/nightly-build_windows.yml?query=event%3Aschedule+is%3Asuccess+branch%3Amaster)
+The [nightly_build_windows GitHub
+Action](https://github.com/solvcon/solvcon/actions/workflows/nightly_build_windows.yml?query=event%3Aschedule+is%3Asuccess+branch%3Amaster)
 builds an experimental portable Windows binary. Open the newest successful run
 and scroll down to the "artifacts" section to download the zip file. You need a
 [GitHub](https://github.com/) login.
