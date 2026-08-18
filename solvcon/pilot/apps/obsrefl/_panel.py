@@ -6,22 +6,24 @@
 
 The panel stacks its boxes in the order a run is used: the free-stream and
 numerics inputs consumed when a run starts, the run controls with the live
-march readout, the field the viewer colors with the range it spans, and
-the zone readout that judges the field against the analytic reflection.
-Each box is a passive widget that only reports what its controls hold and
-calls back into its owner; the panel composes the boxes and forwards their
-surface, and the solver and the viewer belong to the controller in
-:mod:`._control`.
+march readout, the movie the run records as it marches, the field the
+viewer colors with the range it spans, and the zone readout that judges
+the field against the analytic reflection.  Each box is a passive widget
+that only reports what its controls hold and calls back into its owner;
+the panel composes the boxes and forwards their surface, and the solver
+and the viewer belong to the controller in :mod:`._control`.
 """
 
 import math
+import os
 
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QFontDatabase
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QFormLayout,
                                QGridLayout, QLabel, QComboBox, QDoubleSpinBox,
                                QSpinBox, QPushButton, QToolButton,
-                               QSizePolicy, QScrollArea, QFrame)
+                               QSizePolicy, QScrollArea, QFrame, QCheckBox,
+                               QLineEdit)
 
 from ....multidim.euler import EulerField
 
@@ -370,6 +372,67 @@ class RunBox(FoldBox):
             self.reset_requested()
 
 
+class MovieBox(FoldBox):
+    """Whether the run records what the viewer draws, and where it lands.
+
+    The box is read when a run starts and can be ticked mid-march to join
+    one already going; the movie is written when the recording ends.
+    """
+
+    #: Where a recorded movie lands; the mesh flavor of the run is
+    #: substituted for the placeholder and the suffix picks the format
+    #: (:attr:`~solvcon.pilot.visual.MovieRecorder.SUFFIXES`).  Shown
+    #: resolved against the working directory, which for a pilot started
+    #: from the desktop is not the checkout, so the control names the
+    #: movie's real destination.
+    MOVIE_PATH = 'tmp/obrefl_{cell_type}.webp'
+
+    def __init__(self, parent=None):
+        super().__init__("Movie", parent)
+        # Owner-supplied callback that opens or closes the recorder.
+        self.record_toggled = None
+        self._record = QCheckBox()
+        self._record.toggled.connect(self._on_record_toggled)
+        self._path = QLineEdit(os.path.abspath(self.MOVIE_PATH))
+        # Names the movie's destination and, once written, what landed
+        # there; selectable so the path can be copied out.
+        self._status = QLabel("")
+        self._status.setWordWrap(True)
+        self._status.setTextInteractionFlags(Qt.TextSelectableByMouse)
+
+        form = QFormLayout()
+        form.addRow("record movie", self._record)
+        form.addRow("movie path", self._path)
+        form.addRow(self._status)
+        self.set_content_layout(form)
+
+    def recording(self):
+        return self._record.isChecked()
+
+    def movie_path(self, cell_type):
+        """The movie output path with the run's mesh flavor substituted in.
+
+        Absolute, because a relative path lands next to whatever the pilot
+        was launched from and the movie is then anyone's guess to find.
+        """
+        return os.path.abspath(
+            self._path.text().replace('{cell_type}', cell_type))
+
+    def set_movie_status(self, message):
+        """Say where the movie is going, or where it went."""
+        self._status.setText(message)
+
+    def set_recording(self, on):
+        """Reflect the record state in its box without re-firing it."""
+        self._record.blockSignals(True)
+        self._record.setChecked(on)
+        self._record.blockSignals(False)
+
+    def _on_record_toggled(self, on):
+        if self.record_toggled is not None:
+            self.record_toggled(on)
+
+
 class FieldBox(FoldBox):
     """Which derived field the viewer colors, the range it spans, and where
     the legend of those colors stands.
@@ -493,10 +556,11 @@ class SolutionPanel(QScrollArea):
         self._freestream = FreeStreamBox()
         self._numerics = NumericsBox()
         self._run = RunBox()
+        self._movie = MovieBox()
         self._field = FieldBox()
         self._zones = ZoneBox()
         self._boxes = (self._freestream, self._numerics, self._run,
-                       self._field, self._zones)
+                       self._movie, self._field, self._zones)
 
         inner = QWidget()
         layout = QVBoxLayout(inner)
@@ -583,6 +647,14 @@ class SolutionPanel(QScrollArea):
     def placement_changed(self, callback):
         self._field.placement_changed = callback
 
+    @property
+    def record_toggled(self):
+        return self._movie.record_toggled
+
+    @record_toggled.setter
+    def record_toggled(self, callback):
+        self._movie.record_toggled = callback
+
     def params(self):
         """Collect the current control values for the solver driver."""
         return {**self._freestream.params(), **self._numerics.params()}
@@ -595,6 +667,18 @@ class SolutionPanel(QScrollArea):
 
     def steps_per_frame(self):
         return self._run.steps_per_frame()
+
+    def recording(self):
+        return self._movie.recording()
+
+    def movie_path(self, cell_type):
+        return self._movie.movie_path(cell_type)
+
+    def set_movie_status(self, message):
+        self._movie.set_movie_status(message)
+
+    def set_recording(self, on):
+        self._movie.set_recording(on)
 
     def set_paused(self, paused):
         self._run.set_paused(paused)

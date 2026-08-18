@@ -10,10 +10,15 @@ wire between them lands here.  Panel gestures arrive through the callbacks
 the controller plants on the panel, a viewer close arrives through the
 viewer's ``closed``, and everything the widgets show is pushed back into
 them from this side.  No widget ever reaches into a sibling.
+
+The movie a run records is driven from here as well.  It rides on the
+frames the viewer draws, so it belongs beside the march rather than in the
+run session, which stays free of the GUI it is watched from.
 """
 
 from PySide6.QtCore import QTimer
 
+from ...visual import _movie
 from ._field_render import FieldPainter
 from ._session import ReflectionSession
 
@@ -33,6 +38,10 @@ class RunController(object):
 
     :ivar session: The running :class:`~._session.ReflectionSession`, or
         None until the first :meth:`preview` or :meth:`start` builds one.
+    :ivar movie: The open :class:`~solvcon.pilot.visual.MovieRecorder`, or
+        None while the run is not being recorded.
+    :ivar reported: Owner-supplied callback that says what became of a
+        movie, or None to keep it to the panel.
     """
 
     #: Qt timer interval in milliseconds.
@@ -42,7 +51,12 @@ class RunController(object):
         self._panel = panel
         self._viewer = viewer
         self.session = None
+        self.movie = None
+        self.reported = None
         self._painter = None
+        # The mesh flavor the standing run was built with, which names its
+        # movie; the control may have moved on since.
+        self._cell_type = None
         self._timer = QTimer()
         self._timer.timeout.connect(self._advance)
         panel.viewer_toggled = self._on_viewer
@@ -54,6 +68,7 @@ class RunController(object):
         panel.remesh_requested = self.remesh
         panel.field_changed = self._on_field
         panel.placement_changed = self._on_bar_placement
+        panel.record_toggled = self._on_record
         viewer.closed = self._on_viewer_closed
 
     def preview(self):
@@ -68,8 +83,12 @@ class RunController(object):
 
     def start(self):
         """(Re)build the run session from the controls and march it into the
-        viewer, opening the viewer sub-window first if it was closed."""
-        self._build()
+        viewer, opening the viewer sub-window first if it was closed.
+
+        A run started with the record box ticked records from its first
+        frame, so the movie opens on the state the march starts from.
+        """
+        self._build(record=self._panel.recording())
         self._panel.set_paused(False)
         self._timer.start(self.INTERVAL_MS)
 
@@ -87,21 +106,33 @@ class RunController(object):
         if self.session is not None:
             self.session.stop()
             self._draw_frame()
+        self._finish_movie()
 
     def reset(self):
         """Drop the run and its viewer, back to where the panel started."""
         self._timer.stop()
+        self._finish_movie()
         self.session = None
         self._painter = None
         self._viewer.close()
         self._panel.set_paused(False)
         self._draw_frame()
 
-    def _build(self):
-        """Halt any march, then build the configured run and draw it."""
+    def _build(self, record=False):
+        """Halt any march, then build the configured run and draw it.
+
+        Whatever the previous run recorded is written out first: the movie
+        belongs to the run that drew its frames, not to the one replacing
+        it.
+        """
         self._timer.stop()
-        self.session = ReflectionSession(**self._panel.params())
+        self._finish_movie()
+        params = self._panel.params()
+        self._cell_type = params['cell_type']
+        self.session = ReflectionSession(**params)
         self._painter = FieldPainter(self.session.shock.mesh)
+        if record:
+            self._start_movie()
         self._open_viewer()
 
     def _open_viewer(self):
@@ -129,8 +160,10 @@ class RunController(object):
 
     def _on_viewer_closed(self):
         # Reached from the sub-window's close event; stop the run before Qt
-        # frees the viewer.
+        # frees the viewer, and write out what it recorded, as no frame can
+        # follow a viewer that is gone.
         self._timer.stop()
+        self._finish_movie()
         self._panel.set_viewer_open(False)
 
     def _on_pause(self, paused):
@@ -153,6 +186,16 @@ class RunController(object):
         """Move the legend to the edge the field box now names."""
         self._viewer.show_bar(placement)
 
+    def _on_record(self, on):
+        """Open or close the recorder of a run already under way; a run
+        started later reads the box in :meth:`start`."""
+        if self.session is None:
+            return
+        if on:
+            self._start_movie()
+        else:
+            self._finish_movie()
+
     def _advance(self):
         if not self._viewer.is_open:
             self._timer.stop()
@@ -160,6 +203,7 @@ class RunController(object):
         if self.session.finished:
             self._timer.stop()
             self._panel.set_paused(True)
+            self._finish_movie()
             return
         self._march_frame()
 
@@ -195,6 +239,58 @@ class RunController(object):
             self._viewer.draw_field(self._painter.verts,
                                     self._painter.colors(field, lo, hi),
                                     self._painter.indices)
+            if self.movie is not None:
+                self._capture_frame()
         self._panel.set_status(session, vmin, vmax)
+
+    def _start_movie(self):
+        """Open a recorder over the running session, if none is open."""
+        if self.movie is None:
+            self.movie = _movie.MovieRecorder()
+            self._report(f"recording to {self._movie_path()}")
+
+    def _capture_frame(self):
+        """Hold the frame the viewer just drew.
+
+        A viewer with nothing to grab (no graphics surface behind it)
+        drops the recording instead of breaking the march.
+        """
+        try:
+            self._viewer.capture(self.movie)
+        except RuntimeError as exc:
+            self.movie.close()
+            self.movie = None
+            self._panel.set_recording(False)
+            self._report(f"stopped recording: {exc}")
+
+    def _finish_movie(self):
+        """Write out what the recorder holds and report where it landed."""
+        if self.movie is None:
+            return
+        movie = self.movie
+        self.movie = None
+        path = self._movie_path()
+        try:
+            nframe = movie.write(path)
+        except (OSError, ValueError) as exc:
+            self._report(f"wrote no movie: {exc}")
+        else:
+            self._report(f"wrote {nframe} frames to {path}")
+        finally:
+            movie.close()
+
+    def _movie_path(self):
+        """Where the standing run's movie is to land."""
+        return self._panel.movie_path(self._cell_type)
+
+    def _report(self, message):
+        """Say what became of the movie, in the panel and to the owner.
+
+        The panel keeps the line in view, since the console scrolls away
+        under the run's own output and the movie is easy to lose track of.
+        """
+        self._panel.set_movie_status(message)
+        if self.reported is not None:
+            self.reported(message)
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

@@ -3,6 +3,7 @@
 
 
 import os
+import tempfile
 import unittest
 
 import solvcon
@@ -12,6 +13,7 @@ try:
     from solvcon.pilot.base import _gui
     from solvcon.pilot.apps.obsrefl import ReflectionSession, _app
     from PySide6.QtWidgets import QApplication
+    from PIL import Image
 except ImportError:
     pilot = None
 
@@ -21,17 +23,27 @@ NO_LIVE_WINDOW = ((os.getenv('QT_QPA_PLATFORM') or '').startswith('offscreen')
                   or ('nt' == os.name and bool(os.getenv('GITHUB_ACTIONS'))))
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
-                 "pilot windows need a real window surface")
-class ObliqueShockAppTC(unittest.TestCase):
-    def setUp(self):
-        self.mgr = pilot.RManager.instance.setUp()
+class _AppFixture(object):
+    """Stand the app feature up, for the window classes that drive it."""
 
     def _feature(self):
         feature = _app.ObliqueShockApp(mgr=self.mgr)
         feature.populate_menu()
         feature._action.setChecked(True)  # builds the dock and panel
         return feature
+
+    @staticmethod
+    def _coarsen(feature, nx=10, ny=4):
+        """Cut the mesh down to what a window test can march quickly."""
+        feature._panel._numerics._nx.setValue(nx)
+        feature._panel._numerics._ny.setValue(ny)
+
+
+@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
+                 "pilot windows need a real window surface")
+class ObliqueShockAppTC(_AppFixture, unittest.TestCase):
+    def setUp(self):
+        self.mgr = pilot.RManager.instance.setUp()
 
     @staticmethod
     def _status(feature):
@@ -65,12 +77,6 @@ class ObliqueShockAppTC(unittest.TestCase):
         self.assertIsNotNone(self.mgr.currentR3DWidget())
         self.assertEqual(f"0 / {feature._control.session.max_steps}",
                          self._status(feature)["step"])
-
-    @staticmethod
-    def _coarsen(feature, nx=10, ny=4):
-        """Cut the mesh down to what a window test can march quickly."""
-        feature._panel._numerics._nx.setValue(nx)
-        feature._panel._numerics._ny.setValue(ny)
 
     def test_the_resolution_reaches_the_mesh(self):
         feature = self._feature()
@@ -389,6 +395,83 @@ class ObliqueShockAppTC(unittest.TestCase):
         self.assertIs(feature._viewer._subwin.widget(), bar.parent())
         self.assertIsNotNone(bar.lo)
         QApplication.processEvents()
+
+
+@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
+                 "pilot windows need a real window surface")
+class SolutionMovieTC(_AppFixture, unittest.TestCase):
+    """Recording a run into an animated movie."""
+
+    def setUp(self):
+        self.mgr = pilot.RManager.instance.setUp()
+        self.folder = tempfile.TemporaryDirectory()
+        self.addCleanup(self.folder.cleanup)
+
+    def _recording_feature(self):
+        """A started run recording into the scratch folder.
+
+        The first drawn frame is also the first capture, so a viewer with
+        nothing to grab drops the recording right there; skip instead of
+        failing, as the domain-widget capture tests do.
+        """
+        feature = self._feature()
+        self._coarsen(feature)
+        feature._panel._movie._path.setText(self._movie_path('{cell_type}'))
+        feature._panel._movie._record.setChecked(True)
+        feature._control.start()
+        feature._control._timer.stop()
+        if feature._control.movie is None:
+            self.skipTest("the viewer gave no frame to record")
+        return feature
+
+    def _movie_path(self, cell_type='unstructured'):
+        return os.path.join(self.folder.name, f"run_{cell_type}.webp")
+
+    def test_a_run_records_nothing_unless_asked(self):
+        feature = self._feature()
+        self._coarsen(feature)
+        feature._control.start()
+        feature._control._timer.stop()
+        self.assertIsNone(feature._control.movie)
+
+    def test_a_recorded_run_writes_what_the_viewer_drew(self):
+        feature = self._recording_feature()
+        # The box names the destination before there is a movie in it, and
+        # the file once there is one; the console scrolls away under the
+        # run's own output.
+        self.assertIn(self._movie_path(),
+                      feature._panel._movie._status.text())
+        feature._panel._run._steps.setValue(1)
+        feature._control._on_step()
+        # One frame per draw: the state the run started from, and the one
+        # the step marched to.
+        self.assertEqual(2, feature._control.movie.nframe)
+
+        feature._panel._movie._record.setChecked(False)
+        self.assertIsNone(feature._control.movie)
+        note = feature._panel._movie._status.text()
+        self.assertIn(self._movie_path(), note)
+        self.assertIn("frames", note)
+        # The suffix typed into the box is what the movie is written as.
+        self.assertEqual('WEBP', Image.open(self._movie_path()).format)
+        QApplication.processEvents()
+
+    def test_every_way_a_run_ends_writes_the_movie(self):
+        # No frame can follow any of these, so each has to write out what
+        # the recording holds rather than leave it to be dropped.
+        endings = {'the viewer closes': lambda ft: ft._viewer.close(),
+                   'the run stops': lambda ft: ft._control.stop(),
+                   'the run resets': lambda ft: ft._control.reset()}
+        for ending, end_it in endings.items():
+            with self.subTest(ending=ending):
+                feature = self._recording_feature()
+                end_it(feature)
+                self.assertIsNone(feature._control.movie)
+                self.assertTrue(os.path.exists(self._movie_path()))
+                # The next ending writes to the same name, and an old file
+                # would answer for it.
+                os.remove(self._movie_path())
+                QApplication.processEvents()
 
 
 @unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,

@@ -62,6 +62,7 @@ class ObliqueShockApp(_gui_common.PilotFeature):
             return
         self._panel = SolutionPanel()
         self._control = RunController(self._panel, self._viewer)
+        self._control.reported = self._report
         self._dock = QDockWidget("euler solver")
         self._dock.setWidget(self._panel)
         self._mgr.mainWindow.addDockWidget(Qt.LeftDockWidgetArea, self._dock)
@@ -71,5 +72,13 @@ class ObliqueShockApp(_gui_common.PilotFeature):
     def _notify_viewer_updated(self):
         if self.viewer_updated is not None:
             self.viewer_updated()
+
+    def _report(self, message):
+        """Carry what the controller has to say to the pilot console.
+
+        The console belongs to the outer GUI, so the controller says it and
+        the feature, which holds the GUI, writes it.
+        """
+        self._pycon.writeToHistory(f"euler solver {message}\n")
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
