@@ -146,6 +146,21 @@ WrapWorld<T> & WrapWorld<T>::wrap_management()
             },
             py::arg("shape_id"))
         .def(
+            "shape_rings",
+            [](wrapped_type const & self, int32_t shape_id)
+            {
+                py::list result;
+                for (auto const & ring : self.shape_rings(shape_id))
+                {
+                    py::dict d;
+                    d["role"] = (ring.role == RingRole::OUTER) ? "outer" : "hole";
+                    d["vertices"] = ring.vertices;
+                    result.append(d);
+                }
+                return result;
+            },
+            py::arg("shape_id"))
+        .def(
             "pick_shape",
             &wrapped_type::pick_shape,
             py::arg("x"),
@@ -381,6 +396,13 @@ WrapWorld<T> & WrapWorld<T>::wrap_shape()
                 return self.add_polyline(vertices);
             },
             py::arg("vertices"))
+        .def(
+            "add_polygon_rings",
+            [](wrapped_type & self, std::vector<std::vector<std::array<value_type, 2>>> const & rings)
+            {
+                return self.add_polygon_rings(rings);
+            },
+            py::arg("rings"))
         .def(
             "add_polygon",
             [](wrapped_type & self, std::vector<std::array<value_type, 2>> const & vertices)
