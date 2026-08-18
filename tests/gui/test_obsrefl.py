@@ -307,6 +307,89 @@ class ObliqueShockAppTC(unittest.TestCase):
         self.assertTrue(feature._panel._run._viewer_btn.isChecked())
         QApplication.processEvents()
 
+    def test_the_legend_stands_against_the_edge_the_panel_names(self):
+        # The legend explains the colors, so it belongs over the field and
+        # not in the control panel: it rides on the sub-window's host
+        # widget, above the 3D view that fills it, against whichever edge
+        # the Field box names.
+        feature = self._feature()
+        self._coarsen(feature)
+        feature._control.start()
+        feature._control._timer.stop()
+        host = feature._viewer._subwin.widget()
+        host.resize(400, 300)
+        QApplication.processEvents()
+        for placement in ('left', 'right', 'upper', 'lower'):
+            feature._panel._field._placement.setCurrentText(placement)
+            bar = feature._viewer._bar
+            self.assertIs(host, bar.parent())
+            self.assertTrue(bar.isVisibleTo(host))
+            # Left and right run the ramp up the view; the other two run it
+            # across, and each sits against its own edge.
+            self.assertEqual(placement in ('left', 'right'), bar.vertical)
+            box = bar.geometry()
+            if 'left' == placement:
+                self.assertEqual(0, box.left())
+            elif 'right' == placement:
+                self.assertEqual(host.width(), box.right() + 1)
+            elif 'upper' == placement:
+                self.assertEqual(0, box.top())
+            else:
+                self.assertEqual(host.height(), box.bottom() + 1)
+        QApplication.processEvents()
+
+    def test_the_legend_is_pinned_to_the_field_the_viewer_colors(self):
+        # The legend and the viewer have to be reading one range, or the
+        # legend explains colors that are not on screen.  Each field pins
+        # its own, so a field switched under the bar has to redraw it
+        # rather than leave the range it was standing on.
+        feature = self._feature()
+        self._coarsen(feature)
+        feature._control.start()
+        feature._control._timer.stop()
+        sess = feature._control.session
+        before = (feature._viewer._bar.lo, feature._viewer._bar.hi)
+        feature._panel._field._selector.setCurrentText('pressure')
+        bar = feature._viewer._bar
+        self.assertNotEqual(before, (bar.lo, bar.hi))
+        field = sess.field.field('pressure')
+        self.assertEqual(
+            sess.analysis.color_range('pressure', float(field.min()),
+                                      float(field.max())),
+            (bar.lo, bar.hi))
+        QApplication.processEvents()
+
+    def test_switching_the_legend_off_takes_it_away(self):
+        feature = self._feature()
+        self._coarsen(feature)
+        feature._control.start()
+        feature._control._timer.stop()
+        feature._panel._field._placement.setCurrentText('off')
+        self.assertIsNone(feature._viewer._bar)
+        # A run drawn with no legend must not go looking for one.
+        feature._control._on_step()
+        self.assertIsNone(feature._viewer._bar)
+        # Naming an edge again brings it back on the standing scale.
+        feature._panel._field._placement.setCurrentText('right')
+        self.assertIsNotNone(feature._viewer._bar.lo)
+        QApplication.processEvents()
+
+    def test_the_reopened_viewer_carries_the_legend_back(self):
+        feature = self._feature()
+        self._coarsen(feature)
+        feature._control.start()
+        feature._control._timer.stop()
+        feature._viewer.close()
+        # Closing deletes the sub-window and the legend laid over it, so
+        # reopening has to stand a new one up on the same scale.
+        self.assertIsNone(feature._viewer._bar)
+        feature._panel._run._viewer_btn.click()
+        bar = feature._viewer._bar
+        self.assertIsNotNone(bar)
+        self.assertIs(feature._viewer._subwin.widget(), bar.parent())
+        self.assertIsNotNone(bar.lo)
+        QApplication.processEvents()
+
 
 @unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
                  "pilot windows need a real window surface")

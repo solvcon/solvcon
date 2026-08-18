@@ -53,6 +53,7 @@ class RunController(object):
         panel.reset_requested = self.reset
         panel.remesh_requested = self.remesh
         panel.field_changed = self._on_field
+        panel.placement_changed = self._on_bar_placement
         viewer.closed = self._on_viewer_closed
 
     def preview(self):
@@ -115,6 +116,9 @@ class RunController(object):
             shock = self.session.shock
             self._viewer.update_mesh(shock.mesh)
             self._viewer.draw_shock_path(shock)
+        # A reopened sub-window is bare, so the legend goes back on with
+        # the rest of the layers.
+        self._viewer.show_bar(self._panel.bar_placement())
         self._draw_frame()
 
     def _on_viewer(self, open_):
@@ -144,6 +148,10 @@ class RunController(object):
     def _on_field(self, _name):
         if self.session is not None:
             self._draw_frame()
+
+    def _on_bar_placement(self, placement):
+        """Move the legend to the edge the field box now names."""
+        self._viewer.show_bar(placement)
 
     def _advance(self):
         if not self._viewer.is_open:
@@ -181,6 +189,9 @@ class RunController(object):
         vmin, vmax = float(field.min()), float(field.max())
         if self._viewer.is_open:
             lo, hi = session.analysis.color_range(name, vmin, vmax)
+            # The legend reads the same pinned range the colors are mapped
+            # over, so the two cannot say different things about a frame.
+            self._viewer.show_scale(lo, hi)
             self._viewer.draw_field(self._painter.verts,
                                     self._painter.colors(field, lo, hi),
                                     self._painter.indices)
