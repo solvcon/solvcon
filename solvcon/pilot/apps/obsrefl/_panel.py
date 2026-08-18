@@ -371,28 +371,51 @@ class RunBox(FoldBox):
 
 
 class FieldBox(FoldBox):
-    """Which derived field the viewer colors, and the range it spans."""
+    """Which derived field the viewer colors, the range it spans, and where
+    the legend of those colors stands.
+
+    The min and max are the frame's own.  The legend is drawn in the domain
+    sub-window rather than here, against the field it explains; this box
+    only says which edge it takes, or that it takes none.
+    """
 
     #: Derived scalar fields the viewer can color, in display order.
     FIELDS = EulerField.FIELDS
+    #: Where the legend may stand in the domain sub-window.
+    PLACEMENTS = ('off', 'left', 'right', 'lower', 'upper')
+    #: The edge it takes until told otherwise.  A legend nobody asked for
+    #: is still the shortest way to learn what the colors mean, so the bar
+    #: is on to begin with.
+    PLACEMENT = 'right'
 
     def __init__(self, parent=None):
         super().__init__("Field", parent)
         self.field_changed = None
+        # Owner-supplied callback fired when the legend is moved.
+        self.placement_changed = None
         self._selector = QComboBox()
         self._selector.addItems(self.FIELDS)
         self._selector.currentTextChanged.connect(self._on_field_changed)
         self._min = _value_label()
         self._max = _value_label()
+        self._placement = QComboBox()
+        self._placement.addItems(self.PLACEMENTS)
+        self._placement.setCurrentText(self.PLACEMENT)
+        self._placement.currentTextChanged.connect(self._on_placement_changed)
 
         form = QFormLayout()
         form.addRow("field", self._selector)
         form.addRow("min", self._min)
         form.addRow("max", self._max)
+        form.addRow("color bar", self._placement)
         self.set_content_layout(form)
 
     def field(self):
         return self._selector.currentText()
+
+    def placement(self):
+        """Which edge of the domain sub-window the legend takes."""
+        return self._placement.currentText()
 
     def show_range(self, vmin, vmax):
         self._min.setText("-" if vmin is None else _number(vmin))
@@ -401,6 +424,10 @@ class FieldBox(FoldBox):
     def _on_field_changed(self, name):
         if self.field_changed is not None:
             self.field_changed(name)
+
+    def _on_placement_changed(self, name):
+        if self.placement_changed is not None:
+            self.placement_changed(name)
 
 
 class ZoneBox(FoldBox):
@@ -548,12 +575,23 @@ class SolutionPanel(QScrollArea):
     def field_changed(self, callback):
         self._field.field_changed = callback
 
+    @property
+    def placement_changed(self):
+        return self._field.placement_changed
+
+    @placement_changed.setter
+    def placement_changed(self, callback):
+        self._field.placement_changed = callback
+
     def params(self):
         """Collect the current control values for the solver driver."""
         return {**self._freestream.params(), **self._numerics.params()}
 
     def field(self):
         return self._field.field()
+
+    def bar_placement(self):
+        return self._field.placement()
 
     def steps_per_frame(self):
         return self._run.steps_per_frame()

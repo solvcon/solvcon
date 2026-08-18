@@ -184,6 +184,21 @@ class StatusReadoutTC(unittest.TestCase):
         self.assertEqual(_panel._number(vmin), panel._field._min.text())
         self.assertEqual(_panel._number(vmax), panel._field._max.text())
 
+    def test_the_field_box_says_where_the_legend_stands(self):
+        # The legend itself is drawn in the domain sub-window; this box
+        # only carries the choice of edge, and reports it to its owner.
+        panel = SolutionPanel()
+        self.assertEqual(_panel.FieldBox.PLACEMENT, panel.bar_placement())
+        moved = []
+        panel.placement_changed = moved.append
+        panel._field._placement.setCurrentText('lower')
+        self.assertEqual(['lower'], moved)
+        self.assertEqual('lower', panel.bar_placement())
+        # Every edge the viewer knows about is on offer, "off" included.
+        self.assertEqual(list(_panel.FieldBox.PLACEMENTS),
+                         [panel._field._placement.itemText(it)
+                          for it in range(panel._field._placement.count())])
+
     def test_the_zone_rows_carry_the_computed_analytic_and_error(self):
         panel, _, _, _ = self._filled()
         zones = self._zone_rows(panel)
