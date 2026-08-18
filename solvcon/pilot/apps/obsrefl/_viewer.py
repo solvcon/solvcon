@@ -2,14 +2,15 @@
 # BSD 3-Clause License, see COPYING
 
 
-"""The domain viewer sub-window a reflection run draws into.
+"""The domain sub-window a reflection run draws into.
 
 :class:`DomainViewer` wraps the one 3D sub-window of a run: it opens and
 closes the window, watches for a close from any source, and forwards what
 the run wants drawn (the mesh, the analytic shock overlay, the colored
-field).  Every drawing call is a no-op while the window is closed, so the
-owner never draws into a freed widget.  What to draw and when stays with
-the owner, which hears about a close through the :attr:`closed` callback.
+field, and the color-bar legend laid over them).  Every drawing call is a
+no-op while the window is closed, so the owner never draws into a freed
+widget.  What to draw and when stays with the owner, which hears about a
+close through the :attr:`closed` callback.
 """
 
 from PySide6.QtCore import Qt, QObject, QEvent
@@ -215,5 +216,18 @@ class DomainViewer(object):
         if self._viewer is None:
             return
         self._viewer.updateColorField(verts, colors, indices)
+
+    def capture(self, movie):
+        """Hold one frame of the whole sub-window in ``movie``.
+
+        The host is grabbed, not the 3D view inside it, so the color bar
+        laid over the view is recorded with it.  A closed window has
+        nothing to record, and records nothing rather than reaching a
+        freed widget.
+        """
+        host = self._host()
+        if host is None:
+            return
+        movie.capture(host)
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
