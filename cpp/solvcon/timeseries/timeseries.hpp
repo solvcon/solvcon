@@ -79,8 +79,11 @@ R subtract_exact(T x1, T x0)
 
     if constexpr (std::is_integral_v<T>)
     {
-        auto const u1 = static_cast<uint64_t>(x1), u0 = static_cast<uint64_t>(x0);
-        return x1 >= x0 ? static_cast<R>(u1 - u0) : -static_cast<R>(u0 - u1);
+        using unsigned_type = std::make_unsigned_t<T>;
+        auto const u1 = static_cast<unsigned_type>(x1), u0 = static_cast<unsigned_type>(x0);
+        return x1 >= x0
+                   ? static_cast<R>(static_cast<unsigned_type>(u1 - u0))
+                   : -static_cast<R>(static_cast<unsigned_type>(u0 - u1));
     }
     else
     {
@@ -257,7 +260,7 @@ deriv(SimpleArray<uint64_t> const & times, SimpleArray<T> const & values)
     {
         uint64_t const cur = tsrc[i * tstep], prev = tsrc[(i - 1) * tstep];
         otimes[i - 1] = cur;
-        result_type const dvalue = detail::subtract_exact<result_type>(vsrc[i * vstep], vsrc[(i - 1) * vstep]);
+        auto const dvalue = detail::subtract_exact<result_type>(vsrc[i * vstep], vsrc[(i - 1) * vstep]);
         oderiv[i - 1] = dvalue / static_cast<result_type>(cur - prev);
     }
 
