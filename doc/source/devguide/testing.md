@@ -67,9 +67,12 @@ The fast set runs on every pull request and `master` push:
 - `standalone_buffer` (in `devbuild`): the standalone buffer build on ubuntu.
 - `build` (in `devbuild`): `make gtest` plus `make pytest` with Qt off and on,
   and the pilot, on ubuntu (Release) and macOS (RelWithDebInfo).
-- `build_windows` (in `devbuild`, Release): the Windows build and tests, driven
-  by the `ci-win-rel` workflow preset, which chains configure, build, and the
-  CTest run over the C++ cases and the pilot suite.
+- `build_windows` (in `devbuild_windows`, Release): the Windows build and
+  tests, driven by the `ci-win-rel` workflow preset, which chains configure,
+  build, and the CTest run over the C++ cases and the pilot suite. Windows
+  sits in its own workflow, so that `devbuild` carries one build set. The
+  Windows build no longer waits on `standalone_buffer`, because a job in
+  another workflow cannot be a dependency.
 
 The heavy set runs on the cron, one workflow per concern:
 
@@ -98,8 +101,9 @@ branch is not the default one, in which case it runs cold.
 - A pull request skips the fast set when it carries the `skip-ci` label or a
   repository member writes `[skip-ci]` alone on a line of its description or a
   comment. A documentation-only pull request (only `doc/**`, `*.md`, `*.rst`,
-  or `contrib/prompt/**`) skips it automatically. Only `devbuild` and `lint`
-  consult `check_skip`, so a `SCGH_FORCE_*` variable overrides the label.
+  or `contrib/prompt/**`) skips it automatically. Only `devbuild`,
+  `devbuild_windows`, and `lint` consult `check_skip`, so a `SCGH_FORCE_*`
+  variable overrides the label.
 - A pull request that touches no C++ or build file skips the Windows build but
   still runs the Python build and lint.
 
