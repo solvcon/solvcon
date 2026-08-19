@@ -14,11 +14,11 @@ Run one side or the other:
 
     make pytest-fast    # everything except this directory
     make pytest-gui     # only this directory
-    make pytest         # both, and what CI runs on a push
+    make pytest         # both, and what CI runs on a push or the nightly
 
 A pull request runs `pytest-fast` under python plus PySide6, because the same
 tests run seconds later inside the pilot binary in the same job, where the
-embedded interpreter is the environment nothing else exercises. A push runs
-the whole suite in both hosts.
+embedded interpreter is the environment nothing else exercises. A push and
+the nightly run the whole suite in both hosts.
 
 <!-- vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4: -->

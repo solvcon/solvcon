@@ -17,9 +17,11 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
 
 # Windows sits apart from devbuild so that each workflow carries one build
-# set. Nothing calls this workflow: nightly_build_windows.yml owns the cron,
+# set. nightly_devbuild can then call all of devbuild, not a filtered part of
+# it. Nothing calls this workflow: nightly_build_windows.yml owns the cron,
 # where it builds Release and Debug and packages the portable artifact from
-# the Release tree.
+# the Release tree. The gate below therefore names no schedule, unlike the
+# ones in devbuild.
 jobs:
 
   check_skip:

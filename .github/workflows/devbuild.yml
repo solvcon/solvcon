@@ -4,6 +4,11 @@ on:
   push:
   pull_request:
     types: [opened, reopened, synchronize]
+  # nightly_devbuild.yml calls this workflow on the cron so the ubuntu and
+  # macOS build runs at night, without a second copy of the steps. The call
+  # takes no input: inside a called workflow the github context is the
+  # caller's, so the job gates below read the caller's event name.
+  workflow_call:
 
 concurrency:
   # Key each master push on its commit SHA so every merge lands in its own
@@ -13,7 +18,14 @@ concurrency:
   # drop an earlier merge's result. A unique group per SHA keeps every
   # master run independent. Pull requests key on the PR number and other
   # branches on the ref, so their superseded runs still cancel.
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || (github.ref == 'refs/heads/master' && github.sha) || github.ref }}
+  #
+  # Name this workflow directly, not through github.workflow. Under a
+  # workflow_call that holds the caller's name, so the devbuild and lint calls
+  # would share one group. A nightly call keys on the workflow rather than the
+  # commit: its github.ref and github.sha are master's, so a nightly that
+  # starts while the master push run is still in flight would queue behind it.
+  # Ref: https://docs.github.com/en/actions/reference/workflows-and-actions/reusing-workflow-configurations
+  group: devbuild-${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 'nightly' || github.event.pull_request.number || (github.ref == 'refs/heads/master' && github.sha) || github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
 
 jobs:
@@ -31,6 +43,8 @@ jobs:
 
     if: |
       needs.check_skip.outputs.skip != 'true' && (
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
       github.event_name == 'pull_request' ||
       (github.event_name == 'push' &&
        ((vars.SCGH_PUSH_RUN_BRANCH || vars.MMGH_PUSH_RUN_BRANCH) == '*' ||
@@ -97,6 +111,8 @@ jobs:
 
     if: |
       needs.check_skip.outputs.skip != 'true' && (
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
       github.event_name == 'pull_request' ||
       (github.event_name == 'push' &&
        ((vars.SCGH_PUSH_RUN_BRANCH || vars.MMGH_PUSH_RUN_BRANCH) == '*' ||
@@ -132,7 +148,7 @@ jobs:
           # One build type per host rather than the same one twice. macOS
           # takes RelWithDebInfo, which is what a bare `make` configures and
           # what no other job on a pull request builds; ubuntu and the
-          # Windows job cover Release. Parallelism follows the host as well:
+          # devbuild_windows job cover Release. Parallelism follows the host as well:
           # ubuntu-24.04 has 4 virtual cores and 16 GB, while macos-26 has 3
           # cores and 7 GB, where a third compiler swaps until the job hits
           # its timeout.
@@ -241,8 +257,8 @@ jobs:
           JOB_MAKE_ARGS="${JOB_MAKE_ARGS} BUILD_METAL=ON" ; \
         fi
         # A pull request skips tests/gui here, because run_pilot_pytest below
-        # runs it seconds later in the pilot binary. A push runs the whole
-        # suite in both Qt hosts. SOLVCON_TEST_SHOW_WINDOWS is left at the
+        # runs it seconds later in the pilot binary. A push and the nightly
+        # run the whole suite in both Qt hosts. SOLVCON_TEST_SHOW_WINDOWS is left at the
         # default either way, so any window stays off the screen.
         make ${{ github.event_name == 'pull_request' && 'pytest-fast' || 'pytest' }} ${JOB_MAKE_ARGS}
         echo "::endgroup::"

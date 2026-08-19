@@ -70,23 +70,29 @@ The fast set runs on every pull request and `master` push:
 - `build_windows` (in `devbuild_windows`, Release): the Windows build and
   tests, driven by the `ci-win-rel` workflow preset, which chains configure,
   build, and the CTest run over the C++ cases and the pilot suite. Windows
-  sits in its own workflow, so that `devbuild` carries one build set. The
-  Windows build no longer waits on `standalone_buffer`, because a job in
+  sits in its own workflow, so `nightly_devbuild` can call all of `devbuild`.
+  The Windows build no longer waits on `standalone_buffer`, because a job in
   another workflow cannot be a dependency.
 
 The heavy set runs on the cron, one workflow per concern:
 
+- `nightly_devbuild`: the standalone buffer build, the ubuntu and macOS
+  build, the pilot tests, and the lint targets, through a call into `devbuild`
+  and `lint`.
 - `nightly_build_windows`: the Windows build in Release and Debug, and the
   portable artifact packaged from the Release tree.
 - `nightly_nouse_install`: the `setup.py install` packaging path.
 - `nightly_sanitizer`: the ASAN/UBSAN build on ubuntu (`-DUSE_SANITIZER=ON`
   over the gtest suite), and the MSVC ASan build on Windows.
-- `nightly_profiling`: the benchmark suite.
+- `nightly_profiling`: the benchmark suite. It starts an hour after the other
+  nightly workflows, so that it does not compile the same objects as the
+  `devbuild` build job at the same time.
 
-The two sets are disjoint, so a nightly result states nothing about the fast
-set. Three other events reach a heavy workflow: `workflow_dispatch` on any of
-them, a release-tag push for `nightly_nouse_install`, and a `SCGH_FORCE_*`
-variable (see below).
+With `SCGH_PUSH_RUN_BRANCH` set, `nightly_devbuild` runs the same jobs as a
+`master` push. It adds no coverage. It finds environment drift between pushes,
+and it mails the failure. Three other events reach a heavy workflow:
+`workflow_dispatch` on any of them, a release-tag push for
+`nightly_nouse_install`, and a `SCGH_FORCE_*` variable (see below).
 
 Only a nightly workflow mails a failure. Each `send_email_on_failure` job calls
 `send_email_on_fail.yml` under `github.event_name == 'schedule'`, so a force
@@ -120,8 +126,11 @@ Each is read with a default, so an unset variable keeps the default behavior.
   runs nothing.
 - `SCGH_FORCE_PROFILE`, `SCGH_FORCE_NOUSE_INSTALL`, `SCGH_FORCE_SANITIZER`: set
   any to `enable` to run that nightly job on any event, so a pull request can
-  exercise it. `nightly_build_windows` reads no such variable, so use
-  `workflow_dispatch` for it. Every nightly workflow accepts a manual run.
+  exercise it. `nightly_build_windows` and `nightly_devbuild` read no such
+  variable, so use `workflow_dispatch` for them. A pull request runs
+  `devbuild` and `lint` in a reduced shape, with no pilot build and
+  `pytest-fast` in place of `pytest`, so it does not stand in for a nightly
+  run. Every nightly workflow accepts a manual run.
 - `SCGH_TIMEOUT_BUILD` (45), `SCGH_TIMEOUT_LINT` (45),
   `SCGH_TIMEOUT_STANDALONE_BUFFER` (10), `SCGH_TIMEOUT_NOUSE_INSTALL` (30),
   `SCGH_TIMEOUT_PROFILE` (30): per-job `timeout-minutes`, with the default in
@@ -135,8 +144,8 @@ Each is read with a default, so an unset variable keeps the default behavior.
 ### Behavior on a forked repository
 
 - A fork inherits neither these variables nor the secrets, so only
-  `pull_request` events run there. A push and the cron run nothing until you
-  set the variables.
+  `pull_request` events and a manual run start jobs there. A push and the cron
+  run nothing until you set the variables.
 - GitHub creates a run entry for the nightly cron in every fork that enables
   Actions, and offers no way to suppress it. `SCGH_NIGHTLY` gates every job the
   cron reaches, so the entry takes no runner and marks its jobs skipped.
@@ -144,8 +153,9 @@ Each is read with a default, so an unset variable keeps the default behavior.
   off on a new fork until someone enables it, and pauses a public fork's cron
   after 60 days without activity.
 - To exercise one nightly job on a fork, set the matching `SCGH_FORCE_*`
-  variable and open a pull request. `nightly_build_windows` has no such
-  variable; run it from the Actions tab instead.
+  variable and open a pull request. `nightly_build_windows` and
+  `nightly_devbuild` have no such variable; run them from the Actions tab
+  instead.
 - A fork pull request on a non-default base branch runs cold, because it cannot
   read the warm caches. The failure mail requires
   `github.event.repository.fork == false`, and a fork has no email secrets.

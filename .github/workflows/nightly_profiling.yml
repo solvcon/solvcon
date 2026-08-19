@@ -4,7 +4,10 @@ on:
   push:
   pull_request:
   schedule:
-    - cron: '34 17 * * *'
+    # This cron fires an hour after the other nightly workflows. On a shared
+    # minute this job and the devbuild build job compiled the same objects, on
+    # the same two hosts, at the same time.
+    - cron: '34 18 * * *'
   workflow_dispatch:
 
 jobs:
