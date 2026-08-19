@@ -18,6 +18,7 @@
 #include <solvcon/math/pymod/math_pymod.hpp>
 #include <solvcon/transform/pymod/transform_pymod.hpp>
 #include <solvcon/linalg/pymod/linalg_pymod.hpp>
+#include <solvcon/timeseries/pymod/timeseries_pymod.hpp>
 #include <solvcon/oasis/pymod/oasis_pymod.hpp>
 
 #ifdef QT_CORE_LIB
@@ -46,6 +47,8 @@ void initialize(pybind11::module_ mod)
     pybind11::module_ onedim_mod = mod.def_submodule("onedim", "onedim");
     initialize_onedim(onedim_mod);
     initialize_transform(mod);
+    pybind11::module_ timeseries_mod = mod.def_submodule("timeseries", "timeseries");
+    initialize_timeseries(timeseries_mod);
     initialize_oasis(mod);
 
 #ifdef QT_CORE_LIB

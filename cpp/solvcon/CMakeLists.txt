@@ -46,6 +46,7 @@ add_subdirectory(serialization)
 add_subdirectory(transform)
 add_subdirectory(math)
 add_subdirectory(linalg)
+add_subdirectory(timeseries)
 add_subdirectory(simd)
 
 set(SOLVCON_ROOT_HEADERS
@@ -98,6 +99,7 @@ set(SOLVCON_TERMINAL_FILES
     ${SOLVCON_TRANSFORM_FILES}
     ${SOLVCON_MATH_FILES}
     ${SOLVCON_LINALG_FILES}
+    ${SOLVCON_TIMESERIES_FILES}
     ${SOLVCON_SIMD_FILES}
     CACHE FILEPATH "" FORCE)
 

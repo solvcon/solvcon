@@ -35,6 +35,7 @@
 #include <span>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 
@@ -225,18 +226,15 @@ std::string format_flat_index(shape_type const & shape, ssize_t offset);
 /**
  * Reject an array that is not one-dimensional. `op` names the calling
  * operation and `what` the role the array plays in it, both for the message.
+ * A caller outside `SimpleArray` overrides `scope` to name its own namespace
+ * and `E` to raise the exception its interface promises.
  */
-template <typename A>
-void validate_1d(A const & array, char const * op, char const * what = "array")
+template <typename E = std::runtime_error, typename A>
+void validate_1d(A const & array, char const * op, std::string_view what = "array", char const * scope = "SimpleArray")
 {
     if (array.ndim() != 1)
     {
-        throw std::runtime_error(
-            std::format("SimpleArray::{}(): "
-                        "currently only support 1D array but the {} is {} dimension",
-                        op,
-                        what,
-                        array.ndim()));
+        throw E(std::format("{}::{}(): currently only support 1D array but the {} is {} dimension", scope, op, what, array.ndim()));
     }
 }
 
