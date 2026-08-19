@@ -5,6 +5,8 @@
 
 #include <solvcon/timeseries/pymod/timeseries_pymod.hpp>
 
+#include <pybind11/stl.h>
+
 namespace solvcon
 {
 
@@ -33,6 +35,30 @@ void wrap_timeseries(pybind11::module & mod)
             return timeseries::merge_sorted_unique(arrays);
         },
         "Merge sorted SimpleArrayUint64 timestamp arrays into one sorted array of the distinct timestamps");
+
+    detail::for_each_type(
+        detail::timeseries_value_types{},
+        [&mod]<typename T>()
+        {
+            mod.def(
+                "dedup_last",
+                &timeseries::dedup_last<T>,
+                py::arg("times"),
+                py::arg("values"),
+                "Keep the last sample of every group of equal timestamps; returns (times, values)");
+        });
+
+    detail::for_each_type(
+        detail::timeseries_real_types{},
+        [&mod]<typename T>()
+        {
+            mod.def(
+                "deriv",
+                &timeseries::deriv<T>,
+                py::arg("times"),
+                py::arg("values"),
+                "Differentiate a series by the backward difference; returns (times[1:], derivatives)");
+        });
 }
 
 } /* end namespace python */

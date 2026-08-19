@@ -15,6 +15,8 @@ except ImportError:
 
 _toload = [
     'merge_sorted_unique',
+    'dedup_last',
+    'deriv',
 ]
 
 
