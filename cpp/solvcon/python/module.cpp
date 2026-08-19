@@ -21,6 +21,10 @@
 #include <solvcon/timeseries/pymod/timeseries_pymod.hpp>
 #include <solvcon/oasis/pymod/oasis_pymod.hpp>
 
+#ifdef SOLVCON_MCAP
+#include <solvcon/mcap/pymod/mcap_pymod.hpp>
+#endif // SOLVCON_MCAP
+
 #ifdef QT_CORE_LIB
 #include <solvcon/pilot/wrap_pilot.hpp>
 #endif // QT_CORE_LIB
@@ -50,6 +54,13 @@ void initialize(pybind11::module_ mod)
     pybind11::module_ timeseries_mod = mod.def_submodule("timeseries", "timeseries");
     initialize_timeseries(timeseries_mod);
     initialize_oasis(mod);
+
+#ifdef SOLVCON_MCAP
+    mod.attr("HAS_MCAP") = true;
+    initialize_mcap(mod);
+#else // SOLVCON_MCAP
+    mod.attr("HAS_MCAP") = false;
+#endif // SOLVCON_MCAP
 
 #ifdef QT_CORE_LIB
     mod.attr("HAS_PILOT") = true;

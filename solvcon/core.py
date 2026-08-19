@@ -79,6 +79,14 @@ list_of_python = [
     'CommandLineInfo',
     'ProcessInfo',
     'HAS_PILOT',
+    'HAS_MCAP',
+]
+
+# mcap directory symbols, loaded only when the extension carries the
+# BUILD_MCAP subsystem.
+list_of_mcap = [
+    'McapReader',
+    'McapSchema',
 ]
 
 # toggle directory symbols
@@ -211,6 +219,10 @@ _load(list_of_transform)
 _load(list_of_linalg)
 _load(list_of_universe)
 _load(list_of_oasis)
+
+if _impl.HAS_MCAP:
+    _load(list_of_mcap)
+    __all__ = __all__ + list_of_mcap
 
 # Walk through the thirdparty folder and register all library
 # into a dictionary.
