@@ -60,6 +60,7 @@ Key options can be set on the command line, in `setup.mk` (which is read by
 | `CMAKE_BUILD_TYPE` | `RelWithDebInfo` | see the table above             |
 | `BUILD_QT`         | `ON`             | build the Qt GUI components     |
 | `BUILD_METAL`      | `OFF`            | build Metal GPU support (macOS) |
+| `BUILD_MCAP`       | `OFF`            | build the MCAP recording reader |
 | `SOLVCON_PROFILE`  | `OFF`            | enable the runtime profiler     |
 | `USE_CLANG_TIDY`   | `OFF`            | run clang-tidy during the build |
 | `USE_CCACHE`       | `ON`             | use ccache when it is installed |
