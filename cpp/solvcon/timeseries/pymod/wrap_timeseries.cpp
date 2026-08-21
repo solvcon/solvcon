@@ -58,7 +58,23 @@ void wrap_timeseries(pybind11::module & mod)
                 py::arg("times"),
                 py::arg("values"),
                 "Differentiate a series by the backward difference; returns (times[1:], derivatives)");
+            mod.def(
+                "movavg",
+                &timeseries::movavg<T>,
+                py::arg("times"),
+                py::arg("values"),
+                py::arg("span"),
+                "Average a series over the trailing half-open window (t - span, t]; returns (times, means)");
         });
+
+    mod.def(
+        "held",
+        &timeseries::held,
+        py::arg("times"),
+        py::arg("values"),
+        py::arg("span"),
+        "Report whether a boolean series was true over the trailing half-open window (t - span, t]; "
+        "the last sample at or before t - span must be true as well; returns (times, answers)");
 }
 
 } /* end namespace python */

@@ -23,6 +23,10 @@ def f64(values):
     return arr('float64', values)
 
 
+def bl(values):
+    return arr('bool', values)
+
+
 INT_DTYPES = ('int8', 'int16', 'int32', 'int64',
               'uint8', 'uint16', 'uint32', 'uint64')
 ALL_DTYPES = ('bool',) + INT_DTYPES + ('float32', 'float64',
@@ -262,6 +266,234 @@ class DerivTC(unittest.TestCase):
                        arr('complex128', [1 + 1j, 2j])):
             with self.assertRaisesRegex(TypeError, msg):
                 ts.deriv(u64([0, 1]), values)
+
+
+def naive_movavg(times, values, span):
+    out = []
+    for t in times:
+        window = [v for tj, v in zip(times, values)
+                  if tj <= t and tj + span > t]
+        out.append(sum(window) / len(window))
+    return out
+
+
+class MovavgTC(unittest.TestCase):
+
+    def test_window_is_trailing_and_half_open(self):
+        times = u64([0, 10, 20, 30])
+        values = f64([1.0, 2.0, 3.0, 4.0])
+        otimes, omean = ts.movavg(times, values, span=20)
+        self.assertIs(type(omean), solvcon.SimpleArrayFloat64)
+        self.assertEqual(otimes.ndarray.tolist(), [0, 10, 20, 30])
+        # At t=20 the window is (0, 20]: the sample at 0 is exactly span
+        # behind and out, so the mean is over 2.0 and 3.0. The two head
+        # windows are partial and never empty.
+        self.assertEqual(omean.ndarray.tolist(), [1.0, 1.5, 2.5, 3.5])
+
+    def test_span_wider_than_the_log_does_not_underflow(self):
+        # t - span wraps in uint64 near the head; every sample must stay in
+        # the window instead of the window going empty.
+        times = u64([0, 1, 2, 3])
+        values = f64([1.0, 3.0, 5.0, 7.0])
+        _, omean = ts.movavg(times, values, span=2**64 - 1)
+        self.assertEqual(omean.ndarray.tolist(), [1.0, 2.0, 3.0, 4.0])
+        big = u64([2**63, 2**63 + 1])
+        _, omean = ts.movavg(big, f64([2.0, 4.0]), span=2**63 + 5)
+        self.assertEqual(omean.ndarray.tolist(), [2.0, 3.0])
+
+    def test_a_bad_sample_outlives_its_window(self):
+        # The running sum subtracts a sample on the way out (see the TODO
+        # on movavg()). Subtracting a non-finite sample back leaves NaN in
+        # every later mean, and subtracting the 1e17 takes the absorbed
+        # 1.0 with it: the exact trailing means are [1e17, 1.0, 1.0].
+        times = u64([0, 1, 2, 3])
+        for bad in (float('inf'), float('-inf'), np.nan):
+            _, omean = ts.movavg(times, f64([bad, 1.0, 1.0, 1.0]), span=1)
+            np.testing.assert_array_equal(omean.ndarray[0], bad)
+            self.assertTrue(np.all(np.isnan(omean.ndarray[1:])))
+        _, omean = ts.movavg(u64([0, 1, 2]), f64([1e17, 1.0, 1.0]), span=1)
+        self.assertEqual(omean.ndarray.tolist(), [1e17, 0.0, 0.0])
+
+    def test_float32_stays_accurate_over_a_long_series(self):
+        # The running sum is kept in double, so a float32 series with a
+        # large offset stays close to the exact window mean.
+        rng = np.random.default_rng(20260819)
+        nvalues = (1e5 + rng.standard_normal(5000)).astype('float32')
+        _, omean = ts.movavg(u64(np.arange(5000, dtype='uint64')),
+                             arr('float32', nvalues), span=10)
+        expected = [nvalues[max(0, i - 9):i + 1].astype('float64').mean()
+                    for i in range(5000)]
+        np.testing.assert_allclose(omean.ndarray, expected, atol=0.05)
+
+    def test_repeated_timestamp_weighs_the_window_by_its_count(self):
+        # Every sample of a repeated timestamp sees the same window, and
+        # the three samples at 10 all weigh in it; a repeated group at the
+        # head shares the head window the same way.
+        times = u64([0, 10, 10, 10, 20])
+        values = f64([0.0, 1.0, 2.0, 3.0, 4.0])
+        otimes, omean = ts.movavg(times, values, span=15)
+        self.assertEqual(otimes.ndarray.tolist(), [0, 10, 10, 10, 20])
+        self.assertEqual(omean.ndarray.tolist(), [0.0, 1.5, 1.5, 1.5, 2.5])
+        _, omean = ts.movavg(u64([10, 10, 20]), f64([1.0, 3.0, 5.0]), span=5)
+        self.assertEqual(omean.ndarray.tolist(), [2.0, 2.0, 5.0])
+
+    def test_against_a_naive_sweep(self):
+        rng = np.random.default_rng(20260819)
+        for _ in range(20):
+            ntimes = np.sort(rng.integers(0, 200, 60, dtype='uint64'))
+            nvalues = rng.standard_normal(60, dtype='float64')
+            times, values = u64(ntimes), f64(nvalues)
+            ltimes, lvalues = ntimes.tolist(), nvalues.tolist()
+            for span in (1, 7, 50, 500):
+                _, omean = ts.movavg(times, values, span)
+                np.testing.assert_allclose(
+                    omean.ndarray, naive_movavg(ltimes, lvalues, span))
+
+    def test_empty_and_single_series(self):
+        otimes, omean = ts.movavg(u64([]), f64([]), span=5)
+        self.assertEqual((otimes.shape, omean.shape), ((0,), (0,)))
+        otimes, omean = ts.movavg(u64([9]), f64([2.5]), span=5)
+        self.assertEqual((otimes.ndarray.tolist(), omean.ndarray.tolist()),
+                         ([9], [2.5]))
+
+    def test_float32_keeps_float32_and_integer_gives_float64(self):
+        times = u64([0, 1])
+        _, omean = ts.movavg(times, arr('float32', [1.0, 2.0]), span=5)
+        self.assertIs(type(omean), solvcon.SimpleArrayFloat32)
+        self.assertEqual(omean.ndarray.tolist(), [1.0, 1.5])
+        for dtype in INT_DTYPES:
+            _, omean = ts.movavg(times, arr(dtype, [3, 4]), span=5)
+            self.assertIs(type(omean), solvcon.SimpleArrayFloat64, dtype)
+            self.assertEqual(omean.ndarray.tolist(), [3.0, 3.5], dtype)
+
+    def test_strided_view_is_read_in_array_order(self):
+        times = solvcon.SimpleArrayUint64(
+            array=np.arange(12, dtype='uint64')[::4])
+        values = solvcon.SimpleArrayFloat64(
+            array=np.arange(6, dtype='float64')[::2])
+        otimes, omean = ts.movavg(times, values, span=5)
+        self.assertEqual(otimes.ndarray.tolist(), [0, 4, 8])
+        self.assertEqual(omean.ndarray.tolist(), [0.0, 1.0, 3.0])
+
+    def test_smooths_a_derivative(self):
+        t_acc, acc = ts.deriv(u64([0, 1, 2, 3, 4]),
+                              f64([0.0, 1.0, 0.0, 1.0, 0.0]))
+        t_smooth, smooth = ts.movavg(t_acc, acc, span=2)
+        self.assertEqual(t_smooth.ndarray.tolist(), [1, 2, 3, 4])
+        self.assertEqual(smooth.ndarray.tolist(), [1.0, 0.0, 0.0, 0.0])
+
+    def test_invalid_input_raises(self):
+        with self.assertRaisesRegex(ValueError,
+                                    "movavg.*span must be positive but is 0"):
+            ts.movavg(u64([0, 1]), f64([0.0, 1.0]), span=0)
+        with self.assertRaisesRegex(ValueError, "movavg.*non-decreasing"):
+            ts.movavg(u64([2, 1]), f64([0.0, 0.0]), span=5)
+        with self.assertRaisesRegex(ValueError, "movavg.*2 samples but "
+                                    "values has 3"):
+            ts.movavg(u64([1, 2]), f64([0.0, 0.0, 0.0]), span=5)
+        with self.assertRaisesRegex(TypeError, "incompatible function "
+                                    "arguments"):
+            ts.movavg(u64([0, 1]), bl([True, False]), span=5)
+
+
+class HeldTC(unittest.TestCase):
+
+    def test_true_only_after_a_full_window_of_true(self):
+        times = u64([0, 10, 20, 30, 40])
+        values = bl([True, True, True, True, True])
+        otimes, oheld = ts.held(times, values, span=20)
+        self.assertIs(type(oheld), solvcon.SimpleArrayBool)
+        self.assertEqual(otimes.ndarray.tolist(), [0, 10, 20, 30, 40])
+        # No sample at or before t - 20 until t = 20.
+        self.assertEqual(oheld.ndarray.tolist(),
+                         [False, False, True, True, True])
+
+    def test_a_false_inside_the_window_clears_it(self):
+        times = u64([0, 10, 20, 30, 40, 50])
+        values = bl([True, False, True, True, True, True])
+        _, oheld = ts.held(times, values, span=20)
+        # The false at 10 is in the window until t = 30, and the window at
+        # t = 30 starts from the sample at 10, which is false as well.
+        self.assertEqual(oheld.ndarray.tolist(),
+                         [False, False, False, False, True, True])
+
+    def test_the_boundary_sample_carries_the_claim(self):
+        # The boundary sample is the last one stamped at or before
+        # t - span. The window (10, 30] holds only true samples, but the
+        # state over (10, 20) comes from the boundary sample at 10.
+        times = u64([0, 10, 30])
+        _, oheld = ts.held(times, bl([True, False, True]), span=20)
+        self.assertEqual(oheld.ndarray.tolist(), [False, False, False])
+        _, oheld = ts.held(times, bl([True, True, True]), span=20)
+        self.assertEqual(oheld.ndarray.tolist(), [False, False, True])
+        # A sample exactly span behind t is the boundary, not a member.
+        _, oheld = ts.held(u64([0, 20]), bl([True, True]), span=20)
+        self.assertEqual(oheld.ndarray.tolist(), [False, True])
+        _, oheld = ts.held(u64([0, 20]), bl([False, True]), span=20)
+        self.assertEqual(oheld.ndarray.tolist(), [False, False])
+
+    def test_span_wider_than_the_log_gives_false(self):
+        times = u64([0, 1, 2])
+        _, oheld = ts.held(times, bl([True, True, True]), span=2**64 - 1)
+        self.assertEqual(oheld.ndarray.tolist(), [False, False, False])
+        big = u64([2**63, 2**63 + 1, 2**63 + 2])
+        _, oheld = ts.held(big, bl([True, True, True]), span=2**63 + 5)
+        self.assertEqual(oheld.ndarray.tolist(), [False, False, False])
+
+    def test_repeated_timestamp_needs_every_sample_of_the_group(self):
+        # A group on the boundary resolves to its last sample; a false
+        # anywhere in a group inside the window clears it.
+        times = u64([0, 10, 10, 20])
+        _, oheld = ts.held(times, bl([True, True, False, True]), span=10)
+        self.assertEqual(oheld.ndarray.tolist(),
+                         [False, False, False, False])
+        _, oheld = ts.held(times, bl([True, False, True, True]), span=10)
+        self.assertEqual(oheld.ndarray.tolist(), [False, False, False, True])
+        _, oheld = ts.held(u64([0, 10, 10, 15]),
+                           bl([True, True, False, True]), span=10)
+        self.assertEqual(oheld.ndarray.tolist(),
+                         [False, False, False, False])
+
+    def test_empty_and_single_series(self):
+        otimes, oheld = ts.held(u64([]), bl([]), span=5)
+        self.assertEqual((otimes.shape, oheld.shape), ((0,), (0,)))
+        otimes, oheld = ts.held(u64([9]), bl([True]), span=5)
+        self.assertEqual((otimes.ndarray.tolist(), oheld.ndarray.tolist()),
+                         ([9], [False]))
+
+    def test_strided_view_is_read_in_array_order(self):
+        times = solvcon.SimpleArrayUint64(
+            array=np.arange(12, dtype='uint64')[::4])
+        values = solvcon.SimpleArrayBool(
+            array=np.array([True, False, True, False, True, False],
+                           dtype='bool')[::2])
+        otimes, oheld = ts.held(times, values, span=4)
+        self.assertEqual(otimes.ndarray.tolist(), [0, 4, 8])
+        self.assertEqual(oheld.ndarray.tolist(), [False, True, True])
+
+    def test_holds_a_thresholded_moving_average(self):
+        times = u64([0, 1, 2, 3, 4, 5])
+        _, smooth = ts.movavg(times, f64([9.0, 1.0, 1.0, 1.0, 1.0, 1.0]),
+                              span=2)
+        under = bl([v < 2.0 for v in smooth.ndarray.tolist()])
+        _, oheld = ts.held(times, under, span=2)
+        self.assertEqual(smooth.ndarray.tolist(),
+                         [9.0, 5.0, 1.0, 1.0, 1.0, 1.0])
+        self.assertEqual(oheld.ndarray.tolist(),
+                         [False, False, False, False, True, True])
+
+    def test_invalid_input_raises(self):
+        with self.assertRaisesRegex(ValueError,
+                                    "held.*span must be positive but is 0"):
+            ts.held(u64([0, 1]), bl([True, True]), span=0)
+        with self.assertRaisesRegex(ValueError, "held.*non-decreasing"):
+            ts.held(u64([2, 1]), bl([True, True]), span=5)
+        with self.assertRaisesRegex(ValueError, "held.*2 samples but values "
+                                    "has 3"):
+            ts.held(u64([1, 2]), bl([True, True, True]), span=5)
+        with self.assertRaisesRegex(TypeError, "incompatible function "
+                                    "arguments"):
+            ts.held(u64([0, 1]), f64([1.0, 0.0]), span=5)
 
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
