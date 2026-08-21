@@ -2992,6 +2992,17 @@ class SimpleArrayCalculatorsTC(unittest.TestCase):
         sarr.nghost = 1
         self.assertEqual(np.std(nparr), sarr.std())
 
+    def test_std_population_is_the_default(self):
+        # ddof=0 divides by N, so a single sample has a spread of 0.
+        nparr = np.array([2.0, 4.0, 4.0, 4.0, 5.0, 5.0, 7.0, 9.0],
+                         dtype='float64')
+        sarr = solvcon.SimpleArrayFloat64(array=nparr)
+        self.assertEqual(sarr.std(ddof=0), 2.0)
+        self.assertEqual(sarr.std(), np.std(nparr, ddof=0))
+        self.assertEqual(sarr.std(ddof=1), np.std(nparr, ddof=1))
+        self.assertEqual(solvcon.SimpleArrayFloat64(array=nparr[:1]).std(),
+                         0.0)
+
     def test_std_with_axis(self):
         nparr = np.arange(120, dtype='float64').reshape((4, 5, 6))
         sarr = solvcon.SimpleArrayFloat64(array=nparr)

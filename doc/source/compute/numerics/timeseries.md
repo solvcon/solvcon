@@ -131,4 +131,31 @@ assert t_h.ndarray.tolist() == [0, 10, 20, 30, 40]
 assert brake_held.ndarray.tolist() == [False, True, False, False, True]
 ```
 
+## The `true_intervals` Function
+
+`true_intervals(times, values)` run-length encodes a `SimpleArrayBool`
+series into the intervals where it was true. The result is a
+`SimpleArrayUint64` of shape `(nrun, 3)` whose columns are the start, the
+end, and the duration in nanoseconds; a series that is never true gives
+shape `(0, 3)`. A run starts at the timestamp of the sample that turns the
+series true and ends at the timestamp of the sample that turns it false
+again, so each row spans the half-open interval `[start, end)`:
+
+```python
+times = solvcon.SimpleArrayUint64(
+    array=np.array([0, 10, 20, 30, 40], dtype='uint64'))
+over = solvcon.SimpleArrayBool(
+    array=np.array([False, True, True, False, True]))
+runs = ts.true_intervals(times, over)
+assert runs.ndarray.tolist() == [[10, 30, 20], [40, 40, 0]]
+assert int(runs.ndarray[:, 2].sum()) == 20  # total time over the limit
+```
+
+## Benchmarks
+
+`profiling/profile_timeseries.py` times every kernel against the pure-Python
+loop it replaces on an hour-long log sampled at 100 Hz. `make pyprof` runs
+it with the other profiling scripts and writes the table to
+`profiling/results/`.
+
 <!-- vim: set ft=markdown ff=unix fenc=utf8 et sw=2 ts=2 sts=2 tw=79: -->

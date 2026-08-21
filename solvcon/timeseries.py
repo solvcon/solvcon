@@ -19,6 +19,7 @@ _toload = [
     'deriv',
     'movavg',
     'held',
+    'true_intervals',
 ]
 
 
