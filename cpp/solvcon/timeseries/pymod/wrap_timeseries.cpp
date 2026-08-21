@@ -75,6 +75,14 @@ void wrap_timeseries(pybind11::module & mod)
         py::arg("span"),
         "Report whether a boolean series was true over the trailing half-open window (t - span, t]; "
         "the last sample at or before t - span must be true as well; returns (times, answers)");
+
+    mod.def(
+        "true_intervals",
+        &timeseries::true_intervals,
+        py::arg("times"),
+        py::arg("values"),
+        "Run-length encode the true stretches of a boolean series into rows of (start, end, duration); "
+        "a run still open at the last sample ends there");
 }
 
 } /* end namespace python */

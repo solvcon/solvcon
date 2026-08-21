@@ -402,6 +402,72 @@ held(SimpleArray<uint64_t> const & times, SimpleArray<bool> const & values, uint
     return {std::move(otimes), std::move(oheld)};
 }
 
+/**
+ * Run-length encode the true stretches of a boolean series into `(start, end, duration)` rows.
+ *
+ * A run starts at the timestamp of the sample that turns the series true and ends at the timestamp of the sample
+ * that turns it false again, so each row spans the half-open interval `[start, end)` and `duration = end - start`.
+ * A group of equal timestamps is read at its last sample only. A run still open at the last sample ends there,
+ * so it has zero duration when it also started there.
+ *
+ * @param times The sample timestamps in nanoseconds, non-decreasing.
+ * @param values The booleans sampled at @p times, of the same length.
+ * @return An array of shape `(nrun, 3)` whose columns are the start, the end, and the duration in nanoseconds.
+ *         A series that is never true gives shape `(0, 3)`.
+ * @throw std::invalid_argument An array that is not one-dimensional or that carries ghost elements, a length
+ *        mismatch, or a decreasing timestamp.
+ *
+ * @ingroup group_numerics
+ */
+inline SimpleArray<uint64_t> true_intervals(SimpleArray<uint64_t> const & times, SimpleArray<bool> const & values)
+{
+    detail::validate_series(times, values, "true_intervals");
+    detail::validate_sorted(times, "true_intervals", "times");
+
+    ssize_t const nsample = times.shape(0);
+    uint64_t const * const tsrc = times.logical_data();
+    ssize_t const tstep = times.stride(0);
+    bool const * const vsrc = values.logical_data();
+    ssize_t const vstep = values.stride(0);
+
+    // A group of equal timestamps is read at its last sample only.
+    SimpleCollector<uint64_t> rows;
+    bool open = false;
+    uint64_t start = 0;
+    auto const close = [&rows, &start](uint64_t end)
+    {
+        rows.push_back(start);
+        rows.push_back(end);
+        rows.push_back(end - start);
+    };
+    for (ssize_t i = 0; i < nsample; ++i)
+    {
+        uint64_t const t = tsrc[i * tstep];
+        if (i + 1 < nsample && tsrc[(i + 1) * tstep] == t)
+        {
+            continue;
+        }
+        bool const value = vsrc[i * vstep];
+        if (value && !open)
+        {
+            open = true;
+            start = t;
+        }
+        else if (!value && open)
+        {
+            open = false;
+            close(t);
+        }
+    }
+    if (open)
+    {
+        close(tsrc[(nsample - 1) * tstep]);
+    }
+
+    ssize_t const nrun = static_cast<ssize_t>(rows.size()) / 3;
+    return rows.as_array().reshape<uint64_t>(solvcon::detail::shape_type{nrun, 3});
+}
+
 } /* end namespace timeseries */
 
 } /* end namespace solvcon */

@@ -496,4 +496,96 @@ class HeldTC(unittest.TestCase):
             ts.held(u64([0, 1]), f64([1.0, 0.0]), span=5)
 
 
+class TrueIntervalsTC(unittest.TestCase):
+
+    def test_runs_are_half_open_rows(self):
+        times = u64([0, 10, 20, 30, 40, 50])
+        values = bl([False, True, True, False, True, False])
+        runs = ts.true_intervals(times, values)
+        self.assertIs(type(runs), solvcon.SimpleArrayUint64)
+        self.assertEqual(runs.shape, (2, 3))
+        self.assertEqual(runs.ndarray.tolist(),
+                         [[10, 30, 20], [40, 50, 10]])
+
+    def test_run_open_at_log_end_closes_at_the_last_sample(self):
+        # The log cannot say when the run ended, so the run ends with the
+        # log; a run that starts at the last sample is kept with duration 0.
+        runs = ts.true_intervals(u64([0, 10, 20]), bl([False, True, True]))
+        self.assertEqual(runs.ndarray.tolist(), [[10, 20, 10]])
+        runs = ts.true_intervals(u64([0, 10, 20]), bl([True, False, True]))
+        self.assertEqual(runs.ndarray.tolist(), [[0, 10, 10], [20, 20, 0]])
+        runs = ts.true_intervals(u64([7]), bl([True]))
+        self.assertEqual(runs.ndarray.tolist(), [[7, 7, 0]])
+
+    def test_repeated_timestamp_resolves_to_its_last_sample(self):
+        # Only the last sample of a group counts, both for starting a run
+        # and for ending one.
+        runs = ts.true_intervals(u64([0, 10, 10, 20]),
+                                 bl([False, True, False, False]))
+        self.assertEqual(runs.shape, (0, 3))
+        runs = ts.true_intervals(u64([0, 10, 10, 20]),
+                                 bl([True, False, True, False]))
+        self.assertEqual(runs.ndarray.tolist(), [[0, 20, 20]])
+        runs = ts.true_intervals(u64([5, 5]), bl([False, True]))
+        self.assertEqual(runs.ndarray.tolist(), [[5, 5, 0]])
+
+    def test_never_true_and_empty_give_no_rows(self):
+        runs = ts.true_intervals(u64([0, 1, 2]), bl([False, False, False]))
+        self.assertEqual(runs.shape, (0, 3))
+        self.assertEqual(ts.true_intervals(u64([]), bl([])).shape, (0, 3))
+
+    def test_against_a_naive_sweep(self):
+        rng = np.random.default_rng(20260821)
+        for _ in range(20):
+            n = int(rng.integers(0, 40))
+            ntimes = np.sort(rng.integers(0, 30, n, dtype='uint64'))
+            nvalues = rng.random(n) < 0.5
+            expected, open_start = [], None
+            for i in range(n):
+                if i + 1 < n and ntimes[i + 1] == ntimes[i]:
+                    continue
+                if nvalues[i] and open_start is None:
+                    open_start = int(ntimes[i])
+                elif not nvalues[i] and open_start is not None:
+                    expected.append([open_start, int(ntimes[i]),
+                                     int(ntimes[i]) - open_start])
+                    open_start = None
+            if open_start is not None:
+                expected.append([open_start, int(ntimes[-1]),
+                                 int(ntimes[-1]) - open_start])
+            runs = ts.true_intervals(u64(ntimes), bl(nvalues))
+            self.assertEqual(runs.ndarray.tolist(), expected)
+
+    def test_strided_view_is_read_in_array_order(self):
+        times = solvcon.SimpleArrayUint64(
+            array=np.arange(12, dtype='uint64')[::4])
+        values = solvcon.SimpleArrayBool(
+            array=np.array([True, False, False, True, True, False],
+                           dtype='bool')[::2])
+        runs = ts.true_intervals(times, values)
+        self.assertEqual(runs.ndarray.tolist(), [[0, 4, 4], [8, 8, 0]])
+
+    def test_extracts_where_a_smoothed_signal_exceeds_a_limit(self):
+        times = u64([0, 1, 2, 3, 4, 5, 6])
+        _, smooth = ts.movavg(times, f64([0.0, 0.0, 6.0, 6.0, 0.0, 0.0,
+                                          0.0]), span=2)
+        over = bl([v > 2.0 for v in smooth.ndarray.tolist()])
+        runs = ts.true_intervals(times, over)
+        self.assertEqual(smooth.ndarray.tolist(),
+                         [0.0, 0.0, 3.0, 6.0, 3.0, 0.0, 0.0])
+        self.assertEqual(runs.ndarray.tolist(), [[2, 5, 3]])
+        self.assertEqual(int(runs.ndarray[:, 2].sum()), 3)
+
+    def test_invalid_input_raises(self):
+        with self.assertRaisesRegex(ValueError,
+                                    "true_intervals.*non-decreasing"):
+            ts.true_intervals(u64([2, 1]), bl([True, True]))
+        with self.assertRaisesRegex(ValueError, "true_intervals.*2 samples "
+                                    "but values has 3"):
+            ts.true_intervals(u64([1, 2]), bl([True, True, True]))
+        with self.assertRaisesRegex(TypeError, "incompatible function "
+                                    "arguments"):
+            ts.true_intervals(u64([0, 1]), f64([1.0, 0.0]))
+
+
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
