@@ -56,6 +56,8 @@ enum class ShapeType : uint8_t
     BEZIER = 8, ///< Single cubic Bezier curve.
     ELLIPSE = 9,
     CIRCLE = 10, ///< Specialization of ELLIPSE with equal radii.
+    PATH = 11, ///< Open chain of line-to and cubic curve-to elements.
+    CLOSED_PATH = 12, ///< Closed chain of line-to and cubic curve-to elements.
 }; /* end of enum class ShapeType */
 
 inline std::string shape_type_name(ShapeType st)
@@ -73,9 +75,69 @@ inline std::string shape_type_name(ShapeType st)
     case ShapeType::BEZIER: return "bezier";
     case ShapeType::ELLIPSE: return "ellipse";
     case ShapeType::CIRCLE: return "circle";
-    default: return "unknown";
+    case ShapeType::PATH: return "path";
+    case ShapeType::CLOSED_PATH: return "closed_path";
     }
+    return "unknown";
 }
+
+inline bool is_closed(ShapeType st)
+{
+    switch (st)
+    {
+    case ShapeType::DEAD:
+    case ShapeType::POINT:
+    case ShapeType::LINE:
+    case ShapeType::POLYLINE:
+    case ShapeType::BEZIER:
+    case ShapeType::PATH:
+        return false;
+    case ShapeType::POLYGON:
+    case ShapeType::TRIANGLE:
+    case ShapeType::RECTANGLE:
+    case ShapeType::SQUARE:
+    case ShapeType::ELLIPSE:
+    case ShapeType::CIRCLE:
+    case ShapeType::CLOSED_PATH:
+        return true;
+    }
+    return false;
+}
+
+/**
+ * Kind of one element in a World path.
+ *
+ * @ingroup group_geometry
+ */
+enum class PathElementKind : uint8_t
+{
+    LINE_TO = 0,
+    CUBIC_TO = 1,
+}; /* end enum class PathElementKind */
+
+/**
+ * One line-to or cubic curve-to element in a World path. A LINE_TO element
+ * leaves the two control points zero, so every slot reads back finite.
+ *
+ * @ingroup group_geometry
+ */
+template <typename T>
+struct PathElement
+{
+    using point_type = Point3d<T>;
+
+    static PathElement line_to(point_type const & end) { return PathElement{PathElementKind::LINE_TO, {}, {}, end}; }
+
+    static PathElement cubic_to(point_type const & control1, point_type const & control2, point_type const & end)
+    {
+        return PathElement{PathElementKind::CUBIC_TO, control1, control2, end};
+    }
+
+    PathElementKind kind = PathElementKind::LINE_TO;
+    point_type control1{};
+    point_type control2{};
+    point_type end{};
+}; /* end struct PathElement */
 
 /**
  * Level of detail for World::describe_state. C++ callers pass the enum; the
@@ -292,6 +354,7 @@ public:
     using point_type = Point3d<T>;
     using segment_type = Segment3d<T>;
     using bezier_type = Bezier3d<T>;
+    using path_element_type = PathElement<T>;
     using point_pad_type = PointPad<T>;
     using segment_pad_type = SegmentPad<T>;
     using curve_pad_type = CurvePad<T>;
@@ -422,6 +485,17 @@ public:
      * Add a cubic Bezier from a bezier_type struct.
      */
     int32_t add_bezier_shape(bezier_type const & bezier);
+
+    /**
+     * Add a quadratic Bezier. Degree elevation stores it as the exactly
+     * equivalent cubic, registered as a BEZIER shape.
+     */
+    int32_t add_quadratic_bezier(point_type const & p0, point_type const & p1, point_type const & p2);
+
+    /**
+     * Add an open or closed path as one contiguous run of cubic Beziers.
+     */
+    int32_t add_path(point_type const & start, std::vector<path_element_type> const & elements, bool closed);
 
     /**
      * Add an open chain of straight segments through the given vertices.
@@ -615,6 +689,39 @@ private:
         }
     }
 
+    static constexpr value_type ONE_THIRD = value_type(1) / value_type(3);
+    static constexpr value_type TWO_THIRDS = value_type(2) / value_type(3);
+
+    /**
+     * Weighted sum of two points. The weights are passed separately, so the
+     * caller writes a convex combination rather than a + (b - a) * w, and a
+     * span between large opposite-signed coordinates cannot overflow.
+     */
+    static point_type blend(point_type const & a, value_type wa, point_type const & b, value_type wb)
+    {
+        return a * wa + b * wb;
+    }
+
+    static bool is_finite(value_type v) { return std::isfinite(v); }
+
+    static bool is_finite(point_type const & point)
+    {
+        return std::isfinite(point.x()) && std::isfinite(point.y()) && std::isfinite(point.z());
+    }
+
+    /**
+     * Throw unless every argument is finite. Scalars and points mix freely, so
+     * one guard serves a constructor that takes either.
+     */
+    template <typename... Args>
+    static void require_finite(char const * where, Args const &... vals)
+    {
+        if (!(is_finite(vals) && ...))
+        {
+            throw std::invalid_argument(std::string("World: ") + where + " needs finite parameters");
+        }
+    }
+
     bbox_type compute_shape_bbox(ShapeRecord const & rec) const;
 
     /**
@@ -665,6 +772,8 @@ private:
      * offset of the first. Shared by add_ellipse and add_circle.
      */
     size_t build_ellipse_curves(T cx, T cy, T rx, T ry);
+
+    void append_straight_curve(point_type const & from, point_type const & to);
 
     /**
      * Register a new shape owning [segment_offset, segment_offset +
@@ -900,6 +1009,57 @@ int32_t World<T>::add_bezier_shape(bezier_type const & bezier)
     size_t const offset = m_curves->size();
     m_curves->append(bezier);
     return register_shape(ShapeType::BEZIER, /*seg_off*/ 0, /*seg_cnt*/ 0, offset, 1);
+}
+
+template <typename T>
+int32_t World<T>::add_quadratic_bezier(point_type const & p0, point_type const & p1, point_type const & p2)
+{
+    require_finite("add_quadratic_bezier", p0, p1, p2);
+    return add_bezier_shape(p0, blend(p0, ONE_THIRD, p1, TWO_THIRDS), blend(p1, TWO_THIRDS, p2, ONE_THIRD), p2);
+}
+
+template <typename T>
+void World<T>::append_straight_curve(point_type const & from, point_type const & to)
+{
+    m_curves->append(from, blend(from, TWO_THIRDS, to, ONE_THIRD), blend(from, ONE_THIRD, to, TWO_THIRDS), to);
+}
+
+template <typename T>
+int32_t World<T>::add_path(point_type const & start, std::vector<path_element_type> const & elements, bool closed)
+{
+    if (elements.empty())
+    {
+        throw std::invalid_argument("World: add_path needs at least one element");
+    }
+    require_finite("add_path", start);
+    for (path_element_type const & element : elements)
+    {
+        require_finite("add_path", element.control1, element.control2, element.end);
+    }
+
+    size_t const offset = m_curves->size();
+    point_type current = start;
+    for (path_element_type const & element : elements)
+    {
+        if (element.kind == PathElementKind::LINE_TO)
+        {
+            append_straight_curve(current, element.end);
+        }
+        else
+        {
+            m_curves->append(current, element.control1, element.control2, element.end);
+        }
+        current = element.end;
+    }
+
+    if (closed && current != start)
+    {
+        append_straight_curve(current, start);
+    }
+
+    size_t const count = m_curves->size() - offset;
+    ShapeType const type = closed ? ShapeType::CLOSED_PATH : ShapeType::PATH;
+    return register_shape(type, /*seg_off*/ 0, /*seg_cnt*/ 0, offset, count);
 }
 
 template <typename T>
