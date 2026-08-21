@@ -62,6 +62,18 @@ WrapSegment3d<T> & WrapSegment3d<T>::wrap_management()
         .def(py::init<point_type const &, point_type const &>(),
              py::arg("p0"),
              py::arg("p1"))
+        .def(py::init<value_type, value_type, value_type, value_type>(),
+             py::arg("x0"),
+             py::arg("y0"),
+             py::arg("x1"),
+             py::arg("y1"))
+        .def(py::init<value_type, value_type, value_type, value_type, value_type, value_type>(),
+             py::arg("x0"),
+             py::arg("y0"),
+             py::arg("z0"),
+             py::arg("x1"),
+             py::arg("y1"),
+             py::arg("z1"))
         //
         ;
 
