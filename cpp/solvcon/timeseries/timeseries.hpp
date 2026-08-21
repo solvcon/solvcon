@@ -72,6 +72,21 @@ inline void validate_sorted(
     }
 }
 
+/// Throw `std::invalid_argument` when a trailing window has no length, which would leave it empty everywhere.
+inline void validate_span(uint64_t span, char const * op)
+{
+    if (0 == span)
+    {
+        throw std::invalid_argument(std::format("timeseries::{}(): span must be positive but is 0", op));
+    }
+}
+
+/// Report whether a timestamp is before the trailing half-open window `(t - span, t]`.
+inline bool is_before_window(uint64_t stamp, uint64_t t, uint64_t span)
+{
+    return span <= t && stamp <= t - span;
+}
+
 template <typename R, typename T>
 R subtract_exact(T x1, T x0)
 {
@@ -211,14 +226,15 @@ dedup_last(SimpleArray<uint64_t> const & times, SimpleArray<T> const & values)
 }
 
 /**
- * The element type `deriv()` returns.
+ * The result element type of a kernel that computes in floating point.
  *
- * @tparam T The value type of the input series.
+ * @tparam T The value type of the input series. A floating-point type keeps its own width; every other real
+ *         number type promotes to `double`.
  *
  * @ingroup group_numerics
  */
 template <typename T>
-using deriv_value_t = std::conditional_t<std::is_floating_point_v<T>, T, double>;
+using real_value_t = std::conditional_t<std::is_floating_point_v<T>, T, double>;
 
 /**
  * Differentiate a series by the backward difference `(x_i - x_{i-1}) / (t_i - t_{i-1})`.
@@ -238,11 +254,11 @@ using deriv_value_t = std::conditional_t<std::is_floating_point_v<T>, T, double>
  * @ingroup group_numerics
  */
 template <typename T>
-std::pair<SimpleArray<uint64_t>, SimpleArray<deriv_value_t<T>>>
+std::pair<SimpleArray<uint64_t>, SimpleArray<real_value_t<T>>>
 deriv(SimpleArray<uint64_t> const & times, SimpleArray<T> const & values)
 {
     static_assert(std::is_arithmetic_v<T> && !solvcon::detail::is_bool_v<T>, "deriv() requires a real number type");
-    using result_type = deriv_value_t<T>;
+    using result_type = real_value_t<T>;
 
     detail::validate_series(times, values, "deriv");
     detail::validate_sorted(times, "deriv", "times", /*strict*/ true);
@@ -265,6 +281,125 @@ deriv(SimpleArray<uint64_t> const & times, SimpleArray<T> const & values)
     }
 
     return {std::move(otimes), std::move(oderiv)};
+}
+
+/**
+ * Average a series over the trailing half-open window `(t - span, t]` at each of its timestamps.
+ *
+ * The sweep carries one running sum, so rounding error accumulates over the whole series rather than over one
+ * window. One non-finite sample makes every later mean a NaN; drop such a sample before the call. The sum
+ * is kept in `double`, so an integer sample with a magnitude above 2^53 rounds on entry.
+ *
+ * @tparam T The value type, which must be a real number type.
+ * @param times The sample timestamps in nanoseconds, non-decreasing.
+ * @param values The values sampled at @p times, of the same length.
+ * @param span The window length in nanoseconds, which must be positive.
+ * @return @p times and one mean per sample. An empty series gives empty arrays.
+ * @throw std::invalid_argument An array that is not one-dimensional or that carries ghost elements, a length
+ *        mismatch, a decreasing timestamp, or a zero @p span.
+ *
+ * @ingroup group_numerics
+ */
+template <typename T>
+std::pair<SimpleArray<uint64_t>, SimpleArray<real_value_t<T>>>
+movavg(SimpleArray<uint64_t> const & times, SimpleArray<T> const & values, uint64_t span)
+{
+    static_assert(std::is_arithmetic_v<T> && !solvcon::detail::is_bool_v<T>, "movavg() requires a real number type");
+    using result_type = real_value_t<T>;
+
+    detail::validate_series(times, values, "movavg");
+    detail::validate_sorted(times, "movavg", "times");
+    detail::validate_span(span, "movavg");
+
+    ssize_t const nsample = times.shape(0);
+    SimpleArray<uint64_t> otimes = times.to_row_major();
+    SimpleArray<result_type> omean(nsample);
+
+    uint64_t const * const tsrc = times.logical_data();
+    ssize_t const tstep = times.stride(0);
+    T const * const vsrc = values.logical_data();
+    ssize_t const vstep = values.stride(0);
+    // TODO: this running sum is the fastest sweep but not an exact one; the caveat in the function comment
+    // names the cost. A sweep that never subtracts fixes it: hold the window as a suffix-sum table over its
+    // front and a running total over its back, and rebuild the table when the window passes the end of it.
+    // That sweep is also linear, and costs about 1.7x the time and one double of scratch per sample.
+    ssize_t first = 0, last = 0;
+    double sum = 0;
+    for (ssize_t i = 0; i < nsample; ++i)
+    {
+        uint64_t const t = tsrc[i * tstep];
+        for (; last < nsample && tsrc[last * tstep] <= t; ++last)
+        {
+            sum += static_cast<double>(vsrc[last * vstep]);
+        }
+        for (; first < last && detail::is_before_window(tsrc[first * tstep], t, span); ++first)
+        {
+            sum -= static_cast<double>(vsrc[first * vstep]);
+        }
+
+        omean[i] = static_cast<result_type>(sum / static_cast<double>(last - first));
+    }
+
+    return {std::move(otimes), std::move(omean)};
+}
+
+/**
+ * Report whether a boolean series was true over the trailing half-open window `(t - span, t]` at each of its
+ * timestamps.
+ *
+ * The boundary sample, the last one stamped at or before `t - span`, carries the state into the window and must
+ * be true as well; the answer is false before one exists.
+ *
+ * @param times The sample timestamps in nanoseconds, non-decreasing.
+ * @param values The booleans sampled at @p times, of the same length.
+ * @param span The window length in nanoseconds, which must be positive.
+ * @return @p times and one answer per sample. An empty series gives empty arrays.
+ * @throw std::invalid_argument An array that is not one-dimensional or that carries ghost elements, a length
+ *        mismatch, a decreasing timestamp, or a zero @p span.
+ *
+ * @ingroup group_numerics
+ */
+inline std::pair<SimpleArray<uint64_t>, SimpleArray<bool>>
+held(SimpleArray<uint64_t> const & times, SimpleArray<bool> const & values, uint64_t span)
+{
+    detail::validate_series(times, values, "held");
+    detail::validate_sorted(times, "held", "times");
+    detail::validate_span(span, "held");
+
+    ssize_t const nsample = times.shape(0);
+    SimpleArray<uint64_t> otimes = times.to_row_major();
+    SimpleArray<bool> oheld(nsample);
+
+    uint64_t const * const tsrc = times.logical_data();
+    ssize_t const tstep = times.stride(0);
+    bool const * const vsrc = values.logical_data();
+    ssize_t const vstep = values.stride(0);
+
+    ssize_t first = 0; // first sample in the window
+    ssize_t last = 0; // one past the last sample in the window
+    ssize_t newest_false = -1; // newest false among all samples read so far, or -1 if none
+    for (ssize_t i = 0; i < nsample; ++i)
+    {
+        uint64_t const t = tsrc[i * tstep];
+        for (; last < nsample && tsrc[last * tstep] <= t; ++last)
+        {
+            if (!vsrc[last * vstep])
+            {
+                newest_false = last;
+            }
+        }
+
+        while (first < last && detail::is_before_window(tsrc[first * tstep], t, span))
+        {
+            ++first;
+        }
+        ssize_t const boundary = first - 1; // the sample whose value covers the start of the window
+
+        // No boundary sample yet makes boundary -1, which no newest_false is below.
+        oheld[i] = newest_false < boundary;
+    }
+
+    return {std::move(otimes), std::move(oheld)};
 }
 
 } /* end namespace timeseries */

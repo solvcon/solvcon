@@ -17,6 +17,8 @@ _toload = [
     'merge_sorted_unique',
     'dedup_last',
     'deriv',
+    'movavg',
+    'held',
 ]
 
 

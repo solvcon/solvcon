@@ -25,7 +25,7 @@ struct type_list
 }; /* end struct type_list */
 
 // clang-format off
-/// The value types `deriv()` takes, common ones first because pybind11 tries overloads in order.
+/// The real number value types the kernels take, common ones first because pybind11 tries overloads in order.
 using timeseries_real_types = type_list<
     double, float, int64_t, int32_t, int16_t, int8_t, uint64_t, uint32_t, uint16_t, uint8_t>;
 
