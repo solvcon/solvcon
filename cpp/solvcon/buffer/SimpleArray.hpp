@@ -1186,6 +1186,7 @@ public:
     }
 
     A matmul(A const & other) const;
+    A matmul(A const & other, MatmulKernel kernel) const;
     A & imatmul(A const & other);
 
 private:
@@ -1378,6 +1379,17 @@ A SimpleArrayMixinCalculators<A, T>::matmul(A const & other) const
     A output(plan.output_shape());
     MatmulExecutor<A> executor(std::move(plan), output, *athis, other);
     executor.execute();
+    return output;
+}
+
+template <typename A, typename T>
+A SimpleArrayMixinCalculators<A, T>::matmul(A const & other, MatmulKernel kernel) const
+{
+    auto const * athis = static_cast<A const *>(this);
+    MatmulPlan plan = MatmulPlan::make(*athis, other);
+    A output(plan.output_shape());
+    MatmulExecutor<A> executor(std::move(plan), output, *athis, other);
+    executor.execute(kernel);
     return output;
 }
 

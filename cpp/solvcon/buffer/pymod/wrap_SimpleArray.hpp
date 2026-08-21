@@ -11,6 +11,7 @@
 
 #include <cctype>
 #include <cstdint>
+#include <string>
 
 namespace solvcon
 {
@@ -26,6 +27,17 @@ namespace detail
 inline char lower_ascii(char ch)
 {
     return static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+}
+
+inline solvcon::detail::MatmulKernel parse_matmul_kernel(pybind11::object const & kernel)
+{
+    auto const name = kernel.cast<std::string>();
+    auto const parsed = solvcon::detail::matmul_kernel_from_name(name);
+    if (!parsed)
+    {
+        throw std::invalid_argument(std::format("matmul(): unknown kernel '{}'", name));
+    }
+    return parsed.value();
 }
 
 } /* end namespace detail */
@@ -428,8 +440,24 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArray
         }
 
         (*this)
-            .def("matmul", &wrapped_type::matmul)
-            .def("__matmul__", &wrapped_type::matmul)
+            .def(
+                "matmul",
+                [](wrapped_type const & self,
+                   wrapped_type const & other,
+                   py::object const & kernel)
+                {
+                    return kernel.is_none()
+                               ? self.matmul(other)
+                               : self.matmul(other, detail::parse_matmul_kernel(kernel));
+                },
+                py::arg("other"),
+                py::kw_only(),
+                py::arg("kernel") = py::none())
+            .def(
+                "__matmul__",
+                [](wrapped_type const & self, wrapped_type const & other)
+                { return self.matmul(other); },
+                py::arg("other"))
             // TODO: In-place operation should return reference to self to support function chaining
             /*
              * Regular in-place methods (iadd, imul, etc.) are procedural calls and do

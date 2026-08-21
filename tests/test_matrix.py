@@ -107,14 +107,44 @@ class MatmulTestBase(sc.testing.TestBase):
             ('step_two', cls.make_strided_view(data, axis, 2)),
         )
 
-    def assert_matmul(self, lhs, rhs, expected):
-        result = lhs.matmul(rhs)
+    def assert_matmul(
+            self, lhs, rhs, expected, forced_kernels=()):
+        for kernel in (None, 'naive', *forced_kernels):
+            dispatch = kernel or 'auto'
+            with self.subTest(dispatch=dispatch):
+                try:
+                    result = lhs.matmul(rhs, kernel=kernel)
+                except ValueError as exc:
+                    if (kernel not in (None, 'naive')
+                            and 'requires a BLAS backend' in str(exc)):
+                        continue
+                    raise
 
-        self.assertEqual(list(result.shape), list(expected.shape))
-        tol = 64 * np.finfo(result.ndarray.real.dtype).eps
-        np.testing.assert_allclose(
-            result.ndarray, expected, rtol=tol, atol=tol)
-        return result
+                self.assertEqual(list(result.shape), list(expected.shape))
+                tol = 64 * np.finfo(result.ndarray.real.dtype).eps
+                if kernel is not None:
+                    tol *= 2 * max(lhs.shape[-1], 1)
+                np.testing.assert_allclose(
+                    result.ndarray, expected, rtol=tol, atol=tol)
+
+    def test_matmul_kernel_validation(self):
+        dtype = np.dtype(self.dtype).name
+        lhs = self.SimpleArray(
+            array=np.ones((3, 3), dtype=dtype))
+        rhs = self.SimpleArray(
+            array=np.ones((3, 3), dtype=dtype))
+
+        with self.assertRaisesRegex(ValueError, "unknown kernel 'unknown'"):
+            lhs.matmul(rhs, kernel='unknown')
+        with self.assertRaisesRegex(
+                ValueError,
+                "kernel 'winograd'.*(not eligible|requires a BLAS backend)"):
+            lhs.matmul(rhs, kernel='winograd')
+        with self.assertRaises(TypeError):
+            lhs.matmul(rhs, 'naive')
+        np.testing.assert_array_equal(
+            lhs.matmul(rhs, kernel=None).ndarray,
+            lhs.matmul(rhs).ndarray)
 
     def test_square(self):
         """Test basic square matrix multiplication"""
@@ -128,7 +158,9 @@ class MatmulTestBase(sc.testing.TestBase):
         # Expected result: [[19, 22], [43, 50]]
         expected = np.array([[19.0, 22.0], [43.0, 50.0]], dtype=self.dtype)
 
-        self.assert_matmul(a, b, expected)
+        self.assert_matmul(
+            a, b, expected,
+            forced_kernels=('blas_gemm', 'winograd'))
 
     def test_rectangular(self):
         """Test rectangular matrix multiplication"""
@@ -271,15 +303,22 @@ class MatmulTestBase(sc.testing.TestBase):
         expected_6 = np.array([32.], dtype=self.dtype)
 
         test_cases = [
-            (a_data_1, b_data_1, expected_1, "2x3 x 3x4"),
-            (a_data_2, b_data_2, expected_2, "4x6 x 6x3"),
-            (a_data_3, b_data_3, expected_3, "3x3 x 3x3"),
-            (a_data_4, b_data_4, expected_4, "4x6 x 6"),
-            (a_data_5, b_data_5, expected_5, "6 x 6x3"),
-            (a_data_6, b_data_6, expected_6, "3 x 3x3")
+            (a_data_1, b_data_1, expected_1,
+             ('blas_gemm',), "2x3 x 3x4"),
+            (a_data_2, b_data_2, expected_2,
+             ('blas_gemm',), "4x6 x 6x3"),
+            (a_data_3, b_data_3, expected_3,
+             ('blas_gemm',), "3x3 x 3x3"),
+            (a_data_4, b_data_4, expected_4,
+             ('blas_gemv',), "4x6 x 6"),
+            (a_data_5, b_data_5, expected_5,
+             ('blas_gevm',), "6 x 6x4"),
+            (a_data_6, b_data_6, expected_6,
+             ('blas_dot',), "3 x 3"),
         ]
 
-        for a_data, b_data, expected, description in test_cases:
+        for (a_data, b_data, expected,
+             forced_kernels, description) in test_cases:
             with self.subTest(description=description):
                 a = self.SimpleArray(array=a_data)
                 b = self.SimpleArray(array=b_data)
@@ -288,10 +327,12 @@ class MatmulTestBase(sc.testing.TestBase):
                 np_result = np.matmul(a_data, b_data)
                 np.testing.assert_array_almost_equal(expected, np_result)
 
-                self.assert_matmul(a, b, expected)
+                self.assert_matmul(
+                    a, b, expected,
+                    forced_kernels=forced_kernels)
 
     def test_matrix_strides(self):
-        """Matrix axes support generic and BLAS-compatible layouts."""
+        """Matrix axes support naive and BLAS-compatible layouts."""
         dtype = np.dtype(self.dtype).name
         for m, k, n in ((3, 4, 2), (16, 17, 18)):
             lhs_data = np.arange(m * k, dtype=dtype).reshape(m, k)
@@ -306,7 +347,9 @@ class MatmulTestBase(sc.testing.TestBase):
 
                 with self.subTest(
                         shape=(m, k, n), lhs=lhs_case, rhs=rhs_case):
-                    self.assert_matmul(lhs, rhs, expected)
+                    self.assert_matmul(
+                        lhs, rhs, expected,
+                        forced_kernels=('blas_gemm',))
 
     def test_batch_strides(self):
         """Batch axes support negative and step-two strides."""
@@ -330,10 +373,12 @@ class MatmulTestBase(sc.testing.TestBase):
 
                 with self.subTest(
                         shape=lhs_shape, lhs=lhs_case, rhs=rhs_case):
-                    self.assert_matmul(lhs, rhs, expected)
+                    self.assert_matmul(
+                        lhs, rhs, expected,
+                        forced_kernels=('blas_gemm',))
 
     def test_broadcast_batch_strides(self):
-        """Broadcast batch strides across generic and direct BLAS routes."""
+        """Broadcast batch strides across naive and direct BLAS routes."""
         dtype = np.dtype(self.dtype).name
         for m, k, n in ((3, 4, 2), (17, 18, 19)):
             lhs_data = np.arange(2 * m * k, dtype=dtype).reshape(2, 1, m, k)
@@ -353,7 +398,7 @@ class MatmulTestBase(sc.testing.TestBase):
                     self.assert_matmul(lhs, rhs, expected)
 
     def test_broadcast_matrix_strides(self):
-        """Broadcast matrix strides work across generic and packed routes."""
+        """Broadcast matrix strides work across naive and packed routes."""
         dtype = np.dtype(self.dtype).name
         for m, k, n in ((3, 4, 2), (17, 18, 19)):
             lhs_data = np.arange(2 * m * k, dtype=dtype).reshape(
@@ -415,7 +460,9 @@ class MatmulTestBase(sc.testing.TestBase):
             expected = np.matmul(case_lhs, case_rhs)
 
             with self.subTest(case=name):
-                self.assert_matmul(lhs, rhs, expected)
+                self.assert_matmul(
+                    lhs, rhs, expected,
+                    forced_kernels=('blas_gemm',))
 
     def test_vector_strides(self):
         """Vector roles preserve signed vector, matrix, and batch strides."""
@@ -451,7 +498,9 @@ class MatmulTestBase(sc.testing.TestBase):
 
                 with self.subTest(
                         role=role, lhs=lhs_case, rhs=rhs_case):
-                    self.assert_matmul(lhs, rhs, expected)
+                    self.assert_matmul(
+                        lhs, rhs, expected,
+                        forced_kernels=(f'blas_{role}',))
 
         lhs_matrix = np.arange(64 * 512, dtype=dtype).reshape(64, 512)
         rhs_matrix = np.arange(512 * 64, dtype=dtype).reshape(512, 64)
@@ -583,12 +632,12 @@ class MatmulTestBase(sc.testing.TestBase):
             rhs_data = vectors[rhs_case]
             lhs = self.SimpleArray(array=lhs_data)
             rhs = self.SimpleArray(array=rhs_data)
-            expected = np.matmul(lhs_data, rhs_data)
+            expected = np.atleast_1d(np.matmul(lhs_data, rhs_data))
 
             with self.subTest(lhs=lhs_case, rhs=rhs_case):
-                result = lhs.matmul(rhs)
-                self.assertEqual((1,), result.shape)
-                np.testing.assert_allclose(result.ndarray[0], expected)
+                self.assert_matmul(
+                    lhs, rhs, expected,
+                    forced_kernels=('blas_dot',))
 
     def test_wrong_shape_error(self):
         """Every operand role reports mismatched contraction dimensions."""
