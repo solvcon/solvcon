@@ -2,8 +2,12 @@ name: cache_cleanup
 
 on:
   schedule:
-    # Run daily, after the nightly jobs have saved the generation to keep at 5:41 UTC.
-    - cron: '41 5 * * *'
+    # Run after the nightly workflows save the generation to keep. GitHub can
+    # start a cron late, so they begin near 17:54 UTC and finish inside the
+    # hour. nightly_devbuild writes a second generation of every lineage a
+    # master push already wrote. A morning sweep held both of them for half a
+    # day, and spent the repository cache quota on entries nothing reads.
+    - cron: '41 19 * * *'
   workflow_dispatch:
     inputs:
       keep:

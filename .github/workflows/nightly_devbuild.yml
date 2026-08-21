@@ -1,0 +1,62 @@
+name: nightly_devbuild
+
+on:
+  schedule:
+    - cron: '34 17 * * *'
+  # No SCGH_FORCE_* variable reaches this workflow. A pull request runs
+  # devbuild and lint directly, in their pull request shape.
+  workflow_dispatch:
+
+concurrency:
+  group: nightly_devbuild
+  cancel-in-progress: false
+
+# devbuild and lint both call check_skip_ci, which asks for these three, and a
+# called workflow cannot hold more than its caller grants.
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+
+# devbuild and lint lost their cron when the nightly workflows split off, so
+# this workflow calls them rather than restate their steps. Their job gates
+# open for a schedule. Every step condition inside them tests only for
+# 'pull_request', so a schedule takes the same branch as a push.
+jobs:
+
+  devbuild:
+
+    # A fork inherits no SCGH_NIGHTLY, so this gate stops the nightly cron
+    # from allocating a runner there. A manual run is deliberate and needs
+    # no variable.
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (vars.SCGH_NIGHTLY || vars.MMGH_NIGHTLY) == 'enable'
+
+    uses: ./.github/workflows/devbuild.yml
+
+  lint:
+
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (vars.SCGH_NIGHTLY || vars.MMGH_NIGHTLY) == 'enable'
+
+    uses: ./.github/workflows/lint.yml
+
+  send_email_on_failure:
+    needs: [devbuild, lint]
+    # A `timeout-minutes` kill reports `cancelled`, not `failure`.
+    if: |
+      always() &&
+      (contains(needs.*.result, 'failure') ||
+       contains(needs.*.result, 'cancelled')) &&
+      github.event_name == 'schedule' &&
+      github.event.repository.fork == false
+    uses: ./.github/workflows/send_email_on_fail.yml
+    with:
+      job_results: |
+        - devbuild: ${{ needs.devbuild.result }}
+        - lint: ${{ needs.lint.result }}
+    secrets:
+      EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
+      EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}

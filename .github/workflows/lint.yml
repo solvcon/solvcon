@@ -4,6 +4,11 @@ on:
   push:
   pull_request:
     types: [opened, reopened, synchronize]
+  # nightly_devbuild.yml calls this workflow on the cron so lint and the pilot
+  # tests run at night, without a second copy of the steps. The call takes no
+  # input: inside a called workflow the github context is the caller's, so the
+  # job gates below read the caller's event name.
+  workflow_call:
 
 concurrency:
   # Key each master push on its commit SHA so every merge lands in its own
@@ -13,7 +18,14 @@ concurrency:
   # drop an earlier merge's result. A unique group per SHA keeps every
   # master run independent. Pull requests key on the PR number and other
   # branches on the ref, so their superseded runs still cancel.
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || (github.ref == 'refs/heads/master' && github.sha) || github.ref }}
+  #
+  # Name this workflow directly, not through github.workflow. Under a
+  # workflow_call that holds the caller's name, so the devbuild and lint calls
+  # would share one group. A nightly call keys on the workflow rather than the
+  # commit: its github.ref and github.sha are master's, so a nightly that
+  # starts while the master push run is still in flight would queue behind it.
+  # Ref: https://docs.github.com/en/actions/reference/workflows-and-actions/reusing-workflow-configurations
+  group: lint-${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 'nightly' || github.event.pull_request.number || (github.ref == 'refs/heads/master' && github.sha) || github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
 
 jobs:
@@ -33,6 +45,8 @@ jobs:
 
     if: |
       needs.check_skip.outputs.skip != 'true' && (
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
       github.event_name == 'pull_request' ||
       (github.event_name == 'push' &&
        ((vars.SCGH_PUSH_RUN_BRANCH || vars.MMGH_PUSH_RUN_BRANCH) == '*' ||
