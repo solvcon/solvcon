@@ -16,6 +16,9 @@
 #include <solvcon/base.hpp>
 #include <solvcon/buffer/buffer.hpp>
 
+#include <cmath>
+#include <limits>
+
 namespace solvcon
 {
 
@@ -871,6 +874,50 @@ public:
 
     size_t size() const { return 2; }
 
+    value_type calc_length2() const;
+    value_type calc_length() const { return std::sqrt(calc_length2()); }
+
+    /**
+     * The unit vector from p0 to p1 for every non-zero segment, and the
+     * zero vector for a zero-length segment, without a branch that would
+     * diverge under SIMD or SIMT execution. Scaling by the largest
+     * coordinate difference first keeps the result a unit vector at any
+     * coordinate magnitude, from the subnormal range up to where the
+     * squared length would overflow.
+     */
+    point_type direction() const;
+
+    /**
+     * The unit normal perpendicular to both the segment and the reference
+     * axis: the direction crossed with the reference, normalized, so the
+     * normal, the direction, and the reference form a right-handed frame
+     * and the normal points outward on a counterclockwise polygon. With
+     * the default z reference a plane segment gets the direction turned a
+     * quarter turn clockwise. A segment parallel to the reference axis has
+     * no such normal and throws.
+     */
+    point_type normal_by_axis(Axis axis = Axis::Z) const;
+
+    /**
+     * The signed perpendicular distance from the line to the point,
+     * positive on the side the axis-referenced normal points to, the right
+     * of the direction. Normalizing the direction instead of dividing a
+     * slope keeps every segment with a length finite, vertical and
+     * horizontal alike.
+     */
+    value_type offset_by_axis(point_type const & p, Axis axis = Axis::Z) const
+    {
+        point_type const nml = normal_by_axis(axis);
+        return (p.x() - m_data.f.x0) * nml.x() + (p.y() - m_data.f.y0) * nml.y() + (p.z() - m_data.f.z0) * nml.z();
+    }
+
+    /**
+     * The point on the segment's line where the named axis reaches the
+     * value. Throws when the direction has no component along that axis,
+     * since the line then reaches the value nowhere or everywhere.
+     */
+    point_type point_along_axis(value_type value, Axis axis = Axis::Z) const;
+
     void mirror_x()
     {
         m_data.f.y0 = -m_data.f.y0;
@@ -919,6 +966,108 @@ private:
     detail::Segment3dData<T> m_data;
 
 }; /* end class Segment3d */
+
+template <typename T>
+typename Segment3d<T>::value_type Segment3d<T>::calc_length2() const
+{
+    value_type const dx = m_data.f.x1 - m_data.f.x0;
+    value_type const dy = m_data.f.y1 - m_data.f.y0;
+    value_type const dz = m_data.f.z1 - m_data.f.z0;
+    return dx * dx + dy * dy + dz * dz;
+}
+
+template <typename T>
+typename Segment3d<T>::point_type Segment3d<T>::direction() const
+{
+    value_type const tiny = std::numeric_limits<value_type>::min();
+    value_type const dx = m_data.f.x1 - m_data.f.x0;
+    value_type const dy = m_data.f.y1 - m_data.f.y0;
+    value_type const dz = m_data.f.z1 - m_data.f.z0;
+    // Scaling by the largest difference bounds the squared sum away from
+    // overflow and underflow at any coordinate magnitude; the smallest
+    // normal keeps the divisor non-zero and perturbs no physical length.
+    value_type const amax = std::max(std::abs(dx), std::max(std::abs(dy), std::abs(dz)));
+    value_type const scale = 1 / (amax + tiny);
+    value_type const ux = dx * scale;
+    value_type const uy = dy * scale;
+    value_type const uz = dz * scale;
+    // The scaled length sits far above the regularizer for every non-zero
+    // segment, so the factor is 1 / len there and exactly 0 at zero length.
+    value_type const len = std::sqrt(ux * ux + uy * uy + uz * uz);
+    value_type const fac = len / (len * len + tiny);
+    return point_type(ux * fac, uy * fac, uz * fac);
+}
+
+template <typename T>
+typename Segment3d<T>::point_type Segment3d<T>::normal_by_axis(Axis axis) const
+{
+    point_type const dir = direction();
+    value_type nx;
+    value_type ny;
+    value_type nz;
+    switch (axis)
+    {
+    case Axis::X:
+        nx = 0;
+        ny = dir.z();
+        nz = -dir.y();
+        break;
+    case Axis::Y:
+        nx = -dir.z();
+        ny = 0;
+        nz = dir.x();
+        break;
+    case Axis::Z:
+        nx = dir.y();
+        ny = -dir.x();
+        nz = 0;
+        break;
+    default: throw std::invalid_argument("Segment3d::normal_by_axis: invalid axis");
+    }
+
+    value_type const len = std::sqrt(nx * nx + ny * ny + nz * nz);
+    if (len == 0)
+    {
+        throw std::invalid_argument("Segment3d::normal_by_axis: segment is parallel to the reference axis");
+    }
+    return point_type(nx / len, ny / len, nz / len);
+}
+
+template <typename T>
+typename Segment3d<T>::point_type Segment3d<T>::point_along_axis(value_type value, Axis axis) const
+{
+    // The raw differences walk the same line as the unit direction with
+    // two fewer roundings, so an exactly representable crossing stays
+    // exact, and a component keeps its sign bit even where normalizing
+    // would flush it to zero.
+    value_type const dx = m_data.f.x1 - m_data.f.x0;
+    value_type const dy = m_data.f.y1 - m_data.f.y0;
+    value_type const dz = m_data.f.z1 - m_data.f.z0;
+    value_type origin;
+    value_type along;
+    switch (axis)
+    {
+    case Axis::X:
+        origin = m_data.f.x0;
+        along = dx;
+        break;
+    case Axis::Y:
+        origin = m_data.f.y0;
+        along = dy;
+        break;
+    case Axis::Z:
+        origin = m_data.f.z0;
+        along = dz;
+        break;
+    default: throw std::invalid_argument("Segment3d::point_along_axis: invalid axis");
+    }
+    if (along == 0)
+    {
+        throw std::invalid_argument("Segment3d::point_along_axis: the direction has no component along the axis");
+    }
+    value_type const t = (value - origin) / along;
+    return point_type(m_data.f.x0 + t * dx, m_data.f.y0 + t * dy, m_data.f.z0 + t * dz);
+}
 
 using Segment3dFp32 = Segment3d<float>;
 using Segment3dFp64 = Segment3d<double>;
@@ -1371,6 +1520,14 @@ public:
         }
     }
 
+    /**
+     * The signed perpendicular distances from the line of the indexed
+     * segment to every point (xs[i], ys[i], 0), positive on the side the
+     * axis-referenced normal points to. The loop stays here so the caller
+     * can keep its mask arithmetic in numpy.
+     */
+    SimpleArray<T> offset_by_axis(size_t index, SimpleArray<T> const & xs, SimpleArray<T> const & ys, Axis axis = Axis::Z) const;
+
 private:
 
     void check_constructor_point_size(point_pad_type const & p0, point_pad_type const & p1)
@@ -1388,6 +1545,40 @@ private:
     std::shared_ptr<point_pad_type> m_p1;
 
 }; /* end class SegmentPad */
+
+template <typename T>
+SimpleArray<T> SegmentPad<T>::offset_by_axis(size_t index, SimpleArray<T> const & xs, SimpleArray<T> const & ys, Axis axis) const
+{
+    if (index >= size())
+    {
+        throw std::out_of_range(
+            std::format("SegmentPad::offset_by_axis: index {} is out of bounds with size {}", index, size()));
+    }
+    if (xs.ndim() != 1 || ys.ndim() != 1 || xs.shape(0) != ys.shape(0))
+    {
+        throw std::invalid_argument(
+            std::format("SegmentPad::offset_by_axis: xs and ys must be 1-dimensional and equally long, "
+                        "but their ndims are {} and {} and shapes {} and {}",
+                        xs.ndim(),
+                        ys.ndim(),
+                        xs.shape(0),
+                        ys.shape(0)));
+    }
+
+    segment_type const seg = get_at(index);
+    point_type const nml = seg.normal_by_axis(axis);
+    value_type const x0 = seg.x0();
+    value_type const y0 = seg.y0();
+    // The query points sit at z = 0, the plane of a two-dimensional pad.
+    value_type const zterm = (0 - seg.z0()) * nml.z();
+    ssize_t const npoint = xs.shape(0);
+    SimpleArray<T> result(small_vector<ssize_t>{npoint});
+    for (ssize_t i = 0; i < npoint; ++i)
+    {
+        result(i) = (xs(i) - x0) * nml.x() + (ys(i) - y0) * nml.y() + zterm;
+    }
+    return result;
+}
 
 using SegmentPadFp32 = SegmentPad<float>;
 using SegmentPadFp64 = SegmentPad<double>;
