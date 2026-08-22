@@ -2,7 +2,12 @@
 
 #include <gtest/gtest.h>
 
+#include <bit>
+#include <cmath>
+#include <cstdint>
+#include <limits>
 #include <random>
+#include <type_traits>
 #ifdef Py_PYTHON_H
 #error "Python.h should not be included."
 #endif
@@ -25,6 +30,113 @@ TEST(ConcreteBuffer, iterator)
     }
 }
 
+TEST(Float16, type_properties)
+{
+    namespace sc = solvcon;
+
+    static_assert(sizeof(sc::Float16) == 2);
+    static_assert(std::is_trivially_copyable_v<sc::Float16>);
+    static_assert(std::is_convertible_v<float, sc::Float16>);
+    static_assert(std::is_convertible_v<double, sc::Float16>);
+    static_assert(std::is_convertible_v<int, sc::Float16>);
+    static_assert(!std::is_convertible_v<sc::Float16, float>);
+}
+
+TEST(Float16, binary_layout)
+{
+    namespace sc = solvcon;
+
+    float const pos_input = 1.5F;
+    auto const pos_bits = std::bit_cast<uint32_t>(pos_input);
+    sc::Float16 const pos_output(pos_input);
+    float const neg_input = -2.0F;
+    auto const neg_bits = std::bit_cast<uint32_t>(neg_input);
+    sc::Float16 const neg_output(neg_input);
+
+    // Separators group the sign, exponent, and fraction fields.
+    EXPECT_EQ(0b0'01111111'10000000000000000000000U, pos_bits);
+    EXPECT_EQ(0b0'01111'1000000000U, pos_output.bits());
+    EXPECT_FLOAT_EQ(pos_input, static_cast<float>(pos_output));
+    EXPECT_EQ(0b1'10000000'00000000000000000000000U, neg_bits);
+    EXPECT_EQ(0b1'10000'0000000000U, neg_output.bits());
+    EXPECT_FLOAT_EQ(neg_input, static_cast<float>(neg_output));
+}
+
+TEST(Float16, boundaries)
+{
+    namespace sc = solvcon;
+
+    float const max_finite = 65504.0F;
+    float const min_subnormal = std::ldexp(1.0F, -24);
+    float const underflow_tie = std::ldexp(1.0F, -25);
+
+    EXPECT_EQ(0b0'11110'1111111111U, sc::Float16(max_finite).bits());
+    EXPECT_EQ(0b0'00000'0000000001U, sc::Float16(min_subnormal).bits());
+    EXPECT_EQ(0b0'00000'0000000000U, sc::Float16(underflow_tie).bits());
+
+    EXPECT_FLOAT_EQ(max_finite, static_cast<float>(sc::Float16(max_finite)));
+    EXPECT_FLOAT_EQ(min_subnormal, static_cast<float>(sc::Float16(min_subnormal)));
+    EXPECT_FLOAT_EQ(0.0F, static_cast<float>(sc::Float16(underflow_tie)));
+}
+
+TEST(Float16, ties_to_even)
+{
+    namespace sc = solvcon;
+
+    float const even_tie = 1.0F + std::ldexp(1.0F, -11);
+    float const odd_tie = 1.0F + 3.0F * std::ldexp(1.0F, -11);
+
+    // Midpoints select the result with an even least-significant fraction bit.
+    EXPECT_EQ(0b0'01111'0000000000U, sc::Float16(even_tie).bits());
+    EXPECT_EQ(0b0'01111'0000000010U, sc::Float16(odd_tie).bits());
+}
+
+TEST(Float16, double_rounding)
+{
+    namespace sc = solvcon;
+
+    double const input = 1.0 + std::ldexp(1.0, -11) + std::ldexp(1.0, -25);
+
+    // Narrowing through float loses the term above the binary16 midpoint.
+    EXPECT_EQ(0b0'01111'0000000001U, sc::Float16(input).bits());
+    EXPECT_EQ(0b0'01111'0000000000U, sc::Float16(static_cast<float>(input)).bits());
+}
+
+TEST(Float16, value_vs_bits)
+{
+    namespace sc = solvcon;
+
+    sc::Float16 const numeric(1);
+    sc::Float16 const raw = sc::Float16::from_bits(1);
+
+    EXPECT_EQ(0b0'01111'0000000000U, numeric.bits());
+    EXPECT_EQ(0b0'00000'0000000001U, raw.bits());
+    EXPECT_FLOAT_EQ(1.0F, static_cast<float>(numeric));
+    EXPECT_FLOAT_EQ(std::ldexp(1.0F, -24), static_cast<float>(raw));
+}
+
+TEST(Float16, special_values)
+{
+    namespace sc = solvcon;
+
+    sc::Float16 const pos_inf(std::numeric_limits<float>::infinity());
+    sc::Float16 const neg_inf(-std::numeric_limits<float>::infinity());
+    EXPECT_EQ(0x7c00U, pos_inf.bits());
+    EXPECT_EQ(0xfc00U, neg_inf.bits());
+    EXPECT_TRUE(std::isinf(static_cast<float>(pos_inf)));
+    EXPECT_TRUE(std::signbit(static_cast<float>(neg_inf)));
+
+    sc::Float16 const quiet_nan(std::numeric_limits<float>::quiet_NaN());
+    EXPECT_EQ(0x7c00U, quiet_nan.bits() & 0x7c00U);
+    EXPECT_NE(0U, quiet_nan.bits() & 0x03ffU);
+    EXPECT_TRUE(std::isnan(static_cast<float>(quiet_nan)));
+
+    sc::Float16 const neg_zero(-0.0F);
+    EXPECT_EQ(0x8000U, neg_zero.bits());
+    EXPECT_TRUE(std::signbit(static_cast<float>(neg_zero)));
+    EXPECT_EQ(0x7e55U, sc::Float16::from_bits(0x7e55U).bits());
+}
+
 TEST(SimpleArray, construction)
 {
     namespace sc = solvcon;
@@ -32,6 +144,25 @@ TEST(SimpleArray, construction)
     EXPECT_EQ(arr_double.nbody(), 10);
     sc::SimpleArray<int> arr_int(17);
     EXPECT_EQ(arr_int.nbody(), 17);
+}
+
+TEST(SimpleArray, float16_storage)
+{
+    namespace sc = solvcon;
+
+    sc::SimpleArrayFloat16 array(sc::small_vector<ssize_t>{2, 2});
+    array(0, 0) = sc::Float16(1.5F);
+    array(0, 1) = sc::Float16(-2.0F);
+    array(1, 0) = sc::Float16(3.25F);
+    array(1, 1) = sc::Float16(4.5F);
+
+    sc::SimpleArrayFloat16 copy(array);
+
+    EXPECT_NE(array.data(), copy.data());
+    EXPECT_FLOAT_EQ(1.5F, static_cast<float>(copy(0, 0)));
+    EXPECT_FLOAT_EQ(-2.0F, static_cast<float>(copy(0, 1)));
+    EXPECT_FLOAT_EQ(3.25F, static_cast<float>(copy(1, 0)));
+    EXPECT_FLOAT_EQ(4.5F, static_cast<float>(copy(1, 1)));
 }
 
 TEST(SimpleArray, minmaxsum)
@@ -182,6 +313,9 @@ TEST(SimpleArray, logical_data)
 
 TEST(SimpleArray_DataType, from_type)
 {
+    solvcon::DataType dt_half = solvcon::DataType::from<solvcon::Float16>();
+    EXPECT_EQ(dt_half.type(), solvcon::DataType::Float16);
+
     solvcon::DataType dt_double = solvcon::DataType::from<double>();
     EXPECT_EQ(dt_double.type(), solvcon::DataType::Float64);
 
@@ -197,8 +331,37 @@ TEST(SimpleArray_DataType, from_string)
     solvcon::DataType dt_bool = solvcon::DataType("bool");
     EXPECT_EQ(dt_bool.type(), solvcon::DataType::Bool);
 
-    EXPECT_THROW(solvcon::DataType("float16"), std::invalid_argument); // float16 does not exist
+    EXPECT_THROW(solvcon::DataType("float16"), std::invalid_argument);
     EXPECT_THROW(solvcon::DataType("bool8"), std::invalid_argument); // bool8 does not exist
+}
+
+TEST(SimpleArrayPlex, float16_lifecycle)
+{
+    namespace sc = solvcon;
+
+    sc::small_vector<ssize_t> const shape{16};
+    sc::SimpleArrayPlex plex(shape, sc::DataType::Float16, 32);
+    EXPECT_EQ(sc::DataType::Float16, plex.data_type());
+    EXPECT_EQ(32, plex.alignment());
+
+    auto * array = static_cast<sc::SimpleArrayFloat16 *>(plex.mutable_instance_ptr());
+    (*array)[0] = sc::Float16(2.0F);
+
+    sc::SimpleArrayPlex copy(plex);
+    auto const * copy_array = static_cast<sc::SimpleArrayFloat16 const *>(copy.instance_ptr());
+    EXPECT_NE(array->data(), copy_array->data());
+    EXPECT_FLOAT_EQ(2.0F, static_cast<float>((*copy_array)[0]));
+
+    sc::SimpleArrayPlex assigned;
+    assigned = plex;
+    auto const * assigned_array = static_cast<sc::SimpleArrayFloat16 const *>(assigned.instance_ptr());
+    EXPECT_NE(array->data(), assigned_array->data());
+    EXPECT_FLOAT_EQ(2.0F, static_cast<float>((*assigned_array)[0]));
+
+    auto buffer = sc::ConcreteBuffer::construct(shape[0] * sizeof(sc::Float16));
+    sc::SimpleArrayPlex buffered(shape, buffer, sc::DataType::Float16);
+    auto const * buffered_array = static_cast<sc::SimpleArrayFloat16 const *>(buffered.instance_ptr());
+    EXPECT_EQ(buffer->data(), static_cast<void const *>(buffered_array->data()));
 }
 
 TEST(BufferExpander, iterator)

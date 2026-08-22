@@ -6,6 +6,7 @@
  */
 
 #include <solvcon/math/Complex.hpp>
+#include <solvcon/math/Float16.hpp>
 #include <solvcon/math/blas_compat.hpp>
 #ifdef SC_HAS_VENDOR_LAPACK
 #include <solvcon/math/lapack_compat.hpp>
