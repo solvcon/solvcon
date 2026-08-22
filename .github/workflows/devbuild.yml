@@ -226,6 +226,25 @@ jobs:
         make pytest ${JOB_MAKE_ARGS}
         echo "::endgroup::"
 
+    - name: make pytest BUILD_MCAP=ON
+      run: |
+        echo "::group::make pytest BUILD_MCAP=ON"
+        # BUILD_MCAP is off in every other lane, so the subsystem gets a lane
+        # of its own rather than riding on one that means something else.
+        # SOLVCON_MCAP reaches module.cpp alone, so this configure recompiles
+        # the subsystem and that file and takes the rest from the cache.
+        rm -f build/*/Makefile
+        make cmake \
+          VERBOSE=1 USE_CLANG_TIDY=OFF \
+          BUILD_QT=OFF BUILD_MCAP=ON \
+          CMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} \
+          CMAKE_ARGS="-DPYTHON_EXECUTABLE=$(which python3)"
+        make buildext VERBOSE=1
+        # A silent OFF would leave every mcap test skipped and the lane green.
+        python3 -c "import solvcon; assert solvcon.HAS_MCAP == True"
+        make pytest VERBOSE=1 PYTEST_OPTS="-k mcap"
+        echo "::endgroup::"
+
     - name: make buildext BUILD_QT=ON
       run: |
         echo "::group::make buildext BUILD_QT=ON"

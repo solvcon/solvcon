@@ -69,6 +69,7 @@ def main():
             'solvcon.agent',
             'solvcon.agent.draw',
             'solvcon.agent.window',
+            'solvcon.mcap',
             'solvcon.multidim',
             'solvcon.multidim.euler',
             'solvcon.onedim',
