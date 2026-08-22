@@ -73,4 +73,55 @@ class SimdTransformBinaryTC(unittest.TestCase):
         for i, want in enumerate(expected):
             self.assertEqual(out[i], want)
 
+
+class SimdTransformInplaceBinaryTC(unittest.TestCase):
+    # The in-place SIMD wrappers (iadd_simd, isub_simd, imul_simd,
+    # idiv_simd) must return the receiver itself, not a copy, so that
+    # the fluent (chained) API mutates in place across every call.
+    def test_inplace_simd_returns_self(self):
+        a = solvcon.SimpleArrayFloat32(
+            array=np.array([4.0, 6.0, 8.0], dtype='float32'))
+        b = solvcon.SimpleArrayFloat32(
+            array=np.array([2.0, 2.0, 2.0], dtype='float32'))
+        self.assertIs(a.iadd_simd(b), a)
+
+        a = solvcon.SimpleArrayFloat32(
+            array=np.array([4.0, 6.0, 8.0], dtype='float32'))
+        b = solvcon.SimpleArrayFloat32(
+            array=np.array([2.0, 2.0, 2.0], dtype='float32'))
+        self.assertIs(a.isub_simd(b), a)
+
+        a = solvcon.SimpleArrayFloat32(
+            array=np.array([4.0, 6.0, 8.0], dtype='float32'))
+        b = solvcon.SimpleArrayFloat32(
+            array=np.array([2.0, 2.0, 2.0], dtype='float32'))
+        self.assertIs(a.imul_simd(b), a)
+
+        a = solvcon.SimpleArrayFloat32(
+            array=np.array([4.0, 6.0, 8.0], dtype='float32'))
+        b = solvcon.SimpleArrayFloat32(
+            array=np.array([2.0, 2.0, 2.0], dtype='float32'))
+        self.assertIs(a.idiv_simd(b), a)
+
+    def test_inplace_simd_fluent_chaining(self):
+        n = 17  # four NEON blocks plus a 1-element scalar tail
+        a_vals = np.array(
+            [float(i + 4) for i in range(n)], dtype='float32')
+        b_vals = np.array(
+            [float(i + 1) for i in range(n)], dtype='float32')
+        a = solvcon.SimpleArrayFloat32(array=a_vals.copy())
+        b = solvcon.SimpleArrayFloat32(array=b_vals.copy())
+
+        chained = a.iadd_simd(b).isub_simd(b).imul_simd(b).idiv_simd(b)
+
+        expected = a_vals.copy()
+        expected = expected + b_vals
+        expected = expected - b_vals
+        expected = expected * b_vals
+        expected = expected / b_vals
+
+        self.assertIs(chained, a)
+        for i in range(n):
+            self.assertAlmostEqual(a[i], expected[i], places=5)
+
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

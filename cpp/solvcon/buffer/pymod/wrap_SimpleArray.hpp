@@ -470,35 +470,72 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArray
             .def(
                 "iadd",
                 [](wrapped_type & self, wrapped_type const & other)
-                { self.iadd(other); })
+                { return py::cast(std::move(self.iadd(other))); })
             .def(
                 "iadd",
                 [](wrapped_type & self, value_type scalar)
-                { self.iadd(scalar); })
+                { return py::cast(std::move(self.iadd(scalar))); })
             .def(
                 "isub",
                 [](wrapped_type & self, wrapped_type const & other)
-                { self.isub(other); })
+                {
+                    if constexpr (!std::is_same_v<bool, std::remove_const_t<value_type>>)
+                    {
+                        return py::cast(std::move(self.isub(other)));
+                    }
+                    else
+                    {
+                        throw std::runtime_error(
+                            "SimpleArray<bool>::isub(): boolean value doesn't support this operation");
+                    }
+                })
             .def(
                 "isub",
                 [](wrapped_type & self, value_type scalar)
-                { self.isub(scalar); })
+                {
+                    if constexpr (!std::is_same_v<bool, std::remove_const_t<value_type>>)
+                    {
+                        return py::cast(std::move(self.isub(scalar)));
+                    }
+                    else
+                    {
+                        throw std::runtime_error(
+                            "SimpleArray<bool>::isub(): boolean value doesn't support this operation");
+                    }
+                })
             .def(
                 "imul",
                 [](wrapped_type & self, wrapped_type const & other)
-                { self.imul(other); })
+                { return py::cast(std::move(self.imul(other))); })
             .def(
                 "imul",
                 [](wrapped_type & self, value_type scalar)
-                { self.imul(scalar); })
+                { return py::cast(std::move(self.imul(scalar))); })
             .def("idiv", [](wrapped_type & self, wrapped_type const & other)
-                 { self.idiv(other); })
+                 {
+                    if constexpr (!std::is_same_v<bool, std::remove_const_t<value_type>>)
+                    {
+                        return py::cast(std::move(self.idiv(other)));
+                    }
+                    else
+                    {
+                        throw std::runtime_error(
+                            "SimpleArray<bool>::idiv(): boolean value doesn't support this operation");
+                    } })
             .def(
-                "idiv",
-                [](wrapped_type & self, value_type scalar)
-                { self.idiv(scalar); })
+                "idiv", [](wrapped_type & self, value_type scalar)
+                {
+                    if constexpr (!std::is_same_v<bool, std::remove_const_t<value_type>>)
+                    {
+                        return py::cast(std::move(self.idiv(scalar)));
+                    }
+                    else
+                    {
+                        throw std::runtime_error(
+                            "SimpleArray<bool>::idiv(): boolean value doesn't support this operation");
+                    } })
             .def("imatmul", [](wrapped_type & self, wrapped_type const & other)
-                 { self.imatmul(other); })
+                 { return py::cast(std::move(self.imatmul(other))); })
             .def("__imatmul__", [](wrapped_type & self, wrapped_type const & other)
                  {
                      self.imatmul(other);
@@ -508,13 +545,31 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArray
             .def("mul_simd", &wrapped_type::mul_simd)
             .def("div_simd", &wrapped_type::div_simd)
             .def("iadd_simd", [](wrapped_type & self, wrapped_type const & other)
-                 { self.iadd_simd(other); })
+                 { return py::cast(std::move(self.iadd_simd(other))); })
             .def("isub_simd", [](wrapped_type & self, wrapped_type const & other)
-                 { self.isub_simd(other); })
+                 {
+                    if constexpr (!std::is_same_v<bool, std::remove_const_t<value_type>>)
+                    {
+                        return py::cast(std::move(self.isub_simd(other)));
+                    }
+                    else
+                    {
+                        throw std::runtime_error(
+                            "SimpleArray<bool>::isub_simd(): boolean value doesn't support this operation");
+                    } })
             .def("imul_simd", [](wrapped_type & self, wrapped_type const & other)
-                 { self.imul_simd(other); })
+                 { return py::cast(std::move(self.imul_simd(other))); })
             .def("idiv_simd", [](wrapped_type & self, wrapped_type const & other)
-                 { self.idiv_simd(other); })
+                 {
+                    if constexpr (!std::is_same_v<bool, std::remove_const_t<value_type>>)
+                    {
+                        return py::cast(std::move(self.idiv_simd(other)));
+                    }
+                    else
+                    {
+                        throw std::runtime_error(
+                            "SimpleArray<bool>::isub_simd(): boolean value doesn't support this operation");
+                    } })
             //
             ;
 
