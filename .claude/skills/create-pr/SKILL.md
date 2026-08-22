@@ -217,6 +217,15 @@ cross-reference; flag any drift between the two.
 - **No fabricated context.** Do not invent benchmark numbers, test
   results, or verification claims. Only include what the user has stated
   or what is visible in the diff/commits.
+- **No baseline verification claims.** Never write that `make lint` is
+  clean, that the branch builds, that CI is green, or that the existing
+  suite still passes. Every PR is expected to meet those, so stating
+  them adds a line the reviewer skips. Report a result only when it
+  tells the reviewer something they cannot already assume: a new test
+  that pins the behavior under review, a benchmark number, a platform
+  the change was exercised on, or a known failure and why it is
+  acceptable. Report the routine check results to the user in the
+  session instead, where they answer "did you actually run it".
 - **Diff accuracy.** Before presenting the draft, re-read
   `git diff origin/master...HEAD` and confirm every claim in the subject
   and body corresponds to a hunk in the diff. Drop claims about behavior

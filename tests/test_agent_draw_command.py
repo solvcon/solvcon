@@ -81,7 +81,7 @@ class DrawVocabularyGoThroughTC(unittest.TestCase):
 
 
 class DrawPrimitiveCommandsTC(unittest.TestCase):
-    """The polyline and polygon commands end to end."""
+    """Agent Draw shape-construction commands end to end."""
 
     def setUp(self):
         self.world = solvcon.WorldFp64()
@@ -108,6 +108,37 @@ class DrawPrimitiveCommandsTC(unittest.TestCase):
             {"op": "add_polygon", "vertices": [[0, 0], [1, 1]]})
         self.assertFalse(short.ok)
         self.assertEqual(self.proc.run({"op": "nshape"}).value["nshape"], 0)
+
+    def test_closed_path_and_quadratic_bezier_create_shapes(self):
+        path = self.proc.run({
+            "op": "add_path",
+            "start": [0, 0],
+            "elements": [[2, 0], [2, 1, 1, 2, 0, 0]],
+            "closed": True,
+        })
+        self.assertTrue(path.ok, path.error)
+        state = self.proc.run({"op": "describe_state"}).value["state"]
+        self.assertEqual(state["shapes"][0]["type"], "closed_path")
+        self.assertEqual(len(state["shapes"][0]["curves"]), 2)
+
+        quadratic = self.proc.run({
+            "op": "add_quadratic_bezier",
+            "p0": [0, 0], "p1": [3, 3], "p2": [6, 0],
+        })
+        self.assertTrue(quadratic.ok, quadratic.error)
+        state = self.proc.run({"op": "describe_state"}).value["state"]
+        self.assertEqual(state["shapes"][1]["type"], "bezier")
+
+    def test_invalid_path_is_a_schema_failure(self):
+        for elements in ([], [[1, 2, 3]]):
+            with self.subTest(elements=elements):
+                result = self.proc.run({
+                    "op": "add_path", "start": [0, 0],
+                    "elements": elements, "closed": False,
+                })
+                self.assertFalse(result.ok)
+                self.assertTrue(result.error.startswith("add_path: "))
+                self.assertEqual(self.world.nshape, 0)
 
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

@@ -28,6 +28,7 @@ public:
     using segment_pad_type = typename wrapped_type::segment_pad_type;
     using bezier_type = typename wrapped_type::bezier_type;
     using curve_pad_type = typename wrapped_type::curve_pad_type;
+    using path_element_type = typename wrapped_type::path_element_type;
 
     friend typename base_type::root_base_type;
 
@@ -94,6 +95,13 @@ WrapWorld<T> & WrapWorld<T>::wrap_management()
             [](wrapped_type const & self, int32_t shape_id)
             {
                 return shape_type_name(self.shape_type_of(shape_id));
+            },
+            py::arg("shape_id"))
+        .def(
+            "is_closed",
+            [](wrapped_type const & self, int32_t shape_id)
+            {
+                return solvcon::is_closed(self.shape_type_of(shape_id));
             },
             py::arg("shape_id"))
         .def(
@@ -374,6 +382,52 @@ WrapWorld<T> & WrapWorld<T>::wrap_shape()
                 return self.add_bezier_shape(bezier);
             },
             py::arg("b"))
+        .def(
+            "add_quadratic_bezier",
+            [](wrapped_type & self, point_type const & p0, point_type const & p1, point_type const & p2)
+            {
+                return self.add_quadratic_bezier(p0, p1, p2);
+            },
+            py::arg("p0"),
+            py::arg("p1"),
+            py::arg("p2"))
+        .def(
+            "add_path",
+            [](wrapped_type & self,
+               std::array<value_type, 2> const & start,
+               std::vector<std::vector<value_type>> const & elements,
+               bool closed)
+            {
+                std::vector<path_element_type> path;
+                path.reserve(elements.size());
+                for (auto const & element : elements)
+                {
+                    if (element.size() == 2)
+                    {
+                        path.push_back(path_element_type::line_to(point_type(element[0], element[1], 0)));
+                    }
+                    else if (element.size() == 6)
+                    {
+                        path.push_back(path_element_type::cubic_to(
+                            point_type(element[0], element[1], 0),
+                            point_type(element[2], element[3], 0),
+                            point_type(element[4], element[5], 0)));
+                    }
+                    else
+                    {
+                        throw std::invalid_argument("World: add_path elements need 2 or 6 numbers");
+                    }
+                }
+                return self.add_path(point_type(start[0], start[1], 0), path, closed);
+            },
+            py::arg("start"),
+            py::arg("elements"),
+            py::arg("closed"),
+            "Add a 2D path. Each element is [x, y] for a line-to or "
+            "[c1x, c1y, c2x, c2y, x, y] for a cubic curve-to. All "
+            "coordinates are absolute. If closed is true, a straight "
+            "curve closes the path back to start, unless the last "
+            "element already ends there.")
         .def(
             "add_polyline",
             [](wrapped_type & self, std::vector<std::array<value_type, 2>> const & vertices)
