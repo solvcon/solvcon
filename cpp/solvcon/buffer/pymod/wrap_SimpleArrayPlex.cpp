@@ -294,6 +294,24 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArrayPlex : public WrapBase<Wr
                         });
                 })
             .def("__len__", SC_DECL_EXECUTE_TYPED_ARRAY_METHOD(size))
+            .def(
+                "__str__",
+                [](wrapped_type & self)
+                {
+                    return execute_callback_with_typed_array(
+                        self,
+                        [](auto & array)
+                        { return pybind11::str(to_ndarray(array)); });
+                })
+            .def(
+                "__repr__",
+                [](wrapped_type & self)
+                {
+                    return execute_callback_with_typed_array(
+                        self,
+                        [](auto & array)
+                        { return pybind11::repr(to_ndarray(array)); });
+                })
             .def("__getitem__", &get_typed_array_value<ssize_t>)
             .def("__getitem__", &get_typed_array_value<const std::vector<ssize_t> &>)
             .def("__setitem__",
