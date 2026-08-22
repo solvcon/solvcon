@@ -6,7 +6,27 @@
 Import C++ implementation.
 """
 
+from typing import TYPE_CHECKING
+
 # Use flake8 http://flake8.pycqa.org/en/latest/user/error-codes.html
+
+if TYPE_CHECKING:
+    from _solvcon.pilot import (  # noqa: F401
+        Overlay2dOptions,
+        PlotColor,
+        R2DWidget,
+        RDomainWidget,
+        RManager,
+        RPlotModel,
+        RPlotSeries,
+        RPythonConsoleDockWidget,
+        RPythonTerminalDockWidget,
+        default_draw_tool_name,
+        draw_tool_names,
+        mgr,
+        plot_color_cycle,
+        plot_cycle_color,
+    )
 
 
 # Try to import the C++ pilot code but easily give up.

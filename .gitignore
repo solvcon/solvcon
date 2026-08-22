@@ -25,3 +25,4 @@ CMakeUserPresets.json
 *.obj
 *.pdb
 *.env
+/_solvcon/

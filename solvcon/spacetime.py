@@ -7,13 +7,34 @@ One-dimensional space-time CESE method implementation.  (Old and to be
 deprecated).
 """
 
+from typing import TYPE_CHECKING
 
-try:
-    from _solvcon import spacetime as _impl  # noqa: F401
-except ImportError:
-    from ._solvcon import spacetime as _impl  # noqa: F401
+if TYPE_CHECKING:
+    from _solvcon.spacetime import (  # noqa: F401
+        Celm,
+        Grid,
+        InviscidBurgersSolver,
+        Kernel,
+        LinearScalarSolver,
+        Selm,
+        Solver,
+    )
+else:
+    try:
+        from _solvcon import spacetime as _impl
+    except ImportError:
+        from ._solvcon import spacetime as _impl
 
-_toload = [
+    Grid = _impl.Grid
+    Celm = _impl.Celm
+    Selm = _impl.Selm
+    Kernel = _impl.Kernel
+    Solver = _impl.Solver
+    InviscidBurgersSolver = _impl.InviscidBurgersSolver
+    LinearScalarSolver = _impl.LinearScalarSolver
+
+
+__all__ = [
     'Grid',
     'Celm',
     'Selm',
@@ -21,22 +42,8 @@ _toload = [
     'Solver',
     'InviscidBurgersSolver',
     'LinearScalarSolver',
-]
-
-
-def _load():
-    for name in _toload:  # noqa: F821
-        globals()[name] = getattr(_impl, name)
-
-
-__all__ = _toload + [
     'SolverProxy',
 ]
-
-
-_load()
-del _load
-del _toload
 
 
 class SolverProxy:
