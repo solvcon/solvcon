@@ -263,6 +263,7 @@ struct ShapeRecord
     size_t curve_count; ///< Number of cubic Beziers this shape occupies.
     size_t ring_offset; ///< First index in the ring registry. Only POLYGON shapes use this.
     size_t ring_count; ///< Number of rings this shape owns. Zero for non-polygon shapes.
+    uint8_t ring_ndim; ///< Dimensionality (2 or 3) of this shape's rings. Zero for non-polygon shapes.
 
     /// OBB corner x's in world coordinates, ordered TL, TR, BR, BL.
     bbox_array_type obb_x;
@@ -323,6 +324,7 @@ public:
     using point_pad_type = PointPad<T>;
     using segment_pad_type = SegmentPad<T>;
     using curve_pad_type = CurvePad<T>;
+    using ring_list_type = RingList<T>;
     using bbox_type = BoundBox3d<T>;
     using rtree_type = RTree<ShapeEntry<T>, bbox_type>;
 
@@ -461,9 +463,10 @@ public:
      * Add a polygon with one outer ring and zero or more hole rings. The
      * first ring in `rings` is the outer boundary; the rest are holes.
      * Each ring needs at least 3 vertices. Rings are stored as one
-     * contiguous segment run, outer ring first.
+     * contiguous segment run, outer ring first. `rings` may be 2- or
+     * 3-dimensional; every ring in one call shares `rings`'s ndim.
      */
-    int32_t add_polygon_rings(std::vector<std::vector<std::array<T, 2>>> const & rings);
+    int32_t add_polygon_rings(ring_list_type const & rings);
 
     /**
      * Add a closed chain of straight segments through the given vertices, with
@@ -507,13 +510,17 @@ public:
         return m_curves->get(rec.curve_offset + i);
     }
 
-    /// One ring of a live shape (0-based within the shape), with vertices
-    /// reconstructed from the segment pad in input order (no repeated
-    /// closing vertex) and its role (outer for ring 0, hole otherwise).
+    /**
+     * One ring of a live shape (0-based within the shape), with vertices
+     * reconstructed from the segment pad in input order (no repeated
+     * closing vertex) and its role (outer for ring 0, hole otherwise).
+     * Each vertex has 2 elements for a 2-dimensional ring, 3 for a
+     * 3-dimensional one.
+     */
     struct RingInfo
     {
         RingRole role;
-        std::vector<std::array<T, 2>> vertices;
+        std::vector<std::vector<T>> vertices;
     }; /* end struct RingInfo */
 
     std::vector<RingInfo> shape_rings(int32_t shape_id) const;
@@ -726,7 +733,8 @@ private:
                            size_t curve_offset = 0,
                            size_t curve_count = 0,
                            size_t ring_offset = 0,
-                           size_t ring_count = 0);
+                           size_t ring_count = 0,
+                           uint8_t ring_ndim = 0);
 
     /**
      * Check if shape_id is valid and not DEAD.
@@ -824,10 +832,11 @@ int32_t World<T>::register_shape(ShapeType type,
                                  size_t curve_offset,
                                  size_t curve_count,
                                  size_t ring_offset,
-                                 size_t ring_count)
+                                 size_t ring_count,
+                                 uint8_t ring_ndim)
 {
     auto shape_id = static_cast<int32_t>(m_shape_registry.size());
-    m_shape_registry.push_back(ShapeRecord{type, segment_offset, segment_count, curve_offset, curve_count, ring_offset, ring_count, {}, {}}); // NOLINT(modernize-use-designated-initializers)
+    m_shape_registry.push_back(ShapeRecord{type, segment_offset, segment_count, curve_offset, curve_count, ring_offset, ring_count, ring_ndim, {}, {}}); // NOLINT(modernize-use-designated-initializers)
     ++m_nshape;
     bbox_type const bb = compute_shape_bbox(m_shape_registry[shape_id]);
 
@@ -973,15 +982,15 @@ int32_t World<T>::add_polyline(std::vector<std::array<T, 2>> const & vertices)
 }
 
 template <typename T>
-int32_t World<T>::add_polygon_rings(std::vector<std::vector<std::array<T, 2>>> const & rings)
+int32_t World<T>::add_polygon_rings(ring_list_type const & rings)
 {
-    if (rings.empty())
+    if (rings.nring() == 0)
     {
         throw std::invalid_argument("World: add_polygon_rings needs at least one ring");
     }
-    for (auto const & ring : rings)
+    for (size_t r = 0; r < rings.nring(); ++r)
     {
-        if (ring.size() < 3)
+        if (rings.ring_size(r) < 3)
         {
             throw std::invalid_argument("World: add_polygon_rings needs at least 3 vertices per ring");
         }
@@ -989,24 +998,23 @@ int32_t World<T>::add_polygon_rings(std::vector<std::vector<std::array<T, 2>>> c
 
     size_t const segment_offset = m_segments->size();
     size_t const ring_offset = m_ring_registry.size();
-    for (size_t r = 0; r < rings.size(); ++r)
+    for (size_t r = 0; r < rings.nring(); ++r)
     {
-        auto const & ring = rings[r];
         size_t const ring_seg_offset = m_segments->size();
-        for (size_t i = 0; i < ring.size(); ++i)
+        size_t const nvert = rings.ring_size(r);
+        for (size_t i = 0; i < nvert; ++i)
         {
-            size_t const j = (i + 1) % ring.size();
-            m_segments->append(
-                point_type(ring[i][0], ring[i][1], 0),
-                point_type(ring[j][0], ring[j][1], 0));
+            size_t const j = (i + 1) % nvert;
+            m_segments->append(rings.vertex(r, i), rings.vertex(r, j));
         }
-        m_ring_registry.push_back(RingEntry{ring_seg_offset, ring.size(), r == 0 ? RingRole::OUTER : RingRole::HOLE});
+        m_ring_registry.push_back(RingEntry{.segment_offset = ring_seg_offset, .segment_count = nvert, .role = r == 0 ? RingRole::OUTER : RingRole::HOLE});
     }
     return register_shape(ShapeType::POLYGON, segment_offset, m_segments->size() - segment_offset,
                           /*curve_offset*/ 0,
                           /*curve_count*/ 0,
                           ring_offset,
-                          rings.size());
+                          rings.nring(),
+                          rings.ndim());
 }
 
 template <typename T>
@@ -1016,7 +1024,13 @@ int32_t World<T>::add_polygon(std::vector<std::array<T, 2>> const & vertices)
     {
         throw std::invalid_argument("World: add_polygon needs at least 3 vertices");
     }
-    return add_polygon_rings({vertices});
+    ring_list_type rings(/* ndim */ 2);
+    rings.begin_ring();
+    for (auto const & v : vertices)
+    {
+        rings.add_vertex(v[0], v[1]);
+    }
+    return add_polygon_rings(rings);
 }
 
 template <typename T>
@@ -1034,7 +1048,14 @@ std::vector<typename World<T>::RingInfo> World<T>::shape_rings(int32_t shape_id)
         for (size_t i = 0; i < ring.segment_count; ++i)
         {
             segment_type const seg = m_segments->get(ring.segment_offset + i);
-            info.vertices.push_back({seg.p0().x(), seg.p0().y()});
+            if (rec.ring_ndim == 3)
+            {
+                info.vertices.push_back({seg.p0().x(), seg.p0().y(), seg.p0().z()});
+            }
+            else
+            {
+                info.vertices.push_back({seg.p0().x(), seg.p0().y()});
+            }
         }
         result.push_back(std::move(info));
     }

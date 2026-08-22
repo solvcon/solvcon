@@ -438,6 +438,20 @@ class WorldPolygonRingsTC(unittest.TestCase):
         self.assertEqual(
             [list(v) for v in rings[1]["vertices"]], hole)
 
+    def test_add_polygon_rings_3d_round_trip(self):
+        outer = [[0, 0, 1], [4, 0, 1], [4, 4, 1], [0, 4, 1]]
+        hole = [[1, 1, 1], [2, 1, 1], [2, 2, 1], [1, 2, 1]]
+        sid = self.w.add_polygon_rings([outer, hole])
+        rings = self.w.shape_rings(sid)
+        self.assertEqual(
+            [list(v) for v in rings[0]["vertices"]], outer)
+        self.assertEqual(
+            [list(v) for v in rings[1]["vertices"]], hole)
+
+    def test_add_polygon_rings_rejects_mixed_dimensionality(self):
+        with self.assertRaises(ValueError):
+            self.w.add_polygon_rings([[[0, 0], [1, 0, 1], [1, 1], [0, 1]]])
+
 
 class WorldStateStampTC(unittest.TestCase):
     """The stamp that tells a reader the world has changed."""

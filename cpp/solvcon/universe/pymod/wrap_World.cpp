@@ -28,6 +28,7 @@ public:
     using segment_pad_type = typename wrapped_type::segment_pad_type;
     using bezier_type = typename wrapped_type::bezier_type;
     using curve_pad_type = typename wrapped_type::curve_pad_type;
+    using ring_list_type = typename wrapped_type::ring_list_type;
 
     friend typename base_type::root_base_type;
 
@@ -40,6 +41,13 @@ protected:
     WrapWorld & wrap_segment();
     WrapWorld & wrap_bezier();
     WrapWorld & wrap_shape();
+
+private:
+
+    /// Build a RingList from Python's nested [ring][vertex][coordinate]
+    /// lists, inferring ndim from the data and rejecting inconsistent
+    /// per-vertex coordinate counts.
+    static ring_list_type build_ring_list(std::vector<std::vector<std::vector<value_type>>> const & rings);
 }; /* end class WrapWorld */
 
 template <typename T>
@@ -307,6 +315,52 @@ WrapWorld<T> & WrapWorld<T>::wrap_bezier()
 }
 
 template <typename T>
+typename WrapWorld<T>::ring_list_type WrapWorld<T>::build_ring_list(std::vector<std::vector<std::vector<value_type>>> const & rings)
+{
+    uint8_t ndim = 0;
+    for (auto const & ring : rings)
+    {
+        for (auto const & vertex : ring)
+        {
+            if (vertex.size() != 2 && vertex.size() != 3)
+            {
+                throw std::invalid_argument(
+                    "World: add_polygon_rings vertices need 2 or 3 coordinates");
+            }
+            if (ndim == 0)
+            {
+                ndim = static_cast<uint8_t>(vertex.size());
+            }
+            else if (vertex.size() != ndim)
+            {
+                throw std::invalid_argument(
+                    "World: add_polygon_rings needs the same number of "
+                    "coordinates (2 or 3) on every vertex");
+            }
+        }
+    }
+
+    ring_list_type ring_list(ndim == 0 ? 2 : ndim);
+    for (auto const & ring : rings)
+    {
+        ring_list.begin_ring();
+        for (auto const & vertex : ring)
+        {
+            if (ndim == 3)
+            {
+                ring_list.add_vertex(vertex.at(0), vertex.at(1), vertex.at(2));
+            }
+            else
+            {
+                ring_list.add_vertex(vertex.at(0), vertex.at(1));
+            }
+        }
+    }
+
+    return ring_list;
+}
+
+template <typename T>
 WrapWorld<T> & WrapWorld<T>::wrap_shape()
 {
     namespace py = pybind11;
@@ -398,9 +452,9 @@ WrapWorld<T> & WrapWorld<T>::wrap_shape()
             py::arg("vertices"))
         .def(
             "add_polygon_rings",
-            [](wrapped_type & self, std::vector<std::vector<std::array<value_type, 2>>> const & rings)
+            [](wrapped_type & self, std::vector<std::vector<std::vector<value_type>>> const & rings)
             {
-                return self.add_polygon_rings(rings);
+                return self.add_polygon_rings(build_ring_list(rings));
             },
             py::arg("rings"))
         .def(
