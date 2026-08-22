@@ -7,13 +7,32 @@ Kernels over recorded time series: sorted integer-nanosecond timestamps
 paired with the values sampled at them.
 """
 
+from typing import TYPE_CHECKING
 
-try:
-    from _solvcon import timeseries as _impl  # noqa: F401
-except ImportError:
-    from ._solvcon import timeseries as _impl  # noqa: F401
+if TYPE_CHECKING:
+    from _solvcon.timeseries import (  # noqa: F401
+        dedup_last,
+        deriv,
+        held,
+        merge_sorted_unique,
+        movavg,
+        true_intervals,
+    )
+else:
+    try:
+        from _solvcon import timeseries as _impl
+    except ImportError:
+        from ._solvcon import timeseries as _impl
 
-_toload = [
+    merge_sorted_unique = _impl.merge_sorted_unique
+    dedup_last = _impl.dedup_last
+    deriv = _impl.deriv
+    movavg = _impl.movavg
+    held = _impl.held
+    true_intervals = _impl.true_intervals
+
+
+__all__ = [
     'merge_sorted_unique',
     'dedup_last',
     'deriv',
@@ -21,18 +40,5 @@ _toload = [
     'held',
     'true_intervals',
 ]
-
-
-def _load():
-    for name in _toload:  # noqa: F821
-        globals()[name] = getattr(_impl, name)
-
-
-__all__ = _toload
-
-
-_load()
-del _load
-del _toload
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
