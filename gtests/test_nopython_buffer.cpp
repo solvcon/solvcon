@@ -42,6 +42,60 @@ TEST(Float16, type_properties)
     static_assert(!std::is_convertible_v<sc::Float16, float>);
 }
 
+TEST(Float16, arithmetic)
+{
+    namespace sc = solvcon;
+
+    sc::Float16 const lhs(5.5F);
+    sc::Float16 const rhs(2.0F);
+
+    EXPECT_FLOAT_EQ(7.5F, static_cast<float>(lhs + rhs));
+    EXPECT_FLOAT_EQ(3.5F, static_cast<float>(lhs - rhs));
+    EXPECT_FLOAT_EQ(11.0F, static_cast<float>(lhs * rhs));
+    EXPECT_FLOAT_EQ(2.75F, static_cast<float>(lhs / rhs));
+
+    sc::Float16 const half_ulp(std::ldexp(1.0F, -11));
+    EXPECT_EQ(sc::Float16(1.0F).bits(), (sc::Float16(1.0F) + half_ulp).bits());
+}
+
+TEST(Float16, compound_assignment)
+{
+    namespace sc = solvcon;
+
+    sc::Float16 value(4.0F);
+
+    EXPECT_EQ(&value, &(value += sc::Float16(2.0F)));
+    EXPECT_FLOAT_EQ(6.0F, static_cast<float>(value));
+    EXPECT_EQ(&value, &(value -= sc::Float16(1.0F)));
+    EXPECT_FLOAT_EQ(5.0F, static_cast<float>(value));
+    EXPECT_EQ(&value, &(value *= sc::Float16(3.0F)));
+    EXPECT_FLOAT_EQ(15.0F, static_cast<float>(value));
+    EXPECT_EQ(&value, &(value /= sc::Float16(2.0F)));
+    EXPECT_FLOAT_EQ(7.5F, static_cast<float>(value));
+}
+
+TEST(Float16, comparison)
+{
+    namespace sc = solvcon;
+
+    sc::Float16 const one(1.0F);
+    sc::Float16 const two(2.0F);
+    sc::Float16 const pos_zero(0.0F);
+    sc::Float16 const neg_zero(-0.0F);
+    sc::Float16 const pos_inf(std::numeric_limits<float>::infinity());
+    sc::Float16 const neg_inf(-std::numeric_limits<float>::infinity());
+    sc::Float16 const quiet_nan(std::numeric_limits<float>::quiet_NaN());
+
+    EXPECT_LT(one, two);
+    EXPECT_GT(two, one);
+    EXPECT_EQ(pos_zero, neg_zero);
+    EXPECT_EQ(std::partial_ordering::equivalent, pos_zero <=> neg_zero);
+    EXPECT_LT(neg_inf, one);
+    EXPECT_LT(one, pos_inf);
+    EXPECT_NE(quiet_nan, quiet_nan);
+    EXPECT_EQ(std::partial_ordering::unordered, quiet_nan <=> one);
+}
+
 TEST(Float16, binary_layout)
 {
     namespace sc = solvcon;

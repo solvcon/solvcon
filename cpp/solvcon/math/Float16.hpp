@@ -13,6 +13,7 @@
  */
 
 #include <bit>
+#include <compare>
 #include <concepts>
 #include <cstdint>
 #include <limits>
@@ -68,8 +69,20 @@ public:
 
     explicit constexpr operator float() const { return decode(m_bits); }
 
+    constexpr Float16 & operator+=(Float16 other);
+    constexpr Float16 & operator-=(Float16 other);
+    constexpr Float16 & operator*=(Float16 other);
+    constexpr Float16 & operator/=(Float16 other);
+
     constexpr storage_type bits() const { return m_bits; }
     static constexpr Float16 from_bits(storage_type bits);
+
+    friend constexpr Float16 operator+(Float16 lhs, Float16 rhs);
+    friend constexpr Float16 operator-(Float16 lhs, Float16 rhs);
+    friend constexpr Float16 operator*(Float16 lhs, Float16 rhs);
+    friend constexpr Float16 operator/(Float16 lhs, Float16 rhs);
+    friend constexpr bool operator==(Float16 lhs, Float16 rhs);
+    friend constexpr std::partial_ordering operator<=>(Float16 lhs, Float16 rhs);
 
 private:
 
@@ -90,6 +103,29 @@ private:
 }; /* end class Float16 */
 
 constexpr Float16 Float16::from_bits(storage_type bits) { return std::bit_cast<Float16>(bits); }
+
+constexpr Float16 operator+(Float16 lhs, Float16 rhs) { return Float16(static_cast<float>(lhs) + static_cast<float>(rhs)); }
+
+constexpr Float16 operator-(Float16 lhs, Float16 rhs) { return Float16(static_cast<float>(lhs) - static_cast<float>(rhs)); }
+
+constexpr Float16 operator*(Float16 lhs, Float16 rhs) { return Float16(static_cast<float>(lhs) * static_cast<float>(rhs)); }
+
+constexpr Float16 operator/(Float16 lhs, Float16 rhs) { return Float16(static_cast<float>(lhs) / static_cast<float>(rhs)); }
+
+constexpr Float16 & Float16::operator+=(Float16 other) { return *this = *this + other; }
+
+constexpr Float16 & Float16::operator-=(Float16 other) { return *this = *this - other; }
+
+constexpr Float16 & Float16::operator*=(Float16 other) { return *this = *this * other; }
+
+constexpr Float16 & Float16::operator/=(Float16 other) { return *this = *this / other; }
+
+constexpr bool operator==(Float16 lhs, Float16 rhs) { return static_cast<float>(lhs) == static_cast<float>(rhs); }
+
+constexpr std::partial_ordering operator<=>(Float16 lhs, Float16 rhs)
+{
+    return static_cast<float>(lhs) <=> static_cast<float>(rhs);
+}
 
 template <typename T>
 constexpr Float16::storage_type Float16::encode(T value)
