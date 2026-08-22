@@ -48,6 +48,7 @@ add_subdirectory(math)
 add_subdirectory(linalg)
 add_subdirectory(timeseries)
 add_subdirectory(simd)
+add_subdirectory(device)
 
 set(SOLVCON_ROOT_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/solvcon.hpp
@@ -58,23 +59,6 @@ set(SOLVCON_ROOT_HEADERS
 set(SOLVCON_ROOT_FILES
     ${SOLVCON_ROOT_HEADERS}
     CACHE FILEPATH "" FORCE)
-
-if (BUILD_METAL)
-    add_subdirectory(device/metal)
-    set(SOLVCON_DEVICE_HEADERS
-        ${SOLVCON_DEVICE_HEADERS}
-        ${SOLVCON_METAL_HEADERS}
-        CACHE FILEPATH "" FORCE)
-    set(SOLVCON_DEVICE_SOURCES
-        ${SOLVCON_DEVICE_SOURCES}
-        ${SOLVCON_METAL_SOURCES}
-        CACHE FILEPATH "" FORCE)
-else () # BUILD_METAL
-    set(SOLVCON_DEVICE_HEADERS
-        CACHE FILEPATH "" FORCE)
-    set(SOLVCON_DEVICE_SOURCES
-        CACHE FILEPATH "" FORCE)
-endif () #BUILD_METAL
 
 set(SOLVCON_DEVICE_FILES
     ${SOLVCON_DEVICE_HEADERS}

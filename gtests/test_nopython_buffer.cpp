@@ -1,4 +1,5 @@
 #include <solvcon/buffer/buffer.hpp>
+#include <solvcon/device/BufferBackend.hpp>
 
 #include <gtest/gtest.h>
 
@@ -6,6 +7,30 @@
 #ifdef Py_PYTHON_H
 #error "Python.h should not be included."
 #endif
+
+TEST(BufferBackend, cpu_provider)
+{
+    namespace sc = solvcon;
+
+    sc::device::BufferBackend const & backend = sc::device::buffer_backend(sc::BufferDevice::Cpu);
+    EXPECT_EQ(sc::BufferDevice::Cpu, backend.device());
+    EXPECT_TRUE(backend.built());
+    EXPECT_TRUE(backend.available());
+
+    auto buffer = sc::ConcreteBuffer::construct(16, 0, sc::BufferDevice::Cpu);
+    EXPECT_EQ(size_t{16}, buffer->size());
+}
+
+TEST(BufferBackend, unavailable_metal_provider)
+{
+    namespace sc = solvcon;
+
+    sc::device::BufferBackend const & backend = sc::device::buffer_backend(sc::BufferDevice::Metal);
+    EXPECT_EQ(sc::BufferDevice::Metal, backend.device());
+    EXPECT_FALSE(backend.built());
+    EXPECT_FALSE(backend.available());
+    EXPECT_THROW(backend.allocate(16, 0), std::runtime_error);
+}
 
 TEST(ConcreteBuffer, iterator)
 {
