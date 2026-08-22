@@ -13,7 +13,7 @@
  */
 
 #include <solvcon/buffer/ConcreteBuffer.hpp>
-#include <solvcon/buffer/matmul.hpp>
+#include <solvcon/buffer/matmul/matmul.hpp>
 #include <solvcon/buffer/signed_stride_layout.hpp>
 #include <solvcon/math/math.hpp>
 #include <solvcon/simd/simd.hpp>

@@ -3,7 +3,7 @@
  * BSD 3-Clause License, see COPYING
  */
 
-#include <solvcon/buffer/matmul.hpp>
+#include <solvcon/buffer/matmul/matmul.hpp>
 #include <solvcon/math/Winograd.hpp>
 
 #include <algorithm>

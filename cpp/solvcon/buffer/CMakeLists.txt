@@ -13,12 +13,15 @@ set(SOLVCON_BUFFER_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/SimpleArray.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/SimpleCollector.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/loop.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/matmul.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/matmul/matmul.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/matmul/executor.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/matmul/plan.hpp
     CACHE FILEPATH "" FORCE)
 
 set(SOLVCON_BUFFER_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/BufferExpander.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/SimpleArray.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/matmul/matmul.cpp
     CACHE FILEPATH "" FORCE)
 
 set(SOLVCON_BUFFER_PYMODHEADERS
