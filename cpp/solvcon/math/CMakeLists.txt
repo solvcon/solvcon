@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 4.0.1)
 
 set(SOLVCON_MATH_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/math.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/Float16.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/blas_compat.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/lapack_compat.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/Complex.hpp
