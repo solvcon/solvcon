@@ -215,6 +215,14 @@ class Point3dTB(testing.TestBase):
                 ValueError, "Point3d::mirror: axis must be 'x', 'y', or 'z'"):
             Point(1, 2, 3).mirror('w')
 
+    def test_calc_length(self):
+        Point = self.Point
+
+        self.assertEqual(Point(3, 4, 0).calc_length2(), 25.0)
+        self.assertEqual(Point(3, 4, 0).calc_length(), 5.0)
+        self.assertEqual(Point(1, 2, 2).calc_length(), 3.0)
+        self.assertEqual(Point(0, 0, 0).calc_length(), 0.0)
+
 
 class Point3dFp32TC(Point3dTB, unittest.TestCase):
 

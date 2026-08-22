@@ -173,6 +173,8 @@ WrapPoint3d<T> & WrapPoint3d<T>::wrap_geometry()
                 }
             },
             py::arg("axis"))
+        .def("calc_length2", &wrapped_type::calc_length2)
+        .def("calc_length", &wrapped_type::calc_length)
         //
         ;
 

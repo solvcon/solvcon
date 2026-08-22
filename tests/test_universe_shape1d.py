@@ -77,6 +77,171 @@ class Segment3dTB(testing.TestBase):
                 "Segment3d::mirror: axis must be 'x', 'y', or 'z'"):
             Segment(Point(1, 2, 3), Point(4, 5, 6)).mirror('w')
 
+    def test_calc_length(self):
+        Point = self.Point
+        Segment = self.Segment
+
+        s = Segment(Point(1, 2, 3), Point(4, 6, 3))
+        self.assertEqual(s.calc_length2(), 25.0)
+        self.assertEqual(s.calc_length(), 5.0)
+        self.assertEqual(
+            Segment(Point(1, 2, 3), Point(1, 2, 3)).calc_length(), 0.0)
+
+    def test_direction(self):
+        Point = self.Point
+        Segment = self.Segment
+
+        s = Segment(Point(1, 2, 0), Point(4, 6, 0))
+        self.assert_allclose(tuple(s.direction()), (0.6, 0.8, 0.0))
+        # A vertical and a horizontal segment stay finite: the direction
+        # is normalized instead of dividing a slope.
+        vertical = Segment(Point(2, -1, 0), Point(2, 9, 0))
+        self.assertEqual(tuple(vertical.direction()), (0.0, 1.0, 0.0))
+        horizontal = Segment(Point(3, 5, 0), Point(-7, 5, 0))
+        self.assertEqual(tuple(horizontal.direction()), (-1.0, 0.0, 0.0))
+        # A zero-length segment regularizes to the zero vector.
+        zero = Segment(Point(1, 2, 3), Point(1, 2, 3))
+        self.assertEqual(tuple(zero.direction()), (0.0, 0.0, 0.0))
+
+    def test_direction_is_unit_at_any_scale(self):
+        Point = self.Point
+        Segment = self.Segment
+
+        # Scaling by the largest difference keeps the direction a unit
+        # vector at any magnitude; the unscaled factor degraded from
+        # around 1e-4 down in single precision and overflowed to nan for
+        # a length beyond around 2e19.
+        for length in (1e-8, 1e-6, 1e-4, 1.0, 1e4, 1e20):
+            with self.subTest(length=length):
+                s = Segment(Point(0, 0, 0), Point(length, 0, 0))
+                self.assertEqual(tuple(s.direction()), (1.0, 0.0, 0.0))
+        # A mixed huge segment must not overflow the squared sum.
+        wide = Segment(Point(0, 0, 0), Point(1e20, 1e20, 0))
+        self.assert_allclose(tuple(wide.direction()),
+                             (2.0 ** -0.5, 2.0 ** -0.5, 0.0))
+
+    def test_normal_by_axis(self):
+        Point = self.Point
+        Segment = self.Segment
+
+        s = Segment(Point(0, 0, 0), Point(10, 0, 0))
+        self.assertEqual(tuple(s.normal_by_axis()), (0.0, -1.0, 0.0))
+        vertical = Segment(Point(0, 0, 0), Point(0, 10, 0))
+        self.assertEqual(tuple(vertical.normal_by_axis()), (1.0, 0.0, 0.0))
+        slanted = Segment(Point(0, 0, 5), Point(3, 4, 5))
+        self.assert_allclose(tuple(slanted.normal_by_axis()),
+                             (0.8, -0.6, 0.0))
+
+        # The reference axis picks the plane the normal lies in: the
+        # normal is the direction crossed with the reference.
+        along_y = Segment(Point(0, 0, 0), Point(0, 10, 0))
+        self.assertEqual(tuple(along_y.normal_by_axis('x')),
+                         (0.0, 0.0, -1.0))
+        along_z = Segment(Point(0, 0, 0), Point(0, 0, 10))
+        self.assertEqual(tuple(along_z.normal_by_axis('y')),
+                         (-1.0, 0.0, 0.0))
+        risen = Segment(Point(0, 0, 0), Point(3, 4, 5))
+        self.assert_allclose(tuple(risen.normal_by_axis('z')),
+                             (0.8, -0.6, 0.0))
+
+        with self.assertRaisesRegex(
+                ValueError,
+                "Segment3d::normal_by_axis: "
+                "segment is parallel to the reference axis"):
+            along_z.normal_by_axis()
+        # A zero-length segment has the zero direction, so its cross
+        # product with any reference vanishes the same way.
+        with self.assertRaisesRegex(
+                ValueError,
+                "Segment3d::normal_by_axis: "
+                "segment is parallel to the reference axis"):
+            Segment(Point(1, 2, 3), Point(1, 2, 3)).normal_by_axis()
+        with self.assertRaisesRegex(
+                ValueError,
+                "Segment3d::normal_by_axis: axis must be 'x', 'y', or 'z'"):
+            s.normal_by_axis('Z')
+
+    def test_normal_by_axis_right_hand_rule(self):
+        Point = self.Point
+        Segment = self.Segment
+
+        # The normal n, the direction t, and the reference a form a
+        # right-handed frame: n x t = a, t x a = n, and a x n = t. A
+        # length-2 segment keeps the direction exact, so the products are.
+        axes = {'x': (1.0, 0.0, 0.0), 'y': (0.0, 1.0, 0.0),
+                'z': (0.0, 0.0, 1.0)}
+        cases = [('x', Point(0, 2, 0)), ('y', Point(0, 0, 2)),
+                 ('z', Point(2, 0, 0))]
+        for axis, endpoint in cases:
+            with self.subTest(axis=axis):
+                segment = Segment(Point(0, 0, 0), endpoint)
+                n = tuple(segment.normal_by_axis(axis))
+                t = tuple(segment.direction())
+                a = axes[axis]
+                self.assertEqual(tuple(np.cross(n, t)), a)
+                self.assertEqual(tuple(np.cross(t, a)), n)
+                self.assertEqual(tuple(np.cross(a, n)), t)
+
+        # A slanted segment goes through the same rule; its direction is
+        # rounded, so the products are compared to tolerance.
+        slanted = Segment(Point(0, 0, 0), Point(3, 4, 0))
+        n = tuple(slanted.normal_by_axis('z'))
+        t = tuple(slanted.direction())
+        self.assert_allclose(np.cross(n, t), (0.0, 0.0, 1.0), atol=1e-6)
+        self.assert_allclose(np.cross(t, (0.0, 0.0, 1.0)), n, atol=1e-6)
+        self.assert_allclose(np.cross((0.0, 0.0, 1.0), n), t, atol=1e-6)
+
+    def test_offset_by_axis(self):
+        Point = self.Point
+        Segment = self.Segment
+
+        # Positive on the side the normal points to, the right of the
+        # direction: below a left-to-right segment.
+        s = Segment(Point(0, 0, 0), Point(10, 0, 0))
+        self.assertEqual(s.offset_by_axis(Point(5, 3, 0)), -3.0)
+        self.assertEqual(s.offset_by_axis(Point(5, -2, 0)), 2.0)
+        vertical = Segment(Point(0, 0, 0), Point(0, 10, 0))
+        self.assertEqual(vertical.offset_by_axis(Point(2, 5, 0)), 2.0)
+        slanted = Segment(Point(0, 0, 0), Point(3, 4, 0))
+        self.assert_allclose(slanted.offset_by_axis(Point(0, 5, 0)), -3.0)
+        self.assert_allclose(slanted.offset_by_axis(Point(3, 4, 0)), 0.0,
+                             atol=1e-6)
+        # A non-default reference axis reaches the internal normal: with
+        # the x reference the offset of a y-running segment measures -z.
+        along_y = Segment(Point(0, 0, 0), Point(0, 10, 0))
+        self.assertEqual(along_y.offset_by_axis(Point(5, 3, 2), 'x'), -2.0)
+
+    def test_point_along_axis(self):
+        Point = self.Point
+        Segment = self.Segment
+
+        s = Segment(Point(0, 0, 0), Point(2, 4, 6))
+        self.assertEqual(tuple(s.point_along_axis(2, 'y')), (1.0, 2.0, 3.0))
+        self.assertEqual(tuple(s.point_along_axis(1, 'x')), (1.0, 2.0, 3.0))
+        self.assertEqual(tuple(s.point_along_axis(3)), (1.0, 2.0, 3.0))
+        # The value may sit outside the segment: the line reaches it.
+        self.assertEqual(tuple(s.point_along_axis(-4, 'y')),
+                         (-2.0, -4.0, -6.0))
+        horizontal = Segment(Point(0, 5, 0), Point(10, 5, 0))
+        with self.assertRaisesRegex(
+                ValueError,
+                "Segment3d::point_along_axis: "
+                "the direction has no component along the axis"):
+            horizontal.point_along_axis(7, 'y')
+        # A zero-length segment has no component along any axis.
+        with self.assertRaisesRegex(
+                ValueError,
+                "Segment3d::point_along_axis: "
+                "the direction has no component along the axis"):
+            Segment(Point(1, 2, 3), Point(1, 2, 3)).point_along_axis(7, 'y')
+        # The axis is named in lower case only.
+        for axis in ('w', 'Z'):
+            with self.assertRaisesRegex(
+                    ValueError,
+                    "Segment3d::point_along_axis: "
+                    "axis must be 'x', 'y', or 'z'"):
+                horizontal.point_along_axis(7, axis)
+
 
 class Segment3dFp32TC(Segment3dTB, unittest.TestCase):
 
@@ -722,6 +887,47 @@ class SegmentPadTB(testing.TestBase):
                 ValueError,
                 "SegmentPad::mirror: axis must be 'x', 'y', or 'z'"):
             sp.mirror('w')
+
+    def test_offset_by_axis(self):
+        SegmentPad = self.SegmentPad
+        SimpleArray = self.SimpleArray
+
+        sp = SegmentPad(ndim=2)
+        sp.append(0.0, 0.0, 10.0, 0.0)
+        sp.append(0.0, 0.0, 0.0, 10.0)
+
+        def wrap(values):
+            return SimpleArray(array=np.array(values, dtype=self.dtype))
+
+        xs = wrap([5.0, 5.0, 0.0])
+        ys = wrap([3.0, -2.0, 0.0])
+        # Against the horizontal arm: positive below, matching
+        # Segment3d.offset_by_axis on the same points.
+        np.testing.assert_array_equal(
+            sp.offset_by_axis(0, xs, ys).ndarray, [-3.0, 2.0, 0.0])
+        # Against the vertical arm the normal points to +x.
+        np.testing.assert_array_equal(
+            sp.offset_by_axis(1, xs, ys).ndarray, [5.0, 5.0, 0.0])
+        # The pad queries sit at z = 0: with the x reference the normal
+        # of the vertical arm points along -z, so every offset is zero.
+        np.testing.assert_array_equal(
+            sp.offset_by_axis(1, xs, ys, 'x').ndarray, [0.0, 0.0, 0.0])
+
+        # A strided view is read through its stride, not densely.
+        pts = np.array([[5.0, 3.0], [5.0, -2.0]], dtype=self.dtype)
+        np.testing.assert_array_equal(
+            sp.offset_by_axis(0, SimpleArray(array=pts[:, 0]),
+                              SimpleArray(array=pts[:, 1])).ndarray,
+            [-3.0, 2.0])
+
+        with self.assertRaisesRegex(
+                IndexError,
+                "SegmentPad::offset_by_axis: "
+                "index 2 is out of bounds with size 2"):
+            sp.offset_by_axis(2, xs, ys)
+        with self.assertRaisesRegex(
+                ValueError, "must be 1-dimensional and equally long"):
+            sp.offset_by_axis(0, xs, wrap([1.0, 2.0]))
 
 
 class SegmentPadFp32TC(SegmentPadTB, unittest.TestCase):
