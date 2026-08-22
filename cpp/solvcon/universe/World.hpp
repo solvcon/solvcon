@@ -765,6 +765,9 @@ private:
     // TODO: Replace std::vector with a custom SoA container and BoundBoxPad
     // auxiliary class. Consider moving the registry into the R-tree.
     std::vector<ShapeRecord> m_shape_registry;
+
+    // TODO: Replace std::vector with SimpleCollector or fold into the same
+    // SoA container as m_shape_registry (see the TODO above).
     std::vector<RingEntry> m_ring_registry; ///< Polygon ring ranges; empty for non-polygon shapes.
 
     size_t m_nshape = 0; ///< Count of live (non-DEAD) shapes.
@@ -993,6 +996,31 @@ int32_t World<T>::add_polygon_rings(ring_list_type const & rings)
         if (rings.ring_size(r) < 3)
         {
             throw std::invalid_argument("World: add_polygon_rings needs at least 3 vertices per ring");
+        }
+    }
+    // Right-hand rule: the outer ring is counter-clockwise (positive signed
+    // area), every hole is clockwise (negative). The XY-projected shoelace
+    // formula would silently misjudge -- or always read as degenerate -- a
+    // 3D ring not aligned with the XY plane (e.g. a vertical wall), so this
+    // check only applies to 2-dimensional rings.
+    if (rings.ndim() == 2)
+    {
+        constexpr T ring_area_eps = std::numeric_limits<T>::epsilon() * 100;
+        for (size_t r = 0; r < rings.nring(); ++r)
+        {
+            auto const [area, scale] = rings.signed_area(r);
+            if (std::abs(area) <= ring_area_eps * std::max(scale, T(1)))
+            {
+                throw std::invalid_argument("World: add_polygon_rings rejects a degenerate (zero-area) ring");
+            }
+            if (r == 0 && area <= 0)
+            {
+                throw std::invalid_argument("World: add_polygon_rings needs the outer ring wound counter-clockwise");
+            }
+            if (r != 0 && area >= 0)
+            {
+                throw std::invalid_argument("World: add_polygon_rings needs hole rings wound clockwise");
+            }
         }
     }
 

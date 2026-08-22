@@ -305,7 +305,8 @@ class AddPolygon(_cmd.Command):
     category = "create"
     summary = "Add a closed polygon through a list of [x, y] vertices."
     arguments = {"vertices": _vertices(
-        3, "The last vertex connects back to the first.")}
+        3, "The last vertex connects back to the first. Vertices must be "
+        "wound counter-clockwise.")}
     returns = {"shape_id": _int("Id of the new shape.")}
 
     def apply(self, world, args, ctx):

@@ -810,6 +810,38 @@ public:
         return m_points->get(m_ring_offset[r] + i);
     }
 
+    /// Result of signed_area(): the area itself, and a scale to compare it
+    /// against when judging whether it is degenerate (near zero relative
+    /// to the ring's own coordinate magnitude, not to an absolute bound).
+    struct SignedArea
+    {
+        T value; ///< Shoelace signed area: positive CCW, negative CW.
+        T scale; ///< Sum of |shoelace term| magnitudes.
+    }; /* end struct SignedArea */
+
+    /**
+     * Signed area of ring `r` via the shoelace formula, using only x and y
+     * (matches PolygonPad::compute_signed_area()). Positive means
+     * counter-clockwise, negative clockwise; meaningful for a 3D ring only
+     * when it is planar and aligned with the XY plane.
+     */
+    SignedArea signed_area(size_t r) const
+    {
+        size_t const n = ring_size(r);
+        T area = 0;
+        T scale = 0;
+        point_type prev = vertex(r, 0);
+        for (size_t i = 1; i <= n; ++i)
+        {
+            point_type const next = vertex(r, i % n);
+            T const term = prev.x() * next.y() - next.x() * prev.y();
+            area += term;
+            scale += std::abs(term);
+            prev = next;
+        }
+        return {area / 2, scale / 2};
+    }
+
 private:
 
     void check_ring_open(char const * caller) const
