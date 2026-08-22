@@ -360,6 +360,129 @@ class WorldPrimitivesTC(unittest.TestCase):
             self.w.add_polygon([[0, 0], [1, 1]])
 
 
+class WorldPolygonRingsTC(unittest.TestCase):
+    """Multi-ring polygons: one outer ring plus zero or more holes."""
+
+    def setUp(self):
+        self.w = solvcon.WorldFp64()
+
+    def test_add_polygon_rings_basic(self):
+        outer = [[0, 0], [4, 0], [4, 4], [0, 4]]
+        hole = [[1, 2], [2, 2], [2, 1], [1, 1]]
+        sid = self.w.add_polygon_rings([outer, hole])
+        self.assertEqual(self.w.shape_type_of(sid), "polygon")
+        self.assertEqual(self.w.nsegment, len(outer) + len(hole))
+        rings = self.w.shape_rings(sid)
+        self.assertEqual(len(rings), 2)
+        self.assertEqual(rings[0]["role"], "outer")
+        self.assertEqual(
+            [list(v) for v in rings[0]["vertices"]], outer)
+        self.assertEqual(rings[1]["role"], "hole")
+        self.assertEqual(
+            [list(v) for v in rings[1]["vertices"]], hole)
+
+    def test_add_polygon_rings_needs_one_ring(self):
+        with self.assertRaises(ValueError):
+            self.w.add_polygon_rings([])
+
+    def test_add_polygon_rings_needs_three_vertices_per_ring(self):
+        with self.assertRaises(ValueError):
+            self.w.add_polygon_rings([[[0, 0], [1, 1]]])
+
+    def test_add_polygon_rings_rejects_clockwise_outer(self):
+        outer = [[0, 4], [4, 4], [4, 0], [0, 0]]
+        with self.assertRaises(ValueError):
+            self.w.add_polygon_rings([outer])
+
+    def test_add_polygon_rings_rejects_counterclockwise_hole(self):
+        outer = [[0, 0], [4, 0], [4, 4], [0, 4]]
+        hole = [[1, 1], [2, 1], [2, 2], [1, 2]]
+        with self.assertRaises(ValueError):
+            self.w.add_polygon_rings([outer, hole])
+
+    def test_add_polygon_rings_rejects_degenerate_ring(self):
+        collinear = [[0, 0], [1, 0], [2, 0]]
+        with self.assertRaises(ValueError):
+            self.w.add_polygon_rings([collinear])
+
+    def test_add_polygon_delegates_to_rings(self):
+        vertices = [[0, 0], [2, 0], [2, 2]]
+        sid = self.w.add_polygon(vertices)
+        rings = self.w.shape_rings(sid)
+        self.assertEqual(len(rings), 1)
+        self.assertEqual(rings[0]["role"], "outer")
+        self.assertEqual(
+            [list(v) for v in rings[0]["vertices"]], vertices)
+
+    def test_add_polygon_rejects_clockwise_winding(self):
+        with self.assertRaises(ValueError):
+            self.w.add_polygon([[0, 2], [2, 2], [2, 0], [0, 0]])
+
+    def test_multi_ring_polygon_translate(self):
+        outer = [[0, 0], [4, 0], [4, 4], [0, 4]]
+        hole = [[1, 2], [2, 2], [2, 1], [1, 1]]
+        sid = self.w.add_polygon_rings([outer, hole])
+        self.w.translate_shape(sid, 10, -5)
+        rings = self.w.shape_rings(sid)
+        self.assertEqual(
+            [list(v) for v in rings[0]["vertices"]],
+            [[x + 10, y - 5] for x, y in outer])
+        self.assertEqual(
+            [list(v) for v in rings[1]["vertices"]],
+            [[x + 10, y - 5] for x, y in hole])
+
+    def test_multi_ring_polygon_rotate(self):
+        outer = [[1, 0], [0, 1], [-1, 0], [0, -1]]
+        hole = [[0, -0.2], [-0.2, 0], [0, 0.2], [0.2, 0]]
+        sid = self.w.add_polygon_rings([outer, hole])
+        # A 90-degree rotation about the origin maps (x, y) -> (-y, x).
+        self.w.rotate_shape(sid, math.pi / 2, 0, 0)
+        rings = self.w.shape_rings(sid)
+        for ring, expected in ((rings[0], outer), (rings[1], hole)):
+            for (x, y), (ex, ey) in zip(ring["vertices"], expected):
+                self.assertAlmostEqual(x, -ey)
+                self.assertAlmostEqual(y, ex)
+
+    def test_multi_ring_polygon_undo_redo(self):
+        outer = [[0, 0], [4, 0], [4, 4], [0, 4]]
+        hole = [[1, 2], [2, 2], [2, 1], [1, 1]]
+        sid = self.w.add_polygon_rings([outer, hole])
+        self.w.undo()
+        self.assertFalse(self.w.shape_is_live(sid))
+        self.w.redo()
+        self.assertTrue(self.w.shape_is_live(sid))
+        rings = self.w.shape_rings(sid)
+        self.assertEqual(len(rings), 2)
+        self.assertEqual(
+            [list(v) for v in rings[0]["vertices"]], outer)
+        self.assertEqual(
+            [list(v) for v in rings[1]["vertices"]], hole)
+
+    def test_add_polygon_rings_3d_round_trip(self):
+        outer = [[0, 0, 1], [4, 0, 1], [4, 4, 1], [0, 4, 1]]
+        hole = [[1, 2, 1], [2, 2, 1], [2, 1, 1], [1, 1, 1]]
+        sid = self.w.add_polygon_rings([outer, hole])
+        rings = self.w.shape_rings(sid)
+        self.assertEqual(
+            [list(v) for v in rings[0]["vertices"]], outer)
+        self.assertEqual(
+            [list(v) for v in rings[1]["vertices"]], hole)
+
+    def test_add_polygon_rings_rejects_mixed_dimensionality(self):
+        with self.assertRaises(ValueError):
+            self.w.add_polygon_rings([[[0, 0], [1, 0, 1], [1, 1], [0, 1]]])
+
+    def test_add_polygon_rings_skips_winding_check_for_3d(self):
+        # A vertical wall in the XZ plane: every vertex has y == 0, so the
+        # XY-projected shoelace area is always exactly zero regardless of
+        # winding. Winding/degeneracy validation only applies to 2D rings.
+        wall = [[0, 0, 0], [4, 0, 0], [4, 0, 4], [0, 0, 4]]
+        sid = self.w.add_polygon_rings([wall])
+        rings = self.w.shape_rings(sid)
+        self.assertEqual(
+            [list(v) for v in rings[0]["vertices"]], wall)
+
+
 class WorldStateStampTC(unittest.TestCase):
     """The stamp that tells a reader the world has changed."""
 
