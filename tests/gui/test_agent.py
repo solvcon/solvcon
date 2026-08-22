@@ -22,39 +22,36 @@ NO_LIVE_WINDOW = ((os.getenv('QT_QPA_PLATFORM') or '').startswith('offscreen')
                   or ('nt' == os.name and bool(os.getenv('GITHUB_ACTIONS'))))
 
 
-class _CircleBackend:
-    """Test backend that emits one real Agent Draw command without a CLI."""
-
-    name = "circle (test)"
-
-    def available(self):
-        return True
-
-    def send(self, prompt, scene_context, tool_surface, history=()):
-        return agent.BackendResponse(text="circle added", commands=[
-            {"op": "log", "message": "Add a unit circle at the origin"},
-            {"op": "add_circle", "cx": 0.0, "cy": 0.0, "r": 1.0}])
+def _circle_batch(message, cx=0.0):
+    return [{"op": "log", "message": message},
+            {"op": "add_circle", "cx": cx, "cy": 0.0, "r": 1.0}]
 
 
-class _TranslateBackend:
-    """Test backend that asks to translate a fixed shape id, so a GUI test can
-    drive a by-id command whose target may have been removed meanwhile.  It
-    uses an update op, not a delete, so the session's destructive gating does
-    not intercept it before the shape-liveness check."""
+class _ScriptedBackend:
+    """Test backend replaying one canned command batch per step.
 
-    name = "translate (test)"
+    It stands in for a CLI: the panel's pump asks it once per step, and an
+    exhausted script answers with the empty batch a model ends a turn with, so
+    a test never has to count the steps its turn will take.  Every request is
+    kept, which is how a test reads what a step was composed against.
+    """
 
-    def __init__(self, shape_id):
-        self._shape_id = shape_id
+    name = "scripted (test)"
+
+    def __init__(self, *batches):
+        self.batches = list(batches)
+        self.requests = []
 
     def available(self):
         return True
 
     def send(self, prompt, scene_context, tool_surface, history=()):
-        return agent.BackendResponse(
-            text="translating", commands=[
-                {"op": "translate_shape", "shape_id": self._shape_id,
-                 "dx": 1.0, "dy": 0.0}])
+        self.requests.append(agent.TurnRequest(
+            prompt=prompt, scene_context=scene_context,
+            tool_surface=list(tool_surface or ()), history=list(history)))
+        if not self.batches:
+            return agent.BackendResponse(commands=[])
+        return agent.BackendResponse(commands=self.batches.pop(0))
 
 
 @unittest.skipIf(not solvcon.HAS_PILOT, "pilot is not built")
@@ -128,6 +125,32 @@ class AgentTurnFormatTC(unittest.TestCase):
 class AgentPanelTC(unittest.TestCase):
     def setUp(self):
         self.mgr = pilot.RManager.instance.setUp()
+        self._close_canvases()
+
+    def tearDown(self):
+        self._close_canvases()
+
+    def _close_canvases(self):
+        """Start and leave each test with an empty MDI area.  A turn is guarded
+        by a token that watches the open windows, so a canvas another test left
+        behind is enough to end a turn that never touched it."""
+        self.mgr.mdiArea.closeAllSubWindows()
+        QCoreApplication.processEvents()
+
+    def _open_canvas(self):
+        """Open a 2D canvas on a fresh world and let it settle.
+
+        The window is mapped through queued events, and until they run the
+        canvas is not in the window list the scene and the token read.
+        Settling it here keeps what a turn is composed against and what it is
+        fed against the same, the way a user opening a canvas and then typing
+        does.
+        """
+        widget = self.mgr.add2DWidget()
+        world = solvcon.WorldFp64()
+        widget.updateWorld(world)
+        QCoreApplication.processEvents()
+        return world
 
     def _panel_on(self):
         feature = _agent_gui.AgentPanel(mgr=self.mgr)
@@ -145,13 +168,19 @@ class AgentPanelTC(unittest.TestCase):
         panel._backend_combo.setCurrentIndex(panel._backend_combo.count() - 1)
 
     def _finish_turn(self, feature):
-        """Drive the pending async turn to completion: wait for the backend
-        worker, then pump the event loop so its queued reply reaches the main
-        thread and finishes the turn."""
-        worker = feature._worker
-        if worker is not None:
+        """Drive the pending async turn to completion: wait for each step's
+        backend worker, then pump the event loop so its queued reply reaches
+        the main thread and the panel starts the step after it.  The loop is
+        bounded by the turn budget, so a pump that never finishes fails the
+        test instead of hanging it."""
+        for _ in range(feature.TURN_BUDGET + 1):
+            worker = feature._worker
+            if worker is None:
+                break
             self.assertTrue(worker.wait(5000))
-        QCoreApplication.processEvents()
+            QCoreApplication.processEvents()
+        self.assertIsNone(feature._worker)
+        self.assertIsNone(feature._turn)
 
     def test_toggle_is_placed_under_view_panels(self):
         feature = _agent_gui.AgentPanel(mgr=self.mgr)
@@ -190,11 +219,10 @@ class AgentPanelTC(unittest.TestCase):
         # A real draw command pins active-world binding and command dispatch,
         # which the echo round-trip does not exercise.
         feature = self._panel_on()
-        widget = self.mgr.add2DWidget()
-        world = solvcon.WorldFp64()
-        widget.updateWorld(world)
+        world = self._open_canvas()
         panel = feature._panel
-        self._select_backend(panel, _CircleBackend())
+        self._select_backend(panel, _ScriptedBackend(
+            _circle_batch("Add a unit circle at the origin")))
         panel._input.setText("draw a circle")
         panel._emit()
         self.assertIs(feature._session.world, world)
@@ -269,11 +297,13 @@ class AgentPanelTC(unittest.TestCase):
         # while the model was thinking fails as a not-live shape rather than
         # crashing the turn.  The empty world stands in for that removal.
         feature = self._panel_on()
-        widget = self.mgr.add2DWidget()
-        world = solvcon.WorldFp64()
-        widget.updateWorld(world)
+        self._open_canvas()
         panel = feature._panel
-        self._select_backend(panel, _TranslateBackend(4242))
+        # An update op, not a delete, so the session's destructive gating does
+        # not intercept it before the shape-liveness check.
+        self._select_backend(panel, _ScriptedBackend(
+            [{"op": "translate_shape", "shape_id": 4242,
+              "dx": 1.0, "dy": 0.0}]))
         panel._input.setText("move shape 4242 right")
         panel._emit()
         self._finish_turn(feature)
@@ -281,6 +311,101 @@ class AgentPanelTC(unittest.TestCase):
         self.assertIn("- translate_shape:", text)
         self.assertIn("4242", text)
         self.assertTrue(panel._input.isEnabled())
+
+    def test_two_prompts_share_one_conversation(self):
+        # The panel keeps one session across Sends, and rebinding the same
+        # world does not cut the conversation the second prompt builds on.
+        feature = self._panel_on()
+        self._open_canvas()
+        panel = feature._panel
+        backend = _ScriptedBackend()
+        self._select_backend(panel, backend)
+        for prompt in ("draw a truck", "move it right"):
+            panel._input.setText(prompt)
+            panel._emit()
+            self._finish_turn(feature)
+        replayed = agent.format_history(backend.requests[-1].history)
+        self.assertIn("draw a truck", replayed)
+        self.assertNotIn("canvas switched", replayed)
+
+    def test_a_multi_step_turn_applies_each_step_in_order(self):
+        feature = self._panel_on()
+        world = self._open_canvas()
+        panel = feature._panel
+        backend = _ScriptedBackend(_circle_batch("left", cx=-2.0),
+                                   _circle_batch("middle"),
+                                   _circle_batch("right", cx=2.0))
+        self._select_backend(panel, backend)
+        panel._input.setText("draw circles")
+        panel._emit()
+        self._finish_turn(feature)
+        self.assertEqual(world.nshape, 3)
+        text = panel._transcript.toPlainText()
+        self.assertLess(text.index("left"), text.index("middle"))
+        self.assertLess(text.index("middle"), text.index("right"))
+        # Each step saw what the step before it did, which is what makes the
+        # extra calls worth their cost.
+        self.assertIn("add_circle",
+                      agent.format_history(backend.requests[1].history))
+
+    def test_stop_mid_turn_leaves_a_clean_transcript(self):
+        feature = self._panel_on()
+        world = self._open_canvas()
+        panel = feature._panel
+        self.assertFalse(panel._stop.isEnabled())
+        self._select_backend(panel, _ScriptedBackend(
+            _circle_batch("left", cx=-2.0), _circle_batch("right", cx=2.0)))
+        panel._input.setText("draw circles")
+        panel._emit()
+        self.assertTrue(panel._stop.isEnabled())
+        panel.stop_requested.emit()
+        self._finish_turn(feature)
+        text = panel._transcript.toPlainText()
+        self.assertIn("(stopped)", text)
+        # The reply of the step in flight is dropped, not applied.
+        self.assertNotIn("left", text)
+        self.assertEqual(world.nshape, 0)
+        self.assertTrue(panel._input.isEnabled())
+        self.assertFalse(panel._stop.isEnabled())
+
+    def test_a_canvas_opened_mid_turn_is_what_the_next_step_sees(self):
+        # The executors retarget the moment a batch opens a canvas, so the
+        # step after it has to be composed against the canvas the agent just
+        # opened, not the one the prompt started on.
+        feature = self._panel_on()
+        self.mgr.show()
+        QCoreApplication.processEvents()
+        started_on = self._open_canvas()
+        panel = feature._panel
+        backend = _ScriptedBackend(
+            [{"op": "new_canvas"}] + _circle_batch("on the new canvas"),
+            _circle_batch("and another"))
+        self._select_backend(panel, backend)
+        panel._input.setText("open a canvas and draw on it")
+        panel._emit()
+        self._finish_turn(feature)
+        self.assertEqual(started_on.nshape, 0)
+        opened = self.mgr.currentR2DWidget().world
+        self.assertEqual(opened.nshape, 2)
+        # The model was shown the canvas its own command had just opened.
+        self.assertIn("world with 1 shapes", backend.requests[1].scene_context)
+
+    def test_switching_the_canvas_mid_turn_ends_the_turn(self):
+        # A step is composed against the canvas that was active when it was
+        # sent, so a canvas activated meanwhile must not receive its commands.
+        # The windows have to be mapped for the token to see them at all.
+        feature = self._panel_on()
+        self.mgr.show()
+        QCoreApplication.processEvents()
+        world = self._open_canvas()
+        panel = feature._panel
+        self._select_backend(panel, _ScriptedBackend(_circle_batch("left")))
+        panel._input.setText("draw a circle")
+        panel._emit()
+        self._open_canvas()
+        self._finish_turn(feature)
+        self.assertEqual(world.nshape, 0)
+        self.assertIn("the canvas changed", panel._transcript.toPlainText())
 
     def test_blank_prompt_is_ignored(self):
         feature = self._panel_on()
