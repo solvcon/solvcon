@@ -15,6 +15,7 @@
 #include <solvcon/base.hpp>
 #include <solvcon/buffer/BufferBase.hpp>
 #include <solvcon/buffer/small_vector.hpp>
+#include <solvcon/device/BufferDevice.hpp>
 
 #include <algorithm>
 #include <memory>
@@ -142,6 +143,11 @@ public:
     {
         return std::make_shared<ConcreteBuffer>(nbytes, alignment, ctor_passkey());
     }
+
+    static std::shared_ptr<ConcreteBuffer> construct(
+        size_t nbytes,
+        size_t alignment,
+        BufferDevice target_device);
 
     /*
      * This factory method is dangerous since the data pointer passed in will

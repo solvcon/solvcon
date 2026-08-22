@@ -61,7 +61,10 @@ set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
 if (APPLE)
+    find_library(APPLE_FWK_FOUNDATION Foundation REQUIRED)
     find_library(APPLE_FWK_ACCELERATE Accelerate REQUIRED)
+    find_library(APPLE_FWK_QUARTZ_CORE QuartzCore REQUIRED)
+    find_library(APPLE_FWK_METAL Metal REQUIRED)
 endif () # APPLE
 
 # The `test_nopython` target is only for testing the C++ interface of the non-Python part of the library.
@@ -91,6 +94,7 @@ add_executable(
     ${SOLVCON_TOGGLE_SOURCES}
     ${SOLVCON_PROFILING_SOURCES}
     ${SOLVCON_BUFFER_SOURCES}
+    ${SOLVCON_DEVICE_SOURCES}
     ${SOLVCON_SERIALIZATION_SOURCES}
     ${SOLVCON_TRANSFORM_SOURCES}
     ${SOLVCON_MATH_SOURCES}
@@ -103,7 +107,10 @@ target_link_libraries(
     test_nopython
     GTest::gtest_main
     GTest::gmock_main
+    ${APPLE_FWK_FOUNDATION}
     ${APPLE_FWK_ACCELERATE}
+    ${APPLE_FWK_QUARTZ_CORE}
+    ${APPLE_FWK_METAL}
 )
 
 include(GoogleTest)
