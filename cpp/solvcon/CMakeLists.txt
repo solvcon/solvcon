@@ -132,6 +132,10 @@ add_library(
     STATIC
     ${SOLVCON_TERMINAL_FILES}
 )
+set_source_files_properties(
+    ${CMAKE_CURRENT_SOURCE_DIR}/math/Float16.cpp
+    PROPERTIES COMPILE_OPTIONS "${SOLVCON_FLOAT16_COMPILE_OPTIONS}"
+)
 
 set(SOLVCON_LIBRARIES solvcon_primary)
 

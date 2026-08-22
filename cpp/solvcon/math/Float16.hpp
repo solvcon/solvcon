@@ -14,6 +14,7 @@
 
 #include <bit>
 #include <cfenv>
+#include <compare>
 #include <concepts>
 #include <cstdint>
 #include <limits>
@@ -85,6 +86,11 @@ public:
      */
     explicit constexpr operator float() const { return decode(m_bits); }
 
+    constexpr Float16 & operator+=(Float16 other);
+    constexpr Float16 & operator-=(Float16 other);
+    constexpr Float16 & operator*=(Float16 other);
+    constexpr Float16 & operator/=(Float16 other);
+
     /**
      * Return the raw binary16 representation.
      *
@@ -100,6 +106,13 @@ public:
      * @return A value containing the supplied representation.
      */
     static constexpr Float16 from_bits(storage_type bits);
+
+    friend constexpr Float16 operator+(Float16 lhs, Float16 rhs);
+    friend constexpr Float16 operator-(Float16 lhs, Float16 rhs);
+    friend constexpr Float16 operator*(Float16 lhs, Float16 rhs);
+    friend constexpr Float16 operator/(Float16 lhs, Float16 rhs);
+    friend constexpr bool operator==(Float16 lhs, Float16 rhs);
+    friend constexpr std::partial_ordering operator<=>(Float16 lhs, Float16 rhs);
 
 private:
 
@@ -153,6 +166,10 @@ private:
     template <typename T>
     static constexpr storage_type encode(T value);
     static constexpr float decode(storage_type value_bits);
+    static Float16 add_runtime(float lhs, float rhs);
+    static Float16 sub_runtime(float lhs, float rhs);
+    static Float16 mul_runtime(float lhs, float rhs);
+    static Float16 div_runtime(float lhs, float rhs);
 
     /**
      * Convert an IEEE 754 binary32 or binary64 bit pattern to binary16.
@@ -202,6 +219,57 @@ constexpr bool Float16::should_round_away(
     }
     bool const nearest_away = discarded > halfway || (discarded == halfway && (retained & 1U));
     return should_round_away(mode, negative, nearest_away);
+}
+
+constexpr Float16 operator+(Float16 lhs, Float16 rhs)
+{
+    if consteval
+    {
+        return Float16(static_cast<float>(lhs) + static_cast<float>(rhs));
+    }
+    return Float16::add_runtime(static_cast<float>(lhs), static_cast<float>(rhs));
+}
+
+constexpr Float16 operator-(Float16 lhs, Float16 rhs)
+{
+    if consteval
+    {
+        return Float16(static_cast<float>(lhs) - static_cast<float>(rhs));
+    }
+    return Float16::sub_runtime(static_cast<float>(lhs), static_cast<float>(rhs));
+}
+
+constexpr Float16 operator*(Float16 lhs, Float16 rhs)
+{
+    if consteval
+    {
+        return Float16(static_cast<float>(lhs) * static_cast<float>(rhs));
+    }
+    return Float16::mul_runtime(static_cast<float>(lhs), static_cast<float>(rhs));
+}
+
+constexpr Float16 operator/(Float16 lhs, Float16 rhs)
+{
+    if consteval
+    {
+        return Float16(static_cast<float>(lhs) / static_cast<float>(rhs));
+    }
+    return Float16::div_runtime(static_cast<float>(lhs), static_cast<float>(rhs));
+}
+
+constexpr Float16 & Float16::operator+=(Float16 other) { return *this = *this + other; }
+
+constexpr Float16 & Float16::operator-=(Float16 other) { return *this = *this - other; }
+
+constexpr Float16 & Float16::operator*=(Float16 other) { return *this = *this * other; }
+
+constexpr Float16 & Float16::operator/=(Float16 other) { return *this = *this / other; }
+
+constexpr bool operator==(Float16 lhs, Float16 rhs) { return static_cast<float>(lhs) == static_cast<float>(rhs); }
+
+constexpr std::partial_ordering operator<=>(Float16 lhs, Float16 rhs)
+{
+    return static_cast<float>(lhs) <=> static_cast<float>(rhs);
 }
 
 template <typename T>

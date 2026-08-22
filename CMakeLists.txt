@@ -293,6 +293,13 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE BOOL "Export compile commands")
 
+# Float16 runtime arithmetic and its tests observe dynamic rounding.
+set(SOLVCON_FLOAT16_COMPILE_OPTIONS
+    $<$<CXX_COMPILER_ID:MSVC>:/fp:strict>
+    $<$<CXX_COMPILER_ID:GNU>:-frounding-math>
+    $<$<CXX_COMPILER_ID:AppleClang,Clang>:-ffp-model=strict>
+)
+
 option(HIDE_SYMBOL "hide the symbols of python wrapper" OFF)
 message(STATUS "HIDE_SYMBOL: ${HIDE_SYMBOL}")
 

@@ -69,6 +69,9 @@ $(SETUPROOT)/ConcreteBuffer.o: $(SETUPROOT)/solvcon/buffer/ConcreteBuffer.cpp Ma
 $(SETUPROOT)/SimpleArray.o: $(SETUPROOT)/solvcon/buffer/SimpleArray.cpp Makefile
 	c++ $(CFLAGS) -c $< -o $@
 
+$(SETUPROOT)/Float16.o: $(SETUPROOT)/solvcon/math/Float16.cpp Makefile
+	c++ $(CFLAGS) -frounding-math -c $< -o $@
+
 $(SETUPROOT)/matmul.o: $(SETUPROOT)/solvcon/buffer/matmul.cpp Makefile
 	c++ $(CFLAGS) -c $< -o $@
 
@@ -88,6 +91,7 @@ OBJS = \
 	$(SETUPROOT)/BufferExpander.o \
 	$(SETUPROOT)/ConcreteBuffer.o \
 	$(SETUPROOT)/SimpleArray.o \
+	$(SETUPROOT)/Float16.o \
 	$(SETUPROOT)/matmul.o \
 	$(SETUPROOT)/blas_compat.o \
 	$(SETUPROOT)/wrap_ConcreteBuffer.o \
