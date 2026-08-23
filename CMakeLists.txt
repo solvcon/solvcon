@@ -127,7 +127,6 @@ if(BUILD_MCAP)
     if(LZ4_LIB AND LZ4_INCLUDE_DIR AND ZSTD_LIB AND ZSTD_INCLUDE_DIR)
         message(STATUS "Found lz4: ${LZ4_LIB}")
         message(STATUS "Found zstd: ${ZSTD_LIB}")
-        add_compile_definitions(SOLVCON_MCAP)
     else()
         message(FATAL_ERROR
             "BUILD_MCAP is ON but lz4 and zstd were not both found.\n"

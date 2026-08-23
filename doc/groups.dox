@@ -38,8 +38,8 @@
  */
 
 /** @defgroup group_inout Input and output
- *  Mesh and field readers and writers (Gmsh, Plot3d) and device-format
- *  output (OASIS).
+ *  Mesh and field readers and writers (Gmsh, Plot3d), the MCAP recording
+ *  reader, and device-format output (OASIS).
  */
 
 /** @defgroup group_canvas 2D graphical editor

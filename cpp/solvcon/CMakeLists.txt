@@ -49,6 +49,13 @@ add_subdirectory(linalg)
 add_subdirectory(timeseries)
 add_subdirectory(simd)
 
+if (BUILD_MCAP)
+    add_subdirectory(mcap)
+else () # BUILD_MCAP
+    set(SOLVCON_MCAP_FILES
+        CACHE FILEPATH "" FORCE)
+endif () # BUILD_MCAP
+
 set(SOLVCON_ROOT_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/solvcon.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/base.hpp
@@ -101,6 +108,7 @@ set(SOLVCON_TERMINAL_FILES
     ${SOLVCON_LINALG_FILES}
     ${SOLVCON_TIMESERIES_FILES}
     ${SOLVCON_SIMD_FILES}
+    ${SOLVCON_MCAP_FILES}
     CACHE FILEPATH "" FORCE)
 
 set(SOLVCON_GRAPHIC_FILES
@@ -126,6 +134,13 @@ add_library(
 )
 
 set(SOLVCON_LIBRARIES solvcon_primary)
+
+# The mcap subsystem is core, not graphic, so its decompression libraries
+# reach the extension through solvcon_primary.
+if (BUILD_MCAP)
+    target_include_directories(solvcon_primary PUBLIC ${LZ4_INCLUDE_DIR} ${ZSTD_INCLUDE_DIR})
+    target_link_libraries(solvcon_primary PUBLIC ${LZ4_LIB} ${ZSTD_LIB})
+endif () # BUILD_MCAP
 
 if (BUILD_QT)
     qt_add_library(
@@ -203,6 +218,14 @@ add_library(
 # to register the pilot submodule; the macro is Qt's own, so nothing here has
 # to restate the setting.
 target_link_libraries(solvcon_entry PUBLIC ${SOLVCON_LIBRARIES})
+
+# module.cpp is the only unit that reads SOLVCON_MCAP, and it decides there
+# whether to register the mcap bindings. Defining the macro on this target
+# alone keeps BUILD_MCAP off the command line of every other unit. Turning the
+# option on then recompiles the subsystem and this file, and nothing else.
+if (BUILD_MCAP)
+    target_compile_definitions(solvcon_entry PRIVATE SOLVCON_MCAP)
+endif () # BUILD_MCAP
 
 list(APPEND SOLVCON_LIBRARIES solvcon_entry)
 

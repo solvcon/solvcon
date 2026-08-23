@@ -42,6 +42,9 @@ runs:
         # qt6 versioning independently from the OS.
         # brew install llvm@21 qt6
         brew install llvm@22
+        # lz4 and zstd back BUILD_MCAP, which decompresses the chunks of an
+        # MCAP recording.
+        brew install lz4 zstd
         # The macos-26 runner ships with Homebrew llvm@20 linked into
         # /usr/local/bin/ (clang, clang++, clang-format, clang-tidy, etc.),
         # which precedes /usr/bin on PATH. Use -sf to overwrite the existing
