@@ -10,6 +10,9 @@
 #include <cstring>
 #include <stdexcept>
 
+#include <lz4frame.h>
+#include <zstd.h>
+
 namespace solvcon
 {
 
@@ -31,6 +34,8 @@ enum Opcode : uint8_t
     OP_FOOTER = 0x02,
     OP_SCHEMA = 0x03,
     OP_CHANNEL = 0x04,
+    OP_MESSAGE = 0x05,
+    OP_CHUNK = 0x06,
     OP_CHUNK_INDEX = 0x08,
     OP_STATISTICS = 0x0b,
 }; /* end enum Opcode */
@@ -67,6 +72,9 @@ public:
     }
 
     void skip(uint64_t length) { bytes(length); }
+
+    /// The bytes after the cursor.
+    std::string_view rest() { return bytes(m_data.size() - m_pos); }
 
     bool done() const { return m_pos >= m_data.size(); }
 
@@ -115,6 +123,78 @@ static bool is_kept_record(uint8_t opcode)
 {
     return OP_SCHEMA == opcode || OP_CHANNEL == opcode ||
            OP_CHUNK_INDEX == opcode || OP_STATISTICS == opcode;
+}
+
+/**
+ * @internal
+ * Read the record at the cursor of an in-memory section and advance past it.
+ * False means the section holds no further record.
+ */
+static bool next_record(std::string_view buffer, size_t & pos, uint8_t & opcode, std::string_view & content)
+{
+    if (pos == buffer.size())
+    {
+        return false;
+    }
+    // A remainder shorter than a header is a truncated record, not the end
+    // of the section.
+    if (buffer.size() - pos < RECORD_HEADER_SIZE)
+    {
+        throw std::runtime_error("MCAP section ends inside a record header");
+    }
+
+    opcode = static_cast<uint8_t>(buffer[pos]);
+    uint64_t length = 0;
+    std::memcpy(&length, buffer.data() + pos + 1, sizeof(length));
+    if (buffer.size() - pos - RECORD_HEADER_SIZE < length)
+    {
+        throw std::runtime_error("MCAP record runs past the end of its section");
+    }
+
+    content = buffer.substr(pos + RECORD_HEADER_SIZE, length);
+    pos += RECORD_HEADER_SIZE + length;
+    return true;
+}
+
+static std::string decompress(std::string_view compression, std::string_view input, uint64_t output_size)
+{
+    if (compression.empty())
+    {
+        return std::string(input);
+    }
+
+    std::string output(output_size, '\0');
+    if ("lz4" == compression)
+    {
+        // MCAP compresses a chunk as an LZ4 frame, not as a bare LZ4 block.
+        LZ4F_dctx * dctx = nullptr;
+        if (LZ4F_isError(LZ4F_createDecompressionContext(&dctx, LZ4F_VERSION)))
+        {
+            throw std::runtime_error("cannot create the LZ4 decompression context");
+        }
+        size_t dst_size = output.size();
+        size_t src_size = input.size();
+        size_t const ret = LZ4F_decompress(dctx, output.data(), &dst_size, input.data(), &src_size, nullptr);
+        LZ4F_freeDecompressionContext(dctx);
+        if (0 != ret || dst_size != output_size || src_size != input.size())
+        {
+            throw std::runtime_error("cannot decompress the lz4 MCAP chunk");
+        }
+    }
+    else if ("zstd" == compression)
+    {
+        size_t const ret = ZSTD_decompress(output.data(), output.size(), input.data(), input.size());
+        if (ZSTD_isError(ret) || ret != output_size)
+        {
+            throw std::runtime_error("cannot decompress the zstd MCAP chunk");
+        }
+    }
+    else
+    {
+        throw std::runtime_error("unsupported MCAP chunk compression: " + std::string(compression));
+    }
+
+    return output;
 }
 
 Reader::Reader(std::string const & path)
@@ -196,6 +276,7 @@ void Reader::read_summary()
         throw std::runtime_error("the MCAP summary section starts at or past the footer: " + m_path);
     }
 
+    m_data_end = summary_start;
     parse_summary(summary_start, summary_end);
 
     if (m_has_time_range || m_chunk_indices.empty())
@@ -218,27 +299,39 @@ void Reader::read_summary()
     }
 }
 
+bool Reader::read_record_header(uint64_t pos, uint64_t end, uint8_t & opcode, uint64_t & length)
+{
+    if (pos == end)
+    {
+        return false;
+    }
+    // A length out of the file may not be added to the position, because the
+    // sum wraps for a large enough pair.  Every check is a subtraction.
+    if (end - pos < RECORD_HEADER_SIZE)
+    {
+        throw std::runtime_error("an MCAP section ends inside a record header: " + m_path);
+    }
+
+    std::string const head = read_bytes(pos, RECORD_HEADER_SIZE);
+    opcode = static_cast<uint8_t>(head[0]);
+    std::memcpy(&length, head.data() + 1, sizeof(length));
+    if (length > end - pos - RECORD_HEADER_SIZE)
+    {
+        throw std::runtime_error("an MCAP record runs past its section: " + m_path);
+    }
+
+    return true;
+}
+
 void Reader::parse_summary(uint64_t start, uint64_t end)
 {
     // One record is read at a time rather than the section as a whole.  What
     // the walk costs then follows the largest record, not the whole summary.
     uint64_t pos = start;
-    while (pos < end)
+    uint8_t opcode = 0;
+    uint64_t length = 0;
+    while (read_record_header(pos, end, opcode, length))
     {
-        if (end - pos < RECORD_HEADER_SIZE)
-        {
-            throw std::runtime_error("the MCAP summary section ends inside a record: " + m_path);
-        }
-
-        std::string const head = read_bytes(pos, RECORD_HEADER_SIZE);
-        uint64_t length = 0;
-        std::memcpy(&length, head.data() + 1, sizeof(length));
-        if (length > end - pos - RECORD_HEADER_SIZE)
-        {
-            throw std::runtime_error("an MCAP summary record runs past the section: " + m_path);
-        }
-
-        auto const opcode = static_cast<uint8_t>(head[0]);
         if (is_kept_record(opcode))
         {
             parse_summary_record(opcode, read_bytes(pos + RECORD_HEADER_SIZE, length));
@@ -382,6 +475,146 @@ std::map<std::string, std::string> Reader::topics() const
     }
 
     return out;
+}
+
+MessageIterator Reader::messages(std::string const & topic)
+{
+    small_vector<uint16_t> channel_ids;
+    for (auto const & pair : m_channels)
+    {
+        if (topic == pair.second.topic)
+        {
+            channel_ids.push_back(pair.first);
+        }
+    }
+    if (channel_ids.empty())
+    {
+        throw std::runtime_error("no such topic in the MCAP file: " + topic);
+    }
+
+    return MessageIterator(*this, channel_ids);
+}
+
+std::string Reader::read_chunk(uint64_t offset, uint64_t length)
+{
+    std::string const record = read_bytes(offset, length);
+    size_t pos = 0;
+    uint8_t opcode = 0;
+    std::string_view content;
+    if (!next_record(record, pos, opcode, content) || OP_CHUNK != opcode)
+    {
+        throw std::runtime_error("no MCAP chunk record where the chunk index points");
+    }
+
+    FieldReader field(content);
+    field.u64(); // message_start_time
+    field.u64(); // message_end_time
+    uint64_t const uncompressed_size = field.u64();
+    field.u32(); // uncompressed_crc
+    std::string_view const compression = field.str();
+    return decompress(compression, field.bytes(field.u64()), uncompressed_size);
+}
+
+MessageIterator::MessageIterator(Reader & reader, small_vector<uint16_t> const & channel_ids)
+    : m_reader(&reader)
+    , m_channel_ids(channel_ids)
+    , m_offset(MAGIC_SIZE)
+{
+    for (size_t it = 0; it < reader.m_chunk_indices.size(); ++it)
+    {
+        small_vector<uint16_t> const & held = reader.m_chunk_indices[it].channel_ids;
+        // The channel ids come from the map of message index offsets, and an
+        // empty map means no message indexing is available.  It says nothing
+        // about what the chunk holds, so the pruning must keep the chunk.
+        bool const keep = held.empty() || std::any_of(held.begin(), held.end(), [this](uint16_t id)
+                                                      { return wanted(id); });
+        if (keep)
+        {
+            m_chunks.push_back(it);
+        }
+    }
+
+    std::vector<ChunkIndexRecord> const & indices = reader.m_chunk_indices;
+    std::sort(m_chunks.begin(), m_chunks.end(), [&indices](size_t lhs, size_t rhs)
+              { return indices[lhs].chunk_start_offset < indices[rhs].chunk_start_offset; });
+}
+
+bool MessageIterator::wanted(uint16_t channel_id) const
+{
+    return m_channel_ids.end() != std::find(m_channel_ids.begin(), m_channel_ids.end(), channel_id);
+}
+
+bool MessageIterator::next(uint64_t & log_time, std::string_view & payload)
+{
+    while (true)
+    {
+        uint8_t opcode = 0;
+        std::string_view content;
+        if (!next_record(m_buffer, m_cursor, opcode, content))
+        {
+            if (!load_next_buffer())
+            {
+                return false;
+            }
+            continue;
+        }
+
+        if (OP_MESSAGE != opcode)
+        {
+            continue;
+        }
+
+        FieldReader field(content);
+        if (!wanted(field.u16()))
+        {
+            continue;
+        }
+        field.u32(); // sequence
+        log_time = field.u64();
+        field.u64(); // publish_time
+        payload = field.rest();
+        return true;
+    }
+}
+
+bool MessageIterator::load_next_buffer()
+{
+    m_buffer.clear();
+    m_cursor = 0;
+
+    if (m_next_chunk < m_chunks.size())
+    {
+        ChunkIndexRecord const & chunk = m_reader->m_chunk_indices[m_chunks[m_next_chunk++]];
+        m_buffer = m_reader->read_chunk(chunk.chunk_start_offset, chunk.chunk_length);
+        return true;
+    }
+
+    // A file carrying chunk indexes should hold every message in a chunk, but
+    // the specification only recommends it, and a message record is legal in
+    // the data section.  The walk therefore runs after the indexed chunks so
+    // that a writer ignoring the recommendation cannot make messages vanish;
+    // it reads a chunk itself only when no index named it.
+    uint64_t const end = m_reader->m_data_end;
+    uint8_t opcode = 0;
+    uint64_t length = 0;
+    while (m_reader->read_record_header(m_offset, end, opcode, length))
+    {
+        uint64_t const start = m_offset;
+        m_offset += RECORD_HEADER_SIZE + length;
+
+        if (OP_MESSAGE == opcode)
+        {
+            m_buffer = m_reader->read_bytes(start, RECORD_HEADER_SIZE + length);
+            return true;
+        }
+        if (OP_CHUNK == opcode && m_reader->m_chunk_indices.empty())
+        {
+            m_buffer = m_reader->read_chunk(start, RECORD_HEADER_SIZE + length);
+            return true;
+        }
+    }
+
+    return false;
 }
 
 } /* end namespace mcap */
