@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 
 #include <bit>
+#include <cfenv>
 #include <cmath>
 #include <cstdint>
 #include <limits>
@@ -10,6 +11,9 @@
 #include <type_traits>
 #ifdef Py_PYTHON_H
 #error "Python.h should not be included."
+#endif
+#ifdef _MSC_VER
+#pragma fenv_access(on)
 #endif
 
 TEST(ConcreteBuffer, iterator)
@@ -84,12 +88,61 @@ TEST(Float16, ties_to_even)
 {
     namespace sc = solvcon;
 
+    static_assert(sc::Float16(1.0F + 1.0F / 2048.0F).bits() == 0x3c00U);
+
     float const even_tie = 1.0F + std::ldexp(1.0F, -11);
     float const odd_tie = 1.0F + 3.0F * std::ldexp(1.0F, -11);
 
     // Midpoints select the result with an even least-significant fraction bit.
     EXPECT_EQ(0b0'01111'0000000000U, sc::Float16(even_tie).bits());
     EXPECT_EQ(0b0'01111'0000000010U, sc::Float16(odd_tie).bits());
+}
+
+TEST(Float16, rounding_modes)
+{
+    namespace sc = solvcon;
+
+    std::fenv_t original_environment;
+    ASSERT_EQ(0, std::fegetenv(&original_environment));
+
+    auto const expect_pair = [](float magnitude, sc::Float16::storage_type positive, sc::Float16::storage_type negative)
+    {
+        // Volatile prevents native casts from being folded before the runtime mode is set.
+        volatile float positive_float = magnitude;
+        volatile float negative_float = -magnitude;
+        volatile double positive_double = magnitude;
+        volatile double negative_double = -magnitude;
+        EXPECT_EQ(positive, sc::Float16(positive_float).bits());
+        EXPECT_EQ(negative, sc::Float16(negative_float).bits());
+        EXPECT_EQ(positive, sc::Float16(positive_double).bits());
+        EXPECT_EQ(negative, sc::Float16(negative_double).bits());
+    };
+
+    float const midpoint = 1.0F + std::ldexp(1.0F, -11);
+    float const tiny = std::ldexp(1.0F, -26);
+    float const overflow = 65536.0F;
+
+    EXPECT_EQ(0, std::fesetround(FE_TONEAREST));
+    expect_pair(midpoint, 0x3c00U, 0xbc00U);
+    expect_pair(tiny, 0x0000U, 0x8000U);
+    expect_pair(overflow, 0x7c00U, 0xfc00U);
+
+    EXPECT_EQ(0, std::fesetround(FE_UPWARD));
+    expect_pair(midpoint, 0x3c01U, 0xbc00U);
+    expect_pair(tiny, 0x0001U, 0x8000U);
+    expect_pair(overflow, 0x7c00U, 0xfbffU);
+
+    EXPECT_EQ(0, std::fesetround(FE_DOWNWARD));
+    expect_pair(midpoint, 0x3c00U, 0xbc01U);
+    expect_pair(tiny, 0x0000U, 0x8001U);
+    expect_pair(overflow, 0x7bffU, 0xfc00U);
+
+    EXPECT_EQ(0, std::fesetround(FE_TOWARDZERO));
+    expect_pair(midpoint, 0x3c00U, 0xbc00U);
+    expect_pair(tiny, 0x0000U, 0x8000U);
+    expect_pair(overflow, 0x7bffU, 0xfbffU);
+
+    EXPECT_EQ(0, std::fesetenv(&original_environment));
 }
 
 TEST(Float16, double_rounding)
