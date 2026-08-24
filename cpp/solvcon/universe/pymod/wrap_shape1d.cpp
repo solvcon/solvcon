@@ -12,6 +12,24 @@ namespace solvcon
 namespace python
 {
 
+/// Map the lower-case axis name to the Axis enum; anything else throws.
+static Axis parse_axis(std::string const & axis, char const * what)
+{
+    if (axis == "x")
+    {
+        return Axis::X;
+    }
+    if (axis == "y")
+    {
+        return Axis::Y;
+    }
+    if (axis == "z")
+    {
+        return Axis::Z;
+    }
+    throw std::invalid_argument(std::format("{}: axis must be 'x', 'y', or 'z'", what));
+}
+
 template <typename T>
 class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSegment3d
     : public WrapBase<WrapSegment3d<T>, Segment3d<T>>
@@ -202,6 +220,26 @@ WrapSegment3d<T> & WrapSegment3d<T>::wrap_geometry()
                 }
             },
             py::arg("axis"))
+        .def("calc_length2", &wrapped_type::calc_length2)
+        .def("calc_length", &wrapped_type::calc_length)
+        .def("direction", &wrapped_type::direction)
+        .def(
+            "normal_by_axis",
+            [](wrapped_type const & self, std::string const & axis)
+            { return self.normal_by_axis(parse_axis(axis, "Segment3d::normal_by_axis")); },
+            py::arg("axis") = "z")
+        .def(
+            "offset_by_axis",
+            [](wrapped_type const & self, point_type const & point, std::string const & axis)
+            { return self.offset_by_axis(point, parse_axis(axis, "Segment3d::offset_by_axis")); },
+            py::arg("point"),
+            py::arg("axis") = "z")
+        .def(
+            "point_along_axis",
+            [](wrapped_type const & self, value_type value, std::string const & axis)
+            { return self.point_along_axis(value, parse_axis(axis, "Segment3d::point_along_axis")); },
+            py::arg("value"),
+            py::arg("axis") = "z")
         //
         ;
 
@@ -502,6 +540,18 @@ WrapSegmentPad<T> & WrapSegmentPad<T>::wrap_geometry()
                 }
             },
             py::arg("axis"))
+        .def(
+            "offset_by_axis",
+            [](wrapped_type const & self,
+               size_t index,
+               SimpleArray<T> const & xs,
+               SimpleArray<T> const & ys,
+               std::string const & axis)
+            { return self.offset_by_axis(index, xs, ys, parse_axis(axis, "SegmentPad::offset_by_axis")); },
+            py::arg("index"),
+            py::arg("xs"),
+            py::arg("ys"),
+            py::arg("axis") = "z")
         //
         ;
 

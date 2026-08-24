@@ -185,28 +185,6 @@ class Reflection(object):
         """Return the error of ``value`` relative to ``target``."""
         return (value - target) / target if target else float('nan')
 
-    # TODO: the three helpers below are the plane geometry of a segment, not
-    # of this problem, and every user of Segment3d has to write them again.
-    # Slope, direction, and normal belong on the class, and the offset wants
-    # to stay vectorised: a point-to-line distance taking arrays.
-
-    @staticmethod
-    def _slope(seg):
-        """Return the slope of the line ``seg`` lies on."""
-        return (seg.y1 - seg.y0) / (seg.x1 - seg.x0)
-
-    @classmethod
-    def _offset(cls, seg, xs, ys):
-        """Return the perpendicular distance from ``seg``, positive above
-        it."""
-        slope = cls._slope(seg)
-        return (ys - seg.y0 - slope * (xs - seg.x0)) / math.hypot(1.0, slope)
-
-    @classmethod
-    def _abscissa(cls, seg, height):
-        """Return where the line of ``seg`` reaches ``height``."""
-        return seg.x0 + (height - seg.y0) / cls._slope(seg)
-
     @property
     def has_reflection(self):
         """Whether the incident shock reflects inside the domain.
@@ -231,16 +209,18 @@ class Reflection(object):
         gap = margin * (mesher.y1 - mesher.y0)
         cnd = self.field.centroid
         xs, ys = cnd[:, 0], cnd[:, 1]
-        incident = self._offset(self.incident, xs, ys)
+        xs_arr = core.SimpleArrayFloat64(array=xs)
+        ys_arr = core.SimpleArrayFloat64(array=ys)
+        incident = self.arms.offset_by_axis(0, xs_arr, ys_arr).ndarray
         # The reflected shock runs up from the wall, so the line it lies on
         # passes below the domain floor upstream of the reflection point and
         # cuts zone 3 out on its own.
-        reflected = (self._offset(self.reflected, xs, ys)
+        reflected = (self.arms.offset_by_axis(1, xs_arr, ys_arr).ndarray
                      if self.has_reflection
-                     else np.full(xs.shape, np.inf, dtype='float64'))
-        return [incident < -gap,
-                (incident > gap) & (reflected > gap),
-                reflected < -gap]
+                     else np.full(xs.shape, -np.inf, dtype='float64'))
+        return [incident > gap,
+                (incident < -gap) & (reflected < -gap),
+                reflected > gap]
 
     def zone_fields(self):
         """Return the flow-state value of zones 1, 2, and 3, by field name.
@@ -426,11 +406,11 @@ class Reflection(object):
         """
         zones = self.zone_field(name)
         xs = np.asarray(xs)
-        out = np.where(xs < self._abscissa(self.incident, height),
+        out = np.where(xs < self.incident.point_along_axis(height, 'y').x,
                        zones[0], zones[1])
         if self.has_reflection:
-            out = np.where(xs >= self._abscissa(self.reflected, height),
-                           zones[2], out)
+            turn = self.reflected.point_along_axis(height, 'y').x
+            out = np.where(xs >= turn, zones[2], out)
         return out
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
