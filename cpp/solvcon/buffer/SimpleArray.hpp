@@ -3790,6 +3790,7 @@ using SimpleArrayUint8 = SimpleArray<uint8_t>;
 using SimpleArrayUint16 = SimpleArray<uint16_t>;
 using SimpleArrayUint32 = SimpleArray<uint32_t>;
 using SimpleArrayUint64 = SimpleArray<uint64_t>;
+using SimpleArrayFloat16 = SimpleArray<Float16>;
 using SimpleArrayFloat32 = SimpleArray<float>;
 using SimpleArrayFloat64 = SimpleArray<double>;
 using SimpleArrayComplex64 = SimpleArray<Complex<float>>;
@@ -3798,10 +3799,8 @@ using SimpleArrayComplex128 = SimpleArray<Complex<double>>;
 /**
  * Runtime element-type tag mirroring the scalar types a SimpleArray supports.
  *
- * Covers bool, the signed and unsigned 8- to 64-bit integers, the 32- and
- * 64-bit floats, and the 64- and 128-bit complex types. Converts to and from
- * its enum and a type string, and DataType::from<T>() maps a C++ type to its
- * tag.
+ * DataType::from<T>() maps a C++ type to its tag. The string constructor maps
+ * registered public type names to tags.
  *
  * @ingroup group_core
  */
@@ -3820,6 +3819,7 @@ public:
         Uint16,
         Uint32,
         Uint64,
+        Float16,
         Float32,
         Float64,
         Complex64,
