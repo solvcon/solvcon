@@ -1,6 +1,7 @@
 # Copyright (c) 2026, solvcon team <contact@solvcon.net>
 # BSD 3-Clause License, see COPYING
 
+import itertools
 import os
 import struct
 import tempfile
@@ -28,56 +29,104 @@ END_TIME = START_TIME + (MESSAGE_COUNT - 1) * PERIOD
 # The 256-byte chunk size of the generator packs the messages into this many
 # chunks. Regenerating the fixtures with another chunk size changes it.
 CHUNK_COUNT = 19
+# One imu message per this many status messages.
+IMU_PERIOD = 12
+# The imu messages reach only this many of the chunks, so a query for the
+# topic leaves the rest unread.
+IMU_CHUNK_COUNT = 8
+
+# Little-endian CDR encapsulation header, as a ROS 2 recording carries it.
+CDR_HEADER = b"\x00\x01\x00\x00"
+
+# A cursor shared between two iterators still answers the first two reads
+# correctly, so the interleaving tests alternate this many times.
+INTERLEAVED_READS = 4
 
 
-MAGIC = b"\x89MCAP0\r\n"
+class McapBytes:
+    """Builders for the records of an MCAP file, as raw bytes.
 
-
-def _record(opcode, content):
-    return bytes([opcode]) + struct.pack("<Q", len(content)) + content
-
-
-def _prefixed(raw):
-    return struct.pack("<I", len(raw)) + raw
-
-
-def _text(value):
-    return _prefixed(value.encode())
-
-
-def _schema(schema_id, name, encoding="ros2msg", data=b"float64 x\n"):
-    return _record(0x03, struct.pack("<H", schema_id) + _text(name)
-                   + _text(encoding) + _prefixed(data))
-
-
-def _channel(channel_id, schema_id, topic, encoding="cdr", metadata=b""):
-    return _record(0x04, struct.pack("<HH", channel_id, schema_id)
-                   + _text(topic) + _text(encoding) + _prefixed(metadata))
-
-
-def _chunk_index(start, end, channel_ids=(1,)):
-    offsets = b"".join(struct.pack("<HQ", cid, 0) for cid in channel_ids)
-    return _record(0x08, struct.pack("<QQQQ", start, end, 0, 0)
-                   + _prefixed(offsets) + struct.pack("<Q", 0) + _text("")
-                   + struct.pack("<QQ", 0, 0))
-
-
-def _statistics(start, end):
-    return _record(0x0B, struct.pack("<QHIIII", 0, 0, 0, 0, 0, 0)
-                   + struct.pack("<QQ", start, end) + _prefixed(b""))
-
-
-def _assemble(records, trailing=b""):
-    """The smallest file the reader accepts, carrying the given summary.
-
-    The data section holds no message, because the reader under test reads
-    the footer and the summary and nothing else.
+    The fixture writer cannot produce a malformed or hand-tuned summary, so
+    the tests that need one assemble the file byte by byte.
     """
-    head = (MAGIC + _record(0x01, _text("") + _text("solvcon test"))
-            + _record(0x0F, struct.pack("<I", 0)))
-    summary = b"".join(records) + trailing
-    footer = _record(0x02, struct.pack("<QQI", len(head), 0, 0))
-    return head + summary + footer + MAGIC
+
+    MAGIC = b"\x89MCAP0\r\n"
+
+    @staticmethod
+    def record(opcode, content):
+        return bytes([opcode]) + struct.pack("<Q", len(content)) + content
+
+    @staticmethod
+    def prefixed(raw):
+        return struct.pack("<I", len(raw)) + raw
+
+    @classmethod
+    def text(cls, value):
+        return cls.prefixed(value.encode())
+
+    @classmethod
+    def schema(cls, schema_id, name, encoding="ros2msg",
+               data=b"float64 x\n"):
+        return cls.record(0x03, struct.pack("<H", schema_id)
+                          + cls.text(name) + cls.text(encoding)
+                          + cls.prefixed(data))
+
+    @classmethod
+    def channel(cls, channel_id, schema_id, topic, encoding="cdr",
+                metadata=b""):
+        return cls.record(0x04, struct.pack("<HH", channel_id, schema_id)
+                          + cls.text(topic) + cls.text(encoding)
+                          + cls.prefixed(metadata))
+
+    @classmethod
+    def chunk_index(cls, start, end, channel_ids=(1,), offset=0, length=0):
+        offsets = b"".join(struct.pack("<HQ", cid, 0) for cid in channel_ids)
+        return cls.record(0x08, struct.pack("<QQQQ", start, end, offset,
+                                            length)
+                          + cls.prefixed(offsets) + struct.pack("<Q", 0)
+                          + cls.text("") + struct.pack("<QQ", 0, 0))
+
+    @classmethod
+    def message(cls, channel_id, log_time, payload):
+        return cls.record(0x05, struct.pack("<HIQQ", channel_id, 0, log_time,
+                                            log_time) + payload)
+
+    @classmethod
+    def chunk(cls, *records):
+        """Return an uncompressed chunk record holding the given records."""
+        body = b"".join(records)
+        return cls.record(0x06, struct.pack("<QQQI", 0, 0, len(body), 0)
+                          + cls.text("") + struct.pack("<Q", len(body))
+                          + body)
+
+    @classmethod
+    def statistics(cls, start, end):
+        return cls.record(0x0B, struct.pack("<QHIIII", 0, 0, 0, 0, 0, 0)
+                          + struct.pack("<QQ", start, end)
+                          + cls.prefixed(b""))
+
+    @classmethod
+    def preamble(cls):
+        """Return the magic and the header record.
+
+        They precede the data section, so their length is the file offset
+        of the first data record.
+        """
+        return cls.MAGIC + cls.record(0x01, cls.text("")
+                                      + cls.text("solvcon test"))
+
+    @classmethod
+    def assemble(cls, records, trailing=b"", data=b""):
+        """Return the smallest file the reader accepts, with that summary.
+
+        The data section holds only the records the data argument carries.
+        Most of these tests read the footer and the summary and nothing
+        else.
+        """
+        head = cls.preamble() + data + cls.record(0x0F, struct.pack("<I", 0))
+        summary = b"".join(records) + trailing
+        footer = cls.record(0x02, struct.pack("<QQI", len(head), 0, 0))
+        return head + summary + footer + cls.MAGIC
 
 
 @unittest.skipUnless(sc.mcap.HAS_MCAP, "built without BUILD_MCAP")
@@ -87,6 +136,24 @@ class McapReaderTB(unittest.TestCase):
 
     def path(self, name):
         return os.path.join(self.DATADIR, "%s.mcap" % name)
+
+    def expected_messages(self, topic):
+        """Return the log time and payload of every message on a topic.
+
+        The generator tests/data/make_mcap_fixtures.py wrote them, and this
+        method repeats the arithmetic it used.
+        """
+        out = []
+        for index in range(MESSAGE_COUNT):
+            log_time = START_TIME + index * PERIOD
+            if STATUS == topic:
+                out.append((log_time, CDR_HEADER
+                            + struct.pack("<dB", 1.5 * index, index % 2)))
+            elif 0 == index % IMU_PERIOD:
+                out.append((log_time, CDR_HEADER
+                            + struct.pack("<ddd", index, -index, 9.81)))
+
+        return out
 
 
 class McapSummaryTC(McapReaderTB):
@@ -168,7 +235,7 @@ class McapSummaryTC(McapReaderTB):
                         sc.mcap.Reader(path)
 
 
-class McapSyntheticTC(McapReaderTB):
+class McapSyntheticTC(McapReaderTB, McapBytes):
     """Summaries the fixture writer never produces, assembled byte by byte."""
 
     def setUp(self):
@@ -178,26 +245,26 @@ class McapSyntheticTC(McapReaderTB):
     def build(self, *records, **kw):
         path = os.path.join(self.tmp.name, "synthetic.mcap")
         with open(path, "wb") as stream:
-            stream.write(_assemble(records, **kw))
+            stream.write(self.assemble(records, **kw))
 
         return path
 
     def test_time_range_from_chunk_indexes(self):
         reader = sc.mcap.Reader(self.build(
-            _schema(1, "S"), _channel(1, 1, "/t"),
-            _chunk_index(300, 400), _chunk_index(100, 200)))
+            self.schema(1, "S"), self.channel(1, 1, "/t"),
+            self.chunk_index(300, 400), self.chunk_index(100, 200)))
         self.assertTrue(reader.has_time_range())
         self.assertEqual(reader.time_range(), (100, 400))
 
     def test_empty_chunk_keeps_the_start_time(self):
         reader = sc.mcap.Reader(self.build(
-            _schema(1, "S"), _channel(1, 1, "/t"),
-            _chunk_index(0, 0), _chunk_index(100, 200)))
+            self.schema(1, "S"), self.channel(1, 1, "/t"),
+            self.chunk_index(0, 0), self.chunk_index(100, 200)))
         self.assertEqual(reader.time_range(), (100, 200))
 
     def test_summary_stating_no_time(self):
-        reader = sc.mcap.Reader(self.build(_schema(1, "S"),
-                                           _channel(1, 1, "/t")))
+        reader = sc.mcap.Reader(self.build(self.schema(1, "S"),
+                                           self.channel(1, 1, "/t")))
         self.assertFalse(reader.has_time_range())
         self.assertEqual(reader.time_range(), (0, 0))
 
@@ -205,31 +272,34 @@ class McapSyntheticTC(McapReaderTB):
         # Written in descending id, so answering with the last record rather
         # than the highest id would name A.
         reader = sc.mcap.Reader(self.build(
-            _schema(1, "A"), _schema(2, "B"),
-            _channel(2, 2, "/t"), _channel(1, 1, "/t"),
-            _statistics(100, 200)))
+            self.schema(1, "A"), self.schema(2, "B"),
+            self.channel(2, 2, "/t"), self.channel(1, 1, "/t"),
+            self.statistics(100, 200)))
         self.assertEqual(reader.topics(), {"/t": "B"})
         self.assertEqual(reader.schema("/t").name, "B")
 
     def test_schema_id_zero_is_no_schema(self):
-        reader = sc.mcap.Reader(self.build(_schema(0, "ignored"),
-                                           _channel(1, 0, "/t")))
+        reader = sc.mcap.Reader(self.build(self.schema(0, "ignored"),
+                                           self.channel(1, 0, "/t")))
         self.assertEqual(reader.topics(), {"/t": ""})
         with self.assertRaisesRegex(RuntimeError, "no schema"):
             reader.schema("/t")
 
     def test_duplicate_records_must_agree(self):
-        reader = sc.mcap.Reader(self.build(_schema(1, "A"), _schema(1, "A"),
-                                           _channel(1, 1, "/t")))
+        reader = sc.mcap.Reader(self.build(
+            self.schema(1, "A"), self.schema(1, "A"),
+            self.channel(1, 1, "/t")))
         self.assertEqual(reader.topics(), {"/t": "A"})
         conflicts = (
-            ((_schema(1, "A"), _schema(1, "B")), "two schemas"),
-            ((_schema(1, "A"), _schema(1, "A", data=b"other\n")),
+            ((self.schema(1, "A"), self.schema(1, "B")), "two schemas"),
+            ((self.schema(1, "A"), self.schema(1, "A", data=b"other\n")),
              "two schemas"),
-            ((_schema(1, "A"), _channel(1, 1, "/a"), _channel(1, 1, "/b")),
+            ((self.schema(1, "A"), self.channel(1, 1, "/a"),
+              self.channel(1, 1, "/b")),
              "two channels"),
-            ((_schema(1, "A"), _channel(1, 1, "/t"),
-              _channel(1, 1, "/t", metadata=_text("k") + _text("v"))),
+            ((self.schema(1, "A"), self.channel(1, 1, "/t"),
+              self.channel(1, 1, "/t",
+                           metadata=self.text("k") + self.text("v"))),
              "two channels"),
         )
         for records, message in conflicts:
@@ -239,14 +309,104 @@ class McapSyntheticTC(McapReaderTB):
 
     def test_record_missing_a_mandatory_field(self):
         # A channel record that stops before its metadata map.
-        short = _record(0x04, struct.pack("<HH", 1, 1) + _text("/t")
-                        + _text("cdr"))
+        short = self.record(0x04, struct.pack("<HH", 1, 1)
+                            + self.text("/t") + self.text("cdr"))
         with self.assertRaisesRegex(RuntimeError, "truncated"):
-            sc.mcap.Reader(self.build(_schema(1, "S"), short))
+            sc.mcap.Reader(self.build(self.schema(1, "S"), short))
+
+    def test_an_index_without_channel_ids_cannot_prune(self):
+        """An empty channel list says nothing, so the chunk must be read.
+
+        The specification gives the empty map of message index offsets the
+        meaning "no message indexing is available", and the reader derives
+        the channel ids from that map.  Reading the emptiness as "holds no
+        wanted channel" would drop every message of a conforming file.
+        """
+        chunk = self.chunk(self.message(1, 10, b"payload"))
+        path = self.build(
+            self.schema(1, "S"), self.channel(1, 1, "/t"),
+            self.chunk_index(10, 10, channel_ids=(),
+                             offset=len(self.preamble()),
+                             length=len(chunk)),
+            data=chunk)
+        reader = sc.mcap.Reader(path)
+        self.assertEqual(reader.messages("/t").selected_chunk_count(), 1)
+        self.assertEqual(list(reader.messages("/t")), [(10, b"payload")])
+
+    def test_a_message_beside_a_chunk(self):
+        """A chunk index names the chunks and must not hide the rest.
+
+        The walk that picks up the lone message must also not yield the
+        chunk a second time.
+        """
+        chunk = self.chunk(self.message(1, 10, b"in"))
+        path = self.build(
+            self.schema(1, "S"), self.channel(1, 1, "/t"),
+            self.chunk_index(10, 10, offset=len(self.preamble()),
+                             length=len(chunk)),
+            data=chunk + self.message(1, 20, b"out"))
+        reader = sc.mcap.Reader(path)
+        self.assertEqual(reader.messages("/t").selected_chunk_count(), 1)
+        self.assertEqual(list(reader.messages("/t")),
+                         [(10, b"in"), (20, b"out")])
 
     def test_summary_ending_inside_a_record_header(self):
         with self.assertRaisesRegex(RuntimeError, "ends inside a record"):
-            sc.mcap.Reader(self.build(_schema(1, "S"), trailing=b"\x03\x00"))
+            sc.mcap.Reader(self.build(self.schema(1, "S"),
+                                      trailing=b"\x03\x00"))
+
+
+class McapMessageTC(McapReaderTB):
+    def test_messages(self):
+        for name, topic in itertools.product(FIXTURES, TOPICS):
+            with self.subTest(name=name, topic=topic):
+                reader = sc.mcap.Reader(self.path(name))
+                self.assertEqual(list(reader.messages(topic)),
+                                 self.expected_messages(topic))
+
+    def test_interleaved_iterators_do_not_share_a_cursor(self):
+        """Two iterators on one topic each walk it from the start."""
+        expected = self.expected_messages(STATUS)
+        reader = sc.mcap.Reader(self.path("vehicle_zstd"))
+        first = reader.messages(STATUS)
+        second = reader.messages(STATUS)
+        for index in range(INTERLEAVED_READS):
+            first_message = next(first)
+            second_message = next(second)
+            self.assertEqual(first_message, expected[index])
+            self.assertEqual(second_message, expected[index])
+
+    def test_reading_one_topic_leaves_another_alone(self):
+        """A read on one topic must not advance another topic's iterator."""
+        status_expected = self.expected_messages(STATUS)
+        imu_expected = self.expected_messages(IMU)
+        reader = sc.mcap.Reader(self.path("vehicle_zstd"))
+        status = reader.messages(STATUS)
+        imu = reader.messages(IMU)
+        for index in range(INTERLEAVED_READS):
+            status_message = next(status)
+            imu_message = next(imu)
+            self.assertEqual(status_message, status_expected[index])
+            self.assertEqual(imu_message, imu_expected[index])
+
+    def test_sparse_topic_prunes_chunks(self):
+        for name in CHUNKED:
+            with self.subTest(name=name):
+                reader = sc.mcap.Reader(self.path(name))
+                self.assertEqual(
+                    reader.messages(STATUS).selected_chunk_count(),
+                    CHUNK_COUNT)
+                self.assertEqual(reader.messages(IMU).selected_chunk_count(),
+                                 IMU_CHUNK_COUNT)
+
+    def test_unchunked_file_has_no_chunk_to_prune(self):
+        reader = sc.mcap.Reader(self.path(UNCHUNKED))
+        self.assertEqual(reader.messages(IMU).selected_chunk_count(), 0)
+
+    def test_messages_of_unknown_topic(self):
+        reader = sc.mcap.Reader(self.path("vehicle_zstd"))
+        with self.assertRaisesRegex(RuntimeError, "no such topic"):
+            reader.messages("/vehicle/nothing")
 
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

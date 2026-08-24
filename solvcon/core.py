@@ -87,6 +87,7 @@ list_of_python = [
 list_of_mcap = [
     'McapReader',
     'McapSchema',
+    'McapMessageIterator',
 ]
 
 # toggle directory symbols

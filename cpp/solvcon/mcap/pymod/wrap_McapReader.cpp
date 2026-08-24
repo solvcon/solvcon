@@ -46,6 +46,48 @@ protected:
 
 }; /* end class WrapMcapSchema */
 
+class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapMcapMessageIterator
+    : public WrapBase<WrapMcapMessageIterator, mcap::MessageIterator, std::shared_ptr<mcap::MessageIterator>>
+{
+
+public:
+
+    using base_type = WrapBase<WrapMcapMessageIterator, mcap::MessageIterator, std::shared_ptr<mcap::MessageIterator>>;
+    using wrapped_type = typename base_type::wrapped_type;
+
+    friend root_base_type;
+
+protected:
+
+    WrapMcapMessageIterator(pybind11::module & mod, char const * pyname, char const * pydoc)
+        : base_type(mod, pyname, pydoc)
+    {
+        namespace py = pybind11; // NOLINT(misc-unused-alias-decls)
+
+        (*this)
+            .def(
+                "__iter__",
+                [](py::object self)
+                { return self; })
+            .def(
+                "__next__",
+                [](wrapped_type & self)
+                {
+                    uint64_t log_time = 0;
+                    std::string_view payload;
+                    if (!self.next(log_time, payload))
+                    {
+                        throw py::stop_iteration();
+                    }
+                    return py::make_tuple(log_time, py::bytes(payload.data(), payload.size()));
+                })
+            .def("selected_chunk_count", &wrapped_type::selected_chunk_count)
+            //
+            ;
+    }
+
+}; /* end class WrapMcapMessageIterator */
+
 class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapMcapReader
     : public WrapBase<WrapMcapReader, mcap::Reader, std::shared_ptr<mcap::Reader>>
 {
@@ -80,6 +122,8 @@ protected:
             .def("schema", &wrapped_type::schema, py::arg("topic"))
             .def("time_range", &wrapped_type::time_range)
             .def("has_time_range", &wrapped_type::has_time_range)
+            // The iterator reads from the file the reader holds open.
+            .def("messages", &wrapped_type::messages, py::arg("topic"), py::keep_alive<0, 1>())
             //
             ;
     }
@@ -89,6 +133,7 @@ protected:
 void wrap_McapReader(pybind11::module & mod)
 {
     WrapMcapSchema::commit(mod, "McapSchema", "McapSchema");
+    WrapMcapMessageIterator::commit(mod, "McapMessageIterator", "McapMessageIterator");
     WrapMcapReader::commit(mod, "McapReader", "McapReader");
 }
 
