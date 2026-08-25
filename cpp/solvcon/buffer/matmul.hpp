@@ -364,6 +364,7 @@ private:
 
     MatmulSelection select() const;
     std::optional<MatmulSelection> select(MatmulKernel kernel) const;
+    std::optional<MatmulSelection> select_blas(MatmulKernel kernel) const;
     MatmulSelection select_dot() const;
     MatmulSelection select_gevm() const;
     MatmulSelection select_gemv() const;
@@ -764,7 +765,10 @@ MatmulSelection MatmulExecutor<Array>::select() const
         }
         return select_gemm();
     }
-    return MatmulSelection{};
+    else
+    {
+        return MatmulSelection{};
+    }
 }
 
 template <typename Array>
@@ -894,10 +898,20 @@ std::optional<MatmulSelection> MatmulExecutor<Array>::select(MatmulKernel kernel
     {
         return MatmulSelection{};
     }
-    if constexpr (!use_matmul_blas_v<value_type>)
+
+    if constexpr (use_matmul_blas_v<value_type>)
+    {
+        return select_blas(kernel);
+    }
+    else
     {
         return std::nullopt;
     }
+}
+
+template <typename Array>
+std::optional<MatmulSelection> MatmulExecutor<Array>::select_blas(MatmulKernel kernel) const
+{
     if (m_plan.rows() <= 0 || m_plan.columns() <= 0 || m_plan.inner_size() <= 0)
     {
         return std::nullopt;
