@@ -15,6 +15,7 @@
 #include <solvcon/base.hpp>
 #include <solvcon/buffer/BufferBase.hpp>
 #include <solvcon/buffer/BufferDevice.hpp>
+#include <solvcon/buffer/BufferStorage.hpp>
 #include <solvcon/buffer/small_vector.hpp>
 
 #include <algorithm>
@@ -28,47 +29,8 @@ namespace solvcon
 namespace detail
 {
 
-// Take the remover and deleter classes outside ConcreteBuffer to work around
+// Keep the remover and deleter types outside ConcreteBuffer to work around
 // https://bugzilla.redhat.com/show_bug.cgi?id=1569374
-
-/**
- * The base class of memory deallocator for ConcreteBuffer.  When the object
- * exists in ConcreteBufferDataDeleter (the unique_ptr deleter), the deleter
- * calls it to release the memory of the ConcreteBuffer data buffer.
- */
-struct ConcreteBufferRemover
-{
-
-    ConcreteBufferRemover() = default;
-    ConcreteBufferRemover(ConcreteBufferRemover const &) = default;
-    ConcreteBufferRemover(ConcreteBufferRemover &&) = default;
-    ConcreteBufferRemover & operator=(ConcreteBufferRemover const &) = default;
-    ConcreteBufferRemover & operator=(ConcreteBufferRemover &&) = default;
-    virtual ~ConcreteBufferRemover() = default;
-
-    static void deallocate_memory(int8_t * p, size_t alignment)
-    {
-        if (alignment > 0) // NOLINT(bugprone-branch-clone)
-        {
-#ifdef _WIN32
-            _aligned_free(p); // NOLINT(cppcoreguidelines-owning-memory,cppcoreguidelines-no-malloc)
-#else
-            std::free(p); // NOLINT(cppcoreguidelines-owning-memory,cppcoreguidelines-no-malloc)
-#endif
-        }
-        else
-        {
-            std::free(p); // NOLINT(cppcoreguidelines-owning-memory,cppcoreguidelines-no-malloc)
-        }
-    }
-
-    // NOLINTNEXTLINE(modernize-avoid-c-arrays,cppcoreguidelines-avoid-c-arrays,readability-non-const-parameter)
-    virtual void operator()(int8_t * p, size_t alignment) const
-    {
-        deallocate_memory(p, alignment);
-    }
-
-}; /* end struct ConcreteBufferRemover */
 
 struct ConcreteBufferNoRemove : public ConcreteBufferRemover
 {
@@ -148,9 +110,10 @@ public:
      * @param nbytes Size in bytes.
      * @param alignment Alignment in bytes: 0, 16, 32, or 64. An aligned size
      * must be a multiple of the alignment.
-     * @param device Device that owns the storage.
+     * @param device Backend used to allocate the storage.
      * @return A new owning buffer.
      * @throw std::invalid_argument If the alignment, size, or device is invalid.
+     * @throw std::length_error If the requested storage exceeds the device limit.
      * @throw std::runtime_error If the requested device is unavailable.
      * @throw std::bad_alloc If storage allocation fails. */
     static std::shared_ptr<ConcreteBuffer> construct(size_t nbytes, size_t alignment, BufferDevice device);
@@ -195,7 +158,7 @@ public:
         , m_data(allocate(nbytes, m_alignment))
     {
         m_begin = m_data.get(); // overwrite m_begin and m_end once we have the data
-        m_end = m_begin + m_nbytes;
+        m_end = m_nbytes == 0 ? m_begin : m_begin + m_nbytes;
     }
 
     /**
@@ -218,7 +181,7 @@ public:
         , m_data(data, data_deleter_type(std::move(remover), m_alignment))
     {
         m_begin = m_data.get(); // overwrite m_begin and m_end once we have the data
-        m_end = m_begin + m_nbytes;
+        m_end = m_nbytes == 0 ? m_begin : m_begin + m_nbytes;
     }
 
     ~ConcreteBuffer() = default;
@@ -239,7 +202,7 @@ public:
         , m_data(allocate(other.m_nbytes, other.m_alignment))
     {
         m_begin = m_data.get(); // overwrite m_begin and m_end once we have the data
-        m_end = m_begin + m_nbytes;
+        m_end = m_nbytes == 0 ? m_begin : m_begin + m_nbytes;
         if (size() != other.size())
         {
             throw std::out_of_range("Buffer size mismatch");
