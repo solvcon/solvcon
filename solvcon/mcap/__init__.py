@@ -10,10 +10,15 @@ The extension carries the subsystem only when it is configured with
 """
 
 from .. import core
+from . import _decode_plan
 
 HAS_MCAP = core.HAS_MCAP
+DecodePlan = _decode_plan.DecodePlan
+DecodePlanError = _decode_plan.DecodePlanError
 
 __all__ = [
+    "DecodePlan",
+    "DecodePlanError",
     "HAS_MCAP",
 ]
 
