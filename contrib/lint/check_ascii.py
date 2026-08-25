@@ -56,7 +56,7 @@ def find_source_files(args):
     """Find all source code files in the project."""
     patterns = [
         '**/*.py', '**/*.cpp', '**/*.hpp', '**/*.c', '**/*.h',
-        '**/*.cxx', '**/*.hxx', '**/*.sh',
+        '**/*.cxx', '**/*.hxx', '**/*.mm', '**/*.sh',
         '**/Makefile', '**/makefile', '**/CMakeLists.txt',
         '.github/workflows/*.yml'
     ]

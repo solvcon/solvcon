@@ -1,5 +1,4 @@
 ---
-Language:        Cpp
 # BasedOnStyle:  LLVM
 # Formatting options: https://clang.llvm.org/docs/ClangFormatStyleOptions.html
 AccessModifierOffset: -4

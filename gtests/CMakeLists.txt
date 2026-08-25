@@ -62,6 +62,11 @@ FetchContent_MakeAvailable(googletest)
 
 if (APPLE)
     find_library(APPLE_FWK_ACCELERATE Accelerate REQUIRED)
+    if (BUILD_METAL)
+        find_library(APPLE_FWK_FOUNDATION Foundation REQUIRED)
+        find_library(APPLE_FWK_METAL Metal REQUIRED)
+        set(SOLVCON_DEVICE_TEST_SOURCES test_nopython_metal.cpp)
+    endif () # BUILD_METAL
 endif () # APPLE
 
 # The `test_nopython` target is only for testing the C++ interface of the non-Python part of the library.
@@ -84,6 +89,7 @@ add_executable(
     test_nopython_pilot_syntax.cpp
     test_nopython_pilot_theme.cpp
     test_nopython_pilot_keymap.cpp
+    ${SOLVCON_DEVICE_TEST_SOURCES}
     ${SOLVCON_INCLUDE_DIR}/solvcon/pilot/console/RPythonConsoleHistory.cpp
     ${SOLVCON_INCLUDE_DIR}/solvcon/pilot/console/RPythonSyntaxRules.cpp
     ${SOLVCON_INCLUDE_DIR}/solvcon/pilot/theme/theme.cpp
@@ -91,6 +97,7 @@ add_executable(
     ${SOLVCON_TOGGLE_SOURCES}
     ${SOLVCON_PROFILING_SOURCES}
     ${SOLVCON_BUFFER_SOURCES}
+    ${SOLVCON_DEVICE_SOURCES}
     ${SOLVCON_SERIALIZATION_SOURCES}
     ${SOLVCON_TRANSFORM_SOURCES}
     ${SOLVCON_MATH_SOURCES}
@@ -104,6 +111,8 @@ target_link_libraries(
     GTest::gtest_main
     GTest::gmock_main
     ${APPLE_FWK_ACCELERATE}
+    $<$<BOOL:${BUILD_METAL}>:${APPLE_FWK_FOUNDATION}>
+    $<$<BOOL:${BUILD_METAL}>:${APPLE_FWK_METAL}>
 )
 
 include(GoogleTest)

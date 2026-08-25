@@ -269,7 +269,7 @@ AUTOPEP8_OPTS ?= --recursive --max-line-length=79 \
                  --ignore=E121,E123,E126,E201,E202,E203,E241,E301,E303,E501,W503,W504 \
                  --exclude=thirdparty,tmp,_deps
 
-CFFILES = $(shell find cpp gtests -type f -name '*.[ch]pp' | sort)
+CFFILES = $(shell find cpp gtests -type f \( -name '*.[ch]pp' -o -name '*.mm' \) | sort)
 ifeq ($(FORCE_CLANG_FORMAT),inplace)
 	CFCMD ?= $(CLANG_FORMAT) -i
 else
