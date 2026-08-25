@@ -1,8 +1,10 @@
 # Copyright (c) 2019, solvcon team <contact@solvcon.net>
 # BSD 3-Clause License, see COPYING
 
-# Build solvcon Python extension (even when the timestamp is clean):
+# Build the solvcon Python extension and its type stubs:
 #   make
+# Build only the extension (even when the timestamp is clean):
+#   make buildext
 # Build verbosely:
 #   make VERBOSE=1
 # Build with clang-tidy
@@ -107,7 +109,7 @@ else
 endif
 
 .PHONY: default
-default: buildext
+default: pyi
 
 .PHONY: cmake
 cmake: $(BUILD_PATH)/Makefile
@@ -138,6 +140,10 @@ $(BUILD_PATH)_xcode/Makefile: CMakeLists.txt CMakePresets.json Makefile
 .PHONY: buildext
 buildext: cmake
 	cmake --build $(BUILD_PATH) --target _solvcon_py VERBOSE=$(VERBOSE) $(MAKE_PARALLEL)
+
+.PHONY: pyi
+pyi: cmake
+	cmake --build $(BUILD_PATH) --target _solvcon_pyi VERBOSE=$(VERBOSE) $(MAKE_PARALLEL)
 
 .PHONY: install
 install: cmake

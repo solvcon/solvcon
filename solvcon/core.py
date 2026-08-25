@@ -11,8 +11,12 @@ three-dimensional space.
 # Use flake8 http://flake8.pycqa.org/en/latest/user/error-codes.html
 
 import os
+from typing import TYPE_CHECKING
 
 from . import pylibmgr
+
+if TYPE_CHECKING:
+    from _solvcon import *  # noqa: F401, F403
 
 # buffer directory symbols
 list_of_buffer = [

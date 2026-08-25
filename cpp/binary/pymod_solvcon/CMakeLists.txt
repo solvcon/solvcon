@@ -59,10 +59,23 @@ add_custom_target(_solvcon_py
     COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:_solvcon> ${SOLVCON_PY_DIR}/../_solvcon${PYEXTSUFFIX}
     DEPENDS _solvcon)
 
+add_custom_target(_solvcon_pyi
+    COMMAND "${PYTHON_EXECUTABLE}" -c "import pybind11_stubgen"
+    COMMAND ${CMAKE_COMMAND} -E rm -rf ${SOLVCON_PY_DIR}/../_solvcon
+    COMMAND ${CMAKE_COMMAND} -E env
+        "PYTHONPATH=${SOLVCON_PY_DIR}/.."
+        "${PYTHON_EXECUTABLE}" -m pybind11_stubgen
+        --ignore-invalid-expressions ".+"
+        --ignore-unresolved-names ".+"
+        --output-dir ${SOLVCON_PY_DIR}/.. _solvcon
+    DEPENDS _solvcon_py
+    COMMENT "generating _solvcon type stubs")
+
 add_custom_target(remove_solvcon_py
     COMMAND ${CMAKE_COMMAND} -E rm -f
         ${SOLVCON_PY_DIR}/_solvcon${PYEXTSUFFIX}
         ${SOLVCON_PY_DIR}/../_solvcon${PYEXTSUFFIX}
+    COMMAND ${CMAKE_COMMAND} -E rm -rf ${SOLVCON_PY_DIR}/../_solvcon
     COMMENT "removing the built _solvcon extension")
 
 message(STATUS "CMAKE_INSTALL_INCLUDEDIR: ${CMAKE_INSTALL_INCLUDEDIR}")
