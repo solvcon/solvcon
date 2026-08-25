@@ -148,6 +148,18 @@ function Test-Skip {
     return ($SkipList -contains $Pkg)
 }
 
+function Assert-FortranCompiler {
+    foreach ($name in @('flang-new.exe', 'flang.exe', 'gfortran.exe')) {
+        $compiler = Get-Command $name -ErrorAction SilentlyContinue
+        if ($compiler) {
+            Write-Host "using Fortran compiler: $($compiler.Source)"
+            return
+        }
+    }
+    throw ('no Fortran compiler found; install one with the command from ' +
+        '-PrintPrereq, then open a new shell so it is on PATH')
+}
+
 if ($Help) {
     # Print the header comment block (lines 2..first blank), stripped of "#".
     Get-Content -LiteralPath $PSCommandPath |
@@ -214,25 +226,28 @@ function Show-Prereq {
     # Print the prerequisite install commands and manual notes.  This script
     # never installs anything; copy the output, review it, and run it.
     #
-    # winget is the primary channel.  The MSVC toolchain and, for scipy, a
-    # Fortran compiler have no clean unattended winget package and are called
-    # out separately below.
+    # winget is the primary channel.  The MSVC toolchain is called out
+    # separately below because its installer is machine-wide.
     @'
-# CMake and Ninja come with the VS "C++ CMake tools" component (part of the
-# C++ workload below) and are used from vcvars; curl.exe and tar ship with
-# Windows; 7-Zip is auto-fetched (7zr) when absent.  Perl and NASM are only for
-# building openssl (skip openssl to avoid them):
+# VS 2022's bundled CMake is older than solvcon's required 4.0.1, so install
+# current CMake and Ninja separately.  curl.exe and tar ship with Windows;
+# 7-Zip is auto-fetched (7zr) when absent.  Perl and NASM are only for building
+# openssl (skip openssl to avoid them):
+winget install --id Kitware.CMake -e --scope user
+winget install --id Ninja-build.Ninja -e --scope user
 winget install --id StrawberryPerl.StrawberryPerl -e
 winget install --id NASM.NASM -e
 '@
     Show-VsInstall
     @'
 
-# scipy needs a Fortran compiler.  The from-source options on Windows are LLVM
-# flang (ships with recent LLVM releases) or a MinGW-w64 gfortran (e.g. from
-# w64devkit).  numpy/scipy also need a BLAS/LAPACK; this script uses the
-# scipy-openblas64 wheel and exports its pkg-config, so no separate OpenBLAS
-# install is required.  See Build-Numpy / Build-Scipy for details.
+# scipy needs a Fortran compiler.  WinLibs supplies gfortran through winget:
+winget install --id BrechtSanders.WinLibs.POSIX.UCRT -e --scope user
+
+# LLVM flang is also supported when it is already on PATH.  numpy/scipy need
+# BLAS/LAPACK too; this script uses the scipy-openblas64 wheel and exports its
+# pkg-config, so no separate OpenBLAS install is required.  See Build-Numpy /
+# Build-Scipy for details.
 '@
 }
 
@@ -668,6 +683,11 @@ if ($WriteActivateOnly) {
     New-Item -ItemType Directory -Force -Path $ScdvBase | Out-Null
     Write-Activate
     exit 0
+}
+
+if (($BuildAll -eq '1' -or $BuildNumpy -eq '1') -and
+        -not (Test-Skip 'scipy')) {
+    Assert-FortranCompiler
 }
 
 # If SCDV_SHARED_DLDIR is configured it must exist already; the script never

@@ -204,7 +204,7 @@ function Resolve-Cmake {
     # A CMake >= 4.0.1 (solvcon's minimum): the one on PATH if new enough (vcvars
     # may put VS 2022's 3.31.6 there), else the newest bundled with a VS.
     $candidates = @()
-    $onpath = Get-Command cmake.exe -ErrorAction SilentlyContinue
+    $onpath = @(Get-Command cmake.exe -All -ErrorAction SilentlyContinue)
     if ($onpath) { $candidates += $onpath.Source }
     $vswhere = Join-Path ${env:ProgramFiles(x86)} `
         'Microsoft Visual Studio\Installer\vswhere.exe'
