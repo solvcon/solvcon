@@ -14,6 +14,7 @@
 
 #include <solvcon/base.hpp>
 #include <solvcon/buffer/BufferBase.hpp>
+#include <solvcon/buffer/BufferDevice.hpp>
 #include <solvcon/buffer/small_vector.hpp>
 
 #include <algorithm>
@@ -142,6 +143,17 @@ public:
     {
         return std::make_shared<ConcreteBuffer>(nbytes, alignment, ctor_passkey());
     }
+
+    /** Construct owned storage on a device.
+     * @param nbytes Size in bytes.
+     * @param alignment Alignment in bytes: 0, 16, 32, or 64. An aligned size
+     * must be a multiple of the alignment.
+     * @param device Device that owns the storage.
+     * @return A new owning buffer.
+     * @throw std::invalid_argument If the alignment, size, or device is invalid.
+     * @throw std::runtime_error If the requested device is unavailable.
+     * @throw std::bad_alloc If storage allocation fails. */
+    static std::shared_ptr<ConcreteBuffer> construct(size_t nbytes, size_t alignment, BufferDevice device);
 
     /*
      * This factory method is dangerous since the data pointer passed in will
