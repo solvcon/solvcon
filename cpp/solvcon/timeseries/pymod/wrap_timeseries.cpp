@@ -7,6 +7,8 @@
 
 #include <pybind11/stl.h>
 
+#include <solvcon/buffer/pymod/SimpleArrayCaster.hpp>
+
 namespace solvcon
 {
 
@@ -24,13 +26,14 @@ void wrap_timeseries(pybind11::module & mod)
             small_vector<SimpleArray<uint64_t> const *> arrays;
             for (py::handle const arg : args)
             {
-                if (!py::isinstance<SimpleArray<uint64_t>>(arg))
+                py::detail::make_caster<SimpleArray<uint64_t>> caster;
+                if (!caster.load(arg, true)) // implicit conversion
                 {
                     throw py::type_error(std::format(
                         "timeseries::merge_sorted_unique(): every array must be SimpleArrayUint64 but got {}",
                         py::str(py::type::of(arg).attr("__name__")).cast<std::string>()));
                 }
-                arrays.push_back(&arg.cast<SimpleArray<uint64_t> const &>());
+                arrays.push_back(&py::detail::cast_op<SimpleArray<uint64_t> const &>(caster));
             }
             return timeseries::merge_sorted_unique(arrays);
         },

@@ -43,7 +43,7 @@ namespace detail
             }                                                                                                                                                 \
                                                                                                                                                               \
             /* Get the SimpleArrayPlex object from the source handle */                                                                                       \
-            solvcon::SimpleArrayPlex arrayplex = src.cast<solvcon::SimpleArrayPlex>(); /* NOLINT(misc-const-correctness) */                                   \
+            solvcon::SimpleArrayPlex const & arrayplex = src.cast<solvcon::SimpleArrayPlex const &>();                                                        \
                                                                                                                                                               \
             /* Check if the data type is matched */                                                                                                           \
             if (arrayplex.data_type() != solvcon::DataType::DATATYPE)                                                                                         \

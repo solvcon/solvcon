@@ -189,6 +189,33 @@ static pybind11::object get_typed_array(const SimpleArrayPlex & array_plex)
 #undef SC_DECL_GET_TYPED_ARRAY
 }
 
+// NOLINTNEXTLINE(misc-use-anonymous-namespace)
+static SimpleArrayPlex make_arrayplex_from_numpy(pybind11::array & arr_in)
+{
+#define SC_DECL_MAKE_ARRAYPLEX(DataTypeName, ValueType) \
+    case DataType::DataTypeName: return SimpleArrayPlex(make_array_from_numpy<ValueType>(arr_in));
+
+    switch (DataType(pybind11::str(arr_in.dtype()).cast<std::string>()))
+    {
+        SC_DECL_MAKE_ARRAYPLEX(Bool, bool)
+        SC_DECL_MAKE_ARRAYPLEX(Int8, int8_t)
+        SC_DECL_MAKE_ARRAYPLEX(Int16, int16_t)
+        SC_DECL_MAKE_ARRAYPLEX(Int32, int32_t)
+        SC_DECL_MAKE_ARRAYPLEX(Int64, int64_t)
+        SC_DECL_MAKE_ARRAYPLEX(Uint8, uint8_t)
+        SC_DECL_MAKE_ARRAYPLEX(Uint16, uint16_t)
+        SC_DECL_MAKE_ARRAYPLEX(Uint32, uint32_t)
+        SC_DECL_MAKE_ARRAYPLEX(Uint64, uint64_t)
+        SC_DECL_MAKE_ARRAYPLEX(Float32, float)
+        SC_DECL_MAKE_ARRAYPLEX(Float64, double)
+        SC_DECL_MAKE_ARRAYPLEX(Complex64, Complex<float>)
+        SC_DECL_MAKE_ARRAYPLEX(Complex128, Complex<double>)
+    default: throw std::invalid_argument("Unsupported datatype");
+    }
+
+#undef SC_DECL_MAKE_ARRAYPLEX
+}
+
 class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArrayPlex : public WrapBase<WrapSimpleArrayPlex, SimpleArrayPlex>
 {
     using root_base_type = WrapBase<WrapSimpleArrayPlex, SimpleArrayPlex>;
@@ -230,21 +257,12 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArrayPlex : public WrapBase<Wr
                 pybind11::arg("dtype"),
                 pybind11::arg("alignment"))
             .def(
-                pybind11::init(
-                    [](pybind11::array & arr_in)
-                    {
-                        solvcon::detail::shape_type shape;
-                        for (ssize_t i = 0; i < arr_in.ndim(); ++i)
-                        {
-                            shape.push_back(arr_in.shape(i));
-                        }
-                        std::shared_ptr<ConcreteBuffer> const buffer = ConcreteBuffer::construct(
-                            arr_in.nbytes(),
-                            arr_in.mutable_data(),
-                            std::make_unique<ConcreteBufferNdarrayRemover>(arr_in));
-                        return wrapped_type(shape, buffer, pybind11::str(arr_in.dtype()));
-                    }),
+                pybind11::init(&make_arrayplex_from_numpy),
                 pybind11::arg("array"))
+            //
+            ;
+
+        (*this)
             .def("clone",
                  [](wrapped_type const & self)
                  { return wrapped_type(self); }) // cloning the object using the copy constructor. never add the clone method to the C++ class.

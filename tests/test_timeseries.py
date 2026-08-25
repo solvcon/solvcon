@@ -33,6 +33,73 @@ ALL_DTYPES = ('bool',) + INT_DTYPES + ('float32', 'float64',
                                        'complex64', 'complex128')
 
 
+class NumpyInputTC(unittest.TestCase):
+
+    def test_every_kernel_accepts_ndarrays(self):
+        times = np.array([0, 10, 20], dtype='uint64')
+        values = np.array([1.0, 3.0, 5.0], dtype='float64')
+        flags = np.array([False, True, True], dtype='bool')
+
+        self.assertEqual(
+            ts.merge_sorted_unique(times).ndarray.tolist(), [0, 10, 20])
+        self.assertEqual(
+            ts.dedup_last(times, values)[1].ndarray.tolist(), [1.0, 3.0, 5.0])
+        self.assertEqual(
+            ts.deriv(times, values)[1].ndarray.tolist(), [0.2, 0.2])
+        self.assertEqual(
+            ts.movavg(times, values, span=10)[1].ndarray.tolist(),
+            [1.0, 3.0, 5.0])
+        self.assertEqual(
+            ts.held(times, flags, span=10)[1].ndarray.tolist(),
+            [False, False, True])
+        self.assertEqual(
+            ts.true_intervals(times, flags).ndarray.tolist(), [[10, 20, 10]])
+
+    def test_strided_ndarrays_keep_their_logical_order(self):
+        times = np.arange(0, 60, 10, dtype='uint64')[::2]
+        values = np.arange(6, dtype='float64')[::2]
+
+        output_times, output_values = ts.deriv(times, values)
+
+        self.assertEqual(output_times.ndarray.tolist(), [20, 40])
+        self.assertEqual(output_values.ndarray.tolist(), [0.1, 0.1])
+
+    def test_arrayplex_inputs_alias_their_ndarray(self):
+        ntimes = np.array([0, 10, 20], dtype='uint64')
+        nvalues = np.array([1.0, 3.0, 5.0], dtype='float64')
+        times = solvcon.SimpleArray(array=ntimes)
+        values = solvcon.SimpleArray(array=nvalues)
+        nvalues[1] = 5.0
+
+        output_times, output_values = ts.deriv(times, values)
+
+        self.assertIs(type(output_values), solvcon.SimpleArrayFloat64)
+        self.assertEqual(output_times.ndarray.tolist(), [10, 20])
+        self.assertEqual(output_values.ndarray.tolist(), [0.4, 0.0])
+
+    def test_arrayplex_inputs_reach_merge_sorted_unique(self):
+        times = solvcon.SimpleArray(array=np.array([0, 10, 20],
+                                                   dtype='uint64'))
+
+        merged = ts.merge_sorted_unique(times)
+
+        self.assertEqual(merged.ndarray.tolist(), [0, 10, 20])
+
+    def test_strided_arrayplex_inputs_keep_their_logical_order(self):
+        ntimes = np.arange(0, 60, 10, dtype='uint64')[::2]
+        nvalues = np.arange(6, dtype='float64')[::2]
+        times = solvcon.SimpleArray(array=ntimes)
+        values = solvcon.SimpleArray(array=nvalues)
+
+        nvalues[1] = 6.0
+        output_times, output_values = ts.deriv(times, values)
+
+        self.assertEqual(list(times), [0, 20, 40])
+        self.assertEqual(list(values), [0.0, 6.0, 4.0])
+        self.assertEqual(output_times.ndarray.tolist(), [20, 40])
+        self.assertEqual(output_values.ndarray.tolist(), [0.3, -0.1])
+
+
 class MergeSortedUniqueTC(unittest.TestCase):
 
     def test_union_grid(self):
@@ -143,9 +210,9 @@ class DedupLastTC(unittest.TestCase):
     def test_output_keeps_the_value_dtype(self):
         times = u64([1, 1, 2])
         for dtype in ALL_DTYPES:
-            values = arr(dtype, [1, 0, 1])
+            values = np.array([1, 0, 1], dtype=dtype)
             otimes, ovalues = ts.dedup_last(times, values)
-            self.assertIs(type(ovalues), type(values), dtype)
+            self.assertIs(type(ovalues), type(arr(dtype, [])), dtype)
             self.assertEqual(otimes.ndarray.tolist(), [1, 2], dtype)
             self.assertEqual(ovalues.ndarray.tolist(), [0, 1], dtype)
 
