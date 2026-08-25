@@ -13,11 +13,7 @@
  * @ingroup group_core
  */
 
-// forward declaration.
-namespace MTL
-{
-class Device;
-} /* end namespace MTL */
+#include <memory>
 
 namespace solvcon
 {
@@ -45,17 +41,19 @@ public:
     MetalManager(MetalManager &&) = delete;
     MetalManager & operator=(MetalManager const &) = delete;
     MetalManager & operator=(MetalManager &&) = delete;
-    ~MetalManager() { shutdown(); }
+    ~MetalManager();
 
     void startup();
-    bool started() { return nullptr != m_device; }
+    bool started() { return nullptr != m_impl; }
     void shutdown();
 
 private:
 
-    MetalManager() { startup(); }
+    class Impl;
 
-    MTL::Device * m_device = nullptr;
+    MetalManager();
+
+    std::unique_ptr<Impl> m_impl;
 
 }; /* end class MetalManager */
 

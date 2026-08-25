@@ -57,6 +57,7 @@ jobs:
     timeout-minutes: ${{ fromJSON(vars.SCGH_TIMEOUT_LINT || vars.MMGH_TIMEOUT_LINT || '45') }}
 
     env:
+      BUILD_METAL: ${{ matrix.build_metal }}
       JOB_MAKE_ARGS: VERBOSE=1 BUILD_QT=ON USE_CLANG_TIDY=ON LINT_AS_ERRORS=ON
       # Cap parallelism. The github-hosted runners have only 3 (macOS) / 4
       # (ubuntu) virtual cores shared with co-tenant VMs, so letting NPROC
@@ -78,8 +79,13 @@ jobs:
         # https://github.com/actions/runner-images/blob/main/images/macos/macos-26-Readme.md
         # macos-26 is arm64 with 7 GB RAM; parallelism is capped via NPROC
         # in the env block above so clang-tidy does not OOM.
-        os: [ubuntu-24.04, macos-26]
-        cmake_build_type: [Debug]
+        include:
+          - os: ubuntu-24.04
+            cmake_build_type: Debug
+            build_metal: OFF
+          - os: macos-26
+            cmake_build_type: Debug
+            build_metal: ON
 
       fail-fast: false
 

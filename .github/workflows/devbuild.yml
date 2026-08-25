@@ -135,6 +135,7 @@ jobs:
       # configured; naming it in only some of them splits the job across two
       # trees, and the second one configures from the preset defaults.
       CMAKE_BUILD_TYPE: ${{ matrix.cmake_build_type }}
+      BUILD_METAL: ${{ matrix.build_metal }}
       QT_DEBUG_PLUGINS: 1
       # QT_QPA_PLATFORM is set per-OS by the setup actions (xcb on Linux via
       # Xvfb, offscreen on macOS). Do not set it at the job level.
@@ -155,9 +156,11 @@ jobs:
           include:
             - os: ubuntu-24.04
               cmake_build_type: Release
+              build_metal: OFF
               make_parallel: -j4
             - os: macos-26
               cmake_build_type: RelWithDebInfo
+              build_metal: ON
               make_parallel: -j2
 
         fail-fast: false
@@ -220,9 +223,6 @@ jobs:
         echo "::group::make pytest BUILD_QT=OFF"
         python3 -c "import solvcon; assert solvcon.HAS_PILOT == False"
         JOB_MAKE_ARGS="${JOB_MAKE_ARGS} VERBOSE=1"
-        if [ "${{ matrix.os }}" == "macos-26" ] ; then \
-          JOB_MAKE_ARGS="${JOB_MAKE_ARGS} BUILD_METAL=ON" ; \
-        fi
         make pytest ${JOB_MAKE_ARGS}
         echo "::endgroup::"
 
@@ -273,7 +273,6 @@ jobs:
           install_name_tool -add_rpath $(qtpaths --install-prefix)/lib ${PYSIDE6_PATH}/QtWidgets.abi3.so
           install_name_tool -add_rpath $(qtpaths --install-prefix)/lib ${PYSIDE6_PATH}/QtGui.abi3.so
           install_name_tool -add_rpath $(qtpaths --install-prefix)/lib ${PYSIDE6_PATH}/QtCore.abi3.so
-          JOB_MAKE_ARGS="${JOB_MAKE_ARGS} BUILD_METAL=ON" ; \
         fi
         # A pull request skips tests/gui here, because run_pilot_pytest below
         # runs it seconds later in the pilot binary. A push and the nightly

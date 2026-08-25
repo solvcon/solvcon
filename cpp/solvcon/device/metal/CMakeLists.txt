@@ -8,7 +8,7 @@ set(SOLVCON_METAL_HEADERS
     CACHE FILEPATH "" FORCE)
 
 set(SOLVCON_METAL_SOURCES
-    ${CMAKE_CURRENT_SOURCE_DIR}/metal.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/metal.mm
     CACHE FILEPATH "" FORCE)
 
 # vim: set ff=unix fenc=utf8 nobomb et sw=4 ts=4 sts=4:

@@ -114,14 +114,6 @@ runs:
         echo "pybind11_ROOT=$(python3 -c 'import os, pybind11; print(os.path.dirname(pybind11.__file__))')" >> "$GITHUB_ENV"
         echo "::endgroup::"
 
-    - name: dependency (manual) for build
-      if: ${{ inputs.workflow == 'build' }}
-      shell: bash
-      run: |
-        echo "::group::dependency (manual) for build"
-        thirdparty/metal-cpp.sh
-        echo "::endgroup::"
-
     - name: show dependency
       shell: bash
       run: |
