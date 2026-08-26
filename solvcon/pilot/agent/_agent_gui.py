@@ -26,10 +26,17 @@ from ._agent_settings import AgentBackendSettingsDialog
 from ..base import _gui_common
 
 __all__ = [  # noqa: F822
+    'AUTO_OPEN_COMMANDS',
     'AgentBackendWorker',
     'AgentConsoleWidget',
     'AgentPanel',
 ]
+
+#: The commands that open the agent console together with their canvas.
+AUTO_OPEN_COMMANDS = (
+    "canvas.blank_2d",
+    "canvas.open_2d",
+)
 
 
 class AgentBackendWorker(QThread):
@@ -173,6 +180,9 @@ class AgentConsoleWidget(QWidget):
 class AgentPanel(_gui_common.PilotFeature):
     """Agent Console dock, toggled from the View "Panels" submenu.
 
+    The dock starts hidden.  The commands in :data:`AUTO_OPEN_COMMANDS`
+    open it together with the 2D canvas it drives.
+
     It holds one :class:`~solvcon.agent.AgentSession` reused across prompts
     (the "current session"), rebinding it to the active world and the selected
     backend on each turn.  The session runs a dispatcher over the Agent Draw,
@@ -205,11 +215,21 @@ class AgentPanel(_gui_common.PilotFeature):
         self._action = self.add_action(
             "View/Panels", "Agent Console", "Toggle the agent console panel",
             None, id="panel.agent_console", weight=40, checkable=True,
-            checked=True)
+            checked=False)
         self._action.toggled.connect(self._on_toggled)
-        # Shown by default, beside the Python console.
+
+    def bind_auto_open(self):
+        """Present the console from every command in"""
+        for command in AUTO_OPEN_COMMANDS:
+            action = self._mgr.menu_model.action(command)
+            if action is not None:
+                action.triggered.connect(self.present)
+
+    def present(self):
+        """Show the console dock and raise it over its neighbours. """
+        self._action.setChecked(True)
         self._ensure_panel()
-        self._dock.show()
+        self._dock.raise_()
 
     def _on_toggled(self, checked):
         """Show or hide the panel."""

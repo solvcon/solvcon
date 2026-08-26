@@ -159,12 +159,21 @@ class AgentPanelTC(unittest.TestCase):
         panels = self.mgr.menu_model.menu("View/Panels")
         self.assertIn(feature._action, panels.actions())
 
-    def test_appears_by_default_titled_agent(self):
+    def test_hidden_by_default(self):
+        # Pilot opens with no 2D canvas, so the console has nothing to act on
+        # and stays out of the way until a canvas opens.
         feature = _agent_gui.AgentPanel(mgr=self.mgr)
         feature.populate_menu()
+        self.assertFalse(feature._action.isChecked())
+        self.assertIsNone(feature._dock)
+
+    def test_present_opens_the_dock_titled_agent(self):
+        feature = _agent_gui.AgentPanel(mgr=self.mgr)
+        feature.populate_menu()
+        feature.present()
         self.assertTrue(feature._action.isChecked())
-        self.assertIsNotNone(feature._dock)
         self.assertEqual(feature._dock.windowTitle(), "Agent")
+        self.assertFalse(feature._dock.isHidden())
 
     def test_dock_sits_in_the_bottom_area(self):
         # The console owns the bottom-left; the agent takes the bottom-right.

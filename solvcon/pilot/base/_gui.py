@@ -174,6 +174,7 @@ class _Controller(metaclass=_Singleton):
         self.agent.populate_menu()
         self.theme_menu.populate_menu()
         self.window_manager.populate_menu()
+        self.agent.bind_auto_open()  # need to be the last to bind all commands
 
         wm.menu_model.place(
             "File",
