@@ -3888,6 +3888,14 @@ public:
     {
     }
 
+    template <typename T>
+    explicit SimpleArrayPlex(SimpleArray<T> && array)
+        : m_has_instance_ownership(true)
+        , m_instance_ptr(static_cast<void *>(new SimpleArray<T>(std::move(array))))
+        , m_data_type(DataType::from<T>())
+    {
+    }
+
     SimpleArrayPlex(SimpleArrayPlex const & other);
     SimpleArrayPlex(SimpleArrayPlex && other) noexcept;
     SimpleArrayPlex & operator=(SimpleArrayPlex const & other);
