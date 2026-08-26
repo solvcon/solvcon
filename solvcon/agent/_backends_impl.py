@@ -59,6 +59,36 @@ class ToolCallParser:
 
     NO_JSON = object()
 
+    #: The tag that closes a reasoning model's chain of thought.  A server
+    #: such as vLLM leaves the thinking in the message content.
+    REASONING_END = "</think>"
+
+    #: Every character a JSON value can start with.
+    VALUE_START = "{[\"-0123456789tfn"
+
+    @classmethod
+    def strip_reasoning(cls, text):
+        """Return the answer after a reasoning model's chain of thought.
+
+        The thinking argues with itself, so an array it tries out along the
+        way is not the reply and must not reach the runner.  Take what
+        follows the last :attr:`REASONING_END` outside a JSON string.  A
+        model cut off mid-thought leaves nothing after that tag, so the reply
+        yields no JSON and reads as prose.  Prose is the honest reading: an
+        empty batch would say the request is already done.
+
+        A command carries arbitrary text, a ``log`` message above all, so the
+        tag also turns up inside the payload.  An odd number of quotes before
+        it puts it in a string, where it is message text and cutting there
+        would throw the whole batch away.
+        """
+        marker = text.rfind(cls.REASONING_END)
+        while marker != -1:
+            if text.count('"', 0, marker) % 2 == 0:
+                return text[marker + len(cls.REASONING_END):]
+            marker = text.rfind(cls.REASONING_END, 0, marker)
+        return text
+
     @classmethod
     def strip_code_fences(cls, text):
         """Drop a surrounding triple-backtick fence (bare or tagged) if
@@ -74,33 +104,63 @@ class ToolCallParser:
         return "\n".join(lines)
 
     @classmethod
+    def opens_value(cls, text, index):
+        """Whether a JSON value can start at ``index``, skipping space.
+
+        The check is what keeps the cost of a bracket-heavy reply in hand.
+        Prose brackets such as ``[ref]`` fail it outright, and each decode
+        they would otherwise cost builds an exception that rescans the whole
+        reply to find its line and column.
+        """
+        while index < len(text) and text[index].isspace():
+            index += 1
+        return index < len(text) and text[index] in cls.VALUE_START
+
+    @classmethod
     def load_json_payload(cls, text):
-        """Parse the first JSON array or object out of a model reply,
-        tolerating a code fence or surrounding prose.
+        """Parse the JSON array or object a model reply ends with, tolerating
+        a chain of thought, a code fence, or surrounding prose.
 
         Return the parsed value, or :attr:`NO_JSON` when the reply has no
         JSON-looking span (plain prose).  Raise :class:`ValueError` when a
         ``[``/``{`` span is present but does not parse, so a truncated or
         invalid command batch is not mistaken for an empty one.
+
+        The payload is the value that closes on the reply's last bracket, and
+        the outermost one that does.  Each half of that rule answers its own
+        failure.  A model reasoning in prose tries batches out before it
+        answers.  An earlier value is therefore one the model rejected, and
+        it must not run in place of a malformed final batch.  A command can
+        nest an array, such as a polygon's vertices.  That array closes an
+        inner bracket last, so the innermost value is an argument, not the
+        batch.
+
+        A candidate must also pass :meth:`opens_value`, which bounds what a
+        bracket-heavy reply costs.
         """
-        text = cls.strip_code_fences(text).strip()
+        text = cls.strip_code_fences(cls.strip_reasoning(text)).strip()
         if not text:
             return cls.NO_JSON
         try:
             return json.loads(text)
         except json.JSONDecodeError:
             pass
-        saw_span = False
-        for opener, closer in (("[", "]"), ("{", "}")):
+        decoder = json.JSONDecoder()
+        end = max(text.rfind("]"), text.rfind("}"))
+        start, saw_span = -1, False
+        if end != -1:
+            opener = "[" if text[end] == "]" else "{"
             start = text.find(opener)
-            end = text.rfind(closer)
-            if start == -1 or end <= start:
-                continue
-            saw_span = True
-            try:
-                return json.loads(text[start:end + 1])
-            except json.JSONDecodeError:
-                continue
+        while -1 < start < end:
+            if cls.opens_value(text, start + 1):
+                saw_span = True
+                try:
+                    value, offset = decoder.raw_decode(text, start)
+                    if offset == end + 1:
+                        return value
+                except json.JSONDecodeError:
+                    pass
+            start = text.find(opener, start + 1)
         if saw_span or text[0] in "[{":
             raise ValueError("model reply has malformed JSON")
         return cls.NO_JSON

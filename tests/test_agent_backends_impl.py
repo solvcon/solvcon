@@ -77,6 +77,64 @@ class ParseToolCallsTC(unittest.TestCase):
         with self.assertRaises(ValueError):
             agent.ToolCallParser.parse('[{"op": ["a", "b"]}]')
 
+    def test_takes_the_last_array_not_the_first_bracket(self):
+        # What a reasoning model in prose mode does: it names a bracket, then
+        # answers.  Reading from the first bracket swallowed the real array
+        # into one unparseable span.
+        text = ('For a circle the parameters might be [x, y, r].\n'
+                'So the command is:\n[{"op": "add_circle", "r": 1.0}]')
+        self.assertEqual(agent.ToolCallParser.parse(text),
+                         [{"op": "add_circle", "r": 1.0}])
+
+    def test_ignores_json_inside_the_chain_of_thought(self):
+        # The thinking argues with itself, so an array it tries out there is
+        # not the answer and must not be run.
+        text = ('I could use [{"op": "delete_universe"}] here.\n'
+                'Actually no.\n</think>\n[{"op": "add_circle"}]')
+        self.assertEqual(agent.ToolCallParser.parse(text),
+                         [{"op": "add_circle"}])
+
+    def test_a_malformed_final_batch_does_not_run_an_earlier_one(self):
+        # The dangerous case: the model tried a batch, rejected it, and its
+        # real answer came out malformed.  Falling back to the rejected batch
+        # would run a command the model decided against.
+        text = ('Maybe [{"op": "delete_universe"}] would do it.\n'
+                'Final: [{"op": "add_circle",}]')
+        with self.assertRaises(ValueError):
+            agent.ToolCallParser.parse(text)
+
+    def test_takes_the_batch_not_a_nested_argument_array(self):
+        # A command whose arguments nest an array closes an inner bracket
+        # last, so the innermost value is an argument, never the batch.
+        text = ('Here you go:\n'
+                '[{"op": "add_polygon", "points": [[0, 0], [1, 1]]}]')
+        self.assertEqual(
+            agent.ToolCallParser.parse(text),
+            [{"op": "add_polygon", "points": [[0, 0], [1, 1]]}])
+
+    def test_keeps_an_end_of_thinking_tag_a_command_carries_as_text(self):
+        # The marker delimits the thinking.  Inside the payload it is message
+        # text, and cutting there would throw the whole batch away.  Prose
+        # around the payload must not change that.
+        command = {"op": "log", "message": "wrote </think> once"}
+        for text in ('[{"op": "log", "message": "wrote </think> once"}]',
+                     'Here you go:\n'
+                     '[{"op": "log", "message": "wrote </think> once"}]'):
+            self.assertEqual(agent.ToolCallParser.parse(text), [command], text)
+
+    def test_an_unclosed_bracket_in_prose_is_not_a_payload(self):
+        # A brace the model wrote as punctuation is the model talking, so the
+        # parser must not call it a command batch that failed to parse.
+        self.assertEqual(agent.ToolCallParser.parse("I cannot open a { here."),
+                         [])
+
+    def test_reasoning_with_no_answer_is_prose(self):
+        # A reply cut off mid-thought must read as the model talking, never as
+        # the empty batch that says the request is already done.
+        text = 'I should probably use [] for this.\n</think>\n   '
+        self.assertEqual(agent.ToolCallParser.parse_reply(text).status,
+                         agent.ParseStatus.PROSE)
+
     def test_unknown_op_survives_parsing(self):
         commands = agent.ToolCallParser.parse(
             '[{"op": "add_circle"}, {"op": "delete_universe"}]')
