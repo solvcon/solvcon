@@ -538,6 +538,42 @@ class OpenAIHttpBackendTC(unittest.TestCase):
         self.assertIn("add_circle", messages[1]["content"])
         self.assertNotIn("drive a 2D drawing canvas", messages[1]["content"])
 
+    def test_settings_drive_the_request(self):
+        # Editing the knobs redirects a turn: the request follows the new
+        # URL, and the body carries the new model name.
+        seen = {}
+
+        def _capture(body):
+            seen["body"] = body
+            seen["url"] = self.backend.base_url
+            return 200, self._chat_body("[]")
+
+        self.backend.set_setting("base_url", "https://api.example.test/v1/")
+        self.backend.set_setting("model", "gpt-4o-mini")
+        self.backend._post_chat = _capture
+        self.backend.send("hello", "one shape", _TOOLS)
+        self.assertEqual(seen["url"], "https://api.example.test/v1")
+        self.assertEqual(seen["body"]["model"], "gpt-4o-mini")
+
+    def test_settings_spec_starts_on_the_ctor_values(self):
+        knobs = {setting.name: setting.default
+                 for setting in self.backend.settings_spec()}
+        self.assertEqual(knobs, {"base_url": "http://127.0.0.1:11434/v1",
+                                 "model": "qwen2.5vl:7b"})
+        self.assertNotIn("api_key", knobs)
+
+    def test_a_cleared_knob_restores_the_default(self):
+        # Clearing the field must not drop the backend out of the selector:
+        # the selector is the only way back to the dialog that would repair
+        # it.  The restored value is what gets stored, so the editor and the
+        # configuration file cannot show something the backend is not using.
+        self.backend.set_setting("model", "")
+        self.backend.set_setting("base_url", "")
+        self.assertEqual(self.backend.model, "qwen2.5vl:7b")
+        self.assertEqual(self.backend.base_url, "http://127.0.0.1:11434/v1")
+        self.assertEqual(self.backend.get_setting("model"), "qwen2.5vl:7b")
+        self.assertTrue(self.backend.available())
+
     def test_send_http_error_status_is_error(self):
         self.backend._post_chat = lambda body: (500, b"boom")
         response = self.backend.send("draw", "scene", _TOOLS)

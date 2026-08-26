@@ -539,6 +539,40 @@ class RegistryTC(unittest.TestCase):
             agent.BackendRegistry.register(agent.ClaudeCliBackend())
 
 
+class FreeTextSettingTC(unittest.TestCase):
+    """The base class owns what an emptied free-text knob means."""
+
+    class Backend(agent.EchoBackend):
+        name = "free text"
+        SETTINGS = (
+            agent.BackendSetting(name="url", label="URL",
+                                 default="http://default.test"),
+            agent.BackendSetting(name="mode", label="Mode",
+                                 choices=("a", "b"), default="a"),
+        )
+
+        def settings_spec(self):
+            return self.SETTINGS
+
+    def setUp(self):
+        self.backend = self.Backend()
+
+    def test_emptying_a_knob_stores_the_declared_default(self):
+        # Storing the default rather than reading around a blank keeps one
+        # value: the editor, the configuration file, and the backend cannot
+        # disagree about what is configured.
+        self.backend.set_setting("url", "http://elsewhere.test")
+        self.backend.set_setting("url", "")
+        self.assertEqual(self.backend.get_setting("url"),
+                         "http://default.test")
+        self.assertEqual(self.backend.settings()["url"],
+                         "http://default.test")
+
+    def test_a_choice_knob_still_rejects_an_empty_value(self):
+        with self.assertRaises(ValueError):
+            self.backend.set_setting("mode", "")
+
+
 class BackendSettingsConfigTC(unittest.TestCase):
     def setUp(self):
         tmpdir = tempfile.mkdtemp()
@@ -591,6 +625,21 @@ class BackendSettingsConfigTC(unittest.TestCase):
         agent.BackendRegistry.load_settings(Config(self.path).load())
         self.assertEqual(backend.get_setting("model"), "gpt-5.6-terra")
         self.assertEqual(backend.get_setting("effort"), "high")
+
+    def test_openai_http_settings_survive_a_config_round_trip(self):
+        backend = agent.BackendRegistry.get(agent.OpenAIHttpBackend().name)
+        for knob, value in backend.settings().items():
+            self.addCleanup(backend.set_setting, knob, value)
+        backend.set_setting("base_url", "https://api.example.test/v1")
+        backend.set_setting("model", "gpt-4o-mini")
+        config = Config(self.path)
+        agent.BackendRegistry.save_settings(config)
+        config.save()
+        backend.set_setting("base_url", "http://elsewhere.test/v1")
+        backend.set_setting("model", "other")
+        agent.BackendRegistry.load_settings(Config(self.path).load())
+        self.assertEqual(backend.base_url, "https://api.example.test/v1")
+        self.assertEqual(backend.model, "gpt-4o-mini")
 
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

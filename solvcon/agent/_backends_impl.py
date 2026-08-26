@@ -455,10 +455,19 @@ class OpenAIHttpBackend(CancellableBackend, _backend.AgentBackend):
 
     Uses only the stdlib (``http.client`` and ``urllib.parse``); no vendor
     SDK.  Point ``base_url`` at OpenAI, Ollama's ``/v1`` endpoint, or any
-    compatible server.  Defaults and the optional API key come from the
-    constructor or the ``SOLVCON_OPENAI_BASE_URL``, ``SOLVCON_OPENAI_MODEL``,
-    and ``SOLVCON_OPENAI_API_KEY`` environment variables.  The in-flight
-    connection is kept on the instance so a driver thread can :meth:`cancel`.
+    compatible server.
+
+    The base URL and the model name are user-tunable knobs; see
+    :meth:`settings_spec`.  The settings dialog edits them, and the
+    configuration file keeps them across runs.  The knobs start on what the
+    constructor or the ``SOLVCON_OPENAI_BASE_URL`` and
+    ``SOLVCON_OPENAI_MODEL`` environment variables give.  A stored value then
+    wins, because the user chose it in the dialog.
+
+    The API key stays out of the knobs.  It comes only from the constructor
+    or ``SOLVCON_OPENAI_API_KEY``.  The configuration file is plain text, and
+    a saved knob would write the secret into it.  The in-flight connection is
+    kept on the instance so a driver thread can :meth:`cancel`.
     """
 
     # Local Ollama's OpenAI-compatible root; override for a remote provider.
@@ -467,9 +476,9 @@ class OpenAIHttpBackend(CancellableBackend, _backend.AgentBackend):
 
     def __init__(self, base_url=None, model=None, api_key=None, timeout=120):
         super().__init__()
-        self._base_url = base_url if base_url is not None else self._env_or(
+        self._url_default = base_url if base_url is not None else self._env_or(
             "SOLVCON_OPENAI_BASE_URL", self._DEFAULT_BASE_URL)
-        self._model = model if model is not None else self._env_or(
+        self._model_default = model if model is not None else self._env_or(
             "SOLVCON_OPENAI_MODEL", self._DEFAULT_MODEL)
         self._api_key = api_key if api_key is not None else self._env_or(
             "SOLVCON_OPENAI_API_KEY", "")
@@ -486,18 +495,40 @@ class OpenAIHttpBackend(CancellableBackend, _backend.AgentBackend):
     def name(self):
         return "openai (http)"
 
+    def settings_spec(self):
+        """Return the free-text knobs for the server address and model name.
+
+        The defaults are per instance, not class constants.  That is what
+        carries the constructor arguments and the environment variables into
+        the value the dialog opens on.  Emptying either knob restores that
+        default, which
+        :meth:`~solvcon.agent.AgentBackend.set_setting` does for every
+        free-text knob.
+        """
+        return (
+            _backend.BackendSetting(
+                name="base_url", label="Base URL",
+                default=self._url_default,
+                tooltip="API root including the /v1 suffix, "
+                        "such as https://api.openai.com/v1."),
+            _backend.BackendSetting(
+                name="model", label="Model",
+                default=self._model_default,
+                tooltip="Model name sent in the request body."),
+        )
+
     @property
     def base_url(self):
         """API root including the ``/v1`` suffix, with no trailing slash."""
-        return (self._base_url or "").rstrip("/")
+        return self.get_setting("base_url").rstrip("/")
 
     @property
     def model(self):
-        return self._model
+        return self.get_setting("model")
 
     def available(self):
         """True when both a base URL and a model name are configured."""
-        return bool(self.base_url) and bool(self._model)
+        return bool(self.base_url) and bool(self.model)
 
     def send(self, prompt, scene_context, tool_surface, history=()):
         self.begin()
@@ -507,7 +538,7 @@ class OpenAIHttpBackend(CancellableBackend, _backend.AgentBackend):
         user_prompt = self._compose_user(
             prompt, scene_context, tool_surface, history)
         body = {
-            "model": self._model,
+            "model": self.model,
             "stream": False,
             "messages": [
                 {"role": "system", "content": self._INSTRUCTIONS},

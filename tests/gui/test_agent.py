@@ -321,5 +321,16 @@ class AgentPanelTC(unittest.TestCase):
         self.assertIn("--model=gpt-5.6-sol", argv)
         self.assertIn('--config=model_reasoning_effort="high"', argv)
 
+    def test_openai_http_settings_reach_the_request(self):
+        # A free-text knob gets a line edit rather than a combo box, and
+        # accepting the dialog is what lands the typed text on the backend.
+        backend = agent.OpenAIHttpBackend()
+        dialog = _agent_settings.AgentBackendSettingsDialog(backend)
+        dialog._editors["base_url"].setText("https://api.example.test/v1")
+        dialog._editors["model"].setText("gpt-4o-mini")
+        dialog.accept()
+        self.assertEqual(backend.base_url, "https://api.example.test/v1")
+        self.assertEqual(backend.model, "gpt-4o-mini")
+
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
