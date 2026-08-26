@@ -1,0 +1,159 @@
+name: Set up solvcon CI dependencies on Windows
+description: Set up the necessary dependencies for running CI tests on Github action Windows runners
+
+inputs:
+  workflow:
+    description: The name of the workflow that will use this action
+    required: true
+  cmake-build-type:
+    description: Build type of the calling job, used in the compiler cache key
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+
+    - name: check inputs
+      if: ${{ inputs.workflow == 'build' && inputs.cmake-build-type == '' }}
+      shell: pwsh
+      run: |
+        throw ('setup_windows: workflow=build needs cmake-build-type, ' +
+          'otherwise Debug and Release share one compiler-cache key')
+
+    - uses: TheMrMilchmann/setup-msvc-dev@v4
+      with:
+        arch: 'x64'
+
+    # CMake version in windows-2022 runner-image is 3.31.6, so we install CMake>=4.0.1 from github marketplace.
+    # Reference: https://github.com/actions/runner-images/blob/main/images/windows/Windows2022-Readme.md
+    - name: install CMake>4.0.1
+      uses: lukka/get-cmake@latest
+
+    - name: install qt
+      uses: jurplel/install-qt-action@v4
+      with:
+        # aqtinstall 3.3.0 cannot resolve Qt 6.11's new split Windows
+        # desktop repository, so Windows stays on 6.10.3 while Linux and
+        # macOS run 6.11.1.
+        # Ref: https://github.com/miurahr/aqtinstall/issues/1007
+        version: '6.10.3'
+        host: 'windows'
+        target: 'desktop'
+        arch: 'win64_msvc2022_64'
+        # qtshadertools provides qsb and the ShaderTools CMake package for QRhi.
+        modules: 'qtshadertools'
+        cache: true
+
+    # The patch version is pinned, not just 3.14: the portable tree in
+    # nightly_build_windows.yml fetches the matching embedded CPython by exact
+    # version and verifies its digest.
+    - uses: actions/setup-python@v6
+      with:
+        python-version: '3.14.7'
+
+    - name: sccache
+      if: ${{ inputs.workflow == 'build' }}
+      uses: hendrikmuhs/ccache-action@v1.2.23
+      with:
+        variant: sccache
+        key: ${{ runner.os }}-sccache-${{ inputs.cmake-build-type }}
+        restore-keys: ${{ runner.os }}-sccache-${{ inputs.cmake-build-type }}
+        save: ${{ github.event_name != 'pull_request' }}
+        # Bound the cache so it does not grow without limit across the rolling
+        # key. A master push and the nightly (both build types) save under this
+        # key; pull requests only restore it (a PR on a non-default base branch
+        # cannot, so it runs cold).
+        max-size: 500M
+
+    - name: Cache vcpkg (install artifacts)
+      if: ${{ inputs.workflow == 'sanitizer' }}
+      uses: actions/cache@v4
+      with:
+        path: |
+          C:\vcpkg\installed
+          C:\vcpkg\downloads
+          C:\vcpkg\buildtrees
+          C:\vcpkg\packages
+        key: vcpkg-${{ runner.os }}-openblas-lapack
+        restore-keys: vcpkg-${{ runner.os }}-
+
+    - name: install Intel MKL (vendor BLAS/LAPACK)
+      if: ${{ inputs.workflow == 'build' }}
+      shell: pwsh
+      run: |
+        echo "::group::install Intel MKL"
+        # Pre-built vendor BLAS/LAPACK from Intel's official wheels, the same
+        # source build-scdv-windows.ps1 uses for SCDV_WIN_BLAS=mkl.
+        pip install mkl mkl-devel mkl-include intel-openmp
+        $prefix = python -c "import sys; sys.stdout.write(sys.prefix)"
+        # Locate the wheel-installed pieces by name (the layout varies across
+        # wheel versions) and hand CMake their dirs so find_path(mkl_cblas.h)
+        # and find_library(mkl_rt) succeed.
+        $mkl = Get-ChildItem -LiteralPath $prefix -Recurse -File `
+          -Include 'mkl_cblas.h', 'mkl_rt.lib', 'mkl_rt*.dll', 'libiomp5md.dll'
+        $hdr = $mkl | Where-Object Name -EQ 'mkl_cblas.h' | Select-Object -First 1
+        $lib = $mkl | Where-Object Name -EQ 'mkl_rt.lib' | Select-Object -First 1
+        $dll = $mkl | Where-Object Name -Like 'mkl_rt*.dll' | Select-Object -First 1
+        $iomp = $mkl | Where-Object Name -EQ 'libiomp5md.dll' | Select-Object -First 1
+        if (-not ($hdr -and $lib -and $dll -and $iomp)) {
+          throw "MKL pieces not found (hdr=$hdr lib=$lib dll=$dll iomp=$iomp)"
+        }
+        $runtime_dirs = @($dll.DirectoryName, $iomp.DirectoryName) |
+          Sort-Object -Unique
+        echo "MKL_INCLUDE_DIR=$($hdr.DirectoryName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        echo "MKL_LIBRARY_DIR=$($lib.DirectoryName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        echo "MKL_RUNTIME_DIRS=$($runtime_dirs -join ';')" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        # mkl_rt loads the mkl_* kernels and libiomp5md at runtime; put their
+        # dir on PATH so the test executables find them.
+        foreach ($runtime_dir in $runtime_dirs) {
+          echo $runtime_dir | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        }
+        echo "::endgroup::"
+
+    - name: install BLAS and LAPACK
+      if: ${{ inputs.workflow == 'sanitizer' }}
+      shell: pwsh
+      run: |
+        echo "::group::install BLAS and LAPACK"
+        vcpkg install openblas:x64-windows lapack:x64-windows
+        $vcpkg_bin_path = @(
+          "C:\vcpkg\installed\x64-windows\bin",
+          "C:\vcpkg\installed\x64-windows\debug\bin"
+        ) -join ";"
+        echo "$vcpkg_bin_path" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        echo "::endgroup::"
+
+    - name: dependency by pip
+      shell: pwsh
+      run: |
+        echo "::group::dependency by pip"
+        pip3 install -U numpy matplotlib pytest jsonschema flake8 pybind11 pyside6==$(qmake -query QT_VERSION)
+        # Add PySide6 and Shiboken6 path into system path, that allow exe file can find
+        # dll during runtime
+        # If user needs to modified system path in github actions container
+        # user should use GITHUB_PATH
+        # ref: https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#adding-a-system-path
+        # But the way of update GITHUB_PATH in github action document does not work, there is a other way to update it.
+        # ref: https://stackoverflow.com/questions/60169752/how-to-update-the-path-in-a-github-action-workflow-file-for-a-windows-latest-hos
+        $pyside6_path = $(python3 -c "import sys, os, PySide6; sys.stdout.write(os.path.dirname(PySide6.__file__))")
+        $shiboken6_path = $(python3 -c "import sys, os, shiboken6; sys.stdout.write(os.path.dirname(shiboken6.__file__))")
+        echo "$pyside6_path;$shiboken6_path" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        echo "::endgroup::"
+
+    - name: show dependency
+      if: ${{ inputs.workflow == 'build' }}
+      shell: pwsh
+      run: |
+        echo "::group::show dependency"
+        Get-Command cl
+        Get-Command cmake
+        Get-Command python3
+        Get-Command pip3
+        python3 -c 'import numpy as np; print("np.__version__:", np.__version__, np.get_include())'
+        python3 -c "import pybind11 ; print('pybind11.__version__:', pybind11.__version__)"
+        pybind11-config --cmakedir
+        Get-Command pytest
+        Get-Command clang-tidy
+        Get-Command flake8
+        echo "::endgroup::"

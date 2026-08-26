@@ -11,6 +11,9 @@ concurrency:
   group: nightly_build_windows
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
 
   build_windows:
@@ -64,100 +67,11 @@ jobs:
         run: |
           echo "github.event_name: ${{ github.event_name }}"
 
-      - uses: TheMrMilchmann/setup-msvc-dev@v4
+      - name: setup
+        uses: ./.github/actions/setup_windows
         with:
-          arch: 'x64'
-
-      # CMake version in windows-2022 runner-image is 3.31.6, so we install CMake>=4.0.1 from github marketplace.
-      # Reference: https://github.com/actions/runner-images/blob/main/images/windows/Windows2022-Readme.md
-      - name: install CMake>4.0.1
-        uses: lukka/get-cmake@latest
-
-      - name: install qt
-        uses: jurplel/install-qt-action@v4
-        with:
-          # aqtinstall 3.3.0 cannot resolve Qt 6.11's new split Windows
-          # desktop repository, so Windows stays on 6.10.3 while Linux and
-          # macOS run 6.11.1.
-          # Ref: https://github.com/miurahr/aqtinstall/issues/1007
-          version: '6.10.3'
-          host: 'windows'
-          target: 'desktop'
-          arch: 'win64_msvc2022_64'
-          # qtshadertools provides qsb and the ShaderTools CMake package for QRhi.
-          modules: 'qtshadertools'
-          cache: true
-
-      - uses: actions/setup-python@v6
-        with:
-          python-version: '3.12'
-
-      - name: sccache
-        uses: hendrikmuhs/ccache-action@v1.2.23
-        with:
-          variant: sccache
-          key: ${{ runner.os }}-sccache-${{ matrix.cmake_build_type }}
-          restore-keys: ${{ runner.os }}-sccache-${{ matrix.cmake_build_type }}
-          # Bound the cache so it does not grow without limit across the rolling
-          # key. This run saves both build types. devbuild_windows shares the
-          # Release key on a master push and restores it on a pull request;
-          # nothing else writes the Debug key.
-          max-size: 500M
-
-      - name: install Intel MKL (vendor BLAS/LAPACK)
-        run: |
-          echo "::group::install Intel MKL"
-          # Pre-built vendor BLAS/LAPACK from Intel's official wheels, the same
-          # source build-scdv-windows.ps1 uses for SCDV_WIN_BLAS=mkl.
-          pip install mkl mkl-devel mkl-include intel-openmp
-          $prefix = python -c "import sys; sys.stdout.write(sys.prefix)"
-          # Locate the wheel-installed pieces by name (the layout varies across
-          # wheel versions) and hand CMake their dirs so find_path(mkl_cblas.h)
-          # and find_library(mkl_rt) succeed.
-          $mkl = Get-ChildItem -LiteralPath $prefix -Recurse -File -Include 'mkl_cblas.h', 'mkl_rt.lib', 'mkl_rt*.dll'
-          $hdr = $mkl | Where-Object Name -EQ 'mkl_cblas.h' | Select-Object -First 1
-          $lib = $mkl | Where-Object Name -EQ 'mkl_rt.lib' | Select-Object -First 1
-          $dll = $mkl | Where-Object Name -Like 'mkl_rt*.dll' | Select-Object -First 1
-          if (-not ($hdr -and $lib -and $dll)) {
-            throw "MKL pieces not found (hdr=$hdr lib=$lib dll=$dll)"
-          }
-          echo "MKL_INCLUDE_DIR=$($hdr.DirectoryName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          echo "MKL_LIBRARY_DIR=$($lib.DirectoryName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          # mkl_rt loads the mkl_* kernels and libiomp5md at runtime; put their
-          # dir on PATH so the test executables find them.
-          echo "$($dll.DirectoryName)" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          echo "::endgroup::"
-
-      - name: dependency by pip
-        run: |
-          echo "::group::dependency by pip"
-          pip3 install -U numpy matplotlib pytest jsonschema flake8 pybind11 pyside6==$(qmake -query QT_VERSION)
-          # Add PySide6 and Shiboken6 path into system path, that allow exe file can find
-          # dll during runtime
-          # If user needs to modified system path in github actions container
-          # user should use GITHUB_PATH
-          # ref: https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#adding-a-system-path
-          # But the way of update GITHUB_PATH in github action document does not work, there is a other way to update it.
-          # ref: https://stackoverflow.com/questions/60169752/how-to-update-the-path-in-a-github-action-workflow-file-for-a-windows-latest-hos
-          $pyside6_path = $(python3 -c "import sys, os, PySide6; sys.stdout.write(os.path.dirname(PySide6.__file__))")
-          $shiboken6_path = $(python3 -c "import sys, os, shiboken6; sys.stdout.write(os.path.dirname(shiboken6.__file__))")
-          echo "$pyside6_path;$shiboken6_path" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          echo "::endgroup::"
-
-      - name: show dependency
-        run: |
-          echo "::group::show dependency"
-          Get-Command cl
-          Get-Command cmake
-          Get-Command python3
-          Get-Command pip3
-          python3 -c 'import numpy as np; print("np.__version__:", np.__version__, np.get_include())'
-          python3 -c "import pybind11 ; print('pybind11.__version__:', pybind11.__version__)"
-          pybind11-config --cmakedir
-          Get-Command pytest
-          Get-Command clang-tidy
-          Get-Command flake8
-          echo "::endgroup::"
+          workflow: build
+          cmake-build-type: ${{ matrix.cmake_build_type }}
 
       - name: cmake workflow
         run: |
@@ -181,8 +95,8 @@ jobs:
         run: |
           echo "::group::generate portable"
           # Get the Python version installed and extract the major+minor version components
-          $py_ver=$(python3 -V | awk '{print $2}')
-          $py_main_ver=$(echo $py_ver | awk -F. '{print $1$2}')
+          $py_ver = python -c "import platform; print(platform.python_version())"
+          $py_main_ver = ($py_ver -split '\.')[0, 1] -join ''
           $destination=".\solvcon-pilot-win64\solvcon-pilot-win64"
           $py_exec="$destination\python.exe"
 
@@ -193,21 +107,31 @@ jobs:
           $pyembed_url="https://www.python.org/ftp/python/$py_ver/python-$py_ver-embed-amd64.zip"
           $pyembed_dl="python-$py_ver-embed-amd64.zip"
           Invoke-WebRequest -Uri $pyembed_url -OutFile $pyembed_dl
+          $pyembed_hash = (Get-FileHash -LiteralPath $pyembed_dl `
+            -Algorithm SHA256).Hash.ToLower()
+          # Keyed by exact version so a python-version bump in setup_windows
+          # fails here by name instead of as a bare digest mismatch.
+          $pyembed_hashes = @{
+            '3.14.7' = 'd297e5ff019966817ad8502465176139f2d3d840fa4ed84b13bed399a6ab1f15'
+          }
+          if (-not $pyembed_hashes.ContainsKey($py_ver)) {
+            throw "no embedded CPython digest pinned for $py_ver (add it beside this check)"
+          }
+          $expected_hash = $pyembed_hashes[$py_ver]
+          if ($pyembed_hash -ne $expected_hash) {
+            throw "embedded Python hash mismatch: expected $expected_hash got $pyembed_hash"
+          }
           Expand-Archive -Path $pyembed_dl -DestinationPath $destination
 
           # Patch the .pth file to enable 'site' package (required for using pip)
           $pth_file="$destination\python$py_main_ver._pth"
           (Get-Content $pth_file) -replace '#import site', 'import site' | Set-Content $pth_file
 
-          # Download and setup pip installation script
-          $get_pip_url="https://bootstrap.pypa.io/get-pip.py"
-          $get_pip_script="$destination\get-pip.py"
-          Invoke-WebRequest -Uri $get_pip_url -OutFile $get_pip_script
-          & $py_exec $get_pip_script
-
-          # Install necessary packages for the pilot
+          # Install packages into the embedded tree with the already-provisioned
+          # interpreter. The portable runtime itself does not need pip.
           $qt_ver=$(qmake -query QT_VERSION)
-          & $py_exec -m pip install numpy matplotlib PySide6==$qt_ver shiboken6-generator==$qt_ver
+          python -m pip install --target $destination numpy matplotlib `
+            PySide6==$qt_ver
 
           # Copy pyside6 and shiboken6 DLLs alongside the pilot executable
           $pyside6_path=$(& $py_exec -c "import sys, os, PySide6; sys.stdout.write(os.path.dirname(PySide6.__file__))")
@@ -227,6 +151,97 @@ jobs:
           Copy-Item -Path ".\build\ci-win-rel\pilot.exe" -Destination $destination
           windeployqt --release "$destination\pilot.exe"
           Copy-Item -Path ".\solvcon" -Destination $destination -Recurse
+          Copy-Item -Path ".\_solvcon*.pyd" -Destination $destination
+
+          # mkl_rt dispatches at run time to a threading layer, the CPU kernels
+          # for the host ISA, and the vector-math kernels; that closure plus the
+          # OpenMP runtime is all solvcon reaches.  The wheel also ships cluster
+          # and offload libraries the portable tree never loads, so drop them.
+          # mkl_tbb_thread stays: with MKL_THREADING_LAYER=TBB already in the
+          # user's environment, a missing mkl_tbb_thread is fatal.
+          $mkl_runtime_keep = @(
+            'mkl_rt*.dll'
+            'mkl_core*.dll'
+            'mkl_intel_thread*.dll'
+            'mkl_tbb_thread*.dll'
+            'mkl_sequential*.dll'
+            'mkl_def*.dll'
+            'mkl_avx*.dll'
+            'mkl_mc*.dll'
+            'mkl_vml_*.dll'
+            'libiomp5md.dll'
+          )
+          $mkl_runtime_dirs = @(
+            ($env:MKL_RUNTIME_DIRS -split ';') | Where-Object { $_ }
+          )
+          if (-not $mkl_runtime_dirs) {
+            throw 'MKL_RUNTIME_DIRS was not set by the MKL install step'
+          }
+          $mkl_present = @(
+            foreach ($runtime_dir in $mkl_runtime_dirs) {
+              if (-not (Test-Path -LiteralPath $runtime_dir)) {
+                throw "MKL runtime directory not found: $runtime_dir"
+              }
+              Get-ChildItem -LiteralPath $runtime_dir -Filter '*.dll' -File
+            }
+          ) | Sort-Object FullName -Unique
+          $mkl_runtime_dlls = @(
+            $mkl_present | Where-Object {
+              $name = $_.Name
+              ($mkl_runtime_keep | Where-Object { $name -like $_ }) -ne $null
+            }
+          )
+          # The keep list is a guess about MKL's layout, so state what it dropped
+          # rather than letting a renamed kernel vanish from the artifact silently.
+          $mkl_dropped = @(
+            $mkl_present | Where-Object { $_ -notin $mkl_runtime_dlls }
+          )
+          $kept_mb = [math]::Round((($mkl_runtime_dlls | Measure-Object Length -Sum).Sum) / 1MB)
+          $dropped_mb = [math]::Round((($mkl_dropped | Measure-Object Length -Sum).Sum) / 1MB)
+          echo "MKL runtime: keeping $($mkl_runtime_dlls.Count) DLLs ($kept_mb MB), dropping $($mkl_dropped.Count) ($dropped_mb MB)"
+          foreach ($dropped in $mkl_dropped) { echo "  dropped: $($dropped.Name)" }
+          # The single-host smoke test below cannot notice a renamed kernel
+          # family that only other ISAs dispatch to.
+          $mkl_required = @(
+            'mkl_rt*.dll'
+            'mkl_core*.dll'
+            'mkl_intel_thread*.dll'
+            'libiomp5md.dll'
+            'mkl_avx*.dll'
+            'mkl_vml_*.dll'
+          )
+          foreach ($required in $mkl_required) {
+            if (-not ($mkl_runtime_dlls | Where-Object Name -Like $required)) {
+              throw "MKL runtime closure matched nothing for $required"
+            }
+          }
+          foreach ($runtime_dll in $mkl_runtime_dlls) {
+            Copy-Item -LiteralPath $runtime_dll.FullName `
+              -Destination $destination -Force
+          }
+
+          # Prove the bundled extension reaches MKL with no build-time package
+          # directory available through PATH.
+          $portable_root = (Resolve-Path -LiteralPath $destination).Path
+          $portable_python = (Resolve-Path -LiteralPath $py_exec).Path
+          $original_path = $env:PATH
+          try {
+            $system32 = Join-Path $env:SystemRoot 'System32'
+            $env:PATH = "$portable_root;$system32"
+            $smoke = @(
+              'import _solvcon as m'
+              'a = m.SimpleArrayFloat64((17, 18)); a.fill(1.0)'
+              'b = m.SimpleArrayFloat64((18, 19)); b.fill(1.0)'
+              'c = a.matmul(b)'
+              'assert c.shape == (17, 19) and c[0, 0] == 18.0'
+            ) -join '; '
+            & $portable_python -c $smoke
+            if ($LASTEXITCODE -ne 0) {
+              throw "portable MKL smoke test exited with code $LASTEXITCODE"
+            }
+          } finally {
+            $env:PATH = $original_path
+          }
           # Also include potential thirdparty
           Copy-Item -Path ".\thirdparty" -Destination $destination -Recurse
           echo "::endgroup::"
