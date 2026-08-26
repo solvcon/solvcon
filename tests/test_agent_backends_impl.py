@@ -411,6 +411,21 @@ class SubprocessBackendPinningTC(unittest.TestCase):
         seen = self._run({"PATH": "/bin"})
         self.assertEqual(seen["env"], {"PATH": "/bin"})
 
+    def test_windows_process_basics_reach_the_child(self):
+        basics = {
+            "PATH": r"C:\Windows\System32",
+            "USERPROFILE": r"C:\Users\user",
+            "SystemRoot": r"C:\Windows",
+            "ComSpec": r"C:\Windows\System32\cmd.exe",
+            "PATHEXT": ".COM;.EXE;.BAT;.CMD",
+            "TEMP": r"C:\Users\user\Temp",
+            "TMP": r"C:\Users\user\Temp",
+            "APPDATA": r"C:\Users\user\AppData\Roaming",
+            "LOCALAPPDATA": r"C:\Users\user\AppData\Local",
+        }
+        seen = self._run({**basics, **self._SECRETS})
+        self.assertEqual(seen["env"], basics)
+
     def test_each_supported_auth_mode_reaches_the_child(self):
         base = {"HOME": "/home/u", "PATH": "/bin"}
         modes = (
@@ -433,6 +448,12 @@ class SubprocessBackendPinningTC(unittest.TestCase):
     def test_child_cannot_read_the_parent_stdin(self):
         seen = self._run({"PATH": "/bin"})
         self.assertEqual(seen["stdin"], subprocess.DEVNULL)
+
+    def test_child_output_is_decoded_as_utf8(self):
+        seen = self._run({"PATH": "/bin"})
+        self.assertTrue(seen["text"])
+        self.assertEqual(seen["encoding"], "utf-8")
+        self.assertEqual(seen["errors"], "replace")
 
     def test_argv_pins_the_cli_sandbox(self):
         argv = self._run({"PATH": "/bin"})["argv"]

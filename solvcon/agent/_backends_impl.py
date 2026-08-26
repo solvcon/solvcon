@@ -217,7 +217,9 @@ class SubprocessBackend(CancellableBackend, _backend.AgentBackend):
     #: The process basics every agent CLI receives.  A subclass extends this
     #: with only its own authentication variables.
     env_passthrough = (
-        "HOME", "USER", "LOGNAME", "PATH", "TMPDIR")
+        "HOME", "USER", "LOGNAME", "PATH", "TMPDIR", "USERPROFILE",
+        "SystemRoot", "ComSpec", "PATHEXT", "TEMP", "TMP", "APPDATA",
+        "LOCALAPPDATA")
 
     def __init__(self, timeout=120):
         super().__init__()
@@ -291,7 +293,8 @@ class SubprocessBackend(CancellableBackend, _backend.AgentBackend):
         try:
             proc = subprocess.Popen(
                 argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE, text=True, cwd=workdir, env=env)
+                stderr=subprocess.PIPE, text=True, encoding="utf-8",
+                errors="replace", cwd=workdir, env=env)
             self._proc = proc
             if self._cancelled:
                 # A cancel between spawning the child and publishing it here

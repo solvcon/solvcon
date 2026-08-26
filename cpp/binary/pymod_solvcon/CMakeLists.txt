@@ -43,27 +43,19 @@ if (CLANG_TIDY_EXE AND USE_CLANG_TIDY)
     )
 endif ()
 
-include(CMakePrintHelpers)
-get_filename_component(REALPATH_PYTHON "${PYTHON_EXECUTABLE}" REALPATH)
-get_filename_component(PYTHON_VENV_BIN "${REALPATH_PYTHON}" DIRECTORY)
-cmake_print_variables(REALPATH_PYTHON)
-cmake_print_variables(PYTHON_VENV_BIN)
-
-execute_process(
-    COMMAND ${PYTHON_VENV_BIN}/python3-config --extension-suffix
-    OUTPUT_VARIABLE PYEXTSUFFIX
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-)
-
-add_custom_target(_solvcon_py
-    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:_solvcon> ${SOLVCON_PY_DIR}/../_solvcon${PYEXTSUFFIX}
-    DEPENDS _solvcon)
+add_custom_target(_solvcon_py ALL
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        $<TARGET_FILE:_solvcon>
+        ${SOLVCON_PY_DIR}/../$<TARGET_FILE_NAME:_solvcon>
+    DEPENDS _solvcon
+    VERBATIM)
 
 add_custom_target(remove_solvcon_py
     COMMAND ${CMAKE_COMMAND} -E rm -f
-        ${SOLVCON_PY_DIR}/_solvcon${PYEXTSUFFIX}
-        ${SOLVCON_PY_DIR}/../_solvcon${PYEXTSUFFIX}
-    COMMENT "removing the built _solvcon extension")
+        ${SOLVCON_PY_DIR}/$<TARGET_FILE_NAME:_solvcon>
+        ${SOLVCON_PY_DIR}/../$<TARGET_FILE_NAME:_solvcon>
+    COMMENT "removing the built _solvcon extension"
+    VERBATIM)
 
 message(STATUS "CMAKE_INSTALL_INCLUDEDIR: ${CMAKE_INSTALL_INCLUDEDIR}")
 install(DIRECTORY ${SOLVCON_INCLUDE_DIR}/solvcon DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})

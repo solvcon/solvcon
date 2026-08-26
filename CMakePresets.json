@@ -331,7 +331,7 @@
       "configurePreset": "win-reldbg",
       "displayName": "Windows Release with Debug Info",
       "description": "Build the extension module and the pilot, RelWithDebInfo.",
-      "targets": ["_solvcon", "pilot"]
+      "targets": ["_solvcon_py", "pilot"]
     },
     {
       "name": "win-reldbg-module",
@@ -339,7 +339,7 @@
       "configurePreset": "win-reldbg",
       "displayName": "Windows Release with Debug Info, module only",
       "description": "Build the extension module alone, RelWithDebInfo.",
-      "targets": ["_solvcon"]
+      "targets": ["_solvcon_py"]
     },
     {
       "name": "win-reldbg-gtest",
@@ -355,7 +355,7 @@
       "configurePreset": "win-rel",
       "displayName": "Windows Release",
       "description": "Build the extension module and the pilot, Release.",
-      "targets": ["_solvcon", "pilot"]
+      "targets": ["_solvcon_py", "pilot"]
     },
     {
       "name": "win-rel-module",
@@ -363,7 +363,7 @@
       "configurePreset": "win-rel",
       "displayName": "Windows Release, module only",
       "description": "Build the extension module alone, Release.",
-      "targets": ["_solvcon"]
+      "targets": ["_solvcon_py"]
     },
     {
       "name": "win-rel-gtest",
@@ -379,7 +379,7 @@
       "configurePreset": "win-dbg",
       "displayName": "Windows Debug",
       "description": "Build the extension module and the pilot, Debug.",
-      "targets": ["_solvcon", "pilot"]
+      "targets": ["_solvcon_py", "pilot"]
     },
     {
       "name": "win-dbg-module",
@@ -387,7 +387,7 @@
       "configurePreset": "win-dbg",
       "displayName": "Windows Debug, module only",
       "description": "Build the extension module alone, Debug.",
-      "targets": ["_solvcon"]
+      "targets": ["_solvcon_py"]
     },
     {
       "name": "win-dbg-gtest",

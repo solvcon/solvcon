@@ -2,7 +2,6 @@
 # BSD 3-Clause License, see COPYING
 
 
-import os
 import unittest
 import time
 
@@ -20,8 +19,6 @@ class StopWatchTC(unittest.TestCase):
         sw = solvcon.stop_watch
         self.assertGreater(1.e-6, sw.resolution)
 
-    @unittest.skipUnless("nt" != os.name,
-                         "timing code on windows does not work yet")
     def test_lap_with_sleep(self):
 
         sw = solvcon.stop_watch
@@ -29,7 +26,7 @@ class StopWatchTC(unittest.TestCase):
         # Mark start
         sw.lap()
 
-        time.sleep(0.01)
+        time.sleep(0.05)
 
         elapsed = sw.lap()
         self.assertGreater(elapsed, 0.01)

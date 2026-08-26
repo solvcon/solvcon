@@ -105,7 +105,7 @@ void RWindowsThemeBackend::applyNativeChrome(QWidget * window, ThemeVariant vari
     }
 
     // dwmapi is loaded at runtime so the room needs no extra link dependency.
-    HMODULE const dwm = LoadLibraryW(L"dwmapi.dll");
+    HMODULE const dwm = LoadLibraryExW(L"dwmapi.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
     if (dwm == nullptr)
     {
         return;

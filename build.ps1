@@ -5,10 +5,10 @@
 # Build solvcon (the _solvcon extension and, by default, the Qt pilot) on
 # Windows against a scdv produced by
 # contrib/dependency/windows/build-scdv-windows.ps1.  solvcon's Makefile and
-# setup.py shell out to "make", and its module-copy target runs
-# "python3-config"; neither exists on Windows.  This drives CMake directly
-# through the win-reldbg / win-rel / win-dbg presets in CMakePresets.json,
-# adding only the scdv-specific cache variables, and places the module by hand.
+# its Unix development workflow require "make", which is not a standard
+# Windows tool.  This drives CMake directly through the win-reldbg / win-rel /
+# win-dbg presets in CMakePresets.json, adding only the scdv-specific cache
+# variables.
 # Those three path variables belong in CMakeUserPresets.json; pass -Preset
 # <name> to build such a preset and the script leaves them to it.  Start from
 # contrib/cmake/CMakeUserPresets.win-example.json: the other template inherits
@@ -95,6 +95,10 @@ if ($Sanitize) {
         throw '-Sanitize cannot use the Debug preset: MSVC ASan rejects the ' +
             "Debug /RTC1 runtime checks. Drop -BuildType Debug."
     }
+    if ($Test) {
+        throw '-Sanitize cannot run -Test through stock python.exe; use ' +
+            '-Gtest or -PilotTest so AddressSanitizer starts with the process'
+    }
     if (-not $PilotTest) {
         $Gtest = $true
         $NoQt = $true
@@ -156,12 +160,14 @@ function Get-ConfigurePresetBinaryDir {
     if (-not $raw) { throw "preset '$Name' states no binaryDir" }
     $raw = $raw.Replace('${sourceDir}', $Root).Replace('${presetName}', $Name)
     if ($raw -match '\$\{') { throw "unsupported macro in binaryDir '$raw'" }
-    return $raw.Replace('/', '\')
+    $raw = $raw.Replace('/', '\')
+    if (-not [IO.Path]::IsPathRooted($raw)) {
+        $raw = Join-Path $Root $raw
+    }
+    return [IO.Path]::GetFullPath($raw)
 }
 
 $bld = Get-ConfigurePresetBinaryDir $Repo $presetName
-$solvconDir = Join-Path $Repo 'solvcon'
-
 # --- MSVC environment -------------------------------------------------------
 
 if (-not (Get-Command cl.exe -ErrorAction SilentlyContinue)) {
@@ -229,23 +235,26 @@ Write-Host "using cmake: $cmake"
 
 # --- Activate the scdv ------------------------------------------------------
 
-if (-not $env:SCDV_USRDIR) {
-    if (-not $ScdvBase) { $ScdvBase = $env:SCDV_BASE }
-    if (-not $ScdvBase) {
-        throw ('no active scdv: activate one (". <scdv>\Activate.ps1") or pass ' +
-            '-ScdvBase <scdv dir>')
+$py = $null
+if (-not $Preset) {
+    if (-not $env:SCDV_USRDIR) {
+        if (-not $ScdvBase) { $ScdvBase = $env:SCDV_BASE }
+        if (-not $ScdvBase) {
+            throw ('no active scdv: activate one (". <scdv>\Activate.ps1") ' +
+                'or pass -ScdvBase <scdv dir>')
+        }
+        $activate = Join-Path $ScdvBase 'Activate.ps1'
+        if (-not (Test-Path -LiteralPath $activate)) {
+            throw "Activate.ps1 not found under -ScdvBase '$ScdvBase'"
+        }
+        Write-Host "activating scdv: $ScdvBase"
+        . $activate
     }
-    $activate = Join-Path $ScdvBase 'Activate.ps1'
-    if (-not (Test-Path -LiteralPath $activate)) {
-        throw "Activate.ps1 not found under -ScdvBase '$ScdvBase'"
+    $usr = $env:SCDV_USRDIR
+    $py = Join-Path $usr 'python3.exe'
+    if (-not (Test-Path -LiteralPath $py)) {
+        throw "scdv python3.exe not found at $py"
     }
-    Write-Host "activating scdv: $ScdvBase"
-    . $activate
-}
-$usr = $env:SCDV_USRDIR
-$py = Join-Path $usr 'python3.exe'
-if (-not (Test-Path -LiteralPath $py)) {
-    throw "scdv python3.exe not found at $py"
 }
 
 # --- Configure and build via the preset -------------------------------------
@@ -276,11 +285,32 @@ if ($NoQt) { $extra += '-DBUILD_QT=OFF' }
 # instrumented .pyd into a stock python.exe.
 if ($Sanitize) { $extra += '-DUSE_SANITIZER=ON' }
 
+# Timestamps preserved from Python wheels can appear ahead of the local clock
+# and make Ninja's automatic CMake regeneration loop.  Suppress it only for
+# this scripted build, then regenerate the tree with the normal rule restored.
+$configureExtra = @($extra) + '-DCMAKE_SUPPRESS_REGENERATION=ON'
+$restoreExtra = @($extra) + '-DCMAKE_SUPPRESS_REGENERATION=OFF'
+$cachePath = Join-Path $bld 'CMakeCache.txt'
+$operationFailure = $null
+
 Push-Location $Repo
 try {
     Write-Host "configuring solvcon (preset $presetName, BUILD_QT=$(if ($NoQt) {'OFF'} else {'ON'})) ..."
-    & $cmake --preset $presetName @extra
+    & $cmake --preset $presetName @configureExtra
     Assert-LastExit 'cmake configure'
+
+    if (-not $py) {
+        $cacheEntry = Get-Content -LiteralPath $cachePath |
+            Select-String -Pattern '^PYTHON_EXECUTABLE:[^=]+=(.*)$' |
+            Select-Object -First 1
+        if (-not $cacheEntry) {
+            throw "preset '$presetName' did not configure PYTHON_EXECUTABLE"
+        }
+        $py = $cacheEntry.Matches[0].Groups[1].Value
+        if (-not (Test-Path -LiteralPath $py)) {
+            throw "preset '$presetName' configured missing Python at $py"
+        }
+    }
 
     # The build presets carry the target lists: <preset> builds the module and
     # the pilot, <preset>-module the module alone, <preset>-gtest the C++ test
@@ -297,19 +327,36 @@ try {
         & $cmake --build --preset $buildPreset
         Assert-LastExit "cmake build --preset $buildPreset"
     }
+} catch {
+    $operationFailure = $_
 } finally {
+    # A tree left suppressed only inconveniences other tools, so warn rather
+    # than fail a build that already succeeded.
+    try {
+        $suppressed = (Test-Path -LiteralPath $cachePath) -and
+            (Select-String -LiteralPath $cachePath -Quiet `
+                -Pattern '^CMAKE_SUPPRESS_REGENERATION:[^=]+=ON$')
+        if ($suppressed) {
+            Write-Host 'restoring automatic CMake regeneration ...'
+            & $cmake --preset $presetName @restoreExtra
+            if ($LASTEXITCODE -ne 0) {
+                Write-Warning ('automatic CMake regeneration could not be ' +
+                    "restored; reconfigure $bld before building again")
+            }
+        }
+    } catch {
+        Write-Warning "regeneration cleanup failed: $_"
+    }
     Pop-Location
 }
+if ($operationFailure) { throw $operationFailure }
 
-# _solvcon.pyd is a LIBRARY artifact (-> solvcon\, per the preset); pilot.exe is
-# a RUNTIME artifact (-> the binary directory the preset states, read above).
-# Copy the module to the repo root as the top-level _solvcon: solvcon.core
-# imports it there first, and the tests' qualified type names assume that name.
-$pyd = Get-ChildItem -LiteralPath $solvconDir -Filter '_solvcon*.pyd' |
-    Select-Object -First 1
-if (-not $pyd) { throw "no _solvcon*.pyd produced under $solvconDir" }
-Copy-Item $pyd.FullName (Join-Path $Repo $pyd.Name) -Force
-Write-Host "placed module: $(Join-Path $Repo $pyd.Name)"
+# The _solvcon_py target places the module at the repository root, where
+# solvcon.core imports it.
+$pyd = Get-ChildItem -LiteralPath $Repo -Filter '_solvcon*.pyd' |
+    Sort-Object LastWriteTime -Descending | Select-Object -First 1
+if (-not $pyd) { throw "no _solvcon*.pyd produced under $Repo" }
+Write-Host "placed module: $($pyd.FullName)"
 if (-not $NoQt) {
     Write-Host "built pilot: $(Join-Path $bld 'pilot.exe')"
 }

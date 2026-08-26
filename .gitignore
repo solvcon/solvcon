@@ -24,4 +24,5 @@ CMakeUserPresets.json
 *.tlog
 *.obj
 *.pdb
+*.ilk
 *.env

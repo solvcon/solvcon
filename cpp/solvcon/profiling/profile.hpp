@@ -19,7 +19,7 @@ namespace solvcon
 {
 
 /**
- * Simple timer for wall time using high-resolution clock.
+ * Simple timer for elapsed wall time using a monotonic clock.
  *
  * @ingroup group_core
  */
@@ -28,7 +28,7 @@ class StopWatch
 
 private:
 
-    using clock_type = std::chrono::high_resolution_clock;
+    using clock_type = std::chrono::steady_clock;
     using time_type = std::chrono::time_point<clock_type>;
 
 public:

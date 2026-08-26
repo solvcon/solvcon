@@ -4,8 +4,10 @@
  */
 
 // Intended to use deprecated Formatter as the demo of comparison with std::format
+#if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
 
 #include <solvcon/base.hpp>
 
@@ -156,6 +158,8 @@ TEST(FormatterVsStdFormat, performance_std_format)
     EXPECT_FALSE(result.empty());
 }
 
+#if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic pop
+#endif
 
 // vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

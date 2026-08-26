@@ -319,6 +319,7 @@ set(SOLVCON_INCLUDE_DIR "${CMAKE_CURRENT_LIST_DIR}/cpp" CACHE INTERNAL "")
 
 include_directories(${SOLVCON_INCLUDE_DIR})
 
+if(BUILD_QT)
 # Discovery has to use PYTHON_EXECUTABLE rather than a bare python3.
 execute_process(
     COMMAND "${PYTHON_EXECUTABLE}" -c "import os, PySide6; print(os.path.dirname(PySide6.__file__))"
@@ -351,13 +352,6 @@ execute_process(
     OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 message(STATUS "SHIBOKEN6_FALLBACK_LIBDIR: ${SHIBOKEN6_FALLBACK_LIBDIR}")
-execute_process(
-    COMMAND "${PYTHON_EXECUTABLE}" -c "import os, shiboken6_generator; print(os.path.dirname(shiboken6_generator.__file__))"
-    OUTPUT_VARIABLE SHIBOKEN6_GENERATOR_PYTHON_PACKAGE_PATH
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-)
-message(STATUS "SHIBOKEN6_GENERATOR_PYTHON_PACKAGE_PATH: ${SHIBOKEN6_GENERATOR_PYTHON_PACKAGE_PATH}")
-
 if(NOT "${PYSIDE6_PYTHON_PACKAGE_PATH}" STREQUAL "")
     include_directories("${PYSIDE6_PYTHON_PACKAGE_PATH}/include")
     link_directories("${PYSIDE6_PYTHON_PACKAGE_PATH}")
@@ -365,10 +359,8 @@ endif()
 if(NOT "${PYSIDE6_FALLBACK_LIBDIR}" STREQUAL "" AND IS_DIRECTORY "${PYSIDE6_FALLBACK_LIBDIR}")
     link_directories("${PYSIDE6_FALLBACK_LIBDIR}")
 endif()
-if(NOT "${SHIBOKEN6_GENERATOR_PYTHON_PACKAGE_PATH}" STREQUAL "")
-    include_directories("${SHIBOKEN6_GENERATOR_PYTHON_PACKAGE_PATH}/include")
-endif()
 if(NOT "${SHIBOKEN6_PYTHON_PACKAGE_PATH}" STREQUAL "")
+    include_directories("${SHIBOKEN6_PYTHON_PACKAGE_PATH}/include")
     link_directories("${SHIBOKEN6_PYTHON_PACKAGE_PATH}")
 endif()
 if(NOT "${SHIBOKEN6_FALLBACK_LIBDIR}" STREQUAL "" AND IS_DIRECTORY "${SHIBOKEN6_FALLBACK_LIBDIR}")
@@ -401,12 +393,16 @@ if(BUILD_QT AND "${PYSIDE6_LIBFILE}" STREQUAL "")
         "PYTHON_EXECUTABLE at an interpreter that can import PySide6, or "
         "configure with BUILD_QT=OFF.")
 endif()
+endif() # BUILD_QT
 
 # add_subdirectory() copies this scope's variables into the subdirectory as it
 # is called, so this must stay above every add_subdirectory() that consumes it.
 # Set it below one and the subdirectory sees nothing, with no diagnostic.
 if(MSVC)
-    set(COMMON_COMPILER_OPTIONS /W4 /bigobj /WX)
+    # /guard:cf covers _solvcon as well as the pilot: the file parsers under
+    # cpp/solvcon/{mcap,inout,serialization} are the untrusted-input surface.
+    set(COMMON_COMPILER_OPTIONS /W4 /bigobj /guard:cf /WX)
+    add_link_options(/guard:cf)
 else()
     set(COMMON_COMPILER_OPTIONS -Wall -Wextra)
     if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")

@@ -20,6 +20,7 @@ import argparse
 import tempfile
 import shutil
 import re
+import shlex
 import collections
 
 try:
@@ -55,40 +56,33 @@ def _remember_cwd():
 
 class ExternalCommand(object):
     def __init__(self, command, echo=True):
-        self.command = command
+        # A tuple names interchangeable spellings of one tool, tried in
+        # order: ImageMagick 7 installs "magick" and drops the "convert" it
+        # replaced, and Ghostscript is "gswin64c" on Windows.
+        if isinstance(command, str):
+            self.candidates = (command,)
+        else:
+            self.candidates = tuple(command)
         self.echo = echo
 
-    @staticmethod
-    def _which(program):
-        """
-        Taken from http://stackoverflow.com/a/377028
-        """
-
-        def is_exe(fpath):
-            return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
-
-        fpath, fname = os.path.split(program)
-        if fpath:
-            if is_exe(program):
-                return os.path.abspath(program)
-        else:
-            for path in os.environ["PATH"].split(os.pathsep):
-                path = path.strip('"')
-                exe_file = os.path.join(path, program)
-                if is_exe(exe_file):
-                    return os.path.abspath(exe_file)
-
-        return None
+    @property
+    def command(self):
+        for name in self.candidates:
+            if shutil.which(name):
+                return name
+        return self.candidates[0]
 
     @property
     def command_abspath(self):
-        return self._which(self.command)
+        found = shutil.which(self.command)
+        return os.path.abspath(found) if found else None
 
     def __call__(self, *args, **kw):
         cmdout = kw.pop('cmdout', None)  # None is subprocess default.
         cmderr = kw.pop('cmderr', None)  # None is subprocess default.
-        param = " ".join(args)
-        cmd = " ".join([self.command, param])
+        argv = [self.command] + list(args)
+        cmd = (subprocess.list2cmdline(argv) if os.name == 'nt'
+               else shlex.join(argv))
         if self.echo:
             sys.stdout.write(cmd + '\n')
             sys.stdout.flush()
@@ -96,7 +90,7 @@ class ExternalCommand(object):
             cmdout.write(cmd + '\n')
             cmdout.flush()
         with _remember_cwd():
-            subprocess.call(cmd.split(), stdout=cmdout, stderr=cmderr)
+            subprocess.check_call(argv, stdout=cmdout, stderr=cmderr)
             if cmdout:
                 cmdout.flush()
 
@@ -126,8 +120,8 @@ class Pstricks(object):
         self.tex_template = _TEX_TEMPLATE
         self.cmd_latex = ExternalCommand("latex", echo=echo)
         self.cmd_dvips = ExternalCommand("dvips", echo=echo)
-        self.cmd_convert = ExternalCommand("convert", echo=echo)
-        self.cmd_gs = ExternalCommand("gs", echo=echo)
+        self.cmd_convert = ExternalCommand(("magick", "convert"), echo=echo)
+        self.cmd_gs = ExternalCommand(("gs", "gswin64c"), echo=echo)
 
     def write_tex(self, src, dst, cmbright=False, options=None, packages=None):
         # Sanitize options.
@@ -150,15 +144,15 @@ class Pstricks(object):
 
     def pst(self, srcmain, dst, cmdout=None):
         self.cmd_latex(srcmain + '.tex', cmdout=cmdout)
-        self.cmd_dvips(srcmain + '.dvi', '-q -E -o %s' % dst, cmdout=cmdout)
+        self.cmd_dvips(srcmain + '.dvi', '-q', '-E', '-o', dst, cmdout=cmdout)
 
     def imconvert(self, src, dst, dpi=300, cmdout=None):
         """
         Currently I only support PNG.
         """
         if self.cmd_convert.command_abspath:
-            self.cmd_convert('-density %d -units PixelsPerInch %s %s' % (
-                dpi, src, dst), cmdout=cmdout)
+            self.cmd_convert('-density', str(dpi), '-units', 'PixelsPerInch',
+                             src, dst, cmdout=cmdout)
         elif HAS_IMAGE:
             im = Image.open(src)
             size = tuple(float(dpi) / 72 * val for val in im.size)
@@ -172,6 +166,12 @@ class Pstricks(object):
 
     def __call__(self, fn, cmbright=None, keep_tmp=None, cmdout=None,
                  options=None, **kw):
+        try:
+            self._render(fn, cmbright, cmdout, options)
+        finally:
+            self._cleanup(fn, keep_tmp)
+
+    def _render(self, fn, cmbright, cmdout, options):
         with _remember_cwd():
             os.chdir(fn.tempdir)
             if not self.quiet:
@@ -193,6 +193,8 @@ class Pstricks(object):
                 if not self.quiet:
                     sys.stdout.write(
                         "Destination file type %s isn't supported.\n" % dstext)
+
+    def _cleanup(self, fn, keep_tmp):
         tempdir = os.path.abspath(fn.tempdir)
         if not keep_tmp:
             if not self.quiet:
@@ -534,7 +536,7 @@ def main():
     args = parser.parse_args()
 
     if args.quiet:
-        args.cmdout = '/dev/null'
+        args.cmdout = os.devnull
     if args.cmdout:
         args.cmdout = open(args.cmdout, 'a+')
     runner = Pstricks(**vars(args))
