@@ -19,6 +19,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || (github.ref == 'refs/heads/master' && github.sha) || github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
 
+permissions:
+  contents: read
+
 # The push and pull_request triggers exist only so that SCGH_FORCE_SANITIZER
 # can drive this workflow from a fork's pull request. That force variable is
 # the opposite of a skip-ci request, so no check_skip call gates it.
@@ -137,64 +140,10 @@ jobs:
       run: |
         echo "github.event_name: ${{ github.event_name }}"
 
-    - uses: TheMrMilchmann/setup-msvc-dev@v4
+    - name: setup
+      uses: ./.github/actions/setup_windows
       with:
-        arch: 'x64'
-
-    # CMake in the windows-2022 image is 3.31.6; solvcon needs >= 4.0.1.
-    - name: install CMake>4.0.1
-      uses: lukka/get-cmake@latest
-
-    - name: install qt
-      uses: jurplel/install-qt-action@v4
-      with:
-        # aqtinstall 3.3.0 cannot resolve Qt 6.11's new split Windows
-        # desktop repository, so Windows stays on 6.10.3 while Linux and
-        # macOS run 6.11.1.
-        # Ref: https://github.com/miurahr/aqtinstall/issues/1007
-        version: '6.10.3'
-        host: 'windows'
-        target: 'desktop'
-        arch: 'win64_msvc2022_64'
-        modules: 'qtshadertools'
-        cache: true
-
-    - uses: actions/setup-python@v6
-      with:
-        python-version: '3.12'
-
-    - name: Cache vcpkg (install artifacts)
-      uses: actions/cache@v4
-      with:
-        path: |
-          C:\vcpkg\installed
-          C:\vcpkg\downloads
-          C:\vcpkg\buildtrees
-          C:\vcpkg\packages
-        key: vcpkg-${{ runner.os }}-openblas-lapack
-        restore-keys: vcpkg-${{ runner.os }}-
-
-    - name: install BLAS and LAPACK
-      run: |
-        echo "::group::install BLAS and LAPACK"
-        vcpkg install openblas:x64-windows lapack:x64-windows
-        $vcpkg_bin_path = @(
-          "C:\vcpkg\installed\x64-windows\bin",
-          "C:\vcpkg\installed\x64-windows\debug\bin"
-        ) -join ";"
-        echo "$vcpkg_bin_path" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-        echo "::endgroup::"
-
-    - name: dependency by pip
-      run: |
-        echo "::group::dependency by pip"
-        pip3 install -U numpy pytest pybind11
-        # For pilot GUI.
-        pip3 install -U matplotlib jsonschema flake8 pyside6==$(qmake -query QT_VERSION)
-        $pyside6_path = $(python3 -c "import sys, os, PySide6; sys.stdout.write(os.path.dirname(PySide6.__file__))")
-        $shiboken6_path = $(python3 -c "import sys, os, shiboken6; sys.stdout.write(os.path.dirname(shiboken6.__file__))")
-        echo "$pyside6_path;$shiboken6_path" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-        echo "::endgroup::"
+        workflow: sanitizer
 
     - name: cmake workflow USE_SANITIZER=ON
       run: |
