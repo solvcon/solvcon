@@ -58,6 +58,13 @@
 #     QT_MAJOR_VER: Qt major.minor version.
 #     QT_SUB_VER: Qt patch version.
 #     PYSIDE_VERSION: Qt for Python (pyside-setup) source release version.
+#     LIBCLANG_VERSION: Qt prebuilt libclang version for shiboken.
+#     PYTHON_SHA256: required when overriding PYTHON_VERSION.
+#     LIBCLANG_SHA256: required when overriding LIBCLANG_VERSION.
+#     QT_SHA256: required when overriding QT_MAJOR_VER or QT_SUB_VER.
+#     PYSIDE_SHA256: required when overriding PYSIDE_VERSION, and
+#       also when overriding QT_MAJOR_VER or QT_SUB_VER, because
+#       PYSIDE_VERSION derives from them.
 #
 #   Build settings:
 #     SCDV_NP: Parallel build jobs.
@@ -77,7 +84,7 @@
 #   plat_print_deps           Print the OS package-manager prerequisite lines.
 #   plat_startup_echo         Echo any extra platform lines in the startup block.
 #   plat_write_activate TGT   Write the activation script to path TGT.
-#   plat_md5 FILE             Echo the md5 hash of FILE.
+#   plat_sha256 FILE          Echo the SHA-256 hash of FILE.
 #   plat_python_env           Export CPPFLAGS/LDFLAGS for the CPython build.
 #   plat_numpy_install        Run the numpy `pip install .` (BLAS choice).
 #   plat_scipy_install        Run the scipy `pip install .` (BLAS choice).
@@ -151,9 +158,9 @@ plat_startup_echo() {
   : # No extra Ubuntu startup lines.
 }
 
-# md5 hash of a file. Linux md5sum prints "hash  filename"; cut the hash off.
-plat_md5() {
-  md5sum "$1" | cut -d ' ' -f 1
+# SHA-256 of a file. Linux sha256sum prints "hash  filename"; cut the hash off.
+plat_sha256() {
+  sha256sum "$1" | cut -d ' ' -f 1
 }
 
 scdv_apt_base_cmd() {
@@ -531,9 +538,9 @@ plat_startup_echo() {
   echo "BREW_PREFIX=${BREW_PREFIX:-(none)}"
 }
 
-# md5 hash of a file. macOS md5 -q prints just the hash (no filename column).
-plat_md5() {
-  md5 -q "$1"
+# SHA-256 of a file. macOS shasum prints "hash  filename"; cut the hash off.
+plat_sha256() {
+  shasum -a 256 "$1" | cut -d ' ' -f 1
 }
 
 scdv_brew_base_cmd() {
@@ -676,9 +683,9 @@ fetch_libclang() {
   # including the skipped bin/ tools, so drop empty placeholders for the
   # referenced paths; only the existence check matters.
   local fn=libclang-release_${LIBCLANG_VERSION}-based-macos-universal.7z
-  download_md5 "${fn}" \
+  download_sha256 "${fn}" \
     "https://download.qt.io/development_releases/prebuilt/libclang/${fn}" \
-    2a332ef2f3e6f87a68a19d3d2698e7ae
+    "$(pinned_sha256 "${fn}" LIBCLANG_SHA256)"
   local dest=${SCDV_SRCDIR}/libclang
   rm -rf "${dest}"
   pushd "${SCDV_SRCDIR}" > /dev/null
@@ -1021,7 +1028,7 @@ fi
 plat_init
 
 # CPython release tag.
-PYTHON_VERSION=${PYTHON_VERSION:-3.14.5}
+PYTHON_VERSION=${PYTHON_VERSION:-3.14.7}
 # Qt major.minor version.
 QT_MAJOR_VER=${QT_MAJOR_VER:-6.11}
 # Qt patch version.
@@ -1170,19 +1177,61 @@ scdv_write_activate
 # Helpers (translated from devenv/scripts/func.d/build_utils)
 ####
 
-download_md5() {
-  local fn=$1 url=$2 md5hash=${3:-}
+pinned_sha256() {
+  # Echo the SHA-256 pinned for FN, keyed by the exact filename so that an
+  # overridden version misses the pin and has to supply its own digest
+  # through the named environment variable.
+  local fn=$1 envname=$2
+  case "${fn}" in
+    Python-3.14.7.tar.xz)
+      echo 3b48dac8fb59f62eaa67ac83c1eb12bda1b7a08406dd286e252c11a66be27f81 ;;
+    libclang-release_21.1.2-based-macos-universal.7z)
+      echo 8464005b1598c52357ae4999164aaec3f048bacaa63674fb81b0ca5efd58f549 ;;
+    qt-6.11.1.tar.xz)
+      echo 252acef8c5ae68074d91cadba2ee4a83465051bbb970dd26e8f0daa0f3904e03 ;;
+    pyside-setup-everywhere-src-6.11.1.tar.xz)
+      echo 6ffd9835bb0dd2c56f061d62f1616bb1707cfc0202b80e3165d6be087f3965e2 ;;
+    *)
+      echo "${!envname:-}" ;;
+  esac
+}
+
+download_sha256() {
+  # Download into SCDV_DLDIR, verify it, then atomically replace the cache.
+  local fn=$1 url=$2 expected=${3:-}
   local loc=${SCDV_DLDIR}/${fn}
-  local calc=""
-  [ -e "${loc}" ] && calc=$(plat_md5 "${loc}")
-  if [ ! -e "${loc}" ] || { [ -n "${md5hash}" ] && [ "${md5hash}" != "${calc}" ]; } ; then
-    echo "Downloading ${url}"
-    curl -fsSL -o "${loc}" "${url}"
-    calc=$(plat_md5 "${loc}")
+  local temp="${loc}.$$.part"
+  local actual=""
+  if [ -z "${expected}" ] ; then
+    echo "no checksum configured for ${fn}" >&2
+    return 1
   fi
-  if [ -n "${md5hash}" ] && [ "${md5hash}" != "${calc}" ] ; then
-    echo "${fn} md5 mismatch: expected ${md5hash} got ${calc} (continuing)"
+  if [ ${#expected} -ne 64 ] ; then
+    echo "invalid SHA-256 checksum for ${fn}" >&2
+    return 1
   fi
+  # tr, not ${var,,}: bash 3.2 on macOS has no case-conversion expansion.
+  expected=$(printf '%s' "${expected}" | tr 'A-F' 'a-f')
+  # An interrupted download would otherwise leave .part files behind in a
+  # SCDV_DLDIR that may be shared between scdvs.
+  trap 'rm -f "${temp}"' RETURN
+  if [ -e "${loc}" ] ; then
+    actual=$(plat_sha256 "${loc}")
+    [ "${actual}" = "${expected}" ] && return 0
+  fi
+  echo "Downloading ${url}"
+  if ! curl -fsSL -o "${temp}" "${url}" ; then
+    rm -f "${temp}"
+    echo "download ${fn} failed" >&2
+    return 1
+  fi
+  actual=$(plat_sha256 "${temp}")
+  if [ "${actual}" != "${expected}" ] ; then
+    rm -f "${temp}"
+    echo "${fn} SHA256 mismatch: expected ${expected} got ${actual}" >&2
+    return 1
+  fi
+  mv -f "${temp}" "${loc}"
 }
 
 with_log() {
@@ -1280,9 +1329,9 @@ build_zlib() {
   scdv_skip_p zlib && { echo "skip: zlib" ; return 0 ; }
   local ver=1.3.1 full fn
   full=zlib-${ver} ; fn=${full}.tar.gz
-  download_md5 "${fn}" \
+  download_sha256 "${fn}" \
     "https://github.com/madler/zlib/archive/refs/tags/v${ver}.tar.gz" \
-    ddb17dbbf2178807384e57ba0d81e6a1
+    17e88863f3600672ab49182f217281b6fc4d3c762bde361935e436a95214d05c
   unpack "${fn}" "${full}"
   pushd "${SCDV_SRCDIR}/${full}" > /dev/null
     with_log configure.log ./configure --prefix="${SCDV_USRDIR}"
@@ -1293,18 +1342,26 @@ build_zlib() {
 
 build_openssl() {
   scdv_skip_p openssl && { echo "skip: openssl" ; return 0 ; }
-  local ver=1.1.1m full fn
+  # OpenSSL 3.5 is the LTS series; 1.1.1 is end-of-life.
+  local ver=3.5.8 full fn url
   full=openssl-${ver} ; fn=${full}.tar.gz
-  download_md5 "${fn}" \
-    "https://www.openssl.org/source/${fn}" \
-    8ec70f665c145c3103f6e330f538a9db
+  url="https://github.com/openssl/openssl/releases/download"
+  url="${url}/openssl-${ver}/${fn}"
+  download_sha256 "${fn}" "${url}" \
+    a8f84a39918ec6415ce765d9b429d313ba97b8143169c172e734b9514464f5b2
   unpack "${fn}" "${full}"
   pushd "${SCDV_SRCDIR}/${full}" > /dev/null
+    # 3.x appends the multilib suffix unconditionally, so without an
+    # explicit --libdir it installs into <prefix>/lib64 on linux-x86_64,
+    # which the activate script does not put on LD_LIBRARY_PATH.
     with_log configure.log ./config \
       --prefix="${SCDV_USRDIR}" \
+      --libdir=lib \
       --openssldir="${SCDV_USRDIR}/share/ssl"
     with_log make.log make -j "${SCDV_NP}"
-    with_log install.log make -j "${SCDV_NP}" install
+    # install_sw/install_ssldirs skip the man pages, which 3.x would
+    # otherwise render through pod2man.
+    with_log install.log make -j "${SCDV_NP}" install_sw install_ssldirs
   popd > /dev/null
 }
 
@@ -1312,9 +1369,9 @@ build_sqlite() {
   scdv_skip_p sqlite && { echo "skip: sqlite" ; return 0 ; }
   local ver=3360000 full fn
   full=sqlite-autoconf-${ver} ; fn=${full}.tar.gz
-  download_md5 "${fn}" \
+  download_sha256 "${fn}" \
     "https://www.sqlite.org/2021/${fn}" \
-    f5752052fc5b8e1b539af86a3671eac7
+    bd90c3eb96bee996206b83be7065c9ce19aef38c3f4fb53073ada0d0b69bbce3
   unpack "${fn}" "${full}"
   pushd "${SCDV_SRCDIR}/${full}" > /dev/null
     with_log configure.log ./configure --prefix="${SCDV_USRDIR}"
@@ -1327,10 +1384,9 @@ build_python() {
   scdv_skip_p python && { echo "skip: python" ; return 0 ; }
   local ver=${PYTHON_VERSION} full fn
   full=Python-${ver} ; fn=${full}.tar.xz
-  # MD5 left empty; checksum varies per release and we don't pin it here.
-  download_md5 "${fn}" \
+  download_sha256 "${fn}" \
     "https://www.python.org/ftp/python/${ver}/${fn}" \
-    ""
+    "$(pinned_sha256 "${fn}" PYTHON_SHA256)"
   unpack "${fn}" "${full}"
   pushd "${SCDV_SRCDIR}/${full}" > /dev/null
     plat_python_env
@@ -1365,9 +1421,9 @@ build_pybind11() {
   scdv_skip_p pybind11 && { echo "skip: pybind11" ; return 0 ; }
   local ver=3.1.0 full fn
   full=pybind11-${ver} ; fn=${full}.tar.gz
-  download_md5 "${fn}" \
+  download_sha256 "${fn}" \
     "https://github.com/pybind/pybind11/archive/refs/tags/v${ver}.tar.gz" \
-    235664b4673257b80a9ab79f9b208e94
+    ef712655692a2e9bf7bb7874c022564a45f91d847ddee987e720cd9e28849665
   unpack "${fn}" "${full}"
   mkdir -p "${SCDV_SRCDIR}/${full}/build"
   pushd "${SCDV_SRCDIR}/${full}/build" > /dev/null
@@ -1389,9 +1445,9 @@ build_cython() {
   scdv_skip_p cython && { echo "skip: cython" ; return 0 ; }
   local ver=3.0.12 full fn
   full=cython-${ver} ; fn=${full}.tar.gz
-  download_md5 "${fn}" \
+  download_sha256 "${fn}" \
     "https://github.com/cython/cython/archive/refs/tags/${ver}.tar.gz" \
-    194658f8ae1ae8804f864d4e147fddf6
+    a156fff948c2013f2c8c398612c018e2b52314fdf0228af8fbdb5585e13699c2
   unpack "${fn}" "${full}"
   pushd "${SCDV_SRCDIR}/${full}" > /dev/null
     with_log install.log "${PY}" -m pip install .
@@ -1402,9 +1458,9 @@ build_numpy() {
   scdv_skip_p numpy && { echo "skip: numpy" ; return 0 ; }
   local ver=2.5.1 full fn
   full=numpy-${ver} ; fn=${full}.tar.gz
-  download_md5 "${fn}" \
+  download_sha256 "${fn}" \
     "https://github.com/numpy/numpy/releases/download/v${ver}/${fn}" \
-    d30277e8a19ff72d814ebb407125a2e8
+    a48a113e6afea91f5608793bafa7ef2ad481fefbda87ec5069f483de61cb9fa3
   unpack "${fn}" "${full}"
   pushd "${SCDV_SRCDIR}/${full}" > /dev/null
     with_log dependency.log "${PY}" -m pip install -r requirements/build_requirements.txt
@@ -1417,9 +1473,9 @@ build_scipy() {
   scdv_skip_p scipy && { echo "skip: scipy" ; return 0 ; }
   local ver=1.17.1 full fn
   full=scipy-${ver} ; fn=${full}.tar.gz
-  download_md5 "${fn}" \
+  download_sha256 "${fn}" \
     "https://github.com/scipy/scipy/releases/download/v${ver}/${fn}" \
-    d36aba61d4b01c50551efd38ca03752f
+    95d8e012d8cb8816c226aef832200b1d45109ed4464303e997c5b13122b297c0
   unpack "${fn}" "${full}"
   pushd "${SCDV_SRCDIR}/${full}" > /dev/null
     with_log dependency.log "${PY}" -m pip install -r requirements/build.txt
@@ -1437,7 +1493,7 @@ build_qt() {
   local fn=${full}.tar.xz
   local url="https://download.qt.io/official_releases/qt/${major}"
   url="${url}/${ver}/single/qt-everywhere-src-${ver}.tar.xz"
-  download_md5 "${fn}" "${url}" 25d4d1dd74c92b978f164e8f20805985
+  download_sha256 "${fn}" "${url}" "$(pinned_sha256 "${fn}" QT_SHA256)"
   # Strip a pre-existing Qt from the loader/CMake search paths (per-OS in the
   # platform block) so the freshly built Qt tools do not load an older
   # libQt6Core.
@@ -1497,12 +1553,11 @@ build_pyside6() {
   scdv_skip_p pyside6 && { echo "skip: pyside6" ; return 0 ; }
   local ver=${PYSIDE_VERSION} full fn url
   full=pyside-setup-everywhere-src-${ver} ; fn=${full}.tar.xz
-  # Official Qt for Python source release, verified against the published
-  # .md5 sidecar (download.qt.io also serves a matching .sha256:
-  # 6ffd9835bb0dd2c56f061d62f1616bb1707cfc0202b80e3165d6be087f3965e2).
+  # Official Qt for Python source release, pinned to the SHA-256 that
+  # download.qt.io publishes as the .sha256 sidecar beside the archive.
   url="https://download.qt.io/official_releases/QtForPython/pyside6"
   url="${url}/PySide6-${ver}-src/${fn}"
-  download_md5 "${fn}" "${url}" a6fe3db5855d3cd09a381d0aca7d7f5e
+  download_sha256 "${fn}" "${url}" "$(pinned_sha256 "${fn}" PYSIDE_SHA256)"
   unpack "${fn}" "${full}"
   # Extra setup.py options (macOS injects a cmake wrapper to hide brew's Qt).
   plat_pyside6_cmake_opt

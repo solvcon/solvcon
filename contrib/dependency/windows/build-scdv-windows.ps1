@@ -63,6 +63,10 @@
 #     QT_SUB_VER: Qt patch version.
 #     PYSIDE_VERSION: Qt for Python (pyside-setup) source release version.
 #     LIBCLANG_VERSION: Qt prebuilt libclang version for shiboken.
+#     PYTHON_SHA256: required when overriding PYTHON_VERSION.
+#     LIBCLANG_SHA256: required when overriding LIBCLANG_VERSION.
+#     QT_SHA256: required when overriding QT_MAJOR_VER or QT_SUB_VER.
+#     PYSIDE_SHA256: required when overriding PYSIDE_VERSION.
 #   Build settings:
 #     SCDV_NP: Parallel build jobs.
 #     SCDV_WIN_BLAS: LP64 BLAS/LAPACK provider for solvcon's matmul() /
@@ -172,7 +176,7 @@ if ($Help) {
 }
 
 # CPython release tag.
-$PythonVersion = Get-EnvOrDefault 'PYTHON_VERSION' '3.14.5'
+$PythonVersion = Get-EnvOrDefault 'PYTHON_VERSION' '3.14.7'
 # Qt major.minor version.
 $QtMajorVer = Get-EnvOrDefault 'QT_MAJOR_VER' '6.11'
 # Qt patch version.
@@ -183,6 +187,27 @@ $PysideVersion = Get-EnvOrDefault 'PYSIDE_VERSION' "$QtMajorVer.$QtSubVer"
 # same 21.x line the macOS script uses; Qt's Windows prebuilt libclang for this
 # release is published as a vs2022_64 7z.
 $LibClangVersion = Get-EnvOrDefault 'LIBCLANG_VERSION' '21.1.2'
+
+# SHA-256 of every version-bearing download.  The keys are literal on
+# purpose: interpolating the version variables would make an overridden
+# version match its own key and receive the default version's digest,
+# which would make <NAME>_SHA256 unreachable.
+$PinnedHashes = @{
+    'Python-3.14.7.tar.xz' =
+        '3b48dac8fb59f62eaa67ac83c1eb12bda1b7a08406dd286e252c11a66be27f81'
+    'libclang-release_21.1.2-based-windows-vs2022_64.7z' =
+        '76a4cd9eed084119515dae2f4271c47b02a7736d9ead07ced2d776b20aad51ab'
+    'qt-6.11.1.tar.xz' =
+        '252acef8c5ae68074d91cadba2ee4a83465051bbb970dd26e8f0daa0f3904e03'
+    'pyside-setup-everywhere-src-6.11.1.tar.xz' =
+        '6ffd9835bb0dd2c56f061d62f1616bb1707cfc0202b80e3165d6be087f3965e2'
+}
+
+function Get-PinnedHash {
+    param([string]$Fn, [string]$EnvName)
+    if ($PinnedHashes.ContainsKey($Fn)) { return $PinnedHashes[$Fn] }
+    return [Environment]::GetEnvironmentVariable($EnvName)
+}
 
 function Show-VsInstall {
     # Print the elevated command to install the Visual Studio 2022 Build Tools
@@ -406,24 +431,37 @@ function Get-MsvcToolset {
 # --- Helpers (translated from devenv/scripts/func.d/build_utils) ------------
 
 function Get-Download {
-    # Download a file into SCDV_DLDIR and verify its MD5 when one is given.
-    # Re-download when absent or when a non-empty expected hash mismatches; a
-    # final mismatch warns but continues, matching the bash download_md5.
-    param([string]$Fn, [string]$Url, [string]$Md5 = '')
+    # Download into SCDV_DLDIR, verify it, then atomically replace the cache.
+    param([string]$Fn, [string]$Url, [string]$ExpectedHash)
+    if ([string]::IsNullOrWhiteSpace($ExpectedHash)) {
+        throw "no checksum configured for $Fn"
+    }
+    if ($ExpectedHash.Length -ne 64) {
+        throw "invalid SHA-256 checksum for $Fn"
+    }
+    $expected = $ExpectedHash.ToLower()
     $loc = Join-Path $ScdvDlDir $Fn
-    $calc = ''
     if (Test-Path -LiteralPath $loc) {
-        $calc = (Get-FileHash -LiteralPath $loc -Algorithm MD5).Hash.ToLower()
+        $actual = (Get-FileHash -LiteralPath $loc `
+            -Algorithm SHA256).Hash.ToLower()
+        if ($actual -eq $expected) { return }
     }
-    if ((-not (Test-Path -LiteralPath $loc)) -or
-        ($Md5 -and ($Md5.ToLower() -ne $calc))) {
+
+    $temp = "$loc.$PID.part"
+    try {
         Write-Host "Downloading $Url"
-        curl.exe -fsSL -o $loc $Url
+        curl.exe -fsSL -o $temp $Url
         Assert-LastExit "download $Fn"
-        $calc = (Get-FileHash -LiteralPath $loc -Algorithm MD5).Hash.ToLower()
-    }
-    if ($Md5 -and ($Md5.ToLower() -ne $calc)) {
-        Write-Host "$Fn md5 mismatch: expected $Md5 got $calc (continuing)"
+        $actual = (Get-FileHash -LiteralPath $temp `
+            -Algorithm SHA256).Hash.ToLower()
+        if ($actual -ne $expected) {
+            throw "$Fn SHA256 mismatch: expected $expected got $actual"
+        }
+        Move-Item -LiteralPath $temp -Destination $loc -Force
+    } finally {
+        if (Test-Path -LiteralPath $temp) {
+            Remove-Item -LiteralPath $temp -Force
+        }
     }
 }
 
@@ -741,7 +779,7 @@ function Build-Zlib {
     $ver = '1.3.1'; $full = "zlib-$ver"; $fn = "$full.tar.gz"
     Get-Download $fn `
         "https://github.com/madler/zlib/archive/refs/tags/v$ver.tar.gz" `
-        'ddb17dbbf2178807384e57ba0d81e6a1'
+        '17e88863f3600672ab49182f217281b6fc4d3c762bde361935e436a95214d05c'
     Expand-Source $fn $full
     $bld = Join-Path $ScdvSrcDir "$full\build"
     New-Item -ItemType Directory -Force -Path $bld | Out-Null
@@ -762,10 +800,11 @@ function Build-Openssl {
     if (Test-Skip 'openssl') { Write-Host 'skip: openssl'; return }
     # openssl has no CMake build; its perl Configure emits an nmake makefile.
     # VC-WIN64A is the 64-bit MSVC target.  Needs Strawberry Perl and NASM on
-    # PATH (see -PrintPrereq).  Version matches the Unix scripts (1.1.1m).
-    $ver = '1.1.1m'; $full = "openssl-$ver"; $fn = "$full.tar.gz"
-    Get-Download $fn "https://www.openssl.org/source/$fn" `
-        '8ec70f665c145c3103f6e330f538a9db'
+    # PATH (see -PrintPrereq).  OpenSSL 3.5 is supported through April 2030.
+    $ver = '3.5.8'; $full = "openssl-$ver"; $fn = "$full.tar.gz"
+    $url = "https://github.com/openssl/openssl/releases/download/openssl-$ver/$fn"
+    Get-Download $fn $url `
+        'a8f84a39918ec6415ce765d9b429d313ba97b8143169c172e734b9514464f5b2'
     Expand-Source $fn $full
     Push-Location (Join-Path $ScdvSrcDir $full)
     try {
@@ -787,7 +826,7 @@ function Build-Sqlite {
     # amalgamation the Unix scripts use.
     $ver = '3360000'; $full = "sqlite-autoconf-$ver"; $fn = "$full.tar.gz"
     Get-Download $fn "https://www.sqlite.org/2021/$fn" `
-        'f5752052fc5b8e1b539af86a3671eac7'
+        'bd90c3eb96bee996206b83be7065c9ce19aef38c3f4fb53073ada0d0b69bbce3'
     Expand-Source $fn $full
     Push-Location (Join-Path $ScdvSrcDir $full)
     try {
@@ -823,7 +862,8 @@ function Build-Openblas {
     $ver = '0.3.33'
     $fn = "OpenBLAS-$ver-x64.zip"
     Get-Download $fn `
-        "https://github.com/OpenMathLib/OpenBLAS/releases/download/v$ver/$fn" ''
+        "https://github.com/OpenMathLib/OpenBLAS/releases/download/v$ver/$fn" `
+        '7ad797ef0c9a5c42e28903bf726eaaaade307dafe187ff0e923d90cd4002780c'
     $dest = Join-Path $ScdvSrcDir "OpenBLAS-$ver"
     if (Test-Path -LiteralPath $dest) {
         Remove-Item -LiteralPath $dest -Recurse -Force
@@ -894,7 +934,8 @@ function Build-Python {
     # own vendored externals (private zlib/openssl/sqlite/...), so the BASE libs
     # are only for Qt etc.  PC\layout then copies a deployable prefix.
     $ver = $PythonVersion; $full = "Python-$ver"; $fn = "$full.tar.xz"
-    Get-Download $fn "https://www.python.org/ftp/python/$ver/$fn" ''
+    $hash = Get-PinnedHash $fn 'PYTHON_SHA256'
+    Get-Download $fn "https://www.python.org/ftp/python/$ver/$fn" $hash
     Expand-Source $fn $full
     $src = Join-Path $ScdvSrcDir $full
     Push-Location $src
@@ -960,7 +1001,7 @@ function Build-Pybind11 {
     $ver = '3.1.0'; $full = "pybind11-$ver"; $fn = "$full.tar.gz"
     Get-Download $fn `
         "https://github.com/pybind/pybind11/archive/refs/tags/v$ver.tar.gz" `
-        '235664b4673257b80a9ab79f9b208e94'
+        'ef712655692a2e9bf7bb7874c022564a45f91d847ddee987e720cd9e28849665'
     Expand-Source $fn $full
     $bld = Join-Path $ScdvSrcDir "$full\build"
     New-Item -ItemType Directory -Force -Path $bld | Out-Null
@@ -990,7 +1031,7 @@ function Build-Cython {
     $ver = '3.0.12'; $full = "cython-$ver"; $fn = "$full.tar.gz"
     Get-Download $fn `
         "https://github.com/cython/cython/archive/refs/tags/$ver.tar.gz" `
-        '194658f8ae1ae8804f864d4e147fddf6'
+        'a156fff948c2013f2c8c398612c018e2b52314fdf0228af8fbdb5585e13699c2'
     Expand-Source $fn $full
     Push-Location (Join-Path $ScdvSrcDir $full)
     try {
@@ -1036,7 +1077,7 @@ function Build-Numpy {
     $ver = '2.5.1'; $full = "numpy-$ver"; $fn = "$full.tar.gz"
     Get-Download $fn `
         "https://github.com/numpy/numpy/releases/download/v$ver/$fn" `
-        'd30277e8a19ff72d814ebb407125a2e8'
+        'a48a113e6afea91f5608793bafa7ef2ad481fefbda87ec5069f483de61cb9fa3'
     Expand-Source $fn $full
     $pcdir = Get-OpenblasPkgConfig
     Push-Location (Join-Path $ScdvSrcDir $full)
@@ -1069,7 +1110,7 @@ function Build-Scipy {
     $ver = '1.17.1'; $full = "scipy-$ver"; $fn = "$full.tar.gz"
     Get-Download $fn `
         "https://github.com/scipy/scipy/releases/download/v$ver/$fn" `
-        'd36aba61d4b01c50551efd38ca03752f'
+        '95d8e012d8cb8816c226aef832200b1d45109ed4464303e997c5b13122b297c0'
     Expand-Source $fn $full
     $pcdir = Get-OpenblasPkgConfig
     Push-Location (Join-Path $ScdvSrcDir $full)
@@ -1098,18 +1139,20 @@ function Get-LibClang {
         if ($g) { $sevenzip = $g.Source; break }
     }
     if (-not $sevenzip) {
-        # None installed: fetch the standalone 7zr.exe (no installer), so this
-        # does not depend on the 7-Zip MSI.
-        $sevenzip = Join-Path $ScdvSrcDir '7zr.exe'
-        if (-not (Test-Path -LiteralPath $sevenzip)) {
-            Write-Host 'no 7-Zip found; downloading standalone 7zr.exe'
-            curl.exe -fsSL -o $sevenzip 'https://www.7-zip.org/a/7zr.exe'
-            Assert-LastExit 'download 7zr.exe'
-        }
+        # None installed: fetch a pinned standalone 7zr.exe (no installer), so
+        # this does not depend on the 7-Zip MSI.
+        $sevenzipVersion = '26.02'
+        $sevenzipFn = "7zr-$sevenzipVersion.exe"
+        Get-Download $sevenzipFn `
+            "https://github.com/ip7z/7zip/releases/download/$sevenzipVersion/7zr.exe" `
+            '56b8cc9f4971cef253644fafe54063ed7fdca551d4dee0f8c6baa81b855acd72'
+        $sevenzip = Join-Path $ScdvDlDir $sevenzipFn
     }
     $fn = "libclang-release_$LibClangVersion-based-windows-vs2022_64.7z"
+    $hash = Get-PinnedHash $fn 'LIBCLANG_SHA256'
     Get-Download $fn `
-        "https://download.qt.io/development_releases/prebuilt/libclang/$fn" ''
+        "https://download.qt.io/development_releases/prebuilt/libclang/$fn" `
+        $hash
     $dest = Join-Path $ScdvSrcDir 'libclang'
     if (Test-Path -LiteralPath $dest) {
         Remove-Item -LiteralPath $dest -Recurse -Force
@@ -1134,7 +1177,8 @@ function Build-Qt {
     $fn = "$full.tar.xz"
     $url = "https://download.qt.io/official_releases/qt/$QtMajorVer/$ver/" +
         "single/qt-everywhere-src-$ver.tar.xz"
-    Get-Download $fn $url '25d4d1dd74c92b978f164e8f20805985'
+    $hash = Get-PinnedHash $fn 'QT_SHA256'
+    Get-Download $fn $url $hash
     $src = Join-Path $ScdvSrcDir $full
     if (Test-Path -LiteralPath $src) {
         Write-Host "Qt source already at $src; skipping extract"
@@ -1220,7 +1264,8 @@ function Build-Pyside6 {
     $fn = "$full.tar.xz"
     $url = "https://download.qt.io/official_releases/QtForPython/pyside6/" +
         "PySide6-$ver-src/$fn"
-    Get-Download $fn $url 'a6fe3db5855d3cd09a381d0aca7d7f5e'
+    $hash = Get-PinnedHash $fn 'PYSIDE_SHA256'
+    Get-Download $fn $url $hash
     Expand-Source $fn $full
     # PySide6's windows_desktop.py unconditionally copies plugins/designer,
     # which does not exist here (qttools is disabled), aborting with WinError 3.
