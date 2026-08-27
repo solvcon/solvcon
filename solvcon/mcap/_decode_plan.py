@@ -14,10 +14,10 @@ Each instruction is a tuple whose first item names it:
 - ``("align", n)`` advances to the next multiple of ``n`` bytes.
 - ``("skip", n)`` advances ``n`` bytes.
 - ``("skip_string", )`` reads a 4-byte length and advances past the text.
-- ``("skip_sequence", name)`` reads a 4-byte count and advances past that
-  many primitives of type ``name``.  CDR pads between the count and the
-  elements, so a nonzero count aligns to the width of ``name`` first.  An
-  empty sequence carries no padding.
+- ``("skip_sequence", width)`` reads a 4-byte count and advances past that
+  many primitives of ``width`` bytes.  CDR pads between the count and the
+  elements, so when the count is nonzero the walk aligns to ``width``
+  first.  An empty sequence carries no padding.
 - ``("skip_sequence_body", n)`` reads a 4-byte count and runs the ``n``
   instructions that follow it that many times.
 - ``("skip_array_body", count, n)`` runs the ``n`` instructions that follow
@@ -331,7 +331,7 @@ class _Compiler:
         else:
             _align(self.instructions, 4)
             if element.kind == "primitive":
-                self.instructions.append(("skip_sequence", element.name))
+                self.instructions.append(("skip_sequence", element.size))
             else:
                 self.skip_container("skip_sequence_body", element)
 

@@ -13,6 +13,8 @@
 #include <lz4frame.h>
 #include <zstd.h>
 
+#include <solvcon/mcap/mcap_cursor.hpp>
+
 namespace solvcon
 {
 
@@ -42,17 +44,16 @@ enum Opcode : uint8_t
 
 /**
  * @internal
- * Cursor reading the fields of one record content.  MCAP writes its integers
- * little-endian, and so does every platform solvcon builds for, so a field is
- * a plain copy out of the buffer.
+ * Cursor reading the fields of one record content.
  */
 class FieldReader
+    : public detail::ByteCursor
 {
 
 public:
 
     explicit FieldReader(std::string_view data)
-        : m_data(data)
+        : ByteCursor(data, "MCAP record is truncated")
     {
     }
 
@@ -71,38 +72,10 @@ public:
         return out;
     }
 
-    void skip(uint64_t length) { bytes(length); }
-
     /// The bytes after the cursor.
     std::string_view rest() { return bytes(m_data.size() - m_pos); }
 
     bool done() const { return m_pos >= m_data.size(); }
-
-private:
-
-    template <typename T>
-    T read()
-    {
-        require(sizeof(T));
-        T value = 0;
-        std::memcpy(&value, m_data.data() + m_pos, sizeof(T));
-        m_pos += sizeof(T);
-        return value;
-    }
-
-    void require(uint64_t length) const
-    {
-        // The cursor never passes the end, so the room left is a subtraction.
-        // Adding the length to the position instead would wrap for a length
-        // the file states.
-        if (length > m_data.size() - m_pos)
-        {
-            throw std::runtime_error("MCAP record is truncated");
-        }
-    }
-
-    std::string_view m_data;
-    uint64_t m_pos = 0;
 }; /* end class FieldReader */
 
 } /* end namespace */
