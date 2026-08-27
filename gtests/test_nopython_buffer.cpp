@@ -16,6 +16,37 @@
 #pragma fenv_access(on)
 #endif
 
+TEST(ConcreteBuffer, construct_cpu_device)
+{
+    namespace sc = solvcon;
+
+    auto buffer = sc::ConcreteBuffer::construct(32, 32, sc::BufferDevice::Cpu);
+    EXPECT_EQ(size_t{32}, buffer->size());
+    EXPECT_EQ(size_t{32}, buffer->alignment());
+}
+
+TEST(ConcreteBuffer, construct_unavailable_metal)
+{
+    namespace sc = solvcon;
+
+    EXPECT_THROW(sc::ConcreteBuffer::construct(16, 0, sc::BufferDevice::Metal), std::runtime_error);
+}
+
+TEST(ConcreteBuffer, construct_invalid_metal_request)
+{
+    namespace sc = solvcon;
+
+    EXPECT_THROW(sc::ConcreteBuffer::construct(15, 16, sc::BufferDevice::Metal), std::invalid_argument);
+}
+
+TEST(ConcreteBuffer, construct_unknown_device)
+{
+    namespace sc = solvcon;
+
+    auto const unknown_device = static_cast<sc::BufferDevice>(255);
+    EXPECT_THROW(sc::ConcreteBuffer::construct(16, 0, unknown_device), std::invalid_argument);
+}
+
 TEST(ConcreteBuffer, iterator)
 {
     using namespace solvcon;

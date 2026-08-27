@@ -63,6 +63,9 @@ $(SETUPROOT)/buffer_pymod.o: $(SETUPROOT)/solvcon/buffer/pymod/buffer_pymod.cpp 
 $(SETUPROOT)/BufferExpander.o: $(SETUPROOT)/solvcon/buffer/BufferExpander.cpp Makefile
 	c++ $(CFLAGS) -c $< -o $@
 
+$(SETUPROOT)/ConcreteBuffer.o: $(SETUPROOT)/solvcon/buffer/ConcreteBuffer.cpp Makefile
+	c++ $(CFLAGS) -c $< -o $@
+
 $(SETUPROOT)/SimpleArray.o: $(SETUPROOT)/solvcon/buffer/SimpleArray.cpp Makefile
 	c++ $(CFLAGS) -c $< -o $@
 
@@ -80,6 +83,7 @@ $(SETUPROOT)/radix_tree.o: $(SETUPROOT)/solvcon/profiling/RadixTree.cpp Makefile
 
 OBJS = \
 	$(SETUPROOT)/BufferExpander.o \
+	$(SETUPROOT)/ConcreteBuffer.o \
 	$(SETUPROOT)/SimpleArray.o \
 	$(SETUPROOT)/blas_compat.o \
 	$(SETUPROOT)/wrap_ConcreteBuffer.o \
