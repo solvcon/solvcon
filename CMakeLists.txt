@@ -108,6 +108,20 @@ if(BUILD_METAL)
     add_compile_options(-DSOLVCON_METAL)
 endif()
 
+option(BUILD_CUDA "build with CUDA" OFF)
+message(STATUS "BUILD_CUDA: ${BUILD_CUDA}")
+if(BUILD_CUDA)
+    if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+        set(CMAKE_CUDA_ARCHITECTURES native)
+    endif()
+    # The nvcc unit (fft_kernel.cu) stays off the C++23 core headers, so it
+    # only needs the standard nvcc has supported since CUDA 11.
+    set(CMAKE_CUDA_STANDARD 17)
+    set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+    enable_language(CUDA)
+    find_package(CUDAToolkit REQUIRED)
+endif()
+
 # The mcap subsystem reads MCAP recordings, and lz4 and zstd decompress their
 # chunks. No other part of solvcon needs those two libraries, so the option
 # keeps them out of a build that does not read recordings. The option starts
