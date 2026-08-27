@@ -532,7 +532,16 @@ class AgentBackend(abc.ABC):
     def set_setting(self, name, value):
         """Store ``value`` for the knob ``name``, raising :class:`KeyError` for
         an unknown knob and :class:`ValueError` for a value that is not a
-        string or falls outside the knob's choices."""
+        string or falls outside the knob's choices.
+
+        An emptied free-text knob stores the declared default instead.  A
+        backend reading a blank address or model would answer
+        :meth:`available` with False and drop out of the selector that is the
+        only way back to the settings editor.  Storing the default rather
+        than falling back on each read also keeps one value: what the editor
+        shows, what the configuration file records, and what the backend uses
+        cannot disagree.
+        """
         for setting in self.settings_spec():
             if setting.name != name:
                 continue
@@ -542,7 +551,7 @@ class AgentBackend(abc.ABC):
             if setting.choices and value not in setting.choices:
                 raise ValueError(
                     "%s: %r is not a valid %s" % (self.name, value, name))
-            self._settings[name] = value
+            self._settings[name] = value or setting.default
             return
         raise KeyError("%s has no setting %r" % (self.name, name))
 

@@ -77,6 +77,64 @@ class ParseToolCallsTC(unittest.TestCase):
         with self.assertRaises(ValueError):
             agent.ToolCallParser.parse('[{"op": ["a", "b"]}]')
 
+    def test_takes_the_last_array_not_the_first_bracket(self):
+        # What a reasoning model in prose mode does: it names a bracket, then
+        # answers.  Reading from the first bracket swallowed the real array
+        # into one unparseable span.
+        text = ('For a circle the parameters might be [x, y, r].\n'
+                'So the command is:\n[{"op": "add_circle", "r": 1.0}]')
+        self.assertEqual(agent.ToolCallParser.parse(text),
+                         [{"op": "add_circle", "r": 1.0}])
+
+    def test_ignores_json_inside_the_chain_of_thought(self):
+        # The thinking argues with itself, so an array it tries out there is
+        # not the answer and must not be run.
+        text = ('I could use [{"op": "delete_universe"}] here.\n'
+                'Actually no.\n</think>\n[{"op": "add_circle"}]')
+        self.assertEqual(agent.ToolCallParser.parse(text),
+                         [{"op": "add_circle"}])
+
+    def test_a_malformed_final_batch_does_not_run_an_earlier_one(self):
+        # The dangerous case: the model tried a batch, rejected it, and its
+        # real answer came out malformed.  Falling back to the rejected batch
+        # would run a command the model decided against.
+        text = ('Maybe [{"op": "delete_universe"}] would do it.\n'
+                'Final: [{"op": "add_circle",}]')
+        with self.assertRaises(ValueError):
+            agent.ToolCallParser.parse(text)
+
+    def test_takes_the_batch_not_a_nested_argument_array(self):
+        # A command whose arguments nest an array closes an inner bracket
+        # last, so the innermost value is an argument, never the batch.
+        text = ('Here you go:\n'
+                '[{"op": "add_polygon", "points": [[0, 0], [1, 1]]}]')
+        self.assertEqual(
+            agent.ToolCallParser.parse(text),
+            [{"op": "add_polygon", "points": [[0, 0], [1, 1]]}])
+
+    def test_keeps_an_end_of_thinking_tag_a_command_carries_as_text(self):
+        # The marker delimits the thinking.  Inside the payload it is message
+        # text, and cutting there would throw the whole batch away.  Prose
+        # around the payload must not change that.
+        command = {"op": "log", "message": "wrote </think> once"}
+        for text in ('[{"op": "log", "message": "wrote </think> once"}]',
+                     'Here you go:\n'
+                     '[{"op": "log", "message": "wrote </think> once"}]'):
+            self.assertEqual(agent.ToolCallParser.parse(text), [command], text)
+
+    def test_an_unclosed_bracket_in_prose_is_not_a_payload(self):
+        # A brace the model wrote as punctuation is the model talking, so the
+        # parser must not call it a command batch that failed to parse.
+        self.assertEqual(agent.ToolCallParser.parse("I cannot open a { here."),
+                         [])
+
+    def test_reasoning_with_no_answer_is_prose(self):
+        # A reply cut off mid-thought must read as the model talking, never as
+        # the empty batch that says the request is already done.
+        text = 'I should probably use [] for this.\n</think>\n   '
+        self.assertEqual(agent.ToolCallParser.parse_reply(text).status,
+                         agent.ParseStatus.PROSE)
+
     def test_unknown_op_survives_parsing(self):
         commands = agent.ToolCallParser.parse(
             '[{"op": "add_circle"}, {"op": "delete_universe"}]')
@@ -537,6 +595,42 @@ class OpenAIHttpBackendTC(unittest.TestCase):
         self.assertIn("one shape", messages[1]["content"])
         self.assertIn("add_circle", messages[1]["content"])
         self.assertNotIn("drive a 2D drawing canvas", messages[1]["content"])
+
+    def test_settings_drive_the_request(self):
+        # Editing the knobs redirects a turn: the request follows the new
+        # URL, and the body carries the new model name.
+        seen = {}
+
+        def _capture(body):
+            seen["body"] = body
+            seen["url"] = self.backend.base_url
+            return 200, self._chat_body("[]")
+
+        self.backend.set_setting("base_url", "https://api.example.test/v1/")
+        self.backend.set_setting("model", "gpt-4o-mini")
+        self.backend._post_chat = _capture
+        self.backend.send("hello", "one shape", _TOOLS)
+        self.assertEqual(seen["url"], "https://api.example.test/v1")
+        self.assertEqual(seen["body"]["model"], "gpt-4o-mini")
+
+    def test_settings_spec_starts_on_the_ctor_values(self):
+        knobs = {setting.name: setting.default
+                 for setting in self.backend.settings_spec()}
+        self.assertEqual(knobs, {"base_url": "http://127.0.0.1:11434/v1",
+                                 "model": "qwen2.5vl:7b"})
+        self.assertNotIn("api_key", knobs)
+
+    def test_a_cleared_knob_restores_the_default(self):
+        # Clearing the field must not drop the backend out of the selector:
+        # the selector is the only way back to the dialog that would repair
+        # it.  The restored value is what gets stored, so the editor and the
+        # configuration file cannot show something the backend is not using.
+        self.backend.set_setting("model", "")
+        self.backend.set_setting("base_url", "")
+        self.assertEqual(self.backend.model, "qwen2.5vl:7b")
+        self.assertEqual(self.backend.base_url, "http://127.0.0.1:11434/v1")
+        self.assertEqual(self.backend.get_setting("model"), "qwen2.5vl:7b")
+        self.assertTrue(self.backend.available())
 
     def test_send_http_error_status_is_error(self):
         self.backend._post_chat = lambda body: (500, b"boom")
