@@ -274,4 +274,114 @@ module p { module msg { struct S {
                         self.schema(encoding), fields=["dt"])
 
 
+@unittest.skipUnless(sc.mcap.HAS_MCAP, "built without BUILD_MCAP")
+class CoreDecodePlanTC(unittest.TestCase):
+    """The check ``core.McapDecodePlan`` runs at construction.
+
+    The compiler emits only plans the check accepts, so the rejection cases
+    are written by hand.
+    """
+
+    def test_compiled_plan(self):
+        compiled = sc.mcap.DecodePlan(DecodePlanTC.SCHEMA_TEXT,
+                                      fields=["current.y", "sim_end"])
+        sc.core.McapDecodePlan(compiled.instructions, len(compiled.fields))
+
+    def test_no_column(self):
+        with self.assertRaisesRegex(
+                ValueError, "the MCAP decode plan reads no field"):
+            sc.core.McapDecodePlan((), 0)
+
+    def test_unknown_instruction(self):
+        with self.assertRaisesRegex(
+                ValueError,
+                "the MCAP decode plan states an unknown instruction: rewind"):
+            sc.core.McapDecodePlan((("rewind", 4),), 1)
+
+    def test_unknown_type(self):
+        """The datatype lookup rejects a name no solvcon datatype has."""
+        with self.assertRaisesRegex(ValueError, "Unsupported datatype"):
+            sc.core.McapDecodePlan((("read", "float80", 0),), 1)
+
+    def test_type_no_cdr_primitive_has(self):
+        with self.assertRaisesRegex(
+                ValueError,
+                "the MCAP decode plan names a type CDR has no primitive for"):
+            sc.core.McapDecodePlan((("read", "complex64", 0),), 1)
+
+    def test_alignment_to_a_boundary_that_is_not_a_power_of_two(self):
+        """The cursor rounds with a mask, which needs a power of two."""
+        for boundary in (0, 3):
+            with self.subTest(boundary=boundary):
+                with self.assertRaisesRegex(
+                        ValueError,
+                        "the MCAP decode plan aligns to a boundary that is "
+                        "not a power of two"):
+                    sc.core.McapDecodePlan(
+                        (("align", boundary), ("read", "uint8", 0)), 1)
+
+    def test_sequence_of_a_width_no_primitive_has(self):
+        """A width is a power of two up to eight; 3 fails one, 16 the other."""
+        for width in (3, 16):
+            with self.subTest(width=width):
+                with self.assertRaisesRegex(
+                        ValueError,
+                        "the MCAP decode plan skips a sequence of no CDR "
+                        "primitive width"):
+                    sc.core.McapDecodePlan(
+                        (("skip_sequence", width), ("read", "uint8", 0)), 1)
+
+    def test_read_inside_a_container(self):
+        with self.assertRaisesRegex(
+                ValueError,
+                "the MCAP decode plan reads a field inside a container"):
+            sc.core.McapDecodePlan(
+                (("align", 4), ("skip_sequence_body", 2),
+                 ("align", 8), ("read", "float64", 0)), 1)
+
+    def test_field_read_more_than_once(self):
+        with self.assertRaisesRegex(
+                ValueError,
+                "the MCAP decode plan does not read every column exactly "
+                "once"):
+            sc.core.McapDecodePlan(
+                (("read", "uint8", 0), ("read", "uint8", 0)), 1)
+
+    def test_field_never_read(self):
+        with self.assertRaisesRegex(
+                ValueError,
+                "the MCAP decode plan does not read every column exactly "
+                "once"):
+            sc.core.McapDecodePlan((("read", "uint8", 0),), 2)
+
+    def test_read_into_a_column_the_plan_declares_no_field_for(self):
+        with self.assertRaisesRegex(
+                ValueError,
+                "the MCAP decode plan does not read every column exactly "
+                "once"):
+            sc.core.McapDecodePlan((("read", "uint8", 1),), 1)
+
+    def test_container_body_longer_than_the_plan(self):
+        with self.assertRaisesRegex(
+                ValueError,
+                "the MCAP decode plan states a container body that runs past "
+                "its container"):
+            sc.core.McapDecodePlan(
+                (("read", "uint8", 0), ("skip_array_body", 1, 4),
+                 ("skip", 1)), 1)
+
+    def test_container_body_longer_than_the_one_holding_it(self):
+        """The check bounds a body by its container, not by the plan.
+
+        An inner body that runs past its outer body shifts every later read.
+        """
+        with self.assertRaisesRegex(
+                ValueError,
+                "the MCAP decode plan states a container body that runs past "
+                "its container"):
+            sc.core.McapDecodePlan(
+                (("skip_array_body", 1, 1), ("skip_array_body", 1, 2),
+                 ("skip", 1), ("skip", 1), ("read", "uint8", 0)), 1)
+
+
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

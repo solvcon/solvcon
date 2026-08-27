@@ -6,10 +6,12 @@ cmake_minimum_required(VERSION 4.0.1)
 set(SOLVCON_MCAP_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/mcap.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mcap_cursor.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mcap_decoder.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mcap_reader.hpp
     CACHE FILEPATH "" FORCE)
 
 set(SOLVCON_MCAP_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/mcap_decoder.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mcap_reader.cpp
     CACHE FILEPATH "" FORCE)
 
@@ -19,6 +21,7 @@ set(SOLVCON_MCAP_PYMODHEADERS
 
 set(SOLVCON_MCAP_PYMODSOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/pymod/mcap_pymod.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/pymod/wrap_McapDecodePlan.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/pymod/wrap_McapReader.cpp
     CACHE FILEPATH "" FORCE)
 

@@ -85,6 +85,7 @@ list_of_python = [
 # mcap directory symbols, loaded only when the extension carries the
 # BUILD_MCAP subsystem.
 list_of_mcap = [
+    'McapDecodePlan',
     'McapReader',
     'McapSchema',
     'McapMessageIterator',
