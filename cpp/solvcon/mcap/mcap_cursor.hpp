@@ -28,9 +28,9 @@ namespace detail
 
 /**
  * @internal
- * Cursor over a run of bytes.  MCAP writes its integers little-endian, and
- * so does every platform solvcon builds for, so a value is a plain copy out
- * of the buffer.
+ * Cursor over a run of bytes.  MCAP writes its integers little-endian, the
+ * decoder accepts only little-endian CDR, and every platform solvcon builds
+ * for is little-endian.  A value is therefore a plain copy out of the buffer.
  */
 class ByteCursor
 {

@@ -420,6 +420,30 @@ ChannelRecord const * Reader::channel_for(std::string const & topic) const
     return found;
 }
 
+bool Reader::channels_share_cdr_schema(std::string const & topic) const
+{
+    ChannelRecord const * first = nullptr;
+    for (auto const & pair : m_channels)
+    {
+        ChannelRecord const & channel = pair.second;
+        if (topic != channel.topic)
+        {
+            continue;
+        }
+        if ("cdr" != channel.message_encoding || (nullptr != first && first->schema_id != channel.schema_id))
+        {
+            return false;
+        }
+        first = &channel;
+    }
+    if (nullptr == first)
+    {
+        throw std::runtime_error("no such topic in the MCAP file: " + topic);
+    }
+
+    return true;
+}
+
 SchemaRecord Reader::schema(std::string const & topic) const
 {
     ChannelRecord const * const channel = channel_for(topic);

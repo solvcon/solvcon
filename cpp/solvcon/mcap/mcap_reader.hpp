@@ -178,11 +178,18 @@ public:
     size_t chunk_count() const { return m_chunk_indices.size(); }
 
     /**
-     * Schema the messages of a topic follow, as the summary states it.
+     * Whether one CDR decode plan can walk every channel that carries the
+     * topic: each channel encodes its messages as CDR and names the same
+     * schema.  The call throws std::runtime_error when no channel carries
+     * the topic.
      *
-     * TODO: The decode plan is the first caller of this, and what it needs
-     * from a schema decides the shape returned here. Revisit once it lands
-     * (issue #1286).
+     * @param topic Topic to check.
+     * @return True when every channel of the topic uses CDR and one schema id.
+     */
+    bool channels_share_cdr_schema(std::string const & topic) const;
+
+    /**
+     * Schema the messages of a topic follow, as the summary states it.
      */
     SchemaRecord schema(std::string const & topic) const;
 

@@ -12,6 +12,26 @@ namespace solvcon
 namespace python
 {
 
+/// The log time column and the list of field columns a plan extracts.
+static pybind11::tuple extract_columns(mcap::Reader & reader, std::string const & topic, mcap::DecodePlan const & plan)
+{
+    namespace py = pybind11;
+
+    mcap::ColumnSet columns = mcap::extract(reader, topic, plan);
+
+    // A SimpleArray copy clones its buffer, so the arrays move into the
+    // objects Python holds.
+    py::list arrays;
+    for (mcap::Column & column : columns.columns)
+    {
+        arrays.append(std::visit([](auto & array)
+                                 { return py::cast(std::move(array)); },
+                                 column));
+    }
+
+    return py::make_tuple(py::cast(std::move(columns.time)), arrays);
+}
+
 class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapMcapSchema
     : public WrapBase<WrapMcapSchema, mcap::SchemaRecord>
 {
@@ -124,6 +144,7 @@ protected:
             .def("has_time_range", &wrapped_type::has_time_range)
             // The iterator reads from the file the reader holds open.
             .def("messages", &wrapped_type::messages, py::arg("topic"), py::keep_alive<0, 1>())
+            .def("extract", &extract_columns, py::arg("topic"), py::arg("plan"))
             //
             ;
     }

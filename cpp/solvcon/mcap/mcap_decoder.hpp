@@ -7,15 +7,18 @@
 
 /**
  * @file
- * The flat CDR decode plan.
+ * The flat CDR decode plan and its executor.
  *
  * @ingroup group_inout
  */
 
 #include <cstdint>
+#include <string>
+#include <variant>
 #include <vector>
 
 #include <solvcon/buffer/SimpleArray.hpp>
+#include <solvcon/mcap/mcap_reader.hpp>
 
 namespace solvcon
 {
@@ -63,6 +66,26 @@ struct PlanStep
 }; /* end struct PlanStep */
 
 /**
+ * A column of one of the scalar types a CDR primitive decodes into.  IDL
+ * declares no half-precision and no complex type, so a column is never a
+ * SimpleArray of Float16, Complex64, or Complex128.
+ *
+ * @ingroup group_inout
+ */
+using Column = std::variant<
+    SimpleArray<bool>,
+    SimpleArray<int8_t>,
+    SimpleArray<int16_t>,
+    SimpleArray<int32_t>,
+    SimpleArray<int64_t>,
+    SimpleArray<uint8_t>,
+    SimpleArray<uint16_t>,
+    SimpleArray<uint32_t>,
+    SimpleArray<uint64_t>,
+    SimpleArray<float>,
+    SimpleArray<double>>;
+
+/**
  * Decode plan over one CDR message.  Construction rejects a plan that reads a
  * column inside a container, more than once, or not at all, so the columns
  * share a row index.  Construction also rejects a read of a type no CDR
@@ -97,6 +120,38 @@ private:
     std::vector<PlanStep> m_steps;
     std::vector<DataType> m_types;
 }; /* end class DecodePlan */
+
+/**
+ * Columns extracted from the messages of one topic: the log time of every
+ * message in nanoseconds, and one column per read of the plan.  Every column
+ * holds one element per message, so a row index names the same message in
+ * all of them.
+ *
+ * @ingroup group_inout
+ */
+struct ColumnSet
+{
+    SimpleArrayUint64 time;
+    // TODO: The same replacement as in DecodePlan applies here (issue #1286).
+    std::vector<Column> columns;
+}; /* end struct ColumnSet */
+
+/**
+ * Run a decode plan over every message of a topic.
+ *
+ * The walk visits each payload once and appends what it reads to a collector
+ * per column.  The cost therefore follows the instructions the plan runs,
+ * once per container element inside a body, not the fields the schema
+ * declares.
+ *
+ * @param reader Reader of the open file.
+ * @param topic Topic whose messages the plan walks.
+ * @param plan Decode plan to run over each message.
+ * @return The log time column and one column per read of the plan.
+ *
+ * @ingroup group_inout
+ */
+ColumnSet extract(Reader & reader, std::string const & topic, DecodePlan const & plan);
 
 } /* end namespace mcap */
 
