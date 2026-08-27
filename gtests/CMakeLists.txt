@@ -100,6 +100,7 @@ add_executable(
     ${SOLVCON_DEVICE_SOURCES}
     ${SOLVCON_SERIALIZATION_SOURCES}
     ${SOLVCON_TRANSFORM_SOURCES}
+    ${SOLVCON_CUDA_SOURCES}
     ${SOLVCON_MATH_SOURCES}
     ${SOLVCON_SIMD_SOURCES}
     ${SOLVCON_MESH_SOURCES}
@@ -114,6 +115,10 @@ target_link_libraries(
     $<$<BOOL:${BUILD_METAL}>:${APPLE_FWK_FOUNDATION}>
     $<$<BOOL:${BUILD_METAL}>:${APPLE_FWK_METAL}>
 )
+
+if (BUILD_CUDA)
+    target_link_libraries(test_nopython CUDA::cudart)
+endif () # BUILD_CUDA
 
 include(GoogleTest)
 gtest_discover_tests(test_nopython PROPERTIES LABELS "cpp")

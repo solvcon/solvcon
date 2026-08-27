@@ -301,3 +301,123 @@ jobs:
         export SOLVCON_TEST_SHOW_WINDOWS=ON
         make run_pilot_pytest VERBOSE=1
         echo "::endgroup::"
+
+  build_cuda:
+
+    # Compile-check lane for the CUDA backend, Linux only. The hosted
+    # runners have no GPU, so the kernels cannot execute here and the CUDA
+    # tests detect the missing device and skip. The lane still proves the
+    # nvcc unit and the BUILD_CUDA=ON configuration keep building, which no
+    # other lane exercises because they all compile the stub.
+    needs: [check_skip, standalone_buffer]
+
+    if: |
+      needs.check_skip.outputs.skip != 'true' && (
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'push' &&
+       ((vars.SCGH_PUSH_RUN_BRANCH || vars.MMGH_PUSH_RUN_BRANCH) == '*' ||
+        contains(vars.SCGH_PUSH_RUN_BRANCH || vars.MMGH_PUSH_RUN_BRANCH, github.ref_name))))
+
+    name: build_cuda_ubuntu-24.04
+
+    runs-on: ubuntu-24.04
+
+    timeout-minutes: ${{ fromJSON(vars.SCGH_TIMEOUT_BUILD || vars.MMGH_TIMEOUT_BUILD || '45') }}
+
+    env:
+      MAKE_PARALLEL: -j4
+      CMAKE_BUILD_TYPE: Release
+      PIP_BREAK_SYSTEM_PACKAGES: 1
+      # Without a GPU nvcc cannot probe an architecture (the cmake default is
+      # native), and gcc-16 from setup_linux is newer than nvcc accepts as a
+      # host compiler, so both are pinned here. The .cu unit is C++17 (see
+      # CMAKE_CUDA_STANDARD), so the older host compiler suffices for it
+      # while the rest of the build stays on gcc-16.
+      CUDA_CMAKE_ARGS: >-
+        -DCMAKE_CUDA_ARCHITECTURES=all-major
+        -DCMAKE_CUDA_HOST_COMPILER=g++-14
+
+    steps:
+
+    - uses: actions/checkout@v6
+      with:
+        fetch-depth: 1
+
+    - name: event name
+      run: |
+        echo "github.event_name: ${{ github.event_name }}"
+
+    - name: setup dependencies for Linux
+      uses: ./.github/actions/setup_linux
+      with:
+        workflow: 'build_cuda'
+
+    - name: install CUDA toolkit
+      run: |
+        echo "::group::install CUDA toolkit"
+        # Pin the toolkit rather than track the repository default, so the
+        # lane does not move when NVIDIA publishes a new major. The build
+        # links only cudart, so nvcc and the cudart headers are the whole
+        # install; the cuda-toolkit metapackage would add gigabytes.
+        wget -q https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
+        sudo dpkg -i cuda-keyring_1.1-1_all.deb
+        sudo contrib/ci/apt-update.sh -qq
+        sudo apt-get -qy install cuda-nvcc-13-0 cuda-cudart-dev-13-0 g++-14
+        echo "/usr/local/cuda-13.0/bin" >> "${GITHUB_PATH}"
+        echo "::endgroup::"
+
+    - name: ccache
+      uses: hendrikmuhs/ccache-action@v1.2.23
+      with:
+        key: ${{ runner.os }}-cuda-Release
+        restore-keys: ${{ runner.os }}-cuda-Release
+        save: ${{ github.event_name != 'pull_request' }}
+        # Bound the cache so it does not grow without limit across the rolling
+        # key. A master push saves this cache; pull requests restore it (a PR
+        # on a non-default base branch cannot, so it runs cold).
+        max-size: 1500M
+
+    - name: make gtest BUILD_CUDA=ON
+      run: |
+        echo "::group::make gtest BUILD_CUDA=ON"
+        make gtest \
+          VERBOSE=1 USE_CLANG_TIDY=OFF \
+          BUILD_QT=OFF BUILD_CUDA=ON \
+          CMAKE_ARGS="${CUDA_CMAKE_ARGS}"
+        echo "::endgroup::"
+
+    - name: make pytest BUILD_CUDA=ON
+      run: |
+        echo "::group::make pytest BUILD_CUDA=ON"
+        rm -f build/*/Makefile
+        make cmake \
+          VERBOSE=1 USE_CLANG_TIDY=OFF \
+          BUILD_QT=OFF BUILD_CUDA=ON \
+          CMAKE_BUILD_TYPE=Release \
+          CMAKE_ARGS="-DPYTHON_EXECUTABLE=$(which python3) ${CUDA_CMAKE_ARGS}"
+        make buildext VERBOSE=1
+        # cuda_available() is False on a GPU-less host in the real backend
+        # and in the stub alike, so tell them apart by the failure message:
+        # only the real backend blames the missing device. A stub sneaking
+        # into this lane would otherwise leave every CUDA test skipped and
+        # the lane green.
+        python3 - <<'EOF'
+        import solvcon as sc
+        if not sc.FourierTransform.cuda_available():
+            inp = sc.SimpleArrayComplex128(8, sc.complex128())
+            out = sc.SimpleArrayComplex128(8, sc.complex128())
+            try:
+                sc.FourierTransform.fft(inp, out,
+                                        backend=sc.FourierBackend.cuda)
+            except RuntimeError as e:
+                assert "no usable CUDA device" in str(e), str(e)
+            else:
+                raise SystemExit("CUDA fft did not raise without a device")
+        EOF
+        # This lane installs no Qt or plotting dependencies, and the other
+        # lanes already run the full suite against the stub, so run only the
+        # transform tests here.
+        make pytest VERBOSE=1 PYTEST_OPTS="-k test_transform"
+        echo "::endgroup::"

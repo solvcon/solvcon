@@ -66,6 +66,17 @@ set(SOLVCON_ROOT_FILES
     ${SOLVCON_ROOT_HEADERS}
     CACHE FILEPATH "" FORCE)
 
+# The cuda subdirectory always contributes sources: the real CUDA FFT
+# implementation under BUILD_CUDA, and otherwise a stub that throws.
+add_subdirectory(device/cuda)
+
+set(SOLVCON_DEVICE_HEADERS
+    ${SOLVCON_CUDA_HEADERS}
+    CACHE FILEPATH "" FORCE)
+set(SOLVCON_DEVICE_SOURCES
+    ${SOLVCON_CUDA_SOURCES}
+    CACHE FILEPATH "" FORCE)
+
 if (BUILD_METAL)
     add_subdirectory(device/metal)
     set(SOLVCON_DEVICE_HEADERS
@@ -75,11 +86,6 @@ if (BUILD_METAL)
     set(SOLVCON_DEVICE_SOURCES
         ${SOLVCON_DEVICE_SOURCES}
         ${SOLVCON_METAL_SOURCES}
-        CACHE FILEPATH "" FORCE)
-else () # BUILD_METAL
-    set(SOLVCON_DEVICE_HEADERS
-        CACHE FILEPATH "" FORCE)
-    set(SOLVCON_DEVICE_SOURCES
         CACHE FILEPATH "" FORCE)
 endif () #BUILD_METAL
 
@@ -141,6 +147,10 @@ if (BUILD_MCAP)
     target_include_directories(solvcon_primary PUBLIC ${LZ4_INCLUDE_DIR} ${ZSTD_INCLUDE_DIR})
     target_link_libraries(solvcon_primary PUBLIC ${LZ4_LIB} ${ZSTD_LIB})
 endif () # BUILD_MCAP
+
+if (BUILD_CUDA)
+    target_link_libraries(solvcon_primary PRIVATE CUDA::cudart)
+endif () # BUILD_CUDA
 
 if (BUILD_QT)
     qt_add_library(
@@ -383,12 +393,11 @@ foreach (SOLVCON_LIBRARY IN LISTS SOLVCON_LIBRARIES)
             /external:W0 # do not apply /W4 to a SYSTEM include such as numpy
         )
     else () # MSVC
+        # Scoped to CXX so a CUDA unit under BUILD_CUDA does not receive
+        # gcc-style warning flags, which nvcc rejects.
         target_compile_options(
             ${SOLVCON_LIBRARY} PRIVATE
-            ${COMMON_COMPILER_OPTIONS}
-            -Wno-unused-value # for PYBIND11_EXPAND_SIDE_EFFECTS in pybind11.h
-            -Wno-noexcept-type # GCC
-            -Wno-elaborated-enum-base # for apple accelerate/veclib
+            "$<$<COMPILE_LANGUAGE:CXX>:${COMMON_COMPILER_OPTIONS};-Wno-unused-value;-Wno-noexcept-type;-Wno-elaborated-enum-base>"
         )
     endif () # MSVC
 endforeach ()
