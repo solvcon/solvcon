@@ -19,6 +19,7 @@ namespace python
 {
 
 void initialize_mcap(pybind11::module & mod);
+void wrap_McapDecodePlan(pybind11::module & mod);
 void wrap_McapReader(pybind11::module & mod);
 
 } /* end namespace python */

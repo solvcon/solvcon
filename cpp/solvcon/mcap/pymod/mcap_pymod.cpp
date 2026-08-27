@@ -24,6 +24,7 @@ void initialize_mcap(pybind11::module & mod)
 {
     auto initialize_impl = [](pybind11::module & mod)
     {
+        wrap_McapDecodePlan(mod);
         wrap_McapReader(mod);
     };
 
