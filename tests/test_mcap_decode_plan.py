@@ -81,7 +81,7 @@ module vhclsim_msgs { module msg {
                 ("align", 8), ("skip", 8),
                 ("align", 8), ("skip", 8),
                 ("skip", 1),
-                ("align", 4), ("skip_sequence", "float32"),
+                ("align", 4), ("skip_sequence", 4),
                 ("align", 4), ("skip_string",),
                 ("align", 4), ("skip", 4),
                 ("align", 4), ("read", "int32", 0),
@@ -142,7 +142,7 @@ module p { module msg {
                 ("align", 4), ("skip_string",),
                 ("align", 4), ("skip_sequence_body", 2),
                 ("align", 4), ("skip_string",),
-                ("align", 4), ("skip_sequence", "float64"),
+                ("align", 4), ("skip_sequence", 8),
                 ("align", 4), ("read", "int32", 0),
             ),
         )

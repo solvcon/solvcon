@@ -5,6 +5,7 @@ cmake_minimum_required(VERSION 4.0.1)
 
 set(SOLVCON_MCAP_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/mcap.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mcap_cursor.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mcap_reader.hpp
     CACHE FILEPATH "" FORCE)
 
