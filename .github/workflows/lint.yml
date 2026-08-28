@@ -203,3 +203,24 @@ jobs:
           CMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} \
           CMAKE_ARGS="-DPYTHON_EXECUTABLE=$(which python3) -DCMAKE_EXPORT_COMPILE_COMMANDS=ON" \
           SOLVCON_DIFF_BASE=${{ github.event.pull_request.base.sha }}
+
+  send_email_on_failure:
+    needs: [check_skip, lint]
+    # Mail a master push failure only. A nightly call reads the caller's
+    # event name, and nightly_devbuild mails that one itself. A
+    # `timeout-minutes` kill reports `cancelled`, not `failure`.
+    if: |
+      always() &&
+      (contains(needs.*.result, 'failure') ||
+       contains(needs.*.result, 'cancelled')) &&
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/master' &&
+      github.event.repository.fork == false
+    uses: ./.github/workflows/send_email_on_fail.yml
+    with:
+      job_results: |
+        - check_skip: ${{ needs.check_skip.result }}
+        - lint: ${{ needs.lint.result }}
+    secrets:
+      EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
+      EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
