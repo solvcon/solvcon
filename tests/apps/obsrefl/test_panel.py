@@ -19,6 +19,7 @@ try:
     from solvcon.pilot.apps.obsrefl import ReflectionSession
     from solvcon.pilot.apps.obsrefl import _panel
     from solvcon.pilot.apps.obsrefl._panel import SolutionPanel
+    from solvcon.pilot.visual import _movie
 except ImportError:
     pilot = None
 
@@ -207,11 +208,21 @@ class StatusReadoutTC(unittest.TestCase):
         # into it and names the movie's real destination.
         panel = SolutionPanel()
         self.assertTrue(os.path.isabs(panel._movie._path.text()))
-        self.assertEqual(os.path.abspath('tmp/obrefl_unstructured.webp'),
+        landing = f"tmp/obrefl_unstructured{_movie._default_suffix()}"
+        self.assertEqual(os.path.abspath(landing),
                          panel.movie_path('unstructured'))
         panel._movie._path.setText('movie.gif')
         self.assertEqual(os.path.abspath('movie.gif'),
                          panel.movie_path('quad'))
+
+    def test_the_movie_box_opens_on_a_format_the_build_can_write(self):
+        # A default naming a format this build has no encoder for would
+        # record a whole run and then drop it at the write.
+        panel = SolutionPanel()
+        suffix = os.path.splitext(panel._movie._path.text())[1]
+        self.assertIn(suffix, _movie.MovieRecorder.SUFFIXES)
+        self.assertEqual('.mp4' if _movie._can_write_mp4() else '.webp',
+                         suffix)
 
     def test_the_movie_box_reports_a_ticked_box_but_not_a_set_one(self):
         # The controller sets the box back when a recording drops under it,
