@@ -22,13 +22,13 @@ runs:
       shell: bash
       run: |
         echo "::group::Choose the Qt platform"
-        # offscreen gives QRhi no Metal surface here, so the render tests
-        # skip; cocoa renders them for real. Lint has no render tests.
-        if [ "${{ inputs.workflow }}" = "build" ] ; then
-          echo "QT_QPA_PLATFORM=cocoa" >> "${GITHUB_ENV}"
-        else
-          echo "QT_QPA_PLATFORM=offscreen" >> "${GITHUB_ENV}"
-        fi
+        # Both jobs run the pilot test suite, and on macOS that suite needs
+        # cocoa. The pilot installs the macos style, which paints an MDI
+        # sub-window through an AppKit view that offscreen can give no
+        # window: the paint faults as soon as anything runs a nested event
+        # loop. cocoa also gives QRhi a Metal surface, so the render tests
+        # run for real instead of skipping.
+        echo "QT_QPA_PLATFORM=cocoa" >> "${GITHUB_ENV}"
         echo "::endgroup::"
 
     - name: dependency by homebrew
