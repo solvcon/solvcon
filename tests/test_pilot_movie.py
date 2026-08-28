@@ -223,18 +223,21 @@ class MovieRecorderTC(unittest.TestCase):
         self.recorder.close()
 
     def test_mp4_is_a_known_name_wherever_it_is_asked_for(self):
-        # A missing encoder (OSError) and a name of no known format
-        # (ValueError) reach the control on different channels and read
-        # differently there, so naming MP4 on a build that cannot encode
-        # it must not come back as though the name were a typo.
+        # A name of no known format comes back a ValueError and anything
+        # the encoder cannot do comes back an OSError.  The two reach the
+        # control on different channels and read differently there, so
+        # naming MP4 where the build has no encoder, or where the encoder
+        # turns the frame down, must not come back as though the name were
+        # a typo.  Whether an MP4 comes out is Mp4MovieTC's business.
         self._capture(1)
         with tempfile.TemporaryDirectory() as folder:
             path = os.path.join(folder, "movie.mp4")
-            if _movie._can_write_mp4():
-                self.assertEqual(self.recorder.write(path), 1)
-            else:
-                with self.assertRaises(OSError):
-                    self.recorder.write(path)
+            try:
+                self.recorder.write(path)
+            except ValueError:
+                self.fail("'.mp4' came back as a name of no known format")
+            except OSError:
+                pass
 
 
 @unittest.skipUnless(solvcon.HAS_PILOT and HAS_IMAGE,
