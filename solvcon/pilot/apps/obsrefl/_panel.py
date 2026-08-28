@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QFormLayout,
 
 from ....multidim.euler import EulerField
 from ...visual import _movie
+from ._session import ReflectionSession
 
 __all__ = [  # noqa: F822
     'SolutionPanel',
@@ -228,8 +229,9 @@ class NumericsBox(FoldBox):
 class RunBox(FoldBox):
     """The march controls and the live march readout, kept side by side.
 
-    The buttons stand in the order a run is used: started, held (paused,
-    stepped), and ended (stopped where it stands, or dropped).  The readout
+    The step cap leads, then the buttons in the order a run uses them:
+    started, held (paused, stepped), and ended (stopped where it stands,
+    or dropped).  The readout
     beneath them carries the step count, what ended the run, the mass the
     domain holds, and the CFL bounds of the last chunk.
     """
@@ -237,6 +239,8 @@ class RunBox(FoldBox):
     #: What ended a run reads as in the state cell; a live run reads as
     #: "running" or "paused" from the Pause button instead.
     STOP_STATES = {'cap': "step cap", 'stopped': "stopped"}
+    #: Highest step cap the box offers, past any run worth watching.
+    STEP_CAP_MAX = 1000000
 
     def __init__(self, parent=None):
         super().__init__("Run", parent)
@@ -250,6 +254,8 @@ class RunBox(FoldBox):
         self._paused = False
         self._live = False
 
+        self._max_steps = _count(ReflectionSession.MAX_STEPS, 1,
+                                 self.STEP_CAP_MAX)
         self._steps = _count(5, 1, 1000)
 
         # Opens and closes the one domain viewer the run buttons draw into.
@@ -284,6 +290,7 @@ class RunBox(FoldBox):
         self._cfl = _value_label()
 
         form = QFormLayout()
+        form.addRow("steps", self._max_steps)
         form.addRow("steps/frame", self._steps)
         form.addRow(self._viewer_btn)
         form.addRow(marching)
@@ -294,6 +301,9 @@ class RunBox(FoldBox):
         form.addRow("cfl min/max", self._cfl)
         self.set_content_layout(form)
         self.show_run(None)
+
+    def max_steps(self):
+        return self._max_steps.value()
 
     def steps_per_frame(self):
         return self._steps.value()
@@ -668,6 +678,9 @@ class SolutionPanel(QScrollArea):
 
     def bar_placement(self):
         return self._field.placement()
+
+    def max_steps(self):
+        return self._run.max_steps()
 
     def steps_per_frame(self):
         return self._run.steps_per_frame()

@@ -130,6 +130,7 @@ class RunController(object):
         params = self._panel.params()
         self._cell_type = params['cell_type']
         self.session = ReflectionSession(**params)
+        self._apply_limits()
         self._painter = FieldPainter(self.session.shock.mesh)
         if record:
             self._start_movie()
@@ -208,14 +209,18 @@ class RunController(object):
         self._march_frame()
 
     def _march_frame(self):
-        """March one chunk and draw what it left behind.
-
-        The chunk length is read every frame, so changing it mid-run takes
-        effect on the next one.
-        """
-        self.session.steps_per_chunk = self._panel.steps_per_frame()
+        """March one chunk and draw what it left behind."""
+        self._apply_limits()
         self.session.advance()
         self._draw_frame()
+
+    def _apply_limits(self):
+        """Put the panel's step cap and chunk length onto the session.
+
+        Read every frame, so a change mid-run lands on the next chunk.
+        """
+        self.session.max_steps = self._panel.max_steps()
+        self.session.steps_per_chunk = self._panel.steps_per_frame()
 
     def _draw_frame(self):
         """Read the run out into the panel, and into the viewer if it is

@@ -88,6 +88,15 @@ class StatusReadoutTC(unittest.TestCase):
         self.assertEqual(_panel._number(sess.history.last.mass),
                          panel._run._mass.text())
 
+    def test_the_run_box_supplies_the_step_cap(self):
+        # The box opens on the session's own default, so a run started
+        # without touching it marches to the cap the session would have
+        # chosen anyway.
+        panel = SolutionPanel()
+        self.assertEqual(ReflectionSession.MAX_STEPS, panel.max_steps())
+        panel._run._max_steps.setValue(120)
+        self.assertEqual(120, panel.max_steps())
+
     def test_pausing_names_the_state(self):
         panel, _, _, _ = self._filled()
         panel.set_paused(True)
