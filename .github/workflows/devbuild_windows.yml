@@ -106,3 +106,23 @@ jobs:
           $env:SOLVCON_TEST_SHOW_WINDOWS = "ON"
           cmake --workflow --preset ci-win-rel
           echo "::endgroup::"
+
+  send_email_on_failure:
+    needs: [check_skip, build_windows]
+    # Mail a master push failure only. A `timeout-minutes` kill reports
+    # `cancelled`, not `failure`.
+    if: |
+      always() &&
+      (contains(needs.*.result, 'failure') ||
+       contains(needs.*.result, 'cancelled')) &&
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/master' &&
+      github.event.repository.fork == false
+    uses: ./.github/workflows/send_email_on_fail.yml
+    with:
+      job_results: |
+        - check_skip: ${{ needs.check_skip.result }}
+        - build_windows: ${{ needs.build_windows.result }}
+    secrets:
+      EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
+      EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
