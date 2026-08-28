@@ -279,9 +279,14 @@ class MovieRecorder(object):
                                                     size))
         except OSError:
             # What was muxed before it gave up plays, and would sit at
-            # the named path looking like the recording that failed.
-            if os.path.exists(path):
+            # the named path looking like the recording that failed.  A
+            # backend that has not let the file go refuses the removal on
+            # Windows, which is no reason to answer with a file error in
+            # place of what the encoder said went wrong.
+            try:
                 os.remove(path)
+            except OSError:
+                pass
             raise
         return self.nframe
 
