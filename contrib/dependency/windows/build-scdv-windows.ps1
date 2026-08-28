@@ -80,6 +80,9 @@
 #     SCDV_SHARED_DLDIR: Shared cache for downloaded tarballs across solvcon
 #       development environments (scdvs).  Set to "none" (or pass
 #       -NoSharedDownload) to keep a per-scdv download directory.
+#     SCDV_FFMPEG_DIR: Prefix of an FFmpeg (holding include, lib, and bin).
+#       Set it to build Qt Multimedia against the FFmpeg backend, which is
+#       what encodes the pilot's MP4 movies; unset leaves the module out.
 #   MSVC selection (see the toolchain note above and Import-VcVars):
 #     SCDV_VS_VERSION: vswhere -version range choosing which Visual Studio
 #       provides cl/vcvars, e.g. "[17.0,18.0)" for VS 2022.  Default: newest.
@@ -273,6 +276,12 @@ winget install --id BrechtSanders.WinLibs.POSIX.UCRT -e --scope user
 # BLAS/LAPACK too; this script uses the scipy-openblas64 wheel and exports its
 # pkg-config, so no separate OpenBLAS install is required.  See Build-Numpy /
 # Build-Scipy for details.
+
+# Qt Multimedia encodes the pilot's MP4, and the QT section builds it only
+# where SCDV_FFMPEG_DIR names an FFmpeg.  Nothing to install: unpack a
+# prebuilt LGPL shared package, which ships the MSVC import libraries the Qt
+# build links against.  Qt 6.11 is tested against FFmpeg 7.1; 8.x compiles.
+$env:SCDV_FFMPEG_DIR = 'C:\path\to\ffmpeg-lgpl-shared'
 '@
 }
 
@@ -1218,8 +1227,22 @@ function Build-Qt {
         'qtpositioning', 'qtquick3dphysics', 'qtremoteobjects', 'qtscxml',
         'qtsensors', 'qtserialbus', 'qtspeech', 'qttranslations',
         'qtvirtualkeyboard', 'qtwayland', 'qtwebchannel', 'qtwebengine',
-        'qtwebview', 'qtquickeffectmaker', 'qtgrpc', 'qtmultimedia'
+        'qtwebview', 'qtquickeffectmaker', 'qtgrpc'
     )
+    # Only qtmultimedia's FFmpeg backend encodes the pilot's MP4, so it is
+    # built where SCDV_FFMPEG_DIR names an FFmpeg.  The native Windows
+    # backend is no use: deprecated since Qt 6.10, and it takes no frames
+    # from a QVideoFrameInput.  A prebuilt LGPL shared package serves, since
+    # those ship the MSVC import libraries the build links against.
+    $ffmpeg = $env:SCDV_FFMPEG_DIR
+    if ($ffmpeg -and
+        -not (Test-Path (Join-Path $ffmpeg 'include\libavcodec\avcodec.h'))) {
+        Write-Warning ("SCDV_FFMPEG_DIR='$ffmpeg' holds no " +
+                       'include\libavcodec\avcodec.h; building without ' +
+                       'qtmultimedia.')
+        $ffmpeg = $null
+    }
+    if (-not $ffmpeg) { $mods += 'qtmultimedia' }
     Push-Location $bld
     try {
         $cfg = @(
@@ -1228,6 +1251,9 @@ function Build-Qt {
             '-DCMAKE_BUILD_TYPE=Release'
         )
         foreach ($m in $mods) { $cfg += "-DBUILD_$m=OFF" }
+        if ($ffmpeg) {
+            $cfg += @("-DFFMPEG_DIR=$ffmpeg", '-DQT_DEPLOY_FFMPEG=ON')
+        }
         $cfg += @(
             '-DQT_ALLOW_SYMLINK_IN_PATHS=ON',
             "-DCMAKE_PREFIX_PATH=$ScdvUsrDir",
@@ -1290,7 +1316,16 @@ function Build-Pyside6 {
     # Bindings solvcon needs: Core/Gui/Widgets (pilot) plus Svg (matplotlib's Qt
     # backend).  Faster than the full build, and avoids QtDesigner/QtUiTools
     # (qttools is disabled).  Override with SCDV_PYSIDE_MODULES.
-    $modules = Get-EnvOrDefault 'SCDV_PYSIDE_MODULES' 'Core,Gui,Widgets,Svg'
+    $subset = 'Core,Gui,Widgets,Svg'
+    # shiboken binds the subset, so a built Qt Multimedia is not enough:
+    # without Multimedia named here there is no PySide6.QtMultimedia.
+    # Network comes with it, the bindings being generated against it.  The
+    # installed Qt decides, not SCDV_FFMPEG_DIR, which parts company with it
+    # when this section runs alone.
+    if (Test-Path (Join-Path $ScdvUsrDir 'include\QtMultimedia')) {
+        $subset += ',Network,Multimedia'
+    }
+    $modules = Get-EnvOrDefault 'SCDV_PYSIDE_MODULES' $subset
     Push-Location (Join-Path $ScdvSrcDir $full)
     try {
         # --make-spec=ninja: pyside-setup's _get_make returns a str for "make"

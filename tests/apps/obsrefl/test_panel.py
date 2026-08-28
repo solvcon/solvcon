@@ -19,6 +19,7 @@ try:
     from solvcon.pilot.apps.obsrefl import ReflectionSession
     from solvcon.pilot.apps.obsrefl import _panel
     from solvcon.pilot.apps.obsrefl._panel import SolutionPanel
+    from solvcon.pilot.visual import _movie
 except ImportError:
     pilot = None
 
@@ -86,6 +87,15 @@ class StatusReadoutTC(unittest.TestCase):
         # One chunk is recorded, so the mass cell carries its measurement.
         self.assertEqual(_panel._number(sess.history.last.mass),
                          panel._run._mass.text())
+
+    def test_the_run_box_supplies_the_step_cap(self):
+        # The box opens on the session's own default, so a run started
+        # without touching it marches to the cap the session would have
+        # chosen anyway.
+        panel = SolutionPanel()
+        self.assertEqual(ReflectionSession.MAX_STEPS, panel.max_steps())
+        panel._run._max_steps.setValue(120)
+        self.assertEqual(120, panel.max_steps())
 
     def test_pausing_names_the_state(self):
         panel, _, _, _ = self._filled()
@@ -207,11 +217,21 @@ class StatusReadoutTC(unittest.TestCase):
         # into it and names the movie's real destination.
         panel = SolutionPanel()
         self.assertTrue(os.path.isabs(panel._movie._path.text()))
-        self.assertEqual(os.path.abspath('tmp/obrefl_unstructured.webp'),
+        landing = f"tmp/obrefl_unstructured{_movie._default_suffix()}"
+        self.assertEqual(os.path.abspath(landing),
                          panel.movie_path('unstructured'))
         panel._movie._path.setText('movie.gif')
         self.assertEqual(os.path.abspath('movie.gif'),
                          panel.movie_path('quad'))
+
+    def test_the_movie_box_opens_on_a_format_the_build_can_write(self):
+        # A default naming a format this build has no encoder for would
+        # record a whole run and then drop it at the write.
+        panel = SolutionPanel()
+        suffix = os.path.splitext(panel._movie._path.text())[1]
+        self.assertIn(suffix, _movie.MovieRecorder.SUFFIXES)
+        self.assertEqual('.mp4' if _movie._can_write_mp4() else '.webp',
+                         suffix)
 
     def test_the_movie_box_reports_a_ticked_box_but_not_a_set_one(self):
         # The controller sets the box back when a recording drops under it,

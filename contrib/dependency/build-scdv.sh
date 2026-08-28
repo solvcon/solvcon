@@ -75,6 +75,10 @@
 #       depending on SCDV_SHARED_DLDIR).
 #     SCDV_SHARED_DLDIR: Shared cache for downloaded tarballs across solvcon
 #       development environments (scdvs).
+#     SCDV_FFMPEG_DIR: Prefix of an FFmpeg holding include/ and lib/.  Qt
+#       Multimedia is built against it and is what encodes the pilot's MP4.
+#       Unset, the platform block looks for the packaged one --print-deps
+#       names, and leaves the module out where there is none.
 #
 # Platform block contract. Each per-OS `case` block below sets the variable
 # SCDV_OS_TAG (the token baked into the default prefix, e.g. ubuntu2404) and
@@ -91,6 +95,8 @@
 #   plat_numpy_run            Env-prep + `scdv_time build_numpy numpy`.
 #   plat_qt_env_strip         Strip a stray Qt from the loader/PATH env.
 #   plat_qt_extra_cfg         Set array PLAT_QT_CFG with extra Qt cmake args.
+#   plat_ffmpeg_cfg           Set array PLAT_FFMPEG_CFG; non-zero where
+#                             there is no FFmpeg to build against.
 #   plat_qt_libclang_setup    Set LLVM_INSTALL_DIR for shiboken.
 #   plat_pyside6_cmake_opt    Set array PLAT_PYSIDE_CMAKE_OPT for setup.py.
 
@@ -220,6 +226,22 @@ sudo apt install -y \
 EOF
 }
 
+scdv_apt_ffmpeg_cmd() {
+  # FFmpeg for Qt Multimedia, without which the QT section leaves the
+  # module out.  libasound2 and libpulse are its audio backends, which the
+  # MP4 encoder does not touch but the module is deaf without.
+  #
+  # Ubuntu configures FFmpeg --enable-gpl, so these are GPLv2+ and not the
+  # LGPL subset Qt's own prebuilt FFmpeg is; SCDV_FFMPEG_DIR can name a
+  # --disable-gpl build where that matters.
+  cat <<'EOF'
+sudo apt install -y \
+  libavcodec-dev libavformat-dev libavutil-dev \
+  libswresample-dev libswscale-dev \
+  libasound2-dev libpulse-dev
+EOF
+}
+
 scdv_apt_clang_lint_cmd() {
   # Print the apt command for the C++ lint tools: clang-format for
   # `make cformat` and clang-tidy for `make USE_CLANG_TIDY=ON` and
@@ -257,12 +279,15 @@ EOF
 }
 
 plat_print_deps() {
-  # Ubuntu prints the apt base/GCC/QT/LaTeX sets, then the lint toolchain.
+  # Ubuntu prints the apt base/GCC/QT/FFmpeg/LaTeX sets, then the lint
+  # toolchain.
   scdv_apt_base_cmd
   echo
   scdv_apt_gcc_cmd
   echo
   scdv_apt_qt_cmd
+  echo
+  scdv_apt_ffmpeg_cmd
   echo
   scdv_apt_latex_cmd
   echo
@@ -329,6 +354,22 @@ plat_qt_extra_cfg() {
   # dev package is missing, leaving only offscreen/minimal QPA.  Forcing turns
   # that into a configure-time failure.  The -dev list is in scdv_apt_qt_cmd.
   PLAT_QT_CFG=("-DFEATURE_xcb=ON" "-DFEATURE_xcb_xlib=ON")
+}
+
+plat_ffmpeg_cfg() {
+  # Saying nothing is how apt's FFmpeg is found: its headers are under the
+  # multiarch include directory, which FindFFmpeg reaches only through
+  # pkg-config, and pkg-config is consulted only while FFMPEG_DIR is unset.
+  # A prefix named by hand wins, and is deployed into the scdv for sitting
+  # outside the loader's paths.
+  PLAT_FFMPEG_CFG=()
+  if [ -n "${SCDV_FFMPEG_DIR:-}" ] ; then
+    PLAT_FFMPEG_CFG=("-DFFMPEG_DIR=${SCDV_FFMPEG_DIR}"
+                     "-DQT_DEPLOY_FFMPEG=ON")
+    return 0
+  fi
+  pkg-config --exists libavcodec libavformat libavutil \
+                      libswresample libswscale
 }
 
 plat_qt_libclang_setup() {
@@ -555,6 +596,20 @@ brew install \
 EOF
 }
 
+scdv_brew_ffmpeg_cmd() {
+  # FFmpeg for Qt Multimedia, without which the QT section leaves the
+  # module out.  ffmpeg@7 because Qt 6.11 is tested against FFmpeg 7.1 and
+  # the unversioned formula has moved to 9.x, which the backend has no
+  # guarded path for.
+  #
+  # brew configures FFmpeg --enable-gpl, so the keg is GPL and not the LGPL
+  # subset Qt's own prebuilt FFmpeg is; SCDV_FFMPEG_DIR can name a
+  # --disable-gpl build where that matters.
+  cat <<'EOF'
+brew install ffmpeg@7
+EOF
+}
+
 scdv_brew_clang_lint_cmd() {
   # Print the brew command for the C++ lint tools: clang-format for
   # `make cformat` and clang-tidy for `make USE_CLANG_TIDY=ON` and
@@ -596,9 +651,11 @@ EOF
 }
 
 plat_print_deps() {
-  # macOS prints the brew base set (the QT toolchain needs no extra brew
-  # packages), then the LaTeX and lint toolchains.
+  # macOS prints the brew base and FFmpeg sets, then the LaTeX and lint
+  # toolchains; the Qt toolchain itself needs no other brew package.
   scdv_brew_base_cmd
+  echo
+  scdv_brew_ffmpeg_cmd
   echo
   scdv_brew_latex_cmd
   echo
@@ -671,6 +728,23 @@ plat_qt_extra_cfg() {
   # (QT_SUPPORTED_MAX_MACOS_SDK_VERSION=26), so no SDK-max-version override is
   # needed any more either.
   PLAT_QT_CFG=("-DQT_NO_XCODE_MIN_VERSION_CHECK=ON")
+}
+
+plat_ffmpeg_cfg() {
+  # A versioned keg is not linked, so nothing points at ffmpeg@7 but its
+  # prefix, whose include/ and lib/ are the layout FindFFmpeg expects.  The
+  # libraries are deployed into the scdv, so a brew upgrade that moves the
+  # keg cannot strand the plugin.
+  PLAT_FFMPEG_CFG=()
+  local prefix=${SCDV_FFMPEG_DIR:-}
+  if [ -z "${prefix}" ] && [ -n "${BREW_PREFIX:-}" ] ; then
+    prefix=${BREW_PREFIX}/opt/ffmpeg@7
+  fi
+  if [ -z "${prefix}" ] || [ ! -f "${prefix}/include/libavcodec/avcodec.h" ]
+  then
+    return 1
+  fi
+  PLAT_FFMPEG_CFG=("-DFFMPEG_DIR=${prefix}" "-DQT_DEPLOY_FFMPEG=ON")
 }
 
 fetch_libclang() {
@@ -1526,9 +1600,18 @@ build_qt() {
              qtquick3dphysics qtremoteobjects qtscxml qtsensors \
              qtserialbus qtspeech qttranslations qtvirtualkeyboard \
              qtwayland qtwebchannel qtwebengine qtwebview \
-             qtquickeffectmaker qtgrpc qtmultimedia ; do
+             qtquickeffectmaker qtgrpc ; do
       cfgcmd+=("-DBUILD_${m}=OFF")
     done
+    # Only qtmultimedia's FFmpeg backend encodes the pilot's MP4, so it is
+    # built where there is an FFmpeg for it and left out where there is not.
+    if plat_ffmpeg_cfg ; then
+      cfgcmd+=("${PLAT_FFMPEG_CFG[@]}")
+    else
+      echo "no FFmpeg found: building Qt without qtmultimedia, so the pilot" \
+           "will write no MP4.  --print-deps names the package to install."
+      cfgcmd+=("-DBUILD_qtmultimedia=OFF")
+    fi
     # Extra platform Qt cmake args (xcb on Ubuntu, Xcode-check skip on macOS).
     plat_qt_extra_cfg
     cfgcmd+=("${PLAT_QT_CFG[@]}")
