@@ -105,6 +105,11 @@ add_executable(
     ${SOLVCON_MESH_SOURCES}
     ${SOLVCON_MULTIDIM_SOURCES}
 )
+set_source_files_properties(
+    test_nopython_buffer.cpp
+    ${SOLVCON_INCLUDE_DIR}/solvcon/math/Float16.cpp
+    PROPERTIES COMPILE_OPTIONS "${SOLVCON_FLOAT16_COMPILE_OPTIONS}"
+)
 
 target_link_libraries(
     test_nopython

@@ -2,6 +2,7 @@
 
 #include <gtest/gtest.h>
 
+#include <array>
 #include <bit>
 #include <cfenv>
 #include <cmath>
@@ -15,6 +16,26 @@
 #ifdef _MSC_VER
 #pragma fenv_access(on)
 #endif
+
+namespace
+{
+
+template <typename Evaluate, typename Expected>
+void expect_rounding_result(int mode, Evaluate evaluate, Expected const & expected)
+{
+    std::fenv_t original_environment;
+    ASSERT_EQ(0, std::fegetenv(&original_environment));
+
+    int const mode_status = std::fesetround(mode);
+    Expected const actual = evaluate();
+    int const restore_status = std::fesetenv(&original_environment);
+
+    EXPECT_EQ(0, mode_status);
+    EXPECT_EQ(0, restore_status);
+    EXPECT_EQ(expected, actual);
+}
+
+} /* end namespace */
 
 TEST(ConcreteBuffer, construct_cpu_device)
 {
@@ -78,6 +99,86 @@ TEST(Float16, type_properties)
     static_assert(sc::Float16(1.0F).bits() == 0x3c00U);
 }
 
+TEST(Float16, arithmetic)
+{
+    namespace sc = solvcon;
+
+    sc::Float16 const lhs(5.5F);
+    sc::Float16 const rhs(2.0F);
+
+    EXPECT_FLOAT_EQ(7.5F, static_cast<float>(lhs + rhs));
+    EXPECT_FLOAT_EQ(3.5F, static_cast<float>(lhs - rhs));
+    EXPECT_FLOAT_EQ(11.0F, static_cast<float>(lhs * rhs));
+    EXPECT_FLOAT_EQ(2.75F, static_cast<float>(lhs / rhs));
+
+    constexpr auto half_ulp = sc::Float16::from_bits(0x1000U);
+    static_assert((sc::Float16(1.0F) + half_ulp).bits() == 0x3c00U);
+    static_assert(sc::Float16(1.0F) < sc::Float16(2.0F));
+}
+
+TEST(Float16, arithmetic_rounding_modes)
+{
+    namespace sc = solvcon;
+
+    using result_type = std::array<sc::Float16::storage_type, 3>;
+
+    auto const evaluate = []()
+    {
+        volatile sc::Float16::storage_type one_bits = 0x3c00U;
+        volatile sc::Float16::storage_type tiny_bits = 0x0001U;
+        volatile sc::Float16::storage_type negative_one_bits = 0xbc00U;
+        volatile sc::Float16::storage_type negative_tiny_bits = 0x8001U;
+        auto const one = sc::Float16::from_bits(one_bits);
+        auto const tiny = sc::Float16::from_bits(tiny_bits);
+        auto const negative_one = sc::Float16::from_bits(negative_one_bits);
+        auto const negative_tiny = sc::Float16::from_bits(negative_tiny_bits);
+        return result_type{(one + tiny).bits(), (negative_one + negative_tiny).bits(), (one - one).bits()};
+    };
+
+    expect_rounding_result(FE_TONEAREST, evaluate, result_type{0x3c00U, 0xbc00U, 0x0000U});
+    expect_rounding_result(FE_UPWARD, evaluate, result_type{0x3c01U, 0xbc00U, 0x0000U});
+    expect_rounding_result(FE_DOWNWARD, evaluate, result_type{0x3c00U, 0xbc01U, 0x8000U});
+    expect_rounding_result(FE_TOWARDZERO, evaluate, result_type{0x3c00U, 0xbc00U, 0x0000U});
+}
+
+TEST(Float16, compound_assignment)
+{
+    namespace sc = solvcon;
+
+    sc::Float16 value(4.0F);
+
+    EXPECT_EQ(&value, &(value += sc::Float16(2.0F)));
+    EXPECT_FLOAT_EQ(6.0F, static_cast<float>(value));
+    EXPECT_EQ(&value, &(value -= sc::Float16(1.0F)));
+    EXPECT_FLOAT_EQ(5.0F, static_cast<float>(value));
+    EXPECT_EQ(&value, &(value *= sc::Float16(3.0F)));
+    EXPECT_FLOAT_EQ(15.0F, static_cast<float>(value));
+    EXPECT_EQ(&value, &(value /= sc::Float16(2.0F)));
+    EXPECT_FLOAT_EQ(7.5F, static_cast<float>(value));
+}
+
+TEST(Float16, comparison)
+{
+    namespace sc = solvcon;
+
+    sc::Float16 const one(1.0F);
+    sc::Float16 const two(2.0F);
+    sc::Float16 const pos_zero(0.0F);
+    sc::Float16 const neg_zero(-0.0F);
+    sc::Float16 const pos_inf(std::numeric_limits<float>::infinity());
+    sc::Float16 const neg_inf(-std::numeric_limits<float>::infinity());
+    sc::Float16 const quiet_nan(std::numeric_limits<float>::quiet_NaN());
+
+    EXPECT_LT(one, two);
+    EXPECT_GT(two, one);
+    EXPECT_EQ(pos_zero, neg_zero);
+    EXPECT_EQ(std::partial_ordering::equivalent, pos_zero <=> neg_zero);
+    EXPECT_LT(neg_inf, one);
+    EXPECT_LT(one, pos_inf);
+    EXPECT_NE(quiet_nan, quiet_nan);
+    EXPECT_EQ(std::partial_ordering::unordered, quiet_nan <=> one);
+}
+
 TEST(Float16, binary_layout)
 {
     namespace sc = solvcon;
@@ -133,47 +234,62 @@ TEST(Float16, rounding_modes)
 {
     namespace sc = solvcon;
 
-    std::fenv_t original_environment;
-    ASSERT_EQ(0, std::fegetenv(&original_environment));
+    using conversion_result_type = std::array<sc::Float16::storage_type, 4>;
+    using mode_results_type = std::array<conversion_result_type, 3>;
 
-    auto const expect_pair = [](float magnitude, sc::Float16::storage_type positive, sc::Float16::storage_type negative)
+    auto const evaluate_pair = [](float magnitude)
     {
         // Volatile prevents native casts from being folded before the runtime mode is set.
         volatile float positive_float = magnitude;
         volatile float negative_float = -magnitude;
         volatile double positive_double = magnitude;
         volatile double negative_double = -magnitude;
-        EXPECT_EQ(positive, sc::Float16(positive_float).bits());
-        EXPECT_EQ(negative, sc::Float16(negative_float).bits());
-        EXPECT_EQ(positive, sc::Float16(positive_double).bits());
-        EXPECT_EQ(negative, sc::Float16(negative_double).bits());
+        return conversion_result_type{
+            sc::Float16(positive_float).bits(),
+            sc::Float16(negative_float).bits(),
+            sc::Float16(positive_double).bits(),
+            sc::Float16(negative_double).bits(),
+        };
     };
 
     float const midpoint = 1.0F + std::ldexp(1.0F, -11);
     float const tiny = std::ldexp(1.0F, -26);
     float const overflow = 65536.0F;
 
-    EXPECT_EQ(0, std::fesetround(FE_TONEAREST));
-    expect_pair(midpoint, 0x3c00U, 0xbc00U);
-    expect_pair(tiny, 0x0000U, 0x8000U);
-    expect_pair(overflow, 0x7c00U, 0xfc00U);
+    auto const evaluate = [&]()
+    {
+        return mode_results_type{
+            evaluate_pair(midpoint),
+            evaluate_pair(tiny),
+            evaluate_pair(overflow),
+        };
+    };
 
-    EXPECT_EQ(0, std::fesetround(FE_UPWARD));
-    expect_pair(midpoint, 0x3c01U, 0xbc00U);
-    expect_pair(tiny, 0x0001U, 0x8000U);
-    expect_pair(overflow, 0x7c00U, 0xfbffU);
+    auto const expected_pair = [](sc::Float16::storage_type positive, sc::Float16::storage_type negative)
+    {
+        return conversion_result_type{positive, negative, positive, negative};
+    };
 
-    EXPECT_EQ(0, std::fesetround(FE_DOWNWARD));
-    expect_pair(midpoint, 0x3c00U, 0xbc01U);
-    expect_pair(tiny, 0x0000U, 0x8001U);
-    expect_pair(overflow, 0x7bffU, 0xfc00U);
-
-    EXPECT_EQ(0, std::fesetround(FE_TOWARDZERO));
-    expect_pair(midpoint, 0x3c00U, 0xbc00U);
-    expect_pair(tiny, 0x0000U, 0x8000U);
-    expect_pair(overflow, 0x7bffU, 0xfbffU);
-
-    EXPECT_EQ(0, std::fesetenv(&original_environment));
+    expect_rounding_result(FE_TONEAREST, evaluate, mode_results_type{
+                                                       expected_pair(0x3c00U, 0xbc00U),
+                                                       expected_pair(0x0000U, 0x8000U),
+                                                       expected_pair(0x7c00U, 0xfc00U),
+                                                   });
+    expect_rounding_result(FE_UPWARD, evaluate, mode_results_type{
+                                                    expected_pair(0x3c01U, 0xbc00U),
+                                                    expected_pair(0x0001U, 0x8000U),
+                                                    expected_pair(0x7c00U, 0xfbffU),
+                                                });
+    expect_rounding_result(FE_DOWNWARD, evaluate, mode_results_type{
+                                                      expected_pair(0x3c00U, 0xbc01U),
+                                                      expected_pair(0x0000U, 0x8001U),
+                                                      expected_pair(0x7bffU, 0xfc00U),
+                                                  });
+    expect_rounding_result(FE_TOWARDZERO, evaluate, mode_results_type{
+                                                        expected_pair(0x3c00U, 0xbc00U),
+                                                        expected_pair(0x0000U, 0x8000U),
+                                                        expected_pair(0x7bffU, 0xfbffU),
+                                                    });
 }
 
 TEST(Float16, double_rounding)
