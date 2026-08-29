@@ -47,6 +47,10 @@ __all__ = [
 ]
 
 
+def _lerp(first, second, frac):
+    return first + frac * (second - first)
+
+
 @dataclasses.dataclass
 class ZoneInfo(object):
     """One zone of :meth:`Reflection.zone_info`."""
@@ -118,7 +122,7 @@ class HorizontalProfile(object):
     """A horizontal cut of the domain, as :meth:`Reflection.profile` takes
     it."""
 
-    #: Abscissa of each cell on the cut, ascending.
+    #: Abscissa of each station on the cut, ascending.
     x: np.ndarray
     #: Computed field at those abscissae.
     computed: np.ndarray
@@ -163,6 +167,7 @@ class Reflection(object):
         self.shock = shock
         self.field = EulerField(shock.svr, shock.mesh)
         self.margin = margin
+        self._stencil = None
         # The analytic path is fixed once the mesh is built, so its corners
         # are walked once into the segments the measurements read.
         self.arms = core.SegmentPadFp64(ndim=2)
@@ -377,24 +382,120 @@ class Reflection(object):
         analytic = self.reflected.x0 if self.has_reflection else float('nan')
         return WallPoint(xfit, analytic, self._relative(xfit, analytic))
 
-    def profile(self, height, name='density', halfwidth=None):
+    def cut_height(self, fraction):
+        """The y coordinate of a horizontal cut placed by ``fraction``.
+
+        A control placing the cut carries the fraction, which reads the
+        same whatever the domain spans; everything reading the cut takes
+        the coordinate.
+        """
+        mesher = self.shock.mesher
+        return mesher.y0 + fraction * (mesher.y1 - mesher.y0)
+
+    def profile(self, height, name='density'):
         """Return the named field along the horizontal line at ``height``.
 
-        The cells within ``halfwidth`` of the line are sorted by abscissa and
-        paired with :meth:`analytic_profile` at the same abscissae, so the
-        two curves of a plot share their sampling.  The default half a box
-        picks the row the line runs through, and both rows when it runs
-        along the seam between two.
+        Each place the line meets the mesh is one station, and the stations
+        are paired with :meth:`analytic_profile` at the same abscissae so
+        the two curves of a plot share their sampling.
         """
-        if None is halfwidth:
-            halfwidth = 0.5 * self.shock.mesher.cell_extent[1]
-        cnd = self.field.centroid
-        pick = np.abs(cnd[:, 1] - height) <= halfwidth
-        order = np.argsort(cnd[pick, 0])
-        xs = cnd[pick, 0][order]
-        return HorizontalProfile(
-            xs, self.field.field(name)[pick][order],
-            self.analytic_profile(xs, height, name))
+        ndcrd = self._node_coord()
+        values = self.node_field(name)
+        # Every face of a 2D mesh is an edge of two nodes.
+        ends = self._face_nodes()
+        rise = ndcrd[ends, 1] - height
+        below, above = rise < 0.0, rise > 0.0
+        # A face straddling the line is cut between its two node values.  A
+        # node sitting on the line is a station in its own right, counted
+        # from the node and not once per face meeting there, or the cut
+        # would carry an abscissa twice.  Taking it from the node is also
+        # what reads a cut along the top or the bottom of the domain as the
+        # row it runs on, where no face straddles anything.
+        cut = (below[:, 0] & above[:, 1]) | (above[:, 0] & below[:, 1])
+        first, second = ends[cut, 0], ends[cut, 1]
+        frac = rise[cut, 0] / (rise[cut, 0] - rise[cut, 1])
+        on = np.nonzero(0.0 == ndcrd[:, 1] - height)[0]
+        xs = np.concatenate([_lerp(ndcrd[first, 0], ndcrd[second, 0], frac),
+                             ndcrd[on, 0]])
+        computed = np.concatenate([_lerp(values[first], values[second], frac),
+                                   values[on]])
+        order = np.argsort(xs)
+        xs = xs[order]
+        return HorizontalProfile(xs, computed[order],
+                                 self.analytic_profile(xs, height, name))
+
+    def node_field(self, name):
+        """Carry the named field from the cells onto the mesh nodes.
+
+        Each node takes the inverse-distance weighted mean of the cells
+        meeting there.  A cell field has a value at its centroid and
+        nothing in between, so nothing for a line to interpolate.
+        """
+        nodes, cells, weight, total = self._node_stencil()
+        return np.bincount(nodes, weight * self.field.field(name)[cells],
+                           len(total)) / total
+
+    def _node_stencil(self):
+        """What :meth:`node_field` reuses between frames.
+
+        The pairing and the weights are the mesh's, and only the cell
+        values change while the run marches.  Reading a profile is a
+        per-frame cost, and rebuilding this is the bulk of it.
+        """
+        if self._stencil is None:
+            nodes, cells = self._cell_nodes()
+            ndcrd = self._node_coord()
+            gap = ndcrd[nodes] - self.field.centroid[cells]
+            # A degenerate cell can put a centroid on one of its own nodes,
+            # leaving no distance to weight by.  The floor is far under
+            # anything a healthy mesh measures, so it only bounds that case.
+            floor = 1e-9 * min(self.shock.mesher.cell_extent)
+            weight = 1.0 / np.maximum(np.hypot(gap[:, 0], gap[:, 1]), floor)
+            self._stencil = (nodes, cells, weight,
+                             np.bincount(nodes, weight, len(ndcrd)))
+        return self._stencil
+
+    def profile_cells(self, height):
+        """Which body cells the line at ``height`` passes through, as a
+        boolean mask.
+
+        The reading is interpolated across these cells, so a caller
+        showing where a profile is taken marks them.
+        """
+        nodes, cells = self._cell_nodes()
+        ys = self._node_coord()[nodes, 1]
+        ncell = len(self.field.centroid)
+        below, above = (np.zeros(ncell, dtype='bool'),
+                        np.zeros(ncell, dtype='bool'))
+        # A cell is on the cut when its nodes reach both sides of it.
+        below[cells[ys <= height]] = True
+        above[cells[ys >= height]] = True
+        return below & above
+
+    def _node_coord(self):
+        """The body node coordinates, as ``[nnode, 2]``."""
+        arr = self.shock.mesh.ndcrd
+        return arr.ndarray[arr.nghost:][:, :2]
+
+    def _face_nodes(self):
+        """The two node indices of every body face, as ``[nface, 2]``."""
+        arr = self.shock.mesh.fcnds
+        return arr.ndarray[arr.nghost:][:, 1:3]
+
+    def _cell_nodes(self):
+        """Every body cell's nodes, flattened to a pair of index arrays.
+
+        Cells need not hold the same number of nodes, so the pairing is
+        flat rather than rectangular: ``nodes[it]`` is a node of
+        ``cells[it]``.
+        """
+        arr = self.shock.mesh.clnds
+        clnds = arr.ndarray[arr.nghost:]
+        counts = clnds[:, 0]
+        wide = int(counts.max())
+        held = np.arange(wide, dtype='int64')[None, :] < counts[:, None]
+        return (clnds[:, 1:1 + wide][held],
+                np.repeat(np.arange(len(counts), dtype='int64'), counts))
 
     def analytic_profile(self, xs, height, name='density'):
         """Return the analytic three-zone step at the given abscissae.

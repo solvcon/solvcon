@@ -150,17 +150,85 @@ class AnalyticFieldTC(unittest.TestCase):
                         self.shock.mesher.cell_extent[0])
         assert_almost_equal(wall.analytic, self.shock.shock_path()[1][0])
 
+    def test_the_node_field_carries_the_cells_without_widening_them(self):
+        # A cell field has a value at its centroid and nothing in between,
+        # so a reading taken anywhere else has to come off the nodes.  The
+        # mean of the cells meeting at a node lands between them, and a
+        # node standing inside one zone still reads that zone exactly, so
+        # the range the cells cover is the range the nodes do.
+        nodes = self.analysis.node_field('density')
+        cells = self.analysis.field.field('density')
+        self.assertEqual(self.shock.mesh.nnode, len(nodes))
+        # The nodes between two zones are what the cells do not carry.
+        self.assertGreater(len(set(nodes.tolist())),
+                           len(set(cells.tolist())))
+
     def test_profile_matches_the_analytic_step(self):
-        # A line through a row of centroids samples that row alone, and the
-        # seeded row is the analytic step it is drawn against.
+        # The seeded field is the analytic answer cell by cell, so a cut
+        # reads that answer back everywhere but at the two steps, where the
+        # nodes between two zones carry a value between them.  A quad row
+        # is cut once per column boundary.
         height = (self.shock.mesher.y1 - self.shock.mesher.y0) * 8.5 / self.NY
         profile = self.analysis.profile(height)
-        self.assertEqual(self.NX, len(profile.x))
+        self.assertEqual(self.NX + 1, len(profile.x))
         self.assertTrue((np.diff(profile.x) > 0.0).all())
-        assert_almost_equal(profile.computed, profile.analytic, decimal=12)
+        zones = self.analysis.zone_field('density')
+        gap = np.abs(profile.computed - profile.analytic)
+        self.assertLess((gap > 1e-12).sum(), self.NX // 4)
+        # Interpolating between zones stays between them: no station reads
+        # past the states the step runs from and to.
+        self.assertGreaterEqual(profile.computed.min(), zones.min() - 1e-12)
+        self.assertLessEqual(profile.computed.max(), zones.max() + 1e-12)
         # Density only ever rises downstream: free stream, zone 2, zone 3.
         self.assertTrue((np.diff(profile.analytic) >= 0.0).all())
         self.assertEqual(3, len(set(profile.analytic.tolist())))
+
+    def test_a_cut_along_a_cell_seam_reads_one_line(self):
+        # A monotone field read along one line rises by its own span and
+        # no more.  The default cut is the seam between two rows whenever
+        # the row count is even.
+        height = 0.5 * (self.shock.mesher.y0 + self.shock.mesher.y1)
+        profile = self.analysis.profile(height)
+        span = profile.computed.max() - profile.computed.min()
+        wander = np.abs(np.diff(profile.computed)).sum()
+        assert_almost_equal(span, wander, decimal=12)
+
+    def test_a_cut_is_placed_by_a_fraction_of_the_domain(self):
+        # The Gauge box knows no mesh, so it carries a fraction and the
+        # analysis turns it into the coordinate everything else reads.
+        # Handing the fraction straight through only looked right because
+        # the default domain happens to run from y = 0 to y = 1.
+        mesher = self.shock.mesher
+        self.assertEqual(mesher.y0, self.analysis.cut_height(0.0))
+        self.assertEqual(mesher.y1, self.analysis.cut_height(1.0))
+        _, tall = build(ur=(4.0, 2.0), nx=8, ny=4)
+        self.assertEqual(1.0, tall.cut_height(0.5))
+        self.assertEqual(2.0, tall.cut_height(1.0))
+
+    def test_a_cut_along_an_edge_of_the_domain_reads_its_row(self):
+        # The Gauge box ranges the cut over the whole domain, ends
+        # included, and there the line runs along a row of nodes with no
+        # face straddling it.  Read from the straddling faces alone, the
+        # top came back empty while the domain still marked the row.
+        mesher = self.shock.mesher
+        for height in (mesher.y0, mesher.y1):
+            profile = self.analysis.profile(height)
+            self.assertEqual(self.NX + 1, len(profile.x))
+            self.assertTrue((np.diff(profile.x) > 0.0).all())
+            self.assertEqual(self.NX,
+                             self.analysis.profile_cells(height).sum())
+
+    def test_the_cut_marks_the_cells_it_passes_through(self):
+        # The mark on the domain is what says where a reading came from, so
+        # it is the cells the line crosses.  A cut along a seam is on the
+        # cells of both rows; one through the middle of a row is on that
+        # row alone.
+        mesher = self.shock.mesher
+        seam = 0.5 * (mesher.y0 + mesher.y1)
+        row = seam + 0.5 * mesher.cell_extent[1]
+        self.assertEqual(2 * self.NX,
+                         self.analysis.profile_cells(seam).sum())
+        self.assertEqual(self.NX, self.analysis.profile_cells(row).sum())
 
 
 class UnstructuredFlavorTC(unittest.TestCase):
@@ -176,6 +244,30 @@ class UnstructuredFlavorTC(unittest.TestCase):
         seed_analytic(analysis)
         fit = analysis.fit_incident_angle()
         self.assertLess(abs(fit.degree - fit.analytic), 1.5)
+
+    def test_a_cut_on_a_node_row_reads_each_abscissa_once(self):
+        # Triangles give a node on the line two faces running up from it,
+        # so a station taken per face carries the same abscissa twice and
+        # leaves a caller differencing the abscissae dividing by zero.  The
+        # default cut is on a node row whenever the row count is even.
+        shock, analysis = build(cell_type='triangle', nx=32, ny=8)
+        seed_analytic(analysis)
+        height = 0.5 * (shock.mesher.y0 + shock.mesher.y1)
+        profile = analysis.profile(height)
+        self.assertEqual(len(profile.x), len(set(profile.x.tolist())))
+        self.assertTrue((np.diff(profile.x) > 0.0).all())
+
+    def test_a_cut_reads_one_line_where_no_two_cells_share_a_height(self):
+        # Nothing here is in rows.  Read along the line the field stays
+        # within half again of its own span, the rest being the field's
+        # own, which an unstructured mesh does not resolve as evenly.
+        shock, analysis = build(cell_type='unstructured', nx=32, ny=8)
+        seed_analytic(analysis)
+        height = 0.5 * (shock.mesher.y0 + shock.mesher.y1)
+        profile = analysis.profile(height)
+        span = profile.computed.max() - profile.computed.min()
+        wander = np.abs(np.diff(profile.computed)).sum()
+        self.assertLess(wander, 1.5 * span)
 
 
 class UndevelopedFieldTC(unittest.TestCase):

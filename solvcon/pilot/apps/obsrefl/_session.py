@@ -162,8 +162,8 @@ class ReflectionSession(object):
         """See :meth:`Reflection.reflection_point`."""
         return self.analysis.reflection_point(nbin)
 
-    def profile(self, height, name='density', halfwidth=None):
+    def profile(self, height, name='density'):
         """See :meth:`Reflection.profile`."""
-        return self.analysis.profile(height, name, halfwidth)
+        return self.analysis.profile(height, name)
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
