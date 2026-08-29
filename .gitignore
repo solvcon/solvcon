@@ -12,6 +12,7 @@ profiling/results/
 thirdparty/install/
 thirdparty/archive/
 tmp/
+graphify-out/
 setup.mk
 CMakeUserPresets.json
 *.egg-info/

@@ -742,6 +742,137 @@ private:
 using PointPadFp32 = PointPad<float>;
 using PointPadFp64 = PointPad<double>;
 
+/**
+ * A polygon's rings (one outer boundary plus zero or more holes), stored as
+ * one flat PointPad-backed vertex buffer with a per-ring [offset, size)
+ * index. Avoids the per-ring heap allocation of a vector of vectors. Every
+ * ring in one RingList shares the same ndim, decided at construction.
+ *
+ * @ingroup group_geometry
+ */
+template <typename T>
+class RingList
+{
+
+public:
+
+    using point_type = Point3d<T>;
+    using point_pad_type = PointPad<T>;
+
+    explicit RingList(uint8_t ndim)
+        : m_points(point_pad_type::construct(ndim))
+    {
+    }
+
+    RingList() = delete;
+    RingList(RingList const &) = delete;
+    RingList(RingList &&) = default;
+    RingList & operator=(RingList const &) = delete;
+    RingList & operator=(RingList &&) = default;
+    ~RingList() = default;
+
+    /// Start a new ring; must be followed by add_vertex() calls.
+    void begin_ring()
+    {
+        m_ring_offset.push_back(m_points->size());
+        m_ring_size.push_back(0);
+    }
+
+    void add_vertex(T x, T y)
+    {
+        check_ring_open("add_vertex");
+        m_points->append(x, y);
+        ++m_ring_size.back();
+    }
+
+    void add_vertex(T x, T y, T z)
+    {
+        check_ring_open("add_vertex");
+        m_points->append(x, y, z);
+        ++m_ring_size.back();
+    }
+
+    uint8_t ndim() const { return m_points->ndim(); }
+
+    size_t nring() const { return m_ring_offset.size(); }
+
+    size_t ring_size(size_t r) const
+    {
+        if (r >= m_ring_size.size())
+        {
+            throw std::out_of_range(
+                std::format("RingList::ring_size: ring {} >= nring {}", r, m_ring_size.size()));
+        }
+        return m_ring_size[r];
+    }
+
+    point_type vertex(size_t r, size_t i) const
+    {
+        if (r >= m_ring_offset.size())
+        {
+            throw std::out_of_range(
+                std::format("RingList::vertex: ring {} >= nring {}", r, m_ring_offset.size()));
+        }
+        if (i >= m_ring_size[r])
+        {
+            throw std::out_of_range(
+                std::format("RingList::vertex: index {} >= ring_size {}", i, m_ring_size[r]));
+        }
+        return m_points->get(m_ring_offset[r] + i);
+    }
+
+    /// Result of signed_area(): the area itself, and a scale to compare it
+    /// against when judging whether it is degenerate (near zero relative
+    /// to the ring's own coordinate magnitude, not to an absolute bound).
+    struct SignedArea
+    {
+        T value; ///< Shoelace signed area: positive CCW, negative CW.
+        T scale; ///< Sum of |shoelace term| magnitudes.
+    }; /* end struct SignedArea */
+
+    /**
+     * Signed area of ring `r` via the shoelace formula, using only x and y
+     * (matches PolygonPad::compute_signed_area()). Positive means
+     * counter-clockwise, negative clockwise; meaningful for a 3D ring only
+     * when it is planar and aligned with the XY plane.
+     */
+    SignedArea signed_area(size_t r) const
+    {
+        size_t const n = ring_size(r);
+        T area = 0;
+        T scale = 0;
+        point_type prev = vertex(r, 0);
+        for (size_t i = 1; i <= n; ++i)
+        {
+            point_type const next = vertex(r, i % n);
+            T const term = prev.x() * next.y() - next.x() * prev.y();
+            area += term;
+            scale += std::abs(term);
+            prev = next;
+        }
+        return {area / 2, scale / 2};
+    }
+
+private:
+
+    void check_ring_open(char const * caller) const
+    {
+        if (m_ring_offset.empty())
+        {
+            throw std::out_of_range(
+                std::format("RingList::{}: no ring started; call begin_ring() first", caller));
+        }
+    }
+
+    std::shared_ptr<point_pad_type> m_points;
+    SimpleCollector<size_t> m_ring_offset;
+    SimpleCollector<size_t> m_ring_size;
+
+}; /* end class RingList */
+
+using RingListFp32 = RingList<float>;
+using RingListFp64 = RingList<double>;
+
 namespace detail
 {
 
