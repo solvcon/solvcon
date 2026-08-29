@@ -151,7 +151,6 @@ jobs:
           Copy-Item -Path ".\build\ci-win-rel\pilot.exe" -Destination $destination
           windeployqt --release "$destination\pilot.exe"
           Copy-Item -Path ".\solvcon" -Destination $destination -Recurse
-          Copy-Item -Path ".\_solvcon*.pyd" -Destination $destination
 
           # mkl_rt dispatches at run time to a threading layer, the CPU kernels
           # for the host ISA, and the vector-math kernels; that closure plus the
@@ -229,7 +228,7 @@ jobs:
             $system32 = Join-Path $env:SystemRoot 'System32'
             $env:PATH = "$portable_root;$system32"
             $smoke = @(
-              'import _solvcon as m'
+              'import solvcon as m'
               'a = m.SimpleArrayFloat64((17, 18)); a.fill(1.0)'
               'b = m.SimpleArrayFloat64((18, 19)); b.fill(1.0)'
               'c = a.matmul(b)'
