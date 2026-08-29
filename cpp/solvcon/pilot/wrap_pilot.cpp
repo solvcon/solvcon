@@ -1210,6 +1210,12 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRManager
                     return subwin;
                 },
                 py::arg("widget"))
+            .def(
+                "addSubWindowGrip",
+                &wrapped_type::addSubWindowGrip,
+                py::arg("subwin"),
+                "Put a resize grip over a sub-window's lower-right corner. A "
+                "sub-window that already carries one is left alone.")
             .def_property(
                 "windowTitle",
                 [](wrapped_type & self)
