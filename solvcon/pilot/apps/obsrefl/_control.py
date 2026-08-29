@@ -11,9 +11,11 @@ the controller plants on the panel, a viewer close arrives through the
 viewer's ``closed``, and everything the widgets show is pushed back into
 them from this side.  No widget ever reaches into a sibling.
 
-The movie a run records is driven from here as well.  It rides on the
-frames the viewer draws, so it belongs beside the march rather than in the
-run session, which stays free of the GUI it is watched from.
+The gauge that marks the profile cut on the domain and the movie a run
+records are both driven from here as well.  The movie rides on the frames
+the viewer draws and the gauge on its own controls, and both belong beside
+the march rather than in the run session, which stays free of the GUI it
+is watched from.
 """
 
 from PySide6.QtCore import QTimer
@@ -68,6 +70,7 @@ class RunController(object):
         panel.remesh_requested = self.remesh
         panel.field_changed = self._on_field
         panel.placement_changed = self._on_bar_placement
+        panel.gauge_changed = self._on_gauge_changed
         panel.record_toggled = self._on_record
         viewer.closed = self._on_viewer_closed
 
@@ -132,6 +135,8 @@ class RunController(object):
         self.session = ReflectionSession(**params)
         self._apply_limits()
         self._painter = FieldPainter(self.session.shock.mesh)
+        # A new painter carries no gauge; give it the standing one.
+        self._set_gauge()
         if record:
             self._start_movie()
         self._open_viewer()
@@ -158,6 +163,10 @@ class RunController(object):
             self._open_viewer()
         else:
             self._viewer.close()
+
+    def _on_gauge_changed(self):
+        self._set_gauge()
+        self._draw_frame()
 
     def _on_viewer_closed(self):
         # Reached from the sub-window's close event; stop the run before Qt
@@ -247,6 +256,28 @@ class RunController(object):
             if self.movie is not None:
                 self._capture_frame()
         self._panel.set_status(session, vmin, vmax)
+
+    def _set_gauge(self):
+        """Put the marks of the profile cut into the painter, or take them
+        out.
+
+        The outline says which cells the reading was interpolated
+        across; the bar is the line it was read along.
+        """
+        if self._painter is None:
+            return
+        if self.session is None:
+            self._painter.set_gauge(None, None)
+            return
+        height = self._cut_height()
+        cells = (self.session.analysis.profile_cells(height)
+                 if self._panel.marking_cells() else None)
+        self._painter.set_gauge(
+            cells, height if self._panel.marking_line() else None)
+
+    def _cut_height(self):
+        """Where the standing run's cut runs, as a y coordinate."""
+        return self.session.analysis.cut_height(self._panel.cut_fraction())
 
     def _start_movie(self):
         """Open a recorder over the running session, if none is open."""
