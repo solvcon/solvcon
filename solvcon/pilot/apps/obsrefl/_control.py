@@ -11,11 +11,11 @@ the controller plants on the panel, a viewer close arrives through the
 viewer's ``closed``, and everything the widgets show is pushed back into
 them from this side.  No widget ever reaches into a sibling.
 
-The gauge that marks the profile cut on the domain and the movie a run
-records are both driven from here as well.  The movie rides on the frames
-the viewer draws and the gauge on its own controls, and both belong beside
-the march rather than in the run session, which stays free of the GUI it
-is watched from.
+The analysis plot window, the gauge that marks the profile cut on the
+domain, and the movie a run records are all driven from here as well.  The
+plots and the movie ride on the frames the viewer draws and the gauge on
+its own controls, and all three belong beside the march rather than in the
+run session, which stays free of the GUI it is watched from.
 """
 
 from PySide6.QtCore import QTimer
@@ -38,6 +38,9 @@ class RunController(object):
     after each, so however fast the solver is, the widgets update at the
     frame rate and no march outlives its viewer.
 
+    The plot window is optional, so a run can be driven with only a viewer;
+    every call into it is guarded.
+
     :ivar session: The running :class:`~._session.ReflectionSession`, or
         None until the first :meth:`preview` or :meth:`start` builds one.
     :ivar movie: The open :class:`~solvcon.pilot.visual.MovieRecorder`, or
@@ -49,9 +52,10 @@ class RunController(object):
     #: Qt timer interval in milliseconds.
     INTERVAL_MS = 50
 
-    def __init__(self, panel, viewer):
+    def __init__(self, panel, viewer, lineplots=None):
         self._panel = panel
         self._viewer = viewer
+        self._lineplots = lineplots
         self.session = None
         self.movie = None
         self.reported = None
@@ -72,7 +76,10 @@ class RunController(object):
         panel.placement_changed = self._on_bar_placement
         panel.gauge_changed = self._on_gauge_changed
         panel.record_toggled = self._on_record
+        panel.lineplots_toggled = self._on_lineplots
         viewer.closed = self._on_viewer_closed
+        if lineplots is not None:
+            lineplots.closed = self._on_lineplots_closed
 
     def preview(self):
         """Open the viewer on the initial state of the configured run.
@@ -164,9 +171,32 @@ class RunController(object):
         else:
             self._viewer.close()
 
+    def _on_lineplots(self, open_):
+        if self._lineplots is None:
+            return
+        if open_:
+            self._lineplots.open()
+            self._panel.set_lineplots_open(True)
+            self._draw_lineplots()
+        else:
+            self._lineplots.close()
+
+    def _on_lineplots_closed(self):
+        self._panel.set_lineplots_open(False)
+
     def _on_gauge_changed(self):
         self._set_gauge()
         self._draw_frame()
+
+    def _draw_lineplots(self):
+        """Read the cut out into the plot window, if it is open.
+
+        The plot follows the cut, not the gauge marks over it.
+        """
+        if self._lineplots is None:
+            return
+        height = None if self.session is None else self._cut_height()
+        self._lineplots.show_run(self.session, self._panel.field(), height)
 
     def _on_viewer_closed(self):
         # Reached from the sub-window's close event; stop the run before Qt
@@ -241,6 +271,7 @@ class RunController(object):
         session = self.session
         if None is session:
             self._panel.set_status(None, None, None)
+            self._draw_lineplots()
             return
         name = self._panel.field()
         field = session.field.field(name)
@@ -256,6 +287,7 @@ class RunController(object):
             if self.movie is not None:
                 self._capture_frame()
         self._panel.set_status(session, vmin, vmax)
+        self._draw_lineplots()
 
     def _set_gauge(self):
         """Put the marks of the profile cut into the painter, or take them

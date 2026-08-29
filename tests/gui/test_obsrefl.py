@@ -15,7 +15,7 @@ try:
     from solvcon.pilot.base import _gui
     from solvcon.pilot.apps.obsrefl import ReflectionSession, _app
     from solvcon.pilot.apps.obsrefl import _field_render
-    from PySide6.QtWidgets import QApplication
+    from PySide6.QtWidgets import QApplication, QSizeGrip
     from PIL import Image
 except ImportError:
     pilot = None
@@ -524,6 +524,175 @@ class SolutionGaugeTC(_AppFixture, unittest.TestCase):
         remeshed = feature._control._painter.verts.ndarray
         self.assertEqual(list(box[0]), list(remeshed.min(axis=0)))
         self.assertEqual(list(box[1]), list(remeshed.max(axis=0)))
+        QApplication.processEvents()
+
+
+@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
+                 "pilot windows need a real window surface")
+class SolutionLinePlotsTC(_AppFixture, unittest.TestCase):
+    """The analysis plot sub-window and the lines it draws."""
+
+    def setUp(self):
+        self.mgr = pilot.RManager.instance.setUp()
+
+    def _feature(self, nx=10, ny=4):
+        feature = super()._feature()
+        self._coarsen(feature, nx, ny)
+        return feature
+
+    @staticmethod
+    def _series_xy(series):
+        return ([series.x(it) for it in range(series.size)],
+                [series.y(it) for it in range(series.size)])
+
+    def test_the_button_opens_and_closes_the_lineplot_window(self):
+        feature = self._feature()
+        self.assertFalse(feature._lineplots.is_open)
+        feature._panel._run._lineplots_btn.click()
+        self.assertTrue(feature._lineplots.is_open)
+        # The window has to actually hold the plots: a sub-window that
+        # opened empty would look the same from every other check here.
+        self.assertIs(feature._lineplots.lineplots,
+                      feature._lineplots._subwin.widget())
+        # A close from any source has to reach the button, or the panel
+        # would offer to close a window that is already gone.
+        feature._lineplots.close()
+        self.assertFalse(feature._lineplots.is_open)
+        self.assertFalse(feature._panel._run._lineplots_btn.isChecked())
+        QApplication.processEvents()
+
+    def test_the_lineplot_window_carries_a_size_grip(self):
+        # What the grip then does is the manager's, and RManagerSubWindow
+        # GripTC pins it; the window only has to ask for one.
+        feature = self._feature()
+        feature._panel._run._lineplots_btn.click()
+        subwin = feature._lineplots._subwin
+        self.assertEqual(1, len(subwin.findChildren(QSizeGrip)))
+        QApplication.processEvents()
+
+    def test_the_reopened_window_holds_the_same_lineplots(self):
+        feature = self._feature()
+        feature._panel._run._lineplots_btn.click()
+        lineplots = feature._lineplots.lineplots
+        feature._lineplots.close()
+        QApplication.processEvents()
+        feature._panel._run._lineplots_btn.click()
+        # The plots outlive the window they were shown in, so reopening
+        # installs the same widget rather than building another.
+        self.assertIs(lineplots, feature._lineplots.lineplots)
+        QApplication.processEvents()
+
+    def test_the_profile_tracks_the_marching_session(self):
+        feature = self._feature()
+        feature._panel._run._lineplots_btn.click()
+        feature._control.start()
+        feature._control._timer.stop()
+        before = self._series_xy(feature._lineplots.lineplots._computed)[1]
+        feature._control._on_step()
+        feature._control._on_step()
+        # The line is read off the session every frame, so a march that
+        # moves the field has to move the curve with it.
+        after = self._series_xy(feature._lineplots.lineplots._computed)[1]
+        self.assertNotEqual(before, after)
+        QApplication.processEvents()
+
+    def test_the_profile_draws_the_field_against_the_analytic_step(self):
+        feature = self._feature()
+        feature._panel._run._lineplots_btn.click()
+        feature._control.start()
+        feature._control._timer.stop()
+        lineplots = feature._lineplots.lineplots
+        session = feature._control.session
+        cut = session.profile(
+            session.analysis.cut_height(feature._panel.cut_fraction()),
+            'density')
+        computed_x, computed_y = self._series_xy(lineplots._computed)
+        analytic_x, analytic_y = self._series_xy(lineplots._analytic)
+        self.assertEqual(list(cut.x), computed_x)
+        self.assertEqual(list(cut.computed), computed_y)
+        self.assertEqual(list(cut.analytic), analytic_y)
+        # Both curves are sampled at the same abscissae, so the gap between
+        # them at a station is the error there and not a sampling artifact.
+        self.assertEqual(computed_x, analytic_x)
+        QApplication.processEvents()
+
+    def test_moving_the_cut_redraws_the_profile(self):
+        feature = self._feature()
+        feature._panel._run._lineplots_btn.click()
+        feature._control.start()
+        feature._control._timer.stop()
+        lineplots = feature._lineplots.lineplots
+        before = self._series_xy(lineplots._analytic)[1]
+        # The shocks lean, so a cut at another height crosses them at other
+        # abscissae and the step has to move with it.
+        feature._panel._gauge._height.setValue(0.8)
+        self.assertNotEqual(before, self._series_xy(lineplots._analytic)[1])
+        QApplication.processEvents()
+
+    def test_the_lineplot_draws_a_cut_nothing_marks(self):
+        feature = self._feature()
+        feature._panel._run._lineplots_btn.click()
+        feature._control.start()
+        feature._control._timer.stop()
+        lineplots = feature._lineplots.lineplots
+        gauge = feature._panel._gauge
+        # The marks start off.  The window is opened deliberately, so it
+        # draws the cut it was opened for rather than waiting on a box in
+        # another fold of the panel.
+        self.assertFalse(gauge.marking_cells())
+        self.assertFalse(gauge.marking_line())
+        self.assertGreater(lineplots._computed.size, 0)
+        self.assertIsNotNone(lineplots._profile.limits())
+        drawn = self._series_xy(lineplots._computed)
+        # Marking the cut on the domain says where the curve was read; it
+        # does not change what was read.
+        gauge._cells.setChecked(True)
+        gauge._line.setChecked(True)
+        self.assertEqual(drawn, self._series_xy(lineplots._computed))
+        QApplication.processEvents()
+
+    def test_a_closed_lineplot_window_is_not_drawn_into(self):
+        feature = self._feature()
+        feature._panel._run._lineplots_btn.click()
+        feature._control.start()
+        feature._control._timer.stop()
+        held = self._series_xy(feature._lineplots.lineplots._computed)
+        feature._lineplots.close()
+        feature._control._on_step()
+        # The plots outlive their window, so what they hold is left alone
+        # rather than followed into a widget Qt has freed.
+        self.assertEqual(
+            held, self._series_xy(feature._lineplots.lineplots._computed))
+        QApplication.processEvents()
+
+    def test_reopening_the_window_draws_the_standing_run_back(self):
+        feature = self._feature()
+        feature._control.start()
+        feature._control._timer.stop()
+        feature._control._on_step()
+        # The window opens on a run already under way, so it has to be
+        # filled from the session rather than wait for the next frame.
+        feature._panel._run._lineplots_btn.click()
+        lineplots = feature._lineplots.lineplots
+        session = feature._control.session
+        cut = session.profile(
+            session.analysis.cut_height(feature._panel.cut_fraction()),
+            'density')
+        self.assertEqual(list(cut.computed),
+                         self._series_xy(lineplots._computed)[1])
+        QApplication.processEvents()
+
+    def test_resetting_the_run_blanks_the_lineplots(self):
+        feature = self._feature()
+        feature._panel._run._lineplots_btn.click()
+        feature._control.start()
+        feature._control._timer.stop()
+        feature._control._on_step()
+        feature._control.reset()
+        # A dropped run leaves no run to plot; a stale curve would read as
+        # if one were still standing.
+        self.assertEqual(0, feature._lineplots.lineplots._computed.size)
+        self.assertEqual(0, feature._lineplots.lineplots._analytic.size)
         QApplication.processEvents()
 
 
