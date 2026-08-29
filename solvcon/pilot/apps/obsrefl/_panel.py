@@ -258,7 +258,8 @@ class RunBox(FoldBox):
                                  self.STEP_CAP_MAX)
         self._steps = _count(5, 1, 1000)
 
-        # Opens and closes the one domain viewer the run buttons draw into.
+        # Opens and closes the one domain viewer the run buttons draw
+        # into.
         self._viewer_btn = QPushButton("Open viewer")
         self._viewer_btn.setCheckable(True)
         self._viewer_btn.toggled.connect(self._on_viewer_toggled)
@@ -507,6 +508,57 @@ class FieldBox(FoldBox):
             self.placement_changed(name)
 
 
+class GaugeBox(FoldBox):
+    """Whether the profile cut is marked on the domain, and where it runs.
+
+    The cut is one horizontal line across the domain, marked in two layers
+    that switch apart: the cells the reading is interpolated across, and
+    the line itself.  Both start off; each hides some of the field it
+    lies over.
+    """
+
+    #: Where the cut runs, as a fraction of the domain height.  The default
+    #: crosses both the incident and the reflected shock, which is what
+    #: makes the three zones show up as three steps.
+    HEIGHT = 0.5
+
+    def __init__(self, parent=None):
+        super().__init__("Gauge", parent)
+        # Owner-supplied callback fired when either mark is switched or the
+        # cut is moved.
+        self.gauge_changed = None
+        self._cells = QCheckBox()
+        self._cells.toggled.connect(self._on_gauge_changed)
+        self._line = QCheckBox()
+        self._line.toggled.connect(self._on_gauge_changed)
+        self._height = QDoubleSpinBox()
+        self._height.setDecimals(3)
+        self._height.setRange(0.0, 1.0)
+        self._height.setSingleStep(0.05)
+        self._height.setValue(self.HEIGHT)
+        self._height.valueChanged.connect(self._on_gauge_changed)
+
+        form = QFormLayout()
+        form.addRow("mark cells", self._cells)
+        form.addRow("mark line", self._line)
+        form.addRow("cut height", self._height)
+        self.set_content_layout(form)
+
+    def marking_cells(self):
+        return self._cells.isChecked()
+
+    def marking_line(self):
+        return self._line.isChecked()
+
+    def fraction(self):
+        """Where the cut runs, as a fraction of the domain height."""
+        return self._height.value()
+
+    def _on_gauge_changed(self, _value):
+        if self.gauge_changed is not None:
+            self.gauge_changed()
+
+
 class ZoneBox(FoldBox):
     """The per-zone readout that judges the run.
 
@@ -572,9 +624,10 @@ class SolutionPanel(QScrollArea):
         self._run = RunBox()
         self._movie = MovieBox()
         self._field = FieldBox()
+        self._gauge = GaugeBox()
         self._zones = ZoneBox()
         self._boxes = (self._freestream, self._numerics, self._run,
-                       self._movie, self._field, self._zones)
+                       self._movie, self._field, self._gauge, self._zones)
 
         inner = QWidget()
         layout = QVBoxLayout(inner)
@@ -654,6 +707,14 @@ class SolutionPanel(QScrollArea):
         self._field.field_changed = callback
 
     @property
+    def gauge_changed(self):
+        return self._gauge.gauge_changed
+
+    @gauge_changed.setter
+    def gauge_changed(self, callback):
+        self._gauge.gauge_changed = callback
+
+    @property
     def placement_changed(self):
         return self._field.placement_changed
 
@@ -678,6 +739,15 @@ class SolutionPanel(QScrollArea):
 
     def bar_placement(self):
         return self._field.placement()
+
+    def marking_cells(self):
+        return self._gauge.marking_cells()
+
+    def marking_line(self):
+        return self._gauge.marking_line()
+
+    def cut_fraction(self):
+        return self._gauge.fraction()
 
     def max_steps(self):
         return self._run.max_steps()

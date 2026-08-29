@@ -6,12 +6,15 @@ import os
 import tempfile
 import unittest
 
+import numpy as np
+
 import solvcon
 
 try:
     from solvcon import pilot
     from solvcon.pilot.base import _gui
     from solvcon.pilot.apps.obsrefl import ReflectionSession, _app
+    from solvcon.pilot.apps.obsrefl import _field_render
     from PySide6.QtWidgets import QApplication
     from PIL import Image
 except ImportError:
@@ -394,6 +397,133 @@ class ObliqueShockAppTC(_AppFixture, unittest.TestCase):
         self.assertIsNotNone(bar)
         self.assertIs(feature._viewer._subwin.widget(), bar.parent())
         self.assertIsNotNone(bar.lo)
+        QApplication.processEvents()
+
+
+@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
+                 "pilot windows need a real window surface")
+class SolutionGaugeTC(_AppFixture, unittest.TestCase):
+    """The gauge that marks the profile cut on the domain."""
+
+    def setUp(self):
+        self.mgr = pilot.RManager.instance.setUp()
+
+    def _feature(self, nx=10, ny=4):
+        feature = super()._feature()
+        self._coarsen(feature, nx, ny)
+        return feature
+
+    @staticmethod
+    def _gauge_colors(painter, session):
+        """The gauge's share of one frame of vertex colors."""
+        field = session.field.field('density')
+        cut = len(_field_render.field_colors(field, painter._counts,
+                                             0.0, 1.0))
+        return painter.colors(field, 0.0, 1.0).ndarray[cut:]
+
+    @staticmethod
+    def _count(colors, color):
+        """How many vertices carry one color.
+
+        The colors are held as float32, so they are matched against the
+        constants cast the same way rather than against the exact
+        literals, which do not survive the narrowing.
+        """
+        return int((colors == np.array(color, dtype='float32')
+                    ).all(axis=1).sum())
+
+    def test_each_mark_switches_on_its_own(self):
+        feature = self._feature()
+        feature._control.start()
+        feature._control._timer.stop()
+        painter = feature._control._painter
+        session = feature._control.session
+        gauge = feature._panel._gauge
+
+        def drawn():
+            colors = self._gauge_colors(painter, session)
+            return (self._count(colors,
+                                _field_render.FieldPainter.OUTLINE_COLOR),
+                    self._count(colors,
+                                _field_render.FieldPainter.BAR_COLOR))
+
+        self.assertEqual((0, 0), drawn())
+        # Each layer hides some of the field it lies over, so one switches
+        # without dragging the other along.
+        gauge._cells.setChecked(True)
+        rings, bar = drawn()
+        self.assertGreater(rings, 0)
+        self.assertEqual(0, bar)
+        gauge._line.setChecked(True)
+        rings, bar = drawn()
+        self.assertGreater(bar, 0)
+        gauge._cells.setChecked(False)
+        self.assertEqual((0, bar), drawn())
+        # The cut carries its marks with it when the control moves it,
+        # onto whichever cells it crosses there.
+        gauge._cells.setChecked(True)
+        held = painter.verts.ndarray.copy()
+        gauge._height.setValue(gauge._height.value() + 0.2)
+        self.assertGreater(drawn()[0], 0)
+        self.assertEqual(bar, drawn()[1])
+        self.assertFalse(np.array_equal(held, painter.verts.ndarray))
+        QApplication.processEvents()
+
+    def test_the_gauge_outlines_the_cells_and_bars_the_cut(self):
+        feature = self._feature()
+        feature._control.start()
+        feature._control._timer.stop()
+        feature._panel._gauge._cells.setChecked(True)
+        feature._panel._gauge._line.setChecked(True)
+        painter = feature._control._painter
+        verts = painter.verts.ndarray
+        sess = feature._control.session
+        height = sess.analysis.cut_height(feature._panel.cut_fraction())
+        marked = sess.analysis.profile_cells(height)
+        self.assertGreater(marked.sum(), 0)
+        # The gauge is lifted off the field plane, which is what lets it
+        # draw over the field instead of z-fighting into it.
+        gauge = verts[verts[:, 2] > 0.0]
+        self.assertGreater(len(gauge), 0)
+        self.assertEqual(0.0, verts[:len(verts) - len(gauge), 2].max())
+        # It carries both parts: rings around the marked cells, in the
+        # outline color, and one bar along the cut, in the bar color.
+        colors = self._gauge_colors(painter, sess)
+        outline = self._count(colors,
+                              _field_render.FieldPainter.OUTLINE_COLOR)
+        bar = self._count(colors, _field_render.FieldPainter.BAR_COLOR)
+        self.assertEqual(6, bar)
+        self.assertGreaterEqual(outline, 6 * 3 * marked.sum())
+        QApplication.processEvents()
+
+    def test_the_gauge_holds_the_framing_box_still(self):
+        feature = self._feature()
+        feature._control.start()
+        feature._control._timer.stop()
+        painter = feature._control._painter
+        plain = painter.verts.ndarray
+        box = (plain.min(axis=0), plain.max(axis=0))
+        feature._panel._gauge._cells.setChecked(True)
+        feature._panel._gauge._line.setChecked(True)
+        gauged = painter.verts.ndarray
+        # Installing a field refits the camera when its box changes, so the
+        # gauge is pinned inside a box that does not move with it.
+        for was, now in zip(box, (gauged.min(axis=0), gauged.max(axis=0))):
+            self.assertEqual(list(was), list(now))
+        feature._panel._gauge._height.setValue(0.8)
+        moved = feature._control._painter.verts.ndarray
+        self.assertEqual(list(box[0]), list(moved.min(axis=0)))
+        self.assertEqual(list(box[1]), list(moved.max(axis=0)))
+        # The gauge is sized off the cell, so a run rebuilt at another
+        # resolution changes its width; the box it is pinned in may not
+        # follow, or the remesh would refit the camera.
+        feature._panel._numerics._nx.setValue(18)
+        feature._panel._numerics._ny.setValue(7)
+        feature._control.start()
+        feature._control._timer.stop()
+        remeshed = feature._control._painter.verts.ndarray
+        self.assertEqual(list(box[0]), list(remeshed.min(axis=0)))
+        self.assertEqual(list(box[1]), list(remeshed.max(axis=0)))
         QApplication.processEvents()
 
 
