@@ -19,7 +19,7 @@ from PySide6.QtWidgets import QDockWidget
 from ...base import _gui_common
 from ._control import RunController
 from ._panel import SolutionPanel
-from ._viewer import DomainViewer
+from ._viewer import DomainViewer, LinePlotViewer
 
 __all__ = [  # noqa: F822
     'ObliqueShockApp',
@@ -29,7 +29,8 @@ __all__ = [  # noqa: F822
 class ObliqueShockApp(_gui_common.PilotFeature):
     """Euler solver panel, toggled from the View "Panels" submenu.
 
-    The panel owns one domain viewer sub-window and one solver run; the
+    The panel owns two sub-windows and one solver run: the domain viewer
+    the field is colored into, and the analysis plots that judge it.  The
     controller between them starts, pauses, steps, and ends the march.
     """
 
@@ -43,6 +44,7 @@ class ObliqueShockApp(_gui_common.PilotFeature):
         self._control = None
         self._viewer = DomainViewer(self._mgr)
         self._viewer.mesh_updated = self._notify_viewer_updated
+        self._lineplots = LinePlotViewer(self._mgr)
 
     def populate_menu(self):
         self._action = self.add_action(
@@ -61,7 +63,8 @@ class ObliqueShockApp(_gui_common.PilotFeature):
         if self._panel is not None:
             return
         self._panel = SolutionPanel()
-        self._control = RunController(self._panel, self._viewer)
+        self._control = RunController(self._panel, self._viewer,
+                                      self._lineplots)
         self._control.reported = self._report
         self._dock = QDockWidget("euler solver")
         self._dock.setWidget(self._panel)

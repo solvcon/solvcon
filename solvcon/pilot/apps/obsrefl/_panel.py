@@ -251,6 +251,7 @@ class RunBox(FoldBox):
         self.step_requested = None
         self.stop_requested = None
         self.reset_requested = None
+        self.lineplots_toggled = None
         self._paused = False
         self._live = False
 
@@ -258,12 +259,18 @@ class RunBox(FoldBox):
                                  self.STEP_CAP_MAX)
         self._steps = _count(5, 1, 1000)
 
-        # Opens and closes the one domain viewer the run buttons draw
-        # into.
+        # The two windows a run draws into.
         self._viewer_btn = QPushButton("Open viewer")
         self._viewer_btn.setCheckable(True)
         self._viewer_btn.toggled.connect(self._on_viewer_toggled)
         _reserve_width(self._viewer_btn, ("Open viewer", "Close viewer"))
+        self._lineplots_btn = QPushButton("Open plots")
+        self._lineplots_btn.setCheckable(True)
+        self._lineplots_btn.toggled.connect(self._on_lineplots_toggled)
+        _reserve_width(self._lineplots_btn, ("Open plots", "Close plots"))
+        windows = QHBoxLayout()
+        windows.addWidget(self._viewer_btn)
+        windows.addWidget(self._lineplots_btn)
 
         self._start = QPushButton("Start")
         self._start.clicked.connect(self._on_start_clicked)
@@ -293,7 +300,7 @@ class RunBox(FoldBox):
         form = QFormLayout()
         form.addRow("steps", self._max_steps)
         form.addRow("steps/frame", self._steps)
-        form.addRow(self._viewer_btn)
+        form.addRow(windows)
         form.addRow(marching)
         form.addRow(ending)
         form.addRow("step", self._progress)
@@ -332,6 +339,13 @@ class RunBox(FoldBox):
         self._viewer_btn.setText("Close viewer" if open_ else "Open viewer")
         self._viewer_btn.blockSignals(False)
 
+    def set_lineplots_open(self, open_):
+        """Reflect the plot window state without re-firing its button."""
+        self._lineplots_btn.blockSignals(True)
+        self._lineplots_btn.setChecked(open_)
+        self._lineplots_btn.setText("Close plots" if open_ else "Open plots")
+        self._lineplots_btn.blockSignals(False)
+
     def show_run(self, session):
         """Read the march progress of one run, or the lack of a run."""
         self._live = session is not None and session.stop_reason is None
@@ -361,6 +375,11 @@ class RunBox(FoldBox):
         self._viewer_btn.setText("Close viewer" if open_ else "Open viewer")
         if self.viewer_toggled is not None:
             self.viewer_toggled(open_)
+
+    def _on_lineplots_toggled(self, open_):
+        self._lineplots_btn.setText("Close plots" if open_ else "Open plots")
+        if self.lineplots_toggled is not None:
+            self.lineplots_toggled(open_)
 
     def _on_start_clicked(self):
         if self.start_requested is not None:
@@ -651,6 +670,14 @@ class SolutionPanel(QScrollArea):
         self._run.viewer_toggled = callback
 
     @property
+    def lineplots_toggled(self):
+        return self._run.lineplots_toggled
+
+    @lineplots_toggled.setter
+    def lineplots_toggled(self, callback):
+        self._run.lineplots_toggled = callback
+
+    @property
     def start_requested(self):
         return self._run.start_requested
 
@@ -772,6 +799,9 @@ class SolutionPanel(QScrollArea):
 
     def set_viewer_open(self, open_):
         self._run.set_viewer_open(open_)
+
+    def set_lineplots_open(self, open_):
+        self._run.set_lineplots_open(open_)
 
     def set_status(self, session, vmin, vmax):
         """Read one run out into the readout boxes.

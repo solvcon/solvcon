@@ -2,13 +2,16 @@
 # BSD 3-Clause License, see COPYING
 
 
-"""The domain sub-window a reflection run draws into.
+"""The sub-windows a reflection run draws into.
 
 :class:`DomainViewer` wraps the one 3D sub-window of a run: it opens and
 closes the window, watches for a close from any source, and forwards what
 the run wants drawn (the mesh, the analytic shock overlay, the colored
-field, and the color-bar legend laid over them).  Every drawing call is a
-no-op while the window is closed, so the owner never draws into a freed
+field).  :class:`LinePlotViewer` wraps the plain sub-window that holds the
+analysis plots the same way.
+
+Both share the one rule this module exists to keep: every drawing call is
+a no-op while the window is closed, so the owner never draws into a freed
 widget.  What to draw and when stays with the owner, which hears about a
 close through the :attr:`closed` callback.
 """
@@ -16,9 +19,11 @@ close through the :attr:`closed` callback.
 from PySide6.QtCore import Qt, QObject, QEvent
 
 from ._colorbar import ColorBar
+from ._plots import AnalysisLinePlots
 
 __all__ = [  # noqa: F822
     'DomainViewer',
+    'LinePlotViewer',
 ]
 
 
@@ -229,5 +234,68 @@ class DomainViewer(object):
         if host is None:
             return
         movie.capture(host)
+
+
+class LinePlotViewer(object):
+    """Own the sub-window holding the analysis plots.
+
+    The plots are built once and outlive the window: a reopened window is
+    handed the same :class:`~._plots.AnalysisLinePlots` back rather than a
+    fresh one that dropped what it was showing.
+
+    :ivar lineplots: The :class:`~._plots.AnalysisLinePlots` widget,
+        always live.
+    """
+
+    SIZE = (520, 620)
+
+    def __init__(self, mgr):
+        self._mgr = mgr
+        # Owner-supplied callback fired when the sub-window closes from any
+        # source.
+        self.closed = None
+        self.lineplots = AnalysisLinePlots()
+        self._subwin = None
+        self._close_filter = None
+
+    @property
+    def is_open(self):
+        return self._subwin is not None
+
+    def open(self):
+        if self._subwin is not None:
+            return
+        # A parented widget is deleted with its window, so the plots are
+        # unparented on a close and handed to the new sub-window here.  The
+        # manager shows the window and marks it delete-on-close.
+        self.lineplots.setParent(None)
+        self._subwin = self._mgr.addSubWindow(self.lineplots)
+        self._subwin.setWindowTitle("reflection analysis")
+        self._subwin.resize(*self.SIZE)
+        self._mgr.addSubWindowGrip(self._subwin)
+        self._close_filter = _SubWindowCloseFilter(
+            self._on_subwin_closed, self._subwin)
+        self._subwin.installEventFilter(self._close_filter)
+
+    def close(self):
+        """Close the sub-window; its close event fires :attr:`closed`."""
+        if self._subwin is not None:
+            self._subwin.close()
+        else:
+            self._on_subwin_closed()
+
+    def _on_subwin_closed(self):
+        # Take the plots back out before Qt deletes the window around them,
+        # then drop the window and tell the owner.
+        self.lineplots.setParent(None)
+        self._subwin = None
+        self._close_filter = None
+        if self.closed is not None:
+            self.closed()
+
+    def show_run(self, session, name, height):
+        if self._subwin is None:
+            return
+        self.lineplots.show_run(session, name, height)
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
