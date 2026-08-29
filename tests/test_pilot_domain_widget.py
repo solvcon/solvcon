@@ -2009,6 +2009,59 @@ class RDomainWidgetManagerTC(unittest.TestCase):
 
 
 @unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+class RManagerSubWindowGripTC(unittest.TestCase):
+    """The grip the manager hands to any sub-window, 3D viewer or not."""
+
+    def setUp(self):
+        self.mgr = pilot.RManager.instance.setUp()
+        # The reparent happens inside C++, where Shiboken does not see it,
+        # so Python still owns the host and frees a temporary out from under
+        # the sub-window.
+        self.host = QWidget()
+        self.subwin = self.mgr.addSubWindow(self.host)
+        self.subwin.resize(320, 240)
+
+    def tearDown(self):
+        # The manager is a singleton, so a plain sub-window left active is a
+        # stranger to every later test asking for the current viewer.
+        self.mgr.mdiArea.closeAllSubWindows()
+
+    def test_the_manager_adds_a_grip_to_a_plain_subwindow(self):
+        """A sub-window built from Python takes the same grip as the 3D one."""
+        self.assertEqual([], self.subwin.findChildren(QSizeGrip))
+        self.mgr.addSubWindowGrip(self.subwin)
+        grips = self.subwin.findChildren(QSizeGrip)
+        self.assertEqual(1, len(grips))
+        # findChildren reaches into the hosted widget, and the macOS style
+        # draws a grip only for the sub-window's own child.
+        self.assertIs(self.subwin, grips[0].parent())
+
+    def test_a_second_call_adds_no_second_grip(self):
+        # add3DWidget grips its own sub-window, so a caller reaching one
+        # through the manager can ask for a grip that is already there.
+        self.mgr.addSubWindowGrip(self.subwin)
+        self.mgr.addSubWindowGrip(self.subwin)
+        self.assertEqual(1, len(self.subwin.findChildren(QSizeGrip)))
+
+    def test_the_grip_takes_the_lower_right_corner(self):
+        self.mgr.addSubWindowGrip(self.subwin)
+        # The hosted widget spans the corner, so the grip answers a drag
+        # aimed there only by sitting over it.
+        corner = self.subwin.rect().bottomRight()
+        self.assertIs(self.subwin.findChild(QSizeGrip),
+                      self.subwin.childAt(corner))
+
+    def test_the_grip_leaves_the_layout_to_the_widget(self):
+        # QMdiSubWindow adopts a size grip into the layout that holds the
+        # widget, where it would claim a row of the height.
+        self.mgr.addSubWindowGrip(self.subwin)
+        layout = self.subwin.layout()
+        self.assertEqual(-1, layout.indexOf(self.subwin.findChild(QSizeGrip)))
+        self.assertEqual(1, layout.count())
+        self.assertIs(self.host, layout.itemAt(0).widget())
+
+
+@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
 class RDomainWidgetAxisTC(unittest.TestCase):
     """The orientation-guide overlay (step 6)."""
 

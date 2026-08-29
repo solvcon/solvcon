@@ -193,6 +193,21 @@ RManager::~RManager()
     reset();
 }
 
+void RManager::addSubWindowGrip(QMdiSubWindow * subwin)
+{
+    if (subwin == nullptr)
+    {
+        return;
+    }
+    // A grip the hosted widget owns is not this one, so look no further than
+    // the sub-window's own children.
+    if (subwin->findChild<QSizeGrip *>(QString(), Qt::FindDirectChildrenOnly) != nullptr)
+    {
+        return;
+    }
+    new SubWindowGrip(subwin);
+}
+
 RDomainWidget * RManager::add3DWidget()
 {
     RDomainWidget * viewer = nullptr;
@@ -223,9 +238,7 @@ RDomainWidget * RManager::add3DWidget()
         }
         auto * subwin = this->addSubWindow(host);
         subwin->resize(400, 300);
-        // The sub-window frame is a few pixels wide, too little to aim a drag
-        // at.
-        new SubWindowGrip(subwin);
+        this->addSubWindowGrip(subwin);
     }
     return viewer;
 }

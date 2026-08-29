@@ -86,6 +86,13 @@ public:
     template <typename... Args>
     QMdiSubWindow * addSubWindow(Args &&... args);
 
+    /**
+     * Put a resize grip over a sub-window's lower-right corner. The sub-window
+     * owns the grip. Nothing happens when @p subwin is null or already carries
+     * a grip of its own.
+     */
+    void addSubWindowGrip(QMdiSubWindow * subwin);
+
     /// The live model of the menu bar, addressable by path from Python.
     RMenuModel * menuModel() { return m_menuModel; }
 
