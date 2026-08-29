@@ -62,6 +62,21 @@ def _show_only(widget, name):
         widget.showMeshStyle(style, style == name)
 
 
+def _framed_2d_widget():
+    """Return a widget framing the 2D mesh, good for a single grab.
+
+    Grabbing a widget that was never shown creates a graphics device for the
+    grab, while the render target stays with the device the first grab
+    created. From the second grab on, the frame is recorded against one device
+    and read back from the other's texture, which yields garbage. Every state
+    a test compares therefore needs a widget of its own.
+    """
+    widget = pilot.RDomainWidget()
+    widget.resize(320, 240)
+    widget.updateMesh(_make_2d_mesh())
+    return widget
+
+
 def _grab_or_skip(widget):
     """Render the widget offscreen and return a QImage.
 
@@ -292,18 +307,22 @@ class RDomainWidgetMeshTC(unittest.TestCase):
         Hiding removes most of the wireframe rather than every last pixel: a
         software rasterizer can leave a few stray edge pixels behind, so the
         check is relative (hidden is a small fraction of shown) instead of an
-        exact zero.
+        exact zero. Each state grabs a freshly configured widget so the
+        offscreen capture is deterministic.
         """
-        widget = pilot.RDomainWidget()
-        widget.resize(320, 240)
-        widget.updateMesh(_make_2d_mesh())
-        shown = _count_foreground(_grab_or_skip(widget))
+        shown_widget = _framed_2d_widget()
+        shown = _count_foreground(_grab_or_skip(shown_widget))
         self.assertGreater(shown, 0)
-        widget.showMesh(False)
-        hidden = _count_foreground(_grab_or_skip(widget))
+
+        hidden_widget = _framed_2d_widget()
+        hidden_widget.showMesh(False)
+        hidden = _count_foreground(_grab_or_skip(hidden_widget))
         self.assertLess(hidden, shown * 0.5)
-        widget.showMesh(True)
-        restored = _count_foreground(_grab_or_skip(widget))
+
+        restored_widget = _framed_2d_widget()
+        restored_widget.showMesh(False)
+        restored_widget.showMesh(True)
+        restored = _count_foreground(_grab_or_skip(restored_widget))
         self.assertGreater(restored, hidden)
 
 
@@ -364,19 +383,26 @@ class RDomainWidgetStyleTC(unittest.TestCase):
         The count keys on the difference from the frame's own background (as in
         the wireframe toggle test), so an empty scene that a software
         rasterizer reads back as a uniformly dark frame still counts as
-        nothing drawn.
+        nothing drawn. Each state grabs a freshly configured widget so the
+        offscreen capture is deterministic.
         """
-        widget = pilot.RDomainWidget()
-        widget.resize(320, 240)
-        widget.updateMesh(_make_2d_mesh())
-        _show_only(widget, "surface")
-        shown = _count_foreground(_grab_or_skip(widget))
+        shown_widget = _framed_2d_widget()
+        _show_only(shown_widget, "surface")
+        shown = _count_foreground(_grab_or_skip(shown_widget))
         self.assertGreater(shown, 0)
-        widget.showMesh(False)
-        hidden = _count_foreground(_grab_or_skip(widget))
+
+        hidden_widget = _framed_2d_widget()
+        _show_only(hidden_widget, "surface")
+        hidden_widget.showMesh(False)
+        hidden = _count_foreground(_grab_or_skip(hidden_widget))
         self.assertLess(hidden, shown * 0.5)
-        widget.showMesh(True)
-        self.assertGreater(_count_foreground(_grab_or_skip(widget)), hidden)
+
+        restored_widget = _framed_2d_widget()
+        _show_only(restored_widget, "surface")
+        restored_widget.showMesh(False)
+        restored_widget.showMesh(True)
+        self.assertGreater(_count_foreground(_grab_or_skip(restored_widget)),
+                           hidden)
 
     def test_styles_toggle_independently(self):
         """Showing or hiding one style leaves the others as they were."""
@@ -421,16 +447,21 @@ class RDomainWidgetStyleTC(unittest.TestCase):
         self.assertTrue((surf_frame != both_frame).any())
 
     def test_all_styles_off_draws_nothing(self):
-        """Turning every style off empties the scene."""
-        widget = pilot.RDomainWidget()
-        widget.resize(320, 240)
-        widget.updateMesh(_make_2d_mesh())
-        _show_only(widget, "surface")
-        shown = _count_foreground(_grab_or_skip(widget))
+        """Turning every style off empties the scene.
+
+        Each state grabs a freshly configured widget so the offscreen capture
+        is deterministic.
+        """
+        shown_widget = _framed_2d_widget()
+        _show_only(shown_widget, "surface")
+        shown = _count_foreground(_grab_or_skip(shown_widget))
         self.assertGreater(shown, 0)
+
+        empty_widget = _framed_2d_widget()
         for name in ("surface", "wireframe", "points"):
-            widget.showMeshStyle(name, False)
-        self.assertLess(_count_foreground(_grab_or_skip(widget)), shown * 0.5)
+            empty_widget.showMeshStyle(name, False)
+        self.assertLess(_count_foreground(_grab_or_skip(empty_widget)),
+                        shown * 0.5)
 
 
 @unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
