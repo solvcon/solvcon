@@ -519,7 +519,7 @@ public:
      */
     struct RingInfo
     {
-        RingRole role;
+        RingRole role = RingRole::OUTER;
         std::vector<std::vector<T>> vertices;
     }; /* end struct RingInfo */
 
