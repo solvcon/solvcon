@@ -1,12 +1,16 @@
 # Copyright (c) 2026, solvcon team <contact@solvcon.net>
 # BSD 3-Clause License, see COPYING
 
+import collections
+import itertools
+import json
 import unittest
 import unittest.mock
 
 import numpy as np
 
 import solvcon as sc
+import solvcon.benchmark as benchmark
 from solvcon.benchmark import collector
 from solvcon.benchmark import matmul
 from solvcon.benchmark import spec as benchmark_spec
@@ -23,6 +27,16 @@ def make_spec(**updates):
     }
     data.update(updates)
     return matmul.MatmulSpec.from_dict(data)
+
+
+class StepClock:
+    def __init__(self, step=100):
+        self.value = -step
+        self.step = step
+
+    def __call__(self):
+        self.value += self.step
+        return self.value
 
 
 class FakeExecutor:
@@ -287,6 +301,155 @@ class MatmulComparisonTC(unittest.TestCase):
             [item['status'] for item in comparison.values()],
             ['measured', 'ineligible', 'measured'],
         )
+
+
+class MatmulTimingTC(unittest.TestCase):
+    def test_collects_balanced_timings(self):
+        expected = [[1.0, 2.0], [3.0, 4.0]]
+        execute = FakeExecutor({
+            'naive': expected,
+            'blas_gemm': [[1.0, 2.0], [3.0, 5.0]],
+            'winograd': expected,
+            'numpy': expected,
+        })
+        spec = make_spec(
+            kernels=['naive', 'blas_gemm', 'winograd'],
+            sampling={'warmups': 1, 'repetitions': 2, 'rounds': 4})
+
+        comparison = collector._collect(spec, execute, StepClock())
+
+        names = ('naive', 'blas_gemm', 'winograd', 'numpy')
+        round_orders = comparison['round_orders']
+        expected_rows = collector._williams_rows(names)
+        self.assertEqual(round_orders, [list(row) for row in expected_rows])
+        by_name = {result['name']: result for result in comparison['results']}
+        for name in names:
+            self.assertEqual(by_name[name]['status'], 'measured')
+            self.assertEqual(
+                by_name[name]['round_elapsed_ns'], [100] * 4)
+        self.assertEqual(by_name['blas_gemm']['max_abs_diff'], 1.0)
+
+        comparison_calls = ['numpy', 'naive', 'blas_gemm', 'winograd']
+        warmup_calls = ['numpy', 'naive', 'winograd', 'blas_gemm']
+        self.assertEqual(
+            execute.calls[:8], comparison_calls + warmup_calls)
+        repetitions = spec.sampling.repetitions
+        timed_calls = []
+        for order in round_orders:
+            for name in order:
+                timed_calls.extend([name] * repetitions)
+        self.assertEqual(execute.calls[8:], timed_calls)
+
+    def test_balances_williams_rows(self):
+        max_candidates = len(matmul.MATMUL_KERNELS) + 1
+        for count in range(2, max_candidates + 1):
+            names = tuple(range(count))
+            rows = collector._williams_rows(names)
+            repeated_rows = rows * 2
+            for row in rows:
+                self.assertEqual(set(row), set(names))
+            for length in range(1, len(repeated_rows) + 1):
+                prefix = repeated_rows[:length]
+                for position in range(count):
+                    counts = collections.Counter(
+                        row[position] for row in prefix)
+                    values = [counts[name] for name in names]
+                    self.assertLessEqual(max(values) - min(values), 1)
+
+            transitions = collections.Counter()
+            for row in rows:
+                transitions.update(zip(row, row[1:]))
+            directed_pairs = set(itertools.permutations(names, 2))
+            expected = 2 if count % 2 else 1
+            self.assertEqual(set(transitions), directed_pairs)
+            self.assertEqual(set(transitions.values()), {expected})
+            if count % 2:
+                boundaries = zip(rows, rows[1:] + rows[:1])
+                for previous, following in boundaries:
+                    self.assertEqual(previous[-1], following[0])
+
+    def test_times_zero_and_one_candidates(self):
+        sampling = make_spec(
+            sampling={
+                'warmups': 1, 'repetitions': 2, 'rounds': 2,
+            }).sampling
+        execute = FakeExecutor({'only': [1.0]})
+
+        orders, elapsed = collector._time_candidates(
+            execute, (), sampling, StepClock())
+        self.assertEqual(orders, [[], []])
+        self.assertEqual(elapsed, {})
+        self.assertEqual(execute.calls, [])
+
+        orders, elapsed = collector._time_candidates(
+            execute, ('only',), sampling, StepClock())
+        self.assertEqual(orders, [['only'], ['only']])
+        self.assertEqual(elapsed, {'only': [100, 100]})
+        self.assertEqual(execute.calls, ['only'] * 5)
+
+    def test_skips_unmeasured_kernels(self):
+        expected = [[1.0, 2.0], [3.0, 4.0]]
+        execute = FakeExecutor({
+            'naive': expected,
+            'blas_gemm': [[1.0, 2.0, 3.0, 4.0]],
+            'winograd': sc.MatmulKernelUnavailable('not eligible'),
+            'numpy': expected,
+        })
+        spec = make_spec(
+            kernels=['naive', 'blas_gemm', 'winograd'],
+            sampling={'warmups': 1, 'repetitions': 2, 'rounds': 1},
+        )
+
+        comparison = collector._collect(spec, execute, StepClock())
+
+        by_name = {result['name']: result for result in comparison['results']}
+        self.assertEqual(by_name['blas_gemm']['status'], 'invalid')
+        self.assertEqual(by_name['blas_gemm']['round_elapsed_ns'], [])
+        self.assertEqual(by_name['winograd']['status'], 'ineligible')
+        self.assertEqual(by_name['winograd']['round_elapsed_ns'], [])
+        self.assertEqual(
+            comparison['round_orders'], [['naive', 'numpy']])
+        self.assertEqual(collections.Counter(execute.calls), {
+            'numpy': 4,
+            'naive': 4,
+            'blas_gemm': 1,
+            'winograd': 1,
+        })
+
+    def test_propagates_execution_failure(self):
+        expected = np.ones((2, 2), dtype='float64')
+        stages = (
+            ('warmup', {'warmups': 1, 'repetitions': 1, 'rounds': 1}),
+            ('timing', {'warmups': 0, 'repetitions': 1, 'rounds': 1}),
+        )
+        for stage, sampling in stages:
+            with self.subTest(stage=stage):
+                execute = unittest.mock.Mock(side_effect=(
+                    expected, expected, RuntimeError('native bug')))
+                spec = make_spec(kernels=['naive'], sampling=sampling)
+                with self.assertRaisesRegex(RuntimeError, 'native bug'):
+                    collector._collect(spec, execute, StepClock())
+
+    def test_collect_returns_json_data(self):
+        spec = make_spec(
+            kernels=['naive'],
+            sampling={'warmups': 0, 'repetitions': 1, 'rounds': 2},
+        )
+
+        comparison = benchmark.collector.collect(spec)
+
+        self.assertEqual(comparison['spec'], spec.to_dict())
+        self.assertEqual(len(comparison['round_orders']), 2)
+        for result in comparison['results']:
+            self.assertEqual(result['status'], 'measured')
+            elapsed = result['round_elapsed_ns']
+            self.assertEqual(len(elapsed), 2)
+            self.assertTrue(all(isinstance(value, int) for value in elapsed))
+        json.dumps(comparison)
+
+    def test_collect_requires_matmul_spec(self):
+        with self.assertRaisesRegex(TypeError, 'spec must be a MatmulSpec'):
+            benchmark.collector.collect(make_spec().to_dict())
 
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:

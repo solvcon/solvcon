@@ -1,13 +1,15 @@
 # Copyright (c) 2026, solvcon team <contact@solvcon.net>
 # BSD 3-Clause License, see COPYING
 
-"""Expose common and operation-specific benchmark specification types."""
+"""Expose benchmark specification and collection modules."""
 
+from . import collector
 from . import matmul
 from . import spec
 
 
 __all__ = [
+    'collector',
     'matmul',
     'spec',
 ]
