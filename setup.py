@@ -70,7 +70,6 @@ def main():
             'solvcon.agent.draw',
             'solvcon.agent.window',
             'solvcon.benchmark',
-            'solvcon.mcap',
             'solvcon.multidim',
             'solvcon.multidim.euler',
             'solvcon.onedim',
