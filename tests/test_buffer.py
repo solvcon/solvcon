@@ -1068,6 +1068,97 @@ class SimpleArrayBasicTC(unittest.TestCase):
                 for k in range(4):
                     self.assertEqual(stride_arr[i, j, k], sarr[i, j, k])
 
+    def test_assign_source_layouts(self):
+        base = np.arange(8, dtype='float64')
+        values = np.arange(4, dtype='float64') + 1.25
+        non_itemsize_stride = np.ndarray(
+            (4,), dtype='float64', buffer=bytearray(40), strides=(9,))
+        unaligned = np.ndarray(
+            (4,), dtype='float64', buffer=bytearray(40), offset=1)
+        non_itemsize_stride[...] = values
+        unaligned[...] = values
+        sources = (
+            ('negative_stride', base[::-2]),
+            ('zero_stride', np.lib.stride_tricks.as_strided(
+                base[:1], shape=(4,), strides=(0,))),
+            ('non_itemsize_stride', non_itemsize_stride),
+            ('unaligned', unaligned),
+        )
+
+        for name, source in sources:
+            with self.subTest(name=name):
+                sarr = solvcon.SimpleArrayFloat64(shape=source.shape, value=-1)
+                sarr[...] = source
+                np.testing.assert_array_equal(sarr.ndarray, source)
+
+        with self.subTest(name='zero_dimensional'):
+            backing = np.array(-1.0, dtype='float64')
+            sarr = solvcon.SimpleArrayFloat64(array=backing)
+            sarr[...] = np.array(1.25, dtype='float64')
+            self.assertEqual(1.25, backing)
+
+    def test_assign_overlap(self):
+        cases = (
+            ('shift_right', np.s_[1:], np.s_[:-1]),
+            ('reverse', np.s_[:], np.s_[::-1]),
+        )
+        for name, destination_key, source_key in cases:
+            with self.subTest(name=name):
+                backing = np.arange(1, 6, dtype='float64')
+                expected = backing.copy()
+                expected[destination_key] = expected[source_key].copy()
+                sarr = solvcon.SimpleArrayFloat64(array=backing)
+                sarr[destination_key] = sarr.ndarray[source_key]
+                np.testing.assert_array_equal(backing, expected)
+
+    def test_assign_empty_conversion(self):
+        backing = np.empty((2, 0), dtype='float64')
+        source = np.empty((2, 0), dtype='complex128')
+        sarr = solvcon.SimpleArrayFloat64(array=backing)
+        sarr[...] = source
+
+    def test_fill_layouts(self):
+        cases = (
+            ('positive_stride', np.s_[:, ::2]),
+            ('negative_stride', np.s_[::-1, ::-2]),
+        )
+        for name, key in cases:
+            with self.subTest(name=name):
+                backing = np.arange(12, dtype='float64').reshape((3, 4))
+                expected = backing.copy()
+                expected[key] = -2
+                sarr = solvcon.SimpleArrayFloat64(array=backing[key])
+                sarr.fill(-2)
+                np.testing.assert_array_equal(backing, expected)
+
+        with self.subTest(name='negative_stride_ghost'):
+            backing = np.arange(10, dtype='float64')
+            expected = backing.copy()
+            expected[8:1:-2] = -2
+            sarr = solvcon.SimpleArrayFloat64(array=backing[8:1:-2])
+            sarr.nghost = 1
+            sarr.fill(-2)
+            np.testing.assert_array_equal(backing, expected)
+
+        with self.subTest(name='fortran_contiguous'):
+            backing = np.asfortranarray(
+                np.arange(12, dtype='float64').reshape((3, 4)),
+                dtype='float64')
+            sarr = solvcon.SimpleArrayFloat64(array=backing)
+            sarr.fill(-2)
+            np.testing.assert_array_equal(
+                backing, np.full((3, 4), -2, dtype='float64'))
+
+        with self.subTest(name='zero_stride'):
+            backing = np.arange(7, dtype='float64')
+            view = np.lib.stride_tricks.as_strided(
+                backing[1:], shape=(3, 2), strides=(0, 16))
+            expected = backing.copy()
+            expected[[1, 3]] = -2
+            sarr = solvcon.SimpleArrayFloat64(array=view)
+            sarr.fill(-2)
+            np.testing.assert_array_equal(backing, expected)
+
     def test_SimpleArray_broadcast_ellipsis_dtype(self):
         sarr = solvcon.SimpleArrayFloat64((2, 3, 4))
         ndarr = np.arange(2 * 3 * 4, dtype='int32').reshape((2, 3, 4))

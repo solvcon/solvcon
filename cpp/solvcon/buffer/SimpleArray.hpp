@@ -13,6 +13,7 @@
  */
 
 #include <solvcon/buffer/ConcreteBuffer.hpp>
+#include <solvcon/buffer/loop.hpp>
 #include <solvcon/buffer/matmul.hpp>
 #include <solvcon/buffer/signed_stride_layout.hpp>
 #include <solvcon/math/math.hpp>
@@ -258,14 +259,33 @@ public:
 
     using value_type = typename internal_types::value_type;
 
-    A & fill(value_type const & value)
+    A & fill(value_type const & value);
+
+}; /* end class SimpleArrayMixinModifiers */
+
+template <typename A, typename T>
+A & SimpleArrayMixinModifiers<A, T>::fill(value_type const & value)
+{
+    auto * athis = static_cast<A *>(this);
+    size_t const size = athis->size();
+    if (size == 0 || athis->logical_data() == nullptr)
     {
-        auto athis = static_cast<A *>(this);
-        std::fill(athis->begin(), athis->end(), value);
+        return *athis;
+    }
+    if (athis->is_c_contiguous() || athis->is_f_contiguous())
+    {
+        std::fill_n(athis->logical_data(), size, value);
         return *athis;
     }
 
-}; /* end class SimpleArrayMixinModifiers */
+    LoopDomain const domain(athis->shape());
+    MappedOffsetCursor::mapping_type const mappings{OperandMapping(athis->stride())};
+    for (MappedOffsetCursor cursor(domain, mappings); cursor; cursor.advance())
+    {
+        athis->logical_data()[cursor.offset(size_t{0})] = value;
+    }
+    return *athis;
+}
 
 // SimpleArray<bool> reaches these mixins like any other value type, and the
 // operations that have no boolean meaning have to say so one by one.
