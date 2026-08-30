@@ -38,6 +38,7 @@ Checks: >
     -cppcoreguidelines-pro-type-union-access,
     -cppcoreguidelines-use-default-member-init,-modernize-use-default-member-init,
     -cppcoreguidelines-use-enum-class,
+    -google-objc-global-variable-declaration,
     -google-readability-casting,
     -google-readability-todo,
     -google-runtime-references,
