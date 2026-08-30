@@ -120,33 +120,6 @@ if(BUILD_METAL)
     add_compile_options($<$<COMPILE_LANGUAGE:OBJCXX>:-fobjc-arc>)
 endif()
 
-# The mcap subsystem reads MCAP recordings, and lz4 and zstd decompress their
-# chunks. No other part of solvcon needs those two libraries, so the option
-# keeps them out of a build that does not read recordings. The option starts
-# OFF, so an existing build picks up no new hard dependency.
-option(BUILD_MCAP "build with MCAP recording support" OFF)
-message(STATUS "BUILD_MCAP: ${BUILD_MCAP}")
-if(BUILD_MCAP)
-    set(MCAP_PREFIX_HINTS "$ENV{HOMEBREW_PREFIX}" /opt/homebrew /usr/local)
-    find_library(LZ4_LIB NAMES lz4 liblz4
-        HINTS ${MCAP_PREFIX_HINTS} PATH_SUFFIXES lib)
-    find_path(LZ4_INCLUDE_DIR NAMES lz4frame.h
-        HINTS ${MCAP_PREFIX_HINTS} PATH_SUFFIXES include)
-    find_library(ZSTD_LIB NAMES zstd libzstd
-        HINTS ${MCAP_PREFIX_HINTS} PATH_SUFFIXES lib)
-    find_path(ZSTD_INCLUDE_DIR NAMES zstd.h
-        HINTS ${MCAP_PREFIX_HINTS} PATH_SUFFIXES include)
-    if(LZ4_LIB AND LZ4_INCLUDE_DIR AND ZSTD_LIB AND ZSTD_INCLUDE_DIR)
-        message(STATUS "Found lz4: ${LZ4_LIB}")
-        message(STATUS "Found zstd: ${ZSTD_LIB}")
-    else()
-        message(FATAL_ERROR
-            "BUILD_MCAP is ON but lz4 and zstd were not both found.\n"
-            "Run contrib/dependency/show-mcap-dependency.sh for the commands "
-            "that install them, or configure with BUILD_MCAP=OFF.")
-    endif()
-endif()
-
 option(USE_CLANG_TIDY "use clang-tidy" OFF)
 option(LINT_AS_ERRORS "clang-tidy warnings as errors" OFF)
 message(STATUS "LINT_AS_ERRORS: ${LINT_AS_ERRORS}")
