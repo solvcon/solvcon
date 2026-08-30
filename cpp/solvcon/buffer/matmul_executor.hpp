@@ -662,11 +662,11 @@ void MatmulExecutor<Array>::pack(PackingState const & packing)
 {
     if (packing.lhs)
     {
-        m_packed_lhs.emplace(m_lhs.to_row_major());
+        m_packed_lhs.emplace(m_lhs.to_compact_row_major());
     }
     if (packing.rhs)
     {
-        m_packed_rhs.emplace(m_rhs.to_row_major());
+        m_packed_rhs.emplace(m_rhs.to_compact_row_major());
     }
 
     Array const & lhs = m_packed_lhs ? *m_packed_lhs : m_lhs;

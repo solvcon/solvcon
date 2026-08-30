@@ -639,6 +639,33 @@ class MatmulTestBase(sc.testing.TestBase):
                     lhs, rhs, expected,
                     forced_kernels=('blas_dot',))
 
+    def test_matmul_packs_singleton_strides(self):
+        """Forced BLAS canonicalizes singleton strides before execution."""
+        dtype = np.dtype(self.dtype).name
+        data = np.ones(1, dtype=dtype)
+        lhs_data = self.make_strided_view(data, 0, -2)
+        rhs_data = self.make_strided_view(data, 0, -3)
+        lhs = self.SimpleArray(array=lhs_data)
+        rhs = self.SimpleArray(array=rhs_data)
+
+        self.assert_matmul(
+            lhs, rhs, np.atleast_1d(np.matmul(lhs_data, rhs_data)),
+            forced_kernels=('blas_dot',))
+
+    def test_matmul_packs_stored_ghosts(self):
+        """Packing preserves every row stored by a ghosted operand."""
+        dtype = np.dtype(self.dtype).name
+        lhs_data = self.make_strided_view(
+            np.arange(2, dtype=dtype).reshape((2, 1)) + 1, 1, -2)
+        rhs_data = np.ones(1, dtype=dtype)
+        lhs = self.SimpleArray(array=lhs_data)
+        lhs.nghost = 1
+        rhs = self.SimpleArray(array=rhs_data)
+
+        self.assert_matmul(
+            lhs, rhs, np.matmul(lhs_data, rhs_data),
+            forced_kernels=('blas_gemv',))
+
     def test_wrong_shape_error(self):
         """Every operand role reports mismatched contraction dimensions."""
         dtype = np.dtype(self.dtype).name

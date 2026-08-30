@@ -2395,9 +2395,13 @@ public:
     bool is_f_contiguous() const { return is_f_contiguous(m_shape, m_stride); }
 
 private:
+    template <typename Array>
+    friend class detail::MatmulExecutor;
+
     size_t logical_data_offset() const;
     void update_data_pointers(size_t data_offset = 0);
     void copy_logical_into(SimpleArray & out) const;
+    SimpleArray to_compact_row_major() const;
 
     template <size_t N, size_t... I>
     detail::SignedStrideLayout::mapping<std::dextents<ssize_t, N>> make_mdspan_mapping_impl(
@@ -3059,6 +3063,28 @@ SimpleArray<T> SimpleArray<T>::to_row_major() const
     }
     SimpleArray out(m_shape);
     copy_logical_into(out);
+    return out;
+}
+
+/**
+ * @brief Copy every logical element into exact C-order storage for matmul.
+ *
+ * @details
+ *      The internal view clears ghost metadata so the copy starts at
+ *      logical_data() and covers the full shape, including stored ghosts.
+ *      The returned packing temporary has canonical strides and no ghosts.
+ */
+template <typename T>
+SimpleArray<T> SimpleArray<T>::to_compact_row_major() const
+{
+    if (m_shape.empty())
+    {
+        return m_buffer ? SimpleArray(*this) : SimpleArray(m_shape);
+    }
+    SimpleArray const logical_view(
+        m_shape, m_stride, m_buffer, logical_data_offset());
+    SimpleArray out(m_shape);
+    logical_view.copy_logical_into(out);
     return out;
 }
 
