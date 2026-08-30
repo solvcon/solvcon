@@ -49,7 +49,7 @@ public:
     explicit operator bool() const { return static_cast<bool>(m_begin); }
     size_type size() const
     {
-        return static_cast<size_type>(this->m_end - this->m_begin);
+        return this->m_begin == this->m_end ? 0 : static_cast<size_type>(this->m_end - this->m_begin);
     }
     size_t nbytes() const { return size() * sizeof(int8_t); }
 

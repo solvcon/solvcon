@@ -5,6 +5,10 @@
 
 #include <solvcon/buffer/ConcreteBuffer.hpp>
 
+#ifdef SOLVCON_METAL
+#include <solvcon/device/metal/metal.hpp>
+#endif
+
 namespace solvcon
 {
 
@@ -18,7 +22,14 @@ std::shared_ptr<ConcreteBuffer> ConcreteBuffer::construct(size_t nbytes, size_t 
     case BufferDevice::Cpu:
         return construct(nbytes, alignment);
     case BufferDevice::Metal:
+#ifdef SOLVCON_METAL
+    {
+        detail::DeviceBufferStorage device_storage = device::MetalManager::instance().allocate_buffer(nbytes, alignment);
+        return construct(nbytes, device_storage.m_data, std::move(device_storage.m_remover), alignment);
+    }
+#else
         throw std::runtime_error("ConcreteBuffer::construct: Metal storage is unavailable");
+#endif
     }
     throw std::invalid_argument("ConcreteBuffer::construct: unknown buffer device");
 }

@@ -13,6 +13,9 @@
  * @ingroup group_core
  */
 
+#include <solvcon/buffer/BufferStorage.hpp>
+
+#include <cstddef>
 #include <memory>
 
 namespace solvcon
@@ -22,7 +25,7 @@ namespace device
 {
 
 /**
- * Process-wide owner of the single Metal device handle.
+ * Process-wide owner of a unified-memory Metal device handle.
  *
  * The instance is created on first access and acquires the Metal device in
  * startup(); shutdown() releases it. Copy and move are deleted so the device
@@ -46,6 +49,19 @@ public:
     void startup();
     bool started() { return nullptr != m_impl; }
     void shutdown();
+
+    /**
+     * Allocate CPU-visible shared Metal storage.
+     * @internal
+     * @param nbytes Size of the storage in bytes.
+     * @param alignment Alignment in bytes: 0, 16, 32, or 64; nbytes must be a multiple of a nonzero alignment.
+     * @return Storage and the owner of its Metal resource.
+     * @throw std::invalid_argument If the alignment or size is invalid.
+     * @throw std::length_error If the requested storage exceeds the device limit.
+     * @throw std::runtime_error If Metal storage is unavailable.
+     * @throw std::bad_alloc If storage allocation fails.
+     */
+    detail::DeviceBufferStorage allocate_buffer(std::size_t nbytes, std::size_t alignment);
 
 private:
 

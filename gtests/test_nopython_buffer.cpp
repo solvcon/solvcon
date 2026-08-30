@@ -46,12 +46,24 @@ TEST(ConcreteBuffer, construct_cpu_device)
     EXPECT_EQ(size_t{32}, buffer->alignment());
 }
 
+TEST(ConcreteBuffer, construct_empty)
+{
+    namespace sc = solvcon;
+
+    auto buffer = sc::ConcreteBuffer::construct();
+    EXPECT_EQ(nullptr, buffer->data());
+    EXPECT_EQ(buffer->begin(), buffer->end());
+    EXPECT_EQ(size_t{0}, buffer->size());
+}
+
+#ifndef SOLVCON_METAL
 TEST(ConcreteBuffer, construct_unavailable_metal)
 {
     namespace sc = solvcon;
 
     EXPECT_THROW(sc::ConcreteBuffer::construct(16, 0, sc::BufferDevice::Metal), std::runtime_error);
 }
+#endif
 
 TEST(ConcreteBuffer, construct_invalid_metal_request)
 {
