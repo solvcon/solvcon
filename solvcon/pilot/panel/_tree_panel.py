@@ -14,7 +14,7 @@ from PySide6.QtGui import QColor, QPainter
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QTreeWidget,
                                QTreeWidgetItem, QFrame, QDockWidget,
                                QStackedWidget, QHBoxLayout, QButtonGroup,
-                               QRadioButton, QCheckBox, QPushButton,
+                               QRadioButton, QPushButton,
                                QSizePolicy, QAbstractButton)
 
 from ... import core
