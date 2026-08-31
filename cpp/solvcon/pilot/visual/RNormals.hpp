@@ -7,7 +7,7 @@
 
 /**
  * @file
- * Draw a short arrow at every face center along the face normal.
+ * Draw a scaled arrow at every face center along the face normal.
  *
  * @ingroup group_domain
  */
@@ -27,10 +27,10 @@ namespace solvcon
  * @brief The face normals drawn as short line arrows, one per face.
  *
  * Each arrow starts at the face center (StaticMesh::fccnd) and points along
- * the unit face normal (StaticMesh::fcnml); its length is a small fraction of
- * the mesh extent, so the field reads as short quills. A two-segment head
- * marks the direction. Both are precomputed by StaticMesh, so no geometry is
- * derived here beyond scaling.
+ * the unit face normal (StaticMesh::fcnml); its base length is a small
+ * fraction of the mesh extent and the scale parameter stretches that length for
+ * inspection. A two-segment head marks the direction. Both inputs are
+ * precomputed by StaticMesh, so no geometry is derived here beyond scaling.
  *
  * @ingroup group_domain
  */
@@ -40,7 +40,7 @@ class RNormals
 
 public:
 
-    explicit RNormals(std::shared_ptr<StaticMesh> const & mesh);
+    explicit RNormals(std::shared_ptr<StaticMesh> const & mesh, float scale = 1.0f);
 
     bool hasGeometry() const { return m_positions.size() > 0; }
 
@@ -56,7 +56,7 @@ protected:
 
 private:
 
-    void build(StaticMesh const & mh);
+    void build(StaticMesh const & mh, float scale);
 
     SimpleCollector<float> m_positions; ///< Line-segment endpoints (x, y, z).
 

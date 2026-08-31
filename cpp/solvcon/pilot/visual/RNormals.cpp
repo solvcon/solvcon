@@ -41,13 +41,13 @@ QVector3D head_perpendicular(QVector3D const & n, uint32_t ndim)
 
 } /* end namespace */
 
-RNormals::RNormals(std::shared_ptr<StaticMesh> const & mesh)
+RNormals::RNormals(std::shared_ptr<StaticMesh> const & mesh, float scale)
 {
-    build(*mesh);
+    build(*mesh, scale);
     setColor(QVector4D(NORMAL_COLOR[0], NORMAL_COLOR[1], NORMAL_COLOR[2], 1.0f));
 }
 
-void RNormals::build(StaticMesh const & mh)
+void RNormals::build(StaticMesh const & mh, float scale)
 {
     uint32_t const ndim = mh.ndim();
     uint32_t const nface = mh.nface();
@@ -73,7 +73,7 @@ void RNormals::build(StaticMesh const & mh)
         hi = QVector3D(std::max(hi.x(), p.x()), std::max(hi.y(), p.y()), std::max(hi.z(), p.z()));
     }
     float const diag = (hi - lo).length();
-    float const shaft = (diag > 0.0f ? diag : 1.0f) * SHAFT_FRACTION;
+    float const shaft = (diag > 0.0f ? diag : 1.0f) * SHAFT_FRACTION * std::max(scale, 0.0f);
 
     auto push = [this](QVector3D const & a, QVector3D const & b)
     {
