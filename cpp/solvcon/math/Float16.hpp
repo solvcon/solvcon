@@ -86,6 +86,22 @@ public:
      */
     explicit constexpr operator float() const { return decode(m_bits); }
 
+    /**
+     * Convert explicitly to another arithmetic type.
+     *
+     * Integral destinations follow the built-in floating-point conversion
+     * rules.
+     *
+     * @tparam T Destination arithmetic type other than ``float``.
+     * @return The represented value converted to ``T``.
+     */
+    template <typename T>
+    requires(std::is_arithmetic_v<T> && !std::is_same_v<T, float>)
+    explicit constexpr operator T() const
+    {
+        return static_cast<T>(decode(m_bits));
+    }
+
     constexpr Float16 & operator+=(Float16 other);
     constexpr Float16 & operator-=(Float16 other);
     constexpr Float16 & operator*=(Float16 other);

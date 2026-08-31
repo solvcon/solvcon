@@ -358,6 +358,7 @@ static std::unordered_map<std::string, DataType, DataTypeHasher> string_data_typ
     {"uint16", DataType::Uint16},
     {"uint32", DataType::Uint32},
     {"uint64", DataType::Uint64},
+    {"float16", DataType::Float16},
     {"float32", DataType::Float32},
     {"float64", DataType::Float64},
     {"complex64", DataType::Complex64},

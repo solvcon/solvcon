@@ -19,11 +19,122 @@
 // See more details in the issue: https://github.com/solvcon/solvcon/issues/283
 #include <solvcon/buffer/pymod/SimpleArrayCaster.hpp>
 
+#include <cstring>
+
+namespace solvcon
+{
+namespace python
+{
+namespace detail
+{
+
+inline pybind11::dtype float16_dtype() { return pybind11::dtype("float16"); }
+inline std::string float16_format() { return "e"; }
+
+inline bool try_load_real(pybind11::handle src, double & value)
+{
+    if (!src || !PyNumber_Check(src.ptr()) ||
+        pybind11::isinstance<Complex<float>>(src) ||
+        pybind11::isinstance<Complex<double>>(src))
+    {
+        return false;
+    }
+
+    if (!PyFloat_Check(src.ptr()) && !PyLong_Check(src.ptr()) &&
+        pybind11::module_::import("numpy").attr("iscomplexobj")(src).cast<bool>())
+    {
+        return false;
+    }
+
+    value = PyFloat_AsDouble(src.ptr());
+    if (PyErr_Occurred())
+    {
+        PyErr_Clear();
+        return false;
+    }
+    return true;
+}
+
+inline bool try_load_exact_float16(pybind11::handle src, Float16 & value)
+{
+    if (!src || !PyObject_CheckBuffer(src.ptr()) ||
+        !pybind11::type::of(src).is(float16_dtype().attr("type")))
+    {
+        return false;
+    }
+
+    auto const info = pybind11::reinterpret_borrow<pybind11::buffer>(src).request();
+    if (info.ndim != 0 || info.itemsize != sizeof(Float16) || info.format != float16_format())
+    {
+        return false;
+    }
+
+    Float16::storage_type bits;
+    std::memcpy(&bits, info.ptr, sizeof(bits));
+    value = Float16::from_bits(bits);
+    return true;
+}
+
+inline bool try_load_float16_scalar(pybind11::handle src, bool convert, Float16 & value)
+{
+    if (!src)
+    {
+        return false;
+    }
+    if (try_load_exact_float16(src, value))
+    {
+        return true;
+    }
+    if (!convert && !PyFloat_Check(src.ptr()))
+    {
+        return false;
+    }
+
+    double real;
+    if (!try_load_real(src, real))
+    {
+        return false;
+    }
+    value = Float16(real);
+    return true;
+}
+
+} /* end namespace detail */
+} /* end namespace python */
+} /* end namespace solvcon */
+
 namespace pybind11
 {
 
 namespace detail
 {
+
+template <>
+struct type_caster<solvcon::Float16>
+{
+public:
+    bool load(pybind11::handle src, bool convert);
+
+    static pybind11::handle cast(solvcon::Float16 src, pybind11::return_value_policy, pybind11::handle)
+    {
+        return PyFloat_FromDouble(static_cast<float>(src));
+    }
+
+    PYBIND11_TYPE_CASTER(solvcon::Float16, const_name("float"));
+}; /* end struct type_caster */
+
+inline bool type_caster<solvcon::Float16>::load(pybind11::handle src, bool convert)
+{
+    return solvcon::python::detail::try_load_float16_scalar(src, convert, value);
+}
+
+template <>
+struct npy_format_descriptor<solvcon::Float16>
+{
+    static constexpr auto name = const_name("numpy.float16");
+    static pybind11::dtype dtype() { return solvcon::python::detail::float16_dtype(); }
+    static std::string format() { return solvcon::python::detail::float16_format(); }
+}; /* end struct npy_format_descriptor */
 
 template <>
 struct npy_format_descriptor<solvcon::Complex<double>>

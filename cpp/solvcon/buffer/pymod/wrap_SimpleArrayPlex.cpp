@@ -46,6 +46,7 @@ static auto execute_callback_with_typed_array(A & arrayplex, C && callback)
         SC_DECL_RUN_CALLBACK_WITH_TYPED_ARRAY(DataType::Uint16, SimpleArrayUint16)
         SC_DECL_RUN_CALLBACK_WITH_TYPED_ARRAY(DataType::Uint32, SimpleArrayUint32)
         SC_DECL_RUN_CALLBACK_WITH_TYPED_ARRAY(DataType::Uint64, SimpleArrayUint64)
+        SC_DECL_RUN_CALLBACK_WITH_TYPED_ARRAY(DataType::Float16, SimpleArrayFloat16)
         SC_DECL_RUN_CALLBACK_WITH_TYPED_ARRAY(DataType::Float32, SimpleArrayFloat32)
         SC_DECL_RUN_CALLBACK_WITH_TYPED_ARRAY(DataType::Float64, SimpleArrayFloat64)
         SC_DECL_RUN_CALLBACK_WITH_TYPED_ARRAY(DataType::Complex64, SimpleArrayComplex64)
@@ -59,9 +60,8 @@ static auto execute_callback_with_typed_array(A & arrayplex, C && callback)
 #undef SC_DECL_RUN_CALLBACK_WITH_TYPED_ARRAY
 }
 
-/// Check the data type of the python value match the given data type. If not, throw a type error.
 // NOLINTNEXTLINE(misc-use-anonymous-namespace)
-static void verify_python_value_datatype(pybind11::object const & value, DataType datatype)
+static void check_scalar_type(pybind11::object const & value, DataType datatype)
 {
     switch (datatype)
     {
@@ -119,6 +119,26 @@ static void verify_python_value_datatype(pybind11::object const & value, DataTyp
     }
 }
 
+template <typename T>
+// NOLINTNEXTLINE(misc-use-anonymous-namespace)
+static T cast_scalar(pybind11::object const & value, DataType datatype)
+{
+    if constexpr (std::is_same_v<T, Float16>)
+    {
+        T result{};
+        if (!detail::try_load_float16_scalar(value, true, result))
+        {
+            throw pybind11::type_error("Data type mismatch, expected real number");
+        }
+        return result;
+    }
+    else
+    {
+        check_scalar_type(value, datatype);
+        return value.cast<T>();
+    }
+}
+
 /// Get the typed array value by the key
 /// @tparam T the type of the key
 template <typename T>
@@ -143,6 +163,7 @@ static pybind11::object get_typed_array_value(const SimpleArrayPlex & array_plex
         SC_DECL_GET_TYPED_ARRAY_VALUE_BY_INDEX(DataType::Uint16, SimpleArrayUint16)
         SC_DECL_GET_TYPED_ARRAY_VALUE_BY_INDEX(DataType::Uint32, SimpleArrayUint32)
         SC_DECL_GET_TYPED_ARRAY_VALUE_BY_INDEX(DataType::Uint64, SimpleArrayUint64)
+        SC_DECL_GET_TYPED_ARRAY_VALUE_BY_INDEX(DataType::Float16, SimpleArrayFloat16)
         SC_DECL_GET_TYPED_ARRAY_VALUE_BY_INDEX(DataType::Float32, SimpleArrayFloat32)
         SC_DECL_GET_TYPED_ARRAY_VALUE_BY_INDEX(DataType::Float64, SimpleArrayFloat64)
         SC_DECL_GET_TYPED_ARRAY_VALUE_BY_INDEX(DataType::Complex64, SimpleArrayComplex64)
@@ -177,6 +198,7 @@ static pybind11::object get_typed_array(const SimpleArrayPlex & array_plex)
         SC_DECL_GET_TYPED_ARRAY(DataType::Uint16, SimpleArrayUint16)
         SC_DECL_GET_TYPED_ARRAY(DataType::Uint32, SimpleArrayUint32)
         SC_DECL_GET_TYPED_ARRAY(DataType::Uint64, SimpleArrayUint64)
+        SC_DECL_GET_TYPED_ARRAY(DataType::Float16, SimpleArrayFloat16)
         SC_DECL_GET_TYPED_ARRAY(DataType::Float32, SimpleArrayFloat32)
         SC_DECL_GET_TYPED_ARRAY(DataType::Float64, SimpleArrayFloat64)
         SC_DECL_GET_TYPED_ARRAY(DataType::Complex64, SimpleArrayComplex64)
@@ -206,6 +228,7 @@ static SimpleArrayPlex make_arrayplex_from_numpy(pybind11::array & arr_in)
         SC_DECL_MAKE_ARRAYPLEX(Uint16, uint16_t)
         SC_DECL_MAKE_ARRAYPLEX(Uint32, uint32_t)
         SC_DECL_MAKE_ARRAYPLEX(Uint64, uint64_t)
+        SC_DECL_MAKE_ARRAYPLEX(Float16, Float16)
         SC_DECL_MAKE_ARRAYPLEX(Float32, float)
         SC_DECL_MAKE_ARRAYPLEX(Float64, double)
         SC_DECL_MAKE_ARRAYPLEX(Complex64, Complex<float>)
@@ -214,6 +237,15 @@ static SimpleArrayPlex make_arrayplex_from_numpy(pybind11::array & arr_in)
     }
 
 #undef SC_DECL_MAKE_ARRAYPLEX
+}
+
+// NOLINTNEXTLINE(misc-use-anonymous-namespace)
+static void verify_calculator_supported(SimpleArrayPlex const & array)
+{
+    if (array.data_type() == DataType::Float16)
+    {
+        throw std::runtime_error("Float16 array calculations are not supported");
+    }
 }
 
 class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArrayPlex : public WrapBase<WrapSimpleArrayPlex, SimpleArrayPlex>
@@ -350,9 +382,7 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArrayPlex : public WrapBase<Wr
                 })
             .def_property_readonly("nbody", SC_DECL_EXECUTE_TYPED_ARRAY_METHOD(nbody))
             .wrap_modifiers()
-            .wrap_calculators()
-            // ATTENTION: always keep the same interface between WrapSimpleArrayPlex and WrapSimpleArray
-            ;
+            .wrap_calculators();
     }
 
     wrapper_type & wrap_modifiers()
@@ -369,8 +399,7 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArrayPlex : public WrapBase<Wr
                         self, [&py_value, datatype](auto & array)
                         {
                             using value_type = typename std::remove_reference_t<decltype(array[0])>;
-                            verify_python_value_datatype(py_value, datatype);
-                            const auto value = py_value.cast<value_type>();
+                            const auto value = cast_scalar<value_type>(py_value, datatype);
                             array.fill(value);
                         }); },
                 py::arg("value"))
@@ -383,8 +412,10 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArrayPlex : public WrapBase<Wr
     wrapper_type & wrap_calculators()
     {
 #define SC_DECL_EXECUTE_TYPED_ARRAY_METHOD_RETUN_TYPED_VALUE(typed_array_method) \
-    [](wrapped_type & self) { return execute_callback_with_typed_array(          \
-                                  self, [](auto & array) { return pybind11::cast(array.typed_array_method()); }); }
+    [](wrapped_type & self) {                                                      \
+        verify_calculator_supported(self);                                         \
+        return execute_callback_with_typed_array(                                  \
+            self, [](auto & array) { return pybind11::cast(array.typed_array_method()); }); }
 
         (*this)
             .def("min", SC_DECL_EXECUTE_TYPED_ARRAY_METHOD_RETUN_TYPED_VALUE(min))
@@ -412,8 +443,7 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArrayPlex : public WrapBase<Wr
             array_plex, [&py_value, datatype](auto & array)
             {
                 using value_type = typename std::remove_reference_t<decltype(array[0])>;
-                verify_python_value_datatype(py_value, datatype);
-                const auto value = py_value.cast<value_type>();
+                const auto value = cast_scalar<value_type>(py_value, datatype);
                 array.fill(value); });
         return array_plex;
     }
@@ -434,8 +464,7 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArrayPlex : public WrapBase<Wr
             array_plex, [&py_value, datatype](auto & array)
             {
                 using value_type = typename std::remove_reference_t<decltype(array[0])>;
-                verify_python_value_datatype(py_value, datatype);
-                const auto value = py_value.cast<value_type>();
+                const auto value = cast_scalar<value_type>(py_value, datatype);
                 array.fill(value); });
         return array_plex;
     }
