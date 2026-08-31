@@ -79,7 +79,7 @@ D TypeBroadcastImpl<T, D>::input_at(char const * data, pybind11::ssize_t const *
     {
         data += strides[axis] * sidx[axis];
     }
-    D value;
+    D value{};
     std::memcpy(&value, data, sizeof(value));
     return value;
 }
@@ -146,9 +146,9 @@ void TypeBroadcastImpl<T, D>::broadcast(
             size_t staged_index = 0;
             detail::for_each_index(output_shape, [&](shape_type const & sidx)
                                    {
-                                       // FIXME: NOLINTNEXTLINE(bugprone-signed-char-misuse,cert-str34-c)
                                        staged[staged_index++] = static_cast<T>(
-                                           input_at(data, strides, sidx)); });
+                                           input_at(data, strides, sidx)); // FIXME: NOLINT(bugprone-signed-char-misuse,cert-str34-c)
+                                   });
             staged_index = 0;
             detail::for_each_index(output_shape, [&](shape_type const & sidx)
                                    { output_at(arr_out, slices, sidx) = staged[staged_index++]; });
@@ -157,9 +157,9 @@ void TypeBroadcastImpl<T, D>::broadcast(
         {
             detail::for_each_index(output_shape, [&](shape_type const & sidx)
                                    {
-                                       // FIXME: NOLINTNEXTLINE(bugprone-signed-char-misuse,cert-str34-c)
                                        output_at(arr_out, slices, sidx) = static_cast<T>(
-                                           input_at(data, strides, sidx)); });
+                                           input_at(data, strides, sidx)); // FIXME: NOLINT(bugprone-signed-char-misuse,cert-str34-c)
+                                   });
         }
     }
     else
