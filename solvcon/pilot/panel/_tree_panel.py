@@ -14,7 +14,7 @@ from PySide6.QtGui import QColor, QPainter
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QTreeWidget,
                                QTreeWidgetItem, QFrame, QDockWidget,
                                QStackedWidget, QHBoxLayout, QButtonGroup,
-                               QRadioButton, QCheckBox, QPushButton,
+                               QRadioButton, QPushButton,
                                QSizePolicy, QAbstractButton)
 
 from ... import core
@@ -507,15 +507,18 @@ class EntityTreeWidget(TreePanelBase):
         shape_row = QHBoxLayout()
         shape_row.setContentsMargins(0, 0, 0, 0)
         shape_row.setSpacing(8)
-        self._labels_check = QCheckBox("show")
+        self._labels_check = _ToggleSwitch("show")
         shape_row.addWidget(self._labels_check)
+        shape_row.addStretch(1)
+        mode_row = QHBoxLayout()
+        mode_row.setContentsMargins(12, 0, 0, 0)
         mode_group = QButtonGroup(self)
         for mode in self.LABEL_MODES:
             button = QRadioButton(mode)
             mode_group.addButton(button)
-            shape_row.addWidget(button)
+            mode_row.addWidget(button)
             self._label_modes[mode] = button
-        shape_row.addStretch(1)
+        mode_row.addStretch(1)
 
         coord_row = QHBoxLayout()
         coord_row.setContentsMargins(0, 0, 0, 0)
@@ -532,6 +535,7 @@ class EntityTreeWidget(TreePanelBase):
         for button in self._label_modes.values():
             button.toggled.connect(self._on_labels_changed)
         layout.addLayout(shape_row)
+        layout.addLayout(mode_row)
         layout.addLayout(coord_row)
 
     def _sync_label_controls_enabled(self):
