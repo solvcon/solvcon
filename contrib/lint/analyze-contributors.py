@@ -14,6 +14,12 @@ disables it), and the display name prefers the copyright-header spelling.
 ``--update-file FILE`` rewrites the list in place, keeping the file header,
 existing names (unless ``--update-name``), and the email order of existing
 entries. Otherwise a keep/drop report is printed.
+
+Both modes report an identity that git recorded from an unconfigured author
+ident (an unreachable address or a non-ASCII name). A kept one is an error
+and exits 1; a dropped one is a warning, since its commits may belong to a
+listed contributor. The fix is a ``.mailmap`` entry, which ``git log``
+applies before this script sees it.
 """
 
 import re
@@ -34,6 +40,12 @@ INVALID_EMAILS = {
     'austin2046@gmail.com',
 }
 SKIP_EMAILS = PROJECT_CONTACT_EMAIL | INVALID_EMAILS
+
+# Last host labels a machine invents when the git ident was never
+# configured; a host without a dot (localhost, (none), a bare user name)
+# is rejected outright.
+UNCONFIGURED_DOMAINS = {'local', 'localdomain', 'lan', 'home', 'internal',
+                        '(none)'}
 
 # A copyright line: "(c)", a year span, then "Name <email>".
 COPYRIGHT_RE = re.compile(
@@ -131,11 +143,11 @@ def choose_name(header_names, git_names):
 
 def make_identity(emails, headers, counts, git_names):
     """Collapse a set of emails into a single contributor row."""
-    header_names, names = set(), set()
+    header_names, names = set(), {}
     commits, in_header = 0, False
     for email in emails:
         header_names |= headers.get(email, set())
-        names |= git_names.get(email, set())
+        names[email] = git_names.get(email, set())
         commits += counts.get(email, 0)
         in_header = in_header or email in headers
     # Prefer a header email, else the busiest one.
@@ -143,7 +155,8 @@ def make_identity(emails, headers, counts, git_names):
                  key=lambda e: (e in headers, counts.get(e, 0)),
                  reverse=True)[0]
     return {
-        'name': choose_name(header_names, names),
+        'name': choose_name(header_names, set().union(*names.values())),
+        'git_names': names,
         'email': rep,
         'emails': sorted(emails),
         'commits': commits,
@@ -210,6 +223,12 @@ def reason(row, threshold):
     return ' + '.join(parts) if parts else f"only {row['commits']} commit(s)"
 
 
+def format_row(name, emails, note):
+    """Format one ``  name <email>...  [note]`` line."""
+    joined = ' '.join(f"<{e}>" for e in emails)
+    return f"  {name} {joined}  [{note}]"
+
+
 def print_report(rows, threshold):
     """Print a full keep/drop report to stdout."""
     kept = [r for r in rows if r['keep']]
@@ -220,13 +239,13 @@ def print_report(rows, threshold):
 
     print(f"KEEP ({len(kept)}):")
     for r in kept:
-        print(f"  {r['name']} <{r['email']}>  "
-              f"[{r['commits']} commits, {reason(r, threshold)}]")
+        print(format_row(r['name'], [r['email']],
+                         f"{r['commits']} commits, {reason(r, threshold)}"))
 
     print(f"\nDROP ({len(dropped)}):")
     for r in dropped:
-        print(f"  {r['name']} <{r['email']}>  "
-              f"[{r['commits']} commits, {reason(r, threshold)}]")
+        print(format_row(r['name'], [r['email']],
+                         f"{r['commits']} commits, {reason(r, threshold)}"))
 
 
 def read_header(path):
@@ -271,27 +290,94 @@ def display_name(row, existing_names, update_name):
     return row['name']
 
 
+def reachable_email(email):
+    """Tell whether ``email`` can carry mail off the author's machine.
+
+    A token without ``@``, a host without a dot, or a host ending in one of
+    ``UNCONFIGURED_DOMAINS`` comes from a git ident that was never
+    configured, so the address resolves only on the machine that recorded
+    the commit.
+    """
+    if '@' not in email:
+        return False
+    host = email.rpartition('@')[2].lower()
+    return '.' in host and host.rpartition('.')[2] not in UNCONFIGURED_DOMAINS
+
+
+def unconfigured_addresses(row):
+    """Return the addresses of ``row`` that a ``.mailmap`` entry must repair.
+
+    An address is bad when it is unreachable or when any commit under it
+    carries a non-ASCII author name. A single bad alias condemns the
+    identity: merging hides it behind a good one while its commits keep
+    counting toward the threshold.
+    """
+    return [e for e in row['emails']
+            if not reachable_email(e)
+            or any(not n.isascii() for n in row['git_names'][e])]
+
+
+def unconfigured_idents(rows):
+    """Return the identities that a ``.mailmap`` entry must repair."""
+    return [row for row in rows
+            if unconfigured_addresses(row) or not row['name'].isascii()]
+
+
+def print_mailmap_hint(rows, label, stream=sys.stderr):
+    """Print the identities in ``rows`` and the lines that repair them.
+
+    An unreachable address needs a mapping of its own. A bad name alone is
+    repaired by the two-field form, which renames by address.
+    """
+    print(f"{label}: git recorded these identities from an unconfigured "
+          "author ident:", file=stream)
+    for row in rows:
+        names = ', '.join(sorted(set().union(*row['git_names'].values())))
+        print(format_row(names, row['emails'], f"{row['commits']} commits"),
+              file=stream)
+    print("\nMap each one onto the contributor's real name and address in "
+          ".mailmap:", file=stream)
+    for row in rows:
+        for email in unconfigured_addresses(row) or row['emails']:
+            if reachable_email(email):
+                print(f"  Real Name <{email}>", file=stream)
+            else:
+                print(f"  Real Name <real@address> <{email}>", file=stream)
+    print("\ngit log applies .mailmap, so a mapped commit counts toward the "
+          "real name and address on the next run.\n", file=stream)
+
+
+def reject_unconfigured(rows, stream=sys.stderr):
+    """Tell whether a kept identity is unconfigured; warn about dropped ones.
+
+    A dropped one is only a warning, but its commits may belong to a listed
+    contributor, so it is reported all the same.
+    """
+    bad = unconfigured_idents(rows)
+    kept = [row for row in bad if row['keep']]
+    dropped = [row for row in bad if not row['keep']]
+    if dropped:
+        print_mailmap_hint(dropped, 'warning', stream)
+    if kept:
+        print_mailmap_hint(kept, 'error', stream)
+    return bool(kept)
+
+
 def entry_emails(row, order_index=None):
     """Return an entry's addresses in display order.
 
-    Existing addresses keep their file order (``order_index``); new ones are
-    appended sorted, dropping ``.local`` and non-address tokens. A brand-new
-    entry leads with the representative.
+    Existing addresses keep their file order (``order_index``); new ones
+    are appended sorted. A brand-new entry leads with the representative.
     """
     order_index = order_index or {}
 
-    def usable(email):
-        return '@' in email and not email.endswith('.local')
-
     existing = sorted((e for e in row['emails'] if e in order_index),
                       key=lambda e: order_index[e])
-    fresh = sorted(e for e in row['emails']
-                   if e not in order_index and usable(e))
+    fresh = sorted(e for e in row['emails'] if e not in order_index)
     if existing:
         return existing + fresh
     rep = row['email']
-    rest = [e for e in fresh if e != rep]
-    return ([rep] if usable(rep) else []) + rest or [rep]
+    return [rep] + [e for e in fresh if e != rep]
 
 
 def print_contributors(rows, stream=sys.stdout, existing_names=None,
@@ -356,6 +442,8 @@ def main():
         pinned = [emails for _, emails in entries]
         header = read_header(args.update_file)
         rows = analyze(args.threshold, exclude_dirs, args.dedup, pinned)
+        if reject_unconfigured(rows):
+            return 1
         with open(args.update_file, 'w', encoding='utf-8') as f:
             f.write(header)
             print_contributors(rows, f, existing_names, args.update_name,
@@ -363,6 +451,9 @@ def main():
     else:
         rows = analyze(args.threshold, exclude_dirs, args.dedup)
         print_report(rows, args.threshold)
+        print()
+        if reject_unconfigured(rows):
+            return 1
     return 0
 
 

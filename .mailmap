@@ -1,0 +1,12 @@
+# Author idents mapped onto the contributor's real name and address: idents
+# git recorded from an unconfigured machine, and alias addresses a
+# contributor wants folded onto one. contrib/lint/analyze-contributors.py
+# reports the unconfigured idents that need a line here; see the
+# update-contributors skill.
+
+OuChiaYun <j312079@gmail.com> <sunny@MacBook-Pro-5.local>
+Liu, An-Chi <phy.tiger@gmail.com> <acliu@datra.ai>
+Liu, An-Chi <phy.tiger@gmail.com> <anchi.liu@mujin.co.jp>
+Jie-Yin Lin <geneeee0315@gmail.com> <genelin@GenedeMacBook-Air.local>
+Chun-Shih Chang <austin20463@gmail.com> <ThreeMonth03>
+Yung-Yu Chen <yyc@solvcon.net> <yungyuc@mac00.local>

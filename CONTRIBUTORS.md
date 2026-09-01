@@ -10,7 +10,8 @@ solvcon is made possible by the following contributors.
 - Jenny Yen <jenny35006@gmail.com>
 - Jie-Yin Lin <geneeee0315@gmail.com>
 - Kuan-Hsien Lee <khlee870529@gmail.com>
-- Liu, An-Chi <phy.tiger@gmail.com> <acliu@datra.ai> <anchi.liu@mujin.co.jp>
+- Liu, An-Chi <phy.tiger@gmail.com>
+- OuChiaYun <j312079@gmail.com>
 - Quentin Tsai <quentin.tsai.tw@gmail.com> <q40603@gmail.com>
 - Ray Huang <bjhuang@cs.nycu.edu.tw>
 - Sean20405 <sean20405.cs11@nycu.edu.tw>
