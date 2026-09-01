@@ -13,9 +13,11 @@ namespace python
 
 void wrap_SimpleArray_float(pybind11::module & mod)
 {
+    WrapSimpleArray<Float16>::commit(mod, "SimpleArrayFloat16", "SimpleArrayFloat16");
     WrapSimpleArray<float>::commit(mod, "SimpleArrayFloat32", "SimpleArrayFloat32");
     WrapSimpleArray<double>::commit(mod, "SimpleArrayFloat64", "SimpleArrayFloat64");
 
+    WrapSimpleCollector<Float16>::commit(mod, "SimpleCollectorFloat16", "SimpleCollectorFloat16");
     WrapSimpleCollector<float>::commit(mod, "SimpleCollectorFloat32", "SimpleCollectorFloat32");
     WrapSimpleCollector<double>::commit(mod, "SimpleCollectorFloat64", "SimpleCollectorFloat64");
 }

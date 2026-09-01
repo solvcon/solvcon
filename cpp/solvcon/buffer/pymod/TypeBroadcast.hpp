@@ -238,6 +238,10 @@ struct TypeBroadcast
         {
             TypeBroadcastImpl<T, uint64_t>::broadcast(arr_out, slices, arr_in);
         }
+        else if (dtype_is_type<Float16>(arr_in))
+        {
+            TypeBroadcastImpl<T, Float16>::broadcast(arr_out, slices, arr_in);
+        }
         else if (dtype_is_type<float>(arr_in))
         {
             TypeBroadcastImpl<T, float>::broadcast(arr_out, slices, arr_in);

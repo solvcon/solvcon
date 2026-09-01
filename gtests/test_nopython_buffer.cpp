@@ -211,6 +211,20 @@ TEST(Float16, binary_layout)
     EXPECT_FLOAT_EQ(neg_input, static_cast<float>(neg_output));
 }
 
+TEST(Float16, explicit_conversion)
+{
+    namespace sc = solvcon;
+
+    constexpr sc::Float16 value(1.5F);
+    static_assert(static_cast<float>(value) == 1.5F);
+    static_assert(static_cast<double>(value) == 1.5);
+    static_assert(static_cast<int>(value) == 1);
+    static_assert(static_cast<bool>(value));
+    static_assert(!static_cast<bool>(sc::Float16(0.0F)));
+    static_assert(!std::is_convertible_v<sc::Float16, float>);
+    static_assert(!std::is_convertible_v<sc::Float16, int>);
+}
+
 TEST(Float16, boundaries)
 {
     namespace sc = solvcon;
@@ -548,8 +562,9 @@ TEST(SimpleArray_DataType, from_string)
     solvcon::DataType dt_bool = solvcon::DataType("bool");
     EXPECT_EQ(dt_bool.type(), solvcon::DataType::Bool);
 
-    // Float16 has no registered string name.
-    EXPECT_THROW(solvcon::DataType("float16"), std::invalid_argument);
+    solvcon::DataType dt_half = solvcon::DataType("float16");
+    EXPECT_EQ(dt_half.type(), solvcon::DataType::Float16);
+
     EXPECT_THROW(solvcon::DataType("bool8"), std::invalid_argument); // bool8 does not exist
 }
 
