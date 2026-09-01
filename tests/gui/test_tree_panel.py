@@ -323,6 +323,34 @@ class TreePanelTC(unittest.TestCase):
             item.setCheckState(0, Qt.Unchecked)
             self.assertEqual(calls, [True, False])
 
+    def test_normal_scale_slider_drives_viewer(self):
+        widget = self.mgr.add3DWidget()
+        widget.updateMesh(_make_sample_mesh())
+        panel = self._panel_on()._mesh_tree
+        root = panel._tree.topLevelItem(0)
+        item = next(root.child(i) for i in range(root.childCount())
+                    if root.child(i).text(0) == "normals")
+        slider = panel._normal_scale_slider
+
+        # Check the width of slider is _NORMAL_SCALE_SLIDER_WIDTH.
+        self.assertIsNotNone(slider)
+        self.assertFalse(slider.isEnabled())
+        self.assertEqual(slider.width(), panel._NORMAL_SCALE_SLIDER_WIDTH)
+
+        # Checked the normal vector option
+        item.setCheckState(0, Qt.Checked)
+        self.assertTrue(widget.normalsShown)
+        self.assertTrue(slider.isEnabled())
+
+        # Check normalScale will modify by slider.
+        slider.setValue(175)
+        self.assertAlmostEqual(widget.normalScale, 1.75)
+
+        # Check the slider can be disable by unchecked.
+        item.setCheckState(0, Qt.Unchecked)
+        self.assertFalse(widget.normalsShown)
+        self.assertFalse(slider.isEnabled())
+
     def test_mesh_viewer_without_mesh_shows_placeholder(self):
         self.mgr.add3DWidget()  # fresh viewer becomes current, no mesh
         feature = self._panel_on()

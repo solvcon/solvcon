@@ -261,6 +261,7 @@ void RDomainWidget::updateMesh(std::shared_ptr<StaticMesh> const & mesh)
     {
         m_scene.fitCameraToScene(viewportAspect());
     }
+    rebuildNormals();
     update();
 }
 
@@ -930,20 +931,41 @@ void RDomainWidget::showFeatureEdges(bool show)
 
 void RDomainWidget::showNormals(bool show)
 {
+    m_show_normals = show;
+    rebuildNormals();
+    update();
+}
+
+void RDomainWidget::showNormals(bool show, float scale)
+{
+    m_normal_scale = std::max(scale, 0.0f);
+    showNormals(show);
+}
+
+void RDomainWidget::setNormalScale(float scale)
+{
+    m_normal_scale = std::max(scale, 0.0f);
+    if (m_show_normals)
+    {
+        rebuildNormals();
+        update();
+    }
+}
+
+void RDomainWidget::rebuildNormals()
+{
     m_scene.removeDrawableIf(
         [](RDrawable const * d)
         { return nullptr != dynamic_cast<RNormals const *>(d); });
 
-    if (show && nullptr != m_mesh)
+    if (m_show_normals && nullptr != m_mesh)
     {
-        auto normals = std::make_unique<RNormals>(m_mesh);
+        auto normals = std::make_unique<RNormals>(m_mesh, m_normal_scale);
         if (normals->hasGeometry())
         {
             m_scene.addDrawable(std::move(normals));
         }
     }
-
-    update();
 }
 
 namespace

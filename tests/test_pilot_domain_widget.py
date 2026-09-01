@@ -898,6 +898,27 @@ class RDomainWidgetOverlayTC(unittest.TestCase):
         hidden = _count_green(_grab_or_skip(hidden_widget))
         self.assertLess(hidden, shown)
 
+    def test_normals_scale_changes_arrow_length(self):
+        """A larger normal scale draws longer arrows from the same vectors."""
+        # Create a small normal vector
+        small_widget = pilot.RDomainWidget()
+        small_widget.resize(320, 240)
+        small_widget.updateMesh(_make_2d_mesh())
+        small_widget.showNormals(True, scale=0.25)
+        small = _count_green(_grab_or_skip(small_widget))
+
+        # Create a large normal vector
+        large_widget = pilot.RDomainWidget()
+        large_widget.resize(320, 240)
+        large_widget.updateMesh(_make_2d_mesh())
+        large_widget.showNormals(True, scale=2.0)
+        large = _count_green(_grab_or_skip(large_widget))
+
+        # Check small normal vector bigger than large normal vector
+        self.assertTrue(large_widget.normalsShown)
+        self.assertAlmostEqual(large_widget.normalScale, 2.0)
+        self.assertGreater(large, small)
+
     def test_normals_without_mesh_is_noop(self):
         """showNormals on a widget with no mesh does nothing, not crash."""
         widget = pilot.RDomainWidget()
