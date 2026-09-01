@@ -322,6 +322,10 @@ checktws:
 checktests:
 	$(WHICH_PYTHON) contrib/lint/check_test_layout.py
 
+.PHONY: checkagentskills
+checkagentskills:
+	$(WHICH_PYTHON) contrib/lint/agent-skills-check.py
+
 # Run the lint targets concurrently, scaled to the processor count, and keep
 # going on failure so every check reports before make exits non-zero.
 .PHONY: lint
@@ -329,7 +333,8 @@ lint:
 	@$(MAKE) --no-print-directory -j $(NPROC) -k lint_targets
 
 .PHONY: lint_targets
-lint_targets: cformat cinclude flake8 checkascii checktws checktests
+lint_targets: cformat cinclude flake8 checkascii checktws checktests \
+	checkagentskills
 
 .PHONY: pyformat
 pyformat:
