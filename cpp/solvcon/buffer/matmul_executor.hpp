@@ -32,6 +32,17 @@
 namespace solvcon
 {
 
+/**
+ * Report that a forced matmul kernel is unavailable for this call.
+ *
+ * @ingroup group_core
+ */
+class MatmulKernelUnavailable : public std::invalid_argument
+{
+public:
+    using std::invalid_argument::invalid_argument;
+}; /* end class MatmulKernelUnavailable */
+
 namespace detail
 {
 
@@ -316,8 +327,7 @@ void MatmulExecutor<Array>::execute(MatmulKernel kernel)
         std::string_view const reason = use_matmul_blas_v<value_type>
                                             ? "is not eligible for these operands"
                                             : "requires a BLAS backend";
-        throw std::invalid_argument(
-            std::format("matmul(): kernel '{}' {}", matmul_kernel_name(kernel), reason));
+        throw MatmulKernelUnavailable(std::format("matmul(): kernel '{}' {}", matmul_kernel_name(kernel), reason));
     }
     run(selection.value());
 }

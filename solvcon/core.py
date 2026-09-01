@@ -18,6 +18,7 @@ from . import pylibmgr
 list_of_buffer = [
     'ConcreteBuffer',
     'BufferExpander',
+    'MatmulKernelUnavailable',
     'SimpleArray',
     'SimpleArrayBool',
     'SimpleArrayInt8',

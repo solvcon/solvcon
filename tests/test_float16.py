@@ -106,6 +106,8 @@ class Float16PythonIntegrationTC(unittest.TestCase):
     def test_plex_float16_dispatch(self):
         array = sc.SimpleArray(
             shape=(2,), value=np.float16(1.25), dtype='float16')
+        self.assertIs(sc.SimpleArray.typed_class('float16'),
+                      sc.SimpleArrayFloat16)
         self.assertIsInstance(array.typed, sc.SimpleArrayFloat16)
         assert_array(np.full(2, 1.25, dtype='float16'), np.asarray(array))
 

@@ -240,6 +240,34 @@ static SimpleArrayPlex make_arrayplex_from_numpy(pybind11::array & arr_in)
 }
 
 // NOLINTNEXTLINE(misc-use-anonymous-namespace)
+static pybind11::type get_typed_array_class(std::string const & dtype)
+{
+#define SC_DECL_GET_TYPED_ARRAY_CLASS(DataTypeValue, ArrayType) \
+    case DataTypeValue: return pybind11::type::of<ArrayType>();
+
+    switch (DataType(dtype))
+    {
+        SC_DECL_GET_TYPED_ARRAY_CLASS(DataType::Bool, SimpleArrayBool)
+        SC_DECL_GET_TYPED_ARRAY_CLASS(DataType::Int8, SimpleArrayInt8)
+        SC_DECL_GET_TYPED_ARRAY_CLASS(DataType::Int16, SimpleArrayInt16)
+        SC_DECL_GET_TYPED_ARRAY_CLASS(DataType::Int32, SimpleArrayInt32)
+        SC_DECL_GET_TYPED_ARRAY_CLASS(DataType::Int64, SimpleArrayInt64)
+        SC_DECL_GET_TYPED_ARRAY_CLASS(DataType::Uint8, SimpleArrayUint8)
+        SC_DECL_GET_TYPED_ARRAY_CLASS(DataType::Uint16, SimpleArrayUint16)
+        SC_DECL_GET_TYPED_ARRAY_CLASS(DataType::Uint32, SimpleArrayUint32)
+        SC_DECL_GET_TYPED_ARRAY_CLASS(DataType::Uint64, SimpleArrayUint64)
+        SC_DECL_GET_TYPED_ARRAY_CLASS(DataType::Float16, SimpleArrayFloat16)
+        SC_DECL_GET_TYPED_ARRAY_CLASS(DataType::Float32, SimpleArrayFloat32)
+        SC_DECL_GET_TYPED_ARRAY_CLASS(DataType::Float64, SimpleArrayFloat64)
+        SC_DECL_GET_TYPED_ARRAY_CLASS(DataType::Complex64, SimpleArrayComplex64)
+        SC_DECL_GET_TYPED_ARRAY_CLASS(DataType::Complex128, SimpleArrayComplex128)
+    default: throw std::invalid_argument("Unsupported datatype");
+    }
+
+#undef SC_DECL_GET_TYPED_ARRAY_CLASS
+}
+
+// NOLINTNEXTLINE(misc-use-anonymous-namespace)
 static void verify_calculator_supported(SimpleArrayPlex const & array)
 {
     if (array.data_type() == DataType::Float16)
@@ -295,6 +323,7 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArrayPlex : public WrapBase<Wr
             ;
 
         (*this)
+            .def_static("typed_class", &get_typed_array_class, pybind11::arg("dtype"))
             .def("clone",
                  [](wrapped_type const & self)
                  { return wrapped_type(self); }) // cloning the object using the copy constructor. never add the clone method to the C++ class.
