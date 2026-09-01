@@ -293,6 +293,22 @@ template <typename U>
 inline constexpr bool is_bool_v = std::is_same_v<bool, std::remove_const_t<U>>;
 
 template <typename U>
+inline constexpr bool is_array_real_v =
+    is_real_v<std::remove_cv_t<U>> || std::is_same_v<std::remove_cv_t<U>, Float16>;
+
+template <typename U>
+constexpr U min_identity() { return std::numeric_limits<U>::max(); }
+
+template <>
+constexpr Float16 min_identity<Float16>() { return Float16::from_bits(0x7c00U); }
+
+template <typename U>
+constexpr U max_identity() { return std::numeric_limits<U>::lowest(); }
+
+template <>
+constexpr Float16 max_identity<Float16>() { return Float16::from_bits(0xfc00U); }
+
+template <typename U>
 struct select_real_t
 {
     using type = U;
@@ -712,7 +728,7 @@ public:
 
     real_type std_op(small_vector<value_type> & sv, size_t ddof) const
     {
-        return static_cast<real_type>(std::sqrt(var_op(sv, ddof)));
+        return static_cast<real_type>(solvcon::sqrt(var_op(sv, ddof)));
     }
 
     auto std(const shape_type & axis, size_t ddof) const
@@ -723,12 +739,12 @@ public:
     real_type std(size_t ddof) const
     {
         auto athis = static_cast<A const *>(this);
-        return static_cast<real_type>(std::sqrt(athis->var(ddof)));
+        return static_cast<real_type>(solvcon::sqrt(athis->var(ddof)));
     }
 
     value_type min() const
     {
-        value_type initial = std::numeric_limits<value_type>::max();
+        value_type initial = min_identity<value_type>();
         auto athis = static_cast<A const *>(this);
         for (size_t i = 0; i < athis->size(); ++i)
         {
@@ -742,7 +758,7 @@ public:
 
     value_type max() const
     {
-        value_type initial = std::numeric_limits<value_type>::lowest();
+        value_type initial = max_identity<value_type>();
         auto athis = static_cast<A const *>(this);
         for (size_t i = 0; i < athis->size(); ++i)
         {
@@ -758,11 +774,12 @@ public:
     {
         auto athis = static_cast<A const *>(this);
         A ret(*athis);
-        if constexpr (!std::is_same_v<bool, std::remove_const_t<value_type>> && std::is_signed_v<value_type>)
+        if constexpr (std::is_signed_v<std::remove_cv_t<value_type>> ||
+                      std::is_same_v<std::remove_cv_t<value_type>, Float16>)
         {
             for (size_t i = 0; i < athis->size(); ++i)
             {
-                ret.data(i) = static_cast<value_type>(std::abs(athis->data(i)));
+                ret.data(i) = static_cast<value_type>(solvcon::abs(athis->data(i)));
             }
         }
         return ret;
@@ -1494,13 +1511,13 @@ bool nan_aware_less(V const & lhs, V const & rhs)
         }
         return nan_aware_less(lhs.imag(), rhs.imag());
     }
-    else if constexpr (std::is_floating_point_v<V>)
+    else if constexpr (is_array_real_v<V>)
     {
-        if (std::isnan(rhs))
+        if (solvcon::isnan(rhs))
         {
-            return !std::isnan(lhs);
+            return !solvcon::isnan(lhs);
         }
-        if (std::isnan(lhs))
+        if (solvcon::isnan(lhs))
         {
             return false;
         }
@@ -1616,11 +1633,11 @@ void SimpleArrayMixinSort<A, T>::sort()
         // Complex numbers are sorted lexicographically by real and then imaginary parts.
         std::sort(athis->begin(), athis->end(), NanAwareLess{});
     }
-    else if constexpr (std::is_floating_point_v<value_type>)
+    else if constexpr (is_array_real_v<value_type>)
     {
         // Partition the array into two parts: non-NaN values and NaN values.
         auto * const mid = std::partition(athis->begin(), athis->end(), [](value_type const & v)
-                                          { return !std::isnan(v); });
+                                          { return !solvcon::isnan(v); });
         std::sort(athis->begin(), mid);
     }
     else
@@ -3388,9 +3405,9 @@ size_t detail::SimpleArrayMixinSearch<A, T>::argmin() const
         {
             value_type const current_value = ptr[i];
 
-            if constexpr (std::is_floating_point_v<value_type>)
+            if constexpr (is_array_real_v<value_type>)
             {
-                if (std::isnan(current_value))
+                if (solvcon::isnan(current_value))
                 {
                     return i;
                 }
@@ -3416,9 +3433,9 @@ size_t detail::SimpleArrayMixinSearch<A, T>::argmin() const
     {
         value_type const current_value = *(ptr + unchecked_logical_offset(*athis, idx));
 
-        if constexpr (std::is_floating_point_v<value_type>)
+        if constexpr (is_array_real_v<value_type>)
         {
-            if (std::isnan(current_value))
+            if (solvcon::isnan(current_value))
             {
                 return flat_index;
             }
@@ -3456,9 +3473,9 @@ size_t detail::SimpleArrayMixinSearch<A, T>::argmax() const
         {
             value_type const current_value = ptr[i];
 
-            if constexpr (std::is_floating_point_v<value_type>)
+            if constexpr (is_array_real_v<value_type>)
             {
-                if (std::isnan(current_value))
+                if (solvcon::isnan(current_value))
                 {
                     return i;
                 }
@@ -3484,9 +3501,9 @@ size_t detail::SimpleArrayMixinSearch<A, T>::argmax() const
     {
         value_type const current_value = *(ptr + unchecked_logical_offset(*athis, idx));
 
-        if constexpr (std::is_floating_point_v<value_type>)
+        if constexpr (is_array_real_v<value_type>)
         {
-            if (std::isnan(current_value))
+            if (solvcon::isnan(current_value))
             {
                 return flat_index;
             }
@@ -3548,9 +3565,9 @@ SimpleArray<uint64_t> detail::SimpleArrayMixinSearch<A, T>::argmin(ssize_t axis)
         {
             ssize_t const current_index = input_index + i * axis_stride;
             value_type const current_value = (*athis)[static_cast<size_t>(current_index)];
-            if constexpr (std::is_floating_point_v<value_type>)
+            if constexpr (is_array_real_v<value_type>)
             {
-                if (std::isnan(current_value))
+                if (solvcon::isnan(current_value))
                 {
                     min_index = static_cast<uint64_t>(i);
                     break;
@@ -3616,9 +3633,9 @@ SimpleArray<uint64_t> detail::SimpleArrayMixinSearch<A, T>::argmax(ssize_t axis)
         {
             ssize_t const current_index = input_index + i * axis_stride;
             value_type const current_value = (*athis)[static_cast<size_t>(current_index)];
-            if constexpr (std::is_floating_point_v<value_type>)
+            if constexpr (is_array_real_v<value_type>)
             {
-                if (std::isnan(current_value))
+                if (solvcon::isnan(current_value))
                 {
                     max_index = static_cast<uint64_t>(i);
                     break;

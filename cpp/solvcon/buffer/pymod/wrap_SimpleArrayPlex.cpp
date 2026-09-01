@@ -267,15 +267,6 @@ static pybind11::type get_typed_array_class(std::string const & dtype)
 #undef SC_DECL_GET_TYPED_ARRAY_CLASS
 }
 
-// NOLINTNEXTLINE(misc-use-anonymous-namespace)
-static void verify_calculator_supported(SimpleArrayPlex const & array)
-{
-    if (array.data_type() == DataType::Float16)
-    {
-        throw std::runtime_error("Float16 array calculations are not supported");
-    }
-}
-
 class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArrayPlex : public WrapBase<WrapSimpleArrayPlex, SimpleArrayPlex>
 {
     using root_base_type = WrapBase<WrapSimpleArrayPlex, SimpleArrayPlex>;
@@ -441,10 +432,8 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArrayPlex : public WrapBase<Wr
     wrapper_type & wrap_calculators()
     {
 #define SC_DECL_EXECUTE_TYPED_ARRAY_METHOD_RETUN_TYPED_VALUE(typed_array_method) \
-    [](wrapped_type & self) {                                                      \
-        verify_calculator_supported(self);                                         \
-        return execute_callback_with_typed_array(                                  \
-            self, [](auto & array) { return pybind11::cast(array.typed_array_method()); }); }
+    [](wrapped_type & self) { return execute_callback_with_typed_array(          \
+                                  self, [](auto & array) { return pybind11::cast(array.typed_array_method()); }); }
 
         (*this)
             .def("min", SC_DECL_EXECUTE_TYPED_ARRAY_METHOD_RETUN_TYPED_VALUE(min))

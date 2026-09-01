@@ -45,6 +45,12 @@ class MatrixTestBase(sc.testing.TestBase):
                                          f"should be 0.0")
 
 
+class MatrixFloat16TC(MatrixTestBase, unittest.TestCase):
+    def setUp(self):
+        self.dtype = 'float16'
+        self.SimpleArray = sc.SimpleArrayFloat16
+
+
 class MatrixFloat32TC(MatrixTestBase, unittest.TestCase):
     def setUp(self):
         self.dtype = np.float32
@@ -836,6 +842,19 @@ class MatrixPowerFloat64TC(MatrixPowerTestBase, unittest.TestCase):
     def setUp(self):
         self.dtype = np.float64
         self.SimpleArray = sc.SimpleArrayFloat64
+
+
+class MatmulFloat16TC(unittest.TestCase):
+    def test_naive_column_blocks(self):
+        lhs_data = np.array([[1, 2, 3]], dtype='float16')
+        rhs_data = np.arange(3 * 13, dtype='float16').reshape(3, 13)
+        lhs = sc.SimpleArrayFloat16(array=lhs_data)
+        rhs = sc.SimpleArrayFloat16(array=rhs_data)
+
+        # Thirteen columns reach the 8- and 4-column blocks and scalar tail.
+        result = lhs.matmul(rhs, kernel='naive')
+
+        np.testing.assert_array_equal(lhs_data @ rhs_data, result.ndarray)
 
 
 class MatmulFloat32TC(MatmulTestBase, unittest.TestCase):
