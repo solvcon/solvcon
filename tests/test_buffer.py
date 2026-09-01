@@ -5453,10 +5453,14 @@ class SimpleArrayPlexTC(unittest.TestCase):
                                  "<class '_solvcon.SimpleArray'>")
 
     def test_SimpleArrayPlex_cast_to_typed(self):
+        with self.assertRaisesRegex(ValueError, 'Unsupported datatype'):
+            solvcon.SimpleArray.typed_class('invalid')
         for dtype, (_, typed_name, np_dtype) in self._DTINFO.items():
             with self.subTest(dtype=dtype):
                 plex = solvcon.SimpleArray((2, 3, 4), dtype=dtype)
                 typed = plex.typed
+                self.assertIs(solvcon.SimpleArray.typed_class(dtype),
+                              type(typed))
                 self.assertEqual(str(type(typed)),
                                  "<class '{}'>".format(typed_name))
                 self.assertEqual(typed.ndarray.dtype, np_dtype)

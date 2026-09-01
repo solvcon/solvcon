@@ -1,0 +1,292 @@
+# Copyright (c) 2026, solvcon team <contact@solvcon.net>
+# BSD 3-Clause License, see COPYING
+
+import unittest
+import unittest.mock
+
+import numpy as np
+
+import solvcon as sc
+from solvcon.benchmark import collector
+from solvcon.benchmark import matmul
+from solvcon.benchmark import spec as benchmark_spec
+
+
+def make_spec(**updates):
+    data = {
+        'operation': 'matmul',
+        'lhs': {'shape': [2, 3], 'strides': [3, 1]},
+        'rhs': {'shape': [3, 2], 'strides': [2, 1]},
+        'dtype': 'float64',
+        'sampling': {'warmups': 1, 'repetitions': 2, 'rounds': 6},
+        'kernels': ['naive', 'blas_gemm'],
+    }
+    data.update(updates)
+    return matmul.MatmulSpec.from_dict(data)
+
+
+class FakeExecutor:
+    def __init__(self, outputs):
+        self.outputs = outputs
+        self.calls = []
+
+    def __call__(self, name):
+        self.calls.append(name)
+        output = self.outputs[name]
+        if isinstance(output, Exception):
+            raise output
+        if isinstance(output, np.ndarray):
+            return output.copy()
+        return np.array(output, dtype='float64')
+
+
+class OperandConstructionTC(unittest.TestCase):
+    def test_quantizes_shared_component_stream(self):
+        operand = benchmark_spec.OperandSpec.from_dict({
+            'shape': [2, 3], 'strides': [3, 1],
+        })
+        expected = 2 * np.random.default_rng(7).random(
+            12, dtype='float64') - 1
+        with unittest.mock.patch.object(
+                collector, '_CHUNK_SIZE', 4):
+            arrays = {
+                dtype: collector._make_operand(operand, dtype, 7)
+                for dtype in ('float32', 'float64',
+                              'complex64', 'complex128')
+            }
+        for array in arrays.values():
+            components = array.view(array.real.dtype.name).ravel()
+            np.testing.assert_array_equal(
+                components,
+                expected[:components.size].astype(components.dtype.name))
+
+    def test_preserves_negative_zero_and_empty_strides(self):
+        cases = (
+            ({'shape': [2, 3], 'strides': [-4, 0]}, (-4, 0)),
+            ({'shape': [0, 3], 'strides': [99, -2]}, (99, -2)),
+        )
+        for data, strides in cases:
+            with self.subTest(shape=data['shape']):
+                operand = benchmark_spec.OperandSpec.from_dict(data)
+                array = collector._make_operand(operand, 'complex64', 0)
+
+                self.assertEqual(array.shape, tuple(data['shape']))
+                self.assertEqual(
+                    tuple(value // array.itemsize
+                          for value in array.strides),
+                    strides,
+                )
+                self.assertEqual(array.dtype.name, 'complex64')
+                self.assertTrue(np.all(np.isfinite(array)))
+
+        operand = benchmark_spec.OperandSpec.from_dict(cases[0][0])
+        array = collector._make_operand(operand, 'complex64', 0)
+        np.testing.assert_array_equal(array[:, 0], array[:, 1])
+        np.testing.assert_array_equal(array[:, 1], array[:, 2])
+        self.assertNotEqual(array[0, 0], array[1, 0])
+
+
+class MatmulComparisonTC(unittest.TestCase):
+    def test_measures_each_result(self):
+        expected = np.array([[1.0, 2.0], [3.0, 4.0]], dtype='float64')
+        execute = FakeExecutor({
+            'naive': expected,
+            'blas_gemm': expected + 1,
+            'winograd': sc.MatmulKernelUnavailable('not eligible'),
+            'numpy': expected,
+        })
+        spec = make_spec(kernels=['naive', 'blas_gemm', 'winograd'])
+
+        comparison = collector._compare(spec, execute)
+
+        self.assertEqual(comparison, {
+            'naive': {
+                'status': 'measured',
+                'reason': None,
+                'max_abs_diff': 0.0,
+                'relative_diff': 0.0,
+            },
+            'blas_gemm': {
+                'status': 'measured',
+                'reason': None,
+                'max_abs_diff': 1.0,
+                'relative_diff': 0.25,
+            },
+            'winograd': {
+                'status': 'ineligible',
+                'reason': 'not eligible',
+                'max_abs_diff': None,
+                'relative_diff': None,
+            },
+            'numpy': {
+                'status': 'measured',
+                'reason': None,
+                'max_abs_diff': 0.0,
+                'relative_diff': 0.0,
+            },
+        })
+        self.assertEqual(
+            execute.calls,
+            ['numpy', 'naive', 'blas_gemm', 'winograd'],
+        )
+
+    def test_rejects_invalid_outputs(self):
+        expected = np.ones((2, 2), dtype='float64')
+        nonfinite = expected.copy()
+        nonfinite[0, 0] = np.nan
+        cases = (
+            (np.ones((1, 4), dtype='float64'), 'shape mismatch'),
+            (expected.astype('float32'), 'dtype mismatch'),
+            (nonfinite, 'non-finite values'),
+        )
+        for output, reason in cases:
+            with self.subTest(reason=reason):
+                result = collector._compare_result(
+                    FakeExecutor({'naive': output}),
+                    'naive', expected)
+                self.assertEqual(result['status'], 'invalid')
+                self.assertEqual(result['reason'], reason)
+                self.assertIsNone(result['max_abs_diff'])
+                self.assertIsNone(result['relative_diff'])
+
+    def test_rejects_invalid_numpy_reference(self):
+        cases = (
+            (np.ones((1, 4), dtype='float64'), 'shape does not match'),
+            (np.ones((2, 2), dtype='float32'), 'dtype does not match'),
+        )
+        for reference, reason in cases:
+            with self.subTest(reason=reason):
+                execute = FakeExecutor({'numpy': reference})
+                with self.assertRaisesRegex(RuntimeError, reason):
+                    collector._compare(make_spec(), execute)
+                self.assertEqual(execute.calls, ['numpy'])
+
+    def test_marks_nonfinite_numpy_reference_invalid(self):
+        reference = np.ones((2, 2), dtype='float64')
+        reference[0, 0] = np.nan
+        execute = FakeExecutor({'numpy': reference})
+
+        comparison = collector._compare(make_spec(kernels=['naive']), execute)
+
+        expected = {
+            'status': 'invalid',
+            'reason': 'non-finite NumPy reference',
+            'max_abs_diff': None,
+            'relative_diff': None,
+        }
+        self.assertEqual(comparison, {
+            'naive': expected,
+            'numpy': expected,
+        })
+        self.assertEqual(execute.calls, ['numpy'])
+
+    def test_internal_failures_propagate(self):
+        expected = np.ones((2, 2), dtype='float64')
+        for failure in (ValueError('native bug'), RuntimeError('native bug'),
+                        MemoryError('out of memory')):
+            with self.subTest(failure=type(failure).__name__):
+                execute = FakeExecutor({
+                    'naive': failure,
+                    'blas_gemm': expected,
+                    'numpy': expected,
+                })
+                with self.assertRaises(type(failure)):
+                    collector._compare(make_spec(), execute)
+
+    @unittest.mock.patch.object(collector, '_CHUNK_SIZE', 1)
+    def test_reports_zero_complex_and_empty_differences(self):
+        cases = (
+            (np.zeros(1, dtype='float64'),
+             np.zeros(1, dtype='float64'), (0.0, 0.0)),
+            (np.ones(1, dtype='float64'),
+             np.zeros(1, dtype='float64'), (1.0, None)),
+            (np.array([3 + 8j, 1 + 2j], dtype='complex64'),
+             np.array([3 + 4j, 1 + 1j], dtype='complex64'), (4.0, 0.8)),
+            (np.empty(0, dtype='float64'),
+             np.empty(0, dtype='float64'), (None, None)),
+        )
+        for result, reference, expected in cases:
+            with self.subTest(result=result, reference=reference):
+                self.assertEqual(
+                    collector._difference_metrics(result, reference),
+                    expected,
+                )
+
+    def test_dispatches_real_executor_for_every_dtype(self):
+        for dtype in ('float32', 'float64', 'complex64', 'complex128'):
+            with self.subTest(dtype=dtype):
+                spec = make_spec(dtype=dtype, kernels=['naive'])
+                execute = collector._make_executor(spec)
+                self.assertEqual(execute._native_lhs.ndarray.dtype.name, dtype)
+                self.assertEqual(execute._native_rhs.ndarray.dtype.name, dtype)
+                self.assertTrue(execute._native_lhs.is_from_python)
+                self.assertTrue(execute._native_rhs.is_from_python)
+                self.assertTrue(np.shares_memory(
+                    execute._lhs_array, execute._native_lhs.ndarray))
+                self.assertTrue(np.shares_memory(
+                    execute._rhs_array, execute._native_rhs.ndarray))
+                comparison = collector._compare(spec, execute)
+                self.assertEqual(
+                    [item['status'] for item in comparison.values()],
+                    ['measured', 'measured'],
+                )
+                for item in comparison.values():
+                    self.assertIsInstance(item['max_abs_diff'], float)
+                    self.assertIsInstance(item['relative_diff'], float)
+
+    def test_checks_operand_roles_and_broadcast_batches(self):
+        cases = (
+            ({'shape': [3], 'strides': [1]},
+             {'shape': [3], 'strides': [1]}),
+            ({'shape': [3], 'strides': [1]},
+             {'shape': [3, 2], 'strides': [2, 1]}),
+            ({'shape': [2, 3], 'strides': [3, 1]},
+             {'shape': [3], 'strides': [1]}),
+            ({'shape': [2, 1, 2, 3], 'strides': [6, 6, 3, 1]},
+             {'shape': [1, 4, 3, 2], 'strides': [24, 6, 2, 1]}),
+        )
+        for lhs, rhs in cases:
+            with self.subTest(lhs=lhs['shape'], rhs=rhs['shape']):
+                spec = make_spec(lhs=lhs, rhs=rhs, kernels=['naive'])
+                comparison = collector._compare(
+                    spec, collector._make_executor(spec))
+                self.assertEqual(
+                    [item['status'] for item in comparison.values()],
+                    ['measured', 'measured'],
+                )
+
+    def test_checks_exact_strided_and_empty_operands(self):
+        operands = (
+            {'shape': [2, 3], 'strides': [-3, 1]},
+            {'shape': [2, 3], 'strides': [0, 1]},
+            {'shape': [2, 3], 'strides': [1, 1]},
+            {'shape': [0, 3], 'strides': [99, -2]},
+        )
+        for lhs in operands:
+            with self.subTest(lhs=lhs):
+                spec = make_spec(lhs=lhs, kernels=['naive'])
+                execute = collector._make_executor(spec)
+                self.assertEqual(execute._native_lhs.stride,
+                                 tuple(lhs['strides']))
+                comparison = collector._compare(spec, execute)
+                self.assertEqual(
+                    [item['status'] for item in comparison.values()],
+                    ['measured', 'measured'],
+                )
+                if lhs['shape'][0] == 0:
+                    for item in comparison.values():
+                        self.assertIsNone(item['max_abs_diff'])
+                        self.assertIsNone(item['relative_diff'])
+
+    def test_marks_real_ineligible_kernel(self):
+        spec = make_spec(kernels=['naive', 'winograd'])
+
+        comparison = collector._compare(spec, collector._make_executor(spec))
+
+        self.assertEqual(
+            [item['status'] for item in comparison.values()],
+            ['measured', 'ineligible', 'measured'],
+        )
+
+
+# vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:

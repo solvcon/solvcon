@@ -134,10 +134,14 @@ class MatmulTestBase(sc.testing.TestBase):
         rhs = self.SimpleArray(
             array=np.ones((3, 3), dtype=dtype))
 
-        with self.assertRaisesRegex(ValueError, "unknown kernel 'unknown'"):
-            lhs.matmul(rhs, kernel='unknown')
+        self.assertTrue(issubclass(sc.MatmulKernelUnavailable, ValueError))
         with self.assertRaisesRegex(
-                ValueError,
+                ValueError, "unknown kernel 'unknown'") as context:
+            lhs.matmul(rhs, kernel='unknown')
+        self.assertNotIsInstance(
+            context.exception, sc.MatmulKernelUnavailable)
+        with self.assertRaisesRegex(
+                sc.MatmulKernelUnavailable,
                 "kernel 'winograd'.*(not eligible|requires a BLAS backend)"):
             lhs.matmul(rhs, kernel='winograd')
         with self.assertRaises(TypeError):

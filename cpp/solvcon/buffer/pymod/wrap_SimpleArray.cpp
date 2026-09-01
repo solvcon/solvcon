@@ -13,6 +13,8 @@ namespace python
 
 void wrap_SimpleArray(pybind11::module & mod)
 {
+    pybind11::register_exception<MatmulKernelUnavailable>(mod, "MatmulKernelUnavailable", PyExc_ValueError);
+
     wrap_SimpleArray_bool(mod);
     wrap_SimpleArray_int(mod);
     wrap_SimpleArray_uint(mod);
