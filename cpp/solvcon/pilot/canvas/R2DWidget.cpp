@@ -13,11 +13,13 @@
 
 #include <QColor>
 #include <QImage>
+#include <QKeyEvent>
 #include <QMouseEvent>
 #include <QPaintEvent>
 #include <QPainter>
 #include <QPen>
 #include <QPolygonF>
+#include <QRectF>
 #include <QResizeEvent>
 #include <QString>
 #include <QSvgGenerator>
@@ -49,6 +51,13 @@ constexpr double PICK_TOLERANCE_PX = 5.0;
 constexpr double ROTATE_HANDLE_GAP_PX = 16.0;
 constexpr double ROTATE_HANDLE_RADIUS_PX = 5.0;
 constexpr double ROTATE_HANDLE_HIT_PX = 9.0;
+
+// Node-edit handle geometry in cosmetic screen pixels: anchor points (curve
+// endpoints) draw as squares, control points as circles, both sharing one
+// hit radius.
+constexpr double NODE_ANCHOR_RADIUS_PX = 4.0;
+constexpr double NODE_CONTROL_RADIUS_PX = 3.5;
+constexpr double NODE_HANDLE_HIT_PX = 8.0;
 
 double clamp_zoom(double zoom)
 {
@@ -120,6 +129,7 @@ void R2DWidget::setDrawTool(std::string const & name)
     m_drawing = false;
     m_selected = -1;
     m_drag = EditDrag::None;
+    m_node_edit = false;
     // A crosshair signals draw mode; the select tool keeps the default arrow.
     if (m_tool->can_draw_shape())
     {
@@ -157,6 +167,31 @@ void R2DWidget::setSelectedShape(int32_t shape_id)
     endEditDrag();
 
     m_selected = shape_id;
+    m_node_edit = false;
+    update();
+}
+
+void R2DWidget::enterNodeEdit()
+{
+    if (m_tool->can_draw_shape() || m_selected < 0 || !m_world ||
+        !m_world->shape_is_live(m_selected) ||
+        m_world->shape_type_of(m_selected) != ShapeType::BEZIER_PATH)
+    {
+        return;
+    }
+    m_node_edit = true;
+    update();
+}
+
+void R2DWidget::exitNodeEdit()
+{
+    if (!m_node_edit)
+    {
+        return;
+    }
+    // Close a live node drag the way a release would, so it does not linger.
+    endEditDrag();
+    m_node_edit = false;
     update();
 }
 
@@ -170,6 +205,7 @@ void R2DWidget::updateWorld(std::shared_ptr<WorldFp64> const & world)
     m_selected = -1;
     m_overlay.highlight_id = -1;
     m_drag = EditDrag::None;
+    m_node_edit = false;
     update();
 }
 
@@ -206,6 +242,9 @@ void R2DWidget::paintEvent(QPaintEvent * /*event*/)
 
     // Selection box and rotate handle for the select tool, if any.
     paintSelection(painter);
+
+    // Bezier node handles, if node-edit mode is active.
+    paintNodeHandles(painter);
 }
 
 QImage R2DWidget::renderImage(Overlay2dOptions const & overlay) const
@@ -303,6 +342,53 @@ void R2DWidget::paintSelection(QPainter & painter) const
     painter.drawEllipse(handle, ROTATE_HANDLE_RADIUS_PX, ROTATE_HANDLE_RADIUS_PX);
 }
 
+void R2DWidget::paintNodeHandles(QPainter & painter) const
+{
+    if (!m_node_edit || m_selected < 0 || !m_world || !m_world->shape_is_live(m_selected) ||
+        m_world->shape_type_of(m_selected) != ShapeType::BEZIER_PATH)
+    {
+        return;
+    }
+
+    QColor const selection = qcolor(m_palette.selection);
+    QPen guide_pen(selection);
+    guide_pen.setCosmetic(true);
+    guide_pen.setWidthF(1.0);
+    guide_pen.setStyle(Qt::DotLine);
+
+    size_t const ncurve = m_world->shape_curve_count(m_selected);
+    for (size_t i = 0; i < ncurve; ++i)
+    {
+        auto const curve = m_world->shape_curve(m_selected, static_cast<uint32_t>(i));
+        double sx0 = 0.0, sy0 = 0.0, sx1 = 0.0, sy1 = 0.0, sx2 = 0.0, sy2 = 0.0, sx3 = 0.0, sy3 = 0.0;
+        m_view.screen_from_world(curve.x0(), curve.y0(), sx0, sy0);
+        m_view.screen_from_world(curve.x1(), curve.y1(), sx1, sy1);
+        m_view.screen_from_world(curve.x2(), curve.y2(), sx2, sy2);
+        m_view.screen_from_world(curve.x3(), curve.y3(), sx3, sy3);
+        QPointF const p0(sx0, sy0), p1(sx1, sy1), p2(sx2, sy2), p3(sx3, sy3);
+
+        // Guide lines from each anchor to its adjacent control point.
+        painter.setPen(guide_pen);
+        painter.drawLine(p0, p1);
+        painter.drawLine(p2, p3);
+
+        // Anchors (curve endpoints) as filled squares.
+        painter.setPen(Qt::NoPen);
+        painter.setBrush(selection);
+        painter.drawRect(QRectF(p0.x() - NODE_ANCHOR_RADIUS_PX, p0.y() - NODE_ANCHOR_RADIUS_PX, 2 * NODE_ANCHOR_RADIUS_PX, 2 * NODE_ANCHOR_RADIUS_PX));
+        painter.drawRect(QRectF(p3.x() - NODE_ANCHOR_RADIUS_PX, p3.y() - NODE_ANCHOR_RADIUS_PX, 2 * NODE_ANCHOR_RADIUS_PX, 2 * NODE_ANCHOR_RADIUS_PX));
+
+        // Control points as hollow circles.
+        QPen control_pen(selection);
+        control_pen.setCosmetic(true);
+        control_pen.setWidthF(1.5);
+        painter.setPen(control_pen);
+        painter.setBrush(Qt::NoBrush);
+        painter.drawEllipse(p1, NODE_CONTROL_RADIUS_PX, NODE_CONTROL_RADIUS_PX);
+        painter.drawEllipse(p2, NODE_CONTROL_RADIUS_PX, NODE_CONTROL_RADIUS_PX);
+    }
+}
+
 int32_t R2DWidget::pickShapeAt(QPointF const & screen_pos) const
 {
     if (!m_world)
@@ -359,9 +445,44 @@ bool R2DWidget::isOnRotateHandle(QPointF const & screen_pos) const
     return std::hypot(d.x(), d.y()) <= ROTATE_HANDLE_HIT_PX;
 }
 
+std::optional<std::pair<uint32_t, uint8_t>> R2DWidget::hitNodeHandle(QPointF const & screen_pos) const
+{
+    if (!m_node_edit || m_selected < 0 || !m_world || !m_world->shape_is_live(m_selected) ||
+        m_world->shape_type_of(m_selected) != ShapeType::BEZIER_PATH)
+    {
+        return std::nullopt;
+    }
+
+    std::optional<std::pair<uint32_t, uint8_t>> best;
+    double best_dist = 0.0;
+
+    size_t const ncurve = m_world->shape_curve_count(m_selected);
+    for (size_t i = 0; i < ncurve; ++i)
+    {
+        auto const curve = m_world->shape_curve(m_selected, static_cast<uint32_t>(i));
+        std::array<std::pair<double, double>, 4> const world_pts{
+            {{curve.x0(), curve.y0()}, {curve.x1(), curve.y1()}, {curve.x2(), curve.y2()}, {curve.x3(), curve.y3()}}};
+        for (uint8_t p = 0; p < 4; ++p)
+        {
+            double sx = 0.0, sy = 0.0;
+            m_view.screen_from_world(world_pts[p].first, world_pts[p].second, sx, sy);
+            double const dist = std::hypot(screen_pos.x() - sx, screen_pos.y() - sy);
+            // Strictly closer only, so an exact tie between two curves
+            // sharing an endpoint (no tangent linking) keeps the first
+            // (lower-index) handle found.
+            if (dist <= NODE_HANDLE_HIT_PX && (!best || dist < best_dist))
+            {
+                best_dist = dist;
+                best = std::make_pair(static_cast<uint32_t>(i), p);
+            }
+        }
+    }
+    return best;
+}
+
 void R2DWidget::finishEdit()
 {
-    if (m_world && (m_drag == EditDrag::Move || m_drag == EditDrag::Rotate))
+    if (m_world && (m_drag == EditDrag::Move || m_drag == EditDrag::Rotate || m_drag == EditDrag::NodePoint))
     {
         m_world->end_operation();
     }
@@ -411,8 +532,19 @@ void R2DWidget::mousePressEvent(QMouseEvent * event)
             event->accept();
             return;
         }
-        // Select tool: rotate the selection, move a picked shape, or fall
-        // back to panning the view on empty space.
+        // Select tool: drag a node handle, rotate the selection, move a
+        // picked shape, or fall back to panning the view on empty space.
+        if (auto const node_hit = hitNodeHandle(pos))
+        {
+            m_node_curve_idx = node_hit->first;
+            m_node_point_idx = node_hit->second;
+            m_view.world_from_screen(pos.x(), pos.y(), m_node_last_x, m_node_last_y);
+            // Bracket the node drag so its incremental steps undo as one.
+            m_world->begin_operation();
+            m_drag = EditDrag::NodePoint;
+            event->accept();
+            return;
+        }
         if (isOnRotateHandle(pos))
         {
             coord2_type const c = selectionCenterWorld();
@@ -430,6 +562,10 @@ void R2DWidget::mousePressEvent(QMouseEvent * event)
         int32_t const hit = pickShapeAt(pos);
         if (hit >= 0)
         {
+            if (hit != m_selected)
+            {
+                m_node_edit = false;
+            }
             m_selected = hit;
             m_view.world_from_screen(pos.x(), pos.y(), m_move_last_x, m_move_last_y);
             // Bracket the move gesture so its incremental steps undo as one.
@@ -442,6 +578,7 @@ void R2DWidget::mousePressEvent(QMouseEvent * event)
         }
         // Empty space: drop the selection and pan the view.
         m_selected = -1;
+        m_node_edit = false;
         m_drag = EditDrag::View;
         m_last_mouse_pos = pos;
         setCursor(Qt::ClosedHandCursor);
@@ -490,6 +627,20 @@ void R2DWidget::mouseMoveEvent(QMouseEvent * event)
         event->accept();
         return;
     }
+    if (m_drag == EditDrag::NodePoint)
+    {
+        double wx = 0.0, wy = 0.0;
+        m_view.world_from_screen(pos.x(), pos.y(), wx, wy);
+        if (m_world && m_world->shape_is_live(m_selected))
+        {
+            m_world->move_shape_curve_point(m_selected, m_node_curve_idx, m_node_point_idx, wx - m_node_last_x, wy - m_node_last_y);
+        }
+        m_node_last_x = wx;
+        m_node_last_y = wy;
+        update();
+        event->accept();
+        return;
+    }
     if (m_drag == EditDrag::View)
     {
         QPointF const delta = pos - m_last_mouse_pos;
@@ -532,6 +683,36 @@ void R2DWidget::mouseReleaseEvent(QMouseEvent * event)
         return;
     }
     QWidget::mouseReleaseEvent(event);
+}
+
+void R2DWidget::mouseDoubleClickEvent(QMouseEvent * event)
+{
+    if (event->button() == Qt::LeftButton && !m_tool->can_draw_shape() &&
+        m_selected >= 0 && m_world && m_world->shape_is_live(m_selected) &&
+        m_world->shape_type_of(m_selected) == ShapeType::BEZIER_PATH)
+    {
+        // The press half of this double-click already ran the ordinary
+        // select-tool press logic and opened a Move drag bracket (Qt's
+        // sequence is Press -> Release -> Press -> DoubleClick -> Release);
+        // close it before switching modes so it does not linger as a
+        // dangling, ultimately no-op, undo step.
+        endEditDrag();
+        enterNodeEdit();
+        event->accept();
+        return;
+    }
+    QWidget::mouseDoubleClickEvent(event);
+}
+
+void R2DWidget::keyPressEvent(QKeyEvent * event)
+{
+    if (event->key() == Qt::Key_Escape && m_node_edit)
+    {
+        exitNodeEdit();
+        event->accept();
+        return;
+    }
+    QWidget::keyPressEvent(event);
 }
 
 void R2DWidget::resizeEvent(QResizeEvent * event)

@@ -444,6 +444,30 @@ WrapWorld<T> & WrapWorld<T>::wrap_shape()
             },
             py::arg("b"))
         .def(
+            "add_bezier_path_shape",
+            [](wrapped_type & self, curve_pad_type const & path)
+            {
+                return self.add_bezier_path_shape(path);
+            },
+            py::arg("path"))
+        .def(
+            "shape_curve",
+            &wrapped_type::shape_curve,
+            py::arg("shape_id"),
+            py::arg("i"))
+        .def(
+            "shape_curve_count",
+            &wrapped_type::shape_curve_count,
+            py::arg("shape_id"))
+        .def(
+            "move_shape_curve_point",
+            &wrapped_type::move_shape_curve_point,
+            py::arg("shape_id"),
+            py::arg("curve_idx"),
+            py::arg("point_idx"),
+            py::arg("dx"),
+            py::arg("dy"))
+        .def(
             "add_polyline",
             [](wrapped_type & self, std::vector<std::array<value_type, 2>> const & vertices)
             {

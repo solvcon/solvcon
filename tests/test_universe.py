@@ -985,6 +985,124 @@ class WorldBezierShapeTC(unittest.TestCase):
         self.assertEqual(len(self.w.query_visible(-1, -1, 5, 5)), 0)
 
 
+class WorldBezierPathShapeTC(unittest.TestCase):
+    """add_bezier_path_shape: one shape owning a multi-curve Bezier path
+    (e.g. one SVG subpath), plus shape_curve(_count) and per-point mutation
+    via move_shape_curve_point."""
+
+    def setUp(self):
+        self.w = solvcon.WorldFp64()
+        self.Point = solvcon.Point3dFp64
+        self.CurvePad = solvcon.CurvePadFp64
+
+    def _two_curve_path(self):
+        p = self.Point
+        cp = self.CurvePad(ndim=2)
+        cp.append(p0=p(0, 0, 0), p1=p(1, 0, 0), p2=p(2, 1, 0), p3=p(3, 1, 0))
+        cp.append(p0=p(3, 1, 0), p1=p(4, 1, 0), p2=p(5, 2, 0), p3=p(6, 2, 0))
+        return cp
+
+    def test_add_bezier_path_shape(self):
+        sid = self.w.add_bezier_path_shape(self._two_curve_path())
+        self.assertEqual(self.w.nshape, 1)
+        self.assertEqual(self.w.nbezier, 2)
+        self.assertEqual(self.w.shape_type_of(sid), "bezierpath")
+        self.assertEqual(self.w.shape_curve_count(sid), 2)
+
+    def test_add_bezier_path_shape_rejects_empty_path(self):
+        with self.assertRaises(ValueError):
+            self.w.add_bezier_path_shape(self.CurvePad(ndim=2))
+
+    def test_shape_curve(self):
+        sid = self.w.add_bezier_path_shape(self._two_curve_path())
+        c0 = self.w.shape_curve(sid, 0)
+        c1 = self.w.shape_curve(sid, 1)
+        self.assertEqual(list(c0[0]), [0, 0, 0])
+        self.assertEqual(list(c0[3]), [3, 1, 0])
+        self.assertEqual(list(c1[0]), [3, 1, 0])
+        self.assertEqual(list(c1[3]), [6, 2, 0])
+
+    def test_shape_curve_out_of_range_raises(self):
+        sid = self.w.add_bezier_path_shape(self._two_curve_path())
+        with self.assertRaises(IndexError):
+            self.w.shape_curve(sid, 2)
+
+    def test_move_shape_curve_point_moves_only_targeted_point(self):
+        sid = self.w.add_bezier_path_shape(self._two_curve_path())
+        self.w.move_shape_curve_point(sid, 0, 1, 10, 20)
+        c0 = self.w.shape_curve(sid, 0)
+        c1 = self.w.shape_curve(sid, 1)
+        self.assertEqual(list(c0[0]), [0, 0, 0])
+        self.assertAlmostEqual(c0[1][0], 11.0)
+        self.assertAlmostEqual(c0[1][1], 20.0)
+        self.assertEqual(list(c0[2]), [2, 1, 0])
+        self.assertEqual(list(c0[3]), [3, 1, 0])
+        self.assertEqual(list(c1[0]), [3, 1, 0])
+        self.assertEqual(list(c1[1]), [4, 1, 0])
+        self.assertEqual(list(c1[2]), [5, 2, 0])
+        self.assertEqual(list(c1[3]), [6, 2, 0])
+
+    def test_move_shape_curve_point_rejects_non_bezier_shape(self):
+        sid = self.w.add_rectangle(0, 0, 1, 1)
+        with self.assertRaises(ValueError):
+            self.w.move_shape_curve_point(sid, 0, 0, 1, 1)
+
+    def test_move_shape_curve_point_rejects_bad_curve_idx(self):
+        sid = self.w.add_bezier_path_shape(self._two_curve_path())
+        with self.assertRaises(IndexError):
+            self.w.move_shape_curve_point(sid, 5, 0, 1, 1)
+
+    def test_move_shape_curve_point_rejects_bad_point_idx(self):
+        sid = self.w.add_bezier_path_shape(self._two_curve_path())
+        with self.assertRaises(IndexError):
+            self.w.move_shape_curve_point(sid, 0, 4, 1, 1)
+
+    def test_move_shape_curve_point_zero_delta_is_noop(self):
+        sid = self.w.add_bezier_path_shape(self._two_curve_path())
+        before = self.w.state_stamp
+        self.w.move_shape_curve_point(sid, 0, 0, 0, 0)
+        self.assertEqual(self.w.state_stamp, before)
+
+    def test_move_shape_curve_point_moves_state_stamp(self):
+        sid = self.w.add_bezier_path_shape(self._two_curve_path())
+        before = self.w.state_stamp
+        self.w.move_shape_curve_point(sid, 0, 0, 1, 1)
+        self.assertNotEqual(self.w.state_stamp, before)
+
+    def test_move_shape_curve_point_undo_redo(self):
+        sid = self.w.add_bezier_path_shape(self._two_curve_path())
+        self.w.move_shape_curve_point(sid, 0, 1, 10, 20)
+        moved = list(self.w.shape_curve(sid, 0)[1])
+        self.w.undo()
+        self.assertEqual(list(self.w.shape_curve(sid, 0)[1]), [1, 0, 0])
+        self.w.redo()
+        self.assertEqual(list(self.w.shape_curve(sid, 0)[1]), moved)
+
+    def test_move_shape_curve_point_drag_merges_into_one_undo_step(self):
+        # A drag's many incremental moves on the same point collapse into
+        # one undo step, the same way translate_shape's drag does.
+        sid = self.w.add_bezier_path_shape(self._two_curve_path())
+        self.w.begin_operation()
+        self.w.move_shape_curve_point(sid, 0, 1, 1, 0)
+        self.w.move_shape_curve_point(sid, 0, 1, 1, 0)
+        self.w.end_operation()
+        self.assertAlmostEqual(self.w.shape_curve(sid, 0)[1][0], 3.0)
+        self.w.undo()
+        self.assertAlmostEqual(self.w.shape_curve(sid, 0)[1][0], 1.0)
+
+    def test_move_shape_curve_point_does_not_merge_across_points(self):
+        # Two distinct points moved in the same compound stay two undo
+        # steps, so one undo only reverts the second.
+        sid = self.w.add_bezier_path_shape(self._two_curve_path())
+        self.w.begin_operation()
+        self.w.move_shape_curve_point(sid, 0, 1, 1, 0)
+        self.w.move_shape_curve_point(sid, 0, 2, 1, 0)
+        self.w.end_operation()
+        self.w.undo()
+        self.assertAlmostEqual(self.w.shape_curve(sid, 0)[1][0], 2.0)
+        self.assertAlmostEqual(self.w.shape_curve(sid, 0)[2][0], 2.0)
+
+
 class WorldDescribeStateTC(unittest.TestCase):
     """describe_state(level="basic"): JSON serialization of visible state."""
 

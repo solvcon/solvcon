@@ -141,6 +141,97 @@ class R2DWidgetSelectToolTC(unittest.TestCase):
 
 
 @unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
+                 "live-GUI interaction needs a real window surface")
+class R2DWidgetNodeEditTC(unittest.TestCase):
+    """Drive node-edit mode: enter, drag a control-point handle, undo, exit.
+
+    enterNodeEdit/exitNodeEdit are called directly rather than through a
+    double-click, since a synthetic double-click would depend on Qt's
+    click-timing window; this is also the same entry point the Selection
+    page's "Edit Nodes" toggle uses.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.mgr = pilot.RManager.instance.setUp()
+
+    def setUp(self):
+        from PySide6 import QtWidgets
+        self.widget = self.mgr.add2DWidget()
+        self.widget.setDrawTool("select")
+        self.world = solvcon.WorldFp64()
+        Point = solvcon.Point3dFp64
+        cp = solvcon.CurvePadFp64(ndim=2)
+        cp.append(
+            p0=Point(0, 0, 0), p1=Point(1, 0, 0),
+            p2=Point(2, 1, 0), p3=Point(3, 1, 0))
+        self.sid = self.world.add_bezier_path_shape(cp)
+        self.widget.updateWorld(self.world)
+        v = solvcon.ViewTransform2dFp64()
+        v.pan(100.0, 100.0)
+        v.zoom = 20.0
+        # Set the view before showing so the resize auto-centering, which a
+        # well-formed transform disables, leaves the mapping deterministic.
+        self.widget.setViewTransform(v)
+        self.mgr.show()
+        self.sub = self.mgr.mdiArea.subWindowList()[-1]
+        self.sub.show()
+        self.mgr.mdiArea.setActiveSubWindow(self.sub)
+        # The PySide6 widget wraps the same C++ object the handle above does.
+        self.target = self.sub.widget()
+        QtWidgets.QApplication.processEvents()
+        self.widget.selectedShape = self.sid
+
+    def test_enter_node_edit_needs_a_live_bezier_selection(self):
+        self.widget.selectedShape = -1
+        self.widget.enterNodeEdit()
+        self.assertFalse(self.widget.nodeEditActive)
+        self.widget.selectedShape = self.sid
+        self.widget.enterNodeEdit()
+        self.assertTrue(self.widget.nodeEditActive)
+
+    def test_drag_a_node_handle_moves_only_that_point(self):
+        self.widget.enterNodeEdit()
+        p1 = self.world.shape_curve(self.sid, 0)[1]
+        hx, hy = self.widget.viewTransform.screen_from_world(p1[0], p1[1])
+        _send_mouse(self.target, 'press', hx, hy)
+        _send_mouse(self.target, 'move', hx + 40, hy)
+        _send_mouse(self.target, 'release', hx + 40, hy)
+        c0 = self.world.shape_curve(self.sid, 0)
+        # p1 moved; the other three points on the same curve did not.
+        self.assertNotAlmostEqual(c0[1][0], p1[0])
+        self.assertAlmostEqual(c0[0][0], 0.0)
+        self.assertAlmostEqual(c0[2][0], 2.0)
+        self.assertAlmostEqual(c0[3][0], 3.0)
+        # The whole drag is one undo step.
+        self.assertTrue(self.world.can_undo)
+        self.world.undo()
+        self.assertAlmostEqual(
+            self.world.shape_curve(self.sid, 0)[1][0], p1[0])
+
+    def test_escape_exits_node_edit(self):
+        from PySide6 import QtCore, QtGui, QtWidgets
+        self.widget.enterNodeEdit()
+        self.assertTrue(self.widget.nodeEditActive)
+        event = QtGui.QKeyEvent(QtCore.QEvent.Type.KeyPress,
+                                QtCore.Qt.Key_Escape, QtCore.Qt.NoModifier)
+        QtWidgets.QApplication.sendEvent(self.target, event)
+        self.assertFalse(self.widget.nodeEditActive)
+
+    def test_exit_node_edit_clears_the_mode(self):
+        self.widget.enterNodeEdit()
+        self.assertTrue(self.widget.nodeEditActive)
+        self.widget.exitNodeEdit()
+        self.assertFalse(self.widget.nodeEditActive)
+
+    def test_changing_selection_clears_node_edit(self):
+        other = self.world.add_circle(20, 20, 2)
+        self.widget.enterNodeEdit()
+        self.widget.selectedShape = other
+        self.assertFalse(self.widget.nodeEditActive)
+
+
+@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
                  "theme switching needs a real window surface")
 class R2DWidgetThemeTC(unittest.TestCase):
     """The painted frame follows the theme, not just the palette the widget

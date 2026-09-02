@@ -10,7 +10,7 @@ import os
 from PySide6 import QtCore, QtWidgets
 
 from ... import core
-from ...plot import curve, plane_layer
+from ...plot import curve, logo, plane_layer
 
 from ..base import _gui_common
 
@@ -279,6 +279,14 @@ class Canvas(_gui_common.PilotFeature):
             id="canvas.sample.hyperbola",
             weight=70,
         )
+        self.add_action(
+            "Canvas",
+            text="Example: SOLVCON Logo",
+            tip="Draw the SOLVCON logo",
+            func=self._solvcon_logo,
+            id="canvas.solvcon_logo",
+            weight=80,
+        )
 
         self._mgr.menu_model.place_separator("Canvas", weight=30)
         self.add_action(
@@ -413,6 +421,12 @@ class Canvas(_gui_common.PilotFeature):
         left_sampler.points.x.ndarray[:] *= -1.0
         left_sampler.draw_cbc()
 
+        self._update_widget()
+
+    def _solvcon_logo(self):
+        for curvepad in logo.build_solvcon_logo_curvepads():
+            curvepad.mirror(axis='x')
+            self._world.add_bezier_path_shape(curvepad)
         self._update_widget()
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:

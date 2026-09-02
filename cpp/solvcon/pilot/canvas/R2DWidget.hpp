@@ -23,12 +23,15 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
+#include <utility>
 
 #include <QPointF>
 #include <QWidget>
 
 class QImage;
+class QKeyEvent;
 class QMouseEvent;
 class QPainter;
 class QPaintEvent;
@@ -82,6 +85,19 @@ public:
      * when nothing is selected. Exposed for tests and tooling.
      */
     coord2_type rotateHandleScreen() const;
+
+    /// Whether node-edit mode is active for the current selection.
+    bool nodeEditActive() const { return m_node_edit; }
+
+    /**
+     * Enter node-edit mode for the current selection, showing its Bezier
+     * control points as draggable handles. A no-op unless a live BEZIER
+     * shape is selected with the select tool.
+     */
+    void enterNodeEdit();
+
+    /// Leave node-edit mode, closing any in-progress node drag. A no-op if not active.
+    void exitNodeEdit();
 
     /**
      * Replace the view state. Non-finite inputs are ignored and zoom is
@@ -157,6 +173,8 @@ protected:
     void mousePressEvent(QMouseEvent * event) override;
     void mouseMoveEvent(QMouseEvent * event) override;
     void mouseReleaseEvent(QMouseEvent * event) override;
+    void mouseDoubleClickEvent(QMouseEvent * event) override;
+    void keyPressEvent(QKeyEvent * event) override;
     void resizeEvent(QResizeEvent * event) override;
 
 private:
@@ -176,10 +194,24 @@ private:
     void paintSelection(QPainter & painter) const;
 
     /**
+     * Paint the node-edit handles (anchor and control points, with their
+     * guide lines) for the current selection; a no-op unless node-edit mode
+     * is active on a live BEZIER_PATH shape.
+     */
+    void paintNodeHandles(QPainter & painter) const;
+
+    /**
      * Pick the shape under a screen point, or -1. Uses a pixel-sized world
      * tolerance so thin shapes (lines) stay selectable at any zoom.
      */
     int32_t pickShapeAt(QPointF const & screen_pos) const;
+
+    /**
+     * Closest node handle (curve index, point index 0..3) under a screen
+     * point, within a pixel hit radius, or nullopt. Only meaningful while
+     * node-edit mode is active on a live BEZIER_PATH shape.
+     */
+    std::optional<std::pair<uint32_t, uint8_t>> hitNodeHandle(QPointF const & screen_pos) const;
 
     /**
      * Screen position of the rotate handle for the current selection; only
@@ -216,6 +248,7 @@ private:
         View, ///< Panning the view.
         Move, ///< Translating the selected shape.
         Rotate, ///< Rotating the selected shape about a fixed pivot.
+        NodePoint, ///< Dragging one Bezier control point of the selected shape.
     };
 
     ViewTransform2dFp64 m_view;
@@ -246,6 +279,12 @@ private:
     double m_rotate_cx = 0.0; ///< Rotation pivot, world coordinates (Rotate).
     double m_rotate_cy = 0.0;
     double m_rotate_last_angle = 0.0; ///< Previous pointer angle about pivot.
+
+    bool m_node_edit = false; ///< Whether node-edit mode is active for m_selected.
+    uint32_t m_node_curve_idx = 0; ///< Curve index of the point being dragged (NodePoint).
+    uint8_t m_node_point_idx = 0; ///< Point index (0..3) of the point being dragged (NodePoint).
+    double m_node_last_x = 0.0; ///< Previous pointer, world coordinates (NodePoint).
+    double m_node_last_y = 0.0;
 
 }; /* end class R2DWidget */
 

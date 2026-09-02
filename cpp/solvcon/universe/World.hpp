@@ -56,6 +56,7 @@ enum class ShapeType : uint8_t
     BEZIER = 8, ///< Single cubic Bezier curve.
     ELLIPSE = 9,
     CIRCLE = 10, ///< Specialization of ELLIPSE with equal radii.
+    BEZIER_PATH = 11
 }; /* end of enum class ShapeType */
 
 inline std::string shape_type_name(ShapeType st)
@@ -73,6 +74,7 @@ inline std::string shape_type_name(ShapeType st)
     case ShapeType::BEZIER: return "bezier";
     case ShapeType::ELLIPSE: return "ellipse";
     case ShapeType::CIRCLE: return "circle";
+    case ShapeType::BEZIER_PATH: return "bezierpath";
     default: return "unknown";
     }
 }
@@ -454,6 +456,12 @@ public:
     int32_t add_bezier_shape(bezier_type const & bezier);
 
     /**
+     * Add a multi-curve Bezier path (e.g. one SVG subpath) as a single shape
+     * owning all of `path`'s curves contiguously. Needs at least one curve.
+     */
+    int32_t add_bezier_path_shape(curve_pad_type const & path);
+
+    /**
      * Add an open chain of straight segments through the given vertices.
      * Needs at least two vertices; consecutive vertices form one segment each.
      */
@@ -487,6 +495,13 @@ public:
     void rotate_shape(int32_t shape_id, value_type angle, value_type cx, value_type cy);
 
     /**
+     * Move one control point of one curve within a live BEZIER_PATH shape by
+     * (dx, dy). `curve_idx` is 0-based within the shape; `point_idx`
+     * selects p0..p3 (0..3).
+     */
+    void move_shape_curve_point(int32_t shape_id, uint32_t curve_idx, uint8_t point_idx, value_type dx, value_type dy);
+
+    /**
      * Remove a shape from the R-tree and registry.
      * Segments and curves remain in their pads as dead data; use clear() to reclaim.
      */
@@ -508,6 +523,12 @@ public:
         ShapeRecord const & rec = find_shape_or_throw(shape_id);
         check_size(i, rec.curve_count, "shape curve");
         return m_curves->get(rec.curve_offset + i);
+    }
+
+    /// Number of curves a live shape owns (0 for a shape with no curves).
+    size_t shape_curve_count(int32_t shape_id) const
+    {
+        return find_shape_or_throw(shape_id).curve_count;
     }
 
     /**
@@ -781,6 +802,7 @@ private:
         REMOVE,
         TRANSLATE,
         ROTATE,
+        MOVE_POINT,
     }; /* end enum class ShapeOp */
 
     /// Record of a single shape change, for undo/redo.
@@ -790,17 +812,21 @@ private:
         int32_t shape_id = -1;
         ShapeType type = ShapeType::DEAD; ///< Shape type to restore on undo or redo.
 
-        value_type dx = 0; ///< Net x of a TRANSLATE.
-        value_type dy = 0; ///< Net y of a TRANSLATE.
+        value_type dx = 0; ///< Net x of a TRANSLATE or MOVE_POINT.
+        value_type dy = 0; ///< Net y of a TRANSLATE or MOVE_POINT.
         value_type angle = 0; ///< Net angle of a ROTATE, in radians.
         value_type cx = 0; ///< Pivot x of a ROTATE.
         value_type cy = 0; ///< Pivot y of a ROTATE.
+        uint32_t curve_idx = 0; ///< Curve index of a MOVE_POINT, 0-based within the shape.
+        uint8_t point_idx = 0; ///< Point index of a MOVE_POINT, selecting p0..p3.
     }; /* end struct ShapeOperationRecord */
 
     /// Translate a shape's geometry in place and reindex it.
     void apply_translate(int32_t shape_id, value_type dx, value_type dy);
     /// Rotate a shape's geometry about (cx, cy) and reindex it.
     void apply_rotate(int32_t shape_id, value_type angle, value_type cx, value_type cy);
+    /// Move one control point of one curve in place and reindex the shape.
+    void apply_move_point(int32_t shape_id, uint32_t curve_idx, uint8_t point_idx, value_type dx, value_type dy);
     /// Drop a live shape from the spatial index and the live count.
     void kill_shape(int32_t shape_id);
     /// Restore a DEAD shape slot as @p type and reindex it.
@@ -965,6 +991,21 @@ int32_t World<T>::add_bezier_shape(bezier_type const & bezier)
     size_t const offset = m_curves->size();
     m_curves->append(bezier);
     return register_shape(ShapeType::BEZIER, /*seg_off*/ 0, /*seg_cnt*/ 0, offset, 1);
+}
+
+template <typename T>
+int32_t World<T>::add_bezier_path_shape(curve_pad_type const & path)
+{
+    if (path.size() == 0)
+    {
+        throw std::invalid_argument("World: add_bezier_path_shape needs at least 1 curve");
+    }
+    size_t const offset = m_curves->size();
+    for (size_t i = 0; i < path.size(); ++i)
+    {
+        m_curves->append(path.get(i));
+    }
+    return register_shape(ShapeType::BEZIER_PATH, /*seg_off*/ 0, /*seg_cnt*/ 0, offset, path.size());
 }
 
 template <typename T>
@@ -1208,6 +1249,72 @@ void World<T>::rotate_shape(int32_t shape_id, value_type angle, value_type cx, v
 }
 
 template <typename T>
+void World<T>::apply_move_point(int32_t shape_id, uint32_t curve_idx, uint8_t point_idx, value_type dx, value_type dy)
+{
+    ShapeRecord & rec = m_shape_registry[static_cast<size_t>(shape_id)];
+
+    // Remove old entry from R-tree before modifying the curve.
+    m_rtree->remove(ShapeEntry<T>{shape_id, compute_shape_bbox(rec)});
+
+    size_t const idx = rec.curve_offset + curve_idx;
+    switch (point_idx)
+    {
+    case 0:
+        m_curves->x0(idx) += dx;
+        m_curves->y0(idx) += dy;
+        break;
+    case 1:
+        m_curves->x1(idx) += dx;
+        m_curves->y1(idx) += dy;
+        break;
+    case 2:
+        m_curves->x2(idx) += dx;
+        m_curves->y2(idx) += dy;
+        break;
+    case 3:
+        m_curves->x3(idx) += dx;
+        m_curves->y3(idx) += dy;
+        break;
+    default:
+        break;
+    }
+
+    // Moving one point is not a rigid transform, so the oriented bounding
+    // box cannot ride along like it does for translate/rotate; reseed it to
+    // a fresh axis-aligned bbox, the same formula register_shape uses.
+    bbox_type const bb = compute_shape_bbox(rec);
+    rec.obb_x = ShapeRecord::bbox_array_type{bb.min_x(), bb.max_x(), bb.max_x(), bb.min_x()};
+    rec.obb_y = ShapeRecord::bbox_array_type{bb.max_y(), bb.max_y(), bb.min_y(), bb.min_y()};
+
+    // Reinsert with updated bounding box.
+    m_rtree->insert(ShapeEntry<T>{shape_id, bb});
+    mark_changed();
+}
+
+template <typename T>
+void World<T>::move_shape_curve_point(int32_t shape_id, uint32_t curve_idx, uint8_t point_idx, value_type dx, value_type dy)
+{
+    ShapeRecord const & rec = find_shape_or_throw(shape_id);
+    if (rec.type != ShapeType::BEZIER_PATH)
+    {
+        throw std::invalid_argument("World: move_shape_curve_point needs a BEZIER_PATH shape");
+    }
+    check_size(curve_idx, rec.curve_count, "shape curve");
+    if (point_idx > 3)
+    {
+        throw std::out_of_range(std::format("World: move_shape_curve_point point_idx {} not in [0, 3]", point_idx));
+    }
+    // A zero move changes nothing; skip it like translate_shape/rotate_shape
+    // do, so a drag's first event does not record an empty undo step.
+    if (dx == value_type(0) && dy == value_type(0))
+    {
+        return;
+    }
+    apply_move_point(shape_id, curve_idx, point_idx, dx, dy);
+    record_op({.op = ShapeOp::MOVE_POINT, .shape_id = shape_id, .dx = dx, .dy = dy, .curve_idx = curve_idx, .point_idx = point_idx});
+}
+
+template <typename T>
 T World<T>::point_segment_distance(T px, T py, T ax, T ay, T bx, T by)
 {
     T const dx = bx - ax;
@@ -1322,7 +1429,8 @@ template <typename T>
 bool World<T>::is_noop(ShapeOperationRecord const & rec)
 {
     return (rec.op == ShapeOp::TRANSLATE && rec.dx == value_type(0) && rec.dy == value_type(0)) ||
-           (rec.op == ShapeOp::ROTATE && rec.angle == value_type(0));
+           (rec.op == ShapeOp::ROTATE && rec.angle == value_type(0)) ||
+           (rec.op == ShapeOp::MOVE_POINT && rec.dx == value_type(0) && rec.dy == value_type(0));
 }
 
 template <typename T>
@@ -1342,11 +1450,14 @@ void World<T>::record_op(ShapeOperationRecord const & rec)
     if (m_in_operation)
     {
         // Merge the incremental edits of one gesture (same shape, operation,
-        // and pivot) into a single net record, so a drag is one undo step.
-        // Translations add; rotations about a fixed pivot add their angles.
+        // pivot, and, for a node drag, the same point) into a single net
+        // record, so a drag is one undo step. Translations and node moves
+        // add; rotations about a fixed pivot add their angles.
         if (m_has_open && m_open_operation.shape_id == rec.shape_id &&
             m_open_operation.op == rec.op && m_open_operation.cx == rec.cx &&
-            m_open_operation.cy == rec.cy)
+            m_open_operation.cy == rec.cy &&
+            m_open_operation.curve_idx == rec.curve_idx &&
+            m_open_operation.point_idx == rec.point_idx)
         {
             m_open_operation.dx += rec.dx;
             m_open_operation.dy += rec.dy;
@@ -1380,6 +1491,7 @@ void World<T>::undo_record(ShapeOperationRecord const & rec)
     case ShapeOp::REMOVE: revive_shape(rec.shape_id, rec.type); break;
     case ShapeOp::TRANSLATE: apply_translate(rec.shape_id, -rec.dx, -rec.dy); break;
     case ShapeOp::ROTATE: apply_rotate(rec.shape_id, -rec.angle, rec.cx, rec.cy); break;
+    case ShapeOp::MOVE_POINT: apply_move_point(rec.shape_id, rec.curve_idx, rec.point_idx, -rec.dx, -rec.dy); break;
     }
 }
 
@@ -1392,6 +1504,7 @@ void World<T>::redo_record(ShapeOperationRecord const & rec)
     case ShapeOp::REMOVE: kill_shape(rec.shape_id); break;
     case ShapeOp::TRANSLATE: apply_translate(rec.shape_id, rec.dx, rec.dy); break;
     case ShapeOp::ROTATE: apply_rotate(rec.shape_id, rec.angle, rec.cx, rec.cy); break;
+    case ShapeOp::MOVE_POINT: apply_move_point(rec.shape_id, rec.curve_idx, rec.point_idx, rec.dx, rec.dy); break;
     }
 }
 
