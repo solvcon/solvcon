@@ -87,6 +87,7 @@ def main():
             'solvcon.plot',
             'solvcon.profiling',
             'solvcon.track',
+            'solvcon.track.mcap',
         ],
         install_requires=['jsonschema>=4'],
         ext_modules=[CMakeExtension("_solvcon")],
