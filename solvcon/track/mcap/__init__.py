@@ -5,10 +5,10 @@
 mcap: read an MCAP recording into time-series columns.
 
 ``_reader`` handles the file format and ``_decodeplan`` the ``ros2idl``
-schema, where IDL stands for the OMG Interface Definition Language.
-Every ``extract*`` call takes ``fields`` in three forms: ``None`` selects
-every scalar leaf, a list of dotted paths selects those leaves, and a
-``DecodePlan`` runs as given.
+schema, where IDL stands for the Interface Definition Language of the
+Object Management Group (OMG).  Every ``extract*`` call takes ``fields``
+in three forms: ``None`` selects every scalar leaf, a list of dotted
+paths selects those leaves, and a ``DecodePlan`` runs as given.
 """
 
 

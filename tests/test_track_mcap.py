@@ -99,7 +99,7 @@ def write_fixture(path, compression):
 
 @unittest.skipIf(foxglove_mcap_writer is None,
                  "the Foxglove mcap package is not installed")
-class McapPrototypeTC(unittest.TestCase):
+class McapInOutTC(unittest.TestCase):
 
     def setUp(self):
         self.tmpdir = tempfile.TemporaryDirectory()
