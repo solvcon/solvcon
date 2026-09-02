@@ -76,7 +76,7 @@ def parse_schema(schema):
     annotations, which the parser drops.  ``structs`` maps a scoped name to
     ``(field, type, scope)`` triples in declaration order, where ``scope``
     is the enclosing module path that resolves an unqualified ``type``; a
-    field the prototype cannot decode keeps its whole declaration as
+    field the parser cannot decode keeps its whole declaration as
     ``field`` with a ``None`` type.  ``enums`` maps a scoped name to its
     member names.
     """
