@@ -4,7 +4,8 @@
 """
 mcap: read an MCAP recording into time-series columns.
 
-``reader`` handles the file format and ``idl`` the ``ros2idl`` schema.
+``_reader`` handles the file format and ``_decodeplan`` the ``ros2idl``
+schema, where IDL stands for the OMG Interface Definition Language.
 Every ``extract*`` call takes ``fields`` in three forms: ``None`` selects
 every scalar leaf, a list of dotted paths selects those leaves, and a
 ``DecodePlan`` runs as given.
@@ -15,8 +16,8 @@ class McapError(Exception):
     """A bad file, an unsupported feature, or a bad field selection."""
 
 
-from .reader import Reader, Schema, Channel, Extraction  # noqa: E402
-from .idl import parse_schema, DecodePlan  # noqa: E402
+from ._reader import Reader, Schema, Channel, Extraction  # noqa: E402
+from ._decodeplan import parse_schema, DecodePlan  # noqa: E402
 
 __all__ = [
     "McapError",

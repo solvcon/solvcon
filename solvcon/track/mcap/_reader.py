@@ -17,7 +17,9 @@ import numpy as np
 
 from .. import dataframe
 from . import McapError
-from .idl import DecodePlan, COLUMN_TYPES
+from ._decodeplan import DecodePlan, COLUMN_TYPES
+
+__all__ = ["Reader", "Schema", "Channel", "Extraction"]
 
 MAGIC = b"\x89MCAP0\r\n"
 OP_HEADER = 0x01

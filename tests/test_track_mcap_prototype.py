@@ -57,7 +57,18 @@ module vehicle_msgs {
 };
 """
 
+BRAKE_IDL = b"""
+module vehicle_msgs {
+  module msg {
+    struct Brake {
+      boolean active;
+    };
+  };
+};
+"""
+
 TOPIC = "/vehicle/status"
+BRAKE_TOPIC = "/vehicle/brake"
 LOG_TIMES = [30, 10, 20, 40]
 
 
@@ -143,6 +154,43 @@ class McapPrototypeTC(unittest.TestCase):
             self.assertEqual(frame["brake_active"].tolist(),
                              [False, True, True, True])
             self.assertEqual(frame["header.seq"].tolist(), [1, 2, 0, 3])
+
+    def test_extract_frame_many_mixed_specs(self):
+        path = os.path.join(self.tmpdir.name, "two_topics.mcap")
+        with open(path, "wb") as fp:
+            writer = foxglove_mcap_writer.Writer(fp)
+            writer.start(profile="ros2")
+            schema_id = writer.register_schema("vehicle_msgs/msg/Status",
+                                               "ros2idl", STATUS_IDL)
+            channel_id = writer.register_channel(TOPIC, "cdr", schema_id)
+            for seq, log_time in enumerate(LOG_TIMES):
+                payload = pack_status(seq, float(log_time), log_time >= 20,
+                                      log_time % 20 == 0)
+                writer.add_message(channel_id, log_time, payload, log_time)
+            schema_id = writer.register_schema("vehicle_msgs/msg/Brake",
+                                               "ros2idl", BRAKE_IDL)
+            channel_id = writer.register_channel(BRAKE_TOPIC, "cdr",
+                                                 schema_id)
+            for log_time in (15, 35):
+                payload = b"\0\x01\0\0" + struct.pack("<?", log_time >= 20)
+                writer.add_message(channel_id, log_time, payload, log_time)
+            writer.finish()
+
+        with mcap.Reader(path) as reader:
+            plan = mcap.DecodePlan(reader.schema(TOPIC),
+                                   ["longitudinal_speed", "mode"])
+            frames = reader.extract_frame_many({TOPIC: plan,
+                                                BRAKE_TOPIC: ["active"]})
+
+        status = frames[TOPIC]
+        self.assertEqual(status.columns, ["longitudinal_speed", "mode"])
+        self.assertEqual(status.index.tolist(), [10, 20, 30, 40])
+        self.assertEqual(status["longitudinal_speed"].tolist(),
+                         [10.0, 20.0, 30.0, 40.0])
+        brake = frames[BRAKE_TOPIC]
+        self.assertEqual(brake.columns, ["active"])
+        self.assertEqual(brake.index.tolist(), [15, 35])
+        self.assertEqual(brake["active"].tolist(), [False, True])
 
     def test_messages_match_foxglove(self):
         for compression in ("none", "lz4", "zstd"):

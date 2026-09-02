@@ -4,6 +4,10 @@
 """
 Schema layer: from ``ros2idl`` text to a ``DecodePlan``.
 
+IDL is the OMG Interface Definition Language.  ROS 2 embeds IDL text
+in a recording under the ``ros2idl`` schema encoding, and this module
+parses that text.
+
 ``parse_schema`` turns the schema text into a registry of structs and
 enums.  ``DecodePlan`` flattens the root struct into scalar leaves and
 compiles the selected ones into one ``struct`` format per byte order, so a
@@ -21,6 +25,8 @@ import collections
 import solvcon as sc
 
 from . import McapError
+
+__all__ = ["parse_schema", "DecodePlan", "COLUMN_TYPES"]
 
 Registry = collections.namedtuple("Registry", "structs enums")
 
