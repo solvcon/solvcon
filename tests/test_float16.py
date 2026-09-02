@@ -59,12 +59,6 @@ class Float16PythonIntegrationTC(unittest.TestCase):
         with self.assertRaises(TypeError):
             collector.push_back(view)
 
-        calculation_error = r'Float16.*not supported'
-        with self.assertRaisesRegex(RuntimeError, calculation_error):
-            _ = scalar == scalar
-        with self.assertRaisesRegex(RuntimeError, calculation_error):
-            _ = scalar != 1
-
     def test_typed_numpy_conversion_rules(self):
         target = sc.SimpleArrayFloat16((2, 3))
         source = np.arange(6, dtype='float64').reshape(2, 3) / 3
@@ -129,7 +123,6 @@ class Float16PythonIntegrationTC(unittest.TestCase):
         shared = sc.SimpleArray(array=source)
         self.assertTrue(np.shares_memory(source, np.asarray(shared)))
 
-        with self.assertRaisesRegex(RuntimeError, r'Float16.*not supported'):
-            shared.min()
+        self.assertEqual(-0.75, shared.sum())
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:

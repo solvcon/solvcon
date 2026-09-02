@@ -1560,23 +1560,27 @@ class SimpleArrayBasicTC(unittest.TestCase):
         # The built-in `<` answers false in both directions for a NaN, which
         # is not a strict ordering and leaves std::sort undefined.
         nan = float('nan')
-        data = np.array([3.0, nan, 1.0, nan, 2.0], dtype='float64')
+        for dtype in ('float16', 'float32', 'float64'):
+            with self.subTest(dtype=dtype):
+                cls = getattr(solvcon, 'SimpleArray' + dtype.capitalize())
+                data = np.array([3.0, nan, 1.0, nan, 2.0], dtype=dtype)
 
-        sarr = solvcon.SimpleArrayFloat64(array=data.copy())
-        sarr.sort()
-        np.testing.assert_array_equal(sarr.ndarray, np.sort(data))
+                sarr = cls(array=data.copy())
+                sarr.sort()
+                np.testing.assert_array_equal(sarr.ndarray, np.sort(data))
 
-        sarr = solvcon.SimpleArrayFloat64(array=data.copy())
-        np.testing.assert_array_equal(sarr.argsort().ndarray,
-                                      np.argsort(data, kind='stable'))
+                sarr = cls(array=data.copy())
+                np.testing.assert_array_equal(
+                    sarr.argsort().ndarray,
+                    np.argsort(data, kind='stable'))
 
-        sarr = solvcon.SimpleArrayFloat64(array=data.copy())
-        sarr.sort()
-        varr = solvcon.SimpleArrayFloat64(array=data)
-        for side in ('left', 'right'):
-            np.testing.assert_array_equal(
-                sarr.searchsorted(varr, side=side).ndarray,
-                np.searchsorted(np.sort(data), data, side=side))
+                sarr = cls(array=data.copy())
+                sarr.sort()
+                varr = cls(array=data)
+                for side in ('left', 'right'):
+                    np.testing.assert_array_equal(
+                        sarr.searchsorted(varr, side=side).ndarray,
+                        np.searchsorted(np.sort(data), data, side=side))
 
     def test_sort_complex_nan_goes_last(self):
         nan = float('nan')
@@ -1687,23 +1691,30 @@ class SimpleArrayBasicTC(unittest.TestCase):
 
     def test_searchsorted_nan(self):
         nan = float('nan')
-        nvalues = np.array([2.0, nan, 1.0, nan, 3.0], dtype='float64')
-        varr = solvcon.SimpleArrayFloat64(array=nvalues)
+        for dtype in ('float16', 'float32', 'float64'):
+            with self.subTest(dtype=dtype):
+                cls = getattr(solvcon, 'SimpleArray' + dtype.capitalize())
+                nvalues = np.array([2.0, nan, 1.0, nan, 3.0], dtype=dtype)
+                varr = cls(array=nvalues)
+                scalar_nan = nvalues[1]
 
-        # A NaN answers with the trailing run of NaN, not the end of the
-        # array, so it must not bound the search of the value after it.
-        for data in ([1.0, 2.0, 3.0], [1.0, 2.0, nan],
-                     [1.0, nan, nan], [nan]):
-            ndata = np.array(data, dtype='float64')
-            sarr = solvcon.SimpleArrayFloat64(array=ndata)
+                # A NaN answers with the trailing run of NaN, not the end of
+                # the array, so it must not bound the search of the value
+                # after it.
+                for data in ([1.0, 2.0, 3.0], [1.0, 2.0, nan],
+                             [1.0, nan, nan], [nan]):
+                    ndata = np.array(data, dtype=dtype)
+                    sarr = cls(array=ndata)
 
-            for side in ('left', 'right'):
-                self.assertEqual(
-                    sarr.searchsorted(nan, side=side),
-                    np.searchsorted(ndata, nan, side=side))
-                np.testing.assert_array_equal(
-                    sarr.searchsorted(varr, side=side).ndarray,
-                    np.searchsorted(ndata, nvalues, side=side))
+                    for side in ('left', 'right'):
+                        self.assertEqual(
+                            sarr.searchsorted(scalar_nan, side=side),
+                            np.searchsorted(
+                                ndata, scalar_nan, side=side))
+                        np.testing.assert_array_equal(
+                            sarr.searchsorted(varr, side=side).ndarray,
+                            np.searchsorted(
+                                ndata, nvalues, side=side))
 
     def test_searchsorted_complex_nan(self):
         nan = float('nan')
@@ -1739,7 +1750,7 @@ class SimpleArrayBasicTC(unittest.TestCase):
     SEARCHSORTED_DTYPES = (
         'bool', 'int8', 'int16', 'int32', 'int64',
         'uint8', 'uint16', 'uint32', 'uint64',
-        'float32', 'float64', 'complex64', 'complex128',
+        'float16', 'float32', 'float64', 'complex64', 'complex128',
     )
 
     @staticmethod
@@ -2250,6 +2261,46 @@ class SimpleArrayAlignmentTC(unittest.TestCase):
 
 class SimpleArrayCalculatorsTC(unittest.TestCase):
 
+    FLOAT_DTYPES = ('float16', 'float32', 'float64')
+
+    def test_float_dtypes(self):
+        for dtype in self.FLOAT_DTYPES:
+            with self.subTest(dtype=dtype):
+                cls = getattr(solvcon, 'SimpleArray' + dtype.capitalize())
+                # Small values isolate API parity from dtype-specific overflow.
+                data = np.array([[1, 2, 3, 4]], dtype=dtype)
+                array = cls(array=data)
+
+                np.testing.assert_array_equal(
+                    array.add(array).ndarray, data + data)
+                np.testing.assert_array_equal(
+                    (array == array).ndarray, data == data)
+                np.testing.assert_array_equal((array != 3).ndarray, data != 3)
+                negative = cls(array=-data)
+                np.testing.assert_array_equal(negative.abs().ndarray, data)
+                self.assertEqual(array.min(), np.min(data))
+                self.assertEqual(negative.max(), np.max(-data))
+                self.assertEqual(array.sum(), np.sum(data))
+
+                for name in ('mean', 'var', 'std', 'median'):
+                    method = getattr(array, name)
+                    self.assertEqual(method(), getattr(np, name)(data))
+                    np.testing.assert_array_equal(
+                        method(axis=1).ndarray,
+                        getattr(np, name)(data, axis=1))
+
+                strided = np.arange(1, 9, dtype=dtype)[::2]
+                self.assertEqual(cls(array=strided).sum(), np.sum(strided))
+
+                weight_data = np.array([[4, 3, 2, 1]], dtype=dtype)
+                weight = cls(array=weight_data)
+                self.assertEqual(
+                    array.average(weight),
+                    np.average(data, weights=weight_data))
+                np.testing.assert_array_equal(
+                    array.average(1, weight).ndarray,
+                    np.average(data, axis=1, weights=weight_data[0]))
+
     def test_minmaxsum(self):
         sarr = solvcon.SimpleArrayFloat64(shape=(2, 4), value=10.0)
 
@@ -2330,7 +2381,7 @@ class SimpleArrayCalculatorsTC(unittest.TestCase):
     SCAN_DTYPES = (
         'int8', 'int16', 'int32', 'int64',
         'uint8', 'uint16', 'uint32', 'uint64',
-        'float32', 'float64', 'complex64', 'complex128',
+        'float16', 'float32', 'float64', 'complex64', 'complex128',
     )
 
     def test_diff_every_dtype(self):
@@ -4891,6 +4942,13 @@ class SimpleArrayCalculatorsTC(unittest.TestCase):
         self.assertEqual(symmetric.shape, ndsymmetric.shape)
         np.testing.assert_equal(symmetric.ndarray, ndsymmetric)
 
+        ndarr_float16 = np.array([[1.0, 2.0], [4.0, 5.0]],
+                                 dtype='float16')
+        sarr_float16 = solvcon.SimpleArrayFloat16(array=ndarr_float16)
+        np.testing.assert_array_equal(
+            sarr_float16.symmetrize().ndarray,
+            (ndarr_float16 + ndarr_float16.T) / np.float16(2))
+
         vector = solvcon.SimpleArrayFloat64(5)
         with self.assertRaisesRegex(
             RuntimeError,
@@ -4927,6 +4985,11 @@ class SimpleArrayCalculatorsTC(unittest.TestCase):
         sarr_cplx = solvcon.SimpleArrayComplex128(array=ndarr_cplx)
         self.assertEqual(complex(sarr_cplx.trace()), 8.0 + 10.0j)
 
+        ndarr_float16 = np.array([[1.0, 2.0], [4.0, 5.0]],
+                                 dtype='float16')
+        sarr_float16 = solvcon.SimpleArrayFloat16(array=ndarr_float16)
+        self.assertEqual(sarr_float16.trace(), np.trace(ndarr_float16))
+
         vector = solvcon.SimpleArrayFloat64(5)
         with self.assertRaisesRegex(
             RuntimeError,
@@ -4959,12 +5022,13 @@ class SimpleArraySearchTC(unittest.TestCase):
 
         # test N-D data
         data = [[1, 3, 5, 7, 9], [2, 4, 6, 8, 10], [1, 10, 1, 10, 1]]
-        narr = np.array(data, dtype='float64')
-        sarr = solvcon.SimpleArrayFloat64(array=narr)
-        self.assertEqual(sarr.argmin(), 0)
-        self.assertEqual(sarr.argmax(), 9)
-        self.assertEqual(narr.argmin(), sarr.argmin())
-        self.assertEqual(narr.argmax(), sarr.argmax())
+        for dtype in ('float16', 'float64'):
+            with self.subTest(dtype=dtype):
+                cls = getattr(solvcon, 'SimpleArray' + dtype.capitalize())
+                narr = np.array(data, dtype=dtype)
+                sarr = cls(array=narr)
+                self.assertEqual(narr.argmin(), sarr.argmin())
+                self.assertEqual(narr.argmax(), sarr.argmax())
 
         with self.subTest(name='empty_array'):
             narr = np.array([], dtype='float64')
@@ -5155,6 +5219,8 @@ class SimpleArraySearchTC(unittest.TestCase):
         cases = [
             ("1d_contiguous", solvcon.SimpleArrayUint64,
              np.arange(10, dtype='uint64'), 5),
+            ('2d_float16', solvcon.SimpleArrayFloat16,
+             np.arange(6, dtype='float16').reshape(2, 3), 3),
             ('2d_contiguous', solvcon.SimpleArrayFloat64,
              np.arange(12, dtype='float64').reshape(3, 4), 6),
             ('3d_contiguous', solvcon.SimpleArrayInt32,

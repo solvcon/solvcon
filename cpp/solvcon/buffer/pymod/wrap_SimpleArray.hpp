@@ -192,24 +192,11 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArray
             .def_property_readonly("nbody", &wrapped_type::nbody)
             .def_property_readonly("plex", [](wrapped_type const & arr)
                                    { return pybind11::cast(SimpleArrayPlex(arr)); })
-            .wrap_modifiers();
-
-        if constexpr (std::is_same_v<T, Float16>)
-        {
-            auto const reject_calculation = [](wrapped_type const &, py::object const &)
-            { throw std::runtime_error("Float16 array calculations are not supported"); };
-            (*this)
-                .def("__eq__", reject_calculation, py::is_operator())
-                .def("__ne__", reject_calculation, py::is_operator());
-        }
-        else
-        {
-            (*this)
-                .wrap_calculators()
-                .wrap_matrix()
-                .wrap_sort()
-                .wrap_search();
-        }
+            .wrap_modifiers()
+            .wrap_calculators()
+            .wrap_matrix()
+            .wrap_sort()
+            .wrap_search();
     }
 
     wrapper_type & wrap_modifiers()
@@ -751,6 +738,7 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArray
             SC_DECL_WHERE_TYPED(Uint16)
             SC_DECL_WHERE_TYPED(Uint32)
             SC_DECL_WHERE_TYPED(Uint64)
+            SC_DECL_WHERE_TYPED(Float16)
             SC_DECL_WHERE_TYPED(Float32)
             SC_DECL_WHERE_TYPED(Float64)
         default:

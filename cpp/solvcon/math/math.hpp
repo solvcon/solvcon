@@ -74,6 +74,8 @@ inline auto real(T const & val)
     }
 }
 
+inline Float16 abs(Float16 val) { return Float16::from_bits(val.bits() & 0x7fffU); }
+
 template <typename T>
 inline auto abs(T const & val)
 {
@@ -85,6 +87,24 @@ inline auto abs(T const & val)
     {
         return std::abs(val);
     }
+}
+
+inline Float16 sqrt(Float16 val) { return Float16(std::sqrt(static_cast<float>(val))); }
+
+template <typename T>
+requires std::is_arithmetic_v<T>
+inline auto sqrt(T val)
+{
+    return std::sqrt(val);
+}
+
+inline bool isnan(Float16 val) { return (val.bits() & 0x7c00U) == 0x7c00U && (val.bits() & 0x03ffU) != 0; }
+
+template <typename T>
+requires std::is_floating_point_v<T>
+inline bool isnan(T val)
+{
+    return std::isnan(val);
 }
 
 } /* end namespace solvcon */
