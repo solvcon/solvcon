@@ -67,9 +67,240 @@ module vehicle_msgs {
 };
 """
 
+SIGNALS_IDL = b"""
+module demo_msgs { module msg {
+  const uint32 kMax = 4;
+  const string kUrl = "http://x/y"; // a string constant
+  const long kNeg = -1;
+  typedef double Cov[2][2];
+  enum Kind { A, B, C };
+  union Extra switch(Kind) {
+    case A: long number;
+    case B: string<16> text;
+    default: double value;
+  };
+  union Tail switch(long) {
+    case kNeg: case 'x': octet small;
+    case 7: double big;
+  };
+  struct Tag { string<8> name; uint8 level; };
+  struct Signals{
+    string<256> frame_id;
+    sequence<Tag, kMax> tags;
+    Cov cov;
+    unsigned long count;
+    Kind kind;
+    Extra extra;
+    sequence<float> samples;
+    Tag corners[2];
+    boolean ok;
+    Tail tail;
+    double speed;
+  };
+}; };
+"""
+
+SUMMARY_IDL = b"""
+========================================
+IDL: monitor_msgs/msg/Summary
+#include "monitor_msgs/msg/Header.idl"
+
+module monitor_msgs {
+  module msg {
+    const uint32 kReasonCapacity = 32;
+    const unsigned long MAX_LANE_ID_LENGTH = 255;
+
+    struct Summary{
+      monitor_msgs::msg::Header header;
+
+      Version version;
+
+      sequence<Reason, kReasonCapacity> reasons;
+
+      //! [Fields]
+      @verbatim (language="comment", text=
+        " target speed" "\\n"
+        " in m/s")
+      double v_target;
+      //! [Fields]
+    };
+  };
+};
+
+========================================
+IDL: monitor_msgs/msg/Header
+module monitor_msgs {
+  module msg {
+    struct Header {
+      @verbatim (language="comment", text=
+        " Publishing module name")
+      string<256> module_name;
+
+      uint32 sequence_number;
+    };
+  };
+};
+
+========================================
+IDL: monitor_msgs/msg/Version
+module monitor_msgs {
+    module msg {
+        struct Version {
+            uint16 major;
+            uint16 minor;
+        };
+    };
+};
+
+========================================
+IDL: monitor_msgs/msg/Reason
+module monitor_msgs {
+  module msg {
+    struct Reason {
+      uint64 timestamp;
+      string<64> text;
+    };
+  };
+};
+"""
+
 TOPIC = "/vehicle/status"
 BRAKE_TOPIC = "/vehicle/brake"
 LOG_TIMES = [30, 10, 20, 40]
+
+
+class SchemaParseTC(unittest.TestCase):
+
+    def test_signals(self):
+        """One IDL exercises every construct the parser must recognize."""
+        schema = mcap.Schema(1, "demo_msgs/msg/Signals", "ros2idl",
+                             SIGNALS_IDL)
+        registry = mcap.parse_schema(schema)
+        self.assertEqual(registry.enums["demo_msgs::msg::Kind"],
+                         ("A", "B", "C"))
+        self.assertEqual(registry.consts["demo_msgs::msg::kMax"], 4)
+        self.assertEqual(registry.consts["demo_msgs::msg::kNeg"], -1)
+        self.assertEqual(registry.typedefs["demo_msgs::msg::Cov"],
+                         ("array", ("scalar", "float64"), 4))
+        self.assertEqual([name for name, _ in
+                          registry.structs["demo_msgs::msg::Signals"]],
+                         ["frame_id", "tags", "cov", "count", "kind",
+                          "extra", "samples", "corners", "ok", "tail",
+                          "speed"])
+        self.assertEqual(registry.unions["demo_msgs::msg::Extra"][1],
+                         [((0,), ("scalar", "int32")), ((1,), ("string",)),
+                          ((None,), ("scalar", "float64"))])
+        self.assertEqual(registry.unions["demo_msgs::msg::Tail"][1],
+                         [((-1, 120), ("scalar", "uint8")),
+                          ((7,), ("scalar", "float64"))])
+
+    def test_bundle(self):
+        """A recording bundles several IDL blocks under one schema."""
+        schema = mcap.Schema(1, "monitor_msgs/msg/Summary", "ros2idl",
+                             SUMMARY_IDL)
+        registry = mcap.parse_schema(schema)
+        self.assertEqual(registry.consts["monitor_msgs::msg::"
+                                         "MAX_LANE_ID_LENGTH"], 255)
+        self.assertEqual(registry.structs["monitor_msgs::msg::Version"],
+                         [("major", ("scalar", "uint16")),
+                          ("minor", ("scalar", "uint16"))])
+        self.assertEqual(registry.structs["monitor_msgs::msg::Summary"][2],
+                         ("reasons",
+                          ("sequence", ("named", "Reason",
+                                        ("monitor_msgs", "msg")))))
+
+    def test_plan_rejects_what_it_cannot_flatten(self):
+        """A string, sequence, array, or union field has no column yet."""
+        schema = mcap.Schema(1, "monitor_msgs/msg/Summary", "ros2idl",
+                             SUMMARY_IDL)
+        with self.assertRaisesRegex(mcap.McapError, "unsupported field"):
+            mcap.DecodePlan(schema)
+        schema = mcap.Schema(1, "x/msg/Y", "ros2idl",
+                             b"module x { module msg { struct Y {"
+                             b" uint32 a; double b[3]; }; }; };")
+        with self.assertRaisesRegex(mcap.McapError, "unsupported field 'b'"):
+            mcap.DecodePlan(schema)
+
+    def test_nested_structs_flatten(self):
+        """A struct of structs, enums, and scalars still gives columns."""
+        schema = mcap.Schema(1, "vehicle_msgs/msg/Status", "ros2idl",
+                             STATUS_IDL)
+        plan = mcap.DecodePlan(schema)
+        self.assertEqual(plan.fields, ("header.seq", "longitudinal_speed",
+                                       "brake_active", "mode"))
+        self.assertEqual(plan.types, ("uint32", "float64", "bool", "uint32"))
+        self.assertEqual(plan.enums, {"mode": ("OFF", "ON")})
+        with self.assertRaisesRegex(mcap.McapError, "duplicate fields"):
+            mcap.DecodePlan(schema, ["mode", "mode"])
+
+    def test_unsupported(self):
+        """An IDL construct the plan cannot decode raises ``McapError``."""
+        for field in (b"wchar c;", b"wstring s;"):
+            schema = mcap.Schema(1, "x/msg/Y", "ros2idl",
+                                 b"module x { module msg { struct Y { " +
+                                 field + b" }; }; };")
+            with self.assertRaisesRegex(mcap.McapError, "unsupported"):
+                mcap.DecodePlan(schema)
+        schema = mcap.Schema(1, "x/msg/Y", "ros2idl",
+                             b"module x { module msg { typedef B A; "
+                             b"typedef A B; struct Y { A a; }; }; };")
+        with self.assertRaisesRegex(mcap.McapError, "cyclic"):
+            mcap.DecodePlan(schema)
+        schema = mcap.Schema(1, "x/msg/Y", "ros2idl",
+                             b"module x { module msg { enum E { A, "
+                             b"@value(5) B }; struct Y { E e; }; }; };")
+        with self.assertRaisesRegex(mcap.McapError, "declaration order"):
+            mcap.DecodePlan(schema)
+        schema = mcap.Schema(1, "x/msg/Y", "ros2idl",
+                             b"module x { module msg { enum E { "
+                             b"@value(0) A, @value(1) B }; "
+                             b"struct Y { E e; }; }; };")
+        self.assertEqual(mcap.DecodePlan(schema).enums, {"e": ("A", "B")})
+        schema = mcap.Schema(1, "x/msg/Y", "ros2idl",
+                             b"module x { module msg { struct Y { "
+                             b"Z z; }; }; };")
+        with self.assertRaisesRegex(mcap.McapError, "unknown type 'Z'"):
+            mcap.DecodePlan(schema)
+        schema = mcap.Schema(1, "x/msg/Y", "protobuf", b"")
+        with self.assertRaisesRegex(mcap.McapError, "protobuf"):
+            mcap.DecodePlan(schema)
+        schema = mcap.Schema(1, "x/msg/Y", "ros2idl", b"\xff\xfe")
+        with self.assertRaisesRegex(mcap.McapError, "not UTF-8"):
+            mcap.DecodePlan(schema)
+
+    def test_malformed(self):
+        """Every parse failure raises ``McapError``, never a raw builtin."""
+        schema = mcap.Schema(1, "x/msg/Y", "ros2idl",
+                             b"module x { module msg { enum E { A =")
+        with self.assertRaisesRegex(mcap.McapError, "ends inside a block"):
+            mcap.DecodePlan(schema)
+        schema = mcap.Schema(1, "x/msg/Y", "ros2idl",
+                             b"module x { module msg { const long V = 1; "
+                             b"enum E { A, B = V }; struct Y { E e; }; "
+                             b"}; };")
+        self.assertEqual(mcap.DecodePlan(schema).enums, {"e": ("A", "B")})
+
+    def test_const_spans_lines(self):
+        """A ``const`` broken before its ``=`` keeps its value."""
+        schema = mcap.Schema(1, "x/msg/Y", "ros2idl",
+                             b"module x { module msg {\nconst long N\n"
+                             b"= 3;\nstruct Y { double v[N]; uint8 t; };\n"
+                             b"}; };")
+        registry = mcap.parse_schema(schema)
+        self.assertEqual(registry.consts["x::msg::N"], 3)
+        self.assertEqual(registry.structs["x::msg::Y"][0][1],
+                         ("array", ("scalar", "float64"), 3))
+
+    def test_string_const_does_not_shadow(self):
+        """A string ``const`` does not hide an integer one further out."""
+        schema = mcap.Schema(1, "x/msg/Y", "ros2idl",
+                             b"module x { const long N = 3; module msg {"
+                             b" const string N = \"s\";"
+                             b" struct Y { double v[N]; uint8 t; }; }; };")
+        registry = mcap.parse_schema(schema)
+        self.assertNotIn("x::msg::N", registry.consts)
+        self.assertEqual(registry.structs["x::msg::Y"][0][1],
+                         ("array", ("scalar", "float64"), 3))
 
 
 def pack_status(seq, speed, brake_active, mode):
