@@ -9,11 +9,11 @@ recording under the ``ros2idl`` schema encoding, and ``parse_schema``
 turns that text into one ``Registry`` of structs, enums, unions,
 typedefs, and integer constants.
 
-``DecodePlan`` flattens the root struct into scalar leaves and compiles
-the selected ones into one ``struct`` format per byte order, so a message
-decodes with a single ``unpack_from``.  The plan flattens structs whose
-fields are scalars, enums, or other structs.  A string, sequence, array,
-or union field raises ``McapError`` when a plan reaches it.
+``DecodePlan`` turns the root struct into a tree and walks it over the
+CDR body of each message.  A scalar or enum leaf reached through nested
+structs is a column.  The walk steps over a string, a sequence, or an
+array, so a leaf inside one is not a column.  A union field raises
+``McapError`` when a plan reaches it.
 """
 
 import re
@@ -74,6 +74,13 @@ _ENUM_VALUE = re.compile(r"@value\s*\(\s*(\w+)\s*\)\s*(\w+)")
 _TOKEN = re.compile(r'[A-Za-z_]\w*(?:::[A-Za-z_]\w*)*|"(?:[^"\\]|\\.)*"'
                     r'|\d[\w.]*|\S')
 _SEPARATOR = re.compile(r"^=+\s*$", re.M)
+
+# Indexed by the byte order flag of the CDR encapsulation: 0 big, 1 little.
+_ORDERS = (">", "<")
+_SCALARS = tuple({dtype: struct.Struct(order + code)
+                  for dtype, (code, _) in COLUMN_TYPES.items()}
+                 for order in _ORDERS)
+_TRUNCATED = "the payload ends before the fields do"
 
 
 def parse_schema(schema):
@@ -360,8 +367,9 @@ class DecodePlan:
     def __init__(self, schema, fields=None):
         self.schema = schema
         registry = parse_schema(schema)
-        leaves = _leaves(registry, ("named", schema.name.replace("/", "::"),
-                                    ()), (), ())
+        self._tree = _tree(registry, ("named", schema.name.replace("/", "::"),
+                                      ()), ())
+        leaves = _leaves(self._tree, ())
         types = {path: dtype for path, dtype, _ in leaves}
 
         self.fields = tuple(types if fields is None else fields)
@@ -373,56 +381,106 @@ class DecodePlan:
         self.types = tuple(types[path] for path in self.fields)
         self.enums = {path: members for path, _, members in leaves
                       if members and path in self.fields}
-
-        # CDR aligns each scalar to its size from the body start, so the
-        # offsets are static and the whole body is one struct format.
-        fmt = ""
-        offset = 0
-        paths = []
-        for path, dtype, _ in leaves:
-            code = COLUMN_TYPES[dtype][0]
-            size = struct.calcsize(code)
-            pad = -offset % size
-            fmt += "{}x{}".format(pad, code) if pad else code
-            offset += pad + size
-            paths.append(path)
-        self._structs = {0: struct.Struct(">" + fmt),
-                         1: struct.Struct("<" + fmt)}
+        paths = [path for path, _, _ in leaves]
         self._select = tuple(paths.index(path) for path in self.fields)
 
     def decode(self, payload):
         """Return the selected values of one CDR payload as a tuple."""
-        if len(payload) < 4 or payload[0] != 0 or \
-                payload[1] not in self._structs:
+        if len(payload) < 4 or payload[0] != 0 or payload[1] > 1:
             raise McapError("unsupported CDR encapsulation")
+        body = memoryview(payload)[4:]
+        values = []
         try:
-            values = self._structs[payload[1]].unpack_from(payload, 4)
+            end = _walk(self._tree, body, 0, payload[1], values)
         except struct.error:
-            raise McapError("the payload ends before the fields do") from None
+            raise McapError(_TRUNCATED) from None
+        if end > len(body):
+            raise McapError(_TRUNCATED)
         return tuple(values[i] for i in self._select)
 
 
-def _leaves(registry, type_, path, visiting):
-    """Return ``(path, dtype, enum members)`` per scalar leaf, in order."""
-    kind, type_ = _resolve(registry, type_)
+def _tree(registry, type_, visiting):
+    """
+    Return the tree that ``_walk`` runs over ``type_``.
+
+    A node is ``("scalar", dtype, enum members)``, ``("struct", [(field,
+    node), ...])``, ``("string",)``, ``("sequence", node)``, or
+    ``("array", node, count)``.
+    """
+    type_ = _resolve(registry, type_)
+    kind = type_[0]
     if kind == "scalar":
-        return [(".".join(path), type_, None)]
+        return ("scalar", type_[1], None)
     if kind == "enum":
-        return [(".".join(path), ENUM_TYPE, registry.enums[type_])]
-    if kind != "struct":
-        raise McapError("unsupported field {!r} of kind {}".format(
-            ".".join(path), kind))
-    if type_ in visiting:
-        raise McapError("struct {} contains itself".format(type_))
-    leaves = []
-    for field, field_type in registry.structs[type_]:
-        leaves.extend(_leaves(registry, field_type, path + (field,),
-                              visiting + (type_,)))
-    return leaves
+        return ("scalar", ENUM_TYPE, registry.enums[type_[1]])
+    if kind == "struct":
+        name = type_[1]
+        if name in visiting:
+            raise McapError("struct {} contains itself".format(name))
+        return ("struct", [(field, _tree(registry, field_type,
+                                         visiting + (name,)))
+                           for field, field_type in registry.structs[name]])
+    if kind == "string":
+        return ("string",)
+    if kind == "sequence":
+        return ("sequence", _tree(registry, type_[1], visiting))
+    if kind == "array":
+        return ("array", _tree(registry, type_[1], visiting), type_[2])
+    raise McapError("unsupported type {!r}".format(type_[1]))
+
+
+def _leaves(node, path):
+    """Return ``(path, dtype, enum members)`` per scalar leaf, in order."""
+    if node[0] == "scalar":
+        return [(".".join(path), node[1], node[2])]
+    if node[0] == "struct":
+        return [leaf for field, child in node[1]
+                for leaf in _leaves(child, path + (field,))]
+    return []
+
+
+def _walk(node, body, pos, order, values):
+    """
+    Walk ``node`` over the CDR ``body`` from ``pos`` and return the end.
+
+    ``body`` starts after the encapsulation header, at the origin of CDR
+    alignment.  ``values`` collects every scalar leaf in the order of
+    ``_leaves``, or is ``None`` inside a container, whose scalars are not
+    columns.
+    """
+    kind = node[0]
+    if kind == "scalar":
+        fmt = _SCALARS[order][node[1]]
+        pos += -pos % fmt.size
+        if values is not None:
+            values.append(fmt.unpack_from(body, pos)[0])
+        return pos + fmt.size
+    if kind == "struct":
+        for _, child in node[1]:
+            pos = _walk(child, body, pos, order, values)
+        return pos
+    # TODO: a string, a sequence, or an array is only skipped; none of them
+    # produces a column yet.
+    if kind == "array":
+        count = node[2]
+    else:
+        pos += -pos & 3
+        count = _SCALARS[order]["uint32"].unpack_from(body, pos)[0]
+        pos += 4
+    if count > len(body) - pos:
+        raise McapError(_TRUNCATED)
+    if kind == "string":
+        return pos + count
+    if node[1][0] == "scalar":
+        size = _SCALARS[order][node[1][1]].size
+        return pos + (-pos % size if count else 0) + size * count
+    for _ in range(count):
+        pos = _walk(node[1], body, pos, order, None)
+    return pos
 
 
 def _resolve(registry, type_):
-    """Follow names and typedefs to ``(kind, name or dtype)``."""
+    """Follow names and typedefs to a concrete type."""
     seen = set()
     while type_[0] == "named":
         _, name, modules = type_
@@ -439,6 +497,6 @@ def _resolve(registry, type_):
         if scoped in seen:
             raise McapError("typedef {} is cyclic".format(scoped))
         seen.add(scoped)
-    return type_[0], type_[1] if len(type_) > 1 else None
+    return type_
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
