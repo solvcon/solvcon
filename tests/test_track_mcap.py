@@ -347,6 +347,10 @@ class McapInOutTC(unittest.TestCase):
             self.assertEqual(reader.topics(),
                              {TOPIC: "vehicle_msgs/msg/Status"})
             self.assertEqual(reader.time_range(), (10, 40))
+            self.assertEqual(reader.message_count(), 4)
+            self.assertEqual(reader.message_counts(), {TOPIC: 4})
+            self.assertEqual(reader.path, self.path)
+            self.assertEqual(reader.size, os.path.getsize(self.path))
 
             # Raw messages come in file order; the range is half open.
             self.assertEqual([t for t, _ in reader.messages(TOPIC)],
@@ -408,6 +412,8 @@ class McapInOutTC(unittest.TestCase):
             writer.finish()
 
         with mcap.Reader(path) as reader:
+            self.assertEqual(reader.message_counts(),
+                             {TOPIC: 4, BRAKE_TOPIC: 2})
             plan = mcap.DecodePlan(reader.schema(TOPIC),
                                    ["longitudinal_speed", "mode"])
             frames = reader.extract_frame_many({TOPIC: plan,
@@ -434,5 +440,12 @@ class McapInOutTC(unittest.TestCase):
                 theirs = sorted((msg.log_time, msg.data) for _, _, msg
                                 in foxglove.iter_messages(topics=[TOPIC]))
             self.assertEqual(ours, theirs, compression)
+
+    def test_a_truncated_file_raises_mcap_error(self):
+        path = os.path.join(self.tmpdir.name, "truncated.mcap")
+        with open(path, "wb") as fp:
+            fp.write(b"\x89MCAP0\r\n" * 2)
+        with self.assertRaisesRegex(mcap.McapError, "malformed record"):
+            mcap.Reader(path)
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
