@@ -130,6 +130,15 @@ class MeshInfoTreeTC(unittest.TestCase):
         self.assertEqual(tree._style_items["wireframe"].checkState(0),
                          Qt.Checked)
 
+    def test_clearing_the_mesh_drops_the_style_items(self):
+        # Clearing the tree deletes the items in C++; keeping the wrappers
+        # would make the next status refresh touch dangling objects.
+        tree = _tree_panel.MeshInfoTree(style_status=self.status,
+                                        mh=_make_sample_mesh())
+        tree.set_mesh(None)
+        tree.refresh_style_checks()
+        self.assertEqual(tree._style_items, {})
+
 
 @unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
                  "pilot windows need a real window surface")
