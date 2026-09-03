@@ -72,7 +72,11 @@ def _write_svg(world, file_path):
         'viewBox': '%g %g %g %g' % (x0, y0, w, h),
     })
     for d in ds:
-        ET.SubElement(root, 'path', {'d': d})
+        ET.SubElement(root, 'path', {
+            'd': d,
+            'style': ("fill:#c01348;fill-opacity:1;"
+                      "fill-rule:nonzero;stroke:none"),
+        })
     ET.ElementTree(root).write(
         file_path, encoding='utf-8', xml_declaration=True)
 
