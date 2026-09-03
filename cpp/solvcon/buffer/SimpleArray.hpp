@@ -744,7 +744,7 @@ public:
 
     value_type min() const
     {
-        value_type initial = min_identity<value_type>();
+        auto initial = min_identity<value_type>();
         auto athis = static_cast<A const *>(this);
         for (size_t i = 0; i < athis->size(); ++i)
         {
@@ -758,7 +758,7 @@ public:
 
     value_type max() const
     {
-        value_type initial = max_identity<value_type>();
+        auto initial = max_identity<value_type>();
         auto athis = static_cast<A const *>(this);
         for (size_t i = 0; i < athis->size(); ++i)
         {
