@@ -1,7 +1,8 @@
 # Copyright (c) 2026, solvcon team <contact@solvcon.net>
 # BSD 3-Clause License, see COPYING
 
-"""The MCAP panel feature on the pilot window: the menu and the dock."""
+"""The MCAP panel feature on the pilot window: the menu, the dock, and the
+main window."""
 
 import os
 import tempfile
@@ -28,15 +29,26 @@ NO_LIVE_WINDOW = ((os.getenv('QT_QPA_PLATFORM') or '').startswith('offscreen')
                   or ('nt' == os.name and bool(os.getenv('GITHUB_ACTIONS'))))
 
 TOPIC = "/vehicle/brake"
+BRAKE_IDL = b"""
+module vehicle_msgs {
+  module msg {
+    struct Brake {
+      boolean active;
+    };
+  };
+};
+"""
 
 
 def write_fixture(path):
-    """One schemaless topic: the feature tests only list it."""
+    """One topic of one message, decodable so the main window fills."""
     with open(path, "wb") as fp:
         writer = foxglove_mcap_writer.Writer(fp)
         writer.start(profile="ros2")
-        channel_id = writer.register_channel(TOPIC, "cdr", 0)
-        writer.add_message(channel_id, 10, b"\0\x01\0\0", 10)
+        schema_id = writer.register_schema("vehicle_msgs/msg/Brake",
+                                           "ros2idl", BRAKE_IDL)
+        channel_id = writer.register_channel(TOPIC, "cdr", schema_id)
+        writer.add_message(channel_id, 10, b"\0\x01\0\0\x01", 10)
         writer.finish()
 
 
@@ -55,6 +67,9 @@ class McapPanelTC(unittest.TestCase):
         self.feature.populate_menu()
 
     def tearDown(self):
+        if self.feature._subwin is not None:
+            self.feature._subwin.close()
+        QApplication.processEvents()
         if self.feature.reader is not None:
             self.feature.reader.close()
         self.tmpdir.cleanup()
@@ -94,5 +109,45 @@ class McapPanelTC(unittest.TestCase):
         QApplication.processEvents()
         self.assertIs(self.feature.reader, second)
         self.assertEqual(self.feature.panel._error.text(), "bad magic")
+
+    def _mcap_windows(self):
+        return [w for w in self.mgr.mdiArea.subWindowList()
+                if isinstance(w.widget(), _mcap_viewer.McapMainWindow)]
+
+    def test_open_file_opens_the_window_and_a_topic_fills_it(self):
+        self.feature.open_file(self.path)
+        QApplication.processEvents()
+        viewer = self.feature.viewer
+        self.assertIsInstance(viewer, _mcap_viewer.McapMainWindow)
+        self.assertEqual([w.windowTitle() for w in self._mcap_windows()],
+                         ["MCAP viewer - drive.mcap"])
+        self.assertIsNone(viewer.topic)
+
+        topics = self.feature.panel._topics
+        topics.itemClicked.emit(topics.item(0))
+        self.assertEqual(viewer.topic, TOPIC)
+        self.assertEqual(viewer.model.rowCount(), 1)
+        self.assertEqual(viewer.model.data(viewer.model.index(0, 2)), "true")
+
+        # The same topic again keeps its table instead of decoding anew.
+        model = viewer.model
+        topics.itemClicked.emit(topics.item(0))
+        self.assertIs(viewer.model, model)
+
+        # Another file replaces the window; the new one waits for a topic.
+        self.feature.open_file(self.path)
+        QApplication.processEvents()
+        self.assertIsNot(self.feature.viewer, viewer)
+        self.assertEqual(len(self._mcap_windows()), 1)
+        self.assertIsNone(self.feature.viewer.topic)
+
+        # A closed window comes back for the next topic.
+        self.feature._subwin.close()
+        QApplication.processEvents()
+        self.assertIsNone(self.feature.viewer)
+        self.assertEqual(self._mcap_windows(), [])
+        topics.itemClicked.emit(topics.item(0))
+        self.assertEqual(self.feature.viewer.topic, TOPIC)
+        self.assertEqual(len(self._mcap_windows()), 1)
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

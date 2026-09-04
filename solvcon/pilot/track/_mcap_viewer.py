@@ -3,8 +3,9 @@
 
 
 """
-Open an MCAP recording in the pilot: the Track menu opens a file, and the
-dock on the right shows what the reader gets without decoding a message.
+Open an MCAP recording in the pilot: the Track menu opens a file, the dock
+on the right shows what the reader gets without decoding a message, and the
+main window decodes the topic picked in the dock.
 """
 
 import os
@@ -19,9 +20,10 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
 from ...track import mcap
 from .._style import PaletteStyled
 from ..base import _gui_common
-from ._style import (Rules, font, row_colors, BODY_TEXT_PIXEL_SIZE,
-                     CAPTION_TEXT_PIXEL_SIZE, TOPIC_NAME_PIXEL_SIZE,
-                     TOPIC_TYPE_PIXEL_SIZE)
+from ._style import (Rules, font, row_colors, ROW_PAD, ROW_GAP,
+                     BODY_TEXT_PIXEL_SIZE, CAPTION_TEXT_PIXEL_SIZE,
+                     TOPIC_NAME_PIXEL_SIZE, TOPIC_TYPE_PIXEL_SIZE)
+from ._mcap_viewer_main_window import McapMainWindow, WINDOW_SIZE
 
 __all__ = [
     "McapDock",
@@ -31,8 +33,6 @@ __all__ = [
 _TOPIC_ROLE = Qt.UserRole
 _COUNT_ROLE = Qt.UserRole + 1
 _TYPE_ROLE = Qt.UserRole + 2
-_ROW_PAD = 4
-_ROW_GAP = 8
 
 
 def format_size(nbytes):
@@ -96,7 +96,7 @@ class _TopicDelegate(QStyledItemDelegate):
         self._type_height = QFontMetrics(font(TOPIC_TYPE_PIXEL_SIZE)).height()
 
     def sizeHint(self, option, index):
-        height = self._name_height + self._type_height + 2 * _ROW_PAD
+        height = self._name_height + self._type_height + 2 * ROW_PAD
         return QSize(option.rect.width(), height)
 
     def paint(self, painter, option, index):
@@ -106,14 +106,14 @@ class _TopicDelegate(QStyledItemDelegate):
                                           painter, option.widget)
         text, sub = row_colors(self.parent(),
                                option.state & QStyle.State_Selected)
-        rect = option.rect.adjusted(_ROW_GAP, _ROW_PAD, -_ROW_GAP, -_ROW_PAD)
+        rect = option.rect.adjusted(ROW_GAP, ROW_PAD, -ROW_GAP, -ROW_PAD)
 
         painter.save()
         painter.setPen(text)
         top = QRect(rect.left(), rect.top(), rect.width(), self._name_height)
         painter.setFont(font(CAPTION_TEXT_PIXEL_SIZE, mono=True))
         count = index.data(_COUNT_ROLE)
-        width = painter.fontMetrics().horizontalAdvance(count) + _ROW_GAP
+        width = painter.fontMetrics().horizontalAdvance(count) + ROW_GAP
         painter.drawText(top, Qt.AlignRight | Qt.AlignVCenter, count)
         painter.setFont(font(TOPIC_NAME_PIXEL_SIZE, mono=True))
         name = painter.fontMetrics().elidedText(
@@ -133,6 +133,7 @@ class McapDock(PaletteStyled):
     """The file summary and the topic list of the open recording."""
 
     open_requested = Signal()
+    topic_selected = Signal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -189,7 +190,7 @@ class McapDock(PaletteStyled):
         head = QWidget()
         head.setObjectName("header")
         header = QHBoxLayout(head)
-        header.setContentsMargins(_ROW_GAP, 4, _ROW_GAP, 4)
+        header.setContentsMargins(ROW_GAP, 4, ROW_GAP, 4)
         self._columns = [QLabel("Topic"), QLabel("Count")]
         for label in self._columns:
             label.setFont(font(CAPTION_TEXT_PIXEL_SIZE, bold=True))
@@ -200,6 +201,8 @@ class McapDock(PaletteStyled):
         self._topics.setUniformItemSizes(True)
         self._topics.setItemDelegate(_TopicDelegate(self))
         self._topics.setFrameShape(QFrame.NoFrame)
+        self._topics.itemClicked.connect(self._on_item_chosen)
+        self._topics.itemActivated.connect(self._on_item_chosen)
         box.addWidget(self._topics, 1)
         layout.addWidget(self._box, 1)
 
@@ -230,6 +233,9 @@ class McapDock(PaletteStyled):
             item.setToolTip(topic)
             self._topics.addItem(item)
 
+    def _on_item_chosen(self, item):
+        self.topic_selected.emit(item.data(_TOPIC_ROLE))
+
     def set_error(self, path, message):
         """Report that ``path`` would not open, and clear the summary."""
         self.set_reader(None)
@@ -249,13 +255,17 @@ class McapDock(PaletteStyled):
 
 
 class McapPanel(_gui_common.PilotFeature):
-    """Open MCAP files from the Track menu into the dock."""
+    """Open MCAP files from the Track menu into the dock and a window."""
 
     def __init__(self, *args, **kw):
         super().__init__(*args, **kw)
         self._action = None
         self._dock = None
         self._reader = None
+        self._subwin = None
+        # PySide does not see the sub-window take the window as its child,
+        # and would delete the window with the last Python reference.
+        self._viewer = None
         self._diag = QFileDialog()
         self._diag.setFileMode(QFileDialog.ExistingFile)
         self._diag.setWindowTitle("Open MCAP file")
@@ -270,6 +280,11 @@ class McapPanel(_gui_common.PilotFeature):
     def panel(self):
         return None if self._dock is None else self._dock.widget()
 
+    @property
+    def viewer(self):
+        """The main window of the open recording, or ``None`` when closed."""
+        return None if self._subwin is None else self._viewer
+
     def populate_menu(self):
         self.add_action(
             "Track", "Open MCAP", "Open an MCAP recording",
@@ -280,13 +295,41 @@ class McapPanel(_gui_common.PilotFeature):
         self._action.toggled.connect(self._on_toggled)
 
     def open_file(self, path):
-        """Read the summary of ``path`` into the dock."""
+        """Read ``path`` into the dock and a fresh main window."""
         reader = mcap.Reader(path)
+        if self._subwin is not None:
+            self._subwin.close()
         if self._reader is not None:
             self._reader.close()
         self._reader = reader
         self._shown_panel().set_reader(reader)
+        self._open_window()
         return reader
+
+    def _open_window(self):
+        self._viewer = McapMainWindow(self._reader)
+        self._viewer.closed.connect(self._on_window_closed)
+        self._subwin = self._mgr.addSubWindow(self._viewer)
+        self._subwin.setWindowTitle(self._viewer.title)
+        self._subwin.resize(*WINDOW_SIZE)
+        self._mgr.addSubWindowGrip(self._subwin)
+
+    def _on_window_closed(self):
+        self._subwin = None
+
+    def _on_topic_selected(self, topic):
+        """Show ``topic`` in the main window; reopen it after a close.
+
+        The topic already on the table turns back to its first page
+        instead of being decoded again.
+        """
+        if self._subwin is None:
+            self._open_window()
+        viewer = self.viewer
+        if viewer.topic == topic and viewer.model is not None:
+            viewer.page(1)
+        else:
+            viewer.table(topic)
 
     def _on_selected(self, path):
         """Open what the dialog chose, and report a file that will not open.
@@ -317,6 +360,7 @@ class McapPanel(_gui_common.PilotFeature):
             return
         panel = McapDock()
         panel.open_requested.connect(self._diag.open)
+        panel.topic_selected.connect(self._on_topic_selected)
         self._dock = QDockWidget("MCAP")
         self._dock.setWidget(panel)
         self._mainWindow.addDockWidget(Qt.RightDockWidgetArea, self._dock)
