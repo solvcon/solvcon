@@ -63,7 +63,8 @@ TEST(PilotKeymapTable, SeedsSharedBindingsOnEveryPlatform)
 
         auto const * exit = solvcon::bindingFor(platform, solvcon::ShortcutCommand::Exit);
         ASSERT_NE(exit, nullptr);
-        EXPECT_EQ(std::get<solvcon::StandardAction>(exit->key), solvcon::StandardAction::Quit);
+        EXPECT_EQ(std::get<solvcon::KeyChord>(exit->key),
+                  (solvcon::KeyChord{solvcon::KeyMod::Primary, solvcon::Key::W}));
         EXPECT_EQ(exit->context, solvcon::ShortcutContext::Application);
     }
 }
@@ -108,7 +109,8 @@ TEST(PilotKeymapMac, AddsQuitRoleOverTheSharedExitBinding)
 
     auto const * exit = solvcon::bindingFor(solvcon::PlatformId::Mac, solvcon::ShortcutCommand::Exit);
     ASSERT_NE(exit, nullptr);
-    EXPECT_EQ(std::get<solvcon::StandardAction>(exit->key), solvcon::StandardAction::Quit);
+    EXPECT_EQ(std::get<solvcon::KeyChord>(exit->key),
+              (solvcon::KeyChord{solvcon::KeyMod::Primary, solvcon::Key::W}));
     EXPECT_EQ(exit->role, solvcon::MenuRole::Quit);
 
     EXPECT_EQ(solvcon::bindingFor(solvcon::PlatformId::Linux, solvcon::ShortcutCommand::Exit)->role,
