@@ -83,6 +83,7 @@ def main():
             'solvcon.pilot.onedim',
             'solvcon.pilot.painter',
             'solvcon.pilot.panel',
+            'solvcon.pilot.track',
             'solvcon.pilot.visual',
             'solvcon.plot',
             'solvcon.profiling',

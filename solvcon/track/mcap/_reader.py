@@ -10,6 +10,7 @@ statistics, and the chunk indexes; the chunks themselves are read on demand
 by ``messages()`` and the ``extract*`` methods.
 """
 
+import os
 import struct
 import collections
 
@@ -93,16 +94,25 @@ class Reader:
     """
     Read one MCAP file.
 
-    The reader is a context manager; ``close()`` releases the file handle.
+    ``path`` is the file the reader opened and ``size`` its size in
+    bytes. The reader is a context manager; ``close()`` releases the
+    file handle.
     """
 
     def __init__(self, path):
+        self.path = path
+        self.size = os.path.getsize(path)
         self._file = open(path, "rb")
         self._schemas = {}
         self._channels = {}
         self._chunk_indexes = []
         self._statistics = None
-        self._read_summary()
+        self._message_count = None
+        self._message_counts = None
+        try:
+            self._read_summary()
+        except (struct.error, UnicodeDecodeError) as error:
+            raise McapError("malformed record: {}".format(error)) from error
 
     def __enter__(self):
         return self
@@ -154,13 +164,24 @@ class Reader:
                 fields, _ = unpack("<QQQQ", body, 0)
                 self._chunk_indexes.append(ChunkIndex(*fields))
             elif opcode == OP_STATISTICS:
-                (start_ns, end_ns), _ = unpack("<QQ", body, 8 + 2 + 4 * 4)
+                (self._message_count,), pos = unpack("<Q", body, 0)
+                (start_ns, end_ns), pos = unpack("<QQ", body, pos + 2 + 4 * 4)
                 self._statistics = (start_ns, end_ns)
+                counts, _ = unpack_prefixed("<I", body, pos)
+                self._message_counts = dict(struct.iter_unpack("<HQ", counts))
 
     def topics(self):
         """Return a map from topic to schema name."""
         return {ch.topic: self._schemas[ch.schema_id].name
                 for ch in self._channels.values()}
+
+    def channels(self):
+        """Return every channel in file order."""
+        return list(self._channels.values())
+
+    def schema_of(self, channel):
+        """Return the schema of ``channel``, or ``None`` when it has none."""
+        return self._schemas.get(channel.schema_id)
 
     def channel(self, topic):
         found = [ch for ch in self._channels.values() if ch.topic == topic]
@@ -175,6 +196,25 @@ class Reader:
     def time_range(self):
         """Return ``(start_ns, end_ns)``, or ``None`` without statistics."""
         return self._statistics
+
+    def message_count(self):
+        """Return the file's message count, or ``None`` without statistics."""
+        return self._message_count
+
+    def message_counts(self):
+        """Return a map from topic to its message count.
+
+        The counts come from the statistics record, which is optional; a
+        file without one gives ``None``. Channels that share a topic add
+        up.
+        """
+        if self._message_counts is None:
+            return None
+        counts = {}
+        for ch in self._channels.values():
+            counts[ch.topic] = counts.get(ch.topic, 0) + \
+                self._message_counts.get(ch.id, 0)
+        return counts
 
     def _iter_messages(self, channel_ids, start_ns, end_ns):
         """

@@ -537,6 +537,7 @@ void RManager::setUpMenu()
     m_menuModel->menu("Mesh", 40);
     m_menuModel->menu("Canvas", 50);
     m_menuModel->menu("Profiling", 60);
+    m_menuModel->menu("Track", 65);
     m_menuModel->menu("Window", 70);
 
     setUpEditMenuItems();

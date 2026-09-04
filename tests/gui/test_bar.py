@@ -19,7 +19,7 @@ NO_LIVE_WINDOW = ((os.getenv('QT_QPA_PLATFORM') or '').startswith('offscreen')
                   or ('nt' == os.name and bool(os.getenv('GITHUB_ACTIONS'))))
 
 BUILTINS = ["File", "Edit", "View", "One", "Mesh", "Canvas", "Profiling",
-            "Window"]
+            "Track", "Window"]
 
 
 @unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
@@ -50,8 +50,8 @@ class BarStructureTC(unittest.TestCase):
         panels = [a.text() for a in model.menu("View/Panels").actions()]
         self.assertEqual(
             list(dict.fromkeys(panels)),
-            ["Inspector", "Euler solver", "Painter", "Console", "Terminal",
-             "Agent Console"])
+            ["Inspector", "Euler solver", "Painter", "MCAP", "Console",
+             "Terminal", "Agent Console"])
 
         # The Console and Terminal toggles live with the other panel toggles;
         # the Window menu holds only the dynamic sub-window list.
