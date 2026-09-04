@@ -186,6 +186,7 @@ class MeshInfoTree(TreePanelBase):
     def set_mesh(self, mh):
         """Rebuild the tree from ``mh``, or show "No mesh loaded" when None."""
         self._building = True
+        self._style_items = {}
         try:
             if mh is None:
                 self._show_placeholder("No mesh loaded")
@@ -208,7 +209,6 @@ class MeshInfoTree(TreePanelBase):
         Each mirrors the active viewer's style through the shared status, so a
         fresh viewer shows the wireframe checked and the other two clear.
         """
-        self._style_items = {}
         if self.style_status is None:
             return
         for name, label in _mesh.MeshStyleStatus.STYLES:
