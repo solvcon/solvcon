@@ -18,7 +18,7 @@ namespace
 
 /**
  * Bindings shared by every platform. The per-platform tables append only
- * their Exit accent on top of this seed.
+ * their Exit row (Primary+W, with Quit role on macOS) on top of this seed.
  */
 std::vector<ShortcutBinding> sharedSeed()
 {
@@ -62,8 +62,12 @@ std::vector<ShortcutBinding> tableWith(std::vector<ShortcutBinding> extra)
 
 std::vector<ShortcutBinding> const & linuxTable()
 {
+    // Primary+W is Ctrl+W on Linux and Windows; Quit's standard chord is
+    // unbound on Windows, so a curated Exit keeps the same quit key everywhere.
     static std::vector<ShortcutBinding> const table = tableWith({
-        {ShortcutCommand::Exit, StandardAction::Quit, ShortcutContext::Application},
+        {ShortcutCommand::Exit,
+         KeyChord{KeyMod::Primary, Key::W},
+         ShortcutContext::Application},
     });
     return table;
 }
@@ -76,10 +80,11 @@ std::vector<ShortcutBinding> const & windowsTable()
 
 std::vector<ShortcutBinding> const & macTable()
 {
-    // macOS routes Quit through the application menu with its Quit role.
+    // Primary+W is Cmd+W on macOS. Quit role still moves Exit into the
+    // application menu; the curated chord replaces Qt's standard Quit.
     static std::vector<ShortcutBinding> const table = tableWith({
         {ShortcutCommand::Exit,
-         StandardAction::Quit,
+         KeyChord{KeyMod::Primary, Key::W},
          ShortcutContext::Application,
          MenuRole::Quit},
     });

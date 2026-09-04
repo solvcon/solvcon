@@ -37,7 +37,6 @@ if QtGui is not None:
     _STANDARD_IDS = {
         "edit.undo": QtGui.QKeySequence.StandardKey.Undo,
         "edit.redo": QtGui.QKeySequence.StandardKey.Redo,
-        "file.exit": QtGui.QKeySequence.StandardKey.Quit,
         "canvas.blank_2d": QtGui.QKeySequence.StandardKey.New,
     }
 
@@ -118,15 +117,14 @@ class ShortcutResolutionTC(unittest.TestCase):
         self.assertEqual(r["sequences"], _portable_standard_sequences(
             QtGui.QKeySequence.StandardKey.New))
 
-    def test_exit_carries_quit_and_platform_role(self):
+    def test_exit_resolves_to_primary_w(self):
+        # Cmd+W on macOS, Ctrl+W on Linux and Windows.
         r = self.mgr.resolve_shortcut("file.exit")
         self.assertTrue(r["known"])
         self.assertTrue(r["bound"])
-        self.assertTrue(r["standard"])
-        self.assertEqual(r["standard_key"], "Quit")
+        self.assertFalse(r["standard"])
         self.assertEqual(r["context"], "application")
-        self.assertEqual(r["sequences"], _portable_standard_sequences(
-            QtGui.QKeySequence.StandardKey.Quit))
+        self.assertEqual(r["sequences"], ["Ctrl+W"])
         if self.mgr.shortcut_platform == "mac":
             self.assertEqual(r["role"], "quit")
         else:
@@ -142,8 +140,8 @@ class ShortcutResolutionTC(unittest.TestCase):
         self.assertEqual(self.mgr.shortcut_conflicts(), [])
 
     def test_every_vocabulary_command_resolves(self):
-        # Standard keys may be unbound on a platform (Quit has no chord on
-        # Windows); curated phrasebook rows must still carry a sequence.
+        # Curated phrasebook rows must carry a sequence; standard keys may be
+        # unbound on a platform, so their expected list comes from Qt.
         all_bindings = self.mgr.resolve_all_shortcuts()
         for oid, entry in all_bindings.items():
             with self.subTest(oid=oid):
