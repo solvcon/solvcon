@@ -15,6 +15,7 @@
         "USE_CLANG_TIDY": { "type": "BOOL", "value": "OFF" },
         "USE_SANITIZER": { "type": "BOOL", "value": "OFF" },
         "BUILD_METAL": { "type": "BOOL", "value": "OFF" },
+        "BUILD_CUDA": { "type": "BOOL", "value": "OFF" },
         "USE_GOOGLETEST": { "type": "BOOL", "value": "ON" },
         "CMAKE_EXPORT_COMPILE_COMMANDS": { "type": "BOOL", "value": "ON" },
         "CMAKE_LIBRARY_OUTPUT_DIRECTORY": {

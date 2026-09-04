@@ -30,8 +30,9 @@ RUNENV += PYTHONPATH=$(SOLVCON_ROOT)
 # and nothing else is passed, so a make build and a preset build stay the same
 # build. Setting a knob to its preset value therefore costs nothing.
 CMAKE_KNOBS = SKIP_PYTHON_EXECUTABLE HIDE_SYMBOL SOLVCON_PROFILE \
-	SOLVCON_DEPS_CACHE BUILD_METAL BUILD_QT USE_CLANG_TIDY \
+	SOLVCON_DEPS_CACHE BUILD_METAL BUILD_CUDA BUILD_QT USE_CLANG_TIDY \
 	LINT_AS_ERRORS USE_GOOGLETEST USE_SANITIZER USE_CCACHE \
+	CMAKE_CUDA_ARCHITECTURES CMAKE_CUDA_HOST_COMPILER \
 	CMAKE_INSTALL_PREFIX CMAKE_LIBRARY_OUTPUT_DIRECTORY CMAKE_PREFIX_PATH
 CMAKE_OVERRIDES = $(strip $(foreach knob,$(CMAKE_KNOBS), \
 	$(if $(filter-out undefined default,$(origin $(knob))),\
@@ -269,7 +270,7 @@ AUTOPEP8_OPTS ?= --recursive --max-line-length=79 \
                  --ignore=E121,E123,E126,E201,E202,E203,E241,E301,E303,E501,W503,W504 \
                  --exclude=thirdparty,tmp,_deps
 
-CFFILES = $(shell find cpp gtests -type f \( -name '*.[ch]pp' -o -name '*.mm' \) | sort)
+CFFILES = $(shell find cpp gtests -type f \( -name '*.[ch]pp' -o -name '*.mm' -o -name '*.cu' \) | sort)
 ifeq ($(FORCE_CLANG_FORMAT),inplace)
 	CFCMD ?= $(CLANG_FORMAT) -i
 else

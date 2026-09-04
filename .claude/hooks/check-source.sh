@@ -55,7 +55,7 @@ check_file() {
 
     [ ! -f "$file" ] && return
     case "$file" in
-        *.py|*.cpp|*.hpp|*.c|*.h|*.cxx|*.hxx|*.mm) ;;
+        *.py|*.cpp|*.hpp|*.c|*.h|*.cxx|*.hxx|*.mm|*.cu) ;;
         *) return ;;
     esac
 

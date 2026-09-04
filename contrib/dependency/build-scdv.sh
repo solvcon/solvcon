@@ -42,9 +42,10 @@
 #       Print the system prerequisite commands (apt or brew) and exit.  The
 #       script never runs the package manager; copy, review, and run them
 #       yourself.  --print-apt is a backward-compatible alias.  The output
-#       ends with the two toolchains no build section installs: LaTeX, which
-#       the documentation needs to render its figures, then clang-format and
-#       clang-tidy for `make lint`, both from LLVM 22.
+#       includes CUDA 13.0 on Ubuntu.  It ends with the two toolchains no build
+#       section installs: LaTeX, which the documentation needs to render its
+#       figures, then clang-format and clang-tidy for `make lint`, both from
+#       LLVM 22.
 #   ./build-scdv.sh --allow-unsupported-platform
 #       Proceed on an unsupported OS/architecture for platform testing.
 #
@@ -176,7 +177,7 @@ scdv_apt_base_cmd() {
   cat <<'EOF'
 sudo apt install -y \
   build-essential gcc g++ make cmake ninja-build pkg-config \
-  git curl xz-utils gfortran libopenblas-dev \
+  ca-certificates gpg git curl wget xz-utils gfortran libopenblas-dev \
   libffi-dev libbz2-dev liblzma-dev libgdbm-dev \
   libncurses-dev uuid-dev tk-dev libedit-dev libexpat1-dev \
   doxygen
@@ -242,6 +243,18 @@ sudo apt install -y \
 EOF
 }
 
+scdv_apt_llvm_repo_cmd() {
+  # Configure the LLVM repository before either Qt's libclang development
+  # packages or the lint tools are installed.
+  cat <<'EOF'
+wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key \
+  | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
+echo "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-22 main" \
+  | sudo tee /etc/apt/sources.list.d/llvm.list
+sudo apt-get -qqy update
+EOF
+}
+
 scdv_apt_clang_lint_cmd() {
   # Print the apt command for the C++ lint tools: clang-format for
   # `make cformat` and clang-tidy for `make USE_CLANG_TIDY=ON` and
@@ -253,11 +266,6 @@ scdv_apt_clang_lint_cmd() {
   # relative to the symlink's real path, so /usr/lib/llvm-22/share/clang is
   # still found.
   cat <<'EOF'
-wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key \
-  | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
-echo "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-22 main" \
-  | sudo tee /etc/apt/sources.list.d/llvm.list
-sudo apt-get -qqy update
 sudo apt install -y clang-format-22 clang-tidy-22
 sudo ln -fs "$(which clang-format-22)" /usr/local/bin/clang-format
 sudo ln -fs "$(which clang-tidy-22)" /usr/local/bin/clang-tidy
@@ -278,12 +286,28 @@ sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++-16 100
 EOF
 }
 
+scdv_apt_cuda_cmd() {
+  # Print the CUDA commands used by the Linux CI build.  CUDA 13.0 supports
+  # GCC 14 as its host compiler; the rest of solvcon uses GCC 16.
+  cat <<'EOF'
+wget -qO cuda-keyring_1.1-1_all.deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
+echo "d2a6b11c096396d868758b86dab1823b25e14d70333f1dfa74da5ddaf6a06dba  cuda-keyring_1.1-1_all.deb" | sha256sum --check - && \
+  sudo dpkg -i cuda-keyring_1.1-1_all.deb && \
+  sudo apt-get -qqy update && \
+  sudo apt-get -qy install cuda-nvcc-13-0 cuda-cudart-dev-13-0 g++-14
+EOF
+}
+
 plat_print_deps() {
-  # Ubuntu prints the apt base/GCC/QT/FFmpeg/LaTeX sets, then the lint
-  # toolchain.
+  # Ubuntu prints the apt base/GCC/CUDA sets, configures LLVM, then prints the
+  # QT/FFmpeg/LaTeX sets and lint toolchain.
   scdv_apt_base_cmd
   echo
   scdv_apt_gcc_cmd
+  echo
+  scdv_apt_cuda_cmd
+  echo
+  scdv_apt_llvm_repo_cmd
   echo
   scdv_apt_qt_cmd
   echo
@@ -437,6 +461,9 @@ export _SCDV_HAD_SOLVCON_DEPS_CACHE=${SOLVCON_DEPS_CACHE+1}
 # LD_LIBRARY_PATH will be loaded ahead of this scdv's freshly built Qt and
 # break with "version `Qt_6.x' not found". Strip those.
 PATH=$(printf '%s' "${PATH}" | tr ':' '\n' | grep -v '/var/Qt/' | paste -sd: -)
+if [ -d /usr/local/cuda-13.0/bin ] ; then
+  PATH=/usr/local/cuda-13.0/bin:${PATH}
+fi
 export PATH=${SCDV_USRDIR}/bin:${PATH}
 
 LD_LIBRARY_PATH=$(printf '%s' "${LD_LIBRARY_PATH-}" \

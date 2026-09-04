@@ -283,8 +283,66 @@ jobs:
         make run_pilot_pytest VERBOSE=1
         echo "::endgroup::"
 
+  build_cuda:
+
+    needs: [check_skip, standalone_buffer]
+
+    if: |
+      needs.check_skip.outputs.skip != 'true' && (
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'push' &&
+       ((vars.SCGH_PUSH_RUN_BRANCH || vars.MMGH_PUSH_RUN_BRANCH) == '*' ||
+        contains(vars.SCGH_PUSH_RUN_BRANCH || vars.MMGH_PUSH_RUN_BRANCH, github.ref_name))))
+
+    name: build_cuda_ubuntu-24.04
+
+    runs-on: ubuntu-24.04
+
+    timeout-minutes: ${{ fromJSON(vars.SCGH_TIMEOUT_BUILD || vars.MMGH_TIMEOUT_BUILD || '45') }}
+
+    env:
+      MAKE_PARALLEL: -j4
+      CMAKE_BUILD_TYPE: Release
+      PIP_BREAK_SYSTEM_PACKAGES: 1
+
+    steps:
+
+    - uses: actions/checkout@v6
+      with:
+        fetch-depth: 1
+
+    - name: event name
+      run: |
+        echo "github.event_name: ${{ github.event_name }}"
+
+    - name: setup dependencies for Linux
+      uses: ./.github/actions/setup_linux
+      with:
+        workflow: 'build_cuda'
+
+    - name: ccache
+      uses: hendrikmuhs/ccache-action@v1.2.23
+      with:
+        key: ${{ runner.os }}-cuda-Release
+        restore-keys: ${{ runner.os }}-cuda-Release
+        save: ${{ github.event_name != 'pull_request' }}
+        max-size: 1500M
+
+    - name: make buildext BUILD_CUDA=ON
+      run: |
+        echo "::group::make buildext BUILD_CUDA=ON"
+        nvcc --version
+        make buildext \
+          VERBOSE=1 USE_CLANG_TIDY=OFF \
+          BUILD_QT=OFF BUILD_CUDA=ON \
+          CMAKE_CUDA_ARCHITECTURES=all-major \
+          CMAKE_CUDA_HOST_COMPILER=g++-14
+        echo "::endgroup::"
+
   send_email_on_failure:
-    needs: [check_skip, standalone_buffer, build]
+    needs: [check_skip, standalone_buffer, build, build_cuda]
     # Mail a master push failure only. A nightly call reads the caller's
     # event name, and nightly_devbuild mails that one itself. A
     # `timeout-minutes` kill reports `cancelled`, not `failure`.
@@ -301,6 +359,7 @@ jobs:
         - check_skip: ${{ needs.check_skip.result }}
         - standalone_buffer: ${{ needs.standalone_buffer.result }}
         - build: ${{ needs.build.result }}
+        - build_cuda: ${{ needs.build_cuda.result }}
     secrets:
       EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
       EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
