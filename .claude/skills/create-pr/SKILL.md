@@ -148,6 +148,12 @@ Run both checks after writing `$body_file`, before `gh pr create`.
   `--no-verify`. If `gh pr create` fails, surface the error and stop.
 - **No fabricated context.** No invented benchmarks, test results, or
   verification claims; only what the user stated or the diff shows.
+- **No baseline verification claims.** Never write that lint is clean,
+  that the branch builds, that CI is green, or that the suite still
+  passes; every PR must meet those. Report only what the reviewer
+  cannot assume: a new test pinning the behavior, a benchmark, a
+  platform exercised, or a known failure and why. Routine results go
+  to the user in the session, not into the body.
 - **Diff accuracy.** Re-read `git diff origin/master...HEAD` and
   confirm every claim in subject and body matches a hunk.
 
