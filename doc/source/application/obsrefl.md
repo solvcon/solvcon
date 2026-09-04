@@ -132,8 +132,8 @@ $\beta$. Rearrange {eq}`e:obsrefl:tbm` into a cubic in $\tan\beta$,
 \end{aligned}
 ```
 
-Its three roots have the closed form[^rudd1998], indexed by $\delta = 0, 1,
-2$,
+Its three roots have the closed form[^rudd1998][^hartley1991], indexed by
+$\delta = 0, 1, 2$,
 
 ```{math}
 :label: e:obsrefl:beta
@@ -253,13 +253,16 @@ shock reaches the outflow at $y_e = 0.8275$.
     <https://doi.org/10.1016/0021-9991(85)90183-4>
 
 [^naca1135]: Ames Research Staff, "Equations, tables, and charts for
-    compressible flow," NACA Report 1135, 1953, the canonical compilation of
-    the normal- and oblique-shock relations.
+    compressible flow," NACA Report 1135, 1953.
     <https://ntrs.nasa.gov/citations/19930091059>
 
 [^rudd1998]: L. von Eggers Rudd and M. J. Lewis, "Comparison of shock
-    calculation methods," Journal of Aircraft 35(4):647-649, 1998, which
-    weighs the closed-form root against iterative solutions of the
-    theta-beta-M relation. <https://doi.org/10.2514/2.2349>
+    calculation methods," Journal of Aircraft 35(4):647-649, 1998.
+    <https://doi.org/10.2514/2.2349>
+
+[^hartley1991]: T. T. Hartley, R. Brandis, and F. Mossayebi, "Exact and
+    approximate solutions to the oblique shock equations for real-time
+    applications," NASA CR-187173, 1991.
+    <https://ntrs.nasa.gov/citations/19910019833>
 
 <!-- vim: set ft=markdown ff=unix fenc=utf8 et sw=2 ts=2 sts=2 tw=79: -->
