@@ -1,11 +1,22 @@
 # Copyright (c) 2026, solvcon team <contact@solvcon.net>
 # BSD 3-Clause License, see COPYING
 
+import copy
+import io
+import json
 import math
+import os
+import pathlib
+import shutil
+import subprocess
 import sys
+import tempfile
 import unittest
+import unittest.mock
 
 from solvcon import benchmark
+from solvcon.benchmark import artifact
+from solvcon.benchmark import worker
 
 
 def make_matmul_spec(**updates):
@@ -194,4 +205,179 @@ class MatmulSpecTC(unittest.TestCase):
                         benchmark.spec.SpecError, message):
                     benchmark.matmul.MatmulSpec.from_dict(spec)
 
-# vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
+
+def make_comparison():
+    return {
+        'spec': {
+            'operation': 'matmul',
+            'lhs': {'shape': [2, 3], 'strides': [3, 1]},
+            'rhs': {'shape': [3, 2], 'strides': [2, 1]},
+            'dtype': 'float64',
+            'sampling': {'warmups': 0, 'repetitions': 1, 'rounds': 2},
+            'kernels': ['naive', 'winograd'],
+        },
+        'round_orders': [['naive', 'numpy'], ['numpy', 'naive']],
+        'results': [
+            {
+                'name': 'naive', 'status': 'measured', 'reason': None,
+                'max_abs_diff': 0.0, 'relative_diff': 0.0,
+                'round_elapsed_ns': [10, 11],
+            },
+            {
+                'name': 'winograd', 'status': 'ineligible',
+                'reason': 'unsupported shape', 'max_abs_diff': None,
+                'relative_diff': None, 'round_elapsed_ns': [],
+            },
+            {
+                'name': 'numpy', 'status': 'measured', 'reason': None,
+                'max_abs_diff': 0.0, 'relative_diff': 0.0,
+                'round_elapsed_ns': [12, 13],
+            },
+        ],
+    }
+
+
+class ArtifactTC(unittest.TestCase):
+    def test_round_trip(self):
+        document = make_comparison()
+        with tempfile.TemporaryDirectory() as dirname:
+            path = pathlib.Path(dirname) / 'nested' / 'result.json'
+            written = artifact.write_artifact(document, path)
+            loaded = artifact.load_artifact(path)
+
+        self.assertEqual(written, path)
+        self.assertEqual(loaded, document)
+
+    def test_rejects_inconsistent_artifact_data(self):
+        mutations = (
+            lambda item: item.__setitem__('extra', None),
+            lambda item: item['results'].reverse(),
+            lambda item: item['results'][0]['round_elapsed_ns'].pop(),
+            lambda item: item['round_orders'][0].remove('numpy'),
+            lambda item: item['results'][1].__setitem__(
+                'max_abs_diff', 0.0),
+            lambda item: item['results'][1].__setitem__('reason', ''),
+            lambda item: item['results'][0].__setitem__(
+                'relative_diff', float('nan')),
+            lambda item: item['results'][0].__setitem__(
+                'max_abs_diff', 0),
+            lambda item: item['round_orders'][0].__setitem__(0, []),
+        )
+        for mutate in mutations:
+            with self.subTest(mutate=mutate):
+                document = make_comparison()
+                mutate(document)
+                with self.assertRaises(artifact.ArtifactError):
+                    artifact.validate_artifact(document)
+
+    def test_rejects_measured_kernel_when_numpy_is_invalid(self):
+        document = make_comparison()
+        for result in document['results'][1:]:
+            result.update(
+                status='invalid', reason='non-finite NumPy reference',
+                max_abs_diff=None, relative_diff=None,
+                round_elapsed_ns=[])
+        for order in document['round_orders']:
+            order.remove('numpy')
+
+        with self.assertRaisesRegex(artifact.ArtifactError, 'NumPy'):
+            artifact.validate_artifact(document)
+
+    def test_failed_replace_preserves_existing_artifact(self):
+        original = make_comparison()
+        replacement = copy.deepcopy(original)
+        replacement['results'][0]['round_elapsed_ns'][0] = 99
+        with tempfile.TemporaryDirectory() as dirname:
+            path = pathlib.Path(dirname) / 'result.json'
+            artifact.write_artifact(original, path)
+            with unittest.mock.patch.object(
+                    artifact.os, 'replace', side_effect=OSError('failed')):
+                with self.assertRaisesRegex(OSError, 'failed'):
+                    artifact.write_artifact(replacement, path)
+
+            self.assertEqual(artifact.load_artifact(path), original)
+            self.assertEqual(list(path.parent.iterdir()), [path])
+
+    def test_load_validates(self):
+        document = make_comparison()
+        document['results'][0]['relative_diff'] = float('nan')
+        with tempfile.TemporaryDirectory() as dirname:
+            path = pathlib.Path(dirname) / 'result.json'
+            path.write_text(json.dumps(document), encoding='ascii')
+
+            with self.assertRaisesRegex(artifact.ArtifactError, 'finite'):
+                artifact.load_artifact(path)
+
+
+def make_request(output_path):
+    return {
+        'spec': {
+            'operation': 'matmul',
+            'lhs': {'shape': [2, 2], 'strides': [2, 1]},
+            'rhs': {'shape': [2, 2], 'strides': [2, 1]},
+            'dtype': 'float64',
+            'sampling': {'warmups': 0, 'repetitions': 1, 'rounds': 1},
+            'kernels': ['naive'],
+        },
+        'output_path': os.fspath(output_path),
+    }
+
+
+class BenchmarkWorkerTC(unittest.TestCase):
+    def test_reports_invalid_requests(self):
+        valid = make_request('artifact.json')
+        cases = (
+            ('', 'missing'),
+            ('{', 'valid JSON'),
+            (json.dumps({**valid, 'extra': None}), 'unknown fields'),
+            (json.dumps({**valid, 'output_path': ''}), 'non-empty'),
+        )
+        for payload, message in cases:
+            with self.subTest(message=message):
+                stdout = io.StringIO()
+                with unittest.mock.patch.object(
+                        worker.collector, 'collect') as collect:
+                    return_code = worker.run(
+                        io.StringIO(payload), stdout)
+
+                self.assertEqual(return_code, 1)
+                event = json.loads(stdout.getvalue())
+                self.assertEqual(event['type'], 'error')
+                self.assertIn(message, event['message'])
+                collect.assert_not_called()
+
+    def test_reports_collection_failure(self):
+        stdout = io.StringIO()
+        with unittest.mock.patch.object(
+                worker.collector, 'collect',
+                side_effect=RuntimeError('native failure')):
+            return_code = worker.run(io.StringIO(
+                json.dumps(make_request('unused.json'))), stdout)
+
+        event = json.loads(stdout.getvalue())
+        self.assertEqual(return_code, 1)
+        self.assertEqual(event['error_type'], 'RuntimeError')
+        self.assertEqual(event['message'], 'native failure')
+
+    def test_process_writes_artifact(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = pathlib.Path(directory) / 'artifact.json'
+            request = make_request(path)
+            python = shutil.which('python3')
+            self.assertIsNotNone(python)
+            process = subprocess.run(
+                [python, '-m', 'solvcon.benchmark.worker'],
+                input=json.dumps(request) + '\n',
+                capture_output=True, text=True, check=False)
+
+            self.assertEqual(
+                process.returncode, 0, process.stderr or process.stdout)
+            self.assertEqual(json.loads(process.stdout), {
+                'type': 'result',
+                'artifact_path': str(path),
+            })
+            document = artifact.load_artifact(path)
+            self.assertEqual(document['spec'], request['spec'])
+
+
+# vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:
