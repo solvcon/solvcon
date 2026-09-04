@@ -1,0 +1,34 @@
+\begin{pspicture}(1.0,-0.4)(8.2,2.9)
+\psset{arrowsize=4pt 2}
+
+% The same front as the previous figure.
+\psline[linewidth=1.2pt](2.19,2.40)(6.81,0.00)
+\rput{-27.4}(3.05,2.32){\small shock}
+
+% The upstream velocity and its components.  The legs are drawn tangential
+% first, so neither of them lies along the front.
+\psline[linewidth=1pt]{->}(1.9,1.2)(4.5,1.2)
+\rput[c](2.35,1.44){$V_{\mathrm{U}}$}
+\psline[linewidth=0.4pt,linestyle=dashed](1.9,1.2)(3.95,0.137)
+\psline[linewidth=0.4pt,linestyle=dashed](3.95,0.137)(4.5,1.2)
+\rput[r](2.92,0.53){${V_{\mathrm{U}}}_t$}
+\rput[l](4.42,0.74){${V_{\mathrm{U}}}_n$}
+
+% The downstream velocity and its components, drawn normal first for the
+% same reason.
+\psline[linewidth=1pt]{->}(4.5,1.2)(6.88,0.78)
+\rput[l](7.02,0.66){$V_{\mathrm{D}}$}
+\psline[linewidth=0.4pt,linestyle=dashed](4.5,1.2)(4.833,1.842)
+\psline[linewidth=0.4pt,linestyle=dashed](4.833,1.842)(6.883,0.779)
+\rput[r](4.52,1.82){${V_{\mathrm{D}}}_n$}
+\rput[l](6.02,1.54){${V_{\mathrm{D}}}_t$}
+
+% One tick across each tangential leg: the two are the same length.
+\psline[linewidth=0.5pt](2.879,0.580)(2.971,0.758)
+\psline[linewidth=0.5pt](5.812,1.222)(5.904,1.400)
+
+% The two states.
+\rput[l](1.05,-0.05){$\rho_{\mathrm{U}},\; p_{\mathrm{U}},\; T_{\mathrm{U}},\; M_{\mathrm{U}}$}
+\rput[l](5.30,2.30){$\rho_{\mathrm{D}},\; p_{\mathrm{D}},\; T_{\mathrm{D}},\; M_{\mathrm{D}}$}
+
+\end{pspicture}

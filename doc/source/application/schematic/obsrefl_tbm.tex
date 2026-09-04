@@ -1,0 +1,32 @@
+\psset{xunit=0.09cm,yunit=0.12cm}
+\begin{pspicture}(-16,-9)(102,46)
+\psset{arrowsize=4pt 2}
+
+% The theta-beta curve of Mach 3, gamma 1.4: theta = atan(num/den) with
+% num = 2 cot(beta) (9 sin^2(beta) - 1) and den = 9 (1.4 + cos(2 beta)) + 2.
+\psplot[linewidth=1pt,plotpoints=400]{19.6}{89.8}{%
+  x sin dup mul 9 mul 1 sub x cos mul 2 mul x sin div
+  14.6 x 2 mul cos 9 mul add atan}
+
+\psaxes[linewidth=0.5pt,Dx=30,Dy=10,ticksize=0 3pt]{->}(0,0)(0,0)(97,43)
+\rput[t](50,-5.5){$\beta$ (deg)}
+\rput{90}(-11,22){$\theta$ (deg)}
+
+% The default deflection cuts the curve at the weak and the strong root.
+\psline[linewidth=0.4pt,linestyle=dashed](0,10)(90,10)
+\rput[t](8,8.2){$\theta = 10$}
+\psdot[dotsize=3.5pt](27.383,10)
+\psline[linewidth=0.4pt,linestyle=dotted](27.383,0)(27.383,10)
+\rput[r](25.0,14.5){weak, $\beta_1$}
+\psdot[dotsize=3.5pt](86.408,10)
+\rput[r](84.0,15.0){strong}
+
+% The peak: the largest deflection an attached shock can turn.
+\psdot[dotsize=3.5pt](65.241,34.073)
+\psline[linewidth=0.4pt,linestyle=dotted](0,34.073)(65.241,34.073)
+\rput[b](65.241,37.0){$\theta_{\mathrm{max}} = 34.07$}
+
+% The curve leaves zero deflection at the Mach angle.
+\rput[t](19.5,-1.5){$\mu$}
+
+\end{pspicture}
