@@ -11,9 +11,9 @@ typedefs, and integer constants.
 
 ``DecodePlan`` turns the root struct into a tree and walks it over the
 CDR body of each message.  A scalar or enum leaf reached through nested
-structs is a column.  The walk steps over a string, a sequence, or an
-array, so a leaf inside one is not a column.  A union field raises
-``McapError`` when a plan reaches it.
+structs is a column.  The walk steps over a string, a sequence, an
+array, or a union, so a leaf inside one is not a column.  A union reads
+its discriminator to find the case the payload carries.
 """
 
 import re
@@ -227,10 +227,7 @@ class _IdlParser:
         discriminator = self.type(modules)
         self.expect(")")
         self.expect("{")
-        members = None
-        if discriminator[0] == "named":
-            scoped = _lookup(self.registry.enums, discriminator[1], modules)
-            members = self.registry.enums.get(scoped)
+        members = self.enum_members(discriminator)
         cases = []
         values = []
         while self.peek() not in ("}", None):
@@ -255,6 +252,21 @@ class _IdlParser:
         self.expect("}")
         self.skip_optional(";")
         self.registry.unions[_scoped(modules, name)] = (discriminator, cases)
+
+    def enum_members(self, type_):
+        """Return the members of the enum ``type_`` names, else ``None``."""
+        seen = set()
+        while type_[0] == "named":
+            _, name, modules = type_
+            scoped = _lookup(self.registry.enums, name, modules)
+            if scoped is not None:
+                return self.registry.enums[scoped]
+            scoped = _lookup(self.registry.typedefs, name, modules)
+            if scoped is None or scoped in seen:
+                return None
+            seen.add(scoped)
+            type_ = self.registry.typedefs[scoped]
+        return None
 
     def label_value(self, label, members, modules):
         """Return the discriminator value a union case label names."""
@@ -404,8 +416,9 @@ def _tree(registry, type_, visiting):
     Return the tree that ``_walk`` runs over ``type_``.
 
     A node is ``("scalar", dtype, enum members)``, ``("struct", [(field,
-    node), ...])``, ``("string",)``, ``("sequence", node)``, or
-    ``("array", node, count)``.
+    node), ...])``, ``("string",)``, ``("sequence", node)``, ``("array",
+    node, count)``, or ``("union", discriminator node, {value: node})``.
+    The ``None`` key of the union map holds the ``default`` case.
     """
     type_ = _resolve(registry, type_)
     kind = type_[0]
@@ -413,12 +426,13 @@ def _tree(registry, type_, visiting):
         return ("scalar", type_[1], None)
     if kind == "enum":
         return ("scalar", ENUM_TYPE, registry.enums[type_[1]])
-    if kind == "struct":
+    if kind in ("struct", "union"):
         name = type_[1]
         if name in visiting:
-            raise McapError("struct {} contains itself".format(name))
-        return ("struct", [(field, _tree(registry, field_type,
-                                         visiting + (name,)))
+            raise McapError("{} {} contains itself".format(kind, name))
+        visiting += (name,)
+    if kind == "struct":
+        return ("struct", [(field, _tree(registry, field_type, visiting))
                            for field, field_type in registry.structs[name]])
     if kind == "string":
         return ("string",)
@@ -426,7 +440,21 @@ def _tree(registry, type_, visiting):
         return ("sequence", _tree(registry, type_[1], visiting))
     if kind == "array":
         return ("array", _tree(registry, type_[1], visiting), type_[2])
+    if kind == "union":
+        return _union_tree(registry, type_[1], visiting)
     raise McapError("unsupported type {!r}".format(type_[1]))
+
+
+def _union_tree(registry, name, visiting):
+    discriminator, cases = registry.unions[name]
+    switch = _tree(registry, discriminator, visiting)
+    if switch[0] != "scalar" or switch[1] in ("float32", "float64"):
+        raise McapError("bad discriminator of union {}".format(name))
+    branches = {}
+    for values, case_type in cases:
+        branches.update(dict.fromkeys(values,
+                                      _tree(registry, case_type, visiting)))
+    return ("union", switch, branches)
 
 
 def _leaves(node, path):
@@ -459,6 +487,11 @@ def _walk(node, body, pos, order, values):
         for _, child in node[1]:
             pos = _walk(child, body, pos, order, values)
         return pos
+    if kind == "union":
+        discriminator = []
+        pos = _walk(node[1], body, pos, order, discriminator)
+        child = node[2].get(discriminator[0], node[2].get(None))
+        return pos if child is None else _walk(child, body, pos, order, None)
     # TODO: a string, a sequence, or an array is only skipped; none of them
     # produces a column yet.
     if kind == "array":

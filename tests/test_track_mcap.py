@@ -242,7 +242,66 @@ class SchemaParseTC(unittest.TestCase):
         self.assertEqual(registry.unions["demo_msgs::msg::Tail"][1],
                          [((-1, 120), ("scalar", "uint8")),
                           ((7,), ("scalar", "float64"))])
-        with self.assertRaisesRegex(mcap.McapError, "unsupported type"):
+
+        plan = mcap.DecodePlan(schema)
+        self.assertEqual(plan.fields, ("count", "kind", "ok", "speed"))
+        self.assertEqual(plan.types, ("uint32", "uint32", "bool", "float64"))
+        self.assertEqual(plan.enums, {"kind": ("A", "B", "C")})
+        for fields in (["extra.number"], ["extra.value"]):
+            with self.assertRaisesRegex(mcap.McapError, "non-scalar"):
+                mcap.DecodePlan(schema, fields)
+
+        for order in "<>":
+            for kind in range(3):
+                self.assertEqual(plan.decode(pack_signals(order, kind)),
+                                 (7, kind, True, 3.5), (order, kind))
+        with self.assertRaisesRegex(mcap.McapError, "ends before"):
+            plan.decode(pack_signals("<", 2)[:-12])
+
+    def test_union_cases(self):
+        """A union walks the case its discriminator selects, or none."""
+        schema = mcap.Schema(1, "x/msg/Y", "ros2idl", b"""
+            module x { module msg {
+              union Flag switch(boolean) {
+                case TRUE: double when;
+                case FALSE: octet why;
+              };
+              union Bare switch(short) { case 1: double d; };
+              struct Y { Flag flag; Bare bare; uint8 tail; };
+            }; };""")
+        plan = mcap.DecodePlan(schema)
+        self.assertEqual(plan.fields, ("tail",))
+        packer = CdrPacker("<").scalar("?", True).scalar("d", 1.5)
+        packer.scalar("h", 1).scalar("d", 2.5).scalar("B", 9)
+        self.assertEqual(plan.decode(packer.payload()), (9,))
+        packer = CdrPacker("<").scalar("?", False).scalar("B", 3)
+        packer.scalar("h", 2).scalar("B", 8)
+        self.assertEqual(plan.decode(packer.payload()), (8,))
+
+        schema = mcap.Schema(1, "x/msg/Y", "ros2idl",
+                             b"module x { module msg { enum Kind { A, B };"
+                             b" typedef Kind Switch;"
+                             b" union U switch(Switch) { case Kind::B:"
+                             b" double d; }; struct Y { U u; uint8 t; };"
+                             b" }; };")
+        plan = mcap.DecodePlan(schema)
+        packer = CdrPacker("<").scalar("I", 1).scalar("d", 1.5)
+        self.assertEqual(plan.decode(packer.scalar("B", 6).payload()), (6,))
+
+        for switch in (b"struct S { long v; }; union U switch(S)",
+                       b"union U switch(double)"):
+            schema = mcap.Schema(1, "x/msg/Y", "ros2idl",
+                                 b"module x { module msg { " + switch +
+                                 b" { case 1: long a; };"
+                                 b" struct Y { U u; }; }; };")
+            with self.assertRaisesRegex(mcap.McapError, "bad discriminator"):
+                mcap.DecodePlan(schema)
+        schema = mcap.Schema(1, "x/msg/Y", "ros2idl",
+                             b"module x { module msg {"
+                             b" struct S { U u; };"
+                             b" union U switch(long) { case 1: S s; };"
+                             b" struct Y { U u; }; }; };")
+        with self.assertRaisesRegex(mcap.McapError, "union .* contains"):
             mcap.DecodePlan(schema)
 
     def test_bundle(self):
@@ -384,6 +443,31 @@ class SchemaParseTC(unittest.TestCase):
         self.assertNotIn("x::msg::N", registry.consts)
         self.assertEqual(registry.structs["x::msg::Y"][0][1],
                          ("array", ("scalar", "float64"), 3))
+
+
+def pack_signals(order, kind):
+    """Pack a ``Signals`` message with ``count`` 7 and ``speed`` 3.5."""
+    packer = CdrPacker(order).string("abc")
+    packer.scalar("I", 2).string("x").scalar("B", 9)
+    packer.string("yz").scalar("B", 8)
+    packer.scalar("d", 1.0, 2.0, 3.0, 4.0).scalar("I", 7).scalar("I", kind)
+    packer.scalar("I", kind)
+    if kind == 0:
+        packer.scalar("i", -5)
+    elif kind == 1:
+        packer.string("h")
+    else:
+        packer.scalar("d", 6.5)
+    packer.scalar("I", 3).scalar("f", 1.5, 2.5, 3.5)
+    packer.string("p").scalar("B", 1).string("q").scalar("B", 2)
+    packer.scalar("?", True)
+    if kind == 0:
+        packer.scalar("i", -1).scalar("B", 4)
+    elif kind == 1:
+        packer.scalar("i", ord("x")).scalar("B", 4)
+    else:
+        packer.scalar("i", 7).scalar("d", 8.5)
+    return packer.scalar("d", 3.5).payload()
 
 
 def pack_status(seq, speed, brake_active, mode):
