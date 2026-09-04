@@ -1,0 +1,66 @@
+\begin{pspicture}(-2.4,-1.7)(11.8,3.5)
+\psset{arrowsize=4pt 2}
+
+% The rectangular computing domain, four units long and one tall.
+\psframe[linewidth=1pt](0,0)(8.8,2.2)
+
+% The slip wall along the bottom.
+\psline[linewidth=2pt](0,0)(8.8,0)
+\multips(0,0)(0.55,0){5}{\psline[linewidth=0.4pt](0,0)(-0.25,-0.25)}
+
+% The incident shock, from the upper-left corner to the wall.
+\psline[linewidth=1.2pt](0,2.2)(4.247,0)
+\rput{-27.4}(2.05,1.5){\small incident shock}
+
+% The reflected shock, from the wall to the outflow.
+\psline[linewidth=1.2pt](4.247,0)(8.8,1.821)
+\rput{21.8}(7.45,1.63){\small reflected shock}
+
+% The incident shock angle, measured from the oncoming free stream.
+\psarc[linewidth=0.5pt](4.247,0){1.1}{152.6}{180}
+\rput[r](2.85,0.36){$\beta_1$}
+
+% The reflected shock angle, measured from the zone-2 flow that runs into
+% it: the solid arrow is that flow, the dashed line carries its direction
+% on through the front, and the arc between the two is beta_2.  The shock
+% therefore meets the wall at beta_2 - theta.
+\psline[linewidth=0.7pt]{->}(5.3,0.95)(6.1,0.81)
+\psline[linewidth=0.4pt,linestyle=dashed](6.1,0.81)(7.5,0.56)
+\psarc[linewidth=0.5pt](6.218,0.788){0.75}{-10}{21.8}
+\rput[c](7.24,0.90){$\beta_2$}
+\psarc[linewidth=0.5pt](4.247,0){1.1}{0}{21.8}
+\rput[l](5.42,0.22){$\beta_2-\theta$}
+
+% The reflection point.
+\psdot[dotsize=4pt](4.247,0)
+\psline[linewidth=0.5pt]{->}(4.247,-0.8)(4.247,-0.08)
+\rput[t](4.247,-0.95){\small reflection point}
+
+% Zone 1: the free stream.
+\psline[linewidth=0.7pt]{->}(0.5,0.45)(1.6,0.45)
+\psline[linewidth=0.7pt]{->}(0.5,0.95)(1.6,0.95)
+\pscircle[linewidth=0.5pt](2.05,0.52){0.25}
+\rput[c](2.05,0.52){1}
+
+% Zone 2: behind the incident shock, deflected by theta.
+\psline[linewidth=0.4pt,linestyle=dashed](3.6,1.85)(5.3,1.85)
+\psline[linewidth=0.7pt]{->}(3.6,1.85)(4.95,1.61)
+\psarc[linewidth=0.5pt](3.6,1.85){1.2}{-10}{0}
+\rput[l](5.4,1.72){$\theta$}
+\pscircle[linewidth=0.5pt](5.1,1.25){0.25}
+\rput[c](5.1,1.25){2}
+
+% Zone 3: behind the reflected shock, horizontal again.
+\psline[linewidth=0.7pt]{->}(6.6,0.28)(7.6,0.28)
+\pscircle[linewidth=0.5pt](8.15,0.62){0.25}
+\rput[c](8.15,0.62){3}
+
+% The four boundary conditions.
+\rput[r](-0.3,1.1){\small\begin{tabular}[c]{r}
+  inlet:\\zone-1\end{tabular}}
+\rput[b](4.4,2.45){\small inlet: zone-2}
+\rput[t](1.5,-0.5){\small slip wall}
+\rput[l](9.1,1.1){\small\begin{tabular}[c]{l}
+  non-reflective\\outflow\end{tabular}}
+
+\end{pspicture}

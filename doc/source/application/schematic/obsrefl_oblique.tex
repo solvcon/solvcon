@@ -1,0 +1,29 @@
+\begin{pspicture}(1.0,-0.4)(8.2,2.9)
+\psset{arrowsize=4pt 2}
+
+% The shock front, at beta from the oncoming flow.
+\psline[linewidth=1.2pt](2.19,2.40)(6.81,0.00)
+\rput{-27.4}(3.05,2.32){\small shock}
+
+% The upstream velocity, arriving at the front.
+\psline[linewidth=1pt]{->}(1.9,1.2)(4.5,1.2)
+\rput[c](2.35,1.44){$V_{\mathrm{U}}$}
+
+% The shock angle, between the front and the oncoming flow.
+\psarc[linewidth=0.5pt](4.5,1.2){1.5}{152.6}{180}
+\rput[c](2.78,1.66){$\beta$}
+
+% The downstream velocity, deflected by theta toward the front.
+\psline[linewidth=1pt]{->}(4.5,1.2)(6.88,0.78)
+\rput[l](7.02,0.66){$V_{\mathrm{D}}$}
+
+% The deflection, against the upstream direction carried through.
+\psline[linewidth=0.4pt,linestyle=dashed](4.5,1.2)(6.9,1.2)
+\psarc[linewidth=0.5pt](4.5,1.2){2.1}{-10}{0}
+\rput[l](6.96,1.02){$\theta$}
+
+% The two states.
+\rput[l](1.05,0.35){$\rho_{\mathrm{U}},\; p_{\mathrm{U}},\; T_{\mathrm{U}},\; M_{\mathrm{U}}$}
+\rput[l](5.30,2.30){$\rho_{\mathrm{D}},\; p_{\mathrm{D}},\; T_{\mathrm{D}},\; M_{\mathrm{D}}$}
+
+\end{pspicture}

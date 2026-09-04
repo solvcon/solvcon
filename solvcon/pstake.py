@@ -638,6 +638,9 @@ if HAS_SPHINX:
             if isinstance(children[0], nodes.system_message):
                 return children[:1]
             figure_node = nodes.figure('', *children)
+            # Register the :name: option on the figure, so it can be
+            # cross-referenced; docutils leaves this to the directive.
+            self.add_name(figure_node)
             # Pop options.
             figwidth = self.options.pop('figwidth', None)
             figclasses = self.options.pop('figclass', None)
