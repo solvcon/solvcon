@@ -10,6 +10,7 @@ for raw message iteration.  The reader never imports it.
 
 import os
 import struct
+import time
 import tempfile
 import unittest
 
@@ -117,6 +118,16 @@ module monitor_msgs {
 
       sequence<Reason, kReasonCapacity> reasons;
 
+      sequence<string<256>, 32> notes;
+
+      uint8 flags[3];
+
+      sequence<double, 1> brake_duration;
+
+      geometry_msgs::msg::Point polygon_point[2];
+
+      sequence<geometry_msgs::msg::Point, 8> polygon;
+
       //! [Fields]
       @verbatim (language="comment", text=
         " target speed" "\\n"
@@ -162,11 +173,49 @@ module monitor_msgs {
     };
   };
 };
+
+========================================
+IDL: geometry_msgs/msg/Point
+module geometry_msgs {
+  module msg {
+    struct Point {
+      double x;
+
+      double y;
+
+      double z;
+    };
+  };
+};
 """
 
 TOPIC = "/vehicle/status"
 BRAKE_TOPIC = "/vehicle/brake"
 LOG_TIMES = [30, 10, 20, 40]
+
+
+class CdrPacker:
+    """Pack an XCDR1 body, where each scalar aligns to its size."""
+
+    def __init__(self, order):
+        self.order = order
+        self.body = b""
+
+    def scalar(self, code, *values):
+        size = struct.calcsize(code)
+        self.body += b"\0" * (-len(self.body) % size)
+        self.body += struct.pack(self.order + code * len(values), *values)
+        return self
+
+    def string(self, text):
+        data = text.encode() + b"\0"
+        self.scalar("I", len(data))
+        self.body += data
+        return self
+
+    def payload(self):
+        return b"\0" + (b"\x01" if self.order == "<" else b"\0") + b"\0\0" + \
+            self.body
 
 
 class SchemaParseTC(unittest.TestCase):
@@ -193,6 +242,8 @@ class SchemaParseTC(unittest.TestCase):
         self.assertEqual(registry.unions["demo_msgs::msg::Tail"][1],
                          [((-1, 120), ("scalar", "uint8")),
                           ((7,), ("scalar", "float64"))])
+        with self.assertRaisesRegex(mcap.McapError, "unsupported type"):
+            mcap.DecodePlan(schema)
 
     def test_bundle(self):
         """A recording bundles several IDL blocks under one schema."""
@@ -209,17 +260,49 @@ class SchemaParseTC(unittest.TestCase):
                           ("sequence", ("named", "Reason",
                                         ("monitor_msgs", "msg")))))
 
-    def test_plan_rejects_what_it_cannot_flatten(self):
-        """A string, sequence, array, or union field has no column yet."""
+    def test_walk_steps_over_containers(self):
+        """The walk steps over a string, a sequence, or an array."""
         schema = mcap.Schema(1, "monitor_msgs/msg/Summary", "ros2idl",
                              SUMMARY_IDL)
-        with self.assertRaisesRegex(mcap.McapError, "unsupported field"):
-            mcap.DecodePlan(schema)
+        plan = mcap.DecodePlan(schema)
+        self.assertEqual(plan.fields, ("header.sequence_number",
+                                       "version.major", "version.minor",
+                                       "v_target"))
+        for fields in (["reasons"], ["header.module_name"], ["flags"]):
+            with self.assertRaisesRegex(mcap.McapError, "non-scalar"):
+                mcap.DecodePlan(schema, fields)
+        for order in "<>":
+            packer = CdrPacker(order).string("mod").scalar("I", 3)
+            packer.scalar("H", 1, 2)
+            packer.scalar("I", 2).scalar("Q", 10).string("a")
+            packer.scalar("Q", 11).string("bb")
+            packer.scalar("I", 1).string("n")
+            packer.scalar("B", 7, 8, 9)
+            packer.scalar("I", 1).scalar("d", 0.5)
+            packer.scalar("d", *range(6))
+            packer.scalar("I", 1).scalar("d", 1.0, 2.0, 3.0)
+            packer.scalar("d", 22.5)
+            self.assertEqual(plan.decode(packer.payload()), (3, 1, 2, 22.5),
+                             order)
+        with self.assertRaisesRegex(mcap.McapError, "ends before"):
+            plan.decode(packer.payload()[:-3])
+        with self.assertRaisesRegex(mcap.McapError, "ends before"):
+            plan.decode(CdrPacker("<").scalar("I", 999).payload())
+        with self.assertRaisesRegex(mcap.McapError, "encapsulation"):
+            plan.decode(b"\0\x02\0\0" + packer.payload()[4:])
+
+    def test_huge_array_bound_fails_fast(self):
+        """A short payload fails before the walk iterates a huge array."""
         schema = mcap.Schema(1, "x/msg/Y", "ros2idl",
-                             b"module x { module msg { struct Y {"
-                             b" uint32 a; double b[3]; }; }; };")
-        with self.assertRaisesRegex(mcap.McapError, "unsupported field 'b'"):
-            mcap.DecodePlan(schema)
+                             b"module x { module msg { struct P {"
+                             b" sequence<double> a; }; struct Y {"
+                             b" P p[4000000000]; double v; }; }; };")
+        plan = mcap.DecodePlan(schema)
+        self.assertEqual(plan.fields, ("v",))
+        started = time.monotonic()
+        with self.assertRaisesRegex(mcap.McapError, "ends before"):
+            plan.decode(CdrPacker("<").scalar("I", 0).payload())
+        self.assertLess(time.monotonic() - started, 5.0)
 
     def test_nested_structs_flatten(self):
         """A struct of structs, enums, and scalars still gives columns."""
