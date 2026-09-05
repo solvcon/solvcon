@@ -359,6 +359,10 @@ class BenchmarkWorkerTC(unittest.TestCase):
         self.assertEqual(event['error_type'], 'RuntimeError')
         self.assertEqual(event['message'], 'native failure')
 
+    @unittest.skipIf(
+        '_solvcon' in sys.builtin_module_names,
+        'the pilot carries _solvcon in the executable, so the interpreter '
+        'this test spawns cannot import it')
     def test_process_writes_artifact(self):
         with tempfile.TemporaryDirectory() as directory:
             path = pathlib.Path(directory) / 'artifact.json'
