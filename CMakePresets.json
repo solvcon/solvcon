@@ -165,13 +165,20 @@
       }
     },
     {
-      "name": "ci-win-mkl",
+      "name": "ci-win-sccache",
       "hidden": true,
       "inherits": "ci-win-base",
       "cacheVariables": {
         "CMAKE_C_COMPILER_LAUNCHER": "sccache",
         "CMAKE_CXX_COMPILER_LAUNCHER": "sccache",
-        "CMAKE_MSVC_DEBUG_INFORMATION_FORMAT": "Embedded",
+        "CMAKE_MSVC_DEBUG_INFORMATION_FORMAT": "Embedded"
+      }
+    },
+    {
+      "name": "ci-win-mkl",
+      "hidden": true,
+      "inherits": "ci-win-sccache",
+      "cacheVariables": {
         "SOLVCON_USE_MKL": { "type": "BOOL", "value": "ON" },
         "CMAKE_INCLUDE_PATH": "$env{MKL_INCLUDE_DIR}",
         "CMAKE_LIBRARY_PATH": "$env{MKL_LIBRARY_DIR}"
@@ -193,6 +200,23 @@
       "description": "For the Windows CI job. A developer wants win-dbg instead.",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": { "type": "STRING", "value": "Debug" }
+      }
+    },
+    {
+      "name": "ci-win-cuda",
+      "inherits": "ci-win-sccache",
+      "displayName": "CI: Windows CUDA Release",
+      "description": "For the Windows CUDA CI job.",
+      "cacheVariables": {
+        "BUILD_CUDA": { "type": "BOOL", "value": "ON" },
+        "BUILD_QT": { "type": "BOOL", "value": "OFF" },
+        "CMAKE_BUILD_TYPE": { "type": "STRING", "value": "Release" },
+        "CMAKE_CUDA_COMPILER_LAUNCHER": "sccache",
+        "CMAKE_CUDA_ARCHITECTURES": {
+          "type": "STRING",
+          "value": "all-major"
+        },
+        "USE_GOOGLETEST": { "type": "BOOL", "value": "OFF" }
       }
     },
     {
@@ -410,6 +434,14 @@
       "configurePreset": "ci-win-dbg",
       "displayName": "CI: Windows Debug",
       "description": "Build everything the Windows CI job builds."
+    },
+    {
+      "name": "ci-win-cuda",
+      "inherits": "win-base",
+      "configurePreset": "ci-win-cuda",
+      "displayName": "CI: Windows CUDA Release",
+      "description": "Build the extension and its CUDA compile probe.",
+      "targets": ["_solvcon"]
     },
     {
       "name": "ci-win-asan",
