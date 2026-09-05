@@ -45,11 +45,16 @@ class Extraction(collections.namedtuple("Extraction", "time columns")):
     The columns of one topic sorted by log time.
 
     ``time`` is a ``SimpleArrayUint64`` of log times in nanoseconds, and
-    ``columns`` maps each selected field to its ``SimpleArray``.
+    ``columns`` maps each selected field to its ``SimpleArray``.  A string
+    or container field maps to a NumPy ``object`` array of Python values
+    instead, which ``to_frame`` rejects.
     """
 
     def to_frame(self):
-        return dataframe.DataFrame.from_columns(self.time, **self.columns)
+        try:
+            return dataframe.DataFrame.from_columns(self.time, **self.columns)
+        except TypeError as error:
+            raise McapError("not a frame column: {}".format(error)) from error
 
 
 def unpack(fmt, buf, pos):
@@ -308,6 +313,8 @@ class Reader:
 
 
 def _column(values, dtype):
+    if dtype not in COLUMN_TYPES:
+        return np.fromiter(values, dtype='object', count=len(values))
     return COLUMN_TYPES[dtype][1](array=np.array(values, dtype=dtype))
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

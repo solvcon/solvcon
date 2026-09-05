@@ -207,11 +207,13 @@ class CdrPacker:
         self.body += struct.pack(self.order + code * len(values), *values)
         return self
 
-    def string(self, text):
-        data = text.encode() + b"\0"
+    def blob(self, data):
         self.scalar("I", len(data))
         self.body += data
         return self
+
+    def string(self, text):
+        return self.blob(text.encode() + b"\0")
 
     def payload(self):
         return b"\0" + (b"\x01" if self.order == "<" else b"\0") + b"\0\0" + \
@@ -248,7 +250,7 @@ class SchemaParseTC(unittest.TestCase):
         self.assertEqual(plan.types, ("uint32", "uint32", "bool", "float64"))
         self.assertEqual(plan.enums, {"kind": ("A", "B", "C")})
         for fields in (["extra.number"], ["extra.value"]):
-            with self.assertRaisesRegex(mcap.McapError, "non-scalar"):
+            with self.assertRaisesRegex(mcap.McapError, "unsupported"):
                 mcap.DecodePlan(schema, fields)
 
         for order in "<>":
@@ -320,35 +322,73 @@ class SchemaParseTC(unittest.TestCase):
                                         ("monitor_msgs", "msg")))))
 
     def test_walk_steps_over_containers(self):
-        """The walk steps over a string, a sequence, or an array."""
+        """The auto plan steps over a string, a sequence, or an array."""
         schema = mcap.Schema(1, "monitor_msgs/msg/Summary", "ros2idl",
                              SUMMARY_IDL)
         plan = mcap.DecodePlan(schema)
         self.assertEqual(plan.fields, ("header.sequence_number",
                                        "version.major", "version.minor",
                                        "v_target"))
-        for fields in (["reasons"], ["header.module_name"], ["flags"]):
-            with self.assertRaisesRegex(mcap.McapError, "non-scalar"):
+        for fields in (["reasons"], ["polygon_point"], ["polygon"]):
+            with self.assertRaisesRegex(mcap.McapError, "unsupported"):
                 mcap.DecodePlan(schema, fields)
         for order in "<>":
-            packer = CdrPacker(order).string("mod").scalar("I", 3)
-            packer.scalar("H", 1, 2)
-            packer.scalar("I", 2).scalar("Q", 10).string("a")
-            packer.scalar("Q", 11).string("bb")
-            packer.scalar("I", 1).string("n")
-            packer.scalar("B", 7, 8, 9)
-            packer.scalar("I", 1).scalar("d", 0.5)
-            packer.scalar("d", *range(6))
-            packer.scalar("I", 1).scalar("d", 1.0, 2.0, 3.0)
-            packer.scalar("d", 22.5)
-            self.assertEqual(plan.decode(packer.payload()), (3, 1, 2, 22.5),
-                             order)
+            self.assertEqual(plan.decode(pack_summary(order)),
+                             (3, 1, 2, 22.5), order)
+        payload = pack_summary("<")
         with self.assertRaisesRegex(mcap.McapError, "ends before"):
-            plan.decode(packer.payload()[:-3])
+            plan.decode(payload[:-3])
         with self.assertRaisesRegex(mcap.McapError, "ends before"):
             plan.decode(CdrPacker("<").scalar("I", 999).payload())
         with self.assertRaisesRegex(mcap.McapError, "encapsulation"):
-            plan.decode(b"\0\x02\0\0" + packer.payload()[4:])
+            plan.decode(b"\0\x02\0\0" + payload[4:])
+
+    def test_named_containers_decode(self):
+        """A named string, sequence, or array of scalars is a column."""
+        schema = mcap.Schema(1, "monitor_msgs/msg/Summary", "ros2idl",
+                             SUMMARY_IDL)
+        plan = mcap.DecodePlan(schema, ["header.module_name", "notes",
+                                        "flags", "brake_duration",
+                                        "v_target"])
+        self.assertEqual(plan.types, ("str", "str[]", "uint8[]",
+                                      "float64[]", "float64"))
+        for order in "<>":
+            self.assertEqual(plan.decode(pack_summary(order)),
+                             ("mod", ["n"], [7, 8, 9], [0.5], 22.5), order)
+
+        schema = mcap.Schema(1, "demo_msgs/msg/Signals", "ros2idl",
+                             SIGNALS_IDL)
+        plan = mcap.DecodePlan(schema, ["frame_id", "cov", "samples"])
+        self.assertEqual(plan.types, ("str", "float64[]", "float32[]"))
+        self.assertEqual(plan.decode(pack_signals(">", 1)),
+                         ("abc", [1.0, 2.0, 3.0, 4.0], [1.5, 2.5, 3.5]))
+        with self.assertRaisesRegex(mcap.McapError, "ends before"):
+            mcap.DecodePlan(schema, ["samples"]).decode(
+                pack_signals("<", 1)[:-40])
+
+    def test_string_edges(self):
+        """An empty, NUL-bearing, or non-UTF-8 string, and an empty list."""
+        schema = mcap.Schema(1, "x/msg/Y", "ros2idl",
+                             b"module x { module msg { enum E { P, Q };"
+                             b" struct Y { sequence<E> es; string s;"
+                             b" sequence<string> ss; }; }; };")
+        plan = mcap.DecodePlan(schema, ["es", "s", "ss"])
+        self.assertEqual(plan.fields, ("es", "s", "ss"))
+        self.assertEqual(plan.types, ("uint32[]", "str", "str[]"))
+        self.assertEqual(plan.enums, {"es": ("P", "Q")})
+        packer = CdrPacker("<").scalar("I", 0).string("a\0b").scalar("I", 0)
+        self.assertEqual(plan.decode(packer.payload()), ([], "a\0b", []))
+        packer = CdrPacker("<").scalar("I", 2, 1, 0).blob(b"\0")
+        self.assertEqual(plan.decode(packer.scalar("I", 0).payload()),
+                         ([1, 0], "", []))
+        packer = CdrPacker("<").scalar("I", 0).blob(b"\xff\0")
+        with self.assertRaisesRegex(mcap.McapError, "not UTF-8"):
+            plan.decode(packer.scalar("I", 0).payload())
+        self.assertEqual(mcap.DecodePlan(schema).decode(packer.payload()), ())
+        for data in (b"", b"abc"):
+            packer = CdrPacker("<").scalar("I", 0).blob(data).scalar("I", 0)
+            with self.assertRaisesRegex(mcap.McapError, "NUL terminator"):
+                plan.decode(packer.payload())
 
     def test_huge_array_bound_fails_fast(self):
         """A short payload fails before the walk iterates a huge array."""
@@ -468,6 +508,20 @@ def pack_signals(order, kind):
     else:
         packer.scalar("i", 7).scalar("d", 8.5)
     return packer.scalar("d", 3.5).payload()
+
+
+def pack_summary(order):
+    """Pack a ``Summary`` message with ``sequence_number`` 3."""
+    packer = CdrPacker(order).string("mod").scalar("I", 3)
+    packer.scalar("H", 1, 2)
+    packer.scalar("I", 2).scalar("Q", 10).string("a")
+    packer.scalar("Q", 11).string("bb")
+    packer.scalar("I", 1).string("n")
+    packer.scalar("B", 7, 8, 9)
+    packer.scalar("I", 1).scalar("d", 0.5)
+    packer.scalar("d", *range(6))
+    packer.scalar("I", 1).scalar("d", 1.0, 2.0, 3.0)
+    return packer.scalar("d", 22.5).payload()
 
 
 def pack_status(seq, speed, brake_active, mode):
@@ -595,6 +649,33 @@ class McapInOutTC(unittest.TestCase):
         self.assertEqual(brake.columns, ["active"])
         self.assertEqual(brake.index.tolist(), [15, 35])
         self.assertEqual(brake["active"].tolist(), [False, True])
+
+    def test_extract_container_columns(self):
+        """A string or container column is an object array, not a frame."""
+        path = os.path.join(self.tmpdir.name, "signals.mcap")
+        with open(path, "wb") as fp:
+            writer = foxglove_mcap_writer.Writer(fp)
+            writer.start(profile="ros2")
+            schema_id = writer.register_schema("demo_msgs/msg/Signals",
+                                               "ros2idl", SIGNALS_IDL)
+            channel_id = writer.register_channel("/signals", "cdr",
+                                                 schema_id)
+            for log_time, kind in ((20, 0), (10, 1)):
+                writer.add_message(channel_id, log_time,
+                                   pack_signals("<", kind), log_time)
+            writer.finish()
+
+        with mcap.Reader(path) as reader:
+            ext = reader.extract("/signals", ["frame_id", "samples",
+                                              "count"])
+        self.assertEqual(ext.time.ndarray.tolist(), [10, 20])
+        self.assertIsInstance(ext.columns["count"], sc.SimpleArrayUint32)
+        self.assertEqual(ext.columns["frame_id"].dtype, object)
+        self.assertEqual(ext.columns["frame_id"].tolist(), ["abc", "abc"])
+        self.assertEqual(ext.columns["samples"].tolist(),
+                         [[1.5, 2.5, 3.5], [1.5, 2.5, 3.5]])
+        with self.assertRaisesRegex(mcap.McapError, "frame_id has unsup"):
+            ext.to_frame()
 
     def test_messages_match_foxglove(self):
         for compression in ("none", "lz4", "zstd"):
