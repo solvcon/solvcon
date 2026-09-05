@@ -83,7 +83,7 @@ public:
     small_vector(std::initializer_list<T> init)
         : small_vector(init.size())
     {
-        std::copy_n(init.begin(), m_size, begin());
+        std::copy_n(init.begin(), init.size(), begin());
     }
 
     small_vector() { m_head = m_data.data(); }
