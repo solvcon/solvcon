@@ -25,13 +25,40 @@ std::shared_ptr<ConcreteBuffer> ConcreteBuffer::construct(size_t nbytes, size_t 
 #ifdef SOLVCON_METAL
     {
         detail::DeviceBufferStorage device_storage = device::MetalManager::instance().allocate_buffer(nbytes, alignment);
-        return construct(nbytes, device_storage.m_data, std::move(device_storage.m_remover), alignment);
+        auto buffer = construct(nbytes, device_storage.m_data, std::move(device_storage.m_remover), alignment);
+        buffer->m_access_state = std::make_unique<access_state_type>();
+        return buffer;
     }
 #else
         throw std::runtime_error("ConcreteBuffer::construct: Metal storage is unavailable");
 #endif
     }
     throw std::invalid_argument("ConcreteBuffer::construct: unknown buffer device");
+}
+
+void ConcreteBuffer::wait() const
+{
+    if (m_access_state == nullptr)
+    {
+        return;
+    }
+    m_access_state->wait();
+}
+
+void ConcreteBuffer::export_host_access() const
+{
+    if (m_access_state == nullptr)
+    {
+        return;
+    }
+    m_access_state->export_host_access();
+}
+
+void ConcreteBuffer::copy_from(ConcreteBuffer const & other)
+{
+    auto const src_access = other.acquire_host_access();
+    auto const dst_access = acquire_host_access();
+    std::copy_n(other.data<int8_t>(), size(), data<int8_t>());
 }
 
 } /* end namespace solvcon */

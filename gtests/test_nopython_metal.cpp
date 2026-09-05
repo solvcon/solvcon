@@ -1,4 +1,6 @@
+#include <solvcon/buffer/BufferExpander.hpp>
 #include <solvcon/buffer/ConcreteBuffer.hpp>
+#include <solvcon/buffer/SimpleArray.hpp>
 #include <solvcon/device/metal/metal.hpp>
 
 #include <gtest/gtest.h>
@@ -47,7 +49,13 @@ TEST(MetalManager, allocate_shared_buffer)
     for (size_t const alignment : std::array<size_t, 4>{0, 16, 32, 64})
     {
         auto buffer = ConcreteBuffer::construct(64, alignment, BufferDevice::Metal);
+        SimpleArray<int8_t> const array({8, 8}, {1, 8}, buffer);
+        EXPECT_TRUE(array.to_row_major().is_c_contiguous());
+        EXPECT_FALSE(buffer->access_state()->host_exported());
         ASSERT_NE(nullptr, buffer->data());
+        EXPECT_FALSE(buffer->access_state()->host_exported());
+        buffer->export_host_access();
+        EXPECT_TRUE(buffer->access_state()->host_exported());
         EXPECT_EQ(size_t{64}, buffer->size());
         EXPECT_EQ(alignment, buffer->alignment());
         EXPECT_TRUE(buffer->has_remover());
@@ -62,6 +70,12 @@ TEST(MetalManager, allocate_shared_buffer)
         EXPECT_EQ(12, (*buffer)[0]);
         EXPECT_EQ(34, (*buffer)[63]);
     }
+
+    auto buffer = ConcreteBuffer::construct(64, 0, BufferDevice::Metal);
+    EXPECT_FALSE(buffer->access_state()->host_exported());
+    auto expander = BufferExpander::construct(buffer, false);
+    EXPECT_TRUE(buffer->access_state()->host_exported());
+    EXPECT_EQ(buffer->data(), expander->data());
 }
 
 TEST(MetalManager, allocate_empty_shared_buffer)

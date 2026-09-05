@@ -5,10 +5,14 @@
 #include <array>
 #include <bit>
 #include <cfenv>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <future>
 #include <limits>
+#include <memory>
 #include <random>
+#include <semaphore>
 #include <type_traits>
 #ifdef Py_PYTHON_H
 #error "Python.h should not be included."
@@ -19,6 +23,10 @@
 
 namespace
 {
+
+using buffer_access_state_type = solvcon::detail::BufferAccessState;
+using buffer_host_lease_type = buffer_access_state_type::HostLease;
+using buffer_submission_type = buffer_access_state_type::Submission;
 
 template <typename Evaluate, typename Expected>
 void expect_rounding_result(int mode, Evaluate evaluate, Expected const & expected)
@@ -33,6 +41,48 @@ void expect_rounding_result(int mode, Evaluate evaluate, Expected const & expect
     EXPECT_EQ(0, mode_status);
     EXPECT_EQ(0, restore_status);
     EXPECT_EQ(expected, actual);
+}
+
+class BlockingDeviceCompletionToken final : public solvcon::detail::DeviceCompletionToken
+{
+public:
+    explicit BlockingDeviceCompletionToken(buffer_access_state_type const & reentrant_state)
+        : m_reentrant_state(reentrant_state)
+    {
+    }
+
+    bool ready() const override { return m_done.wait_for(std::chrono::seconds(0)) == std::future_status::ready; }
+    void wait() const override
+    {
+        m_wait_started.release();
+        static_cast<void>(m_reentrant_state.ready());
+        m_done.wait();
+    }
+    bool wait_until_started() const { return m_wait_started.try_acquire_for(std::chrono::seconds(5)); }
+    void complete() { m_done_promise.set_value(); }
+
+private:
+    buffer_access_state_type const & m_reentrant_state; ///< Borrowed state re-entered to catch waits under its mutex.
+    mutable std::counting_semaphore<> m_wait_started{0};
+    std::promise<void> m_done_promise; ///< Declared before m_done, which obtains its future.
+    std::shared_future<void> m_done = m_done_promise.get_future().share();
+}; /* end class BlockingDeviceCompletionToken */
+
+class FailingDeviceCompletionToken final : public solvcon::detail::DeviceCompletionToken
+{
+public:
+    bool ready() const override { return false; }
+    void wait() const override { throw std::runtime_error("work failed"); }
+}; /* end class FailingDeviceCompletionToken */
+
+bool wait_started_or_complete(BlockingDeviceCompletionToken & completion)
+{
+    bool const started = completion.wait_until_started();
+    if (!started)
+    {
+        completion.complete();
+    }
+    return started;
 }
 
 } /* end namespace */
@@ -96,6 +146,94 @@ TEST(ConcreteBuffer, iterator)
     {
         EXPECT_EQ(it, i++);
     }
+}
+
+TEST(BufferAccess, dependencies_and_wait_preserve_eligibility)
+{
+    buffer_access_state_type first, second;
+    auto previous = std::make_shared<BlockingDeviceCompletionToken>(first);
+    std::array<buffer_access_state_type *, 2> first_access{&first, &second};
+    buffer_submission_type(std::span{first_access}).publish(previous);
+    std::array<buffer_access_state_type *, 3> accesses{&second, &first, &first};
+    auto first_wait = std::async(std::launch::async, &buffer_access_state_type::wait, &first);
+    ASSERT_TRUE(wait_started_or_complete(*previous));
+    buffer_submission_type submission(std::span{accesses});
+    ASSERT_EQ(size_t{1}, submission.dependencies().size());
+    EXPECT_EQ(previous, submission.dependencies().front());
+    auto next = std::make_shared<BlockingDeviceCompletionToken>(first);
+    submission.publish(next);
+    previous->complete();
+    first_wait.get();
+    EXPECT_FALSE(first.ready());
+
+    auto next_wait = std::async(std::launch::async, &buffer_access_state_type::wait, &first);
+    ASSERT_TRUE(wait_started_or_complete(*next));
+    next->complete();
+    next_wait.get();
+    second.wait();
+    buffer_submission_type reused(std::span{accesses});
+    EXPECT_THROW(reused.publish(previous), std::invalid_argument);
+    auto final = std::make_shared<BlockingDeviceCompletionToken>(first);
+    reused.publish(final);
+    final->complete();
+}
+
+TEST(BufferAccess, scoped_host_access_blocks_submission)
+{
+    buffer_access_state_type access;
+    std::array<buffer_access_state_type *, 1> accesses{&access};
+    auto work = std::make_shared<BlockingDeviceCompletionToken>(access);
+    buffer_submission_type(std::span{accesses}).publish(work);
+
+    std::binary_semaphore release{0}, acquired{0};
+    auto host = std::async(std::launch::async, [&]()
+                           {
+                               buffer_host_lease_type lease(&access);
+                               acquired.release();
+                               release.acquire(); });
+    bool const started = wait_started_or_complete(*work);
+    if (!started)
+    {
+        release.release();
+    }
+    ASSERT_TRUE(started);
+    bool const acquired_early = acquired.try_acquire();
+    EXPECT_FALSE(acquired_early);
+    work->complete();
+    EXPECT_TRUE(acquired_early || acquired.try_acquire_for(std::chrono::seconds(5)));
+
+    EXPECT_THROW(buffer_submission_type(std::span{accesses}), std::runtime_error);
+    release.release();
+    host.get();
+    EXPECT_NO_THROW({ buffer_submission_type canceled(std::span{accesses}); });
+    EXPECT_NO_THROW({ buffer_submission_type after_cancel(std::span{accesses}); });
+}
+
+TEST(BufferAccess, raw_export_orders_with_submission)
+{
+    buffer_access_state_type access;
+    std::array<buffer_access_state_type *, 1> accesses{&access};
+    buffer_submission_type submission(std::span{accesses});
+    auto exported = std::async(std::launch::async, &buffer_access_state_type::export_host_access, &access);
+    auto work = std::make_shared<BlockingDeviceCompletionToken>(access);
+    submission.publish(work);
+    ASSERT_TRUE(wait_started_or_complete(*work));
+    EXPECT_FALSE(access.host_exported());
+    work->complete();
+    exported.get();
+    EXPECT_TRUE(access.host_exported());
+    EXPECT_THROW(buffer_submission_type(std::span{accesses}), std::runtime_error);
+}
+
+TEST(BufferAccess, failed_wait_releases_host_access)
+{
+    buffer_access_state_type access;
+    std::array<buffer_access_state_type *, 1> accesses{&access};
+    buffer_submission_type(std::span{accesses}).publish(std::make_shared<FailingDeviceCompletionToken>());
+
+    EXPECT_THROW(access.export_host_access(), std::runtime_error);
+    EXPECT_FALSE(access.host_exported());
+    EXPECT_NO_THROW({ buffer_submission_type next(std::span{accesses}); });
 }
 
 TEST(Float16, type_properties)
