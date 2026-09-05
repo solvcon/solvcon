@@ -50,7 +50,8 @@
 #       is safe to capture: $prefix = .\build-scdv-windows.ps1 -PrintPrefix.
 #   .\build-scdv-windows.ps1 -PrintPrereq
 #       Print the prerequisite install commands and manual notes, then exit.
-#       Nothing is built and no directories are created.
+#       This includes the CUDA 13.0 compiler and runtime used by CI.  Nothing
+#       is built and no directories are created.
 #   .\build-scdv-windows.ps1 -PrintVsInstall
 #       Print just the elevated command to install the VS 2022 Build Tools
 #       (the v143 MSVC toolset), then exit.  Run it from an administrator
@@ -268,6 +269,26 @@ winget install --id NASM.NASM -e
 '@
     Show-VsInstall
     @'
+
+# CUDA 13.0 matches the Linux CI compiler/runtime pair.  NVIDIA's network
+# installer fetches only nvcc and cudart here; no display driver or GPU is
+# needed to compile solvcon's CUDA probe.  The install itself is machine-wide,
+# so Start-Process requests elevation:
+$cuda_installer = Join-Path $env:TEMP 'cuda_13.0.0_windows_network.exe'
+$cuda_url = 'https://developer.download.nvidia.com/compute/cuda/13.0.0/network_installers/cuda_13.0.0_windows_network.exe'
+curl.exe -fL -o $cuda_installer $cuda_url
+$cuda_hash = (Get-FileHash -LiteralPath $cuda_installer -Algorithm SHA256).Hash.ToLower()
+$cuda_expected_hash = '69e2b033ead25c64280424d7e899a9155953d90d8e06e315d27e6999ad4a7419'
+if ($cuda_hash -ne $cuda_expected_hash) {
+    throw "CUDA installer hash mismatch: expected $cuda_expected_hash got $cuda_hash"
+}
+$cuda_install = Start-Process -FilePath $cuda_installer -Verb RunAs -PassThru -Wait -ArgumentList '-s', '-n', 'nvcc_13.0', 'cudart_13.0'
+if ($cuda_install.ExitCode -ne 0) {
+    throw "CUDA installer exited with code $($cuda_install.ExitCode)"
+}
+$env:CUDA_PATH = 'C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.0'
+$env:CUDAToolkit_ROOT = $env:CUDA_PATH
+$env:PATH = "$(Join-Path $env:CUDA_PATH 'bin');$env:PATH"
 
 # scipy needs a Fortran compiler.  WinLibs supplies gfortran through winget:
 winget install --id BrechtSanders.WinLibs.POSIX.UCRT -e --scope user
@@ -612,6 +633,14 @@ $_sp = Join-Path $usr 'Lib\site-packages'
 $env:PATH = "$usr;$(Join-Path $usr 'Scripts');$(Join-Path $usr 'bin');" +
             "$(Join-Path $_sp 'PySide6');$(Join-Path $_sp 'shiboken6');" +
             $env:PATH
+$cuda = if ($env:CUDA_PATH) {
+    $env:CUDA_PATH
+} else {
+    'C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.0'
+}
+if (Test-Path -LiteralPath (Join-Path $cuda 'bin') -PathType Container) {
+    $env:PATH = "$(Join-Path $cuda 'bin');$env:PATH"
+}
 $env:QT_PLUGIN_PATH = Join-Path $usr 'plugins'
 
 # So a downstream CMake build finds this scdv's Qt, pybind11, and BLAS/LAPACK.

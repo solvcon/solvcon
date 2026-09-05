@@ -107,8 +107,52 @@ jobs:
           cmake --workflow --preset ci-win-rel
           echo "::endgroup::"
 
+  # Hosted Windows runners have no NVIDIA GPU.  Compile the CUDA-enabled
+  # extension without trying to execute the probe.
+  build_cuda_windows:
+
+    needs: [check_skip]
+
+    if: |
+      needs.check_skip.outputs.skip != 'true' &&
+      needs.check_skip.outputs.cpp != 'false' && (
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'push' &&
+       ((vars.SCGH_PUSH_RUN_BRANCH || vars.MMGH_PUSH_RUN_BRANCH) == '*' ||
+        contains(vars.SCGH_PUSH_RUN_BRANCH || vars.MMGH_PUSH_RUN_BRANCH, github.ref_name))))
+
+    name: build_cuda_windows-2022
+
+    runs-on: windows-2022
+
+    timeout-minutes: ${{ fromJSON(vars.SCGH_TIMEOUT_BUILD || vars.MMGH_TIMEOUT_BUILD || '60') }}
+
+    steps:
+
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: event name
+        run: |
+          echo "github.event_name: ${{ github.event_name }}"
+
+      - name: setup
+        uses: ./.github/actions/setup_windows
+        with:
+          workflow: build_cuda
+
+      - name: build extension with CUDA
+        run: |
+          echo "::group::build extension with CUDA"
+          $env:PYBIND11_DIR = "$(pybind11-config --cmakedir)"
+          nvcc --version
+          cmake --preset ci-win-cuda
+          cmake --build --preset ci-win-cuda --verbose
+          echo "::endgroup::"
+
   send_email_on_failure:
-    needs: [check_skip, build_windows]
+    needs: [check_skip, build_windows, build_cuda_windows]
     # Mail a master push failure only. A `timeout-minutes` kill reports
     # `cancelled`, not `failure`.
     if: |
@@ -123,6 +167,7 @@ jobs:
       job_results: |
         - check_skip: ${{ needs.check_skip.result }}
         - build_windows: ${{ needs.build_windows.result }}
+        - build_cuda_windows: ${{ needs.build_cuda_windows.result }}
     secrets:
       EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
       EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
