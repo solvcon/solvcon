@@ -165,7 +165,9 @@ SimpleArrayCopier::SimpleArrayCopier(
     shape_type const & dst_stride,
     shape_type const & shape,
     size_t const itemsize)
-    : m_src(src_buffer.data<int8_t>() + src_body_offset)
+    : m_src_access(src_buffer.acquire_host_access())
+    , m_dst_access(dst_buffer.acquire_host_access())
+    , m_src(src_buffer.data<int8_t>() + src_body_offset)
     , m_dst(dst_buffer.data<int8_t>() + dst_body_offset)
     , m_shape(shape)
     , m_src_stride(src_stride)
