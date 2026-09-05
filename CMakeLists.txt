@@ -120,6 +120,24 @@ if(BUILD_METAL)
     add_compile_options($<$<COMPILE_LANGUAGE:OBJCXX>:-fobjc-arc>)
 endif()
 
+option(BUILD_CUDA "build with CUDA" OFF)
+message(STATUS "BUILD_CUDA: ${BUILD_CUDA}")
+if(BUILD_CUDA)
+    if(APPLE)
+        message(FATAL_ERROR "BUILD_CUDA is not supported on macOS")
+    endif()
+    if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+        set(CMAKE_CUDA_ARCHITECTURES native)
+    endif()
+    # The probe does not include C++23 core headers. C++17 keeps the build
+    # compatible with CUDA 11 and newer.
+    set(CMAKE_CUDA_STANDARD 17)
+    set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+    set(CMAKE_CUDA_EXTENSIONS OFF)
+    enable_language(CUDA)
+    find_package(CUDAToolkit REQUIRED)
+endif()
+
 option(USE_CLANG_TIDY "use clang-tidy" OFF)
 option(LINT_AS_ERRORS "clang-tidy warnings as errors" OFF)
 message(STATUS "LINT_AS_ERRORS: ${LINT_AS_ERRORS}")
@@ -253,8 +271,12 @@ if(USE_SANITIZER)
         add_link_options(/INCREMENTAL:NO)
     else()
         set(SANITIZER_LIST "undefined,leak,address")
-        add_compile_options(-fsanitize=${SANITIZER_LIST})
-        add_link_options(-fsanitize=${SANITIZER_LIST})
+        add_compile_options(
+            "$<$<COMPILE_LANGUAGE:C,CXX,OBJCXX>:-fsanitize=${SANITIZER_LIST}>"
+        )
+        add_link_options(
+            "$<$<LINK_LANGUAGE:C,CXX,OBJCXX>:-fsanitize=${SANITIZER_LIST}>"
+        )
     endif()
 else()
     message(STATUS "not use sanitizer")

@@ -56,7 +56,7 @@ def find_source_files(args):
     """Find all source code files in the project."""
     patterns = [
         '**/*.py', '**/*.cpp', '**/*.hpp', '**/*.c', '**/*.h',
-        '**/*.cxx', '**/*.hxx', '**/*.mm', '**/*.sh',
+        '**/*.cxx', '**/*.hxx', '**/*.mm', '**/*.cu', '**/*.sh',
         '**/Makefile', '**/makefile', '**/CMakeLists.txt',
         '.github/workflows/*.yml'
     ]
@@ -194,3 +194,6 @@ def main():
 
 if __name__ == '__main__':
     sys.exit(main())
+
+
+# vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:
