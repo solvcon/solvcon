@@ -72,15 +72,19 @@ runs:
           throw "CUDA installer hash mismatch: expected $cuda_expected_hash got $cuda_hash"
         }
         $cuda_install = Start-Process -FilePath $cuda_installer `
-          -ArgumentList '-s', '-n', 'nvcc_13.0', 'cudart_13.0' `
+          -ArgumentList '-s', '-n', 'nvcc_13.0', 'crt_13.0', `
+            'cudart_13.0' `
           -NoNewWindow -PassThru -Wait
         if ($cuda_install.ExitCode -ne 0) {
           throw "CUDA installer exited with code $($cuda_install.ExitCode)"
         }
         $cuda_root = 'C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.0'
         $nvcc = Join-Path $cuda_root 'bin\nvcc.exe'
-        if (-not (Test-Path -LiteralPath $nvcc)) {
-          throw "CUDA compiler not found at $nvcc"
+        $cuda_header = Join-Path $cuda_root 'include\crt\host_config.h'
+        foreach ($cuda_file in @($nvcc, $cuda_header)) {
+          if (-not (Test-Path -LiteralPath $cuda_file -PathType Leaf)) {
+            throw "CUDA file not found at $cuda_file"
+          }
         }
         echo "CUDA_PATH=$cuda_root" |
           Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
