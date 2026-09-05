@@ -271,9 +271,9 @@ winget install --id NASM.NASM -e
     @'
 
 # CUDA 13.0 matches the Linux CI compiler/runtime pair.  NVIDIA's network
-# installer fetches only nvcc, its compiler support files, and cudart here; no
-# display driver or GPU is needed to compile solvcon's CUDA probe.  The install
-# itself is machine-wide, so Start-Process requests elevation:
+# installer fetches only nvcc, its compiler support and backend, and cudart
+# here; no display driver or GPU is needed to compile solvcon's CUDA probe.
+# The install itself is machine-wide, so Start-Process requests elevation:
 $cuda_installer = Join-Path $env:TEMP 'cuda_13.0.0_windows_network.exe'
 $cuda_url = 'https://developer.download.nvidia.com/compute/cuda/13.0.0/network_installers/cuda_13.0.0_windows_network.exe'
 curl.exe -fL -o $cuda_installer $cuda_url
@@ -282,14 +282,15 @@ $cuda_expected_hash = '69e2b033ead25c64280424d7e899a9155953d90d8e06e315d27e6999a
 if ($cuda_hash -ne $cuda_expected_hash) {
     throw "CUDA installer hash mismatch: expected $cuda_expected_hash got $cuda_hash"
 }
-$cuda_install = Start-Process -FilePath $cuda_installer -Verb RunAs -PassThru -Wait -ArgumentList '-s', '-n', 'nvcc_13.0', 'crt_13.0', 'cudart_13.0'
+$cuda_install = Start-Process -FilePath $cuda_installer -Verb RunAs -PassThru -Wait -ArgumentList '-s', '-n', 'nvcc_13.0', 'crt_13.0', 'cudart_13.0', 'nvvm_13.0'
 if ($cuda_install.ExitCode -ne 0) {
     throw "CUDA installer exited with code $($cuda_install.ExitCode)"
 }
 $cuda_root = 'C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.0'
 $nvcc = Join-Path $cuda_root 'bin\nvcc.exe'
+$cicc = Join-Path $cuda_root 'nvvm\bin\cicc.exe'
 $cuda_header = Join-Path $cuda_root 'include\crt\host_config.h'
-foreach ($cuda_file in @($nvcc, $cuda_header)) {
+foreach ($cuda_file in @($nvcc, $cicc, $cuda_header)) {
     if (-not (Test-Path -LiteralPath $cuda_file -PathType Leaf)) {
         throw "CUDA file not found at $cuda_file"
     }

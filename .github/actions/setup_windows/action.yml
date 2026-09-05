@@ -73,15 +73,16 @@ runs:
         }
         $cuda_install = Start-Process -FilePath $cuda_installer `
           -ArgumentList '-s', '-n', 'nvcc_13.0', 'crt_13.0', `
-            'cudart_13.0' `
+            'cudart_13.0', 'nvvm_13.0' `
           -NoNewWindow -PassThru -Wait
         if ($cuda_install.ExitCode -ne 0) {
           throw "CUDA installer exited with code $($cuda_install.ExitCode)"
         }
         $cuda_root = 'C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.0'
         $nvcc = Join-Path $cuda_root 'bin\nvcc.exe'
+        $cicc = Join-Path $cuda_root 'nvvm\bin\cicc.exe'
         $cuda_header = Join-Path $cuda_root 'include\crt\host_config.h'
-        foreach ($cuda_file in @($nvcc, $cuda_header)) {
+        foreach ($cuda_file in @($nvcc, $cicc, $cuda_header)) {
           if (-not (Test-Path -LiteralPath $cuda_file -PathType Leaf)) {
             throw "CUDA file not found at $cuda_file"
           }
