@@ -56,12 +56,6 @@ namespace detail
             value = const_cast<solvcon::SimpleArray##DATATYPE *>(array_from_arrayplex); /* NOLINT(cppcoreguidelines-pro-type-const-cast) */                   \
             return true;                                                                                                                                      \
         }                                                                                                                                                     \
-                                                                                                                                                              \
-        /* Conversion from C++ to Python object FIXME: NOLINTNEXTLINE(cppcoreguidelines-rvalue-reference-param-not-moved) */                                  \
-        static pybind11::handle cast(solvcon::SimpleArray##DATATYPE && src, pybind11::return_value_policy policy, pybind11::handle parent)                    \
-        {                                                                                                                                                     \
-            return base::cast(src, policy, parent);                                                                                                           \
-        }                                                                                                                                                     \
     } /* end struct type_caster */
 
 SC_DECL_SIMPLE_ARRAY_CASTER(Bool);
