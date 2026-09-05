@@ -11,14 +11,19 @@ typedefs, and integer constants.
 
 ``DecodePlan`` turns the root struct into a tree and walks it over the
 CDR body of each message.  A scalar or enum leaf reached through nested
-structs is a column.  The walk steps over a string, a sequence, an
-array, or a union, so a leaf inside one is not a column.  A union reads
-its discriminator to find the case the payload carries.
+structs is a column.  A string is a column when the field list names
+it, and so is a sequence or array of scalars, enums, or strings.  Such
+a field decodes to a ``str`` or a ``list`` per message.  The walk steps
+over a union and over a container of any other element, so a leaf
+inside one is not a column.  A union reads its discriminator to find
+the case the payload carries.
 """
 
 import re
 import struct
 import collections
+
+import numpy as np
 
 import solvcon as sc
 
@@ -80,6 +85,8 @@ _ORDERS = (">", "<")
 _SCALARS = tuple({dtype: struct.Struct(order + code)
                   for dtype, (code, _) in COLUMN_TYPES.items()}
                  for order in _ORDERS)
+_DTYPES = tuple({dtype: np.dtype(dtype).newbyteorder(order)
+                 for dtype in COLUMN_TYPES} for order in _ORDERS)
 _TRUNCATED = "the payload ends before the fields do"
 
 
@@ -373,27 +380,37 @@ class DecodePlan:
     ``fields`` are the selected dotted paths, ``types`` their column
     dtypes, and ``enums`` the member names of each enum-typed field.
     Without ``fields`` the plan selects every scalar leaf in declaration
-    order.  An enum reads as its ``uint32`` ordinal.
+    order.  An enum reads as its ``uint32`` ordinal.  A string field has
+    the type ``str``.  A sequence or array field has the element type
+    followed by ``[]``.  ``fields`` may also name a string or container
+    field, which decodes to a Python ``str`` or ``list``.
     """
 
     def __init__(self, schema, fields=None):
         self.schema = schema
         registry = parse_schema(schema)
-        self._tree = _tree(registry, ("named", schema.name.replace("/", "::"),
-                                      ()), ())
-        leaves = _leaves(self._tree, ())
+        tree = _tree(registry, ("named", schema.name.replace("/", "::"),
+                                ()), ())
+        leaves = _leaves(tree, ())
         types = {path: dtype for path, dtype, _ in leaves}
 
-        self.fields = tuple(types if fields is None else fields)
+        if fields is None:
+            fields = [path for path, dtype in types.items()
+                      if dtype in COLUMN_TYPES]
+        self.fields = tuple(fields)
         unknown = [path for path in self.fields if path not in types]
         if unknown:
-            raise McapError("unknown or non-scalar fields {}".format(unknown))
+            raise McapError("unknown or unsupported fields {}".format(
+                unknown))
         if len(set(self.fields)) != len(self.fields):
             raise McapError("duplicate fields in {}".format(self.fields))
         self.types = tuple(types[path] for path in self.fields)
         self.enums = {path: members for path, _, members in leaves
                       if members and path in self.fields}
-        paths = [path for path, _, _ in leaves]
+
+        self._tree = _mark(tree, (), set(self.fields))
+        paths = [path for path, dtype, _ in leaves
+                 if dtype in COLUMN_TYPES or path in self.fields]
         self._select = tuple(paths.index(path) for path in self.fields)
 
     def decode(self, payload):
@@ -458,13 +475,37 @@ def _union_tree(registry, name, visiting):
 
 
 def _leaves(node, path):
-    """Return ``(path, dtype, enum members)`` per scalar leaf, in order."""
+    """
+    Return ``(path, dtype, enum members)`` per leaf, in order.
+
+    A leaf is a scalar, a string, or a sequence or array of scalars or
+    strings.  The dtype of a container ends with ``[]``.
+    """
     if node[0] == "scalar":
         return [(".".join(path), node[1], node[2])]
+    if node[0] == "string":
+        return [(".".join(path), "str", None)]
     if node[0] == "struct":
         return [leaf for field, child in node[1]
                 for leaf in _leaves(child, path + (field,))]
+    if node[0] not in ("sequence", "array"):
+        return []
+    child = node[1]
+    if child[0] == "scalar":
+        return [(".".join(path), child[1] + "[]", child[2])]
+    if child[0] == "string":
+        return [(".".join(path), "str[]", None)]
     return []
+
+
+def _mark(node, path, fields):
+    """Flag each string or container node with whether ``fields`` names it."""
+    if node[0] == "struct":
+        return ("struct", [(field, _mark(child, path + (field,), fields))
+                           for field, child in node[1]])
+    if node[0] in ("string", "sequence", "array"):
+        return node + (".".join(path) in fields,)
+    return node
 
 
 def _walk(node, body, pos, order, values):
@@ -472,9 +513,9 @@ def _walk(node, body, pos, order, values):
     Walk ``node`` over the CDR ``body`` from ``pos`` and return the end.
 
     ``body`` starts after the encapsulation header, at the origin of CDR
-    alignment.  ``values`` collects every scalar leaf in the order of
-    ``_leaves``, or is ``None`` inside a container, whose scalars are not
-    columns.
+    alignment.  ``values`` collects every scalar and every selected
+    string or container in the order of ``_leaves``, or is ``None``
+    inside a union or a non-leaf container, whose leaves are not columns.
     """
     kind = node[0]
     if kind == "scalar":
@@ -492,8 +533,6 @@ def _walk(node, body, pos, order, values):
         pos = _walk(node[1], body, pos, order, discriminator)
         child = node[2].get(discriminator[0], node[2].get(None))
         return pos if child is None else _walk(child, body, pos, order, None)
-    # TODO: a string, a sequence, or an array is only skipped; none of them
-    # produces a column yet.
     if kind == "array":
         count = node[2]
     else:
@@ -502,14 +541,38 @@ def _walk(node, body, pos, order, values):
         pos += 4
     if count > len(body) - pos:
         raise McapError(_TRUNCATED)
+    selected = values is not None and node[-1]
     if kind == "string":
+        if selected:
+            values.append(_text(body, pos, count))
         return pos + count
-    if node[1][0] == "scalar":
-        size = _SCALARS[order][node[1][1]].size
-        return pos + (-pos % size if count else 0) + size * count
+    child = node[1]
+    if child[0] == "scalar":
+        size = _SCALARS[order][child[1]].size
+        pos += -pos % size if count else 0
+        if selected:
+            if size * count > len(body) - pos:
+                raise McapError(_TRUNCATED)
+            values.append(np.frombuffer(body, _DTYPES[order][child[1]],
+                                        count, pos).tolist())
+        return pos + size * count
+    items = [] if selected and child[0] == "string" else None
     for _ in range(count):
-        pos = _walk(node[1], body, pos, order, None)
+        pos = _walk(child, body, pos, order, items)
+    if items is not None:
+        values.append(items)
     return pos
+
+
+def _text(body, pos, count):
+    """Decode the CDR string at ``pos``; ``count`` includes the NUL."""
+    end = pos + count - 1
+    if count == 0 or body[end] != 0:
+        raise McapError("a string lacks its NUL terminator")
+    try:
+        return str(body[pos:end], "utf-8")
+    except UnicodeDecodeError:
+        raise McapError("a string is not UTF-8") from None
 
 
 def _resolve(registry, type_):
