@@ -13,13 +13,31 @@
  * @ingroup group_core
  */
 
-#include <type_traits>
+#include <solvcon/math/Float16.hpp>
+
 #include <cmath>
-#include <stdexcept>
 #include <complex>
+#include <stdexcept>
+#include <type_traits>
 
 namespace solvcon
 {
+
+// clang-format off
+/**
+ * Type trait that reports whether a type is a real floating-point type.
+ *
+ * @ingroup group_core
+ */
+template <typename T>
+struct is_real : std::is_floating_point<T> {};
+
+template <>
+struct is_real<Float16> : std::true_type {};
+// clang-format on
+
+template <typename T>
+constexpr bool is_real_v = is_real<T>::value;
 
 namespace detail
 {
@@ -27,7 +45,7 @@ namespace detail
 template <typename T>
 struct ComplexImpl
 {
-    static_assert(std::is_floating_point_v<T>);
+    static_assert(is_real_v<T>);
 
     T real_v;
     T imag_v;
@@ -281,21 +299,10 @@ struct is_complex : std::false_type {};
 
 template <typename T>
 struct is_complex<Complex<T>> : std::true_type {};
-
-/**
- * Type trait that reports whether a type is a real floating-point type.
- *
- * @ingroup group_core
- */
-template <typename T>
-struct is_real : std::is_floating_point<T> {};
 // clang-format on
 
 template <typename T>
 constexpr bool is_complex_v = is_complex<T>::value;
-
-template <typename T>
-constexpr bool is_real_v = is_real<T>::value;
 
 } /* end namespace solvcon */
 

@@ -112,6 +112,19 @@ TEST(Float16, type_properties)
     static_assert(sc::Float16(1.0F).bits() == 0x3c00U);
 }
 
+TEST(Complex, float_component_contract)
+{
+    namespace sc = solvcon;
+
+    static_assert(sc::is_real_v<sc::Float16>);
+
+    using complex_type = sc::Complex<sc::Float16>;
+    static_assert(std::is_default_constructible_v<complex_type>);
+    // FIXME(yuko):
+    // or
+    // static_assert(sizeof(sc::Complex<sc::Float16>) > 0);
+}
+
 TEST(Float16, arithmetic)
 {
     namespace sc = solvcon;
