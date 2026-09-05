@@ -2970,6 +2970,10 @@ public:
 
 private:
 
+    using host_access_type = buffer_type::host_access_type;
+
+    host_access_type m_src_access; ///< Acquired before m_src and held while it may be read.
+    host_access_type m_dst_access; ///< Acquired before m_dst and held while it may be written.
     int8_t const * m_src;
     int8_t * m_dst;
     shape_type const & m_shape;

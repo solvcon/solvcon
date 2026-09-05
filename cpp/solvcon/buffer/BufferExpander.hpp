@@ -53,6 +53,7 @@ public:
         , m_concrete_buffer(clone ? buf->clone() : buf)
         , m_alignment(validate_alignment(alignment, "BufferExpander::BufferExpander"))
     {
+        m_concrete_buffer->export_host_access();
         m_begin = m_concrete_buffer->data();
         m_end = m_begin + m_concrete_buffer->size();
         m_end_cap = m_begin + m_concrete_buffer->size(); // NOLINT(cppcoreguidelines-prefer-member-initializer)
