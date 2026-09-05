@@ -39,7 +39,10 @@ def run(stdin, stdout):
     """Run one request and emit one terminal result or error event."""
     try:
         specification, output_path = _read_request(stdin)
-        comparison = collector.collect(specification)
+        comparison = collector.collect(
+            specification, progress=lambda phase, name: _emit({
+                'type': 'progress', 'phase': phase, 'kernel': name,
+            }, stdout))
         artifact_path = artifact.write_artifact(comparison, output_path)
         _emit({
             'type': 'result',
