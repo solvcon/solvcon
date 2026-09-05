@@ -12,18 +12,27 @@ import pathlib
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 import unittest.mock
 
 import numpy as np
 
 import solvcon as sc
-from solvcon import benchmark, clinfo
+from solvcon import benchmark, system
 from solvcon.benchmark import artifact
 from solvcon.benchmark import collector
 from solvcon.benchmark import matmul
 from solvcon.benchmark import spec as benchmark_spec
 from solvcon.benchmark import worker
+
+
+try:
+    from PySide6 import QtCore, QtTest, QtWidgets
+except ImportError:
+    QtWidgets = None
+else:
+    from solvcon.pilot import _benchmark
 
 
 def make_matmul_spec(**updates):
@@ -806,25 +815,194 @@ class BenchmarkWorkerTC(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = pathlib.Path(directory) / 'artifact.json'
             request = make_request(path)
-            # A pilot-only build embeds _solvcon without a shared extension.
-            # Run the worker with that same binary in Python mode.
-            if clinfo.populated:
-                command = [clinfo.populated_argv[0], '--mode=python']
-            else:
-                command = [sys.executable]
             process = subprocess.run(
-                command + ['-m', 'solvcon.benchmark.worker'],
+                system.python_command('-m', 'solvcon.benchmark.worker'),
                 input=json.dumps(request) + '\n',
                 capture_output=True, text=True, check=False)
 
             self.assertEqual(
                 process.returncode, 0, process.stderr or process.stdout)
-            self.assertEqual(json.loads(process.stdout), {
+            events = [json.loads(line)
+                      for line in process.stdout.splitlines()]
+            self.assertEqual(events[:-1], [
+                {'type': 'progress', 'phase': phase, 'kernel': kernel}
+                for phase, kernel in (('comparison', 'numpy'),
+                                      ('comparison', 'naive'),
+                                      ('timing', 'naive'), ('timing', 'numpy'))
+            ])
+            self.assertEqual(events[-1], {
                 'type': 'result',
                 'artifact_path': str(path),
             })
             document = artifact.load_artifact(path)
             self.assertEqual(document['spec'], request['spec'])
+
+
+class BenchmarkProgressTC(unittest.TestCase):
+    def test_progress_stays_outside_timed_blocks(self):
+        sampling = make_matmul_spec(sampling={
+            'warmups': 1, 'repetitions': 2, 'rounds': 1,
+        }).sampling
+        events = []
+
+        def clock():
+            events.append('clock')
+            return len(events)
+
+        orders, elapsed = benchmark.collector._time_candidates(
+            lambda name: events.append(name), ('naive',), sampling, clock,
+            lambda phase, name: events.append((phase, name)))
+
+        self.assertEqual(events, [
+            ('warmup', 'naive'), 'naive', ('timing', 'naive'),
+            'clock', 'naive', 'naive', 'clock',
+        ])
+        self.assertEqual(orders, [['naive']])
+        self.assertEqual(elapsed, {'naive': [3]})
+
+
+@unittest.skipIf(QtWidgets is None, 'PySide6 is not installed')
+class BenchmarkControlTC(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.app = (QtWidgets.QApplication.instance()
+                   or QtWidgets.QApplication([]))
+
+    def setUp(self):
+        self.control = _benchmark.BenchmarkControl()
+        self.directory = tempfile.TemporaryDirectory()
+        self.path = pathlib.Path(self.directory.name) / 'result.json'
+        self.spec = make_matmul_spec(
+            kernels=['naive'],
+            sampling={'warmups': 1, 'repetitions': 2, 'rounds': 2})
+        self.events = []
+        self.control.completed.connect(
+            lambda path: self.events.append(('result', path)))
+        self.control.failed.connect(
+            lambda message: self.events.append(('error', message)))
+        self.control.stopped.connect(
+            lambda: self.events.append(('stopped', None)))
+
+    def tearDown(self):
+        self.control.stop()
+        self.wait_for(lambda: not self.control.running)
+        self.control.close()
+        self.control.deleteLater()
+        self.directory.cleanup()
+
+    def wait_for(self, predicate):
+        deadline = time.monotonic() + 15
+        while not predicate() and time.monotonic() < deadline:
+            QtTest.QTest.qWait(10)
+        self.assertTrue(predicate(), self.control.status.text())
+
+    def start_script(self, script):
+        script = 'import sys\nsys.stdin.readline()\n' + script
+        command = system.python_command('-c', script)
+        with unittest.mock.patch.object(
+                system, 'python_command', return_value=command):
+            self.control.start(self.spec, self.path)
+
+    def assert_finished(self, kind):
+        self.wait_for(lambda: not self.control.running)
+        self.assertEqual([event[0] for event in self.events], [kind])
+        self.assertEqual(self.control._process.state(),
+                         QtCore.QProcess.ProcessState.NotRunning)
+        self.assertFalse(self.control.stop_button.isEnabled())
+        self.assertFalse(self.control._timer.isActive())
+
+    def test_collect_and_repeat(self):
+        for _ in range(2):
+            self.events.clear()
+            self.control.start(self.spec, self.path)
+            with self.assertRaisesRegex(RuntimeError, 'already running'):
+                self.control.start(self.spec, self.path)
+            self.assert_finished('result')
+            self.assertEqual(self.events[0][1], str(self.path))
+            self.assertEqual(artifact.load_artifact(self.path)['spec'],
+                             self.spec.to_dict())
+
+    def test_progress_stop_and_recover(self):
+        event = json.dumps({'type': 'progress', 'phase': 'timing',
+                            'kernel': 'naive'})
+        self.start_script(
+            'import sys, time\n'
+            f'sys.stdout.write({event[:12]!r})\n'
+            'sys.stdout.flush()\n'
+            'time.sleep(0.15)\n'
+            f'print({event[12:]!r}, flush=True)\n'
+            'time.sleep(60)\n')
+        self.wait_for(lambda: self.control.status.text() == 'Timing: naive')
+        self.wait_for(
+            lambda: self.control.elapsed.text() != 'Elapsed: 0.0 s')
+        self.assertEqual(self.events, [])
+        self.control.stop_button.click()
+        self.assert_finished('stopped')
+        self.events.clear()
+        self.control.start(self.spec, self.path)
+        self.assert_finished('result')
+
+    def assert_error_recovery(self, cases):
+        for script, message in cases:
+            with self.subTest(message=message):
+                self.events.clear()
+                self.start_script(script)
+                self.assert_finished('error')
+                self.assertIn(message, self.events[0][1])
+        self.events.clear()
+        self.control.start(self.spec, self.path)
+        self.assert_finished('result')
+
+    def test_protocol_error_recovery(self):
+        self.assert_error_recovery((
+            ("print('not json', flush=True)\nimport time\ntime.sleep(60)",
+             'protocol'),
+            ("print('{}', flush=True)", 'unknown'),
+            ('print(\'{"type":"error","message":"bad spec"}\', '
+             'flush=True)\nimport time\ntime.sleep(60)', 'bad spec'),
+        ))
+
+    def test_exit_error_recovery(self):
+        self.assert_error_recovery((
+            ("print('{}', end='', flush=True)", 'incomplete'),
+            ('pass', 'without a result'),
+            ("import sys\nsys.stderr.write('native crash')\nsys.exit(3)",
+             'native crash'),
+            ('print(\'{"type":"result","artifact_path":"fake"}\', '
+             'flush=True)\nimport sys\nsys.exit(3)', 'code 3'),
+        ))
+
+    def test_crash(self):
+        self.start_script('import time\ntime.sleep(60)')
+        self.wait_for(lambda: self.control._process.state() ==
+                      QtCore.QProcess.ProcessState.Running)
+        self.control._process.kill()
+        self.assert_finished('error')
+
+    def test_failed_start_recovers_from_signal(self):
+        process_errors = []
+        self.control._process.errorOccurred.connect(process_errors.append)
+
+        def restart(message):
+            # Reentering QProcess inside its error signal can block Qt.
+            if not process_errors:
+                return
+            self.control.failed.disconnect(restart)
+            self.events.clear()
+            self.control.start(self.spec, self.path)
+
+        self.control.failed.connect(restart)
+        with unittest.mock.patch.object(system, 'python_command',
+                                        return_value=['/missing/worker']):
+            self.control.start(self.spec, self.path)
+        self.assert_finished('result')
+
+    def test_stop_during_start_and_close(self):
+        for action in (self.control.stop, self.control.close):
+            self.events.clear()
+            self.start_script('import time\ntime.sleep(60)')
+            action()
+            self.assert_finished('stopped')
 
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:

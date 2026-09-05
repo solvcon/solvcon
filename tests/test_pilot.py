@@ -297,6 +297,26 @@ class CallTipTC(unittest.TestCase):
         self.assertEqual(apputil.get_call_tip('boom()'), '')
 
 
+class PythonCommandTC(unittest.TestCase):
+    def test_uses_the_active_interpreter_and_preserves_arguments(self):
+        from unittest import mock
+        from solvcon import system
+
+        clinfo = mock.Mock(populated=False)
+        with mock.patch.object(solvcon, 'clinfo', clinfo), \
+                mock.patch.object(system.sys, 'executable', '/python path'):
+            self.assertEqual(
+                system.python_command('-c', 'print("hello world")'),
+                ['/python path', '-c', 'print("hello world")'])
+
+            clinfo.populated = True
+            clinfo.populated_argv = ['/pilot path', '--mode=pytest', '-v']
+            self.assertEqual(
+                system.python_command('-m', 'solvcon.benchmark.worker'),
+                ['/pilot path', '--mode=python', '-m',
+                 'solvcon.benchmark.worker'])
+
+
 class WorkerTC(unittest.TestCase):
     """The worker-thread helper for heavy console work."""
 
