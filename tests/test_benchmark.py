@@ -7,14 +7,13 @@ import json
 import math
 import os
 import pathlib
-import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
 import unittest.mock
 
-from solvcon import benchmark
+from solvcon import benchmark, clinfo
 from solvcon.benchmark import artifact
 from solvcon.benchmark import worker
 
@@ -363,10 +362,14 @@ class BenchmarkWorkerTC(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = pathlib.Path(directory) / 'artifact.json'
             request = make_request(path)
-            python = shutil.which('python3')
-            self.assertIsNotNone(python)
+            # A pilot-only build embeds _solvcon without a shared extension.
+            # Run the worker with that same binary in Python mode.
+            if clinfo.populated:
+                command = [clinfo.populated_argv[0], '--mode=python']
+            else:
+                command = [sys.executable]
             process = subprocess.run(
-                [python, '-m', 'solvcon.benchmark.worker'],
+                command + ['-m', 'solvcon.benchmark.worker'],
                 input=json.dumps(request) + '\n',
                 capture_output=True, text=True, check=False)
 
