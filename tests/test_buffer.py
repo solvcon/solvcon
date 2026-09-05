@@ -297,6 +297,26 @@ class SimpleArrayBasicTC(unittest.TestCase):
         self.assertEqual((12, 2), sarr.reshape((12, 2)).shape)
         self.assertEqual((2, 2, 2, 3), sarr.reshape((2, 2, 2, 3)).shape)
 
+    def test_SimpleArray_str_and_repr(self):
+        arrays = [
+            np.arange(6, dtype='int32').reshape((2, 3)),
+            np.array([[True, False], [False, True]], dtype='bool'),
+            np.array([1.5 + 2j, -3j], dtype='complex128'),
+        ]
+        for ndarr in arrays:
+            with self.subTest(dtype=ndarr.dtype):
+                cls = getattr(
+                    solvcon, 'SimpleArray' + ndarr.dtype.name.capitalize())
+                sarr = cls(array=ndarr)
+                self.assertEqual(str(ndarr), str(sarr))
+                self.assertEqual(repr(ndarr), repr(sarr))
+
+    def test_SimpleArrayPlex_str_and_repr(self):
+        ndarr = np.arange(6, dtype='float64').reshape((2, 3))
+        sarr = solvcon.SimpleArray(array=ndarr)
+        self.assertEqual(str(ndarr), str(sarr))
+        self.assertEqual(repr(ndarr), repr(sarr))
+
     def test_SimpleArray_reshape_transposed(self):
         ndarr = np.arange(6, dtype="float64").reshape((2, 3))
         view = ndarr.T

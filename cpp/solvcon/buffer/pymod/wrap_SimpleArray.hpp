@@ -129,6 +129,14 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArray
                 })
             .def("__len__", &wrapped_type::size)
             .def(
+                "__str__",
+                [](wrapped_type & self)
+                { return py::str(to_ndarray(self)); })
+            .def(
+                "__repr__",
+                [](wrapped_type & self)
+                { return py::repr(to_ndarray(self)); })
+            .def(
                 "__getitem__",
                 [](wrapped_type const & self, ssize_t key)
                 { return self.at(key); })
