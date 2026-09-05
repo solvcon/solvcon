@@ -16,6 +16,7 @@ import unittest
 
 import solvcon as sc
 from solvcon.track import mcap
+from solvcon.track.mcap import _reader
 
 try:
     from mcap import reader as foxglove_mcap_reader
@@ -189,6 +190,8 @@ module geometry_msgs {
 };
 """
 
+FIXTURE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                       "data", "mcap", "fake_recording.mcap")
 TOPIC = "/vehicle/status"
 BRAKE_TOPIC = "/vehicle/brake"
 LOG_TIMES = [30, 10, 20, 40]
@@ -485,6 +488,14 @@ class SchemaParseTC(unittest.TestCase):
                          ("array", ("scalar", "float64"), 3))
 
 
+def cut_before_summary(data):
+    """Return ``data`` without its summary section, as if the writer died."""
+    footer = len(data) - _reader.MAGIC_SIZE - _reader.FOOTER_SIZE
+    summary_start = struct.unpack_from(
+        "<Q", data, footer + _reader.RECORD_HEADER_SIZE)[0]
+    return data[:summary_start]
+
+
 def pack_signals(order, kind):
     """Pack a ``Signals`` message with ``count`` 7 and ``speed`` 3.5."""
     packer = CdrPacker(order).string("abc")
@@ -689,11 +700,137 @@ class McapInOutTC(unittest.TestCase):
                                 in foxglove.iter_messages(topics=[TOPIC]))
             self.assertEqual(ours, theirs, compression)
 
+    def test_a_plan_stands_in_for_a_missing_schema(self):
+        """A channel with no schema decodes with a plan the caller gives."""
+        path = os.path.join(self.tmpdir.name, "no_schema.mcap")
+        with open(path, "wb") as fp:
+            writer = foxglove_mcap_writer.Writer(fp)
+            writer.start(profile="ros2")
+            channel_id = writer.register_channel(BRAKE_TOPIC, "cdr", 0)
+            for log_time in (15, 35):
+                payload = b"\0\x01\0\0" + struct.pack("<?", log_time >= 20)
+                writer.add_message(channel_id, log_time, payload, log_time)
+            writer.finish()
+
+        plan = mcap.DecodePlan(mcap.Schema(0, "vehicle_msgs/msg/Brake",
+                                           "ros2idl", BRAKE_IDL))
+        with mcap.Reader(path) as reader:
+            self.assertEqual(reader.topics(), {BRAKE_TOPIC: ""})
+            self.assertIsNone(reader.schema(BRAKE_TOPIC))
+            with self.assertRaisesRegex(
+                    mcap.McapError,
+                    "topic '/vehicle/brake' carries no schema"):
+                reader.extract(BRAKE_TOPIC)
+            frame = reader.extract_frame(BRAKE_TOPIC, plan)
+            self.assertEqual(frame.index.tolist(), [15, 35])
+            self.assertEqual(frame["active"].tolist(), [False, True])
+
+    def test_a_plan_for_another_message_type_is_refused(self):
+        """A plan that names another type would decode the bytes wrong."""
+        plan = mcap.DecodePlan(mcap.Schema(0, "vehicle_msgs/msg/Brake",
+                                           "ros2idl", BRAKE_IDL))
+        with mcap.Reader(self.path) as reader:
+            with self.assertRaisesRegex(
+                    mcap.McapError,
+                    "cannot decode '/vehicle/status' with the plan"):
+                reader.extract(TOPIC, plan)
+
+    def test_an_unchunked_file_without_summary_is_scanned(self):
+        """Messages outside a chunk reach the reader as one span."""
+        path = os.path.join(self.tmpdir.name, "unchunked.mcap")
+        with open(path, "wb") as fp:
+            writer = foxglove_mcap_writer.Writer(fp, use_chunking=False)
+            writer.start(profile="ros2")
+            schema_id = writer.register_schema("vehicle_msgs/msg/Status",
+                                               "ros2idl", STATUS_IDL)
+            channel_id = writer.register_channel(TOPIC, "cdr", schema_id)
+            for seq, log_time in enumerate(LOG_TIMES):
+                payload = pack_status(seq, float(log_time), log_time >= 20,
+                                      log_time % 20 == 0)
+                writer.add_message(channel_id, log_time, payload, log_time)
+            writer.finish()
+        with open(path, "rb") as fp:
+            data = fp.read()
+        with open(path, "wb") as fp:
+            fp.write(cut_before_summary(data))
+
+        with mcap.Reader(path) as reader:
+            self.assertEqual([t for t, _ in reader.messages(TOPIC)],
+                             LOG_TIMES)
+            self.assertEqual(
+                [t for t, _ in reader.messages(TOPIC, start_ns=20,
+                                               end_ns=40)],
+                [30, 20])
+            frame = reader.extract_frame(TOPIC, ["longitudinal_speed"])
+            self.assertEqual(frame["longitudinal_speed"].tolist(),
+                             [10.0, 20.0, 30.0, 40.0])
+
     def test_a_truncated_file_raises_mcap_error(self):
         path = os.path.join(self.tmpdir.name, "truncated.mcap")
         with open(path, "wb") as fp:
             fp.write(b"\x89MCAP0\r\n" * 2)
         with self.assertRaisesRegex(mcap.McapError, "malformed record"):
+            mcap.Reader(path)
+
+
+class McapScanTC(unittest.TestCase):
+    """Go through the recording checked in under ``tests/data/mcap``."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.TemporaryDirectory()
+        with open(FIXTURE, "rb") as fp:
+            self.data = fp.read()
+
+    def tearDown(self):
+        self.tmpdir.cleanup()
+
+    def write(self, name, data):
+        path = os.path.join(self.tmpdir.name, name)
+        with open(path, "wb") as fp:
+            fp.write(data)
+        return path
+
+    def test_a_file_without_summary_reads_like_the_whole_file(self):
+        """A recording the writer never finished still gives every message."""
+        path = self.write("unfinished.mcap", cut_before_summary(self.data))
+        with mcap.Reader(FIXTURE) as whole, mcap.Reader(path) as cut:
+            self.assertEqual(cut.profile, whole.profile)
+            self.assertEqual(cut.topics(), whole.topics())
+            self.assertIsNone(cut.time_range())
+            self.assertIsNone(cut.message_count())
+            self.assertIsNone(cut.message_counts())
+            for topic in sorted(whole.topics()):
+                self.assertEqual(sorted(cut.messages(topic)),
+                                 sorted(whole.messages(topic)), topic)
+                self.assertEqual(
+                    cut.extract_frame(topic).index.tolist(),
+                    whole.extract_frame(topic).index.tolist(), topic)
+
+    def test_a_record_the_file_cuts_short_is_dropped(self):
+        """A recorder that dies mid-record leaves the earlier ones readable."""
+        data = cut_before_summary(self.data)
+        path = self.write("mid_record.mcap", data[:len(data) * 3 // 4])
+        with mcap.Reader(FIXTURE) as whole, mcap.Reader(path) as cut:
+            self.assertEqual(cut.topics(), whole.topics())
+            kept = 0
+            for topic in sorted(whole.topics()):
+                times = [t for t, _ in cut.messages(topic)]
+                kept += len(times)
+                self.assertEqual(times, [t for t, _ in whole.messages(topic)
+                                         ][:len(times)], topic)
+            whole_count = sum(len(list(whole.messages(topic)))
+                              for topic in whole.topics())
+            self.assertGreater(kept, 0)
+            self.assertLess(kept, whole_count)
+
+    def test_a_header_the_file_cuts_short_raises_mcap_error(self):
+        """A file cut inside its header is not an empty recording."""
+        size = struct.unpack_from("<Q", self.data,
+                                  _reader.MAGIC_SIZE + 1)[0]
+        end = _reader.MAGIC_SIZE + _reader.RECORD_HEADER_SIZE + size
+        path = self.write("no_header.mcap", self.data[:end - 1])
+        with self.assertRaisesRegex(mcap.McapError,
+                                    "the header record is truncated"):
             mcap.Reader(path)
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

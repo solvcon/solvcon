@@ -7,7 +7,9 @@ Container layer: the MCAP file format.
 ``Reader`` reads the magic, the header, the footer, and the summary section
 the footer points to.  The summary gives the schemas, the channels, the
 statistics, and the chunk indexes; the chunks themselves are read on demand
-by ``messages()`` and the ``extract*`` methods.
+by ``messages()`` and the ``extract*`` methods.  A file without a summary
+section gives no statistics, and ``Reader`` builds the index by walking the
+data section at open time instead.
 """
 
 import os
@@ -23,21 +25,24 @@ from ._decodeplan import DecodePlan, COLUMN_TYPES
 __all__ = ["Reader", "Schema", "Channel", "Extraction"]
 
 MAGIC = b"\x89MCAP0\r\n"
+MAGIC_SIZE = len(MAGIC)
 OP_HEADER = 0x01
 OP_FOOTER = 0x02
 OP_SCHEMA = 0x03
 OP_CHANNEL = 0x04
 OP_MESSAGE = 0x05
 OP_CHUNK = 0x06
+OP_MESSAGE_INDEX = 0x07
 OP_CHUNK_INDEX = 0x08
 OP_STATISTICS = 0x0B
-FOOTER_SIZE = 1 + 8 + 20
+RECORD_HEADER_SIZE = 1 + 8
+FOOTER_SIZE = RECORD_HEADER_SIZE + 20
 
 Schema = collections.namedtuple("Schema", "id name encoding data")
 Channel = collections.namedtuple("Channel",
                                  "id schema_id topic message_encoding")
 ChunkIndex = collections.namedtuple("ChunkIndex",
-                                    "start_ns end_ns offset length")
+                                    "start_ns end_ns offset length chunked")
 
 
 class Extraction(collections.namedtuple("Extraction", "time columns")):
@@ -76,7 +81,7 @@ def unpack_string(buf, pos):
 def iter_records(buf):
     """Yield ``(opcode, body)`` for every record in ``buf``."""
     pos = 0
-    while pos + 9 <= len(buf):
+    while pos + RECORD_HEADER_SIZE <= len(buf):
         (opcode, size), pos = unpack("<BQ", buf, pos)
         yield opcode, buf[pos:pos + size]
         pos += size
@@ -115,7 +120,7 @@ class Reader:
         self._message_count = None
         self._message_counts = None
         try:
-            self._read_summary()
+            self._read_index()
         except (struct.error, UnicodeDecodeError) as error:
             raise McapError("malformed record: {}".format(error)) from error
 
@@ -132,53 +137,163 @@ class Reader:
         self._file.seek(offset)
         return self._file.read(size)
 
-    def _read_summary(self):
-        self._file.seek(0, 2)
-        file_size = self._file.tell()
-        if self._read_at(0, 8) != MAGIC or \
-                self._read_at(file_size - 8, 8) != MAGIC:
+    def _read_index(self):
+        """Index the file from its summary section, or from its data."""
+        if self._read_at(0, MAGIC_SIZE) != MAGIC:
             raise McapError("bad magic")
 
-        (opcode, size), _ = unpack("<BQ", self._read_at(8, 9), 0)
+        (opcode, size), _ = unpack("<BQ", self._read_at(
+            MAGIC_SIZE, RECORD_HEADER_SIZE), 0)
         if opcode != OP_HEADER:
             raise McapError("the header record is missing")
-        self.profile, _ = unpack_string(self._read_at(17, size), 0)
+        data_start = MAGIC_SIZE + RECORD_HEADER_SIZE + size
+        if data_start > self.size:
+            raise McapError("the header record is truncated")
+        self.profile, _ = unpack_string(self._read_at(
+            MAGIC_SIZE + RECORD_HEADER_SIZE, size), 0)
 
-        footer_offset = file_size - 8 - FOOTER_SIZE
-        footer = self._read_at(footer_offset, FOOTER_SIZE)
-        (opcode, _, summary_start, _, _), _ = unpack("<BQQQI", footer, 0)
-        if opcode != OP_FOOTER or summary_start == 0:
-            raise McapError("the footer or the summary section is missing")
+        summary_start = self._summary_start(data_start)
+        if summary_start:
+            self._read_summary(summary_start)
+        else:
+            self._scan_data(data_start)
 
-        summary = self._read_at(summary_start, footer_offset - summary_start)
-        for opcode, body in iter_records(summary):
-            if opcode == OP_SCHEMA:
-                (schema_id,), pos = unpack("<H", body, 0)
-                name, pos = unpack_string(body, pos)
-                encoding, pos = unpack_string(body, pos)
-                data, pos = unpack_prefixed("<I", body, pos)
-                self._schemas[schema_id] = Schema(schema_id, name, encoding,
-                                                  bytes(data))
-            elif opcode == OP_CHANNEL:
-                (channel_id, schema_id), pos = unpack("<HH", body, 0)
-                topic, pos = unpack_string(body, pos)
-                message_encoding, pos = unpack_string(body, pos)
-                self._channels[channel_id] = Channel(
-                    channel_id, schema_id, topic, message_encoding)
-            elif opcode == OP_CHUNK_INDEX:
+    def _summary_start(self, data_start):
+        """Return the offset of the summary section, or 0 without one."""
+        footer_offset = self.size - MAGIC_SIZE - FOOTER_SIZE
+        if footer_offset < data_start or \
+                self._read_at(self.size - MAGIC_SIZE, MAGIC_SIZE) != MAGIC:
+            return 0
+        (opcode, _, summary_start, _, _), _ = unpack(
+            "<BQQQI", self._read_at(footer_offset, FOOTER_SIZE), 0)
+        if opcode != OP_FOOTER:
+            raise McapError("the footer record is missing")
+        return summary_start
+
+    def _read_summary(self, summary_start):
+        """Take the schemas, the channels, and the indexes from the summary."""
+        end = self.size - MAGIC_SIZE - FOOTER_SIZE
+        for opcode, body in iter_records(
+                self._read_at(summary_start, end - summary_start)):
+            if opcode == OP_CHUNK_INDEX:
                 fields, _ = unpack("<QQQQ", body, 0)
-                self._chunk_indexes.append(ChunkIndex(*fields))
+                self._chunk_indexes.append(ChunkIndex(*fields, True))
             elif opcode == OP_STATISTICS:
                 (self._message_count,), pos = unpack("<Q", body, 0)
                 (start_ns, end_ns), pos = unpack("<QQ", body, pos + 2 + 4 * 4)
                 self._statistics = (start_ns, end_ns)
                 counts, _ = unpack_prefixed("<I", body, pos)
                 self._message_counts = dict(struct.iter_unpack("<HQ", counts))
+            else:
+                self._register(opcode, body)
+
+    def _register(self, opcode, body):
+        """Store the schema or the channel that ``body`` carries."""
+        if opcode == OP_SCHEMA:
+            (schema_id,), pos = unpack("<H", body, 0)
+            name, pos = unpack_string(body, pos)
+            encoding, pos = unpack_string(body, pos)
+            data, pos = unpack_prefixed("<I", body, pos)
+            self._schemas[schema_id] = Schema(schema_id, name, encoding,
+                                              bytes(data))
+        elif opcode == OP_CHANNEL:
+            (channel_id, schema_id), pos = unpack("<HH", body, 0)
+            topic, pos = unpack_string(body, pos)
+            message_encoding, pos = unpack_string(body, pos)
+            self._channels[channel_id] = Channel(
+                channel_id, schema_id, topic, message_encoding)
+
+    def _scan_data(self, offset):
+        """
+        Index a file that has no summary section.
+
+        MCAP leaves the summary section optional, and a recorder that
+        dies leaves the file without one.  The reader walks the data
+        section instead and drops a record that the end of the file cuts
+        short.  A run of messages outside any chunk becomes one span, so
+        an unchunked file reads like a chunked one.
+        """
+        wanted = set()
+        span = None
+        while offset + RECORD_HEADER_SIZE <= self.size:
+            (opcode, size), _ = unpack("<BQ", self._read_at(
+                offset, RECORD_HEADER_SIZE), 0)
+            length = RECORD_HEADER_SIZE + size
+            if opcode == OP_FOOTER or offset + length > self.size:
+                break
+
+            if opcode == OP_MESSAGE:
+                span = self._extend_span(span, offset, length)
+            else:
+                span = self._close_span(span)
+                if opcode == OP_CHUNK:
+                    (start_ns, end_ns), _ = unpack("<QQ", self._read_at(
+                        offset + RECORD_HEADER_SIZE, 16), 0)
+                    self._chunk_indexes.append(ChunkIndex(
+                        start_ns, end_ns, offset, length, True))
+                elif opcode == OP_MESSAGE_INDEX:
+                    (channel_id,), _ = unpack("<H", self._read_at(
+                        offset + RECORD_HEADER_SIZE, 2), 0)
+                    wanted.add(channel_id)
+                elif opcode in (OP_SCHEMA, OP_CHANNEL):
+                    self._register(opcode, self._read_at(
+                        offset + RECORD_HEADER_SIZE, size))
+            offset += length
+        self._close_span(span)
+
+        # The schemas and the channels usually sit inside the chunks, and
+        # the message indexes name every channel that carries a message, so
+        # the walk stops once the chunks account for all of them.
+        for index in self._chunk_indexes:
+            if self._channels_known(wanted):
+                break
+            if index.chunked:
+                for opcode, body in iter_records(self._chunk_records(
+                        index.offset, index.length)):
+                    self._register(opcode, body)
+
+    def _extend_span(self, span, offset, length):
+        """Return ``span`` grown by the message record at ``offset``."""
+        (_, _, log_time, _), _ = unpack("<HIQQ", self._read_at(
+            offset + RECORD_HEADER_SIZE, 22), 0)
+        if span is None:
+            return [log_time, log_time, offset, length]
+        span[0] = min(span[0], log_time)
+        span[1] = max(span[1], log_time)
+        span[3] += length
+        return span
+
+    def _close_span(self, span):
+        """Index ``span`` as a run of messages outside any chunk."""
+        if span is not None:
+            self._chunk_indexes.append(ChunkIndex(*span, False))
+        return None
+
+    def _channels_known(self, wanted):
+        """Tell whether every channel in ``wanted`` has its records."""
+        if not wanted or not wanted.issubset(self._channels):
+            return False
+        return all(ch.schema_id == 0 or ch.schema_id in self._schemas
+                   for ch in self._channels.values())
+
+    def _chunk_records(self, offset, length):
+        """Return the decompressed body of the chunk at ``offset``."""
+        chunk = self._read_at(offset, length)
+        (opcode, _), pos = unpack("<BQ", chunk, 0)
+        if opcode != OP_CHUNK:
+            raise McapError("the chunk index is off a chunk")
+        (_, _, uncompressed_size, _), pos = unpack("<QQQI", chunk, pos)
+        compression, pos = unpack_string(chunk, pos)
+        data, pos = unpack_prefixed("<Q", chunk, pos)
+        return decompress(compression, data, uncompressed_size)
 
     def topics(self):
-        """Return a map from topic to schema name."""
-        return {ch.topic: self._schemas[ch.schema_id].name
-                for ch in self._channels.values()}
+        """Return a map from topic to schema name; "" means no schema."""
+        names = {}
+        for ch in self._channels.values():
+            schema = self._schemas.get(ch.schema_id)
+            names[ch.topic] = schema.name if schema else ""
+        return names
 
     def channels(self):
         """Return every channel in file order."""
@@ -196,7 +311,8 @@ class Reader:
         return found[0]
 
     def schema(self, topic):
-        return self._schemas[self.channel(topic).schema_id]
+        """Return the schema of ``topic``, or ``None`` when it has none."""
+        return self._schemas.get(self.channel(topic).schema_id)
 
     def time_range(self):
         """Return ``(start_ns, end_ns)``, or ``None`` without statistics."""
@@ -233,15 +349,10 @@ class Reader:
                 continue
             if end_ns is not None and index.start_ns >= end_ns:
                 continue
-            chunk = self._read_at(index.offset, index.length)
-            (opcode, _), pos = unpack("<BQ", chunk, 0)
-            if opcode != OP_CHUNK:
-                raise McapError("the chunk index is off a chunk")
-            (_, _, uncompressed_size, _), pos = unpack("<QQQI", chunk, pos)
-            compression, pos = unpack_string(chunk, pos)
-            data, pos = unpack_prefixed("<Q", chunk, pos)
-
-            records = decompress(compression, data, uncompressed_size)
+            if index.chunked:
+                records = self._chunk_records(index.offset, index.length)
+            else:
+                records = self._read_at(index.offset, index.length)
             for opcode, body in iter_records(records):
                 if opcode != OP_MESSAGE:
                     continue
@@ -271,15 +382,22 @@ class Reader:
         Extract the columns of several topics in one pass over the file.
 
         :param specs: a map from topic to a field list or a ``DecodePlan``.
+            A plan built from another ``Schema`` works only when it
+            names the message type the file gives the topic.
         :return: a map from topic to ``Extraction``.
         """
         plans = {}
         for topic, fields in specs.items():
             channel = self.channel(topic)
-            schema = self._schemas[channel.schema_id]
-            plan = fields if isinstance(fields, DecodePlan) else \
-                DecodePlan(schema, fields)
-            if channel.message_encoding != "cdr" or plan.schema != schema:
+            schema = self._schemas.get(channel.schema_id)
+            if isinstance(fields, DecodePlan):
+                plan = fields
+            elif schema is None:
+                raise McapError("topic {!r} carries no schema".format(topic))
+            else:
+                plan = DecodePlan(schema, fields)
+            if channel.message_encoding != "cdr" or \
+                    (schema is not None and plan.schema.name != schema.name):
                 raise McapError("cannot decode {!r} with the plan".format(
                     topic))
             plans[channel.id] = (topic, plan)
