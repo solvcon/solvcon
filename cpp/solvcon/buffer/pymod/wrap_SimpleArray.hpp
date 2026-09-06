@@ -11,6 +11,7 @@
 
 #include <cctype>
 #include <cstdint>
+#include <memory>
 #include <string>
 
 namespace solvcon
@@ -145,16 +146,17 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArray
                 "transpose",
                 [](wrapped_type & self, py::object const & axis, bool inplace, bool copy)
                 {
-                    wrapped_type * ret = inplace ? &self : new wrapped_type(self);
+                    auto owner = inplace ? nullptr : std::make_unique<wrapped_type>(self);
+                    wrapped_type & ret = inplace ? self : *owner;
                     if (axis.is_none())
                     {
-                        ret->transpose(copy);
+                        ret.transpose(copy);
                     }
                     else
                     {
-                        ret->transpose(make_shape(axis), copy);
+                        ret.transpose(make_shape(axis), copy);
                     }
-                    return *ret;
+                    return ret;
                 },
                 py::arg("axis") = py::none(),
                 py::arg("inplace") = true,
