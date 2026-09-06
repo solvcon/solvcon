@@ -9,6 +9,7 @@ import unittest
 import weakref
 
 import numpy as np
+from numpy.testing import assert_array_equal
 
 import solvcon
 
@@ -291,6 +292,12 @@ class BufferExpanderBasicTC(unittest.TestCase):
 
 class SimpleArrayBasicTC(unittest.TestCase):
 
+    @staticmethod
+    def make_owned(cls, shape):
+        if cls is solvcon.SimpleArray:
+            return cls(shape=shape, dtype='float64')
+        return cls(shape=shape)
+
     def test_SimpleArray(self):
 
         sarr = solvcon.SimpleArrayFloat64((2, 3, 4))
@@ -439,6 +446,29 @@ class SimpleArrayBasicTC(unittest.TestCase):
                     self.assertTrue(sarr.is_f_contiguous)
                     np.testing.assert_array_equal(ndarr, sarr.ndarray)
 
+    def test_slice_empty_and_scalar(self):
+        for cls, shape in itertools.product(
+                (solvcon.SimpleArrayFloat64, solvcon.SimpleArray),
+                ((0,), (0, 3), (3, 0), ())):
+            with self.subTest(cls=cls, shape=shape):
+                source = np.zeros(shape, dtype='float64')
+                array = cls(array=source)
+                result = array[...]
+                self.assertEqual(result.shape, shape)
+                assert_array_equal(result, source)
+                if shape:
+                    assert_array_equal(array[::-1], source[::-1])
+                else:
+                    with self.assertRaises(IndexError) as raised:
+                        array[:]
+                    self.assertEqual(str(raised.exception),
+                                     'cannot slice a zero-dimensional array')
+        for cls in (solvcon.SimpleArrayFloat64, solvcon.SimpleArray):
+            with self.assertRaises(IndexError) as raised:
+                self.make_owned(cls, ())[...]
+            self.assertEqual(str(raised.exception),
+                             'cannot slice an array without storage')
+
     def test_SimpleArray_fortran_1x2(self):
         ndarr = np.asfortranarray([[1.0, 0.1]])
         sarr = solvcon.SimpleArrayFloat64(array=ndarr)
@@ -518,6 +548,33 @@ class SimpleArrayBasicTC(unittest.TestCase):
                 del array
                 gc.collect()
                 self.assertIsNone(owner())
+
+    def test_slice_lifetime(self):
+        for cls, numpy_owned in itertools.product(
+                (solvcon.SimpleArrayFloat64, solvcon.SimpleArray),
+                (False, True)):
+            with self.subTest(cls=cls, numpy_owned=numpy_owned):
+                source = np.arange(10, dtype='float64')
+                source_ref = weakref.ref(source)
+                array = (cls(array=source) if numpy_owned else
+                         self.make_owned(cls, 10))
+                array[...] = source
+                view = array[8:1:-2]
+                nested = view[1:]
+                if cls is solvcon.SimpleArrayFloat64:
+                    self.assertEqual(nested.is_from_python, numpy_owned)
+                del array, source, view
+                gc.collect()
+                if numpy_owned:
+                    self.assertIsNotNone(source_ref())
+                assert_array_equal(nested, [6, 4, 2])
+                nested[0] = 99.0
+                assert_array_equal(nested, [99, 4, 2])
+                nested[...] = np.array([7, 8, 9], dtype='float64')
+                assert_array_equal(nested, [7, 8, 9])
+                del nested
+                gc.collect()
+                self.assertIsNone(source_ref())
 
     def test_SimpleArray_clone(self):
         sarr = solvcon.SimpleArrayFloat64((2, 3, 4))
@@ -954,6 +1011,16 @@ class SimpleArrayBasicTC(unittest.TestCase):
                 r"for 3-dimensional array"
         ):
             sarr[-1]
+
+    def test_scalar_indices(self):
+        for cls in (solvcon.SimpleArrayFloat64, solvcon.SimpleArray):
+            source = np.arange(6, dtype='float64').reshape(2, 3)
+            array = cls(array=source)
+            for key in ((1, 2), [1, 2], (np.int64(1), np.int64(2))):
+                with self.subTest(cls=cls, key=key):
+                    self.assertEqual(array[key], 5)
+            line = cls(array=source.reshape(-1))
+            self.assertEqual(line[np.int64(2)], 2)
 
     def test_SimpleArray_types(self):
 
@@ -1451,6 +1518,38 @@ class SimpleArrayBasicTC(unittest.TestCase):
 
         np.testing.assert_array_equal(sliced_ndarr, expected)
 
+    def test_slice_layouts(self):
+        dtypes = ('bool', 'int8', 'int16', 'int32', 'int64', 'uint8',
+                  'uint16', 'uint32', 'uint64', 'float16', 'float32',
+                  'float64', 'complex64', 'complex128')
+        keys = (np.s_[:], np.s_[...], np.s_[1:4, ...], np.s_[..., 1:4],
+                np.s_[1:4:2, ::-1], np.s_[..., 1::2], np.s_[::-1, ...],
+                np.s_[2:2], np.s_[100:], np.s_[:-100:-1], np.s_[:, 3:1],
+                np.s_[1, :], np.s_[:, -1], np.s_[1, 3:3],
+                np.s_[np.int64(1), ...], np.s_[..., np.int64(-1)])
+        for dtype, layout, key in itertools.product(
+                dtypes, ('C', 'F', 'step', 'reverse', 'zero'), keys):
+            data = np.arange(30, dtype='int32').reshape(5, 6).astype(dtype)
+            source = {'C': data, 'F': np.asfortranarray(data),
+                      'step': data[:, ::2], 'reverse': data[::-1],
+                      'zero': np.ndarray(data.shape, dtype=dtype, buffer=data,
+                                         strides=(0, data.itemsize))}[layout]
+            classes = (getattr(solvcon, 'SimpleArray' + dtype.capitalize()),
+                       solvcon.SimpleArray)
+            for cls in classes:
+                with self.subTest(dtype=dtype, layout=layout, key=key,
+                                  cls=cls):
+                    array = cls(array=source)
+                    result = array[key]
+                    self.assertIsInstance(result, cls)
+                    self.assertEqual(result.shape, source[key].shape)
+                    self.assertEqual(np.asarray(result).dtype, source.dtype)
+                    self.assertEqual(result.nghost, 0)
+                    assert_array_equal(result, source[key])
+                    if result.size:
+                        self.assertTrue(np.shares_memory(result, source))
+                        assert_array_equal(result[::-1], source[key][::-1])
+
     def test_SimpleArray_broadcast_slice_ghost_1d(self):
         import math
         N = 13
@@ -1533,6 +1632,47 @@ class SimpleArrayBasicTC(unittest.TestCase):
                 for k in range(4):
                     self.assertEqual(ndarr2[i, j, k], sarr[i - G, j, k])
 
+    def test_slice_ghost_read_write(self):
+        keys = ((np.s_[-2:0], np.s_[:2]),
+                (np.s_[0:], np.s_[2:]),
+                (np.s_[:], np.s_[:]),
+                (np.s_[...], np.s_[...]),
+                (np.s_[::-1], np.s_[::-1]),
+                (np.s_[0::2, ...], np.s_[2::2, ...]),
+                (np.s_[-2:0, ::-1], np.s_[:2, ::-1]),
+                (np.s_[..., 1:], np.s_[..., 1:]),
+                (np.s_[0, :], np.s_[2, :]),
+                (np.s_[-2, ::-1], np.s_[0, ::-1]),
+                (np.s_[-3, ...], np.s_[-1, ...]),
+                (np.s_[-7, :], np.s_[0, :]),
+                (np.s_[..., 1], np.s_[..., 1]))
+        for cls, (key, np_key) in itertools.product(
+                (solvcon.SimpleArrayFloat64, solvcon.SimpleArray), keys):
+            with self.subTest(cls=cls, key=key):
+                source = np.arange(15, dtype='float64').reshape(5, 3)
+                expected = source.copy()
+                array = cls(array=source)
+                array.nghost = 2
+                result = array[key]
+                assert_array_equal(result, source[np_key])
+                self.assertEqual(result.nghost, 0)
+                first = (0,) * len(result.shape)
+                self.assertEqual(result[first], source[np_key][first])
+                values = np.full(result.shape, 42, dtype='float64')
+                if len(result.shape) == 1:
+                    error = ('Broadcast input array from shape(1, {0}) '
+                             'into shape({0})').format(result.size)
+                    with self.assertRaises(RuntimeError) as raised:
+                        array[key] = values[np.newaxis]
+                    self.assertEqual(str(raised.exception), error)
+                array[key] = values
+                assert_array_equal(result, values)
+                result[first] = 99.0
+                expected[np_key] = values
+                expected[np_key][first] = 99
+                assert_array_equal(source, expected)
+                self.assertEqual(array.nghost, 2)
+
     def test_SimpleArray_broadcast_slice_negative_bounds(self):
         ndarr_shape = (8, 9, 10, 11, 12)
         ndarr = np.arange(np.prod(ndarr_shape), dtype='float64')
@@ -1556,6 +1696,37 @@ class SimpleArrayBasicTC(unittest.TestCase):
         sarr = solvcon.SimpleArrayFloat64(array=ndarr)
         with self.assertRaisesRegex(ValueError, "slice step cannot be zero"):
             sarr[::0, :, :] = np.zeros((4, 5, 6), dtype='float64')
+
+    def test_slice_errors(self):
+        cases = ((np.s_[::0], ValueError, 'slice step cannot be zero'),
+                 (np.s_[..., ...], RuntimeError,
+                  'syntax error. no more than one ellipsis.'),
+                 (np.s_[:, :, :], RuntimeError,
+                  'syntax error. dimensions mismatches'),
+                 (np.s_[None, :], RuntimeError, 'unsupported operation.'),
+                 (np.s_[3, :], IndexError, 'index out of range for axis 0'),
+                 (np.s_[-8, :], IndexError, 'index out of range for axis 0'),
+                 (np.s_[:, 3], IndexError, 'index out of range for axis 1'),
+                 (np.s_[:, -4], IndexError, 'index out of range for axis 1'),
+                 (np.s_[::2**100], OverflowError,
+                  'slice stride exceeds the supported range'),
+                 (np.s_[:, ::2**100], OverflowError,
+                  'slice byte stride exceeds the supported range'))
+        for cls, (key, error, message) in itertools.product(
+                (solvcon.SimpleArrayFloat64, solvcon.SimpleArray), cases):
+            with self.subTest(cls=cls, key=key):
+                source = np.arange(15, dtype='float64').reshape(5, 3)
+                expected = source.copy()
+                array = cls(array=source)
+                array.nghost = 2
+                with self.assertRaises(error) as raised:
+                    array[key]
+                self.assertEqual(str(raised.exception), message)
+                with self.assertRaises(error) as raised:
+                    array[key] = np.zeros((5, 3), dtype='float64')
+                self.assertEqual(str(raised.exception), message)
+                self.assertEqual(array.nghost, 2)
+                assert_array_equal(array, expected)
 
     def test_SimpleArray_broadcast_from_list_list(self):
         sarr = solvcon.SimpleArrayFloat64((2, 3))
