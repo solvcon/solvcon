@@ -79,15 +79,15 @@ buf = solvcon.ConcreteBuffer(array=ndarr)
 assert buf.nbytes == ndarr.nbytes
 ```
 
-The dtype and shape of the source array do not matter, but the array must be
-contiguous; the buffer covers its `nbytes` bytes and shares them zero-copy, so
-writing through one side is visible on the other. The constructor also accepts
-the optional `alignment` keyword, validated against the same set (0, 16, 32,
-or 64); no size-multiple check applies because nothing is allocated. The
-buffer holds a reference to the source array, tying the lifetime of the memory
-to the Python object. The `is_from_python` property reports the provenance: it
-is `True` for a buffer wrapping a numpy array and `False` for a buffer that
-allocated its own memory.
+The dtype and shape of the source array do not matter, but the array must be C-
+or F-contiguous; other layouts raise `ValueError`. The buffer covers its
+`nbytes` bytes and shares them zero-copy, so writing through one side is
+visible on the other. The constructor also accepts the optional `alignment`
+keyword, validated against the same set (0, 16, 32, or 64); no size-multiple
+check applies because nothing is allocated. The buffer holds a reference to the
+source array, tying the lifetime of the memory to the Python object. The
+`is_from_python` property reports the provenance: it is `True` for a buffer
+wrapping a numpy array and `False` for a buffer that allocated its own memory.
 
 ## BufferExpander
 

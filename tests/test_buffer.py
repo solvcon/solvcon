@@ -79,6 +79,44 @@ class ConcreteBufferBasicTC(unittest.TestCase):
         buf.ndarray.fill(0)
         self.assertTrue((ndarr == 0).all())
 
+    def test_from_ndarray_rejects_noncontiguous(self):
+        storage = np.arange(64, dtype='int8')
+        cases = (
+            ('step', storage[:8:2]),
+            ('reverse', storage[:8][::-1]),
+            ('columns', storage.reshape(8, 8)[:, ::2]),
+            ('zero', np.ndarray((4,), dtype='int8', buffer=storage,
+                                strides=(0,))),
+        )
+        for layout, source in cases:
+            with self.subTest(layout=layout):
+                with self.assertRaisesRegex(
+                        ValueError,
+                        'input array must be C- or F-contiguous'):
+                    solvcon.ConcreteBuffer(array=source)
+
+    def test_from_ndarray_contiguous_layouts(self):
+        shapes = ((2, 3), (1, 3), (0, 3), ())
+        for shape, order, dtype in itertools.product(
+                shapes, ('C', 'F'), ('int8', 'float64')):
+            with self.subTest(shape=shape, order=order, dtype=dtype):
+                source = np.empty(shape, dtype=dtype, order=order)
+                source.flat = np.arange(source.size, dtype=dtype)
+                expected = np.frombuffer(source.tobytes(order='A'),
+                                         dtype='int8')
+
+                buffer = solvcon.ConcreteBuffer(array=source)
+
+                self.assertEqual(source.nbytes, buffer.nbytes)
+                self.assertTrue(buffer.is_from_python)
+                np.testing.assert_array_equal(expected, buffer.ndarray)
+                self.assertEqual(source.ctypes.data,
+                                 buffer.ndarray.ctypes.data)
+                if source.size:
+                    self.assertTrue(np.shares_memory(source, buffer.ndarray))
+                    buffer.ndarray.fill(0)
+                    self.assertFalse(np.any(source))
+
 
 class ConcreteBufferAlignmentTC(unittest.TestCase):
     """
