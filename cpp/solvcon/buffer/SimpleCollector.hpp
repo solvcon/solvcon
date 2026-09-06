@@ -119,7 +119,7 @@ public:
 
     SimpleArray<T> as_array()
     {
-        return SimpleArray<T>(expander().as_concrete());
+        return SimpleArray<T>({static_cast<ssize_t>(size())}, {1}, expander().as_concrete());
     }
 
     void push_back(value_type const & value)

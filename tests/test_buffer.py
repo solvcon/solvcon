@@ -6168,10 +6168,45 @@ class SimpleCollectorTC(unittest.TestCase):
         for it in range(5):
             self.assertEqual(it * 1.1, arr[it])
 
+        empty = ct.as_array()
+        self.assertEqual((0,), empty.shape)
+        self.assertEqual([], empty.ndarray.tolist())
+        self.assertEqual(old_capacity, ct.capacity)
+
         # Collector can be reused after clear.
         ct.push_back(42.0)
         self.assertEqual(1, len(ct))
         self.assertEqual(42.0, ct[0])
+
+        reused = ct.as_array()
+        self.assertEqual((1,), reused.shape)
+        self.assertEqual([42.0], reused.ndarray.tolist())
+        self.assertTrue(np.shares_memory(arr.ndarray, reused.ndarray))
+        self.assertEqual((0,), empty.shape)
+
+    def test_as_array_after_shrink(self):
+        classes = (solvcon.SimpleCollectorInt32,
+                   solvcon.SimpleCollectorFloat64)
+        for cls, length, alignment in itertools.product(
+                classes, (0, 1, 3), (0, 16)):
+            with self.subTest(cls=cls, length=length, alignment=alignment):
+                collector = cls(4, alignment)
+                for index in range(4):
+                    collector[index] = index
+                original = collector.as_array()
+
+                collector.expand(length)
+                result = collector.as_array()
+
+                self.assertEqual((length,), result.shape)
+                self.assertEqual(list(range(length)), result.ndarray.tolist())
+                self.assertEqual(alignment, result.alignment)
+                self.assertEqual(4, collector.capacity)
+                self.assertEqual((4,), original.shape)
+                self.assertEqual(list(range(4)), original.ndarray.tolist())
+                if length:
+                    self.assertTrue(np.shares_memory(
+                        original.ndarray, result.ndarray))
 
     def test_alignment_preserved_in_as_concrete(self):
         ep = solvcon.BufferExpander(128, 16)
