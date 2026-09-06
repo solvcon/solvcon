@@ -209,11 +209,9 @@ interpreter to the configure step.  A CLion user can therefore drop the
 
 `CMakeUserPresets.scdv.json` and `CMakeUserPresets.win-scdv.json` sit beside
 the two templates above for a prefix that `build-scdv.sh` built (see
-{doc}`/start/build_dep`).  Their configure preset is `ide-scdv-reldbg`, and it
-names that prefix once rather than repeating it in three literal paths, so
-installing one substitutes a single value instead of editing three.  The
-`ide-user-presets` skill under `.claude/skills/` states the substitution and
-what has to hold for it.
+{doc}`/start/build_dep`). The script `contrib/cmake/install-user-presets.py`
+installs the template to the project root and uses the value in the environment
+variable `SCDV_USRDIR` for the placeholder in the template.
 
 ## IDE notes
 
