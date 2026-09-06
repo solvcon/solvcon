@@ -175,6 +175,10 @@ public:
             }
             else
             {
+                if (m_head != m_data.data())
+                {
+                    delete[] m_head;
+                }
                 m_size = other.m_size;
                 m_capacity = other.m_capacity;
                 m_head = other.m_head;

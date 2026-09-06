@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#include <memory>
 #include <random>
 #include <type_traits>
 #ifdef Py_PYTHON_H
@@ -659,6 +660,23 @@ TEST(SimpleCollector, pop_back)
     coll.pop_back();
     EXPECT_TRUE(coll.empty());
     EXPECT_THROW(coll.pop_back(), std::out_of_range);
+}
+
+TEST(small_vector, heap_move_assignment_releases_destination)
+{
+    solvcon::small_vector<std::shared_ptr<int>> destination(4, std::make_shared<int>(7));
+    std::weak_ptr<int> previous = destination[0];
+    solvcon::small_vector<std::shared_ptr<int>> source(5, std::make_shared<int>(42));
+    auto * const source_data = source.data();
+
+    destination = std::move(source);
+
+    EXPECT_TRUE(previous.expired());
+    EXPECT_EQ(source_data, destination.data());
+    EXPECT_EQ(5, destination.size());
+    EXPECT_EQ(5, destination.capacity());
+    EXPECT_EQ(42, *destination[0]);
+    EXPECT_TRUE(source.empty());
 }
 
 TEST(small_vector, select_kth)
