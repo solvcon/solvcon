@@ -18,12 +18,21 @@ from . import apputil
 
 
 __all__ = [
+    'python_command',
     'setup_process',
     'enter_main',
     'exec_code',
     'get_completions',
     'get_call_tip',
 ]
+
+
+def python_command(*args):
+    """Build an argument list for the active Python or embedded interpreter."""
+    clinfo = solvcon.clinfo
+    if clinfo.populated:
+        return [clinfo.populated_argv[0], '--mode=python', *args]
+    return [sys.executable, *args]
 
 
 class SolvconArgumentParser(argparse.ArgumentParser):

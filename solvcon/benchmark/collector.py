@@ -130,8 +130,13 @@ def _compare_result(execute, name, reference):
     }
 
 
-def _compare(spec, execute):
+def _ignore_progress(phase, name):
+    pass
+
+
+def _compare(spec, execute, progress=_ignore_progress):
     """Compare every requested kernel with the NumPy reference."""
+    progress('comparison', 'numpy')
     reference = np.atleast_1d(execute('numpy'))
     if reference.shape != spec.output_shape:
         raise RuntimeError('NumPy reference shape does not match spec')
@@ -147,10 +152,10 @@ def _compare(spec, execute):
             }
             for name in spec.kernels + ('numpy',)
         }
-    comparison = {
-        name: _compare_result(execute, name, reference)
-        for name in spec.kernels
-    }
+    comparison = {}
+    for name in spec.kernels:
+        progress('comparison', name)
+        comparison[name] = _compare_result(execute, name, reference)
     comparison['numpy'] = {
         'status': 'measured',
         'reason': None,
@@ -218,7 +223,8 @@ def _williams_rows(names):
     return tuple(named_rows)
 
 
-def _time_candidates(execute, names, sampling, clock):
+def _time_candidates(execute, names, sampling, clock,
+                     progress=_ignore_progress):
     """Time one repetition block per candidate in each scheduled round.
 
     A round selects one Williams row. Each candidate gets one clock interval
@@ -230,6 +236,7 @@ def _time_candidates(execute, names, sampling, clock):
     # both phases on one cyclic schedule.
     for warmup_index in range(-sampling.warmups, 0):
         for name in rows[warmup_index % len(rows)]:
+            progress('warmup', name)
             execute(name)
 
     elapsed_by_name = {name: [] for name in names}
@@ -238,6 +245,7 @@ def _time_candidates(execute, names, sampling, clock):
         row = rows[round_index % len(rows)]
         round_orders.append(list(row))
         for name in row:
+            progress('timing', name)
             start = clock()
             for _ in range(sampling.repetitions):
                 execute(name)
@@ -245,13 +253,13 @@ def _time_candidates(execute, names, sampling, clock):
     return round_orders, elapsed_by_name
 
 
-def _collect(spec, execute, clock):
+def _collect(spec, execute, clock, progress=_ignore_progress):
     names = spec.kernels + ('numpy',)
-    comparison = _compare(spec, execute)
+    comparison = _compare(spec, execute, progress)
     measured_names = tuple(
         name for name in names if comparison[name]['status'] == 'measured')
     round_orders, elapsed_by_name = _time_candidates(
-        execute, measured_names, spec.sampling, clock)
+        execute, measured_names, spec.sampling, clock, progress)
     results = []
     for name in names:
         result = {'name': name, **comparison[name]}
@@ -264,13 +272,13 @@ def _collect(spec, execute, clock):
     }
 
 
-def collect(spec):
-    """Collect one exact matmul comparison from a validated specification."""
+def collect(spec, *, progress=_ignore_progress):
+    """Collect a comparison, reporting (phase, kernel) outside timed blocks."""
 
     if not isinstance(spec, matmul.MatmulSpec):
         raise TypeError('spec must be a MatmulSpec')
     return _collect(
-        spec, _make_executor(spec), time.perf_counter_ns)
+        spec, _make_executor(spec), time.perf_counter_ns, progress)
 
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:
