@@ -10,6 +10,7 @@
 #include <pybind11/numpy.h>
 #include <pybind11/embed.h>
 
+#include <algorithm>
 #include <atomic>
 
 #include <solvcon/toggle/toggle.hpp>
@@ -215,6 +216,106 @@ std::enable_if_t<is_simple_array_v<S>, pybind11::array> to_ndarray(S && sarr)
     );
 }
 
+/**
+ * Build an array viewing the memory of a numpy array.
+ *
+ * The result shares the buffer with @p arr_in and keeps it alive, so it
+ * carries the per-axis strides in elements and the offset a negative stride
+ * puts the first element at.
+ *
+ * @param[in] arr_in Source array, whose dtype must be @p T.
+ * @return An array over the same memory.
+ */
+template <typename T>
+SimpleArray<T> make_array_from_numpy(pybind11::array & arr_in)
+{
+    namespace py = pybind11;
+
+    using value_type = typename SimpleArray<T>::value_type;
+    using array_order_type = typename SimpleArray<T>::ArrayOrder;
+
+    if (!dtype_is_type<T>(arr_in))
+    {
+        throw std::runtime_error("dtype mismatch");
+    }
+
+    solvcon::detail::shape_type shape;
+    solvcon::detail::shape_type stride;
+    constexpr auto itemsize = static_cast<ssize_t>(sizeof(value_type));
+    ssize_t byte_span_begin = 0;
+    ssize_t byte_span_end = 0;
+    bool has_element = true;
+    for (ssize_t i = 0; i < arr_in.ndim(); ++i)
+    {
+        shape.push_back(arr_in.shape(i));
+        ssize_t const byte_stride = arr_in.strides(i);
+        if (byte_stride % itemsize != 0)
+        {
+            throw std::runtime_error(
+                std::format("NumPy byte stride {} in dimension {} is not divisible by item size {}",
+                            byte_stride,
+                            i,
+                            itemsize));
+        }
+        stride.push_back(byte_stride / itemsize);
+        if (shape[i] == 0)
+        {
+            has_element = false;
+            continue;
+        }
+        ssize_t const axis_byte_offset = (shape[i] - 1) * byte_stride;
+        if (axis_byte_offset < 0)
+        {
+            byte_span_begin += axis_byte_offset;
+        }
+        else
+        {
+            byte_span_end += axis_byte_offset;
+        }
+    }
+    if (!has_element)
+    {
+        byte_span_begin = 0;
+        byte_span_end = 0;
+    }
+
+    array_order_type array_order = array_order_type::Unspecified;
+    if ((arr_in.flags() & py::array::c_style) == py::array::c_style)
+    {
+        array_order |= array_order_type::CType;
+    }
+    if ((arr_in.flags() & py::array::f_style) == py::array::f_style)
+    {
+        array_order |= array_order_type::FType;
+    }
+
+    char * view_ptr = static_cast<char *>(arr_in.mutable_data());
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    if (reinterpret_cast<std::uintptr_t>(view_ptr) % alignof(value_type) != 0)
+    {
+        throw std::runtime_error(
+            std::format("NumPy data pointer is not aligned for item alignment {}", alignof(value_type)));
+    }
+    char * storage_ptr = view_ptr + byte_span_begin;
+    const size_t storage_nbytes = has_element
+                                      ? static_cast<size_t>(byte_span_end - byte_span_begin + itemsize)
+                                      : 0;
+    const auto data_offset = static_cast<size_t>(-byte_span_begin);
+    // The input retains its storage without traversing an overridable base.
+    auto remover = std::make_unique<ConcreteBufferNdarrayRemover>(arr_in);
+    const auto buffer = ConcreteBuffer::construct(storage_nbytes, storage_ptr, std::move(remover));
+    return SimpleArray<T>(shape, stride, buffer, data_offset, array_order);
+}
+
+template <typename T>
+static void validate_array_shape(SimpleArray<T> const & array, pybind11::array const & ndarr)
+{
+    if (array.ndim() != ndarr.ndim() || !std::equal(array.shape().begin(), array.shape().end(), ndarr.shape()))
+    {
+        throw std::length_error("input array shape differs from internal array shape");
+    }
+}
+
 template <typename T>
 static SimpleArray<T> makeSimpleArray(pybind11::array_t<T> & ndarr)
 {
@@ -374,7 +475,8 @@ public:
                             << this_array.nbytes() << " bytes of internal array";
                         throw std::length_error(msg.str());
                     }
-                    makeSimpleArray(ndarr).swap(this_array);
+                    validate_array_shape(this_array, ndarr);
+                    make_array_from_numpy<typename array_type::value_type>(ndarr).swap(this_array);
                 })
             //
             ;
@@ -412,7 +514,8 @@ public:
                             << this_array.nbytes() << " bytes of internal array";
                         throw std::length_error(msg.str());
                     }
-                    this_array.swap(makeSimpleArray(ndarr));
+                    validate_array_shape(this_array, ndarr);
+                    make_array_from_numpy<typename array_type::value_type>(ndarr).swap(this_array);
                 })
             //
             ;

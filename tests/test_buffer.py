@@ -2,9 +2,11 @@
 # BSD 3-Clause License, see COPYING
 
 
+import gc
 import itertools
 import operator
 import unittest
+import weakref
 
 import numpy as np
 
@@ -449,6 +451,35 @@ class SimpleArrayBasicTC(unittest.TestCase):
         sarr.ndarray[0, 0] = 200
         self.assertEqual(200, ndarr[1, 2])
         self.assertEqual(100, clone.ndarray[0, 0])
+
+    def test_SimpleArray_base_cycle(self):
+        class CyclicArray(np.ndarray):
+            @property
+            def base(self):
+                # Fail on a second visit instead of hanging on a regression.
+                if self.visited:
+                    raise RuntimeError('base traversal revisited an array')
+                self.visited = True
+                return self.parent
+
+        for length in (1, 2, 3):
+            with self.subTest(length=length):
+                src = np.arange(8, dtype='float64').reshape(4, 2)
+                expected = src.copy()
+                views = [src.view(CyclicArray) for _ in range(length)]
+                for index in range(length):
+                    views[index].parent = views[(index + 1) % length]
+                    views[index].visited = False
+                owner = weakref.ref(src.base)
+                array = solvcon.SimpleArrayFloat64(array=views[0])
+                self.assertEqual(src.ctypes.data, array.ndarray.ctypes.data)
+                del src, views
+                gc.collect()
+                self.assertIsNotNone(owner())
+                np.testing.assert_array_equal(expected, array.ndarray)
+                del array
+                gc.collect()
+                self.assertIsNone(owner())
 
     def test_SimpleArray_clone(self):
         sarr = solvcon.SimpleArrayFloat64((2, 3, 4))

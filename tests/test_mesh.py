@@ -2,7 +2,9 @@
 # BSD 3-Clause License, see COPYING
 
 
+import gc
 import unittest
+import weakref
 
 import numpy as np
 
@@ -59,6 +61,83 @@ class StaticMeshTC(unittest.TestCase):
 
         _test(solvcon.StaticMesh, ndim=2)
         _test(solvcon.StaticMesh, ndim=3)
+
+    def test_ndcrd_invalid(self):
+        readonly = np.zeros((4, 2), dtype='float64')
+        readonly.flags.writeable = False
+        shape_error = 'input array shape differs from internal array shape'
+        cases = ((4, np.zeros(8, dtype='float64'), shape_error),
+                 (4, np.zeros((2, 4), dtype='float64'), shape_error),
+                 (0, np.zeros((0, 3), dtype='float64'), shape_error),
+                 (4, readonly, 'array is not writeable'))
+        for nnode, src, error in cases:
+            with self.subTest(nnode=nnode, shape=src.shape, error=error):
+                mesh = solvcon.StaticMesh(ndim=2, nnode=nnode)
+                expected = np.arange(nnode * 2, dtype='float64').reshape(-1, 2)
+                dst = expected.copy()
+                mesh.ndcrd = dst
+
+                with self.assertRaises(ValueError) as caught:
+                    mesh.ndcrd = src
+                self.assertEqual(error, str(caught.exception))
+
+                np.testing.assert_array_equal(expected, mesh.ndcrd.ndarray)
+                self.assertEqual(dst.ctypes.data,
+                                 mesh.ndcrd.ndarray.ctypes.data)
+
+    def test_ndcrd_empty(self):
+        mesh = solvcon.StaticMesh(ndim=2, nnode=0)
+        src = np.empty((0, 2), dtype='float64')
+        mesh.ndcrd = src
+        self.assertEqual((0, 2), mesh.ndcrd.shape)
+        self.assertEqual(src.ctypes.data, mesh.ndcrd.ndarray.ctypes.data)
+
+    def test_ndcrd_layout(self):
+        data = np.arange(8, dtype='float64').reshape(4, 2)
+        storage = np.arange(32, dtype='float64').reshape(8, 4)
+        views = {'C': data.copy(),
+                 'F': np.asfortranarray(data, dtype='float64'),
+                 'step': storage[::2, ::2], 'reverse': data[::-1, ::-1]}
+        for layout, src in views.items():
+            with self.subTest(layout=layout):
+                mesh = solvcon.StaticMesh(ndim=2, nnode=4)
+                mesh.ndcrd = src
+                np.testing.assert_array_equal(src, mesh.ndcrd.ndarray)
+                self.assertEqual(src.strides, mesh.ndcrd.ndarray.strides)
+                mesh.ndcrd[0, 0] = -1
+                self.assertEqual(-1, src[0, 0])
+
+    def test_ndcrd_owner(self):
+        src = np.arange(8, dtype='float64').reshape(4, 2)[::-1, ::-1]
+        expected = src.copy()
+        owner = weakref.ref(src.base)
+        mesh = solvcon.StaticMesh(ndim=2, nnode=4)
+        mesh.ndcrd = src
+        del src
+        gc.collect()
+        self.assertIsNotNone(owner())
+        np.testing.assert_array_equal(expected, mesh.ndcrd.ndarray)
+        del mesh
+        gc.collect()
+        self.assertIsNone(owner())
+
+    def test_ndcrd_build(self):
+        coords = np.array(((0, 0), (1, 0), (0, 1)), dtype='float64')
+        view = np.empty_like(coords, dtype='float64')[::-1, ::-1]
+        view[:] = coords
+        meshes = []
+        for src in (coords, view):
+            mesh = solvcon.StaticMesh(ndim=2, nnode=3, ncell=1)
+            mesh.ndcrd = src
+            mesh.cltpn.ndarray[:] = solvcon.StaticMesh.TRIANGLE
+            mesh.clnds.ndarray[0, :4] = (3, 0, 1, 2)
+            mesh.build_interior()
+            mesh.build_boundary()
+            mesh.build_ghost()
+            meshes.append(mesh)
+        for name in ('ndcrd', 'fccnd', 'fcnml', 'clcnd', 'clvol'):
+            np.testing.assert_allclose(getattr(meshes[0], name).ndarray,
+                                       getattr(meshes[1], name).ndarray)
 
     def test_2d_trivial_triangles(self):
         mh = solvcon.StaticMesh(ndim=2, nnode=4, nface=0, ncell=3)
