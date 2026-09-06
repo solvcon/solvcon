@@ -2,6 +2,7 @@
 # BSD 3-Clause License, see COPYING
 
 
+import itertools
 import operator
 import unittest
 
@@ -512,6 +513,44 @@ class SimpleArrayBasicTC(unittest.TestCase):
         check_equal(sarr, ndarr)
         check_equal(sarr2, ndarrT)
         self.assertNotEqual(memoryview(sarr), memoryview(sarr2))
+
+    def test_SimpleArray_transpose_invalid_axes(self):
+        ndarr = np.arange(24, dtype='float64').reshape(2, 3, 4)
+        cases = [
+            ((0, 0, 2), 'axis already set'),
+            ((2, 1, 2), 'axis already set'),
+            ((0, 1), 'axis size mismatch'),
+            ((0, 1, 3), 'axis out of range'),
+        ]
+        for inplace, copy, (axes, message) in itertools.product(
+                (False, True), (False, True), cases):
+            with self.subTest(inplace=inplace, copy=copy, axes=axes):
+                sarr = solvcon.SimpleArrayFloat64(array=ndarr.copy())
+                original_stride = sarr.stride
+
+                with self.assertRaisesRegex(RuntimeError, message):
+                    sarr.transpose(axis=axes, inplace=inplace, copy=copy)
+
+                self.assertEqual(sarr.shape, ndarr.shape)
+                self.assertEqual(sarr.stride, original_stride)
+                np.testing.assert_array_equal(sarr.ndarray, ndarr)
+
+    def test_SimpleArray_transpose_modes(self):
+        ndarr = np.arange(24, dtype='float64').reshape(2, 3, 4)
+        for inplace, copy, axes in itertools.product(
+                (False, True), (False, True), (None, (2, 0, 1))):
+            with self.subTest(inplace=inplace, copy=copy, axes=axes):
+                sarr = solvcon.SimpleArrayFloat64(array=ndarr.copy())
+                expected = ndarr.transpose(axes)
+
+                result = sarr.transpose(axis=axes, inplace=inplace, copy=copy)
+
+                np.testing.assert_array_equal(result.ndarray, expected)
+                np.testing.assert_array_equal(
+                    sarr.ndarray, expected if inplace else ndarr)
+                if not inplace:
+                    result.ndarray.flat[0] = -1
+                    np.testing.assert_array_equal(sarr.ndarray, ndarr)
 
     def test_SimpleArray_transpose_copy(self):
         # Physical (deep-copy) transpose variants.  Cover 1D, 2D, 3D, 4D;

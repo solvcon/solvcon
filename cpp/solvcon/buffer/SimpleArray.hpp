@@ -3020,7 +3020,8 @@ void SimpleArray<T>::transpose(shape_type const & axis, bool copy)
     {
         throw std::runtime_error("SimpleArray::transpose: axis size mismatch");
     }
-    shape_type new_shape(m_shape.size(), -1);
+    small_vector<bool> seen(m_shape.size(), false);
+    shape_type new_shape(m_shape.size());
     shape_type new_stride(m_stride.size());
     for (ssize_t it = 0; it < ndim(); ++it)
     {
@@ -3028,10 +3029,11 @@ void SimpleArray<T>::transpose(shape_type const & axis, bool copy)
         {
             throw std::runtime_error("SimpleArray::transpose: axis out of range");
         }
-        if (new_shape[it] != -1)
+        if (seen[axis[it]])
         {
             throw std::runtime_error("SimpleArray::transpose: axis already set");
         }
+        seen[axis[it]] = true;
         new_shape[it] = m_shape[axis[it]];
         new_stride[it] = m_stride[axis[it]];
     }
