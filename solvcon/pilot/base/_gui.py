@@ -15,6 +15,7 @@ from .. import airfoil
 
 if _pcore.enable:
     from . import _gui_common
+    from .. import _benchmark_inspector
     from ..visual import _mesh
     from ..panel import _tree_panel
     from ..apps import obsrefl
@@ -75,6 +76,7 @@ class _Controller(metaclass=_Singleton):
         self.save_2d_canvas = None
         self.openprofiledata = None
         self.runprofiling = None
+        self.benchmark = None
         self.mcap_panel = None
         self.agent = None
         self.theme_menu = None
@@ -148,6 +150,16 @@ class _Controller(metaclass=_Singleton):
         self._rmgr.pycon.writeToHistory(banner)
         self._rmgr.pyterm.writeToHistory(banner)
 
+    def _open_benchmark(self):
+        if self.benchmark is None:
+            self.benchmark = _benchmark_inspector.BenchmarkInspector()
+            self._rmgr.mdiArea.addSubWindow(self.benchmark)
+        self.benchmark.widget().show()
+        self.benchmark.show()
+        if self.benchmark.isMinimized():
+            self.benchmark.showNormal()
+        self._rmgr.mdiArea.setActiveSubWindow(self.benchmark)
+
     def _mesh_sample_dialog_entries(self):
         """Every example mesh as ``(category, label, tip, func)``, in menu
         order, gathered from the sample features for the sample dialog.  The
@@ -200,6 +212,13 @@ class _Controller(metaclass=_Singleton):
                 wm.toggleTerminal, id="window.terminal",
                 checkable=True, checked=False),
             35)
+        wm.menu_model.place(
+            "Profiling",
+            _gui_common.build_action(
+                wm.mainWindow, "Benchmark Inspector",
+                "Compare operation kernels", self._open_benchmark,
+                id="profiling.benchmark"),
+            60)
 
 
 controller = _Controller()

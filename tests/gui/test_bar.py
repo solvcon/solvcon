@@ -8,6 +8,7 @@ import unittest
 import solvcon
 
 try:
+    from PySide6 import QtCore
     from solvcon import pilot
     from solvcon.pilot.base import _gui
 except ImportError:
@@ -60,5 +61,29 @@ class BarStructureTC(unittest.TestCase):
         window_items = [a.text() for a in model.menu("Window").actions()]
         self.assertNotIn("Console", window_items)
         self.assertNotIn("Terminal", window_items)
+
+    def test_benchmark_menu(self):
+        mgr = _gui.controller.build()
+        action = mgr.menu_model.action('profiling.benchmark')
+        self.assertIn(action, mgr.menu_model.menu('Profiling').actions())
+        action.trigger()
+        inspector = _gui.controller.benchmark
+        try:
+            self.assertIs(inspector.mdiArea(), mgr.mdiArea)
+            inspector.close()
+            action.trigger()
+            self.assertIs(_gui.controller.benchmark, inspector)
+            self.assertFalse(inspector.isHidden())
+            self.assertFalse(inspector.widget().isHidden())
+            inspector.showMinimized()
+            action.trigger()
+            self.assertFalse(inspector.isMinimized())
+        finally:
+            inspector.close()
+            mgr.mdiArea.removeSubWindow(inspector)
+            inspector.deleteLater()
+            QtCore.QCoreApplication.sendPostedEvents(
+                inspector, QtCore.QEvent.Type.DeferredDelete)
+            _gui.controller.benchmark = None
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
