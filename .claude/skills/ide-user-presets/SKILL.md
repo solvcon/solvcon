@@ -1,6 +1,6 @@
 ---
 name: ide-user-presets
-description: Install or refresh an IDE's CMakeUserPresets.json from the checked-in template, substituting the scdv prefix so the `ide-scdv-reldbg` preset carries a real path. Use when setting an IDE up on a checkout, when an IDE cannot find Qt6 or pybind11, or after the template changes. Not a build step; agents build with `make`.
+description: Install or refresh an IDE's CMakeUserPresets.json with contrib/cmake/install-user-presets.py, which substitutes the scdv prefix so the `ide-scdv-reldbg` preset carries a real path. Use when setting an IDE up on a checkout, when an IDE cannot find Qt6 or pybind11, or after the template changes. Not a build step; agents build with `make`.
 ---
 
 # IDE User Presets (solvcon)
@@ -11,10 +11,14 @@ shared presets in `CMakePresets.json`. Install it when an IDE needs it, never
 as preparation for a build: an agent builds with `make`, which selects a
 checked-in preset and layers the activated environment on top.
 
+`contrib/cmake/install-user-presets.py` does the whole job: it resolves the
+prefix, picks the template for the host, substitutes, and verifies. Read this
+page for what the script decides on your behalf and when to stop and ask.
+
 The `scdv` templates in `contrib/cmake/` name the prefix once, as
 `$penv{SCDV_USRDIR}` in the preset's `environment` map, and the three cache
-variables read it back from there as `$env{SCDV_USRDIR}`. Installing one is a
-copy with that single occurrence replaced by the prefix it names.
+variables read it back as `$env{SCDV_USRDIR}`. Installing is a copy with that
+single occurrence replaced by the prefix it names.
 
 Substituting rather than leaving the expansion in place is the whole point.
 An IDE started from the desktop inherits the session environment, not the
@@ -28,36 +32,74 @@ pybind11, or the template in `contrib/cmake/` changed and the installed copy
 is stale. Nothing else triggers it. Entering a worktree does not, and neither
 does a task that happens to build.
 
-## 1. Resolve the scdv prefix
-
-The substitution needs a prefix, so resolve one before touching the file:
-`$SCDV_USRDIR` when a shell has an scdv activated, `$SCDV_BASE/usr` when the
-user names an environment, or the `usr` directory of a build under
-`~/var/scdv/`. Do not invent a path and do not fall back to a system prefix.
-
-Carry the result in a shell variable, because only the first of those three is
-already one:
+## Install or refresh
 
 ```bash
-PREFIX=${SCDV_USRDIR:-${SCDV_BASE:?resolve an scdv prefix first}/usr}
+contrib/cmake/install-user-presets.py
 ```
+
+The script installs into the checkout it lives in, which in a worktree is the
+worktree, so it can be run from any directory. It writes the file, then
+reports the preset names and the prefix they carry. That is the whole
+procedure; the sections below cover the two decisions it hands back.
+
+Never commit the result and never move a machine path into
+`CMakePresets.json`.
+
+### The prefix
+
+The script resolves `$SCDV_USRDIR`, then `$SCDV_BASE/usr`, and takes
+`--prefix` over both. Pass `--prefix` when the shell has no scdv activated
+but the user names an environment, or to point at the `usr` directory of a
+build under `~/var/scdv/`.
+
+Nothing else is a candidate. Do not invent a path and do not fall back to a
+system prefix. When the script reports that no prefix resolved, stop and ask:
+an unsubstituted file is worse than no file, because CMake then reports
+missing packages rather than a missing environment.
 
 Report which environment was used. A machine often holds several, and the
 installed file pins the one that was resolved.
 
-Stop and ask when nothing resolves. An unsubstituted file is worse than no
-file: CMake reports missing packages rather than a missing environment.
+### An installed copy that differs
 
-## 2. Install or refresh
+The script refuses to overwrite a file that differs from the rendered
+template, and prints the diff instead. The diff tells the two causes apart: a
+stale template, or the user's own presets. Show it and ask before rerunning
+with `--force`.
 
-Work from the repository root (`git rev-parse --show-toplevel`), which in a
-worktree is the worktree, not the main checkout. Pick the template for the
-host: `CMakeUserPresets.scdv.json` on Linux and macOS,
-`CMakeUserPresets.win-scdv.json` on Windows. The `example` files beside them
-are for a prefix that is not an scdv and are hand-edited, not installed from
-here.
+`--check` renders and compares without writing, and exits non-zero when the
+installed copy is missing or stale. Use it to answer whether a refresh is
+needed.
+
+## What the script verifies
+
+It checks that the substituted `SCDV_USRDIR` names a directory that exists.
+Checking for a leftover `penv{` would not be enough: an empty prefix
+substitutes cleanly and leaves `"SCDV_USRDIR": ""`, which passes that grep and
+then fails a configure with missing packages instead of a missing environment.
+The remaining `$env{SCDV_USRDIR}` in the cache variables is correct, and
+resolves from the `environment` map above them.
+
+Then it runs `cmake --list-presets=configure` and `--list-presets=build` with
+`SCDV_USRDIR` removed from the environment, which is what an IDE sees, and
+requires `ide-scdv-reldbg` in the first and `ide-scdv-reldbg`,
+`ide-scdv-reldbg-module` and `ide-scdv-reldbg-gtest` in the second.
+
+Listing is the whole verification. Configuring or building through an `ide-*`
+preset is the IDE's job, and a build of your own is `make`. Report the preset
+names and the prefix they carry, then stop.
+
+## Doing it by hand
+
+Only when the script cannot run. Pick the template for the host,
+`CMakeUserPresets.scdv.json` on Linux and macOS,
+`CMakeUserPresets.win-scdv.json` on Windows, and substitute into the
+repository root. The `example` files beside them are for a prefix that is not
+an scdv; they are hand-edited, not installed from here.
 
 ```bash
+PREFIX=${SCDV_USRDIR:-${SCDV_BASE:?resolve an scdv prefix first}/usr}
 sed "s|\$penv{SCDV_USRDIR}|${PREFIX}|g" \
     contrib/cmake/CMakeUserPresets.scdv.json > CMakeUserPresets.json
 ```
@@ -68,34 +110,12 @@ sed "s|\$penv{SCDV_USRDIR}|${PREFIX}|g" \
     Set-Content CMakeUserPresets.json
 ```
 
-When the file already exists, render to a scratch path and compare. Identical
-output means the installed copy is current, so say so and stop. A difference
-is either a stale template or the user's own presets, which the diff tells
-apart: show it and ask before overwriting.
-
-Never commit the result and never move a machine path into
-`CMakePresets.json`.
-
-## 3. Verify
-
-The `SCDV_USRDIR` entry has to name a directory that exists. Checking for a
-leftover `penv{` is not enough: an empty `PREFIX` substitutes cleanly and
-leaves `"SCDV_USRDIR": ""`, which passes that grep and then fails a configure
-with missing packages instead of a missing environment.
+Then verify by hand what the script would have verified:
 
 ```bash
 test -d "$(sed -n 's/.*"SCDV_USRDIR": "\(.*\)".*/\1/p' CMakeUserPresets.json)"
+env -u SCDV_USRDIR cmake --list-presets
+env -u SCDV_USRDIR cmake --list-presets=build
 ```
-
-The remaining `$env{SCDV_USRDIR}` in the cache variables is correct, and
-resolves from the `environment` map above them. Then `cmake --list-presets`
-has to show `ide-scdv-reldbg`, and `cmake --list-presets=build` has to show
-`ide-scdv-reldbg`, `ide-scdv-reldbg-module`, and `ide-scdv-reldbg-gtest`. Report the
-preset names and the prefix they carry, then stop. Listing is the whole
-verification: configuring or building through an `ide-*` preset is the IDE's
-job, and a build of your own is `make`.
-
-Both listings have to work with the scdv deactivated, which is what an IDE
-sees. `env -u SCDV_USRDIR cmake --list-presets` is the cheap way to prove it.
 
 <!-- vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79: -->
