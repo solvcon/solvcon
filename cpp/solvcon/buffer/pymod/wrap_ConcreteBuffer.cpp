@@ -38,6 +38,10 @@ WrapConcreteBuffer::WrapConcreteBuffer(pybind11::module & mod, char const * pyna
             py::init(
                 [](py::array & arr_in, size_t alignment)
                 {
+                    if ((arr_in.flags() & (py::array::c_style | py::array::f_style)) == 0)
+                    {
+                        throw std::invalid_argument("ConcreteBuffer: input array must be C- or F-contiguous");
+                    }
                     return wrapped_type::construct(
                         arr_in.nbytes(), arr_in.mutable_data(), std::make_unique<ConcreteBufferNdarrayRemover>(arr_in), alignment);
                 }),
