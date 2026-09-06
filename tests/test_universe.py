@@ -4,6 +4,7 @@
 
 import json
 import math
+import sys
 import unittest
 
 import numpy as np
@@ -483,6 +484,93 @@ class WorldPolygonRingsTC(unittest.TestCase):
             [list(v) for v in rings[0]["vertices"]], wall)
 
 
+class WorldPathTC(unittest.TestCase):
+    """add_path: one contiguous run of cubic Beziers per chain."""
+
+    def setUp(self):
+        self.w = solvcon.WorldFp64()
+
+    def test_mixed_path_lowers_in_element_order(self):
+        sid = self.w.add_path(
+            [0, 0], [[3, 0], [4, 0, 5, 1, 6, 1]], False)
+        shape = json.loads(self.w.describe_state())["shapes"][0]
+        self.assertEqual(self.w.shape_type_of(sid), "path")
+        self.assertEqual(shape["curves"], [
+            [[0, 0], [1, 0], [2, 0], [3, 0]],
+            [[3, 0], [4, 0], [5, 1], [6, 1]],
+        ])
+
+    def test_closed_path_appends_one_straight_curve(self):
+        sid = self.w.add_path([0, 0], [[3, 0], [3, 3]], True)
+        shape = json.loads(self.w.describe_state())["shapes"][0]
+        self.assertEqual(self.w.shape_type_of(sid), "closed_path")
+        self.assertEqual(len(shape["curves"]), 3)
+        closing = shape["curves"][-1]
+        self.assertEqual(closing[0], [3, 3])
+        self.assertEqual(closing[3], [0, 0])
+
+    def test_closed_path_already_at_start_has_no_extra_curve(self):
+        self.w.add_path([0, 0], [[2, 0], [0, 0]], True)
+        shape = json.loads(self.w.describe_state())["shapes"][0]
+        self.assertEqual(len(shape["curves"]), 2)
+
+    def test_path_uses_existing_shape_operations(self):
+        sid = self.w.add_path([0, 0], [[2, 0]], False)
+        self.w.translate_shape(sid, 3, 4)
+        moved = json.loads(self.w.describe_state())["shapes"][0]
+        self.assertEqual(moved["curves"][0][0], [3, 4])
+        self.w.undo()
+        restored = json.loads(self.w.describe_state())["shapes"][0]
+        self.assertEqual(restored["curves"][0][0], [0, 0])
+
+    def test_path_rejects_invalid_elements_before_mutating(self):
+        for elements in ([], [[1, 2, 3]], [[math.inf, 0]]):
+            with self.subTest(elements=elements):
+                with self.assertRaises(ValueError):
+                    self.w.add_path([0, 0], elements, False)
+                self.assertEqual(self.w.nshape, 0)
+                self.assertEqual(self.w.nbezier, 0)
+
+    def test_straight_element_stays_finite_over_the_widest_span(self):
+        big = sys.float_info.max
+        self.w.add_path([-big, 0], [[big, 0]], False)
+        shape = json.loads(self.w.describe_state())["shapes"][0]
+        for point in shape["curves"][0]:
+            self.assertTrue(all(math.isfinite(v) for v in point), point)
+
+
+class WorldClosednessTC(unittest.TestCase):
+    """is_closed: the single closedness lookup for every ShapeType."""
+
+    def setUp(self):
+        self.w = solvcon.WorldFp64()
+
+    def test_is_closed_covers_every_shape_type(self):
+        point = solvcon.Point3dFp64
+        open_ids = [
+            self.w.add_line(0, 0, 1, 1),
+            self.w.add_polyline([[0, 0], [1, 1]]),
+            self.w.add_bezier_shape(
+                point(0, 0), point(1, 0), point(2, 1), point(3, 1)),
+            self.w.add_path([0, 0], [[1, 1]], False),
+        ]
+        closed_ids = [
+            self.w.add_polygon([[0, 0], [1, 0], [0, 1]]),
+            self.w.add_triangle(0, 0, 1, 0, 0, 1),
+            self.w.add_rectangle(0, 0, 1, 1),
+            self.w.add_square(0, 0, 1),
+            self.w.add_ellipse(0, 0, 2, 1),
+            self.w.add_circle(0, 0, 1),
+            self.w.add_path([0, 0], [[1, 0], [0, 0]], True),
+        ]
+        for sid in open_ids:
+            with self.subTest(shape=self.w.shape_type_of(sid)):
+                self.assertFalse(self.w.is_closed(sid))
+        for sid in closed_ids:
+            with self.subTest(shape=self.w.shape_type_of(sid)):
+                self.assertTrue(self.w.is_closed(sid))
+
+
 class WorldStateStampTC(unittest.TestCase):
     """The stamp that tells a reader the world has changed."""
 
@@ -513,6 +601,12 @@ class WorldStateStampTC(unittest.TestCase):
                 ("rectangle", lambda: self.w.add_rectangle(0, 0, 1, 1)),
                 ("ellipse", lambda: self.w.add_ellipse(0, 0, 2, 1)),
                 ("circle", lambda: self.w.add_circle(0, 0, 1)),
+                ("path", lambda: self.w.add_path(
+                    [0, 0], [[1, 1]], False)),
+                ("quadratic", lambda: self.w.add_quadratic_bezier(
+                    solvcon.Point3dFp64(0, 0),
+                    solvcon.Point3dFp64(1, 1),
+                    solvcon.Point3dFp64(2, 0))),
                 ("polyline", lambda: self.w.add_polyline([[0, 0], [1, 1]])),
                 ("polygon", lambda: self.w.add_polygon(
                     [[0, 0], [1, 0], [1, 1]]))):
@@ -956,6 +1050,22 @@ class WorldBezierShapeTC(unittest.TestCase):
         self.w.add_bezier(p(0, 0, 0), p(1, 0, 0), p(2, 1, 0), p(3, 1, 0))
         self.assertEqual(self.w.nshape, 0)
         self.assertEqual(self.w.nbezier, 1)
+
+    def test_quadratic_bezier_lowers_exactly(self):
+        p = self.Point
+        sid = self.w.add_quadratic_bezier(p(0, 0), p(3, 3), p(6, 0))
+        shape = json.loads(self.w.describe_state())["shapes"][0]
+        self.assertEqual(self.w.shape_type_of(sid), "bezier")
+        self.assertEqual(shape["curves"], [
+            [[0, 0], [2, 2], [4, 2], [6, 0]],
+        ])
+
+    def test_quadratic_bezier_rejects_non_finite_input(self):
+        p = self.Point
+        with self.assertRaises(ValueError):
+            self.w.add_quadratic_bezier(p(0, 0), p(math.inf, 1), p(2, 0))
+        self.assertEqual(self.w.nshape, 0)
+        self.assertEqual(self.w.nbezier, 0)
 
     def test_translate_bezier_shape(self):
         p = self.Point
