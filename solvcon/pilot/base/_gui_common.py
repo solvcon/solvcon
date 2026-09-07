@@ -70,6 +70,25 @@ class ToggleActionBridge(QtCore.QObject):
         self._store_changed.emit(tg.get(self._key, self._action.isChecked()))
 
 
+class SubWindowCloseFilter(QtCore.QObject):
+    """Report a watched sub-window's close synchronously.
+
+    A ``QMdiSubWindow`` has no close signal, so this filter is the only way
+    for an owner to drop its cached widget reference before Qt frees the
+    widget the sub-window wraps (``Qt.WA_DeleteOnClose`` runs the delete on
+    the next event-loop turn, not inside ``close()`` itself).
+    """
+
+    def __init__(self, on_close, parent):
+        super().__init__(parent)
+        self._on_close = on_close
+
+    def eventFilter(self, obj, event):
+        if event.type() == QtCore.QEvent.Type.Close:
+            self._on_close()
+        return False
+
+
 _SHORTCUT_CONTEXTS = {
     "application": QtCore.Qt.ApplicationShortcut,
     "window": QtCore.Qt.WindowShortcut,
