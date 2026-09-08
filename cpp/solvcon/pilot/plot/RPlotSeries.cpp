@@ -86,14 +86,14 @@ double RPlotSeries::y_at(std::size_t it) const
     return y()[it];
 }
 
-std::optional<std::array<double, 4>> RPlotSeries::data_limits() const
+std::optional<PlotLimits2d> RPlotSeries::data_limits() const
 {
     if (!m_limits_stale)
     {
         return m_limits;
     }
 
-    std::optional<std::array<double, 4>> limits;
+    std::optional<PlotLimits2d> limits;
     std::span<double const> const xs = x();
     std::span<double const> const ys = y();
     for (std::size_t it = 0; it < xs.size(); ++it)
@@ -108,25 +108,25 @@ std::optional<std::array<double, 4>> RPlotSeries::data_limits() const
         }
         if (!limits.has_value())
         {
-            limits = std::array<double, 4>{xv, xv, yv, yv};
+            limits = PlotLimits2d{xv, xv, yv, yv};
             continue;
         }
-        std::array<double, 4> & lim = *limits;
-        if (xv < lim[0])
+        PlotLimits2d & lim = *limits;
+        if (xv < lim.xmin)
         {
-            lim[0] = xv;
+            lim.xmin = xv;
         }
-        if (xv > lim[1])
+        if (xv > lim.xmax)
         {
-            lim[1] = xv;
+            lim.xmax = xv;
         }
-        if (yv < lim[2])
+        if (yv < lim.ymin)
         {
-            lim[2] = yv;
+            lim.ymin = yv;
         }
-        if (yv > lim[3])
+        if (yv > lim.ymax)
         {
-            lim[3] = yv;
+            lim.ymax = yv;
         }
     }
 

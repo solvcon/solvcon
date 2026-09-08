@@ -19,6 +19,7 @@ from ._pilot_core import (  # noqa: F401
     RPythonConsoleDockWidget,
     RPythonTerminalDockWidget,
     RManager,
+    PlotLimits2d,
     PlotColor,
     RPlotSeries,
     RPlotModel,

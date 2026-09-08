@@ -2,7 +2,7 @@
 # BSD 3-Clause License, see COPYING
 
 """
-Tests for the native xy-plot core: PlotColor, the matplotlib C0-C9 cycle,
+Tests for the native xy-plot core: limits, colors, the matplotlib C0-C9 cycle,
 and RPlotSeries.
 
 The core is pure C++ with no Qt widget, so everything here is exercised
@@ -34,9 +34,14 @@ def _series(x_values, y_values):
     return ser
 
 
+def _limits(xmin, xmax, ymin, ymax):
+    """Build a PlotLimits2d with the given bounds."""
+    return pilot.PlotLimits2d(xmin, xmax, ymin, ymax)
+
+
 @unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
 class PilotPlotTC(unittest.TestCase):
-    """The native plot vocabulary: the color cycle and the xy series."""
+    """The native plot limits, color cycle, and xy series."""
 
     def test_cycle_is_matplotlib_c0_to_c9(self):
         cycle = pilot.plot_color_cycle()
@@ -56,6 +61,33 @@ class PilotPlotTC(unittest.TestCase):
         self.assertTrue(color != None)  # noqa: E711
         self.assertNotIn(color, [1, 'a'])
         self.assertEqual('custom', {color: 'custom'}[pilot.PlotColor(1, 2, 3)])
+
+    def test_limits_is_a_mutable_value(self):
+        limits = _limits(0.0, 1.0, 2.0, 3.0)
+        self.assertEqual((0.0, 1.0, 2.0, 3.0), tuple(limits))
+        self.assertEqual(_limits(0.0, 1.0, 2.0, 3.0), limits)
+        self.assertNotEqual(_limits(0.0, 2.0, 2.0, 3.0), limits)
+        self.assertFalse(limits == None)  # noqa: E711
+        self.assertTrue(limits != None)  # noqa: E711
+        with self.assertRaises(TypeError):
+            hash(limits)
+        limits.xmin = -1.0
+        limits.ymax = 4.0
+        self.assertIsNone(limits.merge(_limits(-2.0, 3.0, 1.0, 5.0)))
+        self.assertEqual(_limits(-2.0, 3.0, 1.0, 5.0), limits)
+        self.assertEqual('PlotLimits2d(xmin=-2, xmax=3, ymin=1, ymax=5)',
+                         repr(limits))
+
+    def test_returned_limits_do_not_mutate_the_plot(self):
+        ser = _series([0.0, 1.0], [2.0, 3.0])
+        limits = ser.data_limits()
+        limits.xmin = -1.0
+        self.assertEqual(_limits(0.0, 1.0, 2.0, 3.0), ser.data_limits())
+
+        model = pilot.RPlotModel()
+        limits = model.view_limits()
+        limits.xmin = -1.0
+        self.assertEqual(_limits(0.0, 1.0, 0.0, 1.0), model.view_limits())
 
     def test_set_data_stores_the_samples(self):
         ser = _series([0.0, 1.0, 2.0, 3.0], [10.0, 11.0, 12.0, 13.0])
@@ -146,26 +178,28 @@ class PilotPlotTC(unittest.TestCase):
 
     def test_data_limits_are_the_raw_extent(self):
         ser = _series([3.0, -1.0, 2.0], [7.0, 9.0, -4.0])
-        self.assertEqual((-1.0, 3.0, -4.0, 9.0), ser.data_limits())
-        self.assertEqual((5.0, 5.0, 7.0, 7.0),
+        self.assertEqual(_limits(-1.0, 3.0, -4.0, 9.0), ser.data_limits())
+        self.assertEqual(_limits(5.0, 5.0, 7.0, 7.0),
                          _series([5.0], [7.0]).data_limits())
 
     def test_non_finite_sample_is_dropped_whole(self):
         for bad in (float('nan'), float('inf'), float('-inf')):
             with self.subTest(bad=bad):
                 ser = _series([0.0, 1.0, 2.0, 3.0], [10.0, 11.0, 12.0, bad])
-                self.assertEqual((0.0, 2.0, 10.0, 12.0), ser.data_limits())
+                self.assertEqual(_limits(0.0, 2.0, 10.0, 12.0),
+                                 ser.data_limits())
                 ser = _series([bad, 1.0, 2.0, 3.0], [10.0, 11.0, 12.0, 13.0])
-                self.assertEqual((1.0, 3.0, 11.0, 13.0), ser.data_limits())
+                self.assertEqual(_limits(1.0, 3.0, 11.0, 13.0),
+                                 ser.data_limits())
                 self.assertIsNone(_series([bad] * 4, [bad] * 4).data_limits())
 
     def test_limits_cache_is_stable_and_invalidates(self):
         ser = _series([0.0, 1.0], [2.0, 3.0])
         first = ser.data_limits()
-        self.assertEqual((0.0, 1.0, 2.0, 3.0), first)
+        self.assertEqual(_limits(0.0, 1.0, 2.0, 3.0), first)
         self.assertEqual(first, ser.data_limits())
         ser.set_data(_array([0.0, 4.0]), _array([2.0, 8.0]))
-        self.assertEqual((0.0, 4.0, 2.0, 8.0), ser.data_limits())
+        self.assertEqual(_limits(0.0, 4.0, 2.0, 8.0), ser.data_limits())
 
     def test_style_changes_do_not_disturb_the_limits(self):
         ser = _series([0.0, 1.0], [2.0, 3.0])
@@ -210,7 +244,8 @@ class PilotPlotModelTC(unittest.TestCase):
         ser.label = 'pressure'
         ser.set_data(_array([0.0, 1.0]), _array([2.0, 3.0]))
         self.assertEqual('pressure', model.series(0).label)
-        self.assertEqual((0.0, 1.0, 2.0, 3.0), model.series(0).data_limits())
+        self.assertEqual(_limits(0.0, 1.0, 2.0, 3.0),
+                         model.series(0).data_limits())
         self.assertEqual(1, model.size)
         self.assertEqual(1, len(model))
 
@@ -233,21 +268,21 @@ class PilotPlotModelTC(unittest.TestCase):
         self.assertIsNone(model.data_limits())
         model.add_series().set_data(_array([0.0, 1.0]), _array([5.0, 6.0]))
         model.add_series()
-        self.assertEqual((0.0, 1.0, 5.0, 6.0), model.data_limits())
+        self.assertEqual(_limits(0.0, 1.0, 5.0, 6.0), model.data_limits())
         model.add_series().set_data(_array([-3.0, 0.5]), _array([7.0, 8.0]))
-        self.assertEqual((-3.0, 1.0, 5.0, 8.0), model.data_limits())
+        self.assertEqual(_limits(-3.0, 1.0, 5.0, 8.0), model.data_limits())
 
     def test_autoscale_margins_the_data(self):
         model = pilot.RPlotModel()
-        self.assertEqual((0.0, 1.0, 0.0, 1.0), model.view_limits())
+        self.assertEqual(_limits(0.0, 1.0, 0.0, 1.0), model.view_limits())
         model.autoscale()
-        self.assertEqual((0.0, 1.0, 0.0, 1.0), model.view_limits())
+        self.assertEqual(_limits(0.0, 1.0, 0.0, 1.0), model.view_limits())
         model.add_series().set_data(_array([0.0, 10.0]),
                                     _array([0.0, 100.0]))
         self.assertEqual(0.05, model.margin)
         model.autoscale()
         for expected, actual in zip((-0.5, 10.5, -5.0, 105.0),
-                                    model.view_limits()):
+                                    tuple(model.view_limits())):
             self.assertAlmostEqual(expected, actual, places=12)
 
     def test_autoscale_guards_a_singular_span(self):
@@ -257,7 +292,7 @@ class PilotPlotModelTC(unittest.TestCase):
         # x: opened to 3 +- 0.15, then the 5% margin of the 0.3 span.
         # y: opened to +-0.5 around zero, then the margin of the 1.0 span.
         for expected, actual in zip((2.835, 3.165, -0.55, 0.55),
-                                    model.view_limits()):
+                                    tuple(model.view_limits())):
             self.assertAlmostEqual(expected, actual, places=12)
 
     def test_margin_and_view_limits_are_validated(self):
@@ -268,17 +303,17 @@ class PilotPlotModelTC(unittest.TestCase):
         model.margin = 0.0
         model.add_series().set_data(_array([0.0, 10.0]), _array([1.0, 2.0]))
         model.autoscale()
-        self.assertEqual((0.0, 10.0, 1.0, 2.0), model.view_limits())
+        self.assertEqual(_limits(0.0, 10.0, 1.0, 2.0), model.view_limits())
         for bad in ((1.0, 1.0, 0.0, 1.0), (0.0, 1.0, 2.0, 1.0),
                     (float('nan'), 1.0, 0.0, 1.0)):
             with self.assertRaises(ValueError):
-                model.set_view_limits(*bad)
-        model.set_view_limits(-2.0, 2.0, -4.0, 4.0)
-        self.assertEqual((-2.0, 2.0, -4.0, 4.0), model.view_limits())
+                model.set_view_limits(_limits(*bad))
+        model.set_view_limits(_limits(-2.0, 2.0, -4.0, 4.0))
+        self.assertEqual(_limits(-2.0, 2.0, -4.0, 4.0), model.view_limits())
 
     def test_view_fits_and_centers_the_limits(self):
         model = pilot.RPlotModel()
-        model.set_view_limits(0.0, 10.0, 0.0, 10.0)
+        model.set_view_limits(_limits(0.0, 10.0, 0.0, 10.0))
         transform = model.view(200.0, 100.0)
         self.assertEqual(10.0, transform.zoom)
         self.assertEqual((100.0, 50.0), transform.screen_from_world(5.0, 5.0))
