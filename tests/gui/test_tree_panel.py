@@ -58,6 +58,36 @@ def _make_single_triangle():
     return mh
 
 
+def _make_dense_rect_mesh():
+    """A denser 4-by-1 rectangle whose normals need a shorter scale."""
+    core = solvcon.core
+    T = core.StaticMesh.TRIANGLE
+    nx = 16
+    ny = 4
+    mh = core.StaticMesh(ndim=2, nnode=(nx + 1) * (ny + 1), nface=0,
+                         ncell=2 * nx * ny)
+    nodes = []
+    for iy in range(ny + 1):
+        for ix in range(nx + 1):
+            nodes.append((4.0 * ix / nx, 1.0 * iy / ny))
+    mh.ndcrd.ndarray[:, :] = nodes
+    cells = []
+    for iy in range(ny):
+        for ix in range(nx):
+            n0 = iy * (nx + 1) + ix
+            n1 = n0 + 1
+            n2 = n0 + nx + 1
+            n3 = n2 + 1
+            cells.append((3, n0, n1, n3, -1))
+            cells.append((3, n0, n3, n2, -1))
+    mh.cltpn.ndarray[:] = T
+    mh.clnds.ndarray[:, :5] = cells
+    mh.build_interior()
+    mh.build_boundary()
+    mh.build_ghost()
+    return mh
+
+
 def _crossing_world():
     """Two lines crossing at (1, 1): shape 0 and shape 1."""
     world = solvcon.WorldFp64()
@@ -138,6 +168,13 @@ class MeshInfoTreeTC(unittest.TestCase):
         tree.set_mesh(None)
         tree.refresh_style_checks()
         self.assertEqual(tree._style_items, {})
+
+    def test_recommended_normal_scale_follows_mesh_density(self):
+        sparse = _tree_panel.MeshInfoTree.recommended_normal_scale_value(
+            _make_sample_mesh())
+        dense = _tree_panel.MeshInfoTree.recommended_normal_scale_value(
+            _make_dense_rect_mesh())
+        self.assertLess(dense, sparse)
 
 
 @unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
@@ -331,6 +368,41 @@ class TreePanelTC(unittest.TestCase):
             item.setCheckState(0, Qt.Checked)
             item.setCheckState(0, Qt.Unchecked)
             self.assertEqual(calls, [True, False])
+
+    def test_normal_scale_slider_drives_viewer(self):
+        mesh = _make_sample_mesh()
+        widget = self.mgr.add3DWidget()
+        widget.updateMesh(mesh)
+        panel = self._panel_on()._mesh_tree
+        root = panel._tree.topLevelItem(0)
+        item = next(root.child(i) for i in range(root.childCount())
+                    if root.child(i).text(0) == "normals")
+        slider = panel._normal_scale_slider
+        expected = panel.recommended_normal_scale_value(mesh)
+
+        # Check the width of slider is _NORMAL_SCALE_SLIDER_WIDTH.
+        self.assertIsNotNone(slider)
+        self.assertFalse(slider.isEnabled())
+        self.assertEqual(slider.width(), panel._NORMAL_SCALE_SLIDER_WIDTH)
+
+        # Checked the normal vector option
+        item.setCheckState(0, Qt.Checked)
+        self.assertTrue(widget.normalsShown)
+        self.assertTrue(slider.isEnabled())
+        self.assertEqual(slider.value(), expected)
+        self.assertAlmostEqual(widget.normalScale, expected / 100.0, 6)
+
+        # Check normalScale will modify by slider.
+        slider.setValue(175)
+        self.assertAlmostEqual(widget.normalScale, 1.75, 6)
+
+        # Check the slider can be disable by unchecked.
+        item.setCheckState(0, Qt.Unchecked)
+        self.assertFalse(widget.normalsShown)
+        self.assertFalse(slider.isEnabled())
+        item.setCheckState(0, Qt.Checked)
+        self.assertEqual(slider.value(), 175)
+        self.assertAlmostEqual(widget.normalScale, 1.75, 6)
 
     def test_mesh_viewer_without_mesh_shows_placeholder(self):
         self.mgr.add3DWidget()  # fresh viewer becomes current, no mesh

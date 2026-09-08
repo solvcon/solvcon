@@ -144,6 +144,12 @@ public:
 
     /// Show or hide a short arrow at every face center along its normal.
     void showNormals(bool show);
+    /// Show or hide face-normal arrows after setting their scale.
+    void showNormals(bool show, float scale);
+    /// Set the face-normal arrow scale, rebuilding the overlay when shown.
+    void setNormalScale(float scale);
+    float normalScale() const { return m_normal_scale; }
+    bool normalsShown() const { return m_show_normals; }
 
     /// The result of a pick: the entity kind ("cell", "node", "face", or
     /// "none" for a miss), its id, its element type (for a cell), a measure
@@ -352,6 +358,9 @@ private:
         std::vector<float> & scals,
         std::vector<uint32_t> & tris) const;
 
+    /// Rebuild the face-normal overlay from the current mesh and scale.
+    void rebuildNormals();
+
     /// Back-project the widget pixel (x, y) to a world-space ray. Returns
     /// false when the viewport or the view-projection is degenerate.
     bool computePickRay(int x, int y, QVector3D & origin, QVector3D & dir) const;
@@ -415,6 +424,8 @@ private:
     bool m_has_field_bbox = false;
 
     std::shared_ptr<StaticMesh> m_mesh;
+    bool m_show_normals = false; ///< Whether the normals overlay is requested.
+    float m_normal_scale = 1.0f; ///< Multiplier for the base normal length.
 
     bool m_transparent_capture = false; ///< Clear alpha 0 for a capture.
 

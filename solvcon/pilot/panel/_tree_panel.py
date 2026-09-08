@@ -14,8 +14,8 @@ from PySide6.QtGui import QColor, QPainter
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QTreeWidget,
                                QTreeWidgetItem, QFrame, QDockWidget,
                                QStackedWidget, QHBoxLayout, QButtonGroup,
-                               QRadioButton, QPushButton,
-                               QSizePolicy, QAbstractButton)
+                               QRadioButton, QPushButton, QSizePolicy,
+                               QAbstractButton, QSlider)
 
 from ... import core
 from .._style import PaletteStyled
@@ -99,6 +99,13 @@ class MeshInfoTree(TreePanelBase):
     _ROLE_IBC = Qt.UserRole + 1
     _ROLE_STYLE = Qt.UserRole + 2
 
+    _NORMAL_SCALE_MIN = 10
+    _NORMAL_SCALE_MAX = 300
+    _NORMAL_SCALE_DEFAULT = 100
+    _NORMAL_SCALE_SLIDER_WIDTH = 150
+    _NORMAL_SCALE_BASE_FRACTION = 0.04
+    _NORMAL_SCALE_SPACING_FRACTION = 0.30
+
     # Map cell type numbers to human-readable names.
     CELL_TYPE_NAME = {
         core.StaticMesh.POINT: "point",
@@ -117,6 +124,11 @@ class MeshInfoTree(TreePanelBase):
         if self.style_status is not None:
             self.style_status.changed.connect(self.refresh_style_checks)
         self._style_items = {}
+        self._normal_item = None
+        self._normal_scale_item = None
+        self._normal_scale_slider = None
+        self._normal_scale_user_set = False
+        self._mesh = None
         self.boundary_toggled = None
         self.edges_toggled = None
         self.normals_toggled = None
@@ -183,11 +195,46 @@ class MeshInfoTree(TreePanelBase):
         return [[ibc, mh.bc(ibc).name, int(counts[ibc])]
                 for ibc in range(mh.nbcs)]
 
+    @classmethod
+    def recommended_normal_scale_value(cls, mh):
+        """
+        Return a recommended scale value by the face density.
+
+        Use the bounding-box measure and face count to estimate a
+        characteristic length. When the measure is too small, fall back to the
+        diagonal. By default, the normal vector is around 30% of that length.
+        """
+        crd = mh.ndcrd.ndarray[mh.ndcrd.nghost:]
+        nface = int(mh.nface)
+        if not nface or not crd.size:
+            return cls._NORMAL_SCALE_DEFAULT
+
+        ndim = int(mh.ndim)
+        extent = crd.max(axis=0)[:ndim] - crd.min(axis=0)[:ndim]
+        diag = float(np.linalg.norm(extent))
+        if diag <= np.finfo('float64').eps:
+            return cls._NORMAL_SCALE_DEFAULT
+
+        measure = float(np.prod(extent))
+        if measure > np.finfo('float64').eps:
+            spacing = measure ** (1.0 / ndim) / nface ** (1.0 / ndim)
+        else:
+            spacing = diag / nface ** (1.0 / ndim)
+        scale = (cls._NORMAL_SCALE_SPACING_FRACTION * spacing
+                 / (cls._NORMAL_SCALE_BASE_FRACTION * diag))
+        value = int(round(100.0 * scale))
+        return max(cls._NORMAL_SCALE_MIN, min(value, cls._NORMAL_SCALE_MAX))
+
     def set_mesh(self, mh):
         """Rebuild the tree from ``mh``, or show "No mesh loaded" when None."""
         self._building = True
         self._style_items = {}
         try:
+            self._mesh = mh
+            self._normal_scale_user_set = False
+            self._normal_item = None
+            self._normal_scale_item = None
+            self._normal_scale_slider = None
             if mh is None:
                 self._show_placeholder("No mesh loaded")
                 return
@@ -237,12 +284,71 @@ class MeshInfoTree(TreePanelBase):
 
         Both default off; each drives its own viewer overlay.
         """
-        for label, kind in (("feature edges", 'edges'),
-                            ("normals", 'normals')):
-            item = QTreeWidgetItem(root, [label])
-            item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
-            item.setData(0, self._ROLE_KIND, kind)
-            item.setCheckState(0, Qt.Unchecked)
+        item = QTreeWidgetItem(root, ["feature edges"])
+        item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+        item.setData(0, self._ROLE_KIND, 'edges')
+        item.setCheckState(0, Qt.Unchecked)
+
+        item = QTreeWidgetItem(root, ["normals"])
+        item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+        item.setData(0, self._ROLE_KIND, 'normals')
+        item.setCheckState(0, Qt.Unchecked)
+        self._normal_item = item
+        self._add_normal_scale_control(item)
+        item.setExpanded(True)
+        self._sync_normal_scale_enabled(False)
+
+    def normal_scale(self):
+        return self._normal_scale_slider.value() / 100.0
+
+    def _set_normal_scale_value(self, value):
+        blocked = self._normal_scale_slider.blockSignals(True)
+        self._normal_scale_slider.setValue(value)
+        self._normal_scale_slider.blockSignals(blocked)
+        self._sync_normal_scale_text()
+
+    def _add_normal_scale_control(self, parent):
+        self._normal_scale_item = QTreeWidgetItem(parent, ["scale: 1.00x"])
+        self._normal_scale_item.setFlags(
+            self._normal_scale_item.flags() & ~Qt.ItemIsSelectable)
+        self._normal_scale_item.setSizeHint(0, QSize(1, 18))
+
+        row = QWidget()
+        layout = QHBoxLayout(row)
+        layout.setContentsMargins(4, 2, 10, 2)
+        layout.setSpacing(0)
+
+        slider = QSlider(Qt.Horizontal)
+        slider.setFixedWidth(self._NORMAL_SCALE_SLIDER_WIDTH)
+        slider.setRange(self._NORMAL_SCALE_MIN, self._NORMAL_SCALE_MAX)
+        slider.setSingleStep(5)
+        slider.setPageStep(25)
+        slider.setValue(self._NORMAL_SCALE_DEFAULT)
+
+        layout.addWidget(slider)
+        layout.addStretch(1)
+        slider_item = QTreeWidgetItem(parent, ["scale slider: control"])
+        slider_item.setFlags(slider_item.flags() & ~Qt.ItemIsSelectable)
+        slider_item.setSizeHint(0, QSize(1, 24))
+        self._tree.setItemWidget(slider_item, 0, row)
+
+        self._normal_scale_slider = slider
+        slider.valueChanged.connect(self._on_normal_scale_changed)
+
+    def _sync_normal_scale_enabled(self, shown):
+        self._normal_scale_item.setDisabled(not shown)
+        self._normal_scale_slider.setEnabled(shown)
+
+    def _sync_normal_scale_text(self):
+        scale = self.normal_scale()
+        self._normal_scale_item.setText(0, f"scale: {scale:.2f}x")
+
+    def _on_normal_scale_changed(self, _value):
+        self._normal_scale_user_set = True
+        self._sync_normal_scale_text()
+        if (self._normal_item.checkState(0) == Qt.Checked
+                and self.normals_toggled is not None):
+            self.normals_toggled(True)
 
     def _add_boundary_group(self, root, mh):
         """Add the boundary sets as a group of check boxes (default off)."""
@@ -272,8 +378,13 @@ class MeshInfoTree(TreePanelBase):
                 item.data(0, self._ROLE_STYLE), checked)
         elif kind == 'edges' and self.edges_toggled is not None:
             self.edges_toggled(checked)
-        elif kind == 'normals' and self.normals_toggled is not None:
-            self.normals_toggled(checked)
+        elif kind == 'normals':
+            if checked and not self._normal_scale_user_set:
+                value = self.recommended_normal_scale_value(self._mesh)
+                self._set_normal_scale_value(value)
+            self._sync_normal_scale_enabled(checked)
+            if self.normals_toggled is not None:
+                self.normals_toggled(checked)
 
 
 class _CollapsibleSection(PaletteStyled):
@@ -816,7 +927,7 @@ class TreePanel(_gui_common.PilotFeature):
     def _on_normals_toggled(self, checked):
         widget = self._mgr.currentR3DWidget()
         if widget is not None:
-            widget.showNormals(checked)
+            widget.showNormals(checked, self._mesh_tree.normal_scale())
 
     def _mdi_area(self):
         return self._mainWindow.centralWidget()
