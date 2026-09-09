@@ -17,6 +17,7 @@ import solvcon
 try:
     from solvcon import pilot
     from PySide6.QtGui import QGuiApplication, QImage, QPixmap
+    from PySide6.QtWidgets import QSizeGrip
 except ImportError:
     pilot = None
 
@@ -479,6 +480,23 @@ class R2DWidgetScreenshotTC(unittest.TestCase):
         self.assertFalse(pixmap.isNull())
         self.assertGreater(pixmap.width(), 0)
         self.assertGreater(pixmap.height(), 0)
+
+
+@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+class R2DWidgetSubWindowGripTC(unittest.TestCase):
+    """The resize grip on the sub-window that hosts a 2D canvas."""
+
+    def test_the_canvas_subwindow_carries_a_size_grip(self):
+        # The sub-window frame is a few pixels wide, too little to aim a
+        # drag at. RManagerSubWindowGripTC pins what the grip then does.
+        # The canvas only has to ask for one.
+        mgr = pilot.RManager.instance.setUp()
+        mgr.add2DWidget()
+        # The mdiArea wrapper is thrown away right after use, taking any
+        # sub-window handle reached through it, so it is held here.
+        mdi = mgr.mdiArea
+        subwin = mdi.activeSubWindow()
+        self.assertEqual(1, len(subwin.findChildren(QSizeGrip)))
 
 
 @unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
