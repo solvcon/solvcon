@@ -141,7 +141,7 @@ class DataFrame(object):
             table_header = [
                 x.strip() for x in next(fhd).strip().split(delimiter)
             ]
-            nd_arr = np.genfromtxt(fhd, delimiter=delimiter)
+            nd_arr = np.genfromtxt(fhd, delimiter=delimiter, ndmin=2)
 
             self._init_members()
 

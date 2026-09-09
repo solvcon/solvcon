@@ -100,6 +100,21 @@ class TimeSeriesDataFrameTC(unittest.TestCase):
             self.assertEqual(tsdf._data[i].ndarray.shape[0], 10)
         self.assertEqual(tsdf._index_name, 'Index')
 
+    def test_read_from_text_file_preserves_singleton_dimensions(self):
+        cases = (
+            ('time,value\n1,2\n', True, ['value'], [2.0], [1]),
+            ('value\n1\n2\n', False, ['value'], [1.0, 2.0], [0, 1]),
+            ('value\n1\n', False, ['value'], [1.0], [0]),
+        )
+        for text, has_timestamp, columns, values, index in cases:
+            with self.subTest(text=text):
+                tsdf = dataframe.DataFrame()
+                tsdf.read_from_text_file(
+                    io.StringIO(text), timestamp_in_file=has_timestamp)
+                self.assertEqual(tsdf._columns, columns)
+                np.testing.assert_array_equal(tsdf['value'], values)
+                np.testing.assert_array_equal(tsdf.index, index)
+
     def test_dataframe_attribute_columns(self):
         tsdf = dataframe.DataFrame()
         tsdf.read_from_text_file(io.StringIO(self.dlc_data))
