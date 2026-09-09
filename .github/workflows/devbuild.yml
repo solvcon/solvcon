@@ -363,3 +363,25 @@ jobs:
     secrets:
       EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
       EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+
+  open_issue_on_failure:
+    needs: [check_skip, standalone_buffer, build, build_cuda]
+    # Report a master push failure only, on the same gate as
+    # send_email_on_failure above.
+    if: |
+      always() &&
+      (contains(needs.*.result, 'failure') ||
+       contains(needs.*.result, 'cancelled')) &&
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/master' &&
+      github.event.repository.fork == false
+    permissions:
+      issues: write
+      pull-requests: read
+    uses: ./.github/workflows/open_issue_on_failure.yml
+    with:
+      job_results: |
+        - check_skip: ${{ needs.check_skip.result }}
+        - standalone_buffer: ${{ needs.standalone_buffer.result }}
+        - build: ${{ needs.build.result }}
+        - build_cuda: ${{ needs.build_cuda.result }}
