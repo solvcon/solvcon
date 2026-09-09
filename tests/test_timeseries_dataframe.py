@@ -201,16 +201,18 @@ class TimeSeriesDataFrameTC(unittest.TestCase):
         tsdf = dataframe.DataFrame()
         tsdf.read_from_text_file(io.StringIO(self.dlc_data))
 
-        missing_pattern = re.escape(
-            "DataFrame: columns missing ['DELTA_VEL[3]'], unknown []"
-        )
-        with self.assertRaisesRegex(ValueError, missing_pattern):
+        with self.assertRaisesRegex(ValueError,
+                                    re.escape(
+                "DataFrame: columns missing ['DELTA_VEL[3]'], unknown []"
+                                        )
+                                    ):
             tsdf.reorder_columns(['DELTA_VEL[1]', 'DELTA_VEL[2]'])
 
-        unknown_pattern = re.escape(
-            "DataFrame: columns missing [], unknown ['EXTRA']"
-        )
-        with self.assertRaisesRegex(ValueError, unknown_pattern):
+        with self.assertRaisesRegex(ValueError,
+                                    re.escape(
+                "DataFrame: columns missing [], unknown ['EXTRA']"
+                                        )
+                                    ):
             tsdf.reorder_columns(
                 ['DELTA_VEL[1]', 'DELTA_VEL[2]', 'DELTA_VEL[3]', 'EXTRA']
             )
@@ -219,8 +221,11 @@ class TimeSeriesDataFrameTC(unittest.TestCase):
         tsdf = dataframe.DataFrame()
         tsdf.read_from_text_file(io.StringIO(self.dlc_data))
 
-        duplicate_pattern = re.escape("DataFrame: columns has duplicate names")
-        with self.assertRaisesRegex(ValueError, duplicate_pattern):
+        with self.assertRaisesRegex(ValueError,
+                                    re.escape(
+                "DataFrame: columns has duplicate names"
+                                        )
+                                    ):
             tsdf.reorder_columns(
                 ['DELTA_VEL[1]', 'DELTA_VEL[1]', 'DELTA_VEL[2]',
                  'DELTA_VEL[3]']
@@ -230,8 +235,11 @@ class TimeSeriesDataFrameTC(unittest.TestCase):
         tsdf = dataframe.DataFrame()
         tsdf.read_from_text_file(io.StringIO(self.dlc_data))
 
-        empty_pattern = re.escape("DataFrame: provide columns to reorder")
-        with self.assertRaisesRegex(ValueError, empty_pattern):
+        with self.assertRaisesRegex(ValueError,
+                                    re.escape(
+                "DataFrame: provide columns to reorder"
+                                        )
+                                    ):
             tsdf.reorder_columns()
 
     def test_read_from_text_file_accepts_str_path(self):
