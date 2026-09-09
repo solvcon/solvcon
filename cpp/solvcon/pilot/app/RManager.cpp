@@ -267,6 +267,7 @@ R2DWidget * RManager::add2DWidget()
         auto * subwin = this->addSubWindow(viewer);
         subwin->resize(400, 300);
         viewer->resize(400, 300);
+        this->addSubWindowGrip(subwin);
     }
     return viewer;
 }
