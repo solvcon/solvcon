@@ -56,13 +56,13 @@ execute_process(
 )
 
 add_custom_target(_solvcon_py
-    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:_solvcon> ${SOLVCON_PY_DIR}/../_solvcon${PYEXTSUFFIX}
+    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:_solvcon> ${SOLVCON_PY_DIR}/../$<TARGET_FILE_NAME:_solvcon>
     DEPENDS _solvcon)
 
 add_custom_target(remove_solvcon_py
     COMMAND ${CMAKE_COMMAND} -E rm -f
-        ${SOLVCON_PY_DIR}/_solvcon${PYEXTSUFFIX}
-        ${SOLVCON_PY_DIR}/../_solvcon${PYEXTSUFFIX}
+        ${SOLVCON_PY_DIR}/$<TARGET_FILE_NAME:_solvcon>
+        ${SOLVCON_PY_DIR}/../$<TARGET_FILE_NAME:_solvcon>
     COMMENT "removing the built _solvcon extension")
 
 message(STATUS "CMAKE_INSTALL_INCLUDEDIR: ${CMAKE_INSTALL_INCLUDEDIR}")
