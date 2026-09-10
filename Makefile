@@ -169,18 +169,22 @@ pytest-gui: buildext
 PROFFILES = $(shell find profiling -type f -name 'profile_*.py' | sort)
 PROFRESDIR = profiling/results
 
+prof_name = $(basename $(notdir $(1)))
+prof_out = $(PROFRESDIR)/$(call prof_name,$(1)).output
+# Options reach one profiling script through PYPROF_OPTS_<script>, e.g.
+#   make pyprof PYPROF_OPTS_profile_matrix_ops=--skip-winograd-boundary
+prof_opts = $(PYPROF_OPTS_$(call prof_name,$(1)))
+
 .PHONY: pyprof
 pyprof: buildext $(PROFFILES)
-	@mkdir -p profiling/results
-	@mkdir -p profiling/results/png
-	@for fn in $(PROFFILES); \
-	do \
-		outfn=$${fn%%.py}; \
-		outfn=profiling/results/$${outfn##profiling/}.output; \
-		echo "$(WHICH_PYTHON) $${fn} > $${outfn}"; \
+	@mkdir -p $(PROFRESDIR)
+	@mkdir -p $(PROFRESDIR)/png
+	@$(foreach fn,$(PROFFILES), \
+		echo "$(WHICH_PYTHON) $(fn) $(call prof_opts,$(fn)) > $(call prof_out,$(fn))"; \
 		env $(RUNENV) \
-			$(WHICH_PYTHON) $${fn} > $${outfn} || exit 1; \
-	done
+			$(WHICH_PYTHON) $(fn) $(call prof_opts,$(fn)) \
+			> $(call prof_out,$(fn)) || exit 1; \
+	)
 
 .PHONY: pilot
 pilot: cmake
