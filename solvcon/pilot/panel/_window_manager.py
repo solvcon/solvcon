@@ -91,7 +91,7 @@ class WindowManager(_gui_common.PilotFeature):
     def _tile(self):
         self._mgr.mdiArea.tileSubWindows()
 
-    def _cascade(self):
+    def _cascade(self, width=400, height=300):
         mdi = self._mgr.mdiArea
         subwins = [s for s in mdi.subWindowList() if s.isVisible()]
         if not subwins:
@@ -101,7 +101,7 @@ class WindowManager(_gui_common.PilotFeature):
 
         for subwin in subwins:
             if not subwin.isMinimized():
-                subwin.resize(400, 300)
+                subwin.resize(width, height)
 
     def _set_tabbed(self, on):
         """Switch the MDI area between sub-window and tabbed view.

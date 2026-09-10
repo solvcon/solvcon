@@ -233,6 +233,15 @@ class WindowLayoutTC(unittest.TestCase):
         self.assertEqual(one.width(), 400)
         self.assertEqual(one.height(), 300)
 
+    def test_cascade_allows_overriding_window_size(self):
+        self._two_stacked_windows()
+        _gui.controller.window_manager._cascade(width=320, height=240)
+        QtWidgets.QApplication.processEvents()
+        one, two = [s.geometry() for s in self.area.subWindowList()]
+        self.assertEqual(one.size(), two.size())
+        self.assertEqual(one.width(), 320)
+        self.assertEqual(one.height(), 240)
+
     def test_cascade_keeps_viewers_usable(self):
         self._two_stacked_windows()
         canvas_subwin, domain_subwin = self.area.subWindowList()
