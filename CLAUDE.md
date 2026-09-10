@@ -298,6 +298,18 @@ any dependency requires user review and consent.
 **macOS**: System Integrity Protection (SIP) may interfere with
 `DYLD_LIBRARY_PATH`. The Makefile sets `PYTHONPATH` as a workaround.
 
+## Continuous Integration
+
+Workflows live in `.github/workflows/`; helper scripts live in `contrib/ci/`.
+Keep a workflow step's `run:` block short: a single command or a few lines of
+glue. When a step needs real logic (loops, conditionals, more than roughly ten
+lines, or anything you would want to run locally), put it in a script under
+`contrib/ci/` and have the workflow call that script, as `cache_cleanup.yml`
+calls `contrib/ci/prune-caches.sh`. YAML-embedded scripts cannot be linted,
+tested, or run outside CI, so a long inline block is a maintenance liability.
+When you touch an existing step that already carries a long inline script,
+move that script into `contrib/ci/` as part of the change.
+
 ## Profiling System
 
 solvcon includes an integrated runtime profiler:
