@@ -61,10 +61,15 @@ TEST(PilotKeymapTable, SeedsSharedBindingsOnEveryPlatform)
         ASSERT_NE(blank, nullptr);
         EXPECT_EQ(std::get<solvcon::StandardAction>(blank->key), solvcon::StandardAction::New);
 
+        auto const * close = solvcon::bindingFor(platform, solvcon::ShortcutCommand::Close);
+        ASSERT_NE(close, nullptr);
+        EXPECT_EQ(std::get<solvcon::KeyChord>(close->key),
+                  (solvcon::KeyChord{solvcon::KeyMod::Primary, solvcon::Key::W}));
+        EXPECT_EQ(close->context, solvcon::ShortcutContext::Application);
+
         auto const * exit = solvcon::bindingFor(platform, solvcon::ShortcutCommand::Exit);
         ASSERT_NE(exit, nullptr);
-        EXPECT_EQ(std::get<solvcon::KeyChord>(exit->key),
-                  (solvcon::KeyChord{solvcon::KeyMod::Primary, solvcon::Key::W}));
+        EXPECT_EQ(std::get<solvcon::StandardAction>(exit->key), solvcon::StandardAction::Quit);
         EXPECT_EQ(exit->context, solvcon::ShortcutContext::Application);
     }
 }
@@ -102,15 +107,20 @@ TEST(PilotKeymapTable, GivesEveryDrawToolAnUnmodifiedLetterInWidgetContext)
     }
 }
 
-TEST(PilotKeymapMac, AddsQuitRoleOverTheSharedExitBinding)
+TEST(PilotKeymapMac, AddsQuitRoleOverTheSharedBindings)
 {
     EXPECT_EQ(solvcon::bindingTable(solvcon::PlatformId::Mac).size(),
               solvcon::bindingTable(solvcon::PlatformId::Linux).size());
 
+    auto const * close = solvcon::bindingFor(solvcon::PlatformId::Mac, solvcon::ShortcutCommand::Close);
+    ASSERT_NE(close, nullptr);
+    EXPECT_EQ(std::get<solvcon::KeyChord>(close->key),
+              (solvcon::KeyChord{solvcon::KeyMod::Primary, solvcon::Key::W}));
+    EXPECT_EQ(close->role, solvcon::MenuRole::None);
+
     auto const * exit = solvcon::bindingFor(solvcon::PlatformId::Mac, solvcon::ShortcutCommand::Exit);
     ASSERT_NE(exit, nullptr);
-    EXPECT_EQ(std::get<solvcon::KeyChord>(exit->key),
-              (solvcon::KeyChord{solvcon::KeyMod::Primary, solvcon::Key::W}));
+    EXPECT_EQ(std::get<solvcon::StandardAction>(exit->key), solvcon::StandardAction::Quit);
     EXPECT_EQ(exit->role, solvcon::MenuRole::Quit);
 
     EXPECT_EQ(solvcon::bindingFor(solvcon::PlatformId::Linux, solvcon::ShortcutCommand::Exit)->role,

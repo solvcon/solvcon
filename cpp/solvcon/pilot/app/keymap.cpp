@@ -16,16 +16,15 @@ namespace solvcon
 namespace
 {
 
-/**
- * Bindings shared by every platform. The per-platform tables append only
- * their Exit row (Primary+W, with Quit role on macOS) on top of this seed.
- */
 std::vector<ShortcutBinding> sharedSeed()
 {
     return {
         {ShortcutCommand::Undo, StandardAction::Undo, ShortcutContext::Window},
         {ShortcutCommand::Redo, StandardAction::Redo, ShortcutContext::Window},
         {ShortcutCommand::CameraReset, KeyChord{KeyMod::None, Key::Escape}, ShortcutContext::Widget},
+        {ShortcutCommand::Close,
+         KeyChord{KeyMod::Primary, Key::W},
+         ShortcutContext::Application},
         {ShortcutCommand::AgentPanel,
          KeyChord{KeyMod::Primary | KeyMod::Shift, Key::A},
          ShortcutContext::Window},
@@ -62,12 +61,8 @@ std::vector<ShortcutBinding> tableWith(std::vector<ShortcutBinding> extra)
 
 std::vector<ShortcutBinding> const & linuxTable()
 {
-    // Primary+W is Ctrl+W on Linux and Windows; Quit's standard chord is
-    // unbound on Windows, so a curated Exit keeps the same quit key everywhere.
     static std::vector<ShortcutBinding> const table = tableWith({
-        {ShortcutCommand::Exit,
-         KeyChord{KeyMod::Primary, Key::W},
-         ShortcutContext::Application},
+        {ShortcutCommand::Exit, StandardAction::Quit, ShortcutContext::Application},
     });
     return table;
 }
@@ -80,11 +75,9 @@ std::vector<ShortcutBinding> const & windowsTable()
 
 std::vector<ShortcutBinding> const & macTable()
 {
-    // Primary+W is Cmd+W on macOS. Quit role still moves Exit into the
-    // application menu; the curated chord replaces Qt's standard Quit.
     static std::vector<ShortcutBinding> const table = tableWith({
         {ShortcutCommand::Exit,
-         KeyChord{KeyMod::Primary, Key::W},
+         StandardAction::Quit,
          ShortcutContext::Application,
          MenuRole::Quit},
     });
@@ -103,6 +96,8 @@ std::string_view commandId(ShortcutCommand command)
         return "edit.redo";
     case ShortcutCommand::CameraReset:
         return "camera.reset";
+    case ShortcutCommand::Close:
+        return "window.close";
     case ShortcutCommand::Exit:
         return "file.exit";
     case ShortcutCommand::Console:

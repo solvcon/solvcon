@@ -12,6 +12,7 @@ import solvcon
 
 try:
     from solvcon import pilot
+    from solvcon.pilot.base import _gui
     from solvcon.pilot.track import _mcap_viewer
     from PySide6.QtCore import Qt
     from PySide6.QtWidgets import QApplication
@@ -149,5 +150,15 @@ class McapPanelTC(unittest.TestCase):
         topics.itemClicked.emit(topics.item(0))
         self.assertEqual(self.feature.viewer.topic, TOPIC)
         self.assertEqual(len(self._mcap_windows()), 1)
+
+    def test_close_command_closes_the_mcap_window_before_pilot(self):
+        self.mgr.mainWindow.show()
+        self.feature.open_file(self.path)
+        QApplication.processEvents()
+        _gui.close_active_window(self.mgr)
+        QApplication.processEvents()
+        self.assertIsNone(self.feature.viewer)
+        self.assertEqual(self._mcap_windows(), [])
+        self.assertTrue(self.mgr.mainWindow.isVisible())
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
