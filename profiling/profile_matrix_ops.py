@@ -204,6 +204,12 @@ def profile_matmul_suite(dtype, warmups=1, samples=1, rounds=3):
                 warmups, samples, rounds)
 
 
+# Mirror MatmulTuning::Winograd::minimum_side in
+# cpp/solvcon/buffer/matmul_executor.hpp.  A smaller square matrix falls
+# back to the BLAS kernel and stops measuring the Winograd route.
+WINOGRAD_BOUNDARY_SIDE = 16_384
+
+
 def profile_winograd_boundary(dtype, side, rng):
     dtype = np.dtype(dtype)
     shape = (side, side)
@@ -258,6 +264,12 @@ def parse_arguments(argv=None):
     parser.add_argument(
         "--rounds", type=parse_positive_count, default=3,
         help="matmul profiling rounds; use 5 or more for stable results")
+    parser.add_argument(
+        "--skip-winograd-boundary", action="append", default=[],
+        choices=("float32", "float64"), metavar="DTYPE",
+        help="skip the square case at the Winograd threshold for this "
+             "dtype; repeat to skip both. float32 peaks near 4 GiB and "
+             "float64 near 7 GiB")
     return parser.parse_args(argv)
 
 
@@ -274,8 +286,15 @@ def main(argv=None):
             rounds=args.rounds)
 
     rng = np.random.default_rng(20260812)
+    skipped = args.skip_winograd_boundary
+    if skipped:
+        print("## Winograd boundary: skipped for "
+              f"`{'`, `'.join(skipped)}`\n")
+
     for dtype in (np.float32, np.float64):
-        profile_winograd_boundary(dtype, side=16_384, rng=rng)
+        if np.dtype(dtype).name in skipped:
+            continue
+        profile_winograd_boundary(dtype, side=WINOGRAD_BOUNDARY_SIDE, rng=rng)
 
 
 if __name__ == "__main__":

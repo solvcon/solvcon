@@ -42,8 +42,15 @@ jobs:
         include:
           - os: ubuntu-24.04
             cmake_build_type: Release
+            pyprof_matrix_opts: ''
           - os: macos-26
             cmake_build_type: RelWithDebInfo
+            # The float64 case at the Winograd threshold peaks near 7 GiB.
+            # The macOS runner swaps on it, which ran the job past its
+            # 30-minute timeout on two consecutive nightly builds. The
+            # float32 case peaks near 4 GiB and still runs here. The ubuntu
+            # runner has the memory and keeps measuring both dtypes.
+            pyprof_matrix_opts: '--skip-winograd-boundary float64'
       fail-fast: false
 
     steps:
@@ -88,7 +95,8 @@ jobs:
       - name: make pyprof
         run: |
           echo "::group::make pyprof"
-          make pyprof
+          make pyprof \
+            PYPROF_OPTS_profile_matrix_ops="${{ matrix.pyprof_matrix_opts }}"
           echo "::endgroup::"
 
   send_email_on_failure:
