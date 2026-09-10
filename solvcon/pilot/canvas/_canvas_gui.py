@@ -217,6 +217,10 @@ class Canvas(_gui_common.PilotFeature):
         self._widget_2d = None
         self._widget_2d_close_filter = None
         self._blank_worlds = []
+        # Held for Canvas's lifetime: a throwaway mdiArea wrapper is
+        # garbage-collected right after use, invalidating any sub-window
+        # handle taken through it.
+        self._mdi = None
 
     def populate_menu(self):
         # Group the geometry samples under their own submenu, leaving the
@@ -358,8 +362,14 @@ class Canvas(_gui_common.PilotFeature):
         window closes. ``clear`` runs before that happens, so the next
         sample or open call rebuilds a fresh, live widget instead of
         touching a freed one.
+
+        Only called right after ``_update_widget``/``_open_2d`` create a
+        brand-new sub-window via ``add2DWidget()``, so a given sub-window
+        reaches ``installEventFilter`` at most once here.
         """
-        subwin = self._mgr.mdiArea.activeSubWindow()
+        if self._mdi is None:
+            self._mdi = self._mgr.mdiArea
+        subwin = self._mdi.activeSubWindow()
         if subwin is None:
             return None
         subwin.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
