@@ -37,6 +37,7 @@ if QtGui is not None:
     _STANDARD_IDS = {
         "edit.undo": QtGui.QKeySequence.StandardKey.Undo,
         "edit.redo": QtGui.QKeySequence.StandardKey.Redo,
+        "file.exit": QtGui.QKeySequence.StandardKey.Quit,
         "canvas.blank_2d": QtGui.QKeySequence.StandardKey.New,
     }
 
@@ -117,14 +118,25 @@ class ShortcutResolutionTC(unittest.TestCase):
         self.assertEqual(r["sequences"], _portable_standard_sequences(
             QtGui.QKeySequence.StandardKey.New))
 
-    def test_exit_resolves_to_primary_w(self):
+    def test_close_resolves_to_primary_w(self):
         # Cmd+W on macOS, Ctrl+W on Linux and Windows.
-        r = self.mgr.resolve_shortcut("file.exit")
+        r = self.mgr.resolve_shortcut("window.close")
         self.assertTrue(r["known"])
         self.assertTrue(r["bound"])
         self.assertFalse(r["standard"])
         self.assertEqual(r["context"], "application")
         self.assertEqual(r["sequences"], ["Ctrl+W"])
+        self.assertEqual(r["role"], "none")
+
+    def test_exit_carries_quit_and_platform_role(self):
+        r = self.mgr.resolve_shortcut("file.exit")
+        self.assertTrue(r["known"])
+        self.assertTrue(r["bound"])
+        self.assertTrue(r["standard"])
+        self.assertEqual(r["standard_key"], "Quit")
+        self.assertEqual(r["context"], "application")
+        self.assertEqual(r["sequences"], _portable_standard_sequences(
+            QtGui.QKeySequence.StandardKey.Quit))
         if self.mgr.shortcut_platform == "mac":
             self.assertEqual(r["role"], "quit")
         else:

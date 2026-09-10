@@ -43,6 +43,23 @@ def launch():
     return controller.launch()
 
 
+def close_active_window(mgr):
+    """Close the active sub-window, or Pilot when none is active."""
+    subwin = mgr.mdiArea.activeSubWindow()
+    if subwin is None:
+        mgr.mainWindow.close()
+    else:
+        subwin.close()
+
+
+def update_close_shortcut(action, mgr, subwin):
+    """Yield Primary+W to an active MDI sub-window's close action."""
+    if subwin is None:
+        _gui_common.apply_shortcut(action, mgr=mgr)
+    else:
+        action.setShortcuts([])
+
+
 class _Singleton(type):
     _instances = {}
 
@@ -180,6 +197,14 @@ class _Controller(metaclass=_Singleton):
         self.window_manager.populate_menu()
         self.agent.bind_auto_open()  # need to be the last to bind all commands
 
+        close = _gui_common.build_action(
+            wm.mainWindow, "Close",
+            "Close the active sub-window, or Pilot when none is active",
+            lambda: close_active_window(wm), id="window.close")
+        wm.mdiArea.subWindowActivated.connect(
+            lambda subwin: update_close_shortcut(close, wm, subwin))
+        update_close_shortcut(close, wm, wm.mdiArea.activeSubWindow())
+        wm.menu_model.place("File", close, 90)
         wm.menu_model.place(
             "File",
             _gui_common.build_action(

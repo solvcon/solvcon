@@ -115,6 +115,12 @@ class ShortcutTC(unittest.TestCase):
                 self._assert_action_matches_resolved(
                     "draw.tool." + tool, QtCore.Qt.WidgetShortcut)
 
+    def test_close_action_carries_the_resolved_binding(self):
+        self._assert_action_matches_resolved(
+            "window.close", QtCore.Qt.ApplicationShortcut)
+        action = self.model.action("window.close")
+        self.assertEqual(action.menuRole(), QtGui.QAction.NoRole)
+
     def test_exit_action_carries_quit_and_platform_role(self):
         self._assert_action_matches_resolved(
             "file.exit", QtCore.Qt.ApplicationShortcut)
@@ -123,6 +129,64 @@ class ShortcutTC(unittest.TestCase):
             self.assertEqual(action.menuRole(), QtGui.QAction.QuitRole)
         else:
             self.assertEqual(action.menuRole(), QtGui.QAction.NoRole)
+
+    def test_close_action_closes_the_active_subwindow_first(self):
+        self.mgr.show()
+        self.mgr.add2DWidget()
+        subwin = self.mgr.mdiArea.activeSubWindow()
+        self.assertIsNotNone(subwin)
+        action = self.model.action("window.close")
+        self.assertEqual(action.shortcuts(), [])
+        action.trigger()
+        QtWidgets.QApplication.processEvents()
+        self.assertFalse(subwin.isVisible())
+        self.assertTrue(self.mgr.mainWindow.isVisible())
+        self.assertEqual(_live_sequences(action),
+                         self.mgr.resolve_shortcut(
+                             "window.close")["sequences"])
+
+    def test_close_action_closes_pilot_without_an_active_subwindow(self):
+        self.mgr.mdiArea.closeAllSubWindows()
+        QtWidgets.QApplication.processEvents()
+        self.mgr.show()
+        self.addCleanup(self.mgr.show)
+        self.assertIsNone(self.mgr.mdiArea.activeSubWindow())
+        self.model.action("window.close").trigger()
+        QtWidgets.QApplication.processEvents()
+        self.assertFalse(self.mgr.mainWindow.isVisible())
+
+
+@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT or QTest is None,
+                 "live key delivery needs a real window surface and QtTest")
+class CloseShortcutTC(unittest.TestCase):
+    """Primary+W closes one Pilot window at a time."""
+
+    def setUp(self):
+        self.mgr = _gui.controller.build()
+        self.mgr.mdiArea.closeAllSubWindows()
+        QtWidgets.QApplication.processEvents()
+        self.mgr.show()
+        self.addCleanup(self.mgr.show)
+
+    def test_closes_the_active_subwindow_then_pilot(self):
+        action = self.mgr.menu_model.action("window.close")
+        sequence = action.shortcut()
+        self.mgr.add2DWidget()
+        subwin = self.mgr.mdiArea.activeSubWindow()
+        self.assertIsNotNone(subwin)
+        if not _can_take_keyboard(subwin.widget()):
+            self.skipTest("the platform did not grant the keyboard")
+
+        QTest.keySequence(subwin.widget(), sequence)
+        QtWidgets.QApplication.processEvents()
+        self.assertEqual(self.mgr.mdiArea.subWindowList(), [])
+        self.assertTrue(self.mgr.mainWindow.isVisible())
+        if not _can_take_keyboard(self.mgr.mainWindow):
+            self.skipTest("the platform did not grant the keyboard")
+
+        QTest.keySequence(self.mgr.mainWindow, sequence)
+        QtWidgets.QApplication.processEvents()
+        self.assertFalse(self.mgr.mainWindow.isVisible())
 
 
 @unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
