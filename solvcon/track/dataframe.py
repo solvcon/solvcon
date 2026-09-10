@@ -305,4 +305,43 @@ class DataFrame(object):
         """
         return self.sort(columns=columns, index_column=None, inplace=inplace)
 
+    def reorder_columns(self, columns=None, inplace=True):
+        """
+        Reorder the dataframe's columns
+
+        :param columns: full permutation of the existing column names
+        :type columns: List[str]
+        :param inplace: flag indicates whether to reorder inplace or
+                        out-of-place
+        :type inplace: bool
+        :return: reordered DataFrame (return self if inplace is set to
+                True)
+        """
+        if columns is None:
+            raise ValueError("DataFrame: provide columns to reorder")
+
+        if sorted(columns) != sorted(self._columns):
+            missing = sorted(set(self._columns) - set(columns))
+            unknown = sorted(set(columns) - set(self._columns))
+            if missing or unknown:
+                raise ValueError(
+                    "DataFrame: columns missing {}, unknown {}".format(
+                        missing, unknown))
+            raise ValueError("DataFrame: columns has duplicate names")
+
+        new_data = [self._data[self._columns.index(name)]
+                    for name in columns]
+
+        if inplace:
+            self._data = new_data
+            self._columns = list(columns)
+            return self
+        else:
+            ret = DataFrame()
+            ret._index_name = self._index_name
+            ret._index_data = self._index_data
+            ret._columns = list(columns)
+            ret._data = new_data
+            return ret
+
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
