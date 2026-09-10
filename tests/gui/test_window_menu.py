@@ -205,12 +205,66 @@ class WindowLayoutTC(unittest.TestCase):
         one, two = [s.geometry() for s in self.area.subWindowList()]
         self.assertFalse(one.intersects(two))
 
-    def test_cascade_offsets_the_windows(self):
+    def test_cascade_preserves_qt_positions(self):
+        self._two_stacked_windows()
+        subwins = self.area.subWindowList()
+
+        self.area.cascadeSubWindows()
+        QtWidgets.QApplication.processEvents()
+        qt_positions = [subwin.pos() for subwin in subwins]
+        self.assertNotEqual(qt_positions[0], qt_positions[1])
+
+        for subwin in subwins:
+            subwin.setGeometry(0, 0, 200, 150)
+        QtWidgets.QApplication.processEvents()
+
+        self.model.action(WindowManager.CASCADE_ID).trigger()
+        QtWidgets.QApplication.processEvents()
+        positions = [subwin.pos() for subwin in subwins]
+
+        self.assertEqual(positions, qt_positions)
+
+    def test_cascade_resizes_the_windows(self):
         self._two_stacked_windows()
         self.model.action(WindowManager.CASCADE_ID).trigger()
         QtWidgets.QApplication.processEvents()
         one, two = [s.geometry() for s in self.area.subWindowList()]
-        self.assertNotEqual(one.topLeft(), two.topLeft())
+        self.assertEqual(one.size(), two.size())
+        self.assertEqual(one.width(), 400)
+        self.assertEqual(one.height(), 300)
+
+    def test_cascade_keeps_viewers_usable(self):
+        self._two_stacked_windows()
+        canvas_subwin, domain_subwin = self.area.subWindowList()
+
+        self.model.action(WindowManager.CASCADE_ID).trigger()
+        QtWidgets.QApplication.processEvents()
+
+        canvas = canvas_subwin.widget()
+        domain_host = domain_subwin.widget()
+        domain_viewer = domain_host.layout().itemAt(0).widget()
+
+        self.assertGreater(canvas.height(), 0)
+        self.assertGreater(domain_viewer.height(), 0)
+
+    def test_cascade_preserves_the_active_window(self):
+        self._two_stacked_windows()
+        active = self.area.activeSubWindow()
+        self.model.action(WindowManager.CASCADE_ID).trigger()
+        QtWidgets.QApplication.processEvents()
+        self.assertIs(self.area.activeSubWindow(), active)
+
+    def test_cascade_preserves_the_minimized_window(self):
+        self._two_stacked_windows()
+        minimized = self.area.subWindowList()[0]
+        minimized.showMinimized()
+        QtWidgets.QApplication.processEvents()
+        original_size = minimized.size()
+
+        self.model.action(WindowManager.CASCADE_ID).trigger()
+        QtWidgets.QApplication.processEvents()
+        self.assertTrue(minimized.isMinimized())
+        self.assertEqual(minimized.size(), original_size)
 
     def test_horizontal_tiling_forms_a_single_row(self):
         self._two_stacked_windows()
