@@ -75,4 +75,10 @@ re-check with a direct command first. Before declaring a task blocked or
 impossible, try at least two different approaches and report exactly what was
 tried and the errors seen.
 
+## Rule 14 -- Keep CI logic in scripts, not in YAML
+A workflow step's `run:` block is glue, not a program. If the logic grows past
+a few lines, or you would want to run it locally, put it in a script under
+`contrib/ci/` and call the script from the workflow. See `AGENTS.md`
+"Continuous Integration".
+
 <!-- vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79: -->
