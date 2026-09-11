@@ -140,6 +140,8 @@ endif()
 
 option(USE_CLANG_TIDY "use clang-tidy" OFF)
 option(LINT_AS_ERRORS "clang-tidy warnings as errors" OFF)
+option(USE_CTCACHE
+    "cache clang-tidy results with ctcache when it is available" ON)
 message(STATUS "LINT_AS_ERRORS: ${LINT_AS_ERRORS}")
 
 # Sanitizers
@@ -189,6 +191,18 @@ if(CLANG_TIDY_EXE)
     )
 endif()
 
+# ctcache wraps a clang-tidy invocation and skips it when an identical
+# translation unit was already analyzed clean, so probing for it is only
+# worthwhile once clang-tidy itself is present. See
+# https://github.com/matus-chochlik/ctcache
+if(USE_CTCACHE AND CLANG_TIDY_EXE)
+    find_program(
+        CLANG_TIDY_CACHE_EXE
+        NAMES "clang-tidy-cache"
+        DOC "Path to clang-tidy-cache (ctcache) executable"
+    )
+endif()
+
 if(USE_CLANG_TIDY)
     # On macOS, SDK-provided headers and frameworks are resolved through an
     # SDK sysroot. Homebrew clang-tidy may not inherit Xcode's selected SDK
@@ -208,7 +222,12 @@ if(USE_CLANG_TIDY)
     endif()
 
     if(CLANG_TIDY_EXE)
-        set(DO_CLANG_TIDY "${CLANG_TIDY_EXE}"
+        if(CLANG_TIDY_CACHE_EXE)
+            set(DO_CLANG_TIDY "${CLANG_TIDY_CACHE_EXE}" "${CLANG_TIDY_EXE}")
+        else()
+            set(DO_CLANG_TIDY "${CLANG_TIDY_EXE}")
+        endif()
+        list(APPEND DO_CLANG_TIDY
             "-header-filter=/cpp/.\*"
             "--extra-arg=-std=c++23"
             # FIXME: Remove --allow-no-checks in the future after figuring out
@@ -225,13 +244,31 @@ if(USE_CLANG_TIDY)
         if(LINT_AS_ERRORS)
             set(DO_CLANG_TIDY "${DO_CLANG_TIDY}" "-warnings-as-errors=*")
         endif()
+        if(CLANG_TIDY_CACHE_EXE)
+            message(STATUS "use clang-tidy-cache: ${CLANG_TIDY_CACHE_EXE}")
+        endif()
         message(STATUS "use clang-tidy with DO_CLANG_TIDY: ${DO_CLANG_TIDY}")
     else()
         message(FATAL_ERROR "USE_CLANG_TIDY is on but clang-tidy is not found")
     endif()
 
     if(CLANG_TIDY_DIFF_EXE)
+        # clang-tidy-diff.py's -clang-tidy-binary takes a single executable,
+        # not a launcher plus a binary, so ctcache is spliced in through a
+        # tiny generated wrapper instead of being passed as a second token.
+        set(CLANG_TIDY_DIFF_BINARY "${CLANG_TIDY_EXE}")
+        if(CLANG_TIDY_CACHE_EXE)
+            set(CLANG_TIDY_DIFF_BINARY
+                "${CMAKE_BINARY_DIR}/clang-tidy-cache-wrapper.sh")
+            file(WRITE "${CLANG_TIDY_DIFF_BINARY}"
+                "#!/bin/sh\nexec \"${CLANG_TIDY_CACHE_EXE}\" \"${CLANG_TIDY_EXE}\" \"$@\"\n")
+            file(CHMOD "${CLANG_TIDY_DIFF_BINARY}" PERMISSIONS
+                OWNER_READ OWNER_WRITE OWNER_EXECUTE
+                GROUP_READ GROUP_EXECUTE
+                WORLD_READ WORLD_EXECUTE)
+        endif()
         set(DO_CLANG_TIDY_DIFF "${CLANG_TIDY_DIFF_EXE}"
+            "-clang-tidy-binary=${CLANG_TIDY_DIFF_BINARY}"
             "-p1"
             "-extra-arg=-std=c++23"
             "-allow-no-checks")
