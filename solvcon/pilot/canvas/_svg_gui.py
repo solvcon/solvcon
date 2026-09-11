@@ -70,22 +70,35 @@ class SVGFileDialog(_gui_common.PilotFeature):
                 break
         return found
 
+    def _add_shape_to_world(self, w, element_list):
+        # [TODO] Every shape is flattened to add_segments/add_beziers
+        #        regardless of its orignal SVG shape type. Instead, esch
+        #        basic shape should be added with its corresponding geometry
+        #        API. (e.g. a circle via w.add_circle())
+        for element in element_list:
+            spads, cpads = element.get_pads()
+            for spad in spads:
+                if len(spad) != 0:
+                    # Flip against the X axis for GUI coordinate system
+                    spad.mirror(axis='x')
+                    w.add_segments(pad=spad)
+
+            for cpad in cpads:
+                if len(cpad) != 0:
+                    # Flip against the X axis for GUI coordinate system
+                    cpad.mirror(axis='x')
+                    w.add_beziers(pad=cpad)
+        return
+
     def _load_svg_file(self, filename):
         parser = svg.SvgParser(file_path=filename)
         parser.parse()
-        spads, cpads = parser.get_pads()
 
         world = core.WorldFp64()
-
-        for spad in spads:
-            # Flip against the X axis for GUI coordinate system
-            spad.mirror(axis='x')
-            world.add_segments(pad=spad)
-
-        for cpad in cpads:
-            # Flip against the X axis for GUI coordinate system
-            cpad.mirror(axis='x')
-            world.add_beziers(pad=cpad)
+        basic_shapes = parser.get_basic_shapes()
+        for bshape, element_list in basic_shapes.items():
+            if element_list:
+                self._add_shape_to_world(world, element_list)
 
         # World geometry (segments and curves) renders in the 2D canvas; the
         # 3D domain viewer is for meshes and fields.
