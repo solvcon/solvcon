@@ -318,9 +318,14 @@ WrapTrianglePad<T> & WrapTrianglePad<T>::wrap_accessor_triangle()
     (*this)
         .def("__len__", &wrapped_type::size)
         .def("__getitem__",
-             [](wrapped_type const & self, size_t it)
+             [](wrapped_type const & self, ssize_t it)
              {
-                 return self.get_at(it);
+                 return self.get_at(normalize_pad_index(it, self.size(), "TrianglePad"));
+             })
+        .def("__getitem__",
+             [](wrapped_type const & self, py::slice const & key)
+             {
+                 return copy_pad_slice(self, key);
              })
         //
         ;

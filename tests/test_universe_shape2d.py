@@ -459,6 +459,92 @@ class TrianglePadTB(testing.TestBase):
                 "TrianglePad::mirror: axis must be 'x', 'y', or 'z'"):
             tp.mirror('w')
 
+    def test_getitem_index(self):
+        TrianglePad = self.TrianglePad
+
+        tp2d = TrianglePad(ndim=2)
+        tp2d.append(0, 1, 2, 3, 4, 5)
+        tp2d.append(6, 7, 8, 9, 10, 11)
+        tp2d.append(12, 13, 14, 15, 16, 17)
+        tp2d.append(18, 19, 20, 21, 22, 23)
+
+        self.assert_allclose(list(tp2d[0]),
+                             [[0, 1, 0], [2, 3, 0], [4, 5, 0]])
+        self.assert_allclose(list(tp2d[-1]),
+                             [[18, 19, 0], [20, 21, 0], [22, 23, 0]])
+        self.assert_allclose(list(tp2d[-4]),
+                             [[0, 1, 0], [2, 3, 0], [4, 5, 0]])
+
+        with self.assertRaisesRegex(
+                IndexError,
+                "TrianglePad: index 4 is out of bounds with size 4"):
+            tp2d[4]
+        with self.assertRaisesRegex(
+                IndexError,
+                "TrianglePad: index -5 is out of bounds with size 4"):
+            tp2d[-5]
+
+        empty = TrianglePad(ndim=3)
+        with self.assertRaisesRegex(
+                IndexError,
+                "TrianglePad: index 0 is out of bounds with size 0"):
+            empty[0]
+        with self.assertRaisesRegex(
+                IndexError,
+                "TrianglePad: index -1 is out of bounds with size 0"):
+            empty[-1]
+
+    def test_getitem_slice(self):
+        TrianglePad = self.TrianglePad
+
+        tp3d = TrianglePad(ndim=3)
+        tp3d.append(0, 1, 2, 3, 4, 5, 6, 7, 8)
+        tp3d.append(9, 10, 11, 12, 13, 14, 15, 16, 17)
+        tp3d.append(18, 19, 20, 21, 22, 23, 24, 25, 26)
+        tp3d.append(27, 28, 29, 30, 31, 32, 33, 34, 35)
+
+        full = tp3d[:]
+        self.assertIsInstance(full, type(tp3d))
+        self.assertEqual(full.ndim, 3)
+        self.assertEqual(len(full), 4)
+        for it in range(4):
+            self.assertEqual(full[it], tp3d[it])
+
+        strided = tp3d[1::2]
+        self.assertEqual(strided.ndim, 3)
+        self.assertEqual(len(strided), 2)
+        self.assertEqual(strided[0], tp3d[1])
+        self.assertEqual(strided[1], tp3d[3])
+
+        flipped = tp3d[::-1]
+        self.assert_allclose(list(flipped.x0), [27, 18, 9, 0])
+
+        negative = tp3d[-2:-1]
+        self.assertEqual(len(negative), 1)
+        self.assertEqual(negative[0], tp3d[2])
+
+        # A slice copies, so writing to it leaves the source alone.
+        part = tp3d[1:3]
+        part.set_at(0, -1.0, -2.0, -3.0, -4.0, -5.0,
+                    -6.0, -7.0, -8.0, -9.0)
+        self.assert_allclose(part.x0_at(0), -1.0)
+        self.assert_allclose(tp3d.x0_at(1), 9.0)
+
+        # A 2D pad keeps its dimensionality and its empty z arrays.
+        tp2d = TrianglePad(ndim=2)
+        tp2d.append(1.0, 2.0, 3.0, 4.0, 5.0, 6.0)
+        sliced2d = tp2d[:]
+        self.assertEqual(sliced2d.ndim, 2)
+        self.assertEqual(len(sliced2d.z0), 0)
+        self.assertEqual(len(sliced2d.z1), 0)
+        self.assertEqual(len(sliced2d.z2), 0)
+        self.assertEqual(sliced2d[0], tp2d[0])
+
+        empty = TrianglePad(ndim=3)
+        self.assertEqual(len(empty[:]), 0)
+        self.assertEqual(empty[:].ndim, 3)
+        self.assertEqual(len(tp3d[3:1]), 0)
+
 
 class TrianglePadFp32TC(TrianglePadTB, unittest.TestCase):
 
