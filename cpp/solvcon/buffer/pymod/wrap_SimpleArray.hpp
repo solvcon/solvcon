@@ -23,6 +23,9 @@ namespace python
 namespace detail
 {
 
+pybind11::dict matmul_kernel_eligibility(
+    pybind11::object const & lhs_shape, pybind11::object const & lhs_strides, pybind11::object const & rhs_shape, pybind11::object const & rhs_strides, bool blas_supported);
+
 // std::tolower is specified in terms of unsigned char and returns int; the
 // casts keep a negative char out of it and the result inside char.
 inline char lower_ascii(char ch)
@@ -438,6 +441,18 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArray
         }
 
         (*this)
+            .def_static(
+                "matmul_kernel_eligibility",
+                [](py::object const & lhs_shape, py::object const & lhs_strides, py::object const & rhs_shape, py::object const & rhs_strides)
+                {
+                    return detail::matmul_kernel_eligibility(
+                        lhs_shape, lhs_strides, rhs_shape, rhs_strides, solvcon::detail::use_matmul_blas_v<T>);
+                },
+                py::arg("lhs_shape"),
+                py::arg("lhs_strides"),
+                py::arg("rhs_shape"),
+                py::arg("rhs_strides"),
+                "Return kernel rejection reasons (None if eligible) without allocating operand or result arrays.")
             .def(
                 "matmul",
                 [](wrapped_type const & self,

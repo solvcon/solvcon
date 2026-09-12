@@ -3,6 +3,7 @@
 
 """Edit and run one exact matmul comparison."""
 
+import functools
 import pathlib
 import tempfile
 
@@ -32,9 +33,20 @@ class BenchmarkInspector(QtWidgets.QMdiSubWindow):
         self._closing = False
         self._build_inputs()
         self._build_controls()
+        self.dtype.currentTextChanged.connect(self._update_kernels)
+        for name in ('lhs_shape', 'lhs_strides', 'rhs_shape', 'rhs_strides'):
+            self.fields[name].textChanged.connect(self._update_kernels)
+        self._update_kernels()
         self.resize(1000, 520)
 
     def make_spec(self):
+        inputs = self._matmul_inputs()
+        kernels = tuple(name for name, box in self.kernels.items()
+                        if box.isChecked())
+        return matmul.MatmulSpec(
+            inputs.lhs, inputs.rhs, inputs.dtype, self._sampling(), kernels)
+
+    def _matmul_inputs(self):
         operands = []
         for name in ('lhs', 'rhs'):
             shape = _integers(self.fields[f'{name}_shape'].text(),
@@ -42,11 +54,9 @@ class BenchmarkInspector(QtWidgets.QMdiSubWindow):
             strides = _integers(self.fields[f'{name}_strides'].text(),
                                 f'{name} strides')
             operands.append(spec.OperandSpec(shape, strides))
-        return matmul.MatmulSpec(
+        return matmul.MatmulInputs(
             lhs=operands[0], rhs=operands[1],
-            dtype=self.dtype.currentText(), sampling=self._sampling(),
-            kernels=tuple(name for name, box in self.kernels.items()
-                          if box.isChecked()))
+            dtype=self.dtype.currentText())
 
     def _build_inputs(self):
         self.inputs = QtWidgets.QWidget(self)
@@ -110,6 +120,8 @@ class BenchmarkInspector(QtWidgets.QMdiSubWindow):
     def _build_kernels(self, form):
         layout = QtWidgets.QGridLayout()
         self.kernels = {}
+        self._kernel_choices = {}
+        self._kernel_tooltips = {}
         choices = (
             ('naive', 'Naive', 'Direct native loop for any valid input.'),
             ('blas_dot', 'BLAS DOT', 'Vector @ vector.'),
@@ -124,15 +136,37 @@ class BenchmarkInspector(QtWidgets.QMdiSubWindow):
                 tooltip += ' Requires a supported dtype and BLAS backend.'
             box.setToolTip(tooltip)
             box.setChecked(True)
+            self._kernel_choices[name] = True
+            self._kernel_tooltips[name] = tooltip
+            box.toggled.connect(
+                functools.partial(self._remember_kernel, name))
             layout.addWidget(box, index // 3, index % 3)
             self.kernels[name] = box
         form.addRow('Kernels', layout)
         kernel_help = QtWidgets.QLabel(
             'NumPy is always included for timing and numerical comparison. '
-            'Unavailable kernels are skipped and reported as ineligible.',
+            'Unavailable kernels are disabled; hover for the reason.',
             self.inputs)
         kernel_help.setWordWrap(True)
         layout.addWidget(kernel_help, 2, 0, 1, 3)
+
+    def _remember_kernel(self, name, checked):
+        self._kernel_choices[name] = checked
+
+    def _update_kernels(self):
+        try:
+            reasons = self._matmul_inputs().kernel_eligibility()
+        except ValueError as exc:
+            reasons = dict.fromkeys(self.kernels, str(exc))
+        for name, box in self.kernels.items():
+            reason = reasons[name]
+            with QtCore.QSignalBlocker(box):
+                box.setEnabled(reason is None)
+                box.setChecked(reason is None and self._kernel_choices[name])
+            tooltip = self._kernel_tooltips[name]
+            if reason is not None:
+                tooltip += '\nUnavailable: ' + reason
+            box.setToolTip(tooltip)
 
     def _build_controls(self):
         self.operation = QtWidgets.QComboBox(self)

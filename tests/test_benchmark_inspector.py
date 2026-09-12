@@ -94,6 +94,60 @@ class BenchmarkInspectorTC(unittest.TestCase):
         self.set_fields(rounds='2')
         self.assertEqual(self.widget.sampling_help.text(), expected)
 
+    def test_kernel_recovery(self):
+        self.set_fields(lhs_shape='2, 4', lhs_strides='4, 1',
+                        rhs_shape='4, 2', rhs_strides='2, 1')
+        boxes = self.widget.kernels
+        winograd = boxes['winograd']
+        if not winograd.isEnabled():
+            self.skipTest('BLAS backend is not available')
+        winograd.setChecked(True)
+        boxes['blas_gemm'].setChecked(False)
+        self.set_fields(lhs_shape='3, 4')
+        self.assertFalse(winograd.isEnabled())
+        self.assertFalse(winograd.isChecked())
+        self.assertIn('even', winograd.toolTip())
+        self.assertNotIn('winograd', self.widget.make_spec().kernels)
+        self.set_fields(lhs_shape='2, 4')
+        self.assertTrue(winograd.isEnabled())
+        self.assertTrue(winograd.isChecked())
+        self.assertNotIn('Unavailable', winograd.toolTip())
+        self.assertFalse(boxes['blas_gemm'].isChecked())
+        self.set_fields(lhs_strides='4')
+        self.assertTrue(all(not box.isEnabled() for box in boxes.values()))
+        self.set_fields(lhs_strides='-4, 0')
+        self.assertTrue(winograd.isChecked())
+        self.assertFalse(boxes['blas_gemm'].isChecked())
+        self.widget.dtype.setCurrentText('complex64')
+        self.assertTrue(winograd.isChecked())
+        self.widget.run_button.click()
+        self.wait_for_finish()
+        self.assertTrue(winograd.isEnabled())
+        self.assertFalse(boxes['blas_dot'].isEnabled())
+        self.assertEqual(self.widget.control.status.text(), 'Completed')
+
+    def test_kernel_rank_and_invalid_input(self):
+        self.set_fields(lhs_shape='4', lhs_strides='-1',
+                        rhs_shape='4', rhs_strides='0')
+        boxes = self.widget.kernels
+        self.assertFalse(boxes['blas_gemm'].isEnabled())
+        if boxes['blas_dot'].isEnabled():
+            boxes['blas_dot'].setChecked(True)
+            self.assertIn('blas_dot', self.widget.make_spec().kernels)
+        self.set_fields(rhs_shape='5')
+        self.assertTrue(all(not box.isEnabled() for box in boxes.values()))
+        self.assertIn('contraction', boxes['naive'].toolTip())
+        self.set_fields(rhs_shape='4')
+        self.assertTrue(boxes['naive'].isEnabled())
+        self.set_fields(rounds='0', repetitions='invalid')
+        for box in boxes.values():
+            box.setChecked(False)
+        self.set_fields(rhs_shape='5')
+        self.assertTrue(all(not box.isEnabled() for box in boxes.values()))
+        self.set_fields(rhs_shape='4')
+        self.assertTrue(boxes['naive'].isEnabled())
+        self.assertTrue(all(not box.isChecked() for box in boxes.values()))
+
     def test_reject_input(self):
         cases = (
             ('lhs_shape', '2,,3', 'lhs shape: enter comma-separated integers'),
