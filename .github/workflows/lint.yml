@@ -112,10 +112,7 @@ jobs:
         workflow: 'lint'
 
     # Job-level `env:` cannot read the `runner` context (only `steps[*].env`
-    # and `steps[*].run` can), so CTCACHE_DIR is exported here instead, ahead
-    # of every step that reads or writes it: the "ctcache" cache step below
-    # and, later, both the push (make pilot) and pull_request
-    # (make pilot_clang_tidy_diff) paths that run clang-tidy through it.
+    # and `steps[*].run` can), so CTCACHE_DIR is exported here instead.
     - name: ctcache dir
       run: |
         echo "CTCACHE_DIR=${{ runner.temp }}/ctcache" >> "$GITHUB_ENV"
@@ -134,12 +131,10 @@ jobs:
         # key.
         max-size: 1500M
 
-    # Unlike ccache above, this runs for every event: a pull request drives
-    # clang-tidy through pilot_clang_tidy_diff and benefits from a hit just
-    # as much as a push building through make pilot. actions/cache refuses to
-    # overwrite an existing key, so the key carries the commit SHA and
-    # restore-keys falls back to the closest previous entry; this creates one
-    # cache generation per commit rather than updating a single rolling entry.
+    # `actions/cache` refuses to overwrite an existing key,
+    # so the key carries the commit SHA and restore-keys falls back to
+    # the closest previous entry; this creates one cache generation per commit
+    # rather than updating a single rolling entry.
     - name: ctcache
       uses: actions/cache@v5
       with:

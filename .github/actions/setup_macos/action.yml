@@ -108,13 +108,10 @@ runs:
       shell: bash
       run: |
         echo "::group::Install ctcache for lint"
-        # Pin to a commit rather than @main so an upstream change cannot
-        # break this CI unannounced. See
         # https://github.com/matus-chochlik/ctcache
-        # --no-deps: ctcache declares flask (for its optional HTTP server
-        # cache, which CTCACHE_HOST would select; we only use the local
-        # CTCACHE_DIR mode) as a dependency, and installing it can drag in
-        # a blinker version that conflicts with a Homebrew-provided one.
+        # --no-deps: ctcache declares flask as a dependency, 
+        # and installing it can drag in a blinker version that conflicts 
+        # with a Homebrew-provided one.
         # clang_tidy_cache.py imports neither flask nor requests at
         # module load time, so skipping them is safe.
         python3 -m pip install --break-system-packages --no-deps \
