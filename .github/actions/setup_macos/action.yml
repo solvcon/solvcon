@@ -103,6 +103,21 @@ runs:
         clang-format --version
         echo "::endgroup::"
 
+    - name: Install ctcache for lint
+      if: ${{ inputs.workflow == 'lint' }}
+      shell: bash
+      run: |
+        echo "::group::Install ctcache for lint"
+        # https://github.com/matus-chochlik/ctcache
+        # --no-deps: ctcache declares flask as a dependency, 
+        # and installing it can drag in a blinker version that conflicts 
+        # with a Homebrew-provided one.
+        # clang_tidy_cache.py imports neither flask nor requests at
+        # module load time, so skipping them is safe.
+        python3 -m pip install --break-system-packages --no-deps \
+            "git+https://github.com/matus-chochlik/ctcache.git@0c7fee26e09ae8a393ed7d56164102da118ab23a"
+        echo "::endgroup::"
+
     - name: install pybind11 (pip wheel)
       shell: bash
       run: |

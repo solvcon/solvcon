@@ -111,6 +111,12 @@ jobs:
       with:
         workflow: 'lint'
 
+    # Job-level `env:` cannot read the `runner` context (only `steps[*].env`
+    # and `steps[*].run` can), so CTCACHE_DIR is exported here instead.
+    - name: ctcache dir
+      run: |
+        echo "CTCACHE_DIR=${{ runner.temp }}/ctcache" >> "$GITHUB_ENV"
+
     # Only a push reaches this cache. A pull request builds no pilot and runs
     # pilot_clang_tidy_diff instead, which drives clang-tidy and never the
     # compiler, so it compiles nothing and would pull close to a gigabyte down
@@ -124,6 +130,18 @@ jobs:
         # Bound the cache so it does not grow without limit across the rolling
         # key.
         max-size: 1500M
+
+    # `actions/cache` refuses to overwrite an existing key,
+    # so the key carries the commit SHA and restore-keys falls back to
+    # the closest previous entry; this creates one cache generation per commit
+    # rather than updating a single rolling entry.
+    - name: ctcache
+      uses: actions/cache@v5
+      with:
+        path: ${{ env.CTCACHE_DIR }}
+        key: ${{ runner.os }}-ctcache-${{ matrix.cmake_build_type }}-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-ctcache-${{ matrix.cmake_build_type }}-
 
     - name: make cformat (clang-format check)
       run: |
