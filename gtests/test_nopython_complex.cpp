@@ -3,7 +3,6 @@
 #include <gtest/gtest.h>
 
 #include <complex>
-#include <type_traits>
 #ifdef Py_PYTHON_H
 #error "Python.h should not be included."
 #endif
@@ -19,6 +18,20 @@ concept HasStdComplexConversion = requires(T const & value) { value.to_std_compl
 
 template <typename T>
 concept HasStdComplexPointerBridge = requires(T * value) { solvcon::as_std_complex_pointer(value); };
+
+namespace sc = solvcon;
+
+static_assert(!HasStdComplexConversion<sc::Complex32>);
+static_assert(!HasStdComplexPointerBridge<sc::Complex32>);
+static_assert(!HasStdComplexPointerBridge<sc::Complex32 const>);
+
+static_assert(HasStdComplexConversion<sc::Complex<float>>);
+static_assert(HasStdComplexPointerBridge<sc::Complex<float>>);
+static_assert(HasStdComplexPointerBridge<sc::Complex<float> const>);
+
+static_assert(HasStdComplexConversion<sc::Complex<double>>);
+static_assert(HasStdComplexPointerBridge<sc::Complex<double>>);
+static_assert(HasStdComplexPointerBridge<sc::Complex<double> const>);
 
 } /* end namespace */
 
