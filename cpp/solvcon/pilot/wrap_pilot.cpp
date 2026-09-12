@@ -319,7 +319,20 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRDomainWidget
                 py::arg("title"))
             .def("showBoundary", &wrapped_type::showBoundary, py::arg("ibc"), py::arg("show"))
             .def("showFeatureEdges", &wrapped_type::showFeatureEdges, py::arg("show"))
-            .def("showNormals", &wrapped_type::showNormals, py::arg("show"))
+            .def(
+                "showNormals",
+                py::overload_cast<bool>(&wrapped_type::showNormals),
+                py::arg("show"))
+            .def(
+                "showNormals",
+                py::overload_cast<bool, float>(&wrapped_type::showNormals),
+                py::arg("show"),
+                py::arg("scale"))
+            .def_property(
+                "normalScale",
+                &wrapped_type::normalScale,
+                &wrapped_type::setNormalScale)
+            .def_property_readonly("normalsShown", &wrapped_type::normalsShown)
             .def(
                 "pickCell",
                 [](wrapped_type & self, int x, int y)
