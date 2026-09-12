@@ -896,12 +896,12 @@ class BenchmarkControlTC(unittest.TestCase):
             QtTest.QTest.qWait(10)
         self.assertTrue(predicate(), self.control.status.text())
 
-    def start_script(self, script):
+    def start_script(self, script, **options):
         script = 'import sys\nsys.stdin.readline()\n' + script
         command = system.python_command('-c', script)
         with unittest.mock.patch.object(
                 system, 'python_command', return_value=command):
-            self.control.start(self.spec, self.path)
+            self.control.start(self.spec, self.path, **options)
 
     def assert_finished(self, kind):
         self.wait_for(lambda: not self.control.running)
@@ -910,6 +910,7 @@ class BenchmarkControlTC(unittest.TestCase):
                          QtCore.QProcess.ProcessState.NotRunning)
         self.assertFalse(self.control.stop_button.isEnabled())
         self.assertFalse(self.control._timer.isActive())
+        self.assertEqual(self.control.progress.value(), int(kind == 'result'))
 
     def test_collect_and_repeat(self):
         for _ in range(2):
@@ -941,6 +942,34 @@ class BenchmarkControlTC(unittest.TestCase):
         self.events.clear()
         self.control.start(self.spec, self.path)
         self.assert_finished('result')
+
+    def test_thread_isolation(self):
+        names = ('OMP_NUM_THREADS', 'OPENBLAS_NUM_THREADS', 'MKL_NUM_THREADS',
+                 'BLIS_NUM_THREADS', 'VECLIB_MAXIMUM_THREADS')
+        inherited = dict.fromkeys(names, '2')
+        event = json.dumps({'type': 'result', 'artifact_path': 'ok'})
+        for threads, expected in ((3, '3'), (None, '2')):
+            with self.subTest(threads=threads):
+                self.events.clear()
+                script = (
+                    'import os\n'
+                    f'assert all(os.environ[name] == {expected!r} '
+                    f'for name in {names!r})\n'
+                    f'print({event!r})')
+                with unittest.mock.patch.dict(os.environ, inherited):
+                    self.start_script(script, threads=threads)
+                    self.assert_finished('result')
+                    parent = {name: os.environ[name] for name in names}
+                    self.assertEqual(parent, inherited)
+
+    def test_invalid_threads(self):
+        for threads in (0, -1, True, 1.5, '2'):
+            with self.subTest(threads=threads):
+                with self.assertRaises(ValueError) as caught:
+                    self.control.start(self.spec, self.path, threads=threads)
+                self.assertEqual(str(caught.exception),
+                                 'threads must be a positive integer')
+                self.assertFalse(self.control.running)
 
     def assert_error_recovery(self, cases):
         for script, message in cases:

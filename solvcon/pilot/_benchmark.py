@@ -16,6 +16,7 @@ class BenchmarkControl(QtWidgets.QWidget):
 
     Call start with a MatmulSpec and an artifact path. A running control
     rejects another start. Stop and close kill the worker asynchronously.
+    Optional threads override only the new worker's BLAS/OpenMP environment.
     """
 
     completed = QtCore.Signal(str)
@@ -24,6 +25,10 @@ class BenchmarkControl(QtWidgets.QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.progress = QtWidgets.QProgressBar(self)
+        self.progress.setRange(0, 1)
+        self.progress.setValue(0)
+        self.progress.setTextVisible(False)
         self.status = QtWidgets.QLabel('Idle', self)
         self.status.setTextFormat(QtCore.Qt.TextFormat.PlainText)
         self.elapsed = QtWidgets.QLabel('Elapsed: 0.0 s', self)
@@ -31,6 +36,7 @@ class BenchmarkControl(QtWidgets.QWidget):
         self.stop_button.setEnabled(False)
         self.stop_button.clicked.connect(self.stop)
         layout = QtWidgets.QHBoxLayout(self)
+        layout.addWidget(self.progress, 1)
         for widget in (self.status, self.elapsed, self.stop_button):
             layout.addWidget(widget)
 
@@ -40,6 +46,7 @@ class BenchmarkControl(QtWidgets.QWidget):
         self._process.readyReadStandardError.connect(self._read_stderr)
         self._process.errorOccurred.connect(self._process_error)
         self._process.finished.connect(self._finish)
+        QtWidgets.QApplication.instance().installEventFilter(self)
         self._clock = QtCore.QElapsedTimer()
         self._timer = QtCore.QTimer(self)
         self._timer.timeout.connect(self._update_elapsed)
@@ -50,9 +57,19 @@ class BenchmarkControl(QtWidgets.QWidget):
     def running(self):
         return self._running
 
-    def start(self, specification, output_path):
+    def start(self, specification, output_path, *, threads=None):
         if self.running:
             raise RuntimeError('a benchmark is already running')
+        env = QtCore.QProcessEnvironment.systemEnvironment()
+        if threads is not None:
+            if (isinstance(threads, bool) or not isinstance(threads, int)
+                    or threads < 1):
+                raise ValueError('threads must be a positive integer')
+            for name in ('OMP_NUM_THREADS', 'OPENBLAS_NUM_THREADS',
+                         'MKL_NUM_THREADS', 'BLIS_NUM_THREADS',
+                         'VECLIB_MAXIMUM_THREADS'):
+                env.insert(name, str(threads))
+        self._process.setProcessEnvironment(env)
         request = {'spec': specification.to_dict(),
                    'output_path': os.fspath(output_path)}
         self._request = (json.dumps(request, allow_nan=False) + '\n').encode()
@@ -62,6 +79,7 @@ class BenchmarkControl(QtWidgets.QWidget):
         self._stderr = b''
         self._cancelled = False
         self._running = True
+        self.progress.setRange(0, 0)
         self.status.setText('Preparing')
         self.stop_button.setEnabled(True)
         self._clock.start()
@@ -84,6 +102,13 @@ class BenchmarkControl(QtWidgets.QWidget):
             event.ignore()
         else:
             super().closeEvent(event)
+
+    def eventFilter(self, watched, event):
+        if event.type() == QtCore.QEvent.Type.Quit:
+            # Stop before closeEvent can defer and cancel QApplication.quit.
+            self.stop()
+            self._process.waitForFinished()
+        return super().eventFilter(watched, event)
 
     def _send_request(self):
         if self._cancelled:
@@ -159,6 +184,8 @@ class BenchmarkControl(QtWidgets.QWidget):
             self._error = 'Worker exited without a result'
 
         self._running = False
+        self.progress.setRange(0, 1)
+        self.progress.setValue(int(not (self._cancelled or self._error)))
         self._timer.stop()
         self._update_elapsed()
         self.stop_button.setEnabled(False)
