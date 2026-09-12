@@ -18,6 +18,7 @@ close through the :attr:`closed` callback.
 
 from PySide6.QtCore import Qt, QObject, QEvent
 
+from ...base import _gui_common
 from ._colorbar import ColorBar
 from ._plots import AnalysisLinePlots
 
@@ -25,23 +26,6 @@ __all__ = [  # noqa: F822
     'DomainViewer',
     'LinePlotViewer',
 ]
-
-
-class _SubWindowCloseFilter(QObject):
-    """Report a watched sub-window's close synchronously.
-
-    A ``QMdiSubWindow`` has no close signal, so this filter is the only way
-    to stop the march before Qt frees the viewer.
-    """
-
-    def __init__(self, on_close, parent):
-        super().__init__(parent)
-        self._on_close = on_close
-
-    def eventFilter(self, obj, event):
-        if event.type() == QEvent.Type.Close:
-            self._on_close()
-        return False
 
 
 class _ResizeRelay(QObject):
@@ -109,7 +93,7 @@ class DomainViewer(object):
         self._subwin = self._mdi.activeSubWindow()
         if self._subwin is not None:
             self._subwin.setAttribute(Qt.WA_DeleteOnClose, True)
-            self._close_filter = _SubWindowCloseFilter(
+            self._close_filter = _gui_common.SubWindowCloseFilter(
                 self._on_subwin_closed, self._subwin)
             self._subwin.installEventFilter(self._close_filter)
             host = self._host()
@@ -273,7 +257,7 @@ class LinePlotViewer(object):
         self._subwin.setWindowTitle("reflection analysis")
         self._subwin.resize(*self.SIZE)
         self._mgr.addSubWindowGrip(self._subwin)
-        self._close_filter = _SubWindowCloseFilter(
+        self._close_filter = _gui_common.SubWindowCloseFilter(
             self._on_subwin_closed, self._subwin)
         self._subwin.installEventFilter(self._close_filter)
 

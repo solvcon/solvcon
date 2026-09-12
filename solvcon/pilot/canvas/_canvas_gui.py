@@ -213,8 +213,14 @@ class Canvas(_gui_common.PilotFeature):
         super(Canvas, self).__init__(*args, **kw)
         self._world = core.WorldFp64()
         self._widget = None
+        self._widget_close_filter = None
         self._widget_2d = None
+        self._widget_2d_close_filter = None
         self._blank_worlds = []
+        # Held for Canvas's lifetime: a throwaway mdiArea wrapper is
+        # garbage-collected right after use, invalidating any sub-window
+        # handle taken through it.
+        self._mdi = None
 
     def populate_menu(self):
         # Group the geometry samples under their own submenu, leaving the
@@ -346,11 +352,46 @@ class Canvas(_gui_common.PilotFeature):
         self._draw_layer(self._world, layer)
         self._update_widget()
 
+    def _track_widget(self, clear):
+        """Watch the active sub-window and call ``clear`` before Qt frees
+        the widget it wraps.
+
+        Closing a canvas sub-window deletes the underlying C++ widget
+        (``QMdiArea.addSubWindow`` sets ``WA_DeleteOnClose`` by default), so
+        a reference cached across sample picks goes stale the moment the
+        window closes. ``clear`` runs before that happens, so the next
+        sample or open call rebuilds a fresh, live widget instead of
+        touching a freed one.
+
+        Only called right after ``_update_widget``/``_open_2d`` create a
+        brand-new sub-window via ``add2DWidget()``, so a given sub-window
+        reaches ``installEventFilter`` at most once here.
+        """
+        if self._mdi is None:
+            self._mdi = self._mgr.mdiArea
+        subwin = self._mdi.activeSubWindow()
+        if subwin is None:
+            return None
+        subwin.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
+        close_filter = _gui_common.SubWindowCloseFilter(clear, subwin)
+        subwin.installEventFilter(close_filter)
+        return close_filter
+
+    def _clear_widget(self):
+        self._widget = None
+        self._widget_close_filter = None
+
+    def _clear_widget_2d(self):
+        self._widget_2d = None
+        self._widget_2d_close_filter = None
+
     def _update_widget(self):
         # The canvas world is planar geometry, so it renders in the 2D canvas
         # (the 3D domain viewer is for meshes and fields).
         if self._widget is None:
             self._widget = self._mgr.add2DWidget()
+            self._widget_close_filter = self._track_widget(
+                self._clear_widget)
         self._widget.updateWorld(self._world)
         self._widget.resetView()
         # Keep a separately-opened 2D view in sync with the same world.
@@ -366,6 +407,8 @@ class Canvas(_gui_common.PilotFeature):
         """
         if self._widget_2d is None:
             self._widget_2d = self._mgr.add2DWidget()
+            self._widget_2d_close_filter = self._track_widget(
+                self._clear_widget_2d)
         self._widget_2d.updateWorld(self._world)
         self._widget_2d.resetView()
 
