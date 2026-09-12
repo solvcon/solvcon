@@ -296,6 +296,14 @@ private:
     size_t m_lhs_scratch_elements = 0;
     value_type const * m_cached_lhs_source = nullptr;
     value_type const * m_cached_rhs_source = nullptr;
+    /**
+     * Exclude device submissions for this CPU executor's lifetime.
+     * Acquire before data pointers; cover packing, BLAS, and fallback kernels.
+     * A future dispatcher must choose its backend before constructing this CPU executor.
+     */
+    typename Array::buffer_type::host_access_type m_output_access;
+    typename Array::buffer_type::host_access_type m_lhs_access;
+    typename Array::buffer_type::host_access_type m_rhs_access;
     value_type * m_output_data;
     value_type const * m_lhs_data;
     value_type const * m_rhs_data;
@@ -306,6 +314,9 @@ MatmulExecutor<Array>::MatmulExecutor(MatmulPlan plan, Array & output, Array con
     : m_plan(std::move(plan))
     , m_lhs(lhs)
     , m_rhs(rhs)
+    , m_output_access(output.buffer().acquire_host_access())
+    , m_lhs_access(lhs.buffer().acquire_host_access())
+    , m_rhs_access(rhs.buffer().acquire_host_access())
     , m_output_data(output.logical_data())
     , m_lhs_data(lhs.logical_data())
     , m_rhs_data(rhs.logical_data())
