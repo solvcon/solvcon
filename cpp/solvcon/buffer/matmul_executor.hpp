@@ -25,6 +25,7 @@
 #include <optional>
 #include <ranges>
 #include <stdexcept>
+#include <string>
 #include <string_view>
 #include <type_traits>
 #include <utility>
@@ -166,6 +167,67 @@ struct MatmulSelection
 
 std::string_view matmul_kernel_name(MatmulKernel kernel) noexcept;
 std::optional<MatmulKernel> matmul_kernel_from_name(std::string_view name) noexcept;
+
+/**
+ * Return a static rejection reason, or an empty view when eligible.
+ * Keep this check inlined to avoid a call in native kernel dispatch.
+ */
+#if defined(__GNUC__) || defined(__clang__)
+[[gnu::always_inline]]
+#endif
+inline std::string_view matmul_rejection(MatmulPlan const & plan, MatmulKernel kernel, bool blas_supported)
+{
+    if (kernel == MatmulKernel::Naive)
+    {
+        return {};
+    }
+    if (!blas_supported)
+    {
+        return "requires a BLAS backend and a supported dtype";
+    }
+    if (plan.rows() <= 0 || plan.columns() <= 0 || plan.inner_size() <= 0)
+    {
+        return "requires positive M, K and N";
+    }
+    bool const lhs_vector = plan.lhs_is_vector();
+    bool const rhs_vector = plan.rhs_is_vector();
+    MatmulKernel operand_kernel;
+    if (lhs_vector)
+    {
+        operand_kernel = rhs_vector ? MatmulKernel::BlasDot : MatmulKernel::BlasGevm;
+    }
+    else
+    {
+        operand_kernel = rhs_vector ? MatmulKernel::BlasGemv : MatmulKernel::BlasGemm;
+    }
+    if (kernel == operand_kernel)
+    {
+        return {};
+    }
+    switch (kernel)
+    {
+    case MatmulKernel::Naive:
+        return {};
+    case MatmulKernel::BlasDot:
+        return "requires vector @ vector";
+    case MatmulKernel::BlasGevm:
+        return "requires vector @ matrix";
+    case MatmulKernel::BlasGemv:
+        return "requires matrix @ vector";
+    case MatmulKernel::BlasGemm:
+        return "requires matrix @ matrix";
+    case MatmulKernel::Winograd:
+    {
+        if (operand_kernel != MatmulKernel::BlasGemm || plan.has_batch_axes())
+        {
+            return "requires unbatched matrix @ matrix";
+        }
+        bool const odd_dimensions = plan.rows() % 2 || plan.columns() % 2 || plan.inner_size() % 2;
+        return odd_dimensions ? "requires even M, K and N" : std::string_view{};
+    }
+    }
+    return "unknown kernel";
+}
 
 /**
  * @brief Select and execute one contraction kernel for a MatmulPlan.
@@ -324,10 +386,10 @@ void MatmulExecutor<Array>::execute(MatmulKernel kernel)
     std::optional<MatmulSelection> const selection = select(kernel);
     if (!selection)
     {
-        std::string_view const reason = use_matmul_blas_v<value_type>
-                                            ? "is not eligible for these operands"
-                                            : "requires a BLAS backend";
-        throw MatmulKernelUnavailable(std::format("matmul(): kernel '{}' {}", matmul_kernel_name(kernel), reason));
+        std::string_view const reason = matmul_rejection(m_plan, kernel, use_matmul_blas_v<value_type>);
+        std::string_view const name = matmul_kernel_name(kernel);
+        std::string const message = std::format("matmul(): kernel '{}' is not eligible: {}", name, reason);
+        throw MatmulKernelUnavailable(message);
     }
     run(selection.value());
 }
@@ -539,24 +601,10 @@ std::optional<MatmulSelection> MatmulExecutor<Array>::select(MatmulKernel kernel
 template <typename Array>
 std::optional<MatmulSelection> MatmulExecutor<Array>::select_blas(MatmulKernel kernel) const
 {
-    if (m_plan.rows() <= 0 || m_plan.columns() <= 0 || m_plan.inner_size() <= 0)
+    if (!matmul_rejection(m_plan, kernel, use_matmul_blas_v<value_type>).empty())
     {
         return std::nullopt;
     }
-    MatmulKernel operand_kernel;
-    if (m_plan.lhs_is_vector())
-    {
-        operand_kernel = m_plan.rhs_is_vector() ? MatmulKernel::BlasDot : MatmulKernel::BlasGevm;
-    }
-    else
-    {
-        operand_kernel = m_plan.rhs_is_vector() ? MatmulKernel::BlasGemv : MatmulKernel::BlasGemm;
-    }
-    if (kernel != operand_kernel && kernel != MatmulKernel::Winograd)
-    {
-        return std::nullopt;
-    }
-
     switch (kernel)
     {
     case MatmulKernel::Naive:
@@ -600,15 +648,6 @@ std::optional<MatmulSelection> MatmulExecutor<Array>::select_blas(MatmulKernel k
         };
     case MatmulKernel::Winograd:
     {
-        bool const even_dimensions = m_plan.rows() % 2 == 0 &&
-                                     m_plan.columns() % 2 == 0 &&
-                                     m_plan.inner_size() % 2 == 0;
-        if (operand_kernel != MatmulKernel::BlasGemm ||
-            m_plan.has_batch_axes() ||
-            !even_dimensions)
-        {
-            return std::nullopt;
-        }
         auto const lhs_view = lhs_matrix_view(m_lhs_data);
         auto const rhs_view = rhs_matrix_view(m_rhs_data);
         return MatmulSelection{

@@ -11,6 +11,26 @@ namespace solvcon
 namespace python
 {
 
+pybind11::dict MatmulBinding::eligibility(layout_type const & lhs, layout_type const & rhs, bool blas_supported)
+{
+    plan_type const plan = plan_type::make(lhs, rhs);
+    pybind11::dict result;
+    for (kernel_type const kernel : {
+             kernel_type::Naive,
+             kernel_type::BlasDot,
+             kernel_type::BlasGevm,
+             kernel_type::BlasGemv,
+             kernel_type::BlasGemm,
+             kernel_type::Winograd,
+         })
+    {
+        std::string_view const reason = solvcon::detail::matmul_rejection(plan, kernel, blas_supported);
+        std::string_view const name = solvcon::detail::matmul_kernel_name(kernel);
+        result[pybind11::str(name)] = reason.empty() ? pybind11::none() : pybind11::cast(reason);
+    }
+    return result;
+}
+
 void wrap_SimpleArray(pybind11::module & mod)
 {
     pybind11::register_exception<MatmulKernelUnavailable>(mod, "MatmulKernelUnavailable", PyExc_ValueError);
