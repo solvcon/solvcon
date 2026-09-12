@@ -67,7 +67,7 @@ struct ComplexImpl
     }
 
     template <typename U>
-    requires(!std::is_same_v<T, U> && is_real_v<U> && std::is_constructible_v<T, U>)
+    requires(!std::is_same_v<T, U> && std::is_constructible_v<T, U>)
     explicit(!std::is_convertible_v<U, T>) ComplexImpl(ComplexImpl<U> const & c)
         : real_v(static_cast<T>(c.real_v))
         , imag_v(static_cast<T>(c.imag_v))
