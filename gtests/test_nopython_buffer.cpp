@@ -110,6 +110,7 @@ TEST(Float16, type_properties)
     static_assert(std::is_convertible_v<int, sc::Float16>);
     static_assert(!std::is_convertible_v<sc::Float16, float>);
     static_assert(sc::Float16(1.0F).bits() == 0x3c00U);
+    static_assert(sc::is_real_v<sc::Float16>);
 }
 
 TEST(Float16, arithmetic)

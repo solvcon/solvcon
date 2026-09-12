@@ -293,8 +293,7 @@ template <typename U>
 inline constexpr bool is_bool_v = std::is_same_v<bool, std::remove_const_t<U>>;
 
 template <typename U>
-inline constexpr bool is_array_real_v =
-    is_real_v<std::remove_cv_t<U>> || std::is_same_v<std::remove_cv_t<U>, Float16>;
+inline constexpr bool is_array_real_v = is_real_v<std::remove_cv_t<U>>;
 
 template <typename U>
 constexpr U min_identity() { return std::numeric_limits<U>::max(); }

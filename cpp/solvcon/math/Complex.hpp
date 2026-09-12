@@ -13,13 +13,32 @@
  * @ingroup group_core
  */
 
-#include <type_traits>
+#include <solvcon/math/Float16.hpp>
+
+#include <cstddef>
 #include <cmath>
-#include <stdexcept>
 #include <complex>
+#include <stdexcept>
+#include <type_traits>
 
 namespace solvcon
 {
+
+// clang-format off
+/**
+ * Type trait that reports whether a type is a real floating-point type.
+ *
+ * @ingroup group_core
+ */
+template <typename T>
+struct is_real : std::is_floating_point<T> {};
+
+template <>
+struct is_real<Float16> : std::true_type {};
+// clang-format on
+
+template <typename T>
+constexpr bool is_real_v = is_real<T>::value;
 
 namespace detail
 {
@@ -27,7 +46,7 @@ namespace detail
 template <typename T>
 struct ComplexImpl
 {
-    static_assert(std::is_floating_point_v<T>);
+    static_assert(is_real_v<T>);
 
     T real_v;
     T imag_v;
@@ -47,8 +66,18 @@ struct ComplexImpl
     {
     }
 
+    template <typename U>
+    requires(!std::is_same_v<T, U> && std::is_constructible_v<T, U>)
+    explicit(!std::is_convertible_v<U, T>) ComplexImpl(ComplexImpl<U> const & c)
+        : real_v(static_cast<T>(c.real_v))
+        , imag_v(static_cast<T>(c.imag_v))
+    {
+    }
+
+    template <typename U>
+    requires(std::is_floating_point_v<U> && std::is_same_v<T, U>)
     // FIXME: NOLINTNEXTLINE(google-explicit-constructor)
-    ComplexImpl(std::complex<T> const & c)
+    ComplexImpl(std::complex<U> const & c)
         : real_v(c.real())
         , imag_v(c.imag())
     {
@@ -121,7 +150,12 @@ struct ComplexImpl
         return *this;
     }
 
-    std::complex<T> to_std_complex() const { return std::complex<T>(real_v, imag_v); }
+    std::complex<T> to_std_complex() const
+    requires std::is_floating_point_v<T>
+    {
+        return std::complex<T>(real_v, imag_v);
+    }
+
     T real() const { return real_v; }
     T imag() const { return imag_v; }
     T norm() const { return real_v * real_v + imag_v * imag_v; }
@@ -246,8 +280,16 @@ ComplexImpl<T> operator/(T lhs, const ComplexImpl<T> & rhs)
 
 template <typename T>
 using Complex = detail::ComplexImpl<T>;
+using Complex32 = Complex<Float16>;
+
+static_assert(std::is_standard_layout_v<Complex32>);
+static_assert(std::is_trivially_copyable_v<Complex32>);
+static_assert(offsetof(Complex32, real_v) == 0);
+static_assert(offsetof(Complex32, imag_v) == sizeof(Float16));
+static_assert(sizeof(Complex32) == 2 * sizeof(Float16));
 
 template <typename T>
+requires std::is_floating_point_v<T>
 inline constexpr bool is_std_complex_layout_compatible_v = std::is_standard_layout_v<Complex<T>> &&
                                                            sizeof(Complex<T>) == sizeof(std::complex<T>) &&
                                                            alignof(Complex<T>) == alignof(std::complex<T>);
@@ -256,12 +298,14 @@ static_assert(is_std_complex_layout_compatible_v<float>);
 static_assert(is_std_complex_layout_compatible_v<double>);
 
 template <typename T>
+requires std::is_floating_point_v<T>
 std::complex<T> const * as_std_complex_pointer(Complex<T> const * ptr)
 {
     return reinterpret_cast<std::complex<T> const *>(ptr); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
 }
 
 template <typename T>
+requires std::is_floating_point_v<T>
 std::complex<T> * as_std_complex_pointer(Complex<T> * ptr)
 {
     return reinterpret_cast<std::complex<T> *>(ptr); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
@@ -281,21 +325,10 @@ struct is_complex : std::false_type {};
 
 template <typename T>
 struct is_complex<Complex<T>> : std::true_type {};
-
-/**
- * Type trait that reports whether a type is a real floating-point type.
- *
- * @ingroup group_core
- */
-template <typename T>
-struct is_real : std::is_floating_point<T> {};
 // clang-format on
 
 template <typename T>
 constexpr bool is_complex_v = is_complex<T>::value;
-
-template <typename T>
-constexpr bool is_real_v = is_real<T>::value;
 
 } /* end namespace solvcon */
 
