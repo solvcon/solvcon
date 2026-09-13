@@ -366,16 +366,16 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArrayPlex : public WrapBase<Wr
             .def("__len__", SC_DECL_EXECUTE_TYPED_ARRAY_METHOD(size))
             .def("__getitem__", &get_typed_array_value<ssize_t>)
             .def("__getitem__", &get_typed_array_value<const std::vector<ssize_t> &>)
+            .def("__getitem__", [](wrapped_type & self, pybind11::object const & key)
+                 { return execute_callback_with_typed_array(
+                       self, [&key]<typename T>(SimpleArray<T> & array)
+                       { return wrapped_type(ArrayPropertyHelper<T>::getitem(array, key)); }); })
             .def("__setitem__",
-                 [](wrapped_type & self, pybind11::args const & args)
+                 [](wrapped_type & self, pybind11::object const & key, pybind11::object const & value)
                  {
                      execute_callback_with_typed_array(
-                         self,
-                         [&args](auto & array)
-                         {
-                             using data_type = typename std::remove_reference_t<decltype(array[0])>;
-                             ArrayPropertyHelper<data_type>::setitem_parser(array, args);
-                         });
+                         self, [&key, &value]<typename T>(SimpleArray<T> & array)
+                         { ArrayPropertyHelper<T>::setitem(array, key, value); });
                  })
             .def("reshape", [](wrapped_type const & self, pybind11::object const & py_shape)
                  { return execute_callback_with_typed_array(
