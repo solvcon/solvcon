@@ -5,6 +5,8 @@
 
 import dataclasses
 
+import solvcon as sc
+
 from . import spec
 
 
@@ -48,16 +50,12 @@ def _batch_shape(shape):
 
 
 @dataclasses.dataclass(frozen=True)
-class MatmulSpec:
-    """Describe one exact comparison of matmul kernels."""
-
-    OPERATION = 'matmul'
+class MatmulInputs:
+    """Validate matmul inputs independently of sampling and kernel choices."""
 
     lhs: spec.OperandSpec
     rhs: spec.OperandSpec
     dtype: str
-    sampling: spec.Sampling
-    kernels: tuple
 
     def __post_init__(self):
         if not isinstance(self.dtype, str) or self.dtype not in MATMUL_DTYPES:
@@ -66,27 +64,9 @@ class MatmulSpec:
             raise spec.SpecError('lhs must be an OperandSpec')
         if not isinstance(self.rhs, spec.OperandSpec):
             raise spec.SpecError('rhs must be an OperandSpec')
-        if not isinstance(self.sampling, spec.Sampling):
-            raise spec.SpecError('sampling must be a Sampling')
         itemsize = MATMUL_DTYPE_SIZES[self.dtype]
         spec._validate_byte_layout(self.lhs, 'lhs', itemsize)
         spec._validate_byte_layout(self.rhs, 'rhs', itemsize)
-        if not isinstance(self.kernels, (list, tuple)):
-            raise spec.SpecError('kernels must be an array')
-        kernels = tuple(self.kernels)
-        if not kernels:
-            raise spec.SpecError('kernels must not be empty')
-        if any(not isinstance(kernel, str) or not kernel
-               for kernel in kernels):
-            raise spec.SpecError(
-                'kernels must contain non-empty strings')
-        if len(kernels) != len(set(kernels)):
-            raise spec.SpecError(
-                'kernels must not contain duplicates')
-        unknown = sorted(set(kernels) - set(MATMUL_KERNELS))
-        if unknown:
-            raise spec.SpecError(f'unsupported kernels: {unknown}')
-        object.__setattr__(self, 'kernels', kernels)
         self._validate_shape()
         spec._validate_logical_shape(
             self.output_shape, 'output', itemsize)
@@ -110,6 +90,46 @@ class MatmulSpec:
         rows = () if lhs_vector else (self.lhs.shape[-2],)
         columns = () if rhs_vector else (self.rhs.shape[-1],)
         return batch + rows + columns
+
+    def kernel_eligibility(self):
+        """Map kernels to rejection reasons, or None when eligible.
+
+        Only metadata is examined; no operand or result storage is allocated.
+        """
+        array_type = sc.SimpleArray.typed_class(self.dtype)
+        return array_type.matmul_kernel_eligibility(
+            self.lhs.shape, self.lhs.strides, self.rhs.shape, self.rhs.strides)
+
+
+@dataclasses.dataclass(frozen=True)
+class MatmulSpec(MatmulInputs):
+    """Describe one exact comparison of matmul kernels."""
+
+    OPERATION = 'matmul'
+
+    sampling: spec.Sampling
+    kernels: tuple
+
+    def __post_init__(self):
+        super().__post_init__()
+        if not isinstance(self.sampling, spec.Sampling):
+            raise spec.SpecError('sampling must be a Sampling')
+        if not isinstance(self.kernels, (list, tuple)):
+            raise spec.SpecError('kernels must be an array')
+        kernels = tuple(self.kernels)
+        if not kernels:
+            raise spec.SpecError('kernels must not be empty')
+        if any(not isinstance(kernel, str) or not kernel
+               for kernel in kernels):
+            raise spec.SpecError(
+                'kernels must contain non-empty strings')
+        if len(kernels) != len(set(kernels)):
+            raise spec.SpecError(
+                'kernels must not contain duplicates')
+        unknown = sorted(set(kernels) - set(MATMUL_KERNELS))
+        if unknown:
+            raise spec.SpecError(f'unsupported kernels: {unknown}')
+        object.__setattr__(self, 'kernels', kernels)
 
     @classmethod
     def from_dict(cls, data):
