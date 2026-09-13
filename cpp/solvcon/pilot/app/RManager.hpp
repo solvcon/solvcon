@@ -35,6 +35,7 @@ namespace solvcon
 class RMenuModel;
 class RThemeManager;
 class RShortcutManager;
+class RThreadManager;
 
 /**
  * @brief Singleton that owns the pilot main window and coordinates its
@@ -101,6 +102,9 @@ public:
 
     /// Keyboard-shortcut resolver. C++ uses applyTo; Python uses apply_shortcut.
     RShortcutManager * shortcutManager() { return m_shortcutManager; }
+
+    /// Bound as thread_manager.
+    RThreadManager * threadManager() { return m_threadManager; }
 
     void quit() { m_core->quit(); }
 
@@ -171,6 +175,9 @@ private:
      * rebuild of the main window like the theme controller.
      */
     RShortcutManager * m_shortcutManager = nullptr;
+
+    /// Owns the workflow and task threads; shut down in reset().
+    RThreadManager * m_threadManager = nullptr;
 
     RPythonConsoleDockWidget * m_pycon = nullptr;
     RPythonTerminalDockWidget * m_pyterm = nullptr;

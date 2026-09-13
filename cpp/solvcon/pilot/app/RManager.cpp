@@ -26,6 +26,7 @@
 #include <solvcon/pilot/app/RAction.hpp>
 #include <solvcon/pilot/app/RMenuModel.hpp>
 #include <solvcon/pilot/app/RShortcutManager.hpp>
+#include <solvcon/pilot/app/RThreadManager.hpp>
 #include <solvcon/pilot/canvas/DrawTool.hpp>
 #include <solvcon/pilot/theme/RThemeManager.hpp>
 
@@ -130,6 +131,8 @@ RManager::RManager()
     m_themeManager = new RThemeManager(this);
     // Shortcut resolver: C++ uses applyTo; Python uses apply_shortcut.
     m_shortcutManager = new RShortcutManager(this);
+    // TODO(#1527): start() after the main window exists, once implemented.
+    m_threadManager = new RThreadManager(this);
     // Do not call setUp() from the constructor.  Windows may crash with
     // "exited with code -1073740791".  The reason is not yet clarified.
 }
@@ -178,6 +181,9 @@ void RManager::reset()
     m_themeManager = nullptr;
     delete m_shortcutManager;
     m_shortcutManager = nullptr;
+    // TODO(#1527): shutdown() and wait for stopped() before deleting.
+    delete m_threadManager;
+    m_threadManager = nullptr;
     m_owned_core.reset(); // Deletes the application only if the pilot made it.
     m_core = nullptr;
     m_mainWindow = nullptr;
