@@ -53,6 +53,11 @@ list_of_drawtool = [
     'default_draw_tool_name',
 ]
 
+# PlotLimits2d.hpp
+list_of_plotlimits = [
+    'PlotLimits2d',
+]
+
 # plot_style.hpp/.cpp
 list_of_plot_style = [
     'PlotColor',
@@ -78,6 +83,7 @@ _from_impl = (  # noqa: F822
     list_of_rpythonconsole +
     list_of_rpythonterminal +
     list_of_drawtool +
+    list_of_plotlimits +
     list_of_plot_style +
     list_of_rplotseries +
     list_of_rplotmodel
@@ -103,6 +109,7 @@ _load(list_of_rmanager)
 _load(list_of_rpythonconsole)
 _load(list_of_rpythonterminal)
 _load(list_of_drawtool)
+_load(list_of_plotlimits)
 _load(list_of_plot_style)
 _load(list_of_rplotseries)
 _load(list_of_rplotmodel)

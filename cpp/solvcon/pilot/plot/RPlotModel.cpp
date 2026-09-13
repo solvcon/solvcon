@@ -74,12 +74,12 @@ std::shared_ptr<RPlotSeries> const & RPlotModel::series(std::size_t it) const
     return m_series[it];
 }
 
-std::optional<std::array<double, 4>> RPlotModel::data_limits() const
+std::optional<PlotLimits2d> RPlotModel::data_limits() const
 {
-    std::optional<std::array<double, 4>> limits;
+    std::optional<PlotLimits2d> limits;
     for (std::shared_ptr<RPlotSeries> const & ser : m_series)
     {
-        std::optional<std::array<double, 4>> const serlim = ser->data_limits();
+        std::optional<PlotLimits2d> const serlim = ser->data_limits();
         if (!serlim.has_value())
         {
             continue;
@@ -89,11 +89,7 @@ std::optional<std::array<double, 4>> RPlotModel::data_limits() const
             limits = serlim;
             continue;
         }
-        std::array<double, 4> & lim = *limits;
-        lim[0] = std::min(lim[0], (*serlim)[0]);
-        lim[1] = std::max(lim[1], (*serlim)[1]);
-        lim[2] = std::min(lim[2], (*serlim)[2]);
-        lim[3] = std::max(lim[3], (*serlim)[3]);
+        limits->merge(*serlim);
     }
     return limits;
 }
@@ -108,25 +104,25 @@ void RPlotModel::set_margin(double margin)
     m_margin = margin;
 }
 
-void RPlotModel::set_view_limits(double xmin, double xmax, double ymin, double ymax)
+void RPlotModel::set_view_limits(PlotLimits2d const & limits)
 {
-    validate_axis_limits(xmin, xmax, "x");
-    validate_axis_limits(ymin, ymax, "y");
-    m_view_limits = {xmin, xmax, ymin, ymax};
+    validate_axis_limits(limits.xmin, limits.xmax, "x");
+    validate_axis_limits(limits.ymin, limits.ymax, "y");
+    m_view_limits = limits;
 }
 
 void RPlotModel::autoscale()
 {
-    std::optional<std::array<double, 4>> const limits = data_limits();
+    std::optional<PlotLimits2d> const limits = data_limits();
     if (!limits.has_value())
     {
-        m_view_limits = {0.0, 1.0, 0.0, 1.0};
+        m_view_limits = PlotLimits2d{0.0, 1.0, 0.0, 1.0};
         return;
     }
 
-    auto const [xmin, xmax] = expand_axis((*limits)[0], (*limits)[1], m_margin);
-    auto const [ymin, ymax] = expand_axis((*limits)[2], (*limits)[3], m_margin);
-    m_view_limits = {xmin, xmax, ymin, ymax};
+    auto const [xmin, xmax] = expand_axis(limits->xmin, limits->xmax, m_margin);
+    auto const [ymin, ymax] = expand_axis(limits->ymin, limits->ymax, m_margin);
+    m_view_limits = PlotLimits2d{xmin, xmax, ymin, ymax};
 }
 
 ViewTransform2dFp64 RPlotModel::view(double width, double height) const
@@ -140,10 +136,10 @@ ViewTransform2dFp64 RPlotModel::view(double width, double height) const
                 height));
     }
 
-    double const zoom = std::min(width / (m_view_limits[1] - m_view_limits[0]),
-                                 height / (m_view_limits[3] - m_view_limits[2]));
-    double const center_x = 0.5 * (m_view_limits[0] + m_view_limits[1]);
-    double const center_y = 0.5 * (m_view_limits[2] + m_view_limits[3]);
+    double const zoom = std::min(width / (m_view_limits.xmax - m_view_limits.xmin),
+                                 height / (m_view_limits.ymax - m_view_limits.ymin));
+    double const center_x = 0.5 * (m_view_limits.xmin + m_view_limits.xmax);
+    double const center_y = 0.5 * (m_view_limits.ymin + m_view_limits.ymax);
 
     ViewTransform2dFp64 transform;
     transform.set_zoom(zoom);

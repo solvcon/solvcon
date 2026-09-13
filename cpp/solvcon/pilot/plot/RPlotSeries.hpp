@@ -13,7 +13,6 @@
  * @ingroup group_domain
  */
 
-#include <array>
 #include <cstddef>
 #include <optional>
 #include <span>
@@ -24,6 +23,7 @@
 #include <solvcon/buffer/SimpleCollector.hpp>
 
 #include <solvcon/pilot/plot/plot_style.hpp>
+#include <solvcon/pilot/plot/PlotLimits2d.hpp>
 
 namespace solvcon
 {
@@ -52,7 +52,7 @@ public:
 
     double y_at(std::size_t it) const;
 
-    std::optional<std::array<double, 4>> data_limits() const;
+    std::optional<PlotLimits2d> data_limits() const;
 
     std::string const & label() const { return m_label; }
     void set_label(std::string label) { m_label = std::move(label); }
@@ -81,7 +81,7 @@ private:
     double m_line_width = PLOT_DEFAULT_LINE_WIDTH;
 
     mutable bool m_limits_stale = true;
-    mutable std::optional<std::array<double, 4>> m_limits;
+    mutable std::optional<PlotLimits2d> m_limits;
 }; /* end class RPlotSeries */
 
 } /* end namespace solvcon */

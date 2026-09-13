@@ -42,6 +42,7 @@ set(SOLVCON_PILOT_PYMODHEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/canvas/RWorldRenderer2d.hpp
     # plot/
     ${CMAKE_CURRENT_SOURCE_DIR}/plot/plot_style.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/plot/PlotLimits2d.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/plot/RPlotSeries.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/plot/RPlotModel.hpp
     # app/

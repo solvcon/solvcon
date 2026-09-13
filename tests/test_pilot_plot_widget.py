@@ -104,9 +104,9 @@ class LinePlotWidgetTC(unittest.TestCase):
         widget.resize(320, 240)
         rect = widget._lineplot_rect()
         to_screen = widget._mapper(rect)
-        xmin, xmax, ymin, ymax = widget.limits()
-        low = to_screen(xmin, ymin)
-        high = to_screen(xmax, ymax)
+        limits = widget.limits()
+        low = to_screen(limits.xmin, limits.ymin)
+        high = to_screen(limits.xmax, limits.ymax)
         self.assertAlmostEqual(rect.left(), low.x())
         self.assertAlmostEqual(rect.bottom(), low.y())
         self.assertAlmostEqual(rect.left() + rect.width(), high.x())
@@ -121,17 +121,17 @@ class LinePlotWidgetTC(unittest.TestCase):
         widget.model.margin = 0.5
         widget.refresh()
         loose = widget.limits()
-        self.assertLess(loose[2], tight[2])
-        self.assertGreater(loose[3], tight[3])
+        self.assertLess(loose.ymin, tight.ymin)
+        self.assertGreater(loose.ymax, tight.ymax)
 
     def test_a_log_lineplot_maps_the_exponents(self):
         widget = self._filled([1.0, 2.0, 3.0], [1e-1, 1e-3, 1e-5],
                               log_y=True)
-        _, _, ymin, ymax = widget.limits()
+        limits = widget.limits()
         # The limits are reported in the space that was drawn, so a decade
         # of data is a unit of ordinate.
-        self.assertLess(ymin, -5.0)
-        self.assertGreater(ymax, -1.0)
+        self.assertLess(limits.ymin, -5.0)
+        self.assertGreater(limits.ymax, -1.0)
 
     def test_a_log_lineplot_drops_what_it_cannot_place(self):
         # Zero and negative values have no logarithm; keeping them would
