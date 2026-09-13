@@ -11,12 +11,12 @@ concurrency:
   group: nightly_devbuild
   cancel-in-progress: false
 
-# devbuild and lint both call check_skip_ci, which asks for these three, and a
-# called workflow cannot hold more than its caller grants.
+# devbuild and lint both call check_skip_ci, which asks for these three, and
+# each also nests an open_issue_on_failure call that asks for issues: write.
 permissions:
   contents: read
   pull-requests: read
-  issues: read
+  issues: write
 
 # devbuild and lint lost their cron when the nightly workflows split off, so
 # this workflow calls them rather than restate their steps. Their job gates
