@@ -141,8 +141,8 @@ class LinePlotWidget(QWidget):
         self.update()
 
     def limits(self):
-        """The drawn limits as ``(xmin, xmax, ymin, ymax)``, or None while
-        there is nothing to draw.
+        """The drawn limits as a ``PlotLimits2d``, or None while there
+        is nothing to draw.
 
         The ordinate is in the mapped space, so a log plot reports the
         exponents it drew between.
@@ -205,14 +205,14 @@ class LinePlotWidget(QWidget):
                      max(1, self.height() - top - bottom))
 
     def _mapper(self, rect):
-        xmin, xmax, ymin, ymax = self._limits
-        xspan = xmax - xmin
-        yspan = ymax - ymin
+        limits = self._limits
+        xspan = limits.xmax - limits.xmin
+        yspan = limits.ymax - limits.ymin
 
         def to_screen(x, y):
             return QPointF(
-                rect.left() + (x - xmin) / xspan * rect.width(),
-                rect.bottom() - (y - ymin) / yspan * rect.height())
+                rect.left() + (x - limits.xmin) / xspan * rect.width(),
+                rect.bottom() - (y - limits.ymin) / yspan * rect.height())
 
         return to_screen
 

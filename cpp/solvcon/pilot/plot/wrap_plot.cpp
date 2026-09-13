@@ -12,16 +12,15 @@
 
 #include <solvcon/buffer/pymod/SimpleArrayCaster.hpp>
 
-#include <solvcon/pilot/plot/plot_style.hpp>
+#include <solvcon/pilot/plot/PlotLimits2d.hpp>
 #include <solvcon/pilot/plot/RPlotModel.hpp>
 #include <solvcon/pilot/plot/RPlotSeries.hpp>
+#include <solvcon/pilot/plot/plot_style.hpp>
 
-#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <format>
 #include <memory>
-#include <optional>
 #include <span>
 #include <stdexcept>
 #include <vector>
@@ -34,17 +33,6 @@ namespace python
 
 namespace
 {
-
-/// A 4-tuple, not the list that an auto-cast std::array<double, 4> would give.
-pybind11::object limits_to_python(std::optional<std::array<double, 4>> const & limits)
-{
-    if (!limits.has_value())
-    {
-        return pybind11::none();
-    }
-    std::array<double, 4> const & lim = *limits;
-    return pybind11::make_tuple(lim[0], lim[1], lim[2], lim[3]);
-}
 
 /**
  * Reject a negative index with IndexError. A std::size_t parameter would raise
@@ -118,6 +106,57 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapPlotColor
 
 }; /* end class WrapPlotColor */
 
+class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapPlotLimits2d
+    : public WrapBase<WrapPlotLimits2d, PlotLimits2d>
+{
+
+    friend root_base_type;
+
+    WrapPlotLimits2d(pybind11::module & mod, char const * pyname, char const * pydoc)
+        : root_base_type(mod, pyname, pydoc)
+    {
+        namespace py = pybind11;
+
+        (*this)
+            .def(py::init<>())
+            .def(
+                py::init<double, double, double, double>(),
+                py::arg("xmin"),
+                py::arg("xmax"),
+                py::arg("ymin"),
+                py::arg("ymax"))
+            //
+            ;
+
+        (*this)
+            .def_readwrite("xmin", &wrapped_type::xmin)
+            .def_readwrite("xmax", &wrapped_type::xmax)
+            .def_readwrite("ymin", &wrapped_type::ymin)
+            .def_readwrite("ymax", &wrapped_type::ymax)
+            .def("merge", &wrapped_type::merge, py::arg("other"))
+            .def(py::self == py::self) // NOLINT(misc-redundant-expression)
+            .def(py::self != py::self) // NOLINT(misc-redundant-expression)
+            .def(
+                "__iter__",
+                [](wrapped_type const & self)
+                { return py::make_tuple(self.xmin, self.xmax, self.ymin, self.ymax).attr("__iter__")(); })
+            .def(
+                "__repr__",
+                [](wrapped_type const & self)
+                {
+                    return std::format(
+                        "PlotLimits2d(xmin={}, xmax={}, ymin={}, ymax={})",
+                        self.xmin,
+                        self.xmax,
+                        self.ymin,
+                        self.ymax);
+                })
+            //
+            ;
+    }
+
+}; /* end class WrapPlotLimits2d */
+
 class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRPlotSeries
     : public WrapBase<WrapRPlotSeries, RPlotSeries, std::shared_ptr<RPlotSeries>>
 {
@@ -149,10 +188,7 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRPlotSeries
                 [](wrapped_type const & self, std::int64_t index)
                 { return self.y_at(checked_index(index, self.size(), "RPlotSeries::y_at", "size")); },
                 py::arg("index"))
-            .def(
-                "data_limits",
-                [](wrapped_type const & self)
-                { return limits_to_python(self.data_limits()); })
+            .def("data_limits", &wrapped_type::data_limits)
             .def_property("label", &wrapped_type::label, &wrapped_type::set_label)
             // A copy, not a reference into the series: `series.color.a = 128`
             // must fail rather than write to a temporary.
@@ -198,25 +234,10 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRPlotModel
                 [](wrapped_type const & self, std::int64_t index)
                 { return self.series(checked_index(index, self.size(), "RPlotModel::series", "size")); },
                 py::arg("index"))
-            .def(
-                "data_limits",
-                [](wrapped_type const & self)
-                { return limits_to_python(self.data_limits()); })
+            .def("data_limits", &wrapped_type::data_limits)
             .def_property("margin", &wrapped_type::margin, &wrapped_type::set_margin)
-            .def(
-                "view_limits",
-                [](wrapped_type const & self)
-                {
-                    std::array<double, 4> const lim = self.view_limits();
-                    return py::make_tuple(lim[0], lim[1], lim[2], lim[3]);
-                })
-            .def(
-                "set_view_limits",
-                &wrapped_type::set_view_limits,
-                py::arg("xmin"),
-                py::arg("xmax"),
-                py::arg("ymin"),
-                py::arg("ymax"))
+            .def("view_limits", &wrapped_type::view_limits)
+            .def("set_view_limits", &wrapped_type::set_view_limits, py::arg("limits"))
             .def("autoscale", &wrapped_type::autoscale)
             .def("view", &wrapped_type::view, py::arg("width"), py::arg("height"))
             //
@@ -234,6 +255,12 @@ void wrap_plot(pybind11::module & mod)
         "PlotColor",
         "One sRGB color with alpha, a byte per channel. An immutable value: "
         "the channels are read-only, so rebuild the color to change one.");
+    WrapPlotLimits2d::commit(
+        mod,
+        "PlotLimits2d",
+        "The mutable xmin, xmax, ymin, and ymax limits of one xy rectangle. "
+        "merge(other) expands this rectangle to contain the other one.");
+    mod.attr("PlotLimits2d").attr("__hash__") = py::none();
     WrapRPlotSeries::commit(
         mod,
         "RPlotSeries",
