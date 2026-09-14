@@ -148,7 +148,18 @@ TYPED_TEST_SUITE(InverseTest, TestTypes);
 
 TYPED_TEST(ParsevalTest, fft)
 {
-    solvcon::FourierTransform::fft<solvcon::Complex, typename TypeParam::Type>(this->signal, this->out);
+    solvcon::FourierTransform::fft(this->signal, this->out);
+
+    this->verify_parseval();
+}
+
+TYPED_TEST(ParsevalTest, fft_cuda)
+{
+    if (!solvcon::device::cuda::available())
+    {
+        GTEST_SKIP() << "CUDA is not available";
+    }
+    solvcon::FourierTransform::fft<solvcon::FourierBackend::cuda>(this->signal, this->out);
 
     this->verify_parseval();
 }
@@ -162,7 +173,18 @@ TYPED_TEST(ParsevalTest, dft)
 
 TYPED_TEST(DeltaFunctionTest, fft)
 {
-    solvcon::FourierTransform::fft<solvcon::Complex, typename TypeParam::Type>(this->signal, this->out);
+    solvcon::FourierTransform::fft(this->signal, this->out);
+
+    this->verify_delta_function();
+}
+
+TYPED_TEST(DeltaFunctionTest, fft_cuda)
+{
+    if (!solvcon::device::cuda::available())
+    {
+        GTEST_SKIP() << "CUDA is not available";
+    }
+    solvcon::FourierTransform::fft<solvcon::FourierBackend::cuda>(this->signal, this->out);
 
     this->verify_delta_function();
 }
@@ -176,8 +198,20 @@ TYPED_TEST(DeltaFunctionTest, dft)
 
 TYPED_TEST(InverseTest, fft)
 {
-    solvcon::FourierTransform::fft<solvcon::Complex, typename TypeParam::Type>(this->signal, this->freq_domain);
-    solvcon::FourierTransform::ifft<solvcon::Complex, typename TypeParam::Type>(this->freq_domain, this->time_domain);
+    solvcon::FourierTransform::fft(this->signal, this->freq_domain);
+    solvcon::FourierTransform::ifft(this->freq_domain, this->time_domain);
+
+    this->verify_inverse_fft_function();
+}
+
+TYPED_TEST(InverseTest, fft_cuda)
+{
+    if (!solvcon::device::cuda::available())
+    {
+        GTEST_SKIP() << "CUDA is not available";
+    }
+    solvcon::FourierTransform::fft<solvcon::FourierBackend::cuda>(this->signal, this->freq_domain);
+    solvcon::FourierTransform::ifft<solvcon::FourierBackend::cuda>(this->freq_domain, this->time_domain);
 
     this->verify_inverse_fft_function();
 }
@@ -185,7 +219,7 @@ TYPED_TEST(InverseTest, fft)
 TYPED_TEST(InverseTest, dft)
 {
     solvcon::FourierTransform::dft<solvcon::Complex, typename TypeParam::Type>(this->signal, this->freq_domain);
-    solvcon::FourierTransform::ifft<solvcon::Complex, typename TypeParam::Type>(this->freq_domain, this->time_domain);
+    solvcon::FourierTransform::ifft(this->freq_domain, this->time_domain);
 
     this->verify_inverse_fft_function();
 }

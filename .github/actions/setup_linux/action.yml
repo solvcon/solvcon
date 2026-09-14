@@ -183,6 +183,17 @@ runs:
         sudo pip3 install numpy pytest flake8
         echo "::endgroup::"
 
+    # The transform tests this lane runs collect all of tests/ outside
+    # tests/gui/, and a few of those modules import jsonschema at module
+    # level, which is a collection error rather than a skip.
+    - name: dependency by pip (cuda)
+      if: ${{ inputs.workflow == 'build_cuda' }}
+      shell: bash
+      run: |
+        echo "::group::dependency by pip (cuda)"
+        sudo pip3 install jsonschema
+        echo "::endgroup::"
+
     - name: dependency by pip (lint & build)
       if: "${{ inputs.workflow == 'lint' || inputs.workflow == 'build' }}"
       shell: bash
