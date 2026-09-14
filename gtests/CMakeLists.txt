@@ -73,6 +73,7 @@ endif () # APPLE
 add_executable(
     test_nopython
     test_nopython_buffer.cpp
+    test_nopython_complex.cpp
     test_nopython_solvcon.cpp
     test_nopython_inout.cpp
     test_nopython_toggle.cpp
@@ -107,6 +108,7 @@ add_executable(
 )
 set_source_files_properties(
     test_nopython_buffer.cpp
+    test_nopython_complex.cpp
     ${SOLVCON_INCLUDE_DIR}/solvcon/math/Float16.cpp
     PROPERTIES COMPILE_OPTIONS "${SOLVCON_FLOAT16_COMPILE_OPTIONS}"
 )

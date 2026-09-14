@@ -70,6 +70,9 @@ public:
      */
     constexpr Float16(double value); // NOLINT(google-explicit-constructor)
 
+    // FIXME: Reject long double until the portable conversion is supported.
+    Float16(long double) = delete; // NOLINT(google-runtime-float)
+
     /**
      * Construct from an integral value.
      *
