@@ -29,6 +29,21 @@ namespace solvcon
 namespace detail
 {
 
+class MatmulLayout
+{
+public:
+    using shape_type = small_vector<ssize_t>;
+
+    MatmulLayout(shape_type shape, shape_type strides);
+    ssize_t ndim() const { return static_cast<ssize_t>(m_shape.size()); }
+    ssize_t shape(size_t axis) const { return m_shape[axis]; }
+    ssize_t stride(size_t axis) const { return m_strides[axis]; }
+
+private:
+    shape_type m_shape;
+    shape_type m_strides;
+}; /* end class MatmulLayout */
+
 /**
  * @brief Describe matmul operands as an execution-independent contraction.
  *
@@ -52,6 +67,8 @@ class MatmulPlan
 {
 public:
     using shape_type = small_vector<ssize_t>;
+
+    static MatmulPlan make(MatmulLayout const & lhs, MatmulLayout const & rhs);
 
     template <typename Array>
     static MatmulPlan make(Array const & lhs, Array const & rhs);

@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <array>
+#include <limits>
 #include <utility>
 
 namespace solvcon
@@ -45,6 +46,51 @@ std::optional<MatmulKernel> matmul_kernel_from_name(std::string_view name) noexc
         }
     }
     return std::nullopt;
+}
+
+MatmulLayout::MatmulLayout(shape_type shape, shape_type strides)
+    : m_shape(std::move(shape))
+    , m_strides(std::move(strides))
+{
+    if (m_shape.empty() || m_shape.size() != m_strides.size())
+    {
+        throw std::invalid_argument("shape and strides must have the same nonzero rank");
+    }
+    constexpr ssize_t MAX_ELEMENTS = std::numeric_limits<ssize_t>::max();
+    ssize_t size = 1;
+    for (ssize_t const extent : m_shape)
+    {
+        if (extent < 0 || std::max(extent, ssize_t{1}) > MAX_ELEMENTS / size)
+        {
+            throw std::invalid_argument("shape exceeds the supported element count");
+        }
+        size *= std::max(extent, ssize_t{1});
+    }
+}
+
+MatmulPlan MatmulPlan::make(MatmulLayout const & lhs, MatmulLayout const & rhs)
+{
+    constexpr ssize_t MAX_ELEMENTS = std::numeric_limits<ssize_t>::max();
+    ssize_t const rows = lhs.ndim() == 1 ? 1 : lhs.shape(lhs.ndim() - 2);
+    ssize_t const columns = rhs.ndim() == 1 ? 1 : rhs.shape(rhs.ndim() - 1);
+    if (columns && rows > MAX_ELEMENTS / columns)
+    {
+        throw std::invalid_argument("output shape exceeds the supported element count");
+    }
+    ssize_t output_size = std::max(rows, ssize_t{1}) * std::max(columns, ssize_t{1});
+    for (ssize_t offset = 3; offset <= std::max(lhs.ndim(), rhs.ndim()); ++offset)
+    {
+        ssize_t const lhs_extent = offset <= lhs.ndim() ? lhs.shape(lhs.ndim() - offset) : 1;
+        ssize_t const rhs_extent = offset <= rhs.ndim() ? rhs.shape(rhs.ndim() - offset) : 1;
+        ssize_t const extent = std::max({lhs_extent, rhs_extent, ssize_t{1}});
+        if (extent > MAX_ELEMENTS / output_size)
+        {
+            throw std::invalid_argument("output shape exceeds the supported element count");
+        }
+        output_size *= extent;
+    }
+
+    return make<MatmulLayout>(lhs, rhs);
 }
 
 MatmulPlan::MatmulPlan(

@@ -63,6 +63,52 @@ class MatrixFloat64TC(MatrixTestBase, unittest.TestCase):
         self.SimpleArray = sc.SimpleArrayFloat64
 
 
+class MatmulEligibilityTC(unittest.TestCase):
+    def test_shape_reasons(self):
+        query = sc.SimpleArrayFloat64.matmul_kernel_eligibility
+        reasons = query((2, 4), (4, 1), (4, 6), (6, 1))
+        self.assertIsNone(reasons['naive'])
+        if reasons['blas_gemm'] is not None:
+            self.assertIn('BLAS backend', reasons['blas_gemm'])
+            return
+        self.assertIsNone(reasons['winograd'])
+        self.assertIn('vector @ vector', reasons['blas_dot'])
+        self.assertIn('even', query(
+            (3, 4), (4, 1), (4, 2), (2, 1))['winograd'])
+        self.assertIn('unbatched', query(
+            (1, 2, 4), (8, 4, 1), (4, 2), (2, 1))['winograd'])
+        self.assertIn('positive', query(
+            (2, 0), (0, 1), (0, 2), (2, 1))['blas_gemm'])
+
+    def test_unsupported_dtype(self):
+        array_type = sc.SimpleArray.typed_class('int32')
+        reasons = array_type.matmul_kernel_eligibility(
+            (2, 2), (2, 1), (2, 2), (2, 1))
+        operand = array_type(array=np.ones((2, 2), dtype='int32'))
+        self.assertIsNone(reasons.pop('naive'))
+        for name, reason in reasons.items():
+            with self.subTest(kernel=name):
+                self.assertIn('dtype', reason)
+                with self.assertRaises(sc.MatmulKernelUnavailable):
+                    operand.matmul(operand, kernel=name)
+
+    def test_invalid_layout(self):
+        query = sc.SimpleArrayFloat64.matmul_kernel_eligibility
+        for shape, strides in (((), ()), ((2, 2), (1,)),
+                               ((-2, 2), (2, 1)),
+                               ((2**62, 4), (0, 0))):
+            with self.subTest(shape=shape, strides=strides):
+                with self.assertRaises(ValueError):
+                    query(shape, strides, (2, 2), (2, 1))
+        with self.assertRaisesRegex(ValueError, 'shape mismatch'):
+            query((2, 3), (3, 1), (2, 2), (2, 1))
+        with self.assertRaisesRegex(ValueError, 'output shape'):
+            query((2**32, 1), (0, 0), (1, 2**32), (0, 0))
+        with self.assertRaisesRegex(ValueError, 'output shape'):
+            query((2**32, 1, 1), (0, 0, 0),
+                  (1, 1, 2**32), (0, 0, 0))
+
+
 class MatmulTestBase(sc.testing.TestBase):
     """Tests for SimpleArray matrix multiplication roles."""
 

@@ -103,6 +103,52 @@ class SamplingTC(unittest.TestCase):
                     benchmark.spec.Sampling.from_dict(data)
 
 
+def make_inputs(lhs, rhs, dtype='float64', stride=1):
+    return matmul.MatmulInputs(
+        benchmark_spec.OperandSpec(lhs, (stride,) * len(lhs)),
+        benchmark_spec.OperandSpec(rhs, (stride,) * len(rhs)), dtype)
+
+
+class MatmulInputsTC(unittest.TestCase):
+    def test_matches_execution(self):
+        shapes = (
+            ((4,), (4,)), ((4,), (4, 2)), ((2, 4), (4,)),
+            ((2, 4), (4, 6)), ((3, 4), (4, 2)),
+            ((4,), (2, 4, 2)), ((2, 2, 4), (4,)),
+            ((1, 2, 4), (2, 4, 2)), ((2, 4), (1, 4, 2)),
+            ((0,), (0,)), ((2, 0), (0, 2)), ((0, 2, 4), (4, 2)))
+        for dtype in matmul.MATMUL_DTYPES:
+            for lhs, rhs in shapes:
+                for stride in (-1, 0, 1):
+                    inputs = make_inputs(lhs, rhs, dtype, stride)
+                    reasons = inputs.kernel_eligibility()
+                    request = matmul.MatmulSpec(
+                        inputs.lhs, inputs.rhs, dtype,
+                        benchmark_spec.Sampling(0, 1, 1),
+                        matmul.MATMUL_KERNELS)
+                    execute = collector._make_executor(request)
+                    for name, reason in reasons.items():
+                        with self.subTest(dtype=dtype, lhs=lhs, rhs=rhs,
+                                          stride=stride, kernel=name):
+                            if reason is None:
+                                execute(name)
+                            else:
+                                with self.assertRaises(
+                                        sc.MatmulKernelUnavailable) as ctx:
+                                    execute(name)
+                                self.assertIn(reason, str(ctx.exception))
+
+    def test_metadata_only(self):
+        inputs = make_inputs((2**32, 2), (2, 2), stride=0)
+        with unittest.mock.patch.object(
+                collector, '_make_operand', side_effect=AssertionError), \
+                unittest.mock.patch.object(
+                    np, 'empty', side_effect=AssertionError):
+            reasons = inputs.kernel_eligibility()
+        self.assertEqual(tuple(reasons), matmul.MATMUL_KERNELS)
+        self.assertIsNone(reasons['naive'])
+
+
 class MatmulSpecTC(unittest.TestCase):
     def test_round_trip(self):
         spec = make_matmul_spec(

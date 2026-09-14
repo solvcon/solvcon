@@ -12,7 +12,9 @@
 #include <cctype>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
+#include <string_view>
 
 namespace solvcon
 {
@@ -30,18 +32,29 @@ inline char lower_ascii(char ch)
     return static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
 }
 
-inline solvcon::detail::MatmulKernel parse_matmul_kernel(pybind11::object const & kernel)
+} /* end namespace detail */
+
+class MatmulBinding
 {
-    auto const name = kernel.cast<std::string>();
-    auto const parsed = solvcon::detail::matmul_kernel_from_name(name);
+public:
+    using kernel_type = solvcon::detail::MatmulKernel;
+    using layout_type = solvcon::detail::MatmulLayout;
+    using plan_type = solvcon::detail::MatmulPlan;
+
+    static kernel_type parse_kernel(pybind11::object const & kernel);
+    static pybind11::dict eligibility(layout_type const & lhs, layout_type const & rhs, bool blas_supported);
+}; /* end class MatmulBinding */
+
+inline MatmulBinding::kernel_type MatmulBinding::parse_kernel(pybind11::object const & kernel)
+{
+    std::string const name = kernel.cast<std::string>(); // NOLINT(modernize-use-auto)
+    std::optional<kernel_type> const parsed = solvcon::detail::matmul_kernel_from_name(name);
     if (!parsed)
     {
         throw std::invalid_argument(std::format("matmul(): unknown kernel '{}'", name));
     }
     return parsed.value();
 }
-
-} /* end namespace detail */
 
 template <typename T>
 class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArray
@@ -439,6 +452,22 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArray
         }
 
         (*this)
+            .def_static(
+                "matmul_kernel_eligibility",
+                [](py::object const & lhs_shape,
+                   py::object const & lhs_strides,
+                   py::object const & rhs_shape,
+                   py::object const & rhs_strides)
+                {
+                    MatmulBinding::layout_type const lhs(make_shape(lhs_shape), make_shape(lhs_strides));
+                    MatmulBinding::layout_type const rhs(make_shape(rhs_shape), make_shape(rhs_strides));
+                    return MatmulBinding::eligibility(lhs, rhs, solvcon::detail::use_matmul_blas_v<T>);
+                },
+                py::arg("lhs_shape"),
+                py::arg("lhs_strides"),
+                py::arg("rhs_shape"),
+                py::arg("rhs_strides"),
+                "Return kernel rejection reasons (None if eligible) without allocating operand or result arrays.")
             .def(
                 "matmul",
                 [](wrapped_type const & self,
@@ -447,7 +476,7 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArray
                 {
                     return kernel.is_none()
                                ? self.matmul(other)
-                               : self.matmul(other, detail::parse_matmul_kernel(kernel));
+                               : self.matmul(other, MatmulBinding::parse_kernel(kernel));
                 },
                 py::arg("other"),
                 py::kw_only(),
