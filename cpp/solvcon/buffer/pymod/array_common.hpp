@@ -19,7 +19,9 @@
 // See more details in the issue: https://github.com/solvcon/solvcon/issues/283
 #include <solvcon/buffer/pymod/SimpleArrayCaster.hpp>
 
+#include <algorithm>
 #include <cstring>
+#include <limits>
 
 namespace solvcon
 {
@@ -271,78 +273,10 @@ class ArrayPropertyHelper
 {
 public:
     using shape_type = solvcon::detail::shape_type;
+    using slices_type = typename TypeBroadcast<T>::slices_type;
 
-    static void broadcast_array_using_ellipsis(SimpleArray<T> & arr_out, pybind11::array const & arr_in)
-    {
-        auto slices = make_default_slices(arr_out);
-        broadcast_array_using_slice(arr_out, slices, arr_in);
-    }
-
-    // FIXME: NOLINTNEXTLINE(readability-function-cognitive-complexity)
-    static void setitem_parser(SimpleArray<T> & arr_out, pybind11::args const & args)
-    {
-        namespace py = pybind11;
-
-        if (args.size() == 2)
-        {
-            const py::object & py_key = args[0];
-            const py::object & py_value = args[1];
-
-            const bool is_sequence_value = is_sequence(py_value);
-            const bool is_scalar_value = is_scalar(py_value);
-
-            // sarr[K] = V
-            if (py::isinstance<py::int_>(py_key) && is_scalar_value)
-            {
-                const auto key = py_key.cast<ssize_t>();
-                arr_out.at(key) = cast_scalar(py_value);
-                return;
-            }
-            // sarr[K1, K2, K3] = V
-            if (py::isinstance<py::tuple>(py_key) && is_scalar_value)
-            {
-                const auto key = py_key.cast<std::vector<ssize_t>>();
-                arr_out.at(key) = cast_scalar(py_value);
-                return;
-            }
-
-            // multi-dimension with slice and ellipsis
-            // sarr[slice, slice, ellipsis] = ndarr
-            if (py::isinstance<py::tuple>(py_key) && is_sequence_value)
-            {
-                const py::tuple tuple_in = py_key;
-                const py::array arr_in = py_value;
-
-                auto slices = make_default_slices(arr_out);
-                process_slices(tuple_in, slices, arr_out);
-
-                broadcast_array_using_slice(arr_out, slices, arr_in);
-                return;
-            }
-            // one-dimension with slice
-            // sarr[slice] = ndarr
-            if (py::isinstance<py::slice>(py_key) && is_sequence_value)
-            {
-                const auto slice_in = py_key.cast<py::slice>();
-                const auto arr_in = py_value.cast<py::array>();
-
-                auto slices = make_default_slices(arr_out);
-                copy_slice(slices[0], slice_in, arr_out.shape(0), arr_out.nghost());
-
-                broadcast_array_using_slice(arr_out, slices, arr_in);
-                return;
-            }
-            // sarr[ellipsis] = ndarr
-            if (py::isinstance<py::ellipsis>(py_key) && is_sequence_value)
-            {
-                const auto arr_in = py_value.cast<py::array>();
-
-                broadcast_array_using_ellipsis(arr_out, arr_in);
-                return;
-            }
-        }
-        throw std::runtime_error("unsupported operation.");
-    }
+    static SimpleArray<T> getitem(SimpleArray<T> & array, pybind11::object const & key);
+    static void setitem(SimpleArray<T> & array, pybind11::object const & key, pybind11::object const & value);
 
     static pybind11::buffer_info get_buffer_info(SimpleArray<T> & array)
     {
@@ -382,6 +316,8 @@ public:
     }
 
 private:
+    static slices_type parse_slices(SimpleArray<T> const & array, pybind11::object const & key);
+    static void copy_key(shape_type & slice, pybind11::handle key, SimpleArray<T> const & arr, size_t axis);
 
     static bool is_sequence(pybind11::object const & py_value)
     {
@@ -434,9 +370,9 @@ private:
         }
     }
 
-    static std::vector<shape_type> make_default_slices(SimpleArray<T> const & arr)
+    static slices_type make_default_slices(SimpleArray<T> const & arr)
     {
-        std::vector<shape_type> slices;
+        slices_type slices;
         auto const & shape = arr.shape();
         slices.reserve(shape.size());
         for (ssize_t const dim : shape)
@@ -486,7 +422,7 @@ private:
         namespace py = pybind11;
 
         ssize_t ellipsis_cnt = 0;
-        ssize_t slice_cnt = 0;
+        ssize_t index_cnt = 0;
 
         for (auto it = tuple.begin(); it != tuple.end(); it++)
         {
@@ -494,9 +430,9 @@ private:
             {
                 ellipsis_cnt += 1;
             }
-            else if (py::isinstance<py::slice>(*it))
+            else if (py::isinstance<py::slice>(*it) || PyIndex_Check((*it).ptr()))
             {
-                slice_cnt += 1;
+                index_cnt += 1;
             }
             else
             {
@@ -504,7 +440,7 @@ private:
             }
         }
 
-        if (slice_cnt > ndim)
+        if (index_cnt > ndim)
         {
             throw std::runtime_error("syntax error. dimensions mismatches");
         }
@@ -515,9 +451,7 @@ private:
         }
     }
 
-    static void process_slices(pybind11::tuple const & tuple,
-                               std::vector<shape_type> & slices,
-                               SimpleArray<T> const & arr)
+    static void process_slices(pybind11::tuple const & tuple, slices_type & slices, SimpleArray<T> const & arr)
     {
         namespace py = pybind11;
 
@@ -536,11 +470,7 @@ private:
             }
 
             ssize_t const axis = it - tuple.begin();
-            auto & slice_out = slices[axis];
-            const auto slice_in = (*it).cast<py::slice>();
-
-            ssize_t const bound_offset = axis == 0 ? arr.nghost() : 0;
-            copy_slice(slice_out, slice_in, arr.shape(axis), bound_offset);
+            copy_key(slices[axis], *it, arr, axis);
         }
 
         // copy slices from the back until an ellipsis
@@ -556,23 +486,148 @@ private:
                     break;
                 }
                 ssize_t const axis = ndim - offset - 1;
-                auto & slice_out = slices[axis];
-                const auto slice_in = (*it).cast<py::slice>();
-
-                ssize_t const bound_offset = axis == 0 ? arr.nghost() : 0;
-                copy_slice(slice_out, slice_in, arr.shape(axis), bound_offset);
+                copy_key(slices[axis], *it, arr, axis);
             }
         }
     }
 
-    static void broadcast_array_using_slice(SimpleArray<T> & arr_out,
-                                            std::vector<shape_type> const & slices,
-                                            pybind11::array const & arr_in)
+    static void assign_slice(SimpleArray<T> & arr_out, slices_type const & slices, pybind11::array const & arr_in)
     {
         TypeBroadcast<T>::check_shape(arr_out, slices, arr_in);
         TypeBroadcast<T>::broadcast(arr_out, slices, arr_in);
     }
 }; /* end class ArrayPropertyHelper */
+
+template <typename T>
+void ArrayPropertyHelper<T>::copy_key(shape_type & slice, pybind11::handle key, SimpleArray<T> const & arr, size_t axis)
+{
+    namespace py = pybind11;
+    ssize_t const ghost = axis == 0 ? arr.nghost() : 0;
+    ssize_t const length = arr.shape(axis);
+    if (py::isinstance<py::slice>(key))
+    {
+        copy_slice(slice, py::reinterpret_borrow<py::slice>(key), length, ghost);
+        return;
+    }
+
+    py::object const shifted = shift_slice_bound(key, ghost);
+    ssize_t index = PyNumber_AsSsize_t(shifted.ptr(), PyExc_IndexError);
+    if (index == -1 && PyErr_Occurred())
+    {
+        throw py::error_already_set();
+    }
+    if (index < -length || index >= length)
+    {
+        throw py::index_error(std::format("index out of range for axis {}", axis));
+    }
+    index = index < 0 ? index + length : index;
+    // A zero step marks an integer index, which removes this axis from the view.
+    slice[0] = index;
+    slice[1] = index + 1;
+    slice[2] = 0;
+    slice[3] = 1;
+}
+
+template <typename T>
+typename ArrayPropertyHelper<T>::slices_type ArrayPropertyHelper<T>::parse_slices(
+    SimpleArray<T> const & array, pybind11::object const & key)
+{
+    namespace py = pybind11;
+    slices_type slices = make_default_slices(array);
+    if (py::isinstance<py::tuple>(key))
+    {
+        process_slices(key.cast<py::tuple>(), slices, array);
+    }
+    else if (py::isinstance<py::slice>(key))
+    {
+        if (array.ndim() == 0)
+        {
+            throw py::index_error("cannot slice a zero-dimensional array");
+        }
+        copy_slice(slices[0], key.cast<py::slice>(), array.shape(0), array.nghost());
+    }
+    else if (!py::isinstance<py::ellipsis>(key))
+    {
+        throw py::type_error("expected a slice, a tuple of slices, or an ellipsis");
+    }
+    return slices;
+}
+
+template <typename T>
+void ArrayPropertyHelper<T>::setitem(SimpleArray<T> & array, pybind11::object const & key, pybind11::object const & value)
+{
+    namespace py = pybind11;
+    if (is_scalar(value))
+    {
+        if (py::isinstance<py::int_>(key))
+        {
+            array.at(key.cast<ssize_t>()) = cast_scalar(value);
+            return;
+        }
+        if (py::isinstance<py::tuple>(key))
+        {
+            array.at(key.cast<std::vector<ssize_t>>()) = cast_scalar(value);
+            return;
+        }
+    }
+    if (is_sequence(value) &&
+        (py::isinstance<py::slice>(key) || py::isinstance<py::tuple>(key) || py::isinstance<py::ellipsis>(key)))
+    {
+        SimpleArray<T> view = getitem(array, key);
+        assign_slice(view, make_default_slices(view), value.cast<py::array>());
+        return;
+    }
+    throw std::runtime_error("unsupported operation.");
+}
+
+template <typename T>
+SimpleArray<T> ArrayPropertyHelper<T>::getitem(SimpleArray<T> & array, pybind11::object const & key)
+{
+    slices_type const slices = parse_slices(array, key);
+    if (array.ndim() == 0 && !array.logical_data())
+    {
+        throw pybind11::index_error("cannot slice an array without storage");
+    }
+
+    shape_type shape, stride;
+    constexpr auto itemsize = static_cast<ssize_t>(sizeof(T));
+    for (size_t axis = 0; axis < slices.size(); ++axis)
+    {
+        shape_type const & slice = slices[axis];
+        ssize_t const source_stride = array.stride(axis);
+        ssize_t const step = slice[2];
+        if (step == 0)
+        {
+            continue;
+        }
+        ssize_t const max = std::numeric_limits<ssize_t>::max();
+        ssize_t const min = std::numeric_limits<ssize_t>::min();
+        if ((source_stride > 0 && (step > max / source_stride || step < min / source_stride)) ||
+            (source_stride < -1 && (step > min / source_stride || step < max / source_stride)) ||
+            (source_stride == -1 && step == min))
+        {
+            throw std::overflow_error("slice stride exceeds the supported range");
+        }
+        ssize_t const view_stride = source_stride * step;
+        if (view_stride > max / itemsize || view_stride < min / itemsize)
+        {
+            throw std::overflow_error("slice byte stride exceeds the supported range");
+        }
+        shape.push_back(slice[3]);
+        stride.push_back(view_stride);
+    }
+
+    bool const empty = std::find(shape.begin(), shape.end(), 0) != shape.end();
+    ssize_t offset = array.logical_data() ? array.logical_data() - array.data() : 0;
+    if (!empty)
+    {
+        for (size_t axis = 0; axis < slices.size(); ++axis)
+        {
+            offset += slices[axis][0] * array.stride(axis);
+        }
+    }
+    return SimpleArray<T>(shape, stride, array.buffer().shared_from_this(), offset * itemsize);
+}
 
 template <typename T>
 pybind11::object ArrayPropertyHelper<T>::shift_slice_bound(

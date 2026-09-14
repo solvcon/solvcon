@@ -15,7 +15,7 @@ every rule it changes.
 
 Element access matches numpy in the index arithmetic and the error behavior
 (negative wrapping and `IndexError`), and diverges from numpy in the subscript
-scope and the return type: a subscript must select exactly one element, and
+scope and the return type: an integer-only key must select one element, and
 the result is a Python scalar, never a subarray or a view. A one-dimensional
 array takes a single integer, and a multi-dimensional array takes a full tuple
 with one integer per dimension:
@@ -93,30 +93,43 @@ sarr[0, 3, 0]
 # IndexError: SimpleArray: dim 1 in [0, 3, 0] >= shape[1]: 3
 ```
 
-### No Slices on Read
+### Slice Views
 
-`__getitem__` accepts no slice and no ellipsis; only the integer and
-integer-tuple forms above exist. Passing a slice raises `TypeError` from the
-binding's argument matching:
+`__getitem__` accepts the same slice and ellipsis keys as region assignment.
+The result has the same array class and dtype, shares the source buffer, and
+keeps it alive even after the source object is deleted. Steps, reversed axes,
+and empty selections are supported. Both `__getitem__` and `__setitem__` accept
+mixed integer/slice keys: integers remove axes, while slices retain them.
+
+In C++, `data()` remains the shared buffer's start. The view's
+`logical_data()`, shape, and stride describe the selected elements.
 
 ```python
-sarr = solvcon.SimpleArrayFloat64(6)
-sarr[0:3]
-# TypeError: __getitem__(): incompatible function arguments. ...
+sarr = solvcon.SimpleArrayFloat64(array=np.arange(6, dtype='float64'))
+view = sarr[1::2]
+assert view.ndarray.tolist() == [1, 3, 5]
+view[0] = 99
+assert sarr[1] == 99
+assert sarr[::-1].ndarray.tolist() == [5, 4, 3, 2, 99, 0]
+
+matrix = solvcon.SimpleArrayFloat64(array=np.zeros((2, 3), dtype='float64'))
+assert matrix[1, :].shape == (3,)
+matrix[1, :] = np.array([7, 8, 9], dtype='float64')
+assert matrix[1, :].ndarray.tolist() == [7, 8, 9]
 ```
 
-This diverges from numpy, where a slice returns a view sharing the memory of
-the source. Whether the family should grow slice reads, and whether such a
-read would return a sharing view or a copy, is an open decision; this page
-records only the current behavior. Until the decision lands, the zero-copy
-path to sliced reads is the `ndarray` property: `sarr.ndarray[0:3]` is a numpy
-view over the array's memory.
+Every slice result has `nghost = 0`: index zero addresses the first selected
+position. The source's ghost partition determines which positions the slice
+selects, but is not copied to the result. This also applies to `sarr[:]` and
+`sarr[...]`; reversing a selection can put the source's ghosts at the end,
+which cannot be described by a leading ghost count.
 
 ## Element and Region Assignment
 
 `__setitem__` accepts two families of keys: the scalar keys of the read path,
 assigning one element, and slice or ellipsis keys, assigning a whole region
-from a sequence. A key and value combination outside the two families raises
+from a sequence matching the view's shape after integer-indexed axes are
+removed. A key and value combination outside the two families raises
 `RuntimeError`; in particular a scalar value cannot be assigned to a slice key
 (numpy would broadcast it over the region). The message depends on the
 rejection path: a scalar on a lone slice or an ellipsis reports "unsupported
@@ -586,16 +599,16 @@ array with `nghost = 1` reports 3. A zero-dimensional array reports 0. Neither
 `shape`, `size`, nor `len()` changes with the partition; they keep describing
 the full storage, as the layout properties above define.
 
-### Ghost-Shifted Slice Assignment
+### Ghost-Shifted Slicing
 
-The slice keys of `__setitem__` interpret their explicit bounds on the first
-axis in the logical, ghost-shifted coordinates of this page: the parser adds
-`nghost` to an explicit start or stop bound and then applies the ordinary
-Python slice rules over the full first-axis extent. An omitted bound is not
-shifted; it means the storage edge, so with a forward step an omitted start
-begins at the first ghost element and an omitted stop runs to the end of
-storage. The stop bound `0` therefore selects exactly the ghost region, and
-the start bound `0` selects the body:
+The slice keys of `__getitem__` and `__setitem__` interpret explicit bounds on
+the first axis in the logical, ghost-shifted coordinates of this page: the
+parser adds `nghost` to an explicit start or stop bound and then applies the
+ordinary Python slice rules over the full first-axis extent. An omitted bound
+is not shifted; it means the storage edge, so with a forward step an omitted
+start begins at the first ghost element and an omitted stop runs to the end of
+storage. The stop bound `0` therefore selects exactly the ghost region, and the
+start bound `0` selects the body:
 
 ```python
 sarr = solvcon.SimpleArrayFloat64(shape=5, value=0)
@@ -604,6 +617,13 @@ sarr.nghost = 2
 sarr[-2:0] = np.array([10.0, 11.0])        # the ghost region
 sarr[0:] = np.array([12.0, 13.0, 14.0])    # the body
 assert sarr.ndarray.tolist() == [10, 11, 12, 13, 14]
+
+ghost = sarr[-2:0]
+body = sarr[0:]
+assert ghost.ndarray.tolist() == [10, 11]
+assert body.ndarray.tolist() == [12, 13, 14]
+assert ghost.nghost == body.nghost == 0
+assert ghost[0] == 10 and body[0] == 12
 
 sarr[:0] = np.array([20.0, 21.0])          # also the ghost region
 assert sarr.ndarray.tolist() == [20, 21, 12, 13, 14]
