@@ -385,4 +385,127 @@ This completely manages the object by using shared pointers. You always need to
 construct `Data` by calling the factory function, and always get a shared
 pointer `std::shared_ptr<Data>` rather than a raw pointer `Data *`.
 
+## Get Shared Pointer from inside Object
+
+Occasionally we get the `Data` object without the shared pointer
+(`std::shared_ptr<Data>`) object itself, but still want to return the shared
+pointer to the caller. For example, we may need to call a helper function that
+requires the shared pointer.
+
+A wrong way to do it is to recreate the shared pointer object using the raw
+pointer (`this`):
+
+```cpp
+class Data
+{
+public:
+    Data * get_raw_ptr()
+    {
+        // Returning raw pointer discards the ownership management.
+        return this;
+    }
+
+    std::shared_ptr<Data> get_shared_ptr()
+    {
+        // XXX: Recreating a shared_ptr will duplicate the reference counter,
+        // and later result in double free.
+        return std::shared_ptr<Data>(this);
+    }
+};
+```
+
+The above function `get_shared_ptr()` naively creates a duplicate
+`std::shared_ptr<Data>` object, and will result in double free in the caller,
+just like what we saw in {ref}`Shared Pointer Double Free
+<shared-pointer-double-free>`.
+
+### Enable Shared Pointer from This
+
+The right way to get a new shared pointer from inside a shared-pointer-managed
+object is to use the class template `std::enable_shared_from_this`. It requires
+two things:
+
+1. Inherit the `Data` class from `enable_shared_from_this`.
+2. Call the inherited member function `shared_from_this()`.
+
+```cpp
+class Data
+  : public std::enable_shared_from_this<Data>
+{
+public:
+    std::shared_ptr<Data> get_shared_ptr()
+    {
+        // This is the right way to get the shared pointer from within the
+        // object.
+        return shared_from_this();
+    }
+};
+```
+
+With the change, `get_shared_ptr()` will not result in double free. To show it,
+first create the `Data` object:
+
+```cpp
+std::shared_ptr<Data> data = Data::make();
+std::cout << "data.use_count(): " << data.use_count() << std::endl;
+```
+
+It is held in a shared pointer with unity reference count:
+
+```text
+Data @0x7fc5bed00018 is constructed
+data.use_count(): 1
+```
+
+Now we call the corrected `get_shared_ptr()`:
+
+```cpp
+std::shared_ptr<Data> holder2 = data->get_shared_ptr();
+std::cout << "data.use_count() after holder2: " << data.use_count() << std::endl;
+```
+
+The reference count is correctly increased to 2:
+
+```text
+data.use_count() after holder2: 2
+```
+
+Release the first shared pointer:
+
+```cpp
+data.reset();
+std::cout << "data.use_count() after data.reset(): "
+          << data.use_count() << std::endl;
+```
+
+The reference count of the original pointer becomes 0 (!):
+
+```text
+data.use_count() after data.reset(): 0
+```
+
+But don't worry, it is because the nullified shared pointer does not have
+access to the reference counter of the original `Data` object anymore. The
+object is still there since we do not see the destruction message.
+
+Now release the second shared pointer:
+
+```cpp
+std::cout << "holder2.use_count() before holder2.reset(): "
+          << holder2.use_count() << std::endl;
+holder2.reset();
+std::cout << "holder2.use_count() after holder2.reset(): "
+          << holder2.use_count() << std::endl;
+```
+
+The `Data` object is correctly destructed, and the reference count is correct:
+
+```text
+holder2.use_count() before holder2.reset(): 1
+Data @0x7fc5bed00018 is destructed
+holder2.use_count() after holder2.reset(): 0
+```
+
+There is no double free any more.
+
 <!-- vim: set ft=markdown ff=unix fenc=utf8 et sw=2 ts=2 sts=2 tw=79: -->
