@@ -75,6 +75,7 @@ it. The related behavior falls into three categories:
 ```{toctree}
 :maxdepth: 2
 
+ownership
 memory
 construct
 collector
