@@ -49,9 +49,10 @@ assert sarr[0, 0, 0] == 12.0  # the owning array is kept alive
 ```
 
 The `is_from_python` property reports the provenance: `True` for an array
-wrapping numpy memory and `False` for an array that allocated its own buffer.
-`clone()` always allocates, so the clone of a wrapping array reports `False`
-and detaches from the numpy source.
+wrapping numpy memory and `False` otherwise, including an array over memory
+that is owned by something other than a numpy array. `clone()` always
+allocates, so the clone of a wrapping array reports `False` and detaches from
+the numpy source.
 
 ## Supported Source Layouts
 

@@ -87,7 +87,8 @@ keyword, validated against the same set (0, 16, 32, or 64); no size-multiple
 check applies because nothing is allocated. The buffer holds a reference to the
 source array, tying the lifetime of the memory to the Python object. The
 `is_from_python` property reports the provenance: it is `True` for a buffer
-wrapping a numpy array and `False` for a buffer that allocated its own memory.
+wrapping a numpy array and `False` otherwise, including a buffer over memory
+that is owned by something other than a numpy array.
 
 ## BufferExpander
 
