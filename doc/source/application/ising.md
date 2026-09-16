@@ -256,6 +256,87 @@ matrix and extracting its lowest eigenpair is called exact diagonalization
 dense solve is practical only up to a dozen or so spins. For $L = 4$ it is a
 $16 \times 16$ matrix.
 
+## Building the Hamiltonian
+
+The matrix follows Eq. {eq}`e:ising:element` directly. Loop over every state
+and every site, add the bond energy to the diagonal, and subtract $h_x$ in
+the row of the flipped state:
+
+```python
+import numpy as np
+
+import solvcon as sc
+
+
+def build_hamiltonian(L, J, hx):
+    n = 1 << L
+    H = np.zeros((n, n), dtype='float64')
+    for s in range(n):
+        for i in range(L):
+            j = (i + 1) % L
+            H[s, s] += J * (1 - 2 * (((s >> i) & 1) ^ ((s >> j) & 1)))
+            H[s ^ (1 << i), s] -= hx
+    return H
+```
+
+The `(i + 1) % L` closes the ring. With $L = 4$, $J = 1$, and $h_x = 0.3$
+the upper-left corner of $H_0$ in Eq. {eq}`e:ising:matrix` comes out as
+
+```python
+>>> H = build_hamiltonian(4, 1.0, 0.3)
+>>> H[:4, :4]
+array([[ 4. , -0.3, -0.3,  0. ],
+       [-0.3,  0. ,  0. , -0.3],
+       [-0.3,  0. ,  0. , -0.3],
+       [ 0. , -0.3, -0.3,  0. ]])
+```
+
+State 0 is all four spins up. Every bond then has its spins agreeing, which
+the antiferromagnet pays for, so its diagonal entry is $4J$. It connects to
+states 1 and 2, which each have one spin flipped, with amplitude $-h_x$.
+
+## Solving with solvcon
+
+`sc.EigenSystem` diagonalizes a square `sc.SimpleArray`. It wraps the LAPACK
+`*GEEV` driver for a general, not necessarily symmetric, matrix, so the
+eigenvalues come back unsorted and split into real and imaginary parts, `wr`
+and `wi`, and the right eigenvectors are the columns of `vr`. For the
+symmetric Hamiltonian the imaginary parts vanish, and the ground state is the
+column of `vr` at the position of the smallest `wr`:
+
+```python
+def ground_state(H):
+    solver = sc.EigenSystem(sc.SimpleArray(H), do_vl=False)
+    solver.run()
+    wr, wi = np.array(solver.wr), np.array(solver.wi)
+    assert np.allclose(wi, 0.0)
+    order = np.argsort(wr)
+    psi = np.array(solver.vr)[:, order[0]]
+    return wr[order], psi / np.linalg.norm(psi)
+```
+
+`do_vl=False` skips the left eigenvectors, which a symmetric matrix does not
+need. `sc.SimpleArray(H)` hands the numpy buffer to the solver without a
+copy, and `np.array` on the result arrays copies them back out.
+`sc.EigenSystem` is `None` on a build without a vendor LAPACK; every other
+line runs the same on any build.
+
+```python
+>>> energies, psi = ground_state(H)
+>>> print(energies[0])
+-4.092961599426857
+>>> print("%.1e" % np.linalg.norm(H @ psi - energies[0] * psi))
+3.4e-15
+```
+
+The residual on the last line is the self-check that the recovered pair
+satisfies $\hat{H} \lvert \psi_0 \rangle = E_0 \lvert \psi_0 \rangle$, with
+`H @ psi` the product of Eq. {eq}`e:ising:matvec`; it needs no reference
+solver. The full spectrum is symmetric about zero, and its
+lowest two levels are nearly degenerate: the first excited state lies only
+$0.0049$ above the ground state, the finite-size remnant of the two-fold
+degenerate ordered state at $h_x = 0$.
+
 [^ising1925]: E. Ising, "Beitrag zur Theorie des Ferromagnetismus,"
     Zeitschrift fuer Physik 31(1):253-258, 1925.
     <https://doi.org/10.1007/BF02980577>
