@@ -146,6 +146,71 @@ the $L$ states that differ from it in a single bit, each with amplitude
 $-h_x$. The Hamiltonian is therefore a real, symmetric, sparse
 $2^L \times 2^L$ matrix with at most $L + 1$ nonzeros per row.
 
+:::{note}
+Written out for the four-spin ring solved on this page, the matrix of
+Eq. {eq}`e:ising:element` splits into two-by-two blocks by the state of spin
+3, the most significant bit. With rows labeled by bit pattern, columns by
+state index, and a dot for a zero off the diagonal, it is
+
+```{math}
+:label: e:ising:matrix
+
+\begin{gathered}
+H = \begin{pmatrix}
+      H_0 & -h_x I_{8 \times 8} \\
+      -h_x I_{8 \times 8} & H_1
+    \end{pmatrix}
+\\[1ex]
+H_0 = \begin{array}{r|cccccccc}
+   & 0 & 1 & 2 & 3 & 4 & 5 & 6 & 7 \\
+  \hline
+  0000 & 4J & -h_x & -h_x & \cdot & -h_x & \cdot & \cdot & \cdot \\
+  0001 & -h_x & 0 & \cdot & -h_x & \cdot & -h_x & \cdot & \cdot \\
+  0010 & -h_x & \cdot & 0 & -h_x & \cdot & \cdot & -h_x & \cdot \\
+  0011 & \cdot & -h_x & -h_x & 0 & \cdot & \cdot & \cdot & -h_x \\
+  0100 & -h_x & \cdot & \cdot & \cdot & 0 & -h_x & -h_x & \cdot \\
+  0101 & \cdot & -h_x & \cdot & \cdot & -h_x & -4J & \cdot & -h_x \\
+  0110 & \cdot & \cdot & -h_x & \cdot & -h_x & \cdot & 0 & -h_x \\
+  0111 & \cdot & \cdot & \cdot & -h_x & \cdot & -h_x & -h_x & 0 \\
+\end{array}
+\\[1ex]
+H_1 = \begin{array}{r|cccccccc}
+   & 8 & 9 & 10 & 11 & 12 & 13 & 14 & 15 \\
+  \hline
+  1000 & 0 & -h_x & -h_x & \cdot & -h_x & \cdot & \cdot & \cdot \\
+  1001 & -h_x & 0 & \cdot & -h_x & \cdot & -h_x & \cdot & \cdot \\
+  1010 & -h_x & \cdot & -4J & -h_x & \cdot & \cdot & -h_x & \cdot \\
+  1011 & \cdot & -h_x & -h_x & 0 & \cdot & \cdot & \cdot & -h_x \\
+  1100 & -h_x & \cdot & \cdot & \cdot & 0 & -h_x & -h_x & \cdot \\
+  1101 & \cdot & -h_x & \cdot & \cdot & -h_x & 0 & \cdot & -h_x \\
+  1110 & \cdot & \cdot & -h_x & \cdot & -h_x & \cdot & 0 & -h_x \\
+  1111 & \cdot & \cdot & \cdot & -h_x & \cdot & -h_x & -h_x & 4J \\
+\end{array}
+\end{gathered}
+```
+
+$H_0$ holds the eight patterns with spin 3 up (`0000` to `0111`, states 0
+to 7) and $H_1$ the eight with spin 3 down (`1000` to `1111`, states 8 to
+15). The off-diagonal blocks are the flips of spin 3, which pair every
+pattern in $H_0$ with the one at the same position in $H_1$; within a block
+only spins 0, 1, and 2 flip.
+
+The diagonal carries the classical bond energy of each pattern: $4J$ for the
+two uniform patterns `0000` and `1111`, $-4J$ for the two alternating
+patterns `0101` and `1010`, and $0$ for the twelve patterns with two agreeing
+and two disagreeing bonds (on a ring the number of disagreeing bonds is
+always even). The diagonal of $H_1$ is that of $H_0$ read upward, because
+flipping every spin leaves every bond as it was. Off the diagonal the two
+blocks are identical: $-h_x$ times the adjacency matrix of the cube whose
+eight corners are the patterns of spins 0, 1, and 2, three entries per row,
+and the identity blocks add the fourth $-h_x$ of each row for the flip of
+spin 3. The field part of each block splits the same way by spin 2, and so
+on down; that is how the field wires the $2^L$ patterns into an
+$L$-dimensional hypercube, one spin at a time. The matrix is symmetric
+because flipping a bit is its own inverse: if $s'$ is one flip from $s$,
+then $s$ is one flip from $s'$.
+:::
+
 The state the chain rests in, the ground state, is the eigenvector
 $\lvert \psi_0 \rangle$ with the smallest eigenvalue $E_0$,
 
