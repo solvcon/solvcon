@@ -3,6 +3,7 @@
 
 """Execute one matmul benchmark through a JSON-lines protocol."""
 
+import functools
 import json
 import sys
 
@@ -15,6 +16,13 @@ from . import spec as benchmark_spec
 def _emit(event, stream):
     stream.write(json.dumps(event, sort_keys=True, allow_nan=False) + '\n')
     stream.flush()
+
+
+def _emit_progress(stream, phase, name=None, completed=None, total=None):
+    _emit({
+        'type': 'progress', 'phase': phase, 'kernel': name,
+        'completed': completed, 'total': total,
+    }, stream)
 
 
 def _read_request(stream):
@@ -37,12 +45,12 @@ def _read_request(stream):
 
 def run(stdin, stdout):
     """Run one request and emit one terminal result or error event."""
+    progress = functools.partial(_emit_progress, stdout)
     try:
         specification, output_path = _read_request(stdin)
-        comparison = collector.collect(
-            specification, progress=lambda phase, name: _emit({
-                'type': 'progress', 'phase': phase, 'kernel': name,
-            }, stdout))
+        progress('preparing')
+        comparison = collector.collect(specification, progress=progress)
+        progress('finishing')
         artifact_path = artifact.write_artifact(comparison, output_path)
         _emit({
             'type': 'result',
