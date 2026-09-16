@@ -337,6 +337,54 @@ lowest two levels are nearly degenerate: the first excited state lies only
 $0.0049$ above the ground state, the finite-size remnant of the two-fold
 degenerate ordered state at $h_x = 0$.
 
+## Checking Against the Exact Solution
+
+The Jordan-Wigner transformation maps a spin chain onto free fermions
+[^lieb1961]; applied to the transverse-field chain, it gives the spectrum in
+closed form [^katsura1962][^pfeuty1970]. For a ring with an even number of
+spins the ground-state energy is
+
+```{math}
+:label: e:ising:exact
+
+E_0 = - \sum_{n=0}^{L-1}
+        \sqrt{J^2 + h_x^2 - 2 J h_x \cos k_n} ,
+\qquad k_n = \frac{(2n + 1)\pi}{L} ,
+```
+
+and Eq. {eq}`e:ising:exact` is one line of code:
+
+```python
+def exact_energy(L, J, hx):
+    k = np.pi * (2 * np.arange(L) + 1) / L
+    return -np.sum(np.sqrt(J**2 + hx**2 - 2 * J * hx * np.cos(k)))
+```
+
+For $L = 4$ the four cosines are $\pm 1/\sqrt{2}$ and the sum collapses to
+$E_0 = -2\sqrt{2.18 + 2\sqrt{1.0081}} = -4.092961599426859$. The solvcon
+result above differs from it by $1.8 \times 10^{-15}$, the rounding level of
+double precision. The agreement holds across the field strength, from the
+classical limit $h_x = 0$, where every bond is satisfied and $E_0 = -LJ$,
+through the transition and into the field-dominated regime:
+
+| $h_x$ | $E_0$ (solvcon)  | $E_0$ (exact)    |
+|------:|-----------------:|-----------------:|
+|   0.0 |  -4.000000000000 |  -4.000000000000 |
+|   0.3 |  -4.092961599427 |  -4.092961599427 |
+|   0.5 |  -4.271558410140 |  -4.271558410140 |
+|   1.0 |  -5.226251859506 |  -5.226251859506 |
+|   1.5 |  -6.760008550556 |  -6.760008550556 |
+|   2.0 |  -8.543116820279 |  -8.543116820279 |
+|   3.0 | -12.346784241457 | -12.346784241457 |
+
+Two conventions are load-bearing. The ring must be closed: with open ends
+the same four spins have $E_0 = -3.1433$, not $-4.0930$. And the check is
+blind to the sign of $J$ on an even ring, because flipping every other spin
+maps $J$ to $-J$ without changing the spectrum. On an odd ring the
+antiferromagnet is frustrated because it cannot alternate all the way
+around, so its energy differs from the ferromagnet's, and the closed form
+then needs the parity bookkeeping worked out in [^heguo].
+
 [^ising1925]: E. Ising, "Beitrag zur Theorie des Ferromagnetismus,"
     Zeitschrift fuer Physik 31(1):253-258, 1925.
     <https://doi.org/10.1007/BF02980577>
@@ -360,6 +408,10 @@ degenerate ordered state at $h_x = 0$.
     University Press, 2011. See the chapters on the Ising chain in a
     transverse field.
 
+[^lieb1961]: E. Lieb, T. Schultz, and D. Mattis, "Two soluble models of an
+    antiferromagnetic chain," Annals of Physics 16(3):407-466, 1961.
+    <https://doi.org/10.1016/0003-4916(61)90115-4>
+
 [^katsura1962]: S. Katsura, "Statistical mechanics of the anisotropic linear
     Heisenberg model," Physical Review 127(5):1508-1518, 1962.
     <https://doi.org/10.1103/PhysRev.127.1508>
@@ -371,5 +423,9 @@ degenerate ordered state at $h_x = 0$.
 [^sandvik2010]: A. W. Sandvik, "Computational studies of quantum spin
     systems," AIP Conference Proceedings 1297:135-338, 2010.
     <https://doi.org/10.1063/1.3518900>
+
+[^heguo]: Y. He and H. Guo, "The boundary effects of transverse field Ising
+    model," Journal of Statistical Mechanics: Theory and Experiment
+    2017:093101, 2017. <https://doi.org/10.1088/1742-5468/aa85b0>
 
 <!-- vim: set ft=markdown ff=unix fenc=utf8 et sw=2 ts=2 sts=2 tw=79: -->
