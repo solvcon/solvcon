@@ -211,6 +211,33 @@ because flipping a bit is its own inverse: if $s'$ is one flip from $s$,
 then $s$ is one flip from $s'$.
 :::
 
+A general state is a column vector $\psi$ whose entry $\psi_s$ is the
+amplitude of configuration $s$. Applying $\hat{H}$ to it is a matrix-vector
+product, and summing Eq. {eq}`e:ising:element` over the column index gives
+entry $s$ of the result as
+
+```{math}
+:label: e:ising:matvec
+
+(\hat{H} \psi)_s
+  = J \, b(s) \, \psi_s
+  - h_x \sum_{i=0}^{L-1} \psi_{s \oplus 2^i} ,
+\qquad
+b(s) = \sum_{i=0}^{L-1} \bigl( 1 - 2\,(s_i \oplus s_{i+1}) \bigr) ,
+```
+
+where $b(s)$ is the number of agreeing bonds minus the number of disagreeing
+bonds in configuration $s$. Each entry is scaled by the bond count of its own
+configuration, then $h_x$ times the entries of the $L$ configurations one
+flip away is subtracted. Row `0101` of $H_0$ in Eq. {eq}`e:ising:matrix`,
+state 5, has $-4J$ on the diagonal and $-h_x$ in columns 1, 4, and 7, and
+the identity block adds $-h_x$ in column $13 = 5 + 8$, so
+
+$$
+(\hat{H} \psi)_5
+  = -4J \, \psi_5 - h_x \,(\psi_1 + \psi_4 + \psi_7 + \psi_{13}) .
+$$
+
 The state the chain rests in, the ground state, is the eigenvector
 $\lvert \psi_0 \rangle$ with the smallest eigenvalue $E_0$,
 
