@@ -385,6 +385,92 @@ antiferromagnet is frustrated because it cannot alternate all the way
 around, so its energy differs from the ferromagnet's, and the closed form
 then needs the parity bookkeeping worked out in [^heguo].
 
+## Reading the Ground State
+
+The eigenvector is where the physics is. Its entries are the amplitudes of
+the $2^L$ configurations, here up to an overall sign:
+
+```python
+>>> np.round(psi, 4)
+array([0.008 , 0.0541, 0.0541, 0.0159, 0.0541, 0.6984, 0.0159, 0.0541,
+       0.0541, 0.0159, 0.6984, 0.0541, 0.0159, 0.0541, 0.0541, 0.008 ])
+```
+
+The two large entries are states 5 and 10, the bit patterns `0101` and
+`1010`: the two perfectly alternating configurations. At $h_x = 0$ the ground
+state would be either one of them. The weak field mixes them into an
+equal-weight superposition, each with amplitude $0.6984$ where $1/\sqrt{2} =
+0.7071$ would be the pure pattern, plus small admixtures of the
+configurations one flip away.
+
+Observables are expectation values in the ground state. The transverse
+magnetization $m_x$ and the spin-spin correlation $C(r)$ at distance $r$
+are
+
+$$
+m_x = \frac{1}{L} \sum_{i=0}^{L-1}
+      \langle \psi_0 \vert \hat{\sigma}^x_i \vert \psi_0 \rangle ,
+\qquad
+C(r) = \frac{1}{L} \sum_{i=0}^{L-1} \langle \psi_0 \vert
+       \hat{\sigma}^z_i \hat{\sigma}^z_{i+r} \vert \psi_0 \rangle .
+$$
+
+Both follow from the same bit rules that built the matrix. $\hat{\sigma}^x_i$
+pairs each amplitude with the amplitude of the state with bit $i$ flipped,
+and $\hat{\sigma}^z_i$ weights each amplitude by $1 - 2 s_i$:
+
+```python
+def observables(L, psi):
+    states = np.arange(1 << L)
+
+    def sz(i):
+        return 1 - 2 * ((states >> i) & 1)
+
+    mx = sum(psi @ psi[states ^ (1 << i)] for i in range(L)) / L
+    corr = [np.mean([psi @ (sz(i) * sz((i + r) % L) * psi)
+                     for i in range(L)]) for r in range(L)]
+    return mx, corr
+```
+
+```python
+>>> mx, corr = observables(4, psi)
+>>> print(round(mx, 4))
+0.1597
+>>> np.round(corr, 4)
+array([ 1.    , -0.9753,  0.9746, -0.9753])
+```
+
+The correlation alternates in sign with the distance and stays near one in
+magnitude: neighbors point opposite ways, next-nearest neighbors the same
+way, which is the signature of antiferromagnetic order. The weak field has
+tilted every spin slightly along $x$, giving $m_x = 0.16$. The magnetization
+along $z$ itself cannot show the order. For $h_x > 0$ every
+$\langle \hat{\sigma}^z_i \rangle$ is zero at any finite $L$: the Hamiltonian
+commutes with the global spin flip $\prod_i \hat{\sigma}^x_i$, which reverses
+every $\hat{\sigma}^z_i$, so the nondegenerate ground state cannot favor one
+direction. The staggered average, with alternating signs, vanishes too,
+because the two alternating patterns are weighted equally. Order is therefore
+read from the correlation.
+
+Sweep the field and the two numbers trade places:
+
+| $h_x$ | $m_x$  | $C(1)$  |
+|------:|-------:|--------:|
+|   0.0 | 0.0000 | -1.0000 |
+|   0.3 | 0.1597 | -0.9753 |
+|   0.5 | 0.2909 | -0.9224 |
+|   1.0 | 0.6533 | -0.6533 |
+|   1.5 | 0.8493 | -0.4160 |
+|   2.0 | 0.9224 | -0.2909 |
+|   3.0 | 0.9689 | -0.1799 |
+
+At weak field the spins alternate along $z$ and barely lean along $x$; at
+strong field they point along $x$ and the alternation along $z$ fades. The
+two columns mirror each other, $m_x$ at $h_x = 0.5$ equals $-C(1)$ at
+$h_x = 2$, and they cross at $h_x = J$. That mirror is the Kramers-Wannier
+self-duality of the model, which exchanges the coupling with the field
+[^sachdev], and the crossing is the four-spin shadow of the phase transition.
+
 [^ising1925]: E. Ising, "Beitrag zur Theorie des Ferromagnetismus,"
     Zeitschrift fuer Physik 31(1):253-258, 1925.
     <https://doi.org/10.1007/BF02980577>
