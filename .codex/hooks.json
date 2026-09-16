@@ -8,6 +8,11 @@
             "type": "command",
             "command": "\"$(git rev-parse --show-toplevel)/.codex/hooks/check-doc-images.sh\"",
             "statusMessage": "Checking staged documentation images"
+          },
+          {
+            "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel)/.codex/hooks/check-ai-attribution.py\"",
+            "statusMessage": "Checking for AI attribution in commit or PR prose"
           }
         ]
       }
