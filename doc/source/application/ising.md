@@ -471,6 +471,28 @@ $h_x = 2$, and they cross at $h_x = J$. That mirror is the Kramers-Wannier
 self-duality of the model, which exchanges the coupling with the field
 [^sachdev], and the crossing is the four-spin shadow of the phase transition.
 
+## Beyond Four Spins
+
+The same code runs unchanged on a longer ring, and the energy per site
+settles toward its value for an infinite chain:
+
+| $L$ | $E_0 / L$ (solvcon) | $E_0 / L$ (exact) |
+|----:|--------------------:|------------------:|
+|   4 |     -1.023240399857 |   -1.023240399857 |
+|   6 |     -1.022658330888 |   -1.022658330888 |
+|   8 |     -1.022631167116 |   -1.022631167116 |
+|  10 |     -1.022629620096 |   -1.022629620096 |
+
+The ceiling is the dense matrix. $L = 10$ is $1024 \times 1024$; $L = 14$ is
+$16384 \times 16384$, two gigabytes in double precision, and the
+general-purpose `*GEEV` computes the whole spectrum when only the lowest pair
+is wanted. Getting past that ceiling means never forming the matrix at all:
+apply Eq. {eq}`e:ising:element` to a vector and feed the product to an
+iterative eigensolver such as Lanczos [^sandvik2010]. The Cytnx
+tensor-network library solves this same four-spin problem that way in its
+exact-diagonalization example [^cytnx], from the same bit rules as
+`build_hamiltonian`.
+
 [^ising1925]: E. Ising, "Beitrag zur Theorie des Ferromagnetismus,"
     Zeitschrift fuer Physik 31(1):253-258, 1925.
     <https://doi.org/10.1007/BF02980577>
@@ -513,5 +535,9 @@ self-duality of the model, which exchanges the coupling with the field
 [^heguo]: Y. He and H. Guo, "The boundary effects of transverse field Ising
     model," Journal of Statistical Mechanics: Theory and Experiment
     2017:093101, 2017. <https://doi.org/10.1088/1742-5468/aa85b0>
+
+[^cytnx]: Cytnx developers, *Cytnx*, `example/ED/ed_ising.py`, Apache
+    License 2.0.
+    <https://github.com/Cytnx-dev/Cytnx/blob/master/example/ED/ed_ising.py>
 
 <!-- vim: set ft=markdown ff=unix fenc=utf8 et sw=2 ts=2 sts=2 tw=79: -->
