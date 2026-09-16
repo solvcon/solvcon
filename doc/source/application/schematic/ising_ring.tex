@@ -1,0 +1,39 @@
+\begin{pspicture}(-2.4,-2.4)(5.2,2.4)
+\psset{arrowsize=4pt 2}
+
+% The four sites sit on a ring; the dashed circle is the chain of bonds and
+% the wrap-around bond closes it.
+\pscircle[linewidth=0.5pt,linestyle=dashed](0,0){1.5}
+\psdot[dotsize=4pt](1.5,0)
+\psdot[dotsize=4pt](0,1.5)
+\psdot[dotsize=4pt](-1.5,0)
+\psdot[dotsize=4pt](0,-1.5)
+
+% One spin per site, drawn along z.  The alternating up/down pattern is the
+% ordered (Neel) configuration the antiferromagnetic coupling favors.
+\psline[linewidth=1pt]{->}(1.5,-0.4)(1.5,0.4)
+\psline[linewidth=1pt]{->}(0,1.9)(0,1.1)
+\psline[linewidth=1pt]{->}(-1.5,-0.4)(-1.5,0.4)
+\psline[linewidth=1pt]{->}(0,-1.1)(0,-1.9)
+
+\rput[r](1.0,0){\small $i=0$}
+\rput[t](0,1.0){\small $i=1$}
+\rput[l](-1.0,0){\small $i=2$}
+\rput[b](0,-1.0){\small $i=3$}
+
+\rput[bl](1.2,1.2){$J$}
+\rput[br](-1.2,1.2){$J$}
+\rput[tr](-1.2,-1.2){$J$}
+\rput[tl](1.2,-1.2){$J$}
+
+% The transverse field points along x, at a right angle to the spin axis.
+\psline[linewidth=1pt]{->}(2.7,0)(4.1,0)
+\rput[b](3.4,0.2){$h_x$}
+
+% The axes: spins are measured along z, the field is applied along x.
+\psline[linewidth=0.5pt]{->}(2.9,-2.0)(2.9,-1.2)
+\psline[linewidth=0.5pt]{->}(2.9,-2.0)(3.7,-2.0)
+\rput[b](2.9,-1.1){\small $z$}
+\rput[l](3.8,-2.0){\small $x$}
+
+\end{pspicture}
