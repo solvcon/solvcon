@@ -115,6 +115,55 @@ deep in the ordered phase.
    a right angle to the spin axis, and makes each spin flip.
 ```
 
+## Eigenvalue Problem
+
+One spin has two states, so $L$ spins have $2^L$ joint states, and the state
+of the chain is a vector with $2^L$ entries. Label the joint states by the
+bit patterns $\lvert s \rangle = \lvert s_{L-1} \cdots s_1 s_0 \rangle$, with
+bit $s_i = 0$ for spin $i$ up and $s_i = 1$ for down; the pattern read as an
+integer is the index of the state. The ket $\lvert s \rangle$ is the basis
+column vector of length $2^L$ with a single 1 at position $s$, the bra
+$\langle s' \vert$ is its transpose, and $\langle s' \vert \hat{H} \vert s
+\rangle$ is the matrix entry in row $s'$ and column $s$. Applied to a basis
+state, $\hat{\sigma}^z_i$ multiplies it by $1 - 2 s_i$, and
+$\hat{\sigma}^x_i$ turns it into the state with bit $i$ flipped, so the
+matrix element of Eq. {eq}`e:ising:hamiltonian` between two states is
+
+```{math}
+:label: e:ising:element
+
+\langle s' \vert \hat{H} \vert s \rangle
+  = J \, \delta_{s', s} \sum_{i=0}^{L-1}
+      \bigl( 1 - 2\,(s_i \oplus s_{i+1}) \bigr)
+  \; - \;
+    h_x \sum_{i=0}^{L-1} \delta_{s',\, s \oplus 2^i} ,
+```
+
+where $\oplus$ is the bitwise exclusive-or. The coupling term sits on the
+diagonal and merely counts bonds, $+J$ for each pair of neighbors that agree
+and $-J$ for each pair that disagree. The field term connects each state to
+the $L$ states that differ from it in a single bit, each with amplitude
+$-h_x$. The Hamiltonian is therefore a real, symmetric, sparse
+$2^L \times 2^L$ matrix with at most $L + 1$ nonzeros per row.
+
+The state the chain rests in, the ground state, is the eigenvector
+$\lvert \psi_0 \rangle$ with the smallest eigenvalue $E_0$,
+
+$$
+\hat{H} \lvert \psi_0 \rangle = E_0 \lvert \psi_0 \rangle ,
+\qquad
+E_0 = \min_{\lVert \psi \rVert = 1}
+      \langle \psi \vert \hat{H} \vert \psi \rangle ,
+$$
+
+and $E_0$ is the ground-state energy. This is the same shape of problem as
+modal or buckling analysis, where the lowest eigenvalue of a matrix gives the
+fundamental vibration mode or the critical load. Building the Hamiltonian
+matrix and extracting its lowest eigenpair is called exact diagonalization
+[^sandvik2010]. Its one hard part is size: the matrix grows as $4^L$, so a
+dense solve is practical only up to a dozen or so spins. For $L = 4$ it is a
+$16 \times 16$ matrix.
+
 [^ising1925]: E. Ising, "Beitrag zur Theorie des Ferromagnetismus,"
     Zeitschrift fuer Physik 31(1):253-258, 1925.
     <https://doi.org/10.1007/BF02980577>
@@ -145,5 +194,9 @@ deep in the ordered phase.
 [^pfeuty1970]: P. Pfeuty, "The one-dimensional Ising model with a transverse
     field," Annals of Physics 57(1):79-90, 1970.
     <https://doi.org/10.1016/0003-4916(70)90270-8>
+
+[^sandvik2010]: A. W. Sandvik, "Computational studies of quantum spin
+    systems," AIP Conference Proceedings 1297:135-338, 2010.
+    <https://doi.org/10.1063/1.3518900>
 
 <!-- vim: set ft=markdown ff=unix fenc=utf8 et sw=2 ts=2 sts=2 tw=79: -->
