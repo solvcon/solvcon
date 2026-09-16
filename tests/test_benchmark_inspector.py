@@ -1,17 +1,19 @@
 # Copyright (c) 2026, solvcon team <contact@solvcon.net>
 # BSD 3-Clause License, see COPYING
 
-"""Exercise the inspector without mapping a top-level window."""
+"""Exercise the inspector and results without mapping a top-level window."""
 
+import pathlib
+import tempfile
 import time
 import unittest
 import unittest.mock
 
 from solvcon import system
-from solvcon.benchmark import artifact
+from solvcon.benchmark import artifact, matmul, spec
 
 try:
-    from PySide6 import QtTest, QtWidgets
+    from PySide6 import QtCore, QtGui, QtTest, QtWidgets
 except ImportError:
     QtWidgets = None
 else:
@@ -186,6 +188,30 @@ class BenchmarkInspectorTC(unittest.TestCase):
             self.assertTrue(self.widget.inputs.isEnabled())
             self.assertTrue(self.widget.run_button.isEnabled())
             self.assertTrue(self.widget.save_button.isEnabled())
+            table = self.widget.results.table
+            self.assertEqual(table.rowCount(), 2)
+            self.assertEqual(table.item(0, 0).text(), 'naive')
+            self.assertEqual(table.item(1, 0).text(), 'numpy')
+
+    def test_result_uses_artifact(self):
+        self.widget.run_button.click()
+        self.wait_for_finish()
+        snapshot = self.widget.results.summary.text()
+        self.set_fields(lhs_shape='4, 3', lhs_strides='3, 1')
+        self.widget.control.completed.emit(str(self.path))
+        self.assertEqual(self.widget.results.summary.text(), snapshot)
+        self.assertIn('A (2, 3) strides (-3, 1)', snapshot)
+
+    def test_invalid_result_disables_save(self):
+        self.widget.run_button.click()
+        self.wait_for_finish()
+        self.assertTrue(self.widget.save_button.isEnabled())
+        snapshot = self.widget.results.summary.text()
+        self.path.write_text('{}', encoding='utf8')
+        self.widget.control.completed.emit(str(self.path))
+        self.assertFalse(self.widget.save_button.isEnabled())
+        self.assertIn('missing fields', self.widget.error.text())
+        self.assertEqual(self.widget.results.summary.text(), snapshot)
 
     def test_recovery(self):
         control = self.widget.control
@@ -226,6 +252,157 @@ class BenchmarkInspectorTC(unittest.TestCase):
         self.assertEqual(self.widget.error.text(), '')
         self.assertEqual(artifact.load_artifact(path),
                          artifact.load_artifact(self.path))
+
+
+@unittest.skipIf(QtWidgets is None, 'PySide6 is not installed')
+class BenchmarkResultsTC(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.app = (QtWidgets.QApplication.instance()
+                   or QtWidgets.QApplication([]))
+
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.path = pathlib.Path(self.directory.name) / 'result.json'
+        self.widget = _benchmark_inspector.BenchmarkResults()
+        self.addCleanup(self.widget.deleteLater)
+        operand = spec.OperandSpec((2, 2), (2, 1))
+        request = matmul.MatmulSpec(
+            operand, operand, 'float64', spec.Sampling(2, 4, 3),
+            ('naive', 'blas_dot', 'winograd'))
+        self.result = {
+            'spec': request.to_dict(),
+            'round_orders': [['numpy', 'naive']] * 3,
+            'results': [
+                dict(name='naive', status='measured', reason=None,
+                     max_abs_diff=0.25, relative_diff=0.125,
+                     round_elapsed_ns=[400, 800, 1200]),
+                dict(name='blas_dot', status='ineligible',
+                     reason='Vectors only', max_abs_diff=None,
+                     relative_diff=None,
+                     round_elapsed_ns=[]),
+                dict(name='winograd', status='invalid', reason='Nonfinite',
+                     max_abs_diff=None, relative_diff=None,
+                     round_elapsed_ns=[]),
+                dict(name='numpy', status='measured', reason=None,
+                     max_abs_diff=0.0, relative_diff=0.0,
+                     round_elapsed_ns=[800, 1600, 2400])],
+        }
+
+    def load_result(self):
+        artifact.write_artifact(self.result, self.path)
+        self.widget.load(self.path)
+
+    def row_text(self, row):
+        table = self.widget.table
+        return [table.item(row, col).text()
+                for col in range(table.columnCount())]
+
+    def hover_chart(self):
+        """Hover within the first of the fixture's two measured rows."""
+        chart = self.widget.chart
+        chart.grab()
+        point = QtCore.QPointF(chart.width() / 2, chart.height() / 4)
+        event = QtGui.QMouseEvent(
+            QtCore.QEvent.Type.MouseMove, point, point,
+            QtCore.Qt.MouseButton.NoButton,
+            QtCore.Qt.MouseButton.NoButton,
+            QtCore.Qt.KeyboardModifier.NoModifier)
+        self.app.sendEvent(chart, event)
+
+    def test_summary_and_statuses(self):
+        self.load_result()
+        self.assertIn('float64; A (2, 2) strides (2, 1)',
+                      self.widget.summary.text())
+        self.assertEqual(self.row_text(0),
+                         ['naive', 'measured', '0.25', '0.125', '200', '290'])
+        self.assertEqual(self.row_text(1),
+                         ['blas_dot', 'ineligible', '-', '-', '-', '-'])
+        self.assertEqual(self.row_text(2),
+                         ['winograd', 'invalid', '-', '-', '-', '-'])
+        self.assertEqual(self.row_text(3),
+                         ['numpy', 'measured', '0', '0', '400', '580'])
+        self.assertIn('Vectors only', self.widget.table.item(1, 1).toolTip())
+        self.assertIn('Nonfinite', self.widget.table.item(2, 1).toolTip())
+
+    def test_chart_hover_and_resize(self):
+        self.load_result()
+        chart = self.widget.chart
+        for width in (420, 900):
+            chart.setFixedSize(width, 200)
+            self.hover_chart()
+            self.assertIn('Median: 200 ns/call', chart.toolTip())
+            self.assertIn('p95: 290 ns/call', chart.toolTip())
+            self.assertIn('3 rounds, 4 calls/round; 2 warmups',
+                          chart.toolTip())
+        self.app.sendEvent(chart, QtCore.QEvent(QtCore.QEvent.Type.Leave))
+        self.assertEqual(chart.toolTip(), '')
+
+    def test_reload_hides_previous_tooltip(self):
+        self.addCleanup(QtWidgets.QToolTip.hideText)
+        self.load_result()
+        self.hover_chart()
+        self.assertTrue(QtWidgets.QToolTip.isVisible())
+        self.assertIn('Median: 200 ns/call', QtWidgets.QToolTip.text())
+
+        self.result['results'][0]['round_elapsed_ns'] = [800, 1600, 2400]
+        self.load_result()
+        self.assertEqual(self.row_text(0)[4:], ['400', '580'])
+        QtTest.QTest.qWait(350)
+        self.assertFalse(QtWidgets.QToolTip.isVisible())
+
+    def test_empty_output_and_zero_timings(self):
+        self.result['spec']['lhs']['shape'] = [0, 2]
+        for row in self.result['results']:
+            if row['status'] == 'measured':
+                row.update(max_abs_diff=None, relative_diff=None,
+                           round_elapsed_ns=[0, 0, 0])
+        self.load_result()
+        self.assertEqual(self.row_text(0),
+                         ['naive', 'measured', '-', '-', '0', '0'])
+        self.hover_chart()
+        self.assertIn('Median: 0 ns/call', self.widget.chart.toolTip())
+        self.assertIn('p95: 0 ns/call', self.widget.chart.toolTip())
+
+    def test_all_invalid_and_repeat(self):
+        self.load_result()
+        self.hover_chart()
+        self.assertIn('Median: 200 ns/call', self.widget.chart.toolTip())
+        for row in self.result['results']:
+            row.update(status='invalid', reason='Nonfinite NumPy output',
+                       max_abs_diff=None, relative_diff=None,
+                       round_elapsed_ns=[])
+        self.result['round_orders'] = [[], [], []]
+        self.load_result()
+        self.assertEqual(self.row_text(0),
+                         ['naive', 'invalid', '-', '-', '-', '-'])
+        self.hover_chart()
+        self.assertEqual(self.widget.chart.toolTip(), '')
+
+    def test_reject_bad_artifact(self):
+        self.load_result()
+        self.path.write_text('{}', encoding='utf8')
+        with self.assertRaises(artifact.ArtifactError):
+            self.widget.load(self.path)
+        self.assertEqual(self.row_text(0)[4:], ['200', '290'])
+
+
+@unittest.skipIf(QtWidgets is None, 'PySide6 is not installed')
+class TimingStatsTC(unittest.TestCase):
+    def test_per_call_percentiles(self):
+        cases = (([1200, 400, 800], 4, (200.0, 290.0)),
+                 ([10, 30], 4, (5.0, 7.25)),
+                 ([80], 5, (16.0, 16.0)),
+                 ([0, 0], 4, (0.0, 0.0)),
+                 ([], 4, (None, None)))
+        for elapsed_ns, repetitions, expected in cases:
+            with self.subTest(elapsed_ns=elapsed_ns):
+                original = elapsed_ns.copy()
+                timing = _benchmark_inspector.TimingStats.from_rounds(
+                    elapsed_ns, repetitions)
+                self.assertEqual((timing.median, timing.p95), expected)
+                self.assertEqual(elapsed_ns, original)
 
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:
