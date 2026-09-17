@@ -1,6 +1,11 @@
 {
   "version": 1,
   "hooks": {
+    "beforeShellExecution": [
+      {
+        "command": ".cursor/hooks/check-ai-attribution.py"
+      }
+    ],
     "postToolUse": [
       {
         "command": ".cursor/hooks/check-source.sh",

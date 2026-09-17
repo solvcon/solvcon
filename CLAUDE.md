@@ -31,7 +31,7 @@ This section indexes the tools.
 - `.codex/config.toml` configures the Codex TUI status line with the model,
   project, branch, context, token, and subscription-usage fields.
 - `.codex/hooks.json` wires Codex `PreToolUse` and `PostToolUse` events to the
-  shared hook scripts.
+  shared hook scripts, including the AI-attribution check on `Bash`.
 - `.codex/hooks/` is a symlink to `.claude/hooks/`.
 - Project hooks load only for a trusted repository. Review and trust them with
   `/hooks` when Codex first discovers them.
@@ -41,7 +41,8 @@ This section indexes the tools.
 - `cli.json` -- project shell/file permissions (translated from
   `.claude/settings.json`; `Shell(...)` replaces Claude's `Bash(...)`).
 - `hooks.json` -- `postToolUse` on `Write|StrReplace` and `afterFileEdit` on
-  `Write|TabWrite`, wired to the shared `check-source.sh` script.
+  `Write|TabWrite`, wired to the shared `check-source.sh` script, plus
+  `beforeShellExecution` wired to `check-ai-attribution.py`.
 - `hooks/` -- symlink to `.claude/hooks/`.
 - `skills/` -- symlink to `.claude/skills/`.
 - `AGENTS.md` -- symlink to `CLAUDE.md` at the repo root.
@@ -75,6 +76,11 @@ owned by hooks, not skills.
   `.pdf`, ...) under `doc/`; exits 2 with the offending paths. Documentation
   schematics are authored as `.tex` PSTricks rendered by `pstake`, so an image
   blob means a build artifact is being checked in instead of its source.
+- `check-ai-attribution.py` -- PreToolUse on `Bash`, and Cursor
+  `beforeShellExecution`.  Blocks a git or gh write (`git commit`, `gh pr
+  create`, ...) whose message, body, or message file credits an AI agent.
+  It sees only what the command line carries, so a message typed into
+  `$EDITOR` is beyond it.
 
 ### Settings (`.claude/settings.json`)
 
@@ -85,7 +91,7 @@ owned by hooks, not skills.
   Destructive git operations (force-push, `git reset --hard`, `git clean -fd`)
   are discouraged but not blocked -- use them deliberately and only when asked.
 - `hooks` wires the scripts above (`check-source.sh` on `Write|Edit`,
-  `check-doc-images.sh` on `Bash`).
+  `check-doc-images.sh` and `check-ai-attribution.py` on `Bash`).
 - `statusLine` runs `.claude/statusline.sh` -- shows model, project, branch
   (with `*` if dirty), and context-window usage.
 
@@ -227,6 +233,8 @@ How style is enforced in this repo:
   trailing whitespace, modeline at EOF, Python `>79`-char lines).
 - `.claude/hooks/check-doc-images.sh` blocks committing image blobs under
   `doc/`, keeping schematics in `.tex`/PSTricks form (rendered by `pstake`).
+- `.claude/hooks/check-ai-attribution.py` blocks a commit message or GitHub
+  body that credits an AI agent, keeping the log and PR prose human-authored.
 - The `cpp-style-review` and `python-style-review` skills in
   `.claude/skills/` own the judgment-call rules (`m_` prefix in context,
   function-body placement, container choice, pybind11 binding split, test
@@ -240,6 +248,10 @@ When opening a pull request, reference the related issue (e.g., "Related to
 #725") instead of using closing keywords like "close #725", "closes #725", or
 "fixes #725". We do not let PR and commit log comments to mandate the
 management.
+
+Commit messages and PR bodies are human-authored. Do not add a
+`Co-Authored-By:` trailer naming an AI agent, a "Generated with" line, or the
+robot emoji. The `check-ai-attribution.py` hook enforces this rule.
 
 Before pushing to a PR branch, run the tests and `make lint`, and invoke the
 matching style-review skill for the changed files. Report the actual results;
