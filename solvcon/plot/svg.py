@@ -28,33 +28,284 @@ class SvgParser(object):
     """
     def __init__(self, file_path=None):
         self.file_path = file_path
+        self.basic_shapes = []
         self.spads = []  # list of SegmentPad
         self.cpads = []  # list of CurvePad
 
     def parse(self):
-        path_parser = PathParser(file_path=self.file_path)
-        path_parser.parse()
-        self.spads = path_parser.spads
-        self.cpads = path_parser.cpads
+        shapes = []
+        SVG_NS = "{http://www.w3.org/2000/svg}"
+        ELEMENT_TAGS = {'path': EPath,
+                        'circle': ECircle,
+                        'rect': ERectangle,
+                        'ellipse': EEllipse,
+                        'line': ELine,
+                        'polyline': EPolyline,
+                        'polygon': EPolygon}
 
-        shape_parser = ShapeParser(file_path=self.file_path)
-        shape_parser.parse()
-        self.spads.extend(shape_parser.spads)
-        self.cpads.extend(shape_parser.cpads)
+        def collect_shapes(elem, chain):
+            tag = elem.tag.replace(SVG_NS, '')
+            local = self._parse_transform_attrib(elem.get('transform'))
+            full_tranform = chain + local
+
+            if tag in ELEMENT_TAGS:
+                cls = ELEMENT_TAGS.get(tag)
+                shapes.append(cls(elem.attrib, full_tranform))
+
+            for child in elem:
+                collect_shapes(child, full_tranform)
+
+        tree = ET.parse(self.file_path)
+        root = tree.getroot()
+        transform_chain = []
+        collect_shapes(root, transform_chain)
+        self.basic_shapes = shapes
+
+        # Collect all spads and cpads from shapes
+        for sh in shapes:
+            self.spads.extend(sh.spads)
+            self.cpads.extend(sh.cpads)
+
+    def _parse_transform_attrib(self, transform_attr):
+        """
+        Parse an SVG transform attribute string.
+
+        :returns transform_chain: a list of transform operators
+        """
+        # Syntax of the SVG `transform` attribute
+        # W3C spec: https://www.w3.org/TR/css-transforms-1/#svg-syntax
+        WSP = r'[\x20\x09\x0D\x0A]'  # space, \t, \r, and \f
+        NUMBER = r'[-+]?(?:\d+\.\d+|\.\d+|\d+)(?:[eE][-+]?\d+)?'
+        COMMA_WSP = rf'(?:{WSP}+,?{WSP}*|,{WSP}*)'
+        FUNC_GRAMMARS = {
+            'matrix':    rf'^matrix{WSP}*\({WSP}*{NUMBER}(?:{COMMA_WSP}{NUMBER}){{5}}{WSP}*\)$',  # noqa: E501
+            'translate': rf'^translate{WSP}*\({WSP}*{NUMBER}(?:{COMMA_WSP}{NUMBER})?{WSP}*\)$',  # noqa: E501
+            'scale':     rf'^scale{WSP}*\({WSP}*{NUMBER}(?:{COMMA_WSP}{NUMBER})?{WSP}*\)$',  # noqa: E501
+            'rotate':    rf'^rotate{WSP}*\({WSP}*{NUMBER}(?:{COMMA_WSP}{NUMBER}{COMMA_WSP}{NUMBER})?{WSP}*\)$',  # noqa: E501
+            'skewX':     rf'^skewX{WSP}*\({WSP}*{NUMBER}{WSP}*\)$',
+            'skewY':     rf'^skewY{WSP}*\({WSP}*{NUMBER}{WSP}*\)$',
+        }
+
+        transform_chain = []
+        if not transform_attr:
+            return transform_chain
+
+        for m in re.finditer(r'[a-zA-Z]+\s*\([^)]*\)', transform_attr):
+            block = m.group(0)
+
+            name_match = re.match(r'([a-zA-Z]+)', block)
+            name = name_match.group(1)
+
+            if name not in FUNC_GRAMMARS:
+                raise ValueError(f"Invalid or Unsupported function name for "
+                                 f"SVG transform function: '{name}'")
+
+            if not re.fullmatch(FUNC_GRAMMARS[name], block):
+                raise ValueError(f"Invalid arguments for a '{name} "
+                                 f"function: '{block}'")
+
+            args = [float(n) for n in re.findall(NUMBER, block)]
+
+            if name == 'translate':
+                tx = args[0]
+                ty = args[1] if len(args) > 1 else 0.0
+                transform_chain.append(Translate(tx, ty))
+            elif name == 'scale':
+                sx = args[0]
+                sy = args[1] if len(args) > 1 else sx
+                transform_chain.append(Scale(sx, sy))
+            elif name == 'rotate':
+                angle = args[0]
+                cx, cy = (args[1], args[2]) if len(args) == 3 else (0.0, 0.0)
+                transform_chain.append(Rotate(angle, cx, cy))
+            elif name == 'matrix':
+                a, b, c, d, e, f = args
+                transform_chain.append(MatrixTransform(a, b, c, d, e, f))
+            elif name == 'skewX':
+                transform_chain.append(skewX(args[0]))
+            elif name == 'skewY':
+                transform_chain.append(skewY(args[0]))
+
+        return transform_chain
 
     def get_pads(self):
         return self.spads, self.cpads
 
 
-class EPath(object):
-    def __init__(self, d_attr, fill_attr):
+class Transform(object):
+    """
+    Base class for a single SVG transform operation.
+    """
+    def matrix(self):
+        raise NotImplementedError()
+
+
+class MatrixTransform(Transform):
+    def __init__(self, a, b, c, d, e, f):
+        self.a = a
+        self.b = b
+        self.c = c
+        self.d = d
+        self.e = e
+        self.f = f
+
+    def matrix(self):
+        return np.array([[self.a, self.c, self.e],
+                         [self.b, self.d, self.f],
+                         [0, 0, 1]])
+
+
+class Translate(Transform):
+    def __init__(self, tx, ty=0.0):
+        self.tx = tx
+        self.ty = ty
+
+    def matrix(self):
+        return np.array([[1, 0, self.tx], [0, 1, self.ty], [0, 0, 1]])
+
+
+class Rotate(Transform):
+    def __init__(self, angle, cx=0.0, cy=0.0):
+        self.angle = angle  # degree
+        self.cx = cx
+        self.cy = cy
+
+    def matrix(self):
+        angle = math.radians(self.angle)
+        cos_a, sin_a = math.cos(angle), math.sin(angle)
+        rot = np.array([[cos_a, -sin_a, 0],
+                        [sin_a, cos_a, 0],
+                        [0, 0, 1]])
+        if self.cx != 0.0 or self.cy != 0.0:
+            # SVG defines rotate(a, cx, cy) as
+            # translate(cx, cy) rotate(a) translate(-cx, -cy):
+            # https://www.w3.org/TR/css-transforms-1/#svg-transform-functions
+            to_center = np.array([[1, 0, self.cx],
+                                  [0, 1, self.cy],
+                                  [0, 0, 1]])
+            from_center = np.array([[1, 0, -self.cx],
+                                    [0, 1, -self.cy],
+                                    [0, 0, 1]])
+            mat = to_center @ rot @ from_center
+        else:
+            mat = rot
+
+        return mat
+
+
+class Scale(Transform):
+    def __init__(self, sx, sy=None):
+        self.sx = sx
+        self.sy = sx if sy is None else sy
+
+    def matrix(self):
+        return np.array([[self.sx, 0, 0],
+                         [0, self.sy, 0],
+                         [0, 0, 1]])
+
+
+class skewX(Transform):
+    def __init__(self, angle):
+        self.angle = angle
+
+    def matrix(self):
+        angle = math.radians(self.angle)
+        return np.array([[1, math.tan(angle), 0],
+                         [0, 1, 0],
+                         [0, 0, 1]])
+
+
+class skewY(Transform):
+    def __init__(self, angle):
+        self.angle = angle
+
+    def matrix(self):
+        angle = math.radians(self.angle)
+        return np.array([[1, 0, 0],
+                         [math.tan(angle), 1, 0],
+                         [0, 0, 1]])
+
+
+class EShapeBase(object):
+    def __init__(self, attrib=None, transform_chain=None):
+        self.attrib = attrib
+        self.transform_chain = transform_chain
+
+        self.spads = []  # list of SegmentPad
+        self.cpads = []  # list of CurvePad
+
+    def _calculate(self):
+        raise NotImplementedError()
+
+    @staticmethod
+    def affine_transform(x, y, tm):
+        """
+        Apply affine transformation to give 2-dimentional point(s).
+
+        :params x, y: SimpleArrayFloat64, points
+        :params tm: (3, 3) ndarray, transformation matrix
+        """
+        x = np.asarray(x)
+        y = np.asarray(y)
+
+        new_x = tm[0, 0] * x + tm[0, 1] * y + tm[0, 2]
+        new_y = tm[1, 0] * x + tm[1, 1] * y + tm[1, 2]
+        return new_x, new_y
+
+    def transformation_matrix(self):
+        M = np.identity(3)
+        for op in self.transform_chain:
+            M = M @ op.matrix()
+        return M
+
+    def _apply_transformation(self):
+        # Apply transformation to a shape if there is a transform_attr
+        if len(self.transform_chain) != 0:
+            tm = self.transformation_matrix()
+
+            for i, spad in enumerate(self.spads):
+                if len(spad) != 0:
+                    x0, y0 = self.affine_transform(spad.x0, spad.y0, tm)
+                    x1, y1 = self.affine_transform(spad.x1, spad.y1, tm)
+                    new_spad = core.SegmentPadFp64(
+                        x0=core.SimpleArrayFloat64(array=x0),
+                        y0=core.SimpleArrayFloat64(array=y0),
+                        x1=core.SimpleArrayFloat64(array=x1),
+                        y1=core.SimpleArrayFloat64(array=y1),
+                        clone=True
+                    )
+                    self.spads[i] = new_spad
+
+            for i, cpad in enumerate(self.cpads):
+                if len(cpad) != 0:
+                    x0, y0 = self.affine_transform(cpad.x0, cpad.y0, tm)
+                    x1, y1 = self.affine_transform(cpad.x1, cpad.y1, tm)
+                    x2, y2 = self.affine_transform(cpad.x2, cpad.y2, tm)
+                    x3, y3 = self.affine_transform(cpad.x3, cpad.y3, tm)
+
+                    new_cpad = core.CurvePadFp64(ndim=2)
+                    # [TODO] CurvePad has no SimpleArray-based constructor,
+                    # unlike SegmentPad, so curves must be appended one by one.
+                    for j in range(len(cpad)):
+                        p0 = core.Point3dFp64(x0[j], y0[j], 0)
+                        p1 = core.Point3dFp64(x1[j], y1[j], 0)
+                        p2 = core.Point3dFp64(x2[j], y2[j], 0)
+                        p3 = core.Point3dFp64(x3[j], y3[j], 0)
+                        new_cpad.append(p0=p0, p1=p1, p2=p2, p3=p3)
+                    self.cpads[i] = new_cpad
+
+
+class EPath(EShapeBase):
+    def __init__(self, attrib, transform_chain=[]):
         """
         :param closedPaths: list of closed paths in a <path>.
         """
-        self.d_attr = d_attr
-        self.fill_attr = fill_attr
-        self.cmds = self.parse_dattr()
-        self.closedPaths = self.calc_vertices()
+        super().__init__(attrib, transform_chain)
+        self.d_attr = attrib.get('d', '')
+        self.path_cmds = None
+
+        self._calculate()
+        self._apply_transformation()
 
     def calc_arc2pnts(self, start_pt, end_pt, rx, ry, phi_deg, large_arc,
                       sweep, steps=40):
@@ -146,7 +397,7 @@ class EPath(object):
         sp2d = core.SegmentPadFp64(ndim=2)
         cp2d = core.CurvePadFp64(ndim=2)
 
-        commands = self.cmds
+        commands = self.path_cmds
         start_pos = Point(0, 0, 0)
         current_pos = start_pos
         last_control = None
@@ -412,9 +663,13 @@ class EPath(object):
                 # [TODO] raise a value error
                 i = len(coords)
             last_cmd = cmd
-        return (sp2d, cp2d)
 
-    def parse_dattr(self):
+        if len(sp2d) != 0:
+            self.spads.append(sp2d)
+        if len(cp2d) != 0:
+            self.cpads.append(cp2d)
+
+    def parse_d_attrib(self):
         d_attr = self.d_attr
         tokens = re.findall(r'([MLCSHVAZQTmlcshvazqt])|(-?\d*\.?\d+)', d_attr)
 
@@ -433,71 +688,22 @@ class EPath(object):
 
         if current_command:
             commands.append((current_command, current_coords))
-        return commands
-
-    def get_closed_paths(self):
-        return self.closedPaths
-
-    def get_cmds(self):
-        return self.cmds
-
-
-class PathParser(object):
-    """
-    The SVG <path> element parser to extract SegmentPad and CurvePad.
-
-    Parse <path> elements from the SVG file and convert them into
-    SegmentPad and CurvePad objects.
-    See more: https://developer.mozilla.org/en-US/docs/Web/SVG/Element/path
-    """
-    def __init__(self, file_path=None):
-        self.file_path = file_path
-        self.epaths = []  # list of epath
-        self.spads = []  # list of SegmentPad
-        self.cpads = []  # list of CurvePad
-
-    def parse(self):
-        tree = ET.parse(self.file_path)
-        root = tree.getroot()
-
-        namespace = {'svg': 'http://www.w3.org/2000/svg'}
-        pathElements = root.findall('.//svg:path', namespace)
-
-        for elmnt in pathElements:
-            d_attr = elmnt.attrib.get('d', '')
-            fill_attr = elmnt.attrib.get('fill', '')
-            epath = EPath(d_attr=d_attr, fill_attr=fill_attr)
-            self.epaths.append(epath)
-            # Get SegmentPad and CurvePad from the paths
-            spad, cpad = epath.get_closed_paths()
-            self.spads.append(spad)
-            self.cpads.append(cpad)
-
-    def get_epaths(self):
-        return self.epaths
-
-
-class EShapeBase(object):
-    def __init__(self, fill_attr):
-        self.fill_attr = fill_attr
-        self.spads = []  # list of SegmentPad
-        self.cpads = []  # list of CurvePad
+        self.path_cmds = commands
 
     def _calculate(self):
-        raise NotImplementedError()
-
-    def get_pads(self):
-        return self.spads, self.cpads
+        self.parse_d_attrib()
+        self.calc_vertices()
 
 
 class ECircle(EShapeBase):
-    def __init__(self, cx, cy, r, fill_attr):
-        super().__init__(fill_attr)
-        self.cx = cx
-        self.cy = cy
-        self.r = r
+    def __init__(self, attrib, transform_chain=[]):
+        super().__init__(attrib, transform_chain)
+        self.cx = float(attrib.get('cx', '0'))
+        self.cy = float(attrib.get('cy', '0'))
+        self.r = float(attrib.get('r', '0'))
 
         self._calculate()
+        self._apply_transformation()
 
     def _calculate(self):
         # Use 4 cubic Bezier curves to represent the circle
@@ -549,14 +755,15 @@ class ECircle(EShapeBase):
 
 
 class EEllipse(EShapeBase):
-    def __init__(self, cx, cy, rx, ry, fill_attr):
-        super().__init__(fill_attr)
-        self.cx = cx
-        self.cy = cy
-        self.rx = rx
-        self.ry = ry
+    def __init__(self, attrib, transform_chain=[]):
+        super().__init__(attrib, transform_chain)
+        self.cx = float(attrib.get('cx', '0'))
+        self.cy = float(attrib.get('cy', '0'))
+        self.rx = float(attrib.get('rx', '0'))
+        self.ry = float(attrib.get('ry', '0'))
 
         self._calculate()
+        self._apply_transformation()
 
     def _calculate(self):
         cpad = core.CurvePadFp64(ndim=2)
@@ -601,14 +808,15 @@ class EEllipse(EShapeBase):
 
 
 class ERectangle(EShapeBase):
-    def __init__(self, x, y, width, height, fill_attr):
-        super().__init__(fill_attr)
-        self.x = x
-        self.y = y
-        self.width = width
-        self.height = height
+    def __init__(self, attrib, transform_chain=[]):
+        super().__init__(attrib, transform_chain)
+        self.x = float(attrib.get('x', '0'))
+        self.y = float(attrib.get('y', '0'))
+        self.width = float(attrib.get('width', '0'))
+        self.height = float(attrib.get('height', '0'))
 
         self._calculate()
+        self._apply_transformation()
 
     def _calculate(self):
         p1 = core.Point3dFp64(self.x, self.y, 0)
@@ -625,14 +833,15 @@ class ERectangle(EShapeBase):
 
 
 class ELine(EShapeBase):
-    def __init__(self, x1, y1, x2, y2, fill_attr):
-        super().__init__(fill_attr)
-        self.x1 = x1
-        self.y1 = y1
-        self.x2 = x2
-        self.y2 = y2
+    def __init__(self, attrib, transform_chain=[]):
+        super().__init__(attrib, transform_chain)
+        self.x1 = float(attrib.get('x1', '0'))
+        self.y1 = float(attrib.get('y1', '0'))
+        self.x2 = float(attrib.get('x2', '0'))
+        self.y2 = float(attrib.get('y2', '0'))
 
         self._calculate()
+        self._apply_transformation()
 
     def _calculate(self):
         p1 = core.Point3dFp64(self.x1, self.y1, 0)
@@ -644,11 +853,17 @@ class ELine(EShapeBase):
 
 
 class EPolyline(EShapeBase):
-    def __init__(self, points, fill_attr):
-        super().__init__(fill_attr)
-        self.points = points  # list of (x, y) tuples
+    def __init__(self, attrib, transform_chain=[]):
+        super().__init__(attrib, transform_chain)
+        self.points_attr = attrib.get('points', '')
+        self.points = []   # list of (x, y) tuples
+
+        coords = re.split(r'[\s,]+', self.points_attr.strip())
+        for i in range(0, len(coords), 2):
+            self.points.append((float(coords[i]), float(coords[i + 1])))
 
         self._calculate()
+        self._apply_transformation()
 
     def _calculate(self):
         spad = core.SegmentPadFp64(ndim=2)
@@ -662,11 +877,17 @@ class EPolyline(EShapeBase):
 
 
 class EPolygon(EShapeBase):
-    def __init__(self, points, fill_attr):
-        super().__init__(fill_attr)
-        self.points = points  # list of (x, y) tuples
+    def __init__(self, attrib, transform_chain=[]):
+        super().__init__(attrib, transform_chain)
+        self.points_attr = attrib.get('points', '')
+        self.points = []   # list of (x, y) tuples
+
+        coords = re.split(r'[\s,]+', self.points_attr.strip())
+        for i in range(0, len(coords), 2):
+            self.points.append((float(coords[i]), float(coords[i + 1])))
 
         self._calculate()
+        self._apply_transformation()
 
     def _calculate(self):
         spad = core.SegmentPadFp64(ndim=2)
@@ -678,104 +899,5 @@ class EPolygon(EShapeBase):
             p2 = core.Point3dFp64(x2, y2, 0)
             spad.append(core.Segment3dFp64(p1, p2))
         self.spads.append(spad)
-
-
-class ShapeParser(object):
-    """
-    Parse basic shapes from an SVG file to extract SegmentPad and CurvePad.
-
-    Parses the basic shapes, including <circle>, <rect>, <ellipse>,
-    <line>, <polyline>, and <polygon>, but excludes <path>.
-    See more: https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorials/SVG_from_scratch/Basic_shapes
-    """  # noqa: E501
-
-    def __init__(self, file_path=None):
-        self.file_path = file_path
-        self.spads = []  # list of SegmentPad
-        self.cpads = []  # list of CurvePad
-
-    def parse(self):
-        tree = ET.parse(self.file_path)
-        root = tree.getroot()
-
-        namespace = {'svg': 'http://www.w3.org/2000/svg'}
-
-        circleElements = root.findall('.//svg:circle', namespace)
-        rectElements = root.findall('.//svg:rect', namespace)
-        ellipseElements = root.findall('.//svg:ellipse', namespace)
-        lineElements = root.findall('.//svg:line', namespace)
-        polylineElements = root.findall('.//svg:polyline', namespace)
-        polygonElements = root.findall('.//svg:polygon', namespace)
-
-        shapes = []
-        for element in circleElements:
-            circle = ECircle(
-                cx=float(element.attrib.get('cx', '0')),
-                cy=float(element.attrib.get('cy', '0')),
-                r=float(element.attrib.get('r', '0')),
-                fill_attr=element.attrib.get('fill', ''),
-            )
-            shapes.append(circle)
-
-        for element in rectElements:
-            rect = ERectangle(
-                x=float(element.attrib.get('x', '0')),
-                y=float(element.attrib.get('y', '0')),
-                width=float(element.attrib.get('width', '0')),
-                height=float(element.attrib.get('height', '0')),
-                fill_attr=element.attrib.get('fill', ''),
-            )
-            shapes.append(rect)
-
-        for element in ellipseElements:
-            ellipse = EEllipse(
-                cx=float(element.attrib.get('cx', '0')),
-                cy=float(element.attrib.get('cy', '0')),
-                rx=float(element.attrib.get('rx', '0')),
-                ry=float(element.attrib.get('ry', '0')),
-                fill_attr=element.attrib.get('fill', ''),
-            )
-            shapes.append(ellipse)
-
-        for element in lineElements:
-            line = ELine(
-                x1=float(element.attrib.get('x1', '0')),
-                y1=float(element.attrib.get('y1', '0')),
-                x2=float(element.attrib.get('x2', '0')),
-                y2=float(element.attrib.get('y2', '0')),
-                fill_attr=element.attrib.get('fill', ''),
-            )
-            shapes.append(line)
-
-        for element in polylineElements:
-            points_attr = element.attrib.get('points', '')
-            points = []
-
-            # TODO: handle commas and spaces properly. Assume points are in format: "x1,y1 x2,y2 x3,y3 ..."  # noqa: E501
-            for pair in points_attr.strip().split():
-                x_str, y_str = pair.split(',')
-                points.append((float(x_str), float(y_str)))
-
-            polyline = EPolyline(points=points,
-                                 fill_attr=element.attrib.get('fill', ''))
-            shapes.append(polyline)
-
-        for element in polygonElements:
-            points_attr = element.attrib.get('points', '')
-            points = []
-
-            # TODO: handle commas and spaces properly. Assume points are in format: "x1,y1 x2,y2 x3,y3 ..."  # noqa: E501
-            for pair in points_attr.strip().split():
-                x_str, y_str = pair.split(',')
-                points.append((float(x_str), float(y_str)))
-
-            polygon = EPolygon(points=points,
-                               fill_attr=element.attrib.get('fill', ''))
-            shapes.append(polygon)
-
-        for shape in shapes:
-            spad, cpad = shape.get_pads()
-            self.spads.extend(spad)
-            self.cpads.extend(cpad)
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
