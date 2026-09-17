@@ -9,6 +9,8 @@ import subprocess
 
 import pytest
 
+from solvcon import system
+
 
 HOOK = (pathlib.Path(__file__).resolve().parent.parent
         / ".claude" / "hooks" / "check-ai-attribution.py")
@@ -19,8 +21,9 @@ ROBOT = "\U0001f916"
 
 
 def invoke(stdin):
-    return subprocess.run([str(HOOK)], input=stdin, capture_output=True,
-                          text=True)
+    return subprocess.run(system.python_command(str(HOOK)), input=stdin,
+                          capture_output=True, encoding="utf-8",
+                          env=dict(os.environ, PYTHONUTF8="1"))
 
 
 def run(command, event="PreToolUse", cwd=None):
