@@ -15,6 +15,12 @@ from solvcon import system
 HOOK = (pathlib.Path(__file__).resolve().parent.parent
         / ".claude" / "hooks" / "check-ai-attribution.py")
 
+# The nouse_install job copies tests/ out of the checkout and runs the copy
+# against the installed package, so the repository tree is out of reach. Key
+# the skip on that tree, not on HOOK, so a moved hook fails rather than skips.
+pytestmark = pytest.mark.skipif(not HOOK.parent.parent.is_dir(),
+                                reason="the repository tree is out of reach")
+
 TRAILER = "Co-authored-by: %s <noreply@%s.com>" % ("Claude", "anthropic")
 CREDIT = "%s with %s Code" % ("Generated", "Claude")
 ROBOT = "\U0001f916"
