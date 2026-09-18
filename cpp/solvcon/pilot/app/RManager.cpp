@@ -26,6 +26,7 @@
 #include <solvcon/pilot/app/RAction.hpp>
 #include <solvcon/pilot/app/RMenuModel.hpp>
 #include <solvcon/pilot/app/RShortcutManager.hpp>
+#include <solvcon/pilot/app/RThreadManager.hpp>
 #include <solvcon/pilot/canvas/DrawTool.hpp>
 #include <solvcon/pilot/theme/RThemeManager.hpp>
 
@@ -130,6 +131,8 @@ RManager::RManager()
     m_themeManager = new RThemeManager(this);
     // Shortcut resolver: C++ uses applyTo; Python uses apply_shortcut.
     m_shortcutManager = new RShortcutManager(this);
+    m_thread_manager = new RThreadManager(this);
+    m_thread_manager->start();
     // Do not call setUp() from the constructor.  Windows may crash with
     // "exited with code -1073740791".  The reason is not yet clarified.
 }
@@ -178,6 +181,21 @@ void RManager::reset()
     m_themeManager = nullptr;
     delete m_shortcutManager;
     m_shortcutManager = nullptr;
+    if (m_thread_manager)
+    {
+        if (Py_IsInitialized() != 0 && PyGILState_Check() != 0)
+        {
+            // Release the GIL so the worker thread can join.
+            pybind11::gil_scoped_release const release;
+            m_thread_manager->shutdown();
+        }
+        else
+        {
+            m_thread_manager->shutdown();
+        }
+        delete m_thread_manager;
+        m_thread_manager = nullptr;
+    }
     m_owned_core.reset(); // Deletes the application only if the pilot made it.
     m_core = nullptr;
     m_mainWindow = nullptr;
@@ -188,6 +206,7 @@ void RManager::reset()
     m_rhi_primer = nullptr;
 }
 
+// NOLINTNEXTLINE(bugprone-exception-escape)
 RManager::~RManager()
 {
     reset();

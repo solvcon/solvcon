@@ -11,6 +11,8 @@
 #include <solvcon/pilot/canvas/R2DWidget.hpp>
 #include <solvcon/pilot/app/RMenuModel.hpp>
 #include <solvcon/pilot/app/RShortcutManager.hpp>
+#include <solvcon/pilot/app/RThreadManager.hpp>
+#include <solvcon/pilot/common/pyside.hpp>
 #include <solvcon/pilot/theme/RThemeManager.hpp>
 #include <solvcon/pilot/pilot.hpp>
 
@@ -24,19 +26,6 @@
 #include <QPixmap>
 #include <QPointer>
 #include <QString>
-
-// Usually SOLVCON_PYSIDE6_FULL is not defined unless for debugging.
-#ifdef SOLVCON_PYSIDE6_FULL
-#include <pyside.h>
-#else // SOLVCON_PYSIDE6_FULL
-namespace PySide
-{
-// The prototypes are taken from pyside.h
-PyTypeObject * getTypeForQObject(const QObject * cppSelf);
-PyObject * getWrapperForQObject(QObject * cppSelf, PyTypeObject * sbk_type);
-QObject * convertToQObject(PyObject * object, bool raiseError);
-} /* end namespace PySide */
-#endif // SOLVCON_PYSIDE6_FULL
 
 namespace pybind11
 {
@@ -124,8 +113,6 @@ QT_TYPE_CASTER(QMdiSubWindow, _("QMdiSubWindow"));
 } /* end namespace detail */
 
 } /* end namespace pybind11 */
-
-PYBIND11_DECLARE_HOLDER_TYPE(T, QPointer<T>);
 
 namespace solvcon
 {
@@ -960,6 +947,12 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRManager
                 {
                     return RManager::instance().core();
                 })
+            .def_property_readonly(
+                "thread_manager",
+                [](wrapped_type & self)
+                {
+                    return self.threadManager();
+                })
             .def("setUp", &RManager::setUp)
             .def(
                 "exec",
@@ -1316,6 +1309,7 @@ void wrap_pilot(pybind11::module & mod)
         "Live model of the pilot menu bar. Address menus by a slash-separated "
         "path with menu(path, weight); a smaller weight sits earlier and a "
         "negative weight appends. clear() empties the bar.");
+    wrap_thread_manager(mod);
     WrapRManager::commit(mod, "RManager", "RManager");
     WrapRManagerProxy::commit(mod, "RManagerProxy", "RManagerProxy");
 
