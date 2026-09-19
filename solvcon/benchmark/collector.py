@@ -130,7 +130,7 @@ def _compare_result(execute, name, reference):
     }
 
 
-def _ignore_progress(phase, name):
+def _ignore_progress(phase, name, completed=None, total=None):
     pass
 
 
@@ -232,12 +232,15 @@ def _time_candidates(execute, names, sampling, clock,
     """
 
     rows = _williams_rows(names)
+    completed = 0
+    total = len(names) * (sampling.warmups + sampling.rounds)
     # Warmups use the rows immediately before the first timed row, keeping
     # both phases on one cyclic schedule.
     for warmup_index in range(-sampling.warmups, 0):
         for name in rows[warmup_index % len(rows)]:
-            progress('warmup', name)
+            progress('warmup', name, completed, total)
             execute(name)
+            completed += 1
 
     elapsed_by_name = {name: [] for name in names}
     round_orders = []
@@ -245,11 +248,14 @@ def _time_candidates(execute, names, sampling, clock,
         row = rows[round_index % len(rows)]
         round_orders.append(list(row))
         for name in row:
-            progress('timing', name)
+            progress('timing', name, completed, total)
             start = clock()
             for _ in range(sampling.repetitions):
                 execute(name)
             elapsed_by_name[name].append(int(clock() - start))
+            completed += 1
+    if names:
+        progress('timing', name, completed, total)
     return round_orders, elapsed_by_name
 
 
@@ -273,7 +279,11 @@ def _collect(spec, execute, clock, progress=_ignore_progress):
 
 
 def collect(spec, *, progress=_ignore_progress):
-    """Collect a comparison, reporting (phase, kernel) outside timed blocks."""
+    """Collect a comparison, reporting progress outside timed blocks.
+
+    Call progress with (phase, kernel), plus completed and total work units
+    during sampling. Each warmup call and timed repetition block is one unit.
+    """
 
     if not isinstance(spec, matmul.MatmulSpec):
         raise TypeError('spec must be a MatmulSpec')

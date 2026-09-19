@@ -282,11 +282,14 @@ def make_spec(**updates):
 
 
 class StepClock:
-    def __init__(self, step=100):
+    def __init__(self, step=100, events=None):
         self.value = -step
         self.step = step
+        self.events = events
 
     def __call__(self):
+        if self.events is not None:
+            self.events.append('clock')
         self.value += self.step
         return self.value
 
@@ -622,19 +625,30 @@ class MatmulTimingTC(unittest.TestCase):
 
     def test_times_zero_and_one_candidates(self):
         sampling = make_spec(
-            sampling={
-                'warmups': 1, 'repetitions': 2, 'rounds': 2,
-            }).sampling
+            sampling={'warmups': 1, 'repetitions': 2, 'rounds': 2},
+        ).sampling
         execute = FakeExecutor({'only': [1.0]})
 
+        progress = []
         orders, elapsed = collector._time_candidates(
-            execute, (), sampling, StepClock())
+            execute, (), sampling, StepClock(),
+            lambda *args: progress.append(args),
+        )
+        self.assertEqual(progress, [])
         self.assertEqual(orders, [[], []])
         self.assertEqual(elapsed, {})
         self.assertEqual(execute.calls, [])
 
         orders, elapsed = collector._time_candidates(
-            execute, ('only',), sampling, StepClock())
+            execute, ('only',), sampling, StepClock(),
+            lambda *args: progress.append(args),
+        )
+        self.assertEqual(progress, [
+            ('warmup', 'only', 0, 3),
+            ('timing', 'only', 1, 3),
+            ('timing', 'only', 2, 3),
+            ('timing', 'only', 3, 3),
+        ])
         self.assertEqual(orders, [['only'], ['only']])
         self.assertEqual(elapsed, {'only': [100, 100]})
         self.assertEqual(execute.calls, ['only'] * 5)
@@ -652,7 +666,19 @@ class MatmulTimingTC(unittest.TestCase):
             sampling={'warmups': 1, 'repetitions': 2, 'rounds': 1},
         )
 
-        comparison = collector._collect(spec, execute, StepClock())
+        progress = []
+        comparison = collector._collect(
+            spec, execute, StepClock(),
+            lambda *args: progress.append(args),
+        )
+        samples = [
+            event for event in progress
+            if event[0] in ('warmup', 'timing')
+        ]
+        _, names, completed, totals = zip(*samples)
+        self.assertEqual(completed, (0, 1, 2, 3, 4))
+        self.assertEqual(set(totals), {4})
+        self.assertEqual(set(names), {'naive', 'numpy'})
 
         by_name = {result['name']: result for result in comparison['results']}
         self.assertEqual(by_name['blas_gemm']['status'], 'invalid')
@@ -671,16 +697,22 @@ class MatmulTimingTC(unittest.TestCase):
     def test_propagates_execution_failure(self):
         expected = np.ones((2, 2), dtype='float64')
         stages = (
-            ('warmup', {'warmups': 1, 'repetitions': 1, 'rounds': 1}),
-            ('timing', {'warmups': 0, 'repetitions': 1, 'rounds': 1}),
+            ('warmup', 1, 'numpy', 4),
+            ('timing', 0, 'naive', 2),
         )
-        for stage, sampling in stages:
+        for stage, warmups, kernel, total in stages:
             with self.subTest(stage=stage):
-                execute = unittest.mock.Mock(side_effect=(
-                    expected, expected, RuntimeError('native bug')))
+                outcomes = (expected, expected, RuntimeError('native bug'))
+                execute = unittest.mock.Mock(side_effect=outcomes)
+                sampling = {'warmups': warmups, 'repetitions': 1, 'rounds': 1}
                 spec = make_spec(kernels=['naive'], sampling=sampling)
+                progress = []
                 with self.assertRaisesRegex(RuntimeError, 'native bug'):
-                    collector._collect(spec, execute, StepClock())
+                    collector._collect(
+                        spec, execute, StepClock(),
+                        lambda *args: progress.append(args),
+                    )
+                self.assertEqual(progress[-1], (stage, kernel, 0, total))
 
     def test_collect_returns_json_data(self):
         spec = make_spec(
@@ -845,17 +877,27 @@ class BenchmarkWorkerTC(unittest.TestCase):
                 collect.assert_not_called()
 
     def test_reports_collection_failure(self):
+        request = make_request('unused.json')
+        stdin = io.StringIO(json.dumps(request))
         stdout = io.StringIO()
         with unittest.mock.patch.object(
-                worker.collector, 'collect',
-                side_effect=RuntimeError('native failure')):
-            return_code = worker.run(io.StringIO(
-                json.dumps(make_request('unused.json'))), stdout)
+            worker.collector, 'collect',
+            side_effect=RuntimeError('native failure'),
+        ):
+            return_code = worker.run(stdin, stdout)
 
-        event = json.loads(stdout.getvalue())
+        events = [json.loads(line) for line in stdout.getvalue().splitlines()]
         self.assertEqual(return_code, 1)
-        self.assertEqual(event['error_type'], 'RuntimeError')
-        self.assertEqual(event['message'], 'native failure')
+        self.assertEqual(events, [
+            {
+                'type': 'progress', 'phase': 'preparing', 'kernel': None,
+                'completed': None, 'total': None,
+            },
+            {
+                'type': 'error', 'error_type': 'RuntimeError',
+                'message': 'native failure',
+            },
+        ])
 
     def test_process_writes_artifact(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -864,21 +906,33 @@ class BenchmarkWorkerTC(unittest.TestCase):
             process = subprocess.run(
                 system.python_command('-m', 'solvcon.benchmark.worker'),
                 input=json.dumps(request) + '\n',
-                capture_output=True, text=True, check=False)
+                capture_output=True, text=True, check=False, timeout=30,
+            )
 
             self.assertEqual(
-                process.returncode, 0, process.stderr or process.stdout)
+                process.returncode, 0, process.stderr or process.stdout,
+            )
             events = [json.loads(line)
                       for line in process.stdout.splitlines()]
-            self.assertEqual(events[:-1], [
-                {'type': 'progress', 'phase': phase, 'kernel': kernel}
-                for phase, kernel in (('comparison', 'numpy'),
-                                      ('comparison', 'naive'),
-                                      ('timing', 'naive'), ('timing', 'numpy'))
-            ])
+            rows = (
+                ('preparing', None, None, None),
+                ('comparison', 'numpy', None, None),
+                ('comparison', 'naive', None, None),
+                ('timing', 'naive', 0, 2),
+                ('timing', 'numpy', 1, 2),
+                ('timing', 'numpy', 2, 2),
+                ('finishing', None, None, None),
+            )
+            expected = [
+                {
+                    'type': 'progress', 'phase': phase, 'kernel': kernel,
+                    'completed': completed, 'total': total,
+                }
+                for phase, kernel, completed, total in rows
+            ]
+            self.assertEqual(events[:-1], expected)
             self.assertEqual(events[-1], {
-                'type': 'result',
-                'artifact_path': str(path),
+                'type': 'result', 'artifact_path': str(path),
             })
             document = artifact.load_artifact(path)
             self.assertEqual(document['spec'], request['spec'])
@@ -886,25 +940,26 @@ class BenchmarkWorkerTC(unittest.TestCase):
 
 class BenchmarkProgressTC(unittest.TestCase):
     def test_progress_stays_outside_timed_blocks(self):
-        sampling = make_matmul_spec(sampling={
-            'warmups': 1, 'repetitions': 2, 'rounds': 1,
-        }).sampling
+        sampling = make_matmul_spec(
+            sampling={'warmups': 1, 'repetitions': 2, 'rounds': 1},
+        ).sampling
         events = []
-
-        def clock():
-            events.append('clock')
-            return len(events)
+        clock = StepClock(events=events)
 
         orders, elapsed = benchmark.collector._time_candidates(
             lambda name: events.append(name), ('naive',), sampling, clock,
-            lambda phase, name: events.append((phase, name)))
+            lambda *args: events.append(args),
+        )
 
         self.assertEqual(events, [
-            ('warmup', 'naive'), 'naive', ('timing', 'naive'),
+            ('warmup', 'naive', 0, 2),
+            'naive',
+            ('timing', 'naive', 1, 2),
             'clock', 'naive', 'naive', 'clock',
+            ('timing', 'naive', 2, 2),
         ])
         self.assertEqual(orders, [['naive']])
-        self.assertEqual(elapsed, {'naive': [3]})
+        self.assertEqual(elapsed, {'naive': [100]})
 
 
 @unittest.skipIf(QtWidgets is None, 'PySide6 is not installed')
@@ -946,17 +1001,42 @@ class BenchmarkControlTC(unittest.TestCase):
         script = 'import sys\nsys.stdin.readline()\n' + script
         command = system.python_command('-c', script)
         with unittest.mock.patch.object(
-                system, 'python_command', return_value=command):
+            system, 'python_command', return_value=command,
+        ):
             self.control.start(self.spec, self.path, **options)
+
+    def start_events(self, *events):
+        lines = []
+        for event in events:
+            payload = json.dumps(event)
+            lines.append(f'print({payload!r}, flush=True)')
+        script = '\n'.join(lines)
+        # Stay alive so failure checks prove the controller stops the worker.
+        self.start_script(script + '\nimport time\ntime.sleep(60)')
 
     def assert_finished(self, kind):
         self.wait_for(lambda: not self.control.running)
         self.assertEqual([event[0] for event in self.events], [kind])
-        self.assertEqual(self.control._process.state(),
-                         QtCore.QProcess.ProcessState.NotRunning)
+        self.assertEqual(
+            self.control._process.state(),
+            QtCore.QProcess.ProcessState.NotRunning,
+        )
         self.assertFalse(self.control.stop_button.isEnabled())
         self.assertFalse(self.control._timer.isActive())
-        self.assertEqual(self.control.progress.value(), int(kind == 'result'))
+        success = kind == 'result'
+        self.assertEqual(self.control.progress.value(), int(success))
+        self.assertEqual(self.control.progress.isTextVisible(), success)
+
+    def assert_failed(self, message):
+        self.assert_finished('error')
+        self.assertIn(message, self.events[0][1])
+
+    def assert_reusable(self):
+        self.events.clear()
+        self.control.start(self.spec, self.path)
+        self.assert_finished('result')
+        document = artifact.load_artifact(self.path)
+        self.assertEqual(document['spec'], self.spec.to_dict())
 
     def test_collect_and_repeat(self):
         for _ in range(2):
@@ -970,24 +1050,107 @@ class BenchmarkControlTC(unittest.TestCase):
                              self.spec.to_dict())
 
     def test_progress_stop_and_recover(self):
-        event = json.dumps({'type': 'progress', 'phase': 'timing',
-                            'kernel': 'naive'})
+        event = {
+            'type': 'progress', 'phase': 'timing', 'kernel': 'naive',
+            'completed': 1, 'total': 6,
+        }
+        payload = json.dumps(event)
         self.start_script(
             'import sys, time\n'
-            f'sys.stdout.write({event[:12]!r})\n'
+            f'sys.stdout.write({payload[:12]!r})\n'
             'sys.stdout.flush()\n'
             'time.sleep(0.15)\n'
-            f'print({event[12:]!r}, flush=True)\n'
-            'time.sleep(60)\n')
+            f'print({payload[12:]!r}, flush=True)\n'
+            'time.sleep(60)\n'
+        )
         self.wait_for(lambda: self.control.status.text() == 'Timing: naive')
         self.wait_for(
-            lambda: self.control.elapsed.text() != 'Elapsed: 0.0 s')
+            lambda: self.control.elapsed.text() != 'Elapsed: 0.0 s'
+        )
         self.assertEqual(self.events, [])
+        self.assertEqual(self.control.progress.value(), 16)
+        self.assertEqual(self.control.progress.text(), '16% (1/6 units)')
         self.control.stop_button.click()
         self.assert_finished('stopped')
-        self.events.clear()
-        self.control.start(self.spec, self.path)
-        self.assert_finished('result')
+        self.assert_reusable()
+
+    def test_large_progress_counts(self):
+        self.start_script('import time\ntime.sleep(60)')
+        self.assertFalse(self.control.progress.isTextVisible())
+        total = 2**33
+        cases = (
+            ('warmup', 0, 0),
+            ('timing', total // 2, 50),
+            ('timing', total, 100),
+        )
+        for phase, completed, percent in cases:
+            with self.subTest(phase=phase, completed=completed):
+                self.control._handle_event({
+                    'type': 'progress', 'phase': phase, 'kernel': 'numpy',
+                    'completed': completed, 'total': total,
+                })
+                self.assertEqual(self.control.progress.value(), percent)
+                self.assertTrue(self.control.progress.isTextVisible())
+        self.assertEqual(self.events, [])
+        self.assertTrue(self.control.running)
+
+    def test_finishing_hides_progress(self):
+        self.start_events({
+            'type': 'progress', 'phase': 'timing', 'kernel': 'numpy',
+            'completed': 6, 'total': 6,
+        })
+        self.wait_for(lambda: self.control.progress.isTextVisible())
+        self.assertEqual(self.control.progress.value(), 100)
+        self.control._handle_event({
+            'type': 'progress', 'phase': 'finishing', 'kernel': None,
+        })
+        self.assertEqual(self.control.progress.maximum(), 0)
+        self.assertFalse(self.control.progress.isTextVisible())
+        self.assertEqual(self.control.status.text(), 'Finishing')
+        self.assertEqual(self.events, [])
+        self.assertTrue(self.control.running)
+
+    def test_rejects_invalid_progress(self):
+        event = {
+            'type': 'progress', 'phase': 'timing', 'kernel': 'naive',
+            'completed': 1, 'total': 6,
+        }
+        cases = (
+            ('missing_count', {'completed': None}),
+            ('boolean_count', {'completed': True}),
+            ('negative_count', {'completed': -1}),
+            ('exceeds_total', {'completed': 7}),
+            ('zero_total', {'total': 0}),
+            ('noninteger_total', {'total': 6.0}),
+            ('unknown_kernel', {'kernel': 'missing'}),
+            ('finishing_with_counts', {'phase': 'finishing', 'kernel': None}),
+        )
+        for name, change in cases:
+            with self.subTest(case=name):
+                self.events.clear()
+                self.start_events({**event, **change})
+                self.assert_failed('invalid worker progress')
+                self.assert_reusable()
+
+    def test_rejects_inconsistent_progress(self):
+        event = {
+            'type': 'progress', 'phase': 'timing', 'kernel': 'naive',
+            'completed': 1, 'total': 6,
+        }
+        values = []
+        self.control.progress.valueChanged.connect(values.append)
+        cases = (
+            ('regressing_count', {'completed': 0}),
+            ('changing_total', {'total': 7}),
+        )
+        for name, change in cases:
+            with self.subTest(case=name):
+                self.events.clear()
+                values.clear()
+                self.start_events(event, {**event, **change})
+                self.assert_failed('invalid worker progress counts')
+                self.assertIn(16, values)
+                self.assert_reusable()
 
     def test_thread_isolation(self):
         names = ('OMP_NUM_THREADS', 'OPENBLAS_NUM_THREADS', 'MKL_NUM_THREADS',
@@ -1022,11 +1185,8 @@ class BenchmarkControlTC(unittest.TestCase):
             with self.subTest(message=message):
                 self.events.clear()
                 self.start_script(script)
-                self.assert_finished('error')
-                self.assertIn(message, self.events[0][1])
-        self.events.clear()
-        self.control.start(self.spec, self.path)
-        self.assert_finished('result')
+                self.assert_failed(message)
+                self.assert_reusable()
 
     def test_protocol_error_recovery(self):
         self.assert_error_recovery((

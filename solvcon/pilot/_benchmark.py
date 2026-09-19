@@ -29,6 +29,10 @@ class BenchmarkControl(QtWidgets.QWidget):
         self.progress.setRange(0, 1)
         self.progress.setValue(0)
         self.progress.setTextVisible(False)
+        self.progress.setToolTip(
+            'Completed warmup calls and timed repetition blocks, '
+            'not an estimate of remaining time.'
+        )
         self.status = QtWidgets.QLabel('Idle', self)
         self.status.setTextFormat(QtCore.Qt.TextFormat.PlainText)
         self.elapsed = QtWidgets.QLabel('Elapsed: 0.0 s', self)
@@ -75,11 +79,14 @@ class BenchmarkControl(QtWidgets.QWidget):
         self._request = (json.dumps(request, allow_nan=False) + '\n').encode()
         self._kernels = specification.kernels + ('numpy',)
         self._result = None
+        self._completed = 0
+        self._total = None
         self._error = ''
         self._stderr = b''
         self._cancelled = False
         self._running = True
         self.progress.setRange(0, 0)
+        self.progress.setTextVisible(False)
         self.status.setText('Preparing')
         self.stop_button.setEnabled(True)
         self._clock.start()
@@ -92,6 +99,7 @@ class BenchmarkControl(QtWidgets.QWidget):
         if self.running:
             self._cancelled = True
             self.status.setText('Stopping')
+            self.progress.setTextVisible(False)
             self.stop_button.setEnabled(False)
             self._process.kill()
 
@@ -136,21 +144,51 @@ class BenchmarkControl(QtWidgets.QWidget):
             raise ValueError('unexpected worker event')
         kind = event.get('type')
         if kind == 'progress':
-            phase, kernel = event.get('phase'), event.get('kernel')
-            if (phase not in ('comparison', 'warmup', 'timing')
-                    or kernel not in self._kernels):
-                raise ValueError('invalid worker progress')
-            self.status.setText(f'{phase.capitalize()}: {kernel}')
+            self._show_progress(event)
         elif kind == 'result':
             path = event.get('artifact_path')
             if not isinstance(path, str) or not path:
                 raise ValueError('invalid worker artifact path')
             self._result = path
+            self.progress.setRange(0, 0)
+            self.progress.setTextVisible(False)
             self.status.setText('Finishing')
         elif kind == 'error':
             self._fail(str(event.get('message', 'worker failed')))
         else:
             raise ValueError('unknown worker event')
+
+    def _show_progress(self, event):
+        phase, kernel = event.get('phase'), event.get('kernel')
+        completed, total = event.get('completed'), event.get('total')
+        phases = ('preparing', 'comparison', 'warmup', 'timing', 'finishing')
+        has_kernel = phase in ('comparison', 'warmup', 'timing')
+        kernels = self._kernels if has_kernel else (None,)
+        if phase not in phases or kernel not in kernels:
+            raise ValueError('invalid worker progress')
+
+        if phase in ('warmup', 'timing'):
+            self._show_counts(completed, total)
+        elif completed is not None or total is not None:
+            raise ValueError('invalid worker progress')
+        else:
+            self.progress.setRange(0, 0)
+            self.progress.setTextVisible(False)
+        label = phase.capitalize()
+        self.status.setText(f'{label}: {kernel}' if kernel else label)
+
+    def _show_counts(self, completed, total):
+        if (
+            type(completed) is not int or type(total) is not int
+            or not 0 <= self._completed <= completed <= total
+            or total <= 0 or self._total not in (None, total)
+        ):
+            raise ValueError('invalid worker progress counts')
+        self._completed, self._total = completed, total
+        self.progress.setRange(0, 100)
+        self.progress.setValue(100 * completed // total)
+        self.progress.setFormat(f'%p% ({completed}/{total} units)')
+        self.progress.setTextVisible(True)
 
     def _read_stderr(self):
         data = bytes(self._process.readAllStandardError())
@@ -185,7 +223,10 @@ class BenchmarkControl(QtWidgets.QWidget):
 
         self._running = False
         self.progress.setRange(0, 1)
-        self.progress.setValue(int(not (self._cancelled or self._error)))
+        success = not (self._cancelled or self._error)
+        self.progress.setValue(int(success))
+        self.progress.setFormat('%p%')
+        self.progress.setTextVisible(success)
         self._timer.stop()
         self._update_elapsed()
         self.stop_button.setEnabled(False)
@@ -200,7 +241,7 @@ class BenchmarkControl(QtWidgets.QWidget):
             message = self._error
             if self._stderr:
                 message += '\n' + self._stderr.decode('utf8', errors='replace')
-            self.status.setText(message)
+            self.status.setText(f'Failed: {message}')
             self.failed.emit(message)
         else:
             self.status.setText('Completed')
