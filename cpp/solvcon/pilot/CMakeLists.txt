@@ -6,6 +6,7 @@ cmake_minimum_required(VERSION 4.0.1)
 set(SOLVCON_PILOT_PYMODHEADERS
     # common/
     ${CMAKE_CURRENT_SOURCE_DIR}/common/platform.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/common/pyside.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/common/render_misc.hpp
     # theme/
     ${CMAKE_CURRENT_SOURCE_DIR}/theme/theme.hpp
@@ -51,6 +52,7 @@ set(SOLVCON_PILOT_PYMODHEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/app/keymap.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/RShortcutManager.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/RAction.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/RThreadManager.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/pilot.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/wrap_pilot.hpp
     CACHE FILEPATH "" FORCE
@@ -104,6 +106,8 @@ set(SOLVCON_PILOT_PYMODSOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/app/keymap.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/RShortcutManager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/RAction.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/RThreadManager.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/wrap_RThreadManager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/wrap_pilot.cpp
     CACHE FILEPATH "" FORCE
 )

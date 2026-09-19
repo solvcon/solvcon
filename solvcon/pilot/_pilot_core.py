@@ -37,6 +37,18 @@ list_of_rmanager = [
     'mgr',
 ]
 
+# RThreadManager.hpp/.cpp
+list_of_rthreadmanager = [
+    'WorkflowState',
+    'Error',
+    'Succeeded',
+    'Failed',
+    'Cancelled',
+    'WorkflowContext',
+    'WorkflowHandle',
+    'RThreadManager',
+]
+
 # RPythonConsoleDockWidget.hpp/.cpp
 list_of_rpythonconsole = [
     'RPythonConsoleDockWidget',
@@ -80,6 +92,7 @@ _from_impl = (  # noqa: F822
     list_of_rdomainwidget +
     list_of_r2dwidget +
     list_of_rmanager +
+    list_of_rthreadmanager +
     list_of_rpythonconsole +
     list_of_rpythonterminal +
     list_of_drawtool +
@@ -106,6 +119,7 @@ def _load(symbol_list):
 _load(list_of_rdomainwidget)
 _load(list_of_r2dwidget)
 _load(list_of_rmanager)
+_load(list_of_rthreadmanager)
 _load(list_of_rpythonconsole)
 _load(list_of_rpythonterminal)
 _load(list_of_drawtool)
