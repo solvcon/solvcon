@@ -102,6 +102,14 @@ runs:
         sudo contrib/ci/apt-update.sh -qq
         sudo apt-get -qy install clang-tidy-22
         sudo ln -fs "$(which clang-tidy-22)" "/usr/local/bin/clang-tidy"
+        # --no-deps: ctcache declares flask as a dependency. 
+        # Installing it drags in blinker, 
+        # which conflicts with the apt-installed blinker this
+        # image already carries ("Cannot uninstall blinker 1.7.0, RECORD
+        # file not found"). clang_tidy_cache.py imports neither flask nor
+        # requests at module load time, so skipping them is safe.
+        sudo pip3 install --no-deps \
+            "git+https://github.com/matus-chochlik/ctcache.git@0c7fee26e09ae8a393ed7d56164102da118ab23a"
         echo "::endgroup::"
 
     - name: Install and configure gcc-16
