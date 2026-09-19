@@ -39,12 +39,15 @@ QObject * to_qobject(py::object const & object)
     return owner;
 }
 
-/// Take the GIL around the call; PythonResult takes it in the destructor.
+/**
+ * Take the GIL around the call; PythonResult takes it in the destructor. A
+ * rethrown exception fails the workflow that owns the callback.
+ */
 template <typename Arg>
-std::function<void(Arg)> gil_callback(py::function callback)
+std::function<void(Arg)> gil_callback(py::function callback, bool rethrow = false)
 {
     auto holder = std::make_shared<PythonResult>(std::move(callback));
-    return [holder](Arg arg)
+    return [holder, rethrow](Arg arg)
     {
         if (Py_IsInitialized() == 0)
         {
@@ -57,6 +60,10 @@ std::function<void(Arg)> gil_callback(py::function callback)
         }
         catch (py::error_already_set & error)
         {
+            if (rethrow)
+            {
+                throw;
+            }
             error.discard_as_unraisable("Pilot workflow callback");
         }
     };
@@ -95,8 +102,24 @@ void wrap_thread_manager(pybind11::module & mod)
 
     py::class_<Cancelled>(mod, "Cancelled").def(py::init<>());
 
+    py::class_<TaskContext>(mod, "TaskContext")
+        .def_property_readonly("workflow_id", &TaskContext::workflow_id)
+        .def("finish", &TaskContext::finish, py::arg("result"));
+
     py::class_<WorkflowContext>(mod, "WorkflowContext")
         .def_property_readonly("workflow_id", &WorkflowContext::workflow_id)
+        .def(
+            "submit",
+            [](WorkflowContext & self, std::string const & thread, py::object task, py::function on_completed)
+            {
+                self.submit(
+                    thread,
+                    std::make_unique<PythonTask>(std::move(task)),
+                    gil_callback<Result>(std::move(on_completed), true));
+            },
+            py::arg("thread"),
+            py::arg("task"),
+            py::arg("on_completed"))
         .def("finish", &WorkflowContext::finish, py::arg("result"));
 
     py::class_<RWorkflowHandle, QPointer<RWorkflowHandle>>(mod, "WorkflowHandle")
@@ -114,6 +137,8 @@ void wrap_thread_manager(pybind11::module & mod)
             py::arg("callback"));
 
     py::class_<RThreadManager, QPointer<RThreadManager>>(mod, "RThreadManager")
+        .def("register_thread", &RThreadManager::registerThread, py::arg("name"))
+        .def("has_thread", &RThreadManager::hasThread, py::arg("name"))
         .def(
             "submit",
             [](RThreadManager & self, py::object workflow, py::object const & owner)

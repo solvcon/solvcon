@@ -18,6 +18,7 @@
 
 #include <any>
 #include <cstdint>
+#include <deque>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -64,18 +65,75 @@ using Result = std::variant<Succeeded, Failed, Cancelled>;
 using ResultCallback = std::function<void(Result)>;
 using StateCallback = std::function<void(WorkflowState)>;
 
-/// Valid on the workflow thread only.
+/// Holds the long-lived state of one task thread; every task on the thread sees the same instance.
+class ThreadState
+{
+public:
+    ThreadState() = default;
+    ThreadState(ThreadState const &) = delete;
+    ThreadState & operator=(ThreadState const &) = delete;
+    virtual ~ThreadState() = default;
+}; /* end class ThreadState */
+
+/// Handed to Task::execute; valid on the task thread until execute() returns.
+class TaskContext
+{
+public:
+    WorkflowId workflow_id() const;
+    /// Return true only if this call completed the task; the completion callback then runs on the workflow thread.
+    bool finish(Result result);
+
+private:
+    friend class RThreadManager;
+
+    struct Impl; ///< Executed and destroyed on the workflow thread; carries only thread-transferable data.
+
+    explicit TaskContext(WorkflowId workflow_id);
+    std::optional<Result> take_result();
+    std::shared_ptr<Impl> m_impl;
+}; /* end class TaskContext */
+
+/// Executed and destroyed on its task thread; carries only thread-transferable data.
+class Task
+{
+public:
+    Task() = default;
+    Task(Task const &) = delete;
+    Task & operator=(Task const &) = delete;
+    virtual ~Task() = default;
+
+    /// Call TaskContext::finish() before returning; a task that returns without a result fails.
+    virtual void execute(TaskContext & context, ThreadState & state) = 0;
+}; /* end class Task */
+
+/**
+ * Valid on the workflow thread only. The context stores what the workflow
+ * asks for; the manager reads it after start() and after each completion
+ * callback returns. The workflow closes, and the owner receives the result,
+ * once finish() ran and every completion callback ran.
+ */
 class WorkflowContext
 {
 public:
     WorkflowId workflow_id() const;
+    /**
+     * Queue a task for the thread named @p thread. @p on_completed runs
+     * exactly once on the workflow thread, never inline on the task thread.
+     * An unregistered @p thread completes the task with Failed without
+     * running it.
+     */
+    void submit(std::string const & thread, std::unique_ptr<Task> task, ResultCallback on_completed);
     /// Return true only if this call completed the workflow.
     bool finish(Result result);
 
 private:
     friend class RThreadManager;
     struct Impl;
+    struct Submission;
     explicit WorkflowContext(WorkflowId workflow_id);
+    std::deque<Submission> take_submissions();
+    bool finished() const;
+    /// Stop accepting a result and return the one that finish() stored.
     std::optional<Result> close();
     std::shared_ptr<Impl> m_impl;
 }; /* end class WorkflowContext */
@@ -126,12 +184,20 @@ private:
     std::optional<Result> m_result;
 }; /* end class RWorkflowHandle */
 
+/**
+ * Own the workflow thread and one task thread for each registered name. Each
+ * task thread runs one task at a time in FIFO order; two names never share a
+ * thread.
+ */
 class RThreadManager
     : public QObject
 {
     Q_OBJECT
 public:
     ~RThreadManager() override;
+    /// Call on the Qt thread; a second call for the same name reuses the existing thread.
+    void registerThread(std::string const & name);
+    bool hasThread(std::string const & name) const;
     /// @p owner is a non-null QObject of the Qt thread; the handle runs no callback before this returns.
     RWorkflowHandle * submit(std::unique_ptr<Workflow> workflow, QObject * owner);
 
@@ -143,9 +209,10 @@ private:
     friend class RManager;
     explicit RThreadManager(QObject * parent);
     void start();
-    /// Complete queued workflows with Cancelled, join the thread, and emit stopped().
+    /// Complete every queued task and workflow with Cancelled, join every thread, and emit stopped().
     void shutdown();
 
+    struct Scheduler;
     struct Impl;
     std::unique_ptr<Impl> m_impl;
 }; /* end class RThreadManager */
@@ -164,6 +231,21 @@ public:
 private:
     pybind11::object m_result;
 }; /* end class PythonResult */
+
+/// Takes the GIL only around the execute call and in the destructor.
+class SOLVCON_PYTHON_WRAPPER_VISIBILITY PythonTask
+    : public Task
+{
+public:
+    explicit PythonTask(pybind11::object task);
+    ~PythonTask() override;
+
+    /// An exception becomes Failed.
+    void execute(TaskContext & context, ThreadState & state) override;
+
+private:
+    pybind11::object m_task;
+}; /* end class PythonTask */
 
 /// Takes the GIL only around each Python call and in the destructor.
 class SOLVCON_PYTHON_WRAPPER_VISIBILITY PythonWorkflow
