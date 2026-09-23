@@ -117,7 +117,7 @@ class MatmulInputsTC(unittest.TestCase):
                         inputs.lhs, inputs.rhs, dtype,
                         benchmark_spec.Sampling(0, 1, 1),
                         matmul.MATMUL_KERNELS)
-                    execute = collector._make_executor(request)
+                    execute = request.make_executor()
                     for name, reason in reasons.items():
                         with self.subTest(dtype=dtype, lhs=lhs, rhs=rhs,
                                           stride=stride, kernel=name):
@@ -132,7 +132,7 @@ class MatmulInputsTC(unittest.TestCase):
     def test_metadata_only(self):
         inputs = make_inputs((2**32, 2), (2, 2), stride=0)
         with unittest.mock.patch.object(
-                collector, '_make_operand', side_effect=AssertionError), \
+                matmul, '_make_operand', side_effect=AssertionError), \
                 unittest.mock.patch.object(
                     np, 'empty', side_effect=AssertionError):
             reasons = inputs.kernel_eligibility()
@@ -286,6 +286,8 @@ class StepClock:
 
 
 class FakeExecutor:
+    unavailable_error = sc.MatmulKernelUnavailable
+
     def __init__(self, outputs):
         self.outputs = outputs
         self.calls = []
@@ -308,9 +310,9 @@ class OperandConstructionTC(unittest.TestCase):
         expected = 2 * np.random.default_rng(7).random(
             12, dtype='float64') - 1
         with unittest.mock.patch.object(
-                collector, '_CHUNK_SIZE', 4):
+                matmul, '_CHUNK_SIZE', 4):
             arrays = {
-                dtype: collector._make_operand(operand, dtype, 7)
+                dtype: matmul._make_operand(operand, dtype, 7)
                 for dtype in ('float32', 'float64',
                               'complex64', 'complex128')
             }
@@ -328,7 +330,7 @@ class OperandConstructionTC(unittest.TestCase):
         for data, strides in cases:
             with self.subTest(shape=data['shape']):
                 operand = benchmark_spec.OperandSpec.from_dict(data)
-                array = collector._make_operand(operand, 'complex64', 0)
+                array = matmul._make_operand(operand, 'complex64', 0)
 
                 self.assertEqual(array.shape, tuple(data['shape']))
                 self.assertEqual(
@@ -340,7 +342,7 @@ class OperandConstructionTC(unittest.TestCase):
                 self.assertTrue(np.all(np.isfinite(array)))
 
         operand = benchmark_spec.OperandSpec.from_dict(cases[0][0])
-        array = collector._make_operand(operand, 'complex64', 0)
+        array = matmul._make_operand(operand, 'complex64', 0)
         np.testing.assert_array_equal(array[:, 0], array[:, 1])
         np.testing.assert_array_equal(array[:, 1], array[:, 2])
         self.assertNotEqual(array[0, 0], array[1, 0])
@@ -453,7 +455,7 @@ class MatmulComparisonTC(unittest.TestCase):
                 with self.assertRaises(type(failure)):
                     collector._compare(make_spec(), execute)
 
-    @unittest.mock.patch.object(collector, '_CHUNK_SIZE', 1)
+    @unittest.mock.patch.object(matmul, '_CHUNK_SIZE', 1)
     def test_reports_zero_complex_and_empty_differences(self):
         cases = (
             (np.zeros(1, dtype='float64'),
@@ -476,7 +478,7 @@ class MatmulComparisonTC(unittest.TestCase):
         for dtype in ('float32', 'float64', 'complex64', 'complex128'):
             with self.subTest(dtype=dtype):
                 spec = make_spec(dtype=dtype, kernels=['naive'])
-                execute = collector._make_executor(spec)
+                execute = spec.make_executor()
                 self.assertEqual(execute._native_lhs.ndarray.dtype.name, dtype)
                 self.assertEqual(execute._native_rhs.ndarray.dtype.name, dtype)
                 self.assertTrue(execute._native_lhs.is_from_python)
@@ -509,7 +511,7 @@ class MatmulComparisonTC(unittest.TestCase):
             with self.subTest(lhs=lhs['shape'], rhs=rhs['shape']):
                 spec = make_spec(lhs=lhs, rhs=rhs, kernels=['naive'])
                 comparison = collector._compare(
-                    spec, collector._make_executor(spec))
+                    spec, spec.make_executor())
                 self.assertEqual(
                     [item['status'] for item in comparison.values()],
                     ['measured', 'measured'],
@@ -525,7 +527,7 @@ class MatmulComparisonTC(unittest.TestCase):
         for lhs in operands:
             with self.subTest(lhs=lhs):
                 spec = make_spec(lhs=lhs, kernels=['naive'])
-                execute = collector._make_executor(spec)
+                execute = spec.make_executor()
                 self.assertEqual(execute._native_lhs.stride,
                                  tuple(lhs['strides']))
                 comparison = collector._compare(spec, execute)
@@ -541,7 +543,7 @@ class MatmulComparisonTC(unittest.TestCase):
     def test_marks_real_ineligible_kernel(self):
         spec = make_spec(kernels=['naive', 'winograd'])
 
-        comparison = collector._compare(spec, collector._make_executor(spec))
+        comparison = collector._compare(spec, spec.make_executor())
 
         self.assertEqual(
             [item['status'] for item in comparison.values()],
@@ -562,7 +564,11 @@ class MatmulTimingTC(unittest.TestCase):
             kernels=['naive', 'blas_gemm', 'winograd'],
             sampling={'warmups': 1, 'repetitions': 2, 'rounds': 4})
 
-        comparison = collector._collect(spec, execute, StepClock())
+        with unittest.mock.patch.object(
+            matmul.MatmulSpec, 'make_executor', return_value=execute,
+        ) as prepare:
+            comparison = collector._collect(spec, StepClock())
+        prepare.assert_called_once_with()
 
         names = ('naive', 'blas_gemm', 'winograd', 'numpy')
         round_orders = comparison['round_orders']
@@ -658,10 +664,11 @@ class MatmulTimingTC(unittest.TestCase):
         )
 
         progress = []
-        comparison = collector._collect(
-            spec, execute, StepClock(),
-            lambda *args: progress.append(args),
-        )
+        with unittest.mock.patch.object(
+            matmul.MatmulSpec, 'make_executor', return_value=execute,
+        ):
+            comparison = collector._collect(
+                spec, StepClock(), lambda *args: progress.append(args))
         samples = [
             event for event in progress
             if event[0] in ('warmup', 'timing')
@@ -698,11 +705,14 @@ class MatmulTimingTC(unittest.TestCase):
                 sampling = {'warmups': warmups, 'repetitions': 1, 'rounds': 1}
                 spec = make_spec(kernels=['naive'], sampling=sampling)
                 progress = []
-                with self.assertRaisesRegex(RuntimeError, 'native bug'):
+                with (
+                    unittest.mock.patch.object(
+                        matmul.MatmulSpec, 'make_executor',
+                        return_value=execute),
+                    self.assertRaisesRegex(RuntimeError, 'native bug'),
+                ):
                     collector._collect(
-                        spec, execute, StepClock(),
-                        lambda *args: progress.append(args),
-                    )
+                        spec, StepClock(), lambda *args: progress.append(args))
                 self.assertEqual(progress[-1], (stage, kernel, 0, total))
 
     def test_collect_returns_json_data(self):
@@ -722,8 +732,8 @@ class MatmulTimingTC(unittest.TestCase):
             self.assertTrue(all(isinstance(value, int) for value in elapsed))
         json.dumps(comparison)
 
-    def test_collect_requires_matmul_spec(self):
-        with self.assertRaisesRegex(TypeError, 'spec must be a MatmulSpec'):
+    def test_collect_requires_spec_interface(self):
+        with self.assertRaisesRegex(TypeError, 'BenchmarkSpec'):
             benchmark.collector.collect(make_spec().to_dict())
 
 

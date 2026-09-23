@@ -6,6 +6,7 @@
 from . import artifact
 from . import collector
 from . import matmul
+from . import operation
 from . import spec
 
 
@@ -13,6 +14,7 @@ __all__ = [
     'artifact',
     'collector',
     'matmul',
+    'operation',
     'spec',
 ]
 

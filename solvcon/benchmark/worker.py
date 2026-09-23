@@ -9,7 +9,7 @@ import sys
 
 from . import artifact
 from . import collector
-from . import matmul
+from . import operation
 from . import spec as benchmark_spec
 
 
@@ -40,7 +40,7 @@ def _read_request(stream):
     if not isinstance(output_path, str) or not output_path:
         raise benchmark_spec.SpecError(
             'worker request output_path must be a non-empty string')
-    return matmul.MatmulSpec.from_dict(data['spec']), output_path
+    return operation.parse_spec(data['spec']), output_path
 
 
 def run(stdin, stdout):

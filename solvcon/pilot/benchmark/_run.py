@@ -14,7 +14,7 @@ from solvcon import system
 class RunPanel(QtWidgets.QWidget):
     """Show progress and emit a terminal signal after the worker exits.
 
-    Call start with a MatmulSpec and an artifact path. A running control
+    Call start with a BenchmarkSpec and an artifact path. A running control
     rejects another start. Stop and close kill the worker asynchronously.
     Optional threads override only the new worker's BLAS/OpenMP environment.
     """
