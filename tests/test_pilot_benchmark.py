@@ -1,9 +1,13 @@
 # Copyright (c) 2026, solvcon team <contact@solvcon.net>
 # BSD 3-Clause License, see COPYING
 
-"""Exercise the inspector and results without mapping a top-level window."""
+"""Exercise benchmark widgets without mapping a top-level window."""
 
+import dataclasses
+import json
+import os
 import pathlib
+import sys
 import tempfile
 import time
 import unittest
@@ -17,7 +21,338 @@ try:
 except ImportError:
     QtWidgets = None
 else:
-    from solvcon.pilot import _benchmark_inspector
+    from solvcon.pilot.benchmark import _inspector
+    from solvcon.pilot.benchmark import _run
+
+
+@dataclasses.dataclass
+class WorkerStub:
+    """Emit configured data in a real process for controller tests."""
+
+    events: tuple = ()
+    output: str = ''
+    error: str = ''
+    exit_code: int | None = None
+    environment: dict = dataclasses.field(default_factory=dict)
+
+    def command(self):
+        return system.python_command(
+            __file__, json.dumps(dataclasses.asdict(self)))
+
+    def run(self):
+        sys.stdin.readline()
+        actual = {name: os.environ.get(name) for name in self.environment}
+        if actual != self.environment:
+            raise RuntimeError(f'Unexpected worker environment: {actual}')
+        for event in self.events:
+            print(json.dumps(event), flush=True)
+        sys.stdout.write(self.output)
+        sys.stdout.flush()
+        sys.stderr.write(self.error)
+        sys.stderr.flush()
+        if self.exit_code is not None:
+            return self.exit_code
+        # Stay alive until Stop or error handling terminates the process.
+        time.sleep(60)
+        return 0
+
+
+@unittest.skipIf(QtWidgets is None, 'PySide6 is not installed')
+class RunPanelTC(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.app = (QtWidgets.QApplication.instance()
+                   or QtWidgets.QApplication([]))
+
+    def setUp(self):
+        self.control = _run.RunPanel()
+        self.directory = tempfile.TemporaryDirectory()
+        self.path = pathlib.Path(self.directory.name) / 'result.json'
+        self.spec = matmul.MatmulSpec(
+            lhs=spec.OperandSpec((2, 3), (3, 1)),
+            rhs=spec.OperandSpec((3, 2), (2, 1)), dtype='float64',
+            sampling=spec.Sampling(1, 2, 2), kernels=('naive',))
+        self.events = []
+        self.control.completed.connect(
+            lambda path: self.events.append(('result', path)))
+        self.control.failed.connect(
+            lambda message: self.events.append(('error', message)))
+        self.control.stopped.connect(
+            lambda: self.events.append(('stopped', None)))
+
+    def tearDown(self):
+        self.control.stop()
+        self.wait_for(lambda: not self.control.running)
+        self.control.close()
+        self.control.deleteLater()
+        self.directory.cleanup()
+
+    def wait_for(self, predicate):
+        deadline = time.monotonic() + 15
+        while not predicate() and time.monotonic() < deadline:
+            QtTest.QTest.qWait(10)
+        self.assertTrue(predicate(), self.control.status.text())
+
+    def start_worker(self, worker, **options):
+        command = worker.command()
+        with unittest.mock.patch.object(
+            system, 'python_command', return_value=command,
+        ):
+            self.control.start(self.spec, self.path, **options)
+
+    def start_events(self, *events):
+        self.start_worker(WorkerStub(events=events))
+
+    def assert_finished(self, kind):
+        self.wait_for(lambda: not self.control.running)
+        self.assertEqual([event[0] for event in self.events], [kind])
+        self.assertEqual(
+            self.control._process.state(),
+            QtCore.QProcess.ProcessState.NotRunning,
+        )
+        self.assertFalse(self.control.stop_button.isEnabled())
+        self.assertFalse(self.control._timer.isActive())
+        success = kind == 'result'
+        self.assertEqual(self.control.progress.value(), int(success))
+        self.assertEqual(self.control.progress.isTextVisible(), success)
+
+    def assert_failed(self, message):
+        self.assert_finished('error')
+        self.assertIn(message, self.events[0][1])
+
+    def assert_reusable(self):
+        self.events.clear()
+        self.control.start(self.spec, self.path)
+        self.assert_finished('result')
+        document = artifact.load_artifact(self.path)
+        self.assertEqual(document['spec'], self.spec.to_dict())
+
+    def test_collect_and_repeat(self):
+        for _ in range(2):
+            self.events.clear()
+            self.control.start(self.spec, self.path)
+            with self.assertRaisesRegex(RuntimeError, 'already running'):
+                self.control.start(self.spec, self.path)
+            self.assert_finished('result')
+            self.assertEqual(self.events[0][1], str(self.path))
+            self.assertEqual(artifact.load_artifact(self.path)['spec'],
+                             self.spec.to_dict())
+
+    def test_progress_stop_and_recover(self):
+        event = {
+            'type': 'progress', 'phase': 'timing', 'kernel': 'naive',
+            'completed': 1, 'total': 6,
+        }
+        self.start_events(event)
+        self.wait_for(lambda: self.control.status.text() == 'Timing: naive')
+        self.assertEqual(self.events, [])
+        self.assertEqual(self.control.progress.value(), 16)
+        self.assertEqual(self.control.progress.text(), '16% (1/6 units)')
+        self.control.stop_button.click()
+        self.assert_finished('stopped')
+        self.assert_reusable()
+
+    def test_waits_for_complete_event(self):
+        self.start_worker(WorkerStub())
+        event = {
+            'type': 'progress', 'phase': 'timing', 'kernel': 'naive',
+            'completed': 1, 'total': 6,
+        }
+        payload = json.dumps(event).encode()
+        chunks = (
+            (payload[:-1], 'Preparing'),
+            (payload[-1:], 'Preparing'),
+            (b'\n', 'Timing: naive'),
+        )
+        stream = QtCore.QBuffer()
+        stream.open(QtCore.QIODevice.OpenModeFlag.ReadWrite)
+        self.addCleanup(stream.close)
+        process = self.control._process
+        with (
+            unittest.mock.patch.object(
+                process, 'canReadLine', side_effect=stream.canReadLine),
+            unittest.mock.patch.object(
+                process, 'readLine', side_effect=stream.readLine),
+        ):
+            for chunk, expected in chunks:
+                unread = stream.pos()
+                stream.seek(stream.size())
+                stream.write(chunk)
+                stream.seek(unread)
+                self.control._read_stdout()
+                self.assertEqual(self.control.status.text(), expected)
+                self.assertEqual(self.control._error, '')
+                self.assertEqual(self.events, [])
+        self.assertTrue(stream.atEnd())
+        self.assertEqual(self.control.progress.text(), '16% (1/6 units)')
+
+    def test_elapsed_while_running(self):
+        self.start_worker(WorkerStub())
+        self.wait_for(
+            lambda: self.control.elapsed.text() != 'Elapsed: 0.0 s')
+        self.assertTrue(self.control.running)
+        self.assertEqual(self.events, [])
+
+    def test_large_progress_counts(self):
+        self.start_worker(WorkerStub())
+        self.assertFalse(self.control.progress.isTextVisible())
+        total = 2**33
+        cases = (
+            ('warmup', 0, 0),
+            ('timing', total // 2, 50),
+            ('timing', total, 100),
+        )
+        for phase, completed, percent in cases:
+            with self.subTest(phase=phase, completed=completed):
+                self.control._handle_event({
+                    'type': 'progress', 'phase': phase, 'kernel': 'numpy',
+                    'completed': completed, 'total': total,
+                })
+                self.assertEqual(self.control.progress.value(), percent)
+                self.assertTrue(self.control.progress.isTextVisible())
+        self.assertEqual(self.events, [])
+        self.assertTrue(self.control.running)
+
+    def test_finishing_hides_progress(self):
+        self.start_events({
+            'type': 'progress', 'phase': 'timing', 'kernel': 'numpy',
+            'completed': 6, 'total': 6,
+        })
+        self.wait_for(lambda: self.control.progress.isTextVisible())
+        self.assertEqual(self.control.progress.value(), 100)
+        self.control._handle_event({
+            'type': 'progress', 'phase': 'finishing', 'kernel': None,
+        })
+        self.assertEqual(self.control.progress.maximum(), 0)
+        self.assertFalse(self.control.progress.isTextVisible())
+        self.assertEqual(self.control.status.text(), 'Finishing')
+        self.assertEqual(self.events, [])
+        self.assertTrue(self.control.running)
+
+    def test_rejects_invalid_progress(self):
+        event = {
+            'type': 'progress', 'phase': 'timing', 'kernel': 'naive',
+            'completed': 1, 'total': 6,
+        }
+        cases = (
+            ('missing_count', {'completed': None}),
+            ('boolean_count', {'completed': True}),
+            ('negative_count', {'completed': -1}),
+            ('exceeds_total', {'completed': 7}),
+            ('zero_total', {'total': 0}),
+            ('noninteger_total', {'total': 6.0}),
+            ('unknown_kernel', {'kernel': 'missing'}),
+            ('finishing_with_counts', {'phase': 'finishing', 'kernel': None}),
+        )
+        for name, change in cases:
+            with self.subTest(case=name):
+                self.events.clear()
+                self.start_events({**event, **change})
+                self.assert_failed('invalid worker progress')
+                self.assert_reusable()
+
+    def test_rejects_inconsistent_progress(self):
+        event = {
+            'type': 'progress', 'phase': 'timing', 'kernel': 'naive',
+            'completed': 1, 'total': 6,
+        }
+        values = []
+        self.control.progress.valueChanged.connect(values.append)
+        cases = (
+            ('regressing_count', {'completed': 0}),
+            ('changing_total', {'total': 7}),
+        )
+        for name, change in cases:
+            with self.subTest(case=name):
+                self.events.clear()
+                values.clear()
+                self.start_events(event, {**event, **change})
+                self.assert_failed('invalid worker progress counts')
+                self.assertIn(16, values)
+                self.assert_reusable()
+
+    def test_thread_isolation(self):
+        names = ('OMP_NUM_THREADS', 'OPENBLAS_NUM_THREADS', 'MKL_NUM_THREADS',
+                 'BLIS_NUM_THREADS', 'VECLIB_MAXIMUM_THREADS')
+        inherited = dict.fromkeys(names, '2')
+        event = {'type': 'result', 'artifact_path': 'ok'}
+        for threads, expected in ((3, '3'), (None, '2')):
+            with self.subTest(threads=threads):
+                self.events.clear()
+                worker = WorkerStub(
+                    events=(event,), exit_code=0,
+                    environment=dict.fromkeys(names, expected))
+                with unittest.mock.patch.dict(os.environ, inherited):
+                    self.start_worker(worker, threads=threads)
+                    self.assert_finished('result')
+                    parent = {name: os.environ[name] for name in names}
+                    self.assertEqual(parent, inherited)
+
+    def test_invalid_threads(self):
+        for threads in (0, -1, True, 1.5, '2'):
+            with self.subTest(threads=threads):
+                with self.assertRaises(ValueError) as caught:
+                    self.control.start(self.spec, self.path, threads=threads)
+                self.assertEqual(str(caught.exception),
+                                 'threads must be a positive integer')
+                self.assertFalse(self.control.running)
+
+    def assert_error_recovery(self, cases):
+        for worker, message in cases:
+            with self.subTest(message=message):
+                self.events.clear()
+                self.start_worker(worker)
+                self.assert_failed(message)
+                self.assert_reusable()
+
+    def test_protocol_error_recovery(self):
+        error = {'type': 'error', 'message': 'bad spec'}
+        self.assert_error_recovery((
+            (WorkerStub(output='not json\n'), 'protocol'),
+            (WorkerStub(events=({},)), 'unknown'),
+            (WorkerStub(events=(error,)), 'bad spec'),
+        ))
+
+    def test_exit_error_recovery(self):
+        result = {'type': 'result', 'artifact_path': 'fake'}
+        self.assert_error_recovery((
+            (WorkerStub(output='{}', exit_code=0), 'incomplete'),
+            (WorkerStub(exit_code=0), 'without a result'),
+            (WorkerStub(error='native crash', exit_code=3),
+             'native crash'),
+            (WorkerStub(events=(result,), exit_code=3), 'code 3'),
+        ))
+
+    def test_crash(self):
+        self.start_worker(WorkerStub())
+        self.wait_for(lambda: self.control._process.state() ==
+                      QtCore.QProcess.ProcessState.Running)
+        self.control._process.kill()
+        self.assert_finished('error')
+
+    def restart_after_failure(self, message):
+        # Reentering QProcess inside its error signal can block Qt.
+        if not self.process_errors:
+            return
+        self.control.failed.disconnect(self.restart_after_failure)
+        self.events.clear()
+        self.control.start(self.spec, self.path)
+
+    def test_failed_start_recovers_from_signal(self):
+        self.process_errors = []
+        self.control._process.errorOccurred.connect(self.process_errors.append)
+        self.control.failed.connect(self.restart_after_failure)
+        with unittest.mock.patch.object(system, 'python_command',
+                                        return_value=['/missing/worker']):
+            self.control.start(self.spec, self.path)
+        self.assert_finished('result')
+
+    def test_stop_during_start_and_close(self):
+        for action in (self.control.stop, self.control.close):
+            self.events.clear()
+            self.start_worker(WorkerStub())
+            action()
+            self.assert_finished('stopped')
 
 
 @unittest.skipIf(QtWidgets is None, 'PySide6 is not installed')
@@ -28,7 +363,7 @@ class BenchmarkInspectorTC(unittest.TestCase):
                    or QtWidgets.QApplication([]))
 
     def setUp(self):
-        self.widget = _benchmark_inspector.BenchmarkInspector()
+        self.widget = _inspector.BenchmarkInspector()
         self.path = self.widget._path
         self.fields = self.widget.fields
         self.set_fields(lhs_shape='2, 3', lhs_strides='-3, 1',
@@ -53,9 +388,8 @@ class BenchmarkInspectorTC(unittest.TestCase):
             QtTest.QTest.qWait(10)
         self.assertFalse(self.widget.control.running)
 
-    def start_script(self, script):
-        script = 'import sys\nsys.stdin.readline()\n' + script
-        command = system.python_command('-c', script)
+    def start_worker(self, worker):
+        command = worker.command()
         with unittest.mock.patch.object(
                 system, 'python_command', return_value=command):
             self.widget.run_button.click()
@@ -213,23 +547,28 @@ class BenchmarkInspectorTC(unittest.TestCase):
         self.assertIn('missing fields', self.widget.error.text())
         self.assertEqual(self.widget.results.summary.text(), snapshot)
 
-    def test_recovery(self):
+    def test_stop_and_close_recovery(self):
         control = self.widget.control
-        for action in ('stop', 'close', 'failure'):
-            with self.subTest(action=action):
-                script = ('sys.exit(1)' if action == 'failure' else
-                          'import time\ntime.sleep(60)')
-                self.start_script(script)
-                if action == 'stop':
-                    control.stop_button.click()
-                elif action == 'close':
-                    self.widget.close()
+        actions = (control.stop_button.click, self.widget.close)
+        for action in actions:
+            with self.subTest(action=action.__name__):
+                self.start_worker(WorkerStub())
+                action()
                 self.wait_for_finish()
                 self.assertTrue(self.widget.inputs.isEnabled())
                 self.assertTrue(self.widget.run_button.isEnabled())
+                self.widget.run_button.click()
+                self.wait_for_finish()
+                self.assertEqual(control.status.text(), 'Completed')
+
+    def test_failure_recovery(self):
+        self.start_worker(WorkerStub(exit_code=1))
+        self.wait_for_finish()
+        self.assertTrue(self.widget.inputs.isEnabled())
+        self.assertTrue(self.widget.run_button.isEnabled())
         self.widget.run_button.click()
         self.wait_for_finish()
-        self.assertEqual(control.status.text(), 'Completed')
+        self.assertEqual(self.widget.control.status.text(), 'Completed')
 
     def test_save(self):
         self.widget.run_button.click()
@@ -255,7 +594,7 @@ class BenchmarkInspectorTC(unittest.TestCase):
 
 
 @unittest.skipIf(QtWidgets is None, 'PySide6 is not installed')
-class BenchmarkResultsTC(unittest.TestCase):
+class ResultViewTC(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.app = (QtWidgets.QApplication.instance()
@@ -265,7 +604,7 @@ class BenchmarkResultsTC(unittest.TestCase):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         self.path = pathlib.Path(self.directory.name) / 'result.json'
-        self.widget = _benchmark_inspector.BenchmarkResults()
+        self.widget = _inspector.ResultView()
         self.addCleanup(self.widget.deleteLater)
         operand = spec.OperandSpec((2, 2), (2, 1))
         request = matmul.MatmulSpec(
@@ -399,10 +738,13 @@ class TimingStatsTC(unittest.TestCase):
         for elapsed_ns, repetitions, expected in cases:
             with self.subTest(elapsed_ns=elapsed_ns):
                 original = elapsed_ns.copy()
-                timing = _benchmark_inspector.TimingStats.from_rounds(
+                timing = _inspector.TimingStats.from_rounds(
                     elapsed_ns, repetitions)
                 self.assertEqual((timing.median, timing.p95), expected)
                 self.assertEqual(elapsed_ns, original)
 
+
+if __name__ == '__main__':
+    sys.exit(WorkerStub(**json.loads(sys.argv[1])).run())
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:

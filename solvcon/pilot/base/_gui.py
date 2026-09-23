@@ -15,7 +15,7 @@ from .. import airfoil
 
 if _pcore.enable:
     from . import _gui_common
-    from .. import _benchmark_inspector
+    from ..benchmark import _inspector
     from ..visual import _mesh
     from ..panel import _tree_panel
     from ..apps import obsrefl
@@ -169,7 +169,7 @@ class _Controller(metaclass=_Singleton):
 
     def _open_benchmark(self):
         if self.benchmark is None:
-            self.benchmark = _benchmark_inspector.BenchmarkInspector()
+            self.benchmark = _inspector.BenchmarkInspector()
             self._rmgr.mdiArea.addSubWindow(self.benchmark)
         self.benchmark.widget().show()
         self.benchmark.show()

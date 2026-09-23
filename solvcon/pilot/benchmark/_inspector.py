@@ -12,7 +12,7 @@ import numpy as np
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from solvcon.benchmark import artifact, matmul, spec
-from . import _benchmark
+from . import _run
 
 
 def _integers(text, name):
@@ -175,7 +175,7 @@ class BenchmarkInspector(QtWidgets.QMdiSubWindow):
         self.error.setWordWrap(True)
         self.error.hide()
         self.run_button = QtWidgets.QPushButton('Run', self)
-        self.control = _benchmark.BenchmarkControl(self)
+        self.control = _run.RunPanel(self)
         self.control.status.setWordWrap(True)
         self.control.layout().setContentsMargins(0, 0, 0, 0)
         self.save_button = QtWidgets.QPushButton('Save result...', self)
@@ -206,7 +206,7 @@ class BenchmarkInspector(QtWidgets.QMdiSubWindow):
         layout.addWidget(self.error)
         layout.addLayout(actions)
         layout.addWidget(self.control)
-        self.results = BenchmarkResults(self)
+        self.results = ResultView(self)
         layout.addWidget(self.results, 1)
         self.setWidget(content)
 
@@ -299,7 +299,7 @@ class BenchmarkInspector(QtWidgets.QMdiSubWindow):
             super().closeEvent(event)
 
 
-class BenchmarkResults(QtWidgets.QWidget):
+class ResultView(QtWidgets.QWidget):
     """Keep displayed results independent of the current input controls."""
 
     HEADERS = ('Kernel', 'Status', 'Max abs diff', 'Relative diff',
