@@ -8,6 +8,7 @@ import time
 import numpy as np
 
 from . import operation
+from . import results
 
 
 _CHUNK_SIZE = 1 << 20
@@ -39,12 +40,7 @@ def _compare_result(execute, name, reference):
     try:
         result = np.atleast_1d(execute(name))
     except execute.unavailable_error as exc:
-        return {
-            'status': 'ineligible',
-            'reason': str(exc),
-            'max_abs_diff': None,
-            'relative_diff': None,
-        }
+        return results.KernelResult(name, 'ineligible', reason=str(exc))
     if result.shape != reference.shape:
         reason = 'shape mismatch'
     elif result.dtype != reference.dtype:
@@ -53,18 +49,10 @@ def _compare_result(execute, name, reference):
         reason = 'non-finite values'
     else:
         max_abs_diff, relative_diff = _difference_metrics(result, reference)
-        return {
-            'status': 'measured',
-            'reason': None,
-            'max_abs_diff': max_abs_diff,
-            'relative_diff': relative_diff,
-        }
-    return {
-        'status': 'invalid',
-        'reason': reason,
-        'max_abs_diff': None,
-        'relative_diff': None,
-    }
+        return results.KernelResult(
+            name, 'measured', max_abs_diff=max_abs_diff,
+            relative_diff=relative_diff)
+    return results.KernelResult(name, 'invalid', reason=reason)
 
 
 def _ignore_progress(phase, name, completed=None, total=None):
@@ -81,24 +69,17 @@ def _compare(spec, execute, progress=_ignore_progress):
         raise RuntimeError('NumPy reference dtype does not match spec')
     if not np.all(np.isfinite(reference)):
         return {
-            name: {
-                'status': 'invalid',
-                'reason': 'non-finite NumPy reference',
-                'max_abs_diff': None,
-                'relative_diff': None,
-            }
+            name: results.KernelResult(
+                name, 'invalid', reason='non-finite NumPy reference')
             for name in spec.kernels + ('numpy',)
         }
     comparison = {}
     for name in spec.kernels:
         progress('comparison', name)
         comparison[name] = _compare_result(execute, name, reference)
-    comparison['numpy'] = {
-        'status': 'measured',
-        'reason': None,
-        'max_abs_diff': 0.0 if reference.size else None,
-        'relative_diff': 0.0 if reference.size else None,
-    }
+    difference = 0.0 if reference.size else None
+    comparison['numpy'] = results.KernelResult(
+        'numpy', 'measured', max_abs_diff=difference, relative_diff=difference)
     return comparison
 
 
@@ -201,19 +182,12 @@ def _collect(spec, clock, progress=_ignore_progress):
     names = spec.kernels + ('numpy',)
     comparison = _compare(spec, execute, progress)
     measured_names = tuple(
-        name for name in names if comparison[name]['status'] == 'measured')
+        name for name in names if comparison[name].status == 'measured')
     round_orders, elapsed_by_name = _time_candidates(
         execute, measured_names, spec.sampling, clock, progress)
-    results = []
-    for name in names:
-        result = {'name': name, **comparison[name]}
-        result['round_elapsed_ns'] = elapsed_by_name.get(name, [])
-        results.append(result)
-    return {
-        'spec': spec.to_dict(),
-        'round_orders': round_orders,
-        'results': results,
-    }
+    for name, result in comparison.items():
+        result.round_elapsed_ns = elapsed_by_name.get(name, [])
+    return results.RunResult(spec, round_orders, list(comparison.values()))
 
 
 def collect(spec, *, progress=_ignore_progress):
@@ -221,6 +195,8 @@ def collect(spec, *, progress=_ignore_progress):
 
     Call progress with (phase, kernel), plus completed and total work units
     during sampling. Each warmup call and timed repetition block is one unit.
+
+    :return: A complete :class:`~solvcon.benchmark.results.RunResult`.
     """
 
     if not isinstance(spec, operation.BenchmarkSpec):

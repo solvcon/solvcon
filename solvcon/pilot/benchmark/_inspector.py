@@ -3,15 +3,13 @@
 
 """Edit, run, and display one exact kernel comparison."""
 
-import dataclasses
 import functools
 import pathlib
 import tempfile
 
-import numpy as np
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from solvcon.benchmark import artifact, matmul, spec
+from solvcon.benchmark import matmul, results, spec
 from . import _run
 
 
@@ -137,7 +135,7 @@ class BenchmarkInspector(QtWidgets.QMdiSubWindow):
         layout.addWidget(self.error)
         layout.addLayout(actions)
         layout.addWidget(self.control)
-        self.results = ResultView(self)
+        self.results = ResultView(self.form.describe, self)
         layout.addWidget(self.results, 1)
         self.setWidget(content)
 
@@ -179,7 +177,8 @@ class BenchmarkInspector(QtWidgets.QMdiSubWindow):
 
     def _completed(self, path):
         try:
-            self.results.load(path)
+            result = results.load_artifact(path)
+            self.results.set_result(result)
         except (OSError, ValueError) as exc:
             self.save_button.setEnabled(False)
             self._show_error(str(exc))
@@ -195,7 +194,7 @@ class BenchmarkInspector(QtWidgets.QMdiSubWindow):
         if not path:
             return
         try:
-            artifact.write_artifact(artifact.load_artifact(self._path), path)
+            results.write_artifact(results.load_artifact(self._path), path)
         except (OSError, ValueError) as exc:
             self._show_error(str(exc))
 
@@ -283,6 +282,14 @@ class MatmulForm:
         """Place the prepared kernel choices after the sampling controls."""
         layout.addRow('Kernels', self._kernel_layout)
 
+    @staticmethod
+    def describe(specification):
+        """Describe saved operands independently of the current controls."""
+        lhs, rhs = specification.lhs, specification.rhs
+        return (f'{specification.dtype}; '
+                f'A {lhs.shape} strides {lhs.strides}; '
+                f'B {rhs.shape} strides {rhs.strides}')
+
     def _build_kernels(self, parent):
         self._kernel_layout = QtWidgets.QGridLayout()
         self.kernels = {}
@@ -332,13 +339,18 @@ class MatmulForm:
 
 
 class ResultView(QtWidgets.QWidget):
-    """Keep displayed results independent of the current input controls."""
+    """Display completed results independently of the current controls.
+
+    :param describe: Format the saved spec as summary text, without reading
+        live input controls.
+    """
 
     HEADERS = ('Kernel', 'Status', 'Max abs diff', 'Relative diff',
                'Median (ns/call)', 'p95 (ns/call)')
 
-    def __init__(self, parent=None):
+    def __init__(self, describe, parent=None):
         super().__init__(parent)
+        self._describe = describe
         self.summary = QtWidgets.QLabel('No completed result', self)
         self.summary.setTextFormat(QtCore.Qt.TextFormat.PlainText)
         self.summary.setWordWrap(True)
@@ -370,15 +382,14 @@ class ResultView(QtWidgets.QWidget):
         layout.addWidget(legend)
         layout.addWidget(splitter, 1)
 
-    def load(self, path):
-        result = artifact.load_artifact(path)
+    def set_result(self, result):
+        """Display a completed :class:`~solvcon.benchmark.results.RunResult`.
+
+        :param result: Validated run, with its saved spec and raw timings.
+        """
         rows = self._make_rows(result)
-        specification = result['spec']
-        lhs, rhs = specification['lhs'], specification['rhs']
         self.summary.setText(
-            f'Last completed result: {specification["dtype"]}; '
-            f'A {tuple(lhs["shape"])} strides {tuple(lhs["strides"])}; '
-            f'B {tuple(rhs["shape"])} strides {tuple(rhs["strides"])}')
+            'Last completed result: ' + self._describe(result.spec))
         self.table.setRowCount(len(rows))
         for index, row in enumerate(rows):
             timing = row['timing']
@@ -397,25 +408,25 @@ class ResultView(QtWidgets.QWidget):
 
     @staticmethod
     def _make_rows(result):
-        sampling = result['spec']['sampling']
-        repetitions = sampling['repetitions']
+        sampling = result.spec.sampling
+        repetitions = sampling.repetitions
+        timings = result.timing_stats()
         rows = []
-        for entry in result['results']:
-            timing = TimingStats.from_rounds(
-                entry['round_elapsed_ns'], repetitions)
-            row = dict(entry, timing=timing)
+        for entry in result.results:
+            timing = timings[entry.name]
+            row = dict(entry.to_dict(), timing=timing)
             row['tooltip'] = (
-                f'{entry["name"]}: {entry["status"]}\n'
+                f'{entry.name}: {entry.status}\n'
                 f'Median: {_format_number(timing.median)} ns/call\n'
                 f'p95: {_format_number(timing.p95)} ns/call\n'
-                f'Max abs diff: {_format_number(entry["max_abs_diff"])}\n'
-                f'Relative diff: {_format_number(entry["relative_diff"])}\n'
-                f'{sampling["rounds"]} rounds, {repetitions} calls/round; '
-                f'{sampling["warmups"]} warmups\n'
+                f'Max abs diff: {_format_number(entry.max_abs_diff)}\n'
+                f'Relative diff: {_format_number(entry.relative_diff)}\n'
+                f'{sampling.rounds} rounds, {repetitions} calls/round; '
+                f'{sampling.warmups} warmups\n'
                 'Percentiles use per-call round averages.'
             )
-            if entry['reason']:
-                row['tooltip'] += f'\n{entry["reason"]}'
+            if entry.reason:
+                row['tooltip'] += f'\n{entry.reason}'
             rows.append(row)
         return rows
 
@@ -511,28 +522,6 @@ class TimingChart(QtWidgets.QWidget):
         self.setToolTip('')
         QtWidgets.QToolTip.hideText()
         super().leaveEvent(event)
-
-
-@dataclasses.dataclass(frozen=True)
-class TimingStats:
-    """Summarize per-call round averages in ns/call.
-
-    :ivar median: Median, or ``None`` when no samples are available.
-    :ivar p95: 95th percentile, or ``None`` when no samples are available.
-    """
-
-    median: float | None = None
-    p95: float | None = None
-
-    @classmethod
-    def from_rounds(cls, elapsed_ns, repetitions):
-        """Summarize validated rounds; no samples yield unavailable timings."""
-        if not elapsed_ns:
-            return cls()
-        samples = np.array(elapsed_ns, dtype='float64')
-        samples /= repetitions
-        median, p95 = np.percentile(samples, [50, 95], method='linear')
-        return cls(float(median), float(p95))
 
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:

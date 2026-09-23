@@ -19,9 +19,9 @@ import numpy as np
 
 import solvcon as sc
 from solvcon import benchmark, system
-from solvcon.benchmark import artifact
 from solvcon.benchmark import collector
 from solvcon.benchmark import matmul
+from solvcon.benchmark import results
 from solvcon.benchmark import spec as benchmark_spec
 from solvcon.benchmark import worker
 
@@ -362,30 +362,14 @@ class MatmulComparisonTC(unittest.TestCase):
         comparison = collector._compare(spec, execute)
 
         self.assertEqual(comparison, {
-            'naive': {
-                'status': 'measured',
-                'reason': None,
-                'max_abs_diff': 0.0,
-                'relative_diff': 0.0,
-            },
-            'blas_gemm': {
-                'status': 'measured',
-                'reason': None,
-                'max_abs_diff': 1.0,
-                'relative_diff': 0.25,
-            },
-            'winograd': {
-                'status': 'ineligible',
-                'reason': 'not eligible',
-                'max_abs_diff': None,
-                'relative_diff': None,
-            },
-            'numpy': {
-                'status': 'measured',
-                'reason': None,
-                'max_abs_diff': 0.0,
-                'relative_diff': 0.0,
-            },
+            'naive': results.KernelResult(
+                'naive', 'measured', max_abs_diff=0.0, relative_diff=0.0),
+            'blas_gemm': results.KernelResult(
+                'blas_gemm', 'measured', max_abs_diff=1.0, relative_diff=0.25),
+            'winograd': results.KernelResult(
+                'winograd', 'ineligible', reason='not eligible'),
+            'numpy': results.KernelResult(
+                'numpy', 'measured', max_abs_diff=0.0, relative_diff=0.0),
         })
         self.assertEqual(
             execute.calls,
@@ -406,10 +390,10 @@ class MatmulComparisonTC(unittest.TestCase):
                 result = collector._compare_result(
                     FakeExecutor({'naive': output}),
                     'naive', expected)
-                self.assertEqual(result['status'], 'invalid')
-                self.assertEqual(result['reason'], reason)
-                self.assertIsNone(result['max_abs_diff'])
-                self.assertIsNone(result['relative_diff'])
+                self.assertEqual(result.status, 'invalid')
+                self.assertEqual(result.reason, reason)
+                self.assertIsNone(result.max_abs_diff)
+                self.assertIsNone(result.relative_diff)
 
     def test_rejects_invalid_numpy_reference(self):
         cases = (
@@ -430,15 +414,10 @@ class MatmulComparisonTC(unittest.TestCase):
 
         comparison = collector._compare(make_spec(kernels=['naive']), execute)
 
-        expected = {
-            'status': 'invalid',
-            'reason': 'non-finite NumPy reference',
-            'max_abs_diff': None,
-            'relative_diff': None,
-        }
         self.assertEqual(comparison, {
-            'naive': expected,
-            'numpy': expected,
+            name: results.KernelResult(
+                name, 'invalid', reason='non-finite NumPy reference')
+            for name in ('naive', 'numpy')
         })
         self.assertEqual(execute.calls, ['numpy'])
 
@@ -455,7 +434,7 @@ class MatmulComparisonTC(unittest.TestCase):
                 with self.assertRaises(type(failure)):
                     collector._compare(make_spec(), execute)
 
-    @unittest.mock.patch.object(matmul, '_CHUNK_SIZE', 1)
+    @unittest.mock.patch.object(collector, '_CHUNK_SIZE', 1)
     def test_reports_zero_complex_and_empty_differences(self):
         cases = (
             (np.zeros(1, dtype='float64'),
@@ -489,12 +468,12 @@ class MatmulComparisonTC(unittest.TestCase):
                     execute._rhs_array, execute._native_rhs.ndarray))
                 comparison = collector._compare(spec, execute)
                 self.assertEqual(
-                    [item['status'] for item in comparison.values()],
+                    [item.status for item in comparison.values()],
                     ['measured', 'measured'],
                 )
                 for item in comparison.values():
-                    self.assertIsInstance(item['max_abs_diff'], float)
-                    self.assertIsInstance(item['relative_diff'], float)
+                    self.assertIsInstance(item.max_abs_diff, float)
+                    self.assertIsInstance(item.relative_diff, float)
 
     def test_checks_operand_roles_and_broadcast_batches(self):
         cases = (
@@ -513,7 +492,7 @@ class MatmulComparisonTC(unittest.TestCase):
                 comparison = collector._compare(
                     spec, spec.make_executor())
                 self.assertEqual(
-                    [item['status'] for item in comparison.values()],
+                    [item.status for item in comparison.values()],
                     ['measured', 'measured'],
                 )
 
@@ -532,13 +511,13 @@ class MatmulComparisonTC(unittest.TestCase):
                                  tuple(lhs['strides']))
                 comparison = collector._compare(spec, execute)
                 self.assertEqual(
-                    [item['status'] for item in comparison.values()],
+                    [item.status for item in comparison.values()],
                     ['measured', 'measured'],
                 )
                 if lhs['shape'][0] == 0:
                     for item in comparison.values():
-                        self.assertIsNone(item['max_abs_diff'])
-                        self.assertIsNone(item['relative_diff'])
+                        self.assertIsNone(item.max_abs_diff)
+                        self.assertIsNone(item.relative_diff)
 
     def test_marks_real_ineligible_kernel(self):
         spec = make_spec(kernels=['naive', 'winograd'])
@@ -546,7 +525,7 @@ class MatmulComparisonTC(unittest.TestCase):
         comparison = collector._compare(spec, spec.make_executor())
 
         self.assertEqual(
-            [item['status'] for item in comparison.values()],
+            [item.status for item in comparison.values()],
             ['measured', 'ineligible', 'measured'],
         )
 
@@ -571,15 +550,14 @@ class MatmulTimingTC(unittest.TestCase):
         prepare.assert_called_once_with()
 
         names = ('naive', 'blas_gemm', 'winograd', 'numpy')
-        round_orders = comparison['round_orders']
+        round_orders = comparison.round_orders
         expected_rows = collector._williams_rows(names)
         self.assertEqual(round_orders, [list(row) for row in expected_rows])
-        by_name = {result['name']: result for result in comparison['results']}
+        by_name = {result.name: result for result in comparison.results}
         for name in names:
-            self.assertEqual(by_name[name]['status'], 'measured')
-            self.assertEqual(
-                by_name[name]['round_elapsed_ns'], [100] * 4)
-        self.assertEqual(by_name['blas_gemm']['max_abs_diff'], 1.0)
+            self.assertEqual(by_name[name].status, 'measured')
+            self.assertEqual(by_name[name].round_elapsed_ns, [100] * 4)
+        self.assertEqual(by_name['blas_gemm'].max_abs_diff, 1.0)
 
         comparison_calls = ['numpy', 'naive', 'blas_gemm', 'winograd']
         warmup_calls = ['numpy', 'naive', 'winograd', 'blas_gemm']
@@ -678,13 +656,12 @@ class MatmulTimingTC(unittest.TestCase):
         self.assertEqual(set(totals), {4})
         self.assertEqual(set(names), {'naive', 'numpy'})
 
-        by_name = {result['name']: result for result in comparison['results']}
-        self.assertEqual(by_name['blas_gemm']['status'], 'invalid')
-        self.assertEqual(by_name['blas_gemm']['round_elapsed_ns'], [])
-        self.assertEqual(by_name['winograd']['status'], 'ineligible')
-        self.assertEqual(by_name['winograd']['round_elapsed_ns'], [])
-        self.assertEqual(
-            comparison['round_orders'], [['naive', 'numpy']])
+        by_name = {result.name: result for result in comparison.results}
+        self.assertEqual(by_name['blas_gemm'].status, 'invalid')
+        self.assertEqual(by_name['blas_gemm'].round_elapsed_ns, [])
+        self.assertEqual(by_name['winograd'].status, 'ineligible')
+        self.assertEqual(by_name['winograd'].round_elapsed_ns, [])
+        self.assertEqual(comparison.round_orders, [['naive', 'numpy']])
         self.assertEqual(collections.Counter(execute.calls), {
             'numpy': 4,
             'naive': 4,
@@ -715,22 +692,22 @@ class MatmulTimingTC(unittest.TestCase):
                         spec, StepClock(), lambda *args: progress.append(args))
                 self.assertEqual(progress[-1], (stage, kernel, 0, total))
 
-    def test_collect_returns_json_data(self):
+    def test_collect_returns_result_model(self):
         spec = make_spec(
             kernels=['naive'],
             sampling={'warmups': 0, 'repetitions': 1, 'rounds': 2},
         )
 
-        comparison = benchmark.collector.collect(spec)
+        result = benchmark.collector.collect(spec)
+        self.assertIsInstance(result, results.RunResult)
 
-        self.assertEqual(comparison['spec'], spec.to_dict())
-        self.assertEqual(len(comparison['round_orders']), 2)
-        for result in comparison['results']:
-            self.assertEqual(result['status'], 'measured')
-            elapsed = result['round_elapsed_ns']
+        self.assertEqual(result.spec, spec)
+        self.assertEqual(len(result.round_orders), 2)
+        for entry in result.results:
+            self.assertEqual(entry.status, 'measured')
+            elapsed = entry.round_elapsed_ns
             self.assertEqual(len(elapsed), 2)
             self.assertTrue(all(isinstance(value, int) for value in elapsed))
-        json.dumps(comparison)
 
     def test_collect_requires_spec_interface(self):
         with self.assertRaisesRegex(TypeError, 'BenchmarkSpec'):
@@ -768,16 +745,68 @@ def make_comparison():
     }
 
 
-class ArtifactTC(unittest.TestCase):
+class TimingStatsTC(unittest.TestCase):
+    def test_per_call_percentiles(self):
+        cases = (([1200, 400, 800], 4, (200.0, 290.0)),
+                 ([10, 30], 4, (5.0, 7.25)),
+                 ([80], 5, (16.0, 16.0)),
+                 ([0, 0], 4, (0.0, 0.0)),
+                 ([], 4, (None, None)))
+        for elapsed_ns, repetitions, expected in cases:
+            with self.subTest(elapsed_ns=elapsed_ns):
+                original = elapsed_ns.copy()
+                timing = results.TimingStats.from_rounds(
+                    elapsed_ns, repetitions)
+                self.assertEqual((timing.median, timing.p95), expected)
+                self.assertEqual(elapsed_ns, original)
+
+
+class ResultsTC(unittest.TestCase):
     def test_round_trip(self):
         document = make_comparison()
+        result = results.RunResult.from_dict(document)
         with tempfile.TemporaryDirectory() as dirname:
             path = pathlib.Path(dirname) / 'nested' / 'result.json'
-            written = artifact.write_artifact(document, path)
-            loaded = artifact.load_artifact(path)
+            written = results.write_artifact(result, path)
+            loaded = results.load_artifact(path)
 
         self.assertEqual(written, path)
-        self.assertEqual(loaded, document)
+        self.assertEqual(loaded.to_dict(), document)
+
+    def test_model_owns_result_data(self):
+        document = make_comparison()
+        result = results.RunResult.from_dict(document)
+        document['results'][0]['round_elapsed_ns'][0] = 99
+        document['round_orders'][0].reverse()
+        self.assertEqual(result.to_dict(), make_comparison())
+
+        exported = result.to_dict()
+        exported['results'][0]['round_elapsed_ns'][0] = 99
+        exported['round_orders'][0].reverse()
+        self.assertEqual(result.to_dict(), make_comparison())
+
+    def test_timing_stats_uses_saved_sampling(self):
+        document = make_comparison()
+        document['spec']['sampling']['repetitions'] = 2
+        result = results.RunResult.from_dict(document)
+
+        self.assertEqual(result.timing_stats(), {
+            'naive': results.TimingStats(5.25, 5.475),
+            'winograd': results.TimingStats(),
+            'numpy': results.TimingStats(6.25, 6.475),
+        })
+
+    def test_rejects_incomplete_model_before_writing(self):
+        result = results.RunResult.from_dict(make_comparison())
+        with tempfile.TemporaryDirectory() as dirname:
+            path = pathlib.Path(dirname) / 'result.json'
+            results.write_artifact(result, path)
+            original = path.read_bytes()
+            result.results[0].round_elapsed_ns.pop()
+            with self.assertRaisesRegex(results.ArtifactError, 'per round'):
+                results.write_artifact(result, path)
+            self.assertEqual(path.read_bytes(), original)
+            self.assertEqual(list(path.parent.iterdir()), [path])
 
     def test_rejects_inconsistent_artifact_data(self):
         mutations = (
@@ -798,8 +827,8 @@ class ArtifactTC(unittest.TestCase):
             with self.subTest(mutate=mutate):
                 document = make_comparison()
                 mutate(document)
-                with self.assertRaises(artifact.ArtifactError):
-                    artifact.validate_artifact(document)
+                with self.assertRaises(results.ArtifactError):
+                    results.RunResult.from_dict(document)
 
     def test_rejects_measured_kernel_when_numpy_is_invalid(self):
         document = make_comparison()
@@ -811,22 +840,24 @@ class ArtifactTC(unittest.TestCase):
         for order in document['round_orders']:
             order.remove('numpy')
 
-        with self.assertRaisesRegex(artifact.ArtifactError, 'NumPy'):
-            artifact.validate_artifact(document)
+        with self.assertRaisesRegex(results.ArtifactError, 'NumPy'):
+            results.RunResult.from_dict(document)
 
     def test_failed_replace_preserves_existing_artifact(self):
         original = make_comparison()
         replacement = copy.deepcopy(original)
         replacement['results'][0]['round_elapsed_ns'][0] = 99
+        original = results.RunResult.from_dict(original)
+        replacement = results.RunResult.from_dict(replacement)
         with tempfile.TemporaryDirectory() as dirname:
             path = pathlib.Path(dirname) / 'result.json'
-            artifact.write_artifact(original, path)
+            results.write_artifact(original, path)
             with unittest.mock.patch.object(
-                    artifact.os, 'replace', side_effect=OSError('failed')):
+                    results.os, 'replace', side_effect=OSError('failed')):
                 with self.assertRaisesRegex(OSError, 'failed'):
-                    artifact.write_artifact(replacement, path)
+                    results.write_artifact(replacement, path)
 
-            self.assertEqual(artifact.load_artifact(path), original)
+            self.assertEqual(results.load_artifact(path), original)
             self.assertEqual(list(path.parent.iterdir()), [path])
 
     def test_load_validates(self):
@@ -836,8 +867,8 @@ class ArtifactTC(unittest.TestCase):
             path = pathlib.Path(dirname) / 'result.json'
             path.write_text(json.dumps(document), encoding='ascii')
 
-            with self.assertRaisesRegex(artifact.ArtifactError, 'finite'):
-                artifact.load_artifact(path)
+            with self.assertRaisesRegex(results.ArtifactError, 'finite'):
+                results.load_artifact(path)
 
 
 def make_request(output_path):
@@ -935,7 +966,7 @@ class BenchmarkWorkerTC(unittest.TestCase):
             self.assertEqual(events[-1], {
                 'type': 'result', 'artifact_path': str(path),
             })
-            document = artifact.load_artifact(path)
+            document = results.load_artifact(path).to_dict()
             self.assertEqual(document['spec'], request['spec'])
 
 
@@ -961,6 +992,5 @@ class BenchmarkProgressTC(unittest.TestCase):
         ])
         self.assertEqual(orders, [['naive']])
         self.assertEqual(elapsed, {'naive': [100]})
-
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:

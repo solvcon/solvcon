@@ -1,15 +1,15 @@
 # Copyright (c) 2026, solvcon team <contact@solvcon.net>
 # BSD 3-Clause License, see COPYING
 
-"""Execute one matmul benchmark through a JSON-lines protocol."""
+"""Execute one benchmark through a JSON-lines protocol."""
 
 import functools
 import json
 import sys
 
-from . import artifact
 from . import collector
 from . import operation
+from . import results
 from . import spec as benchmark_spec
 
 
@@ -51,7 +51,7 @@ def run(stdin, stdout):
         progress('preparing')
         comparison = collector.collect(specification, progress=progress)
         progress('finishing')
-        artifact_path = artifact.write_artifact(comparison, output_path)
+        artifact_path = results.write_artifact(comparison, output_path)
         _emit({
             'type': 'result',
             'artifact_path': str(artifact_path),
