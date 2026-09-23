@@ -498,6 +498,12 @@ class WorldStateStampTC(unittest.TestCase):
     def test_every_way_of_adding_geometry_moves_it(self):
         # A reader compares the stamp instead of the geometry, so anything the
         # canvas would draw differently has to move it.
+        p = solvcon.Point3dFp64
+        path_segments = solvcon.SegmentPadFp64(ndim=2)
+        path_segments.append(solvcon.Segment3dFp64(p(0, 0, 0), p(1, 0, 0)))
+        path_curves = solvcon.CurvePadFp64(ndim=2)
+        path_curves.append(p0=p(1, 0, 0), p1=p(1, 1, 0), p2=p(0, 1, 0),
+                           p3=p(0, 0, 0))
         for name, act in (
                 ("point", lambda: self.w.add_point(0, 0, 0)),
                 ("segment", lambda: self.w.add_segment(
@@ -515,7 +521,9 @@ class WorldStateStampTC(unittest.TestCase):
                 ("circle", lambda: self.w.add_circle(0, 0, 1)),
                 ("polyline", lambda: self.w.add_polyline([[0, 0], [1, 1]])),
                 ("polygon", lambda: self.w.add_polygon(
-                    [[0, 0], [1, 0], [1, 1]]))):
+                    [[0, 0], [1, 0], [1, 1]])),
+                ("path", lambda: self.w.add_path(segments=path_segments,
+                                                 curves=path_curves))):
             with self.subTest(name=name):
                 self.assertTrue(self._changed_by(act))
 
@@ -983,6 +991,105 @@ class WorldBezierShapeTC(unittest.TestCase):
         self.w.remove_shape(sid)
         self.assertEqual(self.w.nshape, 0)
         self.assertEqual(len(self.w.query_visible(-1, -1, 5, 5)), 0)
+
+
+class WorldPathTC(unittest.TestCase):
+    """add_path: one shape owning both straight segments and cubic Beziers,
+    as an SVG <path> produces."""
+
+    def setUp(self):
+        self.w = solvcon.WorldFp64()
+
+    @staticmethod
+    def _segments(ndim=2):
+        p = solvcon.Point3dFp64
+        pad = solvcon.SegmentPadFp64(ndim=ndim)
+        pad.append(solvcon.Segment3dFp64(p(0, 0, 0), p(2, 0, 0)))
+        pad.append(solvcon.Segment3dFp64(p(2, 0, 0), p(2, 1, 0)))
+        return pad
+
+    @staticmethod
+    def _curves(ndim=2):
+        p = solvcon.Point3dFp64
+        pad = solvcon.CurvePadFp64(ndim=ndim)
+        pad.append(p0=p(2, 1, 0), p1=p(2, 3, 0), p2=p(0, 3, 0),
+                   p3=p(0, 0, 0))
+        return pad
+
+    def _add_a_path(self, ndim=2):
+        return self.w.add_path(segments=self._segments(ndim),
+                               curves=self._curves(ndim))
+
+    def test_add_path(self):
+        sid = self._add_a_path()
+        self.assertEqual(self.w.shape_type_of(sid), "path")
+        self.assertEqual(self.w.nshape, 1)
+        self.assertEqual(self.w.nsegment, 2)
+        self.assertEqual(self.w.nbezier, 1)
+        s = self.w.segment(1)
+        self.assertEqual((s.x0, s.y0, s.x1, s.y1), (2, 0, 2, 1))
+        b = self.w.bezier(0)
+        self.assertEqual((b[1][0], b[1][1]), (2, 3))
+
+    def test_accepts_3d_pads(self):
+        sid = self._add_a_path(ndim=3)
+        self.assertEqual(self.w.shape_type_of(sid), "path")
+
+    def test_both_pads_are_required(self):
+        with self.assertRaises(TypeError):
+            self.w.add_path(segments=self._segments())
+        with self.assertRaises(TypeError):
+            self.w.add_path(curves=self._curves())
+        self.assertEqual(self.w.nshape, 0)
+
+    def test_segments_or_curves_only(self):
+        # It is needed to pass an empty CurvePad if a path has only segments.
+        empty_cpad = solvcon.CurvePadFp64(ndim=2)
+        sid = self.w.add_path(segments=self._segments(), curves=empty_cpad)
+        self.assertEqual(self.w.shape_type_of(sid), "path")
+
+        # It is needed to pass an empty SegmentPad if a path has only curves.
+        empty_spad = solvcon.SegmentPadFp64(ndim=2)
+        sid = self.w.add_path(segments=empty_spad, curves=self._curves())
+        self.assertEqual(self.w.shape_type_of(sid), "path")
+        self.assertEqual(self.w.nshape, 2)
+
+    def test_empty_path_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "at least one segment"):
+            self.w.add_path(segments=solvcon.SegmentPadFp64(ndim=2),
+                            curves=solvcon.CurvePadFp64(ndim=2))
+        self.assertEqual(self.w.nshape, 0)
+
+    def test_bbox_spans_segments_and_curve_controls(self):
+        sid = self._add_a_path()
+        self.assertEqual(self.w.shape_bbox(sid), [0, 0, 2, 3])
+
+    def test_translate_moves_segments_and_curves(self):
+        sid = self._add_a_path()
+        self.w.translate_shape(sid, 10, 20)
+        s = self.w.segment(0)
+        self.assertEqual((s.x0, s.y0), (10, 20))
+        b = self.w.bezier(0)
+        self.assertEqual((b[3][0], b[3][1]), (10, 20))
+
+    def test_undo_and_redo(self):
+        sid = self._add_a_path()
+        self.w.undo()
+        self.assertFalse(self.w.shape_is_live(sid))
+        self.w.redo()
+        self.assertEqual(self.w.shape_type_of(sid), "path")
+
+    def test_describe_state(self):
+        sid = self._add_a_path()
+        state = json.loads(self.w.describe_state())
+        self.assertEqual(len(state["shapes"]), 1)
+        shape = state["shapes"][0]
+        self.assertEqual(shape["id"], sid)
+        self.assertEqual(shape["type"], "path")
+        self.assertEqual(shape["segments"], [[0, 0, 2, 0], [2, 0, 2, 1]])
+        self.assertEqual(len(shape["curves"]), 1)
+        self.assertEqual(state["segments"], [])
+        self.assertEqual(state["curves"], [])
 
 
 class WorldDescribeStateTC(unittest.TestCase):
