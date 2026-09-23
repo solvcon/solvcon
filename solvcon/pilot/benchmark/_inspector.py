@@ -1,7 +1,7 @@
 # Copyright (c) 2026, solvcon team <contact@solvcon.net>
 # BSD 3-Clause License, see COPYING
 
-"""Edit, run, and display one exact matmul comparison."""
+"""Edit, run, and display one exact kernel comparison."""
 
 import dataclasses
 import functools
@@ -39,30 +39,11 @@ class BenchmarkInspector(QtWidgets.QMdiSubWindow):
         self._closing = False
         self._build_inputs()
         self._build_controls()
-        self.dtype.currentTextChanged.connect(self._update_kernels)
-        for name in ('lhs_shape', 'lhs_strides', 'rhs_shape', 'rhs_strides'):
-            self.fields[name].textChanged.connect(self._update_kernels)
-        self._update_kernels()
         self.resize(1000, 850)
 
     def make_spec(self):
-        inputs = self._matmul_inputs()
-        kernels = tuple(name for name, box in self.kernels.items()
-                        if box.isChecked())
-        return matmul.MatmulSpec(
-            inputs.lhs, inputs.rhs, inputs.dtype, self._sampling(), kernels)
-
-    def _matmul_inputs(self):
-        operands = []
-        for name in ('lhs', 'rhs'):
-            shape = _integers(self.fields[f'{name}_shape'].text(),
-                              f'{name} shape')
-            strides = _integers(self.fields[f'{name}_strides'].text(),
-                                f'{name} strides')
-            operands.append(spec.OperandSpec(shape, strides))
-        return matmul.MatmulInputs(
-            lhs=operands[0], rhs=operands[1],
-            dtype=self.dtype.currentText())
+        """Read validated inputs and sampling without allocating operands."""
+        return self.form.make_spec(self._sampling())
 
     def _sampling(self):
         return spec.Sampling(**{
@@ -77,37 +58,19 @@ class BenchmarkInspector(QtWidgets.QMdiSubWindow):
 
     def _build_inputs(self):
         self.inputs = QtWidgets.QWidget(self)
-        form = QtWidgets.QFormLayout(self.inputs)
-        form.setContentsMargins(0, 0, 0, 0)
-        form.setFormAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
-        form.setFieldGrowthPolicy(
+        layout = QtWidgets.QFormLayout(self.inputs)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setFormAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
+        layout.setFieldGrowthPolicy(
             QtWidgets.QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
-        self.dtype = QtWidgets.QComboBox(self.inputs)
-        self.dtype.addItems(matmul.MATMUL_DTYPES)
-        self.dtype.setCurrentText('float64')
-        self.dtype.setToolTip('Element type for both inputs and the result.')
+        self.form = MatmulForm(layout)
         self.fields = {
             name: QtWidgets.QLineEdit(value, self.inputs)
             for name, value in (
-                ('lhs_shape', '64, 64'), ('lhs_strides', '64, 1'),
-                ('rhs_shape', '64, 64'), ('rhs_strides', '64, 1'),
                 ('threads', '1'), ('warmups', '2'),
                 ('repetitions', '5'), ('rounds', '5'))
         }
-        form.addRow('Data type', self.dtype)
-        for name, label in (('lhs', 'A'), ('rhs', 'B')):
-            form.addRow(f'{label} shape', self.fields[f'{name}_shape'])
-            form.addRow(f'{label} element strides',
-                        self.fields[f'{name}_strides'])
-        form.addRow('Worker threads', self.fields['threads'])
-
-        for name in ('lhs_shape', 'rhs_shape'):
-            self.fields[name].setToolTip(
-                'Full shape, including batch axes: e.g. 2, 32, 64.')
-        for name in ('lhs_strides', 'rhs_strides'):
-            self.fields[name].setToolTip(
-                'One stride per axis, in elements. Negative and zero '
-                'strides are allowed. Values are used exactly as entered.')
+        layout.addRow('Worker threads', self.fields['threads'])
         self.fields['threads'].setToolTip(
             'Requested BLAS/OpenMP threads in the worker. Libraries may '
             'use fewer threads. Pilot keeps its current thread settings.')
@@ -130,46 +93,14 @@ class BenchmarkInspector(QtWidgets.QMdiSubWindow):
         self.sampling_help = QtWidgets.QLabel(self.inputs)
         self.sampling_help.setWordWrap(True)
         sampling.addWidget(self.sampling_help, 2, 0, 1, 3)
-        form.addRow('Sampling', sampling)
+        layout.addRow('Sampling', sampling)
         self._update_help()
-        self._build_kernels(form)
-
-    def _build_kernels(self, form):
-        layout = QtWidgets.QGridLayout()
-        self.kernels = {}
-        self._kernel_choices = {}
-        self._kernel_tooltips = {}
-        choices = (
-            ('naive', 'Naive', 'Direct native loop for any valid input.'),
-            ('blas_dot', 'BLAS DOT', 'Vector @ vector.'),
-            ('blas_gevm', 'BLAS GEVM', 'Vector @ matrix.'),
-            ('blas_gemv', 'BLAS GEMV', 'Matrix @ vector.'),
-            ('blas_gemm', 'BLAS GEMM', 'Matrix @ matrix, including batches.'),
-            ('winograd', 'Winograd', 'Unbatched matrices with positive, '
-             'even M, K and N.'))
-        for index, (name, label, tooltip) in enumerate(choices):
-            box = QtWidgets.QCheckBox(label, self.inputs)
-            if name != 'naive':
-                tooltip += ' Requires a supported dtype and BLAS backend.'
-            box.setToolTip(tooltip)
-            box.setChecked(True)
-            self._kernel_choices[name] = True
-            self._kernel_tooltips[name] = tooltip
-            box.toggled.connect(functools.partial(self._remember_kernel, name))
-            layout.addWidget(box, index // 3, index % 3)
-            self.kernels[name] = box
-        form.addRow('Kernels', layout)
-        kernel_help = QtWidgets.QLabel(
-            'NumPy is always included for timing and numerical comparison. '
-            'Unavailable kernels are disabled; hover for the reason.',
-            self.inputs)
-        kernel_help.setWordWrap(True)
-        layout.addWidget(kernel_help, 2, 0, 1, 3)
+        self.form.add_kernels(layout)
 
     def _build_controls(self):
         self.operation = QtWidgets.QComboBox(self)
-        self.operation.addItem('Matmul', 'matmul')
-        self.operation.setToolTip('Currently supports Matmul.')
+        self.operation.addItem(self.form.LABEL, self.form.OPERATION)
+        self.operation.setToolTip(f'Currently supports {self.form.LABEL}.')
         self.error = QtWidgets.QLabel(self)
         self.error.setTextFormat(QtCore.Qt.TextFormat.PlainText)
         self.error.setWordWrap(True)
@@ -223,24 +154,6 @@ class BenchmarkInspector(QtWidgets.QMdiSubWindow):
                 'NumPy uses the same schedule.')
         self.sampling_help.setText(text)
 
-    def _update_kernels(self):
-        try:
-            reasons = self._matmul_inputs().kernel_eligibility()
-        except ValueError as exc:
-            reasons = dict.fromkeys(self.kernels, str(exc))
-        for name, box in self.kernels.items():
-            reason = reasons[name]
-            with QtCore.QSignalBlocker(box):
-                box.setEnabled(reason is None)
-                box.setChecked(reason is None and self._kernel_choices[name])
-            tooltip = self._kernel_tooltips[name]
-            if reason is not None:
-                tooltip += '\nUnavailable: ' + reason
-            box.setToolTip(tooltip)
-
-    def _remember_kernel(self, name, checked):
-        self._kernel_choices[name] = checked
-
     def _run(self):
         if self.control.running:
             return
@@ -275,8 +188,9 @@ class BenchmarkInspector(QtWidgets.QMdiSubWindow):
 
     def _save(self):
         self._show_error('')
+        filename = f'{self.form.OPERATION}-result.json'
         path, _ = QtWidgets.QFileDialog.getSaveFileName(
-            self, 'Save benchmark result', 'matmul-result.json',
+            self, 'Save benchmark result', filename,
             'JSON files (*.json)')
         if not path:
             return
@@ -297,6 +211,124 @@ class BenchmarkInspector(QtWidgets.QMdiSubWindow):
         else:
             self._closing = False
             super().closeEvent(event)
+
+
+class MatmulForm:
+    """Prepare Matmul controls within the inspector's shared form layout.
+
+    Kernel choices and eligibility are ready after construction.
+    :meth:`add_kernels` places them after the shared sampling controls.
+    """
+
+    LABEL = 'Matmul'
+    OPERATION = matmul.MatmulSpec.OPERATION
+    KERNEL_INFO = {
+        'naive': ('Naive', 'Direct native loop for any valid input.'),
+        'blas_dot': ('BLAS DOT', 'Vector @ vector.'),
+        'blas_gevm': ('BLAS GEVM', 'Vector @ matrix.'),
+        'blas_gemv': ('BLAS GEMV', 'Matrix @ vector.'),
+        'blas_gemm': ('BLAS GEMM', 'Matrix @ matrix, including batches.'),
+        'winograd': (
+            'Winograd', 'Unbatched matrices with positive, even M, K and N.'),
+    }
+
+    def __init__(self, layout):
+        parent = layout.parentWidget()
+        self.dtype = QtWidgets.QComboBox(parent)
+        self.dtype.addItems(matmul.MATMUL_DTYPES)
+        self.dtype.setCurrentText('float64')
+        self.dtype.setToolTip('Element type for both inputs and the result.')
+        self.fields = {
+            name: QtWidgets.QLineEdit(value, parent)
+            for name, value in (
+                ('lhs_shape', '64, 64'), ('lhs_strides', '64, 1'),
+                ('rhs_shape', '64, 64'), ('rhs_strides', '64, 1'))
+        }
+        layout.addRow('Data type', self.dtype)
+        for name, label in (('lhs', 'A'), ('rhs', 'B')):
+            shape = self.fields[f'{name}_shape']
+            strides = self.fields[f'{name}_strides']
+            layout.addRow(f'{label} shape', shape)
+            layout.addRow(f'{label} element strides', strides)
+            shape.setToolTip(
+                'Full shape, including batch axes: e.g. 2, 32, 64.')
+            strides.setToolTip(
+                'One stride per axis, in elements. Negative and zero '
+                'strides are allowed. Values are used exactly as entered.')
+        self._build_kernels(parent)
+
+    def make_spec(self, sampling):
+        """Combine Matmul inputs with shared sampling."""
+        inputs = self.make_inputs()
+        kernels = tuple(name for name, box in self.kernels.items()
+                        if box.isChecked())
+        return matmul.MatmulSpec(
+            lhs=inputs.lhs, rhs=inputs.rhs, dtype=inputs.dtype,
+            sampling=sampling, kernels=kernels)
+
+    def make_inputs(self):
+        """Read exact operand metadata without preparing arrays."""
+        operands = []
+        for name in ('lhs', 'rhs'):
+            shape = _integers(self.fields[f'{name}_shape'].text(),
+                              f'{name} shape')
+            strides = _integers(self.fields[f'{name}_strides'].text(),
+                                f'{name} strides')
+            operands.append(spec.OperandSpec(shape, strides))
+        return matmul.MatmulInputs(
+            lhs=operands[0], rhs=operands[1],
+            dtype=self.dtype.currentText())
+
+    def add_kernels(self, layout):
+        """Place the prepared kernel choices after the sampling controls."""
+        layout.addRow('Kernels', self._kernel_layout)
+
+    def _build_kernels(self, parent):
+        self._kernel_layout = QtWidgets.QGridLayout()
+        self.kernels = {}
+        self._kernel_choices = {}
+        self._kernel_tooltips = {}
+        for index, name in enumerate(matmul.MATMUL_KERNELS):
+            label, tooltip = self.KERNEL_INFO[name]
+            box = QtWidgets.QCheckBox(label, parent)
+            if name != 'naive':
+                tooltip += ' Requires a supported dtype and BLAS backend.'
+            box.setToolTip(tooltip)
+            box.setChecked(True)
+            self._kernel_choices[name] = True
+            self._kernel_tooltips[name] = tooltip
+            box.toggled.connect(functools.partial(self._remember_kernel, name))
+            self._kernel_layout.addWidget(box, index // 3, index % 3)
+            self.kernels[name] = box
+        kernel_help = QtWidgets.QLabel(
+            'NumPy is always included for timing and numerical comparison. '
+            'Unavailable kernels are disabled; hover for the reason.',
+            parent)
+        kernel_help.setWordWrap(True)
+        self._kernel_layout.addWidget(kernel_help, 2, 0, 1, 3)
+
+        self.dtype.currentTextChanged.connect(self._update_kernels)
+        for field in self.fields.values():
+            field.textChanged.connect(self._update_kernels)
+        self._update_kernels()
+
+    def _update_kernels(self):
+        try:
+            reasons = self.make_inputs().kernel_eligibility()
+        except ValueError as exc:
+            reasons = dict.fromkeys(self.kernels, str(exc))
+        for name, box in self.kernels.items():
+            reason = reasons[name]
+            with QtCore.QSignalBlocker(box):
+                box.setEnabled(reason is None)
+                box.setChecked(reason is None and self._kernel_choices[name])
+            tooltip = self._kernel_tooltips[name]
+            if reason is not None:
+                tooltip += '\nUnavailable: ' + reason
+            box.setToolTip(tooltip)
+
+    def _remember_kernel(self, name, checked):
+        self._kernel_choices[name] = checked
 
 
 class ResultView(QtWidgets.QWidget):

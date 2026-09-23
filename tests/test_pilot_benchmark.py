@@ -365,11 +365,11 @@ class BenchmarkInspectorTC(unittest.TestCase):
     def setUp(self):
         self.widget = _inspector.BenchmarkInspector()
         self.path = self.widget._path
-        self.fields = self.widget.fields
+        self.fields = {**self.widget.fields, **self.widget.form.fields}
         self.set_fields(lhs_shape='2, 3', lhs_strides='-3, 1',
                         rhs_shape='3, 2', rhs_strides='0, 1',
                         warmups='0', repetitions='1', rounds='1')
-        for name, box in self.widget.kernels.items():
+        for name, box in self.widget.form.kernels.items():
             box.setChecked(name == 'naive')
 
     def tearDown(self):
@@ -398,8 +398,8 @@ class BenchmarkInspectorTC(unittest.TestCase):
         self.set_fields(lhs_shape='2, 4, 3', lhs_strides='20, -5, 0',
                         rhs_shape='1, 3, 2', rhs_strides='0, 4, 1',
                         warmups='0', repetitions=str(2**32), rounds='7')
-        self.widget.dtype.setCurrentText('complex64')
-        self.widget.kernels['blas_gemm'].setChecked(True)
+        self.widget.form.dtype.setCurrentText('complex64')
+        self.widget.form.kernels['blas_gemm'].setChecked(True)
         self.assertEqual(self.widget.operation.count(), 1)
         self.assertEqual(self.widget.operation.currentText(), 'Matmul')
         self.assertEqual(self.widget.make_spec().to_dict(), {
@@ -408,6 +408,19 @@ class BenchmarkInspectorTC(unittest.TestCase):
             'rhs': {'shape': [1, 3, 2], 'strides': [0, 4, 1]},
             'sampling': {'warmups': 0, 'repetitions': 2**32, 'rounds': 7},
             'kernels': ['naive', 'blas_gemm']})
+
+    def test_form_is_ready_before_kernel_placement(self):
+        inputs = QtWidgets.QWidget()
+        self.addCleanup(inputs.deleteLater)
+        layout = QtWidgets.QFormLayout(inputs)
+        form = _inspector.MatmulForm(layout)
+        sampling = spec.Sampling(0, 1, 1)
+
+        request = form.make_spec(sampling)
+        self.assertIn('naive', request.kernels)
+        self.assertNotIn('blas_dot', request.kernels)
+        form.add_kernels(layout)
+        self.assertEqual(form.make_spec(sampling), request)
 
     def test_uncapped_shapes(self):
         for extent, stride in ((0, 0), (2**32, -1)):
@@ -433,7 +446,7 @@ class BenchmarkInspectorTC(unittest.TestCase):
     def test_kernel_recovery(self):
         self.set_fields(lhs_shape='2, 4', lhs_strides='4, 1',
                         rhs_shape='4, 2', rhs_strides='2, 1')
-        boxes = self.widget.kernels
+        boxes = self.widget.form.kernels
         winograd = boxes['winograd']
         if not winograd.isEnabled():
             self.skipTest('BLAS backend is not available')
@@ -454,7 +467,7 @@ class BenchmarkInspectorTC(unittest.TestCase):
         self.set_fields(lhs_strides='-4, 0')
         self.assertTrue(winograd.isChecked())
         self.assertFalse(boxes['blas_gemm'].isChecked())
-        self.widget.dtype.setCurrentText('complex64')
+        self.widget.form.dtype.setCurrentText('complex64')
         self.assertTrue(winograd.isChecked())
         self.widget.run_button.click()
         self.wait_for_finish()
@@ -465,7 +478,7 @@ class BenchmarkInspectorTC(unittest.TestCase):
     def test_kernel_rank_and_invalid_input(self):
         self.set_fields(lhs_shape='4', lhs_strides='-1',
                         rhs_shape='4', rhs_strides='0')
-        boxes = self.widget.kernels
+        boxes = self.widget.form.kernels
         self.assertFalse(boxes['blas_gemm'].isEnabled())
         if boxes['blas_dot'].isEnabled():
             boxes['blas_dot'].setChecked(True)
@@ -501,7 +514,7 @@ class BenchmarkInspectorTC(unittest.TestCase):
                 self.assertFalse(self.path.exists())
                 self.assertTrue(self.widget.run_button.isEnabled())
                 self.fields[field].setText(previous)
-        self.widget.kernels['naive'].setChecked(False)
+        self.widget.form.kernels['naive'].setChecked(False)
         self.widget.run_button.click()
         self.assertEqual(self.widget.error.text(), 'kernels must not be empty')
         self.assertFalse(self.widget.control.running)
