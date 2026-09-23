@@ -464,6 +464,14 @@ WrapWorld<T> & WrapWorld<T>::wrap_shape()
                 return self.add_polygon(vertices);
             },
             py::arg("vertices"))
+        .def(
+            "add_path",
+            [](wrapped_type & self, segment_pad_type const & segments, curve_pad_type const & curves)
+            {
+                return self.add_path(segments, curves);
+            },
+            py::arg("segments"),
+            py::arg("curves"))
         //
         ;
 

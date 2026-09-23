@@ -56,6 +56,7 @@ enum class ShapeType : uint8_t
     BEZIER = 8, ///< Single cubic Bezier curve.
     ELLIPSE = 9,
     CIRCLE = 10, ///< Specialization of ELLIPSE with equal radii.
+    PATH = 11, ///< Mixed segments and cubic Beziers (e.g. an SVG path).
 }; /* end of enum class ShapeType */
 
 inline std::string shape_type_name(ShapeType st)
@@ -73,6 +74,7 @@ inline std::string shape_type_name(ShapeType st)
     case ShapeType::BEZIER: return "bezier";
     case ShapeType::ELLIPSE: return "ellipse";
     case ShapeType::CIRCLE: return "circle";
+    case ShapeType::PATH: return "path";
     default: return "unknown";
     }
 }
@@ -474,6 +476,13 @@ public:
      * One-ring special case of add_polygon_rings.
      */
     int32_t add_polygon(std::vector<std::array<T, 2>> const & vertices);
+
+    /**
+     * Add a path owning the given straight segments and cubic Beziers as one
+     * shape. Either pad may be empty, but not both. The order between
+     * segments and curves is not kept.
+     */
+    int32_t add_path(segment_pad_type const & segments, curve_pad_type const & curves);
 
     /**
      * Translate all segments and curves belonging to a shape by (dx, dy).
@@ -1059,6 +1068,26 @@ int32_t World<T>::add_polygon(std::vector<std::array<T, 2>> const & vertices)
         rings.add_vertex(v[0], v[1]);
     }
     return add_polygon_rings(rings);
+}
+
+template <typename T>
+int32_t World<T>::add_path(segment_pad_type const & segments, curve_pad_type const & curves)
+{
+    if (segments.size() == 0 && curves.size() == 0)
+    {
+        throw std::invalid_argument("World: add_path needs at least one segment or curve");
+    }
+    size_t const segment_offset = m_segments->size();
+    size_t const curve_offset = m_curves->size();
+    for (size_t i = 0; i < segments.size(); ++i)
+    {
+        m_segments->append(segments.get(i));
+    }
+    for (size_t i = 0; i < curves.size(); ++i)
+    {
+        m_curves->append(curves.get(i));
+    }
+    return register_shape(ShapeType::PATH, segment_offset, segments.size(), curve_offset, curves.size());
 }
 
 template <typename T>
