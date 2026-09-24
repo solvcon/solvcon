@@ -1,7 +1,7 @@
 # Copyright (c) 2026, solvcon team <contact@solvcon.net>
 # BSD 3-Clause License, see COPYING
 
-"""Control one isolated matmul worker from a reusable Qt widget."""
+"""Control one isolated benchmark worker from a reusable Qt widget."""
 
 import json
 import os
@@ -11,10 +11,10 @@ from PySide6 import QtCore, QtWidgets
 from solvcon import system
 
 
-class BenchmarkControl(QtWidgets.QWidget):
+class RunPanel(QtWidgets.QWidget):
     """Show progress and emit a terminal signal after the worker exits.
 
-    Call start with a MatmulSpec and an artifact path. A running control
+    Call start with a BenchmarkSpec and an artifact path. A running control
     rejects another start. Stop and close kill the worker asynchronously.
     Optional threads override only the new worker's BLAS/OpenMP environment.
     """
@@ -59,9 +59,19 @@ class BenchmarkControl(QtWidgets.QWidget):
 
     @property
     def running(self):
+        """Whether a worker is starting, running, or stopping."""
         return self._running
 
     def start(self, specification, output_path, *, threads=None):
+        """Start one worker without blocking the Qt event loop.
+
+        :param specification: Validated benchmark specification.
+        :param output_path: Destination for the completed JSON artifact.
+        :param threads: Positive BLAS/OpenMP thread count for the worker,
+            or ``None`` to inherit its environment.
+        :raises RuntimeError: If a worker is already active.
+        :raises ValueError: If the thread count is invalid.
+        """
         if self.running:
             raise RuntimeError('a benchmark is already running')
         env = QtCore.QProcessEnvironment.systemEnvironment()
@@ -96,6 +106,7 @@ class BenchmarkControl(QtWidgets.QWidget):
         self._process.start(command[0], command[1:])
 
     def stop(self):
+        """Cancel an active run; emit ``stopped`` after the worker exits."""
         if self.running:
             self._cancelled = True
             self.status.setText('Stopping')

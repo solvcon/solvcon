@@ -1,14 +1,18 @@
 # Copyright (c) 2026, solvcon team <contact@solvcon.net>
 # BSD 3-Clause License, see COPYING
 
-"""Validate exact matmul benchmark specifications without allocating arrays."""
+"""Define exact Matmul inputs and execution on shared operand storage."""
 
 import dataclasses
+
+import numpy as np
 
 import solvcon as sc
 
 from . import spec
 
+
+_CHUNK_SIZE = 1 << 20
 
 MATMUL_DTYPE_SIZES = {
     'float32': 4,
@@ -45,10 +49,6 @@ def _broadcast_shape(lhs, rhs):
     return tuple(reversed(result))
 
 
-def _batch_shape(shape):
-    return () if len(shape) == 1 else shape[:-2]
-
-
 @dataclasses.dataclass(frozen=True)
 class MatmulInputs:
     """Validate matmul inputs independently of sampling and kernel choices."""
@@ -76,8 +76,7 @@ class MatmulInputs:
         if self.lhs.shape[-1] != self.rhs.shape[rhs_inner_axis]:
             raise spec.SpecError(
                 'matmul contraction dimensions do not match')
-        _broadcast_shape(
-            _batch_shape(self.lhs.shape), _batch_shape(self.rhs.shape))
+        _broadcast_shape(self.lhs.shape[:-2], self.rhs.shape[:-2])
 
     @property
     def output_shape(self):
@@ -85,8 +84,7 @@ class MatmulInputs:
         rhs_vector = len(self.rhs.shape) == 1
         if lhs_vector and rhs_vector:
             return (1,)
-        batch = _broadcast_shape(
-            _batch_shape(self.lhs.shape), _batch_shape(self.rhs.shape))
+        batch = _broadcast_shape(self.lhs.shape[:-2], self.rhs.shape[:-2])
         rows = () if lhs_vector else (self.lhs.shape[-2],)
         columns = () if rhs_vector else (self.rhs.shape[-1],)
         return batch + rows + columns
@@ -156,6 +154,72 @@ class MatmulSpec(MatmulInputs):
             'sampling': self.sampling.to_dict(),
             'kernels': list(self.kernels),
         }
+
+    def make_executor(self):
+        """Allocate deterministic operands outside measured calls."""
+        lhs = _make_operand(self.lhs, self.dtype, 0)
+        rhs = _make_operand(self.rhs, self.dtype, 1)
+        return MatmulExecutor(self, lhs, rhs)
+
+
+def _storage_bounds(operand):
+    """Return inclusive element offsets, using (0, 0) for empty layouts."""
+    if any(extent == 0 for extent in operand.shape):
+        return 0, 0
+    minimum = 0
+    maximum = 0
+    for extent, stride in zip(operand.shape, operand.strides):
+        displacement = (extent - 1) * stride
+        minimum += min(0, displacement)
+        maximum += max(0, displacement)
+    return minimum, maximum
+
+
+def _fill_random_components(storage, seed):
+    components = storage.view(storage.real.dtype.name)
+    generator = np.random.default_rng(seed)
+    values = np.empty(
+        min(components.size, _CHUNK_SIZE), dtype='float64')
+    for start in range(0, components.size, _CHUNK_SIZE):
+        stop = min(start + _CHUNK_SIZE, components.size)
+        chunk = values[:stop - start]
+        generator.random(chunk.shape, dtype='float64', out=chunk)
+        chunk *= 2
+        chunk -= 1
+        components[start:stop] = chunk
+
+
+def _make_operand(operand, dtype, seed):
+    dtype = np.dtype(dtype)
+    minimum, maximum = _storage_bounds(operand)
+    storage = np.empty(maximum - minimum + 1, dtype=dtype.name)
+    _fill_random_components(storage, seed)
+
+    return np.ndarray(
+        shape=operand.shape,
+        dtype=dtype.name,
+        buffer=storage,
+        offset=-minimum * dtype.itemsize,
+        strides=tuple(stride * dtype.itemsize for stride in operand.strides),
+    )
+
+
+class MatmulExecutor:
+    """Execute one kernel on shared NumPy and native operand storage."""
+
+    unavailable_error = sc.MatmulKernelUnavailable
+
+    def __init__(self, spec, lhs, rhs):
+        array_type = sc.SimpleArray.typed_class(spec.dtype)
+        self._lhs_array = lhs
+        self._rhs_array = rhs
+        self._native_lhs = array_type(array=lhs)
+        self._native_rhs = array_type(array=rhs)
+
+    def __call__(self, name):
+        if name == 'numpy':
+            return np.matmul(self._lhs_array, self._rhs_array)
+        return self._native_lhs.matmul(self._native_rhs, kernel=name)
 
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

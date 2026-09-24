@@ -12,7 +12,6 @@ import pathlib
 import subprocess
 import sys
 import tempfile
-import time
 import unittest
 import unittest.mock
 
@@ -20,19 +19,11 @@ import numpy as np
 
 import solvcon as sc
 from solvcon import benchmark, system
-from solvcon.benchmark import artifact
 from solvcon.benchmark import collector
 from solvcon.benchmark import matmul
+from solvcon.benchmark import results
 from solvcon.benchmark import spec as benchmark_spec
 from solvcon.benchmark import worker
-
-
-try:
-    from PySide6 import QtCore, QtTest, QtWidgets
-except ImportError:
-    QtWidgets = None
-else:
-    from solvcon.pilot import _benchmark
 
 
 def make_matmul_spec(**updates):
@@ -126,7 +117,7 @@ class MatmulInputsTC(unittest.TestCase):
                         inputs.lhs, inputs.rhs, dtype,
                         benchmark_spec.Sampling(0, 1, 1),
                         matmul.MATMUL_KERNELS)
-                    execute = collector._make_executor(request)
+                    execute = request.make_executor()
                     for name, reason in reasons.items():
                         with self.subTest(dtype=dtype, lhs=lhs, rhs=rhs,
                                           stride=stride, kernel=name):
@@ -141,7 +132,7 @@ class MatmulInputsTC(unittest.TestCase):
     def test_metadata_only(self):
         inputs = make_inputs((2**32, 2), (2, 2), stride=0)
         with unittest.mock.patch.object(
-                collector, '_make_operand', side_effect=AssertionError), \
+                matmul, '_make_operand', side_effect=AssertionError), \
                 unittest.mock.patch.object(
                     np, 'empty', side_effect=AssertionError):
             reasons = inputs.kernel_eligibility()
@@ -295,6 +286,8 @@ class StepClock:
 
 
 class FakeExecutor:
+    unavailable_error = sc.MatmulKernelUnavailable
+
     def __init__(self, outputs):
         self.outputs = outputs
         self.calls = []
@@ -317,9 +310,9 @@ class OperandConstructionTC(unittest.TestCase):
         expected = 2 * np.random.default_rng(7).random(
             12, dtype='float64') - 1
         with unittest.mock.patch.object(
-                collector, '_CHUNK_SIZE', 4):
+                matmul, '_CHUNK_SIZE', 4):
             arrays = {
-                dtype: collector._make_operand(operand, dtype, 7)
+                dtype: matmul._make_operand(operand, dtype, 7)
                 for dtype in ('float32', 'float64',
                               'complex64', 'complex128')
             }
@@ -337,7 +330,7 @@ class OperandConstructionTC(unittest.TestCase):
         for data, strides in cases:
             with self.subTest(shape=data['shape']):
                 operand = benchmark_spec.OperandSpec.from_dict(data)
-                array = collector._make_operand(operand, 'complex64', 0)
+                array = matmul._make_operand(operand, 'complex64', 0)
 
                 self.assertEqual(array.shape, tuple(data['shape']))
                 self.assertEqual(
@@ -349,7 +342,7 @@ class OperandConstructionTC(unittest.TestCase):
                 self.assertTrue(np.all(np.isfinite(array)))
 
         operand = benchmark_spec.OperandSpec.from_dict(cases[0][0])
-        array = collector._make_operand(operand, 'complex64', 0)
+        array = matmul._make_operand(operand, 'complex64', 0)
         np.testing.assert_array_equal(array[:, 0], array[:, 1])
         np.testing.assert_array_equal(array[:, 1], array[:, 2])
         self.assertNotEqual(array[0, 0], array[1, 0])
@@ -369,30 +362,14 @@ class MatmulComparisonTC(unittest.TestCase):
         comparison = collector._compare(spec, execute)
 
         self.assertEqual(comparison, {
-            'naive': {
-                'status': 'measured',
-                'reason': None,
-                'max_abs_diff': 0.0,
-                'relative_diff': 0.0,
-            },
-            'blas_gemm': {
-                'status': 'measured',
-                'reason': None,
-                'max_abs_diff': 1.0,
-                'relative_diff': 0.25,
-            },
-            'winograd': {
-                'status': 'ineligible',
-                'reason': 'not eligible',
-                'max_abs_diff': None,
-                'relative_diff': None,
-            },
-            'numpy': {
-                'status': 'measured',
-                'reason': None,
-                'max_abs_diff': 0.0,
-                'relative_diff': 0.0,
-            },
+            'naive': results.KernelResult(
+                'naive', 'measured', max_abs_diff=0.0, relative_diff=0.0),
+            'blas_gemm': results.KernelResult(
+                'blas_gemm', 'measured', max_abs_diff=1.0, relative_diff=0.25),
+            'winograd': results.KernelResult(
+                'winograd', 'ineligible', reason='not eligible'),
+            'numpy': results.KernelResult(
+                'numpy', 'measured', max_abs_diff=0.0, relative_diff=0.0),
         })
         self.assertEqual(
             execute.calls,
@@ -413,10 +390,10 @@ class MatmulComparisonTC(unittest.TestCase):
                 result = collector._compare_result(
                     FakeExecutor({'naive': output}),
                     'naive', expected)
-                self.assertEqual(result['status'], 'invalid')
-                self.assertEqual(result['reason'], reason)
-                self.assertIsNone(result['max_abs_diff'])
-                self.assertIsNone(result['relative_diff'])
+                self.assertEqual(result.status, 'invalid')
+                self.assertEqual(result.reason, reason)
+                self.assertIsNone(result.max_abs_diff)
+                self.assertIsNone(result.relative_diff)
 
     def test_rejects_invalid_numpy_reference(self):
         cases = (
@@ -437,15 +414,10 @@ class MatmulComparisonTC(unittest.TestCase):
 
         comparison = collector._compare(make_spec(kernels=['naive']), execute)
 
-        expected = {
-            'status': 'invalid',
-            'reason': 'non-finite NumPy reference',
-            'max_abs_diff': None,
-            'relative_diff': None,
-        }
         self.assertEqual(comparison, {
-            'naive': expected,
-            'numpy': expected,
+            name: results.KernelResult(
+                name, 'invalid', reason='non-finite NumPy reference')
+            for name in ('naive', 'numpy')
         })
         self.assertEqual(execute.calls, ['numpy'])
 
@@ -485,7 +457,7 @@ class MatmulComparisonTC(unittest.TestCase):
         for dtype in ('float32', 'float64', 'complex64', 'complex128'):
             with self.subTest(dtype=dtype):
                 spec = make_spec(dtype=dtype, kernels=['naive'])
-                execute = collector._make_executor(spec)
+                execute = spec.make_executor()
                 self.assertEqual(execute._native_lhs.ndarray.dtype.name, dtype)
                 self.assertEqual(execute._native_rhs.ndarray.dtype.name, dtype)
                 self.assertTrue(execute._native_lhs.is_from_python)
@@ -496,12 +468,12 @@ class MatmulComparisonTC(unittest.TestCase):
                     execute._rhs_array, execute._native_rhs.ndarray))
                 comparison = collector._compare(spec, execute)
                 self.assertEqual(
-                    [item['status'] for item in comparison.values()],
+                    [item.status for item in comparison.values()],
                     ['measured', 'measured'],
                 )
                 for item in comparison.values():
-                    self.assertIsInstance(item['max_abs_diff'], float)
-                    self.assertIsInstance(item['relative_diff'], float)
+                    self.assertIsInstance(item.max_abs_diff, float)
+                    self.assertIsInstance(item.relative_diff, float)
 
     def test_checks_operand_roles_and_broadcast_batches(self):
         cases = (
@@ -518,9 +490,9 @@ class MatmulComparisonTC(unittest.TestCase):
             with self.subTest(lhs=lhs['shape'], rhs=rhs['shape']):
                 spec = make_spec(lhs=lhs, rhs=rhs, kernels=['naive'])
                 comparison = collector._compare(
-                    spec, collector._make_executor(spec))
+                    spec, spec.make_executor())
                 self.assertEqual(
-                    [item['status'] for item in comparison.values()],
+                    [item.status for item in comparison.values()],
                     ['measured', 'measured'],
                 )
 
@@ -534,26 +506,26 @@ class MatmulComparisonTC(unittest.TestCase):
         for lhs in operands:
             with self.subTest(lhs=lhs):
                 spec = make_spec(lhs=lhs, kernels=['naive'])
-                execute = collector._make_executor(spec)
+                execute = spec.make_executor()
                 self.assertEqual(execute._native_lhs.stride,
                                  tuple(lhs['strides']))
                 comparison = collector._compare(spec, execute)
                 self.assertEqual(
-                    [item['status'] for item in comparison.values()],
+                    [item.status for item in comparison.values()],
                     ['measured', 'measured'],
                 )
                 if lhs['shape'][0] == 0:
                     for item in comparison.values():
-                        self.assertIsNone(item['max_abs_diff'])
-                        self.assertIsNone(item['relative_diff'])
+                        self.assertIsNone(item.max_abs_diff)
+                        self.assertIsNone(item.relative_diff)
 
     def test_marks_real_ineligible_kernel(self):
         spec = make_spec(kernels=['naive', 'winograd'])
 
-        comparison = collector._compare(spec, collector._make_executor(spec))
+        comparison = collector._compare(spec, spec.make_executor())
 
         self.assertEqual(
-            [item['status'] for item in comparison.values()],
+            [item.status for item in comparison.values()],
             ['measured', 'ineligible', 'measured'],
         )
 
@@ -571,18 +543,21 @@ class MatmulTimingTC(unittest.TestCase):
             kernels=['naive', 'blas_gemm', 'winograd'],
             sampling={'warmups': 1, 'repetitions': 2, 'rounds': 4})
 
-        comparison = collector._collect(spec, execute, StepClock())
+        with unittest.mock.patch.object(
+            matmul.MatmulSpec, 'make_executor', return_value=execute,
+        ) as prepare:
+            comparison = collector._collect(spec, StepClock())
+        prepare.assert_called_once_with()
 
         names = ('naive', 'blas_gemm', 'winograd', 'numpy')
-        round_orders = comparison['round_orders']
+        round_orders = comparison.round_orders
         expected_rows = collector._williams_rows(names)
         self.assertEqual(round_orders, [list(row) for row in expected_rows])
-        by_name = {result['name']: result for result in comparison['results']}
+        by_name = {result.name: result for result in comparison.results}
         for name in names:
-            self.assertEqual(by_name[name]['status'], 'measured')
-            self.assertEqual(
-                by_name[name]['round_elapsed_ns'], [100] * 4)
-        self.assertEqual(by_name['blas_gemm']['max_abs_diff'], 1.0)
+            self.assertEqual(by_name[name].status, 'measured')
+            self.assertEqual(by_name[name].round_elapsed_ns, [100] * 4)
+        self.assertEqual(by_name['blas_gemm'].max_abs_diff, 1.0)
 
         comparison_calls = ['numpy', 'naive', 'blas_gemm', 'winograd']
         warmup_calls = ['numpy', 'naive', 'winograd', 'blas_gemm']
@@ -667,10 +642,11 @@ class MatmulTimingTC(unittest.TestCase):
         )
 
         progress = []
-        comparison = collector._collect(
-            spec, execute, StepClock(),
-            lambda *args: progress.append(args),
-        )
+        with unittest.mock.patch.object(
+            matmul.MatmulSpec, 'make_executor', return_value=execute,
+        ):
+            comparison = collector._collect(
+                spec, StepClock(), lambda *args: progress.append(args))
         samples = [
             event for event in progress
             if event[0] in ('warmup', 'timing')
@@ -680,13 +656,12 @@ class MatmulTimingTC(unittest.TestCase):
         self.assertEqual(set(totals), {4})
         self.assertEqual(set(names), {'naive', 'numpy'})
 
-        by_name = {result['name']: result for result in comparison['results']}
-        self.assertEqual(by_name['blas_gemm']['status'], 'invalid')
-        self.assertEqual(by_name['blas_gemm']['round_elapsed_ns'], [])
-        self.assertEqual(by_name['winograd']['status'], 'ineligible')
-        self.assertEqual(by_name['winograd']['round_elapsed_ns'], [])
-        self.assertEqual(
-            comparison['round_orders'], [['naive', 'numpy']])
+        by_name = {result.name: result for result in comparison.results}
+        self.assertEqual(by_name['blas_gemm'].status, 'invalid')
+        self.assertEqual(by_name['blas_gemm'].round_elapsed_ns, [])
+        self.assertEqual(by_name['winograd'].status, 'ineligible')
+        self.assertEqual(by_name['winograd'].round_elapsed_ns, [])
+        self.assertEqual(comparison.round_orders, [['naive', 'numpy']])
         self.assertEqual(collections.Counter(execute.calls), {
             'numpy': 4,
             'naive': 4,
@@ -707,32 +682,35 @@ class MatmulTimingTC(unittest.TestCase):
                 sampling = {'warmups': warmups, 'repetitions': 1, 'rounds': 1}
                 spec = make_spec(kernels=['naive'], sampling=sampling)
                 progress = []
-                with self.assertRaisesRegex(RuntimeError, 'native bug'):
+                with (
+                    unittest.mock.patch.object(
+                        matmul.MatmulSpec, 'make_executor',
+                        return_value=execute),
+                    self.assertRaisesRegex(RuntimeError, 'native bug'),
+                ):
                     collector._collect(
-                        spec, execute, StepClock(),
-                        lambda *args: progress.append(args),
-                    )
+                        spec, StepClock(), lambda *args: progress.append(args))
                 self.assertEqual(progress[-1], (stage, kernel, 0, total))
 
-    def test_collect_returns_json_data(self):
+    def test_collect_returns_result_model(self):
         spec = make_spec(
             kernels=['naive'],
             sampling={'warmups': 0, 'repetitions': 1, 'rounds': 2},
         )
 
-        comparison = benchmark.collector.collect(spec)
+        result = benchmark.collector.collect(spec)
+        self.assertIsInstance(result, results.RunResult)
 
-        self.assertEqual(comparison['spec'], spec.to_dict())
-        self.assertEqual(len(comparison['round_orders']), 2)
-        for result in comparison['results']:
-            self.assertEqual(result['status'], 'measured')
-            elapsed = result['round_elapsed_ns']
+        self.assertEqual(result.spec, spec)
+        self.assertEqual(len(result.round_orders), 2)
+        for entry in result.results:
+            self.assertEqual(entry.status, 'measured')
+            elapsed = entry.round_elapsed_ns
             self.assertEqual(len(elapsed), 2)
             self.assertTrue(all(isinstance(value, int) for value in elapsed))
-        json.dumps(comparison)
 
-    def test_collect_requires_matmul_spec(self):
-        with self.assertRaisesRegex(TypeError, 'spec must be a MatmulSpec'):
+    def test_collect_requires_spec_interface(self):
+        with self.assertRaisesRegex(TypeError, 'BenchmarkSpec'):
             benchmark.collector.collect(make_spec().to_dict())
 
 
@@ -767,16 +745,68 @@ def make_comparison():
     }
 
 
-class ArtifactTC(unittest.TestCase):
+class TimingStatsTC(unittest.TestCase):
+    def test_per_call_percentiles(self):
+        cases = (([1200, 400, 800], 4, (200.0, 290.0)),
+                 ([10, 30], 4, (5.0, 7.25)),
+                 ([80], 5, (16.0, 16.0)),
+                 ([0, 0], 4, (0.0, 0.0)),
+                 ([], 4, (None, None)))
+        for elapsed_ns, repetitions, expected in cases:
+            with self.subTest(elapsed_ns=elapsed_ns):
+                original = elapsed_ns.copy()
+                timing = results.TimingStats.from_rounds(
+                    elapsed_ns, repetitions)
+                self.assertEqual((timing.median, timing.p95), expected)
+                self.assertEqual(elapsed_ns, original)
+
+
+class ResultsTC(unittest.TestCase):
     def test_round_trip(self):
         document = make_comparison()
+        result = results.RunResult.from_dict(document)
         with tempfile.TemporaryDirectory() as dirname:
             path = pathlib.Path(dirname) / 'nested' / 'result.json'
-            written = artifact.write_artifact(document, path)
-            loaded = artifact.load_artifact(path)
+            written = results.write_artifact(result, path)
+            loaded = results.load_artifact(path)
 
         self.assertEqual(written, path)
-        self.assertEqual(loaded, document)
+        self.assertEqual(loaded.to_dict(), document)
+
+    def test_model_owns_result_data(self):
+        document = make_comparison()
+        result = results.RunResult.from_dict(document)
+        document['results'][0]['round_elapsed_ns'][0] = 99
+        document['round_orders'][0].reverse()
+        self.assertEqual(result.to_dict(), make_comparison())
+
+        exported = result.to_dict()
+        exported['results'][0]['round_elapsed_ns'][0] = 99
+        exported['round_orders'][0].reverse()
+        self.assertEqual(result.to_dict(), make_comparison())
+
+    def test_timing_stats_uses_saved_sampling(self):
+        document = make_comparison()
+        document['spec']['sampling']['repetitions'] = 2
+        result = results.RunResult.from_dict(document)
+
+        self.assertEqual(result.timing_stats(), {
+            'naive': results.TimingStats(5.25, 5.475),
+            'winograd': results.TimingStats(),
+            'numpy': results.TimingStats(6.25, 6.475),
+        })
+
+    def test_rejects_incomplete_model_before_writing(self):
+        result = results.RunResult.from_dict(make_comparison())
+        with tempfile.TemporaryDirectory() as dirname:
+            path = pathlib.Path(dirname) / 'result.json'
+            results.write_artifact(result, path)
+            original = path.read_bytes()
+            result.results[0].round_elapsed_ns.pop()
+            with self.assertRaisesRegex(results.ArtifactError, 'per round'):
+                results.write_artifact(result, path)
+            self.assertEqual(path.read_bytes(), original)
+            self.assertEqual(list(path.parent.iterdir()), [path])
 
     def test_rejects_inconsistent_artifact_data(self):
         mutations = (
@@ -797,8 +827,8 @@ class ArtifactTC(unittest.TestCase):
             with self.subTest(mutate=mutate):
                 document = make_comparison()
                 mutate(document)
-                with self.assertRaises(artifact.ArtifactError):
-                    artifact.validate_artifact(document)
+                with self.assertRaises(results.ArtifactError):
+                    results.RunResult.from_dict(document)
 
     def test_rejects_measured_kernel_when_numpy_is_invalid(self):
         document = make_comparison()
@@ -810,22 +840,24 @@ class ArtifactTC(unittest.TestCase):
         for order in document['round_orders']:
             order.remove('numpy')
 
-        with self.assertRaisesRegex(artifact.ArtifactError, 'NumPy'):
-            artifact.validate_artifact(document)
+        with self.assertRaisesRegex(results.ArtifactError, 'NumPy'):
+            results.RunResult.from_dict(document)
 
     def test_failed_replace_preserves_existing_artifact(self):
         original = make_comparison()
         replacement = copy.deepcopy(original)
         replacement['results'][0]['round_elapsed_ns'][0] = 99
+        original = results.RunResult.from_dict(original)
+        replacement = results.RunResult.from_dict(replacement)
         with tempfile.TemporaryDirectory() as dirname:
             path = pathlib.Path(dirname) / 'result.json'
-            artifact.write_artifact(original, path)
+            results.write_artifact(original, path)
             with unittest.mock.patch.object(
-                    artifact.os, 'replace', side_effect=OSError('failed')):
+                    results.os, 'replace', side_effect=OSError('failed')):
                 with self.assertRaisesRegex(OSError, 'failed'):
-                    artifact.write_artifact(replacement, path)
+                    results.write_artifact(replacement, path)
 
-            self.assertEqual(artifact.load_artifact(path), original)
+            self.assertEqual(results.load_artifact(path), original)
             self.assertEqual(list(path.parent.iterdir()), [path])
 
     def test_load_validates(self):
@@ -835,8 +867,8 @@ class ArtifactTC(unittest.TestCase):
             path = pathlib.Path(dirname) / 'result.json'
             path.write_text(json.dumps(document), encoding='ascii')
 
-            with self.assertRaisesRegex(artifact.ArtifactError, 'finite'):
-                artifact.load_artifact(path)
+            with self.assertRaisesRegex(results.ArtifactError, 'finite'):
+                results.load_artifact(path)
 
 
 def make_request(output_path):
@@ -934,7 +966,7 @@ class BenchmarkWorkerTC(unittest.TestCase):
             self.assertEqual(events[-1], {
                 'type': 'result', 'artifact_path': str(path),
             })
-            document = artifact.load_artifact(path)
+            document = results.load_artifact(path).to_dict()
             self.assertEqual(document['spec'], request['spec'])
 
 
@@ -960,284 +992,5 @@ class BenchmarkProgressTC(unittest.TestCase):
         ])
         self.assertEqual(orders, [['naive']])
         self.assertEqual(elapsed, {'naive': [100]})
-
-
-@unittest.skipIf(QtWidgets is None, 'PySide6 is not installed')
-class BenchmarkControlTC(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        cls.app = (QtWidgets.QApplication.instance()
-                   or QtWidgets.QApplication([]))
-
-    def setUp(self):
-        self.control = _benchmark.BenchmarkControl()
-        self.directory = tempfile.TemporaryDirectory()
-        self.path = pathlib.Path(self.directory.name) / 'result.json'
-        self.spec = make_matmul_spec(
-            kernels=['naive'],
-            sampling={'warmups': 1, 'repetitions': 2, 'rounds': 2})
-        self.events = []
-        self.control.completed.connect(
-            lambda path: self.events.append(('result', path)))
-        self.control.failed.connect(
-            lambda message: self.events.append(('error', message)))
-        self.control.stopped.connect(
-            lambda: self.events.append(('stopped', None)))
-
-    def tearDown(self):
-        self.control.stop()
-        self.wait_for(lambda: not self.control.running)
-        self.control.close()
-        self.control.deleteLater()
-        self.directory.cleanup()
-
-    def wait_for(self, predicate):
-        deadline = time.monotonic() + 15
-        while not predicate() and time.monotonic() < deadline:
-            QtTest.QTest.qWait(10)
-        self.assertTrue(predicate(), self.control.status.text())
-
-    def start_script(self, script, **options):
-        script = 'import sys\nsys.stdin.readline()\n' + script
-        command = system.python_command('-c', script)
-        with unittest.mock.patch.object(
-            system, 'python_command', return_value=command,
-        ):
-            self.control.start(self.spec, self.path, **options)
-
-    def start_events(self, *events):
-        lines = []
-        for event in events:
-            payload = json.dumps(event)
-            lines.append(f'print({payload!r}, flush=True)')
-        script = '\n'.join(lines)
-        # Stay alive so failure checks prove the controller stops the worker.
-        self.start_script(script + '\nimport time\ntime.sleep(60)')
-
-    def assert_finished(self, kind):
-        self.wait_for(lambda: not self.control.running)
-        self.assertEqual([event[0] for event in self.events], [kind])
-        self.assertEqual(
-            self.control._process.state(),
-            QtCore.QProcess.ProcessState.NotRunning,
-        )
-        self.assertFalse(self.control.stop_button.isEnabled())
-        self.assertFalse(self.control._timer.isActive())
-        success = kind == 'result'
-        self.assertEqual(self.control.progress.value(), int(success))
-        self.assertEqual(self.control.progress.isTextVisible(), success)
-
-    def assert_failed(self, message):
-        self.assert_finished('error')
-        self.assertIn(message, self.events[0][1])
-
-    def assert_reusable(self):
-        self.events.clear()
-        self.control.start(self.spec, self.path)
-        self.assert_finished('result')
-        document = artifact.load_artifact(self.path)
-        self.assertEqual(document['spec'], self.spec.to_dict())
-
-    def test_collect_and_repeat(self):
-        for _ in range(2):
-            self.events.clear()
-            self.control.start(self.spec, self.path)
-            with self.assertRaisesRegex(RuntimeError, 'already running'):
-                self.control.start(self.spec, self.path)
-            self.assert_finished('result')
-            self.assertEqual(self.events[0][1], str(self.path))
-            self.assertEqual(artifact.load_artifact(self.path)['spec'],
-                             self.spec.to_dict())
-
-    def test_progress_stop_and_recover(self):
-        event = {
-            'type': 'progress', 'phase': 'timing', 'kernel': 'naive',
-            'completed': 1, 'total': 6,
-        }
-        payload = json.dumps(event)
-        self.start_script(
-            'import sys, time\n'
-            f'sys.stdout.write({payload[:12]!r})\n'
-            'sys.stdout.flush()\n'
-            'time.sleep(0.15)\n'
-            f'print({payload[12:]!r}, flush=True)\n'
-            'time.sleep(60)\n'
-        )
-        self.wait_for(lambda: self.control.status.text() == 'Timing: naive')
-        self.wait_for(
-            lambda: self.control.elapsed.text() != 'Elapsed: 0.0 s'
-        )
-        self.assertEqual(self.events, [])
-        self.assertEqual(self.control.progress.value(), 16)
-        self.assertEqual(self.control.progress.text(), '16% (1/6 units)')
-        self.control.stop_button.click()
-        self.assert_finished('stopped')
-        self.assert_reusable()
-
-    def test_large_progress_counts(self):
-        self.start_script('import time\ntime.sleep(60)')
-        self.assertFalse(self.control.progress.isTextVisible())
-        total = 2**33
-        cases = (
-            ('warmup', 0, 0),
-            ('timing', total // 2, 50),
-            ('timing', total, 100),
-        )
-        for phase, completed, percent in cases:
-            with self.subTest(phase=phase, completed=completed):
-                self.control._handle_event({
-                    'type': 'progress', 'phase': phase, 'kernel': 'numpy',
-                    'completed': completed, 'total': total,
-                })
-                self.assertEqual(self.control.progress.value(), percent)
-                self.assertTrue(self.control.progress.isTextVisible())
-        self.assertEqual(self.events, [])
-        self.assertTrue(self.control.running)
-
-    def test_finishing_hides_progress(self):
-        self.start_events({
-            'type': 'progress', 'phase': 'timing', 'kernel': 'numpy',
-            'completed': 6, 'total': 6,
-        })
-        self.wait_for(lambda: self.control.progress.isTextVisible())
-        self.assertEqual(self.control.progress.value(), 100)
-        self.control._handle_event({
-            'type': 'progress', 'phase': 'finishing', 'kernel': None,
-        })
-        self.assertEqual(self.control.progress.maximum(), 0)
-        self.assertFalse(self.control.progress.isTextVisible())
-        self.assertEqual(self.control.status.text(), 'Finishing')
-        self.assertEqual(self.events, [])
-        self.assertTrue(self.control.running)
-
-    def test_rejects_invalid_progress(self):
-        event = {
-            'type': 'progress', 'phase': 'timing', 'kernel': 'naive',
-            'completed': 1, 'total': 6,
-        }
-        cases = (
-            ('missing_count', {'completed': None}),
-            ('boolean_count', {'completed': True}),
-            ('negative_count', {'completed': -1}),
-            ('exceeds_total', {'completed': 7}),
-            ('zero_total', {'total': 0}),
-            ('noninteger_total', {'total': 6.0}),
-            ('unknown_kernel', {'kernel': 'missing'}),
-            ('finishing_with_counts', {'phase': 'finishing', 'kernel': None}),
-        )
-        for name, change in cases:
-            with self.subTest(case=name):
-                self.events.clear()
-                self.start_events({**event, **change})
-                self.assert_failed('invalid worker progress')
-                self.assert_reusable()
-
-    def test_rejects_inconsistent_progress(self):
-        event = {
-            'type': 'progress', 'phase': 'timing', 'kernel': 'naive',
-            'completed': 1, 'total': 6,
-        }
-        values = []
-        self.control.progress.valueChanged.connect(values.append)
-        cases = (
-            ('regressing_count', {'completed': 0}),
-            ('changing_total', {'total': 7}),
-        )
-        for name, change in cases:
-            with self.subTest(case=name):
-                self.events.clear()
-                values.clear()
-                self.start_events(event, {**event, **change})
-                self.assert_failed('invalid worker progress counts')
-                self.assertIn(16, values)
-                self.assert_reusable()
-
-    def test_thread_isolation(self):
-        names = ('OMP_NUM_THREADS', 'OPENBLAS_NUM_THREADS', 'MKL_NUM_THREADS',
-                 'BLIS_NUM_THREADS', 'VECLIB_MAXIMUM_THREADS')
-        inherited = dict.fromkeys(names, '2')
-        event = json.dumps({'type': 'result', 'artifact_path': 'ok'})
-        for threads, expected in ((3, '3'), (None, '2')):
-            with self.subTest(threads=threads):
-                self.events.clear()
-                script = (
-                    'import os\n'
-                    f'assert all(os.environ[name] == {expected!r} '
-                    f'for name in {names!r})\n'
-                    f'print({event!r})')
-                with unittest.mock.patch.dict(os.environ, inherited):
-                    self.start_script(script, threads=threads)
-                    self.assert_finished('result')
-                    parent = {name: os.environ[name] for name in names}
-                    self.assertEqual(parent, inherited)
-
-    def test_invalid_threads(self):
-        for threads in (0, -1, True, 1.5, '2'):
-            with self.subTest(threads=threads):
-                with self.assertRaises(ValueError) as caught:
-                    self.control.start(self.spec, self.path, threads=threads)
-                self.assertEqual(str(caught.exception),
-                                 'threads must be a positive integer')
-                self.assertFalse(self.control.running)
-
-    def assert_error_recovery(self, cases):
-        for script, message in cases:
-            with self.subTest(message=message):
-                self.events.clear()
-                self.start_script(script)
-                self.assert_failed(message)
-                self.assert_reusable()
-
-    def test_protocol_error_recovery(self):
-        self.assert_error_recovery((
-            ("print('not json', flush=True)\nimport time\ntime.sleep(60)",
-             'protocol'),
-            ("print('{}', flush=True)", 'unknown'),
-            ('print(\'{"type":"error","message":"bad spec"}\', '
-             'flush=True)\nimport time\ntime.sleep(60)', 'bad spec'),
-        ))
-
-    def test_exit_error_recovery(self):
-        self.assert_error_recovery((
-            ("print('{}', end='', flush=True)", 'incomplete'),
-            ('pass', 'without a result'),
-            ("import sys\nsys.stderr.write('native crash')\nsys.exit(3)",
-             'native crash'),
-            ('print(\'{"type":"result","artifact_path":"fake"}\', '
-             'flush=True)\nimport sys\nsys.exit(3)', 'code 3'),
-        ))
-
-    def test_crash(self):
-        self.start_script('import time\ntime.sleep(60)')
-        self.wait_for(lambda: self.control._process.state() ==
-                      QtCore.QProcess.ProcessState.Running)
-        self.control._process.kill()
-        self.assert_finished('error')
-
-    def test_failed_start_recovers_from_signal(self):
-        process_errors = []
-        self.control._process.errorOccurred.connect(process_errors.append)
-
-        def restart(message):
-            # Reentering QProcess inside its error signal can block Qt.
-            if not process_errors:
-                return
-            self.control.failed.disconnect(restart)
-            self.events.clear()
-            self.control.start(self.spec, self.path)
-
-        self.control.failed.connect(restart)
-        with unittest.mock.patch.object(system, 'python_command',
-                                        return_value=['/missing/worker']):
-            self.control.start(self.spec, self.path)
-        self.assert_finished('result')
-
-    def test_stop_during_start_and_close(self):
-        for action in (self.control.stop, self.control.close):
-            self.events.clear()
-            self.start_script('import time\ntime.sleep(60)')
-            action()
-            self.assert_finished('stopped')
-
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:

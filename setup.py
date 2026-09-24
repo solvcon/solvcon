@@ -79,6 +79,7 @@ def main():
             'solvcon.pilot.apps',
             'solvcon.pilot.apps.obsrefl',
             'solvcon.pilot.base',
+            'solvcon.pilot.benchmark',
             'solvcon.pilot.canvas',
             'solvcon.pilot.onedim',
             'solvcon.pilot.painter',

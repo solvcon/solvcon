@@ -1,79 +1,17 @@
 # Copyright (c) 2026, solvcon team <contact@solvcon.net>
 # BSD 3-Clause License, see COPYING
 
-"""Collect one exact matmul comparison without storing it."""
+"""Collect one exact kernel comparison without storing it."""
 
 import time
 
 import numpy as np
 
-import solvcon as sc
-from . import matmul
+from . import operation
+from . import results
 
 
 _CHUNK_SIZE = 1 << 20
-
-
-def _storage_bounds(operand):
-    """Return inclusive element offsets, using (0, 0) for empty layouts."""
-    if any(extent == 0 for extent in operand.shape):
-        return 0, 0
-    minimum = 0
-    maximum = 0
-    for extent, stride in zip(operand.shape, operand.strides):
-        displacement = (extent - 1) * stride
-        minimum += min(0, displacement)
-        maximum += max(0, displacement)
-    return minimum, maximum
-
-
-def _fill_random_components(storage, seed):
-    components = storage.view(storage.real.dtype.name)
-    generator = np.random.default_rng(seed)
-    values = np.empty(
-        min(components.size, _CHUNK_SIZE), dtype='float64')
-    for start in range(0, components.size, _CHUNK_SIZE):
-        stop = min(start + _CHUNK_SIZE, components.size)
-        chunk = values[:stop - start]
-        generator.random(chunk.shape, dtype='float64', out=chunk)
-        chunk *= 2
-        chunk -= 1
-        components[start:stop] = chunk
-
-
-def _make_operand(operand, dtype, seed):
-    dtype = np.dtype(dtype)
-    minimum, maximum = _storage_bounds(operand)
-    storage = np.empty(maximum - minimum + 1, dtype=dtype.name)
-    _fill_random_components(storage, seed)
-
-    return np.ndarray(
-        shape=operand.shape,
-        dtype=dtype.name,
-        buffer=storage,
-        offset=-minimum * dtype.itemsize,
-        strides=tuple(stride * dtype.itemsize for stride in operand.strides),
-    )
-
-
-class _MatmulExecutor:
-    def __init__(self, spec, lhs, rhs):
-        array_type = sc.SimpleArray.typed_class(spec.dtype)
-        self._lhs_array = lhs
-        self._rhs_array = rhs
-        self._native_lhs = array_type(array=lhs)
-        self._native_rhs = array_type(array=rhs)
-
-    def __call__(self, name):
-        if name == 'numpy':
-            return np.matmul(self._lhs_array, self._rhs_array)
-        return self._native_lhs.matmul(self._native_rhs, kernel=name)
-
-
-def _make_executor(spec):
-    lhs = _make_operand(spec.lhs, spec.dtype, 0)
-    rhs = _make_operand(spec.rhs, spec.dtype, 1)
-    return _MatmulExecutor(spec, lhs, rhs)
 
 
 def _difference_metrics(result, reference):
@@ -101,13 +39,8 @@ def _difference_metrics(result, reference):
 def _compare_result(execute, name, reference):
     try:
         result = np.atleast_1d(execute(name))
-    except sc.MatmulKernelUnavailable as exc:
-        return {
-            'status': 'ineligible',
-            'reason': str(exc),
-            'max_abs_diff': None,
-            'relative_diff': None,
-        }
+    except execute.unavailable_error as exc:
+        return results.KernelResult(name, 'ineligible', reason=str(exc))
     if result.shape != reference.shape:
         reason = 'shape mismatch'
     elif result.dtype != reference.dtype:
@@ -116,18 +49,10 @@ def _compare_result(execute, name, reference):
         reason = 'non-finite values'
     else:
         max_abs_diff, relative_diff = _difference_metrics(result, reference)
-        return {
-            'status': 'measured',
-            'reason': None,
-            'max_abs_diff': max_abs_diff,
-            'relative_diff': relative_diff,
-        }
-    return {
-        'status': 'invalid',
-        'reason': reason,
-        'max_abs_diff': None,
-        'relative_diff': None,
-    }
+        return results.KernelResult(
+            name, 'measured', max_abs_diff=max_abs_diff,
+            relative_diff=relative_diff)
+    return results.KernelResult(name, 'invalid', reason=reason)
 
 
 def _ignore_progress(phase, name, completed=None, total=None):
@@ -144,24 +69,17 @@ def _compare(spec, execute, progress=_ignore_progress):
         raise RuntimeError('NumPy reference dtype does not match spec')
     if not np.all(np.isfinite(reference)):
         return {
-            name: {
-                'status': 'invalid',
-                'reason': 'non-finite NumPy reference',
-                'max_abs_diff': None,
-                'relative_diff': None,
-            }
+            name: results.KernelResult(
+                name, 'invalid', reason='non-finite NumPy reference')
             for name in spec.kernels + ('numpy',)
         }
     comparison = {}
     for name in spec.kernels:
         progress('comparison', name)
         comparison[name] = _compare_result(execute, name, reference)
-    comparison['numpy'] = {
-        'status': 'measured',
-        'reason': None,
-        'max_abs_diff': 0.0 if reference.size else None,
-        'relative_diff': 0.0 if reference.size else None,
-    }
+    difference = 0.0 if reference.size else None
+    comparison['numpy'] = results.KernelResult(
+        'numpy', 'measured', max_abs_diff=difference, relative_diff=difference)
     return comparison
 
 
@@ -259,23 +177,17 @@ def _time_candidates(execute, names, sampling, clock,
     return round_orders, elapsed_by_name
 
 
-def _collect(spec, execute, clock, progress=_ignore_progress):
+def _collect(spec, clock, progress=_ignore_progress):
+    execute = spec.make_executor()
     names = spec.kernels + ('numpy',)
     comparison = _compare(spec, execute, progress)
     measured_names = tuple(
-        name for name in names if comparison[name]['status'] == 'measured')
+        name for name in names if comparison[name].status == 'measured')
     round_orders, elapsed_by_name = _time_candidates(
         execute, measured_names, spec.sampling, clock, progress)
-    results = []
-    for name in names:
-        result = {'name': name, **comparison[name]}
-        result['round_elapsed_ns'] = elapsed_by_name.get(name, [])
-        results.append(result)
-    return {
-        'spec': spec.to_dict(),
-        'round_orders': round_orders,
-        'results': results,
-    }
+    for name, result in comparison.items():
+        result.round_elapsed_ns = elapsed_by_name.get(name, [])
+    return results.RunResult(spec, round_orders, list(comparison.values()))
 
 
 def collect(spec, *, progress=_ignore_progress):
@@ -283,12 +195,13 @@ def collect(spec, *, progress=_ignore_progress):
 
     Call progress with (phase, kernel), plus completed and total work units
     during sampling. Each warmup call and timed repetition block is one unit.
+
+    :return: A complete :class:`~solvcon.benchmark.results.RunResult`.
     """
 
-    if not isinstance(spec, matmul.MatmulSpec):
-        raise TypeError('spec must be a MatmulSpec')
-    return _collect(
-        spec, _make_executor(spec), time.perf_counter_ns, progress)
+    if not isinstance(spec, operation.BenchmarkSpec):
+        raise TypeError('spec must implement BenchmarkSpec')
+    return _collect(spec, time.perf_counter_ns, progress)
 
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:
