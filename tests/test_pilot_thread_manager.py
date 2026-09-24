@@ -1,6 +1,7 @@
 # Copyright (c) 2026, solvcon team <contact@solvcon.net>
 # BSD 3-Clause License, see COPYING
 
+import functools
 import os
 import subprocess
 import sys
@@ -18,9 +19,9 @@ if solvcon.HAS_PILOT:
 
     from solvcon.pilot import RManager
     from solvcon.pilot._thread_manager import (
-        Cancelled, Error, Failed, Succeeded, Workflow, WorkflowState)
+        Cancelled, Error, Failed, Succeeded, Task, Workflow, WorkflowState)
 else:
-    Workflow = object
+    Task = Workflow = object
 
 
 class ImmediateWorkflow(Workflow):
@@ -74,6 +75,66 @@ class SlowWorkflow(Workflow):
     def start(self, context):
         time.sleep(0.05)
         context.finish(Succeeded())
+
+
+class RecordingTask(Task):
+    """Record the label and the thread, then finish with the label."""
+
+    def __init__(self, label, log, set_event=None, wait_for=None,
+                 raises=False, finishes=True):
+        self.label = label
+        self.log = log
+        self.set_event = set_event
+        self.wait_for = wait_for
+        self.raises = raises
+        self.finishes = finishes
+
+    def execute(self, context, state):
+        self.log.append((self.label, threading.get_ident()))
+        if self.set_event is not None:
+            self.set_event.set()
+        if self.wait_for is not None and not self.wait_for.wait(5):
+            raise TimeoutError(self.label)
+        if self.raises:
+            raise ValueError(self.label)
+        if self.finishes:
+            context.finish(Succeeded(self.label))
+
+
+class EarlyFinishWorkflow(Workflow):
+    """Finish before the submitted task completes."""
+
+    def __init__(self, task):
+        self.task = task
+        self.results = []
+
+    def start(self, context):
+        context.submit('alpha', self.task, self.results.append)
+        context.finish(Succeeded('early'))
+
+
+class TaskWorkflow(Workflow):
+    """Submit tasks and finish with their results in completion order."""
+
+    def __init__(self, submissions, raise_in_callback=False):
+        self.submissions = submissions
+        self.raise_in_callback = raise_in_callback
+        self.results = []
+        self.thread_ids = []
+
+    def start(self, context):
+        self.thread_ids.append(threading.get_ident())
+        for thread, task in self.submissions:
+            context.submit(
+                thread, task, functools.partial(self.completed, context))
+
+    def completed(self, context, result):
+        self.thread_ids.append(threading.get_ident())
+        self.results.append(result)
+        if self.raise_in_callback:
+            raise RuntimeError('callback boom')
+        if len(self.results) == len(self.submissions):
+            context.finish(Succeeded(list(self.results)))
 
 
 @unittest.skipUnless(
@@ -244,6 +305,94 @@ class ThreadManagerTC(unittest.TestCase):
         worker.join()
         with self.assertRaises(ValueError):
             self.manager.submit(ImmediateWorkflow(), owner=foreign[0])
+
+    def test_register_thread(self):
+        self.assertFalse(self.manager.has_thread('nobody'))
+        self.manager.register_thread('alpha')
+        self.manager.register_thread('alpha')
+        self.assertTrue(self.manager.has_thread('alpha'))
+
+    def test_tasks_on_one_thread_run_in_order(self):
+        self.manager.register_thread('alpha')
+        log = []
+        workflow = TaskWorkflow(
+            [('alpha', RecordingTask(label, log)) for label in 'abc'])
+        _, result = self.run_workflow(workflow)
+        self.assertEqual([r.result for r in result.result], list('abc'))
+        self.assertEqual([label for label, _ in log], list('abc'))
+        self.assertEqual(len({tid for _, tid in log}), 1)
+        start_thread, *callback_threads = workflow.thread_ids
+        self.assertEqual(set(callback_threads), {start_thread})
+        self.assertNotEqual(start_thread, threading.get_ident())
+        self.assertNotEqual(start_thread, log[0][1])
+
+    def test_tasks_on_two_threads_overlap(self):
+        self.manager.register_thread('alpha')
+        self.manager.register_thread('beta')
+        log = []
+        first, second = threading.Event(), threading.Event()
+        workflow = TaskWorkflow([
+            ('alpha', RecordingTask('a', log, set_event=first,
+                                    wait_for=second)),
+            ('beta', RecordingTask('b', log, set_event=second,
+                                   wait_for=first)),
+        ])
+        _, result = self.run_workflow(workflow)
+        self.assertEqual(
+            sorted(r.result for r in result.result), ['a', 'b'])
+        self.assertEqual(len({tid for _, tid in log}), 2)
+
+    def test_unregistered_thread_gives_failed(self):
+        log = []
+        workflow = TaskWorkflow([('nobody', RecordingTask('a', log))])
+        _, result = self.run_workflow(workflow)
+        (failed,) = result.result
+        self.assertIsInstance(failed, Failed)
+        self.assertEqual(failed.error.kind, 'unregistered thread')
+        self.assertEqual(log, [])
+
+    def test_task_exception_fails_the_task_only(self):
+        self.manager.register_thread('alpha')
+        log = []
+        workflow = TaskWorkflow([
+            ('alpha', RecordingTask('a', log, raises=True)),
+            ('alpha', RecordingTask('b', log)),
+        ])
+        _, result = self.run_workflow(workflow)
+        failed, succeeded = result.result
+        self.assertIsInstance(failed, Failed)
+        self.assertEqual(
+            (failed.error.kind, failed.error.message), ('ValueError', 'a'))
+        self.assertEqual(succeeded.result, 'b')
+
+    def test_task_returning_without_a_result_fails(self):
+        self.manager.register_thread('alpha')
+        workflow = TaskWorkflow(
+            [('alpha', RecordingTask('a', [], finishes=False))])
+        _, result = self.run_workflow(workflow)
+        (failed,) = result.result
+        self.assertEqual(failed.error.kind, 'incomplete')
+
+    def test_callback_exception_fails_the_workflow(self):
+        self.manager.register_thread('alpha')
+        workflow = TaskWorkflow(
+            [('alpha', RecordingTask('a', []))], raise_in_callback=True)
+        _, result = self.run_workflow(workflow)
+        self.assertIsInstance(result, Failed)
+        self.assertEqual(
+            (result.error.kind, result.error.message),
+            ('RuntimeError', 'callback boom'))
+
+    def test_early_finish_still_delivers_the_task_callback(self):
+        """A workflow that finishes first must not drop the promised
+        completion callback of a task that is still running."""
+        self.manager.register_thread('alpha')
+        log = []
+        workflow = EarlyFinishWorkflow(RecordingTask('a', log))
+        _, result = self.run_workflow(workflow)
+        self.assertEqual(result.result, 'early')
+        self.wait_for(lambda: bool(workflow.results))
+        self.assertEqual([r.result for r in workflow.results], ['a'])
 
     def test_process_exits_with_queued_work(self):
         if os.path.basename(sys.executable).lower() not in (

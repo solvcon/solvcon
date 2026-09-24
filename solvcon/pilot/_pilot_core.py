@@ -44,6 +44,7 @@ list_of_rthreadmanager = [
     'Succeeded',
     'Failed',
     'Cancelled',
+    'TaskContext',
     'WorkflowContext',
     'WorkflowHandle',
     'RThreadManager',

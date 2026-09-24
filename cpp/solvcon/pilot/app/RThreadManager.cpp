@@ -5,13 +5,13 @@
 
 #include <solvcon/pilot/app/RThreadManager.hpp> // Must be the first include.
 
-#include <atomic>
 #include <condition_variable>
 #include <deque>
 #include <exception>
 #include <mutex>
 #include <stdexcept>
 #include <thread>
+#include <unordered_map>
 #include <utility>
 
 #include <QDebug>
@@ -83,6 +83,25 @@ void log_failure(Call && call, char const * what)
     }
 }
 
+/// Run @p call; an exception fails @p context unless it already has a result.
+template <typename Context, typename Call>
+void finish_on_error(Context & context, Call && call)
+{
+    try
+    {
+        std::forward<Call>(call)();
+    }
+    catch (pybind11::error_already_set & error)
+    {
+        pybind11::gil_scoped_acquire const gil;
+        context.finish(Failed{.error = python_error(error)});
+    }
+    catch (std::exception const & error)
+    {
+        context.finish(Failed{.error = {.kind = "exception", .message = error.what()}});
+    }
+}
+
 void require_qt_thread(QObject const & object, char const * name)
 {
     if (QThread::currentThread() != object.thread())
@@ -93,12 +112,19 @@ void require_qt_thread(QObject const & object, char const * name)
 
 } /* end namespace */
 
+struct WorkflowContext::Submission
+{
+    std::string thread_name;
+    std::unique_ptr<Task> task;
+    ResultCallback on_completed;
+}; /* end struct WorkflowContext::Submission */
+
 struct WorkflowContext::Impl
 {
     WorkflowId workflow_id = 0;
-    std::mutex mutex;
-    bool accepting = true;
+    bool open = true;
     std::optional<Result> result;
+    std::deque<Submission> submissions;
 }; /* end struct WorkflowContext::Impl */
 
 WorkflowContext::WorkflowContext(WorkflowId workflow_id)
@@ -109,10 +135,49 @@ WorkflowContext::WorkflowContext(WorkflowId workflow_id)
 
 WorkflowId WorkflowContext::workflow_id() const { return m_impl->workflow_id; }
 
+void WorkflowContext::submit(std::string const & thread, std::unique_ptr<Task> task, ResultCallback on_completed)
+{
+    m_impl->submissions.push_back({.thread_name = thread, .task = std::move(task), .on_completed = std::move(on_completed)});
+}
+
 bool WorkflowContext::finish(Result result)
 {
-    std::scoped_lock const lock(m_impl->mutex);
-    if (!m_impl->accepting || m_impl->result)
+    if (!m_impl->open)
+    {
+        return false;
+    }
+    m_impl->open = false;
+    m_impl->result = std::move(result);
+    return true;
+}
+
+std::deque<WorkflowContext::Submission> WorkflowContext::take_submissions() { return std::exchange(m_impl->submissions, {}); }
+
+bool WorkflowContext::finished() const { return m_impl->result.has_value(); }
+
+std::optional<Result> WorkflowContext::close()
+{
+    m_impl->open = false;
+    return m_impl->result;
+}
+
+struct TaskContext::Impl
+{
+    WorkflowId workflow_id = 0;
+    std::optional<Result> result;
+}; /* end struct TaskContext::Impl */
+
+TaskContext::TaskContext(WorkflowId workflow_id)
+    : m_impl(std::make_shared<Impl>())
+{
+    m_impl->workflow_id = workflow_id;
+}
+
+WorkflowId TaskContext::workflow_id() const { return m_impl->workflow_id; }
+
+bool TaskContext::finish(Result result)
+{
+    if (m_impl->result)
     {
         return false;
     }
@@ -120,12 +185,7 @@ bool WorkflowContext::finish(Result result)
     return true;
 }
 
-std::optional<Result> WorkflowContext::close()
-{
-    std::scoped_lock const lock(m_impl->mutex);
-    m_impl->accepting = false;
-    return std::exchange(m_impl->result, std::nullopt);
-}
+std::optional<Result> TaskContext::take_result() { return std::exchange(m_impl->result, std::nullopt); }
 
 RWorkflowHandle::RWorkflowHandle(WorkflowId workflow_id, QObject * owner)
     : QObject(owner)
@@ -178,17 +238,139 @@ void RWorkflowHandle::deliver(Result result)
     }
 }
 
+/**
+ * One thread and one FIFO queue. The workflow thread and every task thread
+ * are one of these. After stop() the thread cancels each queued job instead
+ * of running it, and a job pushed after the thread exited is cancelled on
+ * the pushing thread.
+ */
+struct RThreadManager::Scheduler
+{
+    struct Job
+    {
+        Job() = default;
+        Job(Job const &) = delete;
+        Job & operator=(Job const &) = delete;
+        virtual ~Job() = default;
+
+        virtual void run(ThreadState & state) = 0;
+        virtual void cancel() = 0;
+    }; /* end struct Job */
+
+    /// @p on_stopped runs on the thread after the queue drained.
+    explicit Scheduler(std::function<void()> on_stopped = nullptr)
+        : m_on_stopped(std::move(on_stopped))
+    {
+    }
+    Scheduler(Scheduler const &) = delete;
+    Scheduler & operator=(Scheduler const &) = delete;
+    ~Scheduler() { stop(); }
+
+    void start();
+    void push(std::unique_ptr<Job> job);
+    /// Cancel queued jobs and join; a running job delays the join until it returns.
+    void stop();
+    void loop();
+
+    std::function<void()> m_on_stopped;
+    ThreadState m_thread_state;
+    std::mutex m_mutex;
+    std::condition_variable m_condition;
+    std::deque<std::unique_ptr<Job>> m_queue;
+    bool m_stopping = false;
+    bool m_exited = false;
+    std::jthread m_thread;
+}; /* end struct RThreadManager::Scheduler */
+
+void RThreadManager::Scheduler::start()
+{
+    if (!m_thread.joinable())
+    {
+        m_thread = std::jthread([this]()
+                                { loop(); });
+    }
+}
+
+void RThreadManager::Scheduler::push(std::unique_ptr<Job> job)
+{
+    std::unique_lock lock(m_mutex);
+    if (m_exited)
+    {
+        lock.unlock();
+        job->cancel();
+        return;
+    }
+    m_queue.push_back(std::move(job));
+    lock.unlock();
+    m_condition.notify_one();
+}
+
+void RThreadManager::Scheduler::stop()
+{
+    {
+        std::scoped_lock const lock(m_mutex);
+        m_stopping = true;
+        m_exited = m_exited || !m_thread.joinable();
+    }
+    m_condition.notify_one();
+    if (m_thread.joinable())
+    {
+        m_thread.join();
+    }
+}
+
+void RThreadManager::Scheduler::loop()
+{
+    std::unique_lock lock(m_mutex);
+    while (true)
+    {
+        m_condition.wait(lock, [this]()
+                         { return m_stopping || !m_queue.empty(); });
+        if (m_queue.empty())
+        {
+            break;
+        }
+        std::unique_ptr<Job> const job = std::move(m_queue.front());
+        m_queue.pop_front();
+        bool const stopping = m_stopping;
+        lock.unlock();
+        if (stopping)
+        {
+            job->cancel();
+        }
+        else
+        {
+            job->run(m_thread_state);
+        }
+        lock.lock();
+    }
+    m_exited = true;
+    lock.unlock();
+    if (m_on_stopped)
+    {
+        m_on_stopped();
+    }
+}
+
 struct RThreadManager::Impl
 {
-    struct Item
+    struct WorkflowEntry
     {
         std::unique_ptr<Workflow> workflow;
         WorkflowContext context;
         QPointer<RWorkflowHandle> handle;
-    }; /* end struct Item */
+
+        size_t pending_callbacks = 0; ///< Tasks whose completion callback has not run yet.
+    }; /* end struct WorkflowEntry */
+
+    struct StartWorkflowJob;
+    struct CompletionJob;
+    struct TaskJob;
 
     explicit Impl(RThreadManager * manager)
         : m_manager(manager)
+        , m_workflow_thread([this]()
+                            { cancel_open_workflows(); })
     {
     }
 
@@ -207,72 +389,193 @@ struct RThreadManager::Impl
             Qt::QueuedConnection);
     }
 
-    void complete(Item & item)
+    void deliver(WorkflowEntry & entry, Result result)
     {
-        if (std::optional<Result> result = item.context.close())
-        {
-            post(item.handle, [result = std::move(*result)](RWorkflowHandle & handle)
-                 { handle.deliver(result); });
-        }
+        post(entry.handle, [result = std::move(result)](RWorkflowHandle & handle)
+             { handle.deliver(result); });
     }
 
-    void run(Item & item)
-    {
-        post(item.handle, [](RWorkflowHandle & handle)
-             { handle.setState(WorkflowState::Running); });
-        try
-        {
-            item.workflow->start(item.context);
-        }
-        catch (std::exception const & error)
-        {
-            item.context.finish(Failed{.error = {.kind = "exception", .message = error.what()}});
-        }
-        if (m_stopping && item.context.finish(Cancelled{}))
-        {
-            log_failure([&item]()
-                        { item.workflow->cancel(); },
-                        "cancel");
-        }
-        log_failure([&item]()
-                    { item.workflow->close(); },
-                    "close");
-        complete(item);
-    }
+    void run(WorkflowEntry entry);
 
-    void loop()
-    {
-        while (true)
-        {
-            std::unique_lock lock(m_mutex);
-            m_condition.wait(lock, [this]()
-                             { return m_stopping || !m_queue.empty(); });
-            if (m_stopping)
-            {
-                for (Item & item : m_queue)
-                {
-                    item.context.finish(Cancelled{});
-                    complete(item);
-                }
-                m_queue.clear();
-                return;
-            }
-            Item item = std::move(m_queue.front());
-            m_queue.pop_front();
-            lock.unlock();
-            run(item);
-        }
-    }
+    /// Close the workflow once it has a result and no task can still call back.
+    void close_if_done(WorkflowEntry & entry);
+
+    void close(WorkflowEntry & entry);
+    void cancel_open_workflows();
+    void dispatch(WorkflowEntry & entry);
+    /// Run the completion callback on the workflow thread; an exception from the callback fails the workflow.
+    void complete_task(WorkflowId workflow_id, ResultCallback on_completed, Result result);
+    Scheduler * find_scheduler(std::string const & name);
 
     RThreadManager * m_manager;
-    std::mutex m_mutex;
-    std::condition_variable m_condition;
-    std::deque<Item> m_queue;
-    std::atomic<bool> m_stopping = false;
+
+    Scheduler m_workflow_thread; ///< Runs workflow starts and task completion callbacks.
+
+    /// Workflows that start() left open; only the workflow thread touches this map.
+    std::unordered_map<WorkflowId, WorkflowEntry> m_open_workflows;
     bool m_stopped = false;
-    WorkflowId m_next_id = 1;
-    std::jthread m_worker;
+    WorkflowId m_next_workflow_id = 1;
+    std::mutex m_task_threads_mutex;
+    std::unordered_map<std::string, std::unique_ptr<Scheduler>> m_task_threads;
 }; /* end struct RThreadManager::Impl */
+
+struct RThreadManager::Impl::StartWorkflowJob
+    : Scheduler::Job
+{
+    StartWorkflowJob(Impl & impl, WorkflowEntry entry)
+        : m_impl(impl)
+        , m_entry(std::move(entry))
+    {
+    }
+
+    void run(ThreadState & /* state */) override { m_impl.run(std::move(m_entry)); }
+
+    void cancel() override
+    {
+        m_entry.context.finish(Cancelled{});
+        m_impl.deliver(m_entry, Cancelled{});
+    }
+
+    Impl & m_impl;
+    WorkflowEntry m_entry;
+}; /* end struct RThreadManager::Impl::StartWorkflowJob */
+
+/// A promised completion callback runs also when the thread stops.
+struct RThreadManager::Impl::CompletionJob
+    : Scheduler::Job
+{
+    explicit CompletionJob(std::function<void()> callback)
+        : m_callback(std::move(callback))
+    {
+    }
+
+    void run(ThreadState & /* state */) override { m_callback(); }
+    void cancel() override { m_callback(); }
+
+    std::function<void()> m_callback;
+}; /* end struct RThreadManager::Impl::CompletionJob */
+
+struct RThreadManager::Impl::TaskJob
+    : Scheduler::Job
+{
+    TaskJob(Impl & impl, WorkflowId workflow_id, std::unique_ptr<Task> task, ResultCallback on_completed)
+        : m_impl(impl)
+        , m_workflow_id(workflow_id)
+        , m_task(std::move(task))
+        , m_on_completed(std::move(on_completed))
+    {
+    }
+
+    void run(ThreadState & state) override;
+    void cancel() override { m_impl.complete_task(m_workflow_id, std::move(m_on_completed), Cancelled{}); }
+
+    Impl & m_impl;
+    WorkflowId m_workflow_id;
+    std::unique_ptr<Task> m_task;
+    ResultCallback m_on_completed;
+}; /* end struct RThreadManager::Impl::TaskJob */
+
+void RThreadManager::Impl::TaskJob::run(ThreadState & state)
+{
+    TaskContext context(m_workflow_id);
+    finish_on_error(context, [this, &context, &state]()
+                    { m_task->execute(context, state); });
+    std::optional<Result> result = context.take_result();
+    if (!result)
+    {
+        result = Failed{.error = {.kind = "incomplete", .message = "execute returned no result"}};
+    }
+    m_impl.complete_task(m_workflow_id, std::move(m_on_completed), std::move(*result));
+}
+
+void RThreadManager::Impl::run(WorkflowEntry entry)
+{
+    post(entry.handle, [](RWorkflowHandle & handle)
+         { handle.setState(WorkflowState::Running); });
+    finish_on_error(entry.context, [&entry]()
+                    { entry.workflow->start(entry.context); });
+    WorkflowId const workflow_id = entry.context.workflow_id();
+    WorkflowEntry & open = m_open_workflows.emplace(workflow_id, std::move(entry)).first->second;
+    dispatch(open);
+    close_if_done(open);
+}
+
+void RThreadManager::Impl::close_if_done(WorkflowEntry & entry)
+{
+    if (!entry.context.finished() || entry.pending_callbacks > 0)
+    {
+        return;
+    }
+    close(entry);
+    m_open_workflows.erase(entry.context.workflow_id());
+}
+
+void RThreadManager::Impl::close(WorkflowEntry & entry)
+{
+    log_failure([&entry]()
+                { entry.workflow->close(); },
+                "close");
+    deliver(entry, *entry.context.close());
+}
+
+void RThreadManager::Impl::cancel_open_workflows()
+{
+    for (auto & [workflow_id, entry] : m_open_workflows)
+    {
+        if (entry.context.finish(Cancelled{}))
+        {
+            log_failure([&entry]()
+                        { entry.workflow->cancel(); },
+                        "cancel");
+        }
+        close(entry);
+    }
+    m_open_workflows.clear();
+}
+
+void RThreadManager::Impl::dispatch(WorkflowEntry & entry)
+{
+    WorkflowId const workflow_id = entry.context.workflow_id();
+    for (WorkflowContext::Submission & submission : entry.context.take_submissions())
+    {
+        ++entry.pending_callbacks;
+        Scheduler * scheduler = find_scheduler(submission.thread_name);
+        if (scheduler == nullptr)
+        {
+            Error error{.kind = "unregistered thread", .message = "no task thread is named " + submission.thread_name};
+            complete_task(workflow_id, std::move(submission.on_completed), Failed{.error = std::move(error)});
+            continue;
+        }
+        scheduler->push(std::make_unique<TaskJob>(
+            *this, workflow_id, std::move(submission.task), std::move(submission.on_completed)));
+    }
+}
+
+void RThreadManager::Impl::complete_task(WorkflowId workflow_id, ResultCallback on_completed, Result result)
+{
+    m_workflow_thread.push(std::make_unique<CompletionJob>(
+        [this, workflow_id, on_completed = std::move(on_completed), result = std::move(result)]()
+        {
+            auto found = m_open_workflows.find(workflow_id);
+            if (found == m_open_workflows.end())
+            {
+                return;
+            }
+            WorkflowEntry & entry = found->second;
+            finish_on_error(entry.context, [&on_completed, &result]()
+                            { on_completed(result); });
+            --entry.pending_callbacks;
+            dispatch(entry);
+            close_if_done(entry);
+        }));
+}
+
+RThreadManager::Scheduler * RThreadManager::Impl::find_scheduler(std::string const & name)
+{
+    std::scoped_lock const lock(m_task_threads_mutex);
+    auto found = m_task_threads.find(name);
+    return found == m_task_threads.end() ? nullptr : found->second.get();
+}
 
 RThreadManager::RThreadManager(QObject * parent)
     : QObject(parent)
@@ -284,14 +587,28 @@ RThreadManager::~RThreadManager() { shutdown(); }
 
 void RThreadManager::start()
 {
-    if (m_impl->m_worker.joinable())
+    m_impl->m_workflow_thread.start();
+    emit ready();
+}
+
+void RThreadManager::registerThread(std::string const & name)
+{
+    require_qt_thread(*this, "register_thread");
+    if (m_impl->m_stopped)
+    {
+        throw std::runtime_error("thread manager has stopped");
+    }
+    if (hasThread(name))
     {
         return;
     }
-    m_impl->m_worker = std::jthread([impl = m_impl.get()]()
-                                    { impl->loop(); });
-    emit ready();
+    auto scheduler = std::make_unique<Scheduler>();
+    scheduler->start();
+    std::scoped_lock const lock(m_impl->m_task_threads_mutex);
+    m_impl->m_task_threads.emplace(name, std::move(scheduler));
 }
+
+bool RThreadManager::hasThread(std::string const & name) const { return m_impl->find_scheduler(name) != nullptr; }
 
 RWorkflowHandle * RThreadManager::submit(std::unique_ptr<Workflow> workflow, QObject * owner)
 {
@@ -300,23 +617,21 @@ RWorkflowHandle * RThreadManager::submit(std::unique_ptr<Workflow> workflow, QOb
     {
         throw std::invalid_argument("owner must be a QObject on the manager's Qt thread");
     }
-
-    std::unique_lock lock(m_impl->m_mutex);
-    if (m_impl->m_stopping)
+    if (m_impl->m_stopped)
     {
         throw std::runtime_error("thread manager has stopped");
     }
-    WorkflowId const workflow_id = m_impl->m_next_id++;
+    WorkflowId const workflow_id = m_impl->m_next_workflow_id++;
     // Qt owns the handle through the owner QObject.
     // NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
     auto * handle = new RWorkflowHandle(workflow_id, owner);
-    m_impl->m_queue.push_back({
-        .workflow = std::move(workflow),
-        .context = WorkflowContext(workflow_id),
-        .handle = handle,
-    });
-    lock.unlock();
-    m_impl->m_condition.notify_one();
+    m_impl->m_workflow_thread.push(std::make_unique<Impl::StartWorkflowJob>(
+        *m_impl,
+        Impl::WorkflowEntry{
+            .workflow = std::move(workflow),
+            .context = WorkflowContext(workflow_id),
+            .handle = handle,
+        }));
     return handle;
 }
 
@@ -326,15 +641,13 @@ void RThreadManager::shutdown()
     {
         return;
     }
+    // Stop the task threads first, so every task completion reaches the workflow thread before it stops.
+    // Only the Qt thread changes m_task_threads, so no lock is needed to walk it here.
+    for (auto & [name, scheduler] : m_impl->m_task_threads)
     {
-        std::scoped_lock const lock(m_impl->m_mutex);
-        m_impl->m_stopping = true;
+        scheduler->stop();
     }
-    m_impl->m_condition.notify_one();
-    if (m_impl->m_worker.joinable())
-    {
-        m_impl->m_worker.join();
-    }
+    m_impl->m_workflow_thread.stop();
     emit stopped();
 }
 
@@ -344,6 +657,20 @@ PythonResult::PythonResult(pybind11::object result)
 }
 
 PythonResult::~PythonResult() { discard_python_object(m_result); }
+
+PythonTask::PythonTask(pybind11::object task)
+    : m_task(std::move(task))
+{
+}
+
+PythonTask::~PythonTask() { discard_python_object(m_task); }
+
+void PythonTask::execute(TaskContext & context, ThreadState & /* state */)
+{
+    // TODO(#1527): pass the PythonThreadState object once registerThread takes a factory.
+    pybind11::gil_scoped_acquire const gil;
+    m_task.attr("execute")(TaskContext(context), pybind11::none());
+}
 
 PythonWorkflow::PythonWorkflow(pybind11::object workflow)
     : m_workflow(std::move(workflow))
@@ -355,17 +682,7 @@ PythonWorkflow::~PythonWorkflow() { discard_python_object(m_workflow); }
 void PythonWorkflow::start(WorkflowContext & context)
 {
     pybind11::gil_scoped_acquire const gil;
-    try
-    {
-        m_workflow.attr("start")(WorkflowContext(context));
-    }
-    catch (pybind11::error_already_set & error)
-    {
-        if (!context.finish(Failed{.error = python_error(error)}))
-        {
-            error.discard_as_unraisable("Pilot workflow start");
-        }
-    }
+    m_workflow.attr("start")(WorkflowContext(context));
 }
 
 void PythonWorkflow::cancel() { call_python(m_workflow, "cancel"); }

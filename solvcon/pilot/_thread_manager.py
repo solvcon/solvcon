@@ -3,16 +3,29 @@
 
 """Python surface of the C++ Pilot thread manager.
 
-The contract lives in cpp/solvcon/pilot/app/RThreadManager.hpp. ``Workflow``
-stays a Python base class; ``RThreadManager.submit`` wraps an instance in the
-C++ adapter when it enters the queue.
+The contract lives in cpp/solvcon/pilot/app/RThreadManager.hpp. ``Task``
+and ``Workflow`` stay Python base classes; the binding wraps an instance in
+the matching C++ adapter when it enters a queue.
 """
 
 import abc
 
 from ._pilot_core import (
-    Cancelled, Error, Failed, RThreadManager, Succeeded, WorkflowContext,
-    WorkflowHandle, WorkflowState)
+    Cancelled, Error, Failed, RThreadManager, Succeeded, TaskContext,
+    WorkflowContext, WorkflowHandle, WorkflowState)
+
+
+class Task(abc.ABC):
+    """Executed on its task thread under the GIL; carries only
+    thread-transferable data."""
+
+    @abc.abstractmethod
+    def execute(self, context: TaskContext, state) -> None:
+        """Complete the task with ``context.finish`` before this method
+        returns. A long C++ call made here must release the GIL in its
+        binding, or it blocks every other Python thread, including the Qt
+        thread. ``state`` is ``None`` until ``register_thread`` takes a
+        thread-state factory."""
 
 
 class Workflow(abc.ABC):
@@ -36,6 +49,8 @@ __all__ = [
     'Failed',
     'RThreadManager',
     'Succeeded',
+    'Task',
+    'TaskContext',
     'Workflow',
     'WorkflowContext',
     'WorkflowHandle',
