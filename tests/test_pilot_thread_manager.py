@@ -19,9 +19,10 @@ if solvcon.HAS_PILOT:
 
     from solvcon.pilot import RManager
     from solvcon.pilot._thread_manager import (
-        Cancelled, Error, Failed, Succeeded, Task, Workflow, WorkflowState)
+        Cancelled, Error, Failed, Succeeded, Task, ThreadState, Workflow,
+        WorkflowState)
 else:
-    Task = Workflow = object
+    Task = ThreadState = Workflow = object
 
 
 class ImmediateWorkflow(Workflow):
@@ -101,6 +102,28 @@ class RecordingTask(Task):
             context.finish(Succeeded(self.label))
 
 
+class StateTask(Task):
+    """Finish with the state object and the thread that ran the task."""
+
+    def execute(self, context, state):
+        context.finish(Succeeded((state, threading.get_ident())))
+
+
+class RecordingState(ThreadState):
+    """Log each lifecycle call with the thread that made it."""
+
+    def __init__(self, log, label='state', raise_in_open=False):
+        self.log = log
+        self.label = label
+        self.raise_in_open = raise_in_open
+        self.log.append(('init', label, threading.get_ident()))
+
+    def open(self):
+        self.log.append(('open', self.label, threading.get_ident()))
+        if self.raise_in_open:
+            raise RuntimeError('open')
+
+
 class EarlyFinishWorkflow(Workflow):
     """Finish before the submitted task completes."""
 
@@ -176,6 +199,12 @@ class ThreadManagerTC(unittest.TestCase):
         handle.on_finished(results.append)
         self.wait_for(lambda: bool(results))
         return handle, results[0]
+
+    def run_state_tasks(self, thread, count=1):
+        """Run count tasks on thread and return what each one saw."""
+        _, result = self.run_workflow(
+            TaskWorkflow([(thread, StateTask()) for _ in range(count)]))
+        return [r.result for r in result.result]
 
     def test_value_types(self):
         error = Error('ValueError', 'boom')
@@ -393,6 +422,55 @@ class ThreadManagerTC(unittest.TestCase):
         self.assertEqual(result.result, 'early')
         self.wait_for(lambda: bool(workflow.results))
         self.assertEqual([r.result for r in workflow.results], ['a'])
+
+    def test_tasks_on_one_thread_share_one_state(self):
+        log = []
+        states = []
+
+        def factory():
+            states.append(RecordingState(log))
+            return states[-1]
+
+        self.manager.register_thread('stateful', factory)
+        (first, thread_id), (second, _) = self.run_state_tasks(
+            'stateful', count=2)
+        self.assertEqual(len(states), 1)
+        self.assertIs(first, states[0])
+        self.assertIs(second, states[0])
+        self.assertEqual(
+            log, [('init', 'state', thread_id), ('open', 'state', thread_id)])
+        self.assertNotEqual(thread_id, threading.get_ident())
+
+    def test_registering_again_keeps_the_state(self):
+        log = []
+        self.manager.register_thread(
+            'kept', lambda: RecordingState(log, 'a'))
+        self.manager.register_thread(
+            'kept', lambda: RecordingState(log, 'b'))
+        ((state, _),) = self.run_state_tasks('kept')
+        self.assertEqual(state.label, 'a')
+        self.assertEqual(len(log), 2)
+
+    def test_startup_errors_are_reported_on_the_qt_thread(self):
+        errors = []
+        self.manager.on_startup_failed(
+            lambda error: errors.append((error, threading.get_ident())))
+
+        def broken_factory():
+            raise ValueError('no state')
+
+        self.manager.register_thread('broken-factory', broken_factory)
+        self.manager.register_thread(
+            'broken-open', lambda: RecordingState([], raise_in_open=True))
+        for thread in ('broken-factory', 'broken-open'):
+            ((state, _),) = self.run_state_tasks(thread)
+            self.assertIsNone(state)
+        self.wait_for(lambda: len(errors) == 2)
+        self.assertEqual(
+            sorted((error.kind, error.message) for error, _ in errors),
+            [('RuntimeError', 'open'), ('ValueError', 'no state')])
+        self.assertEqual({tid for _, tid in errors},
+                         {threading.get_ident()})
 
     def test_process_exits_with_queued_work(self):
         if os.path.basename(sys.executable).lower() not in (

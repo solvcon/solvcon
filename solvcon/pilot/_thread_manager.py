@@ -3,9 +3,10 @@
 
 """Python surface of the C++ Pilot thread manager.
 
-The contract lives in cpp/solvcon/pilot/app/RThreadManager.hpp. ``Task``
-and ``Workflow`` stay Python base classes; the binding wraps an instance in
-the matching C++ adapter when it enters a queue.
+The contract lives in cpp/solvcon/pilot/app/RThreadManager.hpp.
+``ThreadState``, ``Task``, and ``Workflow`` stay Python base classes; the
+binding wraps an instance in the matching C++ adapter when it enters a
+queue.
 """
 
 import abc
@@ -15,17 +16,33 @@ from ._pilot_core import (
     WorkflowContext, WorkflowHandle, WorkflowState)
 
 
+class ThreadState:
+    """Long-lived objects of one task thread.
+
+    Created, opened, closed, and used only on that thread; every task on
+    the thread sees the same instance, and the instance lives as long as
+    the thread. A thread registered without a factory hands its tasks
+    ``None`` instead.
+    """
+
+    def open(self) -> None:
+        pass
+
+    def close(self) -> None:
+        pass
+
+
 class Task(abc.ABC):
     """Executed on its task thread under the GIL; carries only
     thread-transferable data."""
 
     @abc.abstractmethod
-    def execute(self, context: TaskContext, state) -> None:
+    def execute(self, context: TaskContext,
+                state: ThreadState | None) -> None:
         """Complete the task with ``context.finish`` before this method
         returns. A long C++ call made here must release the GIL in its
         binding, or it blocks every other Python thread, including the Qt
-        thread. ``state`` is ``None`` until ``register_thread`` takes a
-        thread-state factory."""
+        thread."""
 
 
 class Workflow(abc.ABC):
@@ -51,6 +68,7 @@ __all__ = [
     'Succeeded',
     'Task',
     'TaskContext',
+    'ThreadState',
     'Workflow',
     'WorkflowContext',
     'WorkflowHandle',
