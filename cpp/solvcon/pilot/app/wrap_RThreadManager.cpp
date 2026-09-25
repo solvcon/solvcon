@@ -97,6 +97,7 @@ void wrap_thread_manager(pybind11::module & mod)
     py::enum_<WorkflowState>(mod, "WorkflowState")
         .value("QUEUED", WorkflowState::Queued)
         .value("RUNNING", WorkflowState::Running)
+        .value("CANCELLING", WorkflowState::Cancelling)
         .value("FINISHED", WorkflowState::Finished);
 
     py::class_<Error>(mod, "Error")
@@ -117,12 +118,17 @@ void wrap_thread_manager(pybind11::module & mod)
 
     py::class_<Cancelled>(mod, "Cancelled").def(py::init<>());
 
+    py::class_<CancellationToken>(mod, "CancellationToken")
+        .def("is_cancelled", &CancellationToken::is_cancelled);
+
     py::class_<TaskContext>(mod, "TaskContext")
         .def_property_readonly("workflow_id", &TaskContext::workflow_id)
+        .def_property_readonly("cancellation", &TaskContext::cancellation)
         .def("finish", &TaskContext::finish, py::arg("result"));
 
     py::class_<WorkflowContext>(mod, "WorkflowContext")
         .def_property_readonly("workflow_id", &WorkflowContext::workflow_id)
+        .def_property_readonly("cancellation", &WorkflowContext::cancellation)
         .def(
             "submit",
             [](WorkflowContext & self, std::string const & thread, py::object task, py::function on_completed)
@@ -140,6 +146,7 @@ void wrap_thread_manager(pybind11::module & mod)
     py::class_<RWorkflowHandle, QPointer<RWorkflowHandle>>(mod, "WorkflowHandle")
         .def_property_readonly("workflow_id", &RWorkflowHandle::workflowId)
         .def_property_readonly("state", &RWorkflowHandle::state)
+        .def("cancel", &RWorkflowHandle::cancel)
         .def(
             "on_state_changed",
             [](RWorkflowHandle & self, py::function callback)
