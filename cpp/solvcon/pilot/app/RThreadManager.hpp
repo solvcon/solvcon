@@ -26,17 +26,19 @@
 #include <variant>
 
 #include <QObject>
+#include <QPointer>
 
 namespace solvcon
 {
 
 using WorkflowId = uint64_t;
 
-/// Values match the full contract, which adds Cancelling as 2.
+/// A workflow only advances through these states.
 enum class WorkflowState : uint8_t
 {
     Queued = 0,
     Running = 1,
+    Cancelling = 2,
     Finished = 3,
 }; /* end enum class WorkflowState */
 
@@ -65,6 +67,8 @@ using Result = std::variant<Succeeded, Failed, Cancelled>;
 using ResultCallback = std::function<void(Result)>;
 using StateCallback = std::function<void(WorkflowState)>;
 
+class RThreadManager;
+
 /**
  * Holds the long-lived state of one task thread. Created, opened, closed,
  * and used only on that thread; every task on the thread sees the same
@@ -84,12 +88,41 @@ public:
 
 using ThreadStateFactory = std::function<std::unique_ptr<ThreadState>()>;
 
+/**
+ * Thread-safe view of a workflow's cancellation request. A task polls it
+ * between chunks of work, because a running call cannot be interrupted.
+ */
+class CancellationToken
+{
+public:
+    bool is_cancelled() const;
+
+private:
+    friend class RThreadManager;
+    friend class RWorkflowHandle;
+    friend class WorkflowContext;
+
+    /// Exactly one of cancel() and finish() wins the verdict of a workflow.
+    struct Flag;
+
+    explicit CancellationToken(std::shared_ptr<Flag const> flag)
+        : m_flag(std::move(flag))
+    {
+    }
+    std::shared_ptr<Flag const> m_flag;
+}; /* end class CancellationToken */
+
 /// Handed to Task::execute; valid on the task thread until execute() returns.
 class TaskContext
 {
 public:
     WorkflowId workflow_id() const;
-    /// Return true only if this call completed the task; the completion callback then runs on the workflow thread.
+    CancellationToken cancellation() const;
+    /**
+     * Return true only if this call completed the task; the completion
+     * callback then runs on the workflow thread and receives Cancelled
+     * instead of @p result if cancellation was accepted meanwhile.
+     */
     bool finish(Result result);
 
 private:
@@ -97,7 +130,7 @@ private:
 
     struct Impl; ///< Executed and destroyed on the workflow thread; carries only thread-transferable data.
 
-    explicit TaskContext(WorkflowId workflow_id);
+    TaskContext(WorkflowId workflow_id, CancellationToken token);
     std::optional<Result> take_result();
     std::shared_ptr<Impl> m_impl;
 }; /* end class TaskContext */
@@ -125,21 +158,23 @@ class WorkflowContext
 {
 public:
     WorkflowId workflow_id() const;
+    CancellationToken cancellation() const;
     /**
      * Queue a task for the thread named @p thread. @p on_completed runs
      * exactly once on the workflow thread, never inline on the task thread.
      * An unregistered @p thread completes the task with Failed without
-     * running it.
+     * running it, and so does an accepted cancellation.
      */
     void submit(std::string const & thread, std::unique_ptr<Task> task, ResultCallback on_completed);
-    /// Return true only if this call completed the workflow.
+    /// Return true only if this call completed the workflow; an accepted cancellation replaces @p result with Cancelled.
     bool finish(Result result);
 
 private:
     friend class RThreadManager;
     struct Impl;
     struct Submission;
-    explicit WorkflowContext(WorkflowId workflow_id);
+    WorkflowContext(WorkflowId workflow_id, std::shared_ptr<CancellationToken::Flag> flag);
+    bool cancelled() const;
     std::deque<Submission> take_submissions();
     bool finished() const;
     /// Stop accepting a result and return the one that finish() stored.
@@ -157,6 +192,7 @@ public:
     virtual ~Workflow() = default;
 
     virtual void start(WorkflowContext & context) = 0;
+    /// Runs on the workflow thread if the workflow is still open when an accepted cancellation reaches it; the result is Cancelled either way.
     virtual void cancel() {}
     virtual void close() {}
 }; /* end class Workflow */
@@ -174,19 +210,29 @@ class RWorkflowHandle
 public:
     WorkflowId workflowId() const { return m_workflow_id; }
     WorkflowState state() const { return m_state; }
+    /**
+     * Return true only if this call accepted cancellation. The terminal
+     * result is then Cancelled and no queued task of the workflow runs.
+     * Workflow::cancel() runs on the workflow thread if the workflow is
+     * still open when the request arrives there.
+     */
+    bool cancel();
     void onStateChanged(StateCallback callback);
     /// Runs once with the terminal result, also when registered after the result arrived.
     void onFinished(ResultCallback callback);
 
 private:
     friend class RThreadManager;
-    RWorkflowHandle(WorkflowId workflow_id, QObject * owner);
+    RWorkflowHandle(WorkflowId workflow_id, std::shared_ptr<CancellationToken::Flag> flag, RThreadManager & manager, QObject * owner);
+    /// Ignore a state that does not advance, so a queued Running cannot undo Cancelling.
     void setState(WorkflowState state);
     void deliver(Result result);
     /// Consume the completion callback, so a reentrant registration cannot run it twice.
     void flush();
 
     WorkflowId m_workflow_id;
+    std::shared_ptr<CancellationToken::Flag> m_flag;
+    QPointer<RThreadManager> m_manager;
     WorkflowState m_state = WorkflowState::Queued;
     StateCallback m_on_state_changed;
     ResultCallback m_on_finished;
@@ -220,8 +266,11 @@ signals:
 
 private:
     friend class RManager;
+    friend class RWorkflowHandle;
     explicit RThreadManager(QObject * parent);
     void start();
+    /// The handle calls this on the Qt thread after it accepted cancellation; the workflow thread then cancels the workflow.
+    void requestCancel(WorkflowId workflow_id);
     /// Complete every queued task and workflow with Cancelled, join every thread, and emit stopped().
     void shutdown();
 
