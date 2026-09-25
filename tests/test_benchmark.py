@@ -747,17 +747,19 @@ def make_comparison():
 
 class TimingStatsTC(unittest.TestCase):
     def test_per_call_percentiles(self):
-        cases = (([1200, 400, 800], 4, (200.0, 290.0)),
-                 ([10, 30], 4, (5.0, 7.25)),
-                 ([80], 5, (16.0, 16.0)),
-                 ([0, 0], 4, (0.0, 0.0)),
-                 ([], 4, (None, None)))
+        cases = (([1200, 400, 800], 4, (110, 150, 200, 250, 290)),
+                 ([10, 30], 4, (2.75, 3.75, 5, 6.25, 7.25)),
+                 ([80], 5, (16, 16, 16, 16, 16)),
+                 ([0, 0], 4, (0, 0, 0, 0, 0)),
+                 ([], 4, (None, None, None, None, None)))
         for elapsed_ns, repetitions, expected in cases:
             with self.subTest(elapsed_ns=elapsed_ns):
                 original = elapsed_ns.copy()
                 timing = results.TimingStats.from_rounds(
                     elapsed_ns, repetitions)
-                self.assertEqual((timing.median, timing.p95), expected)
+                actual = (timing.p5, timing.p25, timing.median,
+                          timing.p75, timing.p95)
+                self.assertEqual(actual, expected)
                 self.assertEqual(elapsed_ns, original)
 
 
@@ -791,9 +793,11 @@ class ResultsTC(unittest.TestCase):
         result = results.RunResult.from_dict(document)
 
         self.assertEqual(result.timing_stats(), {
-            'naive': results.TimingStats(5.25, 5.475),
+            'naive': results.TimingStats(
+                median=5.25, p95=5.475, p5=5.025, p25=5.125, p75=5.375),
             'winograd': results.TimingStats(),
-            'numpy': results.TimingStats(6.25, 6.475),
+            'numpy': results.TimingStats(
+                median=6.25, p95=6.475, p5=6.025, p25=6.125, p75=6.375),
         })
 
     def test_rejects_incomplete_model_before_writing(self):

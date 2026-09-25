@@ -111,10 +111,16 @@ class TimingStats:
 
     :ivar median: Median, or ``None`` when no samples are available.
     :ivar p95: 95th percentile, or ``None`` when no samples are available.
+    :ivar p5: 5th percentile, or ``None`` when no samples are available.
+    :ivar p25: 25th percentile, or ``None`` when no samples are available.
+    :ivar p75: 75th percentile, or ``None`` when no samples are available.
     """
 
     median: float | None = None
     p95: float | None = None
+    p5: float | None = None
+    p25: float | None = None
+    p75: float | None = None
 
     @classmethod
     def from_rounds(cls, elapsed_ns, repetitions):
@@ -129,8 +135,10 @@ class TimingStats:
             return cls()
         samples = np.array(elapsed_ns, dtype='float64')
         samples /= repetitions
-        median, p95 = np.percentile(samples, [50, 95], method='linear')
-        return cls(float(median), float(p95))
+        p5, p25, median, p75, p95 = np.percentile(
+            samples, [5, 25, 50, 75, 95], method='linear')
+        return cls(median=float(median), p95=float(p95), p5=float(p5),
+                   p25=float(p25), p75=float(p75))
 
 
 def write_artifact(result, path):
