@@ -69,6 +69,21 @@ std::function<void(Arg)> gil_callback(py::function callback, bool rethrow = fals
     };
 }
 
+/// Wrap @p factory so that the task thread calls it under the GIL; None gives an empty factory.
+ThreadStateFactory state_factory(py::object factory)
+{
+    if (factory.is_none())
+    {
+        return nullptr;
+    }
+    auto holder = std::make_shared<PythonResult>(std::move(factory));
+    return [holder]() -> std::unique_ptr<ThreadState>
+    {
+        py::gil_scoped_acquire const gil;
+        return std::make_unique<PythonThreadState>(holder->object()());
+    };
+}
+
 py::object succeeded_result(Succeeded const & self)
 {
     auto const * held = std::any_cast<std::shared_ptr<PythonResult>>(&self.result);
@@ -137,8 +152,18 @@ void wrap_thread_manager(pybind11::module & mod)
             py::arg("callback"));
 
     py::class_<RThreadManager, QPointer<RThreadManager>>(mod, "RThreadManager")
-        .def("register_thread", &RThreadManager::registerThread, py::arg("name"))
+        .def(
+            "register_thread",
+            [](RThreadManager & self, std::string const & name, py::object factory)
+            { self.registerThread(name, state_factory(std::move(factory))); },
+            py::arg("name"),
+            py::arg("factory") = py::none())
         .def("has_thread", &RThreadManager::hasThread, py::arg("name"))
+        .def(
+            "on_startup_failed",
+            [](RThreadManager & self, py::function callback)
+            { QObject::connect(&self, &RThreadManager::startupFailed, &self, gil_callback<Error>(std::move(callback))); },
+            py::arg("callback"))
         .def(
             "submit",
             [](RThreadManager & self, py::object workflow, py::object const & owner)

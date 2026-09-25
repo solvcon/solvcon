@@ -65,7 +65,11 @@ using Result = std::variant<Succeeded, Failed, Cancelled>;
 using ResultCallback = std::function<void(Result)>;
 using StateCallback = std::function<void(WorkflowState)>;
 
-/// Holds the long-lived state of one task thread; every task on the thread sees the same instance.
+/**
+ * Holds the long-lived state of one task thread. Created, opened, closed,
+ * and used only on that thread; every task on the thread sees the same
+ * instance, and the instance lives as long as the thread.
+ */
 class ThreadState
 {
 public:
@@ -73,7 +77,12 @@ public:
     ThreadState(ThreadState const &) = delete;
     ThreadState & operator=(ThreadState const &) = delete;
     virtual ~ThreadState() = default;
+
+    virtual void open() {}
+    virtual void close() {}
 }; /* end class ThreadState */
+
+using ThreadStateFactory = std::function<std::unique_ptr<ThreadState>()>;
 
 /// Handed to Task::execute; valid on the task thread until execute() returns.
 class TaskContext
@@ -188,6 +197,9 @@ private:
  * Own the workflow thread and one task thread for each registered name. Each
  * task thread runs one task at a time in FIFO order; two names never share a
  * thread.
+ *
+ * A factory or open() error emits startupFailed() from the task thread and
+ * leaves the thread with an empty ThreadState.
  */
 class RThreadManager
     : public QObject
@@ -195,14 +207,15 @@ class RThreadManager
     Q_OBJECT
 public:
     ~RThreadManager() override;
-    /// Call on the Qt thread; a second call for the same name reuses the existing thread.
-    void registerThread(std::string const & name);
+    /// Call on the Qt thread. An empty @p factory gives the thread an empty ThreadState; a second call for the same name is ignored.
+    void registerThread(std::string const & name, ThreadStateFactory factory = nullptr);
     bool hasThread(std::string const & name) const;
     /// @p owner is a non-null QObject of the Qt thread; the handle runs no callback before this returns.
     RWorkflowHandle * submit(std::unique_ptr<Workflow> workflow, QObject * owner);
 
 signals:
     void ready();
+    void startupFailed(solvcon::Error error);
     void stopped();
 
 private:
@@ -232,6 +245,23 @@ private:
     pybind11::object m_result;
 }; /* end class PythonResult */
 
+/// Takes the GIL only around each Python call and in the destructor.
+class SOLVCON_PYTHON_WRAPPER_VISIBILITY PythonThreadState
+    : public ThreadState
+{
+public:
+    explicit PythonThreadState(pybind11::object state);
+    ~PythonThreadState() override;
+
+    void open() override;
+    void close() override;
+
+    pybind11::object const & object() const { return m_state; }
+
+private:
+    pybind11::object m_state;
+}; /* end class PythonThreadState */
+
 /// Takes the GIL only around the execute call and in the destructor.
 class SOLVCON_PYTHON_WRAPPER_VISIBILITY PythonTask
     : public Task
@@ -240,7 +270,7 @@ public:
     explicit PythonTask(pybind11::object task);
     ~PythonTask() override;
 
-    /// An exception becomes Failed.
+    /// An exception becomes Failed. The Python task receives the object of a PythonThreadState, or None.
     void execute(TaskContext & context, ThreadState & state) override;
 
 private:

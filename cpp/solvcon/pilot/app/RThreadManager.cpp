@@ -83,22 +83,33 @@ void log_failure(Call && call, char const * what)
     }
 }
 
-/// Run @p call; an exception fails @p context unless it already has a result.
-template <typename Context, typename Call>
-void finish_on_error(Context & context, Call && call)
+/// Run @p call and return the error it threw, if any.
+template <typename Call>
+std::optional<Error> catch_error(Call && call)
 {
     try
     {
         std::forward<Call>(call)();
+        return std::nullopt;
     }
     catch (pybind11::error_already_set & error)
     {
         pybind11::gil_scoped_acquire const gil;
-        context.finish(Failed{.error = python_error(error)});
+        return python_error(error);
     }
     catch (std::exception const & error)
     {
-        context.finish(Failed{.error = {.kind = "exception", .message = error.what()}});
+        return Error{.kind = "exception", .message = error.what()};
+    }
+}
+
+/// Run @p call; an exception fails @p context unless it already has a result.
+template <typename Context, typename Call>
+void finish_on_error(Context & context, Call && call)
+{
+    if (std::optional<Error> error = catch_error(std::forward<Call>(call)))
+    {
+        context.finish(Failed{.error = std::move(*error)});
     }
 }
 
@@ -239,10 +250,12 @@ void RWorkflowHandle::deliver(Result result)
 }
 
 /**
- * One thread and one FIFO queue. The workflow thread and every task thread
- * are one of these. After stop() the thread cancels each queued job instead
- * of running it, and a job pushed after the thread exited is cancelled on
- * the pushing thread.
+ * One thread, one FIFO queue, and one ThreadState that only the thread
+ * touches. The workflow thread and every task thread are one of these.
+ * The thread opens its state before the first job and closes it after
+ * the last. After stop(), the thread cancels each queued job instead of
+ * running it. The pushing thread cancels a job pushed after the thread
+ * exited.
  */
 struct RThreadManager::Scheduler
 {
@@ -257,9 +270,11 @@ struct RThreadManager::Scheduler
         virtual void cancel() = 0;
     }; /* end struct Job */
 
-    /// @p on_stopped runs on the thread after the queue drained.
-    explicit Scheduler(std::function<void()> on_stopped = nullptr)
-        : m_on_stopped(std::move(on_stopped))
+    /// An empty @p factory gives an empty state; @p on_stopped runs on the thread after the queue drained.
+    explicit Scheduler(RThreadManager & manager, ThreadStateFactory factory, std::function<void()> on_stopped = nullptr)
+        : m_manager(manager)
+        , m_factory(std::move(factory))
+        , m_on_stopped(std::move(on_stopped))
     {
     }
     Scheduler(Scheduler const &) = delete;
@@ -272,8 +287,13 @@ struct RThreadManager::Scheduler
     void stop();
     void loop();
 
+    /// A factory or open() error emits startupFailed() and keeps the empty state.
+    void open_state();
+
+    RThreadManager & m_manager;
+    ThreadStateFactory m_factory;
     std::function<void()> m_on_stopped;
-    ThreadState m_thread_state;
+    std::unique_ptr<ThreadState> m_state = std::make_unique<ThreadState>();
     std::mutex m_mutex;
     std::condition_variable m_condition;
     std::deque<std::unique_ptr<Job>> m_queue;
@@ -321,6 +341,7 @@ void RThreadManager::Scheduler::stop()
 
 void RThreadManager::Scheduler::loop()
 {
+    open_state();
     std::unique_lock lock(m_mutex);
     while (true)
     {
@@ -340,16 +361,39 @@ void RThreadManager::Scheduler::loop()
         }
         else
         {
-            job->run(m_thread_state);
+            job->run(*m_state);
         }
         lock.lock();
     }
     m_exited = true;
     lock.unlock();
+    m_state->close();
+    m_state.reset();
     if (m_on_stopped)
     {
         m_on_stopped();
     }
+}
+
+void RThreadManager::Scheduler::open_state()
+{
+    if (!m_factory)
+    {
+        return;
+    }
+    std::unique_ptr<ThreadState> state;
+    std::optional<Error> error = catch_error(
+        [this, &state]()
+        {
+            state = m_factory();
+            state->open();
+        });
+    if (error)
+    {
+        emit m_manager.startupFailed(std::move(*error));
+        return;
+    }
+    m_state = std::move(state);
 }
 
 struct RThreadManager::Impl
@@ -369,7 +413,7 @@ struct RThreadManager::Impl
 
     explicit Impl(RThreadManager * manager)
         : m_manager(manager)
-        , m_workflow_thread([this]()
+        , m_workflow_thread(*manager, nullptr, [this]()
                             { cancel_open_workflows(); })
     {
     }
@@ -591,7 +635,7 @@ void RThreadManager::start()
     emit ready();
 }
 
-void RThreadManager::registerThread(std::string const & name)
+void RThreadManager::registerThread(std::string const & name, ThreadStateFactory factory)
 {
     require_qt_thread(*this, "register_thread");
     if (m_impl->m_stopped)
@@ -602,7 +646,7 @@ void RThreadManager::registerThread(std::string const & name)
     {
         return;
     }
-    auto scheduler = std::make_unique<Scheduler>();
+    auto scheduler = std::make_unique<Scheduler>(*this, std::move(factory));
     scheduler->start();
     std::scoped_lock const lock(m_impl->m_task_threads_mutex);
     m_impl->m_task_threads.emplace(name, std::move(scheduler));
@@ -665,12 +709,28 @@ PythonTask::PythonTask(pybind11::object task)
 
 PythonTask::~PythonTask() { discard_python_object(m_task); }
 
-void PythonTask::execute(TaskContext & context, ThreadState & /* state */)
+void PythonTask::execute(TaskContext & context, ThreadState & state)
 {
-    // TODO(#1527): pass the PythonThreadState object once registerThread takes a factory.
+    auto const * python_state = dynamic_cast<PythonThreadState const *>(&state);
     pybind11::gil_scoped_acquire const gil;
-    m_task.attr("execute")(TaskContext(context), pybind11::none());
+    pybind11::object const state_object = python_state != nullptr ? python_state->object() : pybind11::none();
+    m_task.attr("execute")(TaskContext(context), state_object);
 }
+
+PythonThreadState::PythonThreadState(pybind11::object state)
+    : m_state(std::move(state))
+{
+}
+
+PythonThreadState::~PythonThreadState() { discard_python_object(m_state); }
+
+void PythonThreadState::open()
+{
+    pybind11::gil_scoped_acquire const gil;
+    m_state.attr("open")();
+}
+
+void PythonThreadState::close() { call_python(m_state, "close"); }
 
 PythonWorkflow::PythonWorkflow(pybind11::object workflow)
     : m_workflow(std::move(workflow))
