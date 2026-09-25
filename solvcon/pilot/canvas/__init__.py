@@ -7,9 +7,9 @@ The 2D drawing surface: the canvas window and the SVG import dialog. The
 Painter that draws on it lives in :mod:`solvcon.pilot.painter`.
 """
 
-from ... import pilot
+from .. import _pilot_core as _pcore
 
-if pilot.enable:
+if _pcore.enable:
     from . import _canvas_gui
     from . import _svg_gui
 

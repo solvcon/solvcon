@@ -2,7 +2,7 @@
 # BSD 3-Clause License, see COPYING
 
 
-from ... import pilot
+from .. import _pilot_core as _pcore
 from ...core import Toggle
 from PySide6 import QtCore, QtGui
 
@@ -115,7 +115,7 @@ def apply_shortcut(action, mgr=None):
     if not oid:
         return
     if mgr is None:
-        mgr = pilot.RManager.instance
+        mgr = _pcore.RManager.instance
     resolved = mgr.resolve_shortcut(oid)
     if not resolved["known"]:
         return
@@ -186,7 +186,7 @@ class PilotFeature(QtCore.QObject):
         :type mgr: solvcon.pilot.RManager
         """
         self._mgr = kw.pop('mgr')
-        if not isinstance(self._mgr, pilot.RManager):
+        if not isinstance(self._mgr, _pcore.RManager):
             raise TypeError(
                 "'mgr' must be an instance of 'solvcon.pilot.RManager'")
         super(PilotFeature, self).__init__(*args, **kw)

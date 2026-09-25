@@ -15,7 +15,8 @@ command, so one batch that opens a canvas and then draws on it lands on the
 same window; :func:`build_control_dispatcher` wires them into one dispatcher.
 """
 
-from ... import agent, core
+from ... import core
+from ...agent import _command as _cmd
 from ...agent import draw
 from ...agent.window import Executor as WindowExecutor
 from ...agent.window import view as _view
@@ -130,11 +131,11 @@ class _ActiveCanvasExecutor:
     def _apply(self, op, command):
         widget = self._mgr.currentR2DWidget()
         if widget is None:
-            return agent.CommandResult(op, False, error="no active 2D canvas")
+            return _cmd.CommandResult(op, False, error="no active 2D canvas")
         try:
             self.target = self._seed_target(widget)
-        except agent.CommandError as exc:
-            return agent.CommandResult(op, False, error=str(exc))
+        except _cmd.CommandError as exc:
+            return _cmd.CommandResult(op, False, error=str(exc))
         result = super()._apply(op, command)
         if result.ok and self.command_set.commands[op].category != "read":
             self._on_change(widget)
@@ -166,7 +167,7 @@ class LiveDrawExecutor(_ActiveCanvasExecutor, draw.Executor):
     def _seed_target(self, widget):
         world = widget.world
         if world is None:
-            raise agent.CommandError("active canvas has no world")
+            raise _cmd.CommandError("active canvas has no world")
         return world
 
     def _on_change(self, widget):
@@ -199,7 +200,7 @@ def build_control_dispatcher(mgr, renderer=None):
     dispatcher bound to the live pilot.  Every family resolves the active
     canvas or the MDI area itself, so the caller needs no per-turn rebinding.
     """
-    return agent.CommandDispatcher([
+    return _cmd.CommandDispatcher([
         LiveDrawExecutor(mgr, renderer),
         WindowExecutor(PilotWindowManager(mgr)),
         LiveViewExecutor(mgr)])

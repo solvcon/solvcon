@@ -25,11 +25,10 @@ from PySide6.QtGui import QPainter, QPen, QColor, QPolygonF
 from PySide6.QtWidgets import QWidget, QSizePolicy
 
 from ... import core
-from ... import pilot
+from .. import _pilot_core as _pcore
 
 __all__ = [  # noqa: F822
     'LinePlotWidget',
-    'plot_array',
 ]
 
 
@@ -114,7 +113,7 @@ class LinePlotWidget(QWidget):
     def __init__(self, title="", xlabel="", ylabel="", log_y=False,
                  parent=None):
         super().__init__(parent)
-        self.model = pilot.RPlotModel()
+        self.model = _pcore.RPlotModel()
         self.log_y = log_y
         self._title = title
         self._xlabel = xlabel
@@ -194,9 +193,9 @@ class LinePlotWidget(QWidget):
                 ys.append(y)
         if not xs:
             return None
-        mapped = pilot.RPlotModel()
+        mapped = _pcore.RPlotModel()
         mapped.margin = self.model.margin
-        mapped.add_series().set_data(plot_array(xs), plot_array(ys))
+        mapped.add_series().set_data(_array(xs), _array(ys))
         mapped.autoscale()
         return mapped.view_limits()
 
@@ -318,8 +317,7 @@ class LinePlotWidget(QWidget):
             top += metrics.height()
 
 
-def plot_array(values):
-    """Convert values to a float64 array accepted by plot series."""
+def _array(values):
     return core.SimpleArrayFloat64(array=np.asarray(values, dtype='float64'))
 
 

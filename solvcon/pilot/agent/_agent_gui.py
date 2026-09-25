@@ -23,7 +23,7 @@ from ...agent import AgentBackend, AgentSession, BackendRegistry, op_of
 from ...config import Config
 from . import _agent_control
 from ._agent_settings import AgentBackendSettingsDialog
-from .. import base
+from ..base import _gui_common
 
 __all__ = [  # noqa: F822
     'AUTO_OPEN_COMMANDS',
@@ -177,7 +177,7 @@ class AgentConsoleWidget(QWidget):
         self._transcript.append("%s: %s" % (label, text))
 
 
-class AgentPanel(base.PilotFeature):
+class AgentPanel(_gui_common.PilotFeature):
     """Agent Console dock, toggled from the View "Panels" submenu.
 
     The dock starts hidden.  The commands in :data:`AUTO_OPEN_COMMANDS`

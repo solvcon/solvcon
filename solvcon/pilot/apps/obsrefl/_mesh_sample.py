@@ -13,14 +13,14 @@ handled by the interactive panel in :mod:`._app`.
 """
 
 from . import _driver
-from ... import base
+from ...base import _gui_common
 
 __all__ = [  # noqa: F822
     'ObliqueShockMesh',
 ]
 
 
-class ObliqueShockMesh(base.PilotFeature):
+class ObliqueShockMesh(_gui_common.PilotFeature):
     """
     Draw the oblique-shock reflection mesh and its boundary groups.
     """

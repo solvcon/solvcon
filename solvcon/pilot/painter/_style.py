@@ -14,7 +14,7 @@ import math
 
 from PySide6 import QtGui, QtWidgets
 
-from .. import style
+from .._style import RuleCatalog, Shades
 
 __all__ = [
     'Parts',
@@ -76,7 +76,7 @@ class Parts:
                 math.hypot(xs[3] - xs[0], ys[3] - ys[0]))
 
 
-class Rules(style.RuleCatalog):
+class Rules(RuleCatalog):
     """The Painter's roles, and the icon colors that must match them."""
 
     @staticmethod
@@ -293,7 +293,7 @@ class Rules(style.RuleCatalog):
     @staticmethod
     def row_icon_color(widget, selected):
         """The color a row on ``widget`` strokes its type icon in."""
-        shades = style.Shades(widget)
+        shades = Shades(widget)
         return shades.accent if selected else shades.muted
 
     @staticmethod
@@ -307,7 +307,7 @@ class Rules(style.RuleCatalog):
             wears over the accent pill.
         :rtype: tuple
         """
-        shades = style.Shades(widget)
+        shades = Shades(widget)
         return (shades.dimmed(_ENTRY_LABEL_MIX), shades.dimmed(_ENTRY_OFF_MIX),
                 shades.on_accent)
 

@@ -4,7 +4,7 @@
 
 import numpy as np
 
-from .. import base
+from ..base import _base_app
 
 
 class BurgersEquation:
@@ -66,7 +66,7 @@ class BurgersEquation:
         return np.hstack((self.coord[0], internal, self.coord[-1]))
 
 
-class Burgers1DApp(base.OneDimBaseApp):
+class Burgers1DApp(_base_app.OneDimBaseApp):
     """
     Main application for Burgers' equation 1D solver.
     """
@@ -129,7 +129,7 @@ class Burgers1DApp(base.OneDimBaseApp):
             ["max_steps", 200, "Maximum time step"],
             ["profiling", False, "Turn on / off solver profiling"],
         ]
-        self.solver_config = base.SolverConfig(solver_config_data)
+        self.solver_config = _base_app.SolverConfig(solver_config_data)
 
     def set_plot_data(self):
         """
@@ -139,7 +139,7 @@ class Burgers1DApp(base.OneDimBaseApp):
         self.plot_ana = True
         self.plot_data = []
 
-        velocity = base.QuantityLine(
+        velocity = _base_app.QuantityLine(
             name="velocity",
             unit=r"$\mathrm{m}/\mathrm{s}$",
             color='b',

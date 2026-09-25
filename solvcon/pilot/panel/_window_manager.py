@@ -11,14 +11,14 @@ there, and bring one to the foreground when its entry is chosen.
 
 from PySide6 import QtGui, QtWidgets
 
-from .. import base
+from ..base import _gui_common
 
 __all__ = [
     'WindowManager',
 ]
 
 
-class WindowManager(base.PilotFeature):
+class WindowManager(_gui_common.PilotFeature):
     """Arrange and list open MDI sub-windows under the "Window" menu.
 
     The menu carries three sections: the arrangement actions, the tabbed

@@ -12,14 +12,14 @@ from PySide6 import QtCore, QtWidgets
 from ... import core
 from ... import apputil
 from ...plot import svg
-from .. import base
+from ..base import _gui_common
 
 __all__ = [  # noqa: F822
     'SVGFileDialog',
 ]
 
 
-class SVGFileDialog(base.PilotFeature):
+class SVGFileDialog(_gui_common.PilotFeature):
     """
     Download an example svg from: https://www.svgrepo.com/svg/530293/tree-2
     """

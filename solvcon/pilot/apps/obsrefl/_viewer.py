@@ -18,7 +18,7 @@ close through the :attr:`closed` callback.
 
 from PySide6.QtCore import Qt, QObject, QEvent
 
-from ... import base
+from ...base import _gui_common
 from ._colorbar import ColorBar
 from ._plots import AnalysisLinePlots
 
@@ -93,7 +93,7 @@ class DomainViewer(object):
         self._subwin = self._mdi.activeSubWindow()
         if self._subwin is not None:
             self._subwin.setAttribute(Qt.WA_DeleteOnClose, True)
-            self._close_filter = base.SubWindowCloseFilter(
+            self._close_filter = _gui_common.SubWindowCloseFilter(
                 self._on_subwin_closed, self._subwin)
             self._subwin.installEventFilter(self._close_filter)
             host = self._host()
@@ -257,7 +257,7 @@ class LinePlotViewer(object):
         self._subwin.setWindowTitle("reflection analysis")
         self._subwin.resize(*self.SIZE)
         self._mgr.addSubWindowGrip(self._subwin)
-        self._close_filter = base.SubWindowCloseFilter(
+        self._close_filter = _gui_common.SubWindowCloseFilter(
             self._on_subwin_closed, self._subwin)
         self._subwin.installEventFilter(self._close_filter)
 

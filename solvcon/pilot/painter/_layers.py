@@ -9,7 +9,7 @@ import json
 
 from PySide6 import QtCore, QtWidgets
 
-from .. import style
+from .._style import PaletteStyled, Shades
 from . import _icons
 from . import _rows
 from ._style import Parts, Rules
@@ -133,7 +133,7 @@ class _Footer(QtWidgets.QWidget):
         return button
 
 
-class LayersPage(style.PaletteStyled):
+class LayersPage(PaletteStyled):
     """The inspector's Layers page: one row per object the world holds.
 
     Like the Design page, the page reads the canvas it is bound to on a timer,
@@ -382,7 +382,7 @@ class LayersPage(style.PaletteStyled):
         palette."""
         self.setStyleSheet(Rules.sheet(self, "row", "name", "empty",
                                        "count", "box", "editor", "chip"))
-        greyed = style.Shades(self).greyed
+        greyed = Shades(self).greyed
         ratio = self.devicePixelRatioF()
         self._filters.set_icon(
             _icons.render("search", greyed, self._ICON_PX, ratio))

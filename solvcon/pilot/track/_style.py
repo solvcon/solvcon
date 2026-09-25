@@ -13,7 +13,7 @@ The delegate paints its rows itself and takes its colors from
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QFontDatabase
 
-from .. import style
+from .._style import RuleCatalog, Shades
 
 __all__ = [
     'Rules',
@@ -74,11 +74,11 @@ def row_colors(widget, selected):
     A selected row sits on the accent and a plain one on the list surface,
     so the type line is faded toward whichever of the two is behind it.
     """
-    shades = style.Shades(widget)
+    shades = Shades(widget)
     if selected:
         name = shades.on_accent
-        type_ = style.Shades.blend(name, shades.accent,
-                                   _SELECTED_TYPE_STEP_TOWARD_ACCENT)
+        type_ = Shades.blend(name, shades.accent,
+                             _SELECTED_TYPE_STEP_TOWARD_ACCENT)
         return name, type_
     if _is_dark(shades):
         name = _TOPIC_NAME_COLOR_ON_DARK
@@ -86,18 +86,18 @@ def row_colors(widget, selected):
     else:
         name = _TOPIC_NAME_COLOR_ON_LIGHT
         type_step = _TOPIC_TYPE_STEP_TOWARD_SURFACE_ON_LIGHT
-    type_ = style.Shades.blend(shades.on_base, shades.base, type_step)
+    type_ = Shades.blend(shades.on_base, shades.base, type_step)
     return name, type_
 
 
 def _header_surface(shades):
-    return style.Shades.blend(shades.base, shades.on_base,
-                              _HEADER_SURFACE_STEP_TOWARD_TEXT)
+    return Shades.blend(shades.base, shades.on_base,
+                        _HEADER_SURFACE_STEP_TOWARD_TEXT)
 
 
 def header_colors(widget):
     """The ``(surface, line)`` colors a column header paints in."""
-    shades = style.Shades(widget)
+    shades = Shades(widget)
     return _header_surface(shades), shades.raised(_HAIRLINE_STEP_TOWARD_TEXT)
 
 
@@ -115,7 +115,7 @@ def _control(shades, selector, radius, padding):
         """
 
 
-class Rules(style.RuleCatalog):
+class Rules(RuleCatalog):
     """One method per role the pilot's track panels draw."""
 
     @staticmethod
@@ -171,8 +171,8 @@ class Rules(style.RuleCatalog):
     @staticmethod
     def table(shades):
         """The paged table of one topic; the header paints itself."""
-        alternate = style.Shades.blend(shades.base, shades.on_base,
-                                       _ALTERNATE_ROW_STEP_TOWARD_TEXT)
+        alternate = Shades.blend(shades.base, shades.on_base,
+                                 _ALTERNATE_ROW_STEP_TOWARD_TEXT)
         return f"""
             QTableView {{
                 background: {shades.base.name()};
@@ -210,7 +210,7 @@ class Rules(style.RuleCatalog):
             hover_step = _HOVERED_ROW_STEP_TOWARD_ACCENT_ON_DARK
         else:
             hover_step = _HOVERED_ROW_STEP_TOWARD_ACCENT_ON_LIGHT
-        hover = style.Shades.blend(shades.base, shades.accent, hover_step)
+        hover = Shades.blend(shades.base, shades.accent, hover_step)
         return f"""
             QFrame#topics {{
                 background: {shades.base.name()};

@@ -10,9 +10,10 @@ import math
 
 from PySide6 import QtCore, QtWidgets
 
-from .. import panel, style
+from .._style import PaletteStyled
 from ._sections import Placeholder, Section
 from ._style import Parts, Rules
+from ..panel._tree_panel import EntityTreeWidget
 
 __all__ = [
     'CanvasPage',
@@ -70,7 +71,7 @@ class _Readout(QtWidgets.QFrame):
         self._value.setText(text)
 
 
-class CanvasPage(style.PaletteStyled):
+class CanvasPage(PaletteStyled):
     """The inspector's Canvas page: the view over the bound canvas.
 
     Like the other pages, this one reads the canvas it is bound to on a timer,
@@ -231,7 +232,7 @@ class CanvasPage(style.PaletteStyled):
         world = widget.world
         if world is None:
             return None
-        return panel.EntityTreeWidget.world_bounds(
+        return EntityTreeWidget.world_bounds(
             json.loads(world.describe_state()))
 
     def _on_fit(self):

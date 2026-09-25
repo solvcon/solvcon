@@ -7,9 +7,9 @@ The controlling-agent GUI: the dock panel that drives the 2D world from
 natural language on top of the headless :mod:`solvcon.agent` session.
 """
 
-from ... import pilot
+from .. import _pilot_core as _pcore
 
-if pilot.enable:
+if _pcore.enable:
     from . import _agent_gui
 
     AgentPanel = _agent_gui.AgentPanel

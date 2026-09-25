@@ -9,14 +9,30 @@ Graphical-user interface code
 # Use flake8 http://flake8.pycqa.org/en/latest/user/error-codes.html
 
 
-from ... import apputil, pilot
+from ... import apputil
+from .. import _pilot_core as _pcore
 from .. import airfoil
 
-if pilot.enable:
-    from .. import agent, benchmark, canvas, onedim
-    from .. import painter, panel, track, visual
+if _pcore.enable:
+    from . import _gui_common
+    from .. import benchmark
+    from ..visual import _mesh
+    from ..panel import _tree_panel
     from ..apps import obsrefl
-    from . import _gui_common, _theme, _ui_state
+    from ..onedim import _euler1d
+    from ..onedim import _burgers1d
+    from ..canvas import _svg_gui
+    from ..onedim import _linear_wave
+    from ..canvas import _canvas_gui
+    # Through the package rather than its module: a "from ..painter import
+    # _gui" would shadow this module's own name at every use site.
+    from .. import painter as _painter
+    from ..panel import _profiling
+    from ..track import _mcap_viewer
+    from ..agent import _agent_gui
+    from . import _theme
+    from . import _ui_state
+    from ..panel import _window_manager
 
 __all__ = [  # noqa: F822
     'controller',
@@ -101,7 +117,7 @@ class _Controller(metaclass=_Singleton):
         """
         if self._built:
             return self._rmgr
-        self._rmgr = pilot.RManager.instance
+        self._rmgr = _pcore.RManager.instance
         self._rmgr.setUp()
         self._rmgr.windowTitle = name
         self._rmgr.resize(w=size[0], h=size[1])
@@ -110,30 +126,30 @@ class _Controller(metaclass=_Singleton):
         # their toggles under the "View/Panels" path.
         self._rmgr.menu_model.menu("View/Panels", weight=0)
 
-        self.gmsh_dialog = visual.GmshFileDialog(mgr=self._rmgr)
-        self.svg_dialog = canvas.SVGFileDialog(mgr=self._rmgr)
-        self.sample_mesh = visual.SampleMeshFeature(mgr=self._rmgr)
-        self.mesh_style_status = visual.MeshStyleStatus(mgr=self._rmgr)
-        self.tree_panel = panel.TreePanel(
+        self.gmsh_dialog = _mesh.GmshFileDialog(mgr=self._rmgr)
+        self.svg_dialog = _svg_gui.SVGFileDialog(mgr=self._rmgr)
+        self.sample_mesh = _mesh.SampleMeshFeature(mgr=self._rmgr)
+        self.mesh_style_status = _mesh.MeshStyleStatus(mgr=self._rmgr)
+        self.tree_panel = _tree_panel.TreePanel(
             mgr=self._rmgr, style_status=self.mesh_style_status)
         self.obsrefl_app = obsrefl.ObliqueShockApp(mgr=self._rmgr)
         self.obsrefl_app.viewer_updated = self.tree_panel.resync
         self.obsrefl_mesh = obsrefl.ObliqueShockMesh(mgr=self._rmgr)
         self.naca4airfoil = airfoil.Naca4Airfoil(mgr=self._rmgr)
-        self.mesh_sample_dialog = visual.SampleMeshDialog(
+        self.mesh_sample_dialog = _mesh.SampleMeshDialog(
             mgr=self._rmgr, entries=self._mesh_sample_dialog_entries())
-        self.eulerone = onedim.Euler1DApp(mgr=self._rmgr)
-        self.burgers = onedim.Burgers1DApp(mgr=self._rmgr)
-        self.linear_wave = onedim.LinearWave1DApp(mgr=self._rmgr)
-        self.painter = painter.Painter(mgr=self._rmgr)
-        self.canvas = canvas.Canvas(mgr=self._rmgr, painter=self.painter)
-        self.save_2d_canvas = canvas.Save2DCanvasDialog(mgr=self._rmgr)
-        self.openprofiledata = panel.Profiling(mgr=self._rmgr)
-        self.runprofiling = panel.RunProfiling(mgr=self._rmgr)
-        self.mcap_panel = track.McapPanel(mgr=self._rmgr)
-        self.agent = agent.AgentPanel(mgr=self._rmgr)
+        self.eulerone = _euler1d.Euler1DApp(mgr=self._rmgr)
+        self.burgers = _burgers1d.Burgers1DApp(mgr=self._rmgr)
+        self.linear_wave = _linear_wave.LinearWave1DApp(mgr=self._rmgr)
+        self.painter = _painter.Painter(mgr=self._rmgr)
+        self.canvas = _canvas_gui.Canvas(mgr=self._rmgr, painter=self.painter)
+        self.save_2d_canvas = _canvas_gui.Save2DCanvasDialog(mgr=self._rmgr)
+        self.openprofiledata = _profiling.Profiling(mgr=self._rmgr)
+        self.runprofiling = _profiling.RunProfiling(mgr=self._rmgr)
+        self.mcap_panel = _mcap_viewer.McapPanel(mgr=self._rmgr)
+        self.agent = _agent_gui.AgentPanel(mgr=self._rmgr)
         self.theme_menu = _theme.ThemeMenu(mgr=self._rmgr)
-        self.window_manager = panel.WindowManager(mgr=self._rmgr)
+        self.window_manager = _window_manager.WindowManager(mgr=self._rmgr)
         self.ui_state = _ui_state.UiState(mgr=self._rmgr)
         self.populate_menu()
         self._seed_console_namespace()

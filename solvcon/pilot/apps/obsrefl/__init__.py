@@ -15,12 +15,12 @@ unconditionally, so a script or a no-Qt build runs and judges the reflection
 without the GUI that rides behind the pilot toggle.
 """
 
-from .... import pilot
+from ... import _pilot_core as _pcore
 from ._analytic import Reflection
 from ._driver import ObliqueShock, ObliqueShockMesher, ObliqueShockRelation
 from ._session import ReflectionSession
 
-if pilot.enable:
+if _pcore.enable:
     from ._app import ObliqueShockApp
     from ._mesh_sample import ObliqueShockMesh
     from ._panel import SolutionPanel

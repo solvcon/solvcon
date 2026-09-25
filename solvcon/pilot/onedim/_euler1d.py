@@ -4,10 +4,10 @@
 
 from ...onedim import euler1d
 
-from .. import base
+from ..base import _base_app
 
 
-class Euler1DApp(base.OneDimBaseApp):
+class Euler1DApp(_base_app.OneDimBaseApp):
     """
     Main application for Euler 1D solver.
     """
@@ -46,7 +46,7 @@ class Euler1DApp(base.OneDimBaseApp):
             ["max_steps", 50, "Maximum step"],
             ["profiling", False, "Turn on / off solver profiling"],
         ]
-        self.solver_config = base.SolverConfig(solver_config_data)
+        self.solver_config = _base_app.SolverConfig(solver_config_data)
 
     def set_plot_data(self):
         """
@@ -62,7 +62,7 @@ class Euler1DApp(base.OneDimBaseApp):
         self.plot_num = True
         self.plot_data = []
 
-        density = base.QuantityLine(
+        density = _base_app.QuantityLine(
             name="density",
             unit=r"$\mathrm{kg}/\mathrm{m}^3$",
             color='r',
@@ -71,7 +71,7 @@ class Euler1DApp(base.OneDimBaseApp):
         setattr(self, density.name, density)
         self.plot_data.append([self.density.name, True])
 
-        pressure = base.QuantityLine(
+        pressure = _base_app.QuantityLine(
             name="pressure",
             unit=r"$\mathrm{Pa}$",
             color='g',
@@ -80,7 +80,7 @@ class Euler1DApp(base.OneDimBaseApp):
         setattr(self, pressure.name, pressure)
         self.plot_data.append([self.pressure.name, True])
 
-        velocity = base.QuantityLine(
+        velocity = _base_app.QuantityLine(
             name="velocity",
             unit=r"$\mathrm{m}/\mathrm{s}$",
             color='b',
@@ -89,7 +89,7 @@ class Euler1DApp(base.OneDimBaseApp):
         setattr(self, velocity.name, velocity)
         self.plot_data.append([self.velocity.name, True])
 
-        temperature = base.QuantityLine(
+        temperature = _base_app.QuantityLine(
             name="temperature",
             unit=r"$\mathrm{K}$",
             color='c',
@@ -98,7 +98,7 @@ class Euler1DApp(base.OneDimBaseApp):
         setattr(self, temperature.name, temperature)
         self.plot_data.append([self.temperature.name, False])
 
-        internal_energy = base.QuantityLine(
+        internal_energy = _base_app.QuantityLine(
             name="internal_energy",
             unit=r"$\mathrm{J}/\mathrm{kg}$",
             color='k',
@@ -107,7 +107,7 @@ class Euler1DApp(base.OneDimBaseApp):
         setattr(self, internal_energy.name, internal_energy)
         self.plot_data.append([self.internal_energy.name, False])
 
-        entropy = base.QuantityLine(
+        entropy = _base_app.QuantityLine(
             name="entropy",
             unit=r"$\mathrm{J}/\mathrm{K}$",
             color='m',

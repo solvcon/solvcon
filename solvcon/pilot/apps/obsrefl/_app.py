@@ -16,7 +16,7 @@ parts and forwards the inspector nudge to the outer GUI.
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QDockWidget
 
-from ... import base
+from ...base import _gui_common
 from ._control import RunController
 from ._panel import SolutionPanel
 from ._viewer import DomainViewer, LinePlotViewer
@@ -26,7 +26,7 @@ __all__ = [  # noqa: F822
 ]
 
 
-class ObliqueShockApp(base.PilotFeature):
+class ObliqueShockApp(_gui_common.PilotFeature):
     """Euler solver panel, toggled from the View "Panels" submenu.
 
     The panel owns two sub-windows and one solver run: the domain viewer

@@ -12,7 +12,7 @@ from PySide6 import QtCore, QtWidgets
 from ... import core
 from ...plot import curve, plane_layer
 
-from .. import base
+from ..base import _gui_common
 
 __all__ = [
     'Canvas',
@@ -51,7 +51,7 @@ def resolve_save_path(path, name_filter):
     return path
 
 
-class Save2DCanvasDialog(base.PilotFeature):
+class Save2DCanvasDialog(_gui_common.PilotFeature):
     """
     File-menu action that saves the focused 2D canvas via ``saveImage`` or,
     for a chosen ``.svg`` path, ``saveSvg``.
@@ -141,7 +141,7 @@ class Save2DCanvasDialog(base.PilotFeature):
 
         The export defaults to matching what the canvas shows on screen.
         """
-        on, advanced, coords = base.label_switch_and_mode(
+        on, advanced, coords = _gui_common.label_switch_and_mode(
             widget.overlay)
         self._labels_check.setChecked(on)
         self._coords_check.setChecked(coords)
@@ -179,7 +179,7 @@ class Save2DCanvasDialog(base.PilotFeature):
         on = self._labels_check.isChecked()
         advanced = on and self._advanced_radio.isChecked()
         coords = self._coords_check.isChecked()
-        return base.apply_label_mode(
+        return _gui_common.apply_label_mode(
             widget.overlay, on, advanced, coords)
 
     def _save_current(self, path):
@@ -203,7 +203,7 @@ class Save2DCanvasDialog(base.PilotFeature):
         return ok
 
 
-class Canvas(base.PilotFeature):
+class Canvas(_gui_common.PilotFeature):
     """
     Canvas feature providing menu items for drawing curves and polygons.
     """
@@ -373,7 +373,7 @@ class Canvas(base.PilotFeature):
         if subwin is None:
             return None
         subwin.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
-        close_filter = base.SubWindowCloseFilter(clear, subwin)
+        close_filter = _gui_common.SubWindowCloseFilter(clear, subwin)
         subwin.installEventFilter(close_filter)
         return close_filter
 

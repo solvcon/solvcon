@@ -9,7 +9,7 @@ import math
 
 from PySide6 import QtCore, QtWidgets
 
-from .. import style
+from .._style import PaletteStyled, Shades
 from . import _icons
 from ._sections import Placeholder
 from ._style import Parts, Rules
@@ -134,7 +134,7 @@ class _Field(QtWidgets.QFrame):
             self.committed.emit(value)
 
 
-class DesignPage(style.PaletteStyled):
+class DesignPage(PaletteStyled):
     """The inspector's Design page: the selected shape and its position.
 
     The page reads the canvas it is bound to on a timer, because the world
@@ -334,7 +334,7 @@ class DesignPage(style.PaletteStyled):
             self._icon.setVisible(False)
             return
         self._icon.setPixmap(_icons.render(
-            self._icon_name, style.Shades(self).accent,
+            self._icon_name, Shades(self).accent,
             self._ICON_PX, self.devicePixelRatioF()))
         self._icon.setVisible(True)
 
