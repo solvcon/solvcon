@@ -25,12 +25,14 @@ from ._pilot_core import (  # noqa: F401
     RPlotModel,
     plot_color_cycle,
     plot_cycle_color,
+    draw_tool_names,
+    default_draw_tool_name,
 )
 if enable:
-    from .base._gui import (  # noqa: F401
-        controller,
-        launch,
-    )
+    from . import base
+
+    controller = base.controller
+    launch = base.launch
     from . import airfoil  # noqa: F401
     from . import canvas  # noqa: F401
 

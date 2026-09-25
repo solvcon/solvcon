@@ -7,9 +7,9 @@ The dock panels: the entity tree, the window manager, and the profiling
 view.
 """
 
-from .. import _pilot_core as _pcore
+from ... import pilot
 
-if _pcore.enable:
+if pilot.enable:
     from . import _profiling
     from . import _tree_panel
     from . import _window_manager
@@ -20,6 +20,7 @@ if _pcore.enable:
     TreePanelBase = _tree_panel.TreePanelBase
     WindowManager = _window_manager.WindowManager
     Profiling = _profiling.Profiling
+    RunProfiling = _profiling.RunProfiling
 else:
     # Bind only the public names: a None module attribute would shadow the
     # real submodule import in no-GUI builds.
@@ -29,11 +30,13 @@ else:
     TreePanelBase = None
     WindowManager = None
     Profiling = None
+    RunProfiling = None
 
 __all__ = [
     'EntityTreeWidget',
     'MeshInfoTree',
     'Profiling',
+    'RunProfiling',
     'TreePanel',
     'TreePanelBase',
     'WindowManager',

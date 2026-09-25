@@ -7,8 +7,8 @@ Airfoil shape
 """
 
 from . import _naca
-from .. import _pilot_core as _pcore
-if _pcore.enable:
+from ... import pilot
+if pilot.enable:
     from . import _airfoil_gui
 else:
     _airfoil_gui = None

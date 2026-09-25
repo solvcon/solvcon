@@ -7,6 +7,7 @@ import unittest
 import solvcon
 try:
     from solvcon import pilot
+    from solvcon.pilot import benchmark
 except ImportError:
     pilot = None
 
@@ -16,6 +17,7 @@ class PilotTC(unittest.TestCase):
 
     def test_import(self):
         self.assertTrue(hasattr(solvcon.pilot, "mgr"))
+        self.assertTrue(callable(benchmark.BenchmarkInspector))
 
 
 class PythonConsoleBackendTC(unittest.TestCase):

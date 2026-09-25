@@ -7,8 +7,7 @@ import functools
 import itertools
 import importlib.util
 
-from ..base import _gui_common
-from .._style import PaletteStyle
+from .. import base, style
 from ._style import Rules
 
 from ... import call_profiler
@@ -36,7 +35,7 @@ from PySide6.QtGui import (
 __all__ = ["Profiling"]
 
 
-class _ResultTree(PaletteStyle, QTreeView):
+class _ResultTree(style.PaletteStyle, QTreeView):
     """The tree a profiling result is listed in."""
 
     def __init__(self, parent=None):
@@ -48,7 +47,7 @@ class _ResultTree(PaletteStyle, QTreeView):
         self.setStyleSheet(Rules.sheet(self, "tree"))
 
 
-class Profiling(_gui_common.PilotFeature):
+class Profiling(base.PilotFeature):
     """
     Create profiling windows.
     """
@@ -177,7 +176,7 @@ class ProfileConfigWidget(QWidget):
         self.setLayout(main_layout)
 
 
-class RunProfiling(_gui_common.PilotFeature):
+class RunProfiling(base.PilotFeature):
     def __init__(self, *args, **kw):
         super().__init__(*args, **kw)
         self._diag = QtWidgets.QFileDialog()

@@ -8,32 +8,48 @@ GUI helpers and feature base class, the 1D application scaffold, and the
 theme menu.
 """
 
-from .. import _pilot_core as _pcore
+from ... import pilot
 
-# _gui imports the feature neighborhoods, whose modules reach back here
-# for _gui_common and _base_app, so those two must bind before _gui runs.
-if _pcore.enable:
+# Features import these public names while _gui assembles the controller.
+if pilot.enable:
     from . import _gui_common
     from . import _base_app
+
+    PilotFeature = _gui_common.PilotFeature
+    SubWindowCloseFilter = _gui_common.SubWindowCloseFilter
+    apply_label_mode = _gui_common.apply_label_mode
+    label_switch_and_mode = _gui_common.label_switch_and_mode
+    OneDimBaseApp = _base_app.OneDimBaseApp
+    QuantityLine = _base_app.QuantityLine
+    SolverConfig = _base_app.SolverConfig
+
     from . import _theme  # noqa: F401
     from . import _gui
 
-    PilotFeature = _gui_common.PilotFeature
-    OneDimBaseApp = _base_app.OneDimBaseApp
     controller = _gui.controller
     launch = _gui.launch
 else:
     # Bind only the public names: a None module attribute would shadow the
     # real submodule import in no-GUI builds.
     PilotFeature = None
+    SubWindowCloseFilter = None
+    apply_label_mode = None
+    label_switch_and_mode = None
     OneDimBaseApp = None
+    QuantityLine = None
+    SolverConfig = None
     controller = None
     launch = None
 
 __all__ = [
     'OneDimBaseApp',
     'PilotFeature',
+    'QuantityLine',
+    'SolverConfig',
+    'SubWindowCloseFilter',
+    'apply_label_mode',
     'controller',
+    'label_switch_and_mode',
     'launch',
 ]
 

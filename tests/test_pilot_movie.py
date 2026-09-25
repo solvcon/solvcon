@@ -170,7 +170,7 @@ class MovieRecorderTC(unittest.TestCase):
     def test_the_default_suffix_names_a_format_write_takes(self):
         # Whichever encoder the build has, the name the panel opens on has
         # to be one write() will not turn down.
-        self.assertIn(_movie._default_suffix(),
+        self.assertIn(_movie.MovieRecorder.default_suffix(),
                       _movie.MovieRecorder.SUFFIXES)
 
     def test_a_flat_color_converts_to_its_standard_yuv(self):

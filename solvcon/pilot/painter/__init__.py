@@ -8,9 +8,9 @@ canvas holds, with the pages, rows, icons, and palette-derived styling they
 are built from.
 """
 
-from .. import _pilot_core as _pcore
+from ... import pilot
 
-if _pcore.enable:
+if pilot.enable:
     from . import _gui
 
     Painter = _gui.Painter

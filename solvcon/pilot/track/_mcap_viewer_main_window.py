@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                                QHeaderView, QStackedWidget, QAbstractItemView)
 
 from ...track import mcap
-from .._style import PaletteStyled
+from .. import style
 from ._style import (Rules, font, header_colors, row_colors, ROW_PAD,
                      ROW_GAP, CAPTION_TEXT_PIXEL_SIZE, TOPIC_NAME_PIXEL_SIZE,
                      TOPIC_TYPE_PIXEL_SIZE)
@@ -214,7 +214,7 @@ class _FieldHeader(QHeaderView):
         painter.restore()
 
 
-class McapMainWindow(PaletteStyled):
+class McapMainWindow(style.PaletteStyled):
     """One topic of the open recording, decoded into a paged table.
 
     The sub-window forwards its close here, so ``closed`` is the one

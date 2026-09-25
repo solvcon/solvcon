@@ -26,7 +26,7 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QFormLayout,
                                QLineEdit)
 
 from ....multidim.euler import EulerField
-from ...visual import _movie
+from ... import visual
 from ._session import ReflectionSession
 
 __all__ = [  # noqa: F822
@@ -413,7 +413,7 @@ class MovieBox(FoldBox):
     #: Where a recorded movie lands; the mesh flavor of the run is
     #: substituted for the placeholder and the suffix picks the format
     #: (:attr:`~solvcon.pilot.visual.MovieRecorder.SUFFIXES`).  The suffix
-    #: comes from :func:`~solvcon.pilot.visual._movie._default_suffix`,
+    #: comes from :meth:`~solvcon.pilot.visual.MovieRecorder.default_suffix`,
     #: resolved when the box is built.  Shown resolved against the working
     #: directory, which
     #: for a pilot started from the desktop is not the checkout, so the
@@ -426,8 +426,9 @@ class MovieBox(FoldBox):
         self.record_toggled = None
         self._record = QCheckBox()
         self._record.toggled.connect(self._on_record_toggled)
+        suffix = visual.MovieRecorder.default_suffix()
         self._path = QLineEdit(os.path.abspath(
-            self.MOVIE_PATH.replace('{suffix}', _movie._default_suffix())))
+            self.MOVIE_PATH.replace('{suffix}', suffix)))
         # Names the movie's destination and, once written, what landed
         # there; selectable so the path can be copied out.
         self._status = QLabel("")

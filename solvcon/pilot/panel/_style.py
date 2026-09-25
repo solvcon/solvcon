@@ -7,7 +7,7 @@ The style rules the pilot's dock panels are drawn with.
 A rule here says only what the palette does not already give the widget.
 """
 
-from .._style import RuleCatalog, Shades
+from .. import style
 
 __all__ = [
     'Rules',
@@ -20,7 +20,7 @@ _GRID_MIX = 0.12
 _HOVER_MIX = 0.12
 
 
-class Rules(RuleCatalog):
+class Rules(style.RuleCatalog):
     """One method per role the pilot's dock panels draw."""
 
     @staticmethod
@@ -33,7 +33,7 @@ class Rules(RuleCatalog):
         on each item, so its shade is mixed off that surface rather than off
         the panel around it.
         """
-        grid = Shades.blend(shades.base, shades.on_base, _GRID_MIX)
+        grid = style.Shades.blend(shades.base, shades.on_base, _GRID_MIX)
         return f"""
             QTreeView {{
                 border: 1px solid {shades.border.name()};

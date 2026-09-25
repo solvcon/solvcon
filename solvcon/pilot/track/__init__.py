@@ -5,9 +5,9 @@
 """The MCAP viewer of the pilot: a dock that lists the open recording and
 a main window that tables one of its topics."""
 
-from .. import _pilot_core as _pcore
+from ... import pilot
 
-if _pcore.enable:
+if pilot.enable:
     from . import _mcap_viewer
 
     McapDock = _mcap_viewer.McapDock

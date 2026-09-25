@@ -20,7 +20,7 @@ run session, which stays free of the GUI it is watched from.
 
 from PySide6.QtCore import QTimer
 
-from ...visual import _movie
+from ... import visual
 from ._field_render import FieldPainter
 from ._session import ReflectionSession
 
@@ -314,7 +314,7 @@ class RunController(object):
     def _start_movie(self):
         """Open a recorder over the running session, if none is open."""
         if self.movie is None:
-            self.movie = _movie.MovieRecorder()
+            self.movie = visual.MovieRecorder()
             self._report(f"recording to {self._movie_path()}")
 
     def _capture_frame(self):

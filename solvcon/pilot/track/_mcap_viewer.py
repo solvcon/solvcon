@@ -18,8 +18,7 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
                                QDockWidget, QFileDialog, QFrame)
 
 from ...track import mcap
-from .._style import PaletteStyled
-from ..base import _gui_common
+from .. import base, style
 from ._style import (Rules, font, row_colors, ROW_PAD, ROW_GAP,
                      BODY_TEXT_PIXEL_SIZE, CAPTION_TEXT_PIXEL_SIZE,
                      TOPIC_NAME_PIXEL_SIZE, TOPIC_TYPE_PIXEL_SIZE)
@@ -129,7 +128,7 @@ class _TopicDelegate(QStyledItemDelegate):
         painter.restore()
 
 
-class McapDock(PaletteStyled):
+class McapDock(style.PaletteStyled):
     """The file summary and the topic list of the open recording."""
 
     open_requested = Signal()
@@ -254,7 +253,7 @@ class McapDock(PaletteStyled):
         self._box.setStyleSheet(Rules.sheet(self, "topics"))
 
 
-class McapPanel(_gui_common.PilotFeature):
+class McapPanel(base.PilotFeature):
     """Open MCAP files from the Track menu into the dock and a window."""
 
     def __init__(self, *args, **kw):

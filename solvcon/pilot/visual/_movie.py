@@ -16,7 +16,7 @@ are written out, so a long run does not pile up on the heap.
 
 Two encoders sit behind the formats: Qt Multimedia's FFmpeg backend for
 MP4, Pillow for GIF and WebP.  Either can be missing from a build, so
-:func:`_default_suffix` names one the build can write.
+:meth:`MovieRecorder.default_suffix` names one the build can write.
 """
 
 import os
@@ -71,15 +71,6 @@ def _can_write_mp4():
     return QMediaFormat.FileFormat.MPEG4 in formats
 
 
-def _default_suffix():
-    """The suffix a new movie is named with.
-
-    MP4 leads where there is an encoder for it, playing where neither
-    animation format does; without one, the WebP Pillow always writes.
-    """
-    return '.mp4' if _can_write_mp4() else '.webp'
-
-
 class MovieRecorder(object):
     """Collect frames off a widget and write them out as an animation.
 
@@ -124,6 +115,11 @@ class MovieRecorder(object):
         self.quality = quality
         self._folder = tempfile.TemporaryDirectory(prefix='solvcon-movie-')
         self._frames = []
+
+    @staticmethod
+    def default_suffix():
+        """Choose MP4 when its encoder is available, otherwise WebP."""
+        return '.mp4' if _can_write_mp4() else '.webp'
 
     @property
     def nframe(self):

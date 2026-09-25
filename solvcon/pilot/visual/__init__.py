@@ -8,28 +8,32 @@ mesh style status helpers, the viewer movie recorder, and the line plot
 widget.
 """
 
-from .. import _pilot_core as _pcore
+from ... import pilot
 
-if _pcore.enable:
+if pilot.enable:
     from . import _mesh
     from . import _movie
     from . import _plot
 
     SampleMesh = _mesh.SampleMesh
+    SampleMeshDialog = _mesh.SampleMeshDialog
     SampleMeshFeature = _mesh.SampleMeshFeature
     MeshStyleStatus = _mesh.MeshStyleStatus
     GmshFileDialog = _mesh.GmshFileDialog
     MovieRecorder = _movie.MovieRecorder
     LinePlotWidget = _plot.LinePlotWidget
+    plot_array = _plot.plot_array
 else:
     # Bind only the public names: a None module attribute would shadow the
     # real submodule import in no-GUI builds.
     SampleMesh = None
+    SampleMeshDialog = None
     SampleMeshFeature = None
     MeshStyleStatus = None
     GmshFileDialog = None
     MovieRecorder = None
     LinePlotWidget = None
+    plot_array = None
 
 __all__ = [
     'GmshFileDialog',
@@ -37,7 +41,9 @@ __all__ = [
     'MeshStyleStatus',
     'MovieRecorder',
     'SampleMesh',
+    'SampleMeshDialog',
     'SampleMeshFeature',
+    'plot_array',
 ]
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

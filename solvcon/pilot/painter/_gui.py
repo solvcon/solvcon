@@ -7,14 +7,13 @@ Painter toolbox for the 2D canvas: the draw tool selector and the inspector.
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from .._style import PaletteStyled, Shades
+from ... import pilot
+from .. import base, style
 from . import _icons
 from ._canvas import CanvasPage
 from ._design import DesignPage
 from ._layers import LayersPage
 from ._style import Parts, Rules
-from ..base import _gui_common
-from .._pilot_core import draw_tool_names, default_draw_tool_name
 
 __all__ = [
     'PainterPanel',
@@ -77,10 +76,10 @@ class _SelectorRule(QtWidgets.QWidget):
     def paintEvent(self, _event):
         painter = QtGui.QPainter(self)
         painter.fillRect(0, self._MARGIN, self.width(), 1,
-                         Shades(self).raised(self._MIX))
+                         style.Shades(self).raised(self._MIX))
 
 
-class _DrawToolSelector(PaletteStyled):
+class _DrawToolSelector(style.PaletteStyled):
     """The tool column: flat entries on a shade of the inspector panel.
 
     The shade is painted rather than written into the widget's palette, because
@@ -141,7 +140,8 @@ class _DrawToolSelector(PaletteStyled):
 
     def paintEvent(self, _event):
         painter = QtGui.QPainter(self)
-        painter.fillRect(self.rect(), Shades(self).raised(self._SHADE_MIX))
+        shade = style.Shades(self).raised(self._SHADE_MIX)
+        painter.fillRect(self.rect(), shade)
 
     def _new_entry(self):
         return _SelectorEntry(self._ENTRY_WIDTH, self._ICON_PX, self)
@@ -184,7 +184,7 @@ class _DrawToolSelector(PaletteStyled):
                 name, self._ICON_PX, disabled, ratio))
 
 
-class _SegmentedTabs(PaletteStyled):
+class _SegmentedTabs(style.PaletteStyled):
     """The Design / Layers / Canvas selector as one segmented control.
 
     Qt has no segmented control, so the row is flat checkable buttons styled
@@ -367,7 +367,7 @@ class PainterPanel(QtWidgets.QWidget):
         self.tabs[name].setChecked(True)
 
 
-class Painter(_gui_common.PilotFeature):
+class Painter(base.PilotFeature):
     """
     Painter toolbox for drawing shapes on a 2D canvas, toggled from the View
     "Panels" submenu. The selected tool is held by the manager and applied
@@ -435,7 +435,7 @@ class Painter(_gui_common.PilotFeature):
         mgr = self._mgr
         weight = 10
         created = False
-        for tool in draw_tool_names():
+        for tool in pilot.draw_tool_names():
             act = model.action("draw.tool." + tool)
             if act is None:
                 label = self.TOOL_LABELS.get(tool, tool.title())
@@ -448,7 +448,7 @@ class Painter(_gui_common.PilotFeature):
             self._tool_actions[tool] = act
             weight += 10
         if created:
-            self._tool_actions[default_draw_tool_name()].setChecked(True)
+            self._tool_actions[pilot.default_draw_tool_name()].setChecked(True)
 
     def _on_toggled(self, checked):
         """Show or hide the Painter dock from the menu toggle."""
@@ -492,7 +492,7 @@ class Painter(_gui_common.PilotFeature):
         """Show the Painter dock and reset the focused canvas to the default
         tool; the action group updates every surface."""
         self._ensure_dock()
-        self._mgr.setDrawTool(default_draw_tool_name())
+        self._mgr.setDrawTool(pilot.default_draw_tool_name())
         self._dock.show()
         self._dock.raise_()
 

@@ -18,9 +18,7 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QTreeWidget,
                                QAbstractButton, QSlider)
 
 from ... import core
-from .._style import PaletteStyled
-from ..base import _gui_common
-from ..visual import _mesh
+from .. import base, style, visual
 from ._style import Rules
 
 __all__ = [  # noqa: F822
@@ -258,7 +256,7 @@ class MeshInfoTree(TreePanelBase):
         """
         if self.style_status is None:
             return
-        for name, label in _mesh.MeshStyleStatus.STYLES:
+        for name, label in visual.MeshStyleStatus.STYLES:
             item = QTreeWidgetItem(root, [label])
             item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
             item.setData(0, self._ROLE_KIND, 'style')
@@ -387,7 +385,7 @@ class MeshInfoTree(TreePanelBase):
                 self.normals_toggled(checked)
 
 
-class _CollapsibleSection(PaletteStyled):
+class _CollapsibleSection(style.PaletteStyled):
     """A titled block that folds to just its header when the header is clicked.
 
     Toggling the header shows or hides the body and emits :attr:`toggled`. A
@@ -666,7 +664,7 @@ class EntityTreeWidget(TreePanelBase):
                 self._labels_check.setChecked(False)
                 self._coords_check.setChecked(False)
             else:
-                on, advanced, coords = _gui_common.label_switch_and_mode(
+                on, advanced, coords = base.label_switch_and_mode(
                     self._canvas.overlay)
                 self._labels_check.setChecked(on)
                 self._coords_check.setChecked(coords)
@@ -686,7 +684,7 @@ class EntityTreeWidget(TreePanelBase):
         advanced = on and self._label_modes["advanced"].isChecked()
         coords = self._coords_check.isChecked()
         overlay = self._canvas.overlay
-        _gui_common.apply_label_mode(overlay, on, advanced, coords)
+        base.apply_label_mode(overlay, on, advanced, coords)
         self._canvas.overlay = overlay
 
     def set_canvas(self, widget):
@@ -831,7 +829,7 @@ class EntityTreeWidget(TreePanelBase):
         group.setExpanded(True)
 
 
-class TreePanel(_gui_common.PilotFeature):
+class TreePanel(base.PilotFeature):
     """Unified inspector dock that follows the active sub-window.
 
     One dock holds both trees in a stack. A 3D mesh viewer shows the mesh

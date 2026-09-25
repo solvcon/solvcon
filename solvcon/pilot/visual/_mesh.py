@@ -11,7 +11,7 @@ import os
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from ... import core
-from ..base import _gui_common
+from .. import base
 
 __all__ = [  # noqa: F822
     'SampleMesh',
@@ -241,7 +241,7 @@ class SampleMesh:
         return mh
 
 
-class SampleMeshFeature(_gui_common.PilotFeature):
+class SampleMeshFeature(base.PilotFeature):
     """
     Create sample mesh windows from the built-in example meshes.
     """
@@ -302,7 +302,7 @@ class SampleMeshFeature(_gui_common.PilotFeature):
         self._show('3dmix')
 
 
-class SampleMeshDialog(_gui_common.PilotFeature):
+class SampleMeshDialog(base.PilotFeature):
     """A single Mesh-menu item that opens a dialog listing the example
     meshes, grouped by category, and creates the selected one.
 
@@ -448,7 +448,7 @@ class MeshStyleStatus(QtCore.QObject):
                 act.blockSignals(blocked)
 
 
-class GmshFileDialog(_gui_common.PilotFeature):
+class GmshFileDialog(base.PilotFeature):
     def __init__(self, *args, **kw):
         super().__init__(*args, **kw)
         self._diag = QtWidgets.QFileDialog()

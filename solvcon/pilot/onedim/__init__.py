@@ -7,9 +7,9 @@ One-dimensional CESE solver demos: the Euler shock tube, Burgers' equation,
 and the linear scalar wave.
 """
 
-from .. import _pilot_core as _pcore
+from ... import pilot
 
-if _pcore.enable:
+if pilot.enable:
     from . import _burgers1d
     from . import _euler1d
     from . import _linear_wave

@@ -217,7 +217,8 @@ class StatusReadoutTC(unittest.TestCase):
         # into it and names the movie's real destination.
         panel = SolutionPanel()
         self.assertTrue(os.path.isabs(panel._movie._path.text()))
-        landing = f"tmp/obrefl_unstructured{_movie._default_suffix()}"
+        suffix = _movie.MovieRecorder.default_suffix()
+        landing = f"tmp/obrefl_unstructured{suffix}"
         self.assertEqual(os.path.abspath(landing),
                          panel.movie_path('unstructured'))
         panel._movie._path.setText('movie.gif')
