@@ -29,6 +29,8 @@ class RunPanel(QtWidgets.QWidget):
         self.progress.setRange(0, 1)
         self.progress.setValue(0)
         self.progress.setTextVisible(False)
+        self.progress.setMaximumHeight(18)
+        self.progress.hide()
         self.progress.setToolTip(
             'Completed warmup calls and timed repetition blocks, '
             'not an estimate of remaining time.'
@@ -39,10 +41,14 @@ class RunPanel(QtWidgets.QWidget):
         self.stop_button = QtWidgets.QPushButton('Stop', self)
         self.stop_button.setEnabled(False)
         self.stop_button.clicked.connect(self.stop)
-        layout = QtWidgets.QHBoxLayout(self)
-        layout.addWidget(self.progress, 1)
-        for widget in (self.status, self.elapsed, self.stop_button):
-            layout.addWidget(widget)
+        status = QtWidgets.QHBoxLayout()
+        status.addWidget(self.status)
+        status.addStretch(1)
+        status.addWidget(self.elapsed)
+        status.addWidget(self.stop_button)
+        layout = QtWidgets.QVBoxLayout(self)
+        layout.addLayout(status)
+        layout.addWidget(self.progress)
 
         self._process = QtCore.QProcess(self)
         self._process.started.connect(self._send_request)
@@ -97,6 +103,7 @@ class RunPanel(QtWidgets.QWidget):
         self._running = True
         self.progress.setRange(0, 0)
         self.progress.setTextVisible(False)
+        self.progress.show()
         self.status.setText('Preparing')
         self.stop_button.setEnabled(True)
         self._clock.start()
@@ -138,7 +145,12 @@ class RunPanel(QtWidgets.QWidget):
 
     def _update_elapsed(self):
         seconds = self._clock.elapsed() / 1000
-        self.elapsed.setText(f'Elapsed: {seconds:.1f} s')
+        duration = f'{seconds:.1f} s'
+        if seconds >= 60:
+            minutes, seconds = divmod(int(seconds), 60)
+            hours, minutes = divmod(minutes, 60)
+            duration = f'{hours:02d}:{minutes:02d}:{seconds:02d}'
+        self.elapsed.setText(f'Elapsed: {duration}')
 
     def _read_stdout(self):
         while self._process.canReadLine():
@@ -238,6 +250,7 @@ class RunPanel(QtWidgets.QWidget):
         self.progress.setValue(int(success))
         self.progress.setFormat('%p%')
         self.progress.setTextVisible(success)
+        self.progress.hide()
         self._timer.stop()
         self._update_elapsed()
         self.stop_button.setEnabled(False)

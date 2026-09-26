@@ -4,6 +4,7 @@
 """Edit, run, and display one exact kernel comparison."""
 
 import functools
+import math
 import pathlib
 import tempfile
 
@@ -21,8 +22,8 @@ def _integers(text, name):
             f'{name}: enter comma-separated integers') from exc
 
 
-def _format_number(value):
-    return '-' if value is None else f'{value:.6g}'
+def _format_number(value, scale=1):
+    return '-' if value is None else f'{value / scale:.6g}'
 
 
 class BenchmarkInspector(QtWidgets.QMdiSubWindow):
@@ -55,9 +56,8 @@ class BenchmarkInspector(QtWidgets.QMdiSubWindow):
         return values[0]
 
     def _build_inputs(self):
-        self.inputs = QtWidgets.QWidget(self)
+        self.inputs = QtWidgets.QGroupBox('Inputs and sampling', self)
         layout = QtWidgets.QFormLayout(self.inputs)
-        layout.setContentsMargins(0, 0, 0, 0)
         layout.setFormAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
         layout.setFieldGrowthPolicy(
             QtWidgets.QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
@@ -90,6 +90,9 @@ class BenchmarkInspector(QtWidgets.QMdiSubWindow):
             self.fields[name].textChanged.connect(self._update_help)
         self.sampling_help = QtWidgets.QLabel(self.inputs)
         self.sampling_help.setWordWrap(True)
+        self.sampling_help.setToolTip(
+            'Warmups are untimed. Each round times consecutive calls, then '
+            'divides by the call count. NumPy uses the same schedule.')
         sampling.addWidget(self.sampling_help, 2, 0, 1, 3)
         layout.addRow('Sampling', sampling)
         self._update_help()
@@ -121,12 +124,12 @@ class BenchmarkInspector(QtWidgets.QMdiSubWindow):
         header.addWidget(QtWidgets.QLabel('Operation'))
         header.addWidget(self.operation)
         header.addStretch(1)
-        header.addWidget(self.control.stop_button)
 
         actions = QtWidgets.QHBoxLayout()
         actions.addWidget(self.run_button)
-        actions.addWidget(self.save_button)
+        actions.addWidget(self.control.stop_button)
         actions.addStretch(1)
+        actions.addWidget(self.save_button)
 
         content = QtWidgets.QWidget(self)
         layout = QtWidgets.QVBoxLayout(content)
@@ -137,7 +140,11 @@ class BenchmarkInspector(QtWidgets.QMdiSubWindow):
         layout.addWidget(self.control)
         self.results = ResultView(self.form.describe, self)
         layout.addWidget(self.results, 1)
-        self.setWidget(content)
+        scroll = QtWidgets.QScrollArea(self)
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QtWidgets.QFrame.Shape.NoFrame)
+        scroll.setWidget(content)
+        self.setWidget(scroll)
 
     def _update_help(self):
         try:
@@ -146,10 +153,8 @@ class BenchmarkInspector(QtWidgets.QMdiSubWindow):
             text = str(exc)
         else:
             text = (
-                f'Each timed kernel runs {sampling.warmups} untimed warmups, '
-                f'then {sampling.rounds} rounds of '
-                f'{sampling.repetitions} calls each. '
-                'NumPy uses the same schedule.')
+                f'{sampling.warmups} warmups; {sampling.rounds} rounds x '
+                f'{sampling.repetitions} calls per kernel.')
         self.sampling_help.setText(text)
 
     def _run(self):
@@ -244,16 +249,24 @@ class MatmulForm:
                 ('rhs_shape', '64, 64'), ('rhs_strides', '64, 1'))
         }
         layout.addRow('Data type', self.dtype)
-        for name, label in (('lhs', 'A'), ('rhs', 'B')):
+        operands = QtWidgets.QGridLayout()
+        operands.addWidget(QtWidgets.QLabel('Shape'), 0, 1)
+        operands.addWidget(QtWidgets.QLabel('Element strides'), 0, 2)
+        for index, name in enumerate(('lhs', 'rhs'), 1):
             shape = self.fields[f'{name}_shape']
             strides = self.fields[f'{name}_strides']
-            layout.addRow(f'{label} shape', shape)
-            layout.addRow(f'{label} element strides', strides)
+            operands.addWidget(QtWidgets.QLabel('A' if index == 1 else 'B'),
+                               index, 0)
+            operands.addWidget(shape, index, 1)
+            operands.addWidget(strides, index, 2)
             shape.setToolTip(
                 'Full shape, including batch axes: e.g. 2, 32, 64.')
             strides.setToolTip(
                 'One stride per axis, in elements. Negative and zero '
                 'strides are allowed. Values are used exactly as entered.')
+        operands.setColumnStretch(1, 1)
+        operands.setColumnStretch(2, 1)
+        layout.addRow('Operands', operands)
         self._build_kernels(parent)
 
     def make_spec(self, sampling):
@@ -307,13 +320,6 @@ class MatmulForm:
             box.toggled.connect(functools.partial(self._remember_kernel, name))
             self._kernel_layout.addWidget(box, index // 3, index % 3)
             self.kernels[name] = box
-        kernel_help = QtWidgets.QLabel(
-            'NumPy is always included for timing and numerical comparison. '
-            'Unavailable kernels are disabled; hover for the reason.',
-            parent)
-        kernel_help.setWordWrap(True)
-        self._kernel_layout.addWidget(kernel_help, 2, 0, 1, 3)
-
         self.dtype.currentTextChanged.connect(self._update_kernels)
         for field in self.fields.values():
             field.textChanged.connect(self._update_kernels)
@@ -338,18 +344,18 @@ class MatmulForm:
         self._kernel_choices[name] = checked
 
 
-class ResultView(QtWidgets.QWidget):
+class ResultView(QtWidgets.QGroupBox):
     """Display completed results independently of the current controls.
 
     :param describe: Format the saved spec as summary text, without reading
         live input controls.
     """
 
-    HEADERS = ('Kernel', 'Status', 'Max abs diff', 'Relative diff',
-               'Median (ns/call)', 'p95 (ns/call)')
+    HEADERS = ('Kernel', 'Median (ns/call)', 'p95 (ns/call)',
+               'Max abs diff', 'Relative diff', 'Status')
 
     def __init__(self, describe, parent=None):
-        super().__init__(parent)
+        super().__init__('Results', parent)
         self._describe = describe
         self.summary = QtWidgets.QLabel('No completed result', self)
         self.summary.setTextFormat(QtCore.Qt.TextFormat.PlainText)
@@ -361,23 +367,41 @@ class ResultView(QtWidgets.QWidget):
             QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setSelectionBehavior(
             QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
+        self.table.setAlternatingRowColors(True)
+        self.table.setShowGrid(False)
         self.table.verticalHeader().hide()
-        self.table.horizontalHeader().setStretchLastSection(True)
-        self.table.setMinimumHeight(100)
-        self.table.horizontalHeaderItem(2).setToolTip(
-            'Maximum absolute difference from the NumPy result.')
+        header = self.table.horizontalHeader()
+        mode = QtWidgets.QHeaderView.ResizeMode
+        header.setSectionResizeMode(mode.ResizeToContents)
+        header.setMinimumSectionSize(header.sectionSizeHint(1))
+        header.setDefaultSectionSize(header.minimumSectionSize())
+        header.setSectionResizeMode(1, mode.Stretch)
+        header.setSectionResizeMode(2, mode.Stretch)
+        self.table.setMinimumHeight(140)
+        align = QtCore.Qt.AlignmentFlag
+        header.setDefaultAlignment(align.AlignLeft | align.AlignVCenter)
+        for column in range(1, 5):
+            self.table.horizontalHeaderItem(column).setTextAlignment(
+                align.AlignRight | align.AlignVCenter)
         self.table.horizontalHeaderItem(3).setToolTip(
+            'Maximum absolute difference from the NumPy result.')
+        self.table.horizontalHeaderItem(4).setToolTip(
             'Max abs diff / max(abs(NumPy result)); "-" means unavailable.')
         legend = QtWidgets.QLabel(
-            'Per-call round averages: bar = median, whisker = p95. '
-            'Lower is faster; hover for details.', self)
+            'Bar: median  |  Range: p5-p95  |  Lower is faster', self)
+        legend.setToolTip(
+            'Percentiles use per-call round averages. '
+            'Few rounds give coarse tail estimates. Lower is faster. '
+            'Hover over a kernel for timings, differences, and sampling.')
         legend.setWordWrap(True)
         splitter = QtWidgets.QSplitter(QtCore.Qt.Orientation.Vertical, self)
         splitter.addWidget(self.chart)
         splitter.addWidget(self.table)
         splitter.setChildrenCollapsible(False)
+        splitter.setSizes([220, 180])
+        splitter.setStretchFactor(0, 1)
+        splitter.setStretchFactor(1, 1)
         layout = QtWidgets.QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.summary)
         layout.addWidget(legend)
         layout.addWidget(splitter, 1)
@@ -388,23 +412,38 @@ class ResultView(QtWidgets.QWidget):
         :param result: Validated run, with its saved spec and raw timings.
         """
         rows = self._make_rows(result)
+        maximum = max((row['timing'].p95 or 0 for row in rows), default=0)
+        scale, unit = 1, 'ns'
+        for factor, name in ((1e3, '\u00b5s'), (1e6, 'ms'), (1e9, 's')):
+            if maximum >= factor:
+                scale, unit = factor, name
+        for column, label in ((1, 'Median'), (2, 'p95')):
+            self.table.horizontalHeaderItem(column).setText(
+                f'{label} ({unit}/call)')
+        align = QtCore.Qt.AlignmentFlag
+        sampling = result.spec.sampling
         self.summary.setText(
-            'Last completed result: ' + self._describe(result.spec))
+            self._describe(result.spec) + '\n'
+            f'{sampling.rounds} round averages; '
+            f'{sampling.repetitions} calls/round')
         self.table.setRowCount(len(rows))
         for index, row in enumerate(rows):
             timing = row['timing']
-            values = (row['name'], row['status'],
+            values = (row['label'],
+                      _format_number(timing.median, scale),
+                      _format_number(timing.p95, scale),
                       _format_number(row['max_abs_diff']),
                       _format_number(row['relative_diff']),
-                      _format_number(timing.median),
-                      _format_number(timing.p95))
+                      row['status'])
             for column, value in enumerate(values):
                 item = QtWidgets.QTableWidgetItem(value)
                 item.setToolTip(row['tooltip'])
+                if 1 <= column <= 4:
+                    item.setTextAlignment(
+                        align.AlignRight | align.AlignVCenter)
                 self.table.setItem(index, column, item)
-        self.table.resizeColumnsToContents()
-        self.chart.set_rows([row for row in rows
-                             if row['status'] == 'measured'])
+        measured = [row for row in rows if row['status'] == 'measured']
+        self.chart.set_rows(measured, scale, unit)
 
     @staticmethod
     def _make_rows(result):
@@ -415,9 +454,13 @@ class ResultView(QtWidgets.QWidget):
         for entry in result.results:
             timing = timings[entry.name]
             row = dict(entry.to_dict(), timing=timing)
+            row['label'] = 'NumPy' if entry.name == 'numpy' else entry.name
             row['tooltip'] = (
                 f'{entry.name}: {entry.status}\n'
                 f'Median: {_format_number(timing.median)} ns/call\n'
+                f'p5: {_format_number(timing.p5)} ns/call\n'
+                f'p25: {_format_number(timing.p25)} ns/call\n'
+                f'p75: {_format_number(timing.p75)} ns/call\n'
                 f'p95: {_format_number(timing.p95)} ns/call\n'
                 f'Max abs diff: {_format_number(entry.max_abs_diff)}\n'
                 f'Relative diff: {_format_number(entry.relative_diff)}\n'
@@ -432,23 +475,62 @@ class ResultView(QtWidgets.QWidget):
 
 
 class TimingChart(QtWidgets.QWidget):
-    """Show median bars and p95 whiskers for per-call round averages."""
+    """Show median bars and p5-p95 ranges of per-call round averages."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self._rows = []
         self._regions = []
+        self._scale, self._unit = 1, 'ns'
         self._empty_text = 'Run a benchmark to compare kernel timings'
         self.setMouseTracking(True)
         self.setMinimumSize(420, 180)
 
-    def set_rows(self, rows):
+    def set_rows(self, rows, scale=1, unit='ns'):
         self._rows = rows
+        self._scale, self._unit = scale, unit
         self._regions = []
         self._empty_text = 'No measured timings in the completed result'
         self.setToolTip('')
         QtWidgets.QToolTip.hideText()
         self.update()
+
+    @staticmethod
+    def _ticks(maximum):
+        """Return ticks with 1, 2 or 5 times a power-of-ten spacing.
+
+        :param maximum: Largest percentile in the displayed time unit.
+        """
+        maximum = maximum or 1
+        target = maximum / 5
+        step = 10 ** math.floor(math.log10(target))
+        for factor in (1, 2, 5, 10):
+            if step * factor >= target:
+                step *= factor
+                break
+        intervals = math.ceil(maximum / step)
+        return [index * step for index in range(intervals + 1)]
+
+    def _draw_axis(self, painter, plot, ticks):
+        metrics = self.fontMetrics()
+        color = self.palette().text().color()
+        grid = QtGui.QColor(color)
+        grid.setAlpha(30)
+
+        for value in ticks:
+            position = plot.left() + plot.width() * value / ticks[-1]
+            painter.setPen(grid)
+            painter.drawLine(QtCore.QPointF(position, plot.top()),
+                             QtCore.QPointF(position, plot.bottom()))
+            painter.setPen(color)
+            painter.drawLine(QtCore.QPointF(position, plot.bottom()),
+                             QtCore.QPointF(position, plot.bottom() + 4))
+            text = _format_number(value)
+            width = metrics.horizontalAdvance(text) + 8
+            rect = QtCore.QRectF(position - width / 2, plot.bottom() + 4,
+                                 width, metrics.height())
+            painter.drawText(rect, QtCore.Qt.AlignmentFlag.AlignCenter, text)
+        painter.drawLine(plot.bottomLeft(), plot.bottomRight())
 
     def paintEvent(self, event):
         self._regions = []
@@ -460,52 +542,72 @@ class TimingChart(QtWidgets.QWidget):
             painter.drawText(self.rect(), align.AlignCenter, self._empty_text)
             return
 
-        maximum = max(row['timing'].p95 for row in self._rows) or 1
-        label_width, value_width = 100, 110
-        padding, gap, top, axis_height = 4, 6, 8, 24
+        maximum = max(row['timing'].p95 for row in self._rows)
+        ticks = self._ticks(maximum / self._scale)
+        axis_max = ticks[-1] * self._scale
+
+        metrics = self.fontMetrics()
+        label_width = max(metrics.horizontalAdvance(row['label'])
+                          for row in self._rows)
+        value_header = f'Median ({self._unit}/call)'
+        values = [_format_number(row['timing'].median, self._scale)
+                  for row in self._rows]
+        value_width = max(metrics.horizontalAdvance(text)
+                          for text in [value_header, *values])
+        padding, gap = 8, 12
+        top, axis_height = metrics.height() + 16, metrics.height() + 8
         left = padding + label_width + gap
         right = gap + value_width + padding
         plot = QtCore.QRectF(
             left, top, self.width() - left - right,
             self.height() - top - axis_height - padding,
         )
-        axis = QtCore.QRectF(
-            plot.left(), plot.bottom(), plot.width(), axis_height,
-        )
-        height = plot.height() / len(self._rows)
-        painter.drawLine(plot.bottomLeft(), plot.bottomRight())
-        painter.drawText(axis, align.AlignLeft | align.AlignVCenter, '0')
+
         painter.drawText(
-            axis, align.AlignRight | align.AlignVCenter,
-            f'{_format_number(maximum)} ns/call',
-        )
+            QtCore.QRectF(plot.left(), 0, plot.width(), top),
+            align.AlignLeft | align.AlignVCenter, f'Time ({self._unit}/call)')
+        painter.drawText(
+            QtCore.QRectF(plot.right() + gap, 0, value_width, top),
+            align.AlignRight | align.AlignVCenter, value_header)
+
+        height = plot.height() / len(self._rows)
         for index, row in enumerate(self._rows):
-            timing = row['timing']
             rect = QtCore.QRectF(0, plot.top() + index * height,
                                  self.width(), height)
             self._regions.append((rect, row['tooltip']))
+        for rect, _ in self._regions[1::2]:
+            painter.fillRect(rect, self.palette().alternateBase())
+        self._draw_axis(painter, plot, ticks)
+
+        for index, row in enumerate(self._rows):
+            timing = row['timing']
+            rect = self._regions[index][0]
+            painter.setPen(self.palette().text().color())
             painter.drawText(
                 QtCore.QRectF(padding, rect.top(), label_width, height),
-                align.AlignRight | align.AlignVCenter, row['name'],
+                align.AlignRight | align.AlignVCenter, row['label'],
             )
             middle = rect.center().y()
             bar_height = min(20, height * 0.6)
-            median_x = plot.left() + plot.width() * timing.median / maximum
-            p95_x = plot.left() + plot.width() * timing.p95 / maximum
-            painter.fillRect(
-                QtCore.QRectF(plot.left(), middle - bar_height / 2,
-                              median_x - plot.left(), bar_height),
-                self.palette().highlight())
-            painter.drawLine(QtCore.QPointF(median_x, middle),
-                             QtCore.QPointF(p95_x, middle))
-            painter.drawLine(QtCore.QPointF(p95_x, middle - bar_height / 3),
-                             QtCore.QPointF(p95_x, middle + bar_height / 3))
+            p5_x, median_x, p95_x = (
+                plot.left() + plot.width() * value / axis_max
+                for value in (timing.p5, timing.median, timing.p95))
+            color = self.palette().highlight().color()
+            color.setAlpha(180)
+            bar = QtCore.QRectF(
+                plot.left(), middle - bar_height / 2,
+                median_x - plot.left(), bar_height)
+            painter.fillRect(bar, color)
+            painter.drawLine(QtCore.QLineF(p5_x, middle, p95_x, middle))
+            y1, y2 = middle - bar_height / 3, middle + bar_height / 3
+            painter.drawLine(QtCore.QLineF(p5_x, y1, p5_x, y2))
+            painter.drawLine(QtCore.QLineF(p95_x, y1, p95_x, y2))
             painter.drawText(
                 QtCore.QRectF(
                     plot.right() + gap, rect.top(), value_width, height,
                 ),
-                align.AlignLeft | align.AlignVCenter,
-                _format_number(timing.median),
+                align.AlignRight | align.AlignVCenter,
+                values[index],
             )
 
     def mouseMoveEvent(self, event):

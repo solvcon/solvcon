@@ -115,6 +115,7 @@ class RunPanelTC(unittest.TestCase):
         success = kind == 'result'
         self.assertEqual(self.control.progress.value(), int(success))
         self.assertEqual(self.control.progress.isTextVisible(), success)
+        self.assertTrue(self.control.progress.isHidden())
 
     def assert_failed(self, message):
         self.assert_finished('error')
@@ -188,10 +189,23 @@ class RunPanelTC(unittest.TestCase):
 
     def test_elapsed_while_running(self):
         self.start_worker(WorkerStub())
+        self.assertFalse(self.control.progress.isHidden())
         self.wait_for(
             lambda: self.control.elapsed.text() != 'Elapsed: 0.0 s')
         self.assertTrue(self.control.running)
         self.assertEqual(self.events, [])
+
+    def test_elapsed_duration(self):
+        cases = ((59900, '59.9 s'), (60000, '00:01:00'),
+                 (3599000, '00:59:59'), (3600000, '01:00:00'),
+                 (90061200, '25:01:01'))
+        with unittest.mock.patch.object(self.control, '_clock') as clock:
+            for milliseconds, text in cases:
+                with self.subTest(milliseconds=milliseconds):
+                    clock.elapsed.return_value = milliseconds
+                    self.control._update_elapsed()
+                    self.assertEqual(self.control.elapsed.text(),
+                                     f'Elapsed: {text}')
 
     def test_large_progress_counts(self):
         self.start_worker(WorkerStub())
@@ -433,9 +447,7 @@ class BenchmarkInspectorTC(unittest.TestCase):
 
     def test_sampling_help(self):
         self.set_fields(warmups='3', repetitions='7', rounds='2')
-        expected = (
-            'Each timed kernel runs 3 untimed warmups, then 2 rounds of '
-            '7 calls each. NumPy uses the same schedule.')
+        expected = '3 warmups; 2 rounds x 7 calls per kernel.'
         self.assertEqual(self.widget.sampling_help.text(), expected)
         self.set_fields(rounds='0')
         self.assertEqual(self.widget.sampling_help.text(),
@@ -538,7 +550,7 @@ class BenchmarkInspectorTC(unittest.TestCase):
             table = self.widget.results.table
             self.assertEqual(table.rowCount(), 2)
             self.assertEqual(table.item(0, 0).text(), 'naive')
-            self.assertEqual(table.item(1, 0).text(), 'numpy')
+            self.assertEqual(table.item(1, 0).text(), 'NumPy')
 
     def test_result_uses_artifact(self):
         self.widget.run_button.click()
@@ -555,13 +567,13 @@ class BenchmarkInspectorTC(unittest.TestCase):
         self.assertTrue(self.widget.save_button.isEnabled())
         snapshot = self.widget.results.summary.text()
         table = self.widget.results.table
-        median = table.item(0, 4).text()
+        median = table.item(0, 1).text()
         self.path.write_text('{}', encoding='utf8')
         self.widget.control.completed.emit(str(self.path))
         self.assertFalse(self.widget.save_button.isEnabled())
         self.assertIn('missing fields', self.widget.error.text())
         self.assertEqual(self.widget.results.summary.text(), snapshot)
-        self.assertEqual(table.item(0, 4).text(), median)
+        self.assertEqual(table.item(0, 1).text(), median)
 
     def test_stop_and_close_recovery(self):
         control = self.widget.control
@@ -617,6 +629,12 @@ class ResultViewTC(unittest.TestCase):
                    or QtWidgets.QApplication([]))
 
     def setUp(self):
+        # Exercise timing headers wider than Qt's default column width.
+        font = self.app.font()
+        self.addCleanup(self.app.setFont, font)
+        font = QtGui.QFont(font)
+        font.setPointSize(14)
+        self.app.setFont(font)
         self.widget = _inspector.ResultView(_inspector.MatmulForm.describe)
         self.addCleanup(self.widget.deleteLater)
         operand = spec.OperandSpec((2, 2), (2, 1))
@@ -661,15 +679,47 @@ class ResultViewTC(unittest.TestCase):
         self.assertIn('float64; A (2, 2) strides (2, 1)',
                       self.widget.summary.text())
         self.assertEqual(self.row_text(0),
-                         ['naive', 'measured', '0.25', '0.125', '200', '290'])
+                         ['naive', '200', '290', '0.25', '0.125', 'measured'])
         self.assertEqual(self.row_text(1),
-                         ['blas_dot', 'ineligible', '-', '-', '-', '-'])
+                         ['blas_dot', '-', '-', '-', '-', 'ineligible'])
         self.assertEqual(self.row_text(2),
-                         ['winograd', 'invalid', '-', '-', '-', '-'])
+                         ['winograd', '-', '-', '-', '-', 'invalid'])
         self.assertEqual(self.row_text(3),
-                         ['numpy', 'measured', '0', '0', '400', '580'])
-        self.assertIn('Vectors only', self.widget.table.item(1, 1).toolTip())
-        self.assertIn('Nonfinite', self.widget.table.item(2, 1).toolTip())
+                         ['NumPy', '400', '580', '0', '0', 'measured'])
+        self.assertIn('3 round averages; 4 calls/round',
+                      self.widget.summary.text())
+        self.assertIn('Vectors only', self.widget.table.item(1, 5).toolTip())
+        self.assertIn('Nonfinite', self.widget.table.item(2, 5).toolTip())
+
+    def test_time_units(self):
+        original = [entry.round_elapsed_ns.copy()
+                    for entry in self.result.results]
+        for scale, unit in ((1, 'ns'), (1000, '\u00b5s'),
+                            (10**6, 'ms'), (10**9, 's')):
+            with self.subTest(unit=unit):
+                for entry, samples in zip(self.result.results, original):
+                    entry.round_elapsed_ns = [ns * scale for ns in samples]
+                self.widget.set_result(self.result)
+                self.assertEqual(self.row_text(0)[1:3], ['200', '290'])
+                header = self.widget.table.horizontalHeaderItem(1)
+                self.assertEqual(header.text(), f'Median ({unit}/call)')
+                self.assertEqual(self.widget.chart._unit, unit)
+
+    def test_narrow_table_scrolls(self):
+        for entry in self.result.results:
+            entry.round_elapsed_ns = [ns * 10**7
+                                      for ns in entry.round_elapsed_ns]
+        self.widget.set_result(self.result)
+        self.widget.resize(420, 360)
+        self.widget.show()
+        self.addCleanup(self.widget.close)
+        QtTest.QTest.qWait(10)
+        table = self.widget.table
+        header = table.horizontalHeader()
+        self.assertGreater(table.horizontalScrollBar().maximum(), 0)
+        for column in range(1, table.columnCount()):
+            self.assertGreaterEqual(header.sectionSize(column),
+                                    header.sectionSizeHint(column))
 
     def test_chart_hover_and_resize(self):
         self.widget.set_result(self.result)
@@ -679,10 +729,28 @@ class ResultViewTC(unittest.TestCase):
             self.hover_chart()
             self.assertIn('Median: 200 ns/call', chart.toolTip())
             self.assertIn('p95: 290 ns/call', chart.toolTip())
+            self.assertIn('p5: 110 ns/call', chart.toolTip())
+            self.assertIn('p25: 150 ns/call', chart.toolTip())
+            self.assertIn('p75: 250 ns/call', chart.toolTip())
             self.assertIn('3 rounds, 4 calls/round; 2 warmups',
                           chart.toolTip())
         self.app.sendEvent(chart, QtCore.QEvent(QtCore.QEvent.Type.Leave))
         self.assertEqual(chart.toolTip(), '')
+
+    def test_readable_ticks_cover_timings(self):
+        cases = ((40.7013, [0, 10, 20, 30, 40, 50]),
+                 (50, [0, 10, 20, 30, 40, 50]),
+                 (580, [0, 200, 400, 600]),
+                 (1.34568, [0, 0.5, 1, 1.5]),
+                 (0.0407013, [0, 0.01, 0.02, 0.03, 0.04, 0.05]),
+                 (0, [0, 0.2, 0.4, 0.6, 0.8, 1]))
+        for maximum, expected in cases:
+            with self.subTest(maximum=maximum):
+                actual = self.widget.chart._ticks(maximum)
+                self.assertEqual(len(actual), len(expected))
+                for value, tick in zip(actual, expected):
+                    self.assertAlmostEqual(value, tick)
+                self.assertGreaterEqual(actual[-1], maximum)
 
     def test_replace_result_hides_previous_tooltip(self):
         self.addCleanup(QtWidgets.QToolTip.hideText)
@@ -693,7 +761,7 @@ class ResultViewTC(unittest.TestCase):
 
         self.result.results[0].round_elapsed_ns = [800, 1600, 2400]
         self.widget.set_result(self.result)
-        self.assertEqual(self.row_text(0)[4:], ['400', '580'])
+        self.assertEqual(self.row_text(0)[1:3], ['400', '580'])
         QtTest.QTest.qWait(350)
         self.assertFalse(QtWidgets.QToolTip.isVisible())
 
@@ -707,7 +775,7 @@ class ResultViewTC(unittest.TestCase):
                 entry.round_elapsed_ns = [0, 0, 0]
         self.widget.set_result(self.result)
         self.assertEqual(self.row_text(0),
-                         ['naive', 'measured', '-', '-', '0', '0'])
+                         ['naive', '0', '0', '-', '-', 'measured'])
         self.hover_chart()
         self.assertIn('Median: 0 ns/call', self.widget.chart.toolTip())
         self.assertIn('p95: 0 ns/call', self.widget.chart.toolTip())
@@ -724,7 +792,7 @@ class ResultViewTC(unittest.TestCase):
         self.result.round_orders = [[], [], []]
         self.widget.set_result(self.result)
         self.assertEqual(self.row_text(0),
-                         ['naive', 'invalid', '-', '-', '-', '-'])
+                         ['naive', '-', '-', '-', '-', 'invalid'])
         self.hover_chart()
         self.assertEqual(self.widget.chart.toolTip(), '')
 
