@@ -109,6 +109,28 @@ mathjax3_config = {
 
 numfig = True
 
+# Number equations from (1) on each page instead of across the whole site.
+# A reference to an equation on another page names that page itself, e.g.,
+# "Eq. {eq}`label` in {doc}`page`".
+math_numfig = False
+
+# -- Number figures per page ------------------------------------------------
+
+# Without a numbered toctree, Sphinx counts figures across the whole site.
+# Restart the count on every page, as math_numfig = False does for equations.
+# A reference to a figure on another page names that page itself, e.g.,
+# "{numref}`label` in {doc}`page`".
+
+
+def _number_figures_per_page(app, env):
+    for fignumbers in env.toc_fignumbers.values():
+        for figtype, numbers in fignumbers.items():
+            ordered = sorted(numbers, key=numbers.get)
+            fignumbers[figtype] = {figure_id: (index,) for index, figure_id
+                                   in enumerate(ordered, start=1)}
+    return []
+
+
 # -- Link Qt types in the C++ API to the Qt documentation -------------------
 
 # Doxygen and breathe render Qt types (QRhiWidget, QImage, QMatrix4x4, ...) as
@@ -222,6 +244,7 @@ class _BreatheRefidResolver(SphinxPostTransform):
 
 
 def setup(app):
+    app.connect("env-get-updated", _number_figures_per_page, priority=900)
     app.connect("missing-reference", _resolve_qt_reference)
     app.add_post_transform(_BreatheRefidResolver)
 
