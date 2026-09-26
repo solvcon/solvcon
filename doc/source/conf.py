@@ -109,6 +109,11 @@ mathjax3_config = {
 
 numfig = True
 
+# Number equations from (1) on each page instead of across the whole site.
+# A reference to an equation on another page names that page itself, e.g.,
+# "Eq. {eq}`label` in {doc}`page`".
+math_numfig = False
+
 # -- Link Qt types in the C++ API to the Qt documentation -------------------
 
 # Doxygen and breathe render Qt types (QRhiWidget, QImage, QMatrix4x4, ...) as
