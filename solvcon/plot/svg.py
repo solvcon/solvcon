@@ -237,6 +237,30 @@ class EShapeBase(object):
     def _calculate(self):
         raise NotImplementedError()
 
+    def add_to_world(self, world, flip_y=False):
+        """
+        Add the element to a World as bare segments and curves. A subclass
+        overrides it to add the element through a World shape API.
+
+        :param world: WorldFp64 to add to.
+        :param flip_y: mirror against the X axis for the GUI coordinate
+            system. The mirror is applied to the element's pads in place.
+        :returns: the shape ID, or None when no shape is registered.
+        """
+        for spad in self.spads:
+            if len(spad) != 0:
+                if flip_y:
+                    spad.mirror(axis='x')
+                world.add_segments(pad=spad)
+
+        for cpad in self.cpads:
+            if len(cpad) != 0:
+                if flip_y:
+                    cpad.mirror(axis='x')
+                world.add_beziers(pad=cpad)
+
+        return None
+
     @staticmethod
     def affine_transform(x, y, tm):
         """
@@ -306,6 +330,25 @@ class EPath(EShapeBase):
 
         self._calculate()
         self._apply_transformation()
+
+    def add_to_world(self, world, flip_y=False):
+        """
+        Add the path to a World as one PATH shape owning all its segments
+        and curves. Subpath boundaries are not kept.
+
+        :returns: the shape ID, or None for a path without geometry.
+        """
+        spad = self.spads[0] if self.spads else core.SegmentPadFp64(ndim=2)
+        cpad = self.cpads[0] if self.cpads else core.CurvePadFp64(ndim=2)
+        if len(spad) == 0 and len(cpad) == 0:
+            return None
+
+        if flip_y:
+            for pad in (spad, cpad):
+                if len(pad) != 0:
+                    pad.mirror(axis='x')
+
+        return world.add_path(segments=spad, curves=cpad)
 
     def calc_arc2pnts(self, start_pt, end_pt, rx, ry, phi_deg, large_arc,
                       sweep, steps=40):
