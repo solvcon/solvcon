@@ -5,6 +5,7 @@
 
 #include <solvcon/pilot/app/RThreadManager.hpp> // Must be the first include.
 
+#include <atomic>
 #include <condition_variable>
 #include <deque>
 #include <exception>
@@ -123,6 +124,28 @@ void require_qt_thread(QObject const & object, char const * name)
 
 } /* end namespace */
 
+struct CancellationToken::Flag
+{
+    enum class Verdict : uint8_t
+    {
+        Open,
+        Finished,
+        Cancelled,
+    }; /* end enum class Verdict */
+
+    /// Return true only for the first call; every later call loses.
+    bool decide(Verdict verdict)
+    {
+        Verdict expected = Verdict::Open;
+        return m_verdict.compare_exchange_strong(expected, verdict);
+    }
+    bool cancelled() const { return m_verdict.load() == Verdict::Cancelled; }
+
+    std::atomic<Verdict> m_verdict = Verdict::Open;
+}; /* end struct CancellationToken::Flag */
+
+bool CancellationToken::is_cancelled() const { return m_flag->cancelled(); }
+
 struct WorkflowContext::Submission
 {
     std::string thread_name;
@@ -133,18 +156,22 @@ struct WorkflowContext::Submission
 struct WorkflowContext::Impl
 {
     WorkflowId workflow_id = 0;
+    std::shared_ptr<CancellationToken::Flag> flag;
     bool open = true;
     std::optional<Result> result;
     std::deque<Submission> submissions;
 }; /* end struct WorkflowContext::Impl */
 
-WorkflowContext::WorkflowContext(WorkflowId workflow_id)
-    : m_impl(std::make_shared<Impl>())
+WorkflowContext::WorkflowContext(WorkflowId workflow_id, std::shared_ptr<CancellationToken::Flag> flag)
+    : m_impl(std::make_shared<Impl>(Impl{.workflow_id = workflow_id, .flag = std::move(flag)}))
 {
-    m_impl->workflow_id = workflow_id;
 }
 
 WorkflowId WorkflowContext::workflow_id() const { return m_impl->workflow_id; }
+
+CancellationToken WorkflowContext::cancellation() const { return CancellationToken(m_impl->flag); }
+
+bool WorkflowContext::cancelled() const { return m_impl->flag->cancelled(); }
 
 void WorkflowContext::submit(std::string const & thread, std::unique_ptr<Task> task, ResultCallback on_completed)
 {
@@ -158,6 +185,12 @@ bool WorkflowContext::finish(Result result)
         return false;
     }
     m_impl->open = false;
+    using Verdict = CancellationToken::Flag::Verdict;
+    Verdict const verdict = std::holds_alternative<Cancelled>(result) ? Verdict::Cancelled : Verdict::Finished;
+    if (!m_impl->flag->decide(verdict))
+    {
+        result = Cancelled{};
+    }
     m_impl->result = std::move(result);
     return true;
 }
@@ -175,16 +208,18 @@ std::optional<Result> WorkflowContext::close()
 struct TaskContext::Impl
 {
     WorkflowId workflow_id = 0;
+    CancellationToken token;
     std::optional<Result> result;
 }; /* end struct TaskContext::Impl */
 
-TaskContext::TaskContext(WorkflowId workflow_id)
-    : m_impl(std::make_shared<Impl>())
+TaskContext::TaskContext(WorkflowId workflow_id, CancellationToken token)
+    : m_impl(std::make_shared<Impl>(Impl{.workflow_id = workflow_id, .token = std::move(token)}))
 {
-    m_impl->workflow_id = workflow_id;
 }
 
 WorkflowId TaskContext::workflow_id() const { return m_impl->workflow_id; }
+
+CancellationToken TaskContext::cancellation() const { return m_impl->token; }
 
 bool TaskContext::finish(Result result)
 {
@@ -198,10 +233,25 @@ bool TaskContext::finish(Result result)
 
 std::optional<Result> TaskContext::take_result() { return std::exchange(m_impl->result, std::nullopt); }
 
-RWorkflowHandle::RWorkflowHandle(WorkflowId workflow_id, QObject * owner)
+RWorkflowHandle::RWorkflowHandle(WorkflowId workflow_id, std::shared_ptr<CancellationToken::Flag> flag, RThreadManager & manager, QObject * owner)
     : QObject(owner)
     , m_workflow_id(workflow_id)
+    , m_flag(std::move(flag))
+    , m_manager(&manager)
 {
+}
+
+bool RWorkflowHandle::cancel()
+{
+    require_qt_thread(*this, "cancel");
+    if (!m_manager || !m_flag->decide(CancellationToken::Flag::Verdict::Cancelled))
+    {
+        return false;
+    }
+    // The state callback may delete the owner and this handle, so request first.
+    m_manager->requestCancel(m_workflow_id);
+    setState(WorkflowState::Cancelling);
+    return true;
 }
 
 void RWorkflowHandle::onStateChanged(StateCallback callback)
@@ -230,6 +280,10 @@ void RWorkflowHandle::flush()
 
 void RWorkflowHandle::setState(WorkflowState state)
 {
+    if (state <= m_state)
+    {
+        return;
+    }
     m_state = state;
     if (m_on_state_changed)
     {
@@ -266,6 +320,8 @@ struct RThreadManager::Scheduler
         Job & operator=(Job const &) = delete;
         virtual ~Job() = default;
 
+        /// The loop cancels a job that reads true here instead of running it.
+        virtual bool cancelled() const { return false; }
         virtual void run(ThreadState & state) = 0;
         virtual void cancel() = 0;
     }; /* end struct Job */
@@ -355,7 +411,7 @@ void RThreadManager::Scheduler::loop()
         m_queue.pop_front();
         bool const stopping = m_stopping;
         lock.unlock();
-        if (stopping)
+        if (stopping || job->cancelled())
         {
             job->cancel();
         }
@@ -410,6 +466,7 @@ struct RThreadManager::Impl
     struct StartWorkflowJob;
     struct CompletionJob;
     struct TaskJob;
+    struct CancelWorkflowJob;
 
     explicit Impl(RThreadManager * manager)
         : m_manager(manager)
@@ -445,6 +502,8 @@ struct RThreadManager::Impl
     void close_if_done(WorkflowEntry & entry);
 
     void close(WorkflowEntry & entry);
+    /// Finish an open workflow with Cancelled after Workflow::cancel(); skip a finished workflow.
+    void cancel(WorkflowEntry & entry);
     void cancel_open_workflows();
     void dispatch(WorkflowEntry & entry);
     /// Run the completion callback on the workflow thread; an exception from the callback fails the workflow.
@@ -472,6 +531,7 @@ struct RThreadManager::Impl::StartWorkflowJob
     {
     }
 
+    bool cancelled() const override { return m_entry.context.cancelled(); }
     void run(ThreadState & /* state */) override { m_impl.run(std::move(m_entry)); }
 
     void cancel() override
@@ -483,6 +543,32 @@ struct RThreadManager::Impl::StartWorkflowJob
     Impl & m_impl;
     WorkflowEntry m_entry;
 }; /* end struct RThreadManager::Impl::StartWorkflowJob */
+
+/// Runs on the workflow thread after the handle accepted cancellation.
+struct RThreadManager::Impl::CancelWorkflowJob
+    : Scheduler::Job
+{
+    CancelWorkflowJob(Impl & impl, WorkflowId workflow_id)
+        : m_impl(impl)
+        , m_workflow_id(workflow_id)
+    {
+    }
+
+    void run(ThreadState & /* state */) override
+    {
+        // The scheduler cancels a still-queued workflow itself, and a closed one already delivered Cancelled.
+        auto found = m_impl.m_open_workflows.find(m_workflow_id);
+        if (found != m_impl.m_open_workflows.end())
+        {
+            m_impl.cancel(found->second);
+            m_impl.close_if_done(found->second);
+        }
+    }
+    void cancel() override {}
+
+    Impl & m_impl;
+    WorkflowId m_workflow_id;
+}; /* end struct RThreadManager::Impl::CancelWorkflowJob */
 
 /// A promised completion callback runs also when the thread stops.
 struct RThreadManager::Impl::CompletionJob
@@ -502,26 +588,29 @@ struct RThreadManager::Impl::CompletionJob
 struct RThreadManager::Impl::TaskJob
     : Scheduler::Job
 {
-    TaskJob(Impl & impl, WorkflowId workflow_id, std::unique_ptr<Task> task, ResultCallback on_completed)
+    TaskJob(Impl & impl, WorkflowContext const & workflow, std::unique_ptr<Task> task, ResultCallback on_completed)
         : m_impl(impl)
-        , m_workflow_id(workflow_id)
+        , m_workflow_id(workflow.workflow_id())
+        , m_token(workflow.cancellation())
         , m_task(std::move(task))
         , m_on_completed(std::move(on_completed))
     {
     }
 
+    bool cancelled() const override { return m_token.is_cancelled(); }
     void run(ThreadState & state) override;
     void cancel() override { m_impl.complete_task(m_workflow_id, std::move(m_on_completed), Cancelled{}); }
 
     Impl & m_impl;
     WorkflowId m_workflow_id;
+    CancellationToken m_token;
     std::unique_ptr<Task> m_task;
     ResultCallback m_on_completed;
 }; /* end struct RThreadManager::Impl::TaskJob */
 
 void RThreadManager::Impl::TaskJob::run(ThreadState & state)
 {
-    TaskContext context(m_workflow_id);
+    TaskContext context(m_workflow_id, std::move(m_token));
     finish_on_error(context, [this, &context, &state]()
                     { m_task->execute(context, state); });
     std::optional<Result> result = context.take_result();
@@ -562,16 +651,23 @@ void RThreadManager::Impl::close(WorkflowEntry & entry)
     deliver(entry, *entry.context.close());
 }
 
+void RThreadManager::Impl::cancel(WorkflowEntry & entry)
+{
+    if (entry.context.finished())
+    {
+        return;
+    }
+    log_failure([&entry]()
+                { entry.workflow->cancel(); },
+                "cancel");
+    entry.context.finish(Cancelled{});
+}
+
 void RThreadManager::Impl::cancel_open_workflows()
 {
     for (auto & [workflow_id, entry] : m_open_workflows)
     {
-        if (entry.context.finish(Cancelled{}))
-        {
-            log_failure([&entry]()
-                        { entry.workflow->cancel(); },
-                        "cancel");
-        }
+        cancel(entry);
         close(entry);
     }
     m_open_workflows.clear();
@@ -591,7 +687,7 @@ void RThreadManager::Impl::dispatch(WorkflowEntry & entry)
             continue;
         }
         scheduler->push(std::make_unique<TaskJob>(
-            *this, workflow_id, std::move(submission.task), std::move(submission.on_completed)));
+            *this, entry.context, std::move(submission.task), std::move(submission.on_completed)));
     }
 }
 
@@ -606,8 +702,10 @@ void RThreadManager::Impl::complete_task(WorkflowId workflow_id, ResultCallback 
                 return;
             }
             WorkflowEntry & entry = found->second;
-            finish_on_error(entry.context, [&on_completed, &result]()
-                            { on_completed(result); });
+            // After an accepted cancellation every callback receives Cancelled, whatever the task returned.
+            Result const delivered = entry.context.cancelled() ? Result(Cancelled{}) : result;
+            finish_on_error(entry.context, [&on_completed, &delivered]()
+                            { on_completed(delivered); });
             --entry.pending_callbacks;
             dispatch(entry);
             close_if_done(entry);
@@ -666,17 +764,23 @@ RWorkflowHandle * RThreadManager::submit(std::unique_ptr<Workflow> workflow, QOb
         throw std::runtime_error("thread manager has stopped");
     }
     WorkflowId const workflow_id = m_impl->m_next_workflow_id++;
+    auto flag = std::make_shared<CancellationToken::Flag>();
     // Qt owns the handle through the owner QObject.
     // NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
-    auto * handle = new RWorkflowHandle(workflow_id, owner);
+    auto * handle = new RWorkflowHandle(workflow_id, flag, *this, owner);
     m_impl->m_workflow_thread.push(std::make_unique<Impl::StartWorkflowJob>(
         *m_impl,
         Impl::WorkflowEntry{
             .workflow = std::move(workflow),
-            .context = WorkflowContext(workflow_id),
+            .context = WorkflowContext(workflow_id, std::move(flag)),
             .handle = handle,
         }));
     return handle;
+}
+
+void RThreadManager::requestCancel(WorkflowId workflow_id)
+{
+    m_impl->m_workflow_thread.push(std::make_unique<Impl::CancelWorkflowJob>(*m_impl, workflow_id));
 }
 
 void RThreadManager::shutdown()

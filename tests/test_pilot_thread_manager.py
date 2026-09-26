@@ -19,8 +19,8 @@ if solvcon.HAS_PILOT:
 
     from solvcon.pilot import RManager
     from solvcon.pilot._thread_manager import (
-        Cancelled, Error, Failed, Succeeded, Task, ThreadState, Workflow,
-        WorkflowState)
+        CancellationToken, Cancelled, Error, Failed, Succeeded, Task,
+        ThreadState, Workflow, WorkflowState)
 else:
     Task = ThreadState = Workflow = object
 
@@ -144,6 +144,7 @@ class TaskWorkflow(Workflow):
         self.raise_in_callback = raise_in_callback
         self.results = []
         self.thread_ids = []
+        self.cancel_thread_id = None
 
     def start(self, context):
         self.thread_ids.append(threading.get_ident())
@@ -158,6 +159,24 @@ class TaskWorkflow(Workflow):
             raise RuntimeError('callback boom')
         if len(self.results) == len(self.submissions):
             context.finish(Succeeded(list(self.results)))
+
+    def cancel(self):
+        self.cancel_thread_id = threading.get_ident()
+
+
+class PollingTask(Task):
+    """Poll the token until cancelled, then finish."""
+
+    def __init__(self, started):
+        self.started = started
+
+    def execute(self, context, state):
+        self.started.set()
+        token = context.cancellation
+        self.assertion = isinstance(token, CancellationToken)
+        while not token.is_cancelled():
+            time.sleep(0.001)
+        context.finish(Succeeded())
 
 
 @unittest.skipUnless(
@@ -216,7 +235,8 @@ class ThreadManagerTC(unittest.TestCase):
         self.assertIsInstance(Cancelled(), Cancelled)
         self.assertEqual(
             [int(s) for s in (WorkflowState.QUEUED, WorkflowState.RUNNING,
-                              WorkflowState.FINISHED)], [0, 1, 3])
+                              WorkflowState.CANCELLING,
+                              WorkflowState.FINISHED)], [0, 1, 2, 3])
 
     def test_workflow_returns_on_qt_thread(self):
         value = object()
@@ -471,6 +491,37 @@ class ThreadManagerTC(unittest.TestCase):
             [('RuntimeError', 'open'), ('ValueError', 'no state')])
         self.assertEqual({tid for _, tid in errors},
                          {threading.get_ident()})
+
+    def test_cancel_reaches_a_polling_task(self):
+        """Go through one cancellation: the handle accepts it once, the
+        task sees the token, the workflow is told on its thread, and
+        every result is Cancelled."""
+        self.manager.register_thread('alpha')
+        started = threading.Event()
+        task = PollingTask(started)
+        workflow = TaskWorkflow([('alpha', task)])
+        handle = self.manager.submit(workflow, owner=self.owner)
+        states = []
+        handle.on_state_changed(states.append)
+        self.assertTrue(started.wait(2))
+        self.app.processEvents()
+
+        self.assertTrue(handle.cancel())
+        self.assertFalse(handle.cancel())
+        self.assertEqual(handle.state, WorkflowState.CANCELLING)
+        results = []
+        handle.on_finished(results.append)
+        self.wait_for(lambda: bool(results))
+
+        self.assertIsInstance(results[0], Cancelled)
+        self.assertTrue(task.assertion)
+        self.assertEqual(states, [
+            WorkflowState.RUNNING, WorkflowState.CANCELLING,
+            WorkflowState.FINISHED])
+        self.assertEqual([type(r) for r in workflow.results], [Cancelled])
+        self.assertEqual(workflow.cancel_thread_id, workflow.thread_ids[0])
+        self.assertNotEqual(workflow.cancel_thread_id, threading.get_ident())
+        self.assertFalse(handle.cancel())
 
     def test_process_exits_with_queued_work(self):
         if os.path.basename(sys.executable).lower() not in (
