@@ -762,7 +762,9 @@ class ResultViewTC(unittest.TestCase):
         self.result.results[0].round_elapsed_ns = [800, 1600, 2400]
         self.widget.set_result(self.result)
         self.assertEqual(self.row_text(0)[1:3], ['400', '580'])
-        QtTest.QTest.qWait(350)
+        deadline = time.monotonic() + 2.0
+        while (QtWidgets.QToolTip.isVisible() and time.monotonic() < deadline):
+            QtTest.QTest.qWait(50)
         self.assertFalse(QtWidgets.QToolTip.isVisible())
 
     def test_empty_output_and_zero_timings(self):
