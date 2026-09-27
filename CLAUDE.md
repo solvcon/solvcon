@@ -105,6 +105,7 @@ without installation, and works around macOS SIP stripping `DYLD_LIBRARY_PATH`.
 
 - `make` -- build the `_solvcon` Python extension (default target).
 - `make pilot` -- build the Qt pilot GUI binary.
+- `make doc` -- build the HTML documentation into `doc/build/html`.
 - `make clean` / `make cmakeclean` -- remove build artifacts.
 
 Build through `make` unless you are instructed otherwise. The configure knobs

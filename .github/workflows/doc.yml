@@ -1,0 +1,65 @@
+name: doc
+
+on:
+  pull_request:
+    paths:
+      - 'doc/**'
+      - 'solvcon/pstake.py'
+      - 'CMakeLists.txt'
+      - 'CMakePresets.json'
+      - '.github/workflows/doc.yml'
+  workflow_call:
+  workflow_dispatch:
+
+concurrency:
+  group: doc-${{ github.event_name == 'schedule' && 'nightly' || github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+
+  doc:
+
+    if: |
+      github.event_name != 'pull_request' ||
+      vars.SCGH_FORCE_DOC == 'enable'
+
+    name: Build the documentation
+
+    runs-on: ubuntu-24.04
+
+    timeout-minutes: ${{ fromJSON(vars.SCGH_TIMEOUT_DOC || '20') }}
+
+    steps:
+
+    - uses: actions/checkout@v6
+
+    - name: setup cmake and ninja
+      uses: lukka/get-cmake@latest
+
+    - name: dependency by apt
+      run: |
+        sudo contrib/ci/apt-update.sh -qq
+        sudo apt-get -qy install \
+            python3-dev libopenblas-dev doxygen ghostscript imagemagick \
+            texlive-latex-base texlive-latex-recommended \
+            texlive-plain-generic texlive-pstricks
+
+    - name: dependency by pip
+      run: |
+        sudo pip3 install numpy 'pybind11==3.0.1' -r doc/requirements.txt
+        echo "pybind11_ROOT=$(python3 -c 'import os, pybind11; print(os.path.dirname(pybind11.__file__))')" >> "$GITHUB_ENV"
+
+    - name: build the documentation
+      run: cmake --workflow --preset ci-doc
+
+    # Upload after a warning too, so a reviewer can see the page it names.
+    - name: upload the HTML
+      if: success() || failure()
+      uses: actions/upload-artifact@v7
+      with:
+        name: doc-html
+        path: doc/build/html
+        retention-days: 7

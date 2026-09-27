@@ -491,4 +491,6 @@ endif() # USE_GOOGLETEST
 
 add_subdirectory(tests)
 
+add_subdirectory(doc)
+
 # vim: set ff=unix fenc=utf8 nobomb et sw=4 ts=4 sts=4:
