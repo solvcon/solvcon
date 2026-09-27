@@ -43,8 +43,16 @@ jobs:
 
     uses: ./.github/workflows/lint.yml
 
+  doc:
+
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (vars.SCGH_NIGHTLY || vars.MMGH_NIGHTLY) == 'enable'
+
+    uses: ./.github/workflows/doc.yml
+
   send_email_on_failure:
-    needs: [devbuild, lint]
+    needs: [devbuild, lint, doc]
     # A `timeout-minutes` kill reports `cancelled`, not `failure`.
     if: |
       always() &&
@@ -57,6 +65,7 @@ jobs:
       job_results: |
         - devbuild: ${{ needs.devbuild.result }}
         - lint: ${{ needs.lint.result }}
+        - doc: ${{ needs.doc.result }}
     secrets:
       EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
       EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}

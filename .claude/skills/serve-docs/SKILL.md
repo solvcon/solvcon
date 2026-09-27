@@ -8,8 +8,9 @@ description: Build the solvcon Sphinx docs and serve them on specified network w
 Build `doc/build/html` and serve it on the network interface specified by the
 user so they can open it from another machine, usually on a trusted
 network, with a watchdog that shuts the server down within a few seconds of the
-Claude session ending. There is no documentation build job in CI, so the local
-build is also the only validation the docs get; always build before serving.
+Claude session ending. CI builds the docs in the nightly run, and on a pull
+request only when the `SCGH_FORCE_DOC` variable is `enable`, so always build
+before serving.
 
 ## When to use
 
