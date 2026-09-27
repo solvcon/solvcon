@@ -278,6 +278,58 @@ class AddBezierShape(_cmd.Command):
             _world_point(args["p2"]), _world_point(args["p3"]))}
 
 
+@_command_set.register
+class AddQuadraticBezier(_cmd.Command):
+    op = "add_quadratic_bezier"
+    category = "create"
+    summary = ("Add a quadratic Bezier. Degree elevation stores it as "
+               "the exactly equivalent cubic, which reads back as "
+               "type bezier.")
+    arguments = {"p0": _point("Start anchor."),
+                 "p1": _point("Control point."),
+                 "p2": _point("End anchor.")}
+    returns = {"shape_id": _int("Id of the new shape.")}
+
+    def apply(self, world, args, ctx):
+        return {"shape_id": world.add_quadratic_bezier(
+            _world_point(args["p0"]), _world_point(args["p1"]),
+            _world_point(args["p2"]))}
+
+
+_XY = {"type": "array", "items": NUMBER, "minItems": 2, "maxItems": 2}
+
+_PATH_ELEMENTS = {
+    "type": "array",
+    "items": {"oneOf": [
+        {**_XY, "description": "Line-to element: absolute [x, y]."},
+        {"type": "array", "items": NUMBER, "minItems": 6, "maxItems": 6,
+         "description": ("Cubic curve-to element: absolute "
+                         "[c1x, c1y, c2x, c2y, x, y].")}]},
+    "minItems": 1,
+    "description": "Line-to and cubic curve-to elements in drawing order.",
+}
+
+
+@_command_set.register
+class AddPath(_cmd.Command):
+    op = "add_path"
+    category = "create"
+    summary = "Add a 2D path of line-to and cubic curve-to elements."
+    arguments = {
+        "start": {**_XY, "description": "Start point, absolute [x, y]."},
+        "elements": _PATH_ELEMENTS,
+        "closed": {**BOOLEAN,
+                   "description": ("If true, close the path back to "
+                                   "start with a straight curve, "
+                                   "unless it already ends there.")},
+    }
+    returns = {"shape_id": _int("Id of the new shape.")}
+
+    def apply(self, world, args, ctx):
+        return {"shape_id": world.add_path(
+            args["start"], args["elements"], args["closed"])}
+
+
 def _vertices(min_items, description=None):
     verts = {"type": "array",
              "items": {"type": "array", "items": {"type": "number"},
