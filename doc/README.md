@@ -23,4 +23,12 @@ under the Python interpreter the tree was configured with:
 cmake --build <build-tree> --target doc
 ```
 
+The `dev-doc` preset configures a tree for the documentation alone, without
+the pilot or the C++ tests, and its build preset builds `doc`:
+
+```sh
+cmake --preset dev-doc
+cmake --build --preset dev-doc
+```
+
 <!-- vim: set ft=markdown ff=unix fenc=utf8 et sw=2 ts=2 sts=2 tw=79: -->

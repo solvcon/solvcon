@@ -27,6 +27,7 @@ Makefile adds the ABI-tagged build directory, the generator, and whatever
 | `dev-rel`        | Linux, macOS  | optimized module and pilot, no symbols |
 | `dev-dbg`        | Linux, macOS  | debuggable module and pilot           |
 | `dev-noqt`       | Linux, macOS  | optimized module, no pilot            |
+| `dev-doc`        | Linux, macOS  | the documentation, no pilot or gtest  |
 | `win-reldbg`     | Windows       | optimized module and pilot, symbols, MSVC |
 | `win-rel`        | Windows       | optimized module and pilot, no symbols, MSVC |
 | `win-dbg`        | Windows       | debuggable module and pilot, MSVC     |
@@ -47,7 +48,10 @@ actually built:
 
 `cmake --build --preset <name>` therefore needs no `--target` argument.  The
 `dev-noqt` preset has no pilot to build, so it has only the plain and `-gtest`
-entries.
+entries.  The `dev-doc` preset has a single build preset of the same name,
+which builds the `doc` target: Doxygen when it is installed, then the HTML site
+in `doc/build/html`.  The documentation does not depend on the build type, so
+every build tree writes that same directory.
 
 The build tree is `build/<configure preset>`, named through the
 `${presetName}` macro so that a preset inheriting another gets its own tree
@@ -89,8 +93,10 @@ Workflow presets chain configure, build, and test into one command:
 cmake --workflow --preset ci-win-rel
 ```
 
-They exist for CI.  The `ci-` presets are what the Windows jobs name instead
-of spelling out a `cmake` command line, and the two values a runner owns, the
+They exist for CI.  The `ci-` presets are what the Windows jobs and the
+documentation job name instead of spelling out a `cmake` command line.
+`ci-doc` is `dev-doc` with `SOLVCON_DOC_WARNINGS_AS_ERRORS` on, so a Sphinx
+warning fails the job.  For the Windows jobs, the two values a runner owns, the
 pybind11 package directory and the MKL paths, reach them through `$env{}`
 rather than being written into the file.  A preset that a command line names
 cannot be `hidden`, so the `ci-` presets do appear in the preset pickers; the

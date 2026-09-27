@@ -98,6 +98,17 @@
       }
     },
     {
+      "name": "dev-doc",
+      "inherits": "dev-base",
+      "displayName": "Developer Documentation",
+      "description": "The documentation, without the pilot or the C++ tests, for Linux and macOS.",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": { "type": "STRING", "value": "RelWithDebInfo" },
+        "BUILD_QT": { "type": "BOOL", "value": "OFF" },
+        "USE_GOOGLETEST": { "type": "BOOL", "value": "OFF" }
+      }
+    },
+    {
       "name": "win-base",
       "hidden": true,
       "inherits": "base",
@@ -231,6 +242,15 @@
         "VCPKG_TARGET_TRIPLET": "x64-windows",
         "USE_SANITIZER": { "type": "BOOL", "value": "ON" }
       }
+    },
+    {
+      "name": "ci-doc",
+      "inherits": "dev-doc",
+      "displayName": "CI: Documentation",
+      "description": "For the documentation CI job; a Sphinx warning fails it. A developer wants dev-doc instead.",
+      "cacheVariables": {
+        "SOLVCON_DOC_WARNINGS_AS_ERRORS": { "type": "BOOL", "value": "ON" }
+      }
     }
   ],
   "buildPresets": [
@@ -335,6 +355,14 @@
       "displayName": "Developer Release with Debug Info, no Qt, C++ test binary",
       "description": "Build the C++ gtest binary, without the pilot.",
       "targets": ["test_nopython"]
+    },
+    {
+      "name": "dev-doc",
+      "inherits": "dev-base",
+      "configurePreset": "dev-doc",
+      "displayName": "Developer Documentation",
+      "description": "Build the HTML documentation, running Doxygen first when it is installed.",
+      "targets": ["doc"]
     },
     {
       "name": "win-base",
@@ -450,6 +478,14 @@
       "configurePreset": "ci-win-asan",
       "displayName": "CI: Windows AddressSanitizer",
       "description": "Build everything the Windows sanitizer CI job builds."
+    },
+    {
+      "name": "ci-doc",
+      "inherits": "dev-base",
+      "configurePreset": "ci-doc",
+      "displayName": "CI: Documentation",
+      "description": "Build the HTML documentation the documentation CI job checks.",
+      "targets": ["doc"]
     }
   ],
   "testPresets": [
@@ -613,6 +649,15 @@
         { "type": "configure", "name": "ci-win-asan" },
         { "type": "build", "name": "ci-win-asan" },
         { "type": "test", "name": "ci-win-asan" }
+      ]
+    },
+    {
+      "name": "ci-doc",
+      "displayName": "CI: Documentation",
+      "description": "Configure and build the documentation CI job.",
+      "steps": [
+        { "type": "configure", "name": "ci-doc" },
+        { "type": "build", "name": "ci-doc" }
       ]
     }
   ]
