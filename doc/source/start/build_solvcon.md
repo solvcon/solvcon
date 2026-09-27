@@ -6,6 +6,7 @@ up without installation.
 
 - `make`: build the `_solvcon` Python extension (the default target).
 - `make pilot`: build the Qt pilot GUI binary.
+- `make doc`: build the HTML documentation into `doc/build/html`.
 - `make clean` / `make cmakeclean`: remove build artifacts.
 
 ## Build Types

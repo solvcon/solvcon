@@ -32,6 +32,7 @@ RUNENV += PYTHONPATH=$(SOLVCON_ROOT)
 CMAKE_KNOBS = SKIP_PYTHON_EXECUTABLE HIDE_SYMBOL SOLVCON_PROFILE \
 	SOLVCON_DEPS_CACHE BUILD_METAL BUILD_CUDA BUILD_QT USE_CLANG_TIDY \
 	LINT_AS_ERRORS USE_GOOGLETEST USE_SANITIZER USE_CCACHE USE_CTCACHE \
+	SOLVCON_DOC_WARNINGS_AS_ERRORS \
 	CMAKE_CUDA_ARCHITECTURES CMAKE_CUDA_HOST_COMPILER \
 	CMAKE_INSTALL_PREFIX CMAKE_LIBRARY_OUTPUT_DIRECTORY CMAKE_PREFIX_PATH
 CMAKE_OVERRIDES = $(strip $(foreach knob,$(CMAKE_KNOBS), \
@@ -202,6 +203,12 @@ pilot_clang_tidy_diff: cmake
 .PHONY: gtest
 gtest: cmake
 	cmake --build $(BUILD_PATH) --target run_gtest VERBOSE=$(VERBOSE) $(MAKE_PARALLEL)
+
+# Build the HTML documentation into doc/build/html, running Doxygen first when
+# it is installed. Set SOLVCON_DOC_WARNINGS_AS_ERRORS=ON to fail on a warning.
+.PHONY: doc
+doc: cmake
+	cmake --build $(BUILD_PATH) --target $@ VERBOSE=$(VERBOSE)
 
 # Build and launch the pilot GUI. PYTHONPATH is set via RUNENV so the
 # in-tree package is found; CMake resolves the platform binary path.
