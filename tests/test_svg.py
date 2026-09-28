@@ -7,6 +7,7 @@ import os
 
 import numpy as np
 
+from solvcon import core
 from solvcon import testing
 from solvcon.plot import svg
 
@@ -1290,6 +1291,65 @@ class SvgTransformTC(SvgParserTB):
         self.assertEqual(list(spad.y0), [2.0])
         self.assertEqual(list(spad.x1), [0.0])
         self.assertEqual(list(spad.y1), [3.0])
+
+
+class SvgAddToWorldTC(SvgParserTB):
+    """
+    Test adding parsed SVG elements to a World.
+    """
+
+    def setUp(self):
+        self.w = core.WorldFp64()
+
+    def test_path_segments_only(self):
+        path = svg.EPath(attrib={'d': "M0 0 L10 0 L10 10 Z"})
+        sid = path.add_to_world(self.w)
+        self.assertEqual(self.w.shape_type_of(sid), "path")
+        self.assertEqual(self.w.nshape, 1)
+        self.assertEqual(self.w.nsegment, 3)
+        self.assertEqual(self.w.nbezier, 0)
+
+    def test_path_curves_only(self):
+        path = svg.EPath(attrib={'d': "M0 0 C1 2 3 2 4 0"})
+        sid = path.add_to_world(self.w)
+        self.assertEqual(self.w.shape_type_of(sid), "path")
+        self.assertEqual(self.w.nshape, 1)
+        self.assertEqual(self.w.nsegment, 0)
+        self.assertEqual(self.w.nbezier, 1)
+
+    def test_path_segments_and_curves(self):
+        path = svg.EPath(attrib={'d': "M0 0 L4 0 C4 2 0 2 0 0"})
+        sid = path.add_to_world(self.w)
+        self.assertEqual(self.w.shape_type_of(sid), "path")
+        self.assertEqual(self.w.nshape, 1)
+        self.assertEqual(self.w.nsegment, 1)
+        self.assertEqual(self.w.nbezier, 1)
+
+    def test_path_flip_y(self):
+        path = svg.EPath(attrib={'d': "M1 2 L3 4 C5 6 7 8 9 10"})
+        path.add_to_world(self.w, flip_y=True)
+        s = self.w.segment(0)
+        self.assertEqual((s.x0, s.y0, s.x1, s.y1), (1, -2, 3, -4))
+        b = self.w.bezier(0)
+        self.assertEqual((b[3][0], b[3][1]), (9, -10))
+
+    def test_path_with_transform(self):
+        path = svg.EPath(attrib={'d': "M0 0 L1 0"},
+                         transform_chain=[svg.Translate(tx=5, ty=0)])
+        path.add_to_world(self.w)
+        s = self.w.segment(0)
+        self.assertEqual((s.x0, s.y0, s.x1, s.y1), (5, 0, 6, 0))
+
+    def test_path_empty(self):
+        path = svg.EPath(attrib={'d': ""})
+        self.assertIsNone(path.add_to_world(self.w))
+        self.assertEqual(self.w.nshape, 0)
+
+    def test_non_path_falls_back(self):
+        line = svg.ELine(attrib={'x1': '0', 'y1': '0', 'x2': '1', 'y2': '1'})
+        self.assertIsNone(line.add_to_world(self.w))
+        self.assertEqual(self.w.nshape, 0)
+        self.assertEqual(self.w.nsegment, 1)
 
 
 class SvgFileTC(SvgParserTB):
