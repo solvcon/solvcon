@@ -27,6 +27,7 @@ __all__ = [
     'LiveViewExecutor',
     'build_control_dispatcher',
     'pilot_scene_context',
+    'PilotTurnSeams',
 ]
 
 
@@ -36,17 +37,27 @@ class PilotWindowManager:
 
     Presents the surface the window command family calls: ``new_canvas``,
     ``list_windows``, ``activate_window``, ``close_window``, and
-    ``save_image``.  Each open sub-window carries a stable integer id keyed on
-    the MDI sub-window, whose identity Qt keeps stable across calls; ids for
-    windows that have closed are dropped.  ``save_image`` briefly activates the
-    target window so it can be grabbed through the current canvas, then
-    restores the previously active one.
+    ``save_image``.  Each open sub-window carries a stable integer id, which
+    dies with the window it names.  ``save_image`` briefly activates the target
+    window so it can be grabbed through the current canvas, then restores the
+    previously active one.
     """
+
+    #: Dynamic property holding a sub-window's id.  The id rides on the C++
+    #: object because PySide hands back a fresh Python sub-window for the same
+    #: window from one listing to the next: held in a table keyed on that
+    #: object, every listing would rename the windows under an agent that was
+    #: shown the ids before it.
+    ID_PROPERTY = "solvconAgentWindowId"
+
+    #: Dynamic property holding the next id to hand out.  It sits on the MDI
+    #: area, beside the ids themselves, so a second manager over the same area
+    #: keeps counting rather than restarting at 1 over windows that already
+    #: carry those ids.
+    COUNTER_PROPERTY = "solvconAgentNextWindowId"
 
     def __init__(self, mgr):
         self._mgr = mgr
-        self._ids = {}  # sub-window -> stable id
-        self._next_id = 1
 
     def _area(self):
         return self._mgr.mdiArea
@@ -54,17 +65,22 @@ class PilotWindowManager:
     def _open_subwindows(self):
         return [s for s in self._area().subWindowList() if s.isVisible()]
 
+    def _mint_id(self):
+        area = self._area()
+        window_id = area.property(self.COUNTER_PROPERTY) or 1
+        area.setProperty(self.COUNTER_PROPERTY, window_id + 1)
+        return window_id
+
     def _id_of(self, subwin):
-        window_id = self._ids.get(subwin)
+        window_id = subwin.property(self.ID_PROPERTY)
         if window_id is None:
-            window_id = self._next_id
-            self._next_id += 1
-            self._ids[subwin] = window_id
+            window_id = self._mint_id()
+            subwin.setProperty(self.ID_PROPERTY, window_id)
         return window_id
 
     def _subwindow_of(self, window_id):
         for subwin in self._open_subwindows():
-            if self._ids.get(subwin) == window_id:
+            if subwin.property(self.ID_PROPERTY) == window_id:
                 return subwin
         return None
 
@@ -81,8 +97,6 @@ class PilotWindowManager:
     def list_windows(self):
         active = self._area().activeSubWindow()
         subwins = self._open_subwindows()
-        live = set(subwins)
-        self._ids = {s: i for s, i in self._ids.items() if s in live}
         return [{"id": self._id_of(s),
                  "title": s.windowTitle() or "window",
                  "active": s is active}
@@ -231,5 +245,37 @@ def pilot_scene_context(dispatcher, base):
         lines.append("view: pan (%g, %g), zoom %g" % (
             transform["pan_x"], transform["pan_y"], transform["zoom"]))
     return "\n".join(lines)
+
+
+class PilotTurnSeams:
+    """The scene a pilot turn is composed against, and with it the state the
+    turn is guarded by.
+
+    :class:`~solvcon.agent.Turn` calls :meth:`scene` once per step, on the
+    thread that owns the canvas, and hands what it returns to its token.  The
+    step starts from the canvas that is active *now*: a batch of the turn's
+    own may have opened or activated one, and the executors above retarget on
+    the spot, so a session left bound to the canvas the prompt started on
+    would go on showing the model that world's shapes while the commands
+    landed on another.
+
+    Rebinding here is also what lets the turn keep the core's own
+    :func:`~solvcon.agent.default_token`.  That token is the active canvas's
+    world plus a digest of this scene, and this scene names every open window
+    with its id, marks the active one, and prints the view, so a canvas
+    switched, a window closed, or a pan or zoom the user made while the model
+    was thinking all move it.  The tests in ``tests/gui/test_agent_control.py``
+    pin that sensitivity, because it rests on what this scene carries.
+    """
+
+    def __init__(self, mgr):
+        self._mgr = mgr
+
+    def scene(self, session):
+        """Point the session at the active canvas and describe it: the world's
+        summary, then the live windows and view."""
+        widget = self._mgr.currentR2DWidget()
+        session.bind_world(None if widget is None else widget.world)
+        return pilot_scene_context(session.runner, session.scene_context())
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
