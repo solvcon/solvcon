@@ -45,7 +45,8 @@ jobs:
         sudo apt-get -qy install \
             python3-dev libopenblas-dev doxygen ghostscript imagemagick \
             texlive-latex-base texlive-latex-recommended \
-            texlive-plain-generic texlive-pstricks
+            texlive-latex-extra texlive-plain-generic texlive-pstricks \
+            texlive-science
 
     - name: dependency by pip
       run: |

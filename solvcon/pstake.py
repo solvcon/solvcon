@@ -28,6 +28,7 @@ try:
     from docutils.parsers.rst import directives, states
     from docutils.parsers.rst import roles
     import sphinx
+    from sphinx.util import logging as sphinx_logging
 
     HAS_SPHINX = True
 except ImportError:
@@ -554,6 +555,9 @@ if __name__ == '__main__':
 
 # Start Sphinx code.
 if HAS_SPHINX:
+    _logger = sphinx_logging.getLogger(__name__)
+
+
     class pstake(nodes.General, nodes.Element):
         pass
 
@@ -728,6 +732,9 @@ if HAS_SPHINX:
             Pstricks()(fnobj, cmdout=cmdout)
             if cmdout:
                 cmdout.close()
+            if not os.path.exists(fnobj.destpath):
+                _logger.warning("pstake failed to render %s", texsource,
+                                location=node)
 
         # Determine alignment.
         align = node.get('align', None)
