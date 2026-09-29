@@ -9,13 +9,13 @@ Use an automatically provided worktree. Otherwise create one, then do the task. 
 
 ## 1. Enter or create
 
-If the agent or session already provides a worktree, enter it. Otherwise derive a short kebab-case `name` from `<description>`, or omit it and let the tool pick one. Name it for what the task does, e.g. `mcap-topic-walk`, not for its tracking number: when `<description>` gives only an issue or PR number, append a few words that say what the work is (`1206-agent-panel`, not `1206`).
+If the agent or session already provides a worktree, enter it. Otherwise derive a short kebab-case `name` from `<description>` and always pass it; never let the tool pick one, since it names the worktree after an opaque session or agent id. Name it for what the task does, e.g. `mcap-topic-walk`, not for its tracking number: when `<description>` gives only an issue or PR number, append a few words that say what the work is (`1206-agent-panel`, not `1206`).
 
 Based on the agent type, do one of the following:
 
 - **Claude Code:** use Claude's builtin `EnterWorktree` with that `name`. If the worktree does not exist, it will be created automatically.
 - **Cursor:** use Cursor's builtin `/worktree` command instead. If the built-in command is unavailable, fall back like Codex below.
-- **Codex, otherwise:** run `git worktree add -b worktree-<name> .claude/worktrees/<name> HEAD`, then run all commands from it.
+- **Codex, otherwise:** run `git worktree add -b <name> .claude/worktrees/<name> HEAD`, then run all commands from it.
 
 ## 2. Do the task
 
