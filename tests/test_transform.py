@@ -56,7 +56,7 @@ class FourierTransformTB(sc.testing.TestBase):
             self.assert_allclose(sc_output[i].real, np_output[i].real)
             self.assert_allclose(sc_output[i].imag, np_output[i].imag)
 
-    def test_numpy_fft_comparison(self):
+    def check_fft_against_numpy(self, **kw):
         input_size = 100
 
         sc_input = self.SimpleArray(input_size)
@@ -66,7 +66,7 @@ class FourierTransformTB(sc.testing.TestBase):
         np_input = np.array(sc_input, copy=False)
 
         sc_output = self.SimpleArray(input_size, self.complex())
-        sc.FourierTransform.fft(sc_input, sc_output)
+        sc.FourierTransform.fft(sc_input, sc_output, **kw)
 
         np_output = np.fft.fft(np_input)
 
@@ -74,7 +74,10 @@ class FourierTransformTB(sc.testing.TestBase):
             self.assert_allclose(sc_output[i].real, np_output[i].real)
             self.assert_allclose(sc_output[i].imag, np_output[i].imag)
 
-    def test_numpy_ifft_comparison(self):
+    def test_numpy_fft_comparison(self):
+        self.check_fft_against_numpy()
+
+    def check_ifft_against_numpy(self, **kw):
         input_size = 100
 
         sc_input = self.SimpleArray(input_size)
@@ -84,13 +87,39 @@ class FourierTransformTB(sc.testing.TestBase):
         np_input = np.array(sc_input, copy=False)
 
         sc_output = self.SimpleArray(input_size, self.complex())
-        sc.FourierTransform.ifft(sc_input, sc_output)
+        sc.FourierTransform.ifft(sc_input, sc_output, **kw)
 
         np_output = np.fft.ifft(np_input)
 
         for i in range(input_size):
             self.assert_allclose(sc_output[i].real, np_output[i].real)
             self.assert_allclose(sc_output[i].imag, np_output[i].imag)
+
+    def test_numpy_ifft_comparison(self):
+        self.check_ifft_against_numpy()
+
+    def test_fft_cuda_backend(self):
+        if not sc.FourierTransform.cuda_available():
+            self.skipTest("CUDA is not available")
+        self.check_fft_against_numpy(backend=sc.FourierBackend.cuda)
+
+    def test_ifft_cuda_backend(self):
+        if not sc.FourierTransform.cuda_available():
+            self.skipTest("CUDA is not available")
+        self.check_ifft_against_numpy(backend=sc.FourierBackend.cuda)
+
+    def test_fft_cuda_backend_unavailable(self):
+        if sc.FourierTransform.cuda_available():
+            self.skipTest("CUDA is available")
+        input_size = 8
+
+        sc_input = self.SimpleArray(input_size, self.complex())
+        sc_output = self.SimpleArray(input_size, self.complex())
+
+        with self.assertRaisesRegex(RuntimeError,
+                                    "CUDA FFT is not available"):
+            sc.FourierTransform.fft(sc_input, sc_output,
+                                    backend=sc.FourierBackend.cuda)
 
 
 class TransformFp32TC(FourierTransformTB, unittest.TestCase):

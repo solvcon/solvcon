@@ -59,14 +59,16 @@ set(SOLVCON_ROOT_FILES
     ${SOLVCON_ROOT_HEADERS}
     CACHE FILEPATH "" FORCE)
 
+# The cuda subdirectory always contributes sources: the real CUDA FFT
+# implementation under BUILD_CUDA, and otherwise a stub that throws.
+add_subdirectory(device/cuda)
+
 set(SOLVCON_DEVICE_HEADERS
+    ${SOLVCON_CUDA_HEADERS}
     CACHE FILEPATH "" FORCE)
 set(SOLVCON_DEVICE_SOURCES
+    ${SOLVCON_CUDA_SOURCES}
     CACHE FILEPATH "" FORCE)
-
-if (BUILD_CUDA)
-    add_subdirectory(device/cuda)
-endif () # BUILD_CUDA
 
 if (BUILD_METAL)
     add_subdirectory(device/metal)
@@ -139,6 +141,7 @@ if (BUILD_CUDA)
     # Keep the probe out of the core link because CUDA may need a different
     # host compiler from the C++ sources.
     add_dependencies(solvcon_primary solvcon_cuda_probe)
+    target_link_libraries(solvcon_primary PRIVATE CUDA::cudart)
 endif () # BUILD_CUDA
 
 if (BUILD_QT)
@@ -360,26 +363,26 @@ endif () # NOT APPLE
 # pilot sources and `module.cpp` are the units that need the pybind11 and
 # Accelerate suppressions most, and `wrap_pilot.cpp` is the one most likely
 # to want /bigobj.
+# Every option below is scoped to CXX. A CUDA unit under BUILD_CUDA joins
+# the same target, and nvcc takes neither the gcc-style warning flags nor
+# the MSVC ones: it reads an unprefixed /W4 as a second input file and
+# stops with "a single input file is required for a non-link phase".
 foreach (SOLVCON_LIBRARY IN LISTS SOLVCON_LIBRARIES)
     if (MSVC)
         target_compile_options(
             ${SOLVCON_LIBRARY} PRIVATE
-            ${COMMON_COMPILER_OPTIONS}
-            /bigobj # C1128: number of sections exceeded object file format limit
-            # This is the last suppression left from issue #1324. It fires in
-            # the SimpleArray<bool> reductions, where clearing it means
-            # deciding what mean, average and variance mean for bool rather
-            # than rewriting an expression. Issue #1332 tracks that.
-            /wd4804 # bool in an arithmetic operation, from reductions over SimpleArray<bool>
-            /external:W0 # do not apply /W4 to a SYSTEM include such as numpy
+            # /bigobj: C1128, number of sections exceeded object file format limit.
+            # /wd4804 is the last suppression left from issue #1324. It fires in
+            # the SimpleArray<bool> reductions, where clearing it means deciding
+            # what mean, average and variance mean for bool rather than rewriting
+            # an expression. Issue #1332 tracks that.
+            # /external:W0 keeps /W4 off a SYSTEM include such as numpy.
+            "$<$<COMPILE_LANGUAGE:CXX>:${COMMON_COMPILER_OPTIONS};/bigobj;/wd4804;/external:W0>"
         )
     else () # MSVC
         target_compile_options(
             ${SOLVCON_LIBRARY} PRIVATE
-            ${COMMON_COMPILER_OPTIONS}
-            -Wno-unused-value # for PYBIND11_EXPAND_SIDE_EFFECTS in pybind11.h
-            -Wno-noexcept-type # GCC
-            -Wno-elaborated-enum-base # for apple accelerate/veclib
+            "$<$<COMPILE_LANGUAGE:CXX>:${COMMON_COMPILER_OPTIONS};-Wno-unused-value;-Wno-noexcept-type;-Wno-elaborated-enum-base>"
         )
     endif () # MSVC
 endforeach ()

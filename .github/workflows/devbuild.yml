@@ -285,6 +285,11 @@ jobs:
 
   build_cuda:
 
+    # CUDA lane, Linux only. The hosted runners have no GPU, so the kernels
+    # cannot execute here and the CUDA tests detect the missing device and
+    # skip. The lane still proves the nvcc unit and the BUILD_CUDA=ON
+    # configuration keep building, which no other lane exercises because they
+    # all compile the stub.
     needs: [check_skip, standalone_buffer]
 
     if: |
@@ -328,17 +333,38 @@ jobs:
         key: ${{ runner.os }}-cuda-Release
         restore-keys: ${{ runner.os }}-cuda-Release
         save: ${{ github.event_name != 'pull_request' }}
+        # Bound the cache so it does not grow without limit across the rolling
+        # key. A master push saves this cache; pull requests restore it (a PR
+        # on a non-default base branch cannot, so it runs cold).
         max-size: 1500M
 
-    - name: make buildext BUILD_CUDA=ON
+    - name: make gtest BUILD_CUDA=ON
       run: |
-        echo "::group::make buildext BUILD_CUDA=ON"
+        echo "::group::make gtest BUILD_CUDA=ON"
         nvcc --version
+        make gtest \
+          VERBOSE=1 USE_CLANG_TIDY=OFF \
+          BUILD_QT=OFF BUILD_CUDA=ON \
+          CMAKE_CUDA_ARCHITECTURES=all-major \
+          CMAKE_CUDA_HOST_COMPILER=g++-14 \
+          CMAKE_ARGS="-DPYTHON_EXECUTABLE=$(which python3)"
+        echo "::endgroup::"
+
+    - name: make pytest BUILD_CUDA=ON
+      run: |
+        echo "::group::make pytest BUILD_CUDA=ON"
         make buildext \
           VERBOSE=1 USE_CLANG_TIDY=OFF \
           BUILD_QT=OFF BUILD_CUDA=ON \
           CMAKE_CUDA_ARCHITECTURES=all-major \
-          CMAKE_CUDA_HOST_COMPILER=g++-14
+          CMAKE_CUDA_HOST_COMPILER=g++-14 \
+          CMAKE_ARGS="-DPYTHON_EXECUTABLE=$(which python3)"
+        PYTHONPATH=$(pwd) python3 contrib/ci/check-cuda-backend.py
+        # pytest-fast, not pytest: this lane installs no Qt, and the tests
+        # under tests/gui/ import PySide6 unguarded, which is a collection
+        # error rather than a skip. -k then narrows the run to the transform
+        # tests; the other lanes cover the rest against the stub.
+        make pytest-fast VERBOSE=1 PYTEST_OPTS="-k test_transform"
         echo "::endgroup::"
 
   send_email_on_failure:
