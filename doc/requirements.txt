@@ -6,7 +6,8 @@ sphinx>=7.0
 numpy
 myst-parser>=2.0
 furo>=2024.1
-breathe>=4.35
+# breathe 5.0.0 breaks the -W build.
+breathe>=4.35,<5
 sphinxcontrib-bibtex>=2.6
 sphinxcontrib-mermaid>=0.9
 
