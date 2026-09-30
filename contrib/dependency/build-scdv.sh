@@ -27,7 +27,7 @@
 #       build section.
 #   ./build-scdv.sh --skip PKG [--skip PKG ...]
 #       Skip a package within the selected sections.  PKG is one of: zlib
-#       openssl sqlite python pybind11 cython numpy scipy qt pyside6.
+#       openssl cmake sqlite python pybind11 cython numpy scipy qt pyside6.
 #       Accepts a comma-separated list, repetition, and the --skip=PKG form.
 #   ./build-scdv.sh --no-confirm
 #       Skip the "Press Enter to start the build" prompt that fires after the
@@ -173,10 +173,11 @@ plat_sha256() {
 scdv_apt_base_cmd() {
   # Print the apt command for the BASE/PYTHON/NUMPY sections. The build never
   # runs apt itself; copy the output, review it, and run it. doxygen is the
-  # system half of the documentation C++ API path (see doc/README.md).
+  # system half of the documentation C++ API path (see doc/README.md).  No
+  # cmake: apt's 3.28 is below solvcon's minimum, so BASE builds its own.
   cat <<'EOF'
 sudo apt install -y \
-  build-essential gcc g++ make cmake ninja-build pkg-config \
+  build-essential gcc g++ make ninja-build pkg-config \
   ca-certificates gpg git curl wget xz-utils gfortran libopenblas-dev \
   libffi-dev libbz2-dev liblzma-dev libgdbm-dev \
   libncurses-dev uuid-dev tk-dev libedit-dev libexpat1-dev \
@@ -211,7 +212,9 @@ scdv_apt_qt_cmd() {
   # Print the apt command for the QT section (Qt + pyside6 build deps).  The
   # X11/XCB -dev list is the full set the xcb platform plugin needs at
   # configure time; plat_qt_extra_cfg force-enables FEATURE_xcb so a missing
-  # one fails the configure loudly.  CI installs the runtime counterparts in
+  # one fails the configure loudly.  libxrandr-dev is not for the plugin but
+  # for Qt Multimedia's X11 screen capture, which fails to compile without
+  # X11/extensions/Xrandr.h.  CI installs the runtime counterparts in
   # .github/actions/setup_linux/action.yml; keep the two sets in sync.
   cat <<'EOF'
 sudo apt install -y \
@@ -219,8 +222,8 @@ sudo apt install -y \
   libxkbcommon-dev libxkbcommon-x11-dev libfontconfig1-dev \
   libfreetype-dev libdbus-1-dev libgl1-mesa-dev libglu1-mesa-dev \
   libx11-dev libx11-xcb-dev libxext-dev libxfixes-dev libxi-dev \
-  libxrender-dev libxcb1-dev libxcb-glx0-dev libxcb-cursor-dev \
-  libxcb-icccm4-dev libxcb-image0-dev libxcb-keysyms1-dev \
+  libxrandr-dev libxrender-dev libxcb1-dev libxcb-glx0-dev \
+  libxcb-cursor-dev libxcb-icccm4-dev libxcb-image0-dev libxcb-keysyms1-dev \
   libxcb-randr0-dev libxcb-render0-dev libxcb-render-util0-dev \
   libxcb-shape0-dev libxcb-shm0-dev libxcb-sync-dev libxcb-util-dev \
   libxcb-xfixes0-dev libxcb-xinerama0-dev libxcb-xkb-dev
@@ -342,11 +345,13 @@ include_dirs = /usr/include/x86_64-linux-gnu/openblas-pthread:/usr/include/openb
 runtime_library_dirs = /usr/lib/x86_64-linux-gnu
 EOF
   # GCC 16 trunk on Ubuntu 24.04 rejects the AVX512 `evex512` target attribute
-  # that numpy 2.5.x uses, so cap cpu-dispatch at AVX2 instead of MAX.  Pass
+  # that numpy 2.5.x uses, so cap cpu-dispatch at X86_V3 (AVX2) instead of
+  # MAX, which reaches X86_V4 (AVX512).  numpy 2.5 accepts only the grouped
+  # levels here and rejects the old per-feature names such as POPCNT.  Pass
   # via --config-settings so the pip-driven meson rebuild honors it (not just
   # an out-of-tree `spin build`).
   with_log install.log "${PY}" -m pip install . --no-build-isolation \
-    --config-settings="setup-args=-Dcpu-dispatch=SSE3 SSSE3 SSE41 POPCNT SSE42 AVX F16C FMA3 AVX2"
+    --config-settings="setup-args=-Dcpu-dispatch=X86_V2 X86_V3"
 }
 
 plat_scipy_install() {
@@ -617,9 +622,10 @@ scdv_brew_base_cmd() {
   # covers Python's lzma (Apple's CLT ships no liblzma), and doxygen feeds
   # the documentation C++ API path.  The QT section needs nothing more: Qt
   # builds with Apple clang and libclang is fetched (see fetch_libclang).
+  # cmake is built by the BASE section, as on Ubuntu.
   cat <<'EOF'
 brew install \
-  cmake ninja pkg-config xz gcc openblas doxygen
+  ninja pkg-config xz gcc openblas doxygen
 EOF
 }
 
@@ -1006,7 +1012,7 @@ SCDV_NO_CONFIRM=0
 SCDV_ALLOW_WRITE_TO_ACTIVE_ENV=0
 SCDV_ALLOW_UNSUPPORTED_PLATFORM=${SCDV_ALLOW_UNSUPPORTED_PLATFORM:-0}
 SCDV_SKIP_LIST=""
-SCDV_KNOWN_PKGS="zlib openssl sqlite python pybind11 cython numpy scipy qt pyside6"
+SCDV_KNOWN_PKGS="zlib openssl cmake sqlite python pybind11 cython numpy scipy qt pyside6"
 
 scdv_add_skip() {
   # Accept "pkg" or "pkg1,pkg2,..."; warn on unknown names but accept.
@@ -1136,6 +1142,9 @@ QT_MAJOR_VER=${QT_MAJOR_VER:-6.11}
 QT_SUB_VER=${QT_SUB_VER:-1}
 # Qt for Python (pyside-setup) source release version.
 PYSIDE_VERSION=${PYSIDE_VERSION:-${QT_MAJOR_VER}.${QT_SUB_VER}}
+# Oldest cmake solvcon configures with; keep in sync with
+# cmake_minimum_required() in the top-level CMakeLists.txt.
+SCDV_CMAKE_MIN_VERSION=4.0.1
 
 # Default to a full BASE+PYTHON+NUMPY+QT build when the caller has not selected
 # a specific section. Setting any one of SCDVBUILD_* to "1" disables this
@@ -1466,6 +1475,50 @@ build_openssl() {
   popd > /dev/null
 }
 
+build_cmake() {
+  scdv_skip_p cmake && { echo "skip: cmake" ; return 0 ; }
+  # Built here because apt's CMake on Ubuntu 24.04 is below
+  # SCDV_CMAKE_MIN_VERSION.  Link the OpenSSL from build_openssl, so
+  # file(DOWNLOAD) of https URLs works (gtests/CMakeLists.txt needs it).
+  local ver=4.4.3 full fn url
+  full=cmake-${ver} ; fn=${full}.tar.gz
+  url="https://github.com/Kitware/CMake/releases/download/v${ver}/${fn}"
+  download_sha256 "${fn}" "${url}" \
+    c46400618b4f1f2b43507f24fb22f3ae830c3416cf23b776e16e1d413aa892f0
+  unpack "${fn}" "${full}"
+  pushd "${SCDV_SRCDIR}/${full}" > /dev/null
+    with_log configure.log ./bootstrap \
+      --prefix="${SCDV_USRDIR}" \
+      --parallel="${SCDV_NP}" \
+      -- \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_USE_OPENSSL=ON \
+      -DOPENSSL_ROOT_DIR="${SCDV_USRDIR}" \
+      -DCMAKE_INSTALL_RPATH="${SCDV_USRDIR}/lib"
+    with_log make.log make -j "${SCDV_NP}"
+    with_log install.log make install
+  popd > /dev/null
+}
+
+scdv_check_cmake() {
+  # Fail early when the cmake on PATH (ours unless --skip cmake) is older
+  # than solvcon's minimum, instead of deep inside a later build.
+  local have
+  if ! command -v cmake > /dev/null ; then
+    echo "cmake not found; solvcon needs cmake >= ${SCDV_CMAKE_MIN_VERSION}" >&2
+    return 1
+  fi
+  have=$(cmake --version | sed -n '1s/^cmake version \([0-9.]*\).*/\1/p')
+  if ! printf '%s\n%s\n' "${SCDV_CMAKE_MIN_VERSION}" "${have}" \
+       | sort -V -C ; then
+    echo "cmake ${have} at $(command -v cmake) is older than solvcon's" \
+         "minimum ${SCDV_CMAKE_MIN_VERSION}; build it with the BASE" \
+         "section or put a newer cmake on PATH." >&2
+    return 1
+  fi
+  echo "cmake ${have} at $(command -v cmake)"
+}
+
 build_sqlite() {
   scdv_skip_p sqlite && { echo "skip: sqlite" ; return 0 ; }
   local ver=3360000 full fn
@@ -1694,6 +1747,7 @@ if [[ "${SCDVBUILD_ALL:-}" == "1" || "${SCDVBUILD_BASE:-}" == "1" ]] ; then
 
 scdv_time build_zlib zlib
 scdv_time build_openssl openssl
+scdv_time build_cmake cmake
 scdv_time build_sqlite sqlite
 
 else
@@ -1701,6 +1755,10 @@ else
 echo "Set \${SCDVBUILD_ALL} or \${SCDVBUILD_BASE} to build BASE section"
 
 fi
+
+# pybind11, Qt, pyside6, and solvcon itself all configure with this cmake.
+hash -r
+scdv_check_cmake
 
 ####
 # Python section
