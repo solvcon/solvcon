@@ -211,7 +211,9 @@ scdv_apt_qt_cmd() {
   # Print the apt command for the QT section (Qt + pyside6 build deps).  The
   # X11/XCB -dev list is the full set the xcb platform plugin needs at
   # configure time; plat_qt_extra_cfg force-enables FEATURE_xcb so a missing
-  # one fails the configure loudly.  CI installs the runtime counterparts in
+  # one fails the configure loudly.  libxrandr-dev is not for the plugin but
+  # for Qt Multimedia's X11 screen capture, which fails to compile without
+  # X11/extensions/Xrandr.h.  CI installs the runtime counterparts in
   # .github/actions/setup_linux/action.yml; keep the two sets in sync.
   cat <<'EOF'
 sudo apt install -y \
@@ -219,8 +221,8 @@ sudo apt install -y \
   libxkbcommon-dev libxkbcommon-x11-dev libfontconfig1-dev \
   libfreetype-dev libdbus-1-dev libgl1-mesa-dev libglu1-mesa-dev \
   libx11-dev libx11-xcb-dev libxext-dev libxfixes-dev libxi-dev \
-  libxrender-dev libxcb1-dev libxcb-glx0-dev libxcb-cursor-dev \
-  libxcb-icccm4-dev libxcb-image0-dev libxcb-keysyms1-dev \
+  libxrandr-dev libxrender-dev libxcb1-dev libxcb-glx0-dev \
+  libxcb-cursor-dev libxcb-icccm4-dev libxcb-image0-dev libxcb-keysyms1-dev \
   libxcb-randr0-dev libxcb-render0-dev libxcb-render-util0-dev \
   libxcb-shape0-dev libxcb-shm0-dev libxcb-sync-dev libxcb-util-dev \
   libxcb-xfixes0-dev libxcb-xinerama0-dev libxcb-xkb-dev
