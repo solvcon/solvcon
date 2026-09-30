@@ -342,11 +342,13 @@ include_dirs = /usr/include/x86_64-linux-gnu/openblas-pthread:/usr/include/openb
 runtime_library_dirs = /usr/lib/x86_64-linux-gnu
 EOF
   # GCC 16 trunk on Ubuntu 24.04 rejects the AVX512 `evex512` target attribute
-  # that numpy 2.5.x uses, so cap cpu-dispatch at AVX2 instead of MAX.  Pass
+  # that numpy 2.5.x uses, so cap cpu-dispatch at X86_V3 (AVX2) instead of
+  # MAX, which reaches X86_V4 (AVX512).  numpy 2.5 accepts only the grouped
+  # levels here and rejects the old per-feature names such as POPCNT.  Pass
   # via --config-settings so the pip-driven meson rebuild honors it (not just
   # an out-of-tree `spin build`).
   with_log install.log "${PY}" -m pip install . --no-build-isolation \
-    --config-settings="setup-args=-Dcpu-dispatch=SSE3 SSSE3 SSE41 POPCNT SSE42 AVX F16C FMA3 AVX2"
+    --config-settings="setup-args=-Dcpu-dispatch=X86_V2 X86_V3"
 }
 
 plat_scipy_install() {
