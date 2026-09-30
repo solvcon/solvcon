@@ -18,6 +18,7 @@ from solvcon.benchmark import matmul, results, spec
 
 try:
     from PySide6 import QtCore, QtGui, QtTest, QtWidgets
+    import shiboken6
 except ImportError:
     QtWidgets = None
 else:
@@ -103,8 +104,17 @@ class RunPanelTC(unittest.TestCase):
     def start_events(self, *events):
         self.start_worker(WorkerStub(events=events))
 
+    def assert_filters_events(self, active):
+        receiver = QtCore.QObject()
+        event = QtCore.QEvent(QtCore.QEvent.Type.User)
+        with unittest.mock.patch.object(self.control, 'eventFilter',
+                                        return_value=False) as filtered:
+            self.app.sendEvent(receiver, event)
+        self.assertEqual(filtered.call_count, int(active))
+
     def assert_finished(self, kind):
         self.wait_for(lambda: not self.control.running)
+        self.assert_filters_events(False)
         self.assertEqual([event[0] for event in self.events], [kind])
         self.assertEqual(
             self.control._process.state(),
@@ -367,6 +377,63 @@ class RunPanelTC(unittest.TestCase):
             self.start_worker(WorkerStub())
             action()
             self.assert_finished('stopped')
+
+    def test_filters_application_events_only_while_running(self):
+        self.assert_filters_events(False)
+        with unittest.mock.patch.object(self.control, '_process') as process:
+            process.canReadLine.return_value = False
+            process.readAllStandardOutput.return_value = b''
+            process.readAllStandardError.return_value = b''
+            self.control.start(self.spec, self.path)
+            self.assert_filters_events(True)
+            self.control._finish(0, QtCore.QProcess.ExitStatus.NormalExit)
+        self.assert_filters_events(False)
+
+    def test_filter_ignores_layout_item_receivers(self):
+        self.start_worker(WorkerStub())
+        self.wait_for(lambda: self.control._process.state() ==
+                      QtCore.QProcess.ProcessState.Running)
+        parent = QtWidgets.QWidget()
+        layout = QtWidgets.QVBoxLayout(parent)
+        widget = QtWidgets.QWidget(parent)
+        layout.addWidget(widget)
+        receiver = layout.itemAt(0)
+        try:
+            widget.deleteLater()
+            self.app.sendPostedEvents(
+                widget, QtCore.QEvent.Type.DeferredDelete)
+            self.assertEqual(layout.count(), 0)
+            # Inject the deleted item's wrapper without relying on reuse.
+            for invalidated in (False, True):
+                if invalidated:
+                    shiboken6.invalidate(receiver)
+                for kind in (QtCore.QEvent.Type.User, QtCore.QEvent.Type.Quit):
+                    with self.subTest(invalidated=invalidated, kind=kind):
+                        event = QtCore.QEvent(kind)
+                        self.assertFalse(
+                            self.control.eventFilter(receiver, event))
+                        self.assertTrue(self.control.running)
+                        self.assertEqual(self.events, [])
+        finally:
+            shiboken6.delete(parent)
+
+    def test_quit_for_another_receiver_keeps_worker_running(self):
+        self.start_worker(WorkerStub())
+        self.wait_for(lambda: self.control._process.state() ==
+                      QtCore.QProcess.ProcessState.Running)
+        receiver = QtCore.QObject()
+        self.app.sendEvent(receiver, QtCore.QEvent(QtCore.QEvent.Type.Quit))
+        self.assertTrue(self.control.running)
+        self.assertEqual(self.events, [])
+
+    def test_application_quit_stops_worker_before_returning(self):
+        self.start_worker(WorkerStub())
+        self.wait_for(lambda: self.control._process.state() ==
+                      QtCore.QProcess.ProcessState.Running)
+        event = QtCore.QEvent(QtCore.QEvent.Type.Quit)
+        self.assertFalse(self.control.eventFilter(self.app, event))
+        self.assertFalse(self.control.running)
+        self.assert_finished('stopped')
 
 
 @unittest.skipIf(QtWidgets is None, 'PySide6 is not installed')

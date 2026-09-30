@@ -56,7 +56,6 @@ class RunPanel(QtWidgets.QWidget):
         self._process.readyReadStandardError.connect(self._read_stderr)
         self._process.errorOccurred.connect(self._process_error)
         self._process.finished.connect(self._finish)
-        QtWidgets.QApplication.instance().installEventFilter(self)
         self._clock = QtCore.QElapsedTimer()
         self._timer = QtCore.QTimer(self)
         self._timer.timeout.connect(self._update_elapsed)
@@ -101,6 +100,7 @@ class RunPanel(QtWidgets.QWidget):
         self._stderr = b''
         self._cancelled = False
         self._running = True
+        QtWidgets.QApplication.instance().installEventFilter(self)
         self.progress.setRange(0, 0)
         self.progress.setTextVisible(False)
         self.progress.show()
@@ -130,11 +130,15 @@ class RunPanel(QtWidgets.QWidget):
             super().closeEvent(event)
 
     def eventFilter(self, watched, event):
+        # Qt can delete a layout item without invalidating its PySide wrapper.
+        # Address reuse can then supply that wrapper for an unrelated QObject.
+        if watched is not QtWidgets.QApplication.instance():
+            return False
         if event.type() == QtCore.QEvent.Type.Quit:
             # Stop before closeEvent can defer and cancel QApplication.quit.
             self.stop()
             self._process.waitForFinished()
-        return super().eventFilter(watched, event)
+        return False
 
     def _send_request(self):
         if self._cancelled:
@@ -245,6 +249,8 @@ class RunPanel(QtWidgets.QWidget):
             self._error = 'Worker exited without a result'
 
         self._running = False
+        # A terminal signal may immediately start another run.
+        QtWidgets.QApplication.instance().removeEventFilter(self)
         self.progress.setRange(0, 1)
         success = not (self._cancelled or self._error)
         self.progress.setValue(int(success))
