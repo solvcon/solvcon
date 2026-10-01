@@ -96,6 +96,7 @@
 #   plat_numpy_run            Env-prep + `scdv_time build_numpy numpy`.
 #   plat_qt_env_strip         Strip a stray Qt from the loader/PATH env.
 #   plat_qt_extra_cfg         Set array PLAT_QT_CFG with extra Qt cmake args.
+#   plat_qt_wayland           Succeed where Qt builds qtwayland.
 #   plat_ffmpeg_cfg           Set array PLAT_FFMPEG_CFG; non-zero where
 #                             there is no FFmpeg to build against.
 #   plat_qt_libclang_setup    Set LLVM_INSTALL_DIR for shiboken.
@@ -112,13 +113,14 @@ if [ -z "${SCDV_OS}" ] ; then
   case "$(uname -s)" in
     Linux)
       SCDV_OS=ubuntu
-      # Every Linux host gets the Ubuntu 24.04 block; warn when
-      # /etc/os-release disagrees so the assumption is visible.  Set SCDV_OS
-      # explicitly to silence this.
+      # Every Linux host gets the Ubuntu block; warn when /etc/os-release
+      # names neither release it has a recipe for (24.04 and 26.04), so the
+      # assumption is visible.  Set SCDV_OS explicitly to silence this.
       if [ -r /etc/os-release ] ; then
         _scdv_osrel=$(set +e ; . /etc/os-release 2>/dev/null ; \
                       printf '%s:%s' "${ID:-}" "${VERSION_ID:-}")
-        if [ "${_scdv_osrel}" != "ubuntu:24.04" ] ; then
+        if [ "${_scdv_osrel}" != "ubuntu:24.04" ] \
+           && [ "${_scdv_osrel}" != "ubuntu:26.04" ] ; then
           echo "warning: assuming the Ubuntu 24.04 build block on" \
                "$(uname -sr) (/etc/os-release '${_scdv_osrel}'); set" \
                "SCDV_OS=ubuntu|macos to override." >&2
@@ -139,8 +141,8 @@ case "${SCDV_OS}" in
   ubuntu)
 
 #
-# Ubuntu 24.04 platform block: sets SCDV_OS_TAG and the plat_* hooks (see the
-# "Platform block contract" in the script header).
+# Ubuntu platform block (24.04 and 26.04): sets SCDV_OS_TAG and the plat_*
+# hooks (see the "Platform block contract" in the script header).
 #
 # Install the apt prerequisites first; plat_print_deps prints them and the
 # build never invokes apt.  LLVM 22 is the libclang shiboken needs with GCC 16
@@ -148,10 +150,28 @@ case "${SCDV_OS}" in
 # elsewhere.  libreadline is not needed (Python builds with
 # --with-readline=editline against libedit-dev) and libmpdec is not packaged,
 # so Python bundles its own copy.
+#
+# 26.04 differs from 24.04 in that its own archive carries what 24.04 needs
+# extra repositories for: LLVM 22, GCC 16 and a CMake newer than
+# SCDV_CMAKE_MIN_VERSION, so the apt.llvm.org and PPA steps and the BASE CMake
+# build are dropped.  Its default desktop is Wayland only, so Qt also builds
+# the Wayland platform plugin (qtwayland) next to xcb.  24.04 keeps the xcb
+# only build the CI runners use.
+
+# SCDV_UBUNTU_VER selects the recipe: 26.04 only when /etc/os-release says so
+# or the caller sets it, 24.04 otherwise.
+if [ -z "${SCDV_UBUNTU_VER:-}" ] && [ -r /etc/os-release ] ; then
+  SCDV_UBUNTU_VER=$(set +e ; . /etc/os-release 2>/dev/null ; \
+                    printf '%s' "${VERSION_ID:-}")
+fi
+case "${SCDV_UBUNTU_VER:-}" in
+  26.04) SCDV_UBUNTU_VER=26.04 ;;
+  *) SCDV_UBUNTU_VER=24.04 ;;
+esac
 
 # Token baked into the default prefix path (kept per-OS so existing installs
 # keep resolving).
-SCDV_OS_TAG=ubuntu2404
+SCDV_OS_TAG=ubuntu${SCDV_UBUNTU_VER//./}
 
 plat_init() {
   : # No Ubuntu-specific one-time setup.
@@ -183,6 +203,11 @@ sudo apt install -y \
   libncurses-dev uuid-dev tk-dev libedit-dev libexpat1-dev \
   doxygen
 EOF
+  if [ "${SCDV_UBUNTU_VER}" = "26.04" ] ; then
+    # 26.04's own cmake (4.4) satisfies SCDV_CMAKE_MIN_VERSION, so the BASE
+    # section skips building one.
+    echo "sudo apt install -y cmake"
+  fi
 }
 
 scdv_apt_latex_cmd() {
@@ -228,6 +253,16 @@ sudo apt install -y \
   libxcb-shape0-dev libxcb-shm0-dev libxcb-sync-dev libxcb-util-dev \
   libxcb-xfixes0-dev libxcb-xinerama0-dev libxcb-xkb-dev
 EOF
+  if [ "${SCDV_UBUNTU_VER}" = "26.04" ] ; then
+    # The Wayland platform plugin (qtwayland): 26.04's desktop has no X11
+    # session, so a window needs either this plugin or XWayland.
+    cat <<'EOF'
+sudo apt install -y \
+  libwayland-dev libwayland-bin wayland-protocols \
+  libwayland-egl-backend-dev libegl-dev libdrm-dev libgbm-dev \
+  libxcomposite-dev
+EOF
+  fi
 }
 
 scdv_apt_ffmpeg_cmd() {
@@ -248,7 +283,11 @@ EOF
 
 scdv_apt_llvm_repo_cmd() {
   # Configure the LLVM repository before either Qt's libclang development
-  # packages or the lint tools are installed.
+  # packages or the lint tools are installed.  26.04 packages LLVM 22 itself.
+  if [ "${SCDV_UBUNTU_VER}" = "26.04" ] ; then
+    echo "# LLVM 22 is in the Ubuntu 26.04 archive; no extra repository."
+    return 0
+  fi
   cat <<'EOF'
 wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key \
   | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
@@ -262,7 +301,8 @@ scdv_apt_clang_lint_cmd() {
   # Print the apt command for the C++ lint tools: clang-format for
   # `make cformat` and clang-tidy for `make USE_CLANG_TIDY=ON` and
   # `make pilot_clang_tidy_diff`.  Both come from the one LLVM 22 in
-  # apt.llvm.org; noble's own are too old for C++23.  This is separate from
+  # apt.llvm.org; 24.04's own are too old for C++23 (26.04 has them in its
+  # archive).  This is separate from
   # the llvm-22-dev of the QT set, which is libclang for shiboken and ships
   # neither tool.  The Makefile and CMake look the tools up by their bare
   # names, hence the symlinks; CMake then resolves clang-tidy-diff.py
@@ -276,9 +316,20 @@ EOF
 }
 
 scdv_apt_gcc_cmd() {
-    # Print the apt commands for installing GCC 16.
-    # The script never runs apt itself; copy the output, review it, and run it.
-   cat <<'EOF'
+  # Print the apt commands for installing GCC 16.
+  # The script never runs apt itself; copy the output, review it, and run it.
+  if [ "${SCDV_UBUNTU_VER}" = "26.04" ] ; then
+    # GCC 16 is in the 26.04 archive, no PPA.  The default GCC 15 builds the
+    # scdv too, so this is only for matching what CI builds solvcon with.
+    cat <<'EOF'
+sudo apt install -y gcc-16 g++-16
+sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-16 100
+sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-16 100
+sudo update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-16 100
+sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++-16 100
+EOF
+  else
+    cat <<'EOF'
 sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
 sudo apt-get -qqy update
 sudo apt-get -qy install gcc-16 g++-16
@@ -287,11 +338,17 @@ sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-16 100
 sudo update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-16 100
 sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++-16 100
 EOF
+  fi
 }
 
 scdv_apt_cuda_cmd() {
   # Print the CUDA commands used by the Linux CI build.  CUDA 13.0 supports
-  # GCC 14 as its host compiler; the rest of solvcon uses GCC 16.
+  # GCC 14 as its host compiler; the rest of solvcon uses GCC 16.  The keyring
+  # is NVIDIA's ubuntu2404 repository; no 26.04 CUDA recipe is verified yet.
+  if [ "${SCDV_UBUNTU_VER}" = "26.04" ] ; then
+    echo "# CUDA: no verified 26.04 recipe; use the 24.04 one on a 24.04 host."
+    return 0
+  fi
   cat <<'EOF'
 wget -qO cuda-keyring_1.1-1_all.deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
 echo "d2a6b11c096396d868758b86dab1823b25e14d70333f1dfa74da5ddaf6a06dba  cuda-keyring_1.1-1_all.deb" | sha256sum --check - && \
@@ -383,6 +440,16 @@ plat_qt_extra_cfg() {
   # dev package is missing, leaving only offscreen/minimal QPA.  Forcing turns
   # that into a configure-time failure.  The -dev list is in scdv_apt_qt_cmd.
   PLAT_QT_CFG=("-DFEATURE_xcb=ON" "-DFEATURE_xcb_xlib=ON")
+  if [ "${SCDV_UBUNTU_VER}" = "26.04" ] ; then
+    # Likewise force the Wayland client, the plugin the default 26.04 session
+    # needs; a missing libwayland-dev then fails the configure.
+    PLAT_QT_CFG+=("-DFEATURE_wayland_client=ON")
+  fi
+}
+
+# Whether the platform's Qt builds qtwayland (on by default only on 26.04).
+plat_qt_wayland() {
+  [ "${SCDV_UBUNTU_VER}" = "26.04" ]
 }
 
 plat_ffmpeg_cfg() {
@@ -761,6 +828,10 @@ plat_qt_extra_cfg() {
   # (QT_SUPPORTED_MAX_MACOS_SDK_VERSION=26), so no SDK-max-version override is
   # needed any more either.
   PLAT_QT_CFG=("-DQT_NO_XCODE_MIN_VERSION_CHECK=ON")
+}
+
+plat_qt_wayland() {
+  false # macOS has no Wayland.
 }
 
 plat_ffmpeg_cfg() {
@@ -1477,6 +1548,15 @@ build_openssl() {
 
 build_cmake() {
   scdv_skip_p cmake && { echo "skip: cmake" ; return 0 ; }
+  # Ubuntu 26.04 packages a CMake above SCDV_CMAKE_MIN_VERSION, so use it
+  # unless SCDV_BUILD_CMAKE=1 asks for ours.  scdv_check_cmake below still
+  # fails the build when the one on PATH is too old.
+  if [ "${SCDV_UBUNTU_VER:-}" = "26.04" ] \
+     && [ "${SCDV_BUILD_CMAKE:-}" != "1" ] \
+     && [ "${SCDV_OS}" = "ubuntu" ] ; then
+    echo "skip: cmake (using the system one, SCDV_BUILD_CMAKE=1 builds it)"
+    return 0
+  fi
   # Built here because apt's CMake on Ubuntu 24.04 is below
   # SCDV_CMAKE_MIN_VERSION.  Link the OpenSSL from build_openssl, so
   # file(DOWNLOAD) of https URLs works (gtests/CMakeLists.txt needs it).
@@ -1679,10 +1759,13 @@ build_qt() {
              qtopcua qtserialport qtlocation qtpositioning \
              qtquick3dphysics qtremoteobjects qtscxml qtsensors \
              qtserialbus qtspeech qttranslations qtvirtualkeyboard \
-             qtwayland qtwebchannel qtwebengine qtwebview \
+             qtwebchannel qtwebengine qtwebview \
              qtquickeffectmaker qtgrpc ; do
       cfgcmd+=("-DBUILD_${m}=OFF")
     done
+    if ! plat_qt_wayland ; then
+      cfgcmd+=("-DBUILD_qtwayland=OFF")
+    fi
     # Only qtmultimedia's FFmpeg backend encodes the pilot's MP4, so it is
     # built where there is an FFmpeg for it and left out where there is not.
     if plat_ffmpeg_cfg ; then
