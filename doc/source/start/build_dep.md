@@ -9,8 +9,9 @@ For a complete, self-contained environment, the single cross-platform script
 OpenSSL, SQLite, CPython, pybind11, Cython, NumPy, SciPy, Qt, and PySide6 --
 into a versioned prefix under your home directory (by default
 `${HOME}/var/scdv/<platform>-py<pyver>-qt<qtver>`). The target platform is
-auto-detected from `uname -s` (Ubuntu 24.04 or macOS 26); set `SCDV_OS` to
-force it. Windows uses the separate `windows/build-scdv-windows.ps1`.
+auto-detected from `uname -s` (Ubuntu 24.04 or 26.04, or macOS 26); set
+`SCDV_OS` to force it. Windows uses the separate
+`windows/build-scdv-windows.ps1`.
 
 The build is organized into four sections: `BASE`, `PYTHON`, `NUMPY`, and `QT`
 with the corresponding environment variables `SCDVBUILD_BASE`,
