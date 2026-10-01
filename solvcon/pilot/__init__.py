@@ -23,6 +23,7 @@ from ._pilot_core import (  # noqa: F401
     PlotColor,
     RPlotSeries,
     RPlotModel,
+    RPlotTicker,
     plot_color_cycle,
     plot_cycle_color,
 )
