@@ -163,16 +163,13 @@ case "${SCDV_OS}" in
 # --with-readline=editline against libedit-dev) and libmpdec is not packaged,
 # so Python bundles its own copy.
 #
-# 26.04 differs from 24.04 in that its own archive carries what 24.04 needs
-# extra repositories for: LLVM 22, GCC 16 and a CMake newer than
-# SCDV_CMAKE_MIN_VERSION, so the apt.llvm.org and PPA steps and the BASE CMake
-# build are dropped.  Its default desktop is Wayland only, so Qt also builds
-# the Wayland platform plugin (qtwayland) next to xcb.  24.04 keeps the xcb
-# only build the CI runners use.
+# 26.04 carries GCC 16 and a new enough CMake in its own archive, so it needs
+# no PPA and no BASE CMake build.  LLVM 22 still comes from apt.llvm.org,
+# because the archive's 22.1.2 libclang segfaults shiboken.  Its desktop is
+# Wayland only, so Qt also builds the qtwayland plugin next to xcb.
 #
 # 22.04 follows the 24.04 recipe: the toolchain PPA carries GCC 16 for jammy
-# and apt.llvm.org carries LLVM 22, so only the LLVM suite name differs.  The
-# core sections (--core) are verified on it; the QT section is not.
+# and apt.llvm.org carries LLVM 22, so only the LLVM suite name differs.
 
 # SCDV_UBUNTU_VER selects the recipe: 22.04 or 26.04 only when /etc/os-release
 # says so or the caller sets it, 24.04 otherwise.  An unrecognized release
@@ -232,6 +229,7 @@ scdv_apt_base_cmd() {
   # patchelf is what meson-python rewrites the numpy and scipy rpaths with;
   # without it the NUMPY section fails.
   cat <<'EOF'
+sudo apt-get -qqy update
 sudo apt install -y \
   build-essential gcc g++ make ninja-build pkg-config patchelf \
   ca-certificates gpg git curl wget xz-utils gfortran libopenblas-dev \
@@ -253,7 +251,7 @@ scdv_apt_latex_cmd() {
   # (Ghostscript is the fallback and convert's EPS delegate).
   # texlive-pstricks carries the pst-* styles; the other texlive packages
   # cover whatever a figure pulls in beyond them plus the dvips/EPS helper
-  # binaries.
+  # binaries.  texlive-science carries siunitx, which pst-calculate requires.
   #
   # Gotcha: Ubuntu's ImageMagick policy.xml disables the EPS/PS coders, so
   # convert fails on the generated .eps.  The pstake input is locally built
@@ -264,9 +262,14 @@ sudo apt install -y \
   texlive-latex-base texlive-latex-recommended texlive-latex-extra \
   texlive-pstricks texlive-pictures texlive-plain-generic \
   texlive-fonts-recommended texlive-fonts-extra \
-  texlive-extra-utils texlive-font-utils \
-  ghostscript imagemagick
+  texlive-extra-utils texlive-font-utils texlive-science \
+  ghostscript
 EOF
+  if [ "${SCDV_UBUNTU_VER}" != "22.04" ] ; then
+    # Only 22.04's policy.xml has the rule above; pstake uses Ghostscript
+    # there, which it does only when convert is absent.
+    echo "sudo apt install -y imagemagick"
+  fi
 }
 
 scdv_apt_qt_cmd() {
@@ -319,11 +322,7 @@ EOF
 
 scdv_apt_llvm_repo_cmd() {
   # Configure the LLVM repository before either Qt's libclang development
-  # packages or the lint tools are installed.  26.04 packages LLVM 22 itself.
-  if [ "${SCDV_UBUNTU_VER}" = "26.04" ] ; then
-    echo "# LLVM 22 is in the Ubuntu 26.04 archive; no extra repository."
-    return 0
-  fi
+  # packages or the lint tools are installed.
   local cn=${SCDV_UBUNTU_CODENAME}
   cat <<EOF
 wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key \\
@@ -1493,7 +1492,10 @@ download_sha256() {
     [ "${actual}" = "${expected}" ] && return 0
   fi
   echo "Downloading ${url}"
-  if ! curl -fsSL -o "${temp}" "${url}" ; then
+  # A mirror can stall mid-transfer, which plain --retry does not count as
+  # transient.
+  if ! curl -fsSL --retry 3 --retry-all-errors \
+       --speed-limit 1024 --speed-time 60 -o "${temp}" "${url}" ; then
     rm -f "${temp}"
     echo "download ${fn} failed" >&2
     return 1

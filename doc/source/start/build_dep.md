@@ -65,15 +65,15 @@ build because its own `cmake` is new enough.
   from the toolchain PPA and LLVM 22 from the `jammy` suite of apt.llvm.org.
   Its `libexpat` is too old for CPython 3.14's test suite, which the
   profile-guided build runs, so CPython is built with its bundled expat
-  there. Only the core sections are verified on 22.04; the Qt section has
-  not been exercised.
+  there.
 - Ubuntu 24.04 (`ubuntu2404`) is the CI platform: GCC 16 from the toolchain
   PPA, LLVM 22 from apt.llvm.org, and CMake built by the `BASE` section
   because apt's 3.28 is below solvcon's minimum.
-- Ubuntu 26.04 (`ubuntu2604`) carries GCC 16, LLVM 22, and a new enough
-  CMake in its own archive, so there is no extra repository and the `BASE`
-  section uses the system `cmake`. Its desktop is Wayland only, so Qt also
-  builds the `qtwayland` plugin there.
+- Ubuntu 26.04 (`ubuntu2604`) carries GCC 16 and a new enough CMake in its
+  own archive, so there is no toolchain PPA and the `BASE` section uses the
+  system `cmake`. LLVM 22 still comes from apt.llvm.org, because the
+  archive's 22.1.2 libclang crashes shiboken during the PySide6 build. Its
+  desktop is Wayland only, so Qt also builds the `qtwayland` plugin there.
 - macOS 26 (`macos26`) builds with Apple clang from the Command Line Tools;
   Homebrew supplies `gfortran` (via `gcc`), `openblas`, and `xz`, and the Qt
   section downloads Qt's prebuilt libclang for shiboken.
@@ -99,9 +99,9 @@ The first is LaTeX. Building the documentation needs it even for plain
 HTML, because the `pstake` extension renders the PSTricks figures through
 `latex`, `dvips`, and ImageMagick, with Ghostscript behind the EPS step. On
 Ubuntu that is the `texlive-*` set led by `texlive-pstricks`, plus
-`ghostscript` and `imagemagick`; note that Ubuntu's ImageMagick disables the
-EPS and PS coders in `policy.xml`, so either allow them or drop `imagemagick`
-and let the Ghostscript fallback do the work. On macOS there is no system TeX
+`ghostscript` and `imagemagick`; 22.04 gets no `imagemagick`, because its
+`policy.xml` disables the EPS and PS coders and `pstake` uses Ghostscript
+only when `convert` is absent. On macOS there is no system TeX
 at all, so it is the `mactex-no-gui` cask (a several-gigabyte download) plus
 `ghostscript` and `imagemagick`. The cask installs into `/Library/TeX/texbin`
 and reaches `PATH` through `/etc/paths.d`, so run
