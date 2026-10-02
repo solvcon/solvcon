@@ -53,7 +53,7 @@ class DomainSubWindowTC(unittest.TestCase):
         host = subwin.widget()
         layout = subwin.layout()
         self.assertEqual(1, layout.count())
-        self.assertIs(host, layout.itemAt(0).widget())
+        self.assertEqual(0, layout.indexOf(host))
         self.assertEqual(layout.contentsRect(), host.geometry())
 
     def test_the_grip_stays_drawn_in_the_corner(self):

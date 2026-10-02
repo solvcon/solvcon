@@ -251,7 +251,10 @@ class WindowLayoutTC(unittest.TestCase):
 
         canvas = canvas_subwin.widget()
         domain_host = domain_subwin.widget()
-        domain_viewer = domain_host.layout().itemAt(0).widget()
+        # itemAt() can leave a stale PySide wrapper when Qt deletes the item.
+        domain_viewer = domain_host.findChild(QtWidgets.QWidget)
+        self.assertIsNotNone(domain_viewer)
+        self.assertEqual(domain_host.layout().indexOf(domain_viewer), 0)
 
         self.assertGreater(canvas.height(), 0)
         self.assertGreater(domain_viewer.height(), 0)
