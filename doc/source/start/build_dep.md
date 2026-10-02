@@ -9,8 +9,8 @@ For a complete, self-contained environment, the single cross-platform script
 OpenSSL, SQLite, CPython, pybind11, Cython, NumPy, SciPy, Qt, and PySide6 --
 into a versioned prefix under your home directory (by default
 `${HOME}/var/scdv/<platform>-py<pyver>-qt<qtver>`). The target platform is
-auto-detected from `uname -s` (Ubuntu 24.04 or 26.04, or macOS 26); set
-`SCDV_OS` to force it. Windows uses the separate
+auto-detected from `uname -s` (Ubuntu 22.04, 24.04 or 26.04, or macOS 26);
+set `SCDV_OS` to force it. Windows uses the separate
 `windows/build-scdv-windows.ps1`.
 
 The build is organized into four sections: `BASE`, `PYTHON`, `NUMPY`, and `QT`
@@ -32,6 +32,52 @@ Useful flags: `--print-prefix` reports the install prefix and exits;
 PKG` omits a package (repeatable or comma-separated); and
 `--write-activate-only` (re)writes just the activation script.
 
+## Core-Only Build
+
+A solvcon built with `BUILD_QT=OFF` needs no Qt or PySide6, and `--core`
+builds exactly that much: the `BASE`, `PYTHON`, and `NUMPY` sections, into
+the same prefix a full build uses. The Qt section can then be added later
+without redoing the core, so starting with `--core` costs nothing if the GUI
+turns out to be needed. `--print-deps --core` prints only the prerequisites
+the three core sections need.
+
+```sh
+cd contrib/dependency
+./build-scdv.sh --print-deps --core   # core prerequisites only
+./build-scdv.sh --core                # BASE, PYTHON, and NUMPY; no Qt
+SCDVBUILD_QT=1 ./build-scdv.sh        # add Qt and PySide6 to that prefix
+```
+
+`--core` always selects the three core sections and refuses `SCDVBUILD_QT=1`
+or `SCDVBUILD_ALL=1` on the same command line. The prefix keeps the
+`-qt<qtver>` suffix even before the Qt section is built, so the two builds
+land in one directory. A solvcon build tree configured with `BUILD_QT=OFF`
+remembers that choice; after the Qt section is added, run `make cmakeclean`
+(or delete the build directory) before `make pilot`.
+
+The core build takes 10 to 15 minutes on a fast machine, most of it in
+CPython (profile-guided optimization) and CMake. Ubuntu 26.04 skips the CMake
+build because its own `cmake` is new enough.
+
+## Platform Notes
+
+- Ubuntu 22.04 (`ubuntu2204` prefix) follows the 24.04 recipe: GCC 16 comes
+  from the toolchain PPA and LLVM 22 from the `jammy` suite of apt.llvm.org.
+  Its `libexpat` is too old for CPython 3.14's test suite, which the
+  profile-guided build runs, so CPython is built with its bundled expat
+  there. Only the core sections are verified on 22.04; the Qt section has
+  not been exercised.
+- Ubuntu 24.04 (`ubuntu2404`) is the CI platform: GCC 16 from the toolchain
+  PPA, LLVM 22 from apt.llvm.org, and CMake built by the `BASE` section
+  because apt's 3.28 is below solvcon's minimum.
+- Ubuntu 26.04 (`ubuntu2604`) carries GCC 16, LLVM 22, and a new enough
+  CMake in its own archive, so there is no extra repository and the `BASE`
+  section uses the system `cmake`. Its desktop is Wayland only, so Qt also
+  builds the `qtwayland` plugin there.
+- macOS 26 (`macos26`) builds with Apple clang from the Command Line Tools;
+  Homebrew supplies `gfortran` (via `gcc`), `openblas`, and `xz`, and the Qt
+  section downloads Qt's prebuilt libclang for shiboken.
+
 When the build finishes it writes an `activate` script in the prefix.  Source
 it to put the freshly built Python and Qt on your `PATH`, and run
 `scdv_deactivate` to restore the original environment:
@@ -47,8 +93,9 @@ The activation exports `SCDV_USRDIR`, the prefix that
 build caches the archives it fetches beside the ones this script downloaded.
 A value you set yourself is left alone.
 
-Two toolchains sit outside the build sections, so `--print-deps` ends with
-them. The first is LaTeX. Building the documentation needs it even for plain
+Two toolchains sit outside the build sections, so the full `--print-deps`
+ends with them (`--print-deps --core` stops after the core prerequisites).
+The first is LaTeX. Building the documentation needs it even for plain
 HTML, because the `pstake` extension renders the PSTricks figures through
 `latex`, `dvips`, and ImageMagick, with Ghostscript behind the EPS step. On
 Ubuntu that is the `texlive-*` set led by `texlive-pstricks`, plus
