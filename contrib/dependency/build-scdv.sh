@@ -21,6 +21,12 @@
 #       var is set (SCDVBUILD_ALL=1 does the same); set one or more of
 #       SCDVBUILD_BASE/PYTHON/NUMPY/QT=1 to limit the sections.  Prompts
 #       before building; pass --no-confirm to skip.
+#   ./build-scdv.sh --core
+#       Build the solvcon core toolchain only (BASE + PYTHON + NUMPY) and
+#       leave Qt and PySide6 out.  The result is the same scdv tree a full
+#       build makes, minus the QT section, so `SCDVBUILD_QT=1 ./build-scdv.sh`
+#       later adds Qt on top without redoing the core.  With --print-deps it
+#       prints only the prerequisites the core sections need.
 #   ./build-scdv.sh --write-activate-only
 #       Write only ${SCDV_BASE}/activate and exit.  Useful for refreshing the
 #       activation script for an already-built scdv without triggering any
@@ -53,6 +59,9 @@
 #   Platform:
 #     SCDV_OS: Target platform, "ubuntu" or "macos".  Auto-detected from
 #       `uname -s`; set explicitly to override.
+#     SCDV_UBUNTU_VER: Ubuntu recipe, "22.04", "24.04" or "26.04".  Read
+#       from /etc/os-release; any other release falls back to 24.04 with a
+#       warning.  Set explicitly to override.
 #
 #   Package versions:
 #     PYTHON_VERSION: CPython release tag.
@@ -114,16 +123,19 @@ if [ -z "${SCDV_OS}" ] ; then
     Linux)
       SCDV_OS=ubuntu
       # Every Linux host gets the Ubuntu block; warn when /etc/os-release
-      # names neither release it has a recipe for (24.04 and 26.04), so the
-      # assumption is visible.  Set SCDV_OS explicitly to silence this.
-      if [ -r /etc/os-release ] ; then
+      # names none of the releases it has a recipe for (22.04 and 24.04
+      # share one, 26.04 has its own), so the fallback to the 24.04 recipe
+      # is visible.  SCDV_UBUNTU_VER picks another recipe; SCDV_OS set
+      # explicitly skips this detection.
+      if [ -r /etc/os-release ] && [ -z "${SCDV_UBUNTU_VER:-}" ] ; then
         _scdv_osrel=$(set +e ; . /etc/os-release 2>/dev/null ; \
                       printf '%s:%s' "${ID:-}" "${VERSION_ID:-}")
-        if [ "${_scdv_osrel}" != "ubuntu:24.04" ] \
+        if [ "${_scdv_osrel}" != "ubuntu:22.04" ] \
+           && [ "${_scdv_osrel}" != "ubuntu:24.04" ] \
            && [ "${_scdv_osrel}" != "ubuntu:26.04" ] ; then
-          echo "warning: assuming the Ubuntu 24.04 build block on" \
-               "$(uname -sr) (/etc/os-release '${_scdv_osrel}'); set" \
-               "SCDV_OS=ubuntu|macos to override." >&2
+          echo "warning: no recipe for /etc/os-release '${_scdv_osrel}' on" \
+               "$(uname -sr); using the Ubuntu 24.04 one.  Set" \
+               "SCDV_UBUNTU_VER=22.04|24.04|26.04 to pick another." >&2
         fi
         unset _scdv_osrel
       fi
@@ -141,8 +153,8 @@ case "${SCDV_OS}" in
   ubuntu)
 
 #
-# Ubuntu platform block (24.04 and 26.04): sets SCDV_OS_TAG and the plat_*
-# hooks (see the "Platform block contract" in the script header).
+# Ubuntu platform block (22.04, 24.04 and 26.04): sets SCDV_OS_TAG and the
+# plat_* hooks (see the "Platform block contract" in the script header).
 #
 # Install the apt prerequisites first; plat_print_deps prints them and the
 # build never invokes apt.  LLVM 22 is the libclang shiboken needs with GCC 16
@@ -157,17 +169,39 @@ case "${SCDV_OS}" in
 # build are dropped.  Its default desktop is Wayland only, so Qt also builds
 # the Wayland platform plugin (qtwayland) next to xcb.  24.04 keeps the xcb
 # only build the CI runners use.
+#
+# 22.04 follows the 24.04 recipe: the toolchain PPA carries GCC 16 for jammy
+# and apt.llvm.org carries LLVM 22, so only the LLVM suite name differs.  The
+# core sections (--core) are verified on it; the QT section is not.
 
-# SCDV_UBUNTU_VER selects the recipe: 26.04 only when /etc/os-release says so
-# or the caller sets it, 24.04 otherwise.
+# SCDV_UBUNTU_VER selects the recipe: 22.04 or 26.04 only when /etc/os-release
+# says so or the caller sets it, 24.04 otherwise.  An unrecognized release
+# from /etc/os-release was already warned about by the platform detection;
+# warn here only for a value the caller set.
+_scdv_ubuntu_ver_given=${SCDV_UBUNTU_VER:+1}
 if [ -z "${SCDV_UBUNTU_VER:-}" ] && [ -r /etc/os-release ] ; then
   SCDV_UBUNTU_VER=$(set +e ; . /etc/os-release 2>/dev/null ; \
                     printf '%s' "${VERSION_ID:-}")
 fi
 case "${SCDV_UBUNTU_VER:-}" in
-  26.04) SCDV_UBUNTU_VER=26.04 ;;
-  *) SCDV_UBUNTU_VER=24.04 ;;
+  22.04) SCDV_UBUNTU_VER=22.04 ; SCDV_UBUNTU_CODENAME=jammy ;;
+  24.04) SCDV_UBUNTU_VER=24.04 ; SCDV_UBUNTU_CODENAME=noble ;;
+  26.04) SCDV_UBUNTU_VER=26.04 ; SCDV_UBUNTU_CODENAME=resolute ;;
+  *)
+    if [ -n "${_scdv_ubuntu_ver_given}" ] ; then
+      echo "warning: SCDV_UBUNTU_VER='${SCDV_UBUNTU_VER}' has no recipe;" \
+           "using the Ubuntu 24.04 one (22.04, 24.04 and 26.04 do)." >&2
+    fi
+    SCDV_UBUNTU_VER=24.04 ; SCDV_UBUNTU_CODENAME=noble ;;
 esac
+unset _scdv_ubuntu_ver_given
+
+# jammy's libexpat (2.4) predates the reparse-deferral API that CPython
+# 3.14's xml.etree tests exercise, and the PGO run fails the build on those
+# tests, so 22.04 builds Python against the expat CPython bundles.
+if [ "${SCDV_UBUNTU_VER}" = "22.04" ] ; then
+  SCDV_PYTHON_EXPAT_CFG=--without-system-expat
+fi
 
 # Token baked into the default prefix path (kept per-OS so existing installs
 # keep resolving).
@@ -182,7 +216,7 @@ plat_nproc() {
 }
 
 plat_startup_echo() {
-  : # No extra Ubuntu startup lines.
+  echo "SCDV_UBUNTU_VER=${SCDV_UBUNTU_VER}"
 }
 
 # SHA-256 of a file. Linux sha256sum prints "hash  filename"; cut the hash off.
@@ -195,9 +229,11 @@ scdv_apt_base_cmd() {
   # runs apt itself; copy the output, review it, and run it. doxygen is the
   # system half of the documentation C++ API path (see doc/README.md).  No
   # cmake: apt's 3.28 is below solvcon's minimum, so BASE builds its own.
+  # patchelf is what meson-python rewrites the numpy and scipy rpaths with;
+  # without it the NUMPY section fails.
   cat <<'EOF'
 sudo apt install -y \
-  build-essential gcc g++ make ninja-build pkg-config \
+  build-essential gcc g++ make ninja-build pkg-config patchelf \
   ca-certificates gpg git curl wget xz-utils gfortran libopenblas-dev \
   libffi-dev libbz2-dev liblzma-dev libgdbm-dev \
   libncurses-dev uuid-dev tk-dev libedit-dev libexpat1-dev \
@@ -243,7 +279,7 @@ scdv_apt_qt_cmd() {
   # .github/actions/setup_linux/action.yml; keep the two sets in sync.
   cat <<'EOF'
 sudo apt install -y \
-  llvm-22-dev clang-22 libclang-22-dev patchelf \
+  llvm-22-dev clang-22 libclang-22-dev \
   libxkbcommon-dev libxkbcommon-x11-dev libfontconfig1-dev \
   libfreetype-dev libdbus-1-dev libgl1-mesa-dev libglu1-mesa-dev \
   libx11-dev libx11-xcb-dev libxext-dev libxfixes-dev libxi-dev \
@@ -288,10 +324,11 @@ scdv_apt_llvm_repo_cmd() {
     echo "# LLVM 22 is in the Ubuntu 26.04 archive; no extra repository."
     return 0
   fi
-  cat <<'EOF'
-wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key \
+  local cn=${SCDV_UBUNTU_CODENAME}
+  cat <<EOF
+wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key \\
   | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
-echo "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-22 main" \
+echo "deb http://apt.llvm.org/${cn}/ llvm-toolchain-${cn}-22 main" \\
   | sudo tee /etc/apt/sources.list.d/llvm.list
 sudo apt-get -qqy update
 EOF
@@ -329,7 +366,10 @@ sudo update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-16 100
 sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++-16 100
 EOF
   else
+    # software-properties-common supplies add-apt-repository, which a
+    # minimal (container) install lacks.
     cat <<'EOF'
+sudo apt install -y software-properties-common
 sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
 sudo apt-get -qqy update
 sudo apt-get -qy install gcc-16 g++-16
@@ -344,26 +384,49 @@ EOF
 scdv_apt_cuda_cmd() {
   # Print the CUDA commands used by the Linux CI build.  CUDA 13.0 supports
   # GCC 14 as its host compiler; the rest of solvcon uses GCC 16.  The keyring
-  # is NVIDIA's ubuntu2404 repository; no 26.04 CUDA recipe is verified yet.
-  if [ "${SCDV_UBUNTU_VER}" = "26.04" ] ; then
-    echo "# CUDA: no verified 26.04 recipe; use the 24.04 one on a 24.04 host."
-    return 0
-  fi
-  cat <<'EOF'
-wget -qO cuda-keyring_1.1-1_all.deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
-echo "d2a6b11c096396d868758b86dab1823b25e14d70333f1dfa74da5ddaf6a06dba  cuda-keyring_1.1-1_all.deb" | sha256sum --check - && \
-  sudo dpkg -i cuda-keyring_1.1-1_all.deb && \
-  sudo apt-get -qqy update && \
+  # comes from NVIDIA's per-release repository, and the keyring package
+  # differs per release, hence one SHA-256 each.  24.04 is what CI builds;
+  # 22.04 carries the same CUDA 13.0 packages (g++-14 comes from the toolchain
+  # PPA that scdv_apt_gcc_cmd adds), but no CUDA build is verified there.
+  # 26.04's repository starts at CUDA 13.1 and has no 13.0, so nothing is
+  # printed for it until a newer CUDA is verified with solvcon.
+  local repo sha
+  case "${SCDV_UBUNTU_VER}" in
+    22.04)
+      repo=ubuntu2204
+      sha=d93190d50b98ad4699ff40f4f7af50f16a76dac3bb8da1eaaf366d47898ff8df
+      echo "# CUDA: repository verified on 22.04; the CUDA build itself is not."
+      ;;
+    24.04)
+      repo=ubuntu2404
+      sha=d2a6b11c096396d868758b86dab1823b25e14d70333f1dfa74da5ddaf6a06dba
+      ;;
+    26.04)
+      echo "# CUDA: NVIDIA's ubuntu2604 repository has no CUDA 13.0 (13.1 and" \
+           "newer only); no verified 26.04 recipe."
+      return 0
+      ;;
+  esac
+  cat <<EOF
+wget -qO cuda-keyring_1.1-1_all.deb https://developer.download.nvidia.com/compute/cuda/repos/${repo}/x86_64/cuda-keyring_1.1-1_all.deb
+echo "${sha}  cuda-keyring_1.1-1_all.deb" | sha256sum --check - && \\
+  sudo dpkg -i cuda-keyring_1.1-1_all.deb && \\
+  sudo apt-get -qqy update && \\
   sudo apt-get -qy install cuda-nvcc-13-0 cuda-cudart-dev-13-0 g++-14
 EOF
 }
 
 plat_print_deps() {
   # Ubuntu prints the apt base/GCC/CUDA sets, configures LLVM, then prints the
-  # QT/FFmpeg/LaTeX sets and lint toolchain.
+  # QT/FFmpeg/LaTeX sets and lint toolchain.  --core stops after the GCC set,
+  # which is all the BASE/PYTHON/NUMPY sections and a BUILD_QT=OFF solvcon
+  # need.
   scdv_apt_base_cmd
   echo
   scdv_apt_gcc_cmd
+  if [ "${SCDV_CORE_ONLY}" = "1" ] ; then
+    return 0
+  fi
   echo
   scdv_apt_cuda_cmd
   echo
@@ -752,8 +815,12 @@ EOF
 
 plat_print_deps() {
   # macOS prints the brew base and FFmpeg sets, then the LaTeX and lint
-  # toolchains; the Qt toolchain itself needs no other brew package.
+  # toolchains; the Qt toolchain itself needs no other brew package.  --core
+  # stops after the base set.
   scdv_brew_base_cmd
+  if [ "${SCDV_CORE_ONLY}" = "1" ] ; then
+    return 0
+  fi
   echo
   scdv_brew_ffmpeg_cmd
   echo
@@ -1080,6 +1147,7 @@ SCDV_WRITE_ACTIVATE_ONLY=0
 SCDV_PRINT_PREFIX_ONLY=0
 SCDV_PRINT_DEPS_ONLY=0
 SCDV_NO_CONFIRM=0
+SCDV_CORE_ONLY=0
 SCDV_ALLOW_WRITE_TO_ACTIVE_ENV=0
 SCDV_ALLOW_UNSUPPORTED_PLATFORM=${SCDV_ALLOW_UNSUPPORTED_PLATFORM:-0}
 SCDV_SKIP_LIST=""
@@ -1119,6 +1187,9 @@ while [ $# -gt 0 ] ; do
     --no-confirm)
       SCDV_NO_CONFIRM=1
       ;;
+    --core)
+      SCDV_CORE_ONLY=1
+      ;;
     --allow-write-to-active-env)
       SCDV_ALLOW_WRITE_TO_ACTIVE_ENV=1
       ;;
@@ -1147,6 +1218,22 @@ while [ $# -gt 0 ] ; do
   esac
   shift
 done
+
+# --core selects BASE+PYTHON+NUMPY and refuses QT, so the flag and
+# SCDVBUILD_QT=1 or SCDVBUILD_ALL=1 cannot be combined.  Checked here so that
+# --print-deps --core is held to the same rule.
+if [ "${SCDV_CORE_ONLY}" = "1" ] ; then
+  if [ "${SCDVBUILD_ALL:-}" = "1" ] || [ "${SCDVBUILD_QT:-}" = "1" ] ; then
+    echo "--core leaves the QT section out; unset SCDVBUILD_ALL and" \
+         "SCDVBUILD_QT, or drop --core." >&2
+    exit 2
+  fi
+  if [ -n "${SCDVBUILD_BASE:-}${SCDVBUILD_PYTHON:-}${SCDVBUILD_NUMPY:-}" ] ; then
+    echo "warning: --core selects BASE, PYTHON and NUMPY; the SCDVBUILD_*" \
+         "variables set in the environment are ignored." >&2
+  fi
+  SCDVBUILD_BASE=1 ; SCDVBUILD_PYTHON=1 ; SCDVBUILD_NUMPY=1
+fi
 
 # Exit before plat_init/plat_nproc so cross-OS dry-runs work (SCDV_OS=macos
 # --print-deps on Linux must not call sysctl).
@@ -1219,8 +1306,10 @@ SCDV_CMAKE_MIN_VERSION=4.0.1
 
 # Default to a full BASE+PYTHON+NUMPY+QT build when the caller has not selected
 # a specific section. Setting any one of SCDVBUILD_* to "1" disables this
-# default and runs only the explicitly selected sections.
-if [ -z "${SCDVBUILD_ALL:-}${SCDVBUILD_BASE:-}${SCDVBUILD_PYTHON:-}${SCDVBUILD_NUMPY:-}${SCDVBUILD_QT:-}" ] ; then
+# default and runs only the explicitly selected sections.  --core made its
+# selection right after argument parsing.
+if [ "${SCDV_CORE_ONLY}" != "1" ] \
+   && [ -z "${SCDVBUILD_ALL:-}${SCDVBUILD_BASE:-}${SCDVBUILD_PYTHON:-}${SCDVBUILD_NUMPY:-}${SCDVBUILD_QT:-}" ] ; then
   SCDVBUILD_ALL=1
 fi
 
@@ -1295,6 +1384,9 @@ echo "SCDV_SRCDIR=${SCDV_SRCDIR}"
 echo "SCDV_USRDIR=${SCDV_USRDIR}"
 plat_startup_echo
 echo "PYTHON_VERSION=${PYTHON_VERSION}"
+if [ "${SCDV_CORE_ONLY}" = "1" ] ; then
+  echo "SCDV_CORE_ONLY=1 (BASE, PYTHON and NUMPY sections; no Qt)"
+fi
 if [ -n "${SCDV_SKIP_LIST# }" ] ; then
   echo "SCDV_SKIP_LIST=${SCDV_SKIP_LIST# }"
 fi
@@ -1630,7 +1722,7 @@ build_python() {
       --enable-ipv6 \
       --enable-optimizations \
       --without-ensurepip \
-      --with-system-expat \
+      "${SCDV_PYTHON_EXPAT_CFG:---with-system-expat}" \
       --with-system-libmpdec=no \
       --with-readline=editline \
       --with-lto \
@@ -1906,6 +1998,11 @@ fi
 export LLVM_INSTALL_DIR QTPATHS PYSIDE_BUILD=1
 
 scdv_time build_pyside6 pyside6
+
+elif [ "${SCDV_CORE_ONLY}" = "1" ] ; then
+
+echo "--core: QT section left out; run SCDVBUILD_QT=1 $0 to add Qt and" \
+     "PySide6 to ${SCDV_BASE} later"
 
 else
 

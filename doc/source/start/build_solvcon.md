@@ -65,6 +65,10 @@ Key options can be set on the command line, in `setup.mk` (which is read by
 | `USE_CLANG_TIDY`   | `OFF`            | run clang-tidy during the build |
 | `USE_CCACHE`       | `ON`             | use ccache when it is installed |
 
+`BUILD_QT=OFF` builds the core without Pilot, so it needs no Qt or PySide6;
+a dependency prefix from `build-scdv.sh --core` is enough for it (see
+{doc}`build_dep`).
+
 Install `ccache` (`brew install ccache`, `apt install ccache`) to make a
 rebuild after `make cmakeclean` mostly cache hits; a host without it builds
 the same way as before, and an MSVC build skips the cache either way.  The
