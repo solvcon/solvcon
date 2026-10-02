@@ -384,18 +384,34 @@ EOF
 scdv_apt_cuda_cmd() {
   # Print the CUDA commands used by the Linux CI build.  CUDA 13.0 supports
   # GCC 14 as its host compiler; the rest of solvcon uses GCC 16.  The keyring
-  # is NVIDIA's ubuntu2404 repository; no 22.04 or 26.04 CUDA recipe is
-  # verified yet.
-  if [ "${SCDV_UBUNTU_VER}" != "24.04" ] ; then
-    echo "# CUDA: no verified ${SCDV_UBUNTU_VER} recipe; use the 24.04 one" \
-         "on a 24.04 host."
-    return 0
-  fi
-  cat <<'EOF'
-wget -qO cuda-keyring_1.1-1_all.deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
-echo "d2a6b11c096396d868758b86dab1823b25e14d70333f1dfa74da5ddaf6a06dba  cuda-keyring_1.1-1_all.deb" | sha256sum --check - && \
-  sudo dpkg -i cuda-keyring_1.1-1_all.deb && \
-  sudo apt-get -qqy update && \
+  # comes from NVIDIA's per-release repository, and the keyring package
+  # differs per release, hence one SHA-256 each.  24.04 is what CI builds;
+  # 22.04 carries the same CUDA 13.0 packages (g++-14 comes from the toolchain
+  # PPA that scdv_apt_gcc_cmd adds), but no CUDA build is verified there.
+  # 26.04's repository starts at CUDA 13.1 and has no 13.0, so nothing is
+  # printed for it until a newer CUDA is verified with solvcon.
+  local repo sha
+  case "${SCDV_UBUNTU_VER}" in
+    22.04)
+      repo=ubuntu2204
+      sha=d93190d50b98ad4699ff40f4f7af50f16a76dac3bb8da1eaaf366d47898ff8df
+      echo "# CUDA: repository verified on 22.04; the CUDA build itself is not."
+      ;;
+    24.04)
+      repo=ubuntu2404
+      sha=d2a6b11c096396d868758b86dab1823b25e14d70333f1dfa74da5ddaf6a06dba
+      ;;
+    26.04)
+      echo "# CUDA: NVIDIA's ubuntu2604 repository has no CUDA 13.0 (13.1 and" \
+           "newer only); no verified 26.04 recipe."
+      return 0
+      ;;
+  esac
+  cat <<EOF
+wget -qO cuda-keyring_1.1-1_all.deb https://developer.download.nvidia.com/compute/cuda/repos/${repo}/x86_64/cuda-keyring_1.1-1_all.deb
+echo "${sha}  cuda-keyring_1.1-1_all.deb" | sha256sum --check - && \\
+  sudo dpkg -i cuda-keyring_1.1-1_all.deb && \\
+  sudo apt-get -qqy update && \\
   sudo apt-get -qy install cuda-nvcc-13-0 cuda-cudart-dev-13-0 g++-14
 EOF
 }
