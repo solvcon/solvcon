@@ -59,6 +59,9 @@
 #   Platform:
 #     SCDV_OS: Target platform, "ubuntu" or "macos".  Auto-detected from
 #       `uname -s`; set explicitly to override.
+#     SCDV_UBUNTU_VER: Ubuntu recipe, "22.04", "24.04" or "26.04".  Read
+#       from /etc/os-release; any other release falls back to 24.04 with a
+#       warning.  Set explicitly to override.
 #
 #   Package versions:
 #     PYTHON_VERSION: CPython release tag.
@@ -121,17 +124,18 @@ if [ -z "${SCDV_OS}" ] ; then
       SCDV_OS=ubuntu
       # Every Linux host gets the Ubuntu block; warn when /etc/os-release
       # names none of the releases it has a recipe for (22.04 and 24.04
-      # share one, 26.04 has its own), so the assumption is visible.  Set
-      # SCDV_OS explicitly to silence this.
-      if [ -r /etc/os-release ] ; then
+      # share one, 26.04 has its own), so the fallback to the 24.04 recipe
+      # is visible.  SCDV_UBUNTU_VER picks another recipe; SCDV_OS set
+      # explicitly skips this detection.
+      if [ -r /etc/os-release ] && [ -z "${SCDV_UBUNTU_VER:-}" ] ; then
         _scdv_osrel=$(set +e ; . /etc/os-release 2>/dev/null ; \
                       printf '%s:%s' "${ID:-}" "${VERSION_ID:-}")
         if [ "${_scdv_osrel}" != "ubuntu:22.04" ] \
            && [ "${_scdv_osrel}" != "ubuntu:24.04" ] \
            && [ "${_scdv_osrel}" != "ubuntu:26.04" ] ; then
-          echo "warning: assuming the Ubuntu 24.04 build block on" \
-               "$(uname -sr) (/etc/os-release '${_scdv_osrel}'); set" \
-               "SCDV_OS=ubuntu|macos to override." >&2
+          echo "warning: no recipe for /etc/os-release '${_scdv_osrel}' on" \
+               "$(uname -sr); using the Ubuntu 24.04 one.  Set" \
+               "SCDV_UBUNTU_VER=22.04|24.04|26.04 to pick another." >&2
         fi
         unset _scdv_osrel
       fi
@@ -171,16 +175,26 @@ case "${SCDV_OS}" in
 # core sections (--core) are verified on it; the QT section is not.
 
 # SCDV_UBUNTU_VER selects the recipe: 22.04 or 26.04 only when /etc/os-release
-# says so or the caller sets it, 24.04 otherwise.
+# says so or the caller sets it, 24.04 otherwise.  An unrecognized release
+# from /etc/os-release was already warned about by the platform detection;
+# warn here only for a value the caller set.
+_scdv_ubuntu_ver_given=${SCDV_UBUNTU_VER:+1}
 if [ -z "${SCDV_UBUNTU_VER:-}" ] && [ -r /etc/os-release ] ; then
   SCDV_UBUNTU_VER=$(set +e ; . /etc/os-release 2>/dev/null ; \
                     printf '%s' "${VERSION_ID:-}")
 fi
 case "${SCDV_UBUNTU_VER:-}" in
   22.04) SCDV_UBUNTU_VER=22.04 ; SCDV_UBUNTU_CODENAME=jammy ;;
+  24.04) SCDV_UBUNTU_VER=24.04 ; SCDV_UBUNTU_CODENAME=noble ;;
   26.04) SCDV_UBUNTU_VER=26.04 ; SCDV_UBUNTU_CODENAME=resolute ;;
-  *) SCDV_UBUNTU_VER=24.04 ; SCDV_UBUNTU_CODENAME=noble ;;
+  *)
+    if [ -n "${_scdv_ubuntu_ver_given}" ] ; then
+      echo "warning: SCDV_UBUNTU_VER='${SCDV_UBUNTU_VER}' has no recipe;" \
+           "using the Ubuntu 24.04 one (22.04, 24.04 and 26.04 do)." >&2
+    fi
+    SCDV_UBUNTU_VER=24.04 ; SCDV_UBUNTU_CODENAME=noble ;;
 esac
+unset _scdv_ubuntu_ver_given
 
 # jammy's libexpat (2.4) predates the reparse-deferral API that CPython
 # 3.14's xml.etree tests exercise, and the PGO run fails the build on those
@@ -202,7 +216,7 @@ plat_nproc() {
 }
 
 plat_startup_echo() {
-  : # No extra Ubuntu startup lines.
+  echo "SCDV_UBUNTU_VER=${SCDV_UBUNTU_VER}"
 }
 
 # SHA-256 of a file. Linux sha256sum prints "hash  filename"; cut the hash off.
