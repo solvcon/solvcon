@@ -17,9 +17,8 @@ text.
 
 ## 1. Isolate
 
-Enter a worktree with the `worktree` skill before touching anything. Keep
-downloaded logs and throwaway scripts in the session scratchpad, never in the
-checkout.
+Use `worktree` first. Keep scripts and ongoing investigation records in a
+scratchpad outside the checkout; report its path upfront.
 
 ## 2. Read the failure
 
