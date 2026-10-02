@@ -15,7 +15,6 @@
  */
 
 #include <cstddef>
-#include <cstdint>
 #include <limits>
 
 #include <solvcon/buffer/SimpleArray.hpp>

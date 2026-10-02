@@ -7,11 +7,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <format>
-#include <limits>
-#include <optional>
-#include <span>
-#include <stdexcept>
 
 #include <solvcon/buffer/SimpleCollector.hpp>
 
