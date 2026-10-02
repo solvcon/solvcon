@@ -150,6 +150,11 @@ list_of_rplotseries = [
     'RPlotSeries',
 ]
 
+# RPlotDecimator.hpp/.cpp
+list_of_rplotdecimator = [
+    'RPlotDecimator',
+]
+
 # RPlotModel.hpp/.cpp
 list_of_rplotmodel = [
     'RPlotModel',
@@ -172,6 +177,7 @@ _from_impl = (  # noqa: F822
     list_of_plotlimits +
     list_of_plot_style +
     list_of_rplotseries +
+    list_of_rplotdecimator +
     list_of_rplotmodel +
     list_of_rplotticker
 )
