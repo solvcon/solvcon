@@ -79,6 +79,7 @@ class LinePlotWidget(QWidget):
         # The axes a left drag moves and the data point it holds under the
         # cursor, or None between drags.
         self._drag = None
+        self._decimator = _pcore.RPlotDecimator()
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.setMinimumSize(240, 160)
 
@@ -135,6 +136,25 @@ class LinePlotWidget(QWidget):
                     continue
                 y = math.log10(y)
             out.append((x, y))
+        return out
+
+    def _drawn_points(self, series, rect):
+        """Return the points of ``series`` worth drawing in ``rect``, mapped
+        for the axis.
+
+        A series with more than four samples per device pixel column is
+        cut to the first, lowest, highest, and last sample of each column,
+        which keeps every column's extent at a cost bounded by the width.
+        A sparser series keeps every point :meth:`_points` gives.
+        """
+        columns = math.ceil(rect.width() * self.devicePixelRatioF())
+        floor = self.LOG_FLOOR if self.log_y else -math.inf
+        kept = self._decimator.select(series, self._limits.xmin,
+                                      self._limits.xmax, columns, floor)
+        out = []
+        for it in kept:
+            x, y = series.x(it), series.y(it)
+            out.append((x, math.log10(y) if self.log_y else y))
         return out
 
     def _calc_limits(self):
@@ -339,7 +359,7 @@ class LinePlotWidget(QWidget):
         painter.setClipRect(rect)
         for it in range(self.model.size):
             series = self.model.series(it)
-            points = self._points(series)
+            points = self._drawn_points(series, rect)
             if len(points) < 2:
                 continue
             pen = QPen(_qcolor(series.color))
