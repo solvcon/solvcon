@@ -48,7 +48,7 @@
 #       Print the system prerequisite commands (apt or brew) and exit.  The
 #       script never runs the package manager; copy, review, and run them
 #       yourself.  --print-apt is a backward-compatible alias.  The output
-#       includes CUDA 13.0 on Ubuntu.  It ends with the two toolchains no build
+#       includes CUDA 13.4 on Ubuntu.  It ends with the two toolchains no build
 #       section installs: LaTeX, which the documentation needs to render its
 #       figures, then clang-format and clang-tidy for `make lint`, both from
 #       LLVM 22.
@@ -381,29 +381,25 @@ EOF
 }
 
 scdv_apt_cuda_cmd() {
-  # Print the CUDA commands used by the Linux CI build.  CUDA 13.0 supports
-  # GCC 14 as its host compiler; the rest of solvcon uses GCC 16.  The keyring
-  # comes from NVIDIA's per-release repository, and the keyring package
-  # differs per release, hence one SHA-256 each.  24.04 is what CI builds;
-  # 22.04 carries the same CUDA 13.0 packages (g++-14 comes from the toolchain
-  # PPA that scdv_apt_gcc_cmd adds), but no CUDA build is verified there.
-  # 26.04's repository starts at CUDA 13.1 and has no 13.0, so nothing is
-  # printed for it until a newer CUDA is verified with solvcon.
+  # Print the CUDA commands.  CUDA 13.4 supports GCC 16 as its host
+  # compiler, the same GCC the rest of solvcon uses.  The keyring comes from
+  # NVIDIA's per-release repository, and the keyring package differs per
+  # release, hence one SHA-256 each.  The recipe is x86_64 only; on 22.04,
+  # 24.04 and 26.04 it is verified to install and to compile the CUDA probe
+  # with GCC 16 as the default host compiler.
   local repo sha
   case "${SCDV_UBUNTU_VER}" in
     22.04)
       repo=ubuntu2204
       sha=d93190d50b98ad4699ff40f4f7af50f16a76dac3bb8da1eaaf366d47898ff8df
-      echo "# CUDA: repository verified on 22.04; the CUDA build itself is not."
       ;;
     24.04)
       repo=ubuntu2404
       sha=d2a6b11c096396d868758b86dab1823b25e14d70333f1dfa74da5ddaf6a06dba
       ;;
     26.04)
-      echo "# CUDA: NVIDIA's ubuntu2604 repository has no CUDA 13.0 (13.1 and" \
-           "newer only); no verified 26.04 recipe."
-      return 0
+      repo=ubuntu2604
+      sha=f7f474b5f6a4adf987aa587920df00e713285958ef6a913dda1945a544a3099e
       ;;
   esac
   cat <<EOF
@@ -411,7 +407,7 @@ wget -qO cuda-keyring_1.1-1_all.deb https://developer.download.nvidia.com/comput
 echo "${sha}  cuda-keyring_1.1-1_all.deb" | sha256sum --check - && \\
   sudo dpkg -i cuda-keyring_1.1-1_all.deb && \\
   sudo apt-get -qqy update && \\
-  sudo apt-get -qy install cuda-nvcc-13-0 cuda-cudart-dev-13-0 g++-14
+  sudo apt-get -qy install cuda-nvcc-13-4 cuda-cudart-dev-13-4
 EOF
 }
 
@@ -595,8 +591,8 @@ export _SCDV_HAD_SOLVCON_DEPS_CACHE=${SOLVCON_DEPS_CACHE+1}
 # LD_LIBRARY_PATH will be loaded ahead of this scdv's freshly built Qt and
 # break with "version `Qt_6.x' not found". Strip those.
 PATH=$(printf '%s' "${PATH}" | tr ':' '\n' | grep -v '/var/Qt/' | paste -sd: -)
-if [ -d /usr/local/cuda-13.0/bin ] ; then
-  PATH=/usr/local/cuda-13.0/bin:${PATH}
+if [ -d /usr/local/cuda-13.4/bin ] ; then
+  PATH=/usr/local/cuda-13.4/bin:${PATH}
 fi
 export PATH=${SCDV_USRDIR}/bin:${PATH}
 
