@@ -5,6 +5,7 @@
 
 #include <solvcon/pilot/theme/RThemeManager.hpp> // Must be the first include.
 
+#include <solvcon/pilot/common/config_home.hpp>
 #include <solvcon/pilot/theme/theme_qt.hpp>
 
 #include <QApplication>
@@ -271,7 +272,7 @@ QString RThemeManager::supplementalStyleSheet(QPalette const & pal) const
 
 void RThemeManager::restorePersisted()
 {
-    QSettings settings(QStringLiteral("solvcon"), QStringLiteral("pilot"));
+    QSettings settings(configPath(QStringLiteral("pilot.ini")), QSettings::IniFormat);
     m_mode = themeModeFromId(
         settings.value(QStringLiteral("theme/mode")).toString().toUtf8().constData());
     m_look = themeLookFromId(
@@ -287,7 +288,7 @@ void RThemeManager::persist()
         return;
     }
 
-    QSettings settings(QStringLiteral("solvcon"), QStringLiteral("pilot"));
+    QSettings settings(configPath(QStringLiteral("pilot.ini")), QSettings::IniFormat);
     settings.setValue(QStringLiteral("theme/mode"), QString::fromStdString(modeId()));
     settings.setValue(QStringLiteral("theme/look"), QString::fromStdString(lookId()));
     m_persisted_mode = m_mode;

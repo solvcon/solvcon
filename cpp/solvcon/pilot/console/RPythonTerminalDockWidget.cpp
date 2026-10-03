@@ -5,6 +5,7 @@
 
 #include <solvcon/pilot/console/RPythonTerminalDockWidget.hpp>
 
+#include <solvcon/pilot/common/config_home.hpp>
 #include <solvcon/pilot/console/RPythonSyntaxRules.hpp>
 #include <solvcon/pilot/theme/theme_qt.hpp>
 
@@ -17,7 +18,6 @@
 #include <QMimeData>
 #include <QPalette>
 #include <QScrollBar>
-#include <QStandardPaths>
 #include <QTextBlock>
 #include <QTextCursor>
 #include <QToolTip>
@@ -449,13 +449,9 @@ RPythonTerminalDockWidget::RPythonTerminalDockWidget(
 
     // Share the persistent history file with the two-pane console, so recall
     // spans both consoles.
-    QString const config_dir = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation);
-    if (!config_dir.isEmpty())
-    {
-        m_history.setFilePath((config_dir + "/solvcon/console_history").toStdString());
-        m_history.load();
-        m_current_command_index = static_cast<int>(m_history.size());
-    }
+    m_history.setFilePath(configPath(QStringLiteral("console_history")).toStdString());
+    m_history.load();
+    m_current_command_index = static_cast<int>(m_history.size());
 
     m_edit->startInput(">>> ");
 }

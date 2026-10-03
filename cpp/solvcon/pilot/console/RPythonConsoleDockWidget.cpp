@@ -5,6 +5,7 @@
 
 #include <solvcon/pilot/console/RPythonConsoleDockWidget.hpp>
 
+#include <solvcon/pilot/common/config_home.hpp>
 #include <solvcon/pilot/console/RPythonSyntaxRules.hpp>
 #include <solvcon/pilot/theme/theme_qt.hpp>
 
@@ -13,7 +14,6 @@
 #include <QColor>
 #include <QKeyEvent>
 #include <QScrollBar>
-#include <QStandardPaths>
 #include <QTextBlock>
 #include <QToolTip>
 #include <QVBoxLayout>
@@ -358,13 +358,9 @@ RPythonConsoleDockWidget::RPythonConsoleDockWidget(const QString & title, QWidge
 
     // Persist the command history under the solvcon profile directory and
     // restore it, so recall survives across pilot sessions.
-    QString const config_dir = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation);
-    if (!config_dir.isEmpty())
-    {
-        m_history.setFilePath((config_dir + "/solvcon/console_history").toStdString());
-        m_history.load();
-        m_current_command_index = static_cast<int>(m_history.size());
-    }
+    m_history.setFilePath(configPath(QStringLiteral("console_history")).toStdString());
+    m_history.load();
+    m_current_command_index = static_cast<int>(m_history.size());
 
     m_highlighter = new RPythonSyntaxHighlighter(m_command_edit->document());
     connect(
