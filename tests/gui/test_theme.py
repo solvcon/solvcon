@@ -13,11 +13,8 @@ try:
     from solvcon.pilot.base import _gui
     from solvcon.pilot.panel import _profiling
     from PySide6 import QtWidgets
-    from PySide6.QtCore import QSettings, QStandardPaths
+    from PySide6.QtCore import QSettings
     from PySide6.QtGui import QColor, QPalette
-    # Redirect QSettings to a throwaway location so the theme's persistence
-    # does not touch the developer's real configuration during the tests.
-    QStandardPaths.setTestModeEnabled(True)
 except ImportError:
     pilot = None
 
@@ -214,7 +211,9 @@ class ThemePolishTC(unittest.TestCase):
         self.mgr.set_look("system")
         # A new session reads these back through the same store to start on the
         # last chosen theme.
-        settings = QSettings("solvcon", "pilot")
+        path = os.path.join(os.environ["SOLVCON_CONFIG_HOME"], "pilot.ini")
+        self.assertTrue(os.path.isfile(path))
+        settings = QSettings(path, QSettings.IniFormat)
         self.assertEqual(settings.value("theme/mode"), "dark")
         self.assertEqual(settings.value("theme/look"), "system")
 

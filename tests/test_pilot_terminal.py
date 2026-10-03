@@ -11,6 +11,7 @@ editable after the prompt. These drive the widget through synthesized key
 events, so they need the Qt pilot but no on-screen rendering.
 """
 
+import os
 import unittest
 
 import solvcon
@@ -136,6 +137,14 @@ class TerminalWidgetTC(unittest.TestCase):
         self.assertEqual(self.term.command, "history_one = 1")
         self._key(QtCore.Qt.Key_Down)
         self.assertEqual(self.term.command, "history_two = 2")
+
+    def test_history_is_saved_in_the_config_home(self):
+        self.term.command = "history_saved = 1"
+        self.term.executeCommand()
+        path = os.path.join(
+            os.environ["SOLVCON_CONFIG_HOME"], "console_history")
+        with open(path, "r", encoding="utf-8") as fobj:
+            self.assertIn("history_saved = 1", fobj.read())
 
     def test_incomplete_statement_shows_continuation_prompt(self):
         self._type("for i in range(2):")
