@@ -54,6 +54,7 @@ std::shared_ptr<ConcreteBuffer> const & BufferExpander::as_concrete(size_type ca
         m_concrete_buffer = copy_concrete(cap);
         m_data_holder.reset();
     }
+    m_concrete_buffer->export_host_access();
     m_begin = m_concrete_buffer->data();
     m_end = m_begin + old_size;
     m_end_cap = m_begin + m_concrete_buffer->size();
