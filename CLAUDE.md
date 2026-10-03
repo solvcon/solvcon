@@ -124,6 +124,8 @@ when asked to set an IDE up.
 - `make pytest PYTEST_OPTS="tests/test_buffer.py::SimpleArrayBasicTC::test_sort"`
   -- run a single test or subset; `PYTEST_OPTS` is forwarded verbatim to
   pytest.
+- The pytest targets run in `PYTEST_JOBS` processes (default: the processor
+  count). `PYTEST_JOBS=1` runs them serially.
 - `make run_pilot_pytest` -- Python tests that require the pilot GUI;
   accepts `PYTEST_OPTS` the same way.
 - The GUI tests build real windows but keep them off the screen, so a test run

@@ -108,6 +108,16 @@ else
 	PYTEST_OPTS ?=
 endif
 
+# Run the pytest targets in PYTEST_JOBS processes. PYTEST_JOBS=1 runs one
+# plain $(PYTEST), which options such as -x, --pdb, and --lf need.
+PYTEST_JOBS ?= $(NPROC)
+ifeq ($(PYTEST_JOBS),1)
+	PYTEST_RUN = $(PYTEST)
+else
+	PYTEST_RUN = $(WHICH_PYTHON) $(SOLVCON_ROOT)/contrib/pytest_parallel.py \
+		--jobs $(PYTEST_JOBS)
+endif
+
 .PHONY: default
 default: buildext
 
@@ -155,17 +165,17 @@ install: cmake
 .PHONY: pytest
 pytest: buildext
 	env $(RUNENV) \
-		$(PYTEST) $(PYTEST_OPTS) tests/
+		$(PYTEST_RUN) $(PYTEST_OPTS) tests/
 
 .PHONY: pytest-fast
 pytest-fast: buildext
 	env $(RUNENV) \
-		$(PYTEST) $(PYTEST_OPTS) tests/ --ignore=tests/gui
+		$(PYTEST_RUN) $(PYTEST_OPTS) tests/ --ignore=tests/gui
 
 .PHONY: pytest-gui
 pytest-gui: buildext
 	env $(RUNENV) \
-		$(PYTEST) $(PYTEST_OPTS) tests/gui/
+		$(PYTEST_RUN) $(PYTEST_OPTS) tests/gui/
 
 PROFFILES = $(shell find profiling -type f -name 'profile_*.py' | sort)
 PROFRESDIR = profiling/results
