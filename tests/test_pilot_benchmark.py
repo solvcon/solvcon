@@ -457,7 +457,7 @@ class RunPanelTC(unittest.TestCase):
         self.assert_filters_events(False)
 
     def test_filter_ignores_layout_item_receivers(self):
-        self.start_worker(WorkerStub())
+        self.start_idle_process()
         self.wait_for(lambda: self.control._process.state() ==
                       QtCore.QProcess.ProcessState.Running)
         parent = QtWidgets.QWidget()
@@ -485,7 +485,7 @@ class RunPanelTC(unittest.TestCase):
             shiboken6.delete(parent)
 
     def test_quit_for_another_receiver_keeps_worker_running(self):
-        self.start_worker(WorkerStub())
+        self.start_idle_process()
         self.wait_for(lambda: self.control._process.state() ==
                       QtCore.QProcess.ProcessState.Running)
         receiver = QtCore.QObject()
@@ -494,7 +494,7 @@ class RunPanelTC(unittest.TestCase):
         self.assertEqual(self.events, [])
 
     def test_application_quit_stops_worker_before_returning(self):
-        self.start_worker(WorkerStub())
+        self.start_idle_process()
         self.wait_for(lambda: self.control._process.state() ==
                       QtCore.QProcess.ProcessState.Running)
         event = QtCore.QEvent(QtCore.QEvent.Type.Quit)

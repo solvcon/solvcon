@@ -2110,7 +2110,7 @@ class RManagerSubWindowGripTC(unittest.TestCase):
         layout = self.subwin.layout()
         self.assertEqual(-1, layout.indexOf(self.subwin.findChild(QSizeGrip)))
         self.assertEqual(1, layout.count())
-        self.assertIs(self.host, layout.itemAt(0).widget())
+        self.assertEqual(0, layout.indexOf(self.host))
 
 
 @unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
