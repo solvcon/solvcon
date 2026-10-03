@@ -30,50 +30,6 @@ def _array(values):
 
 
 @unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
-class LinePlotTickTC(unittest.TestCase):
-    """The tick placement the axes are labelled from."""
-
-    def test_linear_ticks_are_round_and_cover_the_span(self):
-        ticks = _plot._nice_ticks(0.0, 10.0, want=5)
-        self.assertEqual([0.0, 2.0, 4.0, 6.0, 8.0, 10.0], ticks)
-        # Every tick has to land inside the span it was asked for, or the
-        # axis is labelled outside its own frame.
-        for lo, hi in ((0.3, 0.7), (-5.0, 5.0), (1e4, 1.2e4)):
-            for tick in _plot._nice_ticks(lo, hi):
-                self.assertGreaterEqual(tick, lo)
-                self.assertLessEqual(tick, hi)
-
-    def test_a_span_of_nothing_has_no_ticks(self):
-        # A flat curve leaves a zero span; ticking it would divide by it.
-        self.assertEqual([], _plot._nice_ticks(1.0, 1.0))
-        self.assertEqual([], _plot._nice_ticks(1.0, float('nan')))
-
-    def test_ticks_are_counted_and_not_accumulated(self):
-        # Where the span is small beside the offset, adding the step rounds
-        # back to where it started and a walk along the axis never ends.
-        # This runs inside paintEvent, so it takes the GUI thread with it.
-        ticks = _plot._nice_ticks(1e16, 1e16 + 4.0)
-        self.assertGreater(len(ticks), 0)
-        self.assertLessEqual(len(ticks), 12)
-
-    def test_a_log_tick_off_a_whole_decade_reads_its_own_value(self):
-        # A range inside one decade is ticked at its own ends, which are
-        # not powers of ten.  Labelling those as powers of ten puts the
-        # axis off by a factor the reader has no way to see.
-        self.assertEqual(["1e-4", "1e-3"],
-                         [_plot._decade_label(it) for it in (-4.0, -3.0)])
-        self.assertEqual(["1.91", "5.235"],
-                         [_plot._decade_label(it)
-                          for it in _plot._decade_ticks(0.2811, 0.7189)])
-
-    def test_log_ticks_are_whole_decades(self):
-        self.assertEqual([-4.0, -3.0, -2.0], _plot._decade_ticks(-4.2, -1.8))
-        # A range inside one decade still gets its ends marked, so the axis
-        # is never left blank.
-        self.assertEqual([-2.4, -2.1], _plot._decade_ticks(-2.4, -2.1))
-
-
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
 class LinePlotWidgetTC(unittest.TestCase):
     """What the widget maps and what it draws."""
 

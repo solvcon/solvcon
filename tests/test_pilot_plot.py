@@ -2,8 +2,8 @@
 # BSD 3-Clause License, see COPYING
 
 """
-Tests for the native xy-plot core: limits, colors, the matplotlib C0-C9 cycle,
-and RPlotSeries.
+Tests for the native xy-plot core: limits, colors, models, series, and tick
+locators.
 
 The core is pure C++ with no Qt widget, so everything here is exercised
 through the pybind11 surface registered into ``solvcon.pilot``.
@@ -221,6 +221,118 @@ class PilotPlotTC(unittest.TestCase):
             with self.assertRaises(ValueError):
                 ser.line_width = width
         self.assertEqual(1.5, ser.line_width)
+
+
+@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+class PilotPlotTickerTC(unittest.TestCase):
+    """The native locator used to position axis ticks and labels."""
+
+    def test_linear_ticks_are_round_and_cover_the_span(self):
+        ticker = pilot.RPlotTicker(5)
+        self.assertEqual([0.0, 2.0, 4.0, 6.0, 8.0, 10.0],
+                         ticker.locate(0.0, 10.0))
+        # Every tick has to land inside the span it was asked for, or the
+        # axis is labelled outside its own frame.
+        for lo, hi in ((0.3, 0.7), (-5.0, 5.0), (1e4, 1.2e4)):
+            for tick in ticker.locate(lo, hi):
+                self.assertGreaterEqual(tick, lo)
+                self.assertLessEqual(tick, hi)
+
+    def test_invalid_linear_ranges_have_no_ticks(self):
+        ticker = pilot.RPlotTicker(5)
+        # A flat curve leaves a zero span; ticking it would divide by it.
+        self.assertEqual([], ticker.locate(1.0, 1.0))
+        self.assertEqual([], ticker.locate(1.0, float('nan')))
+        self.assertEqual([], ticker.locate(1.0, float('inf')))
+
+    def test_ticks_are_counted_and_not_accumulated(self):
+        ticker = pilot.RPlotTicker(5)
+        # Where the span is small beside the offset, adding the step rounds
+        # back to where it started and a walk along the axis never ends.
+        # This runs inside paintEvent, so it takes the GUI thread with it.
+        ticks = ticker.locate(1e16, 1e16 + 4.0)
+        self.assertGreater(len(ticks), 0)
+        self.assertLessEqual(len(ticks), 12)
+
+    def test_decade_ticks_mark_the_axis_or_its_ends(self):
+        ticker = pilot.RPlotTicker(5)
+        self.assertEqual([-4.0, -3.0, -2.0],
+                         ticker.locate_decades(-4.2, -1.8))
+        # A range inside one decade still gets its ends marked, so the axis
+        # is never left blank.
+        self.assertEqual([-2.4, -2.1],
+                         ticker.locate_decades(-2.4, -2.1))
+        self.assertEqual([], ticker.locate_decades(float('nan'), 1.0))
+
+    def test_a_log_tick_off_a_whole_decade_reads_its_own_value(self):
+        ticker = pilot.RPlotTicker(5)
+        # A range inside one decade is ticked at its own ends, which are
+        # not powers of ten.  Labelling those as powers of ten puts the
+        # axis off by a factor the reader has no way to see.
+        self.assertEqual(['1e-4', '1e-3'], ticker.decade_labels([-4.0, -3.0]))
+        self.assertEqual(['1.91', '5.235'],
+                         ticker.decade_labels(
+                             ticker.locate_decades(0.2811, 0.7189)))
+
+    def test_labels_are_short_and_unambiguous(self):
+        ticker = pilot.RPlotTicker(5)
+        self.assertEqual(['0', '2', '4', '6', '8', '10'],
+                         ticker.labels(ticker.locate(0.0, 10.0)))
+        self.assertEqual(['0.3', '0.4', '0.5', '0.6', '0.7'],
+                         ticker.labels(ticker.locate(0.3, 0.7)))
+        self.assertEqual(['10000', '10500', '11000', '11500', '12000'],
+                         ticker.labels(ticker.locate(1e4, 1.2e4)))
+        # A lone tick has no neighbour to tell apart, so it stays short.
+        self.assertEqual(['1234'], ticker.labels([1234.5]))
+        self.assertEqual(['1e+05'], ticker.labels([123456.0]))
+        self.assertEqual(['1e-04'], ticker.labels([1e-4]))
+        self.assertEqual([], ticker.labels([]))
+
+    def test_neighbouring_labels_never_read_alike(self):
+        # Rounded on its own, a label can read the same as its neighbour,
+        # and an axis that repeats a number tells the reader nothing.
+        ticker = pilot.RPlotTicker(4)
+        self.assertEqual(['1.0e+05', '1.5e+05', '2.0e+05'],
+                         ticker.labels(ticker.locate(1e5, 2e5)))
+        self.assertEqual(['1.0134e+05', '1.0136e+05', '1.0138e+05',
+                          '1.0140e+05'],
+                         ticker.labels(ticker.locate(101325.0, 101400.0)))
+        ticker = pilot.RPlotTicker(5)
+        self.assertEqual(['1234.0', '1234.1', '1234.2', '1234.3', '1234.4',
+                          '1234.5'],
+                         ticker.labels(ticker.locate(1234.0, 1234.5)))
+        self.assertEqual(['1.9103', '1.9104'],
+                         ticker.decade_labels([0.2811, 0.28112]))
+
+    def test_an_axis_keeps_one_notation(self):
+        # Plain and exponent forms side by side make neighbouring labels
+        # hard to compare, so the largest tick picks the form for all.
+        ticker = pilot.RPlotTicker(5)
+        self.assertEqual(['0', '5.0e+04', '1.0e+05', '1.5e+05'],
+                         ticker.labels(ticker.locate(0.0, 1.5e5)))
+        self.assertEqual(['1.0e-04', '1.2e-04', '1.4e-04', '1.6e-04',
+                          '1.8e-04', '2.0e-04'],
+                         ticker.labels(ticker.locate(1e-4, 2e-4)))
+
+    def test_target_count_is_validated(self):
+        # No count is compiled in: plot defaults are to come from a
+        # runtime container, so every caller names its own.
+        with self.assertRaises(TypeError):
+            pilot.RPlotTicker()
+        ticker = pilot.RPlotTicker(2)
+        self.assertEqual(2, ticker.target_count)
+        self.assertEqual([0.0, 5.0, 10.0], ticker.locate(0.0, 10.0))
+        ticker.target_count = 3
+        self.assertEqual(3, ticker.target_count)
+        for value in (0, -1):
+            with self.subTest(value=value):
+                message = ('target count must be at least 1, but it is %d'
+                           % value)
+                with self.assertRaisesRegex(ValueError, re.escape(message)):
+                    ticker.target_count = value
+        self.assertEqual(3, ticker.target_count)
+        with self.assertRaises(ValueError):
+            pilot.RPlotTicker(0)
 
 
 @unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")

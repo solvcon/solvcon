@@ -15,6 +15,7 @@
 #include <solvcon/pilot/plot/PlotLimits2d.hpp>
 #include <solvcon/pilot/plot/RPlotModel.hpp>
 #include <solvcon/pilot/plot/RPlotSeries.hpp>
+#include <solvcon/pilot/plot/RPlotTicker.hpp>
 #include <solvcon/pilot/plot/plot_style.hpp>
 
 #include <cstddef>
@@ -46,6 +47,16 @@ std::size_t checked_index(std::int64_t index, std::size_t count, char const * wh
         throw std::out_of_range(std::format("{}: index {} is out of bounds with {} {}", what, index, noun, count));
     }
     return static_cast<std::size_t>(index);
+}
+
+std::size_t checked_count(std::int64_t count)
+{
+    if (count < 1)
+    {
+        throw std::invalid_argument(
+            std::format("RPlotTicker::set_target_count: target count must be at least 1, but it is {}", count));
+    }
+    return static_cast<std::size_t>(count);
 }
 
 } /* end namespace */
@@ -246,6 +257,66 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRPlotModel
 
 }; /* end class WrapRPlotModel */
 
+class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRPlotTicker
+    : public WrapBase<WrapRPlotTicker, RPlotTicker>
+{
+
+    friend root_base_type;
+
+    WrapRPlotTicker(pybind11::module & mod, char const * pyname, char const * pydoc)
+        : root_base_type(mod, pyname, pydoc)
+    {
+        namespace py = pybind11;
+
+        (*this)
+            .def(
+                py::init(
+                    [](std::int64_t target_count)
+                    { return wrapped_type(checked_count(target_count)); }),
+                py::arg("target_count"))
+            //
+            ;
+
+        (*this)
+            .def_property(
+                "target_count",
+                &wrapped_type::target_count,
+                [](wrapped_type & self, std::int64_t target_count)
+                { self.set_target_count(checked_count(target_count)); })
+            .def(
+                "locate",
+                [](wrapped_type const & self, double lo, double hi)
+                {
+                    RPlotTicker::ticks_type const ticks = self.locate(lo, hi);
+                    return std::vector<double>(ticks.begin(), ticks.end());
+                },
+                py::arg("lo"),
+                py::arg("hi"))
+            .def(
+                "locate_decades",
+                [](wrapped_type const & self, double lo, double hi)
+                {
+                    RPlotTicker::ticks_type const ticks = self.locate_decades(lo, hi);
+                    return std::vector<double>(ticks.begin(), ticks.end());
+                },
+                py::arg("lo"),
+                py::arg("hi"))
+            .def(
+                "labels",
+                [](wrapped_type const & self, std::vector<double> const & ticks)
+                { return self.labels(RPlotTicker::ticks_type(ticks.begin(), ticks.end())); },
+                py::arg("ticks"))
+            .def(
+                "decade_labels",
+                [](wrapped_type const & self, std::vector<double> const & ticks)
+                { return self.decade_labels(RPlotTicker::ticks_type(ticks.begin(), ticks.end())); },
+                py::arg("ticks"))
+            //
+            ;
+    }
+
+}; /* end class WrapRPlotTicker */
+
 void wrap_plot(pybind11::module & mod)
 {
     namespace py = pybind11;
@@ -274,6 +345,10 @@ void wrap_plot(pybind11::module & mod)
         "from, the aggregate data limits, and the view limits that "
         "autoscale derives and view(width, height) maps onto the screen as "
         "a ViewTransform2dFp64.");
+    WrapRPlotTicker::commit(
+        mod,
+        "RPlotTicker",
+        "Round tick positions and concise labels for linear and log plot axes.");
 
     mod.def(
         "plot_color_cycle",

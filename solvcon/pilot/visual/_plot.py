@@ -32,65 +32,6 @@ __all__ = [  # noqa: F822
 ]
 
 
-def _nice_ticks(lo, hi, want=5):
-    """Round tick positions covering ``lo`` to ``hi``, about ``want`` of
-    them.
-
-    The step is the 1, 2, or 5 times a power of ten nearest below the even
-    spacing, which is what keeps tick labels short enough to read.
-    """
-    span = hi - lo
-    if not span > 0 or not math.isfinite(span):
-        return []
-    raw = span / max(1, want)
-    power = 10.0 ** math.floor(math.log10(raw))
-    for mult in (1.0, 2.0, 5.0, 10.0):
-        step = mult * power
-        if raw <= step:
-            break
-    # Count the steps rather than accumulate them: where the span is small
-    # beside the offset, `first + step` rounds back to `first` and never
-    # ends, inside the paint that called it.  The slack keeps a tick that
-    # sits on the end and the clamp keeps rounding from carrying one past
-    # it; zero is snapped off the residue that would print as an exponent.
-    first = math.ceil(lo / step)
-    last = math.floor((hi + 1e-9 * step) / step)
-    return [0.0 if 0 == it else min(max(it * step, lo), hi)
-            for it in range(first, last + 1)]
-
-
-def _decade_ticks(lo, hi):
-    """Powers of ten covering the decades from ``lo`` to ``hi``.
-
-    Both bounds are already logarithms, so the ticks are the integers in
-    between; a range inside one decade still gets its two ends marked.
-    """
-    low, high = math.ceil(lo), math.floor(hi)
-    if high < low:
-        return [lo, hi]
-    return [float(it) for it in range(int(low), int(high) + 1)]
-
-
-def _decade_label(value):
-    """Format a log-axis tick, which is drawn at its exponent.
-
-    A range inside one decade is ticked at its own ends, which are not
-    whole exponents and do not read as powers of ten.
-    """
-    if float(value).is_integer():
-        return f"1e{value:.0f}"
-    return _tick_label(10.0 ** value)
-
-
-def _tick_label(value):
-    """Format a tick to something short enough to sit under an axis."""
-    if 0.0 == value:
-        return "0"
-    if 1e-3 <= abs(value) < 1e5:
-        return f"{value:.4g}"
-    return f"{value:.0e}"
-
-
 class LinePlotWidget(QWidget):
     """Paint one plot model, with axes, ticks, and a legend.
 
@@ -114,6 +55,8 @@ class LinePlotWidget(QWidget):
                  parent=None):
         super().__init__(parent)
         self.model = _pcore.RPlotModel()
+        self._xticker = _pcore.RPlotTicker(5)
+        self._yticker = _pcore.RPlotTicker(4)
         self.log_y = log_y
         self._title = title
         self._xlabel = xlabel
@@ -245,28 +188,31 @@ class LinePlotWidget(QWidget):
                          Qt.AlignLeft | Qt.AlignVCenter, self._ylabel)
 
     def _draw_grid(self, painter, ink, rect, to_screen):
-        xmin, xmax, ymin, ymax = self._limits
+        limits = self._limits
         faint = QColor(ink)
         faint.setAlpha(48)
         metrics = self.fontMetrics()
-        for value in _nice_ticks(xmin, xmax):
-            at = to_screen(value, ymin).x()
+        xticks = self._xticker.locate(limits.xmin, limits.xmax)
+        for value, text in zip(xticks, self._xticker.labels(xticks)):
+            at = to_screen(value, limits.ymin).x()
             painter.setPen(QPen(faint))
             painter.drawLine(at, rect.top(), at, rect.bottom())
             painter.setPen(QPen(ink))
             painter.drawText(
                 QRect(round(at) - 40, rect.bottom() + 2, 80,
                       metrics.height()),
-                Qt.AlignCenter, _tick_label(value))
-        ticks = (_decade_ticks(ymin, ymax) if self.log_y
-                 else _nice_ticks(ymin, ymax, want=4))
-        for value in ticks:
-            at = to_screen(xmin, value).y()
+                Qt.AlignCenter, text)
+        if self.log_y:
+            ticks = self._yticker.locate_decades(limits.ymin, limits.ymax)
+            texts = self._yticker.decade_labels(ticks)
+        else:
+            ticks = self._yticker.locate(limits.ymin, limits.ymax)
+            texts = self._yticker.labels(ticks)
+        for value, text in zip(ticks, texts):
+            at = to_screen(limits.xmin, value).y()
             painter.setPen(QPen(faint))
             painter.drawLine(rect.left(), at, rect.right(), at)
             painter.setPen(QPen(ink))
-            text = (_decade_label(value) if self.log_y
-                    else _tick_label(value))
             painter.drawText(
                 QRect(0, round(at) - metrics.height() // 2,
                       self.MARGINS[0] - 4, metrics.height()),
