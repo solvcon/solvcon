@@ -4,8 +4,9 @@
 """
 Run pytest in parallel jobs.
 
-Pytest doesn't support running tests in parallel natively (need pytest-xdist plugin).
-This script provides a simple way to run pytest tests in parallel without requiring additional plugins.
+Pytest doesn't support running tests in parallel natively (need
+pytest-xdist plugin). This script provides a simple way to run pytest tests
+in parallel without requiring additional plugins.
 
 Job i of N runs every N-th collected test, starting from the i-th.
 
