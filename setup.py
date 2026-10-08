@@ -70,6 +70,7 @@ def main():
             'solvcon.agent.draw',
             'solvcon.agent.window',
             'solvcon.benchmark',
+            'solvcon.mesh',
             'solvcon.multidim',
             'solvcon.multidim.euler',
             'solvcon.onedim',
