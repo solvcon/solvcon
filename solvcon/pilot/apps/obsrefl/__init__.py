@@ -17,7 +17,7 @@ without the GUI that rides behind the pilot toggle.
 
 from ... import _pilot_core as _pcore
 from ._analytic import Reflection
-from ._driver import ObliqueShock, ObliqueShockMesher, ObliqueShockRelation
+from ._driver import ObliqueShock, ObliqueShockRelation
 from ._session import ReflectionSession
 
 if _pcore.enable:
@@ -35,7 +35,6 @@ __all__ = [
     'ObliqueShock',
     'ObliqueShockApp',
     'ObliqueShockMesh',
-    'ObliqueShockMesher',
     'ObliqueShockRelation',
     'Reflection',
     'ReflectionSession',
