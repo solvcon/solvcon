@@ -172,7 +172,7 @@ class FreeStreamBox(FoldBox):
         form.addRow("density", self._density)
         form.addRow("pressure", self._pressure)
         form.addRow("Mach", self._mach)
-        form.addRow("shock angle", self._angle)
+        form.addRow("deflection angle", self._angle)
         self.set_content_layout(form)
 
     def params(self):
