@@ -78,6 +78,16 @@ public:
     void setSelectedShape(int32_t shape_id);
 
     /**
+     * Id of the path shown in node-edit mode with its nodes and handles, or
+     * -1 when the mode is off. Double-click or Enter on a path enters it; Esc
+     * or a click outside the path leaves it.
+     */
+    int32_t editingShape() const;
+
+    /// Enter node-edit mode on a live path, or leave it with a negative id. Other ids are ignored.
+    void setEditingShape(int32_t shape_id);
+
+    /**
      * Screen position [x, y] of the selection's rotate handle, or [-1, -1]
      * when nothing is selected. Exposed for tests and tooling.
      */
@@ -157,6 +167,8 @@ protected:
     void mousePressEvent(QMouseEvent * event) override;
     void mouseMoveEvent(QMouseEvent * event) override;
     void mouseReleaseEvent(QMouseEvent * event) override;
+    void mouseDoubleClickEvent(QMouseEvent * event) override;
+    void keyPressEvent(QKeyEvent * event) override;
     void resizeEvent(QResizeEvent * event) override;
 
 private:
@@ -174,6 +186,15 @@ private:
      * no-op unless the select tool has a live shape selected.
      */
     void paintSelection(QPainter & painter) const;
+
+    /**
+     * Paint the node-edit path's handle lines, handle knobs, and node markers;
+     * a no-op unless node-edit mode is on.
+     */
+    void paintNodeEdit(QPainter & painter) const;
+
+    /// True when `shape_id` is a live path that node-edit mode can show.
+    bool isEditable(int32_t shape_id) const;
 
     /**
      * Pick the shape under a screen point, or -1. Uses a pixel-sized world
@@ -240,6 +261,7 @@ private:
     double m_draw_current_y = 0.0;
 
     int32_t m_selected = -1; ///< Select-tool selected shape id, or -1.
+    int32_t m_editing = -1; ///< Path shown in node-edit mode, or -1.
     EditDrag m_drag = EditDrag::None; ///< Active select-tool left-drag gesture.
     double m_move_last_x = 0.0; ///< Previous pointer, world coordinates (Move).
     double m_move_last_y = 0.0;
