@@ -50,12 +50,23 @@ def _send_mouse(widget, kind, x, y):
                  QtCore.Qt.NoButton, QtCore.Qt.LeftButton),
         'release': (QtCore.QEvent.Type.MouseButtonRelease,
                     QtCore.Qt.LeftButton, QtCore.Qt.NoButton),
+        'dblclick': (QtCore.QEvent.Type.MouseButtonDblClick,
+                     QtCore.Qt.LeftButton, QtCore.Qt.LeftButton),
     }
     etype, button, buttons = kinds[kind]
     pos = QtCore.QPointF(x, y)
     glob = widget.mapToGlobal(pos.toPoint())
     event = QtGui.QMouseEvent(etype, pos, QtCore.QPointF(glob), button,
                               buttons, QtCore.Qt.NoModifier)
+    QtWidgets.QApplication.sendEvent(widget, event)
+
+
+def _send_key(widget, key):
+    """Post a synthetic key press of ``key`` to ``widget``.
+    """
+    from PySide6 import QtCore, QtGui, QtWidgets
+    event = QtGui.QKeyEvent(QtCore.QEvent.Type.KeyPress, key,
+                            QtCore.Qt.NoModifier)
     QtWidgets.QApplication.sendEvent(widget, event)
 
 
@@ -138,6 +149,140 @@ class R2DWidgetSelectToolTC(unittest.TestCase):
         # Switching tools drops the selection.
         self.widget.setDrawTool("circle")
         self.assertEqual(self.widget.selectedShape, -1)
+
+
+@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
+                 "live-GUI interaction needs a real window surface")
+class R2DWidgetNodeEditTC(unittest.TestCase):
+    """Enter and leave node-edit mode on a path, and see its handles."""
+
+    # Screen points under the view below (pan 100, 100; zoom 20): on the
+    # path's bottom segment, inside the rectangle, on empty space, and at the
+    # curve's first control point (2, 3).
+    ON_PATH = (120, 100)
+    ON_RECT = (240, 90)
+    EMPTY = (300, 100)
+    HANDLE = (140, 40)
+
+    @classmethod
+    def setUpClass(cls):
+        cls.mgr = pilot.RManager.instance.setUp()
+
+    def setUp(self):
+        from PySide6 import QtWidgets
+        self.widget = self.mgr.add2DWidget()
+        self.widget.setDrawTool("select")
+        self.world = solvcon.WorldFp64()
+        p = solvcon.Point3dFp64
+        spad = solvcon.SegmentPadFp64(ndim=2)
+        spad.append(solvcon.Segment3dFp64(p(0, 0, 0), p(2, 0, 0)))
+        spad.append(solvcon.Segment3dFp64(p(2, 0, 0), p(2, 1, 0)))
+        cpad = solvcon.CurvePadFp64(ndim=2)
+        cpad.append(p0=p(2, 1, 0), p1=p(2, 3, 0), p2=p(0, 3, 0),
+                    p3=p(0, 0, 0))
+        self.path = self.world.add_path(segments=spad, curves=cpad)
+        self.rect = self.world.add_rectangle(6, 0, 8, 1)
+        self.widget.updateWorld(self.world)
+        v = solvcon.ViewTransform2dFp64()
+        v.pan(100.0, 100.0)
+        v.zoom = 20.0
+        self.widget.setViewTransform(v)
+        self.mgr.show()
+        self.sub = self.mgr.mdiArea.subWindowList()[-1]
+        self.sub.show()
+        self.mgr.mdiArea.setActiveSubWindow(self.sub)
+        self.target = self.sub.widget()
+        QtWidgets.QApplication.processEvents()
+
+    def _double_click(self, x, y):
+        # Qt delivers the second press of a double-click as the double-click
+        # event itself.
+        for kind in ('press', 'release', 'dblclick', 'release'):
+            _send_mouse(self.target, kind, x, y)
+
+    def _click(self, x, y):
+        _send_mouse(self.target, 'press', x, y)
+        _send_mouse(self.target, 'release', x, y)
+
+    def _shows_selection_color_at(self, x, y):
+        from PySide6.QtGui import QColor
+        image = self.target.grab().toImage()
+        dpr = image.devicePixelRatio()
+        got = image.pixelColor(round(x * dpr), round(y * dpr))
+        return got == QColor(*self.widget.canvasPalette["selection"])
+
+    def test_double_click_enters_only_on_a_path(self):
+        self._double_click(*self.ON_RECT)
+        self.assertEqual(self.widget.editingShape, -1)
+        self._double_click(*self.ON_PATH)
+        self.assertEqual(self.widget.editingShape, self.path)
+        self.assertEqual(self.widget.selectedShape, self.path)
+
+    def test_enter_key_enters_only_on_a_selected_path(self):
+        from PySide6 import QtCore
+        self._click(*self.ON_RECT)
+        _send_key(self.target, QtCore.Qt.Key_Return)
+        self.assertEqual(self.widget.editingShape, -1)
+        self._click(*self.ON_PATH)
+        _send_key(self.target, QtCore.Qt.Key_Return)
+        self.assertEqual(self.widget.editingShape, self.path)
+
+    def test_escape_leaves(self):
+        from PySide6 import QtCore
+        self.widget.editingShape = self.path
+        _send_key(self.target, QtCore.Qt.Key_Escape)
+        self.assertEqual(self.widget.editingShape, -1)
+        # Leaving the mode keeps the path selected.
+        self.assertEqual(self.widget.selectedShape, self.path)
+
+    def test_click_outside_the_path_leaves(self):
+        self.widget.editingShape = self.path
+        self._click(*self.EMPTY)
+        self.assertEqual(self.widget.editingShape, -1)
+        self.assertEqual(self.widget.selectedShape, -1)
+
+        # A click on another shape leaves the mode and selects that shape.
+        self.widget.editingShape = self.path
+        self._click(*self.ON_RECT)
+        self.assertEqual(self.widget.editingShape, -1)
+        self.assertEqual(self.widget.selectedShape, self.rect)
+
+    def test_dragging_the_path_in_the_mode_does_not_move_it(self):
+        self.widget.editingShape = self.path
+        x0 = self.world.segment(0).x0
+        _send_mouse(self.target, 'press', *self.ON_PATH)
+        _send_mouse(self.target, 'move', self.ON_PATH[0] + 40,
+                    self.ON_PATH[1])
+        _send_mouse(self.target, 'release', self.ON_PATH[0] + 40,
+                    self.ON_PATH[1])
+        self.assertAlmostEqual(self.world.segment(0).x0, x0)
+        self.assertEqual(self.widget.editingShape, self.path)
+
+    def test_only_a_live_path_can_enter(self):
+        self.widget.editingShape = self.rect
+        self.assertEqual(self.widget.editingShape, -1)
+        self.widget.setDrawTool("circle")
+        self.widget.editingShape = self.path
+        self.assertEqual(self.widget.editingShape, -1)
+
+    def test_the_mode_ends_with_its_tool_world_or_path(self):
+        self.widget.editingShape = self.path
+        self.widget.setDrawTool("circle")
+        self.assertEqual(self.widget.editingShape, -1)
+
+        self.widget.setDrawTool("select")
+        self.widget.editingShape = self.path
+        self.widget.updateWorld(self.world)
+        self.assertEqual(self.widget.editingShape, -1)
+
+        self.widget.editingShape = self.path
+        self.world.remove_shape(self.path)
+        self.assertEqual(self.widget.editingShape, -1)
+
+    def test_the_handles_are_drawn_only_in_the_mode(self):
+        self.assertFalse(self._shows_selection_color_at(*self.HANDLE))
+        self.widget.editingShape = self.path
+        self.assertTrue(self._shows_selection_color_at(*self.HANDLE))
 
 
 @unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,

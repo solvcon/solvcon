@@ -693,6 +693,10 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapR2DWidget
                 "selectedShape",
                 &wrapped_type::selectedShape,
                 &wrapped_type::setSelectedShape)
+            .def_property(
+                "editingShape",
+                &wrapped_type::editingShape,
+                &wrapped_type::setEditingShape)
             .def_property_readonly(
                 "rotateHandleScreen",
                 [](wrapped_type & self)

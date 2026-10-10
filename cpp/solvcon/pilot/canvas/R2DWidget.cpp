@@ -13,11 +13,14 @@
 
 #include <QColor>
 #include <QImage>
+#include <QKeyEvent>
+#include <QList>
 #include <QMouseEvent>
 #include <QPaintEvent>
 #include <QPainter>
 #include <QPen>
 #include <QPolygonF>
+#include <QRectF>
 #include <QResizeEvent>
 #include <QString>
 #include <QSvgGenerator>
@@ -49,6 +52,13 @@ constexpr double PICK_TOLERANCE_PX = 5.0;
 constexpr double ROTATE_HANDLE_GAP_PX = 16.0;
 constexpr double ROTATE_HANDLE_RADIUS_PX = 5.0;
 constexpr double ROTATE_HANDLE_HIT_PX = 9.0;
+
+// Node-edit marker sizes in cosmetic screen pixels: the half-width of a node
+// square, the radius of a handle knob, and the distance within which two
+// nodes share one marker.
+constexpr double NODE_MARKER_HALF_PX = 3.5;
+constexpr double HANDLE_KNOB_RADIUS_PX = 3.0;
+constexpr double NODE_MERGE_PX = 0.5;
 
 double clamp_zoom(double zoom)
 {
@@ -119,6 +129,7 @@ void R2DWidget::setDrawTool(std::string const & name)
     finishEdit();
     m_drawing = false;
     m_selected = -1;
+    m_editing = -1;
     m_drag = EditDrag::None;
     // A crosshair signals draw mode; the select tool keeps the default arrow.
     if (m_tool->can_draw_shape())
@@ -157,7 +168,38 @@ void R2DWidget::setSelectedShape(int32_t shape_id)
     endEditDrag();
 
     m_selected = shape_id;
+    m_editing = -1;
     update();
+}
+
+int32_t R2DWidget::editingShape() const
+{
+    // An undo can delete the path while m_editing still holds its id,
+    // so check it is still a live path.
+    return isEditable(m_editing) ? m_editing : -1;
+}
+
+void R2DWidget::setEditingShape(int32_t shape_id)
+{
+    if (shape_id < 0)
+    {
+        m_editing = -1;
+        update();
+        return;
+    }
+    if (m_tool->can_draw_shape() || !isEditable(shape_id))
+    {
+        return;
+    }
+    endEditDrag();
+    m_selected = shape_id;
+    m_editing = shape_id;
+    update();
+}
+
+bool R2DWidget::isEditable(int32_t shape_id) const
+{
+    return shape_id >= 0 && m_world && m_world->shape_is_live(shape_id) && m_world->shape_type_of(shape_id) == ShapeType::PATH;
 }
 
 void R2DWidget::updateWorld(std::shared_ptr<WorldFp64> const & world)
@@ -168,6 +210,7 @@ void R2DWidget::updateWorld(std::shared_ptr<WorldFp64> const & world)
     // A new world invalidates any shape id we held selected or highlighted;
     // the display toggles persist so the overlay mode carries across worlds.
     m_selected = -1;
+    m_editing = -1;
     m_overlay.highlight_id = -1;
     m_drag = EditDrag::None;
     update();
@@ -206,6 +249,9 @@ void R2DWidget::paintEvent(QPaintEvent * /*event*/)
 
     // Selection box and rotate handle for the select tool, if any.
     paintSelection(painter);
+
+    // Nodes and handles of the path in node-edit mode, if any.
+    paintNodeEdit(painter);
 }
 
 QImage R2DWidget::renderImage(Overlay2dOptions const & overlay) const
@@ -268,7 +314,7 @@ void R2DWidget::paintDrawPreview(QPainter & painter) const
 
 void R2DWidget::paintSelection(QPainter & painter) const
 {
-    if (m_tool->can_draw_shape() || m_selected < 0 || !m_world || !m_world->shape_is_live(m_selected))
+    if (m_tool->can_draw_shape() || m_selected < 0 || !m_world || !m_world->shape_is_live(m_selected) || editingShape() >= 0)
     {
         return;
     }
@@ -301,6 +347,75 @@ void R2DWidget::paintSelection(QPainter & painter) const
     painter.drawLine(box.front(), handle);
     painter.setBrush(selection);
     painter.drawEllipse(handle, ROTATE_HANDLE_RADIUS_PX, ROTATE_HANDLE_RADIUS_PX);
+}
+
+void R2DWidget::paintNodeEdit(QPainter & painter) const
+{
+    int32_t const sid = editingShape();
+    if (sid < 0)
+    {
+        return;
+    }
+    auto to_screen = [this](auto const & p)
+    {
+        double sx = 0.0, sy = 0.0;
+        m_view.screen_from_world(p.x(), p.y(), sx, sy);
+        return QPointF(sx, sy);
+    };
+
+    // The path keeps no order between its segments and curves, so the nodes
+    // are the piece endpoints, with the ends that two pieces share drawn once.
+    QList<QPointF> nodes;
+    auto add_node = [&nodes](QPointF const & p)
+    {
+        for (QPointF const & n : nodes)
+        {
+            if (std::hypot(n.x() - p.x(), n.y() - p.y()) <= NODE_MERGE_PX)
+            {
+                return;
+            }
+        }
+        nodes.push_back(p);
+    };
+
+    QColor const selection = qcolor(m_palette.selection);
+    QPen pen(selection);
+    pen.setCosmetic(true);
+    pen.setWidthF(1.0);
+    painter.setPen(pen);
+
+    // Handle lines run from each curve end to its control point.
+    size_t const ncurve = m_world->shape_curve_count(sid);
+    for (size_t i = 0; i < ncurve; ++i)
+    {
+        auto const c = m_world->shape_curve(sid, static_cast<uint32_t>(i));
+        QPointF const p0 = to_screen(c.p0()), p1 = to_screen(c.p1());
+        QPointF const p2 = to_screen(c.p2()), p3 = to_screen(c.p3());
+        painter.setBrush(Qt::NoBrush);
+        painter.drawLine(p0, p1);
+        painter.drawLine(p3, p2);
+        painter.setBrush(selection);
+        painter.drawEllipse(p1, HANDLE_KNOB_RADIUS_PX, HANDLE_KNOB_RADIUS_PX);
+        painter.drawEllipse(p2, HANDLE_KNOB_RADIUS_PX, HANDLE_KNOB_RADIUS_PX);
+        add_node(p0);
+        add_node(p3);
+    }
+
+    size_t const nsegment = m_world->shape_segment_count(sid);
+    for (size_t i = 0; i < nsegment; ++i)
+    {
+        auto const s = m_world->shape_segment(sid, static_cast<uint32_t>(i));
+        add_node(to_screen(s.p0()));
+        add_node(to_screen(s.p1()));
+    }
+
+    // Hollow squares over the handles, filled with the backdrop so a handle
+    // line ending at a node does not show through.
+    painter.setBrush(qcolor(m_palette.background));
+    for (QPointF const & n : nodes)
+    {
+        painter.drawRect(QRectF(n.x() - NODE_MARKER_HALF_PX, n.y() - NODE_MARKER_HALF_PX, 2.0 * NODE_MARKER_HALF_PX, 2.0 * NODE_MARKER_HALF_PX));
+    }
 }
 
 int32_t R2DWidget::pickShapeAt(QPointF const & screen_pos) const
@@ -351,7 +466,8 @@ R2DWidget::coord2_type R2DWidget::rotateHandleScreen() const
 
 bool R2DWidget::isOnRotateHandle(QPointF const & screen_pos) const
 {
-    if (m_selected < 0 || !m_world || !m_world->shape_is_live(m_selected))
+    // Node-edit mode hides the rotate knob, so nothing answers for it.
+    if (m_selected < 0 || !m_world || !m_world->shape_is_live(m_selected) || editingShape() >= 0)
     {
         return false;
     }
@@ -410,6 +526,17 @@ void R2DWidget::mousePressEvent(QMouseEvent * event)
             m_drawing = true;
             event->accept();
             return;
+        }
+        // A press on the node-edit path keeps the mode and leaves the path in
+        // place; a press anywhere else leaves the mode and goes on as usual.
+        if (editingShape() >= 0)
+        {
+            if (pickShapeAt(pos) == m_editing)
+            {
+                event->accept();
+                return;
+            }
+            m_editing = -1;
         }
         // Select tool: rotate the selection, move a picked shape, or fall
         // back to panning the view on empty space.
@@ -532,6 +659,39 @@ void R2DWidget::mouseReleaseEvent(QMouseEvent * event)
         return;
     }
     QWidget::mouseReleaseEvent(event);
+}
+
+void R2DWidget::mouseDoubleClickEvent(QMouseEvent * event)
+{
+    if (event->button() == Qt::LeftButton && !m_tool->can_draw_shape())
+    {
+        int32_t const hit = pickShapeAt(event->position());
+        if (isEditable(hit))
+        {
+            setEditingShape(hit);
+            event->accept();
+            return;
+        }
+    }
+    QWidget::mouseDoubleClickEvent(event);
+}
+
+void R2DWidget::keyPressEvent(QKeyEvent * event)
+{
+    int const key = event->key();
+    if ((key == Qt::Key_Return || key == Qt::Key_Enter) && !m_tool->can_draw_shape() && isEditable(m_selected))
+    {
+        setEditingShape(m_selected);
+        event->accept();
+        return;
+    }
+    if (key == Qt::Key_Escape && editingShape() >= 0)
+    {
+        setEditingShape(-1);
+        event->accept();
+        return;
+    }
+    QWidget::keyPressEvent(event);
 }
 
 void R2DWidget::resizeEvent(QResizeEvent * event)
