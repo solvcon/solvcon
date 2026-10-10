@@ -519,6 +519,12 @@ public:
         return m_curves->get(rec.curve_offset + i);
     }
 
+    /// Number of straight segments owned by a live shape.
+    size_t shape_segment_count(int32_t shape_id) const { return find_shape_or_throw(shape_id).segment_count; }
+
+    /// Number of cubic Beziers owned by a live shape.
+    size_t shape_curve_count(int32_t shape_id) const { return find_shape_or_throw(shape_id).curve_count; }
+
     /**
      * One ring of a live shape (0-based within the shape), with vertices
      * reconstructed from the segment pad in input order (no repeated
