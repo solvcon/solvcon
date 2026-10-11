@@ -319,6 +319,11 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArrayPlex : public WrapBase<Wr
                  [](wrapped_type const & self)
                  { return wrapped_type(self); }) // cloning the object using the copy constructor. never add the clone method to the C++ class.
             .def_property_readonly("typed", &get_typed_array)
+            .def("tolist",
+                 [](wrapped_type & self)
+                 { return execute_callback_with_typed_array(
+                       self, [](auto & array)
+                       { return to_ndarray(array).attr("tolist")(); }); })
             .def_buffer(
                 [](wrapped_type & self)
                 {

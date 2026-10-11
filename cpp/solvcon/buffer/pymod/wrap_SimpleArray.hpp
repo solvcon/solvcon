@@ -109,6 +109,9 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArray
                 "ndarray",
                 [](wrapped_type & self)
                 { return to_ndarray(self); })
+            .def("tolist",
+                 [](wrapped_type & self)
+                 { return to_ndarray(self).attr("tolist")(); })
             .def_property_readonly(
                 "is_from_python",
                 [](wrapped_type const & self)
@@ -890,6 +893,9 @@ WrapSimpleCollector<T>::WrapSimpleCollector(pybind11::module & mod, char const *
             [](wrapped_type & self, value_type value)
             { self.push_back(value); })
         .def_timed("as_array", &wrapped_type::as_array)
+        .def("tolist",
+             [](wrapped_type & self)
+             { return to_ndarray(self.as_array()).attr("tolist")(); })
         //
         ;
 }
