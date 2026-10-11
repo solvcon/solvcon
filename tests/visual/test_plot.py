@@ -127,6 +127,16 @@ class LinePlotWidgetTC(unittest.TestCase):
         self.assertEqual([1.0, 4.0], [x for x, _ in drawn])
         self.assertTrue(all(math.isfinite(y) for _, y in drawn))
 
+    def test_a_colored_series_leaves_the_cycle_alone(self):
+        widget = _plot.LinePlotWidget()
+        gray = pilot.PlotColor(128, 128, 128, 255)
+        fixed = widget.add_series("fixed", color=gray)
+        plain = widget.add_series("plain")
+        self.assertEqual(gray, fixed.color)
+        self.assertEqual(pilot.plot_cycle_color(0), plain.color)
+        self.assertEqual(pilot.plot_cycle_color(1),
+                         widget.add_series("next").color)
+
     def test_the_curve_is_painted_between_the_axes(self):
         # The widget draws rather than lays out, so only rendering says
         # whether it works.  A rising line has to leave ink off the
