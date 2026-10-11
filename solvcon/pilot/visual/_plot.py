@@ -18,15 +18,21 @@ logarithmic.
 The mouse navigates the view the model holds.  The wheel zooms about the
 cursor and a left drag pans, both axes over the frame and one axis over its
 tick labels.  A double-click returns to following the data.
+
+The plot saves itself as an image, from :meth:`LinePlotWidget.save_image`
+or the "Save image..." entry of its context menu, so a curve can leave the
+pilot for a report.
 """
 
 import math
+import os
 
 import numpy as np
 
 from PySide6.QtCore import Qt, QRect, QPointF
 from PySide6.QtGui import QPainter, QPen, QColor, QPolygonF
-from PySide6.QtWidgets import QWidget, QSizePolicy
+from PySide6.QtWidgets import (QWidget, QSizePolicy, QMenu, QFileDialog,
+                               QMessageBox)
 
 from ... import core
 from .. import _pilot_core as _pcore
@@ -60,6 +66,8 @@ class LinePlotWidget(QWidget):
     #: Wheel zoom per degree of rotation, as on the 2D canvas: one full
     #: revolution doubles the zoom.
     ZOOM_STEP_PER_DEGREE = 1.0 / 360.0
+    #: Formats the save dialog offers; the suffix of the path picks one.
+    IMAGE_FILTERS = "PNG image (*.png);;JPEG image (*.jpg *.jpeg)"
 
     def __init__(self, title="", xlabel="", ylabel="", log_y=False,
                  parent=None):
@@ -109,6 +117,38 @@ class LinePlotWidget(QWidget):
     def _view_model(self):
         """The model holding the view in the space that is drawn."""
         return self._log_model if self.log_y else self.model
+
+    def save_image(self, path):
+        """Write the plot, axes and legend included, to ``path``.
+
+        The suffix of ``path`` picks the format.  The image is grabbed at
+        the pixel count of the screen, so a high-DPI display saves more
+        pixels than the window's size in points.
+        """
+        if not self.grab().save(path):
+            raise OSError(f"cannot save the plot image to {path!r}")
+
+    def _context_menu(self):
+        menu = QMenu(self)
+        menu.addAction("Save image...", self._ask_save_image)
+        return menu
+
+    def contextMenuEvent(self, event):
+        self._context_menu().exec(event.globalPos())
+
+    def _ask_save_image(self):
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Save plot image", "lineplot.png", self.IMAGE_FILTERS)
+        if not path:
+            return
+        # A native dialog may hand back a name without a suffix, which
+        # names no format to write.
+        if not os.path.splitext(path)[1]:
+            path += ".png"
+        try:
+            self.save_image(path)
+        except OSError as exc:
+            QMessageBox.warning(self, "Save plot image", str(exc))
 
     def limits(self):
         """The drawn limits as a ``PlotLimits2d``, or None while there
