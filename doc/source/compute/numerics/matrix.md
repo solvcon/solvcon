@@ -73,9 +73,20 @@ m.pow(-1)
 # got -1
 ```
 
-`hermitian()` returns the conjugate transpose as a copy of a two-dimensional
-array, equal to `narr.conj().T`; on the non-complex classes it is the
-transpose copy. `symmetrize()` averages a square matrix with its (conjugate)
+`conjugate()` returns an independent copy equal to `narr.conj()` at any
+rank. For non-complex arrays, the values remain unchanged.
+
+`hermitian()` returns an independent copy equal to `narr.conj().T`.
+It requires a two-dimensional array; other ranks raise `RuntimeError`.
+
+```python
+narr = np.array([[1 + 2j, 3 + 4j, 5 + 6j]])[:, ::2]
+a = solvcon.SimpleArrayComplex128(array=narr)
+assert np.array_equal(a.conjugate().ndarray, narr.conj())
+assert np.array_equal(a.hermitian().ndarray, narr.conj().T)
+```
+
+`symmetrize()` averages a square matrix with its (conjugate)
 transpose. `trace()` sums the diagonal of a square matrix into a scalar;
 numpy's `trace` also accepts non-square input, which these methods reject. A
 wrong rank or a non-square shape raises `RuntimeError` naming the requirement:
@@ -91,8 +102,11 @@ solvcon.SimpleArrayFloat64((3, 4), value=0.0).symmetrize()
 
 The bindings register the whole matrix family on every typed class. The tests
 exercise `matmul`, `pow`, `eye`, and `scaled_eye` on the floating-point
-classes, `hermitian` and `symmetrize` on `complex128`, and `trace` on one
-class from each of the floating-point, integer, and complex groups; the other
-class-operation combinations follow the same kernels but are unverified.
+classes, `symmetrize` on `complex128`, and `trace` on one class from each of
+the floating-point, integer, and complex groups. `conjugate` is tested on
+contiguous arrays of all 14 typed classes; additional layouts and ranks use
+`float64` and `complex128`. `hermitian` view tests use `float64` and
+`complex128`; rank errors use `float64`. Other class-operation combinations
+follow the same kernels but are unverified.
 
 <!-- vim: set ft=markdown ff=unix fenc=utf8 et sw=2 ts=2 sts=2 tw=79: -->

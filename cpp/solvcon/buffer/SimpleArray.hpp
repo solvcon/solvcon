@@ -225,6 +225,13 @@ std::string format_shape(shape_type const & shape);
 std::string format_flat_index(shape_type const & shape, ssize_t offset);
 
 /**
+ * Copy source values into an already allocated destination of the same shape.
+ * Include ghost cells. Source and destination storage must not overlap.
+ */
+template <typename T>
+void copy_logical_into(SimpleArray<T> const & source, SimpleArray<T> & destination);
+
+/**
  * Reject an array that is not one-dimensional. `op` names the calling
  * operation and `what` the role the array plays in it, both for the message.
  * A caller outside `SimpleArray` overrides `scope` to name its own namespace
@@ -260,6 +267,7 @@ public:
     using value_type = typename internal_types::value_type;
 
     A & fill(value_type const & value);
+    A conjugate() const;
 
 }; /* end class SimpleArrayMixinModifiers */
 
@@ -285,6 +293,27 @@ A & SimpleArrayMixinModifiers<A, T>::fill(value_type const & value)
         athis->logical_data()[cursor.offset(size_t{0})] = value;
     }
     return *athis;
+}
+
+template <typename A, typename T>
+A SimpleArrayMixinModifiers<A, T>::conjugate() const
+{
+    auto const * athis = static_cast<A const *>(this);
+    if (athis->logical_data() == nullptr)
+    {
+        return A(athis->shape());
+    }
+
+    A result(athis->shape(), A::calc_stride(athis->shape()), ConcreteBuffer::construct(athis->nbytes()));
+    detail::copy_logical_into(*athis, result);
+    if constexpr (is_complex_v<value_type>)
+    {
+        for (value_type & value : result.as_span())
+        {
+            value = value.conj();
+        }
+    }
+    return result;
 }
 
 // SimpleArray<bool> reaches these mixins like any other value type, and the
@@ -1726,21 +1755,7 @@ public:
         return result;
     }
 
-    A hermitian() const
-    {
-        auto athis = static_cast<A const *>(this);
-        validate_2d("hermitian");
-        A result = *athis;
-        result.transpose();
-        if constexpr (is_complex_v<value_type>)
-        {
-            for (auto ptr = result.begin(); ptr != result.end(); ++ptr)
-            {
-                *ptr = ptr->conj();
-            }
-        }
-        return result;
-    }
+    A hermitian() const;
 
     A symmetrize() const
     {
@@ -1826,6 +1841,16 @@ private:
     }
 
 }; /* end class SimpleArrayMixinMatrix */
+
+template <typename A, typename T>
+A SimpleArrayMixinMatrix<A, T>::hermitian() const
+{
+    auto const * athis = static_cast<A const *>(this);
+    validate_2d("hermitian");
+    A result = athis->conjugate();
+    result.transpose();
+    return result;
+}
 
 /**
  * Compute the matrix power A^n for a square SimpleArray and a non-negative
@@ -2349,8 +2374,8 @@ public:
         {
             return SimpleArray<U>(shape, m_buffer, offset);
         }
-        SimpleArray row_major(m_shape);
-        copy_logical_into(row_major);
+        SimpleArray row_major(m_shape, calc_stride(m_shape), buffer_type::construct(nbytes()));
+        detail::copy_logical_into(*this, row_major);
         return SimpleArray<U>(shape, row_major.m_buffer);
     }
 
@@ -2433,7 +2458,6 @@ public:
 private:
     size_t logical_data_offset() const;
     void update_data_pointers(size_t data_offset = 0);
-    void copy_logical_into(SimpleArray & out) const;
 
     template <size_t N, size_t... I>
     detail::SignedStrideLayout::mapping<std::dextents<ssize_t, N>> make_mdspan_mapping_impl(
@@ -2931,7 +2955,7 @@ SimpleArray<bool> detail::SimpleArrayMixinCalculators<A, T>::ge(value_type scala
  *
  * @details
  *      Non-template helper bundling the family of physical copy kernels that
- *      SimpleArray::copy_logical_into routes to.  Construction binds source
+ *      detail::copy_logical_into routes to.  Construction binds source
  *      and destination ConcreteBuffers together with the layout metadata
  *      (shape, element-unit strides, itemsize); each member function selects a
  *      specific kernel.  Picking the kernel that suits the stride and
@@ -3045,10 +3069,10 @@ void SimpleArray<T>::transpose(shape_type const & axis, bool copy)
     }
     // Deep-copy path: 1. stage a strided view with the permuted shape/stride.
     SimpleArray const view(new_shape, new_stride, m_buffer, logical_data_offset());
-    SimpleArray out(new_shape);
+    SimpleArray out(new_shape, calc_stride(new_shape), buffer_type::construct(nbytes()));
     // 2. Use the same helper to keep the iteration logic the same as the other
     // deep-copy variants.
-    view.copy_logical_into(out);
+    detail::copy_logical_into(view, out);
     swap(out);
 }
 
@@ -3096,7 +3120,7 @@ SimpleArray<T> SimpleArray<T>::to_row_major() const
         return SimpleArray(*this);
     }
     SimpleArray out(m_shape);
-    copy_logical_into(out);
+    detail::copy_logical_into(*this, out);
     return out;
 }
 
@@ -3141,58 +3165,35 @@ SimpleArray<T> SimpleArray<T>::to_column_major() const
     // Create a fresh array, copy, and return.
     auto buf = buffer_type::construct(static_cast<size_t>(nelem) * ITEMSIZE, 0);
     SimpleArray out(m_shape, fstride, buf);
-    copy_logical_into(out);
+    detail::copy_logical_into(*this, out);
     return out;
 }
 
-/**
- * @brief Copy `*this` into `out` element-wise.
- *
- * @details
- *      Heavy-lifting helper to copy data. `out` must share the same shape but
- *      may carry a different stride.  Dispatches the work to one of the
- *      SimpleArrayCopier kernels based on the source/destination layout.
- *
- * @param out Destination array; its shape must match the receiver's.
- */
 template <typename T>
-void SimpleArray<T>::copy_logical_into(SimpleArray & out) const
+void detail::copy_logical_into(SimpleArray<T> const & source, SimpleArray<T> & destination)
 {
-    if (m_shape.empty())
+    if (source.size() == 0 || source.logical_data() == nullptr)
     {
         return;
     }
-    ssize_t total = 1;
-    for (ssize_t const s : m_shape)
-    {
-        total *= s;
-    }
-    if (total == 0)
-    {
-        return;
-    }
-    // Subtract on T* so no reinterpret_cast is needed; ITEMSIZE then maps
-    // the element offset to the byte offset the helper expects.
-    auto const src_body_offset = static_cast<ssize_t>(m_body - m_buffer->template data<value_type>()) * static_cast<ssize_t>(ITEMSIZE);
-    auto const dst_body_offset = static_cast<ssize_t>(out.m_body - out.m_buffer->template data<value_type>()) * static_cast<ssize_t>(ITEMSIZE);
+    constexpr auto ITEMSIZE = static_cast<ssize_t>(SimpleArray<T>::ITEMSIZE);
+    auto const src_offset = (source.logical_data() - source.data()) * ITEMSIZE;
+    auto const dst_offset = (destination.logical_data() - destination.data()) * ITEMSIZE;
     SimpleArrayCopier const copier(
-        *m_buffer,
-        src_body_offset,
-        m_stride,
-        *out.m_buffer,
-        dst_body_offset,
-        out.m_stride,
-        m_shape,
+        source.buffer(),
+        src_offset,
+        source.stride(),
+        destination.buffer(),
+        dst_offset,
+        destination.stride(),
+        source.shape(),
         ITEMSIZE);
-    // Matching-stride fast-path: when source and destination share the same
-    // stride vector and the layout is contiguous, both buffers hold the same
-    // byte pattern and a single memcpy moves every element.
-    if (m_stride == out.m_stride && (is_c_contiguous() || is_f_contiguous()))
+    if (source.stride() == destination.stride() && (source.is_c_contiguous() || source.is_f_contiguous()))
     {
         copier.memcpy();
         return;
     }
-    if (m_shape.size() == 2)
+    if (source.ndim() == 2)
     {
         copier.tiled_2d();
         return;

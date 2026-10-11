@@ -678,6 +678,16 @@ class SimpleArrayBasicTC(unittest.TestCase):
                     result.ndarray.flat[0] = -1
                     np.testing.assert_array_equal(sarr.ndarray, ndarr)
 
+        ndarr = np.array(3.5, dtype='float64')
+        for inplace in (False, True):
+            with self.subTest(shape=(), inplace=inplace):
+                sarr = solvcon.SimpleArrayFloat64(array=ndarr)
+                result = sarr.transpose(axis=(), inplace=inplace, copy=True)
+
+                self.assertEqual(result.shape, ())
+                np.testing.assert_array_equal(result.ndarray, ndarr)
+                self.assertFalse(np.shares_memory(result.ndarray, ndarr))
+
     def test_SimpleArray_transpose_copy(self):
         # Physical (deep-copy) transpose variants.  Cover 1D, 2D, 3D, 4D;
         # square / non-square; C-contiguous / F-contiguous input.
@@ -771,6 +781,27 @@ class SimpleArrayBasicTC(unittest.TestCase):
             self.assertEqual(cm.shape, ndarr.T.shape)
             self.assertTrue(cm.is_f_contiguous)
             values_equal(cm, ndarr.T)
+
+        ndarr = np.arange(60, dtype='float64').reshape((3, 4, 5))
+        for layout, view in (
+            ('contiguous', ndarr[0]),
+            ('fortran', ndarr[0].T),
+            ('stepped', ndarr[0, ::-1, ::2]),
+            ('strided_nd', ndarr[::-1, ::2, ::-2]),
+        ):
+            for method in ('to_row_major', 'to_column_major',
+                           'transpose_copy'):
+                with self.subTest(layout=layout, method=method):
+                    before = view.copy()
+                    sarr = solvcon.SimpleArrayFloat64(array=view)
+                    sarr.nghost = 1
+                    ref = before.T if method == 'transpose_copy' else before
+                    out = getattr(sarr, method)()
+
+                    values_equal(out, ref)
+                    self.assertEqual(sarr.nghost, 1)
+                    out.ndarray[...] = -1
+                    values_equal(sarr, before)
 
     def test_SimpleArray_ghost_1d(self):
 
@@ -5242,6 +5273,50 @@ class SimpleArrayCalculatorsTC(unittest.TestCase):
         ):
             solvcon.SimpleArrayFloat64.scaled_eye(-1, 2.0)
 
+    def test_conjugate(self):
+        for dtype in ('bool', 'int8', 'uint8', 'int16', 'uint16', 'int32',
+                      'uint32', 'int64', 'uint64', 'float16', 'float32',
+                      'float64', 'complex64', 'complex128'):
+            array_type = getattr(solvcon, 'SimpleArray' + dtype.capitalize())
+            data = np.arange(60, dtype='int32').reshape((3, 4, 5))
+            data = (data % 7 - 3).astype(dtype)
+            if dtype.startswith('complex'):
+                data += (data + 1) * 1j
+            original = data.copy()
+            cases = [('contiguous', data, 0)]
+            if dtype in ('float64', 'complex128'):
+                cases += [
+                    ('scalar', data[1:2, 2:3, 3:4].reshape(()), 0),
+                    ('vector', data.reshape(-1)[::-2], 0),
+                    ('fortran', np.asfortranarray(data, dtype=dtype), 0),
+                    ('stepped', data[::2, 1::2, ::-2], 0),
+                    ('permuted', data.transpose(1, 2, 0), 0),
+                    ('broadcast', np.lib.stride_tricks.as_strided(
+                        data, shape=(2, 3, 5),
+                        strides=(0, 0, data.strides[2])), 0),
+                    ('empty', data[:0, :, :], 0),
+                    ('ghost_contiguous', data, 1),
+                    ('ghost_strided', data[::-1, ::2, ::-2], 1),
+                ]
+            for layout, view, nghost in cases:
+                with self.subTest(dtype=dtype, layout=layout):
+                    before = view.copy()
+                    sarr = array_type(array=view)
+                    sarr.nghost = nghost
+                    out = sarr.conjugate()
+
+                    self.assertEqual(out.shape, before.shape)
+                    self.assertEqual(out.ndarray.dtype, before.dtype)
+                    np.testing.assert_array_equal(out.ndarray, before.conj())
+                    self.assertEqual(out.nghost, 0)
+                    self.assertTrue(out.is_c_contiguous)
+                    self.assertEqual(sarr.nghost, nghost)
+                    np.testing.assert_array_equal(view, before)
+
+                    out.ndarray[...] = 0
+                    np.testing.assert_array_equal(view, before)
+            np.testing.assert_array_equal(data, original)
+
     def test_hermitian(self):
         """Test hermitian() method for creating conjugate transpose"""
         ndarr = np.array([[1.0 + 2.0j, 3.0 + 4.0j, 5.0 + 6.0j],
@@ -5252,18 +5327,48 @@ class SimpleArrayCalculatorsTC(unittest.TestCase):
         sarr = solvcon.SimpleArrayComplex128(array=ndarr)
         shermitian = sarr.hermitian()
         ndhermitian = ndarr.conj().T
-        print(shermitian.ndarray)
-        print(ndhermitian)
         self.assertEqual(shermitian.shape, ndhermitian.shape)
         np.testing.assert_equal(shermitian.ndarray, ndhermitian)
 
-        vector = solvcon.SimpleArrayFloat64(5)
-        with self.assertRaisesRegex(
-            RuntimeError,
-            r"SimpleArray::hermitian\(\): operation requires 2D SimpleArray, "
-            r"but got 1D SimpleArray"
-        ):
-            vector.hermitian()
+        message = r"SimpleArray::hermitian\(\): operation requires 2D"
+        for shape in ((), (5,), (2, 3, 4)):
+            with self.subTest(shape=shape):
+                with self.assertRaisesRegex(RuntimeError, message):
+                    solvcon.SimpleArrayFloat64(shape).hermitian()
+
+        for dtype in ('float64', 'complex128'):
+            array_type = getattr(solvcon, 'SimpleArray' + dtype.capitalize())
+            base = np.arange(1, 25, dtype=dtype).reshape((4, 6))
+            if dtype.startswith('complex'):
+                base += (base + 1) * 1j
+            original = base.copy()
+            for layout, view, nghost in (
+                ('stepped', base[::2, 1::2], 0),
+                ('reversed', base[::-1, ::-1], 0),
+                ('transposed', base.T, 0),
+                ('broadcast', np.lib.stride_tricks.as_strided(
+                    base, shape=(2, 3), strides=(0, base.strides[1])), 0),
+                ('overlapping', np.lib.stride_tricks.as_strided(
+                    base, shape=(2, 3),
+                    strides=(base.strides[1], base.strides[1])), 0),
+                ('empty', base[:0, :], 0),
+                ('ghost', base[::-1, ::2], 1),
+            ):
+                with self.subTest(dtype=dtype, layout=layout):
+                    before = view.copy()
+                    sarr = array_type(array=view)
+                    sarr.nghost = nghost
+                    out = sarr.hermitian()
+
+                    np.testing.assert_array_equal(out.ndarray, before.conj().T)
+                    self.assertTrue(out.is_f_contiguous)
+                    self.assertEqual(out.nghost, 0)
+                    self.assertEqual(sarr.nghost, nghost)
+                    np.testing.assert_array_equal(view, before)
+
+                    out.ndarray[...] = 0
+                    np.testing.assert_array_equal(view, before)
+            np.testing.assert_array_equal(base, original)
 
     def test_symmetrize(self):
         """Test symmetrize() method for creating symmetric matrices"""
