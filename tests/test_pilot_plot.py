@@ -9,6 +9,7 @@ The core is pure C++ with no Qt widget, so everything here is exercised
 through the pybind11 surface registered into ``solvcon.pilot``.
 """
 
+import math
 import re
 import unittest
 
@@ -77,6 +78,17 @@ class PilotPlotTC(unittest.TestCase):
         self.assertEqual(_limits(-2.0, 3.0, 1.0, 5.0), limits)
         self.assertEqual('PlotLimits2d(xmin=-2, xmax=3, ymin=1, ymax=5)',
                          repr(limits))
+
+    def test_limits_zoom_about_an_anchor_and_shift(self):
+        limits = _limits(0.0, 4.0, -2.0, 2.0)
+        # A unit factor leaves its axis bit for bit, so one axis zooms
+        # alone.
+        self.assertIsNone(limits.zoom_at(2.0, 1.0, 1.0, 0.0))
+        self.assertEqual(_limits(0.5, 2.5, -2.0, 2.0), limits)
+        limits.zoom_at(1.0, 0.5, 0.0, 2.0)
+        self.assertEqual(_limits(0.5, 2.5, -6.0, 2.0), limits)
+        self.assertIsNone(limits.shift(-0.5, 1.0))
+        self.assertEqual(_limits(0.0, 2.0, -5.0, 3.0), limits)
 
     def test_returned_limits_do_not_mutate_the_plot(self):
         ser = _series([0.0, 1.0], [2.0, 3.0])
@@ -422,6 +434,75 @@ class PilotPlotModelTC(unittest.TestCase):
                 model.set_view_limits(_limits(*bad))
         model.set_view_limits(_limits(-2.0, 2.0, -4.0, 4.0))
         self.assertEqual(_limits(-2.0, 2.0, -4.0, 4.0), model.view_limits())
+
+    def _navigable(self):
+        """A model viewing its data at (0, 8, 0, 4), with no margin."""
+        model = pilot.RPlotModel()
+        model.margin = 0.0
+        model.add_series().set_data(_array([0.0, 8.0]), _array([0.0, 4.0]))
+        model.autoscale()
+        return model
+
+    def test_the_view_follows_the_data_until_it_is_navigated(self):
+        model = self._navigable()
+        self.assertTrue(model.auto_view)
+        model.zoom_view(2.0, 2.0, 0.0, 0.0)
+        self.assertFalse(model.auto_view)
+        model.reset_view()
+        self.assertTrue(model.auto_view)
+        model.pan_view(1.0, 0.0)
+        self.assertFalse(model.auto_view)
+        model.reset_view()
+        model.set_view_limits(_limits(0.0, 1.0, 0.0, 1.0))
+        self.assertFalse(model.auto_view)
+
+    def test_zoom_view_keeps_the_anchor_and_takes_one_axis(self):
+        model = self._navigable()
+        model.zoom_view(2.0, 2.0, 2.0, 1.0)
+        self.assertEqual(_limits(1.0, 5.0, 0.5, 2.5), model.view_limits())
+        # Zoom the abscissa out alone; the ordinate anchor is never read.
+        model.zoom_view(0.5, 1.0, 3.0, 99.0)
+        self.assertEqual(_limits(-1.0, 7.0, 0.5, 2.5), model.view_limits())
+
+    def test_pan_view_moves_by_data_units(self):
+        model = self._navigable()
+        model.pan_view(1.5, -0.5)
+        self.assertEqual(_limits(1.5, 9.5, -0.5, 3.5), model.view_limits())
+
+    def test_reset_view_rescales_to_the_current_data(self):
+        model = self._navigable()
+        model.zoom_view(4.0, 4.0, 1.0, 1.0)
+        model.series(0).set_data(_array([-2.0, 2.0]), _array([0.0, 1.0]))
+        model.reset_view()
+        self.assertEqual(_limits(-2.0, 2.0, 0.0, 1.0), model.view_limits())
+
+    def test_navigation_stops_where_an_axis_would_break(self):
+        model = self._navigable()
+        # Zooming in forever stops while the two limits are still apart,
+        # and the other axis never moves.
+        for _ in range(200):
+            model.zoom_view(2.0, 1.0, 4.0, 2.0)
+        limits = model.view_limits()
+        self.assertLess(limits.xmin, limits.xmax)
+        self.assertLess(limits.xmax - limits.xmin, 1e-9)
+        self.assertEqual((0.0, 4.0), (limits.ymin, limits.ymax))
+        # Zooming or panning out stops before a limit overflows.
+        for _ in range(3):
+            model.zoom_view(1.0, 1e-300, 0.0, 0.0)
+            model.pan_view(0.0, 1e308)
+        self.assertTrue(all(math.isfinite(v) for v in model.view_limits()))
+
+    def test_navigation_rejects_what_it_cannot_apply(self):
+        model = self._navigable()
+        for bad in ((0.0, 1.0, 0.0, 0.0), (1.0, -2.0, 0.0, 0.0),
+                    (float('nan'), 1.0, 0.0, 0.0),
+                    (2.0, 2.0, float('inf'), 0.0)):
+            with self.assertRaises(ValueError):
+                model.zoom_view(*bad)
+        with self.assertRaises(ValueError):
+            model.pan_view(float('nan'), 0.0)
+        self.assertEqual(_limits(0.0, 8.0, 0.0, 4.0), model.view_limits())
+        self.assertTrue(model.auto_view)
 
     def test_view_fits_and_centers_the_limits(self):
         model = pilot.RPlotModel()

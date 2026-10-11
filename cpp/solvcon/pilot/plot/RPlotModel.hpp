@@ -70,7 +70,17 @@ public:
 
     PlotLimits2d view_limits() const { return m_view_limits; }
 
+    /**
+     * Set the view limits and hold them: auto_view() turns false, so a front
+     * end stops autoscaling over them.
+     */
     void set_view_limits(PlotLimits2d const & limits);
+
+    /**
+     * Whether the view follows the data. It is true until the view limits
+     * are set, zoomed, or panned, and true again after reset_view().
+     */
+    bool auto_view() const { return m_auto_view; }
 
     /**
      * Set the view limits to the data limits opened by the margin, guarding
@@ -78,6 +88,23 @@ public:
      * finite sample the view falls back to the unit square.
      */
     void autoscale();
+
+    /// Follow the data again: autoscale and turn auto_view() back on.
+    void reset_view();
+
+    /**
+     * Zoom the view limits about an anchor in data coordinates and hold
+     * them. A factor above one zooms in, as in ViewTransform2d::zoom_at, and
+     * a factor of one leaves its axis untouched. An axis that would lose its
+     * resolution or overflow keeps its limits.
+     */
+    void zoom_view(double factor_x, double factor_y, double anchor_x, double anchor_y);
+
+    /**
+     * Move the view limits by (dx, dy) in data units and hold them. An axis
+     * that would overflow keeps its limits.
+     */
+    void pan_view(double dx, double dy);
 
     /**
      * The transform that maps the view limits onto a width-by-height
@@ -93,6 +120,7 @@ private:
     std::size_t m_cycle_index = 0;
     double m_margin = PLOT_DEFAULT_MARGIN;
     PlotLimits2d m_view_limits = {0.0, 1.0, 0.0, 1.0};
+    bool m_auto_view = true;
 }; /* end class RPlotModel */
 
 } /* end namespace solvcon */
