@@ -14,6 +14,7 @@ import math
 import unittest
 
 from solvcon.pilot.apps.obsrefl import ObliqueShock, ObliqueShockRelation
+from solvcon.pilot.apps.obsrefl._driver import NoAttachedShockError
 
 
 class ObliqueShockRelationTC(unittest.TestCase):
@@ -59,7 +60,7 @@ class ObliqueShockRelationTC(unittest.TestCase):
     def test_detached_shock_is_rejected(self):
         # 40 degrees of deflection exceeds the maximum attached-shock
         # deflection at Mach 2 (about 23 degrees).
-        with self.assertRaises(ValueError):
+        with self.assertRaises(NoAttachedShockError):
             self.ob.calc_shock_angle(2, math.radians(40))
 
     def test_angles_invert_each_other(self):
@@ -139,6 +140,11 @@ class ObliqueShockDriverTC(unittest.TestCase):
         speed2 = math.hypot(vx, vy)
         sos2 = math.sqrt(1.4 * shock.pressure2 / shock.density2)
         self.assertAlmostEqual(shock.mach2, speed2 / sos2)
+
+    def test_reflection_without_a_solution_is_rejected(self):
+        shock = ObliqueShock()
+        with self.assertRaises(NoAttachedShockError):
+            shock.build_constant(mach=3.0, angle=22.0)
 
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

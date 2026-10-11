@@ -18,6 +18,12 @@ __all__ = [
 ]
 
 
+class NoAttachedShockError(ValueError):
+    """Raised when the oblique-shock relations cannot find an attached
+    shock solution for the given Mach number and deflection angle.
+    """
+
+
 class ObliqueShockRelation(object):
     """Calculate the flow-property jumps across an oblique shock.
 
@@ -117,7 +123,7 @@ class ObliqueShockRelation(object):
                 - 3 * (1 + (gamma - 1) / 2 * m1sq)
                 * (1 + (gamma + 1) / 2 * m1sq) * tansq)
         if disc <= 0.0:
-            raise ValueError(
+            raise NoAttachedShockError(
                 f"no attached shock for mach1={mach1:g} and "
                 f"theta={math.degrees(theta):g} deg")
         lmbd = math.sqrt(disc)
@@ -125,6 +131,10 @@ class ObliqueShockRelation(object):
                - 9 * (1 + (gamma - 1) / 2 * m1sq)
                * (1 + (gamma - 1) / 2 * m1sq + (gamma + 1) / 4 * m1sq * m1sq)
                * tansq) / lmbd ** 3
+        if chi < -1.0 or chi > 1.0:
+            raise NoAttachedShockError(
+                f"no attached shock for mach1={mach1:g} and "
+                f"theta={math.degrees(theta):g} deg")
         return lmbd, chi
 
 
