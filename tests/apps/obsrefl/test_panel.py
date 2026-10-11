@@ -115,6 +115,22 @@ class StatusReadoutTC(unittest.TestCase):
         panel.set_status(None, None, None)
         self.assertEqual("-", panel._run._cfl.text())
 
+    def test_the_configuration_error_is_shown_and_cleared(self):
+        panel = SolutionPanel()
+        error = panel._configuration_error
+        self.assertTrue(error.isHidden())
+
+        panel.set_configuration_error(
+            "Invalid configuration: no attached shock solution exists.")
+        self.assertFalse(error.isHidden())
+        self.assertEqual(
+            "Invalid configuration: no attached shock solution exists.",
+            error.text())
+
+        panel.set_configuration_error("")
+        self.assertTrue(error.isHidden())
+        self.assertEqual("", error.text())
+
     def test_the_cfl_field_colors_without_an_analytic_column(self):
         # The zone table judges a field against the analytic answer, which
         # a CFL number has none of, so its rows stay empty.
