@@ -14,6 +14,10 @@ that name being the 2D drawing surface of :mod:`solvcon.pilot.canvas`.
 The ordinate can go on a log scale, for a quantity spanning decades.  The
 series keep their true values; only the mapping to the screen is
 logarithmic.
+
+The mouse navigates the view the model holds.  The wheel zooms about the
+cursor and a left drag pans, both axes over the frame and one axis over its
+tick labels.  A double-click returns to following the data.
 """
 
 import math
@@ -37,7 +41,9 @@ class LinePlotWidget(QWidget):
 
     The model is the widget's own; a caller fills its series and calls
     :meth:`refresh`.  Limits are taken from the data every refresh, so a
-    plot that is appended to while a run marches keeps following it.
+    plot that is appended to while a run marches keeps following it, until
+    the view is zoomed or panned.  A navigated view holds through refreshes
+    until :meth:`reset_view`.
 
     :ivar model: The :class:`~solvcon.pilot.RPlotModel` being drawn.
     :ivar log_y: Whether the ordinate is mapped logarithmically.
@@ -50,11 +56,18 @@ class LinePlotWidget(QWidget):
     #: Smallest ordinate a log plot draws; zero and below have no
     #: logarithm to place.
     LOG_FLOOR = 1e-16
+    #: Wheel zoom per degree of rotation, as on the 2D canvas: one full
+    #: revolution doubles the zoom.
+    ZOOM_STEP_PER_DEGREE = 1.0 / 360.0
 
     def __init__(self, title="", xlabel="", ylabel="", log_y=False,
                  parent=None):
         super().__init__(parent)
         self.model = _pcore.RPlotModel()
+        # A log plot draws exponents the series do not hold, so they are
+        # scaled and navigated in a model of their own.
+        self._log_model = _pcore.RPlotModel()
+        self._log_series = self._log_model.add_series()
         self._xticker = _pcore.RPlotTicker(5)
         self._yticker = _pcore.RPlotTicker(4)
         self.log_y = log_y
@@ -62,6 +75,9 @@ class LinePlotWidget(QWidget):
         self._xlabel = xlabel
         self._ylabel = ylabel
         self._limits = None
+        # The axes a left drag moves and the data point it holds under the
+        # cursor, or None between drags.
+        self._drag = None
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.setMinimumSize(240, 160)
 
@@ -82,6 +98,16 @@ class LinePlotWidget(QWidget):
         """Recompute the limits from the series and repaint."""
         self._limits = self._calc_limits()
         self.update()
+
+    def reset_view(self):
+        """Drop a zoomed or panned view and follow the data again."""
+        self.model.reset_view()
+        self._log_model.reset_view()
+        self.refresh()
+
+    def _view_model(self):
+        """The model holding the view in the space that is drawn."""
+        return self._log_model if self.log_y else self.model
 
     def limits(self):
         """The drawn limits as a ``PlotLimits2d``, or None while there
@@ -120,7 +146,8 @@ class LinePlotWidget(QWidget):
             return self._log_limits()
         if None is self.model.data_limits():
             return None
-        self.model.autoscale()
+        if self.model.auto_view:
+            self.model.autoscale()
         return self.model.view_limits()
 
     def _log_limits(self):
@@ -136,10 +163,11 @@ class LinePlotWidget(QWidget):
                 ys.append(y)
         if not xs:
             return None
-        mapped = _pcore.RPlotModel()
+        mapped = self._log_model
         mapped.margin = self.model.margin
-        mapped.add_series().set_data(_array(xs), _array(ys))
-        mapped.autoscale()
+        self._log_series.set_data(_array(xs), _array(ys))
+        if mapped.auto_view:
+            mapped.autoscale()
         return mapped.view_limits()
 
     def _lineplot_rect(self):
@@ -158,6 +186,93 @@ class LinePlotWidget(QWidget):
                 rect.bottom() - (y - limits.ymin) / yspan * rect.height())
 
         return to_screen
+
+    def _to_data(self, pos):
+        """The inverse of :meth:`_mapper`: the drawn-space point at the
+        widget position ``pos``."""
+        rect = self._lineplot_rect()
+        limits = self._limits
+        return (
+            limits.xmin + (pos.x() - rect.left()) / rect.width()
+            * (limits.xmax - limits.xmin),
+            limits.ymin + (rect.bottom() - pos.y()) / rect.height()
+            * (limits.ymax - limits.ymin))
+
+    def _axes_at(self, pos):
+        """Which axes a gesture at ``pos`` navigates, as ``(x, y)`` flags.
+
+        The frame takes both axes, the strip of tick labels under it the
+        abscissa, and the one beside it the ordinate.  Elsewhere, over the
+        titles or the corner between the strips, nothing is navigated and
+        the answer is None.
+        """
+        if None is self._limits:
+            return None
+        rect = self._lineplot_rect()
+        x, y = pos.x(), pos.y()
+        across = rect.left() <= x <= rect.right()
+        along = rect.top() <= y <= rect.bottom()
+        if across and along:
+            return (True, True)
+        if across and y > rect.bottom():
+            return (True, False)
+        if along and x < rect.left():
+            return (False, True)
+        return None
+
+    def wheelEvent(self, event):
+        pos = event.position()
+        axes = self._axes_at(pos)
+        degrees = event.angleDelta().y() / 8.0
+        if None is axes or 0 == degrees:
+            event.ignore()
+            return
+        factor = 2.0 ** (degrees * self.ZOOM_STEP_PER_DEGREE)
+        anchor_x, anchor_y = self._to_data(pos)
+        self._view_model().zoom_view(factor if axes[0] else 1.0,
+                                     factor if axes[1] else 1.0,
+                                     anchor_x, anchor_y)
+        self.refresh()
+        event.accept()
+
+    def mousePressEvent(self, event):
+        pos = event.position()
+        axes = self._axes_at(pos)
+        if Qt.LeftButton != event.button() or None is axes:
+            super().mousePressEvent(event)
+            return
+        self._drag = (axes, self._to_data(pos))
+        self.setCursor(Qt.ClosedHandCursor)
+        event.accept()
+
+    def mouseMoveEvent(self, event):
+        if None is self._drag or None is self._limits:
+            super().mouseMoveEvent(event)
+            return
+        # Pan by the gap between the held point and the one now under the
+        # cursor, which puts the held point back under it.
+        (move_x, move_y), (held_x, held_y) = self._drag
+        at_x, at_y = self._to_data(event.position())
+        self._view_model().pan_view(held_x - at_x if move_x else 0.0,
+                                    held_y - at_y if move_y else 0.0)
+        self.refresh()
+        event.accept()
+
+    def mouseReleaseEvent(self, event):
+        if Qt.LeftButton != event.button() or None is self._drag:
+            super().mouseReleaseEvent(event)
+            return
+        self._drag = None
+        self.unsetCursor()
+        event.accept()
+
+    def mouseDoubleClickEvent(self, event):
+        axes = self._axes_at(event.position())
+        if Qt.LeftButton != event.button() or None is axes:
+            super().mouseDoubleClickEvent(event)
+            return
+        self.reset_view()
+        event.accept()
 
     def paintEvent(self, event):
         painter = QPainter(self)
