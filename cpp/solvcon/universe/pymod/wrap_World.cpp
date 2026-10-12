@@ -126,6 +126,25 @@ WrapWorld<T> & WrapWorld<T>::wrap_management()
             py::arg("cx"),
             py::arg("cy"))
         .def(
+            "move_shape_points",
+            [](wrapped_type & self, int32_t shape_id, std::vector<std::tuple<bool, uint32_t, uint8_t>> const & refs, value_type dx, value_type dy)
+            {
+                std::vector<ShapePointRef> crefs;
+                crefs.reserve(refs.size());
+                for (auto const & [is_curve, index, slot] : refs)
+                {
+                    crefs.push_back(ShapePointRef{.is_curve = is_curve, .index = index, .slot = slot});
+                }
+                self.move_shape_points(shape_id, crefs, dx, dy);
+            },
+            py::arg("shape_id"),
+            py::arg("refs"),
+            py::arg("dx"),
+            py::arg("dy"),
+            "Move control points of a shape by (dx, dy). Each ref is a tuple "
+            "(is_curve, index, slot): endpoint slot 0 or 1 of the shape's "
+            "segment index, or control point slot 0 to 3 of its curve index.")
+        .def(
             "shape_is_live",
             &wrapped_type::shape_is_live,
             py::arg("shape_id"))

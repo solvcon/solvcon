@@ -5,6 +5,7 @@
 
 #include <solvcon/pilot/canvas/R2DWidget.hpp> // Must be the first include.
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 
@@ -14,7 +15,6 @@
 #include <QColor>
 #include <QImage>
 #include <QKeyEvent>
-#include <QList>
 #include <QMouseEvent>
 #include <QPaintEvent>
 #include <QPainter>
@@ -54,9 +54,17 @@ constexpr double ROTATE_HANDLE_RADIUS_PX = 5.0;
 constexpr double ROTATE_HANDLE_HIT_PX = 9.0;
 
 // Node-edit marker sizes in cosmetic screen pixels: the half-width of a node
-// square and the radius of a handle knob.
+// square, the radius of a handle knob, and how far from a node or knob a press
+// still grabs it.
 constexpr double NODE_MARKER_HALF_PX = 3.5;
 constexpr double HANDLE_KNOB_RADIUS_PX = 3.0;
+constexpr double NODE_HIT_PX = 6.0;
+
+// Nodes are told apart by exact world position; QPointF's own == is fuzzy.
+bool same_point(QPointF const & a, QPointF const & b)
+{
+    return a.x() == b.x() && a.y() == b.y();
+}
 
 double clamp_zoom(double zoom)
 {
@@ -128,6 +136,7 @@ void R2DWidget::setDrawTool(std::string const & name)
     m_drawing = false;
     m_selected = -1;
     m_editing = -1;
+    clearNodeSelection();
     m_drag = EditDrag::None;
     // A crosshair signals draw mode; the select tool keeps the default arrow.
     if (m_tool->can_draw_shape())
@@ -167,6 +176,7 @@ void R2DWidget::setSelectedShape(int32_t shape_id)
 
     m_selected = shape_id;
     m_editing = -1;
+    clearNodeSelection();
     update();
 }
 
@@ -181,7 +191,9 @@ void R2DWidget::setEditingShape(int32_t shape_id)
 {
     if (shape_id < 0)
     {
+        endEditDrag();
         m_editing = -1;
+        clearNodeSelection();
         update();
         return;
     }
@@ -192,7 +204,33 @@ void R2DWidget::setEditingShape(int32_t shape_id)
     endEditDrag();
     m_selected = shape_id;
     m_editing = shape_id;
+    clearNodeSelection();
     update();
+}
+
+std::vector<R2DWidget::coord2_type> R2DWidget::selectedNodes() const
+{
+    std::vector<coord2_type> out;
+    if (editingShape() < 0)
+    {
+        return out;
+    }
+    for (ShapePointRef const & ref : m_edit_nodes)
+    {
+        QPointF const w = worldPointFromRef(ref);
+        out.push_back({w.x(), w.y()});
+    }
+    return out;
+}
+
+std::optional<R2DWidget::coord2_type> R2DWidget::selectedHandle() const
+{
+    if (editingShape() < 0 || !m_edit_handle)
+    {
+        return std::nullopt;
+    }
+    QPointF const w = worldPointFromRef(*m_edit_handle);
+    return coord2_type{w.x(), w.y()};
 }
 
 bool R2DWidget::isEditable(int32_t shape_id) const
@@ -209,6 +247,7 @@ void R2DWidget::updateWorld(std::shared_ptr<WorldFp64> const & world)
     // the display toggles persist so the overlay mode carries across worlds.
     m_selected = -1;
     m_editing = -1;
+    clearNodeSelection();
     m_overlay.highlight_id = -1;
     m_drag = EditDrag::None;
     update();
@@ -361,62 +400,287 @@ void R2DWidget::paintNodeEdit(QPainter & painter) const
         return QPointF(sx, sy);
     };
 
-    // The path keeps no order between its segments and curves, so the nodes
-    // are the piece endpoints, with the ends that two pieces share drawn once.
-    // Nodes are kept in world coordinates and compared exactly, so distinct
-    // endpoints that land close on screen still get their own markers.
-    QList<QPointF> nodes;
-    auto add_node = [&nodes](auto const & p)
-    {
-        for (QPointF const & n : nodes)
-        {
-            if (n.x() == p.x() && n.y() == p.y())
-            {
-                return;
-            }
-        }
-        nodes.push_back(QPointF(p.x(), p.y()));
-    };
-
     QColor const selection = qcolor(m_palette.selection);
+    QColor const node_selection = qcolor(m_palette.node_selection);
     QPen pen(selection);
     pen.setCosmetic(true);
     pen.setWidthF(1.0);
     painter.setPen(pen);
 
+    // A selected knob is drawn in the node-selection color.
+    auto draw_knob = [&](QPointF const & at, uint32_t index, uint8_t slot)
+    {
+        bool const selected = m_edit_handle && m_edit_handle->is_curve && m_edit_handle->index == index && m_edit_handle->slot == slot;
+        QColor const color = selected ? node_selection : selection;
+        pen.setColor(color);
+        painter.setPen(pen);
+        painter.setBrush(color);
+        painter.drawEllipse(at, HANDLE_KNOB_RADIUS_PX, HANDLE_KNOB_RADIUS_PX);
+    };
+
     // Handle lines run from each curve end to its control point.
     size_t const ncurve = m_world->shape_curve_count(sid);
-    for (size_t i = 0; i < ncurve; ++i)
+    for (uint32_t i = 0; i < ncurve; ++i)
     {
-        auto const c = m_world->shape_curve(sid, static_cast<uint32_t>(i));
+        auto const c = m_world->shape_curve(sid, i);
         QPointF const p0 = to_screen(c.p0()), p1 = to_screen(c.p1());
         QPointF const p2 = to_screen(c.p2()), p3 = to_screen(c.p3());
+        pen.setColor(selection);
+        painter.setPen(pen);
         painter.setBrush(Qt::NoBrush);
         painter.drawLine(p0, p1);
         painter.drawLine(p3, p2);
-        painter.setBrush(selection);
-        painter.drawEllipse(p1, HANDLE_KNOB_RADIUS_PX, HANDLE_KNOB_RADIUS_PX);
-        painter.drawEllipse(p2, HANDLE_KNOB_RADIUS_PX, HANDLE_KNOB_RADIUS_PX);
-        add_node(c.p0());
-        add_node(c.p3());
+        draw_knob(p1, i, 1);
+        draw_knob(p2, i, 2);
     }
 
-    size_t const nsegment = m_world->shape_segment_count(sid);
-    for (size_t i = 0; i < nsegment; ++i)
+    // Squares over the handles: a selected node is filled with the
+    // node-selection color, the others with the backdrop so a handle line
+    // ending at the node does not show through.
+    QColor const background = qcolor(m_palette.background);
+    for (EditNode const & node : editNodes())
     {
-        auto const s = m_world->shape_segment(sid, static_cast<uint32_t>(i));
-        add_node(s.p0());
-        add_node(s.p1());
-    }
-
-    // Hollow squares over the handles, filled with the backdrop so a handle
-    // line ending at a node does not show through.
-    painter.setBrush(qcolor(m_palette.background));
-    for (QPointF const & w : nodes)
-    {
+        QPointF const w(node.x, node.y);
+        bool const selected = isNodeSelected(w);
+        pen.setColor(selected ? node_selection : selection);
+        painter.setPen(pen);
+        painter.setBrush(selected ? node_selection : background);
         QPointF const n = to_screen(w);
         painter.drawRect(QRectF(n.x() - NODE_MARKER_HALF_PX, n.y() - NODE_MARKER_HALF_PX, 2.0 * NODE_MARKER_HALF_PX, 2.0 * NODE_MARKER_HALF_PX));
     }
+}
+
+small_vector<R2DWidget::EditNode> R2DWidget::editNodes() const
+{
+    small_vector<EditNode> nodes;
+    int32_t const sid = editingShape();
+    if (sid < 0)
+    {
+        return nodes;
+    }
+
+    // The path keeps no order between its segments and curves, so the nodes
+    // are the piece endpoints, with the ends that two pieces share listed once.
+    // Nodes are compared exactly in world coordinates, so distinct endpoints
+    // that land close on screen still count as their own nodes.
+    auto add_node = [&nodes](auto const & p, ShapePointRef const & ref)
+    {
+        for (EditNode const & n : nodes)
+        {
+            if (n.x == p.x() && n.y == p.y())
+            {
+                return;
+            }
+        }
+        nodes.push_back(EditNode{p.x(), p.y(), ref});
+    };
+
+    size_t const ncurve = m_world->shape_curve_count(sid);
+    for (uint32_t i = 0; i < ncurve; ++i)
+    {
+        auto const c = m_world->shape_curve(sid, i);
+        add_node(c.p0(), ShapePointRef{.is_curve = true, .index = i, .slot = 0});
+        add_node(c.p3(), ShapePointRef{.is_curve = true, .index = i, .slot = 3});
+    }
+    size_t const nsegment = m_world->shape_segment_count(sid);
+    for (uint32_t i = 0; i < nsegment; ++i)
+    {
+        auto const s = m_world->shape_segment(sid, i);
+        add_node(s.p0(), ShapePointRef{.is_curve = false, .index = i, .slot = 0});
+        add_node(s.p1(), ShapePointRef{.is_curve = false, .index = i, .slot = 1});
+    }
+    return nodes;
+}
+
+QPointF R2DWidget::worldPointFromRef(ShapePointRef const & ref) const
+{
+    auto to_qpoint = [](auto const & p)
+    {
+        return QPointF(p.x(), p.y());
+    };
+    if (!ref.is_curve)
+    {
+        auto const s = m_world->shape_segment(m_editing, ref.index);
+        return to_qpoint(ref.slot == 0 ? s.p0() : s.p1());
+    }
+    auto const c = m_world->shape_curve(m_editing, ref.index);
+    switch (ref.slot)
+    {
+    case 0: return to_qpoint(c.p0());
+    case 1: return to_qpoint(c.p1());
+    case 2: return to_qpoint(c.p2());
+    default: return to_qpoint(c.p3());
+    }
+}
+
+std::optional<ShapePointRef> R2DWidget::hitEditNode(QPointF const & screen_pos) const
+{
+    std::optional<ShapePointRef> best;
+    double best_d = NODE_HIT_PX;
+    for (EditNode const & node : editNodes())
+    {
+        double sx = 0.0, sy = 0.0;
+        m_view.screen_from_world(node.x, node.y, sx, sy);
+        double const d = std::hypot(sx - screen_pos.x(), sy - screen_pos.y());
+        if (d <= best_d)
+        {
+            best = node.ref;
+            best_d = d;
+        }
+    }
+    return best;
+}
+
+std::optional<ShapePointRef> R2DWidget::hitEditHandle(QPointF const & screen_pos) const
+{
+    std::optional<ShapePointRef> best;
+    int32_t const sid = editingShape();
+    if (sid < 0)
+    {
+        return best;
+    }
+    double best_d = NODE_HIT_PX;
+    auto consider = [&](auto const & p, ShapePointRef const & ref)
+    {
+        double sx = 0.0, sy = 0.0;
+        m_view.screen_from_world(p.x(), p.y(), sx, sy);
+        double const d = std::hypot(sx - screen_pos.x(), sy - screen_pos.y());
+        if (d <= best_d)
+        {
+            best = ref;
+            best_d = d;
+        }
+    };
+    size_t const ncurve = m_world->shape_curve_count(sid);
+    for (uint32_t i = 0; i < ncurve; ++i)
+    {
+        auto const c = m_world->shape_curve(sid, i);
+        consider(c.p1(), ShapePointRef{.is_curve = true, .index = i, .slot = 1});
+        consider(c.p2(), ShapePointRef{.is_curve = true, .index = i, .slot = 2});
+    }
+    return best;
+}
+
+bool R2DWidget::isNodeSelected(QPointF const & w) const
+{
+    // Compare positions rather than references: any piece end at the node may
+    // stand for it.
+    for (ShapePointRef const & ref : m_edit_nodes)
+    {
+        if (same_point(worldPointFromRef(ref), w))
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+std::vector<ShapePointRef> R2DWidget::expandSelectedNodes() const
+{
+    std::vector<ShapePointRef> refs;
+    auto add = [&refs](ShapePointRef const & ref)
+    {
+        if (std::find(refs.begin(), refs.end(), ref) == refs.end())
+        {
+            refs.push_back(ref);
+        }
+    };
+    auto at_selected = [this](auto const & p)
+    {
+        return isNodeSelected(QPointF(p.x(), p.y()));
+    };
+
+    // A curve end carries its handle: p1 rides with p0 and p2 with p3.
+    size_t const ncurve = m_world->shape_curve_count(m_editing);
+    for (uint32_t i = 0; i < ncurve; ++i)
+    {
+        auto const c = m_world->shape_curve(m_editing, i);
+        if (at_selected(c.p0()))
+        {
+            add(ShapePointRef{.is_curve = true, .index = i, .slot = 0});
+            add(ShapePointRef{.is_curve = true, .index = i, .slot = 1});
+        }
+        if (at_selected(c.p3()))
+        {
+            add(ShapePointRef{.is_curve = true, .index = i, .slot = 3});
+            add(ShapePointRef{.is_curve = true, .index = i, .slot = 2});
+        }
+    }
+    size_t const nsegment = m_world->shape_segment_count(m_editing);
+    for (uint32_t i = 0; i < nsegment; ++i)
+    {
+        auto const s = m_world->shape_segment(m_editing, i);
+        if (at_selected(s.p0()))
+        {
+            add(ShapePointRef{.is_curve = false, .index = i, .slot = 0});
+        }
+        if (at_selected(s.p1()))
+        {
+            add(ShapePointRef{.is_curve = false, .index = i, .slot = 1});
+        }
+    }
+    return refs;
+}
+
+bool R2DWidget::pressNodeEdit(QPointF const & screen_pos, Qt::KeyboardModifiers modifiers)
+{
+    if (std::optional<ShapePointRef> const node = hitEditNode(screen_pos))
+    {
+        QPointF const w = worldPointFromRef(*node);
+        bool const selected = isNodeSelected(w);
+        m_edit_handle.reset();
+        if (modifiers & Qt::ShiftModifier)
+        {
+            if (selected)
+            {
+                // Shift+click on a selected node only drops it; no drag follows.
+                small_vector<ShapePointRef> kept;
+                for (ShapePointRef const & ref : m_edit_nodes)
+                {
+                    if (!same_point(worldPointFromRef(ref), w))
+                    {
+                        kept.push_back(ref);
+                    }
+                }
+                m_edit_nodes = kept;
+                update();
+                return true;
+            }
+            m_edit_nodes.push_back(*node);
+        }
+        else if (!selected)
+        {
+            // A plain click on a selected node keeps the group so it drags together.
+            m_edit_nodes.clear();
+            m_edit_nodes.push_back(*node);
+        }
+        m_edit_dragging_points = expandSelectedNodes();
+        m_drag = EditDrag::Node;
+    }
+    else if (std::optional<ShapePointRef> const handle = hitEditHandle(screen_pos))
+    {
+        m_edit_nodes.clear();
+        m_edit_handle = *handle;
+        m_edit_dragging_points = {*handle};
+        m_drag = EditDrag::Handle;
+    }
+    else
+    {
+        return false;
+    }
+
+    m_view.world_from_screen(screen_pos.x(), screen_pos.y(), m_move_last_x, m_move_last_y);
+    // Bracket the drag so its incremental steps undo as one.
+    m_world->begin_operation();
+    update();
+    return true;
+}
+
+void R2DWidget::clearNodeSelection()
+{
+    m_edit_nodes.clear();
+    m_edit_handle.reset();
+    m_edit_dragging_points.clear();
 }
 
 int32_t R2DWidget::pickShapeAt(QPointF const & screen_pos) const
@@ -478,7 +742,7 @@ bool R2DWidget::isOnRotateHandle(QPointF const & screen_pos) const
 
 void R2DWidget::finishEdit()
 {
-    if (m_world && (m_drag == EditDrag::Move || m_drag == EditDrag::Rotate))
+    if (m_world && m_drag != EditDrag::None && m_drag != EditDrag::View)
     {
         m_world->end_operation();
     }
@@ -528,16 +792,25 @@ void R2DWidget::mousePressEvent(QMouseEvent * event)
             event->accept();
             return;
         }
-        // A press on the node-edit path keeps the mode and leaves the path in
-        // place; a press anywhere else leaves the mode and goes on as usual.
+        // In node-edit mode a press grabs a node or handle; a press elsewhere
+        // on the path drops their selection and leaves the path in place; a
+        // press anywhere else leaves the mode and goes on as usual.
         if (editingShape() >= 0)
         {
-            if (pickShapeAt(pos) == m_editing)
+            if (pressNodeEdit(pos, event->modifiers()))
             {
                 event->accept();
                 return;
             }
+            if (pickShapeAt(pos) == m_editing)
+            {
+                clearNodeSelection();
+                update();
+                event->accept();
+                return;
+            }
             m_editing = -1;
+            clearNodeSelection();
         }
         // Select tool: rotate the selection, move a picked shape, or fall
         // back to panning the view on empty space.
@@ -597,6 +870,20 @@ void R2DWidget::mouseMoveEvent(QMouseEvent * event)
         if (m_world && m_world->shape_is_live(m_selected))
         {
             m_world->translate_shape(m_selected, wx - m_move_last_x, wy - m_move_last_y);
+        }
+        m_move_last_x = wx;
+        m_move_last_y = wy;
+        update();
+        event->accept();
+        return;
+    }
+    if (m_drag == EditDrag::Node || m_drag == EditDrag::Handle)
+    {
+        double wx = 0.0, wy = 0.0;
+        m_view.world_from_screen(pos.x(), pos.y(), wx, wy);
+        if (editingShape() >= 0)
+        {
+            m_world->move_shape_points(m_editing, m_edit_dragging_points, wx - m_move_last_x, wy - m_move_last_y);
         }
         m_move_last_x = wx;
         m_move_last_y = wy;
@@ -667,6 +954,13 @@ void R2DWidget::mouseDoubleClickEvent(QMouseEvent * event)
     if (event->button() == Qt::LeftButton && !m_tool->can_draw_shape())
     {
         int32_t const hit = pickShapeAt(event->position());
+        // A quick second click on the path already in the mode, or on one of
+        // its nodes, is part of selecting, not a request to re-enter the mode.
+        if (editingShape() >= 0 && (hit == m_editing || hitEditNode(event->position())))
+        {
+            event->accept();
+            return;
+        }
         if (isEditable(hit))
         {
             setEditingShape(hit);

@@ -147,7 +147,8 @@ struct SyntaxColors
  * ThemePalette. Like the syntax colors they come in a light and a dark table,
  * which is what lets the canvas follow the theme instead of staying dark under
  * a light window. selection is the same accent in both variants, so a selected
- * shape reads as selected at a glance either way.
+ * shape reads as selected at a glance either way. node_selection is likewise
+ * shared: the red that marks the nodes and handle picked in node-edit mode.
  */
 struct Canvas2dPalette
 {
@@ -157,6 +158,7 @@ struct Canvas2dPalette
     ThemeColor origin;
     ThemeColor geometry;
     ThemeColor selection;
+    ThemeColor node_selection;
     ThemeColor draw_preview;
     ThemeColor overlay_text;
     ThemeColor overlay_bbox;
