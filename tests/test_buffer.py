@@ -6123,6 +6123,33 @@ class SimpleArrayPlexAlignmentTC(unittest.TestCase):
             self.assertEqual(64, array.alignment)
 
 
+class BufferToListTC(unittest.TestCase):
+
+    def test_typed_array(self):
+        """Convert a typed float64 array to nested lists."""
+        expected = [[1.5, -2.0], [0.0, 3.25]]
+        source = np.array(expected, dtype='float64')
+        array = solvcon.SimpleArrayFloat64(array=source)
+        self.assertEqual(array.tolist(), expected)
+        self.assertEqual(array[:, 0].tolist(), [1.5, 0.0])
+
+    def test_type_erased_array(self):
+        """Convert a type-erased float64 array to nested lists."""
+        expected = [[1.5, -2.0], [0.0, 3.25]]
+        source = np.array(expected, dtype='float64')
+        array = solvcon.SimpleArray(array=source)
+        self.assertEqual(array.tolist(), expected)
+        self.assertEqual(array[:, 0].tolist(), [1.5, 0.0])
+
+    def test_collector(self):
+        """Convert appended float64 collector values to a Python list."""
+        expected = [1.5, -2.0, 0.0, 3.25]
+        collector = solvcon.SimpleCollectorFloat64()
+        for value in expected:
+            collector.push_back(value)
+        self.assertEqual(collector.tolist(), expected)
+
+
 class SimpleCollectorTC(unittest.TestCase):
 
     def test_construct(self):
