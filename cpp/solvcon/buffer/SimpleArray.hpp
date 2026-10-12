@@ -1332,7 +1332,7 @@ detail::SimpleArrayMixinCalculators<A, T>::median_op(small_vector<value_type> & 
             return v1;
         }
         value_type const v2 = simd::max(sv.begin(), sv.begin() + n / 2);
-        value_type const result = static_cast<value_type>(v1 + v2) / static_cast<value_type>(2.0);
+        value_type const result = static_cast<value_type>((v1 + v2) / 2);
         return result;
     }
 }
