@@ -30,6 +30,7 @@ class AnalysisLinePlots(QWidget):
             title="line profile", xlabel="x", ylabel="density")
         self._computed = self._profile.add_series("computed")
         self._analytic = self._profile.add_series("analytic")
+        self._field = None
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(4, 4, 4, 4)
@@ -41,7 +42,15 @@ class AnalysisLinePlots(QWidget):
         Both curves come off one :meth:`~._analytic.Reflection.profile`, so
         they are sampled at the same abscissae and the gap between them is
         the error at that station rather than an artifact of the sampling.
+
+        A zoomed or panned view holds while the run marches, but not across
+        a change of field or a blank plot, as another quantity spans a range
+        of its own.
         """
+        field = None if None is session else name
+        if field != self._field:
+            self._profile.reset_view()
+            self._field = field
         if None is session:
             self._computed.clear_data()
             self._analytic.clear_data()

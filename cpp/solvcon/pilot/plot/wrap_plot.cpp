@@ -145,6 +145,14 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapPlotLimits2d
             .def_readwrite("ymin", &wrapped_type::ymin)
             .def_readwrite("ymax", &wrapped_type::ymax)
             .def("merge", &wrapped_type::merge, py::arg("other"))
+            .def(
+                "zoom_at",
+                &wrapped_type::zoom_at,
+                py::arg("factor_x"),
+                py::arg("factor_y"),
+                py::arg("anchor_x"),
+                py::arg("anchor_y"))
+            .def("shift", &wrapped_type::shift, py::arg("dx"), py::arg("dy"))
             .def(py::self == py::self) // NOLINT(misc-redundant-expression)
             .def(py::self != py::self) // NOLINT(misc-redundant-expression)
             .def(
@@ -249,7 +257,17 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRPlotModel
             .def_property("margin", &wrapped_type::margin, &wrapped_type::set_margin)
             .def("view_limits", &wrapped_type::view_limits)
             .def("set_view_limits", &wrapped_type::set_view_limits, py::arg("limits"))
+            .def_property_readonly("auto_view", &wrapped_type::auto_view)
             .def("autoscale", &wrapped_type::autoscale)
+            .def("reset_view", &wrapped_type::reset_view)
+            .def(
+                "zoom_view",
+                &wrapped_type::zoom_view,
+                py::arg("factor_x"),
+                py::arg("factor_y"),
+                py::arg("anchor_x"),
+                py::arg("anchor_y"))
+            .def("pan_view", &wrapped_type::pan_view, py::arg("dx"), py::arg("dy"))
             .def("view", &wrapped_type::view, py::arg("width"), py::arg("height"))
             //
             ;
@@ -330,7 +348,8 @@ void wrap_plot(pybind11::module & mod)
         mod,
         "PlotLimits2d",
         "The mutable xmin, xmax, ymin, and ymax limits of one xy rectangle. "
-        "merge(other) expands this rectangle to contain the other one.");
+        "merge(other) expands this rectangle to contain the other one, "
+        "zoom_at scales it about an anchor, and shift moves it.");
     mod.attr("PlotLimits2d").attr("__hash__") = py::none();
     WrapRPlotSeries::commit(
         mod,
@@ -344,7 +363,8 @@ void wrap_plot(pybind11::module & mod)
         "The series list of one xy plot: the color cycle a new series draws "
         "from, the aggregate data limits, and the view limits that "
         "autoscale derives and view(width, height) maps onto the screen as "
-        "a ViewTransform2dFp64.");
+        "a ViewTransform2dFp64. zoom_view and pan_view hold a navigated "
+        "view until reset_view follows the data again.");
     WrapRPlotTicker::commit(
         mod,
         "RPlotTicker",

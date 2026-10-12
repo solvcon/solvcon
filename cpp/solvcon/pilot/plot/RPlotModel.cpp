@@ -34,6 +34,35 @@ std::pair<double, double> expand_axis(double lo, double hi, double margin)
     return {lo - pad, hi + pad};
 }
 
+// The narrowest span a navigated axis keeps, relative to the magnitude of its
+// limits, so a deep zoom stops before the two limits round into one.
+constexpr double MIN_RELATIVE_SPAN = 1.0e-12;
+
+bool is_resolvable(double lo, double hi)
+{
+    // A finite span implies two finite limits.
+    double const span = hi - lo;
+    return std::isfinite(span) && span > std::max(std::abs(lo), std::abs(hi)) * MIN_RELATIVE_SPAN;
+}
+
+/**
+ * Copy each axis of the navigated limits into the view, except an axis that
+ * cannot be drawn any more, which keeps what it had.
+ */
+void accept_resolvable(PlotLimits2d & view, PlotLimits2d const & navigated)
+{
+    if (is_resolvable(navigated.xmin, navigated.xmax))
+    {
+        view.xmin = navigated.xmin;
+        view.xmax = navigated.xmax;
+    }
+    if (is_resolvable(navigated.ymin, navigated.ymax))
+    {
+        view.ymin = navigated.ymin;
+        view.ymax = navigated.ymax;
+    }
+}
+
 void validate_axis_limits(double lo, double hi, char const * axis)
 {
     if (!std::isfinite(lo) || !std::isfinite(hi) || !(lo < hi))
@@ -109,6 +138,7 @@ void RPlotModel::set_view_limits(PlotLimits2d const & limits)
     validate_axis_limits(limits.xmin, limits.xmax, "x");
     validate_axis_limits(limits.ymin, limits.ymax, "y");
     m_view_limits = limits;
+    m_auto_view = false;
 }
 
 void RPlotModel::autoscale()
@@ -123,6 +153,48 @@ void RPlotModel::autoscale()
     auto const [xmin, xmax] = expand_axis(limits->xmin, limits->xmax, m_margin);
     auto const [ymin, ymax] = expand_axis(limits->ymin, limits->ymax, m_margin);
     m_view_limits = PlotLimits2d{xmin, xmax, ymin, ymax};
+}
+
+void RPlotModel::reset_view()
+{
+    m_auto_view = true;
+    autoscale();
+}
+
+void RPlotModel::zoom_view(double factor_x, double factor_y, double anchor_x, double anchor_y)
+{
+    if (!std::isfinite(factor_x) || !(factor_x > 0.0) || !std::isfinite(factor_y) || !(factor_y > 0.0))
+    {
+        throw std::invalid_argument(
+            std::format(
+                "RPlotModel::zoom_view: factors must be finite and positive, but they are {} and {}",
+                factor_x,
+                factor_y));
+    }
+    if (!std::isfinite(anchor_x) || !std::isfinite(anchor_y))
+    {
+        throw std::invalid_argument(
+            std::format("RPlotModel::zoom_view: anchor must be finite, but it is ({}, {})", anchor_x, anchor_y));
+    }
+
+    PlotLimits2d zoomed = m_view_limits;
+    zoomed.zoom_at(factor_x, factor_y, anchor_x, anchor_y);
+    accept_resolvable(m_view_limits, zoomed);
+    m_auto_view = false;
+}
+
+void RPlotModel::pan_view(double dx, double dy)
+{
+    if (!std::isfinite(dx) || !std::isfinite(dy))
+    {
+        throw std::invalid_argument(
+            std::format("RPlotModel::pan_view: offset must be finite, but it is ({}, {})", dx, dy));
+    }
+
+    PlotLimits2d panned = m_view_limits;
+    panned.shift(dx, dy);
+    accept_resolvable(m_view_limits, panned);
+    m_auto_view = false;
 }
 
 ViewTransform2dFp64 RPlotModel::view(double width, double height) const

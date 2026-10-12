@@ -41,6 +41,16 @@ struct PlotLimits2d
 
     void merge(PlotLimits2d const & other);
 
+    /**
+     * Scale each axis about the anchor, which stays where it is. A factor
+     * above one narrows the axis (zooms in), and a factor of one leaves the
+     * axis exactly as it was, so one axis can zoom alone.
+     */
+    void zoom_at(double factor_x, double factor_y, double anchor_x, double anchor_y);
+
+    /// Move the rectangle by (dx, dy) in data units.
+    void shift(double dx, double dy);
+
     constexpr bool operator==(PlotLimits2d const &) const = default;
 }; /* end struct PlotLimits2d */
 
@@ -50,6 +60,30 @@ inline void PlotLimits2d::merge(PlotLimits2d const & other)
     xmax = std::max(xmax, other.xmax);
     ymin = std::min(ymin, other.ymin);
     ymax = std::max(ymax, other.ymax);
+}
+
+inline void PlotLimits2d::zoom_at(double factor_x, double factor_y, double anchor_x, double anchor_y)
+{
+    // A unit factor is skipped rather than applied: anchor + (xmin - anchor)
+    // does not always round back to xmin.
+    if (factor_x != 1.0)
+    {
+        xmin = anchor_x + (xmin - anchor_x) / factor_x;
+        xmax = anchor_x + (xmax - anchor_x) / factor_x;
+    }
+    if (factor_y != 1.0)
+    {
+        ymin = anchor_y + (ymin - anchor_y) / factor_y;
+        ymax = anchor_y + (ymax - anchor_y) / factor_y;
+    }
+}
+
+inline void PlotLimits2d::shift(double dx, double dy)
+{
+    xmin += dx;
+    xmax += dx;
+    ymin += dy;
+    ymax += dy;
 }
 
 } /* end namespace solvcon */
