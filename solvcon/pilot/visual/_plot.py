@@ -14,15 +14,21 @@ that name being the 2D drawing surface of :mod:`solvcon.pilot.canvas`.
 The ordinate can go on a log scale, for a quantity spanning decades.  The
 series keep their true values; only the mapping to the screen is
 logarithmic.
+
+The plot saves itself as an image, from :meth:`LinePlotWidget.save_image`
+or the "Save image..." entry of its context menu, so a curve can leave the
+pilot for a report.
 """
 
 import math
+import os
 
 import numpy as np
 
 from PySide6.QtCore import Qt, QRect, QPointF
 from PySide6.QtGui import QPainter, QPen, QColor, QPolygonF
-from PySide6.QtWidgets import QWidget, QSizePolicy
+from PySide6.QtWidgets import (QWidget, QSizePolicy, QMenu, QFileDialog,
+                               QMessageBox)
 
 from ... import core
 from .. import _pilot_core as _pcore
@@ -50,6 +56,8 @@ class LinePlotWidget(QWidget):
     #: Smallest ordinate a log plot draws; zero and below have no
     #: logarithm to place.
     LOG_FLOOR = 1e-16
+    #: Formats the save dialog offers; the suffix of the path picks one.
+    IMAGE_FILTERS = "PNG image (*.png);;JPEG image (*.jpg *.jpeg)"
 
     def __init__(self, title="", xlabel="", ylabel="", log_y=False,
                  parent=None):
@@ -82,6 +90,38 @@ class LinePlotWidget(QWidget):
         """Recompute the limits from the series and repaint."""
         self._limits = self._calc_limits()
         self.update()
+
+    def save_image(self, path):
+        """Write the plot, axes and legend included, to ``path``.
+
+        The suffix of ``path`` picks the format.  The image is grabbed at
+        the pixel count of the screen, so a high-DPI display saves more
+        pixels than the window's size in points.
+        """
+        if not self.grab().save(path):
+            raise OSError(f"cannot save the plot image to {path!r}")
+
+    def _context_menu(self):
+        menu = QMenu(self)
+        menu.addAction("Save image...", self._ask_save_image)
+        return menu
+
+    def contextMenuEvent(self, event):
+        self._context_menu().exec(event.globalPos())
+
+    def _ask_save_image(self):
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Save plot image", "lineplot.png", self.IMAGE_FILTERS)
+        if not path:
+            return
+        # A native dialog may hand back a name without a suffix, which
+        # names no format to write.
+        if not os.path.splitext(path)[1]:
+            path += ".png"
+        try:
+            self.save_image(path)
+        except OSError as exc:
+            QMessageBox.warning(self, "Save plot image", str(exc))
 
     def limits(self):
         """The drawn limits as a ``PlotLimits2d``, or None while there

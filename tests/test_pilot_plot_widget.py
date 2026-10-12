@@ -11,6 +11,8 @@ it takes to map the axes and render the curves.
 """
 
 import math
+import os
+import tempfile
 import unittest
 
 import numpy as np
@@ -18,9 +20,11 @@ import numpy as np
 import solvcon
 
 try:
+    from PySide6.QtGui import QImage
     from solvcon import pilot
     from solvcon.pilot.visual import _plot
 except ImportError:
+    QImage = None
     pilot = None
     _plot = None
 
@@ -119,6 +123,31 @@ class LinePlotWidgetTC(unittest.TestCase):
                                      round(point.y() * scale))
             inked += int(color != background)
         self.assertGreater(inked, 10)
+
+    def test_the_saved_image_is_what_the_widget_draws(self):
+        widget = self._filled([0.0, 1.0, 2.0], [0.0, 1.0, 2.0])
+        widget.resize(320, 240)
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder, "lineplot.png")
+            widget.save_image(path)
+            saved = QImage(path)
+        self.assertFalse(saved.isNull())
+        drawn = widget.grab().toImage().convertToFormat(saved.format())
+        self.assertEqual(drawn, saved)
+
+    def test_a_path_naming_no_format_is_refused(self):
+        widget = self._filled([0.0, 1.0], [0.0, 1.0])
+        widget.resize(320, 240)
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder, "lineplot.unknown")
+            with self.assertRaises(OSError):
+                widget.save_image(path)
+            self.assertFalse(os.path.exists(path))
+
+    def test_the_context_menu_offers_to_save_the_image(self):
+        widget = self._filled([0.0, 1.0], [0.0, 1.0])
+        texts = [action.text() for action in widget._context_menu().actions()]
+        self.assertIn("Save image...", texts)
 
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
