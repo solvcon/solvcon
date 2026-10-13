@@ -241,6 +241,7 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapSimpleArray
         namespace py = pybind11; // NOLINT(misc-unused-alias-decls)
 
         (*this)
+            .def("conjugate", &wrapped_type::conjugate, "Return a copy with every logical element conjugated")
             .def(
                 "median",
                 [](wrapped_type const & self)
