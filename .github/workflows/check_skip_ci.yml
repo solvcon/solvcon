@@ -14,9 +14,11 @@ name: check_skip_ci
 #      comments written by a repository owner, member, or collaborator are
 #      honored, so an external contributor cannot bypass CI by commenting.
 #
-# Adding or removing the label (or pushing a new commit) re-evaluates the
-# decision, because the callers listen to the "labeled"/"unlabeled" pull
-# request activity types in addition to the defaults.
+# Pushing a new commit re-evaluates the decision.  A label that arrives after
+# that reaches skip_ci_label.yml, which cancels the runs in flight when
+# "skip-ci" is added and re-runs them when it is removed.  The callers keep
+# their own activity types, so no label event writes a check result of its
+# own.
 #
 # The "skip" output is "true" only for pull_request events; it is empty for
 # push events, which keeps their existing gating untouched.
@@ -73,7 +75,15 @@ jobs:
             const hasControlLine = text =>
               (text || '').split(/\r?\n/)
                 .some(line => control.test(line.trim()));
-            const pr = context.payload.pull_request;
+            // Read the pull request from the API rather than from the event
+            // payload. skip_ci_label.yml re-runs this workflow when the
+            // skip-ci label is removed, and a re-run replays the payload of
+            // the original event, where the label is still attached.
+            const {data: pr} = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number,
+            });
 
             // 1. The skip-ci label, set by a repository member.
             if (pr.labels.some(label => label.name === 'skip-ci')) {
