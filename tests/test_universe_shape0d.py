@@ -274,6 +274,57 @@ class Point3dFp64TC(Point3dTB, unittest.TestCase):
 
 class PointPadTB(testing.TestBase):
 
+    def test_circumcircle(self):
+        pp = self.PointPad(ndim=2)
+        for x, y in ((0.0, 0.0), (2.0, 0.0), (0.0, 2.0), (1.0, 1.0)):
+            pp.append(x, y)
+        self.assert_allclose(pp.circumcircle(0, 1, 2), (2.0, 1.0, 1.0, 0.0))
+        # The orientation does not matter.
+        self.assert_allclose(pp.circumcircle(2, 1, 0), (2.0, 1.0, 1.0, 0.0))
+
+    def test_circumcircle_far_from_origin(self):
+        pp = self.PointPad(ndim=2)
+        for x, y in ((1000.0, 1000.0), (1000.0 + 2, 1000.0),
+                     (1000.0, 1000.0 + 2)):
+            pp.append(x, y)
+        r2, ux, uy, uz = pp.circumcircle(0, 1, 2)
+        self.assert_allclose((r2, ux, uy, uz),
+                             (2.0, 1000.0 + 1, 1000.0 + 1, 0.0))
+
+    def test_circumcircle_3d(self):
+        pp = self.PointPad(ndim=3)
+        for x, y, z in ((0.0, 0.0, 0.0), (2.0, 0.0, 0.0), (0.0, 2.0, 0.0)):
+            pp.append(x, y, z)
+        self.assert_allclose(pp.circumcircle(0, 1, 2), (2.0, 1.0, 1.0, 0.0))
+        # Tilt the triangle plane: the center stays equidistant from the
+        # three points and lies in the plane through them.
+        pp = self.PointPad(ndim=3)
+        for x, y, z in ((1.0, 2.0, 3.0), (4.0, 2.5, 3.5), (2.0, 6.0, 1.0)):
+            pp.append(x, y, z)
+        r2, ux, uy, uz = pp.circumcircle(0, 1, 2)
+        for ip in range(3):
+            d2 = ((pp.x_at(ip) - ux) ** 2 + (pp.y_at(ip) - uy) ** 2
+                  + (pp.z_at(ip) - uz) ** 2)
+            self.assert_allclose(d2, r2)
+        b = [pp.x_at(1) - pp.x_at(0), pp.y_at(1) - pp.y_at(0),
+             pp.z_at(1) - pp.z_at(0)]
+        c = [pp.x_at(2) - pp.x_at(0), pp.y_at(2) - pp.y_at(0),
+             pp.z_at(2) - pp.z_at(0)]
+        n = [b[1] * c[2] - b[2] * c[1], b[2] * c[0] - b[0] * c[2],
+             b[0] * c[1] - b[1] * c[0]]
+        u = [ux - pp.x_at(0), uy - pp.y_at(0), uz - pp.z_at(0)]
+        self.assert_allclose(sum(i * j for i, j in zip(n, u)), 0.0,
+                             atol=1e-4)
+
+    def test_circumcircle_rejects_bad_input(self):
+        pp = self.PointPad(ndim=2)
+        for x, y in ((0.0, 0.0), (1.0, 1.0), (2.0, 2.0)):
+            pp.append(x, y)
+        with self.assertRaisesRegex(ValueError, "collinear or duplicated"):
+            pp.circumcircle(0, 1, 2)
+        with self.assertRaisesRegex(IndexError, "out of range"):
+            pp.circumcircle(0, 1, 3)
+
     def test_ndim(self):
         pp2d = self.PointPad(ndim=2)
         self.assertEqual(pp2d.ndim, 2)
