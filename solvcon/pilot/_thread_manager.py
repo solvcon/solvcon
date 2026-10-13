@@ -12,8 +12,8 @@ queue.
 import abc
 
 from ._pilot_core import (
-    Cancelled, Error, Failed, RThreadManager, Succeeded, TaskContext,
-    WorkflowContext, WorkflowHandle, WorkflowState)
+    CancellationToken, Cancelled, Error, Failed, RThreadManager, Succeeded,
+    TaskContext, WorkflowContext, WorkflowHandle, WorkflowState)
 
 
 class ThreadState:
@@ -40,9 +40,11 @@ class Task(abc.ABC):
     def execute(self, context: TaskContext,
                 state: ThreadState | None) -> None:
         """Complete the task with ``context.finish`` before this method
-        returns. A long C++ call made here must release the GIL in its
-        binding, or it blocks every other Python thread, including the Qt
-        thread."""
+        returns. Take ``context.cancellation`` once and poll it between
+        chunks of work; a running call cannot be interrupted, so the chunk
+        size sets the cancel latency. A long C++ call made here must
+        release the GIL in its binding, or it blocks every other Python
+        thread, including the Qt thread."""
 
 
 class Workflow(abc.ABC):
@@ -54,13 +56,16 @@ class Workflow(abc.ABC):
         """Call ``context.finish`` before this method returns."""
 
     def cancel(self) -> None:
-        pass
+        """Runs on the workflow thread if the workflow is still open when
+        an accepted ``WorkflowHandle.cancel`` reaches it. The result is
+        ``Cancelled`` whatever this method does."""
 
     def close(self) -> None:
         pass
 
 
 __all__ = [
+    'CancellationToken',
     'Cancelled',
     'Error',
     'Failed',
