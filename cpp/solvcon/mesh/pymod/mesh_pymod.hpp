@@ -20,6 +20,7 @@ namespace python
 void initialize_mesh(pybind11::module & mod);
 void wrap_StaticGrid(pybind11::module & mod);
 void wrap_StaticMesh(pybind11::module & mod);
+void wrap_DelaunayBuilder(pybind11::module & mod);
 
 } /* end namespace python */
 

@@ -18,6 +18,7 @@
 
 #include <cmath>
 #include <limits>
+#include <tuple>
 
 namespace solvcon
 {
@@ -726,6 +727,56 @@ public:
         case Axis::Z: mirror_z(); break;
         default: throw std::invalid_argument("PointPad::mirror: invalid axis"); break;
         }
+    }
+
+    /**
+     * Squared circumradius and circumcenter (x, y, z) of the triangle through
+     * the points ia, ib, and ic. The center lies in the plane of the
+     * triangle. For a 2D pad, z is zero. The computation is relative to the
+     * first point to keep precision for points far from the origin.
+     */
+    std::tuple<value_type, value_type, value_type, value_type> circumcircle(size_t ia, size_t ib, size_t ic) const
+    {
+        size_t const n = m_x.size();
+        if (ia >= n || ib >= n || ic >= n)
+        {
+            throw std::out_of_range(std::format("PointPad::circumcircle: index ({}, {}, {}) out of range of {}", ia, ib, ic, n));
+        }
+        value_type const bx = m_x[ib] - m_x[ia];
+        value_type const by = m_y[ib] - m_y[ia];
+        value_type const cx = m_x[ic] - m_x[ia];
+        value_type const cy = m_y[ic] - m_y[ia];
+        if (m_ndim == 3)
+        {
+            value_type const bz = m_z[ib] - m_z[ia];
+            value_type const cz = m_z[ic] - m_z[ia];
+            // The normal of the triangle plane.
+            value_type const nx = by * cz - bz * cy;
+            value_type const ny = bz * cx - bx * cz;
+            value_type const nz = bx * cy - by * cx;
+            value_type const nn = nx * nx + ny * ny + nz * nz;
+            if (nn == 0)
+            {
+                throw std::invalid_argument("PointPad::circumcircle: the points are collinear or duplicated");
+            }
+            value_type const b2 = bx * bx + by * by + bz * bz;
+            value_type const c2 = cx * cx + cy * cy + cz * cz;
+            // u = (c2 * (n x b) + b2 * (c x n)) / (2 * nn)
+            value_type const ux = (c2 * (ny * bz - nz * by) + b2 * (cy * nz - cz * ny)) / (2 * nn);
+            value_type const uy = (c2 * (nz * bx - nx * bz) + b2 * (cz * nx - cx * nz)) / (2 * nn);
+            value_type const uz = (c2 * (nx * by - ny * bx) + b2 * (cx * ny - cy * nx)) / (2 * nn);
+            return {ux * ux + uy * uy + uz * uz, m_x[ia] + ux, m_y[ia] + uy, m_z[ia] + uz};
+        }
+        value_type const dd = 2 * (bx * cy - by * cx);
+        if (dd == 0)
+        {
+            throw std::invalid_argument("PointPad::circumcircle: the points are collinear or duplicated");
+        }
+        value_type const b2 = bx * bx + by * by;
+        value_type const c2 = cx * cx + cy * cy;
+        value_type const ux = (cy * b2 - by * c2) / dd;
+        value_type const uy = (bx * c2 - cx * b2) / dd;
+        return {ux * ux + uy * uy, m_x[ia] + ux, m_y[ia] + uy, value_type(0)};
     }
 
 private:

@@ -103,7 +103,7 @@ class RectDomainMesher(object):
         elif cell_type == 'unstructured':
             tpn = core.StaticMesh.TRIANGLE
             nodes = self._jitter_points()
-            cells = [(3,) + tri
+            cells = [(3, *tri)
                      for tri in self._split_double_boundary(nodes)]
         else:
             raise ValueError(f"unknown cell_type '{cell_type}'")
@@ -150,22 +150,11 @@ class RectDomainMesher(object):
                     jt + 0.3 * math.cos(26.651 * it + 41.347 * jt)))
         return pad
 
-    @staticmethod
-    def _circumcircle(pts, ia, ib, ic):
-        """Circumcenter and squared circumradius of triangle (ia, ib, ic)."""
-        ax, ay = pts[ia]
-        bx, by = pts[ib]
-        cx, cy = pts[ic]
-        dd = 2.0 * (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by))
-        a2, b2, c2 = ax * ax + ay * ay, bx * bx + by * by, cx * cx + cy * cy
-        ux = (a2 * (by - cy) + b2 * (cy - ay) + c2 * (ay - by)) / dd
-        uy = (a2 * (cx - bx) + b2 * (ax - cx) + c2 * (bx - ax)) / dd
-        return ux, uy, (ax - ux) ** 2 + (ay - uy) ** 2
-
     @classmethod
     def _triangulate(cls, pad):
         """Bowyer-Watson Delaunay triangulation of the :class:`PointPad`
-        ``pad``; returns CCW index triples.
+        ``pad``; returns the CCW node indices as an n-by-3 integer
+        :class:`~solvcon.core.SimpleArray`.
 
         Seed a far-away super-triangle, insert one point at a time (carve
         the triangles whose circumcircle strictly contains it, fan the
@@ -184,42 +173,28 @@ class RectDomainMesher(object):
         - https://en.wikipedia.org/wiki/Bowyer%E2%80%93Watson_algorithm
         """
         npt = len(pad)
-        pts = [(pad.x_at(ip), pad.y_at(ip)) for ip in range(npt)]
-        xs = [px for px, py in pts]
-        ys = [py for px, py in pts]
-        xmid = (min(xs) + max(xs)) / 2.0
-        ymid = (min(ys) + max(ys)) / 2.0
-        span = max(max(xs) - min(xs), max(ys) - min(ys), 1.0)
-        pts += [(xmid - 64.0 * span, ymid - 32.0 * span),
-                (xmid + 64.0 * span, ymid - 32.0 * span),
-                (xmid, ymid + 64.0 * span)]
-        # Triangles keyed by CCW vertex triple, valued by circumcircle.
-        cc = {(npt, npt + 1, npt + 2):
-              cls._circumcircle(pts, npt, npt + 1, npt + 2)}
-        for ip in range(npt):
-            px, py = pts[ip]
-            bad = [tri for tri, (ux, uy, rr) in cc.items()
-                   if (px - ux) ** 2 + (py - uy) ** 2 < rr * (1.0 - 1e-12)]
-            dedges = set()
-            for tri in bad:
-                ta, tb, tc = tri
-                dedges.update(((ta, tb), (tb, tc), (tc, ta)))
-                del cc[tri]
-            # The cavity rim is the directed edges whose reverse was not
-            # carved; they run CCW, so fanning them to the point keeps the
-            # triangles CCW.
-            for ea, eb in dedges:
-                if (eb, ea) not in dedges:
-                    cc[(ea, eb, ip)] = cls._circumcircle(pts, ea, eb, ip)
-        tris = []
-        for tri in cc:
-            if max(tri) >= npt:
-                continue
-            (ax, ay), (bx, by), (cx, cy) = (pts[iv] for iv in tri)
-            if (bx - ax) * (cy - ay) - (cx - ax) * (by - ay) < 0.0:
-                tri = (tri[0], tri[2], tri[1])
-            tris.append(tri)
-        return tris
+        xmin, xmax = pad.x.min(), pad.x.max()
+        ymin, ymax = pad.y.min(), pad.y.max()
+        xmid, ymid = (xmin + xmax) / 2.0, (ymin + ymax) / 2.0
+        span = max(xmax - xmin, ymax - ymin, 1.0)
+        # Work on a copy so that adding the super-triangle does not touch
+        # `pad`.
+        work = pad[:]
+        # Add a super triangle.
+        work.append(xmid - 64.0 * span, ymid - 32.0 * span)
+        work.append(xmid + 64.0 * span, ymid - 32.0 * span)
+        work.append(xmid, ymid + 64.0 * span)
+        # Create the Delaunay triangulation builder and add the super triangle
+        # to it.
+        builder = core.DelaunayBuilder()
+        rr, ux, uy, uz = work.circumcircle(npt, npt + 1, npt + 2)
+        builder.add(ia=npt, ib=npt + 1, ic=npt + 2, rr=rr, ux=ux, uy=uy, uz=uz)
+        # The default relative tolerance of the builder counts a point on a
+        # circle as outside, so cocircular points do not make the result
+        # depend on rounding.
+        builder.populate_from_points(pad=work, first=0, last=npt)
+        trinodes = builder.compute_triangle_nodes(pad=work, nnode=npt)
+        return trinodes
 
     @classmethod
     def _split_double_boundary(cls, pad):
@@ -235,7 +210,7 @@ class RectDomainMesher(object):
         bounds pathological input.
         """
         for _ in range(16):
-            tris = cls._triangulate(pad)
+            tris = cls._triangulate(pad).ndarray.tolist()
             shared = {}
             for tri in tris:
                 for it in range(3):

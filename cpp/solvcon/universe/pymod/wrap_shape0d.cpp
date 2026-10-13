@@ -435,6 +435,7 @@ WrapPointPad<T> & WrapPointPad<T>::wrap_geometry()
                 }
             },
             py::arg("axis"))
+        .def("circumcircle", &wrapped_type::circumcircle, py::arg("ia"), py::arg("ib"), py::arg("ic"))
         //
         ;
 
