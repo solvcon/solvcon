@@ -26,6 +26,7 @@ void initialize_mesh(pybind11::module & mod)
     {
         wrap_StaticGrid(mod);
         wrap_StaticMesh(mod);
+        wrap_DelaunayBuilder(mod);
     };
 
     OneTimeInitializer<mesh_pymod_tag>::me()(mod, initialize_impl);

@@ -69,6 +69,7 @@ list_of_mesh = [
     'StaticGrid3d',
     'StaticMesh',
     'StaticMeshBc',
+    'DelaunayBuilder',
 ]
 
 # multidim directory symbols

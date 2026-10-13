@@ -6,11 +6,13 @@ cmake_minimum_required(VERSION 4.0.1)
 set(SOLVCON_MESH_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/mesh.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/StaticMesh.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/DelaunayBuilder.hpp
     CACHE FILEPATH "" FORCE)
 
 set(SOLVCON_MESH_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/StaticMesh_boundary.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/StaticMesh_interior.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/DelaunayBuilder.cpp
     CACHE FILEPATH "" FORCE)
 
 set(SOLVCON_MESH_PYMODHEADERS
@@ -21,6 +23,7 @@ set(SOLVCON_MESH_PYMODSOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/pymod/mesh_pymod.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/pymod/wrap_StaticGrid.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/pymod/wrap_StaticMesh.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/pymod/wrap_DelaunayBuilder.cpp
     CACHE FILEPATH "" FORCE)
 
 set(SOLVCON_MESH_FILES
