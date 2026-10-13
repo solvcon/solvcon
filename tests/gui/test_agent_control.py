@@ -18,7 +18,7 @@ try:
     from solvcon.pilot.agent import _agent_gui
     from solvcon.pilot.agent._agent_control import (
         PilotWindowManager, LiveViewExecutor, build_control_dispatcher,
-        pilot_scene_context)
+        pilot_scene_context, PilotTurnSeams)
     from solvcon.agent import window
     from PySide6 import QtWidgets
 except ImportError:
@@ -103,6 +103,21 @@ class PilotWindowManagerTC(_PilotTC):
             self.assertTrue(res.ok, res.error)
             self.assertTrue(os.path.exists(path))
             self.assertGreater(os.path.getsize(path), 0)
+
+    def test_an_id_belongs_to_the_window_not_to_the_manager(self):
+        # A second manager reading the same ids is what says the id belongs to
+        # the window rather than to a table the manager keeps, which is what a
+        # rebuilt Python sub-window would lose.
+        first = self.ex.run({"op": "new_canvas"}).value["window_id"]
+        self.ex.run({"op": "close_window", "window_id": first})
+        QtWidgets.QApplication.processEvents()
+        opened = [self.ex.run({"op": "new_canvas"}).value["window_id"],
+                  self.ex.run({"op": "new_canvas"}).value["window_id"]]
+        other = window.Executor(PilotWindowManager(self.mgr))
+        listed = other.run({"op": "list_windows"}).value["windows"]
+        self.assertEqual([w["id"] for w in listed], opened)
+        self.assertTrue(other.run(
+            {"op": "activate_window", "window_id": opened[0]}).ok)
 
     def test_by_id_commands_fail_cleanly_on_a_missing_window(self):
         self.ex.run({"op": "new_canvas"})
@@ -216,6 +231,68 @@ class DispatcherIntegrationTC(_PilotTC):
         names = {tool["name"] for tool in session.tool_surface()}
         self.assertLessEqual(
             {"close_window", "clear", "remove_shape"}, names)
+
+
+class PilotTurnSeamsTC(_PilotTC):
+    """The scene a pilot turn is composed against, and the guard it carries.
+
+    The turn keeps the core's own token, so what moves that token is decided
+    entirely by what this scene names.  These pin it: drop the window list or
+    the view line from the scene and the guard stops seeing a canvas switched
+    or a view panned under a running turn.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.dispatcher = build_control_dispatcher(self.mgr)
+        self.session = agent.AgentSession(runner=self.dispatcher)
+        self.seams = PilotTurnSeams(self.mgr)
+
+    def _token(self):
+        return agent.default_token(self.session,
+                                   self.seams.scene(self.session))
+
+    def test_the_scene_follows_a_canvas_opened_under_the_turn(self):
+        # The executors retarget the moment a batch opens a canvas, so the
+        # session has to follow rather than describe the canvas it started on.
+        self.dispatcher.run({"op": "new_canvas"})
+        first = self.mgr.currentR2DWidget().world
+        self.seams.scene(self.session)
+        self.assertIs(self.session.world, first)
+        self.dispatcher.run({"op": "new_canvas"})
+        self.dispatcher.run({"op": "add_circle", "cx": 0.0, "cy": 0.0,
+                             "r": 1.0})
+        scene = self.seams.scene(self.session)
+        self.assertIsNot(self.session.world, first)
+        self.assertIn("world with 1 shapes", scene)
+
+    def test_it_holds_still_while_nothing_moves(self):
+        self.dispatcher.run({"op": "new_canvas"})
+        self.assertEqual(self._token(), self._token())
+
+    def test_a_canvas_activated_meanwhile_changes_it(self):
+        self.dispatcher.run({"op": "new_canvas"})
+        before = self._token()
+        self.dispatcher.run({"op": "new_canvas"})
+        self.assertNotEqual(before, self._token())
+
+    def test_a_pan_the_user_made_changes_it(self):
+        self.dispatcher.run({"op": "new_canvas"})
+        before = self._token()
+        self.dispatcher.run(
+            {"op": "pan", "dx_screen": 30.0, "dy_screen": 0.0})
+        self.assertNotEqual(before, self._token())
+
+    def test_a_shape_added_meanwhile_changes_it(self):
+        self.dispatcher.run({"op": "new_canvas"})
+        before = self._token()
+        self.dispatcher.run({"op": "add_circle", "cx": 0.0, "cy": 0.0,
+                             "r": 1.0})
+        self.assertNotEqual(before, self._token())
+
+    def test_it_reads_cleanly_with_no_canvas_at_all(self):
+        self.assertIn("windows: none open", self.seams.scene(self.session))
+        self.assertEqual(self._token(), self._token())
 
 
 class AgentPanelControlTC(_PilotTC):
