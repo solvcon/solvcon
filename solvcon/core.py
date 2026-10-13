@@ -104,6 +104,7 @@ list_of_toggle = [
 
 # transform directory symbols
 list_of_transform = [
+    'FourierBackend',
     'FourierTransform',
 ]
 
