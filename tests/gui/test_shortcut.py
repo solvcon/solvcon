@@ -116,6 +116,11 @@ class ShortcutTC(unittest.TestCase):
                     "draw.tool." + tool, QtCore.Qt.WidgetShortcut)
 
     def test_close_action_carries_the_resolved_binding(self):
+        # An active sub-window takes Primary+W, and the controller is shared,
+        # so start without one whatever a previous test left open.
+        self.mgr.mdiArea.closeAllSubWindows()
+        QtWidgets.QApplication.processEvents()
+        self.assertIsNone(self.mgr.mdiArea.activeSubWindow())
         self._assert_action_matches_resolved(
             "window.close", QtCore.Qt.ApplicationShortcut)
         action = self.model.action("window.close")
