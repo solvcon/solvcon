@@ -26,7 +26,25 @@ class RectDomainMesher(object):
     def __init__(self, nx=64, ny=16, ll=(0.0, 0.0), ur=(4.0, 1.0)):
         self.nx = nx
         self.ny = ny
-        (self.x0, self.y0), (self.x1, self.y1) = ll, ur
+        self.bbox = core.BoundBox3dFp64(
+            min_x=ll[0], min_y=ll[1], min_z=0.0,
+            max_x=ur[0], max_y=ur[1], max_z=0.0)
+
+    @property
+    def x0(self):
+        return self.bbox.min_x
+
+    @property
+    def y0(self):
+        return self.bbox.min_y
+
+    @property
+    def x1(self):
+        return self.bbox.max_x
+
+    @property
+    def y1(self):
+        return self.bbox.max_y
 
     @property
     def cell_extent(self):
@@ -36,12 +54,14 @@ class RectDomainMesher(object):
         the resolution of the mesh whatever the flavor, and it is what a
         measurement over the mesh has to be cut to.
         """
-        return ((self.x1 - self.x0) / self.nx,
-                (self.y1 - self.y0) / self.ny)
+        bbox = self.bbox
+        return ((bbox.max_x - bbox.min_x) / self.nx,
+                (bbox.max_y - bbox.min_y) / self.ny)
 
     def _node(self, it, jt):
-        return (self.x0 + it * (self.x1 - self.x0) / self.nx,
-                self.y0 + jt * (self.y1 - self.y0) / self.ny)
+        bbox = self.bbox
+        return (bbox.min_x + it * (bbox.max_x - bbox.min_x) / self.nx,
+                bbox.min_y + jt * (bbox.max_y - bbox.min_y) / self.ny)
 
     def _nid(self, it, jt):
         return jt * (self.nx + 1) + it
@@ -103,8 +123,21 @@ class RectDomainMesher(object):
         elif cell_type == 'unstructured':
             tpn = core.StaticMesh.TRIANGLE
             nodes = self._jitter_points()
-            cells = [(3, *tri)
-                     for tri in self._split_double_boundary(nodes)]
+            builder = core.DelaunayBuilder(pad=nodes)
+            # An ear is a cell with two boundary edges, and so a single
+            # interior neighbor.
+            max_iter = 16
+            for _ in range(max_iter):
+                tris = builder.triangulate()
+                ears = builder.calc_ear_centroids(tris=tris)
+                if ears.shape[0] == 0:
+                    break
+                nodes.append(x=ears[:, 0], y=ears[:, 1])
+            else:
+                raise RuntimeError(
+                    "boundary-cell refinement did not converge in "
+                    f"{max_iter} iterations")
+            cells = [(3, *tri) for tri in tris.ndarray.tolist()]
         else:
             raise ValueError(f"unknown cell_type '{cell_type}'")
         mh = core.StaticMesh(ndim=2, nnode=len(nodes), nface=0,
@@ -149,86 +182,6 @@ class RectDomainMesher(object):
                     it + 0.3 * math.sin(12.9898 * it + 78.233 * jt),
                     jt + 0.3 * math.cos(26.651 * it + 41.347 * jt)))
         return pad
-
-    @classmethod
-    def _triangulate(cls, pad):
-        """Bowyer-Watson Delaunay triangulation of the :class:`PointPad`
-        ``pad``; returns the CCW node indices as an n-by-3 integer
-        :class:`~solvcon.core.SimpleArray`.
-
-        Seed a far-away super-triangle, insert one point at a time (carve
-        the triangles whose circumcircle strictly contains it, fan the
-        cavity rim to the point), then drop the triangles touching a super
-        vertex.  On-circle points count as outside, keeping the cavity well
-        defined under the cocircular ties of the regular boundary layout.
-        Naive O(n^2).
-
-        References:
-        - A. Bowyer, "Computing Dirichlet tessellations", The Computer
-          Journal 24(2):162-166, 1981.
-          https://doi.org/10.1093/comjnl/24.2.162
-        - D. F. Watson, "Computing the n-dimensional Delaunay tessellation
-          with application to Voronoi polytopes", The Computer Journal
-          24(2):167-172, 1981.  https://doi.org/10.1093/comjnl/24.2.167
-        - https://en.wikipedia.org/wiki/Bowyer%E2%80%93Watson_algorithm
-        """
-        npt = len(pad)
-        xmin, xmax = pad.x.min(), pad.x.max()
-        ymin, ymax = pad.y.min(), pad.y.max()
-        xmid, ymid = (xmin + xmax) / 2.0, (ymin + ymax) / 2.0
-        span = max(xmax - xmin, ymax - ymin, 1.0)
-        # Work on a copy so that adding the super-triangle does not touch
-        # `pad`.
-        work = pad[:]
-        # Add a super triangle.
-        work.append(xmid - 64.0 * span, ymid - 32.0 * span)
-        work.append(xmid + 64.0 * span, ymid - 32.0 * span)
-        work.append(xmid, ymid + 64.0 * span)
-        # Create the Delaunay triangulation builder and add the super triangle
-        # to it.
-        builder = core.DelaunayBuilder()
-        rr, ux, uy, uz = work.circumcircle(npt, npt + 1, npt + 2)
-        builder.add(ia=npt, ib=npt + 1, ic=npt + 2, rr=rr, ux=ux, uy=uy, uz=uz)
-        # The default relative tolerance of the builder counts a point on a
-        # circle as outside, so cocircular points do not make the result
-        # depend on rounding.
-        builder.populate_from_points(pad=work, first=0, last=npt)
-        trinodes = builder.compute_triangle_nodes(pad=work, nnode=npt)
-        return trinodes
-
-    @classmethod
-    def _split_double_boundary(cls, pad):
-        """Triangulate the :class:`PointPad` ``pad``, appending Steiner
-        points into it until no cell touches the boundary with more than
-        one face; returns the triangles.
-
-        A cell with two single-shared (boundary) edges is a corner ear with
-        a single interior neighbour, which the CESE solver dislikes.  A
-        Steiner point at the ear's centroid keeps the next Delaunay pass
-        from rebuilding it; the boundary nodes never move, so the
-        classification is unchanged.  One pass suffices here; the cap only
-        bounds pathological input.
-        """
-        for _ in range(16):
-            tris = cls._triangulate(pad).ndarray.tolist()
-            shared = {}
-            for tri in tris:
-                for it in range(3):
-                    edge = frozenset((tri[it], tri[(it + 1) % 3]))
-                    shared[edge] = shared.get(edge, 0) + 1
-            extra = []
-            for tri in tris:
-                on_boundary = sum(
-                    1 for it in range(3)
-                    if shared[frozenset((tri[it], tri[(it + 1) % 3]))] == 1)
-                if on_boundary >= 2:
-                    extra.append((sum(pad.x_at(iv) for iv in tri) / 3.0,
-                                  sum(pad.y_at(iv) for iv in tri) / 3.0))
-            if not extra:
-                return tris
-            for xc, yc in extra:
-                pad.append(xc, yc)
-        raise RuntimeError("boundary-cell refinement did not converge")
 
     @staticmethod
     def classify_boundary(mh, tol=1e-9):

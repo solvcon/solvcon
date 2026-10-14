@@ -18,6 +18,7 @@
 
 #include <array>
 #include <cstdint>
+#include <memory>
 #include <vector>
 
 namespace solvcon
@@ -58,10 +59,19 @@ public:
 
     SimpleArray<int_type> compute_triangle_nodes(PointPad<real_type> const & pad, size_t nnode) const;
 
+    explicit DelaunayBuilder(std::shared_ptr<PointPad<real_type>> pad);
+
+    std::shared_ptr<PointPad<real_type>> const & pad() const { return m_pad; }
+
+    SimpleArray<int_type> triangulate();
+
+    SimpleArray<real_type> calc_ear_centroids(SimpleArray<int_type> const & tris) const;
+
 private:
 
     std::vector<triangle_type> remove_containing(real_type px, real_type py, real_type pz = 0.0);
 
+    std::shared_ptr<PointPad<real_type>> m_pad; ///< The points to triangulate, when bound.
     SimpleCollector<int_type> m_vertex; ///< Three vertex indices per triangle.
     SimpleCollector<real_type> m_circle; ///< Center x, y, z and squared radius per triangle.
     real_type m_relative_tolerance = 1.e-12; ///< Shrinks every circle so that a point on it counts as outside.

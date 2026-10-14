@@ -207,6 +207,9 @@ class DrawToolTC(unittest.TestCase):
         # rest, so a dock wider than the design leaves no bands beside it.
         panel = self._panel()
         panel.resize(500, 400)
+        # A hidden panel gets no resize event, so a layout activated earlier
+        # would keep its old geometry unless invalidated first.
+        panel.layout().invalidate()
         panel.layout().activate()
         self.assertEqual(panel._tools.width(), 64)
         self.assertGreater(panel._inspector.width(), 264)

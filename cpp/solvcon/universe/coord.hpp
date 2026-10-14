@@ -540,6 +540,9 @@ public:
         m_z.push_back(z);
     }
 
+    void append(SimpleArray<T> const & x, SimpleArray<T> const & y);
+    void append(SimpleArray<T> const & x, SimpleArray<T> const & y, SimpleArray<T> const & z);
+
     // Do not implement setter of m_ndim. It should not be changed after construction.
     uint8_t ndim() const { return m_ndim; }
 
@@ -781,6 +784,8 @@ public:
 
 private:
 
+    static size_type validate_batch(SimpleArray<T> const & a, SimpleArray<T> const & b);
+
     uint8_t m_ndim;
     size_type m_alignment;
     SimpleCollector<value_type> m_x;
@@ -789,6 +794,63 @@ private:
     SimpleCollector<value_type> m_z;
 
 }; /* end class PointPad */
+
+/// Check that the two arrays are 1D with the same length, and return the length.
+template <typename T>
+typename PointPad<T>::size_type PointPad<T>::validate_batch(SimpleArray<T> const & a, SimpleArray<T> const & b)
+{
+    if (a.ndim() != 1 || b.ndim() != 1)
+    {
+        throw std::invalid_argument(std::format("PointPad::append: arrays must be 1D but are {}D and {}D", a.ndim(), b.ndim()));
+    }
+    if (a.size() != b.size())
+    {
+        throw std::invalid_argument(std::format("PointPad::append: array sizes {} and {} are not the same", a.size(), b.size()));
+    }
+    return a.size();
+}
+
+/**
+ * Append all the points of the 1D arrays x and y to a 2D pad. The arrays may
+ * be strided views, such as a column of a 2D array.
+ */
+template <typename T>
+void PointPad<T>::append(SimpleArray<T> const & x, SimpleArray<T> const & y)
+{
+    if (m_ndim != 2)
+    {
+        throw std::out_of_range(std::format("PointPad::append: ndim must be 2 but is {}", static_cast<int>(m_ndim)));
+    }
+    size_type const n = validate_batch(x, y);
+    m_x.reserve(m_x.size() + n);
+    m_y.reserve(m_y.size() + n);
+    for (size_type i = 0; i < n; ++i)
+    {
+        m_x.push_back(x(i));
+        m_y.push_back(y(i));
+    }
+}
+
+/// Append all the points of the 1D arrays x, y and z to a 3D pad.
+template <typename T>
+void PointPad<T>::append(SimpleArray<T> const & x, SimpleArray<T> const & y, SimpleArray<T> const & z)
+{
+    if (m_ndim != 3)
+    {
+        throw std::out_of_range(std::format("PointPad::append: ndim must be 3 but is {}", static_cast<int>(m_ndim)));
+    }
+    size_type const n = validate_batch(x, y);
+    validate_batch(x, z);
+    m_x.reserve(m_x.size() + n);
+    m_y.reserve(m_y.size() + n);
+    m_z.reserve(m_z.size() + n);
+    for (size_type i = 0; i < n; ++i)
+    {
+        m_x.push_back(x(i));
+        m_y.push_back(y(i));
+        m_z.push_back(z(i));
+    }
+}
 
 using PointPadFp32 = PointPad<float>;
 using PointPadFp64 = PointPad<double>;
