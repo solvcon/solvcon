@@ -190,6 +190,34 @@ module geometry_msgs {
 };
 """
 
+LANES_IDL = b"""
+================================================================================
+IDL: demo_msgs/msg/Lanes
+
+module demo_msgs {
+  module msg {
+    enum Side {
+      LEFT,
+      RIGHT
+    };
+    struct Point32 {
+      float x;
+      float y;
+      float z;
+    };
+    struct Lane {
+      uint64 id;
+      Side side;
+      sequence<Point32, 64> curve;
+      string<16> label;
+    };
+    struct Lanes {
+      sequence<Lane, 8> lanes;
+    };
+  };
+};
+"""
+
 FIXTURE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                        "data", "mcap", "fake_recording.mcap")
 TOPIC = "/vehicle/status"
@@ -332,9 +360,6 @@ class SchemaParseTC(unittest.TestCase):
         self.assertEqual(plan.fields, ("header.sequence_number",
                                        "version.major", "version.minor",
                                        "v_target"))
-        for fields in (["reasons"], ["polygon_point"], ["polygon"]):
-            with self.assertRaisesRegex(mcap.McapError, "unsupported"):
-                mcap.DecodePlan(schema, fields)
         for order in "<>":
             self.assertEqual(plan.decode(pack_summary(order)),
                              (3, 1, 2, 22.5), order)
@@ -368,6 +393,38 @@ class SchemaParseTC(unittest.TestCase):
         with self.assertRaisesRegex(mcap.McapError, "ends before"):
             mcap.DecodePlan(schema, ["samples"]).decode(
                 pack_signals("<", 1)[:-40])
+
+    def test_named_struct_containers_decode(self):
+        """A named container of structs decodes each element whole."""
+        schema = mcap.Schema(1, "monitor_msgs/msg/Summary", "ros2idl",
+                             SUMMARY_IDL)
+        plan = mcap.DecodePlan(schema, ["reasons", "polygon_point",
+                                        "polygon"])
+        self.assertEqual(plan.types, ("struct[]",) * 3)
+        for order in "<>":
+            reasons, corners, polygon = plan.decode(pack_summary(order))
+            self.assertEqual([vars(reason) for reason in reasons],
+                             [{"timestamp": 10, "text": "a"},
+                              {"timestamp": 11, "text": "bb"}], order)
+            self.assertEqual([vars(point) for point in corners],
+                             [{"x": 0.0, "y": 1.0, "z": 2.0},
+                              {"x": 3.0, "y": 4.0, "z": 5.0}], order)
+            self.assertEqual([vars(point) for point in polygon],
+                             [{"x": 1.0, "y": 2.0, "z": 3.0}], order)
+
+        schema = mcap.Schema(1, "demo_msgs/msg/Lanes", "ros2idl", LANES_IDL)
+        plan = mcap.DecodePlan(schema, ["lanes"])
+        for order in "<>":
+            [lanes] = plan.decode(pack_lanes(order))
+            self.assertEqual([(lane.id, lane.side.name, lane.label)
+                              for lane in lanes],
+                             [(7, "LEFT", "left"), (8, "RIGHT", "right")])
+            self.assertEqual([vars(point) for point in lanes[0].curve],
+                             [{"x": 1.0, "y": 2.0, "z": 0.0},
+                              {"x": 3.0, "y": 4.0, "z": 0.0}])
+            self.assertEqual(lanes[1].curve, [])
+        with self.assertRaisesRegex(mcap.McapError, "ends before"):
+            plan.decode(pack_lanes("<")[:-20])
 
     def test_string_edges(self):
         """An empty, NUL-bearing, or non-UTF-8 string, and an empty list."""
@@ -533,6 +590,15 @@ def pack_summary(order):
     packer.scalar("d", *range(6))
     packer.scalar("I", 1).scalar("d", 1.0, 2.0, 3.0)
     return packer.scalar("d", 22.5).payload()
+
+
+def pack_lanes(order):
+    """Pack a ``Lanes`` message of two lanes, the second without points."""
+    packer = CdrPacker(order).scalar("I", 2)
+    packer.scalar("Q", 7).scalar("I", 0).scalar("I", 2)
+    packer.scalar("f", 1.0, 2.0, 0.0, 3.0, 4.0, 0.0).string("left")
+    packer.scalar("Q", 8).scalar("I", 1).scalar("I", 0).string("right")
+    return packer.payload()
 
 
 def pack_status(seq, speed, brake_active, mode):

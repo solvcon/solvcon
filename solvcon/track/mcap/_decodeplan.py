@@ -12,16 +12,20 @@ typedefs, and integer constants.
 ``DecodePlan`` turns the root struct into a tree and walks it over the
 CDR body of each message.  A scalar or enum leaf reached through nested
 structs is a column.  A string is a column when the field list names
-it, and so is a sequence or array of scalars, enums, or strings.  Such
-a field decodes to a ``str`` or a ``list`` per message.  The walk steps
-over a union and over a container of any other element, so a leaf
+it, and so is a sequence or array of scalars, enums, strings, or
+structs.  Such a field decodes to a ``str`` or a ``list`` per message,
+and a struct element decodes whole into a ``SimpleNamespace``.  The walk
+steps over a union and over a container of any other element, so a leaf
 inside one is not a column.  A union reads its discriminator to find
 the case the payload carries.
 """
 
 import re
+import enum
 import struct
+import functools
 import collections
+from types import SimpleNamespace
 
 import numpy as np
 
@@ -383,7 +387,10 @@ class DecodePlan:
     order.  An enum reads as its ``uint32`` ordinal.  A string field has
     the type ``str``.  A sequence or array field has the element type
     followed by ``[]``.  ``fields`` may also name a string or container
-    field, which decodes to a Python ``str`` or ``list``.
+    field, which decodes to a Python ``str`` or ``list``.  A container of
+    structs has the type ``struct[]``, and each element decodes whole into
+    a ``SimpleNamespace`` with one attribute per field, where an enum reads
+    as an ``enum.IntEnum`` member.
     """
 
     def __init__(self, schema, fields=None):
@@ -478,8 +485,8 @@ def _leaves(node, path):
     """
     Return ``(path, dtype, enum members)`` per leaf, in order.
 
-    A leaf is a scalar, a string, or a sequence or array of scalars or
-    strings.  The dtype of a container ends with ``[]``.
+    A leaf is a scalar, a string, or a sequence or array of scalars,
+    strings, or structs.  The dtype of a container ends with ``[]``.
     """
     if node[0] == "scalar":
         return [(".".join(path), node[1], node[2])]
@@ -495,6 +502,8 @@ def _leaves(node, path):
         return [(".".join(path), child[1] + "[]", child[2])]
     if child[0] == "string":
         return [(".".join(path), "str[]", None)]
+    if child[0] == "struct":
+        return [(".".join(path), "struct[]", None)]
     return []
 
 
@@ -556,12 +565,112 @@ def _walk(node, body, pos, order, values):
             values.append(np.frombuffer(body, _DTYPES[order][child[1]],
                                         count, pos).tolist())
         return pos + size * count
+    if selected and child[0] == "struct":
+        items, pos = _items(child, count, body, pos, order)
+        values.append(items)
+        return pos
     items = [] if selected and child[0] == "string" else None
     for _ in range(count):
         pos = _walk(child, body, pos, order, items)
     if items is not None:
         values.append(items)
     return pos
+
+
+def _value(node, body, pos, order):
+    """Decode ``node`` at ``pos`` whole and return the value and the end."""
+    kind = node[0]
+    if kind == "scalar":
+        fmt = _SCALARS[order][node[1]]
+        pos += -pos % fmt.size
+        value = fmt.unpack_from(body, pos)[0]
+        if node[2] is not None:
+            value = _member(node[2], value)
+        return value, pos + fmt.size
+    if kind == "struct":
+        fields = {}
+        for name, child in node[1]:
+            fields[name], pos = _value(child, body, pos, order)
+        return SimpleNamespace(**fields), pos
+    if kind == "union":
+        discriminator, pos = _value(node[1], body, pos, order)
+        child = node[2].get(discriminator, node[2].get(None))
+        if child is None:
+            return None, pos
+        return _value(child, body, pos, order)
+    if kind == "array":
+        count = node[2]
+    else:
+        pos += -pos & 3
+        count = _SCALARS[order]["uint32"].unpack_from(body, pos)[0]
+        pos += 4
+    if count > len(body) - pos:
+        raise McapError(_TRUNCATED)
+    if kind == "string":
+        return _text(body, pos, count), pos + count
+    return _items(node[1], count, body, pos, order)
+
+
+def _items(node, count, body, pos, order):
+    """Decode ``count`` elements of ``node``; return the list and the end."""
+    if node[0] == "scalar" and node[2] is None:
+        size = _SCALARS[order][node[1]].size
+        pos += -pos % size if count else 0
+        if size * count > len(body) - pos:
+            raise McapError(_TRUNCATED)
+        return (np.frombuffer(body, _DTYPES[order][node[1]], count,
+                              pos).tolist(), pos + size * count)
+    record = _record(node, order)
+    if record is not None:
+        names, fmt = record
+        pos += -pos % (fmt.size // len(names)) if count else 0
+        end = pos + fmt.size * count
+        if end > len(body):
+            raise McapError(_TRUNCATED)
+        return [SimpleNamespace(**dict(zip(names, values)))
+                for values in fmt.iter_unpack(body[pos:end])], end
+    items = []
+    for _ in range(count):
+        item, pos = _value(node, body, pos, order)
+        items.append(item)
+    return items, pos
+
+
+def _record(node, order):
+    """
+    Return the field names and the format of a struct of plain scalars
+    of one size, else ``None``.  Such a struct holds no padding, so a
+    container of it unpacks in one call.
+    """
+    if node[0] != "struct" or not node[1] or any(
+            child[0] != "scalar" or child[2] is not None
+            for _, child in node[1]):
+        return None
+    return _record_format(order, tuple((name, child[1])
+                                       for name, child in node[1]))
+
+
+@functools.cache
+def _record_format(order, fields):
+    if len({_SCALARS[order][dtype].size for _, dtype in fields}) != 1:
+        return None
+    return (tuple(name for name, _ in fields),
+            struct.Struct(_ORDERS[order] + "".join(
+                COLUMN_TYPES[dtype][0] for _, dtype in fields)))
+
+
+def _member(members, value):
+    """Return the ``enum.IntEnum`` member of the ordinal ``value``."""
+    if value >= len(members):
+        raise McapError("an enum holds {} but has {} members".format(
+            value, len(members)))
+    return _enum_type(members)(value)
+
+
+@functools.cache
+def _enum_type(members):
+    return enum.IntEnum("Enum", [(name, value)
+                                 for value, name in enumerate(members)])
 
 
 def _text(body, pos, count):
