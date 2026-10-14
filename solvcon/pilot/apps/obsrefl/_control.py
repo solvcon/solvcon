@@ -23,6 +23,7 @@ from PySide6.QtCore import QTimer
 from ...visual import _movie
 from ._field_render import FieldPainter
 from ._session import ReflectionSession
+from ._driver import NoAttachedShockError
 
 __all__ = [  # noqa: F822
     'RunController',
@@ -88,8 +89,8 @@ class RunController(object):
         waits, paused, so the first thing on screen is the state a run
         would start from; Start, Resume, and Step all proceed from it.
         """
-        self._build()
-        self._panel.set_paused(True)
+        if self._build():
+            self._panel.set_paused(True)
 
     def start(self):
         """(Re)build the run session from the controls and march it into the
@@ -98,9 +99,9 @@ class RunController(object):
         A run started with the record box ticked records from its first
         frame, so the movie opens on the state the march starts from.
         """
-        self._build(record=self._panel.recording())
-        self._panel.set_paused(False)
-        self._timer.start(self.INTERVAL_MS)
+        if self._build(record=self._panel.recording()):
+            self._panel.set_paused(False)
+            self._timer.start(self.INTERVAL_MS)
 
     def remesh(self):
         """Rebuild the run at the resolution the controls now hold.
@@ -135,11 +136,20 @@ class RunController(object):
         belongs to the run that drew its frames, not to the one replacing
         it.
         """
+        params = self._panel.params()
+        try:
+            session = ReflectionSession(**params)
+        except NoAttachedShockError:
+            self._panel.set_configuration_error(
+                "Invalid configuration:\n"
+                "Adjust Mach, gamma, or the deflection angle.")
+            return False
+        self._panel.set_configuration_error("")
         self._timer.stop()
         self._finish_movie()
-        params = self._panel.params()
         self._cell_type = params['cell_type']
-        self.session = ReflectionSession(**params)
+        self.session = session
+
         self._apply_limits()
         self._painter = FieldPainter(self.session.shock.mesh)
         # A new painter carries no gauge; give it the standing one.
@@ -147,6 +157,7 @@ class RunController(object):
         if record:
             self._start_movie()
         self._open_viewer()
+        return True
 
     def _open_viewer(self):
         """Open the sub-window and draw the standing run into it.

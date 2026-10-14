@@ -648,10 +648,19 @@ class SolutionPanel(QScrollArea):
         self._boxes = (self._freestream, self._numerics, self._run,
                        self._movie, self._field, self._gauge, self._zones)
 
+        self._configuration_error = QLabel()
+        self._configuration_error.setWordWrap(True)
+        self._configuration_error.setTextInteractionFlags(
+            Qt.TextSelectableByMouse)
+        self._configuration_error.setStyleSheet("color: #c62828;")
+        self._configuration_error.hide()
+
         inner = QWidget()
         layout = QVBoxLayout(inner)
         layout.setContentsMargins(4, 4, 4, 4)
-        for box in self._boxes:
+        layout.addWidget(self._freestream)
+        layout.addWidget(self._configuration_error)
+        for box in self._boxes[1:]:
             layout.addWidget(box)
         layout.addStretch(1)
         self.setWidget(inner)
@@ -787,6 +796,13 @@ class SolutionPanel(QScrollArea):
 
     def movie_path(self, cell_type):
         return self._movie.movie_path(cell_type)
+
+    def set_configuration_error(self, message):
+        """Show a configuration error, or clear it with an empty message."""
+        self._configuration_error.setText(message)
+        self._configuration_error.setVisible(bool(message))
+        if message:
+            self.ensureWidgetVisible(self._configuration_error)
 
     def set_movie_status(self, message):
         self._movie.set_movie_status(message)
