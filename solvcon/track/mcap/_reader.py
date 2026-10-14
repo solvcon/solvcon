@@ -377,6 +377,18 @@ class Reader:
                                                         start_ns, end_ns):
             yield log_time, payload
 
+    def messages_many(self, topics, start_ns=None, end_ns=None):
+        """
+        Yield ``(topic, log_time, payload)`` of ``topics`` in file order.
+
+        One pass interleaves the topics as the file holds them, so a
+        message of one topic can be paired with the next of another.
+        """
+        topic_of = {self.channel(topic).id: topic for topic in topics}
+        for channel_id, log_time, payload in self._iter_messages(
+                set(topic_of), start_ns, end_ns):
+            yield topic_of[channel_id], log_time, payload
+
     def extract_many(self, specs, start_ns=None, end_ns=None):
         """
         Extract the columns of several topics in one pass over the file.

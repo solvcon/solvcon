@@ -712,6 +712,11 @@ class McapInOutTC(unittest.TestCase):
         with mcap.Reader(path) as reader:
             self.assertEqual(reader.message_counts(),
                              {TOPIC: 4, BRAKE_TOPIC: 2})
+            self.assertEqual(
+                [(topic, log_time) for topic, log_time, _
+                 in reader.messages_many([TOPIC, BRAKE_TOPIC])],
+                [(TOPIC, log_time) for log_time in LOG_TIMES]
+                + [(BRAKE_TOPIC, 15), (BRAKE_TOPIC, 35)])
             plan = mcap.DecodePlan(reader.schema(TOPIC),
                                    ["longitudinal_speed", "mode"])
             frames = reader.extract_frame_many({TOPIC: plan,
