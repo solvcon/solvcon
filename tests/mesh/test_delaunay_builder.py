@@ -62,6 +62,19 @@ class DelaunayBuilderTC(unittest.TestCase):
             total += area
         self.assertAlmostEqual(total, 1.0)
 
+    @staticmethod
+    def square_pad():
+        pad = core.PointPadFp64(ndim=2)
+        for x, y in ((0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)):
+            pad.append(x=x, y=y)
+        return pad
+
+    def test_triangulate_is_repeatable(self):
+        builder = core.DelaunayBuilder(pad=self.square_pad())
+        first = builder.triangulate().ndarray.copy()
+        second = builder.triangulate().ndarray
+        self.assertEqual(first.tolist(), second.tolist())
+
 
 if __name__ == '__main__':
     unittest.main()

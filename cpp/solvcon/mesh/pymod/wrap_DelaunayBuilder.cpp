@@ -36,6 +36,7 @@ WrapDelaunayBuilder::WrapDelaunayBuilder(pybind11::module & mod, char const * py
 
     (*this)
         .def(py::init<>())
+        .def(py::init<std::shared_ptr<PointPad<double>>>(), py::arg("pad"))
         //
         ;
 
@@ -51,6 +52,9 @@ WrapDelaunayBuilder::WrapDelaunayBuilder(pybind11::module & mod, char const * py
             py::arg("first"),
             py::arg("last"))
         .def("compute_triangle_nodes", &wrapped_type::compute_triangle_nodes, py::arg("pad"), py::arg("nnode"))
+        .def_property_readonly("pad", &wrapped_type::pad)
+        .def("triangulate", &wrapped_type::triangulate)
+        .def("calc_ear_centroids", &wrapped_type::calc_ear_centroids, py::arg("tris"))
         //
         ;
 }

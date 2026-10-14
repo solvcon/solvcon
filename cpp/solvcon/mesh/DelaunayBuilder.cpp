@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <format>
 #include <stdexcept>
+#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 
@@ -178,6 +179,134 @@ SimpleArray<DelaunayBuilder::int_type> DelaunayBuilder::compute_triangle_nodes(P
         ret(ik, 1) = ib;
         ret(ik, 2) = ic;
         ++ik;
+    }
+    return ret;
+}
+
+/**
+ * Bind the builder to the pad of points. The pad is shared, not copied, so
+ * the Steiner points added later show up in it.
+ */
+DelaunayBuilder::DelaunayBuilder(std::shared_ptr<PointPad<real_type>> pad)
+    : m_pad(std::move(pad))
+{
+    if (!m_pad)
+    {
+        throw std::invalid_argument("DelaunayBuilder::DelaunayBuilder: the pad is null");
+    }
+    if (m_pad->ndim() != 2)
+    {
+        throw std::invalid_argument(std::format("DelaunayBuilder::DelaunayBuilder: the pad is {}D but must be 2D", static_cast<int>(m_pad->ndim())));
+    }
+}
+
+/**
+ * Triangulate every point of the bound pad by the Bowyer-Watson algorithm,
+ * dropping whatever triangles the builder held. A super triangle far outside
+ * the bounding box seeds the set, and the triangles that touch it are
+ * dropped at the end. The super triangle goes into a copy, so the bound pad
+ * is not modified. A point on a circumcircle counts as outside, which keeps
+ * the cavity well defined for the cocircular points of a regular layout. The
+ * cost is O(n^2) for n points.
+ */
+SimpleArray<DelaunayBuilder::int_type> DelaunayBuilder::triangulate()
+{
+    if (!m_pad)
+    {
+        throw std::logic_error("DelaunayBuilder::triangulate: no pad is bound");
+    }
+    PointPad<real_type> const & pad = *m_pad;
+    size_t const npt = pad.size();
+    if (npt < 3)
+    {
+        throw std::invalid_argument(std::format("DelaunayBuilder::triangulate: {} points are fewer than 3", npt));
+    }
+    real_type xmin = pad.x_at(0);
+    real_type xmax = xmin;
+    real_type ymin = pad.y_at(0);
+    real_type ymax = ymin;
+    for (size_t ip = 1; ip < npt; ++ip)
+    {
+        xmin = std::min(xmin, pad.x_at(ip));
+        xmax = std::max(xmax, pad.x_at(ip));
+        ymin = std::min(ymin, pad.y_at(ip));
+        ymax = std::max(ymax, pad.y_at(ip));
+    }
+    real_type const xmid = (xmin + xmax) / 2.0;
+    real_type const ymid = (ymin + ymax) / 2.0;
+    real_type const span = std::max({xmax - xmin, ymax - ymin, 1.0});
+
+    auto const work = PointPad<real_type>::construct(2);
+    for (size_t ip = 0; ip < npt; ++ip)
+    {
+        work->append(pad.x_at(ip), pad.y_at(ip));
+    }
+    work->append(xmid - 64.0 * span, ymid - 32.0 * span);
+    work->append(xmid + 64.0 * span, ymid - 32.0 * span);
+    work->append(xmid, ymid + 64.0 * span);
+
+    m_vertex.clear();
+    m_circle.clear();
+    auto const [rr, ux, uy, uz] = work->circumcircle(npt, npt + 1, npt + 2);
+    add(static_cast<int_type>(npt), static_cast<int_type>(npt + 1), static_cast<int_type>(npt + 2), rr, ux, uy, uz);
+    populate_from_points(*work, 0, npt);
+    return compute_triangle_nodes(*work, npt);
+}
+
+/**
+ * The centroids of the ears, in triangle order, as an n-by-2 array. An ear is
+ * a triangle that has two or more boundary edges. An edge is a boundary edge
+ * when only one triangle uses it. Finite-volume solvers do not produce good
+ * results in an ear.
+ */
+SimpleArray<DelaunayBuilder::real_type> DelaunayBuilder::calc_ear_centroids(SimpleArray<int_type> const & tris) const
+{
+    if (!m_pad)
+    {
+        throw std::logic_error("DelaunayBuilder::calc_ear_centroids: no pad is bound");
+    }
+    PointPad<real_type> const & pad = *m_pad;
+    ssize_t const ntri = tris.shape(0);
+    auto const key = [](int_type a, int_type b)
+    {
+        auto const lo = static_cast<uint32_t>(std::min(a, b));
+        auto const hi = static_cast<uint32_t>(std::max(a, b));
+        return (static_cast<uint64_t>(lo) << 32) | hi;
+    };
+    std::unordered_map<uint64_t, int_type> shared;
+    shared.reserve(static_cast<size_t>(ntri) * 2);
+    for (ssize_t it = 0; it < ntri; ++it)
+    {
+        for (ssize_t ie = 0; ie < 3; ++ie)
+        {
+            ++shared[key(tris(it, ie), tris(it, (ie + 1) % 3))];
+        }
+    }
+    std::vector<ssize_t> ears;
+    for (ssize_t it = 0; it < ntri; ++it)
+    {
+        int_type nbound = 0;
+        for (ssize_t ie = 0; ie < 3; ++ie)
+        {
+            nbound += shared[key(tris(it, ie), tris(it, (ie + 1) % 3))] == 1 ? 1 : 0;
+        }
+        if (nbound >= 2)
+        {
+            ears.push_back(it);
+        }
+    }
+    SimpleArray<real_type> ret(small_vector<ssize_t>{static_cast<ssize_t>(ears.size()), 2});
+    for (size_t ie = 0; ie < ears.size(); ++ie)
+    {
+        real_type xc = 0.0;
+        real_type yc = 0.0;
+        for (ssize_t iv = 0; iv < 3; ++iv)
+        {
+            xc += pad.x_at(tris(ears[ie], iv));
+            yc += pad.y_at(tris(ears[ie], iv));
+        }
+        ret(ie, 0) = xc / 3.0;
+        ret(ie, 1) = yc / 3.0;
     }
     return ret;
 }
