@@ -339,6 +339,23 @@ WrapPointPad<T> & WrapPointPad<T>::wrap_accessor_point()
             py::arg("x"),
             py::arg("y"),
             py::arg("z"))
+        .def(
+            "append",
+            [](wrapped_type & self, SimpleArray<value_type> const & x, SimpleArray<value_type> const & y)
+            {
+                self.append(x, y);
+            },
+            py::arg("x"),
+            py::arg("y"))
+        .def(
+            "append",
+            [](wrapped_type & self, SimpleArray<value_type> const & x, SimpleArray<value_type> const & y, SimpleArray<value_type> const & z)
+            {
+                self.append(x, y, z);
+            },
+            py::arg("x"),
+            py::arg("y"),
+            py::arg("z"))
         //
         ;
 

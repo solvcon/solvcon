@@ -830,6 +830,62 @@ class PointPadTB(testing.TestBase):
                         self.PointPad(
                             ndim=ndim, nelem=nelem, alignment=alignment)
 
+    def test_append_arrays_2d(self):
+        pp = self.PointPad(ndim=2)
+        pp.append(x=0.5, y=1.5)
+        xarr = self.SimpleArray(array=np.array([1, 2, 3], dtype=self.dtype))
+        yarr = self.SimpleArray(array=np.array([4, 5, 6], dtype=self.dtype))
+        pp.append(x=xarr, y=yarr)
+        self.assertEqual(len(pp), 4)
+        self.assert_allclose(pp.x, [0.5, 1, 2, 3])
+        self.assert_allclose(pp.y, [1.5, 4, 5, 6])
+        self.assertEqual(len(pp.z), 0)
+
+        # A column of a 2D array is a strided view.
+        both = self.SimpleArray(
+            array=np.array([[7, 8], [9, 10]], dtype=self.dtype))
+        pp.append(x=both[:, 0], y=both[:, 1])
+        self.assertEqual(len(pp), 6)
+        self.assert_allclose(pp.x[4:], [7, 9])
+        self.assert_allclose(pp.y[4:], [8, 10])
+
+        # An empty batch appends nothing.
+        empty = self.SimpleArray(array=np.array([], dtype=self.dtype))
+        pp.append(x=empty, y=empty)
+        self.assertEqual(len(pp), 6)
+
+    def test_append_arrays_3d(self):
+        pp = self.PointPad(ndim=3)
+        xarr = self.SimpleArray(array=np.array([1, 2], dtype=self.dtype))
+        yarr = self.SimpleArray(array=np.array([3, 4], dtype=self.dtype))
+        zarr = self.SimpleArray(array=np.array([5, 6], dtype=self.dtype))
+        pp.append(x=xarr, y=yarr, z=zarr)
+        self.assertEqual(len(pp), 2)
+        self.assert_allclose(pp.x, [1, 2])
+        self.assert_allclose(pp.y, [3, 4])
+        self.assert_allclose(pp.z, [5, 6])
+
+    def test_append_arrays_errors(self):
+        xarr = self.SimpleArray(array=np.array([1, 2], dtype=self.dtype))
+        yarr = self.SimpleArray(array=np.array([3, 4], dtype=self.dtype))
+        zarr = self.SimpleArray(array=np.array([5, 6], dtype=self.dtype))
+        short = self.SimpleArray(array=np.array([1], dtype=self.dtype))
+        grid = self.SimpleArray(
+            array=np.array([[1, 2], [3, 4]], dtype=self.dtype))
+        pp2 = self.PointPad(ndim=2)
+        pp3 = self.PointPad(ndim=3)
+        with self.assertRaisesRegex(
+                IndexError, "PointPad::append: ndim must be 3 but is 2"):
+            pp2.append(x=xarr, y=yarr, z=zarr)
+        with self.assertRaisesRegex(
+                IndexError, "PointPad::append: ndim must be 2 but is 3"):
+            pp3.append(x=xarr, y=yarr)
+        with self.assertRaisesRegex(ValueError, "sizes 2 and 1"):
+            pp2.append(x=xarr, y=short)
+        with self.assertRaisesRegex(ValueError, "must be 1D"):
+            pp2.append(x=grid, y=grid)
+        self.assertEqual(len(pp2), 0)
+
 
 class PointPadFp32TC(PointPadTB, unittest.TestCase):
 
