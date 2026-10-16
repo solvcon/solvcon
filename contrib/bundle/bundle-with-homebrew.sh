@@ -529,9 +529,10 @@ print('\n'.join(out))
 # contain unrelated packages: vtkmodules, openvino, PyQt6, ...). Override
 # seeds via BUNDLE_SEED_MODULES; force-add via BUNDLE_EXTRA_PACKAGES (for
 # lazy / runtime imports the probe cannot observe). A failed import aborts
-# the script with the missing name(s); output goes through a temp file
-# since `done < <(...)` would swallow python3's exit status.
-CLOSURE_PROBE=$(mktemp -t solvcon-bundle-closure)
+# the script with the missing name(s); output goes through a file in
+# CLOSURE_TMP, which the exit trap removes, since `done < <(...)` would
+# swallow python3's exit status.
+CLOSURE_TMP=$(mktemp -d -t solvcon-bundle-closure)
 if ! python3 -c "
 import importlib, os, sys
 seeds = os.environ.get('BUNDLE_SEED_MODULES',
@@ -562,9 +563,8 @@ for name, mod in list(sys.modules.items()):
     elif 'site-packages' in f:
         out.add(os.path.realpath(f))
 print('\n'.join(sorted(out)))
-" > "$CLOSURE_PROBE"
+" > "$CLOSURE_TMP/probe"
 then
-    rm -f "$CLOSURE_PROBE"
     echo "ERROR: aborting before bundling (see missing package(s) above)" >&2
     exit 1
 fi
@@ -572,8 +572,10 @@ fi
 WANTED_PATHS=()
 while IFS= read -r line; do
     [[ -n "$line" ]] && WANTED_PATHS+=("$line")
-done < "$CLOSURE_PROBE"
-rm -f "$CLOSURE_PROBE"
+done < "$CLOSURE_TMP/probe"
+# Step 6 reassigns CLOSURE_TMP, so release this one now.
+rm -rf "$CLOSURE_TMP"
+CLOSURE_TMP=""
 
 echo "==> Build path : $BUILD_PATH"
 echo "==> App bundle : $APP"
