@@ -48,9 +48,9 @@ Usage:
 
 Subcommands:
   check    Check macOS bundle release dependencies. Does not build or install.
-  bundle   Build/package pilot.app and pilot.dmg with Homebrew dependencies.
+  bundle   Check dependencies, then build/package pilot.app and pilot.dmg.
   verify   Verify a generated release DMG artifact.
-  all      Run check and then bundle. (No verify.)
+  all      Alias for bundle. (No verify.)
 EOF
 }
 
@@ -431,7 +431,7 @@ elif [[ $# -gt 0 ]]; then
     exit 2
 fi
 
-if [[ "$COMMAND" == "all" ]]; then
+if [[ "$COMMAND" == "bundle" || "$COMMAND" == "all" ]]; then
     check_deps
 fi
 
@@ -528,24 +528,29 @@ print('\n'.join(out))
 # copies only those, not the developer's full site-packages (which can
 # contain unrelated packages: vtkmodules, openvino, PyQt6, ...). Override
 # seeds via BUNDLE_SEED_MODULES; force-add via BUNDLE_EXTRA_PACKAGES (for
-# lazy / runtime imports the probe cannot observe, e.g. matplotlib backends
-# loaded on first render). Failed seed imports go to stderr so a partial
-# closure is visible instead of silently shipping a broken bundle.
-WANTED_PATHS=()
-while IFS= read -r line; do
-    [[ -n "$line" ]] && WANTED_PATHS+=("$line")
-done < <(python3 -c "
+# lazy / runtime imports the probe cannot observe). A failed import aborts
+# the script with the missing name(s); output goes through a file in
+# CLOSURE_TMP, which the exit trap removes, since `done < <(...)` would
+# swallow python3's exit status.
+CLOSURE_TMP=$(mktemp -d -t solvcon-bundle-closure)
+if ! python3 -c "
 import importlib, os, sys
 seeds = os.environ.get('BUNDLE_SEED_MODULES',
     'PySide6.QtCore,PySide6.QtWidgets,PySide6.QtGui,numpy,matplotlib,'
     'dateutil.relativedelta,dateutil.tz,dateutil.parser').split(',')
 extras = os.environ.get('BUNDLE_EXTRA_PACKAGES', '').split(',')
+missing = []
 for m in seeds + extras:
     m = m.strip()
     if not m: continue
-    try: importlib.import_module(m)
+    try:
+        importlib.import_module(m)
     except Exception as e:
-        sys.stderr.write('    WARN: seed import %s failed: %s\n' % (m, e))
+        missing.append(m)
+        sys.stderr.write('ERROR: required package %s failed to import: %s\n' % (m, e))
+if missing:
+    sys.stderr.write('ERROR: missing package(s): %s\n' % ', '.join(missing))
+    raise SystemExit(1)
 out = set()
 for name, mod in list(sys.modules.items()):
     if mod is None or '.' in name: continue
@@ -558,7 +563,19 @@ for name, mod in list(sys.modules.items()):
     elif 'site-packages' in f:
         out.add(os.path.realpath(f))
 print('\n'.join(sorted(out)))
-")
+" > "$CLOSURE_TMP/probe"
+then
+    echo "ERROR: aborting before bundling (see missing package(s) above)" >&2
+    exit 1
+fi
+
+WANTED_PATHS=()
+while IFS= read -r line; do
+    [[ -n "$line" ]] && WANTED_PATHS+=("$line")
+done < "$CLOSURE_TMP/probe"
+# Step 6 reassigns CLOSURE_TMP, so release this one now.
+rm -rf "$CLOSURE_TMP"
+CLOSURE_TMP=""
 
 echo "==> Build path : $BUILD_PATH"
 echo "==> App bundle : $APP"
