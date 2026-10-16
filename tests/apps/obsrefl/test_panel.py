@@ -117,19 +117,19 @@ class StatusReadoutTC(unittest.TestCase):
 
     def test_the_configuration_error_is_shown_and_cleared(self):
         panel = SolutionPanel()
-        error = panel._configuration_error
+        error = panel._freestream._configuration_error
         self.assertTrue(error.isHidden())
 
         panel.set_configuration_error(
-            "Invalid configuration: no attached shock solution exists.")
+            "Adjust Mach, gamma, or the deflection angle.")
         self.assertFalse(error.isHidden())
         self.assertEqual(
-            "Invalid configuration: no attached shock solution exists.",
-            error.text())
+            "Adjust Mach, gamma, or the deflection angle.",
+            panel._freestream._error_message.text())
 
         panel.set_configuration_error("")
         self.assertTrue(error.isHidden())
-        self.assertEqual("", error.text())
+        self.assertEqual("", panel._freestream._error_message.text())
 
     def test_the_cfl_field_colors_without_an_analytic_column(self):
         # The zone table judges a field against the analytic answer, which

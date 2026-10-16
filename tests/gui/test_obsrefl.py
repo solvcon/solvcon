@@ -15,7 +15,7 @@ try:
     from solvcon.pilot.base import _gui
     from solvcon.pilot.apps.obsrefl import ReflectionSession, _app
     from solvcon.pilot.apps.obsrefl import _field_render
-    from PySide6.QtWidgets import QApplication, QSizeGrip
+    from PySide6.QtWidgets import QApplication, QLabel, QSizeGrip
     from PIL import Image
 except ImportError:
     pilot = None
@@ -87,7 +87,7 @@ class ObliqueShockAppTC(_AppFixture, unittest.TestCase):
         panel = feature._panel
         session = control.session
         viewer = self.mgr.currentR3DWidget()
-        error = panel._configuration_error
+        error = panel._freestream._configuration_error
 
         panel._freestream._angle.setValue(22.0)
 
@@ -96,7 +96,8 @@ class ObliqueShockAppTC(_AppFixture, unittest.TestCase):
         self.assertIs(viewer, self.mgr.currentR3DWidget())
         self.assertFalse(control._timer.isActive())
         self.assertFalse(error.isHidden())
-        self.assertIn("Invalid configuration", error.text())
+        title = error.findChild(QLabel, "configurationErrorTitle")
+        self.assertEqual("Invalid configuration", title.text())
 
         control.remesh()
         self.assertIs(session, control.session)

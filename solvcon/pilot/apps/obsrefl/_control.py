@@ -141,7 +141,6 @@ class RunController(object):
             session = ReflectionSession(**params)
         except NoAttachedShockError:
             self._panel.set_configuration_error(
-                "Invalid configuration:\n"
                 "Adjust Mach, gamma, or the deflection angle.")
             return False
         self._panel.set_configuration_error("")
