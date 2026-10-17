@@ -19,13 +19,15 @@
 set -euo pipefail
 
 TIMEOUT="${TIMEOUT:-120}"
-ATTEMPTS="${ATTEMPTS:-2}"
+ATTEMPTS="${ATTEMPTS:-3}"
 
 for ((attempt = 1; attempt <= ATTEMPTS; attempt++)) ; do
     if [ "$attempt" -gt 1 ] ; then
-        sleep 5
+        sleep $((30 * (attempt - 1)))
     fi
-    if timeout --kill-after=10 "$TIMEOUT" apt-get "$@" update ; then
+    # Fail the attempt on an index that did not download, e.g. a PPA 503.
+    if timeout --kill-after=10 "$TIMEOUT" \
+            apt-get -o APT::Update::Error-Mode=any "$@" update ; then
         exit 0
     fi
     echo "apt-get update attempt $attempt of $ATTEMPTS failed or timed out"

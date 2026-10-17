@@ -230,7 +230,9 @@ class MovieRecorderTC(unittest.TestCase):
         # turns the frame down, must not come back as though the name were
         # a typo.  Whether an MP4 comes out is Mp4MovieTC's business.
         self._capture(1)
-        with tempfile.TemporaryDirectory() as folder:
+        # A failed Windows encoder may keep the file open.
+        with tempfile.TemporaryDirectory(
+                ignore_cleanup_errors=(os.name == 'nt')) as folder:
             path = os.path.join(folder, "movie.mp4")
             try:
                 self.recorder.write(path)

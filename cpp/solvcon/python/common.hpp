@@ -382,8 +382,9 @@ public:
     {
         // The static local is constructed exactly once, so only the first
         // call's pyname and pydoc take effect; later calls return the
-        // already-registered singleton.
-        static wrapper_type derived(mod, pyname, pydoc);
+        // already-registered singleton. Leaked: a static destructor runs after Python finalizes.
+        // NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
+        static wrapper_type & derived = *new wrapper_type(mod, pyname, pydoc);
         return derived;
     }
 

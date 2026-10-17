@@ -30,8 +30,6 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapComplex
         : WrapBase<WrapComplex<value_type>, solvcon::Complex<value_type>, std::shared_ptr<solvcon::Complex<value_type>>>(mod, pyname, pydoc)
     {
         namespace py = pybind11; // NOLINT(misc-unused-alias-decls)
-        static const auto complex_dtype = py::dtype(std::is_same_v<value_type, float> ? "complex64" : "complex128");
-
         PYBIND11_NUMPY_DTYPE(wrapped_type, real_v, imag_v);
 
         (*this)
@@ -90,7 +88,7 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapComplex
                  })
             .def("dtype",
                  []()
-                 { return complex_dtype; });
+                 { return py::dtype(std::is_same_v<value_type, float> ? "complex64" : "complex128"); });
     }
 
 }; /* end class WrapComplex */
