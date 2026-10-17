@@ -15,7 +15,6 @@ Tools to run applications
 
 
 import code
-import concurrent.futures
 import contextlib
 import importlib
 import inspect
@@ -23,6 +22,10 @@ import io
 import re
 import rlcompleter
 import sys
+# It must import at the end, because a from-import follows the plain imports.
+# It imports the class, because Python 3.15 with PySide6 leaves the lazy
+# concurrent.futures.ThreadPoolExecutor attribute unresolved.
+from concurrent.futures import ThreadPoolExecutor
 
 
 __all__ = [
@@ -282,7 +285,7 @@ def run_worker(func, *args, **kwargs):
     """
     global _worker_pool
     if _worker_pool is None:
-        _worker_pool = concurrent.futures.ThreadPoolExecutor(
+        _worker_pool = ThreadPoolExecutor(
             max_workers=1, thread_name_prefix='solvcon-console-worker')
     return _worker_pool.submit(func, *args, **kwargs)
 
