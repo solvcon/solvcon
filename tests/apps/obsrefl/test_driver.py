@@ -14,7 +14,7 @@ import math
 import unittest
 
 from solvcon.pilot.apps.obsrefl import ObliqueShock, ObliqueShockRelation
-from solvcon.pilot.apps.obsrefl._driver import NoAttachedShockError
+from solvcon.pilot.apps.obsrefl._driver import check_reflection_solvable
 
 
 class ObliqueShockRelationTC(unittest.TestCase):
@@ -60,8 +60,21 @@ class ObliqueShockRelationTC(unittest.TestCase):
     def test_detached_shock_is_rejected(self):
         # 40 degrees of deflection exceeds the maximum attached-shock
         # deflection at Mach 2 (about 23 degrees).
-        with self.assertRaises(NoAttachedShockError):
-            self.ob.calc_shock_angle(2, math.radians(40))
+        solvable, lmbd, chi = self.ob.calc_shock_tangent_aux(
+            3, math.radians(40))
+        self.assertFalse(solvable)
+        self.assertIsNone(lmbd)
+        self.assertIsNone(chi)
+        with self.assertRaisesRegex(ValueError, "no attached shock"):
+            self.ob.calc_shock_angle(3, math.radians(40))
+
+    def test_attached_shock_returns_auxiliary_values(self):
+        solvable, lmbd, chi = self.ob.calc_shock_tangent_aux(
+            3, math.radians(10))
+        self.assertTrue(solvable)
+        self.assertGreater(lmbd, 0)
+        self.assertGreaterEqual(chi, -1)
+        self.assertLessEqual(chi, 1)
 
     def test_angles_invert_each_other(self):
         # Example 4.6 of Anderson: M1 = 4 and theta = 32 degrees give a
@@ -143,7 +156,13 @@ class ObliqueShockDriverTC(unittest.TestCase):
 
     def test_reflection_without_a_solution_is_rejected(self):
         shock = ObliqueShock()
-        with self.assertRaises(NoAttachedShockError):
+        self.assertTrue(check_reflection_solvable(1.4, 3.0, 10.0))
+        self.assertFalse(check_reflection_solvable(1.4, 2.0, 40.0))
+        relation = ObliqueShockRelation(1.4)
+        self.assertTrue(relation.calc_shock_tangent_aux(
+            3.0, math.radians(22.0))[0])
+        self.assertFalse(check_reflection_solvable(1.4, 3.0, 22.0))
+        with self.assertRaisesRegex(ValueError, "no attached shock"):
             shock.build_constant(mach=3.0, angle=22.0)
 
 

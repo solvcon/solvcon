@@ -21,9 +21,9 @@ run session, which stays free of the GUI it is watched from.
 from PySide6.QtCore import QTimer
 
 from ...visual import _movie
+from ._driver import check_reflection_solvable
 from ._field_render import FieldPainter
 from ._session import ReflectionSession
-from ._driver import NoAttachedShockError
 
 __all__ = [  # noqa: F822
     'RunController',
@@ -137,12 +137,12 @@ class RunController(object):
         it.
         """
         params = self._panel.params()
-        try:
-            session = ReflectionSession(**params)
-        except NoAttachedShockError:
+        if not check_reflection_solvable(params['gamma'], params['mach'],
+                                         params['angle']):
             self._panel.set_configuration_error(
                 "Adjust Mach, gamma, or the deflection angle.")
             return False
+        session = ReflectionSession(**params)
         self._panel.set_configuration_error("")
         self._timer.stop()
         self._finish_movie()

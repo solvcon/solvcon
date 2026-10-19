@@ -80,6 +80,7 @@ def _reserve_width(button, texts):
     button.setText(keep)
     button.setMinimumWidth(width)
 
+
 def _outline_field(field):
     outline = QFrame()
     outline.setObjectName("errorOutline")
