@@ -20,6 +20,7 @@ __all__ = [
     'font',
     'row_colors',
     'header_colors',
+    'control_colors',
     'ROW_PAD',
     'ROW_GAP',
     'BODY_TEXT_PIXEL_SIZE',
@@ -88,6 +89,14 @@ def row_colors(widget, selected):
         type_step = _TOPIC_TYPE_STEP_TOWARD_SURFACE_ON_LIGHT
     type_ = Shades.blend(shades.on_base, shades.base, type_step)
     return name, type_
+
+
+def control_colors(widget):
+    """Return the ``(surface, border, text)`` colors of :func:`_control`,
+    for a control that paints itself."""
+    shades = Shades(widget)
+    return (shades.base, shades.raised(_CONTROL_BORDER_STEP_TOWARD_TEXT),
+            shades.on_base)
 
 
 def _header_surface(shades):
@@ -167,6 +176,29 @@ class Rules(RuleCatalog):
     def field(shades):
         """The field that takes the page number."""
         return _control(shades, "QLineEdit", 4, "1px 4px")
+
+    @staticmethod
+    def tabs(shades):
+        """The segmented control that switches the pages of a window."""
+        border = shades.raised(_CONTROL_BORDER_STEP_TOWARD_TEXT)
+        return _control(shades, "QTabBar::tab", 0, "2px 12px") + f"""
+            QTabBar::tab {{ border-left: none; }}
+            QTabBar::tab:first {{
+                border-left: 1px solid {border.name()};
+                border-top-left-radius: 4px;
+                border-bottom-left-radius: 4px;
+            }}
+            QTabBar::tab:last {{
+                border-top-right-radius: 4px;
+                border-bottom-right-radius: 4px;
+            }}
+            QTabBar::tab:selected {{
+                background: {shades.accent.name()};
+                color: {shades.on_accent.name()};
+                border-color: {shades.accent.name()};
+            }}
+            QTabBar::tab:disabled {{ color: {shades.greyed.name()}; }}
+            """
 
     @staticmethod
     def table(shades):

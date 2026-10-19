@@ -188,6 +188,11 @@ class McapMainWindowTC(_RecordingTC):
         self.assertEqual(window._type.text(), "vehicle_msgs/msg/Status")
         self.assertEqual(window._summary.text(),
                          "120 messages \u00b7 3 columns")
+        # The Plot tab is fed the same topic, timed from the file start.
+        self.assertEqual([window._tab_bar.tabText(i) for i in range(2)],
+                         ["Table", "Plot"])
+        self.assertEqual(window.plot.field, "seq")
+        self.assertEqual(window.plot.plot.range, (0.0, 8.19))
         self.assertEqual(
             [(model.headerData(i, Qt.Horizontal),
               model.headerData(i, Qt.Horizontal, Qt.ToolTipRole))
@@ -234,6 +239,9 @@ class McapMainWindowTC(_RecordingTC):
             window._notice.text(),
             "Cannot decode /diagnostics: "
             "schema encoding 'jsonschema' of diagnostics")
+        self.assertIsNone(window.plot.field)
+        self.assertFalse(window.plot._field.isEnabled())
+        self.assertEqual(window.plot.plot.title, "")
 
         self.assertEqual(
             _main_window.CellFormat.time(
