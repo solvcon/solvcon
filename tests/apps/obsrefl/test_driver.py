@@ -59,7 +59,7 @@ class ObliqueShockRelationTC(unittest.TestCase):
 
     def test_detached_shock_is_rejected(self):
         # 40 degrees of deflection exceeds the maximum attached-shock
-        # deflection at Mach 2 (about 23 degrees).
+        # deflection at Mach 3.
         solvable, lmbd, chi = self.ob.calc_shock_tangent_aux(
             3, math.radians(40))
         self.assertFalse(solvable)
