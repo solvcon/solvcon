@@ -14,6 +14,7 @@ from ... import core
 from ..base import _gui_common
 
 __all__ = [  # noqa: F822
+    'MeshDrawer',
     'SampleMesh',
     'SampleMeshFeature',
     'MeshStyleStatus',
@@ -241,6 +242,71 @@ class SampleMesh:
         return mh
 
 
+class MeshDrawer:
+    """
+    Show a mesh in a 3D viewer of ``mgr``, with the axis and a ribbon for
+    each boundary group.  The viewer is a new window unless one is given.
+    """
+
+    def __init__(self, mgr):
+        self._mgr = mgr
+
+    def show(self, mh, viewer=None):
+        """
+        Show ``mh`` in ``viewer``, or in a new 3D viewer when it is None,
+        and return the viewer.
+        """
+        if viewer is None:
+            w = self._mgr.add3DWidget()
+        else:
+            w = viewer
+            # updateMesh() keeps the ribbons, which belong to the old mesh.
+            if w.mesh is not None:
+                for ibc in range(w.mesh.nbcs):
+                    w.showBoundary(ibc, False)
+        w.updateMesh(mh)
+        w.showAxis(True)
+        for ibc in range(mh.nbcs):
+            w.showBoundary(ibc, True)
+        return w
+
+    def draw(self, mh, label, notes=None, viewer=None):
+        """
+        Show ``mh`` like :meth:`show` and write a summary to the console,
+        and return the viewer.
+
+        ``draw(mh, "quad", notes={'left': "red inlet"})`` on a 4x2 quad
+        rectangle writes::
+
+            quad: 8 cells, 22 edges
+            boundary ribbons: red inlet (2 faces), top (4 faces), ...
+
+        An unnamed boundary group shows as ``bc0``, ``bc1``, and so on.
+        """
+        w = self.show(mh, viewer=viewer)
+        self._mgr.pycon.writeToHistory(self._describe_mesh(mh, label, notes))
+        return w
+
+    @staticmethod
+    def _boundary_name(mh, ibc):
+        name = mh.bc(ibc).name
+        return name if name not in ('', '<NONAME>') else f"bc{ibc}"
+
+    @classmethod
+    def _describe_mesh(cls, mh, label, notes=None):
+        """The summary :meth:`draw` writes, ending in a newline."""
+        notes = notes or {}
+        text = f"{label}: {mh.ncell} cells, {mh.nedge} edges\n"
+        if mh.nbcs:
+            parts = []
+            for ibc in range(mh.nbcs):
+                name = cls._boundary_name(mh, ibc)
+                parts.append(f"{notes.get(name, name)} "
+                             f"({mh.bc(ibc).nbound} faces)")
+            text += "boundary ribbons: " + ", ".join(parts) + "\n"
+        return text
+
+
 class SampleMeshFeature(_gui_common.PilotFeature):
     """
     Create sample mesh windows from the built-in example meshes.
@@ -275,31 +341,27 @@ class SampleMeshFeature(_gui_common.PilotFeature):
         ]
 
     def _show(self, name):
-        """Build the sample mesh named ``name`` and open it in a fresh 3D
-        viewer, echoing its edge count to the console."""
-        mh = self._samples.make(name)
-        w = self._mgr.add3DWidget()
-        w.updateMesh(mh)
-        w.showAxis(True)
-        self._pycon.writeToHistory(f"{name} nedge: {mh.nedge}\n")
+        """Draw the sample mesh ``name`` (e.g. 'triangle') and return the
+        viewer."""
+        return MeshDrawer(self._mgr).draw(self._samples.make(name), name)
 
     def mesh_triangle(self):
-        self._show('triangle')
+        return self._show('triangle')
 
     def mesh_tetrahedron(self):
-        self._show('tetrahedron')
+        return self._show('tetrahedron')
 
     def mesh_solvcon_2dtext(self):
-        self._show('solvcon_2dtext')
+        return self._show('solvcon_2dtext')
 
     def mesh_2dmix_small(self):
-        self._show('2dmix_small')
+        return self._show('2dmix_small')
 
     def mesh_2dmix_large(self):
-        self._show('2dmix_large')
+        return self._show('2dmix_large')
 
     def mesh_3dmix(self):
-        self._show('3dmix')
+        return self._show('3dmix')
 
 
 class SampleMeshDialog(_gui_common.PilotFeature):
@@ -511,10 +573,6 @@ class GmshFileDialog(_gui_common.PilotFeature):
         gmsh = core.Gmsh(data)
         mh = gmsh.to_block()
         self._pycon.writeToHistory("StaticMesh object created from gmsh\n")
-        # Open a sub window for triangles and quadrilaterals:
-        w = self._mgr.add3DWidget()
-        w.updateMesh(mh)
-        w.showAxis(True)
-        self._pycon.writeToHistory(f"nedge: {mh.nedge}\n")
+        return MeshDrawer(self._mgr).draw(mh, os.path.basename(filename))
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

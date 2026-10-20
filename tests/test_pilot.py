@@ -120,12 +120,17 @@ class _FakeViewer:
     def __init__(self):
         self.mesh = None
         self.axis = False
+        self.boundaries = []
 
     def updateMesh(self, mesh):
         self.mesh = mesh
 
     def showAxis(self, shown):
         self.axis = shown
+
+    def showBoundary(self, ibc, shown):
+        if shown:
+            self.boundaries.append(ibc)
 
 
 class _FakeManager:
@@ -175,15 +180,19 @@ class PilotNamespaceTC(unittest.TestCase):
         self.assertIn('show_mesh(m)', banner)
         self.assertIn('load_mesh(name)', banner)
 
+    @unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
     def test_show_mesh_opens_a_viewer(self):
         from solvcon import apputil
         apputil.install_pilot_namespace(self.mgr, self.env)
-        sentinel = object()
-        viewer = self.env.globals['show_mesh'](sentinel)
-        self.assertIs(viewer.mesh, sentinel)
+        mh = solvcon.mesh.RectDomainMesher(nx=2, ny=1).make_mesh(
+            cell_type='quad')
+        viewer = self.env.globals['show_mesh'](mh)
+        self.assertIs(viewer.mesh, mh)
         self.assertTrue(viewer.axis)
+        # The console draws like the menus, with a ribbon per group.
+        self.assertEqual(viewer.boundaries, list(range(mh.nbcs)))
         self.assertEqual(self.env.globals['viewers'](), [viewer])
-        self.assertEqual(self.env.globals['meshes'](), [sentinel])
+        self.assertEqual(self.env.globals['meshes'](), [mh])
 
     def test_refresher_tracks_the_current_viewer(self):
         from solvcon import apputil

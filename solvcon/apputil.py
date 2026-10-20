@@ -310,10 +310,8 @@ def build_pilot_namespace(mgr):
     """
     def show_mesh(m):
         """Open a mesh in a fresh 3D viewer and return the viewer."""
-        w = mgr.add3DWidget()
-        w.updateMesh(m)
-        w.showAxis(True)
-        return w
+        from .pilot import visual
+        return visual.MeshDrawer(mgr).show(m)
 
     def viewers():
         """List the open 3D viewers."""

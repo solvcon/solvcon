@@ -15,6 +15,7 @@ if _pcore.enable:
     from . import _movie
     from . import _plot
 
+    MeshDrawer = _mesh.MeshDrawer
     SampleMesh = _mesh.SampleMesh
     SampleMeshFeature = _mesh.SampleMeshFeature
     MeshStyleStatus = _mesh.MeshStyleStatus
@@ -24,6 +25,7 @@ if _pcore.enable:
 else:
     # Bind only the public names: a None module attribute would shadow the
     # real submodule import in no-GUI builds.
+    MeshDrawer = None
     SampleMesh = None
     SampleMeshFeature = None
     MeshStyleStatus = None
@@ -34,6 +36,7 @@ else:
 __all__ = [
     'GmshFileDialog',
     'LinePlotWidget',
+    'MeshDrawer',
     'MeshStyleStatus',
     'MovieRecorder',
     'SampleMesh',
