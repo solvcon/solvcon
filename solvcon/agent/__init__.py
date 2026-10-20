@@ -74,7 +74,8 @@ list_of_backends_impl = [
 ]
 
 # TODO: when the Qt dock module exists in solvcon.pilot, point this at its
-# Agent class, guarded by _pilot_core.enable like the airfoil sub-package.
+# Agent class, guarded by _pilot_core.enable like the Qt classes of the
+# visual sub-package.
 Agent = None
 
 __all__ = (  # noqa: F822

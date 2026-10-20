@@ -76,7 +76,6 @@ def main():
             'solvcon.onedim',
             'solvcon.pilot',
             'solvcon.pilot.agent',
-            'solvcon.pilot.airfoil',
             'solvcon.pilot.apps',
             'solvcon.pilot.apps.obsrefl',
             'solvcon.pilot.base',
