@@ -5,14 +5,12 @@
 """
 Sample-mesh entries for the oblique-shock reflection.
 
-The mesh comes from :class:`~solvcon.mesh.RectDomainMesher`, and the
-solver driver lives in :mod:`._driver`.  :class:`ObliqueShockMesh` draws
-the mesh in a 3D widget and reports the boundary groups (left / top /
-bottom / right edges) to the console.  Running the solver and animating
-its solution fields is handled by the interactive panel in :mod:`._app`.
+:class:`ObliqueShockMesh` draws the mesh in a 3D widget and reports the
+boundary groups (left / top / bottom / right edges) to the console.
 """
 
 from .... import mesh as meshmod
+from ... import visual
 from ...base import _gui_common
 
 __all__ = [  # noqa: F822
@@ -41,32 +39,24 @@ class ObliqueShockMesh(_gui_common.PilotFeature):
         ]
 
     def draw_quad_mesh(self):
-        self._draw_mesh('quad')
+        return self._draw_mesh('quad')
 
     def draw_triangle_mesh(self):
-        self._draw_mesh('triangle')
+        return self._draw_mesh('triangle')
 
     def draw_unstructured_mesh(self):
-        self._draw_mesh('unstructured')
+        return self._draw_mesh('unstructured')
 
     def _draw_mesh(self, cell_type):
-        mesher = meshmod.RectDomainMesher()
-        mh = mesher.make_mesh(cell_type=cell_type)
-        w = self._mgr.add3DWidget()
-        w.updateMesh(mh)
-        w.showAxis(True)
-        # The mesher attaches one named group per domain edge, so each
-        # edge can be ribboned in its own boundary-set color.
-        for ibc in range(mh.nbcs):
-            w.showBoundary(ibc, True)
-        self._pycon.writeToHistory(
-            f"oblique-shock {cell_type} mesh: {mh.ncell} cells, "
-            f"{mh.nedge} edges\n"
-            "boundary ribbons: "
-            f"red left inlet ({mh.bc('left').nbound} faces), "
-            f"blue top inlet ({mh.bc('top').nbound} faces), "
-            f"green bottom slip wall ({mh.bc('bottom').nbound} faces), "
-            f"amber right outflow ({mh.bc('right').nbound} faces)\n")
+        mh = meshmod.RectDomainMesher().make_mesh(cell_type=cell_type)
+        notes = {
+            'left': "red left inlet",
+            'top': "blue top inlet",
+            'bottom': "green bottom slip wall",
+            'right': "amber right outflow",
+        }
+        return visual.MeshDrawer(self._mgr).draw(
+            mh, f"oblique-shock {cell_type} mesh", notes=notes)
 
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
