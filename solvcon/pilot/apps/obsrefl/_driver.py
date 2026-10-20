@@ -99,17 +99,21 @@ class ObliqueShockRelation(object):
     def calc_shock_tangent(self, mach1, theta, delta):
         """Return tan(beta) through the closed-form inversion of the
         theta-beta-M relation."""
+        solvable, lmbd, chi = self.calc_shock_tangent_aux(mach1, theta)
+        if not solvable:
+            raise ValueError(
+                f"no attached shock for mach1={mach1:g} and "
+                f"theta={math.degrees(theta):g} deg")
         gamma = self.gamma
         m1sq = mach1 * mach1
-        lmbd, chi = self.calc_shock_tangent_aux(mach1, theta)
         num = (m1sq - 1 + 2 * lmbd
                * math.cos((4 * math.pi * delta + math.acos(chi)) / 3))
         den = 3 * (1 + (gamma - 1) / 2 * m1sq) * math.tan(theta)
         return num / den
 
     def calc_shock_tangent_aux(self, mach1, theta):
-        """Return the (lambda, chi) auxiliary pair of the closed-form
-        theta-beta-M inversion used by :meth:`calc_shock_tangent`."""
+        """Return (solvable, lambda, chi) for the theta-beta-M inversion
+        used by :meth:`calc_shock_tangent`."""
         gamma = self.gamma
         m1sq = mach1 * mach1
         tansq = math.tan(theta) ** 2
@@ -117,15 +121,28 @@ class ObliqueShockRelation(object):
                 - 3 * (1 + (gamma - 1) / 2 * m1sq)
                 * (1 + (gamma + 1) / 2 * m1sq) * tansq)
         if disc <= 0.0:
-            raise ValueError(
-                f"no attached shock for mach1={mach1:g} and "
-                f"theta={math.degrees(theta):g} deg")
+            return False, None, None
         lmbd = math.sqrt(disc)
         chi = ((m1sq - 1) ** 3
                - 9 * (1 + (gamma - 1) / 2 * m1sq)
                * (1 + (gamma - 1) / 2 * m1sq + (gamma + 1) / 4 * m1sq * m1sq)
                * tansq) / lmbd ** 3
-        return lmbd, chi
+        if chi < -1.0 or chi > 1.0:
+            return False, None, None
+        return True, lmbd, chi
+
+
+def check_reflection_solvable(gamma, mach, angle):
+    """Return whether both incident and reflected shocks are attached."""
+    relation = ObliqueShockRelation(gamma)
+    theta = math.radians(angle)
+    solvable, _, _ = relation.calc_shock_tangent_aux(mach, theta)
+    if not solvable:
+        return False
+    beta = relation.calc_shock_angle(mach, theta)
+    mach2 = relation.calc_dmach(mach, beta=beta)
+    solvable, _, _ = relation.calc_shock_tangent_aux(mach2, theta)
+    return solvable
 
 
 class ObliqueShock(object):

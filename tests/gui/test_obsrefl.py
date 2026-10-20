@@ -15,7 +15,7 @@ try:
     from solvcon.pilot.base import _gui
     from solvcon.pilot.apps.obsrefl import ReflectionSession, _app
     from solvcon.pilot.apps.obsrefl import _field_render
-    from PySide6.QtWidgets import QApplication, QSizeGrip
+    from PySide6.QtWidgets import QApplication, QLabel, QSizeGrip
     from PIL import Image
 except ImportError:
     pilot = None
@@ -80,6 +80,36 @@ class ObliqueShockAppTC(_AppFixture, unittest.TestCase):
         self.assertIsNotNone(self.mgr.currentR3DWidget())
         self.assertEqual(f"0 / {feature._control.session.max_steps}",
                          self._status(feature)["step"])
+
+    def test_invalid_configuration_keeps_the_standing_run(self):
+        feature = self._feature()
+        control = feature._control
+        panel = feature._panel
+        session = control.session
+        viewer = self.mgr.currentR3DWidget()
+        error = panel._freestream._configuration_error
+
+        panel._freestream._angle.setValue(22.0)
+
+        control.start()
+        self.assertIs(session, control.session)
+        self.assertIs(viewer, self.mgr.currentR3DWidget())
+        self.assertFalse(control._timer.isActive())
+        self.assertFalse(error.isHidden())
+        title = error.findChild(QLabel, "configurationErrorTitle")
+        self.assertEqual("Invalid configuration", title.text())
+
+        control.remesh()
+        self.assertIs(session, control.session)
+        self.assertIs(viewer, self.mgr.currentR3DWidget())
+        self.assertFalse(error.isHidden())
+
+        panel._freestream._angle.setValue(20.0)
+        control.start()
+        control._timer.stop()
+
+        self.assertIsNot(session, control.session)
+        self.assertTrue(error.isHidden())
 
     def test_the_resolution_reaches_the_mesh(self):
         feature = self._feature()

@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QFormLayout,
 from ....multidim.euler import EulerField
 from ...visual import _movie
 from ._session import ReflectionSession
+from ._style import Rules
 
 __all__ = [  # noqa: F822
     'SolutionPanel',
@@ -78,6 +79,16 @@ def _reserve_width(button, texts):
         width = max(width, button.sizeHint().width())
     button.setText(keep)
     button.setMinimumWidth(width)
+
+
+def _outline_field(field):
+    outline = QFrame()
+    outline.setObjectName("errorOutline")
+    layout = QHBoxLayout(outline)
+    layout.setContentsMargins(2, 2, 2, 2)
+    layout.setSpacing(0)
+    layout.addWidget(field)
+    return outline
 
 
 class FoldBox(QWidget):
@@ -167,12 +178,20 @@ class FreeStreamBox(FoldBox):
         self._angle = _spin(10.0, 0.5, 45.0, 0.5, 2)
         self._angle.setSuffix(" deg")
 
+        self._gamma_outline = _outline_field(self._gamma)
+        self._mach_outline = _outline_field(self._mach)
+        self._angle_outline = _outline_field(self._angle)
+
+        self._configuration_error, self._error_message = (
+            self._make_configuration_error())
+
         form = QFormLayout()
-        form.addRow("gamma", self._gamma)
+        form.addRow("gamma", self._gamma_outline)
         form.addRow("density", self._density)
         form.addRow("pressure", self._pressure)
-        form.addRow("Mach", self._mach)
-        form.addRow("deflection angle", self._angle)
+        form.addRow("Mach", self._mach_outline)
+        form.addRow("deflection angle", self._angle_outline)
+        form.addRow(self._configuration_error)
         self.set_content_layout(form)
 
     def params(self):
@@ -181,6 +200,48 @@ class FreeStreamBox(FoldBox):
                     pressure=self._pressure.value(),
                     mach=self._mach.value(),
                     angle=self._angle.value())
+
+    def set_configuration_error(self, message):
+        """Show a configuration error, or clear it with an empty message."""
+        self._error_message.setText(message)
+        self._configuration_error.setVisible(bool(message))
+        style = ""
+        if message:
+            style = Rules.sheet(self, "error_outline")
+        self._gamma_outline.setStyleSheet(style)
+        self._mach_outline.setStyleSheet(style)
+        self._angle_outline.setStyleSheet(style)
+
+    def _make_configuration_error(self):
+        frame = QFrame()
+        frame.setObjectName("configurationError")
+
+        icon = QLabel("!")
+        icon.setObjectName("configurationErrorIcon")
+        icon.setAlignment(Qt.AlignCenter)
+        icon.setFixedSize(18, 18)
+
+        title = QLabel("Invalid configuration")
+        title.setObjectName("configurationErrorTitle")
+        detail = QLabel()
+        detail.setObjectName("configurationErrorDetail")
+        detail.setWordWrap(True)
+
+        text_layout = QVBoxLayout()
+        text_layout.setContentsMargins(0, 0, 0, 0)
+        text_layout.setSpacing(2)
+        text_layout.addWidget(title)
+        text_layout.addWidget(detail)
+
+        row_layout = QHBoxLayout(frame)
+        row_layout.setContentsMargins(8, 6, 8, 6)
+        row_layout.setSpacing(7)
+        row_layout.addWidget(icon, 0, Qt.AlignTop)
+        row_layout.addLayout(text_layout, 1)
+
+        frame.setStyleSheet(Rules.sheet(self, "configuration_error"))
+        frame.hide()
+        return frame, detail
 
 
 class NumericsBox(FoldBox):
@@ -760,6 +821,12 @@ class SolutionPanel(QScrollArea):
     def params(self):
         """Collect the current control values for the solver driver."""
         return {**self._freestream.params(), **self._numerics.params()}
+
+    def set_configuration_error(self, message):
+        """Show a configuration error, or clear it with an empty message."""
+        self._freestream.set_configuration_error(message)
+        if message:
+            self.ensureWidgetVisible(self._freestream._configuration_error)
 
     def field(self):
         return self._field.field()

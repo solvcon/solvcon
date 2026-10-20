@@ -54,6 +54,7 @@ class Shades:
         self.text = palette.color(QtGui.QPalette.WindowText)
         self.panel = palette.color(QtGui.QPalette.Window)
         self.base = palette.color(QtGui.QPalette.Base)
+        self.bright_text = palette.color(QtGui.QPalette.BrightText)
         self.accent = palette.color(QtGui.QPalette.Highlight)
         self.on_accent = palette.color(QtGui.QPalette.HighlightedText)
         self.on_base = palette.color(QtGui.QPalette.Text)
