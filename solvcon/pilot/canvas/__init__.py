@@ -8,6 +8,10 @@ Painter that draws on it lives in :mod:`solvcon.pilot.painter`.
 """
 
 from .. import _pilot_core as _pcore
+from . import _naca_airfoil
+
+Naca4 = _naca_airfoil.Naca4
+Naca4Sampler = _naca_airfoil.Naca4Sampler
 
 if _pcore.enable:
     from . import _canvas_gui
@@ -25,6 +29,8 @@ else:
 
 __all__ = [
     'Canvas',
+    'Naca4',
+    'Naca4Sampler',
     'SVGFileDialog',
     'Save2DCanvasDialog',
 ]

@@ -11,7 +11,6 @@ Graphical-user interface code
 
 from ... import apputil
 from .. import _pilot_core as _pcore
-from .. import airfoil
 
 if _pcore.enable:
     from . import _gui_common
@@ -84,7 +83,6 @@ class _Controller(metaclass=_Singleton):
         self.sample_mesh = None
         self.mesh_style_status = None
         self.obsrefl_mesh = None
-        self.naca4airfoil = None
         self.eulerone = None
         self.burgers = None
         self.linear_wave = None
@@ -135,7 +133,6 @@ class _Controller(metaclass=_Singleton):
         self.obsrefl_app = obsrefl.ObliqueShockApp(mgr=self._rmgr)
         self.obsrefl_app.viewer_updated = self.tree_panel.resync
         self.obsrefl_mesh = obsrefl.ObliqueShockMesh(mgr=self._rmgr)
-        self.naca4airfoil = airfoil.Naca4Airfoil(mgr=self._rmgr)
         self.mesh_sample_dialog = _mesh.SampleMeshDialog(
             mgr=self._rmgr, entries=self._mesh_sample_dialog_entries())
         self.eulerone = _euler1d.Euler1DApp(mgr=self._rmgr)
@@ -183,8 +180,7 @@ class _Controller(metaclass=_Singleton):
         features stay live so the dialog can invoke their bound methods.
         """
         return (self.sample_mesh.mesh_sample_dialog_entries()
-                + self.obsrefl_mesh.mesh_sample_dialog_entries()
-                + self.naca4airfoil.mesh_sample_dialog_entries())
+                + self.obsrefl_mesh.mesh_sample_dialog_entries())
 
     def populate_menu(self):
         wm = self._rmgr

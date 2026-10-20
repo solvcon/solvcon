@@ -50,7 +50,7 @@ class DrawToolTC(unittest.TestCase):
     def test_samples_moved_under_their_own_submenu(self):
         samples = [a.text()
                    for a in self.model.menu("Canvas/Samples").actions()]
-        self.assertEqual(len(samples), 7)
+        self.assertEqual(len(samples), 8)
         # The samples no longer sit at the Canvas top level.
         top = [a.text() for a in self.model.menu("Canvas").actions()
                if not a.isSeparator()]

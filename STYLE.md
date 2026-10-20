@@ -358,11 +358,11 @@ Use relative import for peer modules in the same package:
 # For a module file in solvcon/pilot/
 # BAD: use absolute import for peer modules.
 from solvcon.pilot import _gui
-from solvcon.pilot.airfoil import _naca
+from solvcon.pilot.canvas import _naca_airfoil
 
 # GOOD: use relative import for peer modules.
-from . import _gui
-from .airfoil import _naca
+from .. import _gui
+from . import _naca_airfoil
 ```
 
 Relative import may not be required for modules outside the current package:

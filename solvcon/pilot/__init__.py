@@ -32,7 +32,6 @@ if enable:
         controller,
         launch,
     )
-    from . import airfoil  # noqa: F401
     from . import canvas  # noqa: F401
 
 # The "apps" sub-package is deliberately absent from the imports above.

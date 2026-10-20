@@ -13,6 +13,7 @@ from ... import core
 from ...plot import curve, plane_layer
 
 from ..base import _gui_common
+from . import _naca_airfoil
 
 __all__ = [
     'Canvas',
@@ -285,6 +286,14 @@ class Canvas(_gui_common.PilotFeature):
             id="canvas.sample.hyperbola",
             weight=70,
         )
+        self.add_action(
+            "Canvas/Samples",
+            text="Sample: NACA 0012 airfoil",
+            tip="Draw a sample NACA 0012 airfoil with cubic Bezier curves",
+            func=self._naca4_airfoil,
+            id="canvas.sample.naca4",
+            weight=80,
+        )
 
         self._mgr.menu_model.place_separator("Canvas", weight=30)
         self.add_action(
@@ -456,6 +465,14 @@ class Canvas(_gui_common.PilotFeature):
         left_sampler.points.x.ndarray[:] *= -1.0
         left_sampler.draw_cbc()
 
+        self._update_widget()
+
+    def _naca4_airfoil(self):
+        naca4 = _naca_airfoil.Naca4(number='0012', open_trailing_edge=False,
+                                    cosine_spacing=False)
+        sampler = _naca_airfoil.Naca4Sampler(self._world, naca4)
+        sampler.populate_points(npoint=101, fac=5.0, off_x=0.0, off_y=2.0)
+        sampler.draw_cbc()
         self._update_widget()
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:
