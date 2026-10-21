@@ -22,19 +22,16 @@ from ._session import ReflectionSession
 
 if _pcore.enable:
     from ._app import ObliqueShockApp
-    from ._mesh_sample import ObliqueShockMesh
     from ._panel import SolutionPanel
 else:
     # Bind only the public names: a None module attribute would shadow the
     # real submodule import in no-GUI builds.
     ObliqueShockApp = None
-    ObliqueShockMesh = None
     SolutionPanel = None
 
 __all__ = [
     'ObliqueShock',
     'ObliqueShockApp',
-    'ObliqueShockMesh',
     'ObliqueShockRelation',
     'Reflection',
     'ReflectionSession',

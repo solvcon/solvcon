@@ -82,7 +82,6 @@ class _Controller(metaclass=_Singleton):
         self.obsrefl_app = None
         self.sample_mesh = None
         self.mesh_style_status = None
-        self.obsrefl_mesh = None
         self.eulerone = None
         self.burgers = None
         self.linear_wave = None
@@ -132,7 +131,6 @@ class _Controller(metaclass=_Singleton):
             mgr=self._rmgr, style_status=self.mesh_style_status)
         self.obsrefl_app = obsrefl.ObliqueShockApp(mgr=self._rmgr)
         self.obsrefl_app.viewer_updated = self.tree_panel.resync
-        self.obsrefl_mesh = obsrefl.ObliqueShockMesh(mgr=self._rmgr)
         self.mesh_sample_dialog = _mesh.SampleMeshDialog(
             mgr=self._rmgr, entries=self._mesh_sample_dialog_entries())
         self.eulerone = _euler1d.Euler1DApp(mgr=self._rmgr)
@@ -179,8 +177,7 @@ class _Controller(metaclass=_Singleton):
         order, gathered from the sample features for the sample dialog.  The
         features stay live so the dialog can invoke their bound methods.
         """
-        return (self.sample_mesh.mesh_sample_dialog_entries()
-                + self.obsrefl_mesh.mesh_sample_dialog_entries())
+        return self.sample_mesh.mesh_sample_dialog_entries()
 
     def populate_menu(self):
         wm = self._rmgr
