@@ -10,7 +10,7 @@ import os
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from ... import core
+from ... import core, mesh
 from ..base import _gui_common
 
 __all__ = [  # noqa: F822
@@ -241,6 +241,15 @@ class SampleMesh:
         mh.build_ghost()
         return mh
 
+    def mesh_rect_quad(self):
+        return mesh.RectDomainMesher().make_mesh(cell_type='quad')
+
+    def mesh_rect_triangle(self):
+        return mesh.RectDomainMesher().make_mesh(cell_type='triangle')
+
+    def mesh_rect_unstructured(self):
+        return mesh.RectDomainMesher().make_mesh(cell_type='unstructured')
+
 
 class MeshDrawer:
     """
@@ -338,6 +347,17 @@ class SampleMeshFeature(_gui_common.PilotFeature):
             ("Mixed elements", "3D",
              "Create a very simple sample mesh of mixed elements in 3D",
              self.mesh_3dmix),
+            ("Rectangular domain", "Quad mesh (2D)",
+             "Create a quad mesh of a rectangle",
+             self.mesh_rect_quad),
+            ("Rectangular domain", "Triangle mesh (2D)",
+             "Create a mesh of a rectangle with each quad cut into two "
+             "triangles",
+             self.mesh_rect_triangle),
+            ("Rectangular domain", "Unstructured mesh (2D)",
+             "Create an unstructured (Delaunay) triangle mesh of a "
+             "rectangle",
+             self.mesh_rect_unstructured),
         ]
 
     def _show(self, name):
@@ -362,6 +382,15 @@ class SampleMeshFeature(_gui_common.PilotFeature):
 
     def mesh_3dmix(self):
         return self._show('3dmix')
+
+    def mesh_rect_quad(self):
+        return self._show('rect_quad')
+
+    def mesh_rect_triangle(self):
+        return self._show('rect_triangle')
+
+    def mesh_rect_unstructured(self):
+        return self._show('rect_unstructured')
 
 
 class SampleMeshDialog(_gui_common.PilotFeature):
