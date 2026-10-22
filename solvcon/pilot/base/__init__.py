@@ -11,21 +11,25 @@ theme menu.
 from .. import _pilot_core as _pcore
 
 # _gui imports the feature neighborhoods, whose modules reach back here
-# for _gui_common and _base_app, so those two must bind before _gui runs.
+# for the names of _gui_common and _base_app, so those must bind before _gui
+# runs.
 if _pcore.enable:
     from . import _gui_common
+    PilotFeature = _gui_common.PilotFeature
+    SubWindowCloseFilter = _gui_common.SubWindowCloseFilter
+
     from . import _base_app
+    OneDimBaseApp = _base_app.OneDimBaseApp
+
     from . import _theme  # noqa: F401
     from . import _gui
-
-    PilotFeature = _gui_common.PilotFeature
-    OneDimBaseApp = _base_app.OneDimBaseApp
     controller = _gui.controller
     launch = _gui.launch
 else:
     # Bind only the public names: a None module attribute would shadow the
     # real submodule import in no-GUI builds.
     PilotFeature = None
+    SubWindowCloseFilter = None
     OneDimBaseApp = None
     controller = None
     launch = None
@@ -33,6 +37,7 @@ else:
 __all__ = [
     'OneDimBaseApp',
     'PilotFeature',
+    'SubWindowCloseFilter',
     'controller',
     'launch',
 ]

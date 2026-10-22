@@ -13,10 +13,13 @@ import solvcon
 try:
     from solvcon import pilot
     from solvcon.pilot.base import _gui
-    from solvcon.pilot.apps.obsrefl import ReflectionSession, _app
-    from solvcon.pilot.apps.obsrefl import _field_render
     from PySide6.QtWidgets import QApplication, QLabel, QSizeGrip
     from PIL import Image
+    # The app derives from base.PilotFeature, which is None without the
+    # pilot, so the import would fail with a TypeError, not an ImportError.
+    if solvcon.HAS_PILOT:
+        from solvcon.pilot.apps.obsrefl import ReflectionSession, _app
+        from solvcon.pilot.apps.obsrefl import _field_render
 except ImportError:
     pilot = None
 
