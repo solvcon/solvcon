@@ -2,24 +2,12 @@
 # BSD 3-Clause License, see COPYING
 
 
-"""The sub-windows a reflection run draws into.
-
-:class:`DomainViewer` wraps the one 3D sub-window of a run: it opens and
-closes the window, watches for a close from any source, and forwards what
-the run wants drawn (the mesh, the analytic shock overlay, the colored
-field).  :class:`LinePlotViewer` wraps the plain sub-window that holds the
-analysis plots the same way.
-
-Both share the one rule this module exists to keep: every drawing call is
-a no-op while the window is closed, so the owner never draws into a freed
-widget.  What to draw and when stays with the owner, which hears about a
-close through the :attr:`closed` callback.
-"""
+"""The sub-windows a reflection run draws into."""
 
 from PySide6.QtCore import Qt, QObject, QEvent
 
-from ...base import _gui_common
-from ._colorbar import ColorBar
+from ... import base, visual
+
 from ._plots import AnalysisLinePlots
 
 __all__ = [  # noqa: F822
@@ -93,7 +81,7 @@ class DomainViewer(object):
         self._subwin = self._mdi.activeSubWindow()
         if self._subwin is not None:
             self._subwin.setAttribute(Qt.WA_DeleteOnClose, True)
-            self._close_filter = _gui_common.SubWindowCloseFilter(
+            self._close_filter = base.SubWindowCloseFilter(
                 self._on_subwin_closed, self._subwin)
             self._subwin.installEventFilter(self._close_filter)
             host = self._host()
@@ -128,7 +116,7 @@ class DomainViewer(object):
         vertical = self._placement in ('left', 'right')
         if self._bar is None or self._bar.vertical != vertical:
             self._drop_bar()
-            self._bar = ColorBar(vertical=vertical)
+            self._bar = visual.ColorBar(vertical=vertical)
             self._bar.show_scale(*self._scale)
         self._bar.setParent(host)
         self._bar.setGeometry(*self._bar_geometry(host))
@@ -257,7 +245,7 @@ class LinePlotViewer(object):
         self._subwin.setWindowTitle("reflection analysis")
         self._subwin.resize(*self.SIZE)
         self._mgr.addSubWindowGrip(self._subwin)
-        self._close_filter = _gui_common.SubWindowCloseFilter(
+        self._close_filter = base.SubWindowCloseFilter(
             self._on_subwin_closed, self._subwin)
         self._subwin.installEventFilter(self._close_filter)
 
