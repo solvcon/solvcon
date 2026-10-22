@@ -3040,6 +3040,38 @@ class SimpleArrayCalculatorsTC(unittest.TestCase):
         self.assertEqual(int(expected_int8_dup_even),
                          int(result_int8_dup_even))
 
+    def test_median_int16_no_overflow(self):
+        # Even-length medians whose middle-sum overflows the element type must
+        # stay in the promoted type until after the division (issue #1597).
+        # np.median returns a float for integer input; solvcon keeps the
+        # integer result type, so compare the integer values.
+
+        # Signed 16-bit near the upper limit.
+        data = np.array([30000, 30000], dtype=np.int16)
+        sarr = solvcon.SimpleArrayInt16(array=data)
+        self.assertEqual(int(np.median(data)), int(sarr.median()))
+
+        # Unsigned 16-bit near the upper limit.
+        udata = np.array([60000, 60000], dtype=np.uint16)
+        usarr = solvcon.SimpleArrayUint16(array=udata)
+        self.assertEqual(int(np.median(udata)), int(usarr.median()))
+
+        # Negative signed values.
+        ndata = np.array([-30000, -30000], dtype=np.int16)
+        nsarr = solvcon.SimpleArrayInt16(array=ndata)
+        self.assertEqual(int(np.median(ndata)), int(nsarr.median()))
+
+        # Odd-length arrays select the kth element directly (no division).
+        odata = np.array([30000, 30001, 30002], dtype=np.int16)
+        osarr = solvcon.SimpleArrayInt16(array=odata)
+        self.assertEqual(int(np.median(odata)), int(osarr.median()))
+
+        # Axis median shares median_op().
+        adata = np.array([[30000, 30000], [30000, 30000]], dtype=np.int16)
+        asarr = solvcon.SimpleArrayInt16(array=adata)
+        self.assertTrue(np.array_equal(
+            np.median(adata, axis=0), asarr.median(axis=0).ndarray))
+
     def test_average(self):
         nparr = np.arange(24, dtype='float64')
         np.random.shuffle(nparr)
