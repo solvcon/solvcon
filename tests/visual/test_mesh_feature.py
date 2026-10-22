@@ -31,11 +31,22 @@ class SampleMeshTC(unittest.TestCase):
         self.assertEqual(
             self.samples.names(),
             ('triangle', 'tetrahedron', 'solvcon_2dtext',
-             '2dmix_small', '2dmix_large', '3dmix'))
+             '2dmix_small', '2dmix_large', '3dmix',
+             'rect_quad', 'rect_triangle', 'rect_unstructured'))
 
     def test_unknown_name_is_rejected(self):
         with self.assertRaises(AttributeError):
             self.samples.make('bogus')
+
+    def test_rectangle_samples_are_the_mesher_flavors(self):
+        # tests/mesh/test_regular_domain.py covers the meshes themselves.
+        mesher = solvcon.mesh.RectDomainMesher()
+        for cell_type in ('quad', 'triangle', 'unstructured'):
+            with self.subTest(cell_type=cell_type):
+                mh = self.samples.make(f'rect_{cell_type}')
+                ref = mesher.make_mesh(cell_type=cell_type)
+                self.assertEqual((mh.ncell, mh.nnode),
+                                 (ref.ncell, ref.nnode))
 
 
 def _make_rectangle():
