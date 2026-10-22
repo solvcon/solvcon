@@ -2,27 +2,13 @@
 # BSD 3-Clause License, see COPYING
 
 
-"""Drive one reflection run between the control panel and the viewer.
-
-:class:`RunController` is the presenter of the app: the panel and the
-viewer stay passive widgets, the session stays a Qt-free model, and every
-wire between them lands here.  Panel gestures arrive through the callbacks
-the controller plants on the panel, a viewer close arrives through the
-viewer's ``closed``, and everything the widgets show is pushed back into
-them from this side.  No widget ever reaches into a sibling.
-
-The analysis plot window, the gauge that marks the profile cut on the
-domain, and the movie a run records are all driven from here as well.  The
-plots and the movie ride on the frames the viewer draws and the gauge on
-its own controls, and all three belong beside the march rather than in the
-run session, which stays free of the GUI it is watched from.
-"""
+"""Drive one reflection run between the control panel and the viewer."""
 
 from PySide6.QtCore import QTimer
 
-from ...visual import _movie
+from ... import visual
+
 from ._driver import check_reflection_solvable
-from ._field_render import FieldPainter
 from ._session import ReflectionSession
 
 __all__ = [  # noqa: F822
@@ -60,7 +46,7 @@ class RunController(object):
         self.session = None
         self.movie = None
         self.reported = None
-        self._painter = None
+        self._colorizer = None
         # The mesh flavor the standing run was built with, which names its
         # movie; the control may have moved on since.
         self._cell_type = None
@@ -124,7 +110,7 @@ class RunController(object):
         self._timer.stop()
         self._finish_movie()
         self.session = None
-        self._painter = None
+        self._colorizer = None
         self._viewer.close()
         self._panel.set_paused(False)
         self._draw_frame()
@@ -150,8 +136,8 @@ class RunController(object):
         self.session = session
 
         self._apply_limits()
-        self._painter = FieldPainter(self.session.shock.mesh)
-        # A new painter carries no gauge; give it the standing one.
+        self._colorizer = visual.FieldColorizer(self.session.shock.mesh)
+        # A new colorizer carries no gauge; give it the standing one.
         self._set_gauge()
         if record:
             self._start_movie()
@@ -291,30 +277,30 @@ class RunController(object):
             # The legend reads the same pinned range the colors are mapped
             # over, so the two cannot say different things about a frame.
             self._viewer.show_scale(lo, hi)
-            self._viewer.draw_field(self._painter.verts,
-                                    self._painter.colors(field, lo, hi),
-                                    self._painter.indices)
+            self._viewer.draw_field(self._colorizer.verts,
+                                    self._colorizer.colors(field, lo, hi),
+                                    self._colorizer.indices)
             if self.movie is not None:
                 self._capture_frame()
         self._panel.set_status(session, vmin, vmax)
         self._draw_lineplots()
 
     def _set_gauge(self):
-        """Put the marks of the profile cut into the painter, or take them
+        """Put the marks of the profile cut into the colorizer, or take them
         out.
 
         The outline says which cells the reading was interpolated
         across; the bar is the line it was read along.
         """
-        if self._painter is None:
+        if self._colorizer is None:
             return
         if self.session is None:
-            self._painter.set_gauge(None, None)
+            self._colorizer.set_gauge(None, None)
             return
         height = self._cut_height()
         cells = (self.session.analysis.profile_cells(height)
                  if self._panel.marking_cells() else None)
-        self._painter.set_gauge(
+        self._colorizer.set_gauge(
             cells, height if self._panel.marking_line() else None)
 
     def _cut_height(self):
@@ -324,7 +310,7 @@ class RunController(object):
     def _start_movie(self):
         """Open a recorder over the running session, if none is open."""
         if self.movie is None:
-            self.movie = _movie.MovieRecorder()
+            self.movie = visual.MovieRecorder()
             self._report(f"recording to {self._movie_path()}")
 
     def _capture_frame(self):

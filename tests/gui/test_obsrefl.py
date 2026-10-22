@@ -19,7 +19,6 @@ try:
     # pilot, so the import would fail with a TypeError, not an ImportError.
     if solvcon.HAS_PILOT:
         from solvcon.pilot.apps.obsrefl import ReflectionSession, _app
-        from solvcon.pilot.apps.obsrefl import _field_render
 except ImportError:
     pilot = None
 
@@ -447,12 +446,11 @@ class SolutionGaugeTC(_AppFixture, unittest.TestCase):
         return feature
 
     @staticmethod
-    def _gauge_colors(painter, session):
+    def _gauge_colors(colorizer, session):
         """The gauge's share of one frame of vertex colors."""
         field = session.field.field('density')
-        cut = len(_field_render.field_colors(field, painter._counts,
-                                             0.0, 1.0))
-        return painter.colors(field, 0.0, 1.0).ndarray[cut:]
+        cut = int(colorizer._counts.sum())
+        return colorizer.colors(field, 0.0, 1.0).ndarray[cut:]
 
     @staticmethod
     def _count(colors, color):
@@ -469,16 +467,14 @@ class SolutionGaugeTC(_AppFixture, unittest.TestCase):
         feature = self._feature()
         feature._control.start()
         feature._control._timer.stop()
-        painter = feature._control._painter
+        colorizer = feature._control._colorizer
         session = feature._control.session
         gauge = feature._panel._gauge
 
         def drawn():
-            colors = self._gauge_colors(painter, session)
-            return (self._count(colors,
-                                _field_render.FieldPainter.OUTLINE_COLOR),
-                    self._count(colors,
-                                _field_render.FieldPainter.BAR_COLOR))
+            colors = self._gauge_colors(colorizer, session)
+            return (self._count(colors, colorizer.OUTLINE_COLOR),
+                    self._count(colors, colorizer.BAR_COLOR))
 
         self.assertEqual((0, 0), drawn())
         # Each layer hides some of the field it lies over, so one switches
@@ -495,11 +491,11 @@ class SolutionGaugeTC(_AppFixture, unittest.TestCase):
         # The cut carries its marks with it when the control moves it,
         # onto whichever cells it crosses there.
         gauge._cells.setChecked(True)
-        held = painter.verts.ndarray.copy()
+        held = colorizer.verts.ndarray.copy()
         gauge._height.setValue(gauge._height.value() + 0.2)
         self.assertGreater(drawn()[0], 0)
         self.assertEqual(bar, drawn()[1])
-        self.assertFalse(np.array_equal(held, painter.verts.ndarray))
+        self.assertFalse(np.array_equal(held, colorizer.verts.ndarray))
         QApplication.processEvents()
 
     def test_the_gauge_outlines_the_cells_and_bars_the_cut(self):
@@ -508,8 +504,8 @@ class SolutionGaugeTC(_AppFixture, unittest.TestCase):
         feature._control._timer.stop()
         feature._panel._gauge._cells.setChecked(True)
         feature._panel._gauge._line.setChecked(True)
-        painter = feature._control._painter
-        verts = painter.verts.ndarray
+        colorizer = feature._control._colorizer
+        verts = colorizer.verts.ndarray
         sess = feature._control.session
         height = sess.analysis.cut_height(feature._panel.cut_fraction())
         marked = sess.analysis.profile_cells(height)
@@ -521,10 +517,9 @@ class SolutionGaugeTC(_AppFixture, unittest.TestCase):
         self.assertEqual(0.0, verts[:len(verts) - len(gauge), 2].max())
         # It carries both parts: rings around the marked cells, in the
         # outline color, and one bar along the cut, in the bar color.
-        colors = self._gauge_colors(painter, sess)
-        outline = self._count(colors,
-                              _field_render.FieldPainter.OUTLINE_COLOR)
-        bar = self._count(colors, _field_render.FieldPainter.BAR_COLOR)
+        colors = self._gauge_colors(colorizer, sess)
+        outline = self._count(colors, colorizer.OUTLINE_COLOR)
+        bar = self._count(colors, colorizer.BAR_COLOR)
         self.assertEqual(6, bar)
         self.assertGreaterEqual(outline, 6 * 3 * marked.sum())
         QApplication.processEvents()
@@ -533,18 +528,18 @@ class SolutionGaugeTC(_AppFixture, unittest.TestCase):
         feature = self._feature()
         feature._control.start()
         feature._control._timer.stop()
-        painter = feature._control._painter
-        plain = painter.verts.ndarray
+        colorizer = feature._control._colorizer
+        plain = colorizer.verts.ndarray
         box = (plain.min(axis=0), plain.max(axis=0))
         feature._panel._gauge._cells.setChecked(True)
         feature._panel._gauge._line.setChecked(True)
-        gauged = painter.verts.ndarray
+        gauged = colorizer.verts.ndarray
         # Installing a field refits the camera when its box changes, so the
         # gauge is pinned inside a box that does not move with it.
         for was, now in zip(box, (gauged.min(axis=0), gauged.max(axis=0))):
             self.assertEqual(list(was), list(now))
         feature._panel._gauge._height.setValue(0.8)
-        moved = feature._control._painter.verts.ndarray
+        moved = feature._control._colorizer.verts.ndarray
         self.assertEqual(list(box[0]), list(moved.min(axis=0)))
         self.assertEqual(list(box[1]), list(moved.max(axis=0)))
         # The gauge is sized off the cell, so a run rebuilt at another
@@ -554,7 +549,7 @@ class SolutionGaugeTC(_AppFixture, unittest.TestCase):
         feature._panel._numerics._ny.setValue(7)
         feature._control.start()
         feature._control._timer.stop()
-        remeshed = feature._control._painter.verts.ndarray
+        remeshed = feature._control._colorizer.verts.ndarray
         self.assertEqual(list(box[0]), list(remeshed.min(axis=0)))
         self.assertEqual(list(box[1]), list(remeshed.max(axis=0)))
         QApplication.processEvents()
