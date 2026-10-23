@@ -37,8 +37,8 @@ class DomainViewer(object):
     is not a Qt widget this side of the binding to be moved around.
     """
 
-    #: Lift the analytic shock overlay off the z = 0 field plane so it is
-    #: not z-fought away by the colored triangles.
+    #: Lift the path overlay off the z = 0 field plane so it is not
+    #: z-fought away by the colored triangles.
     PATH_LIFT = 0.01
 
     def __init__(self, mgr):
@@ -172,20 +172,26 @@ class DomainViewer(object):
         if self.mesh_updated is not None:
             self.mesh_updated()
 
-    def draw_shock_path(self, shock):
-        """Overlay the analytic shock polyline on the viewer.
+    def draw_path(self, path):
+        """Overlay a polyline of two or three ``(x, y)`` corners.
 
-        The two-arm measurement draws the incident and the reflected shock
-        as one path with the reflection angle annotated, so the computed
-        field can be judged against where the shocks have to stand.
+        The 3D view's ruler draws it: two corners as one segment, three as
+        two arms meeting at the middle corner with the angle between them
+        annotated.  The ruler holds one path, so a new one replaces the
+        last.
+
+        :return: The length of the segment or the angle in degrees, or None
+            while the sub-window is closed.
         """
+        if not 2 <= len(path) <= 3:
+            raise ValueError(
+                f"a path takes two or three corners, not {len(path)}")
         if self._viewer is None:
-            return
-        path = [(x, y, self.PATH_LIFT) for x, y in shock.shock_path()]
+            return None
+        path = [(x, y, self.PATH_LIFT) for x, y in path]
         if 3 == len(path):
-            self._viewer.measureAngle(path[0], path[1], path[2])
-        else:
-            self._viewer.measureDistance(path[0], path[1])
+            return self._viewer.measureAngle(*path)
+        return self._viewer.measureDistance(*path)
 
     def draw_field(self, verts, colors, indices):
         """Recolor the field triangles of the current frame."""
