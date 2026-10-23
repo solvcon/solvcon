@@ -23,12 +23,12 @@ from ._panel import SolutionPanel
 from ._viewer import LinePlotViewer
 
 __all__ = [  # noqa: F822
-    'ObliqueShockApp',
+    'ObsreflApp',
     'build_app',
 ]
 
 
-class ObliqueShockApp(base.PilotFeature):
+class ObsreflApp(base.PilotFeature):
     """Oblique shock reflection panel, toggled from the View "Panels" submenu.
 
     The panel owns two sub-windows and one solver run: the domain viewer
@@ -90,7 +90,7 @@ class ObliqueShockApp(base.PilotFeature):
 
 def build_app(controller):
     """Build the app on the pilot and wire it to the inspector."""
-    app = ObliqueShockApp(mgr=controller.mgr)
+    app = ObsreflApp(mgr=controller.mgr)
     app.viewer_updated = controller.tree_panel.resync
     return app
 

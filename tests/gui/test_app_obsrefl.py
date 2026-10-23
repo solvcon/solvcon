@@ -33,7 +33,7 @@ class _AppFixture(object):
     """Stand the app feature up, for the window classes that drive it."""
 
     def _feature(self):
-        feature = _app.ObliqueShockApp(mgr=self.mgr)
+        feature = _app.ObsreflApp(mgr=self.mgr)
         feature.populate_menu()
         feature._action.setChecked(True)  # builds the dock and panel
         return feature
@@ -47,7 +47,7 @@ class _AppFixture(object):
 
 @unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
                  "pilot windows need a real window surface")
-class ObliqueShockAppTC(_AppFixture, unittest.TestCase):
+class ObsreflAppTC(_AppFixture, unittest.TestCase):
     def setUp(self):
         self.mgr = pilot.RManager.instance.setUp()
 
