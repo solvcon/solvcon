@@ -69,7 +69,7 @@ class BarStructureTC(unittest.TestCase):
         action.trigger()
         inspector = _gui.controller.benchmark
         try:
-            self.assertIs(inspector.mdiArea(), mgr.mdiArea)
+            self.assertIn(inspector, mgr.mdiArea.subWindowList())
             inspector.close()
             action.trigger()
             self.assertIs(_gui.controller.benchmark, inspector)
