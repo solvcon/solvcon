@@ -1092,6 +1092,85 @@ class WorldPathTC(unittest.TestCase):
         self.assertEqual(state["curves"], [])
 
 
+class WorldMovePointsTC(unittest.TestCase):
+    """move_shape_points: reshape a path by moving some of its control
+    points, as node editing does."""
+
+    # The segment end and the curve start meeting at (2, 1).
+    SHARED_NODE = [(False, 1, 1), (True, 0, 0)]
+
+    def setUp(self):
+        self.w = solvcon.WorldFp64()
+        self.sid = self.w.add_path(segments=WorldPathTC._segments(),
+                                   curves=WorldPathTC._curves())
+
+    def _geometry(self):
+        segs = [self.w.segment(i) for i in range(self.w.nsegment)]
+        b = self.w.bezier(0)
+        return ([(s.x0, s.y0, s.x1, s.y1) for s in segs],
+                [(b[i][0], b[i][1]) for i in range(4)])
+
+    def test_moves_only_the_referenced_points(self):
+        self.w.move_shape_points(self.sid, self.SHARED_NODE, 1, 0.5)
+        segs, curve = self._geometry()
+        self.assertEqual(segs, [(0, 0, 2, 0), (2, 0, 3, 1.5)])
+        self.assertEqual(curve, [(3, 1.5), (2, 3), (0, 3), (0, 0)])
+
+    def test_a_drag_undoes_and_redoes_as_one_step(self):
+        before = self._geometry()
+        self.w.begin_operation()
+        for _ in range(3):
+            self.w.move_shape_points(self.sid, self.SHARED_NODE, 1, 0)
+        self.w.end_operation()
+        after = self._geometry()
+        self.assertEqual(after[0][1], (2, 0, 5, 1))
+
+        self.w.undo()
+        self.assertEqual(self._geometry(), before)
+        self.assertTrue(self.w.shape_is_live(self.sid))
+        self.w.redo()
+        self.assertEqual(self._geometry(), after)
+
+    def test_a_zero_move_records_nothing(self):
+        self.w.move_shape_points(self.sid, self.SHARED_NODE, 0, 0)
+        self.w.move_shape_points(self.sid, [], 1, 1)
+        # The only undo step left is the creation of the path.
+        self.w.undo()
+        self.assertFalse(self.w.shape_is_live(self.sid))
+
+    def test_a_bad_reference_raises_and_moves_nothing(self):
+        before = self._geometry()
+        with self.assertRaises(IndexError):
+            self.w.move_shape_points(self.sid, [(True, 0, 0), (False, 5, 0)],
+                                     1, 1)
+        with self.assertRaises(IndexError):
+            self.w.move_shape_points(self.sid, [(False, 0, 2)], 1, 1)
+        with self.assertRaises(IndexError):
+            self.w.move_shape_points(self.sid, [(True, 0, 4)], 1, 1)
+        self.assertEqual(self._geometry(), before)
+
+    def test_bbox_and_index_follow_the_points(self):
+        self.w.move_shape_points(self.sid, [(True, 0, 1), (True, 0, 2)], 0, 5)
+        self.assertEqual(self.w.shape_bbox(self.sid), [0, 0, 2, 8])
+        self.assertIn(self.sid, self.w.query_visible(0.5, 7.5, 1.5, 8.5))
+
+    def test_oriented_box_keeps_its_rotation(self):
+        def angle():
+            obb = self.w.shape_obb(self.sid)
+            return math.atan2(obb[3] - obb[1], obb[2] - obb[0])
+
+        self.w.rotate_shape(self.sid, math.pi / 6, 0, 0)
+        before = angle()
+        self.w.move_shape_points(self.sid, [(True, 0, 1)], -2, 3)
+        self.assertAlmostEqual(angle(), before)
+        self.assertAlmostEqual(angle(), math.pi / 6)
+
+    def test_a_dead_shape_raises(self):
+        self.w.remove_shape(self.sid)
+        with self.assertRaises(ValueError):
+            self.w.move_shape_points(self.sid, self.SHARED_NODE, 1, 1)
+
+
 class WorldDescribeStateTC(unittest.TestCase):
     """describe_state(level="basic"): JSON serialization of visible state."""
 

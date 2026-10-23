@@ -23,7 +23,9 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
+#include <vector>
 
 #include <QPointF>
 #include <QWidget>
@@ -86,6 +88,16 @@ public:
 
     /// Enter node-edit mode on a live path, or leave it with a negative id. Other ids are ignored.
     void setEditingShape(int32_t shape_id);
+
+    /**
+     * World positions [x, y] of the nodes selected in node-edit mode. A click
+     * on a node selects it alone and Shift+click toggles it; dragging any
+     * selected node moves them all, with their handles.
+     */
+    std::vector<coord2_type> selectedNodes() const;
+
+    /// World position [x, y] of the handle selected in node-edit mode, if any.
+    std::optional<coord2_type> selectedHandle() const;
 
     /**
      * Screen position [x, y] of the selection's rotate handle, or [-1, -1]
@@ -196,6 +208,47 @@ private:
     /// True when `shape_id` is a live path that node-edit mode can show.
     bool isEditable(int32_t shape_id) const;
 
+    /// A distinct node of the node-edit path and one control point at it.
+    struct EditNode
+    {
+        double x;
+        double y;
+        ShapePointRef ref;
+    }; /* end struct EditNode */
+
+    /**
+     * Distinct nodes of the node-edit path: its piece endpoints, with the
+     * ends that pieces share listed once. Empty unless node-edit mode is on.
+     */
+    small_vector<EditNode> editNodes() const;
+
+    /// World position of one control point of the node-edit path.
+    QPointF worldPointFromRef(ShapePointRef const & ref) const;
+
+    /// The node within hit distance of `screen_pos` nearest to it, if any.
+    std::optional<ShapePointRef> hitEditNode(QPointF const & screen_pos) const;
+
+    /// The curve handle within hit distance of `screen_pos` nearest to it, if any.
+    std::optional<ShapePointRef> hitEditHandle(QPointF const & screen_pos) const;
+
+    /// True when a selected node sits at world point `w`.
+    bool isNodeSelected(QPointF const & w) const;
+
+    /**
+     * Every control point a node drag moves: each piece endpoint at a selected
+     * node, and the curve handle attached to that endpoint.
+     */
+    std::vector<ShapePointRef> expandSelectedNodes() const;
+
+    /**
+     * Select the node or handle under `screen_pos` and start dragging it.
+     * Returns false, changing nothing, when no node or handle is there.
+     */
+    bool pressNodeEdit(QPointF const & screen_pos, Qt::KeyboardModifiers modifiers);
+
+    /// Drop the node and handle selection of node-edit mode.
+    void clearNodeSelection();
+
     /**
      * Pick the shape under a screen point, or -1. Uses a pixel-sized world
      * tolerance so thin shapes (lines) stay selectable at any zoom.
@@ -218,14 +271,14 @@ private:
     bool isOnRotateHandle(QPointF const & screen_pos) const;
 
     /**
-     * Close the world's compound operation that brackets a move or rotate
-     * drag, so the whole gesture is a single undo step. Safe to call when no
-     * such drag is active; a no-op then.
+     * Close the world's compound operation that brackets a move, rotate,
+     * node, or handle drag, so the whole gesture is a single undo step. Safe
+     * to call when no such drag is active; a no-op then.
      */
     void finishEdit();
 
     /**
-     * End an active move or rotate drag the way a mouse release ends it:
+     * End an active edit drag the way a mouse release ends it:
      * commit the undo bracket, clear the gesture, and restore the cursor.
      */
     void endEditDrag();
@@ -237,6 +290,8 @@ private:
         View, ///< Panning the view.
         Move, ///< Translating the selected shape.
         Rotate, ///< Rotating the selected shape about a fixed pivot.
+        Node, ///< Moving the selected nodes of the node-edit path.
+        Handle, ///< Moving the selected handle of the node-edit path.
     };
 
     ViewTransform2dFp64 m_view;
@@ -262,8 +317,11 @@ private:
 
     int32_t m_selected = -1; ///< Select-tool selected shape id, or -1.
     int32_t m_editing = -1; ///< Path shown in node-edit mode, or -1.
+    small_vector<ShapePointRef> m_edit_nodes; ///< One control point at each selected node.
+    std::optional<ShapePointRef> m_edit_handle; ///< Selected curve handle, if any.
+    std::vector<ShapePointRef> m_edit_dragging_points; ///< Control points the Node or Handle drag moves.
     EditDrag m_drag = EditDrag::None; ///< Active select-tool left-drag gesture.
-    double m_move_last_x = 0.0; ///< Previous pointer, world coordinates (Move).
+    double m_move_last_x = 0.0; ///< Previous pointer, world coordinates (Move, Node, Handle).
     double m_move_last_y = 0.0;
     double m_rotate_cx = 0.0; ///< Rotation pivot, world coordinates (Rotate).
     double m_rotate_cy = 0.0;

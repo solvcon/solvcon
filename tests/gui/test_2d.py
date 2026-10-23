@@ -39,8 +39,9 @@ def _load_rgba(path):
     return arr.reshape(height, stride, 4)[:, :width, :].copy()
 
 
-def _send_mouse(widget, kind, x, y):
-    """Post a synthetic left-button mouse event to ``widget``.
+def _send_mouse(widget, kind, x, y, modifiers=None):
+    """Post a synthetic left-button mouse event to ``widget``, with keyboard
+    ``modifiers`` held (none by default).
     """
     from PySide6 import QtCore, QtGui, QtWidgets
     kinds = {
@@ -56,8 +57,10 @@ def _send_mouse(widget, kind, x, y):
     etype, button, buttons = kinds[kind]
     pos = QtCore.QPointF(x, y)
     glob = widget.mapToGlobal(pos.toPoint())
+    if modifiers is None:
+        modifiers = QtCore.Qt.NoModifier
     event = QtGui.QMouseEvent(etype, pos, QtCore.QPointF(glob), button,
-                              buttons, QtCore.Qt.NoModifier)
+                              buttons, modifiers)
     QtWidgets.QApplication.sendEvent(widget, event)
 
 
@@ -151,10 +154,8 @@ class R2DWidgetSelectToolTC(unittest.TestCase):
         self.assertEqual(self.widget.selectedShape, -1)
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
-                 "live-GUI interaction needs a real window surface")
-class R2DWidgetNodeEditTC(unittest.TestCase):
-    """Enter and leave node-edit mode on a path, and see its handles."""
+class NodeEditTB:
+    """A canvas holding a path and a rectangle, for node-edit tests."""
 
     # Screen points under the view below (pan 100, 100; zoom 20): on the
     # path's bottom segment, inside the rectangle, on empty space, and at the
@@ -204,12 +205,18 @@ class R2DWidgetNodeEditTC(unittest.TestCase):
         _send_mouse(self.target, 'press', x, y)
         _send_mouse(self.target, 'release', x, y)
 
-    def _shows_selection_color_at(self, x, y):
+    def _shows_selection_color_at(self, x, y, name="selection"):
         from PySide6.QtGui import QColor
         image = self.target.grab().toImage()
         dpr = image.devicePixelRatio()
         got = image.pixelColor(round(x * dpr), round(y * dpr))
-        return got == QColor(*self.widget.canvasPalette["selection"])
+        return got == QColor(*self.widget.canvasPalette[name])
+
+
+@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
+                 "live-GUI interaction needs a real window surface")
+class R2DWidgetNodeEditTC(NodeEditTB, unittest.TestCase):
+    """Enter and leave node-edit mode on a path, and see its handles."""
 
     def test_double_click_enters_only_on_a_path(self):
         self._double_click(*self.ON_RECT)
@@ -283,6 +290,120 @@ class R2DWidgetNodeEditTC(unittest.TestCase):
         self.assertFalse(self._shows_selection_color_at(*self.HANDLE))
         self.widget.editingShape = self.path
         self.assertTrue(self._shows_selection_color_at(*self.HANDLE))
+
+
+@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
+                 "live-GUI interaction needs a real window surface")
+class R2DWidgetNodeMoveTC(NodeEditTB, unittest.TestCase):
+    """Select and drag nodes and handles of a path in node-edit mode."""
+
+    # Screen points of the nodes (0, 0), (2, 0), and (2, 1), where (2, 1)
+    # joins the second segment to the curve and (0, 0) joins the curve back
+    # to the first segment. One world unit is 20 pixels, with y up.
+    NODE_00 = (100, 100)
+    NODE_20 = (140, 100)
+    NODE_21 = (140, 80)
+
+    def setUp(self):
+        super().setUp()
+        self.widget.editingShape = self.path
+
+    def _shift_click(self, x, y):
+        from PySide6 import QtCore
+        shift = QtCore.Qt.ShiftModifier
+        _send_mouse(self.target, 'press', x, y, shift)
+        _send_mouse(self.target, 'release', x, y, shift)
+
+    def _drag(self, start, end):
+        # Move in two steps so the drag merges several moves into one.
+        mid = ((start[0] + end[0]) / 2, (start[1] + end[1]) / 2)
+        _send_mouse(self.target, 'press', *start)
+        _send_mouse(self.target, 'move', *mid)
+        _send_mouse(self.target, 'move', *end)
+        _send_mouse(self.target, 'release', *end)
+
+    def _geometry(self):
+        segs = [self.world.segment(i) for i in range(2)]
+        b = self.world.bezier(0)
+        return ([(s.x0, s.y0, s.x1, s.y1) for s in segs],
+                [(b[i][0], b[i][1]) for i in range(4)])
+
+    def test_click_selects_a_node_and_shift_click_toggles(self):
+        self._click(*self.NODE_21)
+        self.assertEqual(self.widget.selectedNodes, [[2, 1]])
+        self._click(*self.NODE_20)
+        self.assertEqual(self.widget.selectedNodes, [[2, 0]])
+
+        self._shift_click(*self.NODE_21)
+        self.assertEqual(sorted(self.widget.selectedNodes), [[2, 0], [2, 1]])
+        self._shift_click(*self.NODE_20)
+        self.assertEqual(self.widget.selectedNodes, [[2, 1]])
+        self.assertIsNone(self.widget.selectedHandle)
+
+    def test_double_click_on_a_node_keeps_the_selection(self):
+        self._click(*self.NODE_21)
+        self._shift_click(*self.NODE_00)
+        self._double_click(*self.NODE_21)
+        self.assertEqual(sorted(self.widget.selectedNodes), [[0, 0], [2, 1]])
+        self.assertEqual(self.widget.editingShape, self.path)
+
+    def test_click_selects_a_handle_alone(self):
+        self._click(*self.NODE_21)
+        self._click(*self.HANDLE)
+        self.assertEqual(self.widget.selectedHandle, [2, 3])
+        self.assertEqual(self.widget.selectedNodes, [])
+
+        self._click(*self.NODE_21)
+        self.assertIsNone(self.widget.selectedHandle)
+
+    def test_the_selection_is_drawn_in_the_node_selection_color(self):
+        red = "node_selection"
+        self.assertFalse(self._shows_selection_color_at(*self.NODE_21, red))
+        self._click(*self.NODE_21)
+        self.assertTrue(self._shows_selection_color_at(*self.NODE_21, red))
+
+        self.assertFalse(self._shows_selection_color_at(*self.HANDLE, red))
+        self._click(*self.HANDLE)
+        self.assertTrue(self._shows_selection_color_at(*self.HANDLE, red))
+        self.assertFalse(self._shows_selection_color_at(*self.NODE_21, red))
+
+    def test_click_on_the_path_drops_the_selection(self):
+        self._click(*self.NODE_21)
+        self._click(*self.ON_PATH)
+        self.assertEqual(self.widget.selectedNodes, [])
+        self.assertEqual(self.widget.editingShape, self.path)
+
+    def test_dragging_a_shared_node_moves_its_pieces_and_handle(self):
+        self._drag(self.NODE_21, (160, 80))
+        segs, curve = self._geometry()
+        self.assertEqual(segs, [(0, 0, 2, 0), (2, 0, 3, 1)])
+        self.assertEqual(curve, [(3, 1), (3, 3), (0, 3), (0, 0)])
+        self.assertEqual(self.widget.selectedNodes, [[3, 1]])
+        self.assertEqual(self.widget.editingShape, self.path)
+
+    def test_dragging_a_handle_moves_only_it(self):
+        self._drag(self.HANDLE, (140, 20))
+        segs, curve = self._geometry()
+        self.assertEqual(segs, [(0, 0, 2, 0), (2, 0, 2, 1)])
+        self.assertEqual(curve, [(2, 1), (2, 4), (0, 3), (0, 0)])
+        self.assertEqual(self.widget.selectedHandle, [2, 4])
+
+    def test_dragging_moves_every_selected_node(self):
+        self._click(*self.NODE_21)
+        self._shift_click(*self.NODE_00)
+        self._drag(self.NODE_21, (140, 60))
+        segs, curve = self._geometry()
+        self.assertEqual(segs, [(0, 1, 2, 0), (2, 0, 2, 2)])
+        self.assertEqual(curve, [(2, 2), (2, 4), (0, 4), (0, 1)])
+
+    def test_a_drag_undoes_as_one_step(self):
+        before = self._geometry()
+        self._drag(self.NODE_21, (160, 60))
+        self.assertNotEqual(self._geometry(), before)
+        self.world.undo()
+        self.assertEqual(self._geometry(), before)
+        self.assertTrue(self.world.shape_is_live(self.path))
+        self.assertEqual(self.widget.editingShape, self.path)
 
 
 @unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,

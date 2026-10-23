@@ -274,6 +274,23 @@ struct ShapeRecord
 }; /* end struct ShapeRecord */
 
 /**
+ * One control point of a shape: endpoint `slot` (0 or 1) of the shape's
+ * segment `index`, or control point `slot` (0 to 3) of its curve `index`.
+ * The index counts within the shape, as in World::shape_segment() and
+ * World::shape_curve().
+ *
+ * @ingroup group_geometry
+ */
+struct ShapePointRef
+{
+    bool is_curve = false;
+    uint32_t index = 0;
+    uint8_t slot = 0;
+
+    bool operator==(ShapePointRef const & other) const = default;
+}; /* end struct ShapePointRef */
+
+/**
  * Entry stored in the R-tree: shape ID + bounding box.
  *
  * @ingroup group_geometry
@@ -494,6 +511,15 @@ public:
      * radians (counter-clockwise in world space) about the pivot (cx, cy).
      */
     void rotate_shape(int32_t shape_id, value_type angle, value_type cx, value_type cy);
+
+    /**
+     * Move the given control points of a shape by (dx, dy), leaving the rest
+     * in place. The oriented bounding box is refitted around the new geometry
+     * and keeps its orientation.
+     *
+     * @throw std::out_of_range if a reference falls outside the shape.
+     */
+    void move_shape_points(int32_t shape_id, std::vector<ShapePointRef> const & refs, value_type dx, value_type dy);
 
     /**
      * Remove a shape from the R-tree and registry.
@@ -796,6 +822,7 @@ private:
         REMOVE,
         TRANSLATE,
         ROTATE,
+        MOVE_POINTS,
     }; /* end enum class ShapeOp */
 
     /// Record of a single shape change, for undo/redo.
@@ -805,17 +832,27 @@ private:
         int32_t shape_id = -1;
         ShapeType type = ShapeType::DEAD; ///< Shape type to restore on undo or redo.
 
-        value_type dx = 0; ///< Net x of a TRANSLATE.
-        value_type dy = 0; ///< Net y of a TRANSLATE.
+        value_type dx = 0; ///< Net x of a TRANSLATE or MOVE_POINTS.
+        value_type dy = 0; ///< Net y of a TRANSLATE or MOVE_POINTS.
         value_type angle = 0; ///< Net angle of a ROTATE, in radians.
         value_type cx = 0; ///< Pivot x of a ROTATE.
         value_type cy = 0; ///< Pivot y of a ROTATE.
+
+        // NOLINTNEXTLINE(readability-redundant-member-init)
+        std::vector<ShapePointRef> refs{}; ///< Points a MOVE_POINTS moved.
     }; /* end struct ShapeOperationRecord */
 
     /// Translate a shape's geometry in place and reindex it.
     void apply_translate(int32_t shape_id, value_type dx, value_type dy);
     /// Rotate a shape's geometry about (cx, cy) and reindex it.
     void apply_rotate(int32_t shape_id, value_type angle, value_type cx, value_type cy);
+    /// Move some control points of a shape, refit its oriented box, and reindex it.
+    void shift_points(int32_t shape_id, std::vector<ShapePointRef> const & refs, value_type dx, value_type dy);
+    /**
+     * Refit a shape's oriented bounding box tightly around its control
+     * points, keeping the box's current orientation.
+     */
+    void refit_obb(ShapeRecord & rec) const;
     /// Drop a live shape from the spatial index and the live count.
     void kill_shape(int32_t shape_id);
     /// Restore a DEAD shape slot as @p type and reindex it.
@@ -1243,6 +1280,138 @@ void World<T>::rotate_shape(int32_t shape_id, value_type angle, value_type cx, v
 }
 
 template <typename T>
+void World<T>::refit_obb(ShapeRecord & rec) const
+{
+    // The box's x axis runs from its top-left to top-right corner; a box with
+    // no width (a vertical line) takes the axis from its height instead.
+    double ux = rec.obb_x[1] - rec.obb_x[0];
+    double uy = rec.obb_y[1] - rec.obb_y[0];
+    double len = std::hypot(ux, uy);
+    if (len <= 0.0)
+    {
+        double const vx = rec.obb_x[0] - rec.obb_x[3];
+        double const vy = rec.obb_y[0] - rec.obb_y[3];
+        ux = vy;
+        uy = -vx;
+        len = std::hypot(ux, uy);
+    }
+    if (len > 0.0)
+    {
+        ux /= len;
+        uy /= len;
+    }
+    else
+    {
+        ux = 1.0;
+        uy = 0.0;
+    }
+    double const vx = -uy, vy = ux;
+
+    double amin = std::numeric_limits<double>::max(), amax = std::numeric_limits<double>::lowest();
+    double bmin = amin, bmax = amax;
+    auto take = [&](double x, double y)
+    {
+        double const a = x * ux + y * uy, b = x * vx + y * vy;
+        amin = std::min(amin, a);
+        amax = std::max(amax, a);
+        bmin = std::min(bmin, b);
+        bmax = std::max(bmax, b);
+    };
+    for (uint32_t i = 0; i < rec.segment_count; ++i)
+    {
+        size_t const idx = rec.segment_offset + i;
+        take(m_segments->x0(idx), m_segments->y0(idx));
+        take(m_segments->x1(idx), m_segments->y1(idx));
+    }
+    for (uint32_t i = 0; i < rec.curve_count; ++i)
+    {
+        size_t const idx = rec.curve_offset + i;
+        take(m_curves->x0(idx), m_curves->y0(idx));
+        take(m_curves->x1(idx), m_curves->y1(idx));
+        take(m_curves->x2(idx), m_curves->y2(idx));
+        take(m_curves->x3(idx), m_curves->y3(idx));
+    }
+
+    // Corners ordered TL, TR, BR, BL in the box's own frame.
+    std::array<double, 4> const as{amin, amax, amax, amin};
+    std::array<double, 4> const bs{bmax, bmax, bmin, bmin};
+    for (uint32_t i = 0; i < 4; ++i)
+    {
+        rec.obb_x[i] = as[i] * ux + bs[i] * vx;
+        rec.obb_y[i] = as[i] * uy + bs[i] * vy;
+    }
+}
+
+template <typename T>
+void World<T>::shift_points(int32_t shape_id, std::vector<ShapePointRef> const & refs, value_type dx, value_type dy)
+{
+    ShapeRecord & rec = m_shape_registry[static_cast<size_t>(shape_id)];
+    m_rtree->remove(ShapeEntry<T>{shape_id, compute_shape_bbox(rec)});
+    auto shift = [dx, dy](T & x, T & y)
+    {
+        x += dx;
+        y += dy;
+    };
+    for (ShapePointRef const & ref : refs)
+    {
+        if (ref.is_curve)
+        {
+            size_t const idx = rec.curve_offset + ref.index;
+            switch (ref.slot)
+            {
+            case 0: shift(m_curves->x0(idx), m_curves->y0(idx)); break;
+            case 1: shift(m_curves->x1(idx), m_curves->y1(idx)); break;
+            case 2: shift(m_curves->x2(idx), m_curves->y2(idx)); break;
+            default: shift(m_curves->x3(idx), m_curves->y3(idx)); break;
+            }
+        }
+        else
+        {
+            size_t const idx = rec.segment_offset + ref.index;
+            if (ref.slot == 0)
+            {
+                shift(m_segments->x0(idx), m_segments->y0(idx));
+            }
+            else
+            {
+                shift(m_segments->x1(idx), m_segments->y1(idx));
+            }
+        }
+    }
+    refit_obb(rec);
+    m_rtree->insert(ShapeEntry<T>{shape_id, compute_shape_bbox(rec)});
+    mark_changed();
+}
+
+template <typename T>
+void World<T>::move_shape_points(int32_t shape_id, std::vector<ShapePointRef> const & refs, value_type dx, value_type dy)
+{
+    ShapeRecord const & rec = find_shape_or_throw(shape_id);
+    // Check every reference before touching any geometry, so a bad one leaves
+    // the shape as it was.
+    for (ShapePointRef const & ref : refs)
+    {
+        if (ref.is_curve)
+        {
+            check_size(ref.index, rec.curve_count, "shape curve");
+            check_size(ref.slot, 4, "curve point slot");
+        }
+        else
+        {
+            check_size(ref.index, rec.segment_count, "shape segment");
+            check_size(ref.slot, 2, "segment point slot");
+        }
+    }
+    // Like translate_shape, a zero or empty move records no undo step.
+    if (refs.empty() || (dx == value_type(0) && dy == value_type(0)))
+    {
+        return;
+    }
+    shift_points(shape_id, refs, dx, dy);
+    record_op({.op = ShapeOp::MOVE_POINTS, .shape_id = shape_id, .dx = dx, .dy = dy, .refs = refs});
+}
+
+template <typename T>
 T World<T>::point_segment_distance(T px, T py, T ax, T ay, T bx, T by)
 {
     T const dx = bx - ax;
@@ -1356,7 +1525,7 @@ void World<T>::remove_shape(int32_t shape_id)
 template <typename T>
 bool World<T>::is_noop(ShapeOperationRecord const & rec)
 {
-    return (rec.op == ShapeOp::TRANSLATE && rec.dx == value_type(0) && rec.dy == value_type(0)) ||
+    return ((rec.op == ShapeOp::TRANSLATE || rec.op == ShapeOp::MOVE_POINTS) && rec.dx == value_type(0) && rec.dy == value_type(0)) ||
            (rec.op == ShapeOp::ROTATE && rec.angle == value_type(0));
 }
 
@@ -1377,11 +1546,12 @@ void World<T>::record_op(ShapeOperationRecord const & rec)
     if (m_in_operation)
     {
         // Merge the incremental edits of one gesture (same shape, operation,
-        // and pivot) into a single net record, so a drag is one undo step.
-        // Translations add; rotations about a fixed pivot add their angles.
+        // pivot, and moved points) into a single net record, so a drag is one
+        // undo step. Translations and point moves add; rotations about a fixed
+        // pivot add their angles.
         if (m_has_open && m_open_operation.shape_id == rec.shape_id &&
             m_open_operation.op == rec.op && m_open_operation.cx == rec.cx &&
-            m_open_operation.cy == rec.cy)
+            m_open_operation.cy == rec.cy && m_open_operation.refs == rec.refs)
         {
             m_open_operation.dx += rec.dx;
             m_open_operation.dy += rec.dy;
@@ -1404,10 +1574,11 @@ void World<T>::record_op(ShapeOperationRecord const & rec)
 template <typename T>
 void World<T>::undo_record(ShapeOperationRecord const & rec)
 {
-    // apply_translate, apply_rotate, kill_shape, and revive_shape are the
-    // internal mutation primitives: they change geometry or the registry and
-    // reindex, but never touch the undo history. The public translate_shape,
-    // rotate_shape, and remove_shape wrap these and record an undo step.
+    // apply_translate, apply_rotate, shift_points, kill_shape, and
+    // revive_shape are the internal mutation primitives: they change geometry
+    // or the registry and reindex, but never touch the undo history. The
+    // public translate_shape, rotate_shape, move_shape_points, and
+    // remove_shape wrap these and record an undo step.
 
     switch (rec.op)
     {
@@ -1415,6 +1586,7 @@ void World<T>::undo_record(ShapeOperationRecord const & rec)
     case ShapeOp::REMOVE: revive_shape(rec.shape_id, rec.type); break;
     case ShapeOp::TRANSLATE: apply_translate(rec.shape_id, -rec.dx, -rec.dy); break;
     case ShapeOp::ROTATE: apply_rotate(rec.shape_id, -rec.angle, rec.cx, rec.cy); break;
+    case ShapeOp::MOVE_POINTS: shift_points(rec.shape_id, rec.refs, -rec.dx, -rec.dy); break;
     }
 }
 
@@ -1427,6 +1599,7 @@ void World<T>::redo_record(ShapeOperationRecord const & rec)
     case ShapeOp::REMOVE: kill_shape(rec.shape_id); break;
     case ShapeOp::TRANSLATE: apply_translate(rec.shape_id, rec.dx, rec.dy); break;
     case ShapeOp::ROTATE: apply_rotate(rec.shape_id, rec.angle, rec.cx, rec.cy); break;
+    case ShapeOp::MOVE_POINTS: shift_points(rec.shape_id, rec.refs, rec.dx, rec.dy); break;
     }
 }
 

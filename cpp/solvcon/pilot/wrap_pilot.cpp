@@ -158,6 +158,7 @@ static pybind11::dict canvas_palette_to_py(Canvas2dPalette const & p)
     d["origin"] = rgb(p.origin);
     d["geometry"] = rgb(p.geometry);
     d["selection"] = rgb(p.selection);
+    d["node_selection"] = rgb(p.node_selection);
     d["draw_preview"] = rgb(p.draw_preview);
     d["overlay_text"] = rgb(p.overlay_text);
     d["overlay_bbox"] = rgb(p.overlay_bbox);
@@ -697,6 +698,32 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapR2DWidget
                 "editingShape",
                 &wrapped_type::editingShape,
                 &wrapped_type::setEditingShape)
+            .def_property_readonly(
+                "selectedNodes",
+                [](wrapped_type & self)
+                {
+                    std::vector<std::vector<double>> out;
+                    for (auto const & n : self.selectedNodes())
+                    {
+                        out.emplace_back(n.begin(), n.end());
+                    }
+                    return out;
+                },
+                "World positions [x, y] of the nodes selected in node-edit "
+                "mode.")
+            .def_property_readonly(
+                "selectedHandle",
+                [](wrapped_type & self) -> std::optional<std::vector<double>>
+                {
+                    auto const h = self.selectedHandle();
+                    if (!h)
+                    {
+                        return std::nullopt;
+                    }
+                    return std::vector<double>(h->begin(), h->end());
+                },
+                "World position [x, y] of the handle selected in node-edit "
+                "mode, or None.")
             .def_property_readonly(
                 "rotateHandleScreen",
                 [](wrapped_type & self)
