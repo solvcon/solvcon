@@ -479,7 +479,7 @@ class MovieBox(FoldBox):
     #: directory, which
     #: for a pilot started from the desktop is not the checkout, so the
     #: control names the movie's real destination.
-    MOVIE_PATH = 'tmp/obrefl_{cell_type}{suffix}'
+    MOVIE_PATH = 'tmp/obsrefl_{cell_type}{suffix}'
 
     def __init__(self, parent=None):
         super().__init__("Movie", parent)
