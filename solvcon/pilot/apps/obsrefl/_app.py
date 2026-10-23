@@ -7,20 +7,20 @@ selected solution field as a flat color map.
 
 The feature is the composition root of the app: a toggle in the View
 "Panels" submenu owns the dock, and building the dock builds the control
-panel from :mod:`._panel`, the domain viewer from :mod:`._viewer`, and the
-:class:`~._control.RunController` that wires the two around the run
-session.  The feature itself holds no run logic; it only composes the
-parts and forwards the inspector nudge to the outer GUI.
+panel from :mod:`._panel`, the domain viewer from :mod:`solvcon.pilot.visual`,
+and the :class:`~._control.RunController` that wires the two around the run
+session.  The feature itself holds no run logic; it only composes the parts
+and forwards the inspector nudge to the outer GUI.
 """
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QDockWidget
 
-from ... import base
+from ... import base, visual
 
 from ._control import RunController
 from ._panel import SolutionPanel
-from ._viewer import DomainViewer, LinePlotViewer
+from ._viewer import LinePlotViewer
 
 __all__ = [  # noqa: F822
     'ObliqueShockApp',
@@ -43,7 +43,7 @@ class ObliqueShockApp(base.PilotFeature):
         self._dock = None
         self._panel = None
         self._control = None
-        self._viewer = DomainViewer(self._mgr)
+        self._viewer = visual.DomainViewer(self._mgr)
         self._viewer.mesh_updated = self._notify_viewer_updated
         self._lineplots = LinePlotViewer(self._mgr)
 

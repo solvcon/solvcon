@@ -155,7 +155,7 @@ class RunController(object):
         if self.session is not None:
             shock = self.session.shock
             self._viewer.update_mesh(shock.mesh)
-            self._viewer.draw_shock_path(shock)
+            self._viewer.draw_path(shock.shock_path())
         # A reopened sub-window is bare, so the legend goes back on with
         # the rest of the layers.
         self._viewer.show_bar(self._panel.bar_placement())
