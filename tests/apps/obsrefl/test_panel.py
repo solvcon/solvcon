@@ -17,9 +17,13 @@ import solvcon
 try:
     from solvcon import pilot
     from solvcon.apps.obsrefl import ReflectionSession
-    from solvcon.apps.obsrefl import _panel
-    from solvcon.apps.obsrefl._panel import SolutionPanel
-    from solvcon.pilot.visual import _movie
+    # The panel's style rules subclass pilot.RuleCatalog, which is absent
+    # without the pilot, so the import would fail with an AttributeError,
+    # not an ImportError.
+    if solvcon.HAS_PILOT:
+        from solvcon.apps.obsrefl import _panel
+        from solvcon.apps.obsrefl._panel import SolutionPanel
+        from solvcon.pilot.visual import _movie
 except ImportError:
     pilot = None
 
