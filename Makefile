@@ -344,6 +344,12 @@ checktws:
 checktests:
 	$(WHICH_PYTHON) contrib/lint/check_test_layout.py
 
+# Keep an app self-contained: nothing outside solvcon/apps/<name> may import
+# it. Code shared among apps belongs outside the apps.
+.PHONY: checkapps
+checkapps:
+	$(WHICH_PYTHON) contrib/lint/check_app_imports.py
+
 # Run the lint targets concurrently, scaled to the processor count, and keep
 # going on failure so every check reports before make exits non-zero.
 .PHONY: lint
@@ -351,7 +357,7 @@ lint:
 	@$(MAKE) --no-print-directory -j $(NPROC) -k lint_targets
 
 .PHONY: lint_targets
-lint_targets: cformat cinclude flake8 checkascii checktws checktests
+lint_targets: cformat cinclude flake8 checkascii checktws checktests checkapps
 
 .PHONY: pyformat
 pyformat:

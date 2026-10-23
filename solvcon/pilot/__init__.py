@@ -31,10 +31,13 @@ if enable:
     from .base._gui import (  # noqa: F401
         controller,
         launch,
+        register_app,
     )
     from . import canvas  # noqa: F401
+    from ._style import RuleCatalog  # noqa: F401
 
-# The "apps" sub-package is deliberately absent from the imports above.
+# The applications live in the top-level "solvcon.apps" package, outside the
+# pilot, and add themselves with register_app(); the pilot never imports them.
 
 # NOTE: intentionally omit __all__ for now
 

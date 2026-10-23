@@ -16,10 +16,14 @@ import solvcon
 
 try:
     from solvcon import pilot
-    from solvcon.pilot.apps.obsrefl import ReflectionSession
-    from solvcon.pilot.apps.obsrefl import _panel
-    from solvcon.pilot.apps.obsrefl._panel import SolutionPanel
-    from solvcon.pilot.visual import _movie
+    from solvcon.apps.obsrefl import ReflectionSession
+    # The panel's style rules subclass pilot.RuleCatalog, which is absent
+    # without the pilot, so the import would fail with an AttributeError,
+    # not an ImportError.
+    if solvcon.HAS_PILOT:
+        from solvcon.apps.obsrefl import _panel
+        from solvcon.apps.obsrefl._panel import SolutionPanel
+        from solvcon.pilot.visual import _movie
 except ImportError:
     pilot = None
 
@@ -233,7 +237,7 @@ class StatusReadoutTC(unittest.TestCase):
         # into it and names the movie's real destination.
         panel = SolutionPanel()
         self.assertTrue(os.path.isabs(panel._movie._path.text()))
-        landing = f"tmp/obrefl_unstructured{_movie._default_suffix()}"
+        landing = f"tmp/obrefl_unstructured{_movie.default_movie_suffix()}"
         self.assertEqual(os.path.abspath(landing),
                          panel.movie_path('unstructured'))
         panel._movie._path.setText('movie.gif')

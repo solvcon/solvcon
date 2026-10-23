@@ -10,7 +10,7 @@ import solvcon
 
 try:
     from solvcon import pilot
-    from solvcon.pilot.apps.obsrefl import ReflectionSession
+    from solvcon.apps.obsrefl import ReflectionSession
     from solvcon.pilot.visual import ColorBar
 except ImportError:
     pilot = None

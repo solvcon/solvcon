@@ -9,8 +9,8 @@ reflection.
 
 import math
 
-from .... import core
-from .... import mesh as meshmod
+from ... import core
+from ... import mesh as meshmod
 
 __all__ = [
     'ObliqueShock',

@@ -18,7 +18,7 @@ try:
     # The app derives from base.PilotFeature, which is None without the
     # pilot, so the import would fail with a TypeError, not an ImportError.
     if solvcon.HAS_PILOT:
-        from solvcon.pilot.apps.obsrefl import ReflectionSession, _app
+        from solvcon.apps.obsrefl import ReflectionSession, _app
 except ImportError:
     pilot = None
 
@@ -811,7 +811,7 @@ class SolutionInspectorTC(unittest.TestCase):
         ctl = _gui.controller
         ctl.build()
         ctl.tree_panel._action.setChecked(True)
-        sol = ctl.obsrefl_app
+        sol = ctl.apps["obsrefl"]
         sol._action.setChecked(True)
         # Open the viewer first, then start: the reused viewer raises no
         # activation, so only the wired refresh keeps the inspector from

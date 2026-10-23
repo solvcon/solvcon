@@ -176,6 +176,12 @@ jobs:
         make checktests
         echo "::endgroup::"
 
+    - name: make checkapps (check app import boundary)
+      run: |
+        echo "::group::make checkapps"
+        make checkapps
+        echo "::endgroup::"
+
     - name: make flake8
       run: |
         echo "::group::make flake8"

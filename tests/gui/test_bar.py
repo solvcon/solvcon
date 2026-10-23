@@ -11,6 +11,9 @@ try:
     from PySide6 import QtCore
     from solvcon import pilot
     from solvcon.pilot.base import _gui
+    # Import the apps as the entry point does, so their menu entries are in
+    # the bar whichever test builds the controller first.
+    from solvcon import apps  # noqa: F401
 except ImportError:
     pilot = None
 

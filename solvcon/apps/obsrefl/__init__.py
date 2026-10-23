@@ -15,14 +15,16 @@ unconditionally, so a script or a no-Qt build runs and judges the reflection
 without the GUI that rides behind the pilot toggle.
 """
 
-from ... import _pilot_core as _pcore
+from ... import core
 from ._analytic import Reflection
 from ._driver import ObliqueShock, ObliqueShockRelation
 from ._session import ReflectionSession
 
-if _pcore.enable:
-    from ._app import ObliqueShockApp
+if core.HAS_PILOT:
+    from ... import pilot
+    from ._app import ObliqueShockApp, build_app
     from ._panel import SolutionPanel
+    pilot.register_app("obsrefl", build_app)
 else:
     # Bind only the public names: a None module attribute would shadow the
     # real submodule import in no-GUI builds.
