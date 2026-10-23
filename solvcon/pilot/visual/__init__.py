@@ -11,6 +11,7 @@ if _pcore.enable:
     from . import _mesh
     from . import _movie
     from . import _plot
+    from . import _viewer
 
     ColorBar = _colorizer.ColorBar
     FieldColorizer = _colorizer.FieldColorizer
@@ -22,6 +23,7 @@ if _pcore.enable:
     GmshFileDialog = _mesh.GmshFileDialog
     MovieRecorder = _movie.MovieRecorder
     LinePlotWidget = _plot.LinePlotWidget
+    DomainViewer = _viewer.DomainViewer
 else:
     # Bind only the public names: a None module attribute would shadow the
     # real submodule import in no-GUI builds.
@@ -35,9 +37,11 @@ else:
     GmshFileDialog = None
     MovieRecorder = None
     LinePlotWidget = None
+    DomainViewer = None
 
 __all__ = [
     'ColorBar',
+    'DomainViewer',
     'FieldColorizer',
     'GmshFileDialog',
     'LinePlotWidget',
