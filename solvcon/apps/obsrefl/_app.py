@@ -24,6 +24,7 @@ from ._viewer import LinePlotViewer
 
 __all__ = [  # noqa: F822
     'ObliqueShockApp',
+    'build_app',
 ]
 
 
@@ -50,7 +51,7 @@ class ObliqueShockApp(base.PilotFeature):
     def populate_menu(self):
         self._action = self.add_action(
             "View/Panels", "Euler solver", "Toggle the Euler solver panel",
-            None, id="panel.euler_solver", weight=20, checkable=True)
+            None, id="panel.euler_solver", weight=15, checkable=True)
         self._action.toggled.connect(self._on_toggled)
 
     def _on_toggled(self, checked):
@@ -84,5 +85,12 @@ class ObliqueShockApp(base.PilotFeature):
         the feature, which holds the GUI, writes it.
         """
         self._pycon.writeToHistory(f"euler solver {message}\n")
+
+
+def build_app(controller):
+    """Build the app on the pilot and wire it to the inspector."""
+    app = ObliqueShockApp(mgr=controller.mgr)
+    app.viewer_updated = controller.tree_panel.resync
+    return app
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

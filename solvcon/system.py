@@ -72,6 +72,9 @@ def _run_pilot(argv=None):
     # unavailable in some execution modes and the module solvcon.pilot and
     # PySide6 should not be imported at module level.
     from . import pilot
+    # Importing the apps registers them with the pilot, which never imports
+    # an app itself.
+    from . import apps  # noqa: F401
     return pilot.launch()
 
 

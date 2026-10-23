@@ -7,8 +7,9 @@ Applications built on the solvcon code base.
 
 An app is a package that owns everything specific to solving a problem set.
 It can be headless, GUI-heavy, or both, and it can use everything the solvcon
-code base provides.  An app is not a library: the pilot may launch it, but no
-other code builds on it, and code that others need is factored out of it.
+code base provides.  An app is not a library: no other code builds on it, and
+code that others need is factored out of it.  An app with a GUI registers
+itself with the pilot when imported, so the pilot never imports an app.
 The solver packages stay problem-free, and an app with a GUI keeps its Qt
 modules behind the pilot toggle so the problem still runs headlessly.
 """

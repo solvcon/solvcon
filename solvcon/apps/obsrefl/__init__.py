@@ -21,8 +21,10 @@ from ._driver import ObliqueShock, ObliqueShockRelation
 from ._session import ReflectionSession
 
 if core.HAS_PILOT:
-    from ._app import ObliqueShockApp
+    from ... import pilot
+    from ._app import ObliqueShockApp, build_app
     from ._panel import SolutionPanel
+    pilot.register_app("obsrefl", build_app)
 else:
     # Bind only the public names: a None module attribute would shadow the
     # real submodule import in no-GUI builds.
